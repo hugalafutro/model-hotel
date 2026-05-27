@@ -252,10 +252,16 @@ func (h *Handler) DeleteModel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Sync failover groups since the deleted model may leave a group
-	// with too few candidates.
+	// with too few candidates. SyncForModel handles the auto-group for
+	// this model's base name; PruneModelUUID cleans up any custom groups
+	// that reference the deleted model UUID.
 	failoverRepo := failover.NewRepository(h.dbPool.Pool())
-	if err := failoverRepo.SyncForModel(context.WithoutCancel(r.Context()), modelID); err != nil {
+	bgCtx := context.WithoutCancel(r.Context())
+	if err := failoverRepo.SyncForModel(bgCtx, modelID); err != nil {
 		debuglog.Info("admin: failed to sync failover groups after model delete", "error", err)
+	}
+	if err := failoverRepo.PruneModelUUID(bgCtx, id); err != nil {
+		debuglog.Info("admin: failed to prune stale failover entries after model delete", "error", err)
 	}
 
 	w.WriteHeader(http.StatusNoContent)

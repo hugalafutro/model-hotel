@@ -734,6 +734,47 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) error {
 	return err
 }
 
+// PruneModelUUID finds failover groups containing the given model UUID in their
+// priority_order and prunes stale entries from them. This is called after a
+// model is deleted to clean up custom groups that may reference it, which
+// SyncForModel alone does not handle (it only manages the auto-group for the
+// deleted model's base name).
+func (r *Repository) PruneModelUUID(ctx context.Context, modelUUID uuid.UUID) error {
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, display_model, COALESCE(display_name, ''), COALESCE(description, ''), priority_order,
+		       COALESCE(entry_enabled, '{}'), COALESCE(group_enabled, true), COALESCE(auto_created, false),
+		       created_at, COALESCE(updated_at, created_at)
+		FROM model_failover_groups
+		WHERE priority_order::jsonb @> to_jsonb(ARRAY[$1]::uuid[])
+	`, modelUUID)
+	if err != nil {
+		return fmt.Errorf("PruneModelUUID: query groups containing %s: %w", modelUUID, err)
+	}
+	defer rows.Close()
+
+	groups, err := scanFailoverGroups(rows)
+	if err != nil {
+		return fmt.Errorf("PruneModelUUID: scan groups: %w", err)
+	}
+
+	if len(groups) == 0 {
+		return nil
+	}
+
+	result := &SyncResult{}
+	r.pruneStaleEntries(ctx, groups, result)
+
+	for _, d := range result.DeletedGroups {
+		debuglog.Info("failover: pruned group after model deletion",
+			"display_model", d.DisplayModel, "reason", d.Reason)
+	}
+	for _, p := range result.PurgedEntries {
+		debuglog.Info("failover: pruned stale entries after model deletion",
+			"display_model", p.GroupDisplayModel, "pruned", len(p.PrunedModelIDs))
+	}
+	return nil
+}
+
 func (r *Repository) deleteAutoGroup(ctx context.Context, displayModel string) bool {
 	tag, err := r.pool.Exec(ctx, `
 		DELETE FROM model_failover_groups
