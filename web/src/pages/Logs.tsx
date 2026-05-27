@@ -289,7 +289,8 @@ function RequestLogs() {
 		return (
 			msg.includes("cancel") ||
 			msg.includes("disconnect") ||
-			msg.includes("timed out")
+			msg.includes("upstream request timed out") ||
+			msg.includes("param-strip retry timed out")
 		);
 	};
 

@@ -20,6 +20,12 @@ import (
 func (h *Handler) insertRequestLogAsync(logEntry *requestLogData) {
 	logEntry.id = uuid.New().String()
 	logEntry.requestHash = generateRequestHash()
+
+	// Skip DB operations when no pool is available (unit tests without DB).
+	if h.dbPool == nil {
+		return
+	}
+
 	logEntry.insertWg.Add(1)
 
 	// Capture values before spawning goroutine to avoid data races.
@@ -101,6 +107,11 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData) {
 		return
 	}
 
+	// Skip DB operations when no pool is available (unit tests without DB).
+	if h.dbPool == nil {
+		return
+	}
+
 	// Ensure the async INSERT has completed before we try to UPDATE the row.
 	h.WaitForInsert(logEntry)
 
@@ -115,30 +126,31 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData) {
 
 	tag, err := h.dbPool.Exec(ctx, `
 		UPDATE request_logs SET
-			provider_id = $2,
-			status_code = $3,
-			duration_ms = $4,
-			latency_ms = $20,
-			proxy_overhead_ms = $5,
-			parse_ms = $6,
-			failover_lookup_ms = $7,
-			model_lookup_ms = $8,
-			provider_lookup_ms = $9,
-			key_decrypt_ms = $10,
-			dial_ms = $21,
-			settings_read_ms = $22,
-			ttft_ms = $11,
-			tokens_per_second = $12,
-			tokens_prompt = $13,
-			tokens_completion = $14,
-			tokens_completion_reasoning = $23,
-			tokens_prompt_cache_hit = $15,
-			tokens_prompt_cache_miss = $16,
-			error_message = $17,
-			failover_attempt = $18,
-			state = $19
+			model_id = $2,
+			provider_id = $3,
+			status_code = $4,
+			duration_ms = $5,
+			latency_ms = $21,
+			proxy_overhead_ms = $6,
+			parse_ms = $7,
+			failover_lookup_ms = $8,
+			model_lookup_ms = $9,
+			provider_lookup_ms = $10,
+			key_decrypt_ms = $11,
+			dial_ms = $22,
+			settings_read_ms = $23,
+			ttft_ms = $12,
+			tokens_per_second = $13,
+			tokens_prompt = $14,
+			tokens_completion = $15,
+			tokens_completion_reasoning = $24,
+			tokens_prompt_cache_hit = $16,
+			tokens_prompt_cache_miss = $17,
+			error_message = $18,
+			failover_attempt = $19,
+			state = $20
 		WHERE id = $1`,
-		logEntry.id, providerID, logEntry.statusCode, logEntry.durationMs,
+		logEntry.id, logEntry.modelID, providerID, logEntry.statusCode, logEntry.durationMs,
 		logEntry.proxyOverheadMs, logEntry.parseMs, logEntry.failoverLookupMs, logEntry.modelLookupMs, logEntry.providerLookupMs,
 		logEntry.keyDecryptMs, logEntry.ttftMs, logEntry.tokensPerSecond, logEntry.tokensPrompt,
 		logEntry.tokensCompletion, logEntry.tokensPromptCacheHit, logEntry.tokensPromptCacheMiss,

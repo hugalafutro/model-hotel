@@ -1796,3 +1796,27 @@ func TestChatCompletions_TouchLastUsedGoroutine(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// humanReadableCancelOrigin tests
+// ---------------------------------------------------------------------------
+
+func TestHumanReadableCancelOrigin(t *testing.T) {
+	cases := []struct {
+		input    string
+		expected string
+	}{
+		{"client_disconnect", "client disconnected"},
+		{"failover_timeout", "upstream request timed out"},
+		{"retry_timeout", "param-strip retry timed out"},
+		{"", ""},
+		{"unknown_origin", "unknown_origin"},
+	}
+
+	for _, tc := range cases {
+		got := humanReadableCancelOrigin(tc.input)
+		if got != tc.expected {
+			t.Errorf("humanReadableCancelOrigin(%q) = %q, want %q", tc.input, got, tc.expected)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------

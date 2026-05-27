@@ -641,8 +641,11 @@ logUpdate:
 			switch cancelOrigin {
 			case "retry_timeout":
 				errMsg = "stream interrupted: param-strip retry timed out"
-			default:
+			case "failover_timeout":
 				errMsg = "stream interrupted: upstream request timed out"
+			default:
+				// Unknown origin — preserve the value rather than guessing.
+				errMsg = fmt.Sprintf("stream interrupted: %s", humanReadableCancelOrigin(cancelOrigin))
 			}
 		default:
 			errMsg = scannerErr.Error()
@@ -918,6 +921,33 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	// Fallback: if middleware did not provide pre-parsed values (e.g. route
 	// not covered by streamingAwareTimeout), parse from body directly.
 	var bodyBytes []byte
+
+	// Extract virtual key info early from context (available before body parsing).
+	vkName := ""
+	var vkID string
+	var vkHash string
+	if v := r.Context().Value(virtualKeyNameKey); v != nil {
+		vkName = v.(string)
+	}
+	if v := r.Context().Value(virtualKeyIDKey); v != nil {
+		vkID = v.(string)
+	}
+	if v := r.Context().Value(VirtualKeyHashKey); v != nil {
+		vkHash = v.(string)
+	}
+
+	// Create the log entry early so early-return paths can record failures.
+	// modelID may be empty here; it gets updated after body parsing.
+	logData := &requestLogData{
+		modelID:         reqModel,
+		streaming:       isStreaming,
+		virtualKeyName:  vkName,
+		virtualKeyID:    vkID,
+		failoverAttempt: 0,
+		state:           "pending",
+	}
+	h.insertRequestLogAsync(logData)
+
 	if reqModel == "" {
 		parseStart := time.Now()
 		if cached, ok := r.Context().Value(ctxkeys.RequestBodyKey).([]byte); ok {
@@ -927,7 +957,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			bodyBytes, err = io.ReadAll(r.Body)
 			if err != nil {
 				debuglog.Warn("proxy: failed to read request body", "error", err)
-				h.failRequest(&requestLogData{state: "pending"}, 400, "failed to read request body", 0, startTime, parseMs, resolveTimings{}, 0)
+				h.failRequest(logData, 400, "failed to read request body", 0, startTime, parseMs, resolveTimings{}, 0)
 				writeOpenAIError(w, "failed to read request body", http.StatusBadRequest)
 				return
 			}
@@ -937,7 +967,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		var req ChatCompletionRequest
 		if err := json.Unmarshal(bodyBytes, &req); err != nil {
 			debuglog.Warn("proxy: failed to parse request body", "error", err)
-			h.failRequest(&requestLogData{state: "pending"}, 400, "invalid request body", 0, startTime, parseMs, resolveTimings{}, 0)
+			h.failRequest(logData, 400, "invalid request body", 0, startTime, parseMs, resolveTimings{}, 0)
 			writeOpenAIError(w, "invalid request body", http.StatusBadRequest)
 			return
 		}
@@ -952,37 +982,18 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Update log entry with model resolved from body parsing (if not set by middleware).
+	logData.modelID = reqModel
+	logData.streaming = isStreaming
+
 	if reqModel == "" {
-		h.failRequest(&requestLogData{state: "pending"}, 400, "model is required", 0, startTime, parseMs, resolveTimings{}, 0)
+		h.failRequest(logData, 400, "model is required", 0, startTime, parseMs, resolveTimings{}, 0)
 		writeOpenAIError(w, "model is required", http.StatusBadRequest)
 		return
 	}
 
-	vkName := ""
-	var vkID string
-	var vkHash string
-	if v := r.Context().Value(virtualKeyNameKey); v != nil {
-		vkName = v.(string)
-	}
-	if v := r.Context().Value(virtualKeyIDKey); v != nil {
-		vkID = v.(string)
-	}
-	if v := r.Context().Value(VirtualKeyHashKey); v != nil {
-		vkHash = v.(string)
-	}
-
 	debuglog.Info("proxy: request start", "model", reqModel, "stream", isStreaming, "key", vkName, "client_ip", r.RemoteAddr)
 	debuglog.Debug("proxy: request details", "model", reqModel, "stream", isStreaming, "key", vkName, "vk_id", vkID, "has_hash", vkHash != "", "body_length", len(bodyBytes))
-
-	logData := &requestLogData{
-		modelID:         reqModel,
-		streaming:       isStreaming,
-		virtualKeyName:  vkName,
-		virtualKeyID:    vkID,
-		failoverAttempt: 0,
-		state:           "pending",
-	}
-	h.insertRequestLogAsync(logData)
 
 	var candidates []modelCandidate
 	var timings resolveTimings
@@ -1331,9 +1342,14 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 							if retryErr != nil {
 								retryCancel() // no body to consume on retry error
 								debuglog.Warn("proxy: auto-retry request failed", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", retryErr)
-								retryCtxErr := errors.Is(retryErr, context.Canceled) || errors.Is(retryErr, context.DeadlineExceeded)
-								if retryCtxErr {
-									lastErr = fmt.Sprintf("attempt %d: %s", attempt, humanReadableCancelOrigin("retry_timeout"))
+								if errors.Is(retryErr, context.Canceled) || errors.Is(retryErr, context.DeadlineExceeded) {
+									// Branch like the main failover loop: Canceled = client
+									// disconnect, DeadlineExceeded = retry timeout.
+									origin := "retry_timeout"
+									if errors.Is(retryErr, context.Canceled) {
+										origin = "client_disconnect"
+									}
+									lastErr = fmt.Sprintf("attempt %d: %s", attempt, humanReadableCancelOrigin(origin))
 								} else {
 									lastErr = fmt.Sprintf("attempt %d: retry error: %v", attempt, retryErr)
 								}

@@ -20,13 +20,14 @@ interface VirtualLogTableProps {
 	onSortToggle: () => void; // toggle sort direction
 }
 
-const isCancelled = (errorMessage?: string): boolean => {
+const isCancelled = (errorMessage?: string) => {
 	if (!errorMessage) return false;
 	const msg = errorMessage.toLowerCase();
 	return (
 		msg.includes("cancel") ||
 		msg.includes("disconnect") ||
-		msg.includes("timed out")
+		msg.includes("upstream request timed out") ||
+		msg.includes("param-strip retry timed out")
 	);
 };
 
