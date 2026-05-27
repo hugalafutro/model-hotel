@@ -247,6 +247,23 @@ describe("FailoverGroupCard", () => {
 			expect(card).toHaveClass("border-(--accent)/30");
 		});
 
+		it("does not apply disabled styling when group is enabled", () => {
+			const group = {
+				...mockFailoverGroup,
+				group_enabled: true,
+			};
+
+			renderWithProviders(
+				<FailoverGroupCard {...defaultProps} group={group} />,
+			);
+
+			const card = screen
+				.getByRole("heading", { name: /hotel\/test-model/i })
+				.closest(".ui-card");
+			expect(card).not.toHaveClass("opacity-45");
+			expect(card).not.toHaveClass("border-dashed");
+		});
+
 		it("applies opacity when group is disabled", () => {
 			const group = {
 				...mockFailoverGroup,

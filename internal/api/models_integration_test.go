@@ -905,7 +905,11 @@ func TestDeleteModel_NotFound(t *testing.T) {
 }
 
 // TestDeleteModel_DBError tests that DeleteModel returns 500 when
-// the database is unavailable.
+// the database is unavailable during the delete operation.
+// Note: SyncForModel and PruneModelUUID error paths (lines 260-265) cannot be
+// tested in integration tests because the handler uses context.WithoutCancel
+// to ensure these background operations complete even if the request is cancelled.
+// In production, DB errors in these paths are logged but don't fail the response.
 func TestDeleteModel_DBError(t *testing.T) {
 	if apiTestDBURL == "" {
 		t.Skip("skipping: test database not available")
@@ -993,6 +997,97 @@ func TestDeleteModel_CancelledContext(t *testing.T) {
 
 	if rec.Code != http.StatusInternalServerError {
 		t.Errorf("Expected 500 for cancelled context, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestDeleteModel_LookupDBError tests that DeleteModel returns 500 when
+// the initial model lookup query fails (covers lines 235-246).
+func TestDeleteModel_LookupDBError(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	_, r := newTestHandlerWithRouter(t)
+
+	// Use a valid UUID but cancel context to cause DB error during lookup
+	id := uuid.New()
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/models/"+id.String(), http.NoBody)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately to cause DB error on lookup query
+	req = req.WithContext(ctx)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("Expected 500 for lookup DB error, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestDeleteModel_WithFailoverSync tests that DeleteModel successfully deletes
+// a model and calls SyncForModel and PruneModelUUID (covers lines 254-265).
+// The handler logs errors from these calls but still returns 204.
+func TestDeleteModel_WithFailoverSync(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+
+	// Create a provider
+	providerData := fmt.Sprintf(`{"name": "test-provider-%s", "base_url": "https://api.openai.com", "api_key": "test-key"}`, uuid.New().String()[:8])
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var providerResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
+		t.Fatalf("Failed to parse provider response: %v", err)
+	}
+
+	// Insert a model with a common base name that would trigger failover sync
+	// (using "gpt-4o-mini" which is a common model that might have failover groups)
+	modelID := uuid.New()
+	pool := h.Pool().Pool()
+	_, err := pool.Exec(context.Background(),
+		`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
+		modelID, providerResp.ID, "gpt-4o-mini", "GPT-4o Mini", true)
+	if err != nil {
+		t.Fatalf("Failed to insert model: %v", err)
+	}
+
+	// Delete the model - this will trigger SyncForModel and PruneModelUUID
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodDelete, "/models/"+modelID.String(), http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	// Should return 204 even if SyncForModel/PruneModelUUID would fail
+	// (they're logged but don't affect response)
+	if rec.Code != http.StatusNoContent {
+		t.Errorf("Expected 204, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// Verify the model is deleted
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/models", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	var models []ModelResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &models); err != nil {
+		t.Fatalf("Failed to parse models response: %v", err)
+	}
+
+	for _, m := range models {
+		if m.ID == modelID.String() {
+			t.Errorf("Deleted model %s still appears in list", modelID)
+		}
 	}
 }
 
