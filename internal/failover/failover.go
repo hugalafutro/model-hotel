@@ -84,6 +84,10 @@ func (r *Repository) pruneStaleEntries(ctx context.Context, groups []*FailoverGr
 		}
 		existingIDs[id] = struct{}{}
 	}
+	if err := rows.Err(); err != nil {
+		debuglog.Error("failover: error iterating model rows during prune", "error", err)
+		return
+	}
 
 	// Now prune each group.
 	for _, g := range groups {
@@ -628,7 +632,22 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 	// Prune stale entries from all groups (auto and custom).
 	// Models may have been deleted (e.g. provider cascade) leaving
 	// UUIDs in priority_order/entry_enabled that reference non-existent rows.
-	r.pruneStaleEntries(ctx, allGroups, result)
+	// Filter out groups already deleted in the loop above to avoid duplicate
+	// DeletedGroups entries.
+	var groupsForPrune []*FailoverGroup
+	for _, g := range allGroups {
+		alreadyDeleted := false
+		for _, dg := range result.DeletedGroups {
+			if dg.DisplayModel == g.DisplayModel {
+				alreadyDeleted = true
+				break
+			}
+		}
+		if !alreadyDeleted {
+			groupsForPrune = append(groupsForPrune, g)
+		}
+	}
+	r.pruneStaleEntries(ctx, groupsForPrune, result)
 
 	debuglog.Info("failover: synced groups", "synced", len(syncedBases), "deleted", len(result.DeletedGroups))
 
