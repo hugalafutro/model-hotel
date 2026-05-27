@@ -1113,6 +1113,47 @@ describe("FailoverGroups", () => {
 			});
 		});
 
+		it("Sync success with purged entries shows info toast", async () => {
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({
+						groups: [mockFailoverGroup],
+						last_synced_at: null,
+					}),
+				),
+				http.get("/api/failover-groups/candidates", () =>
+					HttpResponse.json([]),
+				),
+				http.post("/api/failover-groups/sync", () =>
+					HttpResponse.json({
+						deleted_groups: [],
+						purged_entries: [
+							{
+								group_display_model: "claude-3",
+								pruned_model_ids: ["uuid-a", "uuid-b"],
+							},
+						],
+					}),
+				),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", { name: "Sync" }),
+				).toBeInTheDocument();
+			});
+
+			await user.click(screen.getByRole("button", { name: "Sync" }));
+
+			await waitFor(() => {
+				expect(
+					screen.getByText("hotel/claude-3: removed 2 stale entry(ies)"),
+				).toBeInTheDocument();
+			});
+		});
+
 		it("Sync error shows error toast", async () => {
 			server.use(
 				http.get("/api/failover-groups", () =>
