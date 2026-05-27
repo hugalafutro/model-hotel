@@ -199,12 +199,8 @@ export function VirtualModelTable({
 	});
 
 	// Notify parent of total count changes
-	const prevTotalRef = useRef(total);
 	useEffect(() => {
-		if (total !== prevTotalRef.current) {
-			prevTotalRef.current = total;
-			onTotalChange?.(total);
-		}
+		onTotalChange?.(total);
 	}, [total, onTotalChange]);
 
 	const existingCaps = useMemo(() => {
