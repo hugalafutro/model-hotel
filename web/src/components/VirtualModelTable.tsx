@@ -32,6 +32,8 @@ interface VirtualModelTableProps {
 	refreshTrigger?: number;
 	/** When provided, shows a "Delete disabled" button. Called with IDs of disabled models. */
 	onDeleteDisabled?: (ids: string[]) => void;
+	/** Called with the total model count from the server whenever it changes. */
+	onTotalChange?: (total: number) => void;
 }
 
 interface SortState {
@@ -50,6 +52,7 @@ export function VirtualModelTable({
 	onModelClick,
 	refreshTrigger,
 	onDeleteDisabled,
+	onTotalChange,
 }: VirtualModelTableProps) {
 	"use no memo";
 	const [searchQuery, setSearchQuery] = useState("");
@@ -194,6 +197,11 @@ export function VirtualModelTable({
 		getCursor,
 		getId: (entry) => entry.id,
 	});
+
+	// Notify parent of total count changes
+	useEffect(() => {
+		onTotalChange?.(total);
+	}, [total, onTotalChange]);
 
 	const existingCaps = useMemo(() => {
 		const caps = new Set<CapKey>();

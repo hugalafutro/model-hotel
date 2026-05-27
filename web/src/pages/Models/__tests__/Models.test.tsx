@@ -2,7 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Model } from "../../../api/types";
-import { mockAllDefaults } from "../../../test/helpers";
+import { mockAllDefaults, mockModelsCursor } from "../../../test/helpers";
 import { mockModel } from "../../../test/mocks/data";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
@@ -99,6 +99,29 @@ describe("Models", () => {
 			// Should show title immediately
 			await waitFor(() => {
 				expect(screen.getByText("Models")).toBeInTheDocument();
+			});
+		});
+
+		it("shows model count in header when cursor API returns total", async () => {
+			localStorage.removeItem("modelsViewMode");
+
+			server.use(
+				...mockAllDefaults(),
+				...mockModelsCursor({
+					body: {
+						entries: [mockModel],
+						total: 42,
+						has_before: false,
+						has_after: false,
+					},
+				}),
+			);
+
+			renderWithProviders(<Models />);
+
+			// Title should show count from cursor total
+			await waitFor(() => {
+				expect(screen.getByText("42 Models")).toBeInTheDocument();
 			});
 		});
 	});

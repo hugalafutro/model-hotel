@@ -438,6 +438,160 @@ describe("useQuotaData", () => {
 		});
 	});
 
+	it("hides NanoGPT badge when subscription is canceled", async () => {
+		server.use(
+			http.get("/api/providers/:id/usage", () => {
+				return HttpResponse.json({
+					active: false,
+					provider: "nanogpt",
+					providerStatus: "canceled",
+					providerStatusRaw: "canceled",
+					stripeSubscriptionId: "sub_test123",
+					cancellationReason: null,
+					canceledAt: "2025-01-01T00:00:00Z",
+					endedAt: null,
+					cancelAt: null,
+					cancelAtPeriodEnd: false,
+					limits: {
+						weeklyInputTokens: 1000000,
+						dailyInputTokens: 200000,
+						dailyImages: 100,
+					},
+					allowOverage: false,
+					period: {
+						currentPeriodEnd: new Date(
+							Date.now() + 7 * 24 * 60 * 60 * 1000,
+						).toISOString(),
+					},
+					weeklyInputTokens: {
+						used: 200000,
+						remaining: 800000,
+						percentUsed: 20,
+						resetAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+					},
+					state: "canceled",
+					graceUntil: null,
+				});
+			}),
+		);
+
+		const { result } = renderHook(() => useQuotaData(mockProviders), {
+			wrapper: createWrapper(),
+		});
+
+		await waitFor(() => {
+			expect(result.current.nanogptUsage).toBeDefined();
+		});
+
+		expect(result.current.showNanoBadge).toBe(false);
+	});
+
+	it("hides NanoGPT badge when subscription status is 'cancelled' (British spelling)", async () => {
+		server.use(
+			http.get("/api/providers/:id/usage", () => {
+				return HttpResponse.json({
+					active: false,
+					provider: "nanogpt",
+					providerStatus: "cancelled",
+					providerStatusRaw: "cancelled",
+					stripeSubscriptionId: "sub_test123",
+					cancellationReason: null,
+					canceledAt: "2025-01-01T00:00:00Z",
+					endedAt: null,
+					cancelAt: null,
+					cancelAtPeriodEnd: false,
+					limits: {
+						weeklyInputTokens: 1000000,
+						dailyInputTokens: 200000,
+						dailyImages: 100,
+					},
+					allowOverage: false,
+					period: {
+						currentPeriodEnd: new Date(
+							Date.now() + 7 * 24 * 60 * 60 * 1000,
+						).toISOString(),
+					},
+					weeklyInputTokens: {
+						used: 200000,
+						remaining: 800000,
+						percentUsed: 20,
+						resetAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+					},
+					state: "cancelled",
+					graceUntil: null,
+				});
+			}),
+		);
+
+		const { result } = renderHook(() => useQuotaData(mockProviders), {
+			wrapper: createWrapper(),
+		});
+
+		await waitFor(() => {
+			expect(result.current.nanogptUsage).toBeDefined();
+		});
+
+		expect(result.current.showNanoBadge).toBe(false);
+	});
+
+	it("hides DeepSeek badge when account is not available", async () => {
+		server.use(
+			http.get("/api/providers/:id/balance", () => {
+				return HttpResponse.json({
+					is_available: false,
+					balance_infos: [],
+				});
+			}),
+		);
+
+		const { result } = renderHook(() => useQuotaData(mockProviders), {
+			wrapper: createWrapper(),
+		});
+
+		await waitFor(() => {
+			expect(result.current.deepseekBalance).toBeDefined();
+		});
+
+		expect(result.current.showDsBadge).toBe(false);
+	});
+
+	it("hides Ollama Cloud badge when account is suspended", async () => {
+		server.use(
+			http.get("/api/providers/:id/account", () => {
+				return HttpResponse.json({
+					id: "ollama-account-1",
+					email: "test@example.com",
+					name: "Test User",
+					plan: "pro",
+					customer_id: { string: "cus_test123", valid: true },
+					subscription_id: { string: "sub_test123", valid: true },
+					subscription_period_start: {
+						time: new Date().toISOString(),
+						valid: true,
+					},
+					subscription_period_end: {
+						time: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+						valid: true,
+					},
+					suspended_at: {
+						time: "2025-01-01T00:00:00Z",
+						valid: true,
+					},
+				});
+			}),
+		);
+
+		const { result } = renderHook(() => useQuotaData(mockProviders), {
+			wrapper: createWrapper(),
+		});
+
+		await waitFor(() => {
+			expect(result.current.ollamaCloudAccount).toBeDefined();
+		});
+
+		expect(result.current.showOllamaCloudBadge).toBe(false);
+	});
+
 	it("respects collapsed option (disables auto-refresh)", async () => {
 		const { result } = renderHook(
 			() =>
