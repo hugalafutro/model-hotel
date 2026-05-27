@@ -2,10 +2,12 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,9 +15,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -225,9 +229,39 @@ func (h *Handler) DeleteModel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	modelRepo := model.NewRepository(h.dbPool.Pool())
+
+	// Fetch the model before deletion so we can sync failover groups.
+	var modelID string
+	err := h.dbPool.Pool().QueryRow(r.Context(),
+		"SELECT model_id FROM models WHERE id = $1", id,
+	).Scan(&modelID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			// Model doesn't exist — idempotent delete, just return 204.
+			// No failover sync needed since there's nothing to clean up.
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		respondError(w, fmt.Sprintf("failed to lookup model %s", id), err, http.StatusInternalServerError)
+		return
+	}
+
 	if err := modelRepo.DeleteByID(r.Context(), id); err != nil {
 		respondError(w, fmt.Sprintf("failed to delete model %s", id), err, http.StatusInternalServerError)
 		return
+	}
+
+	// Sync failover groups since the deleted model may leave a group
+	// with too few candidates. SyncForModel handles the auto-group for
+	// this model's base name; PruneModelUUID cleans up any custom groups
+	// that reference the deleted model UUID.
+	failoverRepo := failover.NewRepository(h.dbPool.Pool())
+	bgCtx := context.WithoutCancel(r.Context())
+	if err := failoverRepo.SyncForModel(bgCtx, modelID); err != nil {
+		debuglog.Info("admin: failed to sync failover groups after model delete", "error", err)
+	}
+	if err := failoverRepo.PruneModelUUID(bgCtx, id); err != nil {
+		debuglog.Info("admin: failed to prune stale failover entries after model delete", "error", err)
 	}
 
 	w.WriteHeader(http.StatusNoContent)

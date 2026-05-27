@@ -247,6 +247,23 @@ describe("FailoverGroupCard", () => {
 			expect(card).toHaveClass("border-(--accent)/30");
 		});
 
+		it("does not apply disabled styling when group is enabled", () => {
+			const group = {
+				...mockFailoverGroup,
+				group_enabled: true,
+			};
+
+			renderWithProviders(
+				<FailoverGroupCard {...defaultProps} group={group} />,
+			);
+
+			const card = screen
+				.getByRole("heading", { name: /hotel\/test-model/i })
+				.closest(".ui-card");
+			expect(card).not.toHaveClass("opacity-45");
+			expect(card).not.toHaveClass("border-dashed");
+		});
+
 		it("applies opacity when group is disabled", () => {
 			const group = {
 				...mockFailoverGroup,
@@ -260,7 +277,8 @@ describe("FailoverGroupCard", () => {
 			const card = screen
 				.getByRole("heading", { name: /hotel\/test-model/i })
 				.closest(".ui-card");
-			expect(card).toHaveClass("opacity-60");
+			expect(card).toHaveClass("opacity-45");
+			expect(card).toHaveClass("border-dashed");
 		});
 	});
 
@@ -839,6 +857,52 @@ describe("FailoverGroupCard", () => {
 			capturedOnDragEnd?.({
 				active: { id: "uuid-1" },
 				over: null,
+			});
+
+			expect(onReorder).not.toHaveBeenCalled();
+		});
+		it("does not call onReorder when group is disabled", () => {
+			const onReorder = vi.fn();
+			const group = {
+				...mockFailoverGroup,
+				group_enabled: false,
+				entries: [
+					{
+						model_uuid: "uuid-1",
+						model_id: "model-1",
+						provider_id: "p1",
+						provider_name: "Provider 1",
+						display_name: "Model 1",
+						enabled: true,
+						context_length: 8192,
+						owned_by: "p1",
+					},
+					{
+						model_uuid: "uuid-2",
+						model_id: "model-2",
+						provider_id: "p2",
+						provider_name: "Provider 2",
+						display_name: "Model 2",
+						enabled: true,
+						context_length: 8192,
+						owned_by: "p2",
+					},
+				],
+			};
+
+			renderWithProviders(
+				<FailoverGroupCard
+					{...defaultProps}
+					group={group}
+					onReorder={onReorder}
+				/>,
+			);
+
+			// Drag would normally trigger a reorder, but the disabled
+			// group early-returns before onReorder is called.
+			capturedOnDragEnd?.({
+				active: { id: "uuid-1" },
+				over: { id: "uuid-2" },
 			});
 
 			expect(onReorder).not.toHaveBeenCalled();

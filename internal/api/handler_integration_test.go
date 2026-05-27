@@ -3588,8 +3588,8 @@ func TestSyncFailoverGroups_WithModels(t *testing.T) {
 	}
 
 	// Should return sync result
-	if _, ok := response["disabled_groups"]; !ok {
-		t.Error("Expected 'disabled_groups' field in sync response")
+	if _, ok := response["deleted_groups"]; !ok {
+		t.Error("Expected 'deleted_groups' field in sync response")
 	}
 }
 func TestGetAppLogsHistory(t *testing.T) {

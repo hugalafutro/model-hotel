@@ -199,18 +199,30 @@ export function FailoverGroups() {
 		mutationFn: () => api.failoverGroups.sync(),
 		onSuccess: (data) => {
 			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
-			if (data.disabled_groups && data.disabled_groups.length > 0) {
-				for (const g of data.disabled_groups) {
+			if (data.deleted_groups && data.deleted_groups.length > 0) {
+				for (const g of data.deleted_groups) {
 					const provs =
 						g.provider_names.length > 0
 							? ` (${g.provider_names.join(", ")})`
 							: "";
 					toast(
-						`hotel/${g.display_model} disabled: ${g.reason}${provs}`,
+						`hotel/${g.display_model} deleted: ${g.reason}${provs}`,
 						"warning",
 					);
 				}
-			} else {
+			}
+			if (data.purged_entries && data.purged_entries.length > 0) {
+				for (const p of data.purged_entries) {
+					toast(
+						`hotel/${p.group_display_model}: removed ${p.pruned_model_ids.length} stale entry(ies)`,
+						"info",
+					);
+				}
+			}
+			if (
+				(!data.deleted_groups || data.deleted_groups.length === 0) &&
+				(!data.purged_entries || data.purged_entries.length === 0)
+			) {
 				toast("Failover groups synced", "success");
 			}
 		},

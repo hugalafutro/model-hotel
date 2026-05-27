@@ -5,10 +5,15 @@ import { Toggle } from "../../components/Toggle";
 
 export interface SortableEntryProps {
 	entry: FailoverGroup["entries"][0];
+	groupEnabled: boolean;
 	onToggle: (uuid: string, enabled: boolean) => void;
 }
 
-export function SortableEntry({ entry, onToggle }: SortableEntryProps) {
+export function SortableEntry({
+	entry,
+	groupEnabled,
+	onToggle,
+}: SortableEntryProps) {
 	const {
 		attributes,
 		listeners,
@@ -16,13 +21,15 @@ export function SortableEntry({ entry, onToggle }: SortableEntryProps) {
 		transform,
 		transition,
 		isDragging,
-	} = useSortable({ id: entry.model_uuid });
+	} = useSortable({ id: entry.model_uuid, disabled: !groupEnabled });
 
 	const style: React.CSSProperties = {
 		transform: CSS.Transform.toString(transform),
 		transition,
 		opacity: isDragging ? 0.5 : 1,
 	};
+
+	const dragProps = groupEnabled ? { ...attributes, ...listeners } : {};
 
 	return (
 		<div
@@ -34,9 +41,12 @@ export function SortableEntry({ entry, onToggle }: SortableEntryProps) {
 		>
 			<div className="flex items-center gap-2 min-w-0">
 				<span
-					{...attributes}
-					{...listeners}
-					className="text-gray-500 cursor-grab active:cursor-grabbing opacity-15 hover:opacity-100 transition-opacity shrink-0"
+					{...dragProps}
+					className={`text-gray-500 shrink-0 transition-opacity ${
+						groupEnabled
+							? "cursor-grab active:cursor-grabbing opacity-15 hover:opacity-100"
+							: "cursor-not-allowed opacity-15"
+					}`}
 				>
 					⠿
 				</span>
@@ -49,6 +59,7 @@ export function SortableEntry({ entry, onToggle }: SortableEntryProps) {
 			<Toggle
 				size="sm"
 				checked={entry.enabled}
+				disabled={!groupEnabled}
 				onChange={(v) => onToggle(entry.model_uuid, v)}
 				ariaLabel={entry.enabled ? "Disable provider" : "Enable provider"}
 			/>

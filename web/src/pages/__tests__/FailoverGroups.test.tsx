@@ -1022,7 +1022,7 @@ describe("FailoverGroups", () => {
 				),
 				http.post("/api/failover-groups/sync", () => {
 					syncCalled = true;
-					return HttpResponse.json({ disabled_groups: [] });
+					return HttpResponse.json({ deleted_groups: [] });
 				}),
 			);
 
@@ -1053,7 +1053,7 @@ describe("FailoverGroups", () => {
 					HttpResponse.json([]),
 				),
 				http.post("/api/failover-groups/sync", () =>
-					HttpResponse.json({ disabled_groups: [] }),
+					HttpResponse.json({ deleted_groups: [] }),
 				),
 			);
 
@@ -1085,7 +1085,7 @@ describe("FailoverGroups", () => {
 				),
 				http.post("/api/failover-groups/sync", () =>
 					HttpResponse.json({
-						disabled_groups: [
+						deleted_groups: [
 							{
 								display_model: "gpt-4",
 								reason: "no providers",
@@ -1108,7 +1108,48 @@ describe("FailoverGroups", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByText("hotel/gpt-4 disabled: no providers (OpenAI)"),
+					screen.getByText("hotel/gpt-4 deleted: no providers (OpenAI)"),
+				).toBeInTheDocument();
+			});
+		});
+
+		it("Sync success with purged entries shows info toast", async () => {
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({
+						groups: [mockFailoverGroup],
+						last_synced_at: null,
+					}),
+				),
+				http.get("/api/failover-groups/candidates", () =>
+					HttpResponse.json([]),
+				),
+				http.post("/api/failover-groups/sync", () =>
+					HttpResponse.json({
+						deleted_groups: [],
+						purged_entries: [
+							{
+								group_display_model: "claude-3",
+								pruned_model_ids: ["uuid-a", "uuid-b"],
+							},
+						],
+					}),
+				),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", { name: "Sync" }),
+				).toBeInTheDocument();
+			});
+
+			await user.click(screen.getByRole("button", { name: "Sync" }));
+
+			await waitFor(() => {
+				expect(
+					screen.getByText("hotel/claude-3: removed 2 stale entry(ies)"),
 				).toBeInTheDocument();
 			});
 		});
@@ -1158,7 +1199,7 @@ describe("FailoverGroups", () => {
 				http.post("/api/failover-groups/sync", () => {
 					return new Promise((resolve) => {
 						setTimeout(() => {
-							resolve(HttpResponse.json({ disabled_groups: [] }));
+							resolve(HttpResponse.json({ deleted_groups: [] }));
 						}, 100);
 					});
 				}),
@@ -2889,7 +2930,7 @@ describe("FailoverGroups", () => {
 				),
 				http.post("/api/failover-groups/sync", () => {
 					syncCalled = true;
-					return HttpResponse.json({ disabled_groups: [] });
+					return HttpResponse.json({ deleted_groups: [] });
 				}),
 			);
 

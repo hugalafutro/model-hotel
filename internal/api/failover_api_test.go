@@ -650,7 +650,7 @@ func TestFailoverHandler_Sync_Success(t *testing.T) {
 	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
-	// DisabledGroups may be nil when no groups were disabled (empty sync result).
+	// DeletedGroups may be nil when no groups were deleted (empty sync result).
 	// This is valid — just verify the response is a valid SyncResult.
 }
 
@@ -1351,8 +1351,8 @@ func TestFailoverSync_Integration(t *testing.T) {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	// Verify response has expected structure (DisabledGroups, SyncErrors)
-	if _, ok := response["disabled_groups"]; !ok {
-		t.Error("expected 'disabled_groups' field in sync response")
+	// Verify response has expected structure (DeletedGroups, SyncErrors)
+	if _, ok := response["deleted_groups"]; !ok {
+		t.Error("expected 'deleted_groups' field in sync response")
 	}
 }

@@ -45,6 +45,122 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
+// pruneStaleEntries checks all groups for entries referencing models that no
+// longer exist in the database. Stale UUIDs are removed from priority_order
+// and entry_enabled. Groups left with ≤1 valid entry are deleted entirely
+// (both auto-created and custom), since a failover group with 0 or 1 models
+// serves no purpose.
+func (r *Repository) pruneStaleEntries(ctx context.Context, groups []*FailoverGroup, result *SyncResult) {
+	// Collect all UUIDs referenced across groups and batch-check existence.
+	allUUIDs := make(map[uuid.UUID]struct{})
+	for _, g := range groups {
+		for _, id := range g.PriorityOrder {
+			allUUIDs[id] = struct{}{}
+		}
+	}
+
+	if len(allUUIDs) == 0 {
+		return
+	}
+
+	// Query which UUIDs still exist in the models table.
+	existingIDs := make(map[uuid.UUID]struct{})
+	ids := make([]uuid.UUID, 0, len(allUUIDs))
+	for id := range allUUIDs {
+		ids = append(ids, id)
+	}
+
+	rows, err := r.pool.Query(ctx, `SELECT id FROM models WHERE id = ANY($1)`, ids)
+	if err != nil {
+		debuglog.Error("failover: failed to query existing models for prune", "error", err)
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			continue
+		}
+		existingIDs[id] = struct{}{}
+	}
+	if err := rows.Err(); err != nil {
+		debuglog.Error("failover: error iterating model rows during prune", "error", err)
+		return
+	}
+
+	// Now prune each group.
+	for _, g := range groups {
+		var validPriority []uuid.UUID
+		var prunedIDs []string
+
+		for _, id := range g.PriorityOrder {
+			if _, exists := existingIDs[id]; exists {
+				validPriority = append(validPriority, id)
+			} else {
+				prunedIDs = append(prunedIDs, id.String())
+			}
+		}
+
+		if len(prunedIDs) == 0 {
+			continue // Nothing to prune in this group.
+		}
+
+		if len(validPriority) <= 1 {
+			// Group has 0 or 1 valid entries left — delete it.
+			if err := r.DeleteByID(ctx, g.ID); err != nil {
+				debuglog.Error("failover: failed to delete pruned group", "display_model", g.DisplayModel, "error", err)
+				continue
+			}
+			// Record purged entries and deleted group only after successful DB operations.
+			result.PurgedEntries = append(result.PurgedEntries, PrunedEntryInfo{
+				GroupDisplayModel: g.DisplayModel,
+				PrunedModelIDs:    prunedIDs,
+			})
+			reason := "no valid providers after prune"
+			if len(validPriority) == 1 {
+				reason = "only 1 valid provider after prune (need 2+ for failover)"
+			}
+			result.DeletedGroups = append(result.DeletedGroups, DeletedGroupInfo{
+				DisplayModel:  g.DisplayModel,
+				ProviderCount: len(validPriority),
+				Reason:        reason,
+				ProviderNames: []string{},
+			})
+			debuglog.Info("failover: deleted group after pruning stale entries",
+				"display_model", g.DisplayModel,
+				"pruned", len(prunedIDs),
+				"remaining", len(validPriority))
+		} else {
+			// Group still viable — update with pruned entries.
+			// Preserve the group's existing enabled state so we don't
+			// silently re-enable a manually-disabled group.
+			validEntryEnabled := make(map[string]bool)
+			for _, id := range validPriority {
+				if enabled, ok := g.EntryEnabled[id.String()]; ok {
+					validEntryEnabled[id.String()] = enabled
+				} else {
+					validEntryEnabled[id.String()] = true
+				}
+			}
+			_, err := r.Update(ctx, g.ID, validPriority, validEntryEnabled, &g.GroupEnabled, nil, nil)
+			if err != nil {
+				debuglog.Error("failover: failed to update group after pruning", "display_model", g.DisplayModel, "error", err)
+			} else {
+				// Record purged entries only after successful DB update.
+				result.PurgedEntries = append(result.PurgedEntries, PrunedEntryInfo{
+					GroupDisplayModel: g.DisplayModel,
+					PrunedModelIDs:    prunedIDs,
+				})
+				debuglog.Info("failover: pruned stale entries from group",
+					"display_model", g.DisplayModel,
+					"pruned", len(prunedIDs),
+					"remaining", len(validPriority))
+			}
+		}
+	}
+}
+
 // GetByModel retrieves a failover group by its display model name.
 func (r *Repository) GetByModel(ctx context.Context, modelID string) (*FailoverGroup, error) {
 	if fg, ok := GetCachedFailoverByModel(modelID); ok {
@@ -330,21 +446,33 @@ func scanFailoverGroups(rows pgx.Rows) ([]*FailoverGroup, error) {
 		}
 		groups = append(groups, &fg)
 	}
+	if err := rows.Err(); err != nil {
+		debuglog.Error("failover: error iterating rows in scanFailoverGroups", "error", err)
+		return nil, fmt.Errorf("scanFailoverGroups: iteration error: %w", err)
+	}
 	return groups, nil
 }
 
-// DisabledGroupInfo describes a failover group that was disabled during sync.
-type DisabledGroupInfo struct {
+// DeletedGroupInfo describes a failover group that was deleted during sync.
+type DeletedGroupInfo struct {
 	DisplayModel  string   `json:"display_model"`
 	Reason        string   `json:"reason"`
 	ProviderCount int      `json:"provider_count"`
 	ProviderNames []string `json:"provider_names"`
 }
 
+// PrunedEntryInfo describes entries removed from a group during sync
+// because they reference models that no longer exist in the database.
+type PrunedEntryInfo struct {
+	GroupDisplayModel string   `json:"group_display_model"`
+	PrunedModelIDs    []string `json:"pruned_model_ids"`
+}
+
 // SyncResult describes the outcome of a failover group sync operation.
 type SyncResult struct {
-	DisabledGroups []DisabledGroupInfo `json:"disabled_groups"`
-	SyncErrors     []string            `json:"sync_errors,omitempty"`
+	DeletedGroups []DeletedGroupInfo `json:"deleted_groups"`
+	PurgedEntries []PrunedEntryInfo  `json:"purged_entries,omitempty"`
+	SyncErrors    []string           `json:"sync_errors,omitempty"`
 }
 
 // mergePriorityOrder preserves the user's existing priority order while
@@ -432,11 +560,15 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 			providerName: providerName,
 		})
 	}
+	if err := rows.Err(); err != nil {
+		debuglog.Error("failover: error iterating model rows during SyncAllModels", "error", err)
+		return nil, err
+	}
 
 	syncedBases := make(map[string]bool)
 	for base, models := range baseToModels {
 		if len(models) <= 1 {
-			if r.disableAutoGroup(ctx, base) {
+			if r.deleteAutoGroup(ctx, base) {
 				providerNames := make([]string, 0, len(models))
 				for _, m := range models {
 					providerNames = append(providerNames, m.providerName)
@@ -445,7 +577,7 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 				if len(models) == 1 {
 					reason = "only 1 enabled provider (need 2+ for failover)"
 				}
-				result.DisabledGroups = append(result.DisabledGroups, DisabledGroupInfo{
+				result.DeletedGroups = append(result.DeletedGroups, DeletedGroupInfo{
 					DisplayModel:  base,
 					ProviderCount: len(models),
 					Reason:        reason,
@@ -497,10 +629,10 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 
 	allGroups, _ := r.List(ctx)
 	for _, g := range allGroups {
-		if g.AutoCreated && g.GroupEnabled {
+		if g.AutoCreated {
 			if _, ok := syncedBases[g.DisplayModel]; !ok {
-				if r.disableAutoGroup(ctx, g.DisplayModel) {
-					result.DisabledGroups = append(result.DisabledGroups, DisabledGroupInfo{
+				if r.deleteAutoGroup(ctx, g.DisplayModel) {
+					result.DeletedGroups = append(result.DeletedGroups, DeletedGroupInfo{
 						DisplayModel:  g.DisplayModel,
 						ProviderCount: 0,
 						Reason:        "no enabled providers found",
@@ -511,7 +643,27 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 		}
 	}
 
-	debuglog.Info("failover: synced groups", "synced", len(syncedBases), "disabled", len(result.DisabledGroups))
+	// Prune stale entries from all groups (auto and custom).
+	// Models may have been deleted (e.g. provider cascade) leaving
+	// UUIDs in priority_order/entry_enabled that reference non-existent rows.
+	// Filter out groups already deleted in the loop above to avoid duplicate
+	// DeletedGroups entries.
+	var groupsForPrune []*FailoverGroup
+	for _, g := range allGroups {
+		alreadyDeleted := false
+		for _, dg := range result.DeletedGroups {
+			if dg.DisplayModel == g.DisplayModel {
+				alreadyDeleted = true
+				break
+			}
+		}
+		if !alreadyDeleted {
+			groupsForPrune = append(groupsForPrune, g)
+		}
+	}
+	r.pruneStaleEntries(ctx, groupsForPrune, result)
+
+	debuglog.Info("failover: synced groups", "synced", len(syncedBases), "deleted", len(result.DeletedGroups))
 
 	return result, nil
 }
@@ -545,9 +697,13 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) error {
 		}
 		currentIDs = append(currentIDs, id)
 	}
+	if err := rows.Err(); err != nil {
+		debuglog.Error("failover: error iterating model rows during SyncForModel", "error", err)
+		return err
+	}
 
 	if len(currentIDs) <= 1 {
-		r.disableAutoGroup(ctx, base)
+		r.deleteAutoGroup(ctx, base)
 		return nil
 	}
 
@@ -590,15 +746,55 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) error {
 	return err
 }
 
-func (r *Repository) disableAutoGroup(ctx context.Context, displayModel string) bool {
+// PruneModelUUID finds failover groups containing the given model UUID in their
+// priority_order and prunes stale entries from them. This is called after a
+// model is deleted to clean up custom groups that may reference it, which
+// SyncForModel alone does not handle (it only manages the auto-group for the
+// deleted model's base name).
+func (r *Repository) PruneModelUUID(ctx context.Context, modelUUID uuid.UUID) error {
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, display_model, COALESCE(display_name, ''), COALESCE(description, ''), priority_order,
+		       COALESCE(entry_enabled, '{}'), COALESCE(group_enabled, true), COALESCE(auto_created, false),
+		       created_at, COALESCE(updated_at, created_at)
+		FROM model_failover_groups
+		WHERE priority_order::jsonb @> to_jsonb(ARRAY[$1]::uuid[])
+	`, modelUUID)
+	if err != nil {
+		return fmt.Errorf("PruneModelUUID: query groups containing %s: %w", modelUUID, err)
+	}
+	defer rows.Close()
+
+	groups, err := scanFailoverGroups(rows)
+	if err != nil {
+		return fmt.Errorf("PruneModelUUID: scan groups: %w", err)
+	}
+
+	if len(groups) == 0 {
+		return nil
+	}
+
+	result := &SyncResult{}
+	r.pruneStaleEntries(ctx, groups, result)
+
+	for _, d := range result.DeletedGroups {
+		debuglog.Info("failover: pruned group after model deletion",
+			"display_model", d.DisplayModel, "reason", d.Reason)
+	}
+	for _, p := range result.PurgedEntries {
+		debuglog.Info("failover: pruned stale entries after model deletion",
+			"display_model", p.GroupDisplayModel, "pruned", len(p.PrunedModelIDs))
+	}
+	return nil
+}
+
+func (r *Repository) deleteAutoGroup(ctx context.Context, displayModel string) bool {
 	tag, err := r.pool.Exec(ctx, `
-		UPDATE model_failover_groups
-		SET group_enabled = false, updated_at = now()
-		WHERE display_model = $1 AND auto_created = true AND group_enabled = true
+		DELETE FROM model_failover_groups
+		WHERE display_model = $1 AND auto_created = true
 	`, displayModel)
 	if err == nil && tag.RowsAffected() > 0 {
 		InvalidateFailoverCache()
-		debuglog.Info("failover: disabled auto-group", "display_model", displayModel)
+		debuglog.Info("failover: deleted auto-group", "display_model", displayModel)
 		return true
 	}
 	return false

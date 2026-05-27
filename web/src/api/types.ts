@@ -374,15 +374,21 @@ export interface CandidateModel {
 	owned_by: string;
 }
 
-export interface DisabledGroupInfo {
+export interface DeletedGroupInfo {
 	display_model: string;
 	reason: string;
 	provider_count: number;
 	provider_names: string[];
 }
 
+export interface PrunedEntryInfo {
+	group_display_model: string;
+	pruned_model_ids: string[];
+}
+
 export interface SyncResult {
-	disabled_groups: DisabledGroupInfo[];
+	deleted_groups: DeletedGroupInfo[];
+	purged_entries?: PrunedEntryInfo[];
 }
 
 export interface BackupEntry {
