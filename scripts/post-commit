@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# post-commit: delegate to matching global hook
+set -uo pipefail
+
+global_hooks_dir="/home/sammael/.config/git/hooks"
+hook_name="$(basename "$0")"
+
+if [ -x "$global_hooks_dir/$hook_name" ]; then
+	"$global_hooks_dir/$hook_name" || true
+fi
