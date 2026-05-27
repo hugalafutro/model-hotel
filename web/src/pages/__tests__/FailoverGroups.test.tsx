@@ -1022,7 +1022,7 @@ describe("FailoverGroups", () => {
 				),
 				http.post("/api/failover-groups/sync", () => {
 					syncCalled = true;
-					return HttpResponse.json({ disabled_groups: [] });
+					return HttpResponse.json({ deleted_groups: [] });
 				}),
 			);
 
@@ -1053,7 +1053,7 @@ describe("FailoverGroups", () => {
 					HttpResponse.json([]),
 				),
 				http.post("/api/failover-groups/sync", () =>
-					HttpResponse.json({ disabled_groups: [] }),
+					HttpResponse.json({ deleted_groups: [] }),
 				),
 			);
 
@@ -1085,7 +1085,7 @@ describe("FailoverGroups", () => {
 				),
 				http.post("/api/failover-groups/sync", () =>
 					HttpResponse.json({
-						disabled_groups: [
+						deleted_groups: [
 							{
 								display_model: "gpt-4",
 								reason: "no providers",
@@ -1108,7 +1108,7 @@ describe("FailoverGroups", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByText("hotel/gpt-4 disabled: no providers (OpenAI)"),
+					screen.getByText("hotel/gpt-4 deleted: no providers (OpenAI)"),
 				).toBeInTheDocument();
 			});
 		});
@@ -1158,7 +1158,7 @@ describe("FailoverGroups", () => {
 				http.post("/api/failover-groups/sync", () => {
 					return new Promise((resolve) => {
 						setTimeout(() => {
-							resolve(HttpResponse.json({ disabled_groups: [] }));
+							resolve(HttpResponse.json({ deleted_groups: [] }));
 						}, 100);
 					});
 				}),
@@ -2889,7 +2889,7 @@ describe("FailoverGroups", () => {
 				),
 				http.post("/api/failover-groups/sync", () => {
 					syncCalled = true;
-					return HttpResponse.json({ disabled_groups: [] });
+					return HttpResponse.json({ deleted_groups: [] });
 				}),
 			);
 

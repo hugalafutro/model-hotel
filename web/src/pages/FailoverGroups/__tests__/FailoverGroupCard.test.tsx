@@ -260,7 +260,8 @@ describe("FailoverGroupCard", () => {
 			const card = screen
 				.getByRole("heading", { name: /hotel\/test-model/i })
 				.closest(".ui-card");
-			expect(card).toHaveClass("opacity-60");
+			expect(card).toHaveClass("opacity-45");
+			expect(card).toHaveClass("border-dashed");
 		});
 	});
 

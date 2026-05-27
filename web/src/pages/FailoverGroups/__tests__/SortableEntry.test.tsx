@@ -35,6 +35,7 @@ const mockEntry: FailoverGroup["entries"][0] = {
 describe("SortableEntry", () => {
 	const defaultProps = {
 		entry: mockEntry,
+		groupEnabled: true,
 		onToggle: vi.fn(),
 	};
 
@@ -71,7 +72,11 @@ describe("SortableEntry", () => {
 		const disabledEntry = { ...mockEntry, enabled: false };
 
 		renderWithProviders(
-			<SortableEntry entry={disabledEntry} onToggle={vi.fn()} />,
+			<SortableEntry
+				entry={disabledEntry}
+				groupEnabled={true}
+				onToggle={vi.fn()}
+			/>,
 		);
 
 		const toggle = screen.getByRole("switch");
@@ -101,7 +106,11 @@ describe("SortableEntry", () => {
 		const disabledEntry = { ...mockEntry, enabled: false };
 
 		renderWithProviders(
-			<SortableEntry entry={disabledEntry} onToggle={vi.fn()} />,
+			<SortableEntry
+				entry={disabledEntry}
+				groupEnabled={true}
+				onToggle={vi.fn()}
+			/>,
 		);
 
 		const toggle = screen.getByRole("switch");
@@ -119,7 +128,11 @@ describe("SortableEntry", () => {
 		const disabledEntry = { ...mockEntry, enabled: false };
 
 		renderWithProviders(
-			<SortableEntry entry={disabledEntry} onToggle={vi.fn()} />,
+			<SortableEntry
+				entry={disabledEntry}
+				groupEnabled={true}
+				onToggle={vi.fn()}
+			/>,
 		);
 
 		const entryDiv = screen.getByRole("switch").closest("div");
@@ -127,10 +140,6 @@ describe("SortableEntry", () => {
 	});
 
 	it("handles isDragging state with opacity 0.5", () => {
-		// The mock is hoisted, so we need to access it differently
-		// This test verifies the component applies opacity style when isDragging is true
-		// Since we can't easily change the mock return value mid-test,
-		// we verify the component structure is correct for handling isDragging
 		renderWithProviders(<SortableEntry {...defaultProps} />);
 
 		const entryDiv = screen.getByRole("switch").closest("div");
@@ -151,14 +160,18 @@ describe("SortableEntry", () => {
 		};
 
 		renderWithProviders(
-			<SortableEntry entry={differentEntry} onToggle={vi.fn()} />,
+			<SortableEntry
+				entry={differentEntry}
+				groupEnabled={true}
+				onToggle={vi.fn()}
+			/>,
 		);
 
 		expect(screen.getByText("Different Provider")).toBeInTheDocument();
 		expect(screen.getByText("different-model")).toBeInTheDocument();
 	});
 
-	it("passes dnd-kit attributes and listeners to drag handle", () => {
+	it("passes dnd-kit attributes and listeners to drag handle when group enabled", () => {
 		renderWithProviders(<SortableEntry {...defaultProps} />);
 
 		const dragHandle = screen.getByText("⠿");
@@ -167,14 +180,45 @@ describe("SortableEntry", () => {
 		expect(dragHandle).toHaveAttribute("tabindex", "0");
 	});
 
+	it("does not pass dnd-kit attributes when group is disabled", () => {
+		renderWithProviders(
+			<SortableEntry {...defaultProps} groupEnabled={false} />,
+		);
+
+		const dragHandle = screen.getByText("⠿");
+		expect(dragHandle).not.toHaveAttribute("role");
+		expect(dragHandle).not.toHaveAttribute("tabindex");
+		expect(dragHandle).toHaveClass("cursor-not-allowed");
+	});
+
+	it("disables Toggle when group is disabled", () => {
+		renderWithProviders(
+			<SortableEntry {...defaultProps} groupEnabled={false} />,
+		);
+
+		const toggle = screen.getByRole("switch");
+		expect(toggle).toBeDisabled();
+	});
+
+	it("does not call onToggle when Toggle is clicked in disabled group", async () => {
+		const onToggle = vi.fn();
+		const { user } = renderWithProviders(
+			<SortableEntry
+				{...defaultProps}
+				groupEnabled={false}
+				onToggle={onToggle}
+			/>,
+		);
+
+		const toggle = screen.getByRole("switch");
+		await user.click(toggle);
+
+		expect(onToggle).not.toHaveBeenCalled();
+	});
+
 	it("setNodeRef is called", () => {
-		// The component calls setNodeRef from the useSortable hook
-		// We verify the component renders correctly which implies setNodeRef was called
-		// since the component uses it to set the ref on the div
 		renderWithProviders(<SortableEntry {...defaultProps} />);
 
-		// Verify the component rendered - this confirms setNodeRef was called
-		// since the component would fail to render otherwise
 		expect(screen.getByText("Test Provider")).toBeInTheDocument();
 	});
 });

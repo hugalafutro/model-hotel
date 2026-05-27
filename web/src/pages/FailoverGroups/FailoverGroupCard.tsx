@@ -72,6 +72,7 @@ export function FailoverGroupCard({
 	);
 
 	const handleDragEnd = (event: DragEndEvent) => {
+		if (!group.group_enabled) return;
 		const { active, over } = event;
 		if (over && active.id !== over.id) {
 			const oldIndex = localEntries.findIndex(
@@ -93,7 +94,9 @@ export function FailoverGroupCard({
 	return (
 		<div
 			className={`ui-card p-3 flex flex-col ${
-				group.group_enabled ? "border-(--accent)/30" : "opacity-60"
+				group.group_enabled
+					? "border-(--accent)/30"
+					: "opacity-45 border-dashed border-gray-600"
 			}`}
 		>
 			<div className="flex items-center justify-between mb-2">
@@ -167,6 +170,7 @@ export function FailoverGroupCard({
 							<SortableEntry
 								key={entry.model_uuid}
 								entry={entry}
+								groupEnabled={group.group_enabled}
 								onToggle={onToggleEntry}
 							/>
 						))}

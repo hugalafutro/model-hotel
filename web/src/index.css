@@ -2068,34 +2068,6 @@ html.light .terminal-titlebar-win11 .win11-icon {
 	border: 1px solid transparent;
 }
 
-/* Entries inside disabled groups (group-level OFF) */
-.ui-card.opacity-60 .bg-gray-700 {
-	background-color: #9ca3af;
-	border: 1px dashed #6b7280;
-}
-
-.dark .ui-card.opacity-60 .bg-gray-700 {
-	background-color: #4b5563;
-}
-
-.ui-card.opacity-60 .failover-entry-text {
-	opacity: 0.6;
-	text-decoration: line-through;
-}
-
-/* Disable drag interaction in disabled groups */
-.ui-card.opacity-60 .cursor-grab {
-	pointer-events: none;
-	opacity: 0.3;
-}
-
-/* Desaturate toggle buttons in disabled groups */
-.ui-card.opacity-60 button[aria-label*="provider"] {
-	filter: grayscale(1);
-	opacity: 0.6;
-	pointer-events: none;
-}
-
 /* =============================================
    Toast timeout range slider
    ============================================= */
