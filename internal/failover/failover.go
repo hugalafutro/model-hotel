@@ -14,6 +14,37 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
+var (
+	jsonMarshal   = json.Marshal
+	jsonUnmarshal = json.Unmarshal
+)
+
+// FailoverGroup represents a configured failover group for a model.
+//
+//nolint:revive // stutter and exported are acceptable: FailoverGroup is a domain concept
+type FailoverGroup struct {
+	ID            uuid.UUID       `json:"id"`
+	DisplayModel  string          `json:"display_model"`
+	DisplayName   *string         `json:"display_name"`
+	Description   string          `json:"description"`
+	PriorityOrder []uuid.UUID     `json:"priority_order"`
+	EntryEnabled  map[string]bool `json:"entry_enabled"`
+	GroupEnabled  bool            `json:"group_enabled"`
+	AutoCreated   bool            `json:"auto_created"`
+	CreatedAt     time.Time       `json:"created_at"`
+	UpdatedAt     time.Time       `json:"updated_at"`
+}
+
+// Repository provides persistence for failover groups.
+type Repository struct {
+	pool *pgxpool.Pool
+}
+
+// NewRepository creates a new failover group repository.
+func NewRepository(pool *pgxpool.Pool) *Repository {
+	return &Repository{pool: pool}
+}
+
 // pruneStaleEntries checks all groups for entries referencing models that no
 // longer exist in the database. Stale UUIDs are removed from priority_order
 // and entry_enabled. Groups left with ≤1 valid entry are deleted entirely
@@ -118,37 +149,6 @@ func (r *Repository) pruneStaleEntries(ctx context.Context, groups []*FailoverGr
 			}
 		}
 	}
-}
-
-var (
-	jsonMarshal   = json.Marshal
-	jsonUnmarshal = json.Unmarshal
-)
-
-// FailoverGroup represents a configured failover group for a model.
-//
-//nolint:revive // stutter and exported are acceptable: FailoverGroup is a domain concept
-type FailoverGroup struct {
-	ID            uuid.UUID       `json:"id"`
-	DisplayModel  string          `json:"display_model"`
-	DisplayName   *string         `json:"display_name"`
-	Description   string          `json:"description"`
-	PriorityOrder []uuid.UUID     `json:"priority_order"`
-	EntryEnabled  map[string]bool `json:"entry_enabled"`
-	GroupEnabled  bool            `json:"group_enabled"`
-	AutoCreated   bool            `json:"auto_created"`
-	CreatedAt     time.Time       `json:"created_at"`
-	UpdatedAt     time.Time       `json:"updated_at"`
-}
-
-// Repository provides persistence for failover groups.
-type Repository struct {
-	pool *pgxpool.Pool
-}
-
-// NewRepository creates a new failover group repository.
-func NewRepository(pool *pgxpool.Pool) *Repository {
-	return &Repository{pool: pool}
 }
 
 // GetByModel retrieves a failover group by its display model name.
