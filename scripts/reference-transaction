@@ -10,7 +10,7 @@ if [ "$state" = "committed" ]; then
 		if [ "$old_rev" = "$zero" ]; then
 			branch="${ref_name#refs/heads/}"
 			if [ "$ref_name" != "$branch" ]; then
-				tokensave branch add || true
+				tokensave branch add "$branch" || true
 			fi
 		fi
 	done
