@@ -4496,6 +4496,26 @@ func TestRepository_PruneModelUUID_PreservesValidGroup(t *testing.T) {
 	}
 }
 
+// TestRepository_SyncForModel_QueryError tests the rows.Err() guard in SyncForModel
+// when a closed pool causes the rows iteration to fail.
+func TestRepository_SyncForModel_QueryError(t *testing.T) {
+	// Create a closed pool to trigger query errors
+	closedPool, err := pgxpool.New(context.Background(), os.Getenv("DATABASE_URL"))
+	if err != nil {
+		t.Fatalf("Failed to create pool: %v", err)
+	}
+	closedPool.Close()
+
+	repo := NewRepository(closedPool)
+	ctx := context.Background()
+
+	// SyncForModel should return an error from the query/rows.Err()
+	err = repo.SyncForModel(ctx, "gpt-4o-mini")
+	if err == nil {
+		t.Error("Expected SyncForModel to return error with closed pool")
+	}
+}
+
 func TestRepository_PruneModelUUID_QueryError(t *testing.T) {
 	// Create a closed pool to trigger query errors
 	closedPool, err := pgxpool.New(context.Background(), os.Getenv("DATABASE_URL"))

@@ -446,6 +446,10 @@ func scanFailoverGroups(rows pgx.Rows) ([]*FailoverGroup, error) {
 		}
 		groups = append(groups, &fg)
 	}
+	if err := rows.Err(); err != nil {
+		debuglog.Error("failover: error iterating rows in scanFailoverGroups", "error", err)
+		return nil, fmt.Errorf("scanFailoverGroups: iteration error: %w", err)
+	}
 	return groups, nil
 }
 
@@ -555,6 +559,10 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 			providerID:   providerID,
 			providerName: providerName,
 		})
+	}
+	if err := rows.Err(); err != nil {
+		debuglog.Error("failover: error iterating model rows during SyncAllModels", "error", err)
+		return nil, err
 	}
 
 	syncedBases := make(map[string]bool)
@@ -688,6 +696,10 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) error {
 			continue
 		}
 		currentIDs = append(currentIDs, id)
+	}
+	if err := rows.Err(); err != nil {
+		debuglog.Error("failover: error iterating model rows during SyncForModel", "error", err)
+		return err
 	}
 
 	if len(currentIDs) <= 1 {
