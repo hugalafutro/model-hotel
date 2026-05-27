@@ -681,7 +681,7 @@ func TestHandleStreamingResponse_WriteFailure(t *testing.T) {
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	// clientDisconnected should be set, state should reflect the error
 	if logData.state != "failed" {
@@ -721,7 +721,7 @@ func TestHandleStreamingResponse_NewlineWriteFailure(t *testing.T) {
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=failed, got %q", logData.state)
@@ -763,7 +763,7 @@ func TestHandleStreamingResponse_DoneWriteFailure(t *testing.T) {
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	// clientDisconnected should be set due to write failure
 	if logData.state != "failed" {
@@ -806,7 +806,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	result := w.Result()
 	defer result.Body.Close()
@@ -863,7 +863,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=failed, got %q", logData.state)
@@ -908,7 +908,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=failed, got %q", logData.state)
@@ -945,7 +945,7 @@ func TestHandleStreamingResponse_ErrAccumAtEnd(t *testing.T) {
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	// Error should be logged and state should be failed
 	if logData.state != "failed" {
@@ -984,7 +984,7 @@ func TestHandleStreamingResponse_ScannerError(t *testing.T) {
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	// scanner.Err() should be captured
 	if logData.state != "failed" {
@@ -1093,7 +1093,7 @@ func TestHandleStreamingResponse_NonDataLineFlushesErrAccum(t *testing.T) {
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	// Error should be captured from errAccum
 	if logData.state != "failed" {
@@ -1130,7 +1130,7 @@ func TestHandleStreamingResponse_BOMStripped(t *testing.T) {
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	body := w.Body.String()
 	// BOM should be stripped, response should be valid
@@ -1168,7 +1168,7 @@ func TestHandleStreamingResponse_LeadingWhitespaceTrimmed(t *testing.T) {
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	body := w.Body.String()
 	if !strings.Contains(body, "[DONE]") {
@@ -1207,7 +1207,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	if logData.tokensPrompt != 10 {
 		t.Errorf("expected prompt_tokens=10, got %d", logData.tokensPrompt)
@@ -1247,7 +1247,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	if logData.tokensCompletion != 50 {
 		t.Errorf("expected completion_tokens=50, got %d", logData.tokensCompletion)
@@ -1291,7 +1291,7 @@ data: [DONE]
 	// Start time 19 seconds ago → totalDuration ≈ 19000ms, no TTFT measured
 	// generationDuration = totalDuration since ttft=0, so TPS = 700/19000*1000 ≈ 36.8
 	startTime := time.Now().Add(-19 * time.Second)
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	// TPS should use (50 + 650) / totalDuration * 1000 since no TTFT was measured
 	if logData.tokensPerSecond <= 0 {
@@ -1335,7 +1335,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now().Add(-100 * time.Millisecond)
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	// When generationDuration <= 0, should fallback to totalDuration
 	// TPS = 5 / ~100 * 1000 ≈ 50 (approximate, just verify positive)
@@ -1378,7 +1378,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	if logData.tokensPromptCacheHit != 80 {
 		t.Errorf("expected prompt_cache_hit=80, got %d", logData.tokensPromptCacheHit)
@@ -1418,7 +1418,7 @@ func TestHandleStreamingResponse_InjectsDoneSentinel(t *testing.T) {
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	body := w.Body.String()
 	// [DONE] should be injected
@@ -1465,7 +1465,7 @@ func TestHandleStreamingResponse_NonDataLineWriteFailure(t *testing.T) {
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=failed, got %q", logData.state)
@@ -1505,7 +1505,7 @@ func TestHandleStreamingResponse_NonDataLineNewlineWriteFailure(t *testing.T) {
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=failed, got %q", logData.state)
@@ -1547,7 +1547,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	result := w.Result()
 	defer result.Body.Close()
@@ -1595,7 +1595,7 @@ func TestHandleStreamingResponse_ErrAccumAtStreamEnd(t *testing.T) {
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	// Error should be captured from errAccum at stream end
 	if logData.state != "failed" {
@@ -1643,7 +1643,7 @@ func TestHandleStreamingResponse_InjectedDoneWriteFailure(t *testing.T) {
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	// The injected [DONE] write failure is logged but benign - state should still be completed
 	// because the stream content was successfully written
@@ -1682,7 +1682,7 @@ func TestHandleStreamingResponse_SSEEventSeparators(t *testing.T) {
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	body := w.Body.String()
 
@@ -1832,7 +1832,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	body := w.Body.String()
 	if !strings.Contains(body, "reasoning_content") {
@@ -1875,7 +1875,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	body := w.Body.String()
 	if !strings.Contains(body, "reasoning_content") {
@@ -1918,7 +1918,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	body := w.Body.String()
 	if !strings.Contains(body, "reasoning_content") {
@@ -1964,7 +1964,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	body := w.Body.String()
 	if !strings.Contains(body, "reasoning_content") {
@@ -2010,7 +2010,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	if logData.tokensPromptCacheHit != 60 {
 		t.Errorf("expected prompt_cache_hit=60, got %d", logData.tokensPromptCacheHit)
@@ -2052,7 +2052,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	if logData.tokensPromptCacheHit != 80 {
 		t.Errorf("expected prompt_cache_hit=80 (OpenAI takes precedence), got %d", logData.tokensPromptCacheHit)
@@ -2170,7 +2170,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	if logData.tokensPromptCacheHit != 120 {
 		t.Errorf("expected prompt_cache_hit=120, got %d", logData.tokensPromptCacheHit)
@@ -2357,7 +2357,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	if logData.tokensPromptCacheHit != 1984 {
 		t.Errorf("expected prompt_cache_hit=1984 (from prompt_tokens_details.cached_tokens), got %d", logData.tokensPromptCacheHit)
@@ -2399,7 +2399,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	// Tier 1 (PromptCacheHitTokens) should take precedence
 	if logData.tokensPromptCacheHit != 500 {
@@ -2549,7 +2549,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	if logData.tokensPromptCacheHit != 150 {
 		t.Errorf("expected prompt_cache_hit=150 (from prompt_tokens_details.cached_tokens), got %d", logData.tokensPromptCacheHit)
@@ -2668,7 +2668,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	// Tier 2 (cache_read_input_tokens) should take precedence over tier 3
 	if logData.tokensPromptCacheHit != 300 {
@@ -2712,7 +2712,7 @@ data: [DONE]
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0, "failover_timeout")
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
 	if logData.tokensPromptCacheHit != 500 {
 		t.Errorf("expected prompt_cache_hit=500 (from prompt_cache_hit_tokens), got %d", logData.tokensPromptCacheHit)

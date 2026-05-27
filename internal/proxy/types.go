@@ -1,8 +1,10 @@
 package proxy
 
 import (
+	"bytes"
 	"context"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -93,6 +95,30 @@ type modelCandidate struct {
 	model    *model.Model
 	provider *provider.Provider
 	apiKey   string
+}
+
+// streamOptions consolidates the parameters for handleStreamingResponse into
+// a single struct, replacing 17 positional parameters with named fields.
+type streamOptions struct {
+	preReadBuf         *bytes.Buffer // nil = no TTFT probe (immediate commit)
+	trueTtftMs         float64       // measured during TTFT probe, 0 if [DONE] first
+	responseHeaderMs   float64       // time to HTTP headers from upstream
+	streamStallTimeout time.Duration // 0 = no stall watchdog
+	providerID         uuid.UUID
+	providerName       string
+	circuitBreakerOn   bool
+	// timing fields
+	proxyOverheadMs  float64
+	parseMs          float64
+	failoverLookupMs float64
+	modelLookupMs    float64
+	providerLookupMs float64
+	keyDecryptMs     float64
+	dialMs           float64
+	settingsReadMs   float64
+	vkHash           string
+	attempt          int
+	cancelOrigin     string
 }
 
 // ChatCompletionRequest is the request body for /v1/chat/completions.
