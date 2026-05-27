@@ -253,11 +253,9 @@ func (h *Handler) DeleteModel(w http.ResponseWriter, r *http.Request) {
 
 	// Sync failover groups since the deleted model may leave a group
 	// with too few candidates.
-	if h.dbPool != nil {
-		failoverRepo := failover.NewRepository(h.dbPool.Pool())
-		if err := failoverRepo.SyncForModel(context.WithoutCancel(r.Context()), modelID); err != nil {
-			debuglog.Info("admin: failed to sync failover groups after model delete", "error", err)
-		}
+	failoverRepo := failover.NewRepository(h.dbPool.Pool())
+	if err := failoverRepo.SyncForModel(context.WithoutCancel(r.Context()), modelID); err != nil {
+		debuglog.Info("admin: failed to sync failover groups after model delete", "error", err)
 	}
 
 	w.WriteHeader(http.StatusNoContent)

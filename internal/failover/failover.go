@@ -106,18 +106,17 @@ func (r *Repository) pruneStaleEntries(ctx context.Context, groups []*FailoverGr
 			continue // Nothing to prune in this group.
 		}
 
-		// Record what was pruned.
-		result.PurgedEntries = append(result.PurgedEntries, PrunedEntryInfo{
-			GroupDisplayModel: g.DisplayModel,
-			PrunedModelIDs:    prunedIDs,
-		})
-
 		if len(validPriority) <= 1 {
 			// Group has 0 or 1 valid entries left — delete it.
 			if err := r.DeleteByID(ctx, g.ID); err != nil {
 				debuglog.Error("failover: failed to delete pruned group", "display_model", g.DisplayModel, "error", err)
 				continue
 			}
+			// Record purged entries and deleted group only after successful DB operations.
+			result.PurgedEntries = append(result.PurgedEntries, PrunedEntryInfo{
+				GroupDisplayModel: g.DisplayModel,
+				PrunedModelIDs:    prunedIDs,
+			})
 			reason := "no valid providers after prune"
 			if len(validPriority) == 1 {
 				reason = "only 1 valid provider after prune (need 2+ for failover)"
@@ -148,6 +147,11 @@ func (r *Repository) pruneStaleEntries(ctx context.Context, groups []*FailoverGr
 			if err != nil {
 				debuglog.Error("failover: failed to update group after pruning", "display_model", g.DisplayModel, "error", err)
 			} else {
+				// Record purged entries only after successful DB update.
+				result.PurgedEntries = append(result.PurgedEntries, PrunedEntryInfo{
+					GroupDisplayModel: g.DisplayModel,
+					PrunedModelIDs:    prunedIDs,
+				})
 				debuglog.Info("failover: pruned stale entries from group",
 					"display_model", g.DisplayModel,
 					"pruned", len(prunedIDs),
