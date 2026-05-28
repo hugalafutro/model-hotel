@@ -2230,11 +2230,12 @@ func TestCalculateStats_LateQueryErrors(t *testing.T) {
 		t.Fatalf("Failed to insert virtual key: %v", err)
 	}
 
-	// Success request
+	// Success request (streaming — has TTFT)
 	insertRichTestRequestLog(t, pool, uuid.New(), providerID, "test-model", 200, 100, 10, 20, requestLogOpts{
 		VirtualKeyID:     &vkID,
 		ResponseHeaderMs: 50.0,
 		ProxyOverheadMs:  5.0,
+		Streaming:        true,
 	})
 	// Error request
 	insertRichTestRequestLog(t, pool, uuid.New(), providerID, "test-model", 500, 200, 5, 10, requestLogOpts{
