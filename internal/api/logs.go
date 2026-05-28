@@ -53,6 +53,7 @@ type LogEntry struct {
 	FailoverAttempt           int       `json:"failover_attempt"`
 	State                     string    `json:"state"`
 	CreatedAt                 time.Time `json:"created_at"`
+	ResolvedModelID           string    `json:"resolved_model_id"`
 }
 
 // LogsResponse is the paginated response for request logs.
@@ -108,7 +109,8 @@ func (h *Handler) GetLog(w http.ResponseWriter, r *http.Request) {
 				ELSE false
 			END AS virtual_key_deleted,
 			COALESCE(rl.error_message, ''), COALESCE(rl.failover_attempt, 0), COALESCE(rl.state, 'completed'), rl.created_at,
-			COALESCE(rl.response_header_ms, 0)
+			COALESCE(rl.response_header_ms, 0),
+			COALESCE(rl.resolved_model_id, '')
 		FROM request_logs rl LEFT JOIN providers p ON rl.provider_id = p.id
 		LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
 		WHERE rl.id = $1`,
@@ -127,6 +129,7 @@ func (h *Handler) GetLog(w http.ResponseWriter, r *http.Request) {
 		&entry.ErrorMessage,
 		&entry.FailoverAttempt, &entry.State, &entry.CreatedAt,
 		&entry.ResponseHeaderMs,
+		&entry.ResolvedModelID,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -222,7 +225,8 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
                 ELSE false
             END AS virtual_key_deleted,
             COALESCE(rl.error_message, ''), COALESCE(rl.failover_attempt, 0), COALESCE(rl.state, 'completed'), rl.created_at,
-            COALESCE(rl.response_header_ms, 0)
+            COALESCE(rl.response_header_ms, 0),
+            COALESCE(rl.resolved_model_id, '')
         FROM request_logs rl LEFT JOIN providers p ON rl.provider_id = p.id
         LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
         WHERE 1=1
@@ -356,6 +360,7 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
 			&entry.ErrorMessage,
 			&entry.FailoverAttempt, &entry.State, &entry.CreatedAt,
 			&entry.ResponseHeaderMs,
+			&entry.ResolvedModelID,
 		)
 		if err != nil {
 			debuglog.Error("logs-cursor: row scan failed", "error", err)
@@ -609,7 +614,8 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
                     ELSE false
                 END AS virtual_key_deleted,
             COALESCE(rl.error_message, ''), COALESCE(rl.failover_attempt, 0), COALESCE(rl.state, 'completed'), rl.created_at,
-            COALESCE(rl.response_header_ms, 0)
+            COALESCE(rl.response_header_ms, 0),
+            COALESCE(rl.resolved_model_id, '')
         FROM request_logs rl LEFT JOIN providers p ON rl.provider_id = p.id
         LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
         WHERE 1=1
@@ -712,6 +718,7 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 			&entry.ErrorMessage,
 			&entry.FailoverAttempt, &entry.State, &entry.CreatedAt,
 			&entry.ResponseHeaderMs,
+			&entry.ResolvedModelID,
 		)
 		if err != nil {
 			debuglog.Error("logs: row scan failed", "error", err)

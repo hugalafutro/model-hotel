@@ -88,6 +88,7 @@ type requestLogData struct {
 	errorMessage              string
 	failoverAttempt           int
 	state                     string
+	resolvedModelID           string
 	insertWg                  sync.WaitGroup // signals when the async INSERT has completed
 }
 

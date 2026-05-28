@@ -268,6 +268,16 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 							textClassName="font-mono text-sm"
 							lines={2}
 						/>
+						{requestLog.model_id?.startsWith("hotel/") &&
+							requestLog.resolved_model_id && (
+								<span className="text-xs text-gray-500 ml-1">
+									(resolved:{" "}
+									<span className="text-(--accent) font-mono">
+										{requestLog.resolved_model_id}
+									</span>
+									)
+								</span>
+							)}
 					</DetailItem>
 					<DetailItem
 						icon={Server}
