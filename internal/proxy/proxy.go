@@ -1560,6 +1560,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 						retryCancel()
 					}
 					logData.failoverAttempt = attempt
+					logData.responseHeaderMs = responseHeaderMs
 					debuglog.Warn("proxy: TTFT probe failed", "attempt", attempt+1, "provider", candidate.provider.Name, "error", probeErr)
 					continue
 				}
