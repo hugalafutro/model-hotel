@@ -1545,7 +1545,10 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 					// or may not have closed the body (only on DeadlineExceeded);
 					// close it unconditionally to release the connection.
 					_ = resp.Body.Close()
-					if circuitBreakerEnabled {
+					// Skip circuit-breaker recording when the client disconnected:
+					// the probe failed because r.Context() was cancelled, not because
+					// the provider was unhealthy.
+					if circuitBreakerEnabled && r.Context().Err() == nil {
 						h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
 					}
 					lastErr = fmt.Sprintf("attempt %d: %v", attempt, probeErr)
