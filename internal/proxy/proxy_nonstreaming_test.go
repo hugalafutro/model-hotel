@@ -249,7 +249,3 @@ func TestHandleNonStreamingResponse_AddTokensError(t *testing.T) {
 		t.Errorf("expected tokens 5/7, got %d/%d", logData.tokensPrompt, logData.tokensCompletion)
 	}
 }
-
-// TestHandleStreamingResponse_ClientWriteFailureOnDataLine tests that a write
-// failure on a data line (not [DONE]) marks the client as disconnected.
-// Covers lines 178-187 in proxy.go.

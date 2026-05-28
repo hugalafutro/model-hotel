@@ -260,5 +260,3 @@ func TestResolveSpecificProvider_InvalidFormat(t *testing.T) {
 		t.Errorf("expected 404, got %d", w.Code)
 	}
 }
-
-// TestChatCompletions_UpstreamTimeout tests the case where upstream times out
