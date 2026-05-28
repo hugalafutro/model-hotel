@@ -2,7 +2,7 @@
 # post-commit: delegate to matching global hook
 set -uo pipefail
 
-global_hooks_dir="/home/sammael/.config/git/hooks"
+global_hooks_dir="${XDG_CONFIG_HOME:-$HOME/.config}/git/hooks"
 hook_name="$(basename "$0")"
 
 if [ -x "$global_hooks_dir/$hook_name" ]; then

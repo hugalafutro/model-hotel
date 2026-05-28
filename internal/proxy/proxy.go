@@ -1454,9 +1454,8 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 		if isFailoverEligible {
 			// Upstream is unhealthy — record failure for circuit breaker.
-			// For streaming requests, recording is deferred until after the TTFT
-			// probe succeeds or fails, to avoid double-counting.
-			if circuitBreakerEnabled && !isStreaming {
+			// Non-2xx streaming responses never reach the TTFT probe, so record now.
+			if circuitBreakerEnabled {
 				h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
 			}
 		} else {
