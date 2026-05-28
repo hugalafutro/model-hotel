@@ -647,6 +647,16 @@ func TestStallWatchdog_RapidChunksNoPanic(t *testing.T) {
 // TeeReader buffer but the body returns an error on the next read. This
 // exercises the race-recovery path in the scanner error handler that scans
 // the buffer for a captured data line.
+// TestProbeFirstToken_RaceRecovery verifies that probeFirstToken returns
+// success when the scanner has already read a complete SSE data line into the
+// TeeReader buffer but the body returns an error on the next read. This
+// exercises the race-recovery path in the scanner error handler that scans
+// the buffer for a captured data line.
+// TestProbeFirstToken_RaceRecovery verifies that probeFirstToken returns
+// success when the scanner has already read a complete SSE data line into the
+// TeeReader buffer but the body returns an error on the next read. This
+// exercises the race-recovery path in the scanner error handler that scans
+// the buffer for a captured data line.
 func TestProbeFirstToken_RaceRecovery(t *testing.T) {
 	// Simulate a body that returns one complete SSE data line then errors.
 	// This models the race: scanner reads "data: hello\n" (captured by
@@ -678,5 +688,49 @@ func TestProbeFirstToken_RaceRecovery(t *testing.T) {
 	}
 	if !strings.Contains(probeBuf.String(), "data: hello world") {
 		t.Errorf("expected probeBuf to contain data line, got %q", probeBuf.String())
+	}
+}
+
+// TestProbeFirstToken_PartialLineAccepted documents that bufio.Scanner's
+// ScanLines split function returns the last non-empty line even without a
+// trailing newline (atEOF rule). The scanner loop processes a partial
+// "data: hel" as a valid data line and returns success — the recovery
+// block is never reached. The recovery block's \n guard is defense-in-depth
+// for any edge case where a partial line reaches it.
+func TestProbeFirstToken_PartialLineAccepted(t *testing.T) {
+	// The scanner's ScanLines split function returns the last non-empty line
+	// even without a trailing newline when Read() returns an error. So the
+	// scanner loop processes "data: hel" as a data line and returns success.
+	// This is correct: the upstream DID send partial data, and the probe's
+	// job is to confirm the provider is responsive.
+	body := io.NopCloser(&errorAfterDataReader{
+		data: "data: hel", // no trailing newline
+		err:  errors.New("body closed by deadline goroutine"),
+	})
+
+	h := &Handler{}
+	startTime := time.Now()
+
+	probeBuf, ttft, err := h.probeFirstToken(
+		context.Background(),
+		body,
+		5*time.Second,
+		startTime,
+	)
+
+	// Scanner processes the partial line as valid (ScanLines last-line rule),
+	// so the probe returns success. The recovery block's \n guard is only
+	// reached when scanner.Scan() returns false — which doesn't happen here.
+	if err != nil {
+		t.Fatalf("expected success (scanner handles partial lines), got error: %v", err)
+	}
+	if probeBuf == nil {
+		t.Fatal("expected non-nil probeBuf")
+	}
+	if !strings.Contains(probeBuf.String(), "data: hel") {
+		t.Errorf("expected probeBuf to contain partial data line, got %q", probeBuf.String())
+	}
+	if ttft <= 0 {
+		t.Errorf("expected positive ttft, got %f", ttft)
 	}
 }

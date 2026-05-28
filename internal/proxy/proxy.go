@@ -1703,9 +1703,18 @@ func (h *Handler) probeFirstToken(
 		// scanner reading a complete data line and probeSucceeded being
 		// checked. TeeReader writes to buf before scanner.Scan() returns,
 		// so the data is captured. Scan the buffer for a complete data
-		// line before falling through to the error paths.
-		for _, rawLine := range strings.Split(buf.String(), "\n") {
+		// line (one followed by a newline — ruling out partial fragments
+		// from a truncated network read) before falling through to error.
+		bufStr := buf.String()
+		for _, rawLine := range strings.Split(bufStr, "\n") {
 			if l := strings.TrimSpace(rawLine); strings.HasPrefix(l, "data:") {
+				// Reject partial lines: a complete SSE line must be
+				// followed by \n in the buffer. Without this guard a
+				// mid-line network fragment like "data: hel" (no \n)
+				// would pass HasPrefix but represent malformed data.
+				if !strings.Contains(bufStr, rawLine+"\n") {
+					continue
+				}
 				content := strings.TrimSpace(strings.TrimPrefix(l, "data:"))
 				if content != "[DONE]" {
 					ttft := float64(time.Since(startTime).Microseconds()) / 1000.0
