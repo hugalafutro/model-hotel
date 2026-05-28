@@ -1629,6 +1629,12 @@ func (h *Handler) probeFirstToken(
 	closeProbe := func() { closeProbeOnce.Do(func() { close(probeDone) }) }
 	defer closeProbe()
 
+	// Atomic flag set the instant a data line is detected, before any
+	// string processing. The goroutine checks this as a last guard before
+	// closing the body, closing a narrow race where the timer fires at the
+	// same instant the scanner returns a data line.
+	var probeSucceeded atomic.Bool
+
 	// Goroutine closes body on timeout, unblocking the scanner.
 	go func() {
 		select {
@@ -1643,7 +1649,7 @@ func (h *Handler) probeFirstToken(
 				return
 			default:
 			}
-			if probeCtx.Err() == context.DeadlineExceeded {
+			if probeCtx.Err() == context.DeadlineExceeded && !probeSucceeded.Load() {
 				_ = body.Close()
 			}
 		}
@@ -1661,6 +1667,11 @@ func (h *Handler) probeFirstToken(
 			continue
 		}
 		if strings.HasPrefix(line, "data:") {
+			// Signal the goroutine immediately — a data line was found,
+			// the provider is healthy. This must happen before any
+			// string processing so the goroutine sees it even if the
+			// timer fires at the same instant.
+			probeSucceeded.Store(true)
 			content := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
 			if content == "[DONE]" {
 				// Stream ended before any real token.
@@ -1677,13 +1688,13 @@ func (h *Handler) probeFirstToken(
 		// Unknown line format — skip but captured in buf.
 	}
 
-	// Scanner exited — either body closed (timeout) or read error.
+	// Scanner exited — body closed (timeout) or read error.
+	// bufio.Scanner never returns io.EOF from Err(); on clean EOF,
+	// Scan() returns false with Err() == nil, handled by the fallback
+	// after this block.
 	if scanErr := scanner.Err(); scanErr != nil {
 		if probeCtx.Err() == context.DeadlineExceeded {
 			return nil, 0, fmt.Errorf("TTFT timeout: no first token within %s", ttftTimeout)
-		}
-		if errors.Is(scanErr, io.EOF) {
-			return nil, 0, fmt.Errorf("TTFT probe: body closed before first data chunk")
 		}
 		return nil, 0, fmt.Errorf("TTFT probe read error: %w", scanErr)
 	}
