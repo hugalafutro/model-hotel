@@ -32,10 +32,11 @@ const TTFT_TIMEOUT_OPTIONS = [
 
 const STREAM_STALL_TIMEOUT_OPTIONS = [
 	{ value: "10s", label: "10 seconds" },
-	{ value: "20s", label: "20 seconds" },
 	{ value: "30s", label: "30 seconds (default)" },
 	{ value: "1m0s", label: "1 minute" },
 	{ value: "2m0s", label: "2 minutes" },
+	{ value: "5m0s", label: "5 minutes" },
+	{ value: "10m0s", label: "10 minutes" },
 	{ value: "0s", label: "Disabled" },
 ];
 
@@ -111,7 +112,7 @@ export function ProxySettings({ collapsed, onToggle }: ProxySettingsProps) {
 					value={streamStallTimeout}
 					options={STREAM_STALL_TIMEOUT_OPTIONS}
 					onChange={(v) => updateMutation.mutate({ stream_stall_timeout: v })}
-					description="Maximum silence during streaming before the connection is cut. Detects dead or stalled upstream connections after streaming has started."
+					description="Maximum silence during streaming before the connection is cut. After 50 chunks, the timeout is automatically extended 3× to tolerate tool calls and long reasoning."
 				/>
 			</div>
 		</SettingsSection>

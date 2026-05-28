@@ -734,3 +734,78 @@ func TestProbeFirstToken_PartialLineAccepted(t *testing.T) {
 		t.Errorf("expected positive ttft, got %f", ttft)
 	}
 }
+
+func TestStallWatchdog_ProgressiveTimeout(t *testing.T) {
+	// Verify that after 50 chunks the stall timeout is extended 3×.
+	// Send 51 chunks rapidly, then pause for longer than the base timeout
+	// but shorter than the extended timeout (base * 3). The stream should
+	// NOT be marked as stalled.
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	// Base stall timeout: 40ms. Extended (3×): 120ms.
+	// We'll send 51 chunks, then pause for 80ms (> base, < extended).
+	// If progressive timeout works, the watchdog won't fire.
+	// If it doesn't work, the watchdog fires at 40ms and kills the stream.
+	baseStall := 40 * time.Millisecond
+	pauseDuration := 80 * time.Millisecond // between base (40ms) and extended (120ms)
+
+	pr, pw := io.Pipe()
+	go func() {
+		// Send 51 chunks rapidly to cross the 50-chunk threshold
+		for i := 0; i < 51; i++ {
+			pw.Write([]byte("data: {\"choices\":[{\"delta\":{\"content\":\"x\"}}]}\n\n"))
+			time.Sleep(time.Millisecond) // tiny delay
+		}
+		// Now pause — this is longer than baseStall but shorter than extendedStall
+		time.Sleep(pauseDuration)
+		// Send final chunk + DONE
+		pw.Write([]byte("data: {\"choices\":[{\"delta\":{\"content\":\"y\"}}]}\n\n"))
+		pw.Write([]byte("data: [DONE]\n\n"))
+		pw.Close()
+	}()
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       pr,
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	logData := &requestLogData{
+		id:             uuid.New().String(),
+		modelID:        "test-model",
+		streaming:      true,
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+		state:          "streaming",
+	}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(50 * time.Millisecond)
+
+	startTime := time.Now()
+	opts := streamOptions{
+		responseHeaderMs:   10.0,
+		streamStallTimeout: baseStall,
+		vkHash:             "test-hash",
+		attempt:            1,
+		cancelOrigin:       "failover_timeout",
+	}
+
+	h.handleStreamingResponse(w, req, logData, resp, startTime, opts)
+
+	// The stream should complete successfully — the 80ms pause was within
+	// the extended timeout (120ms) even though it exceeded the base (40ms).
+	if logData.state != "completed" {
+		t.Errorf("expected state=completed (progressive timeout should allow 80ms pause after 50 chunks), got %q, error=%s", logData.state, logData.errorMessage)
+	}
+
+	// Verify we got content from after the pause (the "y" chunk)
+	body := w.Body.String()
+	if !strings.Contains(body, "data: [DONE]") {
+		t.Error("expected [DONE] sentinel in response")
+	}
+	if !strings.Contains(body, "y") {
+		t.Error("expected content 'y' after pause — stream was likely killed by watchdog")
+	}
+}

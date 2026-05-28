@@ -77,21 +77,21 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	// Stall watchdog: if streamStallTimeout > 0, start a goroutine that
 	// closes resp.Body on timeout, unblocking the scanner.
 	var streamStalled int32 // set to 1 by watchdog on timeout
-	var stallCh chan struct{}
+	var stallCh chan time.Duration
 	var watchdogDone chan struct{}
 	if opts.streamStallTimeout > 0 {
-		stallCh = make(chan struct{}, 1)
+		stallCh = make(chan time.Duration, 1)
 		watchdogDone = make(chan struct{})
 		go func() {
 			timer := time.NewTimer(opts.streamStallTimeout)
 			defer timer.Stop()
 			for {
 				select {
-				case <-stallCh:
+				case d := <-stallCh:
 					if !timer.Stop() {
 						<-timer.C
 					}
-					timer.Reset(opts.streamStallTimeout)
+					timer.Reset(d)
 				case <-timer.C:
 					atomic.StoreInt32(&streamStalled, 1)
 					_ = resp.Body.Close() // unblock scanner
@@ -150,9 +150,15 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 		chunkCount++
 
 		// Ping stall watchdog after each successful scan.
+		// After 50 chunks the stream is clearly alive — extend the
+		// timeout 3× to tolerate tool-call pauses and long reasoning.
 		if stallCh != nil {
+			effectiveStall := opts.streamStallTimeout
+			if chunkCount > 50 {
+				effectiveStall = opts.streamStallTimeout * 3
+			}
 			select {
-			case stallCh <- struct{}{}:
+			case stallCh <- effectiveStall:
 			default:
 			}
 		}
@@ -721,8 +727,12 @@ logUpdate:
 	// normally, a late timer fire is a false positive. Also skip when the
 	// client disconnected, which is a more meaningful diagnosis.
 	if stalled && !sawDone && !clientDisconnected {
-		errMsg = fmt.Sprintf("stream stalled: no data for %s", opts.streamStallTimeout)
-		debuglog.Warn("proxy: stream stall detected", "model", logData.modelID, "provider", logData.providerName, "stall_timeout", opts.streamStallTimeout, "chunks", chunkCount)
+		effectiveStall := opts.streamStallTimeout
+		if chunkCount > 50 {
+			effectiveStall = opts.streamStallTimeout * 3
+		}
+		errMsg = fmt.Sprintf("stream stalled: no data for %s", effectiveStall)
+		debuglog.Warn("proxy: stream stall detected", "model", logData.modelID, "provider", logData.providerName, "stall_timeout", effectiveStall, "base_timeout", opts.streamStallTimeout, "chunks", chunkCount)
 	}
 	if errMsg == "" && !sawDone {
 		// Upstream closed without [DONE] sentinel. If we received content and
