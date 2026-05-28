@@ -162,8 +162,8 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 				>
 					<table className="w-full table-fixed ui-table ui-table-virtual min-w-250">
 						<colgroup>
-							{LOG_COL_WIDTHS.map((w) => (
-								<col key={w} className={w} />
+							{LOG_COL_WIDTHS.map((col) => (
+								<col key={col.key} className={col.width} />
 							))}
 						</colgroup>
 						<tbody>
@@ -213,8 +213,8 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 					}}
 				>
 					<colgroup>
-						{LOG_COL_WIDTHS.map((w) => (
-							<col key={w} className={w} />
+						{LOG_COL_WIDTHS.map((col) => (
+							<col key={col.key} className={col.width} />
 						))}
 					</colgroup>
 					<thead className="sticky top-0 z-10 bg-(--surface)">
@@ -327,10 +327,25 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 											"-"
 										)}
 									</td>
-									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
-										{isCancelled(log.error_message)
-											? "-"
-											: formatTPS(log.tokens_per_second)}
+									<td className="px-2 py-1 whitespace-nowrap text-xs font-mono">
+										{isCancelled(log.error_message) ? (
+											"-"
+										) : (
+											<span
+												className={
+													log.tokens_prompt_cache_hit > 0
+														? "text-(--text-tertiary)"
+														: "text-gray-400"
+												}
+												title={
+													log.tokens_prompt_cache_hit > 0
+														? "Inflated by prompt cache hits"
+														: undefined
+												}
+											>
+												{formatTPS(log.tokens_per_second)}
+											</span>
+										)}
 									</td>
 									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
 										{isCancelled(log.error_message)

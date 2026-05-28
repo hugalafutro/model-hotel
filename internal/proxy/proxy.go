@@ -29,6 +29,13 @@ import (
 var newRequestWithContext = http.NewRequestWithContext
 
 func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, opts streamOptions) {
+
+	// Progressive stall timeout: after this many chunks, the stream is
+	// clearly alive — extend the watchdog timeout to tolerate tool-call
+	// pauses and long reasoning chains.
+	const progressiveChunkThreshold = 50
+	const progressiveStallMultiplier = 3
+
 	defer func() {
 		// Drain remaining bytes so the Transport reuses the connection.
 		// Skip drain if the client already disconnected: the upstream body
@@ -77,21 +84,21 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	// Stall watchdog: if streamStallTimeout > 0, start a goroutine that
 	// closes resp.Body on timeout, unblocking the scanner.
 	var streamStalled int32 // set to 1 by watchdog on timeout
-	var stallCh chan struct{}
+	var stallCh chan time.Duration
 	var watchdogDone chan struct{}
 	if opts.streamStallTimeout > 0 {
-		stallCh = make(chan struct{}, 1)
+		stallCh = make(chan time.Duration, 1)
 		watchdogDone = make(chan struct{})
 		go func() {
 			timer := time.NewTimer(opts.streamStallTimeout)
 			defer timer.Stop()
 			for {
 				select {
-				case <-stallCh:
+				case d := <-stallCh:
 					if !timer.Stop() {
 						<-timer.C
 					}
-					timer.Reset(opts.streamStallTimeout)
+					timer.Reset(d)
 				case <-timer.C:
 					atomic.StoreInt32(&streamStalled, 1)
 					_ = resp.Body.Close() // unblock scanner
@@ -150,9 +157,16 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 		chunkCount++
 
 		// Ping stall watchdog after each successful scan.
+		// After progressiveChunkThreshold chunks the stream is clearly
+		// alive — extend the timeout to tolerate tool-call pauses and
+		// long reasoning.
 		if stallCh != nil {
+			effectiveStall := opts.streamStallTimeout
+			if chunkCount > progressiveChunkThreshold {
+				effectiveStall = opts.streamStallTimeout * progressiveStallMultiplier
+			}
 			select {
-			case stallCh <- struct{}{}:
+			case stallCh <- effectiveStall:
 			default:
 			}
 		}
@@ -674,7 +688,10 @@ logUpdate:
 		ttftForTPS = opts.trueTtftMs
 	}
 	generationDuration := totalDuration - ttftForTPS
-	if totalOutputTokens > 0 && generationDuration > 0 {
+	// Avoid absurd TPS when generation time is negligible
+	// (e.g. non-streaming where response_header_ms ≈ duration_ms).
+	minGeneration := max(1.0, totalDuration*0.05)
+	if totalOutputTokens > 0 && generationDuration >= minGeneration {
 		tps = float64(totalOutputTokens) / float64(generationDuration) * 1000
 	} else if totalOutputTokens > 0 && totalDuration > 0 {
 		tps = float64(totalOutputTokens) / float64(totalDuration) * 1000
@@ -718,8 +735,12 @@ logUpdate:
 	// normally, a late timer fire is a false positive. Also skip when the
 	// client disconnected, which is a more meaningful diagnosis.
 	if stalled && !sawDone && !clientDisconnected {
-		errMsg = fmt.Sprintf("stream stalled: no data for %s", opts.streamStallTimeout)
-		debuglog.Warn("proxy: stream stall detected", "model", logData.modelID, "provider", logData.providerName, "stall_timeout", opts.streamStallTimeout, "chunks", chunkCount)
+		effectiveStall := opts.streamStallTimeout
+		if chunkCount > progressiveChunkThreshold {
+			effectiveStall = opts.streamStallTimeout * progressiveStallMultiplier
+		}
+		errMsg = fmt.Sprintf("stream stalled: no data for %s", effectiveStall)
+		debuglog.Warn("proxy: stream stall detected", "model", logData.modelID, "provider", logData.providerName, "stall_timeout", effectiveStall, "base_timeout", opts.streamStallTimeout, "chunks", chunkCount)
 	}
 	if errMsg == "" && !sawDone {
 		// Upstream closed without [DONE] sentinel. If we received content and
@@ -822,7 +843,10 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		}
 		totalOutputTokens := chatResp.Usage.CompletionTokens + reasoningTokens
 		generationDuration := totalDuration - responseHeaderMs
-		if totalOutputTokens > 0 && generationDuration > 0 {
+		// Avoid absurd TPS when generation time is negligible
+		// (e.g. non-streaming where response_header_ms ≈ duration_ms).
+		minGeneration := max(1.0, totalDuration*0.05)
+		if totalOutputTokens > 0 && generationDuration >= minGeneration {
 			tps = float64(totalOutputTokens) / float64(generationDuration) * 1000
 		} else if totalOutputTokens > 0 && totalDuration > 0 {
 			tps = float64(totalOutputTokens) / float64(totalDuration) * 1000

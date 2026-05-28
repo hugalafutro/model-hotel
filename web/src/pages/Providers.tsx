@@ -74,12 +74,12 @@ export function Providers() {
 	const quotaData = useQuotaData(providers, { toastErrors: toast });
 
 	const {
-		nanogptUsage: modalNano,
-		setNanogptUsage: setModalNano,
-		zaiCodingUsage: modalZaiCoding,
-		setZaiCodingUsage: setModalZaiCoding,
-		openrouterBalance: modalOpenRouter,
-		setOpenrouterBalance: setModalOpenRouter,
+		isNanoOpen,
+		setNanoOpen,
+		isZaiCodingOpen,
+		setZaiCodingOpen,
+		isOpenRouterOpen,
+		setOpenRouterOpen,
 	} = useQuotaModal();
 
 	// Track which provider is currently being scanned during Discover All
@@ -336,9 +336,9 @@ export function Providers() {
 						onDiscover={(id) => discoverMutation.mutate(id)}
 						onDelete={setDeleteProvider}
 						onSetModelsProvider={setModelsProvider}
-						onSetModalNano={(usage) => setModalNano(usage)}
-						onSetModalZaiCoding={(usage) => setModalZaiCoding(usage)}
-						onSetModalOpenRouter={(balance) => setModalOpenRouter(balance)}
+						onSetModalNano={() => setNanoOpen(true)}
+						onSetModalZaiCoding={() => setZaiCodingOpen(true)}
+						onSetModalOpenRouter={() => setOpenRouterOpen(true)}
 						toast={toast}
 					/>
 				))}
@@ -366,10 +366,10 @@ export function Providers() {
 				/>
 			)}
 
-			{modalNano && (
+			{isNanoOpen && quotaData.nanogptUsage && (
 				<NanoGPTQuotaModal
-					usage={modalNano}
-					onClose={() => setModalNano(null)}
+					usage={quotaData.nanogptUsage}
+					onClose={() => setNanoOpen(false)}
 					onRefresh={quotaData.refetchNano}
 					isRefreshing={quotaData.isNanoRefetching}
 					onToast={toast}
@@ -377,10 +377,10 @@ export function Providers() {
 				/>
 			)}
 
-			{modalZaiCoding && (
+			{isZaiCodingOpen && quotaData.zaiCodingUsage && (
 				<ZAICodingQuotaModal
-					usage={modalZaiCoding}
-					onClose={() => setModalZaiCoding(null)}
+					usage={quotaData.zaiCodingUsage}
+					onClose={() => setZaiCodingOpen(false)}
 					onRefresh={quotaData.refetchZaiCoding}
 					isRefreshing={quotaData.isZaiCodingRefetching}
 					onToast={toast}
@@ -388,10 +388,10 @@ export function Providers() {
 				/>
 			)}
 
-			{modalOpenRouter && (
+			{isOpenRouterOpen && quotaData.openrouterBalance && (
 				<OpenRouterQuotaModal
-					balance={modalOpenRouter}
-					onClose={() => setModalOpenRouter(null)}
+					balance={quotaData.openrouterBalance}
+					onClose={() => setOpenRouterOpen(false)}
 					onRefresh={quotaData.refetchOpenRouter}
 					isRefreshing={quotaData.isOrRefetching}
 					onToast={toast}

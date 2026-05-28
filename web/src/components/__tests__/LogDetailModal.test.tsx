@@ -728,6 +728,207 @@ describe("LogDetailModal", () => {
 			expect(tpsCard).toBeInTheDocument();
 			expect(tpsCard?.textContent).toContain("-");
 		});
+
+		it("displays dash when tokens_per_second is 0", () => {
+			const zeroTpsLog = {
+				...mockRequestLog,
+				tokens_per_second: 0,
+			};
+			renderWithProviders(
+				<LogDetailModal log={zeroTpsLog} type="request" onClose={onClose} />,
+			);
+
+			// The Tokens/s timing card contains both the label and the value
+			const tpsLabel = screen.getByText("Tokens/s");
+			const tpsCard = tpsLabel.closest("[class*=rounded-lg]");
+			expect(tpsCard).toBeInTheDocument();
+			expect(tpsCard?.textContent).toContain("-");
+		});
+	});
+
+	describe("Info icon tooltips for timing cards", () => {
+		it("renders Info icon with tooltip for Duration card", () => {
+			renderWithProviders(
+				<LogDetailModal
+					log={mockRequestLog}
+					type="request"
+					onClose={onClose}
+				/>,
+			);
+
+			const tooltip = screen.getByTitle(
+				"Total wall-clock time from request start to response end",
+			);
+			expect(tooltip).toBeInTheDocument();
+			expect(tooltip.querySelector("svg")).toBeInTheDocument();
+		});
+
+		it("renders Info icon with tooltip for Headers card", () => {
+			renderWithProviders(
+				<LogDetailModal
+					log={mockRequestLog}
+					type="request"
+					onClose={onClose}
+				/>,
+			);
+
+			const tooltip = screen.getByTitle(
+				"Time to receive the first HTTP response headers from the upstream provider",
+			);
+			expect(tooltip).toBeInTheDocument();
+			expect(tooltip.querySelector("svg")).toBeInTheDocument();
+		});
+
+		it("renders Info icon with tooltip for TTFT card", () => {
+			renderWithProviders(
+				<LogDetailModal
+					log={mockRequestLog}
+					type="request"
+					onClose={onClose}
+				/>,
+			);
+
+			const tooltip = screen.getByTitle(
+				"Time to First Token: delay between request start and the first token of the response body (streaming) or full response (non-streaming)",
+			);
+			expect(tooltip).toBeInTheDocument();
+			expect(tooltip.querySelector("svg")).toBeInTheDocument();
+		});
+
+		it("renders Info icon with tooltip for Tokens/s card", () => {
+			renderWithProviders(
+				<LogDetailModal
+					log={mockRequestLog}
+					type="request"
+					onClose={onClose}
+				/>,
+			);
+
+			const tooltip = screen.getByTitle(
+				"Output tokens per second during the generation phase (excludes time-to-first-token). Shown as '-' when generation time is negligible.",
+			);
+			expect(tooltip).toBeInTheDocument();
+			expect(tooltip.querySelector("svg")).toBeInTheDocument();
+		});
+
+		it("renders Info icon with tooltip for Total Tokens card", () => {
+			renderWithProviders(
+				<LogDetailModal
+					log={mockRequestLog}
+					type="request"
+					onClose={onClose}
+				/>,
+			);
+
+			const tooltip = screen.getByTitle(
+				"Sum of prompt + completion + reasoning tokens",
+			);
+			expect(tooltip).toBeInTheDocument();
+			expect(tooltip.querySelector("svg")).toBeInTheDocument();
+		});
+	});
+
+	describe("Info icon tooltips for overhead breakdown rows", () => {
+		const overheadLog = {
+			...mockRequestLog,
+			proxy_overhead_ms: 50,
+		};
+
+		it("renders Info icon with tooltip for Request Parsing row", () => {
+			renderWithProviders(
+				<LogDetailModal log={overheadLog} type="request" onClose={onClose} />,
+			);
+
+			const tooltip = screen.getByTitle(
+				"Time to parse and validate the incoming request body",
+			);
+			expect(tooltip).toBeInTheDocument();
+			expect(tooltip.querySelector("svg")).toBeInTheDocument();
+		});
+
+		it("renders Info icon with tooltip for Failover Group Lookup row", () => {
+			renderWithProviders(
+				<LogDetailModal log={overheadLog} type="request" onClose={onClose} />,
+			);
+
+			const tooltip = screen.getByTitle(
+				"Time to resolve the failover group to a specific model and provider",
+			);
+			expect(tooltip).toBeInTheDocument();
+			expect(tooltip.querySelector("svg")).toBeInTheDocument();
+		});
+
+		it("renders Info icon with tooltip for Model Lookup row", () => {
+			renderWithProviders(
+				<LogDetailModal log={overheadLog} type="request" onClose={onClose} />,
+			);
+
+			const tooltip = screen.getByTitle(
+				"Time to look up the model configuration in the database",
+			);
+			expect(tooltip).toBeInTheDocument();
+			expect(tooltip.querySelector("svg")).toBeInTheDocument();
+		});
+
+		it("renders Info icon with tooltip for Provider Lookup row", () => {
+			renderWithProviders(
+				<LogDetailModal log={overheadLog} type="request" onClose={onClose} />,
+			);
+
+			const tooltip = screen.getByTitle(
+				"Time to look up the provider details in the database",
+			);
+			expect(tooltip).toBeInTheDocument();
+			expect(tooltip.querySelector("svg")).toBeInTheDocument();
+		});
+
+		it("renders Info icon with tooltip for Key Decryption row", () => {
+			renderWithProviders(
+				<LogDetailModal log={overheadLog} type="request" onClose={onClose} />,
+			);
+
+			const tooltip = screen.getByTitle("Time to decrypt the provider API key");
+			expect(tooltip).toBeInTheDocument();
+			expect(tooltip.querySelector("svg")).toBeInTheDocument();
+		});
+
+		it("renders Info icon with tooltip for Dial (DNS+TCP) row", () => {
+			renderWithProviders(
+				<LogDetailModal log={overheadLog} type="request" onClose={onClose} />,
+			);
+
+			const tooltip = screen.getByTitle(
+				"Time to establish the TCP connection to the upstream provider (0 = connection reused)",
+			);
+			expect(tooltip).toBeInTheDocument();
+			expect(tooltip.querySelector("svg")).toBeInTheDocument();
+		});
+
+		it("renders Info icon with tooltip for Settings Reads row", () => {
+			renderWithProviders(
+				<LogDetailModal log={overheadLog} type="request" onClose={onClose} />,
+			);
+
+			const tooltip = screen.getByTitle(
+				"Time to read proxy settings from the database",
+			);
+			expect(tooltip).toBeInTheDocument();
+			expect(tooltip.querySelector("svg")).toBeInTheDocument();
+		});
+
+		it("does NOT render Info icon for Total Overhead row", () => {
+			renderWithProviders(
+				<LogDetailModal log={overheadLog} type="request" onClose={onClose} />,
+			);
+
+			// Find the Total Overhead label
+			const totalLabel = screen.getByText("Total Overhead");
+			// Get the parent row/container
+			const totalRow = totalLabel.closest("div");
+			expect(totalRow).toBeInTheDocument();
+			// Verify there's no SVG (Info icon) within this row
+			expect(totalRow?.querySelector("svg")).not.toBeInTheDocument();
+		});
 	});
 
 	describe("Virtual key fallback", () => {

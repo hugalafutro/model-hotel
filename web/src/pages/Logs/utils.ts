@@ -2,7 +2,7 @@
    Request-logs formatting helpers
    ===================================================== */
 export function formatTPS(t: number | null): string {
-	if (t == null) return "-";
+	if (t == null || t === 0) return "-";
 	return t.toFixed(1);
 }
 

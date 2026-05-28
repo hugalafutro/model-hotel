@@ -131,12 +131,12 @@ export function ProviderQuotaPanel() {
 	}, [toast, invalidateAll]);
 
 	const {
-		nanogptUsage: modalNano,
-		setNanogptUsage: setModalNano,
-		zaiCodingUsage: modalZaiCoding,
-		setZaiCodingUsage: setModalZaiCoding,
-		openrouterBalance: modalOpenRouter,
-		setOpenrouterBalance: setModalOpenRouter,
+		isNanoOpen,
+		setNanoOpen,
+		isZaiCodingOpen,
+		setZaiCodingOpen,
+		isOpenRouterOpen,
+		setOpenRouterOpen,
 	} = useQuotaModal();
 
 	if (!quotaData.hasAnyProvider || disabled) return null;
@@ -181,44 +181,40 @@ export function ProviderQuotaPanel() {
 						<QuotaBadges
 							quotaData={quotaData}
 							variant="sidebar"
-							onNanoClick={() => setModalNano(quotaData.nanogptUsage ?? null)}
-							onZaiCodingClick={() =>
-								setModalZaiCoding(quotaData.zaiCodingUsage ?? null)
-							}
+							onNanoClick={() => setNanoOpen(true)}
+							onZaiCodingClick={() => setZaiCodingOpen(true)}
 							onDeepseekClick={handleRefresh}
-							onOpenRouterClick={() =>
-								setModalOpenRouter(quotaData.openrouterBalance ?? null)
-							}
+							onOpenRouterClick={() => setOpenRouterOpen(true)}
 							onOllamaCloudClick={handleRefresh}
 						/>
 					</div>
 				</div>
 			</div>
 
-			{modalNano && (
+			{isNanoOpen && quotaData.nanogptUsage && (
 				<NanoGPTQuotaModal
-					usage={modalNano}
-					onClose={() => setModalNano(null)}
+					usage={quotaData.nanogptUsage}
+					onClose={() => setNanoOpen(false)}
 					onRefresh={quotaData.refetchNano}
 					isRefreshing={quotaData.isNanoRefetching}
 					onToast={toast}
 					lastRefreshed={quotaData.nanogptDataUpdatedAt}
 				/>
 			)}
-			{modalZaiCoding && (
+			{isZaiCodingOpen && quotaData.zaiCodingUsage && (
 				<ZAICodingQuotaModal
-					usage={modalZaiCoding}
-					onClose={() => setModalZaiCoding(null)}
+					usage={quotaData.zaiCodingUsage}
+					onClose={() => setZaiCodingOpen(false)}
 					onRefresh={quotaData.refetchZaiCoding}
 					isRefreshing={quotaData.isZaiCodingRefetching}
 					onToast={toast}
 					lastRefreshed={quotaData.zaiCodingDataUpdatedAt}
 				/>
 			)}
-			{modalOpenRouter && (
+			{isOpenRouterOpen && quotaData.openrouterBalance && (
 				<OpenRouterQuotaModal
-					balance={modalOpenRouter}
-					onClose={() => setModalOpenRouter(null)}
+					balance={quotaData.openrouterBalance}
+					onClose={() => setOpenRouterOpen(false)}
 					onRefresh={quotaData.refetchOpenRouter}
 					isRefreshing={quotaData.isOrRefetching}
 					onToast={toast}

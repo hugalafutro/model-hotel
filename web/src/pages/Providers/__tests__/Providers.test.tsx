@@ -394,6 +394,213 @@ describe("Providers", () => {
 			});
 		});
 
+		it("closes NanoGPT quota modal when clicking close button", async () => {
+			const nanogptProvider = {
+				...mockProvider,
+				id: "provider-nano",
+				name: "NanoGPT",
+				base_url: "https://nano-gpt.com/api/subscription/v1",
+			};
+			server.use(
+				...mockProvidersPageDefaults({ providers: [nanogptProvider] }),
+				http.get("/api/providers/:id/usage", () =>
+					HttpResponse.json({
+						active: true,
+						provider: "nanogpt",
+						providerStatus: "active",
+						providerStatusRaw: "active",
+						stripeSubscriptionId: "sub_test123",
+						cancellationReason: null,
+						canceledAt: null,
+						endedAt: null,
+						cancelAt: null,
+						cancelAtPeriodEnd: false,
+						limits: {
+							weeklyInputTokens: 1000000,
+							dailyInputTokens: 200000,
+							dailyImages: 100,
+						},
+						allowOverage: false,
+						period: {
+							currentPeriodEnd: new Date(
+								Date.now() + 7 * 24 * 60 * 60 * 1000,
+							).toISOString(),
+						},
+						dailyImages: null,
+						dailyInputTokens: {
+							used: 50000,
+							remaining: 150000,
+							percentUsed: 25,
+							resetAt: Date.now() + 24 * 60 * 60 * 1000,
+						},
+						weeklyInputTokens: {
+							used: 200000,
+							remaining: 800000,
+							percentUsed: 20,
+							resetAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+						},
+						state: "active",
+						graceUntil: null,
+					}),
+				),
+			);
+
+			const { user } = renderWithProviders(<Providers />);
+
+			await waitFor(() => {
+				expect(screen.getByText("NanoGPT")).toBeInTheDocument();
+			});
+
+			await waitFor(() => {
+				const badge = screen.getByText(/200K/);
+				expect(badge).toBeInTheDocument();
+			});
+			const quotaBadge = screen.getByText(/200K/);
+			await user.click(quotaBadge);
+
+			await waitFor(() => {
+				expect(screen.getByRole("dialog")).toBeInTheDocument();
+			});
+
+			// Close the modal
+			const dialog = screen.getByRole("dialog");
+			const closeButton = within(dialog).getByRole("button", {
+				name: "Close",
+			});
+			await user.click(closeButton);
+
+			// Modal should close
+			await waitFor(() => {
+				expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+			});
+		});
+
+		it("closes Z.ai Coding quota modal when clicking close button", async () => {
+			const zaiProvider = {
+				...mockProvider,
+				id: "provider-zai",
+				name: "Z.ai Coding",
+				base_url: "https://api.z.ai/api/coding/paas/v4",
+			};
+			server.use(
+				...mockProvidersPageDefaults({ providers: [zaiProvider] }),
+				http.get("/api/providers/:id/usage", () =>
+					HttpResponse.json({
+						code: 0,
+						msg: "success",
+						success: true,
+						data: {
+							level: "basic",
+							limits: [
+								{
+									type: "TOKENS_LIMIT",
+									unit: 3,
+									number: 10000,
+									usage: 5000,
+									currentValue: 5000,
+									remaining: 5000,
+									percentage: 50,
+									nextResetTime: Date.now() + 5 * 60 * 60 * 1000,
+								},
+								{
+									type: "TOKENS_LIMIT",
+									unit: 6,
+									number: 50000,
+									usage: 25000,
+									currentValue: 25000,
+									remaining: 25000,
+									percentage: 50,
+									nextResetTime: Date.now() + 7 * 24 * 60 * 60 * 1000,
+								},
+							],
+						},
+					}),
+				),
+			);
+
+			const { user } = renderWithProviders(<Providers />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Z.ai Coding")).toBeInTheDocument();
+			});
+
+			await waitFor(() => {
+				const badge = screen.getByText(/50%/);
+				expect(badge).toBeInTheDocument();
+			});
+			const quotaBadge = screen.getByText(/50%/);
+			await user.click(quotaBadge);
+
+			await waitFor(() => {
+				expect(screen.getByRole("dialog")).toBeInTheDocument();
+			});
+
+			const dialog = screen.getByRole("dialog");
+			const closeButton = within(dialog).getByRole("button", {
+				name: "Close",
+			});
+			await user.click(closeButton);
+
+			await waitFor(() => {
+				expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+			});
+		});
+
+		it("closes OpenRouter balance modal when clicking close button", async () => {
+			const openrouterProvider = {
+				...mockProvider,
+				id: "provider-or",
+				name: "OpenRouter",
+				base_url: "https://openrouter.ai/api/v1",
+			};
+			server.use(
+				...mockProvidersPageDefaults({ providers: [openrouterProvider] }),
+				http.get("/api/providers/:id/usage", () =>
+					HttpResponse.json({
+						label: "OpenRouter",
+						limit: null,
+						limit_reset: null,
+						limit_remaining: null,
+						usage: 100000,
+						usage_daily: 10000,
+						usage_weekly: 50000,
+						usage_monthly: 100000,
+						credits_total: 1000000,
+						credits_used: 100000,
+						credits_remaining: 900000,
+						is_free_tier: false,
+					}),
+				),
+			);
+
+			const { user } = renderWithProviders(<Providers />);
+
+			await waitFor(() => {
+				expect(screen.getByText("OpenRouter")).toBeInTheDocument();
+			});
+
+			await waitFor(() => {
+				const balanceBadge = screen.getByText(/\$900000/);
+				expect(balanceBadge).toBeInTheDocument();
+			});
+			const balanceBadge = screen.getByText(/\$900000/);
+			await user.click(balanceBadge);
+
+			await waitFor(() => {
+				expect(screen.getByRole("dialog")).toBeInTheDocument();
+			});
+
+			const dialog = screen.getByRole("dialog");
+			const closeButton = within(dialog).getByRole("button", {
+				name: "Close",
+			});
+			await user.click(closeButton);
+
+			await waitFor(() => {
+				expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+			});
+		});
+
 		it("opens Z.ai Coding quota modal when clicking quota badge", async () => {
 			const zaiProvider = {
 				...mockProvider,

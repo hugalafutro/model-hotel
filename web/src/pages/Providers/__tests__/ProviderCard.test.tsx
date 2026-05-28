@@ -486,9 +486,7 @@ describe("ProviderCard", () => {
 			);
 			fireEvent.click(nanoBadge);
 
-			expect(defaultProps.onSetModalNano).toHaveBeenCalledWith({
-				weeklyInputTokens: { used: 1000 },
-			});
+			expect(defaultProps.onSetModalNano).toHaveBeenCalled();
 		});
 
 		it("does not call onSetModalNano when nanogptUsage is falsy", () => {
@@ -537,9 +535,7 @@ describe("ProviderCard", () => {
 			);
 			fireEvent.click(zaiBadge);
 
-			expect(defaultProps.onSetModalZaiCoding).toHaveBeenCalledWith({
-				success: true,
-			});
+			expect(defaultProps.onSetModalZaiCoding).toHaveBeenCalled();
 		});
 
 		it("calls refetchDeepseek and toasts success when DeepSeek badge is clicked", async () => {
@@ -622,9 +618,7 @@ describe("ProviderCard", () => {
 			);
 			fireEvent.click(openrouterBadge);
 
-			expect(defaultProps.onSetModalOpenRouter).toHaveBeenCalledWith({
-				credits_remaining: 5.0,
-			});
+			expect(defaultProps.onSetModalOpenRouter).toHaveBeenCalledWith();
 		});
 
 		it("calls refetchOllamaCloud and toasts success when Ollama Cloud badge is clicked", async () => {

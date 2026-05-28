@@ -556,5 +556,65 @@ describe("Logs", () => {
 			// Should NOT show the "(resolved: ...)" text
 			expect(screen.queryByText("(resolved:")).not.toBeInTheDocument();
 		});
+
+		it("shows muted TPS color when request has prompt cache hits", async () => {
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "cache-hit-hash",
+								provider_name: "Test Provider",
+								tokens_per_second: 50,
+								tokens_prompt_cache_hit: 500,
+								duration_ms: 1000,
+								proxy_overhead_ms: 10,
+							}),
+						]),
+					),
+				),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByText("50.0")).toBeInTheDocument();
+			});
+
+			// Find the span with the TPS value and check its class
+			const tpsSpan = screen.getByText("50.0");
+			expect(tpsSpan).toHaveClass("text-(--text-tertiary)");
+			expect(tpsSpan).toHaveAttribute("title", "Inflated by prompt cache hits");
+		});
+
+		it("shows default TPS color when request has no prompt cache hits", async () => {
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "no-cache-hash",
+								provider_name: "Test Provider",
+								tokens_per_second: 75,
+								tokens_prompt_cache_hit: 0,
+								duration_ms: 1000,
+								proxy_overhead_ms: 10,
+							}),
+						]),
+					),
+				),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByText("75.0")).toBeInTheDocument();
+			});
+
+			// Find the span with the TPS value and check its class
+			const tpsSpan = screen.getByText("75.0");
+			expect(tpsSpan).toHaveClass("text-gray-400");
+			expect(tpsSpan).not.toHaveAttribute("title");
+		});
 	});
 });
