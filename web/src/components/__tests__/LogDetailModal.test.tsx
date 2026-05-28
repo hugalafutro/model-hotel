@@ -1,9 +1,9 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { AppLogEntry, LogEntry } from "../../api/types";
 import { getByDialogName } from "../../test/helpers";
 import { renderWithProviders } from "../../test/utils";
-import type { AppLogEntry, LogEntry } from "../api/types";
 import { LogDetailModal } from "../LogDetailModal";
 
 describe("LogDetailModal", () => {
@@ -39,6 +39,7 @@ describe("LogDetailModal", () => {
 		error_message: "",
 		failover_attempt: 0,
 		created_at: "2025-05-12T10:30:00Z",
+		resolved_model_id: "",
 	};
 
 	const mockAppLog: AppLogEntry = {
@@ -774,6 +775,53 @@ describe("LogDetailModal", () => {
 			expect(screen.getByText("Reasoning")).toBeInTheDocument();
 			const reasoningValue = screen.getByText("500");
 			expect(reasoningValue).toHaveClass("text-purple-400");
+		});
+	});
+
+	describe("Resolved model ID display", () => {
+		it("displays (resolved: model_id) when model_id starts with hotel/ and resolved_model_id is present", () => {
+			const failoverLog = {
+				...mockRequestLog,
+				model_id: "hotel/my-failover-group",
+				resolved_model_id: "openai/gpt-4o",
+			};
+			renderWithProviders(
+				<LogDetailModal log={failoverLog} type="request" onClose={onClose} />,
+			);
+
+			// Check the "resolved:" text is shown (it's in a span with the resolved model ID)
+			const resolvedLabel = screen.getByText(/resolved:/);
+			expect(resolvedLabel).toBeInTheDocument();
+			// Check the resolved model ID is shown in the modal
+			expect(screen.getByText("openai/gpt-4o")).toBeInTheDocument();
+		});
+
+		it("does not display (resolved: ...) when model_id does not start with hotel/", () => {
+			const regularLog = {
+				...mockRequestLog,
+				model_id: "anthropic/claude-3-5-sonnet",
+				resolved_model_id: "anthropic/claude-3-5-sonnet",
+			};
+			renderWithProviders(
+				<LogDetailModal log={regularLog} type="request" onClose={onClose} />,
+			);
+
+			// Should NOT show the resolved annotation
+			expect(screen.queryByText(/resolved:/)).not.toBeInTheDocument();
+		});
+
+		it("does not display (resolved: ...) when resolved_model_id is empty", () => {
+			const noResolvedLog = {
+				...mockRequestLog,
+				model_id: "hotel/my-failover-group",
+				resolved_model_id: "",
+			};
+			renderWithProviders(
+				<LogDetailModal log={noResolvedLog} type="request" onClose={onClose} />,
+			);
+
+			// Should NOT show the resolved annotation when resolved_model_id is empty
+			expect(screen.queryByText(/resolved:/)).not.toBeInTheDocument();
 		});
 	});
 

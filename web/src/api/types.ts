@@ -97,6 +97,7 @@ export interface LogEntry {
 	error_message: string;
 	failover_attempt: number;
 	created_at: string;
+	resolved_model_id: string;
 }
 
 export interface AppLogEntry {

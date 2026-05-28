@@ -503,5 +503,58 @@ describe("Logs", () => {
 				expect(screen.getByText("Resolving…")).toBeInTheDocument();
 			});
 		});
+
+		it("displays hotel/ model_id with resolved_model_id showing both with tooltip", async () => {
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "abc123",
+								model_id: "hotel/my-failover-group",
+								resolved_model_id: "openai/gpt-4o",
+								provider_name: "Test",
+								duration_ms: 1000,
+								proxy_overhead_ms: 10,
+							}),
+						]),
+					),
+				),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByText("hotel/my-failover-group")).toBeInTheDocument();
+			});
+			expect(screen.getByText("(openai/gpt-4o)")).toBeInTheDocument();
+		});
+
+		it("displays non-hotel/ model_id with resolved_model_id not showing resolved", async () => {
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								request_hash: "abc123",
+								model_id: "anthropic/claude-3-5-sonnet",
+								resolved_model_id: "anthropic/claude-3-5-sonnet",
+								provider_name: "Test",
+								duration_ms: 1000,
+								proxy_overhead_ms: 10,
+							}),
+						]),
+					),
+				),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByText("claude-3-5-sonnet")).toBeInTheDocument();
+			});
+			// Should NOT show the "(resolved: ...)" text
+			expect(screen.queryByText("(resolved:")).not.toBeInTheDocument();
+		});
 	});
 });

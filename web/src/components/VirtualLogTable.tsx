@@ -169,7 +169,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 						<tbody>
 							<tr>
 								<td
-									colSpan={11}
+									colSpan={12}
 									className="px-4 py-8 text-center text-gray-500 text-sm"
 								>
 									No logs found
@@ -262,15 +262,34 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 									</td>
 									<td
 										className="px-2 py-1 whitespace-nowrap text-xs text-gray-200 truncate"
-										title={log.model_id}
+										title={
+											log.model_id?.startsWith("hotel/") &&
+											log.resolved_model_id
+												? `${log.model_id} (${log.resolved_model_id})`
+												: log.model_id
+										}
 									>
-										{log.model_id
-											? log.model_id.startsWith("hotel/")
-												? log.model_id
-												: log.model_id.includes("/")
-													? log.model_id.slice(log.model_id.indexOf("/") + 1)
-													: log.model_id
-											: "-"}
+										{log.model_id ? (
+											log.model_id.startsWith("hotel/") ? (
+												<>
+													<span className="text-(--accent)">
+														{log.model_id}
+													</span>
+													{log.resolved_model_id && (
+														<span className="text-gray-500">
+															{" "}
+															({log.resolved_model_id})
+														</span>
+													)}
+												</>
+											) : log.model_id.includes("/") ? (
+												log.model_id.slice(log.model_id.indexOf("/") + 1)
+											) : (
+												log.model_id
+											)
+										) : (
+											"-"
+										)}
 									</td>
 									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-300 truncate">
 										{log.provider_name === "Deleted" ? (
