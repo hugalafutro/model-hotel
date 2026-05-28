@@ -1699,6 +1699,21 @@ func (h *Handler) probeFirstToken(
 	// Scan() returns false with Err() == nil, handled by the fallback
 	// after this block.
 	if scanErr := scanner.Err(); scanErr != nil {
+		// Race recovery: the goroutine may close the body between the
+		// scanner reading a complete data line and probeSucceeded being
+		// checked. TeeReader writes to buf before scanner.Scan() returns,
+		// so the data is captured. Scan the buffer for a complete data
+		// line before falling through to the error paths.
+		for _, rawLine := range strings.Split(buf.String(), "\n") {
+			if l := strings.TrimSpace(rawLine); strings.HasPrefix(l, "data:") {
+				content := strings.TrimSpace(strings.TrimPrefix(l, "data:"))
+				if content != "[DONE]" {
+					ttft := float64(time.Since(startTime).Microseconds()) / 1000.0
+					debuglog.Info("proxy: TTFT probe recovered data after scanner error", "ttft_ms", ttft, "scan_error", scanErr)
+					return &buf, ttft, nil
+				}
+			}
+		}
 		if probeCtx.Err() == context.DeadlineExceeded {
 			return nil, 0, fmt.Errorf("TTFT timeout: no first token within %s", ttftTimeout)
 		}

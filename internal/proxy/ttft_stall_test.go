@@ -3,6 +3,7 @@ package proxy
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -638,5 +639,44 @@ func TestStallWatchdog_RapidChunksNoPanic(t *testing.T) {
 	// the timer.Reset code path without panicking.
 	if logData.state != "completed" && logData.state != "failed" {
 		t.Errorf("expected completed or failed, got %q", logData.state)
+	}
+}
+
+// TestProbeFirstToken_RaceRecovery verifies that probeFirstToken returns
+// success when the scanner has already read a complete SSE data line into the
+// TeeReader buffer but the body returns an error on the next read. This
+// exercises the race-recovery path in the scanner error handler that scans
+// the buffer for a captured data line.
+func TestProbeFirstToken_RaceRecovery(t *testing.T) {
+	// Simulate a body that returns one complete SSE data line then errors.
+	// This models the race: scanner reads "data: hello\n" (captured by
+	// TeeReader into buf) → goroutine closes body → scanner.Scan() returns
+	// false with an error → error handler finds data in buf.
+	body := io.NopCloser(&errorAfterDataReader{
+		data: "data: hello world\n",
+		err:  errors.New("body closed by deadline goroutine"),
+	})
+
+	h := &Handler{}
+	startTime := time.Now()
+
+	probeBuf, ttft, err := h.probeFirstToken(
+		context.Background(),
+		body,
+		5*time.Second, // generous timeout — the error comes from body, not timeout
+		startTime,
+	)
+
+	if err != nil {
+		t.Fatalf("expected race recovery success, got error: %v", err)
+	}
+	if probeBuf == nil {
+		t.Fatal("expected non-nil probeBuf")
+	}
+	if ttft <= 0 {
+		t.Errorf("expected positive ttft, got %f", ttft)
+	}
+	if !strings.Contains(probeBuf.String(), "data: hello world") {
+		t.Errorf("expected probeBuf to contain data line, got %q", probeBuf.String())
 	}
 }
