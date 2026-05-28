@@ -657,12 +657,11 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	// Stop stall watchdog before entering logUpdate.
+logUpdate:
+	// Signal watchdog to stop on all exit paths (goto or normal loop exit).
 	if watchdogDone != nil {
 		close(watchdogDone)
 	}
-
-logUpdate:
 	totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
 	var tps float64
 	// Use total output tokens (text + reasoning) for TPS numerator,
