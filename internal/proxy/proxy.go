@@ -712,11 +712,12 @@ logUpdate:
 		errMsg = "client disconnected"
 		debuglog.Warn("proxy: client disconnected during streaming", "model", logData.modelID)
 	}
-	// Stall detection takes precedence over missing [DONE] since the body
-	// was force-closed by the watchdog. Only flag a stall when we did NOT
-	// see [DONE] — if the stream completed normally, a late timer fire
-	// is a false positive.
-	if stalled && errMsg == "" && !sawDone {
+	// Stall detection takes precedence over the raw IO error produced by
+	// the watchdog's body.Close(). Replace it with a descriptive message.
+	// Only flag a stall when we did NOT see [DONE] — if the stream completed
+	// normally, a late timer fire is a false positive. Also skip when the
+	// client disconnected, which is a more meaningful diagnosis.
+	if stalled && !sawDone && !clientDisconnected {
 		errMsg = fmt.Sprintf("stream stalled: no data for %s", opts.streamStallTimeout)
 		debuglog.Warn("proxy: stream stall detected", "model", logData.modelID, "provider", logData.providerName, "stall_timeout", opts.streamStallTimeout, "chunks", chunkCount)
 	}
