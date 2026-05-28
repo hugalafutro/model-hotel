@@ -250,6 +250,11 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 						<Zap size={16} className="mx-auto mb-1 text-(--accent)" />
 						<div
 							className={`text-lg font-bold ${requestLog.tokens_prompt_cache_hit > 0 ? "text-(--text-tertiary)" : "text-(--text-primary)"}`}
+							title={
+								requestLog.tokens_prompt_cache_hit > 0
+									? "Inflated by prompt cache hits"
+									: undefined
+							}
 						>
 							{(requestLog.tokens_per_second ?? 0) > 0
 								? (requestLog.tokens_per_second as number).toFixed(1)

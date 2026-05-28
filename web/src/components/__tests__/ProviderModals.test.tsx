@@ -930,9 +930,9 @@ describe("ZAICodingQuotaModal", () => {
 				name: "Toggle between remaining and used",
 			});
 			await user.click(toggleButton);
-			// In used mode with 50% used, bar should be amber (usedPct < 50 is false, but < 80)
+			// In used mode with 50% used: usedPct >= 50 && < 80 → orange
 			const progressBar = container.querySelector(
-				".bg-amber-500.h-3.rounded-full",
+				".bg-orange-500.h-3.rounded-full",
 			);
 			expect(progressBar).toBeInTheDocument();
 		});
