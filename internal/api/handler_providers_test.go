@@ -277,7 +277,7 @@ func TestUpdateProvider_InvalidData(t *testing.T) {
 	h.Register(r)
 
 	// Create a provider first
-	providerData := `{"name": "test-update-invalid", "base_url": "https://api.openai.com", "api_key": "test-api-key"}`
+	providerData := fmt.Sprintf(`{"name": "test-update-invalid-%s", "base_url": "https://api.openai.com", "api_key": "test-api-key"}`, uuid.New().String()[:8])
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -753,7 +753,7 @@ func TestUpdateProvider_InvalidName(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	// Create a provider first
-	providerData := `{"name": "test-update-invalid", "base_url": "https://api.openai.com", "api_key": "test-api-key"}`
+	providerData := fmt.Sprintf(`{"name": "test-update-invalid-name-%s", "base_url": "https://api.openai.com", "api_key": "test-api-key"}`, uuid.New().String()[:8])
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -839,16 +839,24 @@ func TestUpdateProvider_InvalidBody(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	// Create a provider first
-	body := `{"name":"test-update-invalid","base_url":"https://api.openai.com","api_key":"sk-test123"}`
+	uniqueName := fmt.Sprintf("test-update-invalid-body-%s", uuid.New().String()[:8])
+	body := fmt.Sprintf(`{"name":"%s","base_url":"https://api.openai.com","api_key":"sk-test123"}`, uniqueName)
 	req := httptest.NewRequest("POST", "/providers", strings.NewReader(body))
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
+	if w.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", w.Code, w.Body.String())
+	}
+
 	var resp map[string]interface{}
 	json.NewDecoder(w.Body).Decode(&resp)
-	providerID := resp["id"].(string)
+	providerID, ok := resp["id"].(string)
+	if !ok {
+		t.Fatalf("Response missing id field: %v", resp)
+	}
 
 	// Try to update with invalid JSON
 	req2 := httptest.NewRequest("PUT", "/providers/"+providerID, strings.NewReader("{invalid json}"))

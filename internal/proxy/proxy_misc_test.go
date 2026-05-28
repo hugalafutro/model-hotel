@@ -95,5 +95,3 @@ func TestRegisterAdminChat_Routes(t *testing.T) {
 		}
 	})
 }
-
-// TestChatCompletions_StreamOptionsInjection_Integration tests stream_options injection in integration

@@ -39,6 +39,9 @@ func newTestHandler(t *testing.T) *Handler {
 		       app_logs, model_failover_groups, settings CASCADE
 	`)
 
+	// Flush logs cache so prior test results don't leak.
+	globalLogsCache.clear()
+
 	// Create database instance
 	database, err := db.New(context.Background(), dbURL, 5, 1)
 	if err != nil {

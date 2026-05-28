@@ -252,7 +252,7 @@ func TestDiscoverProviderModels_Success(t *testing.T) {
 	_ = h // Use h to avoid unused variable error
 
 	// Create a provider with OpenAI URL (will fail with test API key but tests the handler path)
-	providerData := `{"name": "test-discover-success", "base_url": "https://api.openai.com", "api_key": "test-api-key"}`
+	providerData := fmt.Sprintf(`{"name": "test-discover-success-%s", "base_url": "https://api.openai.com", "api_key": "test-api-key"}`, uuid.New().String()[:8])
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -462,16 +462,24 @@ func TestGetProviderBalance_DefaultUnsupported(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	// Create provider with non-DeepSeek URL
-	body := `{"name":"test-balance-unsupported","base_url":"https://api.openai.com","api_key":"test-api-key"}`
+	uniqueName := fmt.Sprintf("test-balance-unsupported-%s", uuid.New().String()[:8])
+	body := fmt.Sprintf(`{"name":"%s","base_url":"https://api.openai.com","api_key":"test-api-key"}`, uniqueName)
 	req := httptest.NewRequest("POST", "/providers", strings.NewReader(body))
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
+	if w.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", w.Code, w.Body.String())
+	}
+
 	var resp map[string]interface{}
 	json.NewDecoder(w.Body).Decode(&resp)
-	providerID := resp["id"].(string)
+	providerID, ok := resp["id"].(string)
+	if !ok {
+		t.Fatalf("Response missing id field: %v", resp)
+	}
 
 	// Try to get balance
 	req2 := httptest.NewRequest("GET", "/providers/"+providerID+"/balance", http.NoBody)
@@ -816,7 +824,7 @@ func TestGetProviderUsage_UnsupportedProvider(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	// Create a provider that doesn't support usage (OpenAI)
-	providerData := `{"name": "test-usage-unsupported", "base_url": "https://api.openai.com", "api_key": "test-api-key"}`
+	providerData := fmt.Sprintf(`{"name": "test-usage-unsupported-%s", "base_url": "https://api.openai.com", "api_key": "test-api-key"}`, uuid.New().String()[:8])
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
 	req.Header.Set("Authorization", "Bearer test-admin-token")
