@@ -1702,24 +1702,27 @@ func (h *Handler) probeFirstToken(
 		// Race recovery: the goroutine may close the body between the
 		// scanner reading a complete data line and probeSucceeded being
 		// checked. TeeReader writes to buf before scanner.Scan() returns,
-		// so the data is captured. Scan the buffer for a complete data
-		// line (one followed by a newline — ruling out partial fragments
-		// from a truncated network read) before falling through to error.
-		bufStr := buf.String()
-		for _, rawLine := range strings.Split(bufStr, "\n") {
-			if l := strings.TrimSpace(rawLine); strings.HasPrefix(l, "data:") {
-				// Reject partial lines: a complete SSE line must be
-				// followed by \n in the buffer. Without this guard a
-				// mid-line network fragment like "data: hel" (no \n)
-				// would pass HasPrefix but represent malformed data.
-				if !strings.Contains(bufStr, rawLine+"\n") {
-					continue
-				}
-				content := strings.TrimSpace(strings.TrimPrefix(l, "data:"))
-				if content != "[DONE]" {
-					ttft := float64(time.Since(startTime).Microseconds()) / 1000.0
-					debuglog.Info("proxy: TTFT probe recovered data after scanner error", "ttft_ms", ttft, "scan_error", scanErr)
-					return &buf, ttft, nil
+		// so the data is captured. Only return success if the probe context
+		// is still valid — if it expired, the goroutine closed the body and
+		// returning success would give the caller a closed body, causing
+		// handleStreamingResponse to truncate the stream after buffer replay.
+		if probeCtx.Err() == nil {
+			bufStr := buf.String()
+			for _, rawLine := range strings.Split(bufStr, "\n") {
+				if l := strings.TrimSpace(rawLine); strings.HasPrefix(l, "data:") {
+					// Reject partial lines: a complete SSE line must be
+					// followed by \n in the buffer. Without this guard a
+					// mid-line network fragment like "data: hel" (no \n)
+					// would pass HasPrefix but represent malformed data.
+					if !strings.Contains(bufStr, rawLine+"\n") {
+						continue
+					}
+					content := strings.TrimSpace(strings.TrimPrefix(l, "data:"))
+					if content != "[DONE]" {
+						ttft := float64(time.Since(startTime).Microseconds()) / 1000.0
+						debuglog.Info("proxy: TTFT probe recovered data after scanner error", "ttft_ms", ttft, "scan_error", scanErr)
+						return &buf, ttft, nil
+					}
 				}
 			}
 		}
