@@ -31,6 +31,12 @@ func (c *logsCache) get(key string) (*LogsResponse, bool) {
 	return entry.response, true
 }
 
+func (c *logsCache) clear() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.entries = make(map[string]*logsCacheEntry)
+}
+
 func (c *logsCache) set(key string, response *LogsResponse) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
