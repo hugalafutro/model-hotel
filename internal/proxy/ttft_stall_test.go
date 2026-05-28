@@ -582,3 +582,61 @@ func TestStallWatchdog_NoStallWhenCircuitBreakerOff(t *testing.T) {
 		t.Errorf("expected duration < 150ms (stall fired early), got %.1fms", logData.durationMs)
 	}
 }
+
+// TestStallWatchdog_RapidChunksNoPanic exercises the stall watchdog by sending
+// chunks rapidly to verify it handles rapid resets without panicking.
+func TestStallWatchdog_RapidChunksNoPanic(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	// Send chunks very rapidly with a short stall timeout to exercise
+	// the watchdog timer reset logic without panicking.
+	stallTimeout := 10 * time.Millisecond
+	pr, pw := io.Pipe()
+	go func() {
+		for i := 0; i < 50; i++ {
+			pw.Write([]byte("data: {\"choices\":[{\"delta\":{\"content\":\"x\"}}]}\n\n"))
+			time.Sleep(3 * time.Millisecond) // much faster than stallTimeout
+		}
+		pw.Write([]byte("data: [DONE]\n\n"))
+		pw.Close()
+	}()
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       pr,
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	logData := &requestLogData{
+		id:              uuid.New().String(),
+		modelID:         "test-model",
+		streaming:       true,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "streaming",
+	}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	startTime := time.Now()
+	opts := streamOptions{
+		responseHeaderMs:   10.0,
+		streamStallTimeout: stallTimeout,
+		vkHash:             "test-hash",
+		attempt:            1,
+		cancelOrigin:       "failover_timeout",
+	}
+
+	h.handleStreamingResponse(w, req, logData, resp, startTime, opts)
+
+	// Either the stream completes normally (watchdog reset kept pace)
+	// or a stall is detected (timer fired between chunks).
+	// Both are acceptable outcomes — this test primarily exercises
+	// the timer.Reset code path without panicking.
+	if logData.state != "completed" && logData.state != "failed" {
+		t.Errorf("expected completed or failed, got %q", logData.state)
+	}
+}

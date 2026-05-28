@@ -926,6 +926,48 @@ describe("VirtualLogTable", () => {
 		});
 	});
 
+	describe("Headers formatting", () => {
+		it("renders Headers value when response_header_ms > 0", () => {
+			const entries = [createLogEntry({ response_header_ms: 150.5 })];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			const row = screen.getByText("abc123def456").closest("tr");
+			expect(row).not.toBeNull();
+			if (row) {
+				const cells = row.querySelectorAll("td");
+				const headersIndex = getColumnIndex("Headers");
+				expect(cells[headersIndex].textContent).toBe("150.5ms");
+			}
+		});
+
+		it('renders "-" when response_header_ms is 0', () => {
+			const entries = [createLogEntry({ response_header_ms: 0 })];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			const row = screen.getByText("abc123def456").closest("tr");
+			expect(row).not.toBeNull();
+			if (row) {
+				const cells = row.querySelectorAll("td");
+				const headersIndex = getColumnIndex("Headers");
+				expect(cells[headersIndex].textContent).toBe("-");
+			}
+		});
+	});
+
 	describe("Cancelled request formatting", () => {
 		it('renders "-" for TPS on cancelled requests', () => {
 			const entries = [
@@ -975,6 +1017,31 @@ describe("VirtualLogTable", () => {
 				const cells = row.querySelectorAll("td");
 				const ttftIndex = getColumnIndex("TTFT");
 				expect(cells[ttftIndex].textContent).toBe("-");
+			}
+		});
+
+		it('renders "-" for Headers on cancelled requests', () => {
+			const entries = [
+				createLogEntry({
+					error_message: "request cancelled",
+					response_header_ms: 150.5,
+				}),
+			];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			const row = screen.getByText("Interrupted").closest("tr");
+			expect(row).not.toBeNull();
+			if (row) {
+				const cells = row.querySelectorAll("td");
+				const headersIndex = getColumnIndex("Headers");
+				expect(cells[headersIndex].textContent).toBe("-");
 			}
 		});
 	});

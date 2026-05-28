@@ -1818,3 +1818,347 @@ func TestHumanReadableCancelOrigin(t *testing.T) {
 		}
 	}
 }
+
+// ---------------------------------------------------------------------------
+// ChatCompletions TTFT probe integration tests (requires PostgreSQL)
+// ---------------------------------------------------------------------------
+
+func TestChatCompletions_TTFTProbeSuccess(t *testing.T) {
+	pool := testDB.Pool()
+	ctx := context.Background()
+
+	// Upstream SSE server that sends data immediately.
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		flusher := w.(http.Flusher)
+		fmt.Fprint(w, "data: {\"id\":\"test\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"},\"finish_reason\":null}]}\n\n")
+		flusher.Flush()
+		time.Sleep(10 * time.Millisecond)
+		fmt.Fprint(w, "data: [DONE]\n\n")
+		flusher.Flush()
+	}))
+	defer upstream.Close()
+
+	settingsRepo := settings.NewRepository(pool)
+	failoverRepo := failover.NewRepository(pool)
+	modelRepo := model.NewRepository(pool)
+	providerRepo := provider.NewRepository(pool)
+	virtualKeyRepo := virtualkey.NewRepository(pool)
+
+	// Configure short TTFT timeout (generous for local test).
+	if err := settingsRepo.Set(ctx, "ttft_timeout", "5s"); err != nil {
+		t.Fatalf("failed to set ttft_timeout: %v", err)
+	}
+	defer func() { _ = settingsRepo.Set(ctx, "ttft_timeout", "60s") }()
+	settingsRepo.InvalidateCache("ttft_timeout")
+
+	masterKey := "test-master-key-ttft-success"
+	keyPair, err := auth.Encrypt("test-api-key", masterKey)
+	if err != nil {
+		t.Fatalf("failed to encrypt key: %v", err)
+	}
+	prov, err := providerRepo.Create(ctx, provider.CreateProviderRequest{
+		Name:    "ttft-success-prov-" + uuid.New().String()[:8],
+		BaseURL: upstream.URL,
+		APIKey:  "test-api-key",
+	}, keyPair.Ciphertext, keyPair.Nonce, keyPair.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+
+	modelName := "ttft-success-model-" + uuid.New().String()[:8]
+	m := &model.Model{
+		ID: uuid.New(), ProviderID: prov.ID, ModelID: modelName,
+		Name: "TTFT Success", Description: "", Capabilities: "{}",
+		Params: "{}", Modality: "", InputModalities: "[]", OutputModalities: "[]",
+		Enabled: true, ProviderName: prov.Name, ProviderEnabled: true,
+	}
+	if err := modelRepo.Upsert(ctx, m); err != nil {
+		t.Fatalf("failed to upsert model: %v", err)
+	}
+
+	vkName := "ttft-success-vk-" + uuid.New().String()[:8]
+	vkHash := virtualkey.Hash(vkName)
+	vkPreview := "ttft-" + vkHash[:8]
+	if _, err := virtualKeyRepo.Create(ctx, vkName, vkHash, vkPreview, nil, nil); err != nil {
+		t.Fatalf("failed to create virtual key: %v", err)
+	}
+
+	handler := &Handler{
+		cfg:            &config.Config{MasterKey: masterKey},
+		settingsRepo:   settingsRepo,
+		failoverRepo:   failoverRepo,
+		modelRepo:      modelRepo,
+		providerRepo:   providerRepo,
+		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
+		rateLimiter:    ratelimit.NewLimiter(settingsRepo),
+		ipLimiter:      ratelimit.NewIPLimiter(30, 60, nil, nil),
+		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
+		dbPool:         pool,
+		upstreamTransport: &http.Transport{
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			ResponseHeaderTimeout: 120 * time.Second,
+			IdleConnTimeout:       120 * time.Second,
+			MaxIdleConns:          200,
+			MaxIdleConnsPerHost:   20,
+		},
+	}
+	defer handler.upstreamTransport.CloseIdleConnections()
+
+	body := fmt.Sprintf(`{"model":"%s/%s","messages":[{"role":"user","content":"hi"}],"stream":true}`, prov.Name, modelName)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	rCtx := context.WithValue(req.Context(), virtualKeyNameKey, vkName)
+	rCtx = context.WithValue(rCtx, virtualKeyIDKey, uuid.New().String())
+	rCtx = context.WithValue(rCtx, VirtualKeyHashKey, vkHash)
+	req = req.WithContext(rCtx)
+
+	w := httptest.NewRecorder()
+	handler.ChatCompletions(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	respBody := w.Body.String()
+	if !strings.Contains(respBody, "data: [DONE]") {
+		t.Error("expected response to contain [DONE] sentinel")
+	}
+	if !strings.Contains(respBody, "hi") {
+		t.Error("expected response to contain streamed content")
+	}
+}
+
+func TestChatCompletions_TTFTProbeTimeout(t *testing.T) {
+	pool := testDB.Pool()
+	ctx := context.Background()
+
+	// Upstream server that delays sending data (simulates slow TTFT).
+	// Uses r.Context().Done() so the handler returns promptly when the
+	// probe closes the body (avoids waiting for the full sleep).
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		flusher := w.(http.Flusher)
+		flusher.Flush()
+		select {
+		case <-r.Context().Done():
+		case <-time.After(5 * time.Second):
+		}
+	}))
+	defer upstream.Close()
+
+	settingsRepo := settings.NewRepository(pool)
+	failoverRepo := failover.NewRepository(pool)
+	modelRepo := model.NewRepository(pool)
+	providerRepo := provider.NewRepository(pool)
+	virtualKeyRepo := virtualkey.NewRepository(pool)
+
+	// Very short TTFT timeout so the probe fails quickly.
+	if err := settingsRepo.Set(ctx, "ttft_timeout", "100ms"); err != nil {
+		t.Fatalf("failed to set ttft_timeout: %v", err)
+	}
+	defer func() { _ = settingsRepo.Set(ctx, "ttft_timeout", "60s") }()
+	settingsRepo.InvalidateCache("ttft_timeout")
+
+	// Set circuit breaker threshold to 1 so probe failure opens it.
+	if err := settingsRepo.Set(ctx, "circuit_breaker_threshold", "1"); err != nil {
+		t.Fatalf("failed to set circuit_breaker_threshold: %v", err)
+	}
+	defer func() { _ = settingsRepo.Set(ctx, "circuit_breaker_threshold", "5") }()
+	settingsRepo.InvalidateCache("circuit_breaker_threshold")
+
+	masterKey := "test-master-key-ttft-timeout"
+	keyPair, err := auth.Encrypt("test-api-key", masterKey)
+	if err != nil {
+		t.Fatalf("failed to encrypt key: %v", err)
+	}
+	prov, err := providerRepo.Create(ctx, provider.CreateProviderRequest{
+		Name:    "ttft-timeout-prov-" + uuid.New().String()[:8],
+		BaseURL: upstream.URL,
+		APIKey:  "test-api-key",
+	}, keyPair.Ciphertext, keyPair.Nonce, keyPair.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+
+	modelName := "ttft-timeout-model-" + uuid.New().String()[:8]
+	m := &model.Model{
+		ID: uuid.New(), ProviderID: prov.ID, ModelID: modelName,
+		Name: "TTFT Timeout", Description: "", Capabilities: "{}",
+		Params: "{}", Modality: "", InputModalities: "[]", OutputModalities: "[]",
+		Enabled: true, ProviderName: prov.Name, ProviderEnabled: true,
+	}
+	if err := modelRepo.Upsert(ctx, m); err != nil {
+		t.Fatalf("failed to upsert model: %v", err)
+	}
+
+	vkName := "ttft-timeout-vk-" + uuid.New().String()[:8]
+	vkHash := virtualkey.Hash(vkName)
+	vkPreview := "ttft-" + vkHash[:8]
+	if _, err := virtualKeyRepo.Create(ctx, vkName, vkHash, vkPreview, nil, nil); err != nil {
+		t.Fatalf("failed to create virtual key: %v", err)
+	}
+
+	handler := &Handler{
+		cfg:            &config.Config{MasterKey: masterKey},
+		settingsRepo:   settingsRepo,
+		failoverRepo:   failoverRepo,
+		modelRepo:      modelRepo,
+		providerRepo:   providerRepo,
+		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
+		rateLimiter:    ratelimit.NewLimiter(settingsRepo),
+		ipLimiter:      ratelimit.NewIPLimiter(30, 60, nil, nil),
+		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
+		dbPool:         pool,
+		upstreamTransport: &http.Transport{
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			ResponseHeaderTimeout: 120 * time.Second,
+			IdleConnTimeout:       120 * time.Second,
+			MaxIdleConns:          200,
+			MaxIdleConnsPerHost:   20,
+		},
+	}
+	defer handler.upstreamTransport.CloseIdleConnections()
+
+	body := fmt.Sprintf(`{"model":"%s/%s","messages":[{"role":"user","content":"hi"}],"stream":true}`, prov.Name, modelName)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	rCtx := context.WithValue(req.Context(), virtualKeyNameKey, vkName)
+	rCtx = context.WithValue(rCtx, virtualKeyIDKey, uuid.New().String())
+	rCtx = context.WithValue(rCtx, VirtualKeyHashKey, vkHash)
+	req = req.WithContext(rCtx)
+
+	w := httptest.NewRecorder()
+	handler.ChatCompletions(w, req)
+
+	// Single provider, probe timeout → all providers exhausted → 502
+	if w.Code != http.StatusBadGateway {
+		t.Errorf("expected 502 for TTFT probe timeout, got %d", w.Code)
+	}
+
+	// Verify circuit breaker recorded failure (threshold=1 → open).
+	cbState := handler.circuitBreaker.GetState(prov.ID)
+	if cbState != failover.StateOpen {
+		t.Errorf("expected circuit breaker StateOpen after probe timeout, got %s", cbState)
+	}
+}
+
+func TestChatCompletions_TTFTDisabled_CBRecordsSuccess(t *testing.T) {
+	pool := testDB.Pool()
+	ctx := context.Background()
+
+	// Upstream SSE server that sends data immediately.
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		flusher := w.(http.Flusher)
+		fmt.Fprint(w, "data: {\"id\":\"test\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"ok\"},\"finish_reason\":null}]}\n\n")
+		flusher.Flush()
+		fmt.Fprint(w, "data: [DONE]\n\n")
+		flusher.Flush()
+	}))
+	defer upstream.Close()
+
+	settingsRepo := settings.NewRepository(pool)
+	failoverRepo := failover.NewRepository(pool)
+	modelRepo := model.NewRepository(pool)
+	providerRepo := provider.NewRepository(pool)
+	virtualKeyRepo := virtualkey.NewRepository(pool)
+
+	// Disable TTFT probe (0 = immediate commit / backward compat).
+	if err := settingsRepo.Set(ctx, "ttft_timeout", "0s"); err != nil {
+		t.Fatalf("failed to set ttft_timeout: %v", err)
+	}
+	defer func() { _ = settingsRepo.Set(ctx, "ttft_timeout", "60s") }()
+	settingsRepo.InvalidateCache("ttft_timeout")
+
+	// Circuit breaker threshold = 1 so we can detect success recording.
+	if err := settingsRepo.Set(ctx, "circuit_breaker_threshold", "1"); err != nil {
+		t.Fatalf("failed to set circuit_breaker_threshold: %v", err)
+	}
+	defer func() { _ = settingsRepo.Set(ctx, "circuit_breaker_threshold", "5") }()
+	settingsRepo.InvalidateCache("circuit_breaker_threshold")
+
+	masterKey := "test-master-key-ttft-disabled"
+	keyPair, err := auth.Encrypt("test-api-key", masterKey)
+	if err != nil {
+		t.Fatalf("failed to encrypt key: %v", err)
+	}
+	prov, err := providerRepo.Create(ctx, provider.CreateProviderRequest{
+		Name:    "ttft-disabled-prov-" + uuid.New().String()[:8],
+		BaseURL: upstream.URL,
+		APIKey:  "test-api-key",
+	}, keyPair.Ciphertext, keyPair.Nonce, keyPair.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+
+	modelName := "ttft-disabled-model-" + uuid.New().String()[:8]
+	m := &model.Model{
+		ID: uuid.New(), ProviderID: prov.ID, ModelID: modelName,
+		Name: "TTFT Disabled", Description: "", Capabilities: "{}",
+		Params: "{}", Modality: "", InputModalities: "[]", OutputModalities: "[]",
+		Enabled: true, ProviderName: prov.Name, ProviderEnabled: true,
+	}
+	if err := modelRepo.Upsert(ctx, m); err != nil {
+		t.Fatalf("failed to upsert model: %v", err)
+	}
+
+	vkName := "ttft-disabled-vk-" + uuid.New().String()[:8]
+	vkHash := virtualkey.Hash(vkName)
+	vkPreview := "ttft-" + vkHash[:8]
+	if _, err := virtualKeyRepo.Create(ctx, vkName, vkHash, vkPreview, nil, nil); err != nil {
+		t.Fatalf("failed to create virtual key: %v", err)
+	}
+
+	handler := &Handler{
+		cfg:            &config.Config{MasterKey: masterKey},
+		settingsRepo:   settingsRepo,
+		failoverRepo:   failoverRepo,
+		modelRepo:      modelRepo,
+		providerRepo:   providerRepo,
+		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
+		rateLimiter:    ratelimit.NewLimiter(settingsRepo),
+		ipLimiter:      ratelimit.NewIPLimiter(30, 60, nil, nil),
+		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
+		dbPool:         pool,
+		upstreamTransport: &http.Transport{
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			ResponseHeaderTimeout: 120 * time.Second,
+			IdleConnTimeout:       120 * time.Second,
+			MaxIdleConns:          200,
+			MaxIdleConnsPerHost:   20,
+		},
+	}
+	defer handler.upstreamTransport.CloseIdleConnections()
+
+	body := fmt.Sprintf(`{"model":"%s/%s","messages":[{"role":"user","content":"hi"}],"stream":true}`, prov.Name, modelName)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	rCtx := context.WithValue(req.Context(), virtualKeyNameKey, vkName)
+	rCtx = context.WithValue(rCtx, virtualKeyIDKey, uuid.New().String())
+	rCtx = context.WithValue(rCtx, VirtualKeyHashKey, vkHash)
+	req = req.WithContext(rCtx)
+
+	w := httptest.NewRecorder()
+	handler.ChatCompletions(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Verify response content matches TestChatCompletions_TTFTProbeSuccess pattern
+	respBody := w.Body.String()
+	if !strings.Contains(respBody, "data: [DONE]") {
+		t.Error("expected response to contain [DONE] sentinel")
+	}
+	if !strings.Contains(respBody, "ok") {
+		t.Error("expected response to contain streamed content")
+	}
+
+	// When ttft_timeout=0, the else-if branch records CB success immediately
+	// (backward-compat path at the `else if circuitBreakerEnabled` block).
+	// With threshold=1 and a success recorded, the circuit should stay closed.
+	cbState := handler.circuitBreaker.GetState(prov.ID)
+	if cbState != failover.StateClosed {
+		t.Errorf("expected circuit breaker StateClosed after success, got %s", cbState)
+	}
+}
