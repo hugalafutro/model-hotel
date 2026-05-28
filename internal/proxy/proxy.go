@@ -674,7 +674,10 @@ logUpdate:
 		ttftForTPS = opts.trueTtftMs
 	}
 	generationDuration := totalDuration - ttftForTPS
-	if totalOutputTokens > 0 && generationDuration > 0 {
+	// Avoid absurd TPS when generation time is negligible
+	// (e.g. non-streaming where response_header_ms ≈ duration_ms).
+	minGeneration := max(1.0, totalDuration*0.05)
+	if totalOutputTokens > 0 && generationDuration >= minGeneration {
 		tps = float64(totalOutputTokens) / float64(generationDuration) * 1000
 	} else if totalOutputTokens > 0 && totalDuration > 0 {
 		tps = float64(totalOutputTokens) / float64(totalDuration) * 1000
@@ -822,7 +825,10 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		}
 		totalOutputTokens := chatResp.Usage.CompletionTokens + reasoningTokens
 		generationDuration := totalDuration - responseHeaderMs
-		if totalOutputTokens > 0 && generationDuration > 0 {
+		// Avoid absurd TPS when generation time is negligible
+		// (e.g. non-streaming where response_header_ms ≈ duration_ms).
+		minGeneration := max(1.0, totalDuration*0.05)
+		if totalOutputTokens > 0 && generationDuration >= minGeneration {
 			tps = float64(totalOutputTokens) / float64(generationDuration) * 1000
 		} else if totalOutputTokens > 0 && totalDuration > 0 {
 			tps = float64(totalOutputTokens) / float64(totalDuration) * 1000

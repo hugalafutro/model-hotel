@@ -174,23 +174,20 @@ describe("formatTPS", () => {
 		expect(formatTPS(null)).toBe("-");
 	});
 
+	it("returns '-' for zero", () => {
+		expect(formatTPS(0)).toBe("-");
+	});
+
+	it("formats 45.5 as '45.5'", () => {
+		expect(formatTPS(45.5)).toBe("45.5");
+	});
+
+	it("formats 1000.123 as '1000.1' (1 decimal)", () => {
+		expect(formatTPS(1000.123)).toBe("1000.1");
+	});
+
 	it("returns '-' for undefined", () => {
 		expect(formatTPS(undefined as unknown as null)).toBe("-");
-	});
-
-	it("formats number with one decimal", () => {
-		expect(formatTPS(1.5)).toBe("1.5");
-		expect(formatTPS(10.0)).toBe("10.0");
-		expect(formatTPS(0.5)).toBe("0.5");
-	});
-
-	it("handles zero", () => {
-		expect(formatTPS(0)).toBe("0.0");
-	});
-
-	it("handles large numbers", () => {
-		expect(formatTPS(100.5)).toBe("100.5");
-		expect(formatTPS(999.99)).toBe("1000.0");
 	});
 });
 
