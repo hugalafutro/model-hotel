@@ -66,6 +66,7 @@ describe("NanoGPTQuotaModal", () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
+		localStorage.clear();
 	});
 
 	describe("rendering", () => {
@@ -397,6 +398,60 @@ describe("NanoGPTQuotaModal", () => {
 			expect(screen.queryByText("Last refreshed")).not.toBeInTheDocument();
 		});
 	});
+
+	describe("bar toggle", () => {
+		beforeEach(() => {
+			localStorage.clear();
+		});
+
+		it("renders toggle button", () => {
+			renderWithProviders(<NanoGPTQuotaModal {...defaultProps} />);
+			const toggleButton = screen.getByRole("button", {
+				name: "Toggle between remaining and used",
+			});
+			expect(toggleButton).toBeInTheDocument();
+		});
+
+		it("defaults to remaining mode", () => {
+			renderWithProviders(<NanoGPTQuotaModal {...defaultProps} />);
+			const progressBarFill = screen.getByTestId("weekly-progress-fill");
+			expect(progressBarFill).toHaveClass("bg-[#6366F1]");
+			expect(progressBarFill).not.toHaveClass("bg-red-500");
+			expect(progressBarFill).not.toHaveClass("bg-amber-500");
+			expect(progressBarFill).not.toHaveClass("bg-orange-500");
+		});
+
+		it("switches to used mode on toggle click", async () => {
+			const { user } = renderWithProviders(
+				<NanoGPTQuotaModal {...defaultProps} />,
+			);
+			const toggleButton = screen.getByRole("button", {
+				name: "Toggle between remaining and used",
+			});
+			await user.click(toggleButton);
+			const progressBarFill = screen.getByTestId("weekly-progress-fill");
+			// In used mode with 20% used (100 - 80% remaining), bar should be amber (usedPct < 50)
+			expect(progressBarFill).toHaveClass("bg-amber-500");
+		});
+
+		it("has different bar width after toggle", async () => {
+			const { user } = renderWithProviders(
+				<NanoGPTQuotaModal {...defaultProps} />,
+			);
+			const toggleButton = screen.getByRole("button", {
+				name: "Toggle between remaining and used",
+			});
+			let progressBarFill = screen.getByTestId("weekly-progress-fill");
+			const initialWidth = progressBarFill.getAttribute("style");
+
+			await user.click(toggleButton);
+			progressBarFill = screen.getByTestId("weekly-progress-fill");
+			const afterToggleWidth = progressBarFill.getAttribute("style");
+
+			// Width should change (80% -> 20% or vice versa)
+			expect(initialWidth).not.toEqual(afterToggleWidth);
+		});
+	});
 });
 
 describe("ZAICodingQuotaModal", () => {
@@ -460,6 +515,7 @@ describe("ZAICodingQuotaModal", () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
+		localStorage.clear();
 	});
 
 	describe("rendering", () => {
@@ -841,6 +897,73 @@ describe("ZAICodingQuotaModal", () => {
 			expect(screen.queryByText("Last refreshed")).not.toBeInTheDocument();
 		});
 	});
+
+	describe("bar toggle", () => {
+		beforeEach(() => {
+			localStorage.clear();
+		});
+
+		it("renders toggle button", () => {
+			renderWithProviders(<ZAICodingQuotaModal {...defaultProps} />);
+			const toggleButton = screen.getByRole("button", {
+				name: "Toggle between remaining and used",
+			});
+			expect(toggleButton).toBeInTheDocument();
+		});
+
+		it("defaults to remaining mode", () => {
+			const { container } = renderWithProviders(
+				<ZAICodingQuotaModal {...defaultProps} />,
+			);
+			// 5h quota: 50% remaining (100 - 50% used) → >60% remaining → indigo
+			const progressBar = container.querySelector(
+				".bg-\\[\\#6366F1\\].h-3.rounded-full",
+			);
+			expect(progressBar).toBeInTheDocument();
+		});
+
+		it("switches to used mode on toggle click", async () => {
+			const { user, container } = renderWithProviders(
+				<ZAICodingQuotaModal {...defaultProps} />,
+			);
+			const toggleButton = screen.getByRole("button", {
+				name: "Toggle between remaining and used",
+			});
+			await user.click(toggleButton);
+			// In used mode with 50% used, bar should be amber (usedPct < 50 is false, but < 80)
+			const progressBar = container.querySelector(
+				".bg-amber-500.h-3.rounded-full",
+			);
+			expect(progressBar).toBeInTheDocument();
+		});
+
+		it("toggles bar colors between remaining and used modes", async () => {
+			const { user, container } = renderWithProviders(
+				<ZAICodingQuotaModal {...defaultProps} />,
+			);
+			const toggleButton = screen.getByRole("button", {
+				name: "Toggle between remaining and used",
+			});
+
+			// Initial state: remaining mode (indigo for 50% remaining)
+			let progressBar = container.querySelector(
+				".bg-\\[\\#6366F1\\].h-3.rounded-full",
+			);
+			expect(progressBar).toBeInTheDocument();
+
+			// Toggle to used mode
+			await user.click(toggleButton);
+			progressBar = container.querySelector(".bg-amber-500.h-3.rounded-full");
+			expect(progressBar).toBeInTheDocument();
+
+			// Toggle back to remaining mode
+			await user.click(toggleButton);
+			progressBar = container.querySelector(
+				".bg-\\[\\#6366F1\\].h-3.rounded-full",
+			);
+			expect(progressBar).toBeInTheDocument();
+		});
+	});
 });
 
 describe("OpenRouterQuotaModal", () => {
@@ -874,6 +997,7 @@ describe("OpenRouterQuotaModal", () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
+		localStorage.clear();
 	});
 
 	describe("rendering", () => {
@@ -1371,6 +1495,73 @@ describe("OpenRouterQuotaModal", () => {
 			const progressBars =
 				accountBalanceSection?.querySelectorAll('[style*="width"]');
 			expect(progressBars).toHaveLength(0);
+		});
+	});
+
+	describe("bar toggle", () => {
+		beforeEach(() => {
+			localStorage.clear();
+		});
+
+		it("renders toggle button", () => {
+			renderWithProviders(<OpenRouterQuotaModal {...defaultProps} />);
+			const toggleButton = screen.getByRole("button", {
+				name: "Toggle between remaining and used",
+			});
+			expect(toggleButton).toBeInTheDocument();
+		});
+
+		it("defaults to remaining mode", () => {
+			const { container } = renderWithProviders(
+				<OpenRouterQuotaModal {...defaultProps} />,
+			);
+			// credits_remaining: 900000 / credits_total: 1000000 = 90% remaining → >60% → indigo
+			const progressBar = container.querySelector(
+				".bg-\\[\\#6366F1\\].h-3.rounded-full",
+			);
+			expect(progressBar).toBeInTheDocument();
+		});
+
+		it("switches to used mode on toggle click", async () => {
+			const { user, container } = renderWithProviders(
+				<OpenRouterQuotaModal {...defaultProps} />,
+			);
+			const toggleButton = screen.getByRole("button", {
+				name: "Toggle between remaining and used",
+			});
+			await user.click(toggleButton);
+			// In used mode with 10% used (100 - 90% remaining), bar should be amber (usedPct < 50)
+			const progressBar = container.querySelector(
+				".bg-amber-500.h-3.rounded-full",
+			);
+			expect(progressBar).toBeInTheDocument();
+		});
+
+		it("toggles bar colors between remaining and used modes", async () => {
+			const { user, container } = renderWithProviders(
+				<OpenRouterQuotaModal {...defaultProps} />,
+			);
+			const toggleButton = screen.getByRole("button", {
+				name: "Toggle between remaining and used",
+			});
+
+			// Initial state: remaining mode (indigo for 90% remaining)
+			let progressBar = container.querySelector(
+				".bg-\\[\\#6366F1\\].h-3.rounded-full",
+			);
+			expect(progressBar).toBeInTheDocument();
+
+			// Toggle to used mode
+			await user.click(toggleButton);
+			progressBar = container.querySelector(".bg-amber-500.h-3.rounded-full");
+			expect(progressBar).toBeInTheDocument();
+
+			// Toggle back to remaining mode
+			await user.click(toggleButton);
+			progressBar = container.querySelector(
+				".bg-\\[\\#6366F1\\].h-3.rounded-full",
+			);
+			expect(progressBar).toBeInTheDocument();
 		});
 	});
 });
