@@ -12,6 +12,8 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -26,7 +28,7 @@ import (
 // newRequestWithContext is injectable for testing request creation errors.
 var newRequestWithContext = http.NewRequestWithContext
 
-func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, proxyOverhead, parseMs, failoverLookupMs, modelLookupMs, providerLookupMs, keyDecryptMs, dialMs, settingsReadMs, ttft float64, vkHash string, attempt int, cancelOrigin string) {
+func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, opts streamOptions) {
 	defer func() {
 		// Drain remaining bytes so the Transport reuses the connection.
 		// Skip drain if the client already disconnected: the upstream body
@@ -36,7 +38,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 		}
 		_ = resp.Body.Close()
 	}()
-	debuglog.Debug("proxy: handleStreamingResponse entered", "model", logData.modelID, "provider", logData.providerName, "upstream_status", resp.StatusCode, "attempt", attempt, "ttft_ms", ttft)
+	debuglog.Debug("proxy: handleStreamingResponse entered", "model", logData.modelID, "provider", logData.providerName, "upstream_status", resp.StatusCode, "attempt", opts.attempt, "response_header_ms", opts.responseHeaderMs, "true_ttft_ms", opts.trueTtftMs, "has_probe_buf", opts.preReadBuf != nil)
 
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -46,24 +48,60 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	debuglog.Debug("proxy: streaming headers sent", "model", logData.modelID, "provider", logData.providerName)
 
 	logData.statusCode = resp.StatusCode
-	logData.proxyOverheadMs = proxyOverhead
-	logData.parseMs = parseMs
-	logData.failoverLookupMs = failoverLookupMs
-	logData.modelLookupMs = modelLookupMs
-	logData.providerLookupMs = providerLookupMs
-	logData.keyDecryptMs = keyDecryptMs
-	logData.dialMs = dialMs
-	logData.settingsReadMs = settingsReadMs
-	logData.ttftMs = ttft
-	logData.failoverAttempt = attempt
+	logData.proxyOverheadMs = opts.proxyOverheadMs
+	logData.parseMs = opts.parseMs
+	logData.failoverLookupMs = opts.failoverLookupMs
+	logData.modelLookupMs = opts.modelLookupMs
+	logData.providerLookupMs = opts.providerLookupMs
+	logData.keyDecryptMs = opts.keyDecryptMs
+	logData.dialMs = opts.dialMs
+	logData.settingsReadMs = opts.settingsReadMs
+	logData.responseHeaderMs = opts.responseHeaderMs
+	logData.ttftMs = opts.trueTtftMs
+	logData.failoverAttempt = opts.attempt
 	logData.state = "streaming"
 	h.updateRequestLog(logData)
 
 	flusher, canFlush := w.(http.Flusher)
 
-	scanner := bufio.NewScanner(resp.Body)
+	// Create scanner: if TTFT probe was used, replay probed bytes first.
+	var scanner *bufio.Scanner
+	if opts.preReadBuf != nil {
+		scanner = bufio.NewScanner(io.MultiReader(bytes.NewReader(opts.preReadBuf.Bytes()), resp.Body))
+	} else {
+		scanner = bufio.NewScanner(resp.Body)
+	}
 	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024) // 4MB per line
-	debuglog.Debug("proxy: streaming scanner created", "model", logData.modelID, "provider", logData.providerName)
+	debuglog.Debug("proxy: streaming scanner created", "model", logData.modelID, "provider", logData.providerName, "replaying_probe", opts.preReadBuf != nil)
+
+	// Stall watchdog: if streamStallTimeout > 0, start a goroutine that
+	// closes resp.Body on timeout, unblocking the scanner.
+	var streamStalled int32 // set to 1 by watchdog on timeout
+	var stallCh chan struct{}
+	var watchdogDone chan struct{}
+	if opts.streamStallTimeout > 0 {
+		stallCh = make(chan struct{}, 1)
+		watchdogDone = make(chan struct{})
+		go func() {
+			timer := time.NewTimer(opts.streamStallTimeout)
+			defer timer.Stop()
+			for {
+				select {
+				case <-stallCh:
+					if !timer.Stop() {
+						<-timer.C
+					}
+					timer.Reset(opts.streamStallTimeout)
+				case <-timer.C:
+					atomic.StoreInt32(&streamStalled, 1)
+					_ = resp.Body.Close() // unblock scanner
+					return
+				case <-watchdogDone:
+					return
+				}
+			}
+		}()
+	}
 	var promptTokens, completionTokens, reasoningTokens int
 	var promptCacheHitTokens, promptCacheMissTokens int
 	var lastErrMsg string
@@ -110,6 +148,14 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	for scanner.Scan() {
 		line := scanner.Bytes()
 		chunkCount++
+
+		// Ping stall watchdog after each successful scan.
+		if stallCh != nil {
+			select {
+			case stallCh <- struct{}{}:
+			default:
+			}
+		}
 
 		// Periodic streaming progress log for observability.
 		if chunkCount%chunkLogInterval == 0 {
@@ -613,18 +659,29 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	}
 
 logUpdate:
+	// Signal watchdog to stop on all exit paths (goto or normal loop exit).
+	if watchdogDone != nil {
+		close(watchdogDone)
+	}
 	totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
 	var tps float64
 	// Use total output tokens (text + reasoning) for TPS numerator,
-	// and generation time (duration minus TTFT) as denominator.
-	// TTFT includes thinking/reasoning time which isn't generation throughput.
+	// and generation time as denominator. Prefer true TTFT (first token)
+	// when the probe measured it; fall back to response header time.
 	totalOutputTokens := completionTokens + reasoningTokens
-	generationDuration := totalDuration - ttft
+	ttftForTPS := opts.responseHeaderMs
+	if opts.trueTtftMs > 0 {
+		ttftForTPS = opts.trueTtftMs
+	}
+	generationDuration := totalDuration - ttftForTPS
 	if totalOutputTokens > 0 && generationDuration > 0 {
 		tps = float64(totalOutputTokens) / float64(generationDuration) * 1000
 	} else if totalOutputTokens > 0 && totalDuration > 0 {
 		tps = float64(totalOutputTokens) / float64(totalDuration) * 1000
 	}
+
+	// Check for stream stall before error classification.
+	stalled := atomic.LoadInt32(&streamStalled) == 1
 
 	errMsg := lastErrMsg
 	if errMsg == "" && scanner.Err() != nil {
@@ -638,14 +695,14 @@ logUpdate:
 		case errors.Is(scannerErr, context.DeadlineExceeded):
 			// A derived context's deadline expired (failover or retry timeout).
 			// Use cancelOrigin to produce a human-readable message.
-			switch cancelOrigin {
+			switch opts.cancelOrigin {
 			case "retry_timeout":
 				errMsg = "stream interrupted: param-strip retry timed out"
 			case "failover_timeout":
 				errMsg = "stream interrupted: upstream request timed out"
 			default:
 				// Unknown origin — preserve the value rather than guessing.
-				errMsg = fmt.Sprintf("stream interrupted: %s", humanReadableCancelOrigin(cancelOrigin))
+				errMsg = fmt.Sprintf("stream interrupted: %s", humanReadableCancelOrigin(opts.cancelOrigin))
 			}
 		default:
 			errMsg = scannerErr.Error()
@@ -654,6 +711,15 @@ logUpdate:
 	if clientDisconnected {
 		errMsg = "client disconnected"
 		debuglog.Warn("proxy: client disconnected during streaming", "model", logData.modelID)
+	}
+	// Stall detection takes precedence over the raw IO error produced by
+	// the watchdog's body.Close(). Replace it with a descriptive message.
+	// Only flag a stall when we did NOT see [DONE] — if the stream completed
+	// normally, a late timer fire is a false positive. Also skip when the
+	// client disconnected, which is a more meaningful diagnosis.
+	if stalled && !sawDone && !clientDisconnected {
+		errMsg = fmt.Sprintf("stream stalled: no data for %s", opts.streamStallTimeout)
+		debuglog.Warn("proxy: stream stall detected", "model", logData.modelID, "provider", logData.providerName, "stall_timeout", opts.streamStallTimeout, "chunks", chunkCount)
 	}
 	if errMsg == "" && !sawDone {
 		// Upstream closed without [DONE] sentinel. If we received content and
@@ -677,14 +743,14 @@ logUpdate:
 
 	logData.statusCode = resp.StatusCode
 	logData.durationMs = totalDuration
-	logData.proxyOverheadMs = proxyOverhead
-	logData.parseMs = parseMs
-	logData.failoverLookupMs = failoverLookupMs
-	logData.modelLookupMs = modelLookupMs
-	logData.providerLookupMs = providerLookupMs
-	logData.keyDecryptMs = keyDecryptMs
-	logData.dialMs = dialMs
-	logData.ttftMs = ttft
+	logData.proxyOverheadMs = opts.proxyOverheadMs
+	logData.parseMs = opts.parseMs
+	logData.failoverLookupMs = opts.failoverLookupMs
+	logData.modelLookupMs = opts.modelLookupMs
+	logData.providerLookupMs = opts.providerLookupMs
+	logData.keyDecryptMs = opts.keyDecryptMs
+	logData.dialMs = opts.dialMs
+	logData.responseHeaderMs = opts.responseHeaderMs
 	logData.tokensPerSecond = tps
 	logData.tokensPrompt = promptTokens
 	logData.tokensCompletion = completionTokens
@@ -692,7 +758,7 @@ logUpdate:
 	logData.tokensPromptCacheHit = promptCacheHitTokens
 	logData.tokensPromptCacheMiss = promptCacheMissTokens
 	logData.errorMessage = errMsg
-	logData.failoverAttempt = attempt
+	logData.failoverAttempt = opts.attempt
 	if errMsg != "" {
 		logData.statusCode = 0
 		logData.state = "failed"
@@ -701,19 +767,27 @@ logUpdate:
 	}
 	h.updateRequestLog(logData)
 
-	debuglog.Info("proxy: streaming finished", "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "ttft_ms", ttft, "duration_ms", totalDuration, "chunks", chunkCount, "bytes_written", bytesWritten, "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "error_chunks", errorChunkCount, "has_error", errMsg != "")
-	if errMsg != "" {
-		debuglog.Warn("proxy: streaming error", "model", logData.modelID, "provider", logData.providerName, "error", errMsg, "upstream_status", resp.StatusCode, "attempt", attempt, "duration_ms", totalDuration)
-	} else {
-		debuglog.Debug("proxy: streaming completed successfully", "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "ttft_ms", ttft, "duration_ms", totalDuration)
+	// Record circuit breaker failure for stream stalls.
+	// Guard with !sawDone to avoid penalising a provider whose stream completed
+	// normally but whose stall timer fired concurrently with [DONE].
+	if stalled && !sawDone && !clientDisconnected && opts.circuitBreakerOn {
+		h.circuitBreaker.RecordFailure(opts.providerID, opts.providerName)
+		debuglog.Debug("proxy: recorded circuit breaker failure for stream stall", "provider", opts.providerName, "provider_id", opts.providerID)
 	}
 
-	if vkHash != "" && !clientDisconnected {
+	debuglog.Info("proxy: streaming finished", "model", logData.modelID, "provider", logData.providerName, "attempt", opts.attempt, "response_header_ms", opts.responseHeaderMs, "true_ttft_ms", opts.trueTtftMs, "duration_ms", totalDuration, "chunks", chunkCount, "bytes_written", bytesWritten, "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "error_chunks", errorChunkCount, "has_error", errMsg != "")
+	if errMsg != "" {
+		debuglog.Warn("proxy: streaming error", "model", logData.modelID, "provider", logData.providerName, "error", errMsg, "upstream_status", resp.StatusCode, "attempt", opts.attempt, "duration_ms", totalDuration)
+	} else {
+		debuglog.Debug("proxy: streaming completed successfully", "model", logData.modelID, "provider", logData.providerName, "attempt", opts.attempt, "response_header_ms", opts.responseHeaderMs, "duration_ms", totalDuration)
+	}
+
+	if opts.vkHash != "" && !clientDisconnected {
 		totalTokens := promptTokens + completionTokens + reasoningTokens
 		tokCtx, tokCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer tokCancel()
-		if err := h.virtualKeyRepo.AddTokens(tokCtx, vkHash, totalTokens); err != nil {
-			keyLabel := vkHash
+		if err := h.virtualKeyRepo.AddTokens(tokCtx, opts.vkHash, totalTokens); err != nil {
+			keyLabel := opts.vkHash
 			if logData.virtualKeyName != "" {
 				keyLabel = logData.virtualKeyName
 			}
@@ -728,14 +802,14 @@ logUpdate:
 	}
 }
 
-func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, proxyOverhead, parseMs, failoverLookupMs, modelLookupMs, providerLookupMs, keyDecryptMs, dialMs, settingsReadMs, ttft float64, vkHash string, attempt int) {
+func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, proxyOverhead, parseMs, failoverLookupMs, modelLookupMs, providerLookupMs, keyDecryptMs, dialMs, settingsReadMs, responseHeaderMs float64, vkHash string, attempt int) {
 	defer func() {
 		if r.Context().Err() == nil {
 			_, _ = io.Copy(io.Discard, resp.Body)
 		}
 		_ = resp.Body.Close()
 	}()
-	debuglog.Debug("proxy: handleNonStreamingResponse entered", "model", logData.modelID, "provider", logData.providerName, "upstream_status", resp.StatusCode, "attempt", attempt, "ttft_ms", ttft)
+	debuglog.Debug("proxy: handleNonStreamingResponse entered", "model", logData.modelID, "provider", logData.providerName, "upstream_status", resp.StatusCode, "attempt", attempt, "response_header_ms", responseHeaderMs)
 
 	w.Header().Set("Content-Type", "application/json")
 	var chatResp ChatCompletionResponse
@@ -747,7 +821,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 			reasoningTokens = chatResp.Usage.CompletionTokensDetails.ReasoningTokens
 		}
 		totalOutputTokens := chatResp.Usage.CompletionTokens + reasoningTokens
-		generationDuration := totalDuration - ttft
+		generationDuration := totalDuration - responseHeaderMs
 		if totalOutputTokens > 0 && generationDuration > 0 {
 			tps = float64(totalOutputTokens) / float64(generationDuration) * 1000
 		} else if totalOutputTokens > 0 && totalDuration > 0 {
@@ -764,7 +838,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.failoverLookupMs = failoverLookupMs
 		logData.dialMs = dialMs
 		logData.settingsReadMs = settingsReadMs
-		logData.ttftMs = ttft
+		logData.responseHeaderMs = responseHeaderMs
 		logData.tokensPerSecond = tps
 		logData.tokensPrompt = chatResp.Usage.PromptTokens
 		logData.tokensCompletion = chatResp.Usage.CompletionTokens
@@ -861,7 +935,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.failoverLookupMs = failoverLookupMs
 		logData.dialMs = dialMs
 		logData.settingsReadMs = settingsReadMs
-		logData.ttftMs = ttft
+		logData.responseHeaderMs = responseHeaderMs
 		logData.errorMessage = fmt.Sprintf("response decode error: %s", errMsg)
 		logData.failoverAttempt = attempt
 		logData.state = "failed"
@@ -1376,20 +1450,25 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		ttft := float64(time.Since(startTime).Microseconds()) / 1000.0
+		responseHeaderMs := float64(time.Since(startTime).Microseconds()) / 1000.0
 
 		hasMoreCandidates := attempt < len(candidates)-1
 		isFailoverEligible := h.shouldFailover(r.Context(), resp.StatusCode)
 
 		if isFailoverEligible {
 			// Upstream is unhealthy — record failure for circuit breaker.
+			// Non-2xx streaming responses never reach the TTFT probe, so record now.
 			if circuitBreakerEnabled {
 				h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
 			}
 		} else {
 			// Provider responded (even with a non-failover error like 400) —
 			// it's alive from a health perspective.
-			if circuitBreakerEnabled {
+			// For streaming 200 responses, recording is deferred until after the
+			// TTFT probe succeeds, to avoid double-counting with the stall watchdog.
+			// Streaming non-200 responses never reach the TTFT probe (they continue
+			// before it), so record now to maintain parity with non-streaming paths.
+			if circuitBreakerEnabled && (!isStreaming || resp.StatusCode != http.StatusOK) {
 				h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
 			}
 		}
@@ -1420,7 +1499,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			errMsg := util.SanitizeLogBody(string(body), 2000)
 			debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "body", errMsg)
 			debuglog.Debug("proxy: upstream error response", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "body_length", len(body), "attempt", attempt+1)
-			logData.ttftMs = ttft
+			logData.responseHeaderMs = responseHeaderMs
 			h.failRequest(logData, resp.StatusCode, errMsg, attempt, startTime, parseMs, timings, proxyOverhead)
 			// Forward the upstream error to the client. If the upstream returned
 			// valid JSON (most OpenAI-compatible providers do), pass it through
@@ -1439,7 +1518,64 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 		debuglog.Debug("proxy: upstream responded OK, dispatching to handler", "stream", isStreaming, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
 		if isStreaming {
-			h.handleStreamingResponse(w, r, logData, resp, startTime, proxyOverhead, parseMs, timings.failoverLookupMs, timings.modelLookupMs, timings.providerLookupMs, timings.keyDecryptMs, timings.dialMs, timings.settingsReadMs, ttft, vkHash, attempt, streamCancelOrigin)
+			ttftTimeout := h.settingsRepo.GetDuration(r.Context(), "ttft_timeout", 60*time.Second)
+			stallTimeout := h.settingsRepo.GetDuration(r.Context(), "stream_stall_timeout", 30*time.Second)
+
+			opts := streamOptions{
+				responseHeaderMs:   responseHeaderMs,
+				streamStallTimeout: stallTimeout,
+				providerID:         candidate.provider.ID,
+				providerName:       candidate.provider.Name,
+				circuitBreakerOn:   circuitBreakerEnabled,
+				proxyOverheadMs:    proxyOverhead,
+				parseMs:            parseMs,
+				failoverLookupMs:   timings.failoverLookupMs,
+				modelLookupMs:      timings.modelLookupMs,
+				providerLookupMs:   timings.providerLookupMs,
+				keyDecryptMs:       timings.keyDecryptMs,
+				dialMs:             timings.dialMs,
+				settingsReadMs:     timings.settingsReadMs,
+				vkHash:             vkHash,
+				attempt:            attempt,
+				cancelOrigin:       streamCancelOrigin,
+			}
+
+			if ttftTimeout > 0 {
+				// TTFT probe: read until first real data chunk.
+				probeBuf, trueTtftMs, probeErr := h.probeFirstToken(r.Context(), resp.Body, ttftTimeout, startTime)
+				if probeErr != nil {
+					// Timeout or read error — failover. probeFirstToken may
+					// or may not have closed the body (only on DeadlineExceeded);
+					// close it unconditionally to release the connection.
+					_ = resp.Body.Close()
+					// Skip circuit-breaker recording when the client disconnected:
+					// the probe failed because r.Context() was cancelled, not because
+					// the provider was unhealthy.
+					if circuitBreakerEnabled && r.Context().Err() == nil {
+						h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
+					}
+					lastErr = fmt.Sprintf("attempt %d: %v", attempt, probeErr)
+					failoverCancel()
+					if retryCancel != nil {
+						retryCancel()
+					}
+					logData.failoverAttempt = attempt
+					logData.responseHeaderMs = responseHeaderMs
+					debuglog.Warn("proxy: TTFT probe failed", "attempt", attempt+1, "provider", candidate.provider.Name, "error", probeErr)
+					continue
+				}
+				// First token confirmed (or [DONE] received).
+				if circuitBreakerEnabled {
+					h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
+				}
+				opts.preReadBuf = probeBuf
+				opts.trueTtftMs = trueTtftMs
+			} else if circuitBreakerEnabled {
+				// Disabled — immediate commit (backward compat).
+				h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
+			}
+
+			h.handleStreamingResponse(w, r, logData, resp, startTime, opts)
 			failoverCancel() // body consumed by handleStreamingResponse
 			if retryCancel != nil {
 				retryCancel()
@@ -1447,7 +1583,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		h.handleNonStreamingResponse(w, r, logData, resp, startTime, proxyOverhead, parseMs, timings.failoverLookupMs, timings.modelLookupMs, timings.providerLookupMs, timings.keyDecryptMs, timings.dialMs, timings.settingsReadMs, ttft, vkHash, attempt)
+		h.handleNonStreamingResponse(w, r, logData, resp, startTime, proxyOverhead, parseMs, timings.failoverLookupMs, timings.modelLookupMs, timings.providerLookupMs, timings.keyDecryptMs, timings.dialMs, timings.settingsReadMs, responseHeaderMs, vkHash, attempt)
 		failoverCancel() // body consumed by handleNonStreamingResponse
 		if retryCancel != nil {
 			retryCancel()
@@ -1468,6 +1604,146 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		h.failRequest(logData, 502, fmt.Sprintf("provider request failed: %s", lastErr), len(candidates)-1, startTime, parseMs, timings, proxyOverhead)
 		writeOpenAIError(w, fmt.Sprintf("provider request failed for model %s", reqModel), http.StatusBadGateway)
 	}
+}
+
+// probeFirstToken reads from body until it finds the first real SSE data chunk
+// or the timeout fires. It returns a buffer containing all bytes read (for
+// replay via io.MultiReader), the true time-to-first-token in milliseconds,
+// and any error.
+//
+// A "real data chunk" is any "data:" line where the content after "data:" is
+// not "[DONE]". Keepalive comments (":"), empty lines, "event:", "id:", and
+// "retry:" directives are skipped but still captured in probeBuf for replay.
+func (h *Handler) probeFirstToken(
+	ctx context.Context,
+	body io.ReadCloser,
+	ttftTimeout time.Duration,
+	startTime time.Time,
+) (probeBuf *bytes.Buffer, trueTtftMs float64, err error) {
+	probeCtx, probeCancel := context.WithTimeout(ctx, ttftTimeout)
+	defer probeCancel()
+
+	// Signal the goroutine when the probe finishes, so it doesn't close
+	// the body after a successful read. Closed explicitly on success paths
+	// and via sync.Once/defer on all paths.
+	probeDone := make(chan struct{})
+	var closeProbeOnce sync.Once
+	closeProbe := func() { closeProbeOnce.Do(func() { close(probeDone) }) }
+	defer closeProbe()
+
+	// Atomic flag set the instant a data line is detected, before any
+	// string processing. The goroutine checks this as a last guard before
+	// closing the body, closing a narrow race where the timer fires at the
+	// same instant the scanner returns a data line.
+	var probeSucceeded atomic.Bool
+
+	// Goroutine closes body when the probe context is cancelled (TTFT timeout
+	// or parent context cancellation), unblocking the scanner. The double-
+	// check of probeDone handles the narrow race where the probe succeeds
+	// at the same instant the context fires; probeSucceeded is the final
+	// guard to prevent closing a body that's about to be replayed.
+	go func() {
+		select {
+		case <-probeDone:
+			// Probe finished — don't touch the body.
+			return
+		case <-probeCtx.Done():
+			// Double-check: probe may have just finished between the
+			// outer select and here.
+			select {
+			case <-probeDone:
+				return
+			default:
+			}
+			if !probeSucceeded.Load() {
+				_ = body.Close()
+			}
+		}
+	}()
+
+	var buf bytes.Buffer
+	tee := io.TeeReader(body, &buf)
+	scanner := bufio.NewScanner(tee)
+	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024)
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		// Skip empty lines, keepalive comments, and non-data directives.
+		if line == "" || strings.HasPrefix(line, ":") || strings.HasPrefix(line, "event:") || strings.HasPrefix(line, "id:") || strings.HasPrefix(line, "retry:") {
+			continue
+		}
+		if strings.HasPrefix(line, "data:") {
+			// Signal the goroutine immediately — a data line was found,
+			// the provider is healthy. This must happen before any
+			// string processing so the goroutine sees it even if the
+			// timer fires at the same instant.
+			probeSucceeded.Store(true)
+			content := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+			if content == "[DONE]" {
+				// Stream ended before any real token.
+				debuglog.Info("proxy: TTFT probe saw [DONE] before first token", "ttft_ms", float64(time.Since(startTime).Microseconds())/1000.0)
+				closeProbe()
+				return &buf, 0, nil
+			}
+			// First real data chunk found.
+			ttft := float64(time.Since(startTime).Microseconds()) / 1000.0
+			debuglog.Info("proxy: TTFT probe found first token", "ttft_ms", ttft, "preview", truncateString(content, 80))
+			closeProbe()
+			return &buf, ttft, nil
+		}
+		// Unknown line format — skip but captured in buf.
+	}
+
+	// Scanner exited — body closed (timeout) or read error.
+	// bufio.Scanner never returns io.EOF from Err(); on clean EOF,
+	// Scan() returns false with Err() == nil, handled by the fallback
+	// after this block.
+	if scanErr := scanner.Err(); scanErr != nil {
+		// Race recovery: the goroutine may close the body between the
+		// scanner reading a complete data line and probeSucceeded being
+		// checked. TeeReader writes to buf before scanner.Scan() returns,
+		// so the data is captured. Only return success if the probe context
+		// is still valid — if it expired, the goroutine closed the body and
+		// returning success would give the caller a closed body, causing
+		// handleStreamingResponse to truncate the stream after buffer replay.
+		if probeCtx.Err() == nil {
+			probeSucceeded.Store(true) // mirror line 1680: store before any processing
+			bufStr := buf.String()
+			for _, rawLine := range strings.Split(bufStr, "\n") {
+				if l := strings.TrimSpace(rawLine); strings.HasPrefix(l, "data:") {
+					// Reject partial lines: a complete SSE line must be
+					// followed by \n in the buffer. Without this guard a
+					// mid-line network fragment like "data: hel" (no \n)
+					// would pass HasPrefix but represent malformed data.
+					if !strings.Contains(bufStr, rawLine+"\n") {
+						continue
+					}
+					content := strings.TrimSpace(strings.TrimPrefix(l, "data:"))
+					if content != "[DONE]" {
+						ttft := float64(time.Since(startTime).Microseconds()) / 1000.0
+						debuglog.Info("proxy: TTFT probe recovered data after scanner error", "ttft_ms", ttft, "scan_error", scanErr)
+						return &buf, ttft, nil
+					}
+				}
+			}
+		}
+		if probeCtx.Err() == context.DeadlineExceeded {
+			return nil, 0, fmt.Errorf("TTFT timeout: no first token within %s", ttftTimeout)
+		}
+		return nil, 0, fmt.Errorf("TTFT probe read error: %w", scanErr)
+	}
+
+	// Scanner finished without error and without finding data — body EOF.
+	return nil, 0, fmt.Errorf("TTFT probe: body closed before first data chunk")
+}
+
+// truncateString truncates a string to maxLen runes for logging.
+func truncateString(s string, maxLen int) string {
+	runes := []rune(s)
+	if len(runes) <= maxLen {
+		return s
+	}
+	return string(runes[:maxLen]) + "..."
 }
 
 // See util.BuildProviderTargetURL for URL construction and util.SetProviderAuthHeaders for auth.

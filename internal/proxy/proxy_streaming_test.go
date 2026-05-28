@@ -2,15 +2,37 @@ package proxy
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // Use testDB from proxy_test.go
+
+// errorAfterDataReader sends some SSE data, then returns a fixed error.
+type errorAfterDataReader struct {
+	data   string
+	err    error
+	offset int
+}
+
+func (r *errorAfterDataReader) Read(p []byte) (int, error) {
+	if r.offset < len(r.data) {
+		n := copy(p, r.data[r.offset:])
+		r.offset += n
+		return n, nil
+	}
+	return 0, r.err
+}
+
+func (r *errorAfterDataReader) Close() error { return nil }
 
 func stopUnitHandlerIntegration(h *Handler) {
 	if h != nil && h.upstreamTransport != nil {
@@ -61,7 +83,7 @@ func TestHandleStreamingResponse_UpstreamError(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1, "failover_timeout")
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=%q, got %q", "failed", logData.state)
@@ -119,7 +141,7 @@ func TestHandleStreamingResponse_MissingDoneSentinel(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1, "failover_timeout")
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
 	if logData.state != "completed" {
 		t.Errorf("expected state=%q, got %q", "completed", logData.state)
@@ -179,7 +201,7 @@ func TestHandleStreamingResponse_Basic(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1, "failover_timeout")
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
 	// Basic verification - the handler should process the stream
 	if inner.Code != http.StatusOK {
@@ -248,7 +270,7 @@ func TestHandleStreamingResponse_ClientDisconnectMidStream(t *testing.T) {
 	// Start streaming in goroutine
 	done := make(chan struct{})
 	go func() {
-		h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1, "failover_timeout")
+		h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 		close(done)
 	}()
 
@@ -326,7 +348,7 @@ func TestHandleStreamingResponse_EmptyLinesSSESep(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1, "failover_timeout")
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
 	// Should complete successfully
 	if logData.state != "completed" {
@@ -394,7 +416,7 @@ func TestHandleStreamingResponse_TooManyEmptyLines(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1, "failover_timeout")
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=failed, got %q", logData.state)
@@ -454,7 +476,7 @@ func TestHandleStreamingResponse_UTF8BOM(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1, "failover_timeout")
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
 	// Should complete successfully - BOM is stripped for parsing
 	if logData.state != "completed" {
@@ -514,7 +536,7 @@ func TestHandleStreamingResponse_LeadingWhitespace(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1, "failover_timeout")
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
 	// Should complete successfully
 	if logData.state != "completed" {
@@ -575,7 +597,7 @@ func TestHandleStreamingResponse_UsageExtraction(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1, "failover_timeout")
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
 	if logData.state != "completed" {
 		t.Errorf("expected state=completed, got %q", logData.state)
@@ -637,7 +659,7 @@ func TestHandleStreamingResponse_AnthropicErrorEvent(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1, "failover_timeout")
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
 	// The stream captures the Anthropic error and marks the request as failed.
 	if logData.state != "failed" {
@@ -698,7 +720,7 @@ func TestHandleStreamingResponse_DuplicateFinishReasonSuppression(t *testing.T) 
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1, "failover_timeout")
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
 	// Should complete successfully
 	if logData.state != "completed" {
@@ -757,7 +779,7 @@ func TestHandleStreamingResponse_RepeatedContentDetection(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1, "failover_timeout")
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
 	// Should complete (repeated content is just logged, not failed)
 	if logData.state != "completed" {
@@ -813,7 +835,7 @@ func TestHandleStreamingResponse_DataWithoutSpace(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1, "failover_timeout")
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
 	// Verify status code
 	if inner.Code != http.StatusOK {
@@ -880,7 +902,7 @@ func TestHandleStreamingResponse_NonErrorAnthropicEvent(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1, "failover_timeout")
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
 	if logData.state != "completed" {
 		t.Errorf("expected state=%q, got %q", "completed", logData.state)
@@ -945,7 +967,7 @@ func TestHandleStreamingResponse_ErrAccumFlushOnNonDataLine(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1, "failover_timeout")
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=%q, got %q", "failed", logData.state)
@@ -1006,7 +1028,7 @@ func TestHandleStreamingResponse_ErrAccumFlushOnNonErrorDataLine(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1, "failover_timeout")
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=%q, got %q", "failed", logData.state)
@@ -1067,7 +1089,7 @@ func TestHandleStreamingResponse_PromptCacheHitTokens(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1, "failover_timeout")
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
 	if logData.state != "completed" {
 		t.Errorf("expected state=%q, got %q", "completed", logData.state)
@@ -1128,7 +1150,7 @@ func TestHandleStreamingResponse_NativeFinishReason(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1, "failover_timeout")
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
 	if logData.state != "completed" {
 		t.Errorf("expected state=%q, got %q", "completed", logData.state)
@@ -1182,7 +1204,7 @@ func TestHandleStreamingResponse_ErrAccumFlushAtStreamEnd(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1, "failover_timeout")
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=%q, got %q", "failed", logData.state)
@@ -1240,7 +1262,7 @@ func TestHandleStreamingResponse_FinishReasonNormalization(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1, "failover_timeout")
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
 	if logData.state != "completed" {
 		t.Errorf("expected state=%q, got %q", "completed", logData.state)
@@ -1312,7 +1334,7 @@ func TestHandleStreamingResponse_HasContentChecks(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1, "failover_timeout")
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
 	if logData.state != "completed" {
 		t.Errorf("expected state=%q, got %q", "completed", logData.state)
@@ -1377,7 +1399,7 @@ func TestHandleStreamingResponse_RepeatedContentPreviewTruncation(t *testing.T) 
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1, "failover_timeout")
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
 	if logData.state != "completed" {
 		t.Errorf("expected state=%q, got %q", "completed", logData.state)
@@ -1437,7 +1459,7 @@ func TestHandleStreamingResponse_AddTokensError(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1, "failover_timeout")
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
 	if logData.state != "completed" {
 		t.Errorf("expected state=%q, got %q", "completed", logData.state)
@@ -1494,7 +1516,7 @@ func TestHandleStreamingResponse_ClientWriteFailureOnDataLine(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(innerRW, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1, "failover_timeout")
+	h.handleStreamingResponse(innerRW, req, logData, resp, time.Now(), streamOptions{attempt: 1, cancelOrigin: "failover_timeout"})
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=%q, got %q", "failed", logData.state)
@@ -1549,7 +1571,7 @@ func TestHandleStreamingResponse_ClientWriteFailureOnDoneLine(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(innerRW, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1, "failover_timeout")
+	h.handleStreamingResponse(innerRW, req, logData, resp, time.Now(), streamOptions{attempt: 1, cancelOrigin: "failover_timeout"})
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=%q, got %q", "failed", logData.state)
@@ -1608,7 +1630,7 @@ func TestHandleStreamingResponse_ClientWriteFailureOnNormalizedChunk(t *testing.
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(innerRW, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1, "failover_timeout")
+	h.handleStreamingResponse(innerRW, req, logData, resp, time.Now(), streamOptions{attempt: 1, cancelOrigin: "failover_timeout"})
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=%q, got %q", "failed", logData.state)
@@ -1667,9 +1689,247 @@ func TestHandleStreamingResponse_ClientWriteFailureOnNonNormalizedChunk(t *testi
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleStreamingResponse(innerRW, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1, "failover_timeout")
+	h.handleStreamingResponse(innerRW, req, logData, resp, time.Now(), streamOptions{attempt: 1, cancelOrigin: "failover_timeout"})
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=%q, got %q", "failed", logData.state)
+	}
+}
+
+// TestHandleStreamingResponse_ScannerContextCanceled tests scanner error when context is canceled.
+
+func TestHandleStreamingResponse_ScannerContextCanceled(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	body := io.NopCloser(&errorAfterDataReader{
+		data: "data: {\"choices\":[{\"delta\":{\"content\":\"hello\"}}]}\n\n",
+		err:  context.Canceled,
+	})
+
+	resp := &http.Response{StatusCode: http.StatusOK, Body: body}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	logData := &requestLogData{
+		id:              uuid.New().String(),
+		modelID:         "test-model",
+		streaming:       true,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "streaming",
+	}
+
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	startTime := time.Now()
+	opts := streamOptions{
+		responseHeaderMs:   10.0,
+		streamStallTimeout: 0, // no watchdog for these tests
+		vkHash:             "test-hash",
+		attempt:            1,
+		cancelOrigin:       "failover_timeout",
+	}
+
+	h.handleStreamingResponse(w, req, logData, resp, startTime, opts)
+
+	if logData.errorMessage != "client disconnected" {
+		t.Errorf("expected error message %q, got %q", "client disconnected", logData.errorMessage)
+	}
+	if logData.state != "failed" {
+		t.Errorf("expected state=%q, got %q", "failed", logData.state)
+	}
+}
+
+// TestHandleStreamingResponse_ScannerDeadlineExceededRetryTimeout tests scanner deadline exceeded with retry_timeout origin.
+
+func TestHandleStreamingResponse_ScannerDeadlineExceededRetryTimeout(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	body := io.NopCloser(&errorAfterDataReader{
+		data: "data: {\"choices\":[{\"delta\":{\"content\":\"hello\"}}]}\n\n",
+		err:  context.DeadlineExceeded,
+	})
+
+	resp := &http.Response{StatusCode: http.StatusOK, Body: body}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	logData := &requestLogData{
+		id:              uuid.New().String(),
+		modelID:         "test-model",
+		streaming:       true,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "streaming",
+	}
+
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	startTime := time.Now()
+	opts := streamOptions{
+		responseHeaderMs:   10.0,
+		streamStallTimeout: 0,
+		vkHash:             "test-hash",
+		attempt:            1,
+		cancelOrigin:       "retry_timeout",
+	}
+
+	h.handleStreamingResponse(w, req, logData, resp, startTime, opts)
+
+	if logData.errorMessage != "stream interrupted: param-strip retry timed out" {
+		t.Errorf("expected error message %q, got %q", "stream interrupted: param-strip retry timed out", logData.errorMessage)
+	}
+	if logData.state != "failed" {
+		t.Errorf("expected state=failed, got %q", logData.state)
+	}
+}
+
+// TestHandleStreamingResponse_ScannerDeadlineExceededFailoverTimeout tests scanner deadline exceeded with failover_timeout origin.
+
+func TestHandleStreamingResponse_ScannerDeadlineExceededFailoverTimeout(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	body := io.NopCloser(&errorAfterDataReader{
+		data: "data: {\"choices\":[{\"delta\":{\"content\":\"hello\"}}]}\n\n",
+		err:  context.DeadlineExceeded,
+	})
+
+	resp := &http.Response{StatusCode: http.StatusOK, Body: body}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	logData := &requestLogData{
+		id:              uuid.New().String(),
+		modelID:         "test-model",
+		streaming:       true,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "streaming",
+	}
+
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	startTime := time.Now()
+	opts := streamOptions{
+		responseHeaderMs:   10.0,
+		streamStallTimeout: 0,
+		vkHash:             "test-hash",
+		attempt:            1,
+		cancelOrigin:       "failover_timeout",
+	}
+
+	h.handleStreamingResponse(w, req, logData, resp, startTime, opts)
+
+	if logData.errorMessage != "stream interrupted: upstream request timed out" {
+		t.Errorf("expected error message %q, got %q", "stream interrupted: upstream request timed out", logData.errorMessage)
+	}
+	if logData.state != "failed" {
+		t.Errorf("expected state=failed, got %q", logData.state)
+	}
+}
+
+// TestHandleStreamingResponse_ScannerDeadlineExceededUnknownOrigin tests scanner deadline exceeded with custom origin.
+
+func TestHandleStreamingResponse_ScannerDeadlineExceededUnknownOrigin(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	body := io.NopCloser(&errorAfterDataReader{
+		data: "data: {\"choices\":[{\"delta\":{\"content\":\"hello\"}}]}\n\n",
+		err:  context.DeadlineExceeded,
+	})
+
+	resp := &http.Response{StatusCode: http.StatusOK, Body: body}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	logData := &requestLogData{
+		id:              uuid.New().String(),
+		modelID:         "test-model",
+		streaming:       true,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "streaming",
+	}
+
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	startTime := time.Now()
+	opts := streamOptions{
+		responseHeaderMs:   10.0,
+		streamStallTimeout: 0,
+		vkHash:             "test-hash",
+		attempt:            1,
+		cancelOrigin:       "custom_origin",
+	}
+
+	h.handleStreamingResponse(w, req, logData, resp, startTime, opts)
+
+	if !strings.Contains(logData.errorMessage, "stream interrupted:") {
+		t.Errorf("expected error message to contain %q, got %q", "stream interrupted:", logData.errorMessage)
+	}
+	if !strings.Contains(logData.errorMessage, "custom_origin") {
+		t.Errorf("expected error message to contain %q, got %q", "custom_origin", logData.errorMessage)
+	}
+	if logData.state != "failed" {
+		t.Errorf("expected state=failed, got %q", logData.state)
+	}
+}
+
+// TestHandleStreamingResponse_ScannerGenericError tests scanner with generic error.
+
+func TestHandleStreamingResponse_ScannerGenericError(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	body := io.NopCloser(&errorAfterDataReader{
+		data: "data: {\"choices\":[{\"delta\":{\"content\":\"hello\"}}]}\n\n",
+		err:  errors.New("connection reset by peer"),
+	})
+
+	resp := &http.Response{StatusCode: http.StatusOK, Body: body}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	logData := &requestLogData{
+		id:              uuid.New().String(),
+		modelID:         "test-model",
+		streaming:       true,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "streaming",
+	}
+
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	startTime := time.Now()
+	opts := streamOptions{
+		responseHeaderMs:   10.0,
+		streamStallTimeout: 0,
+		vkHash:             "test-hash",
+		attempt:            1,
+		cancelOrigin:       "failover_timeout",
+	}
+
+	h.handleStreamingResponse(w, req, logData, resp, startTime, opts)
+
+	if logData.errorMessage != "connection reset by peer" {
+		t.Errorf("expected error message %q, got %q", "connection reset by peer", logData.errorMessage)
+	}
+	if logData.state != "failed" {
+		t.Errorf("expected state=failed, got %q", logData.state)
 	}
 }

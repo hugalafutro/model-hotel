@@ -16,7 +16,8 @@ describe("LogDetailModal", () => {
 		status_code: 200,
 		latency_ms: 1500,
 		duration_ms: 1450,
-		ttft_ms: 250,
+		ttft_ms: 280,
+		response_header_ms: 250,
 		proxy_overhead_ms: 50,
 		parse_ms: 5,
 		failover_lookup_ms: 3,
@@ -188,6 +189,8 @@ describe("LogDetailModal", () => {
 			);
 
 			expect(screen.getByText("250ms")).toBeInTheDocument();
+			expect(screen.getByText("Headers")).toBeInTheDocument();
+			expect(screen.getByText("280ms")).toBeInTheDocument();
 			expect(screen.getByText("TTFT")).toBeInTheDocument();
 		});
 
@@ -203,6 +206,26 @@ describe("LogDetailModal", () => {
 			expect(ttftCard).toBeInTheDocument();
 			// The card contains "TTFT" label and the dash value
 			expect(ttftCard?.textContent).toContain("TTFT");
+		});
+
+		it("displays dash for zero response_header_ms", () => {
+			const noHeadersLog = { ...mockRequestLog, response_header_ms: 0 };
+			renderWithProviders(
+				<LogDetailModal log={noHeadersLog} type="request" onClose={onClose} />,
+			);
+
+			// Find the Headers label and navigate to the parent card container
+			const headersLabel = screen.getByText("Headers");
+			// The label div is inside the card div, so closest gets us the card
+			const headersCard = headersLabel.closest('[class*="rounded-lg"]');
+			expect(headersCard).toBeInTheDocument();
+			// The card contains "Headers" label and the dash value
+			expect(headersCard?.textContent).toContain("Headers");
+			// Should NOT contain "250" (the default mock value)
+			expect(headersCard?.textContent).not.toContain("250");
+			// Find the value div - it has text-lg and font-bold classes
+			const valueDiv = headersCard?.querySelector('[class*="font-bold"]');
+			expect(valueDiv?.textContent).toBe("-");
 		});
 
 		it("displays tokens per second in timing overview", () => {

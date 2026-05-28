@@ -74,6 +74,7 @@ export interface LogEntry {
 	latency_ms: number;
 	duration_ms: number;
 	ttft_ms: number;
+	response_header_ms: number;
 	proxy_overhead_ms: number;
 	parse_ms: number;
 	failover_lookup_ms: number;

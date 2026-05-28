@@ -30,6 +30,7 @@ type LogEntry struct {
 	LatencyMs                 float64   `json:"latency_ms"`
 	DurationMs                float64   `json:"duration_ms"`
 	TTFTMs                    float64   `json:"ttft_ms"`
+	ResponseHeaderMs          float64   `json:"response_header_ms"`
 	ProxyOverheadMs           float64   `json:"proxy_overhead_ms"`
 	ParseMs                   float64   `json:"parse_ms"`
 	FailoverLookupMs          float64   `json:"failover_lookup_ms"`
@@ -106,7 +107,8 @@ func (h *Handler) GetLog(w http.ResponseWriter, r *http.Request) {
 				WHEN vk.id IS NULL THEN true
 				ELSE false
 			END AS virtual_key_deleted,
-			COALESCE(rl.error_message, ''), COALESCE(rl.failover_attempt, 0), COALESCE(rl.state, 'completed'), rl.created_at
+			COALESCE(rl.error_message, ''), COALESCE(rl.failover_attempt, 0), COALESCE(rl.state, 'completed'), rl.created_at,
+			COALESCE(rl.response_header_ms, 0)
 		FROM request_logs rl LEFT JOIN providers p ON rl.provider_id = p.id
 		LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
 		WHERE rl.id = $1`,
@@ -124,6 +126,7 @@ func (h *Handler) GetLog(w http.ResponseWriter, r *http.Request) {
 		&entry.VirtualKeyName, &entry.VirtualKeyID, &entry.VirtualKeyDeleted,
 		&entry.ErrorMessage,
 		&entry.FailoverAttempt, &entry.State, &entry.CreatedAt,
+		&entry.ResponseHeaderMs,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -218,7 +221,8 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
                 WHEN vk.id IS NULL THEN true
                 ELSE false
             END AS virtual_key_deleted,
-            COALESCE(rl.error_message, ''), COALESCE(rl.failover_attempt, 0), COALESCE(rl.state, 'completed'), rl.created_at
+            COALESCE(rl.error_message, ''), COALESCE(rl.failover_attempt, 0), COALESCE(rl.state, 'completed'), rl.created_at,
+            COALESCE(rl.response_header_ms, 0)
         FROM request_logs rl LEFT JOIN providers p ON rl.provider_id = p.id
         LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
         WHERE 1=1
@@ -351,6 +355,7 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
 			&entry.VirtualKeyName, &entry.VirtualKeyID, &entry.VirtualKeyDeleted,
 			&entry.ErrorMessage,
 			&entry.FailoverAttempt, &entry.State, &entry.CreatedAt,
+			&entry.ResponseHeaderMs,
 		)
 		if err != nil {
 			debuglog.Error("logs-cursor: row scan failed", "error", err)
@@ -550,16 +555,17 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sortColumns := map[string]sortDef{
-		"time":     {"", "rl.created_at"},
-		"model":    {"", "rl.model_id"},
-		"provider": {"CASE WHEN rl.provider_id IS NULL THEN 2 WHEN p.name IS NULL THEN 1 ELSE 0 END", "CASE WHEN rl.provider_id IS NULL THEN '' WHEN p.name IS NOT NULL THEN p.name ELSE 'Deleted' END"},
-		"status":   {"", "rl.status_code"},
-		"tokens":   {"CASE WHEN rl.tokens_prompt + rl.tokens_completion + COALESCE(rl.tokens_completion_reasoning, 0) = 0 THEN CASE WHEN COALESCE(rl.error_message, '') ILIKE '%cancel%' OR COALESCE(rl.error_message, '') ILIKE '%disconnect%' OR COALESCE(rl.error_message, '') ILIKE '%context canceled%' THEN 1 ELSE 2 END ELSE 0 END", "rl.tokens_prompt + rl.tokens_completion + COALESCE(rl.tokens_completion_reasoning, 0)"},
-		"tps":      {"CASE WHEN rl.tokens_per_second = 0 THEN 1 ELSE 0 END", "rl.tokens_per_second"},
-		"ttft":     {"CASE WHEN rl.ttft_ms = 0 THEN 1 ELSE 0 END", "rl.ttft_ms"},
-		"duration": {"CASE WHEN rl.duration_ms = 0 THEN 1 ELSE 0 END", "rl.duration_ms"},
-		"overhead": {"CASE WHEN rl.proxy_overhead_ms = 0 THEN 1 ELSE 0 END", "rl.proxy_overhead_ms"},
-		"key":      {"", "CASE WHEN rl.virtual_key_id IS NOT NULL AND rl.virtual_key_id::text != '' AND vk.id IS NULL THEN 'zzzzzzzz' ELSE COALESCE(rl.virtual_key_name, '') END"},
+		"time":               {"", "rl.created_at"},
+		"model":              {"", "rl.model_id"},
+		"provider":           {"CASE WHEN rl.provider_id IS NULL THEN 2 WHEN p.name IS NULL THEN 1 ELSE 0 END", "CASE WHEN rl.provider_id IS NULL THEN '' WHEN p.name IS NOT NULL THEN p.name ELSE 'Deleted' END"},
+		"status":             {"", "rl.status_code"},
+		"tokens":             {"CASE WHEN rl.tokens_prompt + rl.tokens_completion + COALESCE(rl.tokens_completion_reasoning, 0) = 0 THEN CASE WHEN COALESCE(rl.error_message, '') ILIKE '%cancel%' OR COALESCE(rl.error_message, '') ILIKE '%disconnect%' OR COALESCE(rl.error_message, '') ILIKE '%context canceled%' THEN 1 ELSE 2 END ELSE 0 END", "rl.tokens_prompt + rl.tokens_completion + COALESCE(rl.tokens_completion_reasoning, 0)"},
+		"tps":                {"CASE WHEN rl.tokens_per_second = 0 THEN 1 ELSE 0 END", "rl.tokens_per_second"},
+		"ttft":               {"CASE WHEN rl.ttft_ms = 0 THEN 1 ELSE 0 END", "rl.ttft_ms"},
+		"response_header_ms": {"CASE WHEN rl.response_header_ms = 0 THEN 1 ELSE 0 END", "rl.response_header_ms"},
+		"duration":           {"CASE WHEN rl.duration_ms = 0 THEN 1 ELSE 0 END", "rl.duration_ms"},
+		"overhead":           {"CASE WHEN rl.proxy_overhead_ms = 0 THEN 1 ELSE 0 END", "rl.proxy_overhead_ms"},
+		"key":                {"", "CASE WHEN rl.virtual_key_id IS NOT NULL AND rl.virtual_key_id::text != '' AND vk.id IS NULL THEN 'zzzzzzzz' ELSE COALESCE(rl.virtual_key_name, '') END"},
 	}
 
 	if _, ok := sortColumns[sortBy]; !ok {
@@ -602,7 +608,8 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
                     WHEN vk.id IS NULL THEN true
                     ELSE false
                 END AS virtual_key_deleted,
-               COALESCE(rl.error_message, ''), COALESCE(rl.failover_attempt, 0), COALESCE(rl.state, 'completed'), rl.created_at
+            COALESCE(rl.error_message, ''), COALESCE(rl.failover_attempt, 0), COALESCE(rl.state, 'completed'), rl.created_at,
+            COALESCE(rl.response_header_ms, 0)
         FROM request_logs rl LEFT JOIN providers p ON rl.provider_id = p.id
         LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
         WHERE 1=1
@@ -704,6 +711,7 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 			&entry.VirtualKeyName, &entry.VirtualKeyID, &entry.VirtualKeyDeleted,
 			&entry.ErrorMessage,
 			&entry.FailoverAttempt, &entry.State, &entry.CreatedAt,
+			&entry.ResponseHeaderMs,
 		)
 		if err != nil {
 			debuglog.Error("logs: row scan failed", "error", err)

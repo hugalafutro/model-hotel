@@ -427,9 +427,9 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 		stats.RateLimitHits = 0
 	}
 
-	// Query 11: Avg TTFT
+	// Query 11: Avg TTFT (streaming only — non-streaming requests have no first token)
 	query = `
-		SELECT COALESCE(AVG(rl.ttft_ms) FILTER (WHERE rl.ttft_ms > 0), 0) as avg_ttft
+		SELECT COALESCE(AVG(COALESCE(NULLIF(rl.ttft_ms, 0), rl.response_header_ms)) FILTER (WHERE COALESCE(NULLIF(rl.ttft_ms, 0), rl.response_header_ms) > 0 AND rl.streaming = true), 0) as avg_ttft
 		FROM request_logs rl` + vkJoin + `
 		WHERE rl.created_at >= $1 AND rl.status_code > 0 AND rl.status_code < 400` + vkFilter
 
@@ -498,7 +498,7 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 			COALESCE(AVG(rl.proxy_overhead_ms) FILTER (WHERE rl.proxy_overhead_ms > 0), 0) as overhead_ms,
 			COALESCE(AVG(rl.latency_ms) FILTER (WHERE rl.status_code > 0 AND rl.status_code < 400), 0) as provider_latency_ms,
 			COUNT(*) FILTER (WHERE rl.status_code = 429) as rate_limit_hits,
-			COALESCE(AVG(rl.ttft_ms) FILTER (WHERE rl.ttft_ms > 0 AND rl.status_code > 0 AND rl.status_code < 400), 0) as avg_ttft_ms
+			COALESCE(AVG(COALESCE(NULLIF(rl.ttft_ms, 0), rl.response_header_ms)) FILTER (WHERE COALESCE(NULLIF(rl.ttft_ms, 0), rl.response_header_ms) > 0 AND rl.status_code > 0 AND rl.status_code < 400 AND rl.streaming = true), 0) as avg_ttft_ms
 		FROM request_logs rl` + vkJoin + `
 		WHERE rl.created_at >= $1` + vkFilter + `
 		GROUP BY 1
@@ -514,7 +514,7 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 			COALESCE(AVG(rl.proxy_overhead_ms) FILTER (WHERE rl.proxy_overhead_ms > 0), 0) as overhead_ms,
 			COALESCE(AVG(rl.latency_ms) FILTER (WHERE rl.status_code > 0 AND rl.status_code < 400), 0) as provider_latency_ms,
 			COUNT(*) FILTER (WHERE rl.status_code = 429) as rate_limit_hits,
-			COALESCE(AVG(rl.ttft_ms) FILTER (WHERE rl.ttft_ms > 0 AND rl.status_code > 0 AND rl.status_code < 400), 0) as avg_ttft_ms
+			COALESCE(AVG(COALESCE(NULLIF(rl.ttft_ms, 0), rl.response_header_ms)) FILTER (WHERE COALESCE(NULLIF(rl.ttft_ms, 0), rl.response_header_ms) > 0 AND rl.status_code > 0 AND rl.status_code < 400 AND rl.streaming = true), 0) as avg_ttft_ms
 		FROM request_logs rl` + vkJoin + `
 		WHERE rl.created_at >= $1` + vkFilter + `
 		GROUP BY 1

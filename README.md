@@ -13,6 +13,7 @@
 <a href="https://codecov.io/github/hugalafutro/model-hotel"><img src="https://codecov.io/github/hugalafutro/model-hotel/branch/master/graph/badge.svg" alt="Coverage"></a>
 <a href="https://hub.docker.com/r/hugalafutro/model-hotel">
   <img src="https://img.shields.io/docker/pulls/hugalafutro/model-hotel.svg" alt="Docker Pulls">
+<a href="/LICENSE"><img src="https://img.shields.io/github/license/hugalafutro/model-hotel" alt="License"></a>
 </a>
   <br>
   <img src="https://img.shields.io/badge/Go-00ADD8?logo=go&logoColor=white" alt="Go">
@@ -22,11 +23,11 @@
   <img src="https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white" alt="Docker">
 </p>
 
+> [!IMPORTANT]
+> **AI-Assisted Project Disclaimer:**<br>
+> Human judgment applied at every stage, particularly around architectural decisions, UX flows, and quality control.
+
 <div align="center">
-
-
-> **AI-Assisted Project Disclaimer:**<br>Human judgment applied at every stage, particularly around architectural decisions, UX flows, and quality control.<br>
-
 
 Made in [CodeNomad](https://github.com/NeuralNomadsAI/CodeNomad) with [OpenCode](https://opencode.ai).<br>From around version 0.4 the app was used as opencode model provider for its own development.
 
@@ -37,28 +38,28 @@ Made in [CodeNomad](https://github.com/NeuralNomadsAI/CodeNomad) with [OpenCode]
 ┌────────────────────────────────────────────────────────┐
 │                       OVERVIEW                         │
 ├────────────────────────────────────────────────────────┤
-│Sessions                                          2,136 │
-│Messages                                         78,755 │
-│Days                                                 41 │
+│Sessions                                          2,034 │
+│Messages                                         73,587 │
+│Days                                                 42 │
 └────────────────────────────────────────────────────────┘
 
 ┌────────────────────────────────────────────────────────┐
 │                    COST & TOKENS                       │
 ├────────────────────────────────────────────────────────┤
 │Total Cost                                      $112.90 │
-│Avg Cost/Day                                      $2.75 │
-│Avg Tokens/Session                                 2.9M │
-│Median Tokens/Session                            588.3K │
-│Input                                           2726.4M │
-│Output                                            19.9M │
-│Cache Read                                      3366.3M │
+│Avg Cost/Day                                      $2.69 │
+│Avg Tokens/Session                                 2.8M │
+│Median Tokens/Session                            580.9K │
+│Input                                           2695.8M │
+│Output                                            18.6M │
+│Cache Read                                      2977.3M │
 │Cache Write                                        4.1M │
 └────────────────────────────────────────────────────────┘
 ```
 </details>
 
 <a href="https://github.com/aovestdipaperino/tokensave">![Tokens Saved](https://img.shields.io/endpoint?url=https://tokens.o5.ddns.net/&cacheSeconds=1800)<a><br><br>
-Meet the [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim) team:<br><br><img src="https://img.shields.io/badge/GLM_5.1-orchestrator,%20council,%20commit%20review-8B5CF6?style=flat" alt="GLM 5.1"> <img src="https://img.shields.io/badge/Kimi_K2.6-designer-06B6D4?style=flat" alt="Kimi K2.6"> <img src="https://img.shields.io/badge/DeepSeek_V4_Pro-oracle,%20council-E53E3E?style=flat" alt="DeepSeek V4 Pro"> <img src="https://img.shields.io/badge/Qwen3_Coder_480B-council-F59E0B?style=flat" alt="Qwen3 Coder"><br><img src="https://img.shields.io/badge/Qwen3.5_397B-fixer-F59E0B?style=flat" alt="Qwen3.5 397B"> <img src="https://img.shields.io/badge/DeepSeek_V4_Pro-librarian-E53E3E?style=flat" alt="DeepSeek V4 Pro"> <img src="https://img.shields.io/badge/Gemini_3_Flash-observer-4285F4?style=flat" alt="Gemini 3 Flash"><br><br><img src="https://img.shields.io/badge/Claude_Opus_4.7-code%20review-D97706?style=flat" alt="Claude Opus 4.7"> <img src="https://img.shields.io/badge/Grok_4.3-code_review-FF4500?style=flat" alt="Grok 4.3"><br>
+Meet the [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim) team:<br><br><img src="https://img.shields.io/badge/GLM_5.1-orchestrator,%20council-8B5CF6?style=flat" alt="GLM 5.1"> <img src="https://img.shields.io/badge/Kimi_K2.6-designer,%20council-06B6D4?style=flat" alt="Kimi K2.6"> <img src="https://img.shields.io/badge/DeepSeek_V4_Pro-oracle,%20council-E53E3E?style=flat" alt="DeepSeek V4 Pro"><br><img src="https://img.shields.io/badge/Qwen3.5_397B-fixer-F59E0B?style=flat" alt="Qwen3.5 397B"> <img src="https://img.shields.io/badge/DeepSeek_V4_Pro-librarian-E53E3E?style=flat" alt="DeepSeek V4 Pro"> <img src="https://img.shields.io/badge/Gemini_3_Flash-observer-4285F4?style=flat" alt="Gemini 3 Flash">
 </div><br>
 
 A single OpenAI-compatible endpoint that sits in front of all your LLM providers. Models are auto-discovered the moment you add a provider and optionally on schedule; failover groups form automatically around shared model names and retry transparently when a provider goes down; no prompt data is ever stored.
@@ -75,20 +76,12 @@ Add any OpenAI-compatible provider ([Anthropic](https://claude.ai/), [DeepSeek](
 </div>
 
 ### [<img src="docs/icons/failover.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Transparent Failover](#-transparent-failover)
-When a provider returns a 5xx, a 429 (rate limit, configurable via `failover_on_rate_limit`), an auth error (401/403), or times out, the request is automatically retried with the next available provider for that model. Failover decisions happen at the response-header layer, so the client never receives a partial stream from a provider that returned a non-2xx status. An exponential backoff (100ms base, capped at 2s) is applied between attempts to avoid hammering slow providers; client disconnects during backoff are detected immediately. The final request record logs the attempt number that succeeded (or the last one that failed), along with the error code and total duration. Per-attempt failover events (attempt number, provider, status code) are also written to the application log for real-time debugging.
+Requests that fail (server errors, rate limits, auth issues, timeouts) are automatically retried on the next available provider. The proxy only streams to your client after confirming a healthy response, so you never receive a broken or partial stream. Retries are paced with backoff to avoid overloading failing providers.
 
 ### [<img src="docs/icons/hotel.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Hotel Routing](#-hotel-routing)
-Prefix a model with `hotel/` to route through its failover group: an ordered list of providers that expose the same base model. Example: `hotel/gpt-4o` resolves to all providers whose model ID matches `gpt-4o` exactly (after stripping the org prefix, e.g. `openai/gpt-4o` → `gpt-4o`). Models with different base names like `gpt-4o-mini` are separate groups. A failover group is auto-created only when 2+ providers offer the same base model; if only one provider has the model, no group exists and `hotel/model` will return 404. To route to a single provider without failover, use Model Hotel `proxy id` as the model name in your request.
+Prefix a model with `hotel/` to use its failover group. `hotel/gpt-4o` resolves to every provider offering `gpt-4o`, tried in priority order. Groups form automatically when 2+ providers share a model. Priorities, entries, and whole groups can be managed from the dashboard.
 
-<div align="center">
-<br><img src="docs/screenshots/failover.png" alt="Failover" width="720"><br><br>
-</div>
-
-Requests are sent to each provider in priority order. If a provider responds with a server error (5xx), an auth error (401/403), or a rate-limit error (429, configurable), the next provider in the list is tried. Failover does **not** trigger on slow responses or client errors (4xx other than 401/403/429).
-
-A per-provider **circuit breaker** prevents wasted requests to consistently failing providers. After 5 consecutive failures (connection errors, 5xx, 429, 401/403), the provider's circuit opens and it is skipped during candidate resolution. After a 60-second cooldown, the circuit transitions to half-open and allows a single probe request; if the probe succeeds, the circuit closes and normal traffic resumes. State transitions (open/closed) are published as SSE events for real-time dashboard visibility. The circuit breaker can be disabled entirely via the `circuit_breaker_enabled` setting.
-
-Failover groups are auto-generated when models are discovered, but only when **2 or more providers** expose the same base model. Groups with a single provider are automatically disabled. You can manually edit priorities, disable individual entries, or toggle entire groups on or off.
+Provider health is tracked with a circuit breaker. Consistently failing providers are temporarily removed from rotation and gradually reintroduced. See [Failover and Hotel Routing](https://github.com/hugalafutro/model-hotel/wiki/Failover-and-Hotel-Routing) for the full breakdown.
 
 ### [<img src="docs/icons/virtualkeys.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Per-Client Virtual Keys](#-per-client-virtual-keys)
 Issue separate API keys for different users or services. Each key is SHA-256 hashed before storage, so raw keys are never persisted. Track token usage per key, delete a key to immediately cut off access, and never expose your real provider credentials. Keys can be created and deleted from the dashboard or the admin API.
@@ -98,11 +91,11 @@ Issue separate API keys for different users or services. Each key is SHA-256 has
 </div>
 
 ### [<img src="docs/icons/privacy.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> No Prompts Logged](#-no-prompts-logged)
-> [!TIP]
-> **Prompts and request content are never captured, logged, or inspected.**
+> [!NOTE]
+> **User Prompts and request content are never captured, logged, or inspected.**
 > The proxy forwards requests to the provider exactly as received, without reading or modifying message contents.
->
-> The only information recorded is what is strictly necessary to route and meter the request: timestamp, duration, latency, time-to-first-token (TTFT), token counts (including cache-hit/miss breakdown), tokens per second, HTTP status code, error messages (upstream provider failures only, never user content), proxy overhead breakdown (parse, model lookup, provider lookup, key decryption), streaming flag, failover attempt count, request state, virtual key identifier, and target provider/model identifiers.
+
+The only information recorded is what is strictly necessary to route and meter the request: timestamp, duration, latency, time-to-first-token (TTFT), token counts (including cache-hit/miss breakdown), tokens per second, HTTP status code, error messages (upstream provider failures only, never user content), proxy overhead breakdown (parse, model lookup, provider lookup, key decryption), streaming flag, failover attempt count, request state, virtual key identifier, and target provider/model identifiers.
 
 The optional **Arena History** feature (disabled by default, configurable in **Settings → Arena History**) can persist completed arena and compare session results in your browser's local storage. When enabled:
 

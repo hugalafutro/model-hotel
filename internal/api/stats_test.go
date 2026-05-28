@@ -611,20 +611,21 @@ func insertTestRequestLog(t *testing.T, pool *pgxpool.Pool, logID, providerID uu
 }
 
 type requestLogOpts struct {
-	VirtualKeyID    *uuid.UUID
-	VirtualKeyName  string
-	TTFTMs          float64
-	ProxyOverheadMs float64
+	VirtualKeyID     *uuid.UUID
+	VirtualKeyName   string
+	ResponseHeaderMs float64
+	ProxyOverheadMs  float64
+	Streaming        bool
 }
 
 func insertRichTestRequestLog(t *testing.T, pool *pgxpool.Pool, logID, providerID uuid.UUID, modelID string, statusCode, durationMs, tokensPrompt, tokensCompletion int, opts requestLogOpts) {
 	t.Helper()
 	ctx := context.Background()
 	_, err := pool.Exec(ctx, `
-		INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, tokens_prompt, tokens_completion, created_at, virtual_key_id, virtual_key_name, ttft_ms, proxy_overhead_ms)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8, $9, $10, $11)`,
+		INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, tokens_prompt, tokens_completion, created_at, virtual_key_id, virtual_key_name, response_header_ms, proxy_overhead_ms, streaming)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8, $9, $10, $11, $12)`,
 		logID, providerID, modelID, statusCode, durationMs, tokensPrompt, tokensCompletion,
-		opts.VirtualKeyID, opts.VirtualKeyName, opts.TTFTMs, opts.ProxyOverheadMs)
+		opts.VirtualKeyID, opts.VirtualKeyName, opts.ResponseHeaderMs, opts.ProxyOverheadMs, opts.Streaming)
 	if err != nil {
 		t.Fatalf("Failed to insert rich test request log: %v", err)
 	}
@@ -1457,18 +1458,21 @@ func TestGetStats_TTFTAndOverhead(t *testing.T) {
 	providerID := uuid.New()
 	insertTestProvider(t, pool, providerID, "test-provider", "https://api.example.com/v1")
 
-	// Insert rich request logs with TTFT and overhead values
+	// Insert rich request logs with TTFT and overhead values (streaming=true for TTFT)
 	insertRichTestRequestLog(t, pool, uuid.New(), providerID, "model-a", 200, 100, 10, 20, requestLogOpts{
-		TTFTMs:          50.0,
-		ProxyOverheadMs: 5.0,
+		ResponseHeaderMs: 50.0,
+		ProxyOverheadMs:  5.0,
+		Streaming:        true,
 	})
 	insertRichTestRequestLog(t, pool, uuid.New(), providerID, "model-a", 200, 100, 10, 20, requestLogOpts{
-		TTFTMs:          100.0,
-		ProxyOverheadMs: 10.0,
+		ResponseHeaderMs: 100.0,
+		ProxyOverheadMs:  10.0,
+		Streaming:        true,
 	})
 	insertRichTestRequestLog(t, pool, uuid.New(), providerID, "model-a", 200, 100, 10, 20, requestLogOpts{
-		TTFTMs:          75.0,
-		ProxyOverheadMs: 7.5,
+		ResponseHeaderMs: 75.0,
+		ProxyOverheadMs:  7.5,
+		Streaming:        true,
 	})
 
 	r := chi.NewRouter()
@@ -2226,23 +2230,24 @@ func TestCalculateStats_LateQueryErrors(t *testing.T) {
 		t.Fatalf("Failed to insert virtual key: %v", err)
 	}
 
-	// Success request
+	// Success request (streaming — has TTFT)
 	insertRichTestRequestLog(t, pool, uuid.New(), providerID, "test-model", 200, 100, 10, 20, requestLogOpts{
-		VirtualKeyID:    &vkID,
-		TTFTMs:          50.0,
-		ProxyOverheadMs: 5.0,
+		VirtualKeyID:     &vkID,
+		ResponseHeaderMs: 50.0,
+		ProxyOverheadMs:  5.0,
+		Streaming:        true,
 	})
 	// Error request
 	insertRichTestRequestLog(t, pool, uuid.New(), providerID, "test-model", 500, 200, 5, 10, requestLogOpts{
-		VirtualKeyID:    &vkID,
-		TTFTMs:          0,
-		ProxyOverheadMs: 3.0,
+		VirtualKeyID:     &vkID,
+		ResponseHeaderMs: 0,
+		ProxyOverheadMs:  3.0,
 	})
 	// Rate limited request
 	insertRichTestRequestLog(t, pool, uuid.New(), providerID, "test-model", 429, 50, 2, 3, requestLogOpts{
-		VirtualKeyID:    &vkID,
-		TTFTMs:          0,
-		ProxyOverheadMs: 1.0,
+		VirtualKeyID:     &vkID,
+		ResponseHeaderMs: 0,
+		ProxyOverheadMs:  1.0,
 	})
 
 	ctx := context.Background()
