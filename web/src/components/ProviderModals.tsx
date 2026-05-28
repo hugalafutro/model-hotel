@@ -1,11 +1,11 @@
 import { ArrowLeftRight, RefreshCw } from "lucide-react";
-import { useState } from "react";
 import type {
 	NanoGPTUsage,
 	OpenRouterBalance,
 	ZAICodingQuotaResponse,
 } from "../api/types";
 import { useTheme } from "../context/ThemeContext";
+import { useLocalStorage } from "../hooks/useLocalStorage";
 import {
 	formatDate,
 	formatRelativeTime,
@@ -46,7 +46,10 @@ export function NanoGPTQuotaModal({
 	lastRefreshed?: number;
 }) {
 	const { uiStyle } = useTheme();
-	const [barMode, setBarMode] = useState<"remaining" | "used">("remaining");
+	const [barMode, setBarMode] = useLocalStorage<"remaining" | "used">(
+		"quota-bar-mode",
+		"remaining",
+	);
 	const weeklyLimit = usage.limits.weeklyInputTokens ?? 0;
 	const weeklyUsed = usage.weeklyInputTokens?.used ?? 0;
 	const weeklyRemaining =
@@ -285,7 +288,10 @@ export function ZAICodingQuotaModal({
 	lastRefreshed?: number;
 }) {
 	const { uiStyle } = useTheme();
-	const [barMode, setBarMode] = useState<"remaining" | "used">("remaining");
+	const [barMode, setBarMode] = useLocalStorage<"remaining" | "used">(
+		"quota-bar-mode",
+		"remaining",
+	);
 	const limits = usage.data?.limits || [];
 
 	const fiveHourLimit = limits.find(
@@ -490,7 +496,10 @@ export function OpenRouterQuotaModal({
 	lastRefreshed?: number;
 }) {
 	const { uiStyle } = useTheme();
-	const [barMode, setBarMode] = useState<"remaining" | "used">("remaining");
+	const [barMode, setBarMode] = useLocalStorage<"remaining" | "used">(
+		"quota-bar-mode",
+		"remaining",
+	);
 
 	const handleRefresh = async () => {
 		try {
