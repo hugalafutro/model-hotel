@@ -12,6 +12,7 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -1615,12 +1616,31 @@ func (h *Handler) probeFirstToken(
 	probeCtx, probeCancel := context.WithTimeout(ctx, ttftTimeout)
 	defer probeCancel()
 
+	// Signal the goroutine when the probe finishes, so it doesn't close
+	// the body after a successful read. Closed explicitly on success paths
+	// and via sync.Once/defer on all paths.
+	probeDone := make(chan struct{})
+	var closeProbeOnce sync.Once
+	closeProbe := func() { closeProbeOnce.Do(func() { close(probeDone) }) }
+	defer closeProbe()
+
 	// Goroutine closes body on timeout, unblocking the scanner.
 	go func() {
-		<-probeCtx.Done()
-		// If context was cancelled (not timed out), don't close body.
-		if probeCtx.Err() == context.DeadlineExceeded {
-			_ = body.Close()
+		select {
+		case <-probeDone:
+			// Probe finished — don't touch the body.
+			return
+		case <-probeCtx.Done():
+			// Double-check: probe may have just finished between the
+			// outer select and here.
+			select {
+			case <-probeDone:
+				return
+			default:
+			}
+			if probeCtx.Err() == context.DeadlineExceeded {
+				_ = body.Close()
+			}
 		}
 	}()
 
@@ -1640,11 +1660,13 @@ func (h *Handler) probeFirstToken(
 			if content == "[DONE]" {
 				// Stream ended before any real token.
 				debuglog.Info("proxy: TTFT probe saw [DONE] before first token", "ttft_ms", float64(time.Since(startTime).Microseconds())/1000.0)
+				closeProbe()
 				return &buf, 0, nil
 			}
 			// First real data chunk found.
 			ttft := float64(time.Since(startTime).Microseconds()) / 1000.0
 			debuglog.Info("proxy: TTFT probe found first token", "ttft_ms", ttft, "preview", truncateString(content, 80))
+			closeProbe()
 			return &buf, ttft, nil
 		}
 		// Unknown line format — skip but captured in buf.
