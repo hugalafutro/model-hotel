@@ -716,7 +716,12 @@ function RequestLogs() {
 												</td>
 												<td
 													className="px-2 py-1 whitespace-nowrap text-xs text-gray-200 truncate"
-													title={log.model_id}
+													title={
+														log.model_id?.startsWith("hotel/") &&
+														log.resolved_model_id
+															? `${log.model_id} (${log.resolved_model_id})`
+															: log.model_id
+													}
 												>
 													{log.model_id ? (
 														log.model_id.startsWith("hotel/") ? (

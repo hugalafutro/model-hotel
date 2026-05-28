@@ -60,6 +60,7 @@ function createLogEntry(overrides: Partial<LogEntry> = {}): LogEntry {
 		error_message: "",
 		failover_attempt: 0,
 		created_at: "2026-05-23T10:00:00Z",
+		resolved_model_id: "",
 		...overrides,
 	};
 }
@@ -1059,6 +1060,61 @@ describe("VirtualLogTable", () => {
 			);
 
 			expect(screen.getByText("gpt-4o-mini")).toBeInTheDocument();
+		});
+
+		it("renders hotel/ model_id with resolved_model_id showing both in cell and tooltip", () => {
+			const entries = [
+				createLogEntry({
+					model_id: "hotel/my-failover-group",
+					resolved_model_id: "openai/gpt-4o",
+				}),
+			];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			// Should show the group name in accent color
+			expect(screen.getByText("hotel/my-failover-group")).toBeInTheDocument();
+			// Should show resolved model in parentheses
+			expect(screen.getByText("(openai/gpt-4o)")).toBeInTheDocument();
+
+			// Check tooltip title includes both
+			const modelCell = screen
+				.getByText("hotel/my-failover-group")
+				.closest("td");
+			expect(modelCell).toHaveAttribute(
+				"title",
+				"hotel/my-failover-group (openai/gpt-4o)",
+			);
+		});
+
+		it("renders non-hotel/ model_id with resolved_model_id not showing resolved in tooltip", () => {
+			const entries = [
+				createLogEntry({
+					model_id: "anthropic/claude-3-5-sonnet",
+					resolved_model_id: "anthropic/claude-3-5-sonnet",
+				}),
+			];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			// Should show stripped model name (without prefix)
+			expect(screen.getByText("claude-3-5-sonnet")).toBeInTheDocument();
+
+			// Check tooltip title shows full model_id (not just stripped name)
+			const modelCell = screen.getByText("claude-3-5-sonnet").closest("td");
+			expect(modelCell).toHaveAttribute("title", "anthropic/claude-3-5-sonnet");
 		});
 	});
 

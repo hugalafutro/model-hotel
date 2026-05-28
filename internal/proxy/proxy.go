@@ -1219,7 +1219,9 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 		logData.providerID = candidate.provider.ID
 		logData.providerName = candidate.provider.Name
-		logData.resolvedModelID = candidate.model.ModelID
+		if isFailover {
+			logData.resolvedModelID = candidate.model.ModelID
+		}
 		if attempt == 0 {
 			debuglog.Info("proxy: routing to provider", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "total_candidates", len(candidates))
 		} else {
