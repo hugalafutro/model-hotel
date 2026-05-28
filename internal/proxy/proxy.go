@@ -766,7 +766,9 @@ logUpdate:
 	h.updateRequestLog(logData)
 
 	// Record circuit breaker failure for stream stalls.
-	if stalled && opts.circuitBreakerOn {
+	// Guard with !sawDone to avoid penalising a provider whose stream completed
+	// normally but whose stall timer fired concurrently with [DONE].
+	if stalled && !sawDone && opts.circuitBreakerOn {
 		h.circuitBreaker.RecordFailure(opts.providerID, opts.providerName)
 		debuglog.Debug("proxy: recorded circuit breaker failure for stream stall", "provider", opts.providerName, "provider_id", opts.providerID)
 	}
