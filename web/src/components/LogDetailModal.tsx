@@ -7,6 +7,7 @@ import {
 	FileText,
 	Gauge,
 	Hash,
+	Info,
 	Key,
 	Layers,
 	Server,
@@ -195,14 +196,20 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 				scrollable
 			>
 				{/* Timing Overview */}
-				<div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+				<div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
 					<div className="p-3 rounded-lg bg-(--surface-bg) border border-(--border-subtle) text-center">
 						<Clock size={16} className="mx-auto mb-1 text-(--accent)" />
 						<div className="text-lg font-bold text-(--text-primary)">
 							{formatDuration(requestLog.duration_ms)}
 						</div>
-						<div className="text-[10px] uppercase tracking-wider text-(--text-tertiary)">
+						<div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-(--text-tertiary)">
 							Duration
+							<span
+								title="Total wall-clock time from request start to response end"
+								className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all"
+							>
+								<Info size={12} />
+							</span>
 						</div>
 					</div>
 					<div className="p-3 rounded-lg bg-(--surface-bg) border border-(--border-subtle) text-center">
@@ -212,8 +219,14 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 								? formatDuration(requestLog.response_header_ms)
 								: "-"}
 						</div>
-						<div className="text-[10px] uppercase tracking-wider text-(--text-tertiary)">
+						<div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-(--text-tertiary)">
 							Headers
+							<span
+								title="Time to receive the first HTTP response headers from the upstream provider"
+								className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all"
+							>
+								<Info size={12} />
+							</span>
 						</div>
 					</div>
 					<div className="p-3 rounded-lg bg-(--surface-bg) border border-(--border-subtle) text-center">
@@ -223,17 +236,33 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 								? formatDuration(requestLog.ttft_ms)
 								: "-"}
 						</div>
-						<div className="text-[10px] uppercase tracking-wider text-(--text-tertiary)">
+						<div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-(--text-tertiary)">
 							TTFT
+							<span
+								title="Time to First Token: delay between request start and the first token of the response body (streaming) or full response (non-streaming)"
+								className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all"
+							>
+								<Info size={12} />
+							</span>
 						</div>
 					</div>
 					<div className="p-3 rounded-lg bg-(--surface-bg) border border-(--border-subtle) text-center">
 						<Zap size={16} className="mx-auto mb-1 text-(--accent)" />
-						<div className="text-lg font-bold text-(--text-primary)">
-							{requestLog.tokens_per_second?.toFixed(1) ?? "-"}
+						<div
+							className={`text-lg font-bold ${requestLog.tokens_prompt_cache_hit > 0 ? "text-(--text-tertiary)" : "text-(--text-primary)"}`}
+						>
+							{(requestLog.tokens_per_second ?? 0) > 0
+								? (requestLog.tokens_per_second as number).toFixed(1)
+								: "-"}
 						</div>
-						<div className="text-[10px] uppercase tracking-wider text-(--text-tertiary)">
+						<div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-(--text-tertiary)">
 							Tokens/s
+							<span
+								title="Output tokens per second during the generation phase (excludes time-to-first-token). Shown as '-' when generation time is negligible."
+								className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all"
+							>
+								<Info size={12} />
+							</span>
 						</div>
 					</div>
 					<div className="p-3 rounded-lg bg-(--surface-bg) border border-(--border-subtle) text-center">
@@ -241,8 +270,14 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 						<div className="text-lg font-bold text-(--text-primary)">
 							{totalTokens > 0 ? totalTokens.toLocaleString() : "-"}
 						</div>
-						<div className="text-[10px] uppercase tracking-wider text-(--text-tertiary)">
+						<div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-(--text-tertiary)">
 							Total Tokens
+							<span
+								title="Sum of prompt + completion + reasoning tokens"
+								className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all"
+							>
+								<Info size={12} />
+							</span>
 						</div>
 					</div>
 				</div>
@@ -370,37 +405,57 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 								{
 									label: "Request Parsing",
 									value: requestLog.parse_ms,
+									tooltip:
+										"Time to parse and validate the incoming request body",
 								},
 								{
 									label: "Failover Group Lookup",
 									value: requestLog.failover_lookup_ms,
+									tooltip:
+										"Time to resolve the failover group to a specific model and provider",
 								},
 								{
 									label: "Model Lookup",
 									value: requestLog.model_lookup_ms,
+									tooltip:
+										"Time to look up the model configuration in the database",
 								},
 								{
 									label: "Provider Lookup",
 									value: requestLog.provider_lookup_ms,
+									tooltip:
+										"Time to look up the provider details in the database",
 								},
 								{
 									label: "Key Decryption",
 									value: requestLog.key_decrypt_ms,
+									tooltip: "Time to decrypt the provider API key",
 								},
 								{
 									label: "Dial (DNS+TCP)",
 									value: requestLog.dial_ms,
+									tooltip:
+										"Time to establish the TCP connection to the upstream provider (0 = connection reused)",
 								},
 								{
 									label: "Settings Reads",
 									value: requestLog.settings_read_ms,
+									tooltip: "Time to read proxy settings from the database",
 								},
 							].map(
-								({ label, value }) =>
+								({ label, value, tooltip }) =>
 									(value > 0 ||
 										(label === "Dial (DNS+TCP)" && value === 0)) && (
 										<div key={label} className="flex justify-between text-sm">
-											<span className="text-(--text-secondary)">{label}</span>
+											<span className="flex items-center gap-1 text-(--text-secondary)">
+												{label}
+												<span
+													title={tooltip}
+													className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all"
+												>
+													<Info size={12} />
+												</span>
+											</span>
 											<span className="font-mono text-(--text-primary)">
 												{label === "Dial (DNS+TCP)" && value === 0
 													? "reused"
