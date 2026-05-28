@@ -441,7 +441,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 	// indicate non-streaming. The API response reports duration as response_header_ms.
 	_, logErr := h.dbPool.Pool().Exec(r.Context(), logQuery,
 		m.ProviderID, m.ModelID, reqHash, resp.StatusCode,
-		durationMs, durationMs, 0,
+		durationMs, durationMs, durationMs,
 		proxyOverheadMs, 0, 0, 0, 0, keyDecryptMs, 0, 0,
 		tps, chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, false, "internal", nil, 0, "completed",
 	)
