@@ -1637,7 +1637,11 @@ func (h *Handler) probeFirstToken(
 	// same instant the scanner returns a data line.
 	var probeSucceeded atomic.Bool
 
-	// Goroutine closes body on timeout, unblocking the scanner.
+	// Goroutine closes body when the probe context is cancelled (TTFT timeout
+	// or parent context cancellation), unblocking the scanner. The double-
+	// check of probeDone handles the narrow race where the probe succeeds
+	// at the same instant the context fires; probeSucceeded is the final
+	// guard to prevent closing a body that's about to be replayed.
 	go func() {
 		select {
 		case <-probeDone:
@@ -1651,7 +1655,7 @@ func (h *Handler) probeFirstToken(
 				return
 			default:
 			}
-			if probeCtx.Err() == context.DeadlineExceeded && !probeSucceeded.Load() {
+			if !probeSucceeded.Load() {
 				_ = body.Close()
 			}
 		}
