@@ -11,10 +11,8 @@
 <a href="go.mod"><img src="https://img.shields.io/github/go-mod/go-version/hugalafutro/model-hotel" alt="Go Version"></a>
 <a href="https://goreportcard.com/report/github.com/hugalafutro/model-hotel"><img src="https://goreportcard.com/badge/github.com/hugalafutro/model-hotel" alt="Go Report"></a>
 <a href="https://codecov.io/github/hugalafutro/model-hotel"><img src="https://codecov.io/github/hugalafutro/model-hotel/branch/master/graph/badge.svg" alt="Coverage"></a>
-<a href="https://hub.docker.com/r/hugalafutro/model-hotel">
-  <img src="https://img.shields.io/docker/pulls/hugalafutro/model-hotel.svg" alt="Docker Pulls">
-<a href="/LICENSE"><img src="https://img.shields.io/github/license/hugalafutro/model-hotel" alt="License"></a>
-</a>
+<a href="https://hub.docker.com/r/hugalafutro/model-hotel"><img src="https://img.shields.io/docker/pulls/hugalafutro/model-hotel.svg" alt="Docker Pulls"></a>
+
   <br>
   <img src="https://img.shields.io/badge/Go-00ADD8?logo=go&logoColor=white" alt="Go">
   <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript">
@@ -29,7 +27,7 @@
 
 <div align="center">
 
-Made in [CodeNomad](https://github.com/NeuralNomadsAI/CodeNomad) with [OpenCode](https://opencode.ai).<br>From around version 0.4 the app was used as opencode model provider for its own development.
+Made in [CodeNomad](https://github.com/NeuralNomadsAI/CodeNomad) with [OpenCode](https://opencode.ai).<br>
 
 <details>
 <summary>📊 opencode stats (click to expand)</summary>
