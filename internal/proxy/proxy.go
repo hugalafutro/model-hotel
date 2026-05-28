@@ -1707,6 +1707,7 @@ func (h *Handler) probeFirstToken(
 		// returning success would give the caller a closed body, causing
 		// handleStreamingResponse to truncate the stream after buffer replay.
 		if probeCtx.Err() == nil {
+			probeSucceeded.Store(true) // mirror line 1680: store before any processing
 			bufStr := buf.String()
 			for _, rawLine := range strings.Split(bufStr, "\n") {
 				if l := strings.TrimSpace(rawLine); strings.HasPrefix(l, "data:") {
