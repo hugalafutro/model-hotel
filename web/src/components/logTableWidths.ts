@@ -9,6 +9,7 @@ export const LOG_COL_WIDTHS = [
 	"w-14", // Status
 	"w-21", // Tokens
 	"w-16.25", // T/s
+	"w-18.75", // Headers (response_header_ms)
 	"w-18.75", // TTFT
 	"w-13.75", // Duration
 	"w-17.5", // Overhead

@@ -169,7 +169,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 						<tbody>
 							<tr>
 								<td
-									colSpan={11}
+									colSpan={12}
 									className="px-4 py-8 text-center text-gray-500 text-sm"
 								>
 									No logs found

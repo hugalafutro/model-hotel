@@ -846,7 +846,7 @@ function RequestLogs() {
 										);
 									})
 								) : (
-									<EmptyRow colSpan={11} message="No logs found" />
+									<EmptyRow colSpan={12} message="No logs found" />
 								)}
 							</tbody>
 						</table>
