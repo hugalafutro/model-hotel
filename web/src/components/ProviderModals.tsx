@@ -1,4 +1,5 @@
-import { RefreshCw } from "lucide-react";
+import { ArrowLeftRight, RefreshCw } from "lucide-react";
+import { useState } from "react";
 import type {
 	NanoGPTUsage,
 	OpenRouterBalance,
@@ -22,6 +23,13 @@ function remainingBarColor(remainingPct: number): string {
 	return "bg-[#6366F1]";
 }
 
+/** Returns a Tailwind bg-[color] class based on used percentage. */
+function usedBarColor(usedPct: number): string {
+	if (usedPct < 50) return "bg-amber-500";
+	if (usedPct < 80) return "bg-orange-500";
+	return "bg-red-500";
+}
+
 export function NanoGPTQuotaModal({
 	usage,
 	onClose,
@@ -38,6 +46,7 @@ export function NanoGPTQuotaModal({
 	lastRefreshed?: number;
 }) {
 	const { uiStyle } = useTheme();
+	const [barMode, setBarMode] = useState<"remaining" | "used">("remaining");
 	const weeklyLimit = usage.limits.weeklyInputTokens ?? 0;
 	const weeklyUsed = usage.weeklyInputTokens?.used ?? 0;
 	const weeklyRemaining =
@@ -83,6 +92,23 @@ export function NanoGPTQuotaModal({
 					<div className="flex items-center gap-2">
 						<button
 							type="button"
+							onClick={() =>
+								setBarMode((prev) =>
+									prev === "remaining" ? "used" : "remaining",
+								)
+							}
+							className="absolute top-4 right-20 text-gray-400 hover:text-white transition-all cursor-pointer p-1.5"
+							aria-label="Toggle between remaining and used"
+							title={
+								barMode === "remaining"
+									? "Show quota used"
+									: "Show quota remaining"
+							}
+						>
+							<ArrowLeftRight size={18} />
+						</button>
+						<button
+							type="button"
 							onClick={handleRefresh}
 							disabled={isRefreshing}
 							className="absolute top-4 right-10 text-gray-400 hover:text-white transition-all cursor-pointer p-1.5 hover:drop-shadow-[var(--glow-accent-lg)]"
@@ -120,9 +146,9 @@ export function NanoGPTQuotaModal({
 					>
 						<div
 							data-testid="weekly-progress-fill"
-							className={`${remainingBarColor(weeklyRemaining)} h-3 rounded-full transition-all`}
+							className={`${barMode === "used" ? usedBarColor(100 - weeklyRemaining) : remainingBarColor(weeklyRemaining)} h-3 rounded-full transition-all`}
 							style={{
-								width: `${Math.min(weeklyRemaining, 100)}%`,
+								width: `${barMode === "used" ? Math.min(100 - weeklyRemaining, 100) : Math.min(weeklyRemaining, 100)}%`,
 							}}
 						/>
 					</div>
@@ -148,9 +174,9 @@ export function NanoGPTQuotaModal({
 						</div>
 						<div className="w-full bg-gray-700 rounded-full h-3">
 							<div
-								className={`${remainingBarColor(100 - usage.dailyImages.percentUsed * 100)} h-3 rounded-full transition-all`}
+								className={`${barMode === "used" ? usedBarColor(usage.dailyImages.percentUsed * 100) : remainingBarColor(100 - usage.dailyImages.percentUsed * 100)} h-3 rounded-full transition-all`}
 								style={{
-									width: `${Math.min(100 - usage.dailyImages.percentUsed * 100, 100)}%`,
+									width: `${barMode === "used" ? Math.min(usage.dailyImages.percentUsed * 100, 100) : Math.min(100 - usage.dailyImages.percentUsed * 100, 100)}%`,
 								}}
 							/>
 						</div>
@@ -178,9 +204,9 @@ export function NanoGPTQuotaModal({
 						</div>
 						<div className="w-full bg-gray-700 rounded-full h-3">
 							<div
-								className={`${remainingBarColor(100 - usage.dailyInputTokens.percentUsed * 100)} h-3 rounded-full transition-all`}
+								className={`${barMode === "used" ? usedBarColor(usage.dailyInputTokens.percentUsed * 100) : remainingBarColor(100 - usage.dailyInputTokens.percentUsed * 100)} h-3 rounded-full transition-all`}
 								style={{
-									width: `${Math.min(100 - usage.dailyInputTokens.percentUsed * 100, 100)}%`,
+									width: `${barMode === "used" ? Math.min(usage.dailyInputTokens.percentUsed * 100, 100) : Math.min(100 - usage.dailyInputTokens.percentUsed * 100, 100)}%`,
 								}}
 							/>
 						</div>
@@ -259,6 +285,7 @@ export function ZAICodingQuotaModal({
 	lastRefreshed?: number;
 }) {
 	const { uiStyle } = useTheme();
+	const [barMode, setBarMode] = useState<"remaining" | "used">("remaining");
 	const limits = usage.data?.limits || [];
 
 	const fiveHourLimit = limits.find(
@@ -296,6 +323,23 @@ export function ZAICodingQuotaModal({
 					<div className="flex items-center gap-2">
 						<button
 							type="button"
+							onClick={() =>
+								setBarMode((prev) =>
+									prev === "remaining" ? "used" : "remaining",
+								)
+							}
+							className="absolute top-4 right-20 text-gray-400 hover:text-white transition-all cursor-pointer p-1.5"
+							aria-label="Toggle between remaining and used"
+							title={
+								barMode === "remaining"
+									? "Show quota used"
+									: "Show quota remaining"
+							}
+						>
+							<ArrowLeftRight size={18} />
+						</button>
+						<button
+							type="button"
 							onClick={handleRefresh}
 							disabled={isRefreshing}
 							className="absolute top-4 right-10 text-gray-400 hover:text-white transition-all cursor-pointer p-1.5 hover:drop-shadow-[var(--glow-accent-lg)]"
@@ -325,14 +369,16 @@ export function ZAICodingQuotaModal({
 								5h Token Quota
 							</span>
 							<span className="text-sm text-gray-400">
-								{(100 - fiveHourLimit.percentage).toFixed(0)}% left
+								{barMode === "used"
+									? `${fiveHourLimit.percentage.toFixed(0)}% used`
+									: `${(100 - fiveHourLimit.percentage).toFixed(0)}% left`}
 							</span>
 						</div>
 						<div className="w-full bg-gray-700 rounded-full h-3">
 							<div
-								className={`${remainingBarColor(100 - fiveHourLimit.percentage)} h-3 rounded-full transition-all`}
+								className={`${barMode === "used" ? usedBarColor(fiveHourLimit.percentage) : remainingBarColor(100 - fiveHourLimit.percentage)} h-3 rounded-full transition-all`}
 								style={{
-									width: `${Math.min(100 - fiveHourLimit.percentage, 100)}%`,
+									width: `${barMode === "used" ? Math.min(fiveHourLimit.percentage, 100) : Math.min(100 - fiveHourLimit.percentage, 100)}%`,
 								}}
 							/>
 						</div>
@@ -352,14 +398,16 @@ export function ZAICodingQuotaModal({
 								Weekly Token Quota
 							</span>
 							<span className="text-sm text-gray-400">
-								{(100 - weeklyLimit.percentage).toFixed(0)}% left
+								{barMode === "used"
+									? `${weeklyLimit.percentage.toFixed(0)}% used`
+									: `${(100 - weeklyLimit.percentage).toFixed(0)}% left`}
 							</span>
 						</div>
 						<div className="w-full bg-gray-700 rounded-full h-3">
 							<div
-								className={`${remainingBarColor(100 - weeklyLimit.percentage)} h-3 rounded-full transition-all`}
+								className={`${barMode === "used" ? usedBarColor(weeklyLimit.percentage) : remainingBarColor(100 - weeklyLimit.percentage)} h-3 rounded-full transition-all`}
 								style={{
-									width: `${Math.min(100 - weeklyLimit.percentage, 100)}%`,
+									width: `${barMode === "used" ? Math.min(weeklyLimit.percentage, 100) : Math.min(100 - weeklyLimit.percentage, 100)}%`,
 								}}
 							/>
 						</div>
@@ -379,14 +427,16 @@ export function ZAICodingQuotaModal({
 								MCP Time Quota
 							</span>
 							<span className="text-sm text-gray-400">
-								{(100 - mcpLimit.percentage).toFixed(0)}% left
+								{barMode === "used"
+									? `${mcpLimit.percentage.toFixed(0)}% used`
+									: `${(100 - mcpLimit.percentage).toFixed(0)}% left`}
 							</span>
 						</div>
 						<div className="w-full bg-gray-700 rounded-full h-3">
 							<div
-								className={`${remainingBarColor(100 - mcpLimit.percentage)} h-3 rounded-full transition-all`}
+								className={`${barMode === "used" ? usedBarColor(mcpLimit.percentage) : remainingBarColor(100 - mcpLimit.percentage)} h-3 rounded-full transition-all`}
 								style={{
-									width: `${Math.min(100 - mcpLimit.percentage, 100)}%`,
+									width: `${barMode === "used" ? Math.min(mcpLimit.percentage, 100) : Math.min(100 - mcpLimit.percentage, 100)}%`,
 								}}
 							/>
 						</div>
@@ -440,6 +490,7 @@ export function OpenRouterQuotaModal({
 	lastRefreshed?: number;
 }) {
 	const { uiStyle } = useTheme();
+	const [barMode, setBarMode] = useState<"remaining" | "used">("remaining");
 
 	const handleRefresh = async () => {
 		try {
@@ -484,6 +535,23 @@ export function OpenRouterQuotaModal({
 					<div className="flex items-center gap-2">
 						<button
 							type="button"
+							onClick={() =>
+								setBarMode((prev) =>
+									prev === "remaining" ? "used" : "remaining",
+								)
+							}
+							className="absolute top-4 right-20 text-gray-400 hover:text-white transition-all cursor-pointer p-1.5"
+							aria-label="Toggle between remaining and used"
+							title={
+								barMode === "remaining"
+									? "Show credits used"
+									: "Show credits remaining"
+							}
+						>
+							<ArrowLeftRight size={18} />
+						</button>
+						<button
+							type="button"
 							onClick={handleRefresh}
 							disabled={isRefreshing}
 							className="absolute top-4 right-10 text-gray-400 hover:text-white transition-all cursor-pointer p-1.5 hover:drop-shadow-[var(--glow-accent-lg)]"
@@ -518,9 +586,9 @@ export function OpenRouterQuotaModal({
 					{balance.credits_total > 0 && (
 						<div className="w-full bg-gray-700 rounded-full h-3">
 							<div
-								className={`${remainingBarColor(creditsRemaining)} h-3 rounded-full transition-all`}
+								className={`${barMode === "used" ? usedBarColor(100 - creditsRemaining) : remainingBarColor(creditsRemaining)} h-3 rounded-full transition-all`}
 								style={{
-									width: `${Math.min(creditsRemaining, 100)}%`,
+									width: `${barMode === "used" ? Math.min(100 - creditsRemaining, 100) : Math.min(creditsRemaining, 100)}%`,
 								}}
 							/>
 						</div>
@@ -544,20 +612,30 @@ export function OpenRouterQuotaModal({
 						</div>
 						<div className="w-full bg-gray-700 rounded-full h-3">
 							<div
-								className={`${balance.limit > 0 ? remainingBarColor(((balance.limit_remaining ?? 0) / balance.limit) * 100) : "bg-amber-500"} h-3 rounded-full transition-all`}
+								className={`${barMode === "used" ? usedBarColor(100 - ((balance.limit_remaining ?? 0) / balance.limit) * 100) : remainingBarColor(((balance.limit_remaining ?? 0) / balance.limit) * 100)} h-3 rounded-full transition-all`}
 								style={{
-									width: `${Math.min(
-										balance.limit > 0
-											? ((balance.limit_remaining ?? 0) / balance.limit) * 100
-											: 0,
-										100,
-									)}%`,
+									width: `${
+										barMode === "used"
+											? Math.min(
+													100 -
+														((balance.limit_remaining ?? 0) / balance.limit) *
+															100,
+													100,
+												)
+											: Math.min(
+													balance.limit > 0
+														? ((balance.limit_remaining ?? 0) / balance.limit) *
+																100
+														: 0,
+													100,
+												)
+									}%`,
 								}}
 							/>
 						</div>
 						<p className="text-xs text-gray-500 mt-1">
 							{balance.limit > 0
-								? `${(((balance.limit_remaining ?? 0) / balance.limit) * 100).toFixed(1)}% remaining`
+								? `${barMode === "used" ? (100 - ((balance.limit_remaining ?? 0) / balance.limit) * 100).toFixed(1) : (((balance.limit_remaining ?? 0) / balance.limit) * 100).toFixed(1)}% ${barMode === "used" ? "used" : "remaining"}`
 								: balance.limit === 0
 									? "$0 limit - spending blocked"
 									: "No limit set"}

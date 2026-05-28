@@ -16,15 +16,9 @@ interface ProviderCardProps {
 	onDiscover: (id: string) => void;
 	onDelete: (provider: Provider) => void;
 	onSetModelsProvider: (provider: Provider) => void;
-	onSetModalNano: (
-		usage: NonNullable<ReturnType<typeof useQuotaData>["nanogptUsage"]>,
-	) => void;
-	onSetModalZaiCoding: (
-		usage: NonNullable<ReturnType<typeof useQuotaData>["zaiCodingUsage"]>,
-	) => void;
-	onSetModalOpenRouter: (
-		balance: NonNullable<ReturnType<typeof useQuotaData>["openrouterBalance"]>,
-	) => void;
+	onSetModalNano: () => void;
+	onSetModalZaiCoding: () => void;
+	onSetModalOpenRouter: () => void;
 	toast: (msg: string, type: "success" | "error" | "info") => void;
 }
 
@@ -125,13 +119,8 @@ export function ProviderCard({
 						quotaData={quotaData}
 						variant="card"
 						providerBaseUrl={provider.base_url}
-						onNanoClick={() =>
-							quotaData.nanogptUsage && onSetModalNano(quotaData.nanogptUsage)
-						}
-						onZaiCodingClick={() =>
-							quotaData.zaiCodingUsage &&
-							onSetModalZaiCoding(quotaData.zaiCodingUsage)
-						}
+						onNanoClick={() => onSetModalNano()}
+						onZaiCodingClick={() => onSetModalZaiCoding()}
 						onDeepseekClick={async () => {
 							try {
 								await quotaData.refetchDeepseek();
@@ -140,10 +129,7 @@ export function ProviderCard({
 								toast("Failed to refresh balance", "error");
 							}
 						}}
-						onOpenRouterClick={() =>
-							quotaData.openrouterBalance &&
-							onSetModalOpenRouter(quotaData.openrouterBalance)
-						}
+						onOpenRouterClick={() => onSetModalOpenRouter()}
 						onOllamaCloudClick={async () => {
 							try {
 								await quotaData.refetchOllamaCloud();

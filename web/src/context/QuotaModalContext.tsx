@@ -1,43 +1,34 @@
 import { createContext, type ReactNode, useContext, useState } from "react";
-import type {
-	NanoGPTUsage,
-	OllamaCloudAccount,
-	OpenRouterBalance,
-	ZAICodingQuotaResponse,
-} from "../api/types";
 
 interface QuotaModalContextType {
-	nanogptUsage: NanoGPTUsage | null;
-	setNanogptUsage: (v: NanoGPTUsage | null) => void;
-	zaiCodingUsage: ZAICodingQuotaResponse | null;
-	setZaiCodingUsage: (v: ZAICodingQuotaResponse | null) => void;
-	openrouterBalance: OpenRouterBalance | null;
-	setOpenrouterBalance: (v: OpenRouterBalance | null) => void;
-	ollamaCloudAccount: OllamaCloudAccount | null;
-	setOllamaCloudAccount: (v: OllamaCloudAccount | null) => void;
+	isNanoOpen: boolean;
+	setNanoOpen: (open: boolean) => void;
+	isZaiCodingOpen: boolean;
+	setZaiCodingOpen: (open: boolean) => void;
+	isOpenRouterOpen: boolean;
+	setOpenRouterOpen: (open: boolean) => void;
+	isOllamaCloudOpen: boolean;
+	setOllamaCloudOpen: (open: boolean) => void;
 }
 
 const QuotaModalContext = createContext<QuotaModalContextType | null>(null);
 
 export function QuotaModalProvider({ children }: { children: ReactNode }) {
-	const [nanogptUsage, setNanogptUsage] = useState<NanoGPTUsage | null>(null);
-	const [zaiCodingUsage, setZaiCodingUsage] =
-		useState<ZAICodingQuotaResponse | null>(null);
-	const [openrouterBalance, setOpenrouterBalance] =
-		useState<OpenRouterBalance | null>(null);
-	const [ollamaCloudAccount, setOllamaCloudAccount] =
-		useState<OllamaCloudAccount | null>(null);
+	const [isNanoOpen, setNanoOpen] = useState(false);
+	const [isZaiCodingOpen, setZaiCodingOpen] = useState(false);
+	const [isOpenRouterOpen, setOpenRouterOpen] = useState(false);
+	const [isOllamaCloudOpen, setOllamaCloudOpen] = useState(false);
 	return (
 		<QuotaModalContext.Provider
 			value={{
-				nanogptUsage,
-				setNanogptUsage,
-				zaiCodingUsage,
-				setZaiCodingUsage,
-				openrouterBalance,
-				setOpenrouterBalance,
-				ollamaCloudAccount,
-				setOllamaCloudAccount,
+				isNanoOpen,
+				setNanoOpen,
+				isZaiCodingOpen,
+				setZaiCodingOpen,
+				isOpenRouterOpen,
+				setOpenRouterOpen,
+				isOllamaCloudOpen,
+				setOllamaCloudOpen,
 			}}
 		>
 			{children}
