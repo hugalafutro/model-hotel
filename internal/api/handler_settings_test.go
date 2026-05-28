@@ -219,6 +219,34 @@ func TestUpdateSettings_RateLimit(t *testing.T) {
 	}
 }
 
+// Test that ttft_timeout and stream_stall_timeout can be saved (they were
+// missing from allowedSettings, causing 400s).
+func TestUpdateSettings_TimeoutDurations(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	body := `{"ttft_timeout": "1m0s", "stream_stall_timeout": "30s"}`
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/settings", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response map[string]string
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+	if response["ttft_timeout"] != "1m0s" {
+		t.Errorf("Expected ttft_timeout='1m0s', got %q", response["ttft_timeout"])
+	}
+	if response["stream_stall_timeout"] != "30s" {
+		t.Errorf("Expected stream_stall_timeout='30s', got %q", response["stream_stall_timeout"])
+	}
+}
+
 // Test for failover.go - SyncFailoverGroups
 
 func TestUpdateSettings_TooManySettings_Integration(t *testing.T) {
