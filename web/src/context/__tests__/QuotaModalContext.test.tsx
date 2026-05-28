@@ -11,7 +11,6 @@ describe("QuotaModalContext", () => {
 		expect(result.current.isNanoOpen).toBe(false);
 		expect(result.current.isZaiCodingOpen).toBe(false);
 		expect(result.current.isOpenRouterOpen).toBe(false);
-		expect(result.current.isOllamaCloudOpen).toBe(false);
 	});
 
 	it("setNanoOpen sets true", () => {
@@ -66,18 +65,6 @@ describe("QuotaModalContext", () => {
 		});
 
 		expect(result.current.isOpenRouterOpen).toBe(true);
-	});
-
-	it("setOllamaCloudOpen sets true", () => {
-		const { result } = renderHook(() => useQuotaModal(), {
-			wrapper: QuotaModalProvider,
-		});
-
-		act(() => {
-			result.current.setOllamaCloudOpen(true);
-		});
-
-		expect(result.current.isOllamaCloudOpen).toBe(true);
 	});
 
 	it("Throws error when used outside provider", () => {

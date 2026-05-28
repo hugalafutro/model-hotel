@@ -29,6 +29,13 @@ import (
 var newRequestWithContext = http.NewRequestWithContext
 
 func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, opts streamOptions) {
+
+	// Progressive stall timeout: after this many chunks, the stream is
+	// clearly alive — extend the watchdog timeout to tolerate tool-call
+	// pauses and long reasoning chains.
+	const progressiveChunkThreshold = 50
+	const progressiveStallMultiplier = 3
+
 	defer func() {
 		// Drain remaining bytes so the Transport reuses the connection.
 		// Skip drain if the client already disconnected: the upstream body
@@ -150,12 +157,13 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 		chunkCount++
 
 		// Ping stall watchdog after each successful scan.
-		// After 50 chunks the stream is clearly alive — extend the
-		// timeout 3× to tolerate tool-call pauses and long reasoning.
+		// After progressiveChunkThreshold chunks the stream is clearly
+		// alive — extend the timeout to tolerate tool-call pauses and
+		// long reasoning.
 		if stallCh != nil {
 			effectiveStall := opts.streamStallTimeout
-			if chunkCount > 50 {
-				effectiveStall = opts.streamStallTimeout * 3
+			if chunkCount > progressiveChunkThreshold {
+				effectiveStall = opts.streamStallTimeout * progressiveStallMultiplier
 			}
 			select {
 			case stallCh <- effectiveStall:
@@ -728,8 +736,8 @@ logUpdate:
 	// client disconnected, which is a more meaningful diagnosis.
 	if stalled && !sawDone && !clientDisconnected {
 		effectiveStall := opts.streamStallTimeout
-		if chunkCount > 50 {
-			effectiveStall = opts.streamStallTimeout * 3
+		if chunkCount > progressiveChunkThreshold {
+			effectiveStall = opts.streamStallTimeout * progressiveStallMultiplier
 		}
 		errMsg = fmt.Sprintf("stream stalled: no data for %s", effectiveStall)
 		debuglog.Warn("proxy: stream stall detected", "model", logData.modelID, "provider", logData.providerName, "stall_timeout", effectiveStall, "base_timeout", opts.streamStallTimeout, "chunks", chunkCount)
