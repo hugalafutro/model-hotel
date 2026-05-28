@@ -1121,6 +1121,46 @@ describe("OpenRouterQuotaModal", () => {
 			);
 			expect(progressBar).toBeInTheDocument();
 		});
+
+		it("uses amber bar color when limit is 0 (fallback)", () => {
+			const balanceWithZeroLimit = {
+				...mockBalance,
+				limit: 0,
+				limit_remaining: 0,
+			};
+			const { container } = renderWithProviders(
+				<OpenRouterQuotaModal
+					{...defaultProps}
+					balance={balanceWithZeroLimit}
+				/>,
+			);
+			// When limit is 0, the bar should use amber fallback color
+			const progressBar = container.querySelector(
+				".bg-amber-500.h-3.rounded-full",
+			);
+			expect(progressBar).toBeInTheDocument();
+			// Width should be 0% (not -Infinity or NaN)
+			expect(progressBar?.getAttribute("style")).toContain("width: 0%");
+		});
+
+		it("uses amber bar color when limit is negative (no limit set)", () => {
+			const balanceWithNegativeLimit = {
+				...mockBalance,
+				limit: -1,
+				limit_remaining: -1,
+			};
+			const { container } = renderWithProviders(
+				<OpenRouterQuotaModal
+					{...defaultProps}
+					balance={balanceWithNegativeLimit}
+				/>,
+			);
+			const progressBar = container.querySelector(
+				".bg-amber-500.h-3.rounded-full",
+			);
+			expect(progressBar).toBeInTheDocument();
+			expect(progressBar?.getAttribute("style")).toContain("width: 0%");
+		});
 	});
 
 	describe("credits display", () => {

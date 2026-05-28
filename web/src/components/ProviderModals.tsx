@@ -612,23 +612,23 @@ export function OpenRouterQuotaModal({
 						</div>
 						<div className="w-full bg-gray-700 rounded-full h-3">
 							<div
-								className={`${barMode === "used" ? usedBarColor(100 - ((balance.limit_remaining ?? 0) / balance.limit) * 100) : remainingBarColor(((balance.limit_remaining ?? 0) / balance.limit) * 100)} h-3 rounded-full transition-all`}
+								className={`${balance.limit > 0 ? (barMode === "used" ? usedBarColor(100 - ((balance.limit_remaining ?? 0) / balance.limit) * 100) : remainingBarColor(((balance.limit_remaining ?? 0) / balance.limit) * 100)) : "bg-amber-500"} h-3 rounded-full transition-all`}
 								style={{
 									width: `${
-										barMode === "used"
-											? Math.min(
-													100 -
+										balance.limit > 0
+											? barMode === "used"
+												? Math.min(
+														100 -
+															((balance.limit_remaining ?? 0) / balance.limit) *
+																100,
+														100,
+													)
+												: Math.min(
 														((balance.limit_remaining ?? 0) / balance.limit) *
 															100,
-													100,
-												)
-											: Math.min(
-													balance.limit > 0
-														? ((balance.limit_remaining ?? 0) / balance.limit) *
-																100
-														: 0,
-													100,
-												)
+														100,
+													)
+											: 0
 									}%`,
 								}}
 							/>

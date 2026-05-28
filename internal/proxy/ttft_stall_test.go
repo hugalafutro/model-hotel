@@ -743,12 +743,12 @@ func TestStallWatchdog_ProgressiveTimeout(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandler(h)
 
-	// Base stall timeout: 40ms. Extended (3×): 120ms.
-	// We'll send 51 chunks, then pause for 80ms (> base, < extended).
+	// Base stall timeout: 100ms. Extended (3×): 300ms.
+	// We'll send 51 chunks, then pause for 200ms (> base, < extended).
 	// If progressive timeout works, the watchdog won't fire.
-	// If it doesn't work, the watchdog fires at 40ms and kills the stream.
-	baseStall := 40 * time.Millisecond
-	pauseDuration := 80 * time.Millisecond // between base (40ms) and extended (120ms)
+	// If it doesn't work, the watchdog fires at 100ms and kills the stream.
+	baseStall := 100 * time.Millisecond
+	pauseDuration := 200 * time.Millisecond // between base (100ms) and extended (300ms)
 
 	pr, pw := io.Pipe()
 	go func() {
@@ -794,10 +794,10 @@ func TestStallWatchdog_ProgressiveTimeout(t *testing.T) {
 
 	h.handleStreamingResponse(w, req, logData, resp, startTime, opts)
 
-	// The stream should complete successfully — the 80ms pause was within
-	// the extended timeout (120ms) even though it exceeded the base (40ms).
+	// The stream should complete successfully — the 200ms pause was within
+	// the extended timeout (300ms) even though it exceeded the base (100ms).
 	if logData.state != "completed" {
-		t.Errorf("expected state=completed (progressive timeout should allow 80ms pause after 50 chunks), got %q, error=%s", logData.state, logData.errorMessage)
+		t.Errorf("expected state=completed (progressive timeout should allow 200ms pause after 50 chunks), got %q, error=%s", logData.state, logData.errorMessage)
 	}
 
 	// Verify we got content from after the pause (the "y" chunk)
@@ -807,5 +807,83 @@ func TestStallWatchdog_ProgressiveTimeout(t *testing.T) {
 	}
 	if !strings.Contains(body, "y") {
 		t.Error("expected content 'y' after pause — stream was likely killed by watchdog")
+	}
+}
+
+func TestStallWatchdog_ProgressiveTimeout_Boundary50(t *testing.T) {
+	// Verify that the progressive timeout only kicks in AFTER 50 chunks.
+	// Send exactly 50 chunks, then block. The stall watchdog should fire
+	// because chunkCount == 50 does not satisfy chunkCount > 50.
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	// Base stall timeout: 50ms.
+	// Send 50 chunks, then block on a channel. The watchdog should fire
+	// at ~50ms because the threshold is >50, not >=50.
+	// If the goroutine wakes from the 200ms timeout, it means the
+	// watchdog did NOT fire (bug).
+	baseStall := 50 * time.Millisecond
+	closeCh := make(chan struct{})
+
+	pr, pw := io.Pipe()
+	go func() {
+		// Send exactly 50 chunks — NOT enough to trigger progressive timeout
+		for i := 0; i < 50; i++ {
+			pw.Write([]byte("data: {\"choices\":[{\"delta\":{\"content\":\"x\"}}]}\n\n"))
+		}
+		// Block until either: watchdog closes the body (closeCh) or a
+		// safety timeout fires (meaning the watchdog failed to fire).
+		select {
+		case <-closeCh:
+			// Body was closed by watchdog, pipe write will fail
+		case <-time.After(200 * time.Millisecond):
+			// Watchdog did NOT fire — write [DONE] so the stream completes
+			// and the test can observe the wrong behavior.
+			pw.Write([]byte("data: [DONE]\n\n"))
+		}
+		pw.Close()
+	}()
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       pr,
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	logData := &requestLogData{
+		id:             uuid.New().String(),
+		modelID:        "test-model",
+		streaming:      true,
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+		state:          "streaming",
+	}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	startTime := time.Now()
+	opts := streamOptions{
+		responseHeaderMs:   10.0,
+		streamStallTimeout: baseStall,
+		vkHash:             "test-hash",
+		attempt:            1,
+		cancelOrigin:       "failover_timeout",
+	}
+
+	h.handleStreamingResponse(w, req, logData, resp, startTime, opts)
+	close(closeCh)
+
+	// The stream should be killed by the watchdog — 50 chunks is NOT enough
+	// for progressive timeout (needs > 50).
+	if logData.state != "failed" {
+		t.Errorf("expected state=failed (watchdog should fire at base timeout for 50 chunks), got %q", logData.state)
+	}
+	if logData.errorMessage == "" {
+		t.Error("expected non-empty error message after stall")
+	}
+	// Duration should be well under 200ms since the watchdog fires at ~50ms
+	if logData.durationMs > 200 {
+		t.Errorf("expected duration < 200ms (stall fired early), got %.1fms", logData.durationMs)
 	}
 }

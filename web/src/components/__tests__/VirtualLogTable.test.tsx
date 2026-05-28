@@ -1047,6 +1047,91 @@ describe("VirtualLogTable", () => {
 		});
 	});
 
+	describe("TPS cache-hit tinting", () => {
+		it("applies tertiary text color when tokens_prompt_cache_hit > 0", () => {
+			const entries = [
+				createLogEntry({
+					tokens_per_second: 42.5,
+					tokens_prompt_cache_hit: 500,
+				}),
+			];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			const row = screen.getByText("42.5").closest("tr");
+			expect(row).not.toBeNull();
+			if (row) {
+				const cells = row.querySelectorAll("td");
+				const tpsIndex = getColumnIndex("T/s");
+				const tpsSpan = cells[tpsIndex].querySelector("span");
+				expect(tpsSpan).not.toBeNull();
+				expect(tpsSpan?.className).toContain("text-(--text-tertiary)");
+			}
+		});
+
+		it("shows inflated by prompt cache hits tooltip when tokens_prompt_cache_hit > 0", () => {
+			const entries = [
+				createLogEntry({
+					tokens_per_second: 42.5,
+					tokens_prompt_cache_hit: 500,
+				}),
+			];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			const row = screen.getByText("42.5").closest("tr");
+			expect(row).not.toBeNull();
+			if (row) {
+				const cells = row.querySelectorAll("td");
+				const tpsIndex = getColumnIndex("T/s");
+				const tpsSpan = cells[tpsIndex].querySelector("span");
+				expect(tpsSpan?.getAttribute("title")).toBe(
+					"Inflated by prompt cache hits",
+				);
+			}
+		});
+
+		it("uses default gray color when tokens_prompt_cache_hit is 0", () => {
+			const entries = [
+				createLogEntry({
+					tokens_per_second: 42.5,
+					tokens_prompt_cache_hit: 0,
+				}),
+			];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} />,
+			);
+
+			const row = screen.getByText("42.5").closest("tr");
+			expect(row).not.toBeNull();
+			if (row) {
+				const cells = row.querySelectorAll("td");
+				const tpsIndex = getColumnIndex("T/s");
+				const tpsSpan = cells[tpsIndex].querySelector("span");
+				expect(tpsSpan).not.toBeNull();
+				expect(tpsSpan?.className).toContain("text-gray-400");
+				expect(tpsSpan?.getAttribute("title")).toBeNull();
+			}
+		});
+	});
+
 	describe("Model ID formatting", () => {
 		it("renders model_id as-is when it contains no slash", () => {
 			const entries = [createLogEntry({ model_id: "gpt-4o-mini" })];

@@ -618,7 +618,7 @@ describe("ProviderCard", () => {
 			);
 			fireEvent.click(openrouterBadge);
 
-			expect(defaultProps.onSetModalOpenRouter).toHaveBeenCalled();
+			expect(defaultProps.onSetModalOpenRouter).toHaveBeenCalledWith();
 		});
 
 		it("calls refetchOllamaCloud and toasts success when Ollama Cloud badge is clicked", async () => {
