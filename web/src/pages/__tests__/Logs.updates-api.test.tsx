@@ -363,7 +363,9 @@ describe("Logs", () => {
 				// getByText can't match across elements, so find the row and
 				// assert on the cell's full text content instead.
 				const row = screen.getByText("abc123").closest("tr");
-				const tokenCells = within(row!).getAllByRole("cell");
+				const tokenCells = within(row as HTMLTableRowElement).getAllByRole(
+					"cell",
+				);
 				// Tokens cell is after Hash, Model, Provider, Status columns
 				const tokenCell = tokenCells.find((c) => c.textContent?.includes("+"));
 				expect(tokenCell).toHaveTextContent("100+200");

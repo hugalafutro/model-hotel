@@ -664,7 +664,7 @@ describe("Chat", () => {
 			});
 			// Select Model A — scope to the Model A picker to avoid matching Model B's list
 			const modelALabel = screen.getByText("Model A");
-			const modelAContainer = modelALabel.closest("div")!;
+			const modelAContainer = modelALabel.closest("div") as HTMLElement;
 			await waitFor(() => {
 				expect(
 					within(modelAContainer).getByText("Test Model v1"),

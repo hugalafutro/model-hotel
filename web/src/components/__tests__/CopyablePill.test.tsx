@@ -86,7 +86,7 @@ describe("CopyablePill", () => {
 		expect(span.style.display).toBe("-webkit-box");
 		expect(span.style.WebkitLineClamp).toBe("2");
 		// button uses items-start (icon aligns with first text line)
-		const button = span.closest("button")!;
+		const button = span.closest("button") as HTMLButtonElement;
 		expect(button.className).toContain("items-start");
 		expect(button.className).toContain("text-left");
 		// pill does not stretch full width (sizes to content)

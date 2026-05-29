@@ -235,7 +235,7 @@ describe("ParamEditorModal", () => {
 		);
 
 		const label = screen.getByText(/Top P/i);
-		const container = label.closest("div")!;
+		const container = label.closest("div") as HTMLElement;
 		const input = within(container).getByRole("spinbutton");
 
 		await user.clear(input);
@@ -255,7 +255,7 @@ describe("ParamEditorModal", () => {
 		);
 
 		const label = screen.getByText(/Min P/i);
-		const container = label.closest("div")!;
+		const container = label.closest("div") as HTMLElement;
 		const input = within(container).getByRole("spinbutton");
 
 		await user.clear(input);
@@ -275,7 +275,7 @@ describe("ParamEditorModal", () => {
 		);
 
 		const label = screen.getByText(/Freq Penalty/i);
-		const container = label.closest("div")!;
+		const container = label.closest("div") as HTMLElement;
 		const input = within(container).getByRole("spinbutton");
 
 		await user.clear(input);
@@ -295,7 +295,7 @@ describe("ParamEditorModal", () => {
 		);
 
 		const label = screen.getByText(/Pres Penalty/i);
-		const container = label.closest("div")!;
+		const container = label.closest("div") as HTMLElement;
 		const input = within(container).getByRole("spinbutton");
 
 		await user.clear(input);
