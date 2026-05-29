@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -297,7 +299,11 @@ func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 		// Uniqueness check: no other failover group should have this display_model
 		if *req.DisplayModel != existing.DisplayModel {
-			conflict, _ := h.failoverRepo.GetByModel(r.Context(), *req.DisplayModel)
+			conflict, err := h.failoverRepo.GetByModel(r.Context(), *req.DisplayModel)
+			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				respondError(w, "failed to check display_model uniqueness", err, http.StatusInternalServerError)
+				return
+			}
 			if conflict != nil {
 				http.Error(w, "failover group with display_model '"+*req.DisplayModel+"' already exists", http.StatusConflict)
 				return

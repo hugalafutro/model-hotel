@@ -43,10 +43,10 @@ export function LangIcon({ name, size = 14, ...rest }: LangIconProps) {
 					{...rest}
 				>
 					<title>cURL</title>
-					<rect width="24" height="24" rx="4" fill="#1e293b" opacity="0.2" />
+					<rect width="24" height="24" rx="4" fill="#111" />
 					<path
 						d="M5 7l5 5-5 5M13 17h6"
-						stroke="#f1f5f9"
+						stroke={isDark ? "#e2e8f0" : "#f1f5f9"}
 						strokeWidth={2}
 						strokeLinecap="round"
 						strokeLinejoin="round"
