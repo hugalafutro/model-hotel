@@ -334,8 +334,8 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 											<span
 												className={
 													log.tokens_prompt_cache_hit > 0
-														? "text-(--text-tertiary)"
-														: "text-gray-400"
+														? "opacity-50"
+														: undefined
 												}
 												title={
 													log.tokens_prompt_cache_hit > 0
