@@ -312,7 +312,8 @@ func (s *quotaCircuitState) recordFailure() bool {
 // creating one if it doesn't exist yet.
 func (d *DiscoveryService) getOrCreateCircuit(providerID string) *quotaCircuitState {
 	val, _ := d.quotaBreaker.LoadOrStore(providerID, &quotaCircuitState{})
-	return val.(*quotaCircuitState)
+	circuit, _ := val.(*quotaCircuitState)
+	return circuit
 }
 
 // isTransientNetworkError returns true for DNS failures, timeouts, and
