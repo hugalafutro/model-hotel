@@ -505,7 +505,7 @@ describe("Logs", () => {
 			// corresponding cell in the data row - avoids hard-coded index
 			const table = screen.getByText("cancel-003").closest("table");
 			expect(table).not.toBeNull();
-			const headerRow = table.querySelector("thead tr");
+			const headerRow = (table as HTMLElement).querySelector("thead tr");
 			expect(headerRow).not.toBeNull();
 			const headers = within(headerRow as HTMLElement).getAllByRole(
 				"columnheader",
