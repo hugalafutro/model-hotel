@@ -1593,11 +1593,11 @@ func TestChatCompletions_DeprecationCacheFirstEntry(t *testing.T) {
 	if !loaded {
 		t.Fatal("expected cache entry to exist")
 	}
-	entry, ok := cached.(map[string]bool)
+	entryPtr, ok := cached.(*map[string]bool)
 	if !ok {
-		t.Fatalf("expected cache value to be map[string]bool, got %T", cached)
+		t.Fatalf("expected cache value to be *map[string]bool, got %T", cached)
 	}
-	if !entry["top_p"] {
+	if !(*entryPtr)["top_p"] {
 		t.Error("expected 'top_p' to be in cache entry")
 	}
 }

@@ -308,7 +308,8 @@ func TestChatCompletions_DeprecationCacheStripping(t *testing.T) {
 	// Pre-populate the deprecation cache
 	providerType := provider.DetectProviderType(upstream.URL)
 	cacheKey := fmt.Sprintf("%s:%s", providerType, modelName)
-	handler.deprecationCache.Store(cacheKey, map[string]bool{"temperature": true, "top_p": true})
+	cacheValue := map[string]bool{"temperature": true, "top_p": true}
+	handler.deprecationCache.Store(cacheKey, &cacheValue)
 
 	body := `{"model": "` + providerName + `/` + modelName + `", "stream": false, "messages": [{"role": "user", "content": "hello"}], "temperature": 0.7, "top_p": 0.9}`
 	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
