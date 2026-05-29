@@ -375,12 +375,11 @@ describe("Dashboard", () => {
 
 		it("displays models in Top Models panel", async () => {
 			// Top Models panel uses stats.by_model from /api/stats?metric=tokens&period=24h
-			// The proxyModelID normalizes provider names (spaces -> hyphens)
-			// So "Test Provider" becomes "test-provider"
+			// Backend returns by_model keys as "Provider Name/model-id" (raw name with spaces).
 			const statsWithModelUsage = {
 				...mockStats,
 				by_model: {
-					"test-provider/test-model-v1": 1000,
+					"Test Provider/test-model-v1": 1000,
 				},
 			};
 			server.use(
@@ -396,9 +395,8 @@ describe("Dashboard", () => {
 				expect(screen.getByText("Dashboard")).toBeInTheDocument();
 			});
 
-			// Model label is normalized: test-provider/test-model-v1
 			expect(
-				screen.getByText("test-provider/test-model-v1"),
+				screen.getByText("Test Provider/test-model-v1"),
 			).toBeInTheDocument();
 		});
 	});
@@ -455,12 +453,12 @@ describe("Dashboard", () => {
 
 	describe("Model Detail Modal", () => {
 		it("renders model detail modal when model is selected", async () => {
-			// Need stats with model usage data for the panel to show the model
-			// The proxyModelID normalizes provider names (spaces -> hyphens)
+			// Need stats with model usage data for the panel to show the model.
+			// Backend returns by_model keys as "Provider Name/model-id" (raw name with spaces).
 			const statsWithModelUsage = {
 				...mockStats,
 				by_model: {
-					"test-provider/test-model-v1": 1000,
+					"Test Provider/test-model-v1": 1000,
 				},
 			};
 			server.use(
@@ -475,17 +473,43 @@ describe("Dashboard", () => {
 				expect(screen.getByText("Dashboard")).toBeInTheDocument();
 			});
 
-			// Model label is normalized: test-provider/test-model-v1
 			// Verify the model entry is rendered as clickable (has button parent)
 			expect(
 				screen.getByRole("button", {
-					name: /View details for test-provider\/test-model-v1/i,
+					name: /View details for Test Provider\/test-model-v1/i,
 				}),
 			).toBeInTheDocument();
 		});
 	});
 
 	describe("Data Refresh", () => {
+		it("deleted provider model is not clickable in Top Models", async () => {
+			// Stats returns a model key for a provider that no longer exists
+			const statsWithDeletedProvider = {
+				...mockStats,
+				by_model: {
+					"Deleted Provider/some-model": 500,
+				},
+			};
+			server.use(
+				http.get("/api/stats", () =>
+					HttpResponse.json(statsWithDeletedProvider),
+				),
+				http.get("/api/models", () => HttpResponse.json([])),
+				http.get("/api/providers", () => HttpResponse.json([])),
+			);
+
+			renderWithProviders(<Dashboard />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Dashboard")).toBeInTheDocument();
+			});
+
+			// Entry text is rendered but NOT as a button (deleted provider)
+			const entryText = screen.getByText("Deleted Provider/some-model");
+			expect(entryText.tagName).not.toBe("BUTTON");
+		});
+
 		it("refreshes data when refresh button is clicked", async () => {
 			let callCount = 0;
 			server.use(

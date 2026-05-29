@@ -563,12 +563,23 @@ export function useDashboard(): UseDashboardReturn {
 				.filter(([, v]) => Number(v) > 0)
 				.sort(([, a], [, b]) => Number(b) - Number(a))
 				.slice(0, 5)
-				.map(([k, v]) => ({
-					label: k,
-					value: Number(v),
-					suffix: modelsMetric === "tokens" ? " tokens" : " requests",
-					failoverGroup: k.startsWith("hotel/"),
-				}))
+				.map(([k, v]) => {
+					const isFailoverGroup = k.startsWith("hotel/");
+					const normalized = k.replace(/ /g, "-");
+					const exists =
+						isFailoverGroup ||
+						models === undefined ||
+						models.some(
+							(m) => proxyModelID(m.provider_name, m.model_id) === normalized,
+						);
+					return {
+						label: k,
+						value: Number(v),
+						suffix: modelsMetric === "tokens" ? " tokens" : " requests",
+						failoverGroup: isFailoverGroup,
+						deleted: !exists,
+					};
+				})
 		: [];
 	const byProvider = providersUsageStats
 		? Object.entries(providersUsageStats.by_provider)

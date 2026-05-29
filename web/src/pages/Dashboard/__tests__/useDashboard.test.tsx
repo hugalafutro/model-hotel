@@ -655,20 +655,54 @@ describe("useDashboard", () => {
 			await waitFor(() => {
 				expect(result.current.byModel).toHaveLength(5);
 				// Default globalMetric is "tokens", so suffix is " tokens"
+				// All entries have deleted: true since model keys don't match mockModel
 				expect(result.current.byModel[0]).toEqual({
 					label: "model-e",
 					value: 300,
 					suffix: " tokens",
 					failoverGroup: false,
+					deleted: true,
 				});
 				expect(result.current.byModel[1]).toEqual({
 					label: "model-b",
 					value: 200,
 					suffix: " tokens",
 					failoverGroup: false,
+					deleted: true,
 				});
 				// model-c with 0 should be filtered out
 			});
+		});
+
+		it("byModel does not mark hotel/ failover groups as deleted", async () => {
+			server.use(
+				http.get("/api/stats", () => {
+					return HttpResponse.json({
+						...mockStats,
+						by_model: { "hotel/my-group": 150, "model-x": 50 },
+					} as Stats);
+				}),
+			);
+
+			const { result } = renderHook(() => useDashboard(), {
+				wrapper: AllProviders,
+			});
+
+			await waitFor(() => {
+				expect(result.current.byModel).toHaveLength(2);
+			});
+
+			const failoverEntry = result.current.byModel.find(
+				(e) => e.label === "hotel/my-group",
+			);
+			expect(failoverEntry?.failoverGroup).toBe(true);
+			expect(failoverEntry?.deleted).toBe(false);
+
+			const regularEntry = result.current.byModel.find(
+				(e) => e.label === "model-x",
+			);
+			expect(regularEntry?.failoverGroup).toBe(false);
+			expect(regularEntry?.deleted).toBe(true);
 		});
 
 		it("byModel uses 'tokens' suffix when modelsMetric is 'tokens'", async () => {

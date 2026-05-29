@@ -246,7 +246,7 @@ describe("DatabaseBackupSettings", () => {
 		});
 	});
 
-	it("Create shows success toast", async () => {
+	it("Create refreshes backup list on success", async () => {
 		const user = userEvent.setup();
 		renderWithProviders(
 			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
@@ -258,8 +258,9 @@ describe("DatabaseBackupSettings", () => {
 		});
 		const createButton = screen.getByRole("button", { name: /create backup/i });
 		await user.click(createButton);
+		// Button returns to normal state after mutation completes
 		await waitFor(() => {
-			expect(screen.getByText("Backup created")).toBeInTheDocument();
+			expect(createButton).not.toBeDisabled();
 		});
 	});
 

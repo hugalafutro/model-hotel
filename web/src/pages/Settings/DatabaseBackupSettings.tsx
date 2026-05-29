@@ -40,7 +40,6 @@ export function DatabaseBackupSettings({
 		mutationFn: () => api.backups.create(),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["backups"] });
-			toast("Backup created", "success");
 		},
 		onError: (err: Error) => {
 			toast(`Backup failed: ${err.message}`, "error");
