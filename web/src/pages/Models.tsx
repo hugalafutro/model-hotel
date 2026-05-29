@@ -96,6 +96,7 @@ export function Models() {
 			const result = await api.providers.discover(providerId);
 			queryClient.invalidateQueries({ queryKey: ["models"] });
 			queryClient.invalidateQueries({ queryKey: ["providers"] });
+			setModelRefreshTrigger((n) => n + 1);
 			return result;
 		},
 		[queryClient],
