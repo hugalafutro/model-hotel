@@ -49,16 +49,16 @@ function getStatusDisplay(
 	}
 
 	const hundred = Math.floor(code / 100);
-	const codeMap: Record<
+	const codeMap = new Map<
 		number,
 		{ variant: BadgeVariant; suffix: string; icon: LucideIcon }
-	> = {
-		2: { variant: "green", suffix: "OK", icon: Activity },
-		4: { variant: "orange", suffix: "Client Error", icon: AlertTriangle },
-		5: { variant: "red", suffix: "Server Error", icon: AlertTriangle },
-	};
+	>([
+		[2, { variant: "green", suffix: "OK", icon: Activity }],
+		[4, { variant: "orange", suffix: "Client Error", icon: AlertTriangle }],
+		[5, { variant: "red", suffix: "Server Error", icon: AlertTriangle }],
+	]);
 
-	const config = codeMap[hundred];
+	const config = codeMap.get(hundred);
 	if (config) {
 		return {
 			variant: config.variant,
