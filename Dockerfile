@@ -28,7 +28,7 @@ ARG VERSION=dev
 RUN go build -ldflags "-X main.version=$VERSION" -o server ./cmd/server/
 
 # Stage 3: Minimal runtime image
-FROM alpine:latest
+FROM alpine:3.21
 
 RUN apk add --no-cache ca-certificates postgresql16-client
 
