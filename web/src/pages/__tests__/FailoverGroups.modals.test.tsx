@@ -194,10 +194,15 @@ describe("Edit Group Modal", () => {
 			).toBeInTheDocument();
 		});
 
-		// Display model input should have value "custom-model" and be disabled
+		// Display model input should have value "custom-model" and be enabled (editable)
 		const displayModelInput = screen.getByDisplayValue("custom-model");
 		expect(displayModelInput).toBeInTheDocument();
-		expect(displayModelInput).toBeDisabled();
+		expect(displayModelInput).not.toBeDisabled();
+
+		// Helper text should show hotel/... pattern
+		expect(
+			screen.getByText(`This becomes hotel/custom-model in the model list`),
+		).toBeInTheDocument();
 
 		// Display name input should have value "My Custom Group"
 		const displayNameInput = screen.getByDisplayValue("My Custom Group");

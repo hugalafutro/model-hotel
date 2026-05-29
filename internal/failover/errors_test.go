@@ -240,7 +240,7 @@ func TestUpdate_UnmarshalPriorityError(t *testing.T) {
 	}
 
 	newPO := []uuid.UUID{uuid.New()}
-	_, err = repo.Update(ctx, fg.ID, newPO, nil, nil, nil, nil)
+	_, err = repo.Update(ctx, fg.ID, newPO, nil, nil, nil, nil, nil)
 	if err == nil {
 		t.Error("Update should return error when unmarshal priority fails")
 	}
@@ -274,7 +274,7 @@ func TestUpdate_UnmarshalEntryEnabledError(t *testing.T) {
 	}
 
 	newPO := []uuid.UUID{uuid.New()}
-	_, err = repo.Update(ctx, fg.ID, newPO, nil, nil, nil, nil)
+	_, err = repo.Update(ctx, fg.ID, newPO, nil, nil, nil, nil, nil)
 	if err == nil {
 		t.Error("Update should return error when unmarshal entry_enabled fails")
 	}
@@ -367,7 +367,7 @@ func TestUpdate_MarshalPriorityError(t *testing.T) {
 	}
 
 	newPO := []uuid.UUID{uuid.New()}
-	_, err = repo.Update(ctx, fg.ID, newPO, nil, nil, nil, nil)
+	_, err = repo.Update(ctx, fg.ID, newPO, nil, nil, nil, nil, nil)
 	if err == nil {
 		t.Error("Update should return error when marshal priority fails")
 	}
@@ -401,7 +401,7 @@ func TestUpdate_MarshalEntryEnabledError(t *testing.T) {
 	}
 
 	newPO := []uuid.UUID{uuid.New()}
-	_, err = repo.Update(ctx, fg.ID, newPO, nil, nil, nil, nil)
+	_, err = repo.Update(ctx, fg.ID, newPO, nil, nil, nil, nil, nil)
 	if err == nil {
 		t.Error("Update should return error when marshal entry_enabled fails")
 	}
@@ -452,7 +452,7 @@ func TestUpdate_DBError(t *testing.T) {
 	cancel()
 
 	newPO := []uuid.UUID{uuid.New()}
-	_, err = repo.Update(cancelCtx, fg.ID, newPO, nil, nil, nil, nil)
+	_, err = repo.Update(cancelCtx, fg.ID, newPO, nil, nil, nil, nil, nil)
 	if err == nil {
 		t.Error("Update should return error with canceled context")
 	}

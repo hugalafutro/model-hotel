@@ -1,4 +1,13 @@
-import type { SVGProps } from "react";
+import claudeLogo from "@/assets/logos/claude.png";
+import hermesDark from "@/assets/logos/hermes-dark.png";
+import hermesLight from "@/assets/logos/hermes-light.png";
+import librechatLogo from "@/assets/logos/librechat.png";
+import openclawLogo from "@/assets/logos/openclaw.png";
+import opencodeDark from "@/assets/logos/opencode-logo-dark.png";
+import opencodeLight from "@/assets/logos/opencode-logo-light.png";
+import zedDark from "@/assets/logos/zed-dark.png";
+import zedLight from "@/assets/logos/zed-light.png";
+import { useTheme } from "../context/ThemeContext";
 
 export type LangIconKey =
 	| "javascript"
@@ -11,14 +20,41 @@ export type LangIconKey =
 	| "zed"
 	| "opencode";
 
-interface LangIconProps extends SVGProps<SVGSVGElement> {
+interface LangIconProps {
 	name: LangIconKey;
 	size?: number;
+	className?: string;
+	style?: React.CSSProperties;
 }
 
 /** Small language/tool icons for code example headers. */
 export function LangIcon({ name, size = 14, ...rest }: LangIconProps) {
+	const { theme } = useTheme();
+	const isDark = theme === "dark";
+
 	switch (name) {
+		case "curl":
+			return (
+				<svg
+					viewBox="0 0 24 24"
+					width={size}
+					height={size}
+					fill="none"
+					{...rest}
+				>
+					<title>cURL</title>
+					<rect width="24" height="24" rx="4" fill="#111" />
+					<path
+						d="M5 7l5 5-5 5M13 17h6"
+						stroke={isDark ? "#e2e8f0" : "#f1f5f9"}
+						strokeWidth={2}
+						strokeLinecap="round"
+						strokeLinejoin="round"
+						fill="none"
+					/>
+				</svg>
+			);
+
 		case "javascript":
 			return (
 				<svg
@@ -60,154 +96,68 @@ export function LangIcon({ name, size = 14, ...rest }: LangIconProps) {
 
 		case "claude":
 			return (
-				<svg
-					viewBox="0 0 24 24"
+				<img
+					src={claudeLogo}
+					alt="Claude Code"
 					width={size}
 					height={size}
-					fill="none"
 					{...rest}
-				>
-					<title>Claude Code</title>
-					<circle cx="12" cy="12" r="10" fill="#D97706" opacity="0.2" />
-					<path
-						d="M12 3l2.5 5 5.5.8-4 3.9.9 5.3L12 15l-4.9 2 .9-5.3-4-3.9 5.5-.8z"
-						fill="#D97706"
-					/>
-				</svg>
+				/>
 			);
 
 		case "openclaw":
 			return (
-				<svg
-					viewBox="0 0 24 24"
+				<img
+					src={openclawLogo}
+					alt="OpenClaw"
 					width={size}
 					height={size}
-					fill="none"
 					{...rest}
-				>
-					<title>OpenClaw</title>
-					<circle cx="12" cy="12" r="10" fill="#E05D44" opacity="0.2" />
-					<ellipse cx="8" cy="9" rx="2.5" ry="3" fill="#E05D44" />
-					<ellipse cx="16" cy="9" rx="2.5" ry="3" fill="#E05D44" />
-					<ellipse cx="12" cy="7" rx="2.5" ry="3" fill="#E05D44" />
-					<ellipse cx="10" cy="13.5" rx="4" ry="2" fill="#E05D44" />
-					<ellipse cx="14" cy="13.5" rx="4" ry="2" fill="#E05D44" />
-					<circle cx="10.5" cy="9" r="1" fill="#1a1a2e" />
-					<circle cx="13.5" cy="9" r="1" fill="#1a1a2e" />
-				</svg>
+				/>
 			);
 
 		case "hermes":
 			return (
-				<svg
-					viewBox="0 0 24 24"
+				<img
+					src={isDark ? hermesDark : hermesLight}
+					alt="Hermes"
 					width={size}
 					height={size}
-					fill="none"
 					{...rest}
-				>
-					<title>Hermes</title>
-					<circle cx="12" cy="12" r="10" fill="#6366F1" opacity="0.2" />
-					<path
-						d="M12 4c-2 0-3.5 1-3.5 1l1 2c.8-.5 1.6-.7 2.5-.7s1.7.2 2.5.7l1-2S14 4 12 4zm0 4l-6 6h4v4h4v-4h4l-6-6z"
-						fill="#6366F1"
-					/>
-				</svg>
+				/>
 			);
 
 		case "librechat":
 			return (
-				<svg
-					viewBox="0 0 24 24"
+				<img
+					src={librechatLogo}
+					alt="LibreChat"
 					width={size}
 					height={size}
-					fill="none"
 					{...rest}
-				>
-					<title>LibreChat</title>
-					<circle cx="12" cy="12" r="10" fill="#7C3AED" opacity="0.2" />
-					<path d="M7 8h10v2H7zm0 3h7v2H7zm0 3h10v2H7z" fill="#7C3AED" />
-					<path
-						d="M4 5h16v14H4z"
-						stroke="#7C3AED"
-						strokeWidth="1.5"
-						fill="none"
-						strokeLinecap="round"
-						strokeLinejoin="round"
-					/>
-				</svg>
-			);
-
-		case "curl":
-			return (
-				<svg
-					viewBox="0 0 24 24"
-					width={size}
-					height={size}
-					fill="none"
-					{...rest}
-				>
-					<title>cURL</title>
-					<circle cx="12" cy="12" r="10" fill="#4B5563" opacity="0.2" />
-					<path
-						d="M5 7l5 5-5 5M13 17h6"
-						stroke="#4B5563"
-						strokeWidth={2}
-						strokeLinecap="round"
-						strokeLinejoin="round"
-						fill="none"
-					/>
-				</svg>
+				/>
 			);
 
 		case "zed":
 			return (
-				<svg
-					viewBox="0 0 24 24"
+				<img
+					src={isDark ? zedDark : zedLight}
+					alt="ZED"
 					width={size}
 					height={size}
-					fill="none"
 					{...rest}
-				>
-					<title>ZED</title>
-					<circle cx="12" cy="12" r="10" fill="#22C55E" opacity="0.2" />
-					<path
-						d="M7 9h10M7 12h7M7 15h10"
-						stroke="#22C55E"
-						strokeWidth={1.5}
-						strokeLinecap="round"
-						fill="none"
-					/>
-				</svg>
+				/>
 			);
 
 		case "opencode":
 			return (
-				<svg
-					viewBox="0 0 24 24"
+				<img
+					src={isDark ? opencodeDark : opencodeLight}
+					alt="OpenCode"
 					width={size}
 					height={size}
-					fill="none"
 					{...rest}
-				>
-					<title>OpenCode</title>
-					<circle cx="12" cy="12" r="10" fill="#8B5CF6" opacity="0.2" />
-					<circle
-						cx="12"
-						cy="12"
-						r="4"
-						stroke="#8B5CF6"
-						strokeWidth={1.5}
-						fill="none"
-					/>
-					<path
-						d="M12 2v3M12 19v3M2 12h3M19 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"
-						stroke="#8B5CF6"
-						strokeWidth={1.5}
-						strokeLinecap="round"
-						fill="none"
-					/>
-				</svg>
+				/>
 			);
 	}
 }

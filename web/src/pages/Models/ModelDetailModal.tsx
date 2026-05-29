@@ -590,7 +590,7 @@ export function ModelDetailModal({
 							onClick={() => setSnippetTab(entry.key)}
 							className={`p-1.5 rounded cursor-pointer transition-all ${
 								snippetTab === entry.key
-									? "bg-slate-700/60 border border-slate-600/50"
+									? "bg-slate-700/30 border border-slate-600/30"
 									: "text-slate-500 hover:text-slate-400 border border-transparent"
 							}`}
 							title={entry.title}

@@ -1071,7 +1071,7 @@ describe("VirtualLogTable", () => {
 				const tpsIndex = getColumnIndex("T/s");
 				const tpsSpan = cells[tpsIndex].querySelector("span");
 				expect(tpsSpan).not.toBeNull();
-				expect(tpsSpan?.className).toContain("text-(--text-tertiary)");
+				expect(tpsSpan?.className).toContain("opacity-50");
 			}
 		});
 
@@ -1126,7 +1126,7 @@ describe("VirtualLogTable", () => {
 				const tpsIndex = getColumnIndex("T/s");
 				const tpsSpan = cells[tpsIndex].querySelector("span");
 				expect(tpsSpan).not.toBeNull();
-				expect(tpsSpan?.className).toContain("text-gray-400");
+				expect(tpsSpan?.className).toBe("");
 				expect(tpsSpan?.getAttribute("title")).toBeNull();
 			}
 		});

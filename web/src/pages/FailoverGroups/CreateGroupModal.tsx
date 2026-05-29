@@ -133,7 +133,8 @@ export function CreateGroupModal({
 			updateMutation.mutate({
 				id: group.id,
 				body: {
-					display_name: displayName.trim(),
+					display_model: displayModel.trim() || undefined,
+					display_name: displayName.trim() || undefined,
 					description: description.trim(),
 					priority_order: entryUuids,
 				},
@@ -180,14 +181,11 @@ export function CreateGroupModal({
 						maxLength={128}
 						value={displayModel}
 						onChange={(e) => setDisplayModel(e.target.value)}
-						disabled={isEdit}
 						className="ui-input"
 						placeholder="e.g., glm-5"
 					/>
 					<p className="text-gray-500 text-xs mt-1">
-						{isEdit
-							? "Model name cannot be changed after creation"
-							: `This becomes hotel/${displayModel || "model-name"} in the model list`}
+						{`This becomes hotel/${displayModel || "model-name"} in the model list`}
 					</p>
 				</div>
 

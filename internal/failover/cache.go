@@ -40,6 +40,13 @@ func GetCachedFailoverByModel(displayModel string) (*FailoverGroup, bool) {
 	return &cachedGroup, true
 }
 
+// InvalidateFailoverCacheKey removes a single display model key from the cache.
+func InvalidateFailoverCacheKey(displayModel string) {
+	failoverCacheMu.Lock()
+	delete(failoverByModelCache, displayModel)
+	failoverCacheMu.Unlock()
+}
+
 // InvalidateFailoverCache clears all cached failover groups.
 func InvalidateFailoverCache() {
 	failoverCacheMu.Lock()

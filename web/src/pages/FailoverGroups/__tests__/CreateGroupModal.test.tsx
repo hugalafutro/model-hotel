@@ -253,7 +253,7 @@ describe("CreateGroupModal", () => {
 			);
 
 			expect(
-				screen.getByText(/This becomes hotel\/model-name in the model list/),
+				screen.getByText(`This becomes hotel/model-name in the model list`),
 			).toBeInTheDocument();
 		});
 	});
@@ -317,7 +317,7 @@ describe("CreateGroupModal", () => {
 			await user.type(input, "my-model");
 
 			expect(
-				screen.getByText(/This becomes hotel\/my-model in the model list/),
+				screen.getByText(`This becomes hotel/my-model in the model list`),
 			).toBeInTheDocument();
 		});
 	});
@@ -831,7 +831,7 @@ describe("CreateGroupModal", () => {
 			expect(screen.getByText("Edit Failover Group")).toBeInTheDocument();
 		});
 
-		it("disables display model name input", () => {
+		it("enables display model name input in edit mode", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
@@ -842,11 +842,11 @@ describe("CreateGroupModal", () => {
 			);
 
 			const input = screen.getByLabelText("Display Model Name");
-			expect(input).toBeDisabled();
+			expect(input).not.toBeDisabled();
 			expect(input).toHaveValue("test-model");
 		});
 
-		it("shows model name cannot be changed helper text", () => {
+		it("shows hotel/ pattern helper text in edit mode", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
@@ -857,7 +857,7 @@ describe("CreateGroupModal", () => {
 			);
 
 			expect(
-				screen.getByText("Model name cannot be changed after creation"),
+				screen.getByText(`This becomes hotel/test-model in the model list`),
 			).toBeInTheDocument();
 		});
 
@@ -1108,6 +1108,29 @@ describe("CreateGroupModal", () => {
 
 			// The unavailable entry with empty display_name should show model_id
 			expect(screen.getByText("old-model-no-display")).toBeInTheDocument();
+		});
+
+		it("updates display_model when changed in edit mode", async () => {
+			const { user } = renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					group={mockEditGroup}
+					onClose={mockOnClose}
+					onUpdated={mockOnUpdated}
+				/>,
+			);
+
+			// Change the display_model field
+			const displayModelInput = screen.getByLabelText("Display Model Name");
+			await user.clear(displayModelInput);
+			await user.type(displayModelInput, "new-model-name");
+
+			// Submit
+			await user.click(screen.getByRole("button", { name: "Save Changes" }));
+
+			await waitFor(() => {
+				expect(mockOnUpdated).toHaveBeenCalled();
+			});
 		});
 	});
 

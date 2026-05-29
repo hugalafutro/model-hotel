@@ -225,7 +225,7 @@ func TestRepository_Update(t *testing.T) {
 	newEE := map[string]bool{po[0].String(): false, po[1].String(): true, newPO[2].String(): true}
 	groupEnabled := false
 
-	updated, err := repo.Update(ctx, fg.ID, newPO, newEE, &groupEnabled, nil, nil)
+	updated, err := repo.Update(ctx, fg.ID, newPO, newEE, &groupEnabled, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Update failed: %v", err)
 	}
@@ -324,7 +324,7 @@ func TestRepository_Update_WithNilValues(t *testing.T) {
 	}()
 
 	// Update with nil values - should preserve existing values
-	updated, err := repo.Update(ctx, fg.ID, fg.PriorityOrder, fg.EntryEnabled, nil, nil, nil)
+	updated, err := repo.Update(ctx, fg.ID, fg.PriorityOrder, fg.EntryEnabled, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Update with nil values failed: %v", err)
 	}
@@ -359,7 +359,7 @@ func TestRepository_Update_WithDisplayNameAndDescription(t *testing.T) {
 	displayName := "Updated Display Name"
 	description := "Updated description for testing"
 
-	updated, err := repo.Update(ctx, fg.ID, po, fg.EntryEnabled, nil, &displayName, &description)
+	updated, err := repo.Update(ctx, fg.ID, po, fg.EntryEnabled, nil, &displayName, &description, nil)
 	if err != nil {
 		t.Fatalf("Update failed: %v", err)
 	}
@@ -383,6 +383,51 @@ func TestRepository_Update_WithDisplayNameAndDescription(t *testing.T) {
 	if found.Description != description {
 		t.Errorf("GetByID Description = %q, want %q", found.Description, description)
 	}
+}
+
+func TestRepository_Update_WithDisplayModel(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	displayModel := "test-update-displaymodel-" + uuid.New().String()[:8]
+	po := []uuid.UUID{uuid.New()}
+
+	fg, err := repo.Upsert(ctx, displayModel, po)
+	if err != nil {
+		t.Fatalf("Upsert failed: %v", err)
+	}
+	originalModel := displayModel
+	// Defer cleanup for the old name in case of failure
+	defer func() {
+		_ = repo.Delete(ctx, originalModel)
+	}()
+
+	newModelName := "test-renamed-" + uuid.New().String()[:8]
+
+	updated, err := repo.Update(ctx, fg.ID, po, fg.EntryEnabled, nil, nil, nil, &newModelName)
+	if err != nil {
+		t.Fatalf("Update failed: %v", err)
+	}
+
+	if updated.DisplayModel != newModelName {
+		t.Errorf("DisplayModel = %q, want %q", updated.DisplayModel, newModelName)
+	}
+
+	// Verify via GetByModel returns the updated group under the new name
+	InvalidateFailoverCache()
+	found, err := repo.GetByModel(ctx, newModelName)
+	if err != nil {
+		t.Fatalf("GetByModel failed: %v", err)
+	}
+	if found.ID != fg.ID {
+		t.Errorf("GetByModel ID = %v, want %v", found.ID, fg.ID)
+	}
+	if found.DisplayModel != newModelName {
+		t.Errorf("GetByModel DisplayModel = %q, want %q", found.DisplayModel, newModelName)
+	}
+
+	// Clean up: delete the renamed group
+	_ = repo.Delete(ctx, newModelName)
 }
 
 func TestRepository_GetEnabled_ExcludesDisabledGroups(t *testing.T) {
@@ -684,7 +729,7 @@ func TestRepository_PruneModelUUID_PrunesStaleFromGroup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetByModel failed: %v", err)
 	}
-	_, err = repo.Update(ctx, group.ID, priorityOrder, entryEnabled, nil, nil, nil)
+	_, err = repo.Update(ctx, group.ID, priorityOrder, entryEnabled, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Update entry_enabled failed: %v", err)
 	}

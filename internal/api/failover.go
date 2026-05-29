@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -260,6 +262,7 @@ func (h *FailoverHandler) Create(w http.ResponseWriter, r *http.Request) {
 type UpdateFailoverGroupRequest struct {
 	DisplayName   *string         `json:"display_name"`
 	Description   *string         `json:"description"`
+	DisplayModel  *string         `json:"display_model"`
 	GroupEnabled  *bool           `json:"group_enabled"`
 	PriorityOrder []string        `json:"priority_order"`
 	EntryEnabled  map[string]bool `json:"entry_enabled"`
@@ -282,6 +285,30 @@ func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, "failover group not found", http.StatusNotFound)
 		return
+	}
+
+	// Validate display_model if provided
+	if req.DisplayModel != nil {
+		trimmedModel, modelErr := validateNameString("display_model", *req.DisplayModel, 1, 128)
+		if modelErr != nil {
+			respondBadRequest(w, "invalid display model", modelErr)
+			return
+		}
+		lowerModel := strings.ToLower(trimmedModel)
+		req.DisplayModel = &lowerModel
+
+		// Uniqueness check: no other failover group should have this display_model
+		if *req.DisplayModel != existing.DisplayModel {
+			conflict, err := h.failoverRepo.GetByModel(r.Context(), *req.DisplayModel)
+			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				respondError(w, "failed to check display_model uniqueness", err, http.StatusInternalServerError)
+				return
+			}
+			if conflict != nil {
+				http.Error(w, "failover group with display_model '"+*req.DisplayModel+"' already exists", http.StatusConflict)
+				return
+			}
+		}
 	}
 
 	// Validate field lengths
@@ -344,8 +371,17 @@ func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Always invalidate cache so priority reorders and entry changes take
+	// effect on the next request instead of waiting for the 5-minute TTL.
+	failover.InvalidateFailoverCacheKey(existing.DisplayModel)
+
+	// Also invalidate the new key if display_model is being renamed.
+	if req.DisplayModel != nil && *req.DisplayModel != existing.DisplayModel {
+		failover.InvalidateFailoverCacheKey(*req.DisplayModel)
+	}
+
 	group, err := h.failoverRepo.Update(r.Context(), id, priorityOrder, entryEnabled,
-		req.GroupEnabled, req.DisplayName, req.Description)
+		req.GroupEnabled, req.DisplayName, req.Description, req.DisplayModel)
 	if err != nil {
 		respondError(w, fmt.Sprintf("failed to update failover group %s", id), err, http.StatusInternalServerError)
 		return

@@ -190,6 +190,80 @@ func TestInvalidateFailoverCache_AllowsReinsertion(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// InvalidateFailoverCacheKey
+// ---------------------------------------------------------------------------
+
+func TestInvalidateFailoverCacheKey_RemovesSingleEntry(t *testing.T) {
+	InvalidateFailoverCache()
+
+	// Warm cache with two groups
+	group1 := &FailoverGroup{
+		ID:            uuid.New(),
+		DisplayModel:  "model-a",
+		PriorityOrder: []uuid.UUID{uuid.New()},
+		GroupEnabled:  true,
+	}
+	group2 := &FailoverGroup{
+		ID:            uuid.New(),
+		DisplayModel:  "model-b",
+		PriorityOrder: []uuid.UUID{uuid.New()},
+		GroupEnabled:  true,
+	}
+	cacheFailoverGroup(group1)
+	cacheFailoverGroup(group2)
+
+	// Verify both are cached
+	if _, ok := GetCachedFailoverByModel("model-a"); !ok {
+		t.Fatal("expected model-a to be cached")
+	}
+	if _, ok := GetCachedFailoverByModel("model-b"); !ok {
+		t.Fatal("expected model-b to be cached")
+	}
+
+	// Invalidate only model-a
+	InvalidateFailoverCacheKey("model-a")
+
+	// model-a should be gone
+	if _, ok := GetCachedFailoverByModel("model-a"); ok {
+		t.Fatal("expected model-a to be invalidated")
+	}
+
+	// model-b should still be cached
+	if _, ok := GetCachedFailoverByModel("model-b"); !ok {
+		t.Fatal("expected model-b to still be cached")
+	}
+
+	// Clean up
+	InvalidateFailoverCache()
+}
+
+func TestInvalidateFailoverCacheKey_NonExistentKey(t *testing.T) {
+	InvalidateFailoverCache()
+
+	// Should not panic on non-existent key
+	InvalidateFailoverCacheKey("nonexistent")
+
+	// Verify cache is still empty
+	_, ok := GetCachedFailoverByModel("anything")
+	if ok {
+		t.Error("cache should be empty after invalidating non-existent key")
+	}
+}
+
+func TestInvalidateFailoverCacheKey_EmptyCache(t *testing.T) {
+	InvalidateFailoverCache()
+
+	// Should not panic on empty cache
+	InvalidateFailoverCacheKey("any-key")
+
+	// Verify cache is still empty
+	_, ok := GetCachedFailoverByModel("any-key")
+	if ok {
+		t.Error("cache should remain empty")
+	}
+}
+
+// ---------------------------------------------------------------------------
 // WarmFailoverCache
 // ---------------------------------------------------------------------------
 

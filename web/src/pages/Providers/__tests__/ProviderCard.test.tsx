@@ -482,7 +482,7 @@ describe("ProviderCard", () => {
 			);
 
 			const nanoBadge = screen.getByTitle(
-				"NanoGPT weekly token quota - click for details",
+				"NanoGPT weekly tokens remaining - click for details",
 			);
 			fireEvent.click(nanoBadge);
 
@@ -507,7 +507,7 @@ describe("ProviderCard", () => {
 			);
 
 			const nanoBadge = screen.queryByTitle(
-				"NanoGPT weekly token quota - click for details",
+				"NanoGPT weekly tokens remaining - click for details",
 			);
 			expect(nanoBadge).not.toBeInTheDocument();
 			expect(defaultProps.onSetModalNano).not.toHaveBeenCalled();
@@ -531,7 +531,7 @@ describe("ProviderCard", () => {
 			);
 
 			const zaiBadge = screen.getByTitle(
-				"Z.ai Coding Plan token quota - click for details",
+				"Z.ai Coding remaining quota - click for details",
 			);
 			fireEvent.click(zaiBadge);
 

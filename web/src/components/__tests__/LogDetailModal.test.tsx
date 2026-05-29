@@ -898,7 +898,7 @@ describe("LogDetailModal", () => {
 			);
 
 			const tooltip = screen.getByTitle(
-				"Time to establish the TCP connection to the upstream provider (0 = connection reused)",
+				"Time to establish the TCP connection to the upstream provider",
 			);
 			expect(tooltip).toBeInTheDocument();
 			expect(tooltip.querySelector("svg")).toBeInTheDocument();

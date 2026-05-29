@@ -143,7 +143,7 @@ func (r *Repository) pruneStaleEntries(ctx context.Context, groups []*FailoverGr
 					validEntryEnabled[id.String()] = true
 				}
 			}
-			_, err := r.Update(ctx, g.ID, validPriority, validEntryEnabled, &g.GroupEnabled, nil, nil)
+			_, err := r.Update(ctx, g.ID, validPriority, validEntryEnabled, &g.GroupEnabled, nil, nil, nil)
 			if err != nil {
 				debuglog.Error("failover: failed to update group after pruning", "display_model", g.DisplayModel, "error", err)
 			} else {
@@ -336,7 +336,7 @@ func (r *Repository) GetEnabled(ctx context.Context) ([]*FailoverGroup, error) {
 
 // Update modifies an existing failover group by ID.
 func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []uuid.UUID,
-	entryEnabled map[string]bool, groupEnabled *bool, displayName, description *string) (*FailoverGroup, error) {
+	entryEnabled map[string]bool, groupEnabled *bool, displayName, description, displayModel *string) (*FailoverGroup, error) {
 	priorityJSON, err := jsonMarshal(priorityOrder)
 	if err != nil {
 		return nil, err
@@ -377,6 +377,12 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []u
 	if description != nil {
 		setClauses = append(setClauses, fmt.Sprintf("description = $%d", argIdx))
 		args = append(args, *description)
+		argIdx++
+	}
+
+	if displayModel != nil {
+		setClauses = append(setClauses, fmt.Sprintf("display_model = $%d", argIdx))
+		args = append(args, *displayModel)
 	}
 
 	setClauses = append(setClauses, "updated_at = now()")
