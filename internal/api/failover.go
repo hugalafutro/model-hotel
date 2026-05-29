@@ -365,9 +365,13 @@ func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Invalidate old cache key if display_model is being renamed
+	// Always invalidate cache so priority reorders and entry changes take
+	// effect on the next request instead of waiting for the 5-minute TTL.
+	failover.InvalidateFailoverCacheKey(existing.DisplayModel)
+
+	// Also invalidate the new key if display_model is being renamed.
 	if req.DisplayModel != nil && *req.DisplayModel != existing.DisplayModel {
-		failover.InvalidateFailoverCacheKey(existing.DisplayModel)
+		failover.InvalidateFailoverCacheKey(*req.DisplayModel)
 	}
 
 	group, err := h.failoverRepo.Update(r.Context(), id, priorityOrder, entryEnabled,

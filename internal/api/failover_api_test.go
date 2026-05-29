@@ -389,6 +389,69 @@ func TestFailoverHandler_Update_Success(t *testing.T) {
 	}
 }
 
+func TestFailoverHandler_Update_InvalidatesCache(t *testing.T) {
+	h := newIntegrationFailoverHandler()
+
+	ctx := context.Background()
+
+	displayModel := "test-cache-inval-" + uuid.New().String()[:8]
+	id1, id2 := uuid.New(), uuid.New()
+	po := []uuid.UUID{id1, id2}
+
+	fg, err := h.failoverRepo.Upsert(ctx, displayModel, po)
+	if err != nil {
+		t.Fatalf("Upsert failed: %v", err)
+	}
+	defer func() {
+		_ = h.failoverRepo.Delete(ctx, displayModel)
+	}()
+
+	// Populate the cache by reading the group via GetByModel.
+	cached, err := h.failoverRepo.GetByModel(ctx, displayModel)
+	if err != nil {
+		t.Fatalf("GetByModel failed: %v", err)
+	}
+	if len(cached.PriorityOrder) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(cached.PriorityOrder))
+	}
+
+	// Verify the cache is populated.
+	if _, ok := failover.GetCachedFailoverByModel(displayModel); !ok {
+		t.Fatal("expected cache hit after GetByModel")
+	}
+
+	// Reorder via Update: swap id1 and id2.
+	body := `{"priority_order":["` + id2.String() + `","` + id1.String() + `"],"entry_enabled":{"` + id1.String() + `":true,"` + id2.String() + `":true}}`
+	req, w := newChiRequest(http.MethodPut, "/failover-groups/"+fg.ID.String(), strings.NewReader(body))
+	req = setChiURLParam(req, "id", fg.ID.String())
+
+	h.Update(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d; body: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+
+	// After Update, GetCachedFailoverByModel may return the fresh group (the
+	// repo's Update method re-caches after writing). What matters is that the
+	// cached PriorityOrder reflects the new order, not the stale one.
+	cachedAfter, ok := failover.GetCachedFailoverByModel(displayModel)
+	if !ok {
+		t.Fatal("expected cache to be populated with updated group after Update")
+	}
+	if cachedAfter.PriorityOrder[0] != id2 || cachedAfter.PriorityOrder[1] != id1 {
+		t.Errorf("cached priority order not swapped: got %v, want [%v, %v]", cachedAfter.PriorityOrder, id2, id1)
+	}
+
+	// Verify the DB also has the reordered priority.
+	updated, err := h.failoverRepo.GetByModel(ctx, displayModel)
+	if err != nil {
+		t.Fatalf("GetByModel after update failed: %v", err)
+	}
+	if updated.PriorityOrder[0] != id2 || updated.PriorityOrder[1] != id1 {
+		t.Errorf("priority order not swapped: got %v", updated.PriorityOrder)
+	}
+}
+
 func TestFailoverHandler_Update_DisableGroup(t *testing.T) {
 	h := newIntegrationFailoverHandler()
 
