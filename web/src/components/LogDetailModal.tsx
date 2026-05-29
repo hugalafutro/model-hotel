@@ -2,6 +2,7 @@ import { Activity, Calendar, FileText, Tag } from "lucide-react";
 import type { AppLogEntry, LogEntry } from "../api/types";
 import { CopyablePill } from "./CopyablePill";
 import { DetailItem } from "./LogDetailItem";
+import { formatDateTime } from "./logDetailUtils";
 import { Modal } from "./Modal";
 import { RequestLogDetail } from "./RequestLogDetail";
 
@@ -15,27 +16,11 @@ function isRequestLog(log: LogEntry | AppLogEntry): log is LogEntry {
 	return "request_hash" in log;
 }
 
-function formatDateTime(iso: string): string {
-	try {
-		return new Date(iso).toLocaleString(undefined, {
-			year: "numeric",
-			month: "2-digit",
-			day: "2-digit",
-			hour: "2-digit",
-			minute: "2-digit",
-			second: "2-digit",
-			hour12: false,
-		});
-	} catch {
-		return iso;
-	}
-}
-
 export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 	if (!log) return null;
 
 	if (type === "request" && isRequestLog(log)) {
-		return <RequestLogDetail requestLog={log as LogEntry} onClose={onClose} />;
+		return <RequestLogDetail requestLog={log} onClose={onClose} />;
 	}
 
 	// App Log Detail

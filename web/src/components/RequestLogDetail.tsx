@@ -17,30 +17,8 @@ import { formatMs } from "../pages/Logs/utils";
 import { CopyablePill } from "./CopyablePill";
 import { DetailItem } from "./LogDetailItem";
 import { StatusBadge } from "./LogDetailStatusBadge";
+import { formatDateTime, formatDuration } from "./logDetailUtils";
 import { Modal } from "./Modal";
-
-function formatDateTime(iso: string): string {
-	try {
-		return new Date(iso).toLocaleString(undefined, {
-			year: "numeric",
-			month: "2-digit",
-			day: "2-digit",
-			hour: "2-digit",
-			minute: "2-digit",
-			second: "2-digit",
-			hour12: false,
-		});
-	} catch {
-		return iso;
-	}
-}
-
-function formatDuration(ms: number): string {
-	if (ms >= 1000) {
-		return `${(ms / 1000).toFixed(2)}s`;
-	}
-	return `${Math.round(ms)}ms`;
-}
 
 export function RequestLogDetail({
 	requestLog,
