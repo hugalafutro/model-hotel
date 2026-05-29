@@ -240,12 +240,12 @@ describe("Chat", () => {
 			// Select the same model for both A and B — scope via label's htmlFor
 			const modelALabel = document.querySelector(
 				'label[for="model-a-picker"]',
-			)!;
-			const modelAContainer = modelALabel.parentElement!;
+			) as HTMLLabelElement;
+			const modelAContainer = modelALabel.parentElement as HTMLElement;
 			const modelBLabel = document.querySelector(
 				'label[for="model-b-picker"]',
-			)!;
-			const modelBContainer = modelBLabel.parentElement!;
+			) as HTMLLabelElement;
+			const modelBContainer = modelBLabel.parentElement as HTMLElement;
 
 			await waitFor(() => {
 				expect(
@@ -302,12 +302,12 @@ describe("Chat", () => {
 			// Select different models for A and B — scope via label's htmlFor
 			const modelALabel = document.querySelector(
 				'label[for="model-a-picker"]',
-			)!;
-			const modelAContainer = modelALabel.parentElement!;
+			) as HTMLLabelElement;
+			const modelAContainer = modelALabel.parentElement as HTMLElement;
 			const modelBLabel = document.querySelector(
 				'label[for="model-b-picker"]',
-			)!;
-			const modelBContainer = modelBLabel.parentElement!;
+			) as HTMLLabelElement;
+			const modelBContainer = modelBLabel.parentElement as HTMLElement;
 
 			await waitFor(() => {
 				expect(
@@ -459,7 +459,9 @@ describe("Chat", () => {
 					};
 					// Capture messages from requests that include a system prompt
 					if (body.messages?.some((m) => m.role === "system")) {
-						regenerateRequestMessages = body.messages!;
+						regenerateRequestMessages = body.messages as Array<{
+							role: string;
+						}>;
 					}
 					const stream = createSSEStream(chunks, { delay: 10 });
 					return new HttpResponse(stream, {

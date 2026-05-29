@@ -1,6 +1,14 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Provider } from "../../../api/types";
+import type {
+	DeepSeekBalance,
+	NanoGPTUsage,
+	OllamaCloudAccount,
+	OpenRouterBalance,
+	Provider,
+	ZAICodingQuotaLimit,
+	ZAICodingQuotaResponse,
+} from "../../../api/types";
 import type { useQuotaData } from "../../../hooks/useQuotaData";
 import { AllProviders } from "../../../test/utils";
 import { ProviderCard } from "../ProviderCard";
@@ -465,8 +473,9 @@ describe("ProviderCard", () => {
 	describe("QuotaBadges click handlers", () => {
 		it("calls onSetModalNano when NanoGPT badge is clicked", () => {
 			mockQuotaData.showNanoBadge = true;
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			mockQuotaData.nanogptUsage = { weeklyInputTokens: { used: 1000 } } as any;
+			mockQuotaData.nanogptUsage = {
+				weeklyInputTokens: { used: 1000 },
+			} as NanoGPTUsage;
 			mockQuotaData.nanoWeeklyUsed = 1000;
 			mockQuotaData.nanoWeeklyLimit = 10000;
 
@@ -491,7 +500,7 @@ describe("ProviderCard", () => {
 
 		it("does not call onSetModalNano when nanogptUsage is falsy", () => {
 			mockQuotaData.showNanoBadge = true;
-			mockQuotaData.nanogptUsage = null;
+			mockQuotaData.nanogptUsage = undefined;
 			mockQuotaData.nanoWeeklyUsed = null;
 			mockQuotaData.nanoWeeklyLimit = null;
 
@@ -515,12 +524,15 @@ describe("ProviderCard", () => {
 
 		it("calls onSetModalZaiCoding when ZAI Coding badge is clicked", () => {
 			mockQuotaData.showZaiCodingBadge = true;
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			mockQuotaData.zaiCodingUsage = { success: true } as any;
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			mockQuotaData.zaiCodingFiveHour = { percentage: 50 } as any;
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			mockQuotaData.zaiCodingWeekly = { percentage: 30 } as any;
+			mockQuotaData.zaiCodingUsage = {
+				success: true,
+			} as ZAICodingQuotaResponse;
+			mockQuotaData.zaiCodingFiveHour = {
+				percentage: 50,
+			} as ZAICodingQuotaLimit;
+			mockQuotaData.zaiCodingWeekly = {
+				percentage: 30,
+			} as ZAICodingQuotaLimit;
 
 			render(
 				<ProviderCard
@@ -542,8 +554,7 @@ describe("ProviderCard", () => {
 			mockQuotaData.showDsBadge = true;
 			mockQuotaData.deepseekBalance = {
 				balance_infos: [{ currency: "USD", total_balance: "10.00" }],
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			} as any;
+			} as DeepSeekBalance;
 
 			render(
 				<ProviderCard
@@ -572,8 +583,7 @@ describe("ProviderCard", () => {
 			mockQuotaData.showDsBadge = true;
 			mockQuotaData.deepseekBalance = {
 				balance_infos: [{ currency: "USD", total_balance: "10.00" }],
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			} as any;
+			} as DeepSeekBalance;
 			mockQuotaData.refetchDeepseek = vi
 				.fn()
 				.mockRejectedValue(new Error("fail"));
@@ -602,8 +612,9 @@ describe("ProviderCard", () => {
 
 		it("calls onSetModalOpenRouter when OpenRouter badge is clicked", () => {
 			mockQuotaData.showOrBadge = true;
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			mockQuotaData.openrouterBalance = { credits_remaining: 5.0 } as any;
+			mockQuotaData.openrouterBalance = {
+				credits_remaining: 5.0,
+			} as OpenRouterBalance;
 
 			render(
 				<ProviderCard
@@ -623,8 +634,9 @@ describe("ProviderCard", () => {
 
 		it("calls refetchOllamaCloud and toasts success when Ollama Cloud badge is clicked", async () => {
 			mockQuotaData.showOllamaCloudBadge = true;
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			mockQuotaData.ollamaCloudAccount = { plan: "pro" } as any;
+			mockQuotaData.ollamaCloudAccount = {
+				plan: "pro",
+			} as OllamaCloudAccount;
 
 			render(
 				<ProviderCard
@@ -648,8 +660,9 @@ describe("ProviderCard", () => {
 
 		it("toasts error when Ollama Cloud refetch fails", async () => {
 			mockQuotaData.showOllamaCloudBadge = true;
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			mockQuotaData.ollamaCloudAccount = { plan: "pro" } as any;
+			mockQuotaData.ollamaCloudAccount = {
+				plan: "pro",
+			} as OllamaCloudAccount;
 			mockQuotaData.refetchOllamaCloud = vi
 				.fn()
 				.mockRejectedValue(new Error("fail"));

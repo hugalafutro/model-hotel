@@ -337,7 +337,7 @@ describe("Logs", () => {
 			// Check for Live indicator in the status badge within the row
 			const row = screen.getByText("streaming-001").closest("tr");
 			expect(row).not.toBeNull();
-			const liveElement = within(row!).getByText("Live");
+			const liveElement = within(row as HTMLTableRowElement).getByText("Live");
 			expect(liveElement).toBeInTheDocument();
 			expect(liveElement.className).toContain("text-blue-400");
 		});
@@ -505,7 +505,7 @@ describe("Logs", () => {
 			// corresponding cell in the data row - avoids hard-coded index
 			const table = screen.getByText("cancel-003").closest("table");
 			expect(table).not.toBeNull();
-			const headerRow = table!.querySelector("thead tr");
+			const headerRow = (table as HTMLElement).querySelector("thead tr");
 			expect(headerRow).not.toBeNull();
 			const headers = within(headerRow as HTMLElement).getAllByRole(
 				"columnheader",
@@ -515,7 +515,7 @@ describe("Logs", () => {
 
 			const row = screen.getByText("cancel-003").closest("tr");
 			expect(row).not.toBeNull();
-			const cells = within(row!).getAllByRole("cell");
+			const cells = within(row as HTMLTableRowElement).getAllByRole("cell");
 			expect(cells[tpsIndex].textContent).toBe("-");
 		});
 	});

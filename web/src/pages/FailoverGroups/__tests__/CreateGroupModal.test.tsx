@@ -460,7 +460,9 @@ describe("CreateGroupModal", () => {
 			await screen.getByText("Gemma 3").click();
 
 			// Submit form directly (bypasses browser required check)
-			const form = screen.getByLabelText("Display Model Name").closest("form")!;
+			const form = screen
+				.getByLabelText("Display Model Name")
+				.closest("form") as HTMLFormElement;
 			fireEvent.submit(form);
 
 			await waitFor(() => {

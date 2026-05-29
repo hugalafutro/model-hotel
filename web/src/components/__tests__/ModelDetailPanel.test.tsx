@@ -239,7 +239,9 @@ describe("ModelDetailPanel", () => {
 		await user.click(
 			screen.getByRole("button", { name: /Generation parameters/i }),
 		);
-		const sliderGroup = screen.getByText("Temperature").closest("div")!;
+		const sliderGroup = screen
+			.getByText("Temperature")
+			.closest("div") as HTMLElement;
 		const input = within(sliderGroup as HTMLElement).getByRole("spinbutton");
 		await user.clear(input);
 		await user.type(input, "0.7");
@@ -528,7 +530,9 @@ describe("ModelDetailPanel", () => {
 		await user.click(
 			screen.getByRole("button", { name: /Generation parameters/i }),
 		);
-		const sliderGroup = screen.getByText("Max Tokens").closest("div")!;
+		const sliderGroup = screen
+			.getByText("Max Tokens")
+			.closest("div") as HTMLElement;
 		const input = within(sliderGroup as HTMLElement).getByRole("spinbutton");
 		await user.clear(input);
 		await user.type(input, "1024");
@@ -552,7 +556,7 @@ describe("ModelDetailPanel", () => {
 		await user.click(
 			screen.getByRole("button", { name: /Generation parameters/i }),
 		);
-		const sliderGroup = screen.getByText("Top P").closest("div")!;
+		const sliderGroup = screen.getByText("Top P").closest("div") as HTMLElement;
 		const input = within(sliderGroup as HTMLElement).getByRole("spinbutton");
 		await user.clear(input);
 		await user.type(input, "0.9");
@@ -576,7 +580,7 @@ describe("ModelDetailPanel", () => {
 		await user.click(
 			screen.getByRole("button", { name: /Generation parameters/i }),
 		);
-		const sliderGroup = screen.getByText("Min P").closest("div")!;
+		const sliderGroup = screen.getByText("Min P").closest("div") as HTMLElement;
 		const input = within(sliderGroup as HTMLElement).getByRole("spinbutton");
 		await user.clear(input);
 		await user.type(input, "0.1");
@@ -600,7 +604,7 @@ describe("ModelDetailPanel", () => {
 		await user.click(
 			screen.getByRole("button", { name: /Generation parameters/i }),
 		);
-		const sliderGroup = screen.getByText("Top K").closest("div")!;
+		const sliderGroup = screen.getByText("Top K").closest("div") as HTMLElement;
 		const input = within(sliderGroup as HTMLElement).getByRole("spinbutton");
 		await user.clear(input);
 		await user.type(input, "50");
@@ -624,7 +628,9 @@ describe("ModelDetailPanel", () => {
 		await user.click(
 			screen.getByRole("button", { name: /Generation parameters/i }),
 		);
-		const sliderGroup = screen.getByText("Freq Penalty").closest("div")!;
+		const sliderGroup = screen
+			.getByText("Freq Penalty")
+			.closest("div") as HTMLElement;
 		const input = within(sliderGroup as HTMLElement).getByRole("spinbutton");
 		await user.clear(input);
 		await user.type(input, "0.5");
@@ -648,7 +654,9 @@ describe("ModelDetailPanel", () => {
 		await user.click(
 			screen.getByRole("button", { name: /Generation parameters/i }),
 		);
-		const sliderGroup = screen.getByText("Pres Penalty").closest("div")!;
+		const sliderGroup = screen
+			.getByText("Pres Penalty")
+			.closest("div") as HTMLElement;
 		const input = within(sliderGroup as HTMLElement).getByRole("spinbutton");
 		await user.clear(input);
 		await user.type(input, "0.3");

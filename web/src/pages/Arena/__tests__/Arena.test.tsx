@@ -3,26 +3,35 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Controllable mocks for components we need to interact with
-// biome-ignore lint/suspicious/noExplicitAny: mock function signatures require any for type compatibility
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mockActionIconButton = vi.fn<(props: any) => React.ReactNode>();
-// biome-ignore lint/suspicious/noExplicitAny: mock function signatures require any for type compatibility
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mockConfirmDialog = vi.fn<(props: any) => React.ReactNode>();
+interface MockActionIconButtonProps {
+	title: string;
+	onClick?: () => void;
+}
+interface MockConfirmDialogProps {
+	onConfirm?: () => void;
+	onCancel?: () => void;
+	confirmLabel?: string;
+}
+const mockActionIconButton =
+	vi.fn<(props: MockActionIconButtonProps) => React.ReactNode>();
+const mockConfirmDialog =
+	vi.fn<(props: MockConfirmDialogProps) => React.ReactNode>();
 
 beforeEach(() => {
-	mockActionIconButton.mockImplementation(({ title, onClick }) => (
-		<button
-			type="button"
-			aria-label={title}
-			onClick={onClick}
-			data-testid={`action-${title}`}
-		>
-			{title}
-		</button>
-	));
+	mockActionIconButton.mockImplementation(
+		({ title, onClick }: MockActionIconButtonProps) => (
+			<button
+				type="button"
+				aria-label={title}
+				onClick={onClick}
+				data-testid={`action-${title}`}
+			>
+				{title}
+			</button>
+		),
+	);
 	mockConfirmDialog.mockImplementation(
-		({ onConfirm, onCancel, confirmLabel }) => (
+		({ onConfirm, onCancel, confirmLabel }: MockConfirmDialogProps) => (
 			<div data-testid="confirm-dialog">
 				<button type="button" onClick={onConfirm} data-testid="confirm-btn">
 					{confirmLabel ?? "Confirm"}
