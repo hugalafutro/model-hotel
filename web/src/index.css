@@ -2050,16 +2050,10 @@ html.light .terminal-titlebar-win11 .win11-icon {
 
 /* Disabled failover entry pill - CSS-only styles */
 .failover-entry-disabled {
-	background-color: #9ca3af;
 	border: 1px dashed #6b7280;
 }
 
-.dark .failover-entry-disabled {
-	background-color: #4b5563;
-}
-
 .failover-entry-disabled .failover-entry-text {
-	opacity: 0.6;
 	text-decoration: line-through;
 }
 
