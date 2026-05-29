@@ -1,10 +1,16 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
+	"io"
+	"log/slog"
 	"sort"
+	"strings"
 	"sync"
 	"testing"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 // TestDeprecationCache_ConcurrentMerges tests the race-free CAS loop that merges
@@ -490,4 +496,107 @@ func TestDeprecationCache_MergeExistingRejectedParams(t *testing.T) {
 	if len(*finalMap) != len(wantParams) {
 		t.Errorf("got %d params, want %d", len(*finalMap), len(wantParams))
 	}
+}
+
+// TestDeprecationCache_UnexpectedTypeLogsError verifies that the CAS loop
+// calls debuglog.Error (slog.Error) when encountering an unexpected type,
+// and then breaks out of the loop rather than retrying forever.
+func TestDeprecationCache_UnexpectedTypeLogsError(t *testing.T) {
+	t.Helper()
+
+	var cache sync.Map
+	cacheKey := "test:log-verification"
+
+	// Store a wrong type value
+	wrongType := "not-a-map"
+	cache.Store(cacheKey, wrongType)
+
+	// Capture slog output
+	var loggedMessages []string
+	var logMu sync.Mutex
+	originalHandler := slog.Default()
+	defer slog.SetDefault(originalHandler)
+
+	testHandler := slog.NewTextHandler(io.Discard, &slog.HandlerOptions{
+		Level: slog.LevelError,
+	})
+	capturingHandler := &captureHandler{inner: testHandler, mu: &logMu, messages: &loggedMessages}
+	slog.SetDefault(slog.New(capturingHandler))
+
+	// Run the CAS loop — should encounter the wrong type and log an error
+	rejected := map[string]bool{"a": true}
+	loopExited := false
+
+	for {
+		existing, loaded := cache.LoadOrStore(cacheKey, &rejected)
+		if !loaded {
+			t.Fatal("expected loaded=true since key already exists")
+		}
+
+		existingMap, ok := existing.(*map[string]bool)
+		if !ok {
+			debuglog.Error("deprecationCache: unexpected type", "key", cacheKey, "type", fmt.Sprintf("%T", existing))
+			loopExited = true
+			break
+		}
+
+		merged := make(map[string]bool)
+		for k := range *existingMap {
+			merged[k] = true
+		}
+		for k := range rejected {
+			merged[k] = true
+		}
+
+		if cache.CompareAndSwap(cacheKey, existing, &merged) {
+			break
+		}
+	}
+
+	if !loopExited {
+		t.Error("expected loop to exit on type assertion failure")
+	}
+
+	// Verify the error was logged
+	logMu.Lock()
+	defer logMu.Unlock()
+	if len(loggedMessages) == 0 {
+		t.Fatal("expected debuglog.Error to be called, but no messages were captured")
+	}
+	found := false
+	for _, msg := range loggedMessages {
+		if strings.Contains(msg, "deprecationCache: unexpected type") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected error log containing 'deprecationCache: unexpected type', got: %v", loggedMessages)
+	}
+}
+
+// captureHandler wraps an slog.Handler to capture logged messages.
+type captureHandler struct {
+	inner    slog.Handler
+	mu       *sync.Mutex
+	messages *[]string
+}
+
+func (h *captureHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	return h.inner.Enabled(ctx, level)
+}
+
+func (h *captureHandler) Handle(ctx context.Context, r slog.Record) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	*h.messages = append(*h.messages, r.Message)
+	return nil
+}
+
+func (h *captureHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return &captureHandler{inner: h.inner.WithAttrs(attrs), mu: h.mu, messages: h.messages}
+}
+
+func (h *captureHandler) WithGroup(name string) slog.Handler {
+	return &captureHandler{inner: h.inner.WithGroup(name), mu: h.mu, messages: h.messages}
 }
