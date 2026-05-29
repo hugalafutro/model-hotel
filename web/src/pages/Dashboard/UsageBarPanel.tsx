@@ -55,11 +55,11 @@ export function UsageBarPanel({
 						return (
 							<div key={entry.label} className="space-y-1.5">
 								<div className="flex justify-between items-center text-sm">
-									{onEntryClick && !entry.failoverGroup ? (
+									{onEntryClick && !entry.failoverGroup && !entry.deleted ? (
 										<button
 											type="button"
 											onClick={() => onEntryClick(entry.label)}
-											className={`truncate max-w-[70%] text-left cursor-pointer transition-colors hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] ${entry.deleted ? "text-red-400 italic pr-1" : "text-(--text-secondary)"}`}
+											className="truncate max-w-[70%] text-left cursor-pointer transition-colors hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] text-(--text-secondary)"
 											title={`View details for ${entry.label}`}
 											aria-label={`View details for ${entry.label}`}
 										>

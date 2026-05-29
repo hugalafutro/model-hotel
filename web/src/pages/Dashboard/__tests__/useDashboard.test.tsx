@@ -655,17 +655,20 @@ describe("useDashboard", () => {
 			await waitFor(() => {
 				expect(result.current.byModel).toHaveLength(5);
 				// Default globalMetric is "tokens", so suffix is " tokens"
+				// All entries have deleted: true since model keys don't match mockModel
 				expect(result.current.byModel[0]).toEqual({
 					label: "model-e",
 					value: 300,
 					suffix: " tokens",
 					failoverGroup: false,
+					deleted: true,
 				});
 				expect(result.current.byModel[1]).toEqual({
 					label: "model-b",
 					value: 200,
 					suffix: " tokens",
 					failoverGroup: false,
+					deleted: true,
 				});
 				// model-c with 0 should be filtered out
 			});

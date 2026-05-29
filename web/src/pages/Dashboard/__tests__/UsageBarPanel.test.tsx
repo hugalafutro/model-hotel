@@ -222,7 +222,7 @@ describe("UsageBarPanel", () => {
 		expect(modelA).not.toHaveClass("italic");
 	});
 
-	it("applies deleted styling to clickable deleted entries", async () => {
+	it("renders deleted entries as non-clickable spans with styling", () => {
 		const deletedEntries: UsageEntry[] = [
 			{ label: "Deleted Clickable", value: 100, deleted: true },
 		];
@@ -238,7 +238,8 @@ describe("UsageBarPanel", () => {
 		const deletedLabel = screen.getByText("Deleted Clickable");
 		expect(deletedLabel).toHaveClass("text-red-400");
 		expect(deletedLabel).toHaveClass("italic");
-		expect(deletedLabel).toHaveClass("cursor-pointer");
+		// Deleted entries are rendered as spans, not buttons
+		expect(deletedLabel.tagName).toBe("SPAN");
 	});
 
 	it("renders failover group entries as non-interactive spans even when onEntryClick is provided", () => {
