@@ -197,8 +197,7 @@ function findModelsDevMatch(
 			const normKey = normalizeForMatch(modelKey);
 			const normModelId = normalizeForMatch(model.id);
 
-			// Score components
-			let score = 0;
+			let score: number;
 
 			// Exact model ID match
 			if (normKey === normModel || normModelId === normModel) {
