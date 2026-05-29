@@ -387,7 +387,7 @@ describe("ModelDetailModal", () => {
 		renderWithProviders(<ModelDetailModal {...defaultProps} />);
 
 		// cURL icon tab should be active (highlighted button)
-		expect(screen.getByLabelText("cURL")).toHaveClass("bg-slate-700/60");
+		expect(screen.getByLabelText("cURL")).toHaveClass("bg-slate-700/30");
 		expect(screen.getByText(/curl -X POST/)).toBeInTheDocument();
 	});
 
@@ -397,7 +397,7 @@ describe("ModelDetailModal", () => {
 
 		await user.click(screen.getByLabelText("ZED"));
 
-		expect(screen.getByLabelText("ZED")).toHaveClass("bg-slate-700/60");
+		expect(screen.getByLabelText("ZED")).toHaveClass("bg-slate-700/30");
 		// ZED JSON content renders with syntax highlighting (quoted keys)
 		expect(screen.getByText('"display_name"')).toBeInTheDocument();
 	});
@@ -824,9 +824,9 @@ describe("ModelDetailModal", () => {
 		await user.click(screen.getByLabelText("OpenCode"));
 
 		// Verify OpenCode tab is active (highlighted)
-		expect(screen.getByLabelText("OpenCode")).toHaveClass("bg-slate-700/60");
+		expect(screen.getByLabelText("OpenCode")).toHaveClass("bg-slate-700/30");
 		// Verify cURL tab is no longer active
-		expect(screen.getByLabelText("cURL")).not.toHaveClass("bg-slate-700/60");
+		expect(screen.getByLabelText("cURL")).not.toHaveClass("bg-slate-700/30");
 	});
 
 	// Snippet tabs - Copy button on each non-default tab
