@@ -30,9 +30,9 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version-file: go.mod
           cache: true
@@ -42,9 +42,9 @@ jobs:
           TEST_DATABASE_URL: postgres://modelhotel:${{ env.POSTGRES_PASSWORD }}@localhost:5433/testdb?sslmode=disable
         run: go test -timeout 5m -coverprofile=coverage.out -covermode=atomic ./...
 
-      - name: Check coverage (mirrors codecov.yml 80% target)
+      - name: Check coverage (80% threshold)
         run: |
-          # Filter out cmd/ and tools/ to match codecov.yml ignore patterns
+          # Filter out cmd/ and tools/ from coverage calculation
           filtered=$(mktemp)
           { head -1 coverage.out; grep -vE '^github\.com/hugalafutro/model-hotel/(cmd|tools)/' coverage.out | tail -n +2; } > "$filtered"
           pct=$(go tool cover -func="$filtered" | tail -1 | awk '{print $NF}' | tr -d '%')
@@ -55,15 +55,6 @@ jobs:
             echo "FAIL: coverage ${pct}% is below 80% threshold"
             exit 1
           fi
-
-      - name: Upload Go coverage
-        if: always()
-        uses: codecov/codecov-action@v6
-        with:
-          files: coverage.out
-          flags: backend
-          fail_ci_if_error: false
-          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Upload Go coverage to Codacy
         if: always()
@@ -78,15 +69,15 @@ jobs:
     name: Go Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version-file: go.mod
           cache: true
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v9
+        uses: golangci/golangci-lint-action@82606bf257cbaff209d206a39f5134f0cfbfd2ee # v9
         with:
           version: v2.11
 
@@ -94,9 +85,9 @@ jobs:
     name: Go Vet
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version-file: go.mod
           cache: true
@@ -111,13 +102,13 @@ jobs:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 24
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6
         with:
           version: 10
 
@@ -130,7 +121,7 @@ jobs:
       - name: Test
         run: pnpm vitest run --coverage
 
-      - name: Check frontend coverage (mirrors codecov.yml 80% target)
+      - name: Check frontend coverage (80% threshold)
         run: |
           if [ ! -f coverage/coverage-summary.json ]; then
             echo "WARNING: no coverage-summary.json, skipping gate"
@@ -150,15 +141,6 @@ jobs:
             exit 1
           fi
 
-      - name: Upload frontend coverage
-        if: always()
-        uses: codecov/codecov-action@v6
-        with:
-          files: web/coverage/lcov.info
-          flags: frontend
-          fail_ci_if_error: false
-          token: ${{ secrets.CODECOV_TOKEN }}
-
       - name: Upload frontend coverage to Codacy
         if: always()
         working-directory: web
@@ -176,7 +158,7 @@ jobs:
     name: Docker Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Build Docker image
         run: docker build .

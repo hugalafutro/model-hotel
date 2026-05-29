@@ -1025,13 +1025,13 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	var vkID string
 	var vkHash string
 	if v := r.Context().Value(virtualKeyNameKey); v != nil {
-		vkName = v.(string)
+		vkName, _ = v.(string)
 	}
 	if v := r.Context().Value(virtualKeyIDKey); v != nil {
-		vkID = v.(string)
+		vkID, _ = v.(string)
 	}
 	if v := r.Context().Value(VirtualKeyHashKey); v != nil {
-		vkHash = v.(string)
+		vkHash, _ = v.(string)
 	}
 
 	// Create the log entry early so early-return paths can record failures.
@@ -1397,22 +1397,29 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 					// Cache the learned rejections for future preemptive stripping.
 					// Merge with any existing entries using CompareAndSwap to avoid
 					// data races from concurrent goroutines mutating the same map.
+					// NOTE: Values are stored as *map[string]bool to support CompareAndSwap
+					// (maps are not comparable, so pointers are required).
 					cacheKey := fmt.Sprintf("%s:%s", providerType, candidate.model.ModelID)
 					for {
-						existing, loaded := h.deprecationCache.LoadOrStore(cacheKey, rejected)
+						existing, loaded := h.deprecationCache.LoadOrStore(cacheKey, &rejected)
 						if !loaded {
 							// First entry for this key — we just stored 'rejected'.
 							break
 						}
 						// Merge with existing, creating a new map to avoid data races.
 						merged := make(map[string]bool)
-						for k := range existing.(map[string]bool) {
+						existingMap, ok := existing.(*map[string]bool)
+						if !ok {
+							debuglog.Error("deprecationCache: unexpected type", "key", cacheKey, "type", fmt.Sprintf("%T", existing))
+							break
+						}
+						for k := range *existingMap {
 							merged[k] = true
 						}
 						for k := range rejected {
 							merged[k] = true
 						}
-						if h.deprecationCache.CompareAndSwap(cacheKey, existing, merged) {
+						if h.deprecationCache.CompareAndSwap(cacheKey, existing, &merged) {
 							break
 						}
 						// CompareAndSwap failed — another goroutine updated it, retry.

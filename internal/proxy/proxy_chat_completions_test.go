@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -308,7 +310,8 @@ func TestChatCompletions_DeprecationCacheStripping(t *testing.T) {
 	// Pre-populate the deprecation cache
 	providerType := provider.DetectProviderType(upstream.URL)
 	cacheKey := fmt.Sprintf("%s:%s", providerType, modelName)
-	handler.deprecationCache.Store(cacheKey, map[string]bool{"temperature": true, "top_p": true})
+	cacheValue := map[string]bool{"temperature": true, "top_p": true}
+	handler.deprecationCache.Store(cacheKey, &cacheValue)
 
 	body := `{"model": "` + providerName + `/` + modelName + `", "stream": false, "messages": [{"role": "user", "content": "hello"}], "temperature": 0.7, "top_p": 0.9}`
 	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
@@ -893,5 +896,353 @@ func TestChatCompletions_RoutingInvalidJSON(t *testing.T) {
 
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("expected 400, got %d", w.Code)
+	}
+}
+
+// TestChatCompletions_DeprecationCache_InitialToMerged tests the full integration
+// flow: initial request gets a 400 with param rejection → cache stores the rejection
+// → retry succeeds with rejected params stripped → subsequent request pre-emptively
+// strips cached params before sending.
+func TestChatCompletions_DeprecationCache_InitialToMerged(t *testing.T) {
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	upstream := env.Upstream
+	keyHash := env.KeyHash
+	providerName := env.ProviderName
+	modelName := env.ModelName
+	defer upstream.Close()
+
+	providerType := provider.DetectProviderType(upstream.URL)
+	cacheKey := fmt.Sprintf("%s:%s", providerType, modelName)
+
+	// Phase 1: Upstream returns 400 with param rejection on first request,
+	// then 200 on retry. This simulates learning rejected params from a 400.
+	var requestCount int32
+	var firstRequestBody map[string]interface{}
+
+	upstream.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		count := atomic.AddInt32(&requestCount, 1)
+
+		var reqBody map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+
+		if count == 1 {
+			// First request: return 400 rejecting temperature
+			firstRequestBody = reqBody
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"error": map[string]interface{}{
+					"message": "Unknown parameter `temperature`",
+					"type":    "invalid_request_error",
+				},
+			})
+			return
+		}
+
+		// Retry (count 2) and subsequent requests: return success
+		response := map[string]interface{}{
+			"id":      "chatcmpl-test",
+			"object":  "chat.completion",
+			"created": time.Now().Unix(),
+			"model":   modelName,
+			"choices": []map[string]interface{}{
+				{"index": 0, "message": map[string]interface{}{"role": "assistant", "content": "hello world"}, "finish_reason": "stop"},
+			},
+			"usage": map[string]interface{}{
+				"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12,
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	})
+
+	// Send first request with temperature
+	body := `{"model": "` + providerName + `/` + modelName + `", "stream": false, "messages": [{"role": "user", "content": "hello"}], "temperature": 0.7}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	ctx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
+	ctx = context.WithValue(ctx, virtualKeyIDKey, uuid.New().String())
+	ctx = context.WithValue(ctx, VirtualKeyHashKey, keyHash)
+	req = req.WithContext(ctx)
+
+	w := httptest.NewRecorder()
+	handler.ChatCompletions(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 after auto-retry, got %d", w.Code)
+	}
+
+	// Verify the first upstream request had temperature (before it was cached)
+	if firstRequestBody == nil {
+		t.Fatal("first upstream request body not captured")
+	}
+	if firstRequestBody["temperature"] == nil {
+		t.Error("expected first request to include temperature (not yet cached)")
+	}
+
+	// Verify the cache was populated with the rejected param
+	cached, ok := handler.deprecationCache.Load(cacheKey)
+	if !ok {
+		t.Fatal("expected deprecationCache to be populated after 400")
+	}
+	cachedPtr, ok := cached.(*map[string]bool)
+	if !ok {
+		t.Fatalf("expected *map[string]bool in cache, got %T", cached)
+	}
+	if !(*cachedPtr)["temperature"] {
+		t.Error("expected cache to contain 'temperature' rejection")
+	}
+
+	// Phase 2: Send another request with temperature — it should be stripped
+	// before sending to upstream (pre-emptive stripping from cache).
+	var secondRequestBody map[string]interface{}
+	upstream.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&secondRequestBody)
+		response := map[string]interface{}{
+			"id":      "chatcmpl-test-2",
+			"object":  "chat.completion",
+			"created": time.Now().Unix(),
+			"model":   modelName,
+			"choices": []map[string]interface{}{
+				{"index": 0, "message": map[string]interface{}{"role": "assistant", "content": "cached strip works"}, "finish_reason": "stop"},
+			},
+			"usage": map[string]interface{}{
+				"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12,
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	})
+
+	body2 := `{"model": "` + providerName + `/` + modelName + `", "stream": false, "messages": [{"role": "user", "content": "test cache"}], "temperature": 0.5}`
+	req2 := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body2))
+	ctx2 := context.WithValue(req2.Context(), virtualKeyNameKey, "test-key")
+	ctx2 = context.WithValue(ctx2, virtualKeyIDKey, uuid.New().String())
+	ctx2 = context.WithValue(ctx2, VirtualKeyHashKey, keyHash)
+	req2 = req2.WithContext(ctx2)
+
+	w2 := httptest.NewRecorder()
+	handler.ChatCompletions(w2, req2)
+
+	if w2.Code != http.StatusOK {
+		t.Fatalf("expected 200 for cached-stripped request, got %d", w2.Code)
+	}
+
+	// Verify temperature was stripped before sending to upstream
+	if secondRequestBody == nil {
+		t.Fatal("second upstream request body not captured")
+	}
+	if secondRequestBody["temperature"] != nil {
+		t.Errorf("expected temperature to be stripped from second request (cached rejection), got %v", secondRequestBody["temperature"])
+	}
+}
+
+// TestChatCompletions_DeprecationCache_MergedRejections tests that consecutive
+// 400 errors rejecting different parameters correctly merge in the cache.
+// This covers the CAS merge path (LoadOrStore loaded=true → CompareAndSwap)
+// in the main request flow, not just the first-write path.
+func TestChatCompletions_DeprecationCache_MergedRejections(t *testing.T) {
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	upstream := env.Upstream
+	keyHash := env.KeyHash
+	providerName := env.ProviderName
+	modelName := env.ModelName
+	defer upstream.Close()
+
+	providerType := provider.DetectProviderType(upstream.URL)
+	cacheKey := fmt.Sprintf("%s:%s", providerType, modelName)
+
+	// Phase 1: First request gets 400 rejecting "temperature", retry succeeds.
+	// This triggers LoadOrStore with loaded=false (first write).
+	var requestCount int32
+	upstream.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		count := atomic.AddInt32(&requestCount, 1)
+		var reqBody map[string]interface{}
+		json.NewDecoder(r.Body).Decode(&reqBody)
+
+		if count == 1 {
+			// First request: reject temperature
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"error": map[string]interface{}{
+					"message": "Unknown parameter `temperature`",
+				},
+			})
+			return
+		}
+		// Retry succeeds
+		successResponse(t, w, modelName)
+	})
+
+	sendRequest(t, handler, providerName, modelName, keyHash,
+		`"temperature": 0.7, "top_p": 0.9`)
+
+	// Verify cache has temperature only
+	cached := loadCacheMap(t, &handler.deprecationCache, cacheKey)
+	if !cached["temperature"] {
+		t.Error("expected cache to contain 'temperature' after first 400")
+	}
+
+	// Phase 2: Second request gets 400 rejecting "top_p", retry succeeds.
+	// This triggers the CAS merge path (loaded=true from existing temperature entry).
+	requestCount = 0
+	upstream.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		count := atomic.AddInt32(&requestCount, 1)
+		var reqBody map[string]interface{}
+		json.NewDecoder(r.Body).Decode(&reqBody)
+
+		if count == 1 {
+			// Reject top_p (temperature already stripped from cache, so this is new)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"error": map[string]interface{}{
+					"message": "Unknown parameter `top_p`",
+				},
+			})
+			return
+		}
+		successResponse(t, w, modelName)
+	})
+
+	sendRequest(t, handler, providerName, modelName, keyHash,
+		`"top_p": 0.9, "frequency_penalty": 0.5`)
+
+	// Verify cache now has BOTH temperature (from phase 1) and top_p (from phase 2)
+	cached = loadCacheMap(t, &handler.deprecationCache, cacheKey)
+	if !cached["temperature"] {
+		t.Error("expected cache to still contain 'temperature' after merge")
+	}
+	if !cached["top_p"] {
+		t.Error("expected cache to contain 'top_p' after merge")
+	}
+
+	// Phase 3: Third request should strip both cached params preemptively.
+	var capturedBody map[string]interface{}
+	upstream.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&capturedBody)
+		successResponse(t, w, modelName)
+	})
+
+	sendRequest(t, handler, providerName, modelName, keyHash,
+		`"temperature": 0.5, "top_p": 0.8, "frequency_penalty": 0.3`)
+
+	if capturedBody["temperature"] != nil {
+		t.Error("expected temperature to be stripped (cached rejection)")
+	}
+	if capturedBody["top_p"] != nil {
+		t.Error("expected top_p to be stripped (cached rejection)")
+	}
+	if capturedBody["frequency_penalty"] == nil {
+		t.Error("expected frequency_penalty to NOT be stripped (not in cache)")
+	}
+}
+
+func successResponse(t *testing.T, w http.ResponseWriter, modelName string) {
+	t.Helper()
+	response := map[string]interface{}{
+		"id":      "chatcmpl-test",
+		"object":  "chat.completion",
+		"created": time.Now().Unix(),
+		"model":   modelName,
+		"choices": []map[string]interface{}{
+			{"index": 0, "message": map[string]interface{}{"role": "assistant", "content": "ok"}, "finish_reason": "stop"},
+		},
+		"usage": map[string]interface{}{
+			"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12,
+		},
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+func sendRequest(t *testing.T, handler *Handler, providerName, modelName, keyHash, extraParams string) {
+	t.Helper()
+	body := `{"model": "` + providerName + `/` + modelName + `", "stream": false, "messages": [{"role": "user", "content": "hello"}], ` + extraParams + `}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	ctx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
+	ctx = context.WithValue(ctx, virtualKeyIDKey, uuid.New().String())
+	ctx = context.WithValue(ctx, VirtualKeyHashKey, keyHash)
+	req = req.WithContext(ctx)
+
+	w := httptest.NewRecorder()
+	handler.ChatCompletions(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+}
+
+func loadCacheMap(t *testing.T, cache *sync.Map, key string) map[string]bool {
+	t.Helper()
+	v, ok := cache.Load(key)
+	if !ok {
+		t.Fatalf("cache key %q not found", key)
+	}
+	ptr, ok := v.(*map[string]bool)
+	if !ok {
+		t.Fatalf("expected *map[string]bool, got %T", v)
+	}
+	return *ptr
+}
+
+// TestChatCompletions_DeprecationCache_UnexpectedTypeInHandler covers the
+// defensive !ok branch in proxy.go (lines 1412-1414) where the deprecationCache
+// contains an unexpected type. This is the only way to exercise those lines
+// through the actual handler code path.
+func TestChatCompletions_DeprecationCache_UnexpectedTypeInHandler(t *testing.T) {
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	upstream := env.Upstream
+	keyHash := env.KeyHash
+	providerName := env.ProviderName
+	modelName := env.ModelName
+	defer upstream.Close()
+
+	providerType := provider.DetectProviderType(upstream.URL)
+	cacheKey := fmt.Sprintf("%s:%s", providerType, modelName)
+
+	// Pre-populate the cache with a wrong type to trigger the !ok branch
+	handler.deprecationCache.Store(cacheKey, "not-a-map")
+
+	// Upstream returns 400 rejecting a param, which triggers the CAS loop.
+	// The loop will find the wrong type, log error, and break.
+	upstream.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"error": map[string]interface{}{
+				"message": "Unknown parameter `temperature`",
+			},
+		})
+	})
+
+	body := `{"model": "` + providerName + `/` + modelName + `", "stream": false, "messages": [{"role": "user", "content": "hello"}], "temperature": 0.7}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	ctx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
+	ctx = context.WithValue(ctx, virtualKeyIDKey, uuid.New().String())
+	ctx = context.WithValue(ctx, VirtualKeyHashKey, keyHash)
+	req = req.WithContext(ctx)
+
+	w := httptest.NewRecorder()
+	handler.ChatCompletions(w, req)
+
+	// The request should still complete (returns the 400 to client, no hang)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
+	}
+
+	// Verify the wrong type value is still in cache (not overwritten)
+	cached, ok := handler.deprecationCache.Load(cacheKey)
+	if !ok {
+		t.Fatal("expected cache entry to still exist")
+	}
+	if cached != "not-a-map" {
+		t.Errorf("expected original wrong-type value preserved, got %T: %v", cached, cached)
 	}
 }

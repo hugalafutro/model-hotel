@@ -133,7 +133,7 @@ pnpm install
 ```bash
 pnpm dev
 ```
-Runs on http://localhost:5173 (points to backend at localhost:8081 by default)
+Runs on <http://localhost:5173> (points to backend at localhost:8081 by default)
 
 ### Build for Production
 ```bash
@@ -378,4 +378,3 @@ When contributing to the frontend:
 - [API Reference](https://github.com/hugalafutro/model-hotel/wiki/API-Reference)
 - [Configuration](https://github.com/hugalafutro/model-hotel/wiki/Configuration)
 ```
-

@@ -78,8 +78,14 @@ var providerUnsupportedParams = map[string][]string{
 
 // getCachedRejectedParams returns params known to be rejected for a provider+model,
 // learned from previous 400 responses.
+// NOTE: Values are stored as *map[string]bool in sync.Map to support CompareAndSwap
+// (maps are not comparable, so pointers are required).
 func getCachedRejectedParams(cache *sync.Map, cacheKey string) map[string]bool {
 	if v, ok := cache.Load(cacheKey); ok {
+		if ptr, ok := v.(*map[string]bool); ok {
+			return *ptr
+		}
+		// Fallback for legacy map[string]bool values (pre-pointer migration)
 		if m, ok := v.(map[string]bool); ok {
 			return m
 		}
