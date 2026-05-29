@@ -113,7 +113,7 @@ export async function streamModelResponse(
 	let thinkingContent = "";
 	let completion: Awaited<
 		ReturnType<typeof readSSEStream<StreamChunk>>
-	> | null = null;
+	>;
 
 	try {
 		const resp = await fetchWithRetry(
@@ -224,8 +224,8 @@ export async function streamModelResponse(
 		rawContent,
 		content,
 		thinkingContent,
-		error: completion?.aborted ? "Stopped by user" : null,
-		aborted: completion?.aborted ?? false,
+		error: completion.aborted ? "Stopped by user" : null,
+		aborted: completion.aborted,
 		durationMs: Math.round(durationMs),
 		tokensPerSecond,
 		promptTokens,
