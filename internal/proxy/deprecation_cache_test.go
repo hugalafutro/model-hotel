@@ -355,3 +355,139 @@ func TestDeprecationCache_EmptyRejection(t *testing.T) {
 		t.Error("original param 'a' was lost when merging empty map")
 	}
 }
+
+// TestDeprecationCache_UnexpectedTypeBreaksLoop verifies that when the cache
+// contains a wrong type (not *map[string]bool), the type assertion fails and
+// the loop breaks instead of retrying forever.
+func TestDeprecationCache_UnexpectedTypeBreaksLoop(t *testing.T) {
+	t.Helper()
+
+	var cache sync.Map
+	cacheKey := "test:key"
+
+	// Store a WRONG type value in the sync.Map
+	wrongType := "not-a-map"
+	cache.Store(cacheKey, wrongType)
+
+	// Try to run the CAS loop with a rejected map
+	rejected := map[string]bool{"a": true}
+	loopExited := false
+
+	for {
+		existing, loaded := cache.LoadOrStore(cacheKey, &rejected)
+		if !loaded {
+			t.Fatal("expected loaded=true since key already exists")
+		}
+
+		// Type assertion should fail (!ok)
+		existingMap, ok := existing.(*map[string]bool)
+		if !ok {
+			// Loop should break here, not retry forever
+			loopExited = true
+			break
+		}
+
+		// Merge with existing (should not reach here)
+		merged := make(map[string]bool)
+		for k := range *existingMap {
+			merged[k] = true
+		}
+		for k := range rejected {
+			merged[k] = true
+		}
+
+		if cache.CompareAndSwap(cacheKey, existing, &merged) {
+			break
+		}
+	}
+
+	// Verify the loop exited due to type assertion failure
+	if !loopExited {
+		t.Error("expected loop to exit on type assertion failure")
+	}
+
+	// Verify the cache still contains the original string value (not overwritten)
+	v, ok := cache.Load(cacheKey)
+	if !ok {
+		t.Fatal("cache key not found")
+	}
+
+	_, isString := v.(string)
+	if !isString {
+		t.Errorf("expected original string value to be preserved, got %T", v)
+	}
+}
+
+// TestDeprecationCache_MergeExistingRejectedParams verifies that when merging
+// new rejected params with existing cached params, all params are preserved.
+func TestDeprecationCache_MergeExistingRejectedParams(t *testing.T) {
+	t.Helper()
+
+	var cache sync.Map
+	cacheKey := "test:merge"
+
+	// Pre-populate cache with existing params using pointer
+	existingParams := map[string]bool{"param_a": true, "param_b": true}
+	cache.Store(cacheKey, &existingParams)
+
+	// New params to merge
+	newParams := map[string]bool{"param_c": true, "param_d": true}
+
+	// Run the CAS loop to merge
+	for {
+		stored, loaded := cache.LoadOrStore(cacheKey, &newParams)
+		if !loaded {
+			t.Fatal("expected loaded=true since key already exists")
+		}
+
+		merged := make(map[string]bool)
+		existingMap, ok := stored.(*map[string]bool)
+		if !ok {
+			t.Fatalf("unexpected type: %T", stored)
+		}
+
+		// Copy existing params
+		for k := range *existingMap {
+			merged[k] = true
+		}
+
+		// Add new params
+		for k := range newParams {
+			merged[k] = true
+		}
+
+		if cache.CompareAndSwap(cacheKey, stored, &merged) {
+			break
+		}
+	}
+
+	// Verify final value has all 4 params
+	v, ok := cache.Load(cacheKey)
+	if !ok {
+		t.Fatal("cache key not found")
+	}
+
+	finalMap, ok := v.(*map[string]bool)
+	if !ok {
+		t.Fatalf("expected *map[string]bool, got %T", v)
+	}
+
+	wantParams := map[string]bool{
+		"param_a": true,
+		"param_b": true,
+		"param_c": true,
+		"param_d": true,
+	}
+
+	// Verify all expected params exist (existing params were NOT lost)
+	for param := range wantParams {
+		if !(*finalMap)[param] {
+			t.Errorf("missing param: %s", param)
+		}
+	}
+
+	// Verify no extra params
+	if len(*finalMap) != len(wantParams) {
+		t.Errorf("got %d params, want %d", len(*finalMap), len(wantParams))
+	}
+}
