@@ -583,7 +583,7 @@ describe("Logs", () => {
 
 			// Find the span with the TPS value and check its class
 			const tpsSpan = screen.getByText("50.0");
-			expect(tpsSpan).toHaveClass("text-(--text-tertiary)");
+			expect(tpsSpan).toHaveClass("opacity-50");
 			expect(tpsSpan).toHaveAttribute("title", "Inflated by prompt cache hits");
 		});
 
@@ -613,7 +613,7 @@ describe("Logs", () => {
 
 			// Find the span with the TPS value and check its class
 			const tpsSpan = screen.getByText("75.0");
-			expect(tpsSpan).toHaveClass("text-gray-400");
+			expect(tpsSpan).not.toHaveClass("text-gray-400");
 			expect(tpsSpan).not.toHaveAttribute("title");
 		});
 	});

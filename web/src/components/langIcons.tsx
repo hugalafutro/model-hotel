@@ -1,4 +1,3 @@
-import type { SVGProps } from "react";
 import claudeLogo from "@/assets/logos/claude.png";
 import hermesDark from "@/assets/logos/hermes-dark.png";
 import hermesLight from "@/assets/logos/hermes-light.png";
@@ -21,9 +20,11 @@ export type LangIconKey =
 	| "zed"
 	| "opencode";
 
-interface LangIconProps extends SVGProps<SVGSVGElement> {
+interface LangIconProps {
 	name: LangIconKey;
 	size?: number;
+	className?: string;
+	style?: React.CSSProperties;
 }
 
 /** Small language/tool icons for code example headers. */
@@ -95,12 +96,24 @@ export function LangIcon({ name, size = 14, ...rest }: LangIconProps) {
 
 		case "claude":
 			return (
-				<img src={claudeLogo} alt="Claude Code" width={size} height={size} />
+				<img
+					src={claudeLogo}
+					alt="Claude Code"
+					width={size}
+					height={size}
+					{...rest}
+				/>
 			);
 
 		case "openclaw":
 			return (
-				<img src={openclawLogo} alt="OpenClaw" width={size} height={size} />
+				<img
+					src={openclawLogo}
+					alt="OpenClaw"
+					width={size}
+					height={size}
+					{...rest}
+				/>
 			);
 
 		case "hermes":
@@ -110,12 +123,19 @@ export function LangIcon({ name, size = 14, ...rest }: LangIconProps) {
 					alt="Hermes"
 					width={size}
 					height={size}
+					{...rest}
 				/>
 			);
 
 		case "librechat":
 			return (
-				<img src={librechatLogo} alt="LibreChat" width={size} height={size} />
+				<img
+					src={librechatLogo}
+					alt="LibreChat"
+					width={size}
+					height={size}
+					{...rest}
+				/>
 			);
 
 		case "zed":
@@ -125,6 +145,7 @@ export function LangIcon({ name, size = 14, ...rest }: LangIconProps) {
 					alt="ZED"
 					width={size}
 					height={size}
+					{...rest}
 				/>
 			);
 
@@ -135,6 +156,7 @@ export function LangIcon({ name, size = 14, ...rest }: LangIconProps) {
 					alt="OpenCode"
 					width={size}
 					height={size}
+					{...rest}
 				/>
 			);
 	}

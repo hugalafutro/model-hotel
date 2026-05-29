@@ -278,6 +278,12 @@ export function QuotaBadges({
 			) {
 				return;
 			}
+			// Cross-tab storage events: check StorageEvent.key
+			if (e instanceof StorageEvent) {
+				if (e.key !== null && e.key !== "quota-bar-mode") {
+					return;
+				}
+			}
 			try {
 				setBarMode(
 					(localStorage.getItem("quota-bar-mode") as QuotaBarMode) ||
