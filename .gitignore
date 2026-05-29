@@ -1,81 +1,71 @@
-# Binaries
-/bin/
-/server
-/llm-proxy
-/tools/
-*.exe
-*.exe~
+
+*~
+AGENTS.md
 *.bak
-*.dll
-*.so
-*.dylib
-
-# Go test binaries
-*.test
-
-# Go coverage / pprof
-*.out
-*.prof
-*.cpuprofile
-*.memprofile
-
-# Go vendor
-/vendor/
-
-# Node
-/web/node_modules/
-/web/dist/
-/web/.vite/
-/web/.coverage-result.json
-/web/.test-result.json
-
-# Populated by Docker build or make build; only .gitkeep tracked to keep directory alive for go:embed
+/bin/
+# Binaries
+/.claude/
+CLAUDE.md
+.clinerules
 /cmd/server/static/*
 !/cmd/server/static/.gitkeep
-
-# Data (root-only — leading slash prevents matching data/ in subdirectories)
-/data/
+/.codenomad/
+compose.stress-test.yml
+*.cpuprofile
+.cursorrules
 /.data/
-
-# Environment
+/data/
+# Data (root-only — leading slash prevents matching data/ in subdirectories)
+*.dll
+# Docker
+.DS_Store
+*.dylib
 .env
-.env.local
+# Environment
 .env.*.local
+.env.local
 .envsitter
-
+*.exe
+*.exe~
+GEMINI.md
+.gitmodules
+.codacy/
+# Git wrapper session manifests
+# Go coverage / pprof
+# Go test binaries
+# Go vendor
 # IDE
 .idea/
-.vscode/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Docker
+/llm-proxy
 *.log
-compose.stress-test.yml
-
-# Plans
-/plans/
-
-# Tool / editor metadata
-/.claude/
-/.codenomad/
-/.opencode/
-/.skills/
-# Wiki (published separately as GitHub wiki)
+*.memprofile
 /model-hotel.wiki/
+# Node
+/.opencode/
+# OS
+*.out
+/plans/
+# Plans
+# Populated by Docker build or make build; only .gitkeep tracked to keep directory alive for go:embed
+*.prof
 .rules
-.clinerules
-.cursorrules
-.windsurfrules
-AGENTS.md
-CLAUDE.md
-GEMINI.md
-.tokensave
-# Git wrapper session manifests
+/server
+/.skills/
+*.so
 .staged-by
-.gitmodules
+*.swo
+*.swp
+*.test
+Thumbs.db
+.tokensave
+# Tool / editor metadata
+/tools/
+/vendor/
+.vscode/
+/web/.coverage-result.json
+/web/dist/
+/web/node_modules/
+/web/.test-result.json
+/web/.vite/
+# Wiki (published separately as GitHub wiki)
+.windsurfrules

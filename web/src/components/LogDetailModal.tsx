@@ -347,7 +347,7 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 							<Layers size={14} className="text-(--accent)" />
 							Token Usage
 						</h4>
-						<div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+						<div className="grid grid-cols-3 gap-3">
 							<div>
 								<div className="text-[11px] uppercase text-(--text-tertiary)">
 									Prompt
@@ -375,24 +375,26 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 								</div>
 							)}
 							{hasCache && (
-								<>
-									<div>
-										<div className="text-[11px] uppercase text-(--text-tertiary)">
-											Cache Hit
+								<div className="col-span-3">
+									<div className="grid grid-cols-3 gap-3">
+										<div>
+											<div className="text-[11px] uppercase text-(--text-tertiary)">
+												Cache Hit
+											</div>
+											<div className="text-sm font-mono text-green-400">
+												{requestLog.tokens_prompt_cache_hit.toLocaleString()}
+											</div>
 										</div>
-										<div className="text-sm font-mono text-green-400">
-											{requestLog.tokens_prompt_cache_hit.toLocaleString()}
+										<div>
+											<div className="text-[11px] uppercase text-(--text-tertiary)">
+												Cache Miss
+											</div>
+											<div className="text-sm font-mono text-orange-400">
+												{requestLog.tokens_prompt_cache_miss.toLocaleString()}
+											</div>
 										</div>
 									</div>
-									<div>
-										<div className="text-[11px] uppercase text-(--text-tertiary)">
-											Cache Miss
-										</div>
-										<div className="text-sm font-mono text-orange-400">
-											{requestLog.tokens_prompt_cache_miss.toLocaleString()}
-										</div>
-									</div>
-								</>
+								</div>
 							)}
 						</div>
 					</div>

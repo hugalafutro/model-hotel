@@ -1,0 +1,29 @@
+---
+# Codacy configuration for model-hotel
+#
+# IMPORTANT: Individual rule enabling/disabling is done via tool-native config
+# files (eslint.config.js, biome.json), NOT here. This file handles:
+# - File/path exclusions
+# - Tool-level configuration
+#
+# After adding this file, go to the Codacy UI:
+#   Repository → Settings → Code patterns → ESLint → "Use configuration file" ON
+# This makes Codacy respect eslint.config.js instead of adding its own rules.
+
+engines:
+  eslint-9:
+    exclude_paths:
+      - "web/coverage/**"
+  biome:
+    exclude_paths:
+      - "web/coverage/**"
+  duplication:
+    exclude_paths:
+      - "**/__tests__/**"
+      - "**/*.test.*"
+
+exclude_paths:
+  - "bin/**"
+  - "web/dist/**"
+  - "web/coverage/**"
+  - "cmd/server/static/**"  # embedded frontend bundle
