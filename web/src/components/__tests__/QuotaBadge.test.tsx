@@ -3,6 +3,7 @@ import type {
 	DeepSeekBalance,
 	OllamaCloudAccount,
 	OpenRouterBalance,
+	ZAICodingQuotaResponse,
 } from "../../api/types";
 import { QuotaBadge } from "../QuotaBadge";
 
@@ -14,16 +15,42 @@ describe("QuotaBadge", () => {
 	});
 
 	describe("nanogpt type", () => {
-		it("renders with nanogpt type and shows usage", () => {
+		it("renders with nanogpt type and shows remaining by default", () => {
 			render(
 				<QuotaBadge
 					type="nanogpt"
 					variant="card"
-					weeklyUsed={500000}
+					weeklyUsed={300000}
 					weeklyLimit={1000000}
 				/>,
 			);
-			expect(screen.getByText("500K/1M")).toBeInTheDocument();
+			expect(screen.getByText("700K/1M")).toBeInTheDocument();
+		});
+
+		it("renders used values when barMode is used", () => {
+			render(
+				<QuotaBadge
+					type="nanogpt"
+					variant="card"
+					barMode="used"
+					weeklyUsed={300000}
+					weeklyLimit={1000000}
+				/>,
+			);
+			expect(screen.getByText("300K/1M")).toBeInTheDocument();
+		});
+
+		it("renders remaining values when barMode is remaining", () => {
+			render(
+				<QuotaBadge
+					type="nanogpt"
+					variant="card"
+					barMode="remaining"
+					weeklyUsed={300000}
+					weeklyLimit={1000000}
+				/>,
+			);
+			expect(screen.getByText("700K/1M")).toBeInTheDocument();
 		});
 
 		it("renders with nanogpt sidebar variant", () => {
@@ -40,7 +67,7 @@ describe("QuotaBadge", () => {
 			expect(button).toHaveClass("sidebar-quota-pill-nanogpt");
 		});
 
-		it("handles null weeklyUsed", () => {
+		it("handles null weeklyUsed (remaining mode shows full limit)", () => {
 			render(
 				<QuotaBadge
 					type="nanogpt"
@@ -49,14 +76,43 @@ describe("QuotaBadge", () => {
 					weeklyLimit={1000000}
 				/>,
 			);
-			expect(screen.getByText("-/1M")).toBeInTheDocument();
+			// remaining = limit - null(→0) = 1M
+			expect(screen.getByText("1M/1M")).toBeInTheDocument();
 		});
 
-		it("handles null weeklyLimit", () => {
+		it("handles null weeklyUsed (used mode shows 0/limit)", () => {
 			render(
 				<QuotaBadge
 					type="nanogpt"
 					variant="card"
+					barMode="used"
+					weeklyUsed={null}
+					weeklyLimit={1000000}
+				/>,
+			);
+			expect(screen.getByText("-/1M")).toBeInTheDocument();
+		});
+
+		it("handles null weeklyLimit in remaining mode (shows 0 remaining)", () => {
+			render(
+				<QuotaBadge
+					type="nanogpt"
+					variant="card"
+					barMode="remaining"
+					weeklyUsed={500000}
+					weeklyLimit={null}
+				/>,
+			);
+			// remaining = max(0, 0 - 500000) = 0
+			expect(screen.getByText("0/-")).toBeInTheDocument();
+		});
+
+		it("handles null weeklyLimit in used mode", () => {
+			render(
+				<QuotaBadge
+					type="nanogpt"
+					variant="card"
+					barMode="used"
 					weeklyUsed={500000}
 					weeklyLimit={null}
 				/>,
@@ -110,6 +166,87 @@ describe("QuotaBadge", () => {
 				/>,
 			);
 			expect(screen.getByText("-/-")).toBeInTheDocument();
+		});
+
+		it("shows remaining percentages by default (barMode=remaining)", () => {
+			const usage: ZAICodingQuotaResponse = {
+				code: 200,
+				msg: "success",
+				data: {
+					limits: [
+						{
+							type: "TOKENS_LIMIT",
+							unit: 3,
+							number: 10000,
+							usage: 1000,
+							currentValue: 1000,
+							remaining: 9000,
+							percentage: 10,
+							nextResetTime: Date.now() + 18000000,
+						},
+						{
+							type: "TOKENS_LIMIT",
+							unit: 6,
+							number: 100000,
+							usage: 20000,
+							currentValue: 20000,
+							remaining: 80000,
+							percentage: 20,
+							nextResetTime: Date.now() + 604800000,
+						},
+					],
+					level: "pro",
+				},
+				success: true,
+			};
+			render(
+				<QuotaBadge type="zai-coding" variant="card" zaiCodingUsage={usage} />,
+			);
+			// remaining = 100 - percentage: 5h=90%, weekly=80%
+			expect(screen.getByText("90%/80%")).toBeInTheDocument();
+		});
+
+		it("shows used percentages when barMode=used", () => {
+			const usage: ZAICodingQuotaResponse = {
+				code: 200,
+				msg: "success",
+				data: {
+					limits: [
+						{
+							type: "TOKENS_LIMIT",
+							unit: 3,
+							number: 10000,
+							usage: 1000,
+							currentValue: 1000,
+							remaining: 9000,
+							percentage: 10,
+							nextResetTime: Date.now() + 18000000,
+						},
+						{
+							type: "TOKENS_LIMIT",
+							unit: 6,
+							number: 100000,
+							usage: 20000,
+							currentValue: 20000,
+							remaining: 80000,
+							percentage: 20,
+							nextResetTime: Date.now() + 604800000,
+						},
+					],
+					level: "pro",
+				},
+				success: true,
+			};
+			render(
+				<QuotaBadge
+					type="zai-coding"
+					variant="card"
+					barMode="used"
+					zaiCodingUsage={usage}
+				/>,
+			);
+			// percentage = % used: 5h=10%, weekly=20%
+			expect(screen.getByText("10%/20%")).toBeInTheDocument();
 		});
 	});
 

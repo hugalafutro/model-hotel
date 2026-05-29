@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type {
 	DeepSeekBalance,
 	DeepSeekBalanceInfo,
@@ -14,6 +15,9 @@ import {
 } from "../hooks/useQuotaData";
 import { formatTokens } from "../utils/format";
 import { PROVIDER_PREFIXES } from "../utils/providerBrands";
+
+/** Quota bar display mode — persisted to localStorage, shared with modals. */
+export type QuotaBarMode = "used" | "remaining";
 
 // ── Variant styling ────────────────────────────────────────────────────
 
@@ -71,7 +75,17 @@ type BadgeContent = { label: string; title: string };
 function nanoBadgeContent(
 	weeklyUsed: number | null | undefined,
 	weeklyLimit: number | null | undefined,
+	barMode: QuotaBarMode,
 ): BadgeContent {
+	if (barMode === "remaining") {
+		const used = weeklyUsed ?? 0;
+		const limit = weeklyLimit ?? 0;
+		const remaining = Math.max(0, limit - used);
+		return {
+			label: `${formatTokens(remaining)}/${formatTokens(weeklyLimit)}`,
+			title: "NanoGPT weekly tokens remaining - click for details",
+		};
+	}
 	return {
 		label: `${formatTokens(weeklyUsed)}/${formatTokens(weeklyLimit)}`,
 		title: "NanoGPT weekly token quota - click for details",
@@ -80,11 +94,16 @@ function nanoBadgeContent(
 
 function zaiCodingBadgeContent(
 	usage: ZAICodingQuotaResponse | null | undefined,
+	barMode: QuotaBarMode,
 ): BadgeContent {
 	const fiveHour = getZaiCodingFiveHourLimit(usage);
 	const weekly = getZaiCodingWeeklyLimit(usage);
-	const label = `${fiveHour ? `${(100 - fiveHour.percentage).toFixed(0)}%` : "-"}/${weekly ? `${(100 - weekly.percentage).toFixed(0)}%` : "-"}`;
-	return { label, title: "Z.ai Coding Plan token quota - click for details" };
+	if (barMode === "remaining") {
+		const label = `${fiveHour ? `${(100 - fiveHour.percentage).toFixed(0)}%` : "-"}/${weekly ? `${(100 - weekly.percentage).toFixed(0)}%` : "-"}`;
+		return { label, title: "Z.ai Coding remaining quota - click for details" };
+	}
+	const label = `${fiveHour ? `${fiveHour.percentage.toFixed(0)}%` : "-"}/${weekly ? `${weekly.percentage.toFixed(0)}%` : "-"}`;
+	return { label, title: "Z.ai Coding used quota - click for details" };
 }
 
 function deepseekBadgeContent(
@@ -134,6 +153,7 @@ export interface QuotaBadgeProps {
 	variant: QuotaBadgeVariant;
 	onClick?: () => void;
 	title?: string;
+	barMode?: QuotaBarMode;
 	/** NanoGPT props */
 	weeklyUsed?: number | null;
 	weeklyLimit?: number | null;
@@ -153,6 +173,7 @@ export function QuotaBadge({
 	variant,
 	onClick,
 	title,
+	barMode = "remaining",
 	weeklyUsed,
 	weeklyLimit,
 	zaiCodingUsage,
@@ -163,9 +184,9 @@ export function QuotaBadge({
 	const { label, title: defaultTitle } = (() => {
 		switch (type) {
 			case "nanogpt":
-				return nanoBadgeContent(weeklyUsed, weeklyLimit);
+				return nanoBadgeContent(weeklyUsed, weeklyLimit, barMode);
 			case "zai-coding":
-				return zaiCodingBadgeContent(zaiCodingUsage);
+				return zaiCodingBadgeContent(zaiCodingUsage, barMode);
 			case "deepseek": {
 				if (!deepseekBalance)
 					return { label: "-", title: "DeepSeek balance unavailable" };
@@ -235,6 +256,44 @@ export function QuotaBadges({
 	onOpenRouterClick,
 	onOllamaCloudClick,
 }: QuotaBadgesProps) {
+	const [barMode, setBarMode] = useState<QuotaBarMode>(() => {
+		try {
+			return (
+				(localStorage.getItem("quota-bar-mode") as QuotaBarMode) || "remaining"
+			);
+		} catch {
+			return "remaining";
+		}
+	});
+
+	// Listen for bar-mode changes from modals (same tab via custom event,
+	// cross-tab via storage event, cross-component via localStorageChange).
+	useEffect(() => {
+		const handleModeChange = (e?: Event) => {
+			// localStorageChange custom events include the key that changed;
+			// ignore unrelated key changes.
+			if (
+				e?.type === "localStorageChange" &&
+				(e as CustomEvent).detail?.key !== "quota-bar-mode"
+			) {
+				return;
+			}
+			try {
+				setBarMode(
+					(localStorage.getItem("quota-bar-mode") as QuotaBarMode) ||
+						"remaining",
+				);
+			} catch {
+				setBarMode("remaining");
+			}
+		};
+		window.addEventListener("localStorageChange", handleModeChange);
+		window.addEventListener("storage", handleModeChange);
+		return () => {
+			window.removeEventListener("localStorageChange", handleModeChange);
+			window.removeEventListener("storage", handleModeChange);
+		};
+	}, []);
 	const scope = providerBaseUrl
 		? detectQuotaProviderType(providerBaseUrl)
 		: undefined;
@@ -253,6 +312,7 @@ export function QuotaBadges({
 					<QuotaBadge
 						type="nanogpt"
 						variant={variant}
+						barMode={barMode}
 						weeklyUsed={quotaData.nanoWeeklyUsed}
 						weeklyLimit={quotaData.nanoWeeklyLimit}
 						onClick={onNanoClick}
@@ -264,6 +324,7 @@ export function QuotaBadges({
 					<QuotaBadge
 						type="zai-coding"
 						variant={variant}
+						barMode={barMode}
 						zaiCodingUsage={quotaData.zaiCodingUsage}
 						onClick={onZaiCodingClick}
 					/>

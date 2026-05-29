@@ -53,6 +53,10 @@ export function useLocalStorage<T>(
 				if (enabledRef.current) {
 					try {
 						localStorage.setItem(key, serializeRef.current(nextValue));
+						// Notify other components in the same tab that this key changed.
+						window.dispatchEvent(
+							new CustomEvent("localStorageChange", { detail: { key } }),
+						);
 					} catch {
 						/* quota exceeded - silently ignore */
 					}

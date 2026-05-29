@@ -403,7 +403,7 @@ describe("ProviderQuotaPanel", () => {
 			});
 
 			const badge = screen.getByTitle(
-				"NanoGPT weekly token quota - click for details",
+				"NanoGPT weekly tokens remaining - click for details",
 			);
 			await user.click(badge);
 
@@ -422,7 +422,7 @@ describe("ProviderQuotaPanel", () => {
 			});
 
 			const badge = screen.getByTitle(
-				"Z.ai Coding Plan token quota - click for details",
+				"Z.ai Coding remaining quota - click for details",
 			);
 			await user.click(badge);
 
@@ -460,7 +460,7 @@ describe("ProviderQuotaPanel", () => {
 			});
 
 			const badge = screen.getByTitle(
-				"NanoGPT weekly token quota - click for details",
+				"NanoGPT weekly tokens remaining - click for details",
 			);
 			await user.click(badge);
 
@@ -487,7 +487,7 @@ describe("ProviderQuotaPanel", () => {
 			});
 
 			const badge = screen.getByTitle(
-				"Z.ai Coding Plan token quota - click for details",
+				"Z.ai Coding remaining quota - click for details",
 			);
 			await user.click(badge);
 
