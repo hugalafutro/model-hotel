@@ -21,12 +21,6 @@
       "recommended": true,
       "correctness": {
         "useExhaustiveDependencies": "warn"
-      },
-      "style": {
-        "noNonNullAssertion": "off"
-      },
-      "suspicious": {
-        "noExplicitAny": "off"
       }
     }
   },
