@@ -22,7 +22,7 @@ describe("useConversationRunner", () => {
 		});
 
 		act(() => {
-			result.current.runConversation();
+			void result.current.runConversation();
 		});
 
 		expect(params.setConversationState).not.toHaveBeenCalled();
@@ -39,7 +39,7 @@ describe("useConversationRunner", () => {
 		});
 
 		act(() => {
-			result.current.runConversation();
+			void result.current.runConversation();
 		});
 
 		expect(params.setConversationState).not.toHaveBeenCalled();
@@ -55,7 +55,7 @@ describe("useConversationRunner", () => {
 		});
 
 		act(() => {
-			result.current.runConversation();
+			void result.current.runConversation();
 		});
 
 		expect(params.setConversationState).not.toHaveBeenCalled();
@@ -70,7 +70,7 @@ describe("useConversationRunner", () => {
 		});
 
 		act(() => {
-			result.current.runConversation();
+			void result.current.runConversation();
 		});
 
 		expect(params.setConversationState).not.toHaveBeenCalled();
@@ -83,7 +83,7 @@ describe("useConversationRunner", () => {
 		});
 
 		act(() => {
-			result.current.runConversation();
+			void result.current.runConversation();
 		});
 
 		expect(params.setConversationState).toHaveBeenCalledWith("running");
@@ -103,7 +103,7 @@ describe("useConversationRunner", () => {
 		});
 
 		act(() => {
-			result.current.runConversation();
+			void result.current.runConversation();
 		});
 
 		expect(params.capturedModelARef.current).toBe("provider-a/model-a");
@@ -119,7 +119,7 @@ describe("useConversationRunner", () => {
 		});
 
 		act(() => {
-			result.current.runConversation();
+			void result.current.runConversation();
 		});
 
 		expect(params.lastPromptRef.current).toBe("Test prompt");

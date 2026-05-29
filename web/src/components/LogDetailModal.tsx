@@ -16,15 +16,13 @@ function isRequestLog(log: LogEntry | AppLogEntry): log is LogEntry {
 	return "request_hash" in log;
 }
 
-export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
-	if (!log) return null;
-
-	if (type === "request" && isRequestLog(log)) {
-		return <RequestLogDetail requestLog={log} onClose={onClose} />;
-	}
-
-	// App Log Detail
-	const appLog = log as AppLogEntry;
+function AppLogDetail({
+	log,
+	onClose,
+}: {
+	log: AppLogEntry;
+	onClose: () => void;
+}) {
 	return (
 		<Modal
 			title="Log Entry Details"
@@ -36,31 +34,31 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 				<DetailItem
 					icon={Calendar}
 					label="Timestamp"
-					value={formatDateTime(appLog.timestamp)}
+					value={formatDateTime(log.timestamp)}
 					accent
 				/>
 				<DetailItem
 					icon={Activity}
 					label="Level"
-					value={appLog.level.toUpperCase()}
+					value={log.level.toUpperCase()}
 					accent
 				>
 					<span
 						className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-							appLog.level === "error"
+							log.level === "error"
 								? "bg-red-500/15 text-red-400 border border-red-500/30"
-								: appLog.level === "warning"
+								: log.level === "warning"
 									? "bg-yellow-500/15 text-yellow-400 border border-yellow-500/30"
 									: "bg-blue-500/15 text-blue-400 border border-blue-500/30"
 						}`}
 					>
-						{appLog.level.toUpperCase()}
+						{log.level.toUpperCase()}
 					</span>
 				</DetailItem>
 				<DetailItem
 					icon={Tag}
 					label="Source"
-					value={appLog.source || "-"}
+					value={log.source || "-"}
 					accent
 				/>
 				<DetailItem
@@ -69,7 +67,7 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 					accent
 					labelExtra={
 						<CopyablePill
-							text={appLog.message}
+							text={log.message}
 							displayText="Copy"
 							tooltip="Copy message"
 							textClassName="text-[11px] uppercase tracking-wider"
@@ -78,10 +76,20 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 					}
 				>
 					<pre className="text-sm text-(--text-primary) font-mono whitespace-pre-wrap break-words bg-(--surface-elevated) p-3 rounded-lg border border-(--border-subtle) max-h-60 overflow-y-auto">
-						{appLog.message}
+						{log.message}
 					</pre>
 				</DetailItem>
 			</div>
 		</Modal>
 	);
+}
+
+export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
+	if (!log) return null;
+
+	if (type === "request" && isRequestLog(log)) {
+		return <RequestLogDetail requestLog={log} onClose={onClose} />;
+	}
+
+	return <AppLogDetail log={log as AppLogEntry} onClose={onClose} />;
 }

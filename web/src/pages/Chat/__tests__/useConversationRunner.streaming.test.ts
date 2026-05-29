@@ -103,7 +103,7 @@ describe("useConversationRunner", () => {
 		});
 
 		act(() => {
-			result.current.runConversation(true);
+			void result.current.runConversation(true);
 		});
 
 		expect(params.setConversationState).toHaveBeenCalledWith("running");

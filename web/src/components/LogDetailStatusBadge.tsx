@@ -1,3 +1,4 @@
+import type { LucideIcon } from "lucide-react";
 import { Activity, AlertTriangle } from "lucide-react";
 
 interface StatusBadgeProps {
@@ -6,51 +7,87 @@ interface StatusBadgeProps {
 	errorMessage?: string;
 }
 
-export function StatusBadge({ code, state, errorMessage }: StatusBadgeProps) {
-	if (state === "pending" || state === "streaming") {
-		return (
-			<span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/15 text-blue-400 border border-blue-500/30">
-				<span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-				{state === "streaming" ? "Streaming" : "Pending"}
-			</span>
-		);
+type BadgeVariant = "blue" | "red" | "green" | "orange";
+
+const VARIANT_STYLES: Record<BadgeVariant, string> = {
+	blue: "bg-blue-500/15 text-blue-400 border-blue-500/30",
+	red: "bg-red-500/15 text-red-400 border-red-500/30",
+	green: "bg-green-500/15 text-green-400 border-green-500/30",
+	orange: "bg-orange-500/15 text-orange-400 border-orange-500/30",
+};
+
+interface StatusDisplay {
+	variant: BadgeVariant;
+	label: string;
+	icon: LucideIcon | null;
+	animate: boolean;
+}
+
+function getStatusDisplay(
+	code: number,
+	state: string,
+	errorMessage?: string,
+): StatusDisplay | null {
+	const activeStates = new Set(["pending", "streaming"]);
+	if (activeStates.has(state)) {
+		return {
+			variant: "blue",
+			label: state === "streaming" ? "Streaming" : "Pending",
+			icon: null,
+			animate: true,
+		};
 	}
 
 	if (code === 0) {
-		return (
-			<span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/15 text-red-400 border border-red-500/30">
-				<AlertTriangle size={12} />
-				Failed{errorMessage ? `: ${errorMessage}` : ""}
-			</span>
-		);
+		const suffix = errorMessage ? `: ${errorMessage}` : "";
+		return {
+			variant: "red",
+			label: `Failed${suffix}`,
+			icon: AlertTriangle,
+			animate: false,
+		};
 	}
 
-	if (code >= 200 && code < 300) {
-		return (
-			<span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-500/15 text-green-400 border border-green-500/30">
-				<Activity size={12} />
-				{code} OK
-			</span>
-		);
+	const hundred = Math.floor(code / 100);
+	const codeMap: Record<
+		number,
+		{ variant: BadgeVariant; suffix: string; icon: LucideIcon }
+	> = {
+		2: { variant: "green", suffix: "OK", icon: Activity },
+		4: { variant: "orange", suffix: "Client Error", icon: AlertTriangle },
+		5: { variant: "red", suffix: "Server Error", icon: AlertTriangle },
+	};
+
+	const config = codeMap[hundred];
+	if (config) {
+		return {
+			variant: config.variant,
+			label: `${code} ${config.suffix}`,
+			icon: config.icon,
+			animate: false,
+		};
 	}
 
-	if (code >= 400 && code < 500) {
-		return (
-			<span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-orange-500/15 text-orange-400 border border-orange-500/30">
-				<AlertTriangle size={12} />
-				{code} Client Error
-			</span>
-		);
+	return null;
+}
+
+export function StatusBadge({ code, state, errorMessage }: StatusBadgeProps) {
+	const display = getStatusDisplay(code, state, errorMessage);
+	if (!display) {
+		return <span className="text-xs text-(--text-secondary)">{code}</span>;
 	}
 
-	if (code >= 500) {
-		return (
-			<span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/15 text-red-400 border border-red-500/30">
-				<AlertTriangle size={12} />
-				{code} Server Error
-			</span>
-		);
-	}
-
-	return <span className="text-xs text-(--text-secondary)">{code}</span>;
+	const Icon = display.icon;
+	return (
+		<span
+			className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${VARIANT_STYLES[display.variant]}`}
+		>
+			{display.animate ? (
+				<span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+			) : (
+				Icon && <Icon size={12} />
+			)}
+			{display.label}
+		</span>
+	);
 }

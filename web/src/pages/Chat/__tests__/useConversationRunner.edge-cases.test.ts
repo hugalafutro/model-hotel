@@ -150,7 +150,7 @@ describe("useConversationRunner", () => {
 		});
 
 		act(() => {
-			result.current.runConversation();
+			void result.current.runConversation();
 		});
 
 		expect(params.setConversationState).not.toHaveBeenCalled();

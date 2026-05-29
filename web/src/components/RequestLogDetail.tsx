@@ -160,7 +160,6 @@ export function RequestLogDetail({
 					label="Request Hash"
 					value={requestLog.request_hash}
 					mono
-					truncate
 				/>
 				<DetailItem icon={Box} label="Model">
 					<CopyablePill
@@ -169,7 +168,7 @@ export function RequestLogDetail({
 						textClassName="font-mono text-sm"
 						lines={2}
 					/>
-					{requestLog.model_id?.startsWith("hotel/") &&
+					{requestLog.model_id.startsWith("hotel/") &&
 						requestLog.resolved_model_id && (
 							<span className="text-xs text-gray-500 ml-1">
 								(resolved:{" "}

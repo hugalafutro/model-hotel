@@ -6,7 +6,6 @@ interface DetailItemProps {
 	value?: string | number | null;
 	mono?: boolean;
 	accent?: boolean;
-	truncate?: boolean;
 	labelExtra?: React.ReactNode;
 	children?: React.ReactNode;
 }
@@ -17,7 +16,6 @@ export function DetailItem({
 	value,
 	mono = false,
 	accent = false,
-	truncate = false,
 	labelExtra,
 	children,
 }: DetailItemProps) {
@@ -41,7 +39,7 @@ export function DetailItem({
 					children
 				) : (
 					<div
-						className={`text-sm text-(--text-primary) ${mono ? "font-mono" : ""} ${truncate ? "truncate" : "break-words"}`}
+						className={`text-sm text-(--text-primary) ${mono ? "font-mono truncate" : "break-words"}`}
 					>
 						{displayValue}
 					</div>
