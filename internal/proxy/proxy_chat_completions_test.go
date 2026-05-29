@@ -1190,3 +1190,59 @@ func loadCacheMap(t *testing.T, cache *sync.Map, key string) map[string]bool {
 	}
 	return *ptr
 }
+
+// TestChatCompletions_DeprecationCache_UnexpectedTypeInHandler covers the
+// defensive !ok branch in proxy.go (lines 1412-1414) where the deprecationCache
+// contains an unexpected type. This is the only way to exercise those lines
+// through the actual handler code path.
+func TestChatCompletions_DeprecationCache_UnexpectedTypeInHandler(t *testing.T) {
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	upstream := env.Upstream
+	keyHash := env.KeyHash
+	providerName := env.ProviderName
+	modelName := env.ModelName
+	defer upstream.Close()
+
+	providerType := provider.DetectProviderType(upstream.URL)
+	cacheKey := fmt.Sprintf("%s:%s", providerType, modelName)
+
+	// Pre-populate the cache with a wrong type to trigger the !ok branch
+	handler.deprecationCache.Store(cacheKey, "not-a-map")
+
+	// Upstream returns 400 rejecting a param, which triggers the CAS loop.
+	// The loop will find the wrong type, log error, and break.
+	upstream.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"error": map[string]interface{}{
+				"message": "Unknown parameter `temperature`",
+			},
+		})
+	})
+
+	body := `{"model": "` + providerName + `/` + modelName + `", "stream": false, "messages": [{"role": "user", "content": "hello"}], "temperature": 0.7}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	ctx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
+	ctx = context.WithValue(ctx, virtualKeyIDKey, uuid.New().String())
+	ctx = context.WithValue(ctx, VirtualKeyHashKey, keyHash)
+	req = req.WithContext(ctx)
+
+	w := httptest.NewRecorder()
+	handler.ChatCompletions(w, req)
+
+	// The request should still complete (returns the 400 to client, no hang)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
+	}
+
+	// Verify the wrong type value is still in cache (not overwritten)
+	cached, ok := handler.deprecationCache.Load(cacheKey)
+	if !ok {
+		t.Fatal("expected cache entry to still exist")
+	}
+	if cached != "not-a-map" {
+		t.Errorf("expected original wrong-type value preserved, got %T: %v", cached, cached)
+	}
+}
