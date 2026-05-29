@@ -260,6 +260,7 @@ func (h *FailoverHandler) Create(w http.ResponseWriter, r *http.Request) {
 type UpdateFailoverGroupRequest struct {
 	DisplayName   *string         `json:"display_name"`
 	Description   *string         `json:"description"`
+	DisplayModel  *string         `json:"display_model"`
 	GroupEnabled  *bool           `json:"group_enabled"`
 	PriorityOrder []string        `json:"priority_order"`
 	EntryEnabled  map[string]bool `json:"entry_enabled"`
@@ -282,6 +283,26 @@ func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, "failover group not found", http.StatusNotFound)
 		return
+	}
+
+	// Validate display_model if provided
+	if req.DisplayModel != nil {
+		trimmedModel, modelErr := validateNameString("display_model", *req.DisplayModel, 1, 128)
+		if modelErr != nil {
+			respondBadRequest(w, "invalid display model", modelErr)
+			return
+		}
+		lowerModel := strings.ToLower(trimmedModel)
+		req.DisplayModel = &lowerModel
+
+		// Uniqueness check: no other failover group should have this display_model
+		if *req.DisplayModel != existing.DisplayModel {
+			conflict, _ := h.failoverRepo.GetByModel(r.Context(), *req.DisplayModel)
+			if conflict != nil {
+				http.Error(w, "failover group with display_model '"+*req.DisplayModel+"' already exists", http.StatusConflict)
+				return
+			}
+		}
 	}
 
 	// Validate field lengths
@@ -344,8 +365,13 @@ func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Invalidate old cache key if display_model is being renamed
+	if req.DisplayModel != nil && *req.DisplayModel != existing.DisplayModel {
+		failover.InvalidateFailoverCacheKey(existing.DisplayModel)
+	}
+
 	group, err := h.failoverRepo.Update(r.Context(), id, priorityOrder, entryEnabled,
-		req.GroupEnabled, req.DisplayName, req.Description)
+		req.GroupEnabled, req.DisplayName, req.Description, req.DisplayModel)
 	if err != nil {
 		respondError(w, fmt.Sprintf("failed to update failover group %s", id), err, http.StatusInternalServerError)
 		return

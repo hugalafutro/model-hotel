@@ -1356,3 +1356,113 @@ func TestFailoverSync_Integration(t *testing.T) {
 		t.Error("expected 'deleted_groups' field in sync response")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Update DisplayModel tests
+// ---------------------------------------------------------------------------
+
+func TestFailoverHandler_Update_DisplayModel_Success(t *testing.T) {
+	h := newIntegrationFailoverHandler()
+	ctx := context.Background()
+
+	displayModel := "test-rename-" + uuid.New().String()[:8]
+	id1, id2 := uuid.New(), uuid.New()
+	po := []uuid.UUID{id1, id2}
+
+	fg, err := h.failoverRepo.Upsert(ctx, displayModel, po)
+	if err != nil {
+		t.Fatalf("Upsert failed: %v", err)
+	}
+	oldName := displayModel
+	newName := "renamed-" + uuid.New().String()[:8]
+	defer func() {
+		_ = h.failoverRepo.Delete(ctx, oldName)
+		_ = h.failoverRepo.Delete(ctx, newName)
+	}()
+
+	body := `{"display_model":"` + newName + `","priority_order":["` + id1.String() + `","` + id2.String() + `"],"entry_enabled":{"` + id1.String() + `":true,"` + id2.String() + `":true}}`
+	req, w := newChiRequest(http.MethodPut, "/failover-groups/"+fg.ID.String(), strings.NewReader(body))
+	req = setChiURLParam(req, "id", fg.ID.String())
+
+	h.Update(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+
+	var resp FailoverGroupResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.DisplayModel != newName {
+		t.Errorf("DisplayModel = %q, want %q", resp.DisplayModel, newName)
+	}
+}
+
+func TestFailoverHandler_Update_DisplayModel_Conflict(t *testing.T) {
+	h := newIntegrationFailoverHandler()
+	ctx := context.Background()
+
+	// Create two groups
+	name1 := "test-rename-first-" + uuid.New().String()[:8]
+	name2 := "test-rename-second-" + uuid.New().String()[:8]
+	id1, id2 := uuid.New(), uuid.New()
+	po := []uuid.UUID{id1, id2}
+
+	fg1, err := h.failoverRepo.Upsert(ctx, name1, po)
+	if err != nil {
+		t.Fatalf("Upsert failed for first group: %v", err)
+	}
+	_, err = h.failoverRepo.Upsert(ctx, name2, po)
+	if err != nil {
+		t.Fatalf("Upsert failed for second group: %v", err)
+	}
+	defer func() {
+		_ = h.failoverRepo.Delete(ctx, name1)
+		_ = h.failoverRepo.Delete(ctx, name2)
+	}()
+
+	// Try to rename first group to second group's name (should conflict)
+	body := `{"display_model":"` + name2 + `"}`
+	req, w := newChiRequest(http.MethodPut, "/failover-groups/"+fg1.ID.String(), strings.NewReader(body))
+	req = setChiURLParam(req, "id", fg1.ID.String())
+
+	h.Update(w, req)
+
+	if w.Code != http.StatusConflict {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusConflict, w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "already exists") {
+		t.Errorf("expected error about already exists, got: %s", w.Body.String())
+	}
+}
+
+func TestFailoverHandler_Update_DisplayModel_InvalidEmpty(t *testing.T) {
+	h := newIntegrationFailoverHandler()
+	ctx := context.Background()
+
+	displayModel := "test-rename-empty-" + uuid.New().String()[:8]
+	id1, id2 := uuid.New(), uuid.New()
+	po := []uuid.UUID{id1, id2}
+
+	fg, err := h.failoverRepo.Upsert(ctx, displayModel, po)
+	if err != nil {
+		t.Fatalf("Upsert failed: %v", err)
+	}
+	defer func() {
+		_ = h.failoverRepo.Delete(ctx, displayModel)
+	}()
+
+	body := `{"display_model":""}`
+	req, w := newChiRequest(http.MethodPut, "/failover-groups/"+fg.ID.String(), strings.NewReader(body))
+	req = setChiURLParam(req, "id", fg.ID.String())
+
+	h.Update(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "invalid display model") {
+		t.Errorf("expected error about invalid display model, got: %s", w.Body.String())
+	}
+}

@@ -225,7 +225,7 @@ func TestRepository_Update(t *testing.T) {
 	newEE := map[string]bool{po[0].String(): false, po[1].String(): true, newPO[2].String(): true}
 	groupEnabled := false
 
-	updated, err := repo.Update(ctx, fg.ID, newPO, newEE, &groupEnabled, nil, nil)
+	updated, err := repo.Update(ctx, fg.ID, newPO, newEE, &groupEnabled, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Update failed: %v", err)
 	}
@@ -324,7 +324,7 @@ func TestRepository_Update_WithNilValues(t *testing.T) {
 	}()
 
 	// Update with nil values - should preserve existing values
-	updated, err := repo.Update(ctx, fg.ID, fg.PriorityOrder, fg.EntryEnabled, nil, nil, nil)
+	updated, err := repo.Update(ctx, fg.ID, fg.PriorityOrder, fg.EntryEnabled, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Update with nil values failed: %v", err)
 	}
@@ -359,7 +359,7 @@ func TestRepository_Update_WithDisplayNameAndDescription(t *testing.T) {
 	displayName := "Updated Display Name"
 	description := "Updated description for testing"
 
-	updated, err := repo.Update(ctx, fg.ID, po, fg.EntryEnabled, nil, &displayName, &description)
+	updated, err := repo.Update(ctx, fg.ID, po, fg.EntryEnabled, nil, &displayName, &description, nil)
 	if err != nil {
 		t.Fatalf("Update failed: %v", err)
 	}
@@ -684,7 +684,7 @@ func TestRepository_PruneModelUUID_PrunesStaleFromGroup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetByModel failed: %v", err)
 	}
-	_, err = repo.Update(ctx, group.ID, priorityOrder, entryEnabled, nil, nil, nil)
+	_, err = repo.Update(ctx, group.ID, priorityOrder, entryEnabled, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Update entry_enabled failed: %v", err)
 	}

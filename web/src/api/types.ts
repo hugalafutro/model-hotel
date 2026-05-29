@@ -359,6 +359,7 @@ export interface CreateFailoverGroupRequest {
 }
 
 export interface UpdateFailoverGroupRequest {
+	display_model?: string;
 	display_name?: string;
 	description?: string;
 	group_enabled?: boolean;
