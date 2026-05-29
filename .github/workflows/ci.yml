@@ -13,12 +13,14 @@ jobs:
   go-test:
     name: Go Test
     runs-on: ubuntu-latest
+    env:
+      POSTGRES_PASSWORD: changeme
     services:
       postgres:
         image: postgres:16-alpine
         env:
           POSTGRES_USER: modelhotel
-          POSTGRES_PASSWORD: changeme
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
           POSTGRES_DB: testdb
         ports:
           - 5433:5432
@@ -37,8 +39,7 @@ jobs:
 
       - name: Run tests
         env:
-          POSTGRES_PASSWORD: changeme
-          TEST_DATABASE_URL: postgres://modelhotel:changeme@localhost:5433/testdb?sslmode=disable
+          TEST_DATABASE_URL: postgres://modelhotel:${{ env.POSTGRES_PASSWORD }}@localhost:5433/testdb?sslmode=disable
         run: go test -timeout 5m -coverprofile=coverage.out -covermode=atomic ./...
 
       - name: Check coverage (mirrors codecov.yml 80% target)

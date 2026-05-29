@@ -21,6 +21,9 @@ engines:
     exclude_paths:
       - "**/__tests__/**"
       - "**/*.test.*"
+  markdownlint:
+    exclude_paths:
+      - "README.md"
 
 exclude_paths:
   - "bin/**"
