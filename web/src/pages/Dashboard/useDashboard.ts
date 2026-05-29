@@ -568,7 +568,8 @@ export function useDashboard(): UseDashboardReturn {
 					const normalized = k.replace(/ /g, "-");
 					const exists =
 						isFailoverGroup ||
-						models?.some(
+						models === undefined ||
+						models.some(
 							(m) => proxyModelID(m.provider_name, m.model_id) === normalized,
 						);
 					return {
