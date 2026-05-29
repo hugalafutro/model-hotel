@@ -1529,3 +1529,42 @@ func TestFailoverHandler_Update_DisplayModel_InvalidEmpty(t *testing.T) {
 		t.Errorf("expected error about invalid display model, got: %s", w.Body.String())
 	}
 }
+
+func TestFailoverHandler_Update_DisplayModel_SameName(t *testing.T) {
+	h := newIntegrationFailoverHandler()
+	ctx := context.Background()
+
+	displayModel := "test-samename-" + uuid.New().String()[:8]
+	id1, id2 := uuid.New(), uuid.New()
+	po := []uuid.UUID{id1, id2}
+
+	fg, err := h.failoverRepo.Upsert(ctx, displayModel, po)
+	if err != nil {
+		t.Fatalf("Upsert failed: %v", err)
+	}
+	defer func() {
+		_ = h.failoverRepo.Delete(ctx, displayModel)
+	}()
+
+	// Send update with display_model set to the SAME name (should skip uniqueness check)
+	body := `{"display_model":"` + displayModel + `","group_enabled":false}`
+	req, w := newChiRequest(http.MethodPut, "/failover-groups/"+fg.ID.String(), strings.NewReader(body))
+	req = setChiURLParam(req, "id", fg.ID.String())
+
+	h.Update(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+
+	var resp FailoverGroupResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.DisplayModel != displayModel {
+		t.Errorf("DisplayModel = %q, want %q", resp.DisplayModel, displayModel)
+	}
+	if resp.GroupEnabled != false {
+		t.Errorf("GroupEnabled = %v, want false", resp.GroupEnabled)
+	}
+}

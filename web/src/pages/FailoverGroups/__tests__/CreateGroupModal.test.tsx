@@ -1109,6 +1109,29 @@ describe("CreateGroupModal", () => {
 			// The unavailable entry with empty display_name should show model_id
 			expect(screen.getByText("old-model-no-display")).toBeInTheDocument();
 		});
+
+		it("updates display_model when changed in edit mode", async () => {
+			const { user } = renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					group={mockEditGroup}
+					onClose={mockOnClose}
+					onUpdated={mockOnUpdated}
+				/>,
+			);
+
+			// Change the display_model field
+			const displayModelInput = screen.getByLabelText("Display Model Name");
+			await user.clear(displayModelInput);
+			await user.type(displayModelInput, "new-model-name");
+
+			// Submit
+			await user.click(screen.getByRole("button", { name: "Save Changes" }));
+
+			await waitFor(() => {
+				expect(mockOnUpdated).toHaveBeenCalled();
+			});
+		});
 	});
 
 	describe("error handling", () => {

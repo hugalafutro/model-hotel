@@ -385,6 +385,51 @@ func TestRepository_Update_WithDisplayNameAndDescription(t *testing.T) {
 	}
 }
 
+func TestRepository_Update_WithDisplayModel(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	displayModel := "test-update-displaymodel-" + uuid.New().String()[:8]
+	po := []uuid.UUID{uuid.New()}
+
+	fg, err := repo.Upsert(ctx, displayModel, po)
+	if err != nil {
+		t.Fatalf("Upsert failed: %v", err)
+	}
+	originalModel := displayModel
+	// Defer cleanup for the old name in case of failure
+	defer func() {
+		_ = repo.Delete(ctx, originalModel)
+	}()
+
+	newModelName := "test-renamed-" + uuid.New().String()[:8]
+
+	updated, err := repo.Update(ctx, fg.ID, po, fg.EntryEnabled, nil, nil, nil, &newModelName)
+	if err != nil {
+		t.Fatalf("Update failed: %v", err)
+	}
+
+	if updated.DisplayModel != newModelName {
+		t.Errorf("DisplayModel = %q, want %q", updated.DisplayModel, newModelName)
+	}
+
+	// Verify via GetByModel returns the updated group under the new name
+	InvalidateFailoverCache()
+	found, err := repo.GetByModel(ctx, newModelName)
+	if err != nil {
+		t.Fatalf("GetByModel failed: %v", err)
+	}
+	if found.ID != fg.ID {
+		t.Errorf("GetByModel ID = %v, want %v", found.ID, fg.ID)
+	}
+	if found.DisplayModel != newModelName {
+		t.Errorf("GetByModel DisplayModel = %q, want %q", found.DisplayModel, newModelName)
+	}
+
+	// Clean up: delete the renamed group
+	_ = repo.Delete(ctx, newModelName)
+}
+
 func TestRepository_GetEnabled_ExcludesDisabledGroups(t *testing.T) {
 	repo := newTestRepo(t)
 	ctx := context.Background()
