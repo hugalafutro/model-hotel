@@ -44,31 +44,14 @@ describe("Spinner", () => {
 		expect(spinner).toBeInTheDocument();
 	});
 
-	it("renders braille spinner in cyber-terminal theme", () => {
-		vi.useFakeTimers();
-		localStorage.setItem("uiStyle", "cyber-terminal");
-		render(<Spinner />, { wrapper: AllProviders });
-
-		const spinner = screen.getByTestId("spinner");
-		expect(spinner).toBeInTheDocument();
-		expect(spinner).toHaveTextContent("⠋");
-		expect(spinner).not.toHaveClass("animate-spin");
-
-		localStorage.removeItem("uiStyle");
-		vi.useRealTimers();
-	});
-
 	it("clears interval on unmount", () => {
-		const consoleSpy = vi.spyOn(console, "error");
+		const clearIntervalSpy = vi.spyOn(globalThis, "clearInterval");
 		const { unmount } = render(<Spinner />, { wrapper: AllProviders });
 
 		unmount();
-		act(() => {
-			vi.advanceTimersByTime(200);
-		});
 
-		expect(consoleSpy).not.toHaveBeenCalled();
-		consoleSpy.mockRestore();
+		expect(clearIntervalSpy).toHaveBeenCalled();
+		clearIntervalSpy.mockRestore();
 	});
 });
 
@@ -87,6 +70,7 @@ describe("cyber-terminal mode", () => {
 		render(<Spinner />, { wrapper: AllProviders });
 		const spinner = screen.getByTestId("spinner");
 		expect(spinner).toBeInTheDocument();
+		expect(spinner).toHaveTextContent("⠋");
 		expect(spinner).not.toHaveClass("animate-spin");
 		expect(spinner).toHaveClass("w-[1ch]");
 	});

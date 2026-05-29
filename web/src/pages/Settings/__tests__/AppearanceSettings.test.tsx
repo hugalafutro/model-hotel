@@ -214,29 +214,35 @@ describe("AppearanceSettings", () => {
 			expect(screen.queryByText("Pick a Color")).not.toBeInTheDocument();
 			// The custom color button should now show a colored circle (not the "+" SVG)
 			// Verify the colored preview circle exists inside the custom color button
-			const colorCircle = customColorButton?.querySelector(
+			const colorCircle = customColorButton.querySelector(
 				'div[style*="background-color"]',
 			);
 			expect(colorCircle).toBeInTheDocument();
 		});
 
-		it("reflects active theme with accent styling", () => {
+		it("reflects active theme with accent styling", async () => {
+			const user = userEvent.setup();
 			renderWithProviders(
 				<AppearanceSettings collapsed={false} onToggle={onToggle} />,
 			);
-			// Default theme is "dark", Dark button should have the accent bg class
-			// The class contains the CSS variable reference
+			// Click Dark to ensure it's the active theme
+			await user.click(screen.getByText("Dark"));
 			const darkButton = screen.getByText("Dark").closest("button");
-			expect(darkButton?.className).toContain("bg-");
+			expect(darkButton?.className).toContain("bg-(--accent)");
 		});
 
-		it("reflects active UI style with accent border", () => {
+		it("reflects active UI style with accent border", async () => {
+			const user = userEvent.setup();
 			renderWithProviders(
 				<AppearanceSettings collapsed={false} onToggle={onToggle} />,
 			);
-			// Default UI style is "clean-saas", Clean SaaS button should have accent border
+			// Click Clean SaaS to ensure it's the active style
 			const cleanSaaSButton = screen.getByText("Clean SaaS").closest("button");
-			expect(cleanSaaSButton?.className).toContain("border-");
+			expect(cleanSaaSButton).toBeInTheDocument();
+			if (cleanSaaSButton) {
+				await user.click(cleanSaaSButton);
+			}
+			expect(cleanSaaSButton?.className).toContain("border-(--accent)");
 		});
 	});
 });
