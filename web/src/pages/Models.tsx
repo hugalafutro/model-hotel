@@ -73,7 +73,7 @@ export function Models() {
 				},
 			);
 		},
-		[toggleMutation, toast, setModelRefreshTrigger],
+		[toggleMutation, toast],
 	);
 
 	const handleUpdateModel = useCallback(
@@ -109,6 +109,7 @@ export function Models() {
 		mutationFn: (id: string) => api.models.delete(id),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["models"] });
+			setModelRefreshTrigger((n) => n + 1);
 			toast("Model deleted successfully", "success");
 		},
 		onError: (err: Error) => {
@@ -127,6 +128,7 @@ export function Models() {
 				),
 			);
 			queryClient.invalidateQueries({ queryKey: ["models"] });
+			setModelRefreshTrigger((n) => n + 1);
 			if (failed === 0) {
 				toast(
 					`Deleted ${ids.length} disabled model${ids.length === 1 ? "" : "s"}`,
