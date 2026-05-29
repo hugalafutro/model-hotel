@@ -533,10 +533,12 @@ describe("useConversationRunner", () => {
 
 	it("alternates between Model A and Model B across turns", async () => {
 		const calledModels: string[] = [];
+		let nextIdx = 0;
 		server.use(
 			http.post("/api/chat/chat", async ({ request }) => {
+				const idx = nextIdx++;
 				const body = await request.json();
-				calledModels.push((body as { model: string }).model);
+				calledModels[idx] = (body as { model: string }).model;
 				return new HttpResponse(
 					new ReadableStream({
 						start(controller) {
@@ -573,14 +575,16 @@ describe("useConversationRunner", () => {
 
 	it("passes correct system prompt for each model", async () => {
 		const calledSystemPrompts: string[] = [];
+		let nextIdx = 0;
 		server.use(
 			http.post("/api/chat/chat", async ({ request }) => {
+				const idx = nextIdx++;
 				const body = await request.json();
 				const messages = (
 					body as { messages: Array<{ role: string; content: string }> }
 				).messages;
 				const systemMsg = messages.find((m) => m.role === "system");
-				calledSystemPrompts.push(systemMsg?.content ?? "");
+				calledSystemPrompts[idx] = systemMsg?.content ?? "";
 				return new HttpResponse(
 					new ReadableStream({
 						start(controller) {
@@ -630,13 +634,15 @@ describe("useConversationRunner", () => {
 
 	it("passes message history to each turn", async () => {
 		const callMessages: Array<{ role: string; content: string }[]> = [];
+		let nextIdx = 0;
 		server.use(
 			http.post("/api/chat/chat", async ({ request }) => {
+				const idx = nextIdx++;
 				const body = await request.json();
 				const messages = (
 					body as { messages: Array<{ role: string; content: string }> }
 				).messages;
-				callMessages.push(messages.filter((m) => m.role !== "system"));
+				callMessages[idx] = messages.filter((m) => m.role !== "system");
 				return new HttpResponse(
 					new ReadableStream({
 						start(controller) {

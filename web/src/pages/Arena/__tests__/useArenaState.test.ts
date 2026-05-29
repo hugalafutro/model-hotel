@@ -76,7 +76,7 @@ vi.mock("../../../context/StorageContext", () => ({
 	})),
 }));
 
-vi.mock("../../utils/arenaHistory", () => ({
+vi.mock("../../../utils/arenaHistory", () => ({
 	getArenaHistoryEnabled: () => arenaHistoryMocks.getArenaHistoryEnabled(),
 	saveCompareToHistory: (...args: unknown[]) =>
 		arenaHistoryMocks.saveCompareToHistory(...args),
@@ -1417,7 +1417,7 @@ describe("useArenaState", () => {
 			arenaHistoryMocks.getArenaHistoryEnabled.mockReturnValue(false);
 		});
 
-		it.skip("saves compare history when phase becomes finished in compare mode", async () => {
+		it("saves compare history when phase becomes finished in compare mode", async () => {
 			arenaHistoryMocks.getArenaHistoryEnabled.mockReturnValue(true);
 
 			const { result } = renderHook(() => useArenaState(), {
@@ -1462,6 +1462,9 @@ describe("useArenaState", () => {
 			act(() => {
 				result.current.setRounds(mockRounds);
 			});
+
+			// Flush the roundsRef sync effect before changing phase
+			await act(async () => {});
 
 			// Now set phase to finished - this triggers the effect
 			act(() => {
@@ -1510,7 +1513,7 @@ describe("useArenaState", () => {
 			expect(arenaHistoryMocks.saveCompareToHistory).not.toHaveBeenCalled();
 		});
 
-		it.skip("resets compareHistorySavedRef when phase leaves finished", async () => {
+		it("resets compareHistorySavedRef when phase leaves finished", async () => {
 			arenaHistoryMocks.getArenaHistoryEnabled.mockReturnValue(true);
 
 			const { result } = renderHook(() => useArenaState(), {
@@ -1555,6 +1558,9 @@ describe("useArenaState", () => {
 			act(() => {
 				result.current.setRounds(mockRounds);
 			});
+
+			// Flush the roundsRef sync effect
+			await act(async () => {});
 
 			// Set phase to finished - should trigger save
 			act(() => {

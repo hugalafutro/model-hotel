@@ -160,4 +160,83 @@ describe("AppearanceSettings", () => {
 			screen.getByText("Switch between dark and light mode"),
 		).toBeInTheDocument();
 	});
+
+	describe("color picker modal interactions", () => {
+		it("closes modal without applying when Cancel is clicked", async () => {
+			const user = userEvent.setup();
+			renderWithProviders(
+				<AppearanceSettings collapsed={false} onToggle={onToggle} />,
+			);
+			const customColorButton = screen.getByTitle("Custom color");
+			await user.click(customColorButton);
+			await waitFor(() => {
+				expect(screen.getByText("Pick a Color")).toBeInTheDocument();
+			});
+			const cancelButton = screen.getByRole("button", { name: "Cancel" });
+			await user.click(cancelButton);
+			expect(screen.queryByText("Pick a Color")).not.toBeInTheDocument();
+		});
+
+		it("applies custom color when Apply is clicked", async () => {
+			const user = userEvent.setup();
+			renderWithProviders(
+				<AppearanceSettings collapsed={false} onToggle={onToggle} />,
+			);
+			const customColorButton = screen.getByTitle("Custom color");
+			await user.click(customColorButton);
+			await waitFor(() => {
+				expect(screen.getByText("Pick a Color")).toBeInTheDocument();
+			});
+			const applyButton = screen.getByRole("button", { name: "Apply" });
+			await user.click(applyButton);
+			expect(screen.queryByText("Pick a Color")).not.toBeInTheDocument();
+		});
+
+		it("shows color preview when non-preset color is active", async () => {
+			const user = userEvent.setup();
+			renderWithProviders(
+				<AppearanceSettings collapsed={false} onToggle={onToggle} />,
+			);
+			// Open the color picker modal
+			const customColorButton = screen.getByTitle("Custom color");
+			await user.click(customColorButton);
+			await waitFor(() => {
+				expect(screen.getByText("Pick a Color")).toBeInTheDocument();
+			});
+			// Change the color to a non-preset value via the hex input
+			const hexInput = screen.getByRole("textbox");
+			await user.clear(hexInput);
+			await user.type(hexInput, "ff00ff"); // Magenta, not a preset
+			// Click Apply to apply the custom color
+			const applyButton = screen.getByRole("button", { name: "Apply" });
+			await user.click(applyButton);
+			// Modal should close
+			expect(screen.queryByText("Pick a Color")).not.toBeInTheDocument();
+			// The custom color button should now show a colored circle (not the "+" SVG)
+			// Verify the colored preview circle exists inside the custom color button
+			const colorCircle = customColorButton?.querySelector(
+				'div[style*="background-color"]',
+			);
+			expect(colorCircle).toBeInTheDocument();
+		});
+
+		it("reflects active theme with accent styling", () => {
+			renderWithProviders(
+				<AppearanceSettings collapsed={false} onToggle={onToggle} />,
+			);
+			// Default theme is "dark", Dark button should have the accent bg class
+			// The class contains the CSS variable reference
+			const darkButton = screen.getByText("Dark").closest("button");
+			expect(darkButton?.className).toContain("bg-");
+		});
+
+		it("reflects active UI style with accent border", () => {
+			renderWithProviders(
+				<AppearanceSettings collapsed={false} onToggle={onToggle} />,
+			);
+			// Default UI style is "clean-saas", Clean SaaS button should have accent border
+			const cleanSaaSButton = screen.getByText("Clean SaaS").closest("button");
+			expect(cleanSaaSButton?.className).toContain("border-");
+		});
+	});
 });

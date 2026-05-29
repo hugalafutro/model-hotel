@@ -487,23 +487,6 @@ describe("QuotaBadges", () => {
 		});
 	});
 
-	it.skip("updates barMode on storage event (cross-tab)", () => {
-		// Skipped: jsdom doesn't properly support StorageEvent for cross-tab simulation.
-		// The localStorageChange custom event test above covers the same behavior.
-		render(<QuotaBadges quotaData={nanoQuotaData} variant="card" />);
-		expect(screen.getByText("800K/1M")).toBeInTheDocument();
-
-		localStorage.setItem("quota-bar-mode", "used");
-		window.dispatchEvent(
-			new StorageEvent("storage", {
-				key: "quota-bar-mode",
-				newValue: "used",
-			}),
-		);
-
-		expect(screen.getByText("200K/1M")).toBeInTheDocument();
-	});
-
 	it("filters by providerBaseUrl", () => {
 		render(
 			<QuotaBadges

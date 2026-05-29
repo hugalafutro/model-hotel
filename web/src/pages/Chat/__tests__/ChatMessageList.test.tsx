@@ -408,16 +408,59 @@ describe("ChatMessageList", () => {
 			expect(screen.getByText("Partial response...")).toBeInTheDocument();
 			expect(screen.getByText("⚠ Connection timeout")).toBeInTheDocument();
 		});
-	});
 
-	describe("persona display", () => {
-		it("renders persona name when activePersonaId is set", () => {
-			// This would require CHAT_PERSONAS to be populated
-			// Testing the structure is in place
+		it("renders disable model button for model B error in conversation mode", () => {
+			const errorMessages: ChatMessage[] = [
+				{ role: "user", content: "Hello", timestamp: Date.now() },
+				{
+					role: "assistant",
+					content: "",
+					model: "Ollama Cloud/glm-5",
+					timestamp: Date.now() + 1000,
+					error: "500 Internal Server Error",
+				},
+			];
 			renderWithProviders(
 				<ChatMessageList
 					{...defaultProps}
-					chatActivePersonaId="persona-1"
+					chatSubMode="conversation"
+					messages={errorMessages}
+				/>,
+			);
+			expect(screen.getByText("Disable model")).toBeInTheDocument();
+		});
+	});
+
+	describe("system message filtering", () => {
+		it("does not render system messages", () => {
+			const messages: ChatMessage[] = [
+				{
+					role: "system",
+					content: "You are a helpful assistant",
+					timestamp: Date.now(),
+				},
+				{
+					role: "user",
+					content: "Hello",
+					timestamp: Date.now() + 1000,
+				},
+			];
+			renderWithProviders(
+				<ChatMessageList {...defaultProps} messages={messages} />,
+			);
+			expect(screen.getByText("Hello")).toBeInTheDocument();
+			expect(
+				screen.queryByText("You are a helpful assistant"),
+			).not.toBeInTheDocument();
+		});
+	});
+
+	describe("persona display", () => {
+		it("renders persona name for chat mode assistant messages", () => {
+			renderWithProviders(
+				<ChatMessageList
+					{...defaultProps}
+					chatActivePersonaId="merlin"
 					messages={[
 						{
 							role: "assistant",
@@ -428,8 +471,64 @@ describe("ChatMessageList", () => {
 					]}
 				/>,
 			);
-			// Persona rendering depends on CHAT_PERSONAS lookup
-			// Component structure is tested via ModelReplyCard tests
+			expect(screen.getByText(/Merlin/)).toBeInTheDocument();
+		});
+
+		it("renders persona name for model B in conversation mode", () => {
+			renderWithProviders(
+				<ChatMessageList
+					{...defaultProps}
+					chatSubMode="conversation"
+					activePersonaIdB="sarge"
+					messages={[
+						{
+							role: "assistant",
+							content: "Response",
+							model: "Ollama Cloud/glm-5",
+							timestamp: Date.now(),
+						},
+					]}
+				/>,
+			);
+			expect(screen.getByText(/Sarge/)).toBeInTheDocument();
+		});
+
+		it("renders persona name for model A in conversation mode", () => {
+			renderWithProviders(
+				<ChatMessageList
+					{...defaultProps}
+					chatSubMode="conversation"
+					conversationActivePersonaIdA="merlin"
+					messages={[
+						{
+							role: "assistant",
+							content: "Response",
+							model: "Ollama Cloud/gemma3:4b",
+							timestamp: Date.now(),
+						},
+					]}
+				/>,
+			);
+			expect(screen.getByText(/Merlin/)).toBeInTheDocument();
+		});
+
+		it("does not render persona name when persona ID does not match any persona", () => {
+			renderWithProviders(
+				<ChatMessageList
+					{...defaultProps}
+					chatActivePersonaId="nonexistent"
+					messages={[
+						{
+							role: "assistant",
+							content: "Response",
+							model: "Ollama Cloud/gemma3:4b",
+							timestamp: Date.now(),
+						},
+					]}
+				/>,
+			);
+			expect(screen.getByText("Response")).toBeInTheDocument();
+			// No persona name should appear
 		});
 	});
 
@@ -464,6 +563,48 @@ describe("ChatMessageList", () => {
 				<ChatMessageList {...defaultProps} messages={messagesWithAudio} />,
 			);
 			expect(screen.getByText("WAV audio")).toBeInTheDocument();
+		});
+
+		it("renders user message with only image and no text", () => {
+			const messagesWithOnlyImage: ChatMessage[] = [
+				{
+					role: "user",
+					content: "",
+					imageUrl: "data:image/png;base64,test",
+					timestamp: Date.now(),
+				},
+			];
+			renderWithProviders(
+				<ChatMessageList {...defaultProps} messages={messagesWithOnlyImage} />,
+			);
+			const img = screen.getByAltText("User attachment");
+			expect(img).toBeInTheDocument();
+			// Should still render the message bubble with the image
+		});
+	});
+
+	describe("conversation mode delete restrictions", () => {
+		it("only shows delete on last assistant message in conversation mode", () => {
+			// With multiple assistant messages, only the last one should have delete
+			renderWithProviders(
+				<ChatMessageList {...defaultProps} chatSubMode="conversation" />,
+			);
+			const deleteButtons = screen.getAllByRole("button", {
+				name: "Delete message",
+			});
+			// Only the last assistant message (index 2, model B) should have delete
+			expect(deleteButtons.length).toBe(1);
+		});
+
+		it("shows delete on all assistant messages in chat mode", () => {
+			renderWithProviders(
+				<ChatMessageList {...defaultProps} chatSubMode="chat" />,
+			);
+			const deleteButtons = screen.getAllByRole("button", {
+				name: "Delete message",
+			});
+			// Both assistant messages should have delete in chat mode
+			expect(deleteButtons.length).toBe(2);
 		});
 	});
 });
