@@ -475,7 +475,7 @@ describe("ProviderCard", () => {
 			mockQuotaData.showNanoBadge = true;
 			mockQuotaData.nanogptUsage = {
 				weeklyInputTokens: { used: 1000 },
-			} as Partial<NanoGPTUsage>;
+			} as NanoGPTUsage;
 			mockQuotaData.nanoWeeklyUsed = 1000;
 			mockQuotaData.nanoWeeklyLimit = 10000;
 
@@ -500,7 +500,7 @@ describe("ProviderCard", () => {
 
 		it("does not call onSetModalNano when nanogptUsage is falsy", () => {
 			mockQuotaData.showNanoBadge = true;
-			mockQuotaData.nanogptUsage = null;
+			mockQuotaData.nanogptUsage = undefined;
 			mockQuotaData.nanoWeeklyUsed = null;
 			mockQuotaData.nanoWeeklyLimit = null;
 
@@ -526,13 +526,13 @@ describe("ProviderCard", () => {
 			mockQuotaData.showZaiCodingBadge = true;
 			mockQuotaData.zaiCodingUsage = {
 				success: true,
-			} as Partial<ZAICodingQuotaResponse>;
+			} as ZAICodingQuotaResponse;
 			mockQuotaData.zaiCodingFiveHour = {
 				percentage: 50,
-			} as Partial<ZAICodingQuotaLimit>;
+			} as ZAICodingQuotaLimit;
 			mockQuotaData.zaiCodingWeekly = {
 				percentage: 30,
-			} as Partial<ZAICodingQuotaLimit>;
+			} as ZAICodingQuotaLimit;
 
 			render(
 				<ProviderCard
@@ -554,7 +554,7 @@ describe("ProviderCard", () => {
 			mockQuotaData.showDsBadge = true;
 			mockQuotaData.deepseekBalance = {
 				balance_infos: [{ currency: "USD", total_balance: "10.00" }],
-			} as Partial<DeepSeekBalance>;
+			} as DeepSeekBalance;
 
 			render(
 				<ProviderCard
@@ -583,7 +583,7 @@ describe("ProviderCard", () => {
 			mockQuotaData.showDsBadge = true;
 			mockQuotaData.deepseekBalance = {
 				balance_infos: [{ currency: "USD", total_balance: "10.00" }],
-			} as Partial<DeepSeekBalance>;
+			} as DeepSeekBalance;
 			mockQuotaData.refetchDeepseek = vi
 				.fn()
 				.mockRejectedValue(new Error("fail"));
@@ -614,7 +614,7 @@ describe("ProviderCard", () => {
 			mockQuotaData.showOrBadge = true;
 			mockQuotaData.openrouterBalance = {
 				credits_remaining: 5.0,
-			} as Partial<OpenRouterBalance>;
+			} as OpenRouterBalance;
 
 			render(
 				<ProviderCard
@@ -636,7 +636,7 @@ describe("ProviderCard", () => {
 			mockQuotaData.showOllamaCloudBadge = true;
 			mockQuotaData.ollamaCloudAccount = {
 				plan: "pro",
-			} as Partial<OllamaCloudAccount>;
+			} as OllamaCloudAccount;
 
 			render(
 				<ProviderCard
@@ -662,7 +662,7 @@ describe("ProviderCard", () => {
 			mockQuotaData.showOllamaCloudBadge = true;
 			mockQuotaData.ollamaCloudAccount = {
 				plan: "pro",
-			} as Partial<OllamaCloudAccount>;
+			} as OllamaCloudAccount;
 			mockQuotaData.refetchOllamaCloud = vi
 				.fn()
 				.mockRejectedValue(new Error("fail"));
