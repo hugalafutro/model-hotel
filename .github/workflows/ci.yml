@@ -68,6 +68,9 @@ jobs:
         if: always()
         env:
           CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
+          CODACY_ORGANIZATION_PROVIDER: gh
+          CODACY_USERNAME: hugalafutro
+          CODACY_PROJECT_NAME: model-hotel
         run: bash <(curl -Ls https://coverage.codacy.com/get.sh) report --force-coverage-parser go -r coverage.out
 
   go-lint:
@@ -160,6 +163,9 @@ jobs:
         working-directory: web
         env:
           CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
+          CODACY_ORGANIZATION_PROVIDER: gh
+          CODACY_USERNAME: hugalafutro
+          CODACY_PROJECT_NAME: model-hotel
         run: bash <(curl -Ls https://coverage.codacy.com/get.sh) report -r coverage/lcov.info
 
       - name: Build
