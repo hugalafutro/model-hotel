@@ -674,6 +674,37 @@ describe("useDashboard", () => {
 			});
 		});
 
+		it("byModel does not mark hotel/ failover groups as deleted", async () => {
+			server.use(
+				http.get("/api/stats", () => {
+					return HttpResponse.json({
+						...mockStats,
+						by_model: { "hotel/my-group": 150, "model-x": 50 },
+					} as Stats);
+				}),
+			);
+
+			const { result } = renderHook(() => useDashboard(), {
+				wrapper: AllProviders,
+			});
+
+			await waitFor(() => {
+				expect(result.current.byModel).toHaveLength(2);
+			});
+
+			const failoverEntry = result.current.byModel.find(
+				(e) => e.label === "hotel/my-group",
+			);
+			expect(failoverEntry?.failoverGroup).toBe(true);
+			expect(failoverEntry?.deleted).toBe(false);
+
+			const regularEntry = result.current.byModel.find(
+				(e) => e.label === "model-x",
+			);
+			expect(regularEntry?.failoverGroup).toBe(false);
+			expect(regularEntry?.deleted).toBe(true);
+		});
+
 		it("byModel uses 'tokens' suffix when modelsMetric is 'tokens'", async () => {
 			server.use(
 				http.get("/api/stats", () => {

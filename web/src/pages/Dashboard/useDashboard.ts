@@ -564,15 +564,18 @@ export function useDashboard(): UseDashboardReturn {
 				.sort(([, a], [, b]) => Number(b) - Number(a))
 				.slice(0, 5)
 				.map(([k, v]) => {
+					const isFailoverGroup = k.startsWith("hotel/");
 					const normalized = k.replace(/ /g, "-");
-					const exists = models?.some(
-						(m) => proxyModelID(m.provider_name, m.model_id) === normalized,
-					);
+					const exists =
+						isFailoverGroup ||
+						models?.some(
+							(m) => proxyModelID(m.provider_name, m.model_id) === normalized,
+						);
 					return {
 						label: k,
 						value: Number(v),
 						suffix: modelsMetric === "tokens" ? " tokens" : " requests",
-						failoverGroup: k.startsWith("hotel/"),
+						failoverGroup: isFailoverGroup,
 						deleted: !exists,
 					};
 				})
