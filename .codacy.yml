@@ -27,6 +27,8 @@ engines:
 
 exclude_paths:
   - "bin/**"
+  - "cmd/**"                # entry point, not unit-testable
+  - "tools/**"              # utility scripts
   - "web/dist/**"
   - "web/coverage/**"
   - "cmd/server/static/**"  # embedded frontend bundle
