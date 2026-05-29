@@ -380,12 +380,12 @@ describe("Providers", () => {
 				expect(screen.getByText("NanoGPT")).toBeInTheDocument();
 			});
 
-			// Wait for quota badge to appear (shows "200K/1M" for weekly usage/limit)
+			// Wait for quota badge to appear (shows "800K/1M" for weekly remaining/limit in default remaining mode)
 			await waitFor(() => {
-				const badge = screen.getByText(/200K/);
+				const badge = screen.getByText(/800K/);
 				expect(badge).toBeInTheDocument();
 			});
-			const quotaBadge = screen.getByText(/200K/);
+			const quotaBadge = screen.getByText(/800K/);
 			await user.click(quotaBadge);
 
 			// Modal should open
@@ -452,10 +452,10 @@ describe("Providers", () => {
 			});
 
 			await waitFor(() => {
-				const badge = screen.getByText(/200K/);
+				const badge = screen.getByText(/800K/);
 				expect(badge).toBeInTheDocument();
 			});
-			const quotaBadge = screen.getByText(/200K/);
+			const quotaBadge = screen.getByText(/800K/);
 			await user.click(quotaBadge);
 
 			await waitFor(() => {

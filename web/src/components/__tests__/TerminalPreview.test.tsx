@@ -320,11 +320,8 @@ describe("TerminalPreview", () => {
 				</TerminalPreview>,
 			);
 
-			const svgIcons = container.querySelectorAll("svg");
-			const libreChatIcon = Array.from(svgIcons).find(
-				(svg) => svg.querySelector("title")?.textContent === "LibreChat",
-			);
-			expect(libreChatIcon).toBeInTheDocument();
+			const imgIcon = container.querySelector('img[alt="LibreChat"]');
+			expect(imgIcon).toBeInTheDocument();
 		});
 
 		it("applies fixed height when height prop is set", () => {
