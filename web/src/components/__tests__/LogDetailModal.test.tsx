@@ -1081,6 +1081,32 @@ describe("LogDetailModal", () => {
 		});
 	});
 
+	describe("Overhead with null timing fields", () => {
+		it("computes total overhead when timing fields are null", () => {
+			const nullFieldsLog = {
+				...mockRequestLog,
+				proxy_overhead_ms: 50,
+				parse_ms: null as unknown as number,
+				failover_lookup_ms: null as unknown as number,
+				model_lookup_ms: null as unknown as number,
+				provider_lookup_ms: null as unknown as number,
+				key_decrypt_ms: null as unknown as number,
+				dial_ms: null as unknown as number,
+				settings_read_ms: null as unknown as number,
+			};
+			renderWithProviders(
+				<LogDetailModal log={nullFieldsLog} type="request" onClose={onClose} />,
+			);
+
+			expect(screen.getByText("Proxy Overhead Breakdown")).toBeInTheDocument();
+			const totalLabel = screen.getByText("Total Overhead");
+			const totalRow = totalLabel.closest("div");
+			expect(totalRow).toBeInTheDocument();
+			// All null fields fall back to 0 via ||, so total = 0 → formatMs shows "-"
+			expect(totalRow?.textContent).toContain("-");
+		});
+	});
+
 	describe("Token formatting", () => {
 		it("formats large token counts with locale separators", () => {
 			const largeTokenLog: LogEntry = {
