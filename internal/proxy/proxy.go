@@ -1025,13 +1025,13 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	var vkID string
 	var vkHash string
 	if v := r.Context().Value(virtualKeyNameKey); v != nil {
-		vkName = v.(string)
+		vkName, _ = v.(string)
 	}
 	if v := r.Context().Value(virtualKeyIDKey); v != nil {
-		vkID = v.(string)
+		vkID, _ = v.(string)
 	}
 	if v := r.Context().Value(VirtualKeyHashKey); v != nil {
-		vkHash = v.(string)
+		vkHash, _ = v.(string)
 	}
 
 	// Create the log entry early so early-return paths can record failures.
@@ -1406,7 +1406,12 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 						}
 						// Merge with existing, creating a new map to avoid data races.
 						merged := make(map[string]bool)
-						for k := range existing.(map[string]bool) {
+						existingMap, ok := existing.(map[string]bool)
+						if !ok {
+							debuglog.Error("deprecationCache: unexpected type", "key", cacheKey, "type", fmt.Sprintf("%T", existing))
+							break
+						}
+						for k := range existingMap {
 							merged[k] = true
 						}
 						for k := range rejected {
