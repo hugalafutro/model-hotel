@@ -440,7 +440,7 @@ export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
 									label: "Dial (DNS+TCP)",
 									value: requestLog.dial_ms,
 									tooltip:
-										"Time to establish the TCP connection to the upstream provider (0 = connection reused)",
+										"Time to establish the TCP connection to the upstream provider",
 								},
 								{
 									label: "Settings Reads",
