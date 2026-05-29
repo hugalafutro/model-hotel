@@ -21,6 +21,10 @@ engines:
     exclude_paths:
       - "**/__tests__/**"
       - "**/*.test.*"
+      - "**/*_test.go"
+  gocyclo:
+    exclude_paths:
+      - "**/*_test.go"
   markdownlint:
     exclude_paths:
       - "README.md"
