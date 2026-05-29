@@ -12,7 +12,7 @@ COPY web/ ./
 RUN pnpm run build
 
 # Stage 2: Build Go binary with embedded frontend + migrations
-FROM golang:1.25-alpine AS backend-builder
+FROM golang:1.26-alpine AS backend-builder
 
 WORKDIR /app
 
