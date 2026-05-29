@@ -42,9 +42,9 @@ jobs:
           TEST_DATABASE_URL: postgres://modelhotel:${{ env.POSTGRES_PASSWORD }}@localhost:5433/testdb?sslmode=disable
         run: go test -timeout 5m -coverprofile=coverage.out -covermode=atomic ./...
 
-      - name: Check coverage (mirrors codecov.yml 80% target)
+      - name: Check coverage (80% threshold)
         run: |
-          # Filter out cmd/ and tools/ to match codecov.yml ignore patterns
+          # Filter out cmd/ and tools/ from coverage calculation
           filtered=$(mktemp)
           { head -1 coverage.out; grep -vE '^github\.com/hugalafutro/model-hotel/(cmd|tools)/' coverage.out | tail -n +2; } > "$filtered"
           pct=$(go tool cover -func="$filtered" | tail -1 | awk '{print $NF}' | tr -d '%')
@@ -55,15 +55,6 @@ jobs:
             echo "FAIL: coverage ${pct}% is below 80% threshold"
             exit 1
           fi
-
-      - name: Upload Go coverage
-        if: always()
-        uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354 # v6
-        with:
-          files: coverage.out
-          flags: backend
-          fail_ci_if_error: false
-          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Upload Go coverage to Codacy
         if: always()
@@ -130,7 +121,7 @@ jobs:
       - name: Test
         run: pnpm vitest run --coverage
 
-      - name: Check frontend coverage (mirrors codecov.yml 80% target)
+      - name: Check frontend coverage (80% threshold)
         run: |
           if [ ! -f coverage/coverage-summary.json ]; then
             echo "WARNING: no coverage-summary.json, skipping gate"
@@ -149,15 +140,6 @@ jobs:
             echo "FAIL: frontend coverage ${pct}% is below 80% threshold"
             exit 1
           fi
-
-      - name: Upload frontend coverage
-        if: always()
-        uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354 # v6
-        with:
-          files: web/coverage/lcov.info
-          flags: frontend
-          fail_ci_if_error: false
-          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Upload frontend coverage to Codacy
         if: always()
