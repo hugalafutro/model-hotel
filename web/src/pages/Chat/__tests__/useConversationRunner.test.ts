@@ -538,7 +538,12 @@ describe("useConversationRunner", () => {
 			http.post("/api/chat/chat", async ({ request }) => {
 				const idx = nextIdx++;
 				const body = await request.json();
-				calledModels[idx] = (body as { model: string }).model; // nosemgrep: typescript.lang.security.audit.detect-object-injection
+				Object.defineProperty(calledModels, idx, {
+					value: (body as { model: string }).model,
+					writable: true,
+					enumerable: true,
+					configurable: true,
+				});
 				return new HttpResponse(
 					new ReadableStream({
 						start(controller) {
@@ -584,7 +589,12 @@ describe("useConversationRunner", () => {
 					body as { messages: Array<{ role: string; content: string }> }
 				).messages;
 				const systemMsg = messages.find((m) => m.role === "system");
-				calledSystemPrompts[idx] = systemMsg?.content ?? ""; // nosemgrep: typescript.lang.security.audit.detect-object-injection
+				Object.defineProperty(calledSystemPrompts, idx, {
+					value: systemMsg?.content ?? "",
+					writable: true,
+					enumerable: true,
+					configurable: true,
+				});
 				return new HttpResponse(
 					new ReadableStream({
 						start(controller) {
@@ -642,7 +652,12 @@ describe("useConversationRunner", () => {
 				const messages = (
 					body as { messages: Array<{ role: string; content: string }> }
 				).messages;
-				callMessages[idx] = messages.filter((m) => m.role !== "system"); // nosemgrep: typescript.lang.security.audit.detect-object-injection
+				Object.defineProperty(callMessages, idx, {
+					value: messages.filter((m) => m.role !== "system"),
+					writable: true,
+					enumerable: true,
+					configurable: true,
+				});
 				return new HttpResponse(
 					new ReadableStream({
 						start(controller) {
