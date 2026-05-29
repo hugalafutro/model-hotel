@@ -1,7 +1,7 @@
 # Stage 1: Build frontend
-FROM node:20-alpine AS frontend-builder
+FROM node:26-alpine AS frontend-builder
 
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN npm install -g pnpm@10
 
 WORKDIR /app/web
 
@@ -12,7 +12,7 @@ COPY web/ ./
 RUN pnpm run build
 
 # Stage 2: Build Go binary with embedded frontend + migrations
-FROM golang:1.25-alpine AS backend-builder
+FROM golang:1.26-alpine AS backend-builder
 
 WORKDIR /app
 
