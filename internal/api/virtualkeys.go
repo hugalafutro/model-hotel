@@ -216,11 +216,18 @@ func (h *Handler) UpdateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	// Only when the field is explicitly present (even as null) do we apply it.
 	if !req.allowedProvidersPresent {
 		existing, err := h.virtualKeyRepo.Get(r.Context(), id)
-		if err == nil && existing != nil {
+		if err != nil {
+			if errors.Is(err, virtualkey.ErrNotFound) {
+				// Key doesn't exist — let Update() return the 404.
+			} else {
+				// Transient DB error — abort to avoid silently clearing restrictions.
+				debuglog.Error("virtual-keys: failed to fetch key for update", "id", id, "error", err)
+				respondError(w, "failed to update virtual key", err, http.StatusInternalServerError)
+				return
+			}
+		} else {
 			req.AllowedProviders = existing.AllowedProviders
 		}
-		// If Get fails (key not found, DB error), just proceed with nil.
-		// Update() will return the proper error for missing keys.
 	}
 
 	if err := validateRateLimits(req.RateLimitRPS, req.RateLimitBurst, w); err != nil {
