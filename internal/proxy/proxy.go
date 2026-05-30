@@ -484,19 +484,27 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 
 									if !deltaHasContent {
 										// Delta is empty after stripping
-										// reasoning — skip the chunk but still
-										// count its tokens for usage tracking.
-										// Send a minimal valid JSON keep-alive
-										// chunk instead of an SSE comment or
-										// nothing: Warp's Go backend uses the
-										// openai-go ssestream package which
-										// crashes on SSE comment lines and
-										// also times out if no data: lines
-										// arrive for several seconds. A
-										// valid data: line with an empty
-										// delta keeps the connection alive
-										// without exposing reasoning.
-										keepAlive := []byte("data: {\"id\":\"chatcmpl-keepalive\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{}}]}\n\n")
+										// reasoning — skip the chunk entirely
+										// and send a minimal valid JSON keep-alive
+										// instead of an SSE comment or nothing:
+										// Warp's Go backend uses the openai-go
+										// ssestream package which crashes on SSE
+										// comment lines and also times out if no
+										// data: lines arrive for several seconds.
+										// A valid data: line with an empty delta
+										// keeps the connection alive without
+										// exposing reasoning.
+										// Use the stream's real completion ID from
+										// the parsed chunk so clients that validate
+										// ID consistency don't reject the keep-alive.
+										keepAliveID := "chatcmpl"
+										if idRaw, ok := raw["id"]; ok {
+											var idStr string
+											if json.Unmarshal(idRaw, &idStr) == nil && idStr != "" {
+												keepAliveID = idStr
+											}
+										}
+										keepAlive := []byte("data: {\"id\":\"" + keepAliveID + "\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{}}]}\n\n")
 										n, err := w.Write(keepAlive)
 										bytesWritten += int64(n)
 										if err != nil {

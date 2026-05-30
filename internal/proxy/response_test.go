@@ -3592,8 +3592,9 @@ func TestHandleStreamingResponse_StripReasoning_JSONKeepAlive(t *testing.T) {
 	// Verify NO SSE comment keep-alives (they break Warp's openai-go ssestream)
 	assert.NotContains(t, body, ": thinking")
 
-	// Verify valid JSON keep-alive chunks ARE sent for stripped reasoning
-	assert.Contains(t, body, "chatcmpl-keepalive")
+	// Verify valid JSON keep-alive chunks ARE sent for stripped reasoning.
+	// The keep-alive reuses the stream's real completion ID.
+	assert.Contains(t, body, `"id":"c1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{}}]`)
 
 	// Verify reasoning_content is NOT in output
 	assert.NotContains(t, body, "reasoning_content")
