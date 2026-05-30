@@ -27,7 +27,26 @@ type UpdateVirtualKeyRequest struct {
 	Name             string    `json:"name"`
 	RateLimitRPS     *float64  `json:"rate_limit_rps"`
 	RateLimitBurst   *int      `json:"rate_limit_burst"`
-	AllowedProviders *[]string `json:"allowed_providers"`
+	AllowedProviders *[]string `json:"allowed_providers,omitempty"`
+	// allowedProvidersPresent tracks whether allowed_providers was in the JSON.
+	// Set by UnmarshalJSON; do not set manually.
+	allowedProvidersPresent bool
+}
+
+// UnmarshalJSON detects whether allowed_providers was present in the JSON.
+func (r *UpdateVirtualKeyRequest) UnmarshalJSON(data []byte) error {
+	// First pass: decode all fields normally
+	type plain UpdateVirtualKeyRequest
+	if err := json.Unmarshal(data, (*plain)(r)); err != nil {
+		return err
+	}
+	// Second pass: check if the field key exists in the JSON
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	r.allowedProvidersPresent = raw["allowed_providers"] != nil
+	return nil
 }
 
 // RegisterVirtualKeys mounts virtual key management routes.
@@ -189,6 +208,19 @@ func (h *Handler) UpdateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	if req.AllowedProviders != nil && len(*req.AllowedProviders) == 0 {
 		http.Error(w, "allowed_providers must be null or contain at least one provider ID", http.StatusBadRequest)
 		return
+	}
+
+	// When allowed_providers is omitted from the request body, preserve the
+	// existing value instead of clearing it. This prevents external scripts
+	// that update name/rate-limits from accidentally dropping restrictions.
+	// Only when the field is explicitly present (even as null) do we apply it.
+	if !req.allowedProvidersPresent {
+		existing, err := h.virtualKeyRepo.Get(r.Context(), id)
+		if err == nil && existing != nil {
+			req.AllowedProviders = existing.AllowedProviders
+		}
+		// If Get fails (key not found, DB error), just proceed with nil.
+		// Update() will return the proper error for missing keys.
 	}
 
 	if err := validateRateLimits(req.RateLimitRPS, req.RateLimitBurst, w); err != nil {
