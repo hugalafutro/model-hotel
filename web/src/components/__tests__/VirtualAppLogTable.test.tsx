@@ -568,7 +568,7 @@ describe("VirtualAppLogTable", () => {
 			const badge = screen.getByText("server");
 			expect(badge).toBeInTheDocument();
 			expect(badge.className).toContain("bg-blue-900/30");
-			expect(badge.className).toContain("text-(--accent)");
+			expect(badge.className).toContain("text-blue-400");
 		});
 
 		it('renders source badge with correct classes for "startup" source', () => {
@@ -580,7 +580,7 @@ describe("VirtualAppLogTable", () => {
 			const badge = screen.getByText("startup");
 			expect(badge).toBeInTheDocument();
 			expect(badge.className).toContain("bg-blue-900/30");
-			expect(badge.className).toContain("text-(--accent)");
+			expect(badge.className).toContain("text-blue-400");
 		});
 
 		it('renders source badge with correct classes for "retention" source', () => {
@@ -592,7 +592,7 @@ describe("VirtualAppLogTable", () => {
 			const badge = screen.getByText("retention");
 			expect(badge).toBeInTheDocument();
 			expect(badge.className).toContain("bg-blue-900/30");
-			expect(badge.className).toContain("text-(--accent)");
+			expect(badge.className).toContain("text-blue-400");
 		});
 
 		it('renders source badge with correct classes for "modelsdev" source', () => {

@@ -80,7 +80,7 @@ describe("AppLogs", () => {
 		renderWithProviders(<AppLogs />);
 		await waitFor(() => {
 			expect(
-				screen.getByRole("button", { name: /Toggle live/ }),
+				screen.getByRole("button", { name: /^Live$/ }),
 			).toBeInTheDocument();
 		});
 	});
@@ -88,7 +88,7 @@ describe("AppLogs", () => {
 	it("Live badge is green when enabled", async () => {
 		renderWithProviders(<AppLogs />);
 		await waitFor(() => {
-			const liveButton = screen.getByRole("button", { name: /Toggle live/ });
+			const liveButton = screen.getByRole("button", { name: /^Live$/ });
 			expect(liveButton).toBeInTheDocument();
 			// Check for green styling
 			expect(liveButton).toHaveClass("bg-green-500/20");
@@ -99,10 +99,10 @@ describe("AppLogs", () => {
 		const user = userEvent.setup();
 		renderWithProviders(<AppLogs />);
 		await waitFor(() => {
-			const liveButton = screen.getByRole("button", { name: /Toggle live/ });
+			const liveButton = screen.getByRole("button", { name: /^Live$/ });
 			expect(liveButton).toBeInTheDocument();
 		});
-		const liveButton = screen.getByRole("button", { name: /Toggle live/ });
+		const liveButton = screen.getByRole("button", { name: /^Live$/ });
 		await user.click(liveButton);
 		await waitFor(() => {
 			expect(screen.getByText("Live updates paused")).toBeInTheDocument();
@@ -644,11 +644,11 @@ describe("AppLogs", () => {
 			renderWithProviders(<AppLogs />);
 			await waitFor(() => {
 				expect(
-					screen.getByRole("button", { name: /Toggle live/ }),
+					screen.getByRole("button", { name: /^Live$/ }),
 				).toBeInTheDocument();
 			});
 			const liveButton = screen.getByRole("button", {
-				name: /Toggle live/,
+				name: /^Live$/,
 			});
 			// First click: pause
 			await user.click(liveButton);

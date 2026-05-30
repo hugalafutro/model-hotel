@@ -310,3 +310,147 @@ func TestGetLatestVersion_InvalidJSON(t *testing.T) {
 		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadGateway, w.Code, w.Body.String())
 	}
 }
+
+func TestGetLatestVersion_EmptyTagsArray(t *testing.T) {
+	resetVersionCache()
+
+	// Releases returns 404, tags returns empty array []
+	ghServer := newGHMockServer(t,
+		nil, // releases returns 404 by default
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode([]githubTag{}) // empty array
+		},
+	)
+	defer ghServer.Close()
+
+	h := &Handler{
+		ghReleasesURL: ghServer.URL + "/repos/hugalafutro/model-hotel/releases/latest",
+		ghTagsURL:     ghServer.URL + "/repos/hugalafutro/model-hotel/tags",
+	}
+	r := chi.NewRouter()
+	h.RegisterVersion(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/version/latest", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadGateway {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadGateway, w.Code, w.Body.String())
+	}
+}
+
+func TestGetLatestVersion_EmptyTagName(t *testing.T) {
+	resetVersionCache()
+
+	// Releases returns 404, tags returns array with empty name
+	ghServer := newGHMockServer(t,
+		nil, // releases returns 404 by default
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode([]githubTag{{Name: ""}}) // empty name
+		},
+	)
+	defer ghServer.Close()
+
+	h := &Handler{
+		ghReleasesURL: ghServer.URL + "/repos/hugalafutro/model-hotel/releases/latest",
+		ghTagsURL:     ghServer.URL + "/repos/hugalafutro/model-hotel/tags",
+	}
+	r := chi.NewRouter()
+	h.RegisterVersion(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/version/latest", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadGateway {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadGateway, w.Code, w.Body.String())
+	}
+}
+
+func TestGetLatestVersion_TagsRateLimited(t *testing.T) {
+	resetVersionCache()
+
+	// Releases returns 404, tags returns 403 (rate limited)
+	ghServer := newGHMockServer(t,
+		nil, // releases returns 404 by default
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusForbidden) // rate limited
+		},
+	)
+	defer ghServer.Close()
+
+	h := &Handler{
+		ghReleasesURL: ghServer.URL + "/repos/hugalafutro/model-hotel/releases/latest",
+		ghTagsURL:     ghServer.URL + "/repos/hugalafutro/model-hotel/tags",
+	}
+	r := chi.NewRouter()
+	h.RegisterVersion(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/version/latest", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadGateway {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadGateway, w.Code, w.Body.String())
+	}
+}
+
+func TestGetLatestVersion_EmptyTagNameFromReleases(t *testing.T) {
+	resetVersionCache()
+
+	// Releases returns 200 but tag_name is empty string
+	ghServer := newGHMockServer(t,
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(githubRelease{TagName: ""}) // empty tag_name
+		},
+		nil, // tags not needed
+	)
+	defer ghServer.Close()
+
+	h := &Handler{
+		ghReleasesURL: ghServer.URL + "/repos/hugalafutro/model-hotel/releases/latest",
+		ghTagsURL:     ghServer.URL + "/repos/hugalafutro/model-hotel/tags",
+	}
+	r := chi.NewRouter()
+	h.RegisterVersion(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/version/latest", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadGateway {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadGateway, w.Code, w.Body.String())
+	}
+}
+
+func TestGetLatestVersion_InvalidJSONFromTags(t *testing.T) {
+	resetVersionCache()
+
+	// Releases returns 404, tags returns invalid JSON
+	ghServer := newGHMockServer(t,
+		nil, // releases returns 404 by default
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{invalid json}`)) // invalid JSON
+		},
+	)
+	defer ghServer.Close()
+
+	h := &Handler{
+		ghReleasesURL: ghServer.URL + "/repos/hugalafutro/model-hotel/releases/latest",
+		ghTagsURL:     ghServer.URL + "/repos/hugalafutro/model-hotel/tags",
+	}
+	r := chi.NewRouter()
+	h.RegisterVersion(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/version/latest", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadGateway {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadGateway, w.Code, w.Body.String())
+	}
+}
