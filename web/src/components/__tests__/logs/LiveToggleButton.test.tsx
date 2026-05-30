@@ -1,8 +1,8 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { renderWithProviders } from "../../test/utils";
-import { LiveToggleButton } from "./LiveToggleButton";
+import { renderWithProviders } from "../../../test/utils";
+import { LiveToggleButton } from "../../logs/LiveToggleButton";
 
 describe("LiveToggleButton", () => {
 	it("renders with Live text", () => {

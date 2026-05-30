@@ -1,8 +1,8 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { renderWithProviders } from "../../test/utils";
-import { ViewModeToggle } from "./ViewModeToggle";
+import { renderWithProviders } from "../../../test/utils";
+import { ViewModeToggle } from "../../logs/ViewModeToggle";
 
 describe("ViewModeToggle", () => {
 	it("shows '⇊ Scroll' when in paginate mode", () => {

@@ -1,8 +1,8 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { renderWithProviders } from "../../test/utils";
-import { DateFilterButton } from "./DateFilterButton";
+import { renderWithProviders } from "../../../test/utils";
+import { DateFilterButton } from "../../logs/DateFilterButton";
 
 describe("DateFilterButton", () => {
 	it("renders calendar button", () => {

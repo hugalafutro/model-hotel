@@ -1,8 +1,8 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { renderWithProviders } from "../../test/utils";
-import { DateRangePickerPopover } from "./DateRangePickerPopover";
+import { renderWithProviders } from "../../../test/utils";
+import { DateRangePickerPopover } from "../../logs/DateRangePickerPopover";
 
 describe("DateRangePickerPopover", () => {
 	const defaultProps = {
