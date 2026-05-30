@@ -459,9 +459,14 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 									// finish_reason lives at the choices[0]
 									// level, not inside delta. A chunk with
 									// an empty delta but a finish_reason must
-									// still be forwarded.
-									if _, okFR := choices[0]["finish_reason"]; okFR {
-										deltaHasContent = true
+									// still be forwarded. Note: "finish_reason":null
+									// is present on every streaming chunk, so
+									// we must check the value is actually non-null.
+									if frRaw, okFR := choices[0]["finish_reason"]; okFR {
+										var frStr string
+										if json.Unmarshal(frRaw, &frStr) == nil && frStr != "" {
+											deltaHasContent = true
+										}
 									}
 
 									if !deltaHasContent {
