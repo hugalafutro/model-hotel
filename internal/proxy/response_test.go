@@ -3726,3 +3726,115 @@ func TestHandleStreamingResponse_StripReasoning_GeminiStopNormalized(t *testing.
 	// Verify stream completed
 	assert.Equal(t, "completed", logData.state)
 }
+
+// TestHandleStreamingResponse_EmptyContentStrip_FinishReasonNormalized tests that
+// the always-on empty-content strip block normalizes finish_reason in-place.
+// Without the fix, a chunk with reasoning_content + empty content + non-standard
+// finish_reason (e.g., "end_turn") would have finish_reason leaked unnormalized
+// because written=true skips the normalization block later in the loop.
+func TestHandleStreamingResponse_EmptyContentStrip_FinishReasonNormalized(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	upstream := buildSSEBody(
+		`{"id":"c1","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{"role":"assistant","content":"","reasoning_content":"thinking"}}]}`,
+		`{"id":"c1","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{"content":"","reasoning_content":"final thought"},"finish_reason":"end_turn"}]}`,
+		`[DONE]`,
+	)
+
+	resp := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(upstream),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{})
+
+	body := w.Body.String()
+
+	// Verify "end_turn" is normalized to "stop" even through the
+	// always-on empty-content strip path
+	assert.Contains(t, body, `"finish_reason":"stop"`)
+	assert.NotContains(t, body, `"finish_reason":"end_turn"`)
+
+	// Verify [DONE] is present
+	assert.Contains(t, body, "[DONE]")
+
+	// Verify stream completed
+	assert.Equal(t, "completed", logData.state)
+}
+
+// TestHandleStreamingResponse_ReasoningNormalization_FinishReasonNormalized tests that
+// the reasoning field normalization block (always-on, handles Ollama reasoning→reasoning_content
+// mapping) normalizes finish_reason in-place. Without the fix, written=true would skip the
+// normalization block, leaking non-standard finish_reason values.
+func TestHandleStreamingResponse_ReasoningNormalization_FinishReasonNormalized(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	upstream := buildSSEBody(
+		`{"id":"c1","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{"role":"assistant","content":"","reasoning":"thinking via Ollama format"}}]}`,
+		`{"id":"c1","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{"content":"Answer"}}]}`,
+		`{"id":"c1","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{},"finish_reason":"STOP"}]}`,
+		`[DONE]`,
+	)
+
+	resp := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(upstream),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{})
+
+	body := w.Body.String()
+
+	// Verify reasoning was normalized to reasoning_content (Ollama → standard)
+	assert.Contains(t, body, "reasoning_content")
+
+	// Verify "STOP" is normalized to "stop" — the reasoning normalization
+	// block sets written=true which would skip the main normalization.
+	assert.Contains(t, body, `"finish_reason":"stop"`)
+	assert.NotContains(t, body, `"finish_reason":"STOP"`)
+
+	// Verify content is present
+	assert.Contains(t, body, `"content":"Answer"`)
+
+	// Verify [DONE] is present
+	assert.Contains(t, body, "[DONE]")
+
+	// Verify stream completed
+	assert.Equal(t, "completed", logData.state)
+}
