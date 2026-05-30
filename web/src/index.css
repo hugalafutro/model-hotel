@@ -158,25 +158,25 @@ html[data-ui-style="cyber-terminal"].dark {
 }
 
 html[data-ui-style="cyber-terminal"].light {
-	--surface-bg: #f5f6f8;
-	--surface-elevated: #ffffff;
-	--surface-elevated-hover: rgba(0, 0, 0, 0.03);
-	--surface-input: #f8f9fa;
-	--surface-sidebar: #eef0f4;
-	--surface-hover: rgba(0, 0, 0, 0.03);
+	--surface-bg: #e8eaef;
+	--surface-elevated: #f3f4f8;
+	--surface-elevated-hover: #ebedf2;
+	--surface-input: #eef0f5;
+	--surface-sidebar: #dde0e7;
+	--surface-hover: rgba(0, 0, 0, 0.04);
 
-	--border-default: rgba(var(--accent-rgb, 129, 140, 248), 0.2);
-	--border-subtle: rgba(0, 0, 0, 0.06);
-	--border-input: rgba(var(--accent-rgb, 129, 140, 248), 0.15);
+	--border-default: rgba(var(--accent-rgb, 129, 140, 248), 0.25);
+	--border-subtle: rgba(0, 0, 0, 0.08);
+	--border-input: rgba(var(--accent-rgb, 129, 140, 248), 0.2);
 
 	--radius-card: 2px;
 	--radius-button: 2px;
 	--shadow-card:
 		0 0 0 1px var(--border-default),
-		inset 0 0 20px rgba(var(--accent-rgb, 129, 140, 248), 0.04);
+		inset 0 0 20px rgba(var(--accent-rgb, 129, 140, 248), 0.05);
 	--shadow-md:
 		0 0 0 1px var(--border-default),
-		0 0 30px rgba(var(--accent-rgb, 129, 140, 248), 0.12);
+		0 4px 20px rgba(var(--accent-rgb, 129, 140, 248), 0.15);
 	--shadow-glow: 0 0 15px rgba(var(--accent-rgb, 129, 140, 248), 0.35);
 
 	--nav-icon: var(--accent);
@@ -233,24 +233,24 @@ html[data-ui-style="glassmorphism-lite"].dark {
 }
 
 html[data-ui-style="glassmorphism-lite"].light {
-	--surface-bg: #f5f6fa;
-	--surface-elevated: rgba(255, 255, 255, 0.85);
-	--surface-elevated-hover: rgba(255, 255, 255, 0.92);
-	--surface-input: rgba(255, 255, 255, 0.75);
-	--surface-sidebar: rgba(255, 255, 255, 0.8);
+	--surface-bg: #eef0f7;
+	--surface-elevated: rgba(255, 255, 255, 0.7);
+	--surface-elevated-hover: rgba(255, 255, 255, 0.82);
+	--surface-input: rgba(235, 238, 250, 0.6);
+	--surface-sidebar: rgba(230, 234, 250, 0.65);
 	--surface-hover: rgba(0, 0, 0, 0.04);
 
-	--border-default: rgba(0, 0, 0, 0.09);
-	--border-subtle: rgba(0, 0, 0, 0.03);
-	--border-input: rgba(0, 0, 0, 0.1);
+	--border-default: rgba(100, 110, 180, 0.12);
+	--border-subtle: rgba(100, 110, 180, 0.06);
+	--border-input: rgba(100, 110, 180, 0.15);
 
 	--radius-card: 20px;
 	--radius-button: 12px;
 	--accent-lighter: rgba(99, 102, 241, 0.08);
 	--shadow-card:
-		0 8px 32px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+		0 8px 32px rgba(60, 70, 140, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.7);
 	--shadow-md:
-		0 12px 40px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+		0 12px 40px rgba(60, 70, 140, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.7);
 	--shadow-glow: 0 0 30px rgba(var(--accent-rgb, 99, 102, 241), 0.15);
 
 	--nav-icon: var(--text-secondary);
@@ -1861,6 +1861,10 @@ html.light .bg-gray-950 {
 
 html.light .border-gray-800 {
 	border-color: #d1d5db;
+}
+
+html.light .bg-gray-900\/50 {
+	background-color: rgba(0, 0, 0, 0.04);
 }
 
 html.light .terminal-titlebar {
