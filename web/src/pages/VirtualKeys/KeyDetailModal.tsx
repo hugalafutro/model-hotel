@@ -64,6 +64,7 @@ export function KeyDetailModal({
 	);
 	const [excludedProviders, setExcludedProviders] = useState<string[]>([]);
 	const [originalExcluded, setOriginalExcluded] = useState<string[]>([]);
+	const [providerError, setProviderError] = useState("");
 
 	const { data: providers } = useQuery({
 		queryKey: ["providers"],
@@ -124,11 +125,16 @@ export function KeyDetailModal({
 
 	const handleSave = () => {
 		if (!editName.trim()) return;
+		setProviderError("");
 		const allProviderIds = availableProviders.map((p) => p.id);
 		const allowedProviders =
 			excludedProviders.length > 0
 				? allProviderIds.filter((id) => !excludedProviders.includes(id))
 				: null;
+		if (allowedProviders && allowedProviders.length === 0) {
+			setProviderError("At least one provider must remain accessible");
+			return;
+		}
 		updateMutation.mutate({
 			name: editName.trim(),
 			rate_limit_rps: editRps !== "" ? parseFloat(editRps) : null,
@@ -150,7 +156,13 @@ export function KeyDetailModal({
 		setEditName(vk.name);
 		setEditRps(vk.rate_limit_rps?.toString() ?? "");
 		setEditBurst(vk.rate_limit_burst?.toString() ?? "");
-		// Compute excluded providers from the VK's allowed_providers
+		setProviderError("");
+		// Compute excluded providers from the VK's allowed_providers.
+		// If the key has restrictions but providers haven't loaded yet,
+		// we must not proceed — that would silently clear restrictions.
+		if (vk.allowed_providers && vk.allowed_providers.length > 0 && !providers) {
+			return;
+		}
 		if (vk.allowed_providers && providers) {
 			const allIds = providers.map((p) => p.id);
 			const excluded = allIds.filter(
@@ -297,6 +309,9 @@ export function KeyDetailModal({
 								</div>
 							)}
 						</div>
+						{providerError && (
+							<p className="text-xs text-red-400 mt-1">{providerError}</p>
+						)}
 					</>
 				) : (
 					<>

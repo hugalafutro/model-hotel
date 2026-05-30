@@ -3,6 +3,7 @@ import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	mockProvider,
+	mockProvider2,
 	mockVirtualKey,
 	mockVirtualKeyWithProviders,
 } from "../../../test/mocks/data";
@@ -1109,5 +1110,96 @@ describe("hasChanges revert", () => {
 			name: "Save Changes",
 		});
 		expect(saveButton).toBeDisabled();
+	});
+
+	it("blocks edit when key has restrictions and providers not loaded", async () => {
+		server.use(
+			// Providers never resolve — simulates in-flight query
+			http.get("/api/providers", () => new Promise(() => {})),
+			http.get("/api/virtual-keys", () =>
+				HttpResponse.json([mockVirtualKeyWithProviders]),
+			),
+		);
+
+		const { user } = renderWithProviders(<VirtualKeys />);
+
+		await waitFor(() => {
+			expect(screen.getByText("Restricted Key")).toBeInTheDocument();
+		});
+
+		const nameCell = screen.getByText("Restricted Key");
+		await user.click(nameCell);
+
+		await waitFor(() => {
+			expect(
+				screen.getByRole("dialog", { name: "Virtual Key Details" }),
+			).toBeInTheDocument();
+		});
+
+		const dialog = screen.getByRole("dialog", {
+			name: "Virtual Key Details",
+		});
+
+		// Click Edit — should NOT enter edit mode because providers haven't loaded
+		const editButton = within(dialog).getByRole("button", {
+			name: "Edit",
+		});
+		await user.click(editButton);
+
+		// Should still be in view mode (no input fields)
+		expect(within(dialog).queryByLabelText("Name")).not.toBeInTheDocument();
+	});
+
+	it("shows error when all providers are excluded on save", async () => {
+		const mockProviders = [mockProvider, mockProvider2];
+
+		server.use(
+			http.get("/api/providers", () => HttpResponse.json(mockProviders)),
+			http.get("/api/virtual-keys", () => HttpResponse.json([mockVirtualKey])),
+		);
+
+		const { user } = renderWithProviders(<VirtualKeys />);
+
+		await waitFor(() => {
+			expect(screen.getByText("Test API Key")).toBeInTheDocument();
+		});
+
+		const nameCell = screen.getByText("Test API Key");
+		await user.click(nameCell);
+
+		await waitFor(() => {
+			expect(
+				screen.getByRole("dialog", { name: "Virtual Key Details" }),
+			).toBeInTheDocument();
+		});
+
+		const dialog = screen.getByRole("dialog", {
+			name: "Virtual Key Details",
+		});
+
+		const editButton = within(dialog).getByRole("button", {
+			name: "Edit",
+		});
+		await user.click(editButton);
+
+		// Exclude all providers
+		for (const provider of mockProviders) {
+			const chip = within(dialog).getByRole("button", {
+				name: provider.name,
+			});
+			await user.click(chip);
+		}
+
+		const saveButton = within(dialog).getByRole("button", {
+			name: "Save Changes",
+		});
+		await user.click(saveButton);
+
+		// Should show error message, not call the API
+		await waitFor(() => {
+			expect(
+				screen.getByText("At least one provider must remain accessible"),
+			).toBeInTheDocument();
+		});
 	});
 });

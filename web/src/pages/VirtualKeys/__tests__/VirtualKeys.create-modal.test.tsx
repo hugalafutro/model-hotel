@@ -3,6 +3,7 @@ import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	mockProvider,
+	mockProvider2,
 	mockVirtualKey,
 	mockVirtualKeyWithProviders,
 } from "../../../test/mocks/data";
@@ -684,6 +685,57 @@ describe("VirtualKeys", () => {
 			expect(createBody).toBeDefined();
 			const body = createBody as { allowed_providers?: string[] };
 			expect(body.allowed_providers).toEqual(["provider-001"]);
+		});
+
+		it("shows error when all providers are excluded on create", async () => {
+			const mockProviders = [mockProvider, mockProvider2];
+
+			server.use(
+				http.get("/api/providers", () => HttpResponse.json(mockProviders)),
+				http.get("/api/virtual-keys", () =>
+					HttpResponse.json([mockVirtualKey]),
+				),
+			);
+
+			const { user } = renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Test API Key")).toBeInTheDocument();
+			});
+
+			const createButton = screen.getByRole("button", {
+				name: "+ Create Key",
+			});
+			await user.click(createButton);
+
+			const dialog = screen.getByRole("dialog", {
+				name: "Create Virtual Key",
+			});
+
+			// Fill in name
+			const nameInput = within(dialog).getByLabelText("Name");
+			await user.type(nameInput, "My Key");
+
+			// Exclude all providers
+			for (const provider of mockProviders) {
+				const chip = within(dialog).getByRole("button", {
+					name: provider.name,
+				});
+				await user.click(chip);
+			}
+
+			// Click Create
+			const submitButton = within(dialog).getByRole("button", {
+				name: "Create Key",
+			});
+			await user.click(submitButton);
+
+			// Should show error message, not create the key
+			await waitFor(() => {
+				expect(
+					screen.getByText("At least one provider must remain accessible"),
+				).toBeInTheDocument();
+			});
 		});
 	});
 });

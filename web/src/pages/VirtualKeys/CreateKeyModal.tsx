@@ -19,6 +19,7 @@ export function CreateKeyModal({
 	const [rateLimitBurst, setRateLimitBurst] = useState<string>("");
 	const [excludedProviders, setExcludedProviders] = useState<string[]>([]);
 	const [createdKey, setCreatedKey] = useState<VirtualKey | null>(null);
+	const [providerError, setProviderError] = useState("");
 
 	const { data: providers } = useQuery({
 		queryKey: ["providers"],
@@ -68,11 +69,16 @@ export function CreateKeyModal({
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!name.trim()) return;
+		setProviderError("");
 		const allProviderIds = availableProviders.map((p) => p.id);
 		const allowedProviders =
 			excludedProviders.length > 0
 				? allProviderIds.filter((id) => !excludedProviders.includes(id))
 				: null;
+		if (allowedProviders && allowedProviders.length === 0) {
+			setProviderError("At least one provider must remain accessible");
+			return;
+		}
 		createMutation.mutate({
 			name: name.trim(),
 			rate_limit_rps: rateLimitRps !== "" ? parseFloat(rateLimitRps) : null,
@@ -221,6 +227,9 @@ export function CreateKeyModal({
 							</div>
 						)}
 					</div>
+					{providerError && (
+						<p className="text-xs text-red-400 mt-1">{providerError}</p>
+					)}
 					<div className="flex space-x-3 justify-end pt-2">
 						<button
 							type="button"
