@@ -3216,8 +3216,8 @@ func TestHandleStreamingResponse_StripReasoning_EmptyDeltasSkipped(t *testing.T)
 	// Verify finish_reason is forwarded
 	assert.Contains(t, body, "finish_reason")
 
-	// Verify SSE keep-alive comments are sent for skipped chunks
-	assert.Contains(t, body, ": thinking")
+	// Verify NO SSE keep-alive comments are sent (they break Warp's Go backend)
+	assert.NotContains(t, body, ": thinking")
 
 	// Verify the stream completed successfully
 	assert.Equal(t, "completed", logData.state)
@@ -3291,8 +3291,8 @@ func TestHandleStreamingResponse_StripReasoning_WarpThinkingModelScenario(t *tes
 	// Verify finish_reason is forwarded
 	assert.Contains(t, body, "finish_reason")
 
-	// Verify SSE keep-alive comments are sent for skipped chunks
-	assert.Contains(t, body, ": thinking")
+	// Verify NO SSE keep-alive comments (they break Warp's Go backend)
+	assert.NotContains(t, body, ": thinking")
 
 	// Verify stream completed
 	assert.Equal(t, "completed", logData.state)
@@ -3300,7 +3300,7 @@ func TestHandleStreamingResponse_StripReasoning_WarpThinkingModelScenario(t *tes
 
 // TestHandleStreamingResponse_StripReasoning_RoleStrippedWhenNoContent tests that
 // a role chunk with reasoning_content but no content has both reasoning AND role
-// stripped when strip_reasoning is enabled, with keep-alive sent.
+// stripped when strip_reasoning is enabled, without SSE keep-alive comments.
 func TestHandleStreamingResponse_StripReasoning_RoleStrippedWhenNoContent(t *testing.T) {
 	h := newUnitHandler()
 	defer stopUnitHandler(h)
@@ -3344,8 +3344,8 @@ func TestHandleStreamingResponse_StripReasoning_RoleStrippedWhenNoContent(t *tes
 	// Verify role is also stripped (no longer preserved when no content)
 	assert.NotContains(t, body, `"role":"assistant"`)
 
-	// Verify keep-alive is sent for the stripped role+reasoning chunk
-	assert.Contains(t, body, ": thinking")
+	// Verify NO keep-alive SSE comments are sent for the stripped role+reasoning chunk
+	assert.NotContains(t, body, ": thinking")
 
 	// Verify content is present
 	assert.Contains(t, body, `"content":"response"`)
@@ -3413,8 +3413,8 @@ func TestHandleStreamingResponse_StripReasoning_FinishAndUsagePassThrough(t *tes
 	assert.Contains(t, body, `"finish_reason":"stop"`)
 	assert.Contains(t, body, `"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}`)
 
-	// Verify SSE keep-alive comments are sent for skipped chunks
-	assert.Contains(t, body, ": thinking")
+	// Verify NO SSE keep-alive comments are sent (they break Warp's Go backend)
+	assert.NotContains(t, body, ": thinking")
 
 	// Verify [DONE] is present
 	assert.Contains(t, body, "[DONE]")
@@ -3478,11 +3478,11 @@ func TestHandleStreamingResponse_StripReasoning_Disabled(t *testing.T) {
 	assert.Equal(t, "completed", logData.state)
 }
 
-// TestHandleStreamingResponse_StripReasoning_KeepAliveSent tests that
-// SSE keep-alive comments (": thinking\n\n") are sent for each skipped
-// reasoning-only chunk when strip_reasoning is enabled. This prevents
-// client timeouts during long thinking phases.
-func TestHandleStreamingResponse_StripReasoning_KeepAliveSent(t *testing.T) {
+// TestHandleStreamingResponse_StripReasoning_NoKeepAliveComments tests that
+// NO SSE keep-alive comments (": thinking\n\n") are sent for skipped
+// reasoning-only chunks when strip_reasoning is enabled. SSE comments
+// break Warp's Go backend (openai-go ssestream parser bug).
+func TestHandleStreamingResponse_StripReasoning_NoKeepAliveComments(t *testing.T) {
 	h := newUnitHandler()
 	defer stopUnitHandler(h)
 
@@ -3522,15 +3522,8 @@ func TestHandleStreamingResponse_StripReasoning_KeepAliveSent(t *testing.T) {
 
 	body := w.Body.String()
 
-	// Verify exactly 4 keep-alive comments (one per skipped chunk, including role-only first chunk)
-	// Count occurrences of ": thinking" in output
-	keepAliveCount := 0
-	for i := 0; i <= len(body)-len(": thinking"); i++ {
-		if body[i:i+len(": thinking")] == ": thinking" {
-			keepAliveCount++
-		}
-	}
-	assert.Equal(t, 4, keepAliveCount, "Should send exactly 4 keep-alive comments for 4 skipped chunks (role-only + 3 reasoning-only)")
+	// Verify NO keep-alive comments are sent (SSE comments break Warp's Go backend)
+	assert.NotContains(t, body, ": thinking")
 
 	// Verify reasoning_content is NOT in output
 	assert.NotContains(t, body, "reasoning_content")

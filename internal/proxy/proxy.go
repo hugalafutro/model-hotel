@@ -473,22 +473,15 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 										// Delta is empty after stripping
 										// reasoning — skip the chunk but still
 										// count its tokens for usage tracking.
-										// Send an SSE keep-alive comment so
-										// clients don't time out while the
-										// model is thinking. SSE comments
-										// (lines starting with ':') are
-										// explicitly ignored by all SSE
-										// parsers per the spec.
-										n, err := w.Write([]byte(": thinking\n\n"))
-										bytesWritten += int64(n)
-										if err != nil {
-											clientDisconnected = true
-											debuglog.Warn("proxy: client write failed during reasoning keep-alive", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-											goto logUpdate
-										}
-										if canFlush {
-											flusher.Flush()
-										}
+										// Do NOT send SSE keep-alive comments
+										// (": thinking\n\n"): Warp's Go backend
+										// uses the openai-go ssestream package
+										// which does not correctly handle SSE
+										// comment lines and crashes with
+										// "unexpected end of JSON input." The
+										// HTTP response remains open, so the
+										// connection stays alive without
+										// periodic data.
 										written = true
 										continue
 									}
