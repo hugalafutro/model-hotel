@@ -1,0 +1,164 @@
+[
+  {
+    "model_id": "glm-5.1",
+    "context_length": 200000,
+    "max_output_tokens": 131072,
+    "modality": "text",
+    "reasoning": true,
+    "tool_calling": true,
+    "structured_output": true
+  },
+  {
+    "model_id": "glm-5",
+    "context_length": 200000,
+    "max_output_tokens": 131072,
+    "modality": "text",
+    "reasoning": true,
+    "tool_calling": true,
+    "structured_output": true
+  },
+  {
+    "model_id": "glm-5-turbo",
+    "context_length": 200000,
+    "max_output_tokens": 131072,
+    "modality": "text",
+    "reasoning": true,
+    "tool_calling": true,
+    "structured_output": true
+  },
+  {
+    "model_id": "glm-4.7",
+    "context_length": 200000,
+    "max_output_tokens": 131072,
+    "modality": "text",
+    "reasoning": true,
+    "tool_calling": true,
+    "structured_output": true
+  },
+  {
+    "model_id": "glm-4.7-flash",
+    "context_length": 200000,
+    "max_output_tokens": 131072,
+    "modality": "text",
+    "reasoning": true,
+    "tool_calling": true,
+    "structured_output": true
+  },
+  {
+    "model_id": "glm-4.7-flashx",
+    "context_length": 200000,
+    "max_output_tokens": 131072,
+    "modality": "text",
+    "reasoning": true,
+    "tool_calling": true,
+    "structured_output": true
+  },
+  {
+    "model_id": "glm-4.6",
+    "context_length": 200000,
+    "max_output_tokens": 131072,
+    "modality": "text",
+    "reasoning": true,
+    "tool_calling": true,
+    "structured_output": false
+  },
+  {
+    "model_id": "glm-4.5",
+    "context_length": 128000,
+    "max_output_tokens": 98304,
+    "modality": "text",
+    "reasoning": true,
+    "tool_calling": true,
+    "structured_output": true
+  },
+  {
+    "model_id": "glm-4.5-air",
+    "context_length": 128000,
+    "max_output_tokens": 98304,
+    "modality": "text",
+    "reasoning": true,
+    "tool_calling": true,
+    "structured_output": true
+  },
+  {
+    "model_id": "glm-4.5-x",
+    "context_length": 128000,
+    "max_output_tokens": 98304,
+    "modality": "text",
+    "reasoning": true,
+    "tool_calling": true,
+    "structured_output": true
+  },
+  {
+    "model_id": "glm-4.5-airx",
+    "context_length": 128000,
+    "max_output_tokens": 98304,
+    "modality": "text",
+    "reasoning": true,
+    "tool_calling": true,
+    "structured_output": true
+  },
+  {
+    "model_id": "glm-4.5-flash",
+    "context_length": 128000,
+    "max_output_tokens": 98304,
+    "modality": "text",
+    "reasoning": true,
+    "tool_calling": true,
+    "structured_output": true
+  },
+  {
+    "model_id": "glm-4-32b-0414-128k",
+    "context_length": 128000,
+    "max_output_tokens": 16384,
+    "modality": "text",
+    "reasoning": false,
+    "tool_calling": true,
+    "structured_output": true
+  },
+  {
+    "model_id": "glm-5v-turbo",
+    "context_length": 200000,
+    "max_output_tokens": 131072,
+    "modality": "vision",
+    "reasoning": true,
+    "tool_calling": true,
+    "structured_output": false
+  },
+  {
+    "model_id": "glm-4.6v",
+    "context_length": 128000,
+    "max_output_tokens": 32768,
+    "modality": "vision",
+    "reasoning": true,
+    "tool_calling": true,
+    "structured_output": false
+  },
+  {
+    "model_id": "glm-4.6v-flash",
+    "context_length": 128000,
+    "max_output_tokens": 32768,
+    "modality": "vision",
+    "reasoning": true,
+    "tool_calling": true,
+    "structured_output": false
+  },
+  {
+    "model_id": "glm-4.6v-flashx",
+    "context_length": 128000,
+    "max_output_tokens": 32768,
+    "modality": "vision",
+    "reasoning": true,
+    "tool_calling": true,
+    "structured_output": false
+  },
+  {
+    "model_id": "glm-4.5v",
+    "context_length": 128000,
+    "max_output_tokens": 16384,
+    "modality": "vision",
+    "reasoning": true,
+    "tool_calling": false,
+    "structured_output": false
+  }
+]

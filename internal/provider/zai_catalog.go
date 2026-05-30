@@ -2,35 +2,16 @@ package provider
 
 // ZAICodingModelSpec describes a ZAI Coding model specification.
 type ZAICodingModelSpec struct {
-	ModelID          string
-	ContextLength    int
-	MaxOutputTokens  int
-	Modality         string
-	Reasoning        bool
-	ToolCalling      bool
-	StructuredOutput bool
+	ModelID          string `json:"model_id"`
+	ContextLength    int    `json:"context_length"`
+	MaxOutputTokens  int    `json:"max_output_tokens"`
+	Modality         string `json:"modality"`
+	Reasoning        bool   `json:"reasoning"`
+	ToolCalling      bool   `json:"tool_calling"`
+	StructuredOutput bool   `json:"structured_output"`
 }
 
-var zaiCodingCatalog = []ZAICodingModelSpec{
-	{"glm-5.1", 200000, 131072, "text", true, true, true},
-	{"glm-5", 200000, 131072, "text", true, true, true},
-	{"glm-5-turbo", 200000, 131072, "text", true, true, true},
-	{"glm-4.7", 200000, 131072, "text", true, true, true},
-	{"glm-4.7-flash", 200000, 131072, "text", true, true, true},
-	{"glm-4.7-flashx", 200000, 131072, "text", true, true, true},
-	{"glm-4.6", 200000, 131072, "text", true, true, false},
-	{"glm-4.5", 128000, 98304, "text", true, true, true},
-	{"glm-4.5-air", 128000, 98304, "text", true, true, true},
-	{"glm-4.5-x", 128000, 98304, "text", true, true, true},
-	{"glm-4.5-airx", 128000, 98304, "text", true, true, true},
-	{"glm-4.5-flash", 128000, 98304, "text", true, true, true},
-	{"glm-4-32b-0414-128k", 128000, 16384, "text", false, true, true},
-	{"glm-5v-turbo", 200000, 131072, "vision", true, true, false},
-	{"glm-4.6v", 128000, 32768, "vision", true, true, false},
-	{"glm-4.6v-flash", 128000, 32768, "vision", true, true, false},
-	{"glm-4.6v-flashx", 128000, 32768, "vision", true, true, false},
-	{"glm-4.5v", 128000, 16384, "vision", true, false, false},
-}
+var zaiCodingCatalog = loadCatalog[[]ZAICodingModelSpec]("zai.json")
 
 // GetZAICodingModels returns the ZAI Coding model catalog.
 func GetZAICodingModels() []ZAICodingModelSpec {

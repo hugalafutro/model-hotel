@@ -3,23 +3,13 @@ package provider
 
 // AnthropicPricingSpec contains pricing information for an Anthropic model.
 type AnthropicPricingSpec struct {
-	ModelID                      string
-	InputPricePerMillion         float64
-	InputPricePerMillionCacheHit float64
-	OutputPricePerMillion        float64
+	ModelID                      string  `json:"model_id"`
+	InputPricePerMillion         float64 `json:"input_price_per_million"`
+	InputPricePerMillionCacheHit float64 `json:"input_price_per_million_cache_hit"`
+	OutputPricePerMillion        float64 `json:"output_price_per_million"`
 }
 
-var anthropicPricing = []AnthropicPricingSpec{
-	{ModelID: "claude-opus-4-7", InputPricePerMillion: 5.00, InputPricePerMillionCacheHit: 0.50, OutputPricePerMillion: 25.00},
-	{ModelID: "claude-opus-4-6", InputPricePerMillion: 5.00, InputPricePerMillionCacheHit: 0.50, OutputPricePerMillion: 25.00},
-	{ModelID: "claude-opus-4-5", InputPricePerMillion: 5.00, InputPricePerMillionCacheHit: 0.50, OutputPricePerMillion: 25.00},
-	{ModelID: "claude-opus-4-1", InputPricePerMillion: 15.00, InputPricePerMillionCacheHit: 1.50, OutputPricePerMillion: 75.00},
-	{ModelID: "claude-opus-4", InputPricePerMillion: 5.00, InputPricePerMillionCacheHit: 0.50, OutputPricePerMillion: 25.00},
-	{ModelID: "claude-sonnet-4-6", InputPricePerMillion: 3.00, InputPricePerMillionCacheHit: 0.30, OutputPricePerMillion: 15.00},
-	{ModelID: "claude-sonnet-4-5", InputPricePerMillion: 3.00, InputPricePerMillionCacheHit: 0.30, OutputPricePerMillion: 15.00},
-	{ModelID: "claude-sonnet-4", InputPricePerMillion: 3.00, InputPricePerMillionCacheHit: 0.30, OutputPricePerMillion: 15.00},
-	{ModelID: "claude-haiku-4-5", InputPricePerMillion: 1.00, InputPricePerMillionCacheHit: 0.10, OutputPricePerMillion: 5.00},
-}
+var anthropicPricing = loadCatalog[[]AnthropicPricingSpec]("anthropic.json")
 
 // GetAnthropicPricing returns the full Anthropic pricing catalog.
 func GetAnthropicPricing() []AnthropicPricingSpec {
