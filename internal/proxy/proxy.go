@@ -383,6 +383,12 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 					stripReasoning = sr
 				}
 			}
+			// Log strip_reasoning state once on the first valid chunk for
+			// debugging. This helps verify context propagation without
+			// flooding logs on every chunk.
+			if chunkCount == 1 {
+				debuglog.Debug("proxy: strip_reasoning flag", "enabled", stripReasoning, "model", logData.modelID, "provider", logData.providerName, "context_value", r.Context().Value(ctxkeys.VirtualKeyStripReasoningKey))
+			}
 
 			// When strip_reasoning is enabled, remove reasoning fields from the chunk.
 			// If the delta becomes empty after stripping (i.e. the chunk only

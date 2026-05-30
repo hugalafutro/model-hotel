@@ -215,6 +215,7 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 		ctx = context.WithValue(ctx, ctxkeys.VirtualKeyRateLimitBurstKey, vk.RateLimitBurst)
 		ctx = context.WithValue(ctx, ctxkeys.VirtualKeyAllowedProvidersKey, vk.AllowedProviders)
 		ctx = context.WithValue(ctx, ctxkeys.VirtualKeyStripReasoningKey, vk.StripReasoning)
+		debuglog.Debug("proxy: virtual key auth", "key", vk.Name, "strip_reasoning", vk.StripReasoning)
 		// Fire-and-forget touch with a timeout so the goroutine cannot
 		// outlive the server if the DB is slow.
 		//nolint:gosec // intentional: periodic cache refresh is not request-scoped
