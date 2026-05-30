@@ -81,7 +81,7 @@ describe("VirtualLogTable", () => {
 	});
 
 	describe("Scroll position adjustment on prepend", () => {
-		it("adjusts scrollTop when entries are prepended and scroll is not at top", () => {
+		it("adjusts scrollTop when entries are prepended and scroll is not at top", async () => {
 			// Initial entries
 			const initialEntries = [
 				createLogEntry({ id: "log-1" }),
@@ -151,7 +151,7 @@ describe("VirtualLogTable", () => {
 			rerender(<VirtualLogTable {...defaultProps} entries={newEntries} />);
 
 			// Wait for useLayoutEffect to run and adjust scrollTop
-			waitFor(() => {
+			await waitFor(() => {
 				// scrollTop should be adjusted by the difference in total size
 				// Original: 50, adjustment: 145 - 87 = 58
 				// Expected: 50 + 58 = 108
@@ -159,7 +159,7 @@ describe("VirtualLogTable", () => {
 			});
 		});
 
-		it("does NOT adjust scrollTop when scroll is at the very top (scrollTop <= 1)", () => {
+		it("does NOT adjust scrollTop when scroll is at the very top (scrollTop <= 1)", async () => {
 			const initialEntries = [
 				createLogEntry({ id: "log-1" }),
 				createLogEntry({ id: "log-2" }),
@@ -209,7 +209,7 @@ describe("VirtualLogTable", () => {
 			rerender(<VirtualLogTable {...defaultProps} entries={newEntries} />);
 
 			// Should NOT adjust when at top (user wants to see newest)
-			waitFor(() => {
+			await waitFor(() => {
 				expect(scrollEl.scrollTop).toBe(0);
 			});
 		});
