@@ -40,7 +40,9 @@ export function RequestLogDetail({
 		<Modal
 			header={
 				<div className="flex items-center gap-3 flex-wrap mb-4">
-					<h2 className="text-xl font-bold text-white">Request Details</h2>
+					<h2 className="text-xl font-bold text-(--text-primary)">
+						Request Details
+					</h2>
 					<StatusBadge
 						code={requestLog.status_code}
 						state={requestLog.state}
