@@ -1694,7 +1694,7 @@ html.light {
 
 html.light body,
 html.light #root {
-	background-color: #f9fafb;
+	background-color: var(--surface-bg);
 }
 
 html.light .bg-gray-900 {
