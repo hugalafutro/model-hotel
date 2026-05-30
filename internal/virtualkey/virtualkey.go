@@ -153,23 +153,20 @@ func (r *Repository) TouchLastUsed(ctx context.Context, keyHash string) error {
 func (r *Repository) Update(ctx context.Context, id uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*VirtualKey, error) {
 	var vk VirtualKey
 
-	// Build dynamic SET clause for optional fields
+	// Always include all updatable fields in SET clause so nil/null
+	// values are correctly persisted as NULL (cleared) rather than
+	// silently ignored. The UI sends null when a user clears a field.
 	setClauses := []string{"name = $1"}
 	args := []any{name}
 	argIdx := 2
 
-	if rps != nil {
-		setClauses = append(setClauses, "rate_limit_rps = $"+fmt.Sprintf("%d", argIdx))
-		args = append(args, rps)
-		argIdx++
-	}
-	if burst != nil {
-		setClauses = append(setClauses, "rate_limit_burst = $"+fmt.Sprintf("%d", argIdx))
-		args = append(args, burst)
-		argIdx++
-	}
-	// Always include allowed_providers and strip_reasoning in SET clause
-	// so that nil (clear restriction / preserve default) is correctly persisted.
+	setClauses = append(setClauses, "rate_limit_rps = $"+fmt.Sprintf("%d", argIdx))
+	args = append(args, rps)
+	argIdx++
+	setClauses = append(setClauses, "rate_limit_burst = $"+fmt.Sprintf("%d", argIdx))
+	args = append(args, burst)
+	argIdx++
+	// allowed_providers and strip_reasoning also always in SET clause.
 	setClauses = append(setClauses, "allowed_providers = $"+fmt.Sprintf("%d", argIdx))
 	args = append(args, allowedProviders)
 	argIdx++
