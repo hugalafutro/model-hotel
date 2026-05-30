@@ -446,6 +446,18 @@ export function KeyDetailModal({
 						type="button"
 						onClick={startEditing}
 						className="ui-btn ui-btn-secondary"
+						disabled={
+							!!vk.allowed_providers &&
+							vk.allowed_providers.length > 0 &&
+							!providers
+						}
+						title={
+							vk.allowed_providers &&
+							vk.allowed_providers.length > 0 &&
+							!providers
+								? "Loading providers..."
+								: undefined
+						}
 					>
 						Edit
 					</button>
