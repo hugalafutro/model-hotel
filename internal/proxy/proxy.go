@@ -486,15 +486,27 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 										// Delta is empty after stripping
 										// reasoning — skip the chunk but still
 										// count its tokens for usage tracking.
-										// Do NOT send SSE keep-alive comments
-										// (": thinking\n\n"): Warp's Go backend
-										// uses the openai-go ssestream package
-										// which does not correctly handle SSE
-										// comment lines and crashes with
-										// "unexpected end of JSON input." The
-										// HTTP response remains open, so the
-										// connection stays alive without
-										// periodic data.
+										// Send a minimal valid JSON keep-alive
+										// chunk instead of an SSE comment or
+										// nothing: Warp's Go backend uses the
+										// openai-go ssestream package which
+										// crashes on SSE comment lines and
+										// also times out if no data: lines
+										// arrive for several seconds. A
+										// valid data: line with an empty
+										// delta keeps the connection alive
+										// without exposing reasoning.
+										keepAlive := []byte("data: {\"id\":\"chatcmpl-keepalive\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{}}]}\n\n")
+										n, err := w.Write(keepAlive)
+										bytesWritten += int64(n)
+										if err != nil {
+											clientDisconnected = true
+											debuglog.Warn("proxy: client write failed during reasoning keep-alive", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+											goto logUpdate
+										}
+										if canFlush {
+											flusher.Flush()
+										}
 										skipNextEmptyLine = true
 										written = true
 										continue

@@ -3482,11 +3482,12 @@ func TestHandleStreamingResponse_StripReasoning_Disabled(t *testing.T) {
 	assert.Equal(t, "completed", logData.state)
 }
 
-// TestHandleStreamingResponse_StripReasoning_NoKeepAliveComments tests that
-// NO SSE keep-alive comments (": thinking\n\n") are sent for skipped
-// reasoning-only chunks when strip_reasoning is enabled. SSE comments
-// break Warp's Go backend (openai-go ssestream parser bug).
-func TestHandleStreamingResponse_StripReasoning_NoKeepAliveComments(t *testing.T) {
+// TestHandleStreamingResponse_StripReasoning_JSONKeepAlive tests that
+// valid JSON data keep-alive chunks (not SSE comments) are sent for
+// skipped reasoning-only chunks when strip_reasoning is enabled.
+// SSE comments (": thinking") break Warp's openai-go ssestream parser,
+// and sending nothing causes client timeouts during long thinking phases.
+func TestHandleStreamingResponse_StripReasoning_JSONKeepAlive(t *testing.T) {
 	h := newUnitHandler()
 	defer stopUnitHandler(h)
 
@@ -3526,8 +3527,11 @@ func TestHandleStreamingResponse_StripReasoning_NoKeepAliveComments(t *testing.T
 
 	body := w.Body.String()
 
-	// Verify NO keep-alive comments are sent (SSE comments break Warp's Go backend)
+	// Verify NO SSE comment keep-alives (they break Warp's openai-go ssestream)
 	assert.NotContains(t, body, ": thinking")
+
+	// Verify valid JSON keep-alive chunks ARE sent for stripped reasoning
+	assert.Contains(t, body, "chatcmpl-keepalive")
 
 	// Verify reasoning_content is NOT in output
 	assert.NotContains(t, body, "reasoning_content")
