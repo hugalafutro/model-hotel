@@ -1419,7 +1419,7 @@ func TestChatCompletions_FailoverAllProvidersExhausted(t *testing.T) {
 	vkName := "failover-test-key-" + uuid.New().String()[:8]
 	vkHash := virtualkey.Hash(vkName)
 	vkPreview := "failover-" + vkHash[:8]
-	if _, err := virtualKeyRepo.Create(ctx, vkName, vkHash, vkPreview, nil, nil); err != nil {
+	if _, err := virtualKeyRepo.Create(ctx, vkName, vkHash, vkPreview, nil, nil, nil); err != nil {
 		t.Fatalf("failed to create virtual key: %v", err)
 	}
 
@@ -1507,7 +1507,7 @@ func TestChatCompletions_SpecificProviderAllProvidersFail(t *testing.T) {
 	vkName := "specific-test-key-" + uuid.New().String()[:8]
 	vkHash := virtualkey.Hash(vkName)
 	vkPreview := "specific-" + vkHash[:8]
-	if _, err := virtualKeyRepo.Create(ctx, vkName, vkHash, vkPreview, nil, nil); err != nil {
+	if _, err := virtualKeyRepo.Create(ctx, vkName, vkHash, vkPreview, nil, nil, nil); err != nil {
 		t.Fatalf("failed to create virtual key: %v", err)
 	}
 
@@ -1702,7 +1702,7 @@ func TestChatCompletions_RetryCancelDuringFailover(t *testing.T) {
 	vkName := "retry-cancel-key-" + uuid.New().String()[:8]
 	vkHash := virtualkey.Hash(vkName)
 	vkPreview := "retry-" + vkHash[:8]
-	if _, err := virtualKeyRepo.Create(ctx, vkName, vkHash, vkPreview, nil, nil); err != nil {
+	if _, err := virtualKeyRepo.Create(ctx, vkName, vkHash, vkPreview, nil, nil, nil); err != nil {
 		t.Fatalf("failed to create virtual key: %v", err)
 	}
 
@@ -1881,7 +1881,7 @@ func TestChatCompletions_TTFTProbeSuccess(t *testing.T) {
 	vkName := "ttft-success-vk-" + uuid.New().String()[:8]
 	vkHash := virtualkey.Hash(vkName)
 	vkPreview := "ttft-" + vkHash[:8]
-	if _, err := virtualKeyRepo.Create(ctx, vkName, vkHash, vkPreview, nil, nil); err != nil {
+	if _, err := virtualKeyRepo.Create(ctx, vkName, vkHash, vkPreview, nil, nil, nil); err != nil {
 		t.Fatalf("failed to create virtual key: %v", err)
 	}
 
@@ -1995,7 +1995,7 @@ func TestChatCompletions_TTFTProbeTimeout(t *testing.T) {
 	vkName := "ttft-timeout-vk-" + uuid.New().String()[:8]
 	vkHash := virtualkey.Hash(vkName)
 	vkPreview := "ttft-" + vkHash[:8]
-	if _, err := virtualKeyRepo.Create(ctx, vkName, vkHash, vkPreview, nil, nil); err != nil {
+	if _, err := virtualKeyRepo.Create(ctx, vkName, vkHash, vkPreview, nil, nil, nil); err != nil {
 		t.Fatalf("failed to create virtual key: %v", err)
 	}
 
@@ -2106,7 +2106,7 @@ func TestChatCompletions_TTFTDisabled_CBRecordsSuccess(t *testing.T) {
 	vkName := "ttft-disabled-vk-" + uuid.New().String()[:8]
 	vkHash := virtualkey.Hash(vkName)
 	vkPreview := "ttft-" + vkHash[:8]
-	if _, err := virtualKeyRepo.Create(ctx, vkName, vkHash, vkPreview, nil, nil); err != nil {
+	if _, err := virtualKeyRepo.Create(ctx, vkName, vkHash, vkPreview, nil, nil, nil); err != nil {
 		t.Fatalf("failed to create virtual key: %v", err)
 	}
 

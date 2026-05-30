@@ -627,13 +627,19 @@ export const api = {
 			name: string,
 			rate_limit_rps?: number | null,
 			rate_limit_burst?: number | null,
+			allowed_providers?: string[] | null,
 		): Promise<VirtualKey> => {
 			return fetchJSON<VirtualKey>(
 				`${API_BASE}/api/virtual-keys`,
 				{
 					method: "POST",
 					headers: getAuthHeaders(),
-					body: JSON.stringify({ name, rate_limit_rps, rate_limit_burst }),
+					body: JSON.stringify({
+						name,
+						rate_limit_rps,
+						rate_limit_burst,
+						allowed_providers,
+					}),
 				},
 				"Failed to create virtual key",
 			);
@@ -653,6 +659,7 @@ export const api = {
 				name: string;
 				rate_limit_rps?: number | null;
 				rate_limit_burst?: number | null;
+				allowed_providers?: string[] | null;
 			},
 		): Promise<VirtualKey> => {
 			return fetchJSON<VirtualKey>(

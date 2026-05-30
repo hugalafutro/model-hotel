@@ -57,6 +57,14 @@ export const mockVirtualKey: VirtualKey = {
 	created_at: "2026-03-01T09:00:00Z",
 	rate_limit_rps: 30,
 	rate_limit_burst: 60,
+	allowed_providers: null,
+};
+
+export const mockVirtualKeyWithProviders: VirtualKey = {
+	...mockVirtualKey,
+	id: "vk-002",
+	name: "Restricted Key",
+	allowed_providers: ["provider-001"],
 };
 
 export const mockStats: Stats = {

@@ -85,7 +85,7 @@ func (m *mockVirtualKeyRepo) FindByKeyHash(ctx context.Context, keyHash string) 
 	return &VirtualKeyInfo{ID: "test-id", Name: "test-key"}, nil
 }
 
-func (m *mockVirtualKeyRepo) Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int) (*VirtualKeyInfo, error) {
+func (m *mockVirtualKeyRepo) Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int, allowedProviders *[]string) (*VirtualKeyInfo, error) {
 	return &VirtualKeyInfo{ID: "test-id", Name: name, KeyHash: keyHash, KeyPreview: keyPreview}, nil
 }
 

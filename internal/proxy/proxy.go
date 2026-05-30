@@ -1155,6 +1155,31 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		logData.providerName = "hotel"
 	}
 
+	// Filter candidates by virtual key's allowed_providers.
+	// If the key has a non-nil allowed list, remove candidates whose
+	// provider ID is not in the list. nil = all providers allowed.
+	if v := r.Context().Value(ctxkeys.VirtualKeyAllowedProvidersKey); v != nil {
+		if allowed, ok := v.(*[]string); ok && allowed != nil && len(*allowed) > 0 {
+			allowedSet := make(map[string]struct{}, len(*allowed))
+			for _, id := range *allowed {
+				allowedSet[id] = struct{}{}
+			}
+			filtered := candidates[:0]
+			for _, c := range candidates {
+				if _, ok := allowedSet[c.provider.ID.String()]; ok {
+					filtered = append(filtered, c)
+				}
+			}
+			if len(filtered) == 0 {
+				h.failRequest(logData, 403, "virtual key does not have access to any provider for this model", 0, startTime, parseMs, timings, 0)
+				writeOpenAIError(w, "virtual key does not have access to any provider for this model", http.StatusForbidden)
+				return
+			}
+			debuglog.Info("proxy: filtered candidates by allowed_providers", "before", len(candidates), "after", len(filtered), "key", vkName)
+			candidates = filtered
+		}
+	}
+
 	// Re-read accumulated settings read time from context pointer.
 	// The initial read captured the rate limiter's contribution,
 	// but resolve handlers called AddSettingsReadMs for circuit breaker and

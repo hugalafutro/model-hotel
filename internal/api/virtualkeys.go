@@ -16,16 +16,18 @@ import (
 
 // CreateVirtualKeyRequest is the request body for creating a virtual key.
 type CreateVirtualKeyRequest struct {
-	Name           string   `json:"name"`
-	RateLimitRPS   *float64 `json:"rate_limit_rps,omitempty"`
-	RateLimitBurst *int     `json:"rate_limit_burst,omitempty"`
+	Name             string    `json:"name"`
+	RateLimitRPS     *float64  `json:"rate_limit_rps,omitempty"`
+	RateLimitBurst   *int      `json:"rate_limit_burst,omitempty"`
+	AllowedProviders *[]string `json:"allowed_providers,omitempty"`
 }
 
 // UpdateVirtualKeyRequest is the request body for updating a virtual key.
 type UpdateVirtualKeyRequest struct {
-	Name           string   `json:"name"`
-	RateLimitRPS   *float64 `json:"rate_limit_rps"`
-	RateLimitBurst *int     `json:"rate_limit_burst"`
+	Name             string    `json:"name"`
+	RateLimitRPS     *float64  `json:"rate_limit_rps"`
+	RateLimitBurst   *int      `json:"rate_limit_burst"`
+	AllowedProviders *[]string `json:"allowed_providers"`
 }
 
 // RegisterVirtualKeys mounts virtual key management routes.
@@ -47,15 +49,16 @@ func virtualKeyToResponse(vk *virtualkey.VirtualKey, includeKey bool, rawKey str
 	}
 
 	return virtualkey.VirtualKeyResponse{
-		ID:             vk.ID.String(),
-		Name:           vk.Name,
-		Key:            cond(rawKey, includeKey),
-		KeyPreview:     vk.KeyPreview,
-		TokensUsed:     vk.TokensUsed,
-		LastUsedAt:     lastUsed,
-		CreatedAt:      vk.CreatedAt.Format(time.RFC3339),
-		RateLimitRPS:   vk.RateLimitRPS,
-		RateLimitBurst: vk.RateLimitBurst,
+		ID:               vk.ID.String(),
+		Name:             vk.Name,
+		Key:              cond(rawKey, includeKey),
+		KeyPreview:       vk.KeyPreview,
+		TokensUsed:       vk.TokensUsed,
+		LastUsedAt:       lastUsed,
+		CreatedAt:        vk.CreatedAt.Format(time.RFC3339),
+		RateLimitRPS:     vk.RateLimitRPS,
+		RateLimitBurst:   vk.RateLimitBurst,
+		AllowedProviders: vk.AllowedProviders,
 	}
 }
 
@@ -102,7 +105,7 @@ func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	keyHash := virtualkey.Hash(rawKey)
 	keyPreview := rawKey[:3] + "..." + rawKey[len(rawKey)-2:]
 
-	vk, err := h.virtualKeyRepo.Create(r.Context(), req.Name, keyHash, keyPreview, req.RateLimitRPS, req.RateLimitBurst)
+	vk, err := h.virtualKeyRepo.Create(r.Context(), req.Name, keyHash, keyPreview, req.RateLimitRPS, req.RateLimitBurst, req.AllowedProviders)
 	if err != nil {
 		debuglog.Error("virtual-keys: failed to create key", "name", req.Name, "error", err)
 		respondError(w, fmt.Sprintf("failed to create virtual key %q", req.Name), err, http.StatusInternalServerError)
@@ -178,7 +181,7 @@ func (h *Handler) UpdateVirtualKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	vk, err := h.virtualKeyRepo.Update(r.Context(), id, req.Name, req.RateLimitRPS, req.RateLimitBurst)
+	vk, err := h.virtualKeyRepo.Update(r.Context(), id, req.Name, req.RateLimitRPS, req.RateLimitBurst, req.AllowedProviders)
 	if err != nil {
 		if errors.Is(err, virtualkey.ErrNotFound) {
 			http.Error(w, "virtual key not found", http.StatusNotFound)

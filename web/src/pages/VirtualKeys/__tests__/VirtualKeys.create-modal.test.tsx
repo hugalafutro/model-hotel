@@ -1,7 +1,11 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { mockVirtualKey } from "../../../test/mocks/data";
+import {
+	mockProvider,
+	mockVirtualKey,
+	mockVirtualKeyWithProviders,
+} from "../../../test/mocks/data";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { VirtualKeys } from "../../VirtualKeys";
@@ -468,6 +472,218 @@ describe("VirtualKeys", () => {
 					screen.queryByText("Virtual Key Created"),
 				).not.toBeInTheDocument();
 			});
+		});
+
+		it("shows provider access section in create modal", async () => {
+			server.use(
+				http.get("/api/providers", () => HttpResponse.json([mockProvider])),
+				http.get("/api/virtual-keys", () =>
+					HttpResponse.json([mockVirtualKey]),
+				),
+			);
+
+			const { user } = renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("1 Virtual Key")).toBeInTheDocument();
+			});
+
+			const createButton = screen.getByRole("button", {
+				name: "+ Create Key",
+			});
+			await user.click(createButton);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("dialog", { name: "Create Virtual Key" }),
+				).toBeInTheDocument();
+			});
+
+			const dialog = screen.getByRole("dialog", {
+				name: "Create Virtual Key",
+			});
+
+			// Check Provider Access label exists
+			expect(
+				within(dialog).getByText("Provider Access", { exact: false }),
+			).toBeInTheDocument();
+
+			// Provider name appears as a tag chip
+			expect(within(dialog).getByText("Test Provider")).toBeInTheDocument();
+		});
+
+		it("toggles provider selection in create modal", async () => {
+			server.use(
+				http.get("/api/providers", () => HttpResponse.json([mockProvider])),
+				http.get("/api/virtual-keys", () =>
+					HttpResponse.json([mockVirtualKey]),
+				),
+			);
+
+			const { user } = renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("1 Virtual Key")).toBeInTheDocument();
+			});
+
+			const createButton = screen.getByRole("button", {
+				name: "+ Create Key",
+			});
+			await user.click(createButton);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("dialog", { name: "Create Virtual Key" }),
+				).toBeInTheDocument();
+			});
+
+			const dialog = screen.getByRole("dialog", {
+				name: "Create Virtual Key",
+			});
+
+			// Find provider button - should have aria-pressed="false" initially (not excluded)
+			const providerButton = within(dialog).getByRole("button", {
+				name: "Test Provider",
+			});
+			expect(providerButton).toHaveAttribute("aria-pressed", "false");
+
+			// Click provider tag to exclude it
+			await user.click(providerButton);
+
+			// Should now be excluded (aria-pressed="true")
+			expect(providerButton).toHaveAttribute("aria-pressed", "true");
+		});
+
+		it("shows reset button when providers are excluded", async () => {
+			server.use(
+				http.get("/api/providers", () => HttpResponse.json([mockProvider])),
+				http.get("/api/virtual-keys", () =>
+					HttpResponse.json([mockVirtualKey]),
+				),
+			);
+
+			const { user } = renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("1 Virtual Key")).toBeInTheDocument();
+			});
+
+			const createButton = screen.getByRole("button", {
+				name: "+ Create Key",
+			});
+			await user.click(createButton);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("dialog", { name: "Create Virtual Key" }),
+				).toBeInTheDocument();
+			});
+
+			const dialog = screen.getByRole("dialog", {
+				name: "Create Virtual Key",
+			});
+
+			// No reset button initially
+			expect(
+				within(dialog).queryByLabelText("Restore access to all providers"),
+			).not.toBeInTheDocument();
+
+			// Exclude a provider
+			const providerButton = within(dialog).getByRole("button", {
+				name: "Test Provider",
+			});
+			await user.click(providerButton);
+
+			// Reset button should appear
+			const resetButton = within(dialog).getByLabelText(
+				"Restore access to all providers",
+			);
+			expect(resetButton).toBeInTheDocument();
+
+			// Click reset
+			await user.click(resetButton);
+
+			// Provider should be restored (not excluded)
+			expect(providerButton).toHaveAttribute("aria-pressed", "false");
+		});
+
+		it("sends allowed_providers on create", async () => {
+			const mockProviders = [
+				mockProvider,
+				{
+					...mockProvider,
+					id: "provider-002",
+					name: "Other Provider",
+					created_at: "2026-02-20T10:00:00Z",
+					updated_at: "2026-05-11T12:00:00Z",
+				},
+			];
+
+			let createBody: unknown;
+			server.use(
+				http.get("/api/providers", () => HttpResponse.json(mockProviders)),
+				http.get("/api/virtual-keys", () =>
+					HttpResponse.json([mockVirtualKey]),
+				),
+				http.post("/api/virtual-keys", async ({ request }) => {
+					createBody = await request.json();
+					return HttpResponse.json({
+						...mockVirtualKeyWithProviders,
+						id: "vk-new-with-providers",
+						name: (createBody as { name: string }).name,
+						allowed_providers: (createBody as { allowed_providers: string[] })
+							.allowed_providers,
+					});
+				}),
+			);
+
+			const { user } = renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("1 Virtual Key")).toBeInTheDocument();
+			});
+
+			const createButton = screen.getByRole("button", {
+				name: "+ Create Key",
+			});
+			await user.click(createButton);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("dialog", { name: "Create Virtual Key" }),
+				).toBeInTheDocument();
+			});
+
+			const dialog = screen.getByRole("dialog", {
+				name: "Create Virtual Key",
+			});
+
+			// Enter name
+			const nameInput = within(dialog).getByLabelText("Name");
+			await user.type(nameInput, "Key with Provider Access");
+
+			// Exclude provider-002 (Other Provider)
+			const otherProviderButton = within(dialog).getByRole("button", {
+				name: "Other Provider",
+			});
+			await user.click(otherProviderButton);
+			expect(otherProviderButton).toHaveAttribute("aria-pressed", "true");
+
+			// Click Create Key
+			const submitButton = within(dialog).getByRole("button", {
+				name: "Create Key",
+			});
+			await user.click(submitButton);
+
+			await waitFor(() => {
+				expect(screen.getByText("Virtual Key Created")).toBeInTheDocument();
+			});
+
+			// Verify the create request included allowed_providers
+			// After excluding provider-002, only provider-001 should be allowed
+			expect(createBody).toBeDefined();
+			const body = createBody as { allowed_providers?: string[] };
+			expect(body.allowed_providers).toEqual(["provider-001"]);
 		});
 	});
 });

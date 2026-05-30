@@ -7,7 +7,11 @@
 <p align="center"><strong>Multi-Provider AI Gateway</strong></p>
 
 <p align="center">
-<a href="/actions/workflows/ci.yml"><img src="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml/badge.svg" alt="CI"></a><a href="go.mod"><img src="https://img.shields.io/github/go-mod/go-version/hugalafutro/model-hotel" alt="Go Version"></a><a href="https://goreportcard.com/report/github.com/hugalafutro/model-hotel"><img src="https://goreportcard.com/badge/github.com/hugalafutro/model-hotel" alt="Go Report"></a><a href="https://app.codacy.com/gh/hugalafutro/model-hotel/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade"><img src="https://app.codacy.com/project/badge/Grade/8db9eac996cb4c2cade5add6b34fcd29" alt ="Code Quality"></img></a><a href="https://app.codacy.com/gh/hugalafutro/model-hotel/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_coverage"><img src="https://app.codacy.com/project/badge/Coverage/8db9eac996cb4c2cade5add6b34fcd29" alt="Code Coverage"></img></a>
+  <a href="/actions/workflows/ci.yml"><img src="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="go.mod"><img src="https://img.shields.io/github/go-mod/go-version/hugalafutro/model-hotel" alt="Go Version"></a>
+  <a href="https://goreportcard.com/report/github.com/hugalafutro/model-hotel"><img src="https://goreportcard.com/badge/github.com/hugalafutro/model-hotel" alt="Go Report"></a>
+  <a href="https://app.codacy.com/gh/hugalafutro/model-hotel/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade"><img src="https://app.codacy.com/project/badge/Grade/8db9eac996cb4c2cade5add6b34fcd29" alt ="Code Quality"></img></a>
+  <a href="https://app.codacy.com/gh/hugalafutro/model-hotel/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_coverage"><img src="https://app.codacy.com/project/badge/Coverage/8db9eac996cb4c2cade5add6b34fcd29" alt="Code Coverage"></img></a>
 <br>
   <img src="https://img.shields.io/badge/Go-00ADD8?logo=go&logoColor=white" alt="Go">
   <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript">
@@ -31,21 +35,21 @@ Made in [CodeNomad](https://github.com/NeuralNomadsAI/CodeNomad) with [OpenCode]
 ┌────────────────────────────────────────────────────────┐
 │                       OVERVIEW                         │
 ├────────────────────────────────────────────────────────┤
-│Sessions                                          2,123 │
-│Messages                                         77,463 │
-│Days                                                 44 │
+│Sessions                                          2,193 │
+│Messages                                         80,025 │
+│Days                                                 45 │
 └────────────────────────────────────────────────────────┘
 
 ┌────────────────────────────────────────────────────────┐
 │                    COST & TOKENS                       │
 ├────────────────────────────────────────────────────────┤
 │Total Cost                                      $112.90 │
-│Avg Cost/Day                                      $2.57 │
+│Avg Cost/Day                                      $2.51 │
 │Avg Tokens/Session                                 2.8M │
-│Median Tokens/Session                            585.5K │
-│Input                                           2789.1M │
-│Output                                            19.6M │
-│Cache Read                                      3195.9M │
+│Median Tokens/Session                            581.6K │
+│Input                                           2805.6M │
+│Output                                            20.3M │
+│Cache Read                                      3386.1M │
 │Cache Write                                        4.1M │
 └────────────────────────────────────────────────────────┘
 ```
