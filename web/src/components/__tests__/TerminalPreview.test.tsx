@@ -254,10 +254,13 @@ describe("TerminalPreview", () => {
 			// Title text should render
 			expect(screen.getByText("Python")).toBeInTheDocument();
 
-			// No icon SVG in the header (only the title span)
+			// No LangIcon SVG in the header (only the CopyButton SVG)
 			const headerDiv = container.querySelector(".bg-gray-900\\/50");
 			const svgIcons = headerDiv?.querySelectorAll("svg");
-			expect(svgIcons?.length).toBe(0);
+			// CopyButton has an SVG, but no LangIcon SVGs
+			expect(svgIcons?.length).toBe(1);
+			// Lucide Copy icon has no <title> element
+			expect(svgIcons?.[0]?.querySelector("title")).toBeNull();
 		});
 
 		it("renders CopyButton with correct aria-label", () => {
