@@ -217,36 +217,28 @@ func (h *Handler) UpdateVirtualKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// When allowed_providers is omitted from the request body, preserve the
-	// existing value instead of clearing it. This prevents external scripts
-	// that update name/rate-limits from accidentally dropping restrictions.
-	// Only when the field is explicitly present (even as null) do we apply it.
-	if !req.allowedProvidersPresent {
+	// When allowed_providers or strip_reasoning is omitted from the request
+	// body, preserve the existing values instead of clearing them. This
+	// prevents external scripts that update name/rate-limits from
+	// accidentally dropping restrictions or changing reasoning settings.
+	// Use a single DB fetch for both guards to avoid an extra roundtrip.
+	var existingVK *virtualkey.VirtualKey
+	if !req.allowedProvidersPresent || !req.stripReasoningPresent {
 		existing, err := h.virtualKeyRepo.Get(r.Context(), id)
 		if err != nil && !errors.Is(err, virtualkey.ErrNotFound) {
-			// Transient DB error — abort to avoid silently clearing restrictions.
 			debuglog.Error("virtual-keys: failed to fetch key for update", "id", id, "error", err)
 			respondError(w, "failed to update virtual key", err, http.StatusInternalServerError)
 			return
 		}
-		if err == nil && existing != nil {
-			req.AllowedProviders = existing.AllowedProviders
-		}
+		existingVK = existing
 	}
 
-	// When strip_reasoning is omitted from the request body, preserve the
-	// existing value instead of changing it. Only when the field is explicitly
-	// present (even as null/false) do we apply it.
-	if !req.stripReasoningPresent {
-		existing, err := h.virtualKeyRepo.Get(r.Context(), id)
-		if err != nil && !errors.Is(err, virtualkey.ErrNotFound) {
-			debuglog.Error("virtual-keys: failed to fetch key for update", "id", id, "error", err)
-			respondError(w, "failed to update virtual key", err, http.StatusInternalServerError)
-			return
-		}
-		if err == nil && existing != nil {
-			req.StripReasoning = &existing.StripReasoning
-		}
+	if !req.allowedProvidersPresent && existingVK != nil {
+		req.AllowedProviders = existingVK.AllowedProviders
+	}
+
+	if !req.stripReasoningPresent && existingVK != nil {
+		req.StripReasoning = &existingVK.StripReasoning
 	}
 
 	if err := validateRateLimits(req.RateLimitRPS, req.RateLimitBurst, w); err != nil {
