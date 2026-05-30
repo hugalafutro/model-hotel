@@ -577,16 +577,20 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				if delta.ReasoningContent != nil {
 					deltaMap["reasoning_content"] = *delta.ReasoningContent
 				}
-				if p, ok := parseChunkPayload(payload); ok {
+				// Parse the raw payload once to capture reasoning/reasoning_details
+				// which aren't in the typed struct, and reuse the parsed result
+				// for re-serialization below.
+				chunkParsed, chunkParsedOk := parseChunkPayload(payload)
+				if chunkParsedOk {
 					// Extract reasoning field (Ollama, OpenRouter).
-					if rRaw, ok3 := p.delta["reasoning"]; ok3 {
+					if rRaw, ok3 := chunkParsed.delta["reasoning"]; ok3 {
 						var rStr string
 						if json.Unmarshal(rRaw, &rStr) == nil && rStr != "" {
 							deltaMap["reasoning"] = rStr
 						}
 					}
 					// Extract reasoning_details (OpenRouter, MiniMax).
-					if rdRaw, ok3 := p.delta["reasoning_details"]; ok3 {
+					if rdRaw, ok3 := chunkParsed.delta["reasoning_details"]; ok3 {
 						var rdArr []interface{}
 						if json.Unmarshal(rdRaw, &rdArr) == nil {
 							deltaMap["reasoning_details"] = rdArr
@@ -594,41 +598,41 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 					}
 				}
 				if NormalizeReasoningFields(deltaMap) {
-					if p, ok := parseChunkPayload(payload); ok {
+					if chunkParsedOk {
 						// Patch reasoning_content into the delta.
 						if rc, ok3 := deltaMap["reasoning_content"]; ok3 {
 							if rcStr, ok4 := rc.(string); ok4 {
 								escaped, _ := json.Marshal(rcStr)
-								p.delta["reasoning_content"] = json.RawMessage(escaped)
+								chunkParsed.delta["reasoning_content"] = json.RawMessage(escaped)
 							}
 						}
 						// Patch content if it was modified (tag extraction).
 						if c, ok3 := deltaMap["content"]; ok3 {
 							if cStr, ok4 := c.(string); ok4 {
 								escaped, _ := json.Marshal(cStr)
-								p.delta["content"] = json.RawMessage(escaped)
+								chunkParsed.delta["content"] = json.RawMessage(escaped)
 							}
 						}
-						newDelta, _ := json.Marshal(p.delta)
-						p.choices[0]["delta"] = json.RawMessage(newDelta)
+						newDelta, _ := json.Marshal(chunkParsed.delta)
+						chunkParsed.choices[0]["delta"] = json.RawMessage(newDelta)
 						// Normalize finish_reason in-place before
 						// re-serializing. The written=true below
 						// would skip the finish_reason normalization
 						// block later in this loop iteration.
-						if frRaw, okFR := p.choices[0]["finish_reason"]; okFR {
+						if frRaw, okFR := chunkParsed.choices[0]["finish_reason"]; okFR {
 							var frStr string
 							if json.Unmarshal(frRaw, &frStr) == nil && frStr != "" {
 								if normalized := normalizeFinishReason(frStr); normalized != frStr {
-									p.choices[0]["finish_reason"] = json.RawMessage(`"` + normalized + `"`)
+									chunkParsed.choices[0]["finish_reason"] = json.RawMessage(`"` + normalized + `"`)
 									lastFinishReason = normalized
 								} else {
 									lastFinishReason = frStr
 								}
 							}
 						}
-						newChoices, _ := json.Marshal(p.choices)
-						p.raw["choices"] = json.RawMessage(newChoices)
-						newPayload, _ := json.Marshal(p.raw)
+						newChoices, _ := json.Marshal(chunkParsed.choices)
+						chunkParsed.raw["choices"] = json.RawMessage(newChoices)
+						newPayload, _ := json.Marshal(chunkParsed.raw)
 						n, err := w.Write([]byte("data: "))
 						bytesWritten += int64(n)
 						if err != nil {

@@ -351,6 +351,130 @@ func TestNormalizeFinishReason_Bedrock(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// parseChunkPayload
+// ---------------------------------------------------------------------------
+
+func TestParseChunkPayload_ValidChunk(t *testing.T) {
+	payload := `{"id":"chatcmpl-123","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"hello"},"finish_reason":null}]}`
+	p, ok := parseChunkPayload(payload)
+	if !ok {
+		t.Fatal("expected parseChunkPayload to succeed on valid chunk")
+	}
+	if len(p.raw) == 0 {
+		t.Error("expected raw map to be populated")
+	}
+	if len(p.choices) != 1 {
+		t.Fatalf("expected 1 choice, got %d", len(p.choices))
+	}
+	if len(p.delta) == 0 {
+		t.Error("expected delta map to be populated")
+	}
+	if _, ok := p.delta["content"]; !ok {
+		t.Error("expected delta to contain 'content' key")
+	}
+	if _, ok := p.choices[0]["finish_reason"]; !ok {
+		t.Error("expected choices[0] to contain 'finish_reason' key")
+	}
+}
+
+func TestParseChunkPayload_NoChoicesKey(t *testing.T) {
+	payload := `{"id":"chatcmpl-123","object":"chat.completion.chunk"}`
+	_, ok := parseChunkPayload(payload)
+	if ok {
+		t.Error("expected parseChunkPayload to fail when no choices key")
+	}
+}
+
+func TestParseChunkPayload_EmptyChoicesArray(t *testing.T) {
+	payload := `{"id":"chatcmpl-123","choices":[]}`
+	_, ok := parseChunkPayload(payload)
+	if ok {
+		t.Error("expected parseChunkPayload to fail when choices array is empty")
+	}
+}
+
+func TestParseChunkPayload_NoDeltaKey(t *testing.T) {
+	payload := `{"id":"chatcmpl-123","choices":[{"index":0}]}`
+	_, ok := parseChunkPayload(payload)
+	if ok {
+		t.Error("expected parseChunkPayload to fail when no delta key in choices[0]")
+	}
+}
+
+func TestParseChunkPayload_MalformedJSON(t *testing.T) {
+	_, ok := parseChunkPayload("{invalid}")
+	if ok {
+		t.Error("expected parseChunkPayload to fail on malformed JSON")
+	}
+}
+
+func TestParseChunkPayload_EmptyString(t *testing.T) {
+	_, ok := parseChunkPayload("")
+	if ok {
+		t.Error("expected parseChunkPayload to fail on empty string")
+	}
+}
+
+func TestParseChunkPayload_MultipleChoices(t *testing.T) {
+	payload := `{"choices":[{"delta":{"content":"a"}},{"delta":{"content":"b"}}]}`
+	p, ok := parseChunkPayload(payload)
+	if !ok {
+		t.Fatal("expected parseChunkPayload to succeed with multiple choices")
+	}
+	if len(p.choices) != 2 {
+		t.Errorf("expected 2 choices, got %d", len(p.choices))
+	}
+	if _, ok := p.delta["content"]; !ok {
+		t.Error("expected delta to come from choices[0]")
+	}
+}
+
+func TestParseChunkPayload_DeltaWithReasoningFields(t *testing.T) {
+	payload := `{"id":"chatcmpl-1","choices":[{"delta":{"reasoning_content":"thinking...","reasoning":"hmm","content":"hello"}}]}`
+	p, ok := parseChunkPayload(payload)
+	if !ok {
+		t.Fatal("expected parseChunkPayload to succeed")
+	}
+	if _, ok := p.delta["reasoning_content"]; !ok {
+		t.Error("expected delta to contain 'reasoning_content'")
+	}
+	if _, ok := p.delta["reasoning"]; !ok {
+		t.Error("expected delta to contain 'reasoning'")
+	}
+	if _, ok := p.delta["content"]; !ok {
+		t.Error("expected delta to contain 'content'")
+	}
+}
+
+func TestParseChunkPayload_DeltaEmptyObject(t *testing.T) {
+	payload := `{"id":"chatcmpl-1","choices":[{"delta":{}}]}`
+	p, ok := parseChunkPayload(payload)
+	if !ok {
+		t.Fatal("expected parseChunkPayload to succeed with empty delta")
+	}
+	if len(p.delta) != 0 {
+		t.Errorf("expected empty delta map, got %d fields", len(p.delta))
+	}
+}
+
+func TestParseChunkPayload_ChoicesNotArray(t *testing.T) {
+	payload := `{"choices":"not an array"}`
+	_, ok := parseChunkPayload(payload)
+	if ok {
+		t.Error("expected parseChunkPayload to fail when choices is not an array")
+	}
+}
+
+func TestParseChunkPayload_DeltaNotObject(t *testing.T) {
+	payload := `{"choices":[{"delta":"not an object"}]}`
+	_, ok := parseChunkPayload(payload)
+	if ok {
+		t.Error("expected parseChunkPayload to fail when delta is not an object")
+	}
+}
+
+
+// ---------------------------------------------------------------------------
 // parseAccumulatedError
 // ---------------------------------------------------------------------------
 
