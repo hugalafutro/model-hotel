@@ -648,7 +648,10 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			// to fail with JSON parse errors, crashing the entire stream.
 			preview := payload
 			if len(preview) > 80 {
-				preview = preview[:80] + "..."
+				runes := []rune(preview)
+				if len(runes) > 80 {
+					preview = string(runes[:80]) + "..."
+				}
 			}
 			debuglog.Warn("proxy: skipping invalid JSON chunk from upstream",
 				"model", logData.modelID, "provider", logData.providerName,
