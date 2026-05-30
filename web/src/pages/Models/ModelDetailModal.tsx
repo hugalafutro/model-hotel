@@ -342,7 +342,7 @@ export function ModelDetailModal({
 						{formatRelativeTime(model.last_seen_at)}
 					</p>
 				</div>
-				<div>
+				<div className="col-span-2">
 					<span className="text-gray-500">Display Name</span>
 					{editing ? (
 						<div className="flex items-center gap-1">

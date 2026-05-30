@@ -16,16 +16,37 @@ import (
 
 // CreateVirtualKeyRequest is the request body for creating a virtual key.
 type CreateVirtualKeyRequest struct {
-	Name           string   `json:"name"`
-	RateLimitRPS   *float64 `json:"rate_limit_rps,omitempty"`
-	RateLimitBurst *int     `json:"rate_limit_burst,omitempty"`
+	Name             string    `json:"name"`
+	RateLimitRPS     *float64  `json:"rate_limit_rps,omitempty"`
+	RateLimitBurst   *int      `json:"rate_limit_burst,omitempty"`
+	AllowedProviders *[]string `json:"allowed_providers,omitempty"`
 }
 
 // UpdateVirtualKeyRequest is the request body for updating a virtual key.
 type UpdateVirtualKeyRequest struct {
-	Name           string   `json:"name"`
-	RateLimitRPS   *float64 `json:"rate_limit_rps"`
-	RateLimitBurst *int     `json:"rate_limit_burst"`
+	Name             string    `json:"name"`
+	RateLimitRPS     *float64  `json:"rate_limit_rps"`
+	RateLimitBurst   *int      `json:"rate_limit_burst"`
+	AllowedProviders *[]string `json:"allowed_providers,omitempty"`
+	// allowedProvidersPresent tracks whether allowed_providers was in the JSON.
+	// Set by UnmarshalJSON; do not set manually.
+	allowedProvidersPresent bool
+}
+
+// UnmarshalJSON detects whether allowed_providers was present in the JSON.
+func (r *UpdateVirtualKeyRequest) UnmarshalJSON(data []byte) error {
+	// First pass: decode all fields normally
+	type plain UpdateVirtualKeyRequest
+	if err := json.Unmarshal(data, (*plain)(r)); err != nil {
+		return err
+	}
+	// Second pass: check if the field key exists in the JSON
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	r.allowedProvidersPresent = raw["allowed_providers"] != nil
+	return nil
 }
 
 // RegisterVirtualKeys mounts virtual key management routes.
@@ -47,15 +68,16 @@ func virtualKeyToResponse(vk *virtualkey.VirtualKey, includeKey bool, rawKey str
 	}
 
 	return virtualkey.VirtualKeyResponse{
-		ID:             vk.ID.String(),
-		Name:           vk.Name,
-		Key:            cond(rawKey, includeKey),
-		KeyPreview:     vk.KeyPreview,
-		TokensUsed:     vk.TokensUsed,
-		LastUsedAt:     lastUsed,
-		CreatedAt:      vk.CreatedAt.Format(time.RFC3339),
-		RateLimitRPS:   vk.RateLimitRPS,
-		RateLimitBurst: vk.RateLimitBurst,
+		ID:               vk.ID.String(),
+		Name:             vk.Name,
+		Key:              cond(rawKey, includeKey),
+		KeyPreview:       vk.KeyPreview,
+		TokensUsed:       vk.TokensUsed,
+		LastUsedAt:       lastUsed,
+		CreatedAt:        vk.CreatedAt.Format(time.RFC3339),
+		RateLimitRPS:     vk.RateLimitRPS,
+		RateLimitBurst:   vk.RateLimitBurst,
+		AllowedProviders: vk.AllowedProviders,
 	}
 }
 
@@ -88,6 +110,13 @@ func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Reject empty allowed_providers array (non-nil but len==0).
+	// nil means "no restriction", empty slice means "deny all" which is rejected.
+	if req.AllowedProviders != nil && len(*req.AllowedProviders) == 0 {
+		http.Error(w, "allowed_providers must be null or contain at least one provider ID", http.StatusBadRequest)
+		return
+	}
+
 	if err := validateRateLimits(req.RateLimitRPS, req.RateLimitBurst, w); err != nil {
 		return
 	}
@@ -102,7 +131,7 @@ func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	keyHash := virtualkey.Hash(rawKey)
 	keyPreview := rawKey[:3] + "..." + rawKey[len(rawKey)-2:]
 
-	vk, err := h.virtualKeyRepo.Create(r.Context(), req.Name, keyHash, keyPreview, req.RateLimitRPS, req.RateLimitBurst)
+	vk, err := h.virtualKeyRepo.Create(r.Context(), req.Name, keyHash, keyPreview, req.RateLimitRPS, req.RateLimitBurst, req.AllowedProviders)
 	if err != nil {
 		debuglog.Error("virtual-keys: failed to create key", "name", req.Name, "error", err)
 		respondError(w, fmt.Sprintf("failed to create virtual key %q", req.Name), err, http.StatusInternalServerError)
@@ -174,11 +203,35 @@ func (h *Handler) UpdateVirtualKey(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Reject empty allowed_providers array (non-nil but len==0).
+	// nil means "no restriction", empty slice means "deny all" which is rejected.
+	if req.AllowedProviders != nil && len(*req.AllowedProviders) == 0 {
+		http.Error(w, "allowed_providers must be null or contain at least one provider ID", http.StatusBadRequest)
+		return
+	}
+
+	// When allowed_providers is omitted from the request body, preserve the
+	// existing value instead of clearing it. This prevents external scripts
+	// that update name/rate-limits from accidentally dropping restrictions.
+	// Only when the field is explicitly present (even as null) do we apply it.
+	if !req.allowedProvidersPresent {
+		existing, err := h.virtualKeyRepo.Get(r.Context(), id)
+		if err != nil && !errors.Is(err, virtualkey.ErrNotFound) {
+			// Transient DB error — abort to avoid silently clearing restrictions.
+			debuglog.Error("virtual-keys: failed to fetch key for update", "id", id, "error", err)
+			respondError(w, "failed to update virtual key", err, http.StatusInternalServerError)
+			return
+		}
+		if err == nil && existing != nil {
+			req.AllowedProviders = existing.AllowedProviders
+		}
+	}
+
 	if err := validateRateLimits(req.RateLimitRPS, req.RateLimitBurst, w); err != nil {
 		return
 	}
 
-	vk, err := h.virtualKeyRepo.Update(r.Context(), id, req.Name, req.RateLimitRPS, req.RateLimitBurst)
+	vk, err := h.virtualKeyRepo.Update(r.Context(), id, req.Name, req.RateLimitRPS, req.RateLimitBurst, req.AllowedProviders)
 	if err != nil {
 		if errors.Is(err, virtualkey.ErrNotFound) {
 			http.Error(w, "virtual key not found", http.StatusNotFound)

@@ -176,7 +176,8 @@ describe("LogDetailModal", () => {
 				/>,
 			);
 
-			expect(screen.getByText("1.45s")).toBeInTheDocument();
+			expect(screen.getByText("1.45")).toBeInTheDocument();
+			expect(screen.getByText("s")).toBeInTheDocument();
 			expect(screen.getByText("Duration")).toBeInTheDocument();
 		});
 
@@ -189,9 +190,9 @@ describe("LogDetailModal", () => {
 				/>,
 			);
 
-			expect(screen.getByText("250ms")).toBeInTheDocument();
+			expect(screen.getByText("250")).toBeInTheDocument();
 			expect(screen.getByText("Headers")).toBeInTheDocument();
-			expect(screen.getByText("280ms")).toBeInTheDocument();
+			expect(screen.getByText("280")).toBeInTheDocument();
 			expect(screen.getByText("TTFT")).toBeInTheDocument();
 		});
 

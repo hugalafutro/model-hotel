@@ -23,6 +23,21 @@ export const mockProvider: Provider = {
 	total_tokens: 1250000,
 };
 
+export const mockProvider2: Provider = {
+	id: "provider-002",
+	name: "Test Provider 2",
+	base_url: "https://api.test-provider-2.com/v1",
+	masked_key: "sk_test_••••••••••••••••••••••••",
+	enabled: true,
+	autodiscovery_enabled: true,
+	last_discovered_at: "2026-05-10T12:00:00Z",
+	last_used_at: "2026-05-11T08:30:00Z",
+	created_at: "2026-01-15T10:00:00Z",
+	updated_at: "2026-05-10T12:00:00Z",
+	model_count: 3,
+	total_tokens: 750000,
+};
+
 export const mockModel: Model = {
 	id: "model-001",
 	model_id: "test-model-v1",
@@ -57,6 +72,14 @@ export const mockVirtualKey: VirtualKey = {
 	created_at: "2026-03-01T09:00:00Z",
 	rate_limit_rps: 30,
 	rate_limit_burst: 60,
+	allowed_providers: null,
+};
+
+export const mockVirtualKeyWithProviders: VirtualKey = {
+	...mockVirtualKey,
+	id: "vk-002",
+	name: "Restricted Key",
+	allowed_providers: ["provider-001"],
 };
 
 export const mockStats: Stats = {

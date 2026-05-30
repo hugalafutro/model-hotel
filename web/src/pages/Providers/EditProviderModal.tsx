@@ -193,14 +193,8 @@ export function EditProviderModal({
 						</p>
 					</div>
 
-					<div className="space-y-3">
+					<div className="space-y-1">
 						<div className="flex items-center gap-3">
-							<label
-								htmlFor="edit-provider-enabled"
-								className="text-sm font-medium text-gray-300"
-							>
-								Enabled
-							</label>
 							<Toggle
 								checked={formData.enabled}
 								onChange={(v) =>
@@ -212,6 +206,12 @@ export function EditProviderModal({
 								showFocusRing
 								ariaLabel="Provider enabled"
 							/>
+							<label
+								htmlFor="edit-provider-enabled"
+								className="text-sm font-medium text-gray-300"
+							>
+								Enabled
+							</label>
 						</div>
 						<p className="text-gray-500 text-xs ml-0">
 							Controls proxy routing and API access. Disabled providers reject
@@ -223,12 +223,6 @@ export function EditProviderModal({
 						className={`space-y-3 ${!formData.enabled ? "opacity-40 pointer-events-none" : ""}`}
 					>
 						<div className="flex items-center gap-3">
-							<label
-								htmlFor="edit-provider-autodiscovery"
-								className="text-sm font-medium text-gray-300"
-							>
-								Autodiscovery
-							</label>
 							<Toggle
 								checked={formData.autodiscovery_enabled}
 								onChange={(v) =>
@@ -241,6 +235,12 @@ export function EditProviderModal({
 								ariaLabel="Provider autodiscovery"
 								disabled={!formData.enabled}
 							/>
+							<label
+								htmlFor="edit-provider-autodiscovery"
+								className="text-sm font-medium text-gray-300"
+							>
+								Autodiscovery
+							</label>
 						</div>
 						<p className="text-gray-500 text-xs ml-0">
 							Controls automatic model discovery. Disable to manually curate

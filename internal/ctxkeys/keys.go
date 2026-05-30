@@ -55,6 +55,13 @@ const VirtualKeyRateLimitRPSKey contextKey = "virtual_key_rate_limit_rps"
 // VirtualKeyRateLimitRPSKey.
 const VirtualKeyRateLimitBurstKey contextKey = "virtual_key_rate_limit_burst"
 
+// VirtualKeyAllowedProvidersKey is the context key under which the proxy's
+// ProxyKeyMiddleware stores the per-key allowed provider list (*[]string,
+// nil when all providers are allowed). The proxy handler reads this to
+// filter resolved candidates so restricted keys can only reach specific
+// providers.
+const VirtualKeyAllowedProvidersKey contextKey = "virtual_key_allowed_providers"
+
 // CancelOriginKey is the context key under which the proxy handler stores a
 // string describing why a derived context (failover, retry) was created.
 // When a context cancellation error is caught, this value identifies whether

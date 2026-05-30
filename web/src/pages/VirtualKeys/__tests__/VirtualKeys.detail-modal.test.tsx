@@ -1,7 +1,12 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { mockVirtualKey } from "../../../test/mocks/data";
+import {
+	mockProvider,
+	mockProvider2,
+	mockVirtualKey,
+	mockVirtualKeyWithProviders,
+} from "../../../test/mocks/data";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { VirtualKeys } from "../../VirtualKeys";
@@ -40,7 +45,9 @@ describe("VirtualKeys", () => {
 				name: "Virtual Key Details",
 			});
 			expect(within(dialog).getByText("Test API Key")).toBeInTheDocument();
-			expect(within(dialog).getByText("sk_test_••••")).toBeInTheDocument();
+			expect(
+				within(dialog).getByLabelText(`Copy ${mockVirtualKey.key_preview}`),
+			).toBeInTheDocument();
 			expect(within(dialog).getByText("30")).toBeInTheDocument();
 			expect(within(dialog).getByText("60")).toBeInTheDocument();
 			expect(within(dialog).getByText("50,000")).toBeInTheDocument();
@@ -55,6 +62,344 @@ describe("VirtualKeys", () => {
 					new Date(mockVirtualKey.last_used_at as string).toLocaleString(),
 				),
 			).toBeInTheDocument();
+		});
+
+		it("shows provider access section in view mode", async () => {
+			server.use(
+				http.get("/api/providers", () => HttpResponse.json([mockProvider])),
+				http.get("/api/virtual-keys", () =>
+					HttpResponse.json([mockVirtualKey]),
+				),
+			);
+
+			const { user } = renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Test API Key")).toBeInTheDocument();
+			});
+
+			const nameCell = screen.getByText("Test API Key");
+			await user.click(nameCell);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("dialog", { name: "Virtual Key Details" }),
+				).toBeInTheDocument();
+			});
+
+			const dialog = screen.getByRole("dialog", {
+				name: "Virtual Key Details",
+			});
+
+			// Check Provider Access section header exists
+			expect(
+				within(dialog).getByText("Provider Access", { exact: false }),
+			).toBeInTheDocument();
+
+			// Provider name appears as a tag chip
+			expect(within(dialog).getByText("Test Provider")).toBeInTheDocument();
+		});
+
+		it("toggles provider selection in edit mode", async () => {
+			const mockProviders = [
+				mockProvider,
+				{
+					...mockProvider,
+					id: "provider-002",
+					name: "Another Provider",
+					created_at: "2026-02-20T10:00:00Z",
+					updated_at: "2026-05-11T12:00:00Z",
+				},
+			];
+
+			server.use(
+				http.get("/api/providers", () => HttpResponse.json(mockProviders)),
+				http.get("/api/virtual-keys", () =>
+					HttpResponse.json([mockVirtualKey]),
+				),
+			);
+
+			const { user } = renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Test API Key")).toBeInTheDocument();
+			});
+
+			const nameCell = screen.getByText("Test API Key");
+			await user.click(nameCell);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("dialog", { name: "Virtual Key Details" }),
+				).toBeInTheDocument();
+			});
+
+			const dialog = screen.getByRole("dialog", {
+				name: "Virtual Key Details",
+			});
+
+			// Click Edit button
+			const editButton = within(dialog).getByRole("button", {
+				name: "Edit",
+			});
+			await user.click(editButton);
+
+			// Find provider button - should have aria-pressed="false" initially (not excluded)
+			const providerButton = within(dialog).getByRole("button", {
+				name: "Test Provider",
+			});
+			expect(providerButton).toHaveAttribute("aria-pressed", "false");
+
+			// Click provider tag to exclude it
+			await user.click(providerButton);
+
+			// Should now be excluded (aria-pressed="true")
+			expect(providerButton).toHaveAttribute("aria-pressed", "true");
+			// Button should have the excluded styling class
+			expect(providerButton.className).toContain("line-through");
+		});
+
+		it("resets excluded providers on cancel", async () => {
+			server.use(
+				http.get("/api/providers", () => HttpResponse.json([mockProvider])),
+				http.get("/api/virtual-keys", () =>
+					HttpResponse.json([mockVirtualKey]),
+				),
+			);
+
+			const { user } = renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Test API Key")).toBeInTheDocument();
+			});
+
+			await user.click(screen.getByText("Test API Key"));
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("dialog", { name: "Virtual Key Details" }),
+				).toBeInTheDocument();
+			});
+
+			const dialog = screen.getByRole("dialog", {
+				name: "Virtual Key Details",
+			});
+
+			// Enter edit mode
+			await user.click(within(dialog).getByRole("button", { name: "Edit" }));
+
+			// Exclude a provider
+			const providerButton = within(dialog).getByRole("button", {
+				name: "Test Provider",
+			});
+			await user.click(providerButton);
+			expect(providerButton).toHaveAttribute("aria-pressed", "true");
+
+			// Cancel edit
+			await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+			// Re-enter edit mode
+			await user.click(within(dialog).getByRole("button", { name: "Edit" }));
+
+			// Verify provider is no longer excluded (state was reset on cancel)
+			const providerButtonAfter = within(dialog).getByRole("button", {
+				name: "Test Provider",
+			});
+			expect(providerButtonAfter).toHaveAttribute("aria-pressed", "false");
+		});
+
+		it("initializes excluded providers from allowed_providers on edit", async () => {
+			const mockProviders = [
+				mockProvider,
+				{
+					...mockProvider,
+					id: "provider-002",
+					name: "Other Provider",
+					created_at: "2026-02-20T10:00:00Z",
+					updated_at: "2026-05-11T12:00:00Z",
+				},
+			];
+
+			server.use(
+				http.get("/api/providers", () => HttpResponse.json(mockProviders)),
+				http.get("/api/virtual-keys", () =>
+					HttpResponse.json([mockVirtualKeyWithProviders]),
+				),
+			);
+
+			const { user } = renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Restricted Key")).toBeInTheDocument();
+			});
+
+			const nameCell = screen.getByText("Restricted Key");
+			await user.click(nameCell);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("dialog", { name: "Virtual Key Details" }),
+				).toBeInTheDocument();
+			});
+
+			const dialog = screen.getByRole("dialog", {
+				name: "Virtual Key Details",
+			});
+
+			// Click Edit button
+			const editButton = within(dialog).getByRole("button", {
+				name: "Edit",
+			});
+			await user.click(editButton);
+
+			// provider-001 is in allowed_providers, so it should NOT be excluded
+			// aria-pressed="false" means it's allowed (not excluded)
+			const allowedProviderButton = within(dialog).getByRole("button", {
+				name: "Test Provider",
+			});
+			expect(allowedProviderButton).toHaveAttribute("aria-pressed", "false");
+
+			// provider-002 is NOT in allowed_providers, so it should be excluded
+			// aria-pressed="true" means it's excluded
+			const excludedProviderButton = within(dialog).getByRole("button", {
+				name: "Other Provider",
+			});
+			expect(excludedProviderButton).toHaveAttribute("aria-pressed", "true");
+		});
+
+		it("sends allowed_providers on save", async () => {
+			const mockProviders = [
+				mockProvider,
+				{
+					...mockProvider,
+					id: "provider-002",
+					name: "Other Provider",
+					created_at: "2026-02-20T10:00:00Z",
+					updated_at: "2026-05-11T12:00:00Z",
+				},
+			];
+
+			let updateBody: unknown;
+			server.use(
+				http.get("/api/providers", () => HttpResponse.json(mockProviders)),
+				http.get("/api/virtual-keys", () =>
+					HttpResponse.json([mockVirtualKey]),
+				),
+				http.put("/api/virtual-keys/vk-001", async ({ request }) => {
+					updateBody = await request.json();
+					return HttpResponse.json({
+						...mockVirtualKey,
+						name: (updateBody as { name: string }).name,
+					});
+				}),
+			);
+
+			const { user } = renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Test API Key")).toBeInTheDocument();
+			});
+
+			const nameCell = screen.getByText("Test API Key");
+			await user.click(nameCell);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("dialog", { name: "Virtual Key Details" }),
+				).toBeInTheDocument();
+			});
+
+			const dialog = screen.getByRole("dialog", {
+				name: "Virtual Key Details",
+			});
+
+			// Click Edit button
+			const editButton = within(dialog).getByRole("button", {
+				name: "Edit",
+			});
+			await user.click(editButton);
+
+			// Initially no providers are excluded (aria-pressed="false" for all)
+			const providerButton1 = within(dialog).getByRole("button", {
+				name: "Test Provider",
+			});
+			expect(providerButton1).toHaveAttribute("aria-pressed", "false");
+
+			// Exclude provider-002
+			const providerButton2 = within(dialog).getByRole("button", {
+				name: "Other Provider",
+			});
+			await user.click(providerButton2);
+			expect(providerButton2).toHaveAttribute("aria-pressed", "true");
+
+			// Click Save Changes
+			const saveButton = within(dialog).getByRole("button", {
+				name: "Save Changes",
+			});
+			await user.click(saveButton);
+
+			await waitFor(() => {
+				expect(screen.getByText("Virtual key updated")).toBeInTheDocument();
+			});
+
+			// Verify the update call was made with correct allowed_providers
+			// After excluding provider-002, only provider-001 should be allowed
+			expect(updateBody).toBeDefined();
+			const body = updateBody as { allowed_providers?: string[] };
+			expect(body.allowed_providers).toEqual(["provider-001"]);
+		});
+
+		it("shows reset button when providers are excluded", async () => {
+			server.use(
+				http.get("/api/providers", () => HttpResponse.json([mockProvider])),
+				http.get("/api/virtual-keys", () =>
+					HttpResponse.json([mockVirtualKey]),
+				),
+			);
+
+			const { user } = renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Test API Key")).toBeInTheDocument();
+			});
+
+			await user.click(screen.getByText("Test API Key"));
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("dialog", { name: "Virtual Key Details" }),
+				).toBeInTheDocument();
+			});
+
+			const dialog = screen.getByRole("dialog", {
+				name: "Virtual Key Details",
+			});
+
+			// Enter edit mode
+			await user.click(within(dialog).getByRole("button", { name: "Edit" }));
+
+			// No reset button initially
+			expect(
+				within(dialog).queryByLabelText("Restore access to all providers"),
+			).not.toBeInTheDocument();
+
+			// Exclude a provider
+			const providerButton = within(dialog).getByRole("button", {
+				name: "Test Provider",
+			});
+			await user.click(providerButton);
+
+			// Reset button should appear
+			const resetButton = within(dialog).getByLabelText(
+				"Restore access to all providers",
+			);
+			expect(resetButton).toBeInTheDocument();
+
+			// Click reset
+			await user.click(resetButton);
+
+			// Provider should be restored (not excluded)
+			expect(providerButton).toHaveAttribute("aria-pressed", "false");
 		});
 
 		it("shows 'Never' for last used when null", async () => {
@@ -714,5 +1059,147 @@ describe("hasChanges revert", () => {
 
 		// Save should be disabled again (no changes)
 		expect(saveButton).toBeDisabled();
+	});
+
+	it("disables Save for unchanged provider exclusions", async () => {
+		const mockProviders = [
+			mockProvider,
+			{
+				...mockProvider,
+				id: "provider-002",
+				name: "Other Provider",
+				created_at: "2026-02-20T10:00:00Z",
+				updated_at: "2026-05-11T12:00:00Z",
+			},
+		];
+
+		server.use(
+			http.get("/api/providers", () => HttpResponse.json(mockProviders)),
+			http.get("/api/virtual-keys", () =>
+				HttpResponse.json([mockVirtualKeyWithProviders]),
+			),
+		);
+
+		const { user } = renderWithProviders(<VirtualKeys />);
+
+		await waitFor(() => {
+			expect(screen.getByText("Restricted Key")).toBeInTheDocument();
+		});
+
+		const nameCell = screen.getByText("Restricted Key");
+		await user.click(nameCell);
+
+		await waitFor(() => {
+			expect(
+				screen.getByRole("dialog", { name: "Virtual Key Details" }),
+			).toBeInTheDocument();
+		});
+
+		const dialog = screen.getByRole("dialog", {
+			name: "Virtual Key Details",
+		});
+
+		// Click Edit button
+		const editButton = within(dialog).getByRole("button", {
+			name: "Edit",
+		});
+		await user.click(editButton);
+
+		// Save button should be disabled (no changes to provider exclusions)
+		const saveButton = within(dialog).getByRole("button", {
+			name: "Save Changes",
+		});
+		expect(saveButton).toBeDisabled();
+	});
+
+	it("blocks edit when key has restrictions and providers not loaded", async () => {
+		server.use(
+			// Providers never resolve — simulates in-flight query
+			http.get("/api/providers", () => new Promise(() => {})),
+			http.get("/api/virtual-keys", () =>
+				HttpResponse.json([mockVirtualKeyWithProviders]),
+			),
+		);
+
+		const { user } = renderWithProviders(<VirtualKeys />);
+
+		await waitFor(() => {
+			expect(screen.getByText("Restricted Key")).toBeInTheDocument();
+		});
+
+		const nameCell = screen.getByText("Restricted Key");
+		await user.click(nameCell);
+
+		await waitFor(() => {
+			expect(
+				screen.getByRole("dialog", { name: "Virtual Key Details" }),
+			).toBeInTheDocument();
+		});
+
+		const dialog = screen.getByRole("dialog", {
+			name: "Virtual Key Details",
+		});
+
+		// Click Edit — should NOT enter edit mode because providers haven't loaded
+		const editButton = within(dialog).getByRole("button", {
+			name: "Edit",
+		});
+		await user.click(editButton);
+
+		// Should still be in view mode (no input fields)
+		expect(within(dialog).queryByLabelText("Name")).not.toBeInTheDocument();
+	});
+
+	it("shows error when all providers are excluded on save", async () => {
+		const mockProviders = [mockProvider, mockProvider2];
+
+		server.use(
+			http.get("/api/providers", () => HttpResponse.json(mockProviders)),
+			http.get("/api/virtual-keys", () => HttpResponse.json([mockVirtualKey])),
+		);
+
+		const { user } = renderWithProviders(<VirtualKeys />);
+
+		await waitFor(() => {
+			expect(screen.getByText("Test API Key")).toBeInTheDocument();
+		});
+
+		const nameCell = screen.getByText("Test API Key");
+		await user.click(nameCell);
+
+		await waitFor(() => {
+			expect(
+				screen.getByRole("dialog", { name: "Virtual Key Details" }),
+			).toBeInTheDocument();
+		});
+
+		const dialog = screen.getByRole("dialog", {
+			name: "Virtual Key Details",
+		});
+
+		const editButton = within(dialog).getByRole("button", {
+			name: "Edit",
+		});
+		await user.click(editButton);
+
+		// Exclude all providers
+		for (const provider of mockProviders) {
+			const chip = within(dialog).getByRole("button", {
+				name: provider.name,
+			});
+			await user.click(chip);
+		}
+
+		const saveButton = within(dialog).getByRole("button", {
+			name: "Save Changes",
+		});
+		await user.click(saveButton);
+
+		// Should show error message, not call the API
+		await waitFor(() => {
+			expect(
+				screen.getByText("At least one provider must remain accessible"),
+			).toBeInTheDocument();
+		});
 	});
 });

@@ -3,7 +3,9 @@ package api
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -44,7 +46,7 @@ func TestCreateVirtualKey_InvalidJSON(t *testing.T) {
 
 func TestCreateVirtualKey_DBError(t *testing.T) {
 	mockVK := &mockVirtualKeyStore{
-		createFn: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int) (*virtualkey.VirtualKey, error) {
+		createFn: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int, allowedProviders *[]string) (*virtualkey.VirtualKey, error) {
 			return nil, errors.New("db connection lost")
 		},
 	}
@@ -410,7 +412,7 @@ func TestUpdateVirtualKey_MalformedJSON(t *testing.T) {
 // when the database is unavailable.
 func TestUpdateVirtualKey_DBError(t *testing.T) {
 	mockVK := &mockVirtualKeyStore{
-		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst *int) (*virtualkey.VirtualKey, error) {
+		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string) (*virtualkey.VirtualKey, error) {
 			return nil, errors.New("db connection lost")
 		},
 	}
@@ -425,5 +427,260 @@ func TestUpdateVirtualKey_DBError(t *testing.T) {
 
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
+	}
+}
+
+// ---------------------------------------------------------------------------
+// UpdateVirtualKey - allowed_providers tests
+// ---------------------------------------------------------------------------
+
+// TestUpdateVirtualKey_WithAllowedProviders tests that UpdateVirtualKey
+// correctly handles setting allowed_providers on an existing key.
+func TestUpdateVirtualKey_WithAllowedProviders(t *testing.T) {
+	id := uuid.New()
+	mockVK := &mockVirtualKeyStore{
+		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string) (*virtualkey.VirtualKey, error) {
+			if vid != id {
+				return nil, errors.New("unexpected ID")
+			}
+			if name != "updated-key" {
+				return nil, errors.New("unexpected name")
+			}
+			if allowedProviders == nil || len(*allowedProviders) != 1 || (*allowedProviders)[0] != "p3" {
+				return nil, errors.New("allowedProviders not passed correctly")
+			}
+			return &virtualkey.VirtualKey{
+				ID:               vid,
+				Name:             name,
+				KeyHash:          "hash123",
+				KeyPreview:       "sk-...up",
+				AllowedProviders: allowedProviders,
+			}, nil
+		},
+	}
+	auth := &mockAdminAuth{validateFn: func(string) bool { return true }}
+	h := testHandler(nil, mockVK, nil, auth, nil)
+
+	body := bytes.NewReader([]byte(`{"name":"updated-key","allowed_providers":["p3"]}`))
+	req, w := newChiRequest(http.MethodPut, "/virtual-keys/"+id.String(), body)
+	req = setChiURLParam(req, "id", id.String())
+
+	h.UpdateVirtualKey(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+
+	var resp virtualkey.VirtualKeyResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.AllowedProviders == nil {
+		t.Fatal("response AllowedProviders should not be nil")
+	}
+	if len(*resp.AllowedProviders) != 1 || (*resp.AllowedProviders)[0] != "p3" {
+		t.Errorf("response AllowedProviders = %v, want [p3]", *resp.AllowedProviders)
+	}
+}
+
+// TestUpdateVirtualKey_ToClearAllowedProviders tests that UpdateVirtualKey
+// correctly clears allowed_providers when set to null.
+func TestUpdateVirtualKey_ToClearAllowedProviders(t *testing.T) {
+	id := uuid.New()
+	mockVK := &mockVirtualKeyStore{
+		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string) (*virtualkey.VirtualKey, error) {
+			if vid != id {
+				return nil, errors.New("unexpected ID")
+			}
+			if allowedProviders != nil {
+				return nil, errors.New("allowedProviders should be nil when clearing")
+			}
+			return &virtualkey.VirtualKey{
+				ID:               vid,
+				Name:             name,
+				KeyHash:          "hash123",
+				KeyPreview:       "sk-...cl",
+				AllowedProviders: nil,
+			}, nil
+		},
+	}
+	auth := &mockAdminAuth{validateFn: func(string) bool { return true }}
+	h := testHandler(nil, mockVK, nil, auth, nil)
+
+	body := bytes.NewReader([]byte(`{"name":"cleared-key","allowed_providers":null}`))
+	req, w := newChiRequest(http.MethodPut, "/virtual-keys/"+id.String(), body)
+	req = setChiURLParam(req, "id", id.String())
+
+	h.UpdateVirtualKey(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+
+	var resp virtualkey.VirtualKeyResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.AllowedProviders != nil {
+		t.Errorf("response AllowedProviders should be nil, got %v", *resp.AllowedProviders)
+	}
+}
+
+// TestUpdateVirtualKey_OmitAllowedProvidersPreservesExisting tests that
+// omitting allowed_providers from the update body preserves the existing value
+// instead of clearing it (which would silently drop a security restriction).
+func TestUpdateVirtualKey_OmitAllowedProvidersPreservesExisting(t *testing.T) {
+	id := uuid.New()
+	existingProviders := []string{"p1", "p2"}
+
+	mockVK := &mockVirtualKeyStore{
+		getFn: func(ctx context.Context, vid uuid.UUID) (*virtualkey.VirtualKey, error) {
+			if vid != id {
+				return nil, errors.New("unexpected ID")
+			}
+			return &virtualkey.VirtualKey{
+				ID:               vid,
+				Name:             "existing-key",
+				KeyHash:          "hash123",
+				KeyPreview:       "sk-...ex",
+				AllowedProviders: &existingProviders,
+			}, nil
+		},
+		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string) (*virtualkey.VirtualKey, error) {
+			if vid != id {
+				return nil, errors.New("unexpected ID")
+			}
+			// The handler should have preserved existing AllowedProviders
+			if allowedProviders == nil {
+				return nil, errors.New("allowedProviders should not be nil — existing value should be preserved")
+			}
+			if len(*allowedProviders) != 2 || (*allowedProviders)[0] != "p1" || (*allowedProviders)[1] != "p2" {
+				return nil, fmt.Errorf("expected [p1, p2], got %v", allowedProviders)
+			}
+			return &virtualkey.VirtualKey{
+				ID:               vid,
+				Name:             name,
+				KeyHash:          "hash123",
+				KeyPreview:       "sk-...up",
+				AllowedProviders: allowedProviders,
+			}, nil
+		},
+	}
+	auth := &mockAdminAuth{validateFn: func(string) bool { return true }}
+	h := testHandler(nil, mockVK, nil, auth, nil)
+
+	// Body omits allowed_providers entirely
+	body := bytes.NewReader([]byte(`{"name":"updated-key"}`))
+	req, w := newChiRequest(http.MethodPut, "/virtual-keys/"+id.String(), body)
+	req = setChiURLParam(req, "id", id.String())
+
+	h.UpdateVirtualKey(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+// TestCreateVirtualKey_WithAllowedProviders tests that CreateVirtualKey
+// correctly handles the allowed_providers field.
+func TestCreateVirtualKey_WithAllowedProviders(t *testing.T) {
+	mockVK := &mockVirtualKeyStore{
+		createFn: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int, allowedProviders *[]string) (*virtualkey.VirtualKey, error) {
+			if name != "test-key-ap" {
+				return nil, errors.New("unexpected name")
+			}
+			if allowedProviders == nil || len(*allowedProviders) != 2 || (*allowedProviders)[0] != "p1" || (*allowedProviders)[1] != "p2" {
+				return nil, errors.New("allowedProviders not passed correctly")
+			}
+			return &virtualkey.VirtualKey{
+				ID:               uuid.New(),
+				Name:             name,
+				KeyHash:          keyHash,
+				KeyPreview:       keyPreview,
+				AllowedProviders: allowedProviders,
+			}, nil
+		},
+	}
+	auth := &mockAdminAuth{validateFn: func(string) bool { return true }}
+	h := testHandler(nil, mockVK, nil, auth, nil)
+
+	body := bytes.NewReader([]byte(`{"name":"test-key-ap","allowed_providers":["p1","p2"]}`))
+	req, w := newChiRequest(http.MethodPost, "/virtual-keys", body)
+
+	h.CreateVirtualKey(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusCreated, w.Code, w.Body.String())
+	}
+
+	var resp virtualkey.VirtualKeyResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.AllowedProviders == nil {
+		t.Fatal("response AllowedProviders should not be nil")
+	}
+	if len(*resp.AllowedProviders) != 2 {
+		t.Errorf("response AllowedProviders length = %d, want 2", len(*resp.AllowedProviders))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// CreateVirtualKey - empty allowed_providers rejection tests
+// ---------------------------------------------------------------------------
+
+// TestCreateVirtualKey_EmptyAllowedProvidersArray tests that CreateVirtualKey
+// rejects an empty allowed_providers array (non-nil but len==0).
+func TestCreateVirtualKey_EmptyAllowedProvidersArray(t *testing.T) {
+	mockVK := &mockVirtualKeyStore{
+		createFn: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int, allowedProviders *[]string) (*virtualkey.VirtualKey, error) {
+			t.Error("create should not be called when allowed_providers is empty array")
+			return nil, nil
+		},
+	}
+	auth := &mockAdminAuth{validateFn: func(string) bool { return true }}
+	h := testHandler(nil, mockVK, nil, auth, nil)
+
+	body := bytes.NewReader([]byte(`{"name":"test-key-empty","allowed_providers":[]}`))
+	req, w := newChiRequest(http.MethodPost, "/virtual-keys", body)
+
+	h.CreateVirtualKey(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "allowed_providers must be null or contain at least one provider ID") {
+		t.Errorf("expected error message about allowed_providers, got: %s", w.Body.String())
+	}
+}
+
+// ---------------------------------------------------------------------------
+// UpdateVirtualKey - empty allowed_providers rejection tests
+// ---------------------------------------------------------------------------
+
+// TestUpdateVirtualKey_EmptyAllowedProvidersArray tests that UpdateVirtualKey
+// rejects an empty allowed_providers array (non-nil but len==0).
+func TestUpdateVirtualKey_EmptyAllowedProvidersArray(t *testing.T) {
+	id := uuid.New()
+	mockVK := &mockVirtualKeyStore{
+		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string) (*virtualkey.VirtualKey, error) {
+			t.Error("update should not be called when allowed_providers is empty array")
+			return nil, nil
+		},
+	}
+	auth := &mockAdminAuth{validateFn: func(string) bool { return true }}
+	h := testHandler(nil, mockVK, nil, auth, nil)
+
+	body := bytes.NewReader([]byte(`{"name":"update-key-empty","allowed_providers":[]}`))
+	req, w := newChiRequest(http.MethodPut, "/virtual-keys/"+id.String(), body)
+	req = setChiURLParam(req, "id", id.String())
+
+	h.UpdateVirtualKey(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "allowed_providers must be null or contain at least one provider ID") {
+		t.Errorf("expected error message about allowed_providers, got: %s", w.Body.String())
 	}
 }

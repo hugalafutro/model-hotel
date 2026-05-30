@@ -32,19 +32,20 @@ type VirtualKeyRepository interface {
 	AddTokens(ctx context.Context, keyHash string, tokens int) error
 	TouchLastUsed(ctx context.Context, keyHash string) error
 	FindByKeyHash(ctx context.Context, keyHash string) (*VirtualKeyInfo, error)
-	Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int) (*VirtualKeyInfo, error)
+	Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int, allowedProviders *[]string) (*VirtualKeyInfo, error)
 	Delete(ctx context.Context, id string) error
 }
 
 // VirtualKeyInfo holds the subset of virtual key data needed by the proxy.
 type VirtualKeyInfo struct {
-	ID             string
-	Name           string
-	KeyHash        string
-	KeyPreview     string
-	TokensUsed     int64
-	RateLimitRPS   *float64
-	RateLimitBurst *int
+	ID               string
+	Name             string
+	KeyHash          string
+	KeyPreview       string
+	TokensUsed       int64
+	RateLimitRPS     *float64
+	RateLimitBurst   *int
+	AllowedProviders *[]string
 }
 
 type contextKey string

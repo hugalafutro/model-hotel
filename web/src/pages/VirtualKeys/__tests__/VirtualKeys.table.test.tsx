@@ -242,7 +242,10 @@ describe("VirtualKeys", () => {
 				// After two clicks, should be descending: New first
 				const allNames = screen.getAllByText(/Key$/);
 				const nameCells = allNames.filter(
-					(el) => el.tagName === "TD" || el.parentElement?.tagName === "TD",
+					(el) =>
+						el.tagName === "TD" ||
+						el.parentElement?.tagName === "TD" ||
+						el.parentElement?.parentElement?.tagName === "TD",
 				);
 				expect(nameCells[0]).toHaveTextContent("New Key");
 			});
@@ -281,7 +284,10 @@ describe("VirtualKeys", () => {
 				// After two clicks, should be descending: High first
 				const allNames = screen.getAllByText(/Tokens$/);
 				const nameCells = allNames.filter(
-					(el) => el.tagName === "TD" || el.parentElement?.tagName === "TD",
+					(el) =>
+						el.tagName === "TD" ||
+						el.parentElement?.tagName === "TD" ||
+						el.parentElement?.parentElement?.tagName === "TD",
 				);
 				expect(nameCells[0]).toHaveTextContent("High Tokens");
 			});
@@ -320,7 +326,10 @@ describe("VirtualKeys", () => {
 				// After two clicks, should be descending: Recent first
 				const allNames = screen.getAllByText(/Used$/);
 				const nameCells = allNames.filter(
-					(el) => el.tagName === "TD" || el.parentElement?.tagName === "TD",
+					(el) =>
+						el.tagName === "TD" ||
+						el.parentElement?.tagName === "TD" ||
+						el.parentElement?.parentElement?.tagName === "TD",
 				);
 				expect(nameCells[0]).toHaveTextContent("Recent Used");
 			});

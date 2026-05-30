@@ -129,7 +129,7 @@ export function CircuitBreakerSettings({
 							Failover on Rate Limit
 						</p>
 						<p className="text-gray-500 text-xs mt-0.5">
-							Route to failover group when a provider returns 429
+							Route to next failover group member when a provider returns 429
 						</p>
 					</div>
 					<Toggle

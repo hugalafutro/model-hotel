@@ -136,7 +136,7 @@ func newTestProxyHandler(t *testing.T) *testProxyEnv {
 	virtualKeyName := "test-key-" + uuid.New().String()[:8]
 	keyHash := virtualkey.Hash(virtualKeyName)
 	keyPreview := "test-" + keyHash[:8]
-	if _, err := virtualKeyRepo.Create(context.Background(), virtualKeyName, keyHash, keyPreview, nil, nil); err != nil {
+	if _, err := virtualKeyRepo.Create(context.Background(), virtualKeyName, keyHash, keyPreview, nil, nil, nil); err != nil {
 		t.Fatalf("failed to create virtual key: %v", err)
 	}
 
@@ -632,7 +632,7 @@ func TestChatCompletions_NonStreaming_Upstream4xxError(t *testing.T) {
 		t.Fatalf("failed to create model: %v", err)
 	}
 
-	virtualKey, err := virtualKeyRepo.Create(context.Background(), "test-key", virtualkey.Hash("test-vk-4xx"), "sk-tes...", nil, nil)
+	virtualKey, err := virtualKeyRepo.Create(context.Background(), "test-key", virtualkey.Hash("test-vk-4xx"), "sk-tes...", nil, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to create virtual key: %v", err)
 	}
@@ -743,7 +743,7 @@ func TestChatCompletions_NonStreaming_Upstream5xxError(t *testing.T) {
 		t.Fatalf("failed to create model: %v", err)
 	}
 
-	virtualKey, err := virtualKeyRepo.Create(context.Background(), "test-key", virtualkey.Hash("test-vk-5xx"), "sk-tes...", nil, nil)
+	virtualKey, err := virtualKeyRepo.Create(context.Background(), "test-key", virtualkey.Hash("test-vk-5xx"), "sk-tes...", nil, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to create virtual key: %v", err)
 	}
@@ -955,7 +955,7 @@ func TestChatCompletions_FailoverWithBackoff(t *testing.T) {
 	}
 
 	// Create virtual key
-	virtualKey, _ := virtualKeyRepo.Create(context.Background(), "test-key", virtualkey.Hash("test-vk-failover"), "sk-tes...", nil, nil)
+	virtualKey, _ := virtualKeyRepo.Create(context.Background(), "test-key", virtualkey.Hash("test-vk-failover"), "sk-tes...", nil, nil, nil)
 	defer func() { _ = virtualKeyRepo.Delete(context.Background(), virtualKey.ID) }()
 
 	handler := &Handler{
@@ -1092,7 +1092,7 @@ func TestChatCompletions_ClientDisconnectDuringBackoff(t *testing.T) {
 		t.Fatalf("failed to create failover group: %v", err)
 	}
 
-	virtualKey, _ := virtualKeyRepo.Create(context.Background(), "test-key", virtualkey.Hash("test-vk-disconnect"), "sk-tes...", nil, nil)
+	virtualKey, _ := virtualKeyRepo.Create(context.Background(), "test-key", virtualkey.Hash("test-vk-disconnect"), "sk-tes...", nil, nil, nil)
 	defer func() { _ = virtualKeyRepo.Delete(context.Background(), virtualKey.ID) }()
 
 	handler := &Handler{
@@ -1229,7 +1229,7 @@ func TestChatCompletions_ParamRejectionAutoRetry(t *testing.T) {
 	}
 	_ = modelRepo.Upsert(context.Background(), testModel)
 
-	virtualKey, _ := virtualKeyRepo.Create(context.Background(), "test-key", virtualkey.Hash("test-vk-retry"), "sk-tes...", nil, nil)
+	virtualKey, _ := virtualKeyRepo.Create(context.Background(), "test-key", virtualkey.Hash("test-vk-retry"), "sk-tes...", nil, nil, nil)
 	defer func() { _ = virtualKeyRepo.Delete(context.Background(), virtualKey.ID) }()
 
 	handler := &Handler{
