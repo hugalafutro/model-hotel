@@ -51,7 +51,7 @@ export function SortableEntry({
 					⠿
 				</span>
 				<div className="truncate failover-entry-text">
-					<span className="text-white">{entry.provider_name}</span>
+					<span className="text-(--text-primary)">{entry.provider_name}</span>
 					<span className="text-gray-500 mx-1">/</span>
 					<span className="text-gray-400 truncate">{entry.model_id}</span>
 				</div>

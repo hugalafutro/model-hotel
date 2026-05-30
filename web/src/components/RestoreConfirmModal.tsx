@@ -58,12 +58,16 @@ export function RestoreConfirmModal({
 			</div>
 
 			<div className="ui-card bg-gray-800/50 p-4 mb-4">
-				<h3 className="text-white font-semibold mb-3">Requirements:</h3>
+				<h3 className="text-(--text-primary) font-semibold mb-3">
+					Requirements:
+				</h3>
 				<ul className="space-y-2 text-sm text-gray-300">
 					<li className="flex gap-2">
 						<span className="text-amber-400">•</span>
 						<span>
-							<strong className="text-white">MASTER_KEY must match:</strong>{" "}
+							<strong className="text-(--text-primary)">
+								MASTER_KEY must match:
+							</strong>{" "}
 							Provider API keys are AES-256-GCM encrypted using a key derived
 							from your MASTER_KEY. Restoring with a different MASTER_KEY will
 							leave all provider keys unrecoverable.
@@ -72,7 +76,7 @@ export function RestoreConfirmModal({
 					<li className="flex gap-2">
 						<span className="text-amber-400">•</span>
 						<span>
-							<strong className="text-white">
+							<strong className="text-(--text-primary)">
 								Admin token is not in the backup:
 							</strong>{" "}
 							It is stored on the filesystem. Your current admin token will
@@ -82,7 +86,7 @@ export function RestoreConfirmModal({
 					<li className="flex gap-2">
 						<span className="text-amber-400">•</span>
 						<span>
-							<strong className="text-white">
+							<strong className="text-(--text-primary)">
 								Virtual keys are irrecoverable:
 							</strong>{" "}
 							Only SHA-256 hashes are stored. If you lose the plaintext virtual
@@ -104,7 +108,7 @@ export function RestoreConfirmModal({
 					type="password"
 					value={adminToken}
 					onChange={(e) => setAdminToken(e.target.value)}
-					className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:border-amber-500"
+					className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded text-(--text-primary) placeholder-gray-400 focus:outline-none focus:border-amber-500"
 					placeholder="Enter admin token"
 					disabled={isPending}
 				/>

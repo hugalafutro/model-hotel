@@ -69,7 +69,7 @@ export function NanoGPTQuotaModal({
 			header={
 				<div className="flex justify-between items-start mb-6">
 					<div>
-						<h2 className="text-xl font-bold text-white">
+						<h2 className="text-xl font-bold text-(--text-primary)">
 							NanoGPT Subscription
 						</h2>
 						<p className="text-sm text-gray-400 mt-1">
@@ -100,7 +100,7 @@ export function NanoGPTQuotaModal({
 									prev === "remaining" ? "used" : "remaining",
 								)
 							}
-							className="absolute top-4 right-20 text-gray-400 hover:text-white transition-all cursor-pointer p-1.5"
+							className="absolute top-4 right-20 text-gray-400 hover:text-(--text-primary) transition-all cursor-pointer p-1.5"
 							aria-label="Toggle between remaining and used"
 							title={
 								barMode === "remaining"
@@ -114,7 +114,7 @@ export function NanoGPTQuotaModal({
 							type="button"
 							onClick={handleRefresh}
 							disabled={isRefreshing}
-							className="absolute top-4 right-10 text-gray-400 hover:text-white transition-all cursor-pointer p-1.5 hover:drop-shadow-[var(--glow-accent-lg)]"
+							className="absolute top-4 right-10 text-gray-400 hover:text-(--text-primary) transition-all cursor-pointer p-1.5 hover:drop-shadow-[var(--glow-accent-lg)]"
 							aria-label="Refresh"
 							title="Refresh quota info"
 						>
@@ -316,7 +316,7 @@ export function ZAICodingQuotaModal({
 			header={
 				<div className="flex justify-between items-start mb-6">
 					<div>
-						<h2 className="text-xl font-bold text-white">
+						<h2 className="text-xl font-bold text-(--text-primary)">
 							Z.ai Coding Plan Quota
 						</h2>
 						<p className="text-sm text-gray-400 mt-1">
@@ -334,7 +334,7 @@ export function ZAICodingQuotaModal({
 									prev === "remaining" ? "used" : "remaining",
 								)
 							}
-							className="absolute top-4 right-20 text-gray-400 hover:text-white transition-all cursor-pointer p-1.5"
+							className="absolute top-4 right-20 text-gray-400 hover:text-(--text-primary) transition-all cursor-pointer p-1.5"
 							aria-label="Toggle between remaining and used"
 							title={
 								barMode === "remaining"
@@ -348,7 +348,7 @@ export function ZAICodingQuotaModal({
 							type="button"
 							onClick={handleRefresh}
 							disabled={isRefreshing}
-							className="absolute top-4 right-10 text-gray-400 hover:text-white transition-all cursor-pointer p-1.5 hover:drop-shadow-[var(--glow-accent-lg)]"
+							className="absolute top-4 right-10 text-gray-400 hover:text-(--text-primary) transition-all cursor-pointer p-1.5 hover:drop-shadow-[var(--glow-accent-lg)]"
 							aria-label="Refresh"
 							title="Refresh quota info"
 						>
@@ -526,7 +526,9 @@ export function OpenRouterQuotaModal({
 			header={
 				<div className="flex justify-between items-start mb-6">
 					<div>
-						<h2 className="text-xl font-bold text-white">OpenRouter Credits</h2>
+						<h2 className="text-xl font-bold text-(--text-primary)">
+							OpenRouter Credits
+						</h2>
 						<p className="text-sm text-gray-400 mt-1">
 							{balance.is_free_tier ? (
 								<span className="inline-flex items-center gap-1.5">
@@ -549,7 +551,7 @@ export function OpenRouterQuotaModal({
 									prev === "remaining" ? "used" : "remaining",
 								)
 							}
-							className="absolute top-4 right-20 text-gray-400 hover:text-white transition-all cursor-pointer p-1.5"
+							className="absolute top-4 right-20 text-gray-400 hover:text-(--text-primary) transition-all cursor-pointer p-1.5"
 							aria-label="Toggle between remaining and used"
 							title={
 								barMode === "remaining"
@@ -563,7 +565,7 @@ export function OpenRouterQuotaModal({
 							type="button"
 							onClick={handleRefresh}
 							disabled={isRefreshing}
-							className="absolute top-4 right-10 text-gray-400 hover:text-white transition-all cursor-pointer p-1.5 hover:drop-shadow-[var(--glow-accent-lg)]"
+							className="absolute top-4 right-10 text-gray-400 hover:text-(--text-primary) transition-all cursor-pointer p-1.5 hover:drop-shadow-[var(--glow-accent-lg)]"
 							aria-label="Refresh"
 							title="Refresh balance info"
 						>
@@ -588,7 +590,7 @@ export function OpenRouterQuotaModal({
 						<span className="text-sm font-medium text-gray-300">
 							Account Balance
 						</span>
-						<span className="text-sm text-white font-medium">
+						<span className="text-sm text-(--text-primary) font-medium">
 							{formatDollars(balance.credits_remaining)}
 						</span>
 					</div>

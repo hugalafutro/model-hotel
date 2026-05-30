@@ -34,18 +34,18 @@ export function TerminalPreview({
 	if (variant === "code") {
 		return (
 			<div className="relative rounded-lg bg-gray-950 border border-gray-800 overflow-hidden">
-				<div className="absolute top-2 right-2 z-10">
-					<CopyButton
-						text={copyText}
-						size={14}
-						title={`Copy ${displayTitle} snippet`}
-					/>
-				</div>
 				<div className="flex items-center gap-2 px-3 py-2 border-b border-gray-800 bg-gray-900/50">
 					{icon && <LangIcon name={icon} size={14} />}
-					<span className="text-xs text-gray-400 font-mono">
+					<span className="text-xs text-gray-200 font-mono">
 						{displayTitle}
 					</span>
+					<div className="ml-auto">
+						<CopyButton
+							text={copyText}
+							size={14}
+							title={`Copy ${displayTitle} snippet`}
+						/>
+					</div>
 				</div>
 				<pre
 					className={`p-4 pb-6 text-xs text-gray-400 font-mono overflow-x-auto overflow-y-auto whitespace-pre-wrap break-words terminal-body${height ? "" : " overflow-y-hidden"}`}

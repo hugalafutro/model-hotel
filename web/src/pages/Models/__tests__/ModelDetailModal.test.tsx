@@ -860,6 +860,7 @@ describe("ModelDetailModal", () => {
 
 	it.each([
 		["cURL"],
+		["PowerShell"],
 		["JavaScript"],
 		["Python"],
 		["Claude Code"],

@@ -48,23 +48,23 @@ const TYPE_STYLES: Record<
 > = {
 	nanogpt: {
 		sidebar: "sidebar-quota-pill sidebar-quota-pill-nanogpt",
-		card: "bg-[#0EA5B0]/20 text-[#0EA5B0] border border-[#0EA5B0]/50 hover:bg-[#0EA5B0]/30",
+		card: "quota-card-nanogpt bg-[#0EA5B0]/20 text-[#0EA5B0] border border-[#0EA5B0]/50 hover:bg-[#0EA5B0]/30",
 	},
 	"zai-coding": {
 		sidebar: "sidebar-quota-pill sidebar-quota-pill-zai-coding",
-		card: "bg-white/10 text-gray-300 border border-gray-400/50 hover:bg-white/15",
+		card: "quota-card-zai-coding bg-white/10 text-gray-300 border border-gray-400/50 hover:bg-white/15",
 	},
 	deepseek: {
 		sidebar: "sidebar-quota-pill sidebar-quota-pill-deepseek",
-		card: "bg-[#4D6BFE]/20 text-[#4D6BFE] border border-[#4D6BFE]/50 hover:bg-[#4D6BFE]/30",
+		card: "quota-card-deepseek bg-[#4D6BFE]/20 text-[#4D6BFE] border border-[#4D6BFE]/50 hover:bg-[#4D6BFE]/30",
 	},
 	openrouter: {
 		sidebar: "sidebar-quota-pill sidebar-quota-pill-openrouter",
-		card: "bg-[#6366F1]/20 text-[#6366F1] border border-[#6366F1]/50 hover:bg-[#6366F1]/30",
+		card: "quota-card-openrouter bg-[#6366F1]/20 text-[#6366F1] border border-[#6366F1]/50 hover:bg-[#6366F1]/30",
 	},
 	"ollama-cloud": {
 		sidebar: "sidebar-quota-pill sidebar-quota-pill-ollama-cloud",
-		card: "bg-white/10 text-gray-300 border border-gray-400/50 hover:bg-white/15",
+		card: "quota-card-ollama-cloud bg-white/10 text-gray-300 border border-gray-400/50 hover:bg-white/15",
 	},
 };
 

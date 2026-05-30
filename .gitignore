@@ -53,6 +53,8 @@ GEMINI.md
 /.skills/
 *.so
 .staged-by
+.superpowers/
+docs/superpowers/
 *.swo
 *.swp
 *.test

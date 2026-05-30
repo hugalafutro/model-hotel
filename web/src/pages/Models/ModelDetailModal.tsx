@@ -30,6 +30,8 @@ import {
 	snippetOpenClawModelText,
 	snippetOpencodeModel,
 	snippetOpencodeModelText,
+	snippetPowershellModel,
+	snippetPowershellModelText,
 	snippetPythonModel,
 	snippetPythonModelText,
 	snippetZedModel,
@@ -239,6 +241,12 @@ export function ModelDetailModal({
 			title: "cURL",
 			content: snippetCurlModel(modelSnippetOpts),
 			copyText: snippetCurlModelText(modelSnippetOpts),
+		},
+		{
+			key: "powershell",
+			title: "PowerShell",
+			content: snippetPowershellModel(modelSnippetOpts),
+			copyText: snippetPowershellModelText(modelSnippetOpts),
 		},
 		{
 			key: "javascript",
@@ -556,25 +564,6 @@ export function ModelDetailModal({
 				</div>
 			)}
 
-			{editing && (
-				<div className="flex gap-3 justify-end mb-4 pt-2">
-					<button
-						type="button"
-						onClick={handleCancelEdit}
-						className="ui-btn ui-btn-secondary"
-					>
-						Cancel
-					</button>
-					<button
-						type="button"
-						onClick={handleSave}
-						className="ui-btn ui-btn-primary"
-					>
-						Save Changes
-					</button>
-				</div>
-			)}
-
 			<div className="mt-4 pt-4">
 				<div
 					role="tablist"
@@ -661,35 +650,54 @@ export function ModelDetailModal({
 					)}
 				</div>
 				<div className="flex items-center gap-2">
-					{!editing && (
-						<button
-							type="button"
-							onClick={() => setEditing(true)}
-							className="ui-btn ui-btn-secondary"
-						>
-							Edit
-						</button>
+					{editing ? (
+						<>
+							<button
+								type="button"
+								onClick={handleCancelEdit}
+								className="ui-btn ui-btn-secondary"
+							>
+								Cancel
+							</button>
+							<button
+								type="button"
+								onClick={handleSave}
+								className="ui-btn ui-btn-primary"
+							>
+								Save Changes
+							</button>
+						</>
+					) : (
+						<>
+							<button
+								type="button"
+								onClick={() => setEditing(true)}
+								className="ui-btn ui-btn-secondary"
+							>
+								Edit
+							</button>
+							<button
+								type="button"
+								disabled={cooldown > 0 || discovering}
+								onClick={handleDiscover}
+								className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
+									cooldown > 0 || discovering
+										? "bg-(--accent-lighter) text-(--accent)/50 border-(--accent-light) cursor-not-allowed"
+										: "bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125"
+								}`}
+							>
+								{discovering ? (
+									<>
+										<Spinner /> Updating…
+									</>
+								) : cooldown > 0 ? (
+									`Update (${cooldown}s)`
+								) : (
+									"Update info"
+								)}
+							</button>
+						</>
 					)}
-					<button
-						type="button"
-						disabled={cooldown > 0 || discovering}
-						onClick={handleDiscover}
-						className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
-							cooldown > 0 || discovering
-								? "bg-(--accent-lighter) text-(--accent)/50 border-(--accent-light) cursor-not-allowed"
-								: "bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125"
-						}`}
-					>
-						{discovering ? (
-							<>
-								<Spinner /> Updating…
-							</>
-						) : cooldown > 0 ? (
-							`Update (${cooldown}s)`
-						) : (
-							"Update info"
-						)}
-					</button>
 				</div>
 			</div>
 

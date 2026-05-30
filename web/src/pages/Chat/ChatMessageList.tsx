@@ -128,7 +128,7 @@ export function ChatMessageList({
 									<CopyButton
 										text={msg.content}
 										size={10}
-										className={`inline-flex items-center cursor-pointer transition-all ${isConversationMode ? "text-(--text-secondary) hover:text-(--text-primary)" : "text-white hover:drop-shadow-[var(--glow-white)]"}`}
+										className={`inline-flex items-center cursor-pointer transition-all ${isConversationMode ? "text-(--text-secondary) hover:text-(--text-primary)" : "text-white hover:drop-shadow-[var(--glow-text-primary)]"}`}
 									/>
 								</div>
 							</div>

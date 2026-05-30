@@ -429,7 +429,7 @@ function RequestLogs() {
 								className={`flex items-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium transition-all border cursor-pointer ${
 									viewMode === "scroll"
 										? "bg-(--accent)/20 text-(--accent) border-(--accent)/40"
-										: "text-gray-400 border-gray-700 hover:text-white hover:border-gray-500"
+										: "text-gray-400 border-gray-700 hover:text-(--text-primary) hover:border-gray-500"
 								}`}
 								title={
 									viewMode === "paginate"
@@ -488,7 +488,7 @@ function RequestLogs() {
 										className={`flex items-center justify-center h-9 w-9 rounded-(--radius-button) text-sm border transition-colors cursor-pointer ${
 											hasDateFilter
 												? "bg-(--accent)/15 text-(--accent) border-(--accent)/40 hover:bg-(--accent)/25"
-												: "bg-gray-900/40 text-gray-400 border-gray-700/50 hover:text-white hover:border-gray-500"
+												: "bg-gray-900/40 text-gray-400 border-gray-700/50 hover:text-(--text-primary) hover:border-gray-500"
 										}`}
 										title={
 											hasDateFilter
@@ -506,7 +506,7 @@ function RequestLogs() {
 									{hasDateFilter && (
 										<button
 											type="button"
-											className="inline-flex items-center justify-center h-9 w-6 rounded-(--radius-button) bg-(--accent)/30 text-(--accent) hover:text-white transition-all cursor-default hover:drop-shadow-[var(--glow-accent-lg)]"
+											className="inline-flex items-center justify-center h-9 w-6 rounded-(--radius-button) bg-(--accent)/30 text-(--accent) hover:text-(--text-primary) transition-all cursor-default hover:drop-shadow-[var(--glow-accent-lg)]"
 											onClick={clearDateFilter}
 											title={`Clear date filter (${formatDateRangeShort(dateFrom, dateTo)})`}
 											aria-label={`Clear date filter (${formatDateRangeShort(dateFrom, dateTo)})`}
@@ -519,13 +519,13 @@ function RequestLogs() {
 								{showDatePicker && (
 									<div className="absolute left-0 mt-2 w-72 p-4 bg-gray-900 border border-gray-700 rounded-(--radius-card) shadow-2xl z-50">
 										<div className="flex items-center justify-between mb-3">
-											<span className="text-sm font-semibold text-white">
+											<span className="text-sm font-semibold text-(--text-primary)">
 												Select date range
 											</span>
 											<button
 												type="button"
 												onClick={() => closeDatePicker()}
-												className="text-gray-400 hover:text-white transition-colors leading-none p-1 hover:drop-shadow-[var(--glow-accent-lg)]"
+												className="text-gray-400 hover:text-(--text-primary) transition-colors leading-none p-1 hover:drop-shadow-[var(--glow-accent-lg)]"
 												title="Close date picker"
 												aria-label="Close date picker"
 											>
@@ -559,7 +559,7 @@ function RequestLogs() {
 											<button
 												type="button"
 												onClick={clearDateFilter}
-												className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+												className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-gray-700 text-gray-400 hover:text-(--text-primary) hover:bg-gray-700 transition-colors"
 											>
 												Clear
 											</button>
