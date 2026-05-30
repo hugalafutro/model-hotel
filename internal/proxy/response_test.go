@@ -2721,3 +2721,421 @@ data: [DONE]
 		t.Errorf("expected prompt_cache_miss=0 (clamped by max(0, 400-500)), got %d", logData.tokensPromptCacheMiss)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Tests for "skip invalid JSON chunks" logic in streaming handler
+// ---------------------------------------------------------------------------
+
+// TestHandleStreamingResponse_InvalidJSONChunkSkipped tests that truncated JSON
+// in a data line is skipped and NOT forwarded to the client.
+func TestHandleStreamingResponse_InvalidJSONChunkSkipped(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Upstream sends: valid chunk, truncated chunk, another valid chunk, then [DONE]
+	streamData := `data: {"id":"chatcmpl-1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}
+
+data: {"choices":[{"delta":
+
+data: {"id":"chatcmpl-2","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"World"},"finish_reason":null}]}
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
+
+	body := w.Body.String()
+
+	// Verify stream completed successfully
+	assert.Equal(t, "completed", logData.state)
+
+	// Verify both valid chunks appear in output
+	assert.Contains(t, body, `"content":"Hello"`)
+	assert.Contains(t, body, `"content":"World"`)
+
+	// Verify [DONE] is present
+	assert.Contains(t, body, "data: [DONE]")
+
+	// Verify the truncated chunk is NOT in output
+	assert.NotContains(t, body, `{"choices":[{"delta":`)
+}
+
+// TestHandleStreamingResponse_InvalidJSONChunkMidStream tests the Warp.dev
+// scenario: upstream truncates a chunk mid-stream.
+func TestHandleStreamingResponse_InvalidJSONChunkMidStream(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Upstream sends: 3 valid chunks with content, then a truncated chunk, then [DONE]
+	streamData := `data: {"id":"chatcmpl-1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-2","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":" world"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-3","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"!"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-1","choices":[{"delta":{"content"
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
+
+	body := w.Body.String()
+
+	// Verify stream completed successfully
+	assert.Equal(t, "completed", logData.state)
+
+	// Verify the 3 valid chunks are in output
+	assert.Contains(t, body, `"content":"Hello"`)
+	assert.Contains(t, body, `"content":" world"`)
+	assert.Contains(t, body, `"content":"!"`)
+
+	// Verify [DONE] is present
+	assert.Contains(t, body, "data: [DONE]")
+
+	// Verify the truncated chunk is NOT in output
+	assert.NotContains(t, body, `"choices":[{"delta":{"content"`)
+
+	// Verify no broken JSON in output (every data: line contains valid JSON or [DONE])
+	lines := strings.Split(body, "\n\n")
+	for _, event := range lines {
+		event = strings.TrimSpace(event)
+		if event == "" || !strings.HasPrefix(event, "data: ") {
+			continue
+		}
+		payload := strings.TrimPrefix(event, "data: ")
+		if payload == "[DONE]" {
+			continue
+		}
+		assert.True(t, json.Valid([]byte(payload)), "Every data line should contain valid JSON, got: %s", payload)
+	}
+}
+
+// TestHandleStreamingResponse_MultipleInvalidChunksAllSkipped tests that multiple
+// consecutive invalid chunks are all skipped.
+func TestHandleStreamingResponse_MultipleInvalidChunksAllSkipped(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Upstream sends: valid chunk, 3 consecutive truncated chunks, another valid chunk, then [DONE]
+	streamData := `data: {"id":"chatcmpl-1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"First"},"finish_reason":null}]}
+
+data: {"id":"x","choices":[{"delta"
+
+data: {"choices":[{"delta":
+
+data: {"id":"y","choices":[{"delta":{"content"
+
+data: {"id":"chatcmpl-2","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"Last"},"finish_reason":null}]}
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
+
+	body := w.Body.String()
+
+	// Verify stream completed successfully
+	assert.Equal(t, "completed", logData.state)
+
+	// Verify only the 2 valid chunks and [DONE] appear in output
+	assert.Contains(t, body, `"content":"First"`)
+	assert.Contains(t, body, `"content":"Last"`)
+	assert.Contains(t, body, "data: [DONE]")
+
+	// Verify none of the truncated chunks appear in output
+	assert.NotContains(t, body, `"choices":[{"delta"`)
+}
+
+// TestHandleStreamingResponse_InvalidChunkWithoutDataPrefix tests that non-data
+// lines (e.g., event:, comments) are NOT affected by the invalid JSON skip logic.
+func TestHandleStreamingResponse_InvalidChunkWithoutDataPrefix(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Upstream sends: valid chunk, SSE comment line, valid chunk, then [DONE]
+	streamData := `data: {"id":"chatcmpl-1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}
+
+: this is a comment
+
+data: {"id":"chatcmpl-2","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"World"},"finish_reason":null}]}
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
+
+	body := w.Body.String()
+
+	// Verify stream completed successfully
+	assert.Equal(t, "completed", logData.state)
+
+	// Verify both valid chunks and the comment line appear in output
+	assert.Contains(t, body, `"content":"Hello"`)
+	assert.Contains(t, body, `"content":"World"`)
+	assert.Contains(t, body, ": this is a comment")
+	assert.Contains(t, body, "data: [DONE]")
+}
+
+// TestHandleStreamingResponse_AllChunksInvalid tests the edge case where all
+// data chunks are invalid JSON (e.g., upstream crashes immediately).
+func TestHandleStreamingResponse_AllChunksInvalid(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Upstream sends: 3 truncated data lines, then [DONE]
+	streamData := `data: {"choices":[{"delta":
+
+data: {"id":"x","choices":[{"delta"
+
+data: {"id":"y","choices":[{"delta":{"content"
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
+
+	body := w.Body.String()
+
+	// Verify stream completes (it has [DONE])
+	assert.Equal(t, "completed", logData.state)
+
+	// Verify output only has [DONE], no broken JSON
+	assert.Contains(t, body, "data: [DONE]")
+
+	// Verify no truncated chunks appear in output
+	assert.NotContains(t, body, `"choices":[{"delta":`)
+	assert.NotContains(t, body, `"id":"x"`)
+	assert.NotContains(t, body, `"id":"y"`)
+
+	// Verify no content data events (only [DONE])
+	assert.NotContains(t, body, `"content"`)
+}
+
+// TestHandleStreamingResponse_ValidJSONForwardedUnchanged is a regression test:
+// valid JSON that doesn't need normalization still gets forwarded via the !written path.
+func TestHandleStreamingResponse_ValidJSONForwardedUnchanged(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Upstream sends: a valid chunk with standard format (no normalization needed), then [DONE]
+	validChunk := `{"id":"chatcmpl-1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}`
+	streamData := "data: " + validChunk + "\n\n" + "data: [DONE]\n\n"
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
+
+	body := w.Body.String()
+
+	// Verify stream completed successfully
+	assert.Equal(t, "completed", logData.state)
+
+	// Verify the chunk appears in output identically (data prefix + JSON + \n\n separators)
+	assert.Contains(t, body, "data: "+validChunk)
+
+	// Verify [DONE] is present
+	assert.Contains(t, body, "data: [DONE]")
+
+	// Verify JSON is valid
+	var chunk map[string]interface{}
+	require.NoError(t, json.Unmarshal([]byte(validChunk), &chunk))
+}
+
+// TestHandleStreamingResponse_InvalidErrorChunkSkippedButLogged tests the
+// interaction between P1-B error accumulation and the invalid JSON skip logic.
+// When a truncated error-prefix chunk arrives, it should be accumulated into
+// errAccum (for logging) and NOT forwarded to the client. When a subsequent
+// non-error line arrives, the accumulated error should be flushed and logged.
+func TestHandleStreamingResponse_InvalidErrorChunkSkippedButLogged(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Upstream sends: valid chunk, truncated error chunk (P1-B), valid chunk, then [DONE].
+	// The truncated error chunk starts with {"error" so P1-B accumulates it,
+	// but json.Unmarshal fails because it's truncated. The skip block should
+	// prevent it from being forwarded while P1-B still captures the error.
+	streamData := `data: {"id":"chatcmpl-1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}
+
+data: {"error":{"message":"Rate limit
+
+data: {"id":"chatcmpl-2","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"World"},"finish_reason":null}]}
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
+
+	body := w.Body.String()
+
+	// Verify stream ended in "failed" state because the upstream error was
+	// captured by P1-B accumulation (even though the stream itself completed).
+	assert.Equal(t, "failed", logData.state)
+
+	// Verify both valid chunks appear in output
+	assert.Contains(t, body, `"content":"Hello"`)
+	assert.Contains(t, body, `"content":"World"`)
+
+	// Verify [DONE] is present
+	assert.Contains(t, body, "data: [DONE]")
+
+	// Verify the truncated error chunk is NOT forwarded to the client
+	assert.NotContains(t, body, `"error":{"message":"Rate limit`)
+
+	// Verify the P1-B error accumulation captured the error message.
+	// parseAccumulatedError uses a heuristic for incomplete JSON,
+	// so we check that errorMessage is non-empty.
+	assert.NotEmpty(t, logData.errorMessage, "P1-B should have captured the truncated error chunk")
+}

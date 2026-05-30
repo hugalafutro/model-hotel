@@ -373,7 +373,8 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			Usage *Usage                    `json:"usage"`
 			Error *struct{ Message string } `json:"error"`
 		}
-		if json.Unmarshal([]byte(payload), &chunk) == nil {
+		jsonValid := json.Unmarshal([]byte(payload), &chunk) == nil
+		if jsonValid {
 			// Reasoning field normalization: ensure reasoning_content is
 			// always populated regardless of upstream provider format.
 			// Handles: delta.reasoning (Ollama), delta.reasoning_details
@@ -640,6 +641,19 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 					}
 				}
 			}
+		}
+		if !written && !jsonValid {
+			// Skip invalid/truncated JSON chunks instead of forwarding them.
+			// Forwarding broken JSON causes downstream clients (e.g. Warp.dev)
+			// to fail with JSON parse errors, crashing the entire stream.
+			preview := payload
+			if len(preview) > 80 {
+				preview = preview[:80] + "..."
+			}
+			debuglog.Warn("proxy: skipping invalid JSON chunk from upstream",
+				"model", logData.modelID, "provider", logData.providerName,
+				"chunk_number", chunkCount, "payload_preview", preview)
+			continue
 		}
 		if !written {
 			// No normalization needed — forward the original line.
