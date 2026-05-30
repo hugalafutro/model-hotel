@@ -1,10 +1,8 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { CalendarDays, FileText, ScrollText, X } from "lucide-react";
+import { FileText, ScrollText } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { AppLogEntry } from "../api/types";
-import { AccentCalendar } from "../components/AccentCalendar";
-import { formatDateRangeShort } from "../components/AccentCalendar.utils";
 import { Badge } from "../components/Badge";
 import type { SortState } from "../components/DataTable";
 import {
@@ -17,15 +15,26 @@ import { FilterDropdown } from "../components/FilterDropdown";
 import { FilterInput } from "../components/FilterInput";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { LogDetailModal } from "../components/LogDetailModal";
+import {
+	DateFilterButton,
+	DateRangePickerPopover,
+	LiveToggleButton,
+	LogsErrorState,
+	ViewModeToggle,
+} from "../components/logs";
 import { PageHeader } from "../components/PageHeader";
 import { VirtualAppLogTable } from "../components/VirtualAppLogTable";
 import { useSidebarMode } from "../context/SidebarModeContext";
-import { useToast } from "../context/ToastContext";
 import { useBidirectionalFetch } from "../hooks/useBidirectionalFetch";
 import { useDateRangePicker } from "../hooks/useDateRangePicker";
 import { useDebounce } from "../hooks/useDebounce";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { encodeCursor } from "../utils/format";
+import {
+	formatTimestamp,
+	getLevelBadgeVariant,
+	getSourceBadgeClasses,
+} from "../utils/logBadgeUtils";
 
 type AppLogSortField = "time" | "level" | "source" | "message";
 
@@ -54,8 +63,6 @@ export function AppLogs() {
 		"appLogsViewMode",
 		"scroll",
 	);
-	const { toast } = useToast();
-
 	const debouncedSearch = useDebounce(searchFilter, 300);
 
 	const {
@@ -223,80 +230,6 @@ export function AppLogs() {
 	const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 	const safePage = Math.min(page, totalPages);
 
-	const getLevelBadgeVariant = (level: string) => {
-		switch (level) {
-			case "error":
-				return "error" as const;
-			case "warning":
-				return "warning" as const;
-			default:
-				return "info" as const;
-		}
-	};
-
-	const getSourceBadgeClasses = (source: string) => {
-		switch (source) {
-			case "auth":
-				return "bg-purple-900/30 text-purple-400";
-			case "proxy":
-				return "bg-cyan-900/30 text-cyan-400";
-			case "resolve":
-				return "bg-teal-900/30 text-teal-400";
-			case "discovery":
-				return "bg-emerald-900/30 text-emerald-400";
-			case "failover":
-				return "bg-slate-700/50 text-slate-300";
-			case "ratelimit":
-				return "bg-amber-900/30 text-amber-400";
-			case "vkey":
-			case "admin":
-				return "bg-pink-900/30 text-pink-400";
-			case "settings":
-				return "bg-indigo-900/30 text-indigo-400";
-			case "events":
-				return "bg-violet-900/30 text-violet-400";
-			case "docker":
-				return "bg-sky-900/30 text-sky-400";
-			case "keycache":
-			case "model":
-			case "provider":
-			case "cache":
-			case "db":
-				return "bg-lime-900/30 text-lime-400";
-			case "access":
-				return "bg-fuchsia-900/30 text-fuchsia-400";
-			case "server":
-			case "startup":
-			case "retention":
-				return "bg-blue-900/30 text-blue-400";
-			case "circuit-breaker":
-				return "bg-orange-900/30 text-orange-400";
-			case "modelsdev":
-				return "bg-rose-900/30 text-rose-400";
-			case "applogs":
-				return "bg-gray-700/30 text-gray-400";
-			default:
-				return "bg-gray-800/30 text-gray-400";
-		}
-	};
-
-	const formatTimestamp = (ts: string) => {
-		try {
-			const d = new Date(ts);
-			return d.toLocaleString(undefined, {
-				year: "numeric",
-				month: "2-digit",
-				day: "2-digit",
-				hour: "2-digit",
-				minute: "2-digit",
-				second: "2-digit",
-				hour12: false,
-			});
-		} catch {
-			return ts;
-		}
-	};
-
 	return (
 		<>
 			{selectedLog && (
@@ -315,29 +248,7 @@ export function AppLogs() {
 					title="Logs"
 					description="Server application log output"
 					badge={
-						<button
-							type="button"
-							aria-label="Toggle live updates"
-							onClick={() => {
-								setLiveEnabled(!liveEnabled);
-								toast(
-									liveEnabled ? "Live updates paused" : "Live updates resumed",
-									"info",
-								);
-							}}
-							className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold transition-colors ${
-								liveEnabled
-									? "bg-green-500/20 text-green-400 hover:bg-green-500/30"
-									: "bg-gray-700 text-gray-400 hover:bg-gray-600"
-							}`}
-						>
-							<span
-								className={`w-1.5 h-1.5 rounded-full transition-colors ${
-									liveEnabled ? "bg-green-400" : "bg-gray-500"
-								}`}
-							/>
-							Live
-						</button>
+						<LiveToggleButton enabled={liveEnabled} onToggle={setLiveEnabled} />
 					}
 					actions={
 						viewMode === "paginate" && totalItems > 0 ? (
@@ -392,30 +303,7 @@ export function AppLogs() {
 							</button>
 						</div>
 						<div className="flex items-center gap-2">
-							{/* View mode toggle */}
-							<button
-								type="button"
-								onClick={() =>
-									setViewMode(viewMode === "paginate" ? "scroll" : "paginate")
-								}
-								className={`flex items-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium transition-all border cursor-pointer ${
-									viewMode === "scroll"
-										? "bg-(--accent)/20 text-(--accent) border-(--accent)/40"
-										: "text-gray-400 border-gray-700 hover:text-(--text-primary) hover:border-gray-500"
-								}`}
-								title={
-									viewMode === "paginate"
-										? "Switch to scroll mode"
-										: "Switch to pagination mode"
-								}
-								aria-label={
-									viewMode === "paginate"
-										? "Switch to scroll mode"
-										: "Switch to pagination mode"
-								}
-							>
-								{viewMode === "paginate" ? "⇊ Scroll" : "⬡ Pages"}
-							</button>
+							<ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
 							<FilterDropdown
 								value={levelFilter === "all" ? "" : levelFilter}
 								onChange={(v) => {
@@ -458,100 +346,28 @@ export function AppLogs() {
 								autoFocus
 							/>
 
-							{/* Calendar picker */}
 							<div className="relative" ref={datePickerRef}>
-								<div className="flex items-center gap-1">
-									<button
-										type="button"
-										onClick={toggleDatePicker}
-										className={`flex items-center justify-center h-9 w-9 rounded-(--radius-button) text-sm border transition-colors cursor-pointer ${
-											hasDateFilter
-												? "bg-(--accent)/15 text-(--accent) border-(--accent)/40 hover:bg-(--accent)/25"
-												: "bg-gray-900/40 text-gray-400 border-gray-700/50 hover:text-(--text-primary) hover:border-gray-500"
-										}`}
-										title={
-											hasDateFilter
-												? `Date filter: ${formatDateRangeShort(dateFrom, dateTo)} - click to change`
-												: "Filter by date range"
-										}
-										aria-label={
-											hasDateFilter
-												? `Date filter: ${formatDateRangeShort(dateFrom, dateTo)} - click to change`
-												: "Filter by date range"
-										}
-									>
-										<CalendarDays size={16} />
-									</button>
-									{hasDateFilter && (
-										<button
-											type="button"
-											className="inline-flex items-center justify-center h-9 w-6 rounded-(--radius-button) bg-(--accent)/30 text-(--accent) hover:text-(--text-primary) transition-all cursor-default hover:drop-shadow-[var(--glow-accent-lg)]"
-											onClick={clearDateFilter}
-											title={`Clear date filter (${formatDateRangeShort(dateFrom, dateTo)})`}
-											aria-label={`Clear date filter (${formatDateRangeShort(dateFrom, dateTo)})`}
-										>
-											<X size={14} />
-										</button>
-									)}
-								</div>
-
+								<DateFilterButton
+									hasDateFilter={hasDateFilter}
+									dateFrom={dateFrom}
+									dateTo={dateTo}
+									onToggleDatePicker={toggleDatePicker}
+									onClearDateFilter={clearDateFilter}
+								/>
 								{showDatePicker && (
-									<div className="absolute right-0 mt-2 w-72 p-4 bg-gray-900 border border-gray-700 rounded-(--radius-card) shadow-2xl z-50">
-										<div className="flex items-center justify-between mb-3">
-											<span className="text-sm font-semibold text-(--text-primary)">
-												Select date range
-											</span>
-											<button
-												type="button"
-												onClick={() => closeDatePicker()}
-												className="text-gray-400 hover:text-(--text-primary) transition-colors leading-none p-1 hover:drop-shadow-[var(--glow-accent-lg)]"
-												title="Close date picker"
-												aria-label="Close date picker"
-											>
-												<X size={16} />
-											</button>
-										</div>
-
-										<AccentCalendar
-											initialYear={pickerYear}
-											initialMonth={pickerMonth}
-											from={pendingFrom}
-											to={pendingTo}
-											onSelect={handleCalendarSelect}
-										/>
-
-										<div className="mt-3 flex items-center justify-between text-xs text-gray-400 min-h-5">
-											{pendingFrom && pendingTo ? (
-												<span>
-													{formatDateRangeShort(pendingFrom, pendingTo)}
-												</span>
-											) : pendingFrom ? (
-												<span className="text-(--accent)">
-													Select end date…
-												</span>
-											) : (
-												<span>Select start date</span>
-											)}
-										</div>
-
-										<div className="flex gap-2 mt-3">
-											<button
-												type="button"
-												onClick={clearDateFilter}
-												className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-gray-700 text-gray-400 hover:text-(--text-primary) hover:bg-gray-700 transition-colors"
-											>
-												Clear
-											</button>
-											<button
-												type="button"
-												onClick={applyDateFilter}
-												disabled={!pendingFrom}
-												className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-(--accent-light) bg-(--accent-light) text-(--accent) hover:brightness-125 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-											>
-												Apply
-											</button>
-										</div>
-									</div>
+									<DateRangePickerPopover
+										pickerYear={pickerYear}
+										pickerMonth={pickerMonth}
+										pendingFrom={pendingFrom}
+										pendingTo={pendingTo}
+										onCalendarSelect={(dateStr) =>
+											handleCalendarSelect(dateStr)
+										}
+										onApply={applyDateFilter}
+										onClear={clearDateFilter}
+										onClose={closeDatePicker}
+										anchor="right"
+									/>
 								)}
 							</div>
 						</div>
@@ -561,11 +377,9 @@ export function AppLogs() {
 				{isLoading && !historyData && <LoadingSpinner />}
 
 				{error && !historyData && entries.length === 0 && (
-					<div className="ui-card p-8 text-center">
-						<p className="text-red-400 text-sm">
-							Failed to load logs: {error?.message || "Unknown error"}
-						</p>
-					</div>
+					<LogsErrorState
+						message={`Failed to load logs: ${error?.message || "Unknown error"}`}
+					/>
 				)}
 
 				{viewMode === "paginate" && (!isLoading || historyData) && (
@@ -662,11 +476,7 @@ export function AppLogs() {
 							<LoadingSpinner />
 						)}
 						{scrollError && scrollEntries.length === 0 && (
-							<div className="ui-card p-8 text-center">
-								<p className="text-red-400 text-sm">
-									Failed to load logs: {scrollError}
-								</p>
-							</div>
+							<LogsErrorState message={`Failed to load logs: ${scrollError}`} />
 						)}
 						{(!isScrollLoading || scrollEntries.length > 0) && (
 							<VirtualAppLogTable

@@ -24,6 +24,8 @@ engines:
       - "**/*_test.go"
   metric:
     exclude_paths:
+      - "**/__tests__/**"
+      - "**/*.test.*"
       - "**/*_test.go"
   markdownlint:
     exclude_paths:
