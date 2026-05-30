@@ -73,6 +73,7 @@ function RequestLogs() {
 		showDatePicker,
 		pendingFrom,
 		pendingTo,
+		datePickerRef,
 		hasDateFilter,
 		pickerYear,
 		pickerMonth,
@@ -436,26 +437,28 @@ function RequestLogs() {
 								className="w-28"
 							/>
 
-							<DateFilterButton
-								hasDateFilter={hasDateFilter}
-								dateFrom={dateFrom}
-								dateTo={dateTo}
-								onToggleDatePicker={toggleDatePicker}
-								onClearDateFilter={clearDateFilter}
-							/>
-							{showDatePicker && (
-								<DateRangePickerPopover
-									pickerYear={pickerYear}
-									pickerMonth={pickerMonth}
-									pendingFrom={pendingFrom}
-									pendingTo={pendingTo}
-									onCalendarSelect={handleCalendarSelect}
-									onApply={applyDateFilter}
-									onClear={clearDateFilter}
-									onClose={closeDatePicker}
-									anchor="left"
+							<div className="relative" ref={datePickerRef}>
+								<DateFilterButton
+									hasDateFilter={hasDateFilter}
+									dateFrom={dateFrom}
+									dateTo={dateTo}
+									onToggleDatePicker={toggleDatePicker}
+									onClearDateFilter={clearDateFilter}
 								/>
-							)}
+								{showDatePicker && (
+									<DateRangePickerPopover
+										pickerYear={pickerYear}
+										pickerMonth={pickerMonth}
+										pendingFrom={pendingFrom}
+										pendingTo={pendingTo}
+										onCalendarSelect={handleCalendarSelect}
+										onApply={applyDateFilter}
+										onClear={clearDateFilter}
+										onClose={closeDatePicker}
+										anchor="left"
+									/>
+								)}
+							</div>
 						</div>
 					</div>
 				</div>

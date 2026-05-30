@@ -71,6 +71,7 @@ export function AppLogs() {
 		showDatePicker,
 		pendingFrom,
 		pendingTo,
+		datePickerRef,
 		hasDateFilter,
 		pickerYear,
 		pickerMonth,
@@ -345,26 +346,30 @@ export function AppLogs() {
 								autoFocus
 							/>
 
-							<DateFilterButton
-								hasDateFilter={hasDateFilter}
-								dateFrom={dateFrom}
-								dateTo={dateTo}
-								onToggleDatePicker={toggleDatePicker}
-								onClearDateFilter={clearDateFilter}
-							/>
-							{showDatePicker && (
-								<DateRangePickerPopover
-									pickerYear={pickerYear}
-									pickerMonth={pickerMonth}
-									pendingFrom={pendingFrom}
-									pendingTo={pendingTo}
-									onCalendarSelect={(dateStr) => handleCalendarSelect(dateStr)}
-									onApply={applyDateFilter}
-									onClear={clearDateFilter}
-									onClose={closeDatePicker}
-									anchor="right"
+							<div className="relative" ref={datePickerRef}>
+								<DateFilterButton
+									hasDateFilter={hasDateFilter}
+									dateFrom={dateFrom}
+									dateTo={dateTo}
+									onToggleDatePicker={toggleDatePicker}
+									onClearDateFilter={clearDateFilter}
 								/>
-							)}
+								{showDatePicker && (
+									<DateRangePickerPopover
+										pickerYear={pickerYear}
+										pickerMonth={pickerMonth}
+										pendingFrom={pendingFrom}
+										pendingTo={pendingTo}
+										onCalendarSelect={(dateStr) =>
+											handleCalendarSelect(dateStr)
+										}
+										onApply={applyDateFilter}
+										onClear={clearDateFilter}
+										onClose={closeDatePicker}
+										anchor="right"
+									/>
+								)}
+							</div>
 						</div>
 					</div>
 				</div>

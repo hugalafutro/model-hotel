@@ -65,7 +65,7 @@ export const formatTimestamp = (ts: string) => {
 		if (Number.isNaN(d.getTime())) {
 			return ts;
 		}
-		return d.toLocaleString(undefined, {
+		return d.toLocaleString("en-US", {
 			year: "numeric",
 			month: "2-digit",
 			day: "2-digit",

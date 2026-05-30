@@ -173,7 +173,17 @@ describe("getSourceBadgeClasses", () => {
 describe("formatTimestamp", () => {
 	it("formats valid ISO date string", () => {
 		const result = formatTimestamp("2024-01-15T10:30:45Z");
-		expect(result).toMatch(/^\d{1,2}\/\d{2}\/\d{4},\s\d{2}:\d{2}:\d{2}$/);
+		expect(result).toBe(
+			new Date("2024-01-15T10:30:45Z").toLocaleString("en-US", {
+				year: "numeric",
+				month: "2-digit",
+				day: "2-digit",
+				hour: "2-digit",
+				minute: "2-digit",
+				second: "2-digit",
+				hour12: false,
+			}),
+		);
 	});
 
 	it("returns original string for invalid date", () => {
