@@ -16,7 +16,7 @@ function SectionHeader({
 	label: string;
 }) {
 	return (
-		<div className="flex items-center gap-2 text-(--accent) pb-1.5 mt-2 first:mt-0">
+		<div className="flex items-center gap-2 text-(--accent) mt-4 first:mt-0">
 			<Icon size={14} className="shrink-0" />
 			<span className="text-xs font-semibold uppercase tracking-wider">
 				{label}
@@ -180,7 +180,7 @@ export function KeyDetailModal({
 			maxWidth="max-w-lg"
 			scrollable
 		>
-			<div className="space-y-5 mb-6">
+			<div className="space-y-2 mb-6">
 				{editing ? (
 					<>
 						<SectionHeader icon={Key} label="Identity" />
