@@ -25,6 +25,9 @@ engines:
   gocyclo:
     exclude_paths:
       - "**/*_test.go"
+  metric:
+    exclude_paths:
+      - "**/*_test.go"
   markdownlint:
     exclude_paths:
       - "README.md"
