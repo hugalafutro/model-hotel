@@ -234,10 +234,10 @@ html[data-ui-style="glassmorphism-lite"].dark {
 
 html[data-ui-style="glassmorphism-lite"].light {
 	--surface-bg: #e0e4f2;
-	--surface-elevated: rgba(255, 255, 255, 0.65);
-	--surface-elevated-hover: rgba(255, 255, 255, 0.78);
-	--surface-input: rgba(225, 230, 250, 0.55);
-	--surface-sidebar: rgba(218, 224, 250, 0.6);
+	--surface-elevated: rgba(255, 255, 255, 0.5);
+	--surface-elevated-hover: rgba(255, 255, 255, 0.65);
+	--surface-input: rgba(225, 230, 250, 0.4);
+	--surface-sidebar: rgba(218, 224, 250, 0.45);
 	--surface-hover: rgba(0, 0, 0, 0.04);
 
 	--border-default: rgba(100, 110, 180, 0.12);
@@ -268,6 +268,20 @@ html[data-ui-style="glassmorphism-lite"].light {
 
 html[data-ui-style="glassmorphism-lite"] {
 	backdrop-filter: blur(20px);
+}
+
+/* Glassmorphism light: gradient background for Aero effect */
+html[data-ui-style="glassmorphism-lite"].light .ui-surface-bg {
+	background: linear-gradient(135deg, #dde1f5 0%, #e8e0f2 40%, #e0e8f8 100%);
+}
+
+/* Glassmorphism light: cards get frosted glass with lower opacity */
+html[data-ui-style="glassmorphism-lite"].light .ui-card {
+	background-color: rgba(255, 255, 255, 0.45);
+	backdrop-filter: blur(24px);
+	-webkit-backdrop-filter: blur(24px);
+	border: 1px solid rgba(255, 255, 255, 0.6);
+	box-shadow: 0 4px 24px rgba(80, 90, 160, 0.08);
 }
 
 /* =============================================
@@ -522,6 +536,13 @@ html[data-ui-style="glassmorphism-lite"].light .ui-sidebar-subtitle {
 
 [data-ui-style] .system-status {
 	color: var(--text-tertiary);
+}
+
+/* Light mode: sidebar stats need more contrast - remap text-muted
+   within stats to a darker value so units are readable */
+html.light .system-status {
+	color: var(--text-secondary);
+	--text-muted: var(--text-tertiary);
 }
 
 /* =============================================
@@ -1380,6 +1401,11 @@ html[data-ui-style="glassmorphism-lite"].light select.ui-input option:hover {
 	border-bottom: 1px solid var(--border-default);
 }
 
+/* Light mode: table headers need more contrast */
+html.light [data-ui-style] .ui-table th {
+	color: var(--text-secondary);
+}
+
 [data-ui-style] .ui-table td {
 	padding: 0.25rem 0.5rem;
 	border-bottom: 1px solid var(--border-subtle);
@@ -1472,8 +1498,13 @@ html[data-ui-style="glassmorphism-lite"] .ui-table-row-filter {
 	color: var(--text-muted);
 }
 
+/* Light mode: table header text needs stronger contrast */
+html.light .ui-table-header-text {
+	color: var(--text-secondary);
+}
+
 html[data-ui-style="light"] .ui-table-header-text {
-	color: var(--text-muted);
+	color: var(--text-secondary);
 }
 
 html[data-ui-style="cyber-terminal"] .ui-table-header-text {
@@ -1970,12 +2001,12 @@ html.light .terminal-win11-titlebar-label {
 }
 
 html.light .terminal-win11-body {
-	background-color: #012456;
-	color: #f0f0f0;
+	background-color: #f5f5f5;
+	color: #1a1a1a;
 }
 
 html.light .terminal-win11-body .terminal-win11-code {
-	color: #f0f0f0;
+	color: #1a1a1a;
 }
 
 /* Light theme for terminal tab bar background */
