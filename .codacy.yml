@@ -22,11 +22,15 @@ engines:
       - "**/__tests__/**"
       - "**/*.test.*"
       - "**/*_test.go"
+      - "**/test/**"
+      - "**/*_test_helpers*.go"
   metric:
     exclude_paths:
       - "**/__tests__/**"
       - "**/*.test.*"
       - "**/*_test.go"
+      - "**/test/**"
+      - "**/*_test_helpers*.go"
   markdownlint:
     exclude_paths:
       - "README.md"
@@ -38,3 +42,5 @@ exclude_paths:
   - "web/dist/**"
   - "web/coverage/**"
   - "cmd/server/static/**"  # embedded frontend bundle
+  - "**/test/**"            # test infrastructure (mocks, helpers, setup)
+  - "**/*_test_helpers*.go" # Go test helpers
