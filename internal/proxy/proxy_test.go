@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -2181,19 +2182,44 @@ func TestChatCompletions_AllowedProviders_FilterAllowed(t *testing.T) {
 
 	masterKey := "test-master-key-allowed-providers"
 
-	// Create two providers: one allowed, one not
+	// Provider 1: real upstream that returns success (the "allowed" provider)
+	prov1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id":      "chatcmpl-allowed",
+			"object":  "chat.completion",
+			"created": time.Now().Unix(),
+			"model":   "test",
+			"choices": []map[string]interface{}{
+				{"index": 0, "message": map[string]interface{}{"role": "assistant", "content": "hi"}, "finish_reason": "stop"},
+			},
+			"usage": map[string]interface{}{"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+		})
+	}))
+	defer prov1Server.Close()
+
 	keyPair1, err := auth.Encrypt("test-api-key-1", masterKey)
 	if err != nil {
 		t.Fatalf("failed to encrypt key1: %v", err)
 	}
 	prov1, err := providerRepo.Create(ctx, provider.CreateProviderRequest{
 		Name:    "allowed-prov-" + uuid.New().String()[:8],
-		BaseURL: "http://127.0.0.1:9999", // will fail but should be reached
+		BaseURL: prov1Server.URL,
 		APIKey:  "test-api-key-1",
 	}, keyPair1.Ciphertext, keyPair1.Nonce, keyPair1.Salt)
 	if err != nil {
 		t.Fatalf("failed to create provider1: %v", err)
 	}
+
+	// Provider 2: tracking upstream that fails the test if contacted (the "blocked" provider)
+	var prov2Contacted atomic.Bool
+	prov2Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		prov2Contacted.Store(true)
+		t.Error("blocked provider should never have been contacted")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer prov2Server.Close()
 
 	keyPair2, err := auth.Encrypt("test-api-key-2", masterKey)
 	if err != nil {
@@ -2201,7 +2227,7 @@ func TestChatCompletions_AllowedProviders_FilterAllowed(t *testing.T) {
 	}
 	prov2, err := providerRepo.Create(ctx, provider.CreateProviderRequest{
 		Name:    "blocked-prov-" + uuid.New().String()[:8],
-		BaseURL: "http://127.0.0.1:9998", // should never be reached
+		BaseURL: prov2Server.URL,
 		APIKey:  "test-api-key-2",
 	}, keyPair2.Ciphertext, keyPair2.Nonce, keyPair2.Salt)
 	if err != nil {
@@ -2280,11 +2306,12 @@ func TestChatCompletions_AllowedProviders_FilterAllowed(t *testing.T) {
 	w := httptest.NewRecorder()
 	handler.ChatCompletions(w, req)
 
-	// Should get connection refused from prov1 (allowed) but NOT prov2 (blocked)
-	// Since both providers fail to connect, we expect 502 (all providers exhausted)
-	// But the key is that only prov1 should have been attempted
-	if w.Code != http.StatusBadGateway {
-		t.Errorf("expected 502 (all providers exhausted), got %d; body: %s", w.Code, w.Body.String())
+	// Should get 200 from prov1 (allowed). prov2 must never be contacted.
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 (allowed provider succeeds), got %d; body: %s", w.Code, w.Body.String())
+	}
+	if prov2Contacted.Load() {
+		t.Error("blocked provider was contacted despite allowed_providers filter")
 	}
 }
 
