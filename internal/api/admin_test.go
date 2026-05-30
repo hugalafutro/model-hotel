@@ -76,16 +76,16 @@ func (m *mockProviderStore) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 type mockVirtualKeyStore struct {
-	createFn func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int, allowedProviders *[]string) (*virtualkey.VirtualKey, error)
+	createFn func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error)
 	listFn   func(ctx context.Context) ([]*virtualkey.VirtualKey, error)
 	getFn    func(ctx context.Context, id uuid.UUID) (*virtualkey.VirtualKey, error)
 	deleteFn func(ctx context.Context, id uuid.UUID) error
-	updateFn func(ctx context.Context, id uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string) (*virtualkey.VirtualKey, error)
+	updateFn func(ctx context.Context, id uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error)
 }
 
-func (m *mockVirtualKeyStore) Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int, allowedProviders *[]string) (*virtualkey.VirtualKey, error) {
+func (m *mockVirtualKeyStore) Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
 	if m.createFn != nil {
-		return m.createFn(ctx, name, keyHash, keyPreview, rps, burst, allowedProviders)
+		return m.createFn(ctx, name, keyHash, keyPreview, rps, burst, allowedProviders, stripReasoning)
 	}
 	return nil, errors.New("mock: Create not implemented")
 }
@@ -107,9 +107,9 @@ func (m *mockVirtualKeyStore) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 	return errors.New("mock: Delete not implemented")
 }
-func (m *mockVirtualKeyStore) Update(ctx context.Context, id uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string) (*virtualkey.VirtualKey, error) {
+func (m *mockVirtualKeyStore) Update(ctx context.Context, id uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
 	if m.updateFn != nil {
-		return m.updateFn(ctx, id, name, rps, burst, allowedProviders)
+		return m.updateFn(ctx, id, name, rps, burst, allowedProviders, stripReasoning)
 	}
 	return nil, errors.New("mock: Update not implemented")
 }
@@ -497,7 +497,7 @@ func TestGetSettings_RepoError(t *testing.T) {
 
 func TestCreateVirtualKey_Success(t *testing.T) {
 	mockVK := &mockVirtualKeyStore{
-		createFn: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int, allowedProviders *[]string) (*virtualkey.VirtualKey, error) {
+		createFn: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
 			if name == "" {
 				t.Error("expected non-empty name")
 			}

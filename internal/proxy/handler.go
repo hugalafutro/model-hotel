@@ -78,11 +78,12 @@ func (a *virtualKeyRepoAdapter) FindByKeyHash(ctx context.Context, keyHash strin
 		RateLimitRPS:     vk.RateLimitRPS,
 		RateLimitBurst:   vk.RateLimitBurst,
 		AllowedProviders: vk.AllowedProviders,
+		StripReasoning:   vk.StripReasoning,
 	}, nil
 }
 
-func (a *virtualKeyRepoAdapter) Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int, allowedProviders *[]string) (*VirtualKeyInfo, error) {
-	vk, err := a.repo.Create(ctx, name, keyHash, keyPreview, rps, burst, allowedProviders)
+func (a *virtualKeyRepoAdapter) Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*VirtualKeyInfo, error) {
+	vk, err := a.repo.Create(ctx, name, keyHash, keyPreview, rps, burst, allowedProviders, stripReasoning)
 	if err != nil {
 		return nil, err
 	}
@@ -95,6 +96,7 @@ func (a *virtualKeyRepoAdapter) Create(ctx context.Context, name, keyHash, keyPr
 		RateLimitRPS:     vk.RateLimitRPS,
 		RateLimitBurst:   vk.RateLimitBurst,
 		AllowedProviders: vk.AllowedProviders,
+		StripReasoning:   vk.StripReasoning,
 	}, nil
 }
 
@@ -212,6 +214,7 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 		ctx = context.WithValue(ctx, ctxkeys.VirtualKeyRateLimitRPSKey, vk.RateLimitRPS)
 		ctx = context.WithValue(ctx, ctxkeys.VirtualKeyRateLimitBurstKey, vk.RateLimitBurst)
 		ctx = context.WithValue(ctx, ctxkeys.VirtualKeyAllowedProvidersKey, vk.AllowedProviders)
+		ctx = context.WithValue(ctx, ctxkeys.VirtualKeyStripReasoningKey, vk.StripReasoning)
 		// Fire-and-forget touch with a timeout so the goroutine cannot
 		// outlive the server if the DB is slow.
 		//nolint:gosec // intentional: periodic cache refresh is not request-scoped

@@ -16,6 +16,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 )
 
 // failingResponseWriter implements http.ResponseWriter and http.Flusher
@@ -85,12 +87,30 @@ func (m *mockVirtualKeyRepo) FindByKeyHash(ctx context.Context, keyHash string) 
 	return &VirtualKeyInfo{ID: "test-id", Name: "test-key"}, nil
 }
 
-func (m *mockVirtualKeyRepo) Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int, allowedProviders *[]string) (*VirtualKeyInfo, error) {
+func (m *mockVirtualKeyRepo) Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*VirtualKeyInfo, error) {
 	return &VirtualKeyInfo{ID: "test-id", Name: name, KeyHash: keyHash, KeyPreview: keyPreview}, nil
 }
 
 func (m *mockVirtualKeyRepo) Delete(ctx context.Context, id string) error {
 	return nil
+}
+
+// withStripReasoningContext adds auth context and strip_reasoning flag to request
+func withStripReasoningContext(r *http.Request, enabled bool) *http.Request {
+	r = withAuthContext(r)
+	ctx := context.WithValue(r.Context(), ctxkeys.VirtualKeyStripReasoningKey, enabled)
+	return r.WithContext(ctx)
+}
+
+// buildSSEBody joins SSE data lines with \n\n separators
+func buildSSEBody(lines ...string) io.Reader {
+	var sb strings.Builder
+	for _, line := range lines {
+		sb.WriteString("data: ")
+		sb.WriteString(line)
+		sb.WriteString("\n\n")
+	}
+	return strings.NewReader(sb.String())
 }
 
 // TestHandleNonStreamingResponse_Success tests the happy path with a valid
@@ -3138,4 +3158,383 @@ data: [DONE]
 	// parseAccumulatedError uses a heuristic for incomplete JSON,
 	// so we check that errorMessage is non-empty.
 	assert.NotEmpty(t, logData.errorMessage, "P1-B should have captured the truncated error chunk")
+}
+
+// TestHandleStreamingResponse_StripReasoning_EmptyDeltasSkipped tests that
+// reasoning-only chunks (with content: "" and reasoning_content) are stripped
+// and NOT forwarded to the client when strip_reasoning is enabled.
+func TestHandleStreamingResponse_StripReasoning_EmptyDeltasSkipped(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	upstream := buildSSEBody(
+		`{"id":"c1","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{"role":"assistant","content":"","reasoning_content":"Let me think"}}]}`,
+		`{"id":"c1","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{"content":"","reasoning_content":"more thinking"}}]}`,
+		`{"id":"c1","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{"content":"Hello world"}}]}`,
+		`{"id":"c1","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`,
+		`[DONE]`,
+	)
+
+	resp := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(upstream),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withStripReasoningContext(req, true)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{})
+
+	body := w.Body.String()
+
+	// Verify reasoning_content is NOT in output
+	assert.NotContains(t, body, "reasoning_content")
+
+	// Verify content chunk IS in output
+	assert.Contains(t, body, `"content":"Hello world"`)
+
+	// Verify [DONE] is present
+	assert.Contains(t, body, "[DONE]")
+
+	// Verify finish_reason is forwarded
+	assert.Contains(t, body, "finish_reason")
+
+	// Verify SSE keep-alive comments are sent for skipped chunks
+	assert.Contains(t, body, ": thinking")
+
+	// Verify the stream completed successfully
+	assert.Equal(t, "completed", logData.state)
+}
+
+// TestHandleStreamingResponse_StripReasoning_WarpThinkingModelScenario simulates
+// the actual Warp.dev issue: a deep thinking model that sends 5+ reasoning chunks
+// before any content. Only role, content, and [DONE] should appear in output.
+func TestHandleStreamingResponse_StripReasoning_WarpThinkingModelScenario(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	upstream := buildSSEBody(
+		`{"id":"warp-1","object":"chat.completion.chunk","created":1,"model":"deep-think","choices":[{"index":0,"delta":{"role":"assistant","content":""}}]}`,
+		// 5 reasoning-only chunks
+		`{"id":"warp-1","object":"chat.completion.chunk","created":1,"model":"deep-think","choices":[{"index":0,"delta":{"content":"","reasoning_content":"step 1"}}]}`,
+		`{"id":"warp-1","object":"chat.completion.chunk","created":1,"model":"deep-think","choices":[{"index":0,"delta":{"content":"","reasoning_content":"step 2"}}]}`,
+		`{"id":"warp-1","object":"chat.completion.chunk","created":1,"model":"deep-think","choices":[{"index":0,"delta":{"content":"","reasoning_content":"step 3"}}]}`,
+		`{"id":"warp-1","object":"chat.completion.chunk","created":1,"model":"deep-think","choices":[{"index":0,"delta":{"content":"","reasoning_content":"step 4"}}]}`,
+		`{"id":"warp-1","object":"chat.completion.chunk","created":1,"model":"deep-think","choices":[{"index":0,"delta":{"content":"","reasoning_content":"step 5"}}]}`,
+		// Content chunks
+		`{"id":"warp-1","object":"chat.completion.chunk","created":1,"model":"deep-think","choices":[{"index":0,"delta":{"content":"Here"}}]}`,
+		`{"id":"warp-1","object":"chat.completion.chunk","created":1,"model":"deep-think","choices":[{"index":0,"delta":{"content":" is"}}]}`,
+		`{"id":"warp-1","object":"chat.completion.chunk","created":1,"model":"deep-think","choices":[{"index":0,"delta":{"content":" the"}}]}`,
+		`{"id":"warp-1","object":"chat.completion.chunk","created":1,"model":"deep-think","choices":[{"index":0,"delta":{"content":" answer"}}]}`,
+		`{"id":"warp-1","object":"chat.completion.chunk","created":1,"model":"deep-think","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`,
+		`[DONE]`,
+	)
+
+	resp := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(upstream),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withStripReasoningContext(req, true)
+
+	logData := &requestLogData{
+		modelID:        "deep-think",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{})
+
+	body := w.Body.String()
+
+	// Verify no reasoning_content in output
+	assert.NotContains(t, body, "reasoning_content")
+
+	// Verify role chunk is present (should have role: "assistant")
+	assert.Contains(t, body, `"role":"assistant"`)
+
+	// Verify all content chunks are present
+	assert.Contains(t, body, `"content":"Here"`)
+	assert.Contains(t, body, `"content":" is"`)
+	assert.Contains(t, body, `"content":" the"`)
+	assert.Contains(t, body, `"content":" answer"`)
+
+	// Verify [DONE]
+	assert.Contains(t, body, "[DONE]")
+
+	// Verify finish_reason is forwarded
+	assert.Contains(t, body, "finish_reason")
+
+	// Verify SSE keep-alive comments are sent for skipped chunks
+	assert.Contains(t, body, ": thinking")
+
+	// Verify stream completed
+	assert.Equal(t, "completed", logData.state)
+}
+
+// TestHandleStreamingResponse_StripReasoning_RoleChunkPreserved tests that
+// a role chunk with reasoning_content but no content has reasoning stripped
+// while role is preserved and forwarded.
+func TestHandleStreamingResponse_StripReasoning_RoleChunkPreserved(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	upstream := buildSSEBody(
+		`{"id":"c1","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{"role":"assistant","content":"","reasoning_content":"thinking"}}]}`,
+		`{"id":"c1","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{"content":"response"}}]}`,
+		`{"id":"c1","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`,
+		`[DONE]`,
+	)
+
+	resp := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(upstream),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withStripReasoningContext(req, true)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{})
+
+	body := w.Body.String()
+
+	// Verify reasoning_content is removed
+	assert.NotContains(t, body, "reasoning_content")
+
+	// Verify role is preserved
+	assert.Contains(t, body, `"role":"assistant"`)
+
+	// Verify content is present
+	assert.Contains(t, body, `"content":"response"`)
+
+	// Verify [DONE] is present
+	assert.Contains(t, body, "[DONE]")
+
+	// Verify finish_reason is forwarded
+	assert.Contains(t, body, "finish_reason")
+
+	// Verify stream completed
+	assert.Equal(t, "completed", logData.state)
+}
+
+// TestHandleStreamingResponse_StripReasoning_FinishAndUsagePassThrough tests that
+// finish_reason chunks and usage chunks pass through even with strip_reasoning enabled.
+func TestHandleStreamingResponse_StripReasoning_FinishAndUsagePassThrough(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	upstream := buildSSEBody(
+		`{"id":"c1","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{"role":"assistant","content":"","reasoning_content":"think"}}]}`,
+		`{"id":"c1","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{"content":"","reasoning_content":"more thinking"}}]}`,
+		`{"id":"c1","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{"content":"Answer"}}]}`,
+		`{"id":"c1","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{},"finish_reason":"stop","usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}]}`,
+		`[DONE]`,
+	)
+
+	resp := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(upstream),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withStripReasoningContext(req, true)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{})
+
+	body := w.Body.String()
+
+	// Verify reasoning_content is removed
+	assert.NotContains(t, body, "reasoning_content")
+
+	// Verify content is present
+	assert.Contains(t, body, `"content":"Answer"`)
+
+	// Verify finish_reason and usage are forwarded
+	assert.Contains(t, body, `"finish_reason":"stop"`)
+	assert.Contains(t, body, `"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}`)
+
+	// Verify SSE keep-alive comments are sent for skipped chunks
+	assert.Contains(t, body, ": thinking")
+
+	// Verify [DONE] is present
+	assert.Contains(t, body, "[DONE]")
+
+	// Verify stream completed
+	assert.Equal(t, "completed", logData.state)
+}
+
+// TestHandleStreamingResponse_StripReasoning_Disabled tests that when
+// strip_reasoning is false, reasoning_content fields pass through normally.
+func TestHandleStreamingResponse_StripReasoning_Disabled(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	upstream := buildSSEBody(
+		`{"id":"c1","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{"role":"assistant","content":"","reasoning_content":"Let me think"}}]}`,
+		`{"id":"c1","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{"content":"Hello"}}]}`,
+		`{"id":"c1","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`,
+		`[DONE]`,
+	)
+
+	resp := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(upstream),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withStripReasoningContext(req, false)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{})
+
+	body := w.Body.String()
+
+	// Verify reasoning_content IS present (not stripped)
+	assert.Contains(t, body, `"reasoning_content":"Let me think"`)
+
+	// Verify content is present
+	assert.Contains(t, body, `"content":"Hello"`)
+
+	// Verify [DONE] is present
+	assert.Contains(t, body, "[DONE]")
+
+	// Verify finish_reason is forwarded
+	assert.Contains(t, body, "finish_reason")
+
+	// Verify stream completed
+	assert.Equal(t, "completed", logData.state)
+}
+
+// TestHandleStreamingResponse_StripReasoning_KeepAliveSent tests that
+// SSE keep-alive comments (": thinking\n\n") are sent for each skipped
+// reasoning-only chunk when strip_reasoning is enabled. This prevents
+// client timeouts during long thinking phases.
+func TestHandleStreamingResponse_StripReasoning_KeepAliveSent(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	upstream := buildSSEBody(
+		`{"id":"c1","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{"role":"assistant","content":"","reasoning_content":"thinking"}}]}`,
+		`{"id":"c1","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{"content":"","reasoning_content":"more"}}]}`,
+		`{"id":"c1","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{"content":"","reasoning_content":"still thinking"}}]}`,
+		`{"id":"c1","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{"content":"","reasoning_content":"almost done"}}]}`,
+		`{"id":"c1","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{"content":"Hello"}}]}`,
+		`{"id":"c1","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`,
+		`[DONE]`,
+	)
+
+	resp := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(upstream),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withStripReasoningContext(req, true)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{})
+
+	body := w.Body.String()
+
+	// Verify exactly 3 keep-alive comments (one per skipped reasoning chunk)
+	// Count occurrences of ": thinking" in output
+	keepAliveCount := 0
+	for i := 0; i <= len(body)-len(": thinking"); i++ {
+		if body[i:i+len(": thinking")] == ": thinking" {
+			keepAliveCount++
+		}
+	}
+	assert.Equal(t, 3, keepAliveCount, "Should send exactly 3 keep-alive comments for 3 skipped reasoning chunks")
+
+	// Verify reasoning_content is NOT in output
+	assert.NotContains(t, body, "reasoning_content")
+
+	// Verify content is in output
+	assert.Contains(t, body, `"content":"Hello"`)
+
+	// Verify [DONE] is in output
+	assert.Contains(t, body, "[DONE]")
+
+	// Verify finish_reason is in output
+	assert.Contains(t, body, "finish_reason")
+
+	// Verify stream completed
+	assert.Equal(t, "completed", logData.state)
 }

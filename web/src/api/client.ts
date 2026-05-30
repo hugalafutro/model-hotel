@@ -628,6 +628,7 @@ export const api = {
 			rate_limit_rps?: number | null,
 			rate_limit_burst?: number | null,
 			allowed_providers?: string[] | null,
+			strip_reasoning?: boolean,
 		): Promise<VirtualKey> => {
 			return fetchJSON<VirtualKey>(
 				`${API_BASE}/api/virtual-keys`,
@@ -639,6 +640,7 @@ export const api = {
 						rate_limit_rps,
 						rate_limit_burst,
 						allowed_providers,
+						strip_reasoning,
 					}),
 				},
 				"Failed to create virtual key",
@@ -660,6 +662,7 @@ export const api = {
 				rate_limit_rps?: number | null;
 				rate_limit_burst?: number | null;
 				allowed_providers?: string[] | null;
+				strip_reasoning?: boolean;
 			},
 		): Promise<VirtualKey> => {
 			return fetchJSON<VirtualKey>(

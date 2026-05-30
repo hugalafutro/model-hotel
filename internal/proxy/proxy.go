@@ -375,6 +375,136 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 		}
 		jsonValid := json.Unmarshal([]byte(payload), &chunk) == nil
 		if jsonValid {
+			// Read strip_reasoning flag from context (set by ProxyKeyMiddleware).
+			// When true, reasoning fields are stripped from streaming output.
+			stripReasoning := false
+			if v := r.Context().Value(ctxkeys.VirtualKeyStripReasoningKey); v != nil {
+				if sr, ok := v.(bool); ok {
+					stripReasoning = sr
+				}
+			}
+
+			// When strip_reasoning is enabled, remove reasoning fields from the chunk.
+			// If the delta becomes empty after stripping (i.e. the chunk only
+			// contained reasoning tokens), skip the chunk entirely rather than
+			// forwarding a hollow delta. Clients like Warp.dev disconnect when
+			// they receive long sequences of empty-content chunks during a
+			// thinking phase. We DO forward chunks that carry a non-empty
+			// "content" field, a "role" field (first assistant chunk), or
+			// "tool_calls".
+			if stripReasoning && len(chunk.Choices) > 0 && chunk.Choices[0].Delta != nil {
+				var raw map[string]json.RawMessage
+				if json.Unmarshal([]byte(payload), &raw) == nil {
+					if choicesRaw, ok := raw["choices"]; ok {
+						var choices []map[string]json.RawMessage
+						if json.Unmarshal(choicesRaw, &choices) == nil && len(choices) > 0 {
+							if deltaRaw, ok2 := choices[0]["delta"]; ok2 {
+								var deltaFields map[string]json.RawMessage
+								if json.Unmarshal(deltaRaw, &deltaFields) == nil {
+									// Remove reasoning fields from delta.
+									delete(deltaFields, "reasoning_content")
+									delete(deltaFields, "reasoning_details")
+									delete(deltaFields, "reasoning")
+
+									// Strip empty content ("") that normally
+									// accompanies reasoning-only deltas.
+									if cRaw, okC := deltaFields["content"]; okC {
+										var cStr string
+										if json.Unmarshal(cRaw, &cStr) == nil && cStr == "" {
+											delete(deltaFields, "content")
+										}
+									}
+
+									// Check if the delta still carries
+									// meaningful data. If not, skip this chunk
+									// entirely — the client has no use for an
+									// empty delta. We DO forward chunks that
+									// carry a finish_reason even if the delta
+									// is empty; omitting the stop signal breaks
+									// clients that depend on it.
+									deltaHasContent := false
+									if cRaw, okC := deltaFields["content"]; okC {
+										var cStr string
+										if json.Unmarshal(cRaw, &cStr) == nil && cStr != "" {
+											deltaHasContent = true
+										}
+									}
+									if _, okR := deltaFields["role"]; okR {
+										deltaHasContent = true
+									}
+									if _, okT := deltaFields["tool_calls"]; okT {
+										deltaHasContent = true
+									}
+									// finish_reason lives at the choices[0]
+									// level, not inside delta. A chunk with
+									// an empty delta but a finish_reason must
+									// still be forwarded.
+									if _, okFR := choices[0]["finish_reason"]; okFR {
+										deltaHasContent = true
+									}
+
+									if !deltaHasContent {
+										// Delta is empty after stripping
+										// reasoning — skip the chunk but still
+										// count its tokens for usage tracking.
+										// Send an SSE keep-alive comment so
+										// clients don't time out while the
+										// model is thinking. SSE comments
+										// (lines starting with ':') are
+										// explicitly ignored by all SSE
+										// parsers per the spec.
+										n, err := w.Write([]byte(": thinking\n\n"))
+										bytesWritten += int64(n)
+										if err != nil {
+											clientDisconnected = true
+											debuglog.Warn("proxy: client write failed during reasoning keep-alive", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+											goto logUpdate
+										}
+										if canFlush {
+											flusher.Flush()
+										}
+										written = true
+										continue
+									}
+
+									newDelta, _ := json.Marshal(deltaFields)
+									choices[0]["delta"] = json.RawMessage(newDelta)
+									newChoices, _ := json.Marshal(choices)
+									raw["choices"] = json.RawMessage(newChoices)
+									newPayload, _ := json.Marshal(raw)
+									n, err := w.Write([]byte("data: "))
+									bytesWritten += int64(n)
+									if err != nil {
+										clientDisconnected = true
+										debuglog.Warn("proxy: client write failed during reasoning strip", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+										goto logUpdate
+									}
+									n, err = w.Write(newPayload)
+									bytesWritten += int64(n)
+									if err != nil {
+										clientDisconnected = true
+										debuglog.Warn("proxy: client write failed during reasoning strip", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+										goto logUpdate
+									}
+									n, err = w.Write([]byte("\n\n"))
+									bytesWritten += int64(n)
+									if err != nil {
+										clientDisconnected = true
+										debuglog.Warn("proxy: client write failed during reasoning strip (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+										goto logUpdate
+									}
+									if canFlush {
+										flusher.Flush()
+									}
+									written = true
+									continue
+								}
+							}
+						}
+					}
+				}
+			}
+
 			// Reasoning field normalization: ensure reasoning_content is
 			// always populated regardless of upstream provider format.
 			// Handles: delta.reasoning (Ollama), delta.reasoning_details
@@ -482,6 +612,63 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 					}
 				}
 			}
+
+			// Always strip empty content:"" from reasoning chunks to avoid noise.
+			// When a chunk has reasoning_content set and content is empty "", remove content.
+			if len(chunk.Choices) > 0 && chunk.Choices[0].Delta != nil {
+				delta := chunk.Choices[0].Delta
+				hasReasoning := delta.ReasoningContent != nil && *delta.ReasoningContent != ""
+				hasEmptyContent := delta.Content != nil && *delta.Content == ""
+				if hasReasoning && hasEmptyContent {
+					// Rewrite the chunk without the content field.
+					var raw map[string]json.RawMessage
+					if json.Unmarshal([]byte(payload), &raw) == nil {
+						if choicesRaw, ok := raw["choices"]; ok {
+							var choices []map[string]json.RawMessage
+							if json.Unmarshal(choicesRaw, &choices) == nil && len(choices) > 0 {
+								if deltaRaw, ok2 := choices[0]["delta"]; ok2 {
+									var deltaFields map[string]json.RawMessage
+									if json.Unmarshal(deltaRaw, &deltaFields) == nil {
+										delete(deltaFields, "content")
+										newDelta, _ := json.Marshal(deltaFields)
+										choices[0]["delta"] = json.RawMessage(newDelta)
+										newChoices, _ := json.Marshal(choices)
+										raw["choices"] = json.RawMessage(newChoices)
+										newPayload, _ := json.Marshal(raw)
+										n, err := w.Write([]byte("data: "))
+										bytesWritten += int64(n)
+										if err != nil {
+											clientDisconnected = true
+											debuglog.Warn("proxy: client write failed during empty content strip", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+											goto logUpdate
+										}
+										n, err = w.Write(newPayload)
+										bytesWritten += int64(n)
+										if err != nil {
+											clientDisconnected = true
+											debuglog.Warn("proxy: client write failed during empty content strip", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+											goto logUpdate
+										}
+										n, err = w.Write([]byte("\n\n"))
+										bytesWritten += int64(n)
+										if err != nil {
+											clientDisconnected = true
+											debuglog.Warn("proxy: client write failed during empty content strip (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+											goto logUpdate
+										}
+										if canFlush {
+											flusher.Flush()
+										}
+										written = true
+										debuglog.Debug("proxy: stripped empty content from reasoning chunk", "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
 			if chunk.Usage != nil {
 				promptTokens = chunk.Usage.PromptTokens
 				completionTokens = chunk.Usage.CompletionTokens
@@ -537,7 +724,10 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 					if repeatedCount == repeatedContentLimit {
 						preview := currentContent
 						if len(preview) > 50 {
-							preview = preview[:50] + "..."
+							runes := []rune(preview)
+							if len(runes) > 50 {
+								preview = string(runes[:50]) + "..."
+							}
 						}
 						debuglog.Warn("proxy: repeated content detected in stream", "repeated_count", repeatedCount, "content_preview", preview, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 					}

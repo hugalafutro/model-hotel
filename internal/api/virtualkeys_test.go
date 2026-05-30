@@ -46,7 +46,7 @@ func TestCreateVirtualKey_InvalidJSON(t *testing.T) {
 
 func TestCreateVirtualKey_DBError(t *testing.T) {
 	mockVK := &mockVirtualKeyStore{
-		createFn: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int, allowedProviders *[]string) (*virtualkey.VirtualKey, error) {
+		createFn: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
 			return nil, errors.New("db connection lost")
 		},
 	}
@@ -412,7 +412,7 @@ func TestUpdateVirtualKey_MalformedJSON(t *testing.T) {
 // when the database is unavailable.
 func TestUpdateVirtualKey_DBError(t *testing.T) {
 	mockVK := &mockVirtualKeyStore{
-		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string) (*virtualkey.VirtualKey, error) {
+		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
 			return nil, errors.New("db connection lost")
 		},
 	}
@@ -439,7 +439,9 @@ func TestUpdateVirtualKey_DBError(t *testing.T) {
 func TestUpdateVirtualKey_WithAllowedProviders(t *testing.T) {
 	id := uuid.New()
 	mockVK := &mockVirtualKeyStore{
-		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string) (*virtualkey.VirtualKey, error) {
+		getFn: func(ctx context.Context, vid uuid.UUID) (*virtualkey.VirtualKey, error) {
+			return &virtualkey.VirtualKey{ID: vid, Name: "updated-key", KeyHash: "hash123", KeyPreview: "sk-...up", StripReasoning: false}, nil
+		}, updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
 			if vid != id {
 				return nil, errors.New("unexpected ID")
 			}
@@ -488,7 +490,10 @@ func TestUpdateVirtualKey_WithAllowedProviders(t *testing.T) {
 func TestUpdateVirtualKey_ToClearAllowedProviders(t *testing.T) {
 	id := uuid.New()
 	mockVK := &mockVirtualKeyStore{
-		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string) (*virtualkey.VirtualKey, error) {
+		getFn: func(ctx context.Context, vid uuid.UUID) (*virtualkey.VirtualKey, error) {
+			return &virtualkey.VirtualKey{ID: vid, Name: "cleared-key", KeyHash: "hash123", KeyPreview: "sk-...cl", StripReasoning: false}, nil
+		},
+		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
 			if vid != id {
 				return nil, errors.New("unexpected ID")
 			}
@@ -546,7 +551,7 @@ func TestUpdateVirtualKey_OmitAllowedProvidersPreservesExisting(t *testing.T) {
 				AllowedProviders: &existingProviders,
 			}, nil
 		},
-		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string) (*virtualkey.VirtualKey, error) {
+		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
 			if vid != id {
 				return nil, errors.New("unexpected ID")
 			}
@@ -585,7 +590,7 @@ func TestUpdateVirtualKey_OmitAllowedProvidersPreservesExisting(t *testing.T) {
 // correctly handles the allowed_providers field.
 func TestCreateVirtualKey_WithAllowedProviders(t *testing.T) {
 	mockVK := &mockVirtualKeyStore{
-		createFn: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int, allowedProviders *[]string) (*virtualkey.VirtualKey, error) {
+		createFn: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
 			if name != "test-key-ap" {
 				return nil, errors.New("unexpected name")
 			}
@@ -633,7 +638,7 @@ func TestCreateVirtualKey_WithAllowedProviders(t *testing.T) {
 // rejects an empty allowed_providers array (non-nil but len==0).
 func TestCreateVirtualKey_EmptyAllowedProvidersArray(t *testing.T) {
 	mockVK := &mockVirtualKeyStore{
-		createFn: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int, allowedProviders *[]string) (*virtualkey.VirtualKey, error) {
+		createFn: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
 			t.Error("create should not be called when allowed_providers is empty array")
 			return nil, nil
 		},
@@ -663,7 +668,7 @@ func TestCreateVirtualKey_EmptyAllowedProvidersArray(t *testing.T) {
 func TestUpdateVirtualKey_EmptyAllowedProvidersArray(t *testing.T) {
 	id := uuid.New()
 	mockVK := &mockVirtualKeyStore{
-		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string) (*virtualkey.VirtualKey, error) {
+		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
 			t.Error("update should not be called when allowed_providers is empty array")
 			return nil, nil
 		},
