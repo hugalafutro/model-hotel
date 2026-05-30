@@ -1,0 +1,85 @@
+import { X } from "lucide-react";
+import { AccentCalendar } from "../AccentCalendar";
+import { formatDateRangeShort } from "../AccentCalendar.utils";
+
+interface DateRangePickerPopoverProps {
+	pickerYear: number;
+	pickerMonth: number;
+	pendingFrom: string | null;
+	pendingTo: string | null;
+	onCalendarSelect: (dateStr: string) => void;
+	onApply: () => void;
+	onClear: () => void;
+	onClose: () => void;
+	/** Which side to anchor the popover. "right" for AppLogs, "left" for Logs. */
+	anchor?: "left" | "right";
+}
+
+export function DateRangePickerPopover({
+	pickerYear,
+	pickerMonth,
+	pendingFrom,
+	pendingTo,
+	onCalendarSelect,
+	onApply,
+	onClear,
+	onClose,
+	anchor = "right",
+}: DateRangePickerPopoverProps) {
+	return (
+		<div
+			className={`absolute ${anchor}-0 mt-2 w-72 p-4 bg-gray-900 border border-gray-700 rounded-(--radius-card) shadow-2xl z-50`}
+		>
+			<div className="flex items-center justify-between mb-3">
+				<span className="text-sm font-semibold text-(--text-primary)">
+					Select date range
+				</span>
+				<button
+					type="button"
+					onClick={onClose}
+					className="text-gray-400 hover:text-(--text-primary) transition-colors leading-none p-1 hover:drop-shadow-[var(--glow-accent-lg)]"
+					title="Close date picker"
+					aria-label="Close date picker"
+				>
+					<X size={16} />
+				</button>
+			</div>
+
+			<AccentCalendar
+				initialYear={pickerYear}
+				initialMonth={pickerMonth}
+				from={pendingFrom || ""}
+				to={pendingTo || ""}
+				onSelect={onCalendarSelect}
+			/>
+
+			<div className="mt-3 flex items-center justify-between text-xs text-gray-400 min-h-5">
+				{pendingFrom && pendingTo ? (
+					<span>{formatDateRangeShort(pendingFrom, pendingTo)}</span>
+				) : pendingFrom ? (
+					<span className="text-(--accent)">Select end date…</span>
+				) : (
+					<span>Select start date</span>
+				)}
+			</div>
+
+			<div className="flex gap-2 mt-3">
+				<button
+					type="button"
+					onClick={onClear}
+					className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-gray-700 text-gray-400 hover:text-(--text-primary) hover:bg-gray-700 transition-colors"
+				>
+					Clear
+				</button>
+				<button
+					type="button"
+					onClick={onApply}
+					disabled={!pendingFrom}
+					className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-(--accent-light) bg-(--accent-light) text-(--accent) hover:brightness-125 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+				>
+					Apply
+				</button>
+			</div>
+		</div>
+	);
+}
