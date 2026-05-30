@@ -22,6 +22,11 @@ type contextKey string
 // key to enforce per-key throttling.
 const VirtualKeyHashKey contextKey = "virtual_key_hash"
 
+// VirtualKeyStripReasoningKey is the context key under which the proxy's
+// ProxyKeyMiddleware stores the per-key strip_reasoning flag (bool).
+// When true, reasoning/reasoning_content fields are stripped from streaming output.
+const VirtualKeyStripReasoningKey contextKey = "virtual_key_strip_reasoning"
+
 // RequestBodyKey is the context key under which the streaming-aware
 // timeout middleware stores the already-read request body bytes.
 // Downstream handlers (proxy.ChatCompletions) can read from this

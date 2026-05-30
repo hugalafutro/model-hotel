@@ -20,6 +20,7 @@ type CreateVirtualKeyRequest struct {
 	RateLimitRPS     *float64  `json:"rate_limit_rps,omitempty"`
 	RateLimitBurst   *int      `json:"rate_limit_burst,omitempty"`
 	AllowedProviders *[]string `json:"allowed_providers,omitempty"`
+	StripReasoning   *bool     `json:"strip_reasoning,omitempty"`
 }
 
 // UpdateVirtualKeyRequest is the request body for updating a virtual key.
@@ -28,9 +29,13 @@ type UpdateVirtualKeyRequest struct {
 	RateLimitRPS     *float64  `json:"rate_limit_rps"`
 	RateLimitBurst   *int      `json:"rate_limit_burst"`
 	AllowedProviders *[]string `json:"allowed_providers,omitempty"`
+	StripReasoning   *bool     `json:"strip_reasoning,omitempty"`
 	// allowedProvidersPresent tracks whether allowed_providers was in the JSON.
 	// Set by UnmarshalJSON; do not set manually.
 	allowedProvidersPresent bool
+	// stripReasoningPresent tracks whether strip_reasoning was in the JSON.
+	// Set by UnmarshalJSON; do not set manually.
+	stripReasoningPresent bool
 }
 
 // UnmarshalJSON detects whether allowed_providers was present in the JSON.
@@ -46,6 +51,7 @@ func (r *UpdateVirtualKeyRequest) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	r.allowedProvidersPresent = raw["allowed_providers"] != nil
+	r.stripReasoningPresent = raw["strip_reasoning"] != nil
 	return nil
 }
 
@@ -78,6 +84,7 @@ func virtualKeyToResponse(vk *virtualkey.VirtualKey, includeKey bool, rawKey str
 		RateLimitRPS:     vk.RateLimitRPS,
 		RateLimitBurst:   vk.RateLimitBurst,
 		AllowedProviders: vk.AllowedProviders,
+		StripReasoning:   vk.StripReasoning,
 	}
 }
 
@@ -131,7 +138,7 @@ func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	keyHash := virtualkey.Hash(rawKey)
 	keyPreview := rawKey[:3] + "..." + rawKey[len(rawKey)-2:]
 
-	vk, err := h.virtualKeyRepo.Create(r.Context(), req.Name, keyHash, keyPreview, req.RateLimitRPS, req.RateLimitBurst, req.AllowedProviders)
+	vk, err := h.virtualKeyRepo.Create(r.Context(), req.Name, keyHash, keyPreview, req.RateLimitRPS, req.RateLimitBurst, req.AllowedProviders, req.StripReasoning)
 	if err != nil {
 		debuglog.Error("virtual-keys: failed to create key", "name", req.Name, "error", err)
 		respondError(w, fmt.Sprintf("failed to create virtual key %q", req.Name), err, http.StatusInternalServerError)
@@ -210,28 +217,35 @@ func (h *Handler) UpdateVirtualKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// When allowed_providers is omitted from the request body, preserve the
-	// existing value instead of clearing it. This prevents external scripts
-	// that update name/rate-limits from accidentally dropping restrictions.
-	// Only when the field is explicitly present (even as null) do we apply it.
-	if !req.allowedProvidersPresent {
+	// When allowed_providers or strip_reasoning is omitted from the request
+	// body, preserve the existing values instead of clearing them. This
+	// prevents external scripts that update name/rate-limits from
+	// accidentally dropping restrictions or changing reasoning settings.
+	// Use a single DB fetch for both guards to avoid an extra roundtrip.
+	var existingVK *virtualkey.VirtualKey
+	if !req.allowedProvidersPresent || !req.stripReasoningPresent {
 		existing, err := h.virtualKeyRepo.Get(r.Context(), id)
 		if err != nil && !errors.Is(err, virtualkey.ErrNotFound) {
-			// Transient DB error — abort to avoid silently clearing restrictions.
 			debuglog.Error("virtual-keys: failed to fetch key for update", "id", id, "error", err)
 			respondError(w, "failed to update virtual key", err, http.StatusInternalServerError)
 			return
 		}
-		if err == nil && existing != nil {
-			req.AllowedProviders = existing.AllowedProviders
-		}
+		existingVK = existing
+	}
+
+	if !req.allowedProvidersPresent && existingVK != nil {
+		req.AllowedProviders = existingVK.AllowedProviders
+	}
+
+	if !req.stripReasoningPresent && existingVK != nil {
+		req.StripReasoning = &existingVK.StripReasoning
 	}
 
 	if err := validateRateLimits(req.RateLimitRPS, req.RateLimitBurst, w); err != nil {
 		return
 	}
 
-	vk, err := h.virtualKeyRepo.Update(r.Context(), id, req.Name, req.RateLimitRPS, req.RateLimitBurst, req.AllowedProviders)
+	vk, err := h.virtualKeyRepo.Update(r.Context(), id, req.Name, req.RateLimitRPS, req.RateLimitBurst, req.AllowedProviders, req.StripReasoning)
 	if err != nil {
 		if errors.Is(err, virtualkey.ErrNotFound) {
 			http.Error(w, "virtual key not found", http.StatusNotFound)

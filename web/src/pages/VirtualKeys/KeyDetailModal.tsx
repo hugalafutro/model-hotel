@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Gauge, Key, RotateCcw, ShieldCheck, Zap } from "lucide-react";
+import { Brain, Gauge, Key, RotateCcw, ShieldCheck, Zap } from "lucide-react";
 import { useState } from "react";
 import { api } from "../../api/client";
 import type { VirtualKey } from "../../api/types";
@@ -22,6 +22,26 @@ function SectionHeader({
 				{label}
 			</span>
 		</div>
+	);
+}
+
+function BrainSlashIcon({
+	size = 14,
+	className = "",
+}: {
+	size?: number;
+	className?: string;
+}) {
+	return (
+		<span
+			className={`relative inline-block ${className}`}
+			style={{ width: size, height: size }}
+		>
+			<Brain size={size} />
+			<span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+				<span className="w-full h-[1.5px] bg-current rotate-45" />
+			</span>
+		</span>
 	);
 }
 
@@ -65,6 +85,9 @@ export function KeyDetailModal({
 	const [excludedProviders, setExcludedProviders] = useState<string[]>([]);
 	const [originalExcluded, setOriginalExcluded] = useState<string[]>([]);
 	const [providerError, setProviderError] = useState("");
+	const [editStripReasoning, setEditStripReasoning] = useState(
+		vk.strip_reasoning,
+	);
 
 	const { data: providers } = useQuery({
 		queryKey: ["providers"],
@@ -101,17 +124,20 @@ export function KeyDetailModal({
 			rate_limit_rps,
 			rate_limit_burst,
 			allowed_providers,
+			strip_reasoning,
 		}: {
 			name: string;
 			rate_limit_rps?: number | null;
 			rate_limit_burst?: number | null;
 			allowed_providers?: string[] | null;
+			strip_reasoning?: boolean;
 		}) =>
 			api.virtualKeys.update(vk.id, {
 				name,
 				rate_limit_rps,
 				rate_limit_burst,
 				allowed_providers,
+				strip_reasoning,
 			}),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["virtualKeys"] });
@@ -148,6 +174,7 @@ export function KeyDetailModal({
 			rate_limit_rps: editRps !== "" ? parseFloat(editRps) : null,
 			rate_limit_burst: editBurst !== "" ? parseInt(editBurst, 10) : null,
 			allowed_providers: allowedProviders,
+			strip_reasoning: editStripReasoning,
 		});
 	};
 
@@ -157,6 +184,7 @@ export function KeyDetailModal({
 		setEditBurst(vk.rate_limit_burst?.toString() ?? "");
 		setExcludedProviders([]);
 		setOriginalExcluded([]);
+		setEditStripReasoning(vk.strip_reasoning);
 		setEditing(false);
 	};
 
@@ -164,6 +192,7 @@ export function KeyDetailModal({
 		setEditName(vk.name);
 		setEditRps(vk.rate_limit_rps?.toString() ?? "");
 		setEditBurst(vk.rate_limit_burst?.toString() ?? "");
+		setEditStripReasoning(vk.strip_reasoning);
 		setProviderError("");
 		// Compute excluded providers from the VK's allowed_providers.
 		// If the key has restrictions but providers haven't loaded yet,
@@ -193,7 +222,8 @@ export function KeyDetailModal({
 		editName !== vk.name ||
 		editRps !== (vk.rate_limit_rps?.toString() ?? "") ||
 		editBurst !== (vk.rate_limit_burst?.toString() ?? "") ||
-		providersChanged;
+		providersChanged ||
+		editStripReasoning !== vk.strip_reasoning;
 
 	const handleClose = () => {
 		if (editing && hasChanges) {
@@ -320,6 +350,42 @@ export function KeyDetailModal({
 						{providerError && (
 							<p className="text-xs text-red-400 mt-1">{providerError}</p>
 						)}
+
+						<SectionHeader icon={BrainSlashIcon} label="Strip Reasoning" />
+						<div>
+							<div className="flex items-center gap-3">
+								<button
+									type="button"
+									onClick={() => setEditStripReasoning(!editStripReasoning)}
+									aria-pressed={editStripReasoning}
+									aria-label={
+										editStripReasoning
+											? "Disable strip reasoning"
+											: "Enable strip reasoning"
+									}
+									className={`relative inline-flex items-center h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+										editStripReasoning
+											? "bg-(--accent) shadow-[var(--glow-accent)]"
+											: "bg-gray-600"
+									}`}
+								>
+									<span
+										aria-hidden="true"
+										className={`pointer-events-none block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 ease-in-out ${
+											editStripReasoning ? "translate-x-4" : "translate-x-0"
+										}`}
+									/>
+								</button>
+								<span className="text-sm text-gray-200">
+									{editStripReasoning ? "Enabled" : "Disabled"}
+								</span>
+							</div>
+							<p className="text-xs text-gray-400 mt-1.5">
+								When enabled, reasoning/thinking tokens are removed from
+								streaming responses for clients that cannot handle them (e.g.,
+								Warp.dev).
+							</p>
+						</div>
 					</>
 				) : (
 					<>
@@ -413,6 +479,14 @@ export function KeyDetailModal({
 									})}
 								</div>
 							)}
+						</div>
+
+						<SectionHeader icon={BrainSlashIcon} label="Strip Reasoning" />
+						<div>
+							<InfoItem
+								label="Strip Reasoning"
+								value={vk.strip_reasoning ? "Enabled" : "Disabled"}
+							/>
 						</div>
 					</>
 				)}

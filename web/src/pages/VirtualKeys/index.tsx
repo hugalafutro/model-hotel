@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { KeyRound, ShieldCheck } from "lucide-react";
+import { Brain, KeyRound, ShieldCheck } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { api } from "../../api/client";
 import type { VirtualKey } from "../../api/types";
@@ -259,6 +259,28 @@ export function VirtualKeys() {
 														/>
 													</span>
 												)}
+											{vk.strip_reasoning && (
+												<span
+													title="Reasoning fields stripped"
+													className="relative"
+												>
+													<Brain
+														size={14}
+														className="text-(--text-tertiary) shrink-0"
+													/>
+													<svg
+														viewBox="0 0 24 24"
+														className="absolute inset-0 w-[14px] h-[14px] text-red-400/80"
+														fill="none"
+														stroke="currentColor"
+														strokeWidth="2.5"
+														strokeLinecap="round"
+													>
+														<title>Reasoning stripped</title>
+														<line x1="4" y1="4" x2="20" y2="20" />
+													</svg>
+												</span>
+											)}
 											<span className="truncate">{vk.name}</span>
 										</div>
 									</td>

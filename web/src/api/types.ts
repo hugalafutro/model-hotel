@@ -197,6 +197,7 @@ export interface VirtualKey {
 	rate_limit_rps?: number | null;
 	rate_limit_burst?: number | null;
 	allowed_providers?: string[] | null;
+	strip_reasoning: boolean;
 }
 
 export interface SystemStats {
