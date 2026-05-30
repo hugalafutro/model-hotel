@@ -22,9 +22,6 @@ engines:
       - "**/__tests__/**"
       - "**/*.test.*"
       - "**/*_test.go"
-  gocyclo:
-    exclude_paths:
-      - "**/*_test.go"
   metric:
     exclude_paths:
       - "**/*_test.go"
