@@ -22,7 +22,7 @@ engines:
       - "**/__tests__/**"
       - "**/*.test.*"
       - "**/*_test.go"
-  gocyclo:
+  metric:
     exclude_paths:
       - "**/*_test.go"
   markdownlint:
