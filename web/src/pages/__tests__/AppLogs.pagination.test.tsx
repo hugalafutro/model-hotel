@@ -15,7 +15,7 @@ vi.mock("../../components/LogDetailModal", () => ({
 		log: { timestamp: string; level: string; source: string; message: string };
 		onClose: () => void;
 	}) => (
-		<div data-testid="log-detail-modal">
+		<div role="dialog" aria-label="Log Detail">
 			<span>Log Detail: {log.timestamp}</span>
 			<button type="button" onClick={onClose}>
 				Close
@@ -740,7 +740,9 @@ describe("AppLogs row click opens detail modal", () => {
 
 		// Verify modal opens
 		await waitFor(() => {
-			expect(screen.getByTestId("log-detail-modal")).toBeInTheDocument();
+			expect(
+				screen.getByRole("dialog", { name: "Log Detail" }),
+			).toBeInTheDocument();
 			expect(
 				screen.getByText("Log Detail: 2024-06-10T10:00:00Z"),
 			).toBeInTheDocument();
@@ -749,7 +751,9 @@ describe("AppLogs row click opens detail modal", () => {
 		// Close modal
 		await user.click(screen.getByText("Close"));
 		await waitFor(() => {
-			expect(screen.queryByTestId("log-detail-modal")).not.toBeInTheDocument();
+			expect(
+				screen.queryByRole("dialog", { name: "Log Detail" }),
+			).not.toBeInTheDocument();
 		});
 	});
 });

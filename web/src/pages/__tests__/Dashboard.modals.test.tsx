@@ -492,24 +492,6 @@ describe("Dashboard.coverage", () => {
 	});
 
 	describe("UsageBarPanel with real data", () => {
-		const _statsWithUsage = {
-			...mockStats,
-			total_requests_last_24h: 1000,
-			by_model: {
-				"Test Provider/test-model-v1": 500,
-				"Ollama Cloud/gemma3:4b": 300,
-				"Anthropic/claude-3-5-sonnet": 200,
-			},
-			by_provider: {
-				"Test Provider": 800,
-				"Ollama Cloud": 200,
-			},
-			by_virtual_key: {
-				"dev-key-001": 600,
-				"prod-key-002": 400,
-			},
-		};
-
 		it("renders Top Models panel with usage data", async () => {
 			const statsWithModelUsage = {
 				...mockStats,
