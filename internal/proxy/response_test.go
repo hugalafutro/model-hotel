@@ -3291,6 +3291,10 @@ func TestHandleStreamingResponse_StripReasoning_WarpThinkingModelScenario(t *tes
 	// Verify finish_reason is forwarded
 	assert.Contains(t, body, "finish_reason")
 
+	// Verify no leading empty lines before first content (SSE separators
+	// from stripped chunks must also be suppressed, not just data lines)
+	assert.True(t, strings.HasPrefix(body, "data: "), "output should start with 'data: ' — no leading empty lines from stripped reasoning chunks")
+
 	// Verify NO SSE keep-alive comments (they break Warp's Go backend)
 	assert.NotContains(t, body, ": thinking")
 

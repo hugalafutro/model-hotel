@@ -120,6 +120,10 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	// Periodic streaming progress logging (every 50 chunks) to give
 	// visibility into stream health without flooding logs.
 	const chunkLogInterval = 50
+	// When strip_reasoning skips a chunk, we also need to suppress the
+	// following SSE separator (empty line). Otherwise bare \n events
+	// reach the client, which breaks parsers like openai-go's ssestream.
+	skipNextEmptyLine := false
 	// P1-B: Error accumulation buffer. Some providers (e.g. go-openai) split
 	// error JSON across multiple SSE data lines. We accumulate bytes until a
 	// non-error chunk arrives, then try to unmarshal the full accumulated error.
@@ -203,6 +207,15 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				debuglog.Warn("proxy: too many empty SSE lines, aborting stream", "model", logData.modelID, "provider", logData.providerName, "limit", emptyMessagesLimit, "chunks", chunkCount)
 				lastErrMsg = "stream interrupted: too many empty lines"
 				break
+			}
+			// When strip_reasoning skips a reasoning chunk, the SSE
+			// separator (empty line) that followed it must also be
+			// suppressed. Bare \n events break parsers like openai-go's
+			// ssestream (Warp's backend). Only forward the separator
+			// when the preceding data line was actually forwarded.
+			if skipNextEmptyLine {
+				skipNextEmptyLine = false
+				continue
 			}
 			// Forward empty lines — they are SSE event separators required by
 			// the spec. Clients like eventsource-parser dispatch events on
@@ -482,6 +495,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 										// HTTP response remains open, so the
 										// connection stays alive without
 										// periodic data.
+										skipNextEmptyLine = true
 										written = true
 										continue
 									}
