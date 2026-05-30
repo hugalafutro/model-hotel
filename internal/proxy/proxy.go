@@ -155,6 +155,15 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	// Track whether we've seen reasoning_content (thinking) in this stream
 	// for first-occurrence debug logging.
 	sawThinking := false
+	// Read strip_reasoning flag from context once before the scanner loop.
+	// The value is set by ProxyKeyMiddleware and never changes mid-stream.
+	stripReasoning := false
+	if v := r.Context().Value(ctxkeys.VirtualKeyStripReasoningKey); v != nil {
+		if sr, ok := v.(bool); ok {
+			stripReasoning = sr
+		}
+	}
+	debuglog.Debug("proxy: strip_reasoning flag", "enabled", stripReasoning, "model", logData.modelID, "provider", logData.providerName)
 
 	for scanner.Scan() {
 		line := scanner.Bytes()
@@ -388,21 +397,6 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 		}
 		jsonValid := json.Unmarshal([]byte(payload), &chunk) == nil
 		if jsonValid {
-			// Read strip_reasoning flag from context (set by ProxyKeyMiddleware).
-			// When true, reasoning fields are stripped from streaming output.
-			stripReasoning := false
-			if v := r.Context().Value(ctxkeys.VirtualKeyStripReasoningKey); v != nil {
-				if sr, ok := v.(bool); ok {
-					stripReasoning = sr
-				}
-			}
-			// Log strip_reasoning state once on the first valid chunk for
-			// debugging. This helps verify context propagation without
-			// flooding logs on every chunk.
-			if chunkCount == 1 {
-				debuglog.Debug("proxy: strip_reasoning flag", "enabled", stripReasoning, "model", logData.modelID, "provider", logData.providerName, "context_value", r.Context().Value(ctxkeys.VirtualKeyStripReasoningKey))
-			}
-
 			// When strip_reasoning is enabled, remove reasoning fields from the chunk.
 			// If the delta becomes empty after stripping (i.e. the chunk only
 			// contained reasoning tokens), skip the chunk entirely rather than
