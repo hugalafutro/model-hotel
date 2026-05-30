@@ -542,6 +542,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 										flusher.Flush()
 									}
 									written = true
+									skipNextEmptyLine = true
 									continue
 								}
 							}
@@ -649,6 +650,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 											flusher.Flush()
 										}
 										written = true
+										skipNextEmptyLine = true
 										debuglog.Debug("proxy: normalized reasoning fields", "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 									}
 								}
@@ -705,6 +707,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 											flusher.Flush()
 										}
 										written = true
+										skipNextEmptyLine = true
 										debuglog.Debug("proxy: stripped empty content from reasoning chunk", "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 									}
 								}
@@ -818,6 +821,9 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 					if !hasContent && chunk.Usage == nil {
 						debuglog.Debug("proxy: suppressing duplicate finish_reason chunk", "finish_reason", normalized, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 						// Skip writing this chunk — it's a bare duplicate.
+						// Also skip the following SSE separator to avoid
+						// an orphaned empty-line event.
+						skipNextEmptyLine = true
 						continue
 					}
 				}
@@ -868,6 +874,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 											flusher.Flush()
 										}
 										written = true
+										skipNextEmptyLine = true
 										debuglog.Debug("proxy: normalized finish_reason", "original", *chunk.Choices[0].FinishReason, "normalized", normalized, "model", logData.modelID, "provider", logData.providerName)
 									}
 								}
@@ -891,6 +898,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			debuglog.Warn("proxy: skipping invalid JSON chunk from upstream",
 				"model", logData.modelID, "provider", logData.providerName,
 				"chunk_number", chunkCount, "payload_preview", preview)
+			skipNextEmptyLine = true
 			continue
 		}
 		if !written {
@@ -912,6 +920,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			if canFlush {
 				flusher.Flush()
 			}
+			skipNextEmptyLine = true
 		}
 	}
 

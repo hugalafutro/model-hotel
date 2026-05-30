@@ -1730,6 +1730,68 @@ func TestHandleStreamingResponse_SSEEventSeparators(t *testing.T) {
 	}
 }
 
+func TestHandleStreamingResponse_SSENoTripleNewlines(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Regression test: when the proxy forwarded SSE data, it emitted
+	// triple newlines (\n\n\n) between events because both the data-line
+	// write path (which writes \n\n) and the empty-line handler (which
+	// writes \n) fired for the same upstream separator. Warp.dev's Go
+	// backend (openai-go ssestream) breaks on the extra empty event.
+	streamData := "data: {\"id\":\"1\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hello\"}}]}\n\ndata: {\"id\":\"1\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" world\"}}]}\n\ndata: [DONE]\n\n"
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
+
+	body := w.Body.String()
+
+	// The output must NOT contain triple newlines between events.
+	if strings.Contains(body, "\n\n\n") {
+		t.Errorf("SSE output contains triple newlines (\\n\\n\\n), which breaks openai-go ssestream; body=%q", body)
+	}
+
+	// Verify each data line is terminated with exactly \n\n.
+	// Split the body by \n\n and verify each segment is either a
+	// valid data line or empty.
+	events := strings.Split(body, "\n\n")
+	dataEvents := 0
+	for _, event := range events {
+		event = strings.TrimSpace(event)
+		if event == "" {
+			continue
+		}
+		if strings.HasPrefix(event, "data: ") {
+			dataEvents++
+		} else {
+			t.Errorf("unexpected non-data segment in SSE output: %q", event)
+		}
+	}
+	if dataEvents < 3 {
+		t.Errorf("expected at least 3 data events (2 content + 1 [DONE]), got %d; body=%q", dataEvents, body)
+	}
+}
+
 func TestHandleNonStreamingResponse_AddTokensCalled(t *testing.T) {
 	h := newUnitHandler()
 	defer stopUnitHandler(h)
