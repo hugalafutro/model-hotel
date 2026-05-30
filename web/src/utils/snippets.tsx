@@ -1160,6 +1160,79 @@ export function snippetPowershell({
 	);
 }
 
+export function snippetPowershellModel({
+	proxyModelId,
+	origin,
+}: ModelSnippetOpts): ReactNode {
+	return (
+		<>
+			{"Invoke-RestMethod "}
+			{"-Uri "}
+			<span className="ps-uri text-[#569cd6]">
+				{`"${origin}/v1/chat/completions"`}
+			</span>
+			{"\n"}
+			{"  -Method Post\n"}
+			{"  -Headers @{\n"}
+			{"    "}
+			<span className="ps-key text-[#9cdcfe]">{'"Authorization"'}</span>
+			{" = "}
+			<span className="ps-str text-[#ce9178]">{'"Bearer '}</span>
+			<span className="text-white font-semibold terminal-highlight">
+				{"API_KEY"}
+			</span>
+			<span className="ps-str text-[#ce9178]">{'"'}</span>
+			{"\n"}
+			{"    "}
+			<span className="ps-key text-[#9cdcfe]">{'"Content-Type"'}</span>
+			{" = "}
+			<span className="ps-str text-[#ce9178]">{'"application/json"'}</span>
+			{"\n"}
+			{"  }\n"}
+			{"  -Body (ConvertTo-Json @{\n"}
+			{"    "}
+			<span className="ps-key text-[#9cdcfe]">{"model"}</span>
+			{" = "}
+			<span className="ps-str text-[#ce9178]">{'"'}</span>
+			<span className="text-white font-semibold terminal-highlight">
+				{proxyModelId}
+			</span>
+			<span className="ps-str text-[#ce9178]">{'"'}</span>
+			{"\n"}
+			{"    messages = @(\n"}
+			{"      @{ "}
+			<span className="ps-key text-[#9cdcfe]">{"role"}</span>
+			{" = "}
+			<span className="ps-str text-[#ce9178]">{'"user"'}</span>
+			{"; "}
+			<span className="ps-key text-[#9cdcfe]">{"content"}</span>
+			{" = "}
+			<span className="ps-str text-[#ce9178]">{'"Hello!"'}</span>
+			{" }\n"}
+			{"    )\n"}
+			{"  })"}
+		</>
+	);
+}
+
+export function snippetPowershellModelText({
+	proxyModelId,
+	origin,
+}: ModelSnippetOpts): string {
+	return `Invoke-RestMethod -Uri "${origin}/v1/chat/completions"
+  -Method Post
+  -Headers @{
+    "Authorization" = "Bearer YOUR_API_KEY"
+    "Content-Type" = "application/json"
+  }
+  -Body (ConvertTo-Json @{
+    model = "${proxyModelId}"
+    messages = @(
+      @{ role = "user"; content = "Hello!" }
+    )
+  })`;
+}
+
 // ---------------------------------------------------------------------------
 // SDK & tool snippets
 // ---------------------------------------------------------------------------

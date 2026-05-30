@@ -17,6 +17,7 @@ export type LangIconKey =
 	| "hermes"
 	| "librechat"
 	| "curl"
+	| "powershell"
 	| "zed"
 	| "opencode";
 
@@ -51,6 +52,24 @@ export function LangIcon({ name, size = 14, ...rest }: LangIconProps) {
 						strokeLinecap="round"
 						strokeLinejoin="round"
 						fill="none"
+					/>
+				</svg>
+			);
+
+		case "powershell":
+			return (
+				<svg
+					viewBox="0 0 24 24"
+					width={size}
+					height={size}
+					fill="none"
+					{...rest}
+				>
+					<title>PowerShell</title>
+					<rect width="24" height="24" rx="4" fill="#012456" />
+					<path
+						d="M4 18l4.5-12h2L16 18h-2.2l-1.1-3.2H8.3L7.2 18H4zm5-5.2h3L10.5 8.5 9 12.8z"
+						fill="#fff"
 					/>
 				</svg>
 			);
