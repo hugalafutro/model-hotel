@@ -3204,6 +3204,9 @@ func TestHandleStreamingResponse_StripReasoning_EmptyDeltasSkipped(t *testing.T)
 	// Verify reasoning_content is NOT in output
 	assert.NotContains(t, body, "reasoning_content")
 
+	// Verify role is also NOT in output (stripped when no content)
+	assert.NotContains(t, body, `"role":"assistant"`)
+
 	// Verify content chunk IS in output
 	assert.Contains(t, body, `"content":"Hello world"`)
 
@@ -3273,8 +3276,8 @@ func TestHandleStreamingResponse_StripReasoning_WarpThinkingModelScenario(t *tes
 	// Verify no reasoning_content in output
 	assert.NotContains(t, body, "reasoning_content")
 
-	// Verify role chunk is present (should have role: "assistant")
-	assert.Contains(t, body, `"role":"assistant"`)
+	// Verify role is also NOT in output (stripped when no content)
+	assert.NotContains(t, body, `"role":"assistant"`)
 
 	// Verify all content chunks are present
 	assert.Contains(t, body, `"content":"Here"`)
@@ -3295,10 +3298,10 @@ func TestHandleStreamingResponse_StripReasoning_WarpThinkingModelScenario(t *tes
 	assert.Equal(t, "completed", logData.state)
 }
 
-// TestHandleStreamingResponse_StripReasoning_RoleChunkPreserved tests that
-// a role chunk with reasoning_content but no content has reasoning stripped
-// while role is preserved and forwarded.
-func TestHandleStreamingResponse_StripReasoning_RoleChunkPreserved(t *testing.T) {
+// TestHandleStreamingResponse_StripReasoning_RoleStrippedWhenNoContent tests that
+// a role chunk with reasoning_content but no content has both reasoning AND role
+// stripped when strip_reasoning is enabled, with keep-alive sent.
+func TestHandleStreamingResponse_StripReasoning_RoleStrippedWhenNoContent(t *testing.T) {
 	h := newUnitHandler()
 	defer stopUnitHandler(h)
 
@@ -3338,8 +3341,11 @@ func TestHandleStreamingResponse_StripReasoning_RoleChunkPreserved(t *testing.T)
 	// Verify reasoning_content is removed
 	assert.NotContains(t, body, "reasoning_content")
 
-	// Verify role is preserved
-	assert.Contains(t, body, `"role":"assistant"`)
+	// Verify role is also stripped (no longer preserved when no content)
+	assert.NotContains(t, body, `"role":"assistant"`)
+
+	// Verify keep-alive is sent for the stripped role+reasoning chunk
+	assert.Contains(t, body, ": thinking")
 
 	// Verify content is present
 	assert.Contains(t, body, `"content":"response"`)
@@ -3396,6 +3402,9 @@ func TestHandleStreamingResponse_StripReasoning_FinishAndUsagePassThrough(t *tes
 
 	// Verify reasoning_content is removed
 	assert.NotContains(t, body, "reasoning_content")
+
+	// Verify role is also stripped (no content in first chunk after stripping reasoning)
+	assert.NotContains(t, body, `"role":"assistant"`)
 
 	// Verify content is present
 	assert.Contains(t, body, `"content":"Answer"`)
@@ -3513,7 +3522,7 @@ func TestHandleStreamingResponse_StripReasoning_KeepAliveSent(t *testing.T) {
 
 	body := w.Body.String()
 
-	// Verify exactly 3 keep-alive comments (one per skipped reasoning chunk)
+	// Verify exactly 4 keep-alive comments (one per skipped chunk, including role-only first chunk)
 	// Count occurrences of ": thinking" in output
 	keepAliveCount := 0
 	for i := 0; i <= len(body)-len(": thinking"); i++ {
@@ -3521,7 +3530,7 @@ func TestHandleStreamingResponse_StripReasoning_KeepAliveSent(t *testing.T) {
 			keepAliveCount++
 		}
 	}
-	assert.Equal(t, 3, keepAliveCount, "Should send exactly 3 keep-alive comments for 3 skipped reasoning chunks")
+	assert.Equal(t, 4, keepAliveCount, "Should send exactly 4 keep-alive comments for 4 skipped chunks (role-only + 3 reasoning-only)")
 
 	// Verify reasoning_content is NOT in output
 	assert.NotContains(t, body, "reasoning_content")

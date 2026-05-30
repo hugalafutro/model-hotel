@@ -421,6 +421,21 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 										}
 									}
 
+									// Some providers (notably Ollama) include
+									// "role":"assistant" in every delta, not
+									// just the first one. When strip_reasoning
+									// is enabled and the only remaining field
+									// besides content is "role", remove it
+									// too — the role is already present in any
+									// subsequent content or tool_calls chunk,
+									// and forwarding 20+ role-only deltas
+									// defeats the purpose of stripping.
+									_, hasContent := deltaFields["content"]
+									_, hasToolCalls := deltaFields["tool_calls"]
+									if !hasContent && !hasToolCalls {
+										delete(deltaFields, "role")
+									}
+
 									// Check if the delta still carries
 									// meaningful data. If not, skip this chunk
 									// entirely — the client has no use for an
