@@ -504,7 +504,8 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 												keepAliveID = idStr
 											}
 										}
-										keepAlive := []byte("data: {\"id\":\"" + keepAliveID + "\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{}}]}\n\n")
+										escapedID, _ := json.Marshal(keepAliveID)
+										keepAlive := []byte("data: {\"id\":" + string(escapedID) + ",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{}}]}\n\n")
 										n, err := w.Write(keepAlive)
 										bytesWritten += int64(n)
 										if err != nil {
