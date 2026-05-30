@@ -45,9 +45,9 @@ export function TimeSeriesChart({
 		const style = getComputedStyle(document.documentElement);
 		return {
 			grid:
-				style.getPropertyValue("--border-subtle").trim() ||
-				"rgba(255,255,255,0.04)",
-			text: style.getPropertyValue("--text-muted").trim() || "#7a7e8c",
+				style.getPropertyValue("--border-default").trim() ||
+				"rgba(255,255,255,0.06)",
+			text: style.getPropertyValue("--text-tertiary").trim() || "#7a7e8c",
 		};
 	}, []);
 

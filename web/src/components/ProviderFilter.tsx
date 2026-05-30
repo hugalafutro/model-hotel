@@ -92,7 +92,7 @@ export function ProviderFilter({
 				className="ui-input text-xs py-1.5 px-2.5 h-9 w-full flex items-center justify-between gap-2 cursor-pointer"
 			>
 				<span
-					className={`truncate ${selected.size === 0 ? "text-(--text-muted)" : "text-(--text-primary)"}`}
+					className={`truncate ${selected.size === 0 ? "text-(--text-tertiary)" : "text-(--text-primary)"}`}
 				>
 					{triggerLabel}
 				</span>

@@ -1281,6 +1281,10 @@ html[data-ui-style="glassmorphism-lite"] .ui-btn-danger {
 	color: var(--text-muted);
 }
 
+[data-ui-style].light .ui-input::placeholder {
+	color: var(--text-tertiary);
+}
+
 [data-ui-style] .ui-input:focus {
 	border-color: var(--accent);
 	box-shadow: 0 0 0 2px var(--accent-lighter);
@@ -1981,7 +1985,7 @@ html.light .terminal-titlebar .terminal-titlebar-label {
 }
 
 html.light .terminal-body {
-	background-color: #fafbfc;
+	background-color: #f0f1f3;
 	color: #374151;
 }
 
