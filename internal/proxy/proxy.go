@@ -523,6 +523,24 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 
 									newDelta, _ := json.Marshal(deltaFields)
 									choices[0]["delta"] = json.RawMessage(newDelta)
+									// Normalize finish_reason in-place before
+									// re-serializing, so non-standard values
+									// (e.g., "end_turn", "STOP") are mapped to
+									// OpenAI equivalents. Without this, the
+									// continue below would skip the normalization
+									// block at line ~809.
+									if frRaw, okFR := choices[0]["finish_reason"]; okFR {
+										var frStr string
+										if json.Unmarshal(frRaw, &frStr) == nil && frStr != "" {
+											if normalized := normalizeFinishReason(frStr); normalized != frStr {
+												choices[0]["finish_reason"] = json.RawMessage(`"` + normalized + `"`)
+												lastFinishReason = normalized
+												debuglog.Debug("proxy: normalized finish_reason in strip_reasoning path", "original", frStr, "normalized", normalized, "model", logData.modelID, "provider", logData.providerName)
+											} else {
+												lastFinishReason = frStr
+											}
+										}
+									}
 									newChoices, _ := json.Marshal(choices)
 									raw["choices"] = json.RawMessage(newChoices)
 									newPayload, _ := json.Marshal(raw)

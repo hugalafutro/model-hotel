@@ -3611,3 +3611,118 @@ func TestHandleStreamingResponse_StripReasoning_JSONKeepAlive(t *testing.T) {
 	// Verify stream completed
 	assert.Equal(t, "completed", logData.state)
 }
+
+// TestHandleStreamingResponse_StripReasoning_FinishReasonNormalized tests that
+// provider-specific finish_reason values (e.g., "end_turn" from Anthropic,
+// "STOP" from Gemini) are normalized to OpenAI equivalents when strip_reasoning
+// is active. Without the fix, the continue in the strip_reasoning path would
+// skip the finish_reason normalization block, leaking non-standard values.
+func TestHandleStreamingResponse_StripReasoning_FinishReasonNormalized(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	upstream := buildSSEBody(
+		`{"id":"c1","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{"role":"assistant","content":"","reasoning_content":"thinking"}}]}`,
+		`{"id":"c1","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{"content":"Hello"}}]}`,
+		`{"id":"c1","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{"content":"","reasoning_content":"final thought"},"finish_reason":"end_turn"}]}`,
+		`[DONE]`,
+	)
+
+	resp := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(upstream),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withStripReasoningContext(req, true)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{})
+
+	body := w.Body.String()
+
+	// Verify reasoning_content is stripped
+	assert.NotContains(t, body, "reasoning_content")
+
+	// Verify content is present
+	assert.Contains(t, body, `"content":"Hello"`)
+
+	// Verify non-standard "end_turn" is normalized to "stop"
+	assert.Contains(t, body, `"finish_reason":"stop"`)
+	assert.NotContains(t, body, `"finish_reason":"end_turn"`)
+
+	// Verify [DONE] is present
+	assert.Contains(t, body, "[DONE]")
+
+	// Verify stream completed
+	assert.Equal(t, "completed", logData.state)
+}
+
+// TestHandleStreamingResponse_StripReasoning_GeminiStopNormalized tests that
+// Gemini's "STOP" finish_reason is normalized to "stop" when strip_reasoning
+// is active, even when the chunk also carries content alongside reasoning.
+func TestHandleStreamingResponse_StripReasoning_GeminiStopNormalized(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	upstream := buildSSEBody(
+		`{"id":"c1","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{"content":"Answer","reasoning_content":"hmm"}}]}`,
+		`{"id":"c1","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{},"finish_reason":"STOP"}]}`,
+		`[DONE]`,
+	)
+
+	resp := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(upstream),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withStripReasoningContext(req, true)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{})
+
+	body := w.Body.String()
+
+	// Verify reasoning_content is stripped
+	assert.NotContains(t, body, "reasoning_content")
+
+	// Verify content is present
+	assert.Contains(t, body, `"content":"Answer"`)
+
+	// Verify "STOP" is normalized to "stop"
+	assert.Contains(t, body, `"finish_reason":"stop"`)
+	assert.NotContains(t, body, `"finish_reason":"STOP"`)
+
+	// Verify [DONE] is present
+	assert.Contains(t, body, "[DONE]")
+
+	// Verify stream completed
+	assert.Equal(t, "completed", logData.state)
+}
