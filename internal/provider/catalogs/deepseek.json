@@ -1,0 +1,20 @@
+[
+  {
+    "model_id": "deepseek-v4-flash",
+    "context_length": 1000000,
+    "max_output_tokens": 384000,
+    "reasoning": false,
+    "input_price_per_million_cache_hit": 0.028,
+    "input_price_per_million_cache_miss": 0.139,
+    "output_price_per_million": 0.278
+  },
+  {
+    "model_id": "deepseek-v4-pro",
+    "context_length": 1000000,
+    "max_output_tokens": 384000,
+    "reasoning": true,
+    "input_price_per_million_cache_hit": 0.139,
+    "input_price_per_million_cache_miss": 1.667,
+    "output_price_per_million": 3.333
+  }
+]

@@ -1,0 +1,82 @@
+[
+  {
+    "model_id": "command-a-03-2025",
+    "display_name": "Command A",
+    "description": "Cohere's flagship model with tool use, reasoning, and vision.",
+    "max_output_tokens": 16384,
+    "input_price_per_million": 2.5,
+    "output_price_per_million": 10
+  },
+  {
+    "model_id": "command-a-reasoning-08-2025",
+    "display_name": "Command A Reasoning",
+    "description": "Command A with reasoning mode enabled.",
+    "max_output_tokens": 16384,
+    "input_price_per_million": 2.5,
+    "output_price_per_million": 10
+  },
+  {
+    "model_id": "command-a-vision-07-2025",
+    "display_name": "Command A Vision",
+    "description": "Command A with vision capabilities.",
+    "max_output_tokens": 16384,
+    "input_price_per_million": 2.5,
+    "output_price_per_million": 10
+  },
+  {
+    "model_id": "command-a-translate-08-2025",
+    "display_name": "Command A Translate",
+    "description": "Command A specialized for translation tasks.",
+    "max_output_tokens": 4096,
+    "input_price_per_million": 0.04,
+    "output_price_per_million": 0.15
+  },
+  {
+    "model_id": "command-r-plus-08-2024",
+    "display_name": "Command R+",
+    "description": "Previous generation flagship model with tool use.",
+    "max_output_tokens": 4096,
+    "input_price_per_million": 2.5,
+    "output_price_per_million": 10
+  },
+  {
+    "model_id": "command-r-08-2024",
+    "display_name": "Command R",
+    "description": "Previous generation model with tool use.",
+    "max_output_tokens": 4096,
+    "input_price_per_million": 0.15,
+    "output_price_per_million": 0.6
+  },
+  {
+    "model_id": "command-r7b-12-2024",
+    "display_name": "Command R7B",
+    "description": "Small efficient model with tool use.",
+    "max_output_tokens": 4096,
+    "input_price_per_million": 0.04,
+    "output_price_per_million": 0.15
+  },
+  {
+    "model_id": "command-r7b-arabic-02-2025",
+    "display_name": "Command R7B Arabic",
+    "description": "Arabic-focused small model.",
+    "max_output_tokens": 4096,
+    "input_price_per_million": 0.04,
+    "output_price_per_million": 0.15
+  },
+  {
+    "model_id": "c4ai-aya-expanse-32b",
+    "display_name": "Aya Expanse 32B",
+    "description": "Multilingual model supporting 23 languages.",
+    "max_output_tokens": 4096,
+    "input_price_per_million": 0.5,
+    "output_price_per_million": 1.5
+  },
+  {
+    "model_id": "c4ai-aya-vision-32b",
+    "display_name": "Aya Vision 32B",
+    "description": "Multilingual vision model.",
+    "max_output_tokens": 4096,
+    "input_price_per_million": 0.5,
+    "output_price_per_million": 1.5
+  }
+]

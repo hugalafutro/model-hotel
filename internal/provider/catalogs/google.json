@@ -1,0 +1,141 @@
+[
+  {
+    "model_id": "models/gemini-3.1-pro-preview",
+    "display_name": "Gemini 3.1 Pro Preview",
+    "input_price_per_million": 2,
+    "input_price_per_million_cache_hit": 0.2,
+    "output_price_per_million": 12,
+    "free_tier": false
+  },
+  {
+    "model_id": "models/gemini-3.1-flash-lite-preview",
+    "display_name": "Gemini 3.1 Flash-Lite Preview",
+    "input_price_per_million": 0.25,
+    "input_price_per_million_cache_hit": 0.025,
+    "output_price_per_million": 1.5,
+    "free_tier": true
+  },
+  {
+    "model_id": "models/gemini-3.1-flash-image-preview",
+    "display_name": "Nano Banana 2",
+    "input_price_per_million": 0.5,
+    "output_price_per_million": 3,
+    "free_tier": false
+  },
+  {
+    "model_id": "models/gemini-3-flash-preview",
+    "display_name": "Gemini 3 Flash Preview",
+    "input_price_per_million": 0.5,
+    "input_price_per_million_cache_hit": 0.05,
+    "output_price_per_million": 3,
+    "free_tier": true
+  },
+  {
+    "model_id": "models/gemini-3-pro-image-preview",
+    "display_name": "Nano Banana Pro",
+    "input_price_per_million": 2,
+    "output_price_per_million": 12,
+    "free_tier": false
+  },
+  {
+    "model_id": "models/gemini-3.1-flash-tts-preview",
+    "display_name": "Gemini 3.1 Flash TTS Preview",
+    "input_price_per_million": 1,
+    "output_price_per_million": 20,
+    "free_tier": false
+  },
+  {
+    "model_id": "models/gemini-3.1-flash-live-preview",
+    "display_name": "Gemini 3.1 Flash Live Preview",
+    "input_price_per_million": 0.75,
+    "output_price_per_million": 4.5,
+    "free_tier": false
+  },
+  {
+    "model_id": "models/gemini-2.5-pro",
+    "display_name": "Gemini 2.5 Pro",
+    "input_price_per_million": 1.25,
+    "input_price_per_million_cache_hit": 0.125,
+    "output_price_per_million": 10,
+    "free_tier": true
+  },
+  {
+    "model_id": "models/gemini-2.5-flash",
+    "display_name": "Gemini 2.5 Flash",
+    "input_price_per_million": 0.3,
+    "input_price_per_million_cache_hit": 0.03,
+    "output_price_per_million": 2.5,
+    "free_tier": true
+  },
+  {
+    "model_id": "models/gemini-2.5-flash-lite",
+    "display_name": "Gemini 2.5 Flash-Lite",
+    "input_price_per_million": 0.1,
+    "input_price_per_million_cache_hit": 0.01,
+    "output_price_per_million": 0.4,
+    "free_tier": true
+  },
+  {
+    "model_id": "models/gemini-2.5-flash-image",
+    "display_name": "Nano Banana",
+    "input_price_per_million": 0.3,
+    "output_price_per_million": 2.5,
+    "free_tier": false
+  },
+  {
+    "model_id": "models/gemini-2.5-flash-native-audio-preview-12-2025",
+    "display_name": "Gemini 2.5 Flash Live",
+    "input_price_per_million": 0.5,
+    "output_price_per_million": 2,
+    "free_tier": true
+  },
+  {
+    "model_id": "models/gemini-2.5-flash-preview-tts",
+    "display_name": "Gemini 2.5 Flash TTS",
+    "input_price_per_million": 0.5,
+    "output_price_per_million": 10,
+    "free_tier": false
+  },
+  {
+    "model_id": "models/gemini-2.5-pro-preview-tts",
+    "display_name": "Gemini 2.5 Pro TTS",
+    "input_price_per_million": 1,
+    "output_price_per_million": 20,
+    "free_tier": false
+  },
+  {
+    "model_id": "models/gemini-2.0-flash",
+    "display_name": "Gemini 2.0 Flash (deprecated)",
+    "input_price_per_million": 0.1,
+    "output_price_per_million": 0.4,
+    "free_tier": true
+  },
+  {
+    "model_id": "models/gemini-2.0-flash-lite",
+    "display_name": "Gemini 2.0 Flash-Lite (deprecated)",
+    "input_price_per_million": 0.075,
+    "output_price_per_million": 0.3,
+    "free_tier": true
+  },
+  {
+    "model_id": "models/gemini-2.5-computer-use-preview-10-2025",
+    "display_name": "Gemini 2.5 Computer Use",
+    "input_price_per_million": 1.25,
+    "output_price_per_million": 10,
+    "free_tier": false
+  },
+  {
+    "model_id": "models/gemini-embedding-2",
+    "display_name": "Gemini Embedding 2",
+    "input_price_per_million": 0.2,
+    "output_price_per_million": 0,
+    "free_tier": true
+  },
+  {
+    "model_id": "models/gemini-embedding-001",
+    "display_name": "Gemini Embedding 001",
+    "input_price_per_million": 0.15,
+    "output_price_per_million": 0,
+    "free_tier": true
+  }
+]

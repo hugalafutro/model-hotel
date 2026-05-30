@@ -2,35 +2,16 @@ package provider
 
 // DeepSeekModelSpec contains specification and pricing for a DeepSeek model.
 type DeepSeekModelSpec struct {
-	ModelID                       string
-	ContextLength                 int
-	MaxOutputTokens               int
-	Reasoning                     bool
-	InputPricePerMillionCacheHit  float64
-	InputPricePerMillionCacheMiss float64
-	OutputPricePerMillion         float64
+	ModelID                       string  `json:"model_id"`
+	ContextLength                 int     `json:"context_length"`
+	MaxOutputTokens               int     `json:"max_output_tokens"`
+	Reasoning                     bool    `json:"reasoning"`
+	InputPricePerMillionCacheHit  float64 `json:"input_price_per_million_cache_hit,omitempty"`
+	InputPricePerMillionCacheMiss float64 `json:"input_price_per_million_cache_miss"`
+	OutputPricePerMillion         float64 `json:"output_price_per_million"`
 }
 
-var deepseekCatalog = []DeepSeekModelSpec{
-	{
-		ModelID:                       "deepseek-v4-flash",
-		ContextLength:                 1000000,
-		MaxOutputTokens:               384000,
-		Reasoning:                     false,
-		InputPricePerMillionCacheHit:  0.028,
-		InputPricePerMillionCacheMiss: 0.139,
-		OutputPricePerMillion:         0.278,
-	},
-	{
-		ModelID:                       "deepseek-v4-pro",
-		ContextLength:                 1000000,
-		MaxOutputTokens:               384000,
-		Reasoning:                     true,
-		InputPricePerMillionCacheHit:  0.139,
-		InputPricePerMillionCacheMiss: 1.667,
-		OutputPricePerMillion:         3.333,
-	},
-}
+var deepseekCatalog = loadCatalog[[]DeepSeekModelSpec]("deepseek.json")
 
 // GetDeepSeekModels returns the full DeepSeek model catalog.
 func GetDeepSeekModels() []DeepSeekModelSpec {

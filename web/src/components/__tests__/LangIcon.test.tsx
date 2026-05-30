@@ -161,10 +161,10 @@ describe("LangIcon", () => {
 		expect(svg).toBeInTheDocument();
 	});
 
-	it("renders powershell icon as SVG", () => {
+	it("renders powershell icon as image", () => {
 		renderWithProviders(<LangIcon name="powershell" />);
-		const svg = screen.getByTitle("PowerShell");
-		expect(svg).toBeInTheDocument();
+		const img = screen.getByAltText("PowerShell");
+		expect(img).toBeInTheDocument();
 	});
 
 	it("respects custom size prop", () => {
