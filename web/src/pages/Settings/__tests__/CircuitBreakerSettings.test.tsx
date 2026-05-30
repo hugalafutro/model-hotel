@@ -54,7 +54,9 @@ describe("CircuitBreakerSettings", () => {
 		);
 		expect(screen.getByText("Failover on Rate Limit")).toBeInTheDocument();
 		expect(
-			screen.getByText("Route to failover group when a provider returns 429"),
+			screen.getByText(
+				"Route to next failover group member when a provider returns 429",
+			),
 		).toBeInTheDocument();
 	});
 
