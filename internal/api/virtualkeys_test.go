@@ -572,3 +572,63 @@ func TestCreateVirtualKey_WithAllowedProviders(t *testing.T) {
 		t.Errorf("response AllowedProviders length = %d, want 2", len(*resp.AllowedProviders))
 	}
 }
+
+// ---------------------------------------------------------------------------
+// CreateVirtualKey - empty allowed_providers rejection tests
+// ---------------------------------------------------------------------------
+
+// TestCreateVirtualKey_EmptyAllowedProvidersArray tests that CreateVirtualKey
+// rejects an empty allowed_providers array (non-nil but len==0).
+func TestCreateVirtualKey_EmptyAllowedProvidersArray(t *testing.T) {
+	mockVK := &mockVirtualKeyStore{
+		createFn: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int, allowedProviders *[]string) (*virtualkey.VirtualKey, error) {
+			t.Error("create should not be called when allowed_providers is empty array")
+			return nil, nil
+		},
+	}
+	auth := &mockAdminAuth{validateFn: func(string) bool { return true }}
+	h := testHandler(nil, mockVK, nil, auth, nil)
+
+	body := bytes.NewReader([]byte(`{"name":"test-key-empty","allowed_providers":[]}`))
+	req, w := newChiRequest(http.MethodPost, "/virtual-keys", body)
+
+	h.CreateVirtualKey(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "allowed_providers must be null or contain at least one provider ID") {
+		t.Errorf("expected error message about allowed_providers, got: %s", w.Body.String())
+	}
+}
+
+// ---------------------------------------------------------------------------
+// UpdateVirtualKey - empty allowed_providers rejection tests
+// ---------------------------------------------------------------------------
+
+// TestUpdateVirtualKey_EmptyAllowedProvidersArray tests that UpdateVirtualKey
+// rejects an empty allowed_providers array (non-nil but len==0).
+func TestUpdateVirtualKey_EmptyAllowedProvidersArray(t *testing.T) {
+	id := uuid.New()
+	mockVK := &mockVirtualKeyStore{
+		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string) (*virtualkey.VirtualKey, error) {
+			t.Error("update should not be called when allowed_providers is empty array")
+			return nil, nil
+		},
+	}
+	auth := &mockAdminAuth{validateFn: func(string) bool { return true }}
+	h := testHandler(nil, mockVK, nil, auth, nil)
+
+	body := bytes.NewReader([]byte(`{"name":"update-key-empty","allowed_providers":[]}`))
+	req, w := newChiRequest(http.MethodPut, "/virtual-keys/"+id.String(), body)
+	req = setChiURLParam(req, "id", id.String())
+
+	h.UpdateVirtualKey(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "allowed_providers must be null or contain at least one provider ID") {
+		t.Errorf("expected error message about allowed_providers, got: %s", w.Body.String())
+	}
+}

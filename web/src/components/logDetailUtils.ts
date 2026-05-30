@@ -14,13 +14,6 @@ export function formatDateTime(iso: string): string {
 	}
 }
 
-export function formatDuration(ms: number): string {
-	if (ms >= 1000) {
-		return `${(ms / 1000).toFixed(2)}s`;
-	}
-	return `${Math.round(ms)}ms`;
-}
-
 export function splitDuration(ms: number): { value: string; unit: string } {
 	if (ms >= 1000) {
 		return { value: (ms / 1000).toFixed(2), unit: "s" };

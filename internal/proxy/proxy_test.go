@@ -2162,3 +2162,348 @@ func TestChatCompletions_TTFTDisabled_CBRecordsSuccess(t *testing.T) {
 		t.Errorf("expected circuit breaker StateClosed after success, got %s", cbState)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// ChatCompletions allowed_providers filter tests (lines 1158-1181)
+// ---------------------------------------------------------------------------
+
+func TestChatCompletions_AllowedProviders_FilterAllowed(t *testing.T) {
+	pool := testDB.Pool()
+	ctx := context.Background()
+
+	settingsRepo := settings.NewRepository(pool)
+	failoverRepo := failover.NewRepository(pool)
+	modelRepo := model.NewRepository(pool)
+	providerRepo := provider.NewRepository(pool)
+	virtualKeyRepo := virtualkey.NewRepository(pool)
+	limiter := ratelimit.NewLimiter(settingsRepo)
+	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
+
+	masterKey := "test-master-key-allowed-providers"
+
+	// Create two providers: one allowed, one not
+	keyPair1, err := auth.Encrypt("test-api-key-1", masterKey)
+	if err != nil {
+		t.Fatalf("failed to encrypt key1: %v", err)
+	}
+	prov1, err := providerRepo.Create(ctx, provider.CreateProviderRequest{
+		Name:    "allowed-prov-" + uuid.New().String()[:8],
+		BaseURL: "http://127.0.0.1:9999", // will fail but should be reached
+		APIKey:  "test-api-key-1",
+	}, keyPair1.Ciphertext, keyPair1.Nonce, keyPair1.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider1: %v", err)
+	}
+
+	keyPair2, err := auth.Encrypt("test-api-key-2", masterKey)
+	if err != nil {
+		t.Fatalf("failed to encrypt key2: %v", err)
+	}
+	prov2, err := providerRepo.Create(ctx, provider.CreateProviderRequest{
+		Name:    "blocked-prov-" + uuid.New().String()[:8],
+		BaseURL: "http://127.0.0.1:9998", // should never be reached
+		APIKey:  "test-api-key-2",
+	}, keyPair2.Ciphertext, keyPair2.Nonce, keyPair2.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider2: %v", err)
+	}
+
+	// Create models for both providers with same model ID (for failover group)
+	modelName := "ap-model-" + uuid.New().String()[:8]
+	model1 := &model.Model{
+		ID: uuid.New(), ProviderID: prov1.ID, ModelID: modelName,
+		Name: "Model 1", Description: "", Capabilities: "{}",
+		Params: "{}", Modality: "", InputModalities: "[]", OutputModalities: "[]",
+		Enabled: true, ProviderName: prov1.Name, ProviderEnabled: true,
+	}
+	if err := modelRepo.Upsert(ctx, model1); err != nil {
+		t.Fatalf("failed to upsert model1: %v", err)
+	}
+
+	model2 := &model.Model{
+		ID: uuid.New(), ProviderID: prov2.ID, ModelID: modelName,
+		Name: "Model 2", Description: "", Capabilities: "{}",
+		Params: "{}", Modality: "", InputModalities: "[]", OutputModalities: "[]",
+		Enabled: true, ProviderName: prov2.Name, ProviderEnabled: true,
+	}
+	if err := modelRepo.Upsert(ctx, model2); err != nil {
+		t.Fatalf("failed to upsert model2: %v", err)
+	}
+
+	// Create failover group (hotel/) with both models
+	if _, err := failoverRepo.UpsertWithConfig(ctx, modelName,
+		[]uuid.UUID{model1.ID, model2.ID},
+		map[string]bool{}, nil, nil, nil, nil,
+	); err != nil {
+		t.Fatalf("failed to create failover group: %v", err)
+	}
+
+	// Create virtual key with allowed_providers = [prov1.ID only]
+	vkName := "ap-key-" + uuid.New().String()[:8]
+	vkHash := virtualkey.Hash(vkName)
+	vkPreview := "ap-" + vkHash[:8]
+	allowedProviders := []string{prov1.ID.String()}
+	if _, err := virtualKeyRepo.Create(ctx, vkName, vkHash, vkPreview, nil, nil, &allowedProviders); err != nil {
+		t.Fatalf("failed to create virtual key: %v", err)
+	}
+
+	handler := &Handler{
+		cfg:            &config.Config{MasterKey: masterKey},
+		settingsRepo:   settingsRepo,
+		failoverRepo:   failoverRepo,
+		modelRepo:      modelRepo,
+		providerRepo:   providerRepo,
+		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
+		rateLimiter:    limiter,
+		ipLimiter:      ipLimiter,
+		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
+		dbPool:         pool,
+		upstreamTransport: &http.Transport{
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			ResponseHeaderTimeout: 120 * time.Second,
+			IdleConnTimeout:       120 * time.Second,
+			MaxIdleConns:          200,
+			MaxIdleConnsPerHost:   20,
+		},
+	}
+	defer handler.upstreamTransport.CloseIdleConnections()
+
+	body := `{"model": "hotel/` + modelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	rCtx := context.WithValue(req.Context(), virtualKeyNameKey, vkName)
+	rCtx = context.WithValue(rCtx, virtualKeyIDKey, uuid.New().String())
+	rCtx = context.WithValue(rCtx, VirtualKeyHashKey, vkHash)
+	// Set allowed_providers in context (simulating what middleware does)
+	rCtx = context.WithValue(rCtx, ctxkeys.VirtualKeyAllowedProvidersKey, &allowedProviders)
+	req = req.WithContext(rCtx)
+
+	w := httptest.NewRecorder()
+	handler.ChatCompletions(w, req)
+
+	// Should get connection refused from prov1 (allowed) but NOT prov2 (blocked)
+	// Since both providers fail to connect, we expect 502 (all providers exhausted)
+	// But the key is that only prov1 should have been attempted
+	if w.Code != http.StatusBadGateway {
+		t.Errorf("expected 502 (all providers exhausted), got %d; body: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestChatCompletions_AllowedProviders_BlockAllReturns403(t *testing.T) {
+	pool := testDB.Pool()
+	ctx := context.Background()
+
+	settingsRepo := settings.NewRepository(pool)
+	failoverRepo := failover.NewRepository(pool)
+	modelRepo := model.NewRepository(pool)
+	providerRepo := provider.NewRepository(pool)
+	virtualKeyRepo := virtualkey.NewRepository(pool)
+	limiter := ratelimit.NewLimiter(settingsRepo)
+	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
+
+	masterKey := "test-master-key-blocked-providers"
+
+	// Create a provider
+	keyPair, err := auth.Encrypt("test-api-key", masterKey)
+	if err != nil {
+		t.Fatalf("failed to encrypt key: %v", err)
+	}
+	prov, err := providerRepo.Create(ctx, provider.CreateProviderRequest{
+		Name:    "blocked-only-prov-" + uuid.New().String()[:8],
+		BaseURL: "http://127.0.0.1:9997",
+		APIKey:  "test-api-key",
+	}, keyPair.Ciphertext, keyPair.Nonce, keyPair.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+
+	// Create model
+	modelName := "blocked-model-" + uuid.New().String()[:8]
+	testModel := &model.Model{
+		ID: uuid.New(), ProviderID: prov.ID, ModelID: modelName,
+		Name: "Blocked Model", Description: "", Capabilities: "{}",
+		Params: "{}", Modality: "", InputModalities: "[]", OutputModalities: "[]",
+		Enabled: true, ProviderName: prov.Name, ProviderEnabled: true,
+	}
+	if err := modelRepo.Upsert(ctx, testModel); err != nil {
+		t.Fatalf("failed to upsert model: %v", err)
+	}
+
+	// Create virtual key with allowed_providers = [different provider ID]
+	// This blocks the only available provider
+	vkName := "blocked-key-" + uuid.New().String()[:8]
+	vkHash := virtualkey.Hash(vkName)
+	vkPreview := "bk-" + vkHash[:8]
+	allowedProviders := []string{"00000000-0000-0000-0000-000000000000"} // non-existent provider
+	if _, err := virtualKeyRepo.Create(ctx, vkName, vkHash, vkPreview, nil, nil, &allowedProviders); err != nil {
+		t.Fatalf("failed to create virtual key: %v", err)
+	}
+
+	handler := &Handler{
+		cfg:            &config.Config{MasterKey: masterKey},
+		settingsRepo:   settingsRepo,
+		failoverRepo:   failoverRepo,
+		modelRepo:      modelRepo,
+		providerRepo:   providerRepo,
+		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
+		rateLimiter:    limiter,
+		ipLimiter:      ipLimiter,
+		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
+		dbPool:         pool,
+		upstreamTransport: &http.Transport{
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			ResponseHeaderTimeout: 120 * time.Second,
+			IdleConnTimeout:       120 * time.Second,
+			MaxIdleConns:          200,
+			MaxIdleConnsPerHost:   20,
+		},
+	}
+	defer handler.upstreamTransport.CloseIdleConnections()
+
+	body := `{"model": "` + prov.Name + `/` + modelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	rCtx := context.WithValue(req.Context(), virtualKeyNameKey, vkName)
+	rCtx = context.WithValue(rCtx, virtualKeyIDKey, uuid.New().String())
+	rCtx = context.WithValue(rCtx, VirtualKeyHashKey, vkHash)
+	// Set allowed_providers in context (simulating what middleware does)
+	rCtx = context.WithValue(rCtx, ctxkeys.VirtualKeyAllowedProvidersKey, &allowedProviders)
+	req = req.WithContext(rCtx)
+
+	w := httptest.NewRecorder()
+	handler.ChatCompletions(w, req)
+
+	// All candidates filtered → 403
+	if w.Code != http.StatusForbidden {
+		t.Errorf("expected 403 (virtual key does not have access), got %d; body: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "virtual key does not have access to any provider") {
+		t.Errorf("expected 403 error message, got: %s", w.Body.String())
+	}
+}
+
+func TestChatCompletions_AllowedProviders_NilAllowsAll(t *testing.T) {
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	providerName := env.ProviderName
+	modelName := env.ModelName
+	defer env.Upstream.Close()
+	defer handler.upstreamTransport.CloseIdleConnections()
+
+	// Virtual key created with nil allowed_providers (via newTestProxyHandler)
+	body := `{"model": "` + providerName + `/` + modelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	ctx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
+	ctx = context.WithValue(ctx, virtualKeyIDKey, uuid.New().String())
+	ctx = context.WithValue(ctx, VirtualKeyHashKey, env.KeyHash)
+	req = req.WithContext(ctx)
+
+	w := httptest.NewRecorder()
+	handler.ChatCompletions(w, req)
+
+	// nil allowed_providers → no filtering → request succeeds
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 (nil allowed_providers allows all), got %d; body: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestChatCompletions_AllowedProviders_EmptySliceAllowsAll(t *testing.T) {
+	pool := testDB.Pool()
+	ctx := context.Background()
+
+	settingsRepo := settings.NewRepository(pool)
+	failoverRepo := failover.NewRepository(pool)
+	modelRepo := model.NewRepository(pool)
+	providerRepo := provider.NewRepository(pool)
+	virtualKeyRepo := virtualkey.NewRepository(pool)
+	limiter := ratelimit.NewLimiter(settingsRepo)
+	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
+
+	masterKey := "test-master-key-empty-allowed"
+
+	// Create a provider that returns success
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id":      "chatcmpl-test",
+			"object":  "chat.completion",
+			"created": time.Now().Unix(),
+			"model":   "test",
+			"choices": []map[string]interface{}{
+				{"index": 0, "message": map[string]interface{}{"role": "assistant", "content": "hi"}, "finish_reason": "stop"},
+			},
+			"usage": map[string]interface{}{"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+		})
+	}))
+	defer upstream.Close()
+
+	keyPair, err := auth.Encrypt("test-api-key", masterKey)
+	if err != nil {
+		t.Fatalf("failed to encrypt key: %v", err)
+	}
+	prov, err := providerRepo.Create(ctx, provider.CreateProviderRequest{
+		Name:    "empty-allowed-prov-" + uuid.New().String()[:8],
+		BaseURL: upstream.URL,
+		APIKey:  "test-api-key",
+	}, keyPair.Ciphertext, keyPair.Nonce, keyPair.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+
+	modelName := "empty-allowed-model-" + uuid.New().String()[:8]
+	testModel := &model.Model{
+		ID: uuid.New(), ProviderID: prov.ID, ModelID: modelName,
+		Name: "Empty Allowed Model", Description: "", Capabilities: "{}",
+		Params: "{}", Modality: "", InputModalities: "[]", OutputModalities: "[]",
+		Enabled: true, ProviderName: prov.Name, ProviderEnabled: true,
+	}
+	if err := modelRepo.Upsert(ctx, testModel); err != nil {
+		t.Fatalf("failed to upsert model: %v", err)
+	}
+
+	// Create virtual key with empty allowed_providers slice (len==0)
+	vkName := "empty-allowed-key-" + uuid.New().String()[:8]
+	vkHash := virtualkey.Hash(vkName)
+	vkPreview := "ea-" + vkHash[:8]
+	emptyAllowed := []string{} // empty slice, not nil
+	if _, err := virtualKeyRepo.Create(ctx, vkName, vkHash, vkPreview, nil, nil, &emptyAllowed); err != nil {
+		t.Fatalf("failed to create virtual key: %v", err)
+	}
+
+	handler := &Handler{
+		cfg:            &config.Config{MasterKey: masterKey},
+		settingsRepo:   settingsRepo,
+		failoverRepo:   failoverRepo,
+		modelRepo:      modelRepo,
+		providerRepo:   providerRepo,
+		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
+		rateLimiter:    limiter,
+		ipLimiter:      ipLimiter,
+		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
+		dbPool:         pool,
+		upstreamTransport: &http.Transport{
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			ResponseHeaderTimeout: 120 * time.Second,
+			IdleConnTimeout:       120 * time.Second,
+			MaxIdleConns:          200,
+			MaxIdleConnsPerHost:   20,
+		},
+	}
+	defer handler.upstreamTransport.CloseIdleConnections()
+
+	body := `{"model": "` + prov.Name + `/` + modelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	rCtx := context.WithValue(req.Context(), virtualKeyNameKey, vkName)
+	rCtx = context.WithValue(rCtx, virtualKeyIDKey, uuid.New().String())
+	rCtx = context.WithValue(rCtx, VirtualKeyHashKey, vkHash)
+	// Set empty allowed_providers in context (simulating what middleware does)
+	rCtx = context.WithValue(rCtx, ctxkeys.VirtualKeyAllowedProvidersKey, &emptyAllowed)
+	req = req.WithContext(rCtx)
+
+	w := httptest.NewRecorder()
+	handler.ChatCompletions(w, req)
+
+	// empty slice allowed_providers → len==0 check skips filter → request succeeds
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 (empty slice allowed_providers skips filter), got %d; body: %s", w.Code, w.Body.String())
+	}
+}

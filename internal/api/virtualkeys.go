@@ -91,6 +91,13 @@ func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Reject empty allowed_providers array (non-nil but len==0).
+	// nil means "no restriction", empty slice means "deny all" which is rejected.
+	if req.AllowedProviders != nil && len(*req.AllowedProviders) == 0 {
+		http.Error(w, "allowed_providers must be null or contain at least one provider ID", http.StatusBadRequest)
+		return
+	}
+
 	if err := validateRateLimits(req.RateLimitRPS, req.RateLimitBurst, w); err != nil {
 		return
 	}
@@ -175,6 +182,13 @@ func (h *Handler) UpdateVirtualKey(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("name %q is reserved", reserved), http.StatusBadRequest)
 			return
 		}
+	}
+
+	// Reject empty allowed_providers array (non-nil but len==0).
+	// nil means "no restriction", empty slice means "deny all" which is rejected.
+	if req.AllowedProviders != nil && len(*req.AllowedProviders) == 0 {
+		http.Error(w, "allowed_providers must be null or contain at least one provider ID", http.StatusBadRequest)
+		return
 	}
 
 	if err := validateRateLimits(req.RateLimitRPS, req.RateLimitBurst, w); err != nil {

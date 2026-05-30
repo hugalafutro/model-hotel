@@ -63,6 +63,7 @@ export function KeyDetailModal({
 		vk.rate_limit_burst?.toString() ?? "",
 	);
 	const [excludedProviders, setExcludedProviders] = useState<string[]>([]);
+	const [originalExcluded, setOriginalExcluded] = useState<string[]>([]);
 
 	const { data: providers } = useQuery({
 		queryKey: ["providers"],
@@ -141,6 +142,7 @@ export function KeyDetailModal({
 		setEditRps(vk.rate_limit_rps?.toString() ?? "");
 		setEditBurst(vk.rate_limit_burst?.toString() ?? "");
 		setExcludedProviders([]);
+		setOriginalExcluded([]);
 		setEditing(false);
 	};
 
@@ -151,20 +153,27 @@ export function KeyDetailModal({
 		// Compute excluded providers from the VK's allowed_providers
 		if (vk.allowed_providers && providers) {
 			const allIds = providers.map((p) => p.id);
-			setExcludedProviders(
-				allIds.filter((id) => !vk.allowed_providers?.includes(id)),
+			const excluded = allIds.filter(
+				(id) => !vk.allowed_providers?.includes(id),
 			);
+			setExcludedProviders(excluded);
+			setOriginalExcluded(excluded);
 		} else {
 			setExcludedProviders([]);
+			setOriginalExcluded([]);
 		}
 		setEditing(true);
 	};
+
+	const providersChanged =
+		excludedProviders.length !== originalExcluded.length ||
+		excludedProviders.some((id) => !originalExcluded.includes(id));
 
 	const hasChanges =
 		editName !== vk.name ||
 		editRps !== (vk.rate_limit_rps?.toString() ?? "") ||
 		editBurst !== (vk.rate_limit_burst?.toString() ?? "") ||
-		excludedProviders.length > 0;
+		providersChanged;
 
 	const handleClose = () => {
 		if (editing && hasChanges) {

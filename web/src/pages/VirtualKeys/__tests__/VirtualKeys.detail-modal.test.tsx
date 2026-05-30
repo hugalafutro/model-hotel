@@ -1059,4 +1059,55 @@ describe("hasChanges revert", () => {
 		// Save should be disabled again (no changes)
 		expect(saveButton).toBeDisabled();
 	});
+
+	it("disables Save for unchanged provider exclusions", async () => {
+		const mockProviders = [
+			mockProvider,
+			{
+				...mockProvider,
+				id: "provider-002",
+				name: "Other Provider",
+				created_at: "2026-02-20T10:00:00Z",
+				updated_at: "2026-05-11T12:00:00Z",
+			},
+		];
+
+		server.use(
+			http.get("/api/providers", () => HttpResponse.json(mockProviders)),
+			http.get("/api/virtual-keys", () =>
+				HttpResponse.json([mockVirtualKeyWithProviders]),
+			),
+		);
+
+		const { user } = renderWithProviders(<VirtualKeys />);
+
+		await waitFor(() => {
+			expect(screen.getByText("Restricted Key")).toBeInTheDocument();
+		});
+
+		const nameCell = screen.getByText("Restricted Key");
+		await user.click(nameCell);
+
+		await waitFor(() => {
+			expect(
+				screen.getByRole("dialog", { name: "Virtual Key Details" }),
+			).toBeInTheDocument();
+		});
+
+		const dialog = screen.getByRole("dialog", {
+			name: "Virtual Key Details",
+		});
+
+		// Click Edit button
+		const editButton = within(dialog).getByRole("button", {
+			name: "Edit",
+		});
+		await user.click(editButton);
+
+		// Save button should be disabled (no changes to provider exclusions)
+		const saveButton = within(dialog).getByRole("button", {
+			name: "Save Changes",
+		});
+		expect(saveButton).toBeDisabled();
+	});
 });
