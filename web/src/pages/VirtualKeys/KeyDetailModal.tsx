@@ -127,10 +127,18 @@ export function KeyDetailModal({
 		if (!editName.trim()) return;
 		setProviderError("");
 		const allProviderIds = availableProviders.map((p) => p.id);
-		const allowedProviders =
-			excludedProviders.length > 0
-				? allProviderIds.filter((id) => !excludedProviders.includes(id))
-				: null;
+		let allowedProviders: string[] | null;
+		if (excludedProviders.length > 0) {
+			allowedProviders = allProviderIds.filter(
+				(id) => !excludedProviders.includes(id),
+			);
+		} else if (providersChanged) {
+			// User removed all exclusions → send null (no restriction)
+			allowedProviders = null;
+		} else {
+			// No change to providers → preserve original value
+			allowedProviders = vk.allowed_providers ?? null;
+		}
 		if (allowedProviders && allowedProviders.length === 0) {
 			setProviderError("At least one provider must remain accessible");
 			return;
