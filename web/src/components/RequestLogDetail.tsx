@@ -17,7 +17,7 @@ import { formatMs } from "../pages/Logs/utils";
 import { CopyablePill } from "./CopyablePill";
 import { DetailItem } from "./LogDetailItem";
 import { StatusBadge } from "./LogDetailStatusBadge";
-import { formatDateTime, formatDuration } from "./logDetailUtils";
+import { formatDateTime, splitDuration } from "./logDetailUtils";
 import { Modal } from "./Modal";
 
 export function RequestLogDetail({
@@ -65,7 +65,15 @@ export function RequestLogDetail({
 				<div className="p-3 rounded-lg bg-(--surface-bg) border border-(--border-subtle) text-center">
 					<Clock size={16} className="mx-auto mb-1 text-(--accent)" />
 					<div className="text-lg font-bold text-(--text-primary)">
-						{formatDuration(requestLog.duration_ms)}
+						{(() => {
+							const d = splitDuration(requestLog.duration_ms);
+							return (
+								<>
+									{d.value}
+									<span className="text-(--text-tertiary)">{d.unit}</span>
+								</>
+							);
+						})()}
 					</div>
 					<div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-(--text-tertiary)">
 						Duration
@@ -81,7 +89,15 @@ export function RequestLogDetail({
 					<Timer size={16} className="mx-auto mb-1 text-(--accent)" />
 					<div className="text-lg font-bold text-(--text-primary)">
 						{requestLog.response_header_ms > 0
-							? formatDuration(requestLog.response_header_ms)
+							? (() => {
+									const d = splitDuration(requestLog.response_header_ms);
+									return (
+										<>
+											{d.value}
+											<span className="text-(--text-tertiary)">{d.unit}</span>
+										</>
+									);
+								})()
 							: "-"}
 					</div>
 					<div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-(--text-tertiary)">
@@ -97,7 +113,17 @@ export function RequestLogDetail({
 				<div className="p-3 rounded-lg bg-(--surface-bg) border border-(--border-subtle) text-center">
 					<Timer size={16} className="mx-auto mb-1 text-(--accent)" />
 					<div className="text-lg font-bold text-(--text-primary)">
-						{requestLog.ttft_ms > 0 ? formatDuration(requestLog.ttft_ms) : "-"}
+						{requestLog.ttft_ms > 0
+							? (() => {
+									const d = splitDuration(requestLog.ttft_ms);
+									return (
+										<>
+											{d.value}
+											<span className="text-(--text-tertiary)">{d.unit}</span>
+										</>
+									);
+								})()
+							: "-"}
 					</div>
 					<div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-(--text-tertiary)">
 						TTFT

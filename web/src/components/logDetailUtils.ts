@@ -20,3 +20,10 @@ export function formatDuration(ms: number): string {
 	}
 	return `${Math.round(ms)}ms`;
 }
+
+export function splitDuration(ms: number): { value: string; unit: string } {
+	if (ms >= 1000) {
+		return { value: (ms / 1000).toFixed(2), unit: "s" };
+	}
+	return { value: String(Math.round(ms)), unit: "ms" };
+}
