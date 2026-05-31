@@ -3,10 +3,6 @@ import { Brain, KeyRound, ShieldCheck } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { api } from "../../api/client";
 import type { VirtualKey } from "../../api/types";
-import {
-	CollapsibleToggle,
-	useCollapsible,
-} from "../../components/CollapsibleToggle";
 import { CopyablePill } from "../../components/CopyablePill";
 import type { SortState } from "../../components/DataTable";
 import {
@@ -68,11 +64,6 @@ export function VirtualKeys() {
 	});
 	const [pageSize, setPageSize] = useState(10);
 	const [currentPage, setCurrentPage] = useState(1);
-	const [terminalTab, setTerminalTab] = useState<"bash" | "powershell">("bash");
-	const { collapsed: exampleCollapsed, toggle: toggleExample } = useCollapsible(
-		"vk-example-collapsed",
-		false,
-	);
 
 	const { data: keys, isLoading } = useQuery({
 		queryKey: ["virtualKeys"],
@@ -139,7 +130,7 @@ export function VirtualKeys() {
 	}
 
 	return (
-		<div className="space-y-6">
+		<div className="space-y-6 pb-8">
 			<PageHeader
 				icon={KeyRound}
 				title={countLabel(keys?.length, "Virtual Key", "Virtual Keys")}
@@ -322,222 +313,153 @@ export function VirtualKeys() {
 			)}
 
 			{sortedKeys.length > 0 && (
-				<div className="ui-card p-6">
-					<div className="flex items-center justify-between">
-						<h3 className="text-sm font-medium text-gray-300">Quick Start</h3>
-						<CollapsibleToggle
-							collapsed={exampleCollapsed}
-							onToggle={toggleExample}
-							variant="muted"
-							size={14}
-						/>
-					</div>
-					<div
-						className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
-							exampleCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"
-						}`}
-					>
-						<div
-							className={`overflow-hidden space-y-5 transition-[margin] duration-300 ${
-								exampleCollapsed ? "mt-0" : "mt-5"
-							}`}
-						>
-							<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-								<div className="flex items-start gap-3 p-4 ui-card">
-									<div className="flex items-center justify-center w-7 h-7 rounded-lg bg-(--accent-light) text-(--accent) text-sm font-bold shrink-0">
-										1
-									</div>
-									<div>
-										<h3 className="text-sm font-medium text-gray-200">
-											Create a Key
-										</h3>
-										<p className="text-xs text-gray-400 mt-1">
-											Click the button above to generate a new virtual key
-										</p>
-									</div>
-								</div>
-								<div className="flex items-start gap-3 p-4 ui-card">
-									<div className="flex items-center justify-center w-7 h-7 rounded-lg bg-(--accent-light) text-(--accent) text-sm font-bold shrink-0">
-										2
-									</div>
-									<div>
-										<h3 className="text-sm font-medium text-gray-200">
-											Copy the Full Key
-										</h3>
-										<p className="text-xs text-gray-400 mt-1">
-											The complete key is shown only once on creation
-										</p>
-									</div>
-								</div>
-								<div className="flex items-start gap-3 p-4 ui-card">
-									<div className="flex items-center justify-center w-7 h-7 rounded-lg bg-(--accent-light) text-(--accent) text-sm font-bold shrink-0">
-										3
-									</div>
-									<div>
-										<h3 className="text-sm font-medium text-gray-200">
-											Make Requests
-										</h3>
-										<p className="text-xs text-gray-400 mt-1">
-											Use your key to call the proxy API endpoints
-										</p>
-									</div>
-								</div>
+				<div className="ui-card p-6 space-y-5">
+					<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+						<div className="flex items-start gap-3 p-4 ui-card">
+							<div className="flex items-center justify-center w-7 h-7 rounded-lg bg-(--accent-light) text-(--accent) text-sm font-bold shrink-0">
+								1
 							</div>
-
-							<div className="space-y-4">
-								<div>
-									<div className="terminal-tab-bar">
-										<button
-											type="button"
-											onClick={() => setTerminalTab("bash")}
-											className={`terminal-tab ${terminalTab === "bash" ? "terminal-tab-active" : "terminal-tab-inactive"}`}
-										>
-											<svg
-												viewBox="0 0 24 24"
-												className="w-3.5 h-3.5"
-												fill="none"
-												stroke="currentColor"
-												strokeWidth="2"
-												strokeLinecap="round"
-												strokeLinejoin="round"
-											>
-												<title>Terminal</title>
-												<polyline points="4 17 10 11 4 5" />
-												<line x1="12" y1="19" x2="20" y2="19" />
-											</svg>
-											bash
-										</button>
-										<button
-											type="button"
-											onClick={() => setTerminalTab("powershell")}
-											className={`terminal-tab ${terminalTab === "powershell" ? "terminal-tab-active" : "terminal-tab-inactive"}`}
-										>
-											<svg
-												viewBox="0 0 24 24"
-												className="w-3.5 h-3.5"
-												fill="none"
-												stroke="currentColor"
-												strokeWidth="2"
-												strokeLinecap="round"
-												strokeLinejoin="round"
-											>
-												<title>Monitor</title>
-												<rect
-													x="2"
-													y="3"
-													width="20"
-													height="14"
-													rx="2"
-													ry="2"
-												/>
-												<line x1="8" y1="21" x2="16" y2="21" />
-												<line x1="12" y1="17" x2="12" y2="21" />
-											</svg>
-											PowerShell
-										</button>
-									</div>
-									{terminalTab === "bash" ? (
-										<TerminalPreview
-											variant="bash"
-											copyText={snippetBashText({ origin: proxyOrigin })}
-										>
-											{snippetBash({ origin: proxyOrigin })}
-										</TerminalPreview>
-									) : (
-										<TerminalPreview
-											variant="powershell"
-											copyText={snippetPowershellText({ origin: proxyOrigin })}
-										>
-											{snippetPowershell({ origin: proxyOrigin })}
-										</TerminalPreview>
-									)}
-								</div>
-
-								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-									<TerminalPreview
-										variant="code"
-										title="Python"
-										icon="python"
-										copyText={snippetPythonText({ origin: proxyOrigin })}
-									>
-										{snippetPython({ origin: proxyOrigin })}
-									</TerminalPreview>
-
-									<TerminalPreview
-										variant="code"
-										title="OpenClaw"
-										icon="openclaw"
-										copyText={snippetOpenClawText({ origin: proxyOrigin })}
-									>
-										{snippetOpenClaw({ origin: proxyOrigin })}
-									</TerminalPreview>
-
-									<TerminalPreview
-										variant="code"
-										title="JavaScript"
-										icon="javascript"
-										copyText={snippetJSText({ origin: proxyOrigin })}
-									>
-										{snippetJS({ origin: proxyOrigin })}
-									</TerminalPreview>
-
-									<TerminalPreview
-										variant="code"
-										title="LibreChat"
-										icon="librechat"
-										copyText={snippetLibreChatText({ origin: proxyOrigin })}
-									>
-										{snippetLibreChat({ origin: proxyOrigin })}
-									</TerminalPreview>
-
-									<TerminalPreview
-										variant="code"
-										title="Claude Code"
-										icon="claude"
-										copyText={snippetClaudeCodeText({ origin: proxyOrigin })}
-									>
-										{snippetClaudeCode({ origin: proxyOrigin })}
-									</TerminalPreview>
-
-									<TerminalPreview
-										variant="code"
-										title="ZED"
-										icon="zed"
-										copyText={snippetZedVKText({ origin: proxyOrigin })}
-									>
-										{snippetZedVK({ origin: proxyOrigin })}
-									</TerminalPreview>
-
-									<TerminalPreview
-										variant="code"
-										title="Hermes"
-										icon="hermes"
-										copyText={snippetHermesText({ origin: proxyOrigin })}
-									>
-										{snippetHermes({ origin: proxyOrigin })}
-									</TerminalPreview>
-
-									<TerminalPreview
-										variant="code"
-										title="OpenCode"
-										icon="opencode"
-										copyText={snippetOpencodeVKText({ origin: proxyOrigin })}
-									>
-										{snippetOpencodeVK({ origin: proxyOrigin })}
-									</TerminalPreview>
-								</div>
-							</div>
-
-							<div className="flex items-start gap-3 p-4 rounded-lg bg-(--accent-light) border border-(--accent-lighter)">
-								<div className="w-1.5 h-1.5 rounded-full bg-(--accent) mt-1.5 shrink-0" />
-								<p className="text-xs text-gray-300 leading-relaxed">
-									<span className="text-gray-200 font-medium">Note:</span>{" "}
-									Virtual keys are used to authenticate requests to the proxy.
-									Each key tracks its own token usage. You can create multiple
-									keys for different clients or environments.
+							<div>
+								<h3 className="text-sm font-medium text-gray-200">
+									Create a Key
+								</h3>
+								<p className="text-xs text-gray-400 mt-1">
+									Click the button above to generate a new virtual key
 								</p>
 							</div>
 						</div>
+						<div className="flex items-start gap-3 p-4 ui-card">
+							<div className="flex items-center justify-center w-7 h-7 rounded-lg bg-(--accent-light) text-(--accent) text-sm font-bold shrink-0">
+								2
+							</div>
+							<div>
+								<h3 className="text-sm font-medium text-gray-200">
+									Copy the Full Key
+								</h3>
+								<p className="text-xs text-gray-400 mt-1">
+									The complete key is shown only once on creation
+								</p>
+							</div>
+						</div>
+						<div className="flex items-start gap-3 p-4 ui-card">
+							<div className="flex items-center justify-center w-7 h-7 rounded-lg bg-(--accent-light) text-(--accent) text-sm font-bold shrink-0">
+								3
+							</div>
+							<div>
+								<h3 className="text-sm font-medium text-gray-200">
+									Make Requests
+								</h3>
+								<p className="text-xs text-gray-400 mt-1">
+									Use your key to call the proxy API endpoints
+								</p>
+							</div>
+						</div>
+					</div>
+
+					<div className="space-y-4">
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<TerminalPreview
+								variant="code"
+								title="cURL"
+								icon="curl"
+								copyText={snippetBashText({ origin: proxyOrigin })}
+							>
+								{snippetBash({ origin: proxyOrigin })}
+							</TerminalPreview>
+
+							<TerminalPreview
+								variant="code"
+								title="PowerShell"
+								icon="powershell"
+								copyText={snippetPowershellText({ origin: proxyOrigin })}
+							>
+								{snippetPowershell({ origin: proxyOrigin })}
+							</TerminalPreview>
+						</div>
+
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<TerminalPreview
+								variant="code"
+								title="Python"
+								icon="python"
+								copyText={snippetPythonText({ origin: proxyOrigin })}
+							>
+								{snippetPython({ origin: proxyOrigin })}
+							</TerminalPreview>
+
+							<TerminalPreview
+								variant="code"
+								title="OpenClaw"
+								icon="openclaw"
+								copyText={snippetOpenClawText({ origin: proxyOrigin })}
+							>
+								{snippetOpenClaw({ origin: proxyOrigin })}
+							</TerminalPreview>
+
+							<TerminalPreview
+								variant="code"
+								title="JavaScript"
+								icon="javascript"
+								copyText={snippetJSText({ origin: proxyOrigin })}
+							>
+								{snippetJS({ origin: proxyOrigin })}
+							</TerminalPreview>
+
+							<TerminalPreview
+								variant="code"
+								title="LibreChat"
+								icon="librechat"
+								copyText={snippetLibreChatText({ origin: proxyOrigin })}
+							>
+								{snippetLibreChat({ origin: proxyOrigin })}
+							</TerminalPreview>
+
+							<TerminalPreview
+								variant="code"
+								title="Claude Code"
+								icon="claude"
+								copyText={snippetClaudeCodeText({ origin: proxyOrigin })}
+							>
+								{snippetClaudeCode({ origin: proxyOrigin })}
+							</TerminalPreview>
+
+							<TerminalPreview
+								variant="code"
+								title="ZED"
+								icon="zed"
+								copyText={snippetZedVKText({ origin: proxyOrigin })}
+							>
+								{snippetZedVK({ origin: proxyOrigin })}
+							</TerminalPreview>
+
+							<TerminalPreview
+								variant="code"
+								title="Hermes"
+								icon="hermes"
+								copyText={snippetHermesText({ origin: proxyOrigin })}
+							>
+								{snippetHermes({ origin: proxyOrigin })}
+							</TerminalPreview>
+
+							<TerminalPreview
+								variant="code"
+								title="OpenCode"
+								icon="opencode"
+								copyText={snippetOpencodeVKText({ origin: proxyOrigin })}
+							>
+								{snippetOpencodeVK({ origin: proxyOrigin })}
+							</TerminalPreview>
+						</div>
+					</div>
+
+					<div className="flex items-start gap-3 p-4 rounded-lg bg-(--accent-light) border border-(--accent-lighter)">
+						<div className="w-1.5 h-1.5 rounded-full bg-(--accent) mt-1.5 shrink-0" />
+						<p className="text-xs text-gray-300 leading-relaxed">
+							<span className="text-gray-200 font-medium">Note:</span> Virtual
+							keys are used to authenticate requests to the proxy. Each key
+							tracks its own token usage. You can create multiple keys for
+							different clients or environments.
+						</p>
 					</div>
 				</div>
 			)}

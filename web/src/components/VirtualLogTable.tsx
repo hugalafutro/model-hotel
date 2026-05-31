@@ -217,7 +217,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 							<col key={col.key} className={col.width} />
 						))}
 					</colgroup>
-					<thead className="sticky top-0 z-10 bg-(--surface)">
+					<thead className="sticky top-0 z-10">
 						<tr>
 							<th
 								className={`${HEADER_BASE} cursor-pointer`}

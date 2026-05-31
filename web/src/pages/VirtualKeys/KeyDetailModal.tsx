@@ -10,12 +10,16 @@ import { formatNumber } from "../../utils/format";
 function SectionHeader({
 	icon: Icon,
 	label,
+	className,
 }: {
 	icon: React.ComponentType<{ size?: number; className?: string }>;
 	label: string;
+	className?: string;
 }) {
 	return (
-		<div className="flex items-center gap-2 text-(--accent) mt-4 first:mt-0">
+		<div
+			className={`flex items-center gap-2 text-(--accent) mt-4 first:mt-0 ${className ?? ""}`}
+		>
 			<Icon size={12} className="shrink-0" />
 			<span className="text-xs font-semibold uppercase tracking-wider">
 				{label}
@@ -352,7 +356,11 @@ export function KeyDetailModal({
 							<p className="text-xs text-red-400 mt-1">{providerError}</p>
 						)}
 
-						<SectionHeader icon={BrainSlashIcon} label="Strip Reasoning" />
+						<SectionHeader
+							icon={BrainSlashIcon}
+							label="Strip Reasoning"
+							className="mb-2"
+						/>
 						<div>
 							<div className="flex items-center gap-3">
 								<button
@@ -383,8 +391,7 @@ export function KeyDetailModal({
 							</div>
 							<p className="text-xs text-gray-400 mt-1.5">
 								When enabled, reasoning/thinking tokens are removed from
-								streaming responses for clients that cannot handle them (e.g.,
-								Warp.dev).
+								streaming responses for clients that cannot handle them.
 							</p>
 						</div>
 					</>

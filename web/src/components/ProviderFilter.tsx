@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Search, X } from "lucide-react";
+import { Check, ChevronDown, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 interface Provider {
@@ -66,7 +66,6 @@ export function ProviderFilter({
 
 	useEffect(() => {
 		if (open && searchRef.current) {
-			// small delay so focus happens after render
 			const t = setTimeout(() => searchRef.current?.focus(), 10);
 			return () => clearTimeout(t);
 		}
@@ -129,19 +128,14 @@ export function ProviderFilter({
 			{open && (
 				<div
 					data-testid="provider-filter-dropdown"
-					className="absolute z-50 mt-1 w-full min-w-50 ui-card py-1 shadow-lg"
+					className="absolute z-50 mt-1 w-full min-w-50 ui-card py-1 shadow-lg overflow-hidden"
 					style={{
-						// Ensure the dropdown panel elevates above table borders
 						border: "1px solid var(--border-default)",
 					}}
 				>
 					{/* Search */}
 					<div className="px-2 pt-1 pb-1.5">
 						<div className="relative">
-							<Search
-								size={12}
-								className="absolute left-2 top-1/2 -translate-y-1/2 text-(--text-muted)"
-							/>
 							<input
 								ref={searchRef}
 								type="text"
@@ -149,7 +143,7 @@ export function ProviderFilter({
 								onChange={(e) => setSearch(e.target.value)}
 								placeholder="Search providers…"
 								aria-label="Search providers"
-								className="ui-input text-xs h-8 pl-9! pr-6! w-full"
+								className="ui-input text-xs h-8 pl-2! pr-7! w-full"
 								style={{
 									fontFamily: "var(--font-mono), ui-monospace, monospace",
 								}}
@@ -212,7 +206,7 @@ export function ProviderFilter({
 										key={provider.id}
 										type="button"
 										onClick={() => toggle(provider.id)}
-										className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-left transition-colors cursor-pointer ${isSelected ? "bg-(--accent-light) text-(--accent)" : "text-(--text-secondary) hover:bg-(--surface-hover)"}`}
+										className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-xl text-xs text-left transition-colors cursor-pointer ${isSelected ? "bg-(--accent-light) text-(--accent)" : "text-(--text-secondary) hover:bg-(--surface-hover)"}`}
 										style={{
 											fontFamily: "var(--font-mono), ui-monospace, monospace",
 										}}

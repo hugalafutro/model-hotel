@@ -300,7 +300,7 @@ export function CreateKeyModal({
 						</div>
 						<p className="text-xs text-gray-400 mt-1.5">
 							When enabled, reasoning/thinking tokens are removed from streaming
-							responses for clients that cannot handle them (e.g., Warp.dev).
+							responses for clients that cannot handle them.
 						</p>
 					</div>
 
