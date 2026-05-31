@@ -7,30 +7,28 @@
 <p align="center"><strong>Multi-Provider AI Gateway</strong></p>
 
 <p align="center">
-  <a href="/actions/workflows/ci.yml"><img src="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="go.mod"><img src="https://img.shields.io/github/go-mod/go-version/hugalafutro/model-hotel" alt="Go Version"></a>
-  <a href="https://goreportcard.com/report/github.com/hugalafutro/model-hotel"><img src="https://goreportcard.com/badge/github.com/hugalafutro/model-hotel" alt="Go Report"></a>
-  <a href="https://app.codacy.com/gh/hugalafutro/model-hotel/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade"><img src="https://app.codacy.com/project/badge/Grade/8db9eac996cb4c2cade5add6b34fcd29" alt ="Code Quality"></img></a>
-  <a href="https://app.codacy.com/gh/hugalafutro/model-hotel/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_coverage"><img src="https://app.codacy.com/project/badge/Coverage/8db9eac996cb4c2cade5add6b34fcd29" alt="Code Coverage"></img></a>
+ <a href="/actions/workflows/ci.yml"><img src="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+ <a href="go.mod"><img src="https://img.shields.io/github/go-mod/go-version/hugalafutro/model-hotel" alt="Go Version"></a>
+ <a href="https://goreportcard.com/report/github.com/hugalafutro/model-hotel"><img src="https://goreportcard.com/badge/github.com/hugalafutro/model-hotel" alt="Go Report"></a>
+ <a href="https://app.codacy.com/gh/hugalafutro/model-hotel/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade"><img src="https://app.codacy.com/project/badge/Grade/8db9eac996cb4c2cade5add6b34fcd29" alt ="Code Quality"></img></a>
+ <a href="https://app.codacy.com/gh/hugalafutro/model-hotel/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_coverage"><img src="https://app.codacy.com/project/badge/Coverage/8db9eac996cb4c2cade5add6b34fcd29" alt="Code Coverage"></img></a>
 <br>
-  <img src="https://img.shields.io/badge/Go-00ADD8?logo=go&logoColor=white" alt="Go">
-  <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript">
-  <img src="https://img.shields.io/badge/React-61DAFB?logo=react&logoColor=black" alt="React">
-  <img src="https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL">
-  <a href="https://hub.docker.com/r/hugalafutro/model-hotel"><img src="https://img.shields.io/docker/pulls/hugalafutro/model-hotel.svg" alt="Docker Pulls"></a>
+ <img src="https://img.shields.io/badge/Go-00ADD8?logo=go&logoColor=white" alt="Go">
+ <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript">
+ <img src="https://img.shields.io/badge/React-61DAFB?logo=react&logoColor=black" alt="React">
+ <img src="https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL">
+ <a href="https://hub.docker.com/r/hugalafutro/model-hotel"><img src="https://img.shields.io/docker/pulls/hugalafutro/model-hotel.svg" alt="Docker Pulls"></a>
 </p>
+
+<div align="center">
 
 > [!IMPORTANT]
 > **AI-Assisted Project Disclaimer:**<br>
 > Human judgment applied at every stage, particularly around architectural decisions, UX flows, and quality control.
 
-<div align="center">
-
-Made in [CodeNomad](https://github.com/NeuralNomadsAI/CodeNomad) with [OpenCode](https://opencode.ai).<br>
-
 <details>
 <summary>📊 opencode stats (click to expand)</summary>
-
+  
 ```
 ┌────────────────────────────────────────────────────────┐
 │                       OVERVIEW                         │
@@ -55,8 +53,16 @@ Made in [CodeNomad](https://github.com/NeuralNomadsAI/CodeNomad) with [OpenCode]
 ```
 </details>
 
-<a href="https://github.com/aovestdipaperino/tokensave">![Tokens Saved](https://img.shields.io/endpoint?url=https://tokens.o5.ddns.net/&cacheSeconds=1800)<a><br><br>
-Meet the [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim) team:<br><br><img src="https://img.shields.io/badge/GLM_5.1-orchestrator,%20council-8B5CF6?style=flat" alt="GLM 5.1"><img src="https://img.shields.io/badge/Kimi_K2.6-designer,%20council-06B6D4?style=flat" alt="Kimi K2.6"><img src="https://img.shields.io/badge/DeepSeek_V4_Pro-oracle,%20council-E53E3E?style=flat" alt="DeepSeek V4 Pro"><br><img src="https://img.shields.io/badge/Qwen3.5_397B-fixer-F59E0B?style=flat" alt="Qwen3.5 397B"><img src="https://img.shields.io/badge/DeepSeek_V4_Pro-librarian-E53E3E?style=flat" alt="DeepSeek V4 Pro"><img src="https://img.shields.io/badge/DeepSeek_V4_Flash-explorer-E53E3E?style=flat" alt="DeepSeek V4 Flash"><img src="https://img.shields.io/badge/Gemini_3_Flash-observer-4285F4?style=flat" alt="Gemini 3 Flash">
+<a href="https://github.com/aovestdipaperino/tokensave">![Tokens Saved](https://img.shields.io/endpoint?url=https://tokens.o5.ddns.net/&cacheSeconds=1800)<a><br>
+Made in [CodeNomad](https://github.com/NeuralNomadsAI/CodeNomad) with [OpenCode](https://opencode.ai) and [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim)<br><br>
+ <img src="https://img.shields.io/badge/GLM_5.1-orchestrator,%20council-8B5CF6?style=flat" alt="GLM 5.1">
+ <img src="https://img.shields.io/badge/Kimi_K2.6-designer,%20council-06B6D4?style=flat" alt="Kimi K2.6">
+ <img src="https://img.shields.io/badge/DeepSeek_V4_Pro-oracle,%20council-E53E3E?style=flat" alt="DeepSeek V4 Pro">
+<br>
+ <img src="https://img.shields.io/badge/Qwen3.5_397B-fixer-F59E0B?style=flat" alt="Qwen3.5 397B">
+ <img src="https://img.shields.io/badge/DeepSeek_V4_Pro-librarian-E53E3E?style=flat" alt="DeepSeek V4 Pro">
+ <img src="https://img.shields.io/badge/DeepSeek_V4_Flash-explorer-E53E3E?style=flat" alt="DeepSeek V4 Flash">
+ <img src="https://img.shields.io/badge/Gemini_3_Flash-observer-4285F4?style=flat" alt="Gemini 3 Flash">
 </div><br>
 
 A single OpenAI-compatible endpoint that sits in front of all your LLM providers. Models are auto-discovered the moment you add a provider and optionally on schedule; failover groups form automatically around shared model names and retry transparently when a provider goes down; no prompt data is ever stored.
