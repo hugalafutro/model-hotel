@@ -21,7 +21,8 @@
 </p>
 
 <div align="center">
-  
+
+> [!IMPORTANT]
 > **AI-Assisted Project Disclaimer:**<br>
 > Human judgment applied at every stage, particularly around architectural decisions, UX flows, and quality control.
 
