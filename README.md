@@ -20,11 +20,11 @@
  <a href="https://hub.docker.com/r/hugalafutro/model-hotel"><img src="https://img.shields.io/docker/pulls/hugalafutro/model-hotel.svg" alt="Docker Pulls"></a>
 </p>
 
-<div align="center">
-
 > [!IMPORTANT]
 > **AI-Assisted Project Disclaimer:**<br>
 > Human judgment applied at every stage, particularly around architectural decisions, UX flows, and quality control.
+
+<div align="center">
 
 <details>
 <summary>📊 opencode stats (click to expand)</summary>
