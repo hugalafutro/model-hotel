@@ -144,7 +144,7 @@ export function ProviderFilter({
 								onChange={(e) => setSearch(e.target.value)}
 								placeholder="Search providers…"
 								aria-label="Search providers"
-								className="ui-input text-xs h-8 px-2! w-full"
+								className="ui-input text-xs h-8 pl-2! pr-7! w-full"
 								style={{
 									fontFamily: "var(--font-mono), ui-monospace, monospace",
 								}}
