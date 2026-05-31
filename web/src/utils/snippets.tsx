@@ -27,7 +27,7 @@ export interface ModelSnippetOpts {
 }
 
 export function snippetCurl({ proxyModelId, origin }: CurlSnippetOpts): string {
-	return `curl -X POST ${origin}/v1/chat/completions \\\n  -H "Authorization: Bearer API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{"model":"${proxyModelId}","messages":[{"role":"user","content":"Hello"}]}'`;
+	return `curl -X POST ${origin}/v1/chat/completions \\\n  -H "Authorization: Bearer YOUR_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{"model":"${proxyModelId}","messages":[{"role":"user","content":"Hello"}]}'`;
 }
 
 export interface ZedSnippetOpts {
@@ -169,7 +169,7 @@ export function snippetCurlModel({
 			<span className="text-[#9cdcfe]">{"-H"}</span>{" "}
 			<span className="text-[#ce9178]">{'"Authorization: Bearer '}</span>
 			<span className="text-white font-semibold terminal-highlight">
-				{"API_KEY"}
+				{"YOUR_API_KEY"}
 			</span>
 			<span className="text-[#ce9178]">{'"'}</span>
 			{" \\\n"}
@@ -591,7 +591,7 @@ export function snippetJSModel({
 			<span className="text-[#4ec9b0]">{"process"}</span>
 			<span className="text-[#9cdcfe]">{".env"}</span>
 			<span className="text-[#9cdcfe]">{"["}</span>
-			<span className="text-[#ce9178]">{'"API_KEY"'}</span>
+			<span className="text-[#ce9178]">{'"YOUR_API_KEY"'}</span>
 			<span className="text-[#9cdcfe]">{"]"}</span>
 			{",\n"}
 			{"  "}
@@ -654,7 +654,7 @@ export function snippetJSModelText({
 	return `import OpenAI from "openai";
 
 const client = new OpenAI({
-  apiKey: process.env.API_KEY,
+  apiKey: process.env.YOUR_API_KEY,
   baseURL: "${origin}/v1"
 });
 
@@ -691,7 +691,7 @@ export function snippetPythonModel({
 			<span className="text-[#4ec9b0]">{"os"}</span>
 			<span className="text-[#9cdcfe]">{".environ"}</span>
 			{"["}
-			<span className="text-[#ce9178]">{'"API_KEY"'}</span>
+			<span className="text-[#ce9178]">{'"YOUR_API_KEY"'}</span>
 			{"],\n"}
 			{"    "}
 			<span className="text-[#9cdcfe]">{"base_url"}</span>
@@ -752,7 +752,7 @@ export function snippetPythonModelText({
 from openai import OpenAI
 
 client = OpenAI(
-    api_key=os.environ["API_KEY"],
+    api_key=os.environ["YOUR_API_KEY"],
     base_url="${origin}/v1"
 )
 
@@ -781,7 +781,7 @@ export function snippetClaudeCodeModel({
 			<span className="text-[#c586c0]">{"export "}</span>
 			<span className="text-[#9cdcfe]">{"ANTHROPIC_API_KEY"}</span>
 			{"="}
-			<span className="text-[#ce9178]">{"<YOUR_API_KEY>"}</span>
+			<span className="text-[#ce9178]">{"YOUR_API_KEY"}</span>
 			{"\n"}
 			<span className="text-[#c586c0]">{"export "}</span>
 			<span className="text-[#9cdcfe]">{"ANTHROPIC_DEFAULT_OPUS_MODEL"}</span>
@@ -827,7 +827,7 @@ export function snippetClaudeCodeModelText({
 	origin,
 }: ModelSnippetOpts): string {
 	return `export ANTHROPIC_BASE_URL=${origin}/v1
-export ANTHROPIC_API_KEY=<YOUR_API_KEY>
+export ANTHROPIC_API_KEY=YOUR_API_KEY
 export ANTHROPIC_DEFAULT_OPUS_MODEL="${proxyModelId}"
 export ANTHROPIC_DEFAULT_SONNET_MODEL="${proxyModelId}"
 export ANTHROPIC_DEFAULT_HAIKU_MODEL="${proxyModelId}"
@@ -870,7 +870,7 @@ export function snippetOpenClawModel({
 			{"  "}
 			<span className="text-[#9cdcfe]">{'"apiKey"'}</span>
 			{": "}
-			<span className="text-[#ce9178]">{'"<YOUR_API_KEY>"'}</span>
+			<span className="text-[#ce9178]">{'"YOUR_API_KEY"'}</span>
 			{",\n"}
 			{"  "}
 			<span className="text-[#9cdcfe]">{'"models"'}</span>
@@ -913,7 +913,7 @@ export function snippetOpenClawModelText({
   "baseUrl": "${origin}/v1",
   "api": "openai-completions",
   "auth": "api-key",
-  "apiKey": "<YOUR_API_KEY>",
+  "apiKey": "YOUR_API_KEY",
   "models": [{ "id": "${proxyModelId}", "name": "${proxyModelId}" }]
 }
 JSON
@@ -941,7 +941,7 @@ export function snippetHermesModel({
 			<span className="text-[#4ec9b0]">{"config"}</span>{" "}
 			<span className="text-[#4ec9b0]">{"set"}</span>{" "}
 			<span className="text-[#9cdcfe]">{"OPENAI_API_KEY"}</span>{" "}
-			<span className="text-[#ce9178]">{"<YOUR_API_KEY>"}</span>
+			<span className="text-[#ce9178]">{"YOUR_API_KEY"}</span>
 			{"\n"}
 			<span className="text-white font-semibold terminal-highlight">
 				{"hermes"}
@@ -961,7 +961,7 @@ export function snippetHermesModelText({
 	origin,
 }: ModelSnippetOpts): string {
 	return `hermes config set OPENAI_BASE_URL ${origin}/v1
-hermes config set OPENAI_API_KEY <YOUR_API_KEY>
+hermes config set OPENAI_API_KEY YOUR_API_KEY
 hermes config set model ${proxyModelId}`;
 }
 
@@ -993,8 +993,7 @@ export function snippetLibreChatModel({
 			{"      "}
 			<span className="text-[#9cdcfe]">{"apiKey"}</span>
 			{": "}
-			{/* biome-ignore lint/suspicious/noTemplateCurlyInString: intentional YAML variable */}
-			<span className="text-[#ce9178]">{'"${API_KEY}"'}</span>
+			<span className="text-[#ce9178]">{'"YOUR_API_KEY"'}</span>
 			{"\n"}
 			{"      "}
 			<span className="text-[#9cdcfe]">{"models"}</span>
@@ -1033,7 +1032,7 @@ export function snippetLibreChatModelText({
   custom:
     - name: "Model Hotel"
       baseURL: "${origin}/v1"
-      apiKey: "\${API_KEY}"
+      apiKey: "YOUR_API_KEY"
       models:
         default:
           - "${proxyModelId}"
@@ -1179,7 +1178,7 @@ export function snippetPowershellModel({
 			{" = "}
 			<span className="ps-str text-[#ce9178]">{'"Bearer '}</span>
 			<span className="text-white font-semibold terminal-highlight">
-				{"API_KEY"}
+				{"YOUR_API_KEY"}
 			</span>
 			<span className="ps-str text-[#ce9178]">{'"'}</span>
 			{"\n"}
@@ -1256,7 +1255,7 @@ export function snippetJS({ origin }: BashSnippetOpts): ReactNode {
 			<span className="text-[#4ec9b0]">{"process"}</span>
 			<span className="text-[#9cdcfe]">{".env"}</span>
 			<span className="text-[#9cdcfe]">{"["}</span>
-			<span className="text-[#ce9178]">{'"API_KEY"'}</span>
+			<span className="text-[#ce9178]">{'"YOUR_API_KEY"'}</span>
 			<span className="text-[#9cdcfe]">{"]"}</span>
 			{",\n"}
 			{"  "}
@@ -1314,7 +1313,7 @@ export function snippetJSText({ origin }: BashSnippetOpts): string {
 	return `import OpenAI from "openai";
 
 const client = new OpenAI({
-  apiKey: process.env.API_KEY,
+  apiKey: process.env.YOUR_API_KEY,
   baseURL: "${origin}/v1"
 });
 
@@ -1348,7 +1347,7 @@ export function snippetPython({ origin }: BashSnippetOpts): ReactNode {
 			<span className="text-[#4ec9b0]">{"os"}</span>
 			<span className="text-[#9cdcfe]">{".environ"}</span>
 			{"["}
-			<span className="text-[#ce9178]">{'"API_KEY"'}</span>
+			<span className="text-[#ce9178]">{'"YOUR_API_KEY"'}</span>
 			{"],\n"}
 			{"    "}
 			<span className="text-[#9cdcfe]">{"base_url"}</span>
@@ -1404,7 +1403,7 @@ export function snippetPythonText({ origin }: BashSnippetOpts): string {
 from openai import OpenAI
 
 client = OpenAI(
-    api_key=os.environ["API_KEY"],
+    api_key=os.environ["YOUR_API_KEY"],
     base_url="${origin}/v1"
 )
 
@@ -1430,7 +1429,7 @@ export function snippetClaudeCode({ origin }: BashSnippetOpts): ReactNode {
 			<span className="text-[#c586c0]">{"export "}</span>
 			<span className="text-[#9cdcfe]">{"ANTHROPIC_API_KEY"}</span>
 			{"="}
-			<span className="text-[#ce9178]">{"<YOUR_API_KEY>"}</span>
+			<span className="text-[#ce9178]">{"YOUR_API_KEY"}</span>
 			{"\n"}
 			<span className="text-[#c586c0]">{"export "}</span>
 			<span className="text-[#9cdcfe]">{"ANTHROPIC_DEFAULT_OPUS_MODEL"}</span>
@@ -1457,7 +1456,7 @@ export function snippetClaudeCode({ origin }: BashSnippetOpts): ReactNode {
 
 export function snippetClaudeCodeText({ origin }: BashSnippetOpts): string {
 	return `export ANTHROPIC_BASE_URL=${origin}/v1
-export ANTHROPIC_API_KEY=<YOUR_API_KEY>
+export ANTHROPIC_API_KEY=YOUR_API_KEY
 export ANTHROPIC_DEFAULT_OPUS_MODEL="model_name"
 export ANTHROPIC_DEFAULT_SONNET_MODEL="model_name"
 export ANTHROPIC_DEFAULT_HAIKU_MODEL="model_name"
@@ -1497,7 +1496,7 @@ export function snippetOpenClaw({ origin }: BashSnippetOpts): ReactNode {
 			{"  "}
 			<span className="text-[#9cdcfe]">{'"apiKey"'}</span>
 			{": "}
-			<span className="text-[#ce9178]">{'"<YOUR_API_KEY>"'}</span>
+			<span className="text-[#ce9178]">{'"YOUR_API_KEY"'}</span>
 			{",\n"}
 			{"  "}
 			<span className="text-[#9cdcfe]">{'"models"'}</span>
@@ -1531,7 +1530,7 @@ export function snippetOpenClawText({ origin }: BashSnippetOpts): string {
   "baseUrl": "${origin}/v1",
   "api": "openai-completions",
   "auth": "api-key",
-  "apiKey": "<YOUR_API_KEY>",
+  "apiKey": "YOUR_API_KEY",
   "models": [{ "id": "model_name", "name": "model_name" }]
 }
 JSON
@@ -1556,7 +1555,7 @@ export function snippetHermes({ origin }: BashSnippetOpts): ReactNode {
 			<span className="text-[#4ec9b0]">{"config"}</span>{" "}
 			<span className="text-[#4ec9b0]">{"set"}</span>{" "}
 			<span className="text-[#9cdcfe]">{"OPENAI_API_KEY"}</span>{" "}
-			<span className="text-[#ce9178]">{"<YOUR_API_KEY>"}</span>
+			<span className="text-[#ce9178]">{"YOUR_API_KEY"}</span>
 			{"\n"}
 			<span className="text-white font-semibold terminal-highlight">
 				{"hermes"}
@@ -1571,7 +1570,7 @@ export function snippetHermes({ origin }: BashSnippetOpts): ReactNode {
 
 export function snippetHermesText({ origin }: BashSnippetOpts): string {
 	return `hermes config set OPENAI_BASE_URL ${origin}/v1
-hermes config set OPENAI_API_KEY <YOUR_API_KEY>
+hermes config set OPENAI_API_KEY YOUR_API_KEY
 hermes config set model model_name`;
 }
 
@@ -1600,8 +1599,7 @@ export function snippetLibreChat({ origin }: BashSnippetOpts): ReactNode {
 			{"      "}
 			<span className="text-[#9cdcfe]">{"apiKey"}</span>
 			{": "}
-			{/* biome-ignore lint/suspicious/noTemplateCurlyInString: intentional YAML variable */}
-			<span className="text-[#ce9178]">{'"${API_KEY}"'}</span>
+			<span className="text-[#ce9178]">{'"YOUR_API_KEY"'}</span>
 			{"\n"}
 			{"      "}
 			<span className="text-[#9cdcfe]">{"models"}</span>
@@ -1635,7 +1633,7 @@ export function snippetLibreChatText({ origin }: BashSnippetOpts): string {
   custom:
     - name: "Model Hotel"
       baseURL: "${origin}/v1"
-      apiKey: "\${API_KEY}"
+      apiKey: "YOUR_API_KEY"
       models:
         default:
           - "model_name"
@@ -1764,7 +1762,7 @@ export function snippetOpencodeVK({ origin }: BashSnippetOpts): ReactNode {
 			<span className="text-[#9cdcfe]">{'"apiKey"'}</span>
 			<span className="text-[#ce9178]">{': "'}</span>
 			<span className="text-white font-semibold terminal-highlight">
-				{"API_KEY"}
+				{"YOUR_API_KEY"}
 			</span>
 			<span className="text-[#ce9178]">{'"'}</span>
 			{"\n"}
@@ -1797,7 +1795,7 @@ export function snippetOpencodeVKText({ origin }: BashSnippetOpts): string {
 			providers: {
 				"model-hotel": {
 					url: `${origin}/v1`,
-					apiKey: "API_KEY",
+					apiKey: "YOUR_API_KEY",
 				},
 			},
 			models: {
