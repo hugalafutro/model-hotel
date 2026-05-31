@@ -270,20 +270,6 @@ html[data-ui-style="glassmorphism-lite"] {
 	backdrop-filter: blur(20px);
 }
 
-/* Glassmorphism light: gradient background for Aero effect */
-html[data-ui-style="glassmorphism-lite"].light .ui-surface-bg {
-	background: linear-gradient(135deg, #dde1f5 0%, #e8e0f2 40%, #e0e8f8 100%);
-}
-
-/* Glassmorphism light: cards get frosted glass with lower opacity */
-html[data-ui-style="glassmorphism-lite"].light .ui-card {
-	background-color: rgba(255, 255, 255, 0.45);
-	backdrop-filter: blur(24px);
-	-webkit-backdrop-filter: blur(24px);
-	border: 1px solid rgba(255, 255, 255, 0.6);
-	box-shadow: 0 4px 24px rgba(80, 90, 160, 0.08);
-}
-
 /* =============================================
    ACCENT RGB HELPER — needed for glow effects
    ============================================= */
@@ -1098,6 +1084,14 @@ html[data-ui-style="glassmorphism-lite"] .ui-card {
 	border: 1px solid var(--border-default);
 }
 
+html[data-ui-style="glassmorphism-lite"].light .ui-card {
+	background-color: rgba(255, 255, 255, 0.45);
+	backdrop-filter: blur(24px);
+	-webkit-backdrop-filter: blur(24px);
+	border: 1px solid rgba(255, 255, 255, 0.6);
+	box-shadow: 0 4px 24px rgba(80, 90, 160, 0.08);
+}
+
 /* Clip backdrop-filter to the card border-radius so the blur
    rectangle doesn't bleed past rounded corners into the gap between
    stacked cards. Cards with tables are excluded because clip-path
@@ -1114,10 +1108,10 @@ html[data-ui-style="glassmorphism-lite"]
 /* Dropdown/popover cards: solid opaque background (backdrop-filter does not
    work inside <thead> stacking context, so we use a solid color instead). */
 html[data-ui-style="glassmorphism-lite"] .ui-card.absolute {
-	background-color: rgb(14, 14, 20) !important;
+	background-color: rgb(14, 14, 20);
 }
 html[data-ui-style="glassmorphism-lite"].light .ui-card.absolute {
-	background-color: rgb(255, 255, 255) !important;
+	background-color: rgb(255, 255, 255);
 }
 
 /* =============================================
@@ -1534,10 +1528,6 @@ html[data-ui-style="glassmorphism-lite"].light .ui-card:has(> .ui-table) {
 	border-color: rgba(0, 0, 0, 0.08);
 }
 
-html[data-ui-style="glassmorphism-lite"].dark .ui-table-header-text {
-	color: var(--text-secondary);
-}
-
 /* Model ID sub-text: brighter in dark mode, darker in light mode */
 .model-id-text {
 	color: #6b7280; /* gray-500 */
@@ -1604,6 +1594,10 @@ html[data-ui-style="cyber-terminal"] .ui-table-header-text {
 	font-size: 9px;
 	letter-spacing: 0.15em;
 	text-transform: uppercase;
+}
+
+html[data-ui-style="glassmorphism-lite"].dark .ui-table-header-text {
+	color: var(--text-secondary);
 }
 
 .ui-table-header-text button {
@@ -1801,6 +1795,10 @@ html[data-ui-style="glassmorphism-lite"] .ui-surface-bg {
 			transparent 60%
 		),
 		var(--surface-bg);
+}
+
+html[data-ui-style="glassmorphism-lite"].light .ui-surface-bg {
+	background: linear-gradient(135deg, #dde1f5 0%, #e8e0f2 40%, #e0e8f8 100%);
 }
 
 /* =============================================
