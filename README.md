@@ -61,7 +61,7 @@ Made in [CodeNomad](https://github.com/NeuralNomadsAI/CodeNomad) with [OpenCode]
 <br>
  <img src="https://img.shields.io/badge/Qwen3.5_397B-fixer-F59E0B?style=flat" alt="Qwen3.5 397B">
  <img src="https://img.shields.io/badge/DeepSeek_V4_Pro-librarian-E53E3E?style=flat" alt="DeepSeek V4 Pro">
- <img src="https://img.shields.io/badge/DeepSeek_V4_Flash-explorer-E53E3E?style=flat" alt="DeepSeek V4 Flash">
+ <img src="https://img.shields.io/badge/GLM_5.1_Fast-explorer-8B5CF6?style=flat" alt="GLM 5.1 Fast">
  <img src="https://img.shields.io/badge/Gemini_3_Flash-observer-4285F4?style=flat" alt="Gemini 3 Flash">
 </div><br>
 
