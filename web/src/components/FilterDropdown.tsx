@@ -82,11 +82,10 @@ export function FilterDropdown({
 
 			{open && (
 				<div
-					className="absolute z-50 mt-1 min-w-36 ui-card py-1 shadow-lg"
+					className="absolute z-50 mt-1 min-w-36 ui-card py-1 shadow-lg overflow-hidden"
 					style={{
 						border: "1px solid var(--border-default)",
-						backdropFilter: "blur(40px)",
-						WebkitBackdropFilter: "blur(40px)",
+						backgroundColor: "rgb(14, 14, 20)",
 					}}
 				>
 					<div className="max-h-48 overflow-y-auto px-1">
@@ -97,7 +96,7 @@ export function FilterDropdown({
 								onChange("");
 								setOpen(false);
 							}}
-							className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-left transition-colors cursor-pointer ${value === "" ? "bg-(--accent-light) text-(--accent)" : "text-(--text-secondary) hover:bg-(--surface-hover)"}`}
+							className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-left transition-colors cursor-pointer ${value === "" ? "bg-(--accent-light) text-(--accent)" : "text-(--text-secondary) hover:bg-(--surface-hover)"}`}
 							style={{
 								fontFamily: "var(--font-mono), ui-monospace, monospace",
 							}}
@@ -120,7 +119,7 @@ export function FilterDropdown({
 										onChange(option.value);
 										setOpen(false);
 									}}
-									className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-left transition-colors cursor-pointer ${isSelected ? "bg-(--accent-light) text-(--accent)" : "text-(--text-secondary) hover:bg-(--surface-hover)"}`}
+									className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-left transition-colors cursor-pointer ${isSelected ? "bg-(--accent-light) text-(--accent)" : "text-(--text-secondary) hover:bg-(--surface-hover)"}`}
 									style={{
 										fontFamily: "var(--font-mono), ui-monospace, monospace",
 									}}

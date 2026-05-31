@@ -66,7 +66,6 @@ export function ProviderFilter({
 
 	useEffect(() => {
 		if (open && searchRef.current) {
-			// small delay so focus happens after render
 			const t = setTimeout(() => searchRef.current?.focus(), 10);
 			return () => clearTimeout(t);
 		}
@@ -129,12 +128,10 @@ export function ProviderFilter({
 			{open && (
 				<div
 					data-testid="provider-filter-dropdown"
-					className="absolute z-50 mt-1 w-full min-w-50 ui-card py-1 shadow-lg"
+					className="absolute z-50 mt-1 w-full min-w-50 ui-card py-1 shadow-lg overflow-hidden"
 					style={{
-						// Ensure the dropdown panel elevates above table borders
 						border: "1px solid var(--border-default)",
-						backdropFilter: "blur(40px)",
-						WebkitBackdropFilter: "blur(40px)",
+						backgroundColor: "rgb(14, 14, 20)",
 					}}
 				>
 					{/* Search */}
@@ -214,7 +211,7 @@ export function ProviderFilter({
 										key={provider.id}
 										type="button"
 										onClick={() => toggle(provider.id)}
-										className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-left transition-colors cursor-pointer ${isSelected ? "bg-(--accent-light) text-(--accent)" : "text-(--text-secondary) hover:bg-(--surface-hover)"}`}
+										className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-left transition-colors cursor-pointer ${isSelected ? "bg-(--accent-light) text-(--accent)" : "text-(--text-secondary) hover:bg-(--surface-hover)"}`}
 										style={{
 											fontFamily: "var(--font-mono), ui-monospace, monospace",
 										}}

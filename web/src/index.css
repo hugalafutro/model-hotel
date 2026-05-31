@@ -1107,17 +1107,13 @@ html[data-ui-style="glassmorphism-lite"]
 	clip-path: inset(0 round var(--radius-card));
 }
 
-/* Dropdown/popover cards: clip-path breaks backdrop-filter in Chromium,
-   so absolute-positioned cards are excluded above.  They still need a
-   slightly heavier background than standard cards (which sit on uniform
-   page bg) because they overlay complex table content.  With working
-   blur(40px) the underlying content is fully diffused, so 65% opacity
-   is enough to keep options readable while staying glass-like. */
+/* Dropdown/popover cards: solid opaque background (backdrop-filter does not
+   work inside <thead> stacking context, so we use a solid color instead). */
 html[data-ui-style="glassmorphism-lite"] .ui-card.absolute {
-	background-color: rgba(10, 10, 14, 0.65);
+	background-color: rgb(14, 14, 20) !important;
 }
 html[data-ui-style="glassmorphism-lite"].light .ui-card.absolute {
-	background-color: rgba(255, 255, 255, 0.78);
+	background-color: rgb(255, 255, 255) !important;
 }
 
 /* =============================================
