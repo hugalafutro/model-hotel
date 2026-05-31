@@ -1102,17 +1102,22 @@ html[data-ui-style="glassmorphism-lite"] .ui-card {
    rectangle doesn't bleed past rounded corners into the gap between
    stacked cards. Excluded on scroll-container cards because clip-path
    breaks position:sticky in Chromium. */
-html[data-ui-style="glassmorphism-lite"] .ui-card:not(:has(> .ui-table)) {
+html[data-ui-style="glassmorphism-lite"]
+.ui-card:not(:has(> .ui-table)):not(.absolute) {
 	clip-path: inset(0 round var(--radius-card));
 }
 
-/* Dropdown/popover cards need a heavier background so underlying
-   content doesn't bleed through and make options unreadable. */
+/* Dropdown/popover cards: clip-path breaks backdrop-filter in Chromium,
+   so absolute-positioned cards are excluded above.  They still need a
+   slightly heavier background than standard cards (which sit on uniform
+   page bg) because they overlay complex table content.  With working
+   blur(40px) the underlying content is fully diffused, so 65% opacity
+   is enough to keep options readable while staying glass-like. */
 html[data-ui-style="glassmorphism-lite"] .ui-card.absolute {
-	background-color: rgba(10, 10, 14, 0.88);
+	background-color: rgba(10, 10, 14, 0.65);
 }
 html[data-ui-style="glassmorphism-lite"].light .ui-card.absolute {
-	background-color: rgba(255, 255, 255, 0.92);
+	background-color: rgba(255, 255, 255, 0.78);
 }
 
 /* =============================================
