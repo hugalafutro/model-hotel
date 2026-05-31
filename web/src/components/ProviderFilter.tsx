@@ -131,7 +131,6 @@ export function ProviderFilter({
 					className="absolute z-50 mt-1 w-full min-w-50 ui-card py-1 shadow-lg overflow-hidden"
 					style={{
 						border: "1px solid var(--border-default)",
-						backgroundColor: "rgb(14, 14, 20)",
 					}}
 				>
 					{/* Search */}
