@@ -408,8 +408,12 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			if stripReasoning && len(chunk.Choices) > 0 && chunk.Choices[0].Delta != nil {
 				p, ok := parseChunkPayload(payload)
 				if !ok {
-					skipNextEmptyLine = true
-					continue
+					// parseChunkPayload failed on a chunk that passed the
+					// typed-struct guard. Forward the chunk unmodified instead
+					// of silently dropping it. This preserves the original
+					// pass-through semantics where a parse failure forwards the
+					// chunk rather than discarding it.
+					goto stripReasoningDone
 				}
 				deltaFields := p.delta
 				// Remove reasoning fields from delta.
@@ -564,6 +568,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				skipNextEmptyLine = true
 				continue
 			}
+		stripReasoningDone:
 
 			// Reasoning field normalization: ensure reasoning_content is
 			// always populated regardless of upstream provider format.
