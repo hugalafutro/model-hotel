@@ -13,7 +13,7 @@ describe("VirtualKeys", () => {
 	});
 
 	describe("Quick Start Section", () => {
-		it("renders quick start guide with bash terminal by default", async () => {
+		it("renders cURL and PowerShell snippet windows", async () => {
 			server.use(
 				http.get("/api/virtual-keys", () =>
 					HttpResponse.json([mockVirtualKey]),
@@ -23,23 +23,16 @@ describe("VirtualKeys", () => {
 			renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("Quick Start")).toBeInTheDocument();
+				expect(screen.getByText("Create a Key")).toBeInTheDocument();
 			});
 
-			// Tab buttons contain SVG + text; use getAllByRole and filter by class
-			const bashTabs = screen.getAllByRole("button", { name: /bash/i });
-			// First match is the tab (has terminal-tab class), not CopyButton
-			const bashTab = bashTabs.find((btn) =>
-				btn.classList.contains("terminal-tab"),
-			);
-			expect(bashTab).toHaveClass("terminal-tab-active");
-			const powershellTabs = screen.getAllByRole("button", {
-				name: /PowerShell/i,
-			});
-			const powershellTab = powershellTabs.find((btn) =>
-				btn.classList.contains("terminal-tab"),
-			);
-			expect(powershellTab).toHaveClass("terminal-tab-inactive");
+			// cURL and PowerShell are now separate TerminalPreview windows
+			expect(
+				screen.getByRole("button", { name: /Copy cURL snippet/i }),
+			).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: /Copy PowerShell snippet/i }),
+			).toBeInTheDocument();
 		});
 
 		it("renders quick start guide when keys exist", async () => {
@@ -52,7 +45,7 @@ describe("VirtualKeys", () => {
 			renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("Quick Start")).toBeInTheDocument();
+				expect(screen.getByText("Create a Key")).toBeInTheDocument();
 			});
 
 			expect(screen.getByText("Create a Key")).toBeInTheDocument();
@@ -73,10 +66,10 @@ describe("VirtualKeys", () => {
 				).toBeInTheDocument();
 			});
 
-			expect(screen.queryByText("Quick Start")).not.toBeInTheDocument();
+			expect(screen.queryByText("Create a Key")).not.toBeInTheDocument();
 		});
 
-		it("renders quick start section with collapsible toggle", async () => {
+		it("renders cURL and PowerShell snippet titles", async () => {
 			server.use(
 				http.get("/api/virtual-keys", () =>
 					HttpResponse.json([mockVirtualKey]),
@@ -86,22 +79,17 @@ describe("VirtualKeys", () => {
 			renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("Quick Start")).toBeInTheDocument();
+				expect(screen.getByText("Create a Key")).toBeInTheDocument();
 			});
 
-			// Verify quick start content is visible
-			expect(screen.getByText("Create a Key")).toBeInTheDocument();
-			expect(screen.getByText("Copy the Full Key")).toBeInTheDocument();
-			expect(screen.getByText("Make Requests")).toBeInTheDocument();
-
-			// Toggle button should exist
-			const toggleButton = screen.getByRole("button", {
-				name: /collapse|expand|toggle/i,
-			});
-			expect(toggleButton).toBeInTheDocument();
+			// cURL and PowerShell each have their own TerminalPreview title
+			const curlTitles = screen.getAllByText("cURL");
+			expect(curlTitles.length).toBeGreaterThan(0);
+			const psTitles = screen.getAllByText("PowerShell");
+			expect(psTitles.length).toBeGreaterThan(0);
 		});
 
-		it("renders bash and PowerShell tab buttons", async () => {
+		it("shows curl example in cURL snippet window", async () => {
 			server.use(
 				http.get("/api/virtual-keys", () =>
 					HttpResponse.json([mockVirtualKey]),
@@ -111,63 +99,19 @@ describe("VirtualKeys", () => {
 			renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("Quick Start")).toBeInTheDocument();
+				expect(screen.getByText("Create a Key")).toBeInTheDocument();
 			});
 
-			// Tab bar has buttons with "bash" and "PowerShell" text
-			const allButtons = screen.getAllByRole("button");
-			const bashButton = allButtons.find((btn) =>
-				btn.textContent?.includes("bash"),
-			);
-			const psButton = allButtons.find((btn) =>
-				btn.textContent?.includes("PowerShell"),
-			);
-
-			expect(bashButton).toBeInTheDocument();
-			expect(psButton).toBeInTheDocument();
-		});
-
-		it("shows curl example in bash tab", async () => {
-			server.use(
-				http.get("/api/virtual-keys", () =>
-					HttpResponse.json([mockVirtualKey]),
-				),
-			);
-
-			renderWithProviders(<VirtualKeys />);
-
-			await waitFor(() => {
-				expect(screen.getByText("Quick Start")).toBeInTheDocument();
-			});
-
-			expect(screen.getByText(/curl/)).toBeInTheDocument();
+			expect(screen.getAllByText(/curl/).length).toBeGreaterThan(0);
 			expect(
-				screen.getByText((content) => content.includes("/v1/chat/completions")),
-			).toBeInTheDocument();
+				screen.getAllByText((content) =>
+					content.includes("/v1/chat/completions"),
+				).length,
+			).toBeGreaterThan(0);
 			expect(screen.getAllByText("YOUR_API_KEY").length).toBeGreaterThan(0);
 		});
 
-		it("shows PowerShell example in powershell tab", async () => {
-			server.use(
-				http.get("/api/virtual-keys", () =>
-					HttpResponse.json([mockVirtualKey]),
-				),
-			);
-
-			const { user } = renderWithProviders(<VirtualKeys />);
-
-			await waitFor(() => {
-				expect(screen.getByText("Quick Start")).toBeInTheDocument();
-			});
-
-			// Click PowerShell tab
-			await user.click(screen.getByRole("button", { name: /powershell/i }));
-
-			// Verify PowerShell content is displayed
-			expect(screen.getByText(/Invoke-RestMethod/)).toBeInTheDocument();
-		});
-
-		it("renders CopyButton in terminal tab bar", async () => {
+		it("shows PowerShell example in its snippet window", async () => {
 			server.use(
 				http.get("/api/virtual-keys", () =>
 					HttpResponse.json([mockVirtualKey]),
@@ -177,97 +121,74 @@ describe("VirtualKeys", () => {
 			renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("Quick Start")).toBeInTheDocument();
+				expect(screen.getByText("Create a Key")).toBeInTheDocument();
+			});
+
+			// PowerShell content is now always visible (no tab switching needed)
+			expect(screen.getByText(/Invoke-RestMethod/)).toBeInTheDocument();
+		});
+
+		it("renders CopyButton in cURL snippet window", async () => {
+			server.use(
+				http.get("/api/virtual-keys", () =>
+					HttpResponse.json([mockVirtualKey]),
+				),
+			);
+
+			renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Create a Key")).toBeInTheDocument();
 			});
 
 			// CopyButton has title attribute with snippet type
 			expect(
-				screen.getByRole("button", { name: /Copy bash snippet/i }),
+				screen.getByRole("button", { name: /Copy cURL snippet/i }),
 			).toBeInTheDocument();
 		});
 
-		it("CopyButton updates when switching to PowerShell tab", async () => {
+		it("renders CopyButton for both cURL and PowerShell snippets", async () => {
 			server.use(
 				http.get("/api/virtual-keys", () =>
 					HttpResponse.json([mockVirtualKey]),
 				),
 			);
 
-			const { user } = renderWithProviders(<VirtualKeys />);
+			renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("Quick Start")).toBeInTheDocument();
+				expect(screen.getByText("Create a Key")).toBeInTheDocument();
 			});
 
-			const powershellTab = screen.getByRole("button", {
-				name: /PowerShell/i,
-			});
-			await user.click(powershellTab);
-
-			await waitFor(() => {
-				expect(
-					screen.getByRole("button", { name: /Copy PowerShell snippet/i }),
-				).toBeInTheDocument();
-			});
+			// Both CopyButtons are always visible (no tab switching)
+			expect(
+				screen.getByRole("button", { name: /Copy cURL snippet/i }),
+			).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: /Copy PowerShell snippet/i }),
+			).toBeInTheDocument();
 		});
 
-		it("switches to PowerShell tab when clicked (line 587)", async () => {
+		it("cURL and PowerShell snippets are both visible simultaneously", async () => {
 			server.use(
 				http.get("/api/virtual-keys", () =>
 					HttpResponse.json([mockVirtualKey]),
 				),
 			);
 
-			const { user } = renderWithProviders(<VirtualKeys />);
+			renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("Quick Start")).toBeInTheDocument();
+				expect(screen.getByText("Create a Key")).toBeInTheDocument();
 			});
 
-			const powershellTabs = screen.getAllByRole("button", {
-				name: /PowerShell/i,
-			});
-			const powershellTab = powershellTabs.find((btn) =>
-				btn.classList.contains("terminal-tab"),
-			);
-			if (!powershellTab) throw new Error("PowerShell tab not found");
-			await user.click(powershellTab);
-
-			await waitFor(() => {
-				expect(powershellTab).toHaveClass("terminal-tab-active");
-			});
-			const bashTabs = screen.getAllByRole("button", { name: /bash/i });
-			const bashTab = bashTabs.find((btn) =>
-				btn.classList.contains("terminal-tab"),
-			);
-			expect(bashTab).toHaveClass("terminal-tab-inactive");
-		});
-
-		it("collapses quick start section", async () => {
-			server.use(
-				http.get("/api/virtual-keys", () =>
-					HttpResponse.json([mockVirtualKey]),
-				),
-			);
-
-			const { user } = renderWithProviders(<VirtualKeys />);
-
-			await waitFor(() => {
-				expect(screen.getByText("Quick Start")).toBeInTheDocument();
-			});
-
-			// CollapsibleToggle defaults: aria-label="Collapse" when expanded
-			const collapseToggle = screen.getByRole("button", {
-				name: "Collapse",
-			});
-			await user.click(collapseToggle);
-
-			// After clicking, button label changes to "Expand"
-			await waitFor(() => {
-				expect(
-					screen.getByRole("button", { name: "Expand" }),
-				).toBeInTheDocument();
-			});
+			// Both snippet windows are visible without any tab switching
+			expect(
+				screen.getByRole("button", { name: /Copy cURL snippet/i }),
+			).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: /Copy PowerShell snippet/i }),
+			).toBeInTheDocument();
 		});
 
 		it("renders JavaScript example card", async () => {
@@ -280,7 +201,7 @@ describe("VirtualKeys", () => {
 			renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("Quick Start")).toBeInTheDocument();
+				expect(screen.getByText("Create a Key")).toBeInTheDocument();
 			});
 
 			// JavaScript title appears in card header; verify CopyButton exists
@@ -302,7 +223,7 @@ describe("VirtualKeys", () => {
 			renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("Quick Start")).toBeInTheDocument();
+				expect(screen.getByText("Create a Key")).toBeInTheDocument();
 			});
 
 			// Python title appears in card header; verify CopyButton exists
@@ -324,7 +245,7 @@ describe("VirtualKeys", () => {
 			renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("Quick Start")).toBeInTheDocument();
+				expect(screen.getByText("Create a Key")).toBeInTheDocument();
 			});
 
 			// Claude Code title appears in card header; verify CopyButton exists
@@ -346,7 +267,7 @@ describe("VirtualKeys", () => {
 			renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("Quick Start")).toBeInTheDocument();
+				expect(screen.getByText("Create a Key")).toBeInTheDocument();
 			});
 
 			// OpenClaw title appears in card header; verify CopyButton exists
@@ -368,7 +289,7 @@ describe("VirtualKeys", () => {
 			renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("Quick Start")).toBeInTheDocument();
+				expect(screen.getByText("Create a Key")).toBeInTheDocument();
 			});
 
 			// Hermes title appears in card header; code content has lowercase "hermes"
@@ -391,7 +312,7 @@ describe("VirtualKeys", () => {
 			renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("Quick Start")).toBeInTheDocument();
+				expect(screen.getByText("Create a Key")).toBeInTheDocument();
 			});
 
 			expect(
@@ -411,7 +332,7 @@ describe("VirtualKeys", () => {
 			renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("Quick Start")).toBeInTheDocument();
+				expect(screen.getByText("Create a Key")).toBeInTheDocument();
 			});
 
 			expect(
@@ -431,7 +352,7 @@ describe("VirtualKeys", () => {
 			renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("Quick Start")).toBeInTheDocument();
+				expect(screen.getByText("Create a Key")).toBeInTheDocument();
 			});
 
 			expect(

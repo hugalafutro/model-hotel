@@ -210,7 +210,7 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 						<col className="w-24" />
 						<col />
 					</colgroup>
-					<thead className="sticky top-0 z-10 bg-(--surface)">
+					<thead className="sticky top-0 z-10">
 						<tr>
 							<th
 								className={`${HEADER_BASE} cursor-pointer`}
