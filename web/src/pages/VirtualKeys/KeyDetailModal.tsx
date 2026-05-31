@@ -4,7 +4,6 @@ import { useState } from "react";
 import { api } from "../../api/client";
 import type { VirtualKey } from "../../api/types";
 import { ConfirmDeleteButton } from "../../components/ConfirmDeleteButton";
-import { CopyablePill } from "../../components/CopyablePill";
 import { Modal } from "../../components/Modal";
 import { formatNumber } from "../../utils/format";
 
@@ -17,7 +16,7 @@ function SectionHeader({
 }) {
 	return (
 		<div className="flex items-center gap-2 text-(--accent) mt-4 first:mt-0">
-			<Icon size={14} className="shrink-0" />
+			<Icon size={12} className="shrink-0" />
 			<span className="text-xs font-semibold uppercase tracking-wider">
 				{label}
 			</span>
@@ -94,7 +93,9 @@ export function KeyDetailModal({
 		queryFn: () => api.providers.list(),
 	});
 
-	const availableProviders = providers ?? [];
+	const sortedProviders = (providers ?? [])
+		.slice()
+		.sort((a, b) => a.name.localeCompare(b.name));
 
 	const toggleProvider = (providerId: string) => {
 		setExcludedProviders((prev) =>
@@ -152,7 +153,7 @@ export function KeyDetailModal({
 	const handleSave = () => {
 		if (!editName.trim()) return;
 		setProviderError("");
-		const allProviderIds = availableProviders.map((p) => p.id);
+		const allProviderIds = sortedProviders.map((p) => p.id);
 		let allowedProviders: string[] | null;
 		if (excludedProviders.length > 0) {
 			allowedProviders = allProviderIds.filter(
@@ -319,13 +320,13 @@ export function KeyDetailModal({
 								Click a provider to restrict access. All are accessible by
 								default.
 							</p>
-							{availableProviders.length === 0 ? (
+							{sortedProviders.length === 0 ? (
 								<p className="text-xs text-gray-500 italic">
 									No providers available.
 								</p>
 							) : (
-								<div className="flex flex-wrap gap-1.5">
-									{availableProviders.map((provider) => {
+								<div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
+									{sortedProviders.map((provider) => {
 										const isExcluded = excludedProviders.includes(provider.id);
 										return (
 											<button
@@ -363,7 +364,7 @@ export function KeyDetailModal({
 											? "Disable strip reasoning"
 											: "Enable strip reasoning"
 									}
-									className={`relative inline-flex items-center h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+									className={`relative inline-flex items-center h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
 										editStripReasoning
 											? "bg-(--accent) shadow-[var(--glow-accent)]"
 											: "bg-gray-600"
@@ -371,8 +372,8 @@ export function KeyDetailModal({
 								>
 									<span
 										aria-hidden="true"
-										className={`pointer-events-none block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 ease-in-out ${
-											editStripReasoning ? "translate-x-4" : "translate-x-0"
+										className={`pointer-events-none block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 ease-in-out ${
+											editStripReasoning ? "translate-x-6" : "translate-x-0"
 										}`}
 									/>
 								</button>
@@ -397,13 +398,12 @@ export function KeyDetailModal({
 								<span className="text-xs text-gray-500 uppercase tracking-wider">
 									Key
 								</span>
-								<div className="mt-0.5">
-									<CopyablePill
-										text={vk.key_preview}
-										displayText={vk.key_preview}
-										textClassName="text-sm font-mono text-gray-200"
-									/>
-								</div>
+								<p
+									className="text-sm font-mono text-gray-200 mt-0.5 select-none"
+									title="Key is hashed and cannot be recovered"
+								>
+									{vk.key_preview}
+								</p>
 							</div>
 						</div>
 
@@ -453,13 +453,13 @@ export function KeyDetailModal({
 
 						<SectionHeader icon={ShieldCheck} label="Provider Access" />
 						<div>
-							{availableProviders.length === 0 ? (
+							{sortedProviders.length === 0 ? (
 								<p className="text-xs text-gray-500 italic">
 									No providers configured.
 								</p>
 							) : (
 								<div className="flex flex-wrap gap-1.5">
-									{availableProviders.map((provider) => {
+									{sortedProviders.map((provider) => {
 										const isAllowed =
 											!vk.allowed_providers ||
 											vk.allowed_providers.includes(provider.id);

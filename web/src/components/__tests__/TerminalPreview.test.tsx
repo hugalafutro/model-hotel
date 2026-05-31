@@ -166,7 +166,7 @@ describe("TerminalPreview", () => {
 	});
 
 	describe("CopyButton positioning", () => {
-		it("is positioned inside the terminal container (absolutely top-right)", () => {
+		it("is positioned inside the terminal titlebar", () => {
 			const { container } = renderWithProviders(
 				<TerminalPreview {...defaultProps} />,
 			);
@@ -181,11 +181,8 @@ describe("TerminalPreview", () => {
 			});
 			expect(terminalContainer?.contains(copyButton)).toBe(true);
 
-			// Verify the button wrapper is positioned absolutely top-right
 			const buttonWrapper = copyButton.parentElement;
-			expect(buttonWrapper?.className).toContain("absolute");
-			expect(buttonWrapper?.className).toContain("top-2");
-			expect(buttonWrapper?.className).toContain("right-2");
+			expect(buttonWrapper?.className).toContain("ml-auto");
 		});
 
 		it("is positioned inside PowerShell terminal container", () => {

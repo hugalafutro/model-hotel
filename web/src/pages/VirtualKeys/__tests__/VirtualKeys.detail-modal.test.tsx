@@ -46,7 +46,7 @@ describe("VirtualKeys", () => {
 			});
 			expect(within(dialog).getByText("Test API Key")).toBeInTheDocument();
 			expect(
-				within(dialog).getByLabelText(`Copy ${mockVirtualKey.key_preview}`),
+				within(dialog).getByText(mockVirtualKey.key_preview),
 			).toBeInTheDocument();
 			expect(within(dialog).getByText("30")).toBeInTheDocument();
 			expect(within(dialog).getByText("60")).toBeInTheDocument();
@@ -870,6 +870,114 @@ describe("VirtualKeys", () => {
 			expect(
 				within(dialog).getByRole("button", { name: "Delete Key" }),
 			).toBeInTheDocument();
+		});
+
+		it("toggles strip reasoning in edit mode", async () => {
+			server.use(
+				http.get("/api/virtual-keys", () =>
+					HttpResponse.json([mockVirtualKey]),
+				),
+			);
+
+			const { user } = renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Test API Key")).toBeInTheDocument();
+			});
+
+			const nameCell = screen.getByText("Test API Key");
+			await user.click(nameCell);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("dialog", { name: "Virtual Key Details" }),
+				).toBeInTheDocument();
+			});
+
+			const dialog = screen.getByRole("dialog", {
+				name: "Virtual Key Details",
+			});
+
+			// Click Edit button
+			const editButton = within(dialog).getByRole("button", {
+				name: "Edit",
+			});
+			await user.click(editButton);
+
+			// Find the strip reasoning toggle
+			const toggle = within(dialog).getByRole("button", {
+				name: "Enable strip reasoning",
+			});
+			expect(toggle).toHaveAttribute("aria-pressed", "false");
+
+			// Click the toggle
+			await user.click(toggle);
+
+			// Should now be enabled
+			expect(toggle).toHaveAttribute("aria-pressed", "true");
+			expect(within(dialog).getByText("Enabled")).toBeInTheDocument();
+		});
+
+		it("renders providers in alphabetical order in edit mode", async () => {
+			const zetaProvider = {
+				...mockProvider,
+				id: "p-zeta",
+				name: "Zeta Provider",
+				created_at: "2026-02-20T10:00:00Z",
+				updated_at: "2026-05-11T12:00:00Z",
+			};
+			const alphaProvider = {
+				...mockProvider,
+				id: "p-alpha",
+				name: "Alpha Provider",
+				created_at: "2026-02-20T10:00:00Z",
+				updated_at: "2026-05-11T12:00:00Z",
+			};
+
+			server.use(
+				http.get("/api/providers", () =>
+					HttpResponse.json([zetaProvider, alphaProvider]),
+				),
+				http.get("/api/virtual-keys", () =>
+					HttpResponse.json([mockVirtualKey]),
+				),
+			);
+
+			const { user } = renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Test API Key")).toBeInTheDocument();
+			});
+
+			const nameCell = screen.getByText("Test API Key");
+			await user.click(nameCell);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("dialog", { name: "Virtual Key Details" }),
+				).toBeInTheDocument();
+			});
+
+			const dialog = screen.getByRole("dialog", {
+				name: "Virtual Key Details",
+			});
+
+			// Click Edit button
+			const editButton = within(dialog).getByRole("button", {
+				name: "Edit",
+			});
+			await user.click(editButton);
+
+			// Get all provider buttons (they have aria-pressed attribute)
+			const providerButtons = within(dialog)
+				.getAllByRole("button")
+				.filter(
+					(btn) =>
+						btn.getAttribute("aria-pressed") !== null &&
+						btn.textContent?.trim(),
+				);
+			const names = providerButtons.map((btn) => btn.textContent);
+			expect(names).toEqual(["Alpha Provider", "Zeta Provider"]);
 		});
 	});
 });

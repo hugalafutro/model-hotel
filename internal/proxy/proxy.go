@@ -155,6 +155,15 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	// Track whether we've seen reasoning_content (thinking) in this stream
 	// for first-occurrence debug logging.
 	sawThinking := false
+	// Read strip_reasoning flag from context once before the scanner loop.
+	// The value is set by ProxyKeyMiddleware and never changes mid-stream.
+	stripReasoning := false
+	if v := r.Context().Value(ctxkeys.VirtualKeyStripReasoningKey); v != nil {
+		if sr, ok := v.(bool); ok {
+			stripReasoning = sr
+		}
+	}
+	debuglog.Debug("proxy: strip_reasoning flag", "enabled", stripReasoning, "model", logData.modelID, "provider", logData.providerName)
 
 	for scanner.Scan() {
 		line := scanner.Bytes()
@@ -388,21 +397,6 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 		}
 		jsonValid := json.Unmarshal([]byte(payload), &chunk) == nil
 		if jsonValid {
-			// Read strip_reasoning flag from context (set by ProxyKeyMiddleware).
-			// When true, reasoning fields are stripped from streaming output.
-			stripReasoning := false
-			if v := r.Context().Value(ctxkeys.VirtualKeyStripReasoningKey); v != nil {
-				if sr, ok := v.(bool); ok {
-					stripReasoning = sr
-				}
-			}
-			// Log strip_reasoning state once on the first valid chunk for
-			// debugging. This helps verify context propagation without
-			// flooding logs on every chunk.
-			if chunkCount == 1 {
-				debuglog.Debug("proxy: strip_reasoning flag", "enabled", stripReasoning, "model", logData.modelID, "provider", logData.providerName, "context_value", r.Context().Value(ctxkeys.VirtualKeyStripReasoningKey))
-			}
-
 			// When strip_reasoning is enabled, remove reasoning fields from the chunk.
 			// If the delta becomes empty after stripping (i.e. the chunk only
 			// contained reasoning tokens), skip the chunk entirely rather than
@@ -412,171 +406,169 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			// "content" field, a "role" field (first assistant chunk), or
 			// "tool_calls".
 			if stripReasoning && len(chunk.Choices) > 0 && chunk.Choices[0].Delta != nil {
-				var raw map[string]json.RawMessage
-				if json.Unmarshal([]byte(payload), &raw) == nil {
-					if choicesRaw, ok := raw["choices"]; ok {
-						var choices []map[string]json.RawMessage
-						if json.Unmarshal(choicesRaw, &choices) == nil && len(choices) > 0 {
-							if deltaRaw, ok2 := choices[0]["delta"]; ok2 {
-								var deltaFields map[string]json.RawMessage
-								if json.Unmarshal(deltaRaw, &deltaFields) == nil {
-									// Remove reasoning fields from delta.
-									delete(deltaFields, "reasoning_content")
-									delete(deltaFields, "reasoning_details")
-									delete(deltaFields, "reasoning")
+				p, ok := parseChunkPayload(payload)
+				if !ok {
+					// parseChunkPayload failed on a chunk that passed the
+					// typed-struct guard. Forward the chunk unmodified instead
+					// of silently dropping it. This preserves the original
+					// pass-through semantics where a parse failure forwards the
+					// chunk rather than discarding it.
+					goto stripReasoningDone
+				}
+				deltaFields := p.delta
+				// Remove reasoning fields from delta.
+				delete(deltaFields, "reasoning_content")
+				delete(deltaFields, "reasoning_details")
+				delete(deltaFields, "reasoning")
 
-									// Strip empty content ("") that normally
-									// accompanies reasoning-only deltas.
-									if cRaw, okC := deltaFields["content"]; okC {
-										var cStr string
-										if json.Unmarshal(cRaw, &cStr) == nil && cStr == "" {
-											delete(deltaFields, "content")
-										}
-									}
+				// Strip empty content ("") that normally
+				// accompanies reasoning-only deltas.
+				if cRaw, okC := deltaFields["content"]; okC {
+					var cStr string
+					if json.Unmarshal(cRaw, &cStr) == nil && cStr == "" {
+						delete(deltaFields, "content")
+					}
+				}
 
-									// Some providers (notably Ollama) include
-									// "role":"assistant" in every delta, not
-									// just the first one. When strip_reasoning
-									// is enabled and the only remaining field
-									// besides content is "role", remove it
-									// too — the role is already present in any
-									// subsequent content or tool_calls chunk,
-									// and forwarding 20+ role-only deltas
-									// defeats the purpose of stripping.
-									_, hasContent := deltaFields["content"]
-									_, hasToolCalls := deltaFields["tool_calls"]
-									if !hasContent && !hasToolCalls {
-										delete(deltaFields, "role")
-									}
+				// Some providers (notably Ollama) include
+				// "role":"assistant" in every delta, not
+				// just the first one. When strip_reasoning
+				// is enabled and the only remaining field
+				// besides content is "role", remove it
+				// too — the role is already present in any
+				// subsequent content or tool_calls chunk,
+				// and forwarding 20+ role-only deltas
+				// defeats the purpose of stripping.
+				_, hasContent := deltaFields["content"]
+				_, hasToolCalls := deltaFields["tool_calls"]
+				if !hasContent && !hasToolCalls {
+					delete(deltaFields, "role")
+				}
 
-									// Check if the delta still carries
-									// meaningful data. If not, skip this chunk
-									// entirely — the client has no use for an
-									// empty delta. We DO forward chunks that
-									// carry a finish_reason even if the delta
-									// is empty; omitting the stop signal breaks
-									// clients that depend on it.
-									deltaHasContent := false
-									if cRaw, okC := deltaFields["content"]; okC {
-										var cStr string
-										if json.Unmarshal(cRaw, &cStr) == nil && cStr != "" {
-											deltaHasContent = true
-										}
-									}
-									if _, okR := deltaFields["role"]; okR {
-										deltaHasContent = true
-									}
-									if _, okT := deltaFields["tool_calls"]; okT {
-										deltaHasContent = true
-									}
-									// finish_reason lives at the choices[0]
-									// level, not inside delta. A chunk with
-									// an empty delta but a finish_reason must
-									// still be forwarded. Note: "finish_reason":null
-									// is present on every streaming chunk, so
-									// we must check the value is actually non-null.
-									if frRaw, okFR := choices[0]["finish_reason"]; okFR {
-										var frStr string
-										if json.Unmarshal(frRaw, &frStr) == nil && frStr != "" {
-											deltaHasContent = true
-										}
-									}
+				// Check if the delta still carries
+				// meaningful data. If not, skip this chunk
+				// entirely — the client has no use for an
+				// empty delta. We DO forward chunks that
+				// carry a finish_reason even if the delta
+				// is empty; omitting the stop signal breaks
+				// clients that depend on it.
+				deltaHasContent := false
+				if cRaw, okC := deltaFields["content"]; okC {
+					var cStr string
+					if json.Unmarshal(cRaw, &cStr) == nil && cStr != "" {
+						deltaHasContent = true
+					}
+				}
+				if _, okR := deltaFields["role"]; okR {
+					deltaHasContent = true
+				}
+				if _, okT := deltaFields["tool_calls"]; okT {
+					deltaHasContent = true
+				}
+				// finish_reason lives at the choices[0]
+				// level, not inside delta. A chunk with
+				// an empty delta but a finish_reason must
+				// still be forwarded. Note: "finish_reason":null
+				// is present on every streaming chunk, so
+				// we must check the value is actually non-null.
+				if frRaw, okFR := p.choices[0]["finish_reason"]; okFR {
+					var frStr string
+					if json.Unmarshal(frRaw, &frStr) == nil && frStr != "" {
+						deltaHasContent = true
+					}
+				}
 
-									if !deltaHasContent {
-										// Delta is empty after stripping
-										// reasoning — skip the chunk entirely
-										// and send a minimal valid JSON keep-alive
-										// instead of an SSE comment or nothing:
-										// Warp's Go backend uses the openai-go
-										// ssestream package which crashes on SSE
-										// comment lines and also times out if no
-										// data: lines arrive for several seconds.
-										// A valid data: line with an empty delta
-										// keeps the connection alive without
-										// exposing reasoning.
-										// Use the stream's real completion ID from
-										// the parsed chunk so clients that validate
-										// ID consistency don't reject the keep-alive.
-										keepAliveID := "chatcmpl"
-										if idRaw, ok := raw["id"]; ok {
-											var idStr string
-											if json.Unmarshal(idRaw, &idStr) == nil && idStr != "" {
-												keepAliveID = idStr
-											}
-										}
-										escapedID, _ := json.Marshal(keepAliveID)
-										keepAlive := []byte("data: {\"id\":" + string(escapedID) + ",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{}}]}\n\n")
-										n, err := w.Write(keepAlive)
-										bytesWritten += int64(n)
-										if err != nil {
-											clientDisconnected = true
-											debuglog.Warn("proxy: client write failed during reasoning keep-alive", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-											goto logUpdate
-										}
-										if canFlush {
-											flusher.Flush()
-										}
-										skipNextEmptyLine = true
-										written = true
-										continue
-									}
+				if !deltaHasContent {
+					// Delta is empty after stripping
+					// reasoning — skip the chunk entirely
+					// and send a minimal valid JSON keep-alive
+					// instead of an SSE comment or nothing:
+					// Warp's Go backend uses the openai-go
+					// ssestream package which crashes on SSE
+					// comment lines and also times out if no
+					// data: lines arrive for several seconds.
+					// A valid data: line with an empty delta
+					// keeps the connection alive without
+					// exposing reasoning.
+					// Use the stream's real completion ID from
+					// the parsed chunk so clients that validate
+					// ID consistency don't reject the keep-alive.
+					keepAliveID := "chatcmpl"
+					if idRaw, ok := p.raw["id"]; ok {
+						var idStr string
+						if json.Unmarshal(idRaw, &idStr) == nil && idStr != "" {
+							keepAliveID = idStr
+						}
+					}
+					escapedID, _ := json.Marshal(keepAliveID)
+					keepAlive := []byte("data: {\"id\":" + string(escapedID) + ",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{}}]}\n\n")
+					n, err := w.Write(keepAlive)
+					bytesWritten += int64(n)
+					if err != nil {
+						clientDisconnected = true
+						debuglog.Warn("proxy: client write failed during reasoning keep-alive", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+						goto logUpdate
+					}
+					if canFlush {
+						flusher.Flush()
+					}
+					skipNextEmptyLine = true
+					written = true
+					continue
+				}
 
-									newDelta, _ := json.Marshal(deltaFields)
-									choices[0]["delta"] = json.RawMessage(newDelta)
-									// Normalize finish_reason in-place before
-									// re-serializing, so non-standard values
-									// (e.g., "end_turn", "STOP") are mapped to
-									// OpenAI equivalents. Without this, the
-									// continue below would skip the normalization
-									// block at line ~809.
-									if frRaw, okFR := choices[0]["finish_reason"]; okFR {
-										var frStr string
-										if json.Unmarshal(frRaw, &frStr) == nil && frStr != "" {
-											if normalized := normalizeFinishReason(frStr); normalized != frStr {
-												choices[0]["finish_reason"] = json.RawMessage(`"` + normalized + `"`)
-												lastFinishReason = normalized
-												debuglog.Debug("proxy: normalized finish_reason in strip_reasoning path", "original", frStr, "normalized", normalized, "model", logData.modelID, "provider", logData.providerName)
-											} else {
-												lastFinishReason = frStr
-											}
-										}
-									}
-									newChoices, _ := json.Marshal(choices)
-									raw["choices"] = json.RawMessage(newChoices)
-									newPayload, _ := json.Marshal(raw)
-									n, err := w.Write([]byte("data: "))
-									bytesWritten += int64(n)
-									if err != nil {
-										clientDisconnected = true
-										debuglog.Warn("proxy: client write failed during reasoning strip", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-										goto logUpdate
-									}
-									n, err = w.Write(newPayload)
-									bytesWritten += int64(n)
-									if err != nil {
-										clientDisconnected = true
-										debuglog.Warn("proxy: client write failed during reasoning strip", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-										goto logUpdate
-									}
-									n, err = w.Write([]byte("\n\n"))
-									bytesWritten += int64(n)
-									if err != nil {
-										clientDisconnected = true
-										debuglog.Warn("proxy: client write failed during reasoning strip (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-										goto logUpdate
-									}
-									if canFlush {
-										flusher.Flush()
-									}
-									written = true
-									skipNextEmptyLine = true
-									continue
-								}
-							}
+				newDelta, _ := json.Marshal(deltaFields)
+				p.choices[0]["delta"] = json.RawMessage(newDelta)
+				// Normalize finish_reason in-place before
+				// re-serializing, so non-standard values
+				// (e.g., "end_turn", "STOP") are mapped to
+				// OpenAI equivalents. Without this, the
+				// continue below would skip the normalization
+				// block at line ~809.
+				if frRaw, okFR := p.choices[0]["finish_reason"]; okFR {
+					var frStr string
+					if json.Unmarshal(frRaw, &frStr) == nil && frStr != "" {
+						if normalized := normalizeFinishReason(frStr); normalized != frStr {
+							p.choices[0]["finish_reason"] = json.RawMessage(`"` + normalized + `"`)
+							lastFinishReason = normalized
+							debuglog.Debug("proxy: normalized finish_reason in strip_reasoning path", "original", frStr, "normalized", normalized, "model", logData.modelID, "provider", logData.providerName)
+						} else {
+							lastFinishReason = frStr
 						}
 					}
 				}
+				newChoices, _ := json.Marshal(p.choices)
+				p.raw["choices"] = json.RawMessage(newChoices)
+				newPayload, _ := json.Marshal(p.raw)
+				n, err := w.Write([]byte("data: "))
+				bytesWritten += int64(n)
+				if err != nil {
+					clientDisconnected = true
+					debuglog.Warn("proxy: client write failed during reasoning strip", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+					goto logUpdate
+				}
+				n, err = w.Write(newPayload)
+				bytesWritten += int64(n)
+				if err != nil {
+					clientDisconnected = true
+					debuglog.Warn("proxy: client write failed during reasoning strip", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+					goto logUpdate
+				}
+				n, err = w.Write([]byte("\n\n"))
+				bytesWritten += int64(n)
+				if err != nil {
+					clientDisconnected = true
+					debuglog.Warn("proxy: client write failed during reasoning strip (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+					goto logUpdate
+				}
+				if canFlush {
+					flusher.Flush()
+				}
+				written = true
+				skipNextEmptyLine = true
+				continue
 			}
+		stripReasoningDone:
 
 			// Reasoning field normalization: ensure reasoning_content is
 			// always populated regardless of upstream provider format.
@@ -592,112 +584,89 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				if delta.ReasoningContent != nil {
 					deltaMap["reasoning_content"] = *delta.ReasoningContent
 				}
-				// Parse the raw payload to capture reasoning/reasoning_details
-				// which aren't in the typed struct.
-				var rawDelta map[string]json.RawMessage
-				if json.Unmarshal([]byte(payload), &rawDelta) == nil {
-					if choicesRaw, ok := rawDelta["choices"]; ok {
-						var choices []map[string]json.RawMessage
-						if json.Unmarshal(choicesRaw, &choices) == nil && len(choices) > 0 {
-							if deltaRaw, ok2 := choices[0]["delta"]; ok2 {
-								var deltaFields map[string]json.RawMessage
-								if json.Unmarshal(deltaRaw, &deltaFields) == nil {
-									// Extract reasoning field (Ollama, OpenRouter).
-									if rRaw, ok3 := deltaFields["reasoning"]; ok3 {
-										var rStr string
-										if json.Unmarshal(rRaw, &rStr) == nil && rStr != "" {
-											deltaMap["reasoning"] = rStr
-										}
-									}
-									// Extract reasoning_details (OpenRouter, MiniMax).
-									if rdRaw, ok3 := deltaFields["reasoning_details"]; ok3 {
-										var rdArr []interface{}
-										if json.Unmarshal(rdRaw, &rdArr) == nil {
-											deltaMap["reasoning_details"] = rdArr
-										}
-									}
-								}
-							}
+				// Parse the raw payload once to capture reasoning/reasoning_details
+				// which aren't in the typed struct, and reuse the parsed result
+				// for re-serialization below.
+				chunkParsed, chunkParsedOk := parseChunkPayload(payload)
+				if chunkParsedOk {
+					// Extract reasoning field (Ollama, OpenRouter).
+					if rRaw, ok3 := chunkParsed.delta["reasoning"]; ok3 {
+						var rStr string
+						if json.Unmarshal(rRaw, &rStr) == nil && rStr != "" {
+							deltaMap["reasoning"] = rStr
+						}
+					}
+					// Extract reasoning_details (OpenRouter, MiniMax).
+					if rdRaw, ok3 := chunkParsed.delta["reasoning_details"]; ok3 {
+						var rdArr []interface{}
+						if json.Unmarshal(rdRaw, &rdArr) == nil {
+							deltaMap["reasoning_details"] = rdArr
 						}
 					}
 				}
 				if NormalizeReasoningFields(deltaMap) {
-					// Re-serialize the chunk with normalized reasoning fields.
-					// Parse the full payload as a raw map, patch the delta,
-					// and write the modified JSON.
-					var raw map[string]json.RawMessage
-					if json.Unmarshal([]byte(payload), &raw) == nil {
-						if choicesRaw, ok := raw["choices"]; ok {
-							var choices []map[string]json.RawMessage
-							if json.Unmarshal(choicesRaw, &choices) == nil && len(choices) > 0 {
-								if deltaRaw, ok2 := choices[0]["delta"]; ok2 {
-									var deltaFields map[string]json.RawMessage
-									if json.Unmarshal(deltaRaw, &deltaFields) == nil {
-										// Patch reasoning_content into the delta.
-										if rc, ok3 := deltaMap["reasoning_content"]; ok3 {
-											if rcStr, ok4 := rc.(string); ok4 {
-												escaped, _ := json.Marshal(rcStr)
-												deltaFields["reasoning_content"] = json.RawMessage(escaped)
-											}
-										}
-										// Patch content if it was modified (tag extraction).
-										if c, ok3 := deltaMap["content"]; ok3 {
-											if cStr, ok4 := c.(string); ok4 {
-												escaped, _ := json.Marshal(cStr)
-												deltaFields["content"] = json.RawMessage(escaped)
-											}
-										}
-										newDelta, _ := json.Marshal(deltaFields)
-										choices[0]["delta"] = json.RawMessage(newDelta)
-										// Normalize finish_reason in-place before
-										// re-serializing. The written=true below
-										// would skip the finish_reason normalization
-										// block later in this loop iteration.
-										if frRaw, okFR := choices[0]["finish_reason"]; okFR {
-											var frStr string
-											if json.Unmarshal(frRaw, &frStr) == nil && frStr != "" {
-												if normalized := normalizeFinishReason(frStr); normalized != frStr {
-													choices[0]["finish_reason"] = json.RawMessage(`"` + normalized + `"`)
-													lastFinishReason = normalized
-												} else {
-													lastFinishReason = frStr
-												}
-											}
-										}
-										newChoices, _ := json.Marshal(choices)
-										raw["choices"] = json.RawMessage(newChoices)
-										newPayload, _ := json.Marshal(raw)
-										n, err := w.Write([]byte("data: "))
-										bytesWritten += int64(n)
-										if err != nil {
-											clientDisconnected = true
-											debuglog.Warn("proxy: client write failed during reasoning normalization", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-											goto logUpdate
-										}
-										n, err = w.Write(newPayload)
-										bytesWritten += int64(n)
-										if err != nil {
-											clientDisconnected = true
-											debuglog.Warn("proxy: client write failed during reasoning normalization", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-											goto logUpdate
-										}
-										n, err = w.Write([]byte("\n\n"))
-										bytesWritten += int64(n)
-										if err != nil {
-											clientDisconnected = true
-											debuglog.Warn("proxy: client write failed during reasoning normalization (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-											goto logUpdate
-										}
-										if canFlush {
-											flusher.Flush()
-										}
-										written = true
-										skipNextEmptyLine = true
-										debuglog.Debug("proxy: normalized reasoning fields", "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
-									}
+					if chunkParsedOk {
+						// Patch reasoning_content into the delta.
+						if rc, ok3 := deltaMap["reasoning_content"]; ok3 {
+							if rcStr, ok4 := rc.(string); ok4 {
+								escaped, _ := json.Marshal(rcStr)
+								chunkParsed.delta["reasoning_content"] = json.RawMessage(escaped)
+							}
+						}
+						// Patch content if it was modified (tag extraction).
+						if c, ok3 := deltaMap["content"]; ok3 {
+							if cStr, ok4 := c.(string); ok4 {
+								escaped, _ := json.Marshal(cStr)
+								chunkParsed.delta["content"] = json.RawMessage(escaped)
+							}
+						}
+						newDelta, _ := json.Marshal(chunkParsed.delta)
+						chunkParsed.choices[0]["delta"] = json.RawMessage(newDelta)
+						// Normalize finish_reason in-place before
+						// re-serializing. The written=true below
+						// would skip the finish_reason normalization
+						// block later in this loop iteration.
+						if frRaw, okFR := chunkParsed.choices[0]["finish_reason"]; okFR {
+							var frStr string
+							if json.Unmarshal(frRaw, &frStr) == nil && frStr != "" {
+								if normalized := normalizeFinishReason(frStr); normalized != frStr {
+									chunkParsed.choices[0]["finish_reason"] = json.RawMessage(`"` + normalized + `"`)
+									lastFinishReason = normalized
+								} else {
+									lastFinishReason = frStr
 								}
 							}
 						}
+						newChoices, _ := json.Marshal(chunkParsed.choices)
+						chunkParsed.raw["choices"] = json.RawMessage(newChoices)
+						newPayload, _ := json.Marshal(chunkParsed.raw)
+						n, err := w.Write([]byte("data: "))
+						bytesWritten += int64(n)
+						if err != nil {
+							clientDisconnected = true
+							debuglog.Warn("proxy: client write failed during reasoning normalization", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+							goto logUpdate
+						}
+						n, err = w.Write(newPayload)
+						bytesWritten += int64(n)
+						if err != nil {
+							clientDisconnected = true
+							debuglog.Warn("proxy: client write failed during reasoning normalization", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+							goto logUpdate
+						}
+						n, err = w.Write([]byte("\n\n"))
+						bytesWritten += int64(n)
+						if err != nil {
+							clientDisconnected = true
+							debuglog.Warn("proxy: client write failed during reasoning normalization (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+							goto logUpdate
+						}
+						if canFlush {
+							flusher.Flush()
+						}
+						written = true
+						skipNextEmptyLine = true
+						debuglog.Debug("proxy: normalized reasoning fields", "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 					}
 				}
 			}
@@ -709,67 +678,55 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				hasReasoning := delta.ReasoningContent != nil && *delta.ReasoningContent != ""
 				hasEmptyContent := delta.Content != nil && *delta.Content == ""
 				if hasReasoning && hasEmptyContent {
-					// Rewrite the chunk without the content field.
-					var raw map[string]json.RawMessage
-					if json.Unmarshal([]byte(payload), &raw) == nil {
-						if choicesRaw, ok := raw["choices"]; ok {
-							var choices []map[string]json.RawMessage
-							if json.Unmarshal(choicesRaw, &choices) == nil && len(choices) > 0 {
-								if deltaRaw, ok2 := choices[0]["delta"]; ok2 {
-									var deltaFields map[string]json.RawMessage
-									if json.Unmarshal(deltaRaw, &deltaFields) == nil {
-										delete(deltaFields, "content")
-										newDelta, _ := json.Marshal(deltaFields)
-										choices[0]["delta"] = json.RawMessage(newDelta)
-										// Normalize finish_reason in-place before
-										// re-serializing. The written=true below
-										// would skip the finish_reason normalization
-										// block later in this loop iteration.
-										if frRaw, okFR := choices[0]["finish_reason"]; okFR {
-											var frStr string
-											if json.Unmarshal(frRaw, &frStr) == nil && frStr != "" {
-												if normalized := normalizeFinishReason(frStr); normalized != frStr {
-													choices[0]["finish_reason"] = json.RawMessage(`"` + normalized + `"`)
-													lastFinishReason = normalized
-												} else {
-													lastFinishReason = frStr
-												}
-											}
-										}
-										newChoices, _ := json.Marshal(choices)
-										raw["choices"] = json.RawMessage(newChoices)
-										newPayload, _ := json.Marshal(raw)
-										n, err := w.Write([]byte("data: "))
-										bytesWritten += int64(n)
-										if err != nil {
-											clientDisconnected = true
-											debuglog.Warn("proxy: client write failed during empty content strip", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-											goto logUpdate
-										}
-										n, err = w.Write(newPayload)
-										bytesWritten += int64(n)
-										if err != nil {
-											clientDisconnected = true
-											debuglog.Warn("proxy: client write failed during empty content strip", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-											goto logUpdate
-										}
-										n, err = w.Write([]byte("\n\n"))
-										bytesWritten += int64(n)
-										if err != nil {
-											clientDisconnected = true
-											debuglog.Warn("proxy: client write failed during empty content strip (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-											goto logUpdate
-										}
-										if canFlush {
-											flusher.Flush()
-										}
-										written = true
-										skipNextEmptyLine = true
-										debuglog.Debug("proxy: stripped empty content from reasoning chunk", "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
-									}
+					if p, ok := parseChunkPayload(payload); ok {
+						delete(p.delta, "content")
+						newDelta, _ := json.Marshal(p.delta)
+						p.choices[0]["delta"] = json.RawMessage(newDelta)
+						// Normalize finish_reason in-place before
+						// re-serializing. The written=true below
+						// would skip the finish_reason normalization
+						// block later in this loop iteration.
+						if frRaw, okFR := p.choices[0]["finish_reason"]; okFR {
+							var frStr string
+							if json.Unmarshal(frRaw, &frStr) == nil && frStr != "" {
+								if normalized := normalizeFinishReason(frStr); normalized != frStr {
+									p.choices[0]["finish_reason"] = json.RawMessage(`"` + normalized + `"`)
+									lastFinishReason = normalized
+								} else {
+									lastFinishReason = frStr
 								}
 							}
 						}
+						newChoices, _ := json.Marshal(p.choices)
+						p.raw["choices"] = json.RawMessage(newChoices)
+						newPayload, _ := json.Marshal(p.raw)
+						n, err := w.Write([]byte("data: "))
+						bytesWritten += int64(n)
+						if err != nil {
+							clientDisconnected = true
+							debuglog.Warn("proxy: client write failed during empty content strip", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+							goto logUpdate
+						}
+						n, err = w.Write(newPayload)
+						bytesWritten += int64(n)
+						if err != nil {
+							clientDisconnected = true
+							debuglog.Warn("proxy: client write failed during empty content strip", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+							goto logUpdate
+						}
+						n, err = w.Write([]byte("\n\n"))
+						bytesWritten += int64(n)
+						if err != nil {
+							clientDisconnected = true
+							debuglog.Warn("proxy: client write failed during empty content strip (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+							goto logUpdate
+						}
+						if canFlush {
+							flusher.Flush()
+						}
+						written = true
+						skipNextEmptyLine = true
+						debuglog.Debug("proxy: stripped empty content from reasoning chunk", "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 					}
 				}
 			}
@@ -1265,7 +1222,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		debuglog.Info("proxy: non-streaming completed", "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "duration_ms", totalDuration, "prompt_tokens", chatResp.Usage.PromptTokens, "completion_tokens", chatResp.Usage.CompletionTokens)
 	} else {
 		body, _ := io.ReadAll(resp.Body)
-		errMsg := util.SanitizeLogBody(string(body), 500)
+		errMsg := util.SanitizeLogBody(string(body), 10000)
 		totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
 		logData.statusCode = resp.StatusCode
 		logData.durationMs = totalDuration
@@ -1873,7 +1830,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			if retryCancel != nil {
 				retryCancel() // retry body consumed, context no longer needed
 			}
-			errMsg := util.SanitizeLogBody(string(body), 2000)
+			errMsg := util.SanitizeLogBody(string(body), 10000)
 			debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "body", errMsg)
 			debuglog.Debug("proxy: upstream error response", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "body_length", len(body), "attempt", attempt+1)
 			logData.responseHeaderMs = responseHeaderMs

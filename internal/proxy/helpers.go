@@ -91,6 +91,40 @@ func normalizeFinishReason(reason string) string {
 	return reason
 }
 
+// parsedChunk holds the decomposed fields from an SSE data line payload.
+// Instead of nesting 5-6 levels of json.Unmarshal checks, parseChunkPayload
+// returns all three maps in a single call.
+type parsedChunk struct {
+	raw     map[string]json.RawMessage
+	choices []map[string]json.RawMessage
+	delta   map[string]json.RawMessage
+}
+
+// parseChunkPayload decomposes an SSE chunk payload into its top-level map,
+// choices array, and delta fields. Returns false if any step fails, allowing
+// callers to replace 5-6 nested if/unmarshal blocks with a single check.
+func parseChunkPayload(payload string) (parsedChunk, bool) {
+	var p parsedChunk
+	if json.Unmarshal([]byte(payload), &p.raw) != nil {
+		return p, false
+	}
+	choicesRaw, ok := p.raw["choices"]
+	if !ok {
+		return p, false
+	}
+	if json.Unmarshal(choicesRaw, &p.choices) != nil || len(p.choices) == 0 {
+		return p, false
+	}
+	deltaRaw, ok := p.choices[0]["delta"]
+	if !ok {
+		return p, false
+	}
+	if json.Unmarshal(deltaRaw, &p.delta) != nil {
+		return p, false
+	}
+	return p, true
+}
+
 // parseAccumulatedError attempts to extract a human-readable error message
 // from accumulated SSE error bytes. Some providers (e.g. OpenAI, go-openai)
 // split error JSON across multiple SSE data lines. This function tries to

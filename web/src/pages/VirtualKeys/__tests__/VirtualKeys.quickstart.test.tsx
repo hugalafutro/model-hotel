@@ -140,13 +140,11 @@ describe("VirtualKeys", () => {
 				expect(screen.getByText("Quick Start")).toBeInTheDocument();
 			});
 
-			// curl example is in a code block - check for key parts
 			expect(screen.getByText(/curl/)).toBeInTheDocument();
-			// URL is in a span element
 			expect(
 				screen.getByText((content) => content.includes("/v1/chat/completions")),
 			).toBeInTheDocument();
-			expect(screen.getByText("YOUR_API_KEY")).toBeInTheDocument();
+			expect(screen.getAllByText("YOUR_API_KEY").length).toBeGreaterThan(0);
 		});
 
 		it("shows PowerShell example in powershell tab", async () => {

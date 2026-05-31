@@ -26,7 +26,7 @@ describe("snippets", () => {
 				origin: "https://api.example.com",
 			});
 			expect(result).toContain("-X POST");
-			expect(result).toContain("Authorization: Bearer API_KEY");
+			expect(result).toContain("Authorization: Bearer YOUR_API_KEY");
 			expect(result).toContain("Content-Type: application/json");
 			expect(result).toContain("/v1/chat/completions");
 		});
@@ -348,12 +348,11 @@ describe("snippets", () => {
 			expect(result).toContain('- "model_name"');
 		});
 
-		it("includes API_KEY variable reference", () => {
+		it("includes YOUR_API_KEY placeholder", () => {
 			const result = snippetLibreChatText({
 				origin: "https://example.com",
 			});
-			// biome-ignore lint/suspicious/noTemplateCurlyInString: intentional YAML variable check
-			expect(result).toContain("${API_KEY}");
+			expect(result).toContain("YOUR_API_KEY");
 		});
 	});
 
@@ -395,11 +394,11 @@ describe("snippets", () => {
 			expect(result).toContain("https://example.com/v1");
 		});
 
-		it("includes API_KEY placeholder", () => {
+		it("includes YOUR_API_KEY placeholder", () => {
 			const result = snippetOpencodeVKText({
 				origin: "https://example.com",
 			});
-			expect(result).toContain('"apiKey": "API_KEY"');
+			expect(result).toContain('"apiKey": "YOUR_API_KEY"');
 		});
 
 		it("includes model_name as default model", () => {
