@@ -85,6 +85,8 @@ export function FilterDropdown({
 					className="absolute z-50 mt-1 min-w-36 ui-card py-1 shadow-lg"
 					style={{
 						border: "1px solid var(--border-default)",
+						backdropFilter: "blur(40px)",
+						WebkitBackdropFilter: "blur(40px)",
 					}}
 				>
 					<div className="max-h-48 overflow-y-auto px-1">

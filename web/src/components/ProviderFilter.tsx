@@ -133,6 +133,8 @@ export function ProviderFilter({
 					style={{
 						// Ensure the dropdown panel elevates above table borders
 						border: "1px solid var(--border-default)",
+						backdropFilter: "blur(40px)",
+						WebkitBackdropFilter: "blur(40px)",
 					}}
 				>
 					{/* Search */}
