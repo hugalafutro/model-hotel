@@ -1098,13 +1098,17 @@ html[data-ui-style="glassmorphism-lite"] .ui-card {
 	border: 1px solid var(--border-default);
 }
 
-/* Clip backdrop-filter to the card's border-radius so the blur
+/* Clip backdrop-filter to the card border-radius so the blur
    rectangle doesn't bleed past rounded corners into the gap between
-   stacked cards. Excluded on scroll-container cards because clip-path
-   breaks position:sticky in Chromium. */
-html[data-ui-style="glassmorphism-lite"]
-.ui-card:not(:has(> .ui-table)):not(.absolute) {
+   stacked cards. Cards with tables are excluded because clip-path
+   breaks position:sticky in Chromium. Absolute cards (dropdowns)
+   get solid backgrounds instead. */
+html[data-ui-style="glassmorphism-lite"] .ui-card:not(.absolute) {
 	clip-path: inset(0 round var(--radius-card));
+}
+html[data-ui-style="glassmorphism-lite"]
+	.ui-card:not(.absolute):has(> .ui-table) {
+	clip-path: none;
 }
 
 /* Dropdown/popover cards: solid opaque background (backdrop-filter does not
@@ -1539,7 +1543,12 @@ html[data-ui-style="glassmorphism-lite"].dark .ui-table-header-text {
 	color: #6b7280; /* gray-500 */
 }
 html.dark .model-id-text {
-	color: rgba(156, 163, 175, 0.85); /* gray-400 at 85% — visible on dark, not as bright as model name */
+	color: rgba(
+		156,
+		163,
+		175,
+		0.85
+	); /* gray-400 at 85% — visible on dark, not as bright as model name */
 }
 html[data-ui-style="glassmorphism-lite"].dark .model-id-text {
 	color: rgba(156, 163, 175, 0.85);
