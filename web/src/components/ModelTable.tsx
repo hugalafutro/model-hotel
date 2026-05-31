@@ -362,7 +362,7 @@ export function ModelTable({
 														model.provider_name,
 														model.model_id,
 													)}
-													textClassName="text-[11px] text-gray-500 font-mono leading-tight"
+													textClassName="text-[11px] text-gray-400 font-mono leading-tight"
 													tooltip="Click to copy model ID"
 												/>
 											</div>
