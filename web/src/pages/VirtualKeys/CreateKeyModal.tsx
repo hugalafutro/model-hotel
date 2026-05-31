@@ -1,10 +1,30 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { RotateCcw } from "lucide-react";
+import { Brain, RotateCcw } from "lucide-react";
 import { useState } from "react";
 import { api } from "../../api/client";
 import type { VirtualKey } from "../../api/types";
 import { CopyablePill } from "../../components/CopyablePill";
 import { Modal } from "../../components/Modal";
+
+function BrainSlashIcon({
+	size = 14,
+	className = "",
+}: {
+	size?: number;
+	className?: string;
+}) {
+	return (
+		<span
+			className={`relative inline-block ${className}`}
+			style={{ width: size, height: size }}
+		>
+			<Brain size={size} />
+			<span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+				<span className="w-full h-[1.5px] bg-current rotate-45" />
+			</span>
+		</span>
+	);
+}
 
 export function CreateKeyModal({
 	onClose,
@@ -18,6 +38,7 @@ export function CreateKeyModal({
 	const [rateLimitRps, setRateLimitRps] = useState<string>("");
 	const [rateLimitBurst, setRateLimitBurst] = useState<string>("");
 	const [excludedProviders, setExcludedProviders] = useState<string[]>([]);
+	const [stripReasoning, setStripReasoning] = useState(false);
 	const [createdKey, setCreatedKey] = useState<VirtualKey | null>(null);
 	const [providerError, setProviderError] = useState("");
 
@@ -26,7 +47,9 @@ export function CreateKeyModal({
 		queryFn: () => api.providers.list(),
 	});
 
-	const availableProviders = providers ?? [];
+	const sortedProviders = (providers ?? [])
+		.slice()
+		.sort((a, b) => a.name.localeCompare(b.name));
 
 	const toggleProvider = (providerId: string) => {
 		setExcludedProviders((prev) =>
@@ -44,17 +67,20 @@ export function CreateKeyModal({
 			rate_limit_rps,
 			rate_limit_burst,
 			allowed_providers,
+			strip_reasoning,
 		}: {
 			name: string;
 			rate_limit_rps?: number | null;
 			rate_limit_burst?: number | null;
 			allowed_providers?: string[] | null;
+			strip_reasoning?: boolean;
 		}) =>
 			api.virtualKeys.create(
 				name,
 				rate_limit_rps,
 				rate_limit_burst,
 				allowed_providers,
+				strip_reasoning,
 			),
 		onSuccess: (vk) => {
 			setCreatedKey(vk);
@@ -70,7 +96,7 @@ export function CreateKeyModal({
 		e.preventDefault();
 		if (!name.trim()) return;
 		setProviderError("");
-		const allProviderIds = availableProviders.map((p) => p.id);
+		const allProviderIds = sortedProviders.map((p) => p.id);
 		const allowedProviders =
 			excludedProviders.length > 0
 				? allProviderIds.filter((id) => !excludedProviders.includes(id))
@@ -85,6 +111,7 @@ export function CreateKeyModal({
 			rate_limit_burst:
 				rateLimitBurst !== "" ? parseInt(rateLimitBurst, 10) : null,
 			allowed_providers: allowedProviders,
+			strip_reasoning: stripReasoning,
 		});
 	};
 
@@ -96,9 +123,15 @@ export function CreateKeyModal({
 		>
 			{createdKey ? (
 				<>
-					<p className="text-sm text-gray-400 mb-3">
-						Copy this key now. It won't be shown again.
-					</p>
+					<div className="bg-red-500/10 border-2 border-red-500/40 rounded-lg p-3 mb-4">
+						<p className="text-red-400 font-semibold text-sm">
+							This key cannot be recovered after you close this modal.
+						</p>
+						<p className="text-red-400/70 text-xs mt-1">
+							Virtual keys are hashed before storage. Copy it now or it is gone
+							forever.
+						</p>
+					</div>
 					<div className="bg-gray-950 rounded-lg p-3 mb-4">
 						{createdKey.key && (
 							<CopyablePill
@@ -199,13 +232,13 @@ export function CreateKeyModal({
 							Click a provider to restrict access. All are accessible by
 							default.
 						</p>
-						{availableProviders.length === 0 ? (
+						{sortedProviders.length === 0 ? (
 							<p className="text-xs text-gray-500 italic">
 								No providers available.
 							</p>
 						) : (
-							<div className="flex flex-wrap gap-1.5">
-								{availableProviders.map((provider) => {
+							<div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
+								{sortedProviders.map((provider) => {
 									const isExcluded = excludedProviders.includes(provider.id);
 									return (
 										<button
@@ -230,6 +263,47 @@ export function CreateKeyModal({
 					{providerError && (
 						<p className="text-xs text-red-400 mt-1">{providerError}</p>
 					)}
+
+					<div>
+						<div className="flex items-center gap-2 text-(--accent) mb-2">
+							<BrainSlashIcon size={12} className="shrink-0" />
+							<span className="text-xs font-semibold uppercase tracking-wider">
+								Strip Reasoning
+							</span>
+						</div>
+						<div className="flex items-center gap-3">
+							<button
+								type="button"
+								onClick={() => setStripReasoning(!stripReasoning)}
+								aria-pressed={stripReasoning}
+								aria-label={
+									stripReasoning
+										? "Disable strip reasoning"
+										: "Enable strip reasoning"
+								}
+								className={`relative inline-flex items-center h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+									stripReasoning
+										? "bg-(--accent) shadow-[var(--glow-accent)]"
+										: "bg-gray-600"
+								}`}
+							>
+								<span
+									aria-hidden="true"
+									className={`pointer-events-none block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 ease-in-out ${
+										stripReasoning ? "translate-x-6" : "translate-x-0"
+									}`}
+								/>
+							</button>
+							<span className="text-sm text-gray-200">
+								{stripReasoning ? "Enabled" : "Disabled"}
+							</span>
+						</div>
+						<p className="text-xs text-gray-400 mt-1.5">
+							When enabled, reasoning/thinking tokens are removed from streaming
+							responses for clients that cannot handle them (e.g., Warp.dev).
+						</p>
+					</div>
+
 					<div className="flex space-x-3 justify-end pt-2">
 						<button
 							type="button"
@@ -243,7 +317,7 @@ export function CreateKeyModal({
 							disabled={createMutation.isPending}
 							className="ui-btn ui-btn-primary disabled:opacity-50"
 						>
-							{createMutation.isPending ? "Creating…" : "Create Key"}
+							{createMutation.isPending ? "Creating\u2026" : "Create Key"}
 						</button>
 					</div>
 				</form>

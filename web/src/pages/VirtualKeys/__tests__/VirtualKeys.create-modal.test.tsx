@@ -96,7 +96,9 @@ describe("VirtualKeys", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByText("Copy this key now. It won't be shown again."),
+					screen.getByText(
+						"This key cannot be recovered after you close this modal.",
+					),
 				).toBeInTheDocument();
 			});
 			expect(
@@ -224,7 +226,9 @@ describe("VirtualKeys", () => {
 			});
 
 			expect(
-				screen.getByText("Copy this key now. It won't be shown again."),
+				screen.getByText(
+					"This key cannot be recovered after you close this modal.",
+				),
 			).toBeInTheDocument();
 			expect(screen.getByText("sk_test_one_time_key")).toBeInTheDocument();
 		});
@@ -341,7 +345,9 @@ describe("VirtualKeys", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByText("Copy this key now. It won't be shown again."),
+					screen.getByText(
+						"This key cannot be recovered after you close this modal.",
+					),
 				).toBeInTheDocument();
 			});
 			expect(

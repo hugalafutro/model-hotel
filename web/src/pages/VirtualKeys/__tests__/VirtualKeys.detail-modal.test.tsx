@@ -46,7 +46,7 @@ describe("VirtualKeys", () => {
 			});
 			expect(within(dialog).getByText("Test API Key")).toBeInTheDocument();
 			expect(
-				within(dialog).getByLabelText(`Copy ${mockVirtualKey.key_preview}`),
+				within(dialog).getByText(mockVirtualKey.key_preview),
 			).toBeInTheDocument();
 			expect(within(dialog).getByText("30")).toBeInTheDocument();
 			expect(within(dialog).getByText("60")).toBeInTheDocument();
