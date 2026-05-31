@@ -1106,6 +1106,15 @@ html[data-ui-style="glassmorphism-lite"] .ui-card:not(:has(> .ui-table)) {
 	clip-path: inset(0 round var(--radius-card));
 }
 
+/* Dropdown/popover cards need a heavier background so underlying
+   content doesn't bleed through and make options unreadable. */
+html[data-ui-style="glassmorphism-lite"] .ui-card.absolute {
+	background-color: rgba(10, 10, 14, 0.88);
+}
+html[data-ui-style="glassmorphism-lite"].light .ui-card.absolute {
+	background-color: rgba(255, 255, 255, 0.92);
+}
+
 /* =============================================
    GLASSMORPHISM MODALS
    ============================================= */
@@ -1503,7 +1512,12 @@ html[data-ui-style="glassmorphism-lite"].light .ui-table-virtual thead {
 	background: rgba(240, 241, 245, 0.9);
 }
 
-html[data-ui-style="glassmorphism-lite"] .ui-card > .ui-table tbody tr:last-child td {
+html[data-ui-style="glassmorphism-lite"]
+	.ui-card
+	> .ui-table
+	tbody
+	tr:last-child
+	td {
 	border-bottom: none;
 }
 
@@ -2114,9 +2128,9 @@ html[data-ui-style="glassmorphism-lite"].dark .terminal-tab-bar {
 }
 
 html[data-ui-style="glassmorphism-lite"].dark .terminal-tab-active {
-	background-color: rgba(255, 255, 255, 0.10);
-	border-color: rgba(255, 255, 255, 0.10);
-	border-bottom-color: rgba(255, 255, 255, 0.10);
+	background-color: rgba(255, 255, 255, 0.1);
+	border-color: rgba(255, 255, 255, 0.1);
+	border-bottom-color: rgba(255, 255, 255, 0.1);
 }
 
 html[data-ui-style="glassmorphism-lite"].dark .terminal-tab-inactive {
