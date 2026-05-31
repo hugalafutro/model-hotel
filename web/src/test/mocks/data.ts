@@ -73,6 +73,7 @@ export const mockVirtualKey: VirtualKey = {
 	rate_limit_rps: 30,
 	rate_limit_burst: 60,
 	allowed_providers: null,
+	strip_reasoning: false,
 };
 
 export const mockVirtualKeyWithProviders: VirtualKey = {

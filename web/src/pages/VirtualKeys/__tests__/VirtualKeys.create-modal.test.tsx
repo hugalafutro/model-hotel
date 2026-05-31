@@ -693,6 +693,168 @@ describe("VirtualKeys", () => {
 			expect(body.allowed_providers).toEqual(["provider-001"]);
 		});
 
+		it("toggles strip reasoning off by default and can be enabled", async () => {
+			server.use(
+				http.get("/api/virtual-keys", () =>
+					HttpResponse.json([mockVirtualKey]),
+				),
+			);
+
+			const { user } = renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("1 Virtual Key")).toBeInTheDocument();
+			});
+
+			const createButton = screen.getByRole("button", {
+				name: "+ Create Key",
+			});
+			await user.click(createButton);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("dialog", { name: "Create Virtual Key" }),
+				).toBeInTheDocument();
+			});
+
+			const dialog = screen.getByRole("dialog", {
+				name: "Create Virtual Key",
+			});
+
+			const toggle = within(dialog).getByRole("button", {
+				name: "Enable strip reasoning",
+			});
+			expect(toggle).toHaveAttribute("aria-pressed", "false");
+			expect(within(dialog).getByText("Disabled")).toBeInTheDocument();
+
+			await user.click(toggle);
+
+			expect(toggle).toHaveAttribute("aria-pressed", "true");
+			expect(
+				within(dialog).getByRole("button", {
+					name: "Disable strip reasoning",
+				}),
+			).toBeInTheDocument();
+			expect(within(dialog).getByText("Enabled")).toBeInTheDocument();
+		});
+
+		it("sends strip_reasoning in create request when enabled", async () => {
+			let createBody: unknown;
+			server.use(
+				http.get("/api/virtual-keys", () =>
+					HttpResponse.json([mockVirtualKey]),
+				),
+				http.post("/api/virtual-keys", async ({ request }) => {
+					createBody = await request.json();
+					return HttpResponse.json({
+						...mockVirtualKey,
+						id: "vk-strip",
+						name: (createBody as { name: string }).name,
+					});
+				}),
+			);
+
+			const { user } = renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("1 Virtual Key")).toBeInTheDocument();
+			});
+
+			const createButton = screen.getByRole("button", {
+				name: "+ Create Key",
+			});
+			await user.click(createButton);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("dialog", { name: "Create Virtual Key" }),
+				).toBeInTheDocument();
+			});
+
+			const dialog = screen.getByRole("dialog", {
+				name: "Create Virtual Key",
+			});
+
+			const nameInput = within(dialog).getByLabelText("Name");
+			await user.type(nameInput, "Strip Key");
+
+			const toggle = within(dialog).getByRole("button", {
+				name: "Enable strip reasoning",
+			});
+			await user.click(toggle);
+
+			const submitButton = within(dialog).getByRole("button", {
+				name: "Create Key",
+			});
+			await user.click(submitButton);
+
+			await waitFor(() => {
+				expect(screen.getByText("Virtual Key Created")).toBeInTheDocument();
+			});
+
+			expect(createBody).toBeDefined();
+			expect(
+				(createBody as { strip_reasoning?: boolean }).strip_reasoning,
+			).toBe(true);
+		});
+
+		it("renders providers in alphabetical order", async () => {
+			const betaProvider = {
+				...mockProvider,
+				id: "provider-beta",
+				name: "Beta Provider",
+				created_at: "2026-02-20T10:00:00Z",
+				updated_at: "2026-05-11T12:00:00Z",
+			};
+			const alphaProvider = {
+				...mockProvider,
+				id: "provider-alpha",
+				name: "Alpha Provider",
+				created_at: "2026-02-20T10:00:00Z",
+				updated_at: "2026-05-11T12:00:00Z",
+			};
+
+			server.use(
+				http.get("/api/providers", () =>
+					HttpResponse.json([betaProvider, alphaProvider]),
+				),
+				http.get("/api/virtual-keys", () =>
+					HttpResponse.json([mockVirtualKey]),
+				),
+			);
+
+			const { user } = renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("1 Virtual Key")).toBeInTheDocument();
+			});
+
+			const createButton = screen.getByRole("button", {
+				name: "+ Create Key",
+			});
+			await user.click(createButton);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("dialog", { name: "Create Virtual Key" }),
+				).toBeInTheDocument();
+			});
+
+			const dialog = screen.getByRole("dialog", {
+				name: "Create Virtual Key",
+			});
+
+			const providerButtons = within(dialog)
+				.getAllByRole("button")
+				.filter(
+					(btn) =>
+						btn.getAttribute("aria-pressed") !== null &&
+						btn.textContent?.trim(),
+				);
+			const names = providerButtons.map((btn) => btn.textContent);
+			expect(names).toEqual(["Alpha Provider", "Beta Provider"]);
+		});
+
 		it("shows error when all providers are excluded on create", async () => {
 			const mockProviders = [mockProvider, mockProvider2];
 
