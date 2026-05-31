@@ -1215,7 +1215,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		debuglog.Info("proxy: non-streaming completed", "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "duration_ms", totalDuration, "prompt_tokens", chatResp.Usage.PromptTokens, "completion_tokens", chatResp.Usage.CompletionTokens)
 	} else {
 		body, _ := io.ReadAll(resp.Body)
-		errMsg := util.SanitizeLogBody(string(body), 500)
+		errMsg := util.SanitizeLogBody(string(body), 10000)
 		totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
 		logData.statusCode = resp.StatusCode
 		logData.durationMs = totalDuration
@@ -1823,7 +1823,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			if retryCancel != nil {
 				retryCancel() // retry body consumed, context no longer needed
 			}
-			errMsg := util.SanitizeLogBody(string(body), 2000)
+			errMsg := util.SanitizeLogBody(string(body), 10000)
 			debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "body", errMsg)
 			debuglog.Debug("proxy: upstream error response", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "body_length", len(body), "attempt", attempt+1)
 			logData.responseHeaderMs = responseHeaderMs

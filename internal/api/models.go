@@ -375,7 +375,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 	duration := time.Since(startRequest).Milliseconds()
 
 	if resp.StatusCode != http.StatusOK {
-		errMsg := util.SanitizeLogBody(fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(respBody)), 2000)
+		errMsg := util.SanitizeLogBody(fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(respBody)), 10000)
 
 		logQuery := `
 			INSERT INTO request_logs (
