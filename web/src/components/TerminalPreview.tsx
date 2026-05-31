@@ -63,20 +63,20 @@ export function TerminalPreview({
 				className={`relative rounded-b-lg rounded-tr-lg bg-gray-950 border border-gray-800 overflow-hidden${height ? "" : " min-h-70"}`}
 				style={height ? { height: `${height}px` } : undefined}
 			>
-				<div className="absolute top-2 right-2 z-10">
-					<CopyButton
-						text={copyText}
-						size={14}
-						title={`Copy ${displayTitle} snippet`}
-					/>
-				</div>
-				<div className="flex items-center gap-1.5 px-3 py-2 border-b border-gray-800 terminal-titlebar">
+				<div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-gray-800 terminal-titlebar">
 					<div className="w-2.5 h-2.5 rounded-full bg-red-500" />
 					<div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
 					<div className="w-2.5 h-2.5 rounded-full bg-green-500" />
 					<span className="text-xs text-gray-600 ml-2 font-mono terminal-titlebar-label">
 						{displayTitle}
 					</span>
+					<div className="ml-auto">
+						<CopyButton
+							text={copyText}
+							size={14}
+							title={`Copy ${displayTitle} snippet`}
+						/>
+					</div>
 				</div>
 				<pre
 					className={`p-4 text-xs text-gray-400 font-mono overflow-x-auto whitespace-pre-wrap break-words terminal-body${height ? " overflow-y-auto" : ""}`}
@@ -92,13 +92,6 @@ export function TerminalPreview({
 			className={`terminal-win11 relative rounded-b-lg rounded-tr-lg overflow-hidden border border-[#333]${height ? "" : " min-h-70"}`}
 			style={height ? { height: `${height}px` } : undefined}
 		>
-			<div className="absolute top-2 right-2 z-10">
-				<CopyButton
-					text={copyText}
-					size={14}
-					title={`Copy ${displayTitle} snippet`}
-				/>
-			</div>
 			<div className="terminal-win11-titlebar flex items-center gap-2 px-3 py-1.5 border-b border-[#333]">
 				<svg
 					className="win11-icon"
@@ -113,6 +106,13 @@ export function TerminalPreview({
 				<span className="terminal-win11-titlebar-label text-xs font-mono text-[#ccc]">
 					{displayTitle}
 				</span>
+				<div className="ml-auto">
+					<CopyButton
+						text={copyText}
+						size={14}
+						title={`Copy ${displayTitle} snippet`}
+					/>
+				</div>
 			</div>
 			<pre
 				className={`terminal-win11-body p-4 text-xs font-mono overflow-x-auto whitespace-pre-wrap break-words text-[#ccc] bg-[#0c0c0c]${height ? " overflow-y-auto" : ""}`}
