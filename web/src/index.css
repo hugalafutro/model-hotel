@@ -1257,6 +1257,15 @@ html[data-ui-style="glassmorphism-lite"].light .ui-btn-secondary {
 html[data-ui-style="glassmorphism-lite"] .ui-btn-danger {
 	background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
 	border: 1px solid rgba(255, 255, 255, 0.15);
+	color: #fff;
+}
+
+/* Glassmorphism dark: ConfirmDeleteButton inline danger button fix */
+html[data-ui-style="glassmorphism-lite"].dark .bg-red-900\/50.text-red-400,
+html[data-ui-style="glassmorphism-lite"].dark button.bg-red-900\/50 {
+	background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+	color: #fff;
+	border-color: rgba(255, 255, 255, 0.15);
 }
 
 /* =============================================
@@ -1466,7 +1475,7 @@ html[data-ui-style="glassmorphism-lite"] .ui-table {
 html[data-ui-style="glassmorphism-lite"] .ui-table thead tr {
 	background: linear-gradient(
 		180deg,
-		var(--surface-sidebar) 0%,
+		rgba(255, 255, 255, 0.12) 0%,
 		transparent 100%
 	);
 	backdrop-filter: blur(16px);
@@ -1878,6 +1887,67 @@ html.light .text-teal-500\/60 {
 	color: rgba(20, 184, 166, 0.8);
 }
 
+/* Light mode: missing source badge text colors */
+html.light .text-fuchsia-400 {
+	color: #a21caf;
+}
+html.light .text-indigo-400 {
+	color: #4f46e5;
+}
+html.light .text-violet-400 {
+	color: #7c3aed;
+}
+html.light .text-sky-400 {
+	color: #0284c7;
+}
+html.light .text-lime-400 {
+	color: #65a30d;
+}
+html.light .text-rose-400 {
+	color: #e11d48;
+}
+html.light .text-slate-300 {
+	color: #475569;
+}
+
+/* Light mode: missing source badge backgrounds */
+html.light .bg-fuchsia-900\/30 {
+	background-color: rgba(162, 28, 175, 0.1);
+}
+html.light .bg-indigo-900\/30 {
+	background-color: rgba(79, 70, 229, 0.1);
+}
+html.light .bg-violet-900\/30 {
+	background-color: rgba(124, 58, 237, 0.1);
+}
+html.light .bg-sky-900\/30 {
+	background-color: rgba(2, 132, 199, 0.1);
+}
+html.light .bg-lime-900\/30 {
+	background-color: rgba(101, 163, 13, 0.1);
+}
+html.light .bg-rose-900\/30 {
+	background-color: rgba(225, 29, 72, 0.1);
+}
+html.light .bg-teal-900\/30 {
+	background-color: rgba(20, 184, 166, 0.1);
+}
+html.light .bg-emerald-900\/30 {
+	background-color: rgba(5, 150, 105, 0.1);
+}
+html.light .bg-pink-900\/30 {
+	background-color: rgba(219, 39, 119, 0.1);
+}
+html.light .bg-cyan-900\/30 {
+	background-color: rgba(8, 145, 178, 0.1);
+}
+html.light .bg-purple-900\/30 {
+	background-color: rgba(147, 51, 234, 0.1);
+}
+html.light .bg-amber-900\/30 {
+	background-color: rgba(217, 119, 6, 0.1);
+}
+
 /* Light mode: filter clear button */
 html.light .hover\:text-gray-200:hover {
 	color: #374151;
@@ -1993,6 +2063,25 @@ html.light .terminal-tab-inactive {
 html.light .terminal-tab-inactive:hover {
 	background-color: #f3f4f6;
 	color: #4a4f5c;
+}
+
+html[data-ui-style="glassmorphism-lite"].dark .terminal-tab-bar {
+	background-color: rgba(255, 255, 255, 0.04);
+}
+
+html[data-ui-style="glassmorphism-lite"].dark .terminal-tab-active {
+	background-color: rgba(255, 255, 255, 0.10);
+	border-color: rgba(255, 255, 255, 0.10);
+	border-bottom-color: rgba(255, 255, 255, 0.10);
+}
+
+html[data-ui-style="glassmorphism-lite"].dark .terminal-tab-inactive {
+	color: var(--text-muted, #8890a8);
+}
+
+html[data-ui-style="glassmorphism-lite"].dark .terminal-tab-inactive:hover {
+	background-color: rgba(255, 255, 255, 0.06);
+	color: var(--text-secondary, #c0c4d4);
 }
 
 /* Light theme for Windows Terminal (PowerShell tab) */
