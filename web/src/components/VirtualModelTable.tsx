@@ -574,7 +574,7 @@ export function VirtualModelTable({
 													{model.name ||
 														proxyModelID(model.provider_name, model.model_id)}
 												</span>
-												<span className="text-[11px] text-gray-500 font-mono leading-tight truncate">
+												<span className="text-[11px] text-gray-300 font-mono leading-tight truncate">
 													{proxyModelID(model.provider_name, model.model_id)}
 												</span>
 											</div>
