@@ -12,11 +12,11 @@ export function RangeToggle({
 	const labels: Record<Range, string> = {
 		"1h": t("dashboard.range.1h"),
 		"24h": t("dashboard.range.24h"),
-		"7d": t("dashboard.range.7d"),
+		"1w": t("dashboard.range.1w"),
 	};
 	return (
 		<div className="flex items-center gap-px">
-			{(["1h", "24h", "7d"] as Range[]).map((r) => {
+			{(["1h", "24h", "1w"] as Range[]).map((r) => {
 				const active = value === r;
 				return (
 					<button

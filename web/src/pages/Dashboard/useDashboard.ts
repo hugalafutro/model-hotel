@@ -107,9 +107,12 @@ export interface UseDashboardReturn {
 	gaugeRequestCount: number;
 	acData: Array<{
 		hour: string;
+		rawDate: string;
 		total: number;
 		errors: number;
 		tokens: number;
+		tokens_cache_hit: number;
+		tokens_cache_miss: number;
 		latency: number;
 		overhead_ms: number;
 		provider_latency_ms: number;
@@ -118,9 +121,12 @@ export interface UseDashboardReturn {
 	}>;
 	tokenAcData: Array<{
 		hour: string;
+		rawDate: string;
 		total: number;
 		errors: number;
 		tokens: number;
+		tokens_cache_hit: number;
+		tokens_cache_miss: number;
 		latency: number;
 		overhead_ms: number;
 		provider_latency_ms: number;
@@ -152,8 +158,12 @@ export interface UseDashboardReturn {
 	};
 }
 
-const VALID_RANGES: ReadonlySet<Range> = new Set(["1h", "24h", "7d"]);
+const VALID_RANGES: ReadonlySet<Range> = new Set(["1h", "24h", "1w"]);
 const VALID_METRICS: ReadonlySet<MetricType> = new Set(["tokens", "requests"]);
+
+// toApiPeriod maps the frontend Range value to the backend period query param.
+// "1w" is shown in the UI but the backend expects "7d".
+const toApiPeriod = (r: Range): string => (r === "1w" ? "7d" : r);
 const deserializeRange = (stored: string, fallback: Range): Range =>
 	VALID_RANGES.has(stored as Range) ? (stored as Range) : fallback;
 const deserializeMetric = (stored: string, fallback: MetricType): MetricType =>
@@ -345,7 +355,8 @@ export function useDashboard(): UseDashboardReturn {
 		error: statsError,
 	} = useQuery({
 		queryKey: ["stats", globalRange, excludeDeleted],
-		queryFn: () => api.stats.get({ period: globalRange, excludeDeleted }),
+		queryFn: () =>
+			api.stats.get({ period: toApiPeriod(globalRange), excludeDeleted }),
 		placeholderData: (prev) => prev,
 		refetchInterval: dashboardRefreshMs,
 		retry: 1,
@@ -374,7 +385,10 @@ export function useDashboard(): UseDashboardReturn {
 	const { data: tsData, isLoading: tsDataLoading } = useQuery({
 		queryKey: ["stats-timeseries", requestsChartRange, excludeDeleted],
 		queryFn: () =>
-			api.stats.getTimeSeries({ period: requestsChartRange, excludeDeleted }),
+			api.stats.getTimeSeries({
+				period: toApiPeriod(requestsChartRange),
+				excludeDeleted,
+			}),
 		placeholderData: (prev) => prev,
 		refetchInterval: dashboardRefreshMs,
 	});
@@ -382,7 +396,10 @@ export function useDashboard(): UseDashboardReturn {
 	const { data: tokenTsData, isLoading: tokenTsDataLoading } = useQuery({
 		queryKey: ["stats-timeseries-tokens", tokensChartRange, excludeDeleted],
 		queryFn: () =>
-			api.stats.getTimeSeries({ period: tokensChartRange, excludeDeleted }),
+			api.stats.getTimeSeries({
+				period: toApiPeriod(tokensChartRange),
+				excludeDeleted,
+			}),
 		placeholderData: (prev) => prev,
 		refetchInterval: dashboardRefreshMs,
 	});
@@ -396,7 +413,7 @@ export function useDashboard(): UseDashboardReturn {
 		],
 		queryFn: () =>
 			api.stats.getProviderDistribution({
-				period: doughnutRange,
+				period: toApiPeriod(doughnutRange),
 				metric: doughnutMetric,
 				excludeDeleted,
 			}),
@@ -410,7 +427,7 @@ export function useDashboard(): UseDashboardReturn {
 		queryKey: ["stats-usage", modelsRange, modelsMetric, excludeDeleted],
 		queryFn: () =>
 			api.stats.get({
-				period: modelsRange,
+				period: toApiPeriod(modelsRange),
 				metric: modelsMetric,
 				excludeDeleted,
 			}),
@@ -428,7 +445,7 @@ export function useDashboard(): UseDashboardReturn {
 			],
 			queryFn: () =>
 				api.stats.get({
-					period: providersRange,
+					period: toApiPeriod(providersRange),
 					metric: providersMetric,
 					excludeDeleted,
 				}),
@@ -445,7 +462,7 @@ export function useDashboard(): UseDashboardReturn {
 		],
 		queryFn: () =>
 			api.stats.get({
-				period: virtualKeysRange,
+				period: toApiPeriod(virtualKeysRange),
 				metric: virtualKeysMetric,
 				excludeDeleted,
 			}),
@@ -455,7 +472,8 @@ export function useDashboard(): UseDashboardReturn {
 
 	const { data: tokenStats, isLoading: tokenStatsLoading } = useQuery({
 		queryKey: ["stats-tokens", tokenRange, excludeDeleted],
-		queryFn: () => api.stats.get({ period: tokenRange, excludeDeleted }),
+		queryFn: () =>
+			api.stats.get({ period: toApiPeriod(tokenRange), excludeDeleted }),
 		placeholderData: (prev) => prev,
 		refetchInterval: dashboardRefreshMs,
 	});
@@ -494,7 +512,7 @@ export function useDashboard(): UseDashboardReturn {
 		(stats?.total_tokens_prompt || 0) + (stats?.total_tokens_completion || 0);
 
 	const rangeLabel =
-		globalRange === "1h" ? "1h" : globalRange === "24h" ? "1d" : "7d";
+		globalRange === "1h" ? "1h" : globalRange === "24h" ? "1d" : "1w";
 	const gaugeRequestCount =
 		globalRange === "1h"
 			? stats?.requests_last_1h || 0
@@ -507,7 +525,7 @@ export function useDashboard(): UseDashboardReturn {
 		return tsData.points.map((p) => {
 			const d = new Date(p.bucket);
 			const label =
-				requestsChartRange === "7d"
+				requestsChartRange === "1w"
 					? d.toLocaleDateString("en-US", {
 							month: "short",
 							day: "numeric",
@@ -517,9 +535,12 @@ export function useDashboard(): UseDashboardReturn {
 						: `${d.getHours().toString().padStart(2, "0")}:00`;
 			return {
 				hour: label,
+				rawDate: p.bucket,
 				total: p.count,
 				errors: p.errors,
 				tokens: p.tokens,
+				tokens_cache_hit: p.tokens_cache_hit ?? 0,
+				tokens_cache_miss: p.tokens_cache_miss ?? 0,
 				latency: Math.round(p.latency_ms),
 				overhead_ms: p.overhead_ms,
 				provider_latency_ms: p.provider_latency_ms,
@@ -534,7 +555,7 @@ export function useDashboard(): UseDashboardReturn {
 		return tokenTsData.points.map((p) => {
 			const d = new Date(p.bucket);
 			const label =
-				tokensChartRange === "7d"
+				tokensChartRange === "1w"
 					? d.toLocaleDateString("en-US", {
 							month: "short",
 							day: "numeric",
@@ -544,9 +565,12 @@ export function useDashboard(): UseDashboardReturn {
 						: `${d.getHours().toString().padStart(2, "0")}:00`;
 			return {
 				hour: label,
+				rawDate: p.bucket,
 				total: p.count,
 				errors: p.errors,
 				tokens: p.tokens,
+				tokens_cache_hit: p.tokens_cache_hit ?? 0,
+				tokens_cache_miss: p.tokens_cache_miss ?? 0,
 				latency: Math.round(p.latency_ms),
 				overhead_ms: p.overhead_ms,
 				provider_latency_ms: p.provider_latency_ms,

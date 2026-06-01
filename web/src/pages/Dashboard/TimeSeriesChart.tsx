@@ -22,6 +22,9 @@ export function TimeSeriesChart({
 	color,
 	label,
 	dataKey,
+	overlayDataKey,
+	overlayColor,
+	overlayLabel,
 	allowDecimals = false,
 	height = 240,
 	showToggle = true,
@@ -36,6 +39,9 @@ export function TimeSeriesChart({
 	color: string;
 	label: string;
 	dataKey: GaugeDataKey;
+	overlayDataKey?: GaugeDataKey;
+	overlayColor?: string;
+	overlayLabel?: string;
 	allowDecimals?: boolean;
 	height?: number;
 	showToggle?: boolean;
@@ -88,6 +94,29 @@ export function TimeSeriesChart({
 
 	const canPanLeft = pannable && effectiveStart > 0;
 	const canPanRight = pannable && effectiveStart < maxStart;
+
+	// Human-readable date label shown when panning
+	const panDateLabel = useMemo(() => {
+		if (!isDragging || !pannable || visibleData.length === 0) return null;
+		const midIdx = Math.floor(visibleData.length / 2);
+		const midPoint = visibleData[midIdx];
+		if (!midPoint?.rawDate) return null;
+		const d = new Date(midPoint.rawDate);
+		const today = new Date();
+		const isToday = d.toDateString() === today.toDateString();
+		const yesterday = new Date(today);
+		yesterday.setDate(yesterday.getDate() - 1);
+		const isYesterday = d.toDateString() === yesterday.toDateString();
+
+		const dateStr = d.toLocaleDateString("en-US", {
+			day: "numeric",
+			month: "short",
+			year: "numeric",
+		});
+		if (isToday) return `Today, ${dateStr}`;
+		if (isYesterday) return `Yesterday, ${dateStr}`;
+		return dateStr;
+	}, [isDragging, pannable, visibleData]);
 
 	const onPointerDown = useCallback(
 		(e: React.PointerEvent<HTMLDivElement>) => {
@@ -214,6 +243,11 @@ export function TimeSeriesChart({
 						}}
 					/>
 				)}
+				{panDateLabel && (
+					<div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 px-3 py-1 rounded-full text-xs font-medium bg-(--surface-elevated)/90 text-(--text-secondary) border border-(--border-subtle) pointer-events-none backdrop-blur-sm">
+						{panDateLabel}
+					</div>
+				)}
 				<ResponsiveContainer width="100%" height="100%">
 					<AreaChart
 						data={visibleData}
@@ -267,14 +301,16 @@ export function TimeSeriesChart({
 								color: "var(--text-primary)",
 								fontSize: "13px",
 							}}
-							formatter={(value: number | string | unknown) => {
+							formatter={(value: number | string | unknown, name: unknown) => {
 								const raw = Number(value) * scale;
 								const val = allowDecimals ? raw : Math.round(raw);
+								const displayLabel =
+									name === overlayDataKey ? overlayLabel || name : label;
 								return [
 									val.toLocaleString(undefined, {
 										maximumFractionDigits: allowDecimals ? 2 : 0,
 									}),
-									label,
+									displayLabel,
 								];
 							}}
 						/>
@@ -287,8 +323,26 @@ export function TimeSeriesChart({
 							dot={false}
 							activeDot={{ r: 4, fill: color, strokeWidth: 0 }}
 							isAnimationActive={!isDragging}
-							animationDuration={0}
+							animationDuration={isDragging ? 0 : 300}
 						/>
+						{overlayDataKey && (
+							<Area
+								type="monotone"
+								dataKey={overlayDataKey}
+								stroke={overlayColor || color}
+								strokeWidth={1.5}
+								fill="none"
+								dot={false}
+								activeDot={{
+									r: 3,
+									fill: overlayColor || color,
+									strokeWidth: 0,
+								}}
+								isAnimationActive={!isDragging}
+								animationDuration={300}
+								strokeDasharray="4 2"
+							/>
+						)}
 					</AreaChart>
 				</ResponsiveContainer>
 			</div>
