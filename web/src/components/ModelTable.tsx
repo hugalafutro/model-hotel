@@ -356,7 +356,9 @@ export function ModelTable({
 								return (
 									<Row key={model.id} onClick={() => onModelClick?.(model)}>
 										<td className="px-4 py-1.5">
-											<div className="flex flex-col">
+											<div
+												className={`flex flex-col ${model.enabled ? "" : "opacity-50"}`}
+											>
 												<span className="text-left text-sm font-medium text-white">
 													{model.name ||
 														proxyModelID(model.provider_name, model.model_id)}

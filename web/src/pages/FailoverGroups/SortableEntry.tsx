@@ -44,10 +44,10 @@ export function SortableEntry({
 			<div className="flex items-center gap-2 min-w-0">
 				<span
 					{...dragProps}
-					className={`text-gray-500 shrink-0 transition-opacity ${
+					className={`text-(--text-tertiary) shrink-0 transition-opacity ${
 						groupEnabled
-							? "cursor-grab active:cursor-grabbing opacity-15 hover:opacity-100"
-							: "cursor-not-allowed opacity-15"
+							? "cursor-grab active:cursor-grabbing opacity-40 hover:opacity-100"
+							: "cursor-not-allowed opacity-30"
 					}`}
 				>
 					⠿
