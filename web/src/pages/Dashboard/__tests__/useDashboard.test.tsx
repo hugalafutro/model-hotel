@@ -358,6 +358,17 @@ describe("useDashboard", () => {
 			expect(result.current.dashboardRefreshMs).toBe(15000);
 			expect(result.current.hideManualRefresh).toBe(false);
 		});
+
+		it("dashboardRefreshSec=0 → dashboardRefreshMs=0 (disabled)", () => {
+			localStorage.setItem("dashboardRefreshSec", "0");
+
+			const { result } = renderHook(() => useDashboard(), {
+				wrapper: AllProviders,
+			});
+
+			expect(result.current.dashboardRefreshMs).toBe(0);
+			expect(result.current.hideManualRefresh).toBe(false);
+		});
 	});
 
 	describe("rangeLabel", () => {

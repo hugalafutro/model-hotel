@@ -301,12 +301,11 @@ export function useDashboard(): UseDashboardReturn {
 	const [isRefreshing, setIsRefreshing] = useState(false);
 
 	const [dashboardRefreshMs, setDashboardRefreshMs] = useState(() => {
-		try {
-			const sec = Number(localStorage.getItem("dashboardRefreshSec"));
+		const raw = localStorage.getItem("dashboardRefreshSec");
+		if (raw !== null) {
+			const sec = Number(raw);
 			if (sec > 0) return sec * 1000;
 			if (sec === 0) return 0;
-		} catch {
-			/* ignore */
 		}
 		return 30000;
 	});
@@ -315,8 +314,19 @@ export function useDashboard(): UseDashboardReturn {
 	useEffect(() => {
 		const handler = () => {
 			try {
-				const sec = Number(localStorage.getItem("dashboardRefreshSec"));
-				setDashboardRefreshMs(sec > 0 ? sec * 1000 : sec === 0 ? 0 : 30000);
+				const raw = localStorage.getItem("dashboardRefreshSec");
+				if (raw !== null) {
+					const sec = Number(raw);
+					if (sec > 0) {
+						setDashboardRefreshMs(sec * 1000);
+						return;
+					}
+					if (sec === 0) {
+						setDashboardRefreshMs(0);
+						return;
+					}
+				}
+				setDashboardRefreshMs(30000);
 			} catch {
 				setDashboardRefreshMs(30000);
 			}
