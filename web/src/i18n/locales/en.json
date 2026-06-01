@@ -138,8 +138,8 @@
       "request": "Request"
     },
     "docs": "Docs",
-    "running": "Running {{version}}",
-    "updateAvailable": "Update available: {{running}} → latest",
+    "running": "Running {{running}}",
+    "updateAvailable": "Update available: {{running}} → {{latest}}",
     "expandStats": "Expand stats",
     "collapseStats": "Collapse stats",
     "tooltips": {
