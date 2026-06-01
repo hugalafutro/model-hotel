@@ -1,6 +1,7 @@
 import { Target } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Spinner } from "../../components/Spinner";
+import { formatPercent } from "../../utils/format";
 import { RangeToggle } from "./ToggleGroup";
 import { computeTileSegments } from "./tokenTileUtils";
 import type { Range } from "./types";
@@ -115,7 +116,7 @@ export function TokenSplitBar({
 						{prompt.toLocaleString()}
 					</span>
 					<span className="text-(--text-muted) text-xs ml-1">
-						{promptPct.toFixed(0)}%
+						{formatPercent(promptPct)}
 					</span>
 				</div>
 				<div className="flex items-center gap-1.5">
@@ -130,7 +131,7 @@ export function TokenSplitBar({
 						{completion.toLocaleString()}
 					</span>
 					<span className="text-(--text-muted) text-xs ml-1">
-						{completionPct.toFixed(0)}%
+						{formatPercent(completionPct)}
 					</span>
 				</div>
 			</div>
