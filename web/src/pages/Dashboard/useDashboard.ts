@@ -304,10 +304,11 @@ export function useDashboard(): UseDashboardReturn {
 		try {
 			const sec = Number(localStorage.getItem("dashboardRefreshSec"));
 			if (sec > 0) return sec * 1000;
+			if (sec === 0) return 0;
 		} catch {
 			/* ignore */
 		}
-		return 30000; // default 30s
+		return 30000;
 	});
 
 	// React to interval changes from Settings page mid-session
@@ -315,7 +316,7 @@ export function useDashboard(): UseDashboardReturn {
 		const handler = () => {
 			try {
 				const sec = Number(localStorage.getItem("dashboardRefreshSec"));
-				setDashboardRefreshMs(sec > 0 ? sec * 1000 : 30000);
+				setDashboardRefreshMs(sec > 0 ? sec * 1000 : sec === 0 ? 0 : 30000);
 			} catch {
 				setDashboardRefreshMs(30000);
 			}
