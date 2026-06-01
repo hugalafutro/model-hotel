@@ -3,10 +3,10 @@
  *  Edit here once — both modes stay in sync. */
 export const LOG_COL_WIDTHS = [
 	{ key: "date", width: "w-30" }, // Time/Date
-	{ key: "hash", width: "w-28" }, // Hash (trimmed from 30.5 to give Model more room)
-	{ key: "model", width: "w-52" }, // Model (expanded from 49.5)
+	{ key: "hash", width: "w-30" }, // Hash
+	{ key: "model", width: "w-52" }, // Model
 	{ key: "provider", width: "w-25" }, // Provider
-	{ key: "status", width: "w-14" }, // Status
+	{ key: "status", width: "w-12" }, // Status
 	{ key: "tokens", width: "w-21" }, // Tokens
 	{ key: "tps", width: "w-16.25" }, // T/s
 	{ key: "headers", width: "w-18.75" }, // Headers (response_header_ms)
