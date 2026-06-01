@@ -23,53 +23,109 @@ describe("SettingsSlider", () => {
 		expect(screen.getAllByDisplayValue("50")).toHaveLength(2);
 	});
 
-	it("fires onChange with slider value", () => {
+	it("does NOT fire onChange during slider drag", () => {
 		const onChange = vi.fn();
 		renderWithProviders(
 			<SettingsSlider {...defaultProps} onChange={onChange} />,
 		);
 		const slider = screen.getByRole("slider");
 		fireEvent.change(slider, { target: { value: 75 } });
+		expect(onChange).not.toHaveBeenCalled();
+	});
+
+	it("fires onChange on pointerUp after slider drag", () => {
+		const onChange = vi.fn();
+		renderWithProviders(
+			<SettingsSlider {...defaultProps} onChange={onChange} />,
+		);
+		const slider = screen.getByRole("slider");
+		fireEvent.change(slider, { target: { value: 75 } });
+		fireEvent.pointerUp(slider);
 		expect(onChange).toHaveBeenCalledWith(75);
 	});
 
-	it("fires onChange with clamped value from number input", () => {
+	it("fires onChange on keyUp for arrow keys", () => {
+		const onChange = vi.fn();
+		renderWithProviders(
+			<SettingsSlider {...defaultProps} onChange={onChange} />,
+		);
+		const slider = screen.getByRole("slider");
+		fireEvent.keyUp(slider, { key: "ArrowRight" });
+		expect(onChange).toHaveBeenCalled();
+	});
+
+	it("does NOT fire onChange on keyUp for non-navigation keys", () => {
+		const onChange = vi.fn();
+		renderWithProviders(
+			<SettingsSlider {...defaultProps} onChange={onChange} />,
+		);
+		const slider = screen.getByRole("slider");
+		fireEvent.keyUp(slider, { key: "a" });
+		expect(onChange).not.toHaveBeenCalled();
+	});
+
+	it("does NOT fire onChange during number input typing", () => {
+		const onChange = vi.fn();
+		renderWithProviders(
+			<SettingsSlider {...defaultProps} onChange={onChange} />,
+		);
+		const numberInput = screen.getByRole("spinbutton");
+		fireEvent.change(numberInput, { target: { value: 80 } });
+		expect(onChange).not.toHaveBeenCalled();
+	});
+
+	it("fires onChange on number input blur", () => {
+		const onChange = vi.fn();
+		renderWithProviders(
+			<SettingsSlider {...defaultProps} onChange={onChange} />,
+		);
+		const numberInput = screen.getByRole("spinbutton");
+		fireEvent.change(numberInput, { target: { value: 80 } });
+		fireEvent.blur(numberInput);
+		expect(onChange).toHaveBeenCalledWith(80);
+	});
+
+	it("clamps number input value to max on blur", () => {
 		const onChange = vi.fn();
 		renderWithProviders(
 			<SettingsSlider {...defaultProps} onChange={onChange} />,
 		);
 		const numberInput = screen.getByRole("spinbutton");
 		fireEvent.change(numberInput, { target: { value: 150 } });
+		fireEvent.blur(numberInput);
 		expect(onChange).toHaveBeenCalledWith(100);
 	});
 
-	it("clamps number input value to min", () => {
+	it("clamps number input value to min on blur", () => {
 		const onChange = vi.fn();
 		renderWithProviders(
 			<SettingsSlider {...defaultProps} onChange={onChange} />,
 		);
 		const numberInput = screen.getByRole("spinbutton");
 		fireEvent.change(numberInput, { target: { value: -10 } });
+		fireEvent.blur(numberInput);
 		expect(onChange).toHaveBeenCalledWith(0);
 	});
 
-	it("snaps value to clampStep from slider", () => {
+	it("snaps value to clampStep from slider on pointerUp", () => {
 		const onChange = vi.fn();
 		renderWithProviders(
 			<SettingsSlider {...defaultProps} clampStep={5} onChange={onChange} />,
 		);
 		const slider = screen.getByRole("slider");
 		fireEvent.change(slider, { target: { value: 12 } });
+		fireEvent.pointerUp(slider);
 		expect(onChange).toHaveBeenCalledWith(10);
 	});
 
-	it("snaps value to clampStep from number input", () => {
+	it("snaps value to clampStep from number input on blur", () => {
 		const onChange = vi.fn();
 		renderWithProviders(
 			<SettingsSlider {...defaultProps} clampStep={5} onChange={onChange} />,
 		);
 		const numberInput = screen.getByRole("spinbutton");
 		fireEvent.change(numberInput, { target: { value: 33 } });
+		fireEvent.blur(numberInput);
 		expect(onChange).toHaveBeenCalledWith(35);
 	});
 
@@ -108,7 +164,7 @@ describe("SettingsSlider", () => {
 		expect(unitSpan).toHaveAttribute("aria-hidden", "true");
 	});
 
-	it("step up button increments value", () => {
+	it("step up button increments value immediately", () => {
 		const onChange = vi.fn();
 		renderWithProviders(
 			<SettingsSlider
@@ -124,7 +180,7 @@ describe("SettingsSlider", () => {
 		expect(onChange).toHaveBeenCalledWith(55);
 	});
 
-	it("step down button decrements value", () => {
+	it("step down button decrements value immediately", () => {
 		const onChange = vi.fn();
 		renderWithProviders(
 			<SettingsSlider
@@ -154,12 +210,18 @@ describe("SettingsSlider", () => {
 		expect(buttons[1]).toBeDisabled();
 	});
 	describe("infinityValue", () => {
-		it("displays ∞ when value reaches infinityValue", () => {
+		it("displays ∞ when value equals infinityValue", () => {
 			renderWithProviders(
 				<SettingsSlider {...defaultProps} value={0} infinityValue={0} />,
 			);
-			const numberInput = screen.getByRole("spinbutton");
-			expect(numberInput).toHaveAttribute("value", "∞");
+			expect(screen.getByText("∞")).toBeInTheDocument();
+		});
+
+		it("does NOT display ∞ when value does not equal infinityValue", () => {
+			renderWithProviders(
+				<SettingsSlider {...defaultProps} value={5} infinityValue={0} />,
+			);
+			expect(screen.queryByText("∞")).not.toBeInTheDocument();
 		});
 
 		it("stepUp escapes from infinity to first valid step", () => {
@@ -200,12 +262,13 @@ describe("SettingsSlider", () => {
 			expect(onChange).toHaveBeenCalledWith(5);
 		});
 
-		it("number input is readOnly when infinity", () => {
+		it("replaces number input with span when infinity", () => {
 			renderWithProviders(
 				<SettingsSlider {...defaultProps} value={0} infinityValue={0} />,
 			);
-			const numberInput = screen.getByRole("spinbutton");
-			expect(numberInput).toHaveAttribute("readOnly");
+			const infinitySpan = screen.getByText("∞");
+			expect(infinitySpan).toBeInTheDocument();
+			expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
 		});
 
 		it("stepDown is disabled when value equals min and isInfinity", () => {
@@ -239,7 +302,7 @@ describe("SettingsSlider", () => {
 		expect(onChange).toHaveBeenCalledWith(55);
 	});
 
-	it("does not fire onChange on blur when value is already clamped to step", () => {
+	it("does fire onChange on blur even when value matches clamped step", () => {
 		const onChange = vi.fn();
 		renderWithProviders(
 			<SettingsSlider
@@ -252,6 +315,6 @@ describe("SettingsSlider", () => {
 		);
 		const numberInput = screen.getByRole("spinbutton");
 		fireEvent.blur(numberInput);
-		expect(onChange).not.toHaveBeenCalled();
+		expect(onChange).toHaveBeenCalledWith(55);
 	});
 });

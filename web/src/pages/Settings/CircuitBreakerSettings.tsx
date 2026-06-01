@@ -108,7 +108,7 @@ export function CircuitBreakerSettings({
 									label={t("settings.circuitBreaker.failureThreshold")}
 									value={Number(circuitBreakerThreshold)}
 									min={1}
-									max={100}
+									max={50}
 									step={1}
 									onChange={(v) =>
 										updateMutation.mutate({

@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { goDurationToSeconds, secondsToGoDuration } from "../duration";
+import {
+	goDurationToHours,
+	goDurationToMinutes,
+	goDurationToSeconds,
+	hoursToGoDuration,
+	minutesToGoDuration,
+	secondsToGoDuration,
+} from "../duration";
 
 describe("goDurationToSeconds", () => {
 	it("parses simple seconds", () => {
@@ -28,6 +35,14 @@ describe("goDurationToSeconds", () => {
 
 	it("parses minutes and seconds without hours", () => {
 		expect(goDurationToSeconds("5m30s")).toBe(330);
+	});
+
+	it("parses days", () => {
+		expect(goDurationToSeconds("7d")).toBe(604800);
+	});
+
+	it("parses compound with days and hours", () => {
+		expect(goDurationToSeconds("1d12h")).toBe(129600);
 	});
 
 	it("returns 0 for unrecognized format", () => {
@@ -98,5 +113,105 @@ describe("roundtrip", () => {
 		expect(secondsToGoDuration(goDurationToSeconds("1h30m45s"))).toBe(
 			"1h30m45s",
 		);
+	});
+});
+
+describe("goDurationToHours", () => {
+	it("parses hours", () => {
+		expect(goDurationToHours("6h")).toBe(6);
+	});
+
+	it("parses days to hours", () => {
+		expect(goDurationToHours("7d")).toBe(168);
+	});
+
+	it("parses compound days + hours", () => {
+		expect(goDurationToHours("1d12h")).toBe(36);
+	});
+
+	it("parses minutes as fractional hours", () => {
+		expect(goDurationToHours("30m")).toBe(0.5);
+	});
+
+	it("parses compound hours + minutes", () => {
+		expect(goDurationToHours("1h30m")).toBe(1.5);
+	});
+
+	it("returns 0 for zero", () => {
+		expect(goDurationToHours("0")).toBe(0);
+	});
+
+	it("returns 0 for empty", () => {
+		expect(goDurationToHours("")).toBe(0);
+	});
+});
+
+describe("hoursToGoDuration", () => {
+	it("converts 0 to 0", () => {
+		expect(hoursToGoDuration(0)).toBe("0");
+	});
+
+	it("converts whole hours", () => {
+		expect(hoursToGoDuration(6)).toBe("6h");
+	});
+
+	it("converts half hours to h+30m", () => {
+		expect(hoursToGoDuration(0.5)).toBe("30m");
+	});
+
+	it("converts compound hours", () => {
+		expect(hoursToGoDuration(1.5)).toBe("1h30m");
+	});
+
+	it("converts negative to 0", () => {
+		expect(hoursToGoDuration(-1)).toBe("0");
+	});
+});
+
+describe("goDurationToMinutes", () => {
+	it("parses minutes", () => {
+		expect(goDurationToMinutes("30m")).toBe(30);
+	});
+
+	it("parses hours as minutes", () => {
+		expect(goDurationToMinutes("1h")).toBe(60);
+	});
+
+	it("parses compound hours + minutes", () => {
+		expect(goDurationToMinutes("1h30m")).toBe(90);
+	});
+
+	it("parses days as minutes", () => {
+		expect(goDurationToMinutes("1d")).toBe(1440);
+	});
+
+	it("parses seconds as fractional minutes", () => {
+		expect(goDurationToMinutes("30s")).toBe(1);
+	});
+
+	it("returns 0 for zero", () => {
+		expect(goDurationToMinutes("0")).toBe(0);
+	});
+});
+
+describe("minutesToGoDuration", () => {
+	it("converts 0 to 0", () => {
+		expect(minutesToGoDuration(0)).toBe("0");
+	});
+
+	it("converts simple minutes", () => {
+		expect(minutesToGoDuration(5)).toBe("5m");
+	});
+
+	it("converts compound hours + minutes", () => {
+		expect(minutesToGoDuration(90)).toBe("1h30m");
+	});
+
+	it("converts whole hours", () => {
+		expect(minutesToGoDuration(60)).toBe("1h");
+	});
+
+	it("converts negative to 0", () => {
+		expect(minutesToGoDuration(-1)).toBe("0");
 	});
 });

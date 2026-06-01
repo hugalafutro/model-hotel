@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface SettingsSliderProps {
 	id: string;
@@ -10,7 +10,7 @@ export interface SettingsSliderProps {
 	step: number;
 	clampStep?: number;
 	onChange: (value: number) => void;
-	description?: string;
+	description?: React.ReactNode;
 	disabled?: boolean;
 	hideUnit?: boolean;
 	unit?: string;
@@ -37,21 +37,61 @@ export function SettingsSlider({
 	hideUnit = false,
 	infinityValue,
 }: SettingsSliderProps) {
-	const isInfinity = infinityValue !== undefined && value >= infinityValue;
-	const displayValue = isInfinity ? "∞" : value;
+	const [local, setLocal] = useState(value);
+	const prevValue = useRef(value);
+
+	useEffect(() => {
+		if (prevValue.current !== value) {
+			prevValue.current = value;
+			setLocal(value);
+		}
+	}, [value]);
+
+	const isInfinity = infinityValue !== undefined && local === infinityValue;
 	const pct = isInfinity
 		? 100
 		: max === min
 			? 100
-			: ((value - min) / (max - min)) * 100;
+			: Math.round(((local - min) / (max - min)) * 200) / 2;
 
 	const handleSliderChange = useCallback(
 		(e: React.ChangeEvent<HTMLInputElement>) => {
 			const raw = Number(e.target.value);
 			const clamped = clampStep ? clampToStep(raw, clampStep) : raw;
+			setLocal(clamped);
+		},
+		[clampStep],
+	);
+
+	const handleSliderCommit = useCallback(
+		(
+			e:
+				| React.PointerEvent<HTMLInputElement>
+				| React.KeyboardEvent<HTMLInputElement>,
+		) => {
+			const raw = Number(e.currentTarget.value);
+			const clamped = clampStep ? clampToStep(raw, clampStep) : raw;
 			onChange(clamped);
 		},
 		[onChange, clampStep],
+	);
+
+	const handleSliderKeyUp = useCallback(
+		(e: React.KeyboardEvent<HTMLInputElement>) => {
+			if (
+				e.key === "ArrowUp" ||
+				e.key === "ArrowDown" ||
+				e.key === "ArrowLeft" ||
+				e.key === "ArrowRight" ||
+				e.key === "Home" ||
+				e.key === "End" ||
+				e.key === "PageUp" ||
+				e.key === "PageDown"
+			) {
+				handleSliderCommit(e);
+			}
+		},
+		[handleSliderCommit],
 	);
 
 	const handleNumberChange = useCallback(
@@ -59,17 +99,27 @@ export function SettingsSlider({
 			const raw = Number(e.target.value);
 			if (Number.isNaN(raw)) return;
 			const clamped = clampStep ? clampToStep(raw, clampStep) : raw;
-			onChange(Math.max(min, Math.min(max, clamped)));
+			const v = Math.max(min, Math.min(max, clamped));
+			setLocal(v);
 		},
-		[onChange, min, max, clampStep],
+		[min, max, clampStep],
 	);
 
 	const handleNumberBlur = useCallback(() => {
-		if (clampStep) {
-			const clamped = clampToStep(value, clampStep);
-			if (clamped !== value) onChange(Math.max(min, Math.min(max, clamped)));
-		}
-	}, [value, min, max, clampStep, onChange]);
+		const clamped = clampStep ? clampToStep(local, clampStep) : local;
+		const v = Math.max(min, Math.min(max, clamped));
+		if (v !== local) setLocal(v);
+		onChange(v);
+	}, [local, min, max, clampStep, onChange]);
+
+	const handleNumberKeyDown = useCallback(
+		(e: React.KeyboardEvent<HTMLInputElement>) => {
+			if (e.key === "Enter") {
+				e.currentTarget.blur();
+			}
+		},
+		[],
+	);
 
 	const stepUp = useCallback(() => {
 		if (isInfinity) {
@@ -80,23 +130,27 @@ export function SettingsSlider({
 							(infinityValue ?? 0) + (clampStep || step),
 							clampStep || step,
 						);
-			onChange(Math.min(max, firstStep));
+			const v = Math.min(max, firstStep);
+			setLocal(v);
+			onChange(v);
 			return;
 		}
 		const next = Math.min(
 			max,
-			clampToStep(value + (clampStep || step), clampStep || step),
+			clampToStep(local + (clampStep || step), clampStep || step),
 		);
+		setLocal(next);
 		onChange(next);
-	}, [value, max, min, clampStep, step, onChange, isInfinity, infinityValue]);
+	}, [local, max, min, clampStep, step, onChange, isInfinity, infinityValue]);
 
 	const stepDown = useCallback(() => {
 		const next = Math.max(
 			min,
-			clampToStep(value - (clampStep || step), clampStep || step),
+			clampToStep(local - (clampStep || step), clampStep || step),
 		);
+		setLocal(next);
 		onChange(next);
-	}, [value, min, clampStep, step, onChange]);
+	}, [local, min, clampStep, step, onChange]);
 
 	return (
 		<div className={disabled ? "opacity-50 cursor-not-allowed" : ""}>
@@ -113,10 +167,12 @@ export function SettingsSlider({
 					min={min}
 					max={max}
 					step={clampStep || step}
-					value={value}
+					value={local}
 					onChange={handleSliderChange}
+					onPointerUp={handleSliderCommit}
+					onKeyUp={handleSliderKeyUp}
 					disabled={disabled}
-					className={`gen-slider flex-1 h-1 rounded-lg appearance-none ${
+					className={`gen-slider flex-1 h-1.5 rounded-lg appearance-none ${
 						disabled ? "cursor-not-allowed opacity-40" : "cursor-pointer"
 					} bg-(--surface-hover) accent-(--accent)`}
 					style={{
@@ -128,7 +184,7 @@ export function SettingsSlider({
 						<button
 							type="button"
 							onClick={stepUp}
-							disabled={disabled || value >= max}
+							disabled={disabled || local >= max}
 							className="px-1 py-0 text-gray-500 hover:text-(--accent) disabled:opacity-30 disabled:cursor-not-allowed leading-none"
 						>
 							<ChevronUp size={10} />
@@ -136,26 +192,36 @@ export function SettingsSlider({
 						<button
 							type="button"
 							onClick={stepDown}
-							disabled={disabled || value <= min}
+							disabled={disabled || local <= min}
 							className="px-1 py-0 text-gray-500 hover:text-(--accent) disabled:opacity-30 disabled:cursor-not-allowed leading-none"
 						>
 							<ChevronDown size={10} />
 						</button>
 					</div>
-					<input
-						type="number"
-						value={displayValue}
-						min={min}
-						max={max}
-						step={clampStep || step}
-						onChange={handleNumberChange}
-						onBlur={handleNumberBlur}
-						disabled={disabled}
-						readOnly={isInfinity}
-						className={`w-12 text-right px-1 py-0.5 rounded text-xs border border-transparent outline-none bg-(--surface-input) text-(--text-primary) no-spinner ${
-							isInfinity ? "text-center" : ""
-						} ${disabled ? "cursor-not-allowed" : "focus:border-(--accent)"}`}
-					/>
+					{isInfinity ? (
+						<span
+							className={`w-12 text-center inline-block px-1 py-0.5 rounded text-xs bg-(--surface-input) text-(--text-primary) ${
+								disabled ? "cursor-not-allowed opacity-50" : ""
+							}`}
+						>
+							∞
+						</span>
+					) : (
+						<input
+							type="number"
+							value={local}
+							min={min}
+							max={max}
+							step={clampStep || step}
+							onChange={handleNumberChange}
+							onBlur={handleNumberBlur}
+							onKeyDown={handleNumberKeyDown}
+							disabled={disabled}
+							className={`w-12 text-right px-1 py-0.5 rounded text-xs border border-transparent outline-none bg-(--surface-input) text-(--text-primary) no-spinner ${
+								disabled ? "cursor-not-allowed" : "focus:border-(--accent)"
+							}`}
+						/>
+					)}
 				</div>
 				{unit && (
 					<span

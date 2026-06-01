@@ -1,14 +1,5 @@
 import { Monitor, Sparkles, Terminal } from "lucide-react";
 
-export const DISCOVERY_INTERVALS = [
-	{ value: "30m", label: "30 minutes" },
-	{ value: "1h", label: "1 hour" },
-	{ value: "6h", label: "6 hours" },
-	{ value: "12h", label: "12 hours" },
-	{ value: "24h", label: "24 hours" },
-	{ value: "0", label: "Disabled" },
-];
-
 export const UI_STYLES = [
 	{
 		id: "clean-saas" as const,

@@ -1,8 +1,8 @@
 import { Palette } from "lucide-react";
-import type React from "react";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SettingsSection } from "../../components/SettingsSection";
+import { SettingsSlider } from "../../components/SettingsSlider";
 import { useTheme } from "../../context/ThemeContext";
 import { useToast } from "../../context/ToastContext";
 import { ColorPickerModal } from "./ColorPickerModal";
@@ -203,51 +203,27 @@ export function AppearanceSettings({
 						<p className="text-center text-gray-500 text-xs mt-4 capitalize">
 							{toastPosition.replace("-", " ")}
 						</p>
+
+						<SettingsSlider
+							id="toast-autodismiss"
+							label={t("settings.toast.autoDismiss")}
+							value={toastTimeout / 1000}
+							min={1}
+							max={30}
+							step={1}
+							clampStep={1}
+							unit="s"
+							onChange={(v) => setToastTimeout(v * 1000)}
+						/>
 					</div>
 				</div>
 
-				{/* Theme */}
-				<div className="flex items-center justify-between">
-					<div>
-						<p className="text-sm font-medium text-gray-300">
-							{t("settings.appearance.theme")}
-						</p>
-						<p className="text-gray-500 text-xs mt-0.5">
-							{t("settings.appearance.themeDescription")}
-						</p>
-					</div>
-					<div className="flex rounded-lg overflow-hidden border border-gray-600">
-						<button
-							type="button"
-							onClick={() => setTheme("dark")}
-							className={`px-4 py-2 text-sm font-medium transition-colors ${
-								theme === "dark"
-									? "bg-(--accent) text-white"
-									: "bg-gray-700 text-gray-400 hover:bg-gray-600"
-							}`}
-						>
-							{t("settings.appearance.dark")}
-						</button>
-						<button
-							type="button"
-							onClick={() => setTheme("light")}
-							className={`px-4 py-2 text-sm font-medium transition-colors ${
-								theme === "light"
-									? "bg-(--accent) text-white"
-									: "bg-gray-700 text-gray-400 hover:bg-gray-600"
-							}`}
-						>
-							{t("settings.appearance.light")}
-						</button>
-					</div>
-				</div>
-
-				{/* Accent Color + Auto Dismiss */}
-				<div className="grid grid-cols-[auto_1fr] gap-x-8 gap-y-2 items-center">
-					<p className="text-sm font-medium text-gray-300">
-						{t("settings.appearance.accentColor")}
-					</p>
+				{/* Accent Color + Theme */}
+				<div className="flex items-center justify-between gap-6">
 					<div className="flex items-center gap-3">
+						<p className="text-sm font-medium text-gray-300">
+							{t("settings.appearance.accentColor")}
+						</p>
 						<div className="flex flex-wrap gap-2 py-1 px-1">
 							{accentPresets.map((preset) => (
 								<button
@@ -302,34 +278,37 @@ export function AppearanceSettings({
 								)}
 							</button>
 						</div>
-						<input
-							type="range"
-							min={1000}
-							max={15000}
-							step={500}
-							value={toastTimeout}
-							onChange={(e) => {
-								setToastTimeout(Number(e.target.value));
-							}}
-							style={
-								{
-									"--slider-fill": `${((toastTimeout - 1000) / (15000 - 1000)) * 100}%`,
-								} as React.CSSProperties
-							}
-							className="toast-timeout-slider flex-1 min-w-0"
-						/>
-						<span className="text-sm text-gray-400 tabular-nums whitespace-nowrap">
-							{t("settings.toast.seconds", {
-								seconds: (toastTimeout / 1000).toFixed(1),
-							})}
-						</span>
 					</div>
-					<p className="text-sm font-medium text-gray-300">
-						{t("settings.toast.autoDismiss")}
-					</p>
-					<p className="text-gray-500 text-xs">
-						{t("settings.toast.autoDismissDescription")}
-					</p>
+
+					<div className="flex items-center gap-3">
+						<p className="text-sm font-medium text-gray-300">
+							{t("settings.appearance.theme")}
+						</p>
+						<div className="flex rounded-lg overflow-hidden border border-gray-600">
+							<button
+								type="button"
+								onClick={() => setTheme("dark")}
+								className={`px-4 py-2 text-sm font-medium transition-colors ${
+									theme === "dark"
+										? "bg-(--accent) text-white"
+										: "bg-gray-700 text-gray-400 hover:bg-gray-600"
+								}`}
+							>
+								{t("settings.appearance.dark")}
+							</button>
+							<button
+								type="button"
+								onClick={() => setTheme("light")}
+								className={`px-4 py-2 text-sm font-medium transition-colors ${
+									theme === "light"
+										? "bg-(--accent) text-white"
+										: "bg-gray-700 text-gray-400 hover:bg-gray-600"
+								}`}
+							>
+								{t("settings.appearance.light")}
+							</button>
+						</div>
+					</div>
 				</div>
 			</div>
 

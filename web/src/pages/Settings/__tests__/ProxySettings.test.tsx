@@ -119,6 +119,7 @@ describe("ProxySettings", () => {
 			/Request Timeout/i,
 		) as HTMLInputElement;
 		fireEvent.change(requestTimeoutInput, { target: { value: "300" } });
+		fireEvent.pointerUp(requestTimeoutInput);
 
 		await waitFor(() => {
 			expect(mutationCalled).toBe(true);
@@ -160,6 +161,7 @@ describe("ProxySettings", () => {
 			/Key Cache TTL/i,
 		) as HTMLInputElement;
 		fireEvent.change(keyCacheTTLInput, { target: { value: "3600" } });
+		fireEvent.pointerUp(keyCacheTTLInput);
 
 		await waitFor(() => {
 			expect(mutationCalled).toBe(true);
@@ -191,6 +193,7 @@ describe("ProxySettings", () => {
 			/Request Timeout/i,
 		) as HTMLInputElement;
 		fireEvent.change(requestTimeoutInput, { target: { value: "120" } });
+		fireEvent.pointerUp(requestTimeoutInput);
 
 		await waitFor(() => {
 			expect(screen.getByText("Settings saved")).toBeInTheDocument();
@@ -215,6 +218,7 @@ describe("ProxySettings", () => {
 			/Request Timeout/i,
 		) as HTMLInputElement;
 		fireEvent.change(requestTimeoutInput, { target: { value: "120" } });
+		fireEvent.pointerUp(requestTimeoutInput);
 
 		await waitFor(() => {
 			expect(screen.getByText(/Failed to save:/i)).toBeInTheDocument();
@@ -278,6 +282,7 @@ describe("ProxySettings", () => {
 			/Request Timeout/i,
 		) as HTMLInputElement;
 		fireEvent.change(requestTimeoutInput, { target: { value: "120" } });
+		fireEvent.pointerUp(requestTimeoutInput);
 
 		// Success toast indicates mutation completed and invalidation was triggered
 		await waitFor(() => {
@@ -310,6 +315,7 @@ describe("ProxySettings", () => {
 			/Request Timeout/i,
 		) as HTMLInputElement;
 		fireEvent.change(requestTimeoutInput, { target: { value: "120" } });
+		fireEvent.pointerUp(requestTimeoutInput);
 
 		// Error toast should appear with the error message
 		await waitFor(() => {
@@ -395,6 +401,7 @@ describe("ProxySettings", () => {
 			/Request Timeout/i,
 		) as HTMLInputElement;
 		fireEvent.change(requestTimeoutInput, { target: { value: "300" } });
+		fireEvent.pointerUp(requestTimeoutInput);
 
 		await waitFor(() => {
 			expect(capturedPayload).toEqual({ request_timeout: "5m" });
@@ -429,6 +436,7 @@ describe("ProxySettings", () => {
 			/Key Cache TTL/i,
 		) as HTMLInputElement;
 		fireEvent.change(keyCacheTTLInput, { target: { value: "1800" } });
+		fireEvent.pointerUp(keyCacheTTLInput);
 
 		await waitFor(() => {
 			expect(capturedPayload).toEqual({ key_cache_ttl: "30m" });

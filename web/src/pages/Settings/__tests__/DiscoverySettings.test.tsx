@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { server } from "../../../test/mocks/server";
@@ -47,8 +47,6 @@ describe("DiscoverySettings", () => {
 	});
 
 	it("shows success toast on mutation success", async () => {
-		const user = userEvent.setup();
-
 		server.use(
 			http.put("/api/settings", async ({ request }) => {
 				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
@@ -63,16 +61,17 @@ describe("DiscoverySettings", () => {
 		);
 
 		await waitFor(() => {
-			const intervalSelect = screen.getByLabelText(
-				/Discovery Interval/i,
-			) as HTMLSelectElement;
-			expect(intervalSelect).toBeInTheDocument();
+			const slider = screen.getByRole("slider", {
+				name: "Discovery Interval",
+			});
+			expect(slider).toBeInTheDocument();
 		});
 
-		const intervalSelect = screen.getByLabelText(
-			/Discovery Interval/i,
-		) as HTMLSelectElement;
-		await user.selectOptions(intervalSelect, "12h");
+		const slider = screen.getByRole("slider", {
+			name: "Discovery Interval",
+		});
+		fireEvent.change(slider, { target: { value: 12 } });
+		fireEvent.pointerUp(slider);
 
 		await waitFor(() => {
 			expect(screen.getByText("Settings saved")).toBeInTheDocument();
@@ -80,8 +79,6 @@ describe("DiscoverySettings", () => {
 	});
 
 	it("shows error toast on mutation failure", async () => {
-		const user = userEvent.setup();
-
 		server.use(http.put("/api/settings", () => HttpResponse.error()));
 
 		renderWithProviders(
@@ -89,16 +86,17 @@ describe("DiscoverySettings", () => {
 		);
 
 		await waitFor(() => {
-			const intervalSelect = screen.getByLabelText(
-				/Discovery Interval/i,
-			) as HTMLSelectElement;
-			expect(intervalSelect).toBeInTheDocument();
+			const slider = screen.getByRole("slider", {
+				name: "Discovery Interval",
+			});
+			expect(slider).toBeInTheDocument();
 		});
 
-		const intervalSelect = screen.getByLabelText(
-			/Discovery Interval/i,
-		) as HTMLSelectElement;
-		await user.selectOptions(intervalSelect, "12h");
+		const slider = screen.getByRole("slider", {
+			name: "Discovery Interval",
+		});
+		fireEvent.change(slider, { target: { value: 12 } });
+		fireEvent.pointerUp(slider);
 
 		await waitFor(() => {
 			expect(screen.getByText(/Failed to save:/i)).toBeInTheDocument();
@@ -128,22 +126,19 @@ describe("DiscoverySettings", () => {
 		});
 	});
 
-	it("renders all discovery interval options", () => {
+	it("renders discovery interval slider", () => {
 		renderWithProviders(
 			<DiscoverySettings collapsed={false} onToggle={() => {}} />,
 		);
 
-		const intervalSelect = screen.getByLabelText(
-			/Discovery Interval/i,
-		) as HTMLSelectElement;
+		const slider = screen.getByRole("slider", {
+			name: "Discovery Interval",
+		});
 
-		expect(intervalSelect.options).toHaveLength(6);
-		expect(intervalSelect.options[0].value).toBe("30m");
-		expect(intervalSelect.options[1].value).toBe("1h");
-		expect(intervalSelect.options[2].value).toBe("6h");
-		expect(intervalSelect.options[3].value).toBe("12h");
-		expect(intervalSelect.options[4].value).toBe("24h");
-		expect(intervalSelect.options[5].value).toBe("0");
+		expect(slider).toBeInTheDocument();
+		expect(slider).toHaveAttribute("min", "0");
+		expect(slider).toHaveAttribute("max", "48");
+		expect(slider).toHaveAttribute("step", "0.5");
 	});
 
 	it("toggles Discover on Startup and calls mutation with correct payload", async () => {
@@ -240,12 +235,10 @@ describe("DiscoverySettings", () => {
 		expect(capturedPayload).toEqual({ discovery_on_provider_create: "false" });
 	});
 
-	it("disables toggles and select while mutation is pending", async () => {
-		const user = userEvent.setup();
-
+	it("disables controls while mutation is pending", async () => {
 		server.use(
 			http.put("/api/settings", async () => {
-				await new Promise((resolve) => setTimeout(resolve, 100));
+				await new Promise((resolve) => setTimeout(resolve, 200));
 				return HttpResponse.json({ ok: true });
 			}),
 		);
@@ -255,15 +248,15 @@ describe("DiscoverySettings", () => {
 		);
 
 		await waitFor(() => {
-			const intervalSelect = screen.getByLabelText(
-				/Discovery Interval/i,
-			) as HTMLSelectElement;
-			expect(intervalSelect).toBeInTheDocument();
+			const slider = screen.getByRole("slider", {
+				name: "Discovery Interval",
+			});
+			expect(slider).toBeInTheDocument();
 		});
 
-		const intervalSelect = screen.getByLabelText(
-			/Discovery Interval/i,
-		) as HTMLSelectElement;
+		const slider = screen.getByRole("slider", {
+			name: "Discovery Interval",
+		});
 		const discoverOnStartupToggle = screen.getByRole("switch", {
 			name: /discover on startup/i,
 		});
@@ -271,21 +264,25 @@ describe("DiscoverySettings", () => {
 			name: /discover on provider creation/i,
 		});
 
-		expect(intervalSelect).not.toBeDisabled();
+		expect(slider).not.toBeDisabled();
 		expect(discoverOnStartupToggle).not.toBeDisabled();
 		expect(discoverOnCreateToggle).not.toBeDisabled();
 
-		await user.selectOptions(intervalSelect, "12h");
+		fireEvent.change(slider, { target: { value: 12 } });
+		fireEvent.pointerUp(slider);
 
-		expect(intervalSelect).toBeDisabled();
-		expect(discoverOnStartupToggle).toBeDisabled();
-		expect(discoverOnCreateToggle).toBeDisabled();
+		// Mutation starts immediately (no debounce), controls become disabled
+		await waitFor(() => {
+			expect(slider).toBeDisabled();
+			expect(discoverOnStartupToggle).toBeDisabled();
+			expect(discoverOnCreateToggle).toBeDisabled();
+		});
 
 		await waitFor(() => {
 			expect(screen.getByText("Settings saved")).toBeInTheDocument();
 		});
 
-		expect(intervalSelect).not.toBeDisabled();
+		expect(slider).not.toBeDisabled();
 		expect(discoverOnStartupToggle).not.toBeDisabled();
 		expect(discoverOnCreateToggle).not.toBeDisabled();
 	});
@@ -323,6 +320,135 @@ describe("DiscoverySettings", () => {
 
 		await waitFor(() => {
 			expect(screen.getByText(/Failed to save:/i)).toBeInTheDocument();
+		});
+	});
+
+	describe("Discover All button", () => {
+		it("shows Play icon when not discovering", () => {
+			renderWithProviders(
+				<DiscoverySettings collapsed={false} onToggle={() => {}} />,
+			);
+
+			const button = screen.getByRole("button", {
+				name: /discover all models/i,
+			});
+			expect(button).toBeInTheDocument();
+			expect(button).not.toBeDisabled();
+			expect(button.querySelector("[data-testid='spinner']")).toBeNull();
+		});
+
+		it("shows Spinner and disables button during discovery", async () => {
+			server.use(
+				http.post("/api/providers/discover-all", async () => {
+					await new Promise((resolve) => setTimeout(resolve, 2000));
+					return HttpResponse.json({
+						succeeded: 1,
+						failed: 0,
+						discovered: 5,
+						results: [],
+					});
+				}),
+			);
+
+			renderWithProviders(
+				<DiscoverySettings collapsed={false} onToggle={() => {}} />,
+			);
+
+			const button = screen.getByRole("button", {
+				name: /discover all models/i,
+			});
+			await userEvent.setup().click(button);
+
+			await waitFor(() => {
+				expect(
+					button.querySelector("[data-testid='spinner']"),
+				).toBeInTheDocument();
+			});
+			expect(button).toBeDisabled();
+		});
+
+		it("shows success toast when discovery completes", async () => {
+			server.use(
+				http.post("/api/providers/discover-all", () =>
+					HttpResponse.json({
+						succeeded: 2,
+						failed: 0,
+						discovered: 10,
+						results: [],
+					}),
+				),
+			);
+
+			renderWithProviders(
+				<DiscoverySettings collapsed={false} onToggle={() => {}} />,
+			);
+
+			const button = screen.getByRole("button", {
+				name: /discover all models/i,
+			});
+			await userEvent.setup().click(button);
+
+			await waitFor(() => {
+				expect(screen.getByText("Discovery complete")).toBeInTheDocument();
+			});
+		});
+
+		it("shows error toast when discovery fails", async () => {
+			server.use(
+				http.post("/api/providers/discover-all", () => HttpResponse.error()),
+			);
+
+			renderWithProviders(
+				<DiscoverySettings collapsed={false} onToggle={() => {}} />,
+			);
+
+			const button = screen.getByRole("button", {
+				name: /discover all models/i,
+			});
+			await userEvent.setup().click(button);
+
+			await waitFor(() => {
+				expect(screen.getByText(/Discovery failed/i)).toBeInTheDocument();
+			});
+		});
+
+		it("disables settings controls while discovery is in progress", async () => {
+			server.use(
+				http.post("/api/providers/discover-all", async () => {
+					await new Promise((resolve) => setTimeout(resolve, 2000));
+					return HttpResponse.json({
+						succeeded: 1,
+						failed: 0,
+						discovered: 5,
+						results: [],
+					});
+				}),
+			);
+
+			renderWithProviders(
+				<DiscoverySettings collapsed={false} onToggle={() => {}} />,
+			);
+
+			const button = screen.getByRole("button", {
+				name: /discover all models/i,
+			});
+
+			const slider = screen.getByRole("slider", {
+				name: "Discovery Interval",
+			});
+			const discoverOnStartupToggle = screen.getByRole("switch", {
+				name: /discover on startup/i,
+			});
+
+			expect(slider).not.toBeDisabled();
+			expect(discoverOnStartupToggle).not.toBeDisabled();
+
+			await userEvent.setup().click(button);
+
+			await waitFor(() => {
+				expect(slider).toBeDisabled();
+				expect(discoverOnStartupToggle).toBeDisabled();
+			});
 		});
 	});
 });

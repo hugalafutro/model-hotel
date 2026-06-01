@@ -129,77 +129,77 @@ export function RateLimitSettings({
 
 					<div className="space-y-5">
 						{rateLimitEnabled && (
-							<>
-								<SettingsSlider
-									id="rate-limit-rps"
-									label={t("settings.rateLimit.requestsPerSecond")}
-									value={Number(rateLimitRPS)}
-									min={0}
-									max={100}
-									step={5}
-									clampStep={5}
-									infinityValue={0}
-									onChange={(v) =>
-										updateMutation.mutate({ rate_limit_rps: String(v) })
-									}
-									description={t(
-										"settings.rateLimit.requestsPerSecond.description",
-									)}
-								/>
-
-								<SettingsSlider
-									id="rate-limit-burst"
-									label={t("settings.rateLimit.burstSize")}
-									value={Number(rateLimitBurst)}
-									min={5}
-									max={200}
-									step={5}
-									clampStep={5}
-									onChange={(v) =>
-										updateMutation.mutate({
-											rate_limit_burst: String(v),
-										})
-									}
-									description={t("settings.rateLimit.burstSize.description")}
-								/>
-							</>
+							<SettingsSlider
+								id="rate-limit-rps"
+								label={t("settings.rateLimit.requestsPerSecond")}
+								value={Number(rateLimitRPS)}
+								min={0}
+								max={200}
+								step={5}
+								clampStep={5}
+								infinityValue={0}
+								onChange={(v) =>
+									updateMutation.mutate({ rate_limit_rps: String(v) })
+								}
+								description={t(
+									"settings.rateLimit.requestsPerSecond.description",
+								)}
+							/>
 						)}
 
 						{rateLimitIpEnabled && (
-							<>
-								<SettingsSlider
-									id="rate-limit-ip-rps"
-									label={t("settings.rateLimit.ipRequestsPerSecond")}
-									value={Number(rateLimitIpRPS)}
-									min={0}
-									max={100}
-									step={5}
-									clampStep={5}
-									infinityValue={0}
-									onChange={(v) =>
-										updateMutation.mutate({ rate_limit_ip_rps: String(v) })
-									}
-									description={t(
-										"settings.rateLimit.ipRequestsPerSecond.description",
-									)}
-								/>
+							<SettingsSlider
+								id="rate-limit-ip-rps"
+								label={t("settings.rateLimit.ipRequestsPerSecond")}
+								value={Number(rateLimitIpRPS)}
+								min={0}
+								max={200}
+								step={5}
+								clampStep={5}
+								infinityValue={0}
+								onChange={(v) =>
+									updateMutation.mutate({ rate_limit_ip_rps: String(v) })
+								}
+								description={t(
+									"settings.rateLimit.ipRequestsPerSecond.description",
+								)}
+							/>
+						)}
 
-								<SettingsSlider
-									id="rate-limit-ip-burst"
-									label={t("settings.rateLimit.ipBurstSize")}
-									value={Number(rateLimitIpBurst)}
-									min={5}
-									max={200}
-									step={5}
-									clampStep={5}
-									onChange={(v) =>
-										updateMutation.mutate({
-											rate_limit_ip_burst: String(v),
-										})
-									}
-									description={t("settings.rateLimit.ipBurstSize.description")}
-								/>
-							</>
+						{rateLimitEnabled && (
+							<SettingsSlider
+								id="rate-limit-burst"
+								label={t("settings.rateLimit.burstSize")}
+								value={Number(rateLimitBurst)}
+								min={5}
+								max={500}
+								step={5}
+								clampStep={5}
+								onChange={(v) =>
+									updateMutation.mutate({
+										rate_limit_burst: String(v),
+									})
+								}
+								description={t("settings.rateLimit.burstSize.description")}
+							/>
+						)}
+
+						{rateLimitIpEnabled && (
+							<SettingsSlider
+								id="rate-limit-ip-burst"
+								label={t("settings.rateLimit.ipBurstSize")}
+								value={Number(rateLimitIpBurst)}
+								min={5}
+								max={500}
+								step={5}
+								clampStep={5}
+								onChange={(v) =>
+									updateMutation.mutate({
+										rate_limit_ip_burst: String(v),
+									})
+								}
+								description={t("settings.rateLimit.ipBurstSize.description")}
+							/>
 						)}
 					</div>
 				</div>

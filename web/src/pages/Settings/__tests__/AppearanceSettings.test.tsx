@@ -152,13 +152,12 @@ describe("AppearanceSettings", () => {
 		expect(icon).toBeInTheDocument();
 	});
 
-	it("renders theme description text", () => {
+	it("renders theme toggle buttons", () => {
 		renderWithProviders(
 			<AppearanceSettings collapsed={false} onToggle={onToggle} />,
 		);
-		expect(
-			screen.getByText("Switch between dark and light mode"),
-		).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Dark" })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Light" })).toBeInTheDocument();
 	});
 
 	describe("color picker modal interactions", () => {

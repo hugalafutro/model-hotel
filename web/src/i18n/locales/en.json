@@ -1349,12 +1349,16 @@
 			"discoverOnStartupDescription": "Run discovery for all providers when the server starts",
 			"discoverOnProviderCreation": "Discover on Provider Creation",
 			"discoverOnProviderCreationDescription": "Automatically discover models when a new provider is added",
+			"discoverAll": "Discover All Models",
+			"discoverAllComplete": "Discovery complete",
+			"discoverAllFailed": "Discovery failed: {{message}}",
 			"intervals": {
-				"30m": "30 minutes",
+				"0.5h": "30 minutes",
 				"1h": "1 hour",
 				"6h": "6 hours",
 				"12h": "12 hours",
 				"24h": "24 hours",
+				"48h": "48 hours",
 				"disabled": "Disabled"
 			}
 		},

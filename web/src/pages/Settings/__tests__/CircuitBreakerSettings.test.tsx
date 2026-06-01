@@ -263,6 +263,7 @@ describe("CircuitBreakerSettings", () => {
 			"Failure Threshold",
 		) as HTMLInputElement;
 		fireEvent.change(input, { target: { value: "15" } });
+		fireEvent.pointerUp(input);
 
 		await waitFor(() => {
 			expect(mutationCalled).toBe(true);
@@ -306,6 +307,7 @@ describe("CircuitBreakerSettings", () => {
 
 		const input = screen.getByLabelText("Cooldown Period") as HTMLInputElement;
 		fireEvent.change(input, { target: { value: "300" } });
+		fireEvent.pointerUp(input);
 
 		await waitFor(() => {
 			expect(mutationCalled).toBe(true);
@@ -339,6 +341,7 @@ describe("CircuitBreakerSettings", () => {
 
 		const input = screen.getByLabelText("Cooldown Period") as HTMLInputElement;
 		fireEvent.change(input, { target: { value: "120" } });
+		fireEvent.pointerUp(input);
 
 		await waitFor(() => {
 			expect(screen.getByText("Settings saved")).toBeInTheDocument();
@@ -367,6 +370,7 @@ describe("CircuitBreakerSettings", () => {
 
 		const input = screen.getByLabelText("Cooldown Period") as HTMLInputElement;
 		fireEvent.change(input, { target: { value: "120" } });
+		fireEvent.pointerUp(input);
 
 		await waitFor(() => {
 			expect(screen.getByText(/Failed to save:/i)).toBeInTheDocument();

@@ -1,25 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	clearProviderCache,
-	DISCOVERY_INTERVALS,
 	getProviderCacheCount,
 	UI_STYLES,
 } from "../constants";
-
-describe("DISCOVERY_INTERVALS", () => {
-	it("has 6 entries", () => {
-		expect(DISCOVERY_INTERVALS).toHaveLength(6);
-	});
-
-	it("all entries have value and label properties", () => {
-		DISCOVERY_INTERVALS.forEach((interval) => {
-			expect(interval).toHaveProperty("value");
-			expect(interval).toHaveProperty("label");
-			expect(typeof interval.value).toBe("string");
-			expect(typeof interval.label).toBe("string");
-		});
-	});
-});
 
 describe("UI_STYLES", () => {
 	it("has 3 entries", () => {

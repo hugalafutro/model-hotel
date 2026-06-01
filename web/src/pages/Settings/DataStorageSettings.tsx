@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import { SettingsSection } from "../../components/SettingsSection";
-import { SettingsSelect } from "../../components/SettingsSelect";
+import { SettingsSlider } from "../../components/SettingsSlider";
 import { Toggle } from "../../components/Toggle";
 import { useStorage } from "../../context/StorageContext";
 import { useToast } from "../../context/ToastContext";
@@ -12,6 +12,12 @@ import {
 	clearArenaHistory,
 	getArenaHistoryCount,
 } from "../../utils/arenaHistory";
+import {
+	goDurationToHours,
+	goDurationToMinutes,
+	hoursToGoDuration,
+	minutesToGoDuration,
+} from "../../utils/duration";
 import { clearProviderCache, getProviderCacheCount } from "./constants";
 
 interface DataStorageSettingsProps {
@@ -52,20 +58,21 @@ export function DataStorageSettings({
 		}
 	});
 
-	const handleDashboardRefreshChange = (val: string) => {
-		setRefreshSec(val);
+	const handleDashboardRefreshChange = (val: number) => {
+		const valStr = String(val);
+		setRefreshSec(valStr);
 		try {
-			localStorage.setItem("dashboardRefreshSec", val);
+			localStorage.setItem("dashboardRefreshSec", valStr);
 		} catch {
 			/* ignore */
 		}
 		window.dispatchEvent(new CustomEvent("dashboardRefreshChange"));
 		toast(
-			val === "0"
+			val === 0
 				? t("settings.dashboard.disabled")
 				: t("settings.dashboard.intervalSet", {
-						seconds: val,
-						count: Number(val),
+						seconds: valStr,
+						count: val,
 					}),
 			"success",
 		);
@@ -142,6 +149,8 @@ export function DataStorageSettings({
 
 	const logRetention = settings?.log_retention || "0";
 	const staleRequestTimeout = settings?.stale_request_timeout || "30m0s";
+	const logRetentionHours = goDurationToHours(logRetention);
+	const staleTimeoutMinutes = goDurationToMinutes(staleRequestTimeout);
 
 	const getDeleteOlderThan = (selection: string): string => {
 		switch (selection) {
@@ -157,23 +166,6 @@ export function DataStorageSettings({
 				return "";
 		}
 	};
-
-	const LOG_RETENTION_OPTIONS = [
-		{ value: "0", label: t("settings.logging.retention.disabled") },
-		{ value: "24h", label: t("settings.logging.retention.24h") },
-		{ value: "168h", label: t("settings.logging.retention.168h") },
-		{ value: "720h", label: t("settings.logging.retention.720h") },
-	];
-
-	const STALE_REQUEST_TIMEOUT_OPTIONS = [
-		{ value: "5m0s", label: t("settings.logging.staleTimeout.5m0s") },
-		{ value: "10m0s", label: t("settings.logging.staleTimeout.10m0s") },
-		{ value: "15m0s", label: t("settings.logging.staleTimeout.15m0s") },
-		{ value: "30m0s", label: t("settings.logging.staleTimeout.30m0s") },
-		{ value: "1h0m0s", label: t("settings.logging.staleTimeout.1h0m0s") },
-		{ value: "2h0m0s", label: t("settings.logging.staleTimeout.2h0m0s") },
-		{ value: "0s", label: t("settings.logging.staleTimeout.disabled") },
-	];
 
 	return (
 		<SettingsSection
@@ -192,13 +184,21 @@ export function DataStorageSettings({
 						<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
 							{t("settings.logging.title")}
 						</h3>
-						<SettingsSelect
+						<SettingsSlider
 							id="log-retention"
 							label={t("settings.logging.logRetention")}
-							value={logRetention}
-							options={LOG_RETENTION_OPTIONS}
-							onChange={(v) => updateMutation.mutate({ log_retention: v })}
-							inline
+							value={logRetentionHours}
+							min={0}
+							max={720}
+							step={24}
+							clampStep={24}
+							infinityValue={0}
+							unit="h"
+							onChange={(v) =>
+								updateMutation.mutate({
+									log_retention: hoursToGoDuration(v),
+								})
+							}
 							description={
 								logRetention === "0" ? (
 									<span className="text-amber-400">
@@ -210,15 +210,21 @@ export function DataStorageSettings({
 							}
 						/>
 
-						<SettingsSelect
+						<SettingsSlider
 							id="stale-request-timeout"
 							label={t("settings.logging.staleRequestTimeout")}
-							value={staleRequestTimeout}
-							options={STALE_REQUEST_TIMEOUT_OPTIONS}
+							value={staleTimeoutMinutes}
+							min={0}
+							max={120}
+							step={5}
+							clampStep={5}
+							infinityValue={0}
+							unit="m"
 							onChange={(v) =>
-								updateMutation.mutate({ stale_request_timeout: v })
+								updateMutation.mutate({
+									stale_request_timeout: minutesToGoDuration(v),
+								})
 							}
-							inline
 							description={
 								staleRequestTimeout === "0s" ? (
 									<span className="text-amber-400">
@@ -325,42 +331,17 @@ export function DataStorageSettings({
 						<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
 							{t("settings.dashboard.title")}
 						</h3>
-						<SettingsSelect
+						<SettingsSlider
 							id="dashboard-refresh-interval"
 							label={t("settings.dashboard.refreshInterval")}
-							value={refreshSec}
-							options={[
-								{
-									value: "10",
-									label: t("settings.dashboard.intervals.10"),
-								},
-								{
-									value: "30",
-									label: t("settings.dashboard.intervals.30"),
-								},
-								{
-									value: "60",
-									label: t("settings.dashboard.intervals.60"),
-								},
-								{
-									value: "120",
-									label: t("settings.dashboard.intervals.120"),
-								},
-								{
-									value: "300",
-									label: t("settings.dashboard.intervals.300"),
-								},
-								{
-									value: "600",
-									label: t("settings.dashboard.intervals.600"),
-								},
-								{
-									value: "0",
-									label: t("settings.dashboard.intervals.disabled"),
-								},
-							]}
+							value={Number(refreshSec)}
+							min={0}
+							max={600}
+							step={10}
+							clampStep={10}
+							infinityValue={0}
+							unit="s"
 							onChange={handleDashboardRefreshChange}
-							inline
 							description={t("settings.dashboard.refreshInterval.description")}
 						/>
 
@@ -555,32 +536,19 @@ export function DataStorageSettings({
 							/>
 						</div>
 
-						<SettingsSelect
+						<SettingsSlider
 							id="quota-refresh-interval"
 							label={t("settings.sidebarQuota.refreshInterval")}
-							value={refreshMin}
-							options={[
-								{ value: "1", label: t("settings.sidebarQuota.intervals.1") },
-								{ value: "2", label: t("settings.sidebarQuota.intervals.2") },
-								{ value: "5", label: t("settings.sidebarQuota.intervals.5") },
-								{
-									value: "10",
-									label: t("settings.sidebarQuota.intervals.10"),
-								},
-								{
-									value: "15",
-									label: t("settings.sidebarQuota.intervals.15"),
-								},
-								{
-									value: "30",
-									label: t("settings.sidebarQuota.intervals.30"),
-								},
-								{
-									value: "0",
-									label: t("settings.sidebarQuota.intervals.disabled"),
-								},
-							]}
-							onChange={(val) => {
+							value={Number(refreshMin)}
+							min={0}
+							max={30}
+							step={1}
+							clampStep={1}
+							infinityValue={0}
+							unit="m"
+							disabled={quotaDisabled}
+							onChange={(v) => {
+								const val = String(v);
 								setRefreshMin(val);
 								try {
 									localStorage.setItem("sidebarQuotaRefreshMin", val);
@@ -591,17 +559,15 @@ export function DataStorageSettings({
 									new CustomEvent("sidebarQuotaRefreshChange"),
 								);
 								toast(
-									val === "0"
+									v === 0
 										? t("settings.sidebarQuota.disabled")
 										: t("settings.sidebarQuota.intervalSet", {
-												minutes: val,
-												count: Number(val),
+												minutes: v,
+												count: v,
 											}),
 									"success",
 								);
 							}}
-							disabled={quotaDisabled}
-							inline
 							description={t(
 								"settings.sidebarQuota.refreshInterval.description",
 							)}
@@ -634,38 +600,24 @@ export function DataStorageSettings({
 							/>
 						</div>
 
-						<SettingsSelect
+						<SettingsSlider
 							id="history-limit"
 							label={t("settings.dataStorage.maxSavedMatches")}
-							value={String(arenaHistoryLimit)}
-							options={[
-								{
-									value: "10",
-									label: t("settings.dataStorage.matches.10"),
-								},
-								{
-									value: "25",
-									label: t("settings.dataStorage.matches.25"),
-								},
-								{
-									value: "50",
-									label: t("settings.dataStorage.matches.50"),
-								},
-								{
-									value: "100",
-									label: t("settings.dataStorage.matches.100"),
-								},
-							]}
+							value={arenaHistoryLimit}
+							min={10}
+							max={100}
+							step={5}
+							clampStep={5}
+							unit="m"
+							hideUnit
+							disabled={!arenaHistoryEnabled}
 							onChange={(v) => {
-								const val = Number(v);
-								setArenaHistoryLimit(val);
+								setArenaHistoryLimit(v);
 								toast(
-									t("settings.dataStorage.historyLimitToast", { count: val }),
+									t("settings.dataStorage.historyLimitToast", { count: v }),
 									"success",
 								);
 							}}
-							disabled={!arenaHistoryEnabled}
-							inline
 							description={t(
 								"settings.dataStorage.maxSavedMatches.description",
 							)}
