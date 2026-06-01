@@ -65,7 +65,7 @@ export function DiscoverySettings({
 				<p className="text-gray-400 text-sm col-span-2">
 					{t("settings.discovery.description")}
 				</p>
-				<div className="grid grid-cols-2 gap-x-8 gap-y-5 items-start">
+				<div className="grid grid-cols-2 gap-x-8 gap-y-5 [align-items:start]">
 					<div className="space-y-5">
 						<div className="flex items-center justify-between">
 							<div>

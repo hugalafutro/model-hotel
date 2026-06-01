@@ -4,7 +4,6 @@ import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSelect } from "../../components/SettingsSelect";
-import { Toggle } from "../../components/Toggle";
 import { useTheme } from "../../context/ThemeContext";
 import { useToast } from "../../context/ToastContext";
 import { ColorPickerModal } from "./ColorPickerModal";
@@ -40,23 +39,6 @@ export function AppearanceSettings({
 	const [pickerOpen, setPickerOpen] = useState(false);
 	const [pickerColor, setPickerColor] = useState(accentColor);
 
-	// Sidebar Quota state
-	const [quotaDisabled, setQuotaDisabled] = useState(() => {
-		try {
-			return localStorage.getItem("sidebarQuotaDisabled") === "true";
-		} catch {
-			return false;
-		}
-	});
-	const [refreshMin, setRefreshMin] = useState(() => {
-		try {
-			return localStorage.getItem("sidebarQuotaRefreshMin") || "5";
-		} catch {
-			return "5";
-		}
-	});
-
-	// Dashboard Refresh state
 	const [refreshSec, setRefreshSec] = useState(() => {
 		try {
 			return localStorage.getItem("dashboardRefreshSec") || "30";
@@ -74,25 +56,6 @@ export function AppearanceSettings({
 		setAccentColor(pickerColor);
 		setPickerOpen(false);
 	}, [pickerColor, setAccentColor]);
-
-	const handleQuotaRefreshChange = (val: string) => {
-		setRefreshMin(val);
-		try {
-			localStorage.setItem("sidebarQuotaRefreshMin", val);
-		} catch {
-			/* ignore */
-		}
-		window.dispatchEvent(new CustomEvent("sidebarQuotaRefreshChange"));
-		toast(
-			val === "0"
-				? t("settings.sidebarQuota.disabled")
-				: t("settings.sidebarQuota.intervalSet", {
-						minutes: val,
-						count: Number(val),
-					}),
-			"success",
-		);
-	};
 
 	const handleDashboardRefreshChange = (val: string) => {
 		setRefreshSec(val);
@@ -266,84 +229,8 @@ export function AppearanceSettings({
 					</div>
 				</div>
 
-				{/* Sidebar Quotas */}
-				<div className="pt-2 border-t border-gray-700/50">
-					<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
-						{t("settings.sidebarQuota.title")}
-					</h3>
-					<div className="grid grid-cols-2 gap-x-8 gap-y-5 items-start">
-						<div className="space-y-5">
-							<div className="flex items-center justify-between">
-								<div>
-									<p className="text-sm font-medium text-gray-300">
-										{t("settings.sidebarQuota.showQuotasPill")}
-									</p>
-									<p className="text-gray-500 text-xs mt-0.5">
-										{t("settings.sidebarQuota.showQuotasPillDescription")}
-									</p>
-								</div>
-								<Toggle
-									checked={!quotaDisabled}
-									onChange={(v) => {
-										const newVal = !v;
-										setQuotaDisabled(newVal);
-										try {
-											localStorage.setItem(
-												"sidebarQuotaDisabled",
-												String(newVal),
-											);
-										} catch {
-											/* ignore */
-										}
-										toast(
-											newVal
-												? t("settings.sidebarQuota.disabledQuotas")
-												: t("settings.sidebarQuota.enabledQuotas"),
-											newVal ? "info" : "success",
-										);
-										window.dispatchEvent(new CustomEvent("sidebarQuotaToggle"));
-									}}
-								/>
-							</div>
-						</div>
-						<div className="space-y-5">
-							<SettingsSelect
-								id="quota-refresh-interval"
-								label={t("settings.sidebarQuota.refreshInterval")}
-								value={refreshMin}
-								options={[
-									{ value: "1", label: t("settings.sidebarQuota.intervals.1") },
-									{ value: "2", label: t("settings.sidebarQuota.intervals.2") },
-									{ value: "5", label: t("settings.sidebarQuota.intervals.5") },
-									{
-										value: "10",
-										label: t("settings.sidebarQuota.intervals.10"),
-									},
-									{
-										value: "15",
-										label: t("settings.sidebarQuota.intervals.15"),
-									},
-									{
-										value: "30",
-										label: t("settings.sidebarQuota.intervals.30"),
-									},
-									{
-										value: "0",
-										label: t("settings.sidebarQuota.intervals.disabled"),
-									},
-								]}
-								onChange={handleQuotaRefreshChange}
-								disabled={quotaDisabled}
-								description={t(
-									"settings.sidebarQuota.refreshInterval.description",
-								)}
-							/>
-						</div>
-					</div>
-				</div>
-
 				{/* Dashboard Refresh */}
-				<div className="pt-2 border-t border-gray-700/50">
+				<div>
 					<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
 						{t("settings.dashboard.title")}
 					</h3>
@@ -382,12 +269,13 @@ export function AppearanceSettings({
 							},
 						]}
 						onChange={handleDashboardRefreshChange}
+						inline
 						description={t("settings.dashboard.refreshInterval.description")}
 					/>
 				</div>
 
 				{/* Toast Notifications */}
-				<div className="pt-2 border-t border-gray-700/50">
+				<div>
 					<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
 						{t("settings.toast.title")}
 					</h3>

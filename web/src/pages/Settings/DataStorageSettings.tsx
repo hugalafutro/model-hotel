@@ -34,6 +34,21 @@ export function DataStorageSettings({
 	const [deleteSelection, setDeleteSelection] = useState("");
 	const [confirmDeleteAppLogs, setConfirmDeleteAppLogs] = useState(false);
 
+	const [quotaDisabled, setQuotaDisabled] = useState(() => {
+		try {
+			return localStorage.getItem("sidebarQuotaDisabled") === "true";
+		} catch {
+			return false;
+		}
+	});
+	const [refreshMin, setRefreshMin] = useState(() => {
+		try {
+			return localStorage.getItem("sidebarQuotaRefreshMin") || "5";
+		} catch {
+			return "5";
+		}
+	});
+
 	const {
 		persistChat,
 		setPersistChat,
@@ -155,7 +170,7 @@ export function DataStorageSettings({
 					<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
 						{t("settings.dataStorage.sessionPersistence")}
 					</h3>
-					<div className="grid grid-cols-2 gap-x-8 gap-y-5 items-start">
+					<div className="grid grid-cols-2 gap-x-8 gap-y-5 [align-items:start]">
 						<div className="space-y-5">
 							<div className="flex items-center justify-between">
 								<div>
@@ -246,7 +261,92 @@ export function DataStorageSettings({
 								/>
 							</div>
 						</div>
-						<div className="space-y-5" />
+						<div className="space-y-5">
+							<div className="flex items-center justify-between">
+								<div>
+									<p className="text-sm font-medium text-gray-300">
+										{t("settings.sidebarQuota.showQuotasPill")}
+									</p>
+									<p className="text-gray-500 text-xs mt-0.5">
+										{t("settings.sidebarQuota.showQuotasPillDescription")}
+									</p>
+								</div>
+								<Toggle
+									checked={!quotaDisabled}
+									onChange={(v) => {
+										const newVal = !v;
+										setQuotaDisabled(newVal);
+										try {
+											localStorage.setItem(
+												"sidebarQuotaDisabled",
+												String(newVal),
+											);
+										} catch {
+											/* ignore */
+										}
+										toast(
+											newVal
+												? t("settings.sidebarQuota.disabledQuotas")
+												: t("settings.sidebarQuota.enabledQuotas"),
+											newVal ? "info" : "success",
+										);
+										window.dispatchEvent(new CustomEvent("sidebarQuotaToggle"));
+									}}
+								/>
+							</div>
+
+							<SettingsSelect
+								id="quota-refresh-interval"
+								label={t("settings.sidebarQuota.refreshInterval")}
+								value={refreshMin}
+								options={[
+									{ value: "1", label: t("settings.sidebarQuota.intervals.1") },
+									{ value: "2", label: t("settings.sidebarQuota.intervals.2") },
+									{ value: "5", label: t("settings.sidebarQuota.intervals.5") },
+									{
+										value: "10",
+										label: t("settings.sidebarQuota.intervals.10"),
+									},
+									{
+										value: "15",
+										label: t("settings.sidebarQuota.intervals.15"),
+									},
+									{
+										value: "30",
+										label: t("settings.sidebarQuota.intervals.30"),
+									},
+									{
+										value: "0",
+										label: t("settings.sidebarQuota.intervals.disabled"),
+									},
+								]}
+								onChange={(val) => {
+									setRefreshMin(val);
+									try {
+										localStorage.setItem("sidebarQuotaRefreshMin", val);
+									} catch {
+										/* ignore */
+									}
+									window.dispatchEvent(
+										new CustomEvent("sidebarQuotaRefreshChange"),
+									);
+									toast(
+										val === "0"
+											? t("settings.sidebarQuota.disabled")
+											: t("settings.sidebarQuota.intervalSet", {
+													minutes: val,
+													count: Number(val),
+												}),
+										"success",
+									);
+								}}
+								disabled={quotaDisabled}
+								inline
+								description={t(
+									"settings.sidebarQuota.refreshInterval.description",
+								)}
+							/>
+						</div>
 					</div>
 				</div>
 
@@ -255,32 +355,68 @@ export function DataStorageSettings({
 					<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
 						{t("settings.dataStorage.arenaHistory")}
 					</h3>
-					<div className="grid grid-cols-2 gap-x-8 gap-y-5 items-start">
-						<div className="space-y-5">
-							<div className="flex items-center justify-between">
-								<div>
-									<p className="text-sm font-medium text-gray-300">
-										{t("settings.dataStorage.saveMatchHistory")}
-									</p>
-									<p className="text-gray-500 text-xs mt-0.5">
-										{t("settings.dataStorage.saveMatchHistoryDescription")}
-									</p>
-								</div>
-								<Toggle
-									checked={arenaHistoryEnabled}
-									onChange={(v) => {
-										const next = v;
-										setArenaHistoryEnabled(next);
-										toast(
-											next
-												? t("settings.dataStorage.saveMatchHistoryEnabled")
-												: t("settings.dataStorage.saveMatchHistoryDisabled"),
-											next ? "success" : "info",
-										);
-									}}
-								/>
+					<div className="space-y-5">
+						<div className="flex items-center justify-between">
+							<div>
+								<p className="text-sm font-medium text-gray-300">
+									{t("settings.dataStorage.saveMatchHistory")}
+								</p>
+								<p className="text-gray-500 text-xs mt-0.5">
+									{t("settings.dataStorage.saveMatchHistoryDescription")}
+								</p>
 							</div>
+							<Toggle
+								checked={arenaHistoryEnabled}
+								onChange={(v) => {
+									const next = v;
+									setArenaHistoryEnabled(next);
+									toast(
+										next
+											? t("settings.dataStorage.saveMatchHistoryEnabled")
+											: t("settings.dataStorage.saveMatchHistoryDisabled"),
+										next ? "success" : "info",
+									);
+								}}
+							/>
+						</div>
 
+						<SettingsSelect
+							id="history-limit"
+							label={t("settings.dataStorage.maxSavedMatches")}
+							value={String(arenaHistoryLimit)}
+							options={[
+								{
+									value: "10",
+									label: t("settings.dataStorage.matches.10"),
+								},
+								{
+									value: "25",
+									label: t("settings.dataStorage.matches.25"),
+								},
+								{
+									value: "50",
+									label: t("settings.dataStorage.matches.50"),
+								},
+								{
+									value: "100",
+									label: t("settings.dataStorage.matches.100"),
+								},
+							]}
+							onChange={(v) => {
+								const val = Number(v);
+								setArenaHistoryLimit(val);
+								toast(
+									t("settings.dataStorage.historyLimitToast", { count: val }),
+									"success",
+								);
+							}}
+							disabled={!arenaHistoryEnabled}
+							description={t(
+								"settings.dataStorage.maxSavedMatches.description",
+							)}
+						/>
+
+						<div className="flex items-center justify-between">
 							<div>
 								<p className="text-sm font-medium text-gray-300">
 									{t("settings.dataStorage.clearHistory")}
@@ -291,45 +427,6 @@ export function DataStorageSettings({
 									})}
 								</p>
 							</div>
-						</div>
-
-						<div className="space-y-5">
-							<SettingsSelect
-								id="history-limit"
-								label={t("settings.dataStorage.maxSavedMatches")}
-								value={String(arenaHistoryLimit)}
-								options={[
-									{
-										value: "10",
-										label: t("settings.dataStorage.matches.10"),
-									},
-									{
-										value: "25",
-										label: t("settings.dataStorage.matches.25"),
-									},
-									{
-										value: "50",
-										label: t("settings.dataStorage.matches.50"),
-									},
-									{
-										value: "100",
-										label: t("settings.dataStorage.matches.100"),
-									},
-								]}
-								onChange={(v) => {
-									const val = Number(v);
-									setArenaHistoryLimit(val);
-									toast(
-										t("settings.dataStorage.historyLimitToast", { count: val }),
-										"success",
-									);
-								}}
-								disabled={!arenaHistoryEnabled}
-								description={t(
-									"settings.dataStorage.maxSavedMatches.description",
-								)}
-							/>
-
 							<button
 								type="button"
 								onClick={() => {
@@ -355,7 +452,7 @@ export function DataStorageSettings({
 					<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
 						{t("settings.logging.title")}
 					</h3>
-					<div className="grid grid-cols-2 gap-x-8 gap-y-5 items-start">
+					<div className="grid grid-cols-2 gap-x-8 gap-y-5 [align-items:start]">
 						<div className="space-y-5">
 							<SettingsSelect
 								id="log-retention"
@@ -490,7 +587,7 @@ export function DataStorageSettings({
 					<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
 						{t("settings.dataStorage.cacheAndResets")}
 					</h3>
-					<div className="grid grid-cols-2 gap-x-8 gap-y-5 items-start">
+					<div className="grid grid-cols-2 gap-x-8 gap-y-5 [align-items:start]">
 						<div className="space-y-5">
 							<div>
 								<p className="text-sm font-medium text-gray-300">

@@ -3,7 +3,6 @@ import { Gauge } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import { SettingsSection } from "../../components/SettingsSection";
-import { SettingsSelect } from "../../components/SettingsSelect";
 import { SettingsSlider } from "../../components/SettingsSlider";
 import { Toggle } from "../../components/Toggle";
 import { useToast } from "../../context/ToastContext";
@@ -49,15 +48,6 @@ export function RateLimitSettings({
 	const rateLimitIpBurst = settings?.rate_limit_ip_burst || "60";
 	const rateLimitMaxWaitMs = settings?.rate_limit_max_wait_ms || "200";
 
-	const RATE_LIMIT_RPS_OPTIONS = [
-		{ value: "5", label: t("settings.rateLimit.rps.5") },
-		{ value: "10", label: t("settings.rateLimit.rps.10") },
-		{ value: "20", label: t("settings.rateLimit.rps.20") },
-		{ value: "50", label: t("settings.rateLimit.rps.50") },
-		{ value: "100", label: t("settings.rateLimit.rps.100") },
-		{ value: "0", label: t("settings.rateLimit.rps.unlimited") },
-	];
-
 	return (
 		<SettingsSection
 			icon={Gauge}
@@ -69,7 +59,7 @@ export function RateLimitSettings({
 				<p className="text-gray-400 text-sm">
 					{t("settings.rateLimit.description")}
 				</p>
-				<div className="grid grid-cols-2 gap-x-8 gap-y-5 items-start">
+				<div className="grid grid-cols-2 gap-x-8 gap-y-5 [align-items:start]">
 					<div className="space-y-5">
 						<div className="flex items-center justify-between">
 							<div>
@@ -140,12 +130,18 @@ export function RateLimitSettings({
 					<div className="space-y-5">
 						{rateLimitEnabled && (
 							<>
-								<SettingsSelect
+								<SettingsSlider
 									id="rate-limit-rps"
 									label={t("settings.rateLimit.requestsPerSecond")}
-									value={rateLimitRPS}
-									options={RATE_LIMIT_RPS_OPTIONS}
-									onChange={(v) => updateMutation.mutate({ rate_limit_rps: v })}
+									value={Number(rateLimitRPS)}
+									min={0}
+									max={100}
+									step={5}
+									clampStep={5}
+									infinityValue={0}
+									onChange={(v) =>
+										updateMutation.mutate({ rate_limit_rps: String(v) })
+									}
 									description={t(
 										"settings.rateLimit.requestsPerSecond.description",
 									)}
@@ -171,15 +167,17 @@ export function RateLimitSettings({
 
 						{rateLimitIpEnabled && (
 							<>
-								<SettingsSelect
+								<SettingsSlider
 									id="rate-limit-ip-rps"
 									label={t("settings.rateLimit.ipRequestsPerSecond")}
-									value={rateLimitIpRPS}
-									options={RATE_LIMIT_RPS_OPTIONS}
+									value={Number(rateLimitIpRPS)}
+									min={0}
+									max={100}
+									step={5}
+									clampStep={5}
+									infinityValue={0}
 									onChange={(v) =>
-										updateMutation.mutate({
-											rate_limit_ip_rps: v,
-										})
+										updateMutation.mutate({ rate_limit_ip_rps: String(v) })
 									}
 									description={t(
 										"settings.rateLimit.ipRequestsPerSecond.description",

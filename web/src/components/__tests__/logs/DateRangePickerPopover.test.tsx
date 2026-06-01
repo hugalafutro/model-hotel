@@ -169,10 +169,7 @@ describe("DateRangePickerPopover", () => {
 		);
 		const popover = container.firstChild as HTMLElement;
 		expect(popover).toHaveClass("absolute");
-		expect(popover).toHaveClass("bg-gray-900");
-		expect(popover).toHaveClass("border");
-		expect(popover).toHaveClass("border-gray-700");
-		expect(popover).toHaveClass("rounded-(--radius-card)");
+		expect(popover).toHaveClass("ui-card");
 		expect(popover).toHaveClass("shadow-2xl");
 		expect(popover).toHaveClass("z-50");
 	});

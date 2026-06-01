@@ -82,7 +82,7 @@ export function CircuitBreakerSettings({
 				<p className="text-gray-400 text-sm">
 					{t("settings.circuitBreaker.description")}
 				</p>
-				<div className="grid grid-cols-2 gap-x-8 gap-y-5 items-start">
+				<div className="grid grid-cols-2 gap-x-8 gap-y-5 [align-items:start]">
 					<div className="space-y-5">
 						<div className="flex items-center justify-between">
 							<div>
@@ -135,6 +135,8 @@ export function CircuitBreakerSettings({
 									min={1}
 									max={100}
 									step={1}
+									unit="s"
+									hideUnit
 									onChange={(v) =>
 										updateMutation.mutate({
 											circuit_breaker_threshold: String(v),

@@ -119,7 +119,7 @@ export function LoggingSettings({ collapsed, onToggle }: LoggingSettingsProps) {
 			onToggle={onToggle}
 		>
 			<div className="space-y-5">
-				<div className="grid grid-cols-2 gap-x-8 gap-y-5 items-start">
+				<div className="grid grid-cols-2 gap-x-8 gap-y-5 [align-items:start]">
 					<div className="space-y-5">
 						<SettingsSelect
 							id="log-retention"

@@ -29,7 +29,7 @@ export function DateFilterButton({
 				className={`flex items-center justify-center h-9 w-9 rounded-(--radius-button) text-sm border transition-colors cursor-pointer ${
 					hasDateFilter
 						? "bg-(--accent)/15 text-(--accent) border-(--accent)/40 hover:bg-(--accent)/25"
-						: "bg-gray-900/40 text-gray-400 border-gray-700/50 hover:text-(--text-primary) hover:border-gray-500"
+						: "bg-(--surface-input) text-(--text-secondary) border-(--border-input) hover:text-(--text-primary) hover:border-(--border-default)"
 				}`}
 				title={
 					hasDateFilter && dateFrom && dateTo

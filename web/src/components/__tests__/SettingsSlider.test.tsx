@@ -100,4 +100,57 @@ describe("SettingsSlider", () => {
 		renderWithProviders(<SettingsSlider {...defaultProps} />);
 		expect(screen.queryByText("ms")).not.toBeInTheDocument();
 	});
+
+	it("renders hidden unit when hideUnit is true", () => {
+		renderWithProviders(<SettingsSlider {...defaultProps} unit="s" hideUnit />);
+		const unitSpan = screen.getByText("s");
+		expect(unitSpan).toHaveClass("text-transparent");
+		expect(unitSpan).toHaveAttribute("aria-hidden", "true");
+	});
+
+	it("step up button increments value", () => {
+		const onChange = vi.fn();
+		renderWithProviders(
+			<SettingsSlider
+				{...defaultProps}
+				value={50}
+				step={5}
+				onChange={onChange}
+			/>,
+		);
+		const buttons = screen.getAllByRole("button");
+		const stepUpBtn = buttons[0];
+		fireEvent.click(stepUpBtn);
+		expect(onChange).toHaveBeenCalledWith(55);
+	});
+
+	it("step down button decrements value", () => {
+		const onChange = vi.fn();
+		renderWithProviders(
+			<SettingsSlider
+				{...defaultProps}
+				value={50}
+				step={5}
+				onChange={onChange}
+			/>,
+		);
+		const buttons = screen.getAllByRole("button");
+		const stepDownBtn = buttons[1];
+		fireEvent.click(stepDownBtn);
+		expect(onChange).toHaveBeenCalledWith(45);
+	});
+
+	it("step up is disabled at max", () => {
+		renderWithProviders(
+			<SettingsSlider {...defaultProps} value={100} max={100} />,
+		);
+		const buttons = screen.getAllByRole("button");
+		expect(buttons[0]).toBeDisabled();
+	});
+
+	it("step down is disabled at min", () => {
+		renderWithProviders(<SettingsSlider {...defaultProps} value={0} min={0} />);
+		const buttons = screen.getAllByRole("button");
+		expect(buttons[1]).toBeDisabled();
+	});
 });

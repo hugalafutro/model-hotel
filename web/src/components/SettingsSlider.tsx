@@ -1,3 +1,4 @@
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { useCallback } from "react";
 
 export interface SettingsSliderProps {
@@ -7,13 +8,13 @@ export interface SettingsSliderProps {
 	min: number;
 	max: number;
 	step: number;
-	/** Auto-clamp step: values snap to multiples of this. E.g. clampStep=5 means values snap to 0,5,10,15... */
 	clampStep?: number;
 	onChange: (value: number) => void;
 	description?: string;
 	disabled?: boolean;
-	/** Unit suffix displayed after the number in the input, e.g. "ms", "s" */
+	hideUnit?: boolean;
 	unit?: string;
+	infinityValue?: number;
 }
 
 function clampToStep(value: number, step: number): number {
@@ -33,8 +34,12 @@ export function SettingsSlider({
 	description,
 	disabled = false,
 	unit,
+	hideUnit = false,
+	infinityValue,
 }: SettingsSliderProps) {
-	const pct = ((value - min) / (max - min)) * 100;
+	const isInfinity = infinityValue !== undefined && value >= infinityValue;
+	const displayValue = isInfinity ? "∞" : value;
+	const pct = isInfinity ? 100 : ((value - min) / (max - min)) * 100;
 
 	const handleSliderChange = useCallback(
 		(e: React.ChangeEvent<HTMLInputElement>) => {
@@ -62,6 +67,22 @@ export function SettingsSlider({
 		}
 	}, [value, min, max, clampStep, onChange]);
 
+	const stepUp = useCallback(() => {
+		const next = Math.min(
+			max,
+			clampToStep(value + (clampStep || step), clampStep || step),
+		);
+		onChange(next);
+	}, [value, max, clampStep, step, onChange]);
+
+	const stepDown = useCallback(() => {
+		const next = Math.max(
+			min,
+			clampToStep(value - (clampStep || step), clampStep || step),
+		);
+		onChange(next);
+	}, [value, min, clampStep, step, onChange]);
+
 	return (
 		<div className={disabled ? "opacity-50 cursor-not-allowed" : ""}>
 			<div className="flex items-center gap-3">
@@ -87,24 +108,46 @@ export function SettingsSlider({
 						background: `linear-gradient(to right, var(--accent) ${pct}%, var(--surface-hover) ${pct}%)`,
 					}}
 				/>
-				<input
-					type="number"
-					value={value}
-					min={min}
-					max={max}
-					step={clampStep || step}
-					onChange={handleNumberChange}
-					onBlur={handleNumberBlur}
-					disabled={disabled}
-					className={`w-14 text-right px-1.5 py-0.5 rounded text-xs border border-transparent outline-none bg-(--surface-input) text-(--text-primary) no-spinner ${
-						disabled ? "cursor-not-allowed" : "focus:border-(--accent)"
-					}`}
-				/>
-				{unit ? (
-					<span className="text-xs text-(--text-tertiary) -ml-1">{unit}</span>
-				) : (
-					<span className="text-xs text-transparent -ml-1" aria-hidden>
-						w
+				<div className="flex items-center gap-px">
+					<div className="flex flex-col">
+						<button
+							type="button"
+							onClick={stepUp}
+							disabled={disabled || value >= max || isInfinity}
+							className="px-1 py-0 text-gray-500 hover:text-(--accent) disabled:opacity-30 disabled:cursor-not-allowed leading-none"
+						>
+							<ChevronUp size={10} />
+						</button>
+						<button
+							type="button"
+							onClick={stepDown}
+							disabled={disabled || value <= min}
+							className="px-1 py-0 text-gray-500 hover:text-(--accent) disabled:opacity-30 disabled:cursor-not-allowed leading-none"
+						>
+							<ChevronDown size={10} />
+						</button>
+					</div>
+					<input
+						type="number"
+						value={displayValue}
+						min={min}
+						max={max}
+						step={clampStep || step}
+						onChange={handleNumberChange}
+						onBlur={handleNumberBlur}
+						disabled={disabled}
+						readOnly={isInfinity}
+						className={`w-12 text-right px-1 py-0.5 rounded text-xs border border-transparent outline-none bg-(--surface-input) text-(--text-primary) no-spinner ${
+							isInfinity ? "text-center" : ""
+						} ${disabled ? "cursor-not-allowed" : "focus:border-(--accent)"}`}
+					/>
+				</div>
+				{unit && (
+					<span
+						className={`text-xs -ml-1 ${hideUnit ? "text-transparent" : "text-(--text-tertiary)"}`}
+						aria-hidden={hideUnit}
+					>
+						{unit}
 					</span>
 				)}
 			</div>

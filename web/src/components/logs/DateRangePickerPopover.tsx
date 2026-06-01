@@ -31,7 +31,7 @@ export function DateRangePickerPopover({
 
 	return (
 		<div
-			className={`absolute ${anchor}-0 mt-2 w-72 p-4 bg-gray-900 border border-gray-700 rounded-(--radius-card) shadow-2xl z-50`}
+			className={`absolute ${anchor}-0 mt-2 w-72 p-4 ui-card shadow-2xl z-50`}
 		>
 			<div className="flex items-center justify-between mb-3">
 				<span className="text-sm font-semibold text-(--text-primary)">
@@ -72,7 +72,7 @@ export function DateRangePickerPopover({
 				<button
 					type="button"
 					onClick={onClear}
-					className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-gray-700 text-gray-400 hover:text-(--text-primary) hover:bg-gray-700 transition-colors"
+					className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-(--border-input) text-(--text-secondary) hover:text-(--text-primary) hover:bg-(--surface-hover) transition-colors"
 				>
 					{t("components.logs.dateRangePicker.clear")}
 				</button>
