@@ -44,14 +44,25 @@ describe("SettingsSlider", () => {
 		expect(onChange).toHaveBeenCalledWith(75);
 	});
 
-	it("fires onChange on keyUp for arrow keys", () => {
+	it("does NOT fire onChange on keyUp when arrow key doesn't change value", () => {
 		const onChange = vi.fn();
 		renderWithProviders(
 			<SettingsSlider {...defaultProps} onChange={onChange} />,
 		);
 		const slider = screen.getByRole("slider");
 		fireEvent.keyUp(slider, { key: "ArrowRight" });
-		expect(onChange).toHaveBeenCalled();
+		expect(onChange).not.toHaveBeenCalled();
+	});
+
+	it("fires onChange on keyUp when arrow key changes value", () => {
+		const onChange = vi.fn();
+		renderWithProviders(
+			<SettingsSlider {...defaultProps} value={0} onChange={onChange} />,
+		);
+		const slider = screen.getByRole("slider");
+		fireEvent.change(slider, { target: { value: 1 } });
+		fireEvent.keyUp(slider, { key: "ArrowRight" });
+		expect(onChange).toHaveBeenCalledWith(1);
 	});
 
 	it("does NOT fire onChange on keyUp for non-navigation keys", () => {

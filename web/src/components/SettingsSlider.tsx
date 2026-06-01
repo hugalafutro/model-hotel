@@ -73,8 +73,10 @@ export function SettingsSlider({
 		) => {
 			const raw = Number(e.currentTarget.value);
 			const clamped = clampStep ? clampToStep(raw, clampStep) : raw;
-			committed.current = clamped;
-			onChange(clamped);
+			if (clamped !== committed.current) {
+				committed.current = clamped;
+				onChange(clamped);
+			}
 		},
 		[onChange, clampStep],
 	);
