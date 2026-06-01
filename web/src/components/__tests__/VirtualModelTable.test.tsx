@@ -127,21 +127,21 @@ describe("VirtualModelTable", () => {
 		it("renders loading indicator when isLoadingInitial", () => {
 			setupTable({ entries: [], total: 0, isLoadingInitial: true });
 			renderWithProviders(<VirtualModelTable />);
-			expect(screen.getByText("↻ Loading…")).toBeInTheDocument();
+			expect(screen.getByText("Loading…")).toBeInTheDocument();
 		});
 
 		it("renders loading newer indicator when isLoadingBefore", () => {
 			const entries = [createModel()];
 			setupWithEntries(entries, { isLoadingBefore: true });
 			renderWithProviders(<VirtualModelTable />);
-			expect(screen.getByText("↻ Loading newer…")).toBeInTheDocument();
+			expect(screen.getByText("Loading newer…")).toBeInTheDocument();
 		});
 
 		it("renders loading older indicator when isLoadingAfter", () => {
 			const entries = [createModel()];
 			setupWithEntries(entries, { isLoadingAfter: true });
 			renderWithProviders(<VirtualModelTable />);
-			expect(screen.getByText("↻ Loading older…")).toBeInTheDocument();
+			expect(screen.getByText("Loading older…")).toBeInTheDocument();
 		});
 	});
 

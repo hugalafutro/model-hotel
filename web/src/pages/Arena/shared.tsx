@@ -1,5 +1,6 @@
 import { Settings, ThumbsDown, ThumbsUp } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { GenerationParams } from "../../api/types";
 
 export function VoteThumb({
@@ -65,10 +66,11 @@ export function BracketPreviewPill({
 	displayName?: string;
 	isTbd?: boolean;
 }) {
+	const { t } = useTranslation();
 	if (isTbd || !modelId) {
 		return (
 			<div className="px-3 py-2 rounded-lg border border-dashed border-(--border-subtle) bg-(--surface) text-xs text-(--text-tertiary) min-w-24 text-center">
-				TBD
+				{t("arena.tbd")}
 			</div>
 		);
 	}

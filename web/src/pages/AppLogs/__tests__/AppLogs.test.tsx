@@ -165,7 +165,9 @@ describe("AppLogs", () => {
 		const levelButton = screen.getByRole("button", { name: "Level" });
 		await user.click(levelButton);
 		await waitFor(() => {
-			expect(screen.getByText("All (3)")).toBeInTheDocument();
+			// The "All" option in the dropdown shows total count
+			// There are now two "All (3)" texts (trigger + dropdown option), so getAllByText
+			expect(screen.getAllByText("All (3)").length).toBeGreaterThanOrEqual(1);
 			expect(screen.getByText("Info")).toBeInTheDocument();
 			expect(screen.getByText("Warning")).toBeInTheDocument();
 			expect(screen.getByText("Error")).toBeInTheDocument();
@@ -175,9 +177,12 @@ describe("AppLogs", () => {
 	it("shows Source filter dropdown when multiple sources exist", async () => {
 		renderWithProviders(<AppLogs />);
 		await waitFor(() => {
-			// Source filter button - check for the button containing "Source" text
-			const sourceButtons = screen.getAllByText("Source");
-			expect(sourceButtons.length).toBeGreaterThan(0);
+			// Source filter button - uses aria-label "Source" (visible text shows current selection)
+			expect(
+				screen.getByRole("button", { name: "Source" }),
+			).toBeInTheDocument();
+			// Table header "Source" also exists
+			expect(screen.getAllByText("Source").length).toBeGreaterThanOrEqual(1);
 		});
 	});
 
@@ -565,9 +570,8 @@ describe("AppLogs", () => {
 			expect(screen.getByText("proxy")).toBeInTheDocument();
 		});
 		// Verify Source filter dropdown exists - it shows when there are multiple sources
-		const sourceTexts = screen.getAllByText("Source");
-		// There should be at least 2: filter dropdown + table header
-		expect(sourceTexts.length).toBeGreaterThanOrEqual(2);
+		// Filter button uses aria-label "Source" (visible text shows current selection)
+		expect(screen.getByRole("button", { name: "Source" })).toBeInTheDocument();
 	});
 
 	it("shows entry count in pagination bar", async () => {

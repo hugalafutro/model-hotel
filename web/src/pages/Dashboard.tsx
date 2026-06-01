@@ -13,6 +13,7 @@ import {
 	Target,
 	Timer,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ModelDetailModal } from "../components/ModelDetailPanel";
 import { PageHeader } from "../components/PageHeader";
@@ -31,6 +32,7 @@ import { useDashboard } from "./Dashboard/useDashboard";
    DASHBOARD
    ===================================================== */
 export function Dashboard() {
+	const { t } = useTranslation();
 	const {
 		// Global state
 		globalRange,
@@ -133,12 +135,12 @@ export function Dashboard() {
 			<div className="space-y-6">
 				<div>
 					<h1 className="text-2xl font-bold text-(--text-primary)">
-						Dashboard
+						{t("dashboard.title")}
 					</h1>
-					<p className="text-gray-400">Overview of your Model Hotel usage</p>
+					<p className="text-gray-400">{t("dashboard.description")}</p>
 				</div>
 				<div className="bg-red-900/50 border border-red-700 rounded-lg p-6 text-red-300">
-					Failed to load stats: {statsError.message}
+					{t("dashboard.failedToLoadGaugeStats")}: {statsError.message}
 				</div>
 			</div>
 		);
@@ -149,8 +151,8 @@ export function Dashboard() {
 			{/* Page header */}
 			<PageHeader
 				icon={LayoutDashboard}
-				title="Dashboard"
-				description="Overview of your Model Hotel usage"
+				title={t("dashboard.title")}
+				description={t("dashboard.description")}
 				badge={
 					<>
 						<button
@@ -158,10 +160,10 @@ export function Dashboard() {
 							onClick={() => setExcludeDeleted(!excludeDeleted)}
 							title={
 								excludeDeleted
-									? "Showing only active (non-deleted) virtual keys. Click to include deleted keys in stats."
-									: "Showing all virtual keys including deleted ones. Click to filter to active keys only."
+									? t("dashboard.activeKeysOnly")
+									: t("dashboard.allKeys")
 							}
-							aria-label="Toggle key filter"
+							aria-label={t("dashboard.toggleKeyFilter")}
 							className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold transition-colors ${
 								excludeDeleted
 									? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"
@@ -173,7 +175,9 @@ export function Dashboard() {
 									excludeDeleted ? "bg-amber-400" : "bg-green-400"
 								}`}
 							/>
-							{excludeDeleted ? "Active Keys Only" : "All Keys"}
+							{excludeDeleted
+								? t("dashboard.activeKeysOnly")
+								: t("dashboard.allKeys")}
 						</button>
 						<div className="flex items-center gap-1 ml-1.5">
 							<RangeToggle value={globalRange} onChange={setGlobalRange} />
@@ -184,8 +188,12 @@ export function Dashboard() {
 								type="button"
 								onClick={handleRefresh}
 								disabled={isRefreshing}
-								title={isRefreshing ? "Refreshing…" : "Refresh dashboard"}
-								aria-label="Refresh dashboard"
+								title={
+									isRefreshing
+										? t("dashboard.refreshing")
+										: t("dashboard.refresh")
+								}
+								aria-label={t("dashboard.refresh")}
 								className={`flex items-center justify-center w-7 h-7 rounded-full transition-all ${
 									isRefreshing
 										? "cursor-not-allowed opacity-60"
@@ -204,66 +212,76 @@ export function Dashboard() {
 					<div className="flex gap-4">
 						{statsLoading ? (
 							<div className="flex items-center justify-center gap-2 py-4 text-sm text-(--text-muted)">
-								Loading gauges…
+								{t("dashboard.loadingGauges")}
 							</div>
 						) : statsError ? (
 							<div className="flex items-center justify-center gap-2 py-4 text-sm text-red-400">
 								<AlertTriangle size={14} />{" "}
-								<span>Failed to load gauge stats</span>
+								<span>{t("dashboard.gaugeLoadFailed")}</span>
 							</div>
 						) : (
 							<>
 								<Gauge
-									label={`Requests/${rangeLabel}`}
+									label={t("dashboard.chart.requestsOver", {
+										range: rangeLabel,
+									})}
 									value={gaugeRequestCount}
 									decimals={0}
 									suffix=""
 									color={accents.requests}
 									onClick={() => setRequestsModalOpen(true)}
-									tooltip="Click to view request history"
+									tooltip={t("dashboard.gauge.viewRequestHistory")}
 									maxScale={Math.max(100, gaugeRequestCount * 1.2)}
 								/>
 								<Gauge
-									label={`Avg TTFT/${rangeLabel}`}
+									label={t("dashboard.chart.avgTtftOver", {
+										range: rangeLabel,
+									})}
 									value={(stats?.avg_ttft_ms || 0) / 1000}
 									decimals={1}
 									suffix="s"
 									color={accents.latency}
 									onClick={() => setTtftModalOpen(true)}
-									tooltip="Click to view TTFT history"
+									tooltip={t("dashboard.gauge.viewTtftHistory")}
 									maxScale={Math.max(
 										1,
 										((stats?.avg_ttft_ms || 0) / 1000) * 1.5,
 									)}
 								/>
 								<Gauge
-									label={`Avg Overhead/${rangeLabel}`}
+									label={t("dashboard.chart.avgOverheadOver", {
+										range: rangeLabel,
+									})}
 									value={stats?.avg_overhead_ms || 0}
 									decimals={1}
 									suffix="ms"
 									color={accents.overhead}
 									onClick={() => setOverheadModalOpen(true)}
-									tooltip="Click to view overhead history"
+									tooltip={t("dashboard.gauge.viewOverheadHistory")}
 									maxScale={Math.max(100, (stats?.avg_overhead_ms || 0) * 1.5)}
 								/>
 								<Gauge
-									label={`Rate Limit Hits/${rangeLabel}`}
+									label={t("dashboard.chart.rateLimitHitsOver", {
+										range: rangeLabel,
+									})}
 									value={stats?.rate_limit_hits || 0}
 									decimals={0}
 									suffix=""
 									color="#a855f7"
 									onClick={() => setRateLimitModalOpen(true)}
-									tooltip="Click to view rate limit hit history"
+									tooltip={t("dashboard.gauge.viewRateLimitHistory")}
 									maxScale={Math.max(10, (stats?.rate_limit_hits || 0) * 1.5)}
 								/>
 								<Gauge
-									label={`Error Rate/${rangeLabel}`}
+									label={t("dashboard.chart.errorRateOver", {
+										range: rangeLabel,
+									})}
 									value={(stats?.error_rate || 0) * 100}
 									decimals={1}
 									suffix="%"
 									color={accents.errors}
 									onClick={() => setErrorModalOpen(true)}
-									tooltip="Click to view error rate history"
+									tooltip={t("dashboard.gauge.viewErrorRateHistory")}
 								/>
 							</>
 						)}
@@ -274,21 +292,21 @@ export function Dashboard() {
 
 			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
 				<StatCard
-					label="Total Providers"
+					label={t("dashboard.stats.totalProviders")}
 					value={providers?.length || 0}
 					icon={PlugZap}
 					accent={accents.providers}
 					loading={providersLoading}
 				/>
 				<StatCard
-					label="Total Models"
+					label={t("dashboard.stats.totalModels")}
 					value={models?.length || 0}
 					icon={Bot}
 					accent={accents.models}
 					loading={modelsLoading}
 				/>
 				<StatCard
-					label={`Requests/${rangeLabel}`}
+					label={t("dashboard.chart.requestsOver", { range: rangeLabel })}
 					value={
 						globalRange === "1h"
 							? stats?.requests_last_1h || 0
@@ -300,33 +318,33 @@ export function Dashboard() {
 					accent={accents.requests}
 					formatter={formatWithCommas}
 					onClick={() => setRequestsModalOpen(true)}
-					tooltip="Click to view request history"
+					tooltip={t("dashboard.gauge.viewRequestHistory")}
 				/>
 				<StatCard
-					label={`Error Rate/${rangeLabel}`}
+					label={t("dashboard.chart.errorRateOver", { range: rangeLabel })}
 					value={(stats?.error_rate || 0) * 100}
 					decimals={1}
 					suffix="%"
 					icon={AlertTriangle}
 					accent={accents.errors}
 					onClick={() => setErrorModalOpen(true)}
-					tooltip="Click to view error rate history"
+					tooltip={t("dashboard.gauge.viewErrorRateHistory")}
 				/>
 				<StatCard
-					label={`Avg Duration/${rangeLabel}`}
+					label={t("dashboard.chart.avgDurationOver", { range: rangeLabel })}
 					value={(stats?.avg_latency_ms || 0) / 1000}
 					decimals={1}
 					suffix="s"
 					icon={Clock}
 					accent={accents.latency}
 					onClick={() => setLatencyModalOpen(true)}
-					tooltip="Click to view duration history"
+					tooltip={t("dashboard.gauge.viewDurationHistory")}
 				/>
 				<StatCard
 					label={
 						globalMetric === "tokens"
-							? `Total Tokens/${rangeLabel}`
-							: "Avg Tokens/Req"
+							? t("dashboard.stats.totalTokens", { range: rangeLabel })
+							: t("dashboard.stats.avgTokensPerReq")
 					}
 					value={
 						globalMetric === "tokens"
@@ -334,12 +352,16 @@ export function Dashboard() {
 							: stats?.avg_tokens_per_request || 0
 					}
 					decimals={0}
-					suffix={globalMetric === "tokens" ? "" : "T/Rq"}
+					suffix={
+						globalMetric === "tokens"
+							? ""
+							: t("dashboard.label.requestsPerQuery")
+					}
 					icon={globalMetric === "tokens" ? Hash : Target}
 					accent={accents.tokens}
 					formatter={globalMetric === "tokens" ? formatCompact : undefined}
 					onClick={() => setTokensModalOpen(true)}
-					tooltip="Click to view token history"
+					tooltip={t("dashboard.gauge.viewTokenHistory")}
 				/>
 			</div>
 
@@ -354,7 +376,7 @@ export function Dashboard() {
 							metric="Requests"
 							icon={Activity}
 							color={accents.requests}
-							label="Requests"
+							label={t("dashboard.label.requests")}
 							dataKey="total"
 							loading={tsDataLoading}
 						/>
@@ -365,7 +387,7 @@ export function Dashboard() {
 							metric="Tokens"
 							icon={Hash}
 							color={accents.tokens}
-							label="Tokens"
+							label={t("dashboard.label.tokens")}
 							dataKey="tokens"
 							loading={tokenTsDataLoading}
 						/>
@@ -379,7 +401,7 @@ export function Dashboard() {
 							metric="Tokens"
 							icon={Hash}
 							color={accents.tokens}
-							label="Tokens"
+							label={t("dashboard.label.tokens")}
 							dataKey="tokens"
 							loading={tokenTsDataLoading}
 						/>
@@ -390,7 +412,7 @@ export function Dashboard() {
 							metric="Requests"
 							icon={Activity}
 							color={accents.requests}
-							label="Requests"
+							label={t("dashboard.label.requests")}
 							dataKey="total"
 							loading={tsDataLoading}
 						/>
@@ -424,7 +446,7 @@ export function Dashboard() {
 			{/* Bottom row: three usage panels with horizontal bars */}
 			<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 				<UsageBarPanel
-					title="Top Models"
+					title={t("dashboard.models.top")}
 					icon={ArrowUpRight}
 					entries={byModel}
 					range={modelsRange}
@@ -435,7 +457,7 @@ export function Dashboard() {
 					onEntryClick={handleModelClick}
 				/>
 				<UsageBarPanel
-					title="Top Providers"
+					title={t("dashboard.providers.top")}
 					icon={ArrowUpRight}
 					entries={byProvider}
 					range={providersRange}
@@ -445,7 +467,7 @@ export function Dashboard() {
 					loading={providersUsageLoading}
 				/>
 				<UsageBarPanel
-					title="Top Virtual Keys"
+					title={t("dashboard.virtualKeys.top")}
 					icon={ArrowUpRight}
 					entries={byVK}
 					range={virtualKeysRange}
@@ -459,75 +481,75 @@ export function Dashboard() {
 			<GaugeModal
 				open={overheadModalOpen}
 				onClose={() => setOverheadModalOpen(false)}
-				title="Avg Overhead"
-				metric="Overhead"
+				title={t("dashboard.modal.avgOverhead")}
+				metric={t("dashboard.gauge.modal.overheadMetric")}
 				icon={Clock}
 				color={accents.overhead}
 				dataKey="overhead_ms"
-				label="ms"
+				label={t("dashboard.gauge.modal.overheadLabel")}
 			/>
 			<GaugeModal
 				open={errorModalOpen}
 				onClose={() => setErrorModalOpen(false)}
-				title="Error Rate"
+				title={t("dashboard.modal.errorRate")}
 				metric="Errors"
 				icon={AlertTriangle}
 				color={accents.errors}
 				dataKey="errors"
-				label="errors"
+				label={t("dashboard.label.errors")}
 			/>
 			<GaugeModal
 				open={latencyModalOpen}
 				onClose={() => setLatencyModalOpen(false)}
-				title="Avg Duration"
-				metric="Duration"
+				title={t("dashboard.modal.avgDuration")}
+				metric={t("dashboard.gauge.modal.durationMetric")}
 				icon={Timer}
 				color={accents.latency}
 				dataKey="latency"
-				label="seconds"
+				label={t("dashboard.label.seconds")}
 			/>
 			<GaugeModal
 				open={requestsModalOpen}
 				onClose={() => setRequestsModalOpen(false)}
-				title="Requests"
-				metric="Requests"
+				title={t("dashboard.modal.requests")}
+				metric={t("dashboard.gauge.modal.requestsMetric")}
 				icon={Activity}
 				color={accents.requests}
 				dataKey="total"
-				label="requests"
+				label={t("dashboard.gauge.modal.requestsLabel")}
 				allowDecimals={false}
 			/>
 			<GaugeModal
 				open={ttftModalOpen}
 				onClose={() => setTtftModalOpen(false)}
-				title="Avg TTFT"
-				metric="TTFT"
+				title={t("dashboard.modal.avgTtft")}
+				metric={t("dashboard.gauge.modal.ttftMetric")}
 				icon={GaugeIcon}
 				color={accents.latency}
 				dataKey="avg_ttft_ms"
-				label="seconds"
+				label={t("dashboard.label.seconds")}
 				scale={0.001}
 			/>
 			<GaugeModal
 				open={rateLimitModalOpen}
 				onClose={() => setRateLimitModalOpen(false)}
-				title="Rate Limit Hits"
-				metric="Rate Limit Hits"
+				title={t("dashboard.modal.rateLimitHits")}
+				metric={t("dashboard.gauge.modal.rateLimitHitsMetric")}
 				icon={ShieldAlert}
 				color="#a855f7"
 				dataKey="rate_limit_hits"
-				label="hits"
+				label={t("dashboard.gauge.modal.rateLimitHitsLabel")}
 				allowDecimals={false}
 			/>
 			<GaugeModal
 				open={tokensModalOpen}
 				onClose={() => setTokensModalOpen(false)}
-				title="Avg Tokens"
-				metric="Tokens"
+				title={t("dashboard.modal.avgTokens")}
+				metric={t("dashboard.gauge.modal.tokensMetric")}
 				icon={Hash}
 				color={accents.tokens}
 				dataKey="tokens"
-				label="tokens"
+				label={t("dashboard.gauge.modal.tokensLabel")}
 				allowDecimals={false}
 			/>
 

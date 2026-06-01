@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../../test/utils";
@@ -172,7 +172,11 @@ describe("AppearanceSettings", () => {
 			await waitFor(() => {
 				expect(screen.getByText("Pick a Color")).toBeInTheDocument();
 			});
-			const cancelButton = screen.getByRole("button", { name: "Cancel" });
+			// Scope to the modal dialog to avoid finding other Cancel buttons
+			const modal = screen.getByRole("dialog");
+			const cancelButton = within(modal).getByRole("button", {
+				name: "Cancel",
+			});
 			await user.click(cancelButton);
 			expect(screen.queryByText("Pick a Color")).not.toBeInTheDocument();
 		});
@@ -187,7 +191,9 @@ describe("AppearanceSettings", () => {
 			await waitFor(() => {
 				expect(screen.getByText("Pick a Color")).toBeInTheDocument();
 			});
-			const applyButton = screen.getByRole("button", { name: "Apply" });
+			// Scope to the modal dialog
+			const modal = screen.getByRole("dialog");
+			const applyButton = within(modal).getByRole("button", { name: "Apply" });
 			await user.click(applyButton);
 			expect(screen.queryByText("Pick a Color")).not.toBeInTheDocument();
 		});
@@ -207,8 +213,9 @@ describe("AppearanceSettings", () => {
 			const hexInput = screen.getByRole("textbox");
 			await user.clear(hexInput);
 			await user.type(hexInput, "ff00ff"); // Magenta, not a preset
-			// Click Apply to apply the custom color
-			const applyButton = screen.getByRole("button", { name: "Apply" });
+			// Click Apply to apply the custom color (scope to modal)
+			const modal = screen.getByRole("dialog");
+			const applyButton = within(modal).getByRole("button", { name: "Apply" });
 			await user.click(applyButton);
 			// Modal should close
 			expect(screen.queryByText("Pick a Color")).not.toBeInTheDocument();

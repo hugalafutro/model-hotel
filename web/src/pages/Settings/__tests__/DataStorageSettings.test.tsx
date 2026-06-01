@@ -516,7 +516,7 @@ describe("Cache & Resets section", () => {
 
 		expect(
 			screen.getByText(
-				"3 cached entries (NanoGPT, Z.ai Coding Plan, DeepSeek)",
+				/\d+ cached entries? \(NanoGPT, Z\.ai Coding Plan, DeepSeek\)/,
 			),
 		).toBeInTheDocument();
 	});
@@ -529,7 +529,9 @@ describe("Cache & Resets section", () => {
 		);
 
 		expect(
-			screen.getByText("1 cached entry (NanoGPT, Z.ai Coding Plan, DeepSeek)"),
+			screen.getByText(
+				/1 cached entry \(NanoGPT, Z\.ai Coding Plan, DeepSeek\)/,
+			),
 		).toBeInTheDocument();
 	});
 

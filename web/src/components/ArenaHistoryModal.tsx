@@ -11,6 +11,7 @@ import {
 	Trophy,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { PaginationBar } from "../components/DataTable";
 import { Modal } from "../components/Modal";
 import { ARENA_PROMPTS, CHAT_PERSONAS } from "../data/presets";
@@ -19,7 +20,6 @@ import {
 	clearArenaHistory,
 	deleteArenaHistoryEntry,
 	getArenaHistory,
-	getArenaHistoryCount,
 	type HistoryBracketRound,
 	type HistoryMatchup,
 	type HistoryMode,
@@ -34,12 +34,19 @@ interface ArenaHistoryModalProps {
 // FilterMode mirrors the HistoryMode values plus "all"
 type FilterMode = "all" | HistoryMode;
 
-function roundLabel(roundIdx: number, totalRounds: number): string {
-	if (totalRounds === 1) return "Match";
-	if (roundIdx === totalRounds - 1) return "Final";
-	if (roundIdx === totalRounds - 2) return "Semifinals";
-	if (roundIdx === totalRounds - 3) return "Quarterfinals";
-	return `Round ${roundIdx + 1}`;
+function roundLabel(
+	roundIdx: number,
+	totalRounds: number,
+	t: (key: string, params?: Record<string, unknown>) => string,
+): string {
+	if (totalRounds === 1) return t("components.arenaHistoryModal.match");
+	if (totalRounds - 1 === roundIdx)
+		return t("components.arenaHistoryModal.final");
+	if (totalRounds - 2 === roundIdx)
+		return t("components.arenaHistoryModal.semifinals");
+	if (totalRounds - 3 === roundIdx)
+		return t("components.arenaHistoryModal.quarterfinals");
+	return t("components.arenaHistoryModal.round", { number: roundIdx + 1 });
 }
 
 function shortModelName(modelId: string): string {
@@ -81,6 +88,7 @@ export function ArenaHistoryModal({
 	onClose,
 	onRestore,
 }: ArenaHistoryModalProps) {
+	const { t } = useTranslation();
 	const [entries, setEntries] = useState<ArenaHistoryEntry[]>(() =>
 		getArenaHistory(),
 	);
@@ -147,9 +155,21 @@ export function ArenaHistoryModal({
 		value: FilterMode;
 		icon: typeof Swords;
 	}[] = [
-		{ label: "All", value: "all", icon: Filter },
-		{ label: "Competition", value: "competition", icon: Swords },
-		{ label: "Compare", value: "compare", icon: Columns3 },
+		{
+			label: t("components.arenaHistoryModal.all"),
+			value: "all",
+			icon: Filter,
+		},
+		{
+			label: t("components.arenaHistoryModal.competition"),
+			value: "competition",
+			icon: Swords,
+		},
+		{
+			label: t("components.arenaHistoryModal.compare"),
+			value: "compare",
+			icon: Columns3,
+		},
 	];
 
 	const renderCompetitionDetail = (entry: ArenaHistoryEntry) => {
@@ -161,7 +181,7 @@ export function ArenaHistoryModal({
 					// biome-ignore lint/suspicious/noArrayIndexKey: tournament rounds have no stable unique id
 					<div key={`${entry.id}-round-${rIdx}`}>
 						<h5 className="text-xs font-semibold text-(--text-secondary) uppercase tracking-wider mb-1.5">
-							{roundLabel(rIdx, entry.rounds?.length ?? 0)}
+							{roundLabel(rIdx, entry.rounds?.length ?? 0, t)}
 						</h5>
 						<div className="space-y-1.5">
 							{round.matchups.map((mu: HistoryMatchup) => {
@@ -195,7 +215,9 @@ export function ArenaHistoryModal({
 											)}
 											{aName}
 										</span>
-										<span className="text-(--text-tertiary)">vs</span>
+										<span className="text-(--text-tertiary)">
+											{t("components.arenaHistoryModal.vs")}
+										</span>
 										<span
 											className={`flex-1 truncate text-right ${
 												bIsWinner
@@ -222,7 +244,9 @@ export function ArenaHistoryModal({
 					<div className="flex items-center gap-2 mt-2 px-2 py-1.5 rounded bg-(--accent)/10 border border-(--accent)/30">
 						<Trophy size={14} className="text-(--accent)" />
 						<span className="text-xs font-semibold text-(--accent)">
-							Winner: {shortModelName(entry.winner)}
+							{t("components.arenaHistoryModal.winner", {
+								name: shortModelName(entry.winner),
+							})}
 						</span>
 					</div>
 				)}
@@ -239,8 +263,9 @@ export function ArenaHistoryModal({
 		return (
 			<div className="mt-3 space-y-2">
 				<span className="text-xs text-(--text-tertiary)">
-					{responses.length} response
-					{responses.length !== 1 ? "s" : ""}
+					{t("components.arenaHistoryModal.response", {
+						count: responses.length,
+					})}
 				</span>
 				{responses.map((resp: HistoryResponse) => {
 					const modelName = shortModelName(resp.modelId);
@@ -267,7 +292,9 @@ export function ArenaHistoryModal({
 							</div>
 							{resp.error ? (
 								<p className="text-xs text-red-400 truncate">
-									Error: {resp.error}
+									{t("components.arenaHistoryModal.error", {
+										message: resp.error,
+									})}
 								</p>
 							) : (
 								<div className="max-h-40 overflow-y-auto text-xs text-(--text-tertiary) whitespace-pre-wrap wrap-break-word pr-1">
@@ -292,17 +319,17 @@ export function ArenaHistoryModal({
 					{preset ? (
 						<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-(--accent)/10 text-(--accent) border border-(--accent)/20">
 							<span>{preset.icon}</span>
-							{preset.label}
+							{t(preset.label)}
 						</span>
 					) : (
 						<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-(--surface) text-(--text-tertiary) border border-(--border-subtle)">
-							Custom prompt
+							{t("components.arenaHistoryModal.customPrompt")}
 						</span>
 					)}
 					{persona && (
 						<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-(--accent)/10 text-(--accent) border border-(--accent)/20">
 							<span>{persona.icon}</span>
-							{persona.label}
+							{t(persona.label)}
 						</span>
 					)}
 				</div>
@@ -320,7 +347,7 @@ export function ArenaHistoryModal({
 							onClick={() => handleRestore(entry)}
 							className="ui-btn ui-btn-secondary text-xs px-2 py-1"
 						>
-							Restore Setup
+							{t("components.arenaHistoryModal.restoreSetup")}
 						</button>
 					)}
 					<button
@@ -329,7 +356,7 @@ export function ArenaHistoryModal({
 						className="ui-btn ui-btn-danger text-xs px-2 py-1 ml-auto flex items-center gap-1"
 					>
 						<Trash2 size={12} />
-						Delete
+						{t("common.delete")}
 					</button>
 				</div>
 			</div>
@@ -340,7 +367,7 @@ export function ArenaHistoryModal({
 		<div className="flex items-center gap-3 mb-4">
 			<h2 className="text-xl font-bold text-white flex items-center gap-2">
 				<History size={20} className="text-(--accent)" />
-				Match History
+				{t("components.arenaHistoryModal.matchHistory")}
 			</h2>
 			<div className="flex items-center gap-1 ml-2">
 				{filterButtons.map(({ label, value, icon: Icon }) => (
@@ -377,9 +404,11 @@ export function ArenaHistoryModal({
 			{filteredEntries.length === 0 ? (
 				<div className="flex flex-col items-center justify-center py-12">
 					<History size={48} className="text-(--text-tertiary) mx-auto mb-4" />
-					<p className="text-(--text-tertiary)">No match history yet</p>
+					<p className="text-(--text-tertiary)">
+						{t("components.arenaHistoryModal.noMatchHistory")}
+					</p>
 					<p className="text-(--text-tertiary) text-xs mt-1">
-						Completed arena and compare sessions will appear here
+						{t("components.arenaHistoryModal.completedSessionsHere")}
 					</p>
 				</div>
 			) : (
@@ -431,15 +460,15 @@ export function ArenaHistoryModal({
 																return names.join(" vs ");
 															})
 															.join(" · ")
-													: "Bracket"
+													: t("components.arenaHistoryModal.bracket")
 												: entry.compareModels
 													? entry.compareModels.map(shortModelName).join(", ")
-													: "Compare"}
+													: t("components.arenaHistoryModal.compare")}
 										</span>
 										<div className="flex items-center gap-1">
 											{preset && (
 												<span className="text-[10px] text-(--text-tertiary)">
-													{preset.icon} {preset.label}
+													{preset.icon} {t(preset.label)}
 												</span>
 											)}
 										</div>
@@ -455,7 +484,9 @@ export function ArenaHistoryModal({
 										)}
 										{entry.mode === "compare" && entry.compareResponses && (
 											<span className="text-xs text-(--text-tertiary)">
-												{entry.compareResponses.length} resp.
+												{t("components.arenaHistoryModal.responsesAbbrev", {
+													count: entry.compareResponses.length,
+												})}
 											</span>
 										)}
 										{isExpanded ? (
@@ -513,11 +544,14 @@ export function ArenaHistoryModal({
 					}`}
 				>
 					<Trash2 size={12} />
-					{confirmClear ? "Click again to confirm" : "Clear All History"}
+					{confirmClear
+						? t("components.arenaHistoryModal.clickAgainToConfirm")
+						: t("components.arenaHistoryModal.clearAllHistory")}
 				</button>
 				<span className="text-xs text-(--text-tertiary)">
-					{getArenaHistoryCount()} entr
-					{entries.length === 1 ? "y" : "ies"}
+					{t("components.arenaHistoryModal.entries", {
+						count: entries.length,
+					})}
 				</span>
 			</div>
 		</Modal>

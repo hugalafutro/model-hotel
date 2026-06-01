@@ -13,6 +13,7 @@ import {
 	Users,
 	X,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ActionIconButton } from "../components/ActionIconButton";
 import { CollapsibleToggle } from "../components/CollapsibleToggle";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -28,6 +29,7 @@ import { ChatMessageList } from "./Chat/ChatMessageList";
 import { useChat } from "./Chat/useChat";
 
 export function Chat() {
+	const { t } = useTranslation();
 	const chat = useChat();
 
 	return (
@@ -37,11 +39,15 @@ export function Chat() {
 			{/* Header */}
 			<PageHeader
 				icon={chat.chatIcon}
-				title={chat.chatSubMode === "chat" ? "Chat" : "Conversation"}
+				title={
+					chat.chatSubMode === "chat"
+						? t("chat.misc.titleChat")
+						: t("chat.misc.titleConversation")
+				}
 				description={
 					chat.chatSubMode === "chat"
-						? "Test enabled models in temporary chat"
-						: "Watch two models converse with each other"
+						? t("chat.misc.descriptionChat")
+						: t("chat.misc.descriptionConversation")
 				}
 			/>
 
@@ -50,18 +56,18 @@ export function Chat() {
 				<div className="flex items-center justify-between">
 					<div className="flex items-center gap-3">
 						<span className="text-sm font-semibold text-(--text-primary)">
-							Controls
+							{t("chat.controls.title")}
 						</span>
 						<SubModeToggle
 							options={[
 								{
 									value: "chat" as const,
-									label: "Chat with AI",
+									label: t("chat.chatWithAi"),
 									icon: MessageSquare,
 								},
 								{
 									value: "conversation" as const,
-									label: "AI Conversation",
+									label: t("chat.aiConversation"),
 									icon: Users,
 								},
 							]}
@@ -89,7 +95,7 @@ export function Chat() {
 											chat.setControlsCollapsed(false);
 											chat.handleStop();
 										}}
-										title="Stop"
+										title={t("chat.controls.stop")}
 										color="red"
 									/>
 								)}
@@ -109,12 +115,12 @@ export function Chat() {
 											chat.setIsStreaming(false);
 											chat.toast(
 												chat.chatSubMode === "chat"
-													? "Chat cleared"
-													: "Conversation cleared",
+													? t("chat.toast.chatCleared")
+													: t("chat.toast.conversationCleared"),
 												"info",
 											);
 										}}
-										title="Clear messages (keep model & settings)"
+										title={t("chat.controls.clearMessages")}
 										color="amber"
 										pulse={
 											chat.chatSubMode === "conversation" &&
@@ -127,7 +133,7 @@ export function Chat() {
 								<ActionIconButton
 									icon={RotateCcw}
 									onClick={() => chat.setPendingFullReset(true)}
-									title="Reset all (clear model & settings)"
+									title={t("chat.controls.resetAll")}
 									color="red"
 								/>
 							</>
@@ -170,7 +176,7 @@ export function Chat() {
 											htmlFor="model-a-picker"
 											className="text-sm font-semibold text-(--accent) mb-2 block"
 										>
-											Model A
+											{t("chat.controls.modelA")}
 										</label>
 										<ModelPicker
 											id="model-a-picker"
@@ -189,7 +195,7 @@ export function Chat() {
 												onActivePersonaChange={chat.setActivePersonaId}
 												onSystemPromptChange={chat.setSystemPrompt}
 												onRandom={chat.handleRandomPersona}
-												label="Persona A"
+												label={t("chat.controls.personaA")}
 												disabled={chat.conversationState === "running"}
 											/>
 										</div>
@@ -199,7 +205,7 @@ export function Chat() {
 											htmlFor="model-b-picker"
 											className="text-sm font-semibold text-(--accent) mb-2 block"
 										>
-											Model B
+											{t("chat.controls.modelB")}
 										</label>
 										<ModelPicker
 											id="model-b-picker"
@@ -218,7 +224,7 @@ export function Chat() {
 												onActivePersonaChange={chat.setActivePersonaIdB}
 												onSystemPromptChange={chat.setSystemPromptB}
 												onRandom={chat.handleRandomPersonaB}
-												label="Persona B"
+												label={t("chat.controls.personaB")}
 												disabled={chat.conversationState === "running"}
 											/>
 										</div>
@@ -299,7 +305,7 @@ export function Chat() {
 						) : (
 							<div className="ui-card p-4 flex flex-col items-center justify-center text-(--text-tertiary) text-xs">
 								<Bot size={32} strokeWidth={1} className="mb-2 opacity-40" />
-								<p>Select a model</p>
+								<p>{t("chat.placeholder.selectModel")}</p>
 							</div>
 						)
 					) : (
@@ -323,7 +329,7 @@ export function Chat() {
 							) : (
 								<div className="ui-card p-3 flex items-center justify-center text-(--text-tertiary) text-xs">
 									<Bot size={20} className="mr-2 opacity-40" />
-									Select Model A
+									{t("chat.placeholder.selectModelA")}
 								</div>
 							)}
 							{chat.selectedModelObjB ? (
@@ -345,7 +351,7 @@ export function Chat() {
 							) : (
 								<div className="ui-card p-3 flex items-center justify-center text-(--text-tertiary) text-xs">
 									<Bot size={20} className="mr-2 opacity-40" />
-									Select Model B
+									{t("chat.placeholder.selectModelB")}
 								</div>
 							)}
 						</>
@@ -381,8 +387,8 @@ export function Chat() {
 							)}
 							<p>
 								{chat.chatSubMode === "chat"
-									? "Chat will appear here"
-									: "Conversation will appear here"}
+									? t("chat.message.emptyChat")
+									: t("chat.message.emptyConversation")}
 							</p>
 						</div>
 					)}
@@ -422,8 +428,8 @@ export function Chat() {
 											type="button"
 											onClick={() => chat.setPendingImage(null)}
 											className="absolute -top-1.5 -right-1.5 bg-red-500/90 hover:bg-red-400 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] leading-none cursor-pointer"
-											title="Remove image"
-											aria-label="Remove image"
+											title={t("chat.aria.removeImage")}
+											aria-label={t("chat.aria.removeImage")}
 										>
 											×
 										</button>
@@ -439,8 +445,8 @@ export function Chat() {
 											type="button"
 											onClick={() => chat.setPendingAudio(null)}
 											className="text-red-400 hover:text-red-300 cursor-pointer ml-0.5"
-											title="Remove audio"
-											aria-label="Remove audio"
+											title={t("chat.aria.removeAudio")}
+											aria-label={t("chat.aria.removeAudio")}
 										>
 											×
 										</button>
@@ -460,7 +466,7 @@ export function Chat() {
 												accept="image/*"
 												className="hidden"
 												onChange={chat.handleImageSelect}
-												aria-label="Upload image"
+												aria-label={t("chat.aria.uploadImage")}
 											/>
 											<button
 												type="button"
@@ -470,8 +476,8 @@ export function Chat() {
 														? "bg-(--accent)/20 text-(--accent)"
 														: "text-(--text-tertiary) hover:text-(--text-secondary) hover:bg-(--surface)"
 												}`}
-												title="Attach image"
-												aria-label="Attach image"
+												title={t("chat.aria.attachImage")}
+												aria-label={t("chat.aria.attachImage")}
 											>
 												<ImageIcon size={18} />
 											</button>
@@ -485,7 +491,7 @@ export function Chat() {
 												accept="audio/*"
 												className="hidden"
 												onChange={chat.handleAudioSelect}
-												aria-label="Upload audio"
+												aria-label={t("chat.aria.uploadAudio")}
 											/>
 											<button
 												type="button"
@@ -495,8 +501,8 @@ export function Chat() {
 														? "bg-(--accent)/20 text-(--accent)"
 														: "text-(--text-tertiary) hover:text-(--text-secondary) hover:bg-(--surface)"
 												}`}
-												title="Attach audio"
-												aria-label="Attach audio"
+												title={t("chat.aria.attachAudio")}
+												aria-label={t("chat.aria.attachAudio")}
 											>
 												<Mic size={18} />
 											</button>
@@ -518,20 +524,20 @@ export function Chat() {
 								onPaste={chat.handlePaste}
 								placeholder={
 									!chat.selectedModel
-										? "Select a model first"
+										? t("chat.placeholder.selectModelFirst")
 										: chat.hasVision
-											? "Type a message (or paste an image)…"
-											: "Type a message…"
+											? t("chat.placeholder.messageWithImage")
+											: t("chat.placeholder.message")
 								}
 								disabled={!chat.selectedModel || chat.isStreaming}
 								title={
 									!chat.selectedModel
-										? "Select a model first"
+										? t("chat.placeholder.selectModelFirst")
 										: chat.isStreaming
-											? "Generating…"
+											? t("chat.controls.generating")
 											: undefined
 								}
-								aria-label="Chat message input"
+								aria-label={t("chat.aria.messageInput")}
 								rows={1}
 								maxLength={32000}
 								className="flex-1 ui-input resize-none max-h-32 min-h-11 overflow-y-auto"
@@ -553,10 +559,10 @@ export function Chat() {
 								disabled={!chat.selectedModel}
 								title={
 									!chat.selectedModel
-										? "Select a model first"
+										? t("chat.placeholder.selectModelFirst")
 										: chat.isStreaming
 											? ""
-											: "Send message"
+											: t("chat.controls.sendMessage")
 								}
 								className={`ui-btn flex items-center gap-2 shrink-0 ${
 									chat.isStreaming ? "ui-btn-danger" : "ui-btn-primary"
@@ -565,29 +571,34 @@ export function Chat() {
 								{chat.isStreaming ? (
 									<>
 										<X size={16} />
-										Stop
+										{t("chat.controls.stop")}
 									</>
 								) : (
 									<>
 										<Send size={16} />
-										Send
+										{t("chat.controls.send")}
 									</>
 								)}
 							</button>
 						</div>
 						{!chat.selectedModel && !chat.isStreaming ? (
 							<p className="text-xs text-amber-400">
-								Select a model to start chatting
+								{t("chat.misc.selectModelToStart")}
 							</p>
 						) : chat.lastChatError ? (
 							<p className="text-xs text-red-400">
 								{chat.lastChatError.model
-									? `${chat.lastChatError.model.split("/").pop()}: ${chat.lastChatError.error} - try Regenerate`
-									: `${chat.lastChatError.error} - try Regenerate or pick a model`}
+									? t("chat.modelError", {
+											model: chat.lastChatError.model.split("/").pop(),
+											error: chat.lastChatError.error,
+										})
+									: t("chat.generalError", {
+											error: chat.lastChatError.error,
+										})}
 							</p>
 						) : (
 							<p className="text-xs text-(--text-muted)">
-								Press Enter to send, Shift+Enter for newline
+								{t("chat.misc.keyboardHint")}
 							</p>
 						)}
 					</div>
@@ -604,7 +615,10 @@ export function Chat() {
 								<div className="flex items-center gap-4 text-sm text-(--text-secondary)">
 									<span className="flex items-center gap-1.5">
 										<Gauge size={14} />
-										Turn {Math.ceil(chat.currentTurn / 2)} / {chat.maxTurns}
+										{t("chat.misc.turnCount", {
+											current: Math.ceil(chat.currentTurn / 2),
+											max: chat.maxTurns,
+										})}
 									</span>
 									<span className="flex items-center gap-1.5">
 										<Timer size={14} />
@@ -612,7 +626,7 @@ export function Chat() {
 									</span>
 									<span className="flex items-center gap-1.5">
 										<Bot size={14} />
-										{chat.totalTokens} tokens
+										{chat.totalTokens} {t("chat.misc.tokens")}
 									</span>
 								</div>
 								<div className="flex items-center gap-2">
@@ -623,10 +637,10 @@ export function Chat() {
 												chat.setControlsCollapsed(false);
 												chat.handleStopConversation();
 											}}
-											title="Stop"
+											title={t("chat.controls.stop")}
 											color="red"
 											size={16}
-											label="Stop"
+											label={t("chat.controls.stop")}
 											withLabel
 										/>
 									)}
@@ -641,22 +655,22 @@ export function Chat() {
 												chat.setCurrentTurn(0);
 												chat.setTurnCountdown(0);
 												chat.setIsStreaming(false);
-												chat.toast("Conversation cleared", "info");
+												chat.toast(t("chat.toast.conversationCleared"), "info");
 											}}
-											title="Clear"
+											title={t("chat.controls.clear")}
 											color="amber"
 											size={16}
-											label="Clear"
+											label={t("chat.controls.clear")}
 											withLabel
 										/>
 									)}
 									<ActionIconButton
 										icon={RotateCcw}
 										onClick={() => chat.setPendingFullReset(true)}
-										title="Reset All"
+										title={t("chat.controls.resetAll")}
 										color="red"
 										size={16}
-										label="Reset All"
+										label={t("chat.controls.resetAll")}
 										withLabel
 									/>
 								</div>
@@ -665,8 +679,8 @@ export function Chat() {
 								<div className="flex items-center gap-2 text-xs text-(--text-muted)">
 									<span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse" />
 									{chat.isStreaming
-										? "Model is generating…"
-										: "Waiting for next turn…"}
+										? t("chat.misc.modelGenerating")
+										: t("chat.misc.waitingNextTurn")}
 								</div>
 							)}
 							{chat.conversationState === "error" && (
@@ -677,9 +691,13 @@ export function Chat() {
 											.reverse()
 											.find((m) => m.error);
 										const modelPart = lastErr?.model
-											? `${lastErr.model.split("/").pop()}: `
+											? lastErr.model.split("/").pop()
 											: "";
-										return `${modelPart}Generation failed - use Retry in config above, or Clear/Reset below`;
+										return modelPart
+											? t("chat.misc.generationFailed", {
+													model: modelPart,
+												})
+											: t("chat.misc.generationFailedNoModel");
 									})()}
 								</div>
 							)}
@@ -690,15 +708,17 @@ export function Chat() {
 			{chat.pendingFullReset && (
 				<ConfirmDialog
 					title={
-						chat.chatSubMode === "chat" ? "Reset Chat" : "Reset Conversation"
+						chat.chatSubMode === "chat"
+							? t("chat.misc.resetChatTitle")
+							: t("chat.misc.resetConversationTitle")
 					}
 					message={
 						chat.chatSubMode === "chat"
-							? "This will clear all messages, reset model selection, persona, and parameters. Continue?"
-							: "This will clear the conversation and reset both models, personas, and parameters. Continue?"
+							? t("chat.misc.resetChatMessage")
+							: t("chat.misc.resetConversationMessage")
 					}
 					fields={[]}
-					confirmLabel="Reset All"
+					confirmLabel={t("chat.misc.resetAllConfirm")}
 					onConfirm={() => {
 						// Abort any running conversation
 						chat.clearConversationAbort();
@@ -727,7 +747,9 @@ export function Chat() {
 						}
 						chat.setPendingFullReset(false);
 						chat.toast(
-							chat.chatSubMode === "chat" ? "Chat reset" : "Conversation reset",
+							chat.chatSubMode === "chat"
+								? t("chat.toast.chatReset")
+								: t("chat.toast.conversationReset"),
 							"info",
 						);
 					}}

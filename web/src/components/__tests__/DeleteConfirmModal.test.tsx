@@ -21,7 +21,7 @@ describe("DeleteConfirmModal", () => {
 			/>,
 		);
 
-		expect(screen.getByText("Test Provider")).toBeInTheDocument();
+		expect(screen.getByText(/Test Provider/)).toBeInTheDocument();
 	});
 
 	it("renders with default title when entityType not provided", () => {

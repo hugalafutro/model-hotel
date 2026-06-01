@@ -26,7 +26,7 @@ describe("Layout", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
 			expect(
-				screen.getByText('"Because we have LiteLLM at home"'),
+				screen.getByText(/Because we have LiteLLM at home/),
 			).toBeInTheDocument();
 		});
 
@@ -262,8 +262,14 @@ describe("Layout", () => {
 				await user.click(logoutButton);
 			}
 
-			const confirmButton = screen.getByText("Log out");
-			await user.click(confirmButton);
+			// Find logout confirm button in the dialog
+			const confirmButton = screen
+				.getByRole("dialog")
+				.querySelector("button.ui-btn-danger");
+			expect(confirmButton).toBeInTheDocument();
+			if (confirmButton) {
+				await user.click(confirmButton);
+			}
 
 			expect(localStorage.getItem("adminToken")).toBeNull();
 
@@ -466,8 +472,14 @@ describe("Layout", () => {
 
 			expect(screen.getByText("Log out?")).toBeInTheDocument();
 
-			const confirmButton = screen.getByText("Log out");
-			await user.click(confirmButton);
+			// Find logout confirm button in the dialog
+			const confirmButton = screen
+				.getByRole("dialog")
+				.querySelector("button.ui-btn-danger");
+			expect(confirmButton).toBeInTheDocument();
+			if (confirmButton) {
+				await user.click(confirmButton);
+			}
 
 			expect(localStorage.getItem("adminToken")).toBeNull();
 

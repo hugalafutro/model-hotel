@@ -8,6 +8,7 @@ import {
 	X,
 } from "lucide-react";
 import { type ReactNode, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { ActionIconButton } from "../components/ActionIconButton";
 import { ArenaHistoryModal } from "../components/ArenaHistoryModal";
 import { CollapsibleToggle } from "../components/CollapsibleToggle";
@@ -28,6 +29,7 @@ import { useArena } from "./Arena/useArena";
 import { WinnerSummaryModal } from "./Arena/WinnerSummaryModal";
 
 export function Arena() {
+	const { t } = useTranslation();
 	const arena = useArena();
 
 	const displayNameMap = useMemo(() => {
@@ -74,11 +76,15 @@ export function Arena() {
 			{/* Header */}
 			<PageHeader
 				icon={arena.arenaIcon}
-				title={arena.arenaMode === "competition" ? "Arena" : "Compare"}
+				title={t(
+					arena.arenaMode === "competition"
+						? "arena.title.arena"
+						: "arena.title.compare",
+				)}
 				description={
 					arena.arenaMode === "competition"
-						? "Bracket tournament - models compete head-to-head"
-						: "Side-by-side - compare model outputs on the same prompt"
+						? t("arena.description.arena")
+						: t("arena.description.compare")
 				}
 			/>
 
@@ -87,12 +93,20 @@ export function Arena() {
 				<div className="flex items-center justify-between">
 					<div className="flex items-center gap-3">
 						<span className="text-sm font-semibold text-(--text-primary)">
-							Controls
+							{t("arena.controls.label")}
 						</span>
 						<SubModeToggle
 							options={[
-								{ value: "competition" as const, label: "Arena", icon: Swords },
-								{ value: "compare" as const, label: "Compare", icon: Columns3 },
+								{
+									value: "competition" as const,
+									label: t("arena.mode.arena"),
+									icon: Swords,
+								},
+								{
+									value: "compare" as const,
+									label: t("arena.mode.compare"),
+									icon: Columns3,
+								},
 							]}
 							value={arena.arenaMode}
 							onChange={(v) => {
@@ -106,8 +120,8 @@ export function Arena() {
 							type="button"
 							onClick={() => arena.setShowHistoryModal(true)}
 							className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]"
-							title="Match history"
-							aria-label="Match history"
+							title={t("arena.matchHistory.title")}
+							aria-label={t("arena.matchHistory.title")}
 						>
 							<History size={14} />
 						</button>
@@ -135,9 +149,9 @@ export function Arena() {
 											arena.setRunningModels(new Set());
 											arena.setWinnerModal(null);
 											arena.setDisabledModels(new Set());
-											arena.toast("Arena cleared", "info");
+											arena.toast(t("arena.toast.cleared"), "info");
 										}}
-										title="Clear results (keep models & prompt)"
+										title={t("arena.clearResults.title")}
 										color="amber"
 										pulse={
 											arena.phase === "finished" || arena.phase === "voting"
@@ -148,7 +162,7 @@ export function Arena() {
 								<ActionIconButton
 									icon={RotateCcw}
 									onClick={() => arena.setPendingFullReset(true)}
-									title="Reset all (clear models & prompt)"
+									title={t("arena.resetAll.title")}
 									color="red"
 								/>
 							</>
@@ -172,10 +186,12 @@ export function Arena() {
 										htmlFor="bracket-models-picker"
 										className="text-sm font-semibold text-(--accent) mb-2 block"
 									>
-										Models ({arena.bracketModels.length}/8)
+										{t("arena.models.bracketCount", {
+											count: arena.bracketModels.length,
+										})}
 										<span className="text-(--text-tertiary)">
 											{" "}
-											Pick 2, 4, or 8 for a bracket
+											{t("arena.models.bracketHint")}
 										</span>
 									</label>
 									<ModelPicker
@@ -200,7 +216,9 @@ export function Arena() {
 											htmlFor="compare-models-picker"
 											className="text-sm font-semibold text-(--accent) mb-2 block"
 										>
-											Models ({arena.compareModels.length}/6)
+											{t("arena.models.compareCount", {
+												count: arena.compareModels.length,
+											})}
 										</label>
 										<ModelPicker
 											id="compare-models-picker"
@@ -224,7 +242,9 @@ export function Arena() {
 											onActivePersonaChange={arena.setComparePersonaId}
 											onSystemPromptChange={arena.setComparePersonaPrompt}
 											onRandom={arena.handleRandomComparePersona}
-											textareaPlaceholder="Optional system prompt applied to all models…"
+											textareaPlaceholder={t(
+												"arena.persona.textareaPlaceholder",
+											)}
 										/>
 									</div>
 								</div>
@@ -259,7 +279,7 @@ export function Arena() {
 						<div className="flex flex-col gap-2 flex-1 min-w-0">
 							<div className="flex items-center gap-2">
 								<div className="text-xs text-(--text-tertiary) font-medium uppercase tracking-wider whitespace-nowrap">
-									First Round
+									{t("arena.round.firstRound")}
 								</div>
 								<div className="flex items-center gap-2 flex-wrap">
 									{arena.previewPairs.map((p, i) => (
@@ -274,7 +294,7 @@ export function Arena() {
 												isTbd={p.a === ""}
 											/>
 											<span className="text-(--accent) font-bold text-xs px-1">
-												VS
+												{t("arena.vs")}
 											</span>
 											<BracketPreviewPill
 												modelId={p.b}
@@ -354,7 +374,7 @@ export function Arena() {
 													{mu.slotB !== null && (
 														<>
 															<span className="text-(--accent) font-bold text-xs px-1">
-																VS
+																{t("arena.vs")}
 															</span>
 															<MatchupCard
 																slot={mu.slotB}
@@ -420,7 +440,7 @@ export function Arena() {
 								msg = (
 									<>
 										<span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse inline-block mr-1.5 align-middle" />
-										Models are generating - click Stop to cancel
+										{t("arena.status.generating")}
 									</>
 								);
 							} else if (
@@ -429,9 +449,9 @@ export function Arena() {
 									(m) => m.vote !== null,
 								)
 							) {
-								msg = "Vote on all matchups to continue to the next round";
+								msg = t("arena.status.voteToContinue");
 							} else if (arena.phase === "next_round_ready" && !arena.canRun) {
-								msg = arena.disabledReason || "Start the next round when ready";
+								msg = arena.disabledReason || t("arena.status.nextRoundReady");
 							}
 							return (
 								<p
@@ -447,8 +467,8 @@ export function Arena() {
 				{/* Mode Description */}
 				<p className="text-xs text-(--text-tertiary) leading-snug line-clamp-3 mt-3">
 					{arena.arenaMode === "competition"
-						? "Models compete in a single-elimination bracket. Pick 2, 4, or 8 models - each round, pairs face the same prompt and you vote for the better response. Winners advance until one model remains."
-						: "Pick models and run the same prompt through them simultaneously. No voting, no bracket - just pure side-by-side output comparison to evaluate which model best fits your needs."}
+						? t("arena.modeDescription.arena")
+						: t("arena.modeDescription.compare")}
 				</p>
 			</div>
 
@@ -474,7 +494,7 @@ export function Arena() {
 						<div key={`resp-round-${roundIdx}`}>
 							<div className="text-xs text-(--text-tertiary) font-medium uppercase tracking-wider mb-2">
 								{isCompare
-									? "Responses"
+									? t("arena.responses.label")
 									: arena.roundLabel(roundIdx, arena.rounds.length)}
 							</div>
 							<div
@@ -546,7 +566,7 @@ export function Arena() {
 										>
 											{round.matchups.length > 1 && (
 												<div className="text-xs text-(--text-tertiary) font-medium uppercase tracking-wider mb-3 shrink-0">
-													Match {matchupIdx + 1}
+													{t("arena.match.label", { num: matchupIdx + 1 })}
 												</div>
 											)}
 											<div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0">
@@ -653,10 +673,10 @@ export function Arena() {
 
 			{arena.pendingFullReset && (
 				<ConfirmDialog
-					title="Reset All"
-					message="This will clear all models, prompts, personas, and any in-progress results. Continue?"
+					title={t("arena.confirmReset.title")}
+					message={t("arena.confirmReset.message")}
 					fields={[]}
-					confirmLabel="Reset All"
+					confirmLabel={t("arena.confirmReset.confirmLabel")}
 					onConfirm={() => {
 						for (const [, ctrl] of arena.abortMapRef.current) {
 							ctrl.abort();
@@ -689,7 +709,7 @@ export function Arena() {
 						} catch {
 							/* ignore */
 						}
-						arena.toast("Reset", "info");
+						arena.toast(t("arena.toast.reset"), "info");
 					}}
 					onCancel={() => arena.setPendingFullReset(false)}
 				/>

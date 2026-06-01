@@ -100,7 +100,7 @@ describe("Providers", () => {
 			await user.click(discoverAllButton);
 
 			await waitFor(() => {
-				expect(screen.getByText(/Discover all failed:/)).toBeInTheDocument();
+				expect(screen.getByText(/Discovery failed:/)).toBeInTheDocument();
 			});
 		});
 	});
@@ -742,7 +742,7 @@ describe("Providers", () => {
 			// Provider name appears in modal - query within dialog
 			const dialog = screen.getByRole("dialog");
 			expect(
-				within(dialog).getByText("Test Provider", { exact: true }),
+				within(dialog).getByText(/Test Provider/, { exact: false }),
 			).toBeInTheDocument();
 		});
 
@@ -800,7 +800,7 @@ describe("Providers", () => {
 			await waitFor(() => {
 				const dialog = screen.getByRole("dialog");
 				expect(
-					within(dialog).getByText("My Custom Provider"),
+					within(dialog).getByText(/My Custom Provider/),
 				).toBeInTheDocument();
 			});
 		});

@@ -1,5 +1,6 @@
 import { X } from "lucide-react";
 import { memo } from "react";
+import { useTranslation } from "react-i18next";
 
 interface FilterInputProps {
 	value: string;
@@ -14,18 +15,19 @@ interface FilterInputProps {
 export const FilterInput = memo(function FilterInput({
 	value,
 	onChange,
-	placeholder = "Filter…",
+	placeholder,
 	className = "",
 	id,
 	autoFocus,
 	disabled = false,
 }: FilterInputProps) {
+	const { t } = useTranslation();
 	return (
 		<div className={`relative ${className}`}>
 			<input
 				id={id}
 				type="text"
-				placeholder={placeholder}
+				placeholder={placeholder ?? t("components.filterInput.filter")}
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
 				disabled={disabled}
@@ -37,7 +39,7 @@ export const FilterInput = memo(function FilterInput({
 				<button
 					type="button"
 					onClick={() => onChange("")}
-					aria-label="Clear filter"
+					aria-label={t("common.clearFilter")}
 					className="absolute right-2 top-1/2 -translate-y-1/2 text-(--text-tertiary) hover:text-(--text-primary) transition-colors cursor-pointer"
 				>
 					<X size={14} />

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Spinner } from "../../components/Spinner";
 import { MetricToggle, RangeToggle } from "./ToggleGroup";
 import type { MetricType, Range, UsageEntry } from "./types";
@@ -24,6 +25,7 @@ export function UsageBarPanel({
 	/** When provided, entry labels become clickable buttons that invoke this callback */
 	onEntryClick?: (label: string) => void;
 }) {
+	const { t } = useTranslation();
 	const max = entries.length > 0 ? Math.max(...entries.map((e) => e.value)) : 0;
 
 	return (
@@ -45,8 +47,7 @@ export function UsageBarPanel({
 			</div>
 			{entries.length === 0 ? (
 				<p className="text-sm text-(--text-muted) text-center py-8">
-					No usage data yet. Usage breakdown will appear here once traffic
-					flows.
+					{t("dashboard.usage.emptyState")}
 				</p>
 			) : (
 				<div className="space-y-3.5">
@@ -60,8 +61,12 @@ export function UsageBarPanel({
 											type="button"
 											onClick={() => onEntryClick(entry.label)}
 											className="truncate max-w-[70%] text-left cursor-pointer transition-colors hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] text-(--text-secondary)"
-											title={`View details for ${entry.label}`}
-											aria-label={`View details for ${entry.label}`}
+											title={t("dashboard.usage.viewDetailsFor", {
+												label: entry.label,
+											})}
+											aria-label={t("dashboard.usage.viewDetailsFor", {
+												label: entry.label,
+											})}
 										>
 											{entry.label}
 										</button>

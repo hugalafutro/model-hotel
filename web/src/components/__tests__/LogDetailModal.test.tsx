@@ -73,9 +73,10 @@ describe("LogDetailModal", () => {
 				/>,
 			);
 
-			expect(getByDialogName(/Request Details/)).toBeInTheDocument();
+			// Modal uses header prop with h2 containing translated title
+			expect(screen.getByRole("dialog")).toBeInTheDocument();
 			expect(
-				screen.getByRole("dialog", { name: /Request Details/ }),
+				screen.getByRole("heading", { name: "Request Details" }),
 			).toBeInTheDocument();
 		});
 
@@ -482,7 +483,7 @@ describe("LogDetailModal", () => {
 				<LogDetailModal log={mockAppLog} type="app" onClose={onClose} />,
 			);
 
-			expect(getByDialogName(/Log Entry Details/)).toBeInTheDocument();
+			expect(getByDialogName("Log Entry Details")).toBeInTheDocument();
 			expect(
 				screen.getByRole("dialog", { name: /Log Entry Details/ }),
 			).toBeInTheDocument();
@@ -910,8 +911,9 @@ describe("LogDetailModal", () => {
 				<LogDetailModal log={overheadLog} type="request" onClose={onClose} />,
 			);
 
+			// Translated: "Time to read settings from the database" (without "proxy")
 			const tooltip = screen.getByTitle(
-				"Time to read proxy settings from the database",
+				"Time to read settings from the database",
 			);
 			expect(tooltip).toBeInTheDocument();
 			expect(tooltip.querySelector("svg")).toBeInTheDocument();
@@ -991,9 +993,12 @@ describe("LogDetailModal", () => {
 				<LogDetailModal log={failoverLog} type="request" onClose={onClose} />,
 			);
 
-			// Check the "resolved:" text is shown (it's in a span with the resolved model ID)
-			const resolvedLabel = screen.getByText(/resolved:/);
-			expect(resolvedLabel).toBeInTheDocument();
+			// Check the "resolved" text is shown (it's in a span with the resolved model ID)
+			// Use regex since text may be wrapped/broken up by JSX
+			const resolvedSpan = screen.getByText((content) =>
+				content.includes("resolved"),
+			);
+			expect(resolvedSpan).toBeInTheDocument();
 			// Check the resolved model ID is shown in the modal
 			expect(screen.getByText("openai/gpt-4o")).toBeInTheDocument();
 		});
@@ -1008,8 +1013,10 @@ describe("LogDetailModal", () => {
 				<LogDetailModal log={regularLog} type="request" onClose={onClose} />,
 			);
 
-			// Should NOT show the resolved annotation
-			expect(screen.queryByText(/resolved:/)).not.toBeInTheDocument();
+			// Should NOT show the resolved annotation - check for text containing "resolved"
+			expect(
+				screen.queryByText((content) => content.includes("resolved")),
+			).not.toBeInTheDocument();
 		});
 
 		it("does not display (resolved: ...) when resolved_model_id is empty", () => {
@@ -1023,7 +1030,9 @@ describe("LogDetailModal", () => {
 			);
 
 			// Should NOT show the resolved annotation when resolved_model_id is empty
-			expect(screen.queryByText(/resolved:/)).not.toBeInTheDocument();
+			expect(
+				screen.queryByText((content) => content.includes("resolved")),
+			).not.toBeInTheDocument();
 		});
 	});
 

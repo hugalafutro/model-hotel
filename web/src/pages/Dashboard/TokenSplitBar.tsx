@@ -1,4 +1,5 @@
 import { Target } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Spinner } from "../../components/Spinner";
 import { RangeToggle } from "./ToggleGroup";
 import { computeTileSegments } from "./tokenTileUtils";
@@ -25,6 +26,7 @@ export function TokenSplitBar({
 	onRangeChange: (r: Range) => void;
 	loading?: boolean;
 }) {
+	const { t } = useTranslation();
 	const totalPC = prompt + completion;
 	if (totalPC === 0) {
 		return (
@@ -32,13 +34,13 @@ export function TokenSplitBar({
 				<div className="flex items-center justify-between mb-1">
 					<h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
 						<Target size={18} className="text-(--accent)" />
-						Token Mix
+						{t("dashboard.tokens.tokenMix")}
 						{loading && <Spinner className="ml-1" />}
 					</h3>
 					<RangeToggle value={range} onChange={onRangeChange} />
 				</div>
 				<p className="text-sm text-(--text-muted) text-center py-12">
-					No token data yet. Token mix will appear here once traffic flows.
+					{t("dashboard.tokens.noTokenData")}
 				</p>
 			</div>
 		);
@@ -52,7 +54,7 @@ export function TokenSplitBar({
 			<div className="flex items-center justify-between mb-1">
 				<h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
 					<Target size={18} className="text-(--accent)" />
-					Token Mix
+					{t("dashboard.tokens.tokenMix")}
 					{loading && <Spinner className="ml-1" />}
 				</h3>
 				<RangeToggle value={range} onChange={onRangeChange} />
@@ -62,12 +64,17 @@ export function TokenSplitBar({
 				style={{ textTransform: "none" }}
 			>
 				{total.toLocaleString()}{" "}
-				<span className="text-sm font-normal text-(--text-muted)">Tokens</span>
+				<span className="text-sm font-normal text-(--text-muted)">
+					{t("dashboard.tokens.tokens")}
+				</span>
 			</p>
 			<div
 				className="flex gap-0.5 h-6"
 				role="img"
-				aria-label={`Token mix: ${promptPct.toFixed(1)}% prompt, ${completionPct.toFixed(1)}% completion`}
+				aria-label={t("dashboard.tokens.mixAriaLabel", {
+					promptPct: promptPct.toFixed(1),
+					completionPct: completionPct.toFixed(1),
+				})}
 			>
 				{tiles.map((tile, i) => (
 					<div
@@ -83,8 +90,14 @@ export function TokenSplitBar({
 						}}
 						title={
 							tile.type === "prompt"
-								? `Prompt: ${promptPct.toFixed(1)}% (${prompt.toLocaleString()} tokens)`
-								: `Completion: ${completionPct.toFixed(1)}% (${completion.toLocaleString()} tokens)`
+								? t("dashboard.tokens.promptTooltip", {
+										pct: promptPct.toFixed(1),
+										count: prompt,
+									})
+								: t("dashboard.tokens.completionTooltip", {
+										pct: completionPct.toFixed(1),
+										count: completion,
+									})
 						}
 					/>
 				))}
@@ -95,7 +108,9 @@ export function TokenSplitBar({
 						className="w-2 h-2 rounded-full"
 						style={{ backgroundColor: PROMPT_COLOR }}
 					/>
-					<span className="text-(--text-tertiary)">Prompt</span>
+					<span className="text-(--text-tertiary)">
+						{t("dashboard.tokens.prompt")}
+					</span>
 					<span className="font-medium text-(--text-primary) ml-1">
 						{prompt.toLocaleString()}
 					</span>
@@ -108,7 +123,9 @@ export function TokenSplitBar({
 						className="w-2 h-2 rounded-full"
 						style={{ backgroundColor: COMPLETION_COLOR }}
 					/>
-					<span className="text-(--text-tertiary)">Completion</span>
+					<span className="text-(--text-tertiary)">
+						{t("dashboard.tokens.completion")}
+					</span>
 					<span className="font-medium text-(--text-primary) ml-1">
 						{completion.toLocaleString()}
 					</span>

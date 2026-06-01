@@ -28,11 +28,11 @@ describe("VirtualKeys", () => {
 			const { user } = renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("1 Virtual Key")).toBeInTheDocument();
+				expect(screen.getByText("Virtual Keys")).toBeInTheDocument();
 			});
 
 			const createButton = screen.getByRole("button", {
-				name: "+ Create Key",
+				name: "Create Key",
 			});
 			await user.click(createButton);
 
@@ -68,11 +68,11 @@ describe("VirtualKeys", () => {
 			const { user } = renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("1 Virtual Key")).toBeInTheDocument();
+				expect(screen.getByText("Virtual Keys")).toBeInTheDocument();
 			});
 
 			const createButton = screen.getByRole("button", {
-				name: "+ Create Key",
+				name: "Create Key",
 			});
 			await user.click(createButton);
 
@@ -136,11 +136,11 @@ describe("VirtualKeys", () => {
 			const { user } = renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("1 Virtual Key")).toBeInTheDocument();
+				expect(screen.getByText("Virtual Keys")).toBeInTheDocument();
 			});
 
 			const createButton = screen.getByRole("button", {
-				name: "+ Create Key",
+				name: "Create Key",
 			});
 			await user.click(createButton);
 
@@ -196,11 +196,11 @@ describe("VirtualKeys", () => {
 			const { user } = renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("1 Virtual Key")).toBeInTheDocument();
+				expect(screen.getByText("Virtual Keys")).toBeInTheDocument();
 			});
 
 			const createButton = screen.getByRole("button", {
-				name: "+ Create Key",
+				name: "Create Key",
 			});
 			await user.click(createButton);
 
@@ -251,11 +251,11 @@ describe("VirtualKeys", () => {
 			const { user } = renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("1 Virtual Key")).toBeInTheDocument();
+				expect(screen.getByText("Virtual Keys")).toBeInTheDocument();
 			});
 
 			const createButton = screen.getByRole("button", {
-				name: "+ Create Key",
+				name: "Create Key",
 			});
 			await user.click(createButton);
 
@@ -317,11 +317,11 @@ describe("VirtualKeys", () => {
 			const { user } = renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("1 Virtual Key")).toBeInTheDocument();
+				expect(screen.getByText("Virtual Keys")).toBeInTheDocument();
 			});
 
 			const createButton = screen.getByRole("button", {
-				name: "+ Create Key",
+				name: "Create Key",
 			});
 			await user.click(createButton);
 
@@ -368,11 +368,11 @@ describe("VirtualKeys", () => {
 			const { user } = renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("1 Virtual Key")).toBeInTheDocument();
+				expect(screen.getByText("Virtual Keys")).toBeInTheDocument();
 			});
 
 			const createButton = screen.getByRole("button", {
-				name: "+ Create Key",
+				name: "Create Key",
 			});
 			await user.click(createButton);
 
@@ -411,11 +411,11 @@ describe("VirtualKeys", () => {
 			const { user } = renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("1 Virtual Key")).toBeInTheDocument();
+				expect(screen.getByText("Virtual Keys")).toBeInTheDocument();
 			});
 
 			const createButton = screen.getByRole("button", {
-				name: "+ Create Key",
+				name: "Create Key",
 			});
 			await user.click(createButton);
 
@@ -450,11 +450,11 @@ describe("VirtualKeys", () => {
 			const { user } = renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("1 Virtual Key")).toBeInTheDocument();
+				expect(screen.getByText("Virtual Keys")).toBeInTheDocument();
 			});
 
 			const createButton = screen.getByRole("button", {
-				name: "+ Create Key",
+				name: "Create Key",
 			});
 			await user.click(createButton);
 
@@ -492,11 +492,11 @@ describe("VirtualKeys", () => {
 			const { user } = renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("1 Virtual Key")).toBeInTheDocument();
+				expect(screen.getByText("Virtual Keys")).toBeInTheDocument();
 			});
 
 			const createButton = screen.getByRole("button", {
-				name: "+ Create Key",
+				name: "Create Key",
 			});
 			await user.click(createButton);
 
@@ -530,11 +530,11 @@ describe("VirtualKeys", () => {
 			const { user } = renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("1 Virtual Key")).toBeInTheDocument();
+				expect(screen.getByText("Virtual Keys")).toBeInTheDocument();
 			});
 
 			const createButton = screen.getByRole("button", {
-				name: "+ Create Key",
+				name: "Create Key",
 			});
 			await user.click(createButton);
 
@@ -572,11 +572,11 @@ describe("VirtualKeys", () => {
 			const { user } = renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("1 Virtual Key")).toBeInTheDocument();
+				expect(screen.getByText("Virtual Keys")).toBeInTheDocument();
 			});
 
 			const createButton = screen.getByRole("button", {
-				name: "+ Create Key",
+				name: "Create Key",
 			});
 			await user.click(createButton);
 
@@ -647,11 +647,11 @@ describe("VirtualKeys", () => {
 			const { user } = renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("1 Virtual Key")).toBeInTheDocument();
+				expect(screen.getByText("Virtual Keys")).toBeInTheDocument();
 			});
 
 			const createButton = screen.getByRole("button", {
-				name: "+ Create Key",
+				name: "Create Key",
 			});
 			await user.click(createButton);
 
@@ -703,11 +703,11 @@ describe("VirtualKeys", () => {
 			const { user } = renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("1 Virtual Key")).toBeInTheDocument();
+				expect(screen.getByText("Virtual Keys")).toBeInTheDocument();
 			});
 
 			const createButton = screen.getByRole("button", {
-				name: "+ Create Key",
+				name: "Create Key",
 			});
 			await user.click(createButton);
 
@@ -757,11 +757,11 @@ describe("VirtualKeys", () => {
 			const { user } = renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("1 Virtual Key")).toBeInTheDocument();
+				expect(screen.getByText("Virtual Keys")).toBeInTheDocument();
 			});
 
 			const createButton = screen.getByRole("button", {
-				name: "+ Create Key",
+				name: "Create Key",
 			});
 			await user.click(createButton);
 
@@ -826,11 +826,11 @@ describe("VirtualKeys", () => {
 			const { user } = renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("1 Virtual Key")).toBeInTheDocument();
+				expect(screen.getByText("Virtual Keys")).toBeInTheDocument();
 			});
 
 			const createButton = screen.getByRole("button", {
-				name: "+ Create Key",
+				name: "Create Key",
 			});
 			await user.click(createButton);
 
@@ -872,7 +872,7 @@ describe("VirtualKeys", () => {
 			});
 
 			const createButton = screen.getByRole("button", {
-				name: "+ Create Key",
+				name: "Create Key",
 			});
 			await user.click(createButton);
 

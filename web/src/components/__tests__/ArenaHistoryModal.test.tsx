@@ -498,7 +498,7 @@ describe("ArenaHistoryModal", () => {
 			<ArenaHistoryModal onClose={onClose} onRestore={onRestore} />,
 		);
 		await waitFor(() => {
-			expect(screen.getByText(/1 entry/)).toBeInTheDocument();
+			expect(screen.getByText("1 entry")).toBeInTheDocument();
 		});
 	});
 
@@ -511,8 +511,8 @@ describe("ArenaHistoryModal", () => {
 			<ArenaHistoryModal onClose={onClose} onRestore={onRestore} />,
 		);
 		await waitFor(() => {
-			// Footer shows "2 entries" count
-			expect(screen.getAllByText(/entries/)).toHaveLength(1);
+			// Footer shows "2 entries" count (i18n plural)
+			expect(screen.getByText(/\d+ entries/)).toBeInTheDocument();
 		});
 	});
 

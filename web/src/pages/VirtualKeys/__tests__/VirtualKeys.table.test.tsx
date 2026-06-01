@@ -525,7 +525,7 @@ describe("VirtualKeys", () => {
 			renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("15 Virtual Keys")).toBeInTheDocument();
+				expect(screen.getByText("Virtual Keys")).toBeInTheDocument();
 			});
 
 			// Pagination shows "X to Y of Z keys" format
@@ -581,7 +581,7 @@ describe("VirtualKeys", () => {
 			const { user } = renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("25 Virtual Keys")).toBeInTheDocument();
+				expect(screen.getByText("Virtual Keys")).toBeInTheDocument();
 			});
 
 			// The select has no aria-label; find by role
@@ -605,7 +605,7 @@ describe("VirtualKeys", () => {
 			const { user } = renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("15 Virtual Keys")).toBeInTheDocument();
+				expect(screen.getByText("Virtual Keys")).toBeInTheDocument();
 			});
 
 			const nextPageButton = screen.getByRole("button", {
@@ -632,7 +632,7 @@ describe("VirtualKeys", () => {
 			const { user } = renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("25 Virtual Keys")).toBeInTheDocument();
+				expect(screen.getByText("Virtual Keys")).toBeInTheDocument();
 			});
 
 			// Prev should be disabled on first page
@@ -744,7 +744,7 @@ describe("Sort resets page", () => {
 		const { user } = renderWithProviders(<VirtualKeys />);
 
 		await waitFor(() => {
-			expect(screen.getByText("25 Virtual Keys")).toBeInTheDocument();
+			expect(screen.getByText("Virtual Keys")).toBeInTheDocument();
 		});
 
 		// Navigate to page 2

@@ -384,12 +384,9 @@ describe("Dashboard.coverage", () => {
 				expect(screen.getByText(/Total Tokens/i)).toBeInTheDocument();
 			});
 
-			// Click the metric toggle to switch to requests - find in header badge area
-			const headerBadge = screen.getByTitle(/Showing (all|only)/i);
-			const metricButton = within(
-				headerBadge.closest("div") || document.body,
-			).getByRole("button", { name: /Req/i });
-			await user.click(metricButton as HTMLElement);
+			// Click the metric toggle to switch to requests - find the first Req button in gauge section
+			const metricButtons = screen.getAllByRole("button", { name: /Req/i });
+			await user.click(metricButtons[0]);
 
 			// Should now show Avg Tokens/Req
 			await waitFor(() => {

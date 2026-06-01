@@ -1,5 +1,6 @@
 import { AlertCircle, Bot, Trophy } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { PresetBar } from "../../components/PresetBar";
 import { CHAT_PERSONAS } from "../../data/presets";
@@ -18,6 +19,7 @@ export function MatchupCard({
 	onPersonaChange,
 	onVote,
 }: MatchupCardProps) {
+	const { t } = useTranslation();
 	const [pendingPersona, setPendingPersona] = useState<
 		import("../../data/presets").PersonaPreset | null
 	>(null);
@@ -25,7 +27,7 @@ export function MatchupCard({
 	if (!slot) {
 		return (
 			<div className="px-4 py-2 rounded-lg bg-(--surface) border border-dashed border-(--border-subtle) text-xs text-(--text-tertiary) min-w-35 text-center">
-				TBD
+				{t("arena.tbd")}
 			</div>
 		);
 	}
@@ -61,7 +63,7 @@ export function MatchupCard({
 					<AlertCircle size={12} className="text-red-400 shrink-0" />
 				)}
 				{phase === "finished" && isWinner && (
-					<span title="Winner">
+					<span title={t("arena.winner.title")}>
 						<Trophy size={14} className="text-amber-400 shrink-0" />
 					</span>
 				)}
@@ -79,7 +81,7 @@ export function MatchupCard({
 								? "cursor-pointer text-(--text-tertiary) hover:text-(--text-secondary)"
 								: "cursor-default"
 						} ${isWinner ? "text-green-400" : ""}`}
-						title={vote === null ? "Vote for this response" : undefined}
+						title={vote === null ? t("arena.vote.title") : undefined}
 					>
 						<VoteThumb
 							size={14}
@@ -113,7 +115,7 @@ export function MatchupCard({
 								setPendingPersona({
 									id: "__custom__",
 									icon: "✏️",
-									label: "Custom",
+									label: t("common.custom"),
 									systemPrompt: "",
 								} as import("../../data/presets").PersonaPreset);
 								return;
@@ -147,10 +149,10 @@ export function MatchupCard({
 				<ConfirmDialog
 					title={
 						pendingPersona.id === "__custom__"
-							? "Switch to Custom"
-							: "Overwrite Persona"
+							? t("arena.persona.switchToCustom")
+							: t("arena.persona.overwrite")
 					}
-					fields={["Persona"]}
+					fields={[t("arena.persona.fieldLabel")]}
 					onConfirm={() => {
 						if (pendingPersona.id === "__custom__") {
 							onPersonaChange(roundIdx, matchupIdx, slotKey, null, "");

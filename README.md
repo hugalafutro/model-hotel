@@ -20,11 +20,11 @@
  <a href="https://hub.docker.com/r/hugalafutro/model-hotel"><img src="https://img.shields.io/docker/pulls/hugalafutro/model-hotel.svg" alt="Docker Pulls"></a>
 </p>
 
-<div align="center">
-
 > [!IMPORTANT]
 > **AI-Assisted Project Disclaimer:**<br>
 > Human judgment applied at every stage, particularly around architectural decisions, UX flows, and quality control.
+
+<div align="center">
 
 <details>
 <summary>📊 opencode stats (click to expand)</summary>
@@ -201,6 +201,7 @@ Open `http://localhost:8081`, log in with that token, add your first provider, a
 > [!TIP]
 > The admin token appears only once in the logs on first run. If you lose it, delete `.data/admin-token` and restart to generate a new one, or set a fixed token via the `ADMIN_TOKEN` env var.
 
+> [!IMPORTANT]
 > **Security:** The Docker socket is disabled by default in `docker-compose.yml` (production). The `compose.dev.yml` override enables it for local development. Only use the dev override in trusted environments.
 
 ### [<img src="docs/icons/quickstart.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Deploy without Git](#-deploy-without-git)

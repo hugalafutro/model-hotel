@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { useQuotaModal } from "../context/QuotaModalContext";
 import { useToast } from "../context/ToastContext";
@@ -22,6 +23,7 @@ function isQuotaDisabled(): boolean {
 }
 
 export function ProviderQuotaPanel() {
+	const { t } = useTranslation();
 	const { toast } = useToast();
 	const lastManualRefresh = useRef(0);
 	const refreshCooldownMs = 10_000;
@@ -74,13 +76,13 @@ export function ProviderQuotaPanel() {
 				/* ignore */
 			}
 			if (next) {
-				toast("Quota panel collapsed - auto-refresh paused", "info");
+				toast(t("components.providerQuotaPanel.quotaPanelCollapsed"), "info");
 			} else {
-				toast("Quota panel expanded - auto-refresh resumed", "info");
+				toast(t("components.providerQuotaPanel.quotaPanelExpanded"), "info");
 			}
 			return next;
 		});
-	}, [toast]);
+	}, [toast, t]);
 
 	const { data: providers } = useQuery({
 		queryKey: ["providers"],
@@ -122,13 +124,16 @@ export function ProviderQuotaPanel() {
 	const handleRefresh = useCallback(() => {
 		const now = Date.now();
 		if (now - lastManualRefresh.current < refreshCooldownMs) {
-			toast("Please wait before refreshing again", "info");
+			toast(
+				t("components.providerQuotaPanel.pleaseWaitBeforeRefreshing"),
+				"info",
+			);
 			return;
 		}
 		lastManualRefresh.current = now;
 		invalidateAll();
-		toast("Refreshing quotas...", "info");
-	}, [toast, invalidateAll]);
+		toast(t("components.providerQuotaPanel.refreshingQuotas"), "info");
+	}, [toast, invalidateAll, t]);
 
 	const {
 		isNanoOpen,
@@ -154,7 +159,7 @@ export function ProviderQuotaPanel() {
 							onClick={handleRefresh}
 							disabled={anyRefreshing}
 							className="sidebar-quota-btn"
-							title="Refresh all quotas"
+							title={t("components.providerQuotaPanel.refreshAllQuotas")}
 						>
 							<RefreshCw
 								size={10}
@@ -167,8 +172,8 @@ export function ProviderQuotaPanel() {
 						onToggle={toggleCollapsed}
 						size={10}
 						iconStyle="double"
-						expandTitle="Expand quotas"
-						collapseTitle="Collapse"
+						expandTitle={t("providers.quotas.expand")}
+						collapseTitle={t("common.collapse")}
 					/>
 				</div>
 			</div>

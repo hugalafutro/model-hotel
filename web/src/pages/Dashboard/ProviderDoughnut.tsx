@@ -1,5 +1,6 @@
 import { TrendingUp } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Spinner } from "../../components/Spinner";
 import { formatCompact, formatPercent } from "../../utils/format";
 import { MetricToggle, RangeToggle } from "./ToggleGroup";
@@ -86,6 +87,7 @@ export function ProviderDoughnut({
 	onMetricChange: (m: MetricType) => void;
 	loading?: boolean;
 }) {
+	const { t } = useTranslation();
 	const [hoveredProvider, setHoveredProvider] = useState<string | null>(null);
 	const cells = items.length > 0 ? buildCells(items) : [];
 
@@ -95,8 +97,10 @@ export function ProviderDoughnut({
 				<h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
 					<TrendingUp size={18} className="text-(--accent)" />
 					{items.length > 0
-						? `Top ${items.length} Provider${items.length !== 1 ? "s" : ""}`
-						: "Providers"}
+						? t("dashboard.providers.top", {
+								count: items.length,
+							})
+						: t("dashboard.providers.providers")}
 					{loading && <Spinner className="ml-1" />}
 				</h3>
 				<div className="flex items-center gap-1.5">
@@ -106,8 +110,7 @@ export function ProviderDoughnut({
 			</div>
 			{items.length === 0 ? (
 				<p className="text-sm text-(--text-muted) text-center py-12">
-					No provider data yet. Provider breakdown will appear here once traffic
-					flows.
+					{t("dashboard.providers.emptyState")}
 				</p>
 			) : (
 				<div className="flex items-center gap-6">
@@ -115,7 +118,7 @@ export function ProviderDoughnut({
 						className="relative shrink-0"
 						style={{ width: GRID_SIZE, height: GRID_SIZE }}
 						role="img"
-						aria-label="Provider distribution chart"
+						aria-label={t("dashboard.providers.chartAriaLabel")}
 					>
 						{cells.map((cell, i) => {
 							const isDimmed =
@@ -190,8 +193,8 @@ export function ProviderDoughnut({
 										<span className="text-xs text-(--text-muted) ml-1 min-w-20 text-left">
 											(
 											{metric === "tokens"
-												? `${formatCompact(it.tokens)} Token${it.tokens !== 1 ? "s" : ""}`
-												: `${it.count} Request${it.count !== 1 ? "s" : ""}`}
+												? `${formatCompact(it.tokens)} ${t(it.tokens !== 1 ? "dashboard.providers.tokensUnit" : "dashboard.providers.tokenUnit")}`
+												: `${it.count} ${t(it.count !== 1 ? "dashboard.providers.requestsUnit" : "dashboard.providers.requestUnit")}`}
 											)
 										</span>
 									</div>

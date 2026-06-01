@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { Provider } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
@@ -18,6 +19,7 @@ export function EditProviderModal({
 	onToast: (msg: string, type: "success" | "error" | "info") => void;
 }) {
 	const queryClient = useQueryClient();
+	const { t } = useTranslation();
 	const [formData, setFormData] = useState({
 		name: provider.name,
 		base_url: provider.base_url,
@@ -39,12 +41,15 @@ export function EditProviderModal({
 		}) => api.providers.update(provider.id, data),
 		onSuccess: (updated: Provider) => {
 			queryClient.invalidateQueries({ queryKey: ["providers"] });
-			onToast(`Provider "${updated.name}" updated`, "success");
+			onToast(
+				t("providers.toast_provider_updated", { name: updated.name }),
+				"success",
+			);
 			onClose();
 		},
 		onError: (err: Error) => {
 			setError(err.message);
-			onToast(`Failed to update provider: ${err.message}`, "error");
+			onToast(t("update_failed", { message: err.message }), "error");
 		},
 	});
 
@@ -91,7 +96,7 @@ export function EditProviderModal({
 
 	return (
 		<>
-			<Modal title="Edit Provider" onClose={handleClose}>
+			<Modal title={t("providers.edit_modal_title")} onClose={handleClose}>
 				{error && (
 					<div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm">
 						{error}
@@ -104,7 +109,7 @@ export function EditProviderModal({
 							htmlFor="edit-provider-name"
 							className="block text-sm font-medium text-gray-300 mb-1"
 						>
-							Name
+							{t("providers.form_name_label")}
 						</label>
 						<input
 							id="edit-provider-name"
@@ -119,7 +124,7 @@ export function EditProviderModal({
 								})
 							}
 							className="ui-input"
-							placeholder="e.g., OpenAI"
+							placeholder={t("providers.form_name_placeholder")}
 						/>
 					</div>
 
@@ -128,7 +133,7 @@ export function EditProviderModal({
 							htmlFor="edit-provider-base-url"
 							className="block text-sm font-medium text-gray-300 mb-1"
 						>
-							Base URL
+							{t("providers.form_base_url_label")}
 						</label>
 						<input
 							id="edit-provider-base-url"
@@ -151,7 +156,7 @@ export function EditProviderModal({
 						/>
 						{isKnownProviderUrl(provider.base_url) && (
 							<p className="text-gray-500 text-xs mt-1">
-								Base URL is preset for this provider type
+								{t("providers.form_base_url_hint_preset")}
 							</p>
 						)}
 					</div>
@@ -161,7 +166,7 @@ export function EditProviderModal({
 							htmlFor="edit-provider-api-key"
 							className="block text-sm font-medium text-gray-300 mb-1"
 						>
-							API Key
+							{t("providers.form_api_key_label")}
 						</label>
 						<div className="relative">
 							<input
@@ -176,20 +181,26 @@ export function EditProviderModal({
 									})
 								}
 								className="ui-input pr-10! overflow-hidden"
-								placeholder="Leave blank to keep current key"
+								placeholder={t("providers.edit_api_key_placeholder")}
 							/>
 							<button
 								type="button"
 								onClick={() => setShowApiKey(!showApiKey)}
 								className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
 								tabIndex={-1}
-								aria-label={showApiKey ? "Hide API key" : "Show API key"}
+								aria-label={
+									showApiKey
+										? t("providers.form_api_key_hide")
+										: t("providers.form_api_key_show")
+								}
 							>
 								{showApiKey ? <EyeOff size={18} /> : <Eye size={18} />}
 							</button>
 						</div>
 						<p className="text-gray-500 text-xs mt-1">
-							Current: {provider.masked_key}
+							{t("providers.edit_api_key_current", {
+								key: provider.masked_key,
+							})}
 						</p>
 					</div>
 
@@ -204,18 +215,17 @@ export function EditProviderModal({
 									})
 								}
 								showFocusRing
-								ariaLabel="Provider enabled"
+								ariaLabel={t("providers.edit.enabledToggle")}
 							/>
 							<label
 								htmlFor="edit-provider-enabled"
 								className="text-sm font-medium text-gray-300"
 							>
-								Enabled
+								{t("providers.edit_enabled_label")}
 							</label>
 						</div>
 						<p className="text-gray-500 text-xs ml-0">
-							Controls proxy routing and API access. Disabled providers reject
-							all requests.
+							{t("providers.edit.enabledHelper")}
 						</p>
 					</div>
 
@@ -232,19 +242,18 @@ export function EditProviderModal({
 									})
 								}
 								showFocusRing
-								ariaLabel="Provider autodiscovery"
+								ariaLabel={t("providers.edit.autodiscoveryToggle")}
 								disabled={!formData.enabled}
 							/>
 							<label
 								htmlFor="edit-provider-autodiscovery"
 								className="text-sm font-medium text-gray-300"
 							>
-								Autodiscovery
+								{t("providers.edit_autodiscovery_label")}
 							</label>
 						</div>
 						<p className="text-gray-500 text-xs ml-0">
-							Controls automatic model discovery. Disable to manually curate
-							this provider&apos;s model catalogue.
+							{t("providers.edit.autodiscoveryHelper")}
 						</p>
 					</div>
 
@@ -254,7 +263,7 @@ export function EditProviderModal({
 							onClick={handleClose}
 							className="ui-btn ui-btn-secondary"
 						>
-							Cancel
+							{t("common.cancel")}
 						</button>
 						<button
 							type="submit"
@@ -265,14 +274,16 @@ export function EditProviderModal({
 									: "bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125"
 							}`}
 						>
-							{updateMutation.isPending ? "Saving…" : "Save Changes"}
+							{updateMutation.isPending
+								? t("common.saving")
+								: t("providers.form_btn_save")}
 						</button>
 					</div>
 				</form>
 			</Modal>
 			{confirmFields && (
 				<ConfirmDialog
-					title="Unsaved Changes"
+					title={t("delete_confirm.unsaved_changes")}
 					fields={confirmFields}
 					onConfirm={onClose}
 					onCancel={() => setConfirmFields(null)}

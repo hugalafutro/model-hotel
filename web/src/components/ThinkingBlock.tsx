@@ -1,5 +1,6 @@
 import { Brain, ChevronDown, ChevronRight } from "lucide-react";
 import { memo, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 export const ThinkingBlock = memo(function ThinkingBlock({
 	thinking,
@@ -8,6 +9,7 @@ export const ThinkingBlock = memo(function ThinkingBlock({
 	thinking: string;
 	isStreaming: boolean;
 }) {
+	const { t } = useTranslation();
 	const [open, setOpen] = useState(false);
 	const contentRef = useRef<HTMLDivElement>(null);
 
@@ -54,7 +56,7 @@ export const ThinkingBlock = memo(function ThinkingBlock({
 				}`}
 			>
 				<Brain size={12} />
-				<span>Thinking</span>
+				<span>{t("components.thinkingBlock.thinking")}</span>
 				{open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
 			</button>
 			{open && (

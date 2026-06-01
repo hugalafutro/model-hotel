@@ -1,4 +1,5 @@
 import { type RefObject, useCallback, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { PersonaPreset } from "../data/presets";
 import { CollapsibleToggle, useCollapsible } from "./CollapsibleToggle";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -33,13 +34,18 @@ export function PersonaPicker({
 	systemPrompt,
 	onActivePersonaChange,
 	onSystemPromptChange,
-	label = "Persona",
-	textareaPlaceholder = "Enter custom persona for AI here…",
+	label: labelProp,
+	textareaPlaceholder: textareaPlaceholderProp,
 	className,
 	disabled = false,
 	onRandom,
 }: PersonaPickerProps) {
+	const { t } = useTranslation();
 	const { collapsed, toggle: toggleCollapsed } = useCollapsible();
+	const label = labelProp ?? t("components.personaPicker.persona");
+	const textareaPlaceholder =
+		textareaPlaceholderProp ??
+		t("components.personaPicker.customPersonaPlaceholder");
 	const [pendingPersona, setPendingPersona] = useState<PersonaPreset | null>(
 		null,
 	);
@@ -83,12 +89,12 @@ export function PersonaPicker({
 			setPendingPersona({
 				id: "__custom__",
 				icon: "✏️",
-				label: "Custom",
+				label: t("common.custom"),
 				systemPrompt: "",
 			});
 			return;
 		}
-	}, [activePersonaId]);
+	}, [activePersonaId, t]);
 
 	const handleTextareaChange = useCallback(
 		(value: string) => {
@@ -170,15 +176,19 @@ export function PersonaPicker({
 				<ConfirmDialog
 					title={
 						pendingPersona.id === "__custom__"
-							? "Switch to Custom"
-							: "Overwrite Prompt"
+							? t("components.personaPicker.switchToCustom")
+							: t("components.personaPicker.overwritePrompt")
 					}
 					message={
 						pendingPersona.id === "__custom__"
-							? "This will clear the current persona prompt. Continue?"
+							? t("components.personaPicker.clearPersonaPrompt")
 							: undefined
 					}
-					fields={pendingPersona.id === "__custom__" ? [] : ["System prompt"]}
+					fields={
+						pendingPersona.id === "__custom__"
+							? []
+							: [t("components.personaPicker.systemPrompt")]
+					}
 					onConfirm={handleConfirmOverwrite}
 					onCancel={() => setPendingPersona(null)}
 				/>

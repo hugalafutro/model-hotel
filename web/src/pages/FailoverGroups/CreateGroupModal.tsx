@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { CandidateModel, FailoverGroup } from "../../api/types";
 import { Modal } from "../../components/Modal";
@@ -21,6 +22,7 @@ export function CreateGroupModal({
 	onCreated?: () => void;
 	onUpdated?: () => void;
 }) {
+	const { t } = useTranslation();
 	const { toast } = useToast();
 	const queryClient = useQueryClient();
 	const isEdit = !!group;
@@ -161,7 +163,11 @@ export function CreateGroupModal({
 
 	return (
 		<Modal
-			title={isEdit ? "Edit Failover Group" : "Create Failover Group"}
+			title={
+				isEdit
+					? t("failoverGroups.create.editTitle")
+					: t("failoverGroups.create.createTitle")
+			}
 			onClose={onClose}
 			maxWidth="max-w-lg"
 			scrollable
@@ -172,7 +178,7 @@ export function CreateGroupModal({
 						htmlFor="display-model"
 						className="block text-sm font-medium text-gray-300 mb-1"
 					>
-						Display Model Name
+						{t("failoverGroups.create.displayModelName")}
 					</label>
 					<input
 						id="display-model"
@@ -182,10 +188,12 @@ export function CreateGroupModal({
 						value={displayModel}
 						onChange={(e) => setDisplayModel(e.target.value)}
 						className="ui-input"
-						placeholder="e.g., glm-5"
+						placeholder={t("failoverGroups.create.displayModelNamePlaceholder")}
 					/>
 					<p className="text-gray-500 text-xs mt-1">
-						{`This becomes hotel/${displayModel || "model-name"} in the model list`}
+						{t("failoverGroups.create.displayModelNameHelper", {
+							modelName: displayModel || "model-name",
+						})}
 					</p>
 				</div>
 
@@ -194,7 +202,7 @@ export function CreateGroupModal({
 						htmlFor="display-name"
 						className="block text-sm font-medium text-gray-300 mb-1"
 					>
-						Display Name (optional)
+						{t("failoverGroups.create.displayNameOptional")}
 					</label>
 					<input
 						id="display-name"
@@ -203,7 +211,7 @@ export function CreateGroupModal({
 						value={displayName}
 						onChange={(e) => setDisplayName(e.target.value)}
 						className="ui-input"
-						placeholder="e.g., GLM-5 Failover"
+						placeholder={t("failoverGroups.create.displayNamePlaceholder")}
 					/>
 				</div>
 
@@ -212,7 +220,7 @@ export function CreateGroupModal({
 						htmlFor="group-description"
 						className="block text-sm font-medium text-gray-300 mb-1"
 					>
-						Description (optional)
+						{t("failoverGroups.create.descriptionOptional")}
 					</label>
 					<input
 						id="group-description"
@@ -221,7 +229,7 @@ export function CreateGroupModal({
 						value={description}
 						onChange={(e) => setDescription(e.target.value)}
 						className="ui-input"
-						placeholder="e.g., Failover group for GLM-5 models"
+						placeholder={t("failoverGroups.create.descriptionPlaceholder")}
 					/>
 				</div>
 
@@ -232,11 +240,13 @@ export function CreateGroupModal({
 						selected={selectedProxyIDs}
 						onChange={setSelectedProxyIDs}
 						multi={true}
-						label="Model Entries"
+						label={t("failoverGroups.create.modelEntries")}
 						align="left"
 					/>
 					<p className="text-gray-500 text-xs mt-1">
-						{selectedProxyIDs.length} selected
+						{t("failoverGroups.create.selectedCount", {
+							count: selectedProxyIDs.length,
+						})}
 					</p>
 				</div>
 
@@ -246,7 +256,7 @@ export function CreateGroupModal({
 						onClick={onClose}
 						className="ui-btn ui-btn-secondary"
 					>
-						Cancel
+						{t("common.cancel")}
 					</button>
 					<button
 						type="submit"
@@ -255,11 +265,11 @@ export function CreateGroupModal({
 					>
 						{isPending
 							? isEdit
-								? "Saving…"
-								: "Creating…"
+								? t("failoverGroups.create.saving")
+								: t("failoverGroups.create.creating")
 							: isEdit
-								? "Save Changes"
-								: "Create Group"}
+								? t("common.saveChanges")
+								: t("failoverGroups.create.createGroup")}
 					</button>
 				</div>
 			</form>

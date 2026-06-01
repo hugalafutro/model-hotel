@@ -73,7 +73,7 @@ describe("ProviderCard", () => {
 		it("renders model count", () => {
 			render(<ProviderCard {...defaultProps} />, { wrapper: AllProviders });
 
-			expect(screen.getByText("5 models")).toBeInTheDocument();
+			expect(screen.getByText(/5 model/)).toBeInTheDocument();
 		});
 
 		it("renders singular 'model' when count is 1", () => {
@@ -81,7 +81,7 @@ describe("ProviderCard", () => {
 				wrapper: AllProviders,
 			});
 
-			expect(screen.getByText("1 model")).toBeInTheDocument();
+			expect(screen.getByText(/1 model/)).toBeInTheDocument();
 		});
 
 		it("renders total tokens", () => {
@@ -306,14 +306,14 @@ describe("ProviderCard", () => {
 		it("renders model count button", () => {
 			render(<ProviderCard {...defaultProps} />, { wrapper: AllProviders });
 
-			const modelButton = screen.getByText("5 models").closest("button");
+			const modelButton = screen.getByText(/5 model/).closest("button");
 			expect(modelButton).toBeInTheDocument();
 		});
 
 		it("calls onSetModelsProvider when model count button is clicked", () => {
 			render(<ProviderCard {...defaultProps} />, { wrapper: AllProviders });
 
-			const modelButton = screen.getByText("5 models");
+			const modelButton = screen.getByText(/5 model/);
 			fireEvent.click(modelButton);
 
 			expect(defaultProps.onSetModelsProvider).toHaveBeenCalledWith(

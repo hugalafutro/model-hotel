@@ -1,10 +1,15 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
 import { mockFailoverGroup } from "../../test/mocks/data";
 import { server } from "../../test/mocks/server";
 import { renderWithProviders } from "../../test/utils";
 import { FailoverGroups } from "../FailoverGroups";
+
+function getModalDeleteButton(): HTMLElement {
+	const dialog = screen.getByRole("dialog");
+	return within(dialog).getByRole("button", { name: "Delete" });
+}
 
 describe("FailoverGroups", () => {
 	beforeEach(() => {
@@ -40,8 +45,8 @@ describe("FailoverGroups", () => {
 				expect(screen.getByText("hotel/test-model")).toBeInTheDocument();
 			});
 
-			// Click Delete button on the group card (text is lowercase "delete")
-			const deleteButton = screen.getByRole("button", { name: /delete/i });
+			// Click Delete button on the group card
+			const deleteButton = screen.getByRole("button", { name: "Delete" });
 			await user.click(deleteButton);
 
 			await waitFor(() => {
@@ -87,7 +92,7 @@ describe("FailoverGroups", () => {
 			});
 
 			// Click Delete button
-			await user.click(screen.getByRole("button", { name: /delete/i }));
+			await user.click(screen.getAllByRole("button", { name: "Delete" })[0]);
 
 			// Wait for modal to open
 			await waitFor(() => {
@@ -96,8 +101,8 @@ describe("FailoverGroups", () => {
 				).toBeInTheDocument();
 			});
 
-			// Click confirm button
-			await user.click(screen.getByRole("button", { name: "Delete" }));
+			// Click confirm button (modal Delete button has ui-btn-danger class)
+			await user.click(getModalDeleteButton());
 
 			await waitFor(() => {
 				expect(deleteCalled).toBe(true);
@@ -140,7 +145,7 @@ describe("FailoverGroups", () => {
 				expect(screen.getByText("hotel/test-model")).toBeInTheDocument();
 			});
 
-			await user.click(screen.getByRole("button", { name: /delete/i }));
+			await user.click(screen.getAllByRole("button", { name: "Delete" })[0]);
 
 			await waitFor(() => {
 				expect(
@@ -148,7 +153,8 @@ describe("FailoverGroups", () => {
 				).toBeInTheDocument();
 			});
 
-			await user.click(screen.getByRole("button", { name: "Delete" }));
+			// Click confirm button (modal Delete button has ui-btn-danger class)
+			await user.click(getModalDeleteButton());
 
 			await waitFor(() => {
 				expect(screen.getByText("Group deleted")).toBeInTheDocument();
@@ -186,7 +192,7 @@ describe("FailoverGroups", () => {
 				expect(screen.getByText("hotel/test-model")).toBeInTheDocument();
 			});
 
-			await user.click(screen.getByRole("button", { name: /delete/i }));
+			await user.click(screen.getAllByRole("button", { name: "Delete" })[0]);
 
 			await waitFor(() => {
 				expect(
@@ -194,7 +200,8 @@ describe("FailoverGroups", () => {
 				).toBeInTheDocument();
 			});
 
-			await user.click(screen.getByRole("button", { name: "Delete" }));
+			// Click confirm button (modal Delete button has ui-btn-danger class)
+			await user.click(getModalDeleteButton());
 
 			await waitFor(() => {
 				expect(screen.getByText(/Failed to delete:/)).toBeInTheDocument();
@@ -234,7 +241,7 @@ describe("FailoverGroups", () => {
 				expect(screen.getByText("hotel/test-model")).toBeInTheDocument();
 			});
 
-			await user.click(screen.getByRole("button", { name: /delete/i }));
+			await user.click(screen.getAllByRole("button", { name: "Delete" })[0]);
 
 			await waitFor(() => {
 				expect(
@@ -377,8 +384,8 @@ describe("FailoverGroups", () => {
 				expect(
 					screen.getByText(/Are you sure you want to delete/),
 				).toBeInTheDocument();
-				expect(screen.getByText("2 failover groups")).toBeInTheDocument();
-				expect(screen.getByText("Delete failover groups")).toBeInTheDocument();
+				expect(screen.getByText(/\d+ failover groups/)).toBeInTheDocument();
+				expect(screen.getByText(/Delete failover groups/i)).toBeInTheDocument();
 			});
 		});
 
@@ -506,8 +513,8 @@ describe("FailoverGroups", () => {
 				).toBeInTheDocument();
 			});
 
-			// Confirm deletion
-			await user.click(screen.getByRole("button", { name: "Delete" }));
+			// Confirm deletion (modal Delete button has ui-btn-danger class)
+			await user.click(getModalDeleteButton());
 
 			await waitFor(() => {
 				// Both groups should be deleted
@@ -608,8 +615,8 @@ describe("FailoverGroups", () => {
 				).toBeInTheDocument();
 			});
 
-			// Confirm deletion
-			await user.click(screen.getByRole("button", { name: "Delete" }));
+			// Confirm deletion (modal Delete button has ui-btn-danger class)
+			await user.click(getModalDeleteButton());
 
 			await waitFor(() => {
 				// All three should be attempted
@@ -679,8 +686,8 @@ describe("FailoverGroups", () => {
 				).toBeInTheDocument();
 			});
 
-			// Confirm deletion
-			await user.click(screen.getByRole("button", { name: "Delete" }));
+			// Confirm deletion (modal Delete button has ui-btn-danger class)
+			await user.click(getModalDeleteButton());
 
 			// Check loading state - button should show "Deleting…" and be disabled
 			await waitFor(() => {

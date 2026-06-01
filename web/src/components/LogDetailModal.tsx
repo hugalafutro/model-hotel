@@ -1,4 +1,5 @@
 import { Activity, Calendar, FileText, Tag } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { AppLogEntry, LogEntry } from "../api/types";
 import { CopyablePill } from "./CopyablePill";
 import { DetailItem } from "./LogDetailItem";
@@ -23,9 +24,11 @@ function AppLogDetail({
 	log: AppLogEntry;
 	onClose: () => void;
 }) {
+	const { t } = useTranslation();
+
 	return (
 		<Modal
-			title="Log Entry Details"
+			title={t("components.appLogDetail.title")}
 			onClose={onClose}
 			maxWidth="max-w-lg"
 			scrollable
@@ -33,13 +36,13 @@ function AppLogDetail({
 			<div className="space-y-3">
 				<DetailItem
 					icon={Calendar}
-					label="Timestamp"
+					label={t("components.appLogDetail.timestamp")}
 					value={formatDateTime(log.timestamp)}
 					accent
 				/>
 				<DetailItem
 					icon={Activity}
-					label="Level"
+					label={t("components.appLogDetail.level")}
 					value={log.level.toUpperCase()}
 					accent
 				>
@@ -57,19 +60,19 @@ function AppLogDetail({
 				</DetailItem>
 				<DetailItem
 					icon={Tag}
-					label="Source"
+					label={t("components.appLogDetail.source")}
 					value={log.source || "-"}
 					accent
 				/>
 				<DetailItem
 					icon={FileText}
-					label="Message"
+					label={t("components.appLogDetail.message")}
 					accent
 					labelExtra={
 						<CopyablePill
 							text={log.message}
-							displayText="Copy"
-							tooltip="Copy message"
+							displayText={t("common.copy")}
+							tooltip={t("components.appLogDetail.copyMessage")}
 							textClassName="text-[11px] uppercase tracking-wider"
 							iconClassName="w-3 h-3"
 						/>

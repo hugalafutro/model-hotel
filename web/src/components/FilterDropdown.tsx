@@ -1,5 +1,6 @@
 import { Check, ChevronDown, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface FilterDropdownProps {
 	options: { value: string; label: string; count?: number }[];
@@ -14,10 +15,14 @@ export function FilterDropdown({
 	options,
 	value,
 	onChange,
-	placeholder = "Filter",
-	allLabel = "All",
+	placeholder,
+	allLabel,
 	className = "",
 }: FilterDropdownProps) {
+	const { t } = useTranslation();
+	const effectivePlaceholder =
+		placeholder ?? t("components.filterDropdown.placeholder");
+	const effectiveAllLabel = allLabel ?? t("components.filterDropdown.allLabel");
 	const [open, setOpen] = useState(false);
 	const containerRef = useRef<HTMLDivElement>(null);
 
@@ -36,19 +41,26 @@ export function FilterDropdown({
 	}, [open]);
 
 	const selectedOption = options.find((o) => o.value === value);
-	const triggerLabel = value ? (selectedOption?.label ?? value) : placeholder;
+	const displayLabel = value
+		? (selectedOption?.label ?? value)
+		: effectiveAllLabel;
 
 	return (
 		<div ref={containerRef} className={`relative inline-block ${className}`}>
 			<button
 				type="button"
 				onClick={() => setOpen((v) => !v)}
+				aria-label={
+					value
+						? `${effectivePlaceholder}: ${displayLabel}`
+						: effectivePlaceholder
+				}
 				className="ui-input text-xs py-1.5 px-2.5 h-9 w-full flex items-center justify-between gap-2 cursor-pointer"
 			>
 				<span
-					className={`truncate ${value === "" ? "text-(--text-tertiary)" : "text-(--text-primary)"}`}
+					className={`truncate ${value === "" ? "text-(--text-secondary)" : "text-(--text-primary)"}`}
 				>
-					{triggerLabel}
+					{displayLabel}
 				</span>
 				<span className="flex items-center gap-1 shrink-0">
 					{value !== "" && (
@@ -68,7 +80,7 @@ export function FilterDropdown({
 									onChange("");
 								}
 							}}
-							title="Clear filter"
+							title={t("common.clearFilter")}
 						>
 							<X size={10} />
 						</span>
@@ -105,7 +117,7 @@ export function FilterDropdown({
 							>
 								{value === "" && <Check size={10} className="text-white" />}
 							</span>
-							<span className="truncate">{allLabel}</span>
+							<span className="truncate">{effectiveAllLabel}</span>
 						</button>
 
 						{options.map((option) => {

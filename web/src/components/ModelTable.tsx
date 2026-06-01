@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Model, Provider } from "../api/types";
 import { formatRelativeTime, formatTokens } from "../utils/format";
 import { parseCapabilities, proxyModelID } from "../utils/model";
@@ -48,6 +49,7 @@ export function ModelTable({
 		field: "name",
 		dir: "asc",
 	});
+	const { t } = useTranslation();
 	const [capFilter, setCapFilter] = useState<Set<CapKey>>(new Set());
 	const [confirmDeleteDisabled, setConfirmDeleteDisabled] = useState(false);
 
@@ -193,7 +195,7 @@ export function ModelTable({
 							setSearchQuery(v);
 							setCurrentPage(1);
 						}}
-						placeholder="Search models…"
+						placeholder={t("components.modelTable.searchModels")}
 						className="w-[320px]"
 						autoFocus
 					/>
@@ -202,7 +204,9 @@ export function ModelTable({
 							type="button"
 							onClick={() => setConfirmDeleteDisabled(true)}
 							className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-red-400 border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 hover:border-red-400/50 transition-colors cursor-pointer"
-							aria-label={`Delete ${disabledCount} disabled model${disabledCount === 1 ? "" : "s"}`}
+							aria-label={t("components.modelTable.deleteDisabledAria", {
+								count: disabledCount,
+							})}
 						>
 							Delete {disabledCount} disabled
 						</button>
@@ -240,54 +244,54 @@ export function ModelTable({
 					<thead>
 						<tr>
 							<SortableHeader
-								label="Model"
+								label={t("components.modelTable.model")}
 								field="name"
 								sort={sort}
 								onSort={handleSort}
-								tooltip="Model name and ID"
+								tooltip={t("components.modelTable.modelNameAndId")}
 							/>
 							<th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap ui-table-header-text">
 								Capabilities
 							</th>
 							{showProviderCol && (
 								<SortableHeader
-									label="Provider"
+									label={t("components.modelTable.provider")}
 									field="provider"
 									sort={sort}
 									onSort={handleSort}
-									tooltip="Provider name"
+									tooltip={t("components.modelTable.providerName")}
 								/>
 							)}
 							<SortableHeader
-								label="Discovered"
+								label={t("components.modelTable.discovered")}
 								field="discovered"
 								sort={sort}
 								onSort={handleSort}
-								tooltip="When the model was last seen/discovered"
+								tooltip={t("components.modelTable.whenModelDiscovered")}
 							/>
 							<th aria-hidden />
 							<SortableHeader
-								label="Ctx"
+								label={t("components.modelTable.context")}
 								field="context"
 								sort={sort}
 								onSort={handleSort}
-								tooltip="Maximum context length in tokens"
+								tooltip={t("components.modelTable.maximumContextLength")}
 							/>
 							<th aria-hidden />
 							<SortableHeader
-								label="Max Out"
+								label={t("components.modelTable.maxOutput")}
 								field="output"
 								sort={sort}
 								onSort={handleSort}
-								tooltip="Maximum output tokens"
+								tooltip={t("components.modelTable.maximumOutputTokens")}
 							/>
 							<th aria-hidden />
 							<SortableHeader
-								label="Status"
+								label={t("components.modelTable.status")}
 								field="status"
 								sort={sort}
 								onSort={handleSort}
-								tooltip="Model status"
+								tooltip={t("components.modelTable.modelStatus")}
 							/>
 						</tr>
 						<tr className="ui-table-row-filter">
@@ -363,7 +367,7 @@ export function ModelTable({
 														model.model_id,
 													)}
 													textClassName="text-[11px] model-id-text font-mono leading-tight"
-													tooltip="Click to copy model ID"
+													tooltip={t("components.modelTable.clickToCopyId")}
 												/>
 											</div>
 										</td>
@@ -396,10 +400,10 @@ export function ModelTable({
 												className={`px-2 py-0.5 text-xs rounded-full ${model.enabled && !model.disabled_manually ? "bg-green-900/50 text-green-400" : model.enabled && model.disabled_manually ? "bg-yellow-900/50 text-yellow-400" : "bg-red-900/50 text-red-400"}`}
 											>
 												{model.enabled && !model.disabled_manually
-													? "Enabled"
+													? t("common.enabled")
 													: model.enabled && model.disabled_manually
-														? "Manually Disabled"
-														: "Disabled"}
+														? t("common.manuallyDisabled")
+														: t("common.disabled")}
 											</span>
 										</td>
 									</Row>
@@ -412,8 +416,8 @@ export function ModelTable({
 									searchQuery ||
 									selectedProviders.size > 0 ||
 									capFilter.size > 0
-										? "No models match your filters"
-										: "No models discovered yet. Add a provider and discover models."
+										? t("components.modelTable.noModelsMatchFilters")
+										: t("components.modelTable.noModelsDiscovered")
 								}
 							/>
 						)}
@@ -422,12 +426,16 @@ export function ModelTable({
 			</div>
 			{confirmDeleteDisabled && onDeleteDisabled && (
 				<ConfirmDialog
-					title="Delete Disabled Models"
-					message={`This will permanently delete ${disabledCount} disabled model${disabledCount === 1 ? "" : "s"}. If autodiscovery is enabled on their provider, they will be re-discovered on the next cycle. Disable autodiscovery on the provider to prevent this.`}
+					title={t("components.modelTable.deleteDisabledModels")}
+					message={t("components.modelTable.deleteDisabledMessage", {
+						count: disabledCount,
+					})}
 					fields={[
-						`${disabledCount} disabled model${disabledCount === 1 ? "" : "s"}`,
+						t("components.modelTable.deleteDisabledLabel", {
+							count: disabledCount,
+						}),
 					]}
-					confirmLabel="Delete"
+					confirmLabel={t("common.delete")}
 					onConfirm={() => {
 						onDeleteDisabled?.(disabledModelIds);
 						setConfirmDeleteDisabled(false);

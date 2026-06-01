@@ -104,12 +104,23 @@ describe("VirtualLogTable", () => {
 			renderWithProviders(
 				<VirtualLogTable {...defaultProps} isLoadingBefore />,
 			);
-			expect(screen.getByText("↻ Loading newer…")).toBeInTheDocument();
+			expect(screen.getByText("Loading newer…")).toBeInTheDocument();
 		});
 
 		it("renders loading older indicator when isLoadingAfter=true and entries empty", () => {
 			renderWithProviders(<VirtualLogTable {...defaultProps} isLoadingAfter />);
-			expect(screen.getByText("↻ Loading older…")).toBeInTheDocument();
+			expect(screen.getByText("Loading older…")).toBeInTheDocument();
+		});
+
+		it("does not render loading indicators when not loading", () => {
+			renderWithProviders(<VirtualLogTable {...defaultProps} />);
+			expect(screen.queryByText("Loading newer…")).not.toBeInTheDocument();
+			expect(screen.queryByText("Loading older…")).not.toBeInTheDocument();
+		});
+
+		it("renders loading older indicator when isLoadingAfter=true and entries empty", () => {
+			renderWithProviders(<VirtualLogTable {...defaultProps} isLoadingAfter />);
+			expect(screen.getByText("Loading older…")).toBeInTheDocument();
 		});
 
 		it("does not render loading indicators when not loading", () => {
@@ -564,8 +575,8 @@ describe("VirtualLogTable", () => {
 				/>,
 			);
 
-			expect(screen.getByText("↻ Loading newer…")).toBeInTheDocument();
-			expect(screen.getByText("↻ Loading older…")).toBeInTheDocument();
+			expect(screen.getByText("Loading newer…")).toBeInTheDocument();
+			expect(screen.getByText("Loading older…")).toBeInTheDocument();
 		});
 	});
 

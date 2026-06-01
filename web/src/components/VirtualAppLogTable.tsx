@@ -1,5 +1,6 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { AppLogEntry } from "../api/types";
 import {
 	formatTimestamp,
@@ -18,17 +19,18 @@ interface VirtualAppLogTableProps {
 	onFetchNewer: () => void;
 	onFetchOlder: () => void;
 	onRowClick: (entry: AppLogEntry) => void;
-	sortDir: string; // "asc" or "desc"
+	sortDir: string;
 	onSortToggle: () => void;
 }
 
 const HEADER_BASE =
 	"px-2 py-2 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap ui-table-header-text";
 
-const EDGE_THRESHOLD_PX = 500; // pixels from edge to trigger fetch
+const EDGE_THRESHOLD_PX = 500;
 
 export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 	"use no memo";
+	const { t } = useTranslation();
 
 	const {
 		entries,
@@ -50,7 +52,7 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 	const virtualizer = useVirtualizer({
 		count: entries.length,
 		getScrollElement: () => scrollRef.current,
-		estimateSize: () => 48, // AppLog rows are taller due to min-h-[2lh] and flex layout
+		estimateSize: () => 48,
 		overscan: 20,
 		getItemKey: (index) =>
 			entries[index].id ??
@@ -61,25 +63,14 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 
 	const prevEntriesRef = useRef(entries);
 	const prevTotalSizeRef = useRef(0);
-	// State counter to force synchronous re-render after scrollTop adjustment.
-	// React guarantees setState inside useLayoutEffect is flushed before paint.
 	const [, forceRerender] = useState(0);
 
-	// When items are prepended (fetchNewer), all item indices shift but
-	// scrollTop stays the same, so the virtualizer maps the old scroll
-	// position to different items. Compensate by adjusting scrollTop by
-	// the exact change in total size (computed from the virtualizer's
-	// own layout, which is internally consistent). This avoids drift
-	// from averaging measured vs estimated row heights.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: virtualizer.getTotalSize is a stable reference that adds no reactivity
+	// biome-ignore lint/correctness/useExhaustiveDependencies: virtualizer.getTotalSize is a stable reference
 	useLayoutEffect(() => {
 		const prev = prevEntriesRef.current;
 		if (entries.length > prev.length && prev.length > 0) {
 			const newItemCount = entries.length - prev.length;
 			if (entries[newItemCount]?.id === prev[0]?.id && scrollRef.current) {
-				// When at the very top, don't adjust: the user naturally
-				// sees the newest rows. Otherwise, preserve scroll position
-				// by compensating for the total size change.
 				if (scrollRef.current.scrollTop > 1) {
 					const newTotalSize = virtualizer.getTotalSize();
 					scrollRef.current.scrollTop +=
@@ -93,13 +84,8 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 		}
 		prevEntriesRef.current = entries;
 		prevTotalSizeRef.current = virtualizer.getTotalSize();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [entries]);
 
-	// Keep prevTotalSizeRef in sync with ResizeObserver measurement
-	// corrections between prepends. Without this, the ref goes stale
-	// as the virtualizer replaces estimated sizes with actual measured
-	// heights, causing the next prepend adjustment to overshoot.
 	useLayoutEffect(() => {
 		prevTotalSizeRef.current = virtualizer.getTotalSize();
 	});
@@ -164,20 +150,24 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 									colSpan={4}
 									className="px-4 py-8 text-center text-gray-500 text-sm"
 								>
-									No log entries found
+									{t("components.virtualAppLogTable.noEntriesFound")}
 								</td>
 							</tr>
 						</tbody>
 					</table>
 				</div>
 				<div className="flex items-center justify-between px-3 py-2 text-xs text-gray-500 border-t border-gray-800">
-					<span>0 entries</span>
+					<span>0 {t("components.virtualAppLogTable.entries")}</span>
 					<span className="flex items-center gap-2">
 						{isLoadingBefore && (
-							<span className="text-(--accent)">↻ Loading newer…</span>
+							<span className="text-(--accent)">
+								{t("components.virtualAppLogTable.loadingNewer")}
+							</span>
 						)}
 						{isLoadingAfter && (
-							<span className="text-(--accent)">↻ Loading older…</span>
+							<span className="text-(--accent)">
+								{t("components.virtualAppLogTable.loadingOlder")}
+							</span>
 						)}
 					</span>
 				</div>
@@ -216,11 +206,18 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 								className={`${HEADER_BASE} cursor-pointer`}
 								onClick={onSortToggle}
 							>
-								Time/Date {sortDir === "desc" ? "↓" : "↑"}
+								{t("components.virtualAppLogTable.timeDate")}{" "}
+								{sortDir === "desc" ? "↓" : "↑"}
 							</th>
-							<th className={HEADER_BASE}>Level</th>
-							<th className={HEADER_BASE}>Source</th>
-							<th className={HEADER_BASE}>Message</th>
+							<th className={HEADER_BASE}>
+								{t("components.virtualAppLogTable.level")}
+							</th>
+							<th className={HEADER_BASE}>
+								{t("components.virtualAppLogTable.source")}
+							</th>
+							<th className={HEADER_BASE}>
+								{t("components.virtualAppLogTable.message")}
+							</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -275,10 +272,14 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 				</span>
 				<span className="flex items-center gap-2">
 					{isLoadingBefore && (
-						<span className="text-(--accent)">↻ Loading newer…</span>
+						<span className="text-(--accent)">
+							{t("components.virtualAppLogTable.loadingNewer")}
+						</span>
 					)}
 					{isLoadingAfter && (
-						<span className="text-(--accent)">↻ Loading older…</span>
+						<span className="text-(--accent)">
+							{t("components.virtualAppLogTable.loadingOlder")}
+						</span>
 					)}
 				</span>
 			</div>

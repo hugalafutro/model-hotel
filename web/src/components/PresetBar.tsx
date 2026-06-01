@@ -1,4 +1,5 @@
 import { Dices } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface PresetItem {
 	id: string;
@@ -21,15 +22,16 @@ export function PresetBar<T extends PresetItem>({
 	onSelect,
 	onCustom,
 	onRandom,
-	customLabel = "✏️Custom",
+	customLabel,
 }: PresetBarProps<T>) {
+	const { t } = useTranslation();
 	return (
 		<div className="flex items-center gap-1 flex-wrap">
 			{onRandom && (
 				<button
 					type="button"
 					onClick={onRandom}
-					title="Random"
+					title={t("common.random")}
 					className="cursor-pointer text-white/70 hover:text-(--accent) transition-colors p-1 -m-1"
 				>
 					<Dices size={13} />
@@ -42,7 +44,7 @@ export function PresetBar<T extends PresetItem>({
 					activeId === null ? "ui-btn-primary" : "ui-btn-secondary"
 				}`}
 			>
-				{customLabel}
+				{customLabel ?? t("components.presetBar.custom")}
 			</button>
 			{items.map((item) => (
 				<button
@@ -54,7 +56,7 @@ export function PresetBar<T extends PresetItem>({
 					}`}
 				>
 					{item.icon}
-					{item.label}
+					{t(item.label)}
 				</button>
 			))}
 		</div>

@@ -29,7 +29,7 @@ describe("FailoverGroups", () => {
 			);
 
 			renderWithProviders(<FailoverGroups />);
-			expect(screen.getByText("Loading...")).toBeInTheDocument();
+			expect(screen.getByText("Loading…")).toBeInTheDocument();
 		});
 	});
 
@@ -66,7 +66,7 @@ describe("FailoverGroups", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByRole("button", { name: "+ New Group" }),
+					screen.getByRole("button", { name: "New Group" }),
 				).toBeInTheDocument();
 			});
 		});

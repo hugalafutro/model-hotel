@@ -1,18 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Shield } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSelect } from "../../components/SettingsSelect";
 import { Toggle } from "../../components/Toggle";
 import { useToast } from "../../context/ToastContext";
-
-const CIRCUIT_BREAKER_COOLDOWN_OPTIONS = [
-	{ value: "30s", label: "30 seconds" },
-	{ value: "1m0s", label: "1 minute (default)" },
-	{ value: "2m0s", label: "2 minutes" },
-	{ value: "5m0s", label: "5 minutes" },
-	{ value: "10m0s", label: "10 minutes" },
-];
 
 interface CircuitBreakerSettingsProps {
 	collapsed: boolean;
@@ -23,6 +16,7 @@ export function CircuitBreakerSettings({
 	collapsed,
 	onToggle,
 }: CircuitBreakerSettingsProps) {
+	const { t } = useTranslation();
 	const { toast } = useToast();
 	const queryClient = useQueryClient();
 
@@ -36,10 +30,13 @@ export function CircuitBreakerSettings({
 			api.settings.update(updates),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["settings"] });
-			toast("Settings saved", "success");
+			toast(t("settings.common.settingsSaved"), "success");
 		},
 		onError: (err: Error) => {
-			toast(`Failed to save: ${err.message}`, "error");
+			toast(
+				t("settings.common.failedToSave", { message: err.message }),
+				"error",
+			);
 		},
 	});
 
@@ -48,25 +45,32 @@ export function CircuitBreakerSettings({
 	const circuitBreakerCooldown = settings?.circuit_breaker_cooldown || "1m0s";
 	const failoverOnRateLimit = settings?.failover_on_rate_limit === "true";
 
+	const CIRCUIT_BREAKER_COOLDOWN_OPTIONS = [
+		{ value: "30s", label: t("settings.circuitBreaker.cooldown.30s") },
+		{ value: "1m0s", label: t("settings.circuitBreaker.cooldown.1m0s") },
+		{ value: "2m0s", label: t("settings.circuitBreaker.cooldown.2m0s") },
+		{ value: "5m0s", label: t("settings.circuitBreaker.cooldown.5m0s") },
+		{ value: "10m0s", label: t("settings.circuitBreaker.cooldown.10m0s") },
+	];
+
 	return (
 		<SettingsSection
 			icon={Shield}
-			title="Circuit Breaker & Failover"
+			title={t("settings.circuitBreaker.title")}
 			collapsed={collapsed}
 			onToggle={onToggle}
 		>
 			<div className="space-y-5">
 				<p className="text-gray-400 text-sm">
-					Configure how the proxy handles provider failures and rate-limited
-					requests.
+					{t("settings.circuitBreaker.description")}
 				</p>
 				<div className="flex items-center justify-between">
 					<div>
 						<p className="text-sm font-medium text-gray-300">
-							Enable Circuit Breaker
+							{t("settings.circuitBreaker.enable")}
 						</p>
 						<p className="text-gray-500 text-xs mt-0.5">
-							Temporarily stop routing to providers that are failing
+							{t("settings.circuitBreaker.enableDescription")}
 						</p>
 					</div>
 					<Toggle
@@ -76,7 +80,7 @@ export function CircuitBreakerSettings({
 								circuit_breaker_enabled: v ? "true" : "false",
 							})
 						}
-						ariaLabel="Enable Circuit Breaker"
+						ariaLabel={t("settings.circuitBreaker.enable")}
 					/>
 				</div>
 
@@ -87,7 +91,7 @@ export function CircuitBreakerSettings({
 								htmlFor="circuit-breaker-threshold"
 								className="block text-sm font-medium text-gray-300 mb-2"
 							>
-								Failure Threshold
+								{t("settings.circuitBreaker.failureThreshold")}
 							</label>
 							<input
 								id="circuit-breaker-threshold"
@@ -103,21 +107,22 @@ export function CircuitBreakerSettings({
 								className="ui-input"
 							/>
 							<p className="text-gray-500 text-xs mt-1">
-								Consecutive failures before the circuit opens and stops routing
-								to the provider
+								{t("settings.circuitBreaker.failureThreshold.description")}
 							</p>
 						</div>
 
 						<div className="mt-4">
 							<SettingsSelect
 								id="circuit-breaker-cooldown"
-								label="Cooldown Period"
+								label={t("settings.circuitBreaker.cooldownPeriod")}
 								value={circuitBreakerCooldown}
 								options={CIRCUIT_BREAKER_COOLDOWN_OPTIONS}
 								onChange={(v) =>
 									updateMutation.mutate({ circuit_breaker_cooldown: v })
 								}
-								description="Time to wait before retrying a provider with an open circuit"
+								description={t(
+									"settings.circuitBreaker.cooldownPeriod.description",
+								)}
 							/>
 						</div>
 					</>
@@ -126,10 +131,10 @@ export function CircuitBreakerSettings({
 				<div className="flex items-center justify-between">
 					<div>
 						<p className="text-sm font-medium text-gray-300">
-							Failover on Rate Limit
+							{t("settings.circuitBreaker.failoverOnRateLimit")}
 						</p>
 						<p className="text-gray-500 text-xs mt-0.5">
-							Route to next failover group member when a provider returns 429
+							{t("settings.circuitBreaker.failoverOnRateLimitDescription")}
 						</p>
 					</div>
 					<Toggle
@@ -139,7 +144,7 @@ export function CircuitBreakerSettings({
 								failover_on_rate_limit: v ? "true" : "false",
 							})
 						}
-						ariaLabel="Failover on Rate Limit"
+						ariaLabel={t("settings.circuitBreaker.failoverOnRateLimit")}
 					/>
 				</div>
 			</div>

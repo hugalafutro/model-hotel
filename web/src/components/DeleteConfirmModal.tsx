@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Modal } from "./Modal";
 
 interface DeleteConfirmModalProps {
@@ -23,15 +24,17 @@ export function DeleteConfirmModal({
 	onConfirm,
 	onCancel,
 }: DeleteConfirmModalProps) {
+	const { t } = useTranslation();
 	const modalTitle =
-		title ?? (entityType ? `Delete ${entityType}` : "Confirm Delete");
+		title ??
+		(entityType
+			? t("components.deleteConfirmModal.deleteType", { entityType })
+			: t("components.deleteConfirmModal.confirmDelete"));
 
 	return (
 		<Modal title={modalTitle} onClose={onCancel} maxWidth="max-w-sm">
 			<p className="text-sm text-gray-300 mb-4">
-				Are you sure you want to delete{" "}
-				<span className="text-white font-medium">{entityName}</span>? This
-				action cannot be undone.
+				{t("components.deleteConfirmModal.areYouSure", { entityName })}
 			</p>
 			<div className="flex gap-3 justify-end">
 				<button
@@ -39,7 +42,7 @@ export function DeleteConfirmModal({
 					onClick={onCancel}
 					className="ui-btn ui-btn-secondary"
 				>
-					Cancel
+					{t("common.cancel")}
 				</button>
 				<button
 					type="button"
@@ -47,7 +50,7 @@ export function DeleteConfirmModal({
 					disabled={isPending}
 					className="ui-btn ui-btn-danger"
 				>
-					{isPending ? "Deleting…" : "Delete"}
+					{isPending ? t("common.deleting") : t("common.delete")}
 				</button>
 			</div>
 		</Modal>

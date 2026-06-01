@@ -80,6 +80,26 @@ export const providerTypeDisplayNames: Record<string, string> = {
 	lmstudio: "LM Studio",
 };
 
+/** Translation keys for provider type display names. Use with t() at consumption sites. */
+export const providerTypeTranslationKeys: Record<string, string> = {
+	custom: "providers.type_custom",
+	nanogpt: "providers.type_nanogpt",
+	"zai-coding": "providers.type_zai_coding",
+	openai: "providers.type_openai",
+	anthropic: "providers.type_anthropic",
+	deepseek: "providers.type_deepseek",
+	"ollama-cloud": "providers.type_ollama_cloud",
+	ollama: "providers.type_ollama",
+	"opencode-zen": "providers.type_opencode_zen",
+	"opencode-go": "providers.type_opencode_go",
+	xai: "providers.type_xai",
+	google: "providers.type_google",
+	cohere: "providers.type_cohere",
+	openrouter: "providers.type_openrouter",
+	koboldcpp: "providers.type_koboldcpp",
+	lmstudio: "providers.type_lmstudio",
+};
+
 export function providerTypeAllowsEmptyKey(type: string): boolean {
 	return (
 		type === "opencode-zen" ||

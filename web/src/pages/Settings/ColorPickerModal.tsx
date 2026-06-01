@@ -1,4 +1,5 @@
 import { HexColorPicker } from "react-colorful";
+import { useTranslation } from "react-i18next";
 import { Modal } from "../../components/Modal";
 
 interface ColorPickerModalProps {
@@ -14,8 +15,13 @@ export function ColorPickerModal({
 	onClose,
 	onApply,
 }: ColorPickerModalProps) {
+	const { t } = useTranslation();
 	return (
-		<Modal title="Pick a Color" onClose={onClose} maxWidth="max-w-sm">
+		<Modal
+			title={t("settings.colorPicker.title")}
+			onClose={onClose}
+			maxWidth="max-w-sm"
+		>
 			<div className="flex flex-col items-center gap-4">
 				<HexColorPicker
 					color={color}
@@ -48,14 +54,14 @@ export function ColorPickerModal({
 						onClick={onClose}
 						className="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors"
 					>
-						Cancel
+						{t("settings.colorPicker.cancel")}
 					</button>
 					<button
 						type="button"
 						onClick={onApply}
 						className="flex-1 px-3 py-2 rounded-lg text-sm font-medium ui-btn ui-btn-primary"
 					>
-						Apply
+						{t("settings.colorPicker.apply")}
 					</button>
 				</div>
 			</div>

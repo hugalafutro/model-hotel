@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { MetricType, Range } from "./types";
 
 export function RangeToggle({
@@ -7,7 +8,12 @@ export function RangeToggle({
 	value: Range;
 	onChange: (v: Range) => void;
 }) {
-	const labels: Record<Range, string> = { "1h": "1H", "24h": "1D", "7d": "7D" };
+	const { t } = useTranslation();
+	const labels: Record<Range, string> = {
+		"1h": t("dashboard.range.1h"),
+		"24h": t("dashboard.range.24h"),
+		"7d": t("dashboard.range.7d"),
+	};
 	return (
 		<div className="flex items-center gap-px">
 			{(["1h", "24h", "7d"] as Range[]).map((r) => {
@@ -39,11 +45,15 @@ export function MetricToggle({
 	value: MetricType;
 	onChange: (v: MetricType) => void;
 }) {
+	const { t } = useTranslation();
 	return (
 		<div className="flex items-center gap-px">
 			{(["tokens", "requests"] as MetricType[]).map((m) => {
 				const active = value === m;
-				const label = m === "tokens" ? "Tok" : "Req";
+				const label =
+					m === "tokens"
+						? t("dashboard.metric.tokens")
+						: t("dashboard.metric.requests");
 				return (
 					<button
 						type="button"

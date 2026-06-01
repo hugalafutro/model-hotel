@@ -1,5 +1,6 @@
 import { Palette } from "lucide-react";
 import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { SettingsSection } from "../../components/SettingsSection";
 import { useTheme } from "../../context/ThemeContext";
 import { ColorPickerModal } from "./ColorPickerModal";
@@ -14,6 +15,7 @@ export function AppearanceSettings({
 	collapsed,
 	onToggle,
 }: AppearanceSettingsProps) {
+	const { t } = useTranslation();
 	const {
 		theme,
 		setTheme,
@@ -40,18 +42,26 @@ export function AppearanceSettings({
 	return (
 		<SettingsSection
 			icon={Palette}
-			title="Appearance"
+			title={t("settings.appearance.title")}
 			collapsed={collapsed}
 			onToggle={onToggle}
 		>
 			<div className="space-y-6">
 				{/* UI Style */}
 				<div>
-					<p className="text-sm font-medium text-gray-300 mb-3">UI Style</p>
+					<p className="text-sm font-medium text-gray-300 mb-3">
+						{t("settings.appearance.uiStyle")}
+					</p>
 					<div className="grid grid-cols-3 gap-3">
 						{UI_STYLES.map((style) => {
 							const Icon = style.icon;
 							const active = uiStyle === style.id;
+							const labelKey =
+								style.id === "clean-saas"
+									? "cleanSaas"
+									: style.id === "cyber-terminal"
+										? "cyberTerminal"
+										: "glassmorphism";
 							return (
 								<button
 									key={style.id}
@@ -71,10 +81,12 @@ export function AppearanceSettings({
 										<p
 											className={`text-xs font-medium ${active ? "text-(--accent)" : "text-gray-300"}`}
 										>
-											{style.label}
+											{t(`settings.appearance.uiStyles.${labelKey}` as const)}
 										</p>
 										<p className="text-[10px] text-gray-500 mt-0.5">
-											{style.description}
+											{t(
+												`settings.appearance.uiStyles.${labelKey}Description` as const,
+											)}
 										</p>
 									</div>
 								</button>
@@ -86,9 +98,11 @@ export function AppearanceSettings({
 				{/* Theme */}
 				<div className="flex items-center justify-between">
 					<div>
-						<p className="text-sm font-medium text-gray-300">Theme</p>
+						<p className="text-sm font-medium text-gray-300">
+							{t("settings.appearance.theme")}
+						</p>
 						<p className="text-gray-500 text-xs mt-0.5">
-							Switch between dark and light mode
+							{t("settings.appearance.themeDescription")}
 						</p>
 					</div>
 					<div className="flex rounded-lg overflow-hidden border border-gray-600">
@@ -101,7 +115,7 @@ export function AppearanceSettings({
 									: "bg-gray-700 text-gray-400 hover:bg-gray-600"
 							}`}
 						>
-							Dark
+							{t("settings.appearance.dark")}
 						</button>
 						<button
 							type="button"
@@ -112,14 +126,16 @@ export function AppearanceSettings({
 									: "bg-gray-700 text-gray-400 hover:bg-gray-600"
 							}`}
 						>
-							Light
+							{t("settings.appearance.light")}
 						</button>
 					</div>
 				</div>
 
 				{/* Accent Color */}
 				<div>
-					<p className="text-sm font-medium text-gray-300 mb-2">Accent Color</p>
+					<p className="text-sm font-medium text-gray-300 mb-2">
+						{t("settings.appearance.accentColor")}
+					</p>
 					<div className="flex flex-wrap gap-2 py-1 px-1">
 						{accentPresets.map((preset) => (
 							<button
@@ -146,7 +162,7 @@ export function AppearanceSettings({
 									? "bg-gray-800"
 									: ""
 							}`}
-							title="Custom color"
+							title={t("settings.appearance.customColor")}
 						>
 							{accentColor &&
 							!accentPresets.some((p) => p.color === accentColor) ? (
@@ -163,7 +179,7 @@ export function AppearanceSettings({
 									stroke="currentColor"
 									viewBox="0 0 24 24"
 								>
-									<title>Add</title>
+									<title>{t("settings.appearance.colorPicker.apply")}</title>
 									<path
 										strokeLinecap="round"
 										strokeLinejoin="round"

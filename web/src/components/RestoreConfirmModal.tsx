@@ -1,5 +1,6 @@
 import { AlertTriangle } from "lucide-react";
 import { useId, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Modal } from "./Modal";
 
 interface RestoreConfirmModalProps {
@@ -19,6 +20,7 @@ export function RestoreConfirmModal({
 	onConfirm,
 	isPending,
 }: RestoreConfirmModalProps) {
+	const { t } = useTranslation();
 	const [adminToken, setAdminToken] = useState("");
 	const inputId = useId();
 
@@ -39,7 +41,7 @@ export function RestoreConfirmModal({
 
 	return (
 		<Modal
-			title="Restore Database Backup"
+			title={t("components.restoreConfirmModal.title")}
 			onClose={handleCancel}
 			maxWidth="max-w-lg"
 			scrollable={true}
@@ -48,49 +50,44 @@ export function RestoreConfirmModal({
 				<div className="flex items-center gap-2 mb-3 text-red-400">
 					<AlertTriangle size={24} />
 					<span className="text-lg font-bold">
-						This will permanently overwrite all data
+						{t("components.restoreConfirmModal.overwriteWarning")}
 					</span>
 				</div>
 				<p className="text-amber-400 text-sm mb-4">
-					This will permanently destroy all current data and replace it with the
-					backup. This action cannot be undone.
+					{t("components.restoreConfirmModal.destroyWarning")}
 				</p>
 			</div>
 
 			<div className="ui-card bg-gray-800/50 p-4 mb-4">
 				<h3 className="text-(--text-primary) font-semibold mb-3">
-					Requirements:
+					{t("components.restoreConfirmModal.requirements")}
 				</h3>
 				<ul className="space-y-2 text-sm text-gray-300">
 					<li className="flex gap-2">
 						<span className="text-amber-400">•</span>
 						<span>
 							<strong className="text-(--text-primary)">
-								MASTER_KEY must match:
+								{t("components.restoreConfirmModal.masterKeyMatch")}
 							</strong>{" "}
-							Provider API keys are AES-256-GCM encrypted using a key derived
-							from your MASTER_KEY. Restoring with a different MASTER_KEY will
-							leave all provider keys unrecoverable.
+							{t("components.restoreConfirmModal.masterKeyInfo")}
 						</span>
 					</li>
 					<li className="flex gap-2">
 						<span className="text-amber-400">•</span>
 						<span>
 							<strong className="text-(--text-primary)">
-								Admin token is not in the backup:
+								{t("components.restoreConfirmModal.adminTokenNotInBackup")}
 							</strong>{" "}
-							It is stored on the filesystem. Your current admin token will
-							continue to work after restore.
+							{t("components.restoreConfirmModal.adminTokenInfo")}
 						</span>
 					</li>
 					<li className="flex gap-2">
 						<span className="text-amber-400">•</span>
 						<span>
 							<strong className="text-(--text-primary)">
-								Virtual keys are irrecoverable:
+								{t("components.restoreConfirmModal.virtualKeysIrrecoverable")}
 							</strong>{" "}
-							Only SHA-256 hashes are stored. If you lose the plaintext virtual
-							keys, they cannot be recovered.
+							{t("components.restoreConfirmModal.virtualKeysInfo")}
 						</span>
 					</li>
 				</ul>
@@ -101,7 +98,7 @@ export function RestoreConfirmModal({
 					htmlFor={inputId}
 					className="block text-sm font-medium text-gray-300 mb-1"
 				>
-					Confirm with admin token
+					{t("components.restoreConfirmModal.confirmWithAdminToken")}
 				</label>
 				<input
 					id={inputId}
@@ -109,7 +106,7 @@ export function RestoreConfirmModal({
 					value={adminToken}
 					onChange={(e) => setAdminToken(e.target.value)}
 					className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded text-(--text-primary) placeholder-gray-400 focus:outline-none focus:border-amber-500"
-					placeholder="Enter admin token"
+					placeholder={t("components.restoreConfirmModal.enterAdminToken")}
 					disabled={isPending}
 				/>
 			</div>
@@ -121,7 +118,7 @@ export function RestoreConfirmModal({
 					disabled={isPending}
 					className="ui-btn ui-btn-secondary"
 				>
-					Cancel
+					{t("common.cancel")}
 				</button>
 				<button
 					type="button"
@@ -129,7 +126,9 @@ export function RestoreConfirmModal({
 					disabled={!adminToken.trim() || isPending}
 					className="ui-btn ui-btn-danger"
 				>
-					{isPending ? "Restoring…" : "Restore Database"}
+					{isPending
+						? t("components.restoreConfirmModal.restoring")
+						: t("components.restoreConfirmModal.restoreDatabase")}
 				</button>
 			</div>
 		</Modal>

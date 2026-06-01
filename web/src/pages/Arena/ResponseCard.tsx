@@ -8,6 +8,7 @@ import {
 	X,
 } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Model } from "../../api/types";
 import { CopyButton } from "../../components/CopyButton";
 import { ModelDetailModal } from "../../components/ModelDetailPanel";
@@ -31,6 +32,7 @@ export function ResponseCard({
 	enabledModels,
 	params,
 }: ResponseCardProps) {
+	const { t } = useTranslation();
 	const [detailModel, setDetailModel] = useState<Model | null>(null);
 	const disableModelMutation = useDisableModel(enabledModels);
 	const isWinner = vote === slotKey;
@@ -72,8 +74,8 @@ export function ResponseCard({
 								onSwapModel(roundIdx, matchupIdx, slotKey, response.model)
 							}
 							className="shrink-0 text-red-400 hover:text-red-300 transition-colors cursor-pointer"
-							title="Swap model"
-							aria-label="Swap model"
+							title={t("arena.swapModel.title")}
+							aria-label={t("arena.swapModel.title")}
 						>
 							<X size={14} />
 						</button>
@@ -83,15 +85,15 @@ export function ResponseCard({
 					<>
 						{response.done && !response.error && (
 							<>
-								<span title="Completed">
+								<span title={t("arena.completed.title")}>
 									<CheckCircle2 size={14} className="text-green-400" />
 								</span>
 								<button
 									type="button"
 									onClick={() => onRetry(roundIdx, matchupIdx, slotKey)}
 									className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all cursor-pointer"
-									title="Re-roll"
-									aria-label="Re-roll"
+									title={t("arena.reroll.title")}
+									aria-label={t("arena.reroll.title")}
 								>
 									<RefreshCw size={14} />
 								</button>
@@ -101,8 +103,8 @@ export function ResponseCard({
 										onSwapModel(roundIdx, matchupIdx, slotKey, response.model)
 									}
 									className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all cursor-pointer"
-									title="Swap model"
-									aria-label="Swap model"
+									title={t("arena.swapModel.title")}
+									aria-label={t("arena.swapModel.title")}
 								>
 									<ArrowLeftRight size={14} />
 								</button>
@@ -110,15 +112,15 @@ export function ResponseCard({
 						)}
 						{response.error && (
 							<>
-								<span title="Error">
+								<span title={t("arena.error.title")}>
 									<AlertCircle size={14} className="text-red-400" />
 								</span>
 								<button
 									type="button"
 									onClick={() => onRetry(roundIdx, matchupIdx, slotKey)}
 									className="text-(--text-tertiary) hover:text-(--text-primary) transition-colors cursor-pointer"
-									title="Retry"
-									aria-label="Retry"
+									title={t("arena.retry.title")}
+									aria-label={t("arena.retry.title")}
 								>
 									<RefreshCw size={14} />
 								</button>
@@ -130,15 +132,15 @@ export function ResponseCard({
 								onCancelSlot(roundIdx, matchupIdx, slotKey, response.model)
 							}
 							className={`text-red-400/60 hover:text-red-400 transition-colors ${response.done ? "invisible pointer-events-none" : "cursor-pointer"}`}
-							title="Cancel"
-							aria-label="Cancel"
+							title={t("arena.cancel.title")}
+							aria-label={t("arena.cancel.title")}
 							disabled={response.done}
 							tabIndex={response.done ? -1 : undefined}
 						>
 							<CircleStop size={14} />
 						</button>
 						{isWinner && (
-							<span title="Winner">
+							<span title={t("arena.winner.title")}>
 								<Trophy size={14} className="text-amber-400" />
 							</span>
 						)}
@@ -161,8 +163,10 @@ export function ResponseCard({
 										? "text-green-400 hover:text-green-300"
 										: "text-(--text-tertiary) hover:text-(--text-secondary)"
 								}`}
-								title={vote === null ? "Vote for this response" : undefined}
-								aria-label={vote === null ? "Vote for this response" : "Voted"}
+								title={vote === null ? t("arena.vote.title") : undefined}
+								aria-label={
+									vote === null ? t("arena.vote.title") : t("arena.vote.voted")
+								}
 							>
 								<VoteThumb
 									size={18}

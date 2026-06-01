@@ -156,7 +156,10 @@ describe("Chat", () => {
 				() => {
 					expect(
 						screen.getByRole("textbox", { name: "Chat message input" }),
-					).toHaveAttribute("title", "Generating…");
+					).toHaveAttribute(
+						"title",
+						"Models are generating - click Stop to cancel",
+					);
 				},
 				{ timeout: 2000 },
 			);

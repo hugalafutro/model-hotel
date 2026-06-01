@@ -1,6 +1,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { FileText, ScrollText } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { AppLogEntry } from "../api/types";
 import { Badge } from "../components/Badge";
@@ -39,6 +40,7 @@ import {
 type AppLogSortField = "time" | "level" | "source" | "message";
 
 export function AppLogs() {
+	const { t } = useTranslation();
 	const { logsSubMode, setLogsSubMode } = useSidebarMode();
 	const [liveEnabled, setLiveEnabled] = useState(true);
 	const [isVisible, setIsVisible] = useState(!document.hidden);
@@ -245,8 +247,8 @@ export function AppLogs() {
 			>
 				<PageHeader
 					icon={FileText}
-					title="Logs"
-					description="Server application log output"
+					title={t("applogs.title")}
+					description={t("applogs.description")}
 					badge={
 						<LiveToggleButton enabled={liveEnabled} onToggle={setLiveEnabled} />
 					}
@@ -262,13 +264,13 @@ export function AppLogs() {
 									setPageSize(s);
 									setPage(1);
 								}}
-								label="entries"
+								label={t("applogs.pagination.label")}
 							/>
 						) : undefined
 					}
 				/>
 
-				<div className="ui-card p-4 shrink-0">
+				<div className="ui-card has-dropdown p-4 shrink-0">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-1">
 							<button
@@ -284,7 +286,7 @@ export function AppLogs() {
 								}`}
 							>
 								<ScrollText size={12} className="inline mr-1 -mt-0.5" />
-								Requests
+								{t("applogs.tabs.requests")}
 							</button>
 							<button
 								type="button"
@@ -299,7 +301,7 @@ export function AppLogs() {
 								}`}
 							>
 								<FileText size={12} className="inline mr-1 -mt-0.5" />
-								Logs
+								{t("applogs.tabs.logs")}
 							</button>
 						</div>
 						<div className="flex items-center gap-2">
@@ -310,8 +312,8 @@ export function AppLogs() {
 									setLevelFilter((v || "all") as typeof levelFilter);
 									setPage(1);
 								}}
-								placeholder="Level"
-								allLabel={`All (${totalItems})`}
+								placeholder={t("applogs.filters.level")}
+								allLabel={t("applogs.filters.all", { count: totalItems })}
 								options={(["info", "warning", "error"] as const).map((lvl) => ({
 									value: lvl,
 									label: lvl.charAt(0).toUpperCase() + lvl.slice(1),
@@ -326,7 +328,7 @@ export function AppLogs() {
 										setSourceFilter(v || "all");
 										setPage(1);
 									}}
-									placeholder="Source"
+									placeholder={t("applogs.filters.source")}
 									options={sources.map((src) => ({
 										value: src,
 										label: src,
@@ -341,7 +343,7 @@ export function AppLogs() {
 									setSearchFilter(v);
 									setPage(1);
 								}}
-								placeholder="Filter logs…"
+								placeholder={t("applogs.filters.search")}
 								className="w-50"
 								autoFocus
 							/>
@@ -378,7 +380,9 @@ export function AppLogs() {
 
 				{error && !historyData && entries.length === 0 && (
 					<LogsErrorState
-						message={`Failed to load logs: ${error?.message || "Unknown error"}`}
+						message={t("applogs.toast.loadFailed", {
+							message: error?.message || t("common.unknownError"),
+						})}
 					/>
 				)}
 
@@ -394,25 +398,25 @@ export function AppLogs() {
 							<thead>
 								<tr>
 									<SortableHeader
-										label="Time/Date"
+										label={t("applogs.table.timeDate")}
 										field="time"
 										sort={sort}
 										onSort={handleSort}
 									/>
 									<SortableHeader
-										label="Level"
+										label={t("applogs.table.level")}
 										field="level"
 										sort={sort}
 										onSort={handleSort}
 									/>
 									<SortableHeader
-										label="Source"
+										label={t("applogs.table.source")}
 										field="source"
 										sort={sort}
 										onSort={handleSort}
 									/>
 									<SortableHeader
-										label="Message"
+										label={t("applogs.table.message")}
 										field="message"
 										sort={sort}
 										onSort={handleSort}
@@ -460,8 +464,8 @@ export function AppLogs() {
 										colSpan={4}
 										message={
 											totalItems === 0
-												? "No log entries yet - logs will appear here as the server generates output"
-												: "No entries match your filter"
+												? t("applogs.emptyState.noEntries")
+												: t("applogs.emptyState.noMatch")
 										}
 									/>
 								)}
@@ -476,7 +480,11 @@ export function AppLogs() {
 							<LoadingSpinner />
 						)}
 						{scrollError && scrollEntries.length === 0 && (
-							<LogsErrorState message={`Failed to load logs: ${scrollError}`} />
+							<LogsErrorState
+								message={t("applogs.toast.scrollLoadFailed", {
+									message: scrollError,
+								})}
+							/>
 						)}
 						{(!isScrollLoading || scrollEntries.length > 0) && (
 							<VirtualAppLogTable

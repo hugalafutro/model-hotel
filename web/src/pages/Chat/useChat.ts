@@ -598,7 +598,6 @@ export function useChat() {
 			messages,
 			setCurrentTurn,
 			setConversationState,
-			setInput,
 		],
 	);
 

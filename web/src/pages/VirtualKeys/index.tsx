@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Brain, KeyRound, ShieldCheck } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { VirtualKey } from "../../api/types";
 import { CopyablePill } from "../../components/CopyablePill";
@@ -16,11 +17,7 @@ import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { PageHeader } from "../../components/PageHeader";
 import { TerminalPreview } from "../../components/TerminalPreview";
 import { useToast } from "../../context/ToastContext";
-import {
-	countLabel,
-	formatNumber,
-	formatRelativeTime,
-} from "../../utils/format";
+import { formatNumber, formatRelativeTime } from "../../utils/format";
 import {
 	snippetBash,
 	snippetBashText,
@@ -55,6 +52,7 @@ type VKSortField =
 	| "last_used";
 
 export function VirtualKeys() {
+	const { t } = useTranslation();
 	const { toast } = useToast();
 	const [showCreate, setShowCreate] = useState(false);
 	const [selectedKey, setSelectedKey] = useState<VirtualKey | null>(null);
@@ -133,17 +131,17 @@ export function VirtualKeys() {
 		<div className="space-y-6 pb-8">
 			<PageHeader
 				icon={KeyRound}
-				title={countLabel(keys?.length, "Virtual Key", "Virtual Keys")}
+				title={t("virtualkeys.title.plural")}
 				description={
 					<span>
-						Issue keys for clients to access the proxy at{" "}
+						{t("virtualkeys.description")}{" "}
 						<CopyablePill
 							text={`${proxyOrigin}/v1`}
 							displayText={`${proxyOrigin}/v1`}
 							textClassName="text-(--accent) text-sm font-medium"
 							iconClassName="w-3 h-3"
 							className="inline-flex"
-							tooltip="Click to copy proxy URL"
+							tooltip={t("virtualkeys.tooltip.proxyUrl")}
 						/>
 					</span>
 				}
@@ -153,7 +151,7 @@ export function VirtualKeys() {
 						onClick={() => setShowCreate(true)}
 						className="ui-btn ui-btn-primary"
 					>
-						+ Create Key
+						{t("virtualkeys.createButton")}
 					</button>
 				}
 			/>
@@ -170,7 +168,7 @@ export function VirtualKeys() {
 							setPageSize(s);
 							setCurrentPage(1);
 						}}
-						label="keys"
+						label={t("virtualkeys.table.keys")}
 					/>
 				</div>
 			)}
@@ -190,49 +188,49 @@ export function VirtualKeys() {
 						<thead>
 							<tr>
 								<SortableHeader
-									label="Name"
+									label={t("virtualkeys.table.name")}
 									field="name"
 									sort={sort}
 									onSort={handleSort}
-									tooltip="Display name for the virtual key"
+									tooltip={t("virtualkeys.tooltip.name")}
 								/>
-								<StaticHeader tooltip="Preview of the API key (full key only shown once on creation)">
-									Key
+								<StaticHeader tooltip={t("virtualkeys.tooltip.key")}>
+									{t("virtualkeys.table.key")}
 								</StaticHeader>
 								<SortableHeader
-									label="RPS"
+									label={t("virtualkeys.table.rps")}
 									field="rps"
 									sort={sort}
 									onSort={handleSort}
-									tooltip="Requests per second rate limit"
+									tooltip={t("virtualkeys.tooltip.rps")}
 								/>
 								<SortableHeader
-									label="Burst"
+									label={t("virtualkeys.table.burst")}
 									field="burst"
 									sort={sort}
 									onSort={handleSort}
-									tooltip="Burst capacity for rate limiting"
+									tooltip={t("virtualkeys.tooltip.burst")}
 								/>
 								<SortableHeader
-									label="Created"
+									label={t("virtualkeys.table.created")}
 									field="created"
 									sort={sort}
 									onSort={handleSort}
-									tooltip="When the key was created"
+									tooltip={t("virtualkeys.tooltip.created")}
 								/>
 								<SortableHeader
-									label="Tokens"
+									label={t("virtualkeys.table.tokens")}
 									field="tokens"
 									sort={sort}
 									onSort={handleSort}
-									tooltip="Total tokens consumed using this key"
+									tooltip={t("virtualkeys.tooltip.tokens")}
 								/>
 								<SortableHeader
-									label="Last Used"
+									label={t("virtualkeys.table.lastUsed")}
 									field="last_used"
 									sort={sort}
 									onSort={handleSort}
-									tooltip="When the key was last used for a request"
+									tooltip={t("virtualkeys.tooltip.lastUsed")}
 								/>
 							</tr>
 						</thead>
@@ -243,7 +241,9 @@ export function VirtualKeys() {
 										<div className="flex items-center gap-1.5">
 											{vk.allowed_providers &&
 												vk.allowed_providers.length > 0 && (
-													<span title="Provider-restricted key">
+													<span
+														title={t("virtualkeys.tooltip.providerRestricted")}
+													>
 														<ShieldCheck
 															size={14}
 															className="text-(--accent) shrink-0"
@@ -252,7 +252,7 @@ export function VirtualKeys() {
 												)}
 											{vk.strip_reasoning && (
 												<span
-													title="Reasoning fields stripped"
+													title={t("virtualkeys.tooltip.reasoningStripped")}
 													className="relative"
 												>
 													<Brain
@@ -267,7 +267,9 @@ export function VirtualKeys() {
 														strokeWidth="2.5"
 														strokeLinecap="round"
 													>
-														<title>Reasoning stripped</title>
+														<title>
+															{t("virtualkeys.tooltip.reasoningStripped")}
+														</title>
 														<line x1="4" y1="4" x2="20" y2="20" />
 													</svg>
 												</span>
@@ -282,7 +284,9 @@ export function VirtualKeys() {
 										{vk.rate_limit_rps != null ? (
 											<span className="text-gray-200">{vk.rate_limit_rps}</span>
 										) : (
-											<span className="text-gray-500">Global</span>
+											<span className="text-gray-500">
+												{t("virtualKeys.global")}
+											</span>
 										)}
 									</td>
 									<td className="px-4 py-3 text-sm font-mono">
@@ -291,7 +295,9 @@ export function VirtualKeys() {
 												{vk.rate_limit_burst}
 											</span>
 										) : (
-											<span className="text-gray-500">Global</span>
+											<span className="text-gray-500">
+												{t("virtualKeys.global")}
+											</span>
 										)}
 									</td>
 									<td className="px-4 py-3 text-sm text-gray-400">
@@ -309,7 +315,7 @@ export function VirtualKeys() {
 					</table>
 				</div>
 			) : (
-				<EmptyState message="No virtual keys. Create one to start using the proxy." />
+				<EmptyState message={t("virtualkeys.emptyState")} />
 			)}
 
 			{sortedKeys.length > 0 && (
@@ -321,10 +327,10 @@ export function VirtualKeys() {
 							</div>
 							<div>
 								<h3 className="text-sm font-medium text-gray-200">
-									Create a Key
+									{t("virtualkeys.steps.createKey")}
 								</h3>
 								<p className="text-xs text-gray-400 mt-1">
-									Click the button above to generate a new virtual key
+									{t("virtualkeys.stepDescriptions.createKey")}
 								</p>
 							</div>
 						</div>
@@ -334,10 +340,10 @@ export function VirtualKeys() {
 							</div>
 							<div>
 								<h3 className="text-sm font-medium text-gray-200">
-									Copy the Full Key
+									{t("virtualkeys.steps.copyKey")}
 								</h3>
 								<p className="text-xs text-gray-400 mt-1">
-									The complete key is shown only once on creation
+									{t("virtualkeys.stepDescriptions.copyKey")}
 								</p>
 							</div>
 						</div>
@@ -347,10 +353,10 @@ export function VirtualKeys() {
 							</div>
 							<div>
 								<h3 className="text-sm font-medium text-gray-200">
-									Make Requests
+									{t("virtualkeys.steps.makeRequests")}
 								</h3>
 								<p className="text-xs text-gray-400 mt-1">
-									Use your key to call the proxy API endpoints
+									{t("virtualkeys.stepDescriptions.makeRequests")}
 								</p>
 							</div>
 						</div>
@@ -360,7 +366,7 @@ export function VirtualKeys() {
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 							<TerminalPreview
 								variant="code"
-								title="cURL"
+								title={t("virtualKeys.snippet.curl")}
 								icon="curl"
 								copyText={snippetBashText({ origin: proxyOrigin })}
 							>
@@ -369,7 +375,7 @@ export function VirtualKeys() {
 
 							<TerminalPreview
 								variant="code"
-								title="PowerShell"
+								title={t("virtualKeys.snippet.powershell")}
 								icon="powershell"
 								copyText={snippetPowershellText({ origin: proxyOrigin })}
 							>
@@ -380,7 +386,7 @@ export function VirtualKeys() {
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 							<TerminalPreview
 								variant="code"
-								title="Python"
+								title={t("virtualKeys.snippet.python")}
 								icon="python"
 								copyText={snippetPythonText({ origin: proxyOrigin })}
 							>
@@ -389,7 +395,7 @@ export function VirtualKeys() {
 
 							<TerminalPreview
 								variant="code"
-								title="OpenClaw"
+								title={t("virtualKeys.snippet.openclaw")}
 								icon="openclaw"
 								copyText={snippetOpenClawText({ origin: proxyOrigin })}
 							>
@@ -398,7 +404,7 @@ export function VirtualKeys() {
 
 							<TerminalPreview
 								variant="code"
-								title="JavaScript"
+								title={t("virtualKeys.snippet.javascript")}
 								icon="javascript"
 								copyText={snippetJSText({ origin: proxyOrigin })}
 							>
@@ -407,7 +413,7 @@ export function VirtualKeys() {
 
 							<TerminalPreview
 								variant="code"
-								title="LibreChat"
+								title={t("virtualKeys.snippet.librechat")}
 								icon="librechat"
 								copyText={snippetLibreChatText({ origin: proxyOrigin })}
 							>
@@ -416,7 +422,7 @@ export function VirtualKeys() {
 
 							<TerminalPreview
 								variant="code"
-								title="Claude Code"
+								title={t("virtualKeys.snippet.claudeCode")}
 								icon="claude"
 								copyText={snippetClaudeCodeText({ origin: proxyOrigin })}
 							>
@@ -425,7 +431,7 @@ export function VirtualKeys() {
 
 							<TerminalPreview
 								variant="code"
-								title="ZED"
+								title={t("virtualKeys.snippet.zed")}
 								icon="zed"
 								copyText={snippetZedVKText({ origin: proxyOrigin })}
 							>
@@ -434,7 +440,7 @@ export function VirtualKeys() {
 
 							<TerminalPreview
 								variant="code"
-								title="Hermes"
+								title={t("virtualKeys.snippet.hermes")}
 								icon="hermes"
 								copyText={snippetHermesText({ origin: proxyOrigin })}
 							>
@@ -443,7 +449,7 @@ export function VirtualKeys() {
 
 							<TerminalPreview
 								variant="code"
-								title="OpenCode"
+								title={t("virtualKeys.snippet.opencode")}
 								icon="opencode"
 								copyText={snippetOpencodeVKText({ origin: proxyOrigin })}
 							>
@@ -455,10 +461,7 @@ export function VirtualKeys() {
 					<div className="flex items-start gap-3 p-4 rounded-lg bg-(--accent-light) border border-(--accent-lighter)">
 						<div className="w-1.5 h-1.5 rounded-full bg-(--accent) mt-1.5 shrink-0" />
 						<p className="text-xs text-gray-300 leading-relaxed">
-							<span className="text-gray-200 font-medium">Note:</span> Virtual
-							keys are used to authenticate requests to the proxy. Each key
-							tracks its own token usage. You can create multiple keys for
-							different clients or environments.
+							{t("virtualkeys.note.text")}
 						</p>
 					</div>
 				</div>

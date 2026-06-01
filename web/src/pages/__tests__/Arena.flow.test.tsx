@@ -114,7 +114,7 @@ describe("Arena", () => {
 			});
 
 			// PersonaPicker should be visible
-			expect(screen.getByText(/persona/i)).toBeInTheDocument();
+			expect(screen.getAllByText(/persona/i).length).toBeGreaterThan(0);
 		});
 
 		it("shows different model limits for each mode", async () => {
@@ -300,13 +300,13 @@ describe("Arena", () => {
 			await setupAndRunArena(user, { mode: "compare" });
 
 			// Click Stop
-			await user.click(screen.getByRole("button", { name: "Stop" }));
+			await user.click(screen.getByRole("button", { name: "Stop All" }));
 
 			// Stop button should disappear (phase is finished, no button rendered)
 			await waitFor(
 				() => {
 					expect(
-						screen.queryByRole("button", { name: "Stop" }),
+						screen.queryByRole("button", { name: "Stop All" }),
 					).not.toBeInTheDocument();
 				},
 				{ timeout: 2000 },
@@ -332,7 +332,7 @@ describe("Arena", () => {
 			await setupAndRunArena(user);
 
 			// Click Stop
-			await user.click(screen.getByRole("button", { name: "Stop" }));
+			await user.click(screen.getByRole("button", { name: "Stop All" }));
 
 			// Should show voting message
 			await waitFor(
@@ -366,7 +366,7 @@ describe("Arena", () => {
 			await setupAndRunArena(user, { mode: "compare" });
 
 			// Click Stop
-			await user.click(screen.getByRole("button", { name: "Stop" }));
+			await user.click(screen.getByRole("button", { name: "Stop All" }));
 
 			// Responses should be preserved (check for Responses header in compare mode)
 			await waitFor(
@@ -398,7 +398,7 @@ describe("Arena", () => {
 			await waitFor(
 				() => {
 					expect(
-						screen.queryByRole("button", { name: "Stop" }),
+						screen.queryByRole("button", { name: "Stop All" }),
 					).not.toBeInTheDocument();
 				},
 				{ timeout: 2000 },
@@ -434,7 +434,7 @@ describe("Arena", () => {
 			await waitFor(
 				() => {
 					expect(
-						screen.queryByRole("button", { name: "Stop" }),
+						screen.queryByRole("button", { name: "Stop All" }),
 					).not.toBeInTheDocument();
 				},
 				{ timeout: 2000 },
@@ -589,7 +589,9 @@ describe("Arena", () => {
 			await waitFor(
 				() => {
 					expect(
-						screen.getByText("Models are generating - click Stop to cancel"),
+						screen.getByText(
+							"Models are generating - click Stop All to cancel",
+						),
 					).toBeInTheDocument();
 				},
 				{ timeout: 2000 },
@@ -615,7 +617,7 @@ describe("Arena", () => {
 			await waitFor(
 				() => {
 					expect(
-						screen.queryByRole("button", { name: "Stop" }),
+						screen.queryByRole("button", { name: "Stop All" }),
 					).not.toBeInTheDocument();
 				},
 				{ timeout: 8000 },

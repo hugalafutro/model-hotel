@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { useTranslation } from "react-i18next";
 import { useToast } from "../context/ToastContext";
 
 interface CopyablePillProps {
@@ -23,11 +24,12 @@ export const CopyablePill = memo(function CopyablePill({
 	suffix,
 	lines = 1,
 }: CopyablePillProps) {
+	const { t } = useTranslation();
 	const { toast } = useToast();
 
 	// Title shows full text for sighted users (visible on hover when truncated).
 	// aria-label provides a short action description for screen readers.
-	const ariaLabel = tooltip ?? `Copy ${text}`;
+	const ariaLabel = tooltip ?? t("components.copyablePill.copy", { text });
 	const effectiveTitle = text;
 
 	const handleCopy = (e: React.MouseEvent) => {
@@ -35,10 +37,10 @@ export const CopyablePill = memo(function CopyablePill({
 		navigator.clipboard
 			.writeText(text)
 			.then(() => {
-				toast("Copied!", "info");
+				toast(t("components.copyablePill.copied"), "info");
 			})
 			.catch(() => {
-				toast("Failed to copy", "error");
+				toast(t("components.copyablePill.failedToCopy"), "error");
 			});
 	};
 
@@ -72,7 +74,7 @@ export const CopyablePill = memo(function CopyablePill({
 					stroke="currentColor"
 					viewBox="0 0 24 24"
 				>
-					<title>Copy to clipboard</title>
+					<title>{t("components.copyablePill.copyToClipboard")}</title>
 					<path
 						strokeLinecap="round"
 						strokeLinejoin="round"

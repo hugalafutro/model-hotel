@@ -1,4 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
+
 import {
 	ChevronDown,
 	ChevronsDownUp,
@@ -6,6 +7,7 @@ import {
 	ChevronUp,
 } from "lucide-react";
 import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface CollapsibleToggleProps {
 	collapsed: boolean;
@@ -25,13 +27,14 @@ interface CollapsibleToggleProps {
 export function CollapsibleToggle({
 	collapsed,
 	onToggle,
-	expandTitle = "Expand",
-	collapseTitle = "Collapse",
+	expandTitle,
+	collapseTitle,
 	iconStyle = "single",
 	size = 14,
 	variant = "accent",
 	className: overrideClassName,
 }: CollapsibleToggleProps) {
+	const { t } = useTranslation();
 	const className =
 		overrideClassName ??
 		(variant === "muted"
@@ -56,8 +59,16 @@ export function CollapsibleToggle({
 			type="button"
 			onClick={onToggle}
 			className={className}
-			title={collapsed ? expandTitle : collapseTitle}
-			aria-label={collapsed ? expandTitle : collapseTitle}
+			title={
+				collapsed
+					? (expandTitle ?? t("common.expand"))
+					: (collapseTitle ?? t("common.collapse"))
+			}
+			aria-label={
+				collapsed
+					? (expandTitle ?? t("common.expand"))
+					: (collapseTitle ?? t("common.collapse"))
+			}
 		>
 			{icons}
 		</button>

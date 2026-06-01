@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Brain, Gauge, Key, RotateCcw, ShieldCheck, Zap } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { VirtualKey } from "../../api/types";
 import { ConfirmDeleteButton } from "../../components/ConfirmDeleteButton";
@@ -79,6 +80,7 @@ export function KeyDetailModal({
 	onToast: (msg: string, type: "success" | "error" | "info") => void;
 }) {
 	const queryClient = useQueryClient();
+	const { t } = useTranslation();
 	const [editing, setEditing] = useState(false);
 	const [editName, setEditName] = useState(vk.name);
 	const [editRps, setEditRps] = useState(vk.rate_limit_rps?.toString() ?? "");
@@ -115,11 +117,11 @@ export function KeyDetailModal({
 		mutationFn: () => api.virtualKeys.delete(vk.id),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["virtualKeys"] });
-			onToast("Virtual key deleted", "success");
+			onToast(t("virtualkeys.deleted"), "success");
 			onClose();
 		},
 		onError: (err: Error) => {
-			onToast(`Failed to delete: ${err.message}`, "error");
+			onToast(t("virtualkeys.deleteFailed", { message: err.message }), "error");
 		},
 	});
 
@@ -171,7 +173,7 @@ export function KeyDetailModal({
 			allowedProviders = vk.allowed_providers ?? null;
 		}
 		if (allowedProviders && allowedProviders.length === 0) {
-			setProviderError("At least one provider must remain accessible");
+			setProviderError(t("virtualKeys.create.providerRequired"));
 			return;
 		}
 		updateMutation.mutate({
@@ -232,14 +234,14 @@ export function KeyDetailModal({
 
 	const handleClose = () => {
 		if (editing && hasChanges) {
-			if (!window.confirm("Discard unsaved changes?")) return;
+			if (!window.confirm(t("virtualkeys.modal.discardChanges"))) return;
 		}
 		onClose();
 	};
 
 	return (
 		<Modal
-			title="Virtual Key Details"
+			title={t("virtualkeys.modal.detailTitle")}
 			onClose={handleClose}
 			maxWidth="max-w-lg"
 			scrollable
@@ -247,13 +249,16 @@ export function KeyDetailModal({
 			<div className="space-y-2 mb-6">
 				{editing ? (
 					<>
-						<SectionHeader icon={Key} label="Identity" />
+						<SectionHeader
+							icon={Key}
+							label={t("virtualkeys.modal.sections.identity")}
+						/>
 						<div>
 							<label
 								htmlFor="vk-detail-name"
 								className="block text-sm font-medium text-gray-300 mb-1"
 							>
-								Name
+								{t("virtualkeys.modal.form.name")}
 							</label>
 							<input
 								id="vk-detail-name"
@@ -266,14 +271,17 @@ export function KeyDetailModal({
 							/>
 						</div>
 
-						<SectionHeader icon={Gauge} label="Rate Limits" />
+						<SectionHeader
+							icon={Gauge}
+							label={t("virtualkeys.modal.sections.rateLimits")}
+						/>
 						<div className="grid grid-cols-2 gap-4">
 							<div>
 								<label
 									htmlFor="vk-detail-rps"
 									className="block text-sm font-medium text-gray-300 mb-1"
 								>
-									Rate Limit RPS (requests/sec)
+									{t("virtualkeys.modal.form.rateLimitRps")}
 								</label>
 								<input
 									id="vk-detail-rps"
@@ -282,7 +290,7 @@ export function KeyDetailModal({
 									value={editRps}
 									onChange={(e) => setEditRps(e.target.value)}
 									className="ui-input"
-									placeholder="Use global setting"
+									placeholder={t("virtualkeys.modal.form.placeholderGlobal")}
 								/>
 							</div>
 							<div>
@@ -290,7 +298,7 @@ export function KeyDetailModal({
 									htmlFor="vk-detail-burst"
 									className="block text-sm font-medium text-gray-300 mb-1"
 								>
-									Rate Limit Burst (max concurrent)
+									{t("virtualkeys.modal.form.rateLimitBurst")}
 								</label>
 								<input
 									id="vk-detail-burst"
@@ -299,34 +307,33 @@ export function KeyDetailModal({
 									value={editBurst}
 									onChange={(e) => setEditBurst(e.target.value)}
 									className="ui-input"
-									placeholder="Use global setting"
+									placeholder={t("virtualkeys.modal.form.placeholderGlobal")}
 								/>
 							</div>
 						</div>
 						<div>
 							<div className="flex items-center justify-between mb-1">
 								<span className="text-sm font-medium text-gray-300">
-									Provider Access
+									{t("virtualkeys.modal.sections.providerAccess")}
 								</span>
 								{excludedProviders.length > 0 && (
 									<button
 										type="button"
 										onClick={resetProviders}
 										className="text-gray-500 hover:text-gray-300 transition-colors cursor-pointer"
-										aria-label="Restore access to all providers"
-										title="Restore access to all providers"
+										aria-label={t("virtualkeys.modal.form.restoreAccess")}
+										title={t("virtualkeys.modal.form.restoreAccess")}
 									>
 										<RotateCcw size={14} />
 									</button>
 								)}
 							</div>
 							<p className="text-xs text-gray-500 mb-2">
-								Click a provider to restrict access. All are accessible by
-								default.
+								{t("virtualkeys.modal.form.providerInstructions")}
 							</p>
 							{sortedProviders.length === 0 ? (
 								<p className="text-xs text-gray-500 italic">
-									No providers available.
+									{t("virtualkeys.modal.form.noProviders")}
 								</p>
 							) : (
 								<div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
@@ -358,7 +365,7 @@ export function KeyDetailModal({
 
 						<SectionHeader
 							icon={BrainSlashIcon}
-							label="Strip Reasoning"
+							label={t("virtualkeys.modal.form.stripReasoning")}
 							className="mb-2"
 						/>
 						<div>
@@ -369,8 +376,8 @@ export function KeyDetailModal({
 									aria-pressed={editStripReasoning}
 									aria-label={
 										editStripReasoning
-											? "Disable strip reasoning"
-											: "Enable strip reasoning"
+											? t("virtualkeys.modal.form.disableStripReasoning")
+											: t("virtualkeys.modal.form.enableStripReasoning")
 									}
 									className={`relative inline-flex items-center h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
 										editStripReasoning
@@ -386,28 +393,35 @@ export function KeyDetailModal({
 									/>
 								</button>
 								<span className="text-sm text-gray-200">
-									{editStripReasoning ? "Enabled" : "Disabled"}
+									{editStripReasoning
+										? t("common.enabled")
+										: t("common.disabled")}
 								</span>
 							</div>
 							<p className="text-xs text-gray-400 mt-1.5">
-								When enabled, reasoning/thinking tokens are removed from
-								streaming responses for clients that cannot handle them.
+								{t("virtualkeys.modal.form.stripReasoningDescription")}
 							</p>
 						</div>
 					</>
 				) : (
 					<>
 						{/* Identity Section */}
-						<SectionHeader icon={Key} label="Identity" />
+						<SectionHeader
+							icon={Key}
+							label={t("virtualkeys.modal.sections.identity")}
+						/>
 						<div className="grid grid-cols-2 gap-4">
-							<InfoItem label="Name" value={vk.name} />
+							<InfoItem
+								label={t("virtualkeys.modal.form.name")}
+								value={vk.name}
+							/>
 							<div>
 								<span className="text-xs text-gray-500 uppercase tracking-wider">
-									Key
+									{t("virtualkeys.modal.labels.key")}
 								</span>
 								<p
 									className="text-sm font-mono text-gray-200 mt-0.5 select-none"
-									title="Key is hashed and cannot be recovered"
+									title={t("virtualkeys.tooltip.keyHashed")}
 								>
 									{vk.key_preview}
 								</p>
@@ -415,54 +429,63 @@ export function KeyDetailModal({
 						</div>
 
 						{/* Rate Limits Section */}
-						<SectionHeader icon={Gauge} label="Rate Limits" />
+						<SectionHeader
+							icon={Gauge}
+							label={t("virtualkeys.modal.sections.rateLimits")}
+						/>
 						<div className="grid grid-cols-2 gap-4">
 							<InfoItem
-								label="RPS"
+								label={t("virtualKeys.detail.rps")}
 								value={
 									vk.rate_limit_rps != null
 										? String(vk.rate_limit_rps)
-										: "Global"
+										: t("common.global")
 								}
 								mono
 							/>
 							<InfoItem
-								label="Burst"
+								label={t("virtualKeys.detail.burst")}
 								value={
 									vk.rate_limit_burst != null
 										? String(vk.rate_limit_burst)
-										: "Global"
+										: t("common.global")
 								}
 								mono
 							/>
 						</div>
 
 						{/* Usage Section */}
-						<SectionHeader icon={Zap} label="Usage" />
+						<SectionHeader
+							icon={Zap}
+							label={t("virtualkeys.modal.sections.usage")}
+						/>
 						<div className="grid grid-cols-2 gap-4">
 							<InfoItem
-								label="Tokens Consumed"
+								label={t("virtualkeys.modal.labels.tokensConsumed")}
 								value={formatNumber(vk.tokens_used)}
 							/>
 							<InfoItem
-								label="Last Used"
+								label={t("virtualkeys.modal.labels.lastUsed")}
 								value={
 									vk.last_used_at
 										? new Date(vk.last_used_at).toLocaleString()
-										: "Never"
+										: t("common.never")
 								}
 							/>
 							<InfoItem
-								label="Created"
+								label={t("virtualkeys.modal.labels.created")}
 								value={new Date(vk.created_at).toLocaleString()}
 							/>
 						</div>
 
-						<SectionHeader icon={ShieldCheck} label="Provider Access" />
+						<SectionHeader
+							icon={ShieldCheck}
+							label={t("virtualkeys.modal.sections.providerAccess")}
+						/>
 						<div>
 							{sortedProviders.length === 0 ? (
 								<p className="text-xs text-gray-500 italic">
-									No providers configured.
+									{t("virtualkeys.modal.noProvidersConfigured")}
 								</p>
 							) : (
 								<div className="flex flex-wrap gap-1.5">
@@ -488,11 +511,18 @@ export function KeyDetailModal({
 							)}
 						</div>
 
-						<SectionHeader icon={BrainSlashIcon} label="Strip Reasoning" />
+						<SectionHeader
+							icon={BrainSlashIcon}
+							label={t("virtualkeys.modal.form.stripReasoning")}
+						/>
 						<div>
 							<InfoItem
-								label="Strip Reasoning"
-								value={vk.strip_reasoning ? "Enabled" : "Disabled"}
+								label={t("virtualkeys.modal.form.stripReasoning")}
+								value={
+									vk.strip_reasoning
+										? t("common.enabled")
+										: t("common.disabled")
+								}
 							/>
 						</div>
 					</>
@@ -511,7 +541,7 @@ export function KeyDetailModal({
 							onClick={handleCancelEdit}
 							className="ui-btn ui-btn-secondary"
 						>
-							Cancel
+							{t("common.cancel")}
 						</button>
 						<button
 							type="button"
@@ -519,7 +549,9 @@ export function KeyDetailModal({
 							disabled={!hasChanges || updateMutation.isPending}
 							className="ui-btn ui-btn-primary disabled:opacity-50"
 						>
-							{updateMutation.isPending ? "Saving..." : "Save Changes"}
+							{updateMutation.isPending
+								? t("common.saving")
+								: t("common.saveChanges")}
 						</button>
 					</div>
 				) : (
@@ -536,11 +568,11 @@ export function KeyDetailModal({
 							vk.allowed_providers &&
 							vk.allowed_providers.length > 0 &&
 							!providers
-								? "Loading providers..."
+								? t("virtualkeys.modal.loadingProviders")
 								: undefined
 						}
 					>
-						Edit
+						{t("common.edit")}
 					</button>
 				)}
 			</div>

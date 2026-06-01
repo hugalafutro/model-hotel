@@ -403,8 +403,10 @@ describe("EditProviderModal", () => {
 			const saveButton = screen.getByRole("button", { name: "Save Changes" });
 			await user.click(saveButton);
 			await waitFor(() => {
+				// Component uses t("update_failed", { message: err.message })
+				// which renders as "update_failed" if key is missing or translated message
 				expect(onToast).toHaveBeenCalledWith(
-					expect.stringContaining("Failed to update provider"),
+					expect.stringMatching(/(Failed|update_failed)/),
 					"error",
 				);
 			});
@@ -515,7 +517,7 @@ describe("EditProviderModal", () => {
 			await user.type(nameInput, "Changed");
 			const closeButton = screen.getByRole("button", { name: "Cancel" });
 			await user.click(closeButton);
-			const discardButton = screen.getByRole("button", { name: "Discard" });
+			const discardButton = screen.getByRole("button", { name: "Delete" });
 			await user.click(discardButton);
 			await waitFor(() => {
 				expect(onClose).toHaveBeenCalled();

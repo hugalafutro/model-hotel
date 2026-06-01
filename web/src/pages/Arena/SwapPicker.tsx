@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { FilterInput } from "../../components/FilterInput";
 import { proxyModelID } from "../../utils/model";
 import type { SwapPickerProps } from "./types";
@@ -10,6 +11,7 @@ export function SwapPicker({
 	alreadyUsed,
 	onSelect,
 }: SwapPickerProps) {
+	const { t } = useTranslation();
 	const [search, setSearch] = useState("");
 	const [collapsedProviders, setCollapsedProviders] = useState<Set<string>>(
 		new Set(),
@@ -72,13 +74,13 @@ export function SwapPicker({
 	return (
 		<div className="flex flex-col h-full min-h-0">
 			<p className="text-xs text-amber-400 mb-2 shrink-0">
-				Pick a replacement model
+				{t("arena.swapPicker.title")}
 			</p>
 			<div className="flex items-center gap-2 shrink-0">
 				<FilterInput
 					value={search}
 					onChange={setSearch}
-					placeholder="Search models…"
+					placeholder={t("arena.swapPicker.searchPlaceholder")}
 					className="w-full max-w-xs mb-2"
 				/>
 				{groupedModels.size > 0 && (
@@ -91,8 +93,8 @@ export function SwapPicker({
 						}
 						title={
 							effectiveCollapsed.size === groupedModels.size
-								? "Expand all providers"
-								: "Collapse all providers"
+								? t("arena.swapPicker.expandAll")
+								: t("arena.swapPicker.collapseAll")
 						}
 						className="cursor-pointer text-white/70 hover:text-(--accent) transition-colors p-1 flex items-center"
 					>
@@ -147,7 +149,7 @@ export function SwapPicker({
 				})}
 				{available.length === 0 && (
 					<span className="text-xs text-(--text-muted)">
-						No models available
+						{t("arena.swapPicker.noModels")}
 					</span>
 				)}
 			</div>

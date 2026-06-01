@@ -63,7 +63,7 @@ describe("DashboardRefreshSettings", () => {
 			expect.objectContaining({ type: "dashboardRefreshChange" }),
 		);
 		expect(
-			screen.getByText(/Dashboard refresh set to every 120 seconds/i),
+			screen.getByText(/Dashboard refresh set to every 120 seconds/),
 		).toBeInTheDocument();
 	});
 
@@ -80,7 +80,7 @@ describe("DashboardRefreshSettings", () => {
 		await user.selectOptions(select, "10");
 
 		expect(
-			screen.getByText(/Dashboard refresh set to every 10 seconds/i),
+			screen.getByText(/Dashboard refresh set to every 10 seconds/),
 		).toBeInTheDocument();
 	});
 
@@ -136,7 +136,7 @@ describe("DashboardRefreshSettings", () => {
 		await user.selectOptions(select, "60");
 
 		expect(
-			screen.getByText(/Dashboard refresh set to every 60 seconds/i),
+			screen.getByText(/Dashboard refresh set to every 60 seconds/),
 		).toBeInTheDocument();
 	});
 

@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
 	Area,
 	AreaChart,
@@ -41,6 +42,7 @@ export function TimeSeriesChart({
 	scale?: number;
 	loading?: boolean;
 }) {
+	const { t } = useTranslation();
 	const { grid, text } = useMemo(() => {
 		const style = getComputedStyle(document.documentElement);
 		return {
@@ -153,13 +155,16 @@ export function TimeSeriesChart({
 				<div className="flex items-center justify-between mb-4">
 					<h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
 						<Icon size={18} style={{ color }} />
-						{metric} / {range === "1h" ? "Hour" : "Day"}
+						{metric} /{" "}
+						{range === "1h"
+							? t("dashboard.chart.hour")
+							: t("dashboard.chart.day")}
 						{loading && <Spinner className="ml-1" />}
 					</h3>
 					{showToggle && <RangeToggle value={range} onChange={onRangeChange} />}
 				</div>
 				<p className="text-sm text-(--text-muted) text-center py-12">
-					No time-series data yet. {metric} will appear here once traffic flows.
+					{t("dashboard.chart.emptyState", { metric })}
 				</p>
 			</div>
 		);
@@ -172,7 +177,10 @@ export function TimeSeriesChart({
 			<div className="flex items-center justify-between mb-4">
 				<h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
 					<Icon size={18} style={{ color }} />
-					{metric} / {range === "1h" ? "Hour" : "Day"}
+					{metric} /{" "}
+					{range === "1h"
+						? t("dashboard.chart.hour")
+						: t("dashboard.chart.day")}
 					{loading && <Spinner className="ml-1" />}
 				</h3>
 				{showToggle && <RangeToggle value={range} onChange={onRangeChange} />}
@@ -287,7 +295,7 @@ export function TimeSeriesChart({
 			{pannable && (canPanLeft || canPanRight) && (
 				<div className="flex items-center justify-center gap-2 mt-2 text-xs text-(--text-muted) select-none">
 					{canPanLeft && <span>→</span>}
-					<span>drag to pan</span>
+					<span>{t("dashboard.chart.dragToPan")}</span>
 					{canPanRight && <span>←</span>}
 				</div>
 			)}

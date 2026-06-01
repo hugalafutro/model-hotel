@@ -6,6 +6,7 @@ import {
 	X,
 } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { GenerationParams, Model } from "../api/types";
 import { formatPrice, parseCapabilities, proxyModelID } from "../utils/model";
 import {
@@ -47,6 +48,7 @@ export function ModelDetailPanel({
 	pulseBorder = false,
 	embedded = false,
 }: ModelDetailPanelProps) {
+	const { t } = useTranslation();
 	const caps = parseCapabilities(model.capabilities);
 	const [open, setOpen] = useState(false);
 	const [collapsed, setCollapsed] = useState(false);
@@ -96,7 +98,7 @@ export function ModelDetailPanel({
 							type="button"
 							onClick={() => onParamsChange?.({})}
 							className="p-1.5 rounded-md transition-all cursor-pointer shrink-0 text-red-500/80 hover:text-red-500 hover:drop-shadow-[var(--glow-red)]"
-							title="Reset parameters"
+							title={t("components.modelDetailPanel.resetParameters")}
 						>
 							<RotateCcw size={14} />
 						</button>
@@ -110,7 +112,7 @@ export function ModelDetailPanel({
 									? "text-(--accent) drop-shadow-[var(--glow-accent)]"
 									: "text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]"
 							}`}
-							title="Generation parameters"
+							title={t("components.modelDetailPanel.generationParameters")}
 						>
 							<Settings size={14} />
 						</button>
@@ -120,7 +122,7 @@ export function ModelDetailPanel({
 							type="button"
 							onClick={onClose}
 							className="p-1.5 rounded-md cursor-pointer text-(--text-tertiary) hover:text-(--text-primary) transition-colors"
-							title="Close"
+							title={t("components.modal.close")}
 						>
 							<X size={14} />
 						</button>
@@ -131,7 +133,9 @@ export function ModelDetailPanel({
 							onClick={() => setCollapsed((c) => !c)}
 							className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]"
 							title={
-								collapsed ? "Expand model details" : "Collapse model details"
+								collapsed
+									? t("components.modelDetailPanel.expandModelDetails")
+									: t("components.modelDetailPanel.collapseModelDetails")
 							}
 						>
 							{collapsed ? (
@@ -170,7 +174,7 @@ export function ModelDetailPanel({
 								<div className="space-y-2">
 									{!isParamHidden(provider, "temperature") && (
 										<ParamSlider
-											label="Temperature"
+											label={t("components.modelDetailPanel.temperature")}
 											value={params?.temperature}
 											min={0}
 											max={2}
@@ -190,7 +194,7 @@ export function ModelDetailPanel({
 									)}
 									{!isParamHidden(provider, "max_tokens") && (
 										<ParamSlider
-											label="Max Tokens"
+											label={t("components.modelDetailPanel.maxTokens")}
 											value={params?.max_tokens}
 											min={1}
 											max={32768}
@@ -211,7 +215,7 @@ export function ModelDetailPanel({
 									)}
 									{!isParamHidden(provider, "top_p") && (
 										<ParamSlider
-											label="Top P"
+											label={t("components.modelDetailPanel.topP")}
 											value={params?.top_p}
 											min={0}
 											max={1}
@@ -230,7 +234,7 @@ export function ModelDetailPanel({
 									)}
 									{!isParamHidden(provider, "min_p") && (
 										<ParamSlider
-											label="Min P"
+											label={t("components.modelDetailPanel.minP")}
 											value={params?.min_p}
 											min={0}
 											max={1}
@@ -249,7 +253,7 @@ export function ModelDetailPanel({
 									)}
 									{!isParamHidden(provider, "top_k") && (
 										<ParamSlider
-											label="Top K"
+											label={t("components.modelDetailPanel.topK")}
 											value={params?.top_k}
 											min={1}
 											max={100}
@@ -268,7 +272,7 @@ export function ModelDetailPanel({
 									)}
 									{!isParamHidden(provider, "frequency_penalty") && (
 										<ParamSlider
-											label="Freq Penalty"
+											label={t("components.modelDetailPanel.freqPenalty")}
 											value={params?.frequency_penalty}
 											min={-2}
 											max={2}
@@ -290,7 +294,7 @@ export function ModelDetailPanel({
 									)}
 									{!isParamHidden(provider, "presence_penalty") && (
 										<ParamSlider
-											label="Pres Penalty"
+											label={t("components.modelDetailPanel.presPenalty")}
 											value={params?.presence_penalty}
 											min={-2}
 											max={2}

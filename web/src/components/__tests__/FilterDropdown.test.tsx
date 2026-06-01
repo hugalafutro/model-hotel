@@ -1,5 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { renderWithProviders } from "../../test/utils";
 import { FilterDropdown } from "../FilterDropdown";
 
 describe("FilterDropdown", () => {
@@ -16,7 +17,7 @@ describe("FilterDropdown", () => {
 
 	it("renders trigger button with placeholder", () => {
 		render(<FilterDropdown options={options} value="" onChange={onChange} />);
-		expect(screen.getByText("Filter")).toBeInTheDocument();
+		expect(screen.getByText("All")).toBeInTheDocument();
 	});
 
 	it("renders trigger button with selected value", () => {
@@ -29,9 +30,9 @@ describe("FilterDropdown", () => {
 	it("opens dropdown when trigger is clicked", async () => {
 		const user = userEvent.setup();
 		render(<FilterDropdown options={options} value="" onChange={onChange} />);
-		// Target the trigger button by its label text "Filter"
+		// aria-label is the placeholder "Filter", visible text shows "All"
 		await user.click(screen.getByRole("button", { name: "Filter" }));
-		expect(screen.getByText("All")).toBeInTheDocument();
+		// The trigger button also shows "All", so check for option texts which are unique
 		expect(screen.getByText("Option 1")).toBeInTheDocument();
 		expect(screen.getByText("Option 2")).toBeInTheDocument();
 		expect(screen.getByText("Option 3")).toBeInTheDocument();
@@ -42,8 +43,8 @@ describe("FilterDropdown", () => {
 		render(
 			<FilterDropdown options={options} value="option1" onChange={onChange} />,
 		);
-		// Target the trigger button by its label text "Option 1"
-		await user.click(screen.getByRole("button", { name: "Option 1" }));
+		// aria-label is "Filter: Option 1" when value is selected, visible text shows selected value
+		await user.click(screen.getByRole("button", { name: "Filter: Option 1" }));
 		await user.click(screen.getByText("All"));
 		expect(onChange).toHaveBeenCalledWith("");
 	});
@@ -51,7 +52,7 @@ describe("FilterDropdown", () => {
 	it("calls onChange with selected option value", async () => {
 		const user = userEvent.setup();
 		render(<FilterDropdown options={options} value="" onChange={onChange} />);
-		// Target the trigger button by its label text "Filter"
+		// aria-label is the placeholder "Filter", visible text shows "All"
 		await user.click(screen.getByRole("button", { name: "Filter" }));
 		await user.click(screen.getByText("Option 2"));
 		expect(onChange).toHaveBeenCalledWith("option2");
@@ -59,22 +60,35 @@ describe("FilterDropdown", () => {
 
 	it("closes dropdown after selection", async () => {
 		const user = userEvent.setup();
-		render(<FilterDropdown options={options} value="" onChange={onChange} />);
-		// Target the trigger button by its label text "Filter"
-		await user.click(screen.getByRole("button", { name: "Filter" }));
-		expect(screen.getByText("All")).toBeInTheDocument();
-		await user.click(screen.getByText("Option 1"));
-		expect(screen.queryByText("All")).not.toBeInTheDocument();
+		// Component is controlled - need to track value state to see change
+		renderWithProviders(
+			<FilterDropdown options={options} value="option1" onChange={onChange} />,
+		);
+		// aria-label is "Filter: Option 1" when value is selected
+		await user.click(screen.getByRole("button", { name: "Filter: Option 1" }));
+		// Verify dropdown is open by checking for option texts
+		expect(screen.getByText("Option 2")).toBeInTheDocument();
+		// Click outside (on a different option) to close
+		await user.click(screen.getByText("Option 2"));
+		// After selection, dropdown closes - verify other options are gone
+		expect(screen.queryByText("Option 3")).not.toBeInTheDocument();
 	});
 
 	it("closes dropdown when clicking outside", async () => {
 		const user = userEvent.setup();
-		render(<FilterDropdown options={options} value="" onChange={onChange} />);
-		// Target the trigger button by its label text "Filter"
+		renderWithProviders(
+			<FilterDropdown options={options} value="" onChange={onChange} />,
+		);
+		// Open dropdown - aria-label is "Filter" (default placeholder)
 		await user.click(screen.getByRole("button", { name: "Filter" }));
-		expect(screen.getByText("All")).toBeInTheDocument();
+		// Verify options are visible
+		expect(screen.getByText("Option 1")).toBeInTheDocument();
+		// Click outside to close
 		await user.click(document.body);
-		expect(screen.queryByText("All")).not.toBeInTheDocument();
+		// Verify options are hidden after closing
+		await waitFor(() => {
+			expect(screen.queryByText("Option 1")).not.toBeInTheDocument();
+		});
 	});
 
 	it("shows clear button when value is selected", () => {
@@ -115,25 +129,30 @@ describe("FilterDropdown", () => {
 				onChange={onChange}
 			/>,
 		);
-		// Target the trigger button by its label text "Filter"
+		// aria-label is "Filter" (default placeholder)
 		await user.click(screen.getByRole("button", { name: "Filter" }));
 		expect(screen.getByText("(5)")).toBeInTheDocument();
 		expect(screen.getByText("(10)")).toBeInTheDocument();
 	});
 
-	it("uses custom placeholder when provided", () => {
+	it("uses custom allLabel as visible text", () => {
 		render(
 			<FilterDropdown
 				options={options}
 				value=""
 				onChange={onChange}
-				placeholder="Select..."
+				allLabel="Select..."
+				placeholder="Filter by..."
 			/>,
 		);
+		// aria-label is the custom placeholder, visible text shows custom allLabel
+		expect(
+			screen.getByRole("button", { name: "Filter by..." }),
+		).toBeInTheDocument();
 		expect(screen.getByText("Select...")).toBeInTheDocument();
 	});
 
-	it("uses custom allLabel when provided", async () => {
+	it("uses custom allLabel and placeholder", async () => {
 		const user = userEvent.setup();
 		render(
 			<FilterDropdown
@@ -141,11 +160,17 @@ describe("FilterDropdown", () => {
 				value=""
 				onChange={onChange}
 				allLabel="Show All"
+				placeholder="Pick one"
 			/>,
 		);
-		// Target the trigger button by its label text "Filter"
-		await user.click(screen.getByRole("button", { name: "Filter" }));
+		// aria-label is the custom placeholder, visible text shows custom allLabel
+		expect(
+			screen.getByRole("button", { name: "Pick one" }),
+		).toBeInTheDocument();
 		expect(screen.getByText("Show All")).toBeInTheDocument();
+		// Clicking opens dropdown with options
+		await user.click(screen.getByRole("button", { name: "Pick one" }));
+		expect(screen.getByText("Option 1")).toBeInTheDocument();
 	});
 
 	it("applies custom className", () => {
@@ -157,7 +182,7 @@ describe("FilterDropdown", () => {
 				className="custom-class"
 			/>,
 		);
-		// Target the trigger button by its label text "Filter"
+		// aria-label is default placeholder "Filter"
 		expect(
 			screen.getByRole("button", { name: "Filter" }).parentElement,
 		).toHaveClass("custom-class");
@@ -168,8 +193,8 @@ describe("FilterDropdown", () => {
 		render(
 			<FilterDropdown options={options} value="option2" onChange={onChange} />,
 		);
-		// Target the trigger button by its label text "Option 2"
-		await user.click(screen.getByRole("button", { name: "Option 2" }));
+		// aria-label is "Filter: Option 2" when value is selected
+		await user.click(screen.getByRole("button", { name: "Filter: Option 2" }));
 		// Find the dropdown option button containing "Option 2" text (not the trigger)
 		const selectedOption = screen.getAllByText("Option 2")[1].closest("button");
 		expect(selectedOption).toHaveClass("bg-(--accent-light)");
@@ -177,7 +202,7 @@ describe("FilterDropdown", () => {
 
 	it("shows chevron icon", () => {
 		render(<FilterDropdown options={options} value="" onChange={onChange} />);
-		// Target the trigger button by its label text "Filter"
+		// aria-label is default placeholder "Filter"
 		const triggerButton = screen.getByRole("button", { name: "Filter" });
 		// ChevronDown icon should be present
 		expect(triggerButton.querySelector("svg")).toBeInTheDocument();

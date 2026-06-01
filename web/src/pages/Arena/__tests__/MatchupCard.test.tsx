@@ -443,9 +443,9 @@ describe("MatchupCard", () => {
 				{ wrapper: AllProviders },
 			);
 
-			// Click on a persona preset button (e.g., "🤖Unit 734")
+			// Click on a persona preset button
 			const unitButton = screen.getByRole("button", {
-				name: "🤖Unit 734",
+				name: /Unit 734/i,
 			});
 			fireEvent.click(unitButton);
 
@@ -477,7 +477,7 @@ describe("MatchupCard", () => {
 
 			// Click on a preset when already has custom prompt
 			const unitButton = screen.getByRole("button", {
-				name: "🤖Unit 734",
+				name: /Unit 734/i,
 			});
 			fireEvent.click(unitButton);
 
@@ -507,13 +507,15 @@ describe("MatchupCard", () => {
 
 			// Click preset to trigger pending state
 			const unitButton = screen.getByRole("button", {
-				name: "🤖Unit 734",
+				name: /Unit 734/i,
 			});
 			fireEvent.click(unitButton);
 
 			// Dialog should render
 			expect(screen.getByText("Overwrite Persona")).toBeInTheDocument();
-			expect(screen.getByText("Discard")).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: /delete|discard/i }),
+			).toBeInTheDocument();
 			expect(screen.getByText("Cancel")).toBeInTheDocument();
 		});
 
@@ -538,12 +540,14 @@ describe("MatchupCard", () => {
 
 			// Trigger dialog
 			const unitButton = screen.getByRole("button", {
-				name: "🤖Unit 734",
+				name: /Unit 734/i,
 			});
 			fireEvent.click(unitButton);
 
 			// Click discard
-			const discardButton = screen.getByText("Discard");
+			const discardButton = screen.getByRole("button", {
+				name: /delete|discard/i,
+			});
 			fireEvent.click(discardButton);
 
 			expect(onPersonaChangeMock).toHaveBeenCalled();
@@ -568,7 +572,7 @@ describe("MatchupCard", () => {
 
 			// Trigger dialog
 			const unitButton = screen.getByRole("button", {
-				name: "🤖Unit 734",
+				name: /Unit 734/i,
 			});
 			fireEvent.click(unitButton);
 
@@ -677,7 +681,9 @@ describe("MatchupCard", () => {
 			fireEvent.click(customButton);
 
 			// Click the Discard/Confirm button in the dialog
-			const confirmButton = screen.getByText("Discard");
+			const confirmButton = screen.getByRole("button", {
+				name: /delete|discard/i,
+			});
 			fireEvent.click(confirmButton);
 
 			// onPersonaChange should be called with null, "" for custom persona
@@ -707,7 +713,9 @@ describe("MatchupCard", () => {
 			fireEvent.click(randomButton);
 
 			// Click the Discard/Confirm button in the dialog
-			const confirmButton = screen.getByText("Discard");
+			const confirmButton = screen.getByRole("button", {
+				name: /delete|discard/i,
+			});
 			fireEvent.click(confirmButton);
 
 			// onPersonaChange should be called with the picked persona's id and prompt

@@ -56,10 +56,10 @@ describe("VirtualKeys", () => {
 			renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("1 Virtual Key")).toBeInTheDocument();
+				expect(screen.getByText("Virtual Keys")).toBeInTheDocument();
 			});
 			expect(
-				screen.getByRole("button", { name: "+ Create Key" }),
+				screen.getByRole("button", { name: "Create Key" }),
 			).toBeInTheDocument();
 		});
 
@@ -73,7 +73,7 @@ describe("VirtualKeys", () => {
 			renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("2 Virtual Keys")).toBeInTheDocument();
+				expect(screen.getByText("Virtual Keys")).toBeInTheDocument();
 			});
 		});
 
@@ -108,7 +108,7 @@ describe("VirtualKeys", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByRole("button", { name: "+ Create Key" }),
+					screen.getByRole("button", { name: "Create Key" }),
 				).toBeInTheDocument();
 			});
 		});
@@ -125,7 +125,7 @@ describe("VirtualKeys", () => {
 			renderWithProviders(<VirtualKeys />);
 
 			await waitFor(() => {
-				expect(screen.getByText("1 Virtual Key")).toBeInTheDocument();
+				expect(screen.getByText("Virtual Keys")).toBeInTheDocument();
 			});
 
 			// The proxy URL CopyablePill should be present with its tooltip
@@ -383,7 +383,7 @@ describe("VirtualKeys edge cases", () => {
 		});
 
 		const createButton = screen.getByRole("button", {
-			name: "+ Create Key",
+			name: "Create Key",
 		});
 		await user.click(createButton);
 

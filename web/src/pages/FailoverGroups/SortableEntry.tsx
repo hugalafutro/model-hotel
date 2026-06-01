@@ -1,5 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useTranslation } from "react-i18next";
 import type { FailoverGroup } from "../../api/types";
 import { Toggle } from "../../components/Toggle";
 
@@ -14,6 +15,7 @@ export function SortableEntry({
 	groupEnabled,
 	onToggle,
 }: SortableEntryProps) {
+	const { t } = useTranslation();
 	const {
 		attributes,
 		listeners,
@@ -61,7 +63,11 @@ export function SortableEntry({
 				checked={entry.enabled}
 				disabled={!groupEnabled}
 				onChange={(v) => onToggle(entry.model_uuid, v)}
-				ariaLabel={entry.enabled ? "Disable provider" : "Enable provider"}
+				ariaLabel={
+					entry.enabled
+						? t("failoverGroups.entry.disableProvider")
+						: t("failoverGroups.entry.enableProvider")
+				}
 			/>
 		</div>
 	);

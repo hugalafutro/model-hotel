@@ -1,5 +1,6 @@
 import { Timer } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSelect } from "../../components/SettingsSelect";
 import { Toggle } from "../../components/Toggle";
@@ -14,6 +15,7 @@ export function SidebarQuotaSettings({
 	collapsed,
 	onToggle,
 }: SidebarQuotaSettingsProps) {
+	const { t } = useTranslation();
 	const { toast } = useToast();
 	const [quotaDisabled, setQuotaDisabled] = useState(() => {
 		try {
@@ -40,8 +42,11 @@ export function SidebarQuotaSettings({
 		window.dispatchEvent(new CustomEvent("sidebarQuotaRefreshChange"));
 		toast(
 			val === "0"
-				? "Sidebar quota auto-refresh disabled - use manual refresh"
-				: `Quota refresh set to every ${val} minute${val === "1" ? "" : "s"}`,
+				? t("settings.sidebarQuota.disabled")
+				: t("settings.sidebarQuota.intervalSet", {
+						minutes: val,
+						count: Number(val),
+					}),
 			"success",
 		);
 	};
@@ -49,22 +54,21 @@ export function SidebarQuotaSettings({
 	return (
 		<SettingsSection
 			icon={Timer}
-			title="Sidebar Quotas"
+			title={t("settings.sidebarQuota.title")}
 			collapsed={collapsed}
 			onToggle={onToggle}
 		>
 			<div className="space-y-5">
 				<p className="text-gray-400 text-sm">
-					Configure how often provider quota and balance data is refreshed in
-					the sidebar panel.
+					{t("settings.sidebarQuota.description")}
 				</p>
 				<div className="flex items-center justify-between">
 					<div>
 						<p className="text-sm font-medium text-gray-300">
-							Show Quotas Pill
+							{t("settings.sidebarQuota.showQuotasPill")}
 						</p>
 						<p className="text-gray-500 text-xs mt-0.5">
-							Display the quota panel in the sidebar
+							{t("settings.sidebarQuota.showQuotasPillDescription")}
 						</p>
 					</div>
 					<Toggle
@@ -79,8 +83,8 @@ export function SidebarQuotaSettings({
 							}
 							toast(
 								newVal
-									? "Sidebar quotas disabled - pill hidden and auto-refresh paused"
-									: "Sidebar quotas enabled - pill visible and auto-refresh resumed",
+									? t("settings.sidebarQuota.disabledQuotas")
+									: t("settings.sidebarQuota.enabledQuotas"),
 								newVal ? "info" : "success",
 							);
 							window.dispatchEvent(new CustomEvent("sidebarQuotaToggle"));
@@ -89,20 +93,23 @@ export function SidebarQuotaSettings({
 				</div>
 				<SettingsSelect
 					id="quota-refresh-interval"
-					label="Refresh Interval"
+					label={t("settings.sidebarQuota.refreshInterval")}
 					value={refreshMin}
 					options={[
-						{ value: "1", label: "1 minute" },
-						{ value: "2", label: "2 minutes" },
-						{ value: "5", label: "5 minutes (default)" },
-						{ value: "10", label: "10 minutes" },
-						{ value: "15", label: "15 minutes" },
-						{ value: "30", label: "30 minutes" },
-						{ value: "0", label: "Disabled (manual only)" },
+						{ value: "1", label: t("settings.sidebarQuota.intervals.1") },
+						{ value: "2", label: t("settings.sidebarQuota.intervals.2") },
+						{ value: "5", label: t("settings.sidebarQuota.intervals.5") },
+						{ value: "10", label: t("settings.sidebarQuota.intervals.10") },
+						{ value: "15", label: t("settings.sidebarQuota.intervals.15") },
+						{ value: "30", label: t("settings.sidebarQuota.intervals.30") },
+						{
+							value: "0",
+							label: t("settings.sidebarQuota.intervals.disabled"),
+						},
 					]}
 					onChange={handleRefreshChange}
 					disabled={quotaDisabled}
-					description="Minimum 1 minute. Changes take effect on next scheduled refresh."
+					description={t("settings.sidebarQuota.refreshInterval.description")}
 				/>
 			</div>
 		</SettingsSection>

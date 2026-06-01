@@ -1,5 +1,6 @@
 import "@testing-library/jest-dom";
 import { afterAll, afterEach, beforeAll, vi } from "vitest";
+import "../i18n";
 import { setAdminToken } from "../api/client";
 import { resetStore } from "./mocks/handlers";
 import { server } from "./mocks/server";

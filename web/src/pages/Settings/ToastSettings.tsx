@@ -1,5 +1,6 @@
 import { Bell } from "lucide-react";
 import type React from "react";
+import { useTranslation } from "react-i18next";
 import { SettingsSection } from "../../components/SettingsSection";
 import { useToast } from "../../context/ToastContext";
 
@@ -9,6 +10,7 @@ interface ToastSettingsProps {
 }
 
 export function ToastSettings({ collapsed, onToggle }: ToastSettingsProps) {
+	const { t } = useTranslation();
 	const {
 		toast,
 		position: toastPosition,
@@ -20,12 +22,12 @@ export function ToastSettings({ collapsed, onToggle }: ToastSettingsProps) {
 	return (
 		<SettingsSection
 			icon={Bell}
-			title="Toast Notifications"
+			title={t("settings.toast.title")}
 			collapsed={collapsed}
 			onToggle={onToggle}
 		>
 			<p className="text-gray-400 text-sm mb-4">
-				Choose where notification toasts appear and how long they stay visible.
+				{t("settings.toast.description")}
 			</p>
 			<div className="flex justify-center">
 				<div className="relative w-40 h-26 rounded-lg border-2 border-gray-600 bg-gray-800/50 overflow-visible">
@@ -34,84 +36,84 @@ export function ToastSettings({ collapsed, onToggle }: ToastSettingsProps) {
 						type="button"
 						onClick={() => {
 							setPosition("top-left");
-							toast("Test notification - you'll see toasts here", "info");
+							toast(t("settings.toast.testNotification"), "info");
 						}}
 						className={`absolute top-2 left-2 w-3 h-3 rounded-full transition-all ${
 							toastPosition === "top-left"
 								? "bg-(--accent) opacity-100"
 								: "bg-(--accent) opacity-30 hover:opacity-70"
 						}`}
-						title="Top Left"
+						title={t("settings.toast.position.topLeft")}
 					/>
 					{/* top-center */}
 					<button
 						type="button"
 						onClick={() => {
 							setPosition("top-center");
-							toast("Test notification - you'll see toasts here", "info");
+							toast(t("settings.toast.testNotification"), "info");
 						}}
 						className={`absolute top-2 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full transition-all ${
 							toastPosition === "top-center"
 								? "bg-(--accent) opacity-100"
 								: "bg-(--accent) opacity-30 hover:opacity-70"
 						}`}
-						title="Top Center"
+						title={t("settings.toast.position.topCenter")}
 					/>
 					{/* top-right */}
 					<button
 						type="button"
 						onClick={() => {
 							setPosition("top-right");
-							toast("Test notification - you'll see toasts here", "info");
+							toast(t("settings.toast.testNotification"), "info");
 						}}
 						className={`absolute top-2 right-2 w-3 h-3 rounded-full transition-all ${
 							toastPosition === "top-right"
 								? "bg-(--accent) opacity-100"
 								: "bg-(--accent) opacity-30 hover:opacity-70"
 						}`}
-						title="Top Right"
+						title={t("settings.toast.position.topRight")}
 					/>
 					{/* bottom-left */}
 					<button
 						type="button"
 						onClick={() => {
 							setPosition("bottom-left");
-							toast("Test notification - you'll see toasts here", "info");
+							toast(t("settings.toast.testNotification"), "info");
 						}}
 						className={`absolute bottom-2 left-2 w-3 h-3 rounded-full transition-all ${
 							toastPosition === "bottom-left"
 								? "bg-(--accent) opacity-100"
 								: "bg-(--accent) opacity-30 hover:opacity-70"
 						}`}
-						title="Bottom Left"
+						title={t("settings.toast.position.bottomLeft")}
 					/>
 					{/* bottom-center */}
 					<button
 						type="button"
 						onClick={() => {
 							setPosition("bottom-center");
-							toast("Test notification - you'll see toasts here", "info");
+							toast(t("settings.toast.testNotification"), "info");
 						}}
 						className={`absolute bottom-2 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full transition-all ${
 							toastPosition === "bottom-center"
 								? "bg-(--accent) opacity-100"
 								: "bg-(--accent) opacity-30 hover:opacity-70"
 						}`}
-						title="Bottom Center"
+						title={t("settings.toast.position.bottomCenter")}
 					/>
 					{/* bottom-right */}
 					<button
 						type="button"
 						onClick={() => {
 							setPosition("bottom-right");
-							toast("Test notification - you'll see toasts here", "info");
+							toast(t("settings.toast.testNotification"), "info");
 						}}
 						className={`absolute bottom-2 right-2 w-3 h-3 rounded-full transition-all ${
 							toastPosition === "bottom-right"
 								? "bg-(--accent) opacity-100"
 								: "bg-(--accent) opacity-30 hover:opacity-70"
 						}`}
-						title="Bottom Right"
+						title={t("settings.toast.position.bottomRight")}
 					/>
 				</div>
 			</div>
@@ -124,10 +126,12 @@ export function ToastSettings({ collapsed, onToggle }: ToastSettingsProps) {
 			<div className="mt-6">
 				<div className="flex items-center justify-between mb-3">
 					<span className="text-sm text-gray-300 font-medium">
-						Auto-dismiss
+						{t("settings.toast.autoDismiss")}
 					</span>
 					<span className="text-sm text-gray-400 tabular-nums">
-						{(timeout / 1000).toFixed(1)}s
+						{t("settings.toast.seconds", {
+							seconds: (timeout / 1000).toFixed(1),
+						})}
 					</span>
 				</div>
 				<input

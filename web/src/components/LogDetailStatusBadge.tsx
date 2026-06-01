@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { Activity, AlertTriangle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface StatusBadgeProps {
 	code: number;
@@ -26,13 +27,17 @@ interface StatusDisplay {
 function getStatusDisplay(
 	code: number,
 	state: string,
+	t: (key: string) => string,
 	errorMessage?: string,
 ): StatusDisplay | null {
 	const activeStates = new Set(["pending", "streaming"]);
 	if (activeStates.has(state)) {
 		return {
 			variant: "blue",
-			label: state === "streaming" ? "Streaming" : "Pending",
+			label:
+				state === "streaming"
+					? t("components.statusBadge.streaming")
+					: t("components.statusBadge.pending"),
 			icon: null,
 			animate: true,
 		};
@@ -42,7 +47,7 @@ function getStatusDisplay(
 		const suffix = errorMessage ? `: ${errorMessage}` : "";
 		return {
 			variant: "red",
-			label: `Failed${suffix}`,
+			label: `${t("components.statusBadge.failed")}${suffix}`,
 			icon: AlertTriangle,
 			animate: false,
 		};
@@ -53,9 +58,30 @@ function getStatusDisplay(
 		number,
 		{ variant: BadgeVariant; suffix: string; icon: LucideIcon }
 	>([
-		[2, { variant: "green", suffix: "OK", icon: Activity }],
-		[4, { variant: "orange", suffix: "Client Error", icon: AlertTriangle }],
-		[5, { variant: "red", suffix: "Server Error", icon: AlertTriangle }],
+		[
+			2,
+			{
+				variant: "green",
+				suffix: t("components.statusBadge.ok"),
+				icon: Activity,
+			},
+		],
+		[
+			4,
+			{
+				variant: "orange",
+				suffix: t("components.statusBadge.clientError"),
+				icon: AlertTriangle,
+			},
+		],
+		[
+			5,
+			{
+				variant: "red",
+				suffix: t("components.statusBadge.serverError"),
+				icon: AlertTriangle,
+			},
+		],
 	]);
 
 	const config = codeMap.get(hundred);
@@ -72,7 +98,8 @@ function getStatusDisplay(
 }
 
 export function StatusBadge({ code, state, errorMessage }: StatusBadgeProps) {
-	const display = getStatusDisplay(code, state, errorMessage);
+	const { t } = useTranslation();
+	const display = getStatusDisplay(code, state, t, errorMessage);
 	if (!display) {
 		return <span className="text-xs text-(--text-secondary)">{code}</span>;
 	}

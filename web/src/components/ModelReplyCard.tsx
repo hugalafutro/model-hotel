@@ -9,6 +9,7 @@ import {
 	Zap,
 } from "lucide-react";
 import { memo, type ReactNode, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { GenerationParams } from "../api/types";
 import { formatDuration, formatNumber } from "../utils/format";
 import { is5xxError } from "../utils/model";
@@ -129,6 +130,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 	turnNumber,
 	onDisableModel,
 }: ModelReplyCardProps) {
+	const { t } = useTranslation();
 	const [elapsed, setElapsed] = useState(0);
 	const [maximized, setMaximized] = useState(false);
 	const bodyRef = useRef<HTMLDivElement>(null);
@@ -240,7 +242,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 								{showInfoIcon && onModelNameClick && (
 									<span
 										className="shrink-0 text-(--text-tertiary) group-hover/button:text-(--accent) group-hover/button:drop-shadow-[var(--glow-accent)] transition-all"
-										title="Model details"
+										title={t("components.modelReplyCard.modelDetails")}
 									>
 										<Info size={12} />
 									</span>
@@ -259,7 +261,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 						<div className="flex items-center gap-2 shrink-0">
 							{turnNumber != null && (
 								<span className="text-[11px] text-(--text-tertiary) tabular-nums">
-									Turn {turnNumber}
+									{t("components.modelReplyCard.turn", { number: turnNumber })}
 								</span>
 							)}
 							{canMaximize && (
@@ -267,7 +269,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 									type="button"
 									onClick={() => setMaximized(true)}
 									className="p-1 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]"
-									title="Maximize reply"
+									title={t("components.modelReplyCard.maximizeReply")}
 								>
 									<Maximize2 size={14} />
 								</button>
@@ -287,7 +289,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 									type="button"
 									onClick={onDisableModel}
 									className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-red-500/15 text-red-400 hover:bg-red-500/25 hover:text-red-300 border border-red-500/30 transition-all cursor-pointer"
-									title="Disable this model to prevent future errors"
+									title={t("components.modelReplyCard.disableModelTooltip")}
 								>
 									<PowerOff size={12} />
 									Disable model
@@ -321,7 +323,9 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 												type="button"
 												onClick={onDisableModel}
 												className="inline-flex items-center gap-1 shrink-0 px-2 py-0.5 rounded text-[11px] font-medium bg-red-500/20 text-red-400 hover:bg-red-500/30 hover:text-red-300 border border-red-500/30 transition-all cursor-pointer"
-												title="Disable this model to prevent future errors"
+												title={t(
+													"components.modelReplyCard.disableModelTooltip",
+												)}
 											>
 												<PowerOff size={10} />
 												Disable
@@ -444,7 +448,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 									navigator.clipboard.writeText(content);
 								}}
 								className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]"
-								title="Copy"
+								title={t("common.copy")}
 							>
 								<Copy size={16} />
 							</button>

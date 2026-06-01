@@ -1,3 +1,4 @@
+import i18next from "i18next";
 /** Encode a value as base64, handling Unicode characters safely. */
 export function encodeCursor(obj: unknown): string {
 	const json = JSON.stringify(obj);
@@ -14,17 +15,17 @@ export function formatDuration(ms: number): string {
 }
 
 export function formatRelativeTime(dateStr: string | null): string {
-	if (!dateStr) return "Never";
+	if (!dateStr) return i18next.t("format.never");
 	const date = new Date(dateStr);
 	const now = new Date();
 	const diffMs = now.getTime() - date.getTime();
 	const diffMin = Math.floor(diffMs / 60000);
-	if (diffMin < 1) return "just now";
-	if (diffMin < 60) return `${diffMin}m ago`;
+	if (diffMin < 1) return i18next.t("format.justNow");
+	if (diffMin < 60) return i18next.t("format.minutesAgo", { count: diffMin });
 	const diffHr = Math.floor(diffMin / 60);
-	if (diffHr < 24) return `${diffHr}h ago`;
+	if (diffHr < 24) return i18next.t("format.hoursAgo", { count: diffHr });
 	const diffDay = Math.floor(diffHr / 24);
-	return `${diffDay}d ago`;
+	return i18next.t("format.daysAgo", { count: diffDay });
 }
 
 export function formatNumber(n: number | null | undefined): string {
@@ -117,17 +118,38 @@ export function formatPercent(value: number): string {
 export function formatTimeUntil(ts: number): string {
 	const now = Date.now();
 	const diff = ts - now;
-	if (diff <= 0) return "now";
+	if (diff <= 0) return i18next.t("format.now");
 
 	const hours = Math.floor(diff / (1000 * 60 * 60));
 	const days = Math.floor(hours / 24);
 	const remainingHours = hours % 24;
 
 	if (days > 0) {
-		const dayLabel = days === 1 ? "day" : "days";
-		const hourLabel = remainingHours === 1 ? "hour" : "hours";
-		return `in ${days} ${dayLabel}, ${remainingHours} ${hourLabel}`;
+		if (days === 1 && remainingHours === 1) {
+			return i18next.t("format.inDaysHours_one_day_one_hour", {
+				days,
+				hours: remainingHours,
+			});
+		}
+		if (days === 1) {
+			return i18next.t("format.inDaysHours_one_day_other_hours", {
+				days,
+				hours: remainingHours,
+			});
+		}
+		if (remainingHours === 1) {
+			return i18next.t("format.inDaysHours_other_days_one_hour", {
+				days,
+				hours: remainingHours,
+			});
+		}
+		return i18next.t("format.inDaysHours_other_days_other_hours", {
+			days,
+			hours: remainingHours,
+		});
 	}
-	const hourLabel = hours === 1 ? "hour" : "hours";
-	return `in ${hours} ${hourLabel}`;
+	if (hours === 1) {
+		return i18next.t("format.inHours_only_one", { hours });
+	}
+	return i18next.t("format.inHours_only_other", { hours });
 }

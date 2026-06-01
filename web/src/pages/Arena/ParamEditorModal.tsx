@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { GenerationParams } from "../../api/types";
 import { ApplyRecommendedButton } from "../../components/ApplyRecommendedButton";
 import { Modal } from "../../components/Modal";
@@ -26,6 +27,7 @@ export function ParamEditorModal({
 	knownProviders: string[];
 	reasoning?: boolean;
 }) {
+	const { t } = useTranslation();
 	const providerName = providerFromModelID(modelId, knownProviders);
 
 	return (
@@ -34,7 +36,7 @@ export function ParamEditorModal({
 				<div className="space-y-3">
 					{!isParamHidden(providerName, "temperature") && (
 						<ParamSlider
-							label="Temperature"
+							label={t("arena.params.temperature")}
 							value={params.temperature}
 							min={0}
 							max={2}
@@ -49,7 +51,7 @@ export function ParamEditorModal({
 					)}
 					{!isParamHidden(providerName, "max_tokens") && (
 						<ParamSlider
-							label="Max Tokens"
+							label={t("arena.params.maxTokens")}
 							value={params.max_tokens}
 							min={1}
 							max={32768}
@@ -68,7 +70,7 @@ export function ParamEditorModal({
 					)}
 					{!isParamHidden(providerName, "top_p") && (
 						<ParamSlider
-							label="Top P"
+							label={t("arena.params.topP")}
 							value={params.top_p}
 							min={0}
 							max={1}
@@ -82,7 +84,7 @@ export function ParamEditorModal({
 					)}
 					{!isParamHidden(providerName, "min_p") && (
 						<ParamSlider
-							label="Min P"
+							label={t("arena.params.minP")}
 							value={params.min_p}
 							min={0}
 							max={1}
@@ -96,7 +98,7 @@ export function ParamEditorModal({
 					)}
 					{!isParamHidden(providerName, "top_k") && (
 						<ParamSlider
-							label="Top K"
+							label={t("arena.params.topK")}
 							value={params.top_k}
 							min={1}
 							max={100}
@@ -115,7 +117,7 @@ export function ParamEditorModal({
 					)}
 					{!isParamHidden(providerName, "frequency_penalty") && (
 						<ParamSlider
-							label="Freq Penalty"
+							label={t("arena.params.freqPenalty")}
 							value={params.frequency_penalty}
 							min={-2}
 							max={2}
@@ -130,7 +132,7 @@ export function ParamEditorModal({
 					)}
 					{!isParamHidden(providerName, "presence_penalty") && (
 						<ParamSlider
-							label="Pres Penalty"
+							label={t("arena.params.presPenalty")}
 							value={params.presence_penalty}
 							min={-2}
 							max={2}
@@ -164,7 +166,7 @@ export function ParamEditorModal({
 							onClick={() => onChange({})}
 							className="text-[11px] text-red-400 hover:text-red-300 transition-colors cursor-pointer"
 						>
-							Reset all
+							{t("arena.params.resetAll")}
 						</button>
 					)}
 					<div />
@@ -173,7 +175,7 @@ export function ParamEditorModal({
 						onClick={onClose}
 						className="ui-btn ui-btn-primary text-xs px-3 py-1"
 					>
-						Done
+						{t("arena.params.done")}
 					</button>
 				</div>
 			</div>
