@@ -1082,6 +1082,7 @@ html[data-ui-style="glassmorphism-lite"] .ui-card {
 	backdrop-filter: blur(40px);
 	-webkit-backdrop-filter: blur(40px);
 	border: 1px solid var(--border-default);
+	box-shadow: none;
 }
 html[data-ui-style="glassmorphism-lite"] .ui-card:hover {
 	box-shadow: none;
@@ -1092,7 +1093,7 @@ html[data-ui-style="glassmorphism-lite"].light .ui-card {
 	backdrop-filter: blur(24px);
 	-webkit-backdrop-filter: blur(24px);
 	border: 1px solid rgba(255, 255, 255, 0.6);
-	box-shadow: 0 4px 24px rgba(80, 90, 160, 0.08);
+	box-shadow: none;
 }
 
 /* Clip backdrop-filter to the card border-radius so the blur
