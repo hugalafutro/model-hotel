@@ -97,7 +97,7 @@ export function CreateGroupModal({
 		}) => api.failoverGroups.create(data),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
-			toast("Failover group created", "success");
+			toast(t("failover.toast_created"), "success");
 			onCreated?.();
 		},
 		onError: (err: Error) => {
@@ -106,11 +106,17 @@ export function CreateGroupModal({
 				err.message.includes("already exists")
 			) {
 				toast(
-					`A failover group for '${displayModel || "this model"}' already exists — it was auto-created from shared models. Edit the existing group instead.`,
+					t("failover.toast_create_collision", {
+						model:
+							displayModel || t("failover.toast_create_collision_this_model"),
+					}),
 					"error",
 				);
 			} else {
-				toast(`Failed to create group: ${err.message}`, "error");
+				toast(
+					t("failover.toast_create_failed", { message: err.message }),
+					"error",
+				);
 			}
 		},
 	});
@@ -122,7 +128,7 @@ export function CreateGroupModal({
 		}) => api.failoverGroups.update(data.id, data.body),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
-			toast("Failover group updated", "success");
+			toast(t("failover.toast_updated"), "success");
 			onUpdated?.();
 		},
 		onError: (err: Error) => {
@@ -130,12 +136,12 @@ export function CreateGroupModal({
 				err.message.includes("409") &&
 				err.message.includes("already exists")
 			) {
+				toast(t("failover.toast_update_collision"), "error");
+			} else {
 				toast(
-					"A failover group with this name already exists — choose a different name.",
+					t("failover.toast_update_group_failed", { message: err.message }),
 					"error",
 				);
-			} else {
-				toast(`Failed to update group: ${err.message}`, "error");
 			}
 		},
 	});

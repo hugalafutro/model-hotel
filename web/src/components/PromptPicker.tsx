@@ -86,6 +86,7 @@ export function PromptPicker({
 			onPromptChange,
 			onActivePromptIdChange,
 			autoExpand,
+			t,
 		],
 	);
 
@@ -120,6 +121,7 @@ export function PromptPicker({
 		onPromptChange,
 		onActivePromptIdChange,
 		autoExpand,
+		t,
 	]);
 
 	const handleTextareaChange = useCallback(
@@ -131,7 +133,7 @@ export function PromptPicker({
 				onActivePromptIdChange(null);
 			}
 		},
-		[prompts, activePromptId, onPromptChange, onActivePromptIdChange],
+		[prompts, activePromptId, onPromptChange, onActivePromptIdChange, t],
 	);
 
 	const handleConfirmOverwrite = useCallback(() => {
@@ -145,7 +147,7 @@ export function PromptPicker({
 			autoExpand(textareaRef);
 		}
 		setPendingPrompt(null);
-	}, [pendingPrompt, onPromptChange, onActivePromptIdChange, autoExpand]);
+	}, [pendingPrompt, onPromptChange, onActivePromptIdChange, autoExpand, t]);
 
 	return (
 		<div className={className}>

@@ -225,7 +225,10 @@
       "avgOverheadOver": "Avg Overhead/{{range}}",
       "rateLimitHitsOver": "Rate Limit Hits/{{range}}",
       "errorRateOver": "Error Rate/{{range}}",
-      "avgDurationOver": "Avg Duration/{{range}}"
+      "avgDurationOver": "Avg Duration/{{range}}",
+      "cacheHit": "Cache Hit",
+      "today": "Today, {{date}}",
+      "yesterday": "Yesterday, {{date}}"
     },
     "usage": {
       "topModels": "Top Models",
@@ -281,7 +284,7 @@
     "range": {
       "1h": "1H",
       "24h": "1D",
-      "7d": "7D"
+      "1w": "1W"
     },
     "metric": {
       "tokens": "Tok",
@@ -828,6 +831,13 @@
     "toast_sync_success": "Failover groups synced",
     "toast_sync_failed": "Failed to sync: {{message}}",
     "toast_update_failed": "Failed to update: {{message}}",
+    "toast_create_collision": "A failover group for '{{model}}' already exists — it was auto-created from shared models. Edit the existing group instead.",
+    "toast_create_collision_this_model": "this model",
+    "toast_update_collision": "A failover group with this name already exists — choose a different name.",
+    "toast_create_failed": "Failed to create group: {{message}}",
+    "toast_update_group_failed": "Failed to update group: {{message}}",
+    "toast_created": "Failover group created",
+    "toast_updated": "Failover group updated",
     "toast_delete_success": "Group deleted",
     "toast_delete_failed": "Failed to delete: {{message}}",
     "toast_bulk_delete_warning": "Deleted {{succeeded}} of {{total}} groups ({{failed}} failed)",

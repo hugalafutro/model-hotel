@@ -113,10 +113,10 @@ export function TimeSeriesChart({
 			month: "short",
 			year: "numeric",
 		});
-		if (isToday) return `Today, ${dateStr}`;
-		if (isYesterday) return `Yesterday, ${dateStr}`;
+		if (isToday) return t("dashboard.chart.today", { date: dateStr });
+		if (isYesterday) return t("dashboard.chart.yesterday", { date: dateStr });
 		return dateStr;
-	}, [isDragging, pannable, visibleData]);
+	}, [isDragging, pannable, visibleData, t]);
 
 	const onPointerDown = useCallback(
 		(e: React.PointerEvent<HTMLDivElement>) => {

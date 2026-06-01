@@ -391,7 +391,7 @@ export function Dashboard() {
 							dataKey="tokens"
 							overlayDataKey="tokens_cache_hit"
 							overlayColor="var(--accent)"
-							overlayLabel="Cache Hit"
+							overlayLabel={t("dashboard.chart.cacheHit")}
 							loading={tokenTsDataLoading}
 						/>
 					</>
@@ -408,7 +408,7 @@ export function Dashboard() {
 							dataKey="tokens"
 							overlayDataKey="tokens_cache_hit"
 							overlayColor="var(--accent)"
-							overlayLabel="Cache Hit"
+							overlayLabel={t("dashboard.chart.cacheHit")}
 							loading={tokenTsDataLoading}
 						/>
 						<TimeSeriesChart

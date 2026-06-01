@@ -80,6 +80,7 @@ export function PersonaPicker({
 			onSystemPromptChange,
 			onActivePersonaChange,
 			autoExpand,
+			t,
 		],
 	);
 
@@ -105,7 +106,7 @@ export function PersonaPicker({
 				onActivePersonaChange(null);
 			}
 		},
-		[personas, activePersonaId, onSystemPromptChange, onActivePersonaChange],
+		[personas, activePersonaId, onSystemPromptChange, onActivePersonaChange, t],
 	);
 
 	const handleConfirmOverwrite = useCallback(() => {
@@ -119,7 +120,13 @@ export function PersonaPicker({
 			autoExpand(textareaRef);
 		}
 		setPendingPersona(null);
-	}, [pendingPersona, onSystemPromptChange, onActivePersonaChange, autoExpand]);
+	}, [
+		pendingPersona,
+		onSystemPromptChange,
+		onActivePersonaChange,
+		autoExpand,
+		t,
+	]);
 
 	return (
 		<div className={className}>
