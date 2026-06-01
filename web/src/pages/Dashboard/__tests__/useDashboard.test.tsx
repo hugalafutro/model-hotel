@@ -603,7 +603,7 @@ describe("useDashboard", () => {
 			});
 		});
 
-		it("7d range formats label as MMM d", async () => {
+		it("7d range formats label as locale-aware short date", async () => {
 			const timeSeriesData: TimeSeriesStats = {
 				points: [
 					{
@@ -634,9 +634,16 @@ describe("useDashboard", () => {
 				result.current.setRequestsChartRange("1w");
 			});
 
+			const expected = new Date("2025-01-15T10:30:00Z").toLocaleDateString(
+				undefined,
+				{
+					month: "short",
+					day: "numeric",
+				},
+			);
 			await waitFor(() => {
 				expect(result.current.acData).toHaveLength(1);
-				expect(result.current.acData[0].hour).toBe("Jan 15");
+				expect(result.current.acData[0].hour).toBe(expected);
 			});
 		});
 	});

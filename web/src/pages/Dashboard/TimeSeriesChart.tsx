@@ -273,7 +273,7 @@ export function TimeSeriesChart({
 							tick={{ fontSize: 10, fill: text }}
 							tickLine={false}
 							axisLine={false}
-							interval={4}
+							interval={range === "1w" ? 0 : 4}
 						/>
 						<YAxis
 							tick={{ fontSize: 10, fill: text }}

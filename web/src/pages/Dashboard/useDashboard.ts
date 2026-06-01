@@ -543,7 +543,7 @@ export function useDashboard(): UseDashboardReturn {
 			const d = new Date(p.bucket);
 			const label =
 				requestsChartRange === "1w"
-					? d.toLocaleDateString("en-US", {
+					? d.toLocaleDateString(undefined, {
 							month: "short",
 							day: "numeric",
 						})
@@ -573,7 +573,7 @@ export function useDashboard(): UseDashboardReturn {
 			const d = new Date(p.bucket);
 			const label =
 				tokensChartRange === "1w"
-					? d.toLocaleDateString("en-US", {
+					? d.toLocaleDateString(undefined, {
 							month: "short",
 							day: "numeric",
 						})
