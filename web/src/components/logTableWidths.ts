@@ -3,8 +3,8 @@
  *  Edit here once — both modes stay in sync. */
 export const LOG_COL_WIDTHS = [
 	{ key: "date", width: "w-30" }, // Time/Date
-	{ key: "hash", width: "w-30.5" }, // Hash
-	{ key: "model", width: "w-49.5" }, // Model (trimmed from 55 to give Key more room)
+	{ key: "hash", width: "w-28" }, // Hash (trimmed from 30.5 to give Model more room)
+	{ key: "model", width: "w-52" }, // Model (expanded from 49.5)
 	{ key: "provider", width: "w-25" }, // Provider
 	{ key: "status", width: "w-14" }, // Status
 	{ key: "tokens", width: "w-21" }, // Tokens

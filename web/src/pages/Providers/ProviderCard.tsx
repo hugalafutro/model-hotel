@@ -45,7 +45,7 @@ export function ProviderCard({
 		<div
 			className={`ui-card p-6 flex flex-col ${!provider.enabled ? "opacity-50" : ""} ${provider.enabled && !provider.autodiscovery_enabled ? "border-red-500/20 bg-red-500/[0.03]" : ""}`}
 		>
-			<div className="mb-4">
+			<div className="mb-2">
 				<div className="flex items-center justify-between">
 					<CopyablePill
 						text={provider.name}
