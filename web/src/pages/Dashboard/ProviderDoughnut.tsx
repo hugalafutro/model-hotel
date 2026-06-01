@@ -159,7 +159,7 @@ export function ProviderDoughnut({
 							return (
 								<li
 									key={it.name}
-									className="flex items-center justify-between gap-3"
+									className="grid grid-cols-[1fr_minmax(0,5.5rem_auto)] gap-3 items-baseline"
 									onMouseEnter={() => setHoveredProvider(it.name)}
 									onMouseLeave={() => setHoveredProvider(null)}
 								>
@@ -185,19 +185,15 @@ export function ProviderDoughnut({
 										>
 											{it.name}
 										</span>
-									</div>
-									<div className="text-right shrink-0 flex items-baseline justify-end tabular-nums">
-										<span className="text-sm font-medium text-(--text-primary) w-14 text-right">
-											{formatPercent(it.share)}
-										</span>
-										<span className="text-xs text-(--text-muted) ml-1 min-w-20 text-left">
-											(
+										<span className="text-xs text-(--text-muted)">
 											{metric === "tokens"
 												? `${formatCompact(it.tokens)} ${t(it.tokens !== 1 ? "dashboard.providers.tokensUnit" : "dashboard.providers.tokenUnit")}`
 												: `${it.count} ${t(it.count !== 1 ? "dashboard.providers.requestsUnit" : "dashboard.providers.requestUnit")}`}
-											)
 										</span>
 									</div>
+									<span className="text-sm font-medium text-(--text-primary) tabular-nums text-right">
+										{formatPercent(it.share)}
+									</span>
 								</li>
 							);
 						})}
