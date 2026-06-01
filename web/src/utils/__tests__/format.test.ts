@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	countLabel,
+	dropTrailingZero,
+	encodeCursor,
+	formatCompact,
 	formatDate,
 	formatDuration,
 	formatNumber,
@@ -203,6 +206,103 @@ describe("formatPercent", () => {
 		expect(formatPercent(21.4)).toBe("21.4%");
 		expect(formatPercent(76.6)).toBe("76.6%");
 		expect(formatPercent(100)).toBe("100.0%");
+	});
+});
+
+describe("encodeCursor", () => {
+	it("encodes a value via JSON.stringify then base64", () => {
+		const result = encodeCursor("hello");
+		expect(atob(result)).toBe(JSON.stringify("hello"));
+	});
+
+	it("encodes numbers", () => {
+		const result = encodeCursor(42);
+		expect(atob(result)).toBe("42");
+	});
+
+	it("encodes objects as JSON then base64", () => {
+		const result = encodeCursor({ id: 1, name: "test" });
+		expect(JSON.parse(atob(result))).toEqual({ id: 1, name: "test" });
+	});
+
+	it("handles Unicode characters safely", () => {
+		const input = "héllo wörld";
+		const result = encodeCursor(input);
+		// decode: base64 → percent-encoded string → URI-decode → JSON-parse
+		const jsonStr = decodeURIComponent(
+			Array.from(
+				atob(result),
+				(c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`,
+			).join(""),
+		);
+		expect(JSON.parse(jsonStr)).toBe(input);
+	});
+
+	it("encodes null and arrays", () => {
+		expect(JSON.parse(atob(encodeCursor(null)))).toBeNull();
+		expect(JSON.parse(atob(encodeCursor([1, 2, 3])))).toEqual([1, 2, 3]);
+	});
+});
+
+describe("formatCompact", () => {
+	it("returns '0' for zero", () => {
+		expect(formatCompact(0)).toBe("0");
+	});
+
+	it("formats small numbers with one decimal place", () => {
+		expect(formatCompact(1.5)).toBe("1.5");
+		expect(formatCompact(42)).toBe("42");
+		expect(formatCompact(999)).toBe("999");
+	});
+
+	it("drops trailing .0 for whole numbers", () => {
+		expect(formatCompact(1)).toBe("1");
+		expect(formatCompact(100)).toBe("100");
+	});
+
+	it("formats thousands with K suffix", () => {
+		expect(formatCompact(1000)).toBe("1K");
+		expect(formatCompact(1500)).toBe("1.5K");
+		expect(formatCompact(999000)).toBe("999K");
+	});
+
+	it("formats millions with M suffix", () => {
+		expect(formatCompact(1_000_000)).toBe("1M");
+		expect(formatCompact(1_500_000)).toBe("1.5M");
+		expect(formatCompact(25_000_000)).toBe("25M");
+	});
+
+	it("handles negative numbers", () => {
+		expect(formatCompact(-1500)).toBe("-1.5K");
+		expect(formatCompact(-1_000_000)).toBe("-1M");
+	});
+});
+
+describe("dropTrailingZero", () => {
+	it("drops trailing zeros after decimal", () => {
+		expect(dropTrailingZero(1.5, 2)).toBe("1.5");
+		expect(dropTrailingZero(1.0, 2)).toBe("1");
+		expect(dropTrailingZero(1.25, 2)).toBe("1.25");
+	});
+
+	it("drops decimal point when all trailing zeros", () => {
+		expect(dropTrailingZero(5.0, 1)).toBe("5");
+		expect(dropTrailingZero(10.0, 3)).toBe("10");
+	});
+
+	it("preserves integer format with zero decimals", () => {
+		expect(dropTrailingZero(42, 0)).toBe("42");
+		expect(dropTrailingZero(3, 0)).toBe("3");
+	});
+
+	it("keeps non-zero decimals", () => {
+		expect(dropTrailingZero(3.14, 2)).toBe("3.14");
+		expect(dropTrailingZero(0.01, 2)).toBe("0.01");
+	});
+
+	it("handles mixed trailing zeros", () => {
+		expect(dropTrailingZero(1.2, 3)).toBe("1.2");
+		expect(dropTrailingZero(1.23, 4)).toBe("1.23");
 	});
 });
 
