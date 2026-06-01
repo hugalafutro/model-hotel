@@ -9,7 +9,7 @@ describe("RangeToggle", () => {
 
 		expect(screen.getByText("1H")).toBeInTheDocument();
 		expect(screen.getByText("1D")).toBeInTheDocument();
-		expect(screen.getByText("7D")).toBeInTheDocument();
+		expect(screen.getByText("1W")).toBeInTheDocument();
 	});
 
 	it("calls onChange with selected value when clicked", async () => {
@@ -37,16 +37,16 @@ describe("RangeToggle", () => {
 		expect(onChange).toHaveBeenCalledWith("24h");
 	});
 
-	it("calls onChange with 7d value when 7D clicked", async () => {
+	it("calls onChange with 1w value when 1W clicked", async () => {
 		const onChange = vi.fn();
 		const user = userEvent.setup();
 
 		render(<RangeToggle value="1h" onChange={onChange} />);
 
-		const sevenDButton = screen.getByText("7D");
-		await user.click(sevenDButton);
+		const oneWButton = screen.getByText("1W");
+		await user.click(oneWButton);
 
-		expect(onChange).toHaveBeenCalledWith("7d");
+		expect(onChange).toHaveBeenCalledWith("1w");
 	});
 
 	it("applies active style to selected value", () => {
@@ -61,13 +61,13 @@ describe("RangeToggle", () => {
 		render(<RangeToggle value="24h" onChange={vi.fn()} />);
 
 		const inactiveButton1h = screen.getByText("1H");
-		const inactiveButton7d = screen.getByText("7D");
+		const inactiveButton1w = screen.getByText("1W");
 
 		expect(inactiveButton1h).not.toHaveStyle("background-color: var(--accent)");
 		expect(inactiveButton1h).toHaveClass("text-(--text-muted)");
 
-		expect(inactiveButton7d).not.toHaveStyle("background-color: var(--accent)");
-		expect(inactiveButton7d).toHaveClass("text-(--text-muted)");
+		expect(inactiveButton1w).not.toHaveStyle("background-color: var(--accent)");
+		expect(inactiveButton1w).toHaveClass("text-(--text-muted)");
 	});
 
 	it("has hover style on inactive buttons", () => {
