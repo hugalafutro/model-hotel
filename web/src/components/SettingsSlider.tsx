@@ -39,10 +39,12 @@ export function SettingsSlider({
 }: SettingsSliderProps) {
 	const [local, setLocal] = useState(value);
 	const prevValue = useRef(value);
+	const committed = useRef(value);
 
 	useEffect(() => {
 		if (prevValue.current !== value) {
 			prevValue.current = value;
+			committed.current = value;
 			setLocal(value);
 		}
 	}, [value]);
@@ -71,6 +73,7 @@ export function SettingsSlider({
 		) => {
 			const raw = Number(e.currentTarget.value);
 			const clamped = clampStep ? clampToStep(raw, clampStep) : raw;
+			committed.current = clamped;
 			onChange(clamped);
 		},
 		[onChange, clampStep],
@@ -109,7 +112,10 @@ export function SettingsSlider({
 		const clamped = clampStep ? clampToStep(local, clampStep) : local;
 		const v = Math.max(min, Math.min(max, clamped));
 		if (v !== local) setLocal(v);
-		onChange(v);
+		if (v !== committed.current) {
+			committed.current = v;
+			onChange(v);
+		}
 	}, [local, min, max, clampStep, onChange]);
 
 	const handleNumberKeyDown = useCallback(
@@ -132,6 +138,7 @@ export function SettingsSlider({
 						);
 			const v = Math.min(max, firstStep);
 			setLocal(v);
+			committed.current = v;
 			onChange(v);
 			return;
 		}
@@ -140,6 +147,7 @@ export function SettingsSlider({
 			clampToStep(local + (clampStep || step), clampStep || step),
 		);
 		setLocal(next);
+		committed.current = next;
 		onChange(next);
 	}, [local, max, min, clampStep, step, onChange, isInfinity, infinityValue]);
 
@@ -149,6 +157,7 @@ export function SettingsSlider({
 			clampToStep(local - (clampStep || step), clampStep || step),
 		);
 		setLocal(next);
+		committed.current = next;
 		onChange(next);
 	}, [local, min, clampStep, step, onChange]);
 

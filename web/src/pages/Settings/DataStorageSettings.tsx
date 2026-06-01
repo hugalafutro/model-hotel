@@ -226,7 +226,7 @@ export function DataStorageSettings({
 								})
 							}
 							description={
-								staleRequestTimeout === "0s" ? (
+								staleTimeoutMinutes === 0 ? (
 									<span className="text-amber-400">
 										{t("settings.logging.staleRequestTimeout.disabled")}
 									</span>

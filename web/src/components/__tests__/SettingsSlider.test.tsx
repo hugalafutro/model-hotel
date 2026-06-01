@@ -302,7 +302,7 @@ describe("SettingsSlider", () => {
 		expect(onChange).toHaveBeenCalledWith(55);
 	});
 
-	it("does fire onChange on blur even when value matches clamped step", () => {
+	it("does NOT fire onChange on blur when value has not changed", () => {
 		const onChange = vi.fn();
 		renderWithProviders(
 			<SettingsSlider
@@ -315,6 +315,6 @@ describe("SettingsSlider", () => {
 		);
 		const numberInput = screen.getByRole("spinbutton");
 		fireEvent.blur(numberInput);
-		expect(onChange).toHaveBeenCalledWith(55);
+		expect(onChange).not.toHaveBeenCalled();
 	});
 });

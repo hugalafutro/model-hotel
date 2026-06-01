@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type {
 	MetricType,
@@ -293,6 +294,7 @@ export function useDashboard(): UseDashboardReturn {
 
 	// Dashboard auto-refresh
 	const queryClient = useQueryClient();
+	const { t } = useTranslation();
 	const { toast } = useToast();
 	const lastManualRefresh = useRef(0);
 	const refreshCooldownMs = 5000;
@@ -325,7 +327,7 @@ export function useDashboard(): UseDashboardReturn {
 	const handleRefresh = useCallback(() => {
 		const now = Date.now();
 		if (now - lastManualRefresh.current < refreshCooldownMs) {
-			toast("Please wait before refreshing again", "info");
+			toast(t("settings.dashboard.pleaseWaitBeforeRefreshing"), "info");
 			return;
 		}
 		lastManualRefresh.current = now;
@@ -340,9 +342,9 @@ export function useDashboard(): UseDashboardReturn {
 		});
 		queryClient.invalidateQueries({ queryKey: ["stats-usage"] });
 		queryClient.invalidateQueries({ queryKey: ["stats-tokens"] });
-		toast("Refreshing dashboard…", "info");
+		toast(t("settings.dashboard.refreshingDashboard"), "info");
 		setTimeout(() => setIsRefreshing(false), refreshCooldownMs);
-	}, [queryClient, toast]);
+	}, [queryClient, toast, t]);
 
 	// Hide manual refresh when auto-refresh is 10s or faster
 	const hideManualRefresh =

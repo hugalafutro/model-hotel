@@ -1506,7 +1506,9 @@
 				"disabled": "Disabled (manual only)"
 			},
 			"intervalSet_one": "Dashboard refresh set to every {{seconds}} second",
-			"intervalSet_other": "Dashboard refresh set to every {{seconds}} seconds"
+			"intervalSet_other": "Dashboard refresh set to every {{seconds}} seconds",
+			"pleaseWaitBeforeRefreshing": "Please wait before refreshing again",
+			"refreshingDashboard": "Refreshing dashboard…"
 		},
 		"sidebarQuota": {
 			"title": "Sidebar Quotas",
