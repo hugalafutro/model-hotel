@@ -139,6 +139,7 @@
     },
     "docs": "Docs",
     "running": "Running {{running}}",
+    "runningLatest": "Running latest ({{running}})",
     "updateAvailable": "Update available: {{running}} → {{latest}}",
     "expandStats": "Expand stats",
     "collapseStats": "Collapse stats",

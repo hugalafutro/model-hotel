@@ -870,9 +870,11 @@ export function Layout({ children }: LayoutProps) {
 							rel="noopener noreferrer"
 							aria-label={t("layout.githubRepo")}
 							title={
-								updateAvailable
-									? t("layout.updateAvailable", { running, latest })
-									: t("layout.running", { running })
+								!updateAvailable && latest !== "GitHub"
+									? t("layout.runningLatest", { running })
+									: updateAvailable
+										? t("layout.updateAvailable", { running, latest })
+										: t("layout.running", { running })
 							}
 							className={`sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5`}
 						>

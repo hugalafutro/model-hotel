@@ -443,9 +443,9 @@ describe("MatchupCard", () => {
 				{ wrapper: AllProviders },
 			);
 
-			// Click on a persona preset button (uses raw translation key since PresetBar doesn't translate)
+			// Click on a persona preset button
 			const unitButton = screen.getByRole("button", {
-				name: /presets\.personas\.unit-734/i,
+				name: /Unit 734/i,
 			});
 			fireEvent.click(unitButton);
 
@@ -477,7 +477,7 @@ describe("MatchupCard", () => {
 
 			// Click on a preset when already has custom prompt
 			const unitButton = screen.getByRole("button", {
-				name: /presets\.personas\.unit-734/i,
+				name: /Unit 734/i,
 			});
 			fireEvent.click(unitButton);
 
@@ -507,7 +507,7 @@ describe("MatchupCard", () => {
 
 			// Click preset to trigger pending state
 			const unitButton = screen.getByRole("button", {
-				name: /presets\.personas\.unit-734/i,
+				name: /Unit 734/i,
 			});
 			fireEvent.click(unitButton);
 
@@ -540,7 +540,7 @@ describe("MatchupCard", () => {
 
 			// Trigger dialog
 			const unitButton = screen.getByRole("button", {
-				name: /presets\.personas\.unit-734/i,
+				name: /Unit 734/i,
 			});
 			fireEvent.click(unitButton);
 
@@ -572,7 +572,7 @@ describe("MatchupCard", () => {
 
 			// Trigger dialog
 			const unitButton = screen.getByRole("button", {
-				name: /presets\.personas\.unit-734/i,
+				name: /Unit 734/i,
 			});
 			fireEvent.click(unitButton);
 
