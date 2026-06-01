@@ -56,7 +56,7 @@ export function PresetBar<T extends PresetItem>({
 					}`}
 				>
 					{item.icon}
-					{item.label}
+					{t(item.label)}
 				</button>
 			))}
 		</div>
