@@ -1,3 +1,4 @@
+import i18next from "i18next";
 import { produce } from "immer";
 import { GitCompare, Swords } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
@@ -424,8 +425,8 @@ export function useArena() {
 	const arenaIcon = arenaMode === "competition" ? Swords : GitCompare;
 
 	const buttonLabel = useMemo(() => {
-		if (isRunning) return "Stop";
-		if (phase === "setup") return "Run Arena";
+		if (isRunning) return i18next.t("arena.button.stop");
+		if (phase === "setup") return i18next.t("arena.button.run");
 		return null;
 	}, [isRunning, phase]);
 

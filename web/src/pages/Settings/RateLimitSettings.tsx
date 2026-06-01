@@ -1,27 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Gauge } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSelect } from "../../components/SettingsSelect";
 import { Toggle } from "../../components/Toggle";
 import { useToast } from "../../context/ToastContext";
-
-const RATE_LIMIT_RPS_OPTIONS = [
-	{ value: "5", label: "5 req/s" },
-	{ value: "10", label: "10 req/s" },
-	{ value: "20", label: "20 req/s" },
-	{ value: "50", label: "50 req/s" },
-	{ value: "100", label: "100 req/s" },
-	{ value: "0", label: "Unlimited" },
-];
-
-const RATE_LIMIT_BURST_OPTIONS = [
-	{ value: "10", label: "10" },
-	{ value: "20", label: "20" },
-	{ value: "50", label: "50" },
-	{ value: "100", label: "100" },
-	{ value: "200", label: "200" },
-];
 
 interface RateLimitSettingsProps {
 	collapsed: boolean;
@@ -32,6 +16,7 @@ export function RateLimitSettings({
 	collapsed,
 	onToggle,
 }: RateLimitSettingsProps) {
+	const { t } = useTranslation();
 	const { toast } = useToast();
 	const queryClient = useQueryClient();
 
@@ -45,10 +30,13 @@ export function RateLimitSettings({
 			api.settings.update(updates),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["settings"] });
-			toast("Settings saved", "success");
+			toast(t("settings.common.settingsSaved"), "success");
 		},
 		onError: (err: Error) => {
-			toast(`Failed to save: ${err.message}`, "error");
+			toast(
+				t("settings.common.failedToSave", { message: err.message }),
+				"error",
+			);
 		},
 	});
 
@@ -60,25 +48,41 @@ export function RateLimitSettings({
 	const rateLimitIpBurst = settings?.rate_limit_ip_burst || "60";
 	const rateLimitMaxWaitMs = settings?.rate_limit_max_wait_ms || "200";
 
+	const RATE_LIMIT_RPS_OPTIONS = [
+		{ value: "5", label: t("settings.rateLimit.rps.5") },
+		{ value: "10", label: t("settings.rateLimit.rps.10") },
+		{ value: "20", label: t("settings.rateLimit.rps.20") },
+		{ value: "50", label: t("settings.rateLimit.rps.50") },
+		{ value: "100", label: t("settings.rateLimit.rps.100") },
+		{ value: "0", label: t("settings.rateLimit.rps.unlimited") },
+	];
+
+	const RATE_LIMIT_BURST_OPTIONS = [
+		{ value: "10", label: t("settings.rateLimit.burst.10") },
+		{ value: "20", label: t("settings.rateLimit.burst.20") },
+		{ value: "50", label: t("settings.rateLimit.burst.50") },
+		{ value: "100", label: t("settings.rateLimit.burst.100") },
+		{ value: "200", label: t("settings.rateLimit.burst.200") },
+	];
+
 	return (
 		<SettingsSection
 			icon={Gauge}
-			title="Rate Limiting"
+			title={t("settings.rateLimit.title")}
 			collapsed={collapsed}
 			onToggle={onToggle}
 		>
 			<div className="space-y-5">
 				<p className="text-gray-400 text-sm">
-					Control request throughput per virtual key to prevent abuse and ensure
-					fair usage.
+					{t("settings.rateLimit.description")}
 				</p>
 				<div className="flex items-center justify-between">
 					<div>
 						<p className="text-sm font-medium text-gray-300">
-							Enable Rate Limiting
+							{t("settings.rateLimit.enable")}
 						</p>
 						<p className="text-gray-500 text-xs mt-0.5">
-							Throttle proxy requests per virtual key
+							{t("settings.rateLimit.enableDescription")}
 						</p>
 					</div>
 					<Toggle
@@ -95,20 +99,22 @@ export function RateLimitSettings({
 					<>
 						<SettingsSelect
 							id="rate-limit-rps"
-							label="Requests per Second"
+							label={t("settings.rateLimit.requestsPerSecond")}
 							value={rateLimitRPS}
 							options={RATE_LIMIT_RPS_OPTIONS}
 							onChange={(v) => updateMutation.mutate({ rate_limit_rps: v })}
-							description="Sustained request rate allowed per virtual key (0 = unlimited)"
+							description={t(
+								"settings.rateLimit.requestsPerSecond.description",
+							)}
 						/>
 
 						<SettingsSelect
 							id="rate-limit-burst"
-							label="Burst Size"
+							label={t("settings.rateLimit.burstSize")}
 							value={rateLimitBurst}
 							options={RATE_LIMIT_BURST_OPTIONS}
 							onChange={(v) => updateMutation.mutate({ rate_limit_burst: v })}
-							description="Maximum number of simultaneous requests before throttling kicks in"
+							description={t("settings.rateLimit.burstSize.description")}
 						/>
 					</>
 				)}
@@ -117,10 +123,10 @@ export function RateLimitSettings({
 					<div className="flex items-center justify-between">
 						<div>
 							<p className="text-sm font-medium text-gray-300">
-								IP Rate Limiting
+								{t("settings.rateLimit.ipRateLimiting")}
 							</p>
 							<p className="text-gray-500 text-xs mt-0.5">
-								Per-IP rate limiter (DoS protection, runs before auth)
+								{t("settings.rateLimit.ipRateLimitingDescription")}
 							</p>
 						</div>
 						<Toggle
@@ -138,26 +144,28 @@ export function RateLimitSettings({
 							<div className="mt-4">
 								<SettingsSelect
 									id="rate-limit-ip-rps"
-									label="IP Requests per Second"
+									label={t("settings.rateLimit.ipRequestsPerSecond")}
 									value={rateLimitIpRPS}
 									options={RATE_LIMIT_RPS_OPTIONS}
 									onChange={(v) =>
 										updateMutation.mutate({ rate_limit_ip_rps: v })
 									}
-									description="Sustained request rate per IP address (0 = unlimited)"
+									description={t(
+										"settings.rateLimit.ipRequestsPerSecond.description",
+									)}
 								/>
 							</div>
 
 							<div className="mt-4">
 								<SettingsSelect
 									id="rate-limit-ip-burst"
-									label="IP Burst Size"
+									label={t("settings.rateLimit.ipBurstSize")}
 									value={rateLimitIpBurst}
 									options={RATE_LIMIT_BURST_OPTIONS}
 									onChange={(v) =>
 										updateMutation.mutate({ rate_limit_ip_burst: v })
 									}
-									description="Maximum simultaneous requests per IP before throttling kicks in"
+									description={t("settings.rateLimit.ipBurstSize.description")}
 								/>
 							</div>
 						</>
@@ -167,17 +175,17 @@ export function RateLimitSettings({
 				{(rateLimitEnabled || rateLimitIpEnabled) && (
 					<div className="pt-2">
 						<p className="text-sm font-medium text-gray-300 mb-1">
-							Rate Limit Backpressure
+							{t("settings.rateLimit.backpressure")}
 						</p>
 						<p className="text-gray-500 text-xs mb-3">
-							Shared wait behavior for both per-key and IP rate limiters
+							{t("settings.rateLimit.backpressureDescription")}
 						</p>
 						<div>
 							<label
 								htmlFor="rate-limit-max-wait"
 								className="block text-sm font-medium text-gray-300 mb-2"
 							>
-								Max Wait (ms)
+								{t("settings.rateLimit.maxWait")}
 							</label>
 							<input
 								id="rate-limit-max-wait"
@@ -193,9 +201,7 @@ export function RateLimitSettings({
 								className="ui-input"
 							/>
 							<p className="text-gray-500 text-xs mt-1">
-								Maximum time to wait before rejecting a rate-limited request. If
-								a token becomes available within this window, the request
-								proceeds; otherwise 429 is returned.
+								{t("settings.rateLimit.maxWait.description")}
 							</p>
 						</div>
 					</div>

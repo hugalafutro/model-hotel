@@ -1,4 +1,5 @@
 import { type RefObject, useCallback, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { ArenaPromptPreset } from "../data/presets";
 import { CollapsibleToggle, useCollapsible } from "./CollapsibleToggle";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -37,15 +38,20 @@ export function PromptPicker({
 	prompt,
 	onActivePromptIdChange,
 	onPromptChange,
-	label = "Prompt",
-	textareaPlaceholder = "Enter your prompt…",
+	label: labelProp,
+	textareaPlaceholder: textareaPlaceholderProp,
 	className,
 	disabled = false,
 	showPresetBar = true,
 	autoFocus = false,
 	maxLength = 10000,
 }: PromptPickerProps) {
+	const { t } = useTranslation();
 	const { collapsed, toggle: toggleCollapsed } = useCollapsible();
+	const label = labelProp ?? t("components.promptPicker.prompt");
+	const textareaPlaceholder =
+		textareaPlaceholderProp ??
+		t("components.promptPicker.enterPromptPlaceholder");
 	const [pendingPrompt, setPendingPrompt] = useState<ArenaPromptPreset | null>(
 		null,
 	);
@@ -89,12 +95,12 @@ export function PromptPicker({
 			setPendingPrompt({
 				id: "__custom__",
 				icon: "✏️",
-				label: "Custom",
+				label: t("common.custom"),
 				prompt: "",
 			});
 			return;
 		}
-	}, [activePromptId]);
+	}, [activePromptId, t]);
 
 	const handleRandom = useCallback(() => {
 		const available = prompts.filter((p) => p.id !== activePromptId);
@@ -199,10 +205,10 @@ export function PromptPicker({
 				<ConfirmDialog
 					title={
 						pendingPrompt.id === "__custom__"
-							? "Switch to Custom"
-							: "Overwrite Prompt"
+							? t("components.promptPicker.switchToCustom")
+							: t("components.promptPicker.overwritePrompt")
 					}
-					fields={["Prompt"]}
+					fields={[t("components.promptPicker.promptField")]}
 					onConfirm={handleConfirmOverwrite}
 					onCancel={() => setPendingPrompt(null)}
 				/>

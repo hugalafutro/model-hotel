@@ -1,5 +1,6 @@
 import { Check, ChevronDown, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface Provider {
 	id: string;
@@ -17,6 +18,7 @@ export function ProviderFilter({
 	selected,
 	onChange,
 }: ProviderFilterProps) {
+	const { t } = useTranslation();
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState("");
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -73,11 +75,13 @@ export function ProviderFilter({
 
 	const triggerLabel =
 		selected.size === 0
-			? "Filter Providers"
+			? t("components.providerFilter.filterProviders")
 			: selected.size === 1
 				? (providers?.find((p) => p.id === Array.from(selected)[0])?.name ??
-					"1 provider")
-				: `${selected.size} providers`;
+					t("components.providerFilter.provider", { count: 1 }))
+				: t("components.providerFilter.provider", {
+						count: selected.size,
+					});
 
 	return (
 		<div
@@ -113,7 +117,7 @@ export function ProviderFilter({
 									clear();
 								}
 							}}
-							title="Clear filter"
+							title={t("components.providerFilter.clearFilter")}
 						>
 							{selected.size}
 						</span>
@@ -141,8 +145,8 @@ export function ProviderFilter({
 								type="text"
 								value={search}
 								onChange={(e) => setSearch(e.target.value)}
-								placeholder="Search providers…"
-								aria-label="Search providers"
+								placeholder={t("components.providerFilter.searchProviders")}
+								aria-label={t("components.providerFilter.searchProviders")}
 								className="ui-input text-xs h-8 pl-2! pr-7! w-full"
 								style={{
 									fontFamily: "var(--font-mono), ui-monospace, monospace",
@@ -159,7 +163,7 @@ export function ProviderFilter({
 									type="button"
 									onClick={() => setSearch("")}
 									className="absolute right-2 top-1/2 -translate-y-1/2 text-(--text-muted) hover:text-(--text-primary)"
-									aria-label="Clear search"
+									aria-label={t("common.clearFilter")}
 								>
 									<X size={12} />
 								</button>
@@ -175,14 +179,14 @@ export function ProviderFilter({
 								onClick={selectAllVisible}
 								className="text-[11px] text-(--text-tertiary) hover:text-(--accent) transition-colors"
 							>
-								Select all
+								{t("components.providerFilter.selectAll")}
 							</button>
 							<button
 								type="button"
 								onClick={deselectAllVisible}
 								className="text-[11px] text-(--text-tertiary) hover:text-(--text-primary) transition-colors"
 							>
-								Clear
+								{t("components.providerFilter.clear")}
 							</button>
 						</div>
 					)}
@@ -196,7 +200,7 @@ export function ProviderFilter({
 									fontFamily: "var(--font-mono), ui-monospace, monospace",
 								}}
 							>
-								No providers found
+								{t("components.providerFilter.noProvidersFound")}
 							</div>
 						) : (
 							filtered.map((provider) => {

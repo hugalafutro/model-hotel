@@ -180,7 +180,7 @@ describe("WinnerSummaryModal", () => {
 		const modelAElements = screen.getAllByText("model-a");
 		expect(modelAElements.length).toBeGreaterThanOrEqual(1);
 		expect(screen.getByText("model-b")).toBeInTheDocument();
-		expect(screen.getByText("vs")).toBeInTheDocument();
+		expect(screen.getByText(/^vs$/i)).toBeInTheDocument();
 	});
 
 	it("highlights winner with green color", () => {
@@ -195,7 +195,7 @@ describe("WinnerSummaryModal", () => {
 	it("displays vote indicator for matchups with votes", () => {
 		renderWithProviders(<WinnerSummaryModal {...defaultProps} />);
 
-		expect(screen.getByText("← model-a wins")).toBeInTheDocument();
+		expect(screen.getByText(/model-a wins/)).toBeInTheDocument();
 	});
 
 	it("does not display vote indicator for matchups without votes", () => {

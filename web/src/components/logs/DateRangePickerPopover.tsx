@@ -1,4 +1,5 @@
 import { X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { AccentCalendar } from "../AccentCalendar";
 import { formatDateRangeShort } from "../AccentCalendar.utils";
 
@@ -26,20 +27,22 @@ export function DateRangePickerPopover({
 	onClose,
 	anchor = "right",
 }: DateRangePickerPopoverProps) {
+	const { t } = useTranslation();
+
 	return (
 		<div
 			className={`absolute ${anchor}-0 mt-2 w-72 p-4 bg-gray-900 border border-gray-700 rounded-(--radius-card) shadow-2xl z-50`}
 		>
 			<div className="flex items-center justify-between mb-3">
 				<span className="text-sm font-semibold text-(--text-primary)">
-					Select date range
+					{t("components.logs.dateRangePicker.selectDateRange")}
 				</span>
 				<button
 					type="button"
 					onClick={onClose}
 					className="text-gray-400 hover:text-(--text-primary) transition-colors leading-none p-1 hover:drop-shadow-[var(--glow-accent-lg)]"
-					title="Close date picker"
-					aria-label="Close date picker"
+					title={t("components.logs.dateRangePicker.close")}
+					aria-label={t("components.logs.dateRangePicker.close")}
 				>
 					<X size={16} />
 				</button>
@@ -57,9 +60,11 @@ export function DateRangePickerPopover({
 				{pendingFrom && pendingTo ? (
 					<span>{formatDateRangeShort(pendingFrom, pendingTo)}</span>
 				) : pendingFrom ? (
-					<span className="text-(--accent)">Select end date…</span>
+					<span className="text-(--accent)">
+						{t("components.logs.dateRangePicker.selectEndDate")}
+					</span>
 				) : (
-					<span>Select start date</span>
+					<span>{t("components.logs.dateRangePicker.selectStartDate")}</span>
 				)}
 			</div>
 
@@ -69,7 +74,7 @@ export function DateRangePickerPopover({
 					onClick={onClear}
 					className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-gray-700 text-gray-400 hover:text-(--text-primary) hover:bg-gray-700 transition-colors"
 				>
-					Clear
+					{t("components.logs.dateRangePicker.clear")}
 				</button>
 				<button
 					type="button"
@@ -77,7 +82,7 @@ export function DateRangePickerPopover({
 					disabled={!pendingFrom}
 					className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-(--accent-light) bg-(--accent-light) text-(--accent) hover:brightness-125 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
 				>
-					Apply
+					{t("components.logs.dateRangePicker.apply")}
 				</button>
 			</div>
 		</div>

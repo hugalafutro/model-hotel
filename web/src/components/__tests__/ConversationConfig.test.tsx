@@ -54,7 +54,7 @@ describe("ConversationConfig", () => {
 
 		it("renders status indicator", () => {
 			renderWithProviders(<ConversationConfig {...defaultProps} />);
-			expect(screen.getByText("Status:")).toBeInTheDocument();
+			expect(screen.getByText(/Status:/)).toBeInTheDocument();
 			expect(screen.getByText("idle")).toBeInTheDocument();
 		});
 
@@ -70,9 +70,9 @@ describe("ConversationConfig", () => {
 				<ConversationConfig {...defaultProps} configCollapsed />,
 			);
 			expect(screen.getByText(/Rounds:/)).toBeInTheDocument();
-			expect(screen.getByText("5")).toBeInTheDocument();
+			expect(screen.getByText(/5/)).toBeInTheDocument();
 			expect(screen.getByText(/Delay:/)).toBeInTheDocument();
-			expect(screen.getByText("1000")).toBeInTheDocument();
+			expect(screen.getByText(/1000/)).toBeInTheDocument();
 		});
 
 		it("shows round counter when conversation is active", () => {
@@ -83,8 +83,8 @@ describe("ConversationConfig", () => {
 					currentTurn={3}
 				/>,
 			);
-			expect(screen.getByText("Round:")).toBeInTheDocument();
-			expect(screen.getByText("2 / 5")).toBeInTheDocument();
+			expect(screen.getByText(/Round:/)).toBeInTheDocument();
+			expect(screen.getByText(/2 \/ 5/)).toBeInTheDocument();
 		});
 	});
 

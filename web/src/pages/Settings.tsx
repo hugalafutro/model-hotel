@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Settings as SettingsIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { useCollapsible } from "../components/CollapsibleToggle";
 import { LoadingSpinner } from "../components/LoadingSpinner";
@@ -17,6 +18,7 @@ import { SidebarQuotaSettings } from "./Settings/SidebarQuotaSettings";
 import { ToastSettings } from "./Settings/ToastSettings";
 
 export function Settings() {
+	const { t } = useTranslation();
 	const { collapsed: modelDiscoveryCollapsed, toggle: toggleModelDiscovery } =
 		useCollapsible("settings_modelDiscoveryCollapsed");
 	const { collapsed: appearanceCollapsed, toggle: toggleAppearance } =
@@ -57,8 +59,8 @@ export function Settings() {
 		<div className="space-y-8 max-w-5xl pb-8">
 			<PageHeader
 				icon={SettingsIcon}
-				title="Settings"
-				description="Configure your Model Hotel instance"
+				title={t("settings.title")}
+				description={t("settings.description")}
 			/>
 
 			<div className="space-y-6">

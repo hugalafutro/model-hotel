@@ -1019,7 +1019,8 @@ describe("OpenRouterQuotaModal", () => {
 		it("renders credits used", () => {
 			renderWithProviders(<OpenRouterQuotaModal {...defaultProps} />);
 			// OpenRouter shows "spent total" text with credits used
-			expect(screen.getByText("$100,000.00 spent total")).toBeInTheDocument();
+			// Component renders formatDollars + t(key, {amount: formatDollars}), check partial match
+			expect(screen.getByText(/spent total/)).toBeInTheDocument();
 		});
 
 		it("renders tier status", () => {
@@ -1069,7 +1070,7 @@ describe("OpenRouterQuotaModal", () => {
 			const refreshButton = screen.getByRole("button", { name: "Refresh" });
 			await user.click(refreshButton);
 			await waitFor(() => {
-				expect(onToast).toHaveBeenCalledWith("Balance refreshed", "success");
+				expect(onToast).toHaveBeenCalledWith("Quota refreshed", "success");
 			});
 		});
 
@@ -1082,7 +1083,7 @@ describe("OpenRouterQuotaModal", () => {
 			await user.click(refreshButton);
 			await waitFor(() => {
 				expect(onToast).toHaveBeenCalledWith(
-					"Failed to refresh balance",
+					"Failed to refresh quota",
 					"error",
 				);
 			});

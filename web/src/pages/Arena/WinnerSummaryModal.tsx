@@ -1,4 +1,5 @@
 import { Trophy } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Modal } from "../../components/Modal";
 import type { WinnerSummaryModalProps } from "./types";
 
@@ -7,12 +8,15 @@ export function WinnerSummaryModal({
 	rounds,
 	onClose,
 }: WinnerSummaryModalProps) {
+	const { t } = useTranslation();
 	return (
 		<Modal
 			header={
 				<div className="flex items-center gap-3 mb-0">
 					<Trophy size={28} className="text-amber-400" />
-					<h2 className="text-xl font-bold text-white">Match Complete</h2>
+					<h2 className="text-xl font-bold text-white">
+						{t("arena.winnerModal.title")}
+					</h2>
 				</div>
 			}
 			onClose={onClose}
@@ -24,7 +28,9 @@ export function WinnerSummaryModal({
 				<span className="text-sm font-bold text-amber-300">
 					{winner.split("/").pop()}
 				</span>
-				<span className="text-sm text-amber-400/70">wins!</span>
+				<span className="text-sm text-amber-400/70">
+					{t("arena.winnerModal.wins")}
+				</span>
 			</div>
 
 			<div className="space-y-3">
@@ -33,14 +39,14 @@ export function WinnerSummaryModal({
 					<div key={`winner-round-${roundIdx}`}>
 						<div className="text-xs text-(--text-tertiary) font-medium uppercase tracking-wider mb-1">
 							{rounds.length === 1
-								? "Match"
+								? t("arena.round.match")
 								: roundIdx === rounds.length - 1
-									? "Final"
+									? t("arena.round.final")
 									: roundIdx === rounds.length - 2
-										? "Semifinals"
+										? t("arena.round.semifinals")
 										: roundIdx === rounds.length - 3
-											? "Quarterfinals"
-											: `Round ${roundIdx + 1}`}
+											? t("arena.round.quarterfinals")
+											: t("arena.round.numbered", { num: roundIdx + 1 })}
 						</div>
 						{round.matchups.map((mu, mi) => (
 							<div // biome-ignore lint/suspicious/noArrayIndexKey: match position is the stable identifier in the summary
@@ -54,9 +60,9 @@ export function WinnerSummaryModal({
 											: "text-(--text-secondary)"
 									}
 								>
-									{mu.slotA?.modelId.split("/").pop() ?? "TBD"}
+									{mu.slotA?.modelId.split("/").pop() ?? t("arena.tbd")}
 								</span>
-								<span className="text-(--text-tertiary)">vs</span>
+								<span className="text-(--text-tertiary)">{t("arena.vs")}</span>
 								<span
 									className={
 										mu.vote === "B"
@@ -64,7 +70,7 @@ export function WinnerSummaryModal({
 											: "text-(--text-secondary)"
 									}
 								>
-									{mu.slotB?.modelId.split("/").pop() ?? "TBD"}
+									{mu.slotB?.modelId.split("/").pop() ?? t("arena.tbd")}
 								</span>
 								{mu.vote && (
 									<span className="text-xs text-(--accent)">
@@ -72,7 +78,7 @@ export function WinnerSummaryModal({
 										{(mu.vote === "A" ? mu.slotA : mu.slotB)?.modelId
 											.split("/")
 											.pop()}{" "}
-										wins
+										{t("arena.winnerModal.wins")}
 									</span>
 								)}
 							</div>
@@ -87,7 +93,7 @@ export function WinnerSummaryModal({
 					onClick={onClose}
 					className="ui-btn ui-btn-primary"
 				>
-					Close
+					{t("arena.winnerModal.close")}
 				</button>
 			</div>
 		</Modal>

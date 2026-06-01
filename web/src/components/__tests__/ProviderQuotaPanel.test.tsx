@@ -256,7 +256,7 @@ describe("ProviderQuotaPanel", () => {
 			await user.click(refreshButton);
 
 			expect(mockInvalidateAll).toHaveBeenCalledTimes(1);
-			expect(screen.getByText("Refreshing quotas...")).toBeInTheDocument();
+			expect(screen.getByText("Refreshing quotas…")).toBeInTheDocument();
 		});
 
 		it("handleRefresh enforces cooldown on rapid clicks", async () => {

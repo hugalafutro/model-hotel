@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDownAZ, ArrowUpZA, PlugZap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { Provider } from "../api/types";
 import { DeleteConfirmModal } from "../components/DeleteConfirmModal";
@@ -31,6 +32,7 @@ import { ProviderCard } from "./Providers/ProviderCard";
 export function Providers() {
 	const queryClient = useQueryClient();
 	const { toast } = useToast();
+	const { t } = useTranslation();
 	const [editProvider, setEditProvider] = useState<Provider | null>(null);
 	const [deleteProvider, setDeleteProvider] = useState<Provider | null>(null);
 	const [showModal, setShowModal] = useState(false);
@@ -106,11 +108,17 @@ export function Providers() {
 			queryClient.invalidateQueries({ queryKey: ["models"] });
 			setDiscoverAllCurrentId(null);
 			if (data.failed > 0 && data.succeeded === 0) {
-				toast(`Discovery failed for all ${data.failed} providers`, "error");
+				toast(
+					t("providers.toast_discovery_failed_all", { failed: data.failed }),
+					"error",
+				);
 			}
 		},
 		onError: (err: Error) => {
-			toast(`Discover all failed: ${err.message}`, "error");
+			toast(
+				t("providers.toast_discover_failed", { message: err.message }),
+				"error",
+			);
 			setDiscoverAllCurrentId(null);
 		},
 	});
@@ -123,17 +131,27 @@ export function Providers() {
 			queryClient.invalidateQueries({ queryKey: ["providers"] });
 			if (data.failed > 0) {
 				toast(
-					`Refreshed ${data.refreshed} quotas (${data.failed} failed, ${data.skipped} unsupported)`,
+					t("providers.toast.refreshedQuotas", {
+						refreshed: data.refreshed,
+						failed: data.failed,
+						skipped: data.skipped,
+					}),
 					"warning",
 				);
 			} else if (data.refreshed === 0) {
-				toast("No providers with quota/balance support found", "info");
+				toast(t("providers.toast_refresh_none"), "info");
 			} else {
-				toast(`Refreshed ${data.refreshed} quotas/balances`, "success");
+				toast(
+					t("providers.toast_refresh_success", { count: data.refreshed }),
+					"success",
+				);
 			}
 		},
 		onError: (err: Error) => {
-			toast(`Refresh quotas failed: ${err.message}`, "error");
+			toast(
+				t("providers.toast_refresh_failed", { message: err.message }),
+				"error",
+			);
 		},
 	});
 
@@ -147,7 +165,10 @@ export function Providers() {
 			queryClient.invalidateQueries({ queryKey: ["models"] });
 		},
 		onError: (err: Error) => {
-			toast(`Discovery failed: ${err.message}`, "error");
+			toast(
+				t("providers.toast_discover_failed", { message: err.message }),
+				"error",
+			);
 		},
 		onSettled: () => {
 			setDiscoveringId(null);
@@ -164,10 +185,13 @@ export function Providers() {
 			queryClient.invalidateQueries({ queryKey: ["deepseek-balance"] });
 			queryClient.invalidateQueries({ queryKey: ["openrouter-balance"] });
 			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
-			toast("Provider deleted", "success");
+			toast(t("providers.toast_provider_deleted"), "success");
 		},
 		onError: (err: Error) => {
-			toast(`Failed to delete: ${err.message}`, "error");
+			toast(
+				t("providers.toast_delete_failed", { message: err.message }),
+				"error",
+			);
 		},
 		onSettled: () => {
 			setDeleteProvider(null);
@@ -187,17 +211,20 @@ export function Providers() {
 			queryClient.invalidateQueries({ queryKey: ["models"] });
 			if (failed === 0) {
 				toast(
-					`Deleted ${ids.length} disabled model${ids.length === 1 ? "" : "s"}`,
+					t("providers.toast_delete_models_success", { count: ids.length }),
 					"success",
 				);
 			} else {
 				toast(
-					`Deleted ${ids.length - failed} model${ids.length - failed === 1 ? "" : "s"}, ${failed} failed`,
+					t("providers.toast_delete_models_warning", {
+						kept: ids.length - failed,
+						failed,
+					}),
 					"warning",
 				);
 			}
 		},
-		[queryClient, toast],
+		[queryClient, toast, t],
 	);
 
 	const typeOptions = useMemo(() => {
@@ -211,16 +238,15 @@ export function Providers() {
 		entries.sort((a, b) => {
 			if (a[0] === "custom") return -1;
 			if (b[0] === "custom") return 1;
-			const labelA = providerTypeDisplayNames[a[0]] || a[0];
-			const labelB = providerTypeDisplayNames[b[0]] || b[0];
-			return labelA.localeCompare(labelB);
+			return a[0].localeCompare(b[0]);
 		});
 		return entries.map(([type, count]) => ({
 			value: type,
-			label: providerTypeDisplayNames[type] || type,
+			label:
+				t(`providers.type_${type}`) || providerTypeDisplayNames[type] || type,
 			count,
 		}));
-	}, [providers]);
+	}, [providers, t]);
 
 	const filteredProviders = useMemo(() => {
 		if (!providers) return providers;
@@ -247,8 +273,12 @@ export function Providers() {
 		<div className="space-y-6">
 			<PageHeader
 				icon={PlugZap}
-				title={countLabel(allProvidersCount, "Provider", "Providers")}
-				description="Manage your provider configurations"
+				title={countLabel(
+					allProvidersCount,
+					t("providers.page_title_one"),
+					t("providers.page_title_other"),
+				)}
+				description={t("providers.page_description")}
 				actions={
 					<>
 						<button
@@ -262,7 +292,7 @@ export function Providers() {
 									<Spinner /> Discovering...
 								</>
 							) : (
-								"Discover All Models"
+								t("providers.btn_discover_all")
 							)}
 						</button>
 						<button
@@ -276,7 +306,7 @@ export function Providers() {
 									<Spinner /> Refreshing...
 								</>
 							) : (
-								"Refresh Quotas/Balances"
+								t("providers.btn_refresh_quotas")
 							)}
 						</button>
 						<button
@@ -294,7 +324,7 @@ export function Providers() {
 				<FilterInput
 					value={nameFilter}
 					onChange={setNameFilter}
-					placeholder="Filter providers…"
+					placeholder={t("providers.filter_placeholder")}
 					className="w-[200px]"
 					autoFocus
 				/>
@@ -304,8 +334,8 @@ export function Providers() {
 						onClick={() => setSortAsc((prev) => !prev)}
 						title={
 							sortAsc
-								? "Sorted A-Z (click to reverse)"
-								: "Sorted Z-A (click to reverse)"
+								? t("providers.sort_title_asc")
+								: t("providers.sort_title_desc")
 						}
 						className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]"
 					>
@@ -314,8 +344,8 @@ export function Providers() {
 					<FilterDropdown
 						value={typeFilter}
 						onChange={setTypeFilter}
-						placeholder="Provider type"
-						allLabel={`All (${allProvidersCount})`}
+						placeholder={t("providers.filter_provider_type")}
+						allLabel={t("providers.filter_all", { count: allProvidersCount })}
 						options={typeOptions}
 						className="w-44"
 					/>
@@ -347,12 +377,12 @@ export function Providers() {
 					providers &&
 					providers.length > 0 && (
 						<div className="col-span-full">
-							<EmptyState message="No providers match the selected filter." />
+							<EmptyState message={t("providers.empty_no_match")} />
 						</div>
 					)}
 				{providers?.length === 0 && (
 					<div className="col-span-full">
-						<EmptyState message="No providers configured. Add your first provider to get started." />
+						<EmptyState message={t("providers.empty_no_providers")} />
 					</div>
 				)}
 			</div>

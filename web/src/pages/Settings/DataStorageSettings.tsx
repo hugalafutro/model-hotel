@@ -1,4 +1,5 @@
 import { Database } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSelect } from "../../components/SettingsSelect";
 import { Toggle } from "../../components/Toggle";
@@ -19,6 +20,7 @@ export function DataStorageSettings({
 	collapsed,
 	onToggle,
 }: DataStorageSettingsProps) {
+	const { t } = useTranslation();
 	const { toast } = useToast();
 	const {
 		persistChat,
@@ -36,26 +38,27 @@ export function DataStorageSettings({
 	return (
 		<SettingsSection
 			icon={Database}
-			title="Data Storage"
+			title={t("settings.dataStorage.title")}
 			collapsed={collapsed}
 			onToggle={onToggle}
 		>
 			<div className="space-y-4">
 				<p className="text-gray-400 text-sm">
-					Manage browser-local session data. Persisted data survives page reload
-					and browser restarts.
+					{t("settings.dataStorage.description")}
 				</p>
 
 				{/* Session Persistence */}
 				<div className="space-y-3">
 					<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-						Session Persistence
+						{t("settings.dataStorage.sessionPersistence")}
 					</h3>
 					<div className="flex items-center justify-between">
 						<div>
-							<p className="text-sm font-medium text-gray-300">Persist Chat</p>
+							<p className="text-sm font-medium text-gray-300">
+								{t("settings.dataStorage.persistChat")}
+							</p>
 							<p className="text-gray-500 text-xs mt-0.5">
-								Remember messages, prompt, and persona across sessions
+								{t("settings.dataStorage.persistChatDescription")}
 							</p>
 						</div>
 						<Toggle
@@ -64,37 +67,14 @@ export function DataStorageSettings({
 								const next = v;
 								if (
 									!next &&
-									!confirm("This will clear all saved chat messages. Continue?")
+									!confirm(t("settings.dataStorage.persistChatConfirm"))
 								)
 									return;
 								setPersistChat(next);
 								toast(
-									next ? "Chat persistence enabled" : "Chat data cleared",
-									next ? "success" : "info",
-								);
-							}}
-						/>
-					</div>
-
-					<div className="flex items-center justify-between">
-						<div>
-							<p className="text-sm font-medium text-gray-300">Persist Arena</p>
-							<p className="text-gray-500 text-xs mt-0.5">
-								Remember bracket state and prompts across sessions
-							</p>
-						</div>
-						<Toggle
-							checked={persistArena}
-							onChange={(v) => {
-								const next = v;
-								if (
-									!next &&
-									!confirm("This will clear all saved arena data. Continue?")
-								)
-									return;
-								setPersistArena(next);
-								toast(
-									next ? "Arena persistence enabled" : "Arena data cleared",
+									next
+										? t("settings.dataStorage.persistChatEnabled")
+										: t("settings.dataStorage.persistChatDisabled"),
 									next ? "success" : "info",
 								);
 							}}
@@ -104,10 +84,39 @@ export function DataStorageSettings({
 					<div className="flex items-center justify-between">
 						<div>
 							<p className="text-sm font-medium text-gray-300">
-								Persist AI Conversation
+								{t("settings.dataStorage.persistArena")}
 							</p>
 							<p className="text-gray-500 text-xs mt-0.5">
-								Remember conversation state and settings across sessions
+								{t("settings.dataStorage.persistArenaDescription")}
+							</p>
+						</div>
+						<Toggle
+							checked={persistArena}
+							onChange={(v) => {
+								const next = v;
+								if (
+									!next &&
+									!confirm(t("settings.dataStorage.persistArenaConfirm"))
+								)
+									return;
+								setPersistArena(next);
+								toast(
+									next
+										? t("settings.dataStorage.persistArenaEnabled")
+										: t("settings.dataStorage.persistArenaDisabled"),
+									next ? "success" : "info",
+								);
+							}}
+						/>
+					</div>
+
+					<div className="flex items-center justify-between">
+						<div>
+							<p className="text-sm font-medium text-gray-300">
+								{t("settings.dataStorage.persistConversation")}
+							</p>
+							<p className="text-gray-500 text-xs mt-0.5">
+								{t("settings.dataStorage.persistConversationDescription")}
 							</p>
 						</div>
 						<Toggle
@@ -116,16 +125,14 @@ export function DataStorageSettings({
 								const next = v;
 								if (
 									!next &&
-									!confirm(
-										"This will clear all saved conversation data. Continue?",
-									)
+									!confirm(t("settings.dataStorage.persistConversationConfirm"))
 								)
 									return;
 								setPersistConversation(next);
 								toast(
 									next
-										? "Conversation persistence enabled"
-										: "Conversation data cleared",
+										? t("settings.dataStorage.persistConversationEnabled")
+										: t("settings.dataStorage.persistConversationDisabled"),
 									next ? "success" : "info",
 								);
 							}}
@@ -136,15 +143,15 @@ export function DataStorageSettings({
 				{/* Arena History */}
 				<div className="space-y-3">
 					<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-						Arena History
+						{t("settings.dataStorage.arenaHistory")}
 					</h3>
 					<div className="flex items-center justify-between">
 						<div>
 							<p className="text-sm font-medium text-gray-300">
-								Save Match History
+								{t("settings.dataStorage.saveMatchHistory")}
 							</p>
 							<p className="text-gray-500 text-xs mt-0.5">
-								Automatically save completed arena and compare sessions
+								{t("settings.dataStorage.saveMatchHistoryDescription")}
 							</p>
 						</div>
 						<Toggle
@@ -154,8 +161,8 @@ export function DataStorageSettings({
 								setArenaHistoryEnabled(next);
 								toast(
 									next
-										? "Arena history enabled"
-										: "Arena history disabled - existing entries preserved",
+										? t("settings.dataStorage.saveMatchHistoryEnabled")
+										: t("settings.dataStorage.saveMatchHistoryDisabled"),
 									next ? "success" : "info",
 								);
 							}}
@@ -165,46 +172,67 @@ export function DataStorageSettings({
 					<div>
 						<SettingsSelect
 							id="history-limit"
-							label="Maximum Saved Matches"
+							label={t("settings.dataStorage.maxSavedMatches")}
 							value={String(arenaHistoryLimit)}
 							options={[
-								{ value: "10", label: "10 matches" },
-								{ value: "25", label: "25 matches (default)" },
-								{ value: "50", label: "50 matches" },
-								{ value: "100", label: "100 matches" },
+								{
+									value: "10",
+									label: t("settings.dataStorage.matches.10"),
+								},
+								{
+									value: "25",
+									label: t("settings.dataStorage.matches.25"),
+								},
+								{
+									value: "50",
+									label: t("settings.dataStorage.matches.50"),
+								},
+								{
+									value: "100",
+									label: t("settings.dataStorage.matches.100"),
+								},
 							]}
 							onChange={(v) => {
 								const val = Number(v);
 								setArenaHistoryLimit(val);
-								toast(`History limit set to ${val} matches`, "success");
+								toast(
+									t("settings.dataStorage.historyLimitToast", { count: val }),
+									"success",
+								);
 							}}
 							disabled={!arenaHistoryEnabled}
-							description="Oldest matches are automatically removed when the limit is reached"
+							description={t(
+								"settings.dataStorage.maxSavedMatches.description",
+							)}
 						/>
 					</div>
 
 					<div className="flex items-center justify-between">
 						<div>
-							<p className="text-sm font-medium text-gray-300">Clear History</p>
+							<p className="text-sm font-medium text-gray-300">
+								{t("settings.dataStorage.clearHistory")}
+							</p>
 							<p className="text-gray-500 text-xs mt-0.5">
-								{getArenaHistoryCount()} entr
-								{getArenaHistoryCount() === 1 ? "y" : "ies"} stored
+								{t("settings.dataStorage.clearHistoryDescription", {
+									count: getArenaHistoryCount(),
+								})}
 							</p>
 						</div>
 						<button
 							type="button"
 							onClick={() => {
-								if (
-									confirm("Delete all arena history? This cannot be undone.")
-								) {
+								if (confirm(t("settings.dataStorage.clearHistoryConfirm"))) {
 									clearArenaHistory();
-									toast("All arena history cleared", "info");
+									toast(
+										t("settings.dataStorage.clearHistoryAllCleared"),
+										"info",
+									);
 								}
 							}}
 							className="ui-btn ui-btn-danger text-xs px-3 py-1.5"
 							disabled={getArenaHistoryCount() === 0}
 						>
-							Clear All
+							{t("settings.dataStorage.clearHistoryAll")}
 						</button>
 					</div>
 				</div>
@@ -212,45 +240,41 @@ export function DataStorageSettings({
 				{/* Cache & Resets */}
 				<div className="space-y-3">
 					<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-						Cache &amp; Resets
+						{t("settings.dataStorage.cacheAndResets")}
 					</h3>
 					<div className="flex items-center justify-between">
 						<div>
 							<p className="text-sm font-medium text-gray-300">
-								Provider Quota Cache
+								{t("settings.dataStorage.providerQuotaCache")}
 							</p>
 							<p className="text-gray-500 text-xs mt-0.5">
-								{getProviderCacheCount()} cached entr
-								{getProviderCacheCount() === 1 ? "y" : "ies"} (NanoGPT, Z.ai
-								Coding Plan, DeepSeek)
+								{t("settings.dataStorage.providerQuotaCacheDescription", {
+									count: getProviderCacheCount(),
+								})}
 							</p>
 						</div>
 						<button
 							type="button"
 							onClick={() => {
-								if (
-									confirm(
-										"Clear all cached provider quota data? Fresh data will be fetched on next refresh.",
-									)
-								) {
+								if (confirm(t("settings.dataStorage.clearCacheConfirm"))) {
 									clearProviderCache();
-									toast("Provider cache cleared", "info");
+									toast(t("settings.dataStorage.clearCacheCleared"), "info");
 								}
 							}}
 							className="ui-btn ui-btn-danger text-xs px-3 py-1.5"
 							disabled={getProviderCacheCount() === 0}
 						>
-							Clear Cache
+							{t("settings.dataStorage.clearCache")}
 						</button>
 					</div>
 
 					<div className="flex items-center justify-between">
 						<div>
 							<p className="text-sm font-medium text-gray-300">
-								Dismissed Error Banners
+								{t("settings.dataStorage.dismissedErrorBanners")}
 							</p>
 							<p className="text-gray-500 text-xs mt-0.5">
-								Reset dismissed sidebar error pill states
+								{t("settings.dataStorage.dismissedErrorBannersDescription")}
 							</p>
 						</div>
 						<button
@@ -259,11 +283,11 @@ export function DataStorageSettings({
 								localStorage.removeItem("dismissedAppErrorKey");
 								localStorage.removeItem("dismissedReqErrorKey");
 								window.dispatchEvent(new CustomEvent("dismissedErrorsReset"));
-								toast("Dismissed error banners reset", "info");
+								toast(t("settings.dataStorage.resetDismissedBanners"), "info");
 							}}
 							className="ui-btn ui-btn-danger text-xs px-3 py-1.5"
 						>
-							Reset
+							{t("settings.dataStorage.reset")}
 						</button>
 					</div>
 				</div>

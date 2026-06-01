@@ -1,4 +1,5 @@
 import { CalendarDays, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { formatDateRangeShort } from "../AccentCalendar.utils";
 
 interface DateFilterButtonProps {
@@ -16,6 +17,10 @@ export function DateFilterButton({
 	onToggleDatePicker,
 	onClearDateFilter,
 }: DateFilterButtonProps) {
+	const { t } = useTranslation();
+	const dateRangeLabel =
+		dateFrom && dateTo ? formatDateRangeShort(dateFrom, dateTo) : "";
+
 	return (
 		<div className="flex items-center gap-1">
 			<button
@@ -28,13 +33,17 @@ export function DateFilterButton({
 				}`}
 				title={
 					hasDateFilter && dateFrom && dateTo
-						? `Date filter: ${formatDateRangeShort(dateFrom, dateTo)} - click to change`
-						: "Filter by date range"
+						? t("components.logs.dateFilterButton.dateFilterWithRange", {
+								range: dateRangeLabel,
+							})
+						: t("components.logs.dateFilterButton.filterByDateRange")
 				}
 				aria-label={
 					hasDateFilter && dateFrom && dateTo
-						? `Date filter: ${formatDateRangeShort(dateFrom, dateTo)} - click to change`
-						: "Filter by date range"
+						? t("components.logs.dateFilterButton.dateFilterWithRange", {
+								range: dateRangeLabel,
+							})
+						: t("components.logs.dateFilterButton.filterByDateRange")
 				}
 			>
 				<CalendarDays size={16} />
@@ -46,13 +55,21 @@ export function DateFilterButton({
 					onClick={onClearDateFilter}
 					title={
 						hasDateFilter && dateFrom && dateTo
-							? `Clear date filter (${formatDateRangeShort(dateFrom, dateTo)})`
-							: "Clear date filter"
+							? t("components.logs.dateFilterButton.clearDateFilter", {
+									range: dateRangeLabel,
+								})
+							: t("components.logs.dateFilterButton.clearDateFilter", {
+									range: "",
+								})
 					}
 					aria-label={
 						hasDateFilter && dateFrom && dateTo
-							? `Clear date filter (${formatDateRangeShort(dateFrom, dateTo)})`
-							: "Clear date filter"
+							? t("components.logs.dateFilterButton.clearDateFilter", {
+									range: dateRangeLabel,
+								})
+							: t("components.logs.dateFilterButton.clearDateFilter", {
+									range: "",
+								})
 					}
 				>
 					<X size={14} />

@@ -62,8 +62,8 @@ describe("ModelDetailModal", () => {
 	it("displays context length and max output tokens", () => {
 		renderWithProviders(<ModelDetailModal {...defaultProps} />);
 
-		expect(screen.getByText(/8,192 tokens/)).toBeInTheDocument();
-		expect(screen.getByText(/4,096 tokens/)).toBeInTheDocument();
+		expect(screen.getByText(/8,192tokens/)).toBeInTheDocument();
+		expect(screen.getByText(/4,096tokens/)).toBeInTheDocument();
 	});
 
 	it("displays pricing information", () => {
@@ -996,9 +996,21 @@ describe("ModelDetailModal", () => {
 		const closeButton = screen.getByLabelText("Close");
 		await user.click(closeButton);
 
-		expect(screen.getByText("Unsaved Changes")).toBeInTheDocument();
-		// ConfirmDialog has "Discard" button
-		expect(screen.getByText("Discard")).toBeInTheDocument();
+		// Wait for ConfirmDialog to appear (should be the second/last dialog)
+		await waitFor(() => {
+			const allDialogs = screen.getAllByRole("dialog");
+			expect(allDialogs.length).toBeGreaterThan(1);
+		});
+
+		const allDialogs = screen.getAllByRole("dialog");
+		const confirmDialog = allDialogs[allDialogs.length - 1];
+		expect(
+			within(confirmDialog).getByRole("heading", { level: 2 }),
+		).toHaveTextContent("Unsaved Changes");
+		// ConfirmDialog uses common.delete which is "Delete" - scope to dialog
+		expect(
+			within(confirmDialog).getByRole("button", { name: "Delete" }),
+		).toBeInTheDocument();
 	});
 
 	// confirmFields ConfirmDialog - onConfirm resets edit and exits edit mode
@@ -1015,8 +1027,13 @@ describe("ModelDetailModal", () => {
 		const closeButton = screen.getByLabelText("Close");
 		await user.click(closeButton);
 
-		// Click Discard button in ConfirmDialog
-		await user.click(screen.getByText("Discard"));
+		// Click Delete button in ConfirmDialog - use getAllBy and find closest to dialog
+		const dialogs = screen.getAllByRole("dialog");
+		const confirmDialog = dialogs[dialogs.length - 1]; // last dialog is the ConfirmDialog
+		const deleteButton = within(confirmDialog).getByRole("button", {
+			name: "Delete",
+		});
+		await user.click(deleteButton);
 
 		expect(screen.queryByText("Save Changes")).not.toBeInTheDocument();
 		expect(screen.queryByText("Unsaved Changes")).not.toBeInTheDocument();

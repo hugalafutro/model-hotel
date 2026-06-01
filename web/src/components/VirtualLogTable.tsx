@@ -1,5 +1,6 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { LogEntry } from "../api/types";
 import { formatMs, formatTPS } from "../pages/Logs/utils";
 import { formatNumber } from "../utils/format";
@@ -17,8 +18,8 @@ interface VirtualLogTableProps {
 	onFetchNewer: () => void;
 	onFetchOlder: () => void;
 	onRowClick: (entry: LogEntry) => void;
-	sortDir: string; // "asc" or "desc"
-	onSortToggle: () => void; // toggle sort direction
+	sortDir: string;
+	onSortToggle: () => void;
 }
 
 const getStatusBadgeVariant = (
@@ -36,10 +37,11 @@ const getStatusBadgeVariant = (
 const HEADER_BASE =
 	"px-2 py-2 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap ui-table-header-text";
 
-const EDGE_THRESHOLD_PX = 500; // pixels from edge to trigger fetch
+const EDGE_THRESHOLD_PX = 500;
 
 export function VirtualLogTable(props: VirtualLogTableProps) {
 	"use no memo";
+	const { t } = useTranslation();
 
 	const {
 		entries,
@@ -61,7 +63,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 	const virtualizer = useVirtualizer({
 		count: entries.length,
 		getScrollElement: () => scrollRef.current,
-		estimateSize: () => 29, // approximate row height
+		estimateSize: () => 29,
 		overscan: 20,
 		getItemKey: (index) => entries[index].id,
 	});
@@ -70,25 +72,14 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 
 	const prevEntriesRef = useRef(entries);
 	const prevTotalSizeRef = useRef(0);
-	// State counter to force synchronous re-render after scrollTop adjustment.
-	// React guarantees setState inside useLayoutEffect is flushed before paint.
 	const [, forceRerender] = useState(0);
 
-	// When items are prepended (fetchNewer), all item indices shift but
-	// scrollTop stays the same, so the virtualizer maps the old scroll
-	// position to different items. Compensate by adjusting scrollTop by
-	// the exact change in total size (computed from the virtualizer's
-	// own layout, which is internally consistent). This avoids drift
-	// from averaging measured vs estimated row heights.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: virtualizer.getTotalSize is a stable reference that adds no reactivity
+	// biome-ignore lint/correctness/useExhaustiveDependencies: virtualizer.getTotalSize is a stable reference
 	useLayoutEffect(() => {
 		const prev = prevEntriesRef.current;
 		if (entries.length > prev.length && prev.length > 0) {
 			const newItemCount = entries.length - prev.length;
 			if (entries[newItemCount]?.id === prev[0]?.id && scrollRef.current) {
-				// When at the very top, don't adjust: the user naturally
-				// sees the newest rows. Otherwise, preserve scroll position
-				// by compensating for the total size change.
 				if (scrollRef.current.scrollTop > 1) {
 					const newTotalSize = virtualizer.getTotalSize();
 					scrollRef.current.scrollTop +=
@@ -102,13 +93,8 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 		}
 		prevEntriesRef.current = entries;
 		prevTotalSizeRef.current = virtualizer.getTotalSize();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [entries]);
 
-	// Keep prevTotalSizeRef in sync with ResizeObserver measurement
-	// corrections between prepends. Without this, the ref goes stale
-	// as the virtualizer replaces estimated sizes with actual measured
-	// heights, causing the next prepend adjustment to overshoot.
 	useLayoutEffect(() => {
 		prevTotalSizeRef.current = virtualizer.getTotalSize();
 	});
@@ -172,20 +158,24 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 									colSpan={12}
 									className="px-4 py-8 text-center text-gray-500 text-sm"
 								>
-									No logs found
+									{t("components.virtualLogTable.noLogsFound")}
 								</td>
 							</tr>
 						</tbody>
 					</table>
 				</div>
 				<div className="flex items-center justify-between px-3 py-2 text-xs text-gray-500 border-t border-gray-800">
-					<span>0 entries</span>
+					<span>0 {t("components.virtualLogTable.entries")}</span>
 					<span className="flex items-center gap-2">
 						{isLoadingBefore && (
-							<span className="text-(--accent)">↻ Loading newer…</span>
+							<span className="text-(--accent)">
+								{t("components.virtualLogTable.loadingNewer")}
+							</span>
 						)}
 						{isLoadingAfter && (
-							<span className="text-(--accent)">↻ Loading older…</span>
+							<span className="text-(--accent)">
+								{t("components.virtualLogTable.loadingOlder")}
+							</span>
 						)}
 					</span>
 				</div>
@@ -223,19 +213,42 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 								className={`${HEADER_BASE} cursor-pointer`}
 								onClick={onSortToggle}
 							>
-								Time/Date {sortDir === "desc" ? "↓" : "↑"}
+								{t("components.virtualLogTable.timeDate")}{" "}
+								{sortDir === "desc" ? "↓" : "↑"}
 							</th>
-							<th className={HEADER_BASE}>Hash</th>
-							<th className={HEADER_BASE}>Model</th>
-							<th className={HEADER_BASE}>Provider</th>
-							<th className={HEADER_BASE}>Status</th>
-							<th className={HEADER_BASE}>Tokens</th>
-							<th className={HEADER_BASE}>T/s</th>
-							<th className={HEADER_BASE}>Headers</th>
-							<th className={HEADER_BASE}>TTFT</th>
-							<th className={HEADER_BASE}>Duration</th>
-							<th className={HEADER_BASE}>Overhead</th>
-							<th className={HEADER_BASE}>Key</th>
+							<th className={HEADER_BASE}>
+								{t("components.virtualLogTable.hash")}
+							</th>
+							<th className={HEADER_BASE}>
+								{t("components.virtualLogTable.model")}
+							</th>
+							<th className={HEADER_BASE}>
+								{t("components.virtualLogTable.provider")}
+							</th>
+							<th className={HEADER_BASE}>
+								{t("components.virtualLogTable.status")}
+							</th>
+							<th className={HEADER_BASE}>
+								{t("components.virtualLogTable.tokens")}
+							</th>
+							<th className={HEADER_BASE}>
+								{t("components.virtualLogTable.tps")}
+							</th>
+							<th className={HEADER_BASE}>
+								{t("components.virtualLogTable.headers")}
+							</th>
+							<th className={HEADER_BASE}>
+								{t("components.virtualLogTable.ttft")}
+							</th>
+							<th className={HEADER_BASE}>
+								{t("components.virtualLogTable.duration")}
+							</th>
+							<th className={HEADER_BASE}>
+								{t("components.virtualLogTable.overhead")}
+							</th>
+							<th className={HEADER_BASE}>
+								{t("components.virtualLogTable.key")}
+							</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -295,9 +308,9 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 										{log.provider_name === "Deleted" ? (
 											<span
 												className="text-red-400 italic"
-												title="Provider was deleted"
+												title={t("components.virtualLogTable.deleted")}
 											>
-												Deleted
+												{t("components.virtualLogTable.deleted")}
 											</span>
 										) : (
 											log.provider_name || "-"
@@ -316,7 +329,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 									</td>
 									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
 										{isCancelled(log.error_message) ? (
-											"Interrupted"
+											t("components.virtualLogTable.interrupted")
 										) : log.tokens_prompt + log.tokens_completion > 0 ? (
 											<>
 												{formatNumber(log.tokens_prompt)}
@@ -339,7 +352,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 												}
 												title={
 													log.tokens_prompt_cache_hit > 0
-														? "Inflated by prompt cache hits"
+														? t("components.virtualLogTable.cacheInflated")
 														: undefined
 												}
 											>
@@ -389,10 +402,14 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 										}
 									>
 										{log.virtual_key_deleted ? (
-											<span className="text-red-400 italic">Deleted</span>
+											<span className="text-red-400 italic">
+												{t("components.virtualLogTable.deleted")}
+											</span>
 										) : log.virtual_key_name &&
 											log.virtual_key_name.toLowerCase() === "internal" ? (
-											<span className="text-gray-400 italic">internal</span>
+											<span className="text-gray-400 italic">
+												{t("components.virtualLogTable.internal")}
+											</span>
 										) : (
 											log.virtual_key_name || log.virtual_key_id || "-"
 										)}
@@ -411,10 +428,14 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 				</span>
 				<span className="flex items-center gap-2">
 					{isLoadingBefore && (
-						<span className="text-(--accent)">↻ Loading newer…</span>
+						<span className="text-(--accent)">
+							{t("components.virtualLogTable.loadingNewer")}
+						</span>
 					)}
 					{isLoadingAfter && (
-						<span className="text-(--accent)">↻ Loading older…</span>
+						<span className="text-(--accent)">
+							{t("components.virtualLogTable.loadingOlder")}
+						</span>
 					)}
 				</span>
 			</div>

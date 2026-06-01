@@ -757,7 +757,7 @@ describe("AddProviderModal", () => {
 			await user.click(submitButton);
 			await waitFor(() => {
 				expect(onToast).toHaveBeenCalledWith(
-					expect.stringContaining("Discovered 1 model from"),
+					expect.stringContaining("Discovered 1 model"),
 					"success",
 				);
 			});
@@ -860,8 +860,9 @@ describe("AddProviderModal", () => {
 			});
 			await user.click(submitButton);
 			await waitFor(() => {
+				// Translation key: providers.toast_discover_failed = "Discovery failed: {{message}}"
 				expect(onToast).toHaveBeenCalledWith(
-					expect.stringContaining("Auto-discovery failed"),
+					expect.stringContaining("Discovery failed"),
 					"warning",
 				);
 			});

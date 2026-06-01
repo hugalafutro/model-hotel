@@ -12,6 +12,7 @@ import {
 	Timer,
 	Zap,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { LogEntry } from "../api/types";
 import { formatMs } from "../pages/Logs/utils";
 import { CopyablePill } from "./CopyablePill";
@@ -27,6 +28,7 @@ export function RequestLogDetail({
 	requestLog: LogEntry;
 	onClose: () => void;
 }) {
+	const { t } = useTranslation();
 	const totalTokens =
 		requestLog.tokens_prompt +
 		requestLog.tokens_completion +
@@ -41,7 +43,7 @@ export function RequestLogDetail({
 			header={
 				<div className="flex items-center gap-3 flex-wrap mb-4">
 					<h2 className="text-xl font-bold text-(--text-primary)">
-						Request Details
+						{t("components.requestLogDetail.title")}
 					</h2>
 					<StatusBadge
 						code={requestLog.status_code}
@@ -51,7 +53,9 @@ export function RequestLogDetail({
 					{requestLog.failover_attempt > 0 && (
 						<span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-purple-500/15 text-purple-400 border border-purple-500/30">
 							<Layers size={12} />
-							Attempt {requestLog.failover_attempt + 1}
+							{t("components.requestLogDetail.attempt", {
+								number: requestLog.failover_attempt + 1,
+							})}
 						</span>
 					)}
 				</div>
@@ -76,9 +80,9 @@ export function RequestLogDetail({
 						})()}
 					</div>
 					<div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-(--text-tertiary)">
-						Duration
+						{t("components.requestLogDetail.duration")}
 						<span
-							title="Total wall-clock time from request start to response end"
+							title={t("components.requestLogDetail.totalWallClockTime")}
 							className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all"
 						>
 							<Info size={12} />
@@ -101,9 +105,9 @@ export function RequestLogDetail({
 							: "-"}
 					</div>
 					<div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-(--text-tertiary)">
-						Headers
+						{t("components.requestLogDetail.headers")}
 						<span
-							title="Time to receive the first HTTP response headers from the upstream provider"
+							title={t("components.requestLogDetail.timeToReceiveHeaders")}
 							className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all"
 						>
 							<Info size={12} />
@@ -126,9 +130,9 @@ export function RequestLogDetail({
 							: "-"}
 					</div>
 					<div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-(--text-tertiary)">
-						TTFT
+						{t("components.requestLogDetail.ttft")}
 						<span
-							title="Time to First Token: delay between request start and the first token of the response body (streaming) or full response (non-streaming)"
+							title={t("components.requestLogDetail.timeToFirstToken")}
 							className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all"
 						>
 							<Info size={12} />
@@ -141,7 +145,7 @@ export function RequestLogDetail({
 						className={`text-lg font-bold ${requestLog.tokens_prompt_cache_hit > 0 ? "text-(--text-tertiary)" : "text-(--text-primary)"}`}
 						title={
 							requestLog.tokens_prompt_cache_hit > 0
-								? "Inflated by prompt cache hits"
+								? t("components.virtualLogTable.inflatedByCacheHits")
 								: undefined
 						}
 					>
@@ -150,9 +154,9 @@ export function RequestLogDetail({
 							: "-"}
 					</div>
 					<div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-(--text-tertiary)">
-						Tokens/s
+						{t("components.requestLogDetail.tokensPerSecond")}
 						<span
-							title="Output tokens per second during the generation phase (excludes time-to-first-token). Shown as '-' when generation time is negligible."
+							title={t("components.requestLogDetail.outputTokensPerSecond")}
 							className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all"
 						>
 							<Info size={12} />
@@ -165,9 +169,9 @@ export function RequestLogDetail({
 						{totalTokens > 0 ? totalTokens.toLocaleString() : "-"}
 					</div>
 					<div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-(--text-tertiary)">
-						Total Tokens
+						{t("components.requestLogDetail.totalTokens")}
 						<span
-							title="Sum of prompt + completion + reasoning tokens"
+							title={t("components.requestLogDetail.sumOfTokens")}
 							className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all"
 						>
 							<Info size={12} />
@@ -180,26 +184,26 @@ export function RequestLogDetail({
 			<div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
 				<DetailItem
 					icon={Calendar}
-					label="Timestamp"
+					label={t("components.requestLogDetail.timestamp")}
 					value={formatDateTime(requestLog.created_at)}
 				/>
 				<DetailItem
 					icon={Hash}
-					label="Request Hash"
+					label={t("components.requestLogDetail.requestHash")}
 					value={requestLog.request_hash}
 					mono
 				/>
-				<DetailItem icon={Box} label="Model">
+				<DetailItem icon={Box} label={t("components.requestLogDetail.model")}>
 					<CopyablePill
 						text={requestLog.model_id}
-						tooltip="Copy model ID"
+						tooltip={t("components.requestLogDetail.copyModelId")}
 						textClassName="font-mono text-sm"
 						lines={2}
 					/>
 					{requestLog.model_id.startsWith("hotel/") &&
 						requestLog.resolved_model_id && (
 							<span className="text-xs text-gray-500 ml-1">
-								(resolved:{" "}
+								({t("components.requestLogDetail.resolved")}{" "}
 								<span className="text-(--accent) font-mono">
 									{requestLog.resolved_model_id}
 								</span>
@@ -209,19 +213,22 @@ export function RequestLogDetail({
 				</DetailItem>
 				<DetailItem
 					icon={Server}
-					label="Provider"
+					label={t("components.requestLogDetail.provider")}
 					value={requestLog.provider_name}
 				/>
-				<DetailItem icon={Hash} label="DB Row ID">
+				<DetailItem
+					icon={Hash}
+					label={t("components.requestLogDetail.dbRowId")}
+				>
 					<CopyablePill
 						text={requestLog.id}
-						tooltip="Copy DB row ID"
+						tooltip={t("components.requestLogDetail.copyDbRowId")}
 						textClassName="font-mono text-sm"
 					/>
 				</DetailItem>
 				<DetailItem
 					icon={Key}
-					label="Virtual Key"
+					label={t("components.requestLogDetail.virtualKey")}
 					value={
 						requestLog.virtual_key_name || requestLog.virtual_key_id || "-"
 					}
@@ -233,12 +240,12 @@ export function RequestLogDetail({
 				<div className="mb-6 p-4 rounded-lg bg-(--surface-bg) border border-(--border-subtle)">
 					<h4 className="text-sm font-semibold text-(--text-primary) mb-3 flex items-center gap-2">
 						<Layers size={14} className="text-(--accent)" />
-						Token Usage
+						{t("components.requestLogDetail.tokenUsage")}
 					</h4>
 					<div className="grid grid-cols-3 gap-3">
 						<div>
 							<div className="text-[11px] uppercase text-(--text-tertiary)">
-								Prompt
+								{t("components.requestLogDetail.prompt")}
 							</div>
 							<div className="text-sm font-mono text-(--text-primary)">
 								{requestLog.tokens_prompt.toLocaleString()}
@@ -246,7 +253,7 @@ export function RequestLogDetail({
 						</div>
 						<div>
 							<div className="text-[11px] uppercase text-(--text-tertiary)">
-								Completion
+								{t("components.requestLogDetail.completion")}
 							</div>
 							<div className="text-sm font-mono text-(--text-primary)">
 								{requestLog.tokens_completion.toLocaleString()}
@@ -255,7 +262,7 @@ export function RequestLogDetail({
 						{hasReasoning && (
 							<div>
 								<div className="text-[11px] uppercase text-(--text-tertiary)">
-									Reasoning
+									{t("components.requestLogDetail.reasoning")}
 								</div>
 								<div className="text-sm font-mono text-purple-400">
 									{requestLog.tokens_completion_reasoning.toLocaleString()}
@@ -267,7 +274,7 @@ export function RequestLogDetail({
 								<div className="grid grid-cols-3 gap-3">
 									<div>
 										<div className="text-[11px] uppercase text-(--text-tertiary)">
-											Cache Hit
+											{t("components.requestLogDetail.cacheHit")}
 										</div>
 										<div className="text-sm font-mono text-green-400">
 											{requestLog.tokens_prompt_cache_hit.toLocaleString()}
@@ -275,7 +282,7 @@ export function RequestLogDetail({
 									</div>
 									<div>
 										<div className="text-[11px] uppercase text-(--text-tertiary)">
-											Cache Miss
+											{t("components.requestLogDetail.cacheMiss")}
 										</div>
 										<div className="text-sm font-mono text-orange-400">
 											{requestLog.tokens_prompt_cache_miss.toLocaleString()}
@@ -293,51 +300,50 @@ export function RequestLogDetail({
 				<div className="mb-6 p-4 rounded-lg bg-(--surface-bg) border border-(--border-subtle)">
 					<h4 className="text-sm font-semibold text-(--text-primary) mb-3 flex items-center gap-2">
 						<Gauge size={14} className="text-(--accent)" />
-						Proxy Overhead Breakdown
+						{t("components.requestLogDetail.proxyOverheadBreakdown")}
 					</h4>
 					<div className="space-y-2">
 						{[
 							{
-								label: "Request Parsing",
+								label: t("components.requestLogDetail.requestParsing"),
 								value: requestLog.parse_ms,
-								tooltip: "Time to parse and validate the incoming request body",
+								tooltip: t("components.requestLogDetail.timeToParseRequest"),
 							},
 							{
-								label: "Failover Group Lookup",
+								label: t("components.requestLogDetail.failoverGroupLookup"),
 								value: requestLog.failover_lookup_ms,
-								tooltip:
-									"Time to resolve the failover group to a specific model and provider",
+								tooltip: t("components.requestLogDetail.timeToResolveFailover"),
 							},
 							{
-								label: "Model Lookup",
+								label: t("components.requestLogDetail.modelLookup"),
 								value: requestLog.model_lookup_ms,
-								tooltip:
-									"Time to look up the model configuration in the database",
+								tooltip: t("components.requestLogDetail.timeToLookupModel"),
 							},
 							{
-								label: "Provider Lookup",
+								label: t("components.requestLogDetail.providerLookup"),
 								value: requestLog.provider_lookup_ms,
-								tooltip: "Time to look up the provider details in the database",
+								tooltip: t("components.requestLogDetail.timeToLookupProvider"),
 							},
 							{
-								label: "Key Decryption",
+								label: t("components.requestLogDetail.keyDecryption"),
 								value: requestLog.key_decrypt_ms,
-								tooltip: "Time to decrypt the provider API key",
+								tooltip: t("components.requestLogDetail.timeToDecryptKey"),
 							},
 							{
-								label: "Dial (DNS+TCP)",
+								label: t("components.requestLogDetail.dialDnsTcp"),
 								value: requestLog.dial_ms,
-								tooltip:
-									"Time to establish the TCP connection to the upstream provider",
+								tooltip: t("components.requestLogDetail.timeToEstablishTcp"),
 							},
 							{
-								label: "Settings Reads",
+								label: t("components.requestLogDetail.settingsReads"),
 								value: requestLog.settings_read_ms,
-								tooltip: "Time to read proxy settings from the database",
+								tooltip: t("components.requestLogDetail.timeToReadSettings"),
 							},
 						].map(
 							({ label, value, tooltip }) =>
-								(value > 0 || (label === "Dial (DNS+TCP)" && value === 0)) && (
+								(value > 0 ||
+									(label === t("components.requestLogDetail.dialDnsTcp") &&
+										value === 0)) && (
 									<div key={label} className="flex justify-between text-sm">
 										<span className="flex items-center gap-1 text-(--text-secondary)">
 											{label}
@@ -349,8 +355,9 @@ export function RequestLogDetail({
 											</span>
 										</span>
 										<span className="font-mono text-(--text-primary)">
-											{label === "Dial (DNS+TCP)" && value === 0
-												? "reused"
+											{label === t("components.requestLogDetail.dialDnsTcp") &&
+											value === 0
+												? t("components.requestLogDetail.reused")
 												: formatMs(value, 3)}
 										</span>
 									</div>
@@ -358,7 +365,9 @@ export function RequestLogDetail({
 						)}
 						<div className="border-t border-(--border-default) my-2" />
 						<div className="flex justify-between text-sm font-semibold">
-							<span className="text-(--text-primary)">Total Overhead</span>
+							<span className="text-(--text-primary)">
+								{t("components.requestLogDetail.totalOverhead")}
+							</span>
 							<span className="font-mono text-(--accent)">
 								{formatMs(
 									(requestLog.parse_ms || 0) +
@@ -383,8 +392,8 @@ export function RequestLogDetail({
 						<AlertTriangle size={14} className="text-red-400" />
 						<CopyablePill
 							text={requestLog.error_message}
-							displayText="Error"
-							tooltip="Copy error message"
+							displayText={t("components.requestLogDetail.error")}
+							tooltip={t("components.requestLogDetail.copyErrorMessage")}
 							textClassName="text-sm font-semibold text-red-400"
 							iconClassName="text-red-400/50 hover:text-red-300"
 						/>

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckSquare, ChevronRight, Shuffle, Square } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { FailoverGroup } from "../api/types";
 import { DeleteConfirmModal } from "../components/DeleteConfirmModal";
@@ -16,6 +17,7 @@ import { FailoverGroupCard } from "./FailoverGroups/FailoverGroupCard";
 
 export function FailoverGroups() {
 	const { toast } = useToast();
+	const { t } = useTranslation();
 	const queryClient = useQueryClient();
 
 	const [showCreateModal, setShowCreateModal] = useState(false);
@@ -137,12 +139,15 @@ export function FailoverGroups() {
 			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
 			setSelectedGroupIds(new Set());
 			toast(
-				`${enabled ? "Enabled" : "Disabled"} all entries in ${targets.length} group${targets.length > 1 ? "s" : ""}`,
+				t("failover.toast_bulk_toggle_success", {
+					action: enabled ? t("common.enabled") : t("common.disabled"),
+					count: targets.length,
+				}),
 				"success",
 			);
 		} catch {
 			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
-			toast("Bulk toggle failed for some groups", "error");
+			toast(t("failover.toast_bulk_toggle_failed"), "error");
 		}
 	};
 
@@ -181,12 +186,16 @@ export function FailoverGroups() {
 			await Promise.all(promises);
 			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
 			toast(
-				`${enabled ? "Enabled" : "Disabled"} ${providerFilter} across ${affectedGroups.length} group${affectedGroups.length > 1 ? "s" : ""}`,
+				t("failover.toast_provider_toggle_success", {
+					action: enabled ? t("common.enabled") : t("common.disabled"),
+					provider: providerFilter,
+					count: affectedGroups.length,
+				}),
 				"success",
 			);
 		} catch {
 			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
-			toast("Bulk provider toggle failed for some groups", "error");
+			toast(t("failover.toast_provider_toggle_failed"), "error");
 		}
 	};
 
@@ -206,7 +215,11 @@ export function FailoverGroups() {
 							? ` (${g.provider_names.join(", ")})`
 							: "";
 					toast(
-						`hotel/${g.display_model} deleted: ${g.reason}${provs}`,
+						t("failover.toast_sync_deleted", {
+							model: g.display_model,
+							reason: g.reason,
+							providers: provs,
+						}),
 						"warning",
 					);
 				}
@@ -214,7 +227,10 @@ export function FailoverGroups() {
 			if (data.purged_entries && data.purged_entries.length > 0) {
 				for (const p of data.purged_entries) {
 					toast(
-						`hotel/${p.group_display_model}: removed ${p.pruned_model_ids.length} stale entry(ies)`,
+						t("failover.toast_sync_purged", {
+							group: p.group_display_model,
+							count: p.pruned_model_ids.length,
+						}),
 						"info",
 					);
 				}
@@ -223,11 +239,11 @@ export function FailoverGroups() {
 				(!data.deleted_groups || data.deleted_groups.length === 0) &&
 				(!data.purged_entries || data.purged_entries.length === 0)
 			) {
-				toast("Failover groups synced", "success");
+				toast(t("failover.toast_sync_success"), "success");
 			}
 		},
 		onError: (err: Error) => {
-			toast(`Failed to sync: ${err.message}`, "error");
+			toast(t("failover.toast_sync_failed", { message: err.message }), "error");
 		},
 	});
 
@@ -243,7 +259,10 @@ export function FailoverGroups() {
 			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
 		},
 		onError: (err: Error) => {
-			toast(`Failed to update: ${err.message}`, "error");
+			toast(
+				t("failover.toast_update_failed", { message: err.message }),
+				"error",
+			);
 		},
 	});
 
@@ -251,10 +270,13 @@ export function FailoverGroups() {
 		mutationFn: (id: string) => api.failoverGroups.delete(id),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
-			toast("Group deleted", "success");
+			toast(t("failover.toast_delete_success"), "success");
 		},
 		onError: (err: Error) => {
-			toast(`Failed to delete: ${err.message}`, "error");
+			toast(
+				t("failover.toast_delete_failed", { message: err.message }),
+				"error",
+			);
 		},
 	});
 
@@ -272,7 +294,7 @@ export function FailoverGroups() {
 	) => {
 		const enabledCount = group.entries.filter((e) => e.enabled).length;
 		if (!enabled && enabledCount <= 1) {
-			toast("At least one provider must remain active", "error");
+			toast(t("failover.toast_entry_min_one"), "error");
 			return;
 		}
 		const entryEnabledMap: Record<string, boolean> = {};
@@ -315,10 +337,17 @@ export function FailoverGroups() {
 		const failed = results.length - succeeded;
 		queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
 		if (failed === 0) {
-			toast(`Deleted ${succeeded} group${succeeded > 1 ? "s" : ""}`, "success");
+			toast(
+				t("failover.toast_bulk_delete_success", { count: succeeded }),
+				"success",
+			);
 		} else {
 			toast(
-				`Deleted ${succeeded} of ${ids.length} groups (${failed} failed)`,
+				t("failover.toast_bulk_delete_warning", {
+					succeeded,
+					total: ids.length,
+					failed,
+				}),
 				"warning",
 			);
 		}
@@ -330,7 +359,7 @@ export function FailoverGroups() {
 	if (isLoading) {
 		return (
 			<div className="flex items-center justify-center h-64">
-				<div className="text-gray-500">Loading...</div>
+				<div className="text-gray-500">{t("common.loadingDots")}</div>
 			</div>
 		);
 	}
@@ -341,13 +370,15 @@ export function FailoverGroups() {
 				icon={Shuffle}
 				title={countLabel(
 					allGroups?.length,
-					"Failover Group",
-					"Failover Groups",
+					t("failoverGroups.countLabel_one"),
+					t("failoverGroups.countLabel_other"),
 				)}
 				description={
 					<>
-						Route requests through multiple providers in priority order via{" "}
-						<code className="text-(--accent)">hotel/model</code>
+						{t("failover.page_description_lead")}{" "}
+						<code className="text-(--accent)">
+							{t("failover.page_description_code")}
+						</code>
 					</>
 				}
 				badge={
@@ -363,7 +394,9 @@ export function FailoverGroups() {
 					<>
 						{lastSyncedAt && (
 							<span className="text-xs text-gray-500">
-								Last sync: {lastSyncedAt ? formatTimestamp(lastSyncedAt) : ""}
+								{t("failover.last_sync", {
+									time: lastSyncedAt ? formatTimestamp(lastSyncedAt) : "",
+								})}
 							</span>
 						)}
 						<button
@@ -374,10 +407,10 @@ export function FailoverGroups() {
 						>
 							{syncMutation.isPending ? (
 								<>
-									<Spinner /> Syncing…
+									<Spinner /> {t("failover.btn_syncing")}
 								</>
 							) : (
-								"Sync"
+								t("failover.btn_sync")
 							)}
 						</button>
 						<button
@@ -385,7 +418,7 @@ export function FailoverGroups() {
 							onClick={() => setShowCreateModal(true)}
 							className="ui-btn ui-btn-primary"
 						>
-							+ New Group
+							{t("failover.btn_new_group")}
 						</button>
 					</>
 				}
@@ -394,44 +427,44 @@ export function FailoverGroups() {
 				<span className="shrink-0" aria-hidden="true">
 					⠿
 				</span>
-				Drag models by the handle (⠿) to reorder priority
+				{t("failover.hint_drag")}
 			</p>
 
 			<div className="flex items-center gap-3 flex-wrap">
 				<FilterInput
 					value={searchQuery}
 					onChange={setSearchQuery}
-					placeholder="Filter hotel/model…"
+					placeholder={t("failover.filter_hotel_model")}
 					className="w-[260px]"
 					autoFocus
 				/>
 				<FilterDropdown
 					value={providerFilter}
 					onChange={setProviderFilter}
-					placeholder="All providers"
-					allLabel="All providers"
+					placeholder={t("failover.filter_providers")}
+					allLabel={t("failover.filter_providers")}
 					options={providerNames.map((name) => ({ value: name, label: name }))}
 					className="w-[220px] shrink-0"
 				/>
 				<FilterDropdown
 					value={enabledFilter}
 					onChange={setEnabledFilter}
-					placeholder="All states"
-					allLabel="All states"
+					placeholder={t("failover.filter_states")}
+					allLabel={t("failover.filter_states")}
 					options={[
-						{ value: "enabled", label: "Enabled" },
-						{ value: "disabled", label: "Disabled" },
+						{ value: "enabled", label: t("failover.filter_state_enabled") },
+						{ value: "disabled", label: t("failover.filter_state_disabled") },
 					]}
 					className="w-[160px] shrink-0"
 				/>
 				<FilterDropdown
 					value={originFilter}
 					onChange={setOriginFilter}
-					placeholder="All origins"
-					allLabel="All origins"
+					placeholder={t("failover.filter_origins")}
+					allLabel={t("failover.filter_origins")}
 					options={[
-						{ value: "auto", label: "Auto" },
-						{ value: "manual", label: "Manual" },
+						{ value: "auto", label: t("failover.filter_origin_auto") },
+						{ value: "manual", label: t("failover.filter_origin_manual") },
 					]}
 					className="w-[160px] shrink-0"
 				/>
@@ -445,8 +478,16 @@ export function FailoverGroups() {
 						}
 					}}
 					className="ml-auto text-gray-400 hover:text-(--accent) hover:drop-shadow-[0_0_8px_var(--accent)] transition-all cursor-pointer"
-					aria-label={selectedGroupIds.size > 0 ? "Deselect all" : "Select all"}
-					title={selectedGroupIds.size > 0 ? "Deselect all" : "Select all"}
+					aria-label={
+						selectedGroupIds.size > 0
+							? t("failover.deselect_all")
+							: t("failover.select_all")
+					}
+					title={
+						selectedGroupIds.size > 0
+							? t("failover.deselect_all")
+							: t("failover.select_all")
+					}
 				>
 					{selectedGroupIds.size > 0 ? (
 						<CheckSquare size={18} />
@@ -457,28 +498,28 @@ export function FailoverGroups() {
 				{selectedGroupIds.size > 0 && (
 					<>
 						<span className="text-sm text-gray-400">
-							{selectedGroupIds.size} selected
+							{t("failover.selected_count", { count: selectedGroupIds.size })}
 						</span>
 						<button
 							type="button"
 							onClick={() => handleBulkModelToggle(true)}
 							className="ui-btn ui-btn-secondary text-xs"
 						>
-							Enable all
+							{t("failover.btn_enable_all")}
 						</button>
 						<button
 							type="button"
 							onClick={() => handleBulkModelToggle(false)}
 							className="ui-btn ui-btn-secondary text-xs"
 						>
-							Disable all
+							{t("failover.btn_disable_all")}
 						</button>
 						<button
 							type="button"
 							onClick={() => setBulkDeleteIds(new Set(selectedGroupIds))}
 							className="ui-btn ui-btn-danger text-xs"
 						>
-							Delete all
+							{t("failover.btn_delete_all")}
 						</button>
 					</>
 				)}
@@ -495,7 +536,10 @@ export function FailoverGroups() {
 										.includes(providerFilter.toLowerCase()),
 								),
 							).length;
-							return `${count} group${count !== 1 ? "s" : ""} with ${providerFilter} entries`;
+							return t("failover.bulk_provider_count", {
+								count,
+								provider: providerFilter,
+							});
 						})()}
 					</span>
 					<div className="flex items-center gap-2">
@@ -504,14 +548,16 @@ export function FailoverGroups() {
 							onClick={() => handleBulkProviderToggle(true)}
 							className="ui-btn ui-btn-secondary text-xs"
 						>
-							Enable all {providerFilter}
+							{t("failover.bulk_provider_enable", { provider: providerFilter })}
 						</button>
 						<button
 							type="button"
 							onClick={() => handleBulkProviderToggle(false)}
 							className="ui-btn ui-btn-secondary text-xs"
 						>
-							Disable all {providerFilter}
+							{t("failover.bulk_provider_disable", {
+								provider: providerFilter,
+							})}
 						</button>
 					</div>
 				</div>
@@ -520,12 +566,16 @@ export function FailoverGroups() {
 			{groups && groups.length === 0 ? (
 				originFilter && !searchQuery && !providerFilter && !enabledFilter ? (
 					<EmptyState
-						message={`No ${originFilter === "auto" ? "auto-discovered" : "manually created"} groups found`}
+						message={
+							originFilter === "auto"
+								? t("failover.empty_no_auto")
+								: t("failover.empty_no_manual")
+						}
 						action={{
 							label:
 								originFilter === "manual"
-									? "Create New Group"
-									: "Clear filters",
+									? t("failover.empty_create_group")
+									: t("failover.empty_clear_filters"),
 							onClick: () =>
 								originFilter === "manual"
 									? setShowCreateModal(true)
@@ -534,9 +584,9 @@ export function FailoverGroups() {
 					/>
 				) : searchQuery || providerFilter || enabledFilter || originFilter ? (
 					<EmptyState
-						message="No groups matching filters"
+						message={t("failover.empty_no_match")}
 						action={{
-							label: "Clear filters",
+							label: t("failover.empty_clear_filters"),
 							onClick: () => {
 								setSearchQuery("");
 								setProviderFilter("");
@@ -547,9 +597,9 @@ export function FailoverGroups() {
 					/>
 				) : (
 					<EmptyState
-						message="No failover groups configured"
+						message={t("failover.empty_no_groups")}
 						action={{
-							label: "Auto-discover from models",
+							label: t("failover.empty_auto_discover"),
 							onClick: () => syncMutation.mutate(),
 						}}
 					/>
@@ -570,12 +620,13 @@ export function FailoverGroups() {
 										className={`text-gray-500 transition-transform group-hover:text-(--accent) group-hover:drop-shadow-[0_0_8px_var(--accent)] ${collapsedLetters.has("custom") ? "" : "rotate-90"}`}
 									/>
 									<span className="text-lg font-bold text-(--accent) group-hover:[text-shadow:0_0_8px_var(--accent)]">
-										Custom
+										{t("failover.section_custom")}
 									</span>
 									<div className="flex-1 h-px bg-gray-700/50" />
 									<span className="text-xs text-gray-500">
-										{customGroups.length} group
-										{customGroups.length > 1 ? "s" : ""}
+										{t("failover.group_count", {
+											count: customGroups.length,
+										})}
 									</span>
 								</button>
 								<div
@@ -632,8 +683,9 @@ export function FailoverGroups() {
 									</span>
 									<div className="flex-1 h-px bg-gray-700/50" />
 									<span className="text-xs text-gray-500">
-										{letterGroups[letter].length} group
-										{letterGroups[letter].length > 1 ? "s" : ""}
+										{t("failover.group_count", {
+											count: letterGroups[letter].length,
+										})}
 									</span>
 								</button>
 								<div
@@ -676,7 +728,7 @@ export function FailoverGroups() {
 					{/* Alphabet sidebar */}
 					{(sortedLetters.length > 3 || customGroups.length > 0) && (
 						<nav
-							aria-label="Alphabet sidebar"
+							aria-label={t("failoverGroups.alphabetSidebar")}
 							className="hidden xl:flex flex-col items-center gap-1 pt-2 sticky top-4 self-start"
 						>
 							{customGroups.length > 0 && (
@@ -688,7 +740,7 @@ export function FailoverGroups() {
 											?.scrollIntoView({ behavior: "smooth", block: "start" })
 									}
 									className="text-xs font-medium text-(--accent) hover:[text-shadow:0_0_8px_var(--accent)] transition-all cursor-pointer px-1.5 py-0.5 rounded"
-									aria-label="Jump to custom groups"
+									aria-label={t("failover.nav_custom")}
 								>
 									★
 								</button>
@@ -732,7 +784,7 @@ export function FailoverGroups() {
 			{deleteGroup && (
 				<DeleteConfirmModal
 					entityName={`hotel/${deleteGroup.display_model}`}
-					entityType="failover group"
+					entityType={t("failover.delete_confirm_type")}
 					isPending={deleteMutation.isPending}
 					onConfirm={confirmDelete}
 					onCancel={() => setDeleteGroup(null)}
@@ -741,7 +793,9 @@ export function FailoverGroups() {
 
 			{bulkDeleteIds && (
 				<DeleteConfirmModal
-					entityName={`${bulkDeleteIds.size} failover group${bulkDeleteIds.size > 1 ? "s" : ""}`}
+					entityName={t("failover.delete_confirm_bulk_title", {
+						count: bulkDeleteIds.size,
+					})}
 					entityType="failover groups"
 					isPending={isBulkDeleting}
 					onConfirm={confirmBulkDelete}

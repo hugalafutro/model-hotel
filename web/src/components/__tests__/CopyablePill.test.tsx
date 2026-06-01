@@ -73,7 +73,7 @@ describe("CopyablePill", () => {
 
 		const button = screen.getByText("key").closest("button");
 		expect(button).toHaveAttribute("title", "key");
-		expect(button).toHaveAttribute("aria-label", "Copy key");
+		expect(button).toHaveAttribute("aria-label", "Copy");
 	});
 
 	it("applies line-clamp styles when lines > 1", () => {

@@ -1,4 +1,5 @@
 import { ArrowLeftRight, RefreshCw } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type {
 	NanoGPTUsage,
 	OpenRouterBalance,
@@ -46,6 +47,7 @@ export function NanoGPTQuotaModal({
 	lastRefreshed?: number;
 }) {
 	const { uiStyle } = useTheme();
+	const { t } = useTranslation();
 	const [barMode, setBarMode] = useLocalStorage<"remaining" | "used">(
 		"quota-bar-mode",
 		"remaining",
@@ -58,9 +60,9 @@ export function NanoGPTQuotaModal({
 	const handleRefresh = async () => {
 		try {
 			await onRefresh();
-			onToast("Quota refreshed", "success");
+			onToast(t("components.providerModals.quotaRefreshed"), "success");
 		} catch {
-			onToast("Failed to refresh quota", "error");
+			onToast(t("components.providerModals.failedToRefreshQuota"), "error");
 		}
 	};
 
@@ -70,7 +72,7 @@ export function NanoGPTQuotaModal({
 				<div className="flex justify-between items-start mb-6">
 					<div>
 						<h2 className="text-xl font-bold text-(--text-primary)">
-							NanoGPT Subscription
+							{t("components.providerModals.nanoGPTSubscription")}
 						</h2>
 						<p className="text-sm text-gray-400 mt-1">
 							{usage.active ? (
@@ -79,7 +81,7 @@ export function NanoGPTQuotaModal({
 										data-testid="status-dot-active"
 										className="w-2 h-2 rounded-full bg-green-400"
 									></span>
-									Active
+									{t("components.providerModals.active")}
 								</span>
 							) : (
 								<span className="inline-flex items-center gap-1.5">
@@ -87,7 +89,7 @@ export function NanoGPTQuotaModal({
 										data-testid="status-dot-inactive"
 										className="w-2 h-2 rounded-full bg-red-400"
 									></span>
-									Inactive
+									{t("components.providerModals.inactive")}
 								</span>
 							)}
 						</p>
@@ -101,11 +103,11 @@ export function NanoGPTQuotaModal({
 								)
 							}
 							className="absolute top-4 right-20 text-gray-400 hover:text-(--text-primary) transition-all cursor-pointer p-1.5"
-							aria-label="Toggle between remaining and used"
+							aria-label={t("components.providerModals.toggleRemainingUsed")}
 							title={
 								barMode === "remaining"
-									? "Show quota used"
-									: "Show quota remaining"
+									? t("components.providerModals.showQuotaUsed")
+									: t("components.providerModals.showQuotaRemaining")
 							}
 						>
 							<ArrowLeftRight size={18} />
@@ -115,8 +117,8 @@ export function NanoGPTQuotaModal({
 							onClick={handleRefresh}
 							disabled={isRefreshing}
 							className="absolute top-4 right-10 text-gray-400 hover:text-(--text-primary) transition-all cursor-pointer p-1.5 hover:drop-shadow-[var(--glow-accent-lg)]"
-							aria-label="Refresh"
-							title="Refresh quota info"
+							aria-label={t("common.refresh")}
+							title={t("components.providerModals.refreshQuotaInfo")}
 						>
 							{isRefreshing && uiStyle === "cyber-terminal" ? (
 								<Spinner />
@@ -137,7 +139,7 @@ export function NanoGPTQuotaModal({
 				<div>
 					<div className="flex justify-between items-center mb-2">
 						<span className="text-sm font-medium text-gray-300">
-							Weekly Token Quota
+							{t("components.providerModals.weeklyTokenQuota")}
 						</span>
 						<span className="text-sm text-gray-400">
 							{formatTokens(weeklyUsed)} / {formatTokens(weeklyLimit)}
@@ -157,10 +159,10 @@ export function NanoGPTQuotaModal({
 					</div>
 					<p className="text-xs text-gray-500 mt-1">
 						{weeklyLimit > 0
-							? `${(100 - weeklyRemaining).toFixed(1)}% used`
-							: "No limit set"}
+							? `${(100 - weeklyRemaining).toFixed(1)}% ${t("components.providerModals.used")}`
+							: t("components.providerModals.noLimitSet")}
 						{usage.weeklyInputTokens?.resetAt
-							? `. Resets ${formatTimestamp(usage.weeklyInputTokens.resetAt)} - ${formatTimeUntil(usage.weeklyInputTokens.resetAt)}`
+							? `. ${t("components.providerModals.resets")} ${formatTimestamp(usage.weeklyInputTokens.resetAt)} - ${formatTimeUntil(usage.weeklyInputTokens.resetAt)}`
 							: ""}
 					</p>
 				</div>
@@ -169,7 +171,7 @@ export function NanoGPTQuotaModal({
 					<div>
 						<div className="flex justify-between items-center mb-2">
 							<span className="text-sm font-medium text-gray-300">
-								Daily Images
+								{t("components.providerModals.dailyImages")}
 							</span>
 							<span className="text-sm text-gray-400">
 								{usage.dailyImages.used} / {usage.limits.dailyImages ?? "∞"}
@@ -184,7 +186,9 @@ export function NanoGPTQuotaModal({
 							/>
 						</div>
 						<p className="text-xs text-gray-500 mt-1">
-							{usage.dailyImages.percentUsed.toFixed(1)}% used. Resets{" "}
+							{usage.dailyImages.percentUsed.toFixed(1)}%{" "}
+							{t("components.providerModals.used")}.{" "}
+							{t("components.providerModals.resets")}{" "}
 							{usage.dailyImages.resetAt
 								? `${formatTimestamp(usage.dailyImages.resetAt)} - ${formatTimeUntil(usage.dailyImages.resetAt)}`
 								: "N/A"}
@@ -196,7 +200,7 @@ export function NanoGPTQuotaModal({
 					<div>
 						<div className="flex justify-between items-center mb-2">
 							<span className="text-sm font-medium text-gray-300">
-								Daily Input Tokens
+								{t("components.providerModals.dailyInputTokens")}
 							</span>
 							<span className="text-sm text-gray-400">
 								{formatTokens(usage.dailyInputTokens.used)} /{" "}
@@ -214,7 +218,9 @@ export function NanoGPTQuotaModal({
 							/>
 						</div>
 						<p className="text-xs text-gray-500 mt-1">
-							{usage.dailyInputTokens.percentUsed.toFixed(1)}% used. Resets{" "}
+							{usage.dailyInputTokens.percentUsed.toFixed(1)}%{" "}
+							{t("components.providerModals.used")}.{" "}
+							{t("components.providerModals.resets")}{" "}
 							{usage.dailyInputTokens.resetAt
 								? `${formatTimestamp(usage.dailyInputTokens.resetAt)} - ${formatTimeUntil(usage.dailyInputTokens.resetAt)}`
 								: "N/A"}
@@ -224,27 +230,37 @@ export function NanoGPTQuotaModal({
 
 				<div>
 					<h3 className="text-sm font-medium text-gray-300 mb-3">
-						Subscription Details
+						{t("components.providerModals.subscriptionDetails")}
 					</h3>
 					<div className="grid grid-cols-2 gap-3 text-sm">
 						<div>
-							<span className="text-gray-500">Provider</span>
+							<span className="text-gray-500">
+								{t("components.providerModals.provider")}
+							</span>
 							<p className="text-gray-200 capitalize">{usage.provider}</p>
 						</div>
 						<div>
-							<span className="text-gray-500">Status</span>
+							<span className="text-gray-500">
+								{t("components.providerModals.status")}
+							</span>
 							<p className="text-gray-200 capitalize">{usage.providerStatus}</p>
 						</div>
 						<div>
-							<span className="text-gray-500">Period End</span>
+							<span className="text-gray-500">
+								{t("components.providerModals.periodEnd")}
+							</span>
 							<p className="text-gray-200">
 								{formatDate(usage.period.currentPeriodEnd)}
 							</p>
 						</div>
 						<div>
-							<span className="text-gray-500">Allow Overage</span>
+							<span className="text-gray-500">
+								{t("components.providerModals.allowOverage")}
+							</span>
 							<p className="text-gray-200">
-								{usage.allowOverage ? "Yes" : "No"}
+								{usage.allowOverage
+									? t("components.providerModals.yes")
+									: t("components.providerModals.no")}
 							</p>
 						</div>
 					</div>
@@ -261,7 +277,7 @@ export function NanoGPTQuotaModal({
 
 				{lastRefreshed ? (
 					<div className="flex justify-between items-center text-xs text-gray-500 pt-2 ">
-						<span>Last refreshed</span>
+						<span>{t("components.providerModals.lastRefreshed")}</span>
 						<span>
 							{formatRelativeTime(new Date(lastRefreshed).toISOString())}
 						</span>
@@ -288,6 +304,7 @@ export function ZAICodingQuotaModal({
 	lastRefreshed?: number;
 }) {
 	const { uiStyle } = useTheme();
+	const { t } = useTranslation();
 	const [barMode, setBarMode] = useLocalStorage<"remaining" | "used">(
 		"quota-bar-mode",
 		"remaining",
@@ -305,9 +322,9 @@ export function ZAICodingQuotaModal({
 	const handleRefresh = async () => {
 		try {
 			await onRefresh();
-			onToast("Quota refreshed", "success");
+			onToast(t("components.providerModals.quotaRefreshed"), "success");
 		} catch {
-			onToast("Failed to refresh quota", "error");
+			onToast(t("components.providerModals.failedToRefreshQuota"), "error");
 		}
 	};
 
@@ -317,10 +334,10 @@ export function ZAICodingQuotaModal({
 				<div className="flex justify-between items-start mb-6">
 					<div>
 						<h2 className="text-xl font-bold text-(--text-primary)">
-							Z.ai Coding Plan Quota
+							{t("components.providerModals.zAICodingPlanQuota")}
 						</h2>
 						<p className="text-sm text-gray-400 mt-1">
-							Plan:{" "}
+							{t("components.providerModals.plan")}{" "}
 							<span className="text-gray-200 capitalize">
 								{usage.data?.level ?? "-"}
 							</span>
@@ -335,11 +352,11 @@ export function ZAICodingQuotaModal({
 								)
 							}
 							className="absolute top-4 right-20 text-gray-400 hover:text-(--text-primary) transition-all cursor-pointer p-1.5"
-							aria-label="Toggle between remaining and used"
+							aria-label={t("components.providerModals.toggleRemainingUsed")}
 							title={
 								barMode === "remaining"
-									? "Show quota used"
-									: "Show quota remaining"
+									? t("components.providerModals.showQuotaUsed")
+									: t("components.providerModals.showQuotaRemaining")
 							}
 						>
 							<ArrowLeftRight size={18} />
@@ -349,8 +366,8 @@ export function ZAICodingQuotaModal({
 							onClick={handleRefresh}
 							disabled={isRefreshing}
 							className="absolute top-4 right-10 text-gray-400 hover:text-(--text-primary) transition-all cursor-pointer p-1.5 hover:drop-shadow-[var(--glow-accent-lg)]"
-							aria-label="Refresh"
-							title="Refresh quota info"
+							aria-label={t("common.refresh")}
+							title={t("components.providerModals.refreshQuotaInfo")}
 						>
 							{isRefreshing && uiStyle === "cyber-terminal" ? (
 								<Spinner />
@@ -372,12 +389,12 @@ export function ZAICodingQuotaModal({
 					<div>
 						<div className="flex justify-between items-center mb-2">
 							<span className="text-sm font-medium text-gray-300">
-								5h Token Quota
+								{t("components.providerModals.hTokenQuota", { hours: 5 })}
 							</span>
 							<span className="text-sm text-gray-400">
 								{barMode === "used"
-									? `${fiveHourLimit.percentage.toFixed(0)}% used`
-									: `${(100 - fiveHourLimit.percentage).toFixed(0)}% left`}
+									? `${fiveHourLimit.percentage.toFixed(0)}% ${t("components.providerModals.used")}`
+									: `${(100 - fiveHourLimit.percentage).toFixed(0)}% ${t("components.providerModals.left")}`}
 							</span>
 						</div>
 						<div className="w-full bg-gray-700 rounded-full h-3">
@@ -389,7 +406,9 @@ export function ZAICodingQuotaModal({
 							/>
 						</div>
 						<p className="text-xs text-gray-500 mt-1">
-							{fiveHourLimit.percentage.toFixed(0)}% used. Resets{" "}
+							{fiveHourLimit.percentage.toFixed(0)}%{" "}
+							{t("components.providerModals.used")}.{" "}
+							{t("components.providerModals.resets")}{" "}
 							{fiveHourLimit.nextResetTime
 								? `${formatTimestamp(fiveHourLimit.nextResetTime)} - ${formatTimeUntil(fiveHourLimit.nextResetTime)}`
 								: "N/A"}
@@ -401,12 +420,12 @@ export function ZAICodingQuotaModal({
 					<div>
 						<div className="flex justify-between items-center mb-2">
 							<span className="text-sm font-medium text-gray-300">
-								Weekly Token Quota
+								{t("components.providerModals.weeklyTokenQuota")}
 							</span>
 							<span className="text-sm text-gray-400">
 								{barMode === "used"
-									? `${weeklyLimit.percentage.toFixed(0)}% used`
-									: `${(100 - weeklyLimit.percentage).toFixed(0)}% left`}
+									? `${weeklyLimit.percentage.toFixed(0)}% ${t("components.providerModals.used")}`
+									: `${(100 - weeklyLimit.percentage).toFixed(0)}% ${t("components.providerModals.left")}`}
 							</span>
 						</div>
 						<div className="w-full bg-gray-700 rounded-full h-3">
@@ -418,7 +437,9 @@ export function ZAICodingQuotaModal({
 							/>
 						</div>
 						<p className="text-xs text-gray-500 mt-1">
-							{weeklyLimit.percentage.toFixed(0)}% used. Resets{" "}
+							{weeklyLimit.percentage.toFixed(0)}%{" "}
+							{t("components.providerModals.used")}.{" "}
+							{t("components.providerModals.resets")}{" "}
 							{weeklyLimit.nextResetTime
 								? `${formatTimestamp(weeklyLimit.nextResetTime)} - ${formatTimeUntil(weeklyLimit.nextResetTime)}`
 								: "N/A"}
@@ -430,12 +451,12 @@ export function ZAICodingQuotaModal({
 					<div>
 						<div className="flex justify-between items-center mb-2">
 							<span className="text-sm font-medium text-gray-300">
-								MCP Time Quota
+								{t("components.providerModals.mcpTokenQuota")}
 							</span>
 							<span className="text-sm text-gray-400">
 								{barMode === "used"
-									? `${mcpLimit.percentage.toFixed(0)}% used`
-									: `${(100 - mcpLimit.percentage).toFixed(0)}% left`}
+									? `${mcpLimit.percentage.toFixed(0)}% ${t("components.providerModals.used")}`
+									: `${(100 - mcpLimit.percentage).toFixed(0)}% ${t("components.providerModals.left")}`}
 							</span>
 						</div>
 						<div className="w-full bg-gray-700 rounded-full h-3">
@@ -447,7 +468,9 @@ export function ZAICodingQuotaModal({
 							/>
 						</div>
 						<p className="text-xs text-gray-500 mt-1">
-							{mcpLimit.percentage.toFixed(0)}% used. Resets{" "}
+							{mcpLimit.percentage.toFixed(0)}%{" "}
+							{t("components.providerModals.used")}.{" "}
+							{t("components.providerModals.resets")}{" "}
 							{mcpLimit.nextResetTime
 								? `${formatTimestamp(mcpLimit.nextResetTime)} - ${formatTimeUntil(mcpLimit.nextResetTime)}`
 								: "N/A"}
@@ -470,7 +493,7 @@ export function ZAICodingQuotaModal({
 
 				{lastRefreshed ? (
 					<div className="flex justify-between items-center text-xs text-gray-500 pt-2 ">
-						<span>Last refreshed</span>
+						<span>{t("components.providerModals.lastRefreshed")}</span>
 						<span>
 							{formatRelativeTime(new Date(lastRefreshed).toISOString())}
 						</span>
@@ -496,6 +519,7 @@ export function OpenRouterQuotaModal({
 	lastRefreshed?: number;
 }) {
 	const { uiStyle } = useTheme();
+	const { t } = useTranslation();
 	const [barMode, setBarMode] = useLocalStorage<"remaining" | "used">(
 		"quota-bar-mode",
 		"remaining",
@@ -504,9 +528,9 @@ export function OpenRouterQuotaModal({
 	const handleRefresh = async () => {
 		try {
 			await onRefresh();
-			onToast("Balance refreshed", "success");
+			onToast(t("components.providerModals.quotaRefreshed"), "success");
 		} catch {
-			onToast("Failed to refresh balance", "error");
+			onToast(t("components.providerModals.failedToRefreshQuota"), "error");
 		}
 	};
 
@@ -527,18 +551,18 @@ export function OpenRouterQuotaModal({
 				<div className="flex justify-between items-start mb-6">
 					<div>
 						<h2 className="text-xl font-bold text-(--text-primary)">
-							OpenRouter Credits
+							{t("components.providerModals.openRouterCredits")}
 						</h2>
 						<p className="text-sm text-gray-400 mt-1">
 							{balance.is_free_tier ? (
 								<span className="inline-flex items-center gap-1.5">
 									<span className="w-2 h-2 rounded-full bg-yellow-400"></span>
-									Free Tier
+									{t("components.providerModals.freeTier")}
 								</span>
 							) : (
 								<span className="inline-flex items-center gap-1.5">
 									<span className="w-2 h-2 rounded-full bg-green-400"></span>
-									Paid Account
+									{t("components.providerModals.paidAccount")}
 								</span>
 							)}
 						</p>
@@ -552,11 +576,11 @@ export function OpenRouterQuotaModal({
 								)
 							}
 							className="absolute top-4 right-20 text-gray-400 hover:text-(--text-primary) transition-all cursor-pointer p-1.5"
-							aria-label="Toggle between remaining and used"
+							aria-label={t("providers.credits.toggleLabel")}
 							title={
 								barMode === "remaining"
-									? "Show credits used"
-									: "Show credits remaining"
+									? t("providers.credits.showUsed")
+									: t("providers.credits.showRemaining")
 							}
 						>
 							<ArrowLeftRight size={18} />
@@ -566,8 +590,8 @@ export function OpenRouterQuotaModal({
 							onClick={handleRefresh}
 							disabled={isRefreshing}
 							className="absolute top-4 right-10 text-gray-400 hover:text-(--text-primary) transition-all cursor-pointer p-1.5 hover:drop-shadow-[var(--glow-accent-lg)]"
-							aria-label="Refresh"
-							title="Refresh balance info"
+							aria-label={t("common.refresh")}
+							title={t("components.providerModals.refreshBalanceInfo")}
 						>
 							{isRefreshing && uiStyle === "cyber-terminal" ? (
 								<Spinner />
@@ -588,7 +612,7 @@ export function OpenRouterQuotaModal({
 				<div>
 					<div className="flex justify-between items-center mb-2">
 						<span className="text-sm font-medium text-gray-300">
-							Account Balance
+							{t("components.providerModals.accountBalance")}
 						</span>
 						<span className="text-sm text-(--text-primary) font-medium">
 							{formatDollars(balance.credits_remaining)}
@@ -606,8 +630,8 @@ export function OpenRouterQuotaModal({
 					)}
 					<p className="text-xs text-gray-500 mt-1">
 						{balance.credits_total > 0
-							? `${formatDollars(balance.credits_used)} spent total`
-							: "No credits"}
+							? `${formatDollars(balance.credits_used)} ${t("components.providerModals.spentTotal", { amount: formatDollars(balance.credits_used) })}`
+							: t("components.providerModals.noCredits")}
 					</p>
 				</div>
 
@@ -615,7 +639,7 @@ export function OpenRouterQuotaModal({
 					<div>
 						<div className="flex justify-between items-center mb-2">
 							<span className="text-sm font-medium text-gray-300">
-								Key Spending Limit
+								{t("components.providerModals.keySpendingLimit")}
 							</span>
 							<span className="text-sm text-gray-400">
 								{formatDollars(balance.limit_remaining ?? 0)} remaining
@@ -646,43 +670,45 @@ export function OpenRouterQuotaModal({
 						</div>
 						<p className="text-xs text-gray-500 mt-1">
 							{balance.limit > 0
-								? `${barMode === "used" ? (100 - ((balance.limit_remaining ?? 0) / balance.limit) * 100).toFixed(1) : (((balance.limit_remaining ?? 0) / balance.limit) * 100).toFixed(1)}% ${barMode === "used" ? "used" : "remaining"}`
+								? `${barMode === "used" ? (100 - ((balance.limit_remaining ?? 0) / balance.limit) * 100).toFixed(1) : (((balance.limit_remaining ?? 0) / balance.limit) * 100).toFixed(1)}% ${barMode === "used" ? t("components.providerModals.used") : t("components.providerModals.remaining")}`
 								: balance.limit === 0
-									? "$0 limit - spending blocked"
-									: "No limit set"}
+									? `$0 ${t("components.providerModals.limitReset")}`
+									: t("components.providerModals.noLimitSet")}
 							{balance.limit_reset
-								? ` · Resets ${formatTimestamp(balance.limit_reset)} - ${formatTimeUntil(new Date(balance.limit_reset).getTime())}`
+								? ` · ${t("components.providerModals.resets")} ${formatTimestamp(balance.limit_reset)} - ${formatTimeUntil(new Date(balance.limit_reset).getTime())}`
 								: ""}
 						</p>
 					</div>
 				)}
 
 				<div>
-					<h3 className="text-sm font-medium text-gray-300 mb-3">Key Usage</h3>
+					<h3 className="text-sm font-medium text-gray-300 mb-3">
+						{t("components.providerModals.keyUsage")}
+					</h3>
 					<p className="text-xs text-gray-500 mb-3">
-						Spending by this API key (account total may differ)
+						{t("components.providerModals.spendingByThisKey")}
 					</p>
 					<div className="grid grid-cols-2 gap-3 text-sm">
 						<div>
-							<span className="text-gray-500">Today</span>
+							<span className="text-gray-500">{t("common.today")}</span>
 							<p className="text-gray-200">
 								{formatDollars(balance.usage_daily)}
 							</p>
 						</div>
 						<div>
-							<span className="text-gray-500">This Week</span>
+							<span className="text-gray-500">{t("common.thisWeek")}</span>
 							<p className="text-gray-200">
 								{formatDollars(balance.usage_weekly)}
 							</p>
 						</div>
 						<div>
-							<span className="text-gray-500">This Month</span>
+							<span className="text-gray-500">{t("common.thisMonth")}</span>
 							<p className="text-gray-200">
 								{formatDollars(balance.usage_monthly)}
 							</p>
 						</div>
 						<div>
-							<span className="text-gray-500">All Time</span>
+							<span className="text-gray-500">{t("common.allTime")}</span>
 							<p className="text-gray-200">{formatDollars(balance.usage)}</p>
 						</div>
 					</div>
@@ -690,7 +716,7 @@ export function OpenRouterQuotaModal({
 
 				{lastRefreshed ? (
 					<div className="flex justify-between items-center text-xs text-gray-500 pt-2 ">
-						<span>Last refreshed</span>
+						<span>{t("components.providerModals.lastRefreshed")}</span>
 						<span>
 							{formatRelativeTime(new Date(lastRefreshed).toISOString())}
 						</span>

@@ -1369,7 +1369,7 @@ describe("useArena", () => {
 			const { result: result1 } = renderHook(() => useArena(), {
 				wrapper: createWrapper(),
 			});
-			expect(result1.current.buttonLabel).toBe("Stop");
+			expect(result1.current.buttonLabel).toBe("Stop All");
 
 			// Test "Run Arena" in setup
 			vi.mocked(useArenaState).mockReturnValue(

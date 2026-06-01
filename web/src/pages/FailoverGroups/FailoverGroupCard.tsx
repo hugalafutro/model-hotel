@@ -14,6 +14,7 @@ import {
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { FailoverGroup } from "../../api/types";
 import { useToast } from "../../context/ToastContext";
 import { formatTokens } from "../../utils/format";
@@ -45,6 +46,7 @@ export function FailoverGroupCard({
 	onDelete: () => void;
 	onEdit?: () => void;
 }) {
+	const { t } = useTranslation();
 	const { toast } = useToast();
 
 	// Optimistic local state: reorders immediately on dragEnd so the DOM
@@ -119,7 +121,7 @@ export function FailoverGroupCard({
 						role="button"
 						tabIndex={0}
 						className="flex items-center gap-1.5 min-w-0 select-none px-1.5 py-0.5 -mx-1.5 -my-0.5 rounded hover:bg-gray-700 transition-colors group cursor-default"
-						title="Click to copy"
+						title={t("failover.group.clickToCopy")}
 					>
 						<h3 className="text-(--accent) font-medium text-sm truncate">
 							hotel/{group.display_model}
@@ -130,7 +132,7 @@ export function FailoverGroupCard({
 							stroke="currentColor"
 							viewBox="0 0 24 24"
 						>
-							<title>Copy</title>
+							<title>{t("failoverGroups.card.copy")}</title>
 							<path
 								strokeLinecap="round"
 								strokeLinejoin="round"
@@ -180,8 +182,8 @@ export function FailoverGroupCard({
 
 			<div className="flex items-center justify-between mt-auto pt-2 text-xs text-gray-500">
 				<span>
-					{enabledCount}/{totalCount} active •{" "}
-					{formatTokens(group.total_tokens)} tokens
+					{enabledCount}/{totalCount} {t("failoverGroups.card.active")} •{" "}
+					{formatTokens(group.total_tokens)} {t("common.tokens")}
 				</span>
 				<div className="flex items-center gap-1">
 					{!group.auto_created && onEdit && (
@@ -190,7 +192,7 @@ export function FailoverGroupCard({
 							onClick={onEdit}
 							className="text-gray-500 hover:text-amber-400 cursor-pointer px-2 py-1 rounded-md hover:bg-amber-400/10 transition-all"
 						>
-							edit
+							{t("common.edit")}
 						</button>
 					)}
 					<button
@@ -198,7 +200,7 @@ export function FailoverGroupCard({
 						onClick={() => onDelete()}
 						className="text-gray-500 hover:text-red-400 cursor-pointer px-2 py-1 rounded-md hover:bg-red-400/10 transition-all"
 					>
-						delete
+						{t("common.delete")}
 					</button>
 				</div>
 			</div>

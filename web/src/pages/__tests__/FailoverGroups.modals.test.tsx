@@ -29,11 +29,11 @@ describe("FailoverGroups", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByRole("button", { name: "+ New Group" }),
+					screen.getByRole("button", { name: "New Group" }),
 				).toBeInTheDocument();
 			});
 
-			await user.click(screen.getByRole("button", { name: "+ New Group" }));
+			await user.click(screen.getByRole("button", { name: "New Group" }));
 
 			await waitFor(() => {
 				expect(
@@ -155,7 +155,7 @@ describe("Edit Group Modal", () => {
 		});
 
 		// Click the edit button on the custom group card
-		const editButton = screen.getByRole("button", { name: "edit" });
+		const editButton = screen.getByRole("button", { name: "Edit" });
 		await user.click(editButton);
 
 		await waitFor(() => {
@@ -185,7 +185,7 @@ describe("Edit Group Modal", () => {
 		});
 
 		// Click the edit button
-		const editButton = screen.getByRole("button", { name: "edit" });
+		const editButton = screen.getByRole("button", { name: "Edit" });
 		await user.click(editButton);
 
 		await waitFor(() => {
@@ -201,7 +201,9 @@ describe("Edit Group Modal", () => {
 
 		// Helper text should show hotel/... pattern
 		expect(
-			screen.getByText(`This becomes hotel/custom-model in the model list`),
+			screen.getByText(
+				`This becomes hotel/${customGroupWithEntries.display_model} in the model list`,
+			),
 		).toBeInTheDocument();
 
 		// Display name input should have value "My Custom Group"
@@ -235,7 +237,7 @@ describe("Edit Group Modal", () => {
 		});
 
 		// Click the edit button
-		const editButton = screen.getByRole("button", { name: "edit" });
+		const editButton = screen.getByRole("button", { name: "Edit" });
 		await user.click(editButton);
 
 		await waitFor(() => {
@@ -278,7 +280,7 @@ describe("Edit Group Modal", () => {
 		});
 
 		// Click the edit button
-		const editButton = screen.getByRole("button", { name: "edit" });
+		const editButton = screen.getByRole("button", { name: "Edit" });
 		await user.click(editButton);
 
 		await waitFor(() => {
@@ -316,7 +318,7 @@ describe("Edit Group Modal", () => {
 
 		// No edit button should exist for auto-created groups
 		expect(
-			screen.queryByRole("button", { name: "edit" }),
+			screen.queryByRole("button", { name: "Edit" }),
 		).not.toBeInTheDocument();
 	});
 });

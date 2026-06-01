@@ -1,5 +1,6 @@
 import { X } from "lucide-react";
 import { useCallback, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 
 interface ConfirmDialogProps {
 	title: string;
@@ -12,12 +13,13 @@ interface ConfirmDialogProps {
 
 export function ConfirmDialog({
 	title,
-	message = "Discard changes to:",
+	message,
 	fields,
-	confirmLabel = "Discard",
+	confirmLabel,
 	onConfirm,
 	onCancel,
 }: ConfirmDialogProps) {
+	const { t } = useTranslation();
 	const ref = useRef<HTMLDivElement>(null);
 
 	const handleKeyDown = useCallback(
@@ -46,12 +48,14 @@ export function ConfirmDialog({
 					type="button"
 					onClick={onCancel}
 					className="absolute top-3 right-3 z-10 text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-pointer p-2 hover:drop-shadow-[var(--glow-accent-lg)]"
-					aria-label="Close"
+					aria-label={t("common.close")}
 				>
 					<X size={20} />
 				</button>
 				<h2 className="text-lg font-bold text-white mb-3">{title}</h2>
-				<p className="text-sm text-gray-300 mb-1">{message}</p>
+				<p className="text-sm text-gray-300 mb-1">
+					{message ?? t("components.confirmDialog.discardChangesTo")}
+				</p>
 				<ul className="text-sm text-gray-400 mb-5 list-disc list-inside">
 					{fields.map((f) => (
 						<li key={f}>{f}</li>
@@ -63,14 +67,14 @@ export function ConfirmDialog({
 						onClick={onCancel}
 						className="ui-btn ui-btn-secondary"
 					>
-						Cancel
+						{t("common.cancel")}
 					</button>
 					<button
 						type="button"
 						onClick={onConfirm}
 						className="ui-btn ui-btn-danger"
 					>
-						{confirmLabel}
+						{confirmLabel ?? t("common.delete")}
 					</button>
 				</div>
 			</div>

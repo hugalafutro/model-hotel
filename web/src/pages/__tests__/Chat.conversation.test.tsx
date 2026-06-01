@@ -260,12 +260,16 @@ describe("Chat", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByRole("button", { name: "Clear" }),
-				).toBeInTheDocument();
+					screen.getAllByRole("button", {
+						name: "Clear messages (keep model & settings)",
+					}).length,
+				).toBeGreaterThan(0);
 			});
 			expect(
-				screen.getByRole("button", { name: "Reset All" }),
-			).toBeInTheDocument();
+				screen.getAllByRole("button", {
+					name: "Reset all (clear model & settings)",
+				}).length,
+			).toBeGreaterThan(0);
 		});
 
 		it("shows Stop button when streaming", async () => {
@@ -698,11 +702,17 @@ describe("Chat", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByRole("button", { name: "Clear" }),
+					screen.getByRole("button", {
+						name: "Clear messages (keep model & settings)",
+					}),
 				).toBeInTheDocument();
 			});
 
-			await user.click(screen.getByRole("button", { name: "Clear" }));
+			await user.click(
+				screen.getByRole("button", {
+					name: "Clear messages (keep model & settings)",
+				}),
+			);
 
 			expect(clearConversationAbort).toHaveBeenCalled();
 			expect(setMessages).toHaveBeenCalledWith([]);
@@ -728,11 +738,16 @@ describe("Chat", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByRole("button", { name: "Reset All" }),
-				).toBeInTheDocument();
+					screen.getAllByRole("button", {
+						name: "Reset all (clear model & settings)",
+					}).length,
+				).toBeGreaterThan(0);
 			});
 
-			await user.click(screen.getByRole("button", { name: "Reset All" }));
+			const resetButtons = screen.getAllByRole("button", {
+				name: "Reset all (clear model & settings)",
+			});
+			await user.click(resetButtons[0]);
 
 			expect(setPendingFullReset).toHaveBeenCalledWith(true);
 		});
@@ -748,13 +763,17 @@ describe("Chat", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByRole("button", { name: "Clear" }),
+					screen.getByRole("button", {
+						name: "Clear messages (keep model & settings)",
+					}),
 				).toBeInTheDocument();
 			});
 
 			expect(
-				screen.getByRole("button", { name: "Reset All" }),
-			).toBeInTheDocument();
+				screen.getAllByRole("button", {
+					name: "Reset all (clear model & settings)",
+				}).length,
+			).toBeGreaterThan(0);
 			// Stop button should not appear in completed state (only when streaming)
 			expect(
 				screen.queryByRole("button", { name: "Stop" }),
@@ -776,10 +795,16 @@ describe("Chat", () => {
 				expect(stopButtons.length).toBeGreaterThan(0);
 			});
 
-			expect(screen.getByRole("button", { name: "Clear" })).toBeInTheDocument();
 			expect(
-				screen.getByRole("button", { name: "Reset All" }),
-			).toBeInTheDocument();
+				screen.getAllByRole("button", {
+					name: "Clear messages (keep model & settings)",
+				}).length,
+			).toBeGreaterThan(0);
+			expect(
+				screen.getAllByRole("button", {
+					name: "Reset all (clear model & settings)",
+				}).length,
+			).toBeGreaterThan(0);
 		});
 	});
 });

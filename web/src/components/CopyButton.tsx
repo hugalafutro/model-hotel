@@ -1,4 +1,5 @@
 import { Copy } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useToast } from "../context/ToastContext";
 
 interface CopyButtonProps {
@@ -12,8 +13,9 @@ export function CopyButton({
 	text,
 	size = 10,
 	className = "inline-flex items-center cursor-pointer transition-all text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent-sm)]",
-	title = "Copy",
+	title,
 }: CopyButtonProps) {
+	const { t } = useTranslation();
 	const { toast } = useToast();
 	return (
 		<button
@@ -22,11 +24,11 @@ export function CopyButton({
 			onClick={() => {
 				navigator.clipboard
 					.writeText(text)
-					.then(() => toast("Copied to clipboard", "info"))
-					.catch(() => toast("Failed to copy", "error"));
+					.then(() => toast(t("common.copiedToClipboard"), "info"))
+					.catch(() => toast(t("common.failedToCopy"), "error"));
 			}}
-			title={title}
-			aria-label={title}
+			title={title ?? t("common.copy")}
+			aria-label={title ?? t("common.copy")}
 		>
 			<Copy size={size} />
 		</button>

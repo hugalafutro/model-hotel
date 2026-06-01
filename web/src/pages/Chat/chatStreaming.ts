@@ -111,9 +111,7 @@ export async function streamModelResponse(
 	let rawContent = "";
 	let content = "";
 	let thinkingContent = "";
-	let completion: Awaited<
-		ReturnType<typeof readSSEStream<StreamChunk>>
-	>;
+	let completion: Awaited<ReturnType<typeof readSSEStream<StreamChunk>>>;
 
 	try {
 		const resp = await fetchWithRetry(

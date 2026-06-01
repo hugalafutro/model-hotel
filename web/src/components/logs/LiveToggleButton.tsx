@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useToast } from "../../context/ToastContext";
 
 interface LiveToggleButtonProps {
@@ -6,6 +7,7 @@ interface LiveToggleButtonProps {
 }
 
 export function LiveToggleButton({ enabled, onToggle }: LiveToggleButtonProps) {
+	const { t } = useTranslation();
 	const { toast } = useToast();
 
 	return (
@@ -13,7 +15,12 @@ export function LiveToggleButton({ enabled, onToggle }: LiveToggleButtonProps) {
 			type="button"
 			onClick={() => {
 				onToggle(!enabled);
-				toast(enabled ? "Live updates paused" : "Live updates resumed", "info");
+				toast(
+					enabled
+						? t("components.logs.liveToggle.paused")
+						: t("components.logs.liveToggle.resumed"),
+					"info",
+				);
 			}}
 			className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold transition-colors ${
 				enabled
@@ -26,7 +33,7 @@ export function LiveToggleButton({ enabled, onToggle }: LiveToggleButtonProps) {
 					enabled ? "bg-green-400" : "bg-gray-500"
 				}`}
 			/>
-			Live
+			{t("components.logs.liveToggle.live")}
 		</button>
 	);
 }

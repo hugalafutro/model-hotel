@@ -114,7 +114,7 @@ describe("Arena", () => {
 			});
 
 			// PersonaPicker should be visible
-			expect(screen.getByText(/persona/i)).toBeInTheDocument();
+			expect(screen.getAllByText(/persona/i).length).toBeGreaterThan(0);
 		});
 
 		it("shows different model limits for each mode", async () => {

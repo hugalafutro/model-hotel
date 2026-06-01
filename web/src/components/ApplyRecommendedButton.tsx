@@ -1,4 +1,5 @@
 import { Loader2, Sparkles } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { GenerationParams } from "../api/types";
 import { useRecommendedSettings } from "../hooks/useRecommendedSettings";
 
@@ -11,6 +12,7 @@ export function ApplyRecommendedButton({
 	providerName: string;
 	onApply: (recommended: GenerationParams) => void;
 }) {
+	const { t } = useTranslation();
 	const { recommended, loading, matchedModel } = useRecommendedSettings(
 		modelId,
 		providerName,
@@ -41,19 +43,23 @@ export function ApplyRecommendedButton({
 			{loading ? (
 				<>
 					<Loader2 size={12} className="animate-spin" />
-					Loading…
+					{t("common.loadingDots")}
 				</>
 			) : hasRecommended ? (
 				<>
 					<Sparkles size={12} />
-					Apply Recommended
+					{t("components.applyRecommendedButton.applyRecommended")}
 					<span className="text-[10px] opacity-70 whitespace-nowrap">
-						({paramCount} params)
+						{t("components.applyRecommendedButton.params", {
+							count: paramCount,
+						})}
 					</span>
 					{matchedModel && matchedModel !== modelId && (
 						<span
 							className="text-[10px] opacity-60 whitespace-nowrap shrink-0 inline-flex items-center gap-0.5 rounded bg-(--surface-hover) px-1 py-px"
-							title={`models.dev matched: ${matchedModel}`}
+							title={t("components.applyRecommendedButton.modelsDevMatched", {
+								model: matchedModel,
+							})}
 						>
 							↗&#x200A;{matchedModel}
 						</span>
@@ -62,7 +68,7 @@ export function ApplyRecommendedButton({
 			) : (
 				<>
 					<Sparkles size={12} className="opacity-50" />
-					No recommendations available
+					{t("components.applyRecommendedButton.noRecommendationsAvailable")}
 				</>
 			)}
 		</button>

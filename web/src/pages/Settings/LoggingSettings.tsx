@@ -1,27 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ScrollText } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSelect } from "../../components/SettingsSelect";
 import { useToast } from "../../context/ToastContext";
-
-const LOG_RETENTION_OPTIONS = [
-	{ value: "0", label: "Disabled" },
-	{ value: "24h", label: "1 day" },
-	{ value: "168h", label: "1 week" },
-	{ value: "720h", label: "1 month" },
-];
-
-const STALE_REQUEST_TIMEOUT_OPTIONS = [
-	{ value: "5m0s", label: "5 minutes" },
-	{ value: "10m0s", label: "10 minutes" },
-	{ value: "15m0s", label: "15 minutes" },
-	{ value: "30m0s", label: "30 minutes (default)" },
-	{ value: "1h0m0s", label: "1 hour" },
-	{ value: "2h0m0s", label: "2 hours" },
-	{ value: "0s", label: "Disabled (never mark as stale)" },
-];
 
 interface LoggingSettingsProps {
 	collapsed: boolean;
@@ -29,6 +13,7 @@ interface LoggingSettingsProps {
 }
 
 export function LoggingSettings({ collapsed, onToggle }: LoggingSettingsProps) {
+	const { t } = useTranslation();
 	const { toast } = useToast();
 	const queryClient = useQueryClient();
 	const [confirmDelete, setConfirmDelete] = useState(false);
@@ -45,10 +30,13 @@ export function LoggingSettings({ collapsed, onToggle }: LoggingSettingsProps) {
 			api.settings.update(updates),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["settings"] });
-			toast("Settings saved", "success");
+			toast(t("settings.common.settingsSaved"), "success");
 		},
 		onError: (err: Error) => {
-			toast(`Failed to save: ${err.message}`, "error");
+			toast(
+				t("settings.common.failedToSave", { message: err.message }),
+				"error",
+			);
 		},
 	});
 
@@ -56,12 +44,15 @@ export function LoggingSettings({ collapsed, onToggle }: LoggingSettingsProps) {
 		mutationFn: (olderThan: string) => api.logs.purge(olderThan),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["logs"] });
-			toast("Requests deleted", "success");
+			toast(t("settings.common.requestsDeleted"), "success");
 			setConfirmDelete(false);
 			setDeleteSelection("");
 		},
 		onError: (err: Error) => {
-			toast(`Failed to delete requests: ${err.message}`, "error");
+			toast(
+				t("settings.common.failedToDeleteRequests", { message: err.message }),
+				"error",
+			);
 			setConfirmDelete(false);
 		},
 	});
@@ -70,11 +61,17 @@ export function LoggingSettings({ collapsed, onToggle }: LoggingSettingsProps) {
 		mutationFn: () => api.appLogs.purge(),
 		onSuccess: (data) => {
 			queryClient.invalidateQueries({ queryKey: ["appLogs"] });
-			toast(`Deleted ${data.deleted} log entries`, "success");
+			toast(
+				t("settings.common.entriesDeleted", { count: data.deleted }),
+				"success",
+			);
 			setConfirmDeleteAppLogs(false);
 		},
 		onError: (err: Error) => {
-			toast(`Failed to delete app logs: ${err.message}`, "error");
+			toast(
+				t("settings.common.failedToDeleteAppLogs", { message: err.message }),
+				"error",
+			);
 			setConfirmDeleteAppLogs(false);
 		},
 	});
@@ -97,47 +94,61 @@ export function LoggingSettings({ collapsed, onToggle }: LoggingSettingsProps) {
 		}
 	};
 
+	const LOG_RETENTION_OPTIONS = [
+		{ value: "0", label: t("settings.logging.retention.disabled") },
+		{ value: "24h", label: t("settings.logging.retention.24h") },
+		{ value: "168h", label: t("settings.logging.retention.168h") },
+		{ value: "720h", label: t("settings.logging.retention.720h") },
+	];
+
+	const STALE_REQUEST_TIMEOUT_OPTIONS = [
+		{ value: "5m0s", label: t("settings.logging.staleTimeout.5m0s") },
+		{ value: "10m0s", label: t("settings.logging.staleTimeout.10m0s") },
+		{ value: "15m0s", label: t("settings.logging.staleTimeout.15m0s") },
+		{ value: "30m0s", label: t("settings.logging.staleTimeout.30m0s") },
+		{ value: "1h0m0s", label: t("settings.logging.staleTimeout.1h0m0s") },
+		{ value: "2h0m0s", label: t("settings.logging.staleTimeout.2h0m0s") },
+		{ value: "0s", label: t("settings.logging.staleTimeout.disabled") },
+	];
+
 	return (
 		<SettingsSection
 			icon={ScrollText}
-			title="Logging"
+			title={t("settings.logging.title")}
 			collapsed={collapsed}
 			onToggle={onToggle}
 		>
 			<div className="space-y-5">
 				<SettingsSelect
 					id="log-retention"
-					label="Log Retention"
+					label={t("settings.logging.logRetention")}
 					value={logRetention}
 					options={LOG_RETENTION_OPTIONS}
 					onChange={(v) => updateMutation.mutate({ log_retention: v })}
 					description={
 						logRetention === "0" ? (
 							<span className="text-amber-400">
-								Log retention is disabled. Logs will accumulate indefinitely
-								until manually purged.
+								{t("settings.logging.logRetention.disabled")}
 							</span>
 						) : (
-							"Automatically delete logs older than this period"
+							t("settings.logging.logRetention.description")
 						)
 					}
 				/>
 
 				<SettingsSelect
 					id="stale-request-timeout"
-					label="Stale Request Timeout"
+					label={t("settings.logging.staleRequestTimeout")}
 					value={staleRequestTimeout}
 					options={STALE_REQUEST_TIMEOUT_OPTIONS}
 					onChange={(v) => updateMutation.mutate({ stale_request_timeout: v })}
 					description={
 						staleRequestTimeout === "0s" ? (
 							<span className="text-amber-400">
-								Stale request detection is disabled. Orphaned requests from
-								server restarts will still be marked as failed, but age-based
-								cleanup will not run.
+								{t("settings.logging.staleRequestTimeout.disabled")}
 							</span>
 						) : (
-							'Mark pending/streaming requests as "interrupted" if they remain in-progress longer than this. Accounts for providers with long time-to-first-token.'
+							t("settings.logging.staleRequestTimeout.description")
 						)
 					}
 				/>
@@ -151,7 +162,7 @@ export function LoggingSettings({ collapsed, onToggle }: LoggingSettingsProps) {
 									onClick={() => setConfirmDelete(true)}
 									className="ui-btn ui-btn-danger"
 								>
-									Delete Requests
+									{t("settings.logging.deleteRequests")}
 								</button>
 							) : (
 								<div className="flex items-center gap-2">
@@ -160,11 +171,21 @@ export function LoggingSettings({ collapsed, onToggle }: LoggingSettingsProps) {
 										onChange={(e) => setDeleteSelection(e.target.value)}
 										className="ui-input px-3 py-1.5 text-xs"
 									>
-										<option value="">Select range...</option>
-										<option value="1d">Older than 1 day</option>
-										<option value="1w">Older than 1 week</option>
-										<option value="1m">Older than 1 month</option>
-										<option value="all">All logs</option>
+										<option value="">
+											{t("settings.logging.deleteRequests.selectRange")}
+										</option>
+										<option value="1d">
+											{t("settings.logging.deleteRequests.olderThan1d")}
+										</option>
+										<option value="1w">
+											{t("settings.logging.deleteRequests.olderThan1w")}
+										</option>
+										<option value="1m">
+											{t("settings.logging.deleteRequests.olderThan1m")}
+										</option>
+										<option value="all">
+											{t("settings.logging.deleteRequests.allLogs")}
+										</option>
 									</select>
 									<button
 										type="button"
@@ -175,7 +196,7 @@ export function LoggingSettings({ collapsed, onToggle }: LoggingSettingsProps) {
 										}}
 										className="ui-btn ui-btn-danger disabled:opacity-50 disabled:cursor-not-allowed"
 									>
-										Confirm Delete
+										{t("settings.logging.deleteRequests.confirm")}
 									</button>
 									<button
 										type="button"
@@ -185,7 +206,7 @@ export function LoggingSettings({ collapsed, onToggle }: LoggingSettingsProps) {
 										}}
 										className="ui-btn ui-btn-secondary"
 									>
-										Cancel
+										{t("settings.logging.deleteRequests.cancel")}
 									</button>
 								</div>
 							)}
@@ -197,12 +218,12 @@ export function LoggingSettings({ collapsed, onToggle }: LoggingSettingsProps) {
 									onClick={() => setConfirmDeleteAppLogs(true)}
 									className="ui-btn ui-btn-danger"
 								>
-									Delete Logs
+									{t("settings.logging.deleteAppLogs")}
 								</button>
 							) : (
 								<div className="flex items-center gap-2">
 									<span className="text-xs text-red-400">
-										Clear all application logs?
+										{t("settings.logging.deleteAppLogs.confirmText")}
 									</span>
 									<button
 										type="button"
@@ -210,14 +231,16 @@ export function LoggingSettings({ collapsed, onToggle }: LoggingSettingsProps) {
 										disabled={purgeAppLogsMutation.isPending}
 										className="ui-btn ui-btn-danger disabled:opacity-50 disabled:cursor-not-allowed"
 									>
-										{purgeAppLogsMutation.isPending ? "Deleting…" : "Confirm"}
+										{purgeAppLogsMutation.isPending
+											? t("settings.logging.deleteAppLogs.deleting")
+											: t("settings.logging.deleteAppLogs.confirm")}
 									</button>
 									<button
 										type="button"
 										onClick={() => setConfirmDeleteAppLogs(false)}
 										className="ui-btn ui-btn-secondary"
 									>
-										Cancel
+										{t("settings.logging.deleteAppLogs.cancel")}
 									</button>
 								</div>
 							)}

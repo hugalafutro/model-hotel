@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { Provider } from "../../api/types";
 import { CopyablePill } from "../../components/CopyablePill";
 import { QuotaBadges } from "../../components/QuotaBadge";
@@ -38,6 +39,8 @@ export function ProviderCard({
 	onSetModalOpenRouter,
 	toast,
 }: ProviderCardProps) {
+	const { t } = useTranslation();
+
 	return (
 		<div
 			className={`ui-card p-6 flex flex-col ${!provider.enabled ? "opacity-50" : ""} ${provider.enabled && !provider.autodiscovery_enabled ? "border-red-500/20 bg-red-500/[0.03]" : ""}`}
@@ -48,23 +51,25 @@ export function ProviderCard({
 						text={provider.name}
 						displayText={provider.name}
 						textClassName="text-lg font-semibold text-white"
-						tooltip="Click to copy provider name"
+						tooltip={t("providers.card_copy_name")}
 					/>
 				</div>
 				<div className="flex items-center gap-2 mt-1">
 					{!provider.enabled && (
 						<span className="px-2 py-0.5 rounded-full bg-gray-600/40 text-gray-400 text-xs font-medium border border-gray-600/50">
-							Disabled
+							{t("providers.card_disabled")}
 						</span>
 					)}
 					{provider.enabled && !provider.autodiscovery_enabled && (
 						<span className="px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 text-xs font-medium border border-red-500/30">
-							Autodiscovery Off
+							{t("providers.card_autodiscovery_off")}
 						</span>
 					)}
 					{provider.total_tokens > 0 && (
 						<span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 text-xs font-medium border border-purple-500/30 whitespace-nowrap">
-							{formatTokens(provider.total_tokens)} tokens
+							{t("providers.card_tokens", {
+								tokens: formatTokens(provider.total_tokens),
+							})}
 						</span>
 					)}
 					{modelCount > 0 && (
@@ -73,39 +78,41 @@ export function ProviderCard({
 							onClick={() => onSetModelsProvider(provider)}
 							className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 text-xs font-medium border border-cyan-500/30 cursor-pointer hover:bg-cyan-500/30 hover:border-cyan-400/50 transition-colors whitespace-nowrap"
 						>
-							{modelCount} {modelCount === 1 ? "model" : "models"}
+							{t("providers.card_models", { count: modelCount })}
 						</button>
 					)}
 				</div>
 				<CopyablePill
 					text={provider.base_url}
 					textClassName="text-sm text-gray-400 font-mono"
-					tooltip="Click to copy API base URL"
+					tooltip={t("providers.card_copy_url")}
 				/>
 			</div>
 
 			<div className="space-y-2 text-sm">
 				<div className="flex justify-between">
-					<span className="text-gray-500">Created</span>
+					<span className="text-gray-500">{t("providers.card_created")}</span>
 					<span className="text-gray-300">
 						{formatTimestamp(provider.created_at)}
 					</span>
 				</div>
 				<div className="flex justify-between">
-					<span className="text-gray-500">API Key</span>
+					<span className="text-gray-500">{t("providers.card_api_key")}</span>
 					<span className="font-mono text-gray-300">{provider.masked_key}</span>
 				</div>
 				<div className="flex justify-between">
-					<span className="text-gray-500">Last Used</span>
+					<span className="text-gray-500">{t("providers.card_last_used")}</span>
 					<span className="text-gray-300">
 						{provider.last_used_at
 							? formatTimestamp(provider.last_used_at)
-							: "N/A"}
+							: t("common.n_a")}
 					</span>
 				</div>
 				{provider.last_discovered_at && (
 					<div className="flex justify-between">
-						<span className="text-gray-500">Last Discovery</span>
+						<span className="text-gray-500">
+							{t("providers.card_last_discovery")}
+						</span>
 						<span className="text-gray-300">
 							{formatTimestamp(provider.last_discovered_at)}
 						</span>
@@ -124,18 +131,18 @@ export function ProviderCard({
 						onDeepseekClick={async () => {
 							try {
 								await quotaData.refetchDeepseek();
-								toast("Balance refreshed", "success");
+								toast(t("providers.toast_quota_refreshed"), "success");
 							} catch {
-								toast("Failed to refresh balance", "error");
+								toast(t("providers.toast_quota_refresh_failed"), "error");
 							}
 						}}
 						onOpenRouterClick={() => onSetModalOpenRouter()}
 						onOllamaCloudClick={async () => {
 							try {
 								await quotaData.refetchOllamaCloud();
-								toast("Account info refreshed", "success");
+								toast(t("providers.toast_account_refreshed"), "success");
 							} catch {
-								toast("Failed to refresh account info", "error");
+								toast(t("providers.toast_account_refresh_failed"), "error");
 							}
 						}}
 					/>
@@ -146,7 +153,7 @@ export function ProviderCard({
 						onClick={() => onEdit(provider)}
 						className="ui-btn ui-btn-secondary"
 					>
-						Edit
+						{t("providers.card_btn_edit")}
 					</button>
 					<button
 						type="button"
@@ -171,10 +178,10 @@ export function ProviderCard({
 						{discoveringId === provider.id ||
 						discoverAllCurrentId === provider.id ? (
 							<>
-								<Spinner /> Discovering...
+								<Spinner /> {t("providers.card_btn_discovering")}
 							</>
 						) : (
-							"Discover Models"
+							t("providers.card_btn_discover")
 						)}
 					</button>
 					<button
@@ -182,7 +189,7 @@ export function ProviderCard({
 						onClick={() => onDelete(provider)}
 						className="ui-btn ui-btn-danger"
 					>
-						Delete
+						{t("providers.card_btn_delete")}
 					</button>
 				</div>
 			</div>

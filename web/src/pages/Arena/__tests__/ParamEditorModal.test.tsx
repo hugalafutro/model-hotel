@@ -1,6 +1,16 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("../../../hooks/useRecommendedSettings", () => ({
+	useRecommendedSettings: vi.fn(() => ({
+		recommended: null,
+		loading: false,
+		error: null,
+		matchedModel: null,
+	})),
+}));
+
 import type { GenerationParams } from "../../../api/types";
 import { renderWithProviders } from "../../../test/utils";
 import { ParamEditorModal } from "../ParamEditorModal";

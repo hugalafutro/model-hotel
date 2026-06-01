@@ -75,7 +75,7 @@ describe("Dashboard", () => {
 			// Wait for error state to render (spinner -> error)
 			await waitFor(
 				() => {
-					expect(container.textContent).toMatch(/Failed to load stats/i);
+					expect(container.textContent).toMatch(/Failed to load gauge stats/i);
 				},
 				{ timeout: 3000 },
 			);
@@ -368,9 +368,9 @@ describe("Dashboard", () => {
 			});
 
 			// All three panel titles should be present
-			expect(screen.getByText("Top Models")).toBeInTheDocument();
-			expect(screen.getByText("Top Providers")).toBeInTheDocument();
-			expect(screen.getByText("Top Virtual Keys")).toBeInTheDocument();
+			expect(screen.getByText(/Top Models/)).toBeInTheDocument();
+			expect(screen.getByText(/Top Providers/)).toBeInTheDocument();
+			expect(screen.getByText(/Top Virtual Keys/)).toBeInTheDocument();
 		});
 
 		it("displays models in Top Models panel", async () => {

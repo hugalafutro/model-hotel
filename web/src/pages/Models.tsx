@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bot } from "lucide-react";
 import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { Model } from "../api/types";
 import { LoadingSpinner } from "../components/LoadingSpinner";
@@ -14,6 +15,7 @@ import { ModelDetailModal } from "./Models/ModelDetailModal";
 
 export function Models() {
 	const { toast } = useToast();
+	const { t } = useTranslation();
 	const queryClient = useQueryClient();
 	const [detailModel, setDetailModel] = useState<Model | null>(null);
 	const [modelRefreshTrigger, setModelRefreshTrigger] = useState(0);
@@ -41,7 +43,7 @@ export function Models() {
 			queryClient.invalidateQueries({ queryKey: ["models"] });
 		},
 		onError: (err: Error) => {
-			toast(`Failed to update model: ${err.message}`, "error");
+			toast(t("models.toast_update_failed", { message: err.message }), "error");
 		},
 	});
 
@@ -50,10 +52,10 @@ export function Models() {
 			api.models.update(id, data as Parameters<typeof api.models.update>[1]),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["models"] });
-			toast("Model updated", "success");
+			toast(t("models.toast_updated"), "success");
 		},
 		onError: (err: Error) => {
-			toast(`Failed to update model: ${err.message}`, "error");
+			toast(t("models.toast_update_failed", { message: err.message }), "error");
 		},
 	});
 
@@ -64,7 +66,9 @@ export function Models() {
 				{
 					onSuccess: () => {
 						toast(
-							enabled ? "Model enabled" : "Model disabled",
+							enabled
+								? t("models.toast_toggle_enabled")
+								: t("models.toast_toggle_disabled"),
 							enabled ? "success" : "error",
 						);
 						setDetailModel((prev) => (prev ? { ...prev, enabled } : null));
@@ -73,7 +77,7 @@ export function Models() {
 				},
 			);
 		},
-		[toggleMutation, toast],
+		[toggleMutation, toast, t],
 	);
 
 	const handleUpdateModel = useCallback(
@@ -111,10 +115,10 @@ export function Models() {
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["models"] });
 			setModelRefreshTrigger((n) => n + 1);
-			toast("Model deleted successfully", "success");
+			toast(t("models.toast_deleted"), "success");
 		},
 		onError: (err: Error) => {
-			toast(`Failed to delete model: ${err.message}`, "error");
+			toast(t("models.toast_delete_failed", { message: err.message }), "error");
 		},
 	});
 
@@ -132,17 +136,20 @@ export function Models() {
 			setModelRefreshTrigger((n) => n + 1);
 			if (failed === 0) {
 				toast(
-					`Deleted ${ids.length} disabled model${ids.length === 1 ? "" : "s"}`,
+					t("models.toast_delete_bulk_success", { count: ids.length }),
 					"success",
 				);
 			} else {
 				toast(
-					`Deleted ${ids.length - failed} model${ids.length - failed === 1 ? "" : "s"}, ${failed} failed`,
+					t("models.toast_delete_bulk_warning", {
+						kept: ids.length - failed,
+						failed,
+					}),
 					"warning",
 				);
 			}
 		},
-		[queryClient, toast],
+		[queryClient, toast, t],
 	);
 
 	if (isLoading && viewMode === "paginate") {
@@ -156,9 +163,13 @@ export function Models() {
 	const modelBadge =
 		!allSameState && viewMode === "paginate" ? (
 			<span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-700/60 border border-gray-600/50">
-				<span className="text-green-400">{totalEnabled} enabled</span>
+				<span className="text-green-400">
+					{t("models.badge_enabled", { count: totalEnabled })}
+				</span>
 				<span className="text-gray-600">/</span>
-				<span className="text-red-400">{totalDisabled} disabled</span>
+				<span className="text-red-400">
+					{t("models.badge_disabled", { count: totalDisabled })}
+				</span>
 			</span>
 		) : undefined;
 
@@ -168,10 +179,18 @@ export function Models() {
 				icon={Bot}
 				title={
 					viewMode === "paginate"
-						? countLabel(models?.length, "Model", "Models")
-						: countLabel(scrollTotal, "Model", "Models")
+						? countLabel(
+								models?.length,
+								t("models.page_title_one"),
+								t("models.page_title_other"),
+							)
+						: countLabel(
+								scrollTotal,
+								t("models.page_title_one"),
+								t("models.page_title_other"),
+							)
 				}
-				description="Discovered models from your providers"
+				description={t("models.page_description")}
 				badge={modelBadge}
 				actions={
 					<button
@@ -186,16 +205,18 @@ export function Models() {
 						}`}
 						title={
 							viewMode === "scroll"
-								? "Switch to pagination mode"
-								: "Switch to scroll mode"
+								? t("models.switch_to_pagination")
+								: t("models.switch_to_scroll")
 						}
 						aria-label={
 							viewMode === "scroll"
-								? "Switch to pagination mode"
-								: "Switch to scroll mode"
+								? t("models.switch_to_pagination")
+								: t("models.switch_to_scroll")
 						}
 					>
-						{viewMode === "scroll" ? "⬡ Pages" : "⇊ Scroll"}
+						{viewMode === "scroll"
+							? t("models.view_mode_pages")
+							: t("models.view_mode_scroll")}
 					</button>
 				}
 			/>

@@ -1,5 +1,6 @@
 import { X } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useId, useRef } from "react";
+import { useTranslation } from "react-i18next";
 
 interface ModalProps {
 	title?: string;
@@ -22,6 +23,7 @@ export function Modal({
 	children,
 	zIndex = "z-50",
 }: ModalProps) {
+	const { t } = useTranslation();
 	const ref = useRef<HTMLDivElement>(null);
 	const headingId = useId();
 
@@ -50,7 +52,7 @@ export function Modal({
 				type="button"
 				className="absolute inset-0 bg-black/60 cursor-default"
 				onClick={closeOnBackdrop ? onClose : undefined}
-				aria-label="Close dialog"
+				aria-label={t("common.closeDialog")}
 			/>
 			{/* biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation prevents backdrop click bubbling */}
 			{/* biome-ignore lint/a11y/useKeyWithClickEvents: purely structural click propagation control */}
@@ -64,7 +66,7 @@ export function Modal({
 					type="button"
 					onClick={onClose}
 					className="absolute top-3 right-3 z-10 text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-pointer p-2 hover:drop-shadow-[var(--glow-accent-lg)]"
-					aria-label="Close"
+					aria-label={t("common.close")}
 				>
 					<X size={20} />
 				</button>

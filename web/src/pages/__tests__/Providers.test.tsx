@@ -505,7 +505,7 @@ describe("Providers", () => {
 			// Error message includes full HTTP response
 			await waitFor(() => {
 				expect(
-					screen.getByText(/Discover all failed:.*Internal server error/),
+					screen.getByText(/Discovery failed:.*Internal server error/),
 				).toBeInTheDocument();
 			});
 		});
@@ -1198,7 +1198,7 @@ describe("Providers", () => {
 			// Should show "2 models" (total, not just enabled)
 			await waitFor(() => {
 				expect(
-					screen.getByRole("button", { name: "2 models" }),
+					screen.getByRole("button", { name: /2 model/ }),
 				).toBeInTheDocument();
 			});
 		});
@@ -1325,7 +1325,7 @@ describe("Providers", () => {
 
 			// Click the models count button to open ProviderModelsModal
 			const modelsButton = screen.getByRole("button", {
-				name: "3 models",
+				name: /3 model/,
 			});
 			await user.click(modelsButton);
 
@@ -1364,7 +1364,7 @@ describe("Providers", () => {
 				expect(deletedIds).toContain("model-002");
 				expect(deletedIds).toContain("model-003");
 				expect(
-					screen.getByText("Deleted 2 disabled models"),
+					screen.getByText(/Deleted 2 disabled model/),
 				).toBeInTheDocument();
 			});
 		});
@@ -1423,7 +1423,7 @@ describe("Providers", () => {
 
 			// Click the models count button to open ProviderModelsModal
 			const modelsButton = screen.getByRole("button", {
-				name: "4 models",
+				name: /4 model/,
 			});
 			await user.click(modelsButton);
 
@@ -1459,7 +1459,7 @@ describe("Providers", () => {
 			// Verify partial success toast (2 succeeded, 1 failed)
 			await waitFor(() => {
 				expect(
-					screen.getByText("Deleted 2 models, 1 failed"),
+					screen.getByText(/Deleted 2 models?[, ]+1 failed/),
 				).toBeInTheDocument();
 			});
 		});

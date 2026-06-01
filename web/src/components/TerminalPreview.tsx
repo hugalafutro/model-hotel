@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { CopyButton } from "./CopyButton";
 import { LangIcon, type LangIconKey } from "./langIcons";
 
@@ -27,8 +28,13 @@ export function TerminalPreview({
 	height,
 	children,
 }: TerminalPreviewProps) {
+	const { t } = useTranslation();
 	const defaultTitle =
-		variant === "bash" ? "bash" : variant === "powershell" ? "PowerShell" : "";
+		variant === "bash"
+			? t("components.terminalPreview.bash")
+			: variant === "powershell"
+				? t("components.terminalPreview.powershell")
+				: "";
 	const displayTitle = title ?? defaultTitle;
 
 	if (variant === "code") {
@@ -43,7 +49,9 @@ export function TerminalPreview({
 						<CopyButton
 							text={copyText}
 							size={14}
-							title={`Copy ${displayTitle} snippet`}
+							title={t("components.terminalPreview.copySnippet", {
+								variant: displayTitle,
+							})}
 						/>
 					</div>
 				</div>
@@ -74,7 +82,9 @@ export function TerminalPreview({
 						<CopyButton
 							text={copyText}
 							size={14}
-							title={`Copy ${displayTitle} snippet`}
+							title={t("components.terminalPreview.copySnippet", {
+								variant: displayTitle,
+							})}
 						/>
 					</div>
 				</div>
@@ -100,7 +110,7 @@ export function TerminalPreview({
 					height="14"
 					fill="currentColor"
 				>
-					<title>Windows</title>
+					<title>{t("components.terminalPreview.windows")}</title>
 					<path d="M0 3.449L9.75 2.1v9.45H0m10.95 0H24v9.35L10.95 21.9M0 12.6h9.75v9.15L0 20.1m10.95-9.5H24V2.1L10.95 3.65" />
 				</svg>
 				<span className="terminal-win11-titlebar-label text-xs font-mono text-[#ccc]">
@@ -110,7 +120,9 @@ export function TerminalPreview({
 					<CopyButton
 						text={copyText}
 						size={14}
-						title={`Copy ${displayTitle} snippet`}
+						title={t("components.terminalPreview.copySnippet", {
+							variant: displayTitle,
+						})}
 					/>
 				</div>
 			</div>

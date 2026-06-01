@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Eye, EyeOff } from "lucide-react";
 import { type FormEvent, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { Provider } from "../../api/types";
 import { Modal } from "../../components/Modal";
@@ -27,8 +28,10 @@ interface AddProviderModalProps {
 function generateProviderName(
 	type: string,
 	providers: Provider[] | undefined,
+	t: (key: string) => string,
 ): string {
-	const baseName = providerTypeDisplayNames[type] || "Provider";
+	const baseName =
+		providerTypeDisplayNames[type] || t("providers.add.providerFallback");
 	if (!providers) return baseName;
 	const existingNames = new Set(providers.map((p) => p.name));
 	if (!existingNames.has(baseName)) return baseName;
@@ -44,6 +47,7 @@ export function AddProviderModal({
 	providers,
 }: AddProviderModalProps) {
 	const queryClient = useQueryClient();
+	const { t } = useTranslation();
 	const [formData, setFormData] = useState<{
 		name: string;
 		base_url: string;
@@ -71,7 +75,10 @@ export function AddProviderModal({
 				provider_type: "custom",
 			});
 			setError(null);
-			onToast(`Provider "${newProvider.name}" added`, "success");
+			onToast(
+				t("providers.toast_provider_added", { name: newProvider.name }),
+				"success",
+			);
 			const shouldDiscover = settings?.discovery_on_provider_create !== "false";
 			const providerType = getProviderType(newProvider.base_url);
 			if (shouldDiscover) {
@@ -80,12 +87,14 @@ export function AddProviderModal({
 					queryClient.invalidateQueries({ queryKey: ["models"] });
 					queryClient.invalidateQueries({ queryKey: ["providers"] });
 					onToast(
-						`Discovered ${result.discovered} model${result.discovered === 1 ? "" : "s"} from ${newProvider.name}`,
+						t("providers.add.discoveredModels", { count: result.discovered }),
 						"success",
 					);
 				} catch (e) {
 					onToast(
-						`Auto-discovery failed: ${e instanceof Error ? e.message : "Unknown error"}`,
+						t("providers.toast_discover_failed", {
+							message: e instanceof Error ? e.message : "Unknown error",
+						}),
 						"warning",
 					);
 				}
@@ -109,11 +118,13 @@ export function AddProviderModal({
 						const usd = balance.balance_infos.find((b) => b.currency === "USD");
 						if (usd) {
 							onToast(
-								`DeepSeek balance detected: $${usd.total_balance}`,
+								t("providers.add.deepseekBalance", {
+									balance: usd.total_balance,
+								}),
 								"info",
 							);
 						} else {
-							onToast("DeepSeek balance detected", "info");
+							onToast(t("providers.add.deepseekBalanceDetected"), "info");
 						}
 						queryClient.invalidateQueries({ queryKey: ["deepseek-balance"] });
 						break;
@@ -123,7 +134,9 @@ export function AddProviderModal({
 							newProvider.id,
 						);
 						onToast(
-							`OpenRouter balance detected: $${orBalance.credits_remaining?.toFixed(2) ?? "-"}`,
+							t("providers.add.openrouterBalance", {
+								balance: orBalance.credits_remaining?.toFixed(2) ?? "-",
+							}),
 							"info",
 						);
 						queryClient.invalidateQueries({ queryKey: ["openrouter-balance"] });
@@ -146,7 +159,10 @@ export function AddProviderModal({
 		},
 		onError: (err: Error) => {
 			setError(err.message);
-			onToast(`Failed to add provider: ${err.message}`, "error");
+			onToast(
+				t("providers.toast_add_failed", { message: err.message }),
+				"error",
+			);
 		},
 	});
 
@@ -160,7 +176,7 @@ export function AddProviderModal({
 			}));
 			return;
 		}
-		const newName = generateProviderName(type, providers);
+		const newName = generateProviderName(type, providers, t);
 		setFormData((prev) => ({
 			...prev,
 			provider_type: type,
@@ -192,7 +208,7 @@ export function AddProviderModal({
 	};
 
 	return (
-		<Modal title="Add Provider" onClose={closeAndReset}>
+		<Modal title={t("providers.form_modal_title")} onClose={closeAndReset}>
 			{error && (
 				<div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm">
 					{error}
@@ -248,11 +264,10 @@ export function AddProviderModal({
 						}
 						onFocus={(e) => e.target.select()}
 						className="ui-input"
-						placeholder="e.g., OpenAI"
+						placeholder={t("providers.form_name_placeholder")}
 					/>
 					<p className="text-gray-500 text-xs mt-1">
-						Dots, spaces, and special characters are replaced with &quot;-&quot;
-						when routing.
+						{t("providers.form_name_hint")}
 					</p>
 				</div>
 
@@ -261,7 +276,7 @@ export function AddProviderModal({
 						htmlFor="provider-base-url"
 						className="block text-sm font-medium text-gray-300 mb-1"
 					>
-						Base URL
+						{t("providers.add.baseUrl")}
 					</label>
 					<input
 						id="provider-base-url"
@@ -284,24 +299,22 @@ export function AddProviderModal({
 								? "ui-input opacity-60 cursor-not-allowed"
 								: "ui-input"
 						}
-						placeholder="https://api.openai.com/v1"
+						placeholder={t("providers.form_base_url_placeholder")}
 					/>
 					{formData.provider_type !== "custom" &&
 						!isLocalProviderType(formData.provider_type) && (
 							<p className="text-gray-500 text-xs mt-1">
-								Base URL is preset for this provider type
+								{t("providers.form_base_url_hint_preset")}
 							</p>
 						)}
 					{isLocalProviderType(formData.provider_type) && (
 						<p className="text-gray-500 text-xs mt-1">
-							Default URL pre-filled; edit if your server runs on a different
-							address. Type is detected from the port number.
+							{t("providers.add.baseUrlHelperDefault")}
 						</p>
 					)}
 					{formData.provider_type === "custom" && (
 						<p className="text-gray-500 text-xs mt-1">
-							Full API base URL including any path prefix. Models will be
-							discovered from {"<base_url>"}/models
+							{t("providers.add.baseUrlHelperFull")}
 						</p>
 					)}
 				</div>
@@ -311,7 +324,7 @@ export function AddProviderModal({
 						htmlFor="provider-api-key"
 						className="block text-sm font-medium text-gray-300 mb-1"
 					>
-						API Key
+						{t("providers.add.apiKey")}
 					</label>
 					<div className="relative">
 						<input
@@ -329,8 +342,8 @@ export function AddProviderModal({
 							className="ui-input pr-10! overflow-hidden"
 							placeholder={
 								providerTypeHasFreeModels(formData.provider_type)
-									? "Optional - free models available"
-									: "API key"
+									? t("providers.form_api_key_placeholder_optional")
+									: t("providers.form_api_key_placeholder_required")
 							}
 						/>
 						<button
@@ -338,7 +351,11 @@ export function AddProviderModal({
 							onClick={() => setShowApiKey(!showApiKey)}
 							className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
 							tabIndex={-1}
-							aria-label={showApiKey ? "Hide API key" : "Show API key"}
+							aria-label={
+								showApiKey
+									? t("providers.form_api_key_hide")
+									: t("providers.form_api_key_show")
+							}
 						>
 							{showApiKey ? <EyeOff size={18} /> : <Eye size={18} />}
 						</button>
@@ -351,14 +368,16 @@ export function AddProviderModal({
 						onClick={closeAndReset}
 						className="ui-btn ui-btn-secondary"
 					>
-						Cancel
+						{t("common.cancel")}
 					</button>
 					<button
 						type="submit"
 						disabled={createMutation.isPending}
 						className="ui-btn ui-btn-primary disabled:opacity-50"
 					>
-						{createMutation.isPending ? "Adding…" : "Add Provider"}
+						{createMutation.isPending
+							? t("providers.form_btn_adding")
+							: t("providers.form_btn_add")}
 					</button>
 				</div>
 			</form>

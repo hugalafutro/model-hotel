@@ -1,4 +1,5 @@
 import { CircleStop, Mic, RefreshCw, Settings, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { ChatMessage, Model } from "../../api/types";
 import { CopyButton } from "../../components/CopyButton";
 import { MarkdownContent } from "../../components/MarkdownContent";
@@ -37,6 +38,7 @@ export function ChatMessageList({
 	conversationActivePersonaIdA,
 	chatActivePersonaId,
 }: ChatMessageListProps) {
+	const { t } = useTranslation();
 	const disableModelMutation = useDisableModel(enabledModels);
 	const lastAssistantIdx = messages.findLastIndex(
 		(m) => m.role === "assistant",
@@ -100,7 +102,7 @@ export function ChatMessageList({
 								{msg.imageUrl && (
 									<img
 										src={msg.imageUrl}
-										alt="User attachment"
+										alt={t("chat.aria.userAttachment")}
 										className="max-h-48 rounded mb-1.5"
 									/>
 								)}
@@ -110,7 +112,8 @@ export function ChatMessageList({
 									>
 										<Mic size={12} />
 										<span>
-											{msg.audioAttachment.format.toUpperCase()} audio
+											{msg.audioAttachment.format.toUpperCase()}{" "}
+											{t("chat.message.audio")}
 										</span>
 									</div>
 								)}
@@ -170,8 +173,8 @@ export function ChatMessageList({
 												type="button"
 												onClick={onStopConversation}
 												className="text-red-400/60 hover:text-red-400 transition-colors cursor-pointer ml-1"
-												title="Cancel"
-												aria-label="Cancel"
+												title={t("chat.aria.cancel")}
+												aria-label={t("chat.aria.cancel")}
 											>
 												<CircleStop size={14} />
 											</button>
@@ -186,8 +189,8 @@ export function ChatMessageList({
 													type="button"
 													className="inline-flex items-center cursor-pointer hover:drop-shadow-[var(--glow-red)] text-red-500 transition-all"
 													onClick={() => onDeleteMessage(i)}
-													title="Delete message"
-													aria-label="Delete message"
+													title={t("chat.aria.deleteMessage")}
+													aria-label={t("chat.aria.deleteMessage")}
 												>
 													<Trash2 size={10} />
 												</button>
@@ -242,8 +245,8 @@ export function ChatMessageList({
 													: onStop
 											}
 											className="text-red-400/60 hover:text-red-400 transition-colors cursor-pointer ml-1"
-											title="Cancel"
-											aria-label="Cancel"
+											title={t("chat.aria.cancel")}
+											aria-label={t("chat.aria.cancel")}
 										>
 											<CircleStop size={14} />
 										</button>
@@ -254,8 +257,8 @@ export function ChatMessageList({
 												type="button"
 												onClick={onRegenerate}
 												className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all cursor-pointer ml-1"
-												title="Regenerate"
-												aria-label="Regenerate"
+												title={t("chat.aria.regenerate")}
+												aria-label={t("chat.aria.regenerate")}
 											>
 												<RefreshCw size={14} />
 											</button>
@@ -271,8 +274,8 @@ export function ChatMessageList({
 												type="button"
 												className="inline-flex items-center cursor-pointer hover:drop-shadow-[var(--glow-red)] text-red-500 transition-all"
 												onClick={() => onDeleteMessage(i)}
-												title="Delete message"
-												aria-label="Delete message"
+												title={t("chat.aria.deleteMessage")}
+												aria-label={t("chat.aria.deleteMessage")}
 											>
 												<Trash2 size={10} />
 											</button>
@@ -281,14 +284,8 @@ export function ChatMessageList({
 											<button
 												type="button"
 												className="inline-flex items-center text-(--accent) cursor-pointer hover:drop-shadow-[var(--glow-accent-sm)] transition-all"
-												title={`Settings: ${Object.entries(msg.params)
-													.filter(([, v]) => v !== undefined)
-													.map(([k, v]) => `${k.replace(/_/g, " ")}=${v}`)
-													.join(", ")}`}
-												aria-label={`Settings: ${Object.entries(msg.params)
-													.filter(([, v]) => v !== undefined)
-													.map(([k, v]) => `${k.replace(/_/g, " ")}=${v}`)
-													.join(", ")}`}
+												title={t("chat.settings")}
+												aria-label={t("chat.settings")}
 											>
 												<Settings size={10} />
 											</button>

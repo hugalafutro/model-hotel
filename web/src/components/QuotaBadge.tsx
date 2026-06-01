@@ -1,3 +1,4 @@
+import i18next from "i18next";
 import { useEffect, useState } from "react";
 import type {
 	DeepSeekBalance,
@@ -83,12 +84,12 @@ function nanoBadgeContent(
 		const remaining = Math.max(0, limit - used);
 		return {
 			label: `${formatTokens(remaining)}/${formatTokens(weeklyLimit)}`,
-			title: "NanoGPT weekly tokens remaining - click for details",
+			title: i18next.t("components.quotaBadge.nanoWeeklyTokensRemaining"),
 		};
 	}
 	return {
 		label: `${formatTokens(weeklyUsed)}/${formatTokens(weeklyLimit)}`,
-		title: "NanoGPT weekly token quota - click for details",
+		title: i18next.t("components.quotaBadge.nanoWeeklyTokenQuota"),
 	};
 }
 
@@ -100,10 +101,13 @@ function zaiCodingBadgeContent(
 	const weekly = getZaiCodingWeeklyLimit(usage);
 	if (barMode === "remaining") {
 		const label = `${fiveHour ? `${(100 - fiveHour.percentage).toFixed(0)}%` : "-"}/${weekly ? `${(100 - weekly.percentage).toFixed(0)}%` : "-"}`;
-		return { label, title: "Z.ai Coding remaining quota - click for details" };
+		return {
+			label,
+			title: i18next.t("components.quotaBadge.zaiCodingRemaining"),
+		};
 	}
 	const label = `${fiveHour ? `${fiveHour.percentage.toFixed(0)}%` : "-"}/${weekly ? `${weekly.percentage.toFixed(0)}%` : "-"}`;
-	return { label, title: "Z.ai Coding used quota - click for details" };
+	return { label, title: i18next.t("components.quotaBadge.zaiCodingUsed") };
 }
 
 function deepseekBadgeContent(
@@ -120,14 +124,17 @@ function deepseekBadgeContent(
 		: "";
 	return {
 		label,
-		title: `DeepSeek balance: $${usd ?? "?"} USD${refreshed} - click to refresh`,
+		title: i18next.t("components.quotaBadge.deepseekBalance", {
+			usd: usd ?? "?",
+			refreshed,
+		}),
 	};
 }
 
 function openRouterBadgeContent(balance: OpenRouterBalance): BadgeContent {
 	return {
 		label: `$${balance.credits_remaining?.toFixed(2) ?? "-"}`,
-		title: "OpenRouter key balance - click for details",
+		title: i18next.t("components.quotaBadge.openRouterKeyBalance"),
 	};
 }
 
@@ -139,9 +146,18 @@ function ollamaCloudBadgeContent(
 	const refreshed = dataUpdatedAt
 		? ` - updated ${new Date(dataUpdatedAt).toLocaleTimeString()}`
 		: "";
-	let title = `Ollama Cloud ${plan} plan${refreshed} - click to update`;
+	let title = i18next.t("components.quotaBadge.ollamaCloudPlan", {
+		plan,
+		refreshed,
+	});
 	if (account.subscription_period_end?.valid) {
-		title = `Ollama Cloud ${plan} plan (ends ${new Date(account.subscription_period_end.time).toLocaleDateString()})${refreshed} - click to update`;
+		title = i18next.t("components.quotaBadge.ollamaCloudPlanWithEnd", {
+			plan,
+			endDate: new Date(
+				account.subscription_period_end.time,
+			).toLocaleDateString(),
+			refreshed,
+		});
 	}
 	return { label: plan, title };
 }
@@ -189,17 +205,30 @@ export function QuotaBadge({
 				return zaiCodingBadgeContent(zaiCodingUsage, barMode);
 			case "deepseek": {
 				if (!deepseekBalance)
-					return { label: "-", title: "DeepSeek balance unavailable" };
+					return {
+						label: "-",
+						title: i18next.t(
+							"components.quotaBadge.deepseekBalanceUnavailable",
+						),
+					};
 				return deepseekBadgeContent(deepseekBalance, variant);
 			}
 			case "openrouter": {
 				if (!openrouterBalance)
-					return { label: "-", title: "OpenRouter balance unavailable" };
+					return {
+						label: "-",
+						title: i18next.t(
+							"components.quotaBadge.openrouterBalanceUnavailable",
+						),
+					};
 				return openRouterBadgeContent(openrouterBalance);
 			}
 			case "ollama-cloud": {
 				if (!ollamaCloudAccount)
-					return { label: "-", title: "Ollama Cloud account unavailable" };
+					return {
+						label: "-",
+						title: i18next.t("components.quotaBadge.ollamaCloudUnavailable"),
+					};
 				return ollamaCloudBadgeContent(ollamaCloudAccount);
 			}
 		}

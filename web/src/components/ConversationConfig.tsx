@@ -9,6 +9,7 @@ import {
 	Square,
 	Timer,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface ConversationConfigProps {
 	maxTurns: number;
@@ -59,6 +60,7 @@ export function ConversationConfig({
 	selectedModelB,
 	failedModel,
 }: ConversationConfigProps) {
+	const { t } = useTranslation();
 	const isPaused = conversationState === "paused";
 	const isIdle = conversationState === "idle";
 	const isError = conversationState === "error";
@@ -72,7 +74,7 @@ export function ConversationConfig({
 				<div className="flex items-center gap-2">
 					<SlidersHorizontal size={14} className="text-(--accent)" />
 					<span className="text-sm font-semibold text-(--accent)">
-						Conversation Config
+						{t("components.conversationConfig.title")}
 					</span>
 				</div>
 				<div className="flex items-center gap-3">
@@ -80,12 +82,14 @@ export function ConversationConfig({
 					{configCollapsed && (
 						<span className="text-xs text-(--text-muted) flex items-center gap-3">
 							<span>
-								Rounds:{" "}
-								<span className="text-(--text-primary)">{maxTurns}</span>
+								{t("components.conversationConfig.rounds", {
+									rounds: maxTurns,
+								})}
 							</span>
 							<span>
-								Delay:{" "}
-								<span className="text-(--text-primary)">{turnDelayMs}</span>
+								{t("components.conversationConfig.delay", {
+									delay: turnDelayMs,
+								})}
 								ms
 							</span>
 						</span>
@@ -94,13 +98,15 @@ export function ConversationConfig({
 					{conversationState !== "idle" && conversationState !== "paused" && (
 						<span className="text-xs text-(--text-secondary) flex items-center gap-1.5">
 							<Gauge size={12} />
-							Round:{" "}
-							<span className="text-(--text-primary)">
-								{Math.ceil(currentTurn / 2)} / {maxTurns}
-							</span>
+							{t("components.conversationConfig.round", {
+								current: Math.ceil(currentTurn / 2),
+								max: maxTurns,
+							})}
 							{turnCountdown > 0 && (
 								<span className="text-(--accent) ml-1">
-									Next in {turnCountdown}s…
+									{t("components.conversationConfig.nextIn", {
+										seconds: turnCountdown,
+									})}
 								</span>
 							)}
 						</span>
@@ -108,7 +114,9 @@ export function ConversationConfig({
 					{/* Status */}
 					<span className="text-xs text-(--text-secondary) flex items-center gap-1.5">
 						<Timer size={12} />
-						Status:{" "}
+						{t("components.conversationConfig.status", {
+							state: conversationState,
+						})}
 						<span
 							className={`capitalize ${
 								isError ? "text-red-400" : "text-(--text-primary)"
@@ -121,8 +129,16 @@ export function ConversationConfig({
 						type="button"
 						onClick={onToggleCollapsed}
 						className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent)"
-						title={configCollapsed ? "Expand config" : "Collapse config"}
-						aria-label={configCollapsed ? "Expand config" : "Collapse config"}
+						title={
+							configCollapsed
+								? t("components.conversationConfig.expandConfig")
+								: t("components.conversationConfig.collapseConfig")
+						}
+						aria-label={
+							configCollapsed
+								? t("components.conversationConfig.expandConfig")
+								: t("components.conversationConfig.collapseConfig")
+						}
 					>
 						{configCollapsed ? (
 							<ChevronsUpDown size={14} />
@@ -145,8 +161,10 @@ export function ConversationConfig({
 						<div className="flex items-center gap-2 mt-3 px-3 py-2 rounded-md bg-red-500/10 border border-red-500/20 text-xs text-red-400">
 							<span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
 							{failedModel
-								? `${failedModel}: Generation failed - use Retry or change the model to continue`
-								: "Generation failed - use Retry or change the model to continue"}
+								? t("components.conversationConfig.generationFailedWithModel", {
+										model: failedModel,
+									})
+								: t("components.conversationConfig.generationFailed")}
 						</div>
 					)}
 
@@ -158,7 +176,7 @@ export function ConversationConfig({
 								htmlFor="cc-rounds"
 								className="text-xs text-(--text-secondary) mb-1"
 							>
-								Rounds
+								{t("components.conversationConfig.maxTurns")}
 							</label>
 							<input
 								id="cc-rounds"
@@ -189,7 +207,7 @@ export function ConversationConfig({
 								htmlFor="cc-delay"
 								className="text-xs text-(--text-secondary) mb-1"
 							>
-								Delay (ms)
+								{t("components.conversationConfig.turnDelay")}
 							</label>
 							<input
 								id="cc-delay"
@@ -225,7 +243,7 @@ export function ConversationConfig({
 												htmlFor="cc-prompt"
 												className="text-xs text-(--text-secondary) mb-1"
 											>
-												Prompt
+												{t("components.conversationConfig.prompt")}
 											</label>
 											<textarea
 												id="cc-prompt"
@@ -233,8 +251,12 @@ export function ConversationConfig({
 												onChange={(e) => onInputChange(e.target.value)}
 												placeholder={
 													!selectedModel || !selectedModelB
-														? "Select both models first"
-														: "Enter a topic or question…"
+														? t(
+																"components.conversationConfig.selectBothModelsFirst",
+															)
+														: t(
+																"components.conversationConfig.enterTopicOrQuestion",
+															)
 												}
 												className="flex-1 ui-input resize-none overflow-y-auto text-sm min-h-9"
 												style={{ height: "auto" }}
@@ -250,7 +272,9 @@ export function ConversationConfig({
 											className="ui-btn ui-btn-primary flex items-center gap-2 shrink-0"
 										>
 											<Play size={16} />
-											{isContinue ? "Continue" : "Start"}
+											{isContinue
+												? t("components.conversationConfig.continue")
+												: t("components.conversationConfig.start")}
 										</button>
 									</>
 								)}
@@ -261,7 +285,7 @@ export function ConversationConfig({
 										className="ui-btn ui-btn-primary flex items-center gap-2 shrink-0"
 									>
 										<FastForward size={16} />
-										Continue
+										{t("components.conversationConfig.continue")}
 									</button>
 								)}
 								{isError &&
@@ -273,13 +297,15 @@ export function ConversationConfig({
 													htmlFor="cc-prompt-retry"
 													className="text-xs text-(--text-secondary) mb-1"
 												>
-													Prompt
+													{t("components.conversationConfig.prompt")}
 												</label>
 												<textarea
 													id="cc-prompt-retry"
 													value={input}
 													onChange={(e) => onInputChange(e.target.value)}
-													placeholder="Re-enter or edit your prompt…"
+													placeholder={t(
+														"components.conversationConfig.reenterOrEditPrompt",
+													)}
 													className="flex-1 ui-input resize-none overflow-y-auto text-sm min-h-9"
 													style={{
 														height: "auto",
@@ -294,7 +320,7 @@ export function ConversationConfig({
 												className="ui-btn ui-btn-primary flex items-center gap-2 shrink-0"
 											>
 												<RotateCcw size={16} />
-												Retry
+												{t("components.conversationConfig.retry")}
 											</button>
 										</>
 									) : (
@@ -305,7 +331,9 @@ export function ConversationConfig({
 											className="ui-btn ui-btn-primary flex items-center gap-2 shrink-0"
 										>
 											<RotateCcw size={16} />
-											Retry from Turn {Math.ceil(currentTurn / 2)}
+											{t("components.conversationConfig.retryFromTurn", {
+												turn: Math.ceil(currentTurn / 2),
+											})}
 										</button>
 									))}
 							</div>
@@ -318,7 +346,7 @@ export function ConversationConfig({
 								className="ui-btn ui-btn-danger flex items-center gap-2 shrink-0"
 							>
 								<Square size={16} />
-								Stop
+								{t("components.conversationConfig.stop")}
 							</button>
 						)}
 					</div>

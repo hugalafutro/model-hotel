@@ -1,5 +1,6 @@
 import type { MouseEvent, ReactNode } from "react";
 import { useCallback } from "react";
+import { useTranslation } from "react-i18next";
 
 type SortDir = "asc" | "desc";
 
@@ -26,6 +27,7 @@ export function SortableHeader<F extends string>({
 	tooltip?: string;
 	className?: string;
 }) {
+	const { t } = useTranslation();
 	const active = sort.field === field;
 	return (
 		<th
@@ -36,7 +38,7 @@ export function SortableHeader<F extends string>({
 				type="button"
 				className="cursor-pointer"
 				onClick={() => onSort(field)}
-				aria-label={`Sort by ${label}`}
+				aria-label={t("components.dataTable.sortBy", { label })}
 			>
 				{label}{" "}
 				<span className="inline-block w-3 text-center">
@@ -146,6 +148,7 @@ export function PaginationBar({
 	label?: string;
 	hideCount?: boolean;
 }) {
+	const { t } = useTranslation();
 	const setPage = useCallback(
 		(p: number) => onPageChange(Math.max(1, Math.min(totalPages, p))),
 		[onPageChange, totalPages],
@@ -175,11 +178,21 @@ export function PaginationBar({
 					onChange={(e) => onPageSizeChange(Number(e.target.value))}
 					className="ui-input ui-input-sm"
 				>
-					<option value={10}>10 / page</option>
-					<option value={20}>20 / page</option>
-					<option value={30}>30 / page</option>
-					<option value={40}>40 / page</option>
-					<option value={50}>50 / page</option>
+					<option value={10}>
+						{t("components.dataTable.perPage", { size: 10 })}
+					</option>
+					<option value={20}>
+						{t("components.dataTable.perPage", { size: 20 })}
+					</option>
+					<option value={30}>
+						{t("components.dataTable.perPage", { size: 30 })}
+					</option>
+					<option value={40}>
+						{t("components.dataTable.perPage", { size: 40 })}
+					</option>
+					<option value={50}>
+						{t("components.dataTable.perPage", { size: 50 })}
+					</option>
 				</select>
 			)}
 			{totalPages > 1 && (
@@ -190,7 +203,7 @@ export function PaginationBar({
 						disabled={page === 1}
 						className="pagination-btn px-2 py-1 text-xs rounded-(--radius-button) border bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
 					>
-						Prev
+						{t("common.prev")}
 					</button>
 					{Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
 						let pageNum: number;
@@ -228,7 +241,7 @@ export function PaginationBar({
 						disabled={page >= totalPages}
 						className="pagination-btn px-2 py-1 text-xs rounded-(--radius-button) border bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
 					>
-						Next
+						{t("common.next")}
 					</button>
 				</div>
 			)}

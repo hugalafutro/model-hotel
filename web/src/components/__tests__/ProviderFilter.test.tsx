@@ -147,7 +147,7 @@ describe("ProviderFilter", () => {
 		await user.type(searchInput, "open");
 		expect(screen.queryByText("Anthropic")).not.toBeInTheDocument();
 		// Find the X clear button inside search - accessible via aria-label
-		const xButton = screen.getByRole("button", { name: "Clear search" });
+		const xButton = screen.getByRole("button", { name: "Clear filter" });
 		if (xButton) {
 			await user.click(xButton);
 		}

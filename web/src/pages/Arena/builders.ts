@@ -1,3 +1,4 @@
+import i18next from "i18next";
 import type { GenerationParams } from "../../api/types";
 import type { BracketRound, Matchup, MatchupSlot } from "./types";
 import { nextBracketSize } from "./utils";
@@ -74,12 +75,13 @@ export function getRoundLabel(
 	totalRounds: number,
 	arenaMode: string,
 ): string {
-	if (arenaMode === "compare") return "Generation";
-	if (totalRounds === 1) return "Match";
-	if (roundIdx === totalRounds - 1) return "Final";
-	if (roundIdx === totalRounds - 2) return "Semifinals";
-	if (roundIdx === totalRounds - 3) return "Quarterfinals";
-	return `Round ${roundIdx + 1}`;
+	if (arenaMode === "compare") return i18next.t("arena.round.generation");
+	if (totalRounds === 1) return i18next.t("arena.round.match");
+	if (roundIdx === totalRounds - 1) return i18next.t("arena.round.final");
+	if (roundIdx === totalRounds - 2) return i18next.t("arena.round.semifinals");
+	if (roundIdx === totalRounds - 3)
+		return i18next.t("arena.round.quarterfinals");
+	return i18next.t("arena.round.numbered", { num: roundIdx + 1 });
 }
 
 export function getPreviewPairs(

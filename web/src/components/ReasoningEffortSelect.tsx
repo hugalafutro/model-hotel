@@ -1,8 +1,4 @@
-const OPTIONS = [
-	{ value: "low", label: "Low" },
-	{ value: "medium", label: "Medium" },
-	{ value: "high", label: "High" },
-] as const;
+import { useTranslation } from "react-i18next";
 
 interface ReasoningEffortSelectProps {
 	value: string | undefined;
@@ -13,11 +9,12 @@ export function ReasoningEffortSelect({
 	value,
 	onChange,
 }: ReasoningEffortSelectProps) {
+	const { t } = useTranslation();
 	return (
 		<div>
 			<div className="flex items-center justify-between">
 				<span className="text-[10px] uppercase tracking-wider text-(--text-tertiary)">
-					Reasoning Effort
+					{t("components.reasoningEffortSelect.reasoningEffort")}
 				</span>
 				{value !== undefined && (
 					<button
@@ -25,12 +22,19 @@ export function ReasoningEffortSelect({
 						onClick={() => onChange(undefined)}
 						className="text-[10px] text-red-400/80 hover:text-red-400 transition-colors cursor-pointer"
 					>
-						off
+						{t("components.reasoningEffortSelect.off")}
 					</button>
 				)}
 			</div>
 			<div className="flex gap-1 mt-0.5">
-				{OPTIONS.map((opt) => (
+				{[
+					{ value: "low", label: t("components.reasoningEffortSelect.low") },
+					{
+						value: "medium",
+						label: t("components.reasoningEffortSelect.medium"),
+					},
+					{ value: "high", label: t("components.reasoningEffortSelect.high") },
+				].map((opt) => (
 					<button
 						key={opt.value}
 						type="button"

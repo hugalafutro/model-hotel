@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Brain, RotateCcw } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { VirtualKey } from "../../api/types";
 import { CopyablePill } from "../../components/CopyablePill";
@@ -34,6 +35,7 @@ export function CreateKeyModal({
 	onToast: (msg: string, type: "success" | "error" | "info") => void;
 }) {
 	const queryClient = useQueryClient();
+	const { t } = useTranslation();
 	const [name, setName] = useState("");
 	const [rateLimitRps, setRateLimitRps] = useState<string>("");
 	const [rateLimitBurst, setRateLimitBurst] = useState<string>("");
@@ -102,7 +104,7 @@ export function CreateKeyModal({
 				? allProviderIds.filter((id) => !excludedProviders.includes(id))
 				: null;
 		if (allowedProviders && allowedProviders.length === 0) {
-			setProviderError("At least one provider must remain accessible");
+			setProviderError(t("virtualKeys.create.providerRequired"));
 			return;
 		}
 		createMutation.mutate({
@@ -117,7 +119,11 @@ export function CreateKeyModal({
 
 	return (
 		<Modal
-			title={createdKey ? "Virtual Key Created" : "Create Virtual Key"}
+			title={
+				createdKey
+					? t("virtualkeys.modal.createdTitle")
+					: t("virtualkeys.modal.createTitle")
+			}
 			closeOnBackdrop={!createdKey}
 			onClose={onClose}
 		>
@@ -125,7 +131,7 @@ export function CreateKeyModal({
 				<>
 					<div className="bg-red-500/10 border-2 border-red-500/40 rounded-lg p-3 mb-4">
 						<p className="text-red-400 font-semibold text-sm">
-							This key cannot be recovered after you close this modal.
+							{t("virtualkeys.modal.warningTitle")}
 						</p>
 						<p className="text-red-400/70 text-xs mt-1">
 							Virtual keys are hashed before storage. Copy it now or it is gone
@@ -138,12 +144,12 @@ export function CreateKeyModal({
 								text={createdKey.key}
 								displayText={createdKey.key}
 								textClassName="text-sm text-green-400 font-mono break-all"
-								tooltip="Click to copy key"
+								tooltip={t("virtualKeys.create.clickToCopyKey")}
 							/>
 						)}
 					</div>
 					<p className="text-sm text-gray-500 mb-4">
-						Use as:{" "}
+						{t("virtualkeys.modal.useAs")}:{" "}
 						<code className="text-gray-400">Bearer {createdKey.key}</code> at{" "}
 						<code className="text-gray-400">{window.location.origin}/v1</code>
 					</p>
@@ -174,7 +180,7 @@ export function CreateKeyModal({
 							value={name}
 							onChange={(e) => setName(e.target.value)}
 							className="ui-input"
-							placeholder="e.g., My App"
+							placeholder={t("virtualkeys.modal.form.namePlaceholder")}
 						/>
 					</div>
 					<div>
@@ -191,7 +197,7 @@ export function CreateKeyModal({
 							value={rateLimitRps}
 							onChange={(e) => setRateLimitRps(e.target.value)}
 							className="ui-input"
-							placeholder="Use global setting"
+							placeholder={t("virtualkeys.modal.form.placeholderGlobal")}
 						/>
 					</div>
 					<div>
@@ -208,21 +214,21 @@ export function CreateKeyModal({
 							value={rateLimitBurst}
 							onChange={(e) => setRateLimitBurst(e.target.value)}
 							className="ui-input"
-							placeholder="Use global setting"
+							placeholder={t("virtualkeys.modal.form.placeholderGlobal")}
 						/>
 					</div>
 					<div>
 						<div className="flex items-center justify-between mb-1">
 							<span className="text-sm font-medium text-gray-300">
-								Provider Access
+								{t("virtualkeys.modal.form.providerAccess")}
 							</span>
 							{excludedProviders.length > 0 && (
 								<button
 									type="button"
 									onClick={resetProviders}
 									className="text-gray-500 hover:text-gray-300 transition-colors cursor-pointer"
-									aria-label="Restore access to all providers"
-									title="Restore access to all providers"
+									aria-label={t("virtualkeys.modal.form.restoreAccess")}
+									title={t("virtualkeys.modal.form.restoreAccess")}
 								>
 									<RotateCcw size={14} />
 								</button>
@@ -234,7 +240,7 @@ export function CreateKeyModal({
 						</p>
 						{sortedProviders.length === 0 ? (
 							<p className="text-xs text-gray-500 italic">
-								No providers available.
+								{t("virtualkeys.modal.form.noProviders")}
 							</p>
 						) : (
 							<div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
@@ -268,7 +274,7 @@ export function CreateKeyModal({
 						<div className="flex items-center gap-2 text-(--accent) mb-2">
 							<BrainSlashIcon size={12} className="shrink-0" />
 							<span className="text-xs font-semibold uppercase tracking-wider">
-								Strip Reasoning
+								{t("virtualkeys.modal.form.stripReasoning")}
 							</span>
 						</div>
 						<div className="flex items-center gap-3">
@@ -278,8 +284,8 @@ export function CreateKeyModal({
 								aria-pressed={stripReasoning}
 								aria-label={
 									stripReasoning
-										? "Disable strip reasoning"
-										: "Enable strip reasoning"
+										? t("virtualkeys.modal.form.disableStripReasoning")
+										: t("virtualkeys.modal.form.enableStripReasoning")
 								}
 								className={`relative inline-flex items-center h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
 									stripReasoning
@@ -295,7 +301,7 @@ export function CreateKeyModal({
 								/>
 							</button>
 							<span className="text-sm text-gray-200">
-								{stripReasoning ? "Enabled" : "Disabled"}
+								{stripReasoning ? t("common.enabled") : t("common.disabled")}
 							</span>
 						</div>
 						<p className="text-xs text-gray-400 mt-1.5">
@@ -317,7 +323,9 @@ export function CreateKeyModal({
 							disabled={createMutation.isPending}
 							className="ui-btn ui-btn-primary disabled:opacity-50"
 						>
-							{createMutation.isPending ? "Creating\u2026" : "Create Key"}
+							{createMutation.isPending
+								? t("common.creating")
+								: t("virtualKeys.create.createKey")}
 						</button>
 					</div>
 				</form>

@@ -179,7 +179,7 @@ describe("ChatMessageList", () => {
 			renderWithProviders(
 				<ChatMessageList {...defaultProps} messages={messagesWithParams} />,
 			);
-			expect(screen.getByTitle(/Settings:/)).toBeInTheDocument();
+			expect(screen.getByTitle(/Settings/)).toBeInTheDocument();
 		});
 	});
 });

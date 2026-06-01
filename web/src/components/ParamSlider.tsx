@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 export interface ParamSliderProps {
 	label: string;
@@ -21,6 +22,7 @@ export function ParamSlider({
 	disabled = false,
 	disabledReason,
 }: ParamSliderProps) {
+	const { t } = useTranslation();
 	const [showTooltip, setShowTooltip] = useState(false);
 	const isSet = value !== undefined;
 	const pct = isSet ? ((value - min) / (max - min)) * 100 : 0;
@@ -54,7 +56,7 @@ export function ParamSlider({
 						const n = parseFloat(v);
 						if (!Number.isNaN(n)) onChange(n);
 					}}
-					placeholder="off"
+					placeholder={t("components.paramSlider.off")}
 					disabled={disabled}
 					className={`w-14 text-right px-1.5 py-0.5 rounded text-[10px] border border-transparent outline-none placeholder:text-(--text-tertiary) no-spinner ${
 						disabled

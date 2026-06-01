@@ -1,44 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Timer } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSelect } from "../../components/SettingsSelect";
 import { useToast } from "../../context/ToastContext";
-
-const REQUEST_TIMEOUT_OPTIONS = [
-	{ value: "30s", label: "30 seconds" },
-	{ value: "1m0s", label: "1 minute (default)" },
-	{ value: "2m0s", label: "2 minutes" },
-	{ value: "5m0s", label: "5 minutes" },
-	{ value: "10m0s", label: "10 minutes" },
-];
-
-const KEY_CACHE_TTL_OPTIONS = [
-	{ value: "1m0s", label: "1 minute" },
-	{ value: "5m0s", label: "5 minutes" },
-	{ value: "10m0s", label: "10 minutes (default)" },
-	{ value: "30m0s", label: "30 minutes" },
-	{ value: "1h0m0s", label: "1 hour" },
-];
-
-const TTFT_TIMEOUT_OPTIONS = [
-	{ value: "15s", label: "15 seconds" },
-	{ value: "30s", label: "30 seconds" },
-	{ value: "1m0s", label: "1 minute (default)" },
-	{ value: "2m0s", label: "2 minutes" },
-	{ value: "5m0s", label: "5 minutes" },
-	{ value: "0s", label: "Disabled" },
-];
-
-const STREAM_STALL_TIMEOUT_OPTIONS = [
-	{ value: "10s", label: "10 seconds" },
-	{ value: "30s", label: "30 seconds (default)" },
-	{ value: "1m0s", label: "1 minute" },
-	{ value: "2m0s", label: "2 minutes" },
-	{ value: "5m0s", label: "5 minutes" },
-	{ value: "10m0s", label: "10 minutes" },
-	{ value: "0s", label: "Disabled" },
-];
 
 interface ProxySettingsProps {
 	collapsed: boolean;
@@ -46,6 +12,41 @@ interface ProxySettingsProps {
 }
 
 export function ProxySettings({ collapsed, onToggle }: ProxySettingsProps) {
+	const { t } = useTranslation();
+	const REQUEST_TIMEOUT_OPTIONS = [
+		{ value: "30s", label: t("settings.proxy.timeout.30s") },
+		{ value: "1m0s", label: t("settings.proxy.timeout.1m0s") },
+		{ value: "2m0s", label: t("settings.proxy.timeout.2m0s") },
+		{ value: "5m0s", label: t("settings.proxy.timeout.5m0s") },
+		{ value: "10m0s", label: t("settings.proxy.timeout.10m0s") },
+	];
+
+	const KEY_CACHE_TTL_OPTIONS = [
+		{ value: "1m0s", label: t("settings.proxy.keyCache.1m0s") },
+		{ value: "5m0s", label: t("settings.proxy.keyCache.5m0s") },
+		{ value: "10m0s", label: t("settings.proxy.keyCache.10m0s") },
+		{ value: "30m0s", label: t("settings.proxy.keyCache.30m0s") },
+		{ value: "1h0m0s", label: t("settings.proxy.keyCache.1h0m0s") },
+	];
+
+	const TTFT_TIMEOUT_OPTIONS = [
+		{ value: "15s", label: t("settings.proxy.ttft.15s") },
+		{ value: "30s", label: t("settings.proxy.ttft.30s") },
+		{ value: "1m0s", label: t("settings.proxy.ttft.1m0s") },
+		{ value: "2m0s", label: t("settings.proxy.ttft.2m0s") },
+		{ value: "5m0s", label: t("settings.proxy.ttft.5m0s") },
+		{ value: "0s", label: t("settings.proxy.ttft.disabled") },
+	];
+
+	const STREAM_STALL_TIMEOUT_OPTIONS = [
+		{ value: "10s", label: t("settings.proxy.streamStall.10s") },
+		{ value: "30s", label: t("settings.proxy.streamStall.30s") },
+		{ value: "1m0s", label: t("settings.proxy.streamStall.1m0s") },
+		{ value: "2m0s", label: t("settings.proxy.streamStall.2m0s") },
+		{ value: "5m0s", label: t("settings.proxy.streamStall.5m0s") },
+		{ value: "10m0s", label: t("settings.proxy.streamStall.10m0s") },
+		{ value: "0s", label: t("settings.proxy.streamStall.disabled") },
+	];
 	const { toast } = useToast();
 	const queryClient = useQueryClient();
 
@@ -59,10 +60,13 @@ export function ProxySettings({ collapsed, onToggle }: ProxySettingsProps) {
 			api.settings.update(updates),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["settings"] });
-			toast("Settings saved", "success");
+			toast(t("settings.common.settingsSaved"), "success");
 		},
 		onError: (err: Error) => {
-			toast(`Failed to save: ${err.message}`, "error");
+			toast(
+				t("settings.common.failedToSave", { message: err.message }),
+				"error",
+			);
 		},
 	});
 
@@ -74,45 +78,45 @@ export function ProxySettings({ collapsed, onToggle }: ProxySettingsProps) {
 	return (
 		<SettingsSection
 			icon={Timer}
-			title="Proxy"
+			title={t("settings.proxy.title")}
 			collapsed={collapsed}
 			onToggle={onToggle}
 		>
 			<div className="space-y-5">
 				<p className="text-gray-400 text-sm">
-					Configure proxy request behavior and timeouts.
+					{t("settings.proxy.description")}
 				</p>
 				<SettingsSelect
 					id="request-timeout"
-					label="Request Timeout"
+					label={t("settings.proxy.requestTimeout")}
 					value={requestTimeout}
 					options={REQUEST_TIMEOUT_OPTIONS}
 					onChange={(v) => updateMutation.mutate({ request_timeout: v })}
-					description="Maximum time for non-streaming requests before timing out. Streaming requests automatically get 10× this duration to accommodate thinking/reasoning models."
+					description={t("settings.proxy.requestTimeout.description")}
 				/>
 				<SettingsSelect
 					id="key-cache-ttl"
-					label="Key Cache TTL"
+					label={t("settings.proxy.keyCacheTtl")}
 					value={keyCacheTTL}
 					options={KEY_CACHE_TTL_OPTIONS}
 					onChange={(v) => updateMutation.mutate({ key_cache_ttl: v })}
-					description="How long decrypted provider API keys are cached. Higher values reduce latency on the first request after cache expiry (Argon2id key derivation is ~12ms)."
+					description={t("settings.proxy.keyCacheTtl.description")}
 				/>
 				<SettingsSelect
 					id="ttft-timeout"
-					label="TTFT Timeout"
+					label={t("settings.proxy.ttftTimeout")}
 					value={ttftTimeout}
 					options={TTFT_TIMEOUT_OPTIONS}
 					onChange={(v) => updateMutation.mutate({ ttft_timeout: v })}
-					description="Maximum time to wait for the first streaming token before failing over to the next provider. Disabled means immediate commit (no failover on slow first token)."
+					description={t("settings.proxy.ttftTimeout.description")}
 				/>
 				<SettingsSelect
 					id="stream-stall-timeout"
-					label="Stream Stall Timeout"
+					label={t("settings.proxy.streamStallTimeout")}
 					value={streamStallTimeout}
 					options={STREAM_STALL_TIMEOUT_OPTIONS}
 					onChange={(v) => updateMutation.mutate({ stream_stall_timeout: v })}
-					description="Maximum silence during streaming before the connection is cut. After 50 chunks, the timeout is automatically extended 3× to tolerate tool calls and long reasoning."
+					description={t("settings.proxy.streamStallTimeout.description")}
 				/>
 			</div>
 		</SettingsSection>

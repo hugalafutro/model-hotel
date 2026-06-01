@@ -191,7 +191,7 @@ describe("FailoverGroupCard", () => {
 			renderWithProviders(<FailoverGroupCard {...defaultProps} />);
 
 			expect(
-				screen.getByRole("button", { name: "delete" }),
+				screen.getByRole("button", { name: "Delete" }),
 			).toBeInTheDocument();
 		});
 
@@ -343,7 +343,7 @@ describe("FailoverGroupCard", () => {
 				<FailoverGroupCard {...defaultProps} onDelete={onDelete} />,
 			);
 
-			await user.click(screen.getByRole("button", { name: "delete" }));
+			await user.click(screen.getByRole("button", { name: "Delete" }));
 
 			expect(onDelete).toHaveBeenCalled();
 		});
@@ -920,7 +920,7 @@ describe("FailoverGroupCard", () => {
 				<FailoverGroupCard {...defaultProps} group={group} onEdit={vi.fn()} />,
 			);
 
-			expect(screen.getByRole("button", { name: "edit" })).toBeInTheDocument();
+			expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
 		});
 
 		it("does not render edit button for auto-created group", () => {
@@ -934,7 +934,7 @@ describe("FailoverGroupCard", () => {
 			);
 
 			expect(
-				screen.queryByRole("button", { name: "edit" }),
+				screen.queryByRole("button", { name: "Edit" }),
 			).not.toBeInTheDocument();
 		});
 
@@ -949,7 +949,7 @@ describe("FailoverGroupCard", () => {
 			);
 
 			expect(
-				screen.queryByRole("button", { name: "edit" }),
+				screen.queryByRole("button", { name: "Edit" }),
 			).not.toBeInTheDocument();
 		});
 
@@ -964,7 +964,7 @@ describe("FailoverGroupCard", () => {
 				<FailoverGroupCard {...defaultProps} group={group} onEdit={onEdit} />,
 			);
 
-			await user.click(screen.getByRole("button", { name: "edit" }));
+			await user.click(screen.getByRole("button", { name: "Edit" }));
 
 			expect(onEdit).toHaveBeenCalled();
 		});
@@ -979,7 +979,7 @@ describe("FailoverGroupCard", () => {
 				<FailoverGroupCard {...defaultProps} group={group} onEdit={vi.fn()} />,
 			);
 
-			const editButton = screen.getByRole("button", { name: "edit" });
+			const editButton = screen.getByRole("button", { name: "Edit" });
 			expect(editButton).toHaveClass("hover:text-amber-400");
 		});
 	});

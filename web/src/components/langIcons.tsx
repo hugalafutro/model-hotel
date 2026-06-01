@@ -1,3 +1,4 @@
+import i18next from "i18next";
 import claudeLogo from "@/assets/logos/claude.png";
 import hermesDark from "@/assets/logos/hermes-dark.png";
 import hermesLight from "@/assets/logos/hermes-light.png";
@@ -61,7 +62,7 @@ export function LangIcon({ name, size = 14, ...rest }: LangIconProps) {
 			return (
 				<img
 					src={powershellLogo}
-					alt="PowerShell"
+					alt={i18next.t("common.productNames.powershell")}
 					width={size}
 					height={size}
 					{...rest}
@@ -77,7 +78,7 @@ export function LangIcon({ name, size = 14, ...rest }: LangIconProps) {
 					fill="none"
 					{...rest}
 				>
-					<title>JavaScript</title>
+					<title>{i18next.t("common.productNames.javascript")}</title>
 					<rect width="24" height="24" rx="4" fill="#F7DF1E" />
 					<path
 						d="M6 18.5l2.1-1.3c.4.7.8 1.4 1.6 1.4.8 0 1.3-.3 1.3-1.9V10h2.6v6.8c0 2.7-1.6 3.9-3.8 3.9-2.1 0-3.3-1.1-3.8-2.2zm9-0.2l2.1-1.2c.6 1 1.3 1.7 2.6 1.7 1.1 0 1.8-.5 1.8-1.3 0-.9-.7-1.2-1.9-1.7l-.7-.3c-1.9-.8-3.2-1.8-3.2-3.9 0-2 1.5-3.5 3.9-3.5 1.7 0 2.9.6 3.8 2.1l-2.1 1.3c-.5-.8-1-1.1-1.7-1.1-.8 0-1.3.5-1.3 1.1 0 .8.5 1.1 1.6 1.6l.7.3c2.3 1 3.6 2 3.6 4.2 0 2.4-1.9 3.7-4.4 3.7-2.5 0-4.1-1.2-4.8-2.7"
@@ -95,7 +96,7 @@ export function LangIcon({ name, size = 14, ...rest }: LangIconProps) {
 					fill="none"
 					{...rest}
 				>
-					<title>Python</title>
+					<title>{i18next.t("common.productNames.python")}</title>
 					<path
 						d="M12 2C7.6 2 7 4 7 4v3h5v1H5.5S2 7.5 2 12s3 5.5 3 5.5H7V14c0-2.2 1.8-4 4-4h4c1.7 0 3-1.3 3-3V4s0-2-6-2zm-2 2a1 1 0 110 2 1 1 0 010-2z"
 						fill="#3776AB"
@@ -111,7 +112,7 @@ export function LangIcon({ name, size = 14, ...rest }: LangIconProps) {
 			return (
 				<img
 					src={claudeLogo}
-					alt="Claude Code"
+					alt={i18next.t("common.productNames.claudeCode")}
 					width={size}
 					height={size}
 					{...rest}
@@ -122,7 +123,7 @@ export function LangIcon({ name, size = 14, ...rest }: LangIconProps) {
 			return (
 				<img
 					src={openclawLogo}
-					alt="OpenClaw"
+					alt={i18next.t("common.productNames.openclaw")}
 					width={size}
 					height={size}
 					{...rest}
@@ -133,7 +134,7 @@ export function LangIcon({ name, size = 14, ...rest }: LangIconProps) {
 			return (
 				<img
 					src={isDark ? hermesDark : hermesLight}
-					alt="Hermes"
+					alt={i18next.t("common.productNames.hermes")}
 					width={size}
 					height={size}
 					{...rest}
@@ -144,7 +145,7 @@ export function LangIcon({ name, size = 14, ...rest }: LangIconProps) {
 			return (
 				<img
 					src={librechatLogo}
-					alt="LibreChat"
+					alt={i18next.t("common.productNames.librechat")}
 					width={size}
 					height={size}
 					{...rest}
@@ -155,7 +156,7 @@ export function LangIcon({ name, size = 14, ...rest }: LangIconProps) {
 			return (
 				<img
 					src={isDark ? zedDark : zedLight}
-					alt="ZED"
+					alt={i18next.t("common.productNames.zed")}
 					width={size}
 					height={size}
 					{...rest}
@@ -166,7 +167,7 @@ export function LangIcon({ name, size = 14, ...rest }: LangIconProps) {
 			return (
 				<img
 					src={isDark ? opencodeDark : opencodeLight}
-					alt="OpenCode"
+					alt={i18next.t("common.productNames.opencode")}
 					width={size}
 					height={size}
 					{...rest}

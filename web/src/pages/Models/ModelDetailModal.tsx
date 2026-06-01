@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Model } from "../../api/types";
 import { CapBadge } from "../../components/CapBadge";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
@@ -47,13 +48,14 @@ function RevertButton({
 	onClick: () => void;
 	className?: string;
 }) {
+	const { t } = useTranslation();
 	return (
 		<button
 			type="button"
 			onClick={onClick}
 			className={`text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer ${className ?? ""}`}
-			title="Revert to discovered value"
-			aria-label="Revert to discovered value"
+			title={t("model.revertToDiscoveredValue")}
+			aria-label={t("model.revertToDiscoveredValue")}
 		>
 			↩
 		</button>
@@ -94,6 +96,7 @@ export function ModelDetailModal({
 	onUpdate: (id: string, updates: Partial<Model>) => void;
 	onDelete: (id: string) => void;
 }) {
+	const { t } = useTranslation();
 	const caps = parseCapabilities(model.capabilities);
 	const params = parseParams(model.params);
 	const inputMods = (() => {
@@ -137,7 +140,7 @@ export function ModelDetailModal({
 		return () => {
 			if (timerRef.current) clearInterval(timerRef.current);
 			// eslint-disable-next-line react-hooks/exhaustive-deps -- cleanup reads ref at unmount time
-			for (const t of testErrorTimers.current) clearTimeout(t);
+			for (const timer of testErrorTimers.current) clearTimeout(timer);
 		};
 	}, []);
 
@@ -174,23 +177,34 @@ export function ModelDetailModal({
 					? ` | TTFT: ${(result.ttft_ms / 1000).toFixed(1)}s`
 					: "";
 				onToast(
-					`Success | Response: ${content}${ttftPart} | Duration: ${(result.duration_ms / 1000).toFixed(1)}s`,
+					t("models.detail.testSuccess", {
+						content,
+						ttftPart,
+						duration: (result.duration_ms / 1000).toFixed(1),
+					}),
 					"success",
 				);
 			} else {
 				setTestError(true);
-				onToast(`Test failed: ${result.error || "Unknown error"}`, "error");
-				const t = setTimeout(() => setTestError(false), 3000);
-				testErrorTimers.current.push(t);
+				onToast(
+					t("models.detail.testFailed", {
+						error: result.error || t("common.unknownError"),
+					}),
+					"error",
+				);
+				const timer = setTimeout(() => setTestError(false), 3000);
+				testErrorTimers.current.push(timer);
 			}
 		} catch (err) {
 			setTestError(true);
 			onToast(
-				`Test failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+				t("models.detail.testFailed", {
+					error: err instanceof Error ? err.message : t("common.unknownError"),
+				}),
 				"error",
 			);
-			const t = setTimeout(() => setTestError(false), 3000);
-			testErrorTimers.current.push(t);
+			const timer = setTimeout(() => setTestError(false), 3000);
+			testErrorTimers.current.push(timer);
 		} finally {
 			setTesting(false);
 		}
@@ -238,61 +252,61 @@ export function ModelDetailModal({
 	const SNIPPET_ENTRIES: SnippetEntry[] = [
 		{
 			key: "curl",
-			title: "cURL",
+			title: t("models.detail.snippet.curl"),
 			content: snippetCurlModel(modelSnippetOpts),
 			copyText: snippetCurlModelText(modelSnippetOpts),
 		},
 		{
 			key: "powershell",
-			title: "PowerShell",
+			title: t("models.detail.snippet.powershell"),
 			content: snippetPowershellModel(modelSnippetOpts),
 			copyText: snippetPowershellModelText(modelSnippetOpts),
 		},
 		{
 			key: "javascript",
-			title: "JavaScript",
+			title: t("models.detail.snippet.javascript"),
 			content: snippetJSModel(modelSnippetOpts),
 			copyText: snippetJSModelText(modelSnippetOpts),
 		},
 		{
 			key: "python",
-			title: "Python",
+			title: t("models.detail.snippet.python"),
 			content: snippetPythonModel(modelSnippetOpts),
 			copyText: snippetPythonModelText(modelSnippetOpts),
 		},
 		{
 			key: "claude",
-			title: "Claude Code",
+			title: t("models.detail.snippet.claudeCode"),
 			content: snippetClaudeCodeModel(modelSnippetOpts),
 			copyText: snippetClaudeCodeModelText(modelSnippetOpts),
 		},
 		{
 			key: "openclaw",
-			title: "OpenClaw",
+			title: t("models.detail.snippet.openClaw"),
 			content: snippetOpenClawModel(modelSnippetOpts),
 			copyText: snippetOpenClawModelText(modelSnippetOpts),
 		},
 		{
 			key: "hermes",
-			title: "Hermes",
+			title: t("models.detail.snippet.hermes"),
 			content: snippetHermesModel(modelSnippetOpts),
 			copyText: snippetHermesModelText(modelSnippetOpts),
 		},
 		{
 			key: "librechat",
-			title: "LibreChat",
+			title: t("models.detail.snippet.librechat"),
 			content: snippetLibreChatModel(modelSnippetOpts),
 			copyText: snippetLibreChatModelText(modelSnippetOpts),
 		},
 		{
 			key: "zed",
-			title: "ZED",
+			title: t("models.detail.snippet.zed"),
 			content: snippetZedModel(zedOpts),
 			copyText: snippetZedModelText(zedOpts),
 		},
 		{
 			key: "opencode",
-			title: "OpenCode",
+			title: t("models.detail.snippet.opencode"),
 			content: snippetOpencodeModel(opencodeOpts),
 			copyText: snippetOpencodeModelText(opencodeOpts),
 		},
@@ -313,7 +327,7 @@ export function ModelDetailModal({
 							<CopyablePill
 								text={pMid}
 								textClassName="text-sm text-gray-500 font-mono leading-tight"
-								tooltip="Click to copy model ID"
+								tooltip={t("model.clickToCopyModelId")}
 							/>
 						</div>
 					</div>
@@ -333,17 +347,21 @@ export function ModelDetailModal({
 
 			<div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm mb-4">
 				<div>
-					<span className="text-gray-500">Provider</span>
+					<span className="text-gray-500">{t("models.detail.provider")}</span>
 					<p className="text-gray-200">{model.provider_name}</p>
 				</div>
 				<div>
-					<span className="text-gray-500">Last Discovered</span>
+					<span className="text-gray-500">
+						{t("models.detail.lastDiscovered")}
+					</span>
 					<p className="text-gray-200">
 						{formatRelativeTime(model.last_seen_at)}
 					</p>
 				</div>
 				<div className="col-span-2">
-					<span className="text-gray-500">Display Name</span>
+					<span className="text-gray-500">
+						{t("models.detail.displayName")}
+					</span>
 					{editing ? (
 						<div className="flex items-center gap-1">
 							<input
@@ -369,7 +387,9 @@ export function ModelDetailModal({
 					)}
 				</div>
 				<div>
-					<span className="text-gray-500">Context Length</span>
+					<span className="text-gray-500">
+						{t("models.detail.contextLength")}
+					</span>
 					{editing ? (
 						<div className="flex items-center gap-1">
 							<input
@@ -384,7 +404,7 @@ export function ModelDetailModal({
 									}))
 								}
 								className="ui-input text-sm"
-								placeholder="tokens"
+								placeholder={t("models.detail.tokens")}
 							/>
 							{editData.context_length !==
 								(discoveredDefaults.context_length?.toString() ?? "") && (
@@ -393,12 +413,13 @@ export function ModelDetailModal({
 						</div>
 					) : (
 						<p className="text-gray-200">
-							{formatNumber(model.context_length)} tokens
+							{formatNumber(model.context_length)}
+							{t("models.detail.tokens")}
 						</p>
 					)}
 				</div>
 				<div>
-					<span className="text-gray-500">Max Output</span>
+					<span className="text-gray-500">{t("models.detail.maxOutput")}</span>
 					{editing ? (
 						<div className="flex items-center gap-1">
 							<input
@@ -413,7 +434,7 @@ export function ModelDetailModal({
 									}))
 								}
 								className="ui-input text-sm"
-								placeholder="tokens"
+								placeholder={t("models.detail.tokens")}
 							/>
 							{editData.max_output_tokens !==
 								(discoveredDefaults.max_output_tokens?.toString() ?? "") && (
@@ -424,12 +445,13 @@ export function ModelDetailModal({
 						</div>
 					) : (
 						<p className="text-gray-200">
-							{formatNumber(model.max_output_tokens)} tokens
+							{formatNumber(model.max_output_tokens)}
+							{t("models.detail.tokens")}
 						</p>
 					)}
 				</div>
 				<div>
-					<span className="text-gray-500">Input Price</span>
+					<span className="text-gray-500">{t("models.detail.inputPrice")}</span>
 					{editing ? (
 						<div className="flex items-center gap-1">
 							<div className="relative w-full">
@@ -446,10 +468,10 @@ export function ModelDetailModal({
 										}))
 									}
 									className="ui-input text-sm pr-16!"
-									placeholder="0.00"
+									placeholder={t("models.detail.placeholder.price")}
 								/>
 								<span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
-									/1M tok
+									{t("models.detail.perMillionTokens")}
 								</span>
 							</div>
 							{editData.input_price_per_million !==
@@ -471,7 +493,9 @@ export function ModelDetailModal({
 					)}
 				</div>
 				<div>
-					<span className="text-gray-500">Output Price</span>
+					<span className="text-gray-500">
+						{t("models.detail.outputPrice")}
+					</span>
 					{editing ? (
 						<div className="flex items-center gap-1">
 							<div className="relative w-full">
@@ -488,10 +512,10 @@ export function ModelDetailModal({
 										}))
 									}
 									className="ui-input text-sm pr-16!"
-									placeholder="0.00"
+									placeholder={t("models.detail.placeholder.price")}
 								/>
 								<span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
-									/1M tok
+									{t("models.detail.perMillionTokens")}
 								</span>
 							</div>
 							{editData.output_price_per_million !==
@@ -513,19 +537,23 @@ export function ModelDetailModal({
 					)}
 				</div>
 				<div>
-					<span className="text-gray-500">Input</span>
-					<p className="text-gray-200">{inputMods.join(", ") || "text"}</p>
+					<span className="text-gray-500">{t("models.detail.input")}</span>
+					<p className="text-gray-200">
+						{inputMods.join(", ") || t("models.detail.modality.text")}
+					</p>
 				</div>
 				<div>
-					<span className="text-gray-500">Output</span>
-					<p className="text-gray-200">{outputMods.join(", ") || "text"}</p>
+					<span className="text-gray-500">{t("models.detail.output")}</span>
+					<p className="text-gray-200">
+						{outputMods.join(", ") || t("models.detail.modality.text")}
+					</p>
 				</div>
 			</div>
 
 			{caps && (
 				<div className="mb-4">
 					<h3 className="text-sm font-medium text-gray-400 mb-2">
-						Capabilities
+						{t("models.detail.capabilities")}
 					</h3>
 					<div className="flex flex-wrap gap-1">
 						{CAP_META.map((m) => (
@@ -534,7 +562,7 @@ export function ModelDetailModal({
 					</div>
 					{!CAP_META.some((m) => hasCap(caps, m.key)) && (
 						<p className="text-sm text-gray-500">
-							No special capabilities detected
+							{t("model.noSpecialCapabilities")}
 						</p>
 					)}
 				</div>
@@ -543,7 +571,7 @@ export function ModelDetailModal({
 			{params && params.subscription_included !== undefined && (
 				<div className="mb-4">
 					<h3 className="text-sm font-medium text-gray-400 mb-2">
-						Subscription
+						{t("models.detail.subscription")}
 					</h3>
 					<div className="flex items-center gap-2">
 						<span
@@ -553,7 +581,9 @@ export function ModelDetailModal({
 									: "bg-yellow-900/40 text-yellow-300 border border-yellow-700/50"
 							}`}
 						>
-							{params.subscription_included ? "Included" : "Not included"}
+							{params.subscription_included
+								? t("model.subscription.included")
+								: t("model.subscription.notIncluded")}
 						</span>
 						{params.subscription_note ? (
 							<span className="text-sm text-gray-500">
@@ -567,7 +597,7 @@ export function ModelDetailModal({
 			<div className="mt-4 pt-4">
 				<div
 					role="tablist"
-					aria-label="Snippet format picker"
+					aria-label={t("models.detail.snippetFormatPicker")}
 					className="flex items-center gap-1 mb-3"
 				>
 					{SNIPPET_ENTRIES.map((entry) => (
@@ -611,7 +641,7 @@ export function ModelDetailModal({
 								: "bg-red-900/50 text-red-400 border-red-700/50 hover:brightness-125 hover:shadow-[var(--glow-box-red)]"
 						}`}
 					>
-						{model.enabled ? "Enabled" : "Disabled"}
+						{model.enabled ? t("common.enabled") : t("common.disabled")}
 					</button>
 					<button
 						type="button"
@@ -626,7 +656,7 @@ export function ModelDetailModal({
 						}`}
 					>
 						{testing && <Spinner />}
-						{testing ? "Testing…" : "Test"}
+						{testing ? t("models.detail.testing") : t("models.detail.test")}
 					</button>
 					{!confirmDelete ? (
 						<button
@@ -634,7 +664,7 @@ export function ModelDetailModal({
 							onClick={() => setConfirmDelete(true)}
 							className="px-3 py-1.5 text-xs rounded-full border bg-red-900/20 text-red-500/60 border-red-700/30 cursor-pointer hover:bg-red-900/40 hover:text-red-400 transition-all"
 						>
-							Delete
+							{t("common.delete")}
 						</button>
 					) : (
 						<button
@@ -645,7 +675,7 @@ export function ModelDetailModal({
 							}}
 							className="px-3 py-1.5 text-xs rounded-full border bg-red-900/50 text-red-400 border-red-700/50 cursor-pointer hover:brightness-125 hover:shadow-[var(--glow-box-red)] transition-all"
 						>
-							Confirm delete
+							{t("models.detail.confirmDelete")}
 						</button>
 					)}
 				</div>
@@ -657,14 +687,14 @@ export function ModelDetailModal({
 								onClick={handleCancelEdit}
 								className="ui-btn ui-btn-secondary"
 							>
-								Cancel
+								{t("common.cancel")}
 							</button>
 							<button
 								type="button"
 								onClick={handleSave}
 								className="ui-btn ui-btn-primary"
 							>
-								Save Changes
+								{t("common.saveChanges")}
 							</button>
 						</>
 					) : (
@@ -674,7 +704,7 @@ export function ModelDetailModal({
 								onClick={() => setEditing(true)}
 								className="ui-btn ui-btn-secondary"
 							>
-								Edit
+								{t("common.edit")}
 							</button>
 							<button
 								type="button"
@@ -688,12 +718,12 @@ export function ModelDetailModal({
 							>
 								{discovering ? (
 									<>
-										<Spinner /> Updating…
+										<Spinner /> {t("models.detail.updating")}
 									</>
 								) : cooldown > 0 ? (
-									`Update (${cooldown}s)`
+									t("models.detail.updateCooldown", { cooldown })
 								) : (
-									"Update info"
+									t("models.detail.updateInfo")
 								)}
 							</button>
 						</>
@@ -703,7 +733,7 @@ export function ModelDetailModal({
 
 			{confirmFields && (
 				<ConfirmDialog
-					title="Unsaved Changes"
+					title={t("delete_confirm.unsaved_changes")}
 					fields={confirmFields}
 					onConfirm={() => {
 						setConfirmFields(null);

@@ -1,5 +1,6 @@
 import { LayoutDashboard } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSelect } from "../../components/SettingsSelect";
 import { useToast } from "../../context/ToastContext";
@@ -13,6 +14,7 @@ export function DashboardRefreshSettings({
 	collapsed,
 	onToggle,
 }: DashboardRefreshSettingsProps) {
+	const { t } = useTranslation();
 	const { toast } = useToast();
 	const [refreshSec, setRefreshSec] = useState(() => {
 		try {
@@ -32,8 +34,11 @@ export function DashboardRefreshSettings({
 		window.dispatchEvent(new CustomEvent("dashboardRefreshChange"));
 		toast(
 			val === "0"
-				? "Dashboard auto-refresh disabled - use manual refresh"
-				: `Dashboard refresh set to every ${val} second${val === "1" ? "" : "s"}`,
+				? t("settings.dashboard.disabled")
+				: t("settings.dashboard.intervalSet", {
+						seconds: val,
+						count: Number(val),
+					}),
 			"success",
 		);
 	};
@@ -41,31 +46,50 @@ export function DashboardRefreshSettings({
 	return (
 		<SettingsSection
 			icon={LayoutDashboard}
-			title="Dashboard Refresh"
+			title={t("settings.dashboard.title")}
 			collapsed={collapsed}
 			onToggle={onToggle}
 		>
 			<div className="space-y-5">
 				<p className="text-gray-400 text-sm">
-					Configure how often the dashboard stats and charts are refreshed
-					automatically. Manual refresh button is hidden when set to 10 seconds
-					or faster.
+					{t("settings.dashboard.description")}
 				</p>
 				<SettingsSelect
 					id="dashboard-refresh-interval"
-					label="Refresh Interval"
+					label={t("settings.dashboard.refreshInterval")}
 					value={refreshSec}
 					options={[
-						{ value: "10", label: "10 seconds (manual refresh hidden)" },
-						{ value: "30", label: "30 seconds (default)" },
-						{ value: "60", label: "1 minute" },
-						{ value: "120", label: "2 minutes" },
-						{ value: "300", label: "5 minutes" },
-						{ value: "600", label: "10 minutes" },
-						{ value: "0", label: "Disabled (manual only)" },
+						{
+							value: "10",
+							label: t("settings.dashboard.intervals.10"),
+						},
+						{
+							value: "30",
+							label: t("settings.dashboard.intervals.30"),
+						},
+						{
+							value: "60",
+							label: t("settings.dashboard.intervals.60"),
+						},
+						{
+							value: "120",
+							label: t("settings.dashboard.intervals.120"),
+						},
+						{
+							value: "300",
+							label: t("settings.dashboard.intervals.300"),
+						},
+						{
+							value: "600",
+							label: t("settings.dashboard.intervals.600"),
+						},
+						{
+							value: "0",
+							label: t("settings.dashboard.intervals.disabled"),
+						},
 					]}
 					onChange={handleChange}
-					description="At 10 seconds the manual refresh button is hidden. Changes take effect on next navigation to the dashboard."
+					description={t("settings.dashboard.refreshInterval.description")}
 				/>
 			</div>
 		</SettingsSection>

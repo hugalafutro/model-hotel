@@ -6,6 +6,7 @@ import {
 	Settings,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { GenerationParams } from "../api/types";
 import { parseCapabilities } from "../utils/model";
 import type { CapKey } from "./capMeta";
@@ -86,6 +87,7 @@ export function ModelPicker({
 	disabled = false,
 	onRandom,
 }: ModelPickerProps) {
+	const { t } = useTranslation();
 	const [search, setSearch] = useState("");
 	const [providerFilter, setProviderFilter] = useState<Set<string>>(new Set());
 	const [capFilter, setCapFilter] = useState<Set<CapKey>>(new Set());
@@ -235,7 +237,7 @@ export function ModelPicker({
 					id={id ?? "model-picker-filter"}
 					value={search}
 					onChange={setSearch}
-					placeholder="Filter models…"
+					placeholder={t("components.modelPicker.filterModels")}
 					className="w-[320px]"
 					disabled={disabled}
 				/>
@@ -280,7 +282,7 @@ export function ModelPicker({
 							type="button"
 							onClick={() => setCapFilter(new Set())}
 							className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-400 hover:text-gray-200"
-							aria-label="Clear filter"
+							aria-label={t("components.modelPicker.clearFilter")}
 						>
 							✕
 						</button>
@@ -295,8 +297,8 @@ export function ModelPicker({
 							<button
 								type="button"
 								onClick={onRandom}
-								title="Random"
-								aria-label="Random model"
+								title={t("common.random")}
+								aria-label={t("common.random")}
 								className="cursor-pointer text-white/70 hover:text-(--accent) transition-colors p-1 flex items-center"
 							>
 								<Dices size={13} />
@@ -311,8 +313,8 @@ export function ModelPicker({
 							}
 							title={
 								collapsedProviders.size === groupedModels.size
-									? "Expand all providers"
-									: "Collapse all providers"
+									? t("components.modelPicker.expandAllProviders")
+									: t("components.modelPicker.collapseAllProviders")
 							}
 							className="cursor-pointer text-white/70 hover:text-(--accent) transition-colors p-1 flex items-center"
 						>
@@ -393,10 +395,10 @@ export function ModelPicker({
 															}`}
 															title={
 																paramsReadonly
-																	? "Parameters locked while running"
+																	? t("components.modelPicker.paramsLocked")
 																	: hasParams
-																		? "Edit generation parameters"
-																		: "Add generation parameters"
+																		? t("components.modelPicker.editParams")
+																		: t("components.modelPicker.addParams")
 															}
 														>
 															<Settings
@@ -416,7 +418,9 @@ export function ModelPicker({
 						);
 					})}
 					{filteredModels.length === 0 && (
-						<span className="text-xs text-(--text-muted)">No models match</span>
+						<span className="text-xs text-(--text-muted)">
+							{t("components.modelPicker.noModelsMatch")}
+						</span>
 					)}
 				</div>
 			</div>

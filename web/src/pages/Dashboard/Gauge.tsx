@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { dropTrailingZero } from "../../utils/format";
 
 export function Gauge({
@@ -19,6 +20,7 @@ export function Gauge({
 	tooltip?: string;
 	maxScale?: number;
 }) {
+	const { t } = useTranslation();
 	const radius = 40;
 	const circumference = 2 * Math.PI * radius;
 	const pathArc = circumference / 2;
@@ -37,7 +39,7 @@ export function Gauge({
 		>
 			<div className="relative w-28 h-14">
 				<svg className="w-full h-full" viewBox="0 0 100 60">
-					<title>Gauge</title>
+					<title>{t("dashboard.gauge.svgTitle")}</title>
 					<path
 						d="M 10 50 A 40 40 0 0 1 90 50"
 						fill="none"

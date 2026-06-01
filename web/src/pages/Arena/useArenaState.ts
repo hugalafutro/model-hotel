@@ -1,3 +1,4 @@
+import i18next from "i18next";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { GenerationParams } from "../../api/types";
 import type { ArenaSubMode } from "../../context/SidebarModeContext";
@@ -422,27 +423,36 @@ export function useArenaState(): ArenaStateAndActions {
 	const disabledReason = useMemo(() => {
 		if (phase === "setup") {
 			if (arenaMode === "compare") {
-				if (compareModels.length === 0) return "Select at least 2 models";
-				if (compareModels.length === 1) return "Pick at least 1 more model";
+				if (compareModels.length === 0)
+					return i18next.t("arena.disabledReason.selectTwoModels");
+				if (compareModels.length === 1)
+					return i18next.t("arena.disabledReason.pickOneMore");
 				if (new Set(compareModels).size !== compareModels.length)
-					return "No duplicate models";
-				if (!prompt.trim()) return "Enter a prompt";
+					return i18next.t("arena.disabledReason.noDuplicates");
+				if (!prompt.trim())
+					return i18next.t("arena.disabledReason.enterPrompt");
 				return "";
 			}
-			if (bracketModels.length === 0) return "Select 2, 4, or 8 models";
-			if (bracketModels.length === 1) return "Pick at least 1 more model";
+			if (bracketModels.length === 0)
+				return i18next.t("arena.disabledReason.selectBracketModels");
+			if (bracketModels.length === 1)
+				return i18next.t("arena.disabledReason.pickOneMore");
 			if (new Set(bracketModels).size !== bracketModels.length)
-				return "No duplicate models";
+				return i18next.t("arena.disabledReason.noDuplicates");
 			if (![2, 4, 8].includes(bracketModels.length)) {
 				const nextValid = nextBracketSize(bracketModels.length);
-				return `Pick ${nextValid - bracketModels.length} more or remove to get ${nextValid}`;
+				return i18next.t("arena.disabledReason.pickOrRemove", {
+					count: nextValid - bracketModels.length,
+					nextValid,
+				});
 			}
-			if (!prompt.trim()) return "Enter a prompt";
+			if (!prompt.trim()) return i18next.t("arena.disabledReason.enterPrompt");
 		}
 		if (phase === "voting")
-			return "Vote on all matchups to continue to the next round";
+			return i18next.t("arena.disabledReason.voteToContinue");
 		if (phase === "next_round_ready") {
-			if (!prompt.trim()) return "Enter a prompt for the next round";
+			if (!prompt.trim())
+				return i18next.t("arena.disabledReason.enterPromptNextRound");
 		}
 		return "";
 	}, [phase, arenaMode, compareModels, bracketModels, prompt]);

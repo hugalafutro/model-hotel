@@ -1,16 +1,18 @@
 import { memo } from "react";
+import { useTranslation } from "react-i18next";
 export const Logo = memo(function Logo({
 	className = "",
 }: {
 	className?: string;
 }) {
+	const { t } = useTranslation();
 	return (
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
 			viewBox="0 0 220 48"
 			className={className}
 			fill="none"
-			aria-label="Model Hotel"
+			aria-label={t("layout.title")}
 		>
 			{/* Hotel Building Icon */}
 			<g transform="translate(25, 6)">

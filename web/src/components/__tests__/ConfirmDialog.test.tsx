@@ -72,7 +72,7 @@ describe("ConfirmDialog", () => {
 			/>,
 		);
 		expect(screen.getByText("Cancel")).toBeInTheDocument();
-		expect(screen.getByText("Discard")).toBeInTheDocument();
+		expect(screen.getByText("Delete")).toBeInTheDocument();
 	});
 
 	it("calls onCancel when cancel button is clicked", async () => {
@@ -99,7 +99,7 @@ describe("ConfirmDialog", () => {
 				onCancel={onCancel}
 			/>,
 		);
-		await user.click(screen.getByText("Discard"));
+		await user.click(screen.getByText("Delete"));
 		expect(onConfirm).toHaveBeenCalledTimes(1);
 	});
 

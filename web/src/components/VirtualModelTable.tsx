@@ -7,6 +7,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { Model, ModelsCursorResponse, Provider } from "../api/types";
 import { useBidirectionalFetch } from "../hooks/useBidirectionalFetch";
@@ -64,6 +65,7 @@ export function VirtualModelTable({
 		field: "name",
 		dir: "asc",
 	});
+	const { t } = useTranslation();
 	const [confirmDeleteDisabled, setConfirmDeleteDisabled] = useState(false);
 
 	const scrollRef = useRef<HTMLDivElement>(null);
@@ -326,7 +328,7 @@ export function VirtualModelTable({
 					<FilterInput
 						value={searchQuery}
 						onChange={setSearchQuery}
-						placeholder="Search models…"
+						placeholder={t("components.virtualModelTable.searchModels")}
 						className="w-[320px]"
 						autoFocus
 					/>
@@ -335,9 +337,13 @@ export function VirtualModelTable({
 							type="button"
 							onClick={() => setConfirmDeleteDisabled(true)}
 							className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-red-400 border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 hover:border-red-400/50 transition-colors cursor-pointer"
-							aria-label={`Delete ${disabledCount} disabled model${disabledCount === 1 ? "" : "s"}`}
+							aria-label={t("components.virtualModelTable.deleteDisabledAria", {
+								count: disabledCount,
+							})}
 						>
-							Delete {disabledCount} disabled
+							{t("components.virtualModelTable.deleteDisabled", {
+								count: disabledCount,
+							})}
 						</button>
 					)}
 				</div>
@@ -377,9 +383,9 @@ export function VirtualModelTable({
 								<button
 									type="button"
 									className="cursor-pointer"
-									aria-label="Sort by model name"
+									aria-label={t("models.table.sortByModelName")}
 								>
-									Model{" "}
+									{t("models.table.model")}{" "}
 									<span className="inline-block w-3 text-center">
 										{sort.field === "name"
 											? sort.dir === "asc"
@@ -389,7 +395,7 @@ export function VirtualModelTable({
 									</span>
 								</button>
 							</th>
-							<th className={HEADER_BASE}>Capabilities</th>
+							<th className={HEADER_BASE}>{t("models.table.capabilities")}</th>
 							{showProviderCol && (
 								<th
 									className={`${HEADER_BASE} cursor-pointer select-none hover:text-gray-200`}
@@ -398,9 +404,9 @@ export function VirtualModelTable({
 									<button
 										type="button"
 										className="cursor-pointer"
-										aria-label="Sort by provider name"
+										aria-label={t("models.table.sortByProviderName")}
 									>
-										Provider{" "}
+										{t("models.table.provider")}{" "}
 										<span className="inline-block w-3 text-center">
 											{sort.field === "provider"
 												? sort.dir === "asc"
@@ -418,9 +424,9 @@ export function VirtualModelTable({
 								<button
 									type="button"
 									className="cursor-pointer"
-									aria-label="Sort by discovered date"
+									aria-label={t("models.table.sortByDiscoveredDate")}
 								>
-									Discovered{" "}
+									{t("models.table.discovered")}{" "}
 									<span className="inline-block w-3 text-center">
 										{sort.field === "discovered"
 											? sort.dir === "asc"
@@ -438,9 +444,9 @@ export function VirtualModelTable({
 								<button
 									type="button"
 									className="cursor-pointer"
-									aria-label="Sort by context length"
+									aria-label={t("models.table.sortByContextLength")}
 								>
-									Ctx{" "}
+									{t("models.table.ctx")}{" "}
 									<span className="inline-block w-3 text-center">
 										{sort.field === "context"
 											? sort.dir === "asc"
@@ -458,9 +464,9 @@ export function VirtualModelTable({
 								<button
 									type="button"
 									className="cursor-pointer"
-									aria-label="Sort by max output tokens"
+									aria-label={t("models.table.sortByMaxOutput")}
 								>
-									Max Out{" "}
+									{t("models.table.maxOut")}{" "}
 									<span className="inline-block w-3 text-center">
 										{sort.field === "output"
 											? sort.dir === "asc"
@@ -478,9 +484,9 @@ export function VirtualModelTable({
 								<button
 									type="button"
 									className="cursor-pointer"
-									aria-label="Sort by status"
+									aria-label={t("models.table.sortByStatus")}
 								>
-									Status{" "}
+									{t("models.table.status")}{" "}
 									<span className="inline-block w-3 text-center">
 										{sort.field === "status"
 											? sort.dir === "asc"
@@ -548,7 +554,7 @@ export function VirtualModelTable({
 									colSpan={showProviderCol ? 10 : 9}
 									className="px-4 py-8 text-center text-gray-500 text-sm"
 								>
-									No models found
+									{t("components.virtualModelTable.noModelsFound")}
 								</td>
 							</tr>
 						) : (
@@ -621,10 +627,10 @@ export function VirtualModelTable({
 												}`}
 											>
 												{isActive
-													? "Enabled"
+													? t("common.enabled")
 													: isManuallyDisabled
-														? "Manually Disabled"
-														: "Disabled"}
+														? t("common.manuallyDisabled")
+														: t("common.disabled")}
 											</span>
 										</td>
 									</tr>
@@ -642,24 +648,26 @@ export function VirtualModelTable({
 				</span>
 				<span className="flex items-center gap-2">
 					{isLoadingBefore && (
-						<span className="text-(--accent)">↻ Loading newer…</span>
+						<span className="text-(--accent)">{t("common.loadingNewer")}</span>
 					)}
 					{isLoadingAfter && (
-						<span className="text-(--accent)">↻ Loading older…</span>
+						<span className="text-(--accent)">{t("common.loadingOlder")}</span>
 					)}
 					{isLoadingInitial && !isLoadingBefore && !isLoadingAfter && (
-						<span className="text-(--accent)">↻ Loading…</span>
+						<span className="text-(--accent)">{t("common.loadingDots")}</span>
 					)}
 				</span>
 			</div>
 			{confirmDeleteDisabled && onDeleteDisabled && (
 				<ConfirmDialog
-					title="Delete Disabled Models"
-					message={`This will permanently delete ${disabledCount} disabled model${disabledCount === 1 ? "" : "s"}. If autodiscovery is enabled on their provider, they will be re-discovered on the next cycle. Disable autodiscovery on the provider to prevent this.`}
+					title={t("components.virtualModelTable.deleteDisabledModels")}
+					message={t("components.virtualModelTable.deleteDisabledMessage", {
+						count: disabledCount,
+					})}
 					fields={[
 						`${disabledCount} disabled model${disabledCount === 1 ? "" : "s"}`,
 					]}
-					confirmLabel="Delete"
+					confirmLabel={t("common.delete")}
 					onConfirm={() => {
 						onDeleteDisabled?.(disabledModelIds);
 						setConfirmDeleteDisabled(false);

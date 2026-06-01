@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Search } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSelect } from "../../components/SettingsSelect";
 import { Toggle } from "../../components/Toggle";
 import { useToast } from "../../context/ToastContext";
-import { DISCOVERY_INTERVALS } from "./constants";
 
 interface DiscoverySettingsProps {
 	collapsed: boolean;
@@ -16,6 +16,7 @@ export function DiscoverySettings({
 	collapsed,
 	onToggle,
 }: DiscoverySettingsProps) {
+	const { t } = useTranslation();
 	const { toast } = useToast();
 	const queryClient = useQueryClient();
 
@@ -29,32 +30,44 @@ export function DiscoverySettings({
 			api.settings.update(updates),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["settings"] });
-			toast("Settings saved", "success");
+			toast(t("settings.common.settingsSaved"), "success");
 		},
 		onError: (err: Error) => {
-			toast(`Failed to save: ${err.message}`, "error");
+			toast(
+				t("settings.common.failedToSave", { message: err.message }),
+				"error",
+			);
 		},
 	});
 
 	const isUpdating = updateMutation.isPending;
 	const discoveryInterval = settings?.discovery_interval || "6h";
+
+	const DISCOVERY_INTERVALS = [
+		{ value: "30m", label: t("settings.discovery.intervals.30m") },
+		{ value: "1h", label: t("settings.discovery.intervals.1h") },
+		{ value: "6h", label: t("settings.discovery.intervals.6h") },
+		{ value: "12h", label: t("settings.discovery.intervals.12h") },
+		{ value: "24h", label: t("settings.discovery.intervals.24h") },
+		{ value: "0", label: t("settings.discovery.intervals.disabled") },
+	];
 	const discoveryOnStartup = settings?.discovery_on_startup !== "false";
 	const discoveryOnCreate = settings?.discovery_on_provider_create !== "false";
 
 	return (
 		<SettingsSection
 			icon={Search}
-			title="Model Discovery"
+			title={t("settings.discovery.title")}
 			collapsed={collapsed}
 			onToggle={onToggle}
 		>
 			<div className="space-y-5">
 				<p className="text-gray-400 text-sm">
-					Configure how and when models are auto-discovered from your providers.
+					{t("settings.discovery.description")}
 				</p>
 				<SettingsSelect
 					id="discovery-interval"
-					label="Discovery Interval"
+					label={t("settings.discovery.discoveryInterval")}
 					value={discoveryInterval}
 					options={DISCOVERY_INTERVALS}
 					onChange={(v) => updateMutation.mutate({ discovery_interval: v })}
@@ -62,12 +75,10 @@ export function DiscoverySettings({
 					description={
 						discoveryInterval === "0" ? (
 							<span className="text-amber-400">
-								Periodic discovery is disabled. Models will only be discovered
-								when you click &quot;Discover Now&quot; or &quot;Discover
-								All&quot;, or when a new provider is created.
+								{t("settings.discovery.discoveryInterval.disabled")}
 							</span>
 						) : (
-							"How often to automatically re-discover models from all enabled providers"
+							t("settings.discovery.discoveryInterval.description")
 						)
 					}
 				/>
@@ -75,10 +86,10 @@ export function DiscoverySettings({
 				<div className="flex items-center justify-between">
 					<div>
 						<p className="text-sm font-medium text-gray-300">
-							Discover on Startup
+							{t("settings.discovery.discoverOnStartup")}
 						</p>
 						<p className="text-gray-500 text-xs mt-0.5">
-							Run discovery for all providers when the server starts
+							{t("settings.discovery.discoverOnStartupDescription")}
 						</p>
 					</div>
 					<Toggle
@@ -89,17 +100,17 @@ export function DiscoverySettings({
 							})
 						}
 						disabled={isUpdating}
-						ariaLabel="Discover on Startup"
+						ariaLabel={t("settings.discovery.discoverOnStartup")}
 					/>
 				</div>
 
 				<div className="flex items-center justify-between">
 					<div>
 						<p className="text-sm font-medium text-gray-300">
-							Discover on Provider Creation
+							{t("settings.discovery.discoverOnProviderCreation")}
 						</p>
 						<p className="text-gray-500 text-xs mt-0.5">
-							Automatically discover models when a new provider is added
+							{t("settings.discovery.discoverOnProviderCreationDescription")}
 						</p>
 					</div>
 					<Toggle
@@ -110,7 +121,7 @@ export function DiscoverySettings({
 							})
 						}
 						disabled={isUpdating}
-						ariaLabel="Discover on Provider Creation"
+						ariaLabel={t("settings.discovery.discoverOnProviderCreation")}
 					/>
 				</div>
 			</div>

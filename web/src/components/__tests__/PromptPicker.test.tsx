@@ -370,7 +370,7 @@ describe("PromptPicker", () => {
 				/>,
 			);
 			await user.click(screen.getByText("⚖️Dilemma"));
-			await user.click(screen.getByText("Discard"));
+			await user.click(screen.getByText("Delete"));
 			expect(mockOnPromptChange).toHaveBeenCalledWith(
 				"Present a moral dilemma",
 			);
@@ -424,7 +424,7 @@ describe("PromptPicker", () => {
 				/>,
 			);
 			await user.click(screen.getByText("✏️Custom"));
-			await user.click(screen.getByText("Discard"));
+			await user.click(screen.getByText("Delete"));
 			expect(mockOnPromptChange).toHaveBeenCalledWith("");
 			expect(mockOnActivePromptIdChange).toHaveBeenCalledWith(null);
 		});
@@ -499,7 +499,7 @@ describe("PromptPicker", () => {
 				/>,
 			);
 			await user.click(screen.getByTitle("Random"));
-			await user.click(screen.getByText("Discard"));
+			await user.click(screen.getByText("Delete"));
 			expect(mockOnPromptChange).toHaveBeenCalledTimes(1);
 			expect(mockOnActivePromptIdChange).toHaveBeenCalledTimes(1);
 		});

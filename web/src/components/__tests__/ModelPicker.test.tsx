@@ -568,7 +568,7 @@ describe("ModelPicker", () => {
 			renderWithProviders(
 				<ModelPicker {...defaultProps} onRandom={onRandom} />,
 			);
-			const randomButton = screen.getByRole("button", { name: "Random model" });
+			const randomButton = screen.getByRole("button", { name: /Random/ });
 			expect(randomButton).toBeInTheDocument();
 		});
 
@@ -577,7 +577,7 @@ describe("ModelPicker", () => {
 			const { user } = renderWithProviders(
 				<ModelPicker {...defaultProps} onRandom={onRandom} />,
 			);
-			const randomButton = screen.getByRole("button", { name: "Random model" });
+			const randomButton = screen.getByRole("button", { name: /Random/ });
 			await user.click(randomButton);
 			expect(onRandom).toHaveBeenCalledTimes(1);
 		});

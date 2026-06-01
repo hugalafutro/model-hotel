@@ -79,10 +79,12 @@ export async function setupAndRunArena(
 	// Click Run Arena
 	await user.click(screen.getByRole("button", { name: /Run Arena/i }));
 
-	// Wait for streaming to start (Stop button appears)
+	// Wait for streaming to start (Stop All button appears)
 	await waitFor(
 		() => {
-			expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: "Stop All" }),
+			).toBeInTheDocument();
 		},
 		{ timeout: 2000 },
 	);

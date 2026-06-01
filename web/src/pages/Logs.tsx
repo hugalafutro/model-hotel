@@ -5,6 +5,7 @@ import {
 } from "@tanstack/react-query";
 import { FileText, ScrollText } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { LogEntry } from "../api/types";
 import { Badge } from "../components/Badge";
@@ -44,6 +45,7 @@ import { formatMs, formatTPS } from "./Logs/utils";
    Main Logs page
    ===================================================== */
 function RequestLogs() {
+	const { t } = useTranslation();
 	type LogSortField =
 		| "time"
 		| "model"
@@ -348,8 +350,8 @@ function RequestLogs() {
 			>
 				<PageHeader
 					icon={ScrollText}
-					title="Requests"
-					description="Monitor API requests across all providers and keys"
+					title={t("logs.tabs.requests")}
+					description={t("logs.description")}
 					badge={
 						<LiveToggleButton enabled={liveEnabled} onToggle={setLiveEnabled} />
 					}
@@ -365,7 +367,7 @@ function RequestLogs() {
 									setPageSize(s);
 									setPage(1);
 								}}
-								label="entries"
+								label={t("logs.pagination.label")}
 							/>
 						) : undefined
 					}
@@ -385,7 +387,7 @@ function RequestLogs() {
 								}`}
 							>
 								<ScrollText size={12} className="inline mr-1 -mt-0.5" />
-								Requests
+								{t("logs.tabs.requests")}
 							</button>
 							<button
 								type="button"
@@ -397,7 +399,7 @@ function RequestLogs() {
 								}`}
 							>
 								<FileText size={12} className="inline mr-1 -mt-0.5" />
-								Logs
+								{t("logs.tabs.logs")}
 							</button>
 						</div>
 						<div className="flex items-center gap-2">
@@ -408,7 +410,7 @@ function RequestLogs() {
 									setFilters({ ...filters, model_id: v });
 									setPage(1);
 								}}
-								placeholder="Filter by model ID…"
+								placeholder={t("logs.filters.modelPlaceholder")}
 								className="w-[320px]"
 								autoFocus
 							/>
@@ -418,7 +420,7 @@ function RequestLogs() {
 									setFilters({ ...filters, provider_id: v });
 									setPage(1);
 								}}
-								placeholder="Filter by provider…"
+								placeholder={t("logs.filters.providerPlaceholder")}
 								className="w-50"
 							/>
 							<FilterDropdown
@@ -427,7 +429,7 @@ function RequestLogs() {
 									setFilters({ ...filters, status_code: v });
 									setPage(1);
 								}}
-								placeholder="Status"
+								placeholder={t("logs.filters.status")}
 								options={[
 									{ value: "2xx", label: "2XX" },
 									{ value: "4xx", label: "4XX" },
@@ -469,7 +471,9 @@ function RequestLogs() {
 				{/* Error state - show message when fetch fails and no fallback data */}
 				{error && !logsData && displayEntries.length === 0 && (
 					<LogsErrorState
-						message={`Failed to load logs: ${(error as Error).message || "Unknown error"}`}
+						message={t("logs.toast.loadFailed", {
+							message: (error as Error).message || t("common.unknownError"),
+						})}
 					/>
 				)}
 
@@ -484,84 +488,84 @@ function RequestLogs() {
 							<thead>
 								<tr>
 									<SortableHeader
-										label="Time/Date"
+										label={t("logs.table.timeDate")}
 										field="time"
 										sort={sort}
 										onSort={handleSort}
-										tooltip="Timestamp of the request"
+										tooltip={t("logs.tooltip.timeDate")}
 									/>
-									<StaticHeader tooltip="Unique hash of the request body">
-										Hash
+									<StaticHeader tooltip={t("logs.tooltip.hash")}>
+										{t("logs.table.hash")}
 									</StaticHeader>
 									<SortableHeader
-										label="Model"
+										label={t("logs.table.model")}
 										field="model"
 										sort={sort}
 										onSort={handleSort}
-										tooltip="Model ID used for the request"
+										tooltip={t("logs.tooltip.model")}
 									/>
 									<SortableHeader
-										label="Provider"
+										label={t("logs.table.provider")}
 										field="provider"
 										sort={sort}
 										onSort={handleSort}
-										tooltip="Provider handling the request"
+										tooltip={t("logs.tooltip.provider")}
 									/>
 									<SortableHeader
-										label="Status"
+										label={t("logs.table.status")}
 										field="status"
 										sort={sort}
 										onSort={handleSort}
-										tooltip="HTTP status code of the response"
+										tooltip={t("logs.tooltip.status")}
 									/>
 									<SortableHeader
-										label="Tokens"
+										label={t("logs.table.tokens")}
 										field="tokens"
 										sort={sort}
 										onSort={handleSort}
-										tooltip="Prompt + completion tokens (if available)"
+										tooltip={t("logs.tooltip.tokens")}
 									/>
 									<SortableHeader
-										label="T/s"
+										label={t("logs.table.tps")}
 										field="tps"
 										sort={sort}
 										onSort={handleSort}
-										tooltip="Tokens generated per second"
+										tooltip={t("logs.tooltip.tps")}
 									/>
 									<SortableHeader
-										label="Headers"
+										label={t("logs.table.headers")}
 										field="response_header_ms"
 										sort={sort}
 										onSort={handleSort}
-										tooltip="Time to response headers"
+										tooltip={t("logs.tooltip.headers")}
 									/>
 									<SortableHeader
-										label="TTFT"
+										label={t("logs.table.ttft")}
 										field="ttft"
 										sort={sort}
 										onSort={handleSort}
-										tooltip="Time to first token"
+										tooltip={t("logs.tooltip.ttft")}
 									/>
 									<SortableHeader
-										label="Duration"
+										label={t("logs.table.duration")}
 										field="duration"
 										sort={sort}
 										onSort={handleSort}
-										tooltip="Total request duration"
+										tooltip={t("logs.tooltip.duration")}
 									/>
 									<SortableHeader
-										label="Overhead"
+										label={t("logs.table.overhead")}
 										field="overhead"
 										sort={sort}
 										onSort={handleSort}
-										tooltip="Proxy overhead (parsing, lookups, etc)"
+										tooltip={t("logs.tooltip.overhead")}
 									/>
 									<SortableHeader
-										label="Key"
+										label={t("logs.table.key")}
 										field="key"
 										sort={sort}
 										onSort={handleSort}
-										tooltip="Virtual key used for authentication"
+										tooltip={t("logs.tooltip.key")}
 									/>
 								</tr>
 							</thead>
@@ -631,13 +635,13 @@ function RequestLogs() {
 													{log.provider_name === "Deleted" ? (
 														<span
 															className="text-red-400 italic"
-															title="Provider was deleted"
+															title={t("logs.table.providerDeleted")}
 														>
-															Deleted
+															{t("logs.table.deletedProvider")}
 														</span>
 													) : isInProgress(log) && !log.provider_name ? (
 														<span className="text-blue-400/60 italic">
-															Resolving…
+															{t("logs.table.resolving")}
 														</span>
 													) : (
 														log.provider_name || "-"
@@ -655,7 +659,9 @@ function RequestLogs() {
 															<span className="text-yellow-500/70">⚠</span>
 														) : isInProgress(log) ? (
 															<span className="text-blue-400">
-																{log.state === "streaming" ? "Live" : "…"}
+																{log.state === "streaming"
+																	? t("logs.table.live")
+																	: "…"}
 															</span>
 														) : (
 															log.status_code
@@ -664,7 +670,7 @@ function RequestLogs() {
 												</td>
 												<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
 													{isCancelled(log.error_message) ? (
-														"Interrupted"
+														t("logs.table.interrupted")
 													) : log.tokens_prompt + log.tokens_completion > 0 ? (
 														<>
 															{formatNumber(log.tokens_prompt)}
@@ -687,7 +693,7 @@ function RequestLogs() {
 															}
 															title={
 																log.tokens_prompt_cache_hit > 0
-																	? "Inflated by prompt cache hits"
+																	? t("logs.table.cacheInflated")
 																	: undefined
 															}
 														>
@@ -745,12 +751,14 @@ function RequestLogs() {
 													}
 												>
 													{log.virtual_key_deleted ? (
-														<span className="text-red-400 italic">Deleted</span>
+														<span className="text-red-400 italic">
+															{t("logs.table.keyDeleted")}
+														</span>
 													) : log.virtual_key_name &&
 														log.virtual_key_name.toLowerCase() ===
 															"internal" ? (
 														<span className="text-gray-400 italic">
-															internal
+															{t("common.internal")}
 														</span>
 													) : (
 														log.virtual_key_name || log.virtual_key_id || "-"
@@ -760,7 +768,10 @@ function RequestLogs() {
 										);
 									})
 								) : (
-									<EmptyRow colSpan={12} message="No logs found" />
+									<EmptyRow
+										colSpan={12}
+										message={t("logs.emptyState.requests")}
+									/>
 								)}
 							</tbody>
 						</table>
@@ -773,7 +784,11 @@ function RequestLogs() {
 							<LoadingSpinner />
 						)}
 						{scrollError && scrollEntries.length === 0 && (
-							<LogsErrorState message={`Failed to load logs: ${scrollError}`} />
+							<LogsErrorState
+								message={t("logs.toast.scrollLoadFailed", {
+									message: scrollError,
+								})}
+							/>
 						)}
 						{(!isScrollLoading || scrollEntries.length > 0) && (
 							<VirtualLogTable

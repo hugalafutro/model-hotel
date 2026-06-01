@@ -23,6 +23,7 @@ import {
 	X,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import type { AppLogEntry, LogEntry } from "../api/types";
@@ -138,6 +139,7 @@ function formatBytesPerSec(bytesPerSec: number) {
 }
 
 function SystemStatus() {
+	const { t } = useTranslation();
 	const { data: stats, isError } = useQuery({
 		queryKey: ["system"],
 		queryFn: () => api.system.get(),
@@ -207,16 +209,16 @@ function SystemStatus() {
 			<div className="sidebar-stats-trigger">
 				<div
 					className="flex justify-between items-center text-[11px] font-mono text-(--text-tertiary) flex-1 min-w-0"
-					title="Proxy API health status"
+					title={t("layout.status.apiStatus")}
 				>
-					<span>API Status</span>
+					<span>{t("layout.status.apiStatus")}</span>
 					<span
 						className={`flex items-center ${isError ? "text-red-400" : "text-green-400"}`}
 					>
 						<span
 							className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isError ? "bg-red-400" : "bg-green-400"}`}
 						/>
-						{isError ? "Error" : "Online"}
+						{isError ? t("layout.status.error") : t("layout.status.online")}
 					</span>
 				</div>
 			</div>
@@ -228,9 +230,9 @@ function SystemStatus() {
 						{/* Uptime */}
 						<div
 							className="flex justify-between items-center text-(--text-tertiary)"
-							title="How long the server process has been running"
+							title={t("layout.tooltips.uptime")}
 						>
-							<span>Uptime</span>
+							<span>{t("layout.stats.uptime")}</span>
 							<span className="text-(--text-secondary)">
 								{app ? formatDuration(app.uptime_seconds) : dash}
 							</span>
@@ -242,10 +244,10 @@ function SystemStatus() {
 							title={
 								useDocker
 									? `Aggregate CPU across ${docker.container_count} compose containers`
-									: "Container CPU usage and process count from cgroup"
+									: t("layout.stats.cpu")
 							}
 						>
-							<span>CPU</span>
+							<span>{t("layout.stats.cpu")}</span>
 							<span className={`text-(--text-secondary) ${dc(cpuPct, 75, 90)}`}>
 								{cpuPct != null && cpuPct >= 0 ? (
 									<>
@@ -260,7 +262,7 @@ function SystemStatus() {
 													{procs}
 													<span className={u}>
 														{" "}
-														proc{procs !== 1 ? "s" : ""}
+														{t("layout.stats.procs", { count: procs })}
 													</span>
 												</span>
 											</>
@@ -278,10 +280,10 @@ function SystemStatus() {
 							title={
 								useDocker
 									? `Aggregate network across ${docker.container_count} compose containers`
-									: "Container network throughput (receive / transmit)"
+									: t("layout.stats.network")
 							}
 						>
-							<span>Network</span>
+							<span>{t("layout.stats.network")}</span>
 							<span className="text-(--text-secondary) tabular-nums">
 								<span className="text-sky-400/60 inline-block min-w-22 text-right">
 									{typeof netRx === "number" ? (
@@ -306,10 +308,10 @@ function SystemStatus() {
 							title={
 								useDocker
 									? `Aggregate disk I/O across ${docker.container_count} compose containers`
-									: "Container disk I/O throughput (read / write)"
+									: t("layout.stats.disk")
 							}
 						>
-							<span>Disk</span>
+							<span>{t("layout.stats.disk")}</span>
 							<span className="text-(--text-secondary) tabular-nums">
 								<span className="text-sky-400/60 inline-block min-w-22 text-right">
 									{typeof diskRead === "number" ? (
@@ -335,11 +337,11 @@ function SystemStatus() {
 								dockerMem
 									? `Aggregate memory across ${docker.container_count} compose containers`
 									: hasLimit
-										? "Container memory usage vs cgroup limit"
-										: "Go runtime heap allocation"
+										? t("layout.stats.memory")
+										: t("layout.stats.memory")
 							}
 						>
-							<span>Memory</span>
+							<span>{t("layout.stats.memory")}</span>
 							<span
 								className={`text-(--text-secondary) ${dc(memUsagePct, 75, 90)}`}
 							>
@@ -350,9 +352,9 @@ function SystemStatus() {
 						{/* Goroutines */}
 						<div
 							className="flex justify-between items-center text-(--text-tertiary)"
-							title="Active Go runtime goroutines (lightweight threads)"
+							title={t("layout.tooltips.goroutines")}
 						>
-							<span>Go routines</span>
+							<span>{t("layout.stats.goroutines")}</span>
 							<span
 								className={`text-(--text-secondary) ${dc(app?.goroutines, 300, 1000)}`}
 							>
@@ -363,9 +365,9 @@ function SystemStatus() {
 						{/* Requests Today */}
 						<div
 							className="flex justify-between items-center text-(--text-tertiary)"
-							title="Number of proxied LLM requests since midnight local time today"
+							title={t("layout.tooltips.requestsToday")}
 						>
-							<span>Req Today</span>
+							<span>{t("layout.stats.requestsToday")}</span>
 							<span className="text-(--text-secondary)">
 								{app && app.requests_today > 0
 									? formatNumber(app.requests_today)
@@ -375,27 +377,27 @@ function SystemStatus() {
 
 						{/* DB: size & hit ratio / connections & tx/sec */}
 						<div className="flex justify-between items-center text-(--text-tertiary)">
-							<span className="self-center">DB</span>
+							<span className="self-center">{t("layout.stats.db")}</span>
 							<span className="grid grid-cols-[1fr_auto_1fr] grid-rows-[auto_auto] gap-x-2 items-center text-right">
 								{stats?.db ? (
 									<>
 										<span
 											className="text-(--text-secondary)"
-											title="Postgres database size on disk"
+											title={t("layout.tooltips.dbSize")}
 										>
 											{formatMB(stats.db.size_mb)}
 										</span>
 										<span className="text-(--text-secondary)">|</span>
 										<span
 											className={`text-(--text-secondary) ${dc(stats.db.cache_hit_ratio, 90, 80, true)}`}
-											title="Buffer cache hit ratio (higher is better)"
+											title={t("layout.tooltips.dbHitRatio")}
 										>
 											Hit {stats.db.cache_hit_ratio}
 											<span className={u}>%</span>
 										</span>
 										<span
 											className="text-(--text-secondary)"
-											title="Active database connections"
+											title={t("layout.tooltips.dbConnections")}
 										>
 											{stats.db.connections}
 											<span className={u}> conn</span>
@@ -403,7 +405,7 @@ function SystemStatus() {
 										<span className="text-(--text-secondary)">|</span>
 										<span
 											className="text-(--text-secondary)"
-											title="Database transactions per second"
+											title={t("layout.tooltips.dbTxPerSec")}
 										>
 											{stats.db.tx_per_sec.toFixed(1)}
 											<span className={u}> tx/s</span>
@@ -430,8 +432,8 @@ function SystemStatus() {
 					onToggle={toggleCollapsed}
 					size={10}
 					iconStyle="double"
-					expandTitle="Expand stats"
-					collapseTitle="Collapse stats"
+					expandTitle={t("layout.expandStats")}
+					collapseTitle={t("layout.collapseStats")}
 				/>
 			</div>
 		</div>
@@ -443,6 +445,7 @@ interface LayoutProps {
 }
 
 function LastErrorPills() {
+	const { t } = useTranslation();
 	const navigate = useNavigate();
 	const { setLogsSubMode } = useSidebarMode();
 	const { toast } = useToast();
@@ -564,8 +567,8 @@ function LastErrorPills() {
 						title={timestamp ? formatTimestamp(timestamp) : undefined}
 					>
 						{timestamp
-							? `${label === "App" ? "App Err" : "Req Err"} ${formatRelativeTime(timestamp)}`
-							: `${label} Error`}
+							? `${label === "App" ? t("layout.errorPill.appError") : t("layout.errorPill.requestError")} ${formatRelativeTime(timestamp)}`
+							: `${label}${t("layout.errorPill.error")}`}
 					</span>
 				</div>
 				<div className="flex gap-0.5">
@@ -574,10 +577,10 @@ function LastErrorPills() {
 						onClick={(e) => {
 							e.stopPropagation();
 							navigator.clipboard.writeText(msg);
-							toast("Copied to clipboard", "info");
+							toast(t("common.copiedToClipboard"), "info");
 						}}
 						className="p-0.5 rounded text-[var(--error-text-muted)] hover:text-[var(--error-text)] hover:bg-[var(--error-bg-strong)] transition-colors cursor-pointer"
-						title="Copy error"
+						title={t("layout.errorPill.copyError")}
 					>
 						<Copy size={10} />
 					</button>
@@ -593,7 +596,7 @@ function LastErrorPills() {
 							}
 						}}
 						className="p-0.5 rounded text-[var(--error-text-muted)] hover:text-[var(--error-text)] hover:bg-[var(--error-bg-strong)] transition-colors cursor-pointer"
-						title="View details"
+						title={t("layout.errorPill.viewDetails")}
 					>
 						<ExternalLink size={10} />
 					</button>
@@ -602,10 +605,15 @@ function LastErrorPills() {
 						onClick={(e) => {
 							e.stopPropagation();
 							onAcknowledge();
-							toast(`${label} error acknowledged`, "info");
+							toast(
+								label === "App"
+									? t("layout.toast.appErrorAcknowledged")
+									: t("layout.toast.requestErrorAcknowledged"),
+								"info",
+							);
 						}}
 						className="p-0.5 rounded text-[var(--error-text-muted)] hover:text-[var(--error-text)] hover:bg-[var(--error-bg-strong)] transition-colors cursor-pointer"
-						title="Acknowledge (dismiss)"
+						title={t("layout.errorPill.acknowledge")}
 					>
 						<X size={10} />
 					</button>
@@ -641,7 +649,7 @@ function LastErrorPills() {
 						"app",
 						() => {
 							dismissAppError(appErrorKey);
-							toast("App error acknowledged", "info");
+							toast(t("layout.toast.appErrorAcknowledged"), "info");
 						},
 						lastAppTimestamp ?? null,
 						lastAppEntry,
@@ -654,7 +662,7 @@ function LastErrorPills() {
 						"request",
 						() => {
 							dismissReqError(reqErrorKey);
-							toast("Request error acknowledged", "info");
+							toast(t("layout.toast.requestErrorAcknowledged"), "info");
 						},
 						lastReqTimestamp ?? null,
 						lastReqEntry,
@@ -665,6 +673,7 @@ function LastErrorPills() {
 }
 
 export function Layout({ children }: LayoutProps) {
+	const { t } = useTranslation();
 	const location = useLocation();
 	const navigate = useNavigate();
 	const { theme, setTheme } = useTheme();
@@ -681,40 +690,48 @@ export function Layout({ children }: LayoutProps) {
 	const { running, updateAvailable } = useGitHubVersion();
 
 	const navigation = [
-		{ name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
 		{
-			name: "Chat",
+			name: t("layout.nav.dashboard"),
+			href: "/dashboard",
+			icon: LayoutDashboard,
+		},
+		{
+			name: t("layout.nav.chat"),
 			href: "/chat",
 			icon: (mode: string) =>
 				mode === "conversation" ? MessagesSquare : MessageSquare,
 			subModes: [
-				{ label: "Chat", value: "chat" as const },
-				{ label: "Conversation", value: "conversation" as const },
+				{ label: t("layout.nav.chat"), value: "chat" as const },
+				{ label: t("layout.nav.conversation"), value: "conversation" as const },
 			],
 		},
 		{
-			name: "Arena",
+			name: t("layout.nav.arena"),
 			href: "/arena",
 			icon: (mode: string) => (mode === "compare" ? GitCompare : Swords),
 			subModes: [
-				{ label: "Arena", value: "competition" as const },
-				{ label: "Compare", value: "compare" as const },
+				{ label: t("layout.nav.arena"), value: "competition" as const },
+				{ label: t("layout.nav.compare"), value: "compare" as const },
 			],
 		},
-		{ name: "Providers", href: "/providers", icon: PlugZap },
-		{ name: "Models", href: "/models", icon: Bot },
-		{ name: "Failover", href: "/failover", icon: Shuffle },
-		{ name: "Virtual Keys", href: "/virtual-keys", icon: KeyRound },
+		{ name: t("layout.nav.providers"), href: "/providers", icon: PlugZap },
+		{ name: t("layout.nav.models"), href: "/models", icon: Bot },
+		{ name: t("layout.nav.failover"), href: "/failover", icon: Shuffle },
 		{
-			name: "Logs",
+			name: t("layout.nav.virtualKeys"),
+			href: "/virtual-keys",
+			icon: KeyRound,
+		},
+		{
+			name: t("layout.nav.logs"),
 			href: "/logs",
 			icon: (mode: string) => (mode === "app" ? FileText : ScrollText),
 			subModes: [
-				{ label: "Requests", value: "request" as const },
-				{ label: "Logs", value: "app" as const },
+				{ label: t("layout.nav.requests"), value: "request" as const },
+				{ label: t("layout.nav.appLogs"), value: "app" as const },
 			],
 		},
-		{ name: "Settings", href: "/settings", icon: Settings },
+		{ name: t("layout.nav.settings"), href: "/settings", icon: Settings },
 	];
 
 	// Generic sub-mode state: maps each nav href to its current mode and setter.
@@ -754,11 +771,9 @@ export function Layout({ children }: LayoutProps) {
 			<aside className="w-64 ui-sidebar shrink-0 flex flex-col min-h-0">
 				<div className="px-6 pt-3 pb-3 text-center shrink-0">
 					<Logo className="h-10 w-auto text-white mx-auto" />
-					<p className="text-sm text-gray-200 mt-1">
-						Multi-Provider AI Gateway
-					</p>
+					<p className="text-sm text-gray-200 mt-1">{t("layout.subtitle")}</p>
 					<p className="text-xs text-(--accent) mt-0.5 italic">
-						"Because we have LiteLLM at home"
+						{t("layout.tagline")}
 					</p>
 				</div>
 				<nav className="flex-1 min-h-0 px-4 py-2 overflow-y-auto">
@@ -831,7 +846,7 @@ export function Layout({ children }: LayoutProps) {
 							className="sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5"
 						>
 							<BookOpen size={14} strokeWidth={2} />
-							Docs
+							{t("layout.docs")}
 						</a>
 						<button
 							type="button"
@@ -839,8 +854,8 @@ export function Layout({ children }: LayoutProps) {
 							className="sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5 cursor-pointer"
 							title={
 								theme === "dark"
-									? "Switch to light mode"
-									: "Switch to dark mode"
+									? t("layout.theme.switchToLight")
+									: t("layout.theme.switchToDark")
 							}
 						>
 							{theme === "dark" ? (
@@ -853,11 +868,11 @@ export function Layout({ children }: LayoutProps) {
 							href="https://github.com/hugalafutro/model-hotel"
 							target="_blank"
 							rel="noopener noreferrer"
-							aria-label="GitHub repository"
+							aria-label={t("layout.githubRepo")}
 							title={
 								updateAvailable
-									? `Update available: ${running} → latest`
-									: `Running ${running}`
+									? t("layout.updateAvailable", { running })
+									: t("layout.running", { running })
 							}
 							className={`sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5`}
 						>
@@ -879,15 +894,15 @@ export function Layout({ children }: LayoutProps) {
 						className="w-full sidebar-logout"
 					>
 						<LogOut size={14} strokeWidth={2} />
-						Logout
+						{t("layout.auth.logout")}
 					</button>
 					<SystemStatus />
 					{showLogoutConfirm && (
 						<ConfirmDialog
-							title="Log out?"
-							message="You'll need to re-enter your admin token."
+							title={t("layout.auth.logoutConfirm")}
+							message={t("layout.auth.logoutMessage")}
 							fields={[]}
-							confirmLabel="Log out"
+							confirmLabel={t("layout.auth.logout")}
 							onConfirm={handleLogout}
 							onCancel={() => setShowLogoutConfirm(false)}
 						/>
