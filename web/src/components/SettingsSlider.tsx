@@ -140,8 +140,10 @@ export function SettingsSlider({
 						);
 			const v = Math.min(max, firstStep);
 			setLocal(v);
-			committed.current = v;
-			onChange(v);
+			if (v !== committed.current) {
+				committed.current = v;
+				onChange(v);
+			}
 			return;
 		}
 		const next = Math.min(
@@ -149,8 +151,10 @@ export function SettingsSlider({
 			clampToStep(local + (clampStep || step), clampStep || step),
 		);
 		setLocal(next);
-		committed.current = next;
-		onChange(next);
+		if (next !== committed.current) {
+			committed.current = next;
+			onChange(next);
+		}
 	}, [local, max, min, clampStep, step, onChange, isInfinity, infinityValue]);
 
 	const stepDown = useCallback(() => {
@@ -159,8 +163,10 @@ export function SettingsSlider({
 			clampToStep(local - (clampStep || step), clampStep || step),
 		);
 		setLocal(next);
-		committed.current = next;
-		onChange(next);
+		if (next !== committed.current) {
+			committed.current = next;
+			onChange(next);
+		}
 	}, [local, min, clampStep, step, onChange]);
 
 	return (
