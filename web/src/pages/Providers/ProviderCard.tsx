@@ -43,7 +43,7 @@ export function ProviderCard({
 
 	return (
 		<div
-			className={`ui-card p-6 flex flex-col ${!provider.enabled ? "opacity-50" : ""} ${provider.enabled && !provider.autodiscovery_enabled ? "border-red-500/20 bg-red-500/[0.03]" : ""}`}
+			className={`ui-card px-6 pt-5 pb-6 flex flex-col ${!provider.enabled ? "opacity-50" : ""} ${provider.enabled && !provider.autodiscovery_enabled ? "border-red-500/20 bg-red-500/[0.03]" : ""}`}
 		>
 			<div className="mb-2">
 				<div className="flex items-center justify-between">
