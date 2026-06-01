@@ -6,6 +6,7 @@ import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
 import { Toggle } from "../../components/Toggle";
 import { useToast } from "../../context/ToastContext";
+import { goDurationToSeconds, secondsToGoDuration } from "../../utils/duration";
 
 interface CircuitBreakerSettingsProps {
 	collapsed: boolean;
@@ -44,32 +45,6 @@ export function CircuitBreakerSettings({
 	const circuitBreakerThreshold = settings?.circuit_breaker_threshold || "5";
 	const circuitBreakerCooldown = settings?.circuit_breaker_cooldown || "1m0s";
 	const failoverOnRateLimit = settings?.failover_on_rate_limit === "true";
-
-	// Parse Go duration string to seconds
-	function goDurationToSeconds(d: string): number {
-		if (!d) return 0;
-		let total = 0;
-		const hourMatch = d.match(/(\d+)h/);
-		const minMatch = d.match(/(\d+)m/);
-		const secMatch = /(\d+)s/.exec(d);
-		if (hourMatch) total += Number(hourMatch[1]) * 3600;
-		if (minMatch) total += Number(minMatch[1]) * 60;
-		if (secMatch) total += Number(secMatch[1]);
-		return total;
-	}
-
-	// Convert seconds to Go duration string
-	function secondsToGoDuration(s: number): string {
-		if (s <= 0) return "0s";
-		const h = Math.floor(s / 3600);
-		const m = Math.floor((s % 3600) / 60);
-		const sec = s % 60;
-		let result = "";
-		if (h > 0) result += `${h}h`;
-		if (m > 0) result += `${m}m`;
-		if (sec > 0 || result === "") result += `${sec}s`;
-		return result;
-	}
 
 	return (
 		<SettingsSection
@@ -135,8 +110,6 @@ export function CircuitBreakerSettings({
 									min={1}
 									max={100}
 									step={1}
-									unit="s"
-									hideUnit
 									onChange={(v) =>
 										updateMutation.mutate({
 											circuit_breaker_threshold: String(v),

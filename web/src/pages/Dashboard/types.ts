@@ -37,11 +37,4 @@ export type UsageEntry = {
 	failoverGroup?: boolean;
 };
 
-export type ProviderDistItem = {
-	name: string;
-	count: number;
-	tokens: number;
-	share: number;
-};
-
 export type { MetricType };

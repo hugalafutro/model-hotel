@@ -219,10 +219,10 @@ describe("TimeSeriesChart", () => {
 		expect(screen.queryByText("1W")).not.toBeInTheDocument();
 	});
 
-	it("displays day label for 1w range", () => {
+	it("displays week label for 1w range", () => {
 		renderWithProviders(<TimeSeriesChart {...defaultProps} range="1w" />);
 
-		expect(screen.getByText("Requests / Day")).toBeInTheDocument();
+		expect(screen.getByText("Requests / Week")).toBeInTheDocument();
 	});
 
 	it("displays day label for 24h range", () => {

@@ -1102,7 +1102,8 @@ html[data-ui-style="glassmorphism-lite"].light .ui-card {
    breaks position:sticky in Chromium. Cards with dropdowns
    (.has-dropdown) use a ::before pseudo-element approach instead
    (see below). Absolute cards (dropdowns) get solid backgrounds. */
-html[data-ui-style="glassmorphism-lite"] .ui-card:not(.absolute, .has-dropdown, :has(> .absolute)) {
+html[data-ui-style="glassmorphism-lite"]
+.ui-card:not(.absolute, .has-dropdown, :has(> .absolute)) {
 	clip-path: inset(0 round var(--radius-card));
 }
 html[data-ui-style="glassmorphism-lite"]

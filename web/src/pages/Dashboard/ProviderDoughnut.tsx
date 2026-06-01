@@ -1,10 +1,11 @@
 import { TrendingUp } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { ProviderDistributionItem } from "@/api/types";
 import { Spinner } from "../../components/Spinner";
 import { formatCompact, formatPercent } from "../../utils/format";
 import { MetricToggle, RangeToggle } from "./ToggleGroup";
-import type { MetricType, ProviderDistItem, Range } from "./types";
+import type { MetricType, Range } from "./types";
 
 const COLORS = [
 	"#818cf8",
@@ -21,7 +22,7 @@ const CELL = 12;
 const GAP = 2;
 const GRID_SIZE = GRID * CELL + (GRID - 1) * GAP;
 
-function buildCells(items: ProviderDistItem[]) {
+function buildCells(items: ProviderDistributionItem[]) {
 	const total = GRID * GRID;
 	const counts = items.map((it) => Math.round(it.share));
 
@@ -80,7 +81,7 @@ export function ProviderDoughnut({
 	onMetricChange,
 	loading,
 }: {
-	items: ProviderDistItem[];
+	items: ProviderDistributionItem[];
 	range: Range;
 	onRangeChange: (r: Range) => void;
 	metric: MetricType;

@@ -5,6 +5,7 @@ import { api } from "../../api/client";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
 import { useToast } from "../../context/ToastContext";
+import { goDurationToSeconds, secondsToGoDuration } from "../../utils/duration";
 
 interface ProxySettingsProps {
 	collapsed: boolean;
@@ -35,32 +36,6 @@ export function ProxySettings({ collapsed, onToggle }: ProxySettingsProps) {
 			);
 		},
 	});
-
-	// Parse Go duration string to seconds
-	function goDurationToSeconds(d: string): number {
-		if (!d) return 0;
-		let total = 0;
-		const hourMatch = d.match(/(\d+)h/);
-		const minMatch = d.match(/(\d+)m/);
-		const secMatch = /(\d+)s/.exec(d);
-		if (hourMatch) total += Number(hourMatch[1]) * 3600;
-		if (minMatch) total += Number(minMatch[1]) * 60;
-		if (secMatch) total += Number(secMatch[1]);
-		return total;
-	}
-
-	// Convert seconds to Go duration string
-	function secondsToGoDuration(s: number): string {
-		if (s <= 0) return "0s";
-		const h = Math.floor(s / 3600);
-		const m = Math.floor((s % 3600) / 60);
-		const sec = s % 60;
-		let result = "";
-		if (h > 0) result += `${h}h`;
-		if (m > 0) result += `${m}m`;
-		if (sec > 0 || result === "") result += `${sec}s`;
-		return result;
-	}
 
 	const requestTimeout = settings?.request_timeout || "1m0s";
 	const keyCacheTTL = settings?.key_cache_ttl || "10m0s";
@@ -121,6 +96,7 @@ export function ProxySettings({ collapsed, onToggle }: ProxySettingsProps) {
 							step={5}
 							clampStep={5}
 							unit="s"
+							infinityValue={0}
 							onChange={(v) =>
 								updateMutation.mutate({ ttft_timeout: secondsToGoDuration(v) })
 							}
@@ -135,6 +111,7 @@ export function ProxySettings({ collapsed, onToggle }: ProxySettingsProps) {
 							step={10}
 							clampStep={10}
 							unit="s"
+							infinityValue={0}
 							onChange={(v) =>
 								updateMutation.mutate({
 									stream_stall_timeout: secondsToGoDuration(v),

@@ -71,6 +71,7 @@ export function TimeSeriesChart({
 	const maxStart = Math.max(0, lastRealIndex - viewportSize + 1);
 	// userStart is null until the user explicitly pans; null = snap to latest
 	const [userStart, setUserStart] = useState<number | null>(null);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: range is a deliberate trigger — switching time ranges resets panning position
 	useEffect(() => {
 		// eslint-disable-next-line react-hooks/set-state-in-effect
 		setUserStart(null);
@@ -186,7 +187,9 @@ export function TimeSeriesChart({
 						{metric} /{" "}
 						{range === "1h"
 							? t("dashboard.chart.hour")
-							: t("dashboard.chart.day")}
+							: range === "1w"
+								? t("dashboard.chart.week")
+								: t("dashboard.chart.day")}
 						{loading && <Spinner className="ml-1" />}
 					</h3>
 					{showToggle && <RangeToggle value={range} onChange={onRangeChange} />}
@@ -208,7 +211,9 @@ export function TimeSeriesChart({
 					{metric} /{" "}
 					{range === "1h"
 						? t("dashboard.chart.hour")
-						: t("dashboard.chart.day")}
+						: range === "1w"
+							? t("dashboard.chart.week")
+							: t("dashboard.chart.day")}
 					{loading && <Spinner className="ml-1" />}
 				</h3>
 				{showToggle && <RangeToggle value={range} onChange={onRangeChange} />}

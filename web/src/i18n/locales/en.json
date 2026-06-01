@@ -215,6 +215,7 @@
 		"chart": {
 			"hour": "Hour",
 			"day": "Day",
+			"week": "Week",
 			"noData": "No time-series data yet. {{metric}} will appear here once traffic flows.",
 			"dragToPan": "drag to pan",
 			"requests": "Requests",
