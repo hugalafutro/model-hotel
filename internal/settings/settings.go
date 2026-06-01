@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -299,14 +300,39 @@ func (r *Repository) GetBool(ctx context.Context, key string, defaultValue bool)
 }
 
 // GetDuration retrieves a setting and parses it as a time.Duration.
+// Handles Go-compatible durations and the "d" suffix (e.g. "1d" = 24h)
+// which may be present from older frontend code.
 func (r *Repository) GetDuration(ctx context.Context, key string, defaultValue time.Duration) time.Duration {
 	val := r.GetWithDefault(ctx, key, defaultValue.String())
-	d, err := time.ParseDuration(val)
+	d, err := parseDuration(val)
 	if err != nil {
 		debuglog.Warn("settings: failed to parse as duration, using default", "key", key, "default", defaultValue, "error", err)
 		return defaultValue
 	}
 	return d
+}
+
+// parseDuration parses a Go time.Duration string and also accepts the "d" suffix
+// for day units (1d = 24h0m0s), which Go's time.ParseDuration does not support.
+func parseDuration(s string) (time.Duration, error) {
+	days := 0
+	if i := strings.IndexByte(s, 'd'); i >= 0 {
+		dayStr := s[:i]
+		n, err := strconv.Atoi(dayStr)
+		if err != nil {
+			return 0, fmt.Errorf("invalid day suffix in duration %q: %w", s, err)
+		}
+		days = n
+		s = s[i+1:]
+	}
+	if s == "" {
+		return time.Duration(days) * 24 * time.Hour, nil
+	}
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return 0, err
+	}
+	return d + time.Duration(days)*24*time.Hour, nil
 }
 
 // GetFloat retrieves a setting and parses it as a float64.
