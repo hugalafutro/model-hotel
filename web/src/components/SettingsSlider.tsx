@@ -39,7 +39,11 @@ export function SettingsSlider({
 }: SettingsSliderProps) {
 	const isInfinity = infinityValue !== undefined && value >= infinityValue;
 	const displayValue = isInfinity ? "∞" : value;
-	const pct = isInfinity ? 100 : ((value - min) / (max - min)) * 100;
+	const pct = isInfinity
+		? 100
+		: max === min
+			? 100
+			: ((value - min) / (max - min)) * 100;
 
 	const handleSliderChange = useCallback(
 		(e: React.ChangeEvent<HTMLInputElement>) => {
@@ -68,12 +72,23 @@ export function SettingsSlider({
 	}, [value, min, max, clampStep, onChange]);
 
 	const stepUp = useCallback(() => {
+		if (isInfinity) {
+			const firstStep =
+				min > (infinityValue ?? 0)
+					? min
+					: clampToStep(
+							(infinityValue ?? 0) + (clampStep || step),
+							clampStep || step,
+						);
+			onChange(Math.min(max, firstStep));
+			return;
+		}
 		const next = Math.min(
 			max,
 			clampToStep(value + (clampStep || step), clampStep || step),
 		);
 		onChange(next);
-	}, [value, max, clampStep, step, onChange]);
+	}, [value, max, min, clampStep, step, onChange, isInfinity, infinityValue]);
 
 	const stepDown = useCallback(() => {
 		const next = Math.max(
@@ -113,7 +128,7 @@ export function SettingsSlider({
 						<button
 							type="button"
 							onClick={stepUp}
-							disabled={disabled || value >= max || isInfinity}
+							disabled={disabled || value >= max}
 							className="px-1 py-0 text-gray-500 hover:text-(--accent) disabled:opacity-30 disabled:cursor-not-allowed leading-none"
 						>
 							<ChevronUp size={10} />

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	Area,
@@ -72,10 +72,12 @@ export function TimeSeriesChart({
 	// userStart is null until the user explicitly pans; null = snap to latest
 	const [userStart, setUserStart] = useState<number | null>(null);
 	const [viewportRange, setViewportRange] = useState(range);
-	if (viewportRange !== range) {
-		setViewportRange(range);
-		setUserStart(null);
-	}
+	useEffect(() => {
+		if (viewportRange !== range) {
+			setViewportRange(range);
+			setUserStart(null);
+		}
+	}, [range, viewportRange]);
 	const [isDragging, setIsDragging] = useState(false);
 	const dragRef = useRef<{
 		startX: number;
@@ -108,7 +110,7 @@ export function TimeSeriesChart({
 		yesterday.setDate(yesterday.getDate() - 1);
 		const isYesterday = d.toDateString() === yesterday.toDateString();
 
-		const dateStr = d.toLocaleDateString("en-US", {
+		const dateStr = d.toLocaleDateString(undefined, {
 			day: "numeric",
 			month: "short",
 			year: "numeric",
