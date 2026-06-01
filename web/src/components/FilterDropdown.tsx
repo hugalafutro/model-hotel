@@ -58,7 +58,7 @@ export function FilterDropdown({
 				className="ui-input text-xs py-1.5 px-2.5 h-9 w-full flex items-center justify-between gap-2 cursor-pointer"
 			>
 				<span
-					className={`truncate ${value === "" ? "text-(--text-tertiary)" : "text-(--text-primary)"}`}
+					className={`truncate ${value === "" ? "text-(--text-secondary)" : "text-(--text-primary)"}`}
 				>
 					{displayLabel}
 				</span>

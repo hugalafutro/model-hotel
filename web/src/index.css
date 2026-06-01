@@ -1095,10 +1095,10 @@ html[data-ui-style="glassmorphism-lite"].light .ui-card {
 /* Clip backdrop-filter to the card border-radius so the blur
    rectangle doesn't bleed past rounded corners into the gap between
    stacked cards. Cards with tables are excluded because clip-path
-   breaks position:sticky in Chromium. Cards containing dropdowns
-   (.absolute children) are excluded so the dropdown can overflow.
+   breaks position:sticky in Chromium. Cards with dropdowns
+   (.has-dropdown) are excluded so the dropdown can overflow.
    Absolute cards (dropdowns) get solid backgrounds instead. */
-html[data-ui-style="glassmorphism-lite"] .ui-card:not(.absolute):not(:has(> .absolute)) {
+html[data-ui-style="glassmorphism-lite"] .ui-card:not(.absolute):not(.has-dropdown):not(:has(> .absolute)) {
 	clip-path: inset(0 round var(--radius-card));
 }
 html[data-ui-style="glassmorphism-lite"]

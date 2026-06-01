@@ -374,7 +374,7 @@ function RequestLogs() {
 				/>
 
 				{/* Controls */}
-				<div className="ui-card p-4 shrink-0">
+				<div className="ui-card has-dropdown p-4 shrink-0">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-1">
 							<button
