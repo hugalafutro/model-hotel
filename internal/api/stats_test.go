@@ -865,6 +865,65 @@ func TestGetTimeSeries_7d(t *testing.T) {
 	}
 }
 
+func TestGetTimeSeries_CacheTokens(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	// Set up test data with cache hit/miss tokens
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider-cache", "https://api.example.com/v1")
+
+	logID := uuid.New()
+	ctx := context.Background()
+	_, err := pool.Exec(ctx, `
+		INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, tokens_prompt, tokens_completion, tokens_prompt_cache_hit, tokens_prompt_cache_miss, created_at)
+		VALUES ($1, $2, 'test-model', 200, 100, 50, 30, 40, 10, NOW())`,
+		logID, providerID)
+	if err != nil {
+		t.Fatalf("Failed to insert test request log with cache tokens: %v", err)
+	}
+
+	// Create router and call handler
+	r := chi.NewRouter()
+	handler.Register(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/stats/timeseries?period=24h", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response TimeSeriesStats
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	if len(response.Points) == 0 {
+		t.Fatal("Expected time series points")
+	}
+
+	// Find the point with cache hit data
+	var found bool
+	for _, p := range response.Points {
+		if p.TokensCacheHit == 40 && p.TokensCacheMiss == 10 {
+			found = true
+			break
+		}
+	}
+	if !found {
+		var hit, miss int
+		for _, p := range response.Points {
+			hit += p.TokensCacheHit
+			miss += p.TokensCacheMiss
+		}
+		t.Errorf("Expected a point with tokens_cache_hit=40, tokens_cache_miss=10; got totals hit=%d miss=%d", hit, miss)
+	}
+}
+
 func TestGetProviderDistribution_Integration(t *testing.T) {
 	handler, pool, cleanup := newStatsHandler(t)
 	defer cleanup()
