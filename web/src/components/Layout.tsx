@@ -687,7 +687,7 @@ export function Layout({ children }: LayoutProps) {
 		setLogsSubMode,
 	} = useSidebarMode();
 
-	const { running, updateAvailable } = useGitHubVersion();
+	const { running, latest, updateAvailable } = useGitHubVersion();
 
 	const navigation = [
 		{
@@ -871,7 +871,7 @@ export function Layout({ children }: LayoutProps) {
 							aria-label={t("layout.githubRepo")}
 							title={
 								updateAvailable
-									? t("layout.updateAvailable", { running })
+									? t("layout.updateAvailable", { running, latest })
 									: t("layout.running", { running })
 							}
 							className={`sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5`}
