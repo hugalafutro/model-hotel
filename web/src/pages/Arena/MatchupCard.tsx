@@ -107,7 +107,7 @@ export function MatchupCard({
 								matchupIdx,
 								slotKey,
 								persona.id,
-								persona.systemPrompt,
+								t(persona.systemPrompt),
 							);
 						}}
 						onCustom={() => {
@@ -137,7 +137,7 @@ export function MatchupCard({
 								matchupIdx,
 								slotKey,
 								pick.id,
-								pick.systemPrompt,
+								t(pick.systemPrompt),
 							);
 						}}
 						customLabel="✏️"
@@ -162,7 +162,7 @@ export function MatchupCard({
 								matchupIdx,
 								slotKey,
 								pendingPersona.id,
-								pendingPersona.systemPrompt,
+								t(pendingPersona.systemPrompt),
 							);
 						}
 						setPendingPersona(null);

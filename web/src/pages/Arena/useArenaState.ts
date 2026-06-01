@@ -476,7 +476,7 @@ export function useArenaState(): ArenaStateAndActions {
 		if (available.length === 0) return;
 		const pick = available[Math.floor(Math.random() * available.length)];
 		setComparePersonaId(pick.id);
-		setComparePersonaPrompt(pick.systemPrompt);
+		setComparePersonaPrompt(i18next.t(pick.systemPrompt));
 	}, [comparePersonaId, setComparePersonaId, setComparePersonaPrompt]);
 
 	const handleRandomBracketModel = useCallback(() => {

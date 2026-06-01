@@ -76,13 +76,15 @@ export function ChatMessageList({
 					chatSubMode === "conversation" &&
 					msg.role === "assistant" &&
 					personaForModel
-						? `${personaForModel.icon} ${personaForModel.label}`
+						? `${personaForModel.icon} ${t(personaForModel.label)}`
 						: chatSubMode === "chat" &&
 								msg.role === "assistant" &&
 								personaForModel
-							? `${personaForModel.icon} ${personaForModel.label}`
+							? `${personaForModel.icon} ${t(personaForModel.label)}`
 							: undefined;
-				const personaTooltip = personaForModel?.systemPrompt || undefined;
+				const personaTooltip = personaForModel
+					? t(personaForModel.systemPrompt)
+					: undefined;
 
 				/* ── User message ── */
 				if (isUser) {

@@ -70,7 +70,7 @@ export function PersonaPicker({
 				setPendingPersona(persona);
 				return;
 			}
-			onSystemPromptChange(persona.systemPrompt);
+			onSystemPromptChange(t(persona.systemPrompt));
 			onActivePersonaChange(persona.id);
 			autoExpand(textareaRef);
 		},
@@ -101,7 +101,7 @@ export function PersonaPicker({
 			onSystemPromptChange(value);
 			// If user edits away from a preset, switch to custom
 			const current = personas.find((p) => p.id === activePersonaId);
-			if (current && value !== current.systemPrompt) {
+			if (current && value !== t(current.systemPrompt)) {
 				onActivePersonaChange(null);
 			}
 		},
@@ -114,7 +114,7 @@ export function PersonaPicker({
 			onSystemPromptChange("");
 			onActivePersonaChange(null);
 		} else {
-			onSystemPromptChange(pendingPersona.systemPrompt);
+			onSystemPromptChange(t(pendingPersona.systemPrompt));
 			onActivePersonaChange(pendingPersona.id);
 			autoExpand(textareaRef);
 		}

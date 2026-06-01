@@ -1,3 +1,4 @@
+import i18next from "i18next";
 import { useCallback } from "react";
 import type { Model } from "../../api/types";
 import { CHAT_PERSONAS } from "../../data/presets";
@@ -43,7 +44,7 @@ export function useChatRandomActions({
 		if (available.length === 0) return;
 		const pick = available[Math.floor(Math.random() * available.length)];
 		setActivePersonaId(pick.id);
-		setSystemPrompt(pick.systemPrompt);
+		setSystemPrompt(i18next.t(pick.systemPrompt));
 	}, [
 		chatSubMode,
 		chatActivePersonaId,
@@ -57,7 +58,7 @@ export function useChatRandomActions({
 		if (available.length === 0) return;
 		const pick = available[Math.floor(Math.random() * available.length)];
 		setActivePersonaIdB(pick.id);
-		setSystemPromptB(pick.systemPrompt);
+		setSystemPromptB(i18next.t(pick.systemPrompt));
 	}, [activePersonaIdB, setActivePersonaIdB, setSystemPromptB]);
 
 	const handleRandomModel = useCallback(() => {
