@@ -121,7 +121,7 @@ export function NanoGPTQuotaModal({
 							title={t("components.providerModals.refreshQuotaInfo")}
 						>
 							{isRefreshing && uiStyle === "cyber-terminal" ? (
-								<Spinner />
+								<Spinner className="w-[18px] h-[18px] text-[18px] leading-[18px]" />
 							) : (
 								<RefreshCw
 									size={18}
@@ -370,7 +370,7 @@ export function ZAICodingQuotaModal({
 							title={t("components.providerModals.refreshQuotaInfo")}
 						>
 							{isRefreshing && uiStyle === "cyber-terminal" ? (
-								<Spinner />
+								<Spinner className="w-[18px] h-[18px] text-[18px] leading-[18px]" />
 							) : (
 								<RefreshCw
 									size={18}
@@ -594,7 +594,7 @@ export function OpenRouterQuotaModal({
 							title={t("components.providerModals.refreshBalanceInfo")}
 						>
 							{isRefreshing && uiStyle === "cyber-terminal" ? (
-								<Spinner />
+								<Spinner className="w-[18px] h-[18px] text-[18px] leading-[18px]" />
 							) : (
 								<RefreshCw
 									size={18}

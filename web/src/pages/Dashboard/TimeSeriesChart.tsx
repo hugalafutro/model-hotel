@@ -301,17 +301,19 @@ export function TimeSeriesChart({
 								color: "var(--text-primary)",
 								fontSize: "13px",
 							}}
-							formatter={(value: number | string | unknown, name: unknown) => {
+							formatter={(value, name) => {
 								const raw = Number(value) * scale;
 								const val = allowDecimals ? raw : Math.round(raw);
 								const displayLabel =
-									name === overlayDataKey ? overlayLabel || name : label;
+									name === overlayDataKey
+										? overlayLabel || String(name)
+										: label;
 								return [
 									val.toLocaleString(undefined, {
 										maximumFractionDigits: allowDecimals ? 2 : 0,
 									}),
 									displayLabel,
-								];
+								] as [string, string];
 							}}
 						/>
 						<Area
