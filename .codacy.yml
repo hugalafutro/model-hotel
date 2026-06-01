@@ -5,6 +5,7 @@
 # files (eslint.config.js, biome.json), NOT here. This file handles:
 # - File/path exclusions
 # - Tool-level configuration
+# - Pattern-level enabling/disabling (when no tool-native config exists)
 #
 # After adding this file, go to the Codacy UI:
 #   Repository → Settings → Code patterns → ESLint → "Use configuration file" ON
@@ -17,6 +18,12 @@ engines:
   biome:
     exclude_paths:
       - "web/coverage/**"
+  stylelint:
+    exclude_paths:
+      - "web/coverage/**"
+    patterns:
+      Stylelint_selector-not-notation:
+        enabled: false
   duplication:
     exclude_paths:
       - "**/__tests__/**"
