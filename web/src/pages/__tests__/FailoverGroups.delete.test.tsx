@@ -1,10 +1,15 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
 import { mockFailoverGroup } from "../../test/mocks/data";
 import { server } from "../../test/mocks/server";
 import { renderWithProviders } from "../../test/utils";
 import { FailoverGroups } from "../FailoverGroups";
+
+function getModalDeleteButton(): HTMLElement {
+	const dialog = screen.getByRole("dialog");
+	return within(dialog).getByRole("button", { name: "Delete" });
+}
 
 describe("FailoverGroups", () => {
 	beforeEach(() => {
@@ -97,13 +102,7 @@ describe("FailoverGroups", () => {
 			});
 
 			// Click confirm button (modal Delete button has ui-btn-danger class)
-			const confirmDeleteButtons = screen.getAllByRole("button", {
-				name: "Delete",
-			});
-			const modalDeleteButton = confirmDeleteButtons.find((btn) =>
-				btn.classList.contains("ui-btn-danger"),
-			);
-			await user.click(modalDeleteButton!);
+			await user.click(getModalDeleteButton());
 
 			await waitFor(() => {
 				expect(deleteCalled).toBe(true);
@@ -155,13 +154,7 @@ describe("FailoverGroups", () => {
 			});
 
 			// Click confirm button (modal Delete button has ui-btn-danger class)
-			const confirmDeleteButtons = screen.getAllByRole("button", {
-				name: "Delete",
-			});
-			const modalDeleteButton = confirmDeleteButtons.find((btn) =>
-				btn.classList.contains("ui-btn-danger"),
-			);
-			await user.click(modalDeleteButton!);
+			await user.click(getModalDeleteButton());
 
 			await waitFor(() => {
 				expect(screen.getByText("Group deleted")).toBeInTheDocument();
@@ -208,13 +201,7 @@ describe("FailoverGroups", () => {
 			});
 
 			// Click confirm button (modal Delete button has ui-btn-danger class)
-			const confirmDeleteButtons = screen.getAllByRole("button", {
-				name: "Delete",
-			});
-			const modalDeleteButton = confirmDeleteButtons.find((btn) =>
-				btn.classList.contains("ui-btn-danger"),
-			);
-			await user.click(modalDeleteButton!);
+			await user.click(getModalDeleteButton());
 
 			await waitFor(() => {
 				expect(screen.getByText(/Failed to delete:/)).toBeInTheDocument();
@@ -527,13 +514,7 @@ describe("FailoverGroups", () => {
 			});
 
 			// Confirm deletion (modal Delete button has ui-btn-danger class)
-			const confirmDeleteButtons = screen.getAllByRole("button", {
-				name: "Delete",
-			});
-			const modalDeleteButton = confirmDeleteButtons.find((btn) =>
-				btn.classList.contains("ui-btn-danger"),
-			);
-			await user.click(modalDeleteButton!);
+			await user.click(getModalDeleteButton());
 
 			await waitFor(() => {
 				// Both groups should be deleted
@@ -635,13 +616,7 @@ describe("FailoverGroups", () => {
 			});
 
 			// Confirm deletion (modal Delete button has ui-btn-danger class)
-			const confirmDeleteButtons = screen.getAllByRole("button", {
-				name: "Delete",
-			});
-			const modalDeleteButton = confirmDeleteButtons.find((btn) =>
-				btn.classList.contains("ui-btn-danger"),
-			);
-			await user.click(modalDeleteButton!);
+			await user.click(getModalDeleteButton());
 
 			await waitFor(() => {
 				// All three should be attempted
@@ -712,13 +687,7 @@ describe("FailoverGroups", () => {
 			});
 
 			// Confirm deletion (modal Delete button has ui-btn-danger class)
-			const confirmDeleteButtons = screen.getAllByRole("button", {
-				name: "Delete",
-			});
-			const modalDeleteButton = confirmDeleteButtons.find((btn) =>
-				btn.classList.contains("ui-btn-danger"),
-			);
-			await user.click(modalDeleteButton!);
+			await user.click(getModalDeleteButton());
 
 			// Check loading state - button should show "Deleting…" and be disabled
 			await waitFor(() => {
