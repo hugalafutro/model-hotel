@@ -100,8 +100,12 @@ export function SettingsSlider({
 						disabled ? "cursor-not-allowed" : "focus:border-(--accent)"
 					}`}
 				/>
-				{unit && (
+				{unit ? (
 					<span className="text-xs text-(--text-tertiary) -ml-1">{unit}</span>
+				) : (
+					<span className="text-xs text-transparent -ml-1" aria-hidden>
+						w
+					</span>
 				)}
 			</div>
 			{description && (

@@ -31,17 +31,17 @@ export const UI_STYLES = [
 ];
 
 const PROVIDER_CACHE_KEYS = [
-	"model-hotel:nanogpt-usage",
-	"model-hotel:zai-coding-usage",
-	"model-hotel:deepseek-balance",
-	"model-hotel:ollama-cloud-account",
-];
+	{ key: "model-hotel:nanogpt-usage", name: "NanoGPT" },
+	{ key: "model-hotel:zai-coding-usage", name: "Z.ai Coding Plan" },
+	{ key: "model-hotel:deepseek-balance", name: "DeepSeek" },
+	{ key: "model-hotel:ollama-cloud-account", name: "Ollama Cloud" },
+] as const;
 
 export function getProviderCacheCount(): number {
 	let count = 0;
-	for (const key of PROVIDER_CACHE_KEYS) {
+	for (const entry of PROVIDER_CACHE_KEYS) {
 		try {
-			if (localStorage.getItem(key) !== null) count++;
+			if (localStorage.getItem(entry.key) !== null) count++;
 		} catch {
 			/* ignore */
 		}
@@ -49,10 +49,22 @@ export function getProviderCacheCount(): number {
 	return count;
 }
 
-export function clearProviderCache() {
-	for (const key of PROVIDER_CACHE_KEYS) {
+export function getProviderCacheNames(): string[] {
+	const names: string[] = [];
+	for (const entry of PROVIDER_CACHE_KEYS) {
 		try {
-			localStorage.removeItem(key);
+			if (localStorage.getItem(entry.key) !== null) names.push(entry.name);
+		} catch {
+			/* ignore */
+		}
+	}
+	return names;
+}
+
+export function clearProviderCache() {
+	for (const entry of PROVIDER_CACHE_KEYS) {
+		try {
+			localStorage.removeItem(entry.key);
 		} catch {
 			/* ignore */
 		}

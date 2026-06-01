@@ -256,7 +256,7 @@ export function DatabaseBackupSettings({
 					<LoadingSpinner />
 				) : backups && backups.length > 0 ? (
 					<div className="space-y-2 max-h-[300px] overflow-y-auto">
-						<h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 sticky top-0 bg-(--surface-elevated) py-1">
+						<h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 py-1">
 							{t("settings.backup.availableBackups", { count: backups.length })}
 						</h4>
 						{backups.map((backup) => (

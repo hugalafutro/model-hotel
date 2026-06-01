@@ -61,12 +61,8 @@ describe("Settings", () => {
 			// All section headers should be present
 			expect(screen.getByText("Model Discovery")).toBeInTheDocument();
 			expect(screen.getByText("Appearance")).toBeInTheDocument();
-			expect(screen.getByText("Toast Notifications")).toBeInTheDocument();
-			expect(screen.getByText("Sidebar Quotas")).toBeInTheDocument();
-			expect(screen.getByText("Dashboard Refresh")).toBeInTheDocument();
-			expect(screen.getByText("Data Storage")).toBeInTheDocument();
+			expect(screen.getByText("Data Storage and Logging")).toBeInTheDocument();
 			expect(screen.getByText("Database Backup")).toBeInTheDocument();
-			expect(screen.getByText("Logging")).toBeInTheDocument();
 			expect(screen.getByText("Rate Limiting")).toBeInTheDocument();
 			expect(screen.getByText("Proxy")).toBeInTheDocument();
 		});
@@ -93,13 +89,10 @@ describe("Settings", () => {
 		const sections = [
 			"Model Discovery",
 			"Appearance",
-			"Toast Notifications",
-			"Sidebar Quotas",
-			"Dashboard Refresh",
-			"Data Storage",
+			"Data Storage and Logging",
 			"Database Backup",
-			"Logging",
 			"Rate Limiting",
+			"Circuit Breaker & Failover",
 			"Proxy",
 		];
 

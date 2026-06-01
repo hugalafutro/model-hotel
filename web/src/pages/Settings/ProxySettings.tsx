@@ -78,7 +78,7 @@ export function ProxySettings({ collapsed, onToggle }: ProxySettingsProps) {
 				<p className="text-gray-400 text-sm">
 					{t("settings.proxy.description")}
 				</p>
-				<div className="grid grid-cols-2 gap-x-8 gap-y-5">
+				<div className="grid grid-cols-2 gap-x-8 gap-y-5 items-start">
 					<div className="space-y-5">
 						<SettingsSlider
 							id="request-timeout"

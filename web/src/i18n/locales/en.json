@@ -1425,12 +1425,15 @@
       "resetDismissedBanners": "Dismissed error banners reset",
       "clearHistoryDescription_one": "{{count}} entry stored",
       "clearHistoryDescription_other": "{{count}} entries stored",
-      "providerQuotaCache.description_one": "{{count}} cached entry (NanoGPT, Z.ai Coding Plan, DeepSeek)",
-      "providerQuotaCache.description_other": "{{count}} cached entries (NanoGPT, Z.ai Coding Plan, DeepSeek)",
+"providerQuotaCache.description_one": "{{count}} cached entry ({{providers}})",
+"providerQuotaCache.description_other": "{{count}} cached entries ({{providers}})",
       "cachedEntryCount_one": "{{count}} cached entry (NanoGPT, Z.ai Coding Plan, DeepSeek)",
       "cachedEntryCount_other": "{{count}} cached entries (NanoGPT, Z.ai Coding Plan, DeepSeek)",
-      "providerQuotaCacheDescription_one": "{{count}} cached entry (NanoGPT, Z.ai Coding Plan, DeepSeek)",
-      "providerQuotaCacheDescription_other": "{{count}} cached entries (NanoGPT, Z.ai Coding Plan, DeepSeek)"
+"providerQuotaCacheDescription_one": "{{count}} cached entry ({{providers}})",
+"providerQuotaCacheDescription_other": "{{count}} cached entries ({{providers}})"
+    },
+    "dataStorageAndLogging": {
+      "title": "Data Storage and Logging"
     },
     "backup": {
       "title": "Database Backup",
