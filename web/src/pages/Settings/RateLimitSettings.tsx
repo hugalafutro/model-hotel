@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSelect } from "../../components/SettingsSelect";
+import { SettingsSlider } from "../../components/SettingsSlider";
 import { Toggle } from "../../components/Toggle";
 import { useToast } from "../../context/ToastContext";
 
@@ -57,14 +58,6 @@ export function RateLimitSettings({
 		{ value: "0", label: t("settings.rateLimit.rps.unlimited") },
 	];
 
-	const RATE_LIMIT_BURST_OPTIONS = [
-		{ value: "10", label: t("settings.rateLimit.burst.10") },
-		{ value: "20", label: t("settings.rateLimit.burst.20") },
-		{ value: "50", label: t("settings.rateLimit.burst.50") },
-		{ value: "100", label: t("settings.rateLimit.burst.100") },
-		{ value: "200", label: t("settings.rateLimit.burst.200") },
-	];
-
 	return (
 		<SettingsSection
 			icon={Gauge}
@@ -108,12 +101,17 @@ export function RateLimitSettings({
 							)}
 						/>
 
-						<SettingsSelect
+						<SettingsSlider
 							id="rate-limit-burst"
 							label={t("settings.rateLimit.burstSize")}
-							value={rateLimitBurst}
-							options={RATE_LIMIT_BURST_OPTIONS}
-							onChange={(v) => updateMutation.mutate({ rate_limit_burst: v })}
+							value={Number(rateLimitBurst)}
+							min={5}
+							max={200}
+							step={5}
+							clampStep={5}
+							onChange={(v) =>
+								updateMutation.mutate({ rate_limit_burst: String(v) })
+							}
 							description={t("settings.rateLimit.burstSize.description")}
 						/>
 					</>
@@ -157,13 +155,16 @@ export function RateLimitSettings({
 							</div>
 
 							<div className="mt-4">
-								<SettingsSelect
+								<SettingsSlider
 									id="rate-limit-ip-burst"
 									label={t("settings.rateLimit.ipBurstSize")}
-									value={rateLimitIpBurst}
-									options={RATE_LIMIT_BURST_OPTIONS}
+									value={Number(rateLimitIpBurst)}
+									min={5}
+									max={200}
+									step={5}
+									clampStep={5}
 									onChange={(v) =>
-										updateMutation.mutate({ rate_limit_ip_burst: v })
+										updateMutation.mutate({ rate_limit_ip_burst: String(v) })
 									}
 									description={t("settings.rateLimit.ipBurstSize.description")}
 								/>
@@ -181,28 +182,22 @@ export function RateLimitSettings({
 							{t("settings.rateLimit.backpressureDescription")}
 						</p>
 						<div>
-							<label
-								htmlFor="rate-limit-max-wait"
-								className="block text-sm font-medium text-gray-300 mb-2"
-							>
-								{t("settings.rateLimit.maxWait")}
-							</label>
-							<input
+							<SettingsSlider
 								id="rate-limit-max-wait"
-								type="number"
-								min="0"
-								max="10000"
-								value={rateLimitMaxWaitMs}
-								onChange={(e) =>
+								label={t("settings.rateLimit.maxWait")}
+								value={Number(rateLimitMaxWaitMs)}
+								min={0}
+								max={10000}
+								step={100}
+								clampStep={100}
+								unit="ms"
+								onChange={(v) =>
 									updateMutation.mutate({
-										rate_limit_max_wait_ms: e.target.value,
+										rate_limit_max_wait_ms: String(v),
 									})
 								}
-								className="ui-input"
+								description={t("settings.rateLimit.maxWait.description")}
 							/>
-							<p className="text-gray-500 text-xs mt-1">
-								{t("settings.rateLimit.maxWait.description")}
-							</p>
 						</div>
 					</div>
 				)}
