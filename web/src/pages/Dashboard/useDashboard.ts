@@ -301,11 +301,15 @@ export function useDashboard(): UseDashboardReturn {
 	const [isRefreshing, setIsRefreshing] = useState(false);
 
 	const [dashboardRefreshMs, setDashboardRefreshMs] = useState(() => {
-		const raw = localStorage.getItem("dashboardRefreshSec");
-		if (raw !== null) {
-			const sec = Number(raw);
-			if (sec > 0) return sec * 1000;
-			if (sec === 0) return 0;
+		try {
+			const raw = localStorage.getItem("dashboardRefreshSec");
+			if (raw !== null) {
+				const sec = Number(raw);
+				if (sec > 0) return sec * 1000;
+				if (sec === 0) return 0;
+			}
+		} catch {
+			// localStorage unavailable (private browsing, quota, iframe)
 		}
 		return 30000;
 	});
