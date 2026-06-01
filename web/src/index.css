@@ -1083,6 +1083,9 @@ html[data-ui-style="glassmorphism-lite"] .ui-card {
 	-webkit-backdrop-filter: blur(40px);
 	border: 1px solid var(--border-default);
 }
+html[data-ui-style="glassmorphism-lite"] .ui-card:hover {
+	box-shadow: none;
+}
 
 html[data-ui-style="glassmorphism-lite"].light .ui-card {
 	background-color: rgba(255, 255, 255, 0.45);
