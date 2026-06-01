@@ -71,13 +71,10 @@ export function TimeSeriesChart({
 	const maxStart = Math.max(0, lastRealIndex - viewportSize + 1);
 	// userStart is null until the user explicitly pans; null = snap to latest
 	const [userStart, setUserStart] = useState<number | null>(null);
-	const [viewportRange, setViewportRange] = useState(range);
 	useEffect(() => {
-		if (viewportRange !== range) {
-			setViewportRange(range);
-			setUserStart(null);
-		}
-	}, [range, viewportRange]);
+		// eslint-disable-next-line react-hooks/set-state-in-effect
+		setUserStart(null);
+	}, [range]);
 	const [isDragging, setIsDragging] = useState(false);
 	const dragRef = useRef<{
 		startX: number;

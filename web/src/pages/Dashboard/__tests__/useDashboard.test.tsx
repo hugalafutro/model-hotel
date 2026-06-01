@@ -42,13 +42,13 @@ describe("useDashboard", () => {
 		});
 
 		it("valid range from localStorage is deserialized correctly", () => {
-			localStorage.setItem("dashboardRange", "7d");
+			localStorage.setItem("dashboardRange", "1w");
 
 			const { result } = renderHook(() => useDashboard(), {
 				wrapper: AllProviders,
 			});
 
-			expect(result.current.globalRange).toBe("7d");
+			expect(result.current.globalRange).toBe("1w");
 		});
 
 		it("valid metric from localStorage is deserialized correctly", () => {
@@ -72,17 +72,17 @@ describe("useDashboard", () => {
 			expect(result.current.globalRange).toBe("24h");
 
 			act(() => {
-				result.current.setGlobalRange("7d");
+				result.current.setGlobalRange("1w");
 			});
 
 			await waitFor(() => {
-				expect(result.current.requestsChartRange).toBe("7d");
-				expect(result.current.tokensChartRange).toBe("7d");
-				expect(result.current.doughnutRange).toBe("7d");
-				expect(result.current.tokenRange).toBe("7d");
-				expect(result.current.modelsRange).toBe("7d");
-				expect(result.current.providersRange).toBe("7d");
-				expect(result.current.virtualKeysRange).toBe("7d");
+				expect(result.current.requestsChartRange).toBe("1w");
+				expect(result.current.tokensChartRange).toBe("1w");
+				expect(result.current.doughnutRange).toBe("1w");
+				expect(result.current.tokenRange).toBe("1w");
+				expect(result.current.modelsRange).toBe("1w");
+				expect(result.current.providersRange).toBe("1w");
+				expect(result.current.virtualKeysRange).toBe("1w");
 			});
 		});
 
@@ -391,10 +391,10 @@ describe("useDashboard", () => {
 			});
 
 			act(() => {
-				result.current.setGlobalRange("7d");
+				result.current.setGlobalRange("1w");
 			});
 
-			expect(result.current.rangeLabel).toBe("7d");
+			expect(result.current.rangeLabel).toBe("1w");
 		});
 	});
 
@@ -466,7 +466,7 @@ describe("useDashboard", () => {
 			});
 
 			act(() => {
-				result.current.setGlobalRange("7d");
+				result.current.setGlobalRange("1w");
 			});
 
 			await waitFor(() => {
@@ -620,7 +620,7 @@ describe("useDashboard", () => {
 			});
 
 			act(() => {
-				result.current.setRequestsChartRange("7d");
+				result.current.setRequestsChartRange("1w");
 			});
 
 			await waitFor(() => {

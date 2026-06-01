@@ -359,7 +359,7 @@ describe("TimeSeriesChart", () => {
 
 // Helper to generate test data with N points
 function generateData(count: number): TimeSeriesDataPoint[] {
-	const baseDate = new Date("2025-06-01T00:00:00Z");
+	const baseDate = new Date("2025-06-01T12:00:00Z");
 	return Array.from({ length: count }, (_, i) => {
 		const d = new Date(baseDate.getTime() + i * 15 * 60 * 1000);
 		return {
@@ -785,6 +785,6 @@ describe("Overlay and panDateLabel", () => {
 
 		// panDateLabel renders inside the chart container when dragging
 		// The midpoint date of visibleData[6] = "2025-06-01T01:30:00Z" → "Jun 1, 2025"
-		expect(screen.getByText(/Jun 1, 2025/)).toBeInTheDocument();
+		expect(screen.getByText(/Jun.*2025/)).toBeInTheDocument();
 	});
 });

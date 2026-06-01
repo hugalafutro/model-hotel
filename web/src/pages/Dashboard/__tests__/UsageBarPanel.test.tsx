@@ -123,10 +123,10 @@ describe("UsageBarPanel", () => {
 			<UsageBarPanel {...defaultProps} onRangeChange={onRangeChangeMock} />,
 		);
 
-		const sevenDButton = screen.getByText("7D");
+		const sevenDButton = screen.getByText("1W");
 		await user.click(sevenDButton);
 
-		expect(onRangeChangeMock).toHaveBeenCalledWith("7d");
+		expect(onRangeChangeMock).toHaveBeenCalledWith("1w");
 	});
 
 	it("renders MetricToggle when metric and onMetricChange are provided", () => {
@@ -327,7 +327,7 @@ describe("UsageBarPanel", () => {
 
 		expect(screen.getByText("1H")).toBeInTheDocument();
 		expect(screen.getByText("1D")).toBeInTheDocument();
-		expect(screen.getByText("7D")).toBeInTheDocument();
+		expect(screen.getByText("1W")).toBeInTheDocument();
 	});
 
 	it("highlights active range button", () => {

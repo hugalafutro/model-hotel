@@ -12,11 +12,7 @@ import {
 	clearArenaHistory,
 	getArenaHistoryCount,
 } from "../../utils/arenaHistory";
-import {
-	clearProviderCache,
-	getProviderCacheCount,
-	getProviderCacheNames,
-} from "./constants";
+import { clearProviderCache, getProviderCacheCount } from "./constants";
 
 interface DataStorageSettingsProps {
 	collapsed: boolean;
@@ -48,6 +44,32 @@ export function DataStorageSettings({
 			return "5";
 		}
 	});
+	const [refreshSec, setRefreshSec] = useState(() => {
+		try {
+			return localStorage.getItem("dashboardRefreshSec") || "30";
+		} catch {
+			return "30";
+		}
+	});
+
+	const handleDashboardRefreshChange = (val: string) => {
+		setRefreshSec(val);
+		try {
+			localStorage.setItem("dashboardRefreshSec", val);
+		} catch {
+			/* ignore */
+		}
+		window.dispatchEvent(new CustomEvent("dashboardRefreshChange"));
+		toast(
+			val === "0"
+				? t("settings.dashboard.disabled")
+				: t("settings.dashboard.intervalSet", {
+						seconds: val,
+						count: Number(val),
+					}),
+			"success",
+		);
+	};
 
 	const {
 		persistChat,
@@ -165,197 +187,429 @@ export function DataStorageSettings({
 					{t("settings.dataStorage.description")}
 				</p>
 
-				{/* Session Persistence */}
-				<div>
-					<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
-						{t("settings.dataStorage.sessionPersistence")}
-					</h3>
-					<div className="grid grid-cols-2 gap-x-8 gap-y-5 [align-items:start]">
+				<div className="grid grid-cols-2 gap-x-8">
+					<div className="space-y-5">
+						<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+							{t("settings.logging.title")}
+						</h3>
+						<SettingsSelect
+							id="log-retention"
+							label={t("settings.logging.logRetention")}
+							value={logRetention}
+							options={LOG_RETENTION_OPTIONS}
+							onChange={(v) => updateMutation.mutate({ log_retention: v })}
+							inline
+							description={
+								logRetention === "0" ? (
+									<span className="text-amber-400">
+										{t("settings.logging.logRetention.disabled")}
+									</span>
+								) : (
+									t("settings.logging.logRetention.description")
+								)
+							}
+						/>
+
+						<SettingsSelect
+							id="stale-request-timeout"
+							label={t("settings.logging.staleRequestTimeout")}
+							value={staleRequestTimeout}
+							options={STALE_REQUEST_TIMEOUT_OPTIONS}
+							onChange={(v) =>
+								updateMutation.mutate({ stale_request_timeout: v })
+							}
+							inline
+							description={
+								staleRequestTimeout === "0s" ? (
+									<span className="text-amber-400">
+										{t("settings.logging.staleRequestTimeout.disabled")}
+									</span>
+								) : (
+									t("settings.logging.staleRequestTimeout.description")
+								)
+							}
+						/>
+
+						<div className="flex items-center gap-2 flex-wrap">
+							{!confirmDelete ? (
+								<button
+									type="button"
+									onClick={() => setConfirmDelete(true)}
+									className="ui-btn ui-btn-danger"
+									title={t("settings.logging.deleteRequests.tooltip")}
+								>
+									{t("settings.logging.deleteRequests")}
+								</button>
+							) : (
+								<>
+									<select
+										value={deleteSelection}
+										onChange={(e) => setDeleteSelection(e.target.value)}
+										className="ui-input px-3 py-1.5 text-xs"
+									>
+										<option value="">
+											{t("settings.logging.deleteRequests.selectRange")}
+										</option>
+										<option value="1d">
+											{t("settings.logging.deleteRequests.olderThan1d")}
+										</option>
+										<option value="1w">
+											{t("settings.logging.deleteRequests.olderThan1w")}
+										</option>
+										<option value="1m">
+											{t("settings.logging.deleteRequests.olderThan1m")}
+										</option>
+										<option value="all">
+											{t("settings.logging.deleteRequests.allLogs")}
+										</option>
+									</select>
+									<button
+										type="button"
+										disabled={!deleteSelection}
+										onClick={() => {
+											const olderThan = getDeleteOlderThan(deleteSelection);
+											if (olderThan) purgeMutation.mutate(olderThan);
+										}}
+										className="ui-btn ui-btn-danger disabled:opacity-50 disabled:cursor-not-allowed"
+									>
+										{t("settings.logging.deleteRequests.confirm")}
+									</button>
+									<button
+										type="button"
+										onClick={() => {
+											setConfirmDelete(false);
+											setDeleteSelection("");
+										}}
+										className="ui-btn ui-btn-secondary"
+									>
+										{t("settings.logging.deleteRequests.cancel")}
+									</button>
+								</>
+							)}
+
+							{!confirmDeleteAppLogs ? (
+								<button
+									type="button"
+									onClick={() => setConfirmDeleteAppLogs(true)}
+									className="ui-btn ui-btn-danger"
+									title={t("settings.logging.deleteAppLogs.tooltip")}
+								>
+									{t("settings.logging.deleteAppLogs")}
+								</button>
+							) : (
+								<>
+									<span className="text-xs text-red-400">
+										{t("settings.logging.deleteAppLogs.confirmText")}
+									</span>
+									<button
+										type="button"
+										onClick={() => purgeAppLogsMutation.mutate()}
+										disabled={purgeAppLogsMutation.isPending}
+										className="ui-btn ui-btn-danger disabled:opacity-50 disabled:cursor-not-allowed"
+									>
+										{purgeAppLogsMutation.isPending
+											? t("settings.logging.deleteAppLogs.deleting")
+											: t("settings.logging.deleteAppLogs.confirm")}
+									</button>
+									<button
+										type="button"
+										onClick={() => setConfirmDeleteAppLogs(false)}
+										className="ui-btn ui-btn-secondary"
+									>
+										{t("settings.logging.deleteAppLogs.cancel")}
+									</button>
+								</>
+							)}
+						</div>
+
+						<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+							{t("settings.dashboard.title")}
+						</h3>
+						<SettingsSelect
+							id="dashboard-refresh-interval"
+							label={t("settings.dashboard.refreshInterval")}
+							value={refreshSec}
+							options={[
+								{
+									value: "10",
+									label: t("settings.dashboard.intervals.10"),
+								},
+								{
+									value: "30",
+									label: t("settings.dashboard.intervals.30"),
+								},
+								{
+									value: "60",
+									label: t("settings.dashboard.intervals.60"),
+								},
+								{
+									value: "120",
+									label: t("settings.dashboard.intervals.120"),
+								},
+								{
+									value: "300",
+									label: t("settings.dashboard.intervals.300"),
+								},
+								{
+									value: "600",
+									label: t("settings.dashboard.intervals.600"),
+								},
+								{
+									value: "0",
+									label: t("settings.dashboard.intervals.disabled"),
+								},
+							]}
+							onChange={handleDashboardRefreshChange}
+							inline
+							description={t("settings.dashboard.refreshInterval.description")}
+						/>
+
+						<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+							{t("settings.dataStorage.cacheAndResets")}
+						</h3>
 						<div className="space-y-5">
-							<div className="flex items-center justify-between">
+							<div className="flex items-center justify-between gap-2">
 								<div>
 									<p className="text-sm font-medium text-gray-300">
-										{t("settings.dataStorage.persistChat")}
+										{t("settings.dataStorage.providerQuotaCache")}
 									</p>
 									<p className="text-gray-500 text-xs mt-0.5">
-										{t("settings.dataStorage.persistChatDescription")}
+										{t("settings.dataStorage.providerQuotaCacheDescription", {
+											count: getProviderCacheCount(),
+										})}
 									</p>
 								</div>
-								<Toggle
-									checked={persistChat}
-									onChange={(v) => {
-										const next = v;
-										if (
-											!next &&
-											!confirm(t("settings.dataStorage.persistChatConfirm"))
-										)
-											return;
-										setPersistChat(next);
-										toast(
-											next
-												? t("settings.dataStorage.persistChatEnabled")
-												: t("settings.dataStorage.persistChatDisabled"),
-											next ? "success" : "info",
-										);
+								<button
+									type="button"
+									onClick={() => {
+										if (confirm(t("settings.dataStorage.clearCacheConfirm"))) {
+											clearProviderCache();
+											toast(
+												t("settings.dataStorage.clearCacheCleared"),
+												"info",
+											);
+										}
 									}}
-								/>
+									className="ui-btn ui-btn-danger text-xs px-3 py-1.5"
+									disabled={getProviderCacheCount() === 0}
+									title={t("settings.dataStorage.clearCache.tooltip")}
+								>
+									{t("settings.dataStorage.clearCache")}
+								</button>
 							</div>
 
-							<div className="flex items-center justify-between">
+							<div className="flex items-center justify-between gap-2">
 								<div>
 									<p className="text-sm font-medium text-gray-300">
-										{t("settings.dataStorage.persistArena")}
+										{t("settings.dataStorage.dismissedErrorBanners")}
 									</p>
 									<p className="text-gray-500 text-xs mt-0.5">
-										{t("settings.dataStorage.persistArenaDescription")}
+										{t("settings.dataStorage.dismissedErrorBannersDescription")}
 									</p>
 								</div>
-								<Toggle
-									checked={persistArena}
-									onChange={(v) => {
-										const next = v;
-										if (
-											!next &&
-											!confirm(t("settings.dataStorage.persistArenaConfirm"))
-										)
-											return;
-										setPersistArena(next);
+								<button
+									type="button"
+									onClick={() => {
+										localStorage.removeItem("dismissedAppErrorKey");
+										localStorage.removeItem("dismissedReqErrorKey");
+										window.dispatchEvent(
+											new CustomEvent("dismissedErrorsReset"),
+										);
 										toast(
-											next
-												? t("settings.dataStorage.persistArenaEnabled")
-												: t("settings.dataStorage.persistArenaDisabled"),
-											next ? "success" : "info",
+											t("settings.dataStorage.resetDismissedBanners"),
+											"info",
 										);
 									}}
-								/>
-							</div>
-
-							<div className="flex items-center justify-between">
-								<div>
-									<p className="text-sm font-medium text-gray-300">
-										{t("settings.dataStorage.persistConversation")}
-									</p>
-									<p className="text-gray-500 text-xs mt-0.5">
-										{t("settings.dataStorage.persistConversationDescription")}
-									</p>
-								</div>
-								<Toggle
-									checked={persistConversation}
-									onChange={(v) => {
-										const next = v;
-										if (
-											!next &&
-											!confirm(
-												t("settings.dataStorage.persistConversationConfirm"),
-											)
-										)
-											return;
-										setPersistConversation(next);
-										toast(
-											next
-												? t("settings.dataStorage.persistConversationEnabled")
-												: t("settings.dataStorage.persistConversationDisabled"),
-											next ? "success" : "info",
-										);
-									}}
-								/>
+									className="ui-btn ui-btn-danger text-xs px-3 py-1.5"
+									title={t("settings.dataStorage.reset.tooltip")}
+								>
+									{t("settings.dataStorage.reset")}
+								</button>
 							</div>
 						</div>
-						<div className="space-y-5">
-							<div className="flex items-center justify-between">
-								<div>
-									<p className="text-sm font-medium text-gray-300">
-										{t("settings.sidebarQuota.showQuotasPill")}
-									</p>
-									<p className="text-gray-500 text-xs mt-0.5">
-										{t("settings.sidebarQuota.showQuotasPillDescription")}
-									</p>
-								</div>
-								<Toggle
-									checked={!quotaDisabled}
-									onChange={(v) => {
-										const newVal = !v;
-										setQuotaDisabled(newVal);
-										try {
-											localStorage.setItem(
-												"sidebarQuotaDisabled",
-												String(newVal),
-											);
-										} catch {
-											/* ignore */
-										}
-										toast(
-											newVal
-												? t("settings.sidebarQuota.disabledQuotas")
-												: t("settings.sidebarQuota.enabledQuotas"),
-											newVal ? "info" : "success",
-										);
-										window.dispatchEvent(new CustomEvent("sidebarQuotaToggle"));
-									}}
-								/>
-							</div>
+					</div>
 
-							<SettingsSelect
-								id="quota-refresh-interval"
-								label={t("settings.sidebarQuota.refreshInterval")}
-								value={refreshMin}
-								options={[
-									{ value: "1", label: t("settings.sidebarQuota.intervals.1") },
-									{ value: "2", label: t("settings.sidebarQuota.intervals.2") },
-									{ value: "5", label: t("settings.sidebarQuota.intervals.5") },
-									{
-										value: "10",
-										label: t("settings.sidebarQuota.intervals.10"),
-									},
-									{
-										value: "15",
-										label: t("settings.sidebarQuota.intervals.15"),
-									},
-									{
-										value: "30",
-										label: t("settings.sidebarQuota.intervals.30"),
-									},
-									{
-										value: "0",
-										label: t("settings.sidebarQuota.intervals.disabled"),
-									},
-								]}
-								onChange={(val) => {
-									setRefreshMin(val);
+					<div className="space-y-5">
+						<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+							{t("settings.dataStorage.sessionPersistence")}
+						</h3>
+						<div className="flex items-center justify-between">
+							<div>
+								<p className="text-sm font-medium text-gray-300">
+									{t("settings.dataStorage.persistChat")}
+								</p>
+								<p className="text-gray-500 text-xs mt-0.5">
+									{t("settings.dataStorage.persistChatDescription")}
+								</p>
+							</div>
+							<Toggle
+								checked={persistChat}
+								onChange={(v) => {
+									const next = v;
+									if (
+										!next &&
+										!confirm(t("settings.dataStorage.persistChatConfirm"))
+									)
+										return;
+									setPersistChat(next);
+									toast(
+										next
+											? t("settings.dataStorage.persistChatEnabled")
+											: t("settings.dataStorage.persistChatDisabled"),
+										next ? "success" : "info",
+									);
+								}}
+							/>
+						</div>
+
+						<div className="flex items-center justify-between">
+							<div>
+								<p className="text-sm font-medium text-gray-300">
+									{t("settings.dataStorage.persistArena")}
+								</p>
+								<p className="text-gray-500 text-xs mt-0.5">
+									{t("settings.dataStorage.persistArenaDescription")}
+								</p>
+							</div>
+							<Toggle
+								checked={persistArena}
+								onChange={(v) => {
+									const next = v;
+									if (
+										!next &&
+										!confirm(t("settings.dataStorage.persistArenaConfirm"))
+									)
+										return;
+									setPersistArena(next);
+									toast(
+										next
+											? t("settings.dataStorage.persistArenaEnabled")
+											: t("settings.dataStorage.persistArenaDisabled"),
+										next ? "success" : "info",
+									);
+								}}
+							/>
+						</div>
+
+						<div className="flex items-center justify-between">
+							<div>
+								<p className="text-sm font-medium text-gray-300">
+									{t("settings.dataStorage.persistConversation")}
+								</p>
+								<p className="text-gray-500 text-xs mt-0.5">
+									{t("settings.dataStorage.persistConversationDescription")}
+								</p>
+							</div>
+							<Toggle
+								checked={persistConversation}
+								onChange={(v) => {
+									const next = v;
+									if (
+										!next &&
+										!confirm(
+											t("settings.dataStorage.persistConversationConfirm"),
+										)
+									)
+										return;
+									setPersistConversation(next);
+									toast(
+										next
+											? t("settings.dataStorage.persistConversationEnabled")
+											: t("settings.dataStorage.persistConversationDisabled"),
+										next ? "success" : "info",
+									);
+								}}
+							/>
+						</div>
+
+						<div className="flex items-center justify-between">
+							<div>
+								<p className="text-sm font-medium text-gray-300">
+									{t("settings.sidebarQuota.showQuotasPill")}
+								</p>
+								<p className="text-gray-500 text-xs mt-0.5">
+									{t("settings.sidebarQuota.showQuotasPillDescription")}
+								</p>
+							</div>
+							<Toggle
+								checked={!quotaDisabled}
+								onChange={(v) => {
+									const newVal = !v;
+									setQuotaDisabled(newVal);
 									try {
-										localStorage.setItem("sidebarQuotaRefreshMin", val);
+										localStorage.setItem(
+											"sidebarQuotaDisabled",
+											String(newVal),
+										);
 									} catch {
 										/* ignore */
 									}
-									window.dispatchEvent(
-										new CustomEvent("sidebarQuotaRefreshChange"),
-									);
 									toast(
-										val === "0"
-											? t("settings.sidebarQuota.disabled")
-											: t("settings.sidebarQuota.intervalSet", {
-													minutes: val,
-													count: Number(val),
-												}),
-										"success",
+										newVal
+											? t("settings.sidebarQuota.disabledQuotas")
+											: t("settings.sidebarQuota.enabledQuotas"),
+										newVal ? "info" : "success",
 									);
+									window.dispatchEvent(new CustomEvent("sidebarQuotaToggle"));
 								}}
-								disabled={quotaDisabled}
-								inline
-								description={t(
-									"settings.sidebarQuota.refreshInterval.description",
-								)}
 							/>
 						</div>
-					</div>
-				</div>
 
-				{/* Arena History */}
-				<div>
-					<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
-						{t("settings.dataStorage.arenaHistory")}
-					</h3>
-					<div className="space-y-5">
+						<SettingsSelect
+							id="quota-refresh-interval"
+							label={t("settings.sidebarQuota.refreshInterval")}
+							value={refreshMin}
+							options={[
+								{ value: "1", label: t("settings.sidebarQuota.intervals.1") },
+								{ value: "2", label: t("settings.sidebarQuota.intervals.2") },
+								{ value: "5", label: t("settings.sidebarQuota.intervals.5") },
+								{
+									value: "10",
+									label: t("settings.sidebarQuota.intervals.10"),
+								},
+								{
+									value: "15",
+									label: t("settings.sidebarQuota.intervals.15"),
+								},
+								{
+									value: "30",
+									label: t("settings.sidebarQuota.intervals.30"),
+								},
+								{
+									value: "0",
+									label: t("settings.sidebarQuota.intervals.disabled"),
+								},
+							]}
+							onChange={(val) => {
+								setRefreshMin(val);
+								try {
+									localStorage.setItem("sidebarQuotaRefreshMin", val);
+								} catch {
+									/* ignore */
+								}
+								window.dispatchEvent(
+									new CustomEvent("sidebarQuotaRefreshChange"),
+								);
+								toast(
+									val === "0"
+										? t("settings.sidebarQuota.disabled")
+										: t("settings.sidebarQuota.intervalSet", {
+												minutes: val,
+												count: Number(val),
+											}),
+									"success",
+								);
+							}}
+							disabled={quotaDisabled}
+							inline
+							description={t(
+								"settings.sidebarQuota.refreshInterval.description",
+							)}
+						/>
+
+						<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+							{t("settings.dataStorage.arenaHistory")}
+						</h3>
 						<div className="flex items-center justify-between">
 							<div>
 								<p className="text-sm font-medium text-gray-300">
@@ -411,12 +665,13 @@ export function DataStorageSettings({
 								);
 							}}
 							disabled={!arenaHistoryEnabled}
+							inline
 							description={t(
 								"settings.dataStorage.maxSavedMatches.description",
 							)}
 						/>
 
-						<div className="flex items-center justify-between">
+						<div className="flex items-center gap-2">
 							<div>
 								<p className="text-sm font-medium text-gray-300">
 									{t("settings.dataStorage.clearHistory")}
@@ -440,206 +695,9 @@ export function DataStorageSettings({
 								}}
 								className="ui-btn ui-btn-danger text-xs px-3 py-1.5"
 								disabled={getArenaHistoryCount() === 0}
+								title={t("settings.dataStorage.clearHistoryAll.tooltip")}
 							>
 								{t("settings.dataStorage.clearHistoryAll")}
-							</button>
-						</div>
-					</div>
-				</div>
-
-				{/* Logging */}
-				<div>
-					<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
-						{t("settings.logging.title")}
-					</h3>
-					<div className="grid grid-cols-2 gap-x-8 gap-y-5 [align-items:start]">
-						<div className="space-y-5">
-							<SettingsSelect
-								id="log-retention"
-								label={t("settings.logging.logRetention")}
-								value={logRetention}
-								options={LOG_RETENTION_OPTIONS}
-								onChange={(v) => updateMutation.mutate({ log_retention: v })}
-								description={
-									logRetention === "0" ? (
-										<span className="text-amber-400">
-											{t("settings.logging.logRetention.disabled")}
-										</span>
-									) : (
-										t("settings.logging.logRetention.description")
-									)
-								}
-							/>
-
-							<SettingsSelect
-								id="stale-request-timeout"
-								label={t("settings.logging.staleRequestTimeout")}
-								value={staleRequestTimeout}
-								options={STALE_REQUEST_TIMEOUT_OPTIONS}
-								onChange={(v) =>
-									updateMutation.mutate({ stale_request_timeout: v })
-								}
-								description={
-									staleRequestTimeout === "0s" ? (
-										<span className="text-amber-400">
-											{t("settings.logging.staleRequestTimeout.disabled")}
-										</span>
-									) : (
-										t("settings.logging.staleRequestTimeout.description")
-									)
-								}
-							/>
-						</div>
-						<div className="space-y-5">
-							{!confirmDelete ? (
-								<button
-									type="button"
-									onClick={() => setConfirmDelete(true)}
-									className="ui-btn ui-btn-danger"
-								>
-									{t("settings.logging.deleteRequests")}
-								</button>
-							) : (
-								<div className="flex items-center gap-2">
-									<select
-										value={deleteSelection}
-										onChange={(e) => setDeleteSelection(e.target.value)}
-										className="ui-input px-3 py-1.5 text-xs"
-									>
-										<option value="">
-											{t("settings.logging.deleteRequests.selectRange")}
-										</option>
-										<option value="1d">
-											{t("settings.logging.deleteRequests.olderThan1d")}
-										</option>
-										<option value="1w">
-											{t("settings.logging.deleteRequests.olderThan1w")}
-										</option>
-										<option value="1m">
-											{t("settings.logging.deleteRequests.olderThan1m")}
-										</option>
-										<option value="all">
-											{t("settings.logging.deleteRequests.allLogs")}
-										</option>
-									</select>
-									<button
-										type="button"
-										disabled={!deleteSelection}
-										onClick={() => {
-											const olderThan = getDeleteOlderThan(deleteSelection);
-											if (olderThan) purgeMutation.mutate(olderThan);
-										}}
-										className="ui-btn ui-btn-danger disabled:opacity-50 disabled:cursor-not-allowed"
-									>
-										{t("settings.logging.deleteRequests.confirm")}
-									</button>
-									<button
-										type="button"
-										onClick={() => {
-											setConfirmDelete(false);
-											setDeleteSelection("");
-										}}
-										className="ui-btn ui-btn-secondary"
-									>
-										{t("settings.logging.deleteRequests.cancel")}
-									</button>
-								</div>
-							)}
-
-							{!confirmDeleteAppLogs ? (
-								<button
-									type="button"
-									onClick={() => setConfirmDeleteAppLogs(true)}
-									className="ui-btn ui-btn-danger"
-								>
-									{t("settings.logging.deleteAppLogs")}
-								</button>
-							) : (
-								<div className="flex items-center gap-2">
-									<span className="text-xs text-red-400">
-										{t("settings.logging.deleteAppLogs.confirmText")}
-									</span>
-									<button
-										type="button"
-										onClick={() => purgeAppLogsMutation.mutate()}
-										disabled={purgeAppLogsMutation.isPending}
-										className="ui-btn ui-btn-danger disabled:opacity-50 disabled:cursor-not-allowed"
-									>
-										{purgeAppLogsMutation.isPending
-											? t("settings.logging.deleteAppLogs.deleting")
-											: t("settings.logging.deleteAppLogs.confirm")}
-									</button>
-									<button
-										type="button"
-										onClick={() => setConfirmDeleteAppLogs(false)}
-										className="ui-btn ui-btn-secondary"
-									>
-										{t("settings.logging.deleteAppLogs.cancel")}
-									</button>
-								</div>
-							)}
-						</div>
-					</div>
-				</div>
-
-				{/* Cache & Resets */}
-				<div>
-					<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
-						{t("settings.dataStorage.cacheAndResets")}
-					</h3>
-					<div className="grid grid-cols-2 gap-x-8 gap-y-5 [align-items:start]">
-						<div className="space-y-5">
-							<div>
-								<p className="text-sm font-medium text-gray-300">
-									{t("settings.dataStorage.providerQuotaCache")}
-								</p>
-								<p className="text-gray-500 text-xs mt-0.5">
-									{t("settings.dataStorage.providerQuotaCacheDescription", {
-										count: getProviderCacheCount(),
-										providers: getProviderCacheNames().join(", "),
-									})}
-								</p>
-							</div>
-
-							<div>
-								<p className="text-sm font-medium text-gray-300">
-									{t("settings.dataStorage.dismissedErrorBanners")}
-								</p>
-								<p className="text-gray-500 text-xs mt-0.5">
-									{t("settings.dataStorage.dismissedErrorBannersDescription")}
-								</p>
-							</div>
-						</div>
-
-						<div className="space-y-5">
-							<button
-								type="button"
-								onClick={() => {
-									if (confirm(t("settings.dataStorage.clearCacheConfirm"))) {
-										clearProviderCache();
-										toast(t("settings.dataStorage.clearCacheCleared"), "info");
-									}
-								}}
-								className="ui-btn ui-btn-danger text-xs px-3 py-1.5"
-								disabled={getProviderCacheCount() === 0}
-							>
-								{t("settings.dataStorage.clearCache")}
-							</button>
-
-							<button
-								type="button"
-								onClick={() => {
-									localStorage.removeItem("dismissedAppErrorKey");
-									localStorage.removeItem("dismissedReqErrorKey");
-									window.dispatchEvent(new CustomEvent("dismissedErrorsReset"));
-									toast(
-										t("settings.dataStorage.resetDismissedBanners"),
-										"info",
-									);
-								}}
-								className="ui-btn ui-btn-danger text-xs px-3 py-1.5"
-							>
-								{t("settings.dataStorage.reset")}
 							</button>
 						</div>
 					</div>

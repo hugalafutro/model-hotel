@@ -414,7 +414,7 @@ describe("Dashboard", () => {
 			// Range toggle buttons should be present
 			expect(screen.getAllByText("1H").length).toBeGreaterThan(0);
 			expect(screen.getAllByText("1D").length).toBeGreaterThan(0);
-			expect(screen.getAllByText("7D").length).toBeGreaterThan(0);
+			expect(screen.getAllByText("1W").length).toBeGreaterThan(0);
 		});
 
 		it("renders metric toggle buttons", async () => {
@@ -1043,7 +1043,7 @@ describe("Dashboard filter persistence", () => {
 	});
 
 	it("restores global range from localStorage on mount", async () => {
-		localStorage.setItem("dashboardRange", "7d");
+		localStorage.setItem("dashboardRange", "1w");
 
 		renderWithProviders(<Dashboard />);
 
@@ -1051,7 +1051,7 @@ describe("Dashboard filter persistence", () => {
 			expect(screen.getByText("Dashboard")).toBeInTheDocument();
 		});
 		// The 7D range toggle should be active (accent-styled) in the header
-		const all7D = screen.getAllByText("7D");
+		const all7D = screen.getAllByText("1W");
 		const active7D = all7D.find((el) => el.classList.contains("text-white"));
 		expect(active7D).toBeTruthy();
 	});
@@ -1107,12 +1107,12 @@ describe("Dashboard filter persistence", () => {
 		});
 
 		// Click the header 7D button to change global range
-		const all7D = screen.getAllByText("7D");
+		const all7D = screen.getAllByText("1W");
 		await user.click(all7D[0]);
 
 		// The global range key should be persisted
 		await waitFor(() => {
-			expect(localStorage.getItem("dashboardRange")).toBe("7d");
+			expect(localStorage.getItem("dashboardRange")).toBe("1w");
 		});
 	});
 
@@ -1142,10 +1142,9 @@ describe("Dashboard filter persistence", () => {
 		await waitFor(() => {
 			expect(screen.getByText("Dashboard")).toBeInTheDocument();
 		});
-		// Should fall back to default "24h" (1D) instead of invalid value
-		const all1D = screen.getAllByText("1D");
-		const active1D = all1D.find((el) => el.classList.contains("text-white"));
-		expect(active1D).toBeTruthy();
+		const all1W = screen.getAllByText("1W");
+		const active1W = all1W.find((el) => el.classList.contains("text-white"));
+		expect(active1W).toBeTruthy();
 	});
 
 	it("falls back to defaults when localStorage has invalid metric", async () => {

@@ -42,7 +42,7 @@ describe("DataStorageSettings", () => {
 			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
 		);
 
-		expect(screen.getByText("Data Storage")).toBeInTheDocument();
+		expect(screen.getByText("Data Storage and Logging")).toBeInTheDocument();
 	});
 
 	it("renders Database icon", () => {
@@ -514,11 +514,7 @@ describe("Cache & Resets section", () => {
 			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
 		);
 
-		expect(
-			screen.getByText(
-				/\d+ cached entries? \(NanoGPT, Z\.ai Coding Plan, DeepSeek\)/,
-			),
-		).toBeInTheDocument();
+		expect(screen.getByText(/3 cached entries/)).toBeInTheDocument();
 	});
 
 	it("shows singular 'cached entry' text when provider cache count is 1", () => {
@@ -528,11 +524,7 @@ describe("Cache & Resets section", () => {
 			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
 		);
 
-		expect(
-			screen.getByText(
-				/1 cached entry \(NanoGPT, Z\.ai Coding Plan, DeepSeek\)/,
-			),
-		).toBeInTheDocument();
+		expect(screen.getByText(/1 cached entry/)).toBeInTheDocument();
 	});
 
 	it("renders Clear Cache button", () => {

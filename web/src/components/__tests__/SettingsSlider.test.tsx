@@ -153,4 +153,105 @@ describe("SettingsSlider", () => {
 		const buttons = screen.getAllByRole("button");
 		expect(buttons[1]).toBeDisabled();
 	});
+	describe("infinityValue", () => {
+		it("displays ∞ when value reaches infinityValue", () => {
+			renderWithProviders(
+				<SettingsSlider {...defaultProps} value={0} infinityValue={0} />,
+			);
+			const numberInput = screen.getByRole("spinbutton");
+			expect(numberInput).toHaveAttribute("value", "∞");
+		});
+
+		it("stepUp escapes from infinity to first valid step", () => {
+			const onChange = vi.fn();
+			renderWithProviders(
+				<SettingsSlider
+					{...defaultProps}
+					value={0}
+					min={0}
+					max={100}
+					step={5}
+					infinityValue={0}
+					onChange={onChange}
+				/>,
+			);
+			const buttons = screen.getAllByRole("button");
+			const stepUpBtn = buttons[0];
+			fireEvent.click(stepUpBtn);
+			expect(onChange).toHaveBeenCalledWith(5);
+		});
+
+		it("stepUp escapes from infinity using min when min > infinityValue", () => {
+			const onChange = vi.fn();
+			renderWithProviders(
+				<SettingsSlider
+					{...defaultProps}
+					value={0}
+					min={5}
+					max={100}
+					step={5}
+					infinityValue={0}
+					onChange={onChange}
+				/>,
+			);
+			const buttons = screen.getAllByRole("button");
+			const stepUpBtn = buttons[0];
+			fireEvent.click(stepUpBtn);
+			expect(onChange).toHaveBeenCalledWith(5);
+		});
+
+		it("number input is readOnly when infinity", () => {
+			renderWithProviders(
+				<SettingsSlider {...defaultProps} value={0} infinityValue={0} />,
+			);
+			const numberInput = screen.getByRole("spinbutton");
+			expect(numberInput).toHaveAttribute("readOnly");
+		});
+
+		it("stepDown is disabled when value equals min and isInfinity", () => {
+			renderWithProviders(
+				<SettingsSlider
+					{...defaultProps}
+					value={0}
+					min={0}
+					infinityValue={0}
+				/>,
+			);
+			const buttons = screen.getAllByRole("button");
+			const stepDownBtn = buttons[1];
+			expect(stepDownBtn).toBeDisabled();
+		});
+	});
+
+	it("clamps to step on blur when value is not aligned to step", () => {
+		const onChange = vi.fn();
+		renderWithProviders(
+			<SettingsSlider
+				{...defaultProps}
+				value={53}
+				step={5}
+				clampStep={5}
+				onChange={onChange}
+			/>,
+		);
+		const numberInput = screen.getByRole("spinbutton");
+		fireEvent.blur(numberInput);
+		expect(onChange).toHaveBeenCalledWith(55);
+	});
+
+	it("does not fire onChange on blur when value is already clamped to step", () => {
+		const onChange = vi.fn();
+		renderWithProviders(
+			<SettingsSlider
+				{...defaultProps}
+				value={55}
+				step={5}
+				clampStep={5}
+				onChange={onChange}
+			/>,
+		);
+		const numberInput = screen.getByRole("spinbutton");
+		fireEvent.blur(numberInput);
+		expect(onChange).not.toHaveBeenCalled();
+	});
 });

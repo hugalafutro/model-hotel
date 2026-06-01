@@ -64,6 +64,9 @@ describe("Settings", () => {
 			expect(screen.getByText("Data Storage and Logging")).toBeInTheDocument();
 			expect(screen.getByText("Database Backup")).toBeInTheDocument();
 			expect(screen.getByText("Rate Limiting")).toBeInTheDocument();
+			expect(
+				screen.getByText("Circuit Breaker & Failover"),
+			).toBeInTheDocument();
 			expect(screen.getByText("Proxy")).toBeInTheDocument();
 		});
 

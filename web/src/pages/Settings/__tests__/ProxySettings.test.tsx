@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { server } from "../../../test/mocks/server";
@@ -38,17 +38,17 @@ describe("ProxySettings", () => {
 		);
 
 		await waitFor(() => {
-			const requestTimeoutSelect = screen.getByLabelText(
+			const requestTimeoutInput = screen.getByLabelText(
 				/Request Timeout/i,
-			) as HTMLSelectElement;
-			expect(requestTimeoutSelect.value).toBe("1m0s");
+			) as HTMLInputElement;
+			expect(requestTimeoutInput.value).toBe("60");
 		});
 
 		await waitFor(() => {
-			const keyCacheTTLSelect = screen.getByLabelText(
+			const keyCacheTTLInput = screen.getByLabelText(
 				/Key Cache TTL/i,
-			) as HTMLSelectElement;
-			expect(keyCacheTTLSelect.value).toBe("10m0s");
+			) as HTMLInputElement;
+			expect(keyCacheTTLInput.value).toBe("600");
 		});
 	});
 
@@ -70,22 +70,21 @@ describe("ProxySettings", () => {
 		);
 
 		await waitFor(() => {
-			const requestTimeoutSelect = screen.getByLabelText(
+			const requestTimeoutInput = screen.getByLabelText(
 				/Request Timeout/i,
-			) as HTMLSelectElement;
-			expect(requestTimeoutSelect.value).toBe("5m0s");
+			) as HTMLInputElement;
+			expect(requestTimeoutInput.value).toBe("300");
 		});
 
 		await waitFor(() => {
-			const keyCacheTTLSelect = screen.getByLabelText(
+			const keyCacheTTLInput = screen.getByLabelText(
 				/Key Cache TTL/i,
-			) as HTMLSelectElement;
-			expect(keyCacheTTLSelect.value).toBe("30m0s");
+			) as HTMLInputElement;
+			expect(keyCacheTTLInput.value).toBe("1800");
 		});
 	});
 
 	it("updates request timeout via mutation", async () => {
-		const user = userEvent.setup();
 		let mutationCalled = false;
 
 		server.use(
@@ -110,16 +109,16 @@ describe("ProxySettings", () => {
 		);
 
 		await waitFor(() => {
-			const requestTimeoutSelect = screen.getByLabelText(
+			const requestTimeoutInput = screen.getByLabelText(
 				/Request Timeout/i,
-			) as HTMLSelectElement;
-			expect(requestTimeoutSelect).toBeInTheDocument();
+			) as HTMLInputElement;
+			expect(requestTimeoutInput).toBeInTheDocument();
 		});
 
-		const requestTimeoutSelect = screen.getByLabelText(
+		const requestTimeoutInput = screen.getByLabelText(
 			/Request Timeout/i,
-		) as HTMLSelectElement;
-		await user.selectOptions(requestTimeoutSelect, "5m0s");
+		) as HTMLInputElement;
+		fireEvent.change(requestTimeoutInput, { target: { value: "300" } });
 
 		await waitFor(() => {
 			expect(mutationCalled).toBe(true);
@@ -127,7 +126,6 @@ describe("ProxySettings", () => {
 	});
 
 	it("updates key cache TTL via mutation", async () => {
-		const user = userEvent.setup();
 		let mutationCalled = false;
 
 		server.use(
@@ -152,16 +150,16 @@ describe("ProxySettings", () => {
 		);
 
 		await waitFor(() => {
-			const keyCacheTTLSelect = screen.getByLabelText(
+			const keyCacheTTLInput = screen.getByLabelText(
 				/Key Cache TTL/i,
-			) as HTMLSelectElement;
-			expect(keyCacheTTLSelect).toBeInTheDocument();
+			) as HTMLInputElement;
+			expect(keyCacheTTLInput).toBeInTheDocument();
 		});
 
-		const keyCacheTTLSelect = screen.getByLabelText(
+		const keyCacheTTLInput = screen.getByLabelText(
 			/Key Cache TTL/i,
-		) as HTMLSelectElement;
-		await user.selectOptions(keyCacheTTLSelect, "1h0m0s");
+		) as HTMLInputElement;
+		fireEvent.change(keyCacheTTLInput, { target: { value: "3600" } });
 
 		await waitFor(() => {
 			expect(mutationCalled).toBe(true);
@@ -169,8 +167,6 @@ describe("ProxySettings", () => {
 	});
 
 	it("shows success toast on mutation success", async () => {
-		const user = userEvent.setup();
-
 		server.use(
 			http.put("/api/settings", async ({ request }) => {
 				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
@@ -185,16 +181,16 @@ describe("ProxySettings", () => {
 		);
 
 		await waitFor(() => {
-			const requestTimeoutSelect = screen.getByLabelText(
+			const requestTimeoutInput = screen.getByLabelText(
 				/Request Timeout/i,
-			) as HTMLSelectElement;
-			expect(requestTimeoutSelect).toBeInTheDocument();
+			) as HTMLInputElement;
+			expect(requestTimeoutInput).toBeInTheDocument();
 		});
 
-		const requestTimeoutSelect = screen.getByLabelText(
+		const requestTimeoutInput = screen.getByLabelText(
 			/Request Timeout/i,
-		) as HTMLSelectElement;
-		await user.selectOptions(requestTimeoutSelect, "2m0s");
+		) as HTMLInputElement;
+		fireEvent.change(requestTimeoutInput, { target: { value: "120" } });
 
 		await waitFor(() => {
 			expect(screen.getByText("Settings saved")).toBeInTheDocument();
@@ -202,8 +198,6 @@ describe("ProxySettings", () => {
 	});
 
 	it("shows error toast on mutation failure", async () => {
-		const user = userEvent.setup();
-
 		server.use(http.put("/api/settings", () => HttpResponse.error()));
 
 		renderWithProviders(
@@ -211,59 +205,55 @@ describe("ProxySettings", () => {
 		);
 
 		await waitFor(() => {
-			const requestTimeoutSelect = screen.getByLabelText(
+			const requestTimeoutInput = screen.getByLabelText(
 				/Request Timeout/i,
-			) as HTMLSelectElement;
-			expect(requestTimeoutSelect).toBeInTheDocument();
+			) as HTMLInputElement;
+			expect(requestTimeoutInput).toBeInTheDocument();
 		});
 
-		const requestTimeoutSelect = screen.getByLabelText(
+		const requestTimeoutInput = screen.getByLabelText(
 			/Request Timeout/i,
-		) as HTMLSelectElement;
-		await user.selectOptions(requestTimeoutSelect, "2m0s");
+		) as HTMLInputElement;
+		fireEvent.change(requestTimeoutInput, { target: { value: "120" } });
 
 		await waitFor(() => {
 			expect(screen.getByText(/Failed to save:/i)).toBeInTheDocument();
 		});
 	});
 
-	it("renders all timeout options", () => {
+	it("renders request timeout slider with correct range", async () => {
 		renderWithProviders(
 			<ProxySettings collapsed={false} onToggle={() => {}} />,
 		);
 
-		const requestTimeoutSelect = screen.getByLabelText(
-			/Request Timeout/i,
-		) as HTMLSelectElement;
-
-		expect(requestTimeoutSelect.options).toHaveLength(5);
-		expect(requestTimeoutSelect.options[0].value).toBe("30s");
-		expect(requestTimeoutSelect.options[1].value).toBe("1m0s");
-		expect(requestTimeoutSelect.options[2].value).toBe("2m0s");
-		expect(requestTimeoutSelect.options[3].value).toBe("5m0s");
-		expect(requestTimeoutSelect.options[4].value).toBe("10m0s");
+		await waitFor(() => {
+			const requestTimeoutInput = screen.getByLabelText(
+				/Request Timeout/i,
+			) as HTMLInputElement;
+			expect(requestTimeoutInput.min).toBe("30");
+			expect(requestTimeoutInput.max).toBe("600");
+			expect(requestTimeoutInput.step).toBe("30");
+			expect(requestTimeoutInput.value).toBe("60");
+		});
 	});
 
-	it("renders all key cache TTL options", () => {
+	it("renders key cache TTL slider with correct range", async () => {
 		renderWithProviders(
 			<ProxySettings collapsed={false} onToggle={() => {}} />,
 		);
 
-		const keyCacheTTLSelect = screen.getByLabelText(
-			/Key Cache TTL/i,
-		) as HTMLSelectElement;
-
-		expect(keyCacheTTLSelect.options).toHaveLength(5);
-		expect(keyCacheTTLSelect.options[0].value).toBe("1m0s");
-		expect(keyCacheTTLSelect.options[1].value).toBe("5m0s");
-		expect(keyCacheTTLSelect.options[2].value).toBe("10m0s");
-		expect(keyCacheTTLSelect.options[3].value).toBe("30m0s");
-		expect(keyCacheTTLSelect.options[4].value).toBe("1h0m0s");
+		await waitFor(() => {
+			const keyCacheTTLInput = screen.getByLabelText(
+				/Key Cache TTL/i,
+			) as HTMLInputElement;
+			expect(keyCacheTTLInput.min).toBe("60");
+			expect(keyCacheTTLInput.max).toBe("3600");
+			expect(keyCacheTTLInput.step).toBe("60");
+			expect(keyCacheTTLInput.value).toBe("600");
+		});
 	});
 
 	it("invalidates settings query after successful mutation", async () => {
-		const user = userEvent.setup();
-
 		server.use(
 			http.put("/api/settings", async ({ request }) => {
 				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
@@ -278,16 +268,16 @@ describe("ProxySettings", () => {
 		);
 
 		await waitFor(() => {
-			const requestTimeoutSelect = screen.getByLabelText(
+			const requestTimeoutInput = screen.getByLabelText(
 				/Request Timeout/i,
-			) as HTMLSelectElement;
-			expect(requestTimeoutSelect).toBeInTheDocument();
+			) as HTMLInputElement;
+			expect(requestTimeoutInput).toBeInTheDocument();
 		});
 
-		const requestTimeoutSelect = screen.getByLabelText(
+		const requestTimeoutInput = screen.getByLabelText(
 			/Request Timeout/i,
-		) as HTMLSelectElement;
-		await user.selectOptions(requestTimeoutSelect, "2m0s");
+		) as HTMLInputElement;
+		fireEvent.change(requestTimeoutInput, { target: { value: "120" } });
 
 		// Success toast indicates mutation completed and invalidation was triggered
 		await waitFor(() => {
@@ -296,8 +286,6 @@ describe("ProxySettings", () => {
 	});
 
 	it("shows error toast with API error message when mutation fails", async () => {
-		const user = userEvent.setup();
-
 		server.use(
 			http.put("/api/settings", () =>
 				HttpResponse.json(
@@ -312,16 +300,16 @@ describe("ProxySettings", () => {
 		);
 
 		await waitFor(() => {
-			const requestTimeoutSelect = screen.getByLabelText(
+			const requestTimeoutInput = screen.getByLabelText(
 				/Request Timeout/i,
-			) as HTMLSelectElement;
-			expect(requestTimeoutSelect).toBeInTheDocument();
+			) as HTMLInputElement;
+			expect(requestTimeoutInput).toBeInTheDocument();
 		});
 
-		const requestTimeoutSelect = screen.getByLabelText(
+		const requestTimeoutInput = screen.getByLabelText(
 			/Request Timeout/i,
-		) as HTMLSelectElement;
-		await user.selectOptions(requestTimeoutSelect, "2m0s");
+		) as HTMLInputElement;
+		fireEvent.change(requestTimeoutInput, { target: { value: "120" } });
 
 		// Error toast should appear with the error message
 		await waitFor(() => {
@@ -337,10 +325,10 @@ describe("ProxySettings", () => {
 		);
 
 		await waitFor(() => {
-			const requestTimeoutSelect = screen.getByLabelText(
+			const requestTimeoutInput = screen.getByLabelText(
 				/Request Timeout/i,
-			) as HTMLSelectElement;
-			expect(requestTimeoutSelect.value).toBe("1m0s");
+			) as HTMLInputElement;
+			expect(requestTimeoutInput.value).toBe("60");
 		});
 	});
 
@@ -352,10 +340,10 @@ describe("ProxySettings", () => {
 		);
 
 		await waitFor(() => {
-			const keyCacheTTLSelect = screen.getByLabelText(
+			const keyCacheTTLInput = screen.getByLabelText(
 				/Key Cache TTL/i,
-			) as HTMLSelectElement;
-			expect(keyCacheTTLSelect.value).toBe("10m0s");
+			) as HTMLInputElement;
+			expect(keyCacheTTLInput.value).toBe("600");
 		});
 	});
 
@@ -380,7 +368,6 @@ describe("ProxySettings", () => {
 	});
 
 	it("calls mutation with correct request_timeout payload", async () => {
-		const user = userEvent.setup();
 		let capturedPayload: Record<string, string> | null = null;
 
 		server.use(
@@ -398,24 +385,23 @@ describe("ProxySettings", () => {
 		);
 
 		await waitFor(() => {
-			const requestTimeoutSelect = screen.getByLabelText(
+			const requestTimeoutInput = screen.getByLabelText(
 				/Request Timeout/i,
-			) as HTMLSelectElement;
-			expect(requestTimeoutSelect).toBeInTheDocument();
+			) as HTMLInputElement;
+			expect(requestTimeoutInput).toBeInTheDocument();
 		});
 
-		const requestTimeoutSelect = screen.getByLabelText(
+		const requestTimeoutInput = screen.getByLabelText(
 			/Request Timeout/i,
-		) as HTMLSelectElement;
-		await user.selectOptions(requestTimeoutSelect, "5m0s");
+		) as HTMLInputElement;
+		fireEvent.change(requestTimeoutInput, { target: { value: "300" } });
 
 		await waitFor(() => {
-			expect(capturedPayload).toEqual({ request_timeout: "5m0s" });
+			expect(capturedPayload).toEqual({ request_timeout: "5m" });
 		});
 	});
 
 	it("calls mutation with correct key_cache_ttl payload", async () => {
-		const user = userEvent.setup();
 		let capturedPayload: Record<string, string> | null = null;
 
 		server.use(
@@ -433,19 +419,19 @@ describe("ProxySettings", () => {
 		);
 
 		await waitFor(() => {
-			const keyCacheTTLSelect = screen.getByLabelText(
+			const keyCacheTTLInput = screen.getByLabelText(
 				/Key Cache TTL/i,
-			) as HTMLSelectElement;
-			expect(keyCacheTTLSelect).toBeInTheDocument();
+			) as HTMLInputElement;
+			expect(keyCacheTTLInput).toBeInTheDocument();
 		});
 
-		const keyCacheTTLSelect = screen.getByLabelText(
+		const keyCacheTTLInput = screen.getByLabelText(
 			/Key Cache TTL/i,
-		) as HTMLSelectElement;
-		await user.selectOptions(keyCacheTTLSelect, "30m0s");
+		) as HTMLInputElement;
+		fireEvent.change(keyCacheTTLInput, { target: { value: "1800" } });
 
 		await waitFor(() => {
-			expect(capturedPayload).toEqual({ key_cache_ttl: "30m0s" });
+			expect(capturedPayload).toEqual({ key_cache_ttl: "30m" });
 		});
 	});
 

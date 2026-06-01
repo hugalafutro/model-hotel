@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -166,7 +166,7 @@ describe("CircuitBreakerSettings", () => {
 		});
 	});
 
-	it("displays cooldown default value 1m0s", async () => {
+	it("displays cooldown default value in seconds", async () => {
 		server.use(
 			...mockSettings({
 				body: {
@@ -179,14 +179,14 @@ describe("CircuitBreakerSettings", () => {
 			<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
 		);
 		await waitFor(() => {
-			const select = screen.getByLabelText(
+			const input = screen.getByLabelText(
 				"Cooldown Period",
-			) as HTMLSelectElement;
-			expect(select.value).toBe("1m0s");
+			) as HTMLInputElement;
+			expect(input.value).toBe("60");
 		});
 	});
 
-	it("displays cooldown value from settings", async () => {
+	it("displays cooldown value from settings in seconds", async () => {
 		server.use(
 			...mockSettings({
 				body: {
@@ -199,10 +199,10 @@ describe("CircuitBreakerSettings", () => {
 			<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
 		);
 		await waitFor(() => {
-			const select = screen.getByLabelText(
+			const input = screen.getByLabelText(
 				"Cooldown Period",
-			) as HTMLSelectElement;
-			expect(select.value).toBe("5m0s");
+			) as HTMLInputElement;
+			expect(input.value).toBe("300");
 		});
 	});
 
@@ -225,7 +225,6 @@ describe("CircuitBreakerSettings", () => {
 	});
 
 	it("calls mutation when threshold input changes", async () => {
-		const user = userEvent.setup();
 		let mutationCalled = false;
 
 		server.use(
@@ -263,16 +262,14 @@ describe("CircuitBreakerSettings", () => {
 		const input = screen.getByLabelText(
 			"Failure Threshold",
 		) as HTMLInputElement;
-		await user.clear(input);
-		await user.type(input, "15");
+		fireEvent.change(input, { target: { value: "15" } });
 
 		await waitFor(() => {
 			expect(mutationCalled).toBe(true);
 		});
 	});
 
-	it("calls mutation when cooldown select changes", async () => {
-		const user = userEvent.setup();
+	it("calls mutation when cooldown slider changes", async () => {
 		let mutationCalled = false;
 
 		server.use(
@@ -303,14 +300,12 @@ describe("CircuitBreakerSettings", () => {
 		);
 
 		await waitFor(() => {
-			const select = screen.getByLabelText("Cooldown Period");
-			expect(select).toBeInTheDocument();
+			const input = screen.getByLabelText("Cooldown Period");
+			expect(input).toBeInTheDocument();
 		});
 
-		const select = screen.getByLabelText(
-			"Cooldown Period",
-		) as HTMLSelectElement;
-		await user.selectOptions(select, "5m0s");
+		const input = screen.getByLabelText("Cooldown Period") as HTMLInputElement;
+		fireEvent.change(input, { target: { value: "300" } });
 
 		await waitFor(() => {
 			expect(mutationCalled).toBe(true);
@@ -318,8 +313,6 @@ describe("CircuitBreakerSettings", () => {
 	});
 
 	it("shows success toast on mutation success", async () => {
-		const user = userEvent.setup();
-
 		server.use(
 			...mockSettings({
 				body: {
@@ -340,14 +333,12 @@ describe("CircuitBreakerSettings", () => {
 		);
 
 		await waitFor(() => {
-			const select = screen.getByLabelText("Cooldown Period");
-			expect(select).toBeInTheDocument();
+			const input = screen.getByLabelText("Cooldown Period");
+			expect(input).toBeInTheDocument();
 		});
 
-		const select = screen.getByLabelText(
-			"Cooldown Period",
-		) as HTMLSelectElement;
-		await user.selectOptions(select, "2m0s");
+		const input = screen.getByLabelText("Cooldown Period") as HTMLInputElement;
+		fireEvent.change(input, { target: { value: "120" } });
 
 		await waitFor(() => {
 			expect(screen.getByText("Settings saved")).toBeInTheDocument();
@@ -355,8 +346,6 @@ describe("CircuitBreakerSettings", () => {
 	});
 
 	it("shows error toast on mutation failure", async () => {
-		const user = userEvent.setup();
-
 		server.use(
 			...mockSettings({
 				body: {
@@ -372,14 +361,12 @@ describe("CircuitBreakerSettings", () => {
 		);
 
 		await waitFor(() => {
-			const select = screen.getByLabelText("Cooldown Period");
-			expect(select).toBeInTheDocument();
+			const input = screen.getByLabelText("Cooldown Period");
+			expect(input).toBeInTheDocument();
 		});
 
-		const select = screen.getByLabelText(
-			"Cooldown Period",
-		) as HTMLSelectElement;
-		await user.selectOptions(select, "2m0s");
+		const input = screen.getByLabelText("Cooldown Period") as HTMLInputElement;
+		fireEvent.change(input, { target: { value: "120" } });
 
 		await waitFor(() => {
 			expect(screen.getByText(/Failed to save:/i)).toBeInTheDocument();
@@ -401,7 +388,7 @@ describe("CircuitBreakerSettings", () => {
 		expect(onToggle).toHaveBeenCalledTimes(1);
 	});
 
-	it("renders all cooldown period options", async () => {
+	it("renders cooldown slider with correct range", async () => {
 		server.use(
 			...mockSettings({
 				body: { circuit_breaker_enabled: "true" },
@@ -413,15 +400,13 @@ describe("CircuitBreakerSettings", () => {
 		);
 
 		await waitFor(() => {
-			const select = screen.getByLabelText(
+			const input = screen.getByLabelText(
 				"Cooldown Period",
-			) as HTMLSelectElement;
-			expect(select.options).toHaveLength(5);
-			expect(select.options[0].value).toBe("30s");
-			expect(select.options[1].value).toBe("1m0s");
-			expect(select.options[2].value).toBe("2m0s");
-			expect(select.options[3].value).toBe("5m0s");
-			expect(select.options[4].value).toBe("10m0s");
+			) as HTMLInputElement;
+			expect(input.min).toBe("30");
+			expect(input.max).toBe("600");
+			expect(input.step).toBe("30");
+			expect(input.value).toBe("60");
 		});
 	});
 

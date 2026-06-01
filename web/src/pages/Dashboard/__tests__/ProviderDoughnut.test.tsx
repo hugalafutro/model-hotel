@@ -264,10 +264,10 @@ describe("ProviderDoughnut", () => {
 			<ProviderDoughnut {...defaultProps} onRangeChange={onRangeChangeMock} />,
 		);
 
-		const sevenDButton = screen.getByText("7D");
+		const sevenDButton = screen.getByText("1W");
 		await user.click(sevenDButton);
 
-		expect(onRangeChangeMock).toHaveBeenCalledWith("7d");
+		expect(onRangeChangeMock).toHaveBeenCalledWith("1w");
 	});
 
 	it("calls onMetricChange when metric button is clicked", async () => {
@@ -299,7 +299,7 @@ describe("ProviderDoughnut", () => {
 
 		expect(screen.getByText("1H")).toBeInTheDocument();
 		expect(screen.getByText("1D")).toBeInTheDocument();
-		expect(screen.getByText("7D")).toBeInTheDocument();
+		expect(screen.getByText("1W")).toBeInTheDocument();
 	});
 
 	it("highlights active range button", () => {

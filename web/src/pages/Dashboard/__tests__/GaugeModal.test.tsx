@@ -208,11 +208,11 @@ describe("GaugeModal", () => {
 			expect(screen.getByText("1D")).toBeInTheDocument();
 		});
 
-		const sevenDButton = screen.getByText("7D");
+		const sevenDButton = screen.getByText("1W");
 		await user.click(sevenDButton);
 
 		await waitFor(() => {
-			expect(screen.getByText("7D")).toHaveStyle(
+			expect(screen.getByText("1W")).toHaveStyle(
 				"background-color: var(--accent)",
 			);
 		});

@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -49,7 +49,7 @@ describe("RateLimitSettings", () => {
 		expect(toggles.length).toBeGreaterThanOrEqual(1);
 	});
 
-	it("renders Requests per Second select when rate limiting enabled", async () => {
+	it("renders Requests per Second slider when rate limiting enabled", async () => {
 		renderWithProviders(
 			<RateLimitSettings collapsed={false} onToggle={onToggle} />,
 		);
@@ -58,7 +58,7 @@ describe("RateLimitSettings", () => {
 		});
 	});
 
-	it("renders Burst Size select when rate limiting enabled", async () => {
+	it("renders Burst Size slider when rate limiting enabled", async () => {
 		renderWithProviders(
 			<RateLimitSettings collapsed={false} onToggle={onToggle} />,
 		);
@@ -76,7 +76,7 @@ describe("RateLimitSettings", () => {
 		});
 	});
 
-	it("renders IP Requests per Second select when IP rate limiting enabled", async () => {
+	it("renders IP Requests per Second slider when IP rate limiting enabled", async () => {
 		renderWithProviders(
 			<RateLimitSettings collapsed={false} onToggle={onToggle} />,
 		);
@@ -87,7 +87,7 @@ describe("RateLimitSettings", () => {
 		});
 	});
 
-	it("renders IP Burst Size select when IP rate limiting enabled", async () => {
+	it("renders IP Burst Size slider when IP rate limiting enabled", async () => {
 		renderWithProviders(
 			<RateLimitSettings collapsed={false} onToggle={onToggle} />,
 		);
@@ -105,32 +105,23 @@ describe("RateLimitSettings", () => {
 		});
 	});
 
-	it("displays RPS options in select", async () => {
+	it("displays RPS slider with default value", async () => {
 		renderWithProviders(
 			<RateLimitSettings collapsed={false} onToggle={onToggle} />,
 		);
 		await waitFor(() => {
-			const select = screen.getByLabelText("Requests per Second");
-			expect(select).toContainHTML('<option value="5">5 req/s</option>');
-			expect(select).toContainHTML('<option value="10">10 req/s</option>');
-			expect(select).toContainHTML('<option value="20">20 req/s</option>');
-			expect(select).toContainHTML('<option value="50">50 req/s</option>');
-			expect(select).toContainHTML('<option value="100">100 req/s</option>');
-			expect(select).toContainHTML('<option value="0">Unlimited</option>');
+			const slider = screen.getByLabelText("Requests per Second");
+			expect(slider).toHaveValue("10");
 		});
 	});
 
-	it("displays Burst options in select", async () => {
+	it("displays Burst slider with default value", async () => {
 		renderWithProviders(
 			<RateLimitSettings collapsed={false} onToggle={onToggle} />,
 		);
 		await waitFor(() => {
-			const select = screen.getByLabelText("Burst Size");
-			expect(select).toContainHTML('<option value="10">10</option>');
-			expect(select).toContainHTML('<option value="20">20</option>');
-			expect(select).toContainHTML('<option value="50">50</option>');
-			expect(select).toContainHTML('<option value="100">100</option>');
-			expect(select).toContainHTML('<option value="200">200</option>');
+			const slider = screen.getByLabelText("Burst Size");
+			expect(slider).toHaveValue("20");
 		});
 	});
 
@@ -182,36 +173,34 @@ describe("RateLimitSettings", () => {
 		});
 	});
 
-	it("updates RPS when select value changes", async () => {
-		const user = userEvent.setup();
+	it("updates RPS when slider value changes", async () => {
 		renderWithProviders(
 			<RateLimitSettings collapsed={false} onToggle={onToggle} />,
 		);
 		await waitFor(() => {
 			expect(screen.getByLabelText("Requests per Second")).toBeInTheDocument();
 		});
-		const select = screen.getByLabelText("Requests per Second");
-		await user.selectOptions(select, "50");
+		const slider = screen.getByLabelText("Requests per Second");
+		fireEvent.change(slider, { target: { value: "50" } });
 		// Should trigger API mutation (settings are updated via React Query)
-		// The select element value may not update immediately due to caching
-		expect(select).toBeInTheDocument();
+		// The slider element value may not update immediately due to caching
+		expect(slider).toBeInTheDocument();
 	});
 
-	it("updates Burst Size when select value changes", async () => {
-		const user = userEvent.setup();
+	it("updates Burst Size when slider value changes", async () => {
 		renderWithProviders(
 			<RateLimitSettings collapsed={false} onToggle={onToggle} />,
 		);
 		await waitFor(() => {
 			expect(screen.getByLabelText("Burst Size")).toBeInTheDocument();
 		});
-		const select = screen.getByLabelText("Burst Size");
-		await user.selectOptions(select, "100");
+		const slider = screen.getByLabelText("Burst Size");
+		fireEvent.change(slider, { target: { value: "100" } });
 		// Should trigger API mutation (settings are updated via React Query)
-		expect(select).toBeInTheDocument();
+		expect(slider).toBeInTheDocument();
 	});
 
-	it("renders IP RPS input when value is custom", async () => {
+	it("renders IP RPS slider with default value", async () => {
 		renderWithProviders(
 			<RateLimitSettings collapsed={false} onToggle={onToggle} />,
 		);
@@ -220,25 +209,21 @@ describe("RateLimitSettings", () => {
 				screen.getByLabelText("IP Requests per Second"),
 			).toBeInTheDocument();
 		});
-		// IP RPS defaults to "30" which is not in options, so it renders as input
-		const input = screen.getByLabelText("IP Requests per Second");
-		expect(input).toBeInTheDocument();
-		expect(input).toHaveValue("30");
+		const slider = screen.getByLabelText("IP Requests per Second");
+		expect(slider).toHaveValue("30");
 	});
 
-	it("updates Max Wait when input value changes", async () => {
-		const user = userEvent.setup();
+	it("updates Max Wait when slider value changes", async () => {
 		renderWithProviders(
 			<RateLimitSettings collapsed={false} onToggle={onToggle} />,
 		);
 		await waitFor(() => {
 			expect(screen.getByLabelText("Max Wait (ms)")).toBeInTheDocument();
 		});
-		const input = screen.getByLabelText("Max Wait (ms)");
-		await user.clear(input);
-		await user.type(input, "500");
+		const slider = screen.getByLabelText("Max Wait (ms)");
+		fireEvent.change(slider, { target: { value: "500" } });
 		// Should trigger API mutation (settings are updated via React Query)
-		expect(input).toBeInTheDocument();
+		expect(slider).toBeInTheDocument();
 	});
 
 	it("shows Rate Limit Backpressure section when rate limiting enabled", async () => {
@@ -299,7 +284,7 @@ describe("RateLimitSettings", () => {
 		).toBeInTheDocument();
 	});
 
-	it("hides RPS and Burst selects when rate limiting is disabled", async () => {
+	it("hides RPS and Burst sliders when rate limiting is disabled", async () => {
 		server.use(
 			http.get("/api/settings", () => {
 				return HttpResponse.json({
@@ -332,7 +317,7 @@ describe("RateLimitSettings", () => {
 		expect(screen.queryByLabelText("Burst Size")).not.toBeInTheDocument();
 	});
 
-	it("hides IP RPS and IP Burst selects when IP rate limiting is disabled", async () => {
+	it("hides IP RPS and IP Burst sliders when IP rate limiting is disabled", async () => {
 		server.use(
 			http.get("/api/settings", () => {
 				return HttpResponse.json({
