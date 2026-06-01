@@ -1,7 +1,7 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import type { ProviderDistributionItem } from "@/api/types";
+import type { ProviderDistributionItem } from "../../../api/types";
 import { renderWithProviders } from "../../../test/utils";
 import { ProviderDoughnut } from "../ProviderDoughnut";
 import type { MetricType, Range } from "../types";
