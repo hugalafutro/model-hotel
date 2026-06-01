@@ -106,7 +106,10 @@ describe("api.failoverGroups", () => {
 
 		it("throws on error response", async () => {
 			vi.spyOn(globalThis, "fetch").mockResolvedValue(
-				new Response("duplicate name", { status: 409 }),
+				new Response(
+					"A failover group for 'hotel/dup' already exists (auto-created from shared model). Edit the existing group instead.",
+					{ status: 409 },
+				),
 			);
 
 			await expect(
@@ -114,7 +117,9 @@ describe("api.failoverGroups", () => {
 					display_model: "hotel/dup",
 					entry_ids: [],
 				}),
-			).rejects.toThrow("Failed to create failover group: 409 duplicate name");
+			).rejects.toThrow(
+				"Failed to create failover group: 409 A failover group for 'hotel/dup' already exists (auto-created from shared model). Edit the existing group instead.",
+			);
 		});
 	});
 

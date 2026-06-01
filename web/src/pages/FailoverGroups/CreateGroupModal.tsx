@@ -101,7 +101,17 @@ export function CreateGroupModal({
 			onCreated?.();
 		},
 		onError: (err: Error) => {
-			toast(`Failed to create group: ${err.message}`, "error");
+			if (
+				err.message.includes("409") &&
+				err.message.includes("already exists")
+			) {
+				toast(
+					`A failover group for '${displayModel || "this model"}' already exists — it was auto-created from shared models. Edit the existing group instead.`,
+					"error",
+				);
+			} else {
+				toast(`Failed to create group: ${err.message}`, "error");
+			}
 		},
 	});
 
@@ -116,7 +126,17 @@ export function CreateGroupModal({
 			onUpdated?.();
 		},
 		onError: (err: Error) => {
-			toast(`Failed to update group: ${err.message}`, "error");
+			if (
+				err.message.includes("409") &&
+				err.message.includes("already exists")
+			) {
+				toast(
+					"A failover group with this name already exists — choose a different name.",
+					"error",
+				);
+			} else {
+				toast(`Failed to update group: ${err.message}`, "error");
+			}
 		},
 	});
 
