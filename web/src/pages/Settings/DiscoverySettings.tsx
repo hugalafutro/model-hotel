@@ -62,67 +62,74 @@ export function DiscoverySettings({
 			onToggle={onToggle}
 		>
 			<div className="space-y-5">
-				<p className="text-gray-400 text-sm">
+				<p className="text-gray-400 text-sm col-span-2">
 					{t("settings.discovery.description")}
 				</p>
-				<SettingsSelect
-					id="discovery-interval"
-					label={t("settings.discovery.discoveryInterval")}
-					value={discoveryInterval}
-					options={DISCOVERY_INTERVALS}
-					onChange={(v) => updateMutation.mutate({ discovery_interval: v })}
-					disabled={isUpdating}
-					description={
-						discoveryInterval === "0" ? (
-							<span className="text-amber-400">
-								{t("settings.discovery.discoveryInterval.disabled")}
-							</span>
-						) : (
-							t("settings.discovery.discoveryInterval.description")
-						)
-					}
-				/>
+				<div className="grid grid-cols-2 gap-x-8 gap-y-5">
+					<div className="space-y-5">
+						<div className="flex items-center justify-between">
+							<div>
+								<p className="text-sm font-medium text-gray-300">
+									{t("settings.discovery.discoverOnStartup")}
+								</p>
+								<p className="text-gray-500 text-xs mt-0.5">
+									{t("settings.discovery.discoverOnStartupDescription")}
+								</p>
+							</div>
+							<Toggle
+								checked={discoveryOnStartup}
+								onChange={(v) =>
+									updateMutation.mutate({
+										discovery_on_startup: v ? "true" : "false",
+									})
+								}
+								disabled={isUpdating}
+								ariaLabel={t("settings.discovery.discoverOnStartup")}
+							/>
+						</div>
 
-				<div className="flex items-center justify-between">
-					<div>
-						<p className="text-sm font-medium text-gray-300">
-							{t("settings.discovery.discoverOnStartup")}
-						</p>
-						<p className="text-gray-500 text-xs mt-0.5">
-							{t("settings.discovery.discoverOnStartupDescription")}
-						</p>
+						<div className="flex items-center justify-between">
+							<div>
+								<p className="text-sm font-medium text-gray-300">
+									{t("settings.discovery.discoverOnProviderCreation")}
+								</p>
+								<p className="text-gray-500 text-xs mt-0.5">
+									{t(
+										"settings.discovery.discoverOnProviderCreationDescription",
+									)}
+								</p>
+							</div>
+							<Toggle
+								checked={discoveryOnCreate}
+								onChange={(v) =>
+									updateMutation.mutate({
+										discovery_on_provider_create: v ? "true" : "false",
+									})
+								}
+								disabled={isUpdating}
+								ariaLabel={t("settings.discovery.discoverOnProviderCreation")}
+							/>
+						</div>
 					</div>
-					<Toggle
-						checked={discoveryOnStartup}
-						onChange={(v) =>
-							updateMutation.mutate({
-								discovery_on_startup: v ? "true" : "false",
-							})
-						}
-						disabled={isUpdating}
-						ariaLabel={t("settings.discovery.discoverOnStartup")}
-					/>
-				</div>
-
-				<div className="flex items-center justify-between">
-					<div>
-						<p className="text-sm font-medium text-gray-300">
-							{t("settings.discovery.discoverOnProviderCreation")}
-						</p>
-						<p className="text-gray-500 text-xs mt-0.5">
-							{t("settings.discovery.discoverOnProviderCreationDescription")}
-						</p>
+					<div className="space-y-5">
+						<SettingsSelect
+							id="discovery-interval"
+							label={t("settings.discovery.discoveryInterval")}
+							value={discoveryInterval}
+							options={DISCOVERY_INTERVALS}
+							onChange={(v) => updateMutation.mutate({ discovery_interval: v })}
+							disabled={isUpdating}
+							description={
+								discoveryInterval === "0" ? (
+									<span className="text-amber-400">
+										{t("settings.discovery.discoveryInterval.disabled")}
+									</span>
+								) : (
+									t("settings.discovery.discoveryInterval.description")
+								)
+							}
+						/>
 					</div>
-					<Toggle
-						checked={discoveryOnCreate}
-						onChange={(v) =>
-							updateMutation.mutate({
-								discovery_on_provider_create: v ? "true" : "false",
-							})
-						}
-						disabled={isUpdating}
-						ariaLabel={t("settings.discovery.discoverOnProviderCreation")}
-					/>
 				</div>
 			</div>
 		</SettingsSection>

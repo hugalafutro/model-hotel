@@ -82,84 +82,90 @@ export function CircuitBreakerSettings({
 				<p className="text-gray-400 text-sm">
 					{t("settings.circuitBreaker.description")}
 				</p>
-				<div className="flex items-center justify-between">
-					<div>
-						<p className="text-sm font-medium text-gray-300">
-							{t("settings.circuitBreaker.enable")}
-						</p>
-						<p className="text-gray-500 text-xs mt-0.5">
-							{t("settings.circuitBreaker.enableDescription")}
-						</p>
+				<div className="grid grid-cols-2 gap-x-8 gap-y-5">
+					<div className="space-y-5">
+						<div className="flex items-center justify-between">
+							<div>
+								<p className="text-sm font-medium text-gray-300">
+									{t("settings.circuitBreaker.enable")}
+								</p>
+								<p className="text-gray-500 text-xs mt-0.5">
+									{t("settings.circuitBreaker.enableDescription")}
+								</p>
+							</div>
+							<Toggle
+								checked={circuitBreakerEnabled}
+								onChange={(v) =>
+									updateMutation.mutate({
+										circuit_breaker_enabled: v ? "true" : "false",
+									})
+								}
+								ariaLabel={t("settings.circuitBreaker.enable")}
+							/>
+						</div>
+
+						<div className="flex items-center justify-between">
+							<div>
+								<p className="text-sm font-medium text-gray-300">
+									{t("settings.circuitBreaker.failoverOnRateLimit")}
+								</p>
+								<p className="text-gray-500 text-xs mt-0.5">
+									{t("settings.circuitBreaker.failoverOnRateLimitDescription")}
+								</p>
+							</div>
+							<Toggle
+								checked={failoverOnRateLimit}
+								onChange={(v) =>
+									updateMutation.mutate({
+										failover_on_rate_limit: v ? "true" : "false",
+									})
+								}
+								ariaLabel={t("settings.circuitBreaker.failoverOnRateLimit")}
+							/>
+						</div>
 					</div>
-					<Toggle
-						checked={circuitBreakerEnabled}
-						onChange={(v) =>
-							updateMutation.mutate({
-								circuit_breaker_enabled: v ? "true" : "false",
-							})
-						}
-						ariaLabel={t("settings.circuitBreaker.enable")}
-					/>
-				</div>
 
-				{circuitBreakerEnabled && (
-					<>
-						<SettingsSlider
-							id="circuit-breaker-threshold"
-							label={t("settings.circuitBreaker.failureThreshold")}
-							value={Number(circuitBreakerThreshold)}
-							min={1}
-							max={100}
-							step={1}
-							onChange={(v) =>
-								updateMutation.mutate({
-									circuit_breaker_threshold: String(v),
-								})
-							}
-							description={t(
-								"settings.circuitBreaker.failureThreshold.description",
-							)}
-						/>
+					<div className="space-y-5">
+						{circuitBreakerEnabled && (
+							<>
+								<SettingsSlider
+									id="circuit-breaker-threshold"
+									label={t("settings.circuitBreaker.failureThreshold")}
+									value={Number(circuitBreakerThreshold)}
+									min={1}
+									max={100}
+									step={1}
+									onChange={(v) =>
+										updateMutation.mutate({
+											circuit_breaker_threshold: String(v),
+										})
+									}
+									description={t(
+										"settings.circuitBreaker.failureThreshold.description",
+									)}
+								/>
 
-						<SettingsSlider
-							id="circuit-breaker-cooldown"
-							label={t("settings.circuitBreaker.cooldownPeriod")}
-							value={goDurationToSeconds(circuitBreakerCooldown)}
-							min={30}
-							max={600}
-							step={30}
-							clampStep={30}
-							unit="s"
-							onChange={(v) =>
-								updateMutation.mutate({
-									circuit_breaker_cooldown: secondsToGoDuration(v),
-								})
-							}
-							description={t(
-								"settings.circuitBreaker.cooldownPeriod.description",
-							)}
-						/>
-					</>
-				)}
-
-				<div className="flex items-center justify-between">
-					<div>
-						<p className="text-sm font-medium text-gray-300">
-							{t("settings.circuitBreaker.failoverOnRateLimit")}
-						</p>
-						<p className="text-gray-500 text-xs mt-0.5">
-							{t("settings.circuitBreaker.failoverOnRateLimitDescription")}
-						</p>
+								<SettingsSlider
+									id="circuit-breaker-cooldown"
+									label={t("settings.circuitBreaker.cooldownPeriod")}
+									value={goDurationToSeconds(circuitBreakerCooldown)}
+									min={30}
+									max={600}
+									step={30}
+									clampStep={30}
+									unit="s"
+									onChange={(v) =>
+										updateMutation.mutate({
+											circuit_breaker_cooldown: secondsToGoDuration(v),
+										})
+									}
+									description={t(
+										"settings.circuitBreaker.cooldownPeriod.description",
+									)}
+								/>
+							</>
+						)}
 					</div>
-					<Toggle
-						checked={failoverOnRateLimit}
-						onChange={(v) =>
-							updateMutation.mutate({
-								failover_on_rate_limit: v ? "true" : "false",
-							})
-						}
-						ariaLabel={t("settings.circuitBreaker.failoverOnRateLimit")}
-					/>
 				</div>
 			</div>
 		</SettingsSection>

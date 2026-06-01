@@ -119,131 +119,136 @@ export function LoggingSettings({ collapsed, onToggle }: LoggingSettingsProps) {
 			onToggle={onToggle}
 		>
 			<div className="space-y-5">
-				<SettingsSelect
-					id="log-retention"
-					label={t("settings.logging.logRetention")}
-					value={logRetention}
-					options={LOG_RETENTION_OPTIONS}
-					onChange={(v) => updateMutation.mutate({ log_retention: v })}
-					description={
-						logRetention === "0" ? (
-							<span className="text-amber-400">
-								{t("settings.logging.logRetention.disabled")}
-							</span>
-						) : (
-							t("settings.logging.logRetention.description")
-						)
-					}
-				/>
-
-				<SettingsSelect
-					id="stale-request-timeout"
-					label={t("settings.logging.staleRequestTimeout")}
-					value={staleRequestTimeout}
-					options={STALE_REQUEST_TIMEOUT_OPTIONS}
-					onChange={(v) => updateMutation.mutate({ stale_request_timeout: v })}
-					description={
-						staleRequestTimeout === "0s" ? (
-							<span className="text-amber-400">
-								{t("settings.logging.staleRequestTimeout.disabled")}
-							</span>
-						) : (
-							t("settings.logging.staleRequestTimeout.description")
-						)
-					}
-				/>
-
-				<div>
-					<div className="flex items-center justify-between">
-						<div>
-							{!confirmDelete ? (
-								<button
-									type="button"
-									onClick={() => setConfirmDelete(true)}
-									className="ui-btn ui-btn-danger"
-								>
-									{t("settings.logging.deleteRequests")}
-								</button>
-							) : (
-								<div className="flex items-center gap-2">
-									<select
-										value={deleteSelection}
-										onChange={(e) => setDeleteSelection(e.target.value)}
-										className="ui-input px-3 py-1.5 text-xs"
-									>
-										<option value="">
-											{t("settings.logging.deleteRequests.selectRange")}
-										</option>
-										<option value="1d">
-											{t("settings.logging.deleteRequests.olderThan1d")}
-										</option>
-										<option value="1w">
-											{t("settings.logging.deleteRequests.olderThan1w")}
-										</option>
-										<option value="1m">
-											{t("settings.logging.deleteRequests.olderThan1m")}
-										</option>
-										<option value="all">
-											{t("settings.logging.deleteRequests.allLogs")}
-										</option>
-									</select>
-									<button
-										type="button"
-										disabled={!deleteSelection}
-										onClick={() => {
-											const olderThan = getDeleteOlderThan(deleteSelection);
-											if (olderThan) purgeMutation.mutate(olderThan);
-										}}
-										className="ui-btn ui-btn-danger disabled:opacity-50 disabled:cursor-not-allowed"
-									>
-										{t("settings.logging.deleteRequests.confirm")}
-									</button>
-									<button
-										type="button"
-										onClick={() => {
-											setConfirmDelete(false);
-											setDeleteSelection("");
-										}}
-										className="ui-btn ui-btn-secondary"
-									>
-										{t("settings.logging.deleteRequests.cancel")}
-									</button>
-								</div>
-							)}
-						</div>
-						<div>
-							{!confirmDeleteAppLogs ? (
-								<button
-									type="button"
-									onClick={() => setConfirmDeleteAppLogs(true)}
-									className="ui-btn ui-btn-danger"
-								>
-									{t("settings.logging.deleteAppLogs")}
-								</button>
-							) : (
-								<div className="flex items-center gap-2">
-									<span className="text-xs text-red-400">
-										{t("settings.logging.deleteAppLogs.confirmText")}
+				<div className="grid grid-cols-2 gap-x-8 gap-y-5">
+					<div className="space-y-5">
+						<SettingsSelect
+							id="log-retention"
+							label={t("settings.logging.logRetention")}
+							value={logRetention}
+							options={LOG_RETENTION_OPTIONS}
+							onChange={(v) => updateMutation.mutate({ log_retention: v })}
+							description={
+								logRetention === "0" ? (
+									<span className="text-amber-400">
+										{t("settings.logging.logRetention.disabled")}
 									</span>
+								) : (
+									t("settings.logging.logRetention.description")
+								)
+							}
+						/>
+
+						<SettingsSelect
+							id="stale-request-timeout"
+							label={t("settings.logging.staleRequestTimeout")}
+							value={staleRequestTimeout}
+							options={STALE_REQUEST_TIMEOUT_OPTIONS}
+							onChange={(v) =>
+								updateMutation.mutate({ stale_request_timeout: v })
+							}
+							description={
+								staleRequestTimeout === "0s" ? (
+									<span className="text-amber-400">
+										{t("settings.logging.staleRequestTimeout.disabled")}
+									</span>
+								) : (
+									t("settings.logging.staleRequestTimeout.description")
+								)
+							}
+						/>
+					</div>
+					<div className="space-y-5">
+						<div className="flex items-center justify-between">
+							<div>
+								{!confirmDelete ? (
 									<button
 										type="button"
-										onClick={() => purgeAppLogsMutation.mutate()}
-										disabled={purgeAppLogsMutation.isPending}
-										className="ui-btn ui-btn-danger disabled:opacity-50 disabled:cursor-not-allowed"
+										onClick={() => setConfirmDelete(true)}
+										className="ui-btn ui-btn-danger"
 									>
-										{purgeAppLogsMutation.isPending
-											? t("settings.logging.deleteAppLogs.deleting")
-											: t("settings.logging.deleteAppLogs.confirm")}
+										{t("settings.logging.deleteRequests")}
 									</button>
+								) : (
+									<div className="flex items-center gap-2">
+										<select
+											value={deleteSelection}
+											onChange={(e) => setDeleteSelection(e.target.value)}
+											className="ui-input px-3 py-1.5 text-xs"
+										>
+											<option value="">
+												{t("settings.logging.deleteRequests.selectRange")}
+											</option>
+											<option value="1d">
+												{t("settings.logging.deleteRequests.olderThan1d")}
+											</option>
+											<option value="1w">
+												{t("settings.logging.deleteRequests.olderThan1w")}
+											</option>
+											<option value="1m">
+												{t("settings.logging.deleteRequests.olderThan1m")}
+											</option>
+											<option value="all">
+												{t("settings.logging.deleteRequests.allLogs")}
+											</option>
+										</select>
+										<button
+											type="button"
+											disabled={!deleteSelection}
+											onClick={() => {
+												const olderThan = getDeleteOlderThan(deleteSelection);
+												if (olderThan) purgeMutation.mutate(olderThan);
+											}}
+											className="ui-btn ui-btn-danger disabled:opacity-50 disabled:cursor-not-allowed"
+										>
+											{t("settings.logging.deleteRequests.confirm")}
+										</button>
+										<button
+											type="button"
+											onClick={() => {
+												setConfirmDelete(false);
+												setDeleteSelection("");
+											}}
+											className="ui-btn ui-btn-secondary"
+										>
+											{t("settings.logging.deleteRequests.cancel")}
+										</button>
+									</div>
+								)}
+							</div>
+							<div>
+								{!confirmDeleteAppLogs ? (
 									<button
 										type="button"
-										onClick={() => setConfirmDeleteAppLogs(false)}
-										className="ui-btn ui-btn-secondary"
+										onClick={() => setConfirmDeleteAppLogs(true)}
+										className="ui-btn ui-btn-danger"
 									>
-										{t("settings.logging.deleteAppLogs.cancel")}
+										{t("settings.logging.deleteAppLogs")}
 									</button>
-								</div>
-							)}
+								) : (
+									<div className="flex items-center gap-2">
+										<span className="text-xs text-red-400">
+											{t("settings.logging.deleteAppLogs.confirmText")}
+										</span>
+										<button
+											type="button"
+											onClick={() => purgeAppLogsMutation.mutate()}
+											disabled={purgeAppLogsMutation.isPending}
+											className="ui-btn ui-btn-danger disabled:opacity-50 disabled:cursor-not-allowed"
+										>
+											{purgeAppLogsMutation.isPending
+												? t("settings.logging.deleteAppLogs.deleting")
+												: t("settings.logging.deleteAppLogs.confirm")}
+										</button>
+										<button
+											type="button"
+											onClick={() => setConfirmDeleteAppLogs(false)}
+											className="ui-btn ui-btn-secondary"
+										>
+											{t("settings.logging.deleteAppLogs.cancel")}
+										</button>
+									</div>
+								)}
+							</div>
 						</div>
 					</div>
 				</div>

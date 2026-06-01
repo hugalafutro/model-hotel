@@ -59,58 +59,69 @@ export function SidebarQuotaSettings({
 			onToggle={onToggle}
 		>
 			<div className="space-y-5">
-				<p className="text-gray-400 text-sm">
+				<p className="text-gray-400 text-sm col-span-2">
 					{t("settings.sidebarQuota.description")}
 				</p>
-				<div className="flex items-center justify-between">
-					<div>
-						<p className="text-sm font-medium text-gray-300">
-							{t("settings.sidebarQuota.showQuotasPill")}
-						</p>
-						<p className="text-gray-500 text-xs mt-0.5">
-							{t("settings.sidebarQuota.showQuotasPillDescription")}
-						</p>
+				<div className="grid grid-cols-2 gap-x-8 gap-y-5">
+					<div className="space-y-5">
+						<div className="flex items-center justify-between">
+							<div>
+								<p className="text-sm font-medium text-gray-300">
+									{t("settings.sidebarQuota.showQuotasPill")}
+								</p>
+								<p className="text-gray-500 text-xs mt-0.5">
+									{t("settings.sidebarQuota.showQuotasPillDescription")}
+								</p>
+							</div>
+							<Toggle
+								checked={!quotaDisabled}
+								onChange={(v) => {
+									const newVal = !v;
+									setQuotaDisabled(newVal);
+									try {
+										localStorage.setItem(
+											"sidebarQuotaDisabled",
+											String(newVal),
+										);
+									} catch {
+										/* ignore */
+									}
+									toast(
+										newVal
+											? t("settings.sidebarQuota.disabledQuotas")
+											: t("settings.sidebarQuota.enabledQuotas"),
+										newVal ? "info" : "success",
+									);
+									window.dispatchEvent(new CustomEvent("sidebarQuotaToggle"));
+								}}
+							/>
+						</div>
 					</div>
-					<Toggle
-						checked={!quotaDisabled}
-						onChange={(v) => {
-							const newVal = !v;
-							setQuotaDisabled(newVal);
-							try {
-								localStorage.setItem("sidebarQuotaDisabled", String(newVal));
-							} catch {
-								/* ignore */
-							}
-							toast(
-								newVal
-									? t("settings.sidebarQuota.disabledQuotas")
-									: t("settings.sidebarQuota.enabledQuotas"),
-								newVal ? "info" : "success",
-							);
-							window.dispatchEvent(new CustomEvent("sidebarQuotaToggle"));
-						}}
-					/>
+					<div className="space-y-5">
+						<SettingsSelect
+							id="quota-refresh-interval"
+							label={t("settings.sidebarQuota.refreshInterval")}
+							value={refreshMin}
+							options={[
+								{ value: "1", label: t("settings.sidebarQuota.intervals.1") },
+								{ value: "2", label: t("settings.sidebarQuota.intervals.2") },
+								{ value: "5", label: t("settings.sidebarQuota.intervals.5") },
+								{ value: "10", label: t("settings.sidebarQuota.intervals.10") },
+								{ value: "15", label: t("settings.sidebarQuota.intervals.15") },
+								{ value: "30", label: t("settings.sidebarQuota.intervals.30") },
+								{
+									value: "0",
+									label: t("settings.sidebarQuota.intervals.disabled"),
+								},
+							]}
+							onChange={handleRefreshChange}
+							disabled={quotaDisabled}
+							description={t(
+								"settings.sidebarQuota.refreshInterval.description",
+							)}
+						/>
+					</div>
 				</div>
-				<SettingsSelect
-					id="quota-refresh-interval"
-					label={t("settings.sidebarQuota.refreshInterval")}
-					value={refreshMin}
-					options={[
-						{ value: "1", label: t("settings.sidebarQuota.intervals.1") },
-						{ value: "2", label: t("settings.sidebarQuota.intervals.2") },
-						{ value: "5", label: t("settings.sidebarQuota.intervals.5") },
-						{ value: "10", label: t("settings.sidebarQuota.intervals.10") },
-						{ value: "15", label: t("settings.sidebarQuota.intervals.15") },
-						{ value: "30", label: t("settings.sidebarQuota.intervals.30") },
-						{
-							value: "0",
-							label: t("settings.sidebarQuota.intervals.disabled"),
-						},
-					]}
-					onChange={handleRefreshChange}
-					disabled={quotaDisabled}
-					description={t("settings.sidebarQuota.refreshInterval.description")}
-				/>
 			</div>
 		</SettingsSection>
 	);

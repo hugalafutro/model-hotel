@@ -78,64 +78,72 @@ export function ProxySettings({ collapsed, onToggle }: ProxySettingsProps) {
 				<p className="text-gray-400 text-sm">
 					{t("settings.proxy.description")}
 				</p>
-				<SettingsSlider
-					id="request-timeout"
-					label={t("settings.proxy.requestTimeout")}
-					value={goDurationToSeconds(requestTimeout)}
-					min={30}
-					max={600}
-					step={30}
-					clampStep={30}
-					unit="s"
-					onChange={(v) =>
-						updateMutation.mutate({ request_timeout: secondsToGoDuration(v) })
-					}
-					description={t("settings.proxy.requestTimeout.description")}
-				/>
-				<SettingsSlider
-					id="key-cache-ttl"
-					label={t("settings.proxy.keyCacheTtl")}
-					value={goDurationToSeconds(keyCacheTTL)}
-					min={60}
-					max={3600}
-					step={60}
-					clampStep={60}
-					unit="s"
-					onChange={(v) =>
-						updateMutation.mutate({ key_cache_ttl: secondsToGoDuration(v) })
-					}
-					description={t("settings.proxy.keyCacheTtl.description")}
-				/>
-				<SettingsSlider
-					id="ttft-timeout"
-					label={t("settings.proxy.ttftTimeout")}
-					value={goDurationToSeconds(ttftTimeout)}
-					min={0}
-					max={300}
-					step={5}
-					clampStep={5}
-					unit="s"
-					onChange={(v) =>
-						updateMutation.mutate({ ttft_timeout: secondsToGoDuration(v) })
-					}
-					description={t("settings.proxy.ttftTimeout.description")}
-				/>
-				<SettingsSlider
-					id="stream-stall-timeout"
-					label={t("settings.proxy.streamStallTimeout")}
-					value={goDurationToSeconds(streamStallTimeout)}
-					min={0}
-					max={600}
-					step={10}
-					clampStep={10}
-					unit="s"
-					onChange={(v) =>
-						updateMutation.mutate({
-							stream_stall_timeout: secondsToGoDuration(v),
-						})
-					}
-					description={t("settings.proxy.streamStallTimeout.description")}
-				/>
+				<div className="grid grid-cols-2 gap-x-8 gap-y-5">
+					<div className="space-y-5">
+						<SettingsSlider
+							id="request-timeout"
+							label={t("settings.proxy.requestTimeout")}
+							value={goDurationToSeconds(requestTimeout)}
+							min={30}
+							max={600}
+							step={30}
+							clampStep={30}
+							unit="s"
+							onChange={(v) =>
+								updateMutation.mutate({
+									request_timeout: secondsToGoDuration(v),
+								})
+							}
+							description={t("settings.proxy.requestTimeout.description")}
+						/>
+						<SettingsSlider
+							id="key-cache-ttl"
+							label={t("settings.proxy.keyCacheTtl")}
+							value={goDurationToSeconds(keyCacheTTL)}
+							min={60}
+							max={3600}
+							step={60}
+							clampStep={60}
+							unit="s"
+							onChange={(v) =>
+								updateMutation.mutate({ key_cache_ttl: secondsToGoDuration(v) })
+							}
+							description={t("settings.proxy.keyCacheTtl.description")}
+						/>
+					</div>
+					<div className="space-y-5">
+						<SettingsSlider
+							id="ttft-timeout"
+							label={t("settings.proxy.ttftTimeout")}
+							value={goDurationToSeconds(ttftTimeout)}
+							min={0}
+							max={300}
+							step={5}
+							clampStep={5}
+							unit="s"
+							onChange={(v) =>
+								updateMutation.mutate({ ttft_timeout: secondsToGoDuration(v) })
+							}
+							description={t("settings.proxy.ttftTimeout.description")}
+						/>
+						<SettingsSlider
+							id="stream-stall-timeout"
+							label={t("settings.proxy.streamStallTimeout")}
+							value={goDurationToSeconds(streamStallTimeout)}
+							min={0}
+							max={600}
+							step={10}
+							clampStep={10}
+							unit="s"
+							onChange={(v) =>
+								updateMutation.mutate({
+									stream_stall_timeout: secondsToGoDuration(v),
+								})
+							}
+							description={t("settings.proxy.streamStallTimeout.description")}
+						/>
+					</div>
+				</div>
 			</div>
 		</SettingsSection>
 	);

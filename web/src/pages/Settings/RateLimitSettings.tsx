@@ -69,92 +69,96 @@ export function RateLimitSettings({
 				<p className="text-gray-400 text-sm">
 					{t("settings.rateLimit.description")}
 				</p>
-				<div className="flex items-center justify-between">
-					<div>
-						<p className="text-sm font-medium text-gray-300">
-							{t("settings.rateLimit.enable")}
-						</p>
-						<p className="text-gray-500 text-xs mt-0.5">
-							{t("settings.rateLimit.enableDescription")}
-						</p>
-					</div>
-					<Toggle
-						checked={rateLimitEnabled}
-						onChange={(v) =>
-							updateMutation.mutate({
-								rate_limit_enabled: v ? "true" : "false",
-							})
-						}
-					/>
-				</div>
-
-				{rateLimitEnabled && (
-					<>
-						<SettingsSelect
-							id="rate-limit-rps"
-							label={t("settings.rateLimit.requestsPerSecond")}
-							value={rateLimitRPS}
-							options={RATE_LIMIT_RPS_OPTIONS}
-							onChange={(v) => updateMutation.mutate({ rate_limit_rps: v })}
-							description={t(
-								"settings.rateLimit.requestsPerSecond.description",
-							)}
-						/>
-
-						<SettingsSlider
-							id="rate-limit-burst"
-							label={t("settings.rateLimit.burstSize")}
-							value={Number(rateLimitBurst)}
-							min={5}
-							max={200}
-							step={5}
-							clampStep={5}
-							onChange={(v) =>
-								updateMutation.mutate({ rate_limit_burst: String(v) })
-							}
-							description={t("settings.rateLimit.burstSize.description")}
-						/>
-					</>
-				)}
-
-				<div className="pt-2">
-					<div className="flex items-center justify-between">
-						<div>
-							<p className="text-sm font-medium text-gray-300">
-								{t("settings.rateLimit.ipRateLimiting")}
-							</p>
-							<p className="text-gray-500 text-xs mt-0.5">
-								{t("settings.rateLimit.ipRateLimitingDescription")}
-							</p>
+				<div className="grid grid-cols-2 gap-x-8 gap-y-5">
+					<div className="space-y-5">
+						<div className="flex items-center justify-between">
+							<div>
+								<p className="text-sm font-medium text-gray-300">
+									{t("settings.rateLimit.enable")}
+								</p>
+								<p className="text-gray-500 text-xs mt-0.5">
+									{t("settings.rateLimit.enableDescription")}
+								</p>
+							</div>
+							<Toggle
+								checked={rateLimitEnabled}
+								onChange={(v) =>
+									updateMutation.mutate({
+										rate_limit_enabled: v ? "true" : "false",
+									})
+								}
+							/>
 						</div>
-						<Toggle
-							checked={rateLimitIpEnabled}
-							onChange={(v) =>
-								updateMutation.mutate({
-									rate_limit_ip_enabled: v ? "true" : "false",
-								})
-							}
-						/>
+
+						<div className="flex items-center justify-between">
+							<div>
+								<p className="text-sm font-medium text-gray-300">
+									{t("settings.rateLimit.ipRateLimiting")}
+								</p>
+								<p className="text-gray-500 text-xs mt-0.5">
+									{t("settings.rateLimit.ipRateLimitingDescription")}
+								</p>
+							</div>
+							<Toggle
+								checked={rateLimitIpEnabled}
+								onChange={(v) =>
+									updateMutation.mutate({
+										rate_limit_ip_enabled: v ? "true" : "false",
+									})
+								}
+							/>
+						</div>
 					</div>
 
-					{rateLimitIpEnabled && (
-						<>
-							<div className="mt-4">
+					<div className="space-y-5">
+						{rateLimitEnabled && (
+							<>
+								<SettingsSelect
+									id="rate-limit-rps"
+									label={t("settings.rateLimit.requestsPerSecond")}
+									value={rateLimitRPS}
+									options={RATE_LIMIT_RPS_OPTIONS}
+									onChange={(v) => updateMutation.mutate({ rate_limit_rps: v })}
+									description={t(
+										"settings.rateLimit.requestsPerSecond.description",
+									)}
+								/>
+
+								<SettingsSlider
+									id="rate-limit-burst"
+									label={t("settings.rateLimit.burstSize")}
+									value={Number(rateLimitBurst)}
+									min={5}
+									max={200}
+									step={5}
+									clampStep={5}
+									onChange={(v) =>
+										updateMutation.mutate({
+											rate_limit_burst: String(v),
+										})
+									}
+									description={t("settings.rateLimit.burstSize.description")}
+								/>
+							</>
+						)}
+
+						{rateLimitIpEnabled && (
+							<>
 								<SettingsSelect
 									id="rate-limit-ip-rps"
 									label={t("settings.rateLimit.ipRequestsPerSecond")}
 									value={rateLimitIpRPS}
 									options={RATE_LIMIT_RPS_OPTIONS}
 									onChange={(v) =>
-										updateMutation.mutate({ rate_limit_ip_rps: v })
+										updateMutation.mutate({
+											rate_limit_ip_rps: v,
+										})
 									}
 									description={t(
 										"settings.rateLimit.ipRequestsPerSecond.description",
 									)}
 								/>
-							</div>
 
-							<div className="mt-4">
 								<SettingsSlider
 									id="rate-limit-ip-burst"
 									label={t("settings.rateLimit.ipBurstSize")}
@@ -164,13 +168,15 @@ export function RateLimitSettings({
 									step={5}
 									clampStep={5}
 									onChange={(v) =>
-										updateMutation.mutate({ rate_limit_ip_burst: String(v) })
+										updateMutation.mutate({
+											rate_limit_ip_burst: String(v),
+										})
 									}
 									description={t("settings.rateLimit.ipBurstSize.description")}
 								/>
-							</div>
-						</>
-					)}
+							</>
+						)}
+					</div>
 				</div>
 
 				{(rateLimitEnabled || rateLimitIpEnabled) && (
