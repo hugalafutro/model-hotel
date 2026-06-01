@@ -474,7 +474,7 @@ describe("Chat", () => {
 			// Wait for error to appear
 			await waitFor(
 				() => {
-					expect(screen.getByText(/generation failed/i)).toBeInTheDocument();
+					expect(screen.getByText(/try Regenerate/i)).toBeInTheDocument();
 				},
 				{ timeout: 2000 },
 			);
@@ -513,7 +513,7 @@ describe("Chat", () => {
 			// Wait for error to appear
 			await waitFor(
 				() => {
-					expect(screen.getByText(/generation failed/i)).toBeInTheDocument();
+					expect(screen.getByText(/try Regenerate/i)).toBeInTheDocument();
 				},
 				{ timeout: 5000 },
 			);

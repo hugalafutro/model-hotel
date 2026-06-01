@@ -588,11 +588,11 @@ export function Chat() {
 						) : chat.lastChatError ? (
 							<p className="text-xs text-red-400">
 								{chat.lastChatError.model
-									? t("chat.misc.generationFailed", {
+									? t("chat.modelError", {
 											model: chat.lastChatError.model.split("/").pop(),
 											error: chat.lastChatError.error,
 										})
-									: t("chat.misc.generationFailed", {
+									: t("chat.generalError", {
 											error: chat.lastChatError.error,
 										})}
 							</p>
@@ -696,9 +696,8 @@ export function Chat() {
 										return modelPart
 											? t("chat.misc.generationFailed", {
 													model: modelPart,
-													error: "",
 												})
-											: t("chat.misc.generationFailed", { error: "" });
+											: t("chat.misc.generationFailedNoModel");
 									})()}
 								</div>
 							)}
