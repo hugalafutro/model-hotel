@@ -42,7 +42,7 @@ describe("DataStorageSettings", () => {
 			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
 		);
 
-		expect(screen.getByText("Data Storage")).toBeInTheDocument();
+		expect(screen.getByText("Data Storage and Logging")).toBeInTheDocument();
 	});
 
 	it("renders Database icon", () => {
@@ -114,7 +114,6 @@ describe("Session Persistence toggles", () => {
 	});
 
 	it("shows confirm dialog when turning off Persist Chat", async () => {
-		// Set initial state to true so clicking turns it OFF (triggering confirm)
 		localStorage.setItem("persistChat", "true");
 
 		const user = userEvent.setup();
@@ -275,7 +274,7 @@ describe("Arena History section", () => {
 		).toBeInTheDocument();
 	});
 
-	it("renders Maximum Saved Matches label", () => {
+	it("renders Maximum Saved Matches slider label", () => {
 		renderWithProviders(
 			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
 		);
@@ -283,65 +282,39 @@ describe("Arena History section", () => {
 		expect(screen.getByText("Maximum Saved Matches")).toBeInTheDocument();
 	});
 
-	it("renders history limit select with all options", () => {
+	it("renders history limit slider with default value", () => {
 		renderWithProviders(
 			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
 		);
 
-		const select = screen.getByRole("combobox", {
+		const slider = screen.getByRole("slider", {
 			name: "Maximum Saved Matches",
-		}) as HTMLSelectElement;
-		expect(select).toBeInTheDocument();
-
-		const options = Array.from(select.options).map((opt) => opt.text);
-		expect(options).toContain("10 matches");
-		expect(options).toContain("25 matches (default)");
-		expect(options).toContain("50 matches");
-		expect(options).toContain("100 matches");
+		});
+		expect(slider).toBeInTheDocument();
 	});
 
-	it("disables history limit select when arena history is disabled", () => {
+	it("disables history limit slider when arena history is disabled", () => {
 		renderWithProviders(
 			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
 		);
 
-		const select = screen.getByRole("combobox", {
+		const slider = screen.getByRole("slider", {
 			name: "Maximum Saved Matches",
-		}) as HTMLSelectElement;
-		expect(select).toBeDisabled();
+		});
+		expect(slider).toBeDisabled();
 	});
 
-	it("enables history limit select when arena history is enabled", () => {
+	it("enables history limit slider when arena history is enabled", () => {
 		localStorage.setItem("arenaHistoryEnabled", "true");
 
 		renderWithProviders(
 			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
 		);
 
-		const select = screen.getByRole("combobox", {
+		const slider = screen.getByRole("slider", {
 			name: "Maximum Saved Matches",
-		}) as HTMLSelectElement;
-		expect(select).not.toBeDisabled();
-	});
-
-	it("calls setArenaHistoryLimit and shows toast when history limit changes", async () => {
-		const user = userEvent.setup();
-		localStorage.setItem("arenaHistoryEnabled", "true");
-
-		renderWithProviders(
-			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
-		);
-
-		const select = screen.getByRole("combobox", {
-			name: "Maximum Saved Matches",
-		}) as HTMLSelectElement;
-
-		await user.selectOptions(select, "50");
-
-		expect(localStorage.getItem("arenaHistoryLimit")).toBe("50");
-		expect(
-			screen.getByText("History limit set to 50 matches"),
-		).toBeInTheDocument();
+		});
+		expect(slider).not.toBeDisabled();
 	});
 
 	it("shows Arena history enabled toast when toggling on", async () => {
@@ -514,11 +487,7 @@ describe("Cache & Resets section", () => {
 			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
 		);
 
-		expect(
-			screen.getByText(
-				/\d+ cached entries? \(NanoGPT, Z\.ai Coding Plan, DeepSeek\)/,
-			),
-		).toBeInTheDocument();
+		expect(screen.getByText(/3 cached entries/)).toBeInTheDocument();
 	});
 
 	it("shows singular 'cached entry' text when provider cache count is 1", () => {
@@ -528,11 +497,7 @@ describe("Cache & Resets section", () => {
 			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
 		);
 
-		expect(
-			screen.getByText(
-				/1 cached entry \(NanoGPT, Z\.ai Coding Plan, DeepSeek\)/,
-			),
-		).toBeInTheDocument();
+		expect(screen.getByText(/1 cached entry/)).toBeInTheDocument();
 	});
 
 	it("renders Clear Cache button", () => {

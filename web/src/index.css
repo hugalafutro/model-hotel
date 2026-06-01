@@ -1102,7 +1102,8 @@ html[data-ui-style="glassmorphism-lite"].light .ui-card {
    breaks position:sticky in Chromium. Cards with dropdowns
    (.has-dropdown) use a ::before pseudo-element approach instead
    (see below). Absolute cards (dropdowns) get solid backgrounds. */
-html[data-ui-style="glassmorphism-lite"] .ui-card:not(.absolute, .has-dropdown, :has(> .absolute)) {
+html[data-ui-style="glassmorphism-lite"]
+.ui-card:not(.absolute, .has-dropdown, :has(> .absolute)) {
 	clip-path: inset(0 round var(--radius-card));
 }
 html[data-ui-style="glassmorphism-lite"]
@@ -2524,17 +2525,17 @@ html.light .toast-timeout-slider::-moz-range-thumb:active,
 
 /* Generation param slider styling */
 .gen-slider::-webkit-slider-runnable-track {
-	height: 4px;
-	border-radius: 2px;
+	height: 6px;
+	border-radius: 3px;
 	background: transparent;
 }
 
 .gen-slider::-webkit-slider-thumb {
 	-webkit-appearance: none;
 	appearance: none;
-	width: 10px;
-	height: 10px;
-	margin-top: -3px;
+	width: 14px;
+	height: 14px;
+	margin-top: -4px;
 	border-radius: 50%;
 	background: var(--text-tertiary);
 	border: 1px solid var(--border-subtle);
@@ -2554,14 +2555,14 @@ html.light .toast-timeout-slider::-moz-range-thumb:active,
 }
 
 .gen-slider::-moz-range-track {
-	height: 4px;
-	border-radius: 2px;
+	height: 6px;
+	border-radius: 3px;
 	background: transparent;
 }
 
 .gen-slider::-moz-range-thumb {
-	width: 10px;
-	height: 10px;
+	width: 14px;
+	height: 14px;
 	border-radius: 50%;
 	background: var(--text-tertiary);
 	border: 1px solid var(--border-subtle);

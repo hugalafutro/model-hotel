@@ -42,9 +42,12 @@ vi.mock("recharts", () => ({
 const mockData: TimeSeriesDataPoint[] = [
 	{
 		hour: "00:00",
+		rawDate: "2025-06-01T00:00:00Z",
 		total: 100,
 		errors: 5,
 		tokens: 5000,
+		tokens_cache_hit: 1200,
+		tokens_cache_miss: 3800,
 		latency: 200,
 		overhead_ms: 10,
 		provider_latency_ms: 190,
@@ -53,9 +56,12 @@ const mockData: TimeSeriesDataPoint[] = [
 	},
 	{
 		hour: "04:00",
+		rawDate: "2025-06-01T04:00:00Z",
 		total: 150,
 		errors: 3,
 		tokens: 7500,
+		tokens_cache_hit: 2000,
+		tokens_cache_miss: 5500,
 		latency: 180,
 		overhead_ms: 8,
 		provider_latency_ms: 172,
@@ -64,9 +70,12 @@ const mockData: TimeSeriesDataPoint[] = [
 	},
 	{
 		hour: "08:00",
+		rawDate: "2025-06-01T08:00:00Z",
 		total: 200,
 		errors: 10,
 		tokens: 10000,
+		tokens_cache_hit: 3000,
+		tokens_cache_miss: 7000,
 		latency: 250,
 		overhead_ms: 15,
 		provider_latency_ms: 235,
@@ -75,9 +84,12 @@ const mockData: TimeSeriesDataPoint[] = [
 	},
 	{
 		hour: "12:00",
+		rawDate: "2025-06-01T12:00:00Z",
 		total: 300,
 		errors: 8,
 		tokens: 15000,
+		tokens_cache_hit: 4500,
+		tokens_cache_miss: 10500,
 		latency: 220,
 		overhead_ms: 12,
 		provider_latency_ms: 208,
@@ -86,9 +98,12 @@ const mockData: TimeSeriesDataPoint[] = [
 	},
 	{
 		hour: "16:00",
+		rawDate: "2025-06-01T16:00:00Z",
 		total: 250,
 		errors: 6,
 		tokens: 12500,
+		tokens_cache_hit: 3800,
+		tokens_cache_miss: 8700,
 		latency: 210,
 		overhead_ms: 11,
 		provider_latency_ms: 199,
@@ -97,9 +112,12 @@ const mockData: TimeSeriesDataPoint[] = [
 	},
 	{
 		hour: "20:00",
+		rawDate: "2025-06-01T20:00:00Z",
 		total: 180,
 		errors: 4,
 		tokens: 9000,
+		tokens_cache_hit: 2500,
+		tokens_cache_miss: 6500,
 		latency: 190,
 		overhead_ms: 9,
 		provider_latency_ms: 181,
@@ -177,10 +195,10 @@ describe("TimeSeriesChart", () => {
 			<TimeSeriesChart {...defaultProps} onRangeChange={onRangeChangeMock} />,
 		);
 
-		const sevenDButton = screen.getByText("7D");
-		await user.click(sevenDButton);
+		const oneWButton = screen.getByText("1W");
+		await user.click(oneWButton);
 
-		expect(onRangeChangeMock).toHaveBeenCalledWith("7d");
+		expect(onRangeChangeMock).toHaveBeenCalledWith("1w");
 	});
 
 	it("renders RangeToggle when showToggle is true", () => {
@@ -188,7 +206,7 @@ describe("TimeSeriesChart", () => {
 
 		expect(screen.getByText("1H")).toBeInTheDocument();
 		expect(screen.getByText("1D")).toBeInTheDocument();
-		expect(screen.getByText("7D")).toBeInTheDocument();
+		expect(screen.getByText("1W")).toBeInTheDocument();
 	});
 
 	it("does not render RangeToggle when showToggle is false", () => {
@@ -198,13 +216,13 @@ describe("TimeSeriesChart", () => {
 
 		expect(screen.queryByText("1H")).not.toBeInTheDocument();
 		expect(screen.queryByText("1D")).not.toBeInTheDocument();
-		expect(screen.queryByText("7D")).not.toBeInTheDocument();
+		expect(screen.queryByText("1W")).not.toBeInTheDocument();
 	});
 
-	it("displays day label for 7d range", () => {
-		renderWithProviders(<TimeSeriesChart {...defaultProps} range="7d" />);
+	it("displays week label for 1w range", () => {
+		renderWithProviders(<TimeSeriesChart {...defaultProps} range="1w" />);
 
-		expect(screen.getByText("Requests / Day")).toBeInTheDocument();
+		expect(screen.getByText("Requests / Week")).toBeInTheDocument();
 	});
 
 	it("displays day label for 24h range", () => {
@@ -341,17 +359,24 @@ describe("TimeSeriesChart", () => {
 
 // Helper to generate test data with N points
 function generateData(count: number): TimeSeriesDataPoint[] {
-	return Array.from({ length: count }, (_, i) => ({
-		hour: `${String(Math.floor(i / 4) % 24).padStart(2, "0")}:${String((i % 4) * 15).padStart(2, "0")}`,
-		total: 100 + i * 10,
-		errors: Math.floor(i / 3),
-		tokens: 5000 + i * 500,
-		latency: 200 - i,
-		overhead_ms: 10,
-		provider_latency_ms: 190 - i,
-		rate_limit_hits: 0,
-		avg_ttft_ms: 50,
-	}));
+	const baseDate = new Date("2025-06-01T12:00:00Z");
+	return Array.from({ length: count }, (_, i) => {
+		const d = new Date(baseDate.getTime() + i * 15 * 60 * 1000);
+		return {
+			hour: `${String(Math.floor(i / 4) % 24).padStart(2, "0")}:${String((i % 4) * 15).padStart(2, "0")}`,
+			rawDate: d.toISOString(),
+			total: 100 + i * 10,
+			errors: Math.floor(i / 3),
+			tokens: 5000 + i * 500,
+			tokens_cache_hit: 1000 + i * 100,
+			tokens_cache_miss: 4000 + i * 400,
+			latency: 200 - i,
+			overhead_ms: 10,
+			provider_latency_ms: 190 - i,
+			rate_limit_hits: 0,
+			avg_ttft_ms: 50,
+		};
+	});
 }
 
 describe("Drag-to-pan and wheel scroll", () => {
@@ -713,5 +738,53 @@ describe("Drag-to-pan and wheel scroll", () => {
 
 		// Should scroll based on deltaY (positive = older data)
 		expect(screen.getByText("←")).toBeInTheDocument();
+	});
+});
+
+describe("Overlay and panDateLabel", () => {
+	it("renders overlay Area when overlayDataKey is provided", () => {
+		renderWithProviders(
+			<TimeSeriesChart
+				{...defaultProps}
+				overlayDataKey="tokens_cache_hit"
+				overlayColor="var(--accent)"
+				overlayLabel="Cache Hit"
+			/>,
+		);
+
+		const areas = screen.getAllByTestId("area");
+		const dataKeys = areas.map((a) => a.getAttribute("data-datakey"));
+		expect(dataKeys).toContain("tokens_cache_hit");
+		expect(dataKeys).toContain("total");
+		expect(areas.length).toBe(2);
+	});
+
+	it("does not render overlay Area when overlayDataKey is omitted", () => {
+		renderWithProviders(<TimeSeriesChart {...defaultProps} />);
+
+		const areas = screen.getAllByTestId("area");
+		expect(areas.length).toBe(1);
+		expect(areas[0]).toHaveAttribute("data-datakey", "total");
+	});
+
+	it("shows panDateLabel when dragging with rawDate data", () => {
+		const data = generateData(15);
+		renderWithProviders(
+			<TimeSeriesChart
+				{...defaultProps}
+				data={data}
+				range="1h"
+				metric="Requests"
+			/>,
+		);
+
+		// biome-ignore lint/style/noNonNullAssertion: test code, parentElement always exists
+		const chartContainer = screen.getByTestId("area-chart").parentElement!;
+
+		fireEvent.pointerDown(chartContainer, { clientX: 100, pointerId: 1 });
+
+		// panDateLabel renders inside the chart container when dragging
+		// The midpoint date of visibleData[6] = "2025-06-01T01:30:00Z" → "Jun 1, 2025"
+		expect(screen.getByText(/Jun.*2025/)).toBeInTheDocument();
 	});
 });

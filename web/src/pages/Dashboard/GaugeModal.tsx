@@ -41,7 +41,7 @@ export function GaugeModal({
 		return tsData.points.map((p) => {
 			const d = new Date(p.bucket);
 			const label =
-				range === "7d"
+				range === "1w"
 					? d.toLocaleDateString("en-US", {
 							month: "short",
 							day: "numeric",
@@ -51,9 +51,12 @@ export function GaugeModal({
 						: `${d.getHours().toString().padStart(2, "0")}:00`;
 			return {
 				hour: label,
+				rawDate: p.bucket,
 				total: p.count,
 				errors: p.errors,
 				tokens: p.tokens,
+				tokens_cache_hit: p.tokens_cache_hit ?? 0,
+				tokens_cache_miss: p.tokens_cache_miss ?? 0,
 				latency: p.latency_ms,
 				overhead_ms: p.overhead_ms,
 				provider_latency_ms: p.provider_latency_ms,

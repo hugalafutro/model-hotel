@@ -65,7 +65,7 @@ describe("ChatMessageList", () => {
 				/>,
 			);
 			// Component renders persona.label directly (translation key), not t() translated
-			expect(screen.getByText(/presets.personas.merlin/)).toBeInTheDocument();
+			expect(screen.getByText(/Merlin/)).toBeInTheDocument();
 		});
 
 		it("renders persona name for model B in conversation mode", () => {
@@ -84,8 +84,7 @@ describe("ChatMessageList", () => {
 					]}
 				/>,
 			);
-			// Component renders persona.label directly (translation key), not t() translated
-			expect(screen.getByText(/presets.personas.sarge/)).toBeInTheDocument();
+			expect(screen.getByText(/Sarge/)).toBeInTheDocument();
 		});
 
 		it("renders persona name for model A in conversation mode", () => {
@@ -104,8 +103,7 @@ describe("ChatMessageList", () => {
 					]}
 				/>,
 			);
-			// Component renders persona.label directly (translation key), not t() translated
-			expect(screen.getByText(/presets.personas.merlin/)).toBeInTheDocument();
+			expect(screen.getByText(/Merlin/)).toBeInTheDocument();
 		});
 
 		it("does not render persona name when persona ID does not match any persona", () => {

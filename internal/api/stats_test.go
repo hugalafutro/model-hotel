@@ -865,6 +865,220 @@ func TestGetTimeSeries_7d(t *testing.T) {
 	}
 }
 
+func TestGetTimeSeries_CacheTokens(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	// Set up test data with cache hit/miss tokens
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider-cache", "https://api.example.com/v1")
+
+	logID := uuid.New()
+	ctx := context.Background()
+	_, err := pool.Exec(ctx, `
+		INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, tokens_prompt, tokens_completion, tokens_prompt_cache_hit, tokens_prompt_cache_miss, created_at)
+		VALUES ($1, $2, 'test-model', 200, 100, 50, 30, 40, 10, NOW())`,
+		logID, providerID)
+	if err != nil {
+		t.Fatalf("Failed to insert test request log with cache tokens: %v", err)
+	}
+
+	// Create router and call handler
+	r := chi.NewRouter()
+	handler.Register(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/stats/timeseries?period=24h", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response TimeSeriesStats
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	if len(response.Points) == 0 {
+		t.Fatal("Expected time series points")
+	}
+
+	// Find the point with cache hit data
+	var found bool
+	for _, p := range response.Points {
+		if p.TokensCacheHit == 40 && p.TokensCacheMiss == 10 {
+			found = true
+			break
+		}
+	}
+	if !found {
+		var hit, miss int
+		for _, p := range response.Points {
+			hit += p.TokensCacheHit
+			miss += p.TokensCacheMiss
+		}
+		t.Errorf("Expected a point with tokens_cache_hit=40, tokens_cache_miss=10; got totals hit=%d miss=%d", hit, miss)
+	}
+}
+
+func TestGetTimeSeries_CacheTokens_ZeroValues(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider-zero-cache", "https://api.example.com/v1")
+
+	// Insert row with zero cache tokens
+	logID := uuid.New()
+	ctx := context.Background()
+	_, err := pool.Exec(ctx, `
+		INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, tokens_prompt, tokens_completion, tokens_prompt_cache_hit, tokens_prompt_cache_miss, created_at)
+		VALUES ($1, $2, 'test-model', 200, 100, 50, 30, 0, 0, NOW())`,
+		logID, providerID)
+	if err != nil {
+		t.Fatalf("Failed to insert test request log: %v", err)
+	}
+
+	r := chi.NewRouter()
+	handler.Register(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/stats/timeseries?period=24h", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response TimeSeriesStats
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	if len(response.Points) == 0 {
+		t.Fatal("Expected time series points")
+	}
+
+	// Find the point with the log entry — cache fields should be 0
+	var found bool
+	for _, p := range response.Points {
+		if p.Count > 0 && p.TokensCacheHit == 0 && p.TokensCacheMiss == 0 {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("Expected a point with zero cache hit/miss tokens and count > 0")
+	}
+}
+
+func TestGetTimeSeries_CacheTokens_MultiRowAggregation(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider-multi", "https://api.example.com/v1")
+
+	// Insert three rows in the same bucket (same NOW() timestamp)
+	ctx := context.Background()
+	type cacheRow struct{ hit, miss int }
+	for i, row := range []cacheRow{
+		{40, 10},
+		{20, 5},
+		{0, 15},
+	} {
+		logID := uuid.New()
+		_, err := pool.Exec(ctx, `
+			INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, tokens_prompt, tokens_completion, tokens_prompt_cache_hit, tokens_prompt_cache_miss, created_at)
+			VALUES ($1, $2, 'test-model', 200, 100, 50, 30, $3, $4, NOW())`,
+			logID, providerID, row.hit, row.miss)
+		if err != nil {
+			t.Fatalf("Failed to insert test request log %d: %v", i, err)
+		}
+	}
+
+	r := chi.NewRouter()
+	handler.Register(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/stats/timeseries?period=24h", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response TimeSeriesStats
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	// SUM(hit) = 40+20+0 = 60, SUM(miss) = 10+5+15 = 30
+	var found bool
+	for _, p := range response.Points {
+		if p.TokensCacheHit == 60 && p.TokensCacheMiss == 30 {
+			found = true
+			break
+		}
+	}
+	if !found {
+		var hit, miss int
+		for _, p := range response.Points {
+			hit += p.TokensCacheHit
+			miss += p.TokensCacheMiss
+		}
+		t.Errorf("Expected a point with cache_hit=60, cache_miss=30; got totals hit=%d miss=%d", hit, miss)
+	}
+}
+
+func TestGetTimeSeries_CacheTokens_JSONRoundTrip(t *testing.T) {
+	original := TimeSeriesPoint{
+		Bucket:          "2025-06-01T12:00:00Z",
+		Count:           3,
+		Tokens:          150,
+		TokensCacheHit:  60,
+		TokensCacheMiss: 30,
+		Errors:          0,
+		Latency:         100,
+	}
+
+	data, err := json.Marshal(original)
+	if err != nil {
+		t.Fatalf("Failed to marshal: %v", err)
+	}
+
+	var decoded TimeSeriesPoint
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Failed to unmarshal: %v", err)
+	}
+
+	if decoded.TokensCacheHit != original.TokensCacheHit {
+		t.Errorf("TokensCacheHit: got %d, want %d", decoded.TokensCacheHit, original.TokensCacheHit)
+	}
+	if decoded.TokensCacheMiss != original.TokensCacheMiss {
+		t.Errorf("TokensCacheMiss: got %d, want %d", decoded.TokensCacheMiss, original.TokensCacheMiss)
+	}
+
+	// Verify JSON keys match the struct tags
+	var raw map[string]any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("Failed to unmarshal to raw map: %v", err)
+	}
+	if _, ok := raw["tokens_cache_hit"]; !ok {
+		t.Error("Missing tokens_cache_hit key in JSON output")
+	}
+	if _, ok := raw["tokens_cache_miss"]; !ok {
+		t.Error("Missing tokens_cache_miss key in JSON output")
+	}
+}
+
 func TestGetProviderDistribution_Integration(t *testing.T) {
 	handler, pool, cleanup := newStatsHandler(t)
 	defer cleanup()

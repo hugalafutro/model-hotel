@@ -7,15 +7,11 @@ import { LoadingSpinner } from "../components/LoadingSpinner";
 import { PageHeader } from "../components/PageHeader";
 import { AppearanceSettings } from "./Settings/AppearanceSettings";
 import { CircuitBreakerSettings } from "./Settings/CircuitBreakerSettings";
-import { DashboardRefreshSettings } from "./Settings/DashboardRefreshSettings";
 import { DatabaseBackupSettings } from "./Settings/DatabaseBackupSettings";
 import { DataStorageSettings } from "./Settings/DataStorageSettings";
 import { DiscoverySettings } from "./Settings/DiscoverySettings";
-import { LoggingSettings } from "./Settings/LoggingSettings";
 import { ProxySettings } from "./Settings/ProxySettings";
 import { RateLimitSettings } from "./Settings/RateLimitSettings";
-import { SidebarQuotaSettings } from "./Settings/SidebarQuotaSettings";
-import { ToastSettings } from "./Settings/ToastSettings";
 
 export function Settings() {
 	const { t } = useTranslation();
@@ -23,20 +19,10 @@ export function Settings() {
 		useCollapsible("settings_modelDiscoveryCollapsed");
 	const { collapsed: appearanceCollapsed, toggle: toggleAppearance } =
 		useCollapsible("settings_appearanceCollapsed");
-	const { collapsed: toastCollapsed, toggle: toggleToast } = useCollapsible(
-		"settings_toastCollapsed",
-	);
-	const { collapsed: sidebarQuotaCollapsed, toggle: toggleSidebarQuota } =
-		useCollapsible("settings_sidebarQuotaCollapsed");
-	const { collapsed: dashboardCollapsed, toggle: toggleDashboard } =
-		useCollapsible("settings_dashboardCollapsed");
 	const { collapsed: dataStorageCollapsed, toggle: toggleDataStorage } =
 		useCollapsible("settings_dataStorageCollapsed");
 	const { collapsed: backupCollapsed, toggle: toggleBackup } = useCollapsible(
 		"settings_backupCollapsed",
-	);
-	const { collapsed: loggingCollapsed, toggle: toggleLogging } = useCollapsible(
-		"settings_loggingCollapsed",
 	);
 	const { collapsed: rateLimitCollapsed, toggle: toggleRateLimit } =
 		useCollapsible("settings_rateLimitCollapsed");
@@ -74,18 +60,6 @@ export function Settings() {
 					onToggle={toggleAppearance}
 				/>
 
-				<ToastSettings collapsed={toastCollapsed} onToggle={toggleToast} />
-
-				<SidebarQuotaSettings
-					collapsed={sidebarQuotaCollapsed}
-					onToggle={toggleSidebarQuota}
-				/>
-
-				<DashboardRefreshSettings
-					collapsed={dashboardCollapsed}
-					onToggle={toggleDashboard}
-				/>
-
 				<DataStorageSettings
 					collapsed={dataStorageCollapsed}
 					onToggle={toggleDataStorage}
@@ -94,11 +68,6 @@ export function Settings() {
 				<DatabaseBackupSettings
 					collapsed={backupCollapsed}
 					onToggle={toggleBackup}
-				/>
-
-				<LoggingSettings
-					collapsed={loggingCollapsed}
-					onToggle={toggleLogging}
 				/>
 
 				<RateLimitSettings

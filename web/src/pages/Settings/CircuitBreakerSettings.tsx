@@ -3,9 +3,10 @@ import { Shield } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import { SettingsSection } from "../../components/SettingsSection";
-import { SettingsSelect } from "../../components/SettingsSelect";
+import { SettingsSlider } from "../../components/SettingsSlider";
 import { Toggle } from "../../components/Toggle";
 import { useToast } from "../../context/ToastContext";
+import { goDurationToSeconds, secondsToGoDuration } from "../../utils/duration";
 
 interface CircuitBreakerSettingsProps {
 	collapsed: boolean;
@@ -45,14 +46,6 @@ export function CircuitBreakerSettings({
 	const circuitBreakerCooldown = settings?.circuit_breaker_cooldown || "1m0s";
 	const failoverOnRateLimit = settings?.failover_on_rate_limit === "true";
 
-	const CIRCUIT_BREAKER_COOLDOWN_OPTIONS = [
-		{ value: "30s", label: t("settings.circuitBreaker.cooldown.30s") },
-		{ value: "1m0s", label: t("settings.circuitBreaker.cooldown.1m0s") },
-		{ value: "2m0s", label: t("settings.circuitBreaker.cooldown.2m0s") },
-		{ value: "5m0s", label: t("settings.circuitBreaker.cooldown.5m0s") },
-		{ value: "10m0s", label: t("settings.circuitBreaker.cooldown.10m0s") },
-	];
-
 	return (
 		<SettingsSection
 			icon={Shield}
@@ -64,88 +57,90 @@ export function CircuitBreakerSettings({
 				<p className="text-gray-400 text-sm">
 					{t("settings.circuitBreaker.description")}
 				</p>
-				<div className="flex items-center justify-between">
-					<div>
-						<p className="text-sm font-medium text-gray-300">
-							{t("settings.circuitBreaker.enable")}
-						</p>
-						<p className="text-gray-500 text-xs mt-0.5">
-							{t("settings.circuitBreaker.enableDescription")}
-						</p>
-					</div>
-					<Toggle
-						checked={circuitBreakerEnabled}
-						onChange={(v) =>
-							updateMutation.mutate({
-								circuit_breaker_enabled: v ? "true" : "false",
-							})
-						}
-						ariaLabel={t("settings.circuitBreaker.enable")}
-					/>
-				</div>
-
-				{circuitBreakerEnabled && (
-					<>
-						<div className="mt-4">
-							<label
-								htmlFor="circuit-breaker-threshold"
-								className="block text-sm font-medium text-gray-300 mb-2"
-							>
-								{t("settings.circuitBreaker.failureThreshold")}
-							</label>
-							<input
-								id="circuit-breaker-threshold"
-								type="number"
-								min="1"
-								max="100"
-								value={circuitBreakerThreshold}
-								onChange={(e) =>
+				<div className="grid grid-cols-2 gap-x-8 gap-y-5 [align-items:start]">
+					<div className="space-y-5">
+						<div className="flex items-center justify-between">
+							<div>
+								<p className="text-sm font-medium text-gray-300">
+									{t("settings.circuitBreaker.enable")}
+								</p>
+								<p className="text-gray-500 text-xs mt-0.5">
+									{t("settings.circuitBreaker.enableDescription")}
+								</p>
+							</div>
+							<Toggle
+								checked={circuitBreakerEnabled}
+								onChange={(v) =>
 									updateMutation.mutate({
-										circuit_breaker_threshold: e.target.value,
+										circuit_breaker_enabled: v ? "true" : "false",
 									})
 								}
-								className="ui-input"
+								ariaLabel={t("settings.circuitBreaker.enable")}
 							/>
-							<p className="text-gray-500 text-xs mt-1">
-								{t("settings.circuitBreaker.failureThreshold.description")}
-							</p>
 						</div>
 
-						<div className="mt-4">
-							<SettingsSelect
-								id="circuit-breaker-cooldown"
-								label={t("settings.circuitBreaker.cooldownPeriod")}
-								value={circuitBreakerCooldown}
-								options={CIRCUIT_BREAKER_COOLDOWN_OPTIONS}
+						<div className="flex items-center justify-between">
+							<div>
+								<p className="text-sm font-medium text-gray-300">
+									{t("settings.circuitBreaker.failoverOnRateLimit")}
+								</p>
+								<p className="text-gray-500 text-xs mt-0.5">
+									{t("settings.circuitBreaker.failoverOnRateLimitDescription")}
+								</p>
+							</div>
+							<Toggle
+								checked={failoverOnRateLimit}
 								onChange={(v) =>
-									updateMutation.mutate({ circuit_breaker_cooldown: v })
+									updateMutation.mutate({
+										failover_on_rate_limit: v ? "true" : "false",
+									})
 								}
-								description={t(
-									"settings.circuitBreaker.cooldownPeriod.description",
-								)}
+								ariaLabel={t("settings.circuitBreaker.failoverOnRateLimit")}
 							/>
 						</div>
-					</>
-				)}
-
-				<div className="flex items-center justify-between">
-					<div>
-						<p className="text-sm font-medium text-gray-300">
-							{t("settings.circuitBreaker.failoverOnRateLimit")}
-						</p>
-						<p className="text-gray-500 text-xs mt-0.5">
-							{t("settings.circuitBreaker.failoverOnRateLimitDescription")}
-						</p>
 					</div>
-					<Toggle
-						checked={failoverOnRateLimit}
-						onChange={(v) =>
-							updateMutation.mutate({
-								failover_on_rate_limit: v ? "true" : "false",
-							})
-						}
-						ariaLabel={t("settings.circuitBreaker.failoverOnRateLimit")}
-					/>
+
+					<div className="space-y-5">
+						{circuitBreakerEnabled && (
+							<>
+								<SettingsSlider
+									id="circuit-breaker-threshold"
+									label={t("settings.circuitBreaker.failureThreshold")}
+									value={Number(circuitBreakerThreshold)}
+									min={1}
+									max={50}
+									step={1}
+									onChange={(v) =>
+										updateMutation.mutate({
+											circuit_breaker_threshold: String(v),
+										})
+									}
+									description={t(
+										"settings.circuitBreaker.failureThreshold.description",
+									)}
+								/>
+
+								<SettingsSlider
+									id="circuit-breaker-cooldown"
+									label={t("settings.circuitBreaker.cooldownPeriod")}
+									value={goDurationToSeconds(circuitBreakerCooldown)}
+									min={30}
+									max={600}
+									step={30}
+									clampStep={30}
+									unit="s"
+									onChange={(v) =>
+										updateMutation.mutate({
+											circuit_breaker_cooldown: secondsToGoDuration(v),
+										})
+									}
+									description={t(
+										"settings.circuitBreaker.cooldownPeriod.description",
+									)}
+								/>
+							</>
+						)}
+					</div>
 				</div>
 			</div>
 		</SettingsSection>

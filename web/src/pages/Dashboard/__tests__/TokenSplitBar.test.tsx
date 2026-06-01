@@ -49,15 +49,15 @@ describe("TokenSplitBar", () => {
 	it("displays percentages in legend", () => {
 		render(<TokenSplitBar {...defaultProps} />);
 
-		expect(screen.getByText("60%")).toBeInTheDocument();
-		expect(screen.getByText("40%")).toBeInTheDocument();
+		expect(screen.getByText("60.0%")).toBeInTheDocument();
+		expect(screen.getByText("40.0%")).toBeInTheDocument();
 	});
 
 	it("shows all percentages in legend regardless of split ratio", () => {
 		render(<TokenSplitBar {...defaultProps} prompt={10} completion={990} />);
 
-		expect(screen.getByText("1%")).toBeInTheDocument();
-		expect(screen.getByText("99%")).toBeInTheDocument();
+		expect(screen.getByText("1.0%")).toBeInTheDocument();
+		expect(screen.getByText("99.0%")).toBeInTheDocument();
 	});
 
 	it("renders RangeToggle component", () => {
@@ -65,7 +65,7 @@ describe("TokenSplitBar", () => {
 
 		expect(screen.getByText("1H")).toBeInTheDocument();
 		expect(screen.getByText("1D")).toBeInTheDocument();
-		expect(screen.getByText("7D")).toBeInTheDocument();
+		expect(screen.getByText("1W")).toBeInTheDocument();
 	});
 
 	it("calls onRangeChange when range option is clicked", async () => {
@@ -87,10 +87,10 @@ describe("TokenSplitBar", () => {
 
 		render(<TokenSplitBar {...defaultProps} onRangeChange={onRangeChange} />);
 
-		const sevenDButton = screen.getByText("7D");
+		const sevenDButton = screen.getByText("1W");
 		await user.click(sevenDButton);
 
-		expect(onRangeChange).toHaveBeenCalledWith("7d");
+		expect(onRangeChange).toHaveBeenCalledWith("1w");
 	});
 
 	it("displays loading spinner when loading is true", () => {
@@ -242,7 +242,7 @@ describe("TokenSplitBar", () => {
 		render(<TokenSplitBar {...defaultProps} completion={0} total={500} />);
 
 		expect(screen.getByText("500")).toBeInTheDocument();
-		expect(screen.getByText("100%")).toBeInTheDocument();
+		expect(screen.getByText("100.0%")).toBeInTheDocument();
 		expect(screen.getByText("0")).toBeInTheDocument();
 	});
 
@@ -250,7 +250,7 @@ describe("TokenSplitBar", () => {
 		render(<TokenSplitBar {...defaultProps} prompt={0} total={500} />);
 
 		expect(screen.getByText("500")).toBeInTheDocument();
-		expect(screen.getByText("100%")).toBeInTheDocument();
+		expect(screen.getByText("100.0%")).toBeInTheDocument();
 		expect(screen.getByText("0")).toBeInTheDocument();
 	});
 });

@@ -24,11 +24,13 @@ describe("CHAT_PERSONAS", () => {
 		expect(uniqueIds.size).toBe(ids.length);
 	});
 
-	it("system prompts are non-empty strings longer than 100 chars", () => {
+	it("system prompts are i18n key paths", () => {
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		CHAT_PERSONAS.forEach((persona: PersonaPreset, _index: number) => {
 			expect(typeof persona.systemPrompt).toBe("string");
-			expect(persona.systemPrompt.length).toBeGreaterThan(100);
+			expect(persona.systemPrompt).toMatch(
+				/^presets\.personas\.[a-z0-9-]+\.prompt$/,
+			);
 		});
 	});
 });
@@ -55,11 +57,11 @@ describe("ARENA_PROMPTS", () => {
 		expect(uniqueIds.size).toBe(ids.length);
 	});
 
-	it("prompts are non-empty strings", () => {
+	it("prompts are i18n key paths", () => {
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		ARENA_PROMPTS.forEach((prompt: ArenaPromptPreset, _index: number) => {
 			expect(typeof prompt.prompt).toBe("string");
-			expect(prompt.prompt.length).toBeGreaterThan(0);
+			expect(prompt.prompt).toMatch(/^presets\.prompts\.[a-z0-9-]+\.text$/);
 		});
 	});
 });

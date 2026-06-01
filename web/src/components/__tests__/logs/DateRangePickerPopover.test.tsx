@@ -139,11 +139,9 @@ describe("DateRangePickerPopover", () => {
 			/>,
 		);
 
-		const day15Button = screen.getByText("15").closest("button");
-		if (day15Button) {
-			await user.click(day15Button);
-			expect(onCalendarSelect).toHaveBeenCalledWith("2024-03-15");
-		}
+		const day15Button = screen.getByRole("button", { name: "15" });
+		await user.click(day15Button);
+		expect(onCalendarSelect).toHaveBeenCalledWith("2024-03-15");
 	});
 
 	it("calls onApply when Apply button clicked", async () => {
@@ -169,10 +167,7 @@ describe("DateRangePickerPopover", () => {
 		);
 		const popover = container.firstChild as HTMLElement;
 		expect(popover).toHaveClass("absolute");
-		expect(popover).toHaveClass("bg-gray-900");
-		expect(popover).toHaveClass("border");
-		expect(popover).toHaveClass("border-gray-700");
-		expect(popover).toHaveClass("rounded-(--radius-card)");
+		expect(popover).toHaveClass("ui-card");
 		expect(popover).toHaveClass("shadow-2xl");
 		expect(popover).toHaveClass("z-50");
 	});

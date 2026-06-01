@@ -1,10 +1,11 @@
 import { TrendingUp } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { ProviderDistributionItem } from "../../api/types";
 import { Spinner } from "../../components/Spinner";
 import { formatCompact, formatPercent } from "../../utils/format";
 import { MetricToggle, RangeToggle } from "./ToggleGroup";
-import type { MetricType, ProviderDistItem, Range } from "./types";
+import type { MetricType, Range } from "./types";
 
 const COLORS = [
 	"#818cf8",
@@ -21,7 +22,7 @@ const CELL = 12;
 const GAP = 2;
 const GRID_SIZE = GRID * CELL + (GRID - 1) * GAP;
 
-function buildCells(items: ProviderDistItem[]) {
+function buildCells(items: ProviderDistributionItem[]) {
 	const total = GRID * GRID;
 	const counts = items.map((it) => Math.round(it.share));
 
@@ -80,7 +81,7 @@ export function ProviderDoughnut({
 	onMetricChange,
 	loading,
 }: {
-	items: ProviderDistItem[];
+	items: ProviderDistributionItem[];
 	range: Range;
 	onRangeChange: (r: Range) => void;
 	metric: MetricType;
@@ -153,13 +154,13 @@ export function ProviderDoughnut({
 							);
 						})}
 					</div>
-					<ul className="flex-1 space-y-2 list-none m-0 p-0">
+					<ul className="flex-1 list-none m-0 p-0 grid grid-cols-[1fr_3.5rem_auto] gap-x-1 gap-y-2 items-baseline">
 						{items.map((it, i) => {
 							const isHighlighted = hoveredProvider === it.name;
 							return (
 								<li
 									key={it.name}
-									className="flex items-center justify-between gap-3"
+									className="contents"
 									onMouseEnter={() => setHoveredProvider(it.name)}
 									onMouseLeave={() => setHoveredProvider(null)}
 								>
@@ -186,18 +187,16 @@ export function ProviderDoughnut({
 											{it.name}
 										</span>
 									</div>
-									<div className="text-right shrink-0 flex items-baseline justify-end tabular-nums">
-										<span className="text-sm font-medium text-(--text-primary) w-14 text-right">
-											{formatPercent(it.share)}
-										</span>
-										<span className="text-xs text-(--text-muted) ml-1 min-w-20 text-left">
-											(
-											{metric === "tokens"
-												? `${formatCompact(it.tokens)} ${t(it.tokens !== 1 ? "dashboard.providers.tokensUnit" : "dashboard.providers.tokenUnit")}`
-												: `${it.count} ${t(it.count !== 1 ? "dashboard.providers.requestsUnit" : "dashboard.providers.requestUnit")}`}
-											)
-										</span>
-									</div>
+									<span className="text-sm font-medium text-(--text-primary) text-right tabular-nums">
+										{formatPercent(it.share)}
+									</span>
+									<span className="text-xs text-(--text-muted) text-left">
+										(
+										{metric === "tokens"
+											? `${formatCompact(it.tokens)} ${t(it.tokens !== 1 ? "dashboard.providers.tokensUnit" : "dashboard.providers.tokenUnit")}`
+											: `${it.count} ${t(it.count !== 1 ? "dashboard.providers.requestsUnit" : "dashboard.providers.requestUnit")}`}
+										)
+									</span>
 								</li>
 							);
 						})}

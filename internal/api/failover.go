@@ -237,7 +237,7 @@ func (h *FailoverHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	existing, _ := h.failoverRepo.GetByModel(r.Context(), req.DisplayModel)
 	if existing != nil {
-		http.Error(w, "failover group with display_model '"+req.DisplayModel+"' already exists", http.StatusConflict)
+		http.Error(w, "A failover group for '"+req.DisplayModel+"' already exists (auto-created from shared model). Edit the existing group instead.", http.StatusConflict)
 		return
 	}
 
@@ -305,7 +305,7 @@ func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if conflict != nil {
-				http.Error(w, "failover group with display_model '"+*req.DisplayModel+"' already exists", http.StatusConflict)
+				http.Error(w, "A failover group for '"+*req.DisplayModel+"' already exists. Choose a different name.", http.StatusConflict)
 				return
 			}
 		}

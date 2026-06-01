@@ -144,9 +144,9 @@ describe("DateFilterButton", () => {
 		const calendarButton = screen.getByRole("button", {
 			name: /filter by date range/i,
 		});
-		expect(calendarButton).toHaveClass("bg-gray-900/40");
-		expect(calendarButton).toHaveClass("text-gray-400");
-		expect(calendarButton).toHaveClass("border-gray-700/50");
+		expect(calendarButton).toHaveClass("bg-(--surface-input)");
+		expect(calendarButton).toHaveClass("text-(--text-secondary)");
+		expect(calendarButton).toHaveClass("border-(--border-input)");
 	});
 
 	it("calendar button has accent styling when filter active", () => {

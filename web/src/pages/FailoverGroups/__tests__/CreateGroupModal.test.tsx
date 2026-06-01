@@ -1203,5 +1203,112 @@ describe("CreateGroupModal", () => {
 
 			expect(mockOnUpdated).not.toHaveBeenCalled();
 		});
+
+		it("shows create collision toast on 409 with already exists", async () => {
+			server.use(
+				http.post("/api/failover-groups", () =>
+					HttpResponse.json(
+						{ error: "A failover group already exists" },
+						{ status: 409 },
+					),
+				),
+			);
+
+			const { user } = renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					onClose={mockOnClose}
+					onCreated={mockOnCreated}
+				/>,
+			);
+
+			// Fill display model name
+			const displayModelInput = screen.getByLabelText("Display Model Name");
+			await user.type(displayModelInput, "glm-5");
+
+			// Select 2 models
+			await user.click(screen.getByText("Gemma 3 4B"));
+			await user.click(screen.getByText("Gemma 3"));
+
+			// Submit
+			const submitButton = screen.getByRole("button", {
+				name: "Create Group",
+			});
+			await user.click(submitButton);
+
+			// Collision toast should appear with model name interpolated
+			await waitFor(() => {
+				expect(
+					screen.getByText(/A failover group for 'glm-5' already exists/),
+				).toBeInTheDocument();
+			});
+
+			expect(mockOnCreated).not.toHaveBeenCalled();
+		});
+
+		it("shows generic error toast on non-409 creation failure", async () => {
+			server.use(
+				http.post("/api/failover-groups", () =>
+					HttpResponse.json({ error: "Internal error" }, { status: 500 }),
+				),
+			);
+
+			const { user } = renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					onClose={mockOnClose}
+					onCreated={mockOnCreated}
+				/>,
+			);
+
+			const displayModelInput = screen.getByLabelText("Display Model Name");
+			await user.type(displayModelInput, "glm-5");
+
+			await user.click(screen.getByText("Gemma 3 4B"));
+			await user.click(screen.getByText("Gemma 3"));
+
+			await user.click(screen.getByRole("button", { name: "Create Group" }));
+
+			await waitFor(() => {
+				expect(screen.getByText(/Failed to create group/)).toBeInTheDocument();
+			});
+
+			expect(mockOnCreated).not.toHaveBeenCalled();
+		});
+
+		it("shows update collision toast on 409 with already exists", async () => {
+			server.use(
+				http.put("/api/failover-groups/:id", () =>
+					HttpResponse.json(
+						{ error: "A failover group already exists" },
+						{ status: 409 },
+					),
+				),
+			);
+
+			const { user } = renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					group={mockEditGroup}
+					onClose={mockOnClose}
+					onUpdated={mockOnUpdated}
+				/>,
+			);
+
+			// Submit
+			const submitButton = screen.getByRole("button", {
+				name: "Save Changes",
+			});
+			await user.click(submitButton);
+
+			// Collision toast should appear
+			await waitFor(() => {
+				expect(
+					screen.getByText(/A failover group with this name already exists/),
+				).toBeInTheDocument();
+			});
+
+			expect(mockOnUpdated).not.toHaveBeenCalled();
+		});
 	});
 });

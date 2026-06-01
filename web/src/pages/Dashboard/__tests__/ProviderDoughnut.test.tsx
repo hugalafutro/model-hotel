@@ -1,12 +1,13 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import type { ProviderDistributionItem } from "../../../api/types";
 import { renderWithProviders } from "../../../test/utils";
 import { ProviderDoughnut } from "../ProviderDoughnut";
-import type { MetricType, ProviderDistItem, Range } from "../types";
+import type { MetricType, Range } from "../types";
 
 describe("ProviderDoughnut", () => {
-	const mockItems: ProviderDistItem[] = [
+	const mockItems: ProviderDistributionItem[] = [
 		{ name: "Provider A", count: 100, tokens: 5000, share: 40 },
 		{ name: "Provider B", count: 80, tokens: 3000, share: 32 },
 		{ name: "Provider C", count: 70, tokens: 2000, share: 28 },
@@ -89,7 +90,7 @@ describe("ProviderDoughnut", () => {
 	});
 
 	it("allocates cells proportionally with minimum 1 for non-zero shares", () => {
-		const tinyItems: ProviderDistItem[] = [
+		const tinyItems: ProviderDistributionItem[] = [
 			{ name: "Big", count: 9990, tokens: 9990000, share: 99.5 },
 			{ name: "Small", count: 10, tokens: 500, share: 0.3 },
 			{ name: "Tiny", count: 5, tokens: 200, share: 0.2 },
@@ -110,7 +111,7 @@ describe("ProviderDoughnut", () => {
 	});
 
 	it("fills to exactly 100 cells when rounding under-allocates", () => {
-		const fractionalItems: ProviderDistItem[] = [
+		const fractionalItems: ProviderDistributionItem[] = [
 			{ name: "A", count: 100, tokens: 1000, share: 33.3 },
 			{ name: "B", count: 100, tokens: 1000, share: 33.3 },
 			{ name: "C", count: 100, tokens: 1000, share: 33.4 },
@@ -142,7 +143,7 @@ describe("ProviderDoughnut", () => {
 	});
 
 	it("shows <0.1% for zero or near-zero shares", () => {
-		const tinyShareItems: ProviderDistItem[] = [
+		const tinyShareItems: ProviderDistributionItem[] = [
 			{ name: "Big", count: 9990, tokens: 9990000, share: 99.9 },
 			{ name: "Tiny", count: 10, tokens: 11400, share: 0.02 },
 			{ name: "Zero", count: 0, tokens: 0, share: 0 },
@@ -158,7 +159,7 @@ describe("ProviderDoughnut", () => {
 	});
 
 	it("gives a cell to providers with share 0 but non-zero count/tokens", () => {
-		const backendRoundedItems: ProviderDistItem[] = [
+		const backendRoundedItems: ProviderDistributionItem[] = [
 			{ name: "Wafer AI", count: 8650, tokens: 313200000, share: 86.5 },
 			{ name: "Ollama Cloud", count: 1320, tokens: 47900000, share: 13.2 },
 			{ name: "NanoGPT", count: 30, tokens: 997900, share: 0.3 },
@@ -199,7 +200,7 @@ describe("ProviderDoughnut", () => {
 	});
 
 	it("uses singular form for 1 token", () => {
-		const singleItem: ProviderDistItem[] = [
+		const singleItem: ProviderDistributionItem[] = [
 			{ name: "Single", count: 1, tokens: 1, share: 100 },
 		];
 
@@ -211,7 +212,7 @@ describe("ProviderDoughnut", () => {
 	});
 
 	it("uses singular form for 1 request", () => {
-		const singleItem: ProviderDistItem[] = [
+		const singleItem: ProviderDistributionItem[] = [
 			{ name: "Single", count: 1, tokens: 100, share: 100 },
 		];
 
@@ -264,10 +265,10 @@ describe("ProviderDoughnut", () => {
 			<ProviderDoughnut {...defaultProps} onRangeChange={onRangeChangeMock} />,
 		);
 
-		const sevenDButton = screen.getByText("7D");
+		const sevenDButton = screen.getByText("1W");
 		await user.click(sevenDButton);
 
-		expect(onRangeChangeMock).toHaveBeenCalledWith("7d");
+		expect(onRangeChangeMock).toHaveBeenCalledWith("1w");
 	});
 
 	it("calls onMetricChange when metric button is clicked", async () => {
@@ -299,7 +300,7 @@ describe("ProviderDoughnut", () => {
 
 		expect(screen.getByText("1H")).toBeInTheDocument();
 		expect(screen.getByText("1D")).toBeInTheDocument();
-		expect(screen.getByText("7D")).toBeInTheDocument();
+		expect(screen.getByText("1W")).toBeInTheDocument();
 	});
 
 	it("highlights active range button", () => {
@@ -319,7 +320,7 @@ describe("ProviderDoughnut", () => {
 	});
 
 	it("formats large token numbers with formatCompact", () => {
-		const largeItems: ProviderDistItem[] = [
+		const largeItems: ProviderDistributionItem[] = [
 			{ name: "Big Provider", count: 1500000, tokens: 1500000, share: 100 },
 		];
 
@@ -331,7 +332,7 @@ describe("ProviderDoughnut", () => {
 	});
 
 	it("uses distinct colors for 6+ providers", () => {
-		const manyItems: ProviderDistItem[] = [
+		const manyItems: ProviderDistributionItem[] = [
 			{ name: "P1", count: 10, tokens: 100, share: 30 },
 			{ name: "P2", count: 10, tokens: 100, share: 25 },
 			{ name: "P3", count: 10, tokens: 100, share: 20 },
@@ -361,7 +362,7 @@ describe("ProviderDoughnut", () => {
 		});
 
 		it("uses singular 'Provider' for a single item", () => {
-			const singleItem: ProviderDistItem[] = [
+			const singleItem: ProviderDistributionItem[] = [
 				{ name: "Only One", count: 50, tokens: 500, share: 100 },
 			];
 

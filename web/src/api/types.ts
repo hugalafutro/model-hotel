@@ -163,6 +163,8 @@ export interface TimeSeriesPoint {
 	bucket: string;
 	count: number;
 	tokens: number;
+	tokens_cache_hit: number;
+	tokens_cache_miss: number;
 	errors: number;
 	latency_ms: number;
 	overhead_ms: number;

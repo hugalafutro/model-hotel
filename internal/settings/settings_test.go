@@ -273,6 +273,44 @@ func TestGetDuration(t *testing.T) {
 	}
 }
 
+func TestGetDurationDaySuffix(t *testing.T) {
+	r := NewRepository(testPool)
+	ctx := context.Background()
+	clearSettings(t)
+
+	key := "test_duration"
+	err := r.Set(ctx, key, "1d")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	d := r.GetDuration(ctx, key, 0)
+	if d != 24*time.Hour {
+		t.Errorf("got %v, want 24h0m0s", d)
+	}
+
+	err = r.Set(ctx, key, "7d")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	d = r.GetDuration(ctx, key, 0)
+	if d != 7*24*time.Hour {
+		t.Errorf("got %v, want 168h0m0s", d)
+	}
+
+	err = r.Set(ctx, key, "2d12h30m")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	d = r.GetDuration(ctx, key, 0)
+	want := 2*24*time.Hour + 12*time.Hour + 30*time.Minute
+	if d != want {
+		t.Errorf("got %v, want %v", d, want)
+	}
+}
+
 func TestGetFloat(t *testing.T) {
 	r := NewRepository(testPool)
 	ctx := context.Background()

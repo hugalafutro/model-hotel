@@ -42,13 +42,13 @@ describe("useDashboard", () => {
 		});
 
 		it("valid range from localStorage is deserialized correctly", () => {
-			localStorage.setItem("dashboardRange", "7d");
+			localStorage.setItem("dashboardRange", "1w");
 
 			const { result } = renderHook(() => useDashboard(), {
 				wrapper: AllProviders,
 			});
 
-			expect(result.current.globalRange).toBe("7d");
+			expect(result.current.globalRange).toBe("1w");
 		});
 
 		it("valid metric from localStorage is deserialized correctly", () => {
@@ -72,17 +72,17 @@ describe("useDashboard", () => {
 			expect(result.current.globalRange).toBe("24h");
 
 			act(() => {
-				result.current.setGlobalRange("7d");
+				result.current.setGlobalRange("1w");
 			});
 
 			await waitFor(() => {
-				expect(result.current.requestsChartRange).toBe("7d");
-				expect(result.current.tokensChartRange).toBe("7d");
-				expect(result.current.doughnutRange).toBe("7d");
-				expect(result.current.tokenRange).toBe("7d");
-				expect(result.current.modelsRange).toBe("7d");
-				expect(result.current.providersRange).toBe("7d");
-				expect(result.current.virtualKeysRange).toBe("7d");
+				expect(result.current.requestsChartRange).toBe("1w");
+				expect(result.current.tokensChartRange).toBe("1w");
+				expect(result.current.doughnutRange).toBe("1w");
+				expect(result.current.tokenRange).toBe("1w");
+				expect(result.current.modelsRange).toBe("1w");
+				expect(result.current.providersRange).toBe("1w");
+				expect(result.current.virtualKeysRange).toBe("1w");
 			});
 		});
 
@@ -358,6 +358,17 @@ describe("useDashboard", () => {
 			expect(result.current.dashboardRefreshMs).toBe(15000);
 			expect(result.current.hideManualRefresh).toBe(false);
 		});
+
+		it("dashboardRefreshSec=0 → dashboardRefreshMs=0 (disabled)", () => {
+			localStorage.setItem("dashboardRefreshSec", "0");
+
+			const { result } = renderHook(() => useDashboard(), {
+				wrapper: AllProviders,
+			});
+
+			expect(result.current.dashboardRefreshMs).toBe(0);
+			expect(result.current.hideManualRefresh).toBe(false);
+		});
 	});
 
 	describe("rangeLabel", () => {
@@ -391,10 +402,10 @@ describe("useDashboard", () => {
 			});
 
 			act(() => {
-				result.current.setGlobalRange("7d");
+				result.current.setGlobalRange("1w");
 			});
 
-			expect(result.current.rangeLabel).toBe("7d");
+			expect(result.current.rangeLabel).toBe("1w");
 		});
 	});
 
@@ -466,7 +477,7 @@ describe("useDashboard", () => {
 			});
 
 			act(() => {
-				result.current.setGlobalRange("7d");
+				result.current.setGlobalRange("1w");
 			});
 
 			await waitFor(() => {
@@ -592,7 +603,7 @@ describe("useDashboard", () => {
 			});
 		});
 
-		it("7d range formats label as MMM d", async () => {
+		it("7d range formats label as locale-aware short date", async () => {
 			const timeSeriesData: TimeSeriesStats = {
 				points: [
 					{
@@ -620,12 +631,19 @@ describe("useDashboard", () => {
 			});
 
 			act(() => {
-				result.current.setRequestsChartRange("7d");
+				result.current.setRequestsChartRange("1w");
 			});
 
+			const expected = new Date("2025-01-15T10:30:00Z").toLocaleDateString(
+				undefined,
+				{
+					month: "short",
+					day: "numeric",
+				},
+			);
 			await waitFor(() => {
 				expect(result.current.acData).toHaveLength(1);
-				expect(result.current.acData[0].hour).toBe("Jan 15");
+				expect(result.current.acData[0].hour).toBe(expected);
 			});
 		});
 	});

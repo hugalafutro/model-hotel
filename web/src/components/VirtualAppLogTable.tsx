@@ -84,6 +84,7 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 		}
 		prevEntriesRef.current = entries;
 		prevTotalSizeRef.current = virtualizer.getTotalSize();
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- virtualizer is stable ref; adding it would cause infinite re-renders
 	}, [entries]);
 
 	useLayoutEffect(() => {

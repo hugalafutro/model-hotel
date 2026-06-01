@@ -310,11 +310,11 @@ describe("Dashboard.coverage", () => {
 			// LocalStorage keys are created by useDashboard for each section
 			// Each section can have different range/metric preferences stored
 			localStorage.setItem("dashboard.modelsRange", "1h");
-			localStorage.setItem("dashboard.providersRange", "7d");
+			localStorage.setItem("dashboard.providersRange", "1w");
 			localStorage.setItem("dashboard.virtualKeysRange", "24h");
 
 			expect(localStorage.getItem("dashboard.modelsRange")).toBe("1h");
-			expect(localStorage.getItem("dashboard.providersRange")).toBe("7d");
+			expect(localStorage.getItem("dashboard.providersRange")).toBe("1w");
 		});
 	});
 
@@ -452,7 +452,7 @@ describe("Dashboard.coverage", () => {
 
 			// Header 7D should be active initially for all sections
 			const header7D = screen
-				.getAllByText("7D")
+				.getAllByText("1W")
 				.find((el) =>
 					el
 						.closest(".flex.items-center.gap-1")
@@ -469,7 +469,7 @@ describe("Dashboard.coverage", () => {
 
 			// Verify localStorage persistence for per-section range
 			await waitFor(() => {
-				expect(localStorage.getItem("dashboard.doughnutRange")).toBe("7d");
+				expect(localStorage.getItem("dashboard.doughnutRange")).toBe("1w");
 			});
 		});
 

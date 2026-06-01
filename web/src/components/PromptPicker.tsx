@@ -76,7 +76,7 @@ export function PromptPicker({
 				setPendingPrompt(preset);
 				return;
 			}
-			onPromptChange(preset.prompt);
+			onPromptChange(t(preset.prompt));
 			onActivePromptIdChange(preset.id);
 			autoExpand(textareaRef);
 		},
@@ -86,6 +86,7 @@ export function PromptPicker({
 			onPromptChange,
 			onActivePromptIdChange,
 			autoExpand,
+			t,
 		],
 	);
 
@@ -110,7 +111,7 @@ export function PromptPicker({
 			setPendingPrompt(pick);
 			return;
 		}
-		onPromptChange(pick.prompt);
+		onPromptChange(t(pick.prompt));
 		onActivePromptIdChange(pick.id);
 		autoExpand(textareaRef);
 	}, [
@@ -120,6 +121,7 @@ export function PromptPicker({
 		onPromptChange,
 		onActivePromptIdChange,
 		autoExpand,
+		t,
 	]);
 
 	const handleTextareaChange = useCallback(
@@ -127,11 +129,11 @@ export function PromptPicker({
 			onPromptChange(value);
 			// If user edits away from a preset, switch to custom
 			const current = prompts.find((p) => p.id === activePromptId);
-			if (current && value !== current.prompt) {
+			if (current && value !== t(current.prompt)) {
 				onActivePromptIdChange(null);
 			}
 		},
-		[prompts, activePromptId, onPromptChange, onActivePromptIdChange],
+		[prompts, activePromptId, onPromptChange, onActivePromptIdChange, t],
 	);
 
 	const handleConfirmOverwrite = useCallback(() => {
@@ -140,12 +142,12 @@ export function PromptPicker({
 			onPromptChange("");
 			onActivePromptIdChange(null);
 		} else {
-			onPromptChange(pendingPrompt.prompt);
+			onPromptChange(t(pendingPrompt.prompt));
 			onActivePromptIdChange(pendingPrompt.id);
 			autoExpand(textareaRef);
 		}
 		setPendingPrompt(null);
-	}, [pendingPrompt, onPromptChange, onActivePromptIdChange, autoExpand]);
+	}, [pendingPrompt, onPromptChange, onActivePromptIdChange, autoExpand, t]);
 
 	return (
 		<div className={className}>

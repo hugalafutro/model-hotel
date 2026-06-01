@@ -54,6 +54,8 @@ type TimeSeriesPoint struct {
 	Bucket            string  `json:"bucket"`
 	Count             int     `json:"count"`
 	Tokens            int     `json:"tokens"`
+	TokensCacheHit    int     `json:"tokens_cache_hit"`
+	TokensCacheMiss   int     `json:"tokens_cache_miss"`
 	Errors            int     `json:"errors"`
 	Latency           float64 `json:"latency_ms"`
 	OverheadMs        float64 `json:"overhead_ms"`
@@ -493,6 +495,8 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 			to_char(date_bin('5 minutes', rl.created_at, '2000-01-01'), 'YYYY-MM-DD"T"HH24:MI:SS') || 'Z' as bucket,
 			COUNT(*) as count,
 			SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) as tokens,
+			SUM(COALESCE(rl.tokens_prompt_cache_hit, 0)) as tokens_cache_hit,
+			SUM(COALESCE(rl.tokens_prompt_cache_miss, 0)) as tokens_cache_miss,
 			COUNT(*) FILTER (WHERE rl.status_code >= 400 OR rl.status_code = 0) as errors,
 			COALESCE(AVG(rl.duration_ms) FILTER (WHERE rl.status_code > 0 AND rl.status_code < 400), 0) as latency,
 			COALESCE(AVG(rl.proxy_overhead_ms) FILTER (WHERE rl.proxy_overhead_ms > 0), 0) as overhead_ms,
@@ -509,6 +513,8 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 			to_char(date_trunc('` + bucketSize + `', rl.created_at), 'YYYY-MM-DD"T"HH24:MI:SS') || 'Z' as bucket,
 			COUNT(*) as count,
 			SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) as tokens,
+			SUM(COALESCE(rl.tokens_prompt_cache_hit, 0)) as tokens_cache_hit,
+			SUM(COALESCE(rl.tokens_prompt_cache_miss, 0)) as tokens_cache_miss,
 			COUNT(*) FILTER (WHERE rl.status_code >= 400 OR rl.status_code = 0) as errors,
 			COALESCE(AVG(rl.duration_ms) FILTER (WHERE rl.status_code > 0 AND rl.status_code < 400), 0) as latency,
 			COALESCE(AVG(rl.proxy_overhead_ms) FILTER (WHERE rl.proxy_overhead_ms > 0), 0) as overhead_ms,
@@ -532,13 +538,16 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var p TimeSeriesPoint
 		var latency, overheadMs, providerLatencyMs, avgTTFTMs float64
-		if err := rows.Scan(&p.Bucket, &p.Count, &p.Tokens, &p.Errors, &latency, &overheadMs, &providerLatencyMs, &p.RateLimitHits, &avgTTFTMs); err != nil {
+		var cacheHit, cacheMiss int
+		if err := rows.Scan(&p.Bucket, &p.Count, &p.Tokens, &cacheHit, &cacheMiss, &p.Errors, &latency, &overheadMs, &providerLatencyMs, &p.RateLimitHits, &avgTTFTMs); err != nil {
 			continue
 		}
 		p.Latency = latency
 		p.OverheadMs = overheadMs
 		p.ProviderLatencyMs = providerLatencyMs
 		p.AvgTTFTMs = avgTTFTMs
+		p.TokensCacheHit = cacheHit
+		p.TokensCacheMiss = cacheMiss
 		result.Points = append(result.Points, p)
 	}
 
@@ -589,7 +598,7 @@ func fillEmptyBuckets(points []TimeSeriesPoint, start, end time.Time, bucketSize
 		if p, ok := byBucket[bucket]; ok {
 			filled = append(filled, p)
 		} else {
-			filled = append(filled, TimeSeriesPoint{Bucket: bucket, Count: 0, Tokens: 0, Errors: 0, Latency: 0, RateLimitHits: 0, AvgTTFTMs: 0})
+			filled = append(filled, TimeSeriesPoint{Bucket: bucket, Count: 0, Tokens: 0, TokensCacheHit: 0, TokensCacheMiss: 0, Errors: 0, Latency: 0, RateLimitHits: 0, AvgTTFTMs: 0})
 		}
 	}
 	return filled
