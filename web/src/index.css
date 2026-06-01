@@ -1096,8 +1096,9 @@ html[data-ui-style="glassmorphism-lite"].light .ui-card {
    rectangle doesn't bleed past rounded corners into the gap between
    stacked cards. Cards with tables are excluded because clip-path
    breaks position:sticky in Chromium. Cards with dropdowns
-   (.has-dropdown) use a ::before pseudo-element approach instead
-   (see below). Absolute cards (dropdowns) get solid backgrounds. */
+   (.has-dropdown) skip backdrop-filter entirely to avoid the blur
+   rectangle creating visible lines between stacked cards, while
+   allowing dropdowns to overflow. Absolute cards get solid backgrounds. */
 html[data-ui-style="glassmorphism-lite"] .ui-card:not(.absolute):not(.has-dropdown):not(:has(> .absolute)) {
 	clip-path: inset(0 round var(--radius-card));
 }
@@ -1105,11 +1106,9 @@ html[data-ui-style="glassmorphism-lite"]
 	.ui-card:not(.absolute):has(> .ui-table) {
 	clip-path: none;
 }
-
-/* Cards containing dropdowns: move backdrop-filter to a ::before
-   pseudo-element so clip-path on the pseudo clips the blur to
-   rounded corners while the card itself has no clip-path, allowing
-   the dropdown to overflow past the card boundary. */
+/* Dropdown cards: no backdrop-filter (avoids blur rectangle line
+   between stacked cards), no clip-path (allows dropdown overflow).
+   A subtle semi-transparent overlay provides the glass look instead. */
 html[data-ui-style="glassmorphism-lite"] .ui-card.has-dropdown {
 	backdrop-filter: none;
 	-webkit-backdrop-filter: none;
@@ -1119,12 +1118,10 @@ html[data-ui-style="glassmorphism-lite"] .ui-card.has-dropdown::before {
 	content: "";
 	position: absolute;
 	inset: 0;
-	backdrop-filter: blur(40px);
-	-webkit-backdrop-filter: blur(40px);
-	clip-path: inset(0 round var(--radius-card));
+	background: var(--surface-elevated);
+	border-radius: var(--radius-card);
 	pointer-events: none;
 	z-index: 0;
-	border-radius: var(--radius-card);
 }
 
 /* Dropdown/popover cards: solid opaque background (backdrop-filter does not
