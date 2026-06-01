@@ -154,13 +154,13 @@ export function ProviderDoughnut({
 							);
 						})}
 					</div>
-					<ul className="flex-1 space-y-2 list-none m-0 p-0">
+					<ul className="flex-1 list-none m-0 p-0 grid grid-cols-[1fr_3.5rem_auto] gap-x-1 gap-y-2 items-baseline">
 						{items.map((it, i) => {
 							const isHighlighted = hoveredProvider === it.name;
 							return (
 								<li
 									key={it.name}
-									className="grid grid-cols-[1fr_minmax(0,5.5rem_auto)] gap-3 items-baseline"
+									className="contents"
 									onMouseEnter={() => setHoveredProvider(it.name)}
 									onMouseLeave={() => setHoveredProvider(null)}
 								>
@@ -186,14 +186,16 @@ export function ProviderDoughnut({
 										>
 											{it.name}
 										</span>
-										<span className="text-xs text-(--text-muted)">
-											{metric === "tokens"
-												? `${formatCompact(it.tokens)} ${t(it.tokens !== 1 ? "dashboard.providers.tokensUnit" : "dashboard.providers.tokenUnit")}`
-												: `${it.count} ${t(it.count !== 1 ? "dashboard.providers.requestsUnit" : "dashboard.providers.requestUnit")}`}
-										</span>
 									</div>
-									<span className="text-sm font-medium text-(--text-primary) tabular-nums text-right">
+									<span className="text-sm font-medium text-(--text-primary) text-right tabular-nums">
 										{formatPercent(it.share)}
+									</span>
+									<span className="text-xs text-(--text-muted) text-left">
+										(
+										{metric === "tokens"
+											? `${formatCompact(it.tokens)} ${t(it.tokens !== 1 ? "dashboard.providers.tokensUnit" : "dashboard.providers.tokenUnit")}`
+											: `${it.count} ${t(it.count !== 1 ? "dashboard.providers.requestsUnit" : "dashboard.providers.requestUnit")}`}
+										)
 									</span>
 								</li>
 							);
