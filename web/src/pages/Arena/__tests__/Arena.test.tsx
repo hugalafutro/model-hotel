@@ -910,10 +910,10 @@ describe("Arena - Rounds rendering", () => {
 });
 
 describe("Arena - Run/Stop button", () => {
-	it('shows "Stop" when isRunning is true', () => {
-		mockArena({ isRunning: true, buttonLabel: "Stop" });
+	it('shows "Stop All" when isRunning is true', () => {
+		mockArena({ isRunning: true, buttonLabel: "Stop All" });
 		render(<Arena />);
-		expect(screen.getByText("Stop")).toBeInTheDocument();
+		expect(screen.getByText("Stop All")).toBeInTheDocument();
 	});
 
 	it('shows "Run Arena" when phase is setup and not running', () => {
@@ -932,7 +932,7 @@ describe("Arena - Run/Stop button", () => {
 		mockArena({
 			phase: "running",
 			isRunning: true,
-			buttonLabel: "Stop",
+			buttonLabel: "Stop All",
 			handleStopAll,
 		});
 
@@ -974,7 +974,7 @@ describe("Arena - Run/Stop button", () => {
 	});
 
 	it("has danger class when running", () => {
-		mockArena({ isRunning: true, buttonLabel: "Stop" });
+		mockArena({ isRunning: true, buttonLabel: "Stop All" });
 		const { container } = render(<Arena />);
 		const btn = container.querySelector("button.ui-btn");
 		expect(btn).toHaveClass("ui-btn-danger");

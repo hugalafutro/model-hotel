@@ -1,2030 +1,2030 @@
 {
-	"common": {
-		"cancel": "Cancel",
-		"delete": "Delete",
-		"deleting": "Deleting…",
-		"close": "Close",
-		"closeDialog": "Close dialog",
-		"clearFilter": "Clear filter",
-		"copiedToClipboard": "Copied to clipboard",
-		"copied": "Copied!",
-		"failedToCopy": "Failed to copy",
-		"copy": "Copy",
-		"expand": "Expand",
-		"collapse": "Collapse",
-		"enabled": "Enabled",
-		"disabled": "Disabled",
-		"never": "Never",
-		"justNow": "Just now",
-		"loading": "Loading",
-		"loadingDots": "Loading…",
-		"off": "off",
-		"prev": "Prev",
-		"next": "Next",
-		"apply": "Apply",
-		"clear": "Clear",
-		"interrupted": "Interrupted",
-		"selectAll": "Select all",
-		"saving": "Saving...",
-		"add": "Add",
-		"edit": "Edit",
-		"save": "Save",
-		"saveChanges": "Save Changes",
-		"confirm": "Confirm",
-		"syncing": "Syncing…",
-		"refresh": "Refresh",
-		"refreshing": "Refreshing…",
-		"discovering": "Discovering...",
-		"n_a": "N/A",
-		"current": "Current",
-		"optional": "Optional",
-		"required": "Required",
-		"done": "Done",
-		"creating": "Creating...",
-		"resolving": "Resolving…",
-		"live": "Live",
-		"deleted": "Deleted",
-		"internal": "internal",
-		"noLogsFound": "No logs found",
-		"global": "Global",
-		"manuallyDisabled": "Manually Disabled",
-		"loadingNewer": "Loading newer…",
-		"loadingOlder": "Loading older…",
-		"model": "model",
-		"models": "models",
-		"tokens": "Tokens",
-		"yes": "Yes",
-		"no": "No",
-		"random": "Random",
-		"unknownError": "Unknown error",
-		"thisWeek": "This Week",
-		"thisMonth": "This Month",
-		"allTime": "All Time",
-		"today": "Today",
-		"custom": "Custom",
-		"productNames": {
-			"powershell": "PowerShell",
-			"javascript": "JavaScript",
-			"python": "Python",
-			"claudeCode": "Claude Code",
-			"openclaw": "OpenClaw",
-			"hermes": "Hermes",
-			"librechat": "LibreChat",
-			"zed": "ZED",
-			"opencode": "OpenCode"
-		}
-	},
-	"layout": {
-		"title": "Model Hotel",
-		"subtitle": "Multi-Provider AI Gateway",
-		"tagline": "Because we have LiteLLM at home",
-		"nav": {
-			"dashboard": "Dashboard",
-			"chat": "Chat",
-			"conversation": "Conversation",
-			"arena": "Arena",
-			"compare": "Compare",
-			"providers": "Providers",
-			"models": "Models",
-			"failover": "Failover",
-			"virtualKeys": "Virtual Keys",
-			"logs": "Logs",
-			"requests": "Requests",
-			"appLogs": "Logs",
-			"settings": "Settings"
-		},
-		"status": {
-			"apiStatus": "API Status",
-			"online": "Online",
-			"error": "Error"
-		},
-		"stats": {
-			"uptime": "Uptime",
-			"cpu": "CPU",
-			"network": "Network",
-			"disk": "Disk",
-			"memory": "Memory",
-			"goroutines": "Go routines",
-			"requestsToday": "Req Today",
-			"db": "DB",
-			"procs_one": "proc",
-			"procs_other": "procs",
-			"aggregateCpu": "Aggregate CPU across {{count}} compose containers",
-			"aggregateNetwork": "Aggregate network across {{count}} compose containers",
-			"aggregateDisk": "Aggregate disk I/O across {{count}} compose containers",
-			"aggregateMemory": "Aggregate memory across {{count}} compose containers"
-		},
-		"toast": {
-			"copiedToClipboard": "Copied to clipboard",
-			"appErrorAcknowledged": "App error acknowledged",
-			"requestErrorAcknowledged": "Request error acknowledged"
-		},
-		"auth": {
-			"logout": "Logout",
-			"logoutConfirm": "Log out?",
-			"logoutMessage": "You'll need to re-enter your admin token."
-		},
-		"theme": {
-			"switchToLight": "Switch to light mode",
-			"switchToDark": "Switch to dark mode"
-		},
-		"errorPill": {
-			"appError": "App Err",
-			"requestError": "Req Err",
-			"error": " Error",
-			"copyError": "Copy error",
-			"viewDetails": "View details",
-			"acknowledge": "Acknowledge (dismiss)",
-			"request": "Request"
-		},
-		"docs": "Docs",
-		"running": "Running {{version}}",
-		"updateAvailable": "Update available: {{running}} → latest",
-		"expandStats": "Expand stats",
-		"collapseStats": "Collapse stats",
-		"tooltips": {
-			"uptime": "How long the server process has been running",
-			"goroutines": "Active Go runtime goroutines (lightweight threads)",
-			"requestsToday": "Number of proxied LLM requests since midnight local time today",
-			"dbSize": "Postgres database size on disk",
-			"dbHitRatio": "Buffer cache hit ratio (higher is better)",
-			"dbConnections": "Active database connections",
-			"dbTxPerSec": "Database transactions per second"
-		},
-		"githubRepo": "GitHub repository"
-	},
-	"dashboard": {
-		"title": "Dashboard",
-		"description": "Overview of your Model Hotel usage",
-		"activeKeysOnly": "Active Keys Only",
-		"allKeys": "All Keys",
-		"toggleKeyFilter": "Toggle key filter",
-		"refresh": "Refresh dashboard",
-		"refreshing": "Refreshing…",
-		"loadingGauges": "Loading gauges…",
-		"failedToLoadGaugeStats": "Failed to load gauge stats",
-		"gaugeLoadFailed": "Failed to load gauge stats",
-		"stats": {
-			"totalProviders": "Total Providers",
-			"totalModels": "Total Models",
-			"requests": "Requests/{{range}}",
-			"errorRate": "Error Rate/{{range}}",
-			"avgDuration": "Avg Duration/{{range}}",
-			"totalTokens": "Total Tokens/{{range}}",
-			"avgTokensPerReq": "Avg Tokens/Req"
-		},
-		"gauge": {
-			"requestsPerRange": "Requests/{{range}}",
-			"avgTtftPerRange": "Avg TTFT/{{range}}",
-			"avgOverheadPerRange": "Avg Overhead/{{range}}",
-			"rateLimitHitsPerRange": "Rate Limit Hits/{{range}}",
-			"errorRatePerRange": "Error Rate/{{range}}",
-			"viewRequestHistory": "Click to view request history",
-			"viewTtftHistory": "Click to view TTFT history",
-			"viewOverheadHistory": "Click to view overhead history",
-			"viewRateLimitHistory": "Click to view rate limit hit history",
-			"viewErrorRateHistory": "Click to view error rate history",
-			"viewDurationHistory": "Click to view duration history",
-			"viewTokenHistory": "Click to view token history",
-			"svgTitle": "Gauge",
-			"modal": {
-				"avgOverheadTitle": "Avg Overhead",
-				"overheadMetric": "Overhead",
-				"overheadLabel": "Overhead",
-				"errorRateTitle": "Error Rate",
-				"errorRateMetric": "Error Rate",
-				"errorRateLabel": "Error Rate",
-				"avgDurationTitle": "Avg Duration",
-				"durationMetric": "Duration",
-				"durationLabel": "Duration",
-				"requestsTitle": "Requests",
-				"requestsMetric": "Requests",
-				"requestsLabel": "Requests",
-				"avgTtftTitle": "Avg TTFT",
-				"ttftMetric": "TTFT",
-				"ttftLabel": "TTFT",
-				"rateLimitHitsTitle": "Rate Limit Hits",
-				"rateLimitHitsMetric": "Rate Limit Hits",
-				"rateLimitHitsLabel": "Rate Limit Hits",
-				"avgTokensTitle": "Avg Tokens",
-				"tokensMetric": "Tokens",
-				"tokensLabel": "Tokens"
-			}
-		},
-		"chart": {
-			"hour": "Hour",
-			"day": "Day",
-			"noData": "No time-series data yet. {{metric}} will appear here once traffic flows.",
-			"dragToPan": "drag to pan",
-			"requests": "Requests",
-			"tokens": "Tokens",
-			"emptyState": "No time-series data yet. {{metric}} will appear here once traffic flows.",
-			"requestsOver": "Requests/{{range}}",
-			"avgTtftOver": "Avg TTFT/{{range}}",
-			"avgOverheadOver": "Avg Overhead/{{range}}",
-			"rateLimitHitsOver": "Rate Limit Hits/{{range}}",
-			"errorRateOver": "Error Rate/{{range}}",
-			"avgDurationOver": "Avg Duration/{{range}}"
-		},
-		"usage": {
-			"topModels": "Top Models",
-			"topProviders": "Top Providers",
-			"topVirtualKeys": "Top Virtual Keys",
-			"emptyState": "No usage data yet. Usage breakdown will appear here once traffic flows.",
-			"viewDetailsFor": "View details for {{label}}"
-		},
-		"providers": {
-			"top": "Top Providers",
-			"top_one": "Top {{count}} Provider",
-			"top_other": "Top {{count}} Providers",
-			"providers": "Providers",
-			"noData": "No provider data yet. Provider breakdown will appear here once traffic flows.",
-			"distributionChart": "Provider distribution chart",
-			"emptyState": "No provider data yet. Provider breakdown will appear here once traffic flows.",
-			"chartAriaLabel": "Provider distribution chart",
-			"tokenUnit": "Token",
-			"tokensUnit": "Tokens",
-			"requestUnit": "Request",
-			"requestsUnit": "Requests"
-		},
-		"models": {
-			"top": "Top Models",
-			"viewDetails": "View details for {{label}}",
-			"emptyState": "No model data yet. Model breakdown will appear here once traffic flows."
-		},
-		"virtualKeys": {
-			"top": "Top Virtual Keys",
-			"emptyState": "No virtual key data yet. Virtual key breakdown will appear here once traffic flows."
-		},
-		"tokens": {
-			"tokenMix": "Token Mix",
-			"noTokenData": "No token data yet. Token mix will appear here once traffic flows.",
-			"tokens": "Tokens",
-			"prompt": "Prompt",
-			"completion": "Completion",
-			"promptTooltip": "Prompt: {{pct}}% ({{count}} tokens)",
-			"completionTooltip": "Completion: {{pct}}% ({{count}} tokens)",
-			"mixAriaLabel": "Token mix: {{promptPct}}% prompt, {{completionPct}}% completion",
-			"promptTileTitle": "Prompt",
-			"completionTileTitle": "Completion"
-		},
-		"modal": {
-			"avgOverhead": "Avg Overhead",
-			"errorRate": "Error Rate",
-			"avgDuration": "Avg Duration",
-			"requests": "Requests",
-			"avgTtft": "Avg TTFT",
-			"rateLimitHits": "Rate Limit Hits",
-			"avgTokens": "Avg Tokens"
-		},
-		"range": {
-			"1h": "1H",
-			"24h": "1D",
-			"7d": "7D"
-		},
-		"metric": {
-			"tokens": "Tok",
-			"requests": "Req"
-		},
-		"label": {
-			"requests": "Requests",
-			"tokens": "Tokens",
-			"errors": "errors",
-			"seconds": "seconds",
-			"requestsPerQuery": "T/Rq"
-		}
-	},
-	"chat": {
-		"chat": "Chat",
-		"conversation": "Conversation",
-		"testModels": "Test enabled models in temporary chat",
-		"watchConversation": "Watch two models converse with each other",
-		"controls": {
-			"_": "Controls",
-			"resetAll": "Reset all (clear model & settings)",
-			"modelA": "Model A",
-			"modelB": "Model B",
-			"personaA": "Persona A",
-			"personaB": "Persona B",
-			"clearMessages": "Clear messages (keep model & settings)",
-			"modelLabel": "Model",
-			"personaLabel": "Persona",
-			"title": "Controls",
-			"stop": "Stop",
-			"generating": "Models are generating - click Stop to cancel",
-			"sendMessage": "Send a message...",
-			"send": "Send"
-		},
-		"chatWithAi": "Chat with AI",
-		"aiConversation": "AI Conversation",
-		"stop": "Stop",
-		"clearMessages": "Clear messages (keep model & settings)",
-		"resetAll": "Reset all (clear model & settings)",
-		"toast": {
-			"chatCleared": "Chat cleared",
-			"conversationCleared": "Conversation cleared"
-		},
-		"chatCleared": "Chat cleared",
-		"conversationCleared": "Conversation cleared",
-		"modelA": "Model A",
-		"modelB": "Model B",
-		"personaA": "Persona A",
-		"personaB": "Persona B",
-		"turn": "Turn",
-		"totalDuration": "Duration",
-		"totalTokens": "tokens",
-		"modelGenerating": "Model is generating…",
-		"waitingForNextTurn": "Waiting for next turn…",
-		"generationFailed": "{{model}}: Generation failed - use Retry in config above, or Clear/Reset below",
-		"generationFailedWithModel": "{{model}}: Generation failed - use Retry in config above, or Clear/Reset below",
-		"resetChat": "Reset Chat",
-		"resetConversation": "Reset Conversation",
-		"resetChatMessage": "This will clear all messages, reset model selection, persona, and parameters. Continue?",
-		"resetConversationMessage": "This will clear the conversation and reset both models, personas, and parameters. Continue?",
-		"chatReset": "Chat reset",
-		"conversationReset": "Conversation reset",
-		"selectModel": "Select a model",
-		"selectModelA": "Select Model A",
-		"selectModelB": "Select Model B",
-		"chatWillAppear": "Chat will appear here",
-		"conversationWillAppear": "Conversation will appear here",
-		"removeImage": "Remove image",
-		"removeAudio": "Remove audio",
-		"uploadImage": "Upload image",
-		"attachImage": "Attach image",
-		"uploadAudio": "Upload audio",
-		"attachAudio": "Attach audio",
-		"selectModelFirst": "Select a model first",
-		"typeMessage": "Type a message…",
-		"typeMessageOrPasteImage": "Type a message (or paste an image)…",
-		"generating": "Generating…",
-		"sendMessage": "Send message",
-		"pressEnterToSend": "Press Enter to send, Shift+Enter for newline",
-		"selectModelToStart": "Select a model to start chatting",
-		"modelError": "{{model}}: {{error}} - try Regenerate",
-		"generalError": "{{error}} - try Regenerate or pick a model",
-		"modelLabel": "Model",
-		"stopLabel": "Stop",
-		"clearLabel": "Clear",
-		"resetAllLabel": "Reset All",
-		"cancel": "Cancel",
-		"messageInput": "Chat message input",
-		"copy": "Copy",
-		"regenerate": "Regenerate",
-		"deleteMessage": "Delete message",
-		"settings": "Settings",
-		"placeholder": {
-			"selectModel": "Select a model",
-			"selectModelSidebar": "Select a model",
-			"selectModelA": "Select Model A",
-			"selectModelB": "Select Model B",
-			"messageWithImage": "Type a message (or paste an image)…",
-			"message": "Type a message…",
-			"selectModelFirst": "Select a model first"
-		},
-		"message": {
-			"emptyChat": "Chat will appear here",
-			"emptyConversation": "Conversation will appear here",
-			"audio": "audio"
-		},
-		"aria": {
-			"removeImage": "Remove image",
-			"removeAudio": "Remove audio",
-			"uploadImage": "Upload image",
-			"attachImage": "Attach image",
-			"uploadAudio": "Upload audio",
-			"attachAudio": "Attach audio",
-			"messageInput": "Chat message input",
-			"userAttachment": "User attachment",
-			"cancel": "Cancel",
-			"deleteMessage": "Delete message",
-			"regenerate": "Regenerate"
-		},
-		"misc": {
-			"titleChat": "Chat",
-			"titleConversation": "Conversation",
-			"descriptionChat": "Test enabled models in temporary chat",
-			"descriptionConversation": "Watch two models converse with each other",
-			"selectModelToStart": "Select a model to start chatting",
-			"keyboardHint": "Press Enter to send, Shift+Enter for newline",
-			"turnCount": "Turn {{current}} / {{max}}",
-			"tokens": "tokens",
-			"modelGenerating": "Model is generating…",
-			"waitingNextTurn": "Waiting for next turn…",
-			"generationFailed": "{{model}}: Generation failed - use Retry in config above, or Clear/Reset below",
-			"resetChatTitle": "Reset Chat",
-			"resetConversationTitle": "Reset Conversation",
-			"resetChatMessage": "This will clear all messages, reset model selection, persona, and parameters. Continue?",
-			"resetConversationMessage": "This will clear the conversation and reset both models, personas, and parameters. Continue?",
-			"resetAllConfirm": "Reset All"
-		}
-	},
-	"arena": {
-		"title": {
-			"arena": "Arena",
-			"compare": "Compare"
-		},
-		"description": {
-			"arena": "Bracket tournament - models compete head-to-head",
-			"compare": "Side-by-side - compare model outputs on the same prompt"
-		},
-		"controls": {
-			"label": "Controls"
-		},
-		"mode": {
-			"arena": "Arena",
-			"compare": "Compare"
-		},
-		"modeDescription": {
-			"arena": "Models compete in a single-elimination bracket. Pick 2, 4, or 8 models - each round, pairs face the same prompt and you vote for the better response. Winners advance until one model remains.",
-			"compare": "Pick models and run the same prompt through them simultaneously. No voting, no bracket - just pure side-by-side output comparison to evaluate which model best fits your needs."
-		},
-		"matchHistory": {
-			"title": "Match history"
-		},
-		"toast": {
-			"cleared": "Arena cleared",
-			"reset": "Reset"
-		},
-		"clearResults": {
-			"title": "Clear results (keep models & prompt)"
-		},
-		"resetAll": {
-			"title": "Reset all (clear models & prompt)"
-		},
-		"models": {
-			"bracketCount": "Models ({{count}}/8)",
-			"bracketHint": "Pick 2, 4, or 8 for a bracket",
-			"compareCount": "Models ({{count}}/6)"
-		},
-		"persona": {
-			"textareaPlaceholder": "Optional system prompt applied to all models…",
-			"switchToCustom": "Switch to Custom",
-			"overwrite": "Overwrite Persona",
-			"fieldLabel": "Persona"
-		},
-		"round": {
-			"firstRound": "First Round",
-			"generation": "Generation",
-			"match": "Match",
-			"final": "Final",
-			"semifinals": "Semifinals",
-			"quarterfinals": "Quarterfinals",
-			"numbered": "Round {{num}}"
-		},
-		"vs": "VS",
-		"status": {
-			"generating": "Models are generating - click Stop to cancel",
-			"voteToContinue": "Vote on all matchups to continue to the next round",
-			"nextRoundReady": "Start the next round when ready"
-		},
-		"responses": {
-			"label": "Responses"
-		},
-		"match": {
-			"label": "Match {{num}}"
-		},
-		"confirmReset": {
-			"title": "Reset All",
-			"message": "This will clear all models, prompts, personas, and any in-progress results. Continue?",
-			"confirmLabel": "Reset All"
-		},
-		"winner": {
-			"title": "Winner"
-		},
-		"vote": {
-			"title": "Vote for this response",
-			"voted": "Voted"
-		},
-		"swapModel": {
-			"title": "Swap model"
-		},
-		"completed": {
-			"title": "Completed"
-		},
-		"reroll": {
-			"title": "Re-roll"
-		},
-		"error": {
-			"title": "Error"
-		},
-		"retry": {
-			"title": "Retry"
-		},
-		"cancel": {
-			"title": "Cancel"
-		},
-		"copy": {
-			"title": "Copy"
-		},
-		"swapPicker": {
-			"title": "Pick a replacement model",
-			"searchPlaceholder": "Search models…",
-			"expandAll": "Expand all providers",
-			"collapseAll": "Collapse all providers",
-			"noModels": "No models available"
-		},
-		"winnerModal": {
-			"title": "Match Complete",
-			"wins": "wins!",
-			"close": "Close"
-		},
-		"params": {
-			"temperature": "Temperature",
-			"maxTokens": "Max Tokens",
-			"topP": "Top P",
-			"minP": "Min P",
-			"topK": "Top K",
-			"freqPenalty": "Freq Penalty",
-			"presPenalty": "Pres Penalty",
-			"resetAll": "Reset all",
-			"done": "Done"
-		},
-		"button": {
-			"stop": "Stop All",
-			"run": "Run Arena"
-		},
-		"disabledReason": {
-			"selectTwoModels": "Select at least 2 models",
-			"pickOneMore": "Pick at least 1 more model",
-			"noDuplicates": "No duplicate models",
-			"enterPrompt": "Enter a prompt",
-			"selectBracketModels": "Select 2, 4, or 8 models",
-			"pickOrRemove": "Pick {{count}} more or remove to get {{nextValid}}",
-			"voteToContinue": "Vote on all matchups to continue to the next round",
-			"enterPromptNextRound": "Enter a prompt for the next round"
-		},
-		"tbd": "TBD",
-		"close": "Close",
-		"custom": "Custom",
-		"done": "Done",
-		"reasoningEffort": "Reasoning Effort"
-	},
-	"providers": {
-		"page_title_one": "Provider",
-		"page_title_other": "Providers",
-		"page_description": "Manage your provider configurations",
-		"btn_discover_all": "Discover All Models",
-		"btn_refresh_quotas": "Refresh Quotas/Balances",
-		"btn_add_provider": "Add Provider",
-		"btn_discovering": "Discovering...",
-		"btn_refreshing": "Refreshing...",
-		"filter_placeholder": "Filter providers…",
-		"filter_provider_type": "Provider type",
-		"filter_all": "All ({{count}})",
-		"sort_title_asc": "Sorted A-Z (click to reverse)",
-		"sort_title_desc": "Sorted Z-A (click to reverse)",
-		"empty_no_match": "No providers match the selected filter.",
-		"empty_no_providers": "No providers configured. Add your first provider to get started.",
-		"toast_discovery_failed_all": "Discovery failed for all {{failed}} providers",
-		"toast_discover_failed": "Discovery failed: {{message}}",
-		"toast_provider_added": "Provider \"{{name}}\" added",
-		"toast_provider_updated": "Provider \"{{name}}\" updated",
-		"toast_provider_deleted": "Provider deleted",
-		"toast_delete_failed": "Failed to delete: {{message}}",
-		"toast_add_failed": "Failed to add provider: {{message}}",
-		"toast_update_failed": "Failed to update: {{message}}",
-		"toast_refresh_success": "Refreshed {{count}} quotas/balances",
-		"toast_refresh_warning": "Refreshed {{refreshed}} quotas ({{failed}} failed, {{skipped}} unsupported)",
-		"toast_refresh_none": "No providers with quota/balance support found",
-		"toast_refresh_failed": "Refresh quotas failed: {{message}}",
-		"toast_quota_detected_nanogpt": "NanoGPT quota detected",
-		"toast_quota_detected_zai": "Z.ai Coding quota detected",
-		"toast_quota_detected_deepseek": "DeepSeek balance detected: ${{amount}}",
-		"toast_quota_detected_openrouter": "OpenRouter balance detected: ${{amount}}",
-		"toast_quota_detected_ollama": "Ollama Cloud {{plan}} plan detected",
-		"toast_quota_refreshed": "Balance refreshed",
-		"toast_quota_refresh_failed": "Failed to refresh balance",
-		"toast_account_refreshed": "Account info refreshed",
-		"toast_account_refresh_failed": "Failed to refresh account info",
-		"type_custom": "Custom",
-		"type_nanogpt": "NanoGPT",
-		"type_zai_coding": "Z.ai Coding Plan",
-		"type_openai": "OpenAI",
-		"type_anthropic": "Anthropic",
-		"type_deepseek": "DeepSeek",
-		"type_ollama_cloud": "Ollama Cloud",
-		"type_ollama": "Ollama",
-		"type_opencode_zen": "OpenCode Zen",
-		"type_opencode_go": "OpenCode Go",
-		"type_xai": "xAI (Grok)",
-		"type_google": "Google AI Studio (Gemini)",
-		"type_cohere": "Cohere",
-		"type_openrouter": "OpenRouter",
-		"type_koboldcpp": "KoboldCPP",
-		"type_lmstudio": "LM Studio",
-		"form_modal_title": "Add Provider",
-		"form_type_label": "Type",
-		"form_name_label": "Name",
-		"form_name_placeholder": "e.g., OpenAI",
-		"form_name_hint": "Dots, spaces, and special characters are replaced with \"-\" when routing.",
-		"form_base_url_label": "Base URL",
-		"form_base_url_placeholder": "https://api.openai.com/v1",
-		"form_base_url_hint_preset": "Base URL is preset for this provider type",
-		"form_base_url_hint_local": "Default URL pre-filled; edit if your server runs on a different address. Type is detected from the port number.",
-		"form_base_url_hint_custom": "Full API base URL including any path prefix. Models will be discovered from \"<base_url>\"/models",
-		"form_api_key_label": "API Key",
-		"form_api_key_placeholder_optional": "Optional - free models available",
-		"form_api_key_placeholder_required": "API key",
-		"form_api_key_show": "Show API key",
-		"form_api_key_hide": "Hide API key",
-		"form_btn_cancel": "Cancel",
-		"form_btn_add": "Add Provider",
-		"form_btn_adding": "Adding…",
-		"form_btn_save": "Save Changes",
-		"edit_modal_title": "Edit Provider",
-		"edit_enabled_label": "Enabled",
-		"edit_enabled_hint": "Controls proxy routing and API access. Disabled providers reject all requests.",
-		"edit_autodiscovery_label": "Autodiscovery",
-		"edit_autodiscovery_hint": "Controls automatic model discovery. Disable to manually curate this provider's model catalogue.",
-		"edit_api_key_current": "Current: {{key}}",
-		"edit_api_key_placeholder": "Leave blank to keep current key",
-		"dialog_unsaved_title": "Unsaved Changes",
-		"card_disabled": "Disabled",
-		"card_autodiscovery_off": "Autodiscovery Off",
-		"card_tokens": "{{tokens}} tokens",
-		"card_created": "Created",
-		"card_api_key": "API Key",
-		"card_last_used": "Last Used",
-		"card_last_discovery": "Last Discovery",
-		"card_btn_edit": "Edit",
-		"card_btn_discover": "Discover Models",
-		"card_btn_discovering": "Discovering...",
-		"card_btn_delete": "Delete",
-		"card_copy_name": "Click to copy provider name",
-		"card_copy_url": "Click to copy API base URL",
-		"toast_discover_success_one": "Discovered {{count}} model from {{name}}",
-		"toast_discover_success_other": "Discovered {{count}} models from {{name}}",
-		"toast_delete_models_success_one": "Deleted {{count}} disabled model",
-		"toast_delete_models_success_other": "Deleted {{count}} disabled models",
-		"toast_delete_models_success": "Deleted {{count}} disabled models",
-		"toast_delete_models_warning_one": "Deleted {{kept}} model, {{failed}} failed",
-		"toast_delete_models_warning_other": "Deleted {{kept}} models, {{failed}} failed",
-		"toast_delete_models_warning": "Deleted {{kept}} models, {{failed}} failed",
-		"card_models_one": "{{count}} model",
-		"card_models_other": "{{count}} models",
-		"add": {
-			"providerFallback": "Provider",
-			"discoveredModels_one": "Discovered {{count}} model…",
-			"discoveredModels_other": "Discovered {{count}} models…",
-			"deepseekBalance": "DeepSeek balance detected: ${{balance}}",
-			"deepseekBalanceDetected": "DeepSeek balance detected",
-			"openrouterBalance": "OpenRouter balance detected: ${{balance}}",
-			"baseUrl": "Base URL",
-			"baseUrlHelperDefault": "Default URL pre-filled; edit if your server runs on a different address. Type is detected from the port number.",
-			"baseUrlHelperFull": "Full API base URL including any path prefix. Models will be discovered from \"<base_url>\"/models",
-			"apiKey": "API Key"
-		},
-		"edit": {
-			"enabledToggle": "Provider enabled",
-			"enabledHelper": "Controls proxy routing and API access. Disabled providers reject all requests.",
-			"autodiscoveryToggle": "Provider autodiscovery",
-			"autodiscoveryHelper": "Controls automatic model discovery. Disable to manually curate this provider's model catalogue."
-		},
-		"quotas": {
-			"expand": "Expand quotas"
-		},
-		"credits": {
-			"toggleLabel": "Toggle between remaining and used",
-			"showUsed": "Show credits used",
-			"showRemaining": "Show credits remaining"
-		},
-		"toast": {
-			"refreshedQuotas": "Refreshed {{refreshed}} quotas ({{failed}} failed, {{skipped}} unsupported)"
-		}
-	},
-	"models": {
-		"page_title_one": "Model",
-		"page_title_other": "Models",
-		"page_description": "Discovered models from your providers",
-		"badge_enabled": "{{count}} enabled",
-		"badge_disabled": "{{count}} disabled",
-		"view_mode_pages": "⬡ Pages",
-		"view_mode_scroll": "⇊ Scroll",
-		"switch_to_pagination": "Switch to pagination mode",
-		"switch_to_scroll": "Switch to scroll mode",
-		"toast_updated": "Model updated",
-		"toast_update_failed": "Failed to update model: {{message}}",
-		"toast_toggle_enabled": "Model enabled",
-		"toast_toggle_disabled": "Model disabled",
-		"toast_deleted": "Model deleted successfully",
-		"toast_delete_failed": "Failed to delete model: {{message}}",
-		"detail_modal_title": "Model Details",
-		"toast_delete_bulk_success_one": "Deleted {{count}} disabled model",
-		"toast_delete_bulk_success_other": "Deleted {{count}} disabled models",
-		"toast_delete_bulk_warning_one": "Deleted {{kept}} model, {{failed}} failed",
-		"toast_delete_bulk_warning_other": "Deleted {{kept}} models, {{failed}} failed",
-		"toast_delete_bulk_warning": "Deleted {{kept}} model, {{failed}} failed",
-		"detail": {
-			"snippet": {
-				"curl": "cURL",
-				"powershell": "PowerShell",
-				"javascript": "JavaScript",
-				"python": "Python",
-				"claudeCode": "Claude Code",
-				"openClaw": "OpenClaw",
-				"hermes": "Hermes",
-				"librechat": "LibreChat",
-				"zed": "ZED",
-				"opencode": "OpenCode"
-			},
-			"provider": "Provider",
-			"lastDiscovered": "Last Discovered",
-			"displayName": "Display Name",
-			"contextLength": "Context Length",
-			"maxOutput": "Max Output",
-			"inputPrice": "Input Price",
-			"outputPrice": "Output Price",
-			"input": "Input",
-			"output": "Output",
-			"tokens": "tokens",
-			"perMillionTokens": "/1M tok",
-			"modality": {
-				"text": "text"
-			},
-			"capabilities": "Capabilities",
-			"subscription": "Subscription",
-			"snippetFormatPicker": "Snippet format picker",
-			"test": "Test",
-			"testing": "Testing…",
-			"confirmDelete": "Confirm delete",
-			"updating": "Updating…",
-			"updateCooldown": "Update ({{cooldown}}s)",
-			"updateInfo": "Update info",
-			"placeholder": {
-				"price": "0.00"
-			},
-			"testSuccess": "Success | Response: {{content}}{{ttftPart}} | Duration: {{duration}}s",
-			"testFailed": "Test failed: {{error}}"
-		},
-		"table": {
-			"sortByModelName": "Sort by model name",
-			"model": "Model",
-			"capabilities": "Capabilities",
-			"sortByProviderName": "Sort by provider name",
-			"provider": "Provider",
-			"sortByDiscoveredDate": "Sort by discovered date",
-			"discovered": "Discovered",
-			"sortByContextLength": "Sort by context length",
-			"ctx": "Ctx",
-			"sortByMaxOutput": "Sort by max output tokens",
-			"maxOut": "Max Out",
-			"sortByStatus": "Sort by status",
-			"status": "Status"
-		}
-	},
-	"model": {
-		"revertToDiscoveredValue": "Revert to discovered value",
-		"clickToCopyModelId": "Click to copy model ID",
-		"noSpecialCapabilities": "No special capabilities detected",
-		"subscription": {
-			"included": "Included",
-			"notIncluded": "Not included"
-		}
-	},
-	"failover": {
-		"page_title_one": "Failover Group",
-		"page_title_other": "Failover Groups",
-		"page_description_lead": "Route requests through multiple providers in priority order via",
-		"page_description_code": "hotel/model",
-		"last_sync": "Last sync: {{time}}",
-		"btn_sync": "Sync",
-		"btn_syncing": "Syncing…",
-		"btn_new_group": "New Group",
-		"hint_drag": "Drag models by the handle (⠿) to reorder priority",
-		"filter_hotel_model": "Filter hotel/model…",
-		"filter_providers": "All providers",
-		"filter_states": "All states",
-		"filter_origins": "All origins",
-		"filter_state_enabled": "Enabled",
-		"filter_state_disabled": "Disabled",
-		"filter_origin_auto": "Auto",
-		"filter_origin_manual": "Manual",
-		"select_all": "Select all",
-		"deselect_all": "Deselect all",
-		"selected_count": "{{count}} selected",
-		"btn_enable_all": "Enable all",
-		"btn_disable_all": "Disable all",
-		"btn_delete_all": "Delete all",
-		"bulk_provider_enable": "Enable all {{provider}}",
-		"bulk_provider_disable": "Disable all {{provider}}",
-		"empty_no_auto": "No auto-discovered groups found",
-		"empty_no_manual": "No manually created groups found",
-		"empty_no_match": "No groups matching filters",
-		"empty_create_group": "Create New Group",
-		"empty_clear_filters": "Clear filters",
-		"empty_no_groups": "No failover groups configured",
-		"empty_auto_discover": "Auto-discover from models",
-		"section_custom": "Custom",
-		"section_letter": "{{letter}}",
-		"nav_custom": "Jump to custom groups",
-		"nav_letter": "Jump to section {{letter}}",
-		"toast_bulk_toggle_failed": "Bulk toggle failed for some groups",
-		"toast_provider_toggle_failed": "Bulk provider toggle failed for some groups",
-		"toast_sync_deleted": "hotel/{{model}} deleted: {{reason}}{{providers}}",
-		"toast_sync_purged": "hotel/{{group}}: removed {{count}} stale entry(ies)",
-		"toast_sync_success": "Failover groups synced",
-		"toast_sync_failed": "Failed to sync: {{message}}",
-		"toast_update_failed": "Failed to update: {{message}}",
-		"toast_delete_success": "Group deleted",
-		"toast_delete_failed": "Failed to delete: {{message}}",
-		"toast_bulk_delete_warning": "Deleted {{succeeded}} of {{total}} groups ({{failed}} failed)",
-		"toast_entry_min_one": "At least one provider must remain active",
-		"delete_confirm_type": "failover group",
-		"group": {
-			"clickToCopy": "Click to copy"
-		},
-		"bulk_provider_count_one": "{{count}} group with {{provider}} entries",
-		"bulk_provider_count_other": "{{count}} groups with {{provider}} entries",
-		"group_count_one": "{{count}} group",
-		"group_count_other": "{{count}} groups",
-		"toast_bulk_toggle_success_one": "{{action}} all entries in {{count}} group",
-		"toast_bulk_toggle_success_other": "{{action}} all entries in {{count}} groups",
-		"toast_provider_toggle_success_one": "{{action}} {{provider}} across {{count}} group",
-		"toast_provider_toggle_success_other": "{{action}} {{provider}} across {{count}} groups",
-		"toast_bulk_delete_success_one": "Deleted {{count}} group",
-		"toast_bulk_delete_success_other": "Deleted {{count}} groups",
-		"delete_confirm_bulk_title_one": "{{count}} failover group",
-		"delete_confirm_bulk_title_other": "{{count}} failover groups"
-	},
-	"delete_confirm": {
-		"unsaved_changes": "Unsaved Changes"
-	},
-	"virtualkeys": {
-		"title": {
-			"singular": "Virtual Key",
-			"plural": "Virtual Keys"
-		},
-		"description": "Issue keys for clients to access the proxy at",
-		"createButton": "Create Key",
-		"deleted": "Virtual key deleted",
-		"deleteFailed": "Failed to delete: {{message}}",
-		"table": {
-			"name": "Name",
-			"key": "Key",
-			"rps": "RPS",
-			"burst": "Burst",
-			"created": "Created",
-			"tokens": "Tokens",
-			"lastUsed": "Last Used",
-			"keys": "keys"
-		},
-		"tooltip": {
-			"proxyUrl": "Click to copy proxy URL",
-			"name": "Display name for the virtual key",
-			"key": "Preview of the API key (full key only shown once on creation)",
-			"rps": "Requests per second rate limit",
-			"burst": "Burst capacity for rate limiting",
-			"created": "When the key was created",
-			"tokens": "Total tokens consumed using this key",
-			"lastUsed": "When the key was last used for a request",
-			"providerRestricted": "Provider-restricted key",
-			"reasoningStripped": "Reasoning stripped",
-			"keyHashed": "Key is hashed and cannot be recovered"
-		},
-		"emptyState": "No virtual keys. Create one to start using the proxy.",
-		"steps": {
-			"createKey": "Create a Key",
-			"copyKey": "Copy the Full Key",
-			"makeRequests": "Make Requests"
-		},
-		"stepDescriptions": {
-			"createKey": "Click the button above to generate a new virtual key",
-			"copyKey": "The complete key is shown only once on creation",
-			"makeRequests": "Use your key to call the proxy API endpoints"
-		},
-		"note": {
-			"title": "Note:",
-			"text": "Virtual keys are used to authenticate requests to the proxy. Each key tracks its own token usage. You can create multiple keys for different clients or environments."
-		},
-		"modal": {
-			"createTitle": "Create Virtual Key",
-			"createdTitle": "Virtual Key Created",
-			"warningTitle": "This key cannot be recovered after you close this modal.",
-			"warningText": "Virtual keys are hashed before storage. Copy it now or it is gone forever.",
-			"useAs": "Use as:",
-			"form": {
-				"name": "Name",
-				"namePlaceholder": "e.g., My App",
-				"rateLimitRps": "Rate Limit RPS (requests/sec)",
-				"rateLimitBurst": "Rate Limit Burst (max concurrent)",
-				"placeholderGlobal": "Use global setting",
-				"providerAccess": "Provider Access",
-				"providerInstructions": "Click a provider to restrict access. All are accessible by default.",
-				"noProviders": "No providers available.",
-				"restoreAccess": "Restore access to all providers",
-				"stripReasoning": "Strip Reasoning",
-				"stripReasoningDescription": "When enabled, reasoning/thinking tokens are removed from streaming responses for clients that cannot handle them.",
-				"enableStripReasoning": "Enable strip reasoning",
-				"disableStripReasoning": "Disable strip reasoning"
-			},
-			"detailTitle": "Virtual Key Details",
-			"sections": {
-				"identity": "Identity",
-				"rateLimits": "Rate Limits",
-				"usage": "Usage",
-				"providerAccess": "Provider Access",
-				"stripReasoning": "Strip Reasoning"
-			},
-			"labels": {
-				"key": "Key",
-				"tokensConsumed": "Tokens Consumed",
-				"lastUsed": "Last Used",
-				"created": "Created"
-			},
-			"noProvidersConfigured": "No providers configured.",
-			"discardChanges": "Discard unsaved changes?",
-			"loadingProviders": "Loading providers..."
-		}
-	},
-	"logs": {
-		"title": {
-			"requests": "Requests",
-			"logs": "Logs"
-		},
-		"description": "Monitor API requests across all providers and keys",
-		"appDescription": "Server application log output",
-		"tabs": {
-			"requests": "Requests",
-			"logs": "Logs"
-		},
-		"filters": {
-			"modelPlaceholder": "Filter by model ID…",
-			"providerPlaceholder": "Filter by provider…",
-			"status": "Status",
-			"statusOptions": {
-				"0": "0",
-				"2xx": "2XX",
-				"4xx": "4XX",
-				"5xx": "5XX"
-			},
-			"level": "Level",
-			"levelAll": "All",
-			"source": "Source",
-			"logsPlaceholder": "Filter logs…"
-		},
-		"table": {
-			"timeDate": "Time/Date",
-			"hash": "Hash",
-			"model": "Model",
-			"provider": "Provider",
-			"status": "Status",
-			"tokens": "Tokens",
-			"tps": "T/s",
-			"headers": "Headers",
-			"ttft": "TTFT",
-			"duration": "Duration",
-			"overhead": "Overhead",
-			"key": "Key",
-			"providerDeleted": "Provider was deleted",
-			"deletedProvider": "Deleted",
-			"resolving": "Resolving…",
-			"live": "Live",
-			"interrupted": "Interrupted",
-			"cacheInflated": "Inflated by prompt cache hits",
-			"keyDeleted": "Deleted"
-		},
-		"tooltip": {
-			"timeDate": "Timestamp of the request",
-			"hash": "Unique hash of the request body",
-			"model": "Model ID used for the request",
-			"provider": "Provider handling the request",
-			"status": "HTTP status code of the response",
-			"tokens": "Prompt + completion tokens (if available)",
-			"tps": "Tokens generated per second",
-			"headers": "Time to response headers",
-			"ttft": "Time to first token",
-			"duration": "Total request duration",
-			"overhead": "Proxy overhead (parsing, lookups, etc)",
-			"key": "Virtual key used for authentication",
-			"providerDeleted": "Provider was deleted",
-			"totalOverhead": "Total Overhead",
-			"requestParsing": "Request Parsing",
-			"failoverGroupLookup": "Failover Group Lookup",
-			"modelLookup": "Model Lookup",
-			"providerLookup": "Provider Lookup",
-			"keyDecryption": "Key Decryption",
-			"dial": "Dial (DNS+TCP)",
-			"settingsReads": "Settings Reads",
-			"reused": "reused"
-		},
-		"status": {
-			"interrupted": "Interrupted"
-		},
-		"emptyState": {
-			"requests": "No logs found",
-			"appNoEntries": "No log entries yet - logs will appear here as the server generates output",
-			"appNoMatch": "No entries match your filter"
-		},
-		"toast": {
-			"loadFailed": "Failed to load logs: {{message}}",
-			"scrollLoadFailed": "Failed to load logs: {{message}}"
-		},
-		"pagination": {
-			"label": "entries"
-		},
-		"loading": {
-			"newer": "↻ Loading newer…",
-			"older": "↻ Loading older…"
-		}
-	},
-	"applogs": {
-		"title": "Logs",
-		"description": "Server application log output",
-		"tabs": {
-			"requests": "Requests",
-			"logs": "Logs"
-		},
-		"filters": {
-			"level": "Level",
-			"levelAll": "All",
-			"source": "Source",
-			"all": "All ({{count}})",
-			"search": "Filter logs…"
-		},
-		"table": {
-			"timeDate": "Time/Date",
-			"level": "Level",
-			"source": "Source",
-			"message": "Message"
-		},
-		"emptyState": {
-			"noEntries": "No log entries yet - logs will appear here as the server generates output",
-			"noMatch": "No entries match your filter"
-		},
-		"toast": {
-			"loadFailed": "Failed to load logs: {{message}}",
-			"scrollLoadFailed": "Failed to load logs: {{message}}"
-		},
-		"pagination": {
-			"label": "entries"
-		},
-		"loading": {
-			"newer": "↻ Loading newer…",
-			"older": "↻ Loading older…"
-		}
-	},
-	"format": {
-		"never": "Never",
-		"justNow": "just now",
-		"minutesAgo_one": "{{count}}m ago",
-		"minutesAgo_other": "{{count}}m ago",
-		"hoursAgo_one": "{{count}}h ago",
-		"hoursAgo_other": "{{count}}h ago",
-		"daysAgo_one": "{{count}}d ago",
-		"daysAgo_other": "{{count}}d ago",
-		"inDaysHours_one_day_one_hour": "in {{days}} day, {{hours}} hour",
-		"inDaysHours_one_day_other_hours": "in {{days}} day, {{hours}} hours",
-		"inDaysHours_other_days_one_hour": "in {{days}} days, {{hours}} hour",
-		"inDaysHours_other_days_other_hours": "in {{days}} days, {{hours}} hours",
-		"inDays_only_one": "in {{days}} day",
-		"inDays_only_other": "in {{days}} days",
-		"inHours_only_one": "in {{hours}} hour",
-		"inHours_only_other": "in {{hours}} hours",
-		"now": "now"
-	},
-	"presets": {
-		"personas": {
-			"merlin": "Merlin",
-			"madame-vex": "Madame Vex",
-			"sarge": "Sarge",
-			"auntie-wei": "Auntie Wei",
-			"grimm": "Grimm",
-			"kairos": "Kairos",
-			"phreak": "Phreak",
-			"roux": "Chef Roux",
-			"unit-734": "Unit 734",
-			"bramble": "Elder Bramble",
-			"nera": "Nera",
-			"oolo": "Oolo",
-			"dr-maren": "Dr. Maren",
-			"nonna-pia": "Nonna Pia",
-			"whisper": "Whisper"
-		},
-		"prompts": {
-			"dilemma": "Dilemma",
-			"lore": "Lore",
-			"hook": "Hook",
-			"blueprint": "Blueprint",
-			"spiral": "Spiral",
-			"trolley": "Trolley Problem",
-			"algorithm": "Algorithm",
-			"paradox": "Paradox",
-			"integral": "Integral",
-			"contract": "Contract",
-			"cipher": "Cipher",
-			"eulogy": "Eulogy",
-			"fork": "Fork",
-			"mosaic": "Mosaic",
-			"heist": "Heist"
-		}
-	},
-	"settings": {
-		"title": "Settings",
-		"description": "Configure your Model Hotel instance",
-		"proxy": {
-			"title": "Proxy",
-			"description": "Configure proxy request behavior and timeouts.",
-			"requestTimeout": "Request Timeout",
-			"requestTimeout.description": "Maximum time for non-streaming requests before timing out. Streaming requests automatically get 10× this duration to accommodate thinking/reasoning models.",
-			"keyCacheTtl": "Key Cache TTL",
-			"keyCacheTtl.description": "How long decrypted provider API keys are cached. Higher values reduce latency on the first request after cache expiry (Argon2id key derivation is ~12ms).",
-			"ttftTimeout": "TTFT Timeout",
-			"ttftTimeout.description": "Maximum time to wait for the first streaming token before failing over to the next provider. Disabled means immediate commit (no failover on slow first token).",
-			"streamStallTimeout": "Stream Stall Timeout",
-			"streamStallTimeout.description": "Maximum silence during streaming before the connection is cut. After 50 chunks, the timeout is automatically extended 3× to tolerate tool calls and long reasoning.",
-			"timeout": {
-				"30s": "30 seconds",
-				"1m0s": "1 minute (default)",
-				"2m0s": "2 minutes",
-				"5m0s": "5 minutes",
-				"10m0s": "10 minutes"
-			},
-			"keyCache": {
-				"1m0s": "1 minute",
-				"5m0s": "5 minutes",
-				"10m0s": "10 minutes (default)",
-				"30m0s": "30 minutes",
-				"1h0m0s": "1 hour"
-			},
-			"ttft": {
-				"15s": "15 seconds",
-				"30s": "30 seconds",
-				"1m0s": "1 minute (default)",
-				"2m0s": "2 minutes",
-				"5m0s": "5 minutes",
-				"disabled": "Disabled"
-			},
-			"streamStall": {
-				"10s": "10 seconds",
-				"30s": "30 seconds (default)",
-				"1m0s": "1 minute",
-				"2m0s": "2 minutes",
-				"5m0s": "5 minutes",
-				"10m0s": "10 minutes",
-				"disabled": "Disabled"
-			}
-		},
-		"rateLimit": {
-			"title": "Rate Limiting",
-			"description": "Control request throughput per virtual key to prevent abuse and ensure fair usage.",
-			"enable": "Enable Rate Limiting",
-			"enableDescription": "Throttle proxy requests per virtual key",
-			"requestsPerSecond": "Requests per Second",
-			"requestsPerSecond.description": "Sustained request rate allowed per virtual key (0 = unlimited)",
-			"burstSize": "Burst Size",
-			"burstSize.description": "Maximum number of simultaneous requests before throttling kicks in",
-			"ipRateLimiting": "IP Rate Limiting",
-			"ipRateLimitingDescription": "Per-IP rate limiter (DoS protection, runs before auth)",
-			"ipRequestsPerSecond": "IP Requests per Second",
-			"ipRequestsPerSecond.description": "Sustained request rate per IP address (0 = unlimited)",
-			"ipBurstSize": "IP Burst Size",
-			"ipBurstSize.description": "Maximum simultaneous requests per IP before throttling kicks in",
-			"backpressure": "Rate Limit Backpressure",
-			"backpressureDescription": "Shared wait behavior for both per-key and IP rate limiters",
-			"maxWait": "Max Wait (ms)",
-			"maxWait.description": "Maximum time to wait before rejecting a rate-limited request. If a token becomes available within this window, the request proceeds; otherwise 429 is returned.",
-			"rps": {
-				"5": "5 req/s",
-				"10": "10 req/s",
-				"20": "20 req/s",
-				"50": "50 req/s",
-				"100": "100 req/s",
-				"unlimited": "Unlimited"
-			},
-			"burst": {
-				"10": "10",
-				"20": "20",
-				"50": "50",
-				"100": "100",
-				"200": "200"
-			}
-		},
-		"circuitBreaker": {
-			"title": "Circuit Breaker & Failover",
-			"description": "Configure how the proxy handles provider failures and rate-limited requests.",
-			"enable": "Enable Circuit Breaker",
-			"enableDescription": "Temporarily stop routing to providers that are failing",
-			"failureThreshold": "Failure Threshold",
-			"failureThreshold.description": "Consecutive failures before the circuit opens and stops routing to the provider",
-			"cooldownPeriod": "Cooldown Period",
-			"cooldownPeriod.description": "Time to wait before retrying a provider with an open circuit",
-			"failoverOnRateLimit": "Failover on Rate Limit",
-			"failoverOnRateLimitDescription": "Route to next failover group member when a provider returns 429",
-			"cooldown": {
-				"30s": "30 seconds",
-				"1m0s": "1 minute (default)",
-				"2m0s": "2 minutes",
-				"5m0s": "5 minutes",
-				"10m0s": "10 minutes"
-			}
-		},
-		"logging": {
-			"title": "Logging",
-			"logRetention": "Log Retention",
-			"logRetention.disabled": "Log retention is disabled. Logs will accumulate indefinitely until manually purged.",
-			"logRetention.description": "Automatically delete logs older than this period",
-			"staleRequestTimeout": "Stale Request Timeout",
-			"staleRequestTimeout.disabled": "Stale request detection is disabled. Orphaned requests from server restarts will still be marked as failed, but age-based cleanup will not run.",
-			"staleRequestTimeout.description": "Mark pending/streaming requests as \"interrupted\" if they remain in-progress longer than this. Accounts for providers with long time-to-first-token.",
-			"deleteRequests": "Delete Requests",
-			"deleteRequests.selectRange": "Select range...",
-			"deleteRequests.olderThan1d": "Older than 1 day",
-			"deleteRequests.olderThan1w": "Older than 1 week",
-			"deleteRequests.olderThan1m": "Older than 1 month",
-			"deleteRequests.allLogs": "All logs",
-			"deleteRequests.confirm": "Confirm Delete",
-			"deleteRequests.cancel": "Cancel",
-			"deleteAppLogs": "Delete Logs",
-			"deleteAppLogs.confirmText": "Clear all application logs?",
-			"deleteAppLogs.confirm": "Confirm",
-			"deleteAppLogs.cancel": "Cancel",
-			"deleteAppLogs.deleting": "Deleting…",
-			"retention": {
-				"disabled": "Disabled",
-				"24h": "1 day",
-				"168h": "1 week",
-				"720h": "1 month"
-			},
-			"staleTimeout": {
-				"5m0s": "5 minutes",
-				"10m0s": "10 minutes",
-				"15m0s": "15 minutes",
-				"30m0s": "30 minutes (default)",
-				"1h0m0s": "1 hour",
-				"2h0m0s": "2 hours",
-				"disabled": "Disabled (never mark as stale)"
-			}
-		},
-		"discovery": {
-			"title": "Model Discovery",
-			"description": "Configure how and when models are auto-discovered from your providers.",
-			"discoveryInterval": "Discovery Interval",
-			"discoveryInterval.disabled": "Periodic discovery is disabled. Models will only be discovered when you click \"Discover Now\" or \"Discover All\", or when a new provider is created.",
-			"discoveryInterval.description": "How often to automatically re-discover models from all enabled providers",
-			"discoverOnStartup": "Discover on Startup",
-			"discoverOnStartupDescription": "Run discovery for all providers when the server starts",
-			"discoverOnProviderCreation": "Discover on Provider Creation",
-			"discoverOnProviderCreationDescription": "Automatically discover models when a new provider is added",
-			"intervals": {
-				"30m": "30 minutes",
-				"1h": "1 hour",
-				"6h": "6 hours",
-				"12h": "12 hours",
-				"24h": "24 hours",
-				"disabled": "Disabled"
-			}
-		},
-		"dataStorage": {
-			"title": "Data Storage",
-			"description": "Manage browser-local session data. Persisted data survives page reload and browser restarts.",
-			"sessionPersistence": "Session Persistence",
-			"persistChat": "Persist Chat",
-			"persistChatDescription": "Remember messages, prompt, and persona across sessions",
-			"persistChatConfirm": "This will clear all saved chat messages. Continue?",
-			"persistChatEnabled": "Chat persistence enabled",
-			"persistChatDisabled": "Chat data cleared",
-			"persistArena": "Persist Arena",
-			"persistArenaDescription": "Remember bracket state and prompts across sessions",
-			"persistArenaConfirm": "This will clear all saved arena data. Continue?",
-			"persistArenaEnabled": "Arena persistence enabled",
-			"persistArenaDisabled": "Arena data cleared",
-			"persistConversation": "Persist AI Conversation",
-			"persistConversationDescription": "Remember conversation state and settings across sessions",
-			"persistConversationConfirm": "This will clear all saved conversation data. Continue?",
-			"persistConversationEnabled": "Conversation persistence enabled",
-			"persistConversationDisabled": "Conversation data cleared",
-			"arenaHistory": "Arena History",
-			"saveMatchHistory": "Save Match History",
-			"saveMatchHistoryDescription": "Automatically save completed arena and compare sessions",
-			"saveMatchHistoryEnabled": "Arena history enabled",
-			"saveMatchHistoryDisabled": "Arena history disabled - existing entries preserved",
-			"maxSavedMatches": "Maximum Saved Matches",
-			"maxSavedMatches.description": "Oldest matches are automatically removed when the limit is reached",
-			"matches": {
-				"10": "10 matches",
-				"25": "25 matches (default)",
-				"50": "50 matches",
-				"100": "100 matches"
-			},
-			"historyLimitToast": "History limit set to {{count}} matches",
-			"clearHistory": "Clear History",
-			"clearHistoryConfirm": "Delete all arena history? This cannot be undone.",
-			"clearHistoryAll": "Clear All",
-			"clearHistoryAllCleared": "All arena history cleared",
-			"cacheAndResets": "Cache & Resets",
-			"providerQuotaCache": "Provider Quota Cache",
-			"clearCache": "Clear Cache",
-			"clearCacheConfirm": "Clear all cached provider quota data? Fresh data will be fetched on next refresh.",
-			"clearCacheCleared": "Provider cache cleared",
-			"dismissedErrorBanners": "Dismissed Error Banners",
-			"dismissedErrorBannersDescription": "Reset dismissed sidebar error pill states",
-			"reset": "Reset",
-			"resetDismissedBanners": "Dismissed error banners reset",
-			"clearHistoryDescription_one": "{{count}} entry stored",
-			"clearHistoryDescription_other": "{{count}} entries stored",
-			"providerQuotaCache.description_one": "{{count}} cached entry (NanoGPT, Z.ai Coding Plan, DeepSeek)",
-			"providerQuotaCache.description_other": "{{count}} cached entries (NanoGPT, Z.ai Coding Plan, DeepSeek)",
-			"cachedEntryCount_one": "{{count}} cached entry (NanoGPT, Z.ai Coding Plan, DeepSeek)",
-			"cachedEntryCount_other": "{{count}} cached entries (NanoGPT, Z.ai Coding Plan, DeepSeek)",
-			"providerQuotaCacheDescription_one": "{{count}} cached entry (NanoGPT, Z.ai Coding Plan, DeepSeek)",
-			"providerQuotaCacheDescription_other": "{{count}} cached entries (NanoGPT, Z.ai Coding Plan, DeepSeek)"
-		},
-		"backup": {
-			"title": "Database Backup",
-			"description": "Create and download PostgreSQL backups. Uses `pg_dump` with custom format for efficient compression.",
-			"restoreRequirements": "Restore Requirements",
-			"restoreRequirements.masterKey": "MASTER_KEY must match",
-			"restoreRequirements.masterKeyDescription": "Provider API keys are AES-256-GCM encrypted. Restoring with a different MASTER_KEY will leave all provider keys unrecoverable.",
-			"restoreRequirements.adminToken": "Admin token is not in the backup",
-			"restoreRequirements.adminTokenDescription": "Your current admin token will continue to work after restore.",
-			"restoreRequirements.virtualKeys": "Virtual keys are irrecoverable",
-			"restoreRequirements.virtualKeysDescription": "Only SHA-256 hashes are stored. If you lose the plaintext virtual keys, they cannot be recovered from the backup.",
-			"createBackup": "Create Backup",
-			"creatingBackup": "Creating backup…",
-			"uploadRestore": "Upload & Restore",
-			"restoring": "Restoring…",
-			"selectBackupFile": "Select backup file to restore",
-			"availableBackups": "Available Backups ({{count}})",
-			"noBackups": "No backups yet.",
-			"download": "Download",
-			"delete": "Delete backup",
-			"deleteConfirm": "Delete?",
-			"confirm": "Confirm",
-			"cancel": "Cancel",
-			"backupFailed": "Backup failed: {{message}}",
-			"backupDeleted": "Backup deleted",
-			"deleteFailed": "Delete failed: {{message}}",
-			"restoreSuccess": "Database restored. The server is restarting…",
-			"serverBackOnline": "Server is back online",
-			"serverRestarting": "Server is taking longer than expected to restart",
-			"restoreFailed": "Restore failed: {{message}}",
-			"backupCreated": "Backup created",
-			"downloadFailed": "Download failed: {{message}}"
-		},
-		"appearance": {
-			"title": "Appearance",
-			"uiStyle": "UI Style",
-			"theme": "Theme",
-			"themeDescription": "Switch between dark and light mode",
-			"dark": "Dark",
-			"light": "Light",
-			"accentColor": "Accent Color",
-			"customColor": "Custom color",
-			"colorPicker": {
-				"title": "Pick a Color",
-				"cancel": "Cancel",
-				"apply": "Apply"
-			},
-			"uiStyles": {
-				"cleanSaas": "Clean SaaS",
-				"cleanSaasDescription": "Refined, professional, minimal",
-				"cyberTerminal": "Cyber Terminal",
-				"cyberTerminalDescription": "Developer-centric, high-contrast",
-				"glassmorphism": "Glassmorphism",
-				"glassmorphismDescription": "Slick, translucent surfaces"
-			}
-		},
-		"toast": {
-			"title": "Toast Notifications",
-			"description": "Choose where notification toasts appear and how long they stay visible.",
-			"position": {
-				"topLeft": "Top Left",
-				"topCenter": "Top Center",
-				"topRight": "Top Right",
-				"bottomLeft": "Bottom Left",
-				"bottomCenter": "Bottom Center",
-				"bottomRight": "Bottom Right"
-			},
-			"testNotification": "Test notification - you'll see toasts here",
-			"autoDismiss": "Auto-dismiss",
-			"seconds": "{{seconds}}s"
-		},
-		"dashboard": {
-			"title": "Dashboard Refresh",
-			"description": "Configure how often the dashboard stats and charts are refreshed automatically. Manual refresh button is hidden when set to 10 seconds or faster.",
-			"refreshInterval": "Refresh Interval",
-			"refreshInterval.description": "At 10 seconds the manual refresh button is hidden. Changes take effect on next navigation to the dashboard.",
-			"disabled": "Dashboard auto-refresh disabled - use manual refresh",
-			"intervals": {
-				"10": "10 seconds (manual refresh hidden)",
-				"30": "30 seconds (default)",
-				"60": "1 minute",
-				"120": "2 minutes",
-				"300": "5 minutes",
-				"600": "10 minutes",
-				"disabled": "Disabled (manual only)"
-			},
-			"intervalSet_one": "Dashboard refresh set to every {{seconds}} second",
-			"intervalSet_other": "Dashboard refresh set to every {{seconds}} seconds"
-		},
-		"sidebarQuota": {
-			"title": "Sidebar Quotas",
-			"description": "Configure how often provider quota and balance data is refreshed in the sidebar panel.",
-			"showQuotasPill": "Show Quotas Pill",
-			"showQuotasPillDescription": "Display the quota panel in the sidebar",
-			"refreshInterval": "Refresh Interval",
-			"refreshInterval.description": "Minimum 1 minute. Changes take effect on next scheduled refresh.",
-			"disabled": "Sidebar quota auto-refresh disabled - use manual refresh",
-			"enabledQuotas": "Sidebar quotas enabled - pill visible and auto-refresh resumed",
-			"disabledQuotas": "Sidebar quotas disabled - pill hidden and auto-refresh paused",
-			"intervals": {
-				"1": "1 minute",
-				"2": "2 minutes",
-				"5": "5 minutes (default)",
-				"10": "10 minutes",
-				"15": "15 minutes",
-				"30": "30 minutes",
-				"disabled": "Disabled (manual only)"
-			},
-			"intervalSet_one": "Quota refresh set to every {{minutes}} minute",
-			"intervalSet_other": "Quota refresh set to every {{minutes}} minutes"
-		},
-		"common": {
-			"cancel": "Cancel",
-			"enabled": "Enabled",
-			"disabled": "Disabled",
-			"deleting": "Deleting",
-			"settingsSaved": "Settings saved",
-			"failedToSave": "Failed to save: {{message}}",
-			"requestsDeleted": "Requests deleted",
-			"failedToDeleteRequests": "Failed to delete requests: {{message}}",
-			"entriesDeleted": "Deleted {{count}} log entries",
-			"failedToDeleteAppLogs": "Failed to delete app logs: {{message}}"
-		},
-		"colorPicker": {
-			"title": "Pick a Color",
-			"cancel": "Cancel",
-			"apply": "Apply"
-		}
-	},
-	"components": {
-		"deleteConfirmModal": {
-			"confirmDelete": "Confirm Delete",
-			"deleteType": "Delete {{entityType}}",
-			"areYouSure": "Are you sure you want to delete {{entityName}}? This action cannot be undone."
-		},
-		"confirmDialog": {
-			"discardChangesTo": "Discard changes to:",
-			"close": "Close"
-		},
-		"confirmDeleteButton": {
-			"deleteKey": "Delete Key",
-			"yesDelete": "Yes, delete",
-			"areYouSure": "Are you sure?"
-		},
-		"restoreConfirmModal": {
-			"title": "Restore Database Backup",
-			"overwriteWarning": "This will permanently overwrite all data",
-			"destroyWarning": "This will permanently destroy all current data and replace it with the backup. This action cannot be undone.",
-			"requirements": "Requirements:",
-			"masterKeyMatch": "MASTER_KEY must match:",
-			"masterKeyInfo": "Provider API keys are AES-256-GCM encrypted using a key derived from your MASTER_KEY. Restoring with a different MASTER_KEY will leave all provider keys unrecoverable.",
-			"adminTokenNotInBackup": "Admin token is not in the backup:",
-			"adminTokenInfo": "It is stored on the filesystem. Your current admin token will continue to work after restore.",
-			"virtualKeysIrrecoverable": "Virtual keys are irrecoverable:",
-			"virtualKeysInfo": "Only SHA-256 hashes are stored. If you lose the plaintext virtual keys, they cannot be recovered.",
-			"confirmWithAdminToken": "Confirm with admin token",
-			"enterAdminToken": "Enter admin token",
-			"restoring": "Restoring…",
-			"restoreDatabase": "Restore Database",
-			"cancel": "Cancel"
-		},
-		"modal": {
-			"closeDialog": "Close dialog",
-			"close": "Close"
-		},
-		"filterInput": {
-			"filter": "Filter…",
-			"clearFilter": "Clear filter"
-		},
-		"copyButton": {
-			"copy": "Copy",
-			"copiedToClipboard": "Copied to clipboard",
-			"failedToCopy": "Failed to copy"
-		},
-		"copyablePill": {
-			"copy": "Copy",
-			"copyToClipboard": "Copy to clipboard",
-			"copied": "Copied!",
-			"failedToCopy": "Failed to copy"
-		},
-		"collapsibleToggle": {
-			"expand": "Expand",
-			"collapse": "Collapse"
-		},
-		"loadingSpinner": {
-			"loading": "Loading"
-		},
-		"logs": {
-			"liveToggle": {
-				"paused": "Live updates paused",
-				"resumed": "Live updates resumed",
-				"live": "Live"
-			},
-			"viewModeToggle": {
-				"switchToScroll": "Switch to scroll mode",
-				"switchToPagination": "Switch to pagination mode",
-				"scroll": "⇊ Scroll",
-				"pages": "⬡ Pages"
-			},
-			"dateFilterButton": {
-				"filterByDateRange": "Filter by date range",
-				"clearDateFilter": "Clear date filter",
-				"dateFilterWithRange": "Date filter: {{range}} - click to change"
-			},
-			"dateRangePicker": {
-				"selectDateRange": "Select date range",
-				"close": "Close date picker",
-				"selectEndDate": "Select end date…",
-				"selectStartDate": "Select start date",
-				"clear": "Clear",
-				"apply": "Apply"
-			},
-			"errorState": {
-				"failedToLoad": "Failed to load logs: {{message}}"
-			}
-		},
-		"appLogDetail": {
-			"title": "Log Entry Details",
-			"timestamp": "Timestamp",
-			"level": "Level",
-			"source": "Source",
-			"message": "Message",
-			"copyMessage": "Copy message"
-		},
-		"paramSlider": {
-			"off": "off"
-		},
-		"reasoningEffortSelect": {
-			"reasoningEffort": "Reasoning Effort",
-			"off": "off",
-			"low": "Low",
-			"medium": "Medium",
-			"high": "High"
-		},
-		"dataTable": {
-			"sortBy": "Sort by {{label}}",
-			"prev": "Prev",
-			"next": "Next",
-			"entries": "{{start}}{{to}}{{end}} of {{total}} {{label}}",
-			"perPage": "{{size}} / page",
-			"noEntries": "No {{label}} found"
-		},
-		"modelPicker": {
-			"filterModels": "Filter models…",
-			"random": "Random",
-			"expandAllProviders": "Expand all providers",
-			"collapseAllProviders": "Collapse all providers",
-			"noModelsMatch": "No models match",
-			"clearFilter": "Clear filter",
-			"paramsLocked": "Parameters locked while running",
-			"editParams": "Edit generation parameters",
-			"addParams": "Add generation parameters"
-		},
-		"modelDetailPanel": {
-			"resetParameters": "Reset parameters",
-			"generationParameters": "Generation parameters",
-			"close": "Close",
-			"expandModelDetails": "Expand model details",
-			"collapseModelDetails": "Collapse model details",
-			"provider": "Provider",
-			"modelId": "Model ID",
-			"context": "Context",
-			"maxOutput": "Max Out",
-			"inputPricePerMillion": "In $/1M",
-			"outputPricePerMillion": "Out $/1M",
-			"capabilities": "Capabilities",
-			"proxyId": "Proxy ID",
-			"parametersLockedWhileRunning": "Parameters locked while running",
-			"editGenerationParameters": "Edit generation parameters",
-			"addGenerationParameters": "Add generation parameters",
-			"temperature": "Temperature",
-			"maxTokens": "Max Tokens",
-			"topP": "Top P",
-			"minP": "Min P",
-			"topK": "Top K",
-			"freqPenalty": "Freq Penalty",
-			"presPenalty": "Pres Penalty"
-		},
-		"modelTable": {
-			"searchModels": "Search models…",
-			"deleteDisabled": "Delete {{count}} disabled",
-			"model": "Model",
-			"capabilities": "Capabilities",
-			"provider": "Provider",
-			"discovered": "Discovered",
-			"context": "Ctx",
-			"maxOutput": "Max Out",
-			"status": "Status",
-			"modelNameAndId": "Model name and ID",
-			"providerName": "Provider name",
-			"whenModelDiscovered": "When the model was last seen/discovered",
-			"maximumContextLength": "Maximum context length in tokens",
-			"maximumOutputTokens": "Maximum output tokens",
-			"modelStatus": "Model status",
-			"noModelsMatchFilters": "No models match your filters",
-			"noModelsDiscovered": "No models discovered yet. Add a provider and discover models.",
-			"deleteDisabledModels": "Delete Disabled Models",
-			"models": "models",
-			"deleteDisabledAria_one": "Delete {{count}} disabled model",
-			"deleteDisabledAria_other": "Delete {{count}} disabled models",
-			"deleteDisabledMessage_one": "This will permanently delete {{count}} disabled model. If autodiscovery is enabled on their provider, they will be re-discovered on the next cycle. Disable autodiscovery on the provider to prevent this.",
-			"deleteDisabledMessage_other": "This will permanently delete {{count}} disabled models. If autodiscovery is enabled on their provider, they will be re-discovered on the next cycle. Disable autodiscovery on the provider to prevent this.",
-			"clickToCopyId": "Click to copy model ID",
-			"deleteDisabledLabel_one": "{{count}} disabled model",
-			"deleteDisabledLabel_other": "{{count}} disabled models"
-		},
-		"virtualModelTable": {
-			"searchModels": "Search models…",
-			"deleteDisabled": "Delete {{count}} disabled",
-			"noModelsFound": "No models found",
-			"deleteDisabledModels": "Delete Disabled Models",
-			"deleteDisabledAria_one": "Delete {{count}} disabled model",
-			"deleteDisabledAria_other": "Delete {{count}} disabled models",
-			"deleteDisabledMessage_one": "This will permanently delete {{count}} disabled model. If autodiscovery is enabled on their provider, they will be re-discovered on the next cycle. Disable autodiscovery on the provider to prevent this.",
-			"deleteDisabledMessage_other": "This will permanently delete {{count}} disabled models. If autodiscovery is enabled on their provider, they will be re-discovered on the next cycle. Disable autodiscovery on the provider to prevent this."
-		},
-		"modelReplyCard": {
-			"modelDetails": "Model details",
-			"maximizeReply": "Maximize reply",
-			"copy": "Copy",
-			"disableModel": "Disable model",
-			"disable": "Disable",
-			"thinking": "Thinking",
-			"waiting": "Waiting…",
-			"thinkingDots": "Thinking…",
-			"turn": "Turn {{number}}"
-		},
-		"providerFilter": {
-			"filterProviders": "Filter Providers",
-			"clearFilter": "Clear filter",
-			"searchProviders": "Search providers…",
-			"selectAll": "Select all",
-			"clear": "Clear",
-			"noProvidersFound": "No providers found",
-			"provider_one": "{{count}} provider",
-			"provider_other": "{{count}} providers"
-		},
-		"providerModals": {
-			"nanoGPTSubscription": "NanoGPT Subscription",
-			"active": "Active",
-			"inactive": "Inactive",
-			"showQuotaUsed": "Show quota used",
-			"showQuotaRemaining": "Show quota remaining",
-			"refresh": "Refresh",
-			"refreshQuotaInfo": "Refresh quota info",
-			"toggleRemainingUsed": "Toggle between remaining and used",
-			"weeklyTokenQuota": "Weekly Token Quota",
-			"used": "used",
-			"noLimitSet": "No limit set",
-			"dailyImages": "Daily Images",
-			"dailyInputTokens": "Daily Input Tokens",
-			"subscriptionDetails": "Subscription Details",
-			"provider": "Provider",
-			"status": "Status",
-			"periodEnd": "Period End",
-			"allowOverage": "Allow Overage",
-			"yes": "Yes",
-			"no": "No",
-			"subscriptionWillCancel": "Subscription will cancel at period end ({{date}})",
-			"lastRefreshed": "Last refreshed",
-			"zAICodingPlanQuota": "Z.ai Coding Plan Quota",
-			"plan": "Plan",
-			"hTokenQuota": "{{hours}}h Token Quota",
-			"left": "left",
-			"mcpTokenQuota": "MCP Time Quota",
-			"openRouterCredits": "OpenRouter Credits",
-			"freeTier": "Free Tier",
-			"paidAccount": "Paid Account",
-			"showCreditsUsed": "Show credits used",
-			"showCreditsRemaining": "Show credits remaining",
-			"refreshBalanceInfo": "Refresh balance info",
-			"accountBalance": "Account Balance",
-			"spentTotal": "{{amount}} spent total",
-			"keySpendingLimit": "Key Spending Limit",
-			"remaining": "remaining",
-			"limitReset": "limit - spending blocked",
-			"resets": "Resets",
-			"keyUsage": "Key Usage",
-			"spendingByThisKey": "Spending by this API key (account total may differ)",
-			"today": "Today",
-			"thisWeek": "This Week",
-			"thisMonth": "This Month",
-			"allTime": "All Time",
-			"quotaRefreshed": "Quota refreshed",
-			"failedToRefreshQuota": "Failed to refresh quota",
-			"balanceRefreshed": "Balance refreshed",
-			"failedToRefreshBalance": "Failed to refresh balance",
-			"noCredits": "No credits"
-		},
-		"providerQuotaPanel": {
-			"quotas": "Quotas",
-			"expandQuotas": "Expand quotas",
-			"collapse": "Collapse",
-			"quotaPanelCollapsed": "Quota panel collapsed - auto-refresh paused",
-			"quotaPanelExpanded": "Quota panel expanded - auto-refresh resumed",
-			"refreshAllQuotas": "Refresh all quotas",
-			"pleaseWaitBeforeRefreshing": "Please wait before refreshing again",
-			"refreshingQuotas": "Refreshing quotas…"
-		},
-		"personaPicker": {
-			"persona": "Persona",
-			"customPersonaPlaceholder": "Enter custom persona for AI here…",
-			"switchToCustom": "Switch to Custom",
-			"overwritePrompt": "Overwrite Prompt",
-			"clearPersonaPrompt": "This will clear the current persona prompt. Continue?",
-			"systemPrompt": "System prompt"
-		},
-		"promptPicker": {
-			"prompt": "Prompt",
-			"enterPromptPlaceholder": "Enter your prompt…",
-			"switchToCustom": "Switch to Custom",
-			"overwritePrompt": "Overwrite Prompt",
-			"promptField": "Prompt"
-		},
-		"presetBar": {
-			"random": "Random",
-			"custom": "✏️Custom"
-		},
-		"conversationConfig": {
-			"title": "Conversation Config",
-			"rounds": "Rounds: {{rounds}}",
-			"delay": "Delay: {{delay}}ms",
-			"round": "Round: {{current}} / {{max}}",
-			"nextIn": "Next in {{seconds}}s…",
-			"status": "Status: {{state}}",
-			"expandConfig": "Expand config",
-			"collapseConfig": "Collapse config",
-			"generationFailed": "Generation failed - use Retry or change the model to continue",
-			"generationFailedWithModel": "{{model}}: Generation failed - use Retry or change the model to continue",
-			"maxTurns": "Rounds",
-			"turnDelay": "Delay (ms)",
-			"prompt": "Prompt",
-			"selectBothModelsFirst": "Select both models first",
-			"enterTopicOrQuestion": "Enter a topic or question…",
-			"continue": "Continue",
-			"start": "Start",
-			"reenterOrEditPrompt": "Re-enter or edit your prompt…",
-			"retry": "Retry",
-			"retryFromTurn": "Retry from Turn {{turn}}",
-			"stop": "Stop"
-		},
-		"thinkingBlock": {
-			"thinking": "Thinking"
-		},
-		"arenaHistoryModal": {
-			"matchHistory": "Match History",
-			"all": "All",
-			"competition": "Competition",
-			"compare": "Compare",
-			"noMatchHistory": "No match history yet",
-			"completedSessionsHere": "Completed arena and compare sessions will appear here",
-			"match": "Match",
-			"final": "Final",
-			"semifinals": "Semifinals",
-			"quarterfinals": "Quarterfinals",
-			"round": "Round {{number}}",
-			"winner": "Winner: {{name}}",
-			"responsesAbbrev": "{{count}} resp.",
-			"error": "Error: {{message}}",
-			"restoreSetup": "Restore Setup",
-			"delete": "Delete",
-			"customPrompt": "Custom prompt",
-			"clearAllHistory": "Clear All History",
-			"clickAgainToConfirm": "Click again to confirm",
-			"vs": "vs",
-			"bracket": "Bracket",
-			"response_one": "{{count}} response",
-			"response_other": "{{count}} responses",
-			"entries_one": "{{count}} entry",
-			"entries_other": "{{count}} entries"
-		},
-		"logDetailModal": {
-			"logEntryDetails": "Log Entry Details",
-			"timestamp": "Timestamp",
-			"level": "Level",
-			"source": "Source",
-			"message": "Message",
-			"copyMessage": "Copy message"
-		},
-		"requestLogDetail": {
-			"title": "Request Details",
-			"requestDetails": "Request Details",
-			"attempt": "Attempt {{number}}",
-			"duration": "Duration",
-			"totalWallClockTime": "Total wall-clock time from request start to response end",
-			"headers": "Headers",
-			"timeToReceiveHeaders": "Time to receive the first HTTP response headers from the upstream provider",
-			"ttft": "TTFT",
-			"timeToFirstToken": "Time to First Token: delay between request start and the first token of the response body (streaming) or full response (non-streaming)",
-			"tokensPerSecond": "Tokens/s",
-			"outputTokensPerSecond": "Output tokens per second during the generation phase (excludes time-to-first-token). Shown as '-' when generation time is negligible.",
-			"totalTokens": "Total Tokens",
-			"sumOfTokens": "Sum of prompt + completion + reasoning tokens",
-			"requestHash": "Request Hash",
-			"model": "Model",
-			"copyModelId": "Copy model ID",
-			"resolved": "resolved",
-			"provider": "Provider",
-			"dbRowId": "DB Row ID",
-			"timestamp": "Timestamp",
-			"copyDbRowId": "Copy DB row ID",
-			"virtualKey": "Virtual Key",
-			"tokenUsage": "Token Usage",
-			"prompt": "Prompt",
-			"completion": "Completion",
-			"reasoning": "Reasoning",
-			"cacheHit": "Cache Hit",
-			"cacheMiss": "Cache Miss",
-			"proxyOverheadBreakdown": "Proxy Overhead Breakdown",
-			"requestParsing": "Request Parsing",
-			"timeToParseRequest": "Time to parse and validate the incoming request body",
-			"failoverGroupLookup": "Failover Group Lookup",
-			"timeToResolveFailover": "Time to resolve the failover group to a specific model and provider",
-			"modelLookup": "Model Lookup",
-			"timeToLookupModel": "Time to look up the model configuration in the database",
-			"providerLookup": "Provider Lookup",
-			"timeToLookupProvider": "Time to look up the provider details in the database",
-			"keyDecryption": "Key Decryption",
-			"timeToDecryptKey": "Time to decrypt the provider API key",
-			"dialDnsTcp": "Dial (DNS+TCP)",
-			"timeToEstablishTcp": "Time to establish the TCP connection to the upstream provider",
-			"settingsReads": "Settings Reads",
-			"timeToReadSettings": "Time to read settings from the database",
-			"reused": "reused",
-			"totalOverhead": "Total Overhead",
-			"error": "Error",
-			"copyErrorMessage": "Copy error message"
-		},
-		"statusBadge": {
-			"streaming": "Streaming",
-			"pending": "Pending",
-			"failed": "Failed",
-			"ok": "OK",
-			"clientError": "Client Error",
-			"serverError": "Server Error"
-		},
-		"logDetailStatusBadge": {
-			"streaming": "Streaming",
-			"pending": "Pending",
-			"failed": "Failed",
-			"ok": "OK",
-			"clientError": "Client Error",
-			"serverError": "Server Error"
-		},
-		"virtualLogTable": {
-			"noLogsFound": "No logs found",
-			"entries": "entries",
-			"loadingNewer": "Loading newer…",
-			"loadingOlder": "Loading older…",
-			"timeDate": "Time/Date",
-			"hash": "Hash",
-			"model": "Model",
-			"provider": "Provider",
-			"providerDeleted": "Provider was deleted",
-			"status": "Status",
-			"tokens": "Tokens",
-			"tps": "T/s",
-			"tokensPerSecond": "T/s",
-			"headers": "Headers",
-			"ttft": "TTFT",
-			"duration": "Duration",
-			"overhead": "Overhead",
-			"key": "Key",
-			"interrupted": "Interrupted",
-			"internal": "internal",
-			"cacheInflated": "Inflated by prompt cache hits",
-			"deleted": "Deleted"
-		},
-		"virtualAppLogTable": {
-			"noEntriesFound": "No log entries found",
-			"entries": "entries",
-			"loadingNewer": "Loading newer…",
-			"loadingOlder": "Loading older…",
-			"timeDate": "Time/Date",
-			"level": "Level",
-			"source": "Source",
-			"message": "Message"
-		},
-		"applyRecommendedButton": {
-			"loading": "Loading…",
-			"applyRecommended": "Apply Recommended",
-			"params": "({{count}} params)",
-			"modelsDevMatched": "models.dev matched: {{model}}",
-			"noRecommendationsAvailable": "No recommendations available",
-			"applyRecommendedFromModelsDev": "Apply recommended settings from models.dev catalogue"
-		},
-		"viewModeToggle": {
-			"switchToScroll": "Switch to scroll mode",
-			"switchToPagination": "Switch to pagination mode",
-			"scroll": "⇊ Scroll",
-			"pages": "⬡ Pages"
-		},
-		"liveToggleButton": {
-			"live": "Live",
-			"liveUpdatesPaused": "Live updates paused",
-			"liveUpdatesResumed": "Live updates resumed"
-		},
-		"dateRangePickerPopover": {
-			"selectDateRange": "Select date range",
-			"closeDatePicker": "Close date picker",
-			"selectEndDate": "Select end date…",
-			"selectStartDate": "Select start date",
-			"clear": "Clear",
-			"apply": "Apply"
-		},
-		"dateFilterButton": {
-			"filterByDateRange": "Filter by date range",
-			"dateFilter": "Date filter: {{range}} - click to change",
-			"clearDateFilter": "Clear date filter ({{range}})",
-			"clearDateFilterShort": "Clear date filter"
-		},
-		"terminalPreview": {
-			"copySnippet": "Copy {{variant}} snippet",
-			"windows": "Windows",
-			"bash": "bash",
-			"powershell": "PowerShell"
-		},
-		"quotaBadge": {
-			"weeklyTokensRemaining": "NanoGPT weekly tokens remaining - click for details",
-			"weeklyTokenQuota": "NanoGPT weekly token quota - click for details",
-			"zaiCodingRemaining": "Z.ai Coding remaining quota - click for details",
-			"zaiCodingUsed": "Z.ai Coding used quota - click for details",
-			"deepseekBalance": "DeepSeek balance: ${{usd}} USD{{refreshed}} - click to refresh",
-			"deepseekBalanceUnavailable": "DeepSeek balance unavailable",
-			"openrouterBalance": "OpenRouter key balance - click for details",
-			"openrouterBalanceUnavailable": "OpenRouter balance unavailable",
-			"ollamaCloudPlan": "Ollama Cloud {{plan}} plan{{refreshed}} - click to update",
-			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} plan (ends {{date}}){{refreshed}} - click to update",
-			"ollamaCloudUnavailable": "Ollama Cloud account unavailable",
-			"nanoWeeklyTokensRemaining": "NanoGPT weekly tokens remaining - click for details",
-			"nanoWeeklyTokenQuota": "NanoGPT weekly token quota - click for details",
-			"openRouterKeyBalance": "OpenRouter key balance - click for details",
-			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} plan (ends {{endDate}}){{refreshed}} - click to update"
-		},
-		"filterDropdown": {
-			"placeholder": "Filter",
-			"allLabel": "All"
-		}
-	},
-	"dataStorage": {
-		"cachedEntryCount_one": "{{count}} entry",
-		"cachedEntryCount_other": "{{count}} entries"
-	},
-	"failoverGroups": {
-		"create": {
-			"editTitle": "Edit Failover Group",
-			"createTitle": "Create Failover Group",
-			"displayModelName": "Display Model Name",
-			"displayModelNamePlaceholder": "e.g., glm-5",
-			"displayModelNameHelper": "This becomes hotel/{{modelName}} in the model list",
-			"displayNameOptional": "Display Name (optional)",
-			"displayNamePlaceholder": "e.g., GLM-5 Failover",
-			"descriptionOptional": "Description (optional)",
-			"descriptionPlaceholder": "e.g., Failover group for GLM-5 models",
-			"modelEntries": "Model Entries",
-			"selectedCount_one": "{{count}} selected",
-			"selectedCount_other": "{{count}} selected",
-			"saving": "Saving…",
-			"creating": "Creating…",
-			"createGroup": "Create Group"
-		},
-		"countLabel_one": "Failover Group",
-		"countLabel_other": "Failover Groups",
-		"alphabetSidebar": "Alphabet sidebar",
-		"card": {
-			"copy": "Copy",
-			"active": "active",
-			"tokens": "tokens"
-		},
-		"entry": {
-			"disableProvider": "Disable provider",
-			"enableProvider": "Enable provider"
-		}
-	},
-	"virtualKeys": {
-		"global": "Global",
-		"snippet": {
-			"curl": "cURL",
-			"powershell": "PowerShell",
-			"python": "Python",
-			"openclaw": "OpenClaw",
-			"javascript": "JavaScript",
-			"librechat": "LibreChat",
-			"claudeCode": "Claude Code",
-			"zed": "ZED",
-			"hermes": "Hermes",
-			"opencode": "OpenCode"
-		},
-		"create": {
-			"providerRequired": "At least one provider must remain accessible",
-			"clickToCopyKey": "Click to copy key",
-			"createKey": "Create Key"
-		},
-		"detail": {
-			"rps": "RPS",
-			"burst": "Burst"
-		}
-	}
+  "common": {
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "deleting": "Deleting…",
+    "close": "Close",
+    "closeDialog": "Close dialog",
+    "clearFilter": "Clear filter",
+    "copiedToClipboard": "Copied to clipboard",
+    "copied": "Copied!",
+    "failedToCopy": "Failed to copy",
+    "copy": "Copy",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "never": "Never",
+    "justNow": "Just now",
+    "loading": "Loading",
+    "loadingDots": "Loading…",
+    "off": "off",
+    "prev": "Prev",
+    "next": "Next",
+    "apply": "Apply",
+    "clear": "Clear",
+    "interrupted": "Interrupted",
+    "selectAll": "Select all",
+    "saving": "Saving...",
+    "add": "Add",
+    "edit": "Edit",
+    "save": "Save",
+    "saveChanges": "Save Changes",
+    "confirm": "Confirm",
+    "syncing": "Syncing…",
+    "refresh": "Refresh",
+    "refreshing": "Refreshing…",
+    "discovering": "Discovering...",
+    "n_a": "N/A",
+    "current": "Current",
+    "optional": "Optional",
+    "required": "Required",
+    "done": "Done",
+    "creating": "Creating...",
+    "resolving": "Resolving…",
+    "live": "Live",
+    "deleted": "Deleted",
+    "internal": "internal",
+    "noLogsFound": "No logs found",
+    "global": "Global",
+    "manuallyDisabled": "Manually Disabled",
+    "loadingNewer": "Loading newer…",
+    "loadingOlder": "Loading older…",
+    "model": "model",
+    "models": "models",
+    "tokens": "Tokens",
+    "yes": "Yes",
+    "no": "No",
+    "random": "Random",
+    "unknownError": "Unknown error",
+    "thisWeek": "This Week",
+    "thisMonth": "This Month",
+    "allTime": "All Time",
+    "today": "Today",
+    "custom": "Custom",
+    "productNames": {
+      "powershell": "PowerShell",
+      "javascript": "JavaScript",
+      "python": "Python",
+      "claudeCode": "Claude Code",
+      "openclaw": "OpenClaw",
+      "hermes": "Hermes",
+      "librechat": "LibreChat",
+      "zed": "ZED",
+      "opencode": "OpenCode"
+    }
+  },
+  "layout": {
+    "title": "Model Hotel",
+    "subtitle": "Multi-Provider AI Gateway",
+    "tagline": "Because we have LiteLLM at home",
+    "nav": {
+      "dashboard": "Dashboard",
+      "chat": "Chat",
+      "conversation": "Conversation",
+      "arena": "Arena",
+      "compare": "Compare",
+      "providers": "Providers",
+      "models": "Models",
+      "failover": "Failover",
+      "virtualKeys": "Virtual Keys",
+      "logs": "Logs",
+      "requests": "Requests",
+      "appLogs": "Logs",
+      "settings": "Settings"
+    },
+    "status": {
+      "apiStatus": "API Status",
+      "online": "Online",
+      "error": "Error"
+    },
+    "stats": {
+      "uptime": "Uptime",
+      "cpu": "CPU",
+      "network": "Network",
+      "disk": "Disk",
+      "memory": "Memory",
+      "goroutines": "Go routines",
+      "requestsToday": "Req Today",
+      "db": "DB",
+      "procs_one": "proc",
+      "procs_other": "procs",
+      "aggregateCpu": "Aggregate CPU across {{count}} compose containers",
+      "aggregateNetwork": "Aggregate network across {{count}} compose containers",
+      "aggregateDisk": "Aggregate disk I/O across {{count}} compose containers",
+      "aggregateMemory": "Aggregate memory across {{count}} compose containers"
+    },
+    "toast": {
+      "copiedToClipboard": "Copied to clipboard",
+      "appErrorAcknowledged": "App error acknowledged",
+      "requestErrorAcknowledged": "Request error acknowledged"
+    },
+    "auth": {
+      "logout": "Logout",
+      "logoutConfirm": "Log out?",
+      "logoutMessage": "You'll need to re-enter your admin token."
+    },
+    "theme": {
+      "switchToLight": "Switch to light mode",
+      "switchToDark": "Switch to dark mode"
+    },
+    "errorPill": {
+      "appError": "App Err",
+      "requestError": "Req Err",
+      "error": " Error",
+      "copyError": "Copy error",
+      "viewDetails": "View details",
+      "acknowledge": "Acknowledge (dismiss)",
+      "request": "Request"
+    },
+    "docs": "Docs",
+    "running": "Running {{version}}",
+    "updateAvailable": "Update available: {{running}} → latest",
+    "expandStats": "Expand stats",
+    "collapseStats": "Collapse stats",
+    "tooltips": {
+      "uptime": "How long the server process has been running",
+      "goroutines": "Active Go runtime goroutines (lightweight threads)",
+      "requestsToday": "Number of proxied LLM requests since midnight local time today",
+      "dbSize": "Postgres database size on disk",
+      "dbHitRatio": "Buffer cache hit ratio (higher is better)",
+      "dbConnections": "Active database connections",
+      "dbTxPerSec": "Database transactions per second"
+    },
+    "githubRepo": "GitHub repository"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "description": "Overview of your Model Hotel usage",
+    "activeKeysOnly": "Active Keys Only",
+    "allKeys": "All Keys",
+    "toggleKeyFilter": "Toggle key filter",
+    "refresh": "Refresh dashboard",
+    "refreshing": "Refreshing…",
+    "loadingGauges": "Loading gauges…",
+    "failedToLoadGaugeStats": "Failed to load gauge stats",
+    "gaugeLoadFailed": "Failed to load gauge stats",
+    "stats": {
+      "totalProviders": "Total Providers",
+      "totalModels": "Total Models",
+      "requests": "Requests/{{range}}",
+      "errorRate": "Error Rate/{{range}}",
+      "avgDuration": "Avg Duration/{{range}}",
+      "totalTokens": "Total Tokens/{{range}}",
+      "avgTokensPerReq": "Avg Tokens/Req"
+    },
+    "gauge": {
+      "requestsPerRange": "Requests/{{range}}",
+      "avgTtftPerRange": "Avg TTFT/{{range}}",
+      "avgOverheadPerRange": "Avg Overhead/{{range}}",
+      "rateLimitHitsPerRange": "Rate Limit Hits/{{range}}",
+      "errorRatePerRange": "Error Rate/{{range}}",
+      "viewRequestHistory": "Click to view request history",
+      "viewTtftHistory": "Click to view TTFT history",
+      "viewOverheadHistory": "Click to view overhead history",
+      "viewRateLimitHistory": "Click to view rate limit hit history",
+      "viewErrorRateHistory": "Click to view error rate history",
+      "viewDurationHistory": "Click to view duration history",
+      "viewTokenHistory": "Click to view token history",
+      "svgTitle": "Gauge",
+      "modal": {
+        "avgOverheadTitle": "Avg Overhead",
+        "overheadMetric": "Overhead",
+        "overheadLabel": "Overhead",
+        "errorRateTitle": "Error Rate",
+        "errorRateMetric": "Error Rate",
+        "errorRateLabel": "Error Rate",
+        "avgDurationTitle": "Avg Duration",
+        "durationMetric": "Duration",
+        "durationLabel": "Duration",
+        "requestsTitle": "Requests",
+        "requestsMetric": "Requests",
+        "requestsLabel": "Requests",
+        "avgTtftTitle": "Avg TTFT",
+        "ttftMetric": "TTFT",
+        "ttftLabel": "TTFT",
+        "rateLimitHitsTitle": "Rate Limit Hits",
+        "rateLimitHitsMetric": "Rate Limit Hits",
+        "rateLimitHitsLabel": "Rate Limit Hits",
+        "avgTokensTitle": "Avg Tokens",
+        "tokensMetric": "Tokens",
+        "tokensLabel": "Tokens"
+      }
+    },
+    "chart": {
+      "hour": "Hour",
+      "day": "Day",
+      "noData": "No time-series data yet. {{metric}} will appear here once traffic flows.",
+      "dragToPan": "drag to pan",
+      "requests": "Requests",
+      "tokens": "Tokens",
+      "emptyState": "No time-series data yet. {{metric}} will appear here once traffic flows.",
+      "requestsOver": "Requests/{{range}}",
+      "avgTtftOver": "Avg TTFT/{{range}}",
+      "avgOverheadOver": "Avg Overhead/{{range}}",
+      "rateLimitHitsOver": "Rate Limit Hits/{{range}}",
+      "errorRateOver": "Error Rate/{{range}}",
+      "avgDurationOver": "Avg Duration/{{range}}"
+    },
+    "usage": {
+      "topModels": "Top Models",
+      "topProviders": "Top Providers",
+      "topVirtualKeys": "Top Virtual Keys",
+      "emptyState": "No usage data yet. Usage breakdown will appear here once traffic flows.",
+      "viewDetailsFor": "View details for {{label}}"
+    },
+    "providers": {
+      "top": "Top Providers",
+      "top_one": "Top {{count}} Provider",
+      "top_other": "Top {{count}} Providers",
+      "providers": "Providers",
+      "noData": "No provider data yet. Provider breakdown will appear here once traffic flows.",
+      "distributionChart": "Provider distribution chart",
+      "emptyState": "No provider data yet. Provider breakdown will appear here once traffic flows.",
+      "chartAriaLabel": "Provider distribution chart",
+      "tokenUnit": "Token",
+      "tokensUnit": "Tokens",
+      "requestUnit": "Request",
+      "requestsUnit": "Requests"
+    },
+    "models": {
+      "top": "Top Models",
+      "viewDetails": "View details for {{label}}",
+      "emptyState": "No model data yet. Model breakdown will appear here once traffic flows."
+    },
+    "virtualKeys": {
+      "top": "Top Virtual Keys",
+      "emptyState": "No virtual key data yet. Virtual key breakdown will appear here once traffic flows."
+    },
+    "tokens": {
+      "tokenMix": "Token Mix",
+      "noTokenData": "No token data yet. Token mix will appear here once traffic flows.",
+      "tokens": "Tokens",
+      "prompt": "Prompt",
+      "completion": "Completion",
+      "promptTooltip": "Prompt: {{pct}}% ({{count}} tokens)",
+      "completionTooltip": "Completion: {{pct}}% ({{count}} tokens)",
+      "mixAriaLabel": "Token mix: {{promptPct}}% prompt, {{completionPct}}% completion",
+      "promptTileTitle": "Prompt",
+      "completionTileTitle": "Completion"
+    },
+    "modal": {
+      "avgOverhead": "Avg Overhead",
+      "errorRate": "Error Rate",
+      "avgDuration": "Avg Duration",
+      "requests": "Requests",
+      "avgTtft": "Avg TTFT",
+      "rateLimitHits": "Rate Limit Hits",
+      "avgTokens": "Avg Tokens"
+    },
+    "range": {
+      "1h": "1H",
+      "24h": "1D",
+      "7d": "7D"
+    },
+    "metric": {
+      "tokens": "Tok",
+      "requests": "Req"
+    },
+    "label": {
+      "requests": "Requests",
+      "tokens": "Tokens",
+      "errors": "errors",
+      "seconds": "seconds",
+      "requestsPerQuery": "T/Rq"
+    }
+  },
+  "chat": {
+    "chat": "Chat",
+    "conversation": "Conversation",
+    "testModels": "Test enabled models in temporary chat",
+    "watchConversation": "Watch two models converse with each other",
+    "controls": {
+      "_": "Controls",
+      "resetAll": "Reset all (clear model & settings)",
+      "modelA": "Model A",
+      "modelB": "Model B",
+      "personaA": "Persona A",
+      "personaB": "Persona B",
+      "clearMessages": "Clear messages (keep model & settings)",
+      "modelLabel": "Model",
+      "personaLabel": "Persona",
+      "title": "Controls",
+      "stop": "Stop",
+      "generating": "Models are generating - click Stop to cancel",
+      "sendMessage": "Send a message...",
+      "send": "Send"
+    },
+    "chatWithAi": "Chat with AI",
+    "aiConversation": "AI Conversation",
+    "stop": "Stop",
+    "clearMessages": "Clear messages (keep model & settings)",
+    "resetAll": "Reset all (clear model & settings)",
+    "toast": {
+      "chatCleared": "Chat cleared",
+      "conversationCleared": "Conversation cleared"
+    },
+    "chatCleared": "Chat cleared",
+    "conversationCleared": "Conversation cleared",
+    "modelA": "Model A",
+    "modelB": "Model B",
+    "personaA": "Persona A",
+    "personaB": "Persona B",
+    "turn": "Turn",
+    "totalDuration": "Duration",
+    "totalTokens": "tokens",
+    "modelGenerating": "Model is generating…",
+    "waitingForNextTurn": "Waiting for next turn…",
+    "generationFailed": "{{model}}: Generation failed - use Retry in config above, or Clear/Reset below",
+    "generationFailedWithModel": "{{model}}: Generation failed - use Retry in config above, or Clear/Reset below",
+    "resetChat": "Reset Chat",
+    "resetConversation": "Reset Conversation",
+    "resetChatMessage": "This will clear all messages, reset model selection, persona, and parameters. Continue?",
+    "resetConversationMessage": "This will clear the conversation and reset both models, personas, and parameters. Continue?",
+    "chatReset": "Chat reset",
+    "conversationReset": "Conversation reset",
+    "selectModel": "Select a model",
+    "selectModelA": "Select Model A",
+    "selectModelB": "Select Model B",
+    "chatWillAppear": "Chat will appear here",
+    "conversationWillAppear": "Conversation will appear here",
+    "removeImage": "Remove image",
+    "removeAudio": "Remove audio",
+    "uploadImage": "Upload image",
+    "attachImage": "Attach image",
+    "uploadAudio": "Upload audio",
+    "attachAudio": "Attach audio",
+    "selectModelFirst": "Select a model first",
+    "typeMessage": "Type a message…",
+    "typeMessageOrPasteImage": "Type a message (or paste an image)…",
+    "generating": "Generating…",
+    "sendMessage": "Send message",
+    "pressEnterToSend": "Press Enter to send, Shift+Enter for newline",
+    "selectModelToStart": "Select a model to start chatting",
+    "modelError": "{{model}}: {{error}} - try Regenerate",
+    "generalError": "{{error}} - try Regenerate or pick a model",
+    "modelLabel": "Model",
+    "stopLabel": "Stop",
+    "clearLabel": "Clear",
+    "resetAllLabel": "Reset All",
+    "cancel": "Cancel",
+    "messageInput": "Chat message input",
+    "copy": "Copy",
+    "regenerate": "Regenerate",
+    "deleteMessage": "Delete message",
+    "settings": "Settings",
+    "placeholder": {
+      "selectModel": "Select a model",
+      "selectModelSidebar": "Select a model",
+      "selectModelA": "Select Model A",
+      "selectModelB": "Select Model B",
+      "messageWithImage": "Type a message (or paste an image)…",
+      "message": "Type a message…",
+      "selectModelFirst": "Select a model first"
+    },
+    "message": {
+      "emptyChat": "Chat will appear here",
+      "emptyConversation": "Conversation will appear here",
+      "audio": "audio"
+    },
+    "aria": {
+      "removeImage": "Remove image",
+      "removeAudio": "Remove audio",
+      "uploadImage": "Upload image",
+      "attachImage": "Attach image",
+      "uploadAudio": "Upload audio",
+      "attachAudio": "Attach audio",
+      "messageInput": "Chat message input",
+      "userAttachment": "User attachment",
+      "cancel": "Cancel",
+      "deleteMessage": "Delete message",
+      "regenerate": "Regenerate"
+    },
+    "misc": {
+      "titleChat": "Chat",
+      "titleConversation": "Conversation",
+      "descriptionChat": "Test enabled models in temporary chat",
+      "descriptionConversation": "Watch two models converse with each other",
+      "selectModelToStart": "Select a model to start chatting",
+      "keyboardHint": "Press Enter to send, Shift+Enter for newline",
+      "turnCount": "Turn {{current}} / {{max}}",
+      "tokens": "tokens",
+      "modelGenerating": "Model is generating…",
+      "waitingNextTurn": "Waiting for next turn…",
+      "generationFailed": "{{model}}: Generation failed - use Retry in config above, or Clear/Reset below",
+      "resetChatTitle": "Reset Chat",
+      "resetConversationTitle": "Reset Conversation",
+      "resetChatMessage": "This will clear all messages, reset model selection, persona, and parameters. Continue?",
+      "resetConversationMessage": "This will clear the conversation and reset both models, personas, and parameters. Continue?",
+      "resetAllConfirm": "Reset All"
+    }
+  },
+  "arena": {
+    "title": {
+      "arena": "Arena",
+      "compare": "Compare"
+    },
+    "description": {
+      "arena": "Bracket tournament - models compete head-to-head",
+      "compare": "Side-by-side - compare model outputs on the same prompt"
+    },
+    "controls": {
+      "label": "Controls"
+    },
+    "mode": {
+      "arena": "Arena",
+      "compare": "Compare"
+    },
+    "modeDescription": {
+      "arena": "Models compete in a single-elimination bracket. Pick 2, 4, or 8 models - each round, pairs face the same prompt and you vote for the better response. Winners advance until one model remains.",
+      "compare": "Pick models and run the same prompt through them simultaneously. No voting, no bracket - just pure side-by-side output comparison to evaluate which model best fits your needs."
+    },
+    "matchHistory": {
+      "title": "Match history"
+    },
+    "toast": {
+      "cleared": "Arena cleared",
+      "reset": "Reset"
+    },
+    "clearResults": {
+      "title": "Clear results (keep models & prompt)"
+    },
+    "resetAll": {
+      "title": "Reset all (clear models & prompt)"
+    },
+    "models": {
+      "bracketCount": "Models ({{count}}/8)",
+      "bracketHint": "Pick 2, 4, or 8 for a bracket",
+      "compareCount": "Models ({{count}}/6)"
+    },
+    "persona": {
+      "textareaPlaceholder": "Optional system prompt applied to all models…",
+      "switchToCustom": "Switch to Custom",
+      "overwrite": "Overwrite Persona",
+      "fieldLabel": "Persona"
+    },
+    "round": {
+      "firstRound": "First Round",
+      "generation": "Generation",
+      "match": "Match",
+      "final": "Final",
+      "semifinals": "Semifinals",
+      "quarterfinals": "Quarterfinals",
+      "numbered": "Round {{num}}"
+    },
+    "vs": "VS",
+    "status": {
+      "generating": "Models are generating - click Stop All to cancel",
+      "voteToContinue": "Vote on all matchups to continue to the next round",
+      "nextRoundReady": "Start the next round when ready"
+    },
+    "responses": {
+      "label": "Responses"
+    },
+    "match": {
+      "label": "Match {{num}}"
+    },
+    "confirmReset": {
+      "title": "Reset All",
+      "message": "This will clear all models, prompts, personas, and any in-progress results. Continue?",
+      "confirmLabel": "Reset All"
+    },
+    "winner": {
+      "title": "Winner"
+    },
+    "vote": {
+      "title": "Vote for this response",
+      "voted": "Voted"
+    },
+    "swapModel": {
+      "title": "Swap model"
+    },
+    "completed": {
+      "title": "Completed"
+    },
+    "reroll": {
+      "title": "Re-roll"
+    },
+    "error": {
+      "title": "Error"
+    },
+    "retry": {
+      "title": "Retry"
+    },
+    "cancel": {
+      "title": "Cancel"
+    },
+    "copy": {
+      "title": "Copy"
+    },
+    "swapPicker": {
+      "title": "Pick a replacement model",
+      "searchPlaceholder": "Search models…",
+      "expandAll": "Expand all providers",
+      "collapseAll": "Collapse all providers",
+      "noModels": "No models available"
+    },
+    "winnerModal": {
+      "title": "Match Complete",
+      "wins": "wins!",
+      "close": "Close"
+    },
+    "params": {
+      "temperature": "Temperature",
+      "maxTokens": "Max Tokens",
+      "topP": "Top P",
+      "minP": "Min P",
+      "topK": "Top K",
+      "freqPenalty": "Freq Penalty",
+      "presPenalty": "Pres Penalty",
+      "resetAll": "Reset all",
+      "done": "Done"
+    },
+    "button": {
+      "stop": "Stop All",
+      "run": "Run Arena"
+    },
+    "disabledReason": {
+      "selectTwoModels": "Select at least 2 models",
+      "pickOneMore": "Pick at least 1 more model",
+      "noDuplicates": "No duplicate models",
+      "enterPrompt": "Enter a prompt",
+      "selectBracketModels": "Select 2, 4, or 8 models",
+      "pickOrRemove": "Pick {{count}} more or remove to get {{nextValid}}",
+      "voteToContinue": "Vote on all matchups to continue to the next round",
+      "enterPromptNextRound": "Enter a prompt for the next round"
+    },
+    "tbd": "TBD",
+    "close": "Close",
+    "custom": "Custom",
+    "done": "Done",
+    "reasoningEffort": "Reasoning Effort"
+  },
+  "providers": {
+    "page_title_one": "Provider",
+    "page_title_other": "Providers",
+    "page_description": "Manage your provider configurations",
+    "btn_discover_all": "Discover All Models",
+    "btn_refresh_quotas": "Refresh Quotas/Balances",
+    "btn_add_provider": "Add Provider",
+    "btn_discovering": "Discovering...",
+    "btn_refreshing": "Refreshing...",
+    "filter_placeholder": "Filter providers…",
+    "filter_provider_type": "Provider type",
+    "filter_all": "All ({{count}})",
+    "sort_title_asc": "Sorted A-Z (click to reverse)",
+    "sort_title_desc": "Sorted Z-A (click to reverse)",
+    "empty_no_match": "No providers match the selected filter.",
+    "empty_no_providers": "No providers configured. Add your first provider to get started.",
+    "toast_discovery_failed_all": "Discovery failed for all {{failed}} providers",
+    "toast_discover_failed": "Discovery failed: {{message}}",
+    "toast_provider_added": "Provider \"{{name}}\" added",
+    "toast_provider_updated": "Provider \"{{name}}\" updated",
+    "toast_provider_deleted": "Provider deleted",
+    "toast_delete_failed": "Failed to delete: {{message}}",
+    "toast_add_failed": "Failed to add provider: {{message}}",
+    "toast_update_failed": "Failed to update: {{message}}",
+    "toast_refresh_success": "Refreshed {{count}} quotas/balances",
+    "toast_refresh_warning": "Refreshed {{refreshed}} quotas ({{failed}} failed, {{skipped}} unsupported)",
+    "toast_refresh_none": "No providers with quota/balance support found",
+    "toast_refresh_failed": "Refresh quotas failed: {{message}}",
+    "toast_quota_detected_nanogpt": "NanoGPT quota detected",
+    "toast_quota_detected_zai": "Z.ai Coding quota detected",
+    "toast_quota_detected_deepseek": "DeepSeek balance detected: ${{amount}}",
+    "toast_quota_detected_openrouter": "OpenRouter balance detected: ${{amount}}",
+    "toast_quota_detected_ollama": "Ollama Cloud {{plan}} plan detected",
+    "toast_quota_refreshed": "Balance refreshed",
+    "toast_quota_refresh_failed": "Failed to refresh balance",
+    "toast_account_refreshed": "Account info refreshed",
+    "toast_account_refresh_failed": "Failed to refresh account info",
+    "type_custom": "Custom",
+    "type_nanogpt": "NanoGPT",
+    "type_zai_coding": "Z.ai Coding Plan",
+    "type_openai": "OpenAI",
+    "type_anthropic": "Anthropic",
+    "type_deepseek": "DeepSeek",
+    "type_ollama_cloud": "Ollama Cloud",
+    "type_ollama": "Ollama",
+    "type_opencode_zen": "OpenCode Zen",
+    "type_opencode_go": "OpenCode Go",
+    "type_xai": "xAI (Grok)",
+    "type_google": "Google AI Studio (Gemini)",
+    "type_cohere": "Cohere",
+    "type_openrouter": "OpenRouter",
+    "type_koboldcpp": "KoboldCPP",
+    "type_lmstudio": "LM Studio",
+    "form_modal_title": "Add Provider",
+    "form_type_label": "Type",
+    "form_name_label": "Name",
+    "form_name_placeholder": "e.g., OpenAI",
+    "form_name_hint": "Dots, spaces, and special characters are replaced with \"-\" when routing.",
+    "form_base_url_label": "Base URL",
+    "form_base_url_placeholder": "https://api.openai.com/v1",
+    "form_base_url_hint_preset": "Base URL is preset for this provider type",
+    "form_base_url_hint_local": "Default URL pre-filled; edit if your server runs on a different address. Type is detected from the port number.",
+    "form_base_url_hint_custom": "Full API base URL including any path prefix. Models will be discovered from \"<base_url>\"/models",
+    "form_api_key_label": "API Key",
+    "form_api_key_placeholder_optional": "Optional - free models available",
+    "form_api_key_placeholder_required": "API key",
+    "form_api_key_show": "Show API key",
+    "form_api_key_hide": "Hide API key",
+    "form_btn_cancel": "Cancel",
+    "form_btn_add": "Add Provider",
+    "form_btn_adding": "Adding…",
+    "form_btn_save": "Save Changes",
+    "edit_modal_title": "Edit Provider",
+    "edit_enabled_label": "Enabled",
+    "edit_enabled_hint": "Controls proxy routing and API access. Disabled providers reject all requests.",
+    "edit_autodiscovery_label": "Autodiscovery",
+    "edit_autodiscovery_hint": "Controls automatic model discovery. Disable to manually curate this provider's model catalogue.",
+    "edit_api_key_current": "Current: {{key}}",
+    "edit_api_key_placeholder": "Leave blank to keep current key",
+    "dialog_unsaved_title": "Unsaved Changes",
+    "card_disabled": "Disabled",
+    "card_autodiscovery_off": "Autodiscovery Off",
+    "card_tokens": "{{tokens}} tokens",
+    "card_created": "Created",
+    "card_api_key": "API Key",
+    "card_last_used": "Last Used",
+    "card_last_discovery": "Last Discovery",
+    "card_btn_edit": "Edit",
+    "card_btn_discover": "Discover Models",
+    "card_btn_discovering": "Discovering...",
+    "card_btn_delete": "Delete",
+    "card_copy_name": "Click to copy provider name",
+    "card_copy_url": "Click to copy API base URL",
+    "toast_discover_success_one": "Discovered {{count}} model from {{name}}",
+    "toast_discover_success_other": "Discovered {{count}} models from {{name}}",
+    "toast_delete_models_success_one": "Deleted {{count}} disabled model",
+    "toast_delete_models_success_other": "Deleted {{count}} disabled models",
+    "toast_delete_models_success": "Deleted {{count}} disabled models",
+    "toast_delete_models_warning_one": "Deleted {{kept}} model, {{failed}} failed",
+    "toast_delete_models_warning_other": "Deleted {{kept}} models, {{failed}} failed",
+    "toast_delete_models_warning": "Deleted {{kept}} models, {{failed}} failed",
+    "card_models_one": "{{count}} model",
+    "card_models_other": "{{count}} models",
+    "add": {
+      "providerFallback": "Provider",
+      "discoveredModels_one": "Discovered {{count}} model…",
+      "discoveredModels_other": "Discovered {{count}} models…",
+      "deepseekBalance": "DeepSeek balance detected: ${{balance}}",
+      "deepseekBalanceDetected": "DeepSeek balance detected",
+      "openrouterBalance": "OpenRouter balance detected: ${{balance}}",
+      "baseUrl": "Base URL",
+      "baseUrlHelperDefault": "Default URL pre-filled; edit if your server runs on a different address. Type is detected from the port number.",
+      "baseUrlHelperFull": "Full API base URL including any path prefix. Models will be discovered from \"<base_url>\"/models",
+      "apiKey": "API Key"
+    },
+    "edit": {
+      "enabledToggle": "Provider enabled",
+      "enabledHelper": "Controls proxy routing and API access. Disabled providers reject all requests.",
+      "autodiscoveryToggle": "Provider autodiscovery",
+      "autodiscoveryHelper": "Controls automatic model discovery. Disable to manually curate this provider's model catalogue."
+    },
+    "quotas": {
+      "expand": "Expand quotas"
+    },
+    "credits": {
+      "toggleLabel": "Toggle between remaining and used",
+      "showUsed": "Show credits used",
+      "showRemaining": "Show credits remaining"
+    },
+    "toast": {
+      "refreshedQuotas": "Refreshed {{refreshed}} quotas ({{failed}} failed, {{skipped}} unsupported)"
+    }
+  },
+  "models": {
+    "page_title_one": "Model",
+    "page_title_other": "Models",
+    "page_description": "Discovered models from your providers",
+    "badge_enabled": "{{count}} enabled",
+    "badge_disabled": "{{count}} disabled",
+    "view_mode_pages": "⬡ Pages",
+    "view_mode_scroll": "⇊ Scroll",
+    "switch_to_pagination": "Switch to pagination mode",
+    "switch_to_scroll": "Switch to scroll mode",
+    "toast_updated": "Model updated",
+    "toast_update_failed": "Failed to update model: {{message}}",
+    "toast_toggle_enabled": "Model enabled",
+    "toast_toggle_disabled": "Model disabled",
+    "toast_deleted": "Model deleted successfully",
+    "toast_delete_failed": "Failed to delete model: {{message}}",
+    "detail_modal_title": "Model Details",
+    "toast_delete_bulk_success_one": "Deleted {{count}} disabled model",
+    "toast_delete_bulk_success_other": "Deleted {{count}} disabled models",
+    "toast_delete_bulk_warning_one": "Deleted {{kept}} model, {{failed}} failed",
+    "toast_delete_bulk_warning_other": "Deleted {{kept}} models, {{failed}} failed",
+    "toast_delete_bulk_warning": "Deleted {{kept}} model, {{failed}} failed",
+    "detail": {
+      "snippet": {
+        "curl": "cURL",
+        "powershell": "PowerShell",
+        "javascript": "JavaScript",
+        "python": "Python",
+        "claudeCode": "Claude Code",
+        "openClaw": "OpenClaw",
+        "hermes": "Hermes",
+        "librechat": "LibreChat",
+        "zed": "ZED",
+        "opencode": "OpenCode"
+      },
+      "provider": "Provider",
+      "lastDiscovered": "Last Discovered",
+      "displayName": "Display Name",
+      "contextLength": "Context Length",
+      "maxOutput": "Max Output",
+      "inputPrice": "Input Price",
+      "outputPrice": "Output Price",
+      "input": "Input",
+      "output": "Output",
+      "tokens": "tokens",
+      "perMillionTokens": "/1M tok",
+      "modality": {
+        "text": "text"
+      },
+      "capabilities": "Capabilities",
+      "subscription": "Subscription",
+      "snippetFormatPicker": "Snippet format picker",
+      "test": "Test",
+      "testing": "Testing…",
+      "confirmDelete": "Confirm delete",
+      "updating": "Updating…",
+      "updateCooldown": "Update ({{cooldown}}s)",
+      "updateInfo": "Update info",
+      "placeholder": {
+        "price": "0.00"
+      },
+      "testSuccess": "Success | Response: {{content}}{{ttftPart}} | Duration: {{duration}}s",
+      "testFailed": "Test failed: {{error}}"
+    },
+    "table": {
+      "sortByModelName": "Sort by model name",
+      "model": "Model",
+      "capabilities": "Capabilities",
+      "sortByProviderName": "Sort by provider name",
+      "provider": "Provider",
+      "sortByDiscoveredDate": "Sort by discovered date",
+      "discovered": "Discovered",
+      "sortByContextLength": "Sort by context length",
+      "ctx": "Ctx",
+      "sortByMaxOutput": "Sort by max output tokens",
+      "maxOut": "Max Out",
+      "sortByStatus": "Sort by status",
+      "status": "Status"
+    }
+  },
+  "model": {
+    "revertToDiscoveredValue": "Revert to discovered value",
+    "clickToCopyModelId": "Click to copy model ID",
+    "noSpecialCapabilities": "No special capabilities detected",
+    "subscription": {
+      "included": "Included",
+      "notIncluded": "Not included"
+    }
+  },
+  "failover": {
+    "page_title_one": "Failover Group",
+    "page_title_other": "Failover Groups",
+    "page_description_lead": "Route requests through multiple providers in priority order via",
+    "page_description_code": "hotel/model",
+    "last_sync": "Last sync: {{time}}",
+    "btn_sync": "Sync",
+    "btn_syncing": "Syncing…",
+    "btn_new_group": "New Group",
+    "hint_drag": "Drag models by the handle (⠿) to reorder priority",
+    "filter_hotel_model": "Filter hotel/model…",
+    "filter_providers": "All providers",
+    "filter_states": "All states",
+    "filter_origins": "All origins",
+    "filter_state_enabled": "Enabled",
+    "filter_state_disabled": "Disabled",
+    "filter_origin_auto": "Auto",
+    "filter_origin_manual": "Manual",
+    "select_all": "Select all",
+    "deselect_all": "Deselect all",
+    "selected_count": "{{count}} selected",
+    "btn_enable_all": "Enable all",
+    "btn_disable_all": "Disable all",
+    "btn_delete_all": "Delete all",
+    "bulk_provider_enable": "Enable all {{provider}}",
+    "bulk_provider_disable": "Disable all {{provider}}",
+    "empty_no_auto": "No auto-discovered groups found",
+    "empty_no_manual": "No manually created groups found",
+    "empty_no_match": "No groups matching filters",
+    "empty_create_group": "Create New Group",
+    "empty_clear_filters": "Clear filters",
+    "empty_no_groups": "No failover groups configured",
+    "empty_auto_discover": "Auto-discover from models",
+    "section_custom": "Custom",
+    "section_letter": "{{letter}}",
+    "nav_custom": "Jump to custom groups",
+    "nav_letter": "Jump to section {{letter}}",
+    "toast_bulk_toggle_failed": "Bulk toggle failed for some groups",
+    "toast_provider_toggle_failed": "Bulk provider toggle failed for some groups",
+    "toast_sync_deleted": "hotel/{{model}} deleted: {{reason}}{{providers}}",
+    "toast_sync_purged": "hotel/{{group}}: removed {{count}} stale entry(ies)",
+    "toast_sync_success": "Failover groups synced",
+    "toast_sync_failed": "Failed to sync: {{message}}",
+    "toast_update_failed": "Failed to update: {{message}}",
+    "toast_delete_success": "Group deleted",
+    "toast_delete_failed": "Failed to delete: {{message}}",
+    "toast_bulk_delete_warning": "Deleted {{succeeded}} of {{total}} groups ({{failed}} failed)",
+    "toast_entry_min_one": "At least one provider must remain active",
+    "delete_confirm_type": "failover group",
+    "group": {
+      "clickToCopy": "Click to copy"
+    },
+    "bulk_provider_count_one": "{{count}} group with {{provider}} entries",
+    "bulk_provider_count_other": "{{count}} groups with {{provider}} entries",
+    "group_count_one": "{{count}} group",
+    "group_count_other": "{{count}} groups",
+    "toast_bulk_toggle_success_one": "{{action}} all entries in {{count}} group",
+    "toast_bulk_toggle_success_other": "{{action}} all entries in {{count}} groups",
+    "toast_provider_toggle_success_one": "{{action}} {{provider}} across {{count}} group",
+    "toast_provider_toggle_success_other": "{{action}} {{provider}} across {{count}} groups",
+    "toast_bulk_delete_success_one": "Deleted {{count}} group",
+    "toast_bulk_delete_success_other": "Deleted {{count}} groups",
+    "delete_confirm_bulk_title_one": "{{count}} failover group",
+    "delete_confirm_bulk_title_other": "{{count}} failover groups"
+  },
+  "delete_confirm": {
+    "unsaved_changes": "Unsaved Changes"
+  },
+  "virtualkeys": {
+    "title": {
+      "singular": "Virtual Key",
+      "plural": "Virtual Keys"
+    },
+    "description": "Issue keys for clients to access the proxy at",
+    "createButton": "Create Key",
+    "deleted": "Virtual key deleted",
+    "deleteFailed": "Failed to delete: {{message}}",
+    "table": {
+      "name": "Name",
+      "key": "Key",
+      "rps": "RPS",
+      "burst": "Burst",
+      "created": "Created",
+      "tokens": "Tokens",
+      "lastUsed": "Last Used",
+      "keys": "keys"
+    },
+    "tooltip": {
+      "proxyUrl": "Click to copy proxy URL",
+      "name": "Display name for the virtual key",
+      "key": "Preview of the API key (full key only shown once on creation)",
+      "rps": "Requests per second rate limit",
+      "burst": "Burst capacity for rate limiting",
+      "created": "When the key was created",
+      "tokens": "Total tokens consumed using this key",
+      "lastUsed": "When the key was last used for a request",
+      "providerRestricted": "Provider-restricted key",
+      "reasoningStripped": "Reasoning stripped",
+      "keyHashed": "Key is hashed and cannot be recovered"
+    },
+    "emptyState": "No virtual keys. Create one to start using the proxy.",
+    "steps": {
+      "createKey": "Create a Key",
+      "copyKey": "Copy the Full Key",
+      "makeRequests": "Make Requests"
+    },
+    "stepDescriptions": {
+      "createKey": "Click the button above to generate a new virtual key",
+      "copyKey": "The complete key is shown only once on creation",
+      "makeRequests": "Use your key to call the proxy API endpoints"
+    },
+    "note": {
+      "title": "Note:",
+      "text": "Virtual keys are used to authenticate requests to the proxy. Each key tracks its own token usage. You can create multiple keys for different clients or environments."
+    },
+    "modal": {
+      "createTitle": "Create Virtual Key",
+      "createdTitle": "Virtual Key Created",
+      "warningTitle": "This key cannot be recovered after you close this modal.",
+      "warningText": "Virtual keys are hashed before storage. Copy it now or it is gone forever.",
+      "useAs": "Use as:",
+      "form": {
+        "name": "Name",
+        "namePlaceholder": "e.g., My App",
+        "rateLimitRps": "Rate Limit RPS (requests/sec)",
+        "rateLimitBurst": "Rate Limit Burst (max concurrent)",
+        "placeholderGlobal": "Use global setting",
+        "providerAccess": "Provider Access",
+        "providerInstructions": "Click a provider to restrict access. All are accessible by default.",
+        "noProviders": "No providers available.",
+        "restoreAccess": "Restore access to all providers",
+        "stripReasoning": "Strip Reasoning",
+        "stripReasoningDescription": "When enabled, reasoning/thinking tokens are removed from streaming responses for clients that cannot handle them.",
+        "enableStripReasoning": "Enable strip reasoning",
+        "disableStripReasoning": "Disable strip reasoning"
+      },
+      "detailTitle": "Virtual Key Details",
+      "sections": {
+        "identity": "Identity",
+        "rateLimits": "Rate Limits",
+        "usage": "Usage",
+        "providerAccess": "Provider Access",
+        "stripReasoning": "Strip Reasoning"
+      },
+      "labels": {
+        "key": "Key",
+        "tokensConsumed": "Tokens Consumed",
+        "lastUsed": "Last Used",
+        "created": "Created"
+      },
+      "noProvidersConfigured": "No providers configured.",
+      "discardChanges": "Discard unsaved changes?",
+      "loadingProviders": "Loading providers..."
+    }
+  },
+  "logs": {
+    "title": {
+      "requests": "Requests",
+      "logs": "Logs"
+    },
+    "description": "Monitor API requests across all providers and keys",
+    "appDescription": "Server application log output",
+    "tabs": {
+      "requests": "Requests",
+      "logs": "Logs"
+    },
+    "filters": {
+      "modelPlaceholder": "Filter by model ID…",
+      "providerPlaceholder": "Filter by provider…",
+      "status": "Status",
+      "statusOptions": {
+        "0": "0",
+        "2xx": "2XX",
+        "4xx": "4XX",
+        "5xx": "5XX"
+      },
+      "level": "Level",
+      "levelAll": "All",
+      "source": "Source",
+      "logsPlaceholder": "Filter logs…"
+    },
+    "table": {
+      "timeDate": "Time/Date",
+      "hash": "Hash",
+      "model": "Model",
+      "provider": "Provider",
+      "status": "Status",
+      "tokens": "Tokens",
+      "tps": "T/s",
+      "headers": "Headers",
+      "ttft": "TTFT",
+      "duration": "Duration",
+      "overhead": "Overhead",
+      "key": "Key",
+      "providerDeleted": "Provider was deleted",
+      "deletedProvider": "Deleted",
+      "resolving": "Resolving…",
+      "live": "Live",
+      "interrupted": "Interrupted",
+      "cacheInflated": "Inflated by prompt cache hits",
+      "keyDeleted": "Deleted"
+    },
+    "tooltip": {
+      "timeDate": "Timestamp of the request",
+      "hash": "Unique hash of the request body",
+      "model": "Model ID used for the request",
+      "provider": "Provider handling the request",
+      "status": "HTTP status code of the response",
+      "tokens": "Prompt + completion tokens (if available)",
+      "tps": "Tokens generated per second",
+      "headers": "Time to response headers",
+      "ttft": "Time to first token",
+      "duration": "Total request duration",
+      "overhead": "Proxy overhead (parsing, lookups, etc)",
+      "key": "Virtual key used for authentication",
+      "providerDeleted": "Provider was deleted",
+      "totalOverhead": "Total Overhead",
+      "requestParsing": "Request Parsing",
+      "failoverGroupLookup": "Failover Group Lookup",
+      "modelLookup": "Model Lookup",
+      "providerLookup": "Provider Lookup",
+      "keyDecryption": "Key Decryption",
+      "dial": "Dial (DNS+TCP)",
+      "settingsReads": "Settings Reads",
+      "reused": "reused"
+    },
+    "status": {
+      "interrupted": "Interrupted"
+    },
+    "emptyState": {
+      "requests": "No logs found",
+      "appNoEntries": "No log entries yet - logs will appear here as the server generates output",
+      "appNoMatch": "No entries match your filter"
+    },
+    "toast": {
+      "loadFailed": "Failed to load logs: {{message}}",
+      "scrollLoadFailed": "Failed to load logs: {{message}}"
+    },
+    "pagination": {
+      "label": "entries"
+    },
+    "loading": {
+      "newer": "↻ Loading newer…",
+      "older": "↻ Loading older…"
+    }
+  },
+  "applogs": {
+    "title": "Logs",
+    "description": "Server application log output",
+    "tabs": {
+      "requests": "Requests",
+      "logs": "Logs"
+    },
+    "filters": {
+      "level": "Level",
+      "levelAll": "All",
+      "source": "Source",
+      "all": "All ({{count}})",
+      "search": "Filter logs…"
+    },
+    "table": {
+      "timeDate": "Time/Date",
+      "level": "Level",
+      "source": "Source",
+      "message": "Message"
+    },
+    "emptyState": {
+      "noEntries": "No log entries yet - logs will appear here as the server generates output",
+      "noMatch": "No entries match your filter"
+    },
+    "toast": {
+      "loadFailed": "Failed to load logs: {{message}}",
+      "scrollLoadFailed": "Failed to load logs: {{message}}"
+    },
+    "pagination": {
+      "label": "entries"
+    },
+    "loading": {
+      "newer": "↻ Loading newer…",
+      "older": "↻ Loading older…"
+    }
+  },
+  "format": {
+    "never": "Never",
+    "justNow": "just now",
+    "minutesAgo_one": "{{count}}m ago",
+    "minutesAgo_other": "{{count}}m ago",
+    "hoursAgo_one": "{{count}}h ago",
+    "hoursAgo_other": "{{count}}h ago",
+    "daysAgo_one": "{{count}}d ago",
+    "daysAgo_other": "{{count}}d ago",
+    "inDaysHours_one_day_one_hour": "in {{days}} day, {{hours}} hour",
+    "inDaysHours_one_day_other_hours": "in {{days}} day, {{hours}} hours",
+    "inDaysHours_other_days_one_hour": "in {{days}} days, {{hours}} hour",
+    "inDaysHours_other_days_other_hours": "in {{days}} days, {{hours}} hours",
+    "inDays_only_one": "in {{days}} day",
+    "inDays_only_other": "in {{days}} days",
+    "inHours_only_one": "in {{hours}} hour",
+    "inHours_only_other": "in {{hours}} hours",
+    "now": "now"
+  },
+  "presets": {
+    "personas": {
+      "merlin": "Merlin",
+      "madame-vex": "Madame Vex",
+      "sarge": "Sarge",
+      "auntie-wei": "Auntie Wei",
+      "grimm": "Grimm",
+      "kairos": "Kairos",
+      "phreak": "Phreak",
+      "roux": "Chef Roux",
+      "unit-734": "Unit 734",
+      "bramble": "Elder Bramble",
+      "nera": "Nera",
+      "oolo": "Oolo",
+      "dr-maren": "Dr. Maren",
+      "nonna-pia": "Nonna Pia",
+      "whisper": "Whisper"
+    },
+    "prompts": {
+      "dilemma": "Dilemma",
+      "lore": "Lore",
+      "hook": "Hook",
+      "blueprint": "Blueprint",
+      "spiral": "Spiral",
+      "trolley": "Trolley Problem",
+      "algorithm": "Algorithm",
+      "paradox": "Paradox",
+      "integral": "Integral",
+      "contract": "Contract",
+      "cipher": "Cipher",
+      "eulogy": "Eulogy",
+      "fork": "Fork",
+      "mosaic": "Mosaic",
+      "heist": "Heist"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "Configure your Model Hotel instance",
+    "proxy": {
+      "title": "Proxy",
+      "description": "Configure proxy request behavior and timeouts.",
+      "requestTimeout": "Request Timeout",
+      "requestTimeout.description": "Maximum time for non-streaming requests before timing out. Streaming requests automatically get 10× this duration to accommodate thinking/reasoning models.",
+      "keyCacheTtl": "Key Cache TTL",
+      "keyCacheTtl.description": "How long decrypted provider API keys are cached. Higher values reduce latency on the first request after cache expiry (Argon2id key derivation is ~12ms).",
+      "ttftTimeout": "TTFT Timeout",
+      "ttftTimeout.description": "Maximum time to wait for the first streaming token before failing over to the next provider. Disabled means immediate commit (no failover on slow first token).",
+      "streamStallTimeout": "Stream Stall Timeout",
+      "streamStallTimeout.description": "Maximum silence during streaming before the connection is cut. After 50 chunks, the timeout is automatically extended 3× to tolerate tool calls and long reasoning.",
+      "timeout": {
+        "30s": "30 seconds",
+        "1m0s": "1 minute (default)",
+        "2m0s": "2 minutes",
+        "5m0s": "5 minutes",
+        "10m0s": "10 minutes"
+      },
+      "keyCache": {
+        "1m0s": "1 minute",
+        "5m0s": "5 minutes",
+        "10m0s": "10 minutes (default)",
+        "30m0s": "30 minutes",
+        "1h0m0s": "1 hour"
+      },
+      "ttft": {
+        "15s": "15 seconds",
+        "30s": "30 seconds",
+        "1m0s": "1 minute (default)",
+        "2m0s": "2 minutes",
+        "5m0s": "5 minutes",
+        "disabled": "Disabled"
+      },
+      "streamStall": {
+        "10s": "10 seconds",
+        "30s": "30 seconds (default)",
+        "1m0s": "1 minute",
+        "2m0s": "2 minutes",
+        "5m0s": "5 minutes",
+        "10m0s": "10 minutes",
+        "disabled": "Disabled"
+      }
+    },
+    "rateLimit": {
+      "title": "Rate Limiting",
+      "description": "Control request throughput per virtual key to prevent abuse and ensure fair usage.",
+      "enable": "Enable Rate Limiting",
+      "enableDescription": "Throttle proxy requests per virtual key",
+      "requestsPerSecond": "Requests per Second",
+      "requestsPerSecond.description": "Sustained request rate allowed per virtual key (0 = unlimited)",
+      "burstSize": "Burst Size",
+      "burstSize.description": "Maximum number of simultaneous requests before throttling kicks in",
+      "ipRateLimiting": "IP Rate Limiting",
+      "ipRateLimitingDescription": "Per-IP rate limiter (DoS protection, runs before auth)",
+      "ipRequestsPerSecond": "IP Requests per Second",
+      "ipRequestsPerSecond.description": "Sustained request rate per IP address (0 = unlimited)",
+      "ipBurstSize": "IP Burst Size",
+      "ipBurstSize.description": "Maximum simultaneous requests per IP before throttling kicks in",
+      "backpressure": "Rate Limit Backpressure",
+      "backpressureDescription": "Shared wait behavior for both per-key and IP rate limiters",
+      "maxWait": "Max Wait (ms)",
+      "maxWait.description": "Maximum time to wait before rejecting a rate-limited request. If a token becomes available within this window, the request proceeds; otherwise 429 is returned.",
+      "rps": {
+        "5": "5 req/s",
+        "10": "10 req/s",
+        "20": "20 req/s",
+        "50": "50 req/s",
+        "100": "100 req/s",
+        "unlimited": "Unlimited"
+      },
+      "burst": {
+        "10": "10",
+        "20": "20",
+        "50": "50",
+        "100": "100",
+        "200": "200"
+      }
+    },
+    "circuitBreaker": {
+      "title": "Circuit Breaker & Failover",
+      "description": "Configure how the proxy handles provider failures and rate-limited requests.",
+      "enable": "Enable Circuit Breaker",
+      "enableDescription": "Temporarily stop routing to providers that are failing",
+      "failureThreshold": "Failure Threshold",
+      "failureThreshold.description": "Consecutive failures before the circuit opens and stops routing to the provider",
+      "cooldownPeriod": "Cooldown Period",
+      "cooldownPeriod.description": "Time to wait before retrying a provider with an open circuit",
+      "failoverOnRateLimit": "Failover on Rate Limit",
+      "failoverOnRateLimitDescription": "Route to next failover group member when a provider returns 429",
+      "cooldown": {
+        "30s": "30 seconds",
+        "1m0s": "1 minute (default)",
+        "2m0s": "2 minutes",
+        "5m0s": "5 minutes",
+        "10m0s": "10 minutes"
+      }
+    },
+    "logging": {
+      "title": "Logging",
+      "logRetention": "Log Retention",
+      "logRetention.disabled": "Log retention is disabled. Logs will accumulate indefinitely until manually purged.",
+      "logRetention.description": "Automatically delete logs older than this period",
+      "staleRequestTimeout": "Stale Request Timeout",
+      "staleRequestTimeout.disabled": "Stale request detection is disabled. Orphaned requests from server restarts will still be marked as failed, but age-based cleanup will not run.",
+      "staleRequestTimeout.description": "Mark pending/streaming requests as \"interrupted\" if they remain in-progress longer than this. Accounts for providers with long time-to-first-token.",
+      "deleteRequests": "Delete Requests",
+      "deleteRequests.selectRange": "Select range...",
+      "deleteRequests.olderThan1d": "Older than 1 day",
+      "deleteRequests.olderThan1w": "Older than 1 week",
+      "deleteRequests.olderThan1m": "Older than 1 month",
+      "deleteRequests.allLogs": "All logs",
+      "deleteRequests.confirm": "Confirm Delete",
+      "deleteRequests.cancel": "Cancel",
+      "deleteAppLogs": "Delete Logs",
+      "deleteAppLogs.confirmText": "Clear all application logs?",
+      "deleteAppLogs.confirm": "Confirm",
+      "deleteAppLogs.cancel": "Cancel",
+      "deleteAppLogs.deleting": "Deleting…",
+      "retention": {
+        "disabled": "Disabled",
+        "24h": "1 day",
+        "168h": "1 week",
+        "720h": "1 month"
+      },
+      "staleTimeout": {
+        "5m0s": "5 minutes",
+        "10m0s": "10 minutes",
+        "15m0s": "15 minutes",
+        "30m0s": "30 minutes (default)",
+        "1h0m0s": "1 hour",
+        "2h0m0s": "2 hours",
+        "disabled": "Disabled (never mark as stale)"
+      }
+    },
+    "discovery": {
+      "title": "Model Discovery",
+      "description": "Configure how and when models are auto-discovered from your providers.",
+      "discoveryInterval": "Discovery Interval",
+      "discoveryInterval.disabled": "Periodic discovery is disabled. Models will only be discovered when you click \"Discover Now\" or \"Discover All\", or when a new provider is created.",
+      "discoveryInterval.description": "How often to automatically re-discover models from all enabled providers",
+      "discoverOnStartup": "Discover on Startup",
+      "discoverOnStartupDescription": "Run discovery for all providers when the server starts",
+      "discoverOnProviderCreation": "Discover on Provider Creation",
+      "discoverOnProviderCreationDescription": "Automatically discover models when a new provider is added",
+      "intervals": {
+        "30m": "30 minutes",
+        "1h": "1 hour",
+        "6h": "6 hours",
+        "12h": "12 hours",
+        "24h": "24 hours",
+        "disabled": "Disabled"
+      }
+    },
+    "dataStorage": {
+      "title": "Data Storage",
+      "description": "Manage browser-local session data. Persisted data survives page reload and browser restarts.",
+      "sessionPersistence": "Session Persistence",
+      "persistChat": "Persist Chat",
+      "persistChatDescription": "Remember messages, prompt, and persona across sessions",
+      "persistChatConfirm": "This will clear all saved chat messages. Continue?",
+      "persistChatEnabled": "Chat persistence enabled",
+      "persistChatDisabled": "Chat data cleared",
+      "persistArena": "Persist Arena",
+      "persistArenaDescription": "Remember bracket state and prompts across sessions",
+      "persistArenaConfirm": "This will clear all saved arena data. Continue?",
+      "persistArenaEnabled": "Arena persistence enabled",
+      "persistArenaDisabled": "Arena data cleared",
+      "persistConversation": "Persist AI Conversation",
+      "persistConversationDescription": "Remember conversation state and settings across sessions",
+      "persistConversationConfirm": "This will clear all saved conversation data. Continue?",
+      "persistConversationEnabled": "Conversation persistence enabled",
+      "persistConversationDisabled": "Conversation data cleared",
+      "arenaHistory": "Arena History",
+      "saveMatchHistory": "Save Match History",
+      "saveMatchHistoryDescription": "Automatically save completed arena and compare sessions",
+      "saveMatchHistoryEnabled": "Arena history enabled",
+      "saveMatchHistoryDisabled": "Arena history disabled - existing entries preserved",
+      "maxSavedMatches": "Maximum Saved Matches",
+      "maxSavedMatches.description": "Oldest matches are automatically removed when the limit is reached",
+      "matches": {
+        "10": "10 matches",
+        "25": "25 matches (default)",
+        "50": "50 matches",
+        "100": "100 matches"
+      },
+      "historyLimitToast": "History limit set to {{count}} matches",
+      "clearHistory": "Clear History",
+      "clearHistoryConfirm": "Delete all arena history? This cannot be undone.",
+      "clearHistoryAll": "Clear All",
+      "clearHistoryAllCleared": "All arena history cleared",
+      "cacheAndResets": "Cache & Resets",
+      "providerQuotaCache": "Provider Quota Cache",
+      "clearCache": "Clear Cache",
+      "clearCacheConfirm": "Clear all cached provider quota data? Fresh data will be fetched on next refresh.",
+      "clearCacheCleared": "Provider cache cleared",
+      "dismissedErrorBanners": "Dismissed Error Banners",
+      "dismissedErrorBannersDescription": "Reset dismissed sidebar error pill states",
+      "reset": "Reset",
+      "resetDismissedBanners": "Dismissed error banners reset",
+      "clearHistoryDescription_one": "{{count}} entry stored",
+      "clearHistoryDescription_other": "{{count}} entries stored",
+      "providerQuotaCache.description_one": "{{count}} cached entry (NanoGPT, Z.ai Coding Plan, DeepSeek)",
+      "providerQuotaCache.description_other": "{{count}} cached entries (NanoGPT, Z.ai Coding Plan, DeepSeek)",
+      "cachedEntryCount_one": "{{count}} cached entry (NanoGPT, Z.ai Coding Plan, DeepSeek)",
+      "cachedEntryCount_other": "{{count}} cached entries (NanoGPT, Z.ai Coding Plan, DeepSeek)",
+      "providerQuotaCacheDescription_one": "{{count}} cached entry (NanoGPT, Z.ai Coding Plan, DeepSeek)",
+      "providerQuotaCacheDescription_other": "{{count}} cached entries (NanoGPT, Z.ai Coding Plan, DeepSeek)"
+    },
+    "backup": {
+      "title": "Database Backup",
+      "description": "Create and download PostgreSQL backups. Uses `pg_dump` with custom format for efficient compression.",
+      "restoreRequirements": "Restore Requirements",
+      "restoreRequirements.masterKey": "MASTER_KEY must match",
+      "restoreRequirements.masterKeyDescription": "Provider API keys are AES-256-GCM encrypted. Restoring with a different MASTER_KEY will leave all provider keys unrecoverable.",
+      "restoreRequirements.adminToken": "Admin token is not in the backup",
+      "restoreRequirements.adminTokenDescription": "Your current admin token will continue to work after restore.",
+      "restoreRequirements.virtualKeys": "Virtual keys are irrecoverable",
+      "restoreRequirements.virtualKeysDescription": "Only SHA-256 hashes are stored. If you lose the plaintext virtual keys, they cannot be recovered from the backup.",
+      "createBackup": "Create Backup",
+      "creatingBackup": "Creating backup…",
+      "uploadRestore": "Upload & Restore",
+      "restoring": "Restoring…",
+      "selectBackupFile": "Select backup file to restore",
+      "availableBackups": "Available Backups ({{count}})",
+      "noBackups": "No backups yet.",
+      "download": "Download",
+      "delete": "Delete backup",
+      "deleteConfirm": "Delete?",
+      "confirm": "Confirm",
+      "cancel": "Cancel",
+      "backupFailed": "Backup failed: {{message}}",
+      "backupDeleted": "Backup deleted",
+      "deleteFailed": "Delete failed: {{message}}",
+      "restoreSuccess": "Database restored. The server is restarting…",
+      "serverBackOnline": "Server is back online",
+      "serverRestarting": "Server is taking longer than expected to restart",
+      "restoreFailed": "Restore failed: {{message}}",
+      "backupCreated": "Backup created",
+      "downloadFailed": "Download failed: {{message}}"
+    },
+    "appearance": {
+      "title": "Appearance",
+      "uiStyle": "UI Style",
+      "theme": "Theme",
+      "themeDescription": "Switch between dark and light mode",
+      "dark": "Dark",
+      "light": "Light",
+      "accentColor": "Accent Color",
+      "customColor": "Custom color",
+      "colorPicker": {
+        "title": "Pick a Color",
+        "cancel": "Cancel",
+        "apply": "Apply"
+      },
+      "uiStyles": {
+        "cleanSaas": "Clean SaaS",
+        "cleanSaasDescription": "Refined, professional, minimal",
+        "cyberTerminal": "Cyber Terminal",
+        "cyberTerminalDescription": "Developer-centric, high-contrast",
+        "glassmorphism": "Glassmorphism",
+        "glassmorphismDescription": "Slick, translucent surfaces"
+      }
+    },
+    "toast": {
+      "title": "Toast Notifications",
+      "description": "Choose where notification toasts appear and how long they stay visible.",
+      "position": {
+        "topLeft": "Top Left",
+        "topCenter": "Top Center",
+        "topRight": "Top Right",
+        "bottomLeft": "Bottom Left",
+        "bottomCenter": "Bottom Center",
+        "bottomRight": "Bottom Right"
+      },
+      "testNotification": "Test notification - you'll see toasts here",
+      "autoDismiss": "Auto-dismiss",
+      "seconds": "{{seconds}}s"
+    },
+    "dashboard": {
+      "title": "Dashboard Refresh",
+      "description": "Configure how often the dashboard stats and charts are refreshed automatically. Manual refresh button is hidden when set to 10 seconds or faster.",
+      "refreshInterval": "Refresh Interval",
+      "refreshInterval.description": "At 10 seconds the manual refresh button is hidden. Changes take effect on next navigation to the dashboard.",
+      "disabled": "Dashboard auto-refresh disabled - use manual refresh",
+      "intervals": {
+        "10": "10 seconds (manual refresh hidden)",
+        "30": "30 seconds (default)",
+        "60": "1 minute",
+        "120": "2 minutes",
+        "300": "5 minutes",
+        "600": "10 minutes",
+        "disabled": "Disabled (manual only)"
+      },
+      "intervalSet_one": "Dashboard refresh set to every {{seconds}} second",
+      "intervalSet_other": "Dashboard refresh set to every {{seconds}} seconds"
+    },
+    "sidebarQuota": {
+      "title": "Sidebar Quotas",
+      "description": "Configure how often provider quota and balance data is refreshed in the sidebar panel.",
+      "showQuotasPill": "Show Quotas Pill",
+      "showQuotasPillDescription": "Display the quota panel in the sidebar",
+      "refreshInterval": "Refresh Interval",
+      "refreshInterval.description": "Minimum 1 minute. Changes take effect on next scheduled refresh.",
+      "disabled": "Sidebar quota auto-refresh disabled - use manual refresh",
+      "enabledQuotas": "Sidebar quotas enabled - pill visible and auto-refresh resumed",
+      "disabledQuotas": "Sidebar quotas disabled - pill hidden and auto-refresh paused",
+      "intervals": {
+        "1": "1 minute",
+        "2": "2 minutes",
+        "5": "5 minutes (default)",
+        "10": "10 minutes",
+        "15": "15 minutes",
+        "30": "30 minutes",
+        "disabled": "Disabled (manual only)"
+      },
+      "intervalSet_one": "Quota refresh set to every {{minutes}} minute",
+      "intervalSet_other": "Quota refresh set to every {{minutes}} minutes"
+    },
+    "common": {
+      "cancel": "Cancel",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "deleting": "Deleting",
+      "settingsSaved": "Settings saved",
+      "failedToSave": "Failed to save: {{message}}",
+      "requestsDeleted": "Requests deleted",
+      "failedToDeleteRequests": "Failed to delete requests: {{message}}",
+      "entriesDeleted": "Deleted {{count}} log entries",
+      "failedToDeleteAppLogs": "Failed to delete app logs: {{message}}"
+    },
+    "colorPicker": {
+      "title": "Pick a Color",
+      "cancel": "Cancel",
+      "apply": "Apply"
+    }
+  },
+  "components": {
+    "deleteConfirmModal": {
+      "confirmDelete": "Confirm Delete",
+      "deleteType": "Delete {{entityType}}",
+      "areYouSure": "Are you sure you want to delete {{entityName}}? This action cannot be undone."
+    },
+    "confirmDialog": {
+      "discardChangesTo": "Discard changes to:",
+      "close": "Close"
+    },
+    "confirmDeleteButton": {
+      "deleteKey": "Delete Key",
+      "yesDelete": "Yes, delete",
+      "areYouSure": "Are you sure?"
+    },
+    "restoreConfirmModal": {
+      "title": "Restore Database Backup",
+      "overwriteWarning": "This will permanently overwrite all data",
+      "destroyWarning": "This will permanently destroy all current data and replace it with the backup. This action cannot be undone.",
+      "requirements": "Requirements:",
+      "masterKeyMatch": "MASTER_KEY must match:",
+      "masterKeyInfo": "Provider API keys are AES-256-GCM encrypted using a key derived from your MASTER_KEY. Restoring with a different MASTER_KEY will leave all provider keys unrecoverable.",
+      "adminTokenNotInBackup": "Admin token is not in the backup:",
+      "adminTokenInfo": "It is stored on the filesystem. Your current admin token will continue to work after restore.",
+      "virtualKeysIrrecoverable": "Virtual keys are irrecoverable:",
+      "virtualKeysInfo": "Only SHA-256 hashes are stored. If you lose the plaintext virtual keys, they cannot be recovered.",
+      "confirmWithAdminToken": "Confirm with admin token",
+      "enterAdminToken": "Enter admin token",
+      "restoring": "Restoring…",
+      "restoreDatabase": "Restore Database",
+      "cancel": "Cancel"
+    },
+    "modal": {
+      "closeDialog": "Close dialog",
+      "close": "Close"
+    },
+    "filterInput": {
+      "filter": "Filter…",
+      "clearFilter": "Clear filter"
+    },
+    "copyButton": {
+      "copy": "Copy",
+      "copiedToClipboard": "Copied to clipboard",
+      "failedToCopy": "Failed to copy"
+    },
+    "copyablePill": {
+      "copy": "Copy",
+      "copyToClipboard": "Copy to clipboard",
+      "copied": "Copied!",
+      "failedToCopy": "Failed to copy"
+    },
+    "collapsibleToggle": {
+      "expand": "Expand",
+      "collapse": "Collapse"
+    },
+    "loadingSpinner": {
+      "loading": "Loading"
+    },
+    "logs": {
+      "liveToggle": {
+        "paused": "Live updates paused",
+        "resumed": "Live updates resumed",
+        "live": "Live"
+      },
+      "viewModeToggle": {
+        "switchToScroll": "Switch to scroll mode",
+        "switchToPagination": "Switch to pagination mode",
+        "scroll": "⇊ Scroll",
+        "pages": "⬡ Pages"
+      },
+      "dateFilterButton": {
+        "filterByDateRange": "Filter by date range",
+        "clearDateFilter": "Clear date filter",
+        "dateFilterWithRange": "Date filter: {{range}} - click to change"
+      },
+      "dateRangePicker": {
+        "selectDateRange": "Select date range",
+        "close": "Close date picker",
+        "selectEndDate": "Select end date…",
+        "selectStartDate": "Select start date",
+        "clear": "Clear",
+        "apply": "Apply"
+      },
+      "errorState": {
+        "failedToLoad": "Failed to load logs: {{message}}"
+      }
+    },
+    "appLogDetail": {
+      "title": "Log Entry Details",
+      "timestamp": "Timestamp",
+      "level": "Level",
+      "source": "Source",
+      "message": "Message",
+      "copyMessage": "Copy message"
+    },
+    "paramSlider": {
+      "off": "off"
+    },
+    "reasoningEffortSelect": {
+      "reasoningEffort": "Reasoning Effort",
+      "off": "off",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
+    },
+    "dataTable": {
+      "sortBy": "Sort by {{label}}",
+      "prev": "Prev",
+      "next": "Next",
+      "entries": "{{start}}{{to}}{{end}} of {{total}} {{label}}",
+      "perPage": "{{size}} / page",
+      "noEntries": "No {{label}} found"
+    },
+    "modelPicker": {
+      "filterModels": "Filter models…",
+      "random": "Random",
+      "expandAllProviders": "Expand all providers",
+      "collapseAllProviders": "Collapse all providers",
+      "noModelsMatch": "No models match",
+      "clearFilter": "Clear filter",
+      "paramsLocked": "Parameters locked while running",
+      "editParams": "Edit generation parameters",
+      "addParams": "Add generation parameters"
+    },
+    "modelDetailPanel": {
+      "resetParameters": "Reset parameters",
+      "generationParameters": "Generation parameters",
+      "close": "Close",
+      "expandModelDetails": "Expand model details",
+      "collapseModelDetails": "Collapse model details",
+      "provider": "Provider",
+      "modelId": "Model ID",
+      "context": "Context",
+      "maxOutput": "Max Out",
+      "inputPricePerMillion": "In $/1M",
+      "outputPricePerMillion": "Out $/1M",
+      "capabilities": "Capabilities",
+      "proxyId": "Proxy ID",
+      "parametersLockedWhileRunning": "Parameters locked while running",
+      "editGenerationParameters": "Edit generation parameters",
+      "addGenerationParameters": "Add generation parameters",
+      "temperature": "Temperature",
+      "maxTokens": "Max Tokens",
+      "topP": "Top P",
+      "minP": "Min P",
+      "topK": "Top K",
+      "freqPenalty": "Freq Penalty",
+      "presPenalty": "Pres Penalty"
+    },
+    "modelTable": {
+      "searchModels": "Search models…",
+      "deleteDisabled": "Delete {{count}} disabled",
+      "model": "Model",
+      "capabilities": "Capabilities",
+      "provider": "Provider",
+      "discovered": "Discovered",
+      "context": "Ctx",
+      "maxOutput": "Max Out",
+      "status": "Status",
+      "modelNameAndId": "Model name and ID",
+      "providerName": "Provider name",
+      "whenModelDiscovered": "When the model was last seen/discovered",
+      "maximumContextLength": "Maximum context length in tokens",
+      "maximumOutputTokens": "Maximum output tokens",
+      "modelStatus": "Model status",
+      "noModelsMatchFilters": "No models match your filters",
+      "noModelsDiscovered": "No models discovered yet. Add a provider and discover models.",
+      "deleteDisabledModels": "Delete Disabled Models",
+      "models": "models",
+      "deleteDisabledAria_one": "Delete {{count}} disabled model",
+      "deleteDisabledAria_other": "Delete {{count}} disabled models",
+      "deleteDisabledMessage_one": "This will permanently delete {{count}} disabled model. If autodiscovery is enabled on their provider, they will be re-discovered on the next cycle. Disable autodiscovery on the provider to prevent this.",
+      "deleteDisabledMessage_other": "This will permanently delete {{count}} disabled models. If autodiscovery is enabled on their provider, they will be re-discovered on the next cycle. Disable autodiscovery on the provider to prevent this.",
+      "clickToCopyId": "Click to copy model ID",
+      "deleteDisabledLabel_one": "{{count}} disabled model",
+      "deleteDisabledLabel_other": "{{count}} disabled models"
+    },
+    "virtualModelTable": {
+      "searchModels": "Search models…",
+      "deleteDisabled": "Delete {{count}} disabled",
+      "noModelsFound": "No models found",
+      "deleteDisabledModels": "Delete Disabled Models",
+      "deleteDisabledAria_one": "Delete {{count}} disabled model",
+      "deleteDisabledAria_other": "Delete {{count}} disabled models",
+      "deleteDisabledMessage_one": "This will permanently delete {{count}} disabled model. If autodiscovery is enabled on their provider, they will be re-discovered on the next cycle. Disable autodiscovery on the provider to prevent this.",
+      "deleteDisabledMessage_other": "This will permanently delete {{count}} disabled models. If autodiscovery is enabled on their provider, they will be re-discovered on the next cycle. Disable autodiscovery on the provider to prevent this."
+    },
+    "modelReplyCard": {
+      "modelDetails": "Model details",
+      "maximizeReply": "Maximize reply",
+      "copy": "Copy",
+      "disableModel": "Disable model",
+      "disable": "Disable",
+      "thinking": "Thinking",
+      "waiting": "Waiting…",
+      "thinkingDots": "Thinking…",
+      "turn": "Turn {{number}}"
+    },
+    "providerFilter": {
+      "filterProviders": "Filter Providers",
+      "clearFilter": "Clear filter",
+      "searchProviders": "Search providers…",
+      "selectAll": "Select all",
+      "clear": "Clear",
+      "noProvidersFound": "No providers found",
+      "provider_one": "{{count}} provider",
+      "provider_other": "{{count}} providers"
+    },
+    "providerModals": {
+      "nanoGPTSubscription": "NanoGPT Subscription",
+      "active": "Active",
+      "inactive": "Inactive",
+      "showQuotaUsed": "Show quota used",
+      "showQuotaRemaining": "Show quota remaining",
+      "refresh": "Refresh",
+      "refreshQuotaInfo": "Refresh quota info",
+      "toggleRemainingUsed": "Toggle between remaining and used",
+      "weeklyTokenQuota": "Weekly Token Quota",
+      "used": "used",
+      "noLimitSet": "No limit set",
+      "dailyImages": "Daily Images",
+      "dailyInputTokens": "Daily Input Tokens",
+      "subscriptionDetails": "Subscription Details",
+      "provider": "Provider",
+      "status": "Status",
+      "periodEnd": "Period End",
+      "allowOverage": "Allow Overage",
+      "yes": "Yes",
+      "no": "No",
+      "subscriptionWillCancel": "Subscription will cancel at period end ({{date}})",
+      "lastRefreshed": "Last refreshed",
+      "zAICodingPlanQuota": "Z.ai Coding Plan Quota",
+      "plan": "Plan",
+      "hTokenQuota": "{{hours}}h Token Quota",
+      "left": "left",
+      "mcpTokenQuota": "MCP Time Quota",
+      "openRouterCredits": "OpenRouter Credits",
+      "freeTier": "Free Tier",
+      "paidAccount": "Paid Account",
+      "showCreditsUsed": "Show credits used",
+      "showCreditsRemaining": "Show credits remaining",
+      "refreshBalanceInfo": "Refresh balance info",
+      "accountBalance": "Account Balance",
+      "spentTotal": "{{amount}} spent total",
+      "keySpendingLimit": "Key Spending Limit",
+      "remaining": "remaining",
+      "limitReset": "limit - spending blocked",
+      "resets": "Resets",
+      "keyUsage": "Key Usage",
+      "spendingByThisKey": "Spending by this API key (account total may differ)",
+      "today": "Today",
+      "thisWeek": "This Week",
+      "thisMonth": "This Month",
+      "allTime": "All Time",
+      "quotaRefreshed": "Quota refreshed",
+      "failedToRefreshQuota": "Failed to refresh quota",
+      "balanceRefreshed": "Balance refreshed",
+      "failedToRefreshBalance": "Failed to refresh balance",
+      "noCredits": "No credits"
+    },
+    "providerQuotaPanel": {
+      "quotas": "Quotas",
+      "expandQuotas": "Expand quotas",
+      "collapse": "Collapse",
+      "quotaPanelCollapsed": "Quota panel collapsed - auto-refresh paused",
+      "quotaPanelExpanded": "Quota panel expanded - auto-refresh resumed",
+      "refreshAllQuotas": "Refresh all quotas",
+      "pleaseWaitBeforeRefreshing": "Please wait before refreshing again",
+      "refreshingQuotas": "Refreshing quotas…"
+    },
+    "personaPicker": {
+      "persona": "Persona",
+      "customPersonaPlaceholder": "Enter custom persona for AI here…",
+      "switchToCustom": "Switch to Custom",
+      "overwritePrompt": "Overwrite Prompt",
+      "clearPersonaPrompt": "This will clear the current persona prompt. Continue?",
+      "systemPrompt": "System prompt"
+    },
+    "promptPicker": {
+      "prompt": "Prompt",
+      "enterPromptPlaceholder": "Enter your prompt…",
+      "switchToCustom": "Switch to Custom",
+      "overwritePrompt": "Overwrite Prompt",
+      "promptField": "Prompt"
+    },
+    "presetBar": {
+      "random": "Random",
+      "custom": "✏️Custom"
+    },
+    "conversationConfig": {
+      "title": "Conversation Config",
+      "rounds": "Rounds: {{rounds}}",
+      "delay": "Delay: {{delay}}ms",
+      "round": "Round: {{current}} / {{max}}",
+      "nextIn": "Next in {{seconds}}s…",
+      "status": "Status: {{state}}",
+      "expandConfig": "Expand config",
+      "collapseConfig": "Collapse config",
+      "generationFailed": "Generation failed - use Retry or change the model to continue",
+      "generationFailedWithModel": "{{model}}: Generation failed - use Retry or change the model to continue",
+      "maxTurns": "Rounds",
+      "turnDelay": "Delay (ms)",
+      "prompt": "Prompt",
+      "selectBothModelsFirst": "Select both models first",
+      "enterTopicOrQuestion": "Enter a topic or question…",
+      "continue": "Continue",
+      "start": "Start",
+      "reenterOrEditPrompt": "Re-enter or edit your prompt…",
+      "retry": "Retry",
+      "retryFromTurn": "Retry from Turn {{turn}}",
+      "stop": "Stop"
+    },
+    "thinkingBlock": {
+      "thinking": "Thinking"
+    },
+    "arenaHistoryModal": {
+      "matchHistory": "Match History",
+      "all": "All",
+      "competition": "Competition",
+      "compare": "Compare",
+      "noMatchHistory": "No match history yet",
+      "completedSessionsHere": "Completed arena and compare sessions will appear here",
+      "match": "Match",
+      "final": "Final",
+      "semifinals": "Semifinals",
+      "quarterfinals": "Quarterfinals",
+      "round": "Round {{number}}",
+      "winner": "Winner: {{name}}",
+      "responsesAbbrev": "{{count}} resp.",
+      "error": "Error: {{message}}",
+      "restoreSetup": "Restore Setup",
+      "delete": "Delete",
+      "customPrompt": "Custom prompt",
+      "clearAllHistory": "Clear All History",
+      "clickAgainToConfirm": "Click again to confirm",
+      "vs": "vs",
+      "bracket": "Bracket",
+      "response_one": "{{count}} response",
+      "response_other": "{{count}} responses",
+      "entries_one": "{{count}} entry",
+      "entries_other": "{{count}} entries"
+    },
+    "logDetailModal": {
+      "logEntryDetails": "Log Entry Details",
+      "timestamp": "Timestamp",
+      "level": "Level",
+      "source": "Source",
+      "message": "Message",
+      "copyMessage": "Copy message"
+    },
+    "requestLogDetail": {
+      "title": "Request Details",
+      "requestDetails": "Request Details",
+      "attempt": "Attempt {{number}}",
+      "duration": "Duration",
+      "totalWallClockTime": "Total wall-clock time from request start to response end",
+      "headers": "Headers",
+      "timeToReceiveHeaders": "Time to receive the first HTTP response headers from the upstream provider",
+      "ttft": "TTFT",
+      "timeToFirstToken": "Time to First Token: delay between request start and the first token of the response body (streaming) or full response (non-streaming)",
+      "tokensPerSecond": "Tokens/s",
+      "outputTokensPerSecond": "Output tokens per second during the generation phase (excludes time-to-first-token). Shown as '-' when generation time is negligible.",
+      "totalTokens": "Total Tokens",
+      "sumOfTokens": "Sum of prompt + completion + reasoning tokens",
+      "requestHash": "Request Hash",
+      "model": "Model",
+      "copyModelId": "Copy model ID",
+      "resolved": "resolved",
+      "provider": "Provider",
+      "dbRowId": "DB Row ID",
+      "timestamp": "Timestamp",
+      "copyDbRowId": "Copy DB row ID",
+      "virtualKey": "Virtual Key",
+      "tokenUsage": "Token Usage",
+      "prompt": "Prompt",
+      "completion": "Completion",
+      "reasoning": "Reasoning",
+      "cacheHit": "Cache Hit",
+      "cacheMiss": "Cache Miss",
+      "proxyOverheadBreakdown": "Proxy Overhead Breakdown",
+      "requestParsing": "Request Parsing",
+      "timeToParseRequest": "Time to parse and validate the incoming request body",
+      "failoverGroupLookup": "Failover Group Lookup",
+      "timeToResolveFailover": "Time to resolve the failover group to a specific model and provider",
+      "modelLookup": "Model Lookup",
+      "timeToLookupModel": "Time to look up the model configuration in the database",
+      "providerLookup": "Provider Lookup",
+      "timeToLookupProvider": "Time to look up the provider details in the database",
+      "keyDecryption": "Key Decryption",
+      "timeToDecryptKey": "Time to decrypt the provider API key",
+      "dialDnsTcp": "Dial (DNS+TCP)",
+      "timeToEstablishTcp": "Time to establish the TCP connection to the upstream provider",
+      "settingsReads": "Settings Reads",
+      "timeToReadSettings": "Time to read settings from the database",
+      "reused": "reused",
+      "totalOverhead": "Total Overhead",
+      "error": "Error",
+      "copyErrorMessage": "Copy error message"
+    },
+    "statusBadge": {
+      "streaming": "Streaming",
+      "pending": "Pending",
+      "failed": "Failed",
+      "ok": "OK",
+      "clientError": "Client Error",
+      "serverError": "Server Error"
+    },
+    "logDetailStatusBadge": {
+      "streaming": "Streaming",
+      "pending": "Pending",
+      "failed": "Failed",
+      "ok": "OK",
+      "clientError": "Client Error",
+      "serverError": "Server Error"
+    },
+    "virtualLogTable": {
+      "noLogsFound": "No logs found",
+      "entries": "entries",
+      "loadingNewer": "Loading newer…",
+      "loadingOlder": "Loading older…",
+      "timeDate": "Time/Date",
+      "hash": "Hash",
+      "model": "Model",
+      "provider": "Provider",
+      "providerDeleted": "Provider was deleted",
+      "status": "Status",
+      "tokens": "Tokens",
+      "tps": "T/s",
+      "tokensPerSecond": "T/s",
+      "headers": "Headers",
+      "ttft": "TTFT",
+      "duration": "Duration",
+      "overhead": "Overhead",
+      "key": "Key",
+      "interrupted": "Interrupted",
+      "internal": "internal",
+      "cacheInflated": "Inflated by prompt cache hits",
+      "deleted": "Deleted"
+    },
+    "virtualAppLogTable": {
+      "noEntriesFound": "No log entries found",
+      "entries": "entries",
+      "loadingNewer": "Loading newer…",
+      "loadingOlder": "Loading older…",
+      "timeDate": "Time/Date",
+      "level": "Level",
+      "source": "Source",
+      "message": "Message"
+    },
+    "applyRecommendedButton": {
+      "loading": "Loading…",
+      "applyRecommended": "Apply Recommended",
+      "params": "({{count}} params)",
+      "modelsDevMatched": "models.dev matched: {{model}}",
+      "noRecommendationsAvailable": "No recommendations available",
+      "applyRecommendedFromModelsDev": "Apply recommended settings from models.dev catalogue"
+    },
+    "viewModeToggle": {
+      "switchToScroll": "Switch to scroll mode",
+      "switchToPagination": "Switch to pagination mode",
+      "scroll": "⇊ Scroll",
+      "pages": "⬡ Pages"
+    },
+    "liveToggleButton": {
+      "live": "Live",
+      "liveUpdatesPaused": "Live updates paused",
+      "liveUpdatesResumed": "Live updates resumed"
+    },
+    "dateRangePickerPopover": {
+      "selectDateRange": "Select date range",
+      "closeDatePicker": "Close date picker",
+      "selectEndDate": "Select end date…",
+      "selectStartDate": "Select start date",
+      "clear": "Clear",
+      "apply": "Apply"
+    },
+    "dateFilterButton": {
+      "filterByDateRange": "Filter by date range",
+      "dateFilter": "Date filter: {{range}} - click to change",
+      "clearDateFilter": "Clear date filter ({{range}})",
+      "clearDateFilterShort": "Clear date filter"
+    },
+    "terminalPreview": {
+      "copySnippet": "Copy {{variant}} snippet",
+      "windows": "Windows",
+      "bash": "bash",
+      "powershell": "PowerShell"
+    },
+    "quotaBadge": {
+      "weeklyTokensRemaining": "NanoGPT weekly tokens remaining - click for details",
+      "weeklyTokenQuota": "NanoGPT weekly token quota - click for details",
+      "zaiCodingRemaining": "Z.ai Coding remaining quota - click for details",
+      "zaiCodingUsed": "Z.ai Coding used quota - click for details",
+      "deepseekBalance": "DeepSeek balance: ${{usd}} USD{{refreshed}} - click to refresh",
+      "deepseekBalanceUnavailable": "DeepSeek balance unavailable",
+      "openrouterBalance": "OpenRouter key balance - click for details",
+      "openrouterBalanceUnavailable": "OpenRouter balance unavailable",
+      "ollamaCloudPlan": "Ollama Cloud {{plan}} plan{{refreshed}} - click to update",
+      "ollamaCloudPlanEnds": "Ollama Cloud {{plan}} plan (ends {{date}}){{refreshed}} - click to update",
+      "ollamaCloudUnavailable": "Ollama Cloud account unavailable",
+      "nanoWeeklyTokensRemaining": "NanoGPT weekly tokens remaining - click for details",
+      "nanoWeeklyTokenQuota": "NanoGPT weekly token quota - click for details",
+      "openRouterKeyBalance": "OpenRouter key balance - click for details",
+      "ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} plan (ends {{endDate}}){{refreshed}} - click to update"
+    },
+    "filterDropdown": {
+      "placeholder": "Filter",
+      "allLabel": "All"
+    }
+  },
+  "dataStorage": {
+    "cachedEntryCount_one": "{{count}} entry",
+    "cachedEntryCount_other": "{{count}} entries"
+  },
+  "failoverGroups": {
+    "create": {
+      "editTitle": "Edit Failover Group",
+      "createTitle": "Create Failover Group",
+      "displayModelName": "Display Model Name",
+      "displayModelNamePlaceholder": "e.g., glm-5",
+      "displayModelNameHelper": "This becomes hotel/{{modelName}} in the model list",
+      "displayNameOptional": "Display Name (optional)",
+      "displayNamePlaceholder": "e.g., GLM-5 Failover",
+      "descriptionOptional": "Description (optional)",
+      "descriptionPlaceholder": "e.g., Failover group for GLM-5 models",
+      "modelEntries": "Model Entries",
+      "selectedCount_one": "{{count}} selected",
+      "selectedCount_other": "{{count}} selected",
+      "saving": "Saving…",
+      "creating": "Creating…",
+      "createGroup": "Create Group"
+    },
+    "countLabel_one": "Failover Group",
+    "countLabel_other": "Failover Groups",
+    "alphabetSidebar": "Alphabet sidebar",
+    "card": {
+      "copy": "Copy",
+      "active": "active",
+      "tokens": "tokens"
+    },
+    "entry": {
+      "disableProvider": "Disable provider",
+      "enableProvider": "Enable provider"
+    }
+  },
+  "virtualKeys": {
+    "global": "Global",
+    "snippet": {
+      "curl": "cURL",
+      "powershell": "PowerShell",
+      "python": "Python",
+      "openclaw": "OpenClaw",
+      "javascript": "JavaScript",
+      "librechat": "LibreChat",
+      "claudeCode": "Claude Code",
+      "zed": "ZED",
+      "hermes": "Hermes",
+      "opencode": "OpenCode"
+    },
+    "create": {
+      "providerRequired": "At least one provider must remain accessible",
+      "clickToCopyKey": "Click to copy key",
+      "createKey": "Create Key"
+    },
+    "detail": {
+      "rps": "RPS",
+      "burst": "Burst"
+    }
+  }
 }

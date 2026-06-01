@@ -45,7 +45,7 @@ describe("Arena", () => {
 			await waitFor(
 				() => {
 					expect(
-						screen.queryByRole("button", { name: "Stop" }),
+						screen.queryByRole("button", { name: "Stop All" }),
 					).not.toBeInTheDocument();
 				},
 				{ timeout: 2000 },
@@ -71,7 +71,7 @@ describe("Arena", () => {
 			await waitFor(
 				() => {
 					expect(
-						screen.queryByRole("button", { name: "Stop" }),
+						screen.queryByRole("button", { name: "Stop All" }),
 					).not.toBeInTheDocument();
 				},
 				{ timeout: 2000 },
@@ -112,7 +112,9 @@ describe("Arena", () => {
 			await waitFor(
 				() => {
 					expect(
-						screen.getByText("Models are generating - click Stop to cancel"),
+						screen.getByText(
+							"Models are generating - click Stop All to cancel",
+						),
 					).toBeInTheDocument();
 				},
 				{ timeout: 2000 },
@@ -138,7 +140,7 @@ describe("Arena", () => {
 			await waitFor(
 				() => {
 					expect(
-						screen.queryByRole("button", { name: "Stop" }),
+						screen.queryByRole("button", { name: "Stop All" }),
 					).not.toBeInTheDocument();
 				},
 				{ timeout: 2000 },
@@ -173,7 +175,7 @@ describe("Arena", () => {
 			await waitFor(
 				() => {
 					expect(
-						screen.queryByRole("button", { name: "Stop" }),
+						screen.queryByRole("button", { name: "Stop All" }),
 					).not.toBeInTheDocument();
 				},
 				{ timeout: 2000 },
@@ -199,7 +201,7 @@ describe("Arena", () => {
 			await waitFor(
 				() => {
 					expect(
-						screen.queryByRole("button", { name: "Stop" }),
+						screen.queryByRole("button", { name: "Stop All" }),
 					).not.toBeInTheDocument();
 				},
 				{ timeout: 2000 },
@@ -248,7 +250,7 @@ describe("Arena", () => {
 			await waitFor(
 				() => {
 					expect(
-						screen.queryByRole("button", { name: "Stop" }),
+						screen.queryByRole("button", { name: "Stop All" }),
 					).not.toBeInTheDocument();
 				},
 				{ timeout: 2000 },
