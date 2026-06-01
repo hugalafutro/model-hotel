@@ -52,13 +52,13 @@ describe("Chat", () => {
 			await user.type(textarea, "Test error{Enter}");
 			await waitFor(
 				() => {
-					expect(screen.getByText(/Generation failed/)).toBeInTheDocument();
+					expect(screen.getByText(/try Regenerate/)).toBeInTheDocument();
 				},
 				{ timeout: 3000 },
 			);
 			// Should show short model name (after /)
 			expect(
-				screen.getByText(/test-model-v1.*Generation failed/),
+				screen.getByText(/test-model-v1.*try Regenerate/),
 			).toBeInTheDocument();
 		});
 
@@ -427,13 +427,13 @@ describe("Chat", () => {
 			// Wait for error to appear
 			await waitFor(
 				() => {
-					expect(screen.getByText(/Generation failed/)).toBeInTheDocument();
+					expect(screen.getByText(/try Regenerate/)).toBeInTheDocument();
 				},
 				{ timeout: 3000 },
 			);
 			// Error should show the model name
 			expect(
-				screen.getByText(/test-model-v1.*Generation failed/),
+				screen.getByText(/test-model-v1.*try Regenerate/),
 			).toBeInTheDocument();
 
 			// Now select a different model
@@ -443,7 +443,7 @@ describe("Chat", () => {
 			await waitFor(
 				() => {
 					expect(
-						screen.queryByText(/test-model-v1.*Generation failed/),
+						screen.queryByText(/test-model-v1.*try Regenerate/),
 					).not.toBeInTheDocument();
 				},
 				{ timeout: 2000 },

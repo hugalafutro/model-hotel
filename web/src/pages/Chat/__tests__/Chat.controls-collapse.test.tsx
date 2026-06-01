@@ -369,9 +369,8 @@ describe("Chat controls collapse/expand", () => {
 				expect(isControlsCollapsed()).toBe(true);
 			});
 
-			// Wait for error to appear (format: "generation failed or pick a model")
 			await waitFor(() => {
-				expect(screen.getByText(/generation failed/i)).toBeInTheDocument();
+				expect(screen.getByText(/try Regenerate/i)).toBeInTheDocument();
 			});
 
 			// Controls should stay collapsed (error state doesn't auto-expand)
