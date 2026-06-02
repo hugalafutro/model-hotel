@@ -1633,7 +1633,8 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		proxyReq = proxyReq.WithContext(dialCtx)
 
 		upstreamClient := &http.Client{
-			Transport: h.upstreamTransport,
+			Transport:     h.upstreamTransport,
+			CheckRedirect: h.safeDialer.CheckRedirect,
 		}
 		//nolint:gosec // provider URL is admin-configured, not arbitrary user input
 		resp, err := upstreamClient.Do(proxyReq)
@@ -1751,7 +1752,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 							}
 							util.SetProviderAuthHeaders(retryReq, providerType, candidate.apiKey)
 							retryReq.Header.Set("Content-Type", "application/json")
-							retryClient := &http.Client{Transport: h.upstreamTransport}
+							retryClient := &http.Client{Transport: h.upstreamTransport, CheckRedirect: h.safeDialer.CheckRedirect}
 							resp, retryErr = retryClient.Do(retryReq)
 							if retryErr != nil {
 								retryCancel() // no body to consume on retry error

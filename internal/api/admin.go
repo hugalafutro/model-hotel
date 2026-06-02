@@ -80,20 +80,22 @@ type Handler struct {
 	ghReleasesURL      string                 // injectable for testing; defaults to githubReleasesURL const
 	ghTagsURL          string                 // injectable for testing; defaults to githubTagsURL const
 	webauthnSessionMgr WebAuthnSessionManager // nil when webAuthn is not configured
+	testModelTransport *http.Transport        // SSRF-protected transport for TestModel
 }
 
 // NewHandler creates a new admin API handler with the given dependencies.
-func NewHandler(cfg *config.Config, providerRepo ProviderStore, database *db.DB, adminMgr AdminAuthenticator, vkRepo VirtualKeyStore, settingsRepo SettingsStore, appVersion string) *Handler {
+func NewHandler(cfg *config.Config, providerRepo ProviderStore, database *db.DB, adminMgr AdminAuthenticator, vkRepo VirtualKeyStore, settingsRepo SettingsStore, appVersion string, testModelTransport *http.Transport) *Handler {
 	return &Handler{
-		cfg:            cfg,
-		providerRepo:   providerRepo,
-		dbPool:         database,
-		adminMgr:       adminMgr,
-		virtualKeyRepo: vkRepo,
-		settingsRepo:   settingsRepo,
-		appVersion:     appVersion,
-		ghReleasesURL:  githubReleasesURL,
-		ghTagsURL:      githubTagsURL,
+		cfg:                cfg,
+		providerRepo:       providerRepo,
+		dbPool:             database,
+		adminMgr:           adminMgr,
+		virtualKeyRepo:     vkRepo,
+		settingsRepo:       settingsRepo,
+		appVersion:         appVersion,
+		ghReleasesURL:      githubReleasesURL,
+		ghTagsURL:          githubTagsURL,
+		testModelTransport: testModelTransport,
 	}
 }
 

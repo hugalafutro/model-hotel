@@ -33,7 +33,7 @@ func TestChatCompletions_ContextCancelDuringStream(t *testing.T) {
 
 	// Override upstream to stream slowly
 	handler.upstreamTransport = &http.Transport{
-		DialContext: NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+		DialContext: NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
 	}
 
 	slowUpstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

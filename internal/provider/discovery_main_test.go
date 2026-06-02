@@ -15,7 +15,7 @@ func TestDiscoverModels(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	svc := NewDiscoveryService()
+	svc := NewDiscoveryService(nil, nil)
 	masterKey := "test-master-key-1234567890123456"
 
 	t.Run("unknown_provider_type", func(t *testing.T) {
@@ -278,7 +278,7 @@ func TestDiscoverModels_KeylessProvider(t *testing.T) {
 		EncryptedKey: []byte{}, // keyless provider
 	}
 
-	svc := NewDiscoveryService()
+	svc := NewDiscoveryService(nil, nil)
 	models, err := svc.DiscoverModels(ctx, provider, masterKey)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, models)
@@ -301,7 +301,7 @@ func TestDiscoverModels_DecryptionFailure(t *testing.T) {
 		KeySalt:      make([]byte, 32), // Proper salt length
 	}
 
-	svc := NewDiscoveryService()
+	svc := NewDiscoveryService(nil, nil)
 	_, err := svc.DiscoverModels(ctx, provider, masterKey)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to decrypt API key")
@@ -736,7 +736,7 @@ func TestDiscoverModels_ZAICodingDispatch(t *testing.T) {
 		BaseURL: "https://api.z.ai",
 	}
 
-	svc := NewDiscoveryService()
+	svc := NewDiscoveryService(nil, nil)
 	models, err := svc.DiscoverModels(ctx, provider, masterKey)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, models)

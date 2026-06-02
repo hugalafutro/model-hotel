@@ -1468,7 +1468,7 @@ func TestListProviders_WithModelCounts(t *testing.T) {
 	}
 	defer dbInst.Close()
 
-	h := NewHandler(cfg, providerRepo, dbInst, adminMgr, vkRepo, settingsRepo, "test")
+	h := NewHandler(cfg, providerRepo, dbInst, adminMgr, vkRepo, settingsRepo, "test", nil)
 	r := chi.NewRouter()
 	r.Use(h.AuthMiddleware)
 	h.Register(r)
@@ -1575,7 +1575,7 @@ func TestListProviders_WithTokenCounts(t *testing.T) {
 	}
 	defer dbInst.Close()
 
-	h := NewHandler(cfg, providerRepo, dbInst, adminMgr, vkRepo, settingsRepo, "test")
+	h := NewHandler(cfg, providerRepo, dbInst, adminMgr, vkRepo, settingsRepo, "test", nil)
 	r := chi.NewRouter()
 	r.Use(h.AuthMiddleware)
 	h.Register(r)

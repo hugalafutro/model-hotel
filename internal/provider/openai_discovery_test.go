@@ -142,7 +142,7 @@ func TestOpenAIDiscoveryWithMockServer(t *testing.T) {
 	}))
 	defer server.Close()
 
-	svc := NewDiscoveryService()
+	svc := NewDiscoveryService(nil, nil)
 	prov := &Provider{
 		ID:      uuid.New(),
 		BaseURL: server.URL + "/v1",
@@ -225,7 +225,7 @@ func TestOpenAIDiscoveryLiveAPI(t *testing.T) {
 		t.Fatal("OPENAI_API_KEY environment variable is required for live API tests")
 	}
 
-	svc := NewDiscoveryService()
+	svc := NewDiscoveryService(nil, nil)
 	prov := &Provider{
 		ID:      uuid.New(),
 		BaseURL: "https://api.openai.com/v1",

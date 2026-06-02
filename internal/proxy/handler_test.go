@@ -55,6 +55,7 @@ func newUnitHandler() *Handler {
 			MaxIdleConns:          200,
 			MaxIdleConnsPerHost:   20,
 		},
+		safeDialer: NewSafeDialer(nil, nil),
 	}
 }
 
@@ -117,7 +118,7 @@ func TestNewHandler_SetsAllFields(t *testing.T) {
 	defer rateLimiter.Stop()
 	defer ipLimiter.Stop()
 
-	h := NewHandler(cfg, providerRepo, modelRepo, nil, virtualKeyRepo, failoverRepo, settingsRepo, rateLimiter, ipLimiter)
+	h := NewHandler(cfg, providerRepo, modelRepo, nil, virtualKeyRepo, failoverRepo, settingsRepo, rateLimiter, ipLimiter, nil)
 
 	if h.cfg != cfg {
 		t.Error("cfg not set correctly")
@@ -160,7 +161,7 @@ func TestNewHandler_CreatesTransport(t *testing.T) {
 		&config.Config{MasterKey: "test-key", RateLimitEnabled: false},
 		provider.NewRepository(nil), model.NewRepository(nil), nil,
 		virtualkey.NewRepository(nil), failover.NewRepository(nil),
-		settingsRepo, rateLimiter, ipLimiter,
+		settingsRepo, rateLimiter, ipLimiter, nil,
 	)
 
 	if h.upstreamTransport == nil {

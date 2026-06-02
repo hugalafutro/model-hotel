@@ -39,6 +39,9 @@ type Handler struct {
 	// (and its persistent readLoop/writeLoop goroutines) per request.
 	upstreamTransport *http.Transport
 
+	// safeDialer holds the SafeDialer for use in CheckRedirect.
+	safeDialer *SafeDialer
+
 	// deprecationCache caches rejected parameters learned from HTTP 400 responses,
 	// keyed by "providerType:modelID". Value: map[string]bool of rejected param names.
 	deprecationCache sync.Map
@@ -119,8 +122,8 @@ func NewHandler(
 	settingsRepo *settings.Repository,
 	rateLimiter *ratelimit.Limiter,
 	ipLimiter *ratelimit.IPLimiter,
+	sd *SafeDialer,
 ) *Handler {
-	sd := NewSafeDialer(append(cfg.AllowedProviderHosts, config.KnownProviderHosts()...))
 	return &Handler{
 		cfg:            cfg,
 		providerRepo:   providerRepo,
@@ -139,6 +142,7 @@ func NewHandler(
 			MaxIdleConns:          200,
 			MaxIdleConnsPerHost:   20,
 		},
+		safeDialer: sd,
 	}
 }
 

@@ -432,7 +432,7 @@ func TestGetAnthropicPricing_NoDuplicateModelIDs(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestNewDiscoveryService_NonNil(t *testing.T) {
-	svc := NewDiscoveryService()
+	svc := NewDiscoveryService(nil, nil)
 	if svc == nil {
 		t.Fatal("NewDiscoveryService should return non-nil")
 	}

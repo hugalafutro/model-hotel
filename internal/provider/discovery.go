@@ -27,12 +27,26 @@ type DiscoveryService struct {
 	quotaBreaker sync.Map
 }
 
-// NewDiscoveryService creates a new discovery service instance.
-func NewDiscoveryService() *DiscoveryService {
+// NewDiscoveryService creates a new discovery service instance with optional
+// SSRF protection. Pass nil for both parameters to use default HTTP client
+// (useful for tests).
+func NewDiscoveryService(dialCtx func(ctx context.Context, network, addr string) (net.Conn, error), checkRedirect func(req *http.Request, via []*http.Request) error) *DiscoveryService {
+	transport := &http.Transport{
+		IdleConnTimeout:       30 * time.Second,
+		ResponseHeaderTimeout: 30 * time.Second,
+	}
+	if dialCtx != nil {
+		transport.DialContext = dialCtx
+	}
+	client := &http.Client{
+		Timeout:   30 * time.Second,
+		Transport: transport,
+	}
+	if checkRedirect != nil {
+		client.CheckRedirect = checkRedirect
+	}
 	return &DiscoveryService{
-		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
+		httpClient: client,
 	}
 }
 

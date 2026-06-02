@@ -35,6 +35,7 @@ type Config struct {
 	ModelsDevEnabled     bool
 	DebugLog             bool
 	TrustedProxies       []*net.IPNet
+	KnownProxies         []*net.IPNet
 
 	// WebAuthn/FIDO2 configuration. When WEBAUTHN_RP_ID is set, passkey
 	// login is enabled; otherwise the feature is completely disabled.
@@ -97,6 +98,7 @@ func Load() (*Config, error) {
 		ModelsDevEnabled: getBoolEnvWithDefault("MODELSDEV_ENABLED", true),
 		DebugLog:         getBoolEnvWithDefault("DEBUG_LOG", false),
 		TrustedProxies:   LoadTrustedProxies(),
+		KnownProxies:     LoadKnownProxies(),
 
 		WebAuthnRPID:          getEnv("WEBAUTHN_RP_ID"),
 		WebAuthnRPDisplayName: getEnvWithDefault("WEBAUTHN_RP_DISPLAY_NAME", "Model Hotel"),

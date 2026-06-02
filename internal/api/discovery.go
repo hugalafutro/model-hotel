@@ -20,10 +20,12 @@ import (
 
 // Injectable variables for test overrides.
 var (
-	newDiscoveryService = provider.NewDiscoveryService
-	newModelRepo        = model.NewRepository
-	newFailoverRepo     = failover.NewRepository
-	dbExec              = func(pool *pgxpool.Pool, ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
+	newDiscoveryService = func() *provider.DiscoveryService {
+		return provider.NewDiscoveryService(nil, nil)
+	}
+	newModelRepo    = model.NewRepository
+	newFailoverRepo = failover.NewRepository
+	dbExec          = func(pool *pgxpool.Pool, ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
 		return pool.Exec(ctx, sql, args...)
 	}
 	modelRepoDisableMissing = func(repo *model.Repository, ctx context.Context, providerID uuid.UUID, providerName string, modelIDs []string) (int64, error) {

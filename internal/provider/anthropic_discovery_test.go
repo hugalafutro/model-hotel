@@ -73,7 +73,7 @@ func TestAnthropicDiscoveryWithMockServer(t *testing.T) {
 	}))
 	defer server.Close()
 
-	svc := NewDiscoveryService()
+	svc := NewDiscoveryService(nil, nil)
 	prov := &Provider{
 		ID:      uuid.New(),
 		BaseURL: server.URL,
@@ -183,7 +183,7 @@ func TestAnthropicDiscoverypagination(t *testing.T) {
 	}))
 	defer server.Close()
 
-	svc := NewDiscoveryService()
+	svc := NewDiscoveryService(nil, nil)
 	prov := &Provider{
 		ID:      uuid.New(),
 		BaseURL: server.URL,
@@ -231,7 +231,7 @@ func TestAnthropicDiscoverynoCapabilities(t *testing.T) {
 	}))
 	defer server.Close()
 
-	svc := NewDiscoveryService()
+	svc := NewDiscoveryService(nil, nil)
 	prov := &Provider{
 		ID:      uuid.New(),
 		BaseURL: server.URL,
@@ -356,7 +356,7 @@ func TestAnthropicDiscoveryLiveAPI(t *testing.T) {
 		t.Fatal("ANTHROPIC_API_KEY environment variable is required for live API tests")
 	}
 
-	svc := NewDiscoveryService()
+	svc := NewDiscoveryService(nil, nil)
 	prov := &Provider{
 		ID:      uuid.New(),
 		BaseURL: "https://api.anthropic.com",
