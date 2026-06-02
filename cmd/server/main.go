@@ -242,8 +242,14 @@ func main() {
 	})
 
 	// Handlers shared across route groups
-	apiHandler := api.NewHandler(cfg, providerRepo, database, adminMgr, virtualKeyRepo, settingsRepo, version)
-	proxyHandler := proxy.NewHandler(cfg, providerRepo, modelRepo, database.Pool(), virtualKeyRepo, failoverRepo, settingsRepo, rateLimiter, ipLimiter)
+	sd := proxy.NewSafeDialer(append(cfg.AllowedProviderHosts, config.KnownProviderHosts()...), cfg.KnownProxies)
+	testModelTransport := &http.Transport{
+		DialContext:           sd.DialContext,
+		ResponseHeaderTimeout: 30 * time.Second,
+		IdleConnTimeout:       30 * time.Second,
+	}
+	apiHandler := api.NewHandler(cfg, providerRepo, database, adminMgr, virtualKeyRepo, settingsRepo, version, testModelTransport, sd.CheckRedirect, sd.DialContext, sd.CheckRedirect)
+	proxyHandler := proxy.NewHandler(cfg, providerRepo, modelRepo, database.Pool(), virtualKeyRepo, failoverRepo, settingsRepo, rateLimiter, ipLimiter, sd)
 
 	// WebAuthn/FIDO2 passkey authentication (enabled when WEBAUTHN_RP_ID is set).
 	var webauthnHandler *api.WebAuthnHandler
@@ -332,7 +338,7 @@ func main() {
 			result.Errors = append(result.Errors, fmt.Sprintf("failed to list providers: %v", err))
 			return result
 		}
-		discoverySvc := provider.NewDiscoveryService()
+		discoverySvc := provider.NewDiscoveryService(sd.DialContext, sd.CheckRedirect)
 		for _, p := range providers {
 			if !p.Enabled {
 				continue

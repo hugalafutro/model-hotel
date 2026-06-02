@@ -559,6 +559,7 @@ func TestLoadOrCreateToken_ReadError(t *testing.T) {
 	_, _, err = New(tmpDir, "")
 	if err == nil {
 		t.Fatal("Expected error when token file is unreadable")
+		return
 	}
 	if !strings.Contains(err.Error(), "failed to read token file") {
 		t.Errorf("Error should contain 'failed to read token file', got: %v", err)
@@ -587,6 +588,7 @@ func TestCreateAndSaveToken_WriteError(t *testing.T) {
 	_, _, err = New(writeDir, "test-token")
 	if err == nil {
 		t.Fatal("Expected error when writing to read-only directory")
+		return
 	}
 	if !strings.Contains(err.Error(), "failed to write token file") {
 		t.Errorf("Error should contain 'failed to write token file', got: %v", err)
@@ -646,6 +648,7 @@ func TestNew_MkdirAllFails(t *testing.T) {
 	_, _, err = New(subdirPath, "")
 	if err == nil {
 		t.Fatal("Expected error when data dir cannot be created")
+		return
 	}
 	if !strings.Contains(err.Error(), "failed to create data directory") {
 		t.Errorf("Error should contain 'failed to create data directory', got: %v", err)
@@ -676,6 +679,7 @@ func TestLoadOrCreateToken_PlaintextMigrationWriteFails(t *testing.T) {
 	_, _, err := New(tmpDir, "")
 	if err == nil {
 		t.Fatal("Expected error when migration write fails")
+		return
 	}
 	if !strings.Contains(err.Error(), "failed to migrate token file") {
 		t.Errorf("Error should contain 'failed to migrate token file', got: %v", err)

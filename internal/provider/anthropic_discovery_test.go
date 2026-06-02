@@ -33,6 +33,7 @@ func TestAnthropicPricingLookup(t *testing.T) {
 	spec := LookupAnthropicPricing(catalog, "claude-opus-4-7")
 	if spec == nil {
 		t.Fatal("claude-opus-4-7 not found in catalog")
+		return
 	}
 	if spec.InputPricePerMillion != 5.00 {
 		t.Errorf("claude-opus-4-7 input price: got %.2f, want 5.00", spec.InputPricePerMillion)
@@ -73,7 +74,7 @@ func TestAnthropicDiscoveryWithMockServer(t *testing.T) {
 	}))
 	defer server.Close()
 
-	svc := NewDiscoveryService()
+	svc := NewDiscoveryService(nil, nil)
 	prov := &Provider{
 		ID:      uuid.New(),
 		BaseURL: server.URL,
@@ -183,7 +184,7 @@ func TestAnthropicDiscoverypagination(t *testing.T) {
 	}))
 	defer server.Close()
 
-	svc := NewDiscoveryService()
+	svc := NewDiscoveryService(nil, nil)
 	prov := &Provider{
 		ID:      uuid.New(),
 		BaseURL: server.URL,
@@ -231,7 +232,7 @@ func TestAnthropicDiscoverynoCapabilities(t *testing.T) {
 	}))
 	defer server.Close()
 
-	svc := NewDiscoveryService()
+	svc := NewDiscoveryService(nil, nil)
 	prov := &Provider{
 		ID:      uuid.New(),
 		BaseURL: server.URL,
@@ -356,7 +357,7 @@ func TestAnthropicDiscoveryLiveAPI(t *testing.T) {
 		t.Fatal("ANTHROPIC_API_KEY environment variable is required for live API tests")
 	}
 
-	svc := NewDiscoveryService()
+	svc := NewDiscoveryService(nil, nil)
 	prov := &Provider{
 		ID:      uuid.New(),
 		BaseURL: "https://api.anthropic.com",

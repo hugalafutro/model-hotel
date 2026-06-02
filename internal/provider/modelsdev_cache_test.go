@@ -62,12 +62,14 @@ func TestLoadModelsDev_Success(t *testing.T) {
 	cache := GetModelsDevCache()
 	if cache == nil {
 		t.Fatal("expected cache to be loaded")
+		return
 	}
 
 	// Verify we can look up the model
 	spec := cache.Lookup("gpt-4")
 	if spec == nil {
 		t.Fatal("expected to find gpt-4 in cache")
+		return
 	}
 	if spec.Name != "GPT-4" {
 		t.Errorf("expected name 'GPT-4', got %v", spec.Name)
@@ -199,6 +201,7 @@ func TestModelsDevCacheLookup_Found(t *testing.T) {
 	found := cache.Lookup("test-model")
 	if found == nil {
 		t.Fatal("expected to find model")
+		return
 	}
 	if found.Name != "Test Model" {
 		t.Errorf("expected name 'Test Model', got %v", found.Name)
@@ -226,6 +229,7 @@ func TestModelsDevCacheLookupFuzzy_ExactMatch(t *testing.T) {
 	found := cache.LookupFuzzy("gpt-4")
 	if found == nil {
 		t.Fatal("expected to find exact match")
+		return
 	}
 	if found.Name != "GPT-4" {
 		t.Errorf("expected name 'GPT-4', got %v", found.Name)
@@ -250,6 +254,7 @@ func TestModelsDevCacheLookupFuzzy_DateSuffix(t *testing.T) {
 	found := cache.LookupFuzzy("gpt-4-2024-08-06")
 	if found == nil {
 		t.Fatal("expected to find model with date suffix")
+		return
 	}
 	if found.Name != "GPT-4" {
 		t.Errorf("expected name 'GPT-4', got %v", found.Name)
@@ -340,6 +345,7 @@ func TestLoadModelsDevWithClient_Non200Status(t *testing.T) {
 
 	if err == nil {
 		t.Fatal("expected error for non-200 status")
+		return
 	}
 	if !strings.Contains(err.Error(), "unexpected status 404") {
 		t.Errorf("expected 'unexpected status 404' error, got: %v", err)
@@ -359,6 +365,7 @@ func TestLoadModelsDevWithClient_InvalidJSON(t *testing.T) {
 
 	if err == nil {
 		t.Fatal("expected error for invalid JSON")
+		return
 	}
 	if !strings.Contains(err.Error(), "failed to parse JSON") {
 		t.Errorf("expected 'failed to parse JSON' error, got: %v", err)
@@ -384,6 +391,7 @@ func TestLoadModelsDevWithClient_EmptyBody(t *testing.T) {
 	cache := GetModelsDevCache()
 	if cache == nil {
 		t.Fatal("expected cache to be loaded")
+		return
 	}
 
 	// Verify cache is empty
@@ -407,6 +415,7 @@ func TestLoadModelsDevWithClient_ContextCancelled(t *testing.T) {
 
 	if err == nil {
 		t.Fatal("expected error for cancelled context")
+		return
 	}
 	if !strings.Contains(err.Error(), "context canceled") && !strings.Contains(err.Error(), "context cancelled") {
 		t.Errorf("expected context cancellation error, got: %v", err)
@@ -434,6 +443,7 @@ func TestLoadModelsDevWithClient_NilProvider(t *testing.T) {
 	spec := cache.Lookup("m1")
 	if spec == nil {
 		t.Fatal("expected to find m1")
+		return
 	}
 }
 
@@ -499,6 +509,7 @@ func TestLoadModelsDevWithClient_FirstProviderWins(t *testing.T) {
 	spec := cache.Lookup("shared-model")
 	if spec == nil {
 		t.Fatal("expected to find shared-model")
+		return
 	}
 	// One provider should win (deterministic within a single run due to map iteration)
 	if spec.Name != "From Provider 1" && spec.Name != "From Provider 2" {
@@ -542,6 +553,7 @@ func TestModelsDevCacheLookupFuzzy_PrefixMatch(t *testing.T) {
 	found := cache.LookupFuzzy("claude-3-5-sonnet-20241022")
 	if found == nil {
 		t.Fatal("expected to find model with prefix match")
+		return
 	}
 	if found.Name != "Claude 3.5 Sonnet" {
 		t.Errorf("expected name 'Claude 3.5 Sonnet', got %v", found.Name)
@@ -571,6 +583,7 @@ func TestModelsDevCacheLookupFuzzy_LongestPrefixWins(t *testing.T) {
 	found := cache.LookupFuzzy("gpt-4-turbo-2024-01-01")
 	if found == nil {
 		t.Fatal("expected to find model with longest prefix match")
+		return
 	}
 	if found.Name != "GPT-4 Turbo" {
 		t.Errorf("expected name 'GPT-4 Turbo', got %v", found.Name)
@@ -595,6 +608,7 @@ func TestModelsDevCacheLookupFuzzy_VersionSuffix(t *testing.T) {
 	found := cache.LookupFuzzy("claude-sonnet-4-20250514")
 	if found == nil {
 		t.Fatal("expected to find model with version suffix stripped")
+		return
 	}
 	if found.Name != "Claude Sonnet 4" {
 		t.Errorf("expected name 'Claude Sonnet 4', got %v", found.Name)
@@ -665,6 +679,7 @@ func TestModelsDevCacheLookupFuzzy_PrefixMatchRejectsVariant(t *testing.T) {
 			} else {
 				if found == nil {
 					t.Fatalf("LookupFuzzy(%q) = nil, want non-nil", tt.modelID)
+					return
 				}
 				if found.Name != tt.wantName {
 					t.Errorf("LookupFuzzy(%q) = %q, want %q", tt.modelID, found.Name, tt.wantName)

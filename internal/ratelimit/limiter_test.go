@@ -493,6 +493,7 @@ func TestNewLimiter(t *testing.T) {
 
 	if lim == nil {
 		t.Fatal("NewLimiter should return non-nil Limiter")
+		return
 	}
 	if lim.settings == nil {
 		t.Error("settings should be set")

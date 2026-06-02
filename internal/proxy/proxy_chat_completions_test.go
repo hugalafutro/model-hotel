@@ -33,7 +33,7 @@ func TestChatCompletions_ContextCancelDuringStream(t *testing.T) {
 
 	// Override upstream to stream slowly
 	handler.upstreamTransport = &http.Transport{
-		DialContext: NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+		DialContext: NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
 	}
 
 	slowUpstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -978,6 +978,7 @@ func TestChatCompletions_DeprecationCache_InitialToMerged(t *testing.T) {
 	// Verify the first upstream request had temperature (before it was cached)
 	if firstRequestBody == nil {
 		t.Fatal("first upstream request body not captured")
+		return
 	}
 	if firstRequestBody["temperature"] == nil {
 		t.Error("expected first request to include temperature (not yet cached)")
@@ -1034,6 +1035,7 @@ func TestChatCompletions_DeprecationCache_InitialToMerged(t *testing.T) {
 	// Verify temperature was stripped before sending to upstream
 	if secondRequestBody == nil {
 		t.Fatal("second upstream request body not captured")
+		return
 	}
 	if secondRequestBody["temperature"] != nil {
 		t.Errorf("expected temperature to be stripped from second request (cached rejection), got %v", secondRequestBody["temperature"])

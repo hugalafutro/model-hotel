@@ -77,12 +77,13 @@ func newIntegrationHandler() *Handler {
 		dbPool:         pool,
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
 			ResponseHeaderTimeout: 120 * time.Second,
 			IdleConnTimeout:       120 * time.Second,
 			MaxIdleConns:          200,
 			MaxIdleConnsPerHost:   20,
 		},
+		safeDialer: NewSafeDialer(nil, nil),
 	}
 }
 
@@ -1436,12 +1437,13 @@ func TestChatCompletions_FailoverAllProvidersExhausted(t *testing.T) {
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		dbPool:         pool,
 		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
 			ResponseHeaderTimeout: 120 * time.Second,
 			IdleConnTimeout:       120 * time.Second,
 			MaxIdleConns:          200,
 			MaxIdleConnsPerHost:   20,
 		},
+		safeDialer: NewSafeDialer(nil, nil),
 	}
 	defer handler.upstreamTransport.CloseIdleConnections()
 
@@ -1524,12 +1526,13 @@ func TestChatCompletions_SpecificProviderAllProvidersFail(t *testing.T) {
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		dbPool:         pool,
 		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
 			ResponseHeaderTimeout: 120 * time.Second,
 			IdleConnTimeout:       120 * time.Second,
 			MaxIdleConns:          200,
 			MaxIdleConnsPerHost:   20,
 		},
+		safeDialer: NewSafeDialer(nil, nil),
 	}
 	defer handler.upstreamTransport.CloseIdleConnections()
 
@@ -1719,12 +1722,13 @@ func TestChatCompletions_RetryCancelDuringFailover(t *testing.T) {
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		dbPool:         pool,
 		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
 			ResponseHeaderTimeout: 120 * time.Second,
 			IdleConnTimeout:       120 * time.Second,
 			MaxIdleConns:          200,
 			MaxIdleConnsPerHost:   20,
 		},
+		safeDialer: NewSafeDialer(nil, nil),
 	}
 	defer handler.upstreamTransport.CloseIdleConnections()
 
@@ -1898,12 +1902,13 @@ func TestChatCompletions_TTFTProbeSuccess(t *testing.T) {
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		dbPool:         pool,
 		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
 			ResponseHeaderTimeout: 120 * time.Second,
 			IdleConnTimeout:       120 * time.Second,
 			MaxIdleConns:          200,
 			MaxIdleConnsPerHost:   20,
 		},
+		safeDialer: NewSafeDialer(nil, nil),
 	}
 	defer handler.upstreamTransport.CloseIdleConnections()
 
@@ -2012,12 +2017,13 @@ func TestChatCompletions_TTFTProbeTimeout(t *testing.T) {
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		dbPool:         pool,
 		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
 			ResponseHeaderTimeout: 120 * time.Second,
 			IdleConnTimeout:       120 * time.Second,
 			MaxIdleConns:          200,
 			MaxIdleConnsPerHost:   20,
 		},
+		safeDialer: NewSafeDialer(nil, nil),
 	}
 	defer handler.upstreamTransport.CloseIdleConnections()
 
@@ -2123,12 +2129,13 @@ func TestChatCompletions_TTFTDisabled_CBRecordsSuccess(t *testing.T) {
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		dbPool:         pool,
 		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
 			ResponseHeaderTimeout: 120 * time.Second,
 			IdleConnTimeout:       120 * time.Second,
 			MaxIdleConns:          200,
 			MaxIdleConnsPerHost:   20,
 		},
+		safeDialer: NewSafeDialer(nil, nil),
 	}
 	defer handler.upstreamTransport.CloseIdleConnections()
 
@@ -2285,12 +2292,13 @@ func TestChatCompletions_AllowedProviders_FilterAllowed(t *testing.T) {
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		dbPool:         pool,
 		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
 			ResponseHeaderTimeout: 120 * time.Second,
 			IdleConnTimeout:       120 * time.Second,
 			MaxIdleConns:          200,
 			MaxIdleConnsPerHost:   20,
 		},
+		safeDialer: NewSafeDialer(nil, nil),
 	}
 	defer handler.upstreamTransport.CloseIdleConnections()
 
@@ -2377,12 +2385,13 @@ func TestChatCompletions_AllowedProviders_BlockAllReturns403(t *testing.T) {
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		dbPool:         pool,
 		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
 			ResponseHeaderTimeout: 120 * time.Second,
 			IdleConnTimeout:       120 * time.Second,
 			MaxIdleConns:          200,
 			MaxIdleConnsPerHost:   20,
 		},
+		safeDialer: NewSafeDialer(nil, nil),
 	}
 	defer handler.upstreamTransport.CloseIdleConnections()
 
@@ -2508,12 +2517,13 @@ func TestChatCompletions_AllowedProviders_EmptySliceAllowsAll(t *testing.T) {
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		dbPool:         pool,
 		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
 			ResponseHeaderTimeout: 120 * time.Second,
 			IdleConnTimeout:       120 * time.Second,
 			MaxIdleConns:          200,
 			MaxIdleConnsPerHost:   20,
 		},
+		safeDialer: NewSafeDialer(nil, nil),
 	}
 	defer handler.upstreamTransport.CloseIdleConnections()
 

@@ -235,6 +235,7 @@ func TestDeprecationCache_DirectGetCachedRejectedParams(t *testing.T) {
 	got = getCachedRejectedParams(&cache, cacheKey)
 	if got == nil {
 		t.Fatal("unexpected nil for cached key")
+		return
 	}
 
 	// Verify contents

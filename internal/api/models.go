@@ -343,6 +343,12 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 
 	startRequest := time.Now()
 	testClient := &http.Client{Timeout: 30 * time.Second}
+	if h.testModelTransport != nil {
+		testClient.Transport = h.testModelTransport
+	}
+	if h.testModelCheckRedirect != nil {
+		testClient.CheckRedirect = h.testModelCheckRedirect
+	}
 	//nolint:gosec // provider URL is admin-configured, not arbitrary user input
 	resp, err := testClient.Do(proxyReq)
 	if err != nil {

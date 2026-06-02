@@ -46,6 +46,7 @@ func TestKoboldCPPVersion_HTTPError(t *testing.T) {
 	_, err := svc.koboldcppVersion(context.Background(), srv.URL)
 	if err == nil {
 		t.Fatal("expected error for non-200 status")
+		return
 	}
 }
 
@@ -60,6 +61,7 @@ func TestKoboldCPPVersion_InvalidJSON(t *testing.T) {
 	_, err := svc.koboldcppVersion(context.Background(), srv.URL)
 	if err == nil {
 		t.Fatal("expected error for invalid JSON")
+		return
 	}
 }
 
@@ -74,6 +76,7 @@ func TestKoboldCPPVersion_WrongResult(t *testing.T) {
 	_, err := svc.koboldcppVersion(context.Background(), srv.URL)
 	if err == nil {
 		t.Fatal("expected error for wrong result field")
+		return
 	}
 }
 
@@ -129,6 +132,7 @@ func TestKoboldCPPLoadedModel_HTTPError(t *testing.T) {
 	_, err := svc.koboldcppLoadedModel(context.Background(), srv.URL, "")
 	if err == nil {
 		t.Fatal("expected error for non-200 status")
+		return
 	}
 }
 
@@ -143,6 +147,7 @@ func TestKoboldCPPLoadedModel_InvalidJSON(t *testing.T) {
 	_, err := svc.koboldcppLoadedModel(context.Background(), srv.URL, "")
 	if err == nil {
 		t.Fatal("expected error for invalid JSON")
+		return
 	}
 }
 
@@ -211,6 +216,7 @@ func TestKoboldCPPPerf_HTTPError(t *testing.T) {
 	_, err := svc.koboldcppPerf(context.Background(), srv.URL)
 	if err == nil {
 		t.Fatal("expected error for non-200 status")
+		return
 	}
 }
 
@@ -225,6 +231,7 @@ func TestKoboldCPPPerf_InvalidJSON(t *testing.T) {
 	_, err := svc.koboldcppPerf(context.Background(), srv.URL)
 	if err == nil {
 		t.Fatal("expected error for invalid JSON")
+		return
 	}
 }
 
@@ -334,6 +341,7 @@ func TestDiscoverKoboldCPP_VersionCheckFails(t *testing.T) {
 	_, err := svc.discoverKoboldCPP(context.Background(), provider, "")
 	if err == nil {
 		t.Fatal("expected error when version check fails")
+		return
 	}
 }
 
@@ -360,6 +368,7 @@ func TestDiscoverKoboldCPP_ListModelsHTTPError(t *testing.T) {
 	_, err := svc.discoverKoboldCPP(context.Background(), provider, "")
 	if err == nil {
 		t.Fatal("expected error when /models returns 500")
+		return
 	}
 }
 

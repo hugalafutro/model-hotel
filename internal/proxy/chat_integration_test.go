@@ -152,12 +152,13 @@ func newTestProxyHandler(t *testing.T) *testProxyEnv {
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		dbPool:         pool,
 		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
 			ResponseHeaderTimeout: 120 * time.Second,
 			IdleConnTimeout:       120 * time.Second,
 			MaxIdleConns:          200,
 			MaxIdleConnsPerHost:   20,
 		},
+		safeDialer: NewSafeDialer(nil, nil),
 	}
 
 	return &testProxyEnv{
@@ -650,12 +651,13 @@ func TestChatCompletions_NonStreaming_Upstream4xxError(t *testing.T) {
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		dbPool:         pool,
 		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
 			ResponseHeaderTimeout: 120 * time.Second,
 			IdleConnTimeout:       120 * time.Second,
 			MaxIdleConns:          200,
 			MaxIdleConnsPerHost:   20,
 		},
+		safeDialer: NewSafeDialer(nil, nil),
 	}
 
 	body := `{"model": "` + providerName + `/error-model", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
@@ -761,12 +763,13 @@ func TestChatCompletions_NonStreaming_Upstream5xxError(t *testing.T) {
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		dbPool:         pool,
 		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
 			ResponseHeaderTimeout: 120 * time.Second,
 			IdleConnTimeout:       120 * time.Second,
 			MaxIdleConns:          200,
 			MaxIdleConnsPerHost:   20,
 		},
+		safeDialer: NewSafeDialer(nil, nil),
 	}
 
 	body := `{"model": "` + providerName + `/error-model-5xx", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
@@ -970,12 +973,13 @@ func TestChatCompletions_FailoverWithBackoff(t *testing.T) {
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		dbPool:         pool,
 		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
 			ResponseHeaderTimeout: 120 * time.Second,
 			IdleConnTimeout:       120 * time.Second,
 			MaxIdleConns:          200,
 			MaxIdleConnsPerHost:   20,
 		},
+		safeDialer: NewSafeDialer(nil, nil),
 	}
 
 	body := `{"model": "hotel/` + groupName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
@@ -1107,12 +1111,13 @@ func TestChatCompletions_ClientDisconnectDuringBackoff(t *testing.T) {
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		dbPool:         pool,
 		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
 			ResponseHeaderTimeout: 120 * time.Second,
 			IdleConnTimeout:       120 * time.Second,
 			MaxIdleConns:          200,
 			MaxIdleConnsPerHost:   20,
 		},
+		safeDialer: NewSafeDialer(nil, nil),
 	}
 
 	body := `{"model": "hotel/` + groupName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
@@ -1244,12 +1249,13 @@ func TestChatCompletions_ParamRejectionAutoRetry(t *testing.T) {
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		dbPool:         pool,
 		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
 			ResponseHeaderTimeout: 120 * time.Second,
 			IdleConnTimeout:       120 * time.Second,
 			MaxIdleConns:          200,
 			MaxIdleConnsPerHost:   20,
 		},
+		safeDialer: NewSafeDialer(nil, nil),
 	}
 
 	// Request with temperature parameter

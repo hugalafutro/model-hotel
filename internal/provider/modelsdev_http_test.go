@@ -77,12 +77,14 @@ func TestLoadModelsDevWithClient(t *testing.T) {
 	cache := GetModelsDevCache()
 	if cache == nil {
 		t.Fatal("GetModelsDevCache returned nil")
+		return
 	}
 
 	// Test Lookup
 	spec := cache.Lookup("gpt-4")
 	if spec == nil {
 		t.Fatal("Lookup failed for gpt-4")
+		return
 	}
 	if spec.Name != "GPT-4" {
 		t.Errorf("expected name 'GPT-4', got '%s'", spec.Name)
@@ -92,6 +94,7 @@ func TestLoadModelsDevWithClient(t *testing.T) {
 	specFuzzy := cache.LookupFuzzy("gpt-4-2024-01-01")
 	if specFuzzy == nil {
 		t.Fatal("LookupFuzzy failed for gpt-4-2024-01-01")
+		return
 	}
 	if specFuzzy.Name != "GPT-4" {
 		t.Errorf("expected name 'GPT-4' from fuzzy lookup, got '%s'", specFuzzy.Name)
@@ -197,6 +200,7 @@ func TestModelsDevCacheEnrichModel(t *testing.T) {
 	cache := GetModelsDevCache()
 	if cache == nil {
 		t.Fatal("GetModelsDevCache returned nil")
+		return
 	}
 
 	// Test EnrichModel

@@ -13,7 +13,7 @@ import (
 // Use testDB from proxy_test.go
 
 func TestSafeDialer_BlockedIP(t *testing.T) {
-	dialer := NewSafeDialer([]string{"allowed.example.com"})
+	dialer := NewSafeDialer([]string{"allowed.example.com"}, nil)
 
 	// Test blocking of loopback
 	_, err := dialer.DialContext(context.Background(), "tcp", "127.0.0.1:80")
@@ -43,7 +43,7 @@ func TestSafeDialer_BlockedIP(t *testing.T) {
 // TestSafeDialer_AllowedHost tests that SafeDialer allows allowed hosts
 
 func TestSafeDialer_AllowedHost(t *testing.T) {
-	dialer := NewSafeDialer([]string{"localhost", "127.0.0.1"})
+	dialer := NewSafeDialer([]string{"localhost", "127.0.0.1"}, nil)
 
 	// Test that allowed host bypasses IP checks
 	// We can't actually dial without a server, but we can test that it doesn't

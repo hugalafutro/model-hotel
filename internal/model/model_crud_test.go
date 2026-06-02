@@ -584,6 +584,7 @@ func TestGet_NotFound(t *testing.T) {
 	model, err := repo.Get(ctx, id)
 	if err == nil {
 		t.Fatal("expected error for non-existent model")
+		return
 	}
 	if model != nil {
 		t.Errorf("expected nil model, got %v", model.ID)
@@ -1016,6 +1017,7 @@ func TestUpdate_NotFound(t *testing.T) {
 	// Should return error from Get
 	if err == nil {
 		t.Fatal("expected error for non-existent model")
+		return
 	}
 	if updated != nil {
 		t.Errorf("expected nil model, got %v", updated)
@@ -1034,6 +1036,7 @@ func TestGetByProviderAndModelID_NotFound(t *testing.T) {
 	model, err := repo.GetByProviderAndModelID(ctx, providerID, "non-existent")
 	if err == nil {
 		t.Fatal("expected error for non-existent model")
+		return
 	}
 	if model != nil {
 		t.Errorf("expected nil, got %v", model.ID)

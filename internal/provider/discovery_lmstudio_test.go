@@ -112,6 +112,7 @@ func TestDiscoverLMStudio_HTTPError(t *testing.T) {
 	_, err := svc.discoverLMStudio(context.Background(), provider, "")
 	if err == nil {
 		t.Fatal("expected error for non-200 status")
+		return
 	}
 }
 
@@ -131,6 +132,7 @@ func TestDiscoverLMStudio_InvalidJSON(t *testing.T) {
 	_, err := svc.discoverLMStudio(context.Background(), provider, "")
 	if err == nil {
 		t.Fatal("expected error for invalid JSON")
+		return
 	}
 }
 

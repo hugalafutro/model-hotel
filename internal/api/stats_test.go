@@ -1906,6 +1906,7 @@ func TestNewStatsHandler_Constructor(t *testing.T) {
 	handler := NewStatsHandler(pool, adminMgr)
 	if handler == nil {
 		t.Fatal("Expected handler to be non-nil")
+		return
 	}
 }
 

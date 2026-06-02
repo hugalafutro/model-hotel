@@ -3,6 +3,7 @@ package proxy
 import (
 	"context"
 	"errors"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -38,6 +39,9 @@ type Handler struct {
 	// requests.  Reusing one Transport avoids creating a fresh Transport
 	// (and its persistent readLoop/writeLoop goroutines) per request.
 	upstreamTransport *http.Transport
+
+	// safeDialer holds the SafeDialer for use in CheckRedirect.
+	safeDialer *SafeDialer
 
 	// deprecationCache caches rejected parameters learned from HTTP 400 responses,
 	// keyed by "providerType:modelID". Value: map[string]bool of rejected param names.
@@ -119,8 +123,8 @@ func NewHandler(
 	settingsRepo *settings.Repository,
 	rateLimiter *ratelimit.Limiter,
 	ipLimiter *ratelimit.IPLimiter,
+	sd *SafeDialer,
 ) *Handler {
-	sd := NewSafeDialer(append(cfg.AllowedProviderHosts, config.KnownProviderHosts()...))
 	return &Handler{
 		cfg:            cfg,
 		providerRepo:   providerRepo,
@@ -133,13 +137,23 @@ func NewHandler(
 		ipLimiter:      ipLimiter,
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		upstreamTransport: &http.Transport{
-			DialContext:           sd.DialContext,
+			DialContext:           safeDialFunc(sd),
 			ResponseHeaderTimeout: 120 * time.Second,
 			IdleConnTimeout:       120 * time.Second,
 			MaxIdleConns:          200,
 			MaxIdleConnsPerHost:   20,
 		},
+		safeDialer: sd,
 	}
+}
+
+// safeDialFunc returns sd.DialContext if sd is non-nil, otherwise nil
+// (which makes http.Transport use the default dialer).
+func safeDialFunc(sd *SafeDialer) func(ctx context.Context, network, addr string) (net.Conn, error) {
+	if sd != nil {
+		return sd.DialContext
+	}
+	return nil
 }
 
 // Close releases resources owned by the handler. Call during server

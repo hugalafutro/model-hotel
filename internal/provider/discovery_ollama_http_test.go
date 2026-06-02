@@ -349,6 +349,7 @@ func TestGetOllamaCloudAccount_DecryptionFailure(t *testing.T) {
 	_, err := service.GetOllamaCloudAccount(context.Background(), provider, "wrong-master-key")
 	if err == nil {
 		t.Fatal("Expected error for invalid encrypted key, got nil")
+		return
 	}
 	if !strings.Contains(err.Error(), "failed to decrypt API key") {
 		t.Errorf("Expected decryption error, got: %v", err)
@@ -391,5 +392,6 @@ func TestGetOllamaCloudAccount_Non200Status(t *testing.T) {
 	_, err = service.GetOllamaCloudAccount(context.Background(), provider, masterKey)
 	if err == nil {
 		t.Fatal("Expected error for non-200 status, got nil")
+		return
 	}
 }

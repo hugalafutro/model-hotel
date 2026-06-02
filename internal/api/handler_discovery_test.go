@@ -678,6 +678,7 @@ func TestRefreshAllQuotas_OpenRouter(t *testing.T) {
 	}
 	if resultsInterface == nil {
 		t.Fatal("results field is nil")
+		return
 	}
 	results := resultsInterface.([]interface{})
 

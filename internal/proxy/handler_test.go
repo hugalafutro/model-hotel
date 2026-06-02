@@ -55,6 +55,7 @@ func newUnitHandler() *Handler {
 			MaxIdleConns:          200,
 			MaxIdleConnsPerHost:   20,
 		},
+		safeDialer: NewSafeDialer(nil, nil),
 	}
 }
 
@@ -117,7 +118,7 @@ func TestNewHandler_SetsAllFields(t *testing.T) {
 	defer rateLimiter.Stop()
 	defer ipLimiter.Stop()
 
-	h := NewHandler(cfg, providerRepo, modelRepo, nil, virtualKeyRepo, failoverRepo, settingsRepo, rateLimiter, ipLimiter)
+	h := NewHandler(cfg, providerRepo, modelRepo, nil, virtualKeyRepo, failoverRepo, settingsRepo, rateLimiter, ipLimiter, nil)
 
 	if h.cfg != cfg {
 		t.Error("cfg not set correctly")
@@ -160,7 +161,7 @@ func TestNewHandler_CreatesTransport(t *testing.T) {
 		&config.Config{MasterKey: "test-key", RateLimitEnabled: false},
 		provider.NewRepository(nil), model.NewRepository(nil), nil,
 		virtualkey.NewRepository(nil), failover.NewRepository(nil),
-		settingsRepo, rateLimiter, ipLimiter,
+		settingsRepo, rateLimiter, ipLimiter, nil,
 	)
 
 	if h.upstreamTransport == nil {
@@ -482,6 +483,7 @@ func TestVirtualKeyRepository_Create_Success(t *testing.T) {
 	}
 	if result == nil {
 		t.Fatal("expected non-nil result")
+		return
 	}
 	if result.ID != expectedVK.ID {
 		t.Errorf("ID = %q, want %q", result.ID, expectedVK.ID)
@@ -644,6 +646,7 @@ func TestVirtualKeyRepoAdapter_Create_Integration(t *testing.T) {
 	}
 	if result == nil {
 		t.Fatal("expected non-nil result")
+		return
 	}
 	if result.ID == "" {
 		t.Error("expected non-empty ID")

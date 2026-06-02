@@ -1587,12 +1587,13 @@ func TestListModels_MultipleProviders(t *testing.T) {
 		dbPool:         pool,
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
 			ResponseHeaderTimeout: 120 * time.Second,
 			IdleConnTimeout:       120 * time.Second,
 			MaxIdleConns:          200,
 			MaxIdleConnsPerHost:   20,
 		},
+		safeDialer: NewSafeDialer(nil, nil),
 	}
 
 	// Create two providers
@@ -1754,12 +1755,13 @@ func TestListModels_NoModels(t *testing.T) {
 		dbPool:         pool,
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
 			ResponseHeaderTimeout: 120 * time.Second,
 			IdleConnTimeout:       120 * time.Second,
 			MaxIdleConns:          200,
 			MaxIdleConnsPerHost:   20,
 		},
+		safeDialer: NewSafeDialer(nil, nil),
 	}
 
 	req := httptest.NewRequest("GET", "/v1/models", http.NoBody)
@@ -1831,12 +1833,13 @@ func TestListModels_DisabledModelsFiltered(t *testing.T) {
 		dbPool:         pool,
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
 			ResponseHeaderTimeout: 120 * time.Second,
 			IdleConnTimeout:       120 * time.Second,
 			MaxIdleConns:          200,
 			MaxIdleConnsPerHost:   20,
 		},
+		safeDialer: NewSafeDialer(nil, nil),
 	}
 
 	// Create a provider
@@ -1985,12 +1988,13 @@ func TestListModels_WithFailoverGroups(t *testing.T) {
 		dbPool:         pool,
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
 			ResponseHeaderTimeout: 120 * time.Second,
 			IdleConnTimeout:       120 * time.Second,
 			MaxIdleConns:          200,
 			MaxIdleConnsPerHost:   20,
 		},
+		safeDialer: NewSafeDialer(nil, nil),
 	}
 
 	// Create a provider
@@ -2114,12 +2118,13 @@ func TestListModels_FilterByProvider(t *testing.T) {
 		dbPool:         pool,
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1")).DialContext,
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
 			ResponseHeaderTimeout: 120 * time.Second,
 			IdleConnTimeout:       120 * time.Second,
 			MaxIdleConns:          200,
 			MaxIdleConnsPerHost:   20,
 		},
+		safeDialer: NewSafeDialer(nil, nil),
 	}
 
 	// Create a provider

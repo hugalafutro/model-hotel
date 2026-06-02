@@ -12,11 +12,12 @@ import (
 func TestGetOrCreateCircuit_NewProvider(t *testing.T) {
 	t.Helper()
 
-	d := NewDiscoveryService()
+	d := NewDiscoveryService(nil, nil)
 	circuit := d.getOrCreateCircuit("new-provider-123")
 
 	if circuit == nil {
 		t.Fatal("getOrCreateCircuit should return non-nil circuit for new provider")
+		return
 	}
 	if circuit.consecFailures != 0 {
 		t.Errorf("new circuit should have consecFailures=0, got %d", circuit.consecFailures)
@@ -33,7 +34,7 @@ func TestGetOrCreateCircuit_NewProvider(t *testing.T) {
 func TestGetOrCreateCircuit_SameProviderReturnsSame(t *testing.T) {
 	t.Helper()
 
-	d := NewDiscoveryService()
+	d := NewDiscoveryService(nil, nil)
 
 	circuit1 := d.getOrCreateCircuit("same-provider-456")
 	circuit2 := d.getOrCreateCircuit("same-provider-456")
@@ -43,13 +44,14 @@ func TestGetOrCreateCircuit_SameProviderReturnsSame(t *testing.T) {
 	}
 	if circuit1 == nil {
 		t.Fatal("first call should return non-nil circuit")
+		return
 	}
 }
 
 func TestGetOrCreateCircuit_MalformedValueFallback(t *testing.T) {
 	t.Helper()
 
-	d := NewDiscoveryService()
+	d := NewDiscoveryService(nil, nil)
 
 	// Inject a wrong type into the sync.Map
 	d.quotaBreaker.Store("malformed-provider", "not-a-circuit")
@@ -58,6 +60,7 @@ func TestGetOrCreateCircuit_MalformedValueFallback(t *testing.T) {
 
 	if circuit == nil {
 		t.Fatal("getOrCreateCircuit should return non-nil circuit even for malformed value")
+		return
 	}
 	// Verify the returned circuit is usable (can call isCircuitOpen without panic)
 	if circuit.isCircuitOpen() {
@@ -72,7 +75,7 @@ func TestGetOrCreateCircuit_MalformedValueFallback(t *testing.T) {
 func TestGetOrCreateCircuit_ConcurrentAccess(t *testing.T) {
 	t.Helper()
 
-	d := NewDiscoveryService()
+	d := NewDiscoveryService(nil, nil)
 	providerID := "concurrent-provider-789"
 	const goroutines = 20
 

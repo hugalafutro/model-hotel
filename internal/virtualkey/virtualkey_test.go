@@ -518,6 +518,7 @@ func TestRepository_ListIncludesAllowedProviders(t *testing.T) {
 	}
 	if found == nil {
 		t.Fatalf("created key not found in list")
+		return
 	}
 	if found.AllowedProviders == nil {
 		t.Fatal("AllowedProviders should not be nil in list results")

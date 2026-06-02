@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"strings"
 	"time"
 
@@ -20,38 +21,52 @@ type ipResolver interface {
 // Intended for use as http.Transport.DialContext to prevent DNS-rebinding
 // attacks that redirect proxy requests to private or reserved IPs.
 type SafeDialer struct {
-	d        *net.Dialer
-	hosts    map[string]bool
-	resolver ipResolver
+	d            *net.Dialer
+	hosts        map[string]bool
+	resolver     ipResolver
+	knownProxies []*net.IPNet
 }
 
 // NewSafeDialer creates a SafeDialer that blocks connections to private,
 // loopback, link-local, and cloud-metadata IPs. Hosts in allowedHosts
-// (lowercased for comparison) bypass all IP checks.
-func NewSafeDialer(allowedHosts []string) *SafeDialer {
+// (lowercased for comparison) bypass all IP checks. IPs within knownProxies
+// CIDRs bypass the private-IP restriction (for internal LLM servers).
+func NewSafeDialer(allowedHosts []string, knownProxies []*net.IPNet) *SafeDialer {
 	hosts := make(map[string]bool, len(allowedHosts))
 	for _, h := range allowedHosts {
 		hosts[strings.ToLower(h)] = true
 	}
 	return &SafeDialer{
-		d:        &net.Dialer{Resolver: net.DefaultResolver},
-		hosts:    hosts,
-		resolver: net.DefaultResolver,
+		d:            &net.Dialer{Resolver: net.DefaultResolver},
+		hosts:        hosts,
+		resolver:     net.DefaultResolver,
+		knownProxies: knownProxies,
 	}
 }
 
 // newSafeDialerWithResolver creates a SafeDialer with a custom resolver for testing.
 // This is exported for testing purposes only.
-func newSafeDialerWithResolver(allowedHosts []string, resolver ipResolver) *SafeDialer {
+func newSafeDialerWithResolver(allowedHosts []string, resolver ipResolver, knownProxies []*net.IPNet) *SafeDialer {
 	hosts := make(map[string]bool, len(allowedHosts))
 	for _, h := range allowedHosts {
 		hosts[strings.ToLower(h)] = true
 	}
 	return &SafeDialer{
-		d:        &net.Dialer{Resolver: net.DefaultResolver},
-		hosts:    hosts,
-		resolver: resolver,
+		d:            &net.Dialer{Resolver: net.DefaultResolver},
+		hosts:        hosts,
+		resolver:     resolver,
+		knownProxies: knownProxies,
 	}
+}
+
+// isKnownProxy checks if the given IP belongs to any of the known proxy CIDRs.
+func (s *SafeDialer) isKnownProxy(ip net.IP) bool {
+	for _, n := range s.knownProxies {
+		if n.Contains(ip) {
+			return true
+		}
+	}
+	return false
 }
 
 // DialContext implements the dial function signature expected by
@@ -103,10 +118,10 @@ func (s *SafeDialer) DialContext(ctx context.Context, network, addr string) (net
 
 	debuglog.Debug("proxy: SafeDialer DNS resolved", "host", host, "ip_count", len(ips), "dns_ms", float64(time.Since(dnsStart).Microseconds())/1000.0)
 
-	// If every resolved IP is blocked, reject the connection.
+	// If every resolved IP is blocked (and not in knownProxies), reject.
 	blocked := true
 	for _, ip := range ips {
-		if !isBlockedIP(ip.IP) {
+		if !isBlockedIP(ip.IP) || s.isKnownProxy(ip.IP) {
 			blocked = false
 			break
 		}
@@ -119,7 +134,7 @@ func (s *SafeDialer) DialContext(ctx context.Context, network, addr string) (net
 	// checked is the one we connect to, preventing DNS rebinding between
 	// resolution and dial.
 	for _, ip := range ips {
-		if isBlockedIP(ip.IP) {
+		if isBlockedIP(ip.IP) && !s.isKnownProxy(ip.IP) {
 			debuglog.Debug("proxy: SafeDialer blocked IP skipped", "host", host, "ip", ip.IP)
 			continue
 		}
@@ -142,6 +157,41 @@ func (s *SafeDialer) DialContext(ctx context.Context, network, addr string) (net
 	// Should not be reachable (fell through without a non-blocked IP),
 	// but handle gracefully.
 	return nil, fmt.Errorf("proxy: no allowed IP found for host %s", host)
+}
+
+// CheckRedirect validates redirect targets against SafeDialer rules.
+// It implements the http.Client.CheckRedirect callback signature.
+func (s *SafeDialer) CheckRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= 10 {
+		return fmt.Errorf("proxy: stopped after 10 redirects")
+	}
+	host := req.URL.Hostname()
+	// Allowlisted hosts bypass all checks.
+	if s.hosts[strings.ToLower(host)] {
+		return nil
+	}
+	// Resolve host and check IPs. Derive the timeout from the request
+	// context so that cancelled requests don't leave DNS goroutines running.
+	resolveCtx, cancel := context.WithTimeout(req.Context(), 5*time.Second)
+	defer cancel()
+	ips, err := s.resolver.LookupIPAddr(resolveCtx, host)
+	if err != nil {
+		// Resolution failure on a redirect: reject the redirect since we
+		// cannot validate its target. The original response is still available
+		// to the caller via the last successful request.
+		return fmt.Errorf("proxy: redirect to host %s rejected: DNS resolution failed: %w", host, err)
+	}
+	hasAllowedIP := false
+	for _, ip := range ips {
+		if !isBlockedIP(ip.IP) || s.isKnownProxy(ip.IP) {
+			hasAllowedIP = true
+			break
+		}
+	}
+	if !hasAllowedIP {
+		return fmt.Errorf("proxy: redirect to host %s rejected: all resolved IPs are private/reserved", host)
+	}
+	return nil
 }
 
 // isBlockedIP checks whether an IP falls into a range that should never be

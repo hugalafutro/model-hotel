@@ -14,6 +14,7 @@ func TestNewHandler(t *testing.T) {
 	h := newTestHandler(t)
 	if h == nil {
 		t.Fatal("handler is nil")
+		return
 	}
 	if h.Pool() == nil {
 		t.Fatal("pool is nil")
@@ -43,6 +44,7 @@ func TestPool(t *testing.T) {
 	pool := h.Pool()
 	if pool == nil {
 		t.Fatal("pool is nil")
+		return
 	}
 
 	// Test database connection

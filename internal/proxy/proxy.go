@@ -1632,8 +1632,13 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		dialCtx := context.WithValue(failoverCtx, ctxkeys.DialMsKey, &dialMs)
 		proxyReq = proxyReq.WithContext(dialCtx)
 
+		var checkRedirect func(req *http.Request, via []*http.Request) error
+		if h.safeDialer != nil {
+			checkRedirect = h.safeDialer.CheckRedirect
+		}
 		upstreamClient := &http.Client{
-			Transport: h.upstreamTransport,
+			Transport:     h.upstreamTransport,
+			CheckRedirect: checkRedirect,
 		}
 		//nolint:gosec // provider URL is admin-configured, not arbitrary user input
 		resp, err := upstreamClient.Do(proxyReq)
@@ -1751,7 +1756,11 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 							}
 							util.SetProviderAuthHeaders(retryReq, providerType, candidate.apiKey)
 							retryReq.Header.Set("Content-Type", "application/json")
-							retryClient := &http.Client{Transport: h.upstreamTransport}
+							var retryCheckRedirect func(req *http.Request, via []*http.Request) error
+							if h.safeDialer != nil {
+								retryCheckRedirect = h.safeDialer.CheckRedirect
+							}
+							retryClient := &http.Client{Transport: h.upstreamTransport, CheckRedirect: retryCheckRedirect}
 							resp, retryErr = retryClient.Do(retryReq)
 							if retryErr != nil {
 								retryCancel() // no body to consume on retry error

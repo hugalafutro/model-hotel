@@ -788,7 +788,7 @@ func TestNormalizeName_RoundTripWithCache(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestDiscoverModels_EmptyBaseURL(t *testing.T) {
-	svc := NewDiscoveryService()
+	svc := NewDiscoveryService(nil, nil)
 	provider := &Provider{
 		ID:           uuid.New(),
 		Name:         "empty-url-provider",
@@ -804,7 +804,7 @@ func TestDiscoverModels_EmptyBaseURL(t *testing.T) {
 }
 
 func TestDiscoverModels_InvalidBaseURL(t *testing.T) {
-	svc := NewDiscoveryService()
+	svc := NewDiscoveryService(nil, nil)
 	provider := &Provider{
 		ID:           uuid.New(),
 		Name:         "invalid-url-provider",
@@ -1145,7 +1145,7 @@ func TestQuotaCircuitState_HalfOpenFailureReopens(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestDoQuotaRequestWithRetry_CircuitBreakerShortCircuits(t *testing.T) {
-	svc := NewDiscoveryService()
+	svc := NewDiscoveryService(nil, nil)
 	providerID := "test-provider-123"
 
 	// Open the circuit by recording enough failures.
@@ -1159,6 +1159,7 @@ func TestDoQuotaRequestWithRetry_CircuitBreakerShortCircuits(t *testing.T) {
 	_, err := svc.doQuotaRequestWithRetry(ctx, req, providerID, "test-provider", "zai-coding")
 	if err == nil {
 		t.Fatal("expected error when circuit breaker is open")
+		return
 	}
 	if !strings.Contains(err.Error(), "circuit breaker open") {
 		t.Errorf("expected circuit breaker error, got: %v", err)
@@ -1180,7 +1181,7 @@ func TestDoQuotaRequestWithRetry_Retries429(t *testing.T) {
 	}))
 	defer server.Close()
 
-	svc := NewDiscoveryService()
+	svc := NewDiscoveryService(nil, nil)
 	svc.httpClient = server.Client()
 	req, _ := http.NewRequest("GET", server.URL+"/quota", http.NoBody)
 	ctx := context.Background()
@@ -1208,7 +1209,7 @@ func TestDoQuotaRequestWithRetry_Retries5xx(t *testing.T) {
 	}))
 	defer server.Close()
 
-	svc := NewDiscoveryService()
+	svc := NewDiscoveryService(nil, nil)
 	svc.httpClient = server.Client()
 	req, _ := http.NewRequest("GET", server.URL+"/quota", http.NoBody)
 	ctx := context.Background()
@@ -1230,7 +1231,7 @@ func TestDoQuotaRequestWithRetry_NonRetryableStatusNoRetry(t *testing.T) {
 	}))
 	defer server.Close()
 
-	svc := NewDiscoveryService()
+	svc := NewDiscoveryService(nil, nil)
 	svc.httpClient = server.Client()
 	req, _ := http.NewRequest("GET", server.URL+"/quota", http.NoBody)
 	ctx := context.Background()
@@ -1296,7 +1297,7 @@ func TestDiscoverModels_UnsupportedProviderTypeFallsBackToOpenAI(t *testing.T) {
 }
 
 func TestDiscoverModels_NilProvider(t *testing.T) {
-	svc := NewDiscoveryService()
+	svc := NewDiscoveryService(nil, nil)
 	ctx := context.Background()
 
 	// Should panic or error with nil provider
@@ -1496,7 +1497,7 @@ func TestDiscoverModels_OllamaProviderType(t *testing.T) {
 
 func TestDiscoverModels_NetworkErrorPropagated(t *testing.T) {
 	// Test that network errors from provider discovery are propagated
-	svc := NewDiscoveryService()
+	svc := NewDiscoveryService(nil, nil)
 	provider := &Provider{
 		ID:           uuid.New(),
 		Name:         "unreachable-provider",

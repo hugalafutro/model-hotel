@@ -233,6 +233,7 @@ func TestDiscoverXAILanguageModels_CatalogSpecOverride(t *testing.T) {
 	spec := LookupOpenCodeCatalog(catalog, catalogModelID)
 	if spec == nil {
 		t.Fatal("catalog spec not found for", catalogModelID)
+		return
 	}
 
 	// Verify catalog fields override API values

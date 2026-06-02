@@ -216,6 +216,7 @@ func TestDiscoverOpenCodeGo_Non200Status(t *testing.T) {
 	_, err := svc.discoverOpenCodeGo(ctx, provider, "test-key")
 	if err == nil {
 		t.Fatal("expected error for 500 status, got nil")
+		return
 	}
 }
 
@@ -241,6 +242,7 @@ func TestDiscoverOpenCodeGo_InvalidJSON(t *testing.T) {
 	_, err := svc.discoverOpenCodeGo(ctx, provider, "test-key")
 	if err == nil {
 		t.Fatal("expected error for invalid JSON, got nil")
+		return
 	}
 }
 
@@ -343,6 +345,7 @@ func TestDiscoverOpenCodeZen_Non200Status(t *testing.T) {
 	_, err := svc.discoverOpenCodeZen(ctx, provider, "test-key")
 	if err == nil {
 		t.Fatal("expected error for 400 status, got nil")
+		return
 	}
 }
 
@@ -369,6 +372,7 @@ func TestDiscoverOpenCodeZen_InvalidJSON(t *testing.T) {
 	_, err := svc.discoverOpenCodeZen(ctx, provider, "test-key")
 	if err == nil {
 		t.Fatal("expected error for invalid JSON, got nil")
+		return
 	}
 }
 
@@ -631,6 +635,7 @@ func TestGetNanoGPTUsage(t *testing.T) {
 
 	if usage == nil {
 		t.Fatal("expected non-nil usage")
+		return
 	}
 
 	if usage.DailyInputTokens == nil || usage.DailyInputTokens.Used != 1000 {
@@ -666,6 +671,7 @@ func TestGetZAICodingQuota_DecryptionFailure(t *testing.T) {
 	_, err = svc.GetZAICodingQuota(ctx, provider, masterKey)
 	if err == nil {
 		t.Fatal("expected error for wrong master key, got nil")
+		return
 	}
 	if !strings.Contains(err.Error(), "failed to decrypt API key") {
 		t.Errorf("expected decryption error, got: %v", err)
@@ -715,6 +721,7 @@ func TestGetZAICodingQuota(t *testing.T) {
 
 	if quota == nil {
 		t.Fatal("expected non-nil quota")
+		return
 	}
 
 	if len(quota.Data.Limits) == 0 {
@@ -793,6 +800,7 @@ func TestGetZAICodingQuota_MockServer(t *testing.T) {
 
 	if quota == nil {
 		t.Fatal("expected non-nil quota")
+		return
 	}
 
 	if !quota.Success {
@@ -857,6 +865,7 @@ func TestGetZAICodingQuota_Non200Status(t *testing.T) {
 	_, err = service.GetZAICodingQuota(context.Background(), provider, masterKey)
 	if err == nil {
 		t.Fatal("Expected error for non-200 status, got nil")
+		return
 	}
 }
 
@@ -900,6 +909,7 @@ func TestGetZAICodingQuota_InvalidJSON(t *testing.T) {
 	_, err = service.GetZAICodingQuota(context.Background(), provider, masterKey)
 	if err == nil {
 		t.Fatal("expected error for invalid JSON response, got nil")
+		return
 	}
 	if !strings.Contains(err.Error(), "failed to decode response") {
 		t.Errorf("expected decode error, got: %v", err)
