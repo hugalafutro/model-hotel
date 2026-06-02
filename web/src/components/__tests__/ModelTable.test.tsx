@@ -681,9 +681,11 @@ describe("ModelTable", () => {
 
 			// Go back to previous page
 			const prevButtons2 = screen.getAllByRole("button", { name: "Prev" });
-			await user.click(
-				prevButtons2.find((btn) => !btn.hasAttribute("disabled"))!,
+			const enabledPrevBtn = prevButtons2.find(
+				(btn) => !btn.hasAttribute("disabled"),
 			);
+			if (!enabledPrevBtn) throw new Error("No enabled Prev button found");
+			await user.click(enabledPrevBtn);
 
 			// Prev should be disabled again
 			await waitFor(() => {
