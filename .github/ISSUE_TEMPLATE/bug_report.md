@@ -24,11 +24,11 @@ A clear and concise description of what you expected to happen.
 If applicable, add screenshots to help explain your problem.
 
 **System (please complete the following information):**
- - OS: [e.g. Linux]
- - Browser: [e.g. chrome, firefox]
- - Model Hotel Version: [e.g. v0.9.31]
- - Docker Version: `docker -v`
- - Docker Compose Version: `docker compose -v`
+- OS: [e.g. Linux]
+- Browser: [e.g. chrome, firefox]
+- Model Hotel Version: [e.g. v0.9.31]
+- Docker Version: `docker -v`
+- Docker Compose Version: `docker compose -v`
 
 **Additional context**
 Add any other context about the problem here.
