@@ -72,3 +72,4 @@ Thumbs.db
 # Wiki (published separately as GitHub wiki)
 .windsurfrules
 .omo
+web/.pnpm-store/

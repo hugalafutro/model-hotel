@@ -916,4 +916,80 @@ export const api = {
 			return response.json();
 		},
 	},
+	webauthn: {
+		registerStart: async (): Promise<{
+			session_id: string;
+			options: Record<string, unknown>;
+		}> => {
+			return fetchJSON(`${API_BASE}/api/webauthn/register/start`, {
+				method: "POST",
+				headers: getAuthHeaders(),
+			});
+		},
+		registerFinish: async (
+			sessionId: string,
+			credential: unknown,
+		): Promise<void> => {
+			await fetchOK(
+				`${API_BASE}/api/webauthn/register/finish`,
+				{
+					method: "POST",
+					headers: getAuthHeaders(),
+					body: JSON.stringify({ session_id: sessionId, credential }),
+				},
+				"Passkey registration failed",
+			);
+		},
+		loginStart: async (): Promise<{
+			session_id: string;
+			options: Record<string, unknown>;
+		}> => {
+			return fetchJSON(`${API_BASE}/api/webauthn/login/start`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+			});
+		},
+		loginFinish: async (
+			sessionId: string,
+			credential: unknown,
+		): Promise<{ token: string }> => {
+			return fetchJSON(
+				`${API_BASE}/api/webauthn/login/finish`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ session_id: sessionId, credential }),
+				},
+				"Passkey login failed",
+			);
+		},
+		listCredentials: async (): Promise<
+			import("./types").WebAuthnCredential[]
+		> => {
+			return fetchJSON<import("./types").WebAuthnCredential[]>(
+				`${API_BASE}/api/webauthn/credentials`,
+				{ headers: getAuthHeaders() },
+			);
+		},
+		deleteCredential: async (id: string): Promise<void> => {
+			await fetchOK(
+				`${API_BASE}/api/webauthn/credentials/${encodeURIComponent(id)}`,
+				{
+					method: "DELETE",
+					headers: getAuthHeaders(),
+				},
+				"Failed to delete passkey",
+			);
+		},
+		logout: async (): Promise<void> => {
+			await fetchOK(
+				`${API_BASE}/api/webauthn/logout`,
+				{
+					method: "POST",
+					headers: getAuthHeaders(),
+				},
+				"Failed to logout",
+			);
+		},
+	},
 };

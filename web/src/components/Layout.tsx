@@ -760,7 +760,13 @@ export function Layout({ children }: LayoutProps) {
 
 	const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-	const handleLogout = () => {
+	const handleLogout = async () => {
+		try {
+			await api.webauthn.logout();
+		} catch {
+			// Server-side logout failure is non-fatal: the token will
+			// expire naturally or be cleaned up by the periodic sweep.
+		}
 		localStorage.removeItem("adminToken");
 		navigate("/dashboard");
 		window.location.reload();
