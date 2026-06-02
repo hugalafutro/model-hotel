@@ -41,12 +41,14 @@ linters:
     rules:
       # Test files: errcheck noise from defer os.RemoveAll, w.Write in httptest, etc.
       # Also exclude gosec G104 (unhandled errors) in test files - os.Setenv, json.Decode, etc.
+      # SA5011: t.Fatal/t.Fatalf always exit, but staticcheck can't prove it; false positive on every nil-check-then-access pattern
       - path: _test\.go
         linters:
           - errcheck
           - bodyclose
           - gosec
           - gocyclo
+          - staticcheck
 
       # The recover() return value is intentionally discarded in panic-safety guards
       - linters:
