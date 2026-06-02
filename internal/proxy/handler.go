@@ -3,6 +3,7 @@ package proxy
 import (
 	"context"
 	"errors"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -136,7 +137,7 @@ func NewHandler(
 		ipLimiter:      ipLimiter,
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		upstreamTransport: &http.Transport{
-			DialContext:           sd.DialContext,
+			DialContext:           safeDialFunc(sd),
 			ResponseHeaderTimeout: 120 * time.Second,
 			IdleConnTimeout:       120 * time.Second,
 			MaxIdleConns:          200,
@@ -144,6 +145,15 @@ func NewHandler(
 		},
 		safeDialer: sd,
 	}
+}
+
+// safeDialFunc returns sd.DialContext if sd is non-nil, otherwise nil
+// (which makes http.Transport use the default dialer).
+func safeDialFunc(sd *SafeDialer) func(ctx context.Context, network, addr string) (net.Conn, error) {
+	if sd != nil {
+		return sd.DialContext
+	}
+	return nil
 }
 
 // Close releases resources owned by the handler. Call during server
