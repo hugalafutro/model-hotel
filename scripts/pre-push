@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 # Pre-push: smoke test only (~30s). GitHub CI is the real gatekeeper.
-# If you need to bypass for any reason: git push --no-verify
+#
+# Frontend checks run inside Docker with --tmpfs for node_modules,
+# so no local node_modules directory is needed or created.
 
 set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 echo "pre-push: go vet ./..."
 if ! go vet ./...; then
@@ -10,8 +14,15 @@ if ! go vet ./...; then
 	exit 1
 fi
 
-echo "pre-push: pnpm lint (web/)..."
-if ! (cd web && pnpm run lint); then
+echo "pre-push: pnpm lint (Docker)..."
+if ! docker run --rm \
+	-v "$REPO_ROOT/web":/app \
+	-v model-hotel-pnpm-store:/pnpm/store \
+	--tmpfs /app/node_modules:exec \
+	-e PNPM_HOME=/root/.local/share/pnpm \
+	-w /app \
+	node:22-alpine \
+	sh -c "npm install -g pnpm@10 >/dev/null 2>&1 && pnpm config set store-dir /pnpm/store >/dev/null && pnpm install --frozen-lockfile >/dev/null 2>&1 && pnpm run lint" 2>&1; then
 	echo "pre-push: FAILED - pnpm lint" >&2
 	exit 1
 fi
