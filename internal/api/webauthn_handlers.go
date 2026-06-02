@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -491,12 +492,13 @@ func (h *WebAuthnHandler) RenameCredential(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	if len(req.Name) > 128 {
-		http.Error(w, "name must be 128 characters or fewer", http.StatusBadRequest)
+	trimmed := strings.TrimSpace(req.Name)
+	if trimmed == "" || len(trimmed) > 128 {
+		http.Error(w, "name must be 1-128 characters", http.StatusBadRequest)
 		return
 	}
 
-	if err := h.webauthnRepo.RenameCredential(r.Context(), credID, req.Name); err != nil {
+	if err := h.webauthnRepo.RenameCredential(r.Context(), credID, trimmed); err != nil {
 		debuglog.Error("webauthn: failed to rename credential", "cred_id", rawID, "error", err)
 		respondError(w, "failed to rename credential", err, http.StatusInternalServerError)
 		return
