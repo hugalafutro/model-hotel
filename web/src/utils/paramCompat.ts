@@ -9,73 +9,70 @@ export const PROVIDER_PARAM_INCOMPATIBILITY: Record<
 	Partial<Record<keyof GenerationParams, string>>
 > = {
 	anthropic: {
-		top_p: "top_p is deprecated on current Anthropic models; use top_k instead",
-		frequency_penalty:
-			"Anthropic uses a single penalties parameter, not separate frequency/presence",
-		presence_penalty:
-			"Anthropic uses a single penalties parameter, not separate frequency/presence",
-		min_p: "Not supported by the Anthropic API",
-		reasoning_effort: "Not supported by the Anthropic API",
+		top_p: "paramCompat.anthropic.topP",
+		frequency_penalty: "paramCompat.anthropic.frequencyPenalty",
+		presence_penalty: "paramCompat.anthropic.presencePenalty",
+		min_p: "paramCompat.anthropic.minP",
+		reasoning_effort: "paramCompat.anthropic.reasoningEffort",
 	},
 	google: {
-		frequency_penalty: "Gemini does not support frequency/presence penalties",
-		presence_penalty: "Gemini does not support frequency/presence penalties",
-		top_k:
-			"Gemini top_k behaves differently from OpenAI top_k; use top_p instead",
-		min_p: "Not supported by the Google Gemini API",
-		reasoning_effort: "Not supported by the Google Gemini API",
+		frequency_penalty: "paramCompat.google.frequencyPenalty",
+		presence_penalty: "paramCompat.google.presencePenalty",
+		top_k: "paramCompat.google.topK",
+		min_p: "paramCompat.google.minP",
+		reasoning_effort: "paramCompat.google.reasoningEffort",
 	},
 	cohere: {
-		top_k: "Cohere uses a different 'k' parameter; not recommended",
-		min_p: "Not supported by the Cohere API",
-		reasoning_effort: "Not supported by the Cohere API",
+		top_k: "paramCompat.cohere.topK",
+		min_p: "paramCompat.cohere.minP",
+		reasoning_effort: "paramCompat.cohere.reasoningEffort",
 	},
 	openai: {
-		min_p: "Not part of the OpenAI API",
-		top_k: "Not part of the OpenAI API",
+		min_p: "paramCompat.openai.minP",
+		top_k: "paramCompat.openai.topK",
 	},
 	deepseek: {
-		min_p: "Not supported by the DeepSeek API",
-		top_k: "Not supported by the DeepSeek API",
-		reasoning_effort: "Not supported by the DeepSeek API",
+		min_p: "paramCompat.deepseek.minP",
+		top_k: "paramCompat.deepseek.topK",
+		reasoning_effort: "paramCompat.deepseek.reasoningEffort",
 	},
 	xai: {
-		min_p: "Not supported by the xAI API",
-		top_k: "Not supported by the xAI API",
+		min_p: "paramCompat.xai.minP",
+		top_k: "paramCompat.xai.topK",
 	},
 	ollama: {
-		min_p: "Support varies by underlying model; not universally available",
-		reasoning_effort: "Not supported by Ollama",
+		min_p: "paramCompat.ollama.minP",
+		reasoning_effort: "paramCompat.ollama.reasoningEffort",
 	},
 	"ollama-cloud": {
-		min_p: "Support varies by underlying model; not universally available",
-		reasoning_effort: "Not supported by Ollama",
+		min_p: "paramCompat.ollamaCloud.minP",
+		reasoning_effort: "paramCompat.ollamaCloud.reasoningEffort",
 	},
 	"zai-coding": {
-		min_p: "Not supported by z.ai Coding",
-		top_k: "Not supported by z.ai Coding",
-		reasoning_effort: "Not supported by z.ai Coding",
+		min_p: "paramCompat.zaiCoding.minP",
+		top_k: "paramCompat.zaiCoding.topK",
+		reasoning_effort: "paramCompat.zaiCoding.reasoningEffort",
 	},
 	nanogpt: {
-		reasoning_effort: "Not supported by NanoGPT",
+		reasoning_effort: "paramCompat.nanogpt.reasoningEffort",
 	},
 	openrouter: {
-		reasoning_effort: "Not supported by OpenRouter",
+		reasoning_effort: "paramCompat.openrouter.reasoningEffort",
 	},
 	"opencode-zen": {
-		reasoning_effort: "Not supported",
+		reasoning_effort: "paramCompat.opencodeZen.reasoningEffort",
 	},
 	"opencode-go": {
-		reasoning_effort: "Not supported",
+		reasoning_effort: "paramCompat.opencodeGo.reasoningEffort",
 	},
 	koboldcpp: {
-		reasoning_effort: "Not supported",
+		reasoning_effort: "paramCompat.koboldcpp.reasoningEffort",
 	},
 	lmstudio: {
-		reasoning_effort: "Not supported",
+		reasoning_effort: "paramCompat.lmstudio.reasoningEffort",
 	},
 	custom: {
-		reasoning_effort: "Not supported",
+		reasoning_effort: "paramCompat.custom.reasoningEffort",
 	},
 };
 

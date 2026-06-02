@@ -150,7 +150,7 @@ export function ProviderQuotaPanel() {
 		<div className="sidebar-quota-panel">
 			<div className="flex items-center justify-between mb-1.5">
 				<span className={`sidebar-quota-label${collapsed ? " invisible" : ""}`}>
-					Quotas
+					{t("components.providerQuotaPanel.quotas")}
 				</span>
 				<div className="flex items-center gap-0.5">
 					{!collapsed && (

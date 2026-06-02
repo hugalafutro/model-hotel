@@ -208,7 +208,9 @@ export function ModelTable({
 								count: disabledCount,
 							})}
 						>
-							Delete {disabledCount} disabled
+							{t("components.modelTable.deleteDisabled", {
+								count: disabledCount,
+							})}
 						</button>
 					)}
 				</div>
@@ -227,6 +229,22 @@ export function ModelTable({
 							label="models"
 						/>
 					)}
+					<div className="flex-1 flex justify-end">
+						{models && models.length > 0 && (
+							<PaginationBar
+								page={currentPage}
+								totalPages={totalPages}
+								totalItems={sortedAndFiltered.length}
+								pageSize={pageSize}
+								onPageChange={setCurrentPage}
+								onPageSizeChange={(s) => {
+									setPageSize(s);
+									setCurrentPage(1);
+								}}
+								label={t("components.modelTable.models")}
+							/>
+						)}
+					</div>
 				</div>
 			</div>
 
@@ -251,7 +269,7 @@ export function ModelTable({
 								tooltip={t("components.modelTable.modelNameAndId")}
 							/>
 							<th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap ui-table-header-text">
-								Capabilities
+								{t("components.modelDetailPanel.capabilities")}
 							</th>
 							{showProviderCol && (
 								<SortableHeader

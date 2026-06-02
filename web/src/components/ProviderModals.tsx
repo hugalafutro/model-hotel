@@ -269,8 +269,9 @@ export function NanoGPTQuotaModal({
 				{usage.cancelAtPeriodEnd && (
 					<div className="p-3 bg-yellow-900/30 border border-yellow-700/50 rounded-lg">
 						<p className="text-sm text-yellow-300">
-							Subscription will cancel at period end (
-							{formatDate(usage.period.currentPeriodEnd)})
+							{t("components.providerModals.cancelAtPeriodEnd", {
+								date: formatDate(usage.period.currentPeriodEnd),
+							})}
 						</p>
 					</div>
 				)}
@@ -483,7 +484,9 @@ export function ZAICodingQuotaModal({
 										className="flex justify-between text-xs text-gray-500"
 									>
 										<span className="capitalize">{detail.modelCode}</span>
-										<span>{detail.usage} used</span>
+										<span>
+											{detail.usage} {t("components.providerModals.used")}
+										</span>
 									</div>
 								))}
 							</div>
@@ -642,7 +645,8 @@ export function OpenRouterQuotaModal({
 								{t("components.providerModals.keySpendingLimit")}
 							</span>
 							<span className="text-sm text-gray-400">
-								{formatDollars(balance.limit_remaining ?? 0)} remaining
+								{formatDollars(balance.limit_remaining ?? 0)}{" "}
+								{t("components.providerModals.remaining")}
 							</span>
 						</div>
 						<div className="w-full bg-gray-700 rounded-full h-3">

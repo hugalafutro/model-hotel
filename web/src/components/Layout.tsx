@@ -199,7 +199,7 @@ function SystemStatus() {
 	) : app ? (
 		<>
 			{formatMB(app.heap_alloc_mb)}
-			<span className={u}> heap</span>
+			<span className={u}> {t("layout.stats.heap")}</span>
 		</>
 	) : (
 		"-"
@@ -246,7 +246,9 @@ function SystemStatus() {
 							className="flex justify-between items-center text-(--text-tertiary)"
 							title={
 								useDocker
-									? `Aggregate CPU across ${docker.container_count} compose containers`
+									? t("layout.stats.aggregateCpu", {
+											count: docker.container_count,
+										})
 									: t("layout.stats.cpu")
 							}
 						>
@@ -282,7 +284,9 @@ function SystemStatus() {
 							className="flex justify-between items-center text-(--text-tertiary)"
 							title={
 								useDocker
-									? `Aggregate network across ${docker.container_count} compose containers`
+									? t("layout.stats.aggregateNetwork", {
+											count: docker.container_count,
+										})
 									: t("layout.stats.network")
 							}
 						>
@@ -310,7 +314,9 @@ function SystemStatus() {
 							className="flex justify-between items-center text-(--text-tertiary)"
 							title={
 								useDocker
-									? `Aggregate disk I/O across ${docker.container_count} compose containers`
+									? t("layout.stats.aggregateDisk", {
+											count: docker.container_count,
+										})
 									: t("layout.stats.disk")
 							}
 						>
@@ -338,7 +344,9 @@ function SystemStatus() {
 							className="flex justify-between items-center text-(--text-tertiary)"
 							title={
 								dockerMem
-									? `Aggregate memory across ${docker.container_count} compose containers`
+									? t("layout.stats.aggregateMemory", {
+											count: docker.container_count,
+										})
 									: hasLimit
 										? t("layout.stats.memory")
 										: t("layout.stats.memory")
@@ -395,7 +403,7 @@ function SystemStatus() {
 											className={`text-(--text-secondary) ${dc(stats.db.cache_hit_ratio, 90, 80, true)}`}
 											title={t("layout.tooltips.dbHitRatio")}
 										>
-											Hit {stats.db.cache_hit_ratio}
+											{t("layout.stats.hit")} {stats.db.cache_hit_ratio}
 											<span className={u}>%</span>
 										</span>
 										<span
@@ -403,7 +411,7 @@ function SystemStatus() {
 											title={t("layout.tooltips.dbConnections")}
 										>
 											{stats.db.connections}
-											<span className={u}> conn</span>
+											<span className={u}> {t("layout.stats.conn")}</span>
 										</span>
 										<span className="text-(--text-secondary)">|</span>
 										<span
@@ -411,7 +419,7 @@ function SystemStatus() {
 											title={t("layout.tooltips.dbTxPerSec")}
 										>
 											{stats.db.tx_per_sec.toFixed(1)}
-											<span className={u}> tx/s</span>
+											<span className={u}> {t("layout.stats.txPerSec")}</span>
 										</span>
 									</>
 								) : (

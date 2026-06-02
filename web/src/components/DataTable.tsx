@@ -150,7 +150,7 @@ export function PaginationBar({
 }) {
 	const { t } = useTranslation();
 	const setPage = useCallback(
-		(p: number) => onPageChange(Math.max(1, Math.min(totalPages, p))),
+		(page: number) => onPageChange(Math.max(1, Math.min(totalPages, page))),
 		[onPageChange, totalPages],
 	);
 
@@ -162,14 +162,19 @@ export function PaginationBar({
 				(totalItems === 0 ? (
 					<div className="text-sm text-gray-500" />
 				) : totalItems === 1 ? (
-					<div className="text-sm text-gray-500">1 {singular}</div>
+					<div className="text-sm text-gray-500">
+						{t("components.dataTable.countOne", { label: singular })}
+					</div>
 				) : (
 					<div className="text-sm text-gray-500">
 						{(page - 1) * pageSize + 1}
 						{totalItems > pageSize ? (
-							<> to {Math.min(page * pageSize, totalItems)}</>
+							<>
+								{t("components.dataTable.to")}{" "}
+								{Math.min(page * pageSize, totalItems)}
+							</>
 						) : null}{" "}
-						of {totalItems} {label}
+						{t("components.dataTable.of")} {totalItems} {label}
 					</div>
 				))}
 			{totalItems > 0 && (

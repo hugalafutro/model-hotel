@@ -238,7 +238,7 @@ export function AppearanceSettings({
 									style={{
 										backgroundColor: preset.color,
 									}}
-									title={preset.name}
+									title={t(preset.name)}
 								/>
 							))}
 							<button

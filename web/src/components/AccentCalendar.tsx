@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
 	daysInMonth,
 	firstDayOfMonth,
@@ -31,9 +31,20 @@ export function AccentCalendar({
 	const firstDay = firstDayOfMonth(year, month);
 	const blanks = firstDay;
 
-	const monthName = new Date(year, month, 1).toLocaleString("en-GB", {
-		month: "long",
-	});
+	const monthName = useMemo(
+		() => new Date(year, month, 1).toLocaleString(undefined, { month: "long" }),
+		[year, month],
+	);
+
+	const weekdays = useMemo(
+		() =>
+			Array.from({ length: 7 }, (_, i) =>
+				new Intl.DateTimeFormat(undefined, { weekday: "narrow" }).format(
+					new Date(2024, 0, i + 1),
+				),
+			),
+		[],
+	);
 
 	const handlePrev = () => {
 		if (month === 0) {
@@ -95,7 +106,7 @@ export function AccentCalendar({
 				</button>
 			</div>
 			<div className="grid grid-cols-7 gap-0.5 text-center text-[10px] text-gray-500 mb-1">
-				{["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
+				{weekdays.map((d) => (
 					<div key={d}>{d}</div>
 				))}
 			</div>

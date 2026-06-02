@@ -425,7 +425,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 				<span>
 					{entries.length > 0
 						? `${formatNumber(Math.max(1, Math.min((virtualItems[0]?.index ?? 0) + 1, entries.length)))}–${formatNumber(Math.min((virtualItems[virtualItems.length - 1]?.index ?? 0) + 1, entries.length))} / ${formatNumber(total)}`
-						: "0 entries"}
+						: t("components.virtualLogTable.zeroEntries")}
 				</span>
 				<span className="flex items-center gap-2">
 					{isLoadingBefore && (

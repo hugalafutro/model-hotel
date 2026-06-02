@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { GenerationParams } from "../api/types";
+import i18next from "../i18n";
 import { fetchRecommendedSettings } from "../utils/recommendedSettings";
 
 /**
@@ -32,7 +33,7 @@ export function useRecommendedSettings(
 	const queryError = error
 		? error instanceof Error
 			? error.message
-			: "Failed to fetch"
+			: i18next.t("hooks.useRecommendedSettings.fetchError")
 		: null;
 
 	return {

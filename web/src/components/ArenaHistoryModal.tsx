@@ -527,7 +527,7 @@ export function ArenaHistoryModal({
 						pageSize={pageSize}
 						onPageChange={handlePageChange}
 						onPageSizeChange={handlePageSizeChange}
-						label="entries"
+						label={t("components.arenaHistoryModal.entries")}
 						hideCount
 					/>
 				</div>

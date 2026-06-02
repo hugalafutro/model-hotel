@@ -269,7 +269,7 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 				<span>
 					{entries.length > 0
 						? `${Math.max(1, virtualItems[0]?.index + 1 || 1)}–${Math.max(0, virtualItems[virtualItems.length - 1]?.index + 1 || 0)} / ${total.toLocaleString()}`
-						: "0 entries"}
+						: t("components.virtualAppLogTable.zeroEntries")}
 				</span>
 				<span className="flex items-center gap-2">
 					{isLoadingBefore && (
