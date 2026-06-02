@@ -54,10 +54,10 @@ export function formatTimestamp(ts: number | string): string {
 }
 
 /**
- * Returns a count-prefixed label with proper singular/plural.
- * 0 → just the noun (e.g. "Models")
- * 1 → "1 Model" (singular)
- * 2+ → "5 Models" (plural)
+ * Returns a count-prefixed label with proper singular/plural using ICU plural rules.
+ * 0 → just the plural noun (e.g. "Models")
+ * 1 → "1 {singular}" (e.g. "1 Model")
+ * 2+ → "{n} {plural}" (e.g. "5 Models")
  */
 export function countLabel(
 	count: number | undefined,

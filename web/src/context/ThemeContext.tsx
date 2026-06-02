@@ -11,16 +11,16 @@ interface AccentPreset {
 }
 
 const ACCENT_PRESETS: AccentPreset[] = [
-	{ name: "Steel Blue", color: "#546de5", lightColor: "#3b3b98" },
-	{ name: "Emerald", color: "#1dd1a1", lightColor: "#10ac84" },
-	{ name: "Gold", color: "#b8860b", lightColor: "#996515" },
-	{ name: "Forest", color: "#2ed573", lightColor: "#218c74" },
-	{ name: "Sky", color: "#2196f3", lightColor: "#1976d2" },
-	{ name: "Violet", color: "#a55eea", lightColor: "#8854d0" },
-	{ name: "Hot Pink", color: "#e84393", lightColor: "#c2185b" },
-	{ name: "Lime", color: "#6b8e23", lightColor: "#556b2f" },
-	{ name: "Teal", color: "#00897b", lightColor: "#00695c" },
-	{ name: "Fuchsia", color: "#ff6b81", lightColor: "#e84393" },
+	{ name: "theme.accent.steelBlue", color: "#546de5", lightColor: "#3b3b98" },
+	{ name: "theme.accent.emerald", color: "#1dd1a1", lightColor: "#10ac84" },
+	{ name: "theme.accent.gold", color: "#b8860b", lightColor: "#996515" },
+	{ name: "theme.accent.forest", color: "#2ed573", lightColor: "#218c74" },
+	{ name: "theme.accent.sky", color: "#2196f3", lightColor: "#1976d2" },
+	{ name: "theme.accent.violet", color: "#a55eea", lightColor: "#8854d0" },
+	{ name: "theme.accent.hotPink", color: "#e84393", lightColor: "#c2185b" },
+	{ name: "theme.accent.lime", color: "#6b8e23", lightColor: "#556b2f" },
+	{ name: "theme.accent.teal", color: "#00897b", lightColor: "#00695c" },
+	{ name: "theme.accent.fuchsia", color: "#ff6b81", lightColor: "#e84393" },
 ];
 
 interface ThemeContextType {

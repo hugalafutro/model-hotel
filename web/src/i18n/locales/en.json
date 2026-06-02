@@ -112,7 +112,11 @@
 			"aggregateCpu": "Aggregate CPU across {{count}} compose containers",
 			"aggregateNetwork": "Aggregate network across {{count}} compose containers",
 			"aggregateDisk": "Aggregate disk I/O across {{count}} compose containers",
-			"aggregateMemory": "Aggregate memory across {{count}} compose containers"
+			"aggregateMemory": "Aggregate memory across {{count}} compose containers",
+			"heap": "heap",
+			"hit": "Hit",
+			"conn": "conn",
+			"txPerSec": "tx/s"
 		},
 		"toast": {
 			"copiedToClipboard": "Copied to clipboard",
@@ -140,6 +144,9 @@
 		"theme": {
 			"switchToLight": "Switch to light mode",
 			"switchToDark": "Switch to dark mode"
+		},
+		"language": {
+			"label": "Language"
 		},
 		"errorPill": {
 			"appError": "App Err",
@@ -1697,9 +1704,13 @@
 			"sortBy": "Sort by {{label}}",
 			"prev": "Prev",
 			"next": "Next",
-			"entries": "{{start}}{{to}}{{end}} of {{total}} {{label}}",
+			"entries": "{{start}} {{to}} {{end}} {{of}} {{total}} {{label}}",
+			"entriesShort": "{{start}}–{{end}} of {{total}} {{label}}",
 			"perPage": "{{size}} / page",
-			"noEntries": "No {{label}} found"
+			"noEntries": "No {{label}} found",
+			"countOne": "1 {{label}}",
+			"to": "to",
+			"of": "of"
 		},
 		"modelPicker": {
 			"filterModels": "Filter models…",
@@ -1721,7 +1732,6 @@
 			"provider": "Provider",
 			"modelId": "Model ID",
 			"context": "Context",
-			"maxOutput": "Max Out",
 			"inputPricePerMillion": "In $/1M",
 			"outputPricePerMillion": "Out $/1M",
 			"capabilities": "Capabilities",
@@ -1735,7 +1745,8 @@
 			"minP": "Min P",
 			"topK": "Top K",
 			"freqPenalty": "Freq Penalty",
-			"presPenalty": "Pres Penalty"
+			"presPenalty": "Pres Penalty",
+			"maxOut": "Max Out"
 		},
 		"modelTable": {
 			"searchModels": "Search models…",
@@ -1773,7 +1784,9 @@
 			"deleteDisabledAria_one": "Delete {{count}} disabled model",
 			"deleteDisabledAria_other": "Delete {{count}} disabled models",
 			"deleteDisabledMessage_one": "This will permanently delete {{count}} disabled model. If autodiscovery is enabled on their provider, they will be re-discovered on the next cycle. Disable autodiscovery on the provider to prevent this.",
-			"deleteDisabledMessage_other": "This will permanently delete {{count}} disabled models. If autodiscovery is enabled on their provider, they will be re-discovered on the next cycle. Disable autodiscovery on the provider to prevent this."
+			"deleteDisabledMessage_other": "This will permanently delete {{count}} disabled models. If autodiscovery is enabled on their provider, they will be re-discovered on the next cycle. Disable autodiscovery on the provider to prevent this.",
+			"disabledModels_one": "1 disabled model",
+			"disabledModels_other": "{{count}} disabled models"
 		},
 		"modelReplyCard": {
 			"modelDetails": "Model details",
@@ -1781,10 +1794,12 @@
 			"copy": "Copy",
 			"disableModel": "Disable model",
 			"disable": "Disable",
-			"thinking": "Thinking",
+			"thinking": "Thinking…",
 			"waiting": "Waiting…",
 			"thinkingDots": "Thinking…",
-			"turn": "Turn {{number}}"
+			"turn": "Turn {{number}}",
+			"tokPerSec": "tok/s",
+			"tok": "tok"
 		},
 		"providerFilter": {
 			"filterProviders": "Filter Providers",
@@ -1846,7 +1861,8 @@
 			"failedToRefreshQuota": "Failed to refresh quota",
 			"balanceRefreshed": "Balance refreshed",
 			"failedToRefreshBalance": "Failed to refresh balance",
-			"noCredits": "No credits"
+			"noCredits": "No credits",
+			"cancelAtPeriodEnd": "Subscription will cancel at period end ({{date}})"
 		},
 		"providerQuotaPanel": {
 			"quotas": "Quotas",
@@ -1928,7 +1944,8 @@
 			"response_one": "{{count}} response",
 			"response_other": "{{count}} responses",
 			"entries_one": "{{count}} entry",
-			"entries_other": "{{count}} entries"
+			"entries_other": "{{count}} entries",
+			"entries": "entries"
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Log Entry Details",
@@ -2025,7 +2042,8 @@
 			"interrupted": "Interrupted",
 			"internal": "internal",
 			"cacheInflated": "Inflated by prompt cache hits",
-			"deleted": "Deleted"
+			"deleted": "Deleted",
+			"zeroEntries": "0 entries"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "No log entries found",
@@ -2035,7 +2053,8 @@
 			"timeDate": "Time/Date",
 			"level": "Level",
 			"source": "Source",
-			"message": "Message"
+			"message": "Message",
+			"zeroEntries": "0 entries"
 		},
 		"applyRecommendedButton": {
 			"loading": "Loading…",
@@ -2043,7 +2062,7 @@
 			"params": "({{count}} params)",
 			"modelsDevMatched": "models.dev matched: {{model}}",
 			"noRecommendationsAvailable": "No recommendations available",
-			"applyRecommendedFromModelsDev": "Apply recommended settings from models.dev catalogue"
+			"tooltip": "Apply recommended settings from models.dev catalogue"
 		},
 		"viewModeToggle": {
 			"switchToScroll": "Switch to scroll mode",
@@ -2091,11 +2110,16 @@
 			"nanoWeeklyTokensRemaining": "NanoGPT weekly tokens remaining - click for details",
 			"nanoWeeklyTokenQuota": "NanoGPT weekly token quota - click for details",
 			"openRouterKeyBalance": "OpenRouter key balance - click for details",
-			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} plan (ends {{endDate}}){{refreshed}} - click to update"
+			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} plan (ends {{endDate}}){{refreshed}} - click to update",
+			"updated": "- updated {{time}}"
 		},
 		"filterDropdown": {
 			"placeholder": "Filter",
 			"allLabel": "All"
+		},
+		"providerModelsModal": {
+			"modelCount_one": "model",
+			"modelCount_other": "models"
 		}
 	},
 	"failoverGroups": {
@@ -2151,6 +2175,114 @@
 		"detail": {
 			"rps": "RPS",
 			"burst": "Burst"
+		}
+	},
+	"hooks": {
+		"useQuotaData": {
+			"nanoGPTError": "Failed to fetch NanoGPT usage quota",
+			"zaiError": "Failed to fetch ZAI usage quota",
+			"deepSeekError": "Failed to fetch DeepSeek balance",
+			"openRouterError": "Failed to fetch OpenRouter key balance",
+			"ollamaCloudError": "Failed to fetch Ollama Cloud account"
+		},
+		"useDisableModel": {
+			"success": "Model \"{{model}}\" disabled",
+			"error": "Failed to disable model: {{error}}"
+		},
+		"useBidirectionalFetch": {
+			"initialError": "Failed to fetch initial data",
+			"newerError": "Failed to fetch newer entries",
+			"olderError": "Failed to fetch older entries"
+		},
+		"useRecommendedSettings": {
+			"fetchError": "Failed to fetch"
+		}
+	},
+	"theme": {
+		"accent": {
+			"steelBlue": "Steel Blue",
+			"emerald": "Emerald",
+			"gold": "Gold",
+			"forest": "Forest",
+			"sky": "Sky",
+			"violet": "Violet",
+			"hotPink": "Hot Pink",
+			"lime": "Lime",
+			"teal": "Teal",
+			"fuchsia": "Fuchsia"
+		}
+	},
+	"context": {
+		"toast": {
+			"clickToCopyDismiss": "Click to copy and dismiss"
+		}
+	},
+	"paramCompat": {
+		"anthropic": {
+			"topP": "top_p is deprecated on current Anthropic models; use top_k instead",
+			"frequencyPenalty": "Anthropic uses a single penalties parameter, not separate frequency/presence",
+			"presencePenalty": "Anthropic uses a single penalties parameter, not separate frequency/presence",
+			"minP": "Not supported by the Anthropic API",
+			"reasoningEffort": "Not supported by the Anthropic API"
+		},
+		"google": {
+			"frequencyPenalty": "Gemini does not support frequency/presence penalties",
+			"presencePenalty": "Gemini does not support frequency/presence penalties",
+			"topK": "Gemini top_k behaves differently from OpenAI top_k; use top_p instead",
+			"minP": "Not supported by the Google Gemini API",
+			"reasoningEffort": "Not supported by the Google Gemini API"
+		},
+		"cohere": {
+			"topK": "Cohere uses a different 'k' parameter; not recommended",
+			"minP": "Not supported by the Cohere API",
+			"reasoningEffort": "Not supported by the Cohere API"
+		},
+		"openai": {
+			"minP": "Not part of the OpenAI API",
+			"topK": "Not part of the OpenAI API"
+		},
+		"deepseek": {
+			"minP": "Not supported by the DeepSeek API",
+			"topK": "Not supported by the DeepSeek API",
+			"reasoningEffort": "Not supported by the DeepSeek API"
+		},
+		"xai": {
+			"minP": "Not supported by the xAI API",
+			"topK": "Not supported by the xAI API"
+		},
+		"ollama": {
+			"minP": "Support varies by underlying model; not universally available",
+			"reasoningEffort": "Not supported by Ollama"
+		},
+		"ollamaCloud": {
+			"minP": "Support varies by underlying model; not universally available",
+			"reasoningEffort": "Not supported by Ollama"
+		},
+		"zaiCoding": {
+			"minP": "Not supported by z.ai Coding",
+			"topK": "Not supported by z.ai Coding",
+			"reasoningEffort": "Not supported by z.ai Coding"
+		},
+		"nanogpt": {
+			"reasoningEffort": "Not supported by NanoGPT"
+		},
+		"openrouter": {
+			"reasoningEffort": "Not supported by OpenRouter"
+		},
+		"opencodeZen": {
+			"reasoningEffort": "Not supported"
+		},
+		"opencodeGo": {
+			"reasoningEffort": "Not supported"
+		},
+		"koboldcpp": {
+			"reasoningEffort": "Not supported"
+		},
+		"lmstudio": {
+			"reasoningEffort": "Not supported"
+		},
+		"custom": {
+			"reasoningEffort": "Not supported"
 		}
 	}
 }

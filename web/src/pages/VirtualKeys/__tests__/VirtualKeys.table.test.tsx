@@ -528,8 +528,10 @@ describe("VirtualKeys", () => {
 				expect(screen.getByText("Virtual Keys")).toBeInTheDocument();
 			});
 
-			// Pagination shows "X to Y of Z keys" format
-			expect(screen.getByText("1 to 10 of 15 keys")).toBeInTheDocument();
+			// Pagination shows "X to Y of Z keys" format (single text node via i18n)
+			expect(
+				screen.getByText("1 to 10 of 15 keys", { exact: true }),
+			).toBeInTheDocument();
 			// Page buttons show just the number, not "Page N"
 			expect(screen.getByRole("button", { name: "1" })).toBeInTheDocument();
 		});
@@ -590,7 +592,9 @@ describe("VirtualKeys", () => {
 			await user.selectOptions(pageSizeSelect, "20");
 
 			await waitFor(() => {
-				expect(screen.getByText("1 to 20 of 25 keys")).toBeInTheDocument();
+				expect(
+					screen.getByText("1 to 20 of 25 keys", { exact: true }),
+				).toBeInTheDocument();
 			});
 		});
 
@@ -614,7 +618,9 @@ describe("VirtualKeys", () => {
 			await user.click(nextPageButton);
 
 			await waitFor(() => {
-				expect(screen.getByText("11 to 15 of 15 keys")).toBeInTheDocument();
+				expect(
+					screen.getByText("11 to 15 of 15 keys", { exact: true }),
+				).toBeInTheDocument();
 				expect(screen.getByRole("button", { name: "2" })).toHaveClass(
 					"bg-(--accent)",
 				);
@@ -705,7 +711,9 @@ describe("VirtualKeys", () => {
 				expect(screen.getByText("Key 1")).toBeInTheDocument();
 			});
 
-			expect(screen.getByRole("button", { name: "Prev" })).toBeDisabled();
+			expect(
+				screen.getByRole("button", { name: "Prev", exact: true }),
+			).toBeDisabled();
 		});
 
 		it("disables Next button on last page", async () => {
@@ -726,7 +734,9 @@ describe("VirtualKeys", () => {
 			await user.click(screen.getByRole("button", { name: "2" }));
 
 			await waitFor(() => {
-				expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+				expect(
+					screen.getByRole("button", { name: "Next", exact: true }),
+				).toBeDisabled();
 			});
 		});
 	});
@@ -750,7 +760,9 @@ describe("Sort resets page", () => {
 		// Navigate to page 2
 		await user.click(screen.getByRole("button", { name: "Next" }));
 		await waitFor(() => {
-			expect(screen.getByText("11 to 20 of 25 keys")).toBeInTheDocument();
+			expect(
+				screen.getByText("11 to 20 of 25 keys", { exact: true }),
+			).toBeInTheDocument();
 		});
 
 		// Sort by tokens (different column than default name sort)
@@ -761,7 +773,9 @@ describe("Sort resets page", () => {
 
 		// Should reset to page 1
 		await waitFor(() => {
-			expect(screen.getByText("1 to 10 of 25 keys")).toBeInTheDocument();
+			expect(
+				screen.getByText("1 to 10 of 25 keys", { exact: true }),
+			).toBeInTheDocument();
 		});
 	});
 });

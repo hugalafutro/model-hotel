@@ -6,6 +6,7 @@ import {
 	useEffect,
 	useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 
 type ToastType = "success" | "error" | "info" | "warning";
@@ -168,11 +169,17 @@ function ToastItem({
 		onDone();
 	};
 
+	const { t } = useTranslation();
+
 	return (
 		<button
 			type="button"
 			onClick={handleClick}
-			title={toast.type === "error" ? "Click to copy and dismiss" : undefined}
+			title={
+				toast.type === "error"
+					? t("context.toast.clickToCopyDismiss")
+					: undefined
+			}
 			className={`px-4 py-2 rounded-lg shadow-lg border text-sm font-medium cursor-pointer hover:brightness-125 transition-all whitespace-pre-line text-left ${colors[toast.type]}`}
 		>
 			{toast.message}

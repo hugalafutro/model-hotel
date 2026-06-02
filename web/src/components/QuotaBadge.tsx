@@ -120,7 +120,9 @@ function deepseekBadgeContent(
 	)?.total_balance;
 	const label = variant === "sidebar" ? `$${usd ?? "-"}` : `${usd ?? "-"} USD`;
 	const refreshed = dataUpdatedAt
-		? ` - updated ${new Date(dataUpdatedAt).toLocaleTimeString()}`
+		? i18next.t("components.quotaBadge.updated", {
+				time: new Date(dataUpdatedAt).toLocaleTimeString(),
+			})
 		: "";
 	return {
 		label,
@@ -144,7 +146,9 @@ function ollamaCloudBadgeContent(
 ): BadgeContent {
 	const plan = account.plan || "unknown";
 	const refreshed = dataUpdatedAt
-		? ` - updated ${new Date(dataUpdatedAt).toLocaleTimeString()}`
+		? i18next.t("components.quotaBadge.updated", {
+				time: new Date(dataUpdatedAt).toLocaleTimeString(),
+			})
 		: "";
 	let title = i18next.t("components.quotaBadge.ollamaCloudPlan", {
 		plan,

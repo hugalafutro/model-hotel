@@ -9,6 +9,7 @@ import {
 	GitBranch,
 	GitCompare,
 	KeyRound,
+	Languages,
 	LayoutDashboard,
 	LogOut,
 	MessageSquare,
@@ -22,7 +23,7 @@ import {
 	Swords,
 	X,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
@@ -31,6 +32,7 @@ import { useSidebarMode } from "../context/SidebarModeContext";
 import { useTheme } from "../context/ThemeContext";
 import { useToast } from "../context/ToastContext";
 import { useGitHubVersion } from "../hooks/useGitHubVersion";
+import i18next from "../i18n";
 import { formatRelativeTime, formatTimestamp } from "../utils/format";
 import { isWebAuthnAvailable } from "../utils/webauthn";
 import { CollapsibleToggle, useCollapsible } from "./CollapsibleToggle";
@@ -197,7 +199,7 @@ function SystemStatus() {
 	) : app ? (
 		<>
 			{formatMB(app.heap_alloc_mb)}
-			<span className={u}> heap</span>
+			<span className={u}> {t("layout.stats.heap")}</span>
 		</>
 	) : (
 		"-"
@@ -244,7 +246,9 @@ function SystemStatus() {
 							className="flex justify-between items-center text-(--text-tertiary)"
 							title={
 								useDocker
-									? `Aggregate CPU across ${docker.container_count} compose containers`
+									? t("layout.stats.aggregateCpu", {
+											count: docker.container_count,
+										})
 									: t("layout.stats.cpu")
 							}
 						>
@@ -280,7 +284,9 @@ function SystemStatus() {
 							className="flex justify-between items-center text-(--text-tertiary)"
 							title={
 								useDocker
-									? `Aggregate network across ${docker.container_count} compose containers`
+									? t("layout.stats.aggregateNetwork", {
+											count: docker.container_count,
+										})
 									: t("layout.stats.network")
 							}
 						>
@@ -308,7 +314,9 @@ function SystemStatus() {
 							className="flex justify-between items-center text-(--text-tertiary)"
 							title={
 								useDocker
-									? `Aggregate disk I/O across ${docker.container_count} compose containers`
+									? t("layout.stats.aggregateDisk", {
+											count: docker.container_count,
+										})
 									: t("layout.stats.disk")
 							}
 						>
@@ -336,10 +344,10 @@ function SystemStatus() {
 							className="flex justify-between items-center text-(--text-tertiary)"
 							title={
 								dockerMem
-									? `Aggregate memory across ${docker.container_count} compose containers`
-									: hasLimit
-										? t("layout.stats.memory")
-										: t("layout.stats.memory")
+									? t("layout.stats.aggregateMemory", {
+											count: docker.container_count,
+										})
+									: t("layout.stats.memory")
 							}
 						>
 							<span>{t("layout.stats.memory")}</span>
@@ -393,7 +401,7 @@ function SystemStatus() {
 											className={`text-(--text-secondary) ${dc(stats.db.cache_hit_ratio, 90, 80, true)}`}
 											title={t("layout.tooltips.dbHitRatio")}
 										>
-											Hit {stats.db.cache_hit_ratio}
+											{t("layout.stats.hit")} {stats.db.cache_hit_ratio}
 											<span className={u}>%</span>
 										</span>
 										<span
@@ -401,7 +409,7 @@ function SystemStatus() {
 											title={t("layout.tooltips.dbConnections")}
 										>
 											{stats.db.connections}
-											<span className={u}> conn</span>
+											<span className={u}> {t("layout.stats.conn")}</span>
 										</span>
 										<span className="text-(--text-secondary)">|</span>
 										<span
@@ -409,7 +417,7 @@ function SystemStatus() {
 											title={t("layout.tooltips.dbTxPerSec")}
 										>
 											{stats.db.tx_per_sec.toFixed(1)}
-											<span className={u}> tx/s</span>
+											<span className={u}> {t("layout.stats.txPerSec")}</span>
 										</span>
 									</>
 								) : (
@@ -673,6 +681,64 @@ function LastErrorPills() {
 	);
 }
 
+const SUPPORTED_LANGUAGES = [{ code: "en", label: "English" }] as const;
+
+function LanguageSelector() {
+	const { t, i18n } = useTranslation();
+	const [open, setOpen] = useState(false);
+	const ref = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		function handleClickOutside(e: MouseEvent) {
+			if (ref.current && !ref.current.contains(e.target as Node)) {
+				setOpen(false);
+			}
+		}
+		if (open) {
+			document.addEventListener("mousedown", handleClickOutside);
+			return () =>
+				document.removeEventListener("mousedown", handleClickOutside);
+		}
+	}, [open]);
+
+	if (SUPPORTED_LANGUAGES.length <= 1) return null;
+
+	return (
+		<div ref={ref} className="relative">
+			<button
+				type="button"
+				onClick={() => setOpen((v) => !v)}
+				className="sidebar-footer-link flex items-center justify-center px-1.5 py-1.5 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5 cursor-pointer"
+				title={t("layout.language.label")}
+				aria-label={t("layout.language.label")}
+			>
+				<Languages size={14} strokeWidth={2} />
+			</button>
+			{open && (
+				<div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 py-1 min-w-[120px] bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50">
+					{SUPPORTED_LANGUAGES.map((lang) => (
+						<button
+							key={lang.code}
+							type="button"
+							onClick={() => {
+								i18next.changeLanguage(lang.code);
+								setOpen(false);
+							}}
+							className={`w-full text-left px-3 py-1.5 text-xs transition-colors cursor-pointer ${
+								i18n.language === lang.code
+									? "text-white bg-white/10"
+									: "text-gray-400 hover:text-white hover:bg-white/5"
+							}`}
+						>
+							{lang.label}
+						</button>
+					))}
+				</div>
+			)}
+		</div>
+	);
+}
+
 export function Layout({ children }: LayoutProps) {
 	const { t } = useTranslation();
 	const location = useLocation();
@@ -847,7 +913,7 @@ export function Layout({ children }: LayoutProps) {
 				</nav>
 				<div className="px-4 pb-0.5 shrink-0">
 					<LastErrorPills />
-					<div className="flex justify-between items-center mb-2">
+					<div className="flex justify-between items-center mb-2 gap-1">
 						<a
 							href="https://github.com/hugalafutro/model-hotel"
 							target="_blank"
@@ -873,6 +939,7 @@ export function Layout({ children }: LayoutProps) {
 								<Moon size={14} strokeWidth={2} />
 							)}
 						</button>
+						<LanguageSelector />
 						<a
 							href="https://github.com/hugalafutro/model-hotel"
 							target="_blank"

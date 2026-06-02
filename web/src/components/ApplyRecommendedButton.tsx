@@ -36,7 +36,7 @@ export function ApplyRecommendedButton({
 			}`}
 			title={
 				hasRecommended
-					? "Apply recommended settings from models.dev catalogue"
+					? t("components.applyRecommendedButton.tooltip")
 					: undefined
 			}
 		>

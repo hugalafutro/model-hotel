@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
 	daysInMonth,
 	firstDayOfMonth,
@@ -31,9 +31,22 @@ export function AccentCalendar({
 	const firstDay = firstDayOfMonth(year, month);
 	const blanks = firstDay;
 
-	const monthName = new Date(year, month, 1).toLocaleString("en-GB", {
-		month: "long",
-	});
+	const monthName = useMemo(
+		() => new Date(year, month, 1).toLocaleString(undefined, { month: "long" }),
+		[year, month],
+	);
+
+	const weekdays = useMemo(
+		() =>
+			Array.from({ length: 7 }, (_, i) => {
+				// Use a known Sunday (2024-01-07) as anchor for Sun-first grid
+				const date = new Date(2024, 0, 7 + i);
+				return new Intl.DateTimeFormat(undefined, {
+					weekday: "narrow",
+				}).format(date);
+			}),
+		[],
+	);
 
 	const handlePrev = () => {
 		if (month === 0) {
@@ -95,8 +108,9 @@ export function AccentCalendar({
 				</button>
 			</div>
 			<div className="grid grid-cols-7 gap-0.5 text-center text-[10px] text-gray-500 mb-1">
-				{["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
-					<div key={d}>{d}</div>
+				{weekdays.map((d, i) => (
+					// biome-ignore lint/suspicious/noArrayIndexKey: weekday names can be duplicates (e.g. "S" for Sun/Sat in English) so index is the only stable key
+					<div key={`weekday-${i}`}>{d}</div>
 				))}
 			</div>
 			<div className="grid grid-cols-7 gap-0.5">

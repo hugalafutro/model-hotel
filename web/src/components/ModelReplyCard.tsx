@@ -292,7 +292,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 									title={t("components.modelReplyCard.disableModelTooltip")}
 								>
 									<PowerOff size={12} />
-									Disable model
+									{t("components.modelReplyCard.disableModel")}
 								</button>
 							)}
 						</div>
@@ -311,7 +311,9 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 									<span
 										className={`w-1.5 h-1.5 rounded-full animate-pulse ${isReasoningModel ? "bg-amber-400" : "bg-(--accent)"}`}
 									/>
-									{isReasoningModel ? "Thinking…" : "Waiting…"}
+									{isReasoningModel
+										? t("components.modelReplyCard.thinking")
+										: t("components.modelReplyCard.waiting")}
 								</div>
 							) : null}
 							{error && content && (
@@ -328,7 +330,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 												)}
 											>
 												<PowerOff size={10} />
-												Disable
+												{t("components.modelReplyCard.disable")}
 											</button>
 										)}
 									</div>
@@ -366,7 +368,8 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 								{metrics.tokensPerSecond !== null && (
 									<span className="flex items-center gap-1">
 										<Zap size={10} />
-										{metrics.tokensPerSecond.toFixed(1)} tok/s
+										{metrics.tokensPerSecond.toFixed(1)}{" "}
+										{t("components.modelReplyCard.tokPerSec")}
 									</span>
 								)}
 								{metrics.promptTokens + metrics.completionTokens > 0 && (
@@ -374,7 +377,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 										{formatNumber(
 											metrics.promptTokens + metrics.completionTokens,
 										)}{" "}
-										tok
+										{t("components.modelReplyCard.tok")}
 									</span>
 								)}
 							</>
@@ -429,7 +432,8 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 									{metrics.tokensPerSecond !== null && (
 										<span className="text-xs text-(--text-tertiary) flex items-center gap-1">
 											<Zap size={12} />
-											{metrics.tokensPerSecond.toFixed(1)} tok/s
+											{metrics.tokensPerSecond.toFixed(1)}{" "}
+											{t("components.modelReplyCard.tokPerSec")}
 										</span>
 									)}
 									{metrics.promptTokens + metrics.completionTokens > 0 && (
@@ -437,7 +441,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 											{formatNumber(
 												metrics.promptTokens + metrics.completionTokens,
 											)}{" "}
-											tok
+											{t("components.modelReplyCard.tok")}
 										</span>
 									)}
 								</>

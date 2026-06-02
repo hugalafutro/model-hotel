@@ -150,11 +150,14 @@ export function PaginationBar({
 }) {
 	const { t } = useTranslation();
 	const setPage = useCallback(
-		(p: number) => onPageChange(Math.max(1, Math.min(totalPages, p))),
+		(page: number) => onPageChange(Math.max(1, Math.min(totalPages, page))),
 		[onPageChange, totalPages],
 	);
 
 	const singular = label.replace(/s$/, "");
+
+	const start = (page - 1) * pageSize + 1;
+	const end = Math.min(page * pageSize, totalItems);
 
 	return (
 		<div className="flex items-center gap-3">
@@ -162,14 +165,28 @@ export function PaginationBar({
 				(totalItems === 0 ? (
 					<div className="text-sm text-gray-500" />
 				) : totalItems === 1 ? (
-					<div className="text-sm text-gray-500">1 {singular}</div>
+					<div className="text-sm text-gray-500">
+						{t("components.dataTable.countOne", { label: singular })}
+					</div>
+				) : totalItems <= pageSize ? (
+					<div className="text-sm text-gray-500">
+						{t("components.dataTable.entriesShort", {
+							start: String(start),
+							end: String(end),
+							total: totalItems,
+							label,
+						})}
+					</div>
 				) : (
 					<div className="text-sm text-gray-500">
-						{(page - 1) * pageSize + 1}
-						{totalItems > pageSize ? (
-							<> to {Math.min(page * pageSize, totalItems)}</>
-						) : null}{" "}
-						of {totalItems} {label}
+						{t("components.dataTable.entries", {
+							start: String(start),
+							to: t("components.dataTable.to"),
+							of: t("components.dataTable.of"),
+							end: String(end),
+							total: totalItems,
+							label,
+						})}
 					</div>
 				))}
 			{totalItems > 0 && (

@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { Model } from "../api/types";
 import { useToast } from "../context/ToastContext";
@@ -10,6 +11,7 @@ import { proxyModelID } from "../utils/model";
  * and shows a toast. Does not navigate away so users stay in their current context.
  */
 export function useDisableModel(enabledModels: Model[]) {
+	const { t } = useTranslation();
 	const queryClient = useQueryClient();
 	const { toast } = useToast();
 
@@ -26,12 +28,15 @@ export function useDisableModel(enabledModels: Model[]) {
 			return api.models.update(modelObj.id, { enabled: false });
 		},
 		onSuccess: (_data, modelIdentifier) => {
-			toast(`Model "${modelIdentifier}" disabled`, "success");
+			toast(
+				t("hooks.useDisableModel.success", { model: modelIdentifier }),
+				"success",
+			);
 			queryClient.invalidateQueries({ queryKey: ["models"] });
 			queryClient.invalidateQueries({ queryKey: ["providers"] });
 		},
 		onError: (err: Error) => {
-			toast(`Failed to disable model: ${err.message}`, "error");
+			toast(t("hooks.useDisableModel.error", { error: err.message }), "error");
 		},
 	});
 }

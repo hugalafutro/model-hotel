@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import i18next from "../i18n";
 
 const FETCH_SIZE = 200;
 const MAX_ROWS = 10000;
@@ -135,7 +136,9 @@ export function useBidirectionalFetch<T>({
 		} catch (err) {
 			if (gen !== generationRef.current) return;
 			setError(
-				err instanceof Error ? err.message : "Failed to fetch initial data",
+				err instanceof Error
+					? err.message
+					: i18next.t("hooks.useBidirectionalFetch.initialError"),
 			);
 		} finally {
 			if (gen === generationRef.current) {
@@ -193,7 +196,9 @@ export function useBidirectionalFetch<T>({
 		} catch (err) {
 			if (gen !== generationRef.current) return;
 			setError(
-				err instanceof Error ? err.message : "Failed to fetch newer entries",
+				err instanceof Error
+					? err.message
+					: i18next.t("hooks.useBidirectionalFetch.newerError"),
 			);
 		} finally {
 			if (gen === generationRef.current) {
@@ -251,7 +256,9 @@ export function useBidirectionalFetch<T>({
 		} catch (err) {
 			if (gen !== generationRef.current) return;
 			setError(
-				err instanceof Error ? err.message : "Failed to fetch older entries",
+				err instanceof Error
+					? err.message
+					: i18next.t("hooks.useBidirectionalFetch.olderError"),
 			);
 		} finally {
 			if (gen === generationRef.current) {

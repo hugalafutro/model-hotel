@@ -49,6 +49,10 @@ export function ModelDetailPanel({
 	embedded = false,
 }: ModelDetailPanelProps) {
 	const { t } = useTranslation();
+	const incompatReason = (prov: string, param: keyof GenerationParams) => {
+		const key = getParamIncompatibility(prov, param);
+		return key ? t(key) : undefined;
+	};
 	const caps = parseCapabilities(model.capabilities);
 	const [open, setOpen] = useState(false);
 	const [collapsed, setCollapsed] = useState(false);
@@ -180,10 +184,7 @@ export function ModelDetailPanel({
 											max={2}
 											step={0.01}
 											disabled={isParamDisabled(provider, "temperature")}
-											disabledReason={
-												getParamIncompatibility(provider, "temperature") ??
-												undefined
-											}
+											disabledReason={incompatReason(provider, "temperature")}
 											onChange={(v) =>
 												onParamsChange?.({
 													...(params as GenerationParams),
@@ -200,10 +201,7 @@ export function ModelDetailPanel({
 											max={32768}
 											step={1}
 											disabled={isParamDisabled(provider, "max_tokens")}
-											disabledReason={
-												getParamIncompatibility(provider, "max_tokens") ??
-												undefined
-											}
+											disabledReason={incompatReason(provider, "max_tokens")}
 											onChange={(v) =>
 												onParamsChange?.({
 													...(params as GenerationParams),
@@ -221,9 +219,7 @@ export function ModelDetailPanel({
 											max={1}
 											step={0.01}
 											disabled={isParamDisabled(provider, "top_p")}
-											disabledReason={
-												getParamIncompatibility(provider, "top_p") ?? undefined
-											}
+											disabledReason={incompatReason(provider, "top_p")}
 											onChange={(v) =>
 												onParamsChange?.({
 													...(params as GenerationParams),
@@ -240,9 +236,7 @@ export function ModelDetailPanel({
 											max={1}
 											step={0.01}
 											disabled={isParamDisabled(provider, "min_p")}
-											disabledReason={
-												getParamIncompatibility(provider, "min_p") ?? undefined
-											}
+											disabledReason={incompatReason(provider, "min_p")}
 											onChange={(v) =>
 												onParamsChange?.({
 													...(params as GenerationParams),
@@ -259,9 +253,7 @@ export function ModelDetailPanel({
 											max={100}
 											step={1}
 											disabled={isParamDisabled(provider, "top_k")}
-											disabledReason={
-												getParamIncompatibility(provider, "top_k") ?? undefined
-											}
+											disabledReason={incompatReason(provider, "top_k")}
 											onChange={(v) =>
 												onParamsChange?.({
 													...(params as GenerationParams),
@@ -278,12 +270,10 @@ export function ModelDetailPanel({
 											max={2}
 											step={0.01}
 											disabled={isParamDisabled(provider, "frequency_penalty")}
-											disabledReason={
-												getParamIncompatibility(
-													provider,
-													"frequency_penalty",
-												) ?? undefined
-											}
+											disabledReason={incompatReason(
+												provider,
+												"frequency_penalty",
+											)}
 											onChange={(v) =>
 												onParamsChange?.({
 													...(params as GenerationParams),
@@ -300,10 +290,10 @@ export function ModelDetailPanel({
 											max={2}
 											step={0.01}
 											disabled={isParamDisabled(provider, "presence_penalty")}
-											disabledReason={
-												getParamIncompatibility(provider, "presence_penalty") ??
-												undefined
-											}
+											disabledReason={incompatReason(
+												provider,
+												"presence_penalty",
+											)}
 											onChange={(v) =>
 												onParamsChange?.({
 													...(params as GenerationParams),
@@ -342,7 +332,7 @@ export function ModelDetailPanel({
 						<div className="space-y-2">
 							<div>
 								<span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
-									Provider
+									{t("components.modelDetailPanel.provider")}
 								</span>
 								<div className="text-(--text-primary) font-medium">
 									{model.provider_name}
@@ -350,7 +340,7 @@ export function ModelDetailPanel({
 							</div>
 							<div>
 								<span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
-									Model ID
+									{t("components.modelDetailPanel.modelId")}
 								</span>
 								<div
 									className="text-(--text-primary) font-medium truncate"
@@ -362,7 +352,7 @@ export function ModelDetailPanel({
 							<div className="grid grid-cols-2 gap-2">
 								<div>
 									<span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
-										Context
+										{t("components.modelDetailPanel.context")}
 									</span>
 									<div className="text-(--text-primary) font-medium">
 										{model.context_length?.toLocaleString() ?? "-"}
@@ -370,7 +360,7 @@ export function ModelDetailPanel({
 								</div>
 								<div>
 									<span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
-										Max Out
+										{t("components.modelDetailPanel.maxOut")}
 									</span>
 									<div className="text-(--text-primary) font-medium">
 										{model.max_output_tokens?.toLocaleString() ?? "-"}
@@ -380,7 +370,7 @@ export function ModelDetailPanel({
 							<div className="grid grid-cols-2 gap-2">
 								<div>
 									<span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
-										In $/1M
+										{t("components.modelDetailPanel.inputPricePerMillion")}
 									</span>
 									<div className="text-(--text-primary) font-medium">
 										${formatPrice(model.input_price_per_million)}
@@ -388,7 +378,7 @@ export function ModelDetailPanel({
 								</div>
 								<div>
 									<span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
-										Out $/1M
+										{t("components.modelDetailPanel.outputPricePerMillion")}
 									</span>
 									<div className="text-(--text-primary) font-medium">
 										${formatPrice(model.output_price_per_million)}
@@ -400,7 +390,7 @@ export function ModelDetailPanel({
 						{CAP_META.some((m) => caps[m.key]) && (
 							<div>
 								<span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
-									Capabilities
+									{t("components.modelDetailPanel.capabilities")}
 								</span>
 								<div className="flex flex-wrap gap-1 mt-1">
 									{CAP_META.filter((m) => caps[m.key]).map((m) => (
@@ -412,7 +402,7 @@ export function ModelDetailPanel({
 
 						<div>
 							<span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
-								Proxy ID
+								{t("components.modelDetailPanel.proxyId")}
 							</span>
 							<CopyablePill
 								text={proxyModelID(model.provider_name, model.model_id)}

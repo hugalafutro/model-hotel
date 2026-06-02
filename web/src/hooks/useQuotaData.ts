@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type {
 	DeepSeekBalance,
@@ -167,6 +168,7 @@ export function useQuotaData(
 	providers: Provider[] | undefined,
 	options: UseQuotaDataOptions = {},
 ): QuotaDataResult {
+	const { t } = useTranslation();
 	const queryClient = useQueryClient();
 	const { refetchInterval, collapsed, toastErrors } = options;
 
@@ -313,51 +315,51 @@ export function useQuotaData(
 	useEffect(() => {
 		if (!toastErrors) return;
 		if (isNanoGPTError && !nanoErrorToasted.current) {
-			toastErrors("Failed to fetch NanoGPT usage quota", "warning");
+			toastErrors(t("hooks.useQuotaData.nanoGPTError"), "warning");
 			nanoErrorToasted.current = true;
 		}
 		if (!isNanoGPTError) nanoErrorToasted.current = false;
-	}, [isNanoGPTError, toastErrors]);
+	}, [isNanoGPTError, toastErrors, t]);
 
 	const zaiErrorToasted = useRef(false);
 	useEffect(() => {
 		if (!toastErrors) return;
 		if (isZAICodingError && !zaiErrorToasted.current) {
-			toastErrors("Failed to fetch ZAI usage quota", "warning");
+			toastErrors(t("hooks.useQuotaData.zaiError"), "warning");
 			zaiErrorToasted.current = true;
 		}
 		if (!isZAICodingError) zaiErrorToasted.current = false;
-	}, [isZAICodingError, toastErrors]);
+	}, [isZAICodingError, toastErrors, t]);
 
 	const dsErrorToasted = useRef(false);
 	useEffect(() => {
 		if (!toastErrors) return;
 		if (isDeepseekError && !dsErrorToasted.current) {
-			toastErrors("Failed to fetch DeepSeek balance", "warning");
+			toastErrors(t("hooks.useQuotaData.deepSeekError"), "warning");
 			dsErrorToasted.current = true;
 		}
 		if (!isDeepseekError) dsErrorToasted.current = false;
-	}, [isDeepseekError, toastErrors]);
+	}, [isDeepseekError, toastErrors, t]);
 
 	const orErrorToasted = useRef(false);
 	useEffect(() => {
 		if (!toastErrors) return;
 		if (isOpenRouterError && !orErrorToasted.current) {
-			toastErrors("Failed to fetch OpenRouter key balance", "warning");
+			toastErrors(t("hooks.useQuotaData.openRouterError"), "warning");
 			orErrorToasted.current = true;
 		}
 		if (!isOpenRouterError) orErrorToasted.current = false;
-	}, [isOpenRouterError, toastErrors]);
+	}, [isOpenRouterError, toastErrors, t]);
 
 	const ocErrorToasted = useRef(false);
 	useEffect(() => {
 		if (!toastErrors) return;
 		if (isOllamaCloudError && !ocErrorToasted.current) {
-			toastErrors("Failed to fetch Ollama Cloud account", "warning");
+			toastErrors(t("hooks.useQuotaData.ollamaCloudError"), "warning");
 			ocErrorToasted.current = true;
 		}
 		if (!isOllamaCloudError) ocErrorToasted.current = false;
-	}, [isOllamaCloudError, toastErrors]);
+	}, [isOllamaCloudError, toastErrors, t]);
 
 	// ── Derived values ──
 	const zaiCodingFiveHour = getZaiCodingFiveHourLimit(zaiCodingUsage);

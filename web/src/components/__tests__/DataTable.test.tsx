@@ -459,8 +459,13 @@ describe("PaginationBar", () => {
 				onPageSizeChange={onPageSizeChange}
 			/>,
 		);
-		// Component uses label.replace(/s$/, "") which turns "entries" into "entrie"
-		expect(screen.getByText("1 entrie")).toBeInTheDocument();
+		// Component uses label.replace(/s$/, "") for singular, then i18n countOne template
+		// entries → entrie (artificial singular), countOne = "1 {{label}}" = "1 entrie"
+		expect(
+			screen.getByText(
+				(content) => content.startsWith("1 ") && content.includes("entrie"),
+			),
+		).toBeInTheDocument();
 	});
 
 	it("renders with multiple items showing range", () => {
@@ -474,7 +479,10 @@ describe("PaginationBar", () => {
 				onPageSizeChange={onPageSizeChange}
 			/>,
 		);
-		expect(screen.getByText("1 to 20 of 100 entries")).toBeInTheDocument();
+		// Range text is split across multiple nodes, so check the container text
+		const countDiv = document.querySelector(".text-sm.text-gray-500");
+		expect(countDiv).toBeInTheDocument();
+		expect(countDiv?.textContent).toMatch(/1 to 20 of 100 entries/);
 	});
 
 	it("renders page size selector", () => {
@@ -648,8 +656,10 @@ describe("PaginationBar", () => {
 				label="items"
 			/>,
 		);
-		// When totalItems <= pageSize, no range is shown (no "to N" part)
-		expect(screen.getByText("1 of 3 items")).toBeInTheDocument();
+		// When totalItems <= pageSize, entriesShort renders "1–3 of 3 items"
+		const countDiv = document.querySelector(".text-sm.text-gray-500");
+		expect(countDiv).toBeInTheDocument();
+		expect(countDiv?.textContent).toMatch(/1–3 of 3 items/);
 	});
 
 	it("uses singular label for one item", () => {

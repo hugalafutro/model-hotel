@@ -665,7 +665,9 @@ export function VirtualModelTable({
 						count: disabledCount,
 					})}
 					fields={[
-						`${disabledCount} disabled model${disabledCount === 1 ? "" : "s"}`,
+						t("components.virtualModelTable.disabledModels", {
+							count: disabledCount,
+						}),
 					]}
 					confirmLabel={t("common.delete")}
 					onConfirm={() => {

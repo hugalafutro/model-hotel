@@ -29,6 +29,10 @@ export function ParamEditorModal({
 }) {
 	const { t } = useTranslation();
 	const providerName = providerFromModelID(modelId, knownProviders);
+	const incompatReason = (prov: string, param: keyof GenerationParams) => {
+		const key = getParamIncompatibility(prov, param);
+		return key ? t(key) : undefined;
+	};
 
 	return (
 		<Modal title={modelId} onClose={onClose} maxWidth="max-w-sm">
@@ -42,10 +46,7 @@ export function ParamEditorModal({
 							max={2}
 							step={0.01}
 							disabled={isParamDisabled(providerName, "temperature")}
-							disabledReason={
-								getParamIncompatibility(providerName, "temperature") ??
-								undefined
-							}
+							disabledReason={incompatReason(providerName, "temperature")}
 							onChange={(v) => onChange({ ...params, temperature: v })}
 						/>
 					)}
@@ -57,9 +58,7 @@ export function ParamEditorModal({
 							max={32768}
 							step={1}
 							disabled={isParamDisabled(providerName, "max_tokens")}
-							disabledReason={
-								getParamIncompatibility(providerName, "max_tokens") ?? undefined
-							}
+							disabledReason={incompatReason(providerName, "max_tokens")}
 							onChange={(v) =>
 								onChange({
 									...params,
@@ -76,9 +75,7 @@ export function ParamEditorModal({
 							max={1}
 							step={0.01}
 							disabled={isParamDisabled(providerName, "top_p")}
-							disabledReason={
-								getParamIncompatibility(providerName, "top_p") ?? undefined
-							}
+							disabledReason={incompatReason(providerName, "top_p")}
 							onChange={(v) => onChange({ ...params, top_p: v })}
 						/>
 					)}
@@ -90,9 +87,7 @@ export function ParamEditorModal({
 							max={1}
 							step={0.01}
 							disabled={isParamDisabled(providerName, "min_p")}
-							disabledReason={
-								getParamIncompatibility(providerName, "min_p") ?? undefined
-							}
+							disabledReason={incompatReason(providerName, "min_p")}
 							onChange={(v) => onChange({ ...params, min_p: v })}
 						/>
 					)}
@@ -104,9 +99,7 @@ export function ParamEditorModal({
 							max={100}
 							step={1}
 							disabled={isParamDisabled(providerName, "top_k")}
-							disabledReason={
-								getParamIncompatibility(providerName, "top_k") ?? undefined
-							}
+							disabledReason={incompatReason(providerName, "top_k")}
 							onChange={(v) =>
 								onChange({
 									...params,
@@ -123,10 +116,7 @@ export function ParamEditorModal({
 							max={2}
 							step={0.01}
 							disabled={isParamDisabled(providerName, "frequency_penalty")}
-							disabledReason={
-								getParamIncompatibility(providerName, "frequency_penalty") ??
-								undefined
-							}
+							disabledReason={incompatReason(providerName, "frequency_penalty")}
 							onChange={(v) => onChange({ ...params, frequency_penalty: v })}
 						/>
 					)}
@@ -138,10 +128,7 @@ export function ParamEditorModal({
 							max={2}
 							step={0.01}
 							disabled={isParamDisabled(providerName, "presence_penalty")}
-							disabledReason={
-								getParamIncompatibility(providerName, "presence_penalty") ??
-								undefined
-							}
+							disabledReason={incompatReason(providerName, "presence_penalty")}
 							onChange={(v) => onChange({ ...params, presence_penalty: v })}
 						/>
 					)}

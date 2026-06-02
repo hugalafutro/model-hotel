@@ -35,13 +35,12 @@ describe("AccentCalendar", () => {
 
 	it("renders day headers (Su-Sa)", () => {
 		renderWithProviders(<AccentCalendar {...defaultProps} />);
-		expect(screen.getByText("Su")).toBeInTheDocument();
-		expect(screen.getByText("Mo")).toBeInTheDocument();
-		expect(screen.getByText("Tu")).toBeInTheDocument();
-		expect(screen.getByText("We")).toBeInTheDocument();
-		expect(screen.getByText("Th")).toBeInTheDocument();
-		expect(screen.getByText("Fr")).toBeInTheDocument();
-		expect(screen.getByText("Sa")).toBeInTheDocument();
+		// Day headers use locale-aware Intl.DateTimeFormat narrow weekday names.
+		// The weekday header row is the first grid-cols-7 element inside the calendar.
+		// Count the direct <div> children — there should be exactly 7 for Su-Sa.
+		const weekdayRow = document.querySelector(".grid.grid-cols-7.gap-0\\.5");
+		const headerDivs = weekdayRow?.querySelectorAll(":scope > div") ?? [];
+		expect(headerDivs.length).toBe(7);
 	});
 
 	it("renders day buttons for all days in month", () => {

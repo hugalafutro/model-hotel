@@ -559,15 +559,16 @@ describe("DatabaseBackupSettings", () => {
 		try {
 			const user = userEvent.setup();
 
-			// Mock successful download response for the backup file
+			// Mock successful download response for the backup file.
+			// Use HttpResponse.arrayBuffer() instead of Blob — jsdom's Response.blob()
+			// has a known incompatibility with Node Blob's .stream() method.
 			server.use(
 				http.get("/api/backups/:filename", () => {
-					return new HttpResponse(
-						new Blob(["backup data"], {
-							type: "application/octet-stream",
-						}),
-						{ status: 200 },
-					);
+					const encoder = new TextEncoder();
+					return HttpResponse.arrayBuffer(encoder.encode("backup data"), {
+						status: 200,
+						headers: { "Content-Type": "application/octet-stream" },
+					});
 				}),
 			);
 
