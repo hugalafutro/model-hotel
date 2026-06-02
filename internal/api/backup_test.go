@@ -1929,11 +1929,8 @@ func TestParseTOC_MaterializedViewAndSpecialTypes(t *testing.T) {
 func TestNewBackupHandler_Constructor(t *testing.T) {
 	adminAuth := &mockAdminAuth{}
 
-	// Test with normal inputs
+	// Test with normal inputs — NewBackupHandler always returns non-nil.
 	h := NewBackupHandler("postgres://user:pass@localhost/db", "/tmp/backups", adminAuth)
-	if h == nil {
-		t.Fatal("expected non-nil handler")
-	}
 	if h.databaseURL != "postgres://user:pass@localhost/db" {
 		t.Errorf("expected databaseURL to be set, got %q", h.databaseURL)
 	}
@@ -1947,9 +1944,6 @@ func TestNewBackupHandler_Constructor(t *testing.T) {
 
 	// Test with empty backup dir path
 	hEmpty := NewBackupHandler("postgres://user:pass@localhost/db", "", adminAuth)
-	if hEmpty == nil {
-		t.Fatal("expected non-nil handler with empty backup dir")
-	}
 	// Empty string should resolve to current working directory
 	if !filepath.IsAbs(hEmpty.backupDir) {
 		t.Errorf("expected backupDir to be absolute for empty input, got %q", hEmpty.backupDir)
@@ -1958,9 +1952,6 @@ func TestNewBackupHandler_Constructor(t *testing.T) {
 	// Test with long path
 	longPath := "/tmp/" + strings.Repeat("a", 5000)
 	hLong := NewBackupHandler("postgres://user:pass@localhost/db", longPath, adminAuth)
-	if hLong == nil {
-		t.Fatal("expected non-nil handler with long path")
-	}
 	if hLong.backupDir != longPath {
 		t.Errorf("expected backupDir to be original long path, got %q", hLong.backupDir)
 	}

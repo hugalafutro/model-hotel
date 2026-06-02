@@ -28,17 +28,17 @@ describe("PasskeySettings", () => {
 		expect(container.textContent).not.toMatch(/Passkeys/i);
 	});
 
-	it("renders Passkeys section when WebAuthn is available", () => {
+	it("renders Passkeys section when WebAuthn is available", async () => {
 		vi.spyOn(webauthnUtils, "isWebAuthnAvailable").mockResolvedValue(true);
 
 		renderWithProviders(
 			<PasskeySettings collapsed={false} onToggle={() => {}} />,
 		);
 
-		expect(screen.getByText("Passkeys")).toBeInTheDocument();
+		expect(await screen.findByText("Passkeys")).toBeInTheDocument();
 	});
 
-	it("shows Register Passkey button", () => {
+	it("shows Register Passkey button", async () => {
 		vi.spyOn(webauthnUtils, "isWebAuthnAvailable").mockResolvedValue(true);
 
 		renderWithProviders(
@@ -46,7 +46,7 @@ describe("PasskeySettings", () => {
 		);
 
 		expect(
-			screen.getByRole("button", { name: /Register a new passkey/i }),
+			await screen.findByRole("button", { name: /Register a new passkey/i }),
 		).toBeInTheDocument();
 	});
 

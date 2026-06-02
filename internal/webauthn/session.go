@@ -72,7 +72,9 @@ func (m *SessionManager) Validate(ctx context.Context, token string) bool {
 // It generates a cryptographically random token, stores only its SHA-256 hash
 // in the database, and returns the raw token to the caller.
 // The ctx parameter propagates request deadlines and tracing.
-func (m *SessionManager) CreateAuthToken(ctx context.Context, userID []byte) (string, error) {
+// credentialID links the auth token to the passkey used for login, so that
+// deleting the passkey can cascade-revoke its derived sessions.
+func (m *SessionManager) CreateAuthToken(ctx context.Context, userID, credentialID []byte) (string, error) {
 	// Generate a high-entropy random token (32 bytes = 256 bits).
 	tokenBytes := make([]byte, 32)
 	if _, err := io.ReadFull(rand.Reader, tokenBytes); err != nil {
@@ -99,13 +101,14 @@ func (m *SessionManager) CreateAuthToken(ctx context.Context, userID []byte) (st
 	sessionData := []byte(`{"type":"auth_token"}`)
 
 	session := &SessionRecord{
-		ID:          id,
-		Challenge:   challenge,
-		SessionData: sessionData,
-		Type:        "auth_token",
-		UserID:      userID,
-		TokenHash:   &tokenHash,
-		ExpiresAt:   time.Now().Add(30 * 24 * time.Hour),
+		ID:           id,
+		Challenge:    challenge,
+		SessionData:  sessionData,
+		Type:         "auth_token",
+		UserID:       userID,
+		TokenHash:    &tokenHash,
+		CredentialID: credentialID,
+		ExpiresAt:    time.Now().Add(30 * 24 * time.Hour),
 	}
 
 	if err := m.repo.CreateSession(ctx, session); err != nil {

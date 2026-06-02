@@ -330,7 +330,7 @@ func TestSessionManagerValidate(t *testing.T) {
 	ctx := context.Background()
 	mgr := NewSessionManager(repo)
 
-	token, err := mgr.CreateAuthToken(ctx, []byte("admin"))
+	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil)
 	if err != nil {
 		t.Fatalf("CreateAuthToken: %v", err)
 	}
@@ -384,7 +384,7 @@ func TestSessionManagerRevokeAuthToken(t *testing.T) {
 	ctx := context.Background()
 	mgr := NewSessionManager(repo)
 
-	token, err := mgr.CreateAuthToken(ctx, []byte("admin"))
+	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil)
 	if err != nil {
 		t.Fatalf("CreateAuthToken: %v", err)
 	}
@@ -410,7 +410,7 @@ func TestSessionManagerGetSessionByTokenHash(t *testing.T) {
 	repo := newTestRepo(t)
 	ctx := context.Background()
 
-	token, err := NewSessionManager(repo).CreateAuthToken(ctx, []byte("admin"))
+	token, err := NewSessionManager(repo).CreateAuthToken(ctx, []byte("admin"), nil)
 	if err != nil {
 		t.Fatalf("CreateAuthToken: %v", err)
 	}

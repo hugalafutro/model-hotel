@@ -78,7 +78,11 @@ export function PasskeySettings({ collapsed, onToggle }: PasskeySettingsProps) {
 	const handleRegister = async () => {
 		setRegistering(true);
 		try {
-			await registerPasskey();
+			const ok = await registerPasskey();
+			if (!ok) {
+				// User cancelled the browser dialog — no error to show.
+				return;
+			}
 			queryClient.invalidateQueries({ queryKey: ["webauthn", "credentials"] });
 			toast(t("settings.passkeys.registeredSuccess"), "success");
 		} catch (err) {

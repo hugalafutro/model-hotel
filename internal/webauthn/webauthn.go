@@ -21,7 +21,7 @@ import (
 
 const credentialColumns = `id, name, public_key, attestation_type, attestation_format, transport, flags_byte, sign_count, aaguid, attestation_object, attestation_client_data, attestation_client_data_hash, attestation_public_key_algo, authenticator_data, created_at, updated_at`
 
-const sessionColumns = `id, challenge, session_data, type, user_id, token_hash, expires_at, created_at`
+const sessionColumns = `id, challenge, session_data, type, user_id, token_hash, credential_id, expires_at, created_at`
 
 // ---------------------------------------------------------------------------
 // Domain types
@@ -120,14 +120,15 @@ func FromWebAuthnCredential(c *gowa.Credential) *CredentialRecord {
 // consistent with the project's hash-before-store security model.
 // Nil for registration/login sessions (no auth token).
 type SessionRecord struct {
-	ID          uuid.UUID `json:"id"`
-	Challenge   string    `json:"challenge"`
-	SessionData []byte    `json:"session_data"`
-	Type        string    `json:"type"`
-	UserID      []byte    `json:"user_id"`
-	TokenHash   *string   `json:"token_hash,omitempty"`
-	ExpiresAt   time.Time `json:"expires_at"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID           uuid.UUID `json:"id"`
+	Challenge    string    `json:"challenge"`
+	SessionData  []byte    `json:"session_data"`
+	Type         string    `json:"type"`
+	UserID       []byte    `json:"user_id"`
+	TokenHash    *string   `json:"token_hash,omitempty"`
+	CredentialID []byte    `json:"credential_id,omitempty"`
+	ExpiresAt    time.Time `json:"expires_at"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 // AdminUser implements the webauthn.User interface for Model Hotel's single
@@ -264,8 +265,19 @@ func (r *Repository) GetCredentialByID(ctx context.Context, id []byte) (*Credent
 	return &cred, nil
 }
 
-// DeleteCredential removes a WebAuthn credential by its ID.
+// DeleteCredential removes a WebAuthn credential by its ID and revokes any
+// auth_token sessions that were created via that credential's login ceremony.
 func (r *Repository) DeleteCredential(ctx context.Context, id []byte) error {
+	// Revoke auth_token sessions derived from this credential before deleting it.
+	// This ensures a deleted (potentially compromised) passkey cannot continue
+	// granting admin API access for its 30-day session TTL.
+	if _, err := r.pool.Exec(ctx,
+		`DELETE FROM webauthn_sessions WHERE credential_id = $1 AND type = 'auth_token'`, id,
+	); err != nil {
+		debuglog.Error("webauthn: failed to revoke sessions for credential", "credential_id_len", len(id), "error", err)
+		// Continue with credential deletion even if session cleanup fails.
+	}
+
 	tag, err := r.pool.Exec(ctx, `DELETE FROM webauthn_credentials WHERE id = $1`, id)
 	if err != nil {
 		return err
@@ -315,9 +327,9 @@ func (r *Repository) UpdateSignCount(ctx context.Context, id []byte, signCount u
 // CreateSession inserts a new WebAuthn session record.
 func (r *Repository) CreateSession(ctx context.Context, session *SessionRecord) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO webauthn_sessions (id, challenge, session_data, type, user_id, token_hash, expires_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-		session.ID, session.Challenge, session.SessionData, session.Type, session.UserID, session.TokenHash, session.ExpiresAt,
+		`INSERT INTO webauthn_sessions (id, challenge, session_data, type, user_id, token_hash, credential_id, expires_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		session.ID, session.Challenge, session.SessionData, session.Type, session.UserID, session.TokenHash, session.CredentialID, session.ExpiresAt,
 	)
 	if err != nil {
 		debuglog.Error("webauthn: failed to create session", "session_id", session.ID, "type", session.Type, "error", err)
@@ -331,7 +343,7 @@ func (r *Repository) GetSession(ctx context.Context, id uuid.UUID) (*SessionReco
 	var s SessionRecord
 	err := r.pool.QueryRow(ctx,
 		`SELECT `+sessionColumns+` FROM webauthn_sessions WHERE id = $1`, id,
-	).Scan(&s.ID, &s.Challenge, &s.SessionData, &s.Type, &s.UserID, &s.TokenHash, &s.ExpiresAt, &s.CreatedAt)
+	).Scan(&s.ID, &s.Challenge, &s.SessionData, &s.Type, &s.UserID, &s.TokenHash, &s.CredentialID, &s.ExpiresAt, &s.CreatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
@@ -348,7 +360,7 @@ func (r *Repository) GetSessionByTokenHash(ctx context.Context, tokenHash string
 	err := r.pool.QueryRow(ctx,
 		`SELECT `+sessionColumns+` FROM webauthn_sessions WHERE token_hash = $1 AND type = 'auth_token'`,
 		tokenHash,
-	).Scan(&s.ID, &s.Challenge, &s.SessionData, &s.Type, &s.UserID, &s.TokenHash, &s.ExpiresAt, &s.CreatedAt)
+	).Scan(&s.ID, &s.Challenge, &s.SessionData, &s.Type, &s.UserID, &s.TokenHash, &s.CredentialID, &s.ExpiresAt, &s.CreatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound

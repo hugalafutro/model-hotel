@@ -28,12 +28,19 @@ export function resetWebAuthnCache(): void {
 }
 
 export async function registerPasskey(): Promise<boolean> {
-	const { session_id, options } = await api.webauthn.registerStart();
-	const credential = await startRegistration({
-		optionsJSON: options as unknown as PublicKeyCredentialCreationOptionsJSON,
-	});
-	await api.webauthn.registerFinish(session_id, credential);
-	return true;
+	try {
+		const { session_id, options } = await api.webauthn.registerStart();
+		const credential = await startRegistration({
+			optionsJSON: options as unknown as PublicKeyCredentialCreationOptionsJSON,
+		});
+		await api.webauthn.registerFinish(session_id, credential);
+		return true;
+	} catch (err) {
+		if (err instanceof Error && err.name === "NotAllowedError") {
+			return false;
+		}
+		throw err;
+	}
 }
 
 export async function loginWithPasskey(): Promise<string | null> {
