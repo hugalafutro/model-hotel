@@ -71,7 +71,8 @@ func TestCollect_EmptySinceWithTimeout(t *testing.T) {
 	}
 
 	// Verify AppStats structure
-	if stats.App.Goroutines <= 0 {
+	// staticcheck does not model t.Fatal's goroutine-termination semantics.
+	if stats.App.Goroutines <= 0 { //nolint:staticcheck // SA5011
 		t.Error("Expected goroutines > 0")
 	}
 	if stats.App.UptimeSeconds < 0 {
