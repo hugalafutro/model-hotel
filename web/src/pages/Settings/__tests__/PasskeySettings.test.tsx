@@ -167,9 +167,7 @@ describe("PasskeySettings", () => {
 			});
 			await userEvent.click(registerButton);
 
-			await waitFor(() => {
-				expect(screen.getByText("Passkey registered")).toBeInTheDocument();
-			});
+			await screen.findByText("Passkey registered successfully");
 		});
 
 		it("shows no toast when user cancels registration (NotAllowedError)", async () => {
