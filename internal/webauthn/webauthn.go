@@ -267,23 +267,34 @@ func (r *Repository) GetCredentialByID(ctx context.Context, id []byte) (*Credent
 
 // DeleteCredential removes a WebAuthn credential by its ID and revokes any
 // auth_token sessions that were created via that credential's login ceremony.
+// Both operations run in a single transaction so the security guarantee
+// (credential deleted → sessions revoked) is maintained even on DB errors.
 func (r *Repository) DeleteCredential(ctx context.Context, id []byte) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
 	// Revoke auth_token sessions derived from this credential before deleting it.
 	// This ensures a deleted (potentially compromised) passkey cannot continue
 	// granting admin API access for its 30-day session TTL.
-	if _, err := r.pool.Exec(ctx,
+	if _, err := tx.Exec(ctx,
 		`DELETE FROM webauthn_sessions WHERE credential_id = $1 AND type = 'auth_token'`, id,
 	); err != nil {
-		debuglog.Error("webauthn: failed to revoke sessions for credential", "credential_id_len", len(id), "error", err)
-		// Continue with credential deletion even if session cleanup fails.
+		return err
 	}
 
-	tag, err := r.pool.Exec(ctx, `DELETE FROM webauthn_credentials WHERE id = $1`, id)
+	tag, err := tx.Exec(ctx, `DELETE FROM webauthn_credentials WHERE id = $1`, id)
 	if err != nil {
 		return err
 	}
 	if tag.RowsAffected() == 0 {
 		return ErrNotFound
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return err
 	}
 	debuglog.Info("webauthn: deleted credential", "credential_id_len", len(id))
 	return nil

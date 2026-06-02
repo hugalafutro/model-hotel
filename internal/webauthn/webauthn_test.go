@@ -491,3 +491,110 @@ func TestCredentialConversion(t *testing.T) {
 		t.Errorf("round-trip ID mismatch: expected 'conversion-test-id', got %q", string(roundTrip.ID))
 	}
 }
+
+// TestCreateAuthToken_WithCredentialID verifies that CreateAuthToken properly stores the credential_id
+func TestCreateAuthToken_WithCredentialID(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	mgr := NewSessionManager(repo)
+
+	// Create an auth token with a specific credential ID
+	credentialID := []byte("test-credential-id-123")
+	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), credentialID)
+	if err != nil {
+		t.Fatalf("CreateAuthToken: %v", err)
+	}
+	if token == "" {
+		t.Fatal("expected non-empty token")
+	}
+
+	// Look up the session to verify credential_id is stored
+	hash := sha256.Sum256([]byte(token))
+	tokenHash := hex.EncodeToString(hash[:])
+
+	session, err := repo.GetSessionByTokenHash(ctx, tokenHash)
+	if err != nil {
+		t.Fatalf("GetSessionByTokenHash: %v", err)
+	}
+
+	if session.CredentialID == nil {
+		t.Fatal("expected credential_id to be set")
+	}
+	if string(session.CredentialID) != "test-credential-id-123" {
+		t.Errorf("expected credential_id 'test-credential-id-123', got %q", string(session.CredentialID))
+	}
+}
+
+// TestDeleteCredential_CascadeDelete verifies that deleting a credential cascades to auth_token sessions
+func TestDeleteCredential_CascadeDelete(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	mgr := NewSessionManager(repo)
+
+	// First, create a credential
+	credID := []byte("cascade-test-cred-id")
+	cred := &CredentialRecord{
+		ID:                credID,
+		PublicKey:         []byte("fake-public-key"),
+		AttestationType:   "none",
+		AttestationFormat: "packed",
+		Transport:         []string{"internal"},
+		FlagsByte:         0x41,
+		SignCount:         0,
+		AAGUID:            uuid.Nil,
+	}
+
+	if err := repo.StoreCredential(ctx, cred); err != nil {
+		t.Fatalf("StoreCredential: %v", err)
+	}
+
+	// Create an auth token session with that credential's ID
+	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), credID)
+	if err != nil {
+		t.Fatalf("CreateAuthToken: %v", err)
+	}
+
+	// Verify the session exists
+	hash := sha256.Sum256([]byte(token))
+	tokenHash := hex.EncodeToString(hash[:])
+	session, err := repo.GetSessionByTokenHash(ctx, tokenHash)
+	if err != nil {
+		t.Fatalf("GetSessionByTokenHash (before delete): %v", err)
+	}
+	if session.CredentialID == nil {
+		t.Fatal("expected credential_id to be set")
+	}
+
+	// Delete the credential
+	if err := repo.DeleteCredential(ctx, credID); err != nil {
+		t.Fatalf("DeleteCredential: %v", err)
+	}
+
+	// Verify the auth_token session is also deleted
+	_, err = repo.GetSessionByTokenHash(ctx, tokenHash)
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("expected ErrNotFound after cascade delete, got %v", err)
+	}
+}
+
+// TestValidate_WithCredentialID verifies Validate works for tokens with credential_id sessions
+func TestValidate_WithCredentialID(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	mgr := NewSessionManager(repo)
+
+	// Create an auth token with a credential ID
+	credentialID := []byte("validate-test-cred-id")
+	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), credentialID)
+	if err != nil {
+		t.Fatalf("CreateAuthToken: %v", err)
+	}
+
+	// Verify the token validates successfully
+	if !mgr.Validate(ctx, token) {
+		t.Error("expected token with credential_id to validate successfully")
+	}
+
+	// Clean up
+	mgr.RevokeAuthToken(ctx, token)
+}
