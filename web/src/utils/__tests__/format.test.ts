@@ -138,13 +138,13 @@ describe("formatTimestamp", () => {
 });
 
 describe("countLabel", () => {
-	it("returns plural form when count is 0", () => {
-		expect(countLabel(0, "Model", "Models")).toBe("Models");
-		expect(countLabel(0, "Request", "Requests")).toBe("Requests");
+	it("returns plural form with 0 when count is 0", () => {
+		expect(countLabel(0, "Model", "Models")).toBe("0 Models");
+		expect(countLabel(0, "Request", "Requests")).toBe("0 Requests");
 	});
 
-	it("returns plural form when count is undefined", () => {
-		expect(countLabel(undefined, "Model", "Models")).toBe("Models");
+	it("returns plural form with 0 when count is undefined", () => {
+		expect(countLabel(undefined, "Model", "Models")).toBe("0 Models");
 	});
 
 	it("returns singular form with '1' when count is 1", () => {

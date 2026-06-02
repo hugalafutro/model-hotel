@@ -54,7 +54,7 @@ describe("normalizeToProviderType", () => {
 describe("getParamIncompatibility", () => {
 	it("returns incompatibility reason for OpenAI + min_p", () => {
 		const result = getParamIncompatibility("openai", "min_p");
-		expect(result).toBe("Not part of the OpenAI API");
+		expect(result).toBe("paramCompat.openai.minP");
 	});
 
 	it("returns null for compatible OpenAI + temperature", () => {
@@ -64,14 +64,12 @@ describe("getParamIncompatibility", () => {
 
 	it("returns deprecated message for Anthropic + top_p", () => {
 		const result = getParamIncompatibility("anthropic", "top_p");
-		expect(result).toBe(
-			"top_p is deprecated on current Anthropic models; use top_k instead",
-		);
+		expect(result).toBe("paramCompat.anthropic.topP");
 	});
 
 	it("returns incompatibility for Google + frequency_penalty", () => {
 		const result = getParamIncompatibility("google", "frequency_penalty");
-		expect(result).toBe("Gemini does not support frequency/presence penalties");
+		expect(result).toBe("paramCompat.google.frequencyPenalty");
 	});
 
 	it("returns null for unknown provider", () => {
@@ -86,7 +84,7 @@ describe("getParamIncompatibility", () => {
 
 	it("normalizes case before checking incompatibility", () => {
 		const result = getParamIncompatibility("OpenAI", "min_p");
-		expect(result).toBe("Not part of the OpenAI API");
+		expect(result).toBe("paramCompat.openai.minP");
 	});
 
 	it("returns null for compatible params", () => {
@@ -97,19 +95,19 @@ describe("getParamIncompatibility", () => {
 
 	it("handles deepseek incompatibilities", () => {
 		expect(getParamIncompatibility("deepseek", "min_p")).toBe(
-			"Not supported by the DeepSeek API",
+			"paramCompat.deepseek.minP",
 		);
 		expect(getParamIncompatibility("deepseek", "top_k")).toBe(
-			"Not supported by the DeepSeek API",
+			"paramCompat.deepseek.topK",
 		);
 	});
 
 	it("handles xai incompatibilities", () => {
 		expect(getParamIncompatibility("xai", "min_p")).toBe(
-			"Not supported by the xAI API",
+			"paramCompat.xai.minP",
 		);
 		expect(getParamIncompatibility("xai", "top_k")).toBe(
-			"Not supported by the xAI API",
+			"paramCompat.xai.topK",
 		);
 	});
 });
@@ -161,14 +159,14 @@ describe("provider incompatibility coverage", () => {
 		it("disables top_k", () => {
 			expect(isParamDisabled("cohere", "top_k")).toBe(true);
 			expect(getParamIncompatibility("cohere", "top_k")).toBe(
-				"Cohere uses a different 'k' parameter; not recommended",
+				"paramCompat.cohere.topK",
 			);
 		});
 
 		it("disables min_p", () => {
 			expect(isParamDisabled("cohere", "min_p")).toBe(true);
 			expect(getParamIncompatibility("cohere", "min_p")).toBe(
-				"Not supported by the Cohere API",
+				"paramCompat.cohere.minP",
 			);
 		});
 	});
@@ -177,7 +175,7 @@ describe("provider incompatibility coverage", () => {
 		it("disables min_p", () => {
 			expect(isParamDisabled("ollama", "min_p")).toBe(true);
 			expect(getParamIncompatibility("ollama", "min_p")).toBe(
-				"Support varies by underlying model; not universally available",
+				"paramCompat.ollama.minP",
 			);
 		});
 
@@ -191,14 +189,14 @@ describe("provider incompatibility coverage", () => {
 		it("disables min_p", () => {
 			expect(isParamDisabled("zai-coding", "min_p")).toBe(true);
 			expect(getParamIncompatibility("zai-coding", "min_p")).toBe(
-				"Not supported by z.ai Coding",
+				"paramCompat.zaiCoding.minP",
 			);
 		});
 
 		it("disables top_k", () => {
 			expect(isParamDisabled("zai-coding", "top_k")).toBe(true);
 			expect(getParamIncompatibility("zai-coding", "top_k")).toBe(
-				"Not supported by z.ai Coding",
+				"paramCompat.zaiCoding.topK",
 			);
 		});
 	});
@@ -236,13 +234,13 @@ describe("isParamDisabled - empty rules providers", () => {
 describe("getParamIncompatibility - additional providers", () => {
 	it("handles Anthropic case-insensitively for top_p", () => {
 		expect(getParamIncompatibility("Anthropic", "top_p")).toBe(
-			"top_p is deprecated on current Anthropic models; use top_k instead",
+			"paramCompat.anthropic.topP",
 		);
 	});
 
 	it("handles GOOGLE case-insensitively for frequency_penalty", () => {
 		expect(getParamIncompatibility("GOOGLE", "frequency_penalty")).toBe(
-			"Gemini does not support frequency/presence penalties",
+			"paramCompat.google.frequencyPenalty",
 		);
 	});
 
@@ -324,7 +322,7 @@ describe("reasoning_effort incompatibility", () => {
 		expect(isParamDisabled(provider, "reasoning_effort")).toBe(true);
 		expect(isParamHidden(provider, "reasoning_effort")).toBe(true);
 		expect(getParamIncompatibility(provider, "reasoning_effort")).toMatch(
-			/Not supported/i,
+			/^paramCompat\./,
 		);
 	});
 

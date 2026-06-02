@@ -459,7 +459,7 @@ describe("PaginationBar", () => {
 				onPageSizeChange={onPageSizeChange}
 			/>,
 		);
-		// Component uses label.replace(/s$/, "") which turns "entries" into "entrie"
+		// Component uses label.replace(/s$/, "") for singular, then i18n countOne template
 		expect(screen.getByText("1 entrie")).toBeInTheDocument();
 	});
 
