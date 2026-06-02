@@ -1786,7 +1786,8 @@
 			"deleteDisabledAria_other": "Delete {{count}} disabled models",
 			"deleteDisabledMessage_one": "This will permanently delete {{count}} disabled model. If autodiscovery is enabled on their provider, they will be re-discovered on the next cycle. Disable autodiscovery on the provider to prevent this.",
 			"deleteDisabledMessage_other": "This will permanently delete {{count}} disabled models. If autodiscovery is enabled on their provider, they will be re-discovered on the next cycle. Disable autodiscovery on the provider to prevent this.",
-			"disabledModels": "{{count, plural, one{1 disabled model} other{# disabled models}}}"
+			"disabledModels_one": "1 disabled model",
+			"disabledModels_other": "{{count}} disabled models"
 		},
 		"modelReplyCard": {
 			"modelDetails": "Model details",
