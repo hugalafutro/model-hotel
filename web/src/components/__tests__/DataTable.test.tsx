@@ -656,8 +656,7 @@ describe("PaginationBar", () => {
 				label="items"
 			/>,
 		);
-		// When totalItems <= pageSize, no range is shown (no "to N" part)
-		// Text rendered is "1 of 3 items"
+		// When totalItems <= pageSize, entriesShort renders "1–3 of 3 items"
 		const countDiv = document.querySelector(".text-sm.text-gray-500");
 		expect(countDiv).toBeInTheDocument();
 		expect(countDiv?.textContent).toMatch(/1–3 of 3 items/);

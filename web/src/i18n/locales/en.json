@@ -2062,7 +2062,6 @@
 			"params": "({{count}} params)",
 			"modelsDevMatched": "models.dev matched: {{model}}",
 			"noRecommendationsAvailable": "No recommendations available",
-			"applyRecommendedFromModelsDev": "Apply recommended settings from models.dev catalogue",
 			"tooltip": "Apply recommended settings from models.dev catalogue"
 		},
 		"viewModeToggle": {
