@@ -1313,9 +1313,10 @@ func TestDiscoverProviderModels_WithModelsDevCache(t *testing.T) {
 			break
 		}
 	}
-	if gpt4 == nil { //nolint:staticcheck // SA5011: t.Fatal guarantees non-nil beyond here
+	if gpt4 == nil {
 		t.Fatal("gpt-4 model not found in response")
 	}
+	_ = gpt4 // staticcheck SA5011: t.Fatal guarantees gpt4 is non-nil beyond here
 	if gpt4.DisplayName != "GPT-4 Test" {
 		t.Errorf("Expected display_name='GPT-4 Test' from models.dev enrichment, got %q", gpt4.DisplayName)
 	}
