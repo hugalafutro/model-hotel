@@ -1,6 +1,7 @@
 
 *~
 AGENTS.md
+pnpm-workspace.yaml
 *.bak
 /bin/
 # Binaries
