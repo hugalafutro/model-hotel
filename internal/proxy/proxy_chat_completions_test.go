@@ -978,6 +978,7 @@ func TestChatCompletions_DeprecationCache_InitialToMerged(t *testing.T) {
 	// Verify the first upstream request had temperature (before it was cached)
 	if firstRequestBody == nil {
 		t.Fatal("first upstream request body not captured")
+		return
 	}
 	if firstRequestBody["temperature"] == nil {
 		t.Error("expected first request to include temperature (not yet cached)")
@@ -1034,6 +1035,7 @@ func TestChatCompletions_DeprecationCache_InitialToMerged(t *testing.T) {
 	// Verify temperature was stripped before sending to upstream
 	if secondRequestBody == nil {
 		t.Fatal("second upstream request body not captured")
+		return
 	}
 	if secondRequestBody["temperature"] != nil {
 		t.Errorf("expected temperature to be stripped from second request (cached rejection), got %v", secondRequestBody["temperature"])

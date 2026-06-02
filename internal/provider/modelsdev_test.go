@@ -171,6 +171,7 @@ func TestResetModelsDevCache(t *testing.T) {
 	cache := GetModelsDevCache()
 	if cache == nil {
 		t.Fatal("expected cache to be loaded before reset")
+		return
 	}
 
 	cache.mu.RLock()
@@ -229,6 +230,7 @@ func TestLookupFuzzy_EmptyKeyAndID(t *testing.T) {
 	cache := GetModelsDevCache()
 	if cache == nil {
 		t.Fatal("expected cache to be loaded")
+		return
 	}
 
 	// When modelID is non-empty and key is empty, HasPrefix("", "anything") = true
@@ -252,6 +254,7 @@ func TestLookupFuzzy_ExactPrefixMatchNoRemainder(t *testing.T) {
 	cache := GetModelsDevCache()
 	if cache == nil {
 		t.Fatal("expected cache to be loaded")
+		return
 	}
 
 	// Exact match - this should be caught by step 1 (Lookup), but step 4
@@ -347,6 +350,7 @@ func TestEnrichModel_ModelNotFound(t *testing.T) {
 	cache := GetModelsDevCache()
 	if cache == nil {
 		t.Fatal("expected cache to be loaded")
+		return
 	}
 
 	m := &model.Model{ModelID: "nonexistent-model"}
@@ -375,6 +379,7 @@ func TestEnrichModels_EmptyList(t *testing.T) {
 	cache := GetModelsDevCache()
 	if cache == nil {
 		t.Fatal("expected cache to be loaded")
+		return
 	}
 
 	models := []*model.Model{}
@@ -418,6 +423,7 @@ func TestLookupFuzzy_DateSuffixVariants(t *testing.T) {
 	cache := GetModelsDevCache()
 	if cache == nil {
 		t.Fatal("expected cache to be loaded")
+		return
 	}
 
 	tests := []struct {

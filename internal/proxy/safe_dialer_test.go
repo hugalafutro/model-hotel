@@ -105,6 +105,7 @@ func TestSafeDialer_PublicHostAllowed(t *testing.T) {
 		ip := net.ParseIP(ipStr)
 		if ip == nil {
 			t.Fatalf("failed to parse IP %s", ipStr)
+			return
 		}
 		if isBlockedIP(ip) {
 			t.Errorf("expected public IP %s to NOT be blocked", ipStr)
@@ -430,6 +431,7 @@ func TestSafeDialer_DialByIPWithMockDNS(t *testing.T) {
 	// We expect a connection error (not a blocked-IP error)
 	if err == nil {
 		t.Fatal("expected connection error for non-routable IP")
+		return
 	}
 	// Should NOT be a blocked-IP error since 8.8.8.8 is public
 	if strings.Contains(err.Error(), "refused connection to private/reserved IP") {
@@ -526,6 +528,7 @@ func TestSafeDialer_MixedBlockedAndAllowedIPs(t *testing.T) {
 	_, err := sd.DialContext(ctx, "tcp", "mixed.example.com:80")
 	if err == nil {
 		t.Fatal("expected connection error for non-routable public IP")
+		return
 	}
 	// Should NOT be a blocked-IP error since there was a non-blocked IP
 	if strings.Contains(err.Error(), "refused connection to private/reserved IP") {
@@ -596,6 +599,7 @@ func TestSafeDialer_KnownProxiesNoMatchStillBlocked(t *testing.T) {
 	_, err := sd.DialContext(ctx, "tcp", "blocked-host:80")
 	if err == nil {
 		t.Fatal("expected blocked-IP error")
+		return
 	}
 	if !strings.Contains(err.Error(), "refused connection to private/reserved IP") {
 		t.Errorf("expected blocked-IP error for non-matching known proxy, got: %v", err)
@@ -644,6 +648,7 @@ func TestSafeDialer_CheckRedirect_BlockedIP(t *testing.T) {
 	err := sd.CheckRedirect(req, via)
 	if err == nil {
 		t.Fatal("expected redirect to loopback to be rejected")
+		return
 	}
 	if !strings.Contains(err.Error(), "all resolved IPs are private/reserved") {
 		t.Errorf("expected redirect rejection error, got: %v", err)
@@ -673,6 +678,7 @@ func TestSafeDialer_CheckRedirect_MaxRedirects(t *testing.T) {
 	err := sd.CheckRedirect(req, via)
 	if err == nil {
 		t.Fatal("expected error after 10 redirects")
+		return
 	}
 	if !strings.Contains(err.Error(), "stopped after 10 redirects") {
 		t.Errorf("expected max redirect error, got: %v", err)
@@ -725,6 +731,7 @@ func TestDiscoveryService_SSRFProtection(t *testing.T) {
 	}
 	if err == nil {
 		t.Fatal("expected SSRF protection to block connection to private IP, but request succeeded")
+		return
 	}
 	if !strings.Contains(err.Error(), "refused connection to private/reserved IP") {
 		t.Errorf("expected SSRF block error, got: %v", err)

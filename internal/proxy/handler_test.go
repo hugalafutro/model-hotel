@@ -483,6 +483,7 @@ func TestVirtualKeyRepository_Create_Success(t *testing.T) {
 	}
 	if result == nil {
 		t.Fatal("expected non-nil result")
+		return
 	}
 	if result.ID != expectedVK.ID {
 		t.Errorf("ID = %q, want %q", result.ID, expectedVK.ID)
@@ -645,6 +646,7 @@ func TestVirtualKeyRepoAdapter_Create_Integration(t *testing.T) {
 	}
 	if result == nil {
 		t.Fatal("expected non-nil result")
+		return
 	}
 	if result.ID == "" {
 		t.Error("expected non-empty ID")

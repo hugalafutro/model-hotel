@@ -265,6 +265,7 @@ func TestScanFailoverGroups_ScanError(t *testing.T) {
 	groups, err := scanFailoverGroups(rows)
 	if err == nil {
 		t.Fatal("expected error, got nil")
+		return
 	}
 	if !strings.Contains(err.Error(), "scanFailoverGroups: row scan failed") {
 		t.Errorf("error message does not contain expected prefix: %v", err)
@@ -292,6 +293,7 @@ func TestScanFailoverGroups_InvalidPriorityJSON(t *testing.T) {
 	groups, err := scanFailoverGroups(rows)
 	if err == nil {
 		t.Fatal("expected error, got nil")
+		return
 	}
 	if !strings.Contains(err.Error(), "unmarshal priority") {
 		t.Errorf("error message does not contain 'unmarshal priority': %v", err)
@@ -319,6 +321,7 @@ func TestScanFailoverGroups_InvalidEntryEnabledJSON(t *testing.T) {
 	groups, err := scanFailoverGroups(rows)
 	if err == nil {
 		t.Fatal("expected error, got nil")
+		return
 	}
 	if !strings.Contains(err.Error(), "unmarshal entry_enabled") {
 		t.Errorf("error message does not contain 'unmarshal entry_enabled': %v", err)

@@ -440,6 +440,7 @@ func TestDiscoverXAI_RateLimitFallback(t *testing.T) {
 	// 429 is not treated as a no-access error (only 403 is), so it returns an error
 	if err == nil {
 		t.Fatal("expected error for 429 status, got nil")
+		return
 	}
 }
 
@@ -464,6 +465,7 @@ func TestDiscoverXAI_HttpError(t *testing.T) {
 	_, err := svc.discoverXAI(ctx, provider, "test-api-key")
 	if err == nil {
 		t.Fatal("expected error for 502 status, got nil")
+		return
 	}
 }
 
@@ -493,6 +495,7 @@ func TestDiscoverXAI_InvalidJSONLanguageModels(t *testing.T) {
 	_, err := svc.discoverXAI(ctx, provider, "test-api-key")
 	if err == nil {
 		t.Fatal("expected error for invalid JSON, got nil")
+		return
 	}
 }
 
@@ -522,6 +525,7 @@ func TestDiscoverXAI_InvalidJSONMinimalModels(t *testing.T) {
 	_, err := svc.discoverXAI(ctx, provider, "test-api-key")
 	if err == nil {
 		t.Fatal("expected error for invalid JSON in minimal models, got nil")
+		return
 	}
 }
 

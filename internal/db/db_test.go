@@ -77,11 +77,13 @@ func TestNewInvalidURL(t *testing.T) {
 func TestNewCreatesPool(t *testing.T) {
 	if testDB == nil {
 		t.Fatal("testDB is nil, TestMain must have failed")
+		return
 	}
 
 	pool := testDB.Pool()
 	if pool == nil {
 		t.Fatal("expected non-nil pool from New")
+		return
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -144,6 +146,7 @@ func TestBegin(t *testing.T) {
 
 	if tx == nil {
 		t.Fatal("expected non-nil transaction")
+		return
 	}
 
 	if err := tx.Rollback(ctx); err != nil {
@@ -456,6 +459,7 @@ func TestRunMigrations_ReadDirError(t *testing.T) {
 	_, err = New(ctx, testURL, 25, 5)
 	if err == nil {
 		t.Fatal("expected error from ReadDir failure")
+		return
 	}
 	if got := err.Error(); !strings.Contains(got, "failed to read migrations directory") {
 		t.Errorf("error = %q, want substring %q", got, "failed to read migrations directory")
@@ -688,6 +692,7 @@ func TestRunMigrations_ReadFileError(t *testing.T) {
 	err = d.runMigrations(ctx)
 	if err == nil {
 		t.Fatal("expected error from ReadFile failure")
+		return
 	}
 	if got := err.Error(); !strings.Contains(got, "failed to read migration") {
 		t.Errorf("error = %q, want substring %q", got, "failed to read migration")

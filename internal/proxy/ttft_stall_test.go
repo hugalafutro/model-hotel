@@ -38,6 +38,7 @@ func TestProbeFirstToken_DataChunk(t *testing.T) {
 	}
 	if probeBuf == nil {
 		t.Fatal("expected probeBuf to be non-nil")
+		return
 	}
 	if trueTtftMs <= 0 {
 		t.Errorf("expected trueTtftMs > 0, got %f", trueTtftMs)
@@ -88,6 +89,7 @@ func TestProbeFirstToken_DoneFirst(t *testing.T) {
 	}
 	if probeBuf == nil {
 		t.Fatal("expected probeBuf to be non-nil")
+		return
 	}
 	if trueTtftMs != 0 {
 		t.Errorf("expected trueTtftMs == 0 for [DONE] first, got %f", trueTtftMs)
@@ -111,6 +113,7 @@ func TestProbeFirstToken_Timeout(t *testing.T) {
 
 	if err == nil {
 		t.Fatal("expected timeout error, got nil")
+		return
 	}
 	if !strings.Contains(err.Error(), "TTFT timeout") {
 		t.Errorf("expected 'TTFT timeout' in error, got: %v", err)
@@ -126,6 +129,7 @@ func TestProbeFirstToken_ReadError(t *testing.T) {
 
 	if err == nil {
 		t.Fatal("expected read error, got nil")
+		return
 	}
 	if !strings.Contains(err.Error(), "TTFT probe read error") {
 		t.Errorf("expected 'TTFT probe read error' in error, got: %v", err)
@@ -141,6 +145,7 @@ func TestProbeFirstToken_EmptyBody(t *testing.T) {
 
 	if err == nil {
 		t.Fatal("expected error for empty body, got nil")
+		return
 	}
 	if !strings.Contains(err.Error(), "body closed before first data chunk") {
 		t.Errorf("expected 'body closed before first data chunk' in error, got: %v", err)
@@ -372,6 +377,7 @@ func TestProbeFirstToken_OnlyCommentsAndEmptyLines(t *testing.T) {
 
 	if err == nil {
 		t.Fatal("expected error when no data is found, got nil")
+		return
 	}
 	if !strings.Contains(err.Error(), "body closed before first data chunk") {
 		t.Errorf("expected 'body closed before first data chunk' in error, got: %v", err)
@@ -682,6 +688,7 @@ func TestProbeFirstToken_RaceRecovery(t *testing.T) {
 	}
 	if probeBuf == nil {
 		t.Fatal("expected non-nil probeBuf")
+		return
 	}
 	if ttft <= 0 {
 		t.Errorf("expected positive ttft, got %f", ttft)
@@ -726,6 +733,7 @@ func TestProbeFirstToken_PartialLineAccepted(t *testing.T) {
 	}
 	if probeBuf == nil {
 		t.Fatal("expected non-nil probeBuf")
+		return
 	}
 	if !strings.Contains(probeBuf.String(), "data: hel") {
 		t.Errorf("expected probeBuf to contain partial data line, got %q", probeBuf.String())

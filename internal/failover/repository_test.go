@@ -95,6 +95,7 @@ func TestRepository_SyncAllModels_TwoProviders(t *testing.T) {
 	}
 	if group == nil {
 		t.Fatal("Expected auto-group to be created")
+		return
 	}
 	if !group.AutoCreated {
 		t.Error("Expected AutoCreated to be true")
@@ -265,6 +266,7 @@ func TestRepository_SyncForModel_TwoProviders(t *testing.T) {
 	}
 	if group == nil {
 		t.Fatal("Expected auto-group to be created")
+		return
 	}
 	if !group.AutoCreated {
 		t.Error("Expected AutoCreated to be true")
@@ -408,6 +410,7 @@ func TestRepository_SyncForModel_WithPrefix(t *testing.T) {
 	}
 	if group == nil {
 		t.Fatal("Expected auto-group to be created with stripped prefix")
+		return
 	}
 	if group.DisplayModel != baseModel {
 		t.Errorf("Expected DisplayModel %q, got %q", baseModel, group.DisplayModel)
@@ -949,6 +952,7 @@ func TestRepository_SyncAllModels_WithSyncErrors(t *testing.T) {
 	}
 	if group == nil {
 		t.Fatal("Expected auto-group to be created")
+		return
 	}
 	if len(group.PriorityOrder) != 2 {
 		t.Errorf("Expected 2 providers in priority order, got %d", len(group.PriorityOrder))
@@ -1032,6 +1036,7 @@ func TestRepository_SyncForModel_WithPrefixVariants(t *testing.T) {
 	}
 	if group == nil {
 		t.Fatal("Expected auto-group to be created with stripped prefix")
+		return
 	}
 	if group.DisplayModel != baseModel {
 		t.Errorf("Expected DisplayModel %q, got %q", baseModel, group.DisplayModel)

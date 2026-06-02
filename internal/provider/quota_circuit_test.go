@@ -17,6 +17,7 @@ func TestGetOrCreateCircuit_NewProvider(t *testing.T) {
 
 	if circuit == nil {
 		t.Fatal("getOrCreateCircuit should return non-nil circuit for new provider")
+		return
 	}
 	if circuit.consecFailures != 0 {
 		t.Errorf("new circuit should have consecFailures=0, got %d", circuit.consecFailures)
@@ -43,6 +44,7 @@ func TestGetOrCreateCircuit_SameProviderReturnsSame(t *testing.T) {
 	}
 	if circuit1 == nil {
 		t.Fatal("first call should return non-nil circuit")
+		return
 	}
 }
 
@@ -58,6 +60,7 @@ func TestGetOrCreateCircuit_MalformedValueFallback(t *testing.T) {
 
 	if circuit == nil {
 		t.Fatal("getOrCreateCircuit should return non-nil circuit even for malformed value")
+		return
 	}
 	// Verify the returned circuit is usable (can call isCircuitOpen without panic)
 	if circuit.isCircuitOpen() {

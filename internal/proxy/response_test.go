@@ -1872,6 +1872,7 @@ func TestNewRequestWithContextVar(t *testing.T) {
 	}
 	if req == nil {
 		t.Fatal("expected non-nil request")
+		return
 	}
 	if !called {
 		t.Error("expected injectable function to be called")

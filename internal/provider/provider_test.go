@@ -364,6 +364,7 @@ func TestLookupOpenAICatalog_Found(t *testing.T) {
 	result := LookupOpenAICatalog(catalog, first.ModelID)
 	if result == nil {
 		t.Fatalf("expected non-nil for %q", first.ModelID)
+		return
 	}
 	if result.ModelID != first.ModelID {
 		t.Errorf("ModelID = %q, want %q", result.ModelID, first.ModelID)
@@ -435,6 +436,7 @@ func TestNewDiscoveryService_NonNil(t *testing.T) {
 	svc := NewDiscoveryService(nil, nil)
 	if svc == nil {
 		t.Fatal("NewDiscoveryService should return non-nil")
+		return
 	}
 	if svc.httpClient == nil {
 		t.Error("httpClient should be non-nil")

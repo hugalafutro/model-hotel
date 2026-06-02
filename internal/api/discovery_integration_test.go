@@ -1230,6 +1230,7 @@ func TestDiscoverProviderModels_WithModelsDevCache(t *testing.T) {
 	cache := provider.GetModelsDevCache()
 	if cache == nil {
 		t.Fatal("GetModelsDevCache returned nil after loading")
+		return
 	}
 
 	// Create mock OpenAI-compatible server that returns models matching the cache
@@ -1997,6 +1998,7 @@ func TestDiscoverAllModels_ModelsDevCacheEnrichment(t *testing.T) {
 	cache := provider.GetModelsDevCache()
 	if cache == nil {
 		t.Fatal("GetModelsDevCache returned nil after loading")
+		return
 	}
 
 	// Create a mock OpenAI-compatible server that returns models matching the cache

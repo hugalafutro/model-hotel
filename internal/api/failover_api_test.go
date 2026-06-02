@@ -108,6 +108,7 @@ func newFailoverHandlerWithAuth(t *testing.T) (*FailoverHandler, chi.Router) {
 	mainHandler := NewHandler(cfg, providerRepo, apiTestDB, adminMgr, vkRepo, settingsRepo, "test", nil, nil, nil)
 	if mainHandler == nil {
 		t.Fatal("handler is nil")
+		return nil, nil
 	}
 
 	r := chi.NewRouter()

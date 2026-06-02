@@ -1159,6 +1159,7 @@ func TestDoQuotaRequestWithRetry_CircuitBreakerShortCircuits(t *testing.T) {
 	_, err := svc.doQuotaRequestWithRetry(ctx, req, providerID, "test-provider", "zai-coding")
 	if err == nil {
 		t.Fatal("expected error when circuit breaker is open")
+		return
 	}
 	if !strings.Contains(err.Error(), "circuit breaker open") {
 		t.Errorf("expected circuit breaker error, got: %v", err)

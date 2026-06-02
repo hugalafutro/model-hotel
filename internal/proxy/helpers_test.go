@@ -14,6 +14,7 @@ func TestExtractStreamingUsage_SingleChunkWithUsage(t *testing.T) {
 	usage := extractStreamingUsage(data)
 	if usage == nil {
 		t.Fatal("expected usage to be non-nil")
+		return
 	}
 	if usage.PromptTokens != 10 {
 		t.Errorf("PromptTokens = %d, want 10", usage.PromptTokens)
@@ -33,6 +34,7 @@ data: {"id":"chatcmpl-2","choices":[],"usage":{"prompt_tokens":50,"completion_to
 	usage := extractStreamingUsage(data)
 	if usage == nil {
 		t.Fatal("expected usage to be non-nil")
+		return
 	}
 	if usage.PromptTokens != 50 {
 		t.Errorf("PromptTokens = %d, want 50 (last chunk)", usage.PromptTokens)
@@ -53,6 +55,7 @@ data: {"id":"chatcmpl-456","choices":[],"usage":{"prompt_tokens":99,"completion_
 	usage := extractStreamingUsage(data)
 	if usage == nil {
 		t.Fatal("expected usage to be non-nil")
+		return
 	}
 	// Should stop at [DONE] and return the last usage before it
 	if usage.PromptTokens != 10 {
@@ -107,6 +110,7 @@ data: {"id":"chatcmpl-3","choices":[{"delta":{"content":"!"}}]}`
 	usage := extractStreamingUsage(data)
 	if usage == nil {
 		t.Fatal("expected usage to be non-nil")
+		return
 	}
 	if usage.PromptTokens != 25 {
 		t.Errorf("PromptTokens = %d, want 25", usage.PromptTokens)
@@ -125,6 +129,7 @@ func TestExtractStreamingUsage_CacheTokens(t *testing.T) {
 	usage := extractStreamingUsage(data)
 	if usage == nil {
 		t.Fatal("expected usage to be non-nil")
+		return
 	}
 	if usage.PromptCacheHitTokens != 80 {
 		t.Errorf("PromptCacheHitTokens = %d, want 80", usage.PromptCacheHitTokens)
@@ -151,6 +156,7 @@ data: [DONE]`
 	usage := extractStreamingUsage(data)
 	if usage == nil {
 		t.Fatal("expected usage to be non-nil")
+		return
 	}
 	if usage.TotalTokens != 10 {
 		t.Errorf("TotalTokens = %d, want 10", usage.TotalTokens)
@@ -174,6 +180,7 @@ event: done`
 	usage := extractStreamingUsage(data)
 	if usage == nil {
 		t.Fatal("expected usage to be non-nil")
+		return
 	}
 	if usage.TotalTokens != 30 {
 		t.Errorf("TotalTokens = %d, want 30", usage.TotalTokens)
@@ -186,6 +193,7 @@ func TestExtractStreamingUsage_PartialUsageFields(t *testing.T) {
 	usage := extractStreamingUsage(data)
 	if usage == nil {
 		t.Fatal("expected usage to be non-nil even with partial fields")
+		return
 	}
 	if usage.PromptTokens != 10 {
 		t.Errorf("PromptTokens = %d, want 10", usage.PromptTokens)
@@ -203,6 +211,7 @@ func TestExtractStreamingUsage_NoSpaceAfterData(t *testing.T) {
 	usage := extractStreamingUsage(data)
 	if usage == nil {
 		t.Fatal("expected usage to be non-nil for data: without space")
+		return
 	}
 	if usage.PromptTokens != 10 {
 		t.Errorf("PromptTokens = %d, want 10", usage.PromptTokens)
@@ -220,6 +229,7 @@ data:{"id":"chatcmpl-2","choices":[],"usage":{"prompt_tokens":50,"completion_tok
 	usage := extractStreamingUsage(data)
 	if usage == nil {
 		t.Fatal("expected usage to be non-nil")
+		return
 	}
 	if usage.PromptTokens != 50 {
 		t.Errorf("PromptTokens = %d, want 50 (last chunk, no-space format)", usage.PromptTokens)
@@ -233,6 +243,7 @@ func TestExtractStreamingUsage_DataNoSpaceWithTabAfter(t *testing.T) {
 	usage := extractStreamingUsage(data)
 	if usage == nil {
 		t.Fatal("expected usage to be non-nil for data: with tab")
+		return
 	}
 	if usage.PromptTokens != 7 {
 		t.Errorf("PromptTokens = %d, want 7", usage.PromptTokens)
@@ -250,6 +261,7 @@ func TestExtractStreamingUsage_LeadingCRBeforeData(t *testing.T) {
 	usage := extractStreamingUsage(data)
 	if usage == nil {
 		t.Fatal("expected usage to be non-nil")
+		return
 	}
 	if usage.PromptTokens != 5 {
 		t.Errorf("PromptTokens = %d, want 5", usage.PromptTokens)
@@ -265,6 +277,7 @@ func TestExtractStreamingUsage_UTF8BOM(t *testing.T) {
 	usage := extractStreamingUsage(data)
 	if usage == nil {
 		t.Fatal("expected usage to be non-nil")
+		return
 	}
 	if usage.PromptTokens != 5 {
 		t.Errorf("PromptTokens = %d, want 5", usage.PromptTokens)

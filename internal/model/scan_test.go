@@ -316,6 +316,7 @@ func TestScanModels_ScanError(t *testing.T) {
 	models, err := scanModels(rows)
 	if err == nil {
 		t.Fatal("expected error, got nil")
+		return
 	}
 	if !errors.Is(err, expectedErr) {
 		t.Errorf("expected error %v, got %v", expectedErr, err)
