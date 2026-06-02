@@ -24,7 +24,11 @@ These are read once at startup and cannot be changed at runtime.
 | `DATABASE_MIN_CONNS` | No | `5` | Minimum database connection pool size. |
 | `MODELSDEV_ENABLED` | No | `true` | Enable models.dev enrichment for auto-discovering model metadata (pricing, context window, capabilities). |
 | `DEBUG_LOG` | No | `false` | Enable structured debug logging via `internal/debuglog`. |
-| `TRUSTED_PROXIES` | No | *(empty)* | Comma-separated CIDR ranges for trusted reverse proxies (e.g. `10.0.0.0/8,172.16.0.0/12`). When set, `X-Forwarded-For` headers from these IPs are trusted for rate limiting and request logging. |
+| `TRUSTED_PROXIES` | No | *(empty)* | Comma-separated CIDR ranges for trusted reverse proxies (e.g. `10.0.0.0/8,172.16.0.0/12`). When set, `X-Forwarded-For` headers from these IPs are trusted for rate limiting and request logging. This controls inbound trust only; it is unrelated to outbound SSRF protection (see `KNOWN_PROXIES`). |
+| `KNOWN_PROXIES` | No | *(empty)* | Comma-separated CIDR ranges for internal LLM servers on private networks (e.g. `10.0.0.0/8,192.168.1.0/24`). IPs within these CIDRs bypass the SSRF protection (SafeDialer private-IP blocking) so the proxy can reach self-hosted providers like Ollama or KoboldCPP running on private subnets, while still blocking all other private/loopback addresses. Unlike `ALLOWED_PROVIDER_HOSTS` (which allows by hostname and bypasses all SSRF checks), this operates at the network/CIDR level and only bypasses the private-IP block. |
+| `WEBAUTHN_RP_ID` | No | *(empty)* | Relying Party ID for WebAuthn/FIDO2 passkey authentication (typically your domain, e.g. `example.com`). When empty, passkey login is disabled. When set, users can register and log in with passkeys (Touch ID, Windows Hello, YubiKey, etc.) alongside the admin token. |
+| `WEBAUTHN_RP_DISPLAY_NAME` | No | `Model Hotel` | Display name for the WebAuthn relying party, shown in the browser's passkey dialog. |
+| `WEBAUTHN_RP_ORIGINS` | No | *(falls back to `CORS_ORIGINS`)* | Comma-separated list of allowed origins for WebAuthn registration/authentication (e.g. `https://example.com`). Falls back to `CORS_ORIGINS` if empty, then to `http://localhost:<port>`. |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, `POSTGRES_DB` | No | *(empty)* | Fallback env vars for constructing `DATABASE_URL` when it is not set directly. If `DATABASE_URL` is empty, the connection string is built as `postgres://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST/$POSTGRES_DB`. |
 
 ### Notes
@@ -32,8 +36,11 @@ These are read once at startup and cannot be changed at runtime.
 - `MASTER_KEY` is **never used directly** as an AES key. It is fed through Argon2id key derivation (per-provider random salt in v2) to produce the 256-bit AES key. See [Security](Security) for details.
 - `ADMIN_TOKEN` is stored as a SHA-256 hash. Legacy plaintext tokens are automatically migrated to hashed format on first validation. See [Security](Security).
 - `RATE_LIMIT_ENABLED=false` completely removes the rate-limiting middleware from the request pipeline: it is not merely "disabled", it is a hard kill-switch.
-- `ALLOWED_PROVIDER_HOSTS` is primarily for permitting non-standard hosts (loopback addresses for Ollama, custom provider endpoints). Built-in provider hosts never need to be listed here.
+- `ALLOWED_PROVIDER_HOSTS` is primarily for permitting non-standard hosts (loopback addresses for Ollama, custom provider endpoints). Built-in provider hosts never need to be listed here. Hosts listed here bypass all SSRF protections (both URL validation and SafeDialer IP checks).
+- `KNOWN_PROXIES` permits entire CIDR ranges and only bypasses the private-IP block in the SafeDialer (provider URL validation still applies). If your internal LLM server has a stable hostname, use `ALLOWED_PROVIDER_HOSTS`. If it sits on a subnet with dynamic hostnames, use `KNOWN_PROXIES`.
+- `TRUSTED_PROXIES` controls which reverse proxies are trusted for inbound request metadata (`X-Forwarded-For`). `KNOWN_PROXIES` controls which private CIDRs are allowed for outbound connections to self-hosted LLM providers. They serve opposite directions and should not be confused.
 - `POSTGRES_*` env vars are a convenience for Docker Compose setups where `DATABASE_URL` is not set directly. If `DATABASE_URL` is provided, these vars are ignored.
+- Self-hosted providers detected via port heuristics (KoboldCPP on 5001, LMStudio on 1234, local Ollama on 11434) are not in the built-in host allowlist; add them to `ALLOWED_PROVIDER_HOSTS` or `KNOWN_PROXIES` as needed.
 
 ## Database Settings
 
@@ -66,6 +73,8 @@ These settings are stored in the `settings` table and can be changed at runtime 
 | `quota_refresh` | *(empty)* | Provider quota refresh interval. Accepts predefined duration options. |
 | `history_limit` | *(empty)* | History display limit for log viewers. |
 | `toast_duration` | *(empty)* | Toast notification duration in milliseconds (min: 1000, max: 15000). |
+| `ttft_timeout` | `1m0s` | Time-to-first-token probe timeout for streaming requests (e.g. `30s`, `1m0s`). After the upstream responds 200, the proxy reads ahead to confirm the first token arrives before committing the stream to the client. If the provider fails to produce a token within this timeout, the request fails over to the next provider. Set to `0s` to disable the probe (immediate stream commit, backward-compatible behavior). |
+| `stream_stall_timeout` | `30s` | Maximum silence during streaming before the connection is terminated and the circuit breaker records a failure (e.g. `10s`, `30s`, `1m0s`). After 50 chunks the effective timeout is multiplied by 3 to tolerate tool-call pauses and long reasoning chains. Set to `0s` to disable the stall watchdog. |
 
 ### Rate Limiting Details
 
