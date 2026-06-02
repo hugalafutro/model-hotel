@@ -65,7 +65,7 @@ if [ -n "$staged_ts" ]; then
 		-v "$REPO_ROOT/web":/app \
 		-w /app \
 		node:22-alpine \
-		sh -c "npm install -g @biomejs/biome >/dev/null 2>&1 && biome check --write $rel_paths" >/dev/null 2>&1; then
+		sh -c "npm install -g @biomejs/biome@2.4.16 >/dev/null 2>&1 && biome check --write $rel_paths" >/dev/null 2>&1; then
 		echo "pre-commit: FAILED - biome check" >&2
 		exit 1
 	fi
