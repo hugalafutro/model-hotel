@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -69,34 +70,44 @@ type WebAuthnSessionManager interface {
 
 // Handler manages admin API operations for providers, models, and virtual keys.
 type Handler struct {
-	cfg                *config.Config
-	providerRepo       ProviderStore
-	dbPool             *db.DB
-	adminMgr           AdminAuthenticator
-	virtualKeyRepo     VirtualKeyStore
-	settingsRepo       SettingsStore
-	systemHandler      *SystemHandler
-	appVersion         string
-	ghReleasesURL      string                 // injectable for testing; defaults to githubReleasesURL const
-	ghTagsURL          string                 // injectable for testing; defaults to githubTagsURL const
-	webauthnSessionMgr WebAuthnSessionManager // nil when webAuthn is not configured
-	testModelTransport *http.Transport        // SSRF-protected transport for TestModel
+	cfg                    *config.Config
+	providerRepo           ProviderStore
+	dbPool                 *db.DB
+	adminMgr               AdminAuthenticator
+	virtualKeyRepo         VirtualKeyStore
+	settingsRepo           SettingsStore
+	systemHandler          *SystemHandler
+	appVersion             string
+	ghReleasesURL          string                 // injectable for testing; defaults to githubReleasesURL const
+	ghTagsURL              string                 // injectable for testing; defaults to githubTagsURL const
+	webauthnSessionMgr     WebAuthnSessionManager // nil when webAuthn is not configured
+	testModelTransport     *http.Transport        // SSRF-protected transport for TestModel
+	discoveryDialCtx       func(ctx context.Context, network, addr string) (net.Conn, error)
+	discoveryCheckRedirect func(req *http.Request, via []*http.Request) error
 }
 
 // NewHandler creates a new admin API handler with the given dependencies.
-func NewHandler(cfg *config.Config, providerRepo ProviderStore, database *db.DB, adminMgr AdminAuthenticator, vkRepo VirtualKeyStore, settingsRepo SettingsStore, appVersion string, testModelTransport *http.Transport) *Handler {
-	return &Handler{
-		cfg:                cfg,
-		providerRepo:       providerRepo,
-		dbPool:             database,
-		adminMgr:           adminMgr,
-		virtualKeyRepo:     vkRepo,
-		settingsRepo:       settingsRepo,
-		appVersion:         appVersion,
-		ghReleasesURL:      githubReleasesURL,
-		ghTagsURL:          githubTagsURL,
-		testModelTransport: testModelTransport,
+func NewHandler(cfg *config.Config, providerRepo ProviderStore, database *db.DB, adminMgr AdminAuthenticator, vkRepo VirtualKeyStore, settingsRepo SettingsStore, appVersion string, testModelTransport *http.Transport, discoveryDialCtx func(ctx context.Context, network, addr string) (net.Conn, error), discoveryCheckRedirect func(req *http.Request, via []*http.Request) error) *Handler {
+	h := &Handler{
+		cfg:                    cfg,
+		providerRepo:           providerRepo,
+		dbPool:                 database,
+		adminMgr:               adminMgr,
+		virtualKeyRepo:         vkRepo,
+		settingsRepo:           settingsRepo,
+		appVersion:             appVersion,
+		ghReleasesURL:          githubReleasesURL,
+		ghTagsURL:              githubTagsURL,
+		testModelTransport:     testModelTransport,
+		discoveryDialCtx:       discoveryDialCtx,
+		discoveryCheckRedirect: discoveryCheckRedirect,
 	}
+	// Wire the discovery service factory to use the SSRF-protected dial/redirect
+	// functions so admin-API discovery endpoints are also protected.
+	newDiscoveryService = func() *provider.DiscoveryService {
+		return provider.NewDiscoveryService(h.discoveryDialCtx, h.discoveryCheckRedirect)
+	}
+	return h
 }
 
 // Pool returns the database connection pool.

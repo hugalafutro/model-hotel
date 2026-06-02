@@ -170,9 +170,9 @@ func (s *SafeDialer) CheckRedirect(req *http.Request, via []*http.Request) error
 	if s.hosts[strings.ToLower(host)] {
 		return nil
 	}
-	// Resolve host and check IPs. Use a bounded timeout to prevent
-	// indefinite hangs on slow or unresponsive DNS servers.
-	resolveCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// Resolve host and check IPs. Derive the timeout from the request
+	// context so that cancelled requests don't leave DNS goroutines running.
+	resolveCtx, cancel := context.WithTimeout(req.Context(), 5*time.Second)
 	defer cancel()
 	ips, err := s.resolver.LookupIPAddr(resolveCtx, host)
 	if err != nil {
@@ -181,10 +181,15 @@ func (s *SafeDialer) CheckRedirect(req *http.Request, via []*http.Request) error
 		// to the caller via the last successful request.
 		return fmt.Errorf("proxy: redirect to host %s rejected: DNS resolution failed: %w", host, err)
 	}
+	hasAllowedIP := false
 	for _, ip := range ips {
-		if isBlockedIP(ip.IP) && !s.isKnownProxy(ip.IP) {
-			return fmt.Errorf("proxy: redirect to private/reserved IP %s for host %s rejected", ip.IP, host)
+		if !isBlockedIP(ip.IP) || s.isKnownProxy(ip.IP) {
+			hasAllowedIP = true
+			break
 		}
+	}
+	if !hasAllowedIP {
+		return fmt.Errorf("proxy: redirect to host %s rejected: all resolved IPs are private/reserved", host)
 	}
 	return nil
 }

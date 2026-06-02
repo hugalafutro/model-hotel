@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"strings"
@@ -26,7 +27,8 @@ func LoadKnownProxies() []*net.IPNet {
 		}
 		_, cidr, err := net.ParseCIDR(p)
 		if err != nil {
-			debuglog.Warn("KNOWN_PROXIES: skipping invalid CIDR", "cidr", p, "error", err)
+			fmt.Fprintf(os.Stderr, "KNOWN_PROXIES: skipping invalid CIDR %q: %v\n", p, err)
+			debuglog.Error("KNOWN_PROXIES: skipping invalid CIDR", "cidr", p, "error", err)
 			continue
 		}
 		nets = append(nets, cidr)

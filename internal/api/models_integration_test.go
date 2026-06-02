@@ -1134,7 +1134,7 @@ func TestListModels_ValidProviderIDFilter(t *testing.T) {
 	}
 	defer dbInst.Close()
 
-	h := NewHandler(cfg, providerRepo, dbInst, adminMgr, vkRepo, settingsRepo, "test", nil)
+	h := NewHandler(cfg, providerRepo, dbInst, adminMgr, vkRepo, settingsRepo, "test", nil, nil, nil)
 	r := chi.NewRouter()
 	r.Use(h.AuthMiddleware)
 	h.Register(r)
@@ -1253,7 +1253,7 @@ func TestListModels_RepoError(t *testing.T) {
 	vkRepo := virtualkey.NewRepository(closedPool)
 	settingsRepo := settings.NewRepository(closedPool)
 
-	h := NewHandler(cfg, providerRepo, dbInst, adminMgr, vkRepo, settingsRepo, "test", nil)
+	h := NewHandler(cfg, providerRepo, dbInst, adminMgr, vkRepo, settingsRepo, "test", nil, nil, nil)
 	r := chi.NewRouter()
 	r.Use(h.AuthMiddleware)
 	h.Register(r)

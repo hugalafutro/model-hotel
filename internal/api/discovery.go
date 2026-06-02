@@ -18,11 +18,12 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
+// newDiscoveryService is set by NewHandler to use SSRF-protected dial/redirect
+// functions. It is nil until NewHandler initializes it.
+var newDiscoveryService func() *provider.DiscoveryService
+
 // Injectable variables for test overrides.
 var (
-	newDiscoveryService = func() *provider.DiscoveryService {
-		return provider.NewDiscoveryService(nil, nil)
-	}
 	newModelRepo    = model.NewRepository
 	newFailoverRepo = failover.NewRepository
 	dbExec          = func(pool *pgxpool.Pool, ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {

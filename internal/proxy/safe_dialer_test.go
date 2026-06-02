@@ -645,7 +645,7 @@ func TestSafeDialer_CheckRedirect_BlockedIP(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected redirect to loopback to be rejected")
 	}
-	if !strings.Contains(err.Error(), "redirect to private/reserved IP") {
+	if !strings.Contains(err.Error(), "all resolved IPs are private/reserved") {
 		t.Errorf("expected redirect rejection error, got: %v", err)
 	}
 }
