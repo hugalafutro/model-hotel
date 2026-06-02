@@ -1313,12 +1313,10 @@ func TestDiscoverProviderModels_WithModelsDevCache(t *testing.T) {
 			break
 		}
 	}
-	if gpt4 == nil {
+	if gpt4 == nil { //nolint:staticcheck // SA5011: t.Fatal guarantees non-nil beyond here
 		t.Fatal("gpt-4 model not found in response")
 	}
-	// gpt4 is guaranteed non-nil after t.Fatal above, but staticcheck
-	// does not model t.Fatal's goroutine-termination semantics.
-	if gpt4.DisplayName != "GPT-4 Test" { //nolint:staticcheck // SA5011: t.Fatal above guarantees non-nil
+	if gpt4.DisplayName != "GPT-4 Test" {
 		t.Errorf("Expected display_name='GPT-4 Test' from models.dev enrichment, got %q", gpt4.DisplayName)
 	}
 	if gpt4.ContextLength == nil || *gpt4.ContextLength != 8192 {

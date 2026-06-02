@@ -119,14 +119,13 @@ func TestLogsCacheSet_ExpiresInFuture(t *testing.T) {
 
 	// Check that expiry is in the future
 	entry := cache.entries["test"]
-	if entry == nil {
+	if entry == nil { //nolint:staticcheck // SA5011: t.Fatal guarantees non-nil beyond here
 		t.Fatal("expected entry to exist")
 	}
-	// staticcheck does not model t.Fatal's goroutine-termination semantics.
-	if !entry.expiry.After(time.Now()) { //nolint:staticcheck // SA5011: t.Fatal above guarantees non-nil
+	if !entry.expiry.After(time.Now()) {
 		t.Error("expected expiry to be in the future")
 	}
-	if entry.expiry.After(time.Now().Add(2 * time.Second)) { //nolint:staticcheck // SA5011
+	if entry.expiry.After(time.Now().Add(2 * time.Second)) {
 		t.Error("expected expiry to be within TTL")
 	}
 }

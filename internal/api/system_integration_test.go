@@ -66,13 +66,12 @@ func TestCollect_EmptySinceWithTimeout(t *testing.T) {
 	if err != nil {
 		t.Fatalf("collect with empty since failed: %v", err)
 	}
-	if stats == nil {
+	if stats == nil { //nolint:staticcheck // SA5011: t.Fatal guarantees non-nil beyond here
 		t.Fatal("Expected non-nil stats")
 	}
 
 	// Verify AppStats structure
-	// staticcheck does not model t.Fatal's goroutine-termination semantics.
-	if stats.App.Goroutines <= 0 { //nolint:staticcheck // SA5011
+	if stats.App.Goroutines <= 0 {
 		t.Error("Expected goroutines > 0")
 	}
 	if stats.App.UptimeSeconds < 0 {
