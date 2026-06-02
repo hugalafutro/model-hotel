@@ -19,7 +19,7 @@ import (
 // Column lists for query consistency
 // ---------------------------------------------------------------------------
 
-const credentialColumns = `id, public_key, attestation_type, attestation_format, transport, flags_byte, sign_count, aaguid, attestation_object, attestation_client_data, attestation_client_data_hash, attestation_public_key_algo, authenticator_data, created_at, updated_at`
+const credentialColumns = `id, name, public_key, attestation_type, attestation_format, transport, flags_byte, sign_count, aaguid, attestation_object, attestation_client_data, attestation_client_data_hash, attestation_public_key_algo, authenticator_data, created_at, updated_at`
 
 const sessionColumns = `id, challenge, session_data, type, user_id, token_hash, expires_at, created_at`
 
@@ -30,6 +30,7 @@ const sessionColumns = `id, challenge, session_data, type, user_id, token_hash, 
 // CredentialRecord is the database representation of a WebAuthn credential,
 // mapping to the webauthn_credentials table (migration 039).
 type CredentialRecord struct {
+	Name                      string    `json:"name"`
 	ID                        []byte    `json:"id"`
 	PublicKey                 []byte    `json:"public_key"`
 	AttestationType           string    `json:"attestation_type"`
@@ -191,9 +192,10 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 // StoreCredential inserts a new WebAuthn credential record.
 func (r *Repository) StoreCredential(ctx context.Context, cred *CredentialRecord) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO webauthn_credentials (id, public_key, attestation_type, attestation_format, transport, flags_byte, sign_count, aaguid, attestation_object, attestation_client_data, attestation_client_data_hash, attestation_public_key_algo, authenticator_data)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		`INSERT INTO webauthn_credentials (id, name, public_key, attestation_type, attestation_format, transport, flags_byte, sign_count, aaguid, attestation_object, attestation_client_data, attestation_client_data_hash, attestation_public_key_algo, authenticator_data)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		 ON CONFLICT (id) DO UPDATE SET
+		   name = EXCLUDED.name,
 		   public_key = EXCLUDED.public_key,
 		   attestation_type = EXCLUDED.attestation_type,
 		   attestation_format = EXCLUDED.attestation_format,
@@ -207,7 +209,7 @@ func (r *Repository) StoreCredential(ctx context.Context, cred *CredentialRecord
 		   attestation_public_key_algo = EXCLUDED.attestation_public_key_algo,
 		   authenticator_data = EXCLUDED.authenticator_data,
 		   updated_at = NOW()`,
-		cred.ID, cred.PublicKey, cred.AttestationType, cred.AttestationFormat, cred.Transport, cred.FlagsByte, cred.SignCount, cred.AAGUID, cred.AttestationObject, cred.AttestationClientData, cred.AttestationClientDataHash, cred.AttestationPublicKeyAlgo, cred.AuthenticatorData,
+		cred.ID, cred.Name, cred.PublicKey, cred.AttestationType, cred.AttestationFormat, cred.Transport, cred.FlagsByte, cred.SignCount, cred.AAGUID, cred.AttestationObject, cred.AttestationClientData, cred.AttestationClientDataHash, cred.AttestationPublicKeyAlgo, cred.AuthenticatorData,
 	)
 	if err != nil {
 		debuglog.Error("webauthn: failed to store credential", "credential_id_len", len(cred.ID), "error", err)
@@ -230,7 +232,7 @@ func (r *Repository) ListCredentials(ctx context.Context) ([]*CredentialRecord, 
 	for rows.Next() {
 		var cred CredentialRecord
 		if err := rowsScan(rows,
-			&cred.ID, &cred.PublicKey, &cred.AttestationType, &cred.AttestationFormat, &cred.Transport,
+			&cred.ID, &cred.Name, &cred.PublicKey, &cred.AttestationType, &cred.AttestationFormat, &cred.Transport,
 			&cred.FlagsByte, &cred.SignCount, &cred.AAGUID, &cred.AttestationObject, &cred.AttestationClientData,
 			&cred.AttestationClientDataHash, &cred.AttestationPublicKeyAlgo, &cred.AuthenticatorData,
 			&cred.CreatedAt, &cred.UpdatedAt,
@@ -248,7 +250,7 @@ func (r *Repository) GetCredentialByID(ctx context.Context, id []byte) (*Credent
 	err := r.pool.QueryRow(ctx,
 		`SELECT `+credentialColumns+` FROM webauthn_credentials WHERE id = $1`, id,
 	).Scan(
-		&cred.ID, &cred.PublicKey, &cred.AttestationType, &cred.AttestationFormat, &cred.Transport,
+		&cred.ID, &cred.Name, &cred.PublicKey, &cred.AttestationType, &cred.AttestationFormat, &cred.Transport,
 		&cred.FlagsByte, &cred.SignCount, &cred.AAGUID, &cred.AttestationObject, &cred.AttestationClientData,
 		&cred.AttestationClientDataHash, &cred.AttestationPublicKeyAlgo, &cred.AuthenticatorData,
 		&cred.CreatedAt, &cred.UpdatedAt,
@@ -272,6 +274,22 @@ func (r *Repository) DeleteCredential(ctx context.Context, id []byte) error {
 		return ErrNotFound
 	}
 	debuglog.Info("webauthn: deleted credential", "credential_id_len", len(id))
+	return nil
+}
+
+// RenameCredential updates the display name of a credential.
+func (r *Repository) RenameCredential(ctx context.Context, id []byte, name string) error {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE webauthn_credentials SET name = $1, updated_at = NOW() WHERE id = $2`,
+		name, id,
+	)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	debuglog.Info("webauthn: renamed credential", "credential_id_len", len(id))
 	return nil
 }
 

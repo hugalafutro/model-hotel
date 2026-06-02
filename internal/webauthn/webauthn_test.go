@@ -178,6 +178,42 @@ func TestUpdateSignCount(t *testing.T) {
 	}
 }
 
+func TestRenameCredential(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	cred := &CredentialRecord{
+		ID:                []byte("test-cred-id-rename"),
+		PublicKey:         []byte("fake-public-key-rename"),
+		AttestationType:   "none",
+		AttestationFormat: "packed",
+		Transport:         []string{"internal"},
+		FlagsByte:         0x41,
+		SignCount:         0,
+		AAGUID:            uuid.Nil,
+	}
+
+	if err := repo.StoreCredential(ctx, cred); err != nil {
+		t.Fatalf("StoreCredential: %v", err)
+	}
+
+	if err := repo.RenameCredential(ctx, []byte("test-cred-id-rename"), "My YubiKey"); err != nil {
+		t.Fatalf("RenameCredential: %v", err)
+	}
+
+	found, err := repo.GetCredentialByID(ctx, []byte("test-cred-id-rename"))
+	if err != nil {
+		t.Fatalf("GetCredentialByID: %v", err)
+	}
+	if found.Name != "My YubiKey" {
+		t.Errorf("expected name 'My YubiKey', got %q", found.Name)
+	}
+
+	if err := repo.RenameCredential(ctx, []byte("nonexistent-id"), "x"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("expected ErrNotFound, got %v", err)
+	}
+}
+
 func TestCreateAndGetSession(t *testing.T) {
 	repo := newTestRepo(t)
 	ctx := context.Background()

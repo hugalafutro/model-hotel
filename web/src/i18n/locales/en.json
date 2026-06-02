@@ -1580,7 +1580,12 @@
 			"failedToDelete": "Failed to delete passkey: {{message}}",
 			"registeredSuccess": "Passkey registered successfully",
 			"failedToRegister": "Failed to register passkey: {{message}}",
-			"alreadyRegistered": "This passkey is already registered on this device"
+			"alreadyRegistered": "This passkey is already registered on this device",
+			"nameAriaLabel": "Passkey name",
+			"saveNameAriaLabel": "Save name",
+			"cancelNameAriaLabel": "Cancel renaming",
+			"renameAriaLabel": "Rename passkey",
+			"failedToRename": "Failed to rename passkey: {{message}}"
 		}
 	},
 	"components": {

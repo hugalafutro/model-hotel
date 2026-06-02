@@ -984,6 +984,17 @@ export const api = {
 				"Failed to delete passkey",
 			);
 		},
+		renameCredential: async (id: string, name: string): Promise<void> => {
+			await fetchOK(
+				`${API_BASE}/api/webauthn/credentials/${encodeURIComponent(id)}`,
+				{
+					method: "PATCH",
+					headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+					body: JSON.stringify({ name }),
+				},
+				"Failed to rename passkey",
+			);
+		},
 		logout: async (): Promise<void> => {
 			await fetchOK(
 				`${API_BASE}/api/webauthn/logout`,

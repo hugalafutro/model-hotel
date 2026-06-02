@@ -480,6 +480,7 @@ export interface ChatMessage {
 
 export interface WebAuthnCredential {
 	id: string;
+	name: string;
 	transports: string[];
 	created_at: string;
 	aaguid: string;

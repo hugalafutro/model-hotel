@@ -50,6 +50,7 @@ func NewWebAuthnHandler(
 	}
 }
 
+// Available reports whether WebAuthn is enabled on the server.
 func (h *WebAuthnHandler) Available(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, map[string]bool{"enabled": h.relyingParty != nil})
 }
@@ -66,6 +67,7 @@ func (h *WebAuthnHandler) Register(r chi.Router) {
 			r.Post("/register/finish", h.RegisterFinish)
 			r.Get("/credentials", h.ListCredentials)
 			r.Delete("/credentials/{id}", h.DeleteCredential)
+			r.Patch("/credentials/{id}", h.RenameCredential)
 			r.Post("/logout", h.Logout)
 		})
 		r.Group(func(r chi.Router) {
@@ -402,6 +404,7 @@ func (h *WebAuthnHandler) Logout(w http.ResponseWriter, r *http.Request) {
 // be used directly in the DELETE /webauthn/credentials/{id} URL path.
 type credentialResponse struct {
 	ID        string   `json:"id"`
+	Name      string   `json:"name"`
 	Transport []string `json:"transports"`
 	CreatedAt string   `json:"created_at"`
 	AAGUID    string   `json:"aaguid"`
@@ -422,6 +425,7 @@ func (h *WebAuthnHandler) ListCredentials(w http.ResponseWriter, r *http.Request
 	for i, c := range creds {
 		resp[i] = credentialResponse{
 			ID:        base64.RawURLEncoding.EncodeToString(c.ID),
+			Name:      c.Name,
 			Transport: c.Transport,
 			CreatedAt: c.CreatedAt.Format(time.RFC3339),
 			AAGUID:    c.AAGUID.String(),
@@ -461,4 +465,42 @@ func (h *WebAuthnHandler) DeleteCredential(w http.ResponseWriter, r *http.Reques
 		Message:  "Passkey deleted",
 	})
 	w.WriteHeader(http.StatusNoContent)
+}
+
+type renameCredentialRequest struct {
+	Name string `json:"name"`
+}
+
+// RenameCredential updates the display name of a passkey.
+func (h *WebAuthnHandler) RenameCredential(w http.ResponseWriter, r *http.Request) {
+	rawID := chi.URLParam(r, "id")
+	if rawID == "" {
+		http.Error(w, "credential ID is required", http.StatusBadRequest)
+		return
+	}
+
+	credID, err := base64.RawURLEncoding.DecodeString(rawID)
+	if err != nil {
+		respondBadRequest(w, "invalid credential ID", err)
+		return
+	}
+
+	var req renameCredentialRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondBadRequest(w, "invalid request body", err)
+		return
+	}
+
+	if len(req.Name) > 128 {
+		http.Error(w, "name must be 128 characters or fewer", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.webauthnRepo.RenameCredential(r.Context(), credID, req.Name); err != nil {
+		debuglog.Error("webauthn: failed to rename credential", "cred_id", rawID, "error", err)
+		respondError(w, "failed to rename credential", err, http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, map[string]interface{}{"success": true})
 }

@@ -19,7 +19,7 @@ describe("PasskeySettings", () => {
 	});
 
 	it("renders nothing when WebAuthn is not available", () => {
-		vi.spyOn(webauthnUtils, "isWebAuthnAvailable").mockReturnValue(false);
+		vi.spyOn(webauthnUtils, "isWebAuthnAvailable").mockResolvedValue(false);
 
 		const { container } = renderWithProviders(
 			<PasskeySettings collapsed={false} onToggle={() => {}} />,
@@ -29,7 +29,7 @@ describe("PasskeySettings", () => {
 	});
 
 	it("renders Passkeys section when WebAuthn is available", () => {
-		vi.spyOn(webauthnUtils, "isWebAuthnAvailable").mockReturnValue(true);
+		vi.spyOn(webauthnUtils, "isWebAuthnAvailable").mockResolvedValue(true);
 
 		renderWithProviders(
 			<PasskeySettings collapsed={false} onToggle={() => {}} />,
@@ -39,7 +39,7 @@ describe("PasskeySettings", () => {
 	});
 
 	it("shows Register Passkey button", () => {
-		vi.spyOn(webauthnUtils, "isWebAuthnAvailable").mockReturnValue(true);
+		vi.spyOn(webauthnUtils, "isWebAuthnAvailable").mockResolvedValue(true);
 
 		renderWithProviders(
 			<PasskeySettings collapsed={false} onToggle={() => {}} />,
@@ -51,13 +51,14 @@ describe("PasskeySettings", () => {
 	});
 
 	it("lists credentials", async () => {
-		vi.spyOn(webauthnUtils, "isWebAuthnAvailable").mockReturnValue(true);
+		vi.spyOn(webauthnUtils, "isWebAuthnAvailable").mockResolvedValue(true);
 
 		server.use(
 			http.get("/api/webauthn/credentials", () =>
 				HttpResponse.json([
 					{
 						id: "cred-123",
+						name: "",
 						transports: ["internal"],
 						created_at: "2025-01-15T10:00:00Z",
 						aaguid: "00000000-0000-0000-0000-000000000000",
@@ -65,6 +66,7 @@ describe("PasskeySettings", () => {
 					},
 					{
 						id: "cred-456",
+						name: "My YubiKey",
 						transports: ["usb", "nfc"],
 						created_at: "2025-02-20T14:30:00Z",
 						aaguid: "11111111-1111-1111-1111-111111111111",
@@ -84,11 +86,11 @@ describe("PasskeySettings", () => {
 			).toBeInTheDocument();
 		});
 
-		expect(screen.getByText("USB Security Key, NFC")).toBeInTheDocument();
+		expect(screen.getByText("My YubiKey")).toBeInTheDocument();
 	});
 
 	it("deletes a credential on click", async () => {
-		vi.spyOn(webauthnUtils, "isWebAuthnAvailable").mockReturnValue(true);
+		vi.spyOn(webauthnUtils, "isWebAuthnAvailable").mockResolvedValue(true);
 
 		let deleteCalled = false;
 		server.use(
@@ -96,6 +98,7 @@ describe("PasskeySettings", () => {
 				HttpResponse.json([
 					{
 						id: "cred-789",
+						name: "",
 						transports: ["ble"],
 						created_at: "2025-03-10T08:00:00Z",
 						aaguid: "22222222-2222-2222-2222-222222222222",

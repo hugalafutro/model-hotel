@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Fingerprint, Key, Plus, Trash2 } from "lucide-react";
+import { Check, Fingerprint, Key, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
@@ -61,6 +61,20 @@ export function PasskeySettings({ collapsed, onToggle }: PasskeySettingsProps) {
 		},
 	});
 
+	const renameMutation = useMutation({
+		mutationFn: ({ id, name }: { id: string; name: string }) =>
+			api.webauthn.renameCredential(id, name),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["webauthn", "credentials"] });
+		},
+		onError: (err: Error) => {
+			toast(
+				t("settings.passkeys.failedToRename", { message: err.message }),
+				"error",
+			);
+		},
+	});
+
 	const handleRegister = async () => {
 		setRegistering(true);
 		try {
@@ -112,40 +126,130 @@ export function PasskeySettings({ collapsed, onToggle }: PasskeySettingsProps) {
 				{credentials.length > 0 && (
 					<div className="space-y-2">
 						{credentials.map((cred: WebAuthnCredential) => (
-							<div
+							<CredentialRow
 								key={cred.id}
-								className="flex items-center justify-between p-3 bg-gray-900/50 rounded-lg border border-gray-700/50"
-							>
-								<div className="flex items-center gap-3 min-w-0">
-									<Key size={16} className="text-(--accent) shrink-0" />
-									<div className="min-w-0">
-										<p className="text-sm text-white truncate">
-											{cred.transports.length > 0
-												? cred.transports
-														.map((tr) => transportLabel(t, tr))
-														.join(", ")
-												: t("settings.passkeys.securityKey")}
-										</p>
-										<p className="text-xs text-gray-500">
-											{t("settings.passkeys.registered")}{" "}
-											{new Date(cred.created_at).toLocaleDateString()}
-										</p>
-									</div>
-								</div>
-								<button
-									type="button"
-									onClick={() => deleteMutation.mutate(cred.id)}
-									disabled={deleteMutation.isPending}
-									className="text-gray-500 hover:text-red-400 transition-colors p-1 disabled:opacity-50"
-									aria-label={t("settings.passkeys.deleteAriaLabel")}
-								>
-									<Trash2 size={16} />
-								</button>
-							</div>
+								cred={cred}
+								t={t}
+								renameMutation={renameMutation}
+								deleteMutation={deleteMutation}
+							/>
 						))}
 					</div>
 				)}
 			</div>
 		</SettingsSection>
+	);
+}
+
+function CredentialRow({
+	cred,
+	t,
+	renameMutation,
+	deleteMutation,
+}: {
+	cred: WebAuthnCredential;
+	t: (key: string) => string;
+	renameMutation: {
+		mutate: (
+			vars: { id: string; name: string },
+			opts?: { onSettled?: () => void },
+		) => void;
+		isPending: boolean;
+	};
+	deleteMutation: { mutate: (id: string) => void; isPending: boolean };
+}) {
+	const [editing, setEditing] = useState(false);
+	const [draft, setDraft] = useState(cred.name);
+
+	const displayName =
+		cred.name ||
+		(cred.transports.length > 0
+			? cred.transports.map((tr: string) => transportLabel(t, tr)).join(", ")
+			: t("settings.passkeys.securityKey"));
+
+	const save = () => {
+		const trimmed = draft.trim().slice(0, 128);
+		if (trimmed === cred.name) {
+			setEditing(false);
+			return;
+		}
+		renameMutation.mutate(
+			{ id: cred.id, name: trimmed },
+			{ onSettled: () => setEditing(false) },
+		);
+	};
+
+	return (
+		<div className="flex items-center justify-between p-3 bg-gray-900/50 rounded-lg border border-gray-700/50">
+			<div className="flex items-center gap-3 min-w-0 flex-1">
+				<Key size={16} className="text-(--accent) shrink-0" />
+				<div className="min-w-0">
+					{editing ? (
+						<div className="flex items-center gap-1">
+							<input
+								type="text"
+								value={draft}
+								onChange={(e) => setDraft(e.target.value)}
+								onKeyDown={(e) => {
+									if (e.key === "Enter") save();
+									if (e.key === "Escape") setEditing(false);
+								}}
+								maxLength={128}
+								className="ui-input text-sm py-0.5 px-1.5 w-40"
+								aria-label={t("settings.passkeys.nameAriaLabel")}
+							/>
+							<button
+								type="button"
+								onClick={save}
+								className="text-green-400 hover:text-green-300 p-0.5"
+								aria-label={t("settings.passkeys.saveNameAriaLabel")}
+							>
+								<Check size={14} />
+							</button>
+							<button
+								type="button"
+								onClick={() => {
+									setDraft(cred.name);
+									setEditing(false);
+								}}
+								className="text-gray-400 hover:text-gray-300 p-0.5"
+								aria-label={t("settings.passkeys.cancelNameAriaLabel")}
+							>
+								<X size={14} />
+							</button>
+						</div>
+					) : (
+						<button
+							type="button"
+							onClick={() => {
+								setDraft(cred.name);
+								setEditing(true);
+							}}
+							className="flex items-center gap-1.5 text-sm text-white hover:text-(--accent) transition-colors group truncate"
+							aria-label={t("settings.passkeys.renameAriaLabel")}
+						>
+							<span className="truncate">{displayName}</span>
+							<Pencil
+								size={12}
+								className="shrink-0 text-gray-500 group-hover:text-(--accent) transition-colors"
+							/>
+						</button>
+					)}
+					<p className="text-xs text-gray-500">
+						{t("settings.passkeys.registered")}{" "}
+						{new Date(cred.created_at).toLocaleDateString()}
+					</p>
+				</div>
+			</div>
+			<button
+				type="button"
+				onClick={() => deleteMutation.mutate(cred.id)}
+				disabled={deleteMutation.isPending}
+				className="text-gray-500 hover:text-red-400 transition-colors p-1 disabled:opacity-50"
+				aria-label={t("settings.passkeys.deleteAriaLabel")}
+			>
+				<Trash2 size={16} />
+			</button>
+		</div>
 	);
 }
