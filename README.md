@@ -257,6 +257,8 @@ ADMIN_TOKEN=
                 - WEBAUTHN_RP_ID=${WEBAUTHN_RP_ID:-}
                 - WEBAUTHN_RP_ORIGINS=${WEBAUTHN_RP_ORIGINS:-}
                 - ALLOWED_PROVIDER_HOSTS=
+                - TRUSTED_PROXIES=
+                - KNOWN_PROXIES=
             volumes:
                 - ./.data:/data
                 # Docker socket (disabled by default for security).
