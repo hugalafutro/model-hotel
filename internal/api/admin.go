@@ -78,16 +78,17 @@ type Handler struct {
 	settingsRepo           SettingsStore
 	systemHandler          *SystemHandler
 	appVersion             string
-	ghReleasesURL          string                 // injectable for testing; defaults to githubReleasesURL const
-	ghTagsURL              string                 // injectable for testing; defaults to githubTagsURL const
-	webauthnSessionMgr     WebAuthnSessionManager // nil when webAuthn is not configured
-	testModelTransport     *http.Transport        // SSRF-protected transport for TestModel
+	ghReleasesURL          string                                             // injectable for testing; defaults to githubReleasesURL const
+	ghTagsURL              string                                             // injectable for testing; defaults to githubTagsURL const
+	webauthnSessionMgr     WebAuthnSessionManager                             // nil when webAuthn is not configured
+	testModelTransport     *http.Transport                                    // SSRF-protected transport for TestModel
+	testModelCheckRedirect func(req *http.Request, via []*http.Request) error // SSRF-protected redirect check for TestModel
 	discoveryDialCtx       func(ctx context.Context, network, addr string) (net.Conn, error)
 	discoveryCheckRedirect func(req *http.Request, via []*http.Request) error
 }
 
 // NewHandler creates a new admin API handler with the given dependencies.
-func NewHandler(cfg *config.Config, providerRepo ProviderStore, database *db.DB, adminMgr AdminAuthenticator, vkRepo VirtualKeyStore, settingsRepo SettingsStore, appVersion string, testModelTransport *http.Transport, discoveryDialCtx func(ctx context.Context, network, addr string) (net.Conn, error), discoveryCheckRedirect func(req *http.Request, via []*http.Request) error) *Handler {
+func NewHandler(cfg *config.Config, providerRepo ProviderStore, database *db.DB, adminMgr AdminAuthenticator, vkRepo VirtualKeyStore, settingsRepo SettingsStore, appVersion string, testModelTransport *http.Transport, testModelCheckRedirect func(req *http.Request, via []*http.Request) error, discoveryDialCtx func(ctx context.Context, network, addr string) (net.Conn, error), discoveryCheckRedirect func(req *http.Request, via []*http.Request) error) *Handler {
 	h := &Handler{
 		cfg:                    cfg,
 		providerRepo:           providerRepo,
@@ -99,6 +100,7 @@ func NewHandler(cfg *config.Config, providerRepo ProviderStore, database *db.DB,
 		ghReleasesURL:          githubReleasesURL,
 		ghTagsURL:              githubTagsURL,
 		testModelTransport:     testModelTransport,
+		testModelCheckRedirect: testModelCheckRedirect,
 		discoveryDialCtx:       discoveryDialCtx,
 		discoveryCheckRedirect: discoveryCheckRedirect,
 	}
