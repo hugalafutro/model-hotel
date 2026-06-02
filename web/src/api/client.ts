@@ -917,6 +917,9 @@ export const api = {
 		},
 	},
 	webauthn: {
+		available: async (): Promise<{ enabled: boolean }> => {
+			return fetchJSON(`${API_BASE}/api/webauthn/available`);
+		},
 		registerStart: async (): Promise<{
 			session_id: string;
 			options: Record<string, unknown>;

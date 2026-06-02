@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fingerprint, Key, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { WebAuthnCredential } from "../../api/types";
@@ -35,11 +35,16 @@ export function PasskeySettings({ collapsed, onToggle }: PasskeySettingsProps) {
 	const { toast } = useToast();
 	const queryClient = useQueryClient();
 	const [registering, setRegistering] = useState(false);
+	const [available, setAvailable] = useState(false);
+
+	useEffect(() => {
+		isWebAuthnAvailable().then(setAvailable);
+	}, []);
 
 	const { data: credentials = [] } = useQuery({
 		queryKey: ["webauthn", "credentials"],
 		queryFn: () => api.webauthn.listCredentials(),
-		enabled: isWebAuthnAvailable(),
+		enabled: available,
 	});
 
 	const deleteMutation = useMutation({
@@ -75,7 +80,7 @@ export function PasskeySettings({ collapsed, onToggle }: PasskeySettingsProps) {
 		}
 	};
 
-	if (!isWebAuthnAvailable()) {
+	if (!available) {
 		return null;
 	}
 

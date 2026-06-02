@@ -32,6 +32,7 @@ import { useTheme } from "../context/ThemeContext";
 import { useToast } from "../context/ToastContext";
 import { useGitHubVersion } from "../hooks/useGitHubVersion";
 import { formatRelativeTime, formatTimestamp } from "../utils/format";
+import { isWebAuthnAvailable } from "../utils/webauthn";
 import { CollapsibleToggle, useCollapsible } from "./CollapsibleToggle";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { LogDetailModal } from "./LogDetailModal";
@@ -762,10 +763,12 @@ export function Layout({ children }: LayoutProps) {
 
 	const handleLogout = async () => {
 		try {
-			await api.webauthn.logout();
+			const available = await isWebAuthnAvailable();
+			if (available) {
+				await api.webauthn.logout();
+			}
 		} catch {
-			// Server-side logout failure is non-fatal: the token will
-			// expire naturally or be cleaned up by the periodic sweep.
+			// Server-side logout failure is non-fatal.
 		}
 		localStorage.removeItem("adminToken");
 		navigate("/dashboard");

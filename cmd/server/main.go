@@ -246,6 +246,8 @@ func main() {
 	proxyHandler := proxy.NewHandler(cfg, providerRepo, modelRepo, database.Pool(), virtualKeyRepo, failoverRepo, settingsRepo, rateLimiter, ipLimiter)
 
 	// WebAuthn/FIDO2 passkey authentication (enabled when WEBAUTHN_RP_ID is set).
+	var webauthnHandler *api.WebAuthnHandler
+
 	if cfg.WebAuthnRPID != "" {
 		webauthnRepo := webauthn.NewRepository(database.Pool())
 		rpOrigins := make([]string, len(cfg.WebAuthnRPOrigins))
@@ -263,15 +265,8 @@ func main() {
 		}
 		sessionMgr := webauthn.NewSessionManager(webauthnRepo)
 		apiHandler.SetWebAuthnSessionManager(sessionMgr)
-		webauthnHandler := api.NewWebAuthnHandler(webauthnRepo, rp, sessionMgr, adminMgr, ipLimiter)
+		webauthnHandler = api.NewWebAuthnHandler(webauthnRepo, rp, sessionMgr, adminMgr, ipLimiter)
 
-		r.Route("/api", func(r chi.Router) {
-			r.Group(func(r chi.Router) {
-				webauthnHandler.Register(r)
-			})
-		})
-
-		// Periodic cleanup of expired WebAuthn sessions (login ceremonies, auth tokens).
 		go func() {
 			ticker := time.NewTicker(1 * time.Hour)
 			defer ticker.Stop()
@@ -289,15 +284,16 @@ func main() {
 
 	// API routes
 	r.Route("/api", func(r chi.Router) {
-		// SSE endpoint — long-lived connection, must NOT have a request
-		// timeout.  The handler detects client disconnect via
-		// r.Context().Done() instead.
 		r.Group(func(r chi.Router) {
 			apiHandler.RegisterEvents(r)
 		})
 
-		// All other API routes — standard 60s timeout is appropriate for
-		// admin/API calls.
+		if webauthnHandler != nil {
+			r.Group(func(r chi.Router) {
+				webauthnHandler.Register(r)
+			})
+		}
+
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Timeout(60 * time.Second))
 			apiHandler.Register(r)

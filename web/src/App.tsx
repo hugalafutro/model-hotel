@@ -1,5 +1,5 @@
 import { Eye, EyeOff, Fingerprint } from "lucide-react";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { setAdminToken } from "./api/client";
@@ -50,6 +50,11 @@ function LoginScreen() {
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
 	const [passkeyLoading, setPasskeyLoading] = useState(false);
+	const [passkeyAvailable, setPasskeyAvailable] = useState(false);
+
+	useEffect(() => {
+		isWebAuthnAvailable().then(setPasskeyAvailable);
+	}, []);
 
 	const handleLogin = async () => {
 		if (!token.trim()) {
@@ -85,8 +90,6 @@ function LoginScreen() {
 				localStorage.setItem("adminToken", sessionToken);
 				setAdminToken(sessionToken);
 				window.location.reload();
-			} else {
-				setError(t("layout.auth.passkeyFailed"));
 			}
 		} catch {
 			setError(t("layout.auth.passkeyFailed"));
@@ -115,7 +118,7 @@ function LoginScreen() {
 				)}
 
 				<div className="space-y-4">
-					{isWebAuthnAvailable() && (
+					{passkeyAvailable && (
 						<>
 							<button
 								type="button"

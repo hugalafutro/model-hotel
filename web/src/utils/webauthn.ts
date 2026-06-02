@@ -9,6 +9,24 @@ import {
 } from "@simplewebauthn/browser";
 import { api } from "../api/client";
 
+let _serverEnabled: boolean | null = null;
+
+export async function isWebAuthnAvailable(): Promise<boolean> {
+	if (!browserSupportsWebAuthn()) return false;
+	if (_serverEnabled !== null) return _serverEnabled;
+	try {
+		const res = await api.webauthn.available();
+		_serverEnabled = res.enabled;
+	} catch {
+		_serverEnabled = false;
+	}
+	return _serverEnabled;
+}
+
+export function resetWebAuthnCache(): void {
+	_serverEnabled = null;
+}
+
 export async function registerPasskey(): Promise<boolean> {
 	const { session_id, options } = await api.webauthn.registerStart();
 	const credential = await startRegistration({
@@ -30,11 +48,6 @@ export async function loginWithPasskey(): Promise<string | null> {
 		if (err instanceof Error && err.name === "NotAllowedError") {
 			return null;
 		}
-		console.error("Passkey login failed:", err);
-		return null;
+		throw err;
 	}
-}
-
-export function isWebAuthnAvailable(): boolean {
-	return browserSupportsWebAuthn();
 }

@@ -50,12 +50,16 @@ func NewWebAuthnHandler(
 	}
 }
 
+func (h *WebAuthnHandler) Available(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, map[string]bool{"enabled": h.relyingParty != nil})
+}
+
 // Register mounts WebAuthn routes on the given router.
 // Registration and credential management require admin auth.
 // Login endpoints are public (called from the login screen).
 func (h *WebAuthnHandler) Register(r chi.Router) {
 	r.Route("/webauthn", func(r chi.Router) {
-		// Admin-protected routes (accept both admin token and WebAuthn session token)
+		r.Get("/available", h.Available)
 		r.Group(func(r chi.Router) {
 			r.Use(h.adminOrSessionAuth)
 			r.Post("/register/start", h.RegisterStart)
@@ -64,8 +68,6 @@ func (h *WebAuthnHandler) Register(r chi.Router) {
 			r.Delete("/credentials/{id}", h.DeleteCredential)
 			r.Post("/logout", h.Logout)
 		})
-		// Public routes (no auth required — called from login screen)
-		// Rate-limited to prevent login endpoint abuse.
 		r.Group(func(r chi.Router) {
 			r.Use(h.ipLimiter.Middleware)
 			r.Post("/login/start", h.LoginStart)
@@ -193,6 +195,10 @@ func (h *WebAuthnHandler) RegisterFinish(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	if err := h.webauthnRepo.DeleteSession(r.Context(), sessionID); err != nil {
+		debuglog.Info("webauthn: failed to delete registration session", "session_id", sessionID, "error", err)
+	}
+
 	var session webauthnx.SessionData
 	if err := json.Unmarshal(sessionRec.SessionData, &session); err != nil {
 		debuglog.Error("webauthn: failed to unmarshal session data", "session_id", sessionID, "error", err)
@@ -235,10 +241,6 @@ func (h *WebAuthnHandler) RegisterFinish(w http.ResponseWriter, r *http.Request)
 		debuglog.Error("webauthn: failed to store credential", "error", err)
 		respondError(w, "failed to store credential", err, http.StatusInternalServerError)
 		return
-	}
-
-	if err := h.webauthnRepo.DeleteSession(r.Context(), sessionID); err != nil {
-		debuglog.Info("webauthn: failed to delete registration session", "session_id", sessionID, "error", err)
 	}
 
 	debuglog.Info("webauthn: credential registered successfully")
@@ -323,6 +325,10 @@ func (h *WebAuthnHandler) LoginFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := h.webauthnRepo.DeleteSession(r.Context(), sessionID); err != nil {
+		debuglog.Info("webauthn: failed to delete login session", "session_id", sessionID, "error", err)
+	}
+
 	var session webauthnx.SessionData
 	if err := json.Unmarshal(sessionRec.SessionData, &session); err != nil {
 		debuglog.Error("webauthn: failed to unmarshal login session data", "session_id", sessionID, "error", err)
@@ -367,10 +373,6 @@ func (h *WebAuthnHandler) LoginFinish(w http.ResponseWriter, r *http.Request) {
 		debuglog.Error("webauthn: failed to create auth token", "error", err)
 		respondError(w, "failed to create auth token", err, http.StatusInternalServerError)
 		return
-	}
-
-	if err := h.webauthnRepo.DeleteSession(r.Context(), sessionID); err != nil {
-		debuglog.Info("webauthn: failed to delete login session", "session_id", sessionID, "error", err)
 	}
 
 	debuglog.Info("webauthn: passkey login successful")
