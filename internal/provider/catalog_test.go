@@ -45,6 +45,7 @@ func TestGetDeepSeekModelSpec_Found(t *testing.T) {
 	result := GetDeepSeekModelSpec(first.ModelID)
 	if result == nil {
 		t.Fatalf("expected non-nil for %q", first.ModelID)
+		return
 	}
 	if result.ModelID != first.ModelID {
 		t.Errorf("ModelID = %q, want %q", result.ModelID, first.ModelID)
@@ -96,6 +97,7 @@ func TestLookupCoherePricing_Found(t *testing.T) {
 	result := LookupCoherePricing(catalog, first.ModelID)
 	if result == nil {
 		t.Fatalf("expected non-nil for %q", first.ModelID)
+		return
 	}
 	if result.ModelID != first.ModelID {
 		t.Errorf("ModelID = %q, want %q", result.ModelID, first.ModelID)
