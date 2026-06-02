@@ -182,6 +182,7 @@ export function PaginationBar({
 						{t("components.dataTable.entries", {
 							start: String(start),
 							to: t("components.dataTable.to"),
+							of: t("components.dataTable.of"),
 							end: String(end),
 							total: totalItems,
 							label,
