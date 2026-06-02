@@ -482,7 +482,7 @@ describe("PaginationBar", () => {
 		// Range text is split across multiple nodes, so check the container text
 		const countDiv = document.querySelector(".text-sm.text-gray-500");
 		expect(countDiv).toBeInTheDocument();
-		expect(countDiv?.textContent).toMatch(/1to\s+20\s+of\s+100\s+entries/);
+		expect(countDiv?.textContent).toMatch(/1 to 20 of 100 entries/);
 	});
 
 	it("renders page size selector", () => {
@@ -660,7 +660,7 @@ describe("PaginationBar", () => {
 		// Text rendered is "1 of 3 items"
 		const countDiv = document.querySelector(".text-sm.text-gray-500");
 		expect(countDiv).toBeInTheDocument();
-		expect(countDiv?.textContent).toMatch(/1\s+of\s+3\s+items/);
+		expect(countDiv?.textContent).toMatch(/1–3 of 3 items/);
 	});
 
 	it("uses singular label for one item", () => {

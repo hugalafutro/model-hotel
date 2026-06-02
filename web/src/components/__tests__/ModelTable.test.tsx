@@ -608,16 +608,16 @@ describe("ModelTable", () => {
 			);
 
 			// Page size select has options like "10 / page"
-			const pageSizeSelect = screen.getByRole("combobox", {
+			const pageSizeSelect = screen.getAllByRole("combobox", {
 				name: "",
-			});
+			})[0];
 			await user.selectOptions(pageSizeSelect, "10");
 
 			await waitFor(() => {
 				// With page size 10, should show pagination text with "1 to 10 of 50"
 				// Text may be split, so check for key patterns
 				const paginationText = document.querySelector(".text-sm.text-gray-500");
-				expect(paginationText?.textContent).toMatch(/1to? 10 of 50/);
+				expect(paginationText?.textContent).toMatch(/1 to 10 of 50/);
 			});
 		});
 
@@ -709,12 +709,14 @@ describe("ModelTable", () => {
 			);
 
 			// Click page 2 button
-			const page2Button = screen.getByRole("button", { name: "2" });
+			const page2Button = screen.getAllByRole("button", { name: "2" })[0];
 			await user.click(page2Button);
 
 			await waitFor(() => {
 				// Page 2 should show "21 to 40 of 50 models"
-				expect(screen.getByText(/21 to 40 of 50/)).toBeInTheDocument();
+				// ModelTable renders two PaginationBar instances (top + bottom),
+				// so the same text appears twice — use getAllByText
+				expect(screen.getAllByText(/21 to 40 of 50/).length).toBeGreaterThan(0);
 			});
 		});
 	});
@@ -1065,12 +1067,12 @@ describe("ModelTable", () => {
 			);
 
 			// Navigate to page 2
-			const page2Button = screen.getByRole("button", { name: "2" });
+			const page2Button = screen.getAllByRole("button", { name: "2" })[0];
 			await user.click(page2Button);
 
 			// Verify we're on page 2 (pagination shows "21 to 25 of 25 models")
 			await waitFor(() => {
-				expect(screen.getByText(/21 to 25 of 25/)).toBeInTheDocument();
+				expect(screen.getAllByText(/21 to 25 of 25/).length).toBeGreaterThan(0);
 			});
 
 			// Open provider filter dropdown
@@ -1085,11 +1087,12 @@ describe("ModelTable", () => {
 
 			// Verify we're back on page 1 (pagination shows "1 to 15 of 15 models")
 			// Anchor "1" to start to avoid matching "21 of 15" (broken state)
+			// Two PaginationBar instances so use getAllByText
 			await waitFor(() => {
-				const paginationText = screen.getByText((content) => {
+				const paginationTexts = screen.getAllByText((content) => {
 					return /^1\b/.test(content) && content.includes("of 15");
 				});
-				expect(paginationText).toBeInTheDocument();
+				expect(paginationTexts.length).toBeGreaterThan(0);
 			});
 		});
 	});
