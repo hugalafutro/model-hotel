@@ -679,6 +679,7 @@ func TestModelsDevCacheLookupFuzzy_PrefixMatchRejectsVariant(t *testing.T) {
 			} else {
 				if found == nil {
 					t.Fatalf("LookupFuzzy(%q) = nil, want non-nil", tt.modelID)
+					return
 				}
 				if found.Name != tt.wantName {
 					t.Errorf("LookupFuzzy(%q) = %q, want %q", tt.modelID, found.Name, tt.wantName)
