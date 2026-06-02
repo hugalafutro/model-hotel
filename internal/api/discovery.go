@@ -18,9 +18,12 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
-// newDiscoveryService is set by NewHandler to use SSRF-protected dial/redirect
-// functions. It is nil until NewHandler initializes it.
-var newDiscoveryService func() *provider.DiscoveryService
+// newDiscoveryService creates a DiscoveryService. NewHandler overwrites this
+// with an SSRF-protected version; the default avoids nil-panics if a discovery
+// call races ahead of initialization.
+var newDiscoveryService = func() *provider.DiscoveryService {
+	return provider.NewDiscoveryService(nil, nil)
+}
 
 // Injectable variables for test overrides.
 var (
