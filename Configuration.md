@@ -73,7 +73,7 @@ These settings are stored in the `settings` table and can be changed at runtime 
 | `quota_refresh` | *(empty)* | Provider quota refresh interval. Accepts predefined duration options. |
 | `history_limit` | *(empty)* | History display limit for log viewers. |
 | `toast_duration` | *(empty)* | Toast notification duration in milliseconds (min: 1000, max: 15000). |
-| `ttft_timeout` | `1m0s` | Time-to-first-token probe timeout for streaming requests (e.g. `30s`, `1m0s`). After the upstream responds 200, the proxy reads ahead to confirm the first token arrives before committing the stream to the client. If the provider fails to produce a token within this timeout, the request fails over to the next provider. Set to `0s` to disable the probe (immediate stream commit, backward-compatible behavior). |
+| `ttft_timeout` | `60s` | Time-to-first-token probe timeout for streaming requests (e.g. `30s`, `60s`). After the upstream responds 200, the proxy reads ahead to confirm the first token arrives before committing the stream to the client. If the provider fails to produce a token within this timeout, the request fails over to the next provider. Set to `0s` to disable the probe (immediate stream commit, backward-compatible behavior). |
 | `stream_stall_timeout` | `30s` | Maximum silence during streaming before the connection is terminated and the circuit breaker records a failure (e.g. `10s`, `30s`, `1m0s`). After 50 chunks the effective timeout is multiplied by 3 to tolerate tool-call pauses and long reasoning chains. Set to `0s` to disable the stall watchdog. |
 
 ### Rate Limiting Details
