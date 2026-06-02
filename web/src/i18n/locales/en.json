@@ -141,6 +141,9 @@
 			"switchToLight": "Switch to light mode",
 			"switchToDark": "Switch to dark mode"
 		},
+		"language": {
+			"label": "Language"
+		},
 		"errorPill": {
 			"appError": "App Err",
 			"requestError": "Req Err",
