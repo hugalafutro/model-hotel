@@ -122,7 +122,20 @@
 		"auth": {
 			"logout": "Logout",
 			"logoutConfirm": "Log out?",
-			"logoutMessage": "You'll need to re-enter your admin token."
+			"logoutMessage": "You'll need to re-enter your admin token.",
+			"adminToken": "Admin Token",
+			"enterToken": "Enter your admin token",
+			"signIn": "Sign In",
+			"signingIn": "Signing in…",
+			"signInWithPasskey": "Sign in with Passkey",
+			"orDivider": "or",
+			"emptyToken": "Please enter an admin token",
+			"invalidToken": "Invalid admin token",
+			"connectionFailed": "Failed to connect to server",
+			"passkeyFailed": "Passkey authentication failed",
+			"hideToken": "Hide token",
+			"showToken": "Show token",
+			"getTokenHint": "Get your admin token from the server logs"
 		},
 		"theme": {
 			"switchToLight": "Switch to light mode",
@@ -1548,6 +1561,31 @@
 			"title": "Pick a Color",
 			"cancel": "Cancel",
 			"apply": "Apply"
+		},
+		"passkeys": {
+			"title": "Passkeys",
+			"description": "Register a passkey to sign in with your fingerprint, face, or security key instead of typing the admin token.",
+			"registerPasskey": "Register Passkey",
+			"registering": "Registering…",
+			"registerAriaLabel": "Register a new passkey",
+			"securityKey": "Security Key",
+			"transportInternal": "Platform (Windows Hello / Touch ID)",
+			"transportUsb": "USB Security Key",
+			"transportNfc": "NFC",
+			"transportBle": "Bluetooth",
+			"transportHybrid": "Hybrid (QR / Cross-device)",
+			"registered": "Registered",
+			"deleteAriaLabel": "Delete passkey",
+			"deleted": "Passkey deleted",
+			"failedToDelete": "Failed to delete passkey: {{message}}",
+			"registeredSuccess": "Passkey registered successfully",
+			"failedToRegister": "Failed to register passkey: {{message}}",
+			"alreadyRegistered": "This passkey is already registered on this device",
+			"nameAriaLabel": "Passkey name",
+			"saveNameAriaLabel": "Save name",
+			"cancelNameAriaLabel": "Cancel renaming",
+			"renameAriaLabel": "Rename passkey",
+			"failedToRename": "Failed to rename passkey: {{message}}"
 		}
 	},
 	"components": {

@@ -477,3 +477,12 @@ export interface ChatMessage {
 	};
 	params?: GenerationParams;
 }
+
+export interface WebAuthnCredential {
+	id: string;
+	name: string;
+	transports: string[];
+	created_at: string;
+	aaguid: string;
+	sign_count: number;
+}

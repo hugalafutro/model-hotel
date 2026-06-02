@@ -60,18 +60,26 @@ type AdminAuthenticator interface {
 	Validate(token string) bool
 }
 
+// WebAuthnSessionManager defines webAuthn session token validation.
+// It is implemented by the internal/webauthn.SessionManager.
+type WebAuthnSessionManager interface {
+	Validate(ctx context.Context, token string) bool
+	RevokeAuthToken(ctx context.Context, token string) bool
+}
+
 // Handler manages admin API operations for providers, models, and virtual keys.
 type Handler struct {
-	cfg            *config.Config
-	providerRepo   ProviderStore
-	dbPool         *db.DB
-	adminMgr       AdminAuthenticator
-	virtualKeyRepo VirtualKeyStore
-	settingsRepo   SettingsStore
-	systemHandler  *SystemHandler
-	appVersion     string
-	ghReleasesURL  string // injectable for testing; defaults to githubReleasesURL const
-	ghTagsURL      string // injectable for testing; defaults to githubTagsURL const
+	cfg                *config.Config
+	providerRepo       ProviderStore
+	dbPool             *db.DB
+	adminMgr           AdminAuthenticator
+	virtualKeyRepo     VirtualKeyStore
+	settingsRepo       SettingsStore
+	systemHandler      *SystemHandler
+	appVersion         string
+	ghReleasesURL      string                 // injectable for testing; defaults to githubReleasesURL const
+	ghTagsURL          string                 // injectable for testing; defaults to githubTagsURL const
+	webauthnSessionMgr WebAuthnSessionManager // nil when webAuthn is not configured
 }
 
 // NewHandler creates a new admin API handler with the given dependencies.
@@ -92,6 +100,12 @@ func NewHandler(cfg *config.Config, providerRepo ProviderStore, database *db.DB,
 // Pool returns the database connection pool.
 func (h *Handler) Pool() *db.DB {
 	return h.dbPool
+}
+
+// SetWebAuthnSessionManager sets the optional webAuthn session manager for
+// token-based authentication fallback in AuthMiddleware.
+func (h *Handler) SetWebAuthnSessionManager(mgr WebAuthnSessionManager) {
+	h.webauthnSessionMgr = mgr
 }
 
 // SetDockerStatsCollector overrides the system Docker stats collector (for testing).
@@ -132,7 +146,9 @@ func (h *Handler) Register(r chi.Router) {
 	NewBackupHandler(h.cfg.DatabaseURL, filepath.Join(h.cfg.DataDir, "backups"), h.adminMgr).Register(r)
 }
 
-// AuthMiddleware validates admin token authentication for all admin API requests.
+// AuthMiddleware validates admin token or webAuthn session token authentication.
+// Admin token has priority (fast in-memory hash comparison).
+// If the admin token is invalid, the session-based token is tried as a fallback.
 func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token, ok := util.ParseBearerToken(r)
@@ -141,12 +157,19 @@ func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		if !h.adminMgr.Validate(token) {
-			http.Error(w, "Invalid admin token", http.StatusUnauthorized)
+		// Fast path: admin token (in-memory hash comparison).
+		if h.adminMgr.Validate(token) {
+			next.ServeHTTP(w, r)
 			return
 		}
 
-		next.ServeHTTP(w, r)
+		// Fallback: webAuthn session token (DB-backed SHA-256 hash lookup).
+		if h.webauthnSessionMgr != nil && h.webauthnSessionMgr.Validate(r.Context(), token) {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		http.Error(w, "Invalid admin token", http.StatusUnauthorized)
 	})
 }
 

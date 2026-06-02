@@ -36,6 +36,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/settings"
 	"github.com/hugalafutro/model-hotel/internal/util"
 	"github.com/hugalafutro/model-hotel/internal/virtualkey"
+	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
 
 // version is set at build time via -ldflags -X main.version=...
@@ -244,17 +245,55 @@ func main() {
 	apiHandler := api.NewHandler(cfg, providerRepo, database, adminMgr, virtualKeyRepo, settingsRepo, version)
 	proxyHandler := proxy.NewHandler(cfg, providerRepo, modelRepo, database.Pool(), virtualKeyRepo, failoverRepo, settingsRepo, rateLimiter, ipLimiter)
 
+	// WebAuthn/FIDO2 passkey authentication (enabled when WEBAUTHN_RP_ID is set).
+	var webauthnHandler *api.WebAuthnHandler
+
+	if cfg.WebAuthnRPID != "" {
+		webauthnRepo := webauthn.NewRepository(database.Pool())
+		rpOrigins := make([]string, len(cfg.WebAuthnRPOrigins))
+		copy(rpOrigins, cfg.WebAuthnRPOrigins)
+		if len(rpOrigins) == 0 {
+			rpOrigins = make([]string, len(cfg.CORSOrigins))
+			copy(rpOrigins, cfg.CORSOrigins)
+		}
+		if len(rpOrigins) == 0 {
+			rpOrigins = []string{"http://localhost:" + strings.TrimPrefix(cfg.Port, ":")}
+		}
+		rp, err := webauthn.NewRelyingParty(cfg.WebAuthnRPID, cfg.WebAuthnRPDisplayName, rpOrigins)
+		if err != nil {
+			log.Fatalf("Failed to initialize WebAuthn relying party: %v", err)
+		}
+		sessionMgr := webauthn.NewSessionManager(webauthnRepo)
+		apiHandler.SetWebAuthnSessionManager(sessionMgr)
+		webauthnHandler = api.NewWebAuthnHandler(webauthnRepo, rp, sessionMgr, adminMgr, ipLimiter)
+
+		go func() {
+			ticker := time.NewTicker(1 * time.Hour)
+			defer ticker.Stop()
+			for range ticker.C {
+				if n, err := webauthnRepo.CleanupExpiredSessions(context.Background()); err != nil {
+					debuglog.Error("webauthn: session cleanup failed", "error", err)
+				} else if n > 0 {
+					debuglog.Info("webauthn: cleaned up expired sessions", "count", n)
+				}
+			}
+		}()
+
+		debuglog.Info("webauthn: passkey authentication enabled", "rp_id", cfg.WebAuthnRPID)
+	}
+
 	// API routes
 	r.Route("/api", func(r chi.Router) {
-		// SSE endpoint — long-lived connection, must NOT have a request
-		// timeout.  The handler detects client disconnect via
-		// r.Context().Done() instead.
 		r.Group(func(r chi.Router) {
 			apiHandler.RegisterEvents(r)
 		})
 
-		// All other API routes — standard 60s timeout is appropriate for
-		// admin/API calls.
+		if webauthnHandler != nil {
+			r.Group(func(r chi.Router) {
+				webauthnHandler.Register(r)
+			})
+		}
+
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Timeout(60 * time.Second))
 			apiHandler.Register(r)

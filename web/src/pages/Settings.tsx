@@ -10,6 +10,7 @@ import { CircuitBreakerSettings } from "./Settings/CircuitBreakerSettings";
 import { DatabaseBackupSettings } from "./Settings/DatabaseBackupSettings";
 import { DataStorageSettings } from "./Settings/DataStorageSettings";
 import { DiscoverySettings } from "./Settings/DiscoverySettings";
+import { PasskeySettings } from "./Settings/PasskeySettings";
 import { ProxySettings } from "./Settings/ProxySettings";
 import { RateLimitSettings } from "./Settings/RateLimitSettings";
 
@@ -30,6 +31,9 @@ export function Settings() {
 		useCollapsible("settings_circuitBreakerCollapsed");
 	const { collapsed: proxyCollapsed, toggle: toggleProxy } = useCollapsible(
 		"settings_proxyCollapsed",
+	);
+	const { collapsed: passkeyCollapsed, toggle: togglePasskey } = useCollapsible(
+		"settings_passkeyCollapsed",
 	);
 
 	const { isLoading } = useQuery({
@@ -53,6 +57,11 @@ export function Settings() {
 				<DiscoverySettings
 					collapsed={modelDiscoveryCollapsed}
 					onToggle={toggleModelDiscovery}
+				/>
+
+				<PasskeySettings
+					collapsed={passkeyCollapsed}
+					onToggle={togglePasskey}
 				/>
 
 				<AppearanceSettings

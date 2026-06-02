@@ -35,6 +35,12 @@ type Config struct {
 	ModelsDevEnabled     bool
 	DebugLog             bool
 	TrustedProxies       []*net.IPNet
+
+	// WebAuthn/FIDO2 configuration. When WEBAUTHN_RP_ID is set, passkey
+	// login is enabled; otherwise the feature is completely disabled.
+	WebAuthnRPID          string
+	WebAuthnRPDisplayName string
+	WebAuthnRPOrigins     []string
 }
 
 // defaultKnownProviderHosts are always allowed as provider base_url hosts,
@@ -91,6 +97,10 @@ func Load() (*Config, error) {
 		ModelsDevEnabled: getBoolEnvWithDefault("MODELSDEV_ENABLED", true),
 		DebugLog:         getBoolEnvWithDefault("DEBUG_LOG", false),
 		TrustedProxies:   LoadTrustedProxies(),
+
+		WebAuthnRPID:          getEnv("WEBAUTHN_RP_ID"),
+		WebAuthnRPDisplayName: getEnvWithDefault("WEBAUTHN_RP_DISPLAY_NAME", "Model Hotel"),
+		WebAuthnRPOrigins:     parseCORSOrigins(getEnv("WEBAUTHN_RP_ORIGINS")),
 	}
 
 	// If DATABASE_URL is not set, construct it from POSTGRES_* components.

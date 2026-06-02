@@ -1,0 +1,156 @@
+package webauthn
+
+import (
+	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/hex"
+	"io"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
+)
+
+// SessionManager handles WebAuthn-based admin session authentication.
+// It validates bearer tokens stored as WebAuthn session records of type "auth_token",
+// following the same hash-then-lookup pattern as admin.Manager (SHA-256 + constant-time compare).
+type SessionManager struct {
+	repo *Repository
+}
+
+// NewSessionManager creates a new SessionManager backed by the given repository.
+func NewSessionManager(repo *Repository) *SessionManager {
+	return &SessionManager{repo: repo}
+}
+
+// Validate checks whether the given token is a valid, non-expired auth token
+// session. It hashes the token with SHA-256 before DB lookup (no plaintext
+// tokens stored) and uses constant-time comparison for the hash match.
+// The ctx parameter propagates request deadlines and tracing.
+func (m *SessionManager) Validate(ctx context.Context, token string) bool {
+	if token == "" {
+		return false
+	}
+
+	// Hash the token first — eliminates the timing oracle between UUID-parse
+	// failures and DB lookup, and matches the project's hash-before-store
+	// security model (admin token, virtual keys).
+	hash := sha256.Sum256([]byte(token))
+	tokenHash := hex.EncodeToString(hash[:])
+
+	session, err := m.repo.GetSessionByTokenHash(ctx, tokenHash)
+	if err != nil {
+		return false
+	}
+
+	if session.Type != "auth_token" {
+		return false
+	}
+
+	if time.Now().After(session.ExpiresAt) {
+		return false
+	}
+
+	// Constant-time compare as defense in depth (the DB lookup is already by
+	// hash, but this prevents any theoretical timing leak from the comparison
+	// itself if the DB ever returns multiple rows).
+	if session.TokenHash == nil {
+		return false
+	}
+
+	if subtle.ConstantTimeCompare([]byte(tokenHash), []byte(*session.TokenHash)) != 1 {
+		return false
+	}
+
+	return true
+}
+
+// CreateAuthToken creates a new 30-day admin authentication session.
+// It generates a cryptographically random token, stores only its SHA-256 hash
+// in the database, and returns the raw token to the caller.
+// The ctx parameter propagates request deadlines and tracing.
+// credentialID links the auth token to the passkey used for login, so that
+// deleting the passkey can cascade-revoke its derived sessions.
+func (m *SessionManager) CreateAuthToken(ctx context.Context, userID, credentialID []byte) (string, error) {
+	// Generate a high-entropy random token (32 bytes = 256 bits).
+	tokenBytes := make([]byte, 32)
+	if _, err := io.ReadFull(rand.Reader, tokenBytes); err != nil {
+		return "", err
+	}
+	token := hex.EncodeToString(tokenBytes)
+
+	// Hash the token for storage — the raw token is never persisted.
+	hash := sha256.Sum256([]byte(token))
+	tokenHash := hex.EncodeToString(hash[:])
+
+	id, err := uuid.NewRandom()
+	if err != nil {
+		return "", err
+	}
+
+	challenge, err := generateChallenge(32)
+	if err != nil {
+		return "", err
+	}
+
+	// Auth tokens don't need meaningful WebAuthn session data, but the column
+	// is NOT NULL, so store a minimal JSON object.
+	sessionData := []byte(`{"type":"auth_token"}`)
+
+	session := &SessionRecord{
+		ID:           id,
+		Challenge:    challenge,
+		SessionData:  sessionData,
+		Type:         "auth_token",
+		UserID:       userID,
+		TokenHash:    &tokenHash,
+		CredentialID: credentialID,
+		ExpiresAt:    time.Now().Add(30 * 24 * time.Hour),
+	}
+
+	if err := m.repo.CreateSession(ctx, session); err != nil {
+		return "", err
+	}
+
+	return token, nil
+}
+
+// RevokeAuthToken deletes an auth token session by hashing the token and
+// looking up the session by its token_hash. Returns true if a session was
+// found and deleted.
+func (m *SessionManager) RevokeAuthToken(ctx context.Context, token string) bool {
+	if token == "" {
+		return false
+	}
+
+	hash := sha256.Sum256([]byte(token))
+	tokenHash := hex.EncodeToString(hash[:])
+
+	session, err := m.repo.GetSessionByTokenHash(ctx, tokenHash)
+	if err != nil {
+		return false
+	}
+
+	if session.Type != "auth_token" {
+		return false
+	}
+
+	if err := m.repo.DeleteSession(ctx, session.ID); err != nil {
+		debuglog.Error("webauthn: failed to revoke auth token", "error", err)
+		return false
+	}
+
+	return true
+}
+
+// generateChallenge returns a hex-encoded random challenge of the given byte length.
+func generateChallenge(length int) (string, error) {
+	buf := make([]byte, length)
+	if _, err := io.ReadFull(rand.Reader, buf); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(buf), nil
+}

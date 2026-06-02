@@ -254,6 +254,8 @@ ADMIN_TOKEN=
                 - RATE_LIMIT_ENABLED=true
                 - DEBUG_LOG=false
                 - CORS_ORIGINS=http://localhost:5173,http://localhost:${HOST_PORT:-8081}
+                - WEBAUTHN_RP_ID=${WEBAUTHN_RP_ID:-}
+                - WEBAUTHN_RP_ORIGINS=${WEBAUTHN_RP_ORIGINS:-}
                 - ALLOWED_PROVIDER_HOSTS=
             volumes:
                 - ./.data:/data

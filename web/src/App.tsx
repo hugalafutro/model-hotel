@@ -1,5 +1,6 @@
-import { Eye, EyeOff } from "lucide-react";
-import { lazy, Suspense, useState } from "react";
+import { Eye, EyeOff, Fingerprint } from "lucide-react";
+import { lazy, Suspense, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { setAdminToken } from "./api/client";
 import { Layout } from "./components/Layout";
@@ -10,6 +11,7 @@ import { SidebarModeProvider } from "./context/SidebarModeContext";
 import { StorageProvider } from "./context/StorageContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { ToastProvider } from "./context/ToastContext";
+import { isWebAuthnAvailable, loginWithPasskey } from "./utils/webauthn";
 
 const Dashboard = lazy(() =>
 	import("./pages/Dashboard").then((m) => ({ default: m.Dashboard })),
@@ -42,14 +44,21 @@ const Arena = lazy(() =>
 );
 
 function LoginScreen() {
+	const { t } = useTranslation();
 	const [token, setToken] = useState("");
 	const [showToken, setShowToken] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
+	const [passkeyLoading, setPasskeyLoading] = useState(false);
+	const [passkeyAvailable, setPasskeyAvailable] = useState(false);
+
+	useEffect(() => {
+		isWebAuthnAvailable().then(setPasskeyAvailable);
+	}, []);
 
 	const handleLogin = async () => {
 		if (!token.trim()) {
-			setError("Please enter an admin token");
+			setError(t("layout.auth.emptyToken"));
 			return;
 		}
 		setLoading(true);
@@ -59,16 +68,33 @@ function LoginScreen() {
 				headers: { Authorization: `Bearer ${token.trim()}` },
 			});
 			if (!res.ok) {
-				setError("Invalid admin token");
+				setError(t("layout.auth.invalidToken"));
 				return;
 			}
 			localStorage.setItem("adminToken", token.trim());
 			setAdminToken(token.trim());
 			window.location.reload();
 		} catch {
-			setError("Failed to connect to server");
+			setError(t("layout.auth.connectionFailed"));
 		} finally {
 			setLoading(false);
+		}
+	};
+
+	const handlePasskeyLogin = async () => {
+		setPasskeyLoading(true);
+		setError(null);
+		try {
+			const sessionToken = await loginWithPasskey();
+			if (sessionToken) {
+				localStorage.setItem("adminToken", sessionToken);
+				setAdminToken(sessionToken);
+				window.location.reload();
+			}
+		} catch {
+			setError(t("layout.auth.passkeyFailed"));
+		} finally {
+			setPasskeyLoading(false);
 		}
 	};
 
@@ -92,12 +118,35 @@ function LoginScreen() {
 				)}
 
 				<div className="space-y-4">
+					{passkeyAvailable && (
+						<>
+							<button
+								type="button"
+								onClick={handlePasskeyLogin}
+								disabled={passkeyLoading}
+								className="w-full bg-(--accent) text-white py-3 rounded-lg hover:brightness-110 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+								aria-label={t("layout.auth.signInWithPasskey")}
+							>
+								<Fingerprint size={20} />
+								{passkeyLoading
+									? t("layout.auth.signingIn")
+									: t("layout.auth.signInWithPasskey")}
+							</button>
+							<div className="flex items-center gap-3">
+								<div className="flex-1 h-px bg-gray-700"></div>
+								<span className="text-xs text-gray-500 uppercase">
+									{t("layout.auth.orDivider")}
+								</span>
+								<div className="flex-1 h-px bg-gray-700"></div>
+							</div>
+						</>
+					)}
 					<div>
 						<label
 							htmlFor="admin-token"
 							className="block text-sm font-medium text-gray-300 mb-2"
 						>
-							Admin Token
+							{t("layout.auth.adminToken")}
 						</label>
 						<div className="relative">
 							<input
@@ -109,14 +158,18 @@ function LoginScreen() {
 									e.key === "Enter" && !loading && handleLogin()
 								}
 								className="ui-input pr-10! overflow-hidden"
-								placeholder="Enter your admin token"
+								placeholder={t("layout.auth.enterToken")}
 							/>
 							<button
 								type="button"
 								onClick={() => setShowToken(!showToken)}
 								className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
 								tabIndex={-1}
-								aria-label={showToken ? "Hide token" : "Show token"}
+								aria-label={
+									showToken
+										? t("layout.auth.hideToken")
+										: t("layout.auth.showToken")
+								}
 							>
 								{showToken ? <EyeOff size={18} /> : <Eye size={18} />}
 							</button>
@@ -128,10 +181,10 @@ function LoginScreen() {
 						disabled={loading}
 						className="w-full bg-(--accent) text-white py-3 rounded-lg hover:brightness-110 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
 					>
-						{loading ? "Signing in…" : "Sign In"}
+						{loading ? t("layout.auth.signingIn") : t("layout.auth.signIn")}
 					</button>
 					<p className="text-sm text-gray-500 text-center">
-						Get your admin token from the server logs
+						{t("layout.auth.getTokenHint")}
 					</p>
 				</div>
 			</div>
