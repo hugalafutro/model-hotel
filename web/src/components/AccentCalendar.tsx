@@ -38,11 +38,13 @@ export function AccentCalendar({
 
 	const weekdays = useMemo(
 		() =>
-			Array.from({ length: 7 }, (_, i) =>
-				new Intl.DateTimeFormat(undefined, { weekday: "narrow" }).format(
-					new Date(2024, 0, i + 1),
-				),
-			),
+			Array.from({ length: 7 }, (_, i) => {
+				// Use a known Sunday (2024-01-07) as anchor for Sun-first grid
+				const date = new Date(2024, 0, 7 + i);
+				return new Intl.DateTimeFormat(undefined, {
+					weekday: "narrow",
+				}).format(date);
+			}),
 		[],
 	);
 
@@ -106,8 +108,9 @@ export function AccentCalendar({
 				</button>
 			</div>
 			<div className="grid grid-cols-7 gap-0.5 text-center text-[10px] text-gray-500 mb-1">
-				{weekdays.map((d) => (
-					<div key={d}>{d}</div>
+				{weekdays.map((d, i) => (
+					// biome-ignore lint/suspicious/noArrayIndexKey: weekday names can be duplicates (e.g. "S" for Sun/Sat in English) so index is the only stable key
+					<div key={`weekday-${i}`}>{d}</div>
 				))}
 			</div>
 			<div className="grid grid-cols-7 gap-0.5">

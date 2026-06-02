@@ -35,13 +35,22 @@ describe("AccentCalendar", () => {
 
 	it("renders day headers (Su-Sa)", () => {
 		renderWithProviders(<AccentCalendar {...defaultProps} />);
-		// Day headers use Intl.DateTimeFormat with user's locale, so use regex matcher
-		// to handle locale-specific narrow weekday formats (Su, Mo, Tu, etc.)
-		expect(screen.getByText(/^S/)).toBeInTheDocument();
-		expect(screen.getByText(/^M/)).toBeInTheDocument();
-		expect(screen.getByText(/^T/)).toBeInTheDocument();
-		expect(screen.getByText(/^W/)).toBeInTheDocument();
-		expect(screen.getByText(/^F/)).toBeInTheDocument();
+		// Day headers use locale-aware Intl.DateTimeFormat narrow weekday names.
+		// Some locales produce duplicate abbreviations (e.g. English "S" for Sun/Sat, "T" for Tue/Thu),
+		// so we check all 7 header cells are present via getAllByText.
+		const sHeaders = screen.getAllByText(/^S/);
+		const mHeaders = screen.getAllByText(/^M/);
+		const tHeaders = screen.getAllByText(/^T/);
+		const wHeaders = screen.getAllByText(/^W/);
+		const fHeaders = screen.getAllByText(/^F/);
+		// 7 headers total: Su + Mo + Tu + We + Th + Fr + Sa
+		expect(
+			sHeaders.length +
+				mHeaders.length +
+				tHeaders.length +
+				wHeaders.length +
+				fHeaders.length,
+		).toBe(7);
 	});
 
 	it("renders day buttons for all days in month", () => {

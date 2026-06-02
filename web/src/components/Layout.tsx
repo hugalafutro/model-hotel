@@ -347,9 +347,7 @@ function SystemStatus() {
 									? t("layout.stats.aggregateMemory", {
 											count: docker.container_count,
 										})
-									: hasLimit
-										? t("layout.stats.memory")
-										: t("layout.stats.memory")
+									: t("layout.stats.memory")
 							}
 						>
 							<span>{t("layout.stats.memory")}</span>

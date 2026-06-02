@@ -156,6 +156,9 @@ export function PaginationBar({
 
 	const singular = label.replace(/s$/, "");
 
+	const start = (page - 1) * pageSize + 1;
+	const end = Math.min(page * pageSize, totalItems);
+
 	return (
 		<div className="flex items-center gap-3">
 			{!hideCount &&
@@ -165,16 +168,24 @@ export function PaginationBar({
 					<div className="text-sm text-gray-500">
 						{t("components.dataTable.countOne", { label: singular })}
 					</div>
+				) : totalItems <= pageSize ? (
+					<div className="text-sm text-gray-500">
+						{t("components.dataTable.entriesShort", {
+							start: String(start),
+							end: String(end),
+							total: totalItems,
+							label,
+						})}
+					</div>
 				) : (
 					<div className="text-sm text-gray-500">
-						{(page - 1) * pageSize + 1}
-						{totalItems > pageSize ? (
-							<>
-								{t("components.dataTable.to")}{" "}
-								{Math.min(page * pageSize, totalItems)}
-							</>
-						) : null}{" "}
-						{t("components.dataTable.of")} {totalItems} {label}
+						{t("components.dataTable.entries", {
+							start: String(start),
+							to: t("components.dataTable.to"),
+							end: String(end),
+							total: totalItems,
+							label,
+						})}
 					</div>
 				))}
 			{totalItems > 0 && (

@@ -226,7 +226,7 @@ export function ModelTable({
 								setPageSize(s);
 								setCurrentPage(1);
 							}}
-							label="models"
+							label={t("components.modelTable.models")}
 						/>
 					)}
 					<div className="flex-1 flex justify-end">

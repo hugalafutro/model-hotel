@@ -182,8 +182,11 @@ describe("ModelTable", () => {
 				<ModelTable models={models} providers={[mockProvider]} />,
 			);
 
-			expect(screen.getByText("Prev")).toBeInTheDocument();
-			expect(screen.getByText("Next")).toBeInTheDocument();
+			// Use getAllByRole since "Prev"/"Next" appear in multiple PaginationBar instances
+			const prevButtons = screen.getAllByRole("button", { name: "Prev" });
+			const nextButtons = screen.getAllByRole("button", { name: "Next" });
+			expect(prevButtons.length).toBeGreaterThanOrEqual(1);
+			expect(nextButtons.length).toBeGreaterThanOrEqual(1);
 		});
 
 		it("renders provider filter dropdown", () => {

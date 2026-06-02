@@ -320,16 +320,18 @@ describe("Logs", () => {
 				expect(screen.getByText("hash0")).toBeInTheDocument();
 			});
 
-			// Pagination should be visible: shows "1 to 20 of 50 entries" (default pageSize is 20)
-			// Text may be split across nodes, so check key parts
-			expect(screen.getByText("of")).toBeInTheDocument();
-			expect(screen.getByText("50")).toBeInTheDocument();
-			expect(screen.getByText("entries")).toBeInTheDocument();
-			// Page navigation buttons - use getAllByRole since buttons may appear multiple times
-			const prevButtons = screen.getAllByRole("button", { name: "Prev" });
-			const nextButtons = screen.getAllByRole("button", { name: "Next" });
-			expect(prevButtons.length).toBeGreaterThan(0);
-			expect(nextButtons.length).toBeGreaterThan(0);
+			// Pagination now renders as single text node via i18n:
+			// "1 to 20 of 50 entries" (multi-page) or "1–20 of 50 entries" (single-page range)
+			expect(
+				screen.getByText("1 to 20 of 50 entries", { exact: true }),
+			).toBeInTheDocument();
+			// Page navigation buttons use i18n translations
+			expect(
+				screen.getByRole("button", { name: "Prev", exact: true }),
+			).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: "Next", exact: true }),
+			).toBeInTheDocument();
 			expect(screen.getByText("2")).toBeInTheDocument();
 		});
 
@@ -356,18 +358,17 @@ describe("Logs", () => {
 				expect(screen.getByText("hash0")).toBeInTheDocument();
 			});
 
-			// Click next page button
-			const nextPageButtons = screen.getAllByRole("button").filter((btn) => {
-				return btn.textContent === "›";
-			});
-			if (nextPageButtons.length > 0) {
-				await user.click(nextPageButtons[0]);
+			// Click Next button to go to page 2
+			await user.click(
+				screen.getByRole("button", { name: "Next", exact: true }),
+			);
 
-				// Should navigate to page 2
-				await waitFor(() => {
-					expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
-				});
-			}
+			// Should navigate to page 2 - pagination shows "21 to 40 of 50 entries"
+			await waitFor(() => {
+				expect(
+					screen.getByText("21 to 40 of 50 entries", { exact: true }),
+				).toBeInTheDocument();
+			});
 		});
 	});
 });
