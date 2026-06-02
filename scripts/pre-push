@@ -9,7 +9,9 @@ set -euo pipefail
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 echo "pre-push: go vet ./..."
-if ! go vet ./...; then
+# web/node_modules is a root-owned 000 directory that blocks `go vet ./...`.
+# Only vet the Go packages we actually have.
+if ! go vet ./cmd/... ./internal/...; then
 	echo "pre-push: FAILED - go vet" >&2
 	exit 1
 fi
