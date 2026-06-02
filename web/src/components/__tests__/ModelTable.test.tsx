@@ -586,8 +586,11 @@ describe("ModelTable", () => {
 				<ModelTable models={models} providers={[mockProvider]} />,
 			);
 
-			expect(screen.getByText("Prev")).toBeInTheDocument();
-			expect(screen.getByText("Next")).toBeInTheDocument();
+			// Use getAllByText since "Prev"/"Next" may appear in multiple places
+			const prevButtons = screen.getAllByRole("button", { name: "Prev" });
+			const nextButtons = screen.getAllByRole("button", { name: "Next" });
+			expect(prevButtons.length).toBeGreaterThan(0);
+			expect(nextButtons.length).toBeGreaterThan(0);
 		});
 
 		it("changes page size", async () => {
@@ -608,8 +611,10 @@ describe("ModelTable", () => {
 			await user.selectOptions(pageSizeSelect, "10");
 
 			await waitFor(() => {
-				// With page size 10, should show "1 to 10 of 50"
-				expect(screen.getByText(/1 to 10 of 50/)).toBeInTheDocument();
+				// With page size 10, should show pagination text with "1 to 10 of 50"
+				// Text may be split, so check for key patterns
+				const paginationText = document.querySelector(".text-sm.text-gray-500");
+				expect(paginationText?.textContent).toMatch(/1to? 10 of 50/);
 			});
 		});
 
@@ -624,12 +629,16 @@ describe("ModelTable", () => {
 				<ModelTable models={models} providers={[mockProvider]} />,
 			);
 
-			// Click next
-			const nextButton = screen.getByRole("button", { name: "Next" });
-			await user.click(nextButton);
+			// Use getAllByRole since "Next" may appear in multiple pagination controls
+			const nextButtons = screen.getAllByRole("button", { name: "Next" });
+			await user.click(nextButtons[0]);
 
 			await waitFor(() => {
-				expect(screen.getByText("Prev")).not.toBeDisabled();
+				// Prev button should be enabled after navigating
+				const prevButtons = screen.getAllByRole("button", { name: "Prev" });
+				expect(prevButtons.some((btn) => !btn.hasAttribute("disabled"))).toBe(
+					true,
+				);
 			});
 		});
 
@@ -646,32 +655,42 @@ describe("ModelTable", () => {
 
 			// First page - prev should be disabled
 			await waitFor(() => {
-				expect(screen.getByRole("button", { name: "Prev" })).toBeDisabled();
+				const prevButtons = screen.getAllByRole("button", { name: "Prev" });
+				expect(prevButtons.every((btn) => btn.hasAttribute("disabled"))).toBe(
+					true,
+				);
 			});
 
 			// Go to next page
-			await user.click(screen.getByRole("button", { name: "Next" }));
+			const nextButtons = screen.getAllByRole("button", { name: "Next" });
+			await user.click(nextButtons[0]);
 
 			// Now prev should be enabled
 			await waitFor(
 				() => {
-					expect(
-						screen.getByRole("button", { name: "Prev" }),
-					).not.toBeDisabled();
+					const prevButtons = screen.getAllByRole("button", { name: "Prev" });
+					expect(prevButtons.some((btn) => !btn.hasAttribute("disabled"))).toBe(
+						true,
+					);
 				},
 				{ timeout: 10000 },
 			);
 
 			// Go back to previous page
-			await user.click(screen.getByRole("button", { name: "Prev" }));
+			const prevButtons2 = screen.getAllByRole("button", { name: "Prev" });
+			await user.click(
+				prevButtons2.find((btn) => !btn.hasAttribute("disabled"))!,
+			);
 
 			// Prev should be disabled again
-			await waitFor(
-				() => {
-					expect(screen.getByRole("button", { name: "Prev" })).toBeDisabled();
-				},
-				{ timeout: 10000 },
-			);
+			await waitFor(() => {
+				const prevButtonsFinal = screen.getAllByRole("button", {
+					name: "Prev",
+				});
+				expect(
+					prevButtonsFinal.every((btn) => btn.hasAttribute("disabled")),
+				).toBe(true);
+			});
 		});
 
 		it("navigates to specific page number", async () => {

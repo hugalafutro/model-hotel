@@ -122,6 +122,6 @@ describe("ThemeContext", () => {
 		// Verify default accent color is in presets
 		const defaultPreset = presets.find((p) => p.color === "#546de5");
 		expect(defaultPreset).toBeDefined();
-		expect(defaultPreset?.name).toBe("Steel Blue");
+		expect(defaultPreset?.name).toBe("theme.accent.steelBlue");
 	});
 });

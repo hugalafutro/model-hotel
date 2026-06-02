@@ -66,8 +66,8 @@ export function countLabel(
 ): string {
 	const n = count ?? 0;
 	if (n === 0) return plural;
-	// Use i18next ICU plural format for proper localization
-	return i18next.t("format.countLabel", { count: n, singular, plural });
+	if (n === 1) return `1 ${singular}`;
+	return `${n} ${plural}`;
 }
 
 export function formatDate(ts: number | string): string {

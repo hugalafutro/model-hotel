@@ -1114,8 +1114,7 @@
 		"inDays_only_other": "in {{days}} days",
 		"inHours_only_one": "in {{hours}} hour",
 		"inHours_only_other": "in {{hours}} hours",
-		"now": "now",
-		"countLabel": "{{count, plural, one{1 {{singular}}} other{{{count}} {{plural}}}}}"
+		"now": "now"
 	},
 	"presets": {
 		"personas": {
@@ -1794,7 +1793,7 @@
 			"copy": "Copy",
 			"disableModel": "Disable model",
 			"disable": "Disable",
-			"thinking": "Thinking",
+			"thinking": "Thinking…",
 			"waiting": "Waiting…",
 			"thinkingDots": "Thinking…",
 			"turn": "Turn {{number}}",
@@ -2119,7 +2118,8 @@
 			"allLabel": "All"
 		},
 		"providerModelsModal": {
-			"modelCount": "{{count, plural, one{model} other{models}}}"
+			"modelCount_one": "model",
+			"modelCount_other": "models"
 		}
 	},
 	"failoverGroups": {

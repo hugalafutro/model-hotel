@@ -28,7 +28,11 @@ describe("ProviderModelsModal", () => {
 			<ProviderModelsModal {...defaultProps} models={models} />,
 		);
 
-		expect(screen.getByText("2 models")).toBeInTheDocument();
+		// Badge renders count and plural separately
+		// t("components.providerModelsModal.modelCount", { count: 2 }) resolves to "models" (the _other form)
+		const badge = document.querySelector("span.rounded-full");
+		expect(badge).toBeInTheDocument();
+		expect(badge?.textContent).toMatch(/2\s+models/);
 	});
 
 	it("shows 1 model when single model", () => {
@@ -52,7 +56,10 @@ describe("ProviderModelsModal", () => {
 			<ProviderModelsModal {...defaultProps} models={models} />,
 		);
 
-		expect(screen.getByText("5 models")).toBeInTheDocument();
+		// Badge renders count and plural: "5 models"
+		const badge = document.querySelector("span.rounded-full");
+		expect(badge).toBeInTheDocument();
+		expect(badge?.textContent).toMatch(/5\s+models/);
 	});
 
 	it("filters models by provider_id", () => {
@@ -140,8 +147,10 @@ describe("ProviderModelsModal", () => {
 			<ProviderModelsModal {...defaultProps} models={models} />,
 		);
 
-		// Should show 0 models badge
-		expect(screen.getByText("0 models")).toBeInTheDocument();
+		// Badge renders count and plural: "0 models" (t key with count=0 uses _other form)
+		const badge = document.querySelector("span.rounded-full");
+		expect(badge).toBeInTheDocument();
+		expect(badge?.textContent).toMatch(/0\s+models/);
 
 		// Table should show empty state
 		expect(
