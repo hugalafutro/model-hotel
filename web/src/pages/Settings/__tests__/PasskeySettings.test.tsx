@@ -310,6 +310,7 @@ describe("PasskeySettings", () => {
 			const input = screen.getByRole("textbox", {
 				name: /Passkey name/i,
 			});
+			await userEvent.clear(input);
 			await userEvent.type(input, "New Name");
 			await userEvent.keyboard("{Enter}");
 
