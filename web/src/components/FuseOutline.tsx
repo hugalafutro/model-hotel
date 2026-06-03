@@ -11,7 +11,11 @@ interface FuseOutlineProps {
 	strokeWidth?: number;
 	/** Corner radius (default 5) */
 	rx?: number;
-	/** CSS class for the wrapping SVG */
+	/** CSS class for the wrapping SVG. Default positions the SVG as an absolute
+	 *  inset-0 overlay that fills its parent — the ResizeObserver measures the
+	 *  SVG viewport, which maps to the parent rect because of this positioning.
+	 *  If you override className, ensure the SVG still fills the intended target
+	 *  element so dimensions are measured correctly. */
 	className?: string;
 }
 
@@ -62,13 +66,14 @@ export function FuseOutline({
 					vectorEffect="non-scaling-stroke"
 					strokeDasharray={perimeter}
 					strokeLinecap="round"
-					style={{
-						animation: `fuse ${durationMs}ms linear forwards`,
-						animationPlayState: paused ? "paused" : "running",
-						filter: `drop-shadow(0 0 2px ${color})`,
-						// @ts-expect-error CSS custom property for dynamic keyframe
-						"--fuse-perimeter": perimeter,
-					}}
+					style={
+						{
+							animation: `fuse ${durationMs}ms linear forwards`,
+							animationPlayState: paused ? "paused" : "running",
+							filter: `drop-shadow(0 0 2px ${color})`,
+							"--fuse-perimeter": perimeter,
+						} as React.CSSProperties
+					}
 				/>
 			)}
 		</svg>

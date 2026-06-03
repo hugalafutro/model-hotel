@@ -150,7 +150,6 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 		it("renders static amber outline (no SVG fuse animation) for half-open", () => {
 			const cbStatus = {
 				state: "half-open",
-				cooldown_ms: 60000,
 				consecutive_fails: 5,
 			};
 

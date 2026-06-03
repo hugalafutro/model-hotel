@@ -280,7 +280,7 @@ describe("VirtualLogTable", () => {
 				<VirtualLogTable {...defaultProps} entries={entries} />,
 			);
 
-			const badge = screen.getByText("200").closest('[class*="bg-"]');
+			const badge = screen.getByText("200").closest("[data-test-variant]");
 			expect(badge).toHaveClass("bg-green-900/30", "text-green-400");
 		});
 
@@ -295,7 +295,7 @@ describe("VirtualLogTable", () => {
 				<VirtualLogTable {...defaultProps} entries={entries} />,
 			);
 
-			const badge = screen.getByText("0").closest('[class*="bg-"]');
+			const badge = screen.getByText("0").closest("[data-test-variant]");
 			expect(badge).toHaveClass("bg-red-900/30", "text-red-400");
 		});
 
@@ -310,7 +310,7 @@ describe("VirtualLogTable", () => {
 				<VirtualLogTable {...defaultProps} entries={entries} />,
 			);
 
-			const badge = screen.getByText("429").closest('[class*="bg-"]');
+			const badge = screen.getByText("429").closest("[data-test-variant]");
 			expect(badge).toHaveClass("bg-orange-900/30", "text-orange-400");
 		});
 
@@ -325,7 +325,7 @@ describe("VirtualLogTable", () => {
 				<VirtualLogTable {...defaultProps} entries={entries} />,
 			);
 
-			const badge = screen.getByText("500").closest('[class*="bg-"]');
+			const badge = screen.getByText("500").closest("[data-test-variant]");
 			expect(badge).toHaveClass("bg-red-900/30", "text-red-400");
 		});
 
@@ -340,7 +340,7 @@ describe("VirtualLogTable", () => {
 				<VirtualLogTable {...defaultProps} entries={entries} />,
 			);
 
-			const badge = screen.getByText("100").closest('[class*="bg-"]');
+			const badge = screen.getByText("100").closest("[data-test-variant]");
 			expect(badge).toHaveClass("bg-gray-700/30", "text-gray-400");
 		});
 

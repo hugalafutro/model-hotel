@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -26,6 +27,12 @@ type FailoverHandler struct {
 	dbPool       *pgxpool.Pool
 	settingsRepo SettingsStore
 	cbReader     CircuitBreakerReader
+
+	// Cache for aggregate circuit-breaker status to avoid scanning all
+	// failover groups on every 15s poll from each connected client.
+	cbStatusCache     CircuitBreakerStatusResponse
+	cbStatusCacheTime time.Time
+	cbStatusMu        sync.Mutex
 }
 
 // NewFailoverHandler creates a new failover group handler.
@@ -513,8 +520,28 @@ func (h *FailoverHandler) GetByModelUUID(w http.ResponseWriter, r *http.Request)
 	http.Error(w, "model not in any failover group", http.StatusNotFound)
 }
 
+// cbStatusCacheTTL is how long the aggregate circuit-breaker status cache
+// is valid before re-computing. This avoids scanning all failover groups
+// on every 15s poll from each connected client.
+const cbStatusCacheTTL = 5 * time.Second
+
 // CircuitBreakerStatus returns the current circuit breaker state for all tracked providers.
 func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Request) {
+	// Detail queries bypass the cache — they're only requested from the
+	// Failover page and need per-provider freshness.
+	wantDetail := r.URL.Query().Get("detail") == "1"
+
+	if !wantDetail {
+		h.cbStatusMu.Lock()
+		if time.Since(h.cbStatusCacheTime) < cbStatusCacheTTL {
+			cached := h.cbStatusCache
+			h.cbStatusMu.Unlock()
+			writeJSON(w, cached)
+			return
+		}
+		h.cbStatusMu.Unlock()
+	}
+
 	resp := CircuitBreakerStatusResponse{}
 	trackedProviders := make([]failover.ProviderStatus, 0)
 	if h.cbReader != nil {
@@ -557,8 +584,16 @@ func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Re
 		}
 	}
 
+	// Cache the aggregate result (detail responses are not cached)
+	if !wantDetail {
+		h.cbStatusMu.Lock()
+		h.cbStatusCache = resp
+		h.cbStatusCacheTime = time.Now()
+		h.cbStatusMu.Unlock()
+	}
+
 	// Include per-provider detail when requested (for the Failover page UI).
-	if r.URL.Query().Get("detail") == "1" {
+	if wantDetail {
 		resp.Providers = trackedProviders
 	}
 

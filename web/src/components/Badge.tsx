@@ -38,6 +38,7 @@ export const Badge = memo(function Badge({
 }: BadgeProps) {
 	return (
 		<span
+			data-test-variant={variant}
 			className={`inline-flex items-center whitespace-nowrap px-1.5 py-px leading-[1.6] text-[10px] rounded-full font-medium ${VARIANT_CLASSES[variant]}${className ? ` ${className}` : ""}`}
 		>
 			<span className="badge-text">{children}</span>

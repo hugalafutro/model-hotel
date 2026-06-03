@@ -745,7 +745,6 @@ func TestCircuitBreakerStatus_WithDetail(t *testing.T) {
 				State:            failover.StateHalfOpen.String(),
 				ConsecutiveFails: 5,
 				OpenedAt:         time.Now().Add(-55 * time.Second).Format(time.RFC3339),
-				CooldownMs:       60000,
 			},
 			{
 				ProviderID:       uuid.New().String(),
@@ -822,13 +821,14 @@ func TestCircuitBreakerStatus_WithDetail(t *testing.T) {
 			t.Error("expected next_retry_at in provider detail")
 		}
 
-		// Second provider should be half-open with cooldown_ms but no next_retry_at.
+		// Second provider should be half-open with opened_at but no cooldown_ms or next_retry_at
+		// (cooldown has elapsed, provider is actively probing).
 		second := providers[1].(map[string]interface{})
 		if second["state"] != "half-open" {
 			t.Errorf("expected state=half-open, got %v", second["state"])
 		}
-		if _, exists := second["cooldown_ms"]; !exists {
-			t.Error("expected cooldown_ms in half-open provider")
+		if _, exists := second["cooldown_ms"]; exists {
+			t.Error("half-open provider should not have cooldown_ms (cooldown has elapsed)")
 		}
 		if _, exists := second["next_retry_at"]; exists {
 			t.Error("half-open provider should not have next_retry_at")

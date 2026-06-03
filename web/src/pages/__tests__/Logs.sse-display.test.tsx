@@ -688,7 +688,7 @@ describe("Logs", () => {
 			const statusElement = screen.getByText("301");
 			expect(statusElement).toBeInTheDocument();
 			// Find the span containing the status text and check its class directly
-			const badge = statusElement.closest('[class*="bg-"]');
+			const badge = statusElement.closest("[data-test-variant]");
 			expect(badge).toHaveClass("text-gray-400");
 		});
 	});

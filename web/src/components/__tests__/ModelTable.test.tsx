@@ -826,10 +826,10 @@ describe("ModelTable", () => {
 
 			// Verify the badge has yellow/warning styling
 			// Note: getByText finds the inner <span class="badge-text">, so we use
-			// closest('[class*="bg-"]') to find the outer Badge span with variant classes
+			// closest('[data-test-variant]') to find the outer Badge span
 			const badge = screen
 				.getByText("Manually Disabled")
-				.closest('[class*="bg-"]');
+				.closest("[data-test-variant]");
 			expect(badge?.className).toMatch(/yellow|amber/);
 		});
 	});

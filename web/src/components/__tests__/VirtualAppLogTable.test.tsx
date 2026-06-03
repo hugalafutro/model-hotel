@@ -262,8 +262,8 @@ describe("VirtualAppLogTable", () => {
 
 			// Badge with ERROR text and red color classes
 			// Note: getByText finds the inner <span class="badge-text">, so we use
-			// closest('[class*="bg-"]') to find the outer Badge span with variant classes
-			const badge = screen.getByText("ERROR").closest('[class*="bg-"]');
+			// closest('[data-test-variant]') to find the outer Badge span
+			const badge = screen.getByText("ERROR").closest("[data-test-variant]");
 			expect(badge).toBeInTheDocument();
 			expect(badge?.className).toContain("bg-red-900/30");
 			expect(badge?.className).toContain("text-red-400");
@@ -287,7 +287,7 @@ describe("VirtualAppLogTable", () => {
 				/>,
 			);
 
-			const badge = screen.getByText("WARNING").closest('[class*="bg-"]');
+			const badge = screen.getByText("WARNING").closest("[data-test-variant]");
 			expect(badge).toBeInTheDocument();
 			expect(badge?.className).toContain("bg-yellow-900/30");
 			expect(badge?.className).toContain("text-yellow-400");
@@ -308,7 +308,7 @@ describe("VirtualAppLogTable", () => {
 				/>,
 			);
 
-			const badge = screen.getByText("INFO").closest('[class*="bg-"]');
+			const badge = screen.getByText("INFO").closest("[data-test-variant]");
 			expect(badge).toBeInTheDocument();
 			expect(badge?.className).toContain("bg-blue-900/30");
 			expect(badge?.className).toContain("text-blue-400");
@@ -330,7 +330,7 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("auth").closest('[class*="bg-"]');
+			const badge = screen.getByText("auth").closest("[data-test-variant]");
 			expect(badge).toBeInTheDocument();
 			expect(badge?.className).toContain("bg-purple-900/30");
 			expect(badge?.className).toContain("text-purple-400");
@@ -342,7 +342,7 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("proxy").closest('[class*="bg-"]');
+			const badge = screen.getByText("proxy").closest("[data-test-variant]");
 			expect(badge).toBeInTheDocument();
 			expect(badge?.className).toContain("bg-cyan-900/30");
 			expect(badge?.className).toContain("text-cyan-400");
@@ -354,7 +354,7 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("settings").closest('[class*="bg-"]');
+			const badge = screen.getByText("settings").closest("[data-test-variant]");
 			expect(badge).toBeInTheDocument();
 			expect(badge?.className).toContain("bg-indigo-900/30");
 			expect(badge?.className).toContain("text-indigo-400");
@@ -371,7 +371,7 @@ describe("VirtualAppLogTable", () => {
 
 			const badge = screen
 				.getByText("unknown-source")
-				.closest('[class*="bg-"]');
+				.closest("[data-test-variant]");
 			expect(badge).toBeInTheDocument();
 			expect(badge?.className).toContain("bg-gray-800/30");
 			expect(badge?.className).toContain("text-gray-400");
@@ -388,7 +388,7 @@ describe("VirtualAppLogTable", () => {
 
 			const badge = screen
 				.getByText("circuit-breaker")
-				.closest('[class*="bg-"]');
+				.closest("[data-test-variant]");
 			expect(badge).toBeInTheDocument();
 			expect(badge?.className).toContain("bg-orange-900/30");
 			expect(badge?.className).toContain("text-orange-400");
@@ -401,7 +401,7 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("resolve").closest('[class*="bg-"]');
+			const badge = screen.getByText("resolve").closest("[data-test-variant]");
 			expect(badge).toBeInTheDocument();
 			expect(badge?.className).toContain("bg-teal-900/30");
 			expect(badge?.className).toContain("text-teal-400");
@@ -413,7 +413,9 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("discovery").closest('[class*="bg-"]');
+			const badge = screen
+				.getByText("discovery")
+				.closest("[data-test-variant]");
 			expect(badge).toBeInTheDocument();
 			expect(badge?.className).toContain("bg-emerald-900/30");
 			expect(badge?.className).toContain("text-emerald-400");
@@ -425,7 +427,7 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("failover").closest('[class*="bg-"]');
+			const badge = screen.getByText("failover").closest("[data-test-variant]");
 			expect(badge).toBeInTheDocument();
 			expect(badge?.className).toContain("bg-slate-700/50");
 			expect(badge?.className).toContain("text-slate-300");
@@ -437,7 +439,9 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("ratelimit").closest('[class*="bg-"]');
+			const badge = screen
+				.getByText("ratelimit")
+				.closest("[data-test-variant]");
 			expect(badge).toBeInTheDocument();
 			expect(badge?.className).toContain("bg-amber-900/30");
 			expect(badge?.className).toContain("text-amber-400");
@@ -449,7 +453,7 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("vkey").closest('[class*="bg-"]');
+			const badge = screen.getByText("vkey").closest("[data-test-variant]");
 			expect(badge).toBeInTheDocument();
 			expect(badge?.className).toContain("bg-pink-900/30");
 			expect(badge?.className).toContain("text-pink-400");
@@ -461,7 +465,7 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("admin").closest('[class*="bg-"]');
+			const badge = screen.getByText("admin").closest("[data-test-variant]");
 			expect(badge).toBeInTheDocument();
 			expect(badge?.className).toContain("bg-pink-900/30");
 			expect(badge?.className).toContain("text-pink-400");
@@ -473,7 +477,7 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("events").closest('[class*="bg-"]');
+			const badge = screen.getByText("events").closest("[data-test-variant]");
 			expect(badge).toBeInTheDocument();
 			expect(badge?.className).toContain("bg-violet-900/30");
 			expect(badge?.className).toContain("text-violet-400");
@@ -485,7 +489,7 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("docker").closest('[class*="bg-"]');
+			const badge = screen.getByText("docker").closest("[data-test-variant]");
 			expect(badge).toBeInTheDocument();
 			expect(badge?.className).toContain("bg-sky-900/30");
 			expect(badge?.className).toContain("text-sky-400");
@@ -498,7 +502,7 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("keycache").closest('[class*="bg-"]');
+			const badge = screen.getByText("keycache").closest("[data-test-variant]");
 			expect(badge).toBeInTheDocument();
 			expect(badge?.className).toContain("bg-lime-900/30");
 			expect(badge?.className).toContain("text-lime-400");
@@ -510,7 +514,7 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("model").closest('[class*="bg-"]');
+			const badge = screen.getByText("model").closest("[data-test-variant]");
 			expect(badge).toBeInTheDocument();
 			expect(badge?.className).toContain("bg-lime-900/30");
 			expect(badge?.className).toContain("text-lime-400");
@@ -522,7 +526,7 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("provider").closest('[class*="bg-"]');
+			const badge = screen.getByText("provider").closest("[data-test-variant]");
 			expect(badge).toBeInTheDocument();
 			expect(badge?.className).toContain("bg-lime-900/30");
 			expect(badge?.className).toContain("text-lime-400");
@@ -534,7 +538,7 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("cache").closest('[class*="bg-"]');
+			const badge = screen.getByText("cache").closest("[data-test-variant]");
 			expect(badge).toBeInTheDocument();
 			expect(badge?.className).toContain("bg-lime-900/30");
 			expect(badge?.className).toContain("text-lime-400");
@@ -546,7 +550,7 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("db").closest('[class*="bg-"]');
+			const badge = screen.getByText("db").closest("[data-test-variant]");
 			expect(badge).toBeInTheDocument();
 			expect(badge?.className).toContain("bg-lime-900/30");
 			expect(badge?.className).toContain("text-lime-400");
@@ -558,7 +562,7 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("access").closest('[class*="bg-"]');
+			const badge = screen.getByText("access").closest("[data-test-variant]");
 			expect(badge).toBeInTheDocument();
 			expect(badge?.className).toContain("bg-fuchsia-900/30");
 			expect(badge?.className).toContain("text-fuchsia-400");
@@ -571,7 +575,7 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("server").closest('[class*="bg-"]');
+			const badge = screen.getByText("server").closest("[data-test-variant]");
 			expect(badge).toBeInTheDocument();
 			expect(badge?.className).toContain("bg-blue-900/30");
 			expect(badge?.className).toContain("text-blue-400");
@@ -583,7 +587,7 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("startup").closest('[class*="bg-"]');
+			const badge = screen.getByText("startup").closest("[data-test-variant]");
 			expect(badge).toBeInTheDocument();
 			expect(badge?.className).toContain("bg-blue-900/30");
 			expect(badge?.className).toContain("text-blue-400");
@@ -595,7 +599,9 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("retention").closest('[class*="bg-"]');
+			const badge = screen
+				.getByText("retention")
+				.closest("[data-test-variant]");
 			expect(badge).toBeInTheDocument();
 			expect(badge?.className).toContain("bg-blue-900/30");
 			expect(badge?.className).toContain("text-blue-400");
@@ -607,7 +613,9 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("modelsdev").closest('[class*="bg-"]');
+			const badge = screen
+				.getByText("modelsdev")
+				.closest("[data-test-variant]");
 			expect(badge).toBeInTheDocument();
 			expect(badge?.className).toContain("bg-rose-900/30");
 			expect(badge?.className).toContain("text-rose-400");
@@ -619,7 +627,7 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("applogs").closest('[class*="bg-"]');
+			const badge = screen.getByText("applogs").closest("[data-test-variant]");
 			expect(badge).toBeInTheDocument();
 			expect(badge?.className).toContain("bg-gray-700/30");
 			expect(badge?.className).toContain("text-gray-400");

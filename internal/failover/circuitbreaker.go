@@ -291,7 +291,6 @@ func (cb *CircuitBreaker) Status() []ProviderStatus {
 		}
 		if c.state == StateHalfOpen && !c.openedAt.IsZero() {
 			s.OpenedAt = c.openedAt.Format(time.RFC3339)
-			s.CooldownMs = cooldown.Milliseconds()
 		}
 		statuses = append(statuses, s)
 	}
