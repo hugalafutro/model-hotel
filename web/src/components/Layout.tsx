@@ -913,37 +913,39 @@ export function Layout({ children }: LayoutProps) {
 											(cbStatus.closed > 0 ||
 												cbStatus.half_open > 0 ||
 												cbStatus.open > 0) ? (
-											<span className="flex items-baseline gap-0.5 text-xs">
-												{item.name}
-												<span
-													className="text-emerald-400"
-													title={t("layout.nav.failoverClosed", {
-														count: cbStatus.closed,
-													})}
-												>
-													{cbStatus.closed}
-												</span>
-												<span className="text-(--text-muted) opacity-50">
-													/
-												</span>
-												<span
-													className="text-amber-400"
-													title={t("layout.nav.failoverHalfOpen", {
-														count: cbStatus.half_open,
-													})}
-												>
-													{cbStatus.half_open}
-												</span>
-												<span className="text-(--text-muted) opacity-50">
-													/
-												</span>
-												<span
-													className="text-red-400"
-													title={t("layout.nav.failoverOpen", {
-														count: cbStatus.open,
-													})}
-												>
-													{cbStatus.open}
+											<span className="flex items-center gap-1.5">
+												<span>{item.name}</span>
+												<span className="flex items-center gap-[2px] text-[10px] leading-none bg-white/10 dark:bg-white/10 px-1.5 py-0.5 rounded-full">
+													<span
+														className="text-emerald-400"
+														title={t("layout.nav.failoverClosed", {
+															count: cbStatus.closed,
+														})}
+													>
+														{cbStatus.closed}
+													</span>
+													<span className="text-(--text-muted) opacity-50">
+														/
+													</span>
+													<span
+														className="text-amber-400"
+														title={t("layout.nav.failoverHalfOpen", {
+															count: cbStatus.half_open,
+														})}
+													>
+														{cbStatus.half_open}
+													</span>
+													<span className="text-(--text-muted) opacity-50">
+														/
+													</span>
+													<span
+														className="text-red-400"
+														title={t("layout.nav.failoverOpen", {
+															count: cbStatus.open,
+														})}
+													>
+														{cbStatus.open}
+													</span>
 												</span>
 											</span>
 										) : (
