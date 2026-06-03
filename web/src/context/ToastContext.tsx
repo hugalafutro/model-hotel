@@ -220,7 +220,7 @@ function ToastItem({
 			{...(toast.type === "error"
 				? { title: t("context.toast.clickToCopyDismiss") }
 				: {})}
-			className={`relative px-4 py-2 rounded-lg shadow-lg text-sm font-medium cursor-pointer hover:brightness-125 transition-all whitespace-pre-line text-left border-0 ${bgColors[toast.type]}`}
+			className={`relative px-4 py-2 rounded-md shadow-lg text-sm font-medium cursor-pointer hover:brightness-125 transition-all whitespace-pre-line text-left border-0 ${bgColors[toast.type]}`}
 			style={{ overflow: "hidden" }}
 		>
 			{toast.message}
@@ -235,12 +235,12 @@ function ToastItem({
 					y={1}
 					width={VB_W - 2}
 					height={VB_H - 2}
-					rx={8}
+					rx={6}
 					fill="none"
 					stroke={strokeColors[toast.type]}
 					strokeWidth={2}
 					vectorEffect="non-scaling-stroke"
-					strokeDasharray={498.265}
+					strokeDasharray={501.699}
 					strokeDashoffset={0}
 					strokeLinecap="round"
 					style={{
