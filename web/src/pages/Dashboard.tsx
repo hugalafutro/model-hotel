@@ -175,7 +175,7 @@ export function Dashboard() {
 									excludeDeleted ? "bg-amber-400" : "bg-green-400"
 								}`}
 							/>
-							<span className="-translate-y-[0.5px]">
+							<span className="-translate-y-[1px]">
 								{excludeDeleted
 									? t("dashboard.activeKeysOnly")
 									: t("dashboard.allKeys")}
