@@ -51,4 +51,3 @@ exclude_paths:
   - "cmd/server/static/**"
   - "**/test/**"
   - "**/*_test_helpers*.go"
-  - "web/src/components/ProviderModals.tsx"
