@@ -649,9 +649,16 @@ func TestWebAuthnHandler_ListCredentials_WithStoredCredential(t *testing.T) {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	if len(resp) != 1 {
-		t.Errorf("expected 1 credential, got %d", len(resp))
-	} else if resp[0].Name != "Test Key" {
-		t.Errorf("expected name 'Test Key', got '%s'", resp[0].Name)
+	// Find the credential we stored rather than asserting exact count,
+	// since other tests running in the same DB could leave credentials behind.
+	var found *credentialResponse
+	for i := range resp {
+		if resp[i].Name == "Test Key" {
+			found = &resp[i]
+			break
+		}
+	}
+	if found == nil {
+		t.Error("expected to find stored credential 'Test Key' in response")
 	}
 }
