@@ -1066,6 +1066,7 @@ html[data-ui-style] .ui-card.ui-card-tint-blue {
 }
 
 html[data-ui-style="clean-saas"] .ui-card {
+	box-shadow: none;
 	transition: box-shadow 0.2s ease;
 }
 
