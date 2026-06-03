@@ -710,6 +710,23 @@ html[data-ui-style="clean-saas"] .sidebar-link {
  */
 .badge-text {
 	display: inline-block;
+	translate: 0 1px;
+}
+/* Firefox centers text accurately in flex containers — no nudge needed. */
+@-moz-document url-prefix() {
+	.badge-text {
+		translate: 0 0;
+	}
+}
+/* Dot+text badges (Live, All Keys): text aligns with dot in Firefox
+   via -1px translate, but Chrome needs no offset. */
+.badge-dot-text {
+	translate: 0 0.5px;
+}
+@-moz-document url-prefix() {
+	.badge-dot-text {
+		translate: 0 -1px;
+	}
 }
 
 .sidebar-quota-pill {

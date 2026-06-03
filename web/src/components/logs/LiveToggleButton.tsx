@@ -33,7 +33,7 @@ export function LiveToggleButton({ enabled, onToggle }: LiveToggleButtonProps) {
 					enabled ? "bg-green-400" : "bg-gray-500"
 				}`}
 			/>
-			<span className="-translate-y-[1px]">
+			<span className="badge-dot-text">
 				{t("components.logs.liveToggle.live")}
 			</span>
 		</button>
