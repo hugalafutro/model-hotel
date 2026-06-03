@@ -915,7 +915,7 @@ export function Layout({ children }: LayoutProps) {
 												cbStatus.open > 0) ? (
 											<span className="flex items-center gap-1.5">
 												<span>{item.name}</span>
-												<span className="flex items-center gap-[2px] text-[10px] leading-[1] bg-white/10 dark:bg-white/10 px-1.5 rounded-full">
+												<span className="inline-flex items-center gap-[2px] text-[0.625rem] leading-[1.6] font-medium bg-white/10 px-[7px] py-[1px] rounded-full">
 													<span
 														className="text-emerald-400"
 														title={t("layout.nav.failoverClosed", {
