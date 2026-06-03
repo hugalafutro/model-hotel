@@ -112,8 +112,8 @@ describe("PasskeySettings", () => {
 		);
 
 		await waitFor(() => {
-			// formatDateTimeShort outputs "28 Mar 2025, 12:00" style
-			expect(screen.getByText(/28.*Mar.*2025/)).toBeInTheDocument();
+			// formatDateTimeShort outputs locale-aware "28 <month> 2025, <time>" style
+			expect(screen.getByText(/28.*2025.*,/)).toBeInTheDocument();
 		});
 	});
 
