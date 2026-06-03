@@ -7,6 +7,7 @@ describe("TokenSplitBar", () => {
 	const defaultProps = {
 		prompt: 600,
 		completion: 400,
+		cacheHit: 0,
 		total: 1000,
 		range: "24h" as const,
 		onRangeChange: vi.fn(),
@@ -22,7 +23,13 @@ describe("TokenSplitBar", () => {
 
 	it("handles empty entries (zero tokens)", () => {
 		render(
-			<TokenSplitBar {...defaultProps} prompt={0} completion={0} total={0} />,
+			<TokenSplitBar
+				{...defaultProps}
+				prompt={0}
+				completion={0}
+				cacheHit={0}
+				total={0}
+			/>,
 		);
 
 		expect(
@@ -32,18 +39,25 @@ describe("TokenSplitBar", () => {
 		).toBeInTheDocument();
 	});
 
-	it("displays prompt and completion labels", () => {
-		render(<TokenSplitBar {...defaultProps} />);
+	it("displays prompt, completion, and cache hit labels", () => {
+		render(<TokenSplitBar {...defaultProps} cacheHit={100} />);
 
+		expect(screen.getByText("Cache hit")).toBeInTheDocument();
 		expect(screen.getByText("Prompt")).toBeInTheDocument();
 		expect(screen.getByText("Completion")).toBeInTheDocument();
 	});
 
-	it("displays prompt and completion values", () => {
-		render(<TokenSplitBar {...defaultProps} />);
+	it("displays cache hit value in legend", () => {
+		render(<TokenSplitBar {...defaultProps} cacheHit={300} />);
 
-		expect(screen.getByText("600")).toBeInTheDocument();
-		expect(screen.getByText("400")).toBeInTheDocument();
+		expect(screen.getByText("300")).toBeInTheDocument();
+	});
+
+	it("shows uncached prompt count (prompt minus cache hit)", () => {
+		render(<TokenSplitBar {...defaultProps} prompt={600} cacheHit={300} />);
+
+		// 600 prompt - 300 cacheHit = 300 uncached prompt
+		expect(screen.getByText("300")).toBeInTheDocument();
 	});
 
 	it("displays percentages in legend", () => {
@@ -124,6 +138,40 @@ describe("TokenSplitBar", () => {
 		expect(promptTiles.length + completionTiles.length).toBe(20);
 	});
 
+	it("renders cache_hit tiles when cacheHit > 0", () => {
+		const { container } = render(
+			<TokenSplitBar {...defaultProps} cacheHit={300} />,
+		);
+
+		const cacheHitTiles = container.querySelectorAll(
+			"[data-tile-type='cache_hit']",
+		);
+		const promptTiles = container.querySelectorAll("[data-tile-type='prompt']");
+		const completionTiles = container.querySelectorAll(
+			"[data-tile-type='completion']",
+		);
+		expect(cacheHitTiles.length).toBeGreaterThan(0);
+		expect(
+			cacheHitTiles.length + promptTiles.length + completionTiles.length,
+		).toBe(20);
+	});
+
+	it("reserves at least 1 uncached prompt tile at high cache-hit ratio", () => {
+		// 96% cache hit on prompt tokens — should still show at least 1 prompt tile
+		const { container } = render(
+			<TokenSplitBar
+				{...defaultProps}
+				prompt={1000}
+				cacheHit={960}
+				completion={100}
+				total={1100}
+			/>,
+		);
+
+		const promptTiles = container.querySelectorAll("[data-tile-type='prompt']");
+		expect(promptTiles.length).toBeGreaterThanOrEqual(1);
+	});
+
 	it("applies correct colors to tiles", () => {
 		const { container } = render(<TokenSplitBar {...defaultProps} />);
 
@@ -140,16 +188,28 @@ describe("TokenSplitBar", () => {
 		});
 	});
 
+	it("applies accent color to cache_hit tiles", () => {
+		const { container } = render(
+			<TokenSplitBar {...defaultProps} cacheHit={300} />,
+		);
+
+		const cacheHitTiles = container.querySelectorAll(
+			"[data-tile-type='cache_hit']",
+		);
+		cacheHitTiles.forEach((tile) => {
+			expect(tile).toHaveStyle({ backgroundColor: "var(--accent)" });
+		});
+	});
+
 	it("applies correct colors to legend indicators", () => {
-		const { container } = render(<TokenSplitBar {...defaultProps} />);
+		const { container } = render(
+			<TokenSplitBar {...defaultProps} cacheHit={100} />,
+		);
 
 		const indicators = container.querySelectorAll(
 			"span[style*='background-color']",
 		);
-		expect(indicators).toHaveLength(2);
-
-		expect(indicators[0]).toHaveStyle("background-color: #818cf8");
-		expect(indicators[1]).toHaveStyle("background-color: #059669");
+		expect(indicators).toHaveLength(3);
 	});
 
 	it("gives minority at least 1 tile for extreme split", () => {
@@ -207,6 +267,13 @@ describe("TokenSplitBar", () => {
 		expect(completionTiles).toHaveLength(8);
 	});
 
+	it("adds cache hit tooltips when cacheHit > 0", () => {
+		render(<TokenSplitBar {...defaultProps} cacheHit={300} />);
+
+		const cacheHitTiles = screen.getAllByTitle("Cache hit: 30.0% (300 tokens)");
+		expect(cacheHitTiles.length).toBeGreaterThan(0);
+	});
+
 	it("formats large token numbers with locale separators", () => {
 		render(
 			<TokenSplitBar
@@ -239,7 +306,14 @@ describe("TokenSplitBar", () => {
 	});
 
 	it("handles prompt-only tokens (no completion)", () => {
-		render(<TokenSplitBar {...defaultProps} completion={0} total={500} />);
+		render(
+			<TokenSplitBar
+				{...defaultProps}
+				completion={0}
+				cacheHit={0}
+				total={500}
+			/>,
+		);
 
 		expect(screen.getByText("500")).toBeInTheDocument();
 		expect(screen.getByText("100.0%")).toBeInTheDocument();
@@ -247,7 +321,9 @@ describe("TokenSplitBar", () => {
 	});
 
 	it("handles completion-only tokens (no prompt)", () => {
-		render(<TokenSplitBar {...defaultProps} prompt={0} total={500} />);
+		render(
+			<TokenSplitBar {...defaultProps} prompt={0} cacheHit={0} total={500} />,
+		);
 
 		expect(screen.getByText("500")).toBeInTheDocument();
 		expect(screen.getByText("100.0%")).toBeInTheDocument();

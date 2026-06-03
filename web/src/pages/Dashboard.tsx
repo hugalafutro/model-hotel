@@ -439,6 +439,7 @@ export function Dashboard() {
 				<TokenSplitBar
 					prompt={tokenStats?.total_tokens_prompt || 0}
 					completion={tokenStats?.total_tokens_completion || 0}
+					cacheHit={tokenStats?.total_tokens_cache_hit || 0}
 					total={
 						(tokenStats?.total_tokens_prompt || 0) +
 						(tokenStats?.total_tokens_completion || 0)

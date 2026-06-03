@@ -288,8 +288,10 @@
 			"tokens": "Tokens",
 			"prompt": "Prompt",
 			"completion": "Completion",
+			"cacheHit": "Cache hit",
 			"promptTooltip": "Prompt: {{pct}}% ({{count}} tokens)",
 			"completionTooltip": "Completion: {{pct}}% ({{count}} tokens)",
+			"cacheHitTooltip": "Cache hit: {{pct}}% ({{count}} tokens)",
 			"mixAriaLabel": "Token mix: {{promptPct}}% prompt, {{completionPct}}% completion",
 			"promptTileTitle": "Prompt",
 			"completionTileTitle": "Completion"

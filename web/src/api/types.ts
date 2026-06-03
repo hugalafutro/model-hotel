@@ -153,6 +153,7 @@ export interface Stats {
 	requests_last_1h?: number;
 	total_tokens_prompt: number;
 	total_tokens_completion: number;
+	total_tokens_cache_hit: number;
 	avg_tokens_per_request: number;
 }
 
