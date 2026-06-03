@@ -80,7 +80,7 @@ export function NeuralWattQuotaModal({
 							<span className="inline-flex items-center gap-1.5">
 								<span
 									data-testid="neuralwatt-status-dot"
-									className={`w-2 h-2 rounded-full ${quota.subscription.status === "active" ? "bg-green-400" : quota.subscription.in_overage ? "bg-red-400" : "bg-amber-400"}`}
+									className={`w-2 h-2 rounded-full ${quota.subscription.in_overage ? "bg-red-400" : quota.subscription.status === "active" ? "bg-green-400" : "bg-amber-400"}`}
 								></span>
 								<span className="capitalize">{quota.subscription.status}</span>
 								{quota.subscription.in_overage && (

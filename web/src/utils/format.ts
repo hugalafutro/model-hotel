@@ -102,7 +102,7 @@ export function formatDollars(v: number): string {
 }
 
 export function formatKwh(v: number): string {
-	return v.toLocaleString(undefined, {
+	return v.toLocaleString("en-US", {
 		maximumFractionDigits: 2,
 	});
 }
