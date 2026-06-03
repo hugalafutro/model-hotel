@@ -6,7 +6,7 @@ import { api } from "../../api/client";
 import type { WebAuthnCredential } from "../../api/types";
 import { SettingsSection } from "../../components/SettingsSection";
 import { useToast } from "../../context/ToastContext";
-import { formatDate } from "../../utils/format";
+import { formatDateTime } from "../../utils/format";
 import { isWebAuthnAvailable, registerPasskey } from "../../utils/webauthn";
 
 interface PasskeySettingsProps {
@@ -251,7 +251,8 @@ function CredentialRow({
 						</button>
 					)}
 					<p className="text-xs text-(--text-muted)">
-						{t("settings.passkeys.registered")} {formatDate(cred.created_at)}
+						{t("settings.passkeys.registered")}{" "}
+						{formatDateTime(cred.created_at)}
 					</p>
 				</div>
 			</div>
