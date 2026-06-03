@@ -38,9 +38,9 @@ export const Badge = memo(function Badge({
 }: BadgeProps) {
 	return (
 		<span
-			className={`inline-flex items-center whitespace-nowrap px-1.5 py-0.5 text-[10px] rounded-full font-medium ${VARIANT_CLASSES[variant]}${className ? ` ${className}` : ""}`}
+			className={`inline-flex items-center whitespace-nowrap px-1.5 py-px leading-[1.6] text-[10px] rounded-full font-medium ${VARIANT_CLASSES[variant]}${className ? ` ${className}` : ""}`}
 		>
-			{children}
+			<span className="badge-text">{children}</span>
 		</span>
 	);
 });
