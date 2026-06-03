@@ -20,7 +20,6 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
-	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -522,43 +521,14 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				// Normalize finish_reason in-place before
 				// re-serializing, so non-standard values
 				// (e.g., "end_turn", "STOP") are mapped to
-				// OpenAI equivalents. Without this, the
-				// continue below would skip the normalization
-				// block at line ~809.
-				if frRaw, okFR := p.choices[0]["finish_reason"]; okFR {
-					var frStr string
-					if json.Unmarshal(frRaw, &frStr) == nil && frStr != "" {
-						if normalized := normalizeFinishReason(frStr); normalized != frStr {
-							p.choices[0]["finish_reason"] = json.RawMessage(`"` + normalized + `"`)
-							lastFinishReason = normalized
-							debuglog.Debug("proxy: normalized finish_reason in strip_reasoning path", "original", frStr, "normalized", normalized, "model", logData.modelID, "provider", logData.providerName)
-						} else {
-							lastFinishReason = frStr
-						}
-					}
-				}
+				// OpenAI equivalents.
+				normalizeFinishReasonInChoices(p.choices, &lastFinishReason)
 				newChoices, _ := json.Marshal(p.choices)
 				p.raw["choices"] = json.RawMessage(newChoices)
 				newPayload, _ := json.Marshal(p.raw)
-				n, err := w.Write([]byte("data: "))
-				bytesWritten += int64(n)
-				if err != nil {
+				if err := writeSSEDataChunk(w, newPayload, &bytesWritten); err != nil {
 					clientDisconnected = true
 					debuglog.Warn("proxy: client write failed during reasoning strip", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-					goto logUpdate
-				}
-				n, err = w.Write(newPayload)
-				bytesWritten += int64(n)
-				if err != nil {
-					clientDisconnected = true
-					debuglog.Warn("proxy: client write failed during reasoning strip", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-					goto logUpdate
-				}
-				n, err = w.Write([]byte("\n\n"))
-				bytesWritten += int64(n)
-				if err != nil {
-					clientDisconnected = true
-					debuglog.Warn("proxy: client write failed during reasoning strip (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
 					goto logUpdate
 				}
 				if canFlush {
@@ -626,39 +596,13 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 						// re-serializing. The written=true below
 						// would skip the finish_reason normalization
 						// block later in this loop iteration.
-						if frRaw, okFR := chunkParsed.choices[0]["finish_reason"]; okFR {
-							var frStr string
-							if json.Unmarshal(frRaw, &frStr) == nil && frStr != "" {
-								if normalized := normalizeFinishReason(frStr); normalized != frStr {
-									chunkParsed.choices[0]["finish_reason"] = json.RawMessage(`"` + normalized + `"`)
-									lastFinishReason = normalized
-								} else {
-									lastFinishReason = frStr
-								}
-							}
-						}
+						normalizeFinishReasonInChoices(chunkParsed.choices, &lastFinishReason)
 						newChoices, _ := json.Marshal(chunkParsed.choices)
 						chunkParsed.raw["choices"] = json.RawMessage(newChoices)
 						newPayload, _ := json.Marshal(chunkParsed.raw)
-						n, err := w.Write([]byte("data: "))
-						bytesWritten += int64(n)
-						if err != nil {
+						if err := writeSSEDataChunk(w, newPayload, &bytesWritten); err != nil {
 							clientDisconnected = true
 							debuglog.Warn("proxy: client write failed during reasoning normalization", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-							goto logUpdate
-						}
-						n, err = w.Write(newPayload)
-						bytesWritten += int64(n)
-						if err != nil {
-							clientDisconnected = true
-							debuglog.Warn("proxy: client write failed during reasoning normalization", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-							goto logUpdate
-						}
-						n, err = w.Write([]byte("\n\n"))
-						bytesWritten += int64(n)
-						if err != nil {
-							clientDisconnected = true
-							debuglog.Warn("proxy: client write failed during reasoning normalization (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
 							goto logUpdate
 						}
 						if canFlush {
@@ -686,39 +630,13 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 						// re-serializing. The written=true below
 						// would skip the finish_reason normalization
 						// block later in this loop iteration.
-						if frRaw, okFR := p.choices[0]["finish_reason"]; okFR {
-							var frStr string
-							if json.Unmarshal(frRaw, &frStr) == nil && frStr != "" {
-								if normalized := normalizeFinishReason(frStr); normalized != frStr {
-									p.choices[0]["finish_reason"] = json.RawMessage(`"` + normalized + `"`)
-									lastFinishReason = normalized
-								} else {
-									lastFinishReason = frStr
-								}
-							}
-						}
+						normalizeFinishReasonInChoices(p.choices, &lastFinishReason)
 						newChoices, _ := json.Marshal(p.choices)
 						p.raw["choices"] = json.RawMessage(newChoices)
 						newPayload, _ := json.Marshal(p.raw)
-						n, err := w.Write([]byte("data: "))
-						bytesWritten += int64(n)
-						if err != nil {
+						if err := writeSSEDataChunk(w, newPayload, &bytesWritten); err != nil {
 							clientDisconnected = true
 							debuglog.Warn("proxy: client write failed during empty content strip", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-							goto logUpdate
-						}
-						n, err = w.Write(newPayload)
-						bytesWritten += int64(n)
-						if err != nil {
-							clientDisconnected = true
-							debuglog.Warn("proxy: client write failed during empty content strip", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-							goto logUpdate
-						}
-						n, err = w.Write([]byte("\n\n"))
-						bytesWritten += int64(n)
-						if err != nil {
-							clientDisconnected = true
-							debuglog.Warn("proxy: client write failed during empty content strip (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
 							goto logUpdate
 						}
 						if canFlush {
@@ -737,22 +655,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				if chunk.Usage.CompletionTokensDetails != nil && chunk.Usage.CompletionTokensDetails.ReasoningTokens > 0 {
 					reasoningTokens = chunk.Usage.CompletionTokensDetails.ReasoningTokens
 				}
-				//nolint:gocritic // if-else chain is clearer than switch for multi-field precedence check
-				if chunk.Usage.PromptCacheHitTokens > 0 {
-					promptCacheHitTokens = chunk.Usage.PromptCacheHitTokens
-					promptCacheMissTokens = max(0, chunk.Usage.PromptTokens-chunk.Usage.PromptCacheHitTokens)
-				} else if chunk.Usage.CacheReadInputTokens > 0 {
-					// Anthropic-native cache fields: cache_read_input_tokens maps to
-					// cache hit, remainder is cache miss (includes cache_creation tokens).
-					promptCacheHitTokens = chunk.Usage.CacheReadInputTokens
-					promptCacheMissTokens = max(0, chunk.Usage.PromptTokens-chunk.Usage.CacheReadInputTokens)
-				} else if chunk.Usage.PromptTokensDetails != nil && chunk.Usage.PromptTokensDetails.CachedTokens > 0 {
-					// OpenAI's official format: cached_tokens inside prompt_tokens_details.
-					// Many third-party proxies (Wafer AI, OpenRouter, NanoGPT) normalise
-					// to this structure instead of using top-level prompt_cache_hit_tokens.
-					promptCacheHitTokens = chunk.Usage.PromptTokensDetails.CachedTokens
-					promptCacheMissTokens = max(0, chunk.Usage.PromptTokens-chunk.Usage.PromptTokensDetails.CachedTokens)
-				}
+				promptCacheHitTokens, promptCacheMissTokens = extractCacheTokens(*chunk.Usage)
 			}
 			// P2-7: Log native_finish_reason from OpenRouter for debugging.
 			// OpenRouter includes this field alongside the normalized finish_reason,
@@ -863,25 +766,9 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 								if newChoices, err2 := json.Marshal(choices); err2 == nil {
 									raw["choices"] = json.RawMessage(newChoices)
 									if newPayload, err3 := json.Marshal(raw); err3 == nil {
-										n, err := w.Write([]byte("data: "))
-										bytesWritten += int64(n)
-										if err != nil {
+										if err := writeSSEDataChunk(w, newPayload, &bytesWritten); err != nil {
 											clientDisconnected = true
 											debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-											goto logUpdate
-										}
-										n, err = w.Write(newPayload)
-										bytesWritten += int64(n)
-										if err != nil {
-											clientDisconnected = true
-											debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-											goto logUpdate
-										}
-										n, err = w.Write([]byte("\n\n"))
-										bytesWritten += int64(n)
-										if err != nil {
-											clientDisconnected = true
-											debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", bytesWritten)
 											goto logUpdate
 										}
 										if canFlush {
@@ -1079,22 +966,7 @@ logUpdate:
 	}
 
 	if opts.vkHash != "" && !clientDisconnected {
-		totalTokens := promptTokens + completionTokens + reasoningTokens
-		tokCtx, tokCancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer tokCancel()
-		if err := h.virtualKeyRepo.AddTokens(tokCtx, opts.vkHash, totalTokens); err != nil {
-			keyLabel := opts.vkHash
-			if logData.virtualKeyName != "" {
-				keyLabel = logData.virtualKeyName
-			}
-			events.Publish(events.Event{
-				Type:     "tokens.error",
-				Severity: "error",
-				Source:   "proxy",
-				Message:  fmt.Sprintf("Token counting failed for key %q", keyLabel),
-				Metadata: map[string]interface{}{"error": err.Error(), "key": keyLabel},
-			})
-		}
+		h.recordTokenUsage(opts.vkHash, promptTokens, completionTokens, reasoningTokens, logData.virtualKeyName)
 	}
 }
 
@@ -1142,43 +1014,13 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.tokensPrompt = chatResp.Usage.PromptTokens
 		logData.tokensCompletion = chatResp.Usage.CompletionTokens
 		logData.tokensCompletionReasoning = reasoningTokens
-		//nolint:gocritic // if-else chain is clearer than switch for multi-field precedence check
-		if chatResp.Usage.PromptCacheHitTokens > 0 {
-			logData.tokensPromptCacheHit = chatResp.Usage.PromptCacheHitTokens
-			logData.tokensPromptCacheMiss = max(0, chatResp.Usage.PromptTokens-chatResp.Usage.PromptCacheHitTokens)
-		} else if chatResp.Usage.CacheReadInputTokens > 0 {
-			// Anthropic-native cache fields: cache_read_input_tokens maps to
-			// cache hit, remainder is cache miss (includes cache_creation tokens).
-			logData.tokensPromptCacheHit = chatResp.Usage.CacheReadInputTokens
-			logData.tokensPromptCacheMiss = max(0, chatResp.Usage.PromptTokens-chatResp.Usage.CacheReadInputTokens)
-		} else if chatResp.Usage.PromptTokensDetails != nil && chatResp.Usage.PromptTokensDetails.CachedTokens > 0 {
-			// OpenAI's official format: cached_tokens inside prompt_tokens_details.
-			// Many third-party proxies (Wafer AI, OpenRouter, NanoGPT) normalise
-			// to this structure instead of using top-level prompt_cache_hit_tokens.
-			logData.tokensPromptCacheHit = chatResp.Usage.PromptTokensDetails.CachedTokens
-			logData.tokensPromptCacheMiss = max(0, chatResp.Usage.PromptTokens-chatResp.Usage.PromptTokensDetails.CachedTokens)
-		}
+		logData.tokensPromptCacheHit, logData.tokensPromptCacheMiss = extractCacheTokens(chatResp.Usage)
 		logData.failoverAttempt = attempt
 		logData.state = "completed"
 		h.updateRequestLog(logData)
 
 		if vkHash != "" {
-			totalTokens := chatResp.Usage.PromptTokens + chatResp.Usage.CompletionTokens + reasoningTokens
-			tokCtx, tokCancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer tokCancel()
-			if err := h.virtualKeyRepo.AddTokens(tokCtx, vkHash, totalTokens); err != nil {
-				keyLabel := vkHash
-				if logData.virtualKeyName != "" {
-					keyLabel = logData.virtualKeyName
-				}
-				events.Publish(events.Event{
-					Type:     "tokens.error",
-					Severity: "error",
-					Source:   "proxy",
-					Message:  fmt.Sprintf("Token counting failed for key %q", keyLabel),
-					Metadata: map[string]interface{}{"error": err.Error(), "key": keyLabel},
-				})
-			}
+			h.recordTokenUsage(vkHash, chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, reasoningTokens, logData.virtualKeyName)
 		}
 
 		// Normalize reasoning fields in the response message so that
