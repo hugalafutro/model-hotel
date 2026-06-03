@@ -337,7 +337,7 @@ export function NeuralWattQuotaModal({
 							{formatDollars(quota.usage.current_month.cost_usd)}
 						</p>
 						<p className="text-gray-200">
-							{quota.usage.current_month.requests.toLocaleString()}
+							{quota.usage.current_month.requests.toLocaleString("en-US")}
 						</p>
 						<p className="text-gray-200">
 							{formatTokens(quota.usage.current_month.tokens)}
@@ -352,7 +352,7 @@ export function NeuralWattQuotaModal({
 							{formatDollars(quota.usage.lifetime.cost_usd)}
 						</p>
 						<p className="text-gray-200">
-							{quota.usage.lifetime.requests.toLocaleString()}
+							{quota.usage.lifetime.requests.toLocaleString("en-US")}
 						</p>
 						<p className="text-gray-200">
 							{formatTokens(quota.usage.lifetime.tokens)}

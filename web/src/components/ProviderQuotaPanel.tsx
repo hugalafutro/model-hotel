@@ -118,7 +118,8 @@ export function ProviderQuotaPanel() {
 		isNanoRefetching ||
 		isZaiCodingRefetching ||
 		isDsRefetching ||
-		isOrRefetching;
+		isOrRefetching ||
+		quotaData.isNeuralwattRefetching;
 
 	const isAutoRefreshing = anyRefreshing && !collapsed;
 
