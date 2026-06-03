@@ -35,36 +35,42 @@ export function FuseOutline({
 	const perimeter =
 		w > 0 && h > 0 ? 2 * (w - 2 * rx) + 2 * (h - 2 * rx) + 2 * Math.PI * rx : 0;
 
-	if (perimeter <= 0 || durationMs <= 0) return null;
+	if (durationMs <= 0) return null;
+
+	// Always render the SVG so the ResizeObserver has an element to measure.
+	// On first render width/height are 0, so the rect is hidden. Once the
+	// observer fires and dimensions are set, the rect becomes visible.
+	const showRect = perimeter > 0;
 
 	return (
 		<svg
 			ref={ref}
 			aria-hidden="true"
 			className={className}
-			viewBox={`0 0 ${width} ${height}`}
+			viewBox={showRect ? `0 0 ${width} ${height}` : undefined}
 		>
-			<rect
-				x={1}
-				y={1}
-				width={width - 2}
-				height={height - 2}
-				rx={rx}
-				fill="none"
-				stroke={color}
-				strokeWidth={strokeWidth}
-				vectorEffect="non-scaling-stroke"
-				strokeDasharray={perimeter}
-				strokeLinecap="round"
-				style={{
-					animation: `fuse ${durationMs}ms linear forwards`,
-					animationPlayState: paused ? "paused" : "running",
-					filter: `drop-shadow(0 0 2px ${color})`,
-					// Override the keyframe's dashoffset with the real perimeter
-					// @ts-expect-error CSS custom property for dynamic keyframe
-					"--fuse-perimeter": perimeter,
-				}}
-			/>
+			{showRect && (
+				<rect
+					x={1}
+					y={1}
+					width={width - 2}
+					height={height - 2}
+					rx={rx}
+					fill="none"
+					stroke={color}
+					strokeWidth={strokeWidth}
+					vectorEffect="non-scaling-stroke"
+					strokeDasharray={perimeter}
+					strokeLinecap="round"
+					style={{
+						animation: `fuse ${durationMs}ms linear forwards`,
+						animationPlayState: paused ? "paused" : "running",
+						filter: `drop-shadow(0 0 2px ${color})`,
+						// @ts-expect-error CSS custom property for dynamic keyframe
+						"--fuse-perimeter": perimeter,
+					}}
+				/>
+			)}
 		</svg>
 	);
 }
