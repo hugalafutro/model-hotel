@@ -1102,7 +1102,7 @@ html[data-ui-style="clean-saas"]
 
 html[data-ui-style="clean-saas"] .ui-card.has-dropdown {
 	position: relative;
-	z-index: 1;
+	z-index: 20;
 }
 
 html[data-ui-style="cyber-terminal"] .ui-card {
@@ -1163,6 +1163,7 @@ html[data-ui-style="glassmorphism-lite"] .ui-card.has-dropdown {
 	backdrop-filter: none;
 	-webkit-backdrop-filter: none;
 	position: relative;
+	z-index: 20;
 }
 html[data-ui-style="glassmorphism-lite"] .ui-card.has-dropdown::before {
 	content: "";
@@ -1177,11 +1178,14 @@ html[data-ui-style="glassmorphism-lite"] .ui-card.has-dropdown::before {
 }
 
 /* Dropdown/popover cards: solid opaque background (backdrop-filter does not
-   work inside <thead> stacking context, so we use a solid color instead). */
-html[data-ui-style="glassmorphism-lite"] .ui-card.absolute {
+   work inside <thead> stacking context or when portaled to body, so we use
+   a solid color instead). */
+html[data-ui-style="glassmorphism-lite"] .ui-card.absolute,
+html[data-ui-style="glassmorphism-lite"] .ui-card.fixed {
 	background-color: rgb(14, 14, 20);
 }
-html[data-ui-style="glassmorphism-lite"].light .ui-card.absolute {
+html[data-ui-style="glassmorphism-lite"].light .ui-card.absolute,
+html[data-ui-style="glassmorphism-lite"].light .ui-card.fixed {
 	background-color: rgb(255, 255, 255);
 }
 
