@@ -713,7 +713,6 @@ func TestDeleteFailoverGroup_NonExistent(t *testing.T) {
 }
 
 // TestGetSystem_NoCache tests the system stats endpoint
-// TestGetSystem_NoCache tests the system stats endpoint
 
 func TestCircuitBreakerStatus_NoCircuitBreaker(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)

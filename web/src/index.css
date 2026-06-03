@@ -710,7 +710,6 @@ html[data-ui-style="clean-saas"] .sidebar-link {
  */
 .badge-text {
 	display: inline-block;
-	translate: 0 0px;
 }
 
 .sidebar-quota-pill {

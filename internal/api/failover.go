@@ -37,10 +37,13 @@ type CircuitBreakerReader interface {
 
 // CircuitBreakerStatusResponse contains counts of providers in each circuit breaker state.
 type CircuitBreakerStatusResponse struct {
-	Closed    int                       `json:"closed"`
-	HalfOpen  int                       `json:"half_open"`
-	Open      int                       `json:"open"`
-	Providers []failover.ProviderStatus `json:"providers,omitempty"`
+	Closed   int `json:"closed"`
+	HalfOpen int `json:"half_open"`
+	Open     int `json:"open"`
+	// Providers is excluded from the API response to avoid leaking
+	// per-provider circuit breaker internals. The frontend only needs
+	// aggregate counts. Use the local variable in CircuitBreakerStatus
+	// for the tracked-members calculation, but don't serialize it.
 }
 
 // NewFailoverHandler creates a new failover group handler.
@@ -516,8 +519,10 @@ func (h *FailoverHandler) GetByModelUUID(w http.ResponseWriter, r *http.Request)
 // CircuitBreakerStatus returns the current circuit breaker state for all tracked providers.
 func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Request) {
 	resp := CircuitBreakerStatusResponse{}
+	trackedProviders := make([]failover.ProviderStatus, 0)
 	if h.cbReader != nil {
-		for _, s := range h.cbReader.Status() {
+		trackedProviders = h.cbReader.Status()
+		for _, s := range trackedProviders {
 			switch s.State {
 			case failover.StateClosed.String():
 				resp.Closed++
@@ -527,7 +532,6 @@ func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Re
 				resp.Open++
 			}
 		}
-		resp.Providers = h.cbReader.Status()
 	}
 
 	// Count failover group members not yet tracked by the circuit breaker as closed.
@@ -536,8 +540,8 @@ func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Re
 	if h.failoverRepo != nil {
 		groups, err := h.failoverRepo.List(r.Context())
 		if err == nil {
-			tracked := make(map[string]struct{}, len(resp.Providers))
-			for _, p := range resp.Providers {
+			tracked := make(map[string]struct{}, len(trackedProviders))
+			for _, p := range trackedProviders {
 				tracked[p.ProviderID] = struct{}{}
 			}
 			seen := make(map[string]struct{})
