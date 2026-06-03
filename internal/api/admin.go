@@ -85,6 +85,7 @@ type Handler struct {
 	testModelCheckRedirect func(req *http.Request, via []*http.Request) error // SSRF-protected redirect check for TestModel
 	discoveryDialCtx       func(ctx context.Context, network, addr string) (net.Conn, error)
 	discoveryCheckRedirect func(req *http.Request, via []*http.Request) error
+	circuitBreaker         CircuitBreakerReader
 }
 
 // NewHandler creates a new admin API handler with the given dependencies.
@@ -130,6 +131,11 @@ func (h *Handler) SetDockerStatsCollector(fn dockerStatsCollector) {
 	}
 }
 
+// SetCircuitBreaker sets the circuit breaker reader for exposing circuit breaker status via the API.
+func (h *Handler) SetCircuitBreaker(cb CircuitBreakerReader) {
+	h.circuitBreaker = cb
+}
+
 // Register mounts all admin API routes on the given router.
 func (h *Handler) Register(r chi.Router) {
 	r.Use(h.AuthMiddleware)
@@ -152,7 +158,7 @@ func (h *Handler) Register(r chi.Router) {
 
 	failoverRepo := failover.NewRepository(h.dbPool.Pool())
 	modelRepo := model.NewRepository(h.dbPool.Pool())
-	NewFailoverHandler(h.dbPool.Pool(), failoverRepo, modelRepo, h.settingsRepo).Register(r)
+	NewFailoverHandler(h.dbPool.Pool(), failoverRepo, modelRepo, h.settingsRepo, h.circuitBreaker).Register(r)
 
 	NewStatsHandler(h.dbPool.Pool(), h.adminMgr).Register(r)
 	sh := NewSystemHandler(h.dbPool.Pool())

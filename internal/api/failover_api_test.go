@@ -68,7 +68,7 @@ func newIntegrationFailoverHandler() *FailoverHandler {
 	failoverRepo := failover.NewRepository(pool)
 	modelRepo := model.NewRepository(pool)
 	settingsRepo := settings.NewRepository(pool)
-	return NewFailoverHandler(pool, failoverRepo, modelRepo, settingsRepo)
+	return NewFailoverHandler(pool, failoverRepo, modelRepo, settingsRepo, nil)
 }
 
 func newFailoverRouter(h *FailoverHandler) chi.Router {
@@ -833,7 +833,7 @@ func TestFailoverHandler_List_RepoError(t *testing.T) {
 	failoverRepo := failover.NewRepository(closedPool)
 	modelRepo := model.NewRepository(closedPool)
 	settingsRepo := settings.NewRepository(closedPool)
-	h := NewFailoverHandler(closedPool, failoverRepo, modelRepo, settingsRepo)
+	h := NewFailoverHandler(closedPool, failoverRepo, modelRepo, settingsRepo, nil)
 
 	req, w := newChiRequest(http.MethodGet, "/failover-groups/", nil)
 	h.List(w, req)
@@ -853,7 +853,7 @@ func TestFailoverHandler_List_GetTokenCountsError(t *testing.T) {
 	settingsRepo := settings.NewRepository(workingPool)
 	closedPool := newClosedPool(t)
 
-	h := NewFailoverHandler(closedPool, failoverRepo, modelRepo, settingsRepo)
+	h := NewFailoverHandler(closedPool, failoverRepo, modelRepo, settingsRepo, nil)
 
 	// Create a failover group first so List has data to return
 	ctx := context.Background()
@@ -885,7 +885,7 @@ func TestFailoverHandler_List_BuildGroupResponseError(t *testing.T) {
 	modelRepo := model.NewRepository(closedPool)
 	settingsRepo := settings.NewRepository(workingPool)
 
-	h := NewFailoverHandler(workingPool, failoverRepo, modelRepo, settingsRepo)
+	h := NewFailoverHandler(workingPool, failoverRepo, modelRepo, settingsRepo, nil)
 
 	// Create a failover group first
 	ctx := context.Background()
@@ -915,7 +915,7 @@ func TestFailoverHandler_Get_GetTokenCountsError(t *testing.T) {
 	settingsRepo := settings.NewRepository(workingPool)
 	closedPool := newClosedPool(t)
 
-	h := NewFailoverHandler(closedPool, failoverRepo, modelRepo, settingsRepo)
+	h := NewFailoverHandler(closedPool, failoverRepo, modelRepo, settingsRepo, nil)
 
 	// Create a failover group first
 	ctx := context.Background()
@@ -947,7 +947,7 @@ func TestFailoverHandler_Get_BuildGroupResponseError(t *testing.T) {
 	modelRepo := model.NewRepository(closedPool)
 	settingsRepo := settings.NewRepository(workingPool)
 
-	h := NewFailoverHandler(workingPool, failoverRepo, modelRepo, settingsRepo)
+	h := NewFailoverHandler(workingPool, failoverRepo, modelRepo, settingsRepo, nil)
 
 	// Create a failover group first
 	ctx := context.Background()
@@ -976,7 +976,7 @@ func TestFailoverHandler_Create_UpsertError(t *testing.T) {
 	failoverRepo := failover.NewRepository(closedPool)
 	modelRepo := model.NewRepository(closedPool)
 	settingsRepo := settings.NewRepository(closedPool)
-	h := NewFailoverHandler(closedPool, failoverRepo, modelRepo, settingsRepo)
+	h := NewFailoverHandler(closedPool, failoverRepo, modelRepo, settingsRepo, nil)
 
 	id1, id2 := uuid.New(), uuid.New()
 	displayModel := "test-create-upserterr-" + uuid.New().String()[:8]
@@ -997,7 +997,7 @@ func TestFailoverHandler_Create_BuildGroupResponseError(t *testing.T) {
 	modelRepo := model.NewRepository(closedPool)
 	settingsRepo := settings.NewRepository(workingPool)
 
-	h := NewFailoverHandler(workingPool, failoverRepo, modelRepo, settingsRepo)
+	h := NewFailoverHandler(workingPool, failoverRepo, modelRepo, settingsRepo, nil)
 
 	id1, id2 := uuid.New(), uuid.New()
 	displayModel := "test-create-builderr-" + uuid.New().String()[:8]
@@ -1039,7 +1039,7 @@ func TestFailoverHandler_Update_RepoError(t *testing.T) {
 	// Create handler with closed pool - GetByID will fail before Update is called
 	closedPool := newClosedPool(t)
 	failoverRepoClosed := failover.NewRepository(closedPool)
-	h := NewFailoverHandler(closedPool, failoverRepoClosed, modelRepo, settingsRepo)
+	h := NewFailoverHandler(closedPool, failoverRepoClosed, modelRepo, settingsRepo, nil)
 
 	body := `{"group_enabled":false}`
 	req, w := newChiRequest(http.MethodPut, "/failover-groups/"+fg.ID.String(), strings.NewReader(body))
@@ -1061,7 +1061,7 @@ func TestFailoverHandler_Update_BuildGroupResponseError(t *testing.T) {
 	modelRepo := model.NewRepository(closedPool)
 	settingsRepo := settings.NewRepository(workingPool)
 
-	h := NewFailoverHandler(workingPool, failoverRepo, modelRepo, settingsRepo)
+	h := NewFailoverHandler(workingPool, failoverRepo, modelRepo, settingsRepo, nil)
 
 	// Create a group first
 	ctx := context.Background()
@@ -1107,7 +1107,7 @@ func TestFailoverHandler_Delete_RepoError(t *testing.T) {
 	failoverRepoClosed := failover.NewRepository(closedPool)
 	modelRepo := model.NewRepository(closedPool)
 	settingsRepo := settings.NewRepository(closedPool)
-	h := NewFailoverHandler(closedPool, failoverRepoClosed, modelRepo, settingsRepo)
+	h := NewFailoverHandler(closedPool, failoverRepoClosed, modelRepo, settingsRepo, nil)
 
 	req, w := newChiRequest(http.MethodDelete, "/failover-groups/"+fg.ID.String(), nil)
 	req = setChiURLParam(req, "id", fg.ID.String())
@@ -1131,7 +1131,7 @@ func TestFailoverHandler_Sync_SettingsSetError(t *testing.T) {
 		},
 	}
 
-	h := NewFailoverHandler(workingPool, failoverRepo, modelRepo, mockSettings)
+	h := NewFailoverHandler(workingPool, failoverRepo, modelRepo, mockSettings, nil)
 
 	req, w := newChiRequest(http.MethodPost, "/failover-groups/sync", nil)
 	h.Sync(w, req)
@@ -1148,7 +1148,7 @@ func TestFailoverHandler_GetByModelUUID_RepoError(t *testing.T) {
 	failoverRepo := failover.NewRepository(closedPool)
 	modelRepo := model.NewRepository(closedPool)
 	settingsRepo := settings.NewRepository(closedPool)
-	h := NewFailoverHandler(closedPool, failoverRepo, modelRepo, settingsRepo)
+	h := NewFailoverHandler(closedPool, failoverRepo, modelRepo, settingsRepo, nil)
 
 	unknownUUID := uuid.New()
 	req, w := newChiRequest(http.MethodGet, "/failover-groups/by-model/"+unknownUUID.String(), nil)
@@ -1280,7 +1280,7 @@ func TestFailoverHandler_Sync_CancelledContext(t *testing.T) {
 	failoverRepo := failover.NewRepository(workingPool)
 	modelRepo := model.NewRepository(workingPool)
 	settingsRepo := settings.NewRepository(workingPool)
-	h := NewFailoverHandler(workingPool, failoverRepo, modelRepo, settingsRepo)
+	h := NewFailoverHandler(workingPool, failoverRepo, modelRepo, settingsRepo, nil)
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -1299,7 +1299,7 @@ func TestFailoverHandler_Candidates_CancelledContext(t *testing.T) {
 	failoverRepo := failover.NewRepository(workingPool)
 	modelRepo := model.NewRepository(workingPool)
 	settingsRepo := settings.NewRepository(workingPool)
-	h := NewFailoverHandler(workingPool, failoverRepo, modelRepo, settingsRepo)
+	h := NewFailoverHandler(workingPool, failoverRepo, modelRepo, settingsRepo, nil)
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	cancel()

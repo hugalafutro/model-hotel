@@ -248,3 +248,8 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
+
+// CircuitBreaker returns the circuit breaker instance for read-only status access.
+func (h *Handler) CircuitBreaker() *failover.CircuitBreaker {
+	return h.circuitBreaker
+}

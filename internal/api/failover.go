@@ -25,15 +25,32 @@ type FailoverHandler struct {
 	modelRepo    *model.Repository
 	dbPool       *pgxpool.Pool
 	settingsRepo SettingsStore
+	cbReader     CircuitBreakerReader
 }
 
 // NewFailoverHandler creates a new failover group handler.
-func NewFailoverHandler(dbPool *pgxpool.Pool, failoverRepo *failover.Repository, modelRepo *model.Repository, settingsRepo SettingsStore) *FailoverHandler {
+
+// CircuitBreakerReader provides read-only access to circuit breaker status.
+type CircuitBreakerReader interface {
+	Status() []failover.ProviderStatus
+}
+
+// CircuitBreakerStatusResponse contains counts of providers in each circuit breaker state.
+type CircuitBreakerStatusResponse struct {
+	Closed    int                       `json:"closed"`
+	HalfOpen  int                       `json:"half_open"`
+	Open      int                       `json:"open"`
+	Providers []failover.ProviderStatus `json:"providers,omitempty"`
+}
+
+// NewFailoverHandler creates a new failover group handler.
+func NewFailoverHandler(dbPool *pgxpool.Pool, failoverRepo *failover.Repository, modelRepo *model.Repository, settingsRepo SettingsStore, cbReader CircuitBreakerReader) *FailoverHandler {
 	return &FailoverHandler{
 		failoverRepo: failoverRepo,
 		modelRepo:    modelRepo,
 		dbPool:       dbPool,
 		settingsRepo: settingsRepo,
+		cbReader:     cbReader,
 	}
 }
 
@@ -85,6 +102,7 @@ func (h *FailoverHandler) Register(r chi.Router) {
 		r.Post("/sync", h.Sync)
 		r.Get("/candidates", h.Candidates)
 		r.Get("/by-model/{model_uuid}", h.GetByModelUUID)
+		r.Get("/circuit-breaker-status", h.CircuitBreakerStatus)
 		r.Get("/{id}", h.Get)
 		r.Put("/{id}", h.Update)
 		r.Delete("/{id}", h.Delete)
@@ -493,6 +511,25 @@ func (h *FailoverHandler) GetByModelUUID(w http.ResponseWriter, r *http.Request)
 	}
 
 	http.Error(w, "model not in any failover group", http.StatusNotFound)
+}
+
+// CircuitBreakerStatus returns the current circuit breaker state for all tracked providers.
+func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Request) {
+	resp := CircuitBreakerStatusResponse{}
+	if h.cbReader != nil {
+		for _, s := range h.cbReader.Status() {
+			switch s.State {
+			case failover.StateClosed.String():
+				resp.Closed++
+			case failover.StateHalfOpen.String():
+				resp.HalfOpen++
+			case failover.StateOpen.String():
+				resp.Open++
+			}
+		}
+		resp.Providers = h.cbReader.Status()
+	}
+	writeJSON(w, resp)
 }
 
 func (h *FailoverHandler) buildGroupResponse(ctx context.Context, g *failover.FailoverGroup) (FailoverGroupResponse, error) {

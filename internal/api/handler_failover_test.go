@@ -713,3 +713,33 @@ func TestDeleteFailoverGroup_NonExistent(t *testing.T) {
 }
 
 // TestGetSystem_NoCache tests the system stats endpoint
+// TestGetSystem_NoCache tests the system stats endpoint
+
+func TestCircuitBreakerStatus_NoCircuitBreaker(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	req := httptest.NewRequest("GET", "/failover-groups/circuit-breaker-status", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 OK, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	// Should return zeros when no circuit breaker is wired
+	if closed, ok := resp["closed"].(float64); !ok || closed != 0 {
+		t.Errorf("expected closed=0, got %v", resp["closed"])
+	}
+	if halfOpen, ok := resp["half_open"].(float64); !ok || halfOpen != 0 {
+		t.Errorf("expected half_open=0, got %v", resp["half_open"])
+	}
+	if open, ok := resp["open"].(float64); !ok || open != 0 {
+		t.Errorf("expected open=0, got %v", resp["open"])
+	}
+}
