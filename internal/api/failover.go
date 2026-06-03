@@ -37,13 +37,10 @@ type CircuitBreakerReader interface {
 
 // CircuitBreakerStatusResponse contains counts of providers in each circuit breaker state.
 type CircuitBreakerStatusResponse struct {
-	Closed   int `json:"closed"`
-	HalfOpen int `json:"half_open"`
-	Open     int `json:"open"`
-	// Providers is excluded from the API response to avoid leaking
-	// per-provider circuit breaker internals. The frontend only needs
-	// aggregate counts. Use the local variable in CircuitBreakerStatus
-	// for the tracked-members calculation, but don't serialize it.
+	Closed    int                       `json:"closed"`
+	HalfOpen  int                       `json:"half_open"`
+	Open      int                       `json:"open"`
+	Providers []failover.ProviderStatus `json:"providers,omitempty"`
 }
 
 // NewFailoverHandler creates a new failover group handler.
@@ -558,6 +555,11 @@ func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Re
 				}
 			}
 		}
+	}
+
+	// Include per-provider detail when requested (for the Failover page UI).
+	if r.URL.Query().Get("detail") == "1" {
+		resp.Providers = trackedProviders
 	}
 
 	writeJSON(w, resp)
