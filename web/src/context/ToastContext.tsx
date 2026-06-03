@@ -4,6 +4,7 @@ import {
 	useCallback,
 	useContext,
 	useEffect,
+	useLayoutEffect,
 	useRef,
 	useState,
 } from "react";
@@ -155,6 +156,8 @@ function ToastItem({
 	const startTimeRef = useRef(Date.now());
 	const remainingRef = useRef(timeout);
 	const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+	const btnRef = useRef<HTMLButtonElement>(null);
+	const [perimeter, setPerimeter] = useState(0);
 
 	const startTimer = useCallback(
 		(remaining: number) => {
@@ -170,6 +173,24 @@ function ToastItem({
 		startTimer(timeout);
 		return () => clearTimeout(timerRef.current);
 	}, [timeout, startTimer]);
+
+	// Measure actual button size and compute rounded-rect perimeter
+	useLayoutEffect(() => {
+		const el = btnRef.current;
+		if (!el) return;
+		const compute = () => {
+			const { width, height } = el.getBoundingClientRect();
+			// border-radius matches rounded-md (6px), min of 50% for very small toasts
+			const r = Math.min(6, width / 2, height / 2);
+			const perim =
+				2 * (width - 2 * r) + 2 * (height - 2 * r) + 2 * Math.PI * r;
+			setPerimeter(perim);
+		};
+		compute();
+		const ro = new ResizeObserver(compute);
+		ro.observe(el);
+		return () => ro.disconnect();
+	}, []);
 
 	const handleMouseEnter = () => {
 		setPaused(true);
@@ -206,13 +227,9 @@ function ToastItem({
 
 	const { t } = useTranslation();
 
-	// SVG viewBox for fuse outline — perimeter is constant in this coordinate space
-	// Perimeter of rect x=1 y=1 w=198 h=58 rx=8 = 2*(182+42) + 2π*8 = 498.265
-	const VB_W = 200;
-	const VB_H = 60;
-
 	return (
 		<button
+			ref={btnRef}
 			type="button"
 			onClick={handleClick}
 			onMouseEnter={handleMouseEnter}
@@ -224,32 +241,35 @@ function ToastItem({
 			style={{ overflow: "hidden" }}
 		>
 			{toast.message}
-			<svg
-				aria-hidden="true"
-				className="absolute inset-0 w-full h-full pointer-events-none"
-				viewBox={`0 0 ${VB_W} ${VB_H}`}
-				preserveAspectRatio="none"
-			>
-				<rect
-					x={1}
-					y={1}
-					width={VB_W - 2}
-					height={VB_H - 2}
-					rx={6}
-					fill="none"
-					stroke={strokeColors[toast.type]}
-					strokeWidth={2}
-					vectorEffect="non-scaling-stroke"
-					strokeDasharray={501.699}
-					strokeDashoffset={0}
-					strokeLinecap="round"
-					style={{
-						animation: `toast-fuse ${timeout}ms linear forwards`,
-						animationPlayState: paused ? "paused" : "running",
-						filter: `drop-shadow(0 0 3px ${strokeColors[toast.type]}) drop-shadow(0 0 1px ${strokeColors[toast.type]})`,
-					}}
-				/>
-			</svg>
+			{perimeter > 0 && (
+				<svg
+					aria-hidden="true"
+					className="absolute inset-0 w-full h-full pointer-events-none"
+				>
+					<rect
+						x={1}
+						y={1}
+						width="calc(100% - 2px)"
+						height="calc(100% - 2px)"
+						rx={5}
+						fill="none"
+						stroke={strokeColors[toast.type]}
+						strokeWidth={2}
+						vectorEffect="non-scaling-stroke"
+						strokeDasharray={perimeter}
+						strokeDashoffset={0}
+						strokeLinecap="round"
+						style={{
+							animation: `toast-fuse ${timeout}ms linear forwards`,
+							animationPlayState: paused ? "paused" : "running",
+							filter: `drop-shadow(0 0 3px ${strokeColors[toast.type]}) drop-shadow(0 0 1px ${strokeColors[toast.type]})`,
+							// Override the keyframe's fixed dashoffset with the real perimeter
+							// @ts-expect-error CSS custom property for dynamic keyframe
+							"--toast-perimeter": perimeter,
+						}}
+					/>
+				</svg>
+			)}
 		</button>
 	);
 }
