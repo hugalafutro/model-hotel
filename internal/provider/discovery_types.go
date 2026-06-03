@@ -1,5 +1,63 @@
 package provider
 
+// NeuralWattQuotaBalance contains balance/credit information.
+type NeuralWattQuotaBalance struct {
+	CreditsRemainingUSD float64 `json:"credits_remaining_usd"`
+	TotalCreditsUSD     float64 `json:"total_credits_usd"`
+	CreditsUsedUSD      float64 `json:"credits_used_usd"`
+	AccountingMethod    string  `json:"accounting_method"`
+}
+
+// NeuralWattQuotaUsagePeriod contains cost/request/token/energy usage.
+type NeuralWattQuotaUsagePeriod struct {
+	CostUSD   float64 `json:"cost_usd"`
+	Requests  int64   `json:"requests"`
+	Tokens    int64   `json:"tokens"`
+	EnergyKWh float64 `json:"energy_kwh"`
+}
+
+// NeuralWattQuotaUsage contains lifetime and current_month usage.
+type NeuralWattQuotaUsage struct {
+	Lifetime     NeuralWattQuotaUsagePeriod `json:"lifetime"`
+	CurrentMonth NeuralWattQuotaUsagePeriod `json:"current_month"`
+}
+
+// NeuralWattQuotaLimits contains rate limit tier info.
+type NeuralWattQuotaLimits struct {
+	OverageLimitUSD *float64 `json:"overage_limit_usd"`
+	RateLimitTier   string   `json:"rate_limit_tier"`
+}
+
+// NeuralWattQuotaSubscription contains plan and billing details.
+type NeuralWattQuotaSubscription struct {
+	Plan               string  `json:"plan"`
+	Status             string  `json:"status"`
+	BillingInterval    string  `json:"billing_interval"`
+	CurrentPeriodStart string  `json:"current_period_start"`
+	CurrentPeriodEnd   string  `json:"current_period_end"`
+	AutoRenew          bool    `json:"auto_renew"`
+	KWhIncluded        float64 `json:"kwh_included"`
+	KWhUsed            float64 `json:"kwh_used"`
+	KWhRemaining       float64 `json:"kwh_remaining"`
+	InOverage          bool    `json:"in_overage"`
+}
+
+// NeuralWattQuotaKey contains key metadata.
+type NeuralWattQuotaKey struct {
+	Name      string   `json:"name"`
+	Allowance *float64 `json:"allowance"`
+}
+
+// NeuralWattQuotaResponse is the API response from NeuralWatt /v1/quota.
+type NeuralWattQuotaResponse struct {
+	SnapshotAt   string                      `json:"snapshot_at"`
+	Balance      NeuralWattQuotaBalance      `json:"balance"`
+	Usage        NeuralWattQuotaUsage        `json:"usage"`
+	Limits       NeuralWattQuotaLimits       `json:"limits"`
+	Subscription NeuralWattQuotaSubscription `json:"subscription"`
+	Key          NeuralWattQuotaKey          `json:"key"`
+}
+
 // OpenAIModel represents a model from the OpenAI API.
 type OpenAIModel struct {
 	ID      string `json:"id"`
