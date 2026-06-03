@@ -255,7 +255,7 @@ export function DatabaseBackupSettings({
 						{backups.map((backup) => (
 							<div
 								key={backup.filename}
-								className="flex items-center justify-between bg-(--surface-elevated) rounded-[var(--radius-card,0.375rem)] p-3"
+								className="flex items-center justify-between bg-(--surface-elevated) rounded-[var(--radius-card,0.375rem)] border border-(--border-default) p-3"
 							>
 								<div className="min-w-0 flex-1">
 									<p className="text-sm font-medium text-(--text-primary) truncate">
