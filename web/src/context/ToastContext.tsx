@@ -153,20 +153,29 @@ function ToastItem({
 	onDone: () => void;
 }) {
 	const [paused, setPaused] = useState(false);
+	const [fading, setFading] = useState(false);
 	const startTimeRef = useRef(Date.now());
 	const remainingRef = useRef(timeout);
 	const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 	const btnRef = useRef<HTMLButtonElement>(null);
 	const [perimeter, setPerimeter] = useState(0);
 
+	const triggerDone = useCallback(() => {
+		setFading(true);
+	}, []);
+
+	const handleAnimationEnd = useCallback(() => {
+		onDone();
+	}, [onDone]);
+
 	const startTimer = useCallback(
 		(remaining: number) => {
 			clearTimeout(timerRef.current);
 			startTimeRef.current = Date.now();
 			remainingRef.current = remaining;
-			timerRef.current = setTimeout(onDone, remaining);
+			timerRef.current = setTimeout(triggerDone, remaining);
 		},
-		[onDone],
+		[triggerDone],
 	);
 
 	useEffect(() => {
@@ -237,8 +246,12 @@ function ToastItem({
 			{...(toast.type === "error"
 				? { title: t("context.toast.clickToCopyDismiss") }
 				: {})}
-			className={`relative px-4 py-2 rounded-md shadow-lg text-sm font-medium cursor-pointer hover:brightness-125 transition-all whitespace-pre-line text-left border-0 ${bgColors[toast.type]}`}
-			style={{ overflow: "hidden" }}
+			className={`relative px-4 py-2 rounded-md shadow-lg text-sm font-medium cursor-pointer hover:brightness-125 whitespace-pre-line text-left border-0 ${bgColors[toast.type]} ${fading ? "opacity-0 translate-y-1" : "opacity-100"}`}
+			style={{
+				overflow: "hidden",
+				transition: "opacity 300ms ease, transform 300ms ease",
+			}}
+			onTransitionEnd={fading ? handleAnimationEnd : undefined}
 		>
 			{toast.message}
 			{perimeter > 0 && (
@@ -262,7 +275,7 @@ function ToastItem({
 						style={{
 							animation: `toast-fuse ${timeout}ms linear forwards`,
 							animationPlayState: paused ? "paused" : "running",
-							filter: `drop-shadow(0 0 3px ${strokeColors[toast.type]}) drop-shadow(0 0 1px ${strokeColors[toast.type]})`,
+							filter: `drop-shadow(0 0 2px ${strokeColors[toast.type]})`,
 							// Override the keyframe's fixed dashoffset with the real perimeter
 							// @ts-expect-error CSS custom property for dynamic keyframe
 							"--toast-perimeter": perimeter,
