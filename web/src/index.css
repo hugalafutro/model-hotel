@@ -545,6 +545,16 @@ nav ul:has(> li > .sidebar-link) {
 	gap: clamp(0.05rem, 0.15vw + 0.02rem, 0.15rem);
 }
 
+/* Compact sidebar nav below 1200px (e.g. 1080p) */
+@media (max-width: 1199px) {
+	.sidebar-link {
+		padding-block: 0.25rem;
+	}
+	nav ul:has(> li > .sidebar-link) {
+		gap: 0;
+	}
+}
+
 .sidebar-link-active {
 	background-color: var(--accent-light);
 	color: var(--accent);
