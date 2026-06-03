@@ -2,9 +2,8 @@
 # Pre-commit: fast formatting only. Real checks run in CI.
 # Goal: under 10 seconds, never blocks for slow tests.
 #
-# Frontend checks (biome) run inside Docker — no local node_modules needed.
-# The web/node_modules directory is a 000-permission block to prevent
-# accidental local pnpm usage.
+# Frontend checks (biome) use local pnpm when web/node_modules exists,
+# otherwise fall back to Docker.
 
 set -euo pipefail
 
@@ -54,20 +53,29 @@ if [ -n "$staged_go" ]; then
 	fi
 fi
 
-# ── Frontend: biome --write on staged TS/TSX (via Docker) ──
-	if [ -n "$staged_ts" ]; then
+# ── Frontend: biome --write on staged TS/TSX ──
+if [ -n "$staged_ts" ]; then
 	rel_paths=()
 	for f in $staged_ts; do
 		rel_paths+=("${f#web/}")
 	done
-	echo "pre-commit: biome --write ${rel_paths[*]} (Docker)"
-	if ! docker run --rm \
-		-v "$REPO_ROOT/web":/app \
-		-w /app \
-		node:22-alpine \
-		sh -c "npm install -g @biomejs/biome@2.4.16 >/dev/null 2>&1 && biome check --write \"\$@\"" -- "${rel_paths[@]}" >/dev/null 2>&1; then
-		echo "pre-commit: FAILED - biome check" >&2
-		exit 1
+
+	if [ -d "$REPO_ROOT/web/node_modules" ]; then
+		echo "pre-commit: biome --write ${rel_paths[*]} (local)"
+		if ! (cd "$REPO_ROOT/web" && npx biome check --write "${rel_paths[@]}" >/dev/null 2>&1); then
+			echo "pre-commit: FAILED - biome check" >&2
+			exit 1
+		fi
+	else
+		echo "pre-commit: biome --write ${rel_paths[*]} (Docker)"
+		if ! docker run --rm \
+			-v "$REPO_ROOT/web":/app \
+			-w /app \
+			node:22-alpine \
+			sh -c "npm install -g @biomejs/biome@2.4.16 >/dev/null 2>&1 && biome check --write \"\$@\"" -- "${rel_paths[@]}" >/dev/null 2>&1; then
+			echo "pre-commit: FAILED - biome check" >&2
+			exit 1
+		fi
 	fi
 	# Re-stage any files biome rewrote.
 	changed=""

@@ -1,32 +1,38 @@
 #!/usr/bin/env bash
 # Pre-push: smoke test only (~30s). GitHub CI is the real gatekeeper.
 #
-# Frontend checks run inside Docker with --tmpfs for node_modules,
-# so no local node_modules directory is needed or created.
+# Frontend checks use local pnpm when web/node_modules exists,
+# otherwise fall back to Docker.
 
 set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 echo "pre-push: go vet ./..."
-# web/node_modules is a root-owned 000 directory that blocks `go vet ./...`.
-# Only vet the Go packages we actually have.
 if ! go vet ./cmd/... ./internal/...; then
 	echo "pre-push: FAILED - go vet" >&2
 	exit 1
 fi
 
-echo "pre-push: pnpm lint (Docker)..."
-if ! docker run --rm \
-	-v "$REPO_ROOT/web":/app \
-	-v model-hotel-pnpm-store:/pnpm/store \
-	--tmpfs /app/node_modules:exec \
-	-e PNPM_HOME=/root/.local/share/pnpm \
-	-w /app \
-	node:22-alpine \
-	sh -c "npm install -g pnpm@10 >/dev/null 2>&1 && pnpm config set store-dir /pnpm/store >/dev/null && pnpm install --frozen-lockfile >/dev/null 2>&1 && pnpm run lint" 2>&1; then
-	echo "pre-push: FAILED - pnpm lint" >&2
-	exit 1
+if [ -d "$REPO_ROOT/web/node_modules" ]; then
+	echo "pre-push: pnpm lint (local)..."
+	if ! (cd "$REPO_ROOT/web" && pnpm run lint); then
+		echo "pre-push: FAILED - pnpm lint" >&2
+		exit 1
+	fi
+else
+	echo "pre-push: pnpm lint (Docker)..."
+	if ! docker run --rm \
+		-v "$REPO_ROOT/web":/app \
+		-v model-hotel-pnpm-store:/pnpm/store \
+		--tmpfs /app/node_modules:exec \
+		-e PNPM_HOME=/root/.local/share/pnpm \
+		-w /app \
+		node:22-alpine \
+		sh -c "npm install -g pnpm@10 >/dev/null 2>&1 && pnpm config set store-dir /pnpm/store >/dev/null && pnpm install --frozen-lockfile >/dev/null 2>&1 && pnpm run lint" 2>&1; then
+		echo "pre-push: FAILED - pnpm lint" >&2
+		exit 1
+	fi
 fi
 
 echo "pre-push: smoke ok (full CI runs on GitHub)"
