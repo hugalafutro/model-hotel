@@ -1760,4 +1760,99 @@ describe("NeuralWattQuotaModal", () => {
 			expect(screen.getByText("$5.50")).toBeInTheDocument();
 		});
 	});
+
+	describe("in_overage status", () => {
+		it("shows red dot and in-overage text when subscription is in overage", () => {
+			const overageQuota: NeuralWattQuotaResponse = {
+				...mockQuota,
+				subscription: {
+					...mockQuota.subscription,
+					in_overage: true,
+				},
+			};
+			renderWithProviders(
+				<NeuralWattQuotaModal {...defaultProps} quota={overageQuota} />,
+			);
+			const statusDot = screen.getByTestId("neuralwatt-status-dot");
+			expect(statusDot).toHaveClass("bg-red-400");
+			expect(screen.getByText("(In Overage)")).toBeInTheDocument();
+		});
+
+		it("shows green dot when subscription is active and not in overage", () => {
+			renderWithProviders(<NeuralWattQuotaModal {...defaultProps} />);
+			const statusDot = screen.getByTestId("neuralwatt-status-dot");
+			expect(statusDot).toHaveClass("bg-green-400");
+		});
+	});
+
+	describe("bar mode toggle", () => {
+		it("toggles between remaining and used mode", async () => {
+			const { user } = renderWithProviders(
+				<NeuralWattQuotaModal {...defaultProps} />,
+			);
+			const toggleButton = screen.getByRole("button", {
+				name: "Toggle between remaining and used",
+			});
+			// Default is "remaining" mode — click switches to "used"
+			await user.click(toggleButton);
+			expect(toggleButton).toHaveAttribute("title", "Show quota remaining");
+			// Click again switches back to "remaining"
+			await user.click(toggleButton);
+			expect(toggleButton).toHaveAttribute("title", "Show quota used");
+		});
+	});
+
+	describe("refresh error", () => {
+		it("shows error toast when refresh fails", async () => {
+			onRefresh.mockRejectedValue(new Error("network error"));
+			const { user } = renderWithProviders(
+				<NeuralWattQuotaModal {...defaultProps} />,
+			);
+			const refreshButton = screen.getByRole("button", { name: "Refresh" });
+			await user.click(refreshButton);
+			await waitFor(() => {
+				expect(onToast).toHaveBeenCalledWith(
+					"Failed to refresh quota",
+					"error",
+				);
+			});
+		});
+	});
+
+	describe("no credits state", () => {
+		it("hides credits bar and shows No credits when total_credits_usd is 0", () => {
+			const noCreditsQuota: NeuralWattQuotaResponse = {
+				...mockQuota,
+				balance: {
+					...mockQuota.balance,
+					total_credits_usd: 0,
+					credits_remaining_usd: 0,
+					credits_used_usd: 0,
+				},
+			};
+			renderWithProviders(
+				<NeuralWattQuotaModal {...defaultProps} quota={noCreditsQuota} />,
+			);
+			expect(
+				screen.queryByTestId("neuralwatt-credits-bar"),
+			).not.toBeInTheDocument();
+			expect(screen.getByText("No credits")).toBeInTheDocument();
+		});
+
+		it("still renders subscription section when no credits", () => {
+			const noCreditsQuota: NeuralWattQuotaResponse = {
+				...mockQuota,
+				balance: {
+					...mockQuota.balance,
+					total_credits_usd: 0,
+					credits_remaining_usd: 0,
+					credits_used_usd: 0,
+				},
+			};
+			renderWithProviders(
+				<NeuralWattQuotaModal {...defaultProps} quota={noCreditsQuota} />,
+			);
+			expect(screen.getByText("starter")).toBeInTheDocument();
+		});
+	});
 });

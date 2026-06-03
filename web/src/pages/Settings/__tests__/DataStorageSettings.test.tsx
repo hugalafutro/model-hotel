@@ -610,3 +610,89 @@ describe("Cache & Resets section", () => {
 		);
 	});
 });
+
+describe("Dashboard Refresh section", () => {
+	const onToggle = vi.fn();
+
+	beforeEach(() => {
+		localStorage.clear();
+		vi.clearAllMocks();
+		onToggle.mockClear();
+	});
+
+	it("renders Dashboard refresh slider with default 30s", () => {
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		// Both dashboard and quota sliders are labeled "Refresh Interval";
+		// the dashboard slider has id="dashboard-refresh-interval"
+		const sliders = screen.getAllByLabelText("Refresh Interval");
+		const dashboardSlider = sliders.find(
+			(s) => (s as HTMLInputElement).id === "dashboard-refresh-interval",
+		);
+		expect(dashboardSlider).toBeInTheDocument();
+		expect(dashboardSlider).toHaveValue("30");
+	});
+
+	it("renders dashboard refresh description text", () => {
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		// The description mentions the refresh interval behavior
+		expect(
+			screen.getByText(/manual refresh button is hidden/i),
+		).toBeInTheDocument();
+	});
+});
+
+describe("Quota Sidebar section", () => {
+	const onToggle = vi.fn();
+
+	beforeEach(() => {
+		localStorage.clear();
+		vi.clearAllMocks();
+		onToggle.mockClear();
+	});
+
+	it("renders Show Quotas Pill toggle", () => {
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		expect(screen.getByText("Show Quotas Pill")).toBeInTheDocument();
+	});
+
+	it("renders Quota refresh slider with default 5m", () => {
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		// The quota slider has id="quota-refresh-interval"
+		const sliders = screen.getAllByLabelText("Refresh Interval");
+		const quotaSlider = sliders.find(
+			(s) => (s as HTMLInputElement).id === "quota-refresh-interval",
+		);
+		expect(quotaSlider).toBeInTheDocument();
+		expect(quotaSlider).toHaveValue("5");
+	});
+
+	it("dispatches sidebarQuotaToggle event when quota toggle changes", async () => {
+		const user = userEvent.setup();
+		const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const toggle = getToggleByLabel("Show Quotas Pill");
+		await user.click(toggle);
+
+		expect(dispatchSpy).toHaveBeenCalledWith(
+			expect.objectContaining({ type: "sidebarQuotaToggle" }),
+		);
+
+		dispatchSpy.mockRestore();
+	});
+});

@@ -598,3 +598,75 @@ func TestValidate_WithCredentialID(t *testing.T) {
 	// Clean up
 	mgr.RevokeAuthToken(ctx, token)
 }
+
+// TestSessionManagerValidate_WrongSessionType verifies that Validate returns false
+// for sessions that are not type "auth_token" (e.g., registration sessions).
+func TestSessionManagerValidate_WrongSessionType(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	sessionID := uuid.New()
+	session := &SessionRecord{
+		ID:          sessionID,
+		Challenge:   "wrong-type-challenge",
+		SessionData: []byte(`{"type":"registration"}`),
+		Type:        "registration",
+		UserID:      []byte("admin"),
+		ExpiresAt:   time.Now().Add(1 * time.Hour),
+	}
+
+	if err := repo.CreateSession(ctx, session); err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+
+	mgr := NewSessionManager(repo)
+
+	// Validate hashes the input token, looks up by token_hash, then checks type.
+	// A registration session has no token_hash column set, so even if we try to
+	// validate using the session's ID as a "token", it won't match any auth_token
+	// session and should return false.
+	if mgr.Validate(ctx, sessionID.String()) {
+		t.Error("expected non-auth_token session to fail Validate")
+	}
+}
+
+// TestSessionManagerRevokeAuthToken_EmptyToken verifies that RevokeAuthToken
+// returns false immediately for an empty string token.
+func TestSessionManagerRevokeAuthToken_EmptyToken(t *testing.T) {
+	repo := newTestRepo(t)
+	mgr := NewSessionManager(repo)
+
+	if mgr.RevokeAuthToken(context.Background(), "") {
+		t.Error("expected RevokeAuthToken to return false for empty token")
+	}
+}
+
+// TestGenerateChallenge verifies that generateChallenge produces correct-length
+// hex strings and is non-deterministic across calls.
+func TestGenerateChallenge(t *testing.T) {
+	ch1, err := generateChallenge(32)
+	if err != nil {
+		t.Fatalf("generateChallenge(32): %v", err)
+	}
+	if len(ch1) != 64 { // 32 bytes = 64 hex chars
+		t.Errorf("expected 64-char hex string, got %d chars", len(ch1))
+	}
+
+	// Zero-length should return empty string
+	ch0, err := generateChallenge(0)
+	if err != nil {
+		t.Fatalf("generateChallenge(0): %v", err)
+	}
+	if ch0 != "" {
+		t.Errorf("expected empty string for length 0, got %q", ch0)
+	}
+
+	// Two calls with the same length should produce different values (randomness)
+	ch2, err := generateChallenge(32)
+	if err != nil {
+		t.Fatalf("generateChallenge(32) second call: %v", err)
+	}
+	if ch1 == ch2 {
+		t.Error("expected different challenge values from consecutive calls")
+	}
+}
