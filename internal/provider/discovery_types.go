@@ -282,12 +282,12 @@ type AnthropicCapabilities struct {
 
 // AnthropicModelInfo represents an Anthropic model from the models endpoint.
 type AnthropicModelInfo struct {
-	ID             string                  `json:"id"`
-	Type           string                  `json:"type"`
-	DisplayName    string                  `json:"display_name"`
-	CreatedAt      string                  `json:"created_at"`
-	MaxInputTokens *int                    `json:"max_input_tokens"`
-	MaxTokens      *int                    `json:"max_tokens"`
+	ID             string                 `json:"id"`
+	Type           string                 `json:"type"`
+	DisplayName    string                 `json:"display_name"`
+	CreatedAt      string                 `json:"created_at"`
+	MaxInputTokens *int                   `json:"max_input_tokens"`
+	MaxTokens      *int                   `json:"max_tokens"`
 	Capabilities   *AnthropicCapabilities `json:"capabilities"`
 }
 

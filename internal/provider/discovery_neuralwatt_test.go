@@ -97,43 +97,43 @@ func TestGetNeuralWattQuota_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetNeuralWattQuota failed: %v", err)
 	}
-
 	if quota == nil {
 		t.Fatal("Expected non-nil quota")
 	}
 
-	if quota.Balance.CreditsRemainingUSD != 23.9 {
-		t.Errorf("Expected CreditsRemainingUSD 23.9, got %f", quota.Balance.CreditsRemainingUSD)
+	q := *quota
+	if q.Balance.CreditsRemainingUSD != 23.9 {
+		t.Errorf("Expected CreditsRemainingUSD 23.9, got %f", q.Balance.CreditsRemainingUSD)
 	}
-	if quota.Balance.AccountingMethod != "energy" {
-		t.Errorf("Expected AccountingMethod 'energy', got '%s'", quota.Balance.AccountingMethod)
+	if q.Balance.AccountingMethod != "energy" {
+		t.Errorf("Expected AccountingMethod 'energy', got '%s'", q.Balance.AccountingMethod)
 	}
-	if quota.Usage.Lifetime.Requests != 10870 {
-		t.Errorf("Expected Lifetime Requests 10870, got %d", quota.Usage.Lifetime.Requests)
+	if q.Usage.Lifetime.Requests != 10870 {
+		t.Errorf("Expected Lifetime Requests 10870, got %d", q.Usage.Lifetime.Requests)
 	}
-	if quota.Usage.CurrentMonth.EnergyKWh != 1.381 {
-		t.Errorf("Expected CurrentMonth EnergyKWh 1.381, got %f", quota.Usage.CurrentMonth.EnergyKWh)
+	if q.Usage.CurrentMonth.EnergyKWh != 1.381 {
+		t.Errorf("Expected CurrentMonth EnergyKWh 1.381, got %f", q.Usage.CurrentMonth.EnergyKWh)
 	}
-	if quota.Limits.OverageLimitUSD != nil {
-		t.Errorf("Expected OverageLimitUSD nil, got %v", quota.Limits.OverageLimitUSD)
+	if q.Limits.OverageLimitUSD != nil {
+		t.Errorf("Expected OverageLimitUSD nil, got %v", q.Limits.OverageLimitUSD)
 	}
-	if quota.Limits.RateLimitTier != "standard" {
-		t.Errorf("Expected RateLimitTier 'standard', got '%s'", quota.Limits.RateLimitTier)
+	if q.Limits.RateLimitTier != "standard" {
+		t.Errorf("Expected RateLimitTier 'standard', got '%s'", q.Limits.RateLimitTier)
 	}
-	if !quota.Subscription.AutoRenew {
+	if !q.Subscription.AutoRenew {
 		t.Error("Expected AutoRenew true")
 	}
-	if quota.Subscription.KWhRemaining != 13.9717 {
-		t.Errorf("Expected KWhRemaining 13.9717, got %f", quota.Subscription.KWhRemaining)
+	if q.Subscription.KWhRemaining != 13.9717 {
+		t.Errorf("Expected KWhRemaining 13.9717, got %f", q.Subscription.KWhRemaining)
 	}
-	if quota.Subscription.InOverage {
+	if q.Subscription.InOverage {
 		t.Error("Expected InOverage false")
 	}
-	if quota.Key.Name != "testing" {
-		t.Errorf("Expected Key Name 'testing', got '%s'", quota.Key.Name)
+	if q.Key.Name != "testing" {
+		t.Errorf("Expected Key Name 'testing', got '%s'", q.Key.Name)
 	}
-	if quota.Key.Allowance != nil {
-		t.Errorf("Expected Key Allowance nil, got %v", quota.Key.Allowance)
+	if q.Key.Allowance != nil {
+		t.Errorf("Expected Key Allowance nil, got %v", q.Key.Allowance)
 	}
 }
 
