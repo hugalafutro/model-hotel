@@ -111,7 +111,7 @@ export function PasskeySettings({ collapsed, onToggle }: PasskeySettingsProps) {
 			onToggle={onToggle}
 		>
 			<div className="space-y-4">
-				<p className="text-gray-400 text-sm">
+				<p className="text-(--text-secondary) text-sm">
 					{t("settings.passkeys.description")}
 				</p>
 
@@ -227,7 +227,7 @@ function CredentialRow({
 									setDraft(cred.name);
 									setEditing(false);
 								}}
-								className="text-gray-400 hover:text-gray-300 p-0.5"
+								className="text-(--text-muted) hover:text-(--text-primary) p-0.5"
 								aria-label={t("settings.passkeys.cancelNameAriaLabel")}
 							>
 								<X size={14} />
@@ -246,11 +246,11 @@ function CredentialRow({
 							<span className="truncate">{displayName}</span>
 							<Pencil
 								size={12}
-								className="shrink-0 text-gray-500 group-hover:text-(--accent) transition-colors"
+								className="shrink-0 text-(--text-muted) group-hover:text-(--accent) transition-colors"
 							/>
 						</button>
 					)}
-					<p className="text-xs text-gray-500">
+					<p className="text-xs text-(--text-muted)">
 						{t("settings.passkeys.registered")} {formatDate(cred.created_at)}
 					</p>
 				</div>
@@ -259,7 +259,7 @@ function CredentialRow({
 				type="button"
 				onClick={() => deleteMutation.mutate(cred.id)}
 				disabled={deleteMutation.isPending}
-				className="text-gray-500 hover:text-red-400 transition-colors p-1 disabled:opacity-50"
+				className="text-(--text-muted) hover:text-red-400 transition-colors p-1 disabled:opacity-50"
 				aria-label={t("settings.passkeys.deleteAriaLabel")}
 			>
 				<Trash2 size={16} />
