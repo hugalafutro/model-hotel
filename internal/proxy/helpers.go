@@ -127,9 +127,9 @@ func normalizeFinishReasonInChoices(choices []map[string]json.RawMessage, lastRe
 // Usage struct. It checks three provider-specific fields in precedence order:
 // PromptCacheHitTokens (OpenAI), CacheReadInputTokens (Anthropic-native),
 // and PromptTokensDetails.CachedTokens (OpenAI nested format).
-// Returns (0, 0) when no cache fields are present; callers should only
-// assign the results when at least one value is non-zero to preserve any
-// previously accumulated cache counts from earlier usage chunks.
+// Returns (0, 0) when no cache fields are present. Streaming callers should
+// guard the assignment (hit > 0 || miss > 0) to avoid zeroing out cache counts
+// from an earlier usage chunk; non-streaming callers can assign unconditionally
 func extractCacheTokens(u Usage) (hitTokens, missTokens int) {
 	if u.PromptCacheHitTokens > 0 {
 		return u.PromptCacheHitTokens, max(0, u.PromptTokens-u.PromptCacheHitTokens)
