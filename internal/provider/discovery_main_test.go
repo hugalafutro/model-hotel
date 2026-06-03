@@ -250,6 +250,26 @@ func TestDiscoverModels(t *testing.T) {
 		providerType := DetectProviderType(provider.BaseURL)
 		assert.Equal(t, "lmstudio", providerType)
 	})
+
+	t.Run("neuralwatt", func(t *testing.T) {
+		// Test provider type detection
+		provider := &Provider{
+			ID:      uuid.New(),
+			BaseURL: "https://api.neuralwatt.com",
+		}
+		providerType := DetectProviderType(provider.BaseURL)
+		assert.Equal(t, "neuralwatt", providerType)
+	})
+
+	t.Run("neuralwatt_subdomain", func(t *testing.T) {
+		// Test provider type detection for subdomain
+		provider := &Provider{
+			ID:      uuid.New(),
+			BaseURL: "https://custom.neuralwatt.com",
+		}
+		providerType := DetectProviderType(provider.BaseURL)
+		assert.Equal(t, "neuralwatt", providerType)
+	})
 }
 
 // TestGetZAICodingQuota is defined in discovery_http_test.go with live API testing

@@ -4,6 +4,7 @@ import type {
 	DeepSeekBalance,
 	DeepSeekBalanceInfo,
 	NanoGPTUsage,
+	NeuralWattQuotaResponse,
 	OllamaCloudAccount,
 	OpenRouterBalance,
 	ZAICodingQuotaResponse,
@@ -37,6 +38,7 @@ const TYPE_PREFIX: Record<QuotaProviderType, string> = {
 	deepseek: PROVIDER_PREFIXES.deepseek,
 	openrouter: PROVIDER_PREFIXES.openrouter,
 	"ollama-cloud": PROVIDER_PREFIXES["ollama-cloud"],
+	neuralwatt: PROVIDER_PREFIXES.neuralwatt,
 };
 
 /** Card variant classes derived from PROVIDER_BRAND_COLORS.
@@ -66,6 +68,10 @@ const TYPE_STYLES: Record<
 	"ollama-cloud": {
 		sidebar: "sidebar-quota-pill sidebar-quota-pill-ollama-cloud",
 		card: "quota-card-ollama-cloud bg-white/10 text-gray-300 border border-gray-400/50 hover:bg-white/15",
+	},
+	neuralwatt: {
+		sidebar: "sidebar-quota-pill sidebar-quota-pill-neuralwatt",
+		card: "quota-card-neuralwatt bg-[#ac4324]/20 text-[#ac4324] border border-[#ac4324]/50 hover:bg-[#ac4324]/30",
 	},
 };
 
@@ -166,6 +172,30 @@ function ollamaCloudBadgeContent(
 	return { label: plan, title };
 }
 
+function neuralwattBadgeContent(
+	quota: NeuralWattQuotaResponse,
+	dataUpdatedAt?: number,
+): BadgeContent {
+	const used = quota.subscription.kwh_used;
+	const included = quota.subscription.kwh_included;
+	const label =
+		included > 0
+			? `${used.toFixed(2)} / ${included.toFixed(0)} kWh`
+			: `${used.toFixed(2)} kWh`;
+	const refreshed = dataUpdatedAt
+		? i18next.t("components.quotaBadge.updated", {
+				time: new Date(dataUpdatedAt).toLocaleTimeString(),
+			})
+		: "";
+	return {
+		label,
+		title: i18next.t("components.quotaBadge.neuralwattBalance", {
+			amount: used.toFixed(2),
+			refreshed,
+		}),
+	};
+}
+
 // ── QuotaBadge component ────────────────────────────────────────────────
 
 export interface QuotaBadgeProps {
@@ -186,6 +216,9 @@ export interface QuotaBadgeProps {
 	openrouterBalance?: OpenRouterBalance;
 	/** Ollama Cloud props */
 	ollamaCloudAccount?: OllamaCloudAccount;
+	/** NeuralWatt props */
+	neuralwattQuota?: NeuralWattQuotaResponse | null;
+	neuralwattDataUpdatedAt?: number;
 }
 
 export function QuotaBadge({
@@ -200,6 +233,8 @@ export function QuotaBadge({
 	deepseekBalance,
 	openrouterBalance,
 	ollamaCloudAccount,
+	neuralwattQuota,
+	neuralwattDataUpdatedAt,
 }: QuotaBadgeProps) {
 	const { label, title: defaultTitle } = (() => {
 		switch (type) {
@@ -234,6 +269,16 @@ export function QuotaBadge({
 						title: i18next.t("components.quotaBadge.ollamaCloudUnavailable"),
 					};
 				return ollamaCloudBadgeContent(ollamaCloudAccount);
+			}
+			case "neuralwatt": {
+				if (!neuralwattQuota)
+					return {
+						label: "-",
+						title: i18next.t(
+							"components.quotaBadge.neuralwattBalanceUnavailable",
+						),
+					};
+				return neuralwattBadgeContent(neuralwattQuota, neuralwattDataUpdatedAt);
 			}
 		}
 	})();
@@ -271,6 +316,7 @@ interface QuotaBadgesProps {
 	onDeepseekClick?: () => void;
 	onOpenRouterClick?: () => void;
 	onOllamaCloudClick?: () => void;
+	onNeuralwattClick?: () => void;
 }
 
 /**
@@ -288,6 +334,7 @@ export function QuotaBadges({
 	onDeepseekClick,
 	onOpenRouterClick,
 	onOllamaCloudClick,
+	onNeuralwattClick,
 }: QuotaBadgesProps) {
 	const [barMode, setBarMode] = useState<QuotaBarMode>(() => {
 		try {
@@ -409,6 +456,17 @@ export function QuotaBadges({
 								quotaData.ollamaCloudDataUpdatedAt,
 							).title
 						}
+					/>
+				)}
+			{quotaData.showNeuralwattBadge &&
+				quotaData.neuralwattQuota &&
+				showForType("neuralwatt") && (
+					<QuotaBadge
+						type="neuralwatt"
+						variant={variant}
+						neuralwattQuota={quotaData.neuralwattQuota}
+						neuralwattDataUpdatedAt={quotaData.neuralwattDataUpdatedAt}
+						onClick={onNeuralwattClick}
 					/>
 				)}
 		</>

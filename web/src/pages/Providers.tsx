@@ -12,6 +12,7 @@ import { LoadingSpinner } from "../components/LoadingSpinner";
 import { PageHeader } from "../components/PageHeader";
 import {
 	NanoGPTQuotaModal,
+	NeuralWattQuotaModal,
 	OpenRouterQuotaModal,
 	ZAICodingQuotaModal,
 } from "../components/ProviderModals";
@@ -82,6 +83,8 @@ export function Providers() {
 		setZaiCodingOpen,
 		isOpenRouterOpen,
 		setOpenRouterOpen,
+		isNeuralwattOpen,
+		setNeuralwattOpen,
 	} = useQuotaModal();
 
 	// Track which provider is currently being scanned during Discover All
@@ -369,6 +372,7 @@ export function Providers() {
 						onSetModalNano={() => setNanoOpen(true)}
 						onSetModalZaiCoding={() => setZaiCodingOpen(true)}
 						onSetModalOpenRouter={() => setOpenRouterOpen(true)}
+						onSetModalNeuralwatt={() => setNeuralwattOpen(true)}
 						toast={toast}
 					/>
 				))}
@@ -426,6 +430,17 @@ export function Providers() {
 					isRefreshing={quotaData.isOrRefetching}
 					onToast={toast}
 					lastRefreshed={quotaData.openrouterDataUpdatedAt}
+				/>
+			)}
+
+			{isNeuralwattOpen && quotaData.neuralwattQuota && (
+				<NeuralWattQuotaModal
+					quota={quotaData.neuralwattQuota}
+					onClose={() => setNeuralwattOpen(false)}
+					onRefresh={quotaData.refetchNeuralwatt}
+					isRefreshing={quotaData.isNeuralwattRefetching}
+					onToast={toast}
+					lastRefreshed={quotaData.neuralwattDataUpdatedAt}
 				/>
 			)}
 

@@ -13,6 +13,7 @@ import type {
 	Model,
 	ModelsCursorResponse,
 	NanoGPTUsage,
+	NeuralWattQuotaResponse,
 	OllamaCloudAccount,
 	OpenRouterBalance,
 	Provider,
@@ -252,6 +253,17 @@ export const api = {
 				},
 				"Failed to fetch OpenRouter balance",
 			);
+		},
+		getNeuralWattQuota: async (
+			id: string,
+		): Promise<NeuralWattQuotaResponse | null> => {
+			const response = await fetchOK(
+				`${API_BASE}/api/providers/${id}/usage`,
+				{ headers: getAuthHeaders() },
+				"Failed to fetch NeuralWatt quota",
+			);
+			if (response.status === 204) return null;
+			return response.json();
 		},
 		getOllamaCloudAccount: async (id: string): Promise<OllamaCloudAccount> => {
 			return fetchJSON<OllamaCloudAccount>(

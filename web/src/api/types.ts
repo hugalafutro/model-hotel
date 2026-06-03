@@ -433,6 +433,57 @@ export interface ZAICodingQuotaResponse {
 	success: boolean;
 }
 
+export interface NeuralWattQuotaBalance {
+	credits_remaining_usd: number;
+	total_credits_usd: number;
+	credits_used_usd: number;
+	accounting_method: string;
+}
+
+export interface NeuralWattQuotaUsagePeriod {
+	cost_usd: number;
+	requests: number;
+	tokens: number;
+	energy_kwh: number;
+}
+
+export interface NeuralWattQuotaUsage {
+	lifetime: NeuralWattQuotaUsagePeriod;
+	current_month: NeuralWattQuotaUsagePeriod;
+}
+
+export interface NeuralWattQuotaLimits {
+	overage_limit_usd: number | null;
+	rate_limit_tier: string;
+}
+
+export interface NeuralWattQuotaSubscription {
+	plan: string;
+	status: string;
+	billing_interval: string;
+	current_period_start: string;
+	current_period_end: string;
+	auto_renew: boolean;
+	kwh_included: number;
+	kwh_used: number;
+	kwh_remaining: number;
+	in_overage: boolean;
+}
+
+export interface NeuralWattQuotaKey {
+	name: string;
+	allowance: number | null;
+}
+
+export interface NeuralWattQuotaResponse {
+	snapshot_at: string;
+	balance: NeuralWattQuotaBalance;
+	usage: NeuralWattQuotaUsage;
+	limits: NeuralWattQuotaLimits;
+	subscription: NeuralWattQuotaSubscription;
+	key: NeuralWattQuotaKey;
+}
+
 export interface GenerationParams {
 	temperature?: number;
 	max_tokens?: number;

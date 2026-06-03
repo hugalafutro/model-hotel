@@ -5,6 +5,7 @@ import { api } from "../api/client";
 import type {
 	DeepSeekBalance,
 	NanoGPTUsage,
+	NeuralWattQuotaResponse,
 	OllamaCloudAccount,
 	OpenRouterBalance,
 	Provider,
@@ -41,7 +42,8 @@ export type QuotaProviderType =
 	| "zai-coding"
 	| "deepseek"
 	| "openrouter"
-	| "ollama-cloud";
+	| "ollama-cloud"
+	| "neuralwatt";
 
 function hostnameMatches(url: string, suffix: string, exact?: string): boolean {
 	try {
@@ -61,6 +63,7 @@ export function detectQuotaProviderType(
 	if (hostnameMatches(baseUrl, "deepseek.com")) return "deepseek";
 	if (hostnameMatches(baseUrl, "openrouter.ai")) return "openrouter";
 	if (hostnameMatches(baseUrl, "ollama.com")) return "ollama-cloud";
+	if (hostnameMatches(baseUrl, "neuralwatt.com")) return "neuralwatt";
 	return null;
 }
 
@@ -111,6 +114,7 @@ export interface QuotaDataResult {
 	deepseekProviderId: string | undefined;
 	openrouterProviderId: string | undefined;
 	ollamaCloudProviderId: string | undefined;
+	neuralwattProviderId: string | undefined;
 
 	/** Raw query data. */
 	nanogptUsage: NanoGPTUsage | undefined;
@@ -118,6 +122,7 @@ export interface QuotaDataResult {
 	deepseekBalance: DeepSeekBalance | undefined;
 	openrouterBalance: OpenRouterBalance | undefined;
 	ollamaCloudAccount: OllamaCloudAccount | undefined;
+	neuralwattQuota: NeuralWattQuotaResponse | null | undefined;
 
 	/** Derived Z.ai limits. */
 	zaiCodingFiveHour: ZAICodingQuotaLimit | undefined;
@@ -133,6 +138,7 @@ export interface QuotaDataResult {
 	showDsBadge: boolean;
 	showOrBadge: boolean;
 	showOllamaCloudBadge: boolean;
+	showNeuralwattBadge: boolean;
 
 	/** Whether any quota-supporting provider exists. */
 	hasAnyProvider: boolean;
@@ -143,6 +149,7 @@ export interface QuotaDataResult {
 	refetchDeepseek: () => Promise<void>;
 	refetchOpenRouter: () => Promise<void>;
 	refetchOllamaCloud: () => Promise<void>;
+	refetchNeuralwatt: () => Promise<void>;
 
 	/** Individual isRefetching flags. */
 	isNanoRefetching: boolean;
@@ -150,6 +157,7 @@ export interface QuotaDataResult {
 	isDsRefetching: boolean;
 	isOrRefetching: boolean;
 	isOllamaCloudRefetching: boolean;
+	isNeuralwattRefetching: boolean;
 
 	/** dataUpdatedAt for modals. */
 	openrouterDataUpdatedAt: number;
@@ -157,6 +165,7 @@ export interface QuotaDataResult {
 	zaiCodingDataUpdatedAt: number;
 	deepseekDataUpdatedAt: number;
 	ollamaCloudDataUpdatedAt: number;
+	neuralwattDataUpdatedAt: number;
 
 	/** Invalidate all quota query keys. */
 	invalidateAll: () => void;
@@ -191,6 +200,10 @@ export function useQuotaData(
 	);
 	const ollamaCloudProviderId = useMemo(
 		() => findProviderId(providers, "ollama-cloud"),
+		[providers],
+	);
+	const neuralwattProviderId = useMemo(
+		() => findProviderId(providers, "neuralwatt"),
 		[providers],
 	);
 
@@ -310,6 +323,27 @@ export function useQuotaData(
 			setCachedData("ollama-cloud-account", ollamaCloudAccount);
 	}, [ollamaCloudAccount]);
 
+	// ── NeuralWatt query ──
+	const {
+		data: neuralwattQuota,
+		dataUpdatedAt: neuralwattDataUpdatedAt,
+		isRefetching: isNeuralwattRefetching,
+		isError: isNeuralwattError,
+		refetch: refetchNwRaw,
+	} = useQuery<NeuralWattQuotaResponse | null>({
+		queryKey: ["neuralwatt-quota", neuralwattProviderId],
+		queryFn: () =>
+			api.providers.getNeuralWattQuota(neuralwattProviderId as string),
+		enabled: Boolean(neuralwattProviderId),
+		refetchInterval: effectiveRefetchInterval,
+		initialData: () =>
+			getCachedData<NeuralWattQuotaResponse>("neuralwatt-quota"),
+	});
+
+	useEffect(() => {
+		if (neuralwattQuota) setCachedData("neuralwatt-quota", neuralwattQuota);
+	}, [neuralwattQuota]);
+
 	// ── Error toasting ──
 	const nanoErrorToasted = useRef(false);
 	useEffect(() => {
@@ -361,6 +395,16 @@ export function useQuotaData(
 		if (!isOllamaCloudError) ocErrorToasted.current = false;
 	}, [isOllamaCloudError, toastErrors, t]);
 
+	const nwErrorToasted = useRef(false);
+	useEffect(() => {
+		if (!toastErrors) return;
+		if (isNeuralwattError && !nwErrorToasted.current) {
+			toastErrors(t("hooks.useQuotaData.neuralwattError"), "warning");
+			nwErrorToasted.current = true;
+		}
+		if (!isNeuralwattError) nwErrorToasted.current = false;
+	}, [isNeuralwattError, toastErrors, t]);
+
 	// ── Derived values ──
 	const zaiCodingFiveHour = getZaiCodingFiveHourLimit(zaiCodingUsage);
 	const zaiCodingWeekly = getZaiCodingWeeklyLimit(zaiCodingUsage);
@@ -402,12 +446,18 @@ export function useQuotaData(
 		Boolean(ollamaCloudAccount) &&
 		!isOllamaCloudSuspended;
 
+	const showNeuralwattBadge =
+		Boolean(neuralwattProviderId) &&
+		Boolean(neuralwattQuota) &&
+		neuralwattQuota?.balance?.credits_remaining_usd != null;
+
 	const hasAnyProvider = Boolean(
 		nanogptProviderId ||
 			zaiCodingProviderId ||
 			deepseekProviderId ||
 			openrouterProviderId ||
-			ollamaCloudProviderId,
+			ollamaCloudProviderId ||
+			neuralwattProviderId,
 	);
 
 	// ── Refetch helpers ──
@@ -431,12 +481,17 @@ export function useQuotaData(
 		await refetchOcRaw();
 	}, [refetchOcRaw]);
 
+	const refetchNeuralwatt = useCallback(async () => {
+		await refetchNwRaw();
+	}, [refetchNwRaw]);
+
 	const invalidateAll = useCallback(() => {
 		queryClient.invalidateQueries({ queryKey: ["nanogpt-usage"] });
 		queryClient.invalidateQueries({ queryKey: ["zai-coding-usage"] });
 		queryClient.invalidateQueries({ queryKey: ["deepseek-balance"] });
 		queryClient.invalidateQueries({ queryKey: ["openrouter-balance"] });
 		queryClient.invalidateQueries({ queryKey: ["ollama-cloud-account"] });
+		queryClient.invalidateQueries({ queryKey: ["neuralwatt-quota"] });
 	}, [queryClient]);
 
 	return {
@@ -445,11 +500,13 @@ export function useQuotaData(
 		deepseekProviderId,
 		openrouterProviderId,
 		ollamaCloudProviderId,
+		neuralwattProviderId,
 		nanogptUsage,
 		zaiCodingUsage,
 		deepseekBalance,
 		openrouterBalance,
 		ollamaCloudAccount,
+		neuralwattQuota,
 		zaiCodingFiveHour,
 		zaiCodingWeekly,
 		nanoWeeklyUsed,
@@ -459,22 +516,26 @@ export function useQuotaData(
 		showDsBadge,
 		showOrBadge,
 		showOllamaCloudBadge,
+		showNeuralwattBadge,
 		hasAnyProvider,
 		refetchNano,
 		refetchZaiCoding,
 		refetchDeepseek,
 		refetchOpenRouter,
 		refetchOllamaCloud,
+		refetchNeuralwatt,
 		isNanoRefetching,
 		isZaiCodingRefetching,
 		isDsRefetching,
 		isOrRefetching,
 		isOllamaCloudRefetching,
+		isNeuralwattRefetching,
 		nanogptDataUpdatedAt,
 		zaiCodingDataUpdatedAt,
 		deepseekDataUpdatedAt,
 		openrouterDataUpdatedAt,
 		ollamaCloudDataUpdatedAt,
+		neuralwattDataUpdatedAt,
 		invalidateAll,
 	};
 }

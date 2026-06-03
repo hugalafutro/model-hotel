@@ -132,6 +132,8 @@ func DetectProviderType(baseURL string) string {
 		if strings.Contains(path, "/zen") {
 			return "opencode-zen"
 		}
+	case "api.neuralwatt.com", "neuralwatt.com":
+		return "neuralwatt"
 	}
 
 	// Subdomain matching: api.foo.deepseek.com, custom.nano-gpt.com, etc.
@@ -172,6 +174,9 @@ func DetectProviderType(baseURL string) string {
 		if strings.Contains(path, "/zen") {
 			return "opencode-zen"
 		}
+	}
+	if strings.HasSuffix(host, ".neuralwatt.com") {
+		return "neuralwatt"
 	}
 
 	// Port-based heuristics for self-hosted providers (Ollama, LM Studio, KoboldCPP).

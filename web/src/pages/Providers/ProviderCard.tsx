@@ -20,6 +20,7 @@ interface ProviderCardProps {
 	onSetModalNano: () => void;
 	onSetModalZaiCoding: () => void;
 	onSetModalOpenRouter: () => void;
+	onSetModalNeuralwatt: () => void;
 	toast: (msg: string, type: "success" | "error" | "info") => void;
 }
 
@@ -37,6 +38,7 @@ export function ProviderCard({
 	onSetModalNano,
 	onSetModalZaiCoding,
 	onSetModalOpenRouter,
+	onSetModalNeuralwatt,
 	toast,
 }: ProviderCardProps) {
 	const { t } = useTranslation();
@@ -145,6 +147,7 @@ export function ProviderCard({
 								toast(t("providers.toast_account_refresh_failed"), "error");
 							}
 						}}
+						onNeuralwattClick={() => onSetModalNeuralwatt()}
 					/>
 				</div>
 				<div className="flex gap-2">
