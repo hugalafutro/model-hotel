@@ -600,10 +600,17 @@ func TestValidate_WithCredentialID(t *testing.T) {
 }
 
 // TestSessionManagerValidate_WrongSessionType verifies that Validate returns false
-// for sessions that are not type "auth_token" (e.g., registration sessions).
+// for sessions whose Type is not "auth_token". The session is stored with a known
+// TokenHash so that GetSessionByTokenHash succeeds and the type-check branch
+// (session.Type != "auth_token") is actually exercised.
 func TestSessionManagerValidate_WrongSessionType(t *testing.T) {
 	repo := newTestRepo(t)
 	ctx := context.Background()
+
+	// Use a known token so we can set its hash on the session record.
+	testToken := "test-registration-token-abc"
+	hash := sha256.Sum256([]byte(testToken))
+	tokenHash := hex.EncodeToString(hash[:])
 
 	sessionID := uuid.New()
 	session := &SessionRecord{
@@ -612,20 +619,20 @@ func TestSessionManagerValidate_WrongSessionType(t *testing.T) {
 		SessionData: []byte(`{"type":"registration"}`),
 		Type:        "registration",
 		UserID:      []byte("admin"),
+		TokenHash:   &tokenHash,
 		ExpiresAt:   time.Now().Add(1 * time.Hour),
 	}
 
 	if err := repo.CreateSession(ctx, session); err != nil {
 		t.Fatalf("CreateSession: %v", err)
 	}
+	t.Cleanup(func() { _ = repo.DeleteSession(ctx, sessionID) })
 
 	mgr := NewSessionManager(repo)
 
-	// Validate hashes the input token, looks up by token_hash, then checks type.
-	// A registration session has no token_hash column set, so even if we try to
-	// validate using the session's ID as a "token", it won't match any auth_token
-	// session and should return false.
-	if mgr.Validate(ctx, sessionID.String()) {
+	// Validate hashes the token, looks up by token_hash (finds the session),
+	// then checks session.Type != "auth_token" and returns false.
+	if mgr.Validate(ctx, testToken) {
 		t.Error("expected non-auth_token session to fail Validate")
 	}
 }
