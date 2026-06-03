@@ -1,7 +1,9 @@
 import { screen, waitFor } from "@testing-library/react";
+import type { NeuralWattQuotaResponse } from "../../api/types";
 import { renderWithProviders } from "../../test/utils";
 import {
 	NanoGPTQuotaModal,
+	NeuralWattQuotaModal,
 	OpenRouterQuotaModal,
 	ZAICodingQuotaModal,
 } from "../ProviderModals";
@@ -1563,6 +1565,199 @@ describe("OpenRouterQuotaModal", () => {
 				".bg-\\[\\#6366F1\\].h-3.rounded-full",
 			);
 			expect(progressBar).toBeInTheDocument();
+		});
+	});
+});
+
+describe("NeuralWattQuotaModal", () => {
+	const mockQuota: NeuralWattQuotaResponse = {
+		snapshot_at: "2026-06-03T00:00:00Z",
+		balance: {
+			credits_remaining_usd: 5.5,
+			total_credits_usd: 10.0,
+			credits_used_usd: 4.5,
+			accounting_method: "credits",
+		},
+		usage: {
+			lifetime: {
+				cost_usd: 12.34,
+				requests: 1500,
+				tokens: 500000,
+				energy_kwh: 3.456,
+			},
+			current_month: {
+				cost_usd: 1.23,
+				requests: 200,
+				tokens: 50000,
+				energy_kwh: 0.789,
+			},
+		},
+		limits: {
+			overage_limit_usd: 5.0,
+			rate_limit_tier: "standard",
+		},
+		subscription: {
+			plan: "starter",
+			status: "active",
+			billing_interval: "monthly",
+			current_period_start: "2026-06-01T00:00:00Z",
+			current_period_end: "2026-07-01T00:00:00Z",
+			auto_renew: true,
+			kwh_included: 16,
+			kwh_used: 2.23,
+			kwh_remaining: 13.77,
+			in_overage: false,
+		},
+		key: {
+			name: "test-key",
+			allowance: 100.0,
+		},
+	};
+
+	const onClose = vi.fn();
+	const onRefresh = vi.fn();
+	const onToast = vi.fn();
+
+	const defaultProps = {
+		quota: mockQuota,
+		onClose,
+		onRefresh,
+		isRefreshing: false,
+		onToast,
+		lastRefreshed: Date.now(),
+	};
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		localStorage.clear();
+	});
+
+	describe("rendering", () => {
+		it("renders subscription plan name", () => {
+			renderWithProviders(<NeuralWattQuotaModal {...defaultProps} />);
+			expect(screen.getByText("starter")).toBeInTheDocument();
+		});
+
+		it("renders energy allocation with kWh values", () => {
+			renderWithProviders(<NeuralWattQuotaModal {...defaultProps} />);
+			expect(screen.getByText("16 kWh")).toBeInTheDocument();
+			expect(screen.getByText("2.23 kWh")).toBeInTheDocument();
+			expect(screen.getByText("13.77 kWh")).toBeInTheDocument();
+		});
+
+		it("renders balance info", () => {
+			renderWithProviders(<NeuralWattQuotaModal {...defaultProps} />);
+			expect(screen.getByText("$5.50")).toBeInTheDocument();
+		});
+
+		it("renders limits section", () => {
+			renderWithProviders(<NeuralWattQuotaModal {...defaultProps} />);
+			expect(screen.getByText("$5.00")).toBeInTheDocument();
+			expect(screen.getByText("standard")).toBeInTheDocument();
+		});
+
+		it("shows yes/no for boolean fields", () => {
+			renderWithProviders(<NeuralWattQuotaModal {...defaultProps} />);
+			expect(screen.getByText("Yes")).toBeInTheDocument(); // auto_renew
+			expect(screen.getByText("No")).toBeInTheDocument(); // in_overage
+		});
+
+		it("shows None when overage_limit_usd is null", () => {
+			const quotaWithNullOverage: NeuralWattQuotaResponse = {
+				...mockQuota,
+				limits: {
+					...mockQuota.limits,
+					overage_limit_usd: null,
+				},
+			};
+			renderWithProviders(
+				<NeuralWattQuotaModal {...defaultProps} quota={quotaWithNullOverage} />,
+			);
+			expect(screen.getByText("None")).toBeInTheDocument();
+		});
+
+		it("shows Unlimited when allowance is null", () => {
+			const quotaWithNullAllowance: NeuralWattQuotaResponse = {
+				...mockQuota,
+				key: {
+					...mockQuota.key,
+					allowance: null,
+				},
+			};
+			renderWithProviders(
+				<NeuralWattQuotaModal
+					{...defaultProps}
+					quota={quotaWithNullAllowance}
+				/>,
+			);
+			expect(screen.getByText("Unlimited")).toBeInTheDocument();
+		});
+	});
+
+	describe("close functionality", () => {
+		it("calls onClose when close button clicked", async () => {
+			const { user } = renderWithProviders(
+				<NeuralWattQuotaModal {...defaultProps} />,
+			);
+			const closeButton = screen.getByRole("button", { name: "Close" });
+			await user.click(closeButton);
+			expect(onClose).toHaveBeenCalledTimes(1);
+		});
+	});
+
+	describe("refresh functionality", () => {
+		it("calls onRefresh and shows success toast", async () => {
+			onRefresh.mockResolvedValue(undefined);
+			const { user } = renderWithProviders(
+				<NeuralWattQuotaModal {...defaultProps} />,
+			);
+			const refreshButton = screen.getByRole("button", { name: "Refresh" });
+			await user.click(refreshButton);
+			expect(onRefresh).toHaveBeenCalled();
+			await waitFor(() => {
+				expect(onToast).toHaveBeenCalledWith("Quota refreshed", "success");
+			});
+		});
+
+		it("shows last refreshed time when provided", () => {
+			renderWithProviders(<NeuralWattQuotaModal {...defaultProps} />);
+			expect(screen.getByText("Last refreshed")).toBeInTheDocument();
+		});
+	});
+
+	describe("pay-per-use (kwh_included = 0)", () => {
+		it("hides kWh bar when kwh_included is 0", () => {
+			const payPerUseQuota: NeuralWattQuotaResponse = {
+				...mockQuota,
+				subscription: {
+					...mockQuota.subscription,
+					kwh_included: 0,
+					kwh_used: 1.5,
+					kwh_remaining: 0,
+				},
+			};
+			renderWithProviders(
+				<NeuralWattQuotaModal {...defaultProps} quota={payPerUseQuota} />,
+			);
+			expect(
+				screen.queryByTestId("neuralwatt-kwh-bar"),
+			).not.toBeInTheDocument();
+		});
+
+		it("still renders credit balance when kwh_included is 0", () => {
+			const payPerUseQuota: NeuralWattQuotaResponse = {
+				...mockQuota,
+				subscription: {
+					...mockQuota.subscription,
+					kwh_included: 0,
+					kwh_used: 1.5,
+					kwh_remaining: 0,
+				},
+			};
+			renderWithProviders(
+				<NeuralWattQuotaModal {...defaultProps} quota={payPerUseQuota} />,
+			);
+			expect(screen.getByText("$5.50")).toBeInTheDocument();
 		});
 	});
 });

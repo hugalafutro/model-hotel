@@ -62,6 +62,7 @@
 		"allTime": "All Time",
 		"today": "Today",
 		"custom": "Custom",
+		"unlimited": "Unlimited",
 		"productNames": {
 			"powershell": "PowerShell",
 			"javascript": "JavaScript",
@@ -1862,7 +1863,36 @@
 			"balanceRefreshed": "Balance refreshed",
 			"failedToRefreshBalance": "Failed to refresh balance",
 			"noCredits": "No credits",
-			"cancelAtPeriodEnd": "Subscription will cancel at period end ({{date}})"
+			"cancelAtPeriodEnd": "Subscription will cancel at period end ({{date}})",
+			"neuralWattCredits": "Credits",
+			"neuralwattBalance": "Balance",
+			"neuralwattUsage": "Usage",
+			"neuralwattSubscription": "Subscription",
+			"neuralwattPlan": "Plan",
+			"neuralwattStatus": "Status",
+			"neuralwattBillingPeriod": "Billing Period",
+			"neuralwattAutoRenew": "Auto Renew",
+			"neuralwattKwhIncluded": "kWh Included",
+			"neuralwattKwhUsed": "kWh Used",
+			"neuralwattKwhRemaining": "kWh Remaining",
+			"neuralwattCurrentMonth": "Current Month",
+			"neuralwattCost": "Cost",
+			"neuralwattRequests": "Requests",
+			"neuralwattTokens": "Tokens",
+			"neuralwattEnergy": "Energy",
+			"neuralwattKeyName": "Key Name",
+			"neuralwattAllowance": "Allowance",
+			"neuralwattRateLimitTier": "Rate Limit Tier",
+			"neuralwattOverageLimit": "Overage Limit",
+			"neuralwattInOverage": "In Overage",
+			"neuralwattLifetime": "Lifetime",
+			"neuralwattKeyInfo": "Key Info",
+			"neuralwattEnergyQuota": "Energy Quota",
+			"neuralwattEnergyAllocation": "Energy Allocation",
+			"neuralwattBillingInterval": "Billing Interval",
+			"neuralwattAccountingMethod": "Accounting Method",
+			"limits": "Limits",
+			"none": "None"
 		},
 		"providerQuotaPanel": {
 			"quotas": "Quotas",
@@ -2111,7 +2141,9 @@
 			"nanoWeeklyTokenQuota": "NanoGPT weekly token quota - click for details",
 			"openRouterKeyBalance": "OpenRouter key balance - click for details",
 			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} plan (ends {{endDate}}){{refreshed}} - click to update",
-			"updated": "- updated {{time}}"
+			"updated": "- updated {{time}}",
+			"neuralwattBalance": "NeuralWatt: {{amount}} kWh remaining {{refreshed}}",
+			"neuralwattBalanceUnavailable": "NeuralWatt balance unavailable"
 		},
 		"filterDropdown": {
 			"placeholder": "Filter",
@@ -2183,7 +2215,8 @@
 			"zaiError": "Failed to fetch ZAI usage quota",
 			"deepSeekError": "Failed to fetch DeepSeek balance",
 			"openRouterError": "Failed to fetch OpenRouter key balance",
-			"ollamaCloudError": "Failed to fetch Ollama Cloud account"
+			"ollamaCloudError": "Failed to fetch Ollama Cloud account",
+			"neuralwattError": "Failed to fetch NeuralWatt quota"
 		},
 		"useDisableModel": {
 			"success": "Model \"{{model}}\" disabled",

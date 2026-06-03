@@ -206,6 +206,19 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, keyBalance)
 		return
+	case "neuralwatt":
+		quota, err := discovery.GetNeuralWattQuota(quotaCtx, prov, h.cfg.MasterKey)
+		if err != nil {
+			respondError(w, fmt.Sprintf("failed to fetch quota for provider %s", prov.Name), err, http.StatusInternalServerError)
+			return
+		}
+		if quota == nil {
+			// Free tier or no quota data available
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		writeJSON(w, quota)
+		return
 	default:
 		http.Error(w, "usage information not supported for this provider type", http.StatusBadRequest)
 		return
@@ -479,6 +492,15 @@ func (h *Handler) RefreshAllQuotas(w http.ResponseWriter, r *http.Request) {
 			}
 		case "ollama-cloud":
 			_, err := discovery.GetOllamaCloudAccount(provCtx, prov, h.cfg.MasterKey)
+			if err != nil {
+				result.Error = err.Error()
+				failed++
+			} else {
+				result.Refreshed = true
+				refreshed++
+			}
+		case "neuralwatt":
+			_, err := discovery.GetNeuralWattQuota(provCtx, prov, h.cfg.MasterKey)
 			if err != nil {
 				result.Error = err.Error()
 				failed++

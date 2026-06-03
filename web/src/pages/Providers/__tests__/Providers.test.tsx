@@ -580,10 +580,10 @@ describe("Providers", () => {
 			});
 
 			await waitFor(() => {
-				const balanceBadge = screen.getByText(/\$900000/);
+				const balanceBadge = screen.getByText(/\$900,?000/);
 				expect(balanceBadge).toBeInTheDocument();
 			});
-			const balanceBadge = screen.getByText(/\$900000/);
+			const balanceBadge = screen.getByText(/\$900,?000/);
 			await user.click(balanceBadge);
 
 			await waitFor(() => {
@@ -696,12 +696,12 @@ describe("Providers", () => {
 				expect(screen.getByText("OpenRouter")).toBeInTheDocument();
 			});
 
-			// Wait for balance badge (shows "$900000.00" for credits_remaining)
+			// Wait for balance badge (shows "$900,000.00" for credits_remaining)
 			await waitFor(() => {
-				const balanceBadge = screen.getByText(/\$900000/);
+				const balanceBadge = screen.getByText(/\$900,?000/);
 				expect(balanceBadge).toBeInTheDocument();
 			});
-			const balanceBadge = screen.getByText(/\$900000/);
+			const balanceBadge = screen.getByText(/\$900,?000/);
 			await user.click(balanceBadge);
 
 			await waitFor(() => {

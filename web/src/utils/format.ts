@@ -94,6 +94,19 @@ export function formatCompact(n: number): string {
 	return fmt(n);
 }
 
+export function formatDollars(v: number): string {
+	return v.toLocaleString("en-US", {
+		style: "currency",
+		currency: "USD",
+	});
+}
+
+export function formatKwh(v: number): string {
+	return v.toLocaleString("en-US", {
+		maximumFractionDigits: 2,
+	});
+}
+
 export function dropTrailingZero(v: number, decimals: number): string {
 	const s = v.toFixed(decimals);
 	if (decimals > 0 && s.includes(".")) {

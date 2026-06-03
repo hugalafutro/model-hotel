@@ -9,6 +9,7 @@ import { useQuotaData } from "../hooks/useQuotaData";
 import { CollapsibleToggle } from "./CollapsibleToggle";
 import {
 	NanoGPTQuotaModal,
+	NeuralWattQuotaModal,
 	OpenRouterQuotaModal,
 	ZAICodingQuotaModal,
 } from "./ProviderModals";
@@ -117,7 +118,8 @@ export function ProviderQuotaPanel() {
 		isNanoRefetching ||
 		isZaiCodingRefetching ||
 		isDsRefetching ||
-		isOrRefetching;
+		isOrRefetching ||
+		quotaData.isNeuralwattRefetching;
 
 	const isAutoRefreshing = anyRefreshing && !collapsed;
 
@@ -142,6 +144,8 @@ export function ProviderQuotaPanel() {
 		setZaiCodingOpen,
 		isOpenRouterOpen,
 		setOpenRouterOpen,
+		isNeuralwattOpen,
+		setNeuralwattOpen,
 	} = useQuotaModal();
 
 	if (!quotaData.hasAnyProvider || disabled) return null;
@@ -191,6 +195,7 @@ export function ProviderQuotaPanel() {
 							onDeepseekClick={handleRefresh}
 							onOpenRouterClick={() => setOpenRouterOpen(true)}
 							onOllamaCloudClick={handleRefresh}
+							onNeuralwattClick={() => setNeuralwattOpen(true)}
 						/>
 					</div>
 				</div>
@@ -224,6 +229,16 @@ export function ProviderQuotaPanel() {
 					isRefreshing={quotaData.isOrRefetching}
 					onToast={toast}
 					lastRefreshed={quotaData.openrouterDataUpdatedAt}
+				/>
+			)}
+			{isNeuralwattOpen && quotaData.neuralwattQuota && (
+				<NeuralWattQuotaModal
+					quota={quotaData.neuralwattQuota}
+					onClose={() => setNeuralwattOpen(false)}
+					onRefresh={quotaData.refetchNeuralwatt}
+					isRefreshing={quotaData.isNeuralwattRefetching}
+					onToast={toast}
+					lastRefreshed={quotaData.neuralwattDataUpdatedAt}
 				/>
 			)}
 		</div>

@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import type {
 	DeepSeekBalance,
 	NanoGPTUsage,
+	NeuralWattQuotaResponse,
 	OllamaCloudAccount,
 	OpenRouterBalance,
 	ZAICodingQuotaResponse,
@@ -393,6 +394,138 @@ describe("QuotaBadge", () => {
 		});
 	});
 
+	describe("neuralwatt type", () => {
+		const mockNeuralWattQuota: NeuralWattQuotaResponse = {
+			snapshot_at: "2026-06-03T12:00:00Z",
+			balance: {
+				credits_remaining_usd: 15.5,
+				total_credits_usd: 25.0,
+				credits_used_usd: 9.5,
+				accounting_method: "prepaid",
+			},
+			usage: {
+				lifetime: {
+					cost_usd: 9.5,
+					requests: 150,
+					tokens: 250000,
+					energy_kwh: 2.23,
+				},
+				current_month: {
+					cost_usd: 5.25,
+					requests: 80,
+					tokens: 120000,
+					energy_kwh: 1.15,
+				},
+			},
+			limits: {
+				overage_limit_usd: 10.0,
+				rate_limit_tier: "standard",
+			},
+			subscription: {
+				plan: "pro",
+				status: "active",
+				billing_interval: "monthly",
+				current_period_start: "2026-06-01T00:00:00Z",
+				current_period_end: "2026-06-30T23:59:59Z",
+				auto_renew: true,
+				kwh_included: 16,
+				kwh_used: 2.23,
+				kwh_remaining: 13.77,
+				in_overage: false,
+			},
+			key: {
+				name: "default-key",
+				allowance: null,
+			},
+		};
+
+		const onClick = vi.fn();
+
+		beforeEach(() => {
+			onClick.mockClear();
+		});
+
+		it("renders with neuralwatt type and shows kWh used/included", () => {
+			render(
+				<QuotaBadge
+					type="neuralwatt"
+					variant="card"
+					neuralwattQuota={mockNeuralWattQuota}
+				/>,
+			);
+			expect(screen.getByText("2.23/16 kWh")).toBeInTheDocument();
+		});
+
+		it("renders with neuralwatt sidebar variant", () => {
+			render(
+				<QuotaBadge
+					type="neuralwatt"
+					variant="sidebar"
+					neuralwattQuota={mockNeuralWattQuota}
+				/>,
+			);
+			const button = screen.getByRole("button");
+			expect(button).toHaveClass("sidebar-quota-pill");
+			expect(button).toHaveClass("sidebar-quota-pill-neuralwatt");
+		});
+
+		it("handles zero kwh_included (pay-per-use)", () => {
+			const payPerUseQuota: NeuralWattQuotaResponse = {
+				...mockNeuralWattQuota,
+				subscription: {
+					...mockNeuralWattQuota.subscription,
+					kwh_included: 0,
+				},
+			};
+			render(
+				<QuotaBadge
+					type="neuralwatt"
+					variant="card"
+					neuralwattQuota={payPerUseQuota}
+				/>,
+			);
+			expect(screen.getByText("2.23 kWh")).toBeInTheDocument();
+		});
+
+		it("handles null neuralwattQuota", () => {
+			render(<QuotaBadge type="neuralwatt" variant="card" />);
+			expect(screen.getByText("-")).toBeInTheDocument();
+		});
+
+		it("calls onClick when clicked", async () => {
+			const user = await import("@testing-library/user-event");
+			render(
+				<QuotaBadge
+					type="neuralwatt"
+					variant="card"
+					neuralwattQuota={mockNeuralWattQuota}
+					onClick={onClick}
+				/>,
+			);
+			await user.default.click(screen.getByRole("button"));
+			expect(onClick).toHaveBeenCalledTimes(1);
+		});
+
+		it("shows included kWh as integer when whole number", () => {
+			const wholeNumberQuota: NeuralWattQuotaResponse = {
+				...mockNeuralWattQuota,
+				subscription: {
+					...mockNeuralWattQuota.subscription,
+					kwh_included: 16,
+					kwh_used: 5.5,
+				},
+			};
+			render(
+				<QuotaBadge
+					type="neuralwatt"
+					variant="card"
+					neuralwattQuota={wholeNumberQuota}
+				/>,
+			);
+			expect(screen.getByText("5.5/16 kWh")).toBeInTheDocument();
+		});
+	});
+
 	describe("custom props", () => {
 		it("uses custom title when provided", () => {
 			render(
@@ -453,6 +586,94 @@ describe("QuotaBadges", () => {
 		deepseekDataUpdatedAt: 0,
 		openrouterDataUpdatedAt: 0,
 		ollamaCloudDataUpdatedAt: 0,
+		neuralwattDataUpdatedAt: 0,
+		invalidateAll: vi.fn(),
+	};
+
+	const neuralwattQuotaData: QuotaDataResult = {
+		showNanoBadge: false,
+		nanogptUsage: undefined,
+		nanoWeeklyUsed: undefined,
+		nanoWeeklyLimit: undefined,
+		showZaiCodingBadge: false,
+		zaiCodingUsage: undefined,
+		showDsBadge: false,
+		deepseekBalance: undefined,
+		showOrBadge: false,
+		openrouterBalance: undefined,
+		showOllamaCloudBadge: false,
+		ollamaCloudAccount: undefined,
+		showNeuralwattBadge: true,
+		neuralwattQuota: {
+			snapshot_at: "2026-06-03T12:00:00Z",
+			balance: {
+				credits_remaining_usd: 15.5,
+				total_credits_usd: 25.0,
+				credits_used_usd: 9.5,
+				accounting_method: "prepaid",
+			},
+			usage: {
+				lifetime: {
+					cost_usd: 9.5,
+					requests: 150,
+					tokens: 250000,
+					energy_kwh: 2.23,
+				},
+				current_month: {
+					cost_usd: 5.25,
+					requests: 80,
+					tokens: 120000,
+					energy_kwh: 1.15,
+				},
+			},
+			limits: {
+				overage_limit_usd: 10.0,
+				rate_limit_tier: "standard",
+			},
+			subscription: {
+				plan: "pro",
+				status: "active",
+				billing_interval: "monthly",
+				current_period_start: "2026-06-01T00:00:00Z",
+				current_period_end: "2026-06-30T23:59:59Z",
+				auto_renew: true,
+				kwh_included: 16,
+				kwh_used: 2.23,
+				kwh_remaining: 13.77,
+				in_overage: false,
+			},
+			key: {
+				name: "default-key",
+				allowance: null,
+			},
+		},
+		nanogptProviderId: undefined,
+		zaiCodingProviderId: undefined,
+		deepseekProviderId: undefined,
+		openrouterProviderId: undefined,
+		ollamaCloudProviderId: undefined,
+		neuralwattProviderId: "neuralwatt-1",
+		zaiCodingFiveHour: undefined,
+		zaiCodingWeekly: undefined,
+		hasAnyProvider: true,
+		refetchNano: vi.fn(),
+		refetchZaiCoding: vi.fn(),
+		refetchDeepseek: vi.fn(),
+		refetchOpenRouter: vi.fn(),
+		refetchOllamaCloud: vi.fn(),
+		refetchNeuralwatt: vi.fn(),
+		isNanoRefetching: false,
+		isZaiCodingRefetching: false,
+		isDsRefetching: false,
+		isOrRefetching: false,
+		isOllamaCloudRefetching: false,
+		isNeuralwattRefetching: false,
+		nanogptDataUpdatedAt: 0,
+		zaiCodingDataUpdatedAt: 0,
+		deepseekDataUpdatedAt: 0,
+		openrouterDataUpdatedAt: 0,
+		ollamaCloudDataUpdatedAt: 0,
+		neuralwattDataUpdatedAt: 0,
 		invalidateAll: vi.fn(),
 	};
 
@@ -496,5 +717,10 @@ describe("QuotaBadges", () => {
 			/>,
 		);
 		expect(screen.getByText("800K/1M")).toBeInTheDocument();
+	});
+
+	it("renders NeuralWatt badge when quotaData has neuralwatt quota", () => {
+		render(<QuotaBadges quotaData={neuralwattQuotaData} variant="card" />);
+		expect(screen.getByText("2.23/16 kWh")).toBeInTheDocument();
 	});
 });
