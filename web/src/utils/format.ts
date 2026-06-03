@@ -78,6 +78,16 @@ export function formatDate(ts: number | string): string {
 	});
 }
 
+export function formatDateTime(ts: number | string): string {
+	return new Date(ts).toLocaleDateString(undefined, {
+		day: "numeric",
+		month: "short",
+		year: "numeric",
+		hour: "2-digit",
+		minute: "2-digit",
+	});
+}
+
 export function formatWithCommas(n: number): string {
 	return Math.round(n).toLocaleString();
 }

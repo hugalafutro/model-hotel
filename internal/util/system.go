@@ -2,6 +2,7 @@ package util
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -288,4 +289,27 @@ func ParseInt(s string) (int64, error) {
 		n = n*10 + int64(c-'0')
 	}
 	return n, nil
+}
+
+// FormatBytes formats byte count in human-readable form with 1 decimal place
+// (e.g., "1.1 GB", "512.0 KB").
+func FormatBytes(b int64) string {
+	const (
+		KB int64 = 1024
+		MB int64 = KB * 1024
+		GB int64 = MB * 1024
+		TB int64 = GB * 1024
+	)
+	switch {
+	case b >= TB:
+		return fmt.Sprintf("%.1f TB", float64(b)/float64(TB))
+	case b >= GB:
+		return fmt.Sprintf("%.1f GB", float64(b)/float64(GB))
+	case b >= MB:
+		return fmt.Sprintf("%.1f MB", float64(b)/float64(MB))
+	case b >= KB:
+		return fmt.Sprintf("%.1f KB", float64(b)/float64(KB))
+	default:
+		return fmt.Sprintf("%d B", b)
+	}
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // BackupHandler manages PostgreSQL database backups via pg_dump
@@ -131,7 +132,7 @@ func (h *BackupHandler) CreateBackup(w http.ResponseWriter, r *http.Request) {
 		Type:     "backup.created",
 		Severity: "success",
 		Source:   "backup",
-		Message:  fmt.Sprintf("Database backup created: %s (%d bytes)", filename, info.Size()),
+		Message:  fmt.Sprintf("Database backup created: %s (%s)", filename, util.FormatBytes(info.Size())),
 		Metadata: map[string]interface{}{"filename": filename, "size_bytes": info.Size()},
 	})
 

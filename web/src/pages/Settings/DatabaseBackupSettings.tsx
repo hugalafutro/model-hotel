@@ -8,7 +8,7 @@ import { RestoreConfirmModal } from "../../components/RestoreConfirmModal";
 import { SettingsSection } from "../../components/SettingsSection";
 import { Spinner } from "../../components/Spinner";
 import { useToast } from "../../context/ToastContext";
-import { formatDate } from "../../utils/format";
+import { formatDateTime } from "../../utils/format";
 
 interface DatabaseBackupSettingsProps {
 	collapsed: boolean;
@@ -263,7 +263,7 @@ export function DatabaseBackupSettings({
 									</p>
 									<p className="text-xs text-(--text-muted)">
 										{formatBytes(backup.size_bytes)} -{" "}
-										{formatDate(backup.created_at)}
+										{formatDateTime(backup.created_at)}
 									</p>
 								</div>
 								<div className="flex items-center gap-2 ml-3 shrink-0">
