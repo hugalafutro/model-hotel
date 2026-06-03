@@ -290,43 +290,67 @@ export function TimeSeriesChart({
 							}}
 						/>
 						<Tooltip
-							contentStyle={{
-								backgroundColor: "var(--surface-elevated)",
-								border: "1px solid var(--border-default)",
-								borderRadius: "10px",
-								fontSize: "12px",
-							}}
-							labelStyle={{
-								color: "var(--text-secondary)",
-								fontSize: "10px",
-								textTransform: "uppercase",
-								letterSpacing: "0.05em",
-								marginBottom: "4px",
-							}}
-							itemStyle={{
-								fontSize: "13px",
-								padding: 0,
-							}}
-							formatter={(value, name) => {
-								const raw = Number(value) * scale;
-								const val = allowDecimals ? raw : Math.round(raw);
-								const displayLabel =
-									name === overlayDataKey
-										? overlayLabel || String(name)
-										: label;
-								const lineColor =
-									name === overlayDataKey ? overlayColor || color : color;
-								return [
-									<span key={name} style={{ color: lineColor }}>
-										<span style={{ display: "inline-block", width: "82px" }}>
-											{displayLabel}
-										</span>
-										{val.toLocaleString(undefined, {
-											maximumFractionDigits: allowDecimals ? 2 : 0,
+							content={({ payload, label: tooltipLabel }) => {
+								if (!payload?.length) return null;
+								return (
+									<div
+										style={{
+											backgroundColor: "var(--surface-elevated)",
+											border: "1px solid var(--border-default)",
+											borderRadius: "10px",
+											padding: "8px 12px",
+											fontSize: "12px",
+										}}
+									>
+										<div
+											style={{
+												color: "var(--text-secondary)",
+												fontSize: "10px",
+												textTransform: "uppercase",
+												letterSpacing: "0.05em",
+												marginBottom: "4px",
+											}}
+										>
+											{tooltipLabel}
+										</div>
+										{payload.map((entry) => {
+											const raw = Number(entry.value) * scale;
+											const val = allowDecimals ? raw : Math.round(raw);
+											const displayLabel =
+												entry.dataKey === overlayDataKey
+													? overlayLabel || String(entry.dataKey)
+													: label;
+											const lineColor =
+												entry.dataKey === overlayDataKey
+													? overlayColor || color
+													: color;
+											return (
+												<div
+													key={String(entry.dataKey)}
+													style={{
+														color: lineColor,
+														fontSize: "13px",
+														lineHeight: 1.6,
+													}}
+												>
+													<span
+														style={{
+															display: "inline-block",
+															width: "82px",
+														}}
+													>
+														{displayLabel}:
+													</span>
+													<span style={{ fontWeight: 600 }}>
+														{val.toLocaleString(undefined, {
+															maximumFractionDigits: allowDecimals ? 2 : 0,
+														})}
+													</span>
+												</div>
+											);
 										})}
-									</span>,
-									displayLabel,
-								] as [React.ReactNode, string];
+									</div>
+								);
 							}}
 						/>
 						<Area
