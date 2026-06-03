@@ -106,16 +106,16 @@ export function TokenSplitBar({
 							tile.type === "cache_hit"
 								? t("dashboard.tokens.cacheHitTooltip", {
 										pct: cacheHitPct.toFixed(1),
-										count: cacheHit,
+										count: cacheHit.toLocaleString(),
 									})
 								: tile.type === "prompt"
 									? t("dashboard.tokens.promptTooltip", {
 											pct: uncachedPct.toFixed(1),
-											count: uncachedPrompt,
+											count: uncachedPrompt.toLocaleString(),
 										})
 									: t("dashboard.tokens.completionTooltip", {
 											pct: completionPct.toFixed(1),
-											count: completion,
+											count: completion.toLocaleString(),
 										})
 						}
 					/>
