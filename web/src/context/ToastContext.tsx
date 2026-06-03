@@ -221,6 +221,7 @@ function ToastItem({
 				? { title: t("context.toast.clickToCopyDismiss") }
 				: {})}
 			className={`relative px-4 py-2 rounded-lg shadow-lg text-sm font-medium cursor-pointer hover:brightness-125 transition-all whitespace-pre-line text-left border-0 ${bgColors[toast.type]}`}
+			style={{ overflow: "hidden" }}
 		>
 			{toast.message}
 			<svg
@@ -229,7 +230,6 @@ function ToastItem({
 				viewBox={`0 0 ${VB_W} ${VB_H}`}
 				preserveAspectRatio="none"
 			>
-				{/* Main fuse stroke — the consumed border, no glow */}
 				<rect
 					x={1}
 					y={1}
@@ -246,26 +246,7 @@ function ToastItem({
 					style={{
 						animation: `toast-fuse ${timeout}ms linear forwards`,
 						animationPlayState: paused ? "paused" : "running",
-					}}
-				/>
-				{/* Glowing tip — short dash at the leading edge of the remaining stroke */}
-				<rect
-					x={1}
-					y={1}
-					width={VB_W - 2}
-					height={VB_H - 2}
-					rx={8}
-					fill="none"
-					stroke={strokeColors[toast.type]}
-					strokeWidth={2}
-					vectorEffect="non-scaling-stroke"
-					strokeDasharray="8 490.265"
-					strokeDashoffset={0}
-					strokeLinecap="round"
-					style={{
-						animation: `toast-fuse ${timeout}ms linear forwards`,
-						animationPlayState: paused ? "paused" : "running",
-						filter: `drop-shadow(0 0 4px ${strokeColors[toast.type]}) drop-shadow(0 0 2px ${strokeColors[toast.type]})`,
+						filter: `drop-shadow(0 0 3px ${strokeColors[toast.type]}) drop-shadow(0 0 1px ${strokeColors[toast.type]})`,
 					}}
 				/>
 			</svg>
