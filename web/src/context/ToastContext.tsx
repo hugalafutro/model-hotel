@@ -4,11 +4,11 @@ import {
 	useCallback,
 	useContext,
 	useEffect,
-	useLayoutEffect,
 	useRef,
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { FuseOutline } from "../components/FuseOutline";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 
 type ToastType = "success" | "error" | "info" | "warning";
@@ -157,8 +157,6 @@ function ToastItem({
 	const startTimeRef = useRef(Date.now());
 	const remainingRef = useRef(timeout);
 	const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-	const btnRef = useRef<HTMLButtonElement>(null);
-	const [perimeter, setPerimeter] = useState(0);
 
 	const triggerDone = useCallback(() => {
 		setFading(true);
@@ -182,24 +180,6 @@ function ToastItem({
 		startTimer(timeout);
 		return () => clearTimeout(timerRef.current);
 	}, [timeout, startTimer]);
-
-	// Measure actual button size and compute rounded-rect perimeter
-	useLayoutEffect(() => {
-		const el = btnRef.current;
-		if (!el) return;
-		const compute = () => {
-			const { width, height } = el.getBoundingClientRect();
-			// border-radius matches rounded-md (6px), min of 50% for very small toasts
-			const r = Math.min(6, width / 2, height / 2);
-			const perim =
-				2 * (width - 2 * r) + 2 * (height - 2 * r) + 2 * Math.PI * r;
-			setPerimeter(perim);
-		};
-		compute();
-		const ro = new ResizeObserver(compute);
-		ro.observe(el);
-		return () => ro.disconnect();
-	}, []);
 
 	const handleMouseEnter = () => {
 		setPaused(true);
@@ -238,7 +218,6 @@ function ToastItem({
 
 	return (
 		<button
-			ref={btnRef}
 			type="button"
 			onClick={handleClick}
 			onMouseEnter={handleMouseEnter}
@@ -260,35 +239,11 @@ function ToastItem({
 			}
 		>
 			{toast.message}
-			{perimeter > 0 && (
-				<svg
-					aria-hidden="true"
-					className="absolute inset-0 w-full h-full pointer-events-none"
-				>
-					<rect
-						x={1}
-						y={1}
-						width="calc(100% - 2px)"
-						height="calc(100% - 2px)"
-						rx={5}
-						fill="none"
-						stroke={strokeColors[toast.type]}
-						strokeWidth={1.5}
-						vectorEffect="non-scaling-stroke"
-						strokeDasharray={perimeter}
-						strokeDashoffset={0}
-						strokeLinecap="round"
-						style={{
-							animation: `toast-fuse ${timeout}ms linear forwards`,
-							animationPlayState: paused ? "paused" : "running",
-							filter: `drop-shadow(0 0 2px ${strokeColors[toast.type]})`,
-							// Override the keyframe's fixed dashoffset with the real perimeter
-							// @ts-expect-error CSS custom property for dynamic keyframe
-							"--toast-perimeter": perimeter,
-						}}
-					/>
-				</svg>
-			)}
+			<FuseOutline
+				color={strokeColors[toast.type]}
+				durationMs={timeout}
+				paused={paused}
+			/>
 		</button>
 	);
 }

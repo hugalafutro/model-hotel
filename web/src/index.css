@@ -2419,17 +2419,8 @@ html.light .terminal-titlebar-win11 .win11-icon {
 	}
 }
 
-/* Toast fuse: perimeter outline burns away clockwise from top-left */
-@keyframes toast-fuse {
-	from {
-		stroke-dashoffset: 0;
-	}
-	to {
-		stroke-dashoffset: var(--toast-perimeter, 501.699);
-	}
-}
-
-@keyframes fuse-outline {
+/* Fuse outline: perimeter outline burns away clockwise from top-left */
+@keyframes fuse {
 	from {
 		stroke-dashoffset: 0;
 	}

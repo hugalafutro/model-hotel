@@ -592,12 +592,15 @@ describe("Layout", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
 			await waitFor(() => {
-				// Green closed count
-				expect(screen.getByText("3")).toBeInTheDocument();
+				// Green closed count - use getAllByText since Badge wraps text in inner span
+				const closedCounts = screen.getAllByText("3");
+				expect(closedCounts.length).toBeGreaterThan(0);
 				// Amber half-open count
-				expect(screen.getByText("1")).toBeInTheDocument();
+				const halfOpenCounts = screen.getAllByText("1");
+				expect(halfOpenCounts.length).toBeGreaterThan(0);
 				// Red open count
-				expect(screen.getByText("2")).toBeInTheDocument();
+				const openCounts = screen.getAllByText("2");
+				expect(openCounts.length).toBeGreaterThan(0);
 			});
 		});
 
@@ -610,9 +613,12 @@ describe("Layout", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
 			await waitFor(() => {
-				expect(screen.getByText("5")).toBeInTheDocument();
+				const closedCounts = screen.getAllByText("5");
+				expect(closedCounts.length).toBeGreaterThan(0);
 				// 0 counts are still rendered in the badge structure
-				expect(screen.getByText("0")).toBeInTheDocument();
+				// Check that 0 is present (it may appear twice due to inner span)
+				const zeroCounts = screen.getAllByText("0");
+				expect(zeroCounts.length).toBeGreaterThan(0);
 			});
 		});
 	});

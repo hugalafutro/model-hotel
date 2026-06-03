@@ -1052,7 +1052,9 @@ describe("Dashboard filter persistence", () => {
 		});
 		// The 7D range toggle should be active (accent-styled) in the header
 		const all7D = screen.getAllByText("1W");
-		const active7D = all7D.find((el) => el.classList.contains("text-white"));
+		const active7D = all7D.find((el) =>
+			el.closest("button")?.classList.contains("text-white"),
+		);
 		expect(active7D).toBeTruthy();
 	});
 
@@ -1066,7 +1068,9 @@ describe("Dashboard filter persistence", () => {
 		});
 		// "Req" toggle should be active (accent-styled)
 		const allReq = screen.getAllByText("Req");
-		const activeReq = allReq.find((el) => el.classList.contains("text-white"));
+		const activeReq = allReq.find((el) =>
+			el.closest("button")?.classList.contains("text-white"),
+		);
 		expect(activeReq).toBeTruthy();
 	});
 
@@ -1080,7 +1084,9 @@ describe("Dashboard filter persistence", () => {
 		});
 		// The 1H toggle should be active somewhere (doughnut section)
 		const all1H = screen.getAllByText("1H");
-		const active1H = all1H.find((el) => el.classList.contains("text-white"));
+		const active1H = all1H.find((el) =>
+			el.closest("button")?.classList.contains("text-white"),
+		);
 		expect(active1H).toBeTruthy();
 	});
 
@@ -1094,7 +1100,9 @@ describe("Dashboard filter persistence", () => {
 		});
 		// "Req" should be active in the doughnut section
 		const allReq = screen.getAllByText("Req");
-		const activeReq = allReq.find((el) => el.classList.contains("text-white"));
+		const activeReq = allReq.find((el) =>
+			el.closest("button")?.classList.contains("text-white"),
+		);
 		expect(activeReq).toBeTruthy();
 	});
 
@@ -1125,11 +1133,15 @@ describe("Dashboard filter persistence", () => {
 
 		// Default range is "24h" which shows as "1D" - should be active
 		const all1D = screen.getAllByText("1D");
-		const active1D = all1D.find((el) => el.classList.contains("text-white"));
+		const active1D = all1D.find((el) =>
+			el.closest("button")?.classList.contains("text-white"),
+		);
 		expect(active1D).toBeTruthy();
 		// Default metric is "tokens" which shows as "Tok" - should be active
 		const allTok = screen.getAllByText("Tok");
-		const activeTok = allTok.find((el) => el.classList.contains("text-white"));
+		const activeTok = allTok.find((el) =>
+			el.closest("button")?.classList.contains("text-white"),
+		);
 		expect(activeTok).toBeTruthy();
 	});
 
@@ -1143,7 +1155,9 @@ describe("Dashboard filter persistence", () => {
 			expect(screen.getByText("Dashboard")).toBeInTheDocument();
 		});
 		const all1W = screen.getAllByText("1W");
-		const active1W = all1W.find((el) => el.classList.contains("text-white"));
+		const active1W = all1W.find((el) =>
+			el.closest("button")?.classList.contains("text-white"),
+		);
 		expect(active1W).toBeTruthy();
 	});
 
@@ -1158,7 +1172,9 @@ describe("Dashboard filter persistence", () => {
 		});
 		// Should fall back to default "tokens" (Tok) instead of invalid value
 		const allTok = screen.getAllByText("Tok");
-		const activeTok = allTok.find((el) => el.classList.contains("text-white"));
+		const activeTok = allTok.find((el) =>
+			el.closest("button")?.classList.contains("text-white"),
+		);
 		expect(activeTok).toBeTruthy();
 	});
 });

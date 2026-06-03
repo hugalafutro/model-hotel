@@ -53,7 +53,7 @@ export function FuseOutline({
 				strokeDashoffset={0}
 				strokeLinecap="round"
 				style={{
-					animation: `fuse-outline ${durationMs}ms linear forwards`,
+					animation: `fuse ${durationMs}ms linear forwards`,
 					animationPlayState: paused ? "paused" : "running",
 					filter: `drop-shadow(0 0 2px ${color})`,
 					// Override the keyframe's dashoffset with the real perimeter

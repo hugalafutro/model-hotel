@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { TokenSplitBar } from "../TokenSplitBar";
@@ -50,14 +50,23 @@ describe("TokenSplitBar", () => {
 	it("displays cache hit value in legend", () => {
 		render(<TokenSplitBar {...defaultProps} cacheHit={300} />);
 
-		expect(screen.getByText("300")).toBeInTheDocument();
+		const legend = screen.getByTestId("legend");
+		// Find the cache hit entry by looking for the label, then check its count
+		const cacheHitLabel = within(legend).getByText("Cache hit");
+		const cacheHitEntry = cacheHitLabel.closest("div");
+		// biome-ignore lint/style/noNonNullAssertion: test assertion, label always has parent
+		expect(within(cacheHitEntry!).getByText("300")).toBeInTheDocument();
 	});
 
 	it("shows uncached prompt count (prompt minus cache hit)", () => {
 		render(<TokenSplitBar {...defaultProps} prompt={600} cacheHit={300} />);
 
 		// 600 prompt - 300 cacheHit = 300 uncached prompt
-		expect(screen.getByText("300")).toBeInTheDocument();
+		const legend = screen.getByTestId("legend");
+		const promptLabel = within(legend).getByText("Prompt");
+		const promptEntry = promptLabel.closest("div");
+		// biome-ignore lint/style/noNonNullAssertion: test assertion, label always has parent
+		expect(within(promptEntry!).getByText("300")).toBeInTheDocument();
 	});
 
 	it("displays percentages in legend", () => {
@@ -317,7 +326,10 @@ describe("TokenSplitBar", () => {
 
 		expect(screen.getByText("500")).toBeInTheDocument();
 		expect(screen.getByText("100.0%")).toBeInTheDocument();
-		expect(screen.getByText("0")).toBeInTheDocument();
+		const legend = screen.getByTestId("legend");
+		// Check that 0 appears (for completion=0 and/or cacheHit=0)
+		const zeros = within(legend).getAllByText("0");
+		expect(zeros.length).toBeGreaterThanOrEqual(1);
 	});
 
 	it("handles completion-only tokens (no prompt)", () => {
@@ -327,6 +339,9 @@ describe("TokenSplitBar", () => {
 
 		expect(screen.getByText("500")).toBeInTheDocument();
 		expect(screen.getByText("100.0%")).toBeInTheDocument();
-		expect(screen.getByText("0")).toBeInTheDocument();
+		const legend = screen.getByTestId("legend");
+		// Check that 0 appears (for prompt=0 and/or cacheHit=0)
+		const zeros = within(legend).getAllByText("0");
+		expect(zeros.length).toBeGreaterThanOrEqual(1);
 	});
 });

@@ -261,10 +261,12 @@ describe("VirtualAppLogTable", () => {
 			);
 
 			// Badge with ERROR text and red color classes
-			const badge = screen.getByText("ERROR");
+			// Note: getByText finds the inner <span class="badge-text">, so we use
+			// closest('[class*="bg-"]') to find the outer Badge span with variant classes
+			const badge = screen.getByText("ERROR").closest('[class*="bg-"]');
 			expect(badge).toBeInTheDocument();
-			expect(badge.className).toContain("bg-red-900/30");
-			expect(badge.className).toContain("text-red-400");
+			expect(badge?.className).toContain("bg-red-900/30");
+			expect(badge?.className).toContain("text-red-400");
 		});
 
 		it('renders level badge with correct variant for "warning" level', () => {
@@ -285,10 +287,10 @@ describe("VirtualAppLogTable", () => {
 				/>,
 			);
 
-			const badge = screen.getByText("WARNING");
+			const badge = screen.getByText("WARNING").closest('[class*="bg-"]');
 			expect(badge).toBeInTheDocument();
-			expect(badge.className).toContain("bg-yellow-900/30");
-			expect(badge.className).toContain("text-yellow-400");
+			expect(badge?.className).toContain("bg-yellow-900/30");
+			expect(badge?.className).toContain("text-yellow-400");
 		});
 
 		it('renders level badge with correct variant for "info" level', () => {
@@ -306,10 +308,10 @@ describe("VirtualAppLogTable", () => {
 				/>,
 			);
 
-			const badge = screen.getByText("INFO");
+			const badge = screen.getByText("INFO").closest('[class*="bg-"]');
 			expect(badge).toBeInTheDocument();
-			expect(badge.className).toContain("bg-blue-900/30");
-			expect(badge.className).toContain("text-blue-400");
+			expect(badge?.className).toContain("bg-blue-900/30");
+			expect(badge?.className).toContain("text-blue-400");
 		});
 	});
 
@@ -328,10 +330,10 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("auth");
+			const badge = screen.getByText("auth").closest('[class*="bg-"]');
 			expect(badge).toBeInTheDocument();
-			expect(badge.className).toContain("bg-purple-900/30");
-			expect(badge.className).toContain("text-purple-400");
+			expect(badge?.className).toContain("bg-purple-900/30");
+			expect(badge?.className).toContain("text-purple-400");
 		});
 
 		it('renders source badge with correct classes for "proxy" source', () => {
@@ -340,10 +342,10 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("proxy");
+			const badge = screen.getByText("proxy").closest('[class*="bg-"]');
 			expect(badge).toBeInTheDocument();
-			expect(badge.className).toContain("bg-cyan-900/30");
-			expect(badge.className).toContain("text-cyan-400");
+			expect(badge?.className).toContain("bg-cyan-900/30");
+			expect(badge?.className).toContain("text-cyan-400");
 		});
 
 		it('renders source badge with correct classes for "settings" source', () => {
@@ -352,10 +354,10 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("settings");
+			const badge = screen.getByText("settings").closest('[class*="bg-"]');
 			expect(badge).toBeInTheDocument();
-			expect(badge.className).toContain("bg-indigo-900/30");
-			expect(badge.className).toContain("text-indigo-400");
+			expect(badge?.className).toContain("bg-indigo-900/30");
+			expect(badge?.className).toContain("text-indigo-400");
 		});
 
 		it("renders source badge with correct classes for unknown source (default)", () => {
@@ -367,10 +369,12 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("unknown-source");
+			const badge = screen
+				.getByText("unknown-source")
+				.closest('[class*="bg-"]');
 			expect(badge).toBeInTheDocument();
-			expect(badge.className).toContain("bg-gray-800/30");
-			expect(badge.className).toContain("text-gray-400");
+			expect(badge?.className).toContain("bg-gray-800/30");
+			expect(badge?.className).toContain("text-gray-400");
 		});
 
 		it('renders source badge with correct classes for "circuit-breaker" source', () => {
@@ -382,10 +386,12 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("circuit-breaker");
+			const badge = screen
+				.getByText("circuit-breaker")
+				.closest('[class*="bg-"]');
 			expect(badge).toBeInTheDocument();
-			expect(badge.className).toContain("bg-orange-900/30");
-			expect(badge.className).toContain("text-orange-400");
+			expect(badge?.className).toContain("bg-orange-900/30");
+			expect(badge?.className).toContain("text-orange-400");
 		});
 
 		// Additional source badge tests for untested sources
@@ -395,10 +401,10 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("resolve");
+			const badge = screen.getByText("resolve").closest('[class*="bg-"]');
 			expect(badge).toBeInTheDocument();
-			expect(badge.className).toContain("bg-teal-900/30");
-			expect(badge.className).toContain("text-teal-400");
+			expect(badge?.className).toContain("bg-teal-900/30");
+			expect(badge?.className).toContain("text-teal-400");
 		});
 
 		it('renders source badge with correct classes for "discovery" source', () => {
@@ -407,10 +413,10 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("discovery");
+			const badge = screen.getByText("discovery").closest('[class*="bg-"]');
 			expect(badge).toBeInTheDocument();
-			expect(badge.className).toContain("bg-emerald-900/30");
-			expect(badge.className).toContain("text-emerald-400");
+			expect(badge?.className).toContain("bg-emerald-900/30");
+			expect(badge?.className).toContain("text-emerald-400");
 		});
 
 		it('renders source badge with correct classes for "failover" source', () => {
@@ -419,10 +425,10 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("failover");
+			const badge = screen.getByText("failover").closest('[class*="bg-"]');
 			expect(badge).toBeInTheDocument();
-			expect(badge.className).toContain("bg-slate-700/50");
-			expect(badge.className).toContain("text-slate-300");
+			expect(badge?.className).toContain("bg-slate-700/50");
+			expect(badge?.className).toContain("text-slate-300");
 		});
 
 		it('renders source badge with correct classes for "ratelimit" source', () => {
@@ -431,10 +437,10 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("ratelimit");
+			const badge = screen.getByText("ratelimit").closest('[class*="bg-"]');
 			expect(badge).toBeInTheDocument();
-			expect(badge.className).toContain("bg-amber-900/30");
-			expect(badge.className).toContain("text-amber-400");
+			expect(badge?.className).toContain("bg-amber-900/30");
+			expect(badge?.className).toContain("text-amber-400");
 		});
 
 		it('renders source badge with correct classes for "vkey" source', () => {
@@ -443,10 +449,10 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("vkey");
+			const badge = screen.getByText("vkey").closest('[class*="bg-"]');
 			expect(badge).toBeInTheDocument();
-			expect(badge.className).toContain("bg-pink-900/30");
-			expect(badge.className).toContain("text-pink-400");
+			expect(badge?.className).toContain("bg-pink-900/30");
+			expect(badge?.className).toContain("text-pink-400");
 		});
 
 		it('renders source badge with correct classes for "admin" source', () => {
@@ -455,10 +461,10 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("admin");
+			const badge = screen.getByText("admin").closest('[class*="bg-"]');
 			expect(badge).toBeInTheDocument();
-			expect(badge.className).toContain("bg-pink-900/30");
-			expect(badge.className).toContain("text-pink-400");
+			expect(badge?.className).toContain("bg-pink-900/30");
+			expect(badge?.className).toContain("text-pink-400");
 		});
 
 		it('renders source badge with correct classes for "events" source', () => {
@@ -467,10 +473,10 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("events");
+			const badge = screen.getByText("events").closest('[class*="bg-"]');
 			expect(badge).toBeInTheDocument();
-			expect(badge.className).toContain("bg-violet-900/30");
-			expect(badge.className).toContain("text-violet-400");
+			expect(badge?.className).toContain("bg-violet-900/30");
+			expect(badge?.className).toContain("text-violet-400");
 		});
 
 		it('renders source badge with correct classes for "docker" source', () => {
@@ -479,10 +485,10 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("docker");
+			const badge = screen.getByText("docker").closest('[class*="bg-"]');
 			expect(badge).toBeInTheDocument();
-			expect(badge.className).toContain("bg-sky-900/30");
-			expect(badge.className).toContain("text-sky-400");
+			expect(badge?.className).toContain("bg-sky-900/30");
+			expect(badge?.className).toContain("text-sky-400");
 		});
 
 		// Lime group: keycache, model, provider, cache, db
@@ -492,10 +498,10 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("keycache");
+			const badge = screen.getByText("keycache").closest('[class*="bg-"]');
 			expect(badge).toBeInTheDocument();
-			expect(badge.className).toContain("bg-lime-900/30");
-			expect(badge.className).toContain("text-lime-400");
+			expect(badge?.className).toContain("bg-lime-900/30");
+			expect(badge?.className).toContain("text-lime-400");
 		});
 
 		it('renders source badge with correct classes for "model" source', () => {
@@ -504,10 +510,10 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("model");
+			const badge = screen.getByText("model").closest('[class*="bg-"]');
 			expect(badge).toBeInTheDocument();
-			expect(badge.className).toContain("bg-lime-900/30");
-			expect(badge.className).toContain("text-lime-400");
+			expect(badge?.className).toContain("bg-lime-900/30");
+			expect(badge?.className).toContain("text-lime-400");
 		});
 
 		it('renders source badge with correct classes for "provider" source', () => {
@@ -516,10 +522,10 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("provider");
+			const badge = screen.getByText("provider").closest('[class*="bg-"]');
 			expect(badge).toBeInTheDocument();
-			expect(badge.className).toContain("bg-lime-900/30");
-			expect(badge.className).toContain("text-lime-400");
+			expect(badge?.className).toContain("bg-lime-900/30");
+			expect(badge?.className).toContain("text-lime-400");
 		});
 
 		it('renders source badge with correct classes for "cache" source', () => {
@@ -528,10 +534,10 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("cache");
+			const badge = screen.getByText("cache").closest('[class*="bg-"]');
 			expect(badge).toBeInTheDocument();
-			expect(badge.className).toContain("bg-lime-900/30");
-			expect(badge.className).toContain("text-lime-400");
+			expect(badge?.className).toContain("bg-lime-900/30");
+			expect(badge?.className).toContain("text-lime-400");
 		});
 
 		it('renders source badge with correct classes for "db" source', () => {
@@ -540,10 +546,10 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("db");
+			const badge = screen.getByText("db").closest('[class*="bg-"]');
 			expect(badge).toBeInTheDocument();
-			expect(badge.className).toContain("bg-lime-900/30");
-			expect(badge.className).toContain("text-lime-400");
+			expect(badge?.className).toContain("bg-lime-900/30");
+			expect(badge?.className).toContain("text-lime-400");
 		});
 
 		it('renders source badge with correct classes for "access" source', () => {
@@ -552,10 +558,10 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("access");
+			const badge = screen.getByText("access").closest('[class*="bg-"]');
 			expect(badge).toBeInTheDocument();
-			expect(badge.className).toContain("bg-fuchsia-900/30");
-			expect(badge.className).toContain("text-fuchsia-400");
+			expect(badge?.className).toContain("bg-fuchsia-900/30");
+			expect(badge?.className).toContain("text-fuchsia-400");
 		});
 
 		// Blue group: server, startup, retention
@@ -565,10 +571,10 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("server");
+			const badge = screen.getByText("server").closest('[class*="bg-"]');
 			expect(badge).toBeInTheDocument();
-			expect(badge.className).toContain("bg-blue-900/30");
-			expect(badge.className).toContain("text-blue-400");
+			expect(badge?.className).toContain("bg-blue-900/30");
+			expect(badge?.className).toContain("text-blue-400");
 		});
 
 		it('renders source badge with correct classes for "startup" source', () => {
@@ -577,10 +583,10 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("startup");
+			const badge = screen.getByText("startup").closest('[class*="bg-"]');
 			expect(badge).toBeInTheDocument();
-			expect(badge.className).toContain("bg-blue-900/30");
-			expect(badge.className).toContain("text-blue-400");
+			expect(badge?.className).toContain("bg-blue-900/30");
+			expect(badge?.className).toContain("text-blue-400");
 		});
 
 		it('renders source badge with correct classes for "retention" source', () => {
@@ -589,10 +595,10 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("retention");
+			const badge = screen.getByText("retention").closest('[class*="bg-"]');
 			expect(badge).toBeInTheDocument();
-			expect(badge.className).toContain("bg-blue-900/30");
-			expect(badge.className).toContain("text-blue-400");
+			expect(badge?.className).toContain("bg-blue-900/30");
+			expect(badge?.className).toContain("text-blue-400");
 		});
 
 		it('renders source badge with correct classes for "modelsdev" source', () => {
@@ -601,10 +607,10 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("modelsdev");
+			const badge = screen.getByText("modelsdev").closest('[class*="bg-"]');
 			expect(badge).toBeInTheDocument();
-			expect(badge.className).toContain("bg-rose-900/30");
-			expect(badge.className).toContain("text-rose-400");
+			expect(badge?.className).toContain("bg-rose-900/30");
+			expect(badge?.className).toContain("text-rose-400");
 		});
 
 		it('renders source badge with correct classes for "applogs" source', () => {
@@ -613,10 +619,10 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={[entry]} total={1} />,
 			);
 
-			const badge = screen.getByText("applogs");
+			const badge = screen.getByText("applogs").closest('[class*="bg-"]');
 			expect(badge).toBeInTheDocument();
-			expect(badge.className).toContain("bg-gray-700/30");
-			expect(badge.className).toContain("text-gray-400");
+			expect(badge?.className).toContain("bg-gray-700/30");
+			expect(badge?.className).toContain("text-gray-400");
 		});
 	});
 
