@@ -2,18 +2,27 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useTranslation } from "react-i18next";
 import type { FailoverGroup } from "../../api/types";
+import { FuseOutline } from "../../components/FuseOutline";
 import { Toggle } from "../../components/Toggle";
 
 export interface SortableEntryProps {
 	entry: FailoverGroup["entries"][0];
 	groupEnabled: boolean;
 	onToggle: (uuid: string, enabled: boolean) => void;
+	cbStatus?: {
+		state: string;
+		cooldown_ms?: number;
+		next_retry_at?: string;
+		opened_at?: string;
+		consecutive_fails: number;
+	};
 }
 
 export function SortableEntry({
 	entry,
 	groupEnabled,
 	onToggle,
+	cbStatus,
 }: SortableEntryProps) {
 	const { t } = useTranslation();
 	const {
@@ -33,14 +42,47 @@ export function SortableEntry({
 
 	const dragProps = groupEnabled ? { ...attributes, ...listeners } : {};
 
+	// Determine if fuse should show (circuit breaker open/half-open with enough fails)
+	const showFuse =
+		cbStatus &&
+		entry.enabled &&
+		(cbStatus.state === "open" || cbStatus.state === "half-open") &&
+		cbStatus.consecutive_fails >= 5;
+
+	let fuseColor: string | undefined;
+	let remainingMs = 0;
+	let fuseTitle: string | undefined;
+
+	if (showFuse) {
+		if (cbStatus.state === "half-open") {
+			fuseColor = "#fde68a";
+			fuseTitle = t("failoverGroups.entry.circuitBreakerHalfOpen");
+		} else {
+			fuseColor = "#fca5a5";
+			fuseTitle = t("failoverGroups.entry.circuitBreakerOpen");
+		}
+
+		// Compute remaining cooldown time
+		if (cbStatus.next_retry_at) {
+			remainingMs = new Date(cbStatus.next_retry_at).getTime() - Date.now();
+		} else if (cbStatus.cooldown_ms) {
+			remainingMs = cbStatus.cooldown_ms;
+		}
+		remainingMs = Math.max(0, remainingMs);
+	}
+
 	return (
 		<div
 			ref={setNodeRef}
-			style={style}
+			style={{ ...style, overflow: showFuse ? "hidden" : undefined }}
 			className={`relative flex items-center justify-between px-2 py-1 rounded group text-sm ${
 				entry.enabled ? "bg-gray-700" : "failover-entry-disabled"
 			}`}
+			{...(fuseTitle ? { title: fuseTitle } : {})}
 		>
+			{showFuse && fuseColor && (
+				<FuseOutline color={fuseColor} durationMs={remainingMs} />
+			)}
 			<div className="flex items-center gap-2 min-w-0">
 				<span
 					{...dragProps}

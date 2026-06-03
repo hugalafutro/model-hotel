@@ -867,9 +867,14 @@ export const api = {
 				"Failed to fetch candidates",
 			);
 		},
-		circuitBreakerStatus: async (): Promise<CircuitBreakerStatus> => {
+		circuitBreakerStatus: async (
+			detail = false,
+		): Promise<CircuitBreakerStatus> => {
+			const url = detail
+				? `${API_BASE}/api/failover-groups/circuit-breaker-status?detail=1`
+				: `${API_BASE}/api/failover-groups/circuit-breaker-status`;
 			return fetchJSON<CircuitBreakerStatus>(
-				`${API_BASE}/api/failover-groups/circuit-breaker-status`,
+				url,
 				{
 					headers: getAuthHeaders(),
 				},

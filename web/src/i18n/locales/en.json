@@ -2190,7 +2190,9 @@
 		},
 		"entry": {
 			"disableProvider": "Disable provider",
-			"enableProvider": "Enable provider"
+			"enableProvider": "Enable provider",
+			"circuitBreakerOpen": "Circuit breaker open — waiting for cooldown",
+			"circuitBreakerHalfOpen": "Circuit breaker half-open — probing recovery"
 		}
 	},
 	"virtualKeys": {

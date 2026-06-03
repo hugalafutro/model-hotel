@@ -386,6 +386,16 @@ export interface CircuitBreakerStatus {
 	closed: number;
 	half_open: number;
 	open: number;
+	providers?: CircuitBreakerProviderStatus[];
+}
+
+export interface CircuitBreakerProviderStatus {
+	provider_id: string;
+	state: "closed" | "open" | "half-open";
+	consecutive_fails: number;
+	opened_at?: string;
+	cooldown_ms?: number;
+	next_retry_at?: string;
 }
 
 export interface DeletedGroupInfo {

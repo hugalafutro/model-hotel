@@ -2429,6 +2429,15 @@ html.light .terminal-titlebar-win11 .win11-icon {
 	}
 }
 
+@keyframes fuse-outline {
+	from {
+		stroke-dashoffset: 0;
+	}
+	to {
+		stroke-dashoffset: var(--fuse-perimeter, 501.699);
+	}
+}
+
 .animate-waffle-pop {
 	animation: waffle-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
