@@ -396,6 +396,47 @@ describe("GaugeModal", () => {
 		expect(icon).toBeInTheDocument();
 	});
 
+	it("renders overlay area when overlayDataKey is provided", async () => {
+		server.use(
+			http.get("/api/stats/timeseries", () => {
+				return HttpResponse.json({
+					points: [
+						{
+							bucket: "2024-01-01T00:00:00Z",
+							count: 100,
+							errors: 5,
+							tokens: 5000,
+							tokens_cache_hit: 2000,
+							tokens_cache_miss: 3000,
+							latency_ms: 200,
+							overhead_ms: 10,
+							provider_latency_ms: 190,
+							rate_limit_hits: 0,
+							avg_ttft_ms: 50,
+						},
+					],
+				});
+			}),
+		);
+
+		renderWithProviders(
+			<GaugeModal
+				{...defaultProps}
+				dataKey="tokens"
+				overlayDataKey="tokens_cache_hit"
+				overlayColor="var(--accent)"
+				overlayLabel="Cache Hit"
+			/>,
+		);
+
+		await waitFor(() => {
+			const areas = screen.getAllByTestId("area");
+			// One for main data, one for overlay
+			expect(areas.length).toBe(2);
+			expect(areas[1]).toHaveAttribute("data-datakey", "tokens_cache_hit");
+		});
+	});
+
 	it("handles empty time series data", async () => {
 		server.use(
 			http.get("/api/stats/timeseries", () => {
