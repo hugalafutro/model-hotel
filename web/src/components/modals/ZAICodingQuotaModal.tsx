@@ -75,7 +75,7 @@ export function ZAICodingQuotaModal({
 									prev === "remaining" ? "used" : "remaining",
 								)
 							}
-							className="absolute top-4 right-20 text-gray-400 hover:text-(--text-primary) transition-all cursor-pointer p-1.5"
+							className="absolute top-4 right-20 text-gray-400 hover:text-(--text-primary) transition-all cursor-pointer p-1.5 hover:drop-shadow-[var(--glow-accent-lg)]"
 							aria-label={t("components.providerModals.toggleRemainingUsed")}
 							title={
 								barMode === "remaining"
