@@ -175,11 +175,9 @@ export function Dashboard() {
 									excludeDeleted ? "bg-amber-400" : "bg-green-400"
 								}`}
 							/>
-							<span className="badge-text">
-								{excludeDeleted
-									? t("dashboard.activeKeysOnly")
-									: t("dashboard.allKeys")}
-							</span>
+							{excludeDeleted
+								? t("dashboard.activeKeysOnly")
+								: t("dashboard.allKeys")}
 						</button>
 						<div className="flex items-center gap-1 ml-1.5">
 							<RangeToggle value={globalRange} onChange={setGlobalRange} />
