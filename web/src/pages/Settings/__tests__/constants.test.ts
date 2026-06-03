@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	clearProviderCache,
 	getProviderCacheCount,
+	getProviderCacheNames,
 	UI_STYLES,
 } from "../constants";
 
@@ -112,6 +113,38 @@ describe("clearProviderCache", () => {
 		expect(() => clearProviderCache()).not.toThrow();
 		expect(removeItemSpy).toHaveBeenCalledTimes(4);
 
+		vi.unstubAllGlobals();
+	});
+});
+
+describe("getProviderCacheNames", () => {
+	it("returns empty array when no cache keys exist", () => {
+		const getItemSpy = vi.fn().mockReturnValue(null);
+		vi.stubGlobal("localStorage", { getItem: getItemSpy });
+		const names = getProviderCacheNames();
+		expect(names).toEqual([]);
+		vi.unstubAllGlobals();
+	});
+
+	it("returns names of existing cache keys", () => {
+		const getItemSpy = vi.fn().mockImplementation((key: string) => {
+			if (key === "model-hotel:nanogpt-usage") return '{"tokens": 100}';
+			if (key === "model-hotel:deepseek-balance") return '{"balance": 50}';
+			return null;
+		});
+		vi.stubGlobal("localStorage", { getItem: getItemSpy });
+		const names = getProviderCacheNames();
+		expect(names).toEqual(["NanoGPT", "DeepSeek"]);
+		vi.unstubAllGlobals();
+	});
+
+	it("handles localStorage errors gracefully", () => {
+		const getItemSpy = vi.fn().mockImplementation(() => {
+			throw new Error("localStorage not available");
+		});
+		vi.stubGlobal("localStorage", { getItem: getItemSpy });
+		const names = getProviderCacheNames();
+		expect(names).toEqual([]);
 		vi.unstubAllGlobals();
 	});
 });

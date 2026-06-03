@@ -8,9 +8,11 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	webauthnx "github.com/go-webauthn/webauthn/webauthn"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
@@ -430,5 +432,233 @@ func TestListCredentials_Success(t *testing.T) {
 	// Should be empty array since no credentials exist
 	if len(resp) != 0 {
 		t.Errorf("expected 0 credentials, got %d", len(resp))
+	}
+}
+
+// TestWebAuthnHandler_RegisterFinish_InvalidJSONBody tests that malformed JSON returns 400
+func TestWebAuthnHandler_RegisterFinish_InvalidJSONBody(t *testing.T) {
+	h := newTestWebAuthnHandler(nil, nil, nil, nil)
+
+	body := `{"invalid"`
+	req := httptest.NewRequest(http.MethodPost, "/webauthn/register/finish", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.RegisterFinish(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+}
+
+// TestWebAuthnHandler_RegisterFinish_InvalidSessionID tests that invalid UUID returns 400
+func TestWebAuthnHandler_RegisterFinish_InvalidSessionID(t *testing.T) {
+	h := newTestWebAuthnHandler(nil, nil, nil, nil)
+
+	body := `{"session_id": "not-a-uuid", "credential": {}}`
+	req := httptest.NewRequest(http.MethodPost, "/webauthn/register/finish", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.RegisterFinish(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+}
+
+// TestWebAuthnHandler_LoginFinish_InvalidJSONBody tests that malformed JSON returns 400
+func TestWebAuthnHandler_LoginFinish_InvalidJSONBody(t *testing.T) {
+	h := newTestWebAuthnHandler(nil, nil, nil, nil)
+
+	body := `{"invalid"`
+	req := httptest.NewRequest(http.MethodPost, "/webauthn/login/finish", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.LoginFinish(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+}
+
+// TestWebAuthnHandler_LoginFinish_InvalidSessionID tests that invalid UUID returns 400
+func TestWebAuthnHandler_LoginFinish_InvalidSessionID(t *testing.T) {
+	h := newTestWebAuthnHandler(nil, nil, nil, nil)
+
+	body := `{"session_id": "not-a-uuid", "credential": {}}`
+	req := httptest.NewRequest(http.MethodPost, "/webauthn/login/finish", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.LoginFinish(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+}
+
+// TestWebAuthnHandler_DeleteCredential_EmptyID tests that empty ID returns 400
+func TestWebAuthnHandler_DeleteCredential_EmptyID(t *testing.T) {
+	h := newTestWebAuthnHandler(nil, nil, nil, nil)
+
+	req := httptest.NewRequest(http.MethodDelete, "/webauthn/credentials/", http.NoBody)
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", "")
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+	w := httptest.NewRecorder()
+
+	h.DeleteCredential(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+}
+
+// TestWebAuthnHandler_RenameCredential_ValidName tests that a valid rename succeeds
+func TestWebAuthnHandler_RenameCredential_ValidName(t *testing.T) {
+	dbURL := apiTestDBURL
+	if dbURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	pool, err := pgxpool.New(context.Background(), dbURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	t.Cleanup(pool.Close)
+
+	repo := webauthn.NewRepository(pool)
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := newTestWebAuthnHandler(repo, nil, nil, adminMgr)
+
+	// Store a test credential
+	testCredID := []byte("test-credential-id")
+	testCred := webauthn.CredentialRecord{
+		Name:                      "Original Name",
+		ID:                        testCredID,
+		PublicKey:                 []byte("public-key"),
+		AttestationType:           "none",
+		AttestationFormat:         "none",
+		Transport:                 []string{"internal"},
+		FlagsByte:                 0,
+		SignCount:                 0,
+		AAGUID:                    uuid.Nil,
+		AttestationObject:         []byte("attested"),
+		AttestationClientData:     []byte{},
+		AttestationClientDataHash: []byte{},
+		AttestationPublicKeyAlgo:  -7,
+		AuthenticatorData:         []byte{},
+		CreatedAt:                 time.Now().UTC(),
+		UpdatedAt:                 time.Now().UTC(),
+	}
+	if err := repo.StoreCredential(context.Background(), &testCred); err != nil {
+		t.Fatalf("failed to store credential: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := repo.DeleteCredential(context.Background(), testCredID); err != nil {
+			t.Errorf("failed to cleanup credential: %v", err)
+		}
+	})
+
+	body := renameCredentialRequest{Name: "My Key"}
+	bodyBytes, _ := json.Marshal(body)
+	req := httptest.NewRequest(http.MethodPatch, "/webauthn/credentials/"+base64.RawURLEncoding.EncodeToString(testCredID), strings.NewReader(string(bodyBytes)))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-token")
+	w := httptest.NewRecorder()
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", base64.RawURLEncoding.EncodeToString(testCredID))
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+	h.RenameCredential(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+
+	// Verify the name was changed
+	updatedCred, err := repo.GetCredentialByID(context.Background(), testCredID)
+	if err != nil {
+		t.Fatalf("failed to get updated credential: %v", err)
+	}
+	if updatedCred.Name != "My Key" {
+		t.Errorf("expected name 'My Key', got '%s'", updatedCred.Name)
+	}
+}
+
+// TestWebAuthnHandler_ListCredentials_WithStoredCredential tests listing with stored credential
+func TestWebAuthnHandler_ListCredentials_WithStoredCredential(t *testing.T) {
+	dbURL := apiTestDBURL
+	if dbURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	pool, err := pgxpool.New(context.Background(), dbURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	t.Cleanup(pool.Close)
+
+	repo := webauthn.NewRepository(pool)
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := newTestWebAuthnHandler(repo, nil, nil, adminMgr)
+
+	// Store a test credential
+	testCredID := []byte("test-credential-id-list")
+	testCred := webauthn.CredentialRecord{
+		Name:                      "Test Key",
+		ID:                        testCredID,
+		PublicKey:                 []byte("public-key"),
+		AttestationType:           "none",
+		AttestationFormat:         "none",
+		Transport:                 []string{"internal"},
+		FlagsByte:                 0,
+		SignCount:                 0,
+		AAGUID:                    uuid.Nil,
+		AttestationObject:         []byte("attested"),
+		AttestationClientData:     []byte{},
+		AttestationClientDataHash: []byte{},
+		AttestationPublicKeyAlgo:  -7,
+		AuthenticatorData:         []byte{},
+		CreatedAt:                 time.Now().UTC(),
+		UpdatedAt:                 time.Now().UTC(),
+	}
+	if err := repo.StoreCredential(context.Background(), &testCred); err != nil {
+		t.Fatalf("failed to store credential: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := repo.DeleteCredential(context.Background(), testCredID); err != nil {
+			t.Errorf("failed to cleanup credential: %v", err)
+		}
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/webauthn/credentials", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-token")
+	w := httptest.NewRecorder()
+
+	h.ListCredentials(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+
+	var resp []credentialResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	// Find the credential we stored rather than asserting exact count,
+	// since other tests running in the same DB could leave credentials behind.
+	var found *credentialResponse
+	for i := range resp {
+		if resp[i].Name == "Test Key" {
+			found = &resp[i]
+			break
+		}
+	}
+	if found == nil {
+		t.Error("expected to find stored credential 'Test Key' in response")
 	}
 }

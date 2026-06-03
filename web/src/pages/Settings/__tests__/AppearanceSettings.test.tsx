@@ -250,5 +250,26 @@ describe("AppearanceSettings", () => {
 			}
 			expect(cleanSaaSButton?.className).toContain("border-(--accent)");
 		});
+
+		describe("Toast Notifications", () => {
+			it("renders all 6 toast position dots", () => {
+				renderWithProviders(
+					<AppearanceSettings collapsed={false} onToggle={onToggle} />,
+				);
+				expect(screen.getByTitle("Top Left")).toBeInTheDocument();
+				expect(screen.getByTitle("Top Center")).toBeInTheDocument();
+				expect(screen.getByTitle("Top Right")).toBeInTheDocument();
+				expect(screen.getByTitle("Bottom Left")).toBeInTheDocument();
+				expect(screen.getByTitle("Bottom Center")).toBeInTheDocument();
+				expect(screen.getByTitle("Bottom Right")).toBeInTheDocument();
+			});
+
+			it("renders Auto-dismiss slider", () => {
+				renderWithProviders(
+					<AppearanceSettings collapsed={false} onToggle={onToggle} />,
+				);
+				expect(screen.getByLabelText("Auto-dismiss")).toBeInTheDocument();
+			});
+		});
 	});
 });

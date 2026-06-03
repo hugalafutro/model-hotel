@@ -438,4 +438,19 @@ describe("RateLimitSettings", () => {
 			expect(screen.getByLabelText("Max Wait (ms)")).toBeInTheDocument();
 		});
 	});
+
+	it("renders error state when settings API returns error", async () => {
+		server.use(
+			http.get("/api/settings", () => {
+				return new HttpResponse(null, { status: 500 });
+			}),
+		);
+		renderWithProviders(
+			<RateLimitSettings collapsed={false} onToggle={onToggle} />,
+		);
+		// The component should still render the section title even when settings fail to load
+		await waitFor(() => {
+			expect(screen.getByText("Rate Limiting")).toBeInTheDocument();
+		});
+	});
 });
