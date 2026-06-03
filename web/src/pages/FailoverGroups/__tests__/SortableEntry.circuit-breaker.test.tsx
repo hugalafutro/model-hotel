@@ -147,7 +147,7 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 	});
 
 	describe("cbStatus with state 'half-open' and consecutive_fails >= 5", () => {
-		it("renders FuseOutline with amber color", () => {
+		it("renders static amber outline (no SVG fuse animation) for half-open", () => {
 			const cbStatus = {
 				state: "half-open",
 				cooldown_ms: 60000,
@@ -163,13 +163,14 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 				/>,
 			);
 
-			// FuseOutline should render as SVG
-			const svgElement = container.querySelector("svg");
-			expect(svgElement).toBeInTheDocument();
+			// Half-open: static amber outline via box-shadow, NOT SVG FuseOutline
+			const svgElements = container.querySelectorAll("svg");
+			expect(svgElements.length).toBe(0);
 
-			// Check for amber color (#fde68a) in the rect element
-			const rectElement = svgElement?.querySelector("rect");
-			expect(rectElement).toBeInTheDocument();
+			// Static outline div should render with amber color
+			const outlineDiv = container.querySelector('[style*="box-shadow"]');
+			expect(outlineDiv).toBeInTheDocument();
+			expect(outlineDiv?.getAttribute("style")).toContain("#fde68a");
 
 			// Entry should have overflow: hidden
 			const wrapperDiv = getWrapperDiv(container);
@@ -254,35 +255,6 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 				cooldown_ms: 60000, // fallback value
 				next_retry_at: new Date(futureTime).toISOString(),
 				consecutive_fails: 8,
-			};
-
-			const { container } = renderWithProviders(
-				<SortableEntry
-					entry={baseEntry}
-					groupEnabled={true}
-					onToggle={vi.fn()}
-					cbStatus={cbStatus}
-				/>,
-			);
-
-			// FuseOutline should render
-			const svgElement = container.querySelector("svg");
-			expect(svgElement).toBeInTheDocument();
-
-			// Entry should have overflow: hidden
-			const wrapperDiv = getWrapperDiv(container);
-			if (wrapperDiv) {
-				expect(wrapperDiv).toHaveStyle("overflow: hidden");
-			}
-		});
-	});
-
-	describe("Fallback to cooldown_ms when no next_retry_at", () => {
-		it("uses cooldown_ms as duration when next_retry_at is missing", () => {
-			const cbStatus = {
-				state: "half-open",
-				cooldown_ms: 30000, // 30 seconds
-				consecutive_fails: 6,
 			};
 
 			const { container } = renderWithProviders(

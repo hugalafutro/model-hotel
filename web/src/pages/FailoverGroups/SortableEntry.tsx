@@ -49,12 +49,17 @@ export function SortableEntry({
 		(cbStatus.state === "open" || cbStatus.state === "half-open") &&
 		cbStatus.consecutive_fails >= 5;
 
+	// Half-open: cooldown already elapsed, provider is actively probing.
+	// Show a static amber outline — no countdown animation.
+	// Open: cooldown is running, show animated fuse outline.
+	const isHalfOpen = showFuse && cbStatus.state === "half-open";
+
 	let fuseColor: string | undefined;
 	let remainingMs = 0;
 	let fuseTitle: string | undefined;
 
 	if (showFuse) {
-		if (cbStatus.state === "half-open") {
+		if (isHalfOpen) {
 			fuseColor = "#fde68a";
 			fuseTitle = t("failoverGroups.entry.circuitBreakerHalfOpen");
 		} else {
@@ -62,11 +67,9 @@ export function SortableEntry({
 			fuseTitle = t("failoverGroups.entry.circuitBreakerOpen");
 		}
 
-		// Compute remaining cooldown time
+		// Compute remaining cooldown time (only meaningful for open state)
 		if (cbStatus.next_retry_at) {
 			remainingMs = new Date(cbStatus.next_retry_at).getTime() - Date.now();
-		} else if (cbStatus.cooldown_ms) {
-			remainingMs = cbStatus.cooldown_ms;
 		}
 		remainingMs = Math.max(0, remainingMs);
 	}
@@ -80,7 +83,13 @@ export function SortableEntry({
 			}`}
 			{...(fuseTitle ? { title: fuseTitle } : {})}
 		>
-			{showFuse && fuseColor && (
+			{showFuse && fuseColor && isHalfOpen && (
+				<div
+					className="absolute inset-0 rounded pointer-events-none"
+					style={{ boxShadow: `inset 0 0 0 1.5px ${fuseColor}` }}
+				/>
+			)}
+			{showFuse && fuseColor && !isHalfOpen && (
 				<FuseOutline color={fuseColor} durationMs={remainingMs} />
 			)}
 			<div className="flex items-center gap-2 min-w-0">
