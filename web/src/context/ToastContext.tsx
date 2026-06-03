@@ -221,7 +221,6 @@ function ToastItem({
 				? { title: t("context.toast.clickToCopyDismiss") }
 				: {})}
 			className={`relative px-4 py-2 rounded-lg shadow-lg text-sm font-medium cursor-pointer hover:brightness-125 transition-all whitespace-pre-line text-left border-0 ${bgColors[toast.type]}`}
-			style={{ overflow: "hidden" }}
 		>
 			{toast.message}
 			<svg
