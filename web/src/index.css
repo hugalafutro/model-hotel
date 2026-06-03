@@ -1373,6 +1373,27 @@ html[data-ui-style="cyber-terminal"] .ui-input:focus {
 		0 0 8px rgba(var(--accent-rgb), 0.2);
 }
 
+html[data-ui-style="cyber-terminal"] input[type="number"].no-spinner {
+	border-color: rgba(var(--accent-rgb), 0.25);
+	border-radius: 0;
+	font-family: var(--font-mono);
+	font-size: 12px;
+}
+
+html[data-ui-style="cyber-terminal"] input[type="number"].no-spinner:focus {
+	box-shadow:
+		0 0 0 1px var(--accent),
+		0 0 8px rgba(var(--accent-rgb), 0.2);
+	border-color: var(--accent);
+}
+
+html[data-ui-style="cyber-terminal"] .settings-slider-infinity {
+	border: 1px solid rgba(var(--accent-rgb), 0.25);
+	border-radius: 0;
+	font-family: var(--font-mono);
+	font-size: 12px;
+}
+
 html[data-ui-style="glassmorphism-lite"] .ui-input {
 	backdrop-filter: blur(20px);
 	-webkit-backdrop-filter: blur(20px);

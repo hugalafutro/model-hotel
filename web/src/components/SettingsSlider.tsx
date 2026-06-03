@@ -217,7 +217,7 @@ export function SettingsSlider({
 					</div>
 					{isInfinity ? (
 						<span
-							className={`w-12 text-center inline-block px-1 py-0.5 rounded text-xs bg-(--surface-input) text-(--text-primary) ${
+							className={`settings-slider-infinity w-12 text-center inline-block px-1 py-0.5 rounded text-xs bg-(--surface-input) text-(--text-primary) ${
 								disabled ? "cursor-not-allowed opacity-50" : ""
 							}`}
 						>
