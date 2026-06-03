@@ -6,7 +6,9 @@ import { api, getAuthHeaders } from "../../api/client";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { RestoreConfirmModal } from "../../components/RestoreConfirmModal";
 import { SettingsSection } from "../../components/SettingsSection";
+import { Spinner } from "../../components/Spinner";
 import { useToast } from "../../context/ToastContext";
+import { formatDate } from "../../utils/format";
 
 interface DatabaseBackupSettingsProps {
 	collapsed: boolean;
@@ -42,7 +44,6 @@ export function DatabaseBackupSettings({
 		mutationFn: () => api.backups.create(),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["backups"] });
-			toast(t("settings.common.settingsSaved"), "success");
 		},
 		onError: (err: Error) => {
 			toast(
@@ -76,14 +77,6 @@ export function DatabaseBackupSettings({
 			sizes.length - 1,
 		);
 		return `${Number.parseFloat((bytes / k ** i).toFixed(1))} ${sizes[i]}`;
-	}
-
-	function formatDate(iso: string): string {
-		try {
-			return new Date(iso).toLocaleString();
-		} catch {
-			return iso;
-		}
 	}
 
 	const downloadBackup = async (filename: string) => {
@@ -126,7 +119,7 @@ export function DatabaseBackupSettings({
 				</p>
 
 				{/* Restore requirements */}
-				<div className="bg-gray-800/50 rounded-lg p-3 space-y-2">
+				<div className="bg-(--surface-elevated) rounded-[var(--radius-card,0.375rem)] p-3 space-y-2">
 					<h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
 						{t("settings.backup.restoreRequirements")}
 					</h4>
@@ -216,7 +209,7 @@ export function DatabaseBackupSettings({
 						disabled={createMutation.isPending}
 						className="ui-btn ui-btn-primary flex items-center gap-2"
 					>
-						<Plus size={14} />
+						{createMutation.isPending ? <Spinner /> : <Plus size={14} />}
 						{createMutation.isPending
 							? t("settings.backup.creatingBackup")
 							: t("settings.backup.createBackup")}
@@ -262,7 +255,7 @@ export function DatabaseBackupSettings({
 						{backups.map((backup) => (
 							<div
 								key={backup.filename}
-								className="flex items-center justify-between bg-gray-800/30 rounded-lg p-3"
+								className="flex items-center justify-between bg-(--surface-elevated) rounded-[var(--radius-card,0.375rem)] p-3"
 							>
 								<div className="min-w-0 flex-1">
 									<p className="text-sm font-medium text-gray-200 truncate">
