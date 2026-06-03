@@ -701,6 +701,18 @@ html[data-ui-style="clean-saas"] .sidebar-link {
 	opacity: 0.85;
 }
 
+/*
+ * Badge text vertical centering fix:
+ * Sans-serif glyphs render with visual weight (cap-height) ~1px above
+ * the line-box center because descent space is unused by caps/symbols.
+ * This tiny shift aligns the visual center of the text with the
+ * geometric center of adjacent dots/icons or the badge container.
+ */
+.badge-text {
+	display: inline-block;
+	translate: 0 1px;
+}
+
 .sidebar-quota-pill {
 	display: inline-flex;
 	align-items: center;

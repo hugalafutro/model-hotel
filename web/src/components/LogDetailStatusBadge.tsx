@@ -114,7 +114,7 @@ export function StatusBadge({ code, state, errorMessage }: StatusBadgeProps) {
 			) : (
 				Icon && <Icon size={12} />
 			)}
-			{display.label}
+			<span className="badge-text">{display.label}</span>
 		</span>
 	);
 }

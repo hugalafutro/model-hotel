@@ -22,7 +22,7 @@ export function LiveToggleButton({ enabled, onToggle }: LiveToggleButtonProps) {
 					"info",
 				);
 			}}
-			className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold transition-colors ${
+			className={`flex items-center gap-1 px-1.5 py-px leading-[1.6] rounded text-[10px] font-semibold transition-colors ${
 				enabled
 					? "bg-green-500/20 text-green-400 hover:bg-green-500/30"
 					: "bg-gray-700 text-gray-400 hover:bg-gray-600"
@@ -33,7 +33,7 @@ export function LiveToggleButton({ enabled, onToggle }: LiveToggleButtonProps) {
 					enabled ? "bg-green-400" : "bg-gray-500"
 				}`}
 			/>
-			{t("components.logs.liveToggle.live")}
+			<span className="badge-text">{t("components.logs.liveToggle.live")}</span>
 		</button>
 	);
 }

@@ -30,7 +30,7 @@ export function RangeToggle({
 						}`}
 						style={active ? { backgroundColor: "var(--accent)" } : {}}
 					>
-						{labels[r]}
+						<span className="badge-text">{labels[r]}</span>
 					</button>
 				);
 			})}
@@ -66,7 +66,7 @@ export function MetricToggle({
 						}`}
 						style={active ? { backgroundColor: "var(--accent)" } : {}}
 					>
-						{label}
+						<span className="badge-text">{label}</span>
 					</button>
 				);
 			})}

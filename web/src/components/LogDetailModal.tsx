@@ -55,7 +55,7 @@ function AppLogDetail({
 									: "bg-blue-500/15 text-blue-400 border border-blue-500/30"
 						}`}
 					>
-						{log.level.toUpperCase()}
+						<span className="badge-text">{log.level.toUpperCase()}</span>
 					</span>
 				</DetailItem>
 				<DetailItem

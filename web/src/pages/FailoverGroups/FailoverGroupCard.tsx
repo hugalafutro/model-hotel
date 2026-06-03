@@ -154,7 +154,9 @@ export function FailoverGroupCard({
 							: "bg-gray-600 text-gray-300 hover:bg-gray-500"
 					}`}
 				>
-					{group.group_enabled ? "ON" : "OFF"}
+					<span className="badge-text">
+						{group.group_enabled ? "ON" : "OFF"}
+					</span>
 				</button>
 			</div>
 

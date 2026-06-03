@@ -419,11 +419,13 @@ export function ModelTable({
 											<span
 												className={`px-2 py-px leading-[1.6] text-xs rounded-full ${model.enabled && !model.disabled_manually ? "bg-green-900/50 text-green-400" : model.enabled && model.disabled_manually ? "bg-yellow-900/50 text-yellow-400" : "bg-red-900/50 text-red-400"}`}
 											>
-												{model.enabled && !model.disabled_manually
-													? t("common.enabled")
-													: model.enabled && model.disabled_manually
-														? t("common.manuallyDisabled")
-														: t("common.disabled")}
+												<span className="badge-text">
+													{model.enabled && !model.disabled_manually
+														? t("common.enabled")
+														: model.enabled && model.disabled_manually
+															? t("common.manuallyDisabled")
+															: t("common.disabled")}
+												</span>
 											</span>
 										</td>
 									</Row>

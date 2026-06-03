@@ -59,19 +59,23 @@ export function ProviderCard({
 				<div className="flex items-center gap-2 mt-1">
 					{!provider.enabled && (
 						<span className="px-2 py-px leading-[1.6] rounded-full bg-gray-600/40 text-gray-400 text-xs font-medium border border-gray-600/50">
-							{t("providers.card_disabled")}
+							<span className="badge-text">{t("providers.card_disabled")}</span>
 						</span>
 					)}
 					{provider.enabled && !provider.autodiscovery_enabled && (
 						<span className="px-2 py-px leading-[1.6] rounded-full bg-red-500/20 text-red-400 text-xs font-medium border border-red-500/30">
-							{t("providers.card_autodiscovery_off")}
+							<span className="badge-text">
+								{t("providers.card_autodiscovery_off")}
+							</span>
 						</span>
 					)}
 					{provider.total_tokens > 0 && (
 						<span className="px-2 py-px leading-[1.6] rounded-full bg-purple-500/20 text-purple-400 text-xs font-medium border border-purple-500/30 whitespace-nowrap">
-							{t("providers.card_tokens", {
-								tokens: formatTokens(provider.total_tokens),
-							})}
+							<span className="badge-text">
+								{t("providers.card_tokens", {
+									tokens: formatTokens(provider.total_tokens),
+								})}
+							</span>
 						</span>
 					)}
 					{modelCount > 0 && (
@@ -80,7 +84,9 @@ export function ProviderCard({
 							onClick={() => onSetModelsProvider(provider)}
 							className="px-2 py-px leading-[1.6] rounded-full bg-cyan-500/20 text-cyan-400 text-xs font-medium border border-cyan-500/30 cursor-pointer hover:bg-cyan-500/30 hover:border-cyan-400/50 transition-colors whitespace-nowrap"
 						>
-							{t("providers.card_models", { count: modelCount })}
+							<span className="badge-text">
+								{t("providers.card_models", { count: modelCount })}
+							</span>
 						</button>
 					)}
 				</div>

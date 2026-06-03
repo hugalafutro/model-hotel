@@ -626,11 +626,13 @@ export function VirtualModelTable({
 															: "bg-red-900/50 text-red-400"
 												}`}
 											>
-												{isActive
-													? t("common.enabled")
-													: isManuallyDisabled
-														? t("common.manuallyDisabled")
-														: t("common.disabled")}
+												<span className="badge-text">
+													{isActive
+														? t("common.enabled")
+														: isManuallyDisabled
+															? t("common.manuallyDisabled")
+															: t("common.disabled")}
+												</span>
 											</span>
 										</td>
 									</tr>

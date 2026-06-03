@@ -930,7 +930,7 @@ export function Layout({ children }: LayoutProps) {
 												<span>{item.name}</span>
 												<span className="inline-flex items-center gap-[2px] text-[0.625rem] leading-[1.6] font-medium bg-white/10 px-[7px] py-[1px] rounded-full">
 													<span
-														className="text-emerald-400"
+														className="text-emerald-400 badge-text"
 														title={t("layout.nav.failoverClosed", {
 															count: cbStatus.closed,
 														})}
@@ -941,7 +941,7 @@ export function Layout({ children }: LayoutProps) {
 														/
 													</span>
 													<span
-														className="text-amber-400"
+														className="text-amber-400 badge-text"
 														title={t("layout.nav.failoverHalfOpen", {
 															count: cbStatus.half_open,
 														})}
@@ -952,7 +952,7 @@ export function Layout({ children }: LayoutProps) {
 														/
 													</span>
 													<span
-														className="text-red-400"
+														className="text-red-400 badge-text"
 														title={t("layout.nav.failoverOpen", {
 															count: cbStatus.open,
 														})}
