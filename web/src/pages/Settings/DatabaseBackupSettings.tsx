@@ -6,7 +6,9 @@ import { api, getAuthHeaders } from "../../api/client";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { RestoreConfirmModal } from "../../components/RestoreConfirmModal";
 import { SettingsSection } from "../../components/SettingsSection";
+import { Spinner } from "../../components/Spinner";
 import { useToast } from "../../context/ToastContext";
+import { formatDateTimeShort } from "../../utils/format";
 
 interface DatabaseBackupSettingsProps {
 	collapsed: boolean;
@@ -42,7 +44,6 @@ export function DatabaseBackupSettings({
 		mutationFn: () => api.backups.create(),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["backups"] });
-			toast(t("settings.common.settingsSaved"), "success");
 		},
 		onError: (err: Error) => {
 			toast(
@@ -76,14 +77,6 @@ export function DatabaseBackupSettings({
 			sizes.length - 1,
 		);
 		return `${Number.parseFloat((bytes / k ** i).toFixed(1))} ${sizes[i]}`;
-	}
-
-	function formatDate(iso: string): string {
-		try {
-			return new Date(iso).toLocaleString();
-		} catch {
-			return iso;
-		}
 	}
 
 	const downloadBackup = async (filename: string) => {
@@ -121,30 +114,30 @@ export function DatabaseBackupSettings({
 			onToggle={onToggle}
 		>
 			<div className="space-y-4">
-				<p className="text-gray-400 text-sm">
+				<p className="text-(--text-secondary) text-sm">
 					{t("settings.backup.description")}
 				</p>
 
 				{/* Restore requirements */}
-				<div className="bg-gray-800/50 rounded-lg p-3 space-y-2">
-					<h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+				<div className="bg-(--surface-elevated) rounded-[var(--radius-card,0.375rem)] p-3 space-y-2">
+					<h4 className="text-xs font-semibold uppercase tracking-wider text-(--text-secondary)">
 						{t("settings.backup.restoreRequirements")}
 					</h4>
-					<ul className="text-xs text-gray-400 space-y-1 list-disc list-inside">
+					<ul className="text-xs text-(--text-secondary) space-y-1 list-disc list-inside">
 						<li>
-							<strong className="text-gray-300">
+							<strong className="text-(--text-primary)">
 								{t("settings.backup.restoreRequirements.masterKey")}
 							</strong>
 							: {t("settings.backup.restoreRequirements.masterKeyDescription")}
 						</li>
 						<li>
-							<strong className="text-gray-300">
+							<strong className="text-(--text-primary)">
 								{t("settings.backup.restoreRequirements.adminToken")}
 							</strong>
 							: {t("settings.backup.restoreRequirements.adminTokenDescription")}
 						</li>
 						<li>
-							<strong className="text-gray-300">
+							<strong className="text-(--text-primary)">
 								{t("settings.backup.restoreRequirements.virtualKeys")}
 							</strong>
 							:{" "}
@@ -216,7 +209,7 @@ export function DatabaseBackupSettings({
 						disabled={createMutation.isPending}
 						className="ui-btn ui-btn-primary flex items-center gap-2"
 					>
-						<Plus size={14} />
+						{createMutation.isPending ? <Spinner /> : <Plus size={14} />}
 						{createMutation.isPending
 							? t("settings.backup.creatingBackup")
 							: t("settings.backup.createBackup")}
@@ -241,7 +234,7 @@ export function DatabaseBackupSettings({
 							type="button"
 							onClick={() => fileInputRef.current?.click()}
 							disabled={isRestoring}
-							className="ui-btn ui-btn-secondary flex items-center gap-2"
+							className="ui-btn flex items-center gap-2 border border-dashed border-(--border-default) text-(--text-secondary) hover:text-(--text-primary) hover:border-(--accent) hover:bg-(--surface-elevated) transition-colors"
 						>
 							<Upload size={14} />
 							{isRestoring
@@ -256,21 +249,21 @@ export function DatabaseBackupSettings({
 					<LoadingSpinner />
 				) : backups && backups.length > 0 ? (
 					<div className="space-y-2 max-h-[300px] overflow-y-auto">
-						<h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 py-1">
+						<h4 className="text-xs font-semibold uppercase tracking-wider text-(--text-muted) py-1">
 							{t("settings.backup.availableBackups", { count: backups.length })}
 						</h4>
 						{backups.map((backup) => (
 							<div
 								key={backup.filename}
-								className="flex items-center justify-between bg-gray-800/30 rounded-lg p-3"
+								className="flex items-center justify-between bg-(--surface-elevated) rounded-[var(--radius-card,0.375rem)] border border-(--border-default) p-3"
 							>
 								<div className="min-w-0 flex-1">
-									<p className="text-sm font-medium text-gray-200 truncate">
+									<p className="text-sm font-medium text-(--text-primary) truncate">
 										{backup.filename}
 									</p>
-									<p className="text-xs text-gray-500">
+									<p className="text-xs text-(--text-muted)">
 										{formatBytes(backup.size_bytes)} -{" "}
-										{formatDate(backup.created_at)}
+										{formatDateTimeShort(backup.created_at)}
 									</p>
 								</div>
 								<div className="flex items-center gap-2 ml-3 shrink-0">
@@ -321,7 +314,7 @@ export function DatabaseBackupSettings({
 						))}
 					</div>
 				) : (
-					<p className="text-xs text-gray-500">
+					<p className="text-xs text-(--text-muted)">
 						{t("settings.backup.noBackups")}
 					</p>
 				)}

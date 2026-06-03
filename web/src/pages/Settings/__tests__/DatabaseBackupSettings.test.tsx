@@ -165,10 +165,9 @@ describe("DatabaseBackupSettings", () => {
 			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
 		);
 		await waitFor(() => {
-			// Date should be formatted using toLocaleString() - format varies by locale
-			// Just check that a date string appears (contains year or specific date parts)
+			// Date formatted via formatDateTimeShort() — "15 Jan 2026, 10:30" style
 			expect(
-				screen.getByText(/1\. 2026|15\. 2026|2026.*10:30|10:30.*2026/),
+				screen.getByText(/15.*Jan.*2026|Jan.*15.*2026/),
 			).toBeInTheDocument();
 		});
 	});
@@ -261,6 +260,49 @@ describe("DatabaseBackupSettings", () => {
 		// Button returns to normal state after mutation completes
 		await waitFor(() => {
 			expect(createButton).not.toBeDisabled();
+		});
+	});
+
+	it("Create does not show 'Settings saved' toast on success", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+		await waitFor(() => {
+			expect(
+				screen.getByRole("button", { name: /create backup/i }),
+			).toBeInTheDocument();
+		});
+		const createButton = screen.getByRole("button", { name: /create backup/i });
+		await user.click(createButton);
+		await waitFor(() => {
+			expect(createButton).not.toBeDisabled();
+		});
+		// Should NOT show "Settings saved" toast - only SSE events should toast
+		expect(screen.queryByText(/settings saved/i)).not.toBeInTheDocument();
+	});
+
+	it("Create shows spinner while backup is being created", async () => {
+		server.use(
+			http.post("/api/backups", async () => {
+				await new Promise((resolve) => setTimeout(resolve, 500));
+				return HttpResponse.json({ filename: "backup-new.dump" });
+			}),
+		);
+		const user = userEvent.setup();
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+		await waitFor(() => {
+			expect(
+				screen.getByRole("button", { name: /create backup/i }),
+			).toBeInTheDocument();
+		});
+		const createButton = screen.getByRole("button", { name: /create backup/i });
+		await user.click(createButton);
+		// While pending, spinner should be visible
+		await waitFor(() => {
+			expect(screen.getByTestId("spinner")).toBeInTheDocument();
 		});
 	});
 

@@ -110,6 +110,8 @@ export function CircuitBreakerSettings({
 									min={1}
 									max={50}
 									step={1}
+									unit="s"
+									hideUnit
 									onChange={(v) =>
 										updateMutation.mutate({
 											circuit_breaker_threshold: String(v),

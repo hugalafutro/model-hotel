@@ -557,6 +557,9 @@ export function Dashboard() {
 				dataKey="tokens"
 				label={t("dashboard.gauge.modal.tokensLabel")}
 				allowDecimals={false}
+				overlayDataKey="tokens_cache_hit"
+				overlayColor="var(--accent)"
+				overlayLabel={t("dashboard.chart.cacheHit")}
 			/>
 
 			{detailModel && (

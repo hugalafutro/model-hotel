@@ -16,6 +16,9 @@ export function GaugeModal({
 	label,
 	allowDecimals = true,
 	scale,
+	overlayDataKey,
+	overlayColor,
+	overlayLabel,
 }: {
 	open: boolean;
 	onClose: () => void;
@@ -27,6 +30,9 @@ export function GaugeModal({
 	label: string;
 	allowDecimals?: boolean;
 	scale?: number;
+	overlayDataKey?: GaugeDataKey;
+	overlayColor?: string;
+	overlayLabel?: string;
 }) {
 	const [range, setRange] = useState<Range>("24h");
 	const { data: tsData } = useQuery({
@@ -96,6 +102,9 @@ export function GaugeModal({
 				allowDecimals={allowDecimals}
 				height={280}
 				scale={scale ?? (dataKey === "latency" ? 0.001 : 1)}
+				overlayDataKey={overlayDataKey}
+				overlayColor={overlayColor}
+				overlayLabel={overlayLabel}
 			/>
 		</Modal>
 	);

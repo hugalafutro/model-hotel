@@ -6,6 +6,7 @@ import { api } from "../../api/client";
 import type { WebAuthnCredential } from "../../api/types";
 import { SettingsSection } from "../../components/SettingsSection";
 import { useToast } from "../../context/ToastContext";
+import { formatDateTimeShort } from "../../utils/format";
 import { isWebAuthnAvailable, registerPasskey } from "../../utils/webauthn";
 
 interface PasskeySettingsProps {
@@ -110,7 +111,7 @@ export function PasskeySettings({ collapsed, onToggle }: PasskeySettingsProps) {
 			onToggle={onToggle}
 		>
 			<div className="space-y-4">
-				<p className="text-gray-400 text-sm">
+				<p className="text-(--text-secondary) text-sm">
 					{t("settings.passkeys.description")}
 				</p>
 
@@ -184,7 +185,7 @@ function CredentialRow({
 	};
 
 	return (
-		<div className="flex items-center justify-between p-3 bg-gray-900/50 rounded-lg border border-gray-700/50">
+		<div className="flex items-center justify-between p-3 bg-(--surface-elevated) rounded-[var(--radius-card,0.375rem)] border border-(--border-default)">
 			<div className="flex items-center gap-3 min-w-0 flex-1">
 				<Key size={16} className="text-(--accent) shrink-0" />
 				<div className="min-w-0">
@@ -192,6 +193,8 @@ function CredentialRow({
 						<div className="flex items-center gap-1">
 							<input
 								type="text"
+								// biome-ignore lint/a11y/noAutofocus: autofocus is intentional for rename UX
+								autoFocus
 								value={draft}
 								onChange={(e) => setDraft(e.target.value)}
 								onKeyDown={(e) => {
@@ -216,7 +219,7 @@ function CredentialRow({
 									setDraft(cred.name);
 									setEditing(false);
 								}}
-								className="text-gray-400 hover:text-gray-300 p-0.5"
+								className="text-(--text-muted) hover:text-(--text-primary) p-0.5"
 								aria-label={t("settings.passkeys.cancelNameAriaLabel")}
 							>
 								<X size={14} />
@@ -235,13 +238,13 @@ function CredentialRow({
 							<span className="truncate">{displayName}</span>
 							<Pencil
 								size={12}
-								className="shrink-0 text-gray-500 group-hover:text-(--accent) transition-colors"
+								className="shrink-0 text-(--text-muted) group-hover:text-(--accent) transition-colors"
 							/>
 						</button>
 					)}
-					<p className="text-xs text-gray-500">
+					<p className="text-xs text-(--text-muted)">
 						{t("settings.passkeys.registered")}{" "}
-						{new Date(cred.created_at).toLocaleDateString()}
+						{formatDateTimeShort(cred.created_at)}
 					</p>
 				</div>
 			</div>
@@ -249,7 +252,7 @@ function CredentialRow({
 				type="button"
 				onClick={() => deleteMutation.mutate(cred.id)}
 				disabled={deleteMutation.isPending}
-				className="text-gray-500 hover:text-red-400 transition-colors p-1 disabled:opacity-50"
+				className="text-(--text-muted) hover:text-red-400 transition-colors p-1 disabled:opacity-50"
 				aria-label={t("settings.passkeys.deleteAriaLabel")}
 			>
 				<Trash2 size={16} />
