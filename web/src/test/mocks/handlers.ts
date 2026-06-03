@@ -553,6 +553,13 @@ export const handlers: RequestHandler[] = [
 		return HttpResponse.json({ synced: 0 });
 	}),
 
+	http.get("/api/failover-groups/circuit-breaker-status", ({ request }) => {
+		if (!hasValidAuth(request)) {
+			return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+		}
+		return HttpResponse.json({ closed: 0, half_open: 0, open: 0 });
+	}),
+
 	// ── Backups ───────────────────────────────────────────────────────────
 	http.get("/api/backups", ({ request }) => {
 		if (!hasValidAuth(request)) {

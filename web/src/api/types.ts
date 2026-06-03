@@ -382,6 +382,12 @@ export interface CandidateModel {
 	owned_by: string;
 }
 
+export interface CircuitBreakerStatus {
+	closed: number;
+	half_open: number;
+	open: number;
+}
+
 export interface DeletedGroupInfo {
 	display_model: string;
 	reason: string;
