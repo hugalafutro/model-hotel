@@ -1079,6 +1079,11 @@ html[data-ui-style="clean-saas"]
 	border-bottom: none;
 }
 
+html[data-ui-style="clean-saas"] .ui-card.has-dropdown {
+	position: relative;
+	z-index: 1;
+}
+
 html[data-ui-style="cyber-terminal"] .ui-card {
 	border-radius: 0;
 	border: 1px solid var(--border-default);
