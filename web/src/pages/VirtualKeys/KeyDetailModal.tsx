@@ -345,7 +345,7 @@ export function KeyDetailModal({
 												type="button"
 												onClick={() => toggleProvider(provider.id)}
 												aria-pressed={isExcluded}
-												className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium cursor-pointer transition-colors
+												className={`inline-flex items-center rounded-full px-2 py-px leading-[1.6] text-xs font-medium cursor-pointer transition-colors
 													${
 														isExcluded
 															? "bg-gray-800/60 text-gray-500 border border-gray-700/60 line-through hover:bg-gray-700/60"
@@ -496,7 +496,7 @@ export function KeyDetailModal({
 										return (
 											<span
 												key={provider.id}
-												className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
+												className={`inline-flex items-center rounded-full px-2 py-px leading-[1.6] text-xs font-medium
 													${
 														isAllowed
 															? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40"

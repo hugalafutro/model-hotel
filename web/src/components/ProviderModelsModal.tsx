@@ -29,7 +29,7 @@ export function ProviderModelsModal({
 			header={
 				<div className="flex items-center gap-3">
 					<h2 className="text-lg font-semibold text-white">{provider.name}</h2>
-					<span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 text-xs font-medium border border-cyan-500/30">
+					<span className="px-2 py-px leading-[1.6] rounded-full bg-cyan-500/20 text-cyan-400 text-xs font-medium border border-cyan-500/30">
 						{providerModels.length}{" "}
 						{t("components.providerModelsModal.modelCount", {
 							count: providerModels.length,

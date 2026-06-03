@@ -618,7 +618,7 @@ export function VirtualModelTable({
 										<td aria-hidden />
 										<td className="px-4 py-1.5 whitespace-nowrap">
 											<span
-												className={`px-2 py-0.5 text-xs rounded-full ${
+												className={`px-2 py-px leading-[1.6] text-xs rounded-full ${
 													isActive
 														? "bg-green-900/50 text-green-400"
 														: isManuallyDisabled

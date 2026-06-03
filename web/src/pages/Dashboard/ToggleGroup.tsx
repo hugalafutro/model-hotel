@@ -23,7 +23,7 @@ export function RangeToggle({
 						type="button"
 						key={r}
 						onClick={() => onChange(r)}
-						className={`px-1 py-0.5 text-[10px] font-semibold rounded transition-colors ${
+						className={`px-1 py-px leading-[1.6] text-[10px] font-semibold rounded transition-colors ${
 							active
 								? "text-white"
 								: "text-(--text-muted) hover:text-(--text-secondary)"
@@ -59,7 +59,7 @@ export function MetricToggle({
 						type="button"
 						key={m}
 						onClick={() => onChange(m)}
-						className={`px-1 py-0.5 text-[10px] font-semibold rounded transition-colors ${
+						className={`px-1 py-px leading-[1.6] text-[10px] font-semibold rounded transition-colors ${
 							active
 								? "text-white"
 								: "text-(--text-muted) hover:text-(--text-secondary)"

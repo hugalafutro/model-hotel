@@ -162,7 +162,7 @@ export function Models() {
 
 	const modelBadge =
 		!allSameState && viewMode === "paginate" ? (
-			<span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-700/60 border border-gray-600/50">
+			<span className="inline-flex items-center gap-2 px-2.5 py-1 leading-[1.6] rounded-full text-xs font-medium bg-gray-700/60 border border-gray-600/50">
 				<span className="text-green-400">
 					{t("models.badge_enabled", { count: totalEnabled })}
 				</span>

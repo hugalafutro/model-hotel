@@ -575,7 +575,7 @@ export function ModelDetailModal({
 					</h3>
 					<div className="flex items-center gap-2">
 						<span
-							className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+							className={`inline-flex items-center px-2 py-px leading-[1.6] rounded text-xs font-medium ${
 								params.subscription_included
 									? "bg-green-900/40 text-green-300 border border-green-700/50"
 									: "bg-yellow-900/40 text-yellow-300 border border-yellow-700/50"

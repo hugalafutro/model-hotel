@@ -58,17 +58,17 @@ export function ProviderCard({
 				</div>
 				<div className="flex items-center gap-2 mt-1">
 					{!provider.enabled && (
-						<span className="px-2 py-0.5 rounded-full bg-gray-600/40 text-gray-400 text-xs font-medium border border-gray-600/50">
+						<span className="px-2 py-px leading-[1.6] rounded-full bg-gray-600/40 text-gray-400 text-xs font-medium border border-gray-600/50">
 							{t("providers.card_disabled")}
 						</span>
 					)}
 					{provider.enabled && !provider.autodiscovery_enabled && (
-						<span className="px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 text-xs font-medium border border-red-500/30">
+						<span className="px-2 py-px leading-[1.6] rounded-full bg-red-500/20 text-red-400 text-xs font-medium border border-red-500/30">
 							{t("providers.card_autodiscovery_off")}
 						</span>
 					)}
 					{provider.total_tokens > 0 && (
-						<span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 text-xs font-medium border border-purple-500/30 whitespace-nowrap">
+						<span className="px-2 py-px leading-[1.6] rounded-full bg-purple-500/20 text-purple-400 text-xs font-medium border border-purple-500/30 whitespace-nowrap">
 							{t("providers.card_tokens", {
 								tokens: formatTokens(provider.total_tokens),
 							})}
@@ -78,7 +78,7 @@ export function ProviderCard({
 						<button
 							type="button"
 							onClick={() => onSetModelsProvider(provider)}
-							className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 text-xs font-medium border border-cyan-500/30 cursor-pointer hover:bg-cyan-500/30 hover:border-cyan-400/50 transition-colors whitespace-nowrap"
+							className="px-2 py-px leading-[1.6] rounded-full bg-cyan-500/20 text-cyan-400 text-xs font-medium border border-cyan-500/30 cursor-pointer hover:bg-cyan-500/30 hover:border-cyan-400/50 transition-colors whitespace-nowrap"
 						>
 							{t("providers.card_models", { count: modelCount })}
 						</button>

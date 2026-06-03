@@ -148,7 +148,7 @@ export function FailoverGroupCard({
 				<button
 					type="button"
 					onClick={() => onToggleGroup(!group.group_enabled)}
-					className={`px-2 py-0.5 text-xs font-medium rounded-full transition-colors ${
+					className={`px-2 py-px leading-[1.6] text-xs font-medium rounded-full transition-colors ${
 						group.group_enabled
 							? "bg-(--accent-light) text-(--accent) hover:bg-(--accent)/30"
 							: "bg-gray-600 text-gray-300 hover:bg-gray-500"

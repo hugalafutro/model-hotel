@@ -417,7 +417,7 @@ export function ModelTable({
 										<td aria-hidden />
 										<td className="px-4 py-1.5 whitespace-nowrap">
 											<span
-												className={`px-2 py-0.5 text-xs rounded-full ${model.enabled && !model.disabled_manually ? "bg-green-900/50 text-green-400" : model.enabled && model.disabled_manually ? "bg-yellow-900/50 text-yellow-400" : "bg-red-900/50 text-red-400"}`}
+												className={`px-2 py-px leading-[1.6] text-xs rounded-full ${model.enabled && !model.disabled_manually ? "bg-green-900/50 text-green-400" : model.enabled && model.disabled_manually ? "bg-yellow-900/50 text-yellow-400" : "bg-red-900/50 text-red-400"}`}
 											>
 												{model.enabled && !model.disabled_manually
 													? t("common.enabled")
