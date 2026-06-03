@@ -78,7 +78,7 @@ export function formatDate(ts: number | string): string {
 	});
 }
 
-export function formatDateTime(ts: number | string): string {
+export function formatDateTimeShort(ts: number | string): string {
 	return new Date(ts).toLocaleDateString(undefined, {
 		day: "numeric",
 		month: "short",

@@ -165,7 +165,7 @@ describe("DatabaseBackupSettings", () => {
 			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
 		);
 		await waitFor(() => {
-			// Date formatted via formatDateTime() — "15 Jan 2026, 10:30" style
+			// Date formatted via formatDateTimeShort() — "15 Jan 2026, 10:30" style
 			expect(
 				screen.getByText(/15.*Jan.*2026|Jan.*15.*2026/),
 			).toBeInTheDocument();

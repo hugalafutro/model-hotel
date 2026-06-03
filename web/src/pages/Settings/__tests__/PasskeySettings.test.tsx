@@ -112,7 +112,7 @@ describe("PasskeySettings", () => {
 		);
 
 		await waitFor(() => {
-			// formatDateTime outputs "28 Mar 2025, 12:00" style
+			// formatDateTimeShort outputs "28 Mar 2025, 12:00" style
 			expect(screen.getByText(/28.*Mar.*2025/)).toBeInTheDocument();
 		});
 	});

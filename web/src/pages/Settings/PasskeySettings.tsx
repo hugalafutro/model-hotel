@@ -1,12 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Fingerprint, Key, Pencil, Plus, Trash2, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { WebAuthnCredential } from "../../api/types";
 import { SettingsSection } from "../../components/SettingsSection";
 import { useToast } from "../../context/ToastContext";
-import { formatDateTime } from "../../utils/format";
+import { formatDateTimeShort } from "../../utils/format";
 import { isWebAuthnAvailable, registerPasskey } from "../../utils/webauthn";
 
 interface PasskeySettingsProps {
@@ -165,13 +165,6 @@ function CredentialRow({
 }) {
 	const [editing, setEditing] = useState(false);
 	const [draft, setDraft] = useState(cred.name);
-	const renameInputRef = useRef<HTMLInputElement>(null);
-
-	useEffect(() => {
-		if (editing) {
-			renameInputRef.current?.focus();
-		}
-	}, [editing]);
 
 	const displayName =
 		cred.name ||
@@ -199,7 +192,6 @@ function CredentialRow({
 					{editing ? (
 						<div className="flex items-center gap-1">
 							<input
-								ref={renameInputRef}
 								type="text"
 								// biome-ignore lint/a11y/noAutofocus: autofocus is intentional for rename UX
 								autoFocus
@@ -252,7 +244,7 @@ function CredentialRow({
 					)}
 					<p className="text-xs text-(--text-muted)">
 						{t("settings.passkeys.registered")}{" "}
-						{formatDateTime(cred.created_at)}
+						{formatDateTimeShort(cred.created_at)}
 					</p>
 				</div>
 			</div>
