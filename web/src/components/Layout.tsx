@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	AlertTriangle,
 	BookOpen,
@@ -762,6 +762,19 @@ export function Layout({ children }: LayoutProps) {
 		refetchInterval: 15_000,
 		placeholderData: (prev) => prev,
 	});
+
+	// Invalidate CB status on circuit_breaker SSE events for real-time badge updates
+	const queryClient = useQueryClient();
+	useEffect(() => {
+		const handler = (e: Event) => {
+			const detail = (e as CustomEvent).detail;
+			if (detail?.type?.startsWith("circuit_breaker.")) {
+				queryClient.invalidateQueries({ queryKey: ["circuit-breaker-status"] });
+			}
+		};
+		window.addEventListener("server-event", handler);
+		return () => window.removeEventListener("server-event", handler);
+	}, [queryClient]);
 
 	const navigation = [
 		{

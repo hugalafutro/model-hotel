@@ -529,6 +529,33 @@ func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Re
 		}
 		resp.Providers = h.cbReader.Status()
 	}
+
+	// Count failover group members not yet tracked by the circuit breaker as closed.
+	// Providers only appear in the CB map after being routed; until then they're
+	// implicitly healthy (closed).
+	if h.failoverRepo != nil {
+		groups, err := h.failoverRepo.List(r.Context())
+		if err == nil {
+			tracked := make(map[string]struct{}, len(resp.Providers))
+			for _, p := range resp.Providers {
+				tracked[p.ProviderID] = struct{}{}
+			}
+			seen := make(map[string]struct{})
+			for _, g := range groups {
+				for _, pid := range g.PriorityOrder {
+					key := pid.String()
+					if _, ok := seen[key]; ok {
+						continue
+					}
+					seen[key] = struct{}{}
+					if _, ok := tracked[key]; !ok {
+						resp.Closed++
+					}
+				}
+			}
+		}
+	}
+
 	writeJSON(w, resp)
 }
 
