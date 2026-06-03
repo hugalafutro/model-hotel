@@ -14,6 +14,12 @@ if ! go vet ./cmd/... ./internal/...; then
 	exit 1
 fi
 
+echo "pre-push: golangci-lint run ./..."
+if ! golangci-lint run ./cmd/... ./internal/...; then
+	echo "pre-push: FAILED - golangci-lint" >&2
+	exit 1
+fi
+
 if [ -d "$REPO_ROOT/web/node_modules" ]; then
 	echo "pre-push: pnpm lint (local)..."
 	if ! (cd "$REPO_ROOT/web" && pnpm run lint); then
