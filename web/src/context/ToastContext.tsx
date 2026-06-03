@@ -4,6 +4,7 @@ import {
 	useCallback,
 	useContext,
 	useEffect,
+	useRef,
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
@@ -150,16 +151,50 @@ function ToastItem({
 	timeout: number;
 	onDone: () => void;
 }) {
-	useEffect(() => {
-		const t = setTimeout(onDone, timeout);
-		return () => clearTimeout(t);
-	}, [onDone, timeout]);
+	const [paused, setPaused] = useState(false);
+	const startTimeRef = useRef(Date.now());
+	const remainingRef = useRef(timeout);
+	const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-	const colors = {
-		success: "bg-emerald-900/70 text-emerald-200 border-emerald-700/60",
-		error: "bg-red-900/70 text-red-200 border-red-700/60",
-		info: "bg-slate-700/80 text-slate-200 border-slate-600/60",
-		warning: "bg-amber-900/70 text-amber-200 border-amber-700/60",
+	const startTimer = useCallback(
+		(remaining: number) => {
+			clearTimeout(timerRef.current);
+			startTimeRef.current = Date.now();
+			remainingRef.current = remaining;
+			timerRef.current = setTimeout(onDone, remaining);
+		},
+		[onDone],
+	);
+
+	useEffect(() => {
+		startTimer(timeout);
+		return () => clearTimeout(timerRef.current);
+	}, [timeout, startTimer]);
+
+	const handleMouseEnter = () => {
+		setPaused(true);
+		clearTimeout(timerRef.current);
+		const elapsed = Date.now() - startTimeRef.current;
+		remainingRef.current = Math.max(0, remainingRef.current - elapsed);
+	};
+
+	const handleMouseLeave = () => {
+		setPaused(false);
+		startTimer(remainingRef.current);
+	};
+
+	const strokeColors: Record<ToastType, string> = {
+		success: "#6ee7b7",
+		error: "#fca5a5",
+		info: "#cbd5e1",
+		warning: "#fde68a",
+	};
+
+	const bgColors = {
+		success: "bg-emerald-900/70 text-emerald-200",
+		error: "bg-red-900/70 text-red-200",
+		info: "bg-slate-700/80 text-slate-200",
+		warning: "bg-amber-900/70 text-amber-200",
 	};
 
 	const handleClick = () => {
@@ -171,18 +206,50 @@ function ToastItem({
 
 	const { t } = useTranslation();
 
+	// SVG viewBox for fuse outline — perimeter is constant in this coordinate space
+	// Perimeter of rect x=1 y=1 w=198 h=58 rx=8 = 2*(182+42) + 2π*8 = 498.265
+	const VB_W = 200;
+	const VB_H = 60;
+
 	return (
 		<button
 			type="button"
 			onClick={handleClick}
-			title={
-				toast.type === "error"
-					? t("context.toast.clickToCopyDismiss")
-					: undefined
-			}
-			className={`px-4 py-2 rounded-lg shadow-lg border text-sm font-medium cursor-pointer hover:brightness-125 transition-all whitespace-pre-line text-left ${colors[toast.type]}`}
+			onMouseEnter={handleMouseEnter}
+			onMouseLeave={handleMouseLeave}
+			{...(toast.type === "error"
+				? { title: t("context.toast.clickToCopyDismiss") }
+				: {})}
+			className={`relative px-4 py-2 rounded-lg shadow-lg text-sm font-medium cursor-pointer hover:brightness-125 transition-all whitespace-pre-line text-left border-0 ${bgColors[toast.type]}`}
+			style={{ overflow: "hidden" }}
 		>
 			{toast.message}
+			<svg
+				aria-hidden="true"
+				className="absolute inset-0 w-full h-full pointer-events-none"
+				viewBox={`0 0 ${VB_W} ${VB_H}`}
+				preserveAspectRatio="none"
+			>
+				<rect
+					x={1}
+					y={1}
+					width={VB_W - 2}
+					height={VB_H - 2}
+					rx={8}
+					fill="none"
+					stroke={strokeColors[toast.type]}
+					strokeWidth={2}
+					vectorEffect="non-scaling-stroke"
+					strokeDasharray={498.265}
+					strokeDashoffset={0}
+					strokeLinecap="round"
+					style={{
+						animation: `toast-fuse ${timeout}ms linear forwards`,
+						animationPlayState: paused ? "paused" : "running",
+						filter: `drop-shadow(0 0 3px ${strokeColors[toast.type]}) drop-shadow(0 0 1px ${strokeColors[toast.type]})`,
+					}}
+				/>
+			</svg>
 		</button>
 	);
 }
