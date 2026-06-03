@@ -1615,7 +1615,8 @@ html[data-ui-style="glassmorphism-lite"].dark .model-id-text {
 
 /* Pagination bar below virtual tables — remove border-t in glassmorphism
    so it doesn't poke past the card's rounded corners */
-html[data-ui-style="glassmorphism-lite"] .border-t.border-gray-800 {
+html[data-ui-style="glassmorphism-lite"] .border-t.border-gray-800,
+html[data-ui-style="clean-saas"] .border-t.border-gray-800 {
 	border-top-color: transparent;
 }
 
