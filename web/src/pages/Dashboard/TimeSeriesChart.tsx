@@ -1,3 +1,4 @@
+import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -296,14 +297,15 @@ export function TimeSeriesChart({
 								fontSize: "12px",
 							}}
 							labelStyle={{
-								color: "var(--text-muted)",
+								color: "var(--text-secondary)",
 								fontSize: "10px",
 								textTransform: "uppercase",
 								letterSpacing: "0.05em",
+								marginBottom: "4px",
 							}}
 							itemStyle={{
-								color: "var(--text-primary)",
 								fontSize: "13px",
+								padding: 0,
 							}}
 							formatter={(value, name) => {
 								const raw = Number(value) * scale;
@@ -312,12 +314,19 @@ export function TimeSeriesChart({
 									name === overlayDataKey
 										? overlayLabel || String(name)
 										: label;
+								const lineColor =
+									name === overlayDataKey ? overlayColor || color : color;
 								return [
-									val.toLocaleString(undefined, {
-										maximumFractionDigits: allowDecimals ? 2 : 0,
-									}),
+									<span key={name} style={{ color: lineColor }}>
+										<span style={{ display: "inline-block", width: "82px" }}>
+											{displayLabel}
+										</span>
+										{val.toLocaleString(undefined, {
+											maximumFractionDigits: allowDecimals ? 2 : 0,
+										})}
+									</span>,
 									displayLabel,
-								] as [string, string];
+								] as [React.ReactNode, string];
 							}}
 						/>
 						<Area
