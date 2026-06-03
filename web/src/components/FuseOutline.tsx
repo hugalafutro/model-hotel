@@ -38,19 +38,23 @@ export function FuseOutline({
 	if (perimeter <= 0 || durationMs <= 0) return null;
 
 	return (
-		<svg ref={ref} aria-hidden="true" className={className}>
+		<svg
+			ref={ref}
+			aria-hidden="true"
+			className={className}
+			viewBox={`0 0 ${width} ${height}`}
+		>
 			<rect
 				x={1}
 				y={1}
-				width="calc(100% - 2px)"
-				height="calc(100% - 2px)"
+				width={width - 2}
+				height={height - 2}
 				rx={rx}
 				fill="none"
 				stroke={color}
 				strokeWidth={strokeWidth}
 				vectorEffect="non-scaling-stroke"
 				strokeDasharray={perimeter}
-				strokeDashoffset={0}
 				strokeLinecap="round"
 				style={{
 					animation: `fuse ${durationMs}ms linear forwards`,
