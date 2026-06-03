@@ -8,9 +8,12 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/failover"
 )
 
 func TestListFailoverGroups(t *testing.T) {
@@ -713,6 +716,134 @@ func TestDeleteFailoverGroup_NonExistent(t *testing.T) {
 }
 
 // TestGetSystem_NoCache tests the system stats endpoint
+
+// mockCircuitBreakerReader implements CircuitBreakerReader for tests.
+type mockCircuitBreakerReader struct {
+	statuses []failover.ProviderStatus
+}
+
+func (m *mockCircuitBreakerReader) Status() []failover.ProviderStatus {
+	return m.statuses
+}
+
+func TestCircuitBreakerStatus_WithDetail(t *testing.T) {
+	h := newTestHandler(t)
+
+	// Wire a mock circuit breaker before registering routes.
+	mockCB := &mockCircuitBreakerReader{
+		statuses: []failover.ProviderStatus{
+			{
+				ProviderID:       uuid.New().String(),
+				State:            failover.StateOpen.String(),
+				ConsecutiveFails: 5,
+				OpenedAt:         time.Now().Add(-30 * time.Second).Format(time.RFC3339),
+				CooldownMs:       60000,
+				NextRetryAt:      time.Now().Add(30 * time.Second).Format(time.RFC3339),
+			},
+			{
+				ProviderID:       uuid.New().String(),
+				State:            failover.StateHalfOpen.String(),
+				ConsecutiveFails: 5,
+				OpenedAt:         time.Now().Add(-55 * time.Second).Format(time.RFC3339),
+				CooldownMs:       60000,
+			},
+			{
+				ProviderID:       uuid.New().String(),
+				State:            failover.StateClosed.String(),
+				ConsecutiveFails: 0,
+			},
+		},
+	}
+	h.SetCircuitBreaker(mockCB)
+
+	r := chi.NewRouter()
+	h.Register(r)
+
+	// Without ?detail=1: only aggregate counts, no providers.
+	t.Run("aggregate only", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/failover-groups/circuit-breaker-status", http.NoBody)
+		req.Header.Set("Authorization", "Bearer test-admin-token")
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+		}
+
+		var resp map[string]interface{}
+		if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+			t.Fatalf("failed to decode: %v", err)
+		}
+
+		if v, ok := resp["closed"].(float64); !ok || v != 1 {
+			t.Errorf("expected closed=1, got %v", resp["closed"])
+		}
+		if v, ok := resp["half_open"].(float64); !ok || v != 1 {
+			t.Errorf("expected half_open=1, got %v", resp["half_open"])
+		}
+		if v, ok := resp["open"].(float64); !ok || v != 1 {
+			t.Errorf("expected open=1, got %v", resp["open"])
+		}
+		if _, exists := resp["providers"]; exists {
+			t.Error("expected no providers field without ?detail=1")
+		}
+	})
+
+	// With ?detail=1: includes providers with cooldown_ms/next_retry_at.
+	t.Run("with detail", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/failover-groups/circuit-breaker-status?detail=1", http.NoBody)
+		req.Header.Set("Authorization", "Bearer test-admin-token")
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+		}
+
+		var resp map[string]interface{}
+		if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+			t.Fatalf("failed to decode: %v", err)
+		}
+
+		providers, ok := resp["providers"].([]interface{})
+		if !ok || len(providers) != 3 {
+			t.Fatalf("expected 3 providers, got %v", resp["providers"])
+		}
+
+		// First provider should be open with cooldown_ms and next_retry_at.
+		first := providers[0].(map[string]interface{})
+		if first["state"] != "open" {
+			t.Errorf("expected state=open, got %v", first["state"])
+		}
+		if _, exists := first["cooldown_ms"]; !exists {
+			t.Error("expected cooldown_ms in provider detail")
+		}
+		if _, exists := first["next_retry_at"]; !exists {
+			t.Error("expected next_retry_at in provider detail")
+		}
+
+		// Second provider should be half-open with cooldown_ms but no next_retry_at.
+		second := providers[1].(map[string]interface{})
+		if second["state"] != "half-open" {
+			t.Errorf("expected state=half-open, got %v", second["state"])
+		}
+		if _, exists := second["cooldown_ms"]; !exists {
+			t.Error("expected cooldown_ms in half-open provider")
+		}
+		if _, exists := second["next_retry_at"]; exists {
+			t.Error("half-open provider should not have next_retry_at")
+		}
+
+		// Third provider should be closed without cooldown fields.
+		third := providers[2].(map[string]interface{})
+		if third["state"] != "closed" {
+			t.Errorf("expected state=closed, got %v", third["state"])
+		}
+		if _, exists := third["cooldown_ms"]; exists {
+			t.Error("closed provider should not have cooldown_ms")
+		}
+	})
+}
 
 func TestCircuitBreakerStatus_NoCircuitBreaker(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
