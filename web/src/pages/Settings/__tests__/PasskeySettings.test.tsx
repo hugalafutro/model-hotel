@@ -89,6 +89,34 @@ describe("PasskeySettings", () => {
 		expect(screen.getByText("My YubiKey")).toBeInTheDocument();
 	});
 
+	it("displays credential date in human-friendly format", async () => {
+		vi.spyOn(webauthnUtils, "isWebAuthnAvailable").mockResolvedValue(true);
+
+		server.use(
+			http.get("/api/webauthn/credentials", () =>
+				HttpResponse.json([
+					{
+						id: "cred-date",
+						name: "Test Key",
+						transports: ["internal"],
+						created_at: "2025-03-28T12:00:00Z",
+						aaguid: "00000000-0000-0000-0000-000000000000",
+						sign_count: 1,
+					},
+				]),
+			),
+		);
+
+		renderWithProviders(
+			<PasskeySettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await waitFor(() => {
+			// formatDate outputs "28 Mar 2025" style
+			expect(screen.getByText(/28.*Mar.*2025/)).toBeInTheDocument();
+		});
+	});
+
 	it("deletes a credential on click", async () => {
 		vi.spyOn(webauthnUtils, "isWebAuthnAvailable").mockResolvedValue(true);
 

@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Fingerprint, Key, Pencil, Plus, Trash2, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { WebAuthnCredential } from "../../api/types";
 import { SettingsSection } from "../../components/SettingsSection";
 import { useToast } from "../../context/ToastContext";
+import { formatDate } from "../../utils/format";
 import { isWebAuthnAvailable, registerPasskey } from "../../utils/webauthn";
 
 interface PasskeySettingsProps {
@@ -164,6 +165,13 @@ function CredentialRow({
 }) {
 	const [editing, setEditing] = useState(false);
 	const [draft, setDraft] = useState(cred.name);
+	const renameInputRef = useRef<HTMLInputElement>(null);
+
+	useEffect(() => {
+		if (editing) {
+			renameInputRef.current?.focus();
+		}
+	}, [editing]);
 
 	const displayName =
 		cred.name ||
@@ -184,14 +192,17 @@ function CredentialRow({
 	};
 
 	return (
-		<div className="flex items-center justify-between p-3 bg-gray-900/50 rounded-lg border border-gray-700/50">
+		<div className="flex items-center justify-between p-3 bg-(--surface-elevated) rounded-[var(--radius-card,0.375rem)] border border-(--border-default)">
 			<div className="flex items-center gap-3 min-w-0 flex-1">
 				<Key size={16} className="text-(--accent) shrink-0" />
 				<div className="min-w-0">
 					{editing ? (
 						<div className="flex items-center gap-1">
 							<input
+								ref={renameInputRef}
 								type="text"
+								// biome-ignore lint/a11y/noAutofocus: autofocus is intentional for rename UX
+								autoFocus
 								value={draft}
 								onChange={(e) => setDraft(e.target.value)}
 								onKeyDown={(e) => {
@@ -240,8 +251,7 @@ function CredentialRow({
 						</button>
 					)}
 					<p className="text-xs text-gray-500">
-						{t("settings.passkeys.registered")}{" "}
-						{new Date(cred.created_at).toLocaleDateString()}
+						{t("settings.passkeys.registered")} {formatDate(cred.created_at)}
 					</p>
 				</div>
 			</div>
