@@ -12,10 +12,8 @@ export function useResizeObserver<
 
 	const compute = useCallback(() => {
 		if (ref.current) {
-			setSize({
-				width: (ref.current as HTMLElement).offsetWidth,
-				height: (ref.current as HTMLElement).offsetHeight,
-			});
+			const { width, height } = ref.current.getBoundingClientRect();
+			setSize({ width, height });
 		}
 	}, []);
 

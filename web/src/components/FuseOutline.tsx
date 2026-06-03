@@ -27,7 +27,7 @@ export function FuseOutline({
 	rx = 5,
 	className = "absolute inset-0 w-full h-full pointer-events-none",
 }: FuseOutlineProps) {
-	const { ref, width = 0, height = 0 } = useResizeObserver();
+	const { ref, width = 0, height = 0 } = useResizeObserver<SVGSVGElement>();
 
 	// Compute perimeter of the rounded rect
 	const w = width - 2;
