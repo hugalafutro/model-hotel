@@ -101,8 +101,9 @@ func normalizeFinishReason(reason string) string {
 // normalizeFinishReasonInChoices normalizes the finish_reason value in the
 // first choice of a parsed SSE chunk. It maps provider-specific values (e.g.
 // "end_turn", "STOP") to OpenAI-compatible equivalents in-place, and updates
-// lastReason with the final value. Replaces 3 identical inline blocks.
-func normalizeFinishReasonInChoices(choices []map[string]json.RawMessage, lastReason *string) {
+// lastReason with the final value. The model and provider params are included
+// in the debug log for traceability. Replaces 3 identical inline blocks.
+func normalizeFinishReasonInChoices(choices []map[string]json.RawMessage, lastReason *string, modelID, providerName string) {
 	if len(choices) == 0 {
 		return
 	}
@@ -117,7 +118,7 @@ func normalizeFinishReasonInChoices(choices []map[string]json.RawMessage, lastRe
 	normalized := normalizeFinishReason(frStr)
 	if normalized != frStr {
 		choices[0]["finish_reason"] = json.RawMessage(`"` + normalized + `"`)
-		debuglog.Debug("proxy: normalized finish_reason", "original", frStr, "normalized", normalized)
+		debuglog.Debug("proxy: normalized finish_reason", "original", frStr, "normalized", normalized, "model", modelID, "provider", providerName)
 	}
 	*lastReason = normalized
 }
@@ -126,7 +127,9 @@ func normalizeFinishReasonInChoices(choices []map[string]json.RawMessage, lastRe
 // Usage struct. It checks three provider-specific fields in precedence order:
 // PromptCacheHitTokens (OpenAI), CacheReadInputTokens (Anthropic-native),
 // and PromptTokensDetails.CachedTokens (OpenAI nested format).
-// Replaces 2 identical if-else chains in streaming and non-streaming paths.
+// Returns (0, 0) when no cache fields are present; callers should only
+// assign the results when at least one value is non-zero to preserve any
+// previously accumulated cache counts from earlier usage chunks.
 func extractCacheTokens(u Usage) (hitTokens, missTokens int) {
 	if u.PromptCacheHitTokens > 0 {
 		return u.PromptCacheHitTokens, max(0, u.PromptTokens-u.PromptCacheHitTokens)

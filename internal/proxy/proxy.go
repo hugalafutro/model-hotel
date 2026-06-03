@@ -522,7 +522,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				// re-serializing, so non-standard values
 				// (e.g., "end_turn", "STOP") are mapped to
 				// OpenAI equivalents.
-				normalizeFinishReasonInChoices(p.choices, &lastFinishReason)
+				normalizeFinishReasonInChoices(p.choices, &lastFinishReason, logData.modelID, logData.providerName)
 				newChoices, _ := json.Marshal(p.choices)
 				p.raw["choices"] = json.RawMessage(newChoices)
 				newPayload, _ := json.Marshal(p.raw)
@@ -596,7 +596,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 						// re-serializing. The written=true below
 						// would skip the finish_reason normalization
 						// block later in this loop iteration.
-						normalizeFinishReasonInChoices(chunkParsed.choices, &lastFinishReason)
+						normalizeFinishReasonInChoices(chunkParsed.choices, &lastFinishReason, logData.modelID, logData.providerName)
 						newChoices, _ := json.Marshal(chunkParsed.choices)
 						chunkParsed.raw["choices"] = json.RawMessage(newChoices)
 						newPayload, _ := json.Marshal(chunkParsed.raw)
@@ -630,7 +630,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 						// re-serializing. The written=true below
 						// would skip the finish_reason normalization
 						// block later in this loop iteration.
-						normalizeFinishReasonInChoices(p.choices, &lastFinishReason)
+						normalizeFinishReasonInChoices(p.choices, &lastFinishReason, logData.modelID, logData.providerName)
 						newChoices, _ := json.Marshal(p.choices)
 						p.raw["choices"] = json.RawMessage(newChoices)
 						newPayload, _ := json.Marshal(p.raw)
@@ -655,7 +655,10 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				if chunk.Usage.CompletionTokensDetails != nil && chunk.Usage.CompletionTokensDetails.ReasoningTokens > 0 {
 					reasoningTokens = chunk.Usage.CompletionTokensDetails.ReasoningTokens
 				}
-				promptCacheHitTokens, promptCacheMissTokens = extractCacheTokens(*chunk.Usage)
+				if hit, miss := extractCacheTokens(*chunk.Usage); hit > 0 || miss > 0 {
+					promptCacheHitTokens = hit
+					promptCacheMissTokens = miss
+				}
 			}
 			// P2-7: Log native_finish_reason from OpenRouter for debugging.
 			// OpenRouter includes this field alongside the normalized finish_reason,
