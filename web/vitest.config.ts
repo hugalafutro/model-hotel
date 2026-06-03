@@ -29,6 +29,7 @@ export default defineConfig({
 				"src/**/*.d.ts",
 				"src/**/types.ts",
 				"src/components/logs/index.ts",
+				"src/components/ProviderModals.tsx",
 			],
 		},
 	},
