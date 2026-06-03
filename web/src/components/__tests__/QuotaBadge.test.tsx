@@ -453,7 +453,7 @@ describe("QuotaBadge", () => {
 					neuralwattQuota={mockNeuralWattQuota}
 				/>,
 			);
-			expect(screen.getByText("2.23 / 16 kWh")).toBeInTheDocument();
+			expect(screen.getByText("2.23/16 kWh")).toBeInTheDocument();
 		});
 
 		it("renders with neuralwatt sidebar variant", () => {
@@ -522,7 +522,7 @@ describe("QuotaBadge", () => {
 					neuralwattQuota={wholeNumberQuota}
 				/>,
 			);
-			expect(screen.getByText("5.50 / 16 kWh")).toBeInTheDocument();
+			expect(screen.getByText("5.5/16 kWh")).toBeInTheDocument();
 		});
 	});
 
@@ -721,6 +721,6 @@ describe("QuotaBadges", () => {
 
 	it("renders NeuralWatt badge when quotaData has neuralwatt quota", () => {
 		render(<QuotaBadges quotaData={neuralwattQuotaData} variant="card" />);
-		expect(screen.getByText("2.23 / 16 kWh")).toBeInTheDocument();
+		expect(screen.getByText("2.23/16 kWh")).toBeInTheDocument();
 	});
 });

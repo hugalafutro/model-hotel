@@ -1724,4 +1724,40 @@ describe("NeuralWattQuotaModal", () => {
 			expect(screen.getByText("Last refreshed")).toBeInTheDocument();
 		});
 	});
+
+	describe("pay-per-use (kwh_included = 0)", () => {
+		it("hides kWh bar when kwh_included is 0", () => {
+			const payPerUseQuota: NeuralWattQuotaResponse = {
+				...mockQuota,
+				subscription: {
+					...mockQuota.subscription,
+					kwh_included: 0,
+					kwh_used: 1.5,
+					kwh_remaining: 0,
+				},
+			};
+			renderWithProviders(
+				<NeuralWattQuotaModal {...defaultProps} quota={payPerUseQuota} />,
+			);
+			expect(
+				screen.queryByTestId("neuralwatt-kwh-bar"),
+			).not.toBeInTheDocument();
+		});
+
+		it("still renders credit balance when kwh_included is 0", () => {
+			const payPerUseQuota: NeuralWattQuotaResponse = {
+				...mockQuota,
+				subscription: {
+					...mockQuota.subscription,
+					kwh_included: 0,
+					kwh_used: 1.5,
+					kwh_remaining: 0,
+				},
+			};
+			renderWithProviders(
+				<NeuralWattQuotaModal {...defaultProps} quota={payPerUseQuota} />,
+			);
+			expect(screen.getByText("$5.50")).toBeInTheDocument();
+		});
+	});
 });

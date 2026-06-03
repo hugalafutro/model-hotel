@@ -4,6 +4,7 @@ import type { OpenRouterBalance } from "../../api/types";
 import { useTheme } from "../../context/ThemeContext";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import {
+	formatDollars,
 	formatRelativeTime,
 	formatTimestamp,
 	formatTimeUntil,
@@ -47,12 +48,6 @@ export function OpenRouterQuotaModal({
 		balance.credits_total > 0
 			? (balance.credits_remaining / balance.credits_total) * 100
 			: 100;
-
-	const formatDollars = (v: number) =>
-		v.toLocaleString("en-US", {
-			style: "currency",
-			currency: "USD",
-		});
 
 	return (
 		<Modal
@@ -139,7 +134,9 @@ export function OpenRouterQuotaModal({
 					)}
 					<p className="text-xs text-gray-500 mt-1">
 						{balance.credits_total > 0
-							? `${formatDollars(balance.credits_used)} ${t("components.providerModals.spentTotal", { amount: formatDollars(balance.credits_used) })}`
+							? t("components.providerModals.spentTotal", {
+									amount: formatDollars(balance.credits_used),
+								})
 							: t("components.providerModals.noCredits")}
 					</p>
 				</div>

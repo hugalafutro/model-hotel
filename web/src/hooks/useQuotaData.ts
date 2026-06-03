@@ -17,6 +17,9 @@ import type {
 
 const CACHE_PREFIX = "model-hotel";
 
+/** Subscription plans that don't qualify for quota badge display (lowest/free tier). */
+const NEURALWATT_BADGE_EXCLUDED_PLANS = new Set(["free", "starter"]);
+
 export function getCachedData<T>(key: string): T | undefined {
 	try {
 		const raw = localStorage.getItem(`${CACHE_PREFIX}:${key}`);
@@ -449,7 +452,10 @@ export function useQuotaData(
 	const showNeuralwattBadge =
 		Boolean(neuralwattProviderId) &&
 		Boolean(neuralwattQuota) &&
-		neuralwattQuota?.balance?.credits_remaining_usd != null;
+		neuralwattQuota?.balance?.credits_remaining_usd != null &&
+		!NEURALWATT_BADGE_EXCLUDED_PLANS.has(
+			neuralwattQuota?.subscription?.plan?.toLowerCase() ?? "",
+		);
 
 	const hasAnyProvider = Boolean(
 		nanogptProviderId ||

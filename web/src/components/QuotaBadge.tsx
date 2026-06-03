@@ -15,7 +15,7 @@ import {
 	getZaiCodingFiveHourLimit,
 	getZaiCodingWeeklyLimit,
 } from "../hooks/useQuotaData";
-import { formatTokens } from "../utils/format";
+import { formatDollars, formatKwh, formatTokens } from "../utils/format";
 import { PROVIDER_PREFIXES } from "../utils/providerBrands";
 
 /** Quota bar display mode — persisted to localStorage, shared with modals. */
@@ -141,7 +141,7 @@ function deepseekBadgeContent(
 
 function openRouterBadgeContent(balance: OpenRouterBalance): BadgeContent {
 	return {
-		label: `$${balance.credits_remaining?.toFixed(2) ?? "-"}`,
+		label: formatDollars(balance.credits_remaining ?? 0),
 		title: i18next.t("components.quotaBadge.openRouterKeyBalance"),
 	};
 }
@@ -180,8 +180,8 @@ function neuralwattBadgeContent(
 	const included = quota.subscription.kwh_included;
 	const label =
 		included > 0
-			? `${used.toFixed(2)} / ${included.toFixed(0)} kWh`
-			: `${used.toFixed(2)} kWh`;
+			? `${formatKwh(used)}/${formatKwh(included)} kWh`
+			: `${formatKwh(used)} kWh`;
 	const refreshed = dataUpdatedAt
 		? i18next.t("components.quotaBadge.updated", {
 				time: new Date(dataUpdatedAt).toLocaleTimeString(),
@@ -190,7 +190,7 @@ function neuralwattBadgeContent(
 	return {
 		label,
 		title: i18next.t("components.quotaBadge.neuralwattBalance", {
-			amount: used.toFixed(2),
+			amount: formatKwh(used),
 			refreshed,
 		}),
 	};

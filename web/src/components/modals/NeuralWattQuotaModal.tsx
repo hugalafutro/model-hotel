@@ -1,11 +1,12 @@
 import { ArrowLeftRight, RefreshCw } from "lucide-react";
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { NeuralWattQuotaResponse } from "../../api/types";
 import { useTheme } from "../../context/ThemeContext";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import {
 	formatDate,
+	formatDollars,
+	formatKwh,
 	formatRelativeTime,
 	formatTokens,
 } from "../../utils/format";
@@ -34,7 +35,6 @@ export function NeuralWattQuotaModal({
 		"quota-bar-mode",
 		"remaining",
 	);
-	const [usageTab, setUsageTab] = useState<"current" | "lifetime">("current");
 
 	const handleRefresh = async () => {
 		try {
@@ -67,17 +67,6 @@ export function NeuralWattQuotaModal({
 		quota.subscription.kwh_included > 0
 			? (quota.subscription.kwh_used / quota.subscription.kwh_included) * 100
 			: 0;
-
-	const formatDollars = (v: number) =>
-		v.toLocaleString("en-US", {
-			style: "currency",
-			currency: "USD",
-		});
-
-	const formatKwh = (v: number) =>
-		v.toLocaleString("en-US", {
-			maximumFractionDigits: 2,
-		});
 
 	return (
 		<Modal
@@ -316,71 +305,61 @@ export function NeuralWattQuotaModal({
 
 				{/* ── Usage stats ── */}
 				<div>
-					<div className="flex items-center gap-1 mb-3 p-1 bg-gray-800/50 rounded-lg w-fit">
-						<button
-							type="button"
-							onClick={() => setUsageTab("current")}
-							className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${usageTab === "current" ? "bg-(--bg-primary) text-(--text-primary)" : "text-gray-400 hover:text-gray-200"}`}
-						>
-							{t("components.providerModals.neuralwattCurrentMonth")}
-						</button>
-						<button
-							type="button"
-							onClick={() => setUsageTab("lifetime")}
-							className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${usageTab === "lifetime" ? "bg-(--bg-primary) text-(--text-primary)" : "text-gray-400 hover:text-gray-200"}`}
-						>
-							{t("components.providerModals.neuralwattLifetime")}
-						</button>
-					</div>
-					<div className="grid grid-cols-2 gap-2 text-xs">
+					<h3 className="text-sm font-medium text-gray-300 mb-3">
+						{t("components.providerModals.neuralwattUsage")}
+					</h3>
+					<div className="grid grid-cols-5 gap-2 text-xs">
+						<div></div>
 						<div>
 							<span className="text-gray-500">
 								{t("components.providerModals.neuralwattCost")}
 							</span>
-							<p className="text-gray-200">
-								{formatDollars(
-									usageTab === "current"
-										? quota.usage.current_month.cost_usd
-										: quota.usage.lifetime.cost_usd,
-								)}
-							</p>
 						</div>
 						<div>
 							<span className="text-gray-500">
 								{t("components.providerModals.neuralwattRequests")}
 							</span>
-							<p className="text-gray-200">
-								{(usageTab === "current"
-									? quota.usage.current_month.requests
-									: quota.usage.lifetime.requests
-								).toLocaleString()}
-							</p>
 						</div>
 						<div>
 							<span className="text-gray-500">
 								{t("components.providerModals.neuralwattTokens")}
 							</span>
-							<p className="text-gray-200">
-								{formatTokens(
-									usageTab === "current"
-										? quota.usage.current_month.tokens
-										: quota.usage.lifetime.tokens,
-								)}
-							</p>
 						</div>
 						<div>
 							<span className="text-gray-500">
 								{t("components.providerModals.neuralwattEnergy")}
 							</span>
-							<p className="text-gray-200">
-								{formatKwh(
-									usageTab === "current"
-										? quota.usage.current_month.energy_kwh
-										: quota.usage.lifetime.energy_kwh,
-								)}{" "}
-								kWh
-							</p>
 						</div>
+						<span className="text-gray-500">
+							{t("components.providerModals.neuralwattCurrentMonth")}
+						</span>
+						<p className="text-gray-200">
+							{formatDollars(quota.usage.current_month.cost_usd)}
+						</p>
+						<p className="text-gray-200">
+							{quota.usage.current_month.requests.toLocaleString()}
+						</p>
+						<p className="text-gray-200">
+							{formatTokens(quota.usage.current_month.tokens)}
+						</p>
+						<p className="text-gray-200">
+							{formatKwh(quota.usage.current_month.energy_kwh)} kWh
+						</p>
+						<span className="text-gray-500">
+							{t("components.providerModals.neuralwattLifetime")}
+						</span>
+						<p className="text-gray-200">
+							{formatDollars(quota.usage.lifetime.cost_usd)}
+						</p>
+						<p className="text-gray-200">
+							{quota.usage.lifetime.requests.toLocaleString()}
+						</p>
+						<p className="text-gray-200">
+							{formatTokens(quota.usage.lifetime.tokens)}
+						</p>
+						<p className="text-gray-200">
+							{formatKwh(quota.usage.lifetime.energy_kwh)} kWh
+						</p>
 					</div>
 				</div>
 
