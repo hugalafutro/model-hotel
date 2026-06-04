@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from "react";
 import { useResizeObserver } from "../hooks/useResizeObserver";
 
 interface FuseOutlineProps {
@@ -22,6 +23,13 @@ interface FuseOutlineProps {
 /**
  * Animated SVG outline that "burns away" like a fuse around its parent element.
  * Used for toast auto-dismiss countdown and circuit breaker cooldown display.
+ *
+ * Animation properties (animation name, duration, play state) are set
+ * imperatively via refs rather than through React's declarative style prop.
+ * This prevents CSS animation restarts when the component re-renders due to
+ * parent layout changes (e.g. during drag-and-drop reordering), because React
+ * would otherwise re-apply the animation shorthand and reset the animation
+ * timeline.
  */
 export function FuseOutline({
 	color,
@@ -31,30 +39,54 @@ export function FuseOutline({
 	rx = 5,
 	className = "absolute inset-0 w-full h-full pointer-events-none",
 }: FuseOutlineProps) {
-	const { ref, width = 0, height = 0 } = useResizeObserver<SVGSVGElement>();
+	const {
+		ref: sizeRef,
+		width = 0,
+		height = 0,
+	} = useResizeObserver<SVGSVGElement>();
+	const rectRef = useRef<SVGRectElement>(null);
+
+	// Track the last animation string we set imperatively so we only
+	// re-set it when durationMs actually changes (which is rare — backed by
+	// a useMemo in SortableEntry that only updates on next_retry_at change).
+	const lastAnimationRef = useRef<string | undefined>(undefined);
 
 	// Compute perimeter of the rounded rect
-	const w = width - 2;
-	const h = height - 2;
+	const w = Math.max(0, width - 2);
+	const h = Math.max(0, height - 2);
 	const perimeter =
 		w > 0 && h > 0 ? 2 * (w - 2 * rx) + 2 * (h - 2 * rx) + 2 * Math.PI * rx : 0;
 
-	if (durationMs <= 0) return null;
-
-	// Always render the SVG so the ResizeObserver has an element to measure.
-	// On first render width/height are 0, so the rect is hidden. Once the
-	// observer fires and dimensions are set, the rect becomes visible.
 	const showRect = perimeter > 0;
+
+	// Set animation properties imperatively (useLayoutEffect fires before
+	// browser paint so there's no flash of un-animated rect). Only re-set the
+	// animation shorthand when durationMs actually changes; always sync play
+	// state since it's safe to toggle without restarting the timeline.
+	useLayoutEffect(() => {
+		const rect = rectRef.current;
+		if (!rect) return;
+
+		const animationStr = `fuse ${durationMs}ms linear forwards`;
+		if (lastAnimationRef.current !== animationStr) {
+			lastAnimationRef.current = animationStr;
+			rect.style.animation = animationStr;
+		}
+		rect.style.animationPlayState = paused ? "paused" : "running";
+	}, [durationMs, paused]);
+
+	if (durationMs <= 0) return null;
 
 	return (
 		<svg
-			ref={ref}
+			ref={sizeRef}
 			aria-hidden="true"
 			className={className}
 			viewBox={showRect ? `0 0 ${width} ${height}` : undefined}
 		>
 			{showRect && (
 				<rect
+					ref={rectRef}
 					x={1}
 					y={1}
 					width={width - 2}
@@ -68,8 +100,6 @@ export function FuseOutline({
 					strokeLinecap="round"
 					style={
 						{
-							animation: `fuse ${durationMs}ms linear forwards`,
-							animationPlayState: paused ? "paused" : "running",
 							filter: `drop-shadow(0 0 2px ${color})`,
 							"--fuse-perimeter": perimeter,
 						} as React.CSSProperties
