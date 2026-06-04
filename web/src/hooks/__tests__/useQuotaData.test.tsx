@@ -406,7 +406,7 @@ describe("useQuotaData", () => {
 		const providersWithoutNano = mockProviders.filter((p) => {
 			try {
 				const host = new URL(p.base_url).hostname;
-				return !host.endsWith("nano-gpt.com");
+				return host !== "api.nano-gpt.com";
 			} catch {
 				return true;
 			}
