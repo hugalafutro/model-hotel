@@ -31,23 +31,33 @@ func NewStatsHandler(dbPool *pgxpool.Pool, adminMgr interface {
 	}
 }
 
+// ModelLatencyEntry holds per-model latency breakdown for the dashboard.
+type ModelLatencyEntry struct {
+	ModelID      string  `json:"model_id"`
+	TotalMs      float64 `json:"total_ms"`
+	OverheadMs   float64 `json:"overhead_ms"`
+	ProviderMs   float64 `json:"provider_ms"`
+	RequestCount int     `json:"request_count"`
+}
+
 // StatsResponse contains aggregated statistics for the dashboard.
 type StatsResponse struct {
-	TotalRequestsLast24h  int              `json:"total_requests_last_24h"`
-	TotalRequestsLast7d   int              `json:"total_requests_last_7d"`
-	ByModel               map[string]int64 `json:"by_model"`
-	ByProvider            map[string]int64 `json:"by_provider"`
-	ByVirtualKey          map[string]int64 `json:"by_virtual_key"`
-	AvgLatencyMs          float64          `json:"avg_latency_ms"`
-	ErrorRate             float64          `json:"error_rate"`
-	AvgOverheadMs         float64          `json:"avg_overhead_ms"`
-	TotalTokensPrompt     int              `json:"total_tokens_prompt"`
-	TotalTokensCompletion int              `json:"total_tokens_completion"`
-	TotalTokensCacheHit   int              `json:"total_tokens_cache_hit"`
-	AvgTokensPerRequest   float64          `json:"avg_tokens_per_request"`
-	RateLimitHits         int              `json:"rate_limit_hits"`
-	AvgTTFTMs             float64          `json:"avg_ttft_ms"`
-	RequestsLast1h        int              `json:"requests_last_1h"`
+	TotalRequestsLast24h  int                 `json:"total_requests_last_24h"`
+	TotalRequestsLast7d   int                 `json:"total_requests_last_7d"`
+	ByModel               map[string]int64    `json:"by_model"`
+	ByProvider            map[string]int64    `json:"by_provider"`
+	ByVirtualKey          map[string]int64    `json:"by_virtual_key"`
+	AvgLatencyMs          float64             `json:"avg_latency_ms"`
+	ErrorRate             float64             `json:"error_rate"`
+	AvgOverheadMs         float64             `json:"avg_overhead_ms"`
+	TotalTokensPrompt     int                 `json:"total_tokens_prompt"`
+	TotalTokensCompletion int                 `json:"total_tokens_completion"`
+	TotalTokensCacheHit   int                 `json:"total_tokens_cache_hit"`
+	AvgTokensPerRequest   float64             `json:"avg_tokens_per_request"`
+	RateLimitHits         int                 `json:"rate_limit_hits"`
+	AvgTTFTMs             float64             `json:"avg_ttft_ms"`
+	RequestsLast1h        int                 `json:"requests_last_1h"`
+	ByModelLatency        []ModelLatencyEntry `json:"by_model_latency"`
 }
 
 // TimeSeriesPoint holds a single bucket of time-series data.
@@ -116,12 +126,17 @@ func parseMetric(r *http.Request) string {
 	return "requests"
 }
 
+func parseIncludeLatency(r *http.Request) bool {
+	return r.URL.Query().Get("include_latency") == "true"
+}
+
 // GetStats returns aggregated statistics for the specified period.
 func (h *StatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	period := parsePeriod(r)
 	excludeDeleted := parseExcludeDeleted(r)
 	metric := parseMetric(r)
-	stats, err := h.calculateStats(r.Context(), period, excludeDeleted, metric)
+	includeLatency := parseIncludeLatency(r)
+	stats, err := h.calculateStats(r.Context(), period, excludeDeleted, metric, includeLatency)
 	if err != nil {
 		respondError(w, "failed to calculate stats", err, http.StatusInternalServerError)
 		return
@@ -133,7 +148,7 @@ func (h *StatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration, excludeDeleted bool, metric string) (*StatsResponse, error) {
+func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration, excludeDeleted bool, metric string, includeLatency bool) (*StatsResponse, error) {
 	stats := &StatsResponse{
 		ByModel:      make(map[string]int64),
 		ByProvider:   make(map[string]int64),
@@ -457,6 +472,48 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 	}
 	stats.RequestsLast1h = requests1h
 
+	// Query 12: Per-model latency breakdown (top 5 by avg total latency).
+	// Only runs when the caller requests it to avoid unnecessary work
+	// on stats calls from non-latency dashboard panels.
+	if includeLatency {
+		query = `
+			WITH model_latency AS (
+				SELECT
+					CASE
+						WHEN rl.model_id LIKE '%/%' THEN rl.model_id
+						WHEN p.name IS NOT NULL AND p.name != '' THEN p.name || '/' || rl.model_id
+						ELSE rl.model_id
+					END as model_id,
+					COUNT(*) as req_count,
+					COALESCE(AVG(rl.duration_ms), 0) as avg_total,
+					COALESCE(AVG(COALESCE(rl.proxy_overhead_ms, 0)), 0) as avg_overhead
+				FROM request_logs rl
+				LEFT JOIN providers p ON rl.provider_id = p.id` + vkJoin + `
+				WHERE rl.created_at >= $1 AND rl.status_code > 0 AND rl.status_code < 400` + vkFilter + `
+				GROUP BY 1
+				HAVING COUNT(*) >= 3
+				ORDER BY avg_total DESC
+				LIMIT 5
+			)
+			SELECT model_id, req_count, avg_total, avg_overhead,
+				GREATEST(0, avg_total - avg_overhead) as avg_provider
+			FROM model_latency`
+
+		rows, err = h.dbPool.Query(ctx, query, since)
+		if err != nil {
+			debuglog.Error("stats: query failed", "query", "by_model_latency", "error", err)
+		} else {
+			defer rows.Close()
+			for rows.Next() {
+				var entry ModelLatencyEntry
+				if err := rows.Scan(&entry.ModelID, &entry.RequestCount, &entry.TotalMs, &entry.OverheadMs, &entry.ProviderMs); err != nil {
+					continue
+				}
+				stats.ByModelLatency = append(stats.ByModelLatency, entry)
+			}
+		}
+	}
+
 	return stats, nil
 }
 
@@ -501,7 +558,7 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 			SUM(COALESCE(rl.tokens_prompt_cache_miss, 0)) as tokens_cache_miss,
 			COUNT(*) FILTER (WHERE rl.status_code >= 400 OR rl.status_code = 0) as errors,
 			COALESCE(AVG(rl.duration_ms) FILTER (WHERE rl.status_code > 0 AND rl.status_code < 400), 0) as latency,
-			COALESCE(AVG(rl.proxy_overhead_ms) FILTER (WHERE rl.proxy_overhead_ms > 0), 0) as overhead_ms,
+			COALESCE(AVG(COALESCE(rl.proxy_overhead_ms, 0)) FILTER (WHERE rl.status_code > 0 AND rl.status_code < 400), 0) as overhead_ms,
 			COALESCE(AVG(rl.latency_ms) FILTER (WHERE rl.status_code > 0 AND rl.status_code < 400), 0) as provider_latency_ms,
 			COUNT(*) FILTER (WHERE rl.status_code = 429) as rate_limit_hits,
 			COALESCE(AVG(COALESCE(NULLIF(rl.ttft_ms, 0), rl.response_header_ms)) FILTER (WHERE COALESCE(NULLIF(rl.ttft_ms, 0), rl.response_header_ms) > 0 AND rl.status_code > 0 AND rl.status_code < 400 AND rl.streaming = true), 0) as avg_ttft_ms
@@ -519,7 +576,7 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 			SUM(COALESCE(rl.tokens_prompt_cache_miss, 0)) as tokens_cache_miss,
 			COUNT(*) FILTER (WHERE rl.status_code >= 400 OR rl.status_code = 0) as errors,
 			COALESCE(AVG(rl.duration_ms) FILTER (WHERE rl.status_code > 0 AND rl.status_code < 400), 0) as latency,
-			COALESCE(AVG(rl.proxy_overhead_ms) FILTER (WHERE rl.proxy_overhead_ms > 0), 0) as overhead_ms,
+			COALESCE(AVG(COALESCE(rl.proxy_overhead_ms, 0)) FILTER (WHERE rl.status_code > 0 AND rl.status_code < 400), 0) as overhead_ms,
 			COALESCE(AVG(rl.latency_ms) FILTER (WHERE rl.status_code > 0 AND rl.status_code < 400), 0) as provider_latency_ms,
 			COUNT(*) FILTER (WHERE rl.status_code = 429) as rate_limit_hits,
 			COALESCE(AVG(COALESCE(NULLIF(rl.ttft_ms, 0), rl.response_header_ms)) FILTER (WHERE COALESCE(NULLIF(rl.ttft_ms, 0), rl.response_header_ms) > 0 AND rl.status_code > 0 AND rl.status_code < 400 AND rl.streaming = true), 0) as avg_ttft_ms

@@ -105,7 +105,9 @@ describe("GaugeModal", () => {
 		const closeButton = screen.getByLabelText("Close");
 		await user.click(closeButton);
 
-		expect(onCloseMock).toHaveBeenCalledTimes(1);
+		await waitFor(() => {
+			expect(onCloseMock).toHaveBeenCalledTimes(1);
+		});
 	});
 
 	it("calls onClose when Escape key is pressed", async () => {
@@ -118,7 +120,9 @@ describe("GaugeModal", () => {
 			new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
 		);
 
-		expect(onCloseMock).toHaveBeenCalledTimes(1);
+		await waitFor(() => {
+			expect(onCloseMock).toHaveBeenCalledTimes(1);
+		});
 	});
 
 	it("calls onClose when backdrop is clicked", async () => {
@@ -132,7 +136,9 @@ describe("GaugeModal", () => {
 		);
 		if (backdrop) {
 			await user.click(backdrop);
-			expect(onCloseMock).toHaveBeenCalledTimes(1);
+			await waitFor(() => {
+				expect(onCloseMock).toHaveBeenCalledTimes(1);
+			});
 		}
 	});
 

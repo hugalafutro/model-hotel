@@ -1064,8 +1064,10 @@ describe("KeyDetailModal unsaved-changes guard", () => {
 		// Click close (X button)
 		await user.click(within(dialog).getByRole("button", { name: "Close" }));
 
-		// Confirm should have been called
-		expect(confirmSpy).toHaveBeenCalledWith("Discard unsaved changes?");
+		// Confirm should have been called (after fade animation)
+		await waitFor(() => {
+			expect(confirmSpy).toHaveBeenCalledWith("Discard unsaved changes?");
+		});
 
 		// Modal should still be open (user cancelled confirm)
 		expect(
@@ -1109,8 +1111,10 @@ describe("KeyDetailModal unsaved-changes guard", () => {
 		// Click close (X button)
 		await user.click(within(dialog).getByRole("button", { name: "Close" }));
 
-		// Confirm should have been called
-		expect(confirmSpy).toHaveBeenCalledWith("Discard unsaved changes?");
+		// Confirm should have been called (after fade animation)
+		await waitFor(() => {
+			expect(confirmSpy).toHaveBeenCalledWith("Discard unsaved changes?");
+		});
 
 		// Modal should be closed (user confirmed discard)
 		await waitFor(() => {

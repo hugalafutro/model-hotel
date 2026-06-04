@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AllProviders } from "../../../test/utils";
 import { MatchupCard } from "../MatchupCard";
@@ -519,7 +519,7 @@ describe("MatchupCard", () => {
 			expect(screen.getByText("Cancel")).toBeInTheDocument();
 		});
 
-		it("calls onConfirm when confirm is clicked", () => {
+		it("calls onConfirm when confirm is clicked", async () => {
 			const onPersonaChangeMock = vi.fn();
 			const slotWithCustom: MatchupSlot = {
 				modelId: "test-provider/model",
@@ -550,10 +550,12 @@ describe("MatchupCard", () => {
 			});
 			fireEvent.click(discardButton);
 
-			expect(onPersonaChangeMock).toHaveBeenCalled();
+			await waitFor(() => {
+				expect(onPersonaChangeMock).toHaveBeenCalled();
+			});
 		});
 
-		it("calls onCancel when cancel is clicked", () => {
+		it("calls onCancel when cancel is clicked", async () => {
 			const slotWithCustom: MatchupSlot = {
 				modelId: "test-provider/model",
 				personaId: null,
@@ -581,7 +583,9 @@ describe("MatchupCard", () => {
 			fireEvent.click(cancelButton);
 
 			// Dialog should close (no longer in document)
-			expect(screen.queryByText("Overwrite Persona")).not.toBeInTheDocument();
+			await waitFor(() => {
+				expect(screen.queryByText("Overwrite Persona")).not.toBeInTheDocument();
+			});
 		});
 	});
 
@@ -665,7 +669,7 @@ describe("MatchupCard", () => {
 			expect(screen.getByText("Overwrite Persona")).toBeInTheDocument();
 		});
 
-		it("ConfirmDialog onConfirm calls onPersonaChange with null for custom persona", () => {
+		it("ConfirmDialog onConfirm calls onPersonaChange with null for custom persona", async () => {
 			const onPersonaChangeMock = vi.fn();
 
 			// Default props have personaId: "assistant" (not null) and existing prompt
@@ -687,10 +691,12 @@ describe("MatchupCard", () => {
 			fireEvent.click(confirmButton);
 
 			// onPersonaChange should be called with null, "" for custom persona
-			expect(onPersonaChangeMock).toHaveBeenCalledWith(0, 0, "A", null, "");
+			await waitFor(() => {
+				expect(onPersonaChangeMock).toHaveBeenCalledWith(0, 0, "A", null, "");
+			});
 		});
 
-		it("ConfirmDialog onConfirm calls onPersonaChange with persona data for overwrite", () => {
+		it("ConfirmDialog onConfirm calls onPersonaChange with persona data for overwrite", async () => {
 			const onPersonaChangeMock = vi.fn();
 			const slotWithCustomPrompt: MatchupSlot = {
 				modelId: "test-provider/model",
@@ -719,13 +725,15 @@ describe("MatchupCard", () => {
 			fireEvent.click(confirmButton);
 
 			// onPersonaChange should be called with the picked persona's id and prompt
-			expect(onPersonaChangeMock).toHaveBeenCalledWith(
-				0,
-				0,
-				"A",
-				expect.any(String),
-				expect.any(String),
-			);
+			await waitFor(() => {
+				expect(onPersonaChangeMock).toHaveBeenCalledWith(
+					0,
+					0,
+					"A",
+					expect.any(String),
+					expect.any(String),
+				);
+			});
 		});
 	});
 });

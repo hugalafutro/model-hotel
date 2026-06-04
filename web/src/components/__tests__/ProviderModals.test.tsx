@@ -324,7 +324,9 @@ describe("NanoGPTQuotaModal", () => {
 			);
 			const closeButton = screen.getByRole("button", { name: "Close" });
 			await user.click(closeButton);
-			expect(onClose).toHaveBeenCalledTimes(1);
+			await waitFor(() => {
+				expect(onClose).toHaveBeenCalledTimes(1);
+			});
 		});
 
 		it("calls onClose when backdrop is clicked", async () => {
@@ -333,7 +335,9 @@ describe("NanoGPTQuotaModal", () => {
 			);
 			const backdrop = screen.getByRole("button", { name: "Close dialog" });
 			await user.click(backdrop);
-			expect(onClose).toHaveBeenCalledTimes(1);
+			await waitFor(() => {
+				expect(onClose).toHaveBeenCalledTimes(1);
+			});
 		});
 	});
 
@@ -622,7 +626,9 @@ describe("ZAICodingQuotaModal", () => {
 			);
 			const closeButton = screen.getByRole("button", { name: "Close" });
 			await user.click(closeButton);
-			expect(onClose).toHaveBeenCalledTimes(1);
+			await waitFor(() => {
+				expect(onClose).toHaveBeenCalledTimes(1);
+			});
 		});
 
 		it("calls onClose when backdrop is clicked", async () => {
@@ -631,7 +637,9 @@ describe("ZAICodingQuotaModal", () => {
 			);
 			const backdrop = screen.getByRole("button", { name: "Close dialog" });
 			await user.click(backdrop);
-			expect(onClose).toHaveBeenCalledTimes(1);
+			await waitFor(() => {
+				expect(onClose).toHaveBeenCalledTimes(1);
+			});
 		});
 	});
 
@@ -1108,7 +1116,9 @@ describe("OpenRouterQuotaModal", () => {
 			);
 			const closeButton = screen.getByRole("button", { name: "Close" });
 			await user.click(closeButton);
-			expect(onClose).toHaveBeenCalledTimes(1);
+			await waitFor(() => {
+				expect(onClose).toHaveBeenCalledTimes(1);
+			});
 		});
 
 		it("calls onClose when backdrop is clicked", async () => {
@@ -1117,7 +1127,9 @@ describe("OpenRouterQuotaModal", () => {
 			);
 			const backdrop = screen.getByRole("button", { name: "Close dialog" });
 			await user.click(backdrop);
-			expect(onClose).toHaveBeenCalledTimes(1);
+			await waitFor(() => {
+				expect(onClose).toHaveBeenCalledTimes(1);
+			});
 		});
 	});
 
@@ -1701,7 +1713,9 @@ describe("NeuralWattQuotaModal", () => {
 			);
 			const closeButton = screen.getByRole("button", { name: "Close" });
 			await user.click(closeButton);
-			expect(onClose).toHaveBeenCalledTimes(1);
+			await waitFor(() => {
+				expect(onClose).toHaveBeenCalledTimes(1);
+			});
 		});
 	});
 

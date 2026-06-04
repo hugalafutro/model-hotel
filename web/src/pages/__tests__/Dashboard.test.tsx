@@ -369,7 +369,7 @@ describe("Dashboard", () => {
 
 			// All three panel titles should be present
 			expect(screen.getByText(/Top Models/)).toBeInTheDocument();
-			expect(screen.getByText(/Top Providers/)).toBeInTheDocument();
+			expect(screen.getByText(/Slowest Models/)).toBeInTheDocument();
 			expect(screen.getByText(/Top Virtual Keys/)).toBeInTheDocument();
 		});
 

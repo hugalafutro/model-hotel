@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { Model } from "../../api/types";
 import { mockModel, mockProvider } from "../../test/mocks/data";
@@ -112,7 +112,9 @@ describe("ProviderModelsModal", () => {
 		const closeButton = screen.getByRole("button", { name: "Close" });
 		await user.click(closeButton);
 
-		expect(onClose).toHaveBeenCalled();
+		await waitFor(() => {
+			expect(onClose).toHaveBeenCalled();
+		});
 	});
 
 	it("renders ModelTable with filtered models", () => {

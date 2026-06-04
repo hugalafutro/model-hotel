@@ -265,6 +265,13 @@
 			"emptyState": "No usage data yet. Usage breakdown will appear here once traffic flows.",
 			"viewDetailsFor": "View details for {{label}}"
 		},
+		"latency": {
+			"topModels": "Slowest Models",
+			"emptyState": "No latency data yet. Latency breakdown will appear here once traffic flows.",
+			"tooltip": "Proxy: {{overhead}}ms ({{ratio}}%) · Provider: {{provider}}ms",
+			"providerTip": "Provider: {{value}}",
+			"overheadTip": "Proxy overhead: {{value}} ({{ratio}}%)"
+		},
 		"providers": {
 			"top": "Top Providers",
 			"top_one": "Top {{count}} Provider",
@@ -861,9 +868,9 @@
 		"toast_sync_success": "Failover groups synced",
 		"toast_sync_failed": "Failed to sync: {{message}}",
 		"toast_update_failed": "Failed to update: {{message}}",
-		"toast_create_collision": "A failover group for '{{model}}' already exists — it was auto-created from shared models. Edit the existing group instead.",
+		"toast_create_collision": "A failover group for '{{model}}' already exists - it was auto-created from shared models. Edit the existing group instead.",
 		"toast_create_collision_this_model": "this model",
-		"toast_update_collision": "A failover group with this name already exists — choose a different name.",
+		"toast_update_collision": "A failover group with this name already exists - choose a different name.",
 		"toast_create_failed": "Failed to create group: {{message}}",
 		"toast_update_group_failed": "Failed to update group: {{message}}",
 		"toast_created": "Failover group created",
@@ -2191,8 +2198,8 @@
 		"entry": {
 			"disableProvider": "Disable provider",
 			"enableProvider": "Enable provider",
-			"circuitBreakerOpen": "Circuit breaker open — waiting for cooldown",
-			"circuitBreakerHalfOpen": "Circuit breaker half-open — probing recovery"
+			"circuitBreakerOpen": "Circuit breaker open - waiting for cooldown",
+			"circuitBreakerHalfOpen": "Circuit breaker half-open - probing recovery"
 		}
 	},
 	"virtualKeys": {

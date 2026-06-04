@@ -541,7 +541,9 @@ describe("EditProviderModal", () => {
 			});
 			const cancelDialogButton = allCancelButtons[allCancelButtons.length - 1];
 			await user.click(cancelDialogButton);
-			expect(screen.queryByText("Unsaved Changes")).not.toBeInTheDocument();
+			await waitFor(() => {
+				expect(screen.queryByText("Unsaved Changes")).not.toBeInTheDocument();
+			});
 		});
 	});
 

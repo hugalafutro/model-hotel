@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../../test/utils";
@@ -275,7 +275,9 @@ describe("WinnerSummaryModal", () => {
 		const closeButton = screen.getByText("Close");
 		await user.click(closeButton);
 
-		expect(onCloseMock).toHaveBeenCalledTimes(1);
+		await waitFor(() => {
+			expect(onCloseMock).toHaveBeenCalledTimes(1);
+		});
 	});
 
 	it("calls onClose when Escape key is pressed", async () => {
@@ -290,7 +292,9 @@ describe("WinnerSummaryModal", () => {
 			new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
 		);
 
-		expect(onCloseMock).toHaveBeenCalledTimes(1);
+		await waitFor(() => {
+			expect(onCloseMock).toHaveBeenCalledTimes(1);
+		});
 	});
 
 	it("calls onClose when backdrop is clicked", async () => {
@@ -306,7 +310,9 @@ describe("WinnerSummaryModal", () => {
 		);
 		if (backdrop) {
 			await user.click(backdrop);
-			expect(onCloseMock).toHaveBeenCalledTimes(1);
+			await waitFor(() => {
+				expect(onCloseMock).toHaveBeenCalledTimes(1);
+			});
 		}
 	});
 

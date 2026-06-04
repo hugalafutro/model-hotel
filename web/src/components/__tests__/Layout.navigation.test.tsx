@@ -245,7 +245,9 @@ describe("Layout", () => {
 			const cancelButton = screen.getByText("Cancel");
 			await user.click(cancelButton);
 
-			expect(screen.queryByText("Log out?")).not.toBeInTheDocument();
+			await waitFor(() => {
+				expect(screen.queryByText("Log out?")).not.toBeInTheDocument();
+			});
 		});
 
 		it("performs logout on confirmation", async () => {
@@ -271,7 +273,9 @@ describe("Layout", () => {
 				await user.click(confirmButton);
 			}
 
-			expect(localStorage.getItem("adminToken")).toBeNull();
+			await waitFor(() => {
+				expect(localStorage.getItem("adminToken")).toBeNull();
+			});
 
 			if (originalStorage) {
 				localStorage.setItem("adminToken", originalStorage);
@@ -481,7 +485,9 @@ describe("Layout", () => {
 				await user.click(confirmButton);
 			}
 
-			expect(localStorage.getItem("adminToken")).toBeNull();
+			await waitFor(() => {
+				expect(localStorage.getItem("adminToken")).toBeNull();
+			});
 
 			if (originalStorage) {
 				localStorage.setItem("adminToken", originalStorage);
@@ -502,7 +508,9 @@ describe("Layout", () => {
 			const cancelButton = screen.getByText("Cancel");
 			await user.click(cancelButton);
 
-			expect(screen.queryByText("Log out?")).not.toBeInTheDocument();
+			await waitFor(() => {
+				expect(screen.queryByText("Log out?")).not.toBeInTheDocument();
+			});
 		});
 
 		it("renders version badge with running version", async () => {

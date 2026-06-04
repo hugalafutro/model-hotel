@@ -1,4 +1,4 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "../../../test/utils";
 import { ColorPickerModal } from "../ColorPickerModal";
@@ -230,6 +230,8 @@ describe("ColorPickerModal", () => {
 		// The Modal renders a backdrop button with aria-label="Close dialog"
 		const backdrop = screen.getByRole("button", { name: "Close dialog" });
 		await user.click(backdrop);
-		expect(onClose).toHaveBeenCalledTimes(1);
+		await waitFor(() => {
+			expect(onClose).toHaveBeenCalledTimes(1);
+		});
 	});
 });

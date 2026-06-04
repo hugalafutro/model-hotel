@@ -31,6 +31,8 @@ jobs:
           --health-retries 5
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
@@ -56,14 +58,14 @@ jobs:
             exit 1
           fi
 
-      - name: Upload Go coverage to Codacy
+      - name: Upload Go coverage to Codecov
         if: always()
-        env:
-          CODACY_API_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
-          CODACY_ORGANIZATION_PROVIDER: gh
-          CODACY_USERNAME: hugalafutro
-          CODACY_PROJECT_NAME: model-hotel
-        run: bash <(curl -Ls https://coverage.codacy.com/get.sh) report --force-coverage-parser go -r coverage.out
+        uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354 # v6
+        with:
+          files: coverage.out
+          flags: backend
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   go-lint:
     name: Go Lint
@@ -103,6 +105,8 @@ jobs:
         working-directory: web
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
@@ -140,16 +144,15 @@ jobs:
             echo "FAIL: frontend coverage ${pct}% is below 80% threshold"
             exit 1
           fi
-
-      - name: Upload frontend coverage to Codacy
+ 
+      - name: Upload frontend coverage to Codecov
         if: always()
-        working-directory: web
-        env:
-          CODACY_API_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
-          CODACY_ORGANIZATION_PROVIDER: gh
-          CODACY_USERNAME: hugalafutro
-          CODACY_PROJECT_NAME: model-hotel
-        run: bash <(curl -Ls https://coverage.codacy.com/get.sh) report -r coverage/lcov.info
+        uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354 # v6
+        with:
+          files: web/coverage/lcov.info
+          flags: frontend
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Build
         run: pnpm run build

@@ -615,6 +615,7 @@ type requestLogOpts struct {
 	VirtualKeyName   string
 	ResponseHeaderMs float64
 	ProxyOverheadMs  float64
+	LatencyMs        float64
 	Streaming        bool
 }
 
@@ -622,10 +623,10 @@ func insertRichTestRequestLog(t *testing.T, pool *pgxpool.Pool, logID, providerI
 	t.Helper()
 	ctx := context.Background()
 	_, err := pool.Exec(ctx, `
-		INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, tokens_prompt, tokens_completion, created_at, virtual_key_id, virtual_key_name, response_header_ms, proxy_overhead_ms, streaming)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8, $9, $10, $11, $12)`,
+		INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, tokens_prompt, tokens_completion, created_at, virtual_key_id, virtual_key_name, response_header_ms, proxy_overhead_ms, latency_ms, streaming)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8, $9, $10, $11, $12, $13)`,
 		logID, providerID, modelID, statusCode, durationMs, tokensPrompt, tokensCompletion,
-		opts.VirtualKeyID, opts.VirtualKeyName, opts.ResponseHeaderMs, opts.ProxyOverheadMs, opts.Streaming)
+		opts.VirtualKeyID, opts.VirtualKeyName, opts.ResponseHeaderMs, opts.ProxyOverheadMs, opts.LatencyMs, opts.Streaming)
 	if err != nil {
 		t.Fatalf("Failed to insert rich test request log: %v", err)
 	}
@@ -1623,6 +1624,136 @@ func TestGetStats_RateLimitHits(t *testing.T) {
 	}
 }
 
+func TestGetStats_ModelLatency(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider-latency", "https://api.example.com/v1")
+
+	// Insert request logs for 3 different models
+	// Model A: 3 requests, high latency (should rank #1)
+	// Model B: 3 requests, medium latency (should rank #2)
+	// Model C: 3 requests, low latency (should rank #3)
+	// Model D: 2 requests only (should NOT appear due to HAVING COUNT(*) >= 3)
+
+	// Model A - 3 requests with high latency
+	for i := 0; i < 3; i++ {
+		insertRichTestRequestLog(t, pool, uuid.New(), providerID, "model-a", 200, 300, 10, 20, requestLogOpts{
+			ProxyOverheadMs: 30.0,
+			LatencyMs:       270.0, // Provider latency = 270ms
+		})
+	}
+
+	// Model B - 3 requests with medium latency
+	for i := 0; i < 3; i++ {
+		insertRichTestRequestLog(t, pool, uuid.New(), providerID, "model-b", 200, 200, 10, 20, requestLogOpts{
+			ProxyOverheadMs: 20.0,
+			LatencyMs:       180.0, // Provider latency = 180ms
+		})
+	}
+
+	// Model C - 3 requests with low latency
+	for i := 0; i < 3; i++ {
+		insertRichTestRequestLog(t, pool, uuid.New(), providerID, "model-c", 200, 100, 10, 20, requestLogOpts{
+			ProxyOverheadMs: 10.0,
+			LatencyMs:       90.0, // Provider latency = 90ms
+		})
+	}
+
+	// Model D - Only 2 requests (should be excluded by HAVING COUNT(*) >= 3)
+	for i := 0; i < 2; i++ {
+		insertRichTestRequestLog(t, pool, uuid.New(), providerID, "model-d", 200, 500, 10, 20, requestLogOpts{
+			ProxyOverheadMs: 50.0,
+			LatencyMs:       450.0,
+		})
+	}
+
+	r := chi.NewRouter()
+	handler.Register(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/stats?period=24h&include_latency=true", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response StatsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	// Verify ByModelLatency is returned
+	if len(response.ByModelLatency) == 0 {
+		t.Fatal("Expected ByModelLatency to have entries")
+	}
+
+	// Should have exactly 3 models (model-a, model-b, model-c), not model-d
+	if len(response.ByModelLatency) != 3 {
+		t.Errorf("Expected ByModelLatency to have 3 entries (models with >= 3 requests), got %d", len(response.ByModelLatency))
+	}
+
+	// Verify sorted by total_ms descending: model-a (300ms) > model-b (200ms) > model-c (100ms)
+	expectedOrder := []string{
+		"test-provider-latency/model-a",
+		"test-provider-latency/model-b",
+		"test-provider-latency/model-c",
+	}
+
+	for i, expectedModel := range expectedOrder {
+		if i >= len(response.ByModelLatency) {
+			break
+		}
+		actualModel := response.ByModelLatency[i].ModelID
+		if actualModel != expectedModel {
+			t.Errorf("ByModelLatency[%d].ModelID = %q, want %q", i, actualModel, expectedModel)
+		}
+	}
+
+	// Verify model-a entry details
+	var modelA *ModelLatencyEntry
+	for i := range response.ByModelLatency {
+		if response.ByModelLatency[i].ModelID == "test-provider-latency/model-a" {
+			modelA = &response.ByModelLatency[i]
+			break
+		}
+	}
+
+	if modelA == nil {
+		t.Fatal("model-a not found in ByModelLatency")
+	}
+
+	// Verify request count
+	if modelA.RequestCount != 3 {
+		t.Errorf("model-a RequestCount = %d, want 3", modelA.RequestCount)
+	}
+
+	// Verify total_ms is approximately 300 (allowing for small timing variations)
+	if modelA.TotalMs < 290 || modelA.TotalMs > 310 {
+		t.Errorf("model-a TotalMs = %f, want ~300", modelA.TotalMs)
+	}
+
+	// Verify overhead_ms is approximately 30
+	if modelA.OverheadMs < 25 || modelA.OverheadMs > 35 {
+		t.Errorf("model-a OverheadMs = %f, want ~30", modelA.OverheadMs)
+	}
+
+	// Verify provider_ms is approximately 270
+	if modelA.ProviderMs < 260 || modelA.ProviderMs > 280 {
+		t.Errorf("model-a ProviderMs = %f, want ~270", modelA.ProviderMs)
+	}
+
+	// Verify overhead + provider ≈ total
+	expectedTotal := modelA.OverheadMs + modelA.ProviderMs
+	if math.Abs(expectedTotal-modelA.TotalMs) > 5 {
+		t.Errorf("model-a: OverheadMs + ProviderMs = %f, but TotalMs = %f", expectedTotal, modelA.TotalMs)
+	}
+}
+
 func TestGetStats_ErrorRate(t *testing.T) {
 	handler, pool, cleanup := newStatsHandler(t)
 	defer cleanup()
@@ -1993,7 +2124,7 @@ func TestCalculateStats_TokensMetric(t *testing.T) {
 	ctx := context.Background()
 
 	// Call calculateStats with metric=tokens
-	stats, err := handler.calculateStats(ctx, 24*time.Hour, true, "tokens")
+	stats, err := handler.calculateStats(ctx, 24*time.Hour, true, "tokens", false)
 	if err != nil {
 		t.Fatalf("calculateStats failed: %v", err)
 	}
@@ -2042,7 +2173,7 @@ func TestCalculateStats_TokensMetric_ByVirtualKey(t *testing.T) {
 		VirtualKeyID: &vkID,
 	})
 
-	stats, err := handler.calculateStats(ctx, 24*time.Hour, true, "tokens")
+	stats, err := handler.calculateStats(ctx, 24*time.Hour, true, "tokens", false)
 	if err != nil {
 		t.Fatalf("calculateStats failed: %v", err)
 	}
@@ -2072,7 +2203,7 @@ func TestCalculateStats_ExcludeDeletedFalse(t *testing.T) {
 		VirtualKeyID: &deletedVKID,
 	})
 
-	stats, err := handler.calculateStats(ctx, 24*time.Hour, false, "requests")
+	stats, err := handler.calculateStats(ctx, 24*time.Hour, false, "requests", false)
 	if err != nil {
 		t.Fatalf("calculateStats failed: %v", err)
 	}
@@ -2101,7 +2232,7 @@ func TestCalculateStats_ExcludeDeletedFalse_Tokens(t *testing.T) {
 		VirtualKeyID: &deletedVKID,
 	})
 
-	stats, err := handler.calculateStats(ctx, 24*time.Hour, false, "tokens")
+	stats, err := handler.calculateStats(ctx, 24*time.Hour, false, "tokens", false)
 	if err != nil {
 		t.Fatalf("calculateStats failed: %v", err)
 	}
@@ -2125,7 +2256,7 @@ func TestCalculateStats_7dPeriod(t *testing.T) {
 	insertTestProvider(t, pool, providerID, "test-provider-7d-period", "https://api.example.com/v1")
 	insertTestRequestLog(t, pool, logID, providerID, "test-model", 200, 100, 10, 20)
 
-	stats, err := handler.calculateStats(ctx, 7*24*time.Hour, true, "requests")
+	stats, err := handler.calculateStats(ctx, 7*24*time.Hour, true, "requests", false)
 	if err != nil {
 		t.Fatalf("calculateStats failed: %v", err)
 	}
@@ -2155,7 +2286,7 @@ func TestCalculateStats_1hPeriod(t *testing.T) {
 	insertTestProvider(t, pool, providerID, "test-provider-1h-period", "https://api.example.com/v1")
 	insertTestRequestLog(t, pool, logID, providerID, "test-model", 200, 100, 10, 20)
 
-	stats, err := handler.calculateStats(ctx, 1*time.Hour, true, "requests")
+	stats, err := handler.calculateStats(ctx, 1*time.Hour, true, "requests", false)
 	if err != nil {
 		t.Fatalf("calculateStats failed: %v", err)
 	}
@@ -2190,7 +2321,7 @@ func TestCalculateStats_ChatArenaKeys_Tokens(t *testing.T) {
 		VirtualKeyName: "arena",
 	})
 
-	stats, err := handler.calculateStats(ctx, 24*time.Hour, true, "tokens")
+	stats, err := handler.calculateStats(ctx, 24*time.Hour, true, "tokens", false)
 	if err != nil {
 		t.Fatalf("calculateStats failed: %v", err)
 	}
@@ -2215,7 +2346,7 @@ func TestCalculateStats_QueryError(t *testing.T) {
 	pool.Close()
 
 	ctx := context.Background()
-	_, err := handler.calculateStats(ctx, 24*time.Hour, true, "requests")
+	_, err := handler.calculateStats(ctx, 24*time.Hour, true, "requests", false)
 	if err == nil {
 		t.Error("Expected error when pool is closed")
 	}
@@ -2466,7 +2597,7 @@ func TestCalculateStats_LateQueryErrors(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	stats, err := handler.calculateStats(ctx, 24*time.Hour, true, "requests")
+	stats, err := handler.calculateStats(ctx, 24*time.Hour, true, "requests", false)
 	if err != nil {
 		t.Fatalf("calculateStats failed: %v", err)
 	}
@@ -2512,7 +2643,7 @@ func TestCalculateStats_24hPeriod_7dQuery(t *testing.T) {
 	insertTestRequestLog(t, pool, uuid.New(), providerID, "test-model", 200, 100, 10, 20)
 
 	ctx := context.Background()
-	stats, err := handler.calculateStats(ctx, 24*time.Hour, true, "requests")
+	stats, err := handler.calculateStats(ctx, 24*time.Hour, true, "requests", false)
 	if err != nil {
 		t.Fatalf("calculateStats failed: %v", err)
 	}
@@ -2607,7 +2738,7 @@ func TestCalculateStats_CancelledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	_, err := handler.calculateStats(ctx, 24*time.Hour, true, "requests")
+	_, err := handler.calculateStats(ctx, 24*time.Hour, true, "requests", false)
 	if err == nil {
 		t.Error("Expected error with cancelled context")
 	}
@@ -2626,7 +2757,7 @@ func TestCalculateStats_CancelledContext_1h(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	_, err := handler.calculateStats(ctx, 1*time.Hour, true, "requests")
+	_, err := handler.calculateStats(ctx, 1*time.Hour, true, "requests", false)
 	if err == nil {
 		t.Error("Expected error with cancelled context")
 	}
@@ -2645,7 +2776,7 @@ func TestCalculateStats_CancelledContext_7d(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	_, err := handler.calculateStats(ctx, 7*24*time.Hour, true, "requests")
+	_, err := handler.calculateStats(ctx, 7*24*time.Hour, true, "requests", false)
 	if err == nil {
 		t.Error("Expected error with cancelled context")
 	}

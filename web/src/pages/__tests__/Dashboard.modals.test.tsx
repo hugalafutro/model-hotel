@@ -310,11 +310,11 @@ describe("Dashboard.coverage", () => {
 			// LocalStorage keys are created by useDashboard for each section
 			// Each section can have different range/metric preferences stored
 			localStorage.setItem("dashboard.modelsRange", "1h");
-			localStorage.setItem("dashboard.providersRange", "1w");
+			localStorage.setItem("dashboard.latencyRange", "1w");
 			localStorage.setItem("dashboard.virtualKeysRange", "24h");
 
 			expect(localStorage.getItem("dashboard.modelsRange")).toBe("1h");
-			expect(localStorage.getItem("dashboard.providersRange")).toBe("1w");
+			expect(localStorage.getItem("dashboard.latencyRange")).toBe("1w");
 		});
 	});
 
@@ -521,15 +521,21 @@ describe("Dashboard.coverage", () => {
 			});
 		});
 
-		it("renders Top Providers panel with usage data", async () => {
-			const statsWithProviderUsage = {
+		it("renders Slowest Models panel with latency data", async () => {
+			const statsWithModelLatency = {
 				...mockStats,
-				by_provider: {
-					"Test Provider": 800,
-				},
+				by_model_latency: [
+					{
+						model_id: "Test Provider/test-model-v1",
+						total_ms: 3200,
+						overhead_ms: 12,
+						provider_ms: 3188,
+						request_count: 10,
+					},
+				],
 			};
 			server.use(
-				http.get("/api/stats", () => HttpResponse.json(statsWithProviderUsage)),
+				http.get("/api/stats", () => HttpResponse.json(statsWithModelLatency)),
 				http.get("/api/models", () => HttpResponse.json([mockModel])),
 				http.get("/api/providers", () => HttpResponse.json([mockProvider])),
 				http.get("/api/virtual-keys", () => HttpResponse.json([])),
@@ -541,12 +547,12 @@ describe("Dashboard.coverage", () => {
 				expect(screen.getByText("Dashboard")).toBeInTheDocument();
 			});
 
-			// Should show provider entries with usage numbers
+			// Should show model entry with latency value
 			await waitFor(() => {
-				expect(screen.getByText("Test Provider")).toBeInTheDocument();
 				expect(
-					screen.getByText((content) => content.includes("800")),
+					screen.getByText("Test Provider/test-model-v1"),
 				).toBeInTheDocument();
+				expect(screen.getByText("3.2s")).toBeInTheDocument();
 			});
 		});
 

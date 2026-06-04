@@ -139,6 +139,14 @@ export interface ModelsCursorResponse {
 	has_after: boolean;
 }
 
+export interface ModelLatencyEntry {
+	model_id: string;
+	total_ms: number;
+	overhead_ms: number;
+	provider_ms: number;
+	request_count: number;
+}
+
 export interface Stats {
 	total_requests_last_24h: number;
 	total_requests_last_7d: number;
@@ -155,6 +163,7 @@ export interface Stats {
 	total_tokens_completion: number;
 	total_tokens_cache_hit: number;
 	avg_tokens_per_request: number;
+	by_model_latency?: ModelLatencyEntry[];
 }
 
 export type MetricType = "requests" | "tokens";

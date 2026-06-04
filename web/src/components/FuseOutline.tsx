@@ -49,7 +49,10 @@ export function FuseOutline({
 	// Track the last animation string we set imperatively so we only
 	// re-set it when durationMs actually changes (which is rare — backed by
 	// a useMemo in SortableEntry that only updates on next_retry_at change).
+	// Also track the rect element identity so a remounted rect (e.g. after
+	// showRect toggles false→true during drag-settle) always gets the animation.
 	const lastAnimationRef = useRef<string | undefined>(undefined);
+	const lastRectRef = useRef<SVGRectElement | null>(null);
 
 	// Compute perimeter of the rounded rect
 	const w = Math.max(0, width - 2);
@@ -60,15 +63,20 @@ export function FuseOutline({
 	const showRect = perimeter > 0;
 
 	// Set animation properties imperatively (useLayoutEffect fires before
-	// browser paint so there's no flash of un-animated rect). Only re-set the
-	// animation shorthand when durationMs actually changes; always sync play
-	// state since it's safe to toggle without restarting the timeline.
+	// browser paint so there's no flash of un-animated rect). Always set the
+	// animation when the rect element changes (unmount/remount cycle), or when
+	// the animation string changes. Always sync play state since it's safe to
+	// toggle without restarting the timeline.
 	useLayoutEffect(() => {
 		const rect = rectRef.current;
 		if (!rect) return;
 
 		const animationStr = `fuse ${durationMs}ms linear forwards`;
-		if (lastAnimationRef.current !== animationStr) {
+		if (
+			lastRectRef.current !== rect ||
+			lastAnimationRef.current !== animationStr
+		) {
+			lastRectRef.current = rect;
 			lastAnimationRef.current = animationStr;
 			rect.style.animation = animationStr;
 		}

@@ -333,7 +333,9 @@ describe("ModelReplyCard", () => {
 			await user.click(maximizeButton);
 			const closeButton = screen.getByRole("button", { name: "Close" });
 			await user.click(closeButton);
-			expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+			await waitFor(() => {
+				expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+			});
 		});
 
 		it("copies content from modal when copy button is clicked", async () => {

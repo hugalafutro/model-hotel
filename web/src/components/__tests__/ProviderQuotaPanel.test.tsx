@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { QuotaDataResult } from "../../hooks/useQuotaData";
@@ -471,10 +471,12 @@ describe("ProviderQuotaPanel", () => {
 			const closeButton = screen.getByRole("button", { name: "Close" });
 			await user.click(closeButton);
 
-			// Modal should be closed
-			expect(
-				screen.queryByRole("heading", { name: "NanoGPT Subscription" }),
-			).toBeNull();
+			// Modal should be closed (fade animation completes)
+			await waitFor(() => {
+				expect(
+					screen.queryByRole("heading", { name: "NanoGPT Subscription" }),
+				).toBeNull();
+			});
 		});
 
 		it("closes ZAICodingQuotaModal when clicking close button", async () => {
@@ -498,11 +500,13 @@ describe("ProviderQuotaPanel", () => {
 			const closeButton = screen.getByRole("button", { name: "Close" });
 			await user.click(closeButton);
 
-			expect(
-				screen.queryByRole("heading", {
-					name: "Z.ai Coding Plan Quota",
-				}),
-			).toBeNull();
+			await waitFor(() => {
+				expect(
+					screen.queryByRole("heading", {
+						name: "Z.ai Coding Plan Quota",
+					}),
+				).toBeNull();
+			});
 		});
 
 		it("closes OpenRouterQuotaModal when clicking close button", async () => {
@@ -524,11 +528,13 @@ describe("ProviderQuotaPanel", () => {
 			const closeButton = screen.getByRole("button", { name: "Close" });
 			await user.click(closeButton);
 
-			expect(
-				screen.queryByRole("heading", {
-					name: "OpenRouter Credits",
-				}),
-			).toBeNull();
+			await waitFor(() => {
+				expect(
+					screen.queryByRole("heading", {
+						name: "OpenRouter Credits",
+					}),
+				).toBeNull();
+			});
 		});
 	});
 

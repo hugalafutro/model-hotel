@@ -1,6 +1,6 @@
-import { X } from "lucide-react";
-import { useCallback, useEffect, useRef } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Modal, type ModalHandle } from "./Modal";
 
 interface ConfirmDialogProps {
 	title: string;
@@ -20,64 +20,62 @@ export function ConfirmDialog({
 	onCancel,
 }: ConfirmDialogProps) {
 	const { t } = useTranslation();
-	const ref = useRef<HTMLDivElement>(null);
+	const modalRef = useRef<ModalHandle>(null);
+	const confirmingRef = useRef(false);
+	const [closing, setClosing] = useState(false);
 
-	const handleKeyDown = useCallback(
-		(e: React.KeyboardEvent) => {
-			if (e.key === "Escape") onCancel();
-		},
-		[onCancel],
-	);
-
-	useEffect(() => {
-		ref.current?.focus();
-	}, []);
+	const handleClose = () => {
+		if (confirmingRef.current) {
+			onConfirm();
+		} else {
+			onCancel();
+		}
+	};
 
 	return (
-		<div
-			ref={ref}
-			role="dialog"
-			aria-modal="true"
-			tabIndex={-1}
-			onKeyDown={handleKeyDown}
-			className="fixed inset-0 flex items-center justify-center z-60 outline-none"
+		<Modal
+			ref={modalRef}
+			title={title}
+			onClose={handleClose}
+			closeOnBackdrop={false}
+			maxWidth="max-w-sm"
+			zIndex="z-60"
 		>
-			<div className="absolute inset-0 bg-black/60" />
-			<div className="relative ui-card p-6 w-full max-w-sm">
-				<button
-					type="button"
-					onClick={onCancel}
-					className="absolute top-3 right-3 z-10 text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-pointer p-2 hover:drop-shadow-[var(--glow-accent-lg)]"
-					aria-label={t("common.close")}
-				>
-					<X size={20} />
-				</button>
-				<h2 className="text-lg font-bold text-white mb-3">{title}</h2>
-				<p className="text-sm text-gray-300 mb-1">
-					{message ?? t("components.confirmDialog.discardChangesTo")}
-				</p>
+			<p className="text-sm text-gray-300 mb-1">
+				{message ?? t("components.confirmDialog.discardChangesTo")}
+			</p>
+			{fields.length > 0 && (
 				<ul className="text-sm text-gray-400 mb-5 list-disc list-inside">
 					{fields.map((f) => (
 						<li key={f}>{f}</li>
 					))}
 				</ul>
-				<div className="flex gap-3 justify-end">
-					<button
-						type="button"
-						onClick={onCancel}
-						className="ui-btn ui-btn-secondary"
-					>
-						{t("common.cancel")}
-					</button>
-					<button
-						type="button"
-						onClick={onConfirm}
-						className="ui-btn ui-btn-danger"
-					>
-						{confirmLabel ?? t("common.delete")}
-					</button>
-				</div>
+			)}
+			<div className="flex gap-3 justify-end">
+				<button
+					type="button"
+					onClick={() => {
+						setClosing(true);
+						modalRef.current?.close();
+					}}
+					className="ui-btn ui-btn-secondary"
+					disabled={closing}
+				>
+					{t("common.cancel")}
+				</button>
+				<button
+					type="button"
+					onClick={() => {
+						confirmingRef.current = true;
+						setClosing(true);
+						modalRef.current?.close();
+					}}
+					className="ui-btn ui-btn-danger"
+					disabled={closing}
+				>
+					{confirmLabel ?? t("common.delete")}
+				</button>
 			</div>
-		</div>
+		</Modal>
 	);
 }

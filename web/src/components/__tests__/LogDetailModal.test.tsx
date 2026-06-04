@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppLogEntry, LogEntry } from "../../api/types";
@@ -442,7 +442,9 @@ describe("LogDetailModal", () => {
 			const closeButton = screen.getByRole("button", { name: "Close" });
 			await user.click(closeButton);
 
-			expect(onClose).toHaveBeenCalledTimes(1);
+			await waitFor(() => {
+				expect(onClose).toHaveBeenCalledTimes(1);
+			});
 		});
 
 		it("calls onClose when backdrop is clicked", async () => {
@@ -458,7 +460,9 @@ describe("LogDetailModal", () => {
 			const backdrop = screen.getByRole("button", { name: "Close dialog" });
 			await user.click(backdrop);
 
-			expect(onClose).toHaveBeenCalledTimes(1);
+			await waitFor(() => {
+				expect(onClose).toHaveBeenCalledTimes(1);
+			});
 		});
 
 		it("calls onClose when Escape key is pressed", async () => {
@@ -473,7 +477,9 @@ describe("LogDetailModal", () => {
 
 			await user.keyboard("{Escape}");
 
-			expect(onClose).toHaveBeenCalledTimes(1);
+			await waitFor(() => {
+				expect(onClose).toHaveBeenCalledTimes(1);
+			});
 		});
 	});
 
@@ -575,7 +581,9 @@ describe("LogDetailModal", () => {
 			const closeButton = screen.getByRole("button", { name: "Close" });
 			await user.click(closeButton);
 
-			expect(onClose).toHaveBeenCalledTimes(1);
+			await waitFor(() => {
+				expect(onClose).toHaveBeenCalledTimes(1);
+			});
 		});
 
 		it("calls onClose when backdrop is clicked", async () => {
@@ -587,7 +595,9 @@ describe("LogDetailModal", () => {
 			const backdrop = screen.getByRole("button", { name: "Close dialog" });
 			await user.click(backdrop);
 
-			expect(onClose).toHaveBeenCalledTimes(1);
+			await waitFor(() => {
+				expect(onClose).toHaveBeenCalledTimes(1);
+			});
 		});
 
 		it("handles invalid date gracefully", () => {
