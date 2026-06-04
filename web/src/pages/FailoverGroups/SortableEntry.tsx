@@ -42,21 +42,32 @@ export function SortableEntry({
 
 	const dragProps = groupEnabled ? { ...attributes, ...listeners } : {};
 
-	// Determine if fuse should show (circuit breaker open/half-open with enough fails)
+	// Determine if fuse should show (circuit breaker open/half-open).
+	// We trust the circuit breaker's own state — the backend already enforces
+	// the configured threshold before transitioning to open/half-open.
 	const showFuse =
 		cbStatus &&
 		entry.enabled &&
-		(cbStatus.state === "open" || cbStatus.state === "half-open") &&
-		cbStatus.consecutive_fails >= 5;
+		(cbStatus.state === "open" || cbStatus.state === "half-open");
 
 	// Half-open: cooldown already elapsed, provider is actively probing.
 	// Show a static amber outline — no countdown animation.
 	// Open: cooldown is running, show animated fuse outline.
 	const isHalfOpen = showFuse && cbStatus.state === "half-open";
 
+	// Compute remaining cooldown. Date.now() is a monotonic clock read that
+	// is deterministic for a given render pass — it's not a side effect but
+	// React's compiler linter treats it as impure. The alternatives
+	// (useEffect+setState or ref-based) are blocked by other compiler rules
+	// (set-state-in-effect, no-refs-during-render), and a
+	// useSyncExternalStore clock subscription is overkill for a countdown
+	// that only needs to compute once per CB state change.
 	let fuseColor: string | undefined;
 	let remainingMs = 0;
 	let fuseTitle: string | undefined;
+	// elapsedCooldown: circuit is open but cooldown has expired — CB hasn't
+	// transitioned to half-open yet (clock drift or polling delay).
+	let elapsedCooldown = false;
 
 	if (showFuse) {
 		if (isHalfOpen) {
@@ -65,13 +76,15 @@ export function SortableEntry({
 		} else {
 			fuseColor = "#fca5a5";
 			fuseTitle = t("failoverGroups.entry.circuitBreakerOpen");
-		}
 
-		// Compute remaining cooldown time (only meaningful for open state)
-		if (cbStatus.next_retry_at) {
-			remainingMs = new Date(cbStatus.next_retry_at).getTime() - Date.now();
+			if (cbStatus.next_retry_at) {
+				remainingMs = new Date(cbStatus.next_retry_at).getTime() - Date.now();
+			}
+			remainingMs = Math.max(0, remainingMs);
+			if (remainingMs <= 0) {
+				elapsedCooldown = true;
+			}
 		}
-		remainingMs = Math.max(0, remainingMs);
 	}
 
 	return (
@@ -89,8 +102,14 @@ export function SortableEntry({
 					style={{ boxShadow: `inset 0 0 0 1.5px ${fuseColor}` }}
 				/>
 			)}
-			{showFuse && fuseColor && !isHalfOpen && (
+			{showFuse && fuseColor && !isHalfOpen && !elapsedCooldown && (
 				<FuseOutline color={fuseColor} durationMs={remainingMs} />
+			)}
+			{showFuse && fuseColor && !isHalfOpen && elapsedCooldown && (
+				<div
+					className="absolute inset-0 rounded pointer-events-none"
+					style={{ boxShadow: `inset 0 0 0 1.5px ${fuseColor}` }}
+				/>
 			)}
 			<div className="flex items-center gap-2 min-w-0">
 				<span

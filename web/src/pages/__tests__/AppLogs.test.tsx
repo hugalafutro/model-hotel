@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -38,11 +38,12 @@ vi.mock("../../components/AccentCalendar", () => ({
 		<div data-testid="accent-calendar">
 			<span>From: {from}</span>
 			<span>To: {to}</span>
-			<button type="button" onClick={() => onSelect("2024-06-10")}>
-				Select Start
-			</button>
-			<button type="button" onClick={() => onSelect("2024-06-15")}>
-				Select End
+			<button
+				type="button"
+				data-testid="select-date-btn"
+				onClick={() => onSelect(from ? "2024-06-15" : "2024-06-10")}
+			>
+				{from ? "Select End" : "Select Start"}
 			</button>
 		</div>
 	),
@@ -113,15 +114,21 @@ describe("AppLogs date picker", () => {
 		renderWithProviders(<AppLogs />);
 		const calendarButton = screen.getByLabelText("Filter by date range");
 		await user.click(calendarButton);
-		// Select start and end dates via mock calendar
-		await user.click(screen.getByText("Select Start"));
-		await user.click(screen.getByText("Select End"));
-		// Click Apply
-		const applyButtons = screen.getAllByRole("button");
-		const applyButton = applyButtons.find((b) => b.textContent === "Apply");
-		if (applyButton) {
-			await user.click(applyButton);
-		}
+		// Verify the popover is visible
+		expect(screen.getByTestId("accent-calendar")).toBeInTheDocument();
+		// Use fireEvent for interactions inside the portaled popover to avoid
+		// the mousedown-based click-outside handler closing the popover.
+		const selectBtn = screen.getByTestId("select-date-btn");
+		fireEvent.click(selectBtn); // Select Start
+		fireEvent.click(selectBtn); // Select End
+		// Wait for Apply button to appear after date selection
+		await waitFor(() => {
+			expect(
+				screen.getByRole("button", { name: /apply/i }),
+			).toBeInTheDocument();
+		});
+		const applyButton = screen.getByRole("button", { name: /apply/i });
+		fireEvent.click(applyButton);
 		// After applying, the calendar button should show the active state
 		await waitFor(() => {
 			expect(screen.getByLabelText(/Date filter:/)).toBeInTheDocument();
@@ -134,19 +141,21 @@ describe("AppLogs date picker", () => {
 		// Open and apply a date filter first
 		const calendarButton = screen.getByLabelText("Filter by date range");
 		await user.click(calendarButton);
-		await user.click(screen.getByText("Select Start"));
-		await user.click(screen.getByText("Select End"));
-		const applyButtons = screen.getAllByRole("button");
-		const applyButton = applyButtons.find((b) => b.textContent === "Apply");
-		if (applyButton) {
-			await user.click(applyButton);
-		}
-		// Now clear it
+		// Use fireEvent for interactions inside the portaled popover
+		const selectBtn = screen.getByTestId("select-date-btn");
+		fireEvent.click(selectBtn); // Select Start
+		fireEvent.click(selectBtn); // Select End
+		// Wait for Clear button to appear after date selection
 		await waitFor(() => {
-			expect(screen.getByLabelText(/Date filter:/)).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: /clear/i }),
+			).toBeInTheDocument();
 		});
-		const clearFilterButton = screen.getByLabelText(/Clear date filter/);
-		await user.click(clearFilterButton);
-		expect(screen.getByLabelText("Filter by date range")).toBeInTheDocument();
+		const clearButton = screen.getByRole("button", { name: /clear/i });
+		fireEvent.click(clearButton);
+		// After clearing, the date filter should be removed
+		await waitFor(() => {
+			expect(screen.getByLabelText("Filter by date range")).toBeInTheDocument();
+		});
 	});
 });

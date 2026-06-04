@@ -1,4 +1,4 @@
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { server } from "../../test/mocks/server";
@@ -37,7 +37,11 @@ vi.mock("../../components/AccentCalendar", () => ({
 		<div data-testid="accent-calendar">
 			<span>From: {from}</span>
 			<span>To: {to}</span>
-			<button type="button" onClick={() => onSelect("2026-05-10")}>
+			<button
+				type="button"
+				data-testid="select-date-btn"
+				onClick={() => onSelect("2026-05-10")}
+			>
 				Select Date
 			</button>
 		</div>
@@ -518,13 +522,16 @@ describe("Logs", () => {
 				expect(screen.getByTestId("accent-calendar")).toBeInTheDocument();
 			});
 
-			// Select a date
-			const selectButton = screen.getByText("Select Date");
-			await user.click(selectButton);
+			// Select start and end dates via mock calendar.
+			// Use fireEvent for interactions inside the portaled popover to avoid
+			// the mousedown-based click-outside handler closing the popover.
+			const selectBtn = screen.getByTestId("select-date-btn");
+			fireEvent.click(selectBtn); // Select Start
+			fireEvent.click(selectBtn); // Select End
 
 			// Click Apply
-			const applyButton = screen.getByText("Apply");
-			await user.click(applyButton);
+			const applyButton = screen.getByRole("button", { name: /apply/i });
+			fireEvent.click(applyButton);
 
 			await waitFor(() => {
 				expect(screen.queryByTestId("accent-calendar")).not.toBeInTheDocument();

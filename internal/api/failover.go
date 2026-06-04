@@ -35,8 +35,6 @@ type FailoverHandler struct {
 	cbStatusMu        sync.Mutex
 }
 
-// NewFailoverHandler creates a new failover group handler.
-
 // CircuitBreakerReader provides read-only access to circuit breaker status.
 type CircuitBreakerReader interface {
 	Status() []failover.ProviderStatus
@@ -561,6 +559,13 @@ func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Re
 	// Count failover group members not yet tracked by the circuit breaker as closed.
 	// Providers only appear in the CB map after being routed; until then they're
 	// implicitly healthy (closed).
+	//
+	// Note: there is an inherent race between reading cbReader.Status() above and
+	// failoverRepo.List() below. A provider that transitions from untracked to
+	// tracked (e.g., after a route that triggers its first CB circuit creation)
+	// could be counted in both passes, slightly inflating totals. This is acceptable
+	// for an aggregate dashboard endpoint with a 5s cache TTL — the next poll
+	// will correct any transient overcount.
 	if h.failoverRepo != nil {
 		groups, err := h.failoverRepo.List(r.Context())
 		if err == nil {

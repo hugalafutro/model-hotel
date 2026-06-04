@@ -873,3 +873,97 @@ func TestCircuitBreakerStatus_NoCircuitBreaker(t *testing.T) {
 		t.Errorf("expected open=0, got %v", resp["open"])
 	}
 }
+
+func TestCircuitBreakerStatus_UntrackedMembers(t *testing.T) {
+	// This test verifies that failover group members not yet tracked by the
+	// circuit breaker are counted as "closed" (implicitly healthy).
+	// Providers only appear in the CB map after being routed; until then
+	// the aggregate status endpoint should count them as closed.
+
+	h := newTestHandler(t)
+	r := chi.NewRouter()
+	h.Register(r)
+
+	// Create a provider
+	providerData := fmt.Sprintf(`{"name": "test-cb-untracked-%s", "base_url": "https://api.openai.com", "api_key": "test-api-key"}`, uuid.New().String()[:8])
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var providerResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
+		t.Fatalf("failed to parse provider: %v", err)
+	}
+
+	// Insert two models directly via DB
+	pool := h.Pool().Pool()
+	modelID1 := uuid.New().String()
+	modelID2 := uuid.New().String()
+	_, err := pool.Exec(context.Background(),
+		`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
+		modelID1, providerResp.ID, "gpt-4o-mini", "GPT-4o Mini", true)
+	if err != nil {
+		t.Fatalf("failed to insert model 1: %v", err)
+	}
+	_, err = pool.Exec(context.Background(),
+		`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
+		modelID2, providerResp.ID, "gpt-4o", "GPT-4o", true)
+	if err != nil {
+		t.Fatalf("failed to insert model 2: %v", err)
+	}
+
+	// Create a failover group with both models
+	groupData := fmt.Sprintf(`{"display_model":"test-cb-untracked-group","entry_ids":["%s","%s"]}`, modelID1, modelID2)
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest("POST", "/failover-groups/", strings.NewReader(groupData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("failed to create failover group: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// Set a mock circuit breaker that tracks NO providers (empty).
+	// All failover group members should be counted as "closed".
+	mockCB := &mockCircuitBreakerReader{
+		statuses: []failover.ProviderStatus{},
+	}
+	h.SetCircuitBreaker(mockCB)
+
+	// Hit the circuit-breaker-status endpoint
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest("GET", "/failover-groups/circuit-breaker-status", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]interface{}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	// Both untracked members should be counted as closed
+	if closed, ok := resp["closed"].(float64); !ok || closed != 2 {
+		t.Errorf("expected closed=2 (untracked members), got %v", resp["closed"])
+	}
+	if halfOpen, ok := resp["half_open"].(float64); !ok || halfOpen != 0 {
+		t.Errorf("expected half_open=0, got %v", resp["half_open"])
+	}
+	if open, ok := resp["open"].(float64); !ok || open != 0 {
+		t.Errorf("expected open=0, got %v", resp["open"])
+	}
+	// Aggregate queries should not include the providers array
+	if _, exists := resp["providers"]; exists {
+		t.Error("expected no providers field in aggregate response")
+	}
+}

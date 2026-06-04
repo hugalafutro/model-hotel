@@ -115,6 +115,18 @@ vi.stubGlobal(
 	}),
 );
 
+// Mock ResizeObserver (jsdom doesn't implement it)
+if (typeof globalThis.ResizeObserver === "undefined") {
+	globalThis.ResizeObserver = class ResizeObserver {
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		constructor(_callback: ResizeObserverCallback) {}
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		observe(_target: Element, _options?: ResizeObserverOptions) {}
+		unobserve() {}
+		disconnect() {}
+	} as unknown as typeof globalThis.ResizeObserver;
+}
+
 // Mock Element.setPointerCapture (jsdom doesn't implement it)
 if (typeof Element !== "undefined" && !Element.prototype.setPointerCapture) {
 	Element.prototype.setPointerCapture = () => {};

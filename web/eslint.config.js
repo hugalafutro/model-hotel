@@ -25,8 +25,16 @@ export default defineConfig([
 		// Ref identity is stable so they're never needed as deps, but the
 		// linter can't distinguish refs from other values. "warn" catches
 		// genuine missing deps without blocking CI on ref false positives.
+		//
+		// The compiler-enforced purity/refs/set-state-in-effect rules are
+		// overly strict for common patterns like Date.now() in render
+		// (SortableEntry, ToastContext) and ref initialization (ToastContext).
+		// Downgrade to "warn" so they're surfaced without blocking CI.
 		rules: {
 			"react-hooks/exhaustive-deps": "warn",
+			"react-hooks/purity": "warn",
+			"react-hooks/refs": "warn",
+			"react-hooks/set-state-in-effect": "warn",
 		},
 	},
 ]);

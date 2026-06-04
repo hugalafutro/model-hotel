@@ -16,6 +16,12 @@ interface DateRangePickerPopoverProps {
 	onClose: () => void;
 	/** Which side to anchor the popover. "right" for AppLogs, "left" for Logs. */
 	anchor?: "left" | "right";
+	/**
+	 * Ref to the container element holding the trigger button.
+	 * When provided, the DOM query for the trigger is scoped to this element
+	 * instead of document, avoiding conflicts if multiple instances exist.
+	 */
+	triggerRef?: React.RefObject<HTMLElement | null>;
 }
 
 /**
@@ -33,6 +39,7 @@ export function DateRangePickerPopover({
 	onClear,
 	onClose,
 	anchor = "right",
+	triggerRef,
 }: DateRangePickerPopoverProps) {
 	const { t } = useTranslation();
 	const popoverRef = useRef<HTMLDivElement>(null);
@@ -41,10 +48,10 @@ export function DateRangePickerPopover({
 		left: 0,
 	});
 
-	// Find the trigger button (sibling of the portal mount point) to position relative to
+	// Find the trigger button via the scoped ref or document fallback.
 	useLayoutEffect(() => {
-		// The trigger is the closest button in the parent container
-		const trigger = document.querySelector(
+		const scope = triggerRef?.current ?? document;
+		const trigger = scope.querySelector<HTMLElement>(
 			'[aria-label="Filter by date range"]',
 		);
 		if (!trigger) return;
@@ -58,17 +65,18 @@ export function DateRangePickerPopover({
 			anchor === "right" ? triggerRect.right - popoverWidth : triggerRect.left;
 
 		setPosition({ top, left });
-	}, [anchor]);
+	}, [anchor, triggerRef]);
 
 	// Close on click outside
 	useLayoutEffect(() => {
+		const scope = triggerRef?.current ?? document;
 		const handleClickOutside = (e: MouseEvent) => {
 			if (
 				popoverRef.current &&
 				!popoverRef.current.contains(e.target as Node)
 			) {
 				// Check if click is on the trigger button (which toggles the picker)
-				const trigger = document.querySelector(
+				const trigger = scope.querySelector<HTMLElement>(
 					'[aria-label="Filter by date range"]',
 				);
 				if (trigger?.contains(e.target as Node)) return;
@@ -77,7 +85,7 @@ export function DateRangePickerPopover({
 		};
 		document.addEventListener("mousedown", handleClickOutside);
 		return () => document.removeEventListener("mousedown", handleClickOutside);
-	}, [onClose]);
+	}, [onClose, triggerRef]);
 
 	const popover = (
 		<div

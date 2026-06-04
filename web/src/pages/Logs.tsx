@@ -458,6 +458,7 @@ function RequestLogs() {
 										onClear={clearDateFilter}
 										onClose={closeDatePicker}
 										anchor="left"
+										triggerRef={datePickerRef}
 									/>
 								)}
 							</div>

@@ -1,7 +1,6 @@
 import { screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FailoverGroup } from "../../../api/types";
-import { mockProvider } from "../../../test/mocks/data";
 import { renderWithProviders } from "../../../test/utils";
 import { SortableEntry } from "../SortableEntry";
 
@@ -188,11 +187,12 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 	});
 
 	describe("cbStatus with state 'open' but consecutive_fails < 5", () => {
-		it("does NOT render FuseOutline for fast backoff (insufficient fails)", () => {
+		it("renders FuseOutline for open state regardless of consecutive_fails count", () => {
 			const cbStatus = {
 				state: "open",
 				cooldown_ms: 60000,
 				consecutive_fails: 3,
+				next_retry_at: new Date(Date.now() + 60000).toISOString(),
 			};
 
 			const { container } = renderWithProviders(
@@ -204,14 +204,17 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 				/>,
 			);
 
-			// No FuseOutline should render (less than 5 fails)
+			// FuseOutline IS rendered when cbStatus.state === "open" and entry.enabled,
+			// regardless of consecutive_fails count (component trusts CB state directly)
+			// Note: next_retry_at must be set to avoid elapsedCooldown=true which renders
+			// a boxShadow div instead of FuseOutline SVG
 			const svgElements = container.querySelectorAll("svg");
-			expect(svgElements.length).toBe(0);
+			expect(svgElements.length).toBeGreaterThan(0);
 
-			// Entry should NOT have overflow: hidden
+			// Entry should have overflow: hidden when showFuse is true
 			const wrapperDiv = getWrapperDiv(container);
 			if (wrapperDiv) {
-				expect(wrapperDiv).not.toHaveStyle("overflow: hidden");
+				expect(wrapperDiv).toHaveStyle("overflow: hidden");
 			}
 		});
 	});

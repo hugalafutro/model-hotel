@@ -26,7 +26,7 @@ export function useResizeObserver<
 		if (ref.current !== observedEl) {
 			setObservedEl(ref.current);
 		}
-	});
+	}, [observedEl]);
 
 	useEffect(() => {
 		if (!observedEl) return;

@@ -111,22 +111,24 @@ describe("DateRangePickerPopover", () => {
 		expect(summaryElement).toBeInTheDocument();
 	});
 
-	it("anchors to right side by default", () => {
-		const { container } = renderWithProviders(
-			<DateRangePickerPopover {...defaultProps} />,
-		);
-		const popover = container.firstChild as HTMLElement;
-		expect(popover).toHaveClass("right-0");
-		expect(popover).not.toHaveClass("left-0");
+	it("renders as a portaled popover with fixed positioning", () => {
+		renderWithProviders(<DateRangePickerPopover {...defaultProps} />);
+		// Component uses createPortal to document.body, so look there
+		const popover = document.querySelector(".w-72");
+		expect(popover).toBeTruthy();
+		expect(popover?.className).toContain("fixed");
+		expect(popover?.className).toContain("ui-card");
+		expect(popover?.className).toContain("shadow-2xl");
+		expect(popover?.className).toContain("z-50");
 	});
 
-	it("anchors to left side when anchor='left'", () => {
-		const { container } = renderWithProviders(
-			<DateRangePickerPopover {...defaultProps} anchor="left" />,
-		);
-		const popover = container.firstChild as HTMLElement;
-		expect(popover).toHaveClass("left-0");
-		expect(popover).not.toHaveClass("right-0");
+	it("positions popover with inline style", () => {
+		renderWithProviders(<DateRangePickerPopover {...defaultProps} />);
+		const popover = document.querySelector(".w-72");
+		expect(popover).toBeTruthy();
+		// Position is set via inline style (top/left) from useLayoutEffect.
+		// In jsdom, getBoundingClientRect returns zeros, so top is 0 + gap = gap.
+		expect(popover).toHaveStyle({ top: "0px" });
 	});
 
 	it("calls onCalendarSelect when a day is selected", async () => {
@@ -162,13 +164,12 @@ describe("DateRangePickerPopover", () => {
 	});
 
 	it("has correct popover styling", () => {
-		const { container } = renderWithProviders(
-			<DateRangePickerPopover {...defaultProps} />,
-		);
-		const popover = container.firstChild as HTMLElement;
-		expect(popover).toHaveClass("absolute");
-		expect(popover).toHaveClass("ui-card");
-		expect(popover).toHaveClass("shadow-2xl");
-		expect(popover).toHaveClass("z-50");
+		renderWithProviders(<DateRangePickerPopover {...defaultProps} />);
+		const popover = document.querySelector(".w-72");
+		expect(popover).toBeTruthy();
+		expect(popover?.className).toContain("fixed");
+		expect(popover?.className).toContain("ui-card");
+		expect(popover?.className).toContain("shadow-2xl");
+		expect(popover?.className).toContain("z-50");
 	});
 });

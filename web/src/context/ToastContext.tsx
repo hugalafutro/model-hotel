@@ -154,9 +154,16 @@ function ToastItem({
 }) {
 	const [paused, setPaused] = useState(false);
 	const [fading, setFading] = useState(false);
-	const startTimeRef = useRef(Date.now());
+	const startTimeRef = useRef(0);
 	const remainingRef = useRef(timeout);
 	const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+	// Initialize start time on mount (Date.now() is impure during render)
+	useEffect(() => {
+		if (startTimeRef.current === 0) {
+			startTimeRef.current = Date.now();
+		}
+	}, []);
 
 	const triggerDone = useCallback(() => {
 		setFading(true);

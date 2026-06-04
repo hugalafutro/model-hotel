@@ -822,15 +822,12 @@ describe("ModelTable", () => {
 			);
 
 			// Verify "Manually Disabled" text appears
-			expect(screen.getByText("Manually Disabled")).toBeInTheDocument();
+			const statusBadge = screen.getByText("Manually Disabled");
+			expect(statusBadge).toBeInTheDocument();
 
 			// Verify the badge has yellow/warning styling
-			// Note: getByText finds the inner <span class="badge-text">, so we use
-			// closest('[data-test-variant]') to find the outer Badge span
-			const badge = screen
-				.getByText("Manually Disabled")
-				.closest("[data-test-variant]");
-			expect(badge?.className).toMatch(/yellow|amber/);
+			// The text is in the inner <span class="badge-text">, check parent's class
+			expect(statusBadge.parentElement?.className).toMatch(/yellow/);
 		});
 	});
 
