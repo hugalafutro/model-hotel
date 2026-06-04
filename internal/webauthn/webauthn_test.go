@@ -678,21 +678,23 @@ func TestGenerateChallenge(t *testing.T) {
 	}
 }
 
-// TestSessionManagerRevokeAuthToken_WrongType verifies that RevokeAuthToken
-// returns false for tokens that belong to non-auth_token sessions (e.g., registration).
-func TestSessionManagerRevokeAuthToken_WrongType(t *testing.T) {
+// TestSessionManagerRevokeAuthToken_NonAuthToken verifies that RevokeAuthToken
+// returns false when no auth_token session matches the token. A registration-type
+// session with the same token hash exists in the DB, but GetSessionByTokenHash
+// filters by type='auth_token', so the lookup returns ErrNotFound.
+func TestSessionManagerRevokeAuthToken_NonAuthToken(t *testing.T) {
 	repo := newTestRepo(t)
 	ctx := context.Background()
 
 	// Create a registration session with a known token hash
-	testToken := "revoke-wrong-type-test-token"
+	testToken := "revoke-non-auth-token"
 	hash := sha256.Sum256([]byte(testToken))
 	tokenHash := hex.EncodeToString(hash[:])
 
 	sessionID := uuid.New()
 	session := &SessionRecord{
 		ID:          sessionID,
-		Challenge:   "revoke-wrong-type-challenge",
+		Challenge:   "revoke-non-auth-challenge",
 		SessionData: []byte(`{"type":"registration"}`),
 		Type:        "registration",
 		UserID:      []byte("admin"),
@@ -707,8 +709,10 @@ func TestSessionManagerRevokeAuthToken_WrongType(t *testing.T) {
 
 	mgr := NewSessionManager(repo)
 
+	// RevokeAuthToken looks up by token_hash WHERE type='auth_token',
+	// so the registration session is invisible to this query.
 	if mgr.RevokeAuthToken(ctx, testToken) {
-		t.Error("expected RevokeAuthToken to return false for non-auth_token session")
+		t.Error("expected RevokeAuthToken to return false when no auth_token session matches")
 	}
 }
 

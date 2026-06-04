@@ -46,11 +46,7 @@ func (m *SessionManager) Validate(ctx context.Context, token string) bool {
 		return false
 	}
 
-	if session.Type != "auth_token" {
-		return false
-	}
-
-	if time.Now().After(session.ExpiresAt) {
+	if session.ExpiresAt.Before(time.Now()) {
 		return false
 	}
 
@@ -131,10 +127,6 @@ func (m *SessionManager) RevokeAuthToken(ctx context.Context, token string) bool
 
 	session, err := m.repo.GetSessionByTokenHash(ctx, tokenHash)
 	if err != nil {
-		return false
-	}
-
-	if session.Type != "auth_token" {
 		return false
 	}
 
