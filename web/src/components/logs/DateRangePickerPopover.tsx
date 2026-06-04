@@ -65,10 +65,15 @@ export function DateRangePickerPopover({
 		const reposition = () => {
 			const triggerRect = trigger.getBoundingClientRect();
 			const top = triggerRect.bottom + gap;
-			const left =
+			let left =
 				anchor === "right"
 					? triggerRect.right - popoverWidth
 					: triggerRect.left;
+			// Clamp to viewport so the popover never renders off-screen.
+			const viewportWidth = window.innerWidth;
+			if (left < 0) left = 0;
+			if (left + popoverWidth > viewportWidth)
+				left = viewportWidth - popoverWidth;
 			setPosition({ top, left });
 		};
 

@@ -190,25 +190,27 @@ describe("DateRangePickerPopover", () => {
 			) as HTMLElement;
 			expect(popover).toBeTruthy();
 			// In jsdom, getBoundingClientRect returns zeros so:
-			// left = triggerRect.right - 288 = 0 - 288 = -288
-			expect(popover.style.left).toBe("-288px");
+			// left = triggerRect.right - 288 = -288, clamped to 0 by viewport bounds.
+			expect(popover.style.left).toBe("0px");
 		});
 
-		it("positions popover left-aligned when anchor is left", () => {
+		it("clamps left-aligned popover that would exceed viewport", () => {
 			const { container } = renderWithProviders(
 				<>
 					<button type="button" data-popover-trigger="date-range">
 						Trigger
 					</button>
-					<DateRangePickerPopover {...defaultProps} anchor="left" />,
+					<DateRangePickerPopover {...defaultProps} anchor="left" />
 				</>,
 			);
 			const popover = container.ownerDocument.querySelector(
 				".w-72",
 			) as HTMLElement;
 			expect(popover).toBeTruthy();
-			// In jsdom, getBoundingClientRect returns zeros so:
-			// left = triggerRect.left = 0
+			// Viewport clamp keeps the popover within window bounds.
+			// Both anchor="left" (left = triggerRect.left = 0) and
+			// anchor="right" (left = -288, clamped to 0) end up at 0
+			// in jsdom since getBoundingClientRect returns zeros.
 			expect(popover.style.left).toBe("0px");
 		});
 
@@ -225,8 +227,8 @@ describe("DateRangePickerPopover", () => {
 				".w-72",
 			) as HTMLElement;
 			expect(popover).toBeTruthy();
-			// Default anchor="right" → left = triggerRect.right - 288 = -288
-			expect(popover.style.left).toBe("-288px");
+			// Default anchor="right" → left = -288, clamped to 0 by viewport bounds.
+			expect(popover.style.left).toBe("0px");
 		});
 	});
 
