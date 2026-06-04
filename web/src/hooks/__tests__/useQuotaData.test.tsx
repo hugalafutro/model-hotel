@@ -405,7 +405,8 @@ describe("useQuotaData", () => {
 	it("hides badges when provider is missing", async () => {
 		const providersWithoutNano = mockProviders.filter((p) => {
 			try {
-				return new URL(p.base_url).hostname !== "nano-gpt.com";
+				const host = new URL(p.base_url).hostname;
+				return !host.endsWith("nano-gpt.com");
 			} catch {
 				return true;
 			}
