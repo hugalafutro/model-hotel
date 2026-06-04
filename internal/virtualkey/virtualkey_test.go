@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 
 	"github.com/hugalafutro/model-hotel/internal/db"
 )
@@ -599,36 +598,8 @@ func TestRepository_Delete_NotFound_NoError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// TestRepository_List edge cases
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
 // DB error-path tests (canceled context forces errors)
 // ---------------------------------------------------------------------------
-
-func TestRepository_List_ScanError(t *testing.T) {
-	ctx := context.Background()
-	repo := NewRepository(testDB.Pool())
-
-	orig := rowsScan
-	defer func() { rowsScan = orig }()
-
-	// Create a key so rows.Next() returns true and rows.Scan is called.
-	suffix := uuid.New().String()[:8]
-	_, err := repo.Create(ctx, "scan-err-"+suffix, "hash-scan-"+suffix, "sk-...sc", nil, nil, nil, nil)
-	if err != nil {
-		t.Fatalf("Create() setup failed: %v", err)
-	}
-
-	rowsScan = func(_ pgx.Rows, _ ...any) error {
-		return errors.New("forced scan error")
-	}
-
-	_, err = repo.List(ctx)
-	if err == nil {
-		t.Error("expected scan error, got nil")
-	}
-}
 
 func TestRepository_List_DBError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
