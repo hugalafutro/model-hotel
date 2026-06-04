@@ -662,3 +662,273 @@ func TestWebAuthnHandler_ListCredentials_WithStoredCredential(t *testing.T) {
 		t.Error("expected to find stored credential 'Test Key' in response")
 	}
 }
+
+// TestWebAuthnHandler_RenameCredential_InvalidJSONBody tests that malformed JSON returns 400
+func TestWebAuthnHandler_RenameCredential_InvalidJSONBody(t *testing.T) {
+	h := newTestWebAuthnHandler(nil, nil, nil, nil)
+
+	body := `{"invalid"`
+	req := httptest.NewRequest(http.MethodPatch, "/webauthn/credentials/dGVzdA", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", "dGVzdA")
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+	h.RenameCredential(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+}
+
+// TestWebAuthnHandler_RenameCredential_EmptyID tests that empty ID in URL param returns 400
+func TestWebAuthnHandler_RenameCredential_EmptyID(t *testing.T) {
+	h := newTestWebAuthnHandler(nil, nil, nil, nil)
+
+	body := renameCredentialRequest{Name: "New Name"}
+	bodyBytes, _ := json.Marshal(body)
+	req := httptest.NewRequest(http.MethodPatch, "/webauthn/credentials/", strings.NewReader(string(bodyBytes)))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", "")
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+	h.RenameCredential(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+}
+
+// TestWebAuthnHandler_RegisterFinish_WrongSessionType tests that using a login session for register returns 400
+func TestWebAuthnHandler_RegisterFinish_WrongSessionType(t *testing.T) {
+	dbURL := apiTestDBURL
+	if dbURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	pool, err := pgxpool.New(context.Background(), dbURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	t.Cleanup(pool.Close)
+
+	ctx := context.Background()
+	repo := webauthn.NewRepository(pool)
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := newTestWebAuthnHandler(repo, nil, nil, adminMgr)
+
+	// Create a login session (wrong type for register endpoint)
+	sessionID := uuid.New()
+	session := &webauthn.SessionRecord{
+		ID:          sessionID,
+		Challenge:   "test-challenge",
+		SessionData: []byte(`{"type":"login"}`),
+		Type:        "login",
+		UserID:      []byte("admin"),
+		ExpiresAt:   time.Now().Add(5 * time.Minute),
+	}
+	if err := repo.CreateSession(ctx, session); err != nil {
+		t.Fatalf("failed to create session: %v", err)
+	}
+	t.Cleanup(func() {
+		repo.DeleteSession(ctx, sessionID)
+	})
+
+	body := `{"session_id": "` + sessionID.String() + `", "credential": {}}`
+	req := httptest.NewRequest(http.MethodPost, "/webauthn/register/finish", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.RegisterFinish(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "invalid session type") {
+		t.Errorf("expected 'invalid session type' error, got: %s", w.Body.String())
+	}
+}
+
+// TestWebAuthnHandler_LoginFinish_WrongSessionType tests that using a registration session for login returns 400
+func TestWebAuthnHandler_LoginFinish_WrongSessionType(t *testing.T) {
+	dbURL := apiTestDBURL
+	if dbURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	pool, err := pgxpool.New(context.Background(), dbURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	t.Cleanup(pool.Close)
+
+	ctx := context.Background()
+	repo := webauthn.NewRepository(pool)
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := newTestWebAuthnHandler(repo, nil, nil, adminMgr)
+
+	// Create a registration session (wrong type for login endpoint)
+	sessionID := uuid.New()
+	session := &webauthn.SessionRecord{
+		ID:          sessionID,
+		Challenge:   "test-challenge",
+		SessionData: []byte(`{"type":"registration"}`),
+		Type:        "registration",
+		UserID:      []byte("admin"),
+		ExpiresAt:   time.Now().Add(5 * time.Minute),
+	}
+	if err := repo.CreateSession(ctx, session); err != nil {
+		t.Fatalf("failed to create session: %v", err)
+	}
+	t.Cleanup(func() {
+		repo.DeleteSession(ctx, sessionID)
+	})
+
+	body := `{"session_id": "` + sessionID.String() + `", "credential": {}}`
+	req := httptest.NewRequest(http.MethodPost, "/webauthn/login/finish", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.LoginFinish(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "invalid session type") {
+		t.Errorf("expected 'invalid session type' error, got: %s", w.Body.String())
+	}
+}
+
+// TestWebAuthnHandler_DeleteCredential_Success tests deleting an existing credential
+func TestWebAuthnHandler_DeleteCredential_Success(t *testing.T) {
+	dbURL := apiTestDBURL
+	if dbURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	pool, err := pgxpool.New(context.Background(), dbURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	t.Cleanup(pool.Close)
+
+	ctx := context.Background()
+	repo := webauthn.NewRepository(pool)
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := newTestWebAuthnHandler(repo, nil, nil, adminMgr)
+
+	// Store a test credential
+	testCredID := []byte("test-credential-to-delete")
+	testCred := webauthn.CredentialRecord{
+		Name:                      "To Delete",
+		ID:                        testCredID,
+		PublicKey:                 []byte("public-key"),
+		AttestationType:           "none",
+		AttestationFormat:         "none",
+		Transport:                 []string{"internal"},
+		FlagsByte:                 0,
+		SignCount:                 0,
+		AAGUID:                    uuid.Nil,
+		AttestationObject:         []byte("attested"),
+		AttestationClientData:     []byte{},
+		AttestationClientDataHash: []byte{},
+		AttestationPublicKeyAlgo:  -7,
+		AuthenticatorData:         []byte{},
+		CreatedAt:                 time.Now().UTC(),
+		UpdatedAt:                 time.Now().UTC(),
+	}
+	if err := repo.StoreCredential(ctx, &testCred); err != nil {
+		t.Fatalf("failed to store credential: %v", err)
+	}
+
+	// Verify it exists
+	_, err = repo.GetCredentialByID(ctx, testCredID)
+	if err != nil {
+		t.Fatalf("credential should exist before delete: %v", err)
+	}
+
+	// Delete via handler
+	req := httptest.NewRequest(http.MethodDelete, "/webauthn/credentials/"+base64.RawURLEncoding.EncodeToString(testCredID), http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-token")
+	w := httptest.NewRecorder()
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", base64.RawURLEncoding.EncodeToString(testCredID))
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+	h.DeleteCredential(w, req)
+
+	if w.Code != http.StatusNoContent {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusNoContent, w.Code, w.Body.String())
+	}
+
+	// Verify it's deleted
+	_, err = repo.GetCredentialByID(ctx, testCredID)
+	if err == nil {
+		t.Error("credential should not exist after delete")
+	}
+}
+
+// TestWebAuthnHandler_RegisterFinish_SessionNotFound tests that non-existent session returns 400
+func TestWebAuthnHandler_RegisterFinish_SessionNotFound(t *testing.T) {
+	dbURL := apiTestDBURL
+	if dbURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	pool, err := pgxpool.New(context.Background(), dbURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	t.Cleanup(pool.Close)
+
+	repo := webauthn.NewRepository(pool)
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := newTestWebAuthnHandler(repo, nil, nil, adminMgr)
+
+	// Use a valid UUID that doesn't exist in DB
+	fakeSessionID := uuid.New()
+	body := `{"session_id": "` + fakeSessionID.String() + `", "credential": {}}`
+	req := httptest.NewRequest(http.MethodPost, "/webauthn/register/finish", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.RegisterFinish(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+}
+
+// TestWebAuthnHandler_LoginFinish_SessionNotFound tests that non-existent session returns 400
+func TestWebAuthnHandler_LoginFinish_SessionNotFound(t *testing.T) {
+	dbURL := apiTestDBURL
+	if dbURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	pool, err := pgxpool.New(context.Background(), dbURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	t.Cleanup(pool.Close)
+
+	repo := webauthn.NewRepository(pool)
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := newTestWebAuthnHandler(repo, nil, nil, adminMgr)
+
+	// Use a valid UUID that doesn't exist in DB
+	fakeSessionID := uuid.New()
+	body := `{"session_id": "` + fakeSessionID.String() + `", "credential": {}}`
+	req := httptest.NewRequest(http.MethodPost, "/webauthn/login/finish", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.LoginFinish(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+}
