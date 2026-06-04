@@ -61,10 +61,7 @@ jobs:
       - name: Upload Go coverage to Codacy
         if: always()
         env:
-          CODACY_API_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
-          CODACY_ORGANIZATION_PROVIDER: gh
-          CODACY_USERNAME: hugalafutro
-          CODACY_PROJECT_NAME: model-hotel
+          CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
         run: bash <(curl -Ls https://coverage.codacy.com/get.sh) report --force-coverage-parser go -r coverage.out
 
   go-lint:
@@ -149,10 +146,7 @@ jobs:
         if: always()
         working-directory: web
         env:
-          CODACY_API_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
-          CODACY_ORGANIZATION_PROVIDER: gh
-          CODACY_USERNAME: hugalafutro
-          CODACY_PROJECT_NAME: model-hotel
+          CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
         run: bash <(curl -Ls https://coverage.codacy.com/get.sh) report -r coverage/lcov.info
 
       - name: Build
@@ -172,7 +166,7 @@ jobs:
       - name: Run Codacy Analysis CLI
         uses: codacy/codacy-analysis-cli-action@562ee3e92b8e92df8b67e0a5ff8aa8e261919c08 # v4.4.7
         with:
-          api-token: ${{ secrets.CODACY_API_TOKEN }}
+          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
           upload: true
           max-allowed-issues: 2147483647
 
