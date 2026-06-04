@@ -349,8 +349,7 @@ describe("Row", () => {
 				</tbody>
 			</table>,
 		);
-		// biome-ignore lint/style/noNonNullAssertion: test assertion
-		const row = screen.getByText("Clickable row").parentElement!;
+		const row = screen.getByText("Clickable row").parentElement as HTMLElement;
 		row.focus();
 		await user.keyboard("{Enter}");
 		expect(onClick).toHaveBeenCalledTimes(1);
@@ -368,8 +367,7 @@ describe("Row", () => {
 				</tbody>
 			</table>,
 		);
-		// biome-ignore lint/style/noNonNullAssertion: test assertion
-		const row = screen.getByText("Clickable row").parentElement!;
+		const row = screen.getByText("Clickable row").parentElement as HTMLElement;
 		row.focus();
 		await user.keyboard(" ");
 		expect(onClick).toHaveBeenCalledTimes(1);
@@ -385,8 +383,7 @@ describe("Row", () => {
 				</tbody>
 			</table>,
 		);
-		// biome-ignore lint/style/noNonNullAssertion: test assertion
-		const row = screen.getByText("Clickable").parentElement!;
+		const row = screen.getByText("Clickable").parentElement as HTMLElement;
 		expect(row).toHaveAttribute("role", "button");
 		expect(row).toHaveAttribute("tabIndex", "0");
 	});

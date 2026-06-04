@@ -449,8 +449,8 @@ describe("Drag-to-pan and wheel scroll", () => {
 			/>,
 		);
 
-		// biome-ignore lint/style/noNonNullAssertion: test code, parentElement always exists
-		const chartContainer = screen.getByTestId("area-chart").parentElement!;
+		const chartContainer = screen.getByTestId("area-chart")
+			.parentElement as HTMLElement;
 
 		// First scroll to older data (positive delta = decrease start = older)
 		fireEvent.wheel(chartContainer, { deltaY: 50 });
@@ -470,8 +470,8 @@ describe("Drag-to-pan and wheel scroll", () => {
 			/>,
 		);
 
-		// biome-ignore lint/style/noNonNullAssertion: test code, parentElement always exists
-		const chartContainer = screen.getByTestId("area-chart").parentElement!;
+		const chartContainer = screen.getByTestId("area-chart")
+			.parentElement as HTMLElement;
 
 		// Fire pointer down event
 		fireEvent.pointerDown(chartContainer, { clientX: 100, pointerId: 1 });
@@ -491,8 +491,8 @@ describe("Drag-to-pan and wheel scroll", () => {
 			/>,
 		);
 
-		// biome-ignore lint/style/noNonNullAssertion: test code, parentElement always exists
-		const chartContainer = screen.getByTestId("area-chart").parentElement!;
+		const chartContainer = screen.getByTestId("area-chart")
+			.parentElement as HTMLElement;
 
 		// Start drag
 		fireEvent.pointerDown(chartContainer, { clientX: 100, pointerId: 1 });
@@ -515,8 +515,8 @@ describe("Drag-to-pan and wheel scroll", () => {
 			/>,
 		);
 
-		// biome-ignore lint/style/noNonNullAssertion: test code, parentElement always exists
-		const chartContainer = screen.getByTestId("area-chart").parentElement!;
+		const chartContainer = screen.getByTestId("area-chart")
+			.parentElement as HTMLElement;
 
 		// Start drag
 		fireEvent.pointerDown(chartContainer, { clientX: 100, pointerId: 1 });
@@ -546,8 +546,8 @@ describe("Drag-to-pan and wheel scroll", () => {
 			/>,
 		);
 
-		// biome-ignore lint/style/noNonNullAssertion: test code, parentElement always exists
-		const chartContainer = screen.getByTestId("area-chart").parentElement!;
+		const chartContainer = screen.getByTestId("area-chart")
+			.parentElement as HTMLElement;
 
 		// Positive delta = scroll right = see older data (decrease start)
 		fireEvent.wheel(chartContainer, { deltaY: 50 });
@@ -569,8 +569,8 @@ describe("Drag-to-pan and wheel scroll", () => {
 			/>,
 		);
 
-		// biome-ignore lint/style/noNonNullAssertion: test code, parentElement always exists
-		const chartContainer = screen.getByTestId("area-chart").parentElement!;
+		const chartContainer = screen.getByTestId("area-chart")
+			.parentElement as HTMLElement;
 
 		// First scroll to older data
 		fireEvent.wheel(chartContainer, { deltaY: 50 });
@@ -593,8 +593,8 @@ describe("Drag-to-pan and wheel scroll", () => {
 			/>,
 		);
 
-		// biome-ignore lint/style/noNonNullAssertion: test code, parentElement always exists
-		const chartContainer = screen.getByTestId("area-chart").parentElement!;
+		const chartContainer = screen.getByTestId("area-chart")
+			.parentElement as HTMLElement;
 
 		// deltaMode 1 = line mode, uses deltaX * 20
 		fireEvent.wheel(chartContainer, { deltaX: 1, deltaMode: 1 });
@@ -607,8 +607,8 @@ describe("Drag-to-pan and wheel scroll", () => {
 		// 6 points < 24 (viewportSize for 24h), so not pannable
 		renderWithProviders(<TimeSeriesChart {...defaultProps} />);
 
-		// biome-ignore lint/style/noNonNullAssertion: test code, parentElement always exists
-		const chartContainer = screen.getByTestId("area-chart").parentElement!;
+		const chartContainer = screen.getByTestId("area-chart")
+			.parentElement as HTMLElement;
 
 		// Try to scroll
 		fireEvent.wheel(chartContainer, { deltaY: 50 });
@@ -630,8 +630,8 @@ describe("Drag-to-pan and wheel scroll", () => {
 			/>,
 		);
 
-		// biome-ignore lint/style/noNonNullAssertion: test code, parentElement always exists
-		const chartContainer = screen.getByTestId("area-chart").parentElement!;
+		const chartContainer = screen.getByTestId("area-chart")
+			.parentElement as HTMLElement;
 
 		// Try to scroll past the start (older data boundary)
 		// Scroll multiple times to try to go past boundary
@@ -669,8 +669,8 @@ describe("Drag-to-pan and wheel scroll", () => {
 			/>,
 		);
 
-		// biome-ignore lint/style/noNonNullAssertion: test code, parentElement always exists
-		const chartContainer = screen.getByTestId("area-chart").parentElement!;
+		const chartContainer = screen.getByTestId("area-chart")
+			.parentElement as HTMLElement;
 
 		// Start drag
 		fireEvent.pointerDown(chartContainer, { clientX: 100, pointerId: 1 });
@@ -687,8 +687,8 @@ describe("Drag-to-pan and wheel scroll", () => {
 		// 6 points < 24 (viewportSize for 24h), so not pannable
 		renderWithProviders(<TimeSeriesChart {...defaultProps} />);
 
-		// biome-ignore lint/style/noNonNullAssertion: test code, parentElement always exists
-		const chartContainer = screen.getByTestId("area-chart").parentElement!;
+		const chartContainer = screen.getByTestId("area-chart")
+			.parentElement as HTMLElement;
 
 		// Try to start drag
 		fireEvent.pointerDown(chartContainer, { clientX: 100, pointerId: 1 });
@@ -709,8 +709,8 @@ describe("Drag-to-pan and wheel scroll", () => {
 			/>,
 		);
 
-		// biome-ignore lint/style/noNonNullAssertion: test code, parentElement always exists
-		const chartContainer = screen.getByTestId("area-chart").parentElement!;
+		const chartContainer = screen.getByTestId("area-chart")
+			.parentElement as HTMLElement;
 
 		// deltaX (100) > deltaY (10), so should use deltaX
 		fireEvent.wheel(chartContainer, { deltaX: 100, deltaY: 10 });
@@ -730,8 +730,8 @@ describe("Drag-to-pan and wheel scroll", () => {
 			/>,
 		);
 
-		// biome-ignore lint/style/noNonNullAssertion: test code, parentElement always exists
-		const chartContainer = screen.getByTestId("area-chart").parentElement!;
+		const chartContainer = screen.getByTestId("area-chart")
+			.parentElement as HTMLElement;
 
 		// deltaY (100) > deltaX (10), so should use deltaY
 		fireEvent.wheel(chartContainer, { deltaX: 10, deltaY: 100 });
@@ -778,8 +778,8 @@ describe("Overlay and panDateLabel", () => {
 			/>,
 		);
 
-		// biome-ignore lint/style/noNonNullAssertion: test code, parentElement always exists
-		const chartContainer = screen.getByTestId("area-chart").parentElement!;
+		const chartContainer = screen.getByTestId("area-chart")
+			.parentElement as HTMLElement;
 
 		fireEvent.pointerDown(chartContainer, { clientX: 100, pointerId: 1 });
 

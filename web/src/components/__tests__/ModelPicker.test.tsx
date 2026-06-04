@@ -217,19 +217,17 @@ describe("ModelPicker", () => {
 			const { container, user } = renderWithProviders(
 				<ModelPicker {...defaultProps} />,
 			);
-			// biome-ignore lint/style/noNonNullAssertion: test assertion
 			const filterContainer = container.querySelector(
 				'[data-testid="provider-filter"]',
-			)!;
-			await user.click(
-				within(filterContainer as HTMLElement).getByText("Filter Providers"),
-			);
+			) as HTMLElement;
+			await user.click(within(filterContainer).getByText("Filter Providers"));
 			// Disambiguate dropdown "OpenAI" from group heading "OpenAI"
 			const dropdown = container.querySelector(
 				'[data-testid="provider-filter-dropdown"]',
 			) as HTMLElement;
-			// biome-ignore lint/style/noNonNullAssertion: test assertion
-			const openaiBtn = within(dropdown).getByText("OpenAI").closest("button")!;
+			const openaiBtn = within(dropdown)
+				.getByText("OpenAI")
+				.closest("button") as HTMLElement;
 			fireEvent.click(openaiBtn);
 			expect(screen.getByText("GPT-4")).toBeInTheDocument();
 			expect(screen.queryByText("Claude 3")).not.toBeInTheDocument();
@@ -242,23 +240,22 @@ describe("ModelPicker", () => {
 			// ProviderFilter has click-outside handling (mousedown on document).
 			// user.click fires mousedown → click, which closes the dropdown before
 			// the option click registers. Use fireEvent.click to bypass mousedown.
-			// biome-ignore lint/style/noNonNullAssertion: test assertion
 			const filterContainer = container.querySelector(
 				'[data-testid="provider-filter"]',
-			)!;
-			await user.click(
-				within(filterContainer as HTMLElement).getByText("Filter Providers"),
-			);
+			) as HTMLElement;
+			await user.click(within(filterContainer).getByText("Filter Providers"));
 			const dropdown = container.querySelector(
 				'[data-testid="provider-filter-dropdown"]',
 			) as HTMLElement;
 			// Select OpenAI - dropdown stays open after fireEvent.click
-			// biome-ignore lint/style/noNonNullAssertion: test assertion
-			fireEvent.click(within(dropdown).getByText("OpenAI").closest("button")!);
+			fireEvent.click(
+				within(dropdown).getByText("OpenAI").closest("button") as HTMLElement,
+			);
 			// Select Anthropic in same open dropdown
 			fireEvent.click(
-				// biome-ignore lint/style/noNonNullAssertion: test assertion
-				within(dropdown).getByText("Anthropic").closest("button")!,
+				within(dropdown)
+					.getByText("Anthropic")
+					.closest("button") as HTMLElement,
 			);
 			expect(screen.getByText("GPT-4")).toBeInTheDocument();
 			expect(screen.getByText("Claude 3")).toBeInTheDocument();
@@ -268,19 +265,17 @@ describe("ModelPicker", () => {
 			const { container, user } = renderWithProviders(
 				<ModelPicker {...defaultProps} />,
 			);
-			// biome-ignore lint/style/noNonNullAssertion: test assertion
 			const filterContainer = container.querySelector(
 				'[data-testid="provider-filter"]',
-			)!;
-			await user.click(
-				within(filterContainer as HTMLElement).getByText("Filter Providers"),
-			);
+			) as HTMLElement;
+			await user.click(within(filterContainer).getByText("Filter Providers"));
 			const dropdown = container.querySelector(
 				'[data-testid="provider-filter-dropdown"]',
 			) as HTMLElement;
 			// Select OpenAI - dropdown stays open after fireEvent.click
-			// biome-ignore lint/style/noNonNullAssertion: test assertion
-			fireEvent.click(within(dropdown).getByText("OpenAI").closest("button")!);
+			fireEvent.click(
+				within(dropdown).getByText("OpenAI").closest("button") as HTMLElement,
+			);
 			expect(screen.queryByText("Claude 3")).not.toBeInTheDocument();
 			// Click "Clear" in the same open dropdown (it's a bulk action button)
 			fireEvent.click(within(dropdown).getByText("Clear"));

@@ -326,9 +326,10 @@ describe("ToastItem", () => {
 
 		// jsdom doesn't fire real CSS transitions, simulate transitionend
 		const btn = screen.queryByText("Pause test");
-		if (btn) {
+		const toastEl = btn?.closest("button") ?? null;
+		if (toastEl) {
 			act(() => {
-				fireEvent.transitionEnd(btn.closest("button")!, {
+				fireEvent.transitionEnd(toastEl, {
 					propertyName: "opacity",
 				});
 			});
