@@ -162,7 +162,7 @@ export function CreateGroupModal({
 				id: group.id,
 				body: {
 					display_model: displayModel.trim() || undefined,
-					display_name: displayName.trim() || undefined,
+					display_name: displayName.trim(),
 					description: description.trim(),
 					priority_order: entryUuids,
 				},

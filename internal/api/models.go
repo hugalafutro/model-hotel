@@ -184,7 +184,7 @@ func (h *Handler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate field bounds
-	dn, dnErr := validateNamePtr("display_name", req.DisplayName, 1, 128)
+	dn, dnErr := validateClearableNamePtr("display_name", req.DisplayName, 128)
 	if dnErr != nil {
 		respondBadRequest(w, "invalid display name", dnErr)
 		return

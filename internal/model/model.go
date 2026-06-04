@@ -345,12 +345,17 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateModelRe
 	argIdx := 2 // $1 is reserved for id
 
 	if req.DisplayName != nil {
-		setClauses = append(setClauses, fmt.Sprintf("display_name = $%d", argIdx))
-		args = append(args, *req.DisplayName)
-		argIdx++
-		setClauses = append(setClauses, fmt.Sprintf("display_name_customized = $%d", argIdx))
-		args = append(args, true)
-		argIdx++
+		if *req.DisplayName == "" {
+			// Empty string = clear to NULL, reset customization flag
+			setClauses = append(setClauses, "display_name = NULL", "display_name_customized = false")
+		} else {
+			setClauses = append(setClauses, fmt.Sprintf("display_name = $%d", argIdx))
+			args = append(args, *req.DisplayName)
+			argIdx++
+			setClauses = append(setClauses, fmt.Sprintf("display_name_customized = $%d", argIdx))
+			args = append(args, true)
+			argIdx++
+		}
 	}
 	if req.ContextLength != nil {
 		setClauses = append(setClauses, fmt.Sprintf("context_length = $%d", argIdx))
