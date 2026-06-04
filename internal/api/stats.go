@@ -486,7 +486,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 					END as model_id,
 					COUNT(*) as req_count,
 					COALESCE(AVG(rl.duration_ms), 0) as avg_total,
-					COALESCE(AVG(rl.proxy_overhead_ms) FILTER (WHERE rl.proxy_overhead_ms > 0), 0) as avg_overhead
+					COALESCE(AVG(COALESCE(rl.proxy_overhead_ms, 0)), 0) as avg_overhead
 				FROM request_logs rl
 				LEFT JOIN providers p ON rl.provider_id = p.id` + vkJoin + `
 				WHERE rl.created_at >= $1 AND rl.status_code > 0 AND rl.status_code < 400` + vkFilter + `
@@ -558,7 +558,7 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 			SUM(COALESCE(rl.tokens_prompt_cache_miss, 0)) as tokens_cache_miss,
 			COUNT(*) FILTER (WHERE rl.status_code >= 400 OR rl.status_code = 0) as errors,
 			COALESCE(AVG(rl.duration_ms) FILTER (WHERE rl.status_code > 0 AND rl.status_code < 400), 0) as latency,
-			COALESCE(AVG(rl.proxy_overhead_ms) FILTER (WHERE rl.proxy_overhead_ms > 0), 0) as overhead_ms,
+			COALESCE(AVG(COALESCE(rl.proxy_overhead_ms, 0)) FILTER (WHERE rl.status_code > 0 AND rl.status_code < 400), 0) as overhead_ms,
 			COALESCE(AVG(rl.latency_ms) FILTER (WHERE rl.status_code > 0 AND rl.status_code < 400), 0) as provider_latency_ms,
 			COUNT(*) FILTER (WHERE rl.status_code = 429) as rate_limit_hits,
 			COALESCE(AVG(COALESCE(NULLIF(rl.ttft_ms, 0), rl.response_header_ms)) FILTER (WHERE COALESCE(NULLIF(rl.ttft_ms, 0), rl.response_header_ms) > 0 AND rl.status_code > 0 AND rl.status_code < 400 AND rl.streaming = true), 0) as avg_ttft_ms
@@ -576,7 +576,7 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 			SUM(COALESCE(rl.tokens_prompt_cache_miss, 0)) as tokens_cache_miss,
 			COUNT(*) FILTER (WHERE rl.status_code >= 400 OR rl.status_code = 0) as errors,
 			COALESCE(AVG(rl.duration_ms) FILTER (WHERE rl.status_code > 0 AND rl.status_code < 400), 0) as latency,
-			COALESCE(AVG(rl.proxy_overhead_ms) FILTER (WHERE rl.proxy_overhead_ms > 0), 0) as overhead_ms,
+			COALESCE(AVG(COALESCE(rl.proxy_overhead_ms, 0)) FILTER (WHERE rl.status_code > 0 AND rl.status_code < 400), 0) as overhead_ms,
 			COALESCE(AVG(rl.latency_ms) FILTER (WHERE rl.status_code > 0 AND rl.status_code < 400), 0) as provider_latency_ms,
 			COUNT(*) FILTER (WHERE rl.status_code = 429) as rate_limit_hits,
 			COALESCE(AVG(COALESCE(NULLIF(rl.ttft_ms, 0), rl.response_header_ms)) FILTER (WHERE COALESCE(NULLIF(rl.ttft_ms, 0), rl.response_header_ms) > 0 AND rl.status_code > 0 AND rl.status_code < 400 AND rl.streaming = true), 0) as avg_ttft_ms
