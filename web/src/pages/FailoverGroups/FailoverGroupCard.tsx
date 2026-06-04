@@ -15,7 +15,10 @@ import {
 } from "@dnd-kit/sortable";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { FailoverGroup } from "../../api/types";
+import type {
+	CircuitBreakerProviderStatus,
+	FailoverGroup,
+} from "../../api/types";
 import { useToast } from "../../context/ToastContext";
 import { formatTokens } from "../../utils/format";
 import { SortableEntry } from "./SortableEntry";
@@ -36,6 +39,7 @@ export function FailoverGroupCard({
 	onReorder,
 	onDelete,
 	onEdit,
+	cbProviderMap,
 }: {
 	group: FailoverGroup;
 	selected: boolean;
@@ -45,6 +49,7 @@ export function FailoverGroupCard({
 	onReorder: (newOrder: string[]) => void;
 	onDelete: () => void;
 	onEdit?: () => void;
+	cbProviderMap: Map<string, CircuitBreakerProviderStatus>;
 }) {
 	const { t } = useTranslation();
 	const { toast } = useToast();
@@ -148,13 +153,15 @@ export function FailoverGroupCard({
 				<button
 					type="button"
 					onClick={() => onToggleGroup(!group.group_enabled)}
-					className={`px-2 py-0.5 text-xs font-medium rounded-full transition-colors ${
+					className={`px-2 py-px leading-[1.6] text-xs font-medium rounded-full transition-colors ${
 						group.group_enabled
 							? "bg-(--accent-light) text-(--accent) hover:bg-(--accent)/30"
 							: "bg-gray-600 text-gray-300 hover:bg-gray-500"
 					}`}
 				>
-					{group.group_enabled ? "ON" : "OFF"}
+					<span className="badge-text">
+						{group.group_enabled ? "ON" : "OFF"}
+					</span>
 				</button>
 			</div>
 
@@ -174,6 +181,7 @@ export function FailoverGroupCard({
 								entry={entry}
 								groupEnabled={group.group_enabled}
 								onToggle={onToggleEntry}
+								cbStatus={cbProviderMap.get(entry.provider_id)}
 							/>
 						))}
 					</div>

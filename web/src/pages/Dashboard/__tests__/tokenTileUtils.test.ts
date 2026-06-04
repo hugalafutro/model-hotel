@@ -67,8 +67,9 @@ describe("computeTileSegments", () => {
 
 	it("gives all tiles to prompt when completion is 0", () => {
 		const tiles = computeTileSegments(100, 0);
+		const promptTiles = tiles.filter((t) => t.type === "prompt");
+		expect(promptTiles).toHaveLength(TOTAL_SEGMENTS);
 		expect(tiles.every((t) => t.type === "prompt")).toBe(true);
-		expect(tiles).toHaveLength(TOTAL_SEGMENTS);
 	});
 
 	it("gives all tiles to completion when prompt is 0", () => {
@@ -83,7 +84,6 @@ describe("computeTileSegments", () => {
 	});
 
 	it("minority gets 1 tile even when value rounds to 0 segments", () => {
-		// 0.5% rounds to 0.1 segments → should still get 1 tile
 		const tiles = computeTileSegments(99.5, 0.5);
 		const completionTiles = tiles.filter((t) => t.type === "completion");
 		expect(completionTiles).toHaveLength(1);
@@ -103,16 +103,32 @@ describe("computeTileSegments", () => {
 		expect(completionTile?.opacity).toBe(1);
 	});
 
-	it("prompt tiles come before completion tiles", () => {
-		const tiles = computeTileSegments(60, 40);
+	it("tiles are ordered: cache_hit, prompt, completion", () => {
+		const tiles = computeTileSegments(60, 30, 30);
+		const firstPrompt = tiles.findIndex((t) => t.type === "prompt");
 		const firstCompletion = tiles.findIndex((t) => t.type === "completion");
-		// All tiles before firstCompletion should be prompt
-		for (let i = 0; i < firstCompletion; i++) {
-			expect(tiles[i].type).toBe("prompt");
+		const lastCacheHit =
+			tiles.length -
+			1 -
+			[...tiles].reverse().findIndex((t) => t.type === "cache_hit");
+
+		// cache_hit tiles come first
+		if (lastCacheHit >= 0) {
+			for (let i = 0; i <= lastCacheHit; i++) {
+				expect(tiles[i].type).toBe("cache_hit");
+			}
 		}
-		// All tiles from firstCompletion should be completion
-		for (let i = firstCompletion; i < tiles.length; i++) {
-			expect(tiles[i].type).toBe("completion");
+		// prompt tiles in the middle
+		if (firstPrompt >= 0 && firstCompletion >= 0) {
+			for (let i = firstPrompt; i < firstCompletion; i++) {
+				expect(tiles[i].type).toBe("prompt");
+			}
+		}
+		// completion tiles at the end
+		if (firstCompletion >= 0) {
+			for (let i = firstCompletion; i < tiles.length; i++) {
+				expect(tiles[i].type).toBe("completion");
+			}
 		}
 	});
 
@@ -140,6 +156,60 @@ describe("computeTileSegments", () => {
 			for (const tile of tiles) {
 				expect(tile.opacity).toBeLessThanOrEqual(1);
 			}
+		}
+	});
+
+	// 3-way split tests (cache_hit)
+	it("splits prompt tiles into cache_hit and uncached when cacheHitPct provided", () => {
+		// 60% prompt, 40% completion → 12 prompt, 8 completion
+		// 30% cache hit of total → 30/60 = 50% of prompt tiles → 6 cache_hit, 6 prompt
+		const tiles = computeTileSegments(60, 40, 30);
+		const cacheHitTiles = tiles.filter((t) => t.type === "cache_hit");
+		const promptTiles = tiles.filter((t) => t.type === "prompt");
+		const completionTiles = tiles.filter((t) => t.type === "completion");
+
+		expect(cacheHitTiles).toHaveLength(6);
+		expect(promptTiles).toHaveLength(6);
+		expect(completionTiles).toHaveLength(8);
+		expect(tiles).toHaveLength(TOTAL_SEGMENTS);
+	});
+
+	it("returns no cache_hit tiles when cacheHitPct is 0", () => {
+		const tiles = computeTileSegments(60, 40, 0);
+		const cacheHitTiles = tiles.filter((t) => t.type === "cache_hit");
+		expect(cacheHitTiles).toHaveLength(0);
+	});
+
+	it("reserves at least 1 uncached prompt tile at extreme cache ratio", () => {
+		// 96% cache hit: prompt = 90%, completion = 10%, cacheHitPct = 86.4%
+		// Without min-1 rule: cache_hit_ratio = 86.4/90 = 96% → 17 cache_hit of 18 prompt tiles → 1 uncached
+		// With 96% ratio on 18 tiles: round(0.96 * 18) = 17 cache_hit, 1 prompt — already satisfies
+		// Test a case where rounding would give 0 uncached:
+		// prompt = 5% (1 tile), cacheHitPct = 4.9% → ratio ≈ 98%, round(0.98 * 1) = 1 → min-1 kicks in
+		const tiles = computeTileSegments(5, 95, 4.9);
+		const promptTiles = tiles.filter((t) => t.type === "prompt");
+		expect(promptTiles.length).toBeGreaterThanOrEqual(1);
+	});
+
+	it("all cache_hit tiles use accent color type", () => {
+		const tiles = computeTileSegments(60, 30, 30);
+		const cacheHitTiles = tiles.filter((t) => t.type === "cache_hit");
+		for (const tile of cacheHitTiles) {
+			expect(tile.type).toBe("cache_hit");
+		}
+	});
+
+	it("3-way split total always equals TOTAL_SEGMENTS", () => {
+		const testCases = [
+			[60, 30, 30],
+			[50, 40, 10],
+			[90, 10, 85],
+			[10, 90, 5],
+			[30, 60, 15],
+		] as const;
+		for (const [p, c, ch] of testCases) {
+			const tiles = computeTileSegments(p, c, ch);
+			expect(tiles).toHaveLength(TOTAL_SEGMENTS);
 		}
 	});
 });

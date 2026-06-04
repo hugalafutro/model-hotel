@@ -4,9 +4,11 @@ import {
 	useCallback,
 	useContext,
 	useEffect,
+	useRef,
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { FuseOutline } from "../components/FuseOutline";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 
 type ToastType = "success" | "error" | "info" | "warning";
@@ -150,16 +152,66 @@ function ToastItem({
 	timeout: number;
 	onDone: () => void;
 }) {
-	useEffect(() => {
-		const t = setTimeout(onDone, timeout);
-		return () => clearTimeout(t);
-	}, [onDone, timeout]);
+	const [paused, setPaused] = useState(false);
+	const [fading, setFading] = useState(false);
+	const startTimeRef = useRef(0);
+	const remainingRef = useRef(timeout);
+	const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-	const colors = {
-		success: "bg-emerald-900/70 text-emerald-200 border-emerald-700/60",
-		error: "bg-red-900/70 text-red-200 border-red-700/60",
-		info: "bg-slate-700/80 text-slate-200 border-slate-600/60",
-		warning: "bg-amber-900/70 text-amber-200 border-amber-700/60",
+	// Initialize start time on mount (Date.now() is impure during render)
+	useEffect(() => {
+		if (startTimeRef.current === 0) {
+			startTimeRef.current = Date.now();
+		}
+	}, []);
+
+	const triggerDone = useCallback(() => {
+		setFading(true);
+	}, []);
+
+	const handleAnimationEnd = useCallback(() => {
+		onDone();
+	}, [onDone]);
+
+	const startTimer = useCallback(
+		(remaining: number) => {
+			clearTimeout(timerRef.current);
+			startTimeRef.current = Date.now();
+			remainingRef.current = remaining;
+			timerRef.current = setTimeout(triggerDone, remaining);
+		},
+		[triggerDone],
+	);
+
+	useEffect(() => {
+		startTimer(timeout);
+		return () => clearTimeout(timerRef.current);
+	}, [timeout, startTimer]);
+
+	const handleMouseEnter = () => {
+		setPaused(true);
+		clearTimeout(timerRef.current);
+		const elapsed = Date.now() - startTimeRef.current;
+		remainingRef.current = Math.max(0, remainingRef.current - elapsed);
+	};
+
+	const handleMouseLeave = () => {
+		setPaused(false);
+		startTimer(remainingRef.current);
+	};
+
+	const strokeColors: Record<ToastType, string> = {
+		success: "#6ee7b7",
+		error: "#fca5a5",
+		info: "#cbd5e1",
+		warning: "#fde68a",
+	};
+
+	const bgColors = {
+		success: "bg-emerald-900/70 text-emerald-200",
+		error: "bg-red-900/70 text-red-200",
+		info: "bg-slate-700/80 text-slate-200",
+		warning: "bg-amber-900/70 text-amber-200",
 	};
 
 	const handleClick = () => {
@@ -175,14 +227,30 @@ function ToastItem({
 		<button
 			type="button"
 			onClick={handleClick}
-			title={
-				toast.type === "error"
-					? t("context.toast.clickToCopyDismiss")
+			onMouseEnter={handleMouseEnter}
+			onMouseLeave={handleMouseLeave}
+			{...(toast.type === "error"
+				? { title: t("context.toast.clickToCopyDismiss") }
+				: {})}
+			className={`relative px-4 py-2 rounded-md shadow-lg text-sm font-medium cursor-pointer hover:brightness-125 whitespace-pre-line text-left border-0 ${bgColors[toast.type]} ${fading ? "opacity-0" : "opacity-100"}`}
+			style={{
+				overflow: "hidden",
+				transition: "opacity 300ms ease",
+			}}
+			onTransitionEnd={
+				fading
+					? (e: React.TransitionEvent) => {
+							if (e.propertyName === "opacity") handleAnimationEnd();
+						}
 					: undefined
 			}
-			className={`px-4 py-2 rounded-lg shadow-lg border text-sm font-medium cursor-pointer hover:brightness-125 transition-all whitespace-pre-line text-left ${colors[toast.type]}`}
 		>
 			{toast.message}
+			<FuseOutline
+				color={strokeColors[toast.type]}
+				durationMs={timeout}
+				paused={paused}
+			/>
 		</button>
 	);
 }

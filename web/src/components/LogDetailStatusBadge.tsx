@@ -107,14 +107,14 @@ export function StatusBadge({ code, state, errorMessage }: StatusBadgeProps) {
 	const Icon = display.icon;
 	return (
 		<span
-			className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${VARIANT_STYLES[display.variant]}`}
+			className={`inline-flex items-center gap-1.5 px-2.5 py-1 leading-[1.6] rounded-full text-xs font-medium border ${VARIANT_STYLES[display.variant]}`}
 		>
 			{display.animate ? (
 				<span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
 			) : (
 				Icon && <Icon size={12} />
 			)}
-			{display.label}
+			<span className="badge-text">{display.label}</span>
 		</span>
 	);
 }

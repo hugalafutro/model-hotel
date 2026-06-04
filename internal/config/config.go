@@ -64,6 +64,8 @@ var defaultKnownProviderHosts = []string{
 	"api.cohere.com",
 	"api.cohere.ai",
 	"openrouter.ai",
+	"api.neuralwatt.com",
+	"neuralwatt.com",
 }
 
 // KnownProviderHosts returns the built-in provider host allowlist.

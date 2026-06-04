@@ -153,6 +153,7 @@ export interface Stats {
 	requests_last_1h?: number;
 	total_tokens_prompt: number;
 	total_tokens_completion: number;
+	total_tokens_cache_hit: number;
 	avg_tokens_per_request: number;
 }
 
@@ -379,6 +380,22 @@ export interface CandidateModel {
 	display_name: string;
 	context_length: number | null;
 	owned_by: string;
+}
+
+export interface CircuitBreakerStatus {
+	closed: number;
+	half_open: number;
+	open: number;
+	providers?: CircuitBreakerProviderStatus[];
+}
+
+export interface CircuitBreakerProviderStatus {
+	provider_id: string;
+	state: "closed" | "open" | "half-open";
+	consecutive_fails: number;
+	opened_at?: string;
+	cooldown_ms?: number;
+	next_retry_at?: string;
 }
 
 export interface DeletedGroupInfo {

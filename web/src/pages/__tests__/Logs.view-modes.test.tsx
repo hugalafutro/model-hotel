@@ -368,7 +368,7 @@ describe("Logs", () => {
 			const statusElement = screen.getByText("403");
 			expect(statusElement).toBeInTheDocument();
 			// Check that badge has orange variant (text-orange-400)
-			const badge = statusElement.closest("span");
+			const badge = statusElement.closest("[data-test-variant]");
 			expect(badge?.className).toContain("text-orange-400");
 		});
 
@@ -396,7 +396,7 @@ describe("Logs", () => {
 			const statusElement = screen.getByText("500");
 			expect(statusElement).toBeInTheDocument();
 			// Check that badge has error variant (text-red-400)
-			const badge = statusElement.closest("span");
+			const badge = statusElement.closest("[data-test-variant]");
 			expect(badge?.className).toContain("text-red-400");
 		});
 	});

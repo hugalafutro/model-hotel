@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -25,15 +26,36 @@ type FailoverHandler struct {
 	modelRepo    *model.Repository
 	dbPool       *pgxpool.Pool
 	settingsRepo SettingsStore
+	cbReader     CircuitBreakerReader
+
+	// Cache for aggregate circuit-breaker status to avoid scanning all
+	// failover groups on every 15s poll from each connected client.
+	cbStatusCache     CircuitBreakerStatusResponse
+	cbStatusCacheTime time.Time
+	cbStatusMu        sync.Mutex
+}
+
+// CircuitBreakerReader provides read-only access to circuit breaker status.
+type CircuitBreakerReader interface {
+	Status() []failover.ProviderStatus
+}
+
+// CircuitBreakerStatusResponse contains counts of providers in each circuit breaker state.
+type CircuitBreakerStatusResponse struct {
+	Closed    int                       `json:"closed"`
+	HalfOpen  int                       `json:"half_open"`
+	Open      int                       `json:"open"`
+	Providers []failover.ProviderStatus `json:"providers,omitempty"`
 }
 
 // NewFailoverHandler creates a new failover group handler.
-func NewFailoverHandler(dbPool *pgxpool.Pool, failoverRepo *failover.Repository, modelRepo *model.Repository, settingsRepo SettingsStore) *FailoverHandler {
+func NewFailoverHandler(dbPool *pgxpool.Pool, failoverRepo *failover.Repository, modelRepo *model.Repository, settingsRepo SettingsStore, cbReader CircuitBreakerReader) *FailoverHandler {
 	return &FailoverHandler{
 		failoverRepo: failoverRepo,
 		modelRepo:    modelRepo,
 		dbPool:       dbPool,
 		settingsRepo: settingsRepo,
+		cbReader:     cbReader,
 	}
 }
 
@@ -85,6 +107,7 @@ func (h *FailoverHandler) Register(r chi.Router) {
 		r.Post("/sync", h.Sync)
 		r.Get("/candidates", h.Candidates)
 		r.Get("/by-model/{model_uuid}", h.GetByModelUUID)
+		r.Get("/circuit-breaker-status", h.CircuitBreakerStatus)
 		r.Get("/{id}", h.Get)
 		r.Put("/{id}", h.Update)
 		r.Delete("/{id}", h.Delete)
@@ -493,6 +516,117 @@ func (h *FailoverHandler) GetByModelUUID(w http.ResponseWriter, r *http.Request)
 	}
 
 	http.Error(w, "model not in any failover group", http.StatusNotFound)
+}
+
+// cbStatusCacheTTL is how long the aggregate circuit-breaker status cache
+// is valid before re-computing. This avoids scanning all failover groups
+// on every 15s poll from each connected client.
+const cbStatusCacheTTL = 5 * time.Second
+
+// CircuitBreakerStatus returns the current circuit breaker state for all tracked providers.
+func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Request) {
+	// Detail queries bypass the cache — they're only requested from the
+	// Failover page and need per-provider freshness.
+	wantDetail := r.URL.Query().Get("detail") == "1"
+
+	if !wantDetail {
+		h.cbStatusMu.Lock()
+		if time.Since(h.cbStatusCacheTime) < cbStatusCacheTTL {
+			cached := h.cbStatusCache
+			h.cbStatusMu.Unlock()
+			writeJSON(w, cached)
+			return
+		}
+		h.cbStatusMu.Unlock()
+	}
+
+	resp := CircuitBreakerStatusResponse{}
+	trackedProviders := make([]failover.ProviderStatus, 0)
+	if h.cbReader != nil {
+		trackedProviders = h.cbReader.Status()
+		for _, s := range trackedProviders {
+			switch s.State {
+			case failover.StateClosed.String():
+				resp.Closed++
+			case failover.StateHalfOpen.String():
+				resp.HalfOpen++
+			case failover.StateOpen.String():
+				resp.Open++
+			}
+		}
+	}
+
+	// Count failover group members not yet tracked by the circuit breaker as closed.
+	// Providers only appear in the CB map after being routed; until then they're
+	// implicitly healthy (closed).
+	//
+	// Note: there is an inherent race between reading cbReader.Status() above and
+	// failoverRepo.List() below. A provider that transitions from untracked to
+	// tracked (e.g., after a route that triggers its first CB circuit creation)
+	// could be counted in both passes, slightly inflating totals. This is acceptable
+	// for an aggregate dashboard endpoint with a 5s cache TTL — the next poll
+	// will correct any transient overcount.
+	if h.failoverRepo != nil {
+		groups, err := h.failoverRepo.List(r.Context())
+		if err == nil {
+			tracked := make(map[string]struct{}, len(trackedProviders))
+			for _, p := range trackedProviders {
+				tracked[p.ProviderID] = struct{}{}
+			}
+
+			// Collect all model UUIDs across all groups, then resolve to
+			// provider UUIDs so we can compare against the tracked map
+			// (which is keyed by provider UUID, not model UUID).
+			var allModelIDs []uuid.UUID
+			seenModel := make(map[string]struct{})
+			for _, g := range groups {
+				for _, mid := range g.PriorityOrder {
+					key := mid.String()
+					if _, ok := seenModel[key]; ok {
+						continue
+					}
+					seenModel[key] = struct{}{}
+					allModelIDs = append(allModelIDs, mid)
+				}
+			}
+
+			if len(allModelIDs) > 0 {
+				models, err := h.modelRepo.GetByIDs(r.Context(), allModelIDs)
+				if err == nil {
+					seenProvider := make(map[string]struct{})
+					for _, mid := range allModelIDs {
+						m, ok := models[mid]
+						if !ok {
+							continue
+						}
+						providerID := m.ProviderID.String()
+						if _, ok := seenProvider[providerID]; ok {
+							continue
+						}
+						seenProvider[providerID] = struct{}{}
+						if _, ok := tracked[providerID]; !ok {
+							resp.Closed++
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Cache the aggregate result (detail responses are not cached)
+	if !wantDetail {
+		h.cbStatusMu.Lock()
+		h.cbStatusCache = resp
+		h.cbStatusCacheTime = time.Now()
+		h.cbStatusMu.Unlock()
+	}
+
+	// Include per-provider detail when requested (for the Failover page UI).
+	if wantDetail {
+		resp.Providers = trackedProviders
+	}
+
+	writeJSON(w, resp)
 }
 
 func (h *FailoverHandler) buildGroupResponse(ctx context.Context, g *failover.FailoverGroup) (FailoverGroupResponse, error) {

@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	AlertTriangle,
 	BookOpen,
@@ -756,6 +756,26 @@ export function Layout({ children }: LayoutProps) {
 
 	const { running, latest, updateAvailable } = useGitHubVersion();
 
+	const { data: cbStatus } = useQuery({
+		queryKey: ["circuit-breaker-status"],
+		queryFn: () => api.failoverGroups.circuitBreakerStatus(),
+		refetchInterval: 15_000,
+		placeholderData: (prev) => prev,
+	});
+
+	// Invalidate CB status on circuit_breaker SSE events for real-time badge updates
+	const queryClient = useQueryClient();
+	useEffect(() => {
+		const handler = (e: Event) => {
+			const detail = (e as CustomEvent).detail;
+			if (detail?.type?.startsWith("circuit_breaker.")) {
+				queryClient.invalidateQueries({ queryKey: ["circuit-breaker-status"] });
+			}
+		};
+		window.addEventListener("server-event", handler);
+		return () => window.removeEventListener("server-event", handler);
+	}, [queryClient]);
+
 	const navigation = [
 		{
 			name: t("layout.nav.dashboard"),
@@ -899,6 +919,46 @@ export function Layout({ children }: LayoutProps) {
 												</span>
 												<span className="text-[11px] text-(--text-tertiary)">
 													{otherSub?.label}
+												</span>
+											</span>
+										) : item.href === "/failover" &&
+											cbStatus &&
+											(cbStatus.closed > 0 ||
+												cbStatus.half_open > 0 ||
+												cbStatus.open > 0) ? (
+											<span className="flex items-center gap-1.5">
+												<span>{item.name}</span>
+												<span className="inline-flex items-center gap-[2px] text-[0.625rem] leading-[1.6] font-medium bg-white/10 px-[7px] py-[1px] rounded-full translate-y-[1px]">
+													<span
+														className="text-emerald-400 badge-text"
+														title={t("layout.nav.failoverClosed", {
+															count: cbStatus.closed,
+														})}
+													>
+														{cbStatus.closed}
+													</span>
+													<span className="text-(--text-muted) opacity-50">
+														/
+													</span>
+													<span
+														className="text-amber-400 badge-text"
+														title={t("layout.nav.failoverHalfOpen", {
+															count: cbStatus.half_open,
+														})}
+													>
+														{cbStatus.half_open}
+													</span>
+													<span className="text-(--text-muted) opacity-50">
+														/
+													</span>
+													<span
+														className="text-red-400 badge-text"
+														title={t("layout.nav.failoverOpen", {
+															count: cbStatus.open,
+														})}
+													>
+														{cbStatus.open}
+													</span>
 												</span>
 											</span>
 										) : (

@@ -47,6 +47,7 @@ describe("FailoverGroupCard", () => {
 		onToggleEntry: vi.fn(),
 		onReorder: vi.fn(),
 		onDelete: vi.fn(),
+		cbProviderMap: new Map(),
 	};
 
 	beforeEach(() => {

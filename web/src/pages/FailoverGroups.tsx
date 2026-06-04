@@ -3,7 +3,7 @@ import { CheckSquare, ChevronRight, Shuffle, Square } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
-import type { FailoverGroup } from "../api/types";
+import type { CircuitBreakerProviderStatus, FailoverGroup } from "../api/types";
 import { DeleteConfirmModal } from "../components/DeleteConfirmModal";
 import { EmptyState } from "../components/EmptyState";
 import { FilterDropdown } from "../components/FilterDropdown";
@@ -49,6 +49,22 @@ export function FailoverGroups() {
 		queryKey: ["failover-groups"],
 		queryFn: () => api.failoverGroups.list(),
 	});
+
+	const { data: cbStatus } = useQuery({
+		queryKey: ["circuit-breaker-status", "detail"],
+		queryFn: () => api.failoverGroups.circuitBreakerStatus(true),
+		refetchInterval: 15_000,
+	});
+
+	// Build a map of provider_id -> provider CB status for quick lookup
+	const cbProviderMap = new Map<string, CircuitBreakerProviderStatus>();
+	if (cbStatus?.providers) {
+		for (const p of cbStatus.providers) {
+			if (p.state !== "closed") {
+				cbProviderMap.set(p.provider_id, p);
+			}
+		}
+	}
 
 	const allGroups = listData?.groups;
 
@@ -383,10 +399,14 @@ export function FailoverGroups() {
 				}
 				badge={
 					!allSameState && groups && groups.length > 0 ? (
-						<span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-700/60 border border-gray-600/50">
-							<span className="text-green-400">{totalEnabled} enabled</span>
+						<span className="inline-flex items-center gap-2 px-2.5 py-1 leading-[1.6] rounded-full text-xs font-medium bg-gray-700/60 border border-gray-600/50">
+							<span className="text-green-400">
+								<span className="badge-text">{totalEnabled} enabled</span>
+							</span>
 							<span className="text-gray-600">/</span>
-							<span className="text-red-400">{totalDisabled} disabled</span>
+							<span className="text-red-400">
+								<span className="badge-text">{totalDisabled} disabled</span>
+							</span>
 						</span>
 					) : undefined
 				}
@@ -658,6 +678,7 @@ export function FailoverGroups() {
 													}
 													onDelete={() => handleDelete(group)}
 													onEdit={() => setEditGroup(group)}
+													cbProviderMap={cbProviderMap}
 												/>
 											))}
 										</div>
@@ -716,6 +737,7 @@ export function FailoverGroups() {
 														handleReorder(group, newOrder)
 													}
 													onDelete={() => handleDelete(group)}
+													cbProviderMap={cbProviderMap}
 												/>
 											))}
 										</div>

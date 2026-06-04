@@ -54,6 +54,8 @@ type ProviderStatus struct {
 	State            string `json:"state"`
 	ConsecutiveFails int    `json:"consecutive_fails"`
 	OpenedAt         string `json:"opened_at,omitempty"`
+	CooldownMs       int64  `json:"cooldown_ms,omitempty"`
+	NextRetryAt      string `json:"next_retry_at,omitempty"`
 }
 
 // SettingsReader provides dynamic configuration for the circuit breaker.
@@ -273,6 +275,7 @@ func (cb *CircuitBreaker) Status() []ProviderStatus {
 	cb.mu.RLock()
 	defer cb.mu.RUnlock()
 
+	cooldown := cb.effectiveCooldown()
 	statuses := make([]ProviderStatus, 0, len(cb.circuits))
 	for id, c := range cb.circuits {
 		s := ProviderStatus{
@@ -281,6 +284,12 @@ func (cb *CircuitBreaker) Status() []ProviderStatus {
 			ConsecutiveFails: c.consecutiveFails,
 		}
 		if c.state == StateOpen && !c.openedAt.IsZero() {
+			s.OpenedAt = c.openedAt.Format(time.RFC3339)
+			s.CooldownMs = cooldown.Milliseconds()
+			nextRetry := c.openedAt.Add(cooldown)
+			s.NextRetryAt = nextRetry.Format(time.RFC3339)
+		}
+		if c.state == StateHalfOpen && !c.openedAt.IsZero() {
 			s.OpenedAt = c.openedAt.Format(time.RFC3339)
 		}
 		statuses = append(statuses, s)

@@ -88,6 +88,12 @@
 			"providers": "Providers",
 			"models": "Models",
 			"failover": "Failover",
+			"failoverClosed": "{{count}} closed circuit breaker",
+			"failoverClosed_other": "{{count}} closed circuit breakers",
+			"failoverHalfOpen": "{{count}} half-open circuit breaker",
+			"failoverHalfOpen_other": "{{count}} half-open circuit breakers",
+			"failoverOpen": "{{count}} open circuit breaker",
+			"failoverOpen_other": "{{count}} open circuit breakers",
 			"virtualKeys": "Virtual Keys",
 			"logs": "Logs",
 			"requests": "Requests",
@@ -288,8 +294,10 @@
 			"tokens": "Tokens",
 			"prompt": "Prompt",
 			"completion": "Completion",
+			"cacheHit": "Cache hit",
 			"promptTooltip": "Prompt: {{pct}}% ({{count}} tokens)",
 			"completionTooltip": "Completion: {{pct}}% ({{count}} tokens)",
+			"cacheHitTooltip": "Cache hit: {{pct}}% ({{count}} tokens)",
 			"mixAriaLabel": "Token mix: {{promptPct}}% prompt, {{completionPct}}% completion",
 			"promptTileTitle": "Prompt",
 			"completionTileTitle": "Completion"
@@ -2182,7 +2190,9 @@
 		},
 		"entry": {
 			"disableProvider": "Disable provider",
-			"enableProvider": "Enable provider"
+			"enableProvider": "Enable provider",
+			"circuitBreakerOpen": "Circuit breaker open — waiting for cooldown",
+			"circuitBreakerHalfOpen": "Circuit breaker half-open — probing recovery"
 		}
 	},
 	"virtualKeys": {

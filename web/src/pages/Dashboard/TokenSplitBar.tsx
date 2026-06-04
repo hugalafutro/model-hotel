@@ -8,10 +8,12 @@ import type { Range } from "./types";
 
 const PROMPT_COLOR = "#818cf8";
 const COMPLETION_COLOR = "#059669";
+const CACHE_HIT_COLOR = "var(--accent)";
 
 export function TokenSplitBar({
 	prompt,
 	completion,
+	cacheHit,
 	total,
 	range,
 	onRangeChange,
@@ -21,6 +23,8 @@ export function TokenSplitBar({
 	prompt: number;
 	/** Completion token count. */
 	completion: number;
+	/** Cache hit token count (subset of prompt). */
+	cacheHit: number;
 	/** Total tokens displayed in the header. Should equal prompt + completion for consistent display. */
 	total: number;
 	range: Range;
@@ -48,7 +52,17 @@ export function TokenSplitBar({
 	}
 	const promptPct = (prompt / totalPC) * 100;
 	const completionPct = (completion / totalPC) * 100;
-	const tiles = computeTileSegments(promptPct, completionPct);
+	const cacheHitPct = (cacheHit / totalPC) * 100;
+	const tiles = computeTileSegments(promptPct, completionPct, cacheHitPct);
+
+	const uncachedPrompt = Math.max(0, prompt - cacheHit);
+	const uncachedPct = totalPC > 0 ? (uncachedPrompt / totalPC) * 100 : 0;
+
+	const tileColor = (type: string) => {
+		if (type === "cache_hit") return CACHE_HIT_COLOR;
+		if (type === "prompt") return PROMPT_COLOR;
+		return COMPLETION_COLOR;
+	};
 
 	return (
 		<div className="ui-card p-6">
@@ -84,26 +98,45 @@ export function TokenSplitBar({
 						className="flex-1 rounded-sm animate-waffle-pop"
 						data-tile-type={tile.type}
 						style={{
-							backgroundColor:
-								tile.type === "prompt" ? PROMPT_COLOR : COMPLETION_COLOR,
+							backgroundColor: tileColor(tile.type),
 							opacity: tile.opacity,
 							animationDelay: `${i * 20}ms`,
 						}}
 						title={
-							tile.type === "prompt"
-								? t("dashboard.tokens.promptTooltip", {
-										pct: promptPct.toFixed(1),
-										count: prompt,
+							tile.type === "cache_hit"
+								? t("dashboard.tokens.cacheHitTooltip", {
+										pct: cacheHitPct.toFixed(1),
+										count: cacheHit.toLocaleString(),
 									})
-								: t("dashboard.tokens.completionTooltip", {
-										pct: completionPct.toFixed(1),
-										count: completion,
-									})
+								: tile.type === "prompt"
+									? t("dashboard.tokens.promptTooltip", {
+											pct: uncachedPct.toFixed(1),
+											count: uncachedPrompt.toLocaleString(),
+										})
+									: t("dashboard.tokens.completionTooltip", {
+											pct: completionPct.toFixed(1),
+											count: completion.toLocaleString(),
+										})
 						}
 					/>
 				))}
 			</div>
-			<div className="flex justify-between mt-3 text-sm">
+			<div className="flex justify-between mt-3 text-sm" data-testid="legend">
+				<div className="flex items-center gap-1.5">
+					<span
+						className="w-2 h-2 rounded-full"
+						style={{ backgroundColor: CACHE_HIT_COLOR }}
+					/>
+					<span className="text-(--text-tertiary)">
+						{t("dashboard.tokens.cacheHit")}
+					</span>
+					<span className="font-medium text-(--text-primary) ml-1">
+						{cacheHit.toLocaleString()}
+					</span>
+					<span className="text-(--text-muted) text-xs ml-1">
+						{formatPercent(cacheHitPct)}
+					</span>
+				</div>
 				<div className="flex items-center gap-1.5">
 					<span
 						className="w-2 h-2 rounded-full"
@@ -113,10 +146,10 @@ export function TokenSplitBar({
 						{t("dashboard.tokens.prompt")}
 					</span>
 					<span className="font-medium text-(--text-primary) ml-1">
-						{prompt.toLocaleString()}
+						{uncachedPrompt.toLocaleString()}
 					</span>
 					<span className="text-(--text-muted) text-xs ml-1">
-						{formatPercent(promptPct)}
+						{formatPercent(uncachedPct)}
 					</span>
 				</div>
 				<div className="flex items-center gap-1.5">

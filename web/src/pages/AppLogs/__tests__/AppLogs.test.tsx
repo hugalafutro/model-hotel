@@ -609,11 +609,15 @@ describe("AppLogs", () => {
 		await waitFor(() => {
 			expect(screen.getByText("INFO")).toBeInTheDocument();
 		});
-		const infoBadge = screen.getByText("INFO");
+		// Note: getByText finds the inner <span class="badge-text">, so we use
+		// closest('[data-test-variant]') to find the outer Badge span
+		const infoBadge = screen.getByText("INFO").closest("[data-test-variant]");
 		expect(infoBadge).toHaveClass("bg-blue-900/30");
-		const warningBadge = screen.getByText("WARNING");
+		const warningBadge = screen
+			.getByText("WARNING")
+			.closest("[data-test-variant]");
 		expect(warningBadge).toHaveClass("bg-yellow-900/30");
-		const errorBadge = screen.getByText("ERROR");
+		const errorBadge = screen.getByText("ERROR").closest("[data-test-variant]");
 		expect(errorBadge).toHaveClass("bg-red-900/30");
 	});
 
@@ -622,11 +626,11 @@ describe("AppLogs", () => {
 		await waitFor(() => {
 			expect(screen.getByText("proxy")).toBeInTheDocument();
 		});
-		const proxyBadge = screen.getByText("proxy");
+		const proxyBadge = screen.getByText("proxy").closest("[data-test-variant]");
 		expect(proxyBadge).toHaveClass("bg-cyan-900/30");
-		const authBadge = screen.getByText("auth");
+		const authBadge = screen.getByText("auth").closest("[data-test-variant]");
 		expect(authBadge).toHaveClass("bg-purple-900/30");
-		const dbBadge = screen.getByText("db");
+		const dbBadge = screen.getByText("db").closest("[data-test-variant]");
 		expect(dbBadge).toHaveClass("bg-lime-900/30");
 	});
 

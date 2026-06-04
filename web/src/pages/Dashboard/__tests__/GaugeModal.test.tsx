@@ -187,7 +187,7 @@ describe("GaugeModal", () => {
 		renderWithProviders(<GaugeModal {...defaultProps} />);
 
 		await waitFor(() => {
-			expect(screen.getByText("1D")).toHaveStyle(
+			expect(screen.getByText("1D").closest("button")).toHaveStyle(
 				"background-color: var(--accent)",
 			);
 		});
@@ -212,7 +212,7 @@ describe("GaugeModal", () => {
 		await user.click(sevenDButton);
 
 		await waitFor(() => {
-			expect(screen.getByText("1W")).toHaveStyle(
+			expect(screen.getByText("1W").closest("button")).toHaveStyle(
 				"background-color: var(--accent)",
 			);
 		});

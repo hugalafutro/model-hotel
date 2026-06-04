@@ -1,7 +1,16 @@
-import { render, renderHook, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, renderHook, screen } from "@testing-library/react";
 import { act, type ReactNode, useEffect } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider, useToast } from "../ToastContext";
+
+// Mock useResizeObserver so FuseOutline renders in jsdom (no real layout)
+vi.mock("../../hooks/useResizeObserver", () => ({
+	useResizeObserver: vi.fn(() => ({
+		ref: { current: null },
+		width: 200,
+		height: 40,
+	})),
+}));
 
 describe("ToastProvider / addToast", () => {
 	const wrapper = ({ children }: { children: ReactNode }) => (
@@ -215,12 +224,6 @@ describe("ToastItem", () => {
 	it("auto-removes after timeout", () => {
 		vi.useFakeTimers();
 
-		render(
-			<ToastProvider>
-				<div data-testid="child" />
-			</ToastProvider>,
-		);
-
 		const { unmount } = render(
 			<ToastProvider>
 				<TestChild />
@@ -232,10 +235,108 @@ describe("ToastItem", () => {
 			vi.advanceTimersByTime(4000);
 		});
 
-		// Toast should be removed after timeout
+		// Toast fades out (opacity-0) then relies on CSS transitionend to remove.
+		// jsdom doesn't fire real CSS transitions, so simulate the event.
+		const btn = screen.queryByText("Auto-dismiss toast");
+		const toastEl = btn?.closest("button") ?? null;
+		if (toastEl) {
+			act(() => {
+				fireEvent.transitionEnd(toastEl, {
+					propertyName: "opacity",
+				});
+			});
+		}
+
+		// Toast should be removed after timeout + transition
 		expect(screen.queryByText("Auto-dismiss toast")).not.toBeInTheDocument();
 
 		unmount();
+		vi.useRealTimers();
+	});
+
+	it("renders SVG fuse overlay with stroke animation", () => {
+		const wrapper = ({ children }: { children: ReactNode }) => (
+			<ToastProvider>{children}</ToastProvider>
+		);
+
+		const { result } = renderHook(() => useToast(), { wrapper });
+
+		act(() => {
+			result.current.toast("Fuse toast");
+		});
+
+		const svg = document.querySelector("svg[aria-hidden='true']");
+		expect(svg).toBeInTheDocument();
+
+		const rect = svg?.querySelector("rect");
+		expect(rect).toBeInTheDocument();
+		// Stroke should have the fuse animation
+		const animationStyle = rect?.getAttribute("style") || "";
+		expect(animationStyle).toContain("fuse");
+	});
+
+	it("pauses timeout on mouseenter and resumes on mouseleave", () => {
+		vi.useFakeTimers();
+
+		const wrapper = ({ children }: { children: ReactNode }) => (
+			<ToastProvider>{children}</ToastProvider>
+		);
+
+		const { result } = renderHook(() => useToast(), { wrapper });
+
+		act(() => {
+			result.current.toast("Pause test");
+		});
+
+		const toastButton = screen.getByText("Pause test");
+
+		// Advance halfway (2000ms of 4000ms)
+		act(() => {
+			vi.advanceTimersByTime(2000);
+		});
+
+		// Toast still present (not yet expired)
+		expect(screen.getByText("Pause test")).toBeInTheDocument();
+
+		// Hover to pause
+		act(() => {
+			toastButton.dispatchEvent(
+				new MouseEvent("mouseenter", { bubbles: true }),
+			);
+		});
+
+		// Advance another 2000ms while paused — should NOT remove toast
+		act(() => {
+			vi.advanceTimersByTime(2000);
+		});
+
+		expect(screen.getByText("Pause test")).toBeInTheDocument();
+
+		// Unhover to resume
+		act(() => {
+			toastButton.dispatchEvent(
+				new MouseEvent("mouseleave", { bubbles: true }),
+			);
+		});
+
+		// Advance past remaining time — should now remove
+		act(() => {
+			vi.advanceTimersByTime(3000);
+		});
+
+		// jsdom doesn't fire real CSS transitions, simulate transitionend
+		const btn = screen.queryByText("Pause test");
+		const toastEl = btn?.closest("button") ?? null;
+		if (toastEl) {
+			act(() => {
+				fireEvent.transitionEnd(toastEl, {
+					propertyName: "opacity",
+				});
+			});
+		}
+
+		expect(screen.queryByText("Pause test")).not.toBeInTheDocument();
+
 		vi.useRealTimers();
 	});
 
@@ -257,15 +358,13 @@ describe("ToastItem", () => {
 		const errorToast = screen.getByText("Error to copy");
 		expect(errorToast).toBeInTheDocument();
 
-		// Click the toast
-		act(() => {
+		// Click the toast — this triggers clipboard write + onDone (immediate remove)
+		await act(async () => {
 			errorToast.click();
 		});
 
 		// Verify clipboard was called with the message
-		await waitFor(() => {
-			expect(writeTextSpy).toHaveBeenCalledWith("Error to copy");
-		});
+		expect(writeTextSpy).toHaveBeenCalledWith("Error to copy");
 
 		// Toast should be removed after click
 		expect(screen.queryByText("Error to copy")).not.toBeInTheDocument();

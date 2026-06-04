@@ -2,6 +2,7 @@ import type {
 	AppLogsCursorResponse,
 	BackupEntry,
 	CandidateModel,
+	CircuitBreakerStatus,
 	CreateFailoverGroupRequest,
 	CreateProviderRequest,
 	DeepSeekBalance,
@@ -864,6 +865,20 @@ export const api = {
 					headers: getAuthHeaders(),
 				},
 				"Failed to fetch candidates",
+			);
+		},
+		circuitBreakerStatus: async (
+			detail = false,
+		): Promise<CircuitBreakerStatus> => {
+			const url = detail
+				? `${API_BASE}/api/failover-groups/circuit-breaker-status?detail=1`
+				: `${API_BASE}/api/failover-groups/circuit-breaker-status`;
+			return fetchJSON<CircuitBreakerStatus>(
+				url,
+				{
+					headers: getAuthHeaders(),
+				},
+				"Failed to fetch circuit breaker status",
 			);
 		},
 	},

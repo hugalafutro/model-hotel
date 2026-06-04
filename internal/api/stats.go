@@ -43,6 +43,7 @@ type StatsResponse struct {
 	AvgOverheadMs         float64          `json:"avg_overhead_ms"`
 	TotalTokensPrompt     int              `json:"total_tokens_prompt"`
 	TotalTokensCompletion int              `json:"total_tokens_completion"`
+	TotalTokensCacheHit   int              `json:"total_tokens_cache_hit"`
 	AvgTokensPerRequest   float64          `json:"avg_tokens_per_request"`
 	RateLimitHits         int              `json:"rate_limit_hits"`
 	AvgTTFTMs             float64          `json:"avg_ttft_ms"`
@@ -391,15 +392,16 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 
 	// Query 8: Total tokens
 	query = `
-		SELECT COALESCE(SUM(rl.tokens_prompt), 0) as prompt_tokens, COALESCE(SUM(rl.tokens_completion), 0) as completion_tokens
+		SELECT COALESCE(SUM(rl.tokens_prompt), 0) as prompt_tokens, COALESCE(SUM(rl.tokens_completion), 0) as completion_tokens, COALESCE(SUM(rl.tokens_prompt_cache_hit), 0) as cache_hit_tokens
 		FROM request_logs rl` + vkJoin + `
 		WHERE rl.created_at >= $1` + vkFilter
 
-	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.TotalTokensPrompt, &stats.TotalTokensCompletion)
+	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.TotalTokensPrompt, &stats.TotalTokensCompletion, &stats.TotalTokensCacheHit)
 	if err != nil {
 		debuglog.Error("stats: query failed", "query", "total_tokens", "error", err)
 		stats.TotalTokensPrompt = 0
 		stats.TotalTokensCompletion = 0
+		stats.TotalTokensCacheHit = 0
 	}
 
 	// Query 9: Avg tokens per request

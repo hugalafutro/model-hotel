@@ -18,7 +18,7 @@ export function PageHeader({
 	return (
 		<div className="flex items-start justify-between">
 			<div>
-				<div className="flex items-center gap-3">
+				<div className="flex items-center gap-3 page-header-title-row">
 					<Icon size={28} strokeWidth={2} className="text-(--accent)" />
 					<h1 className="text-2xl font-bold text-(--text-primary)">{title}</h1>
 					{badge}

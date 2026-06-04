@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { server } from "../../test/mocks/server";
@@ -37,8 +37,12 @@ vi.mock("../../components/AccentCalendar", () => ({
 		<div data-testid="accent-calendar">
 			<span>From: {from}</span>
 			<span>To: {to}</span>
-			<button type="button" onClick={() => onSelect("2026-05-10")}>
-				Select Date
+			<button
+				type="button"
+				data-testid="select-date-btn"
+				onClick={() => onSelect(from ? "2026-05-15" : "2026-05-10")}
+			>
+				{from ? "Select End" : "Select Start"}
 			</button>
 		</div>
 	),
@@ -360,13 +364,22 @@ describe("Logs", () => {
 				expect(screen.getByTestId("accent-calendar")).toBeInTheDocument();
 			});
 
-			// Select a date
-			const selectButton = screen.getByText("Select Date");
-			await user.click(selectButton);
+			// Select start and end dates via mock calendar.
+			// Use fireEvent for interactions inside the portaled popover to avoid
+			// the mousedown-based click-outside handler closing the popover.
+			const selectBtn = screen.getByTestId("select-date-btn");
+			fireEvent.click(selectBtn); // Select Start
+			fireEvent.click(selectBtn); // Select End
 
-			// Click Apply
-			const applyButton = screen.getByText("Apply");
-			await user.click(applyButton);
+			// Wait for Apply button to appear
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", { name: /apply/i }),
+				).toBeInTheDocument();
+			});
+			// Click Apply button (from DateRangePicker)
+			const applyButton = screen.getByRole("button", { name: /apply/i });
+			fireEvent.click(applyButton);
 
 			// Date picker should close
 			await waitFor(() => {
@@ -389,14 +402,21 @@ describe("Logs", () => {
 				expect(screen.getByTestId("accent-calendar")).toBeInTheDocument();
 			});
 
-			// Select a date twice
-			const selectButton = screen.getByText("Select Date");
-			await user.click(selectButton);
-			await user.click(selectButton);
+			// Select start and end dates via mock calendar.
+			// Use fireEvent for interactions inside the portaled popover.
+			const selectBtn = screen.getByTestId("select-date-btn");
+			fireEvent.click(selectBtn); // Select Start
+			fireEvent.click(selectBtn); // Select End
 
-			// Click Clear
-			const clearButton = screen.getByText("Clear");
-			await user.click(clearButton);
+			// Wait for Clear button to appear
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", { name: /clear/i }),
+				).toBeInTheDocument();
+			});
+			// Click Clear button (from DateRangePicker)
+			const clearButton = screen.getByRole("button", { name: /clear/i });
+			fireEvent.click(clearButton);
 
 			// Date picker should close
 			await waitFor(() => {

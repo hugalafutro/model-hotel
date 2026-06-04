@@ -369,6 +369,7 @@ export function AppLogs() {
 										onClear={clearDateFilter}
 										onClose={closeDatePicker}
 										anchor="right"
+										triggerRef={datePickerRef}
 									/>
 								)}
 							</div>

@@ -47,7 +47,7 @@ function AppLogDetail({
 					accent
 				>
 					<span
-						className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+						className={`inline-flex items-center px-2 py-px leading-[1.6] rounded-full text-xs font-medium ${
 							log.level === "error"
 								? "bg-red-500/15 text-red-400 border border-red-500/30"
 								: log.level === "warning"
@@ -55,7 +55,7 @@ function AppLogDetail({
 									: "bg-blue-500/15 text-blue-400 border border-blue-500/30"
 						}`}
 					>
-						{log.level.toUpperCase()}
+						<span className="badge-text">{log.level.toUpperCase()}</span>
 					</span>
 				</DetailItem>
 				<DetailItem
