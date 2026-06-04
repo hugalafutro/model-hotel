@@ -65,7 +65,10 @@ export function LatencyBarPanel({
 						const totalPct = max > 0 ? (entry.totalMs / max) * 100 : 0;
 						const overheadPct =
 							entry.totalMs > 0
-								? (entry.overheadMs / entry.totalMs) * totalPct
+								? Math.min(
+										(entry.overheadMs / entry.totalMs) * totalPct,
+										totalPct,
+									)
 								: 0;
 						const providerPct = totalPct - overheadPct;
 						const overheadRatio =

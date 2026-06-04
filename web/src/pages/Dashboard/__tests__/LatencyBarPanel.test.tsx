@@ -320,4 +320,30 @@ describe("LatencyBarPanel", () => {
 		expect(labelSpan).toHaveClass("truncate");
 		expect(labelSpan).toHaveClass("max-w-[70%]");
 	});
+
+	it("clamps overheadPct to totalPct when overheadMs exceeds totalMs", () => {
+		const entries: LatencyEntry[] = [
+			{
+				label: "Jittery Model",
+				totalMs: 1000,
+				overheadMs: 1500,
+				providerMs: 500,
+				requestCount: 5,
+			},
+		];
+
+		const { container } = renderWithProviders(
+			<LatencyBarPanel {...defaultProps} entries={entries} />,
+		);
+
+		// The overhead bar width should be clamped to totalPct (100% for single entry)
+		// so total bar width doesn't overflow
+		const overheadBar = container.querySelector(
+			"div.rounded-r-full[style*='background-color']",
+		);
+		expect(overheadBar).toBeTruthy();
+		const style = overheadBar!.getAttribute("style");
+		// overheadPct should be clamped to totalPct (100% for single entry)
+		expect(style).toMatch(/width: 100%/);
+	});
 });
