@@ -17,7 +17,7 @@ describe("TokenSplitBar", () => {
 		render(<TokenSplitBar {...defaultProps} />);
 
 		expect(screen.getByText("Token Mix")).toBeInTheDocument();
-		expect(screen.getByText("1,000")).toBeInTheDocument();
+		expect(screen.getByText("1K")).toBeInTheDocument();
 		expect(screen.getByText("Tokens")).toBeInTheDocument();
 	});
 
@@ -283,7 +283,7 @@ describe("TokenSplitBar", () => {
 		expect(cacheHitTiles.length).toBeGreaterThan(0);
 	});
 
-	it("formats large token numbers with locale separators", () => {
+	it("formats large token numbers with human-readable compact format", () => {
 		render(
 			<TokenSplitBar
 				{...defaultProps}
@@ -293,9 +293,14 @@ describe("TokenSplitBar", () => {
 			/>,
 		);
 
-		expect(screen.getByText("2,222,221")).toBeInTheDocument();
-		expect(screen.getByText("1,234,567")).toBeInTheDocument();
-		expect(screen.getByText("987,654")).toBeInTheDocument();
+		// formatTokens: 2222221 → "2.2M", 1234567 → "1.2M", 987654 → "987.7K"
+		expect(screen.getByText("2.2M")).toBeInTheDocument();
+		expect(screen.getByText("1.2M")).toBeInTheDocument();
+		expect(screen.getByText("987.7K")).toBeInTheDocument();
+
+		// Full values available in title attributes
+		const totalEl = screen.getByTitle("2,222,221");
+		expect(totalEl).toBeInTheDocument();
 	});
 
 	it("renders card container with correct classes", () => {

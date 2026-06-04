@@ -446,6 +446,17 @@ func TestUpdateModel_Validation(t *testing.T) {
 		}
 	})
 
+	t.Run("ClearDisplayName", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPatch, "/models/"+modelID, strings.NewReader(`{"display_name": ""}`))
+		req.Header.Set("Authorization", "Bearer test-admin-token")
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != 200 {
+			t.Errorf("expected 200 for empty display_name (clear signal), got %d", w.Code)
+		}
+	})
+
 	t.Run("InvalidContextLength", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPatch, "/models/"+modelID, strings.NewReader(`{"context_length":-1}`))
 		req.Header.Set("Authorization", "Bearer test-admin-token")

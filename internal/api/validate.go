@@ -102,6 +102,27 @@ func validateNamePtr(field string, value *string, minLen, maxLen int) (*string, 
 	return &trimmed, nil
 }
 
+// validateClearableNamePtr is like validateNamePtr but allows an empty string
+// as a signal to clear the field to NULL. A nil pointer means "don't touch",
+// a pointer to "" means "set to NULL", and a pointer to a non-empty string
+// is validated normally (minLen must be >= 1 for any non-clear value).
+func validateClearableNamePtr(field string, value *string, maxLen int) (*string, error) {
+	if value == nil {
+		return nil, nil
+	}
+	trimmed := strings.TrimSpace(*value)
+	if trimmed == "" {
+		return &trimmed, nil // empty string = clear signal
+	}
+	if len(trimmed) > maxLen {
+		return nil, fmt.Errorf("%s must be at most %d characters", field, maxLen)
+	}
+	if err := validatePrintable(field, trimmed); err != nil {
+		return nil, err
+	}
+	return &trimmed, nil
+}
+
 // validatePrintable rejects strings containing control characters, invisible
 // Unicode characters, and non-standard whitespace. Normal space (U+0020) is allowed.
 func validatePrintable(field, value string) error {

@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { Users } from "lucide-react";
 import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../../test/utils";
+import { formatTokens } from "../../../utils/format";
 import type { Range, UsageEntry } from "../types";
 import { UsageBarPanel } from "../UsageBarPanel";
 
@@ -320,6 +321,88 @@ describe("UsageBarPanel", () => {
 		);
 
 		expect(screen.getByText("1,000,000")).toBeInTheDocument();
+	});
+
+	it("uses formatValue formatter when provided", () => {
+		const largeEntries: UsageEntry[] = [
+			{ label: "Tokens", value: 2_036_596_592 },
+		];
+
+		renderWithProviders(
+			<UsageBarPanel
+				{...defaultProps}
+				entries={largeEntries}
+				formatValue={formatTokens}
+			/>,
+		);
+
+		expect(screen.getByText("2B")).toBeInTheDocument();
+	});
+
+	it("shows full value in title attribute when formatValue is provided", () => {
+		const largeEntries: UsageEntry[] = [
+			{ label: "Tokens", value: 2_036_596_592 },
+		];
+
+		renderWithProviders(
+			<UsageBarPanel
+				{...defaultProps}
+				entries={largeEntries}
+				formatValue={formatTokens}
+			/>,
+		);
+
+		const valueElement = screen.getByText("2B");
+		expect(valueElement).toHaveAttribute("title", "2,036,596,592");
+	});
+
+	it("does not show title attribute when formatValue is not provided", () => {
+		const entries: UsageEntry[] = [{ label: "Requests", value: 100 }];
+
+		renderWithProviders(<UsageBarPanel {...defaultProps} entries={entries} />);
+
+		const valueElement = screen.getByText("100");
+		expect(valueElement).not.toHaveAttribute("title");
+	});
+
+	it("uses formatValue for multiple entries with different magnitudes", () => {
+		const entries: UsageEntry[] = [
+			{ label: "Small", value: 500 },
+			{ label: "Medium", value: 15000 },
+			{ label: "Large", value: 3_500_000 },
+		];
+
+		renderWithProviders(
+			<UsageBarPanel
+				{...defaultProps}
+				entries={entries}
+				formatValue={formatTokens}
+			/>,
+		);
+
+		expect(screen.getByText("500")).toBeInTheDocument();
+		expect(screen.getByText("15K")).toBeInTheDocument();
+		expect(screen.getByText("3.5M")).toBeInTheDocument();
+	});
+
+	it("shows full comma-separated values in title for all entries when formatValue is provided", () => {
+		const entries: UsageEntry[] = [
+			{ label: "Small", value: 500 },
+			{ label: "Medium", value: 15000 },
+			{ label: "Large", value: 3_500_000 },
+		];
+
+		renderWithProviders(
+			<UsageBarPanel
+				{...defaultProps}
+				entries={entries}
+				formatValue={formatTokens}
+			/>,
+		);
+
+		expect(screen.getByText("500")).toHaveAttribute("title", "500");
+		expect(screen.getByText("15K")).toHaveAttribute("title", "15,000");
+		expect(screen.getByText("3.5M")).toHaveAttribute("title", "3,500,000");
 	});
 
 	it("renders RangeToggle component", () => {

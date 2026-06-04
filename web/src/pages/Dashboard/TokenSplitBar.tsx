@@ -1,7 +1,11 @@
 import { Target } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Spinner } from "../../components/Spinner";
-import { formatPercent } from "../../utils/format";
+import {
+	formatPercent,
+	formatTokens,
+	formatWithCommas,
+} from "../../utils/format";
 import { RangeToggle } from "./ToggleGroup";
 import { computeTileSegments } from "./tokenTileUtils";
 import type { Range } from "./types";
@@ -77,8 +81,9 @@ export function TokenSplitBar({
 			<p
 				className="text-2xl font-bold text-(--text-primary) mb-4"
 				style={{ textTransform: "none" }}
+				title={formatWithCommas(total)}
 			>
-				{total.toLocaleString()}{" "}
+				{formatTokens(total)}{" "}
 				<span className="text-sm font-normal text-(--text-muted)">
 					{t("dashboard.tokens.tokens")}
 				</span>
@@ -106,16 +111,16 @@ export function TokenSplitBar({
 							tile.type === "cache_hit"
 								? t("dashboard.tokens.cacheHitTooltip", {
 										pct: cacheHitPct.toFixed(1),
-										count: cacheHit.toLocaleString(),
+										count: formatWithCommas(cacheHit),
 									})
 								: tile.type === "prompt"
 									? t("dashboard.tokens.promptTooltip", {
 											pct: uncachedPct.toFixed(1),
-											count: uncachedPrompt.toLocaleString(),
+											count: formatWithCommas(uncachedPrompt),
 										})
 									: t("dashboard.tokens.completionTooltip", {
 											pct: completionPct.toFixed(1),
-											count: completion.toLocaleString(),
+											count: formatWithCommas(completion),
 										})
 						}
 					/>
@@ -130,8 +135,11 @@ export function TokenSplitBar({
 					<span className="text-(--text-tertiary)">
 						{t("dashboard.tokens.cacheHit")}
 					</span>
-					<span className="font-medium text-(--text-primary) ml-1">
-						{cacheHit.toLocaleString()}
+					<span
+						className="font-medium text-(--text-primary) ml-1"
+						title={formatWithCommas(cacheHit)}
+					>
+						{formatTokens(cacheHit)}
 					</span>
 					<span className="text-(--text-muted) text-xs ml-1">
 						{formatPercent(cacheHitPct)}
@@ -145,8 +153,11 @@ export function TokenSplitBar({
 					<span className="text-(--text-tertiary)">
 						{t("dashboard.tokens.prompt")}
 					</span>
-					<span className="font-medium text-(--text-primary) ml-1">
-						{uncachedPrompt.toLocaleString()}
+					<span
+						className="font-medium text-(--text-primary) ml-1"
+						title={formatWithCommas(uncachedPrompt)}
+					>
+						{formatTokens(uncachedPrompt)}
 					</span>
 					<span className="text-(--text-muted) text-xs ml-1">
 						{formatPercent(uncachedPct)}
@@ -160,8 +171,11 @@ export function TokenSplitBar({
 					<span className="text-(--text-tertiary)">
 						{t("dashboard.tokens.completion")}
 					</span>
-					<span className="font-medium text-(--text-primary) ml-1">
-						{completion.toLocaleString()}
+					<span
+						className="font-medium text-(--text-primary) ml-1"
+						title={formatWithCommas(completion)}
+					>
+						{formatTokens(completion)}
 					</span>
 					<span className="text-(--text-muted) text-xs ml-1">
 						{formatPercent(completionPct)}

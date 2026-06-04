@@ -605,8 +605,9 @@ describe("Dashboard.coverage", () => {
 			// Model entries should be rendered
 			await waitFor(() => {
 				expect(screen.getByText("Model A")).toBeInTheDocument();
+				// When metric is "tokens" (default), formatTokens(1000) = "1K"
 				expect(
-					screen.getByText((content) => content.includes("1,000")),
+					screen.getByText((content) => content.includes("1K")),
 				).toBeInTheDocument();
 			});
 		});

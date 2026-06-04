@@ -226,7 +226,7 @@ func (h *FailoverHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	req.DisplayModel = strings.ToLower(trimmedModel)
 
-	dn, dnErr := validateNamePtr("display_name", req.DisplayName, 1, 128)
+	dn, dnErr := validateClearableNamePtr("display_name", req.DisplayName, 128)
 	if dnErr != nil {
 		respondBadRequest(w, "invalid display name", dnErr)
 		return
@@ -335,7 +335,7 @@ func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate field lengths
-	dn, dnErr := validateNamePtr("display_name", req.DisplayName, 1, 128)
+	dn, dnErr := validateClearableNamePtr("display_name", req.DisplayName, 128)
 	if dnErr != nil {
 		respondBadRequest(w, "invalid display name", dnErr)
 		return

@@ -229,12 +229,18 @@ func (r *Repository) UpsertWithConfig(ctx context.Context, displayModel string, 
 	// The INSERT VALUES positions are fixed ($1-$7), so the DO UPDATE SET
 	// clause can reference them directly — we just conditionally include
 	// display_name and description columns.
+	// An empty-string pointer signals "clear to NULL".
 	doSetClauses := []string{
 		"priority_order = $2",
 		"entry_enabled = $3",
 		"group_enabled = $4",
 	}
-	if displayName != nil {
+	// Pre-process displayName: empty string means "clear to NULL"
+	insertDisplayName := displayName
+	if displayName != nil && *displayName == "" {
+		insertDisplayName = nil
+		doSetClauses = append(doSetClauses, "display_name = NULL")
+	} else if displayName != nil {
 		doSetClauses = append(doSetClauses, "display_name = $5")
 	}
 	if description != nil {
@@ -253,7 +259,7 @@ func (r *Repository) UpsertWithConfig(ctx context.Context, displayModel string, 
 	var fg FailoverGroup
 	var rawPriority, rawEntryEnabled []byte
 
-	err = r.pool.QueryRow(ctx, query, displayModel, priorityJSON, entryEnabledJSON, groupEnabledVal, displayName, description, autoCreatedVal).
+	err = r.pool.QueryRow(ctx, query, displayModel, priorityJSON, entryEnabledJSON, groupEnabledVal, insertDisplayName, description, autoCreatedVal).
 		Scan(&fg.ID, &fg.DisplayModel, &fg.DisplayName, &fg.Description, &rawPriority, &rawEntryEnabled,
 			&fg.GroupEnabled, &fg.AutoCreated, &fg.CreatedAt, &fg.UpdatedAt)
 	if err != nil {
@@ -369,9 +375,14 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []u
 	argIdx++
 
 	if displayName != nil {
-		setClauses = append(setClauses, fmt.Sprintf("display_name = $%d", argIdx))
-		args = append(args, *displayName)
-		argIdx++
+		if *displayName == "" {
+			// Empty string = clear to NULL
+			setClauses = append(setClauses, "display_name = NULL")
+		} else {
+			setClauses = append(setClauses, fmt.Sprintf("display_name = $%d", argIdx))
+			args = append(args, *displayName)
+			argIdx++
+		}
 	}
 
 	if description != nil {
