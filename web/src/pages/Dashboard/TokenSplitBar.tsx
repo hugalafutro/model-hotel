@@ -55,7 +55,7 @@ export function TokenSplitBar({
 	const cacheHitPct = (cacheHit / totalPC) * 100;
 	const tiles = computeTileSegments(promptPct, completionPct, cacheHitPct);
 
-	const uncachedPrompt = prompt - cacheHit;
+	const uncachedPrompt = Math.max(0, prompt - cacheHit);
 	const uncachedPct = totalPC > 0 ? (uncachedPrompt / totalPC) * 100 : 0;
 
 	const tileColor = (type: string) => {
