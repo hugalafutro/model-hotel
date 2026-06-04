@@ -55,7 +55,7 @@ export function LatencyBarPanel({
 					<RangeToggle value={range} onChange={onRangeChange} />
 				</div>
 			</div>
-			{entries.length === 0 ? (
+			{!loading && entries.length === 0 ? (
 				<p className="text-sm text-(--text-muted) text-center py-8">
 					{t("dashboard.latency.emptyState")}
 				</p>

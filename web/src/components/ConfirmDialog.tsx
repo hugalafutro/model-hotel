@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Modal, type ModalHandle } from "./Modal";
 
@@ -22,6 +22,7 @@ export function ConfirmDialog({
 	const { t } = useTranslation();
 	const modalRef = useRef<ModalHandle>(null);
 	const confirmingRef = useRef(false);
+	const [closing, setClosing] = useState(false);
 
 	const handleClose = () => {
 		if (confirmingRef.current) {
@@ -53,8 +54,12 @@ export function ConfirmDialog({
 			<div className="flex gap-3 justify-end">
 				<button
 					type="button"
-					onClick={() => modalRef.current?.close()}
+					onClick={() => {
+						setClosing(true);
+						modalRef.current?.close();
+					}}
 					className="ui-btn ui-btn-secondary"
+					disabled={closing}
 				>
 					{t("common.cancel")}
 				</button>
@@ -62,9 +67,11 @@ export function ConfirmDialog({
 					type="button"
 					onClick={() => {
 						confirmingRef.current = true;
+						setClosing(true);
 						modalRef.current?.close();
 					}}
 					className="ui-btn ui-btn-danger"
+					disabled={closing}
 				>
 					{confirmLabel ?? t("common.delete")}
 				</button>

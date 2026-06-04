@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PersonaPreset } from "../../data/presets";
@@ -267,10 +267,12 @@ describe("PersonaPicker", () => {
 			);
 			await user.click(screen.getByText("🧙Merlin"));
 			await user.click(screen.getByText("Delete"));
-			expect(mockOnSystemPromptChange).toHaveBeenCalledWith(
-				"You are a wise wizard",
-			);
-			expect(mockOnActivePersonaChange).toHaveBeenCalledWith("merlin");
+			await waitFor(() => {
+				expect(mockOnSystemPromptChange).toHaveBeenCalledWith(
+					"You are a wise wizard",
+				);
+				expect(mockOnActivePersonaChange).toHaveBeenCalledWith("merlin");
+			});
 		});
 
 		it("cancels overwrite when clicking Cancel in dialog", async () => {
@@ -286,10 +288,11 @@ describe("PersonaPicker", () => {
 			);
 			await user.click(screen.getByText("🧙Merlin"));
 			await user.click(screen.getByText("Cancel"));
-			expect(mockOnSystemPromptChange).not.toHaveBeenCalled();
-			expect(mockOnActivePersonaChange).not.toHaveBeenCalled();
-			// Dialog should be closed
-			expect(screen.queryByText("Overwrite Prompt")).not.toBeInTheDocument();
+			await waitFor(() => {
+				expect(mockOnSystemPromptChange).not.toHaveBeenCalled();
+				expect(mockOnActivePersonaChange).not.toHaveBeenCalled();
+				expect(screen.queryByText("Overwrite Prompt")).not.toBeInTheDocument();
+			});
 		});
 	});
 
@@ -327,8 +330,10 @@ describe("PersonaPicker", () => {
 			);
 			await user.click(screen.getByText("✏️Custom"));
 			await user.click(screen.getByText("Delete"));
-			expect(mockOnSystemPromptChange).toHaveBeenCalledWith("");
-			expect(mockOnActivePersonaChange).toHaveBeenCalledWith(null);
+			await waitFor(() => {
+				expect(mockOnSystemPromptChange).toHaveBeenCalledWith("");
+				expect(mockOnActivePersonaChange).toHaveBeenCalledWith(null);
+			});
 		});
 
 		it("does not show dialog when already in custom mode", async () => {
