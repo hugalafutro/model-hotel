@@ -73,7 +73,7 @@ export function FuseOutline({
 			rect.style.animation = animationStr;
 		}
 		rect.style.animationPlayState = paused ? "paused" : "running";
-	}, [durationMs, paused]);
+	}, [durationMs, paused, showRect]);
 
 	if (durationMs <= 0) return null;
 
