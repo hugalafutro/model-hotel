@@ -43,7 +43,7 @@ jobs:
         env:
           TEST_DATABASE_URL: postgres://modelhotel:${{ env.POSTGRES_PASSWORD }}@localhost:5433/testdb?sslmode=disable
         run: |
-          go install gotest.tools/gotestsum@latest
+          go install gotest.tools/gotestsum@v1.12.3
           gotestsum --junitfile go-test-report.junit.xml -- -timeout 5m -coverprofile=coverage.out -covermode=atomic ./...
 
       - name: Check coverage (80% threshold)
