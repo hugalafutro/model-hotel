@@ -29,7 +29,6 @@ compose.stress-test.yml
 *.exe~
 GEMINI.md
 .gitmodules
-.codacy/
 # Git wrapper session manifests
 # Go coverage / pprof
 # Go test binaries
