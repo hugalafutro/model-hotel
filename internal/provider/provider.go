@@ -82,21 +82,33 @@ func (r *Repository) Create(ctx context.Context, req CreateProviderRequest, encr
 		VALUES ($1, $2, $3, $4, $5, $6, true, true)
 		RETURNING ` + providerColumns
 
-	var p Provider
-	err := r.pool.QueryRow(ctx, query, req.Name, req.BaseURL, encryptedKey, keyNonce, keySalt, mk).Scan(
-		&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.MaskedKey, &p.Enabled, &p.AutodiscoveryEnabled,
-		&p.LastDiscoveredAt, &p.LastUsedAt, &p.CreatedAt, &p.UpdatedAt,
-	)
+	p, err := scanProvider(r.pool.QueryRow(ctx, query, req.Name, req.BaseURL, encryptedKey, keyNonce, keySalt, mk))
 	if err != nil {
 		debuglog.Error("provider: create failed", "name", req.Name, "error", err)
 		return nil, err
 	}
 
-	cacheProvider(&p)
-	return &p, nil
+	cacheProvider(p)
+	return p, nil
 }
 
 const providerColumns = `id, name, base_url, encrypted_key, key_nonce, key_salt, masked_key, enabled, autodiscovery_enabled, last_discovered_at, last_used_at, created_at, updated_at`
+
+// scanner is satisfied by pgx.Row and pgx.Rows.
+type scanner interface{ Scan(dest ...any) error }
+
+// scanProvider scans a single row into a Provider using the providerColumns order.
+func scanProvider(row scanner) (*Provider, error) {
+	var p Provider
+	err := row.Scan(
+		&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.MaskedKey, &p.Enabled, &p.AutodiscoveryEnabled,
+		&p.LastDiscoveredAt, &p.LastUsedAt, &p.CreatedAt, &p.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
 
 // List returns all providers ordered by creation date.
 func (r *Repository) List(ctx context.Context) ([]*Provider, error) {
@@ -111,16 +123,12 @@ func (r *Repository) List(ctx context.Context) ([]*Provider, error) {
 
 	var providers []*Provider
 	for rows.Next() {
-		var p Provider
-		err := rows.Scan(
-			&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.MaskedKey, &p.Enabled, &p.AutodiscoveryEnabled,
-			&p.LastDiscoveredAt, &p.LastUsedAt, &p.CreatedAt, &p.UpdatedAt,
-		)
+		p, err := scanProvider(rows)
 		if err != nil {
 			debuglog.Error("provider: list scan failed", "error", err)
 			return nil, err
 		}
-		providers = append(providers, &p)
+		providers = append(providers, p)
 	}
 
 	return providers, nil
@@ -134,17 +142,13 @@ func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*Provider, error) {
 
 	query := `SELECT ` + providerColumns + ` FROM providers WHERE id = $1`
 
-	var p Provider
-	err := r.pool.QueryRow(ctx, query, id).Scan(
-		&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.MaskedKey, &p.Enabled, &p.AutodiscoveryEnabled,
-		&p.LastDiscoveredAt, &p.LastUsedAt, &p.CreatedAt, &p.UpdatedAt,
-	)
+	p, err := scanProvider(r.pool.QueryRow(ctx, query, id))
 	if err != nil {
 		return nil, err
 	}
 
-	cacheProvider(&p)
-	return &p, nil
+	cacheProvider(p)
+	return p, nil
 }
 
 // GetByIDs retrieves multiple providers by their IDs.
@@ -177,15 +181,12 @@ func (r *Repository) GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UU
 	defer rows.Close()
 
 	for rows.Next() {
-		var p Provider
-		if err := rows.Scan(
-			&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.MaskedKey, &p.Enabled, &p.AutodiscoveryEnabled,
-			&p.LastDiscoveredAt, &p.LastUsedAt, &p.CreatedAt, &p.UpdatedAt,
-		); err != nil {
+		p, err := scanProvider(rows)
+		if err != nil {
 			return nil, err
 		}
-		cacheProvider(&p)
-		result[p.ID] = &p
+		cacheProvider(p)
+		result[p.ID] = p
 	}
 
 	return result, rows.Err()
@@ -199,28 +200,21 @@ func (r *Repository) GetByName(ctx context.Context, name string) (*Provider, err
 
 	query := `SELECT ` + providerColumns + ` FROM providers WHERE name = $1`
 
-	var p Provider
-	err := r.pool.QueryRow(ctx, query, name).Scan(
-		&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.MaskedKey, &p.Enabled, &p.AutodiscoveryEnabled,
-		&p.LastDiscoveredAt, &p.LastUsedAt, &p.CreatedAt, &p.UpdatedAt,
-	)
+	p, err := scanProvider(r.pool.QueryRow(ctx, query, name))
 	if err == nil {
-		cacheProvider(&p)
-		return &p, nil
+		cacheProvider(p)
+		return p, nil
 	}
 
 	normalized := NormalizeName(name)
 	normalizedQuery := `SELECT ` + providerColumns + ` FROM providers WHERE REPLACE(name, ' ', '-') = $1`
-	err = r.pool.QueryRow(ctx, normalizedQuery, normalized).Scan(
-		&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.MaskedKey, &p.Enabled, &p.AutodiscoveryEnabled,
-		&p.LastDiscoveredAt, &p.LastUsedAt, &p.CreatedAt, &p.UpdatedAt,
-	)
+	p, err = scanProvider(r.pool.QueryRow(ctx, normalizedQuery, normalized))
 	if err != nil {
 		return nil, err
 	}
 
-	cacheProvider(&p)
-	return &p, nil
+	cacheProvider(p)
+	return p, nil
 }
 
 // Update updates a provider's fields.
@@ -247,19 +241,15 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateProvide
 		WHERE id = $9
 		RETURNING ` + providerColumns
 
-	var p Provider
-	err := r.pool.QueryRow(ctx, query, req.Name, req.BaseURL, encryptedKey, keyNonce, keySalt, maskedKey, req.Enabled, req.AutodiscoveryEnabled, id).Scan(
-		&p.ID, &p.Name, &p.BaseURL, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt, &p.MaskedKey, &p.Enabled, &p.AutodiscoveryEnabled,
-		&p.LastDiscoveredAt, &p.LastUsedAt, &p.CreatedAt, &p.UpdatedAt,
-	)
+	p, err := scanProvider(r.pool.QueryRow(ctx, query, req.Name, req.BaseURL, encryptedKey, keyNonce, keySalt, maskedKey, req.Enabled, req.AutodiscoveryEnabled, id))
 	if err != nil {
 		debuglog.Error("provider: update failed", "id", id, "error", err)
 		return nil, err
 	}
 
 	InvalidateProviderCache()
-	cacheProvider(&p)
-	return &p, nil
+	cacheProvider(p)
+	return p, nil
 }
 
 // Delete removes a provider by ID.

@@ -55,9 +55,21 @@ type VirtualKeyResponse struct {
 	StripReasoning   bool      `json:"strip_reasoning"`
 }
 
-// rowsScan allows tests to override rows.Scan for error-path coverage.
-var rowsScan = func(rows pgx.Rows, dest ...any) error {
-	return rows.Scan(dest...)
+// scanner is satisfied by pgx.Row and pgx.Rows.
+type scanner interface{ Scan(dest ...any) error }
+
+// vkColumns is the column list for SELECT queries on virtual_keys.
+const vkColumns = `id, name, key_hash, key_preview, tokens_used, last_used_at, created_at, rate_limit_rps, rate_limit_burst, allowed_providers, strip_reasoning`
+
+// scanVirtualKey scans a single row into a VirtualKey using the vkColumns order.
+// Overridable in tests for error-path coverage.
+var scanVirtualKey = func(row scanner) (*VirtualKey, error) {
+	var vk VirtualKey
+	err := row.Scan(&vk.ID, &vk.Name, &vk.KeyHash, &vk.KeyPreview, &vk.TokensUsed, &vk.LastUsedAt, &vk.CreatedAt, &vk.RateLimitRPS, &vk.RateLimitBurst, &vk.AllowedProviders, &vk.StripReasoning)
+	if err != nil {
+		return nil, err
+	}
+	return &vk, nil
 }
 
 // Repository provides database access for virtual keys.
@@ -72,21 +84,19 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 
 // Create inserts a new virtual key.
 func (r *Repository) Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*VirtualKey, error) {
-	var vk VirtualKey
-	err := r.pool.QueryRow(ctx,
-		`INSERT INTO virtual_keys (name, key_hash, key_preview, rate_limit_rps, rate_limit_burst, allowed_providers, strip_reasoning) VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, false)) RETURNING id, name, key_hash, key_preview, tokens_used, last_used_at, created_at, rate_limit_rps, rate_limit_burst, allowed_providers, strip_reasoning`,
-		name, keyHash, keyPreview, rps, burst, allowedProviders, stripReasoning,
-	).Scan(&vk.ID, &vk.Name, &vk.KeyHash, &vk.KeyPreview, &vk.TokensUsed, &vk.LastUsedAt, &vk.CreatedAt, &vk.RateLimitRPS, &vk.RateLimitBurst, &vk.AllowedProviders, &vk.StripReasoning)
+	vk, err := scanVirtualKey(r.pool.QueryRow(ctx,
+		`INSERT INTO virtual_keys (name, key_hash, key_preview, rate_limit_rps, rate_limit_burst, allowed_providers, strip_reasoning) VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, false)) RETURNING `+vkColumns,
+		name, keyHash, keyPreview, rps, burst, allowedProviders, stripReasoning))
 	if err != nil {
 		return nil, err
 	}
-	return &vk, nil
+	return vk, nil
 }
 
 // List returns all virtual keys.
 func (r *Repository) List(ctx context.Context) ([]*VirtualKey, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, name, key_hash, key_preview, tokens_used, last_used_at, created_at, rate_limit_rps, rate_limit_burst, allowed_providers, strip_reasoning FROM virtual_keys ORDER BY created_at DESC`)
+		`SELECT `+vkColumns+` FROM virtual_keys ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -94,28 +104,26 @@ func (r *Repository) List(ctx context.Context) ([]*VirtualKey, error) {
 
 	var keys []*VirtualKey
 	for rows.Next() {
-		var vk VirtualKey
-		if err := rowsScan(rows, &vk.ID, &vk.Name, &vk.KeyHash, &vk.KeyPreview, &vk.TokensUsed, &vk.LastUsedAt, &vk.CreatedAt, &vk.RateLimitRPS, &vk.RateLimitBurst, &vk.AllowedProviders, &vk.StripReasoning); err != nil {
+		vk, err := scanVirtualKey(rows)
+		if err != nil {
 			return nil, err
 		}
-		keys = append(keys, &vk)
+		keys = append(keys, vk)
 	}
 	return keys, rows.Err()
 }
 
 // Get retrieves a virtual key by ID.
 func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*VirtualKey, error) {
-	var vk VirtualKey
-	err := r.pool.QueryRow(ctx,
-		`SELECT id, name, key_hash, key_preview, tokens_used, last_used_at, created_at, rate_limit_rps, rate_limit_burst, allowed_providers, strip_reasoning FROM virtual_keys WHERE id = $1`, id,
-	).Scan(&vk.ID, &vk.Name, &vk.KeyHash, &vk.KeyPreview, &vk.TokensUsed, &vk.LastUsedAt, &vk.CreatedAt, &vk.RateLimitRPS, &vk.RateLimitBurst, &vk.AllowedProviders, &vk.StripReasoning)
+	vk, err := scanVirtualKey(r.pool.QueryRow(ctx,
+		`SELECT `+vkColumns+` FROM virtual_keys WHERE id = $1`, id))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 		return nil, err
 	}
-	return &vk, nil
+	return vk, nil
 }
 
 // Delete removes a virtual key by ID.
@@ -151,8 +159,6 @@ func (r *Repository) TouchLastUsed(ctx context.Context, keyHash string) error {
 
 // Update modifies virtual key fields.
 func (r *Repository) Update(ctx context.Context, id uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*VirtualKey, error) {
-	var vk VirtualKey
-
 	// Always include all updatable fields in SET clause so nil/null
 	// values are correctly persisted as NULL (cleared) rather than
 	// silently ignored. The UI sends null when a user clears a field.
@@ -175,28 +181,26 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, name string, rps 
 	argIdx++
 
 	args = append(args, id)
-	query := `UPDATE virtual_keys SET ` + strings.Join(setClauses, ", ") + ` WHERE id = $` + fmt.Sprintf("%d", argIdx) + ` RETURNING id, name, key_hash, key_preview, tokens_used, last_used_at, created_at, rate_limit_rps, rate_limit_burst, allowed_providers, strip_reasoning`
+	query := `UPDATE virtual_keys SET ` + strings.Join(setClauses, ", ") + ` WHERE id = $` + fmt.Sprintf("%d", argIdx) + ` RETURNING ` + vkColumns
 
-	err := r.pool.QueryRow(ctx, query, args...).Scan(&vk.ID, &vk.Name, &vk.KeyHash, &vk.KeyPreview, &vk.TokensUsed, &vk.LastUsedAt, &vk.CreatedAt, &vk.RateLimitRPS, &vk.RateLimitBurst, &vk.AllowedProviders, &vk.StripReasoning)
+	vk, err := scanVirtualKey(r.pool.QueryRow(ctx, query, args...))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 		return nil, err
 	}
-	return &vk, nil
+	return vk, nil
 }
 
 // FindByKeyHash looks up a virtual key by its SHA-256 hash.
 func (r *Repository) FindByKeyHash(ctx context.Context, keyHash string) (*VirtualKey, error) {
-	var vk VirtualKey
-	err := r.pool.QueryRow(ctx,
-		`SELECT id, name, key_hash, key_preview, tokens_used, last_used_at, created_at, rate_limit_rps, rate_limit_burst, allowed_providers, strip_reasoning FROM virtual_keys WHERE key_hash = $1`, keyHash,
-	).Scan(&vk.ID, &vk.Name, &vk.KeyHash, &vk.KeyPreview, &vk.TokensUsed, &vk.LastUsedAt, &vk.CreatedAt, &vk.RateLimitRPS, &vk.RateLimitBurst, &vk.AllowedProviders, &vk.StripReasoning)
+	vk, err := scanVirtualKey(r.pool.QueryRow(ctx,
+		`SELECT `+vkColumns+` FROM virtual_keys WHERE key_hash = $1`, keyHash))
 	if err != nil {
 		return nil, err
 	}
-	return &vk, nil
+	return vk, nil
 }
 
 // ErrNotFound is returned when a virtual key is not found.

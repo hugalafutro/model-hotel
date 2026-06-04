@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 
 	"github.com/hugalafutro/model-hotel/internal/db"
 )
@@ -610,18 +609,18 @@ func TestRepository_List_ScanError(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testDB.Pool())
 
-	orig := rowsScan
-	defer func() { rowsScan = orig }()
+	orig := scanVirtualKey
+	defer func() { scanVirtualKey = orig }()
 
-	// Create a key so rows.Next() returns true and rows.Scan is called.
+	// Create a key so rows.Next() returns true and scanVirtualKey is called.
 	suffix := uuid.New().String()[:8]
 	_, err := repo.Create(ctx, "scan-err-"+suffix, "hash-scan-"+suffix, "sk-...sc", nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Create() setup failed: %v", err)
 	}
 
-	rowsScan = func(_ pgx.Rows, _ ...any) error {
-		return errors.New("forced scan error")
+	scanVirtualKey = func(_ scanner) (*VirtualKey, error) {
+		return nil, errors.New("forced scan error")
 	}
 
 	_, err = repo.List(ctx)
