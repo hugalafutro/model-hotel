@@ -148,9 +148,9 @@ func TestUpdateModel_InvalidBody(t *testing.T) {
 	}
 }
 
-// TestUpdateModel_InvalidDisplayName tests that UpdateModel returns 400 for
-// an empty display name.
-func TestUpdateModel_InvalidDisplayName(t *testing.T) {
+// TestUpdateModel_ClearDisplayName tests that UpdateModel accepts empty display
+// name as a clear signal (sets display_name to NULL/empty).
+func TestUpdateModel_ClearDisplayName(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 
 	// Create a provider
@@ -172,25 +172,36 @@ func TestUpdateModel_InvalidDisplayName(t *testing.T) {
 		t.Fatalf("Failed to parse provider response: %v", err)
 	}
 
-	// Insert a model directly via DB
+	// Insert a model directly via DB with a display_name
 	modelID := uuid.New().String()
 	pool := h.Pool().Pool()
 	_, err := pool.Exec(context.Background(),
-		`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
-		modelID, providerResp.ID, "gpt-4o-mini", "GPT-4o Mini", true)
+		`INSERT INTO models (id, provider_id, model_id, name, display_name, enabled) VALUES ($1, $2, $3, $4, $5, $6)`,
+		modelID, providerResp.ID, "gpt-4o-mini", "GPT-4o Mini", "Old Display Name", true)
 	if err != nil {
 		t.Fatalf("Failed to insert model: %v", err)
 	}
 
-	// Try to update with empty display name
+	// Update with empty display name (should clear it)
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodPatch, "/models/"+modelID, strings.NewReader(`{"display_name": ""}`))
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("Expected 400 for empty display name, got %d: %s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200 for empty display name (clear signal), got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// Parse response and verify display_name is cleared
+	var modelResp struct {
+		DisplayName string `json:"display_name"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &modelResp); err != nil {
+		t.Fatalf("Failed to parse model response: %v", err)
+	}
+	if modelResp.DisplayName != "" {
+		t.Errorf("Expected display_name to be empty after clear, got %q", modelResp.DisplayName)
 	}
 }
 

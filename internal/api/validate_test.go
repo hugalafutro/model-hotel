@@ -1,6 +1,7 @@
 package api
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -479,5 +480,74 @@ func TestTrimString_OnlySpaces(t *testing.T) {
 	result := trimString("   ")
 	if result != "" {
 		t.Errorf("expected empty string for whitespace-only input, got %q", result)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// validateClearableNamePtr
+// ---------------------------------------------------------------------------
+
+func TestValidateClearableNamePtr_Nil(t *testing.T) {
+	result, err := validateClearableNamePtr("name", nil, 100)
+	if err != nil {
+		t.Errorf("nil pointer should return nil error, got %v", err)
+	}
+	if result != nil {
+		t.Errorf("nil pointer should return nil result, got %v", result)
+	}
+}
+
+func TestValidateClearableNamePtr_EmptyClearSignal(t *testing.T) {
+	s := ""
+	result, err := validateClearableNamePtr("name", &s, 100)
+	if err != nil {
+		t.Errorf("empty string should be valid clear signal, got %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil result for empty string")
+	}
+	if *result != "" {
+		t.Errorf("expected empty string, got %q", *result)
+	}
+}
+
+func TestValidateClearableNamePtr_Trimmed(t *testing.T) {
+	s := "  hello  "
+	result, err := validateClearableNamePtr("name", &s, 100)
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+	if *result != "hello" {
+		t.Errorf("expected trimmed value %q, got %q", "hello", *result)
+	}
+}
+
+func TestValidateClearableNamePtr_TooLong(t *testing.T) {
+	s := strings.Repeat("x", 129)
+	_, err := validateClearableNamePtr("name", &s, 128)
+	if err == nil {
+		t.Error("expected error for string exceeding max length")
+	}
+}
+
+func TestValidateClearableNamePtr_ControlChar(t *testing.T) {
+	s := "hel\x00lo"
+	_, err := validateClearableNamePtr("name", &s, 100)
+	if err == nil {
+		t.Error("expected error for control character in name")
+	}
+}
+
+func TestValidateClearableNamePtr_AtMaxLen(t *testing.T) {
+	s := strings.Repeat("x", 128)
+	result, err := validateClearableNamePtr("name", &s, 128)
+	if err != nil {
+		t.Errorf("string at max length should be valid, got %v", err)
+	}
+	if result == nil || *result != s {
+		t.Errorf("expected string of length %d, got %v", 128, result)
 	}
 }
