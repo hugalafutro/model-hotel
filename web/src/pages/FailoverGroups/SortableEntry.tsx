@@ -78,6 +78,7 @@ export function SortableEntry({
 			fuseTitle = t("failoverGroups.entry.circuitBreakerOpen");
 
 			if (cbStatus.next_retry_at) {
+				// eslint-disable-next-line react-hooks/purity -- countdown requires current time
 				remainingMs = new Date(cbStatus.next_retry_at).getTime() - Date.now();
 			}
 			remainingMs = Math.max(0, remainingMs);
