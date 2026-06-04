@@ -3595,10 +3595,8 @@ func TestHandleStreamingResponse_StripReasoning_JSONKeepAlive(t *testing.T) {
 
 	// Verify valid JSON keep-alive chunks ARE sent for stripped reasoning.
 	// The keep-alive reuses the stream's real completion ID.
-	// json.Marshal produces alphabetical keys, so check for each field separately.
-	assert.Contains(t, body, `"id":"c1"`)
-	assert.Contains(t, body, `"object":"chat.completion.chunk"`)
-	assert.Contains(t, body, `"choices":[{"delta":{},"index":0}]`)
+	// json.Marshal produces deterministic alphabetical keys.
+	assert.Contains(t, body, `data: {"choices":[{"delta":{},"index":0}],"id":"c1","object":"chat.completion.chunk"}`)
 
 	// Verify reasoning_content is NOT in output
 	assert.NotContains(t, body, "reasoning_content")

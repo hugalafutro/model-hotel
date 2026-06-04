@@ -343,11 +343,10 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	preallocLimit := limit
-	if preallocLimit > 200 {
-		preallocLimit = 200
-	}
-	entries := make([]LogEntry, 0, preallocLimit)
+	// limit is clamped to [1, 200] above; prealloc with the hard upper bound
+	// to satisfy CodeQL's uncontrolled-allocation-size check (user input must
+	// not flow into make() capacity even after clamping).
+	entries := make([]LogEntry, 0, 201) // limit+1 for has_more detection
 	for rows.Next() {
 		var entry LogEntry
 		err := rows.Scan(
