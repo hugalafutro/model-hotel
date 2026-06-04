@@ -224,6 +224,28 @@ describe("LatencyBarPanel", () => {
 		expect(title).toContain("Provider:");
 	});
 
+	it("bar segments have explanatory tooltips", () => {
+		const { container } = renderWithProviders(
+			<LatencyBarPanel {...defaultProps} />,
+		);
+
+		// Provider bar segment should have a tooltip
+		const providerBar = container.querySelector(
+			"div.rounded-l-full[style*='background-color: var(--accent)']",
+		);
+		expect(providerBar).toBeTruthy();
+		expect(providerBar?.getAttribute("title")).toContain("Provider:");
+
+		// Overhead bar segment should have a tooltip
+		const overheadBar = container.querySelector(
+			"div.rounded-r-full[style*='background-color']",
+		);
+		expect(overheadBar).toBeTruthy();
+		const overheadTitle = overheadBar?.getAttribute("title");
+		expect(overheadTitle).toContain("Proxy overhead:");
+		expect(overheadTitle).toContain("%");
+	});
+
 	it("handles entries with zero overhead", () => {
 		const zeroOverheadEntries: LatencyEntry[] = [
 			{

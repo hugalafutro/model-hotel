@@ -268,7 +268,9 @@
 		"latency": {
 			"topModels": "Slowest Models",
 			"emptyState": "No latency data yet. Latency breakdown will appear here once traffic flows.",
-			"tooltip": "Proxy: {{overhead}}ms ({{ratio}}%) · Provider: {{provider}}ms"
+			"tooltip": "Proxy: {{overhead}}ms ({{ratio}}%) · Provider: {{provider}}ms",
+			"providerTip": "Provider: {{value}}",
+			"overheadTip": "Proxy overhead: {{value}} ({{ratio}}%)"
 		},
 		"providers": {
 			"top": "Top Providers",

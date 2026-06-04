@@ -100,6 +100,9 @@ export function LatencyBarPanel({
 											width: `${providerPct}%`,
 											backgroundColor: "var(--accent)",
 										}}
+										title={t("dashboard.latency.providerTip", {
+											value: formatLatency(entry.providerMs),
+										})}
 									/>
 									{overheadPct > 0 && (
 										<div
@@ -108,6 +111,10 @@ export function LatencyBarPanel({
 												width: `${overheadPct}%`,
 												backgroundColor: overheadColor,
 											}}
+											title={t("dashboard.latency.overheadTip", {
+												value: formatLatency(entry.overheadMs),
+												ratio: overheadRatio,
+											})}
 										/>
 									)}
 								</div>
