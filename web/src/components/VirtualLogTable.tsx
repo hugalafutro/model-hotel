@@ -328,7 +328,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 											{log.status_code}
 										</Badge>
 									</td>
-									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
+									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400">
 										{isCancelled(log.error_message) ? (
 											t("components.virtualLogTable.interrupted")
 										) : log.tokens_prompt + log.tokens_completion > 0 ? (
@@ -341,7 +341,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 											"-"
 										)}
 									</td>
-									<td className="px-2 py-1 whitespace-nowrap text-xs font-mono">
+									<td className="px-2 py-1 whitespace-nowrap text-xs">
 										{isCancelled(log.error_message) ? (
 											"-"
 										) : (
@@ -361,28 +361,28 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 											</span>
 										)}
 									</td>
-									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
+									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400">
 										{isCancelled(log.error_message)
 											? "-"
 											: log.response_header_ms > 0
 												? formatMs(log.response_header_ms, 1)
 												: "-"}
 									</td>
-									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
+									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400">
 										{isCancelled(log.error_message)
 											? "-"
 											: log.ttft_ms > 0
 												? formatMs(log.ttft_ms, 1)
 												: "-"}
 									</td>
-									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
+									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400">
 										{log.duration_ms > 0
 											? log.duration_ms >= 1000
 												? `${(log.duration_ms / 1000).toFixed(1)}s`
 												: `${log.duration_ms.toFixed(0)}ms`
 											: "-"}
 									</td>
-									<td className="px-2 py-1 whitespace-nowrap text-xs font-mono">
+									<td className="px-2 py-1 whitespace-nowrap text-xs">
 										{log.proxy_overhead_ms != null &&
 										log.proxy_overhead_ms > 0 ? (
 											<span className="text-(--accent)">

@@ -669,7 +669,7 @@ function RequestLogs() {
 														)}
 													</Badge>
 												</td>
-												<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
+												<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400">
 													{isCancelled(log.error_message) ? (
 														t("logs.table.interrupted")
 													) : log.tokens_prompt + log.tokens_completion > 0 ? (
@@ -682,7 +682,7 @@ function RequestLogs() {
 														"-"
 													)}
 												</td>
-												<td className="px-2 py-1 whitespace-nowrap text-xs font-mono">
+												<td className="px-2 py-1 whitespace-nowrap text-xs">
 													{isCancelled(log.error_message) ? (
 														"-"
 													) : (
@@ -702,15 +702,15 @@ function RequestLogs() {
 														</span>
 													)}
 												</td>
-												<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
+												<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400">
 													{log.response_header_ms > 0
 														? formatMs(log.response_header_ms, 1)
 														: "-"}
 												</td>
-												<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
+												<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400">
 													{log.ttft_ms > 0 ? formatMs(log.ttft_ms, 1) : "-"}
 												</td>
-												<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
+												<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400">
 													{isInProgress(log) && log.duration_ms === 0 ? (
 														<span className="inline-block text-blue-400">
 															-
@@ -725,7 +725,7 @@ function RequestLogs() {
 														"-"
 													)}
 												</td>
-												<td className="px-2 py-1 whitespace-nowrap text-xs font-mono">
+												<td className="px-2 py-1 whitespace-nowrap text-xs">
 													{log.proxy_overhead_ms != null &&
 													log.proxy_overhead_ms > 0 ? (
 														<span
