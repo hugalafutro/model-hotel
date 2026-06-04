@@ -67,7 +67,8 @@ if [ -n "$staged_ts" ]; then
 			exit 1
 		fi
 	else
-		echo "pre-commit: SKIP biome (no web/node_modules - run 'cd web && pnpm install')" >&2
+		echo "pre-commit: FAILED - no web/node_modules (run 'cd web && pnpm install')" >&2
+		exit 1
 	fi
 	# Re-stage any files biome rewrote.
 	changed=""
