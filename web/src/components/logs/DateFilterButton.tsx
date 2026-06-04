@@ -26,6 +26,7 @@ export function DateFilterButton({
 			<button
 				type="button"
 				onClick={onToggleDatePicker}
+				data-popover-trigger="date-range"
 				className={`flex items-center justify-center h-9 w-9 rounded-(--radius-button) text-sm border transition-colors cursor-pointer ${
 					hasDateFilter
 						? "bg-(--accent)/15 text-(--accent) border-(--accent)/40 hover:bg-(--accent)/25"

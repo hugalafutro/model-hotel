@@ -50,10 +50,12 @@ export function DateRangePickerPopover({
 
 	// Compute popover position relative to the trigger button.
 	// Re-computes on scroll/resize so the popover tracks its anchor.
+	// Uses data-popover-trigger for lookup — the trigger's aria-label changes
+	// when a date range is active, so querying by aria-label would return null.
 	useLayoutEffect(() => {
 		const scope = triggerRef?.current ?? document;
 		const trigger = scope.querySelector<HTMLElement>(
-			'[aria-label="Filter by date range"]',
+			'[data-popover-trigger="date-range"]',
 		);
 		if (!trigger) return;
 
@@ -90,7 +92,7 @@ export function DateRangePickerPopover({
 			) {
 				// Check if click is on the trigger button (which toggles the picker)
 				const trigger = scope.querySelector<HTMLElement>(
-					'[aria-label="Filter by date range"]',
+					'[data-popover-trigger="date-range"]',
 				);
 				if (trigger?.contains(e.target as Node)) return;
 				onClose();

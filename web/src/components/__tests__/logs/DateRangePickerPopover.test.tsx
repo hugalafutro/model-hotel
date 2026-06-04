@@ -175,11 +175,11 @@ describe("DateRangePickerPopover", () => {
 
 	describe("anchor positioning", () => {
 		// The popover positions itself relative to the trigger button found via
-		// [aria-label="Filter by date range"]. We need to render a trigger first.
+		// [data-popover-trigger="date-range"]. We need to render a trigger first.
 		it("positions popover right-aligned when anchor is right", () => {
 			const { container } = renderWithProviders(
 				<>
-					<button type="button" aria-label="Filter by date range">
+					<button type="button" data-popover-trigger="date-range">
 						Trigger
 					</button>
 					<DateRangePickerPopover {...defaultProps} anchor="right" />
@@ -197,7 +197,7 @@ describe("DateRangePickerPopover", () => {
 		it("positions popover left-aligned when anchor is left", () => {
 			const { container } = renderWithProviders(
 				<>
-					<button type="button" aria-label="Filter by date range">
+					<button type="button" data-popover-trigger="date-range">
 						Trigger
 					</button>
 					<DateRangePickerPopover {...defaultProps} anchor="left" />,
@@ -215,7 +215,7 @@ describe("DateRangePickerPopover", () => {
 		it("defaults to right anchor when anchor prop is omitted", () => {
 			const { container } = renderWithProviders(
 				<>
-					<button type="button" aria-label="Filter by date range">
+					<button type="button" data-popover-trigger="date-range">
 						Trigger
 					</button>
 					<DateRangePickerPopover {...defaultProps} />,
