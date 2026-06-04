@@ -1585,14 +1585,8 @@ html.light [data-ui-style] .ui-table-virtual tbody tr.ui-row-even {
 }
 
 html[data-ui-style="cyber-terminal"] .ui-table th {
-	font-family: var(--font-mono);
 	font-size: 9px;
 	letter-spacing: 0.15em;
-}
-
-html[data-ui-style="cyber-terminal"] .ui-table td {
-	font-family: var(--font-mono);
-	font-size: 12px;
 }
 
 html[data-ui-style="cyber-terminal"] .ui-table tbody tr:hover {
