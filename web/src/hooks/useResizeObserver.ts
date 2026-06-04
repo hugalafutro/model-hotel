@@ -4,8 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * Tracks the dimensions of a DOM element using ResizeObserver.
  * Returns a ref to attach to the target element and its current width/height.
  *
- * If the consumer swaps which DOM element the ref is attached to, the observer
- * automatically re-subscribes to the new element.
+ * The observer re-subscribes automatically when the element changes
+ * between renders (i.e. the component unmounts the old element and
+ * mounts a new one, causing `observedEl` state to update). However,
+ * if `ref.current` is swapped in-place without a re-render (e.g.
+ * conditional rendering into the same ref mid-lifecycle), the
+ * observer will continue watching the old element until the next render
+ * triggers the sync effect. For stable-element consumers like
+ * FuseOutline, this is not an issue.
  */
 export function useResizeObserver<
 	T extends HTMLElement | SVGElement = HTMLElement,

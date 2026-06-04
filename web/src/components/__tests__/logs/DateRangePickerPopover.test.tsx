@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../../test/utils";
@@ -171,5 +171,90 @@ describe("DateRangePickerPopover", () => {
 		expect(popover?.className).toContain("ui-card");
 		expect(popover?.className).toContain("shadow-2xl");
 		expect(popover?.className).toContain("z-50");
+	});
+
+	describe("anchor positioning", () => {
+		// The popover positions itself relative to the trigger button found via
+		// [aria-label="Filter by date range"]. We need to render a trigger first.
+		it("positions popover right-aligned when anchor is right", () => {
+			const { container } = renderWithProviders(
+				<>
+					<button type="button" aria-label="Filter by date range">
+						Trigger
+					</button>
+					<DateRangePickerPopover {...defaultProps} anchor="right" />
+				</>,
+			);
+			const popover = container.ownerDocument.querySelector(
+				".w-72",
+			) as HTMLElement;
+			expect(popover).toBeTruthy();
+			// In jsdom, getBoundingClientRect returns zeros so:
+			// left = triggerRect.right - 288 = 0 - 288 = -288
+			expect(popover.style.left).toBe("-288px");
+		});
+
+		it("positions popover left-aligned when anchor is left", () => {
+			const { container } = renderWithProviders(
+				<>
+					<button type="button" aria-label="Filter by date range">
+						Trigger
+					</button>
+					<DateRangePickerPopover {...defaultProps} anchor="left" />,
+				</>,
+			);
+			const popover = container.ownerDocument.querySelector(
+				".w-72",
+			) as HTMLElement;
+			expect(popover).toBeTruthy();
+			// In jsdom, getBoundingClientRect returns zeros so:
+			// left = triggerRect.left = 0
+			expect(popover.style.left).toBe("0px");
+		});
+
+		it("defaults to right anchor when anchor prop is omitted", () => {
+			const { container } = renderWithProviders(
+				<>
+					<button type="button" aria-label="Filter by date range">
+						Trigger
+					</button>
+					<DateRangePickerPopover {...defaultProps} />,
+				</>,
+			);
+			const popover = container.ownerDocument.querySelector(
+				".w-72",
+			) as HTMLElement;
+			expect(popover).toBeTruthy();
+			// Default anchor="right" → left = triggerRect.right - 288 = -288
+			expect(popover.style.left).toBe("-288px");
+		});
+	});
+
+	describe("scroll and resize repositioning", () => {
+		it("repositions popover on window scroll", () => {
+			renderWithProviders(<DateRangePickerPopover {...defaultProps} />);
+			const popover = document.querySelector(".w-72") as HTMLElement;
+			expect(popover).toBeTruthy();
+
+			// Initial position (jsdom: getBoundingClientRect returns zeros)
+			const initialTop = popover.style.top;
+
+			// Fire a scroll event — the reposition handler should run
+			fireEvent.scroll(window);
+			// The position won't change in jsdom since getBoundingClientRect
+			// always returns zeros, but we verify the handler doesn't throw
+			expect(popover.style.top).toBe(initialTop);
+		});
+
+		it("repositions popover on window resize", () => {
+			renderWithProviders(<DateRangePickerPopover {...defaultProps} />);
+			const popover = document.querySelector(".w-72") as HTMLElement;
+			expect(popover).toBeTruthy();
+
+			const initialTop = popover.style.top;
+
+			fireEvent.resize(window);
+			expect(popover.style.top).toBe(initialTop);
+		});
 	});
 });

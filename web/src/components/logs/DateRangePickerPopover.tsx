@@ -48,7 +48,8 @@ export function DateRangePickerPopover({
 		left: 0,
 	});
 
-	// Find the trigger button via the scoped ref or document fallback.
+	// Compute popover position relative to the trigger button.
+	// Re-computes on scroll/resize so the popover tracks its anchor.
 	useLayoutEffect(() => {
 		const scope = triggerRef?.current ?? document;
 		const trigger = scope.querySelector<HTMLElement>(
@@ -56,15 +57,27 @@ export function DateRangePickerPopover({
 		);
 		if (!trigger) return;
 
-		const triggerRect = trigger.getBoundingClientRect();
 		const popoverWidth = 288; // w-72 = 18rem = 288px
 		const gap = 8; // mt-2
 
-		const top = triggerRect.bottom + gap;
-		const left =
-			anchor === "right" ? triggerRect.right - popoverWidth : triggerRect.left;
+		const reposition = () => {
+			const triggerRect = trigger.getBoundingClientRect();
+			const top = triggerRect.bottom + gap;
+			const left =
+				anchor === "right"
+					? triggerRect.right - popoverWidth
+					: triggerRect.left;
+			setPosition({ top, left });
+		};
 
-		setPosition({ top, left });
+		reposition();
+
+		window.addEventListener("scroll", reposition, true);
+		window.addEventListener("resize", reposition);
+		return () => {
+			window.removeEventListener("scroll", reposition, true);
+			window.removeEventListener("resize", reposition);
+		};
 	}, [anchor, triggerRef]);
 
 	// Close on click outside
