@@ -238,9 +238,10 @@ describe("ToastItem", () => {
 		// Toast fades out (opacity-0) then relies on CSS transitionend to remove.
 		// jsdom doesn't fire real CSS transitions, so simulate the event.
 		const btn = screen.queryByText("Auto-dismiss toast");
-		if (btn) {
+		const toastEl = btn?.closest("button") ?? null;
+		if (toastEl) {
 			act(() => {
-				fireEvent.transitionEnd(btn.closest("button")!, {
+				fireEvent.transitionEnd(toastEl, {
 					propertyName: "opacity",
 				});
 			});

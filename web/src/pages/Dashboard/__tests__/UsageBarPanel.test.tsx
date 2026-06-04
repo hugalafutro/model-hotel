@@ -333,7 +333,7 @@ describe("UsageBarPanel", () => {
 	it("highlights active range button", () => {
 		renderWithProviders(<UsageBarPanel {...defaultProps} range="24h" />);
 
-		const oneDButton = screen.getByText("1D").closest("button")!;
+		const oneDButton = screen.getByText("1D").closest("button");
 		expect(oneDButton).toHaveStyle("background-color: var(--accent)");
 		expect(oneDButton).toHaveClass("text-white");
 	});

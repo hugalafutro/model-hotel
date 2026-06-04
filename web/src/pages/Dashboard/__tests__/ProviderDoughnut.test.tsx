@@ -306,7 +306,7 @@ describe("ProviderDoughnut", () => {
 	it("highlights active range button", () => {
 		renderWithProviders(<ProviderDoughnut {...defaultProps} range="24h" />);
 
-		const oneDButton = screen.getByText("1D").closest("button")!;
+		const oneDButton = screen.getByText("1D").closest("button");
 		expect(oneDButton).toHaveStyle("background-color: var(--accent)");
 		expect(oneDButton).toHaveClass("text-white");
 	});
@@ -314,7 +314,7 @@ describe("ProviderDoughnut", () => {
 	it("highlights active metric button", () => {
 		renderWithProviders(<ProviderDoughnut {...defaultProps} metric="tokens" />);
 
-		const tokButton = screen.getByText("Tok").closest("button")!;
+		const tokButton = screen.getByText("Tok").closest("button");
 		expect(tokButton).toHaveStyle("background-color: var(--accent)");
 		expect(tokButton).toHaveClass("text-white");
 	});

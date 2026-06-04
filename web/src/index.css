@@ -713,6 +713,7 @@ html[data-ui-style="clean-saas"] .sidebar-link {
 	translate: 0 1px;
 }
 /* Firefox centers text accurately in flex containers — no nudge needed. */
+/* stylelint-disable at-rule-no-vendor-prefix */
 @-moz-document url-prefix() {
 	.badge-text {
 		translate: 0 0;
@@ -720,17 +721,21 @@ html[data-ui-style="clean-saas"] .sidebar-link {
 }
 /* Firefox: badge and controls in PageHeader title row sit slightly too high
    in the items-center flex row compared to Chrome. */
+/* stylelint-disable at-rule-no-vendor-prefix */
 @-moz-document url-prefix() {
 	.page-header-title-row > button,
 	.page-header-title-row > .flex {
 		translate: 0 2px;
 	}
 }
+
 /* Dot+text badges (Live, All Keys): text aligns with dot in Firefox
    via -1px translate, but Chrome needs no offset. */
 .badge-dot-text {
 	translate: 0 0.5px;
 }
+
+/* stylelint-disable at-rule-no-vendor-prefix */
 @-moz-document url-prefix() {
 	.badge-dot-text {
 		translate: 0 -1px;
