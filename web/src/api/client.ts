@@ -550,12 +550,14 @@ export const api = {
 			period?: string;
 			excludeDeleted?: boolean;
 			metric?: "requests" | "tokens";
+			includeLatency?: boolean;
 		}): Promise<Stats> => {
 			return fetchJSON<Stats>(
 				buildUrl("/api/stats", {
 					period: opts?.period,
 					exclude_deleted: opts?.excludeDeleted ? "true" : undefined,
 					metric: opts?.metric,
+					include_latency: opts?.includeLatency ? "true" : undefined,
 				}),
 				{ headers: getAuthHeaders() },
 				"Failed to fetch stats",

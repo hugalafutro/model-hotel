@@ -126,12 +126,17 @@ func parseMetric(r *http.Request) string {
 	return "requests"
 }
 
+func parseIncludeLatency(r *http.Request) bool {
+	return r.URL.Query().Get("include_latency") == "true"
+}
+
 // GetStats returns aggregated statistics for the specified period.
 func (h *StatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	period := parsePeriod(r)
 	excludeDeleted := parseExcludeDeleted(r)
 	metric := parseMetric(r)
-	stats, err := h.calculateStats(r.Context(), period, excludeDeleted, metric)
+	includeLatency := parseIncludeLatency(r)
+	stats, err := h.calculateStats(r.Context(), period, excludeDeleted, metric, includeLatency)
 	if err != nil {
 		respondError(w, "failed to calculate stats", err, http.StatusInternalServerError)
 		return
@@ -143,12 +148,11 @@ func (h *StatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration, excludeDeleted bool, metric string) (*StatsResponse, error) {
+func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration, excludeDeleted bool, metric string, includeLatency bool) (*StatsResponse, error) {
 	stats := &StatsResponse{
-		ByModel:        make(map[string]int64),
-		ByProvider:     make(map[string]int64),
-		ByVirtualKey:   make(map[string]int64),
-		ByModelLatency: make([]ModelLatencyEntry, 0),
+		ByModel:      make(map[string]int64),
+		ByProvider:   make(map[string]int64),
+		ByVirtualKey: make(map[string]int64),
 	}
 
 	var vkJoin, vkFilter string
@@ -468,44 +472,45 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 	}
 	stats.RequestsLast1h = requests1h
 
-	// Query 12: Per-model latency breakdown (top 5 by avg total latency)
-	// provider_ms is derived as total_ms - overhead_ms so the split always
-	// sums exactly to the displayed total (no rounding mismatches from
-	// averaging over different row subsets).
-	query = `
-		WITH model_latency AS (
-			SELECT
-				CASE
-					WHEN rl.model_id LIKE '%/%' THEN rl.model_id
-					WHEN p.name IS NOT NULL AND p.name != '' THEN p.name || '/' || rl.model_id
-					ELSE rl.model_id
-				END as model_id,
-				COUNT(*) as req_count,
-				COALESCE(AVG(rl.duration_ms), 0) as avg_total,
-				COALESCE(AVG(rl.proxy_overhead_ms) FILTER (WHERE rl.proxy_overhead_ms > 0), 0) as avg_overhead
-			FROM request_logs rl
-			LEFT JOIN providers p ON rl.provider_id = p.id` + vkJoin + `
-			WHERE rl.created_at >= $1 AND rl.status_code > 0 AND rl.status_code < 400` + vkFilter + `
-			GROUP BY 1
-			HAVING COUNT(*) >= 3
-			ORDER BY avg_total DESC
-			LIMIT 5
-		)
-		SELECT model_id, req_count, avg_total, avg_overhead,
-			GREATEST(0, avg_total - avg_overhead) as avg_provider
-		FROM model_latency`
+	// Query 12: Per-model latency breakdown (top 5 by avg total latency).
+	// Only runs when the caller requests it to avoid unnecessary work
+	// on stats calls from non-latency dashboard panels.
+	if includeLatency {
+		query = `
+			WITH model_latency AS (
+				SELECT
+					CASE
+						WHEN rl.model_id LIKE '%/%' THEN rl.model_id
+						WHEN p.name IS NOT NULL AND p.name != '' THEN p.name || '/' || rl.model_id
+						ELSE rl.model_id
+					END as model_id,
+					COUNT(*) as req_count,
+					COALESCE(AVG(rl.duration_ms), 0) as avg_total,
+					COALESCE(AVG(rl.proxy_overhead_ms) FILTER (WHERE rl.proxy_overhead_ms > 0), 0) as avg_overhead
+				FROM request_logs rl
+				LEFT JOIN providers p ON rl.provider_id = p.id` + vkJoin + `
+				WHERE rl.created_at >= $1 AND rl.status_code > 0 AND rl.status_code < 400` + vkFilter + `
+				GROUP BY 1
+				HAVING COUNT(*) >= 3
+				ORDER BY avg_total DESC
+				LIMIT 5
+			)
+			SELECT model_id, req_count, avg_total, avg_overhead,
+				GREATEST(0, avg_total - avg_overhead) as avg_provider
+			FROM model_latency`
 
-	rows, err = h.dbPool.Query(ctx, query, since)
-	if err != nil {
-		debuglog.Error("stats: query failed", "query", "by_model_latency", "error", err)
-	} else {
-		defer rows.Close()
-		for rows.Next() {
-			var entry ModelLatencyEntry
-			if err := rows.Scan(&entry.ModelID, &entry.RequestCount, &entry.TotalMs, &entry.OverheadMs, &entry.ProviderMs); err != nil {
-				continue
+		rows, err = h.dbPool.Query(ctx, query, since)
+		if err != nil {
+			debuglog.Error("stats: query failed", "query", "by_model_latency", "error", err)
+		} else {
+			defer rows.Close()
+			for rows.Next() {
+				var entry ModelLatencyEntry
+				if err := rows.Scan(&entry.ModelID, &entry.RequestCount, &entry.TotalMs, &entry.OverheadMs, &entry.ProviderMs); err != nil {
+					continue
+				}
+				stats.ByModelLatency = append(stats.ByModelLatency, entry)
 			}
-			stats.ByModelLatency = append(stats.ByModelLatency, entry)
 		}
 	}
 

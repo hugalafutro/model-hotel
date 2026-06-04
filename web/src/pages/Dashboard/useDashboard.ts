@@ -445,11 +445,12 @@ export function useDashboard(): UseDashboardReturn {
 	});
 
 	const { data: latencyStats, isLoading: latencyStatsLoading } = useQuery({
-		queryKey: ["stats-usage", latencyRange, excludeDeleted],
+		queryKey: ["stats-usage", latencyRange, excludeDeleted, "latency"],
 		queryFn: () =>
 			api.stats.get({
 				period: toApiPeriod(latencyRange),
 				excludeDeleted,
+				includeLatency: true,
 			}),
 		placeholderData: (prev) => prev,
 		refetchInterval: dashboardRefreshMs,

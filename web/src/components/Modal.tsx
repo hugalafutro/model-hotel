@@ -79,7 +79,12 @@ export function Modal({
 			// Only act on the outer wrapper's own opacity transition
 			if (e.target !== ref.current || e.propertyName !== "opacity") return;
 			if (closingRef.current) {
-				closingRef.current = false; // prevent fallback timer from also calling
+				// Cancel the fallback timer so it cannot fire a second onClose().
+				// Keep closingRef.current = true so handleClose() cannot re-enter.
+				if (fallbackTimerRef.current !== null) {
+					clearTimeout(fallbackTimerRef.current);
+					fallbackTimerRef.current = null;
+				}
 				onClose();
 			}
 		},
