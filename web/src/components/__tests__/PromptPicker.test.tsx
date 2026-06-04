@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ArenaPromptPreset } from "../../data/presets";
@@ -371,10 +371,12 @@ describe("PromptPicker", () => {
 			);
 			await user.click(screen.getByText("⚖️Dilemma"));
 			await user.click(screen.getByText("Delete"));
-			expect(mockOnPromptChange).toHaveBeenCalledWith(
-				"Present a moral dilemma",
-			);
-			expect(mockOnActivePromptIdChange).toHaveBeenCalledWith("dilemma");
+			await waitFor(() => {
+				expect(mockOnPromptChange).toHaveBeenCalledWith(
+					"Present a moral dilemma",
+				);
+				expect(mockOnActivePromptIdChange).toHaveBeenCalledWith("dilemma");
+			});
 		});
 
 		it("cancels overwrite when clicking Cancel in dialog", async () => {
@@ -390,9 +392,11 @@ describe("PromptPicker", () => {
 			);
 			await user.click(screen.getByText("⚖️Dilemma"));
 			await user.click(screen.getByText("Cancel"));
-			expect(mockOnPromptChange).not.toHaveBeenCalled();
-			expect(mockOnActivePromptIdChange).not.toHaveBeenCalled();
-			expect(screen.queryByText("Overwrite Prompt")).not.toBeInTheDocument();
+			await waitFor(() => {
+				expect(mockOnPromptChange).not.toHaveBeenCalled();
+				expect(mockOnActivePromptIdChange).not.toHaveBeenCalled();
+				expect(screen.queryByText("Overwrite Prompt")).not.toBeInTheDocument();
+			});
 		});
 	});
 
@@ -425,8 +429,10 @@ describe("PromptPicker", () => {
 			);
 			await user.click(screen.getByText("✏️Custom"));
 			await user.click(screen.getByText("Delete"));
-			expect(mockOnPromptChange).toHaveBeenCalledWith("");
-			expect(mockOnActivePromptIdChange).toHaveBeenCalledWith(null);
+			await waitFor(() => {
+				expect(mockOnPromptChange).toHaveBeenCalledWith("");
+				expect(mockOnActivePromptIdChange).toHaveBeenCalledWith(null);
+			});
 		});
 
 		it("does not show dialog when already in custom mode", async () => {
@@ -500,8 +506,10 @@ describe("PromptPicker", () => {
 			);
 			await user.click(screen.getByTitle("Random"));
 			await user.click(screen.getByText("Delete"));
-			expect(mockOnPromptChange).toHaveBeenCalledTimes(1);
-			expect(mockOnActivePromptIdChange).toHaveBeenCalledTimes(1);
+			await waitFor(() => {
+				expect(mockOnPromptChange).toHaveBeenCalledTimes(1);
+				expect(mockOnActivePromptIdChange).toHaveBeenCalledTimes(1);
+			});
 		});
 
 		it("does not call handlers when no prompts available (all selected)", () => {

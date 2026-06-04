@@ -1,4 +1,4 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Model, Provider } from "../../api/types";
 import { renderWithProviders } from "../../test/utils";
@@ -871,7 +871,7 @@ describe("VirtualModelTable", () => {
 			expect(screen.getByText("Delete Disabled Models")).toBeInTheDocument();
 		});
 
-		it("calls onDeleteDisabled with disabled model IDs on confirm", () => {
+		it("calls onDeleteDisabled with disabled model IDs on confirm", async () => {
 			const onDeleteDisabled = vi.fn();
 			const disabledModel = createModel({
 				id: "model-disabled-1",
@@ -887,10 +887,12 @@ describe("VirtualModelTable", () => {
 			fireEvent.click(screen.getByText("Delete 1 disabled"));
 			fireEvent.click(screen.getByText("Delete"));
 
-			expect(onDeleteDisabled).toHaveBeenCalledWith(["model-disabled-1"]);
+			await waitFor(() => {
+				expect(onDeleteDisabled).toHaveBeenCalledWith(["model-disabled-1"]);
+			});
 		});
 
-		it("closes confirm dialog on cancel", () => {
+		it("closes confirm dialog on cancel", async () => {
 			const onDeleteDisabled = vi.fn();
 			const disabledModel = createModel({
 				id: "model-disabled-1",
@@ -908,9 +910,11 @@ describe("VirtualModelTable", () => {
 
 			fireEvent.click(screen.getByText("Cancel"));
 
-			expect(
-				screen.queryByText("Delete Disabled Models"),
-			).not.toBeInTheDocument();
+			await waitFor(() => {
+				expect(
+					screen.queryByText("Delete Disabled Models"),
+				).not.toBeInTheDocument();
+			});
 		});
 	});
 });

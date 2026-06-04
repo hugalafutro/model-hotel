@@ -1197,7 +1197,9 @@ describe("ModelTable", () => {
 			await user.click(screen.getByText("Delete 1 disabled"));
 			await user.click(screen.getByText("Delete"));
 
-			expect(onDeleteDisabled).toHaveBeenCalledWith(["model-disabled-1"]);
+			await waitFor(() => {
+				expect(onDeleteDisabled).toHaveBeenCalledWith(["model-disabled-1"]);
+			});
 		});
 
 		it("closes confirm dialog on cancel", async () => {
@@ -1222,9 +1224,11 @@ describe("ModelTable", () => {
 
 			await user.click(screen.getByText("Cancel"));
 
-			expect(
-				screen.queryByText("Delete Disabled Models"),
-			).not.toBeInTheDocument();
+			await waitFor(() => {
+				expect(
+					screen.queryByText("Delete Disabled Models"),
+				).not.toBeInTheDocument();
+			});
 		});
 
 		it("only includes disabled models from filtered view, not all models", async () => {
@@ -1266,7 +1270,9 @@ describe("ModelTable", () => {
 			await user.click(screen.getByText("Delete"));
 
 			// Should only pass the in-scope disabled model ID
-			expect(onDeleteDisabled).toHaveBeenCalledWith(["model-disabled-scope"]);
+			await waitFor(() => {
+				expect(onDeleteDisabled).toHaveBeenCalledWith(["model-disabled-scope"]);
+			});
 		});
 
 		it("does not show delete button when disabled models are outside filter scope", async () => {
