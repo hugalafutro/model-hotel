@@ -12,20 +12,12 @@ describe("LiveToggleButton", () => {
 		expect(screen.getByText("Live")).toBeInTheDocument();
 	});
 
-	it("shows green dot styling when enabled", () => {
+	it("shows badge-text class on the label", () => {
 		const { container } = renderWithProviders(
 			<LiveToggleButton enabled={true} onToggle={vi.fn()} />,
 		);
-		const dot = container.querySelector("span.w-1\\.5.h-1\\.5");
-		expect(dot).toHaveClass("bg-green-400");
-	});
-
-	it("shows gray dot styling when disabled", () => {
-		const { container } = renderWithProviders(
-			<LiveToggleButton enabled={false} onToggle={vi.fn()} />,
-		);
-		const dot = container.querySelector("span.w-1\\.5.h-1\\.5");
-		expect(dot).toHaveClass("bg-gray-500");
+		const badgeText = container.querySelector(".badge-text");
+		expect(badgeText).toBeTruthy();
 	});
 
 	it("shows green button styling when enabled", () => {

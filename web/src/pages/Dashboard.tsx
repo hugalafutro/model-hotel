@@ -170,12 +170,7 @@ export function Dashboard() {
 									: "bg-green-500/20 text-green-400 hover:bg-green-500/30"
 							}`}
 						>
-							<span
-								className={`w-1.5 h-1.5 rounded-full transition-colors ${
-									excludeDeleted ? "bg-amber-400" : "bg-green-400"
-								}`}
-							/>
-							<span className="badge-dot-text">
+							<span className="badge-text">
 								{excludeDeleted
 									? t("dashboard.activeKeysOnly")
 									: t("dashboard.allKeys")}
