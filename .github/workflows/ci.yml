@@ -152,24 +152,6 @@ jobs:
       - name: Build
         run: pnpm run build
 
-  codacy-analysis:
-    name: Codacy Static Code Analysis
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-
-      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Run Codacy Analysis CLI
-        uses: codacy/codacy-analysis-cli-action@d43360362776a6789b47b99ae8973510854e2d3d
-        with:
-          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
-          upload: true
-          max-allowed-issues: 2147483647
-
   docker-build:
     name: Docker Build
     runs-on: ubuntu-latest
