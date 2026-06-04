@@ -32,6 +32,7 @@ GEMINI.md
 # Git wrapper session manifests
 # Go coverage / pprof
 # Go test binaries
+*.junit.xml
 # Go vendor
 # IDE
 .idea/
