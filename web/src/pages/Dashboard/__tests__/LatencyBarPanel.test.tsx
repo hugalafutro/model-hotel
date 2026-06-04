@@ -82,7 +82,7 @@ describe("LatencyBarPanel", () => {
 
 		expect(
 			screen.getByText(
-				"No usage data yet. Usage breakdown will appear here once traffic flows.",
+				"No latency data yet. Latency breakdown will appear here once traffic flows.",
 			),
 		).toBeInTheDocument();
 	});

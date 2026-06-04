@@ -57,7 +57,7 @@ export function LatencyBarPanel({
 			</div>
 			{entries.length === 0 ? (
 				<p className="text-sm text-(--text-muted) text-center py-8">
-					{t("dashboard.usage.emptyState")}
+					{t("dashboard.latency.emptyState")}
 				</p>
 			) : (
 				<div className="space-y-3.5">

@@ -41,6 +41,15 @@ export function Modal({
 	// On close: transition back to invisible, then call parent's onClose.
 	const [opacity, setOpacity] = useState(0);
 	const closingRef = useRef(false);
+	const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	// Clear fallback timer on unmount so it doesn't fire on a removed component.
+	useEffect(() => {
+		return () => {
+			if (fallbackTimerRef.current !== null)
+				clearTimeout(fallbackTimerRef.current);
+		};
+	}, []);
 
 	// Fade in on mount (useLayoutEffect + rAF ensures the browser paints
 	// opacity-0 first, then transitions to opacity-1).
@@ -60,7 +69,7 @@ export function Modal({
 		setOpacity(0);
 		// Fallback: if onTransitionEnd never fires (e.g. jsdom),
 		// call onClose after the fade duration so tests don't hang.
-		setTimeout(() => {
+		fallbackTimerRef.current = setTimeout(() => {
 			if (closingRef.current) onClose();
 		}, FADE_DURATION + 50);
 	}, [onClose]);

@@ -469,24 +469,31 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 	stats.RequestsLast1h = requests1h
 
 	// Query 12: Per-model latency breakdown (top 5 by avg total latency)
+	// provider_ms is derived as total_ms - overhead_ms so the split always
+	// sums exactly to the displayed total (no rounding mismatches from
+	// averaging over different row subsets).
 	query = `
-		SELECT
-			CASE
-				WHEN rl.model_id LIKE '%/%' THEN rl.model_id
-				WHEN p.name IS NOT NULL AND p.name != '' THEN p.name || '/' || rl.model_id
-				ELSE rl.model_id
-			END as model_id,
-			COUNT(*) as req_count,
-			COALESCE(AVG(rl.duration_ms), 0) as avg_total,
-			COALESCE(AVG(rl.proxy_overhead_ms) FILTER (WHERE rl.proxy_overhead_ms > 0), 0) as avg_overhead,
-			COALESCE(AVG(rl.latency_ms) FILTER (WHERE rl.status_code > 0 AND rl.status_code < 400), 0) as avg_provider
-		FROM request_logs rl
-		LEFT JOIN providers p ON rl.provider_id = p.id` + vkJoin + `
-		WHERE rl.created_at >= $1 AND rl.status_code > 0 AND rl.status_code < 400` + vkFilter + `
-		GROUP BY 1
-		HAVING COUNT(*) >= 3
-		ORDER BY avg_total DESC
-		LIMIT 5`
+		WITH model_latency AS (
+			SELECT
+				CASE
+					WHEN rl.model_id LIKE '%/%' THEN rl.model_id
+					WHEN p.name IS NOT NULL AND p.name != '' THEN p.name || '/' || rl.model_id
+					ELSE rl.model_id
+				END as model_id,
+				COUNT(*) as req_count,
+				COALESCE(AVG(rl.duration_ms), 0) as avg_total,
+				COALESCE(AVG(rl.proxy_overhead_ms) FILTER (WHERE rl.proxy_overhead_ms > 0), 0) as avg_overhead
+			FROM request_logs rl
+			LEFT JOIN providers p ON rl.provider_id = p.id` + vkJoin + `
+			WHERE rl.created_at >= $1 AND rl.status_code > 0 AND rl.status_code < 400` + vkFilter + `
+			GROUP BY 1
+			HAVING COUNT(*) >= 3
+			ORDER BY avg_total DESC
+			LIMIT 5
+		)
+		SELECT model_id, req_count, avg_total, avg_overhead,
+			GREATEST(0, avg_total - avg_overhead) as avg_provider
+		FROM model_latency`
 
 	rows, err = h.dbPool.Query(ctx, query, since)
 	if err != nil {
