@@ -512,8 +512,8 @@ func (h *BackupHandler) RestoreBackup(w http.ResponseWriter, r *http.Request) {
 	// Limit upload size (100MB)
 	r.Body = http.MaxBytesReader(w, r.Body, 100*1024*1024)
 
-	// Parse multipart form
-	if err := r.ParseMultipartForm(32 << 20); err != nil {
+	// Parse multipart form (32MB max in-memory)
+	if err := r.ParseMultipartForm(32 << 20); err != nil { //nolint:gosec // bounded by MaxBytesReader above
 		respondBadRequest(w, "failed to parse multipart form", err)
 		return
 	}

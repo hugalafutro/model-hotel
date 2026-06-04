@@ -385,12 +385,12 @@ func ptrEqual(a, b interface{}) bool {
 	bv := reflect.ValueOf(b)
 
 	// If both are nil pointers, they're equal
-	if (av.Kind() == reflect.Ptr && av.IsNil()) && (bv.Kind() == reflect.Ptr && bv.IsNil()) {
+	if (av.Kind() == reflect.Pointer && av.IsNil()) && (bv.Kind() == reflect.Pointer && bv.IsNil()) {
 		return true
 	}
 
 	// If one is a nil pointer and the other isn't, they're not equal
-	if (av.Kind() == reflect.Ptr && av.IsNil()) || (bv.Kind() == reflect.Ptr && bv.IsNil()) {
+	if (av.Kind() == reflect.Pointer && av.IsNil()) || (bv.Kind() == reflect.Pointer && bv.IsNil()) {
 		return false
 	}
 
