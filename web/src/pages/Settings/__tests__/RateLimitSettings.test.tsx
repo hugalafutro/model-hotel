@@ -21,9 +21,9 @@ describe("RateLimitSettings", () => {
 		await waitFor(() => {
 			expect(screen.getByText("Rate Limiting")).toBeInTheDocument();
 		});
-		// Gauge icon renders as SVG with lucide class
-		const icon = document.querySelector(".lucide-gauge");
-		expect(icon).toBeInTheDocument();
+		// Gauge icon renders as SVG element with lucide-gauge class
+		const gaugeIcon = document.querySelector(".lucide-gauge");
+		expect(gaugeIcon).toBeInTheDocument();
 	});
 
 	it("renders description text", async () => {
@@ -453,4 +453,426 @@ describe("RateLimitSettings", () => {
 			expect(screen.getByText("Rate Limiting")).toBeInTheDocument();
 		});
 	});
+
+	describe("mutation payload verification", () => {
+		it("sends correct payload when rate limit toggle is clicked", async () => {
+			const user = userEvent.setup();
+			let capturedPayload: Record<string, string> | undefined;
+
+			server.use(
+				http.get("/api/settings", () => {
+					return HttpResponse.json({
+						rate_limit_enabled: "true",
+						rate_limit_rps: "10",
+						rate_limit_burst: "20",
+						rate_limit_ip_enabled: "true",
+						rate_limit_ip_rps: "30",
+						rate_limit_ip_burst: "60",
+						rate_limit_max_wait_ms: "200",
+					});
+				}),
+				http.put("/api/settings", async ({ request }) => {
+					if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+						return HttpResponse.json(
+							{ error: "Unauthorized" },
+							{ status: 401 },
+						);
+					}
+					capturedPayload = (await request.json()) as Record<string, string>;
+					return HttpResponse.json(capturedPayload ?? {});
+				}),
+			);
+
+			renderWithProviders(
+				<RateLimitSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(screen.getByText("Enable Rate Limiting")).toBeInTheDocument();
+			});
+
+			const toggles = screen.getAllByRole("switch");
+			await user.click(toggles[0]); // rate limit toggle
+
+			await waitFor(() => {
+				expect(capturedPayload).toEqual({ rate_limit_enabled: "false" });
+			});
+		});
+
+		it("sends correct payload when IP rate limit toggle is clicked", async () => {
+			const user = userEvent.setup();
+			let capturedPayload: Record<string, string> | undefined;
+
+			server.use(
+				http.get("/api/settings", () => {
+					return HttpResponse.json({
+						rate_limit_enabled: "true",
+						rate_limit_rps: "10",
+						rate_limit_burst: "20",
+						rate_limit_ip_enabled: "true",
+						rate_limit_ip_rps: "30",
+						rate_limit_ip_burst: "60",
+						rate_limit_max_wait_ms: "200",
+					});
+				}),
+				http.put("/api/settings", async ({ request }) => {
+					if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+						return HttpResponse.json(
+							{ error: "Unauthorized" },
+							{ status: 401 },
+						);
+					}
+					capturedPayload = (await request.json()) as Record<string, string>;
+					return HttpResponse.json(capturedPayload ?? {});
+				}),
+			);
+
+			renderWithProviders(
+				<RateLimitSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(screen.getByText("IP Rate Limiting")).toBeInTheDocument();
+			});
+
+			const toggles = screen.getAllByRole("switch");
+			await user.click(toggles[1]); // IP rate limit toggle
+
+			await waitFor(() => {
+				expect(capturedPayload).toEqual({ rate_limit_ip_enabled: "false" });
+			});
+		});
+
+		it("sends RPS value when slider changes", async () => {
+			let capturedPayload: Record<string, string> | undefined;
+
+			server.use(
+				http.get("/api/settings", () => {
+					return HttpResponse.json({
+						rate_limit_enabled: "true",
+						rate_limit_rps: "10",
+						rate_limit_burst: "20",
+						rate_limit_ip_enabled: "true",
+						rate_limit_ip_rps: "30",
+						rate_limit_ip_burst: "60",
+						rate_limit_max_wait_ms: "200",
+					});
+				}),
+				http.put("/api/settings", async ({ request }) => {
+					capturedPayload = (await request.json()) as Record<string, string>;
+					return HttpResponse.json(capturedPayload ?? {});
+				}),
+			);
+
+			renderWithProviders(
+				<RateLimitSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(
+					screen.getByLabelText("Requests per Second"),
+				).toBeInTheDocument();
+			});
+
+			const slider = screen.getByLabelText("Requests per Second");
+			fireEvent.change(slider, { target: { value: "50" } });
+			fireEvent.pointerUp(slider);
+
+			await waitFor(() => {
+				expect(capturedPayload).toEqual({ rate_limit_rps: "50" });
+			});
+		});
+
+		it("sends burst value when slider changes", async () => {
+			let capturedPayload: Record<string, string> | undefined;
+
+			server.use(
+				http.get("/api/settings", () => {
+					return HttpResponse.json({
+						rate_limit_enabled: "true",
+						rate_limit_rps: "10",
+						rate_limit_burst: "20",
+						rate_limit_ip_enabled: "true",
+						rate_limit_ip_rps: "30",
+						rate_limit_ip_burst: "60",
+						rate_limit_max_wait_ms: "200",
+					});
+				}),
+				http.put("/api/settings", async ({ request }) => {
+					capturedPayload = (await request.json()) as Record<string, string>;
+					return HttpResponse.json(capturedPayload ?? {});
+				}),
+			);
+
+			renderWithProviders(
+				<RateLimitSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(screen.getByLabelText("Burst Size")).toBeInTheDocument();
+			});
+
+			const slider = screen.getByLabelText("Burst Size");
+			fireEvent.change(slider, { target: { value: "100" } });
+			fireEvent.pointerUp(slider);
+
+			await waitFor(() => {
+				expect(capturedPayload).toEqual({ rate_limit_burst: "100" });
+			});
+		});
+
+		it("sends IP RPS value when slider changes", async () => {
+			let capturedPayload: Record<string, string> | undefined;
+
+			server.use(
+				http.get("/api/settings", () => {
+					return HttpResponse.json({
+						rate_limit_enabled: "true",
+						rate_limit_rps: "10",
+						rate_limit_burst: "20",
+						rate_limit_ip_enabled: "true",
+						rate_limit_ip_rps: "30",
+						rate_limit_ip_burst: "60",
+						rate_limit_max_wait_ms: "200",
+					});
+				}),
+				http.put("/api/settings", async ({ request }) => {
+					capturedPayload = (await request.json()) as Record<string, string>;
+					return HttpResponse.json(capturedPayload ?? {});
+				}),
+			);
+
+			renderWithProviders(
+				<RateLimitSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(
+					screen.getByLabelText("IP Requests per Second"),
+				).toBeInTheDocument();
+			});
+
+			const slider = screen.getByLabelText("IP Requests per Second");
+			fireEvent.change(slider, { target: { value: "75" } });
+			fireEvent.pointerUp(slider);
+
+			await waitFor(() => {
+				expect(capturedPayload).toEqual({ rate_limit_ip_rps: "75" });
+			});
+		});
+
+		it("sends IP burst value when slider changes", async () => {
+			let capturedPayload: Record<string, string> | undefined;
+
+			server.use(
+				http.get("/api/settings", () => {
+					return HttpResponse.json({
+						rate_limit_enabled: "true",
+						rate_limit_rps: "10",
+						rate_limit_burst: "20",
+						rate_limit_ip_enabled: "true",
+						rate_limit_ip_rps: "30",
+						rate_limit_ip_burst: "60",
+						rate_limit_max_wait_ms: "200",
+					});
+				}),
+				http.put("/api/settings", async ({ request }) => {
+					capturedPayload = (await request.json()) as Record<string, string>;
+					return HttpResponse.json(capturedPayload ?? {});
+				}),
+			);
+
+			renderWithProviders(
+				<RateLimitSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(screen.getByLabelText("IP Burst Size")).toBeInTheDocument();
+			});
+
+			const slider = screen.getByLabelText("IP Burst Size");
+			fireEvent.change(slider, { target: { value: "120" } });
+			fireEvent.pointerUp(slider);
+
+			await waitFor(() => {
+				expect(capturedPayload).toEqual({ rate_limit_ip_burst: "120" });
+			});
+		});
+
+		it("sends max wait value when slider changes", async () => {
+			let capturedPayload: Record<string, string> | undefined;
+
+			server.use(
+				http.get("/api/settings", () => {
+					return HttpResponse.json({
+						rate_limit_enabled: "true",
+						rate_limit_rps: "10",
+						rate_limit_burst: "20",
+						rate_limit_ip_enabled: "true",
+						rate_limit_ip_rps: "30",
+						rate_limit_ip_burst: "60",
+						rate_limit_max_wait_ms: "200",
+					});
+				}),
+				http.put("/api/settings", async ({ request }) => {
+					capturedPayload = (await request.json()) as Record<string, string>;
+					return HttpResponse.json(capturedPayload ?? {});
+				}),
+			);
+
+			renderWithProviders(
+				<RateLimitSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(screen.getByLabelText("Max Wait (ms)")).toBeInTheDocument();
+			});
+
+			const slider = screen.getByLabelText("Max Wait (ms)");
+			fireEvent.change(slider, { target: { value: "800" } });
+			fireEvent.pointerUp(slider);
+
+			await waitFor(() => {
+				expect(capturedPayload).toEqual({ rate_limit_max_wait_ms: "800" });
+			});
+		});
+	});
+
+	describe("success/error toasts", () => {
+		it("shows settings saved toast on successful save", async () => {
+			const user = userEvent.setup();
+
+			server.use(
+				http.get("/api/settings", () => {
+					return HttpResponse.json({
+						rate_limit_enabled: "true",
+						rate_limit_rps: "10",
+						rate_limit_burst: "20",
+						rate_limit_ip_enabled: "true",
+						rate_limit_ip_rps: "30",
+						rate_limit_ip_burst: "60",
+						rate_limit_max_wait_ms: "200",
+					});
+				}),
+				http.put("/api/settings", async () => {
+					return HttpResponse.json({ success: true });
+				}),
+			);
+
+			renderWithProviders(
+				<RateLimitSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(screen.getByText("Enable Rate Limiting")).toBeInTheDocument();
+			});
+
+			const toggles = screen.getAllByRole("switch");
+			await user.click(toggles[0]);
+
+			await waitFor(() => {
+				expect(screen.getByText("Settings saved")).toBeInTheDocument();
+			});
+		});
+
+		it("shows error toast on failed save", async () => {
+			const user = userEvent.setup();
+
+			server.use(
+				http.get("/api/settings", () => {
+					return HttpResponse.json({
+						rate_limit_enabled: "true",
+						rate_limit_rps: "10",
+						rate_limit_burst: "20",
+						rate_limit_ip_enabled: "true",
+						rate_limit_ip_rps: "30",
+						rate_limit_ip_burst: "60",
+						rate_limit_max_wait_ms: "200",
+					});
+				}),
+				http.put("/api/settings", async () => {
+					return HttpResponse.json(
+						{ error: "Internal server error" },
+						{ status: 500 },
+					);
+				}),
+			);
+
+			renderWithProviders(
+				<RateLimitSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(screen.getByText("Enable Rate Limiting")).toBeInTheDocument();
+			});
+
+			const toggles = screen.getAllByRole("switch");
+			await user.click(toggles[0]);
+
+			await waitFor(() => {
+				expect(screen.getByText(/Failed to save/i)).toBeInTheDocument();
+			});
+		});
+	});
+
+	describe("collapsed state", () => {
+		it("renders collapsed section without content", async () => {
+			renderWithProviders(
+				<RateLimitSettings collapsed={true} onToggle={onToggle} />,
+			);
+
+			// Section title should still appear
+			await waitFor(() => {
+				expect(screen.getByText("Rate Limiting")).toBeInTheDocument();
+			});
+
+			// Content is hidden via CSS grid-rows-[0fr] with overflow-hidden
+			// The content wrapper should have the collapsed grid-rows class
+			const contentWrapper = document.querySelector(".grid-rows-\\[0fr\\]");
+			expect(contentWrapper).toBeInTheDocument();
+		});
+	});
+
+	describe("default values with settings", () => {
+		it("renders with custom settings values from API", async () => {
+			server.use(
+				http.get("/api/settings", () => {
+					return HttpResponse.json({
+						rate_limit_enabled: "true",
+						rate_limit_rps: "50",
+						rate_limit_burst: "100",
+						rate_limit_ip_enabled: "true",
+						rate_limit_ip_rps: "60",
+						rate_limit_ip_burst: "120",
+						rate_limit_max_wait_ms: "500",
+					});
+				}),
+			);
+
+			renderWithProviders(
+				<RateLimitSettings collapsed={false} onToggle={onToggle} />,
+			);
+
+			await waitFor(() => {
+				const rpsSlider = screen.getByLabelText("Requests per Second");
+				expect(rpsSlider).toHaveValue("50");
+			});
+
+			await waitFor(() => {
+				const burstSlider = screen.getByLabelText("Burst Size");
+				expect(burstSlider).toHaveValue("100");
+			});
+
+			await waitFor(() => {
+				const ipRpsSlider = screen.getByLabelText("IP Requests per Second");
+				expect(ipRpsSlider).toHaveValue("60");
+			});
+
+			await waitFor(() => {
+				const ipBurstSlider = screen.getByLabelText("IP Burst Size");
+				expect(ipBurstSlider).toHaveValue("120");
+			});
+
+			await waitFor(() => {
+				const maxWaitSlider = screen.getByLabelText("Max Wait (ms)");
+				expect(maxWaitSlider).toHaveValue("500");
+			});
+		});
+	});
 });
+
+// Note: Toggle visual state (aria-checked) is implicitly tested via the
+// existing tests that verify sliders appear/disappear based on toggle state:
+// - "hides RPS and Burst sliders when rate limiting is disabled"
+// - "hides IP RPS and IP Burst sliders when IP rate limiting is disabled"

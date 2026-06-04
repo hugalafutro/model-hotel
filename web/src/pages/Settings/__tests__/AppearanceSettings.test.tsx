@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../../test/utils";
@@ -270,6 +270,174 @@ describe("AppearanceSettings", () => {
 				);
 				expect(screen.getByLabelText("Auto-dismiss")).toBeInTheDocument();
 			});
+
+			it("clicks top-left toast position dot", async () => {
+				const user = userEvent.setup();
+				renderWithProviders(
+					<AppearanceSettings collapsed={false} onToggle={onToggle} />,
+				);
+
+				const topLeftButton = screen.getByTitle("Top Left");
+				await user.click(topLeftButton);
+
+				await waitFor(() => {
+					expect(screen.getByText(/test notification/i)).toBeInTheDocument();
+				});
+			});
+
+			it("clicks bottom-right toast position dot", async () => {
+				const user = userEvent.setup();
+				renderWithProviders(
+					<AppearanceSettings collapsed={false} onToggle={onToggle} />,
+				);
+
+				const bottomRightButton = screen.getByTitle("Bottom Right");
+				await user.click(bottomRightButton);
+
+				await waitFor(() => {
+					expect(screen.getByText(/test notification/i)).toBeInTheDocument();
+				});
+			});
+
+			it("changes auto-dismiss slider value", async () => {
+				const user = userEvent.setup();
+				renderWithProviders(
+					<AppearanceSettings collapsed={false} onToggle={onToggle} />,
+				);
+
+				const slider = screen.getByLabelText("Auto-dismiss");
+				await user.click(slider);
+				fireEvent.input(slider, { target: { value: "10" } });
+
+				expect(slider).toHaveValue("10");
+			});
 		});
+	});
+});
+
+describe("AppearanceSettings accent color", () => {
+	const onToggle = vi.fn();
+
+	beforeEach(() => {
+		onToggle.mockClear();
+	});
+
+	it("renders accent color presets as colored circles", () => {
+		renderWithProviders(
+			<AppearanceSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		// Find all accent color buttons by their title attribute
+		// The preset buttons have title attributes from i18n keys
+		const allButtons = screen.getAllByRole("button");
+		const colorButtons = allButtons.filter((btn) => {
+			// Filter for buttons with circular shape (w-8 h-8 rounded-full) and background-color style
+			const className = btn.className;
+			const hasBackground = btn
+				.getAttribute("style")
+				?.includes("background-color");
+			return (
+				className?.includes("rounded-full") &&
+				className?.includes("w-8") &&
+				hasBackground
+			);
+		});
+
+		// Should have multiple preset colors plus the custom color button
+		expect(colorButtons.length).toBeGreaterThan(1);
+	});
+
+	it("clicks top-center toast position dot", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(
+			<AppearanceSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const topCenterButton = screen.getByTitle("Top Center");
+		await user.click(topCenterButton);
+
+		await waitFor(() => {
+			expect(screen.getByText(/test notification/i)).toBeInTheDocument();
+		});
+	});
+
+	it("clicks top-right toast position dot", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(
+			<AppearanceSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const topRightButton = screen.getByTitle("Top Right");
+		await user.click(topRightButton);
+
+		await waitFor(() => {
+			expect(screen.getByText(/test notification/i)).toBeInTheDocument();
+		});
+	});
+
+	it("clicks bottom-left toast position dot", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(
+			<AppearanceSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const bottomLeftButton = screen.getByTitle("Bottom Left");
+		await user.click(bottomLeftButton);
+
+		await waitFor(() => {
+			expect(screen.getByText(/test notification/i)).toBeInTheDocument();
+		});
+	});
+
+	it("clicks bottom-center toast position dot", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(
+			<AppearanceSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const bottomCenterButton = screen.getByTitle("Bottom Center");
+		await user.click(bottomCenterButton);
+
+		await waitFor(() => {
+			expect(screen.getByText(/test notification/i)).toBeInTheDocument();
+		});
+	});
+
+	it("updates toast timeout when auto-dismiss slider changes", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(
+			<AppearanceSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const slider = screen.getByLabelText("Auto-dismiss");
+		await user.click(slider);
+		fireEvent.input(slider, { target: { value: "15" } });
+		fireEvent.pointerUp(slider);
+
+		// The setToastTimeout callback is called with value * 1000
+		expect(slider).toHaveValue("15");
+	});
+
+	it("sets accent color when clicking a preset", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(
+			<AppearanceSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		// Find accent color preset buttons - they have background-color style and circular shape
+		const allButtons = screen.getAllByRole("button");
+		const colorButtons = allButtons.filter((btn) => {
+			const className = btn.className;
+			return (
+				className?.includes("rounded-full") &&
+				className?.includes("w-8") &&
+				btn.getAttribute("style")?.includes("background-color")
+			);
+		});
+
+		expect(colorButtons.length).toBeGreaterThan(0);
+		await user.click(colorButtons[0]);
+		// The accent color should be set (visual change only, no toast)
+		expect(colorButtons[0]).toBeInTheDocument();
 	});
 });

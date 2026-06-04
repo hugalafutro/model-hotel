@@ -677,3 +677,100 @@ func TestGenerateChallenge(t *testing.T) {
 		t.Error("expected different challenge values from consecutive calls")
 	}
 }
+
+// TestSessionManagerRevokeAuthToken_NonAuthToken verifies that RevokeAuthToken
+// returns false when no auth_token session matches the token. A registration-type
+// session with the same token hash exists in the DB, but GetSessionByTokenHash
+// filters by type='auth_token', so the lookup returns ErrNotFound.
+func TestSessionManagerRevokeAuthToken_NonAuthToken(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	// Create a registration session with a known token hash
+	testToken := "revoke-non-auth-token"
+	hash := sha256.Sum256([]byte(testToken))
+	tokenHash := hex.EncodeToString(hash[:])
+
+	sessionID := uuid.New()
+	session := &SessionRecord{
+		ID:          sessionID,
+		Challenge:   "revoke-non-auth-challenge",
+		SessionData: []byte(`{"type":"registration"}`),
+		Type:        "registration",
+		UserID:      []byte("admin"),
+		TokenHash:   &tokenHash,
+		ExpiresAt:   time.Now().Add(1 * time.Hour),
+	}
+
+	if err := repo.CreateSession(ctx, session); err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+	t.Cleanup(func() { _ = repo.DeleteSession(ctx, sessionID) })
+
+	mgr := NewSessionManager(repo)
+
+	// RevokeAuthToken looks up by token_hash WHERE type='auth_token',
+	// so the registration session is invisible to this query.
+	if mgr.RevokeAuthToken(ctx, testToken) {
+		t.Error("expected RevokeAuthToken to return false when no auth_token session matches")
+	}
+}
+
+// TestSessionManagerValidate_ExpiredTokenWithHash verifies that Validate returns
+// false for expired auth_token sessions that have a proper token hash.
+func TestSessionManagerValidate_ExpiredTokenWithHash(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	testToken := "expired-auth-token-with-hash"
+	hash := sha256.Sum256([]byte(testToken))
+	tokenHash := hex.EncodeToString(hash[:])
+
+	sessionID := uuid.New()
+	session := &SessionRecord{
+		ID:          sessionID,
+		Challenge:   "expired-auth-challenge-2",
+		SessionData: []byte(`{"type":"auth_token"}`),
+		Type:        "auth_token",
+		UserID:      []byte("admin"),
+		TokenHash:   &tokenHash,
+		ExpiresAt:   time.Now().Add(-1 * time.Hour), // expired
+	}
+
+	if err := repo.CreateSession(ctx, session); err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+	t.Cleanup(func() { _ = repo.DeleteSession(ctx, sessionID) })
+
+	mgr := NewSessionManager(repo)
+
+	if mgr.Validate(ctx, testToken) {
+		t.Error("expected expired auth_token session to fail Validate")
+	}
+}
+
+// TestSessionManagerCreateAuthToken_DifferentUserIDs verifies that CreateAuthToken
+// correctly stores the provided userID in the session record.
+func TestSessionManagerCreateAuthToken_DifferentUserIDs(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	mgr := NewSessionManager(repo)
+
+	// Create token with a custom user ID
+	customUserID := []byte("custom-user-123")
+	token, err := mgr.CreateAuthToken(ctx, customUserID, nil)
+	if err != nil {
+		t.Fatalf("CreateAuthToken: %v", err)
+	}
+
+	// Verify the session has the correct user ID
+	hash := sha256.Sum256([]byte(token))
+	tokenHash := hex.EncodeToString(hash[:])
+	session, err := repo.GetSessionByTokenHash(ctx, tokenHash)
+	if err != nil {
+		t.Fatalf("GetSessionByTokenHash: %v", err)
+	}
+	if string(session.UserID) != "custom-user-123" {
+		t.Errorf("expected UserID 'custom-user-123', got %q", string(session.UserID))
+	}
+}

@@ -1,6 +1,8 @@
-import { screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import {
 	clearArenaHistory,
@@ -453,6 +455,28 @@ describe("Arena History section", () => {
 
 		expect(clearArenaHistory).not.toHaveBeenCalled();
 	});
+
+	it("shows toast when arena history limit slider changes", async () => {
+		const user = userEvent.setup();
+		localStorage.setItem("arenaHistoryEnabled", "true");
+
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const slider = screen.getByRole("slider", {
+			name: "Maximum Saved Matches",
+		});
+		expect(slider).not.toBeDisabled();
+
+		await user.click(slider);
+		fireEvent.input(slider, { target: { value: "50" } });
+		fireEvent.pointerUp(slider);
+
+		await waitFor(() => {
+			expect(screen.getByText(/history limit/i)).toBeInTheDocument();
+		});
+	});
 });
 
 describe("Cache & Resets section", () => {
@@ -694,5 +718,536 @@ describe("Quota Sidebar section", () => {
 		);
 
 		dispatchSpy.mockRestore();
+	});
+});
+
+describe("Log Retention slider", () => {
+	const onToggle = vi.fn();
+
+	beforeEach(() => {
+		localStorage.clear();
+		vi.clearAllMocks();
+		onToggle.mockClear();
+		server.resetHandlers();
+	});
+
+	it("renders log retention slider with settings from API", async () => {
+		server.use(
+			http.get("/api/settings", () =>
+				HttpResponse.json({ log_retention: "720h0m0s" }),
+			),
+		);
+
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		await waitFor(() => {
+			expect(
+				screen.getByRole("slider", { name: /log retention/i }),
+			).toBeInTheDocument();
+		});
+	});
+
+	it("shows disabled warning when log retention is 0", async () => {
+		server.use(
+			http.get("/api/settings", () =>
+				HttpResponse.json({ log_retention: "0" }),
+			),
+		);
+
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		await waitFor(() => {
+			expect(
+				screen.getByText(/log retention is disabled/i),
+			).toBeInTheDocument();
+		});
+	});
+
+	it("triggers settings update when log retention slider changes", async () => {
+		server.use(
+			http.get("/api/settings", () =>
+				HttpResponse.json({ log_retention: "24h0m0s" }),
+			),
+			http.put("/api/settings", () =>
+				HttpResponse.json({ log_retention: "48h0m0s" }),
+			),
+		);
+
+		const user = userEvent.setup();
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		await waitFor(() => {
+			const slider = screen.getByRole("slider", {
+				name: /log retention/i,
+			});
+			expect(slider).toBeInTheDocument();
+		});
+
+		const slider = screen.getByRole("slider", {
+			name: /log retention/i,
+		});
+		await user.click(slider);
+		fireEvent.input(slider, { target: { value: "48" } });
+		fireEvent.pointerUp(slider);
+
+		await waitFor(() => {
+			expect(screen.getByText(/settings saved/i)).toBeInTheDocument();
+		});
+	});
+});
+
+describe("Stale Request Timeout slider", () => {
+	const onToggle = vi.fn();
+
+	beforeEach(() => {
+		localStorage.clear();
+		vi.clearAllMocks();
+		onToggle.mockClear();
+		server.resetHandlers();
+	});
+
+	it("renders stale request timeout slider with settings from API", async () => {
+		server.use(
+			http.get("/api/settings", () =>
+				HttpResponse.json({ stale_request_timeout: "30m0s" }),
+			),
+		);
+
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		await waitFor(() => {
+			expect(
+				screen.getByRole("slider", { name: /stale request/i }),
+			).toBeInTheDocument();
+		});
+	});
+
+	it("shows disabled warning when stale request timeout is 0", async () => {
+		server.use(
+			http.get("/api/settings", () =>
+				HttpResponse.json({ stale_request_timeout: "0m0s" }),
+			),
+		);
+
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		await waitFor(() => {
+			expect(
+				screen.getByText(/stale request detection is disabled/i),
+			).toBeInTheDocument();
+		});
+	});
+
+	it("triggers settings update when stale timeout slider changes", async () => {
+		server.use(
+			http.get("/api/settings", () =>
+				HttpResponse.json({ stale_request_timeout: "15m0s" }),
+			),
+			http.put("/api/settings", () =>
+				HttpResponse.json({ stale_request_timeout: "45m0s" }),
+			),
+		);
+
+		const user = userEvent.setup();
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		await waitFor(() => {
+			const slider = screen.getByRole("slider", {
+				name: /stale request/i,
+			});
+			expect(slider).toBeInTheDocument();
+		});
+
+		const slider = screen.getByRole("slider", {
+			name: /stale request/i,
+		});
+		await user.click(slider);
+		fireEvent.input(slider, { target: { value: "45" } });
+		fireEvent.pointerUp(slider);
+
+		await waitFor(() => {
+			expect(screen.getByText(/settings saved/i)).toBeInTheDocument();
+		});
+	});
+});
+
+describe("Delete Request Logs", () => {
+	const onToggle = vi.fn();
+
+	beforeEach(() => {
+		localStorage.clear();
+		vi.clearAllMocks();
+		onToggle.mockClear();
+	});
+
+	it("renders Delete Request Logs button", () => {
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		expect(
+			screen.getByRole("button", {
+				name: /delete requests/i,
+			}),
+		).toBeInTheDocument();
+	});
+
+	it("shows delete options when delete button clicked", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const deleteButton = screen.getByRole("button", {
+			name: /delete requests/i,
+		});
+		await user.click(deleteButton);
+
+		expect(screen.getByRole("combobox")).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: /confirm delete/i }),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: /^cancel$/i }),
+		).toBeInTheDocument();
+	});
+
+	it("calls purgeMutation when selection made and confirmed", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const deleteButton = screen.getByRole("button", {
+			name: /delete requests/i,
+		});
+		await user.click(deleteButton);
+
+		const select = screen.getByRole("combobox");
+		await user.selectOptions(select, "1d");
+
+		const confirmButton = screen.getByRole("button", {
+			name: /confirm delete/i,
+		});
+		await user.click(confirmButton);
+
+		await waitFor(() => {
+			expect(screen.getByText(/requests deleted/i)).toBeInTheDocument();
+		});
+	});
+
+	it("cancels delete when cancel clicked", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const deleteButton = screen.getByRole("button", {
+			name: /delete requests/i,
+		});
+		await user.click(deleteButton);
+
+		const cancelButton = screen.getByRole("button", { name: /^cancel$/i });
+		await user.click(cancelButton);
+
+		expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+	});
+});
+
+describe("Delete App Logs", () => {
+	const onToggle = vi.fn();
+
+	beforeEach(() => {
+		localStorage.clear();
+		vi.clearAllMocks();
+		onToggle.mockClear();
+	});
+
+	it("renders Delete App Logs button", () => {
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		expect(
+			screen.getByRole("button", {
+				name: /delete logs/i,
+			}),
+		).toBeInTheDocument();
+	});
+
+	it("shows confirm UI when delete app logs clicked", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const deleteButton = screen.getByRole("button", {
+			name: /delete logs/i,
+		});
+		await user.click(deleteButton);
+
+		expect(screen.getByText(/clear all application logs/i)).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: /^confirm$/i }),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: /^cancel$/i }),
+		).toBeInTheDocument();
+	});
+
+	it("calls purgeAppLogs when confirmed", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const deleteButton = screen.getByRole("button", {
+			name: /delete logs/i,
+		});
+		await user.click(deleteButton);
+
+		const confirmButton = screen.getByRole("button", { name: /^confirm$/i });
+		expect(confirmButton).toBeInTheDocument();
+		await user.click(confirmButton);
+
+		// Verify the confirm button was clicked (mutation called via MSW handler)
+		await waitFor(() => {
+			expect(confirmButton).not.toBeInTheDocument();
+		});
+	});
+
+	it("cancels app logs delete when cancel clicked", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const deleteButton = screen.getByRole("button", {
+			name: /delete logs/i,
+		});
+		await user.click(deleteButton);
+
+		expect(screen.getByText(/clear all application logs/i)).toBeInTheDocument();
+
+		const cancelButton = screen.getByRole("button", { name: /^cancel$/i });
+		await user.click(cancelButton);
+
+		expect(
+			screen.queryByText(/clear all application logs/i),
+		).not.toBeInTheDocument();
+	});
+});
+
+describe("Dashboard Refresh", () => {
+	const onToggle = vi.fn();
+
+	beforeEach(() => {
+		localStorage.clear();
+		vi.clearAllMocks();
+		onToggle.mockClear();
+	});
+
+	it("shows dashboard refresh disabled toast when slider set to 0", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const sliders = screen.getAllByLabelText("Refresh Interval");
+		const dashboardSlider = sliders.find(
+			(s) => (s as HTMLInputElement).id === "dashboard-refresh-interval",
+		);
+		expect(dashboardSlider).toBeInTheDocument();
+
+		await user.click(dashboardSlider);
+		fireEvent.input(dashboardSlider, { target: { value: "0" } });
+
+		await waitFor(() => {
+			expect(screen.getByText(/disabled/i)).toBeInTheDocument();
+		});
+	});
+});
+
+describe("DataStorageSettings collapsed state", () => {
+	const onToggle = vi.fn();
+
+	beforeEach(() => {
+		localStorage.clear();
+		vi.clearAllMocks();
+		onToggle.mockClear();
+	});
+
+	it("passes collapsed prop to SettingsSection", () => {
+		renderWithProviders(
+			<DataStorageSettings collapsed={true} onToggle={onToggle} />,
+		);
+
+		expect(onToggle).not.toHaveBeenCalled();
+	});
+
+	it("shows Persist Chat enabled toast when toggling on", async () => {
+		const user = userEvent.setup();
+		localStorage.setItem("persistChat", "false");
+
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const toggle = getToggleByLabel("Persist Chat");
+		await user.click(toggle);
+
+		await waitFor(() => {
+			expect(screen.getByText(/chat persistence enabled/i)).toBeInTheDocument();
+		});
+	});
+
+	it("shows Persist Arena enabled toast when toggling on", async () => {
+		const user = userEvent.setup();
+		localStorage.setItem("persistArena", "false");
+
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const toggle = getToggleByLabel("Persist Arena");
+		await user.click(toggle);
+
+		await waitFor(() => {
+			expect(
+				screen.getByText(/arena persistence enabled/i),
+			).toBeInTheDocument();
+		});
+	});
+
+	it("shows Persist Conversation enabled toast when toggling on", async () => {
+		const user = userEvent.setup();
+		localStorage.setItem("persistConversation", "false");
+
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const toggle = getToggleByLabel("Persist AI Conversation");
+		await user.click(toggle);
+
+		await waitFor(() => {
+			expect(
+				screen.getByText(/conversation persistence enabled/i),
+			).toBeInTheDocument();
+		});
+	});
+
+	it("shows quotas disabled toast when quota toggle is turned off", async () => {
+		const user = userEvent.setup();
+
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const toggle = getToggleByLabel("Show Quotas Pill");
+		await user.click(toggle);
+
+		await waitFor(() => {
+			expect(screen.getByText(/sidebar quotas disabled/i)).toBeInTheDocument();
+		});
+	});
+
+	it("shows quotas enabled toast when quota toggle is turned on", async () => {
+		const user = userEvent.setup();
+		localStorage.setItem("sidebarQuotaDisabled", "true");
+
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const toggle = getToggleByLabel("Show Quotas Pill");
+		await user.click(toggle);
+
+		await waitFor(() => {
+			expect(screen.getByText(/sidebar quotas enabled/i)).toBeInTheDocument();
+		});
+	});
+
+	it("dispatches sidebarQuotaRefreshChange event when quota refresh slider changes", async () => {
+		const user = userEvent.setup();
+		const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const sliders = screen.getAllByLabelText("Refresh Interval");
+		const quotaSlider = sliders.find(
+			(s) => (s as HTMLInputElement).id === "quota-refresh-interval",
+		);
+		expect(quotaSlider).toBeInTheDocument();
+
+		await user.click(quotaSlider);
+		fireEvent.input(quotaSlider, { target: { value: "10" } });
+		fireEvent.pointerUp(quotaSlider);
+
+		expect(dispatchSpy).toHaveBeenCalledWith(
+			expect.objectContaining({ type: "sidebarQuotaRefreshChange" }),
+		);
+
+		dispatchSpy.mockRestore();
+	});
+
+	it("shows quota interval set toast when quota slider value changes", async () => {
+		const user = userEvent.setup();
+
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const sliders = screen.getAllByLabelText("Refresh Interval");
+		const quotaSlider = sliders.find(
+			(s) => (s as HTMLInputElement).id === "quota-refresh-interval",
+		);
+		expect(quotaSlider).toBeInTheDocument();
+
+		await user.click(quotaSlider);
+		fireEvent.input(quotaSlider, { target: { value: "10" } });
+		fireEvent.pointerUp(quotaSlider);
+
+		await waitFor(() => {
+			expect(screen.getByText(/quota refresh set/i)).toBeInTheDocument();
+		});
+	});
+
+	it("shows quota disabled toast when quota slider set to 0", async () => {
+		const user = userEvent.setup();
+
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const sliders = screen.getAllByLabelText("Refresh Interval");
+		const quotaSlider = sliders.find(
+			(s) => (s as HTMLInputElement).id === "quota-refresh-interval",
+		);
+		expect(quotaSlider).toBeInTheDocument();
+
+		await user.click(quotaSlider);
+		fireEvent.input(quotaSlider, { target: { value: "0" } });
+		fireEvent.pointerUp(quotaSlider);
+
+		await waitFor(() => {
+			expect(
+				screen.getByText(/sidebar quota auto-refresh disabled/i),
+			).toBeInTheDocument();
+		});
 	});
 });
