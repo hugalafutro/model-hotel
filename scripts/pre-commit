@@ -2,8 +2,7 @@
 # Pre-commit: fast formatting only. Real checks run in CI.
 # Goal: under 10 seconds, never blocks for slow tests.
 #
-# Frontend checks (biome) use local pnpm when web/node_modules exists,
-# otherwise fall back to Docker.
+# Frontend checks (biome) use local pnpm when web/node_modules exists.
 
 set -euo pipefail
 
@@ -34,7 +33,7 @@ fi
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 staged_go=$(git diff --cached --name-only --diff-filter=ACM -- '*.go' || true)
-staged_ts=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^web/.*\.(tsx?|css)$' || true)
+staged_fe=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^web/.*\.(tsx?|css)$' || true)
 
 # ── Go: gci import order + go vet on staged packages ──
 if [ -n "$staged_go" ]; then
@@ -54,9 +53,9 @@ if [ -n "$staged_go" ]; then
 fi
 
 # ── Frontend: biome --write on staged TS/TSX/CSS ──
-if [ -n "$staged_ts" ]; then
+if [ -n "$staged_fe" ]; then
 	rel_paths=()
-	for f in $staged_ts; do
+	for f in $staged_fe; do
 		rel_paths+=("${f#web/}")
 	done
 
@@ -72,7 +71,7 @@ if [ -n "$staged_ts" ]; then
 	fi
 	# Re-stage any files biome rewrote.
 	changed=""
-	for f in $staged_ts; do
+	for f in $staged_fe; do
 		if ! git diff --quiet -- "$f"; then
 			changed="$changed $f"
 		fi
