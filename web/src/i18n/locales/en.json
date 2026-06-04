@@ -265,6 +265,11 @@
 			"emptyState": "No usage data yet. Usage breakdown will appear here once traffic flows.",
 			"viewDetailsFor": "View details for {{label}}"
 		},
+		"latency": {
+			"topModels": "Slowest Models",
+			"emptyState": "No latency data yet. Latency breakdown will appear here once traffic flows.",
+			"tooltip": "Proxy: {{overhead}}ms ({{ratio}}%) · Provider: {{provider}}ms"
+		},
 		"providers": {
 			"top": "Top Providers",
 			"top_one": "Top {{count}} Provider",

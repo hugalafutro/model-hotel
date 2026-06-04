@@ -39,10 +39,8 @@ export interface UseDashboardReturn {
 	setModelsRange: (range: Range) => void;
 	modelsMetric: MetricType;
 	setModelsMetric: (metric: MetricType) => void;
-	providersRange: Range;
-	setProvidersRange: (range: Range) => void;
-	providersMetric: MetricType;
-	setProvidersMetric: (metric: MetricType) => void;
+	latencyRange: Range;
+	setLatencyRange: (range: Range) => void;
 	virtualKeysRange: Range;
 	setVirtualKeysRange: (range: Range) => void;
 	virtualKeysMetric: MetricType;
@@ -78,7 +76,7 @@ export interface UseDashboardReturn {
 	tokenTsDataLoading: boolean;
 	provDistLoading: boolean;
 	modelsUsageLoading: boolean;
-	providersUsageLoading: boolean;
+	latencyStatsLoading: boolean;
 	vkeysUsageLoading: boolean;
 	tokenStatsLoading: boolean;
 
@@ -93,7 +91,7 @@ export interface UseDashboardReturn {
 	tokenTsData: TimeSeriesStats | undefined;
 	provDist: ProviderDistributionStats | undefined;
 	modelsUsageStats: Stats | undefined;
-	providersUsageStats: Stats | undefined;
+	latencyStats: Stats | undefined;
 	vkeysUsageStats: Stats | undefined;
 	tokenStats: Stats | undefined;
 
@@ -140,7 +138,13 @@ export interface UseDashboardReturn {
 		suffix: string;
 		failoverGroup?: boolean;
 	}>;
-	byProvider: Array<{ label: string; value: number; suffix: string }>;
+	byModelLatency: Array<{
+		label: string;
+		totalMs: number;
+		overheadMs: number;
+		providerMs: number;
+		requestCount: number;
+	}>;
 	byVK: Array<{
 		label: string;
 		value: number;
@@ -221,15 +225,10 @@ export function useDashboard(): UseDashboardReturn {
 		globalMetric,
 		{ deserialize: deserializeMetric },
 	);
-	const [providersRange, setProvidersRange] = useLocalStorage<Range>(
-		"dashboard.providersRange",
+	const [latencyRange, setLatencyRange] = useLocalStorage<Range>(
+		"dashboard.latencyRange",
 		globalRange,
 		{ deserialize: deserializeRange },
-	);
-	const [providersMetric, setProvidersMetric] = useLocalStorage<MetricType>(
-		"dashboard.providersMetric",
-		globalMetric,
-		{ deserialize: deserializeMetric },
 	);
 	const [virtualKeysRange, setVirtualKeysRange] = useLocalStorage<Range>(
 		"dashboard.virtualKeysRange",
@@ -253,7 +252,7 @@ export function useDashboard(): UseDashboardReturn {
 			setDoughnutRange(globalRange);
 			setTokenRange(globalRange);
 			setModelsRange(globalRange);
-			setProvidersRange(globalRange);
+			setLatencyRange(globalRange);
 			setVirtualKeysRange(globalRange);
 		}
 	}, [
@@ -263,7 +262,7 @@ export function useDashboard(): UseDashboardReturn {
 		setDoughnutRange,
 		setTokenRange,
 		setModelsRange,
-		setProvidersRange,
+		setLatencyRange,
 		setVirtualKeysRange,
 	]);
 	useEffect(() => {
@@ -271,16 +270,9 @@ export function useDashboard(): UseDashboardReturn {
 			prevGlobalMetricRef.current = globalMetric;
 			setDoughnutMetric(globalMetric);
 			setModelsMetric(globalMetric);
-			setProvidersMetric(globalMetric);
 			setVirtualKeysMetric(globalMetric);
 		}
-	}, [
-		globalMetric,
-		setDoughnutMetric,
-		setModelsMetric,
-		setProvidersMetric,
-		setVirtualKeysMetric,
-	]);
+	}, [globalMetric, setDoughnutMetric, setModelsMetric, setVirtualKeysMetric]);
 
 	// Modal states
 	const [overheadModalOpen, setOverheadModalOpen] = useState(false);
@@ -452,23 +444,16 @@ export function useDashboard(): UseDashboardReturn {
 		refetchInterval: dashboardRefreshMs,
 	});
 
-	const { data: providersUsageStats, isLoading: providersUsageLoading } =
-		useQuery({
-			queryKey: [
-				"stats-usage",
-				providersRange,
-				providersMetric,
+	const { data: latencyStats, isLoading: latencyStatsLoading } = useQuery({
+		queryKey: ["stats-usage", latencyRange, excludeDeleted],
+		queryFn: () =>
+			api.stats.get({
+				period: toApiPeriod(latencyRange),
 				excludeDeleted,
-			],
-			queryFn: () =>
-				api.stats.get({
-					period: toApiPeriod(providersRange),
-					metric: providersMetric,
-					excludeDeleted,
-				}),
-			placeholderData: (prev) => prev,
-			refetchInterval: dashboardRefreshMs,
-		});
+			}),
+		placeholderData: (prev) => prev,
+		refetchInterval: dashboardRefreshMs,
+	});
 
 	const { data: vkeysUsageStats, isLoading: vkeysUsageLoading } = useQuery({
 		queryKey: [
@@ -622,16 +607,14 @@ export function useDashboard(): UseDashboardReturn {
 					};
 				})
 		: [];
-	const byProvider = providersUsageStats
-		? Object.entries(providersUsageStats.by_provider)
-				.filter(([, v]) => Number(v) > 0)
-				.sort(([, a], [, b]) => Number(b) - Number(a))
-				.slice(0, 5)
-				.map(([k, v]) => ({
-					label: k,
-					value: Number(v),
-					suffix: providersMetric === "tokens" ? " tokens" : " requests",
-				}))
+	const byModelLatency = latencyStats?.by_model_latency
+		? latencyStats.by_model_latency.map((entry) => ({
+				label: entry.model_id,
+				totalMs: entry.total_ms,
+				overheadMs: entry.overhead_ms,
+				providerMs: entry.provider_ms,
+				requestCount: entry.request_count,
+			}))
 		: [];
 	const byVK = vkeysUsageStats
 		? Object.entries(vkeysUsageStats.by_virtual_key)
@@ -682,10 +665,8 @@ export function useDashboard(): UseDashboardReturn {
 		setModelsRange,
 		modelsMetric,
 		setModelsMetric,
-		providersRange,
-		setProvidersRange,
-		providersMetric,
-		setProvidersMetric,
+		latencyRange,
+		setLatencyRange,
 		virtualKeysRange,
 		setVirtualKeysRange,
 		virtualKeysMetric,
@@ -721,7 +702,7 @@ export function useDashboard(): UseDashboardReturn {
 		tokenTsDataLoading,
 		provDistLoading,
 		modelsUsageLoading,
-		providersUsageLoading,
+		latencyStatsLoading,
 		vkeysUsageLoading,
 		tokenStatsLoading,
 
@@ -736,7 +717,7 @@ export function useDashboard(): UseDashboardReturn {
 		tokenTsData,
 		provDist,
 		modelsUsageStats,
-		providersUsageStats,
+		latencyStats,
 		vkeysUsageStats,
 		tokenStats,
 
@@ -752,7 +733,7 @@ export function useDashboard(): UseDashboardReturn {
 		acData,
 		tokenAcData,
 		byModel,
-		byProvider,
+		byModelLatency,
 		byVK,
 		accents,
 	};

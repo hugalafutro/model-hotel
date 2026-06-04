@@ -81,7 +81,7 @@ describe("useDashboard", () => {
 				expect(result.current.doughnutRange).toBe("1w");
 				expect(result.current.tokenRange).toBe("1w");
 				expect(result.current.modelsRange).toBe("1w");
-				expect(result.current.providersRange).toBe("1w");
+				expect(result.current.latencyRange).toBe("1w");
 				expect(result.current.virtualKeysRange).toBe("1w");
 			});
 		});
@@ -101,7 +101,7 @@ describe("useDashboard", () => {
 				expect(result.current.doughnutRange).toBe("1h");
 				expect(result.current.tokenRange).toBe("1h");
 				expect(result.current.modelsRange).toBe("1h");
-				expect(result.current.providersRange).toBe("1h");
+				expect(result.current.latencyRange).toBe("1h");
 				expect(result.current.virtualKeysRange).toBe("1h");
 			});
 		});
@@ -123,7 +123,7 @@ describe("useDashboard", () => {
 			await waitFor(() => {
 				expect(result.current.doughnutMetric).toBe("requests");
 				expect(result.current.modelsMetric).toBe("requests");
-				expect(result.current.providersMetric).toBe("requests");
+				// Latency panel has no metric toggle
 				expect(result.current.virtualKeysMetric).toBe("requests");
 			});
 		});
@@ -648,7 +648,7 @@ describe("useDashboard", () => {
 		});
 	});
 
-	describe("byModel / byProvider / byVK", () => {
+	describe("byModel / byModelLatency / byVK", () => {
 		it("byModel filters zeros, sorts descending, limits to 5", async () => {
 			server.use(
 				http.get("/api/stats", () => {
@@ -746,16 +746,27 @@ describe("useDashboard", () => {
 			});
 		});
 
-		it("byProvider filters zeros and sorts descending", async () => {
+		it("byModelLatency maps latency entries from stats", async () => {
 			server.use(
 				http.get("/api/stats", () => {
 					return HttpResponse.json({
 						...mockStats,
-						by_provider: {
-							"provider-a": 100,
-							"provider-b": 200,
-							"provider-c": 0,
-						},
+						by_model_latency: [
+							{
+								model_id: "OpenAI/gpt-4",
+								total_ms: 3200,
+								overhead_ms: 12,
+								provider_ms: 3188,
+								request_count: 10,
+							},
+							{
+								model_id: "Anthropic/claude-3",
+								total_ms: 1800,
+								overhead_ms: 8,
+								provider_ms: 1792,
+								request_count: 5,
+							},
+						],
 					} as Stats);
 				}),
 			);
@@ -765,9 +776,17 @@ describe("useDashboard", () => {
 			});
 
 			await waitFor(() => {
-				expect(result.current.byProvider).toHaveLength(2);
-				expect(result.current.byProvider[0].label).toBe("provider-b");
-				expect(result.current.byProvider[1].label).toBe("provider-a");
+				expect(result.current.byModelLatency).toHaveLength(2);
+				expect(result.current.byModelLatency[0]).toEqual({
+					label: "OpenAI/gpt-4",
+					totalMs: 3200,
+					overheadMs: 12,
+					providerMs: 3188,
+					requestCount: 10,
+				});
+				expect(result.current.byModelLatency[1].label).toBe(
+					"Anthropic/claude-3",
+				);
 			});
 		});
 

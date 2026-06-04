@@ -98,6 +98,7 @@ export const mockStats: Stats = {
 	total_tokens_prompt: 0,
 	total_tokens_completion: 0,
 	avg_tokens_per_request: 0,
+	by_model_latency: [],
 };
 
 export const mockSystemStats: SystemStats = {

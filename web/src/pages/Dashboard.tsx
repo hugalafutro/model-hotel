@@ -20,6 +20,7 @@ import { PageHeader } from "../components/PageHeader";
 import { formatCompact, formatTokens, formatWithCommas } from "../utils/format";
 import { Gauge } from "./Dashboard/Gauge";
 import { GaugeModal } from "./Dashboard/GaugeModal";
+import { LatencyBarPanel } from "./Dashboard/LatencyBarPanel";
 import { ProviderDoughnut } from "./Dashboard/ProviderDoughnut";
 import { StatCard } from "./Dashboard/StatCard";
 import { TimeSeriesChart } from "./Dashboard/TimeSeriesChart";
@@ -57,10 +58,8 @@ export function Dashboard() {
 		setModelsRange,
 		modelsMetric,
 		setModelsMetric,
-		providersRange,
-		setProvidersRange,
-		providersMetric,
-		setProvidersMetric,
+		latencyRange,
+		setLatencyRange,
 		virtualKeysRange,
 		setVirtualKeysRange,
 		virtualKeysMetric,
@@ -95,7 +94,7 @@ export function Dashboard() {
 		tokenTsDataLoading,
 		provDistLoading,
 		modelsUsageLoading,
-		providersUsageLoading,
+		latencyStatsLoading,
 		vkeysUsageLoading,
 		tokenStatsLoading,
 
@@ -121,7 +120,7 @@ export function Dashboard() {
 		acData,
 		tokenAcData,
 		byModel,
-		byProvider,
+		byModelLatency,
 		byVK,
 		accents,
 	} = useDashboard();
@@ -461,16 +460,14 @@ export function Dashboard() {
 					onEntryClick={handleModelClick}
 					formatValue={modelsMetric === "tokens" ? formatTokens : undefined}
 				/>
-				<UsageBarPanel
-					title={t("dashboard.providers.top")}
-					icon={ArrowUpRight}
-					entries={byProvider}
-					range={providersRange}
-					onRangeChange={setProvidersRange}
-					metric={providersMetric}
-					onMetricChange={setProvidersMetric}
-					loading={providersUsageLoading}
-					formatValue={providersMetric === "tokens" ? formatTokens : undefined}
+				<LatencyBarPanel
+					title={t("dashboard.latency.topModels")}
+					icon={Timer}
+					entries={byModelLatency}
+					range={latencyRange}
+					onRangeChange={setLatencyRange}
+					loading={latencyStatsLoading}
+					overheadColor={accents.overhead}
 				/>
 				<UsageBarPanel
 					title={t("dashboard.virtualKeys.top")}
