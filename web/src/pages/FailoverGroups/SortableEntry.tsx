@@ -1,5 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { FailoverGroup } from "../../api/types";
 import { FuseOutline } from "../../components/FuseOutline";
@@ -55,38 +56,30 @@ export function SortableEntry({
 	// Open: cooldown is running, show animated fuse outline.
 	const isHalfOpen = showFuse && cbStatus.state === "half-open";
 
-	// Compute remaining cooldown. Date.now() is a monotonic clock read that
-	// is deterministic for a given render pass — it's not a side effect but
-	// React's compiler linter treats it as impure. The alternatives
-	// (useEffect+setState or ref-based) are blocked by other compiler rules
-	// (set-state-in-effect, no-refs-during-render), and a
-	// useSyncExternalStore clock subscription is overkill for a countdown
-	// that only needs to compute once per CB state change.
-	let fuseColor: string | undefined;
-	let remainingMs = 0;
-	let fuseTitle: string | undefined;
-	// elapsedCooldown: circuit is open but cooldown has expired — CB hasn't
+	// Compute remaining cooldown so it only changes when next_retry_at
+	// changes, not on every render. Without this, intermediate re-renders
+	// (drag, toggle, parent) shorten remainingMs each time, causing the
+	// fuse animation to visually snap ahead of the actual cooldown.
+	// Elapsed cooldown: circuit is open but cooldown has expired — CB hasn't
 	// transitioned to half-open yet (clock drift or polling delay).
-	let elapsedCooldown = false;
-
-	if (showFuse) {
-		if (isHalfOpen) {
-			fuseColor = "#fde68a";
-			fuseTitle = t("failoverGroups.entry.circuitBreakerHalfOpen");
-		} else {
-			fuseColor = "#fca5a5";
-			fuseTitle = t("failoverGroups.entry.circuitBreakerOpen");
-
-			if (cbStatus.next_retry_at) {
-				// eslint-disable-next-line react-hooks/purity -- countdown requires current time
-				remainingMs = new Date(cbStatus.next_retry_at).getTime() - Date.now();
-			}
-			remainingMs = Math.max(0, remainingMs);
-			if (remainingMs <= 0) {
-				elapsedCooldown = true;
-			}
+	const { remainingMs, elapsedCooldown } = useMemo(() => {
+		if (!showFuse || isHalfOpen || !cbStatus?.next_retry_at) {
+			return { remainingMs: 0, elapsedCooldown: false };
 		}
-	}
+		const ms = Math.max(
+			0,
+			new Date(cbStatus.next_retry_at).getTime() - Date.now(),
+		);
+		return { remainingMs: ms, elapsedCooldown: ms <= 0 };
+	}, [showFuse, isHalfOpen, cbStatus?.next_retry_at]);
+
+	const fuseColor =
+		showFuse && isHalfOpen ? "#fde68a" : showFuse ? "#fca5a5" : undefined;
+	const fuseTitle = showFuse
+		? isHalfOpen
+			? t("failoverGroups.entry.circuitBreakerHalfOpen")
+			: t("failoverGroups.entry.circuitBreakerOpen")
+		: undefined;
 
 	return (
 		<div

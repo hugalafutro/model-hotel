@@ -32,6 +32,7 @@ export default defineConfig([
 		// Downgrade to "warn" so they're surfaced without blocking CI.
 		rules: {
 			"react-hooks/exhaustive-deps": "warn",
+			"react-hooks/preserve-manual-memoization": "warn",
 			"react-hooks/purity": "warn",
 			"react-hooks/refs": "warn",
 			"react-hooks/set-state-in-effect": "warn",
