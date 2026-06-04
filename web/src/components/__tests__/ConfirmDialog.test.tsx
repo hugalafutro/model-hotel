@@ -86,7 +86,9 @@ describe("ConfirmDialog", () => {
 			/>,
 		);
 		await user.click(screen.getByText("Cancel"));
-		expect(onCancel).toHaveBeenCalledTimes(1);
+		await waitFor(() => {
+			expect(onCancel).toHaveBeenCalledTimes(1);
+		});
 	});
 
 	it("calls onConfirm when confirm button is clicked", async () => {
@@ -100,7 +102,9 @@ describe("ConfirmDialog", () => {
 			/>,
 		);
 		await user.click(screen.getByText("Delete"));
-		expect(onConfirm).toHaveBeenCalledTimes(1);
+		await waitFor(() => {
+			expect(onConfirm).toHaveBeenCalledTimes(1);
+		});
 	});
 
 	it("calls onCancel when close button is clicked", async () => {

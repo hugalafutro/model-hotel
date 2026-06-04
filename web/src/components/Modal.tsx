@@ -1,14 +1,20 @@
 import { X } from "lucide-react";
 import {
+	forwardRef,
 	type ReactNode,
 	useCallback,
 	useEffect,
 	useId,
+	useImperativeHandle,
 	useLayoutEffect,
 	useRef,
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+
+export interface ModalHandle {
+	close: () => void;
+}
 
 interface ModalProps {
 	title?: string;
@@ -23,18 +29,21 @@ interface ModalProps {
 
 const FADE_DURATION = 200;
 
-export function Modal({
-	title,
-	header,
-	closeOnBackdrop = true,
-	onClose,
-	maxWidth = "max-w-md",
-	scrollable = false,
-	children,
-	zIndex = "z-50",
-}: ModalProps) {
+export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
+	{
+		title,
+		header,
+		closeOnBackdrop = true,
+		onClose,
+		maxWidth = "max-w-md",
+		scrollable = false,
+		children,
+		zIndex = "z-50",
+	}: ModalProps,
+	ref,
+) {
 	const { t } = useTranslation();
-	const ref = useRef<HTMLDivElement>(null);
+	const dialogRef = useRef<HTMLDivElement>(null);
 	const headingId = useId();
 
 	// Fade animation: start invisible, transition to visible after mount.
@@ -60,7 +69,7 @@ export function Modal({
 
 	// Focus the dialog for keyboard accessibility after fade-in starts
 	useEffect(() => {
-		ref.current?.focus();
+		dialogRef.current?.focus();
 	}, []);
 
 	const handleClose = useCallback(() => {
@@ -77,7 +86,8 @@ export function Modal({
 	const handleTransitionEnd = useCallback(
 		(e: React.TransitionEvent) => {
 			// Only act on the outer wrapper's own opacity transition
-			if (e.target !== ref.current || e.propertyName !== "opacity") return;
+			if (e.target !== dialogRef.current || e.propertyName !== "opacity")
+				return;
 			if (closingRef.current) {
 				// Cancel the fallback timer so it cannot fire a second onClose().
 				// Keep closingRef.current = true so handleClose() cannot re-enter.
@@ -98,9 +108,11 @@ export function Modal({
 		[handleClose],
 	);
 
+	useImperativeHandle(ref, () => ({ close: handleClose }), [handleClose]);
+
 	return (
 		<div
-			ref={ref}
+			ref={dialogRef}
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby={title || header ? headingId : undefined}
@@ -153,4 +165,4 @@ export function Modal({
 			</div>
 		</div>
 	);
-}
+});
