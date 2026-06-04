@@ -499,8 +499,19 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 							keepAliveID = idStr
 						}
 					}
-					escapedID, _ := json.Marshal(keepAliveID)
-					keepAlive := []byte("data: {\"id\":" + string(escapedID) + ",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{}}]}\n\n")
+					keepAlivePayload := map[string]interface{}{
+						"id":     keepAliveID,
+						"object": "chat.completion.chunk",
+						"choices": []map[string]interface{}{
+							{"index": 0, "delta": map[string]interface{}{}},
+						},
+					}
+					keepAliveJSON, err := json.Marshal(keepAlivePayload)
+					if err != nil {
+						continue
+					}
+					keepAlive := append([]byte("data: "), keepAliveJSON...)
+					keepAlive = append(keepAlive, "\n\n"...)
 					n, err := w.Write(keepAlive)
 					bytesWritten += int64(n)
 					if err != nil {

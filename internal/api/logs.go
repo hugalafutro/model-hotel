@@ -343,7 +343,11 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	entries := make([]LogEntry, 0, limit)
+	preallocLimit := limit
+	if preallocLimit > 200 {
+		preallocLimit = 200
+	}
+	entries := make([]LogEntry, 0, preallocLimit)
 	for rows.Next() {
 		var entry LogEntry
 		err := rows.Scan(

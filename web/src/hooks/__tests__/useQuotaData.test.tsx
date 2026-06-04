@@ -29,6 +29,7 @@ const mockProviders: Provider[] = [
 		base_url: "https://api.nano-gpt.com/v1",
 		masked_key: "ngpt_***",
 		enabled: true,
+		autodiscovery_enabled: true,
 		last_discovered_at: null,
 		last_used_at: null,
 		created_at: "2024-01-01T00:00:00Z",
@@ -42,6 +43,7 @@ const mockProviders: Provider[] = [
 		base_url: "https://z.ai/api/v1",
 		masked_key: "zai_***",
 		enabled: true,
+		autodiscovery_enabled: true,
 		last_discovered_at: null,
 		last_used_at: null,
 		created_at: "2024-01-01T00:00:00Z",
@@ -55,6 +57,7 @@ const mockProviders: Provider[] = [
 		base_url: "https://api.deepseek.com/v1",
 		masked_key: "ds_***",
 		enabled: true,
+		autodiscovery_enabled: true,
 		last_discovered_at: null,
 		last_used_at: null,
 		created_at: "2024-01-01T00:00:00Z",
@@ -68,6 +71,7 @@ const mockProviders: Provider[] = [
 		base_url: "https://openrouter.ai/api/v1",
 		masked_key: "or_***",
 		enabled: true,
+		autodiscovery_enabled: true,
 		last_discovered_at: null,
 		last_used_at: null,
 		created_at: "2024-01-01T00:00:00Z",
@@ -81,6 +85,7 @@ const mockProviders: Provider[] = [
 		base_url: "https://ollama.com/api/v1",
 		masked_key: "ollama_***",
 		enabled: true,
+		autodiscovery_enabled: true,
 		last_discovered_at: null,
 		last_used_at: null,
 		created_at: "2024-01-01T00:00:00Z",
@@ -398,9 +403,13 @@ describe("useQuotaData", () => {
 	});
 
 	it("hides badges when provider is missing", async () => {
-		const providersWithoutNano = mockProviders.filter(
-			(p) => !p.base_url.includes("nano-gpt.com"),
-		);
+		const providersWithoutNano = mockProviders.filter((p) => {
+			try {
+				return new URL(p.base_url).hostname !== "nano-gpt.com";
+			} catch {
+				return true;
+			}
+		});
 
 		const { result } = renderHook(() => useQuotaData(providersWithoutNano), {
 			wrapper: createWrapper(),

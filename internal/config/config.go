@@ -89,18 +89,16 @@ func Load() (*Config, error) {
 		AllowHTTPProviders:   getBoolEnvWithDefault("ALLOW_HTTP_PROVIDERS", false),
 		RateLimitEnabled:     getBoolEnvWithDefault("RATE_LIMIT_ENABLED", true),
 		RateLimitIPRPS:       clampFloat(getFloatEnvWithDefault("RATE_LIMIT_IP_RPS", 30), 0, 10000),
-		RateLimitIPBurst:     int(clampInt64(getIntEnvWithDefault("RATE_LIMIT_IP_BURST", 60), 1, 10000)),
+		RateLimitIPBurst:     clampInt(getIntEnvAsInt("RATE_LIMIT_IP_BURST", 60), 1, 10000),
 		MaxRequestSize:       clampInt64(getIntEnvWithDefault("MAX_REQUEST_SIZE", 10*1024*1024), 1024, 100*1024*1024), // 1KB–100MB
 		CORSOrigins:          parseCORSOrigins(getEnvWithDefault("CORS_ORIGINS", "http://localhost:5173,http://localhost:8081")),
 		AllowedProviderHosts: parseProviderHosts(getEnvWithDefault("ALLOWED_PROVIDER_HOSTS", "")),
-		//nolint:gosec // port value validated to be within uint16 range
-		DBMaxConns: int32(clampInt64(getIntEnvWithDefault("DATABASE_MAX_CONNS", 25), 1, 1000)),
-		//nolint:gosec // port value validated to be within uint16 range
-		DBMinConns:       int32(clampInt64(getIntEnvWithDefault("DATABASE_MIN_CONNS", 5), 1, 1000)),
-		ModelsDevEnabled: getBoolEnvWithDefault("MODELSDEV_ENABLED", true),
-		DebugLog:         getBoolEnvWithDefault("DEBUG_LOG", false),
-		TrustedProxies:   LoadTrustedProxies(),
-		KnownProxies:     LoadKnownProxies(),
+		DBMaxConns:           clampInt32(getIntEnvAsInt32("DATABASE_MAX_CONNS", 25), 1, 1000),
+		DBMinConns:           clampInt32(getIntEnvAsInt32("DATABASE_MIN_CONNS", 5), 1, 1000),
+		ModelsDevEnabled:     getBoolEnvWithDefault("MODELSDEV_ENABLED", true),
+		DebugLog:             getBoolEnvWithDefault("DEBUG_LOG", false),
+		TrustedProxies:       LoadTrustedProxies(),
+		KnownProxies:         LoadKnownProxies(),
 
 		WebAuthnRPID:          getEnv("WEBAUTHN_RP_ID"),
 		WebAuthnRPDisplayName: getEnvWithDefault("WEBAUTHN_RP_DISPLAY_NAME", "Model Hotel"),
@@ -399,4 +397,48 @@ func clampFloat(value, minVal, maxVal float64) float64 {
 		return maxVal
 	}
 	return value
+}
+
+func clampInt(value, minVal, maxVal int) int {
+	if value < minVal {
+		return minVal
+	}
+	if value > maxVal {
+		return maxVal
+	}
+	return value
+}
+
+func clampInt32(value, minVal, maxVal int32) int32 {
+	if value < minVal {
+		return minVal
+	}
+	if value > maxVal {
+		return maxVal
+	}
+	return value
+}
+
+func getIntEnvAsInt(key string, defaultValue int) int {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	result, err := strconv.Atoi(value)
+	if err != nil {
+		return defaultValue
+	}
+	return result
+}
+
+func getIntEnvAsInt32(key string, defaultValue int32) int32 {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	result, err := strconv.ParseInt(value, 10, 32)
+	if err != nil {
+		return defaultValue
+	}
+	return int32(result)
 }
