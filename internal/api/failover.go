@@ -573,16 +573,40 @@ func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Re
 			for _, p := range trackedProviders {
 				tracked[p.ProviderID] = struct{}{}
 			}
-			seen := make(map[string]struct{})
+
+			// Collect all model UUIDs across all groups, then resolve to
+			// provider UUIDs so we can compare against the tracked map
+			// (which is keyed by provider UUID, not model UUID).
+			var allModelIDs []uuid.UUID
+			seenModel := make(map[string]struct{})
 			for _, g := range groups {
-				for _, pid := range g.PriorityOrder {
-					key := pid.String()
-					if _, ok := seen[key]; ok {
+				for _, mid := range g.PriorityOrder {
+					key := mid.String()
+					if _, ok := seenModel[key]; ok {
 						continue
 					}
-					seen[key] = struct{}{}
-					if _, ok := tracked[key]; !ok {
-						resp.Closed++
+					seenModel[key] = struct{}{}
+					allModelIDs = append(allModelIDs, mid)
+				}
+			}
+
+			if len(allModelIDs) > 0 {
+				models, err := h.modelRepo.GetByIDs(r.Context(), allModelIDs)
+				if err == nil {
+					seenProvider := make(map[string]struct{})
+					for _, mid := range allModelIDs {
+						m, ok := models[mid]
+						if !ok {
+							continue
+						}
+						providerID := m.ProviderID.String()
+						if _, ok := seenProvider[providerID]; ok {
+							continue
+						}
+						seenProvider[providerID] = struct{}{}
+						if _, ok := tracked[providerID]; !ok {
+							resp.Closed++
+						}
 					}
 				}
 			}

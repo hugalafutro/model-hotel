@@ -952,9 +952,11 @@ func TestCircuitBreakerStatus_UntrackedMembers(t *testing.T) {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	// Both untracked members should be counted as closed
-	if closed, ok := resp["closed"].(float64); !ok || closed != 2 {
-		t.Errorf("expected closed=2 (untracked members), got %v", resp["closed"])
+	// Both models share the same provider. Since the tracked map and untracked
+	// counting are both keyed by provider UUID (not model UUID), the single
+	// untracked provider should be counted once as closed.
+	if closed, ok := resp["closed"].(float64); !ok || closed != 1 {
+		t.Errorf("expected closed=1 (1 untracked provider with 2 models), got %v", resp["closed"])
 	}
 	if halfOpen, ok := resp["half_open"].(float64); !ok || halfOpen != 0 {
 		t.Errorf("expected half_open=0, got %v", resp["half_open"])
@@ -965,5 +967,103 @@ func TestCircuitBreakerStatus_UntrackedMembers(t *testing.T) {
 	// Aggregate queries should not include the providers array
 	if _, exists := resp["providers"]; exists {
 		t.Error("expected no providers field in aggregate response")
+	}
+}
+
+func TestCircuitBreakerStatus_TrackedProviderNotDoubleCounted(t *testing.T) {
+	// Verify that a provider tracked as "open" is NOT also counted as closed
+	// via the untracked-member loop. The old code compared model UUIDs against
+	// the provider-UUID keyed map, so every model fell through to the untracked
+	// branch regardless of its provider's actual CB state.
+	h := newTestHandler(t)
+
+	// Create a provider BEFORE registering routes (so we have the provider ID
+	// to put in the mock CB). We register routes after setting the mock.
+	providerData := fmt.Sprintf(`{"name": "test-cb-dblcount-%s", "base_url": "https://api.openai.com", "api_key": "test-api-key"}`, uuid.New().String()[:8])
+	r := chi.NewRouter()
+	// Register once just to create the provider
+	h.Register(r)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var providerResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
+		t.Fatalf("failed to parse provider: %v", err)
+	}
+
+	// Insert two models directly via DB (failover groups require at least 2 entries)
+	pool := h.Pool().Pool()
+	modelID1 := uuid.New().String()
+	modelID2 := uuid.New().String()
+	_, err := pool.Exec(context.Background(),
+		`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
+		modelID1, providerResp.ID, "gpt-4o", "GPT-4o", true)
+	if err != nil {
+		t.Fatalf("failed to insert model 1: %v", err)
+	}
+	_, err = pool.Exec(context.Background(),
+		`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
+		modelID2, providerResp.ID, "gpt-4o-mini", "GPT-4o Mini", true)
+	if err != nil {
+		t.Fatalf("failed to insert model 2: %v", err)
+	}
+
+	// Create a failover group with both models (same provider)
+	groupData := fmt.Sprintf(`{"display_model":"test-cb-dblcount-group","entry_ids":["%s","%s"]}`, modelID1, modelID2)
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest("POST", "/failover-groups/", strings.NewReader(groupData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("failed to create failover group: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// Set the mock circuit breaker BEFORE registering routes again.
+	// The FailoverHandler captures cbReader at Register() time.
+	mockCB := &mockCircuitBreakerReader{
+		statuses: []failover.ProviderStatus{
+			{ProviderID: providerResp.ID, State: failover.StateOpen.String(), ConsecutiveFails: 5},
+		},
+	}
+	h.SetCircuitBreaker(mockCB)
+
+	// Re-register routes so the FailoverHandler picks up the mock.
+	r2 := chi.NewRouter()
+	h.Register(r2)
+
+	// Hit the circuit-breaker-status endpoint
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest("GET", "/failover-groups/circuit-breaker-status", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r2.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]interface{}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	// The provider is tracked as open — it must NOT also be counted as closed.
+	if open, ok := resp["open"].(float64); !ok || open != 1 {
+		t.Errorf("expected open=1, got %v", resp["open"])
+	}
+	if closed, ok := resp["closed"].(float64); !ok || closed != 0 {
+		t.Errorf("expected closed=0 (tracked provider should not be double-counted), got %v", resp["closed"])
+	}
+	if halfOpen, ok := resp["half_open"].(float64); !ok || halfOpen != 0 {
+		t.Errorf("expected half_open=0, got %v", resp["half_open"])
 	}
 }

@@ -62,6 +62,7 @@ export function SortableEntry({
 	// fuse animation to visually snap ahead of the actual cooldown.
 	// Elapsed cooldown: circuit is open but cooldown has expired — CB hasn't
 	// transitioned to half-open yet (clock drift or polling delay).
+	/* eslint-disable react-hooks/preserve-manual-memoization, react-hooks/purity */
 	const { remainingMs, elapsedCooldown } = useMemo(() => {
 		if (!showFuse || isHalfOpen || !cbStatus?.next_retry_at) {
 			return { remainingMs: 0, elapsedCooldown: false };
@@ -72,6 +73,7 @@ export function SortableEntry({
 		);
 		return { remainingMs: ms, elapsedCooldown: ms <= 0 };
 	}, [showFuse, isHalfOpen, cbStatus?.next_retry_at]);
+	/* eslint-enable react-hooks/preserve-manual-memoization, react-hooks/purity */
 
 	const fuseColor =
 		showFuse && isHalfOpen ? "#fde68a" : showFuse ? "#fca5a5" : undefined;
