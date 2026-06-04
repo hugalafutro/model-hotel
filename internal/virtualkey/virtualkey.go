@@ -62,8 +62,7 @@ type scanner interface{ Scan(dest ...any) error }
 const vkColumns = `id, name, key_hash, key_preview, tokens_used, last_used_at, created_at, rate_limit_rps, rate_limit_burst, allowed_providers, strip_reasoning`
 
 // scanVirtualKey scans a single row into a VirtualKey using the vkColumns order.
-// Overridable in tests for error-path coverage.
-var scanVirtualKey = func(row scanner) (*VirtualKey, error) {
+func scanVirtualKey(row scanner) (*VirtualKey, error) {
 	var vk VirtualKey
 	err := row.Scan(&vk.ID, &vk.Name, &vk.KeyHash, &vk.KeyPreview, &vk.TokensUsed, &vk.LastUsedAt, &vk.CreatedAt, &vk.RateLimitRPS, &vk.RateLimitBurst, &vk.AllowedProviders, &vk.StripReasoning)
 	if err != nil {

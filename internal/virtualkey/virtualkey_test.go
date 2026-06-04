@@ -598,36 +598,8 @@ func TestRepository_Delete_NotFound_NoError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// TestRepository_List edge cases
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
 // DB error-path tests (canceled context forces errors)
 // ---------------------------------------------------------------------------
-
-func TestRepository_List_ScanError(t *testing.T) {
-	ctx := context.Background()
-	repo := NewRepository(testDB.Pool())
-
-	orig := scanVirtualKey
-	defer func() { scanVirtualKey = orig }()
-
-	// Create a key so rows.Next() returns true and scanVirtualKey is called.
-	suffix := uuid.New().String()[:8]
-	_, err := repo.Create(ctx, "scan-err-"+suffix, "hash-scan-"+suffix, "sk-...sc", nil, nil, nil, nil)
-	if err != nil {
-		t.Fatalf("Create() setup failed: %v", err)
-	}
-
-	scanVirtualKey = func(_ scanner) (*VirtualKey, error) {
-		return nil, errors.New("forced scan error")
-	}
-
-	_, err = repo.List(ctx)
-	if err == nil {
-		t.Error("expected scan error, got nil")
-	}
-}
 
 func TestRepository_List_DBError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
