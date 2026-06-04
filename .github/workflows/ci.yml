@@ -164,7 +164,7 @@ jobs:
           cache: true
 
       - name: Run Codacy Analysis CLI
-        uses: codacy/codacy-analysis-cli-action@562ee3e92b8e92df8b67e0a5ff8aa8e261919c08 # v4.4.7
+        uses: codacy/codacy-analysis-cli-action@d43360362776a6789b47b99ae8973510854e2d3d
         with:
           project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
           upload: true
