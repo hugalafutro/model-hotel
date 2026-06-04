@@ -17,7 +17,7 @@ import { useTranslation } from "react-i18next";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ModelDetailModal } from "../components/ModelDetailPanel";
 import { PageHeader } from "../components/PageHeader";
-import { formatCompact, formatWithCommas } from "../utils/format";
+import { formatCompact, formatTokens, formatWithCommas } from "../utils/format";
 import { Gauge } from "./Dashboard/Gauge";
 import { GaugeModal } from "./Dashboard/GaugeModal";
 import { ProviderDoughnut } from "./Dashboard/ProviderDoughnut";
@@ -459,6 +459,7 @@ export function Dashboard() {
 					onMetricChange={setModelsMetric}
 					loading={modelsUsageLoading}
 					onEntryClick={handleModelClick}
+					formatValue={modelsMetric === "tokens" ? formatTokens : undefined}
 				/>
 				<UsageBarPanel
 					title={t("dashboard.providers.top")}
@@ -469,6 +470,7 @@ export function Dashboard() {
 					metric={providersMetric}
 					onMetricChange={setProvidersMetric}
 					loading={providersUsageLoading}
+					formatValue={providersMetric === "tokens" ? formatTokens : undefined}
 				/>
 				<UsageBarPanel
 					title={t("dashboard.virtualKeys.top")}
@@ -479,6 +481,9 @@ export function Dashboard() {
 					metric={virtualKeysMetric}
 					onMetricChange={setVirtualKeysMetric}
 					loading={vkeysUsageLoading}
+					formatValue={
+						virtualKeysMetric === "tokens" ? formatTokens : undefined
+					}
 				/>
 			</div>
 

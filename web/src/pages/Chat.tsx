@@ -24,6 +24,7 @@ import { PageHeader } from "../components/PageHeader";
 import { PersonaPicker } from "../components/PersonaPicker";
 import { SubModeToggle } from "../components/SubModeToggle";
 import { CHAT_PERSONAS } from "../data/presets";
+import { formatTokens } from "../utils/format";
 import { ChatMessageList } from "./Chat/ChatMessageList";
 
 import { useChat } from "./Chat/useChat";
@@ -626,7 +627,7 @@ export function Chat() {
 									</span>
 									<span className="flex items-center gap-1.5">
 										<Bot size={14} />
-										{chat.totalTokens} {t("chat.misc.tokens")}
+										{formatTokens(chat.totalTokens)} {t("chat.misc.tokens")}
 									</span>
 								</div>
 								<div className="flex items-center gap-2">

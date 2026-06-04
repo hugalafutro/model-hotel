@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Spinner } from "../../components/Spinner";
+import { formatWithCommas } from "../../utils/format";
 import { MetricToggle, RangeToggle } from "./ToggleGroup";
 import type { MetricType, Range, UsageEntry } from "./types";
 
@@ -13,6 +14,7 @@ export function UsageBarPanel({
 	onMetricChange,
 	loading,
 	onEntryClick,
+	formatValue,
 }: {
 	title: string;
 	icon: React.ElementType;
@@ -24,6 +26,10 @@ export function UsageBarPanel({
 	loading?: boolean;
 	/** When provided, entry labels become clickable buttons that invoke this callback */
 	onEntryClick?: (label: string) => void;
+	/** Optional formatter for displayed values (e.g. formatTokens for large token counts).
+	 * When provided, the formatted value is shown in the bar, and the full value
+	 * appears in a title tooltip. */
+	formatValue?: (v: number) => string;
 }) {
 	const { t } = useTranslation();
 	const max = entries.length > 0 ? Math.max(...entries.map((e) => e.value)) : 0;
@@ -78,8 +84,15 @@ export function UsageBarPanel({
 											{entry.label}
 										</span>
 									)}
-									<span className="font-semibold text-(--text-primary) ml-2 shrink-0">
-										{entry.value.toLocaleString()}
+									<span
+										className="font-semibold text-(--text-primary) ml-2 shrink-0"
+										title={
+											formatValue ? formatWithCommas(entry.value) : undefined
+										}
+									>
+										{formatValue
+											? formatValue(entry.value)
+											: entry.value.toLocaleString()}
 										{entry.suffix
 											? entry.value === 1
 												? entry.suffix.replace(/s$/, "")
