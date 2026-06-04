@@ -246,7 +246,7 @@ describe("Chat", () => {
 				expect(screen.getByText("Turn 5 / 10")).toBeInTheDocument();
 			});
 			expect(screen.getByText("45.0s")).toBeInTheDocument();
-			expect(screen.getByText("1250 tokens")).toBeInTheDocument();
+			expect(screen.getByText("1.3K tokens")).toBeInTheDocument();
 		});
 
 		it("shows Clear and Reset All buttons during conversation", async () => {
