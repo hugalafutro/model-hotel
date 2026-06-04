@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ConfirmDialog } from "../ConfirmDialog";
 
@@ -115,7 +115,9 @@ describe("ConfirmDialog", () => {
 		);
 		const closeButton = screen.getByRole("button", { name: "Close" });
 		await user.click(closeButton);
-		expect(onCancel).toHaveBeenCalledTimes(1);
+		await waitFor(() => {
+			expect(onCancel).toHaveBeenCalledTimes(1);
+		});
 	});
 
 	it("uses custom confirmLabel when provided", () => {

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { getByDialogName } from "../../test/helpers";
 import { Modal } from "../Modal";
@@ -66,7 +66,9 @@ describe("Modal", () => {
 		render(<Modal onClose={onClose}>Content</Modal>);
 		const closeButton = screen.getByRole("button", { name: "Close" });
 		await user.click(closeButton);
-		expect(onClose).toHaveBeenCalledTimes(1);
+		await waitFor(() => {
+			expect(onClose).toHaveBeenCalledTimes(1);
+		});
 	});
 
 	it("calls onClose when backdrop is clicked and closeOnBackdrop is true", async () => {
@@ -79,7 +81,9 @@ describe("Modal", () => {
 		// The backdrop is the button with aria-label "Close dialog"
 		const backdrop = screen.getByRole("button", { name: "Close dialog" });
 		await user.click(backdrop);
-		expect(onClose).toHaveBeenCalledTimes(1);
+		await waitFor(() => {
+			expect(onClose).toHaveBeenCalledTimes(1);
+		});
 	});
 
 	it("does not call onClose when backdrop is clicked and closeOnBackdrop is false", async () => {

@@ -449,7 +449,9 @@ describe("ModelDetailModal", () => {
 		const closeButton = screen.getByLabelText("Close");
 		await user.click(closeButton);
 
-		expect(onClose).toHaveBeenCalled();
+		await waitFor(() => {
+			expect(onClose).toHaveBeenCalled();
+		});
 	});
 
 	it("calls onClose when backdrop is clicked", async () => {
@@ -459,7 +461,9 @@ describe("ModelDetailModal", () => {
 		const backdrop = screen.getByLabelText("Close dialog");
 		await user.click(backdrop);
 
-		expect(onClose).toHaveBeenCalled();
+		await waitFor(() => {
+			expect(onClose).toHaveBeenCalled();
+		});
 	});
 
 	it("displays revert button for display_name when value differs from discovered", async () => {
@@ -689,7 +693,9 @@ describe("ModelDetailModal", () => {
 		const closeButton = screen.getByLabelText("Close");
 		await user.click(closeButton);
 
-		expect(screen.queryByText("Save Changes")).not.toBeInTheDocument();
+		await waitFor(() => {
+			expect(screen.queryByText("Save Changes")).not.toBeInTheDocument();
+		});
 		expect(onClose).not.toHaveBeenCalled();
 	});
 
@@ -705,7 +711,9 @@ describe("ModelDetailModal", () => {
 		const backdrop = screen.getByLabelText("Close dialog");
 		await user.click(backdrop);
 
-		expect(screen.queryByText("Save Changes")).not.toBeInTheDocument();
+		await waitFor(() => {
+			expect(screen.queryByText("Save Changes")).not.toBeInTheDocument();
+		});
 		expect(onClose).not.toHaveBeenCalled();
 	});
 
@@ -1027,6 +1035,11 @@ describe("ModelDetailModal", () => {
 		const closeButton = screen.getByLabelText("Close");
 		await user.click(closeButton);
 
+		// Wait for ConfirmDialog to appear
+		await waitFor(() => {
+			expect(screen.getAllByRole("dialog").length).toBeGreaterThan(1);
+		});
+
 		// Click Delete button in ConfirmDialog - use getAllBy and find closest to dialog
 		const dialogs = screen.getAllByRole("dialog");
 		const confirmDialog = dialogs[dialogs.length - 1]; // last dialog is the ConfirmDialog
@@ -1035,8 +1048,15 @@ describe("ModelDetailModal", () => {
 		});
 		await user.click(deleteButton);
 
-		expect(screen.queryByText("Save Changes")).not.toBeInTheDocument();
-		expect(screen.queryByText("Unsaved Changes")).not.toBeInTheDocument();
+		// Wait for both dialogs to fade out (ModelDetailModal + ConfirmDialog)
+		// 200ms fade per dialog + React render time + buffer
+		await waitFor(
+			() => {
+				expect(screen.queryByText("Save Changes")).not.toBeInTheDocument();
+				expect(screen.queryByText("Unsaved Changes")).not.toBeInTheDocument();
+			},
+			{ timeout: 2000 },
+		);
 	});
 
 	// confirmFields ConfirmDialog - onCancel clears confirmFields
@@ -1053,6 +1073,11 @@ describe("ModelDetailModal", () => {
 		const closeButton = screen.getByLabelText("Close");
 		await user.click(closeButton);
 
+		// Wait for ConfirmDialog to appear
+		await waitFor(() => {
+			expect(screen.getAllByRole("dialog").length).toBeGreaterThan(1);
+		});
+
 		// Click Cancel button in ConfirmDialog
 		const dialogs = screen.getAllByRole("dialog");
 		const confirmDialog = dialogs[dialogs.length - 1]; // last dialog is the ConfirmDialog
@@ -1061,7 +1086,13 @@ describe("ModelDetailModal", () => {
 		});
 		await user.click(cancelButton);
 
-		expect(screen.queryByText("Unsaved Changes")).not.toBeInTheDocument();
+		// Wait for ConfirmDialog to fade out and be removed (200ms fade + buffer)
+		await waitFor(
+			() => {
+				expect(screen.queryByText("Unsaved Changes")).not.toBeInTheDocument();
+			},
+			{ timeout: 2000 },
+		);
 		expect(screen.getByText("Save Changes")).toBeInTheDocument();
 	});
 });

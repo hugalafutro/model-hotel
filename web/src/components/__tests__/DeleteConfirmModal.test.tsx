@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { DeleteConfirmModal } from "../DeleteConfirmModal";
 
 // Stub Lucide icons
@@ -121,7 +121,7 @@ describe("DeleteConfirmModal", () => {
 		expect(onCancel).toHaveBeenCalledTimes(1);
 	});
 
-	it("calls onCancel when backdrop is clicked", () => {
+	it("calls onCancel when backdrop is clicked", async () => {
 		const onConfirm = vi.fn();
 		const onCancel = vi.fn();
 		render(
@@ -136,10 +136,12 @@ describe("DeleteConfirmModal", () => {
 		// Click the backdrop (the button with aria-label "Close dialog")
 		fireEvent.click(screen.getByLabelText("Close dialog"));
 
-		expect(onCancel).toHaveBeenCalledTimes(1);
+		await waitFor(() => {
+			expect(onCancel).toHaveBeenCalledTimes(1);
+		});
 	});
 
-	it("calls onCancel when close button is clicked", () => {
+	it("calls onCancel when close button is clicked", async () => {
 		const onConfirm = vi.fn();
 		const onCancel = vi.fn();
 		render(
@@ -153,7 +155,9 @@ describe("DeleteConfirmModal", () => {
 
 		fireEvent.click(screen.getByTestId("close-icon"));
 
-		expect(onCancel).toHaveBeenCalledTimes(1);
+		await waitFor(() => {
+			expect(onCancel).toHaveBeenCalledTimes(1);
+		});
 	});
 
 	it("shows deleting state when isPending is true", () => {
