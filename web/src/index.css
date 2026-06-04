@@ -1108,12 +1108,7 @@ html[data-ui-style="clean-saas"] .ui-card {
 	transition: box-shadow 0.2s ease;
 }
 
-html[data-ui-style="clean-saas"]
-	.ui-card
-	> .ui-table
-	tbody
-	tr:last-child
-	td {
+html[data-ui-style="clean-saas"] .ui-card > .ui-table tbody tr:last-child td {
 	border-bottom: none;
 }
 

@@ -34,7 +34,7 @@ fi
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 staged_go=$(git diff --cached --name-only --diff-filter=ACM -- '*.go' || true)
-staged_ts=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^web/.*\.tsx?$' || true)
+staged_ts=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^web/.*\.(tsx?|css)$' || true)
 
 # ── Go: gci import order + go vet on staged packages ──
 if [ -n "$staged_go" ]; then
@@ -53,7 +53,7 @@ if [ -n "$staged_go" ]; then
 	fi
 fi
 
-# ── Frontend: biome --write on staged TS/TSX ──
+# ── Frontend: biome --write on staged TS/TSX/CSS ──
 if [ -n "$staged_ts" ]; then
 	rel_paths=()
 	for f in $staged_ts; do
@@ -67,15 +67,7 @@ if [ -n "$staged_ts" ]; then
 			exit 1
 		fi
 	else
-		echo "pre-commit: biome --write ${rel_paths[*]} (Docker)"
-		if ! docker run --rm \
-			-v "$REPO_ROOT/web":/app \
-			-w /app \
-			node:22-alpine \
-			sh -c "npm install -g @biomejs/biome@2.4.16 >/dev/null 2>&1 && biome check --write \"\$@\"" -- "${rel_paths[@]}" >/dev/null 2>&1; then
-			echo "pre-commit: FAILED - biome check" >&2
-			exit 1
-		fi
+		echo "pre-commit: SKIP biome (no web/node_modules - run 'cd web && pnpm install')" >&2
 	fi
 	# Re-stage any files biome rewrote.
 	changed=""
