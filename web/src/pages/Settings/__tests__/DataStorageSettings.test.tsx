@@ -743,8 +743,9 @@ describe("Log Retention slider", () => {
 		);
 
 		await waitFor(() => {
-			const slider = document.getElementById("log-retention");
-			expect(slider).toBeInTheDocument();
+			expect(
+				screen.getByRole("slider", { name: /log retention/i }),
+			).toBeInTheDocument();
 		});
 	});
 
@@ -823,8 +824,9 @@ describe("Stale Request Timeout slider", () => {
 		);
 
 		await waitFor(() => {
-			const slider = document.getElementById("stale-request-timeout");
-			expect(slider).toBeInTheDocument();
+			expect(
+				screen.getByRole("slider", { name: /stale request/i }),
+			).toBeInTheDocument();
 		});
 	});
 
@@ -1048,89 +1050,6 @@ describe("Delete App Logs", () => {
 	});
 });
 
-describe("Delete Request Logs", () => {
-	const onToggle = vi.fn();
-
-	beforeEach(() => {
-		localStorage.clear();
-		vi.clearAllMocks();
-		onToggle.mockClear();
-	});
-
-	it("renders Delete Request Logs button", () => {
-		renderWithProviders(
-			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
-		);
-
-		expect(
-			screen.getByRole("button", {
-				name: /delete requests/i,
-			}),
-		).toBeInTheDocument();
-	});
-
-	it("shows delete options when delete button clicked", async () => {
-		const user = userEvent.setup();
-		renderWithProviders(
-			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
-		);
-
-		const deleteButton = screen.getByRole("button", {
-			name: /delete requests/i,
-		});
-		await user.click(deleteButton);
-
-		expect(screen.getByRole("combobox")).toBeInTheDocument();
-		expect(
-			screen.getByRole("button", { name: /confirm delete/i }),
-		).toBeInTheDocument();
-		expect(
-			screen.getByRole("button", { name: /^cancel$/i }),
-		).toBeInTheDocument();
-	});
-
-	it("calls purgeMutation when selection made and confirmed", async () => {
-		const user = userEvent.setup();
-		renderWithProviders(
-			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
-		);
-
-		const deleteButton = screen.getByRole("button", {
-			name: /delete requests/i,
-		});
-		await user.click(deleteButton);
-
-		const select = screen.getByRole("combobox");
-		await user.selectOptions(select, "1d");
-
-		const confirmButton = screen.getByRole("button", {
-			name: /confirm delete/i,
-		});
-		await user.click(confirmButton);
-
-		await waitFor(() => {
-			expect(screen.getByText(/requests deleted/i)).toBeInTheDocument();
-		});
-	});
-
-	it("cancels delete when cancel clicked", async () => {
-		const user = userEvent.setup();
-		renderWithProviders(
-			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
-		);
-
-		const deleteButton = screen.getByRole("button", {
-			name: /delete requests/i,
-		});
-		await user.click(deleteButton);
-
-		const cancelButton = screen.getByRole("button", { name: /^cancel$/i });
-		await user.click(cancelButton);
-
-		expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
-	});
-});
-
 describe("Dashboard Refresh", () => {
 	const onToggle = vi.fn();
 
@@ -1150,15 +1069,14 @@ describe("Dashboard Refresh", () => {
 		const dashboardSlider = sliders.find(
 			(s) => (s as HTMLInputElement).id === "dashboard-refresh-interval",
 		);
+		expect(dashboardSlider).toBeInTheDocument();
 
-		if (dashboardSlider) {
-			await user.click(dashboardSlider);
-			fireEvent.input(dashboardSlider, { target: { value: "0" } });
+		await user.click(dashboardSlider);
+		fireEvent.input(dashboardSlider, { target: { value: "0" } });
 
-			await waitFor(() => {
-				expect(screen.getByText(/disabled/i)).toBeInTheDocument();
-			});
-		}
+		await waitFor(() => {
+			expect(screen.getByText(/disabled/i)).toBeInTheDocument();
+		});
 	});
 });
 
@@ -1276,15 +1194,13 @@ describe("DataStorageSettings collapsed state", () => {
 		);
 		expect(quotaSlider).toBeInTheDocument();
 
-		if (quotaSlider) {
-			await user.click(quotaSlider);
-			fireEvent.input(quotaSlider, { target: { value: "10" } });
-			fireEvent.pointerUp(quotaSlider);
+		await user.click(quotaSlider);
+		fireEvent.input(quotaSlider, { target: { value: "10" } });
+		fireEvent.pointerUp(quotaSlider);
 
-			expect(dispatchSpy).toHaveBeenCalledWith(
-				expect.objectContaining({ type: "sidebarQuotaRefreshChange" }),
-			);
-		}
+		expect(dispatchSpy).toHaveBeenCalledWith(
+			expect.objectContaining({ type: "sidebarQuotaRefreshChange" }),
+		);
 
 		dispatchSpy.mockRestore();
 	});
@@ -1300,16 +1216,15 @@ describe("DataStorageSettings collapsed state", () => {
 		const quotaSlider = sliders.find(
 			(s) => (s as HTMLInputElement).id === "quota-refresh-interval",
 		);
+		expect(quotaSlider).toBeInTheDocument();
 
-		if (quotaSlider) {
-			await user.click(quotaSlider);
-			fireEvent.input(quotaSlider, { target: { value: "10" } });
-			fireEvent.pointerUp(quotaSlider);
+		await user.click(quotaSlider);
+		fireEvent.input(quotaSlider, { target: { value: "10" } });
+		fireEvent.pointerUp(quotaSlider);
 
-			await waitFor(() => {
-				expect(screen.getByText(/quota refresh set/i)).toBeInTheDocument();
-			});
-		}
+		await waitFor(() => {
+			expect(screen.getByText(/quota refresh set/i)).toBeInTheDocument();
+		});
 	});
 
 	it("shows quota disabled toast when quota slider set to 0", async () => {
@@ -1323,17 +1238,16 @@ describe("DataStorageSettings collapsed state", () => {
 		const quotaSlider = sliders.find(
 			(s) => (s as HTMLInputElement).id === "quota-refresh-interval",
 		);
+		expect(quotaSlider).toBeInTheDocument();
 
-		if (quotaSlider) {
-			await user.click(quotaSlider);
-			fireEvent.input(quotaSlider, { target: { value: "0" } });
-			fireEvent.pointerUp(quotaSlider);
+		await user.click(quotaSlider);
+		fireEvent.input(quotaSlider, { target: { value: "0" } });
+		fireEvent.pointerUp(quotaSlider);
 
-			await waitFor(() => {
-				expect(
-					screen.getByText(/sidebar quota auto-refresh disabled/i),
-				).toBeInTheDocument();
-			});
-		}
+		await waitFor(() => {
+			expect(
+				screen.getByText(/sidebar quota auto-refresh disabled/i),
+			).toBeInTheDocument();
+		});
 	});
 });

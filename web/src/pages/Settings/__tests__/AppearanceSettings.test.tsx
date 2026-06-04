@@ -327,23 +327,24 @@ describe("AppearanceSettings accent color", () => {
 			<AppearanceSettings collapsed={false} onToggle={onToggle} />,
 		);
 
-		// Find all accent color buttons (they're circular buttons in the accent color section)
+		// Find all accent color buttons by their title attribute
+		// The preset buttons have title attributes from i18n keys
 		const allButtons = screen.getAllByRole("button");
 		const colorButtons = allButtons.filter((btn) => {
-			// Filter for circular color preset buttons (they have rounded-full class and w-8 h-8)
+			// Filter for buttons with circular shape (w-8 h-8 rounded-full) and background-color style
 			const className = btn.className;
-			return className?.includes("rounded-full") && className?.includes("w-8");
+			const hasBackground = btn
+				.getAttribute("style")
+				?.includes("background-color");
+			return (
+				className?.includes("rounded-full") &&
+				className?.includes("w-8") &&
+				hasBackground
+			);
 		});
 
 		// Should have multiple preset colors plus the custom color button
 		expect(colorButtons.length).toBeGreaterThan(1);
-
-		// Check that at least some have background-color styles
-		const buttonsWithStyle = colorButtons.filter((btn) => {
-			const style = btn.getAttribute("style");
-			return style?.includes("background-color") ?? false;
-		});
-		expect(buttonsWithStyle.length).toBeGreaterThan(0);
 	});
 
 	it("clicks top-center toast position dot", async () => {
@@ -423,7 +424,7 @@ describe("AppearanceSettings accent color", () => {
 			<AppearanceSettings collapsed={false} onToggle={onToggle} />,
 		);
 
-		// Find the circular color preset buttons (w-8 h-8 rounded-full with style)
+		// Find accent color preset buttons - they have background-color style and circular shape
 		const allButtons = screen.getAllByRole("button");
 		const colorButtons = allButtons.filter((btn) => {
 			const className = btn.className;
@@ -434,10 +435,9 @@ describe("AppearanceSettings accent color", () => {
 			);
 		});
 
-		if (colorButtons.length > 0) {
-			await user.click(colorButtons[0]);
-			// The accent color should be set (visual change only, no toast)
-			expect(colorButtons[0]).toBeInTheDocument();
-		}
+		expect(colorButtons.length).toBeGreaterThan(0);
+		await user.click(colorButtons[0]);
+		// The accent color should be set (visual change only, no toast)
+		expect(colorButtons[0]).toBeInTheDocument();
 	});
 });
