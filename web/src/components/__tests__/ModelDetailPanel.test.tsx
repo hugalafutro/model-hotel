@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { mockModel } from "../../test/mocks/data";
@@ -342,7 +342,9 @@ describe("ModelDetailPanel", () => {
 
 		await user.click(screen.getByRole("button", { name: "Close" }));
 
-		expect(onClose).toHaveBeenCalled();
+		await waitFor(() => {
+			expect(onClose).toHaveBeenCalled();
+		});
 	});
 
 	it("does not apply card wrapper when embedded is true", () => {
@@ -800,6 +802,8 @@ describe("ModelDetailModal", () => {
 		const closeButton = screen.getByLabelText("Close");
 		await user.click(closeButton);
 
-		expect(onClose).toHaveBeenCalled();
+		await waitFor(() => {
+			expect(onClose).toHaveBeenCalled();
+		});
 	});
 });

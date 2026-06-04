@@ -1,5 +1,13 @@
 import { X } from "lucide-react";
-import { type ReactNode, useCallback, useEffect, useId, useRef } from "react";
+import {
+	type ReactNode,
+	useCallback,
+	useEffect,
+	useId,
+	useLayoutEffect,
+	useRef,
+	useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 
 interface ModalProps {
@@ -12,6 +20,8 @@ interface ModalProps {
 	children: ReactNode;
 	zIndex?: string;
 }
+
+const FADE_DURATION = 200;
 
 export function Modal({
 	title,
@@ -27,16 +37,52 @@ export function Modal({
 	const ref = useRef<HTMLDivElement>(null);
 	const headingId = useId();
 
-	const handleKeyDown = useCallback(
-		(e: React.KeyboardEvent) => {
-			if (e.key === "Escape") onClose();
+	// Fade animation: start invisible, transition to visible after mount.
+	// On close: transition back to invisible, then call parent's onClose.
+	const [opacity, setOpacity] = useState(0);
+	const closingRef = useRef(false);
+
+	// Fade in on mount (useLayoutEffect + rAF ensures the browser paints
+	// opacity-0 first, then transitions to opacity-1).
+	useLayoutEffect(() => {
+		const id = requestAnimationFrame(() => setOpacity(1));
+		return () => cancelAnimationFrame(id);
+	}, []);
+
+	// Focus the dialog for keyboard accessibility after fade-in starts
+	useEffect(() => {
+		ref.current?.focus();
+	}, []);
+
+	const handleClose = useCallback(() => {
+		if (closingRef.current) return;
+		closingRef.current = true;
+		setOpacity(0);
+		// Fallback: if onTransitionEnd never fires (e.g. jsdom),
+		// call onClose after the fade duration so tests don't hang.
+		setTimeout(() => {
+			if (closingRef.current) onClose();
+		}, FADE_DURATION + 50);
+	}, [onClose]);
+
+	const handleTransitionEnd = useCallback(
+		(e: React.TransitionEvent) => {
+			// Only act on the outer wrapper's own opacity transition
+			if (e.target !== ref.current || e.propertyName !== "opacity") return;
+			if (closingRef.current) {
+				closingRef.current = false; // prevent fallback timer from also calling
+				onClose();
+			}
 		},
 		[onClose],
 	);
 
-	useEffect(() => {
-		ref.current?.focus();
-	}, []);
+	const handleKeyDown = useCallback(
+		(e: React.KeyboardEvent) => {
+			if (e.key === "Escape") handleClose();
+		},
+		[handleClose],
+	);
 
 	return (
 		<div
@@ -46,12 +92,17 @@ export function Modal({
 			aria-labelledby={title || header ? headingId : undefined}
 			tabIndex={-1}
 			className={`fixed inset-0 flex items-center justify-center ${zIndex} outline-none`}
+			style={{
+				opacity,
+				transition: `opacity ${FADE_DURATION}ms ease`,
+			}}
 			onKeyDown={handleKeyDown}
+			onTransitionEnd={handleTransitionEnd}
 		>
 			<button
 				type="button"
 				className="absolute inset-0 bg-black/60 cursor-default"
-				onClick={closeOnBackdrop ? onClose : undefined}
+				onClick={closeOnBackdrop ? handleClose : undefined}
 				aria-label={t("common.closeDialog")}
 			/>
 			{/* biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation prevents backdrop click bubbling */}
@@ -64,7 +115,7 @@ export function Modal({
 			>
 				<button
 					type="button"
-					onClick={onClose}
+					onClick={handleClose}
 					className="absolute top-3 right-3 z-10 text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-pointer p-2 hover:drop-shadow-[var(--glow-accent-lg)]"
 					aria-label={t("common.close")}
 				>

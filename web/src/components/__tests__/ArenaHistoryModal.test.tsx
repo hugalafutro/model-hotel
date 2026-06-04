@@ -133,7 +133,9 @@ describe("ArenaHistoryModal", () => {
 		// Click the modal header close button (first one)
 		const closeButtons = screen.getAllByLabelText("Close");
 		await user.click(closeButtons[0]);
-		expect(onClose).toHaveBeenCalledTimes(1);
+		await waitFor(() => {
+			expect(onClose).toHaveBeenCalledTimes(1);
+		});
 	});
 
 	it("shows empty state when no history exists", async () => {
@@ -415,7 +417,9 @@ describe("ArenaHistoryModal", () => {
 		});
 		await user.click(restoreButton);
 		expect(onRestore).toHaveBeenCalledWith(mockCompetitionEntry);
-		expect(onClose).toHaveBeenCalledTimes(1);
+		await waitFor(() => {
+			expect(onClose).toHaveBeenCalledTimes(1);
+		});
 	});
 
 	it("Clear All History button exists in footer", async () => {
