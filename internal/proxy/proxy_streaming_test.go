@@ -275,7 +275,7 @@ func TestHandleStreamingResponse_ClientDisconnectMidStream(t *testing.T) {
 	}()
 
 	// Let first chunk be processed
-	time.Sleep(20 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 
 	// Cancel context to simulate client disconnect
 	cancel()

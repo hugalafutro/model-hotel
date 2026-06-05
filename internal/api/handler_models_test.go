@@ -183,7 +183,8 @@ func TestTestModel_Success(t *testing.T) {
 	}))
 	defer mockServer.Close()
 
-	// Override handler's transport to use mock server
+	// Replace the SSRF-protected transport with a plain one so that
+	// connections to 127.0.0.1 (the mock server) are not blocked.
 	origTransport := h.testModelTransport
 	h.testModelTransport = &http.Transport{}
 	defer func() { h.testModelTransport = origTransport }()
