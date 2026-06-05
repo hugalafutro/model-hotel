@@ -9,14 +9,30 @@ import type { Range } from "./types";
 type SortField = "response" | "overhead";
 type SortDir = "asc" | "desc";
 
+const FALLBACK_COLOR = "hsl(60, 70%, 50%)";
+
 // Color gradient: index 0 = worst (orange, hue 30) → index total-1 = best (green, hue 120)
 function getColorForRank(index: number, total: number): string {
 	if (total === 1) {
-		return "hsl(60, 70%, 50%)";
+		return FALLBACK_COLOR;
 	}
 	// hue 30 = orange (worst) → hue 120 = green (best)
 	const hue = 30 + (index / (total - 1)) * 90;
 	return `hsl(${hue}, 70%, 50%)`;
+}
+
+function SortArrow({
+	field,
+	sortField,
+	sortDir,
+}: {
+	field: SortField;
+	sortField: SortField;
+	sortDir: SortDir;
+}) {
+	if (sortField !== field) return null;
+	const Arrow = sortDir === "desc" ? ChevronDown : ChevronUp;
+	return <Arrow size={12} className="inline ml-0.5" />;
 }
 
 export type ProviderLatencyEntry = {
@@ -90,12 +106,6 @@ export function ProviderLatencyPanel({
 		}
 	};
 
-	const SortArrow = ({ field }: { field: SortField }) => {
-		if (sortField !== field) return null;
-		const Arrow = sortDir === "desc" ? ChevronDown : ChevronUp;
-		return <Arrow size={12} className="inline ml-0.5" />;
-	};
-
 	return (
 		<div className="ui-card p-6">
 			<div className="flex items-center justify-between mb-5">
@@ -125,7 +135,11 @@ export function ProviderLatencyPanel({
 							className="text-right cursor-pointer hover:text-(--text-primary) transition-colors flex items-center justify-end gap-0.5 ml-auto"
 						>
 							{t("dashboard.providerLatency.response")}
-							<SortArrow field="response" />
+							<SortArrow
+								field="response"
+								sortField={sortField}
+								sortDir={sortDir}
+							/>
 						</button>
 						<button
 							type="button"
@@ -133,15 +147,19 @@ export function ProviderLatencyPanel({
 							className="text-right cursor-pointer hover:text-(--text-primary) transition-colors flex items-center justify-end gap-0.5 ml-auto"
 						>
 							{t("dashboard.providerLatency.overhead")}
-							<SortArrow field="overhead" />
+							<SortArrow
+								field="overhead"
+								sortField={sortField}
+								sortDir={sortDir}
+							/>
 						</button>
 					</div>
 					{/* Provider rows */}
 					{sortedEntries.map((entry) => {
 						const responseColor =
-							responseColorMap.get(entry.label) || "hsl(60, 70%, 50%)";
+							responseColorMap.get(entry.label) || FALLBACK_COLOR;
 						const overheadColor =
-							overheadColorMap.get(entry.label) || "hsl(60, 70%, 50%)";
+							overheadColorMap.get(entry.label) || FALLBACK_COLOR;
 
 						return (
 							<div

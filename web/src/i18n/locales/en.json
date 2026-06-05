@@ -1350,10 +1350,8 @@
 		"logging": {
 			"title": "Logging",
 			"logRetention": "Log Retention",
-			"logRetention.disabled": "Log retention is disabled. Logs will accumulate indefinitely until manually purged.",
 			"logRetention.description": "Automatically delete logs older than this period. 0 to disable.",
 			"staleRequestTimeout": "Stale Request Timeout",
-			"staleRequestTimeout.disabled": "Stale request detection is disabled. Orphaned requests from server restarts will still be marked as failed, but age-based cleanup will not run.",
 			"staleRequestTimeout.description": "Mark pending/streaming requests as \"interrupted\" if they remain in-progress longer than this. 0 to disable. Accounts for providers with long time-to-first-token.",
 			"deleteRequests": "Delete Requests",
 			"deleteRequests.tooltip": "Delete request logs older than a selected range",
@@ -1390,7 +1388,6 @@
 			"title": "Model Discovery",
 			"description": "Configure how and when models are auto-discovered from your providers.",
 			"discoveryInterval": "Discovery Interval",
-			"discoveryInterval.disabled": "Periodic discovery is disabled. Models will only be discovered when you click \"Discover Now\" or \"Discover All\", or when a new provider is created.",
 			"discoveryInterval.description": "How often to automatically re-discover models from all enabled providers. 0 to disable.",
 			"discoverOnStartup": "Discover on Startup",
 			"discoverOnStartupDescription": "Run discovery for all providers when the server starts",
