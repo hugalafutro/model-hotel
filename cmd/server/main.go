@@ -289,8 +289,10 @@ func main() {
 		debuglog.Info("webauthn: passkey authentication enabled", "rp_id", cfg.WebAuthnRPID)
 	}
 
-	// API routes
+	// API routes — IP rate limiting protects admin auth from brute-force.
 	r.Route("/api", func(r chi.Router) {
+		r.Use(ipLimiter.Middleware)
+
 		r.Group(func(r chi.Router) {
 			apiHandler.RegisterEvents(r)
 		})
@@ -311,6 +313,7 @@ func main() {
 	// Uses streaming-aware timeout (same as /v1) and rate limiting by IP.
 	r.Route("/api/chat", func(r chi.Router) {
 		r.Use(apiHandler.AuthMiddleware)
+		r.Use(ipLimiter.Middleware)
 		r.Use(streamingAwareTimeout(5 * time.Minute))
 		proxyHandler.RegisterAdminChat(r)
 	})
