@@ -1304,11 +1304,14 @@ func TestChatCompletions_NonJSONErrorBody(t *testing.T) {
 
 	keyPair, _ := auth.Encrypt("test-key", "test-master-key-for-integration")
 	providerName := "html-provider-" + uuid.New().String()[:8]
-	prov, _ := providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+	prov, err := providerRepo.Create(context.Background(), provider.CreateProviderRequest{
 		Name:    providerName,
 		BaseURL: htmlUpstream.URL,
 		APIKey:  "test-key",
 	}, keyPair.Ciphertext, keyPair.Nonce, keyPair.Salt)
+	if err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
 
 	testModel := &model.Model{
 		ID:               uuid.New(),
@@ -1326,7 +1329,10 @@ func TestChatCompletions_NonJSONErrorBody(t *testing.T) {
 	}
 	_ = modelRepo.Upsert(context.Background(), testModel)
 
-	virtualKey, _ := virtualKeyRepo.Create(context.Background(), "test-key", virtualkey.Hash("test-vk-html"), "sk-tes...", nil, nil, nil, nil)
+	virtualKey, err := virtualKeyRepo.Create(context.Background(), "test-key", virtualkey.Hash("test-vk-html"), "sk-tes...", nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("failed to create virtual key: %v", err)
+	}
 	defer func() { _ = virtualKeyRepo.Delete(context.Background(), virtualKey.ID) }()
 
 	handler := &Handler{

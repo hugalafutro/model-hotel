@@ -1674,6 +1674,11 @@ func TestHandleStreamingResponse_InjectedDoneWriteFailure(t *testing.T) {
 
 // contentTriggeredWriter succeeds on all writes until it has written a
 // cumulative total of triggerAfterBytes bytes, then fails.
+// Note: when a write crosses the threshold, the full len(b) is counted
+// against w.written but (0, err) is returned. This differs from real
+// writers that may return n < len(b) on partial writes. The proxy code
+// never retries writes or uses the returned n after an error, so this
+// simplification is safe for the current test scenarios.
 type contentTriggeredWriter struct {
 	header            http.Header
 	code              int

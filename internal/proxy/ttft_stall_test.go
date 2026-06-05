@@ -798,16 +798,12 @@ func TestProbeFirstToken_ScannerErrorRecoveryWithDataInBuffer(t *testing.T) {
 	probeBuf, ttft, err := h.probeFirstToken(
 		context.Background(),
 		body,
-		1*time.Millisecond,
+		100*time.Millisecond, // generous timeout — slowReader delivers 1 byte/ms
 		startTime,
 	)
 
-	// Acceptable outcomes:
-	// 1. Success: scanner found a data line before timeout
-	// 2. Error: timeout fired before any data was buffered
 	if err != nil {
-		t.Logf("probe timed out (acceptable): %v", err)
-		return
+		t.Fatalf("expected success, got error: %v", err)
 	}
 	if probeBuf == nil {
 		t.Fatal("expected non-nil probeBuf on success")
