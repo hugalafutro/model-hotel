@@ -943,11 +943,12 @@ func TestWebAuthnHandler_RegisterStart_NilRepo(t *testing.T) {
 	}()
 
 	h := newTestWebAuthnHandler(nil, nil, nil, nil)
+	w := httptest.NewRecorder()
 
 	req, _ := newChiRequest(http.MethodPost, "/webauthn/register/start", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-token")
 
-	h.RegisterStart(nil, req)
+	h.RegisterStart(w, req)
 }
 
 // TestWebAuthnHandler_LoginStart_NilRelyingParty tests that LoginStart panics when relyingParty is nil
@@ -960,14 +961,18 @@ func TestWebAuthnHandler_LoginStart_NilRelyingParty(t *testing.T) {
 	}()
 
 	h := newTestWebAuthnHandler(nil, nil, nil, nil)
+	w := httptest.NewRecorder()
 
 	req, _ := newChiRequest(http.MethodPost, "/webauthn/login/start", http.NoBody)
 
-	h.LoginStart(nil, req)
+	h.LoginStart(w, req)
 }
 
-// TestWebAuthnHandler_LoginFinish_ExpiredSession tests that an expired session returns 400
-func TestWebAuthnHandler_LoginFinish_ExpiredSession(t *testing.T) {
+// TestWebAuthnHandler_LoginFinish_InvalidCredential tests that a login finish
+// with a malformed credential body returns a non-200 error. The session is
+// expired only to avoid accidental reuse — the handler does NOT check
+// ExpiresAt; it fails at ParseCredentialRequestResponseBody.
+func TestWebAuthnHandler_LoginFinish_InvalidCredential(t *testing.T) {
 	dbURL := apiTestDBURL
 	if dbURL == "" {
 		t.Skip("skipping: test database not available")
@@ -984,7 +989,8 @@ func TestWebAuthnHandler_LoginFinish_ExpiredSession(t *testing.T) {
 	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
 	h := newTestWebAuthnHandler(repo, nil, nil, adminMgr)
 
-	// Create an expired login session
+	// Create an expired login session (expiry is irrelevant — the malformed
+	// credential below causes the failure before any time-based check)
 	sessionID := uuid.New()
 	session := &webauthn.SessionRecord{
 		ID:          sessionID,
@@ -1008,17 +1014,18 @@ func TestWebAuthnHandler_LoginFinish_ExpiredSession(t *testing.T) {
 
 	h.LoginFinish(w, req)
 
-	// Expired sessions are still returned by GetSession, but the handler
-	// proceeds to TryValidatePasskeyLogin which will fail with invalid credential
-	// The actual expiration check happens in the session manager validation
-	// For now, just verify it doesn't crash and returns an error
+	// The handler does not check ExpiresAt — it proceeds to
+	// TryValidatePasskeyLogin which fails parsing the empty credential.
 	if w.Code == http.StatusOK {
-		t.Errorf("expected non-200 status for expired session, got %d", w.Code)
+		t.Errorf("expected non-200 status for invalid credential, got %d", w.Code)
 	}
 }
 
-// TestWebAuthnHandler_RegisterFinish_ExpiredSession tests that an expired session returns non-200
-func TestWebAuthnHandler_RegisterFinish_ExpiredSession(t *testing.T) {
+// TestWebAuthnHandler_RegisterFinish_InvalidCredential tests that a registration
+// finish with a malformed credential body returns a non-200 error. The session
+// is expired only to avoid accidental reuse — the handler does NOT check
+// ExpiresAt; it fails at ParseCredentialCreationResponseBody.
+func TestWebAuthnHandler_RegisterFinish_InvalidCredential(t *testing.T) {
 	dbURL := apiTestDBURL
 	if dbURL == "" {
 		t.Skip("skipping: test database not available")
@@ -1035,7 +1042,8 @@ func TestWebAuthnHandler_RegisterFinish_ExpiredSession(t *testing.T) {
 	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
 	h := newTestWebAuthnHandler(repo, nil, nil, adminMgr)
 
-	// Create an expired registration session
+	// Create an expired registration session (expiry is irrelevant — the
+	// malformed credential below causes the failure before any time-based check)
 	sessionID := uuid.New()
 	session := &webauthn.SessionRecord{
 		ID:          sessionID,
@@ -1059,8 +1067,10 @@ func TestWebAuthnHandler_RegisterFinish_ExpiredSession(t *testing.T) {
 
 	h.RegisterFinish(w, req)
 
+	// The handler does not check ExpiresAt — it proceeds to
+	// TryValidatePasskeyRegistration which fails parsing the empty credential.
 	if w.Code == http.StatusOK {
-		t.Errorf("expected non-200 status for expired session, got %d", w.Code)
+		t.Errorf("expected non-200 status for invalid credential, got %d", w.Code)
 	}
 }
 

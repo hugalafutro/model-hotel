@@ -809,86 +809,94 @@ describe("Overlay and panDateLabel", () => {
 	it("shows panDateLabel with 'today' prefix for today's date", () => {
 		// Freeze clock to noon UTC so toDateString() is predictable
 		vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
+		try {
+			const now = new Date();
+			const todayData: TimeSeriesDataPoint[] = Array.from(
+				{ length: 15 },
+				(_, i) => ({
+					hour: `${String(i).padStart(2, "0")}:00`,
+					rawDate: new Date(now.getTime() + i * 15 * 60 * 1000).toISOString(),
+					total: 100 + i * 10,
+					errors: 0,
+					tokens: 1000,
+					tokens_cache_hit: 500,
+					tokens_cache_miss: 500,
+					latency: 100,
+					overhead_ms: 5,
+					provider_latency_ms: 95,
+					rate_limit_hits: 0,
+					avg_ttft_ms: 50,
+				}),
+			);
+			renderWithProviders(
+				<TimeSeriesChart
+					{...defaultProps}
+					data={todayData}
+					range="1h"
+					metric="Requests"
+				/>,
+			);
 
-		const now = new Date();
-		const todayData: TimeSeriesDataPoint[] = Array.from(
-			{ length: 15 },
-			(_, i) => ({
-				hour: `${String(i).padStart(2, "0")}:00`,
-				rawDate: new Date(now.getTime() + i * 15 * 60 * 1000).toISOString(),
-				total: 100 + i * 10,
-				errors: 0,
-				tokens: 1000,
-				tokens_cache_hit: 500,
-				tokens_cache_miss: 500,
-				latency: 100,
-				overhead_ms: 5,
-				provider_latency_ms: 95,
-				rate_limit_hits: 0,
-				avg_ttft_ms: 50,
-			}),
-		);
-		renderWithProviders(
-			<TimeSeriesChart
-				{...defaultProps}
-				data={todayData}
-				range="1h"
-				metric="Requests"
-			/>,
-		);
+			const chartContainer = screen.getByTestId("area-chart")
+				.parentElement as HTMLElement;
 
-		const chartContainer = screen.getByTestId("area-chart")
-			.parentElement as HTMLElement;
+			fireEvent.pointerDown(chartContainer, {
+				clientX: 100,
+				pointerId: 1,
+			});
 
-		fireEvent.pointerDown(chartContainer, { clientX: 100, pointerId: 1 });
-
-		expect(screen.getByText(/Today,/)).toBeInTheDocument();
-
-		vi.useRealTimers();
+			expect(screen.getByText(/Today,/)).toBeInTheDocument();
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it("shows panDateLabel with 'yesterday' prefix for yesterday's date", () => {
 		vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
+		try {
+			const now = new Date();
+			const yesterday = new Date(now);
+			yesterday.setDate(yesterday.getDate() - 1);
+			const yesterdayData: TimeSeriesDataPoint[] = Array.from(
+				{ length: 15 },
+				(_, i) => ({
+					hour: `${String(i).padStart(2, "0")}:00`,
+					rawDate: new Date(
+						yesterday.getTime() + i * 15 * 60 * 1000,
+					).toISOString(),
+					total: 100 + i * 10,
+					errors: 0,
+					tokens: 1000,
+					tokens_cache_hit: 500,
+					tokens_cache_miss: 500,
+					latency: 100,
+					overhead_ms: 5,
+					provider_latency_ms: 95,
+					rate_limit_hits: 0,
+					avg_ttft_ms: 50,
+				}),
+			);
+			renderWithProviders(
+				<TimeSeriesChart
+					{...defaultProps}
+					data={yesterdayData}
+					range="1h"
+					metric="Requests"
+				/>,
+			);
 
-		const now = new Date();
-		const yesterday = new Date(now);
-		yesterday.setDate(yesterday.getDate() - 1);
-		const yesterdayData: TimeSeriesDataPoint[] = Array.from(
-			{ length: 15 },
-			(_, i) => ({
-				hour: `${String(i).padStart(2, "0")}:00`,
-				rawDate: new Date(
-					yesterday.getTime() + i * 15 * 60 * 1000,
-				).toISOString(),
-				total: 100 + i * 10,
-				errors: 0,
-				tokens: 1000,
-				tokens_cache_hit: 500,
-				tokens_cache_miss: 500,
-				latency: 100,
-				overhead_ms: 5,
-				provider_latency_ms: 95,
-				rate_limit_hits: 0,
-				avg_ttft_ms: 50,
-			}),
-		);
-		renderWithProviders(
-			<TimeSeriesChart
-				{...defaultProps}
-				data={yesterdayData}
-				range="1h"
-				metric="Requests"
-			/>,
-		);
+			const chartContainer = screen.getByTestId("area-chart")
+				.parentElement as HTMLElement;
 
-		const chartContainer = screen.getByTestId("area-chart")
-			.parentElement as HTMLElement;
+			fireEvent.pointerDown(chartContainer, {
+				clientX: 100,
+				pointerId: 1,
+			});
 
-		fireEvent.pointerDown(chartContainer, { clientX: 100, pointerId: 1 });
-
-		expect(screen.getByText(/Yesterday,/)).toBeInTheDocument();
-
-		vi.useRealTimers();
+			expect(screen.getByText(/Yesterday,/)).toBeInTheDocument();
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });
 
