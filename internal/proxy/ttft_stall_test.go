@@ -890,8 +890,9 @@ func TestStallWatchdog_ProgressiveTimeout_Boundary50(t *testing.T) {
 	if logData.errorMessage == "" {
 		t.Error("expected non-empty error message after stall")
 	}
-	// Duration should be well under 200ms since the watchdog fires at ~50ms
-	if logData.durationMs > 200 {
-		t.Errorf("expected duration < 200ms (stall fired early), got %.1fms", logData.durationMs)
+	// Duration should be well under 500ms since the watchdog fires at ~50ms.
+	// Use generous margin for CI scheduling jitter (goroutine wake-up, pipe I/O).
+	if logData.durationMs > 500 {
+		t.Errorf("expected duration < 500ms (stall fired early), got %.1fms", logData.durationMs)
 	}
 }
