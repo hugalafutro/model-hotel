@@ -1,5 +1,6 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import type { ChatMessage, GenerationParams } from "../../api/types";
 import { hasAnyParam } from "../../utils/params";
 import {
@@ -66,6 +67,8 @@ export function useConversationRunner(params: UseConversationRunnerParams) {
 		setCurrentTurn,
 		setTurnCountdown,
 	} = params;
+
+	const { t } = useTranslation();
 
 	const runConversation = useCallback(
 		async (resume = false) => {
@@ -169,8 +172,9 @@ export function useConversationRunner(params: UseConversationRunnerParams) {
 							return next;
 						});
 					},
+					undefined,
+					t,
 				);
-
 				setMessages((prev) => {
 					const idx = prev.findIndex(
 						(m) => m.timestamp === msgTimestamp && m.role === "assistant",
@@ -215,7 +219,13 @@ export function useConversationRunner(params: UseConversationRunnerParams) {
 
 				if (result.error || result.aborted) {
 					if (!result.aborted) {
-						toast(`${modelId}: ${result.error}`, "error");
+						toast(
+							t("hooks.useConversationRunner.generationError", {
+								model: modelId,
+								error: result.error,
+							}),
+							"error",
+						);
 					}
 					// Skip state cleanup if handleStopConversation already ran
 					// (it sets conversationRunningRef to false synchronously)
@@ -295,6 +305,7 @@ export function useConversationRunner(params: UseConversationRunnerParams) {
 			messageParams,
 			messageParamsB,
 			toast,
+			t,
 			conversationState,
 			capturedModelBRef,
 			capturedModelARef,

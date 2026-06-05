@@ -103,11 +103,9 @@ function LoginScreen() {
 			<div className="bg-gray-800 shadow-2xl ui-card p-8 w-full max-w-md">
 				<div className="text-center mb-8">
 					<Logo className="h-14 w-auto text-white mx-auto" />
-					<p className="text-base text-gray-200 mt-2">
-						Multi-Provider AI Gateway
-					</p>
+					<p className="text-base text-gray-200 mt-2">{t("layout.subtitle")}</p>
 					<p className="text-sm text-(--accent) mt-0.5 italic">
-						"Because we have LiteLLM at home"
+						{t("layout.tagline")}
 					</p>
 				</div>
 

@@ -11,8 +11,8 @@ import {
 	isLocalProviderType,
 	localProviderDefaults,
 	providerTypeAllowsEmptyKey,
-	providerTypeDisplayNames,
 	providerTypeHasFreeModels,
+	providerTypeTranslationKeys,
 } from "./constants";
 
 interface AddProviderModalProps {
@@ -30,8 +30,9 @@ function generateProviderName(
 	providers: Provider[] | undefined,
 	t: (key: string) => string,
 ): string {
-	const baseName =
-		providerTypeDisplayNames[type] || t("providers.add.providerFallback");
+	const baseName = t(
+		providerTypeTranslationKeys[type] || "providers.add.providerFallback",
+	);
 	if (!providers) return baseName;
 	const existingNames = new Set(providers.map((p) => p.name));
 	if (!existingNames.has(baseName)) return baseName;
@@ -93,7 +94,8 @@ export function AddProviderModal({
 				} catch (e) {
 					onToast(
 						t("providers.toast_discover_failed", {
-							message: e instanceof Error ? e.message : "Unknown error",
+							message:
+								e instanceof Error ? e.message : t("common.unknownError"),
 						}),
 						"warning",
 					);
@@ -105,12 +107,12 @@ export function AddProviderModal({
 				switch (providerType) {
 					case "nanogpt":
 						await api.providers.getUsage(newProvider.id);
-						onToast("NanoGPT quota detected", "info");
+						onToast(t("providers.toast_quota_detected_nanogpt"), "info");
 						queryClient.invalidateQueries({ queryKey: ["nanogpt-usage"] });
 						break;
 					case "zai-coding":
 						await api.providers.getUsage(newProvider.id);
-						onToast("Z.ai Coding quota detected", "info");
+						onToast(t("providers.toast_quota_detected_zai"), "info");
 						queryClient.invalidateQueries({ queryKey: ["zai-coding-usage"] });
 						break;
 					case "deepseek": {
@@ -146,7 +148,12 @@ export function AddProviderModal({
 						const account = await api.providers.getOllamaCloudAccount(
 							newProvider.id,
 						);
-						onToast(`Ollama Cloud ${account.plan} plan detected`, "info");
+						onToast(
+							t("providers.toast_ollama_cloud_plan_detected", {
+								plan: account.plan,
+							}),
+							"info",
+						);
 						queryClient.invalidateQueries({
 							queryKey: ["ollama-cloud-account"],
 						});
@@ -221,7 +228,7 @@ export function AddProviderModal({
 						htmlFor="provider-type"
 						className="block text-sm font-medium text-gray-300 mb-1"
 					>
-						Type
+						{t("providers.form_type_label")}
 					</label>
 					<select
 						id="provider-type"
@@ -229,15 +236,17 @@ export function AddProviderModal({
 						onChange={(e) => handleProviderTypeChange(e.target.value)}
 						className="ui-input"
 					>
-						{Object.entries(providerTypeDisplayNames)
-							.sort(([aKey, aLabel], [bKey, bLabel]) => {
+						{Object.entries(providerTypeTranslationKeys)
+							.sort(([aKey], [bKey]) => {
 								if (aKey === "custom") return -1;
 								if (bKey === "custom") return 1;
-								return aLabel.localeCompare(bLabel);
+								return t(
+									providerTypeTranslationKeys[aKey] || aKey,
+								).localeCompare(t(providerTypeTranslationKeys[bKey] || bKey));
 							})
-							.map(([key, label]) => (
+							.map(([key]) => (
 								<option key={key} value={key}>
-									{label}
+									{t(providerTypeTranslationKeys[key] || key)}
 								</option>
 							))}
 					</select>
@@ -248,7 +257,7 @@ export function AddProviderModal({
 						htmlFor="provider-name"
 						className="block text-sm font-medium text-gray-300 mb-1"
 					>
-						Name
+						{t("providers.form_name_label")}
 					</label>
 					<input
 						id="provider-name"

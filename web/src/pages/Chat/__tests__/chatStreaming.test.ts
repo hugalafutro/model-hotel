@@ -9,6 +9,19 @@ import {
 	streamModelResponse,
 } from "../chatStreaming";
 
+/** Minimal t() mock that maps i18n keys used in chatStreaming to English values. */
+const mockT = (key: string) => {
+	const map: Record<string, string> = {
+		"chat.stream.stoppedByUser": "Stopped by user",
+		"chat.stream.unknownError": "Unknown error",
+		"chat.stream.endedWithoutSignal":
+			"Stream ended without completion signal - the response may still be complete.",
+		"chat.stream.endedUnexpectedly":
+			"Stream ended unexpectedly with no content.",
+	};
+	return map[key] ?? key;
+};
+
 describe("formatTime", () => {
 	it("formats timestamp as HH:MM", () => {
 		const ts = new Date("2024-01-15T14:30:00Z").getTime();
@@ -525,6 +538,8 @@ describe("streamModelResponse", () => {
 			baseParams,
 			new AbortController(),
 			vi.fn(),
+			undefined,
+			mockT,
 		);
 
 		expect(result.error).not.toBeNull();
@@ -541,6 +556,8 @@ describe("streamModelResponse", () => {
 			baseParams,
 			new AbortController(),
 			vi.fn(),
+			undefined,
+			mockT,
 		);
 
 		expect(result.error).not.toBeNull();
@@ -565,6 +582,7 @@ describe("streamModelResponse", () => {
 			abortCtrl,
 			vi.fn(),
 			{ maxRetries: 0 },
+			mockT,
 		);
 
 		expect(result.aborted).toBe(true);

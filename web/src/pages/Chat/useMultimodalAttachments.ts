@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface UseMultimodalAttachmentsReturn {
 	pendingImage: { dataUrl: string; name: string } | null;
@@ -32,6 +33,7 @@ export function useMultimodalAttachments(
 		severity?: "success" | "error" | "info" | "warning",
 	) => void,
 ): UseMultimodalAttachmentsReturn {
+	const { t } = useTranslation();
 	const [pendingImage, setPendingImage] = useState<{
 		dataUrl: string;
 		name: string;
@@ -63,7 +65,10 @@ export function useMultimodalAttachments(
 			for (const item of items) {
 				if (item.type.startsWith("image/")) {
 					if (!hasVision) {
-						toast("This model does not support image input", "warning");
+						toast(
+							t("hooks.useMultimodalAttachments.noImageSupport"),
+							"warning",
+						);
 						e.preventDefault();
 						return;
 					}
@@ -72,7 +77,7 @@ export function useMultimodalAttachments(
 					if (!file) continue;
 
 					if (file.size > 20 * 1024 * 1024) {
-						toast("Image must be under 20 MB", "error");
+						toast(t("hooks.useMultimodalAttachments.imageTooLarge"), "error");
 						e.preventDefault();
 						return;
 					}
@@ -84,7 +89,7 @@ export function useMultimodalAttachments(
 							name: file.name || "pasted-image",
 						});
 						setPendingAudio(null);
-						toast("Image pasted from clipboard", "info");
+						toast(t("hooks.useMultimodalAttachments.imagePasted"), "info");
 					};
 					reader.readAsDataURL(file);
 					e.preventDefault();
@@ -94,7 +99,7 @@ export function useMultimodalAttachments(
 
 			// Allow normal text paste through — no image found
 		},
-		[hasVision, toast],
+		[hasVision, toast, t],
 	);
 
 	const handleImageSelect = useCallback(
@@ -102,7 +107,7 @@ export function useMultimodalAttachments(
 			const file = e.target.files?.[0];
 			if (!file) return;
 			if (file.size > 20 * 1024 * 1024) {
-				toast("Image must be under 20 MB", "error");
+				toast(t("hooks.useMultimodalAttachments.imageTooLarge"), "error");
 				return;
 			}
 			const reader = new FileReader();
@@ -114,7 +119,7 @@ export function useMultimodalAttachments(
 			// Reset so the same file can be re-selected
 			e.target.value = "";
 		},
-		[toast],
+		[t, toast],
 	);
 
 	const handleAudioSelect = useCallback(
@@ -122,7 +127,7 @@ export function useMultimodalAttachments(
 			const file = e.target.files?.[0];
 			if (!file) return;
 			if (file.size > 25 * 1024 * 1024) {
-				toast("Audio must be under 25 MB", "error");
+				toast(t("hooks.useMultimodalAttachments.audioTooLarge"), "error");
 				return;
 			}
 			const ext = file.name.split(".").pop()?.toLowerCase() || "mp3";
@@ -147,7 +152,7 @@ export function useMultimodalAttachments(
 			reader.readAsDataURL(file);
 			e.target.value = "";
 		},
-		[toast],
+		[t, toast],
 	);
 
 	return {

@@ -105,7 +105,9 @@ export async function streamModelResponse(
 	abortCtrl: AbortController,
 	onDelta: (raw: string, content: string, thinking: string) => void,
 	retryOptions?: RetryOptions,
+	t?: (key: string) => string,
 ): Promise<StreamResult> {
+	const tx = t ?? ((key: string) => key);
 	const startTime = performance.now();
 	let promptTokens = 0;
 	let completionTokens = 0;
@@ -176,10 +178,10 @@ export async function streamModelResponse(
 				content,
 				thinkingContent,
 				error: completion.idleTimeout
-					? "Stream stalled - no data received within the timeout period."
+					? tx("chat.stream.stalledTimeout")
 					: content
-						? "Stream ended without completion signal - the response may still be complete."
-						: "Stream ended unexpectedly with no content.",
+						? tx("chat.stream.endedWithoutSignal")
+						: tx("chat.stream.endedUnexpectedly"),
 				aborted: false,
 				durationMs,
 				tokensPerSecond,
@@ -190,10 +192,10 @@ export async function streamModelResponse(
 	} catch (err) {
 		const isAbort = err instanceof Error && err.name === "AbortError";
 		const errorMsg = isAbort
-			? "Stopped by user"
+			? tx("chat.stream.stoppedByUser")
 			: err instanceof Error
 				? err.message
-				: "Unknown error";
+				: tx("chat.stream.unknownError");
 		const errorDurationMs = Math.round(performance.now() - startTime);
 		return {
 			rawContent,
@@ -221,7 +223,7 @@ export async function streamModelResponse(
 		rawContent,
 		content,
 		thinkingContent,
-		error: completion.aborted ? "Stopped by user" : null,
+		error: completion.aborted ? tx("chat.stream.stoppedByUser") : null,
 		aborted: completion.aborted,
 		durationMs: Math.round(durationMs),
 		tokensPerSecond,

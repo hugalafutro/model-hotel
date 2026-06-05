@@ -401,11 +401,15 @@ export function FailoverGroups() {
 					!allSameState && groups && groups.length > 0 ? (
 						<span className="inline-flex items-center gap-2 px-2.5 py-1 leading-[1.6] rounded-full text-xs font-medium bg-gray-700/60 border border-gray-600/50">
 							<span className="text-green-400">
-								<span className="badge-text">{totalEnabled} enabled</span>
+								<span className="badge-text">
+									{t("failover.badge_enabled", { count: totalEnabled })}
+								</span>
 							</span>
 							<span className="text-gray-600">/</span>
 							<span className="text-red-400">
-								<span className="badge-text">{totalDisabled} disabled</span>
+								<span className="badge-text">
+									{t("failover.badge_disabled", { count: totalDisabled })}
+								</span>
 							</span>
 						</span>
 					) : undefined
@@ -818,7 +822,7 @@ export function FailoverGroups() {
 					entityName={t("failover.delete_confirm_bulk_title", {
 						count: bulkDeleteIds.size,
 					})}
-					entityType="failover groups"
+					entityType={t("failover.delete_confirm_type_plural")}
 					isPending={isBulkDeleting}
 					onConfirm={confirmBulkDelete}
 					onCancel={() => setBulkDeleteIds(null)}

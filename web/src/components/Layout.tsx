@@ -681,7 +681,9 @@ function LastErrorPills() {
 	);
 }
 
-const SUPPORTED_LANGUAGES = [{ code: "en", label: "English" }] as const;
+const SUPPORTED_LANGUAGES = [
+	{ code: "en", labelKey: "layout.language.english" },
+] as const;
 
 function LanguageSelector() {
 	const { t, i18n } = useTranslation();
@@ -730,7 +732,7 @@ function LanguageSelector() {
 									: "text-gray-400 hover:text-white hover:bg-white/5"
 							}`}
 						>
-							{lang.label}
+							{t(lang.labelKey)}
 						</button>
 					))}
 				</div>

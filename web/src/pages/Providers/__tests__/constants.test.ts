@@ -6,7 +6,7 @@ import {
 	isLocalProviderType,
 	localProviderDefaults,
 	providerTypeAllowsEmptyKey,
-	providerTypeDisplayNames,
+	providerTypeTranslationKeys,
 } from "../constants";
 
 describe("baseUrls", () => {
@@ -226,69 +226,87 @@ describe("getProviderType", () => {
 	});
 });
 
-describe("providerTypeDisplayNames", () => {
-	it("has display name for custom", () => {
-		expect(providerTypeDisplayNames.custom).toBe("Custom");
+describe("providerTypeTranslationKeys", () => {
+	it("has translation key for custom", () => {
+		expect(providerTypeTranslationKeys.custom).toBe("providers.type_custom");
 	});
 
-	it("has display name for openai", () => {
-		expect(providerTypeDisplayNames.openai).toBe("OpenAI");
+	it("has translation key for openai", () => {
+		expect(providerTypeTranslationKeys.openai).toBe("providers.type_openai");
 	});
 
-	it("has display name for anthropic", () => {
-		expect(providerTypeDisplayNames.anthropic).toBe("Anthropic");
+	it("has translation key for anthropic", () => {
+		expect(providerTypeTranslationKeys.anthropic).toBe(
+			"providers.type_anthropic",
+		);
 	});
 
-	it("has display name for deepseek", () => {
-		expect(providerTypeDisplayNames.deepseek).toBe("DeepSeek");
+	it("has translation key for deepseek", () => {
+		expect(providerTypeTranslationKeys.deepseek).toBe(
+			"providers.type_deepseek",
+		);
 	});
 
-	it("has display name for ollama", () => {
-		expect(providerTypeDisplayNames.ollama).toBe("Ollama");
+	it("has translation key for ollama", () => {
+		expect(providerTypeTranslationKeys.ollama).toBe("providers.type_ollama");
 	});
 
-	it("has display name for ollama-cloud", () => {
-		expect(providerTypeDisplayNames["ollama-cloud"]).toBe("Ollama Cloud");
+	it("has translation key for ollama-cloud", () => {
+		expect(providerTypeTranslationKeys["ollama-cloud"]).toBe(
+			"providers.type_ollama_cloud",
+		);
 	});
 
-	it("has display name for google", () => {
-		expect(providerTypeDisplayNames.google).toBe("Google AI Studio (Gemini)");
+	it("has translation key for google", () => {
+		expect(providerTypeTranslationKeys.google).toBe("providers.type_google");
 	});
 
-	it("has display name for xai", () => {
-		expect(providerTypeDisplayNames.xai).toBe("xAI (Grok)");
+	it("has translation key for xai", () => {
+		expect(providerTypeTranslationKeys.xai).toBe("providers.type_xai");
 	});
 
-	it("has display name for cohere", () => {
-		expect(providerTypeDisplayNames.cohere).toBe("Cohere");
+	it("has translation key for cohere", () => {
+		expect(providerTypeTranslationKeys.cohere).toBe("providers.type_cohere");
 	});
 
-	it("has display name for openrouter", () => {
-		expect(providerTypeDisplayNames.openrouter).toBe("OpenRouter");
+	it("has translation key for openrouter", () => {
+		expect(providerTypeTranslationKeys.openrouter).toBe(
+			"providers.type_openrouter",
+		);
 	});
 
-	it("has display name for koboldcpp (no Local suffix)", () => {
-		expect(providerTypeDisplayNames.koboldcpp).toBe("KoboldCPP");
+	it("has translation key for koboldcpp", () => {
+		expect(providerTypeTranslationKeys.koboldcpp).toBe(
+			"providers.type_koboldcpp",
+		);
 	});
 
-	it("has display name for lmstudio (no Local suffix)", () => {
-		expect(providerTypeDisplayNames.lmstudio).toBe("LM Studio");
+	it("has translation key for lmstudio", () => {
+		expect(providerTypeTranslationKeys.lmstudio).toBe(
+			"providers.type_lmstudio",
+		);
 	});
 
-	it("has display name for nanogpt", () => {
-		expect(providerTypeDisplayNames.nanogpt).toBe("NanoGPT");
+	it("has translation key for nanogpt", () => {
+		expect(providerTypeTranslationKeys.nanogpt).toBe("providers.type_nanogpt");
 	});
 
-	it("has display name for zai-coding", () => {
-		expect(providerTypeDisplayNames["zai-coding"]).toBe("Z.ai Coding Plan");
+	it("has translation key for zai-coding", () => {
+		expect(providerTypeTranslationKeys["zai-coding"]).toBe(
+			"providers.type_zai_coding",
+		);
 	});
 
-	it("has display name for opencode-zen", () => {
-		expect(providerTypeDisplayNames["opencode-zen"]).toBe("OpenCode Zen");
+	it("has translation key for opencode-zen", () => {
+		expect(providerTypeTranslationKeys["opencode-zen"]).toBe(
+			"providers.type_opencode_zen",
+		);
 	});
 
-	it("has display name for opencode-go", () => {
-		expect(providerTypeDisplayNames["opencode-go"]).toBe("OpenCode Go");
+	it("has translation key for opencode-go", () => {
+		expect(providerTypeTranslationKeys["opencode-go"]).toBe(
+			"providers.type_opencode_go",
+		);
 	});
 });
 

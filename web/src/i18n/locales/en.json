@@ -155,7 +155,8 @@
 			"switchToDark": "Switch to dark mode"
 		},
 		"language": {
-			"label": "Language"
+			"label": "Language",
+			"english": "English"
 		},
 		"errorPill": {
 			"appError": "App Err",
@@ -186,6 +187,9 @@
 	"dashboard": {
 		"title": "Dashboard",
 		"description": "Overview of your Model Hotel usage",
+		"metricRequests": "Requests",
+		"metricTokens": "Tokens",
+		"metricErrors": "Errors",
 		"activeKeysOnly": "Active Keys Only",
 		"allKeys": "All Keys",
 		"toggleKeyFilter": "Toggle key filter",
@@ -351,6 +355,20 @@
 		"conversation": "Conversation",
 		"testModels": "Test enabled models in temporary chat",
 		"watchConversation": "Watch two models converse with each other",
+		"validation": {
+			"selectModelA": "Select Model A",
+			"selectModelB": "Select Model B",
+			"modelsMustDiffer": "Models must be different",
+			"enterPrompt": "Enter a prompt"
+		},
+		"stream": {
+			"stoppedByUser": "Stopped by user",
+			"unknownError": "Unknown error",
+			"stalledTimeout": "Stream stalled - no data received within the timeout period.",
+			"cutoffIncomplete": "Stream was cut off - the response may be incomplete.",
+			"endedWithoutSignal": "Stream ended without completion signal - the response may still be complete.",
+			"endedUnexpectedly": "Stream ended unexpectedly with no content."
+		},
 		"controls": {
 			"_": "Controls",
 			"resetAll": "Reset all (clear model & settings)",
@@ -669,6 +687,7 @@
 		"form_modal_title": "Add Provider",
 		"form_type_label": "Type",
 		"form_name_label": "Name",
+		"toast_ollama_cloud_plan_detected": "Ollama Cloud {{plan}} plan detected",
 		"form_name_placeholder": "e.g., OpenAI",
 		"form_name_hint": "Dots, spaces, and special characters are replaced with \"-\" when routing.",
 		"form_base_url_label": "Base URL",
@@ -890,7 +909,18 @@
 		"toast_delete_failed": "Failed to delete: {{message}}",
 		"toast_bulk_delete_warning": "Deleted {{succeeded}} of {{total}} groups ({{failed}} failed)",
 		"toast_entry_min_one": "At least one provider must remain active",
+		"toast_min_entries": "At least 2 entries required",
+		"toast_display_model_required": "Display model name is required",
+		"badge_enabled_one": "{{count}} enabled",
+		"badge_enabled_other": "{{count}} enabled",
+		"badge_disabled_one": "{{count}} disabled",
+		"badge_disabled_other": "{{count}} disabled",
 		"delete_confirm_type": "failover group",
+		"delete_confirm_type_plural": "failover groups",
+		"auto_created": "auto",
+		"on": "ON",
+		"off": "OFF",
+		"copied_model": "Copied {{model}}",
 		"group": {
 			"clickToCopy": "Click to copy"
 		},
@@ -994,7 +1024,16 @@
 			},
 			"noProvidersConfigured": "No providers configured.",
 			"discardChanges": "Discard unsaved changes?",
-			"loadingProviders": "Loading providers..."
+			"loadingProviders": "Loading providers...",
+			"stripReasoningDescriptionText": "When enabled, reasoning/thinking tokens are removed from streaming responses for clients that cannot handle them.",
+			"providerInstructionsText": "Click a provider to restrict access. All are accessible by default.",
+			"nameLabel": "Name",
+			"rateLimitRpsLabel": "Rate Limit RPS (requests/sec)",
+			"rateLimitBurstLabel": "Rate Limit Burst (max concurrent)",
+			"keyCreated": "Virtual key created",
+			"keyCreatedFailed": "Failed: {{message}}",
+			"keyUpdated": "Virtual key updated",
+			"keyUpdateFailed": "Failed: {{message}}"
 		}
 	},
 	"logs": {
@@ -2235,6 +2274,30 @@
 		}
 	},
 	"hooks": {
+		"useMultimodalAttachments": {
+			"noImageSupport": "This model does not support image input",
+			"imageTooLarge": "Image must be under 20 MB",
+			"audioTooLarge": "Audio must be under 25 MB",
+			"imagePasted": "Image pasted from clipboard"
+		},
+		"useChatPersistence": {
+			"storageFullChat": "Storage full - chat history not saved"
+		},
+		"useChat": {
+			"messageDeleted": "Message deleted",
+			"canOnlyDeleteRecent": "Can only delete the most recent response"
+		},
+		"useConversationRunner": {
+			"generationError": "{{model}}: {{error}}"
+		},
+		"useArenaPersistence": {
+			"storageFullArena": "Storage full - arena state not saved"
+		},
+		"useArenaRunner": {
+			"generationError": "{{model}}: {{error}}",
+			"retry": "{{model}}: {{status}} - retry {{attempt}} in {{delay}}s…",
+			"networkError": "network error"
+		},
 		"useQuotaData": {
 			"nanoGPTError": "Failed to fetch NanoGPT usage quota",
 			"zaiError": "Failed to fetch ZAI usage quota",
