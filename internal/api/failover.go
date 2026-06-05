@@ -566,6 +566,7 @@ func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Re
 	// could be counted in both passes, slightly inflating totals. This is acceptable
 	// for an aggregate dashboard endpoint with a 5s cache TTL — the next poll
 	// will correct any transient overcount.
+	var providerNameMap map[string]string // provider UUID -> name (for detail responses)
 	if h.failoverRepo != nil {
 		groups, err := h.failoverRepo.List(r.Context())
 		if err == nil {
@@ -608,6 +609,17 @@ func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Re
 							resp.Closed++
 						}
 					}
+
+					// Build provider name map for detail responses.
+					if wantDetail {
+						providerNameMap = make(map[string]string, len(models))
+						for _, m := range models {
+							pid := m.ProviderID.String()
+							if _, exists := providerNameMap[pid]; !exists {
+								providerNameMap[pid] = m.ProviderName
+							}
+						}
+					}
 				}
 			}
 		}
@@ -624,6 +636,15 @@ func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Re
 	// Include per-provider detail when requested (for the Failover page UI).
 	if wantDetail {
 		resp.Providers = trackedProviders
+
+		// Populate provider names from the name map built during untracked counting.
+		if providerNameMap != nil {
+			for i := range resp.Providers {
+				if name, ok := providerNameMap[resp.Providers[i].ProviderID]; ok {
+					resp.Providers[i].ProviderName = name
+				}
+			}
+		}
 	}
 
 	writeJSON(w, resp)

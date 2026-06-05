@@ -94,6 +94,8 @@
 			"failoverHalfOpen_other": "{{count}} half-open circuit breakers",
 			"failoverOpen": "{{count}} open circuit breaker",
 			"failoverOpen_other": "{{count}} open circuit breakers",
+			"failoverBadgeTooltip_one": "{{count}} circuit breaker open/half-open: {{providers}}",
+			"failoverBadgeTooltip_other": "{{count}} circuit breakers open/half-open: {{providers}}",
 			"virtualKeys": "Virtual Keys",
 			"logs": "Logs",
 			"requests": "Requests",

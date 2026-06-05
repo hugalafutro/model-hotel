@@ -51,6 +51,7 @@ type circuit struct {
 // API responses and SSE events.
 type ProviderStatus struct {
 	ProviderID       string `json:"provider_id"`
+	ProviderName     string `json:"provider_name,omitempty"`
 	State            string `json:"state"`
 	ConsecutiveFails int    `json:"consecutive_fails"`
 	OpenedAt         string `json:"opened_at,omitempty"`
