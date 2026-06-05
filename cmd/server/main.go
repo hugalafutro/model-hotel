@@ -722,10 +722,10 @@ func main() {
 		}
 	}()
 
-	//nolint:gosec // ReadHeaderTimeout set via Server config above
 	server := &http.Server{
-		Addr:    cfg.Port,
-		Handler: r,
+		Addr:              cfg.Port,
+		Handler:           r,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	go func() {
