@@ -156,7 +156,8 @@
 		},
 		"language": {
 			"label": "Language",
-			"english": "English"
+			"english": "English",
+			"czech": "Čeština"
 		},
 		"errorPill": {
 			"appError": "App Err",

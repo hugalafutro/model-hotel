@@ -683,6 +683,7 @@ function LastErrorPills() {
 
 const SUPPORTED_LANGUAGES = [
 	{ code: "en", labelKey: "layout.language.english" },
+	{ code: "cs", labelKey: "layout.language.czech" },
 ] as const;
 
 function LanguageSelector() {
