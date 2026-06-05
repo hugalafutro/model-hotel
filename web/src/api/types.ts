@@ -409,6 +409,7 @@ export interface CircuitBreakerStatus {
 
 export interface CircuitBreakerProviderStatus {
 	provider_id: string;
+	provider_name?: string;
 	state: "closed" | "open" | "half-open";
 	consecutive_fails: number;
 	opened_at?: string;

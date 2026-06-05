@@ -629,5 +629,58 @@ describe("Layout", () => {
 				expect(zeroCounts.length).toBeGreaterThan(0);
 			});
 		});
+
+		it("shows tooltip with open/half-open provider names", async () => {
+			server.use(
+				http.get("/api/failover-groups/circuit-breaker-status", () =>
+					HttpResponse.json({
+						closed: 1,
+						half_open: 1,
+						open: 2,
+						providers: [
+							{
+								provider_id: "p-1",
+								provider_name: "Healthy Provider",
+								state: "closed",
+								consecutive_fails: 0,
+							},
+							{
+								provider_id: "p-2",
+								provider_name: "Wobbly Provider",
+								state: "half-open",
+								consecutive_fails: 2,
+							},
+							{
+								provider_id: "p-3",
+								provider_name: "Down Provider",
+								state: "open",
+								consecutive_fails: 5,
+							},
+							{
+								provider_id: "p-4",
+								provider_name: "Also Down",
+								state: "open",
+								consecutive_fails: 3,
+							},
+						],
+					}),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await waitFor(() => {
+				// The badge pill should have a title listing only unhealthy providers
+				const badge = screen
+					.getByText("Failover")
+					.closest("a")
+					?.querySelector("[title]");
+				expect(badge).toBeInTheDocument();
+				const tooltip = badge?.getAttribute("title");
+				expect(tooltip).toContain("Wobbly Provider");
+				expect(tooltip).toContain("Down Provider");
+				expect(tooltip).toContain("Also Down");
+				expect(tooltip).not.toContain("Healthy Provider");
+			});
+		});
 	});
 });

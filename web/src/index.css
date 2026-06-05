@@ -537,12 +537,12 @@ html.light .system-status {
 
 .sidebar-link {
 	border-radius: var(--radius-button);
-	padding-block: clamp(0.3rem, 0.25vw + 0.2rem, 0.5rem);
+	padding-block: clamp(0.3rem, 0.47vw - 0.25rem, 0.5rem);
 }
 
 /* Tighter inter-item gap on smaller viewports */
 nav ul:has(> li > .sidebar-link) {
-	gap: clamp(0.05rem, 0.15vw + 0.02rem, 0.15rem);
+	gap: clamp(0.02rem, 0.375vw - 0.424rem, 0.15rem);
 }
 
 /* Compact sidebar nav below 1200px (e.g. 1080p) */

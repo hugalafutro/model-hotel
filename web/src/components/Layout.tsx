@@ -758,7 +758,7 @@ export function Layout({ children }: LayoutProps) {
 
 	const { data: cbStatus } = useQuery({
 		queryKey: ["circuit-breaker-status"],
-		queryFn: () => api.failoverGroups.circuitBreakerStatus(),
+		queryFn: () => api.failoverGroups.circuitBreakerStatus(true),
 		refetchInterval: 15_000,
 		placeholderData: (prev) => prev,
 	});
@@ -928,7 +928,23 @@ export function Layout({ children }: LayoutProps) {
 												cbStatus.open > 0) ? (
 											<span className="flex items-center gap-1.5">
 												<span>{item.name}</span>
-												<span className="inline-flex items-center gap-[2px] text-[0.625rem] leading-[1.6] font-medium bg-white/10 px-[7px] py-[1px] rounded-full translate-y-[1px]">
+												<span
+													className="inline-flex items-center gap-[2px] text-[0.625rem] leading-[1.6] font-medium bg-white/10 px-[7px] py-[1px] rounded-full translate-y-[1px]"
+													title={(() => {
+														if (!cbStatus.providers) return undefined;
+														const unhealthy = cbStatus.providers.filter(
+															(p) =>
+																p.state === "open" || p.state === "half-open",
+														);
+														if (unhealthy.length === 0) return undefined;
+														return t("layout.nav.failoverBadgeTooltip", {
+															count: unhealthy.length,
+															providers: unhealthy
+																.map((p) => p.provider_name || p.provider_id)
+																.join(", "),
+														});
+													})()}
+												>
 													<span
 														className="text-emerald-400 badge-text"
 														title={t("layout.nav.failoverClosed", {

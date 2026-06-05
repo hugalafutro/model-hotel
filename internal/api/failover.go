@@ -30,8 +30,11 @@ type FailoverHandler struct {
 
 	// Cache for aggregate circuit-breaker status to avoid scanning all
 	// failover groups on every 15s poll from each connected client.
+	// Separate cache slots for aggregate vs detail responses.
 	cbStatusCache     CircuitBreakerStatusResponse
 	cbStatusCacheTime time.Time
+	cbDetailCache     CircuitBreakerStatusResponse
+	cbDetailCacheTime time.Time
 	cbStatusMu        sync.Mutex
 }
 
@@ -525,20 +528,25 @@ const cbStatusCacheTTL = 5 * time.Second
 
 // CircuitBreakerStatus returns the current circuit breaker state for all tracked providers.
 func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Request) {
-	// Detail queries bypass the cache — they're only requested from the
-	// Failover page and need per-provider freshness.
 	wantDetail := r.URL.Query().Get("detail") == "1"
 
-	if !wantDetail {
-		h.cbStatusMu.Lock()
+	h.cbStatusMu.Lock()
+	if wantDetail {
+		if time.Since(h.cbDetailCacheTime) < cbStatusCacheTTL {
+			cached := h.cbDetailCache
+			h.cbStatusMu.Unlock()
+			writeJSON(w, cached)
+			return
+		}
+	} else {
 		if time.Since(h.cbStatusCacheTime) < cbStatusCacheTTL {
 			cached := h.cbStatusCache
 			h.cbStatusMu.Unlock()
 			writeJSON(w, cached)
 			return
 		}
-		h.cbStatusMu.Unlock()
 	}
+	h.cbStatusMu.Unlock()
 
 	resp := CircuitBreakerStatusResponse{}
 	trackedProviders := make([]failover.ProviderStatus, 0)
@@ -566,6 +574,7 @@ func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Re
 	// could be counted in both passes, slightly inflating totals. This is acceptable
 	// for an aggregate dashboard endpoint with a 5s cache TTL — the next poll
 	// will correct any transient overcount.
+	var providerNameMap map[string]string // provider UUID -> name (for detail responses)
 	if h.failoverRepo != nil {
 		groups, err := h.failoverRepo.List(r.Context())
 		if err == nil {
@@ -608,23 +617,46 @@ func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Re
 							resp.Closed++
 						}
 					}
+
+					// Build provider name map for detail responses.
+					if wantDetail {
+						providerNameMap = make(map[string]string, len(models))
+						for _, m := range models {
+							pid := m.ProviderID.String()
+							if _, exists := providerNameMap[pid]; !exists {
+								providerNameMap[pid] = m.ProviderName
+							}
+						}
+					}
 				}
 			}
 		}
 	}
 
-	// Cache the aggregate result (detail responses are not cached)
-	if !wantDetail {
-		h.cbStatusMu.Lock()
-		h.cbStatusCache = resp
-		h.cbStatusCacheTime = time.Now()
-		h.cbStatusMu.Unlock()
-	}
-
 	// Include per-provider detail when requested (for the Failover page UI).
 	if wantDetail {
 		resp.Providers = trackedProviders
+
+		// Populate provider names from the name map built during untracked counting.
+		if providerNameMap != nil {
+			for i := range resp.Providers {
+				if name, ok := providerNameMap[resp.Providers[i].ProviderID]; ok {
+					resp.Providers[i].ProviderName = name
+				}
+			}
+		}
 	}
+
+	// Cache the response (after providers are appended for detail requests).
+	h.cbStatusMu.Lock()
+	if wantDetail {
+		h.cbDetailCache = resp
+		h.cbDetailCacheTime = time.Now()
+	} else {
+		h.cbStatusCache = resp
+		h.cbStatusCacheTime = time.Now()
+	}
+	h.cbStatusMu.Unlock()
 
 	writeJSON(w, resp)
 }

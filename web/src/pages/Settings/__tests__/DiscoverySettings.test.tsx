@@ -103,7 +103,7 @@ describe("DiscoverySettings", () => {
 		});
 	});
 
-	it("shows warning description when interval is 0", async () => {
+	it("shows description with disable note when interval is 0", async () => {
 		server.use(
 			http.get("/api/settings", ({ request }) => {
 				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
@@ -120,9 +120,7 @@ describe("DiscoverySettings", () => {
 		);
 
 		await waitFor(() => {
-			expect(
-				screen.getByText(/Periodic discovery is disabled/i),
-			).toBeInTheDocument();
+			expect(screen.getByText(/0 to disable/i)).toBeInTheDocument();
 		});
 	});
 
