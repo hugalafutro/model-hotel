@@ -282,8 +282,9 @@ func TestExtractClientIP_XFFHonoredWhenTrusted(t *testing.T) {
 	r.RemoteAddr = "10.0.0.1:1234"
 	r.Header.Set("X-Forwarded-For", "1.1.1.1, 2.2.2.2")
 	ip := extractClientIP(r, trusted)
-	if ip != "1.1.1.1" {
-		t.Errorf("expected first XFF IP when trusted, got %q", ip)
+	// Rightmost non-trusted IP is returned (2.2.2.2 is not in 10.0.0.0/8)
+	if ip != "2.2.2.2" {
+		t.Errorf("expected rightmost non-trusted XFF IP, got %q", ip)
 	}
 }
 
@@ -348,6 +349,51 @@ func TestExtractClientIP_IPv6(t *testing.T) {
 	ip := extractClientIP(r, nil)
 	if ip != "::1" {
 		t.Errorf("expected ::1 for IPv6, got %q", ip)
+	}
+}
+
+func TestExtractClientIP_RightmostNonTrustedMultiHop(t *testing.T) {
+	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
+	trusted := []*net.IPNet{cidr}
+
+	// Chain: client (1.1.1.1) → CDN (2.2.2.2) → LB (10.0.0.5) → app
+	r := httptest.NewRequest("POST", "/", http.NoBody)
+	r.RemoteAddr = "10.0.0.5:1234"
+	r.Header.Set("X-Forwarded-For", "1.1.1.1, 2.2.2.2, 10.0.0.5")
+	ip := extractClientIP(r, trusted)
+	// 10.0.0.5 is trusted, 2.2.2.2 is not — should return 2.2.2.2
+	if ip != "2.2.2.2" {
+		t.Errorf("expected rightmost non-trusted 2.2.2.2, got %q", ip)
+	}
+}
+
+func TestExtractClientIP_SpoofPrevention(t *testing.T) {
+	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
+	trusted := []*net.IPNet{cidr}
+
+	// Attacker behind trusted proxy injects a fake leftmost IP
+	r := httptest.NewRequest("POST", "/", http.NoBody)
+	r.RemoteAddr = "10.0.0.1:1234"
+	r.Header.Set("X-Forwarded-For", "spoofed-ip, 9.9.9.9, 10.0.0.1")
+	ip := extractClientIP(r, trusted)
+	// 10.0.0.1 is trusted, 9.9.9.9 is not — should return 9.9.9.9
+	if ip != "9.9.9.9" {
+		t.Errorf("expected 9.9.9.9 (non-trusted), not spoofed leftmost, got %q", ip)
+	}
+}
+
+func TestExtractClientIP_AllTrustedFallsBackToLeftmost(t *testing.T) {
+	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
+	trusted := []*net.IPNet{cidr}
+
+	// Unusual: all XFF entries are in trusted range
+	r := httptest.NewRequest("POST", "/", http.NoBody)
+	r.RemoteAddr = "10.0.0.1:1234"
+	r.Header.Set("X-Forwarded-For", "10.0.0.2, 10.0.0.3")
+	ip := extractClientIP(r, trusted)
+	// Falls back to leftmost
+	if ip != "10.0.0.2" {
+		t.Errorf("expected leftmost fallback 10.0.0.2, got %q", ip)
 	}
 }
 

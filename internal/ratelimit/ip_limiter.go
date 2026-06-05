@@ -204,15 +204,16 @@ func (l *IPLimiter) cleanup() {
 }
 
 // extractClientIP determines the client IP from the request.
-// When trustedProxies is non-empty and contains the RemoteAddr, X-Forwarded-For
-// and X-Real-IP headers are honoured. Otherwise, only RemoteAddr is used.
+// When trustedProxies is non-empty and contains the RemoteAddr, the XFF chain
+// is walked right-to-left, skipping IPs that belong to trusted proxy CIDRs.
+// The rightmost non-trusted IP is the real client. This prevents spoofing
+// by clients behind a trusted proxy. X-Real-IP is used as a fallback when
+// XFF is absent.
 func extractClientIP(r *http.Request, trustedProxies []*net.IPNet) string {
 	if len(trustedProxies) > 0 {
 		if config.IsTrustedProxy(r.RemoteAddr, trustedProxies) {
-			// X-Forwarded-For may contain a comma-separated chain; the first
-			// entry is the original client.
 			if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-				if ip := strings.TrimSpace(strings.SplitN(xff, ",", 2)[0]); ip != "" {
+				if ip := rightmostUntrustedIP(xff, trustedProxies); ip != "" {
 					return ip
 				}
 			}
@@ -227,4 +228,26 @@ func extractClientIP(r *http.Request, trustedProxies []*net.IPNet) string {
 		return r.RemoteAddr
 	}
 	return ip
+}
+
+// rightmostUntrustedIP parses the X-Forwarded-For header and returns the
+// rightmost IP that is NOT in any trusted proxy CIDR. This correctly handles
+// multi-hop proxy chains (e.g. CDN → load balancer → app) by walking the
+// chain from the proxy-adjacent end toward the client.
+func rightmostUntrustedIP(xff string, trustedProxies []*net.IPNet) string {
+	parts := strings.Split(xff, ",")
+	for i := len(parts) - 1; i >= 0; i-- {
+		ip := strings.TrimSpace(parts[i])
+		if ip == "" {
+			continue
+		}
+		if !config.IsTrustedProxy(ip+":0", trustedProxies) {
+			return ip
+		}
+	}
+	// All entries are trusted (unusual); fall back to the leftmost entry.
+	if len(parts) > 0 {
+		return strings.TrimSpace(parts[0])
+	}
+	return ""
 }
