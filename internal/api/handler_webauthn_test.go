@@ -932,3 +932,176 @@ func TestWebAuthnHandler_LoginFinish_SessionNotFound(t *testing.T) {
 		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
 	}
 }
+
+// TestWebAuthnHandler_RegisterStart_NilRepo tests that RegisterStart panics when repo is nil
+// This is expected behavior - repo should never be nil in production
+func TestWebAuthnHandler_RegisterStart_NilRepo(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expected panic with nil repo, but did not panic")
+		}
+	}()
+
+	h := newTestWebAuthnHandler(nil, nil, nil, nil)
+	w := httptest.NewRecorder()
+
+	req, _ := newChiRequest(http.MethodPost, "/webauthn/register/start", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-token")
+
+	h.RegisterStart(w, req)
+}
+
+// TestWebAuthnHandler_LoginStart_NilRelyingParty tests that LoginStart panics when relyingParty is nil
+// This is expected behavior - relyingParty should never be nil in production
+func TestWebAuthnHandler_LoginStart_NilRelyingParty(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expected panic with nil relyingParty, but did not panic")
+		}
+	}()
+
+	h := newTestWebAuthnHandler(nil, nil, nil, nil)
+	w := httptest.NewRecorder()
+
+	req, _ := newChiRequest(http.MethodPost, "/webauthn/login/start", http.NoBody)
+
+	h.LoginStart(w, req)
+}
+
+// TestWebAuthnHandler_LoginFinish_InvalidCredential tests that a login finish
+// with a malformed credential body returns a non-200 error. The session is
+// expired only to avoid accidental reuse — the handler does NOT check
+// ExpiresAt; it fails at ParseCredentialRequestResponseBody.
+func TestWebAuthnHandler_LoginFinish_InvalidCredential(t *testing.T) {
+	dbURL := apiTestDBURL
+	if dbURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	pool, err := pgxpool.New(context.Background(), dbURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	t.Cleanup(pool.Close)
+
+	ctx := context.Background()
+	repo := webauthn.NewRepository(pool)
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := newTestWebAuthnHandler(repo, nil, nil, adminMgr)
+
+	// Create an expired login session (expiry is irrelevant — the malformed
+	// credential below causes the failure before any time-based check)
+	sessionID := uuid.New()
+	session := &webauthn.SessionRecord{
+		ID:          sessionID,
+		Challenge:   "test-challenge",
+		SessionData: []byte(`{"type":"login"}`),
+		Type:        "login",
+		UserID:      []byte("admin"),
+		ExpiresAt:   time.Now().Add(-5 * time.Minute), // Expired
+	}
+	if err := repo.CreateSession(ctx, session); err != nil {
+		t.Fatalf("failed to create session: %v", err)
+	}
+	t.Cleanup(func() {
+		repo.DeleteSession(ctx, sessionID)
+	})
+
+	body := `{"session_id": "` + sessionID.String() + `", "credential": {}}`
+	req := httptest.NewRequest(http.MethodPost, "/webauthn/login/finish", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.LoginFinish(w, req)
+
+	// The handler does not check ExpiresAt — it proceeds to
+	// TryValidatePasskeyLogin which fails parsing the empty credential.
+	if w.Code == http.StatusOK {
+		t.Errorf("expected non-200 status for invalid credential, got %d", w.Code)
+	}
+}
+
+// TestWebAuthnHandler_RegisterFinish_InvalidCredential tests that a registration
+// finish with a malformed credential body returns a non-200 error. The session
+// is expired only to avoid accidental reuse — the handler does NOT check
+// ExpiresAt; it fails at ParseCredentialCreationResponseBody.
+func TestWebAuthnHandler_RegisterFinish_InvalidCredential(t *testing.T) {
+	dbURL := apiTestDBURL
+	if dbURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	pool, err := pgxpool.New(context.Background(), dbURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	t.Cleanup(pool.Close)
+
+	ctx := context.Background()
+	repo := webauthn.NewRepository(pool)
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := newTestWebAuthnHandler(repo, nil, nil, adminMgr)
+
+	// Create an expired registration session (expiry is irrelevant — the
+	// malformed credential below causes the failure before any time-based check)
+	sessionID := uuid.New()
+	session := &webauthn.SessionRecord{
+		ID:          sessionID,
+		Challenge:   "test-challenge",
+		SessionData: []byte(`{"type":"registration"}`),
+		Type:        "registration",
+		UserID:      []byte("admin"),
+		ExpiresAt:   time.Now().Add(-5 * time.Minute), // Expired
+	}
+	if err := repo.CreateSession(ctx, session); err != nil {
+		t.Fatalf("failed to create session: %v", err)
+	}
+	t.Cleanup(func() {
+		repo.DeleteSession(ctx, sessionID)
+	})
+
+	body := `{"session_id": "` + sessionID.String() + `", "credential": {}}`
+	req := httptest.NewRequest(http.MethodPost, "/webauthn/register/finish", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.RegisterFinish(w, req)
+
+	// The handler does not check ExpiresAt — it proceeds to
+	// TryValidatePasskeyRegistration which fails parsing the empty credential.
+	if w.Code == http.StatusOK {
+		t.Errorf("expected non-200 status for invalid credential, got %d", w.Code)
+	}
+}
+
+// TestWebAuthnHandler_LoginFinish_EmptySessionID tests that empty session_id returns 400
+func TestWebAuthnHandler_LoginFinish_EmptySessionID(t *testing.T) {
+	h := newTestWebAuthnHandler(nil, nil, nil, nil)
+
+	body := `{"session_id": "", "credential": {}}`
+	req := httptest.NewRequest(http.MethodPost, "/webauthn/login/finish", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.LoginFinish(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+}
+
+// TestWebAuthnHandler_RegisterFinish_EmptySessionID tests that empty session_id returns 400
+func TestWebAuthnHandler_RegisterFinish_EmptySessionID(t *testing.T) {
+	h := newTestWebAuthnHandler(nil, nil, nil, nil)
+
+	body := `{"session_id": "", "credential": {}}`
+	req := httptest.NewRequest(http.MethodPost, "/webauthn/register/finish", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.RegisterFinish(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+}

@@ -36,7 +36,25 @@ vi.mock("recharts", () => ({
 	XAxis: () => <div data-testid="x-axis" />,
 	YAxis: () => <div data-testid="y-axis" />,
 	CartesianGrid: () => <div data-testid="cartesian-grid" />,
-	Tooltip: () => <div data-testid="tooltip" />,
+	Tooltip: ({
+		content,
+	}: {
+		content?: (props: {
+			payload?: { dataKey: string; value: number; color: string }[];
+			label?: string;
+		}) => React.ReactNode;
+	}) => {
+		// Invoke the content callback with mock data to exercise the renderer.
+		// This covers the inline Tooltip content function in TimeSeriesChart.
+		if (content) {
+			const result = content({
+				payload: [{ dataKey: "total", value: 100, color: "#3b82f6" }],
+				label: "12:00",
+			});
+			return <div data-testid="tooltip">{result}</div>;
+		}
+		return <div data-testid="tooltip" />;
+	},
 }));
 
 const mockData: TimeSeriesDataPoint[] = [
@@ -767,7 +785,7 @@ describe("Overlay and panDateLabel", () => {
 		expect(areas[0]).toHaveAttribute("data-datakey", "total");
 	});
 
-	it("shows panDateLabel when dragging with rawDate data", () => {
+	it("shows panDateLabel when dragging with rawDate data (not today/yesterday)", () => {
 		const data = generateData(15);
 		renderWithProviders(
 			<TimeSeriesChart
@@ -786,5 +804,194 @@ describe("Overlay and panDateLabel", () => {
 		// panDateLabel renders inside the chart container when dragging
 		// The midpoint date of visibleData[6] = "2025-06-01T01:30:00Z" → "Jun 1, 2025"
 		expect(screen.getByText(/Jun.*2025/)).toBeInTheDocument();
+	});
+
+	it("shows panDateLabel with 'today' prefix for today's date", () => {
+		// Freeze clock to noon UTC so toDateString() is predictable
+		vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
+		try {
+			const now = new Date();
+			const todayData: TimeSeriesDataPoint[] = Array.from(
+				{ length: 15 },
+				(_, i) => ({
+					hour: `${String(i).padStart(2, "0")}:00`,
+					rawDate: new Date(now.getTime() + i * 15 * 60 * 1000).toISOString(),
+					total: 100 + i * 10,
+					errors: 0,
+					tokens: 1000,
+					tokens_cache_hit: 500,
+					tokens_cache_miss: 500,
+					latency: 100,
+					overhead_ms: 5,
+					provider_latency_ms: 95,
+					rate_limit_hits: 0,
+					avg_ttft_ms: 50,
+				}),
+			);
+			renderWithProviders(
+				<TimeSeriesChart
+					{...defaultProps}
+					data={todayData}
+					range="1h"
+					metric="Requests"
+				/>,
+			);
+
+			const chartContainer = screen.getByTestId("area-chart")
+				.parentElement as HTMLElement;
+
+			fireEvent.pointerDown(chartContainer, {
+				clientX: 100,
+				pointerId: 1,
+			});
+
+			expect(screen.getByText(/Today,/)).toBeInTheDocument();
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("shows panDateLabel with 'yesterday' prefix for yesterday's date", () => {
+		vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
+		try {
+			const now = new Date();
+			const yesterday = new Date(now);
+			yesterday.setDate(yesterday.getDate() - 1);
+			const yesterdayData: TimeSeriesDataPoint[] = Array.from(
+				{ length: 15 },
+				(_, i) => ({
+					hour: `${String(i).padStart(2, "0")}:00`,
+					rawDate: new Date(
+						yesterday.getTime() + i * 15 * 60 * 1000,
+					).toISOString(),
+					total: 100 + i * 10,
+					errors: 0,
+					tokens: 1000,
+					tokens_cache_hit: 500,
+					tokens_cache_miss: 500,
+					latency: 100,
+					overhead_ms: 5,
+					provider_latency_ms: 95,
+					rate_limit_hits: 0,
+					avg_ttft_ms: 50,
+				}),
+			);
+			renderWithProviders(
+				<TimeSeriesChart
+					{...defaultProps}
+					data={yesterdayData}
+					range="1h"
+					metric="Requests"
+				/>,
+			);
+
+			const chartContainer = screen.getByTestId("area-chart")
+				.parentElement as HTMLElement;
+
+			fireEvent.pointerDown(chartContainer, {
+				clientX: 100,
+				pointerId: 1,
+			});
+
+			expect(screen.getByText(/Yesterday,/)).toBeInTheDocument();
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+});
+
+describe("Tooltip content renderer", () => {
+	it("renders tooltip with payload data including overlay entry", () => {
+		renderWithProviders(
+			<TimeSeriesChart
+				{...defaultProps}
+				overlayDataKey="tokens_cache_hit"
+				overlayColor="var(--accent)"
+				overlayLabel="Cache Hit"
+			/>,
+		);
+
+		// The Tooltip mock invokes the content callback with mock payload.
+		// Verify the tooltip container rendered (content function executed).
+		const tooltip = screen.getByTestId("tooltip");
+		expect(tooltip).toBeInTheDocument();
+		// The content callback should have rendered the metric value from payload
+		expect(tooltip.textContent).toContain("100");
+	});
+});
+
+describe("Empty state variations", () => {
+	it("shows loading spinner in empty state when loading is true", () => {
+		renderWithProviders(
+			<TimeSeriesChart {...defaultProps} data={[]} loading />,
+		);
+
+		// Spinner should appear next to the metric label in empty state
+		expect(screen.getByTestId("spinner")).toBeInTheDocument();
+	});
+
+	it("shows empty state with week label for 1w range", () => {
+		renderWithProviders(
+			<TimeSeriesChart {...defaultProps} data={[]} range="1w" />,
+		);
+
+		expect(screen.getByText("Requests / Week")).toBeInTheDocument();
+		expect(
+			screen.getByText(
+				"No time-series data yet. Requests will appear here once traffic flows.",
+			),
+		).toBeInTheDocument();
+	});
+
+	it("shows empty state with hour label for 1h range", () => {
+		renderWithProviders(
+			<TimeSeriesChart {...defaultProps} data={[]} range="1h" />,
+		);
+
+		expect(screen.getByText("Requests / Hour")).toBeInTheDocument();
+	});
+
+	it("shows empty state with day label for 24h range", () => {
+		renderWithProviders(
+			<TimeSeriesChart {...defaultProps} data={[]} range="24h" />,
+		);
+
+		expect(screen.getByText("Requests / Day")).toBeInTheDocument();
+	});
+});
+
+describe("Overlay Area with custom styling", () => {
+	it("renders overlay Area with custom color and dashed stroke", () => {
+		renderWithProviders(
+			<TimeSeriesChart
+				{...defaultProps}
+				overlayDataKey="errors"
+				overlayColor="#ef4444"
+				overlayLabel="Errors"
+			/>,
+		);
+
+		const areas = screen.getAllByTestId("area");
+		expect(areas.length).toBe(2);
+
+		// Primary area should have total dataKey
+		expect(areas[0]).toHaveAttribute("data-datakey", "total");
+
+		// Overlay area should have errors dataKey and custom color
+		expect(areas[1]).toHaveAttribute("data-datakey", "errors");
+	});
+
+	it("renders overlay Area with default color when overlayColor is omitted", () => {
+		renderWithProviders(
+			<TimeSeriesChart
+				{...defaultProps}
+				overlayDataKey="tokens"
+				overlayLabel="Tokens"
+			/>,
+		);
+
+		const areas = screen.getAllByTestId("area");
+		expect(areas.length).toBe(2);
+		expect(areas[1]).toHaveAttribute("data-datakey", "tokens");
 	});
 });

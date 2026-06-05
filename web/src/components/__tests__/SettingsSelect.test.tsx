@@ -156,4 +156,109 @@ describe("SettingsSelect", () => {
 		expect(select).toContainHTML('<option value="a">Option A</option>');
 		expect(select).toContainHTML('<option value="b">Option B</option>');
 	});
+
+	it("renders inline layout with select when inline=true", () => {
+		render(
+			<SettingsSelect
+				id="test-select"
+				label="Test Label"
+				value="a"
+				options={options}
+				onChange={onChange}
+				inline
+			/>,
+		);
+		const select = screen.getByRole("combobox");
+		expect(select).toHaveClass("w-auto", "text-xs", "px-2", "py-1");
+		expect(screen.getByText("Test Label")).toHaveClass("whitespace-nowrap");
+	});
+
+	it("renders inline layout with input for custom value when inline=true", () => {
+		render(
+			<SettingsSelect
+				id="test-select"
+				label="Test Label"
+				value="custom-value"
+				options={options}
+				onChange={onChange}
+				inline
+			/>,
+		);
+		const input = screen.getByRole("textbox");
+		expect(input).toHaveClass("w-auto", "text-xs", "px-2", "py-1");
+	});
+
+	it("renders description in inline mode", () => {
+		render(
+			<SettingsSelect
+				id="test-select"
+				label="Test Label"
+				value="a"
+				options={options}
+				onChange={onChange}
+				inline
+				description="Inline description"
+			/>,
+		);
+		expect(screen.getByText("Inline description")).toBeInTheDocument();
+	});
+
+	it("does not render description in inline mode when not provided", () => {
+		const { container } = render(
+			<SettingsSelect
+				id="test-select"
+				label="Test Label"
+				value="a"
+				options={options}
+				onChange={onChange}
+				inline
+			/>,
+		);
+		// Verify no <p> description element is rendered
+		expect(container.querySelector("p")).not.toBeInTheDocument();
+	});
+
+	it("uses select (not input) for empty string value", () => {
+		render(
+			<SettingsSelect
+				id="test-select"
+				label="Test Label"
+				value=""
+				options={options}
+				onChange={onChange}
+			/>,
+		);
+		expect(screen.getByRole("combobox")).toBeInTheDocument();
+		expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+	});
+
+	it("disables inline select when disabled=true", () => {
+		render(
+			<SettingsSelect
+				id="test-select"
+				label="Test Label"
+				value="a"
+				options={options}
+				onChange={onChange}
+				inline
+				disabled
+			/>,
+		);
+		expect(screen.getByRole("combobox")).toBeDisabled();
+	});
+
+	it("disables inline input when disabled=true", () => {
+		render(
+			<SettingsSelect
+				id="test-select"
+				label="Test Label"
+				value="custom"
+				options={options}
+				onChange={onChange}
+				inline
+				disabled
+			/>,
+		);
+		expect(screen.getByRole("textbox")).toBeDisabled();
+	});
 });

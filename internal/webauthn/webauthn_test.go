@@ -774,3 +774,65 @@ func TestSessionManagerCreateAuthToken_DifferentUserIDs(t *testing.T) {
 		t.Errorf("expected UserID 'custom-user-123', got %q", string(session.UserID))
 	}
 }
+
+// TestSessionManagerCreateAuthToken_CanceledContext verifies that CreateAuthToken
+// returns an error when the context is already canceled.
+func TestSessionManagerCreateAuthToken_CanceledContext(t *testing.T) {
+	repo := newTestRepo(t)
+	mgr := NewSessionManager(repo)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil)
+	if err == nil {
+		t.Error("expected error for canceled context")
+	}
+}
+
+// TestSessionManagerRevokeAuthToken_CanceledContext verifies that RevokeAuthToken
+// returns false when the context is already canceled.
+func TestSessionManagerRevokeAuthToken_CanceledContext(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	mgr := NewSessionManager(repo)
+
+	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil)
+	if err != nil {
+		t.Fatalf("CreateAuthToken: %v", err)
+	}
+
+	canceledCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if mgr.RevokeAuthToken(canceledCtx, token) {
+		t.Error("expected RevokeAuthToken to return false for canceled context")
+	}
+
+	// Token should still be valid since revocation failed
+	if !mgr.Validate(ctx, token) {
+		t.Error("expected token to still be valid after failed revocation")
+	}
+}
+
+// TestGenerateChallenge_OutputLength verifies generateChallenge returns
+// correctly sized hex-encoded output.
+func TestGenerateChallenge_OutputLength(t *testing.T) {
+	for _, size := range []int{1, 16, 32, 64} {
+		result, err := generateChallenge(size)
+		if err != nil {
+			t.Errorf("generateChallenge(%d): %v", size, err)
+		}
+		if len(result) != size*2 {
+			t.Errorf("generateChallenge(%d): got length %d, want %d", size, len(result), size*2)
+		}
+	}
+
+	result, err := generateChallenge(0)
+	if err != nil {
+		t.Errorf("generateChallenge(0): %v", err)
+	}
+	if result != "" {
+		t.Errorf("generateChallenge(0): got %q, want empty string", result)
+	}
+}
