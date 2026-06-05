@@ -880,3 +880,17 @@ func TestExtractClientIP_XFFEmptySegmentsUntrustedClient(t *testing.T) {
 		t.Errorf("expected 1.2.3.4, got %q", ip)
 	}
 }
+
+func TestExtractClientIP_XRealIPInvalid(t *testing.T) {
+	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
+	trusted := []*net.IPNet{cidr}
+
+	r := httptest.NewRequest("POST", "/", http.NoBody)
+	r.RemoteAddr = "10.0.0.1:1234"
+	r.Header.Set("X-Real-IP", "not-an-ip")
+	ip := extractClientIP(r, trusted)
+	// Invalid X-Real-IP should fall through to RemoteAddr
+	if ip != "10.0.0.1" {
+		t.Errorf("expected fallback to RemoteAddr for invalid X-Real-IP, got %q", ip)
+	}
+}

@@ -218,7 +218,10 @@ func extractClientIP(r *http.Request, trustedProxies []*net.IPNet) string {
 				}
 			}
 			if xri := r.Header.Get("X-Real-IP"); xri != "" {
-				return strings.TrimSpace(xri)
+				candidate := strings.TrimSpace(xri)
+				if net.ParseIP(candidate) != nil {
+					return candidate
+				}
 			}
 		}
 	}
