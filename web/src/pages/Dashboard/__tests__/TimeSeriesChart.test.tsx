@@ -807,7 +807,9 @@ describe("Overlay and panDateLabel", () => {
 	});
 
 	it("shows panDateLabel with 'today' prefix for today's date", () => {
-		// Generate data with today's date to hit isToday branch
+		// Freeze clock to noon UTC so toDateString() is predictable
+		vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
+
 		const now = new Date();
 		const todayData: TimeSeriesDataPoint[] = Array.from(
 			{ length: 15 },
@@ -840,11 +842,14 @@ describe("Overlay and panDateLabel", () => {
 
 		fireEvent.pointerDown(chartContainer, { clientX: 100, pointerId: 1 });
 
-		// Should show "Today, ..." label
 		expect(screen.getByText(/Today,/)).toBeInTheDocument();
+
+		vi.useRealTimers();
 	});
 
 	it("shows panDateLabel with 'yesterday' prefix for yesterday's date", () => {
+		vi.setSystemTime(new Date("2025-06-15T12:00:00Z"));
+
 		const now = new Date();
 		const yesterday = new Date(now);
 		yesterday.setDate(yesterday.getDate() - 1);
@@ -881,21 +886,14 @@ describe("Overlay and panDateLabel", () => {
 
 		fireEvent.pointerDown(chartContainer, { clientX: 100, pointerId: 1 });
 
-		// Should show "Yesterday, ..." label
 		expect(screen.getByText(/Yesterday,/)).toBeInTheDocument();
+
+		vi.useRealTimers();
 	});
 });
 
 describe("Tooltip content renderer", () => {
-	// Use a custom render that replaces the Tooltip mock to invoke content callback
-	it("renders tooltip with payload data", () => {
-		renderWithProviders(<TimeSeriesChart {...defaultProps} />);
-
-		// Tooltip is rendered with default mock
-		expect(screen.getByTestId("tooltip")).toBeInTheDocument();
-	});
-
-	it("renders tooltip with multiple payload entries when overlay is shown", () => {
+	it("renders tooltip with payload data including overlay entry", () => {
 		renderWithProviders(
 			<TimeSeriesChart
 				{...defaultProps}
@@ -905,8 +903,12 @@ describe("Tooltip content renderer", () => {
 			/>,
 		);
 
-		// Tooltip should be able to display multiple entries
-		expect(screen.getByTestId("tooltip")).toBeInTheDocument();
+		// The Tooltip mock invokes the content callback with mock payload.
+		// Verify the tooltip container rendered (content function executed).
+		const tooltip = screen.getByTestId("tooltip");
+		expect(tooltip).toBeInTheDocument();
+		// The content callback should have rendered the metric value from payload
+		expect(tooltip.textContent).toContain("100");
 	});
 });
 

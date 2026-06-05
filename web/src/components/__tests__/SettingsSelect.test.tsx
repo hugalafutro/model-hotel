@@ -204,7 +204,7 @@ describe("SettingsSelect", () => {
 	});
 
 	it("does not render description in inline mode when not provided", () => {
-		render(
+		const { container } = render(
 			<SettingsSelect
 				id="test-select"
 				label="Test Label"
@@ -214,7 +214,8 @@ describe("SettingsSelect", () => {
 				inline
 			/>,
 		);
-		expect(screen.queryByText(/description/i)).not.toBeInTheDocument();
+		// Verify no <p> description element is rendered
+		expect(container.querySelector("p")).not.toBeInTheDocument();
 	});
 
 	it("uses select (not input) for empty string value", () => {
