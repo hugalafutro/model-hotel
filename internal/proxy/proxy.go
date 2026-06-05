@@ -1714,11 +1714,13 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			// (e.g. context_length_exceeded, rate_limit_exceeded).
 			if json.Valid(body) {
 				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(resp.StatusCode)
+				_, _ = w.Write(body)
 			} else {
-				w.Header().Set("Content-Type", "text/plain")
+				// Body is not JSON (e.g. HTML from a CDN). Wrap in an
+				// OpenAI-compatible envelope so JSON-parsing clients don't crash.
+				writeOpenAIError(w, errMsg, resp.StatusCode)
 			}
-			w.WriteHeader(resp.StatusCode)
-			_, _ = w.Write(body)
 			return
 		}
 

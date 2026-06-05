@@ -42,9 +42,7 @@ jobs:
       - name: Run tests
         env:
           TEST_DATABASE_URL: postgres://modelhotel:${{ env.POSTGRES_PASSWORD }}@localhost:5433/testdb?sslmode=disable
-        run: |
-          go install gotest.tools/gotestsum@v1.12.3
-          gotestsum --junitfile go-test-report.junit.xml -- -timeout 5m -coverprofile=coverage.out -covermode=atomic ./...
+        run: go test -timeout 5m -coverprofile=coverage.out -covermode=atomic ./...
 
       - name: Check coverage (80% threshold)
         run: |
@@ -68,13 +66,6 @@ jobs:
           flags: backend
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
-
-      - name: Upload Go test results to Codecov
-        if: ${{ !cancelled() }}
-        uses: codecov/test-results-action@v1
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: go-test-report.junit.xml
 
   go-lint:
     name: Go Lint
@@ -132,7 +123,7 @@ jobs:
         run: pnpm run lint
 
       - name: Test
-        run: pnpm vitest run --coverage --reporter=junit --outputFile=test-report.junit.xml
+        run: pnpm vitest run --coverage
 
       - name: Check frontend coverage (80% threshold)
         run: |
@@ -162,13 +153,6 @@ jobs:
           flags: frontend
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
-
-      - name: Upload frontend test results to Codecov
-        if: ${{ !cancelled() }}
-        uses: codecov/test-results-action@v1
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: web/test-report.junit.xml
 
       - name: Build
         run: pnpm run build
