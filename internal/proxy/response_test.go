@@ -1672,6 +1672,188 @@ func TestHandleStreamingResponse_InjectedDoneWriteFailure(t *testing.T) {
 	}
 }
 
+// contentTriggeredWriter succeeds on all writes until it has written a
+// cumulative total of triggerAfterBytes bytes, then fails.
+// Note: when a write crosses the threshold, the full len(b) is counted
+// against w.written but (0, err) is returned. This differs from real
+// writers that may return n < len(b) on partial writes. The proxy code
+// never retries writes or uses the returned n after an error, so this
+// simplification is safe for the current test scenarios.
+type contentTriggeredWriter struct {
+	header            http.Header
+	code              int
+	written           int
+	triggerAfterBytes int
+	failErr           error
+}
+
+func (w *contentTriggeredWriter) Header() http.Header {
+	if w.header == nil {
+		w.header = make(http.Header)
+	}
+	return w.header
+}
+
+func (w *contentTriggeredWriter) Write(b []byte) (int, error) {
+	w.written += len(b)
+	if w.written > w.triggerAfterBytes {
+		return 0, w.failErr
+	}
+	return len(b), nil
+}
+
+func (w *contentTriggeredWriter) WriteHeader(code int) { w.code = code }
+func (w *contentTriggeredWriter) Flush()               {}
+
+// TestHandleStreamingResponse_BlankLineWriteFailure tests the write error path
+// for blank lines between SSE events (line 234-237 in proxy.go).
+//
+// The blank line write at line 234 is only reached when the stream starts
+// with empty lines before any data line (skipNextEmptyLine starts as false).
+// With triggerAfterBytes=0 the very first write (the "\n" blank line) fails.
+func TestHandleStreamingResponse_BlankLineWriteFailure(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Stream starting with an empty line, then data chunk.
+	// The empty line is processed first and reaches line 234.
+	streamData := "\ndata: {\"id\":\"1\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\ndata: [DONE]\n\n"
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	// Empty line write at line 234: w.Write([]byte("\n")) = 1 byte.
+	// We want THIS write to fail. Set triggerAfterBytes=0 so the very
+	// first write (the "\n" blank line) fails.
+	w := &contentTriggeredWriter{
+		triggerAfterBytes: 0,
+		failErr:           errors.New("blank line write error"),
+	}
+
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
+
+	if logData.state != "failed" {
+		t.Errorf("expected state=failed, got %q", logData.state)
+	}
+}
+
+// TestHandleStreamingResponse_ReasoningStripWriteFailure tests write failure
+// during reasoning_content stripping (line 540-543 in proxy.go).
+//
+// Stream: chunk with reasoning_content that gets stripped. After the stripping
+// logic reconstructs the chunk, writeSSEDataChunk (line 540) fails.
+func TestHandleStreamingResponse_ReasoningStripWriteFailure(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"content":"hello","reasoning_content":"thinking..."}}]}
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	// With stripReasoning=true, the first data chunk is processed through the
+	// reasoning strip path. The stripped payload is written via writeSSEDataChunk
+	// (3 writes: "data: " + payload + "\n\n"). We want the writeSSEDataChunk to fail.
+	// The initial "data: " (6 bytes) succeeds, then payload write triggers failure.
+	w := &contentTriggeredWriter{
+		triggerAfterBytes: 6, // "data: " succeeds, payload write fails
+		failErr:           errors.New("reasoning strip write error"),
+	}
+
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withStripReasoningContext(req, true)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
+
+	if logData.state != "failed" {
+		t.Errorf("expected state=failed, got %q", logData.state)
+	}
+}
+
+// TestHandleStreamingResponse_EmptyContentStripWriteFailure tests write failure
+// when stripping empty content from reasoning chunks (line 648-651 in proxy.go).
+// The empty-content-strip block runs regardless of stripReasoning, but with
+// stripReasoning=true the reasoning strip block would modify the delta first
+// (deleting content), preventing the empty-content check from matching.
+// Using stripReasoning=false lets the original chunk reach line 629 unmodified.
+func TestHandleStreamingResponse_EmptyContentStripWriteFailure(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"content":"","reasoning_content":"thinking..."}}]}
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	// Empty content strip path: "data: " write succeeds, payload write fails
+	w := &contentTriggeredWriter{
+		triggerAfterBytes: 6,
+		failErr:           errors.New("empty content strip write error"),
+	}
+
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withAuthContext(req) // no stripReasoning — chunk reaches line 629 unmodified
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
+
+	if logData.state != "failed" {
+		t.Errorf("expected state=failed, got %q", logData.state)
+	}
+}
+
 func TestHandleStreamingResponse_SSEEventSeparators(t *testing.T) {
 	h := newUnitHandler()
 	defer stopUnitHandler(h)
@@ -1727,6 +1909,147 @@ func TestHandleStreamingResponse_SSEEventSeparators(t *testing.T) {
 	// This would indicate the bug where empty lines were being skipped.
 	if strings.Contains(body, "}\ndata:") {
 		t.Errorf("found consecutive data lines without blank line separator; body=%q", body)
+	}
+}
+
+// TestHandleStreamingResponse_ReasoningStrip_DeltaHasRole tests that chunks
+// with role field (but no content) are forwarded, not stripped (line 461-463).
+func TestHandleStreamingResponse_ReasoningStrip_DeltaHasRole(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Stream with role field but no content or reasoning - should be forwarded
+	// Note: the handler normalizes empty deltas, but role field triggers deltaHasContent = true
+	streamData := `data: {"id":"1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withStripReasoningContext(req, true)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
+
+	body := w.Body.String()
+	// Chunk should be forwarded (not stripped - it has role + finish_reason fields)
+	// The delta may be normalized but the chunk itself should be present
+	if !strings.Contains(body, "data:") {
+		t.Errorf("expected chunk to be forwarded, got: %q", body)
+	}
+	if logData.state != "completed" {
+		t.Errorf("expected state=completed, got %q", logData.state)
+	}
+}
+
+// TestHandleStreamingResponse_ReasoningStrip_DeltaHasToolCalls tests that chunks
+// with tool_calls field (but no content) are forwarded, not stripped (line 464-466).
+func TestHandleStreamingResponse_ReasoningStrip_DeltaHasToolCalls(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Stream with tool_calls field but no content or reasoning - should be forwarded
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"tool_calls":[{"id":"call_1","function":{"name":"test","arguments":"{}"}}]}}]}
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withStripReasoningContext(req, true)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
+
+	body := w.Body.String()
+	// Chunk should be forwarded (not stripped) because it has tool_calls field
+	if !strings.Contains(body, `"tool_calls"`) {
+		t.Errorf("expected chunk with tool_calls to be forwarded, got: %q", body)
+	}
+	if logData.state != "completed" {
+		t.Errorf("expected state=completed, got %q", logData.state)
+	}
+}
+
+// TestHandleStreamingResponse_ReasoningStrip_KeepAliveWriteFailure tests write
+// failure during keep-alive write when reasoning is stripped (line 510-520).
+func TestHandleStreamingResponse_ReasoningStrip_KeepAliveWriteFailure(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	// Stream with only reasoning_content (no content) - triggers keep-alive
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"reasoning_content":"thinking..."}}]}
+
+data: [DONE]
+
+`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(streamData)),
+		Header:     make(http.Header),
+	}
+
+	// Fail on the keep-alive write (after initial writes)
+	w := &failingResponseWriter{
+		failAfter: 0,
+		failErr:   errors.New("keep-alive write error"),
+	}
+
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req = withStripReasoningContext(req, true)
+
+	logData := &requestLogData{
+		modelID:        "test-model",
+		providerID:     uuid.New(),
+		streaming:      true,
+		state:          "pending",
+		insertWg:       sync.WaitGroup{},
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+	}
+	logData.insertWg.Add(1)
+
+	startTime := time.Now()
+	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
+
+	// Write failure should set state to failed
+	if logData.state != "failed" {
+		t.Errorf("expected state=failed, got %q", logData.state)
 	}
 }
 
