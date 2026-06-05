@@ -94,7 +94,8 @@ export function AddProviderModal({
 				} catch (e) {
 					onToast(
 						t("providers.toast_discover_failed", {
-							message: e instanceof Error ? e.message : "Unknown error",
+							message:
+								e instanceof Error ? e.message : t("common.unknownError"),
 						}),
 						"warning",
 					);

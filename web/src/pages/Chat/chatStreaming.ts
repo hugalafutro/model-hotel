@@ -178,7 +178,7 @@ export async function streamModelResponse(
 				content,
 				thinkingContent,
 				error: completion.idleTimeout
-					? "Stream stalled - no data received within the timeout period."
+					? tx("chat.stream.stalledTimeout")
 					: content
 						? tx("chat.stream.endedWithoutSignal")
 						: tx("chat.stream.endedUnexpectedly"),

@@ -364,6 +364,8 @@
 		"stream": {
 			"stoppedByUser": "Stopped by user",
 			"unknownError": "Unknown error",
+			"stalledTimeout": "Stream stalled - no data received within the timeout period.",
+			"cutoffIncomplete": "Stream was cut off - the response may be incomplete.",
 			"endedWithoutSignal": "Stream ended without completion signal - the response may still be complete.",
 			"endedUnexpectedly": "Stream ended unexpectedly with no content."
 		},
@@ -2291,7 +2293,9 @@
 			"storageFullArena": "Storage full - arena state not saved"
 		},
 		"useArenaRunner": {
-			"generationError": "{{model}}: {{error}}"
+			"generationError": "{{model}}: {{error}}",
+			"retry": "{{model}}: {{status}} - retry {{attempt}} in {{delay}}s…",
+			"networkError": "network error"
 		},
 		"useQuotaData": {
 			"nanoGPTError": "Failed to fetch NanoGPT usage quota",

@@ -131,7 +131,12 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 								status?: number | string,
 							) => {
 								toast(
-									`${model}: ${status || "network error"} - retry ${attempt} in ${(delayMs / 1000).toFixed(1)}s…`,
+									t("hooks.useArenaRunner.retry", {
+										model,
+										status: status || t("hooks.useArenaRunner.networkError"),
+										attempt,
+										delay: (delayMs / 1000).toFixed(1),
+									}),
 									"info",
 								);
 							},
@@ -210,8 +215,8 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 					const truncationError: string | null =
 						!completion.sawDone && !completion.aborted
 							? completion.idleTimeout
-								? "Stream stalled - no data received within the timeout period."
-								: "Stream was cut off - the response may be incomplete."
+								? t("chat.stream.stalledTimeout")
+								: t("chat.stream.cutoffIncomplete")
 							: null;
 
 					setRounds(
@@ -234,7 +239,8 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 						}),
 					);
 				} catch (err) {
-					const msg = err instanceof Error ? err.message : "Unknown error";
+					const msg =
+						err instanceof Error ? err.message : t("chat.stream.unknownError");
 					const errorDurationMs = Math.round(performance.now() - startTime);
 					setRounds(
 						produce((draft) => {
