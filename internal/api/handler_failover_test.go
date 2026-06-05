@@ -1068,6 +1068,107 @@ func TestCircuitBreakerStatus_TrackedProviderNotDoubleCounted(t *testing.T) {
 	}
 }
 
+func TestCircuitBreakerStatus_DetailCached(t *testing.T) {
+	// Detail responses should be cached, not computed on every request.
+	// This verifies the second request is served from cache while still
+	// returning provider detail.
+
+	h := newTestHandler(t)
+	r := chi.NewRouter()
+	h.Register(r)
+
+	// Create a provider.
+	providerData := fmt.Sprintf(`{"name": "test-cb-cache-provider-%s", "base_url": "https://api.openai.com", "api_key": "test-api-key"}`, uuid.New().String()[:8])
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var providerResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
+		t.Fatalf("failed to parse provider: %v", err)
+	}
+
+	// Insert two models.
+	modelID1 := uuid.New().String()
+	modelID2 := uuid.New().String()
+	pool := h.Pool().Pool()
+	_, err := pool.Exec(context.Background(),
+		`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
+		modelID1, providerResp.ID, "gpt-4o", "GPT-4o", true)
+	if err != nil {
+		t.Fatalf("failed to insert model 1: %v", err)
+	}
+	_, err = pool.Exec(context.Background(),
+		`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
+		modelID2, providerResp.ID, "gpt-4o-mini", "GPT-4o Mini", true)
+	if err != nil {
+		t.Fatalf("failed to insert model 2: %v", err)
+	}
+
+	// Create a failover group.
+	groupData := fmt.Sprintf(`{"display_model":"test-cb-cache-group","entry_ids":["%s","%s"]}`, modelID1, modelID2)
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest("POST", "/failover-groups/", strings.NewReader(groupData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("failed to create failover group: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// Set up mock circuit breaker.
+	mockCB := &mockCircuitBreakerReader{
+		statuses: []failover.ProviderStatus{
+			{ProviderID: providerResp.ID, State: failover.StateOpen.String(), ConsecutiveFails: 1},
+		},
+	}
+	h.SetCircuitBreaker(mockCB)
+
+	r2 := chi.NewRouter()
+	h.Register(r2)
+
+	// First request: should compute and cache.
+	rec1 := httptest.NewRecorder()
+	req1 := httptest.NewRequest("GET", "/failover-groups/circuit-breaker-status?detail=1", http.NoBody)
+	req1.Header.Set("Authorization", "Bearer test-admin-token")
+	r2.ServeHTTP(rec1, req1)
+	if rec1.Code != http.StatusOK {
+		t.Fatalf("first request: expected 200, got %d: %s", rec1.Code, rec1.Body.String())
+	}
+
+	// Second request: should be served from cache (still returns providers).
+	rec2 := httptest.NewRecorder()
+	req2 := httptest.NewRequest("GET", "/failover-groups/circuit-breaker-status?detail=1", http.NoBody)
+	req2.Header.Set("Authorization", "Bearer test-admin-token")
+	r2.ServeHTTP(rec2, req2)
+	if rec2.Code != http.StatusOK {
+		t.Fatalf("second request: expected 200, got %d: %s", rec2.Code, rec2.Body.String())
+	}
+
+	var resp map[string]interface{}
+	if err := json.NewDecoder(rec2.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode second response: %v", err)
+	}
+
+	providers, ok := resp["providers"].([]interface{})
+	if !ok || len(providers) != 1 {
+		t.Fatalf("cached response should still include providers, got %v", resp["providers"])
+	}
+
+	p := providers[0].(map[string]interface{})
+	name, _ := p["provider_name"].(string)
+	if !strings.Contains(name, "test-cb-cache-provider") {
+		t.Errorf("cached response should include provider_name, got %q", name)
+	}
+}
+
 func TestCircuitBreakerStatus_ProviderName(t *testing.T) {
 	// When detail=1 is requested, each provider entry should include a
 	// provider_name resolved from the model cache.

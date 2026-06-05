@@ -30,8 +30,11 @@ type FailoverHandler struct {
 
 	// Cache for aggregate circuit-breaker status to avoid scanning all
 	// failover groups on every 15s poll from each connected client.
+	// Separate cache slots for aggregate vs detail responses.
 	cbStatusCache     CircuitBreakerStatusResponse
 	cbStatusCacheTime time.Time
+	cbDetailCache     CircuitBreakerStatusResponse
+	cbDetailCacheTime time.Time
 	cbStatusMu        sync.Mutex
 }
 
@@ -525,20 +528,25 @@ const cbStatusCacheTTL = 5 * time.Second
 
 // CircuitBreakerStatus returns the current circuit breaker state for all tracked providers.
 func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Request) {
-	// Detail queries bypass the cache — they're only requested from the
-	// Failover page and need per-provider freshness.
 	wantDetail := r.URL.Query().Get("detail") == "1"
 
-	if !wantDetail {
-		h.cbStatusMu.Lock()
+	h.cbStatusMu.Lock()
+	if wantDetail {
+		if time.Since(h.cbDetailCacheTime) < cbStatusCacheTTL {
+			cached := h.cbDetailCache
+			h.cbStatusMu.Unlock()
+			writeJSON(w, cached)
+			return
+		}
+	} else {
 		if time.Since(h.cbStatusCacheTime) < cbStatusCacheTTL {
 			cached := h.cbStatusCache
 			h.cbStatusMu.Unlock()
 			writeJSON(w, cached)
 			return
 		}
-		h.cbStatusMu.Unlock()
 	}
+	h.cbStatusMu.Unlock()
 
 	resp := CircuitBreakerStatusResponse{}
 	trackedProviders := make([]failover.ProviderStatus, 0)
@@ -625,14 +633,6 @@ func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	// Cache the aggregate result (detail responses are not cached)
-	if !wantDetail {
-		h.cbStatusMu.Lock()
-		h.cbStatusCache = resp
-		h.cbStatusCacheTime = time.Now()
-		h.cbStatusMu.Unlock()
-	}
-
 	// Include per-provider detail when requested (for the Failover page UI).
 	if wantDetail {
 		resp.Providers = trackedProviders
@@ -646,6 +646,17 @@ func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Re
 			}
 		}
 	}
+
+	// Cache the response (after providers are appended for detail requests).
+	h.cbStatusMu.Lock()
+	if wantDetail {
+		h.cbDetailCache = resp
+		h.cbDetailCacheTime = time.Now()
+	} else {
+		h.cbStatusCache = resp
+		h.cbStatusCacheTime = time.Now()
+	}
+	h.cbStatusMu.Unlock()
 
 	writeJSON(w, resp)
 }

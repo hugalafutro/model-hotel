@@ -542,7 +542,7 @@ html.light .system-status {
 
 /* Tighter inter-item gap on smaller viewports */
 nav ul:has(> li > .sidebar-link) {
-	gap: clamp(0.02rem, 0.375vw - 0.45rem, 0.15rem);
+	gap: clamp(0.02rem, 0.375vw - 0.424rem, 0.15rem);
 }
 
 /* Compact sidebar nav below 1200px (e.g. 1080p) */
