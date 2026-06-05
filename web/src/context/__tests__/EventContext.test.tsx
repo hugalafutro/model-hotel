@@ -414,12 +414,14 @@ describe("SSE connection and event handling", () => {
 	});
 
 	it("clears token and reloads on 401 response", async () => {
+		// Pre-set the adminToken in localStorage so we can verify removal
+		localStorage.setItem("adminToken", "will-be-removed");
+
 		const reloadMock = vi.fn();
 		vi.stubGlobal("location", {
 			...window.location,
 			reload: reloadMock,
 		});
-		const removeItemSpy = vi.spyOn(globalThis.localStorage, "removeItem");
 
 		server.use(
 			http.get("/api/events", () => {
@@ -434,19 +436,20 @@ describe("SSE connection and event handling", () => {
 			expect(reloadMock).toHaveBeenCalled();
 		});
 
-		expect(removeItemSpy).toHaveBeenCalledWith("adminToken");
+		expect(localStorage.getItem("adminToken")).toBeNull();
 
-		removeItemSpy.mockRestore();
 		vi.unstubAllGlobals();
 	});
 
 	it("reconnects with backoff on non-401 error", async () => {
+		// Pre-set the adminToken to verify it's NOT removed on non-401 errors
+		localStorage.setItem("adminToken", "should-remain");
+
 		const reloadMock = vi.fn();
 		vi.stubGlobal("location", {
 			...window.location,
 			reload: reloadMock,
 		});
-		const removeItemSpy = vi.spyOn(globalThis.localStorage, "removeItem");
 
 		let callCount = 0;
 
@@ -474,9 +477,8 @@ describe("SSE connection and event handling", () => {
 		// Verify reload was NOT called
 		expect(reloadMock).not.toHaveBeenCalled();
 		// Verify adminToken was NOT removed
-		expect(removeItemSpy).not.toHaveBeenCalledWith("adminToken");
+		expect(localStorage.getItem("adminToken")).toBe("should-remain");
 
-		removeItemSpy.mockRestore();
 		vi.unstubAllGlobals();
 	});
 });
