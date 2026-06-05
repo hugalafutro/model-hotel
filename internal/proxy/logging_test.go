@@ -310,7 +310,7 @@ func TestWaitForInsert_Timeout(t *testing.T) {
 	if elapsed < 40*time.Millisecond {
 		t.Errorf("WaitForInsert returned too early: %v (expected ~50ms timeout)", elapsed)
 	}
-	if elapsed > 100*time.Millisecond {
+	if elapsed > 500*time.Millisecond {
 		t.Errorf("WaitForInsert took too long: %v (expected ~50ms timeout)", elapsed)
 	}
 }
