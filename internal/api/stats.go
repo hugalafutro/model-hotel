@@ -532,7 +532,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 					COALESCE(AVG(rl.duration_ms), 0) as avg_total,
 					COALESCE(AVG(COALESCE(rl.proxy_overhead_ms, 0)), 0) as avg_overhead
 				FROM request_logs rl
-				LEFT JOIN providers p ON rl.provider_id = p.id` + vkJoin + `
+				INNER JOIN providers p ON rl.provider_id = p.id` + vkJoin + `
 				WHERE rl.created_at >= $1 AND rl.status_code > 0 AND rl.status_code < 400` + vkFilter + `
 				GROUP BY p.name
 				HAVING COUNT(*) >= 3
