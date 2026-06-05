@@ -95,7 +95,7 @@ export function FailoverGroupCard({
 	const handleCopyModel = () => {
 		const modelRef = `hotel/${group.display_model}`;
 		navigator.clipboard.writeText(modelRef);
-		toast(`Copied ${modelRef}`, "success");
+		toast(t("failover.copied_model", { model: modelRef }), "success");
 	};
 
 	return (
@@ -147,7 +147,9 @@ export function FailoverGroupCard({
 						</svg>
 					</div>
 					{group.auto_created && (
-						<span className="text-xs text-gray-500 shrink-0">auto</span>
+						<span className="text-xs text-gray-500 shrink-0">
+							{t("failover.auto_created")}
+						</span>
 					)}
 				</div>
 				<button
@@ -160,7 +162,7 @@ export function FailoverGroupCard({
 					}`}
 				>
 					<span className="badge-text">
-						{group.group_enabled ? "ON" : "OFF"}
+						{group.group_enabled ? t("failover.on") : t("failover.off")}
 					</span>
 				</button>
 			</div>

@@ -155,7 +155,7 @@ export function CreateGroupModal({
 
 		if (isEdit) {
 			if (entryUuids.length < 2) {
-				toast("At least 2 entries required", "error");
+				toast(t("failover.toast_min_entries"), "error");
 				return;
 			}
 			updateMutation.mutate({
@@ -169,11 +169,11 @@ export function CreateGroupModal({
 			});
 		} else {
 			if (!displayModel.trim()) {
-				toast("Display model name is required", "error");
+				toast(t("failover.toast_display_model_required"), "error");
 				return;
 			}
 			if (entryUuids.length < 2) {
-				toast("At least 2 entries required", "error");
+				toast(t("failover.toast_min_entries"), "error");
 				return;
 			}
 			createMutation.mutate({
