@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -293,6 +295,30 @@ func TestDiscoverProviderModels_Success(t *testing.T) {
 func TestGetProviderUsage_Success(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 	_ = h // Use h to avoid unused variable error
+
+	// Override newDiscoveryService with mock transport to avoid real API calls
+	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{
+				roundTripFunc: func(req *http.Request) (*http.Response, error) {
+					if strings.Contains(req.URL.Host, "api.nano-gpt.com") {
+						return &http.Response{
+							StatusCode: http.StatusServiceUnavailable,
+							Body:       io.NopCloser(strings.NewReader("api.nano-gpt.com is currently in development. Please use https://nano-gpt.com/api instead.")),
+							Header:     make(http.Header),
+						}, nil
+					}
+					return nil, fmt.Errorf("unexpected request to %s", req.URL.String())
+				},
+			},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
 
 	// Create a provider with NanoGPT URL (will fail with test API key but tests the handler path)
 	providerData := `{"name": "test-nanogpt-usage", "base_url": "https://api.nano-gpt.com", "api_key": "test-api-key"}`
@@ -786,7 +812,31 @@ func TestRefreshAllQuotas_DisabledProvider(t *testing.T) {
 // Test for admin.go - CreateProvider_KeylessProvider
 
 func TestDiscoverProviderModels_InvalidProvider(t *testing.T) {
+	// Override newDiscoveryService with mock transport to avoid real API calls
+	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
 	_, r := newTestHandlerWithRouter(t)
+
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{
+				roundTripFunc: func(req *http.Request) (*http.Response, error) {
+					if strings.Contains(req.URL.Host, "httpbin.org") {
+						return &http.Response{
+							StatusCode: http.StatusInternalServerError,
+							Body:       io.NopCloser(strings.NewReader(`{"error":"internal server error"}`)),
+							Header:     make(http.Header),
+						}, nil
+					}
+					return nil, fmt.Errorf("unexpected request to %s", req.URL.String())
+				},
+			},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
 
 	// Create a provider with invalid URL
 	providerData := `{"name": "test-discover-invalid", "base_url": "https://httpbin.org", "api_key": "test-api-key"}`

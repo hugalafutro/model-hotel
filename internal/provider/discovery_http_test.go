@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -844,6 +845,7 @@ func TestGetZAICodingQuota_Non200Status(t *testing.T) {
 		httpClient: &http.Client{
 			Transport: &testTransport{url: server.URL},
 		},
+		retryBaseDelay: time.Millisecond,
 	}
 
 	masterKey := "test-master-key-1234567890123456"

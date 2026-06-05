@@ -46,6 +46,9 @@ type Handler struct {
 	// deprecationCache caches rejected parameters learned from HTTP 400 responses,
 	// keyed by "providerType:modelID". Value: map[string]bool of rejected param names.
 	deprecationCache sync.Map
+	// waitInsertTimeout overrides the default 5s WaitForInsert timeout.
+	// Zero means use the default. Set by tests only.
+	waitInsertTimeout time.Duration
 }
 
 // virtualKeyRepoAdapter wraps *virtualkey.Repository to implement VirtualKeyRepository.

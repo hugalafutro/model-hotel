@@ -7,7 +7,7 @@ import type {
 } from "../../api/types";
 import { hasAnyParam } from "../../utils/params";
 import { readSSEStream, type StreamChunk } from "../../utils/sse";
-import { fetchWithRetry } from "../../utils/stagger";
+import { fetchWithRetry, type RetryOptions } from "../../utils/stagger";
 import { extractThinking, sanitizeDelta } from "../../utils/thinking";
 
 export function formatTime(ts: number): string {
@@ -104,6 +104,7 @@ export async function streamModelResponse(
 	params: GenerationParams,
 	abortCtrl: AbortController,
 	onDelta: (raw: string, content: string, thinking: string) => void,
+	retryOptions?: RetryOptions,
 ): Promise<StreamResult> {
 	const startTime = performance.now();
 	let promptTokens = 0;
@@ -127,9 +128,7 @@ export async function streamModelResponse(
 				}),
 				signal: abortCtrl.signal,
 			},
-			{
-				maxRetries: 2,
-			},
+			retryOptions ?? { maxRetries: 2 },
 		);
 
 		if (!resp.ok) {

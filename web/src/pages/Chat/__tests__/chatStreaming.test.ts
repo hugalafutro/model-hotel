@@ -509,6 +509,7 @@ describe("streamModelResponse", () => {
 			baseParams,
 			new AbortController(),
 			vi.fn(),
+			{ maxRetries: 0 },
 		);
 
 		expect(result.error).not.toBeNull();
@@ -563,6 +564,7 @@ describe("streamModelResponse", () => {
 			baseParams,
 			abortCtrl,
 			vi.fn(),
+			{ maxRetries: 0 },
 		);
 
 		expect(result.aborted).toBe(true);

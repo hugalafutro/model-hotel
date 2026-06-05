@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	mockAllDefaults,
 	mockChatStream,
@@ -11,6 +11,17 @@ import { mockModel, mockProvider } from "../../test/mocks/data";
 import { server } from "../../test/mocks/server";
 import { renderWithProviders } from "../../test/utils";
 import { Chat } from "../Chat";
+
+// Disable retries in error-path tests to speed them up
+vi.mock("../../utils/stagger", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("../../utils/stagger")>();
+	return {
+		...actual,
+		fetchWithRetry: vi.fn((url, init, options = {}) =>
+			actual.fetchWithRetry(url, init, { ...options, maxRetries: 0 }),
+		),
+	};
+});
 
 describe("Chat", () => {
 	beforeEach(() => {

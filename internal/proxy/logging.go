@@ -90,7 +90,7 @@ func publishRequestStartedEvent(logEntry *requestLogData) {
 }
 
 // WaitForInsert blocks until the async INSERT goroutine has completed (or
-// timed out after 5 seconds). Callers should invoke this before
+// timed out). Callers should invoke this before
 // updateRequestLog to guarantee the row exists in the database.
 func (h *Handler) WaitForInsert(logEntry *requestLogData) {
 	done := make(chan struct{})
@@ -98,9 +98,13 @@ func (h *Handler) WaitForInsert(logEntry *requestLogData) {
 		defer close(done)
 		logEntry.insertWg.Wait()
 	}()
+	timeout := h.waitInsertTimeout
+	if timeout == 0 {
+		timeout = 5 * time.Second
+	}
 	select {
 	case <-done:
-	case <-time.After(5 * time.Second):
+	case <-time.After(timeout):
 		debuglog.Warn("proxy: timed out waiting for request log INSERT", "request_id", logEntry.id)
 	}
 }
