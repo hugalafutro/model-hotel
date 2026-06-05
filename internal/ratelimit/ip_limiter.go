@@ -241,6 +241,11 @@ func rightmostUntrustedIP(xff string, trustedProxies []*net.IPNet) string {
 		if ip == "" {
 			continue
 		}
+		// Skip unparseable entries (e.g. "unknown" from older proxies)
+		// so they don't become rate-limiter bucket keys.
+		if net.ParseIP(ip) == nil {
+			continue
+		}
 		if !isIPInTrustedNets(ip, trustedProxies) {
 			return ip
 		}

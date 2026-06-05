@@ -844,11 +844,11 @@ func TestExtractClientIP_AllTrustedInvalidLeftmost(t *testing.T) {
 	r.RemoteAddr = "10.0.0.1:1234"
 	r.Header.Set("X-Forwarded-For", "unknown, 10.0.0.2")
 	ip := extractClientIP(r, trusted)
-	// 10.0.0.2 is trusted, "unknown" is not parseable as IP so isIPInTrustedNets
-	// returns false → it's treated as a non-trusted entry and returned as-is.
-	// This is correct: unparseable strings are NOT trusted, so they pass through.
-	if ip != "unknown" {
-		t.Errorf("expected unparseable 'unknown' to pass through, got %q", ip)
+	// "unknown" is not a parseable IP, so it's skipped. 10.0.0.2 is trusted.
+	// Fallback to leftmost ("unknown") also fails ParseIP. Falls through
+	// to RemoteAddr.
+	if ip != "10.0.0.1" {
+		t.Errorf("expected fallback to RemoteAddr 10.0.0.1, got %q", ip)
 	}
 }
 
