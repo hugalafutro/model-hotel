@@ -199,15 +199,7 @@ export function DataStorageSettings({
 									log_retention: hoursToGoDuration(v),
 								})
 							}
-							description={
-								logRetention === "0" ? (
-									<span className="text-amber-400">
-										{t("settings.logging.logRetention.disabled")}
-									</span>
-								) : (
-									t("settings.logging.logRetention.description")
-								)
-							}
+							description={t("settings.logging.logRetention.description")}
 						/>
 
 						<SettingsSlider
@@ -225,15 +217,9 @@ export function DataStorageSettings({
 									stale_request_timeout: minutesToGoDuration(v),
 								})
 							}
-							description={
-								staleTimeoutMinutes === 0 ? (
-									<span className="text-amber-400">
-										{t("settings.logging.staleRequestTimeout.disabled")}
-									</span>
-								) : (
-									t("settings.logging.staleRequestTimeout.description")
-								)
-							}
+							description={t(
+								"settings.logging.staleRequestTimeout.description",
+							)}
 						/>
 
 						<div className="flex items-center gap-2 flex-wrap">

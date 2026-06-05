@@ -138,15 +138,9 @@ export function DiscoverySettings({
 									discovery_interval: hoursToGoDuration(v),
 								})
 							}
-							description={
-								discoveryIntervalHours === 0 ? (
-									<span className="text-amber-400">
-										{t("settings.discovery.discoveryInterval.disabled")}
-									</span>
-								) : (
-									t("settings.discovery.discoveryInterval.description")
-								)
-							}
+							description={t(
+								"settings.discovery.discoveryInterval.description",
+							)}
 						/>
 						<div className="flex justify-end">
 							<button
