@@ -849,6 +849,11 @@ func TestDBLogWriter_FlushDBError(t *testing.T) {
 	if apiTestDBURL == "" {
 		t.Skip("apiTestDBURL not set, skipping integration test")
 	}
+	// Reduce flush interval for faster test
+	orig := dbLogFlushInterval
+	dbLogFlushInterval = 10 * time.Millisecond
+	defer func() { dbLogFlushInterval = orig }()
+
 	// Create a writer with a closed pool to trigger the Exec error path (lines 160-164)
 	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
 	if err != nil {
@@ -870,7 +875,7 @@ func TestDBLogWriter_FlushDBError(t *testing.T) {
 	}
 
 	// Wait for ticker flush (the batch is small, so ticker will flush it)
-	time.Sleep(800 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 
 	// No panic or hang means the error was handled gracefully
 }
@@ -879,6 +884,11 @@ func TestRingBuffer_WriteWithDBWriter(t *testing.T) {
 	if apiTestDBURL == "" {
 		t.Skip("apiTestDBURL not set, skipping integration test")
 	}
+
+	// Reduce flush interval for faster test
+	orig := dbLogFlushInterval
+	dbLogFlushInterval = 10 * time.Millisecond
+	defer func() { dbLogFlushInterval = orig }()
 
 	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
 	if err != nil {
@@ -903,7 +913,7 @@ func TestRingBuffer_WriteWithDBWriter(t *testing.T) {
 	rb.Write([]byte("2026/01/01 00:00:00 INFO  ringbuf-db-test hello from ring buffer\n"))
 
 	// Wait for flush
-	time.Sleep(800 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 
 	// Verify the entry was written — check ring buffer has the entry
 	entries := rb.GetEntries()

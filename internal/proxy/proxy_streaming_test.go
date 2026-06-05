@@ -81,7 +81,7 @@ func TestHandleStreamingResponse_UpstreamError(t *testing.T) {
 		state:           "streaming",
 	}
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
@@ -139,7 +139,7 @@ func TestHandleStreamingResponse_MissingDoneSentinel(t *testing.T) {
 		state:           "streaming",
 	}
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
@@ -199,7 +199,7 @@ func TestHandleStreamingResponse_Basic(t *testing.T) {
 		state:           "streaming",
 	}
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
@@ -231,8 +231,8 @@ func TestHandleStreamingResponse_ClientDisconnectMidStream(t *testing.T) {
 		fmt.Fprint(w, "data: {\"id\":\"chatcmpl-test\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hello\"},\"finish_reason\":null}]}\n\n")
 		flusher.Flush()
 
-		// Wait longer than client will wait
-		time.Sleep(500 * time.Millisecond)
+		// Wait longer than client will wait (test cancels after 20ms)
+		time.Sleep(100 * time.Millisecond)
 
 		// This should never be sent
 		fmt.Fprint(w, "data: {\"id\":\"chatcmpl-test\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" world\"},\"finish_reason\":null}]}\n\n")
@@ -265,7 +265,7 @@ func TestHandleStreamingResponse_ClientDisconnectMidStream(t *testing.T) {
 		state:           "streaming",
 	}
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	// Start streaming in goroutine
 	done := make(chan struct{})
@@ -346,7 +346,7 @@ func TestHandleStreamingResponse_EmptyLinesSSESep(t *testing.T) {
 		state:           "streaming",
 	}
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
@@ -414,7 +414,7 @@ func TestHandleStreamingResponse_TooManyEmptyLines(t *testing.T) {
 		state:           "streaming",
 	}
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
@@ -474,7 +474,7 @@ func TestHandleStreamingResponse_UTF8BOM(t *testing.T) {
 		state:           "streaming",
 	}
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
@@ -534,7 +534,7 @@ func TestHandleStreamingResponse_LeadingWhitespace(t *testing.T) {
 		state:           "streaming",
 	}
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
@@ -595,7 +595,7 @@ func TestHandleStreamingResponse_UsageExtraction(t *testing.T) {
 		state:           "streaming",
 	}
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
@@ -657,7 +657,7 @@ func TestHandleStreamingResponse_AnthropicErrorEvent(t *testing.T) {
 		state:           "streaming",
 	}
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
@@ -718,7 +718,7 @@ func TestHandleStreamingResponse_DuplicateFinishReasonSuppression(t *testing.T) 
 		state:           "streaming",
 	}
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
@@ -777,7 +777,7 @@ func TestHandleStreamingResponse_RepeatedContentDetection(t *testing.T) {
 		state:           "streaming",
 	}
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
@@ -833,7 +833,7 @@ func TestHandleStreamingResponse_DataWithoutSpace(t *testing.T) {
 		state:           "streaming",
 	}
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
@@ -900,7 +900,7 @@ func TestHandleStreamingResponse_NonErrorAnthropicEvent(t *testing.T) {
 		state:           "streaming",
 	}
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
@@ -965,7 +965,7 @@ func TestHandleStreamingResponse_ErrAccumFlushOnNonDataLine(t *testing.T) {
 		state:           "streaming",
 	}
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
@@ -1026,7 +1026,7 @@ func TestHandleStreamingResponse_ErrAccumFlushOnNonErrorDataLine(t *testing.T) {
 		state:           "streaming",
 	}
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
@@ -1087,7 +1087,7 @@ func TestHandleStreamingResponse_PromptCacheHitTokens(t *testing.T) {
 		state:           "streaming",
 	}
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
@@ -1148,7 +1148,7 @@ func TestHandleStreamingResponse_NativeFinishReason(t *testing.T) {
 		state:           "streaming",
 	}
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
@@ -1202,7 +1202,7 @@ func TestHandleStreamingResponse_ErrAccumFlushAtStreamEnd(t *testing.T) {
 		state:           "streaming",
 	}
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
@@ -1260,7 +1260,7 @@ func TestHandleStreamingResponse_FinishReasonNormalization(t *testing.T) {
 		state:           "streaming",
 	}
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
@@ -1332,7 +1332,7 @@ func TestHandleStreamingResponse_HasContentChecks(t *testing.T) {
 		state:           "streaming",
 	}
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
@@ -1397,7 +1397,7 @@ func TestHandleStreamingResponse_RepeatedContentPreviewTruncation(t *testing.T) 
 		state:           "streaming",
 	}
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
@@ -1457,7 +1457,7 @@ func TestHandleStreamingResponse_AddTokensError(t *testing.T) {
 		state:           "streaming",
 	}
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, cancelOrigin: "failover_timeout"})
 
@@ -1514,7 +1514,7 @@ func TestHandleStreamingResponse_ClientWriteFailureOnDataLine(t *testing.T) {
 		state:           "streaming",
 	}
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	h.handleStreamingResponse(innerRW, req, logData, resp, time.Now(), streamOptions{attempt: 1, cancelOrigin: "failover_timeout"})
 
@@ -1569,7 +1569,7 @@ func TestHandleStreamingResponse_ClientWriteFailureOnDoneLine(t *testing.T) {
 		state:           "streaming",
 	}
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	h.handleStreamingResponse(innerRW, req, logData, resp, time.Now(), streamOptions{attempt: 1, cancelOrigin: "failover_timeout"})
 
@@ -1628,7 +1628,7 @@ func TestHandleStreamingResponse_ClientWriteFailureOnNormalizedChunk(t *testing.
 		state:           "streaming",
 	}
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	h.handleStreamingResponse(innerRW, req, logData, resp, time.Now(), streamOptions{attempt: 1, cancelOrigin: "failover_timeout"})
 
@@ -1687,7 +1687,7 @@ func TestHandleStreamingResponse_ClientWriteFailureOnNonNormalizedChunk(t *testi
 		state:           "streaming",
 	}
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	h.handleStreamingResponse(innerRW, req, logData, resp, time.Now(), streamOptions{attempt: 1, cancelOrigin: "failover_timeout"})
 
@@ -1722,7 +1722,7 @@ func TestHandleStreamingResponse_ScannerContextCanceled(t *testing.T) {
 	}
 
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	startTime := time.Now()
 	opts := streamOptions{
@@ -1769,7 +1769,7 @@ func TestHandleStreamingResponse_ScannerDeadlineExceededRetryTimeout(t *testing.
 	}
 
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	startTime := time.Now()
 	opts := streamOptions{
@@ -1816,7 +1816,7 @@ func TestHandleStreamingResponse_ScannerDeadlineExceededFailoverTimeout(t *testi
 	}
 
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	startTime := time.Now()
 	opts := streamOptions{
@@ -1863,7 +1863,7 @@ func TestHandleStreamingResponse_ScannerDeadlineExceededUnknownOrigin(t *testing
 	}
 
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	startTime := time.Now()
 	opts := streamOptions{
@@ -1913,7 +1913,7 @@ func TestHandleStreamingResponse_ScannerGenericError(t *testing.T) {
 	}
 
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
 
 	startTime := time.Now()
 	opts := streamOptions{
