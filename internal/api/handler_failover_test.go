@@ -1068,6 +1068,277 @@ func TestCircuitBreakerStatus_TrackedProviderNotDoubleCounted(t *testing.T) {
 	}
 }
 
+func TestCircuitBreakerStatus_MissingModelInGroup(t *testing.T) {
+	// If a model ID in a failover group has been deleted from the models
+	// table, GetByIDs won't return it and the handler should skip it
+	// gracefully (line 608 continue).
+
+	h := newTestHandler(t)
+	r := chi.NewRouter()
+	h.Register(r)
+
+	// Create a provider.
+	providerData := fmt.Sprintf(`{"name": "test-cb-missing-%s", "base_url": "https://api.openai.com", "api_key": "test-api-key"}`, uuid.New().String()[:8])
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var providerResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
+		t.Fatalf("failed to parse provider: %v", err)
+	}
+
+	// Insert two models.
+	modelID1 := uuid.New().String()
+	modelID2 := uuid.New().String()
+	pool := h.Pool().Pool()
+	_, err := pool.Exec(context.Background(),
+		`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
+		modelID1, providerResp.ID, "gpt-4o", "GPT-4o", true)
+	if err != nil {
+		t.Fatalf("failed to insert model 1: %v", err)
+	}
+	_, err = pool.Exec(context.Background(),
+		`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
+		modelID2, providerResp.ID, "gpt-4o-mini", "GPT-4o Mini", true)
+	if err != nil {
+		t.Fatalf("failed to insert model 2: %v", err)
+	}
+
+	// Create a failover group.
+	groupData := fmt.Sprintf(`{"display_model":"test-cb-missing-group","entry_ids":["%s","%s"]}`, modelID1, modelID2)
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest("POST", "/failover-groups/", strings.NewReader(groupData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("failed to create group: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// Delete modelID2 from the models table so GetByIDs can't find it.
+	_, err = pool.Exec(context.Background(), `DELETE FROM models WHERE id = $1`, modelID2)
+	if err != nil {
+		t.Fatalf("failed to delete model 2: %v", err)
+	}
+
+	// No mock CB — provider is untracked, should be counted as closed.
+	r2 := chi.NewRouter()
+	h.Register(r2)
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest("GET", "/failover-groups/circuit-breaker-status", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r2.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]interface{}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode: %v", err)
+	}
+
+	// Provider should still be counted as closed despite one missing model.
+	closed, _ := resp["closed"].(float64)
+	if closed != 1 {
+		t.Errorf("expected closed=1 (provider counted via remaining model), got %v", closed)
+	}
+}
+
+func TestCircuitBreakerStatus_DuplicateModelAcrossGroups(t *testing.T) {
+	// When the same model appears in multiple failover groups, the dedup
+	// logic (line 594) should skip it on the second occurrence so the
+	// provider is not double-counted as untracked.
+
+	h := newTestHandler(t)
+	r := chi.NewRouter()
+	h.Register(r)
+
+	// Create a provider.
+	providerData := fmt.Sprintf(`{"name": "test-cb-dedup-%s", "base_url": "https://api.openai.com", "api_key": "test-api-key"}`, uuid.New().String()[:8])
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var providerResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
+		t.Fatalf("failed to parse provider: %v", err)
+	}
+
+	// Insert three models under the same provider.
+	modelID1 := uuid.New().String()
+	modelID2 := uuid.New().String()
+	modelID3 := uuid.New().String()
+	pool := h.Pool().Pool()
+	for i, mid := range []string{modelID1, modelID2, modelID3} {
+		_, err := pool.Exec(context.Background(),
+			`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
+			mid, providerResp.ID, fmt.Sprintf("model-%d", i), fmt.Sprintf("Model %d", i), true)
+		if err != nil {
+			t.Fatalf("failed to insert model %d: %v", i, err)
+		}
+	}
+
+	// Create two groups that share modelID1.
+	group1 := fmt.Sprintf(`{"display_model":"dedup-group-1","entry_ids":["%s","%s"]}`, modelID1, modelID2)
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest("POST", "/failover-groups/", strings.NewReader(group1))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("failed to create group 1: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	group2 := fmt.Sprintf(`{"display_model":"dedup-group-2","entry_ids":["%s","%s"]}`, modelID1, modelID3)
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest("POST", "/failover-groups/", strings.NewReader(group2))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("failed to create group 2: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// No mock CB — all providers are untracked, should be counted as closed.
+	r2 := chi.NewRouter()
+	h.Register(r2)
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest("GET", "/failover-groups/circuit-breaker-status", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r2.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]interface{}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode: %v", err)
+	}
+
+	// One unique provider, counted as closed exactly once (dedup prevents double-count).
+	closed, _ := resp["closed"].(float64)
+	if closed != 1 {
+		t.Errorf("expected closed=1 (one provider deduplicated), got %v", closed)
+	}
+}
+
+func TestCircuitBreakerStatus_AggregateCacheHit(t *testing.T) {
+	// The aggregate (no detail) path should serve from cache on the second
+	// request within the TTL window.
+
+	h := newTestHandler(t)
+	r := chi.NewRouter()
+	h.Register(r)
+
+	// Create a provider.
+	providerData := fmt.Sprintf(`{"name": "test-cb-aggcache-%s", "base_url": "https://api.openai.com", "api_key": "test-api-key"}`, uuid.New().String()[:8])
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var providerResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
+		t.Fatalf("failed to parse provider: %v", err)
+	}
+
+	// Insert two models.
+	modelID1 := uuid.New().String()
+	modelID2 := uuid.New().String()
+	pool := h.Pool().Pool()
+	_, err := pool.Exec(context.Background(),
+		`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
+		modelID1, providerResp.ID, "gpt-4o", "GPT-4o", true)
+	if err != nil {
+		t.Fatalf("failed to insert model 1: %v", err)
+	}
+	_, err = pool.Exec(context.Background(),
+		`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
+		modelID2, providerResp.ID, "gpt-4o-mini", "GPT-4o Mini", true)
+	if err != nil {
+		t.Fatalf("failed to insert model 2: %v", err)
+	}
+
+	// Create a failover group.
+	groupData := fmt.Sprintf(`{"display_model":"test-cb-aggcache-group","entry_ids":["%s","%s"]}`, modelID1, modelID2)
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest("POST", "/failover-groups/", strings.NewReader(groupData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("failed to create group: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	mockCB := &mockCircuitBreakerReader{
+		statuses: []failover.ProviderStatus{
+			{ProviderID: providerResp.ID, State: failover.StateClosed.String(), ConsecutiveFails: 0},
+		},
+	}
+	h.SetCircuitBreaker(mockCB)
+
+	r2 := chi.NewRouter()
+	h.Register(r2)
+
+	// First request (no detail): should compute and cache.
+	rec1 := httptest.NewRecorder()
+	req1 := httptest.NewRequest("GET", "/failover-groups/circuit-breaker-status", http.NoBody)
+	req1.Header.Set("Authorization", "Bearer test-admin-token")
+	r2.ServeHTTP(rec1, req1)
+	if rec1.Code != http.StatusOK {
+		t.Fatalf("first request: expected 200, got %d", rec1.Code)
+	}
+
+	// Second request (no detail): should be served from aggregate cache.
+	rec2 := httptest.NewRecorder()
+	req2 := httptest.NewRequest("GET", "/failover-groups/circuit-breaker-status", http.NoBody)
+	req2.Header.Set("Authorization", "Bearer test-admin-token")
+	r2.ServeHTTP(rec2, req2)
+	if rec2.Code != http.StatusOK {
+		t.Fatalf("second request: expected 200, got %d", rec2.Code)
+	}
+
+	var resp map[string]interface{}
+	if err := json.NewDecoder(rec2.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode: %v", err)
+	}
+
+	// Untracked provider counted as closed (1) + tracked closed (1) = 2 closed.
+	closed, _ := resp["closed"].(float64)
+	if closed < 1 {
+		t.Errorf("expected at least 1 closed, got %v", closed)
+	}
+	// No providers array in aggregate response.
+	if _, hasProviders := resp["providers"]; hasProviders {
+		t.Error("aggregate response should not include providers array")
+	}
+}
+
 func TestCircuitBreakerStatus_DetailCached(t *testing.T) {
 	// Detail responses should be cached, not computed on every request.
 	// This verifies the second request is served from cache while still
