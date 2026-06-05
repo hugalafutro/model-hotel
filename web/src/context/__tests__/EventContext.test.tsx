@@ -415,13 +415,11 @@ describe("SSE connection and event handling", () => {
 
 	it("clears token and reloads on 401 response", async () => {
 		const reloadMock = vi.fn();
-		const locationGetter = vi.spyOn(window, "location", "get").mockReturnValue({
+		vi.stubGlobal("location", {
 			...window.location,
 			reload: reloadMock,
 		});
-		const originalRemoveItem = localStorage.removeItem;
-		const removeItemMock = vi.fn();
-		localStorage.removeItem = removeItemMock as (key: string) => void;
+		const removeItemSpy = vi.spyOn(window.localStorage, "removeItem");
 
 		server.use(
 			http.get("/api/events", () => {
@@ -433,25 +431,22 @@ describe("SSE connection and event handling", () => {
 		renderWithEventProvider(<TestChild />);
 
 		await waitFor(() => {
-			expect(removeItemMock).toHaveBeenCalledWith("adminToken");
+			expect(reloadMock).toHaveBeenCalled();
 		});
 
-		expect(reloadMock).toHaveBeenCalled();
-		expect(removeItemMock).toHaveBeenCalledWith("adminToken");
+		expect(removeItemSpy).toHaveBeenCalledWith("adminToken");
 
-		localStorage.removeItem = originalRemoveItem;
-		locationGetter.mockRestore();
+		removeItemSpy.mockRestore();
+		vi.unstubAllGlobals();
 	});
 
 	it("reconnects with backoff on non-401 error", async () => {
 		const reloadMock = vi.fn();
-		const locationGetter = vi.spyOn(window, "location", "get").mockReturnValue({
+		vi.stubGlobal("location", {
 			...window.location,
 			reload: reloadMock,
 		});
-		const originalRemoveItem = localStorage.removeItem;
-		const removeItemMock = vi.fn();
-		localStorage.removeItem = removeItemMock as (key: string) => void;
+		const removeItemSpy = vi.spyOn(window.localStorage, "removeItem");
 
 		let callCount = 0;
 
@@ -479,9 +474,9 @@ describe("SSE connection and event handling", () => {
 		// Verify reload was NOT called
 		expect(reloadMock).not.toHaveBeenCalled();
 		// Verify adminToken was NOT removed
-		expect(removeItemMock).not.toHaveBeenCalledWith("adminToken");
+		expect(removeItemSpy).not.toHaveBeenCalledWith("adminToken");
 
-		locationGetter.mockRestore();
-		localStorage.removeItem = originalRemoveItem;
+		removeItemSpy.mockRestore();
+		vi.unstubAllGlobals();
 	});
 });
