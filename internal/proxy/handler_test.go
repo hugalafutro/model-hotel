@@ -1219,7 +1219,7 @@ func TestChatCompletions_ContextErrorHandling(t *testing.T) {
 	// Server that delays response to trigger timeout
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		select {
-		case <-time.After(5 * time.Second):
+		case <-time.After(200 * time.Millisecond):
 		case <-r.Context().Done():
 		}
 		w.WriteHeader(http.StatusOK)

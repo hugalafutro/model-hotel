@@ -24,7 +24,8 @@ type DiscoveryService struct {
 	httpClient *http.Client
 	// quotaBreaker tracks per-provider circuit breaker state for quota fetches.
 	// Key: providerID string, Value: *quotaCircuitState.
-	quotaBreaker sync.Map
+	quotaBreaker   sync.Map
+	retryBaseDelay time.Duration // configurable retry backoff base delay
 }
 
 // NewDiscoveryService creates a new discovery service instance with optional
@@ -46,14 +47,24 @@ func NewDiscoveryService(dialCtx func(ctx context.Context, network, addr string)
 		client.CheckRedirect = checkRedirect
 	}
 	return &DiscoveryService{
-		httpClient: client,
+		httpClient:     client,
+		retryBaseDelay: 3 * time.Second,
 	}
 }
 
 // NewDiscoveryServiceWithHTTPClient creates a discovery service with a custom
 // HTTP client. This is intended for tests that need to inject a mock transport.
 func NewDiscoveryServiceWithHTTPClient(client *http.Client) *DiscoveryService {
-	return &DiscoveryService{httpClient: client}
+	return &DiscoveryService{
+		httpClient:     client,
+		retryBaseDelay: 3 * time.Second,
+	}
+}
+
+// SetRetryBaseDelay configures the base delay for quota fetch retry backoff.
+// Shorter values are useful in tests.
+func (d *DiscoveryService) SetRetryBaseDelay(dur time.Duration) {
+	d.retryBaseDelay = dur
 }
 
 // fetchURL makes an HTTP request with the given headers, reads the full
@@ -381,6 +392,9 @@ func isRetryableStatus(statusCode int) bool {
 // jitter in [0, base). This prevents thundering herd when multiple providers
 // fail simultaneously.
 func retryBackoff(base time.Duration, attempt int) time.Duration {
+	if base <= 0 {
+		return 0
+	}
 	delay := time.Duration(attempt) * base
 	jitter := time.Duration(rand.Int64N(int64(base)))
 	return delay + jitter
@@ -402,7 +416,7 @@ func (d *DiscoveryService) doQuotaRequestWithRetry(ctx context.Context, req *htt
 	var lastErr error
 	for attempt := range maxQuotaRetries {
 		if attempt > 0 {
-			backoff := retryBackoff(3*time.Second, attempt)
+			backoff := retryBackoff(d.retryBaseDelay, attempt)
 			debuglog.Info("discovery: retrying quota fetch", "type", providerType, "provider", providerName, "provider_id", providerID, "backoff", backoff, "attempt", attempt+1, "max_attempts", maxQuotaRetries)
 			select {
 			case <-ctx.Done():

@@ -370,7 +370,8 @@ func TestGetOllamaCloudAccount_Non200Status(t *testing.T) {
 	defer server.Close()
 
 	service := &DiscoveryService{
-		httpClient: server.Client(),
+		httpClient:     server.Client(),
+		retryBaseDelay: time.Millisecond,
 	}
 
 	masterKey := "test-master-key-1234567890123456"

@@ -1146,6 +1146,7 @@ func TestQuotaCircuitState_HalfOpenFailureReopens(t *testing.T) {
 
 func TestDoQuotaRequestWithRetry_CircuitBreakerShortCircuits(t *testing.T) {
 	svc := NewDiscoveryService(nil, nil)
+	svc.SetRetryBaseDelay(time.Millisecond)
 	providerID := "test-provider-123"
 
 	// Open the circuit by recording enough failures.
@@ -1182,6 +1183,7 @@ func TestDoQuotaRequestWithRetry_Retries429(t *testing.T) {
 	defer server.Close()
 
 	svc := NewDiscoveryService(nil, nil)
+	svc.SetRetryBaseDelay(time.Millisecond)
 	svc.httpClient = server.Client()
 	req, _ := http.NewRequest("GET", server.URL+"/quota", http.NoBody)
 	ctx := context.Background()
@@ -1210,6 +1212,7 @@ func TestDoQuotaRequestWithRetry_Retries5xx(t *testing.T) {
 	defer server.Close()
 
 	svc := NewDiscoveryService(nil, nil)
+	svc.SetRetryBaseDelay(time.Millisecond)
 	svc.httpClient = server.Client()
 	req, _ := http.NewRequest("GET", server.URL+"/quota", http.NoBody)
 	ctx := context.Background()
@@ -1232,6 +1235,7 @@ func TestDoQuotaRequestWithRetry_NonRetryableStatusNoRetry(t *testing.T) {
 	defer server.Close()
 
 	svc := NewDiscoveryService(nil, nil)
+	svc.SetRetryBaseDelay(time.Millisecond)
 	svc.httpClient = server.Client()
 	req, _ := http.NewRequest("GET", server.URL+"/quota", http.NoBody)
 	ctx := context.Background()
@@ -1275,7 +1279,7 @@ func TestDiscoverModels_UnsupportedProviderTypeFallsBackToOpenAI(t *testing.T) {
 	}))
 	defer server.Close()
 
-	svc := &DiscoveryService{httpClient: server.Client()}
+	svc := &DiscoveryService{httpClient: server.Client(), retryBaseDelay: time.Millisecond}
 	provider := &Provider{
 		ID:           uuid.New(),
 		Name:         "unknown-provider",

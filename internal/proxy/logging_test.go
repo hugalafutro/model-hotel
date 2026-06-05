@@ -288,11 +288,8 @@ func TestUpdateRequestLog_NonexistentID(t *testing.T) {
 // TestWaitForInsert_Timeout tests that WaitForInsert returns after timeout
 // when the insert goroutine never completes.
 func TestWaitForInsert_Timeout(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping timeout test in short mode")
-	}
 	t.Helper()
-	h := &Handler{}
+	h := &Handler{waitInsertTimeout: 50 * time.Millisecond}
 
 	// Create a requestLogData with a WaitGroup that never gets Done()
 	logData := &requestLogData{
@@ -309,12 +306,12 @@ func TestWaitForInsert_Timeout(t *testing.T) {
 	h.WaitForInsert(logData)
 	elapsed := time.Since(start)
 
-	// Should return within ~6 seconds (5s timeout + small margin)
-	if elapsed < 5*time.Second {
-		t.Errorf("WaitForInsert returned too early: %v (expected ~5s timeout)", elapsed)
+	// Should return within ~100ms (50ms timeout + small margin)
+	if elapsed < 40*time.Millisecond {
+		t.Errorf("WaitForInsert returned too early: %v (expected ~50ms timeout)", elapsed)
 	}
-	if elapsed > 7*time.Second {
-		t.Errorf("WaitForInsert took too long: %v (expected ~5s timeout)", elapsed)
+	if elapsed > 100*time.Millisecond {
+		t.Errorf("WaitForInsert took too long: %v (expected ~50ms timeout)", elapsed)
 	}
 }
 

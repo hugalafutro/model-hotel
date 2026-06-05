@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -723,7 +724,31 @@ func TestGetProviderUsage_ZAICodingError(t *testing.T) {
 // TestGetProviderUsage_NanoGPTError tests that GetProviderUsage returns 500
 // when the NanoGPT API call fails with an invalid key.
 func TestGetProviderUsage_NanoGPTError(t *testing.T) {
+	// Override newDiscoveryService with mock transport to avoid real API calls
+	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
 	_, r := newTestHandlerWithRouter(t)
+
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{
+				roundTripFunc: func(req *http.Request) (*http.Response, error) {
+					if strings.Contains(req.URL.Host, "api.nano-gpt.com") {
+						return &http.Response{
+							StatusCode: http.StatusServiceUnavailable,
+							Body:       io.NopCloser(strings.NewReader("api.nano-gpt.com is currently in development. Please use https://nano-gpt.com/api instead.")),
+							Header:     make(http.Header),
+						}, nil
+					}
+					return nil, fmt.Errorf("unexpected request to %s", req.URL.String())
+				},
+			},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
 
 	// Create a provider with NanoGPT URL (with hyphen) and fake key
 	providerName := fmt.Sprintf("test-nanogpt-error-%s", uuid.New().String()[:8])
@@ -879,7 +904,40 @@ func TestGetOllamaCloudAccount_Error(t *testing.T) {
 // TestRefreshAllQuotas_WithSupportedTypes tests that RefreshAllQuotas handles
 // multiple provider types with errors for unsupported types.
 func TestRefreshAllQuotas_WithSupportedTypes(t *testing.T) {
+	// Override newDiscoveryService with mock transport to avoid real API calls
+	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
 	_, r := newTestHandlerWithRouter(t)
+
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{
+				roundTripFunc: func(req *http.Request) (*http.Response, error) {
+					// NanoGPT returns 503
+					if strings.Contains(req.URL.Host, "api.nano-gpt.com") {
+						return &http.Response{
+							StatusCode: http.StatusServiceUnavailable,
+							Body:       io.NopCloser(strings.NewReader("api.nano-gpt.com is currently in development. Please use https://nano-gpt.com/api instead.")),
+							Header:     make(http.Header),
+						}, nil
+					}
+					// z.ai returns 500 for fake keys
+					if strings.Contains(req.URL.Host, "api.z.ai") {
+						return &http.Response{
+							StatusCode: http.StatusInternalServerError,
+							Body:       io.NopCloser(strings.NewReader(`{"error":"invalid key"}`)),
+							Header:     make(http.Header),
+						}, nil
+					}
+					return nil, fmt.Errorf("unexpected request to %s", req.URL.String())
+				},
+			},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
 
 	// Create Provider A: nanogpt type (will fail with fake key)
 	// Note: z.ai returns 200 with error JSON for invalid keys, so it may succeed
@@ -1616,7 +1674,7 @@ func TestGetProviderUsage_ZAICodingQuotaError(t *testing.T) {
 	defer func() { newDiscoveryService = orig }()
 
 	newDiscoveryService = func() *provider.DiscoveryService {
-		return provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
 					// ZAI Coding uses hardcoded URL
@@ -1631,6 +1689,8 @@ func TestGetProviderUsage_ZAICodingQuotaError(t *testing.T) {
 				},
 			},
 		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
 	}
 
 	// Create handler with mock provider store
@@ -1669,7 +1729,7 @@ func TestGetProviderUsage_NanoGPTSuccess(t *testing.T) {
 	defer func() { newDiscoveryService = orig }()
 
 	newDiscoveryService = func() *provider.DiscoveryService {
-		return provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
 					if strings.HasSuffix(req.URL.Path, "/usage") {
@@ -1684,6 +1744,8 @@ func TestGetProviderUsage_NanoGPTSuccess(t *testing.T) {
 				},
 			},
 		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
 	}
 
 	// Create handler with mock provider store - use nano-gpt.com (with hyphen) for detection
@@ -1727,7 +1789,7 @@ func TestGetProviderUsage_OpenRouterSuccess(t *testing.T) {
 	defer func() { newDiscoveryService = orig }()
 
 	newDiscoveryService = func() *provider.DiscoveryService {
-		return provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
 					if strings.HasSuffix(req.URL.Path, "/credits") {
@@ -1750,6 +1812,8 @@ func TestGetProviderUsage_OpenRouterSuccess(t *testing.T) {
 				},
 			},
 		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
 	}
 
 	// Create handler with mock provider store
@@ -1798,7 +1862,7 @@ func TestGetProviderBalance_DeepSeekSuccess(t *testing.T) {
 	defer func() { newDiscoveryService = orig }()
 
 	newDiscoveryService = func() *provider.DiscoveryService {
-		return provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
 					if strings.HasSuffix(req.URL.Path, "/user/balance") {
@@ -1813,6 +1877,8 @@ func TestGetProviderBalance_DeepSeekSuccess(t *testing.T) {
 				},
 			},
 		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
 	}
 
 	// Create handler with mock provider store
@@ -1860,7 +1926,7 @@ func TestGetOllamaCloudAccount_Success(t *testing.T) {
 	defer func() { newDiscoveryService = orig }()
 
 	newDiscoveryService = func() *provider.DiscoveryService {
-		return provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
 					if strings.HasSuffix(req.URL.Path, "/api/me") {
@@ -1875,6 +1941,8 @@ func TestGetOllamaCloudAccount_Success(t *testing.T) {
 				},
 			},
 		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
 	}
 
 	// Create handler with mock provider store - use ollama.com hostname for detection
@@ -2275,7 +2343,7 @@ func TestRefreshAllQuotas_NanoGPTSuccess(t *testing.T) {
 	defer func() { newDiscoveryService = orig }()
 
 	newDiscoveryService = func() *provider.DiscoveryService {
-		return provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
 					// NanoGPT usage endpoint
@@ -2288,6 +2356,8 @@ func TestRefreshAllQuotas_NanoGPTSuccess(t *testing.T) {
 				},
 			},
 		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
 	}
 
 	// Create handler with mock provider store - use nano-gpt.com (with hyphen) for detection
@@ -2328,7 +2398,7 @@ func TestRefreshAllQuotas_ZAICodingError(t *testing.T) {
 	defer func() { newDiscoveryService = orig }()
 
 	newDiscoveryService = func() *provider.DiscoveryService {
-		return provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
 					if strings.Contains(req.URL.Host, "api.z.ai") {
@@ -2342,6 +2412,8 @@ func TestRefreshAllQuotas_ZAICodingError(t *testing.T) {
 				},
 			},
 		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
 	}
 
 	// Create handler with mock provider store
@@ -2382,7 +2454,7 @@ func TestRefreshAllQuotas_ZAICodingSuccess(t *testing.T) {
 	defer func() { newDiscoveryService = orig }()
 
 	newDiscoveryService = func() *provider.DiscoveryService {
-		return provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
 					if strings.Contains(req.URL.Host, "api.z.ai") {
@@ -2397,6 +2469,8 @@ func TestRefreshAllQuotas_ZAICodingSuccess(t *testing.T) {
 				},
 			},
 		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
 	}
 
 	// Create handler with mock provider store
@@ -2437,7 +2511,7 @@ func TestRefreshAllQuotas_OpenRouterSuccess(t *testing.T) {
 	defer func() { newDiscoveryService = orig }()
 
 	newDiscoveryService = func() *provider.DiscoveryService {
-		return provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
 					// OpenRouter credits endpoint
@@ -2459,6 +2533,8 @@ func TestRefreshAllQuotas_OpenRouterSuccess(t *testing.T) {
 				},
 			},
 		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
 	}
 
 	// Create handler with mock provider store
@@ -2500,7 +2576,7 @@ func TestRefreshAllQuotas_DeepSeekSuccess(t *testing.T) {
 	defer func() { newDiscoveryService = orig }()
 
 	newDiscoveryService = func() *provider.DiscoveryService {
-		return provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
 					if strings.HasSuffix(req.URL.Path, "/user/balance") {
@@ -2515,6 +2591,8 @@ func TestRefreshAllQuotas_DeepSeekSuccess(t *testing.T) {
 				},
 			},
 		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
 	}
 
 	// Create handler with mock provider store
@@ -2555,7 +2633,7 @@ func TestRefreshAllQuotas_OllamaCloudSuccess(t *testing.T) {
 	defer func() { newDiscoveryService = orig }()
 
 	newDiscoveryService = func() *provider.DiscoveryService {
-		return provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
 					if strings.HasSuffix(req.URL.Path, "/api/me") {
@@ -2570,6 +2648,8 @@ func TestRefreshAllQuotas_OllamaCloudSuccess(t *testing.T) {
 				},
 			},
 		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
 	}
 
 	// Create handler with mock provider store - use ollama.com hostname for detection

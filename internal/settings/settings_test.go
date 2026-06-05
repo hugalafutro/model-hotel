@@ -340,6 +340,7 @@ func TestGetFloat(t *testing.T) {
 
 func TestCacheTTL(t *testing.T) {
 	r := NewRepository(testPool)
+	r.cacheTTL = 100 * time.Millisecond
 	ctx := context.Background()
 	clearSettings(t)
 
@@ -366,7 +367,7 @@ func TestCacheTTL(t *testing.T) {
 		t.Errorf("got %q, want initial (cached)", val)
 	}
 
-	time.Sleep(r.cacheTTL + time.Second)
+	time.Sleep(r.cacheTTL + 50*time.Millisecond)
 
 	val = r.GetWithDefault(ctx, key, "default")
 	if val != "updated" {
