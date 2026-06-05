@@ -312,8 +312,8 @@ func main() {
 	// Admin chat routes — admin-authenticated proxy for the Chat/Arena UI.
 	// Uses streaming-aware timeout (same as /v1) and rate limiting by IP.
 	r.Route("/api/chat", func(r chi.Router) {
-		r.Use(apiHandler.AuthMiddleware)
 		r.Use(ipLimiter.Middleware)
+		r.Use(apiHandler.AuthMiddleware)
 		r.Use(streamingAwareTimeout(5 * time.Minute))
 		proxyHandler.RegisterAdminChat(r)
 	})

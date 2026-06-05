@@ -1700,10 +1700,25 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			debuglog.Debug("proxy: upstream error response", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "body_length", len(body), "attempt", attempt+1)
 			logData.responseHeaderMs = responseHeaderMs
 			h.failRequest(logData, resp.StatusCode, errMsg, attempt, startTime, parseMs, timings, proxyOverhead)
-			// Return a generic error to the client. The full upstream body is
-			// logged server-side above but not forwarded, as it may contain
-			// provider-specific details (request IDs, internal paths, etc.).
-			writeOpenAIError(w, fmt.Sprintf("upstream provider returned HTTP %d", resp.StatusCode), resp.StatusCode)
+
+			if !hasMoreCandidates {
+				// All failover candidates exhausted — return a generic error.
+				// The full upstream body is logged server-side above but not
+				// forwarded, as it may contain provider-specific details.
+				writeOpenAIError(w, fmt.Sprintf("upstream provider returned HTTP %d", resp.StatusCode), resp.StatusCode)
+				return
+			}
+
+			// Non-failover-eligible error with remaining candidates — forward
+			// the upstream response so clients can react to semantic errors
+			// (e.g. context_length_exceeded, rate_limit_exceeded).
+			if json.Valid(body) {
+				w.Header().Set("Content-Type", "application/json")
+			} else {
+				w.Header().Set("Content-Type", "text/plain")
+			}
+			w.WriteHeader(resp.StatusCode)
+			_, _ = w.Write(body)
 			return
 		}
 
