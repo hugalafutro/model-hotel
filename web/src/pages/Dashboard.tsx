@@ -369,7 +369,7 @@ export function Dashboard() {
 							data={acData}
 							range={requestsChartRange}
 							onRangeChange={setRequestsChartRange}
-							metric="Requests"
+							metric={t("dashboard.metricRequests")}
 							icon={Activity}
 							color={accents.requests}
 							label={t("dashboard.label.requests")}
@@ -380,7 +380,7 @@ export function Dashboard() {
 							data={tokenAcData}
 							range={tokensChartRange}
 							onRangeChange={setTokensChartRange}
-							metric="Tokens"
+							metric={t("dashboard.metricTokens")}
 							icon={Hash}
 							color={accents.tokens}
 							label={t("dashboard.label.tokens")}
@@ -397,7 +397,7 @@ export function Dashboard() {
 							data={tokenAcData}
 							range={tokensChartRange}
 							onRangeChange={setTokensChartRange}
-							metric="Tokens"
+							metric={t("dashboard.metricTokens")}
 							icon={Hash}
 							color={accents.tokens}
 							label={t("dashboard.label.tokens")}
@@ -411,7 +411,7 @@ export function Dashboard() {
 							data={acData}
 							range={requestsChartRange}
 							onRangeChange={setRequestsChartRange}
-							metric="Requests"
+							metric={t("dashboard.metricRequests")}
 							icon={Activity}
 							color={accents.requests}
 							label={t("dashboard.label.requests")}
@@ -497,7 +497,7 @@ export function Dashboard() {
 				open={errorModalOpen}
 				onClose={() => setErrorModalOpen(false)}
 				title={t("dashboard.modal.errorRate")}
-				metric="Errors"
+				metric={t("dashboard.metricErrors")}
 				icon={AlertTriangle}
 				color={accents.errors}
 				dataKey="errors"
