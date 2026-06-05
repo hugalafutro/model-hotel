@@ -219,6 +219,10 @@ func (db *DB) runMigration(ctx context.Context, name, sql string) (bool, error) 
 	return true, nil
 }
 
+// waitForReadyInterval is the time between readiness check attempts.
+// Can be reduced in tests for faster execution.
+var waitForReadyInterval = 2 * time.Second
+
 // WaitForReady polls the database until it responds or maxAttempts is reached.
 func (db *DB) WaitForReady(ctx context.Context, maxAttempts int) error {
 	for i := 0; i < maxAttempts; i++ {
@@ -231,7 +235,7 @@ func (db *DB) WaitForReady(ctx context.Context, maxAttempts int) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(2 * time.Second):
+		case <-time.After(waitForReadyInterval):
 		}
 	}
 

@@ -113,9 +113,13 @@ func newDBLogWriter(pool *pgxpool.Pool) *dbLogWriter {
 	return w
 }
 
+// dbLogFlushInterval controls how often the dbLogWriter flushes entries.
+// Can be reduced in tests for faster execution.
+var dbLogFlushInterval = 500 * time.Millisecond
+
 func (w *dbLogWriter) run() {
 	batch := make([]AppLogEntry, 0, 50)
-	ticker := time.NewTicker(500 * time.Millisecond)
+	ticker := time.NewTicker(dbLogFlushInterval)
 	defer ticker.Stop()
 
 	for {

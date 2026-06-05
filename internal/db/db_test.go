@@ -309,6 +309,11 @@ func TestWaitForReady_MaxAttemptsExhausted(t *testing.T) {
 // TestWaitForReady_ContextCancelledDuringWait tests the ctx.Done() branch.
 // Cancels the context during the wait sleep to trigger context cancellation.
 func TestWaitForReady_ContextCancelledDuringWait(t *testing.T) {
+	// Reduce retry interval for faster test
+	orig := waitForReadyInterval
+	waitForReadyInterval = 10 * time.Millisecond
+	defer func() { waitForReadyInterval = orig }()
+
 	testURL, err := SetupTestDB("db_cancel")
 	if err != nil {
 		t.Fatalf("failed to setup test DB: %v", err)
@@ -327,7 +332,7 @@ func TestWaitForReady_ContextCancelledDuringWait(t *testing.T) {
 
 	// Cancel context after a short delay to trigger ctx.Done() during sleep
 	go func() {
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(5 * time.Millisecond)
 		cancel()
 	}()
 

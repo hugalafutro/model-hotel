@@ -256,7 +256,7 @@ func TestGetNeuralWattQuota_DecryptionError(t *testing.T) {
 
 func TestGetNeuralWattQuota_ContextCancellation(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(NeuralWattQuotaResponse{})
 	}))
@@ -280,7 +280,7 @@ func TestGetNeuralWattQuota_ContextCancellation(t *testing.T) {
 		KeySalt:      keyPair.Salt,
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Millisecond)
 	defer cancel()
 
 	_, err = service.GetNeuralWattQuota(ctx, provider, masterKey)

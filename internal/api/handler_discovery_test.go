@@ -357,6 +357,40 @@ func TestDiscoverAllModels_MultipleProviders(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 	_ = h // Use h to avoid unused variable error
 
+	// Override newDiscoveryService with mock transport to avoid real API calls
+	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{
+				roundTripFunc: func(req *http.Request) (*http.Response, error) {
+					if strings.Contains(req.URL.Host, "api.openai.com") && strings.HasSuffix(req.URL.Path, "/models") {
+						// Return OpenAI-format model list
+						body := `{"data": [{"id": "gpt-4o-mini", "owned_by": "openai", "object": "model"}, {"id": "gpt-4", "owned_by": "openai", "object": "model"}]}`
+						return &http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(strings.NewReader(body)),
+							Header:     http.Header{"Content-Type": []string{"application/json"}},
+						}, nil
+					} else if strings.Contains(req.URL.Host, "api.anthropic.com") && strings.HasSuffix(req.URL.Path, "/models") {
+						// Return Anthropic-format model list (object with data array)
+						body := `{"data": [{"id": "claude-3-opus-20240229", "display_name": "Claude 3 Opus"}, {"id": "claude-3-sonnet-20240229", "display_name": "Claude 3 Sonnet"}], "has_more": false, "first_id": "claude-3-opus-20240229", "last_id": "claude-3-sonnet-20240229"}`
+						return &http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(strings.NewReader(body)),
+							Header:     http.Header{"Content-Type": []string{"application/json"}},
+						}, nil
+					}
+					return nil, fmt.Errorf("unexpected request to %s", req.URL.String())
+				},
+			},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
+
 	// Create first provider (OpenAI)
 	providerData1 := `{"name": "test-openai-discover", "base_url": "https://api.openai.com", "api_key": "test-api-key"}`
 	rec := httptest.NewRecorder()
@@ -381,7 +415,7 @@ func TestDiscoverAllModels_MultipleProviders(t *testing.T) {
 		t.Fatalf("Failed to create second provider: %d", rec.Code)
 	}
 
-	// Test discover all models - will fail with test API keys but should return proper structure
+	// Test discover all models - will succeed with mocked responses
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest("POST", "/providers/discover-all", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -1045,6 +1079,27 @@ func TestDiscoverProviderModels_AutodiscoveryDisabled(t *testing.T) {
 
 func TestGetProviderUsage_Error(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
+
+	// Override newDiscoveryService with mock transport to avoid real API calls
+	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{
+				roundTripFunc: func(req *http.Request) (*http.Response, error) {
+					return &http.Response{
+						StatusCode: http.StatusUnauthorized,
+						Body:       io.NopCloser(strings.NewReader(`{"error": "unauthorized"}`)),
+						Header:     make(http.Header),
+					}, nil
+				},
+			},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
 
 	// Create a provider with OpenRouter base URL (supported type)
 	body := `{"name":"test-usage-error","base_url":"https://openrouter.ai/api/v1","api_key":"invalid-key-for-error"}`

@@ -168,8 +168,28 @@ func TestListModels_WithPagination(t *testing.T) {
 func TestTestModel_Success(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 
-	// Create a provider
-	providerData := fmt.Sprintf(`{"name": "test-model-provider-%s", "base_url": "https://api.openai.com", "api_key": "test-api-key"}`, uuid.New().String()[:8])
+	// Create a mock OpenAI server that returns 401 with invalid API key error
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/chat/completions") {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"error": map[string]interface{}{
+					"message": "invalid api key",
+					"type":    "invalid_request_error",
+				},
+			})
+		}
+	}))
+	defer mockServer.Close()
+
+	// Override handler's transport to use mock server
+	origTransport := h.testModelTransport
+	h.testModelTransport = &http.Transport{}
+	defer func() { h.testModelTransport = origTransport }()
+
+	// Create a provider pointing to mock server
+	providerData := fmt.Sprintf(`{"name": "test-model-provider-%s", "base_url": "%s", "api_key": "sk-test-key"}`, uuid.New().String()[:8], mockServer.URL)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -197,13 +217,13 @@ func TestTestModel_Success(t *testing.T) {
 		t.Fatalf("Failed to insert model: %v", err)
 	}
 
-	// Test the model - will fail because we're using a test API key, but tests the endpoint path
+	// Test the model - will return error from mock server (simulating invalid API key)
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest("POST", "/models/"+modelID+"/test", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
-	// Should return a response (likely with error due to invalid API key)
+	// Should return a response (with error from mock server)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -212,9 +232,9 @@ func TestTestModel_Success(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &testResp); err != nil {
 		t.Fatalf("Failed to parse test response: %v", err)
 	}
-	// Should have error field due to invalid API key
+	// Should have error field due to mock server returning 401
 	if testResp.Error == "" {
-		t.Error("Expected error field in test response due to invalid API key")
+		t.Error("Expected error field in test response")
 	}
 }
 
