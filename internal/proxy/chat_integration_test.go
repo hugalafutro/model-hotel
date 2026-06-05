@@ -1279,3 +1279,93 @@ func TestChatCompletions_ParamRejectionAutoRetry(t *testing.T) {
 		t.Errorf("expected 2 requests (initial + retry), got %d", retryCount.Load())
 	}
 }
+
+// TestChatCompletions_NonJSONErrorBody tests that non-JSON error responses
+// (e.g. HTML from CDN) are wrapped in OpenAI-compatible envelope (line 1719-1723).
+func TestChatCompletions_NonJSONErrorBody(t *testing.T) {
+	pool := testDB.Pool()
+	settingsRepo := settings.NewRepository(pool)
+	failoverRepo := failover.NewRepository(pool)
+	modelRepo := model.NewRepository(pool)
+	providerRepo := provider.NewRepository(pool)
+	virtualKeyRepo := virtualkey.NewRepository(pool)
+
+	// Upstream returns HTML error (simulating CDN/proxy error)
+	htmlUpstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusBadGateway)
+		w.Write([]byte(`<html><body><h1>Bad Gateway</h1></body></html>`))
+	}))
+	defer htmlUpstream.Close()
+
+	keyPair, _ := auth.Encrypt("test-key", "test-master-key-for-integration")
+	providerName := "html-provider-" + uuid.New().String()[:8]
+	prov, _ := providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+		Name:    providerName,
+		BaseURL: htmlUpstream.URL,
+		APIKey:  "test-key",
+	}, keyPair.Ciphertext, keyPair.Nonce, keyPair.Salt)
+
+	testModel := &model.Model{
+		ID:               uuid.New(),
+		ProviderID:       prov.ID,
+		ModelID:          "html-model",
+		Name:             "HTML Model",
+		Capabilities:     "{}",
+		Params:           "{}",
+		Modality:         "chat",
+		InputModalities:  "[\"text\"]",
+		OutputModalities: "[\"text\"]",
+		Enabled:          true,
+		ProviderName:     providerName,
+		ProviderEnabled:  true,
+	}
+	_ = modelRepo.Upsert(context.Background(), testModel)
+
+	virtualKey, _ := virtualKeyRepo.Create(context.Background(), "test-key", virtualkey.Hash("test-vk-html"), "sk-tes...", nil, nil, nil, nil)
+	defer func() { _ = virtualKeyRepo.Delete(context.Background(), virtualKey.ID) }()
+
+	handler := &Handler{
+		cfg:            &config.Config{MasterKey: "test-master-key-for-integration"},
+		settingsRepo:   settingsRepo,
+		failoverRepo:   failoverRepo,
+		modelRepo:      modelRepo,
+		providerRepo:   providerRepo,
+		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
+		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
+		dbPool:         pool,
+		upstreamTransport: &http.Transport{
+			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
+			ResponseHeaderTimeout: 5 * time.Second,
+			IdleConnTimeout:       120 * time.Second,
+			MaxIdleConns:          200,
+			MaxIdleConnsPerHost:   20,
+		},
+		safeDialer: NewSafeDialer(nil, nil),
+	}
+
+	body := `{"model": "` + providerName + `/html-model", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	ctx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
+	ctx = context.WithValue(ctx, virtualKeyIDKey, virtualKey.ID.String())
+	ctx = context.WithValue(ctx, VirtualKeyHashKey, virtualkey.Hash("test-vk-html"))
+	req = req.WithContext(ctx)
+
+	w := httptest.NewRecorder()
+	handler.ChatCompletions(w, req)
+
+	// Should return error wrapped in OpenAI-compatible envelope
+	if w.Code != http.StatusBadGateway {
+		t.Errorf("expected 502, got %d", w.Code)
+	}
+
+	// Body should be valid JSON with error object
+	var resp map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("expected JSON response, got: %s", w.Body.String())
+	}
+
+	if _, ok := resp["error"]; !ok {
+		t.Errorf("expected error object in response, got: %v", resp)
+	}
+}

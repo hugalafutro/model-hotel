@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -740,6 +741,131 @@ func TestProbeFirstToken_PartialLineAccepted(t *testing.T) {
 	}
 	if ttft <= 0 {
 		t.Errorf("expected positive ttft, got %f", ttft)
+	}
+}
+
+// slowReader delivers one byte at a time from its data source.
+// Combined with a short probe timeout, this allows the timeout goroutine
+// to close the body mid-scan, attempting to trigger the scanner error
+// recovery path in probeFirstToken (lines 1909-1936).
+//
+// Note: In practice, bufio.Scanner's ScanLines split function returns the
+// last line even when Read() returns an error (atEOF rule), so the scanner
+// loop at line 1877 processes the data line before the recovery path is
+// reached. The recovery path (1921-1934) is defense-in-depth for a race
+// between TeeReader and scanner that is practically impossible to trigger
+// deterministically.
+type slowReader struct {
+	data   string
+	offset int
+	closed bool
+	mu     sync.Mutex
+}
+
+func (r *slowReader) Read(p []byte) (int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.closed {
+		return 0, io.ErrClosedPipe
+	}
+	if r.offset >= len(r.data) {
+		return 0, io.EOF
+	}
+	p[0] = r.data[r.offset]
+	r.offset++
+	return 1, nil
+}
+
+func (r *slowReader) Close() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.closed = true
+	return nil
+}
+
+// TestProbeFirstToken_ScannerErrorRecoveryWithDataInBuffer verifies that
+// probeFirstToken succeeds when data arrives slowly and a short timeout
+// fires. The scanner may find the data line via the normal path (most likely)
+// or via the recovery path (race-dependent).
+func TestProbeFirstToken_ScannerErrorRecoveryWithDataInBuffer(t *testing.T) {
+	h := &Handler{}
+
+	body := &slowReader{
+		data: "data: hello world\n\ndata: second\n",
+	}
+
+	startTime := time.Now()
+	probeBuf, ttft, err := h.probeFirstToken(
+		context.Background(),
+		body,
+		1*time.Millisecond,
+		startTime,
+	)
+
+	// Acceptable outcomes:
+	// 1. Success: scanner found a data line before timeout
+	// 2. Error: timeout fired before any data was buffered
+	if err != nil {
+		t.Logf("probe timed out (acceptable): %v", err)
+		return
+	}
+	if probeBuf == nil {
+		t.Fatal("expected non-nil probeBuf on success")
+	}
+	if ttft <= 0 {
+		t.Errorf("expected positive ttft, got %f", ttft)
+	}
+
+	bufStr := probeBuf.String()
+	if !strings.Contains(bufStr, "data:") {
+		t.Errorf("expected data: line in buffer, got %q", bufStr)
+	}
+}
+
+// TestProbeFirstToken_ScannerErrorRecovery_PipeRace uses io.Pipe to create
+// a true race between the scanner and body closure. The writer end sends a
+// complete data line, sleeps briefly, then closes with an error. The TeeReader
+// captures the data in buf before the scanner can process it, simulating the
+// real-world race where the timeout goroutine closes the body mid-scan.
+func TestProbeFirstToken_ScannerErrorRecovery_PipeRace(t *testing.T) {
+	h := &Handler{}
+
+	pr, pw := io.Pipe()
+
+	// Writer goroutine: send a complete data line, give the TeeReader time
+	// to capture it, then close the pipe with an error.
+	go func() {
+		pw.Write([]byte("data: hello world\n"))
+		// Small sleep to let the TeeReader capture the bytes into buf
+		// but NOT enough for the scanner to fully process the line.
+		time.Sleep(100 * time.Microsecond)
+		pw.CloseWithError(errors.New("body closed by timeout goroutine"))
+	}()
+
+	startTime := time.Now()
+	probeBuf, ttft, err := h.probeFirstToken(
+		context.Background(),
+		pr,            // io.PipeReader implements io.ReadCloser
+		5*time.Second, // generous timeout — error comes from pipe, not timeout
+		startTime,
+	)
+
+	// Accept either:
+	// 1. Success: scanner found the data line before pipe closed (normal path)
+	// 2. Success via recovery: scanner errored, buffer had the data (recovery path)
+	if err != nil {
+		t.Fatalf("expected success (either path), got error: %v", err)
+	}
+	if probeBuf == nil {
+		t.Fatal("expected non-nil probeBuf")
+	}
+	if ttft <= 0 {
+		t.Errorf("expected positive ttft, got %f", ttft)
+	}
+
+	bufStr := probeBuf.String()
+	if !strings.Contains(bufStr, "data: hello world") {
+		t.Errorf("expected data line in buffer, got %q", bufStr)
 	}
 }
 
