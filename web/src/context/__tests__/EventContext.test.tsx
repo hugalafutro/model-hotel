@@ -412,4 +412,73 @@ describe("SSE connection and event handling", () => {
 			{ timeout: 10000 },
 		);
 	});
+
+	it("clears token and reloads on 401 response", async () => {
+		// Pre-set the adminToken in localStorage so we can verify removal
+		localStorage.setItem("adminToken", "will-be-removed");
+
+		const reloadMock = vi.fn();
+		vi.stubGlobal("location", {
+			...window.location,
+			reload: reloadMock,
+		});
+
+		server.use(
+			http.get("/api/events", () => {
+				return new HttpResponse(null, { status: 401 });
+			}),
+		);
+
+		const TestChild = () => <div data-testid="child">Test</div>;
+		renderWithEventProvider(<TestChild />);
+
+		await waitFor(() => {
+			expect(reloadMock).toHaveBeenCalled();
+		});
+
+		expect(localStorage.getItem("adminToken")).toBeNull();
+
+		vi.unstubAllGlobals();
+	});
+
+	it("reconnects with backoff on non-401 error", async () => {
+		// Pre-set the adminToken to verify it's NOT removed on non-401 errors
+		localStorage.setItem("adminToken", "should-remain");
+
+		const reloadMock = vi.fn();
+		vi.stubGlobal("location", {
+			...window.location,
+			reload: reloadMock,
+		});
+
+		let callCount = 0;
+
+		server.use(
+			http.get("/api/events", () => {
+				callCount++;
+				return HttpResponse.json(
+					{ error: "Internal server error" },
+					{ status: 500 },
+				);
+			}),
+		);
+
+		const TestChild = () => <div data-testid="child">Test</div>;
+		renderWithEventProvider(<TestChild />);
+
+		// Wait for multiple reconnection attempts (exponential backoff: 1s, 2s, 4s...)
+		await waitFor(
+			() => {
+				expect(callCount).toBeGreaterThanOrEqual(3);
+			},
+			{ timeout: 10000 },
+		);
+
+		// Verify reload was NOT called
+		expect(reloadMock).not.toHaveBeenCalled();
+		// Verify adminToken was NOT removed
+		expect(localStorage.getItem("adminToken")).toBe("should-remain");
+
+		vi.unstubAllGlobals();
+	});
 });

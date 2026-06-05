@@ -30,11 +30,21 @@ RUN go build -ldflags "-X main.version=$VERSION" -o server ./cmd/server/
 # Stage 3: Minimal runtime image
 FROM alpine:3.23
 
-RUN apk add --no-cache ca-certificates postgresql16-client
+RUN apk add --no-cache ca-certificates postgresql16-client su-exec
+
+# Create non-root user (uid 1000 matches typical host user)
+RUN adduser -D -u 1000 -H appuser
 
 WORKDIR /app
 
 COPY --from=backend-builder /app/server .
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+
+# Ensure entrypoint and binary are executable and owned by runtime user
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh && \
+    chown -R appuser:appuser /app
+
+ENTRYPOINT ["docker-entrypoint.sh"]
 
 EXPOSE 8080
 

@@ -27,6 +27,7 @@ export function EventProvider({ children }: { children: ReactNode }) {
 			connectingRef.current = true;
 			const ac = new AbortController();
 			abortRef.current = ac;
+			let authFailed = false;
 
 			fetch(`${API_BASE}/api/events`, {
 				headers: { Authorization: `Bearer ${token}` },
@@ -34,6 +35,12 @@ export function EventProvider({ children }: { children: ReactNode }) {
 			})
 				.then((response) => {
 					if (!response.ok) {
+						if (response.status === 401) {
+							authFailed = true;
+							localStorage.removeItem("adminToken");
+							window.location.reload();
+							return;
+						}
 						throw new Error(`SSE connection failed: ${response.status}`);
 					}
 
@@ -67,7 +74,7 @@ export function EventProvider({ children }: { children: ReactNode }) {
 				})
 				.finally(() => {
 					connectingRef.current = false;
-					if (!ac.signal.aborted) {
+					if (!ac.signal.aborted && !authFailed) {
 						// Reconnect with exponential backoff (1s → 2s → 4s → ... → 30s max)
 						const delay = reconnectDelay.current;
 						reconnectDelay.current = Math.min(delay * 2, 30000);

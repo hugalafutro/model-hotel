@@ -2527,3 +2527,157 @@ func TestNewBackupHandler_AbsFallback_Subprocess(t *testing.T) {
 		t.Fatalf("subprocess failed: %v", err)
 	}
 }
+
+// TestBackup_PasswordStrippedFromArgs verifies that when DATABASE_URL contains
+// a password, it is stripped from the command-line arguments and passed via
+// PGPASSWORD environment variable instead. This prevents passwords from
+// appearing in process listings (ps, /proc, etc.).
+func TestBackup_PasswordStrippedFromArgs(t *testing.T) {
+	// Create a temporary directory for the mock pg_dump and capture file
+	tmpDir := t.TempDir()
+	mockPgDump := filepath.Join(tmpDir, "pg_dump")
+	captureFile := filepath.Join(tmpDir, "capture.txt")
+
+	// Create a mock pg_dump script that writes its args and env to a file
+	// and creates an empty backup file to simulate success
+	mockScript := `#!/bin/bash
+# Parse --file= argument to find output path
+OUTPUT_FILE=""
+for arg in "$@"; do
+	if [[ "$arg" == --file=* ]]; then
+		OUTPUT_FILE="${arg#--file=}"
+	fi
+	# Write command-line args (one per line, prefixed with ARG:)
+	echo "ARG:$arg" >> "` + captureFile + `"
+done
+# Write PGPASSWORD env var if set (or note it's missing)
+if [ -n "$PGPASSWORD" ]; then
+	echo "PGPASSWORD:$PGPASSWORD" >> "` + captureFile + `"
+else
+	echo "PGPASSWORD:" >> "` + captureFile + `"
+fi
+# Create empty backup file to simulate success
+if [ -n "$OUTPUT_FILE" ]; then
+	touch "$OUTPUT_FILE"
+fi
+# Exit successfully so the handler thinks backup worked
+exit 0
+`
+	//nolint:gosec // test-only: script in temp dir
+	if err := os.WriteFile(mockPgDump, []byte(mockScript), 0o755); err != nil {
+		t.Fatalf("failed to write mock pg_dump: %v", err)
+	}
+
+	// Temporarily modify PATH so exec.LookPath finds our mock first
+	originalPath := os.Getenv("PATH")
+	//nolint:errcheck // cleanup: restore PATH after test
+	defer os.Setenv("PATH", originalPath)
+	//nolint:errcheck // prepend mock dir to PATH
+	os.Setenv("PATH", tmpDir+":"+originalPath)
+
+	// Test case 1: DATABASE_URL with password
+	t.Run("with_password", func(t *testing.T) {
+		// Clear capture file
+		//nolint:errcheck,gosec // test-only: clearing capture file
+		os.WriteFile(captureFile, []byte{}, 0o644)
+
+		backupDir := t.TempDir()
+		databaseURL := "postgresql://user:secret@localhost:5432/dbname"
+		h := NewBackupHandler(databaseURL, backupDir, &mockAdminAuth{})
+		r := chi.NewRouter()
+		h.Register(r)
+
+		req := httptest.NewRequest("POST", "/backups", http.NoBody)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		// The mock script always succeeds, so we expect 201 Created
+		if w.Code != http.StatusCreated {
+			t.Fatalf("expected 201, got %d: %s", w.Code, w.Body.String())
+		}
+
+		// Read the capture file
+		captured, err := os.ReadFile(captureFile)
+		if err != nil {
+			t.Fatalf("failed to read capture file: %v", err)
+		}
+		capturedStr := string(captured)
+
+		// Verify 1: Password should NOT appear in command-line args
+		if strings.Contains(capturedStr, "secret") {
+			// Check if it's in an ARG line (bad) vs PGPASSWORD line (ok)
+			lines := strings.Split(capturedStr, "\n")
+			for _, line := range lines {
+				if strings.HasPrefix(line, "ARG:") && strings.Contains(line, "secret") {
+					t.Errorf("password 'secret' found in command-line args: %s", line)
+				}
+			}
+		}
+
+		// Verify 2: PGPASSWORD should be set to "secret"
+		if !strings.Contains(capturedStr, "PGPASSWORD:secret") {
+			t.Errorf("expected PGPASSWORD:secret in capture, got:\n%s", capturedStr)
+		}
+
+		// Verify 3: The connection URL should have user but no password
+		// Should be something like: postgresql://user@localhost:5432/dbname
+		hasUserOnlyURL := false
+		for _, line := range strings.Split(capturedStr, "\n") {
+			if strings.HasPrefix(line, "ARG:postgresql://user@") && !strings.Contains(line, ":secret") {
+				hasUserOnlyURL = true
+				break
+			}
+		}
+		if !hasUserOnlyURL {
+			t.Errorf("expected URL with user but no password, got:\n%s", capturedStr)
+		}
+	})
+
+	// Test case 2: DATABASE_URL without password
+	t.Run("without_password", func(t *testing.T) {
+		// Clear capture file
+		//nolint:errcheck,gosec // test-only: clearing capture file
+		os.WriteFile(captureFile, []byte{}, 0o644)
+
+		backupDir := t.TempDir()
+		databaseURL := "postgresql://user@localhost:5432/dbname"
+		h := NewBackupHandler(databaseURL, backupDir, &mockAdminAuth{})
+		r := chi.NewRouter()
+		r.Use(func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				next.ServeHTTP(w, r)
+			})
+		})
+		h.Register(r)
+
+		req := httptest.NewRequest("POST", "/backups", http.NoBody)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		// The mock script always succeeds
+		if w.Code != http.StatusCreated {
+			t.Fatalf("expected 201, got %d: %s", w.Code, w.Body.String())
+		}
+
+		// Read the capture file
+		captured, err := os.ReadFile(captureFile)
+		if err != nil {
+			t.Fatalf("failed to read capture file: %v", err)
+		}
+		capturedStr := string(captured)
+
+		// Verify: PGPASSWORD should NOT be set (empty)
+		if strings.Contains(capturedStr, "PGPASSWORD:") {
+			for _, line := range strings.Split(capturedStr, "\n") {
+				if line == "PGPASSWORD:" {
+					// Empty PGPASSWORD is correct (not set)
+					return
+				}
+				if strings.HasPrefix(line, "PGPASSWORD:") && len(line) > len("PGPASSWORD:") {
+					t.Errorf("expected empty PGPASSWORD, got: %s", line)
+				}
+			}
+		}
+	})
+}

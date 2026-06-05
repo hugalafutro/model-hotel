@@ -282,8 +282,9 @@ func TestExtractClientIP_XFFHonoredWhenTrusted(t *testing.T) {
 	r.RemoteAddr = "10.0.0.1:1234"
 	r.Header.Set("X-Forwarded-For", "1.1.1.1, 2.2.2.2")
 	ip := extractClientIP(r, trusted)
-	if ip != "1.1.1.1" {
-		t.Errorf("expected first XFF IP when trusted, got %q", ip)
+	// Rightmost non-trusted IP is returned (2.2.2.2 is not in 10.0.0.0/8)
+	if ip != "2.2.2.2" {
+		t.Errorf("expected rightmost non-trusted XFF IP, got %q", ip)
 	}
 }
 
@@ -348,6 +349,80 @@ func TestExtractClientIP_IPv6(t *testing.T) {
 	ip := extractClientIP(r, nil)
 	if ip != "::1" {
 		t.Errorf("expected ::1 for IPv6, got %q", ip)
+	}
+}
+
+func TestExtractClientIP_RightmostNonTrustedMultiHop(t *testing.T) {
+	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
+	trusted := []*net.IPNet{cidr}
+
+	// Chain: client (1.1.1.1) → CDN (2.2.2.2) → LB (10.0.0.5) → app
+	r := httptest.NewRequest("POST", "/", http.NoBody)
+	r.RemoteAddr = "10.0.0.5:1234"
+	r.Header.Set("X-Forwarded-For", "1.1.1.1, 2.2.2.2, 10.0.0.5")
+	ip := extractClientIP(r, trusted)
+	// 10.0.0.5 is trusted, 2.2.2.2 is not — should return 2.2.2.2
+	if ip != "2.2.2.2" {
+		t.Errorf("expected rightmost non-trusted 2.2.2.2, got %q", ip)
+	}
+}
+
+func TestExtractClientIP_SpoofPrevention(t *testing.T) {
+	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
+	trusted := []*net.IPNet{cidr}
+
+	// Attacker behind trusted proxy injects a fake leftmost IP
+	r := httptest.NewRequest("POST", "/", http.NoBody)
+	r.RemoteAddr = "10.0.0.1:1234"
+	r.Header.Set("X-Forwarded-For", "spoofed-ip, 9.9.9.9, 10.0.0.1")
+	ip := extractClientIP(r, trusted)
+	// 10.0.0.1 is trusted, 9.9.9.9 is not — should return 9.9.9.9
+	if ip != "9.9.9.9" {
+		t.Errorf("expected 9.9.9.9 (non-trusted), not spoofed leftmost, got %q", ip)
+	}
+}
+
+func TestExtractClientIP_AllTrustedFallsBackToLeftmost(t *testing.T) {
+	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
+	trusted := []*net.IPNet{cidr}
+
+	// Unusual: all XFF entries are in trusted range
+	r := httptest.NewRequest("POST", "/", http.NoBody)
+	r.RemoteAddr = "10.0.0.1:1234"
+	r.Header.Set("X-Forwarded-For", "10.0.0.2, 10.0.0.3")
+	ip := extractClientIP(r, trusted)
+	// Falls back to leftmost
+	if ip != "10.0.0.2" {
+		t.Errorf("expected leftmost fallback 10.0.0.2, got %q", ip)
+	}
+}
+
+func TestExtractClientIP_IPv6XFFTrusted(t *testing.T) {
+	_, cidr, _ := net.ParseCIDR("2001:db8::/32")
+	trusted := []*net.IPNet{cidr}
+
+	r := httptest.NewRequest("POST", "/", http.NoBody)
+	r.RemoteAddr = "[2001:db8::1]:1234"
+	r.Header.Set("X-Forwarded-For", "2001:db8:1::100, 2001:db8::1")
+	ip := extractClientIP(r, trusted)
+	// 2001:db8::1 is trusted, 2001:db8:1::100 is in trusted range too
+	// All trusted → falls back to leftmost
+	if ip != "2001:db8:1::100" {
+		t.Errorf("expected leftmost fallback 2001:db8:1::100, got %q", ip)
+	}
+}
+
+func TestExtractClientIP_IPv6XFFMixed(t *testing.T) {
+	_, cidr, _ := net.ParseCIDR("2001:db8::/32")
+	trusted := []*net.IPNet{cidr}
+
+	r := httptest.NewRequest("POST", "/", http.NoBody)
+	r.RemoteAddr = "[2001:db8::1]:1234"
+	r.Header.Set("X-Forwarded-For", "fe80::1, 2001:db8::1")
+	ip := extractClientIP(r, trusted)
+	// 2001:db8::1 is trusted, fe80::1 is not → return fe80::1
+	if ip != "fe80::1" {
+		t.Errorf("expected rightmost non-trusted fe80::1, got %q", ip)
 	}
 }
 
@@ -759,4 +834,63 @@ func TestIPLimiter_CleanupEmptyMap(t *testing.T) {
 		t.Errorf("expected 0 entries, got %d", len(lim.limiters))
 	}
 	lim.mu.Unlock()
+}
+
+func TestExtractClientIP_AllTrustedInvalidLeftmost(t *testing.T) {
+	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
+	trusted := []*net.IPNet{cidr}
+
+	r := httptest.NewRequest("POST", "/", http.NoBody)
+	r.RemoteAddr = "10.0.0.1:1234"
+	r.Header.Set("X-Forwarded-For", "unknown, 10.0.0.2")
+	ip := extractClientIP(r, trusted)
+	// "unknown" is not a parseable IP, so it's skipped. 10.0.0.2 is trusted.
+	// Fallback to leftmost ("unknown") also fails ParseIP. Falls through
+	// to RemoteAddr.
+	if ip != "10.0.0.1" {
+		t.Errorf("expected fallback to RemoteAddr 10.0.0.1, got %q", ip)
+	}
+}
+
+func TestExtractClientIP_XFFEmptySegments(t *testing.T) {
+	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
+	trusted := []*net.IPNet{cidr}
+
+	r := httptest.NewRequest("POST", "/", http.NoBody)
+	r.RemoteAddr = "10.0.0.1:1234"
+	r.Header.Set("X-Forwarded-For", ", , 10.0.0.2, ")
+	ip := extractClientIP(r, trusted)
+	// All entries are empty or trusted → rightmostUntrustedIP returns ""
+	// → extractClientIP falls through to RemoteAddr
+	if ip != "10.0.0.1" {
+		t.Errorf("expected fallback to RemoteAddr 10.0.0.1, got %q", ip)
+	}
+}
+
+func TestExtractClientIP_XFFEmptySegmentsUntrustedClient(t *testing.T) {
+	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
+	trusted := []*net.IPNet{cidr}
+
+	r := httptest.NewRequest("POST", "/", http.NoBody)
+	r.RemoteAddr = "10.0.0.1:1234"
+	r.Header.Set("X-Forwarded-For", ", 1.2.3.4, , 10.0.0.2")
+	ip := extractClientIP(r, trusted)
+	// Walk right-to-left: 10.0.0.2 trusted, empty skipped, 1.2.3.4 NOT trusted → return it
+	if ip != "1.2.3.4" {
+		t.Errorf("expected 1.2.3.4, got %q", ip)
+	}
+}
+
+func TestExtractClientIP_XRealIPInvalid(t *testing.T) {
+	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
+	trusted := []*net.IPNet{cidr}
+
+	r := httptest.NewRequest("POST", "/", http.NoBody)
+	r.RemoteAddr = "10.0.0.1:1234"
+	r.Header.Set("X-Real-IP", "not-an-ip")
+	ip := extractClientIP(r, trusted)
+	// Invalid X-Real-IP should fall through to RemoteAddr
+	if ip != "10.0.0.1" {
+		t.Errorf("expected fallback to RemoteAddr for invalid X-Real-IP, got %q", ip)
+	}
 }

@@ -1700,16 +1700,25 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			debuglog.Debug("proxy: upstream error response", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "body_length", len(body), "attempt", attempt+1)
 			logData.responseHeaderMs = responseHeaderMs
 			h.failRequest(logData, resp.StatusCode, errMsg, attempt, startTime, parseMs, timings, proxyOverhead)
-			// Forward the upstream error to the client. If the upstream returned
-			// valid JSON (most OpenAI-compatible providers do), pass it through
-			// as-is. If it's not JSON (e.g. plain text, HTML error page), wrap it
-			// in an OpenAI-compatible error envelope so clients like SillyTavern
-			// don't crash on JSON.parse.
+
+			if !hasMoreCandidates {
+				// All failover candidates exhausted — return a generic error.
+				// The full upstream body is logged server-side above but not
+				// forwarded, as it may contain provider-specific details.
+				writeOpenAIError(w, fmt.Sprintf("upstream provider returned HTTP %d", resp.StatusCode), resp.StatusCode)
+				return
+			}
+
+			// Non-failover-eligible error with remaining candidates — forward
+			// the upstream response so clients can react to semantic errors
+			// (e.g. context_length_exceeded, rate_limit_exceeded).
 			if json.Valid(body) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(resp.StatusCode)
 				_, _ = w.Write(body)
 			} else {
+				// Body is not JSON (e.g. HTML from a CDN). Wrap in an
+				// OpenAI-compatible envelope so JSON-parsing clients don't crash.
 				writeOpenAIError(w, errMsg, resp.StatusCode)
 			}
 			return
