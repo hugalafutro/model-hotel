@@ -176,3 +176,16 @@ export function formatTimeUntil(ts: number): string {
 	}
 	return i18next.t("format.inHours_only_other", { hours });
 }
+
+/**
+ * Format a latency value in milliseconds to a human-readable string.
+ * Values >= 1000ms are shown as seconds (e.g., "8.4s", "15s").
+ * Values < 1000ms are shown as milliseconds (e.g., "980ms").
+ */
+export function formatLatency(ms: number): string {
+	if (ms >= 1000) {
+		const sec = ms / 1000;
+		return sec >= 10 ? `${Math.round(sec)}s` : `${sec.toFixed(1)}s`;
+	}
+	return `${Math.round(ms)}ms`;
+}

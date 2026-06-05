@@ -648,7 +648,7 @@ describe("useDashboard", () => {
 		});
 	});
 
-	describe("byModel / byModelLatency / byVK", () => {
+	describe("byModel / byModelLatency / byProviderLatency / byVK", () => {
 		it("byModel filters zeros, sorts descending, limits to 5", async () => {
 			server.use(
 				http.get("/api/stats", () => {
@@ -787,6 +787,48 @@ describe("useDashboard", () => {
 				expect(result.current.byModelLatency[1].label).toBe(
 					"Anthropic/claude-3",
 				);
+			});
+		});
+
+		it("byProviderLatency maps provider latency entries from stats", async () => {
+			server.use(
+				http.get("/api/stats", () => {
+					return HttpResponse.json({
+						...mockStats,
+						by_provider_latency: [
+							{
+								provider_name: "Ollama Cloud",
+								total_ms: 5200,
+								overhead_ms: 15,
+								provider_ms: 5185,
+								request_count: 50,
+							},
+							{
+								provider_name: "OpenAI",
+								total_ms: 1400,
+								overhead_ms: 8,
+								provider_ms: 1392,
+								request_count: 30,
+							},
+						],
+					} as Stats);
+				}),
+			);
+
+			const { result } = renderHook(() => useDashboard(), {
+				wrapper: AllProviders,
+			});
+
+			await waitFor(() => {
+				expect(result.current.byProviderLatency).toHaveLength(2);
+				expect(result.current.byProviderLatency[0]).toEqual({
+					label: "Ollama Cloud",
+					totalMs: 5200,
+					overheadMs: 15,
+					providerMs: 5185,
+					requestCount: 50,
+				});
+				expect(result.current.byProviderLatency[1].label).toBe("OpenAI");
 			});
 		});
 

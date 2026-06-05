@@ -1,15 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { Spinner } from "../../components/Spinner";
+import { formatLatency } from "../../utils/format";
 import { RangeToggle } from "./ToggleGroup";
 import type { Range } from "./types";
-
-function formatLatency(ms: number): string {
-	if (ms >= 1000) {
-		const sec = ms / 1000;
-		return sec >= 10 ? `${Math.round(sec)}s` : `${sec.toFixed(1)}s`;
-	}
-	return `${Math.round(ms)}ms`;
-}
 
 function getColorForRank(index: number, total: number): string {
 	if (total === 1) {
@@ -125,6 +118,7 @@ export function ProviderLatencyPanel({
 									style={{ color: responseColor }}
 									title={t("dashboard.providerLatency.responseTooltip", {
 										value: formatLatency(entry.totalMs),
+										count: entry.requestCount,
 									})}
 								>
 									{formatLatency(entry.totalMs)}
@@ -134,6 +128,7 @@ export function ProviderLatencyPanel({
 									style={{ color: overheadColor }}
 									title={t("dashboard.providerLatency.overheadTooltip", {
 										value: formatLatency(entry.overheadMs),
+										count: entry.requestCount,
 									})}
 								>
 									{formatLatency(entry.overheadMs)}

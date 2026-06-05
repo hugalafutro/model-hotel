@@ -232,12 +232,22 @@ describe("ProviderLatencyPanel", () => {
 		expect(screen.getByText("Overhead")).toBeInTheDocument();
 	});
 
-	it("shows request count in tooltip/title", () => {
+	it("includes request count in response and overhead tooltips", () => {
 		renderWithProviders(<ProviderLatencyPanel {...defaultProps} />);
 
-		// Provider labels should have title with request count
-		const providerLabel = screen.getByText("Provider A");
-		expect(providerLabel).toHaveAttribute("title", "Provider A");
+		// Response time values should have tooltips with request count
+		const responseValues = screen.getAllByText("8.4s");
+		const responseEl = responseValues[0];
+		expect(responseEl).toHaveAttribute("title");
+		const responseTitle = responseEl.getAttribute("title");
+		expect(responseTitle).toContain("100 requests");
+
+		// Overhead values should also have tooltips with request count
+		const overheadValues = screen.getAllByText("420ms");
+		const overheadEl = overheadValues[0];
+		expect(overheadEl).toHaveAttribute("title");
+		const overheadTitle = overheadEl.getAttribute("title");
+		expect(overheadTitle).toContain("100 requests");
 	});
 
 	it("renders all three range toggle options", () => {

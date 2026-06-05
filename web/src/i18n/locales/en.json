@@ -277,8 +277,8 @@
 			"response": "Response",
 			"overhead": "Overhead",
 			"emptyState": "No latency data yet. Provider latency will appear here once traffic flows.",
-			"responseTooltip": "Avg response time: {{value}}",
-			"overheadTooltip": "Avg proxy overhead: {{value}}",
+			"responseTooltip": "Avg response time: {{value}} ({{count}} requests)",
+			"overheadTooltip": "Avg proxy overhead: {{value}} ({{count}} requests)",
 			"requestCount": "{{count}} requests"
 		},
 		"providers": {
