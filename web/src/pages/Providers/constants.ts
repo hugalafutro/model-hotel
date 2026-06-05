@@ -61,6 +61,7 @@ export function getProviderType(baseUrl: string): string {
 	return "custom";
 }
 
+/** @deprecated Use providerTypeTranslationKeys + t() instead. Kept for reference only. */
 export const providerTypeDisplayNames: Record<string, string> = {
 	custom: "Custom",
 	nanogpt: "NanoGPT",
