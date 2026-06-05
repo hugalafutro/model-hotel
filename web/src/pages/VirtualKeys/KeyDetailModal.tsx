@@ -148,11 +148,14 @@ export function KeyDetailModal({
 			}),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["virtualKeys"] });
-			onToast("Virtual key updated", "success");
+			onToast(t("virtualkeys.modal.keyUpdated"), "success");
 			onClose();
 		},
 		onError: (err: Error) => {
-			onToast(`Failed: ${err.message}`, "error");
+			onToast(
+				t("virtualkeys.modal.keyUpdateFailed", { message: err.message }),
+				"error",
+			);
 		},
 	});
 

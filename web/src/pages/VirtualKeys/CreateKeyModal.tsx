@@ -87,10 +87,13 @@ export function CreateKeyModal({
 		onSuccess: (vk) => {
 			setCreatedKey(vk);
 			queryClient.invalidateQueries({ queryKey: ["virtualKeys"] });
-			onToast("Virtual key created", "success");
+			onToast(t("virtualkeys.modal.keyCreated"), "success");
 		},
 		onError: (err: Error) => {
-			onToast(`Failed: ${err.message}`, "error");
+			onToast(
+				t("virtualkeys.modal.keyCreatedFailed", { message: err.message }),
+				"error",
+			);
 		},
 	});
 
@@ -134,8 +137,7 @@ export function CreateKeyModal({
 							{t("virtualkeys.modal.warningTitle")}
 						</p>
 						<p className="text-red-400/70 text-xs mt-1">
-							Virtual keys are hashed before storage. Copy it now or it is gone
-							forever.
+							{t("virtualkeys.modal.warningText")}
 						</p>
 					</div>
 					<div className="bg-gray-950 rounded-lg p-3 mb-4">
@@ -159,7 +161,7 @@ export function CreateKeyModal({
 							onClick={onClose}
 							className="ui-btn ui-btn-secondary"
 						>
-							Done
+							{t("common.done")}
 						</button>
 					</div>
 				</>
@@ -170,7 +172,7 @@ export function CreateKeyModal({
 							htmlFor="vk-name"
 							className="block text-sm font-medium text-gray-300 mb-1"
 						>
-							Name
+							{t("virtualkeys.modal.nameLabel")}
 						</label>
 						<input
 							id="vk-name"
@@ -188,7 +190,7 @@ export function CreateKeyModal({
 							htmlFor="vk-rate-limit-rps"
 							className="block text-sm font-medium text-gray-300 mb-1"
 						>
-							Rate Limit RPS (requests/sec)
+							{t("virtualkeys.modal.rateLimitRpsLabel")}
 						</label>
 						<input
 							id="vk-rate-limit-rps"
@@ -205,7 +207,7 @@ export function CreateKeyModal({
 							htmlFor="vk-rate-limit-burst"
 							className="block text-sm font-medium text-gray-300 mb-1"
 						>
-							Rate Limit Burst (max concurrent)
+							{t("virtualkeys.modal.rateLimitBurstLabel")}
 						</label>
 						<input
 							id="vk-rate-limit-burst"
@@ -235,8 +237,7 @@ export function CreateKeyModal({
 							)}
 						</div>
 						<p className="text-xs text-gray-500 mb-2">
-							Click a provider to restrict access. All are accessible by
-							default.
+							{t("virtualkeys.modal.providerInstructionsText")}
 						</p>
 						{sortedProviders.length === 0 ? (
 							<p className="text-xs text-gray-500 italic">
@@ -305,8 +306,7 @@ export function CreateKeyModal({
 							</span>
 						</div>
 						<p className="text-xs text-gray-400 mt-1.5">
-							When enabled, reasoning/thinking tokens are removed from streaming
-							responses for clients that cannot handle them.
+							{t("virtualkeys.modal.stripReasoningDescriptionText")}
 						</p>
 					</div>
 
@@ -316,7 +316,7 @@ export function CreateKeyModal({
 							onClick={onClose}
 							className="ui-btn ui-btn-secondary"
 						>
-							Cancel
+							{t("common.cancel")}
 						</button>
 						<button
 							type="submit"
