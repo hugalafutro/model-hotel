@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -964,6 +965,97 @@ func TestGetProviderDistribution_WithExcludeDeleted(t *testing.T) {
 	}
 	if len(dist.Items) == 0 {
 		t.Error("Expected items in distribution response")
+	}
+}
+
+// TestGetStats_ProviderLatency tests the per-provider latency breakdown
+
+func TestGetStats_ProviderLatency(t *testing.T) {
+	h, router := newTestHandlerWithRouter(t)
+
+	// Create multiple providers
+	providerIDs := make([]uuid.UUID, 3)
+	for i := 0; i < 3; i++ {
+		provBody := fmt.Sprintf(`{"name":"provider-latency-%d-%s","base_url":"https://api.example.com/v1","api_key":"sk-test"}`, i, uuid.New().String()[:8])
+		req := httptest.NewRequest("POST", "/providers", strings.NewReader(provBody))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer test-admin-token")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusCreated {
+			t.Fatalf("Failed to create provider %d: %d", i, w.Code)
+		}
+
+		var createResp map[string]interface{}
+		json.Unmarshal(w.Body.Bytes(), &createResp)
+		provIDStr := createResp["id"].(string)
+		providerIDs[i], _ = uuid.Parse(provIDStr)
+	}
+
+	// Insert multiple request logs for each provider to meet HAVING COUNT(*) >= 3 threshold
+	pool := h.dbPool.Pool()
+	now := time.Now().UTC()
+	for i, provID := range providerIDs {
+		for j := 0; j < 5; j++ {
+			duration := float64(1000 + i*500 + j*100) // Different durations per provider
+			overhead := float64(50 + j*5)
+			_, err := pool.Exec(context.Background(), `
+				INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, proxy_overhead_ms, tokens_prompt, tokens_completion, created_at)
+				VALUES ($1, $2, 'gpt-4', 200, $3, $4, 100, 200, $5)`,
+				uuid.New(), provID, duration, overhead, now.Add(-time.Duration(j)*time.Hour))
+			if err != nil {
+				t.Fatalf("Failed to insert request log for provider %d: %v", i, err)
+			}
+		}
+	}
+
+	// Test stats endpoint with include_latency=true
+	req := httptest.NewRequest("GET", "/stats?include_latency=true", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var stats StatsResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &stats); err != nil {
+		t.Fatalf("Failed to parse stats response: %v", err)
+	}
+
+	// Verify by_provider_latency field is present
+	if stats.ByProviderLatency == nil {
+		t.Fatal("Expected ByProviderLatency to be present in response")
+	}
+
+	// Should have entries for the providers we created
+	if len(stats.ByProviderLatency) == 0 {
+		t.Error("Expected at least one provider latency entry")
+	}
+
+	// Verify each entry has the expected fields
+	for _, entry := range stats.ByProviderLatency {
+		if entry.ProviderName == "" {
+			t.Error("Expected ProviderName to be non-empty")
+		}
+		if entry.TotalMs == 0 {
+			t.Error("Expected TotalMs to be > 0")
+		}
+		if entry.OverheadMs == 0 {
+			t.Error("Expected OverheadMs to be > 0")
+		}
+		if entry.ProviderMs == 0 {
+			t.Error("Expected ProviderMs to be > 0")
+		}
+		if entry.RequestCount < 3 {
+			t.Errorf("Expected RequestCount >= 3, got %d", entry.RequestCount)
+		}
+		// ProviderMs should be TotalMs - OverheadMs (with some tolerance for floating point)
+		expectedProviderMs := entry.TotalMs - entry.OverheadMs
+		if math.Abs(entry.ProviderMs-expectedProviderMs) > 0.01 {
+			t.Errorf("ProviderMs (%f) should equal TotalMs (%f) - OverheadMs (%f)", entry.ProviderMs, entry.TotalMs, entry.OverheadMs)
+		}
 	}
 }
 

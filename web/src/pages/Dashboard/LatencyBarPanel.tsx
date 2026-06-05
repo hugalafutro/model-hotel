@@ -1,3 +1,6 @@
+// Reserved for future dashboard customization feature.
+// This panel will be available as a card option when users can
+// customize their dashboard layout. Do not delete.
 import { useTranslation } from "react-i18next";
 import { Spinner } from "../../components/Spinner";
 import { RangeToggle } from "./ToggleGroup";
