@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import type { GenerationParams } from "../../api/types";
 import type { ArenaSubMode } from "../../context/SidebarModeContext";
 import { useStorage } from "../../context/StorageContext";
@@ -20,6 +21,7 @@ export interface ArenaPersistenceState {
 export function useArenaPersistence(state: ArenaPersistenceState) {
 	const { persistArena } = useStorage();
 	const { toast } = useToast();
+	const { t } = useTranslation();
 	const quotaWarnedRef = useRef(false);
 
 	useEffect(() => {
@@ -43,7 +45,7 @@ export function useArenaPersistence(state: ArenaPersistenceState) {
 			/* quota exceeded */
 			if (!quotaWarnedRef.current) {
 				quotaWarnedRef.current = true;
-				toast("Storage full - arena state not saved", "warning");
+				toast(t("hooks.useArenaPersistence.storageFullArena"), "warning");
 			}
 		}
 	}, [
@@ -57,6 +59,7 @@ export function useArenaPersistence(state: ArenaPersistenceState) {
 		state.savedPrompt,
 		state.modelParams,
 		persistArena,
+		t,
 		toast,
 	]);
 }

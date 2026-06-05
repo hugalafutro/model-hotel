@@ -1,5 +1,6 @@
 import { produce } from "immer";
 import { useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { API_BASE, getAuthHeaders } from "../../api/client";
 import type { GenerationParams } from "../../api/types";
 import type { ArenaSubMode } from "../../context/SidebarModeContext";
@@ -79,6 +80,8 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 		enabledModels,
 		toast,
 	} = deps;
+
+	const { t } = useTranslation();
 
 	const abortMapRef = useRef<Map<string, AbortController>>(new Map());
 
@@ -255,7 +258,10 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 							}
 						}),
 					);
-					toast(`${model}: ${msg}`, "error");
+					toast(
+						t("hooks.useArenaRunner.generationError", { model, error: msg }),
+						"error",
+					);
 				} finally {
 					setRunningModels((prev) => {
 						const next = new Set(prev);
@@ -273,7 +279,7 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 
 			run();
 		},
-		[toast, setRunningModels, setPhase, setRounds, arenaModeRef],
+		[t, toast, setRunningModels, setPhase, setRounds, arenaModeRef],
 	);
 
 	const runRound = useCallback(

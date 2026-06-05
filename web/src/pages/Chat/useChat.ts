@@ -1,5 +1,6 @@
 import { MessageSquare, MessagesSquare } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type {
 	ChatMessage,
 	GenerationParams,
@@ -115,6 +116,7 @@ export function useChat() {
 	const lastPromptRef = useRef<string>("");
 	const messagesContainerRef = useRef<HTMLDivElement>(null);
 	const { toast } = useToast();
+	const { t } = useTranslation();
 
 	// Derived state based on current mode
 	const selectedModel =
@@ -287,6 +289,8 @@ export function useChat() {
 						return next;
 					});
 				},
+				undefined,
+				t,
 			);
 
 			setMessages((prev) => {
@@ -314,7 +318,7 @@ export function useChat() {
 
 			return result;
 		},
-		[messageParams],
+		[messageParams, t],
 	);
 
 	const {
@@ -526,7 +530,7 @@ export function useChat() {
 					toRemove.add(msgIndex - 1);
 				}
 				setMessages(messages.filter((_, i) => !toRemove.has(i)));
-				toast("Message deleted", "info");
+				toast(t("hooks.useChat.messageDeleted"), "info");
 				return;
 			}
 
@@ -541,7 +545,7 @@ export function useChat() {
 
 			if (!isLastAssistant && !isStreamingLast) {
 				// Can't delete - not the last message
-				toast("Can only delete the most recent response", "error");
+				toast(t("hooks.useChat.canOnlyDeleteRecent"), "error");
 				return;
 			}
 
@@ -562,7 +566,7 @@ export function useChat() {
 					setInput(lastPromptRef.current);
 				}
 				setMessages([]);
-				toast("Message deleted", "info");
+				toast(t("hooks.useChat.messageDeleted"), "info");
 				return;
 			}
 
@@ -572,7 +576,7 @@ export function useChat() {
 				setCurrentTurn(0);
 				setInput(remaining[0].content);
 				setMessages([]);
-				toast("Message deleted", "info");
+				toast(t("hooks.useChat.messageDeleted"), "info");
 				return;
 			}
 
@@ -588,10 +592,11 @@ export function useChat() {
 			}
 
 			setMessages(remaining);
-			toast("Message deleted", "info");
+			toast(t("hooks.useChat.messageDeleted"), "info");
 		},
 		[
 			chatSubMode,
+			t,
 			toast,
 			isStreaming,
 			conversationState,
@@ -664,12 +669,13 @@ export function useChat() {
 	const conversationDisabledReason = useMemo(() => {
 		if (chatSubMode !== "conversation") return "";
 		if (conversationState === "running") return "";
-		if (!selectedModel) return "Select Model A";
-		if (!selectedModelB) return "Select Model B";
-		if (selectedModel === selectedModelB) return "Models must be different";
-		if (!input.trim()) return "Enter a prompt";
+		if (!selectedModel) return t("chat.validation.selectModelA");
+		if (!selectedModelB) return t("chat.validation.selectModelB");
+		if (selectedModel === selectedModelB)
+			return t("chat.validation.modelsMustDiffer");
+		if (!input.trim()) return t("chat.validation.enterPrompt");
 		return "";
-	}, [chatSubMode, selectedModel, selectedModelB, input, conversationState]);
+	}, [chatSubMode, selectedModel, selectedModelB, input, conversationState, t]);
 
 	const chatIcon = chatSubMode === "chat" ? MessageSquare : MessagesSquare;
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import type { ChatMessage } from "../../api/types";
 import type { ChatSubMode } from "../../context/SidebarModeContext";
 import { useToast } from "../../context/ToastContext";
@@ -17,6 +18,7 @@ export function useChatPersistence({
 	persistConversation,
 }: ChatPersistenceParams) {
 	const { toast } = useToast();
+	const { t } = useTranslation();
 	const quotaWarnedRef = useRef(false);
 
 	// ── Chat mode persistence effect ──
@@ -28,10 +30,10 @@ export function useChatPersistence({
 			/* quota exceeded */
 			if (!quotaWarnedRef.current) {
 				quotaWarnedRef.current = true;
-				toast("Storage full - chat history not saved", "warning");
+				toast(t("hooks.useChatPersistence.storageFullChat"), "warning");
 			}
 		}
-	}, [messages, persistChat, toast]);
+	}, [messages, persistChat, t, toast]);
 
 	// ── Conversation messages persistence effect ──
 	useEffect(() => {
@@ -43,8 +45,8 @@ export function useChatPersistence({
 			/* quota exceeded */
 			if (!quotaWarnedRef.current) {
 				quotaWarnedRef.current = true;
-				toast("Storage full - chat history not saved", "warning");
+				toast(t("hooks.useChatPersistence.storageFullChat"), "warning");
 			}
 		}
-	}, [messages, persistConversation, chatSubMode, toast]);
+	}, [messages, persistConversation, chatSubMode, t, toast]);
 }
