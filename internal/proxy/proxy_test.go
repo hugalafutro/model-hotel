@@ -2544,3 +2544,393 @@ func TestChatCompletions_AllowedProviders_EmptySliceAllowsAll(t *testing.T) {
 		t.Errorf("expected 200 (empty slice allowed_providers skips filter), got %d; body: %s", w.Code, w.Body.String())
 	}
 }
+
+// ---------------------------------------------------------------------------
+// TestChatCompletions_UpstreamErrorForwarding - tests the new error forwarding logic
+// (proxy.go lines 1691-1722)
+// ---------------------------------------------------------------------------
+
+func TestChatCompletions_UpstreamErrorForwarding(t *testing.T) {
+	t.Run("failover exhausted returns generic error", func(t *testing.T) {
+		pool := testDB.Pool()
+		ctx := context.Background()
+
+		settingsRepo := settings.NewRepository(pool)
+		failoverRepo := failover.NewRepository(pool)
+		modelRepo := model.NewRepository(pool)
+		providerRepo := provider.NewRepository(pool)
+		virtualKeyRepo := virtualkey.NewRepository(pool)
+		limiter := ratelimit.NewLimiter(settingsRepo)
+		ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
+
+		masterKey := "test-master-key-for-error-forward"
+
+		// Create upstream that returns 400 with context_length_exceeded
+		upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(`{"error": {"message": "context_length_exceeded", "type": "invalid_request_error"}}`))
+		}))
+		defer upstream.Close()
+
+		keyPair, err := auth.Encrypt("test-api-key", masterKey)
+		if err != nil {
+			t.Fatalf("failed to encrypt key: %v", err)
+		}
+
+		provName := "error-prov-" + uuid.New().String()[:8]
+		prov, err := providerRepo.Create(ctx, provider.CreateProviderRequest{
+			Name:    provName,
+			BaseURL: upstream.URL,
+			APIKey:  "test-api-key",
+		}, keyPair.Ciphertext, keyPair.Nonce, keyPair.Salt)
+		if err != nil {
+			t.Fatalf("failed to create provider: %v", err)
+		}
+
+		modelName := "error-model-" + uuid.New().String()[:8]
+		testModel := &model.Model{
+			ID: uuid.New(), ProviderID: prov.ID, ModelID: modelName,
+			Name: "Error Model", Description: "", Capabilities: "{}",
+			Params: "{}", Modality: "", InputModalities: "[]", OutputModalities: "[]",
+			Enabled: true, ProviderName: provName, ProviderEnabled: true,
+		}
+		if err := modelRepo.Upsert(ctx, testModel); err != nil {
+			t.Fatalf("failed to upsert model: %v", err)
+		}
+
+		vkName := "error-test-key-" + uuid.New().String()[:8]
+		vkHash := virtualkey.Hash(vkName)
+		if _, err := virtualKeyRepo.Create(ctx, vkName, vkHash, "et-"+vkHash[:8], nil, nil, nil, nil); err != nil {
+			t.Fatalf("failed to create virtual key: %v", err)
+		}
+
+		handler := &Handler{
+			cfg:            &config.Config{MasterKey: masterKey},
+			settingsRepo:   settingsRepo,
+			failoverRepo:   failoverRepo,
+			modelRepo:      modelRepo,
+			providerRepo:   providerRepo,
+			virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
+			rateLimiter:    limiter,
+			ipLimiter:      ipLimiter,
+			circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
+			dbPool:         pool,
+			upstreamTransport: &http.Transport{
+				DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
+				ResponseHeaderTimeout: 120 * time.Second,
+				IdleConnTimeout:       120 * time.Second,
+				MaxIdleConns:          200,
+				MaxIdleConnsPerHost:   20,
+			},
+			safeDialer: NewSafeDialer(nil, nil),
+		}
+		defer handler.upstreamTransport.CloseIdleConnections()
+
+		body := `{"model": "` + provName + `/` + modelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
+		req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+		rCtx := context.WithValue(req.Context(), virtualKeyNameKey, vkName)
+		rCtx = context.WithValue(rCtx, virtualKeyIDKey, uuid.New().String())
+		rCtx = context.WithValue(rCtx, VirtualKeyHashKey, vkHash)
+		req = req.WithContext(rCtx)
+
+		w := httptest.NewRecorder()
+		handler.ChatCompletions(w, req)
+
+		// Single provider (no failover candidates) with 400 → generic error
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected status 400, got %d", w.Code)
+		}
+
+		bodyStr := w.Body.String()
+		if !strings.Contains(bodyStr, "upstream provider returned HTTP 400") {
+			t.Errorf("expected generic error message, got: %s", bodyStr)
+		}
+		if strings.Contains(bodyStr, "context_length_exceeded") {
+			t.Errorf("should NOT forward upstream JSON details, got: %s", bodyStr)
+		}
+	})
+
+	t.Run("non-failover-eligible error forwards upstream body", func(t *testing.T) {
+		pool := testDB.Pool()
+		ctx := context.Background()
+
+		settingsRepo := settings.NewRepository(pool)
+		failoverRepo := failover.NewRepository(pool)
+		modelRepo := model.NewRepository(pool)
+		providerRepo := provider.NewRepository(pool)
+		virtualKeyRepo := virtualkey.NewRepository(pool)
+		limiter := ratelimit.NewLimiter(settingsRepo)
+		ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
+
+		masterKey := "test-master-key-for-forward-body"
+
+		// Create two upstreams - first returns 400 (non-failover-eligible)
+		callCount := 0
+		upstream1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			callCount++
+			// First provider returns 400 with custom error
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(`{"error": {"message": "custom_validation_error", "type": "invalid_request_error"}}`))
+		}))
+		defer upstream1.Close()
+
+		upstream2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Second provider succeeds (we should never reach here for 400)
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"id": "cmpl-2", "choices": [{"message": {"content": "success"}}]}`))
+		}))
+		defer upstream2.Close()
+
+		keyPair1, err := auth.Encrypt("test-api-key-1", masterKey)
+		if err != nil {
+			t.Fatalf("failed to encrypt key1: %v", err)
+		}
+		keyPair2, err := auth.Encrypt("test-api-key-2", masterKey)
+		if err != nil {
+			t.Fatalf("failed to encrypt key2: %v", err)
+		}
+
+		provName1 := "forward-prov-1-" + uuid.New().String()[:8]
+		prov1, err := providerRepo.Create(ctx, provider.CreateProviderRequest{
+			Name:    provName1,
+			BaseURL: upstream1.URL,
+			APIKey:  "test-api-key-1",
+		}, keyPair1.Ciphertext, keyPair1.Nonce, keyPair1.Salt)
+		if err != nil {
+			t.Fatalf("failed to create provider1: %v", err)
+		}
+
+		provName2 := "forward-prov-2-" + uuid.New().String()[:8]
+		prov2, err := providerRepo.Create(ctx, provider.CreateProviderRequest{
+			Name:    provName2,
+			BaseURL: upstream2.URL,
+			APIKey:  "test-api-key-2",
+		}, keyPair2.Ciphertext, keyPair2.Nonce, keyPair2.Salt)
+		if err != nil {
+			t.Fatalf("failed to create provider2: %v", err)
+		}
+
+		modelName := "forward-model-" + uuid.New().String()[:8]
+		model1 := &model.Model{
+			ID: uuid.New(), ProviderID: prov1.ID, ModelID: modelName,
+			Name: "Forward Model 1", Description: "", Capabilities: "{}",
+			Params: "{}", Modality: "", InputModalities: "[]", OutputModalities: "[]",
+			Enabled: true, ProviderName: provName1, ProviderEnabled: true,
+		}
+		if err := modelRepo.Upsert(ctx, model1); err != nil {
+			t.Fatalf("failed to upsert model1: %v", err)
+		}
+
+		model2 := &model.Model{
+			ID: uuid.New(), ProviderID: prov2.ID, ModelID: modelName,
+			Name: "Forward Model 2", Description: "", Capabilities: "{}",
+			Params: "{}", Modality: "", InputModalities: "[]", OutputModalities: "[]",
+			Enabled: true, ProviderName: provName2, ProviderEnabled: true,
+		}
+		if err := modelRepo.Upsert(ctx, model2); err != nil {
+			t.Fatalf("failed to upsert model2: %v", err)
+		}
+
+		// Create failover group with both models
+		if _, err := failoverRepo.UpsertWithConfig(ctx, modelName,
+			[]uuid.UUID{model1.ID, model2.ID},
+			map[string]bool{}, nil, nil, nil, nil,
+		); err != nil {
+			t.Fatalf("failed to create failover group: %v", err)
+		}
+
+		vkName := "forward-test-key-" + uuid.New().String()[:8]
+		vkHash := virtualkey.Hash(vkName)
+		if _, err := virtualKeyRepo.Create(ctx, vkName, vkHash, "ft-"+vkHash[:8], nil, nil, nil, nil); err != nil {
+			t.Fatalf("failed to create virtual key: %v", err)
+		}
+
+		handler := &Handler{
+			cfg:            &config.Config{MasterKey: masterKey},
+			settingsRepo:   settingsRepo,
+			failoverRepo:   failoverRepo,
+			modelRepo:      modelRepo,
+			providerRepo:   providerRepo,
+			virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
+			rateLimiter:    limiter,
+			ipLimiter:      ipLimiter,
+			circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
+			dbPool:         pool,
+			upstreamTransport: &http.Transport{
+				DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
+				ResponseHeaderTimeout: 120 * time.Second,
+				IdleConnTimeout:       120 * time.Second,
+				MaxIdleConns:          200,
+				MaxIdleConnsPerHost:   20,
+			},
+			safeDialer: NewSafeDialer(nil, nil),
+		}
+		defer handler.upstreamTransport.CloseIdleConnections()
+
+		// Use hotel/ format to trigger failover group
+		body := `{"model": "hotel/` + modelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
+		req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+		rCtx := context.WithValue(req.Context(), virtualKeyNameKey, vkName)
+		rCtx = context.WithValue(rCtx, virtualKeyIDKey, uuid.New().String())
+		rCtx = context.WithValue(rCtx, VirtualKeyHashKey, vkHash)
+		req = req.WithContext(rCtx)
+
+		w := httptest.NewRecorder()
+		handler.ChatCompletions(w, req)
+
+		// 400 is NOT failover-eligible, so first provider's body should be forwarded
+		// hasMoreCandidates=true but isFailoverEligible=false → forward upstream body
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected status 400, got %d", w.Code)
+		}
+
+		bodyStr := w.Body.String()
+		// Should contain the upstream JSON error details
+		if !strings.Contains(bodyStr, "custom_validation_error") {
+			t.Errorf("expected upstream error body to be forwarded, got: %s", bodyStr)
+		}
+		// Verify we only called the first provider (no failover occurred)
+		if callCount != 1 {
+			t.Errorf("expected 1 call (no failover for 400), got %d", callCount)
+		}
+	})
+
+	t.Run("all candidates exhausted returns generic error", func(t *testing.T) {
+		pool := testDB.Pool()
+		ctx := context.Background()
+
+		settingsRepo := settings.NewRepository(pool)
+		failoverRepo := failover.NewRepository(pool)
+		modelRepo := model.NewRepository(pool)
+		providerRepo := provider.NewRepository(pool)
+		virtualKeyRepo := virtualkey.NewRepository(pool)
+		limiter := ratelimit.NewLimiter(settingsRepo)
+		ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
+
+		masterKey := "test-master-key-for-exhausted"
+
+		// Create two upstreams that both return 500
+		upstream1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(`{"error": {"message": "provider1_error"}}`))
+		}))
+		defer upstream1.Close()
+
+		upstream2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(`{"error": {"message": "provider2_error"}}`))
+		}))
+		defer upstream2.Close()
+
+		keyPair1, err := auth.Encrypt("test-api-key-1", masterKey)
+		if err != nil {
+			t.Fatalf("failed to encrypt key1: %v", err)
+		}
+		keyPair2, err := auth.Encrypt("test-api-key-2", masterKey)
+		if err != nil {
+			t.Fatalf("failed to encrypt key2: %v", err)
+		}
+
+		provName1 := "exhaust-prov-1-" + uuid.New().String()[:8]
+		prov1, err := providerRepo.Create(ctx, provider.CreateProviderRequest{
+			Name:    provName1,
+			BaseURL: upstream1.URL,
+			APIKey:  "test-api-key-1",
+		}, keyPair1.Ciphertext, keyPair1.Nonce, keyPair1.Salt)
+		if err != nil {
+			t.Fatalf("failed to create provider1: %v", err)
+		}
+
+		provName2 := "exhaust-prov-2-" + uuid.New().String()[:8]
+		prov2, err := providerRepo.Create(ctx, provider.CreateProviderRequest{
+			Name:    provName2,
+			BaseURL: upstream2.URL,
+			APIKey:  "test-api-key-2",
+		}, keyPair2.Ciphertext, keyPair2.Nonce, keyPair2.Salt)
+		if err != nil {
+			t.Fatalf("failed to create provider2: %v", err)
+		}
+
+		modelName := "exhaust-model-" + uuid.New().String()[:8]
+		model1 := &model.Model{
+			ID: uuid.New(), ProviderID: prov1.ID, ModelID: modelName,
+			Name: "Exhaust Model 1", Description: "", Capabilities: "{}",
+			Params: "{}", Modality: "", InputModalities: "[]", OutputModalities: "[]",
+			Enabled: true, ProviderName: provName1, ProviderEnabled: true,
+		}
+		if err := modelRepo.Upsert(ctx, model1); err != nil {
+			t.Fatalf("failed to upsert model1: %v", err)
+		}
+
+		model2 := &model.Model{
+			ID: uuid.New(), ProviderID: prov2.ID, ModelID: modelName,
+			Name: "Exhaust Model 2", Description: "", Capabilities: "{}",
+			Params: "{}", Modality: "", InputModalities: "[]", OutputModalities: "[]",
+			Enabled: true, ProviderName: provName2, ProviderEnabled: true,
+		}
+		if err := modelRepo.Upsert(ctx, model2); err != nil {
+			t.Fatalf("failed to upsert model2: %v", err)
+		}
+
+		// Create failover group with both models
+		if _, err := failoverRepo.UpsertWithConfig(ctx, modelName,
+			[]uuid.UUID{model1.ID, model2.ID},
+			map[string]bool{}, nil, nil, nil, nil,
+		); err != nil {
+			t.Fatalf("failed to create failover group: %v", err)
+		}
+
+		vkName := "exhaust-test-key-" + uuid.New().String()[:8]
+		vkHash := virtualkey.Hash(vkName)
+		if _, err := virtualKeyRepo.Create(ctx, vkName, vkHash, "xt-"+vkHash[:8], nil, nil, nil, nil); err != nil {
+			t.Fatalf("failed to create virtual key: %v", err)
+		}
+
+		handler := &Handler{
+			cfg:            &config.Config{MasterKey: masterKey},
+			settingsRepo:   settingsRepo,
+			failoverRepo:   failoverRepo,
+			modelRepo:      modelRepo,
+			providerRepo:   providerRepo,
+			virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
+			rateLimiter:    limiter,
+			ipLimiter:      ipLimiter,
+			circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
+			dbPool:         pool,
+			upstreamTransport: &http.Transport{
+				DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
+				ResponseHeaderTimeout: 120 * time.Second,
+				IdleConnTimeout:       120 * time.Second,
+				MaxIdleConns:          200,
+				MaxIdleConnsPerHost:   20,
+			},
+			safeDialer: NewSafeDialer(nil, nil),
+		}
+		defer handler.upstreamTransport.CloseIdleConnections()
+
+		// Use hotel/ format to trigger failover group
+		body := `{"model": "hotel/` + modelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
+		req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+		rCtx := context.WithValue(req.Context(), virtualKeyNameKey, vkName)
+		rCtx = context.WithValue(rCtx, virtualKeyIDKey, uuid.New().String())
+		rCtx = context.WithValue(rCtx, VirtualKeyHashKey, vkHash)
+		req = req.WithContext(rCtx)
+
+		w := httptest.NewRecorder()
+		handler.ChatCompletions(w, req)
+
+		// Both providers return 500 → all exhausted → generic error
+		if w.Code != http.StatusInternalServerError {
+			t.Errorf("expected status 500, got %d", w.Code)
+		}
+
+		bodyStr := w.Body.String()
+		// Should contain generic error, NOT the specific upstream errors
+		if !strings.Contains(bodyStr, "upstream provider returned HTTP 500") {
+			t.Errorf("expected generic error message, got: %s", bodyStr)
+		}
+		if strings.Contains(bodyStr, "provider1_error") || strings.Contains(bodyStr, "provider2_error") {
+			t.Errorf("should NOT forward upstream JSON details, got: %s", bodyStr)
+		}
+	})
+}

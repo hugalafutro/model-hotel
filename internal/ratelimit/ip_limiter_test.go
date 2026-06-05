@@ -835,3 +835,48 @@ func TestIPLimiter_CleanupEmptyMap(t *testing.T) {
 	}
 	lim.mu.Unlock()
 }
+
+func TestExtractClientIP_AllTrustedInvalidLeftmost(t *testing.T) {
+	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
+	trusted := []*net.IPNet{cidr}
+
+	r := httptest.NewRequest("POST", "/", http.NoBody)
+	r.RemoteAddr = "10.0.0.1:1234"
+	r.Header.Set("X-Forwarded-For", "unknown, 10.0.0.2")
+	ip := extractClientIP(r, trusted)
+	// 10.0.0.2 is trusted, "unknown" is not parseable as IP so isIPInTrustedNets
+	// returns false → it's treated as a non-trusted entry and returned as-is.
+	// This is correct: unparseable strings are NOT trusted, so they pass through.
+	if ip != "unknown" {
+		t.Errorf("expected unparseable 'unknown' to pass through, got %q", ip)
+	}
+}
+
+func TestExtractClientIP_XFFEmptySegments(t *testing.T) {
+	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
+	trusted := []*net.IPNet{cidr}
+
+	r := httptest.NewRequest("POST", "/", http.NoBody)
+	r.RemoteAddr = "10.0.0.1:1234"
+	r.Header.Set("X-Forwarded-For", ", , 10.0.0.2, ")
+	ip := extractClientIP(r, trusted)
+	// All entries are empty or trusted → rightmostUntrustedIP returns ""
+	// → extractClientIP falls through to RemoteAddr
+	if ip != "10.0.0.1" {
+		t.Errorf("expected fallback to RemoteAddr 10.0.0.1, got %q", ip)
+	}
+}
+
+func TestExtractClientIP_XFFEmptySegmentsUntrustedClient(t *testing.T) {
+	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
+	trusted := []*net.IPNet{cidr}
+
+	r := httptest.NewRequest("POST", "/", http.NoBody)
+	r.RemoteAddr = "10.0.0.1:1234"
+	r.Header.Set("X-Forwarded-For", ", 1.2.3.4, , 10.0.0.2")
+	ip := extractClientIP(r, trusted)
+	// Walk right-to-left: 10.0.0.2 trusted, empty skipped, 1.2.3.4 NOT trusted → return it
+	if ip != "1.2.3.4" {
+		t.Errorf("expected 1.2.3.4, got %q", ip)
+	}
+}

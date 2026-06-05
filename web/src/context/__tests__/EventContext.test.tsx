@@ -412,4 +412,76 @@ describe("SSE connection and event handling", () => {
 			{ timeout: 10000 },
 		);
 	});
+
+	it("clears token and reloads on 401 response", async () => {
+		const reloadMock = vi.fn();
+		const locationGetter = vi.spyOn(window, "location", "get").mockReturnValue({
+			...window.location,
+			reload: reloadMock,
+		});
+		const originalRemoveItem = localStorage.removeItem;
+		const removeItemMock = vi.fn();
+		localStorage.removeItem = removeItemMock as (key: string) => void;
+
+		server.use(
+			http.get("/api/events", () => {
+				return new HttpResponse(null, { status: 401 });
+			}),
+		);
+
+		const TestChild = () => <div data-testid="child">Test</div>;
+		renderWithEventProvider(<TestChild />);
+
+		await waitFor(() => {
+			expect(removeItemMock).toHaveBeenCalledWith("adminToken");
+		});
+
+		expect(reloadMock).toHaveBeenCalled();
+		expect(removeItemMock).toHaveBeenCalledWith("adminToken");
+
+		localStorage.removeItem = originalRemoveItem;
+		locationGetter.mockRestore();
+	});
+
+	it("reconnects with backoff on non-401 error", async () => {
+		const reloadMock = vi.fn();
+		const locationGetter = vi.spyOn(window, "location", "get").mockReturnValue({
+			...window.location,
+			reload: reloadMock,
+		});
+		const originalRemoveItem = localStorage.removeItem;
+		const removeItemMock = vi.fn();
+		localStorage.removeItem = removeItemMock as (key: string) => void;
+
+		let callCount = 0;
+
+		server.use(
+			http.get("/api/events", () => {
+				callCount++;
+				return HttpResponse.json(
+					{ error: "Internal server error" },
+					{ status: 500 },
+				);
+			}),
+		);
+
+		const TestChild = () => <div data-testid="child">Test</div>;
+		renderWithEventProvider(<TestChild />);
+
+		// Wait for multiple reconnection attempts (exponential backoff: 1s, 2s, 4s...)
+		await waitFor(
+			() => {
+				expect(callCount).toBeGreaterThanOrEqual(3);
+			},
+			{ timeout: 10000 },
+		);
+
+		// Verify reload was NOT called
+		expect(reloadMock).not.toHaveBeenCalled();
+		// Verify adminToken was NOT removed
+		expect(removeItemMock).not.toHaveBeenCalledWith("adminToken");
+
+		locationGetter.mockRestore();
+		localStorage.removeItem = originalRemoveItem;
+	});
 });
