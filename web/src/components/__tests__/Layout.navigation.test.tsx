@@ -4,6 +4,7 @@ import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { server } from "../../test/mocks/server";
 import { renderWithProviders } from "../../test/utils";
+import * as webauthnUtils from "../../utils/webauthn";
 import { Layout } from "../Layout";
 
 describe("Layout", () => {
@@ -681,6 +682,89 @@ describe("Layout", () => {
 				expect(tooltip).toContain("Also Down");
 				expect(tooltip).not.toContain("Healthy Provider");
 			});
+		});
+	});
+
+	describe("SSE Event Handling", () => {
+		it("invalidates circuit breaker query on circuit_breaker SSE event", async () => {
+			let fetchCount = 0;
+			server.use(
+				http.get("/api/failover-groups/circuit-breaker-status", () => {
+					fetchCount++;
+					return HttpResponse.json({
+						closed: 1,
+						half_open: 0,
+						open: 0,
+					});
+				}),
+			);
+
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			// Wait for initial fetch
+			await waitFor(() => {
+				expect(fetchCount).toBeGreaterThanOrEqual(1);
+			});
+
+			const initialCount = fetchCount;
+
+			// Fire a circuit_breaker SSE event — should trigger refetch
+			const event = new CustomEvent("server-event", {
+				detail: { type: "circuit_breaker.open", message: "Provider down" },
+			});
+			window.dispatchEvent(event);
+
+			await waitFor(() => {
+				expect(fetchCount).toBeGreaterThan(initialCount);
+			});
+
+			// Non-matching event should not trigger additional refetch
+			const countAfterMatch = fetchCount;
+			const nonMatchingEvent = new CustomEvent("server-event", {
+				detail: { type: "provider.created", message: "New provider" },
+			});
+			window.dispatchEvent(nonMatchingEvent);
+
+			// Give a tick for any potential refetch
+			await new Promise((r) => setTimeout(r, 100));
+			expect(fetchCount).toBe(countAfterMatch);
+		});
+	});
+
+	describe("Logout with WebAuthn", () => {
+		it("calls webauthn.logout when WebAuthn is available", async () => {
+			const user = userEvent.setup();
+			vi.spyOn(webauthnUtils, "isWebAuthnAvailable").mockResolvedValue(true);
+			let logoutCalled = false;
+			server.use(
+				http.post("/api/webauthn/logout", () => {
+					logoutCalled = true;
+					return HttpResponse.json({ success: true });
+				}),
+			);
+			localStorage.setItem("adminToken", "test-token");
+
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			const logoutButton = screen.getByText("Logout").closest("button");
+			expect(logoutButton).toBeInTheDocument();
+			if (logoutButton) {
+				await user.click(logoutButton);
+			}
+
+			const confirmButton = screen
+				.getByRole("dialog")
+				.querySelector("button.ui-btn-danger");
+			if (confirmButton) {
+				await user.click(confirmButton);
+			}
+
+			await waitFor(() => {
+				expect(logoutCalled).toBe(true);
+				expect(localStorage.getItem("adminToken")).toBeNull();
+			});
+
+			localStorage.removeItem("adminToken");
 		});
 	});
 });
