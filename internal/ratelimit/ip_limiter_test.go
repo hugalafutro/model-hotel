@@ -397,6 +397,35 @@ func TestExtractClientIP_AllTrustedFallsBackToLeftmost(t *testing.T) {
 	}
 }
 
+func TestExtractClientIP_IPv6XFFTrusted(t *testing.T) {
+	_, cidr, _ := net.ParseCIDR("2001:db8::/32")
+	trusted := []*net.IPNet{cidr}
+
+	r := httptest.NewRequest("POST", "/", http.NoBody)
+	r.RemoteAddr = "[2001:db8::1]:1234"
+	r.Header.Set("X-Forwarded-For", "2001:db8:1::100, 2001:db8::1")
+	ip := extractClientIP(r, trusted)
+	// 2001:db8::1 is trusted, 2001:db8:1::100 is in trusted range too
+	// All trusted → falls back to leftmost
+	if ip != "2001:db8:1::100" {
+		t.Errorf("expected leftmost fallback 2001:db8:1::100, got %q", ip)
+	}
+}
+
+func TestExtractClientIP_IPv6XFFMixed(t *testing.T) {
+	_, cidr, _ := net.ParseCIDR("2001:db8::/32")
+	trusted := []*net.IPNet{cidr}
+
+	r := httptest.NewRequest("POST", "/", http.NoBody)
+	r.RemoteAddr = "[2001:db8::1]:1234"
+	r.Header.Set("X-Forwarded-For", "fe80::1, 2001:db8::1")
+	ip := extractClientIP(r, trusted)
+	// 2001:db8::1 is trusted, fe80::1 is not → return fe80::1
+	if ip != "fe80::1" {
+		t.Errorf("expected rightmost non-trusted fe80::1, got %q", ip)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Concurrent access test
 // ---------------------------------------------------------------------------

@@ -241,7 +241,7 @@ func rightmostUntrustedIP(xff string, trustedProxies []*net.IPNet) string {
 		if ip == "" {
 			continue
 		}
-		if !config.IsTrustedProxy(ip+":0", trustedProxies) {
+		if !isIPInTrustedNets(ip, trustedProxies) {
 			return ip
 		}
 	}
@@ -250,4 +250,21 @@ func rightmostUntrustedIP(xff string, trustedProxies []*net.IPNet) string {
 		return strings.TrimSpace(parts[0])
 	}
 	return ""
+}
+
+// isIPInTrustedNets checks whether a bare IP address string belongs to any
+// trusted proxy CIDR. Uses net.ParseIP directly to avoid the host:port
+// format required by IsTrustedProxy, which would break IPv6 addresses
+// that use :: zero-compression (e.g. "2001:db8::1" → "2001:db8::1:0").
+func isIPInTrustedNets(ipStr string, trustedNets []*net.IPNet) bool {
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		return false
+	}
+	for _, n := range trustedNets {
+		if n.Contains(ip) {
+			return true
+		}
+	}
+	return false
 }
