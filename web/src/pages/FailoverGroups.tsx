@@ -822,7 +822,7 @@ export function FailoverGroups() {
 					entityName={t("failover.delete_confirm_bulk_title", {
 						count: bulkDeleteIds.size,
 					})}
-					entityType={t("failover.delete_confirm_type")}
+					entityType={t("failover.delete_confirm_type_plural")}
 					isPending={isBulkDeleting}
 					onConfirm={confirmBulkDelete}
 					onCancel={() => setBulkDeleteIds(null)}

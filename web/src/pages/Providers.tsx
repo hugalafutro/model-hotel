@@ -316,7 +316,7 @@ export function Providers() {
 							onClick={() => setShowModal(true)}
 							className="ui-btn ui-btn-primary"
 						>
-							{t("providers.btn_add_provider")}
+							+ {t("providers.btn_add_provider")}
 						</button>
 					</>
 				}
