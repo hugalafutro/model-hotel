@@ -20,8 +20,8 @@ import { PageHeader } from "../components/PageHeader";
 import { formatCompact, formatTokens, formatWithCommas } from "../utils/format";
 import { Gauge } from "./Dashboard/Gauge";
 import { GaugeModal } from "./Dashboard/GaugeModal";
-import { LatencyBarPanel } from "./Dashboard/LatencyBarPanel";
 import { ProviderDoughnut } from "./Dashboard/ProviderDoughnut";
+import { ProviderLatencyPanel } from "./Dashboard/ProviderLatencyPanel";
 import { StatCard } from "./Dashboard/StatCard";
 import { TimeSeriesChart } from "./Dashboard/TimeSeriesChart";
 import { MetricToggle, RangeToggle } from "./Dashboard/ToggleGroup";
@@ -120,7 +120,7 @@ export function Dashboard() {
 		acData,
 		tokenAcData,
 		byModel,
-		byModelLatency,
+		byProviderLatency,
 		byVK,
 		accents,
 	} = useDashboard();
@@ -460,14 +460,13 @@ export function Dashboard() {
 					onEntryClick={handleModelClick}
 					formatValue={modelsMetric === "tokens" ? formatTokens : undefined}
 				/>
-				<LatencyBarPanel
-					title={t("dashboard.latency.topModels")}
+				<ProviderLatencyPanel
+					title={t("dashboard.providerLatency.title")}
 					icon={Timer}
-					entries={byModelLatency}
+					entries={byProviderLatency}
 					range={latencyRange}
 					onRangeChange={setLatencyRange}
 					loading={latencyStatsLoading}
-					overheadColor={accents.overhead}
 				/>
 				<UsageBarPanel
 					title={t("dashboard.virtualKeys.top")}

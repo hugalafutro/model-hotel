@@ -1,5 +1,9 @@
+// Reserved for future dashboard customization feature.
+// This panel will be available as a card option when users can
+// customize their dashboard layout. Do not delete.
 import { useTranslation } from "react-i18next";
 import { Spinner } from "../../components/Spinner";
+import { formatLatency } from "../../utils/format";
 import { RangeToggle } from "./ToggleGroup";
 import type { Range } from "./types";
 
@@ -10,14 +14,6 @@ export type LatencyEntry = {
 	providerMs: number;
 	requestCount: number;
 };
-
-function formatLatency(ms: number): string {
-	if (ms >= 1000) {
-		const sec = ms / 1000;
-		return sec >= 10 ? `${Math.round(sec)}s` : `${sec.toFixed(1)}s`;
-	}
-	return `${Math.round(ms)}ms`;
-}
 
 export function LatencyBarPanel({
 	title,

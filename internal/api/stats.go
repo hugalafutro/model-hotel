@@ -40,24 +40,34 @@ type ModelLatencyEntry struct {
 	RequestCount int     `json:"request_count"`
 }
 
+// ProviderLatencyEntry holds per-provider latency breakdown for the dashboard.
+type ProviderLatencyEntry struct {
+	ProviderName string  `json:"provider_name"`
+	TotalMs      float64 `json:"total_ms"`
+	OverheadMs   float64 `json:"overhead_ms"`
+	ProviderMs   float64 `json:"provider_ms"`
+	RequestCount int     `json:"request_count"`
+}
+
 // StatsResponse contains aggregated statistics for the dashboard.
 type StatsResponse struct {
-	TotalRequestsLast24h  int                 `json:"total_requests_last_24h"`
-	TotalRequestsLast7d   int                 `json:"total_requests_last_7d"`
-	ByModel               map[string]int64    `json:"by_model"`
-	ByProvider            map[string]int64    `json:"by_provider"`
-	ByVirtualKey          map[string]int64    `json:"by_virtual_key"`
-	AvgLatencyMs          float64             `json:"avg_latency_ms"`
-	ErrorRate             float64             `json:"error_rate"`
-	AvgOverheadMs         float64             `json:"avg_overhead_ms"`
-	TotalTokensPrompt     int                 `json:"total_tokens_prompt"`
-	TotalTokensCompletion int                 `json:"total_tokens_completion"`
-	TotalTokensCacheHit   int                 `json:"total_tokens_cache_hit"`
-	AvgTokensPerRequest   float64             `json:"avg_tokens_per_request"`
-	RateLimitHits         int                 `json:"rate_limit_hits"`
-	AvgTTFTMs             float64             `json:"avg_ttft_ms"`
-	RequestsLast1h        int                 `json:"requests_last_1h"`
-	ByModelLatency        []ModelLatencyEntry `json:"by_model_latency"`
+	TotalRequestsLast24h  int                    `json:"total_requests_last_24h"`
+	TotalRequestsLast7d   int                    `json:"total_requests_last_7d"`
+	ByModel               map[string]int64       `json:"by_model"`
+	ByProvider            map[string]int64       `json:"by_provider"`
+	ByVirtualKey          map[string]int64       `json:"by_virtual_key"`
+	AvgLatencyMs          float64                `json:"avg_latency_ms"`
+	ErrorRate             float64                `json:"error_rate"`
+	AvgOverheadMs         float64                `json:"avg_overhead_ms"`
+	TotalTokensPrompt     int                    `json:"total_tokens_prompt"`
+	TotalTokensCompletion int                    `json:"total_tokens_completion"`
+	TotalTokensCacheHit   int                    `json:"total_tokens_cache_hit"`
+	AvgTokensPerRequest   float64                `json:"avg_tokens_per_request"`
+	RateLimitHits         int                    `json:"rate_limit_hits"`
+	AvgTTFTMs             float64                `json:"avg_ttft_ms"`
+	RequestsLast1h        int                    `json:"requests_last_1h"`
+	ByModelLatency        []ModelLatencyEntry    `json:"by_model_latency"`
+	ByProviderLatency     []ProviderLatencyEntry `json:"by_provider_latency"`
 }
 
 // TimeSeriesPoint holds a single bucket of time-series data.
@@ -510,6 +520,40 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 					continue
 				}
 				stats.ByModelLatency = append(stats.ByModelLatency, entry)
+			}
+		}
+
+		// Query 13: Per-provider latency breakdown (top 5 by avg total latency).
+		query = `
+			WITH provider_latency AS (
+				SELECT
+					p.name as provider_name,
+					COUNT(*) as req_count,
+					COALESCE(AVG(rl.duration_ms), 0) as avg_total,
+					COALESCE(AVG(COALESCE(rl.proxy_overhead_ms, 0)), 0) as avg_overhead
+				FROM request_logs rl
+				INNER JOIN providers p ON rl.provider_id = p.id` + vkJoin + `
+				WHERE rl.created_at >= $1 AND rl.status_code > 0 AND rl.status_code < 400` + vkFilter + `
+				GROUP BY p.name
+				HAVING COUNT(*) >= 3
+				ORDER BY avg_total DESC
+				LIMIT 5
+			)
+			SELECT provider_name, req_count, avg_total, avg_overhead,
+				GREATEST(0, avg_total - avg_overhead) as avg_provider
+			FROM provider_latency`
+
+		rows, err = h.dbPool.Query(ctx, query, since)
+		if err != nil {
+			debuglog.Error("stats: query failed", "query", "by_provider_latency", "error", err)
+		} else {
+			defer rows.Close()
+			for rows.Next() {
+				var entry ProviderLatencyEntry
+				if err := rows.Scan(&entry.ProviderName, &entry.RequestCount, &entry.TotalMs, &entry.OverheadMs, &entry.ProviderMs); err != nil {
+					continue
+				}
+				stats.ByProviderLatency = append(stats.ByProviderLatency, entry)
 			}
 		}
 	}

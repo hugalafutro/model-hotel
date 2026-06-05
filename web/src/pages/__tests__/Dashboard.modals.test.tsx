@@ -521,12 +521,12 @@ describe("Dashboard.coverage", () => {
 			});
 		});
 
-		it("renders Slowest Models panel with latency data", async () => {
-			const statsWithModelLatency = {
+		it("renders Provider Latency panel with latency data", async () => {
+			const statsWithProviderLatency = {
 				...mockStats,
-				by_model_latency: [
+				by_provider_latency: [
 					{
-						model_id: "Test Provider/test-model-v1",
+						provider_name: "Test Provider",
 						total_ms: 3200,
 						overhead_ms: 12,
 						provider_ms: 3188,
@@ -535,7 +535,9 @@ describe("Dashboard.coverage", () => {
 				],
 			};
 			server.use(
-				http.get("/api/stats", () => HttpResponse.json(statsWithModelLatency)),
+				http.get("/api/stats", () =>
+					HttpResponse.json(statsWithProviderLatency),
+				),
 				http.get("/api/models", () => HttpResponse.json([mockModel])),
 				http.get("/api/providers", () => HttpResponse.json([mockProvider])),
 				http.get("/api/virtual-keys", () => HttpResponse.json([])),
@@ -547,11 +549,9 @@ describe("Dashboard.coverage", () => {
 				expect(screen.getByText("Dashboard")).toBeInTheDocument();
 			});
 
-			// Should show model entry with latency value
+			// Should show provider entry with latency value
 			await waitFor(() => {
-				expect(
-					screen.getByText("Test Provider/test-model-v1"),
-				).toBeInTheDocument();
+				expect(screen.getByText("Test Provider")).toBeInTheDocument();
 				expect(screen.getByText("3.2s")).toBeInTheDocument();
 			});
 		});

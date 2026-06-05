@@ -145,6 +145,13 @@ export interface UseDashboardReturn {
 		providerMs: number;
 		requestCount: number;
 	}>;
+	byProviderLatency: Array<{
+		label: string;
+		totalMs: number;
+		overheadMs: number;
+		providerMs: number;
+		requestCount: number;
+	}>;
 	byVK: Array<{
 		label: string;
 		value: number;
@@ -617,6 +624,15 @@ export function useDashboard(): UseDashboardReturn {
 				requestCount: entry.request_count,
 			}))
 		: [];
+	const byProviderLatency = latencyStats?.by_provider_latency
+		? latencyStats.by_provider_latency.map((entry) => ({
+				label: entry.provider_name,
+				totalMs: entry.total_ms,
+				overheadMs: entry.overhead_ms,
+				providerMs: entry.provider_ms,
+				requestCount: entry.request_count,
+			}))
+		: [];
 	const byVK = vkeysUsageStats
 		? Object.entries(vkeysUsageStats.by_virtual_key)
 				.filter(([, v]) => Number(v) > 0)
@@ -735,6 +751,7 @@ export function useDashboard(): UseDashboardReturn {
 		tokenAcData,
 		byModel,
 		byModelLatency,
+		byProviderLatency,
 		byVK,
 		accents,
 	};

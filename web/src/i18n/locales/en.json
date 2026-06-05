@@ -272,6 +272,15 @@
 			"providerTip": "Provider: {{value}}",
 			"overheadTip": "Proxy overhead: {{value}} ({{ratio}}%)"
 		},
+		"providerLatency": {
+			"title": "Provider Latency",
+			"response": "Response",
+			"overhead": "Overhead",
+			"emptyState": "No latency data yet. Provider latency will appear here once traffic flows.",
+			"responseTooltip": "Avg response time: {{value}} ({{count}} requests)",
+			"overheadTooltip": "Avg proxy overhead: {{value}} ({{count}} requests)",
+			"requestCount": "{{count}} requests"
+		},
 		"providers": {
 			"top": "Top Providers",
 			"top_one": "Top {{count}} Provider",
