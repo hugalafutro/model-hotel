@@ -1280,8 +1280,12 @@ func TestChatCompletions_ParamRejectionAutoRetry(t *testing.T) {
 	}
 }
 
-// TestChatCompletions_NonJSONErrorBody tests that non-JSON error responses
-// (e.g. HTML from CDN) are wrapped in OpenAI-compatible envelope (line 1719-1723).
+// TestChatCompletions_NonJSONErrorBody tests error handling for non-JSON
+// upstream responses (e.g. HTML from CDN). With a single provider and no
+// failover candidates remaining, this exercises the all-candidates-exhausted
+// path (line 1708) which wraps the error in an OpenAI-compatible envelope.
+// Lines 1719-1723 (non-JSON wrapping with remaining candidates) would require
+// a hotel/ failover group setup.
 func TestChatCompletions_NonJSONErrorBody(t *testing.T) {
 	pool := testDB.Pool()
 	settingsRepo := settings.NewRepository(pool)
@@ -1314,8 +1318,8 @@ func TestChatCompletions_NonJSONErrorBody(t *testing.T) {
 		Capabilities:     "{}",
 		Params:           "{}",
 		Modality:         "chat",
-		InputModalities:  "[\"text\"]",
-		OutputModalities: "[\"text\"]",
+		InputModalities:  `["text"]`,
+		OutputModalities: `["text"]`,
 		Enabled:          true,
 		ProviderName:     providerName,
 		ProviderEnabled:  true,
@@ -1359,7 +1363,7 @@ func TestChatCompletions_NonJSONErrorBody(t *testing.T) {
 		t.Errorf("expected 502, got %d", w.Code)
 	}
 
-	// Body should be valid JSON with error object
+	// Body should be valid JSON with error object (not raw HTML)
 	var resp map[string]interface{}
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("expected JSON response, got: %s", w.Body.String())

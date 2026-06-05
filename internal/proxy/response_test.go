@@ -1705,9 +1705,7 @@ func (w *contentTriggeredWriter) Flush()               {}
 //
 // The blank line write at line 234 is only reached when the stream starts
 // with empty lines before any data line (skipNextEmptyLine starts as false).
-// Write 1 (blank "\n") succeeds, Write 2 (data chunk via writeSSEDataChunk)
-// triggers the error. The blank line handler at line 234 writes "\n" as
-// the very first output.
+// With triggerAfterBytes=0 the very first write (the "\n" blank line) fails.
 func TestHandleStreamingResponse_BlankLineWriteFailure(t *testing.T) {
 	h := newUnitHandler()
 	defer stopUnitHandler(h)
@@ -1804,6 +1802,10 @@ data: [DONE]
 
 // TestHandleStreamingResponse_EmptyContentStripWriteFailure tests write failure
 // when stripping empty content from reasoning chunks (line 648-651 in proxy.go).
+// The empty-content-strip block runs regardless of stripReasoning, but with
+// stripReasoning=true the reasoning strip block would modify the delta first
+// (deleting content), preventing the empty-content check from matching.
+// Using stripReasoning=false lets the original chunk reach line 629 unmodified.
 func TestHandleStreamingResponse_EmptyContentStripWriteFailure(t *testing.T) {
 	h := newUnitHandler()
 	defer stopUnitHandler(h)
@@ -1826,7 +1828,7 @@ data: [DONE]
 	}
 
 	req := httptest.NewRequest("GET", "/", http.NoBody)
-	req = withStripReasoningContext(req, true)
+	req = withAuthContext(req) // no stripReasoning — chunk reaches line 629 unmodified
 
 	logData := &requestLogData{
 		modelID:        "test-model",

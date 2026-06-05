@@ -822,11 +822,12 @@ func TestProbeFirstToken_ScannerErrorRecoveryWithDataInBuffer(t *testing.T) {
 	}
 }
 
-// TestProbeFirstToken_ScannerErrorRecovery_PipeRace uses io.Pipe to create
-// a true race between the scanner and body closure. The writer end sends a
-// complete data line, sleeps briefly, then closes with an error. The TeeReader
-// captures the data in buf before the scanner can process it, simulating the
-// real-world race where the timeout goroutine closes the body mid-scan.
+// TestProbeFirstToken_ScannerErrorRecovery_PipeRace uses io.Pipe to test
+// probeFirstToken with a reader that errors after delivering data. In practice,
+// the bufio.Scanner processes the complete line before the pipe close fires,
+// so this exercises the normal scan path (not the recovery path at line 1921).
+// The recovery path is defense-in-depth for a race that's practically impossible
+// to trigger deterministically. Kept as a robustness test.
 func TestProbeFirstToken_ScannerErrorRecovery_PipeRace(t *testing.T) {
 	h := &Handler{}
 
