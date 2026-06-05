@@ -419,7 +419,7 @@ describe("SSE connection and event handling", () => {
 			...window.location,
 			reload: reloadMock,
 		});
-		const removeItemSpy = vi.spyOn(window.localStorage, "removeItem");
+		const removeItemSpy = vi.spyOn(globalThis.localStorage, "removeItem");
 
 		server.use(
 			http.get("/api/events", () => {
@@ -446,7 +446,7 @@ describe("SSE connection and event handling", () => {
 			...window.location,
 			reload: reloadMock,
 		});
-		const removeItemSpy = vi.spyOn(window.localStorage, "removeItem");
+		const removeItemSpy = vi.spyOn(globalThis.localStorage, "removeItem");
 
 		let callCount = 0;
 
