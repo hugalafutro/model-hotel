@@ -49,7 +49,10 @@ export function EditProviderModal({
 		},
 		onError: (err: Error) => {
 			setError(err.message);
-			onToast(t("update_failed", { message: err.message }), "error");
+			onToast(
+				t("providers.toast_update_failed", { message: err.message }),
+				"error",
+			);
 		},
 	});
 

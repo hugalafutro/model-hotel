@@ -25,7 +25,7 @@ import { countLabel } from "../utils/format";
 import { AddProviderModal } from "./Providers/AddProviderModal";
 import {
 	getProviderType,
-	providerTypeDisplayNames,
+	providerTypeTranslationKeys,
 } from "./Providers/constants";
 import { EditProviderModal } from "./Providers/EditProviderModal";
 import { ProviderCard } from "./Providers/ProviderCard";
@@ -245,8 +245,7 @@ export function Providers() {
 		});
 		return entries.map(([type, count]) => ({
 			value: type,
-			label:
-				t(`providers.type_${type}`) || providerTypeDisplayNames[type] || type,
+			label: t(providerTypeTranslationKeys[type] || `providers.type_${type}`),
 			count,
 		}));
 	}, [providers, t]);
@@ -292,7 +291,7 @@ export function Providers() {
 						>
 							{discoverAllMutation.isPending ? (
 								<>
-									<Spinner /> Discovering...
+									<Spinner /> {t("providers.btn_discovering")}
 								</>
 							) : (
 								t("providers.btn_discover_all")
@@ -306,7 +305,7 @@ export function Providers() {
 						>
 							{refreshQuotasMutation.isPending ? (
 								<>
-									<Spinner /> Refreshing...
+									<Spinner /> {t("providers.btn_refreshing")}
 								</>
 							) : (
 								t("providers.btn_refresh_quotas")
@@ -317,7 +316,7 @@ export function Providers() {
 							onClick={() => setShowModal(true)}
 							className="ui-btn ui-btn-primary"
 						>
-							+ Add Provider
+							{t("providers.btn_add_provider")}
 						</button>
 					</>
 				}
