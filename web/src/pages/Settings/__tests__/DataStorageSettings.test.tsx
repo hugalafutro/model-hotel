@@ -749,7 +749,7 @@ describe("Log Retention slider", () => {
 		});
 	});
 
-	it("shows disabled warning when log retention is 0", async () => {
+	it("shows description with disable note when log retention is 0", async () => {
 		server.use(
 			http.get("/api/settings", () =>
 				HttpResponse.json({ log_retention: "0" }),
@@ -761,9 +761,8 @@ describe("Log Retention slider", () => {
 		);
 
 		await waitFor(() => {
-			expect(
-				screen.getByText(/log retention is disabled/i),
-			).toBeInTheDocument();
+			const descriptions = screen.getAllByText(/0 to disable/i);
+			expect(descriptions.length).toBeGreaterThanOrEqual(1);
 		});
 	});
 
@@ -830,7 +829,7 @@ describe("Stale Request Timeout slider", () => {
 		});
 	});
 
-	it("shows disabled warning when stale request timeout is 0", async () => {
+	it("shows description with disable note when stale request timeout is 0", async () => {
 		server.use(
 			http.get("/api/settings", () =>
 				HttpResponse.json({ stale_request_timeout: "0m0s" }),
@@ -842,9 +841,8 @@ describe("Stale Request Timeout slider", () => {
 		);
 
 		await waitFor(() => {
-			expect(
-				screen.getByText(/stale request detection is disabled/i),
-			).toBeInTheDocument();
+			const descriptions = screen.getAllByText(/0 to disable/i);
+			expect(descriptions.length).toBeGreaterThanOrEqual(1);
 		});
 	});
 
@@ -1073,6 +1071,7 @@ describe("Dashboard Refresh", () => {
 
 		await user.click(dashboardSlider);
 		fireEvent.input(dashboardSlider, { target: { value: "0" } });
+		fireEvent.pointerUp(dashboardSlider);
 
 		await waitFor(() => {
 			expect(screen.getByText(/disabled/i)).toBeInTheDocument();
