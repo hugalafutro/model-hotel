@@ -78,7 +78,13 @@ func TestValidateProviderURL_AllowKnownProvider(t *testing.T) {
 }
 
 func TestValidateProviderURL_AllowKnownProviderSubdomain(t *testing.T) {
-	cfg := &Config{}
+	// Use mock DNS to avoid real lookups (which take ~2s per non-existent domain)
+	cfg := &Config{
+		lookupIP: func(host string) ([]net.IP, error) {
+			// Return a public IP to simulate successful resolution
+			return []net.IP{net.ParseIP("1.2.3.4")}, nil
+		},
+	}
 	tests := []struct {
 		name string
 		url  string

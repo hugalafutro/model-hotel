@@ -253,7 +253,12 @@ func TestSafeDialer_DialTimingContext(t *testing.T) {
 }
 
 func TestSafeDialer_DNSErrorFallback(t *testing.T) {
-	sd := NewSafeDialer(nil, nil)
+	// Use mock resolver to avoid real DNS lookups
+	sd := newSafeDialerWithResolver(nil, &mockResolver{
+		lookupFunc: func(ctx context.Context, host string) ([]net.IPAddr, error) {
+			return nil, fmt.Errorf("DNS lookup failed")
+		},
+	}, nil)
 	ctx := context.Background()
 
 	// Non-existent host should fall through to dial and get a connection error,
@@ -420,7 +425,7 @@ func TestSafeDialer_DialByIPWithMockDNS(t *testing.T) {
 	// Create a SafeDialer with the mock resolver - NOT allowlisting the host
 	// This forces the dial-by-IP path
 	sd := newSafeDialerWithResolver(nil, mockResolver, nil)
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
 	// Dial a fake hostname - the mock resolver returns 8.8.8.8 (public, non-blocked)
@@ -522,7 +527,7 @@ func TestSafeDialer_MixedBlockedAndAllowedIPs(t *testing.T) {
 	}
 
 	sd := newSafeDialerWithResolver(nil, mockRes, nil)
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
 	_, err := sd.DialContext(ctx, "tcp", "mixed.example.com:80")

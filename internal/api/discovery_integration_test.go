@@ -680,7 +680,31 @@ func TestDiscoverAllModels_WithEnabledProvider(t *testing.T) {
 // TestGetProviderUsage_ZAICodingError tests that GetProviderUsage handles
 // z.ai API errors (note: z.ai returns 200 with error JSON for invalid keys).
 func TestGetProviderUsage_ZAICodingError(t *testing.T) {
+	// Override newDiscoveryService with mock transport to avoid real API calls
+	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
 	_, r := newTestHandlerWithRouter(t)
+
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{
+				roundTripFunc: func(req *http.Request) (*http.Response, error) {
+					if strings.Contains(req.URL.Host, "api.z.ai") {
+						return &http.Response{
+							StatusCode: http.StatusInternalServerError,
+							Body:       io.NopCloser(strings.NewReader(`{"error":"invalid key"}`)),
+							Header:     make(http.Header),
+						}, nil
+					}
+					return nil, fmt.Errorf("unexpected request to %s", req.URL.String())
+				},
+			},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
 
 	// Create a provider with z.ai URL and fake key
 	providerName := fmt.Sprintf("test-zai-error-%s", uuid.New().String()[:8])
@@ -709,15 +733,13 @@ func TestGetProviderUsage_ZAICodingError(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
-	// Note: z.ai API returns 200 with error JSON body for invalid keys
-	// The response should contain quota-related fields or error indication
-	var quotaResp map[string]interface{}
-	if err := json.Unmarshal(rec.Body.Bytes(), &quotaResp); err != nil {
-		t.Fatalf("Failed to parse quota response: %v", err)
+	// The handler returns 500 with plain text error message when API call fails
+	// Verify the response code is 500 (error case)
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("Expected 500 for z.ai API error, got %d: %s", rec.Code, rec.Body.String())
 	}
-	// Verify the response was processed (either success or error JSON)
-	if rec.Code != http.StatusOK && rec.Code != http.StatusInternalServerError {
-		t.Errorf("Expected 200 or 500 for z.ai API call, got %d: %s", rec.Code, rec.Body.String())
+	if !strings.Contains(rec.Body.String(), "failed to fetch usage") {
+		t.Errorf("Expected error about failed to fetch usage, got: %s", rec.Body.String())
 	}
 }
 
@@ -787,7 +809,31 @@ func TestGetProviderUsage_NanoGPTError(t *testing.T) {
 // TestGetProviderUsage_OpenRouterError tests that GetProviderUsage returns 500
 // when the OpenRouter API call fails with an invalid key.
 func TestGetProviderUsage_OpenRouterError(t *testing.T) {
+	// Override newDiscoveryService with mock transport to avoid real API calls
+	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
 	_, r := newTestHandlerWithRouter(t)
+
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{
+				roundTripFunc: func(req *http.Request) (*http.Response, error) {
+					if strings.Contains(req.URL.Host, "openrouter.ai") {
+						return &http.Response{
+							StatusCode: http.StatusInternalServerError,
+							Body:       io.NopCloser(strings.NewReader(`{"error":"invalid key"}`)),
+							Header:     make(http.Header),
+						}, nil
+					}
+					return nil, fmt.Errorf("unexpected request to %s", req.URL.String())
+				},
+			},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
 
 	// Create a provider with OpenRouter URL and fake key
 	providerName := fmt.Sprintf("test-openrouter-error-%s", uuid.New().String()[:8])
@@ -826,7 +872,31 @@ func TestGetProviderUsage_OpenRouterError(t *testing.T) {
 // TestGetProviderBalance_DeepSeekError tests that GetProviderBalance returns 500
 // when the DeepSeek API call fails with an invalid key.
 func TestGetProviderBalance_DeepSeekError(t *testing.T) {
+	// Override newDiscoveryService with mock transport to avoid real API calls
+	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
 	_, r := newTestHandlerWithRouter(t)
+
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{
+				roundTripFunc: func(req *http.Request) (*http.Response, error) {
+					if strings.Contains(req.URL.Host, "api.deepseek.com") {
+						return &http.Response{
+							StatusCode: http.StatusInternalServerError,
+							Body:       io.NopCloser(strings.NewReader(`{"error":"invalid key"}`)),
+							Header:     make(http.Header),
+						}, nil
+					}
+					return nil, fmt.Errorf("unexpected request to %s", req.URL.String())
+				},
+			},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
 
 	// Create a provider with DeepSeek URL and fake key
 	providerName := fmt.Sprintf("test-deepseek-error-%s", uuid.New().String()[:8])
@@ -865,7 +935,31 @@ func TestGetProviderBalance_DeepSeekError(t *testing.T) {
 // TestGetOllamaCloudAccount_Error tests that GetOllamaCloudAccount returns 500
 // when the Ollama Cloud API call fails with an invalid key.
 func TestGetOllamaCloudAccount_Error(t *testing.T) {
+	// Override newDiscoveryService with mock transport to avoid real API calls
+	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
 	_, r := newTestHandlerWithRouter(t)
+
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{
+				roundTripFunc: func(req *http.Request) (*http.Response, error) {
+					if strings.Contains(req.URL.Host, "ollama.com") {
+						return &http.Response{
+							StatusCode: http.StatusInternalServerError,
+							Body:       io.NopCloser(strings.NewReader(`{"error":"invalid key"}`)),
+							Header:     make(http.Header),
+						}, nil
+					}
+					return nil, fmt.Errorf("unexpected request to %s", req.URL.String())
+				},
+			},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
 
 	// Create a provider with Ollama Cloud URL and fake key
 	providerName := fmt.Sprintf("test-ollama-error-%s", uuid.New().String()[:8])
@@ -1026,7 +1120,31 @@ func TestRefreshAllQuotas_WithSupportedTypes(t *testing.T) {
 // TestRefreshAllQuotas_DeepSeekError tests that RefreshAllQuotas handles
 // DeepSeek API errors correctly.
 func TestRefreshAllQuotas_DeepSeekError(t *testing.T) {
+	// Override newDiscoveryService with mock transport to avoid real API calls
+	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
 	_, r := newTestHandlerWithRouter(t)
+
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{
+				roundTripFunc: func(req *http.Request) (*http.Response, error) {
+					if strings.Contains(req.URL.Host, "api.deepseek.com") {
+						return &http.Response{
+							StatusCode: http.StatusInternalServerError,
+							Body:       io.NopCloser(strings.NewReader(`{"error":"invalid key"}`)),
+							Header:     make(http.Header),
+						}, nil
+					}
+					return nil, fmt.Errorf("unexpected request to %s", req.URL.String())
+				},
+			},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
 
 	// Create a provider with DeepSeek URL and fake key
 	providerName := fmt.Sprintf("test-quota-deepseek-%s", uuid.New().String()[:8])
@@ -1081,7 +1199,31 @@ func TestRefreshAllQuotas_DeepSeekError(t *testing.T) {
 // TestRefreshAllQuotas_OllamaCloudError tests that RefreshAllQuotas handles
 // Ollama Cloud API errors correctly.
 func TestRefreshAllQuotas_OllamaCloudError(t *testing.T) {
+	// Override newDiscoveryService with mock transport to avoid real API calls
+	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
 	_, r := newTestHandlerWithRouter(t)
+
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{
+				roundTripFunc: func(req *http.Request) (*http.Response, error) {
+					if strings.Contains(req.URL.Host, "ollama.com") {
+						return &http.Response{
+							StatusCode: http.StatusInternalServerError,
+							Body:       io.NopCloser(strings.NewReader(`{"error":"invalid key"}`)),
+							Header:     make(http.Header),
+						}, nil
+					}
+					return nil, fmt.Errorf("unexpected request to %s", req.URL.String())
+				},
+			},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
 
 	// Create a provider with Ollama Cloud URL and fake key
 	providerName := fmt.Sprintf("test-quota-ollama-%s", uuid.New().String()[:8])
@@ -1136,7 +1278,31 @@ func TestRefreshAllQuotas_OllamaCloudError(t *testing.T) {
 // TestRefreshAllQuotas_OpenRouterError tests that RefreshAllQuotas handles
 // OpenRouter API errors correctly.
 func TestRefreshAllQuotas_OpenRouterError(t *testing.T) {
+	// Override newDiscoveryService with mock transport to avoid real API calls
+	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
 	_, r := newTestHandlerWithRouter(t)
+
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{
+				roundTripFunc: func(req *http.Request) (*http.Response, error) {
+					if strings.Contains(req.URL.Host, "openrouter.ai") {
+						return &http.Response{
+							StatusCode: http.StatusInternalServerError,
+							Body:       io.NopCloser(strings.NewReader(`{"error":"invalid key"}`)),
+							Header:     make(http.Header),
+						}, nil
+					}
+					return nil, fmt.Errorf("unexpected request to %s", req.URL.String())
+				},
+			},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
 
 	// Create a provider with OpenRouter URL and fake key
 	providerName := fmt.Sprintf("test-quota-openrouter-%s", uuid.New().String()[:8])

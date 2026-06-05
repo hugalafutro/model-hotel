@@ -42,6 +42,10 @@ type Config struct {
 	WebAuthnRPID          string
 	WebAuthnRPDisplayName string
 	WebAuthnRPOrigins     []string
+
+	// lookupIP is used for DNS resolution in ValidateProviderURL.
+	// Defaults to net.LookupIP if nil. Used for testing.
+	lookupIP func(host string) ([]net.IP, error)
 }
 
 // defaultKnownProviderHosts are always allowed as provider base_url hosts,
@@ -299,7 +303,11 @@ func (c *Config) ValidateProviderURL(rawURL string) error {
 	// Store the resolved IPs to detect DNS rebinding: if the host later resolves
 	// to a different set of IPs, the provider URL should be re-validated.
 	// For now, we block any host that currently resolves to a loopback address.
-	ips, err := net.LookupIP(host)
+	lookupIP := c.lookupIP
+	if lookupIP == nil {
+		lookupIP = net.LookupIP
+	}
+	ips, err := lookupIP(host)
 	if err == nil {
 		for _, ip := range ips {
 			if ip.IsLoopback() {

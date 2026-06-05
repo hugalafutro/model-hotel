@@ -812,7 +812,31 @@ func TestRefreshAllQuotas_DisabledProvider(t *testing.T) {
 // Test for admin.go - CreateProvider_KeylessProvider
 
 func TestDiscoverProviderModels_InvalidProvider(t *testing.T) {
+	// Override newDiscoveryService with mock transport to avoid real API calls
+	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
 	_, r := newTestHandlerWithRouter(t)
+
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{
+				roundTripFunc: func(req *http.Request) (*http.Response, error) {
+					if strings.Contains(req.URL.Host, "httpbin.org") {
+						return &http.Response{
+							StatusCode: http.StatusInternalServerError,
+							Body:       io.NopCloser(strings.NewReader(`{"error":"internal server error"}`)),
+							Header:     make(http.Header),
+						}, nil
+					}
+					return nil, fmt.Errorf("unexpected request to %s", req.URL.String())
+				},
+			},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
 
 	// Create a provider with invalid URL
 	providerData := `{"name": "test-discover-invalid", "base_url": "https://httpbin.org", "api_key": "test-api-key"}`

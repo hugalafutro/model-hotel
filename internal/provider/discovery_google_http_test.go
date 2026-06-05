@@ -144,7 +144,7 @@ func TestDiscoverGoogleAIStudio_Unauthorized(t *testing.T) {
 
 	provider := &Provider{
 		ID:      uuid.New(),
-		BaseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
+		BaseURL: server.URL + "/v1beta/openai",
 	}
 
 	_, err := service.discoverGoogleAIStudio(context.Background(), provider, "wrong-api-key")
@@ -236,7 +236,7 @@ func TestDiscoverGoogleAIStudio_Non200Status(t *testing.T) {
 
 	provider := &Provider{
 		ID:      uuid.New(),
-		BaseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
+		BaseURL: server.URL + "/v1beta/openai",
 	}
 
 	_, err := service.discoverGoogleAIStudio(context.Background(), provider, "test-api-key")
@@ -259,7 +259,7 @@ func TestDiscoverGoogleAIStudio_InvalidResponse(t *testing.T) {
 
 	provider := &Provider{
 		ID:      uuid.New(),
-		BaseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
+		BaseURL: server.URL + "/v1beta/openai",
 	}
 
 	_, err := service.discoverGoogleAIStudio(context.Background(), provider, "test-api-key")
