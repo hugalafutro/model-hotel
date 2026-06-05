@@ -1,17 +1,21 @@
+import { ChevronDown, ChevronUp } from "lucide-react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Spinner } from "../../components/Spinner";
 import { formatLatency } from "../../utils/format";
 import { RangeToggle } from "./ToggleGroup";
 import type { Range } from "./types";
 
+type SortField = "response" | "overhead";
+type SortDir = "asc" | "desc";
+
+// Color gradient: index 0 = worst (orange, hue 30) → index total-1 = best (green, hue 120)
 function getColorForRank(index: number, total: number): string {
 	if (total === 1) {
-		// Single entry: use a neutral color (middle of the gradient)
 		return "hsl(60, 70%, 50%)";
 	}
-	// index 0 = slowest/worst (red, hue 0)
-	// index total-1 = fastest/best (green, hue 120)
-	const hue = (index / (total - 1)) * 120;
+	// hue 30 = orange (worst) → hue 120 = green (best)
+	const hue = 30 + (index / (total - 1)) * 90;
 	return `hsl(${hue}, 70%, 50%)`;
 }
 
@@ -39,31 +43,58 @@ export function ProviderLatencyPanel({
 	loading?: boolean;
 }) {
 	const { t } = useTranslation();
+	const [sortField, setSortField] = useState<SortField>("response");
+	const [sortDir, setSortDir] = useState<SortDir>("desc");
 
-	// Sort entries by totalMs descending (slowest first) for consistent color assignment
-	const sortedEntries = [...entries].sort((a, b) => b.totalMs - a.totalMs);
-	// Also sort by overheadMs descending for independent overhead coloring
-	const sortedByOverhead = [...entries].sort(
-		(a, b) => b.overheadMs - a.overheadMs,
-	);
+	// Build independent color maps based on ranking (worst→best)
+	const { responseColorMap, overheadColorMap } = useMemo(() => {
+		const byResponse = [...entries].sort((a, b) => b.totalMs - a.totalMs);
+		const byOverhead = [...entries].sort((a, b) => b.overheadMs - a.overheadMs);
 
-	// Create maps to lookup color by label
-	const responseColorMap = new Map<string, string>();
-	const overheadColorMap = new Map<string, string>();
+		const rMap = new Map<string, string>();
+		const oMap = new Map<string, string>();
 
-	sortedEntries.forEach((entry, index) => {
-		responseColorMap.set(
-			entry.label,
-			getColorForRank(index, sortedEntries.length),
-		);
-	});
+		byResponse.forEach((entry, i) => {
+			rMap.set(entry.label, getColorForRank(i, byResponse.length));
+		});
+		byOverhead.forEach((entry, i) => {
+			oMap.set(entry.label, getColorForRank(i, byOverhead.length));
+		});
 
-	sortedByOverhead.forEach((entry, index) => {
-		overheadColorMap.set(
-			entry.label,
-			getColorForRank(index, sortedByOverhead.length),
-		);
-	});
+		return { responseColorMap: rMap, overheadColorMap: oMap };
+	}, [entries]);
+
+	// Sort entries for display based on user selection
+	const sortedEntries = useMemo(() => {
+		const sorted = [...entries];
+		if (sortField === "response") {
+			sorted.sort((a, b) =>
+				sortDir === "desc" ? b.totalMs - a.totalMs : a.totalMs - b.totalMs,
+			);
+		} else {
+			sorted.sort((a, b) =>
+				sortDir === "desc"
+					? b.overheadMs - a.overheadMs
+					: a.overheadMs - b.overheadMs,
+			);
+		}
+		return sorted;
+	}, [entries, sortField, sortDir]);
+
+	const handleSort = (field: SortField) => {
+		if (sortField === field) {
+			setSortDir((d) => (d === "desc" ? "asc" : "desc"));
+		} else {
+			setSortField(field);
+			setSortDir("desc");
+		}
+	};
+
+	const SortArrow = ({ field }: { field: SortField }) => {
+		if (sortField !== field) return null;
+		const Arrow = sortDir === "desc" ? ChevronDown : ChevronUp;
+		return <Arrow size={12} className="inline ml-0.5" />;
+	};
 
 	return (
 		<div className="ui-card p-6">
@@ -85,15 +116,25 @@ export function ProviderLatencyPanel({
 				</p>
 			) : (
 				<div className="space-y-3">
-					{/* Column headers */}
+					{/* Column headers — clickable to sort */}
 					<div className="grid grid-cols-3 gap-2 text-xs font-semibold text-(--text-muted) uppercase tracking-wide">
 						<div></div>
-						<div className="text-right">
+						<button
+							type="button"
+							onClick={() => handleSort("response")}
+							className="text-right cursor-pointer hover:text-(--text-primary) transition-colors flex items-center justify-end gap-0.5 ml-auto"
+						>
 							{t("dashboard.providerLatency.response")}
-						</div>
-						<div className="text-right">
+							<SortArrow field="response" />
+						</button>
+						<button
+							type="button"
+							onClick={() => handleSort("overhead")}
+							className="text-right cursor-pointer hover:text-(--text-primary) transition-colors flex items-center justify-end gap-0.5 ml-auto"
+						>
 							{t("dashboard.providerLatency.overhead")}
-						</div>
+							<SortArrow field="overhead" />
+						</button>
 					</div>
 					{/* Provider rows */}
 					{sortedEntries.map((entry) => {
