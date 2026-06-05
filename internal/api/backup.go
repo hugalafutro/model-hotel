@@ -90,24 +90,32 @@ func (h *BackupHandler) CreateBackup(w http.ResponseWriter, r *http.Request) {
 	filename := fmt.Sprintf("backup_%s_%04d.dump", now.Format("20060102_150405"), now.Nanosecond()/100000)
 	path := filepath.Join(h.backupDir, filename)
 
-	// Extract password from DATABASE_URL and pass via env var to avoid
-	// exposing it in the process command line (visible via ps).
+	// Build a connection string without the password for the command line.
+	// The password is passed via PGPASSWORD environment variable instead,
+	// preventing it from appearing in process listings (ps).
 	// Use a dedicated 10-minute timeout so large databases don't get killed
 	// by the chi request timeout middleware (~60s).
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
+	connURL := h.databaseURL
+	var envPassword string
+	if u, err := url.Parse(h.databaseURL); err == nil && u.User != nil {
+		if pass, ok := u.User.Password(); ok && pass != "" {
+			envPassword = pass
+			// Strip password from URL, keep username
+			u.User = url.User(u.User.Username())
+			connURL = u.String()
+		}
+	}
 	//nolint:gosec // pgDumpPath is a configured binary path, not arbitrary user input
 	cmd := exec.CommandContext(ctx, pgDumpPath,
 		"--format=custom",
 		"--no-password",
 		"--file="+path,
-		h.databaseURL,
+		connURL,
 	)
-	// Pass password via environment instead of cmdline argument
-	if u, err := url.Parse(h.databaseURL); err == nil && u.User != nil {
-		if pass, ok := u.User.Password(); ok {
-			cmd.Env = append(os.Environ(), "PGPASSWORD="+pass)
-		}
+	if envPassword != "" {
+		cmd.Env = append(os.Environ(), "PGPASSWORD="+envPassword)
 	}
 
 	output, err := cmd.CombinedOutput()
@@ -616,19 +624,27 @@ func (h *BackupHandler) RestoreBackup(w http.ResponseWriter, r *http.Request) {
 	restoreCtx, restoreCancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer restoreCancel()
 
+	// Strip password from connection URL for command line (same as pg_dump above)
+	restoreConnURL := h.databaseURL
+	var restoreEnvPassword string
+	if u, err := url.Parse(h.databaseURL); err == nil && u.User != nil {
+		if pass, ok := u.User.Password(); ok && pass != "" {
+			restoreEnvPassword = pass
+			u.User = url.User(u.User.Username())
+			restoreConnURL = u.String()
+		}
+	}
+
 	//nolint:gosec // pgRestorePath is a configured binary path
 	restoreCmd := exec.CommandContext(restoreCtx, pgRestorePath,
 		"--clean",
 		"--if-exists",
 		"--no-password",
-		"-d", h.databaseURL,
+		"-d", restoreConnURL,
 		tmpPath,
 	)
-	// Pass password via environment
-	if u, err := url.Parse(h.databaseURL); err == nil && u.User != nil {
-		if pass, ok := u.User.Password(); ok {
-			restoreCmd.Env = append(os.Environ(), "PGPASSWORD="+pass)
-		}
+	if restoreEnvPassword != "" {
+		restoreCmd.Env = append(os.Environ(), "PGPASSWORD="+restoreEnvPassword)
 	}
 
 	var restoreStderr bytes.Buffer
