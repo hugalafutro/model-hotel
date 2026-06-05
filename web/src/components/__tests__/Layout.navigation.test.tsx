@@ -735,6 +735,13 @@ describe("Layout", () => {
 		it("calls webauthn.logout when WebAuthn is available", async () => {
 			const user = userEvent.setup();
 			vi.spyOn(webauthnUtils, "isWebAuthnAvailable").mockResolvedValue(true);
+			let logoutCalled = false;
+			server.use(
+				http.post("/api/webauthn/logout", () => {
+					logoutCalled = true;
+					return HttpResponse.json({ success: true });
+				}),
+			);
 			localStorage.setItem("adminToken", "test-token");
 
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
@@ -753,10 +760,10 @@ describe("Layout", () => {
 			}
 
 			await waitFor(() => {
+				expect(logoutCalled).toBe(true);
 				expect(localStorage.getItem("adminToken")).toBeNull();
 			});
 
-			expect(webauthnUtils.isWebAuthnAvailable).toHaveBeenCalled();
 			localStorage.removeItem("adminToken");
 		});
 	});

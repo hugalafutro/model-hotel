@@ -1314,6 +1314,11 @@ func TestCircuitBreakerStatus_AggregateCacheHit(t *testing.T) {
 		t.Fatalf("first request: expected 200, got %d", rec1.Code)
 	}
 
+	var resp1 map[string]interface{}
+	if err := json.NewDecoder(rec1.Body).Decode(&resp1); err != nil {
+		t.Fatalf("failed to decode first response: %v", err)
+	}
+
 	// Second request (no detail): should be served from aggregate cache.
 	rec2 := httptest.NewRecorder()
 	req2 := httptest.NewRequest("GET", "/failover-groups/circuit-breaker-status", http.NoBody)
@@ -1323,18 +1328,23 @@ func TestCircuitBreakerStatus_AggregateCacheHit(t *testing.T) {
 		t.Fatalf("second request: expected 200, got %d", rec2.Code)
 	}
 
-	var resp map[string]interface{}
-	if err := json.NewDecoder(rec2.Body).Decode(&resp); err != nil {
+	var resp2 map[string]interface{}
+	if err := json.NewDecoder(rec2.Body).Decode(&resp2); err != nil {
 		t.Fatalf("failed to decode: %v", err)
 	}
 
-	// Untracked provider counted as closed (1) + tracked closed (1) = 2 closed.
-	closed, _ := resp["closed"].(float64)
-	if closed < 1 {
-		t.Errorf("expected at least 1 closed, got %v", closed)
+	// One provider tracked as closed via mock CB — verify exact count is stable
+	// across both requests (proving the cache serves the same response).
+	closed1, _ := resp1["closed"].(float64)
+	closed2, _ := resp2["closed"].(float64)
+	if closed1 != 1 {
+		t.Errorf("first request: expected closed=1, got %v", closed1)
+	}
+	if closed2 != 1 {
+		t.Errorf("second request (cached): expected closed=1, got %v", closed2)
 	}
 	// No providers array in aggregate response.
-	if _, hasProviders := resp["providers"]; hasProviders {
+	if _, hasProviders := resp2["providers"]; hasProviders {
 		t.Error("aggregate response should not include providers array")
 	}
 }
