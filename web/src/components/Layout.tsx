@@ -683,6 +683,7 @@ function LastErrorPills() {
 
 const SUPPORTED_LANGUAGES = [
 	{ code: "en", labelKey: "layout.language.english" },
+	{ code: "cs", labelKey: "layout.language.czech" },
 ] as const;
 
 function LanguageSelector() {
@@ -727,7 +728,7 @@ function LanguageSelector() {
 								setOpen(false);
 							}}
 							className={`w-full text-left px-3 py-1.5 text-xs transition-colors cursor-pointer ${
-								i18n.language === lang.code
+								(i18n.resolvedLanguage ?? i18n.language) === lang.code
 									? "text-white bg-white/10"
 									: "text-gray-400 hover:text-white hover:bg-white/5"
 							}`}
