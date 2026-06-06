@@ -31,9 +31,9 @@ jobs:
           upload_sources: true
           # Download translated files and create a PR
           download_translations: true
-          # Omit keys with no translation (empty strings fall back to
-          # English via returnEmptyString:false in i18next config)
-          skip_untranslated_strings: true
+          # Skip locale files that have zero translated strings
+          # (prevents downloading empty JSON scaffolds for new languages)
+          skip_untranslated_files: true
           # PR configuration
           localization_branch_name: l10n_crowdin_translations
           create_pull_request: true
@@ -46,3 +46,24 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CROWDIN_PROJECT_ID: ${{ secrets.CROWDIN_PROJECT_ID }}
           CROWDIN_PERSONAL_TOKEN: ${{ secrets.CROWDIN_PERSONAL_TOKEN }}
+
+      - name: Strip empty translation values
+        run: |
+          python3 -c '
+          import json, glob, os
+          for f in glob.glob("web/src/i18n/locales/?.json"):
+              with open(f) as fh: d = json.load(fh)
+              def strip(obj):
+                  out = {}
+                  for k, v in obj.items():
+                      if isinstance(v, dict):
+                          s = strip(v)
+                          if s: out[k] = s
+                      elif v != "": out[k] = v
+                  return out
+              d = strip(d)
+              with open(f, "w") as fh:
+                  json.dump(d, fh, indent="\t", ensure_ascii=False)
+                  fh.write("\n")
+              print(f"  {os.path.basename(f)}: cleaned")
+          '
