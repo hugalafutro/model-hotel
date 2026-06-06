@@ -1707,16 +1707,8 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 					h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
 				}
 			}
-		} else {
-			// Provider responded (even with a non-failover error like 400) —
-			// it's alive from a health perspective.
-			// For streaming 200 responses, recording is deferred until after the
-			// TTFT probe succeeds, to avoid double-counting with the stall watchdog.
-			// Streaming non-200 responses never reach the TTFT probe (they continue
-			// before it), so record now to maintain parity with non-streaming paths.
-			if circuitBreakerEnabled && (!isStreaming || resp.StatusCode != http.StatusOK) {
-				h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
-			}
+		} else if circuitBreakerEnabled && (!isStreaming || resp.StatusCode != http.StatusOK) {
+			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
 		}
 
 		shouldFailoverNow := isFailoverEligible && hasMoreCandidates
