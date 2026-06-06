@@ -265,6 +265,30 @@ func (r *Repository) SetTx(ctx context.Context, tx pgx.Tx, key, value string) er
 	return err
 }
 
+// DeleteKeysTx removes the given settings keys from the database within an
+// existing transaction. After deletion, callers that read the setting will
+// fall through to their hardcoded Go default.
+func (r *Repository) DeleteKeysTx(ctx context.Context, tx pgx.Tx, keys []string) error {
+	if len(keys) == 0 {
+		return nil
+	}
+	for _, key := range keys {
+		if !AllowedSettings[key] {
+			return fmt.Errorf("setting %q is not in allowlist", key)
+		}
+	}
+	_, err := tx.Exec(ctx, `DELETE FROM settings WHERE key = ANY($1)`, keys)
+	if err != nil {
+		return err
+	}
+	r.mu.Lock()
+	for _, key := range keys {
+		delete(r.cache, key)
+	}
+	r.mu.Unlock()
+	return nil
+}
+
 // InvalidateCache removes a key from the cache and notifies subscribers.
 func (r *Repository) InvalidateCache(key string) {
 	r.mu.Lock()

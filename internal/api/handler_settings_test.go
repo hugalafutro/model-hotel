@@ -285,3 +285,97 @@ func TestUpdateSettings_ValidFloatSetting_Integration(t *testing.T) {
 		t.Errorf("Expected 200 for valid float setting, got %d: %s", w.Code, w.Body.String())
 	}
 }
+
+func TestResetSettings_SpecificKeys(t *testing.T) {
+	_, router := newTestHandlerWithRouter(t)
+
+	// Set a value first
+	body := `{"rate_limit_rps":"30.5"}`
+	req := httptest.NewRequest("PUT", "/settings", bytes.NewReader([]byte(body)))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("setup: expected 200, got %d", w.Code)
+	}
+
+	// Reset that key
+	resetBody := `{"keys":["rate_limit_rps"]}`
+	req = httptest.NewRequest("DELETE", "/settings", bytes.NewReader([]byte(resetBody)))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected 200 for reset, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var result map[string]string
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+	// After reset, the key is gone from DB so GetSettings won't include it
+	if _, exists := result["rate_limit_rps"]; exists {
+		t.Error("rate_limit_rps should have been removed from DB")
+	}
+}
+
+func TestResetSettings_AllKeys(t *testing.T) {
+	_, router := newTestHandlerWithRouter(t)
+
+	// Set two values
+	body := `{"rate_limit_rps":"30.5","request_timeout":"2m0s"}`
+	req := httptest.NewRequest("PUT", "/settings", bytes.NewReader([]byte(body)))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("setup: expected 200, got %d", w.Code)
+	}
+
+	// Reset all (empty keys list)
+	resetBody := `{"keys":[]}`
+	req = httptest.NewRequest("DELETE", "/settings", bytes.NewReader([]byte(resetBody)))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected 200 for reset all, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var result map[string]string
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+	// app_version is read-only and always present
+	if result["app_version"] == "" {
+		t.Error("app_version should always be present")
+	}
+	// The two settings we set should be gone
+	if _, exists := result["rate_limit_rps"]; exists {
+		t.Error("rate_limit_rps should have been removed")
+	}
+	if _, exists := result["request_timeout"]; exists {
+		t.Error("request_timeout should have been removed")
+	}
+}
+
+func TestResetSettings_InvalidKey(t *testing.T) {
+	_, router := newTestHandlerWithRouter(t)
+
+	resetBody := `{"keys":["nonexistent_key"]}`
+	req := httptest.NewRequest("DELETE", "/settings", bytes.NewReader([]byte(resetBody)))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected 400 for unknown key, got %d", w.Code)
+	}
+}

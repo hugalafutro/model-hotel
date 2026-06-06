@@ -17,6 +17,7 @@ func (h *Handler) RegisterSettings(r chi.Router) {
 	r.Route("/settings", func(r chi.Router) {
 		r.Get("/", h.GetSettings)
 		r.Put("/", h.UpdateSettings)
+		r.Delete("/", h.ResetSettings)
 	})
 }
 
@@ -163,6 +164,79 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	all, _ := h.settingsRepo.GetAll(r.Context())
 
 	// Inject read-only app_version (same as GetSettings).
+	if all == nil {
+		all = make(map[string]string)
+	}
+	all["app_version"] = h.appVersion
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(all); err != nil {
+		respondError(w, "failed to encode response", err, http.StatusInternalServerError)
+	}
+}
+
+// ResetSettings deletes specified settings keys from the database so they
+// fall through to their Go-side defaults. An empty keys list resets all
+// settings. Returns the full updated settings map.
+func (h *Handler) ResetSettings(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Keys []string `json:"keys"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Empty keys list = reset all known settings.
+	keys := req.Keys
+	if len(keys) == 0 {
+		for k := range allowedSettings {
+			keys = append(keys, k)
+		}
+	}
+
+	// Validate all keys before deleting.
+	for _, key := range keys {
+		if _, ok := allowedSettings[key]; !ok {
+			http.Error(w, fmt.Sprintf("unknown setting: %s", key), http.StatusBadRequest)
+			return
+		}
+	}
+
+	if len(keys) > 50 {
+		http.Error(w, "too many keys in one request", http.StatusBadRequest)
+		return
+	}
+
+	tx, err := h.dbPool.Begin(r.Context())
+	if err != nil {
+		debuglog.Error("settings: failed to begin transaction", "error", err)
+		respondError(w, "failed to begin transaction", err, http.StatusInternalServerError)
+		return
+	}
+	defer func() { _ = tx.Rollback(r.Context()) }()
+
+	if err := h.settingsRepo.DeleteKeysTx(r.Context(), tx, keys); err != nil {
+		debuglog.Error("settings: failed to reset", "error", err)
+		respondError(w, "failed to reset settings", err, http.StatusInternalServerError)
+		return
+	}
+
+	if err := tx.Commit(r.Context()); err != nil {
+		debuglog.Error("settings: failed to commit reset", "error", err)
+		respondError(w, "failed to commit reset", err, http.StatusInternalServerError)
+		return
+	}
+
+	// Invalidate cache for deleted keys after successful commit.
+	for _, key := range keys {
+		h.settingsRepo.InvalidateCache(key)
+	}
+
+	sort.Strings(keys)
+	debuglog.Info("settings: reset to defaults", "keys", keys)
+
+	all, _ := h.settingsRepo.GetAll(r.Context())
 	if all == nil {
 		all = make(map[string]string)
 	}
