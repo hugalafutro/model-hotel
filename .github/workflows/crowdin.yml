@@ -33,9 +33,10 @@ jobs:
           upload_translations: true
           # Download translated files and create a PR
           download_translations: true
-          # Only include fully translated + approved strings
+          # Skip keys with no translation (prevents empty string values
+          # that would blank out the UI instead of falling back to English)
           skip_untranslated_strings: true
-          export_only_approved: true
+          skip_untranslated_files: true
           # PR configuration
           localization_branch_name: l10n_crowdin_translations
           create_pull_request: true

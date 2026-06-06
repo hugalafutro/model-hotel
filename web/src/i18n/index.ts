@@ -13,6 +13,7 @@ i18next
 			en: { translation: en },
 		},
 		fallbackLng: "en",
+		returnEmptyString: false,
 		detection: {
 			order: ["localStorage", "navigator"],
 			caches: ["localStorage"],
