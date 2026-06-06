@@ -44,6 +44,8 @@ func (h *Handler) GetSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 // allowedSettings defines which keys can be set and their validation rules.
+// The key set MUST be kept in sync with settings.AllowedSettings — add a
+// key to both or neither. TestAllowedSettingsSync enforces this at CI time.
 var allowedSettings = map[string]struct {
 	typeName string // "string", "int", "float"
 	min      float64
@@ -229,8 +231,10 @@ func (h *Handler) ResetSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Invalidate cache for deleted keys after successful commit.
+	// Use NotifyDeleted (not InvalidateCache) to avoid a redundant DB
+	// query — we already know the keys were deleted.
 	for _, key := range keys {
-		h.settingsRepo.InvalidateCache(key)
+		h.settingsRepo.NotifyDeleted(key)
 	}
 
 	sort.Strings(keys)

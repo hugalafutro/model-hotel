@@ -67,6 +67,8 @@ export function Settings() {
 				t("settings.common.resetFailed", { message: err.message }),
 				"error",
 			);
+			setResetAllOpen(false);
+			setResetAllConfirmText("");
 		},
 	});
 
@@ -85,6 +87,7 @@ export function Settings() {
 				t("settings.common.resetFailed", { message: err.message }),
 				"error",
 			);
+			setResetSection(null);
 		},
 	});
 

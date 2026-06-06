@@ -19,16 +19,10 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
-// CacheHits tracks whether each overhead component hit a prewarmed cache.
-// true = cache hit (fast, prewarmed); false = cache miss (had to compute/DB read);
-// nil = not applicable (e.g. request parsing, dial have no cache).
-type CacheHits struct {
-	Failover *bool `json:"failover,omitempty"`
-	Model    *bool `json:"model,omitempty"`
-	Provider *bool `json:"provider,omitempty"`
-	Key      *bool `json:"key,omitempty"`
-	Settings *bool `json:"settings,omitempty"`
-}
+// CacheHits is an alias for the shared CacheHits type defined in util.
+// The API uses this alias for clarity in LogEntry — the underlying type
+// is the same one the proxy produces.
+type CacheHits = util.CacheHits
 
 // LogEntry represents a single request log entry.
 type LogEntry struct {

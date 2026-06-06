@@ -159,6 +159,9 @@ func (m *mockSettingsStore) InvalidateCache(key string) {
 	}
 }
 
+func (m *mockSettingsStore) NotifyDeleted(key string) {
+}
+
 type mockAdminAuth struct {
 	validateFn func(token string) bool
 }

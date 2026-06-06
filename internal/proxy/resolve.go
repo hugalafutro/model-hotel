@@ -13,6 +13,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 type resolveTimings struct {
@@ -27,13 +28,9 @@ type resolveTimings struct {
 // resolveCacheHits tracks whether each overhead component hit a prewarmed cache.
 // true = cache hit (fast, prewarmed); false = cache miss (had to compute/DB read).
 // Absent fields (parse, dial) are not applicable — they have no cache.
-type resolveCacheHits struct {
-	Failover *bool `json:"failover,omitempty"`
-	Model    *bool `json:"model,omitempty"`
-	Provider *bool `json:"provider,omitempty"`
-	Key      *bool `json:"key,omitempty"`
-	Settings *bool `json:"settings,omitempty"`
-}
+// The canonical definition lives in internal/util.CacheHits so both proxy and
+// api packages can reference a single type.
+type resolveCacheHits = util.CacheHits
 
 // proxyOverheadMs returns the total proxy overhead from accumulated timings.
 // dialMs may be 0 (before the failover loop) or populated after each dial.
@@ -143,7 +140,10 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 	// per-candidate settings reads. This single read is still accounted
 	// for in both settingsReadMs (via context accumulator) and
 	// settingsReadInWindow (subtracted from providerLookupMs below).
-	settingsHit := h.settingsRepo.IsCached("circuit_breaker_enabled")
+	// Track ALL settings checked in the resolve phase: if any miss cache,
+	// the overall settings hit status is "miss".
+	settingsHit := h.settingsRepo.IsCached("circuit_breaker_enabled") &&
+		h.settingsRepo.IsCached("failover_on_rate_limit")
 	cbStart := time.Now()
 	cbEnabled := h.settingsRepo.GetBool(ctx, "circuit_breaker_enabled", true)
 	cbElapsed := float64(time.Since(cbStart).Microseconds()) / 1000.0

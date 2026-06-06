@@ -55,6 +55,7 @@ type SettingsStore interface {
 	SetTx(ctx context.Context, tx pgx.Tx, key string, value string) error
 	DeleteKeysTx(ctx context.Context, tx pgx.Tx, keys []string) error
 	InvalidateCache(key string)
+	NotifyDeleted(key string)
 }
 
 // AdminAuthenticator defines admin token validation.
