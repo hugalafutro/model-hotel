@@ -982,7 +982,13 @@ logUpdate:
 		debuglog.Debug("proxy: streaming completed successfully", "model", logData.modelID, "provider", logData.providerName, "attempt", opts.attempt, "response_header_ms", opts.responseHeaderMs, "duration_ms", totalDuration)
 	}
 
-	if opts.vkHash != "" && !clientDisconnected {
+	// Always record token usage against the virtual key quota, even on
+	// client disconnect. The upstream provider already billed for these
+	// tokens; not counting them would cause quota drift (provider bill > VK meter).
+	if opts.vkHash != "" {
+		if clientDisconnected && (promptTokens > 0 || completionTokens > 0) {
+			debuglog.Info("proxy: recording token usage despite client disconnect", "model", logData.modelID, "provider", logData.providerName, "prompt_tokens", promptTokens, "completion_tokens", completionTokens)
+		}
 		h.recordTokenUsage(opts.vkHash, promptTokens, completionTokens, reasoningTokens, logData.virtualKeyName)
 	}
 }
