@@ -252,8 +252,10 @@ func TestSafeDialer_DialTimingContext(t *testing.T) {
 	}
 }
 
-func TestSafeDialer_DNSErrorFallback(t *testing.T) {
-	// Use mock resolver to avoid real DNS lookups
+func TestSafeDialer_DNSErrorRejected(t *testing.T) {
+	// When DNS resolution fails, SafeDialer should return an error directly
+	// instead of falling through to an unchecked dial. This enforces the
+	// invariant that every dial is IP-checked.
 	sd := newSafeDialerWithResolver(nil, &mockResolver{
 		lookupFunc: func(ctx context.Context, host string) ([]net.IPAddr, error) {
 			return nil, fmt.Errorf("DNS lookup failed")
@@ -261,15 +263,35 @@ func TestSafeDialer_DNSErrorFallback(t *testing.T) {
 	}, nil)
 	ctx := context.Background()
 
-	// Non-existent host should fall through to dial and get a connection error,
-	// not a "private IP" error
 	_, err := sd.DialContext(ctx, "tcp", "this-host-does-not-exist-xyz123.invalid:80")
 	if err == nil {
-		t.Error("expected error for non-existent host")
+		t.Fatal("expected error for DNS resolution failure")
 	}
-	// The error should NOT be our blocked-IP error
-	if err != nil && strings.Contains(err.Error(), "refused connection to private/reserved IP") {
-		t.Errorf("expected DNS/connection error, got blocked-IP error: %v", err)
+	// The error should contain our safeDialer prefix, indicating we rejected
+	// the dial rather than falling through.
+	if !strings.Contains(err.Error(), "safeDialer: DNS resolution failed") {
+		t.Errorf("expected safeDialer DNS error, got: %v", err)
+	}
+}
+
+func TestSafeDialer_DNSErrorDoesNotBypassIPCheck(t *testing.T) {
+	// Even if DNS fails, we must NOT fall through to a system-resolver dial,
+	// which could reach a blocked IP. Use an explicit nil dialer to make it
+	// clear there is no fallback.
+	sd := newSafeDialerWithResolver(nil, &mockResolver{
+		lookupFunc: func(ctx context.Context, host string) ([]net.IPAddr, error) {
+			return nil, fmt.Errorf("DNS lookup failed")
+		},
+	}, nil)
+
+	ctx := context.Background()
+	_, err := sd.DialContext(ctx, "tcp", "169.254.169.254:80")
+	if err == nil {
+		t.Fatal("expected error for DNS resolution failure")
+	}
+	// Must be our safeDialer DNS error, not a connection error from fallback
+	if !strings.Contains(err.Error(), "safeDialer: DNS resolution failed") {
+		t.Errorf("DNS failure should not bypass IP-check via fallback dial, got: %v", err)
 	}
 }
 
