@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -260,4 +261,129 @@ func writeSSEDataChunk(w io.Writer, payload []byte, bytesWritten *int64) error {
 	n, err = w.Write([]byte("\n\n"))
 	*bytesWritten += int64(n)
 	return err
+}
+
+// providerSupportsStreamOptions returns true for provider types that accept
+// the OpenAI stream_options parameter in their Chat Completions endpoint.
+// Providers with non-OpenAI APIs (Anthropic, Google, Cohere) or those that
+// strict-validate unknown fields should return false to avoid 400 errors.
+func providerSupportsStreamOptions(providerType string) bool {
+	switch providerType {
+	case "anthropic", "google", "cohere", "opencode-go", "opencode-zen":
+		return false
+	default:
+		// All OpenAI-compatible providers (openai, deepseek, xai, openrouter,
+		// ollama, ollama-cloud, nanogpt, zai-coding, lmstudio, koboldcpp,
+		// neuralwatt, etc.) accept or silently ignore stream_options.
+		return true
+	}
+}
+
+// breakerAction represents the circuit-breaker recording decision for a
+// given upstream HTTP status code.
+type breakerAction int
+
+const (
+	// breakerActionFailure records a failure (provider is unhealthy).
+	breakerActionFailure breakerAction = iota
+	// breakerActionNoOp does nothing (model-specific client error; provider is
+	// alive but rejecting this request). Neither failure nor success — recording
+	// success would erase real 5xx history and prematurely close half-open circuits.
+	breakerActionNoOp
+	// breakerActionSuccess records a success (provider is healthy).
+	breakerActionSuccess
+)
+
+// breakerRecordAction determines the circuit-breaker recording action for a
+// given upstream HTTP status code. This is the single source of truth for the
+// status→breaker mapping and is intended to be table-tested.
+//
+// Note on 429: this function maps it to a failure, but it is only consulted in
+// the failover-eligible branch of ChatCompletions — i.e. when shouldFailover
+// already returned true, which for 429 means failover_on_rate_limit is ON. When
+// that setting is OFF, a 429 is not failover-eligible and never reaches this
+// function; the caller's else branch intentionally records it as a success
+// (stay on the rate-limited provider rather than tripping its breaker). The 429
+// treatment is therefore consistent with the configured policy, not contradictory.
+func breakerRecordAction(statusCode int) breakerAction {
+	switch {
+	case statusCode >= 500 || statusCode == 429 || statusCode == 401 || statusCode == 403:
+		// 5xx = server error (provider unhealthy)
+		// 429 = rate limit (provider overloaded; see policy note above)
+		// 401/403 = auth failure (provider-wide bad/expired key)
+		return breakerActionFailure
+	case statusCode == 404 || statusCode == 499:
+		// 404 = stale/renamed model (model-specific, not provider health)
+		// 499 = client closed request (Nginx convention; not a provider signal)
+		return breakerActionNoOp
+	default:
+		// Any other response (200, 400, etc.) indicates the provider is alive.
+		return breakerActionSuccess
+	}
+}
+
+// buildUpstreamBody rewrites the client request body for a specific provider
+// candidate. This is the single shared rewrite path used by both the initial
+// attempt and the 400 auto-retry, preventing drift between the two.
+//
+// Steps (applied in order):
+//  1. Model rename (client model → resolved model)
+//  2. stream_options injection (streaming + OpenAI-compatible providers only)
+//  3. Universal param stripping (providerUnsupportedParams)
+//  4. Learned param stripping (deprecationCache)
+//  5. Provider-specific param injection (InjectProviderParams)
+//  6. Extra param stripping (additional rejected params, e.g. from 400 auto-retry)
+func buildUpstreamBody(
+	proxyReqBody []byte,
+	providerType string,
+	resolvedModelID string,
+	requestModel string,
+	isStreaming bool,
+	deprecationCache *sync.Map,
+	extraStrip map[string]bool,
+) []byte {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(proxyReqBody, &raw); err != nil {
+		return proxyReqBody // unparseable — forward as-is
+	}
+
+	// 1. Model rename
+	if requestModel != resolvedModelID {
+		raw["model"] = resolvedModelID
+	}
+
+	// 2. stream_options injection
+	if isStreaming && providerSupportsStreamOptions(providerType) {
+		raw["stream_options"] = map[string]interface{}{
+			"include_usage": true,
+		}
+	}
+
+	// 3. Universal param stripping
+	if params, ok := providerUnsupportedParams[providerType]; ok {
+		for _, p := range params {
+			delete(raw, p)
+		}
+	}
+
+	// 4. Learned param stripping
+	cacheKey := fmt.Sprintf("%s:%s", providerType, resolvedModelID)
+	if cached := getCachedRejectedParams(deprecationCache, cacheKey); cached != nil {
+		for param := range cached {
+			delete(raw, param)
+		}
+	}
+
+	// 5. Provider-specific param injection
+	InjectProviderParams(raw, providerType, resolvedModelID)
+
+	// 6. Extra param stripping (e.g. newly-learned rejections from 400 auto-retry)
+	for param := range extraStrip {
+		delete(raw, param)
+	}
+
+	if b, err := json.Marshal(raw); err == nil {
+		return b
+	}
+	return proxyReqBody
 }

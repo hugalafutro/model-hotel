@@ -66,7 +66,10 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	logData.ttftMs = opts.trueTtftMs
 	logData.failoverAttempt = opts.attempt
 	logData.state = "streaming"
-	h.updateRequestLog(logData)
+	// Fire-and-forget: the interim "streaming" state update runs before
+	// the first streamed byte. Blocking on WaitForInsert (up to 5s) would
+	// delay the client. The final update (completed/failed) waits properly.
+	h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 
 	flusher, canFlush := w.(http.Flusher)
 
@@ -979,7 +982,13 @@ logUpdate:
 		debuglog.Debug("proxy: streaming completed successfully", "model", logData.modelID, "provider", logData.providerName, "attempt", opts.attempt, "response_header_ms", opts.responseHeaderMs, "duration_ms", totalDuration)
 	}
 
-	if opts.vkHash != "" && !clientDisconnected {
+	// Always record token usage against the virtual key quota, even on
+	// client disconnect. The upstream provider already billed for these
+	// tokens; not counting them would cause quota drift (provider bill > VK meter).
+	if opts.vkHash != "" {
+		if clientDisconnected && (promptTokens > 0 || completionTokens > 0) {
+			debuglog.Info("proxy: recording token usage despite client disconnect", "model", logData.modelID, "provider", logData.providerName, "prompt_tokens", promptTokens, "completion_tokens", completionTokens)
+		}
 		h.recordTokenUsage(opts.vkHash, promptTokens, completionTokens, reasoningTokens, logData.virtualKeyName)
 	}
 }
@@ -1031,7 +1040,10 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.tokensPromptCacheHit, logData.tokensPromptCacheMiss = extractCacheTokens(chatResp.Usage)
 		logData.failoverAttempt = attempt
 		logData.state = "completed"
-		h.updateRequestLog(logData)
+		// Fire-and-forget: skip WaitForInsert to avoid blocking TTFB.
+		// The async INSERT is very likely complete by now; if not, the
+		// UPDATE simply affects 0 rows (harmless, logged as warning).
+		h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 
 		if vkHash != "" {
 			h.recordTokenUsage(vkHash, chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, reasoningTokens, logData.virtualKeyName)
@@ -1094,8 +1106,8 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.errorMessage = fmt.Sprintf("response decode error: %s", errMsg)
 		logData.failoverAttempt = attempt
 		logData.state = "failed"
-		h.updateRequestLog(logData)
-		debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName)
+		// Fire-and-forget: skip WaitForInsert to avoid blocking before error response.
+		h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 		debuglog.Debug("proxy: non-streaming error details", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "error", errMsg, "duration_ms", totalDuration)
 		writeOpenAIError(w, fmt.Sprintf("upstream provider returned HTTP %d", resp.StatusCode), resp.StatusCode)
 	}
@@ -1117,7 +1129,8 @@ func (h *Handler) failRequest(logData *requestLogData, statusCode int, errMsg st
 	logData.settingsReadMs = timings.settingsReadMs
 	logData.failoverAttempt = attempt
 	logData.state = "failed"
-	h.updateRequestLog(logData)
+	// Fire-and-forget: skip WaitForInsert to avoid blocking before error response.
+	h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 }
 
 // ChatCompletions handles OpenAI-compatible chat completion requests with failover support.
@@ -1328,22 +1341,11 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	proxyOverhead := timings.proxyOverheadMs(parseMs)
 	debuglog.Debug("proxy: model resolved (pre-loop)", "model", logData.modelID, "provider", logData.providerName, "candidates", len(candidates), "overhead_ms", proxyOverhead)
 
-	var proxyReqBody []byte
-	if isStreaming {
-		var raw map[string]interface{}
-		if json.Unmarshal(bodyBytes, &raw) == nil {
-			raw["stream_options"] = map[string]interface{}{
-				"include_usage": true,
-			}
-			if b, err := json.Marshal(raw); err == nil {
-				proxyReqBody = b
-				debuglog.Debug("proxy: injected stream_options into request", "model", logData.modelID, "provider", logData.providerName)
-			}
-		}
-	}
-	if proxyReqBody == nil {
-		proxyReqBody = bodyBytes
-	}
+	// Use the original request body as the base for per-candidate rewrites.
+	// stream_options injection is deferred to the per-candidate rewrite block
+	// so it can be conditioned on provider type (avoided for providers that
+	// strict-validate unknown fields like Anthropic, Google, Cohere).
+	proxyReqBody := bodyBytes
 
 	// Per-request DNS resolution timing. SafeDialer's DialContext writes
 	// into this pointer via context, avoiding cross-request races on a
@@ -1369,6 +1371,13 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	circuitBreakerEnabled := h.settingsRepo.GetBool(r.Context(), "circuit_breaker_enabled", true)
 	ctxkeys.AddSettingsReadMs(r.Context(), cbStart2)
 
+	// Overall request deadline: caps total time across all failover candidates
+	// to prevent resource pinning from silent clients. Without this, N candidates
+	// with per-candidate failoverTimeout could hold a goroutine for N×failoverTimeout.
+	// The ceiling is 2× the per-candidate timeout, giving a second attempt full time
+	// while capping any number of subsequent candidates to the remaining budget.
+	overallDeadline := startTime.Add(failoverTimeout * 2)
+
 	// Final re-read of accumulated settings read time. The initial read
 	// captured the rate limiter's contribution, resolve handlers added
 	// circuit breaker/failover settings, and the proxy loop added
@@ -1381,6 +1390,16 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for attempt, candidate := range candidates {
+		// Overall deadline check: stop failover if the total time budget
+		// across all candidates has been exceeded. This prevents N candidates
+		// from holding a goroutine for N×failoverTimeout when the client
+		// is silent but connected (no TCP reset).
+		if time.Now().After(overallDeadline) && attempt > 0 {
+			debuglog.Warn("proxy: overall request deadline exceeded, stopping failover", "model", logData.modelID, "attempt", attempt+1, "total_candidates", len(candidates), "deadline", overallDeadline)
+			lastErr = fmt.Sprintf("attempt %d: overall request deadline exceeded", attempt)
+			break
+		}
+
 		// Exponential backoff between failover attempts: 0ms, ~100ms, ~200ms, ~400ms...
 		// Capped at 2s, with ±50ms jitter to avoid thundering herd.
 		// First attempt (attempt=0) has no delay.
@@ -1427,36 +1446,10 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		debuglog.Debug("proxy: built target URL", "target_url", targetURL)
 
 		upstreamBody := proxyReqBody
-		needsRewrite := reqModel != candidate.model.ModelID || providerType == "anthropic" || NeedsProviderInjection(providerType)
+		needsRewrite := reqModel != candidate.model.ModelID || providerType == "anthropic" || NeedsProviderInjection(providerType) || isStreaming
 		debuglog.Debug("proxy: request rewrite check", "needs_rewrite", needsRewrite, "request_model", logData.modelID, "provider", logData.providerName, "resolved_model", candidate.model.ModelID, "provider_type", providerType)
 		if needsRewrite {
-			var raw map[string]interface{}
-			if json.Unmarshal(proxyReqBody, &raw) == nil {
-				if reqModel != candidate.model.ModelID {
-					raw["model"] = candidate.model.ModelID
-				}
-				// Preemptively strip params known to be universally rejected per provider.
-				// These are always unsupported and cause 400 errors if sent.
-				// Learned rejections (from 400 auto-retry) are cached per provider+model below.
-				if params, ok := providerUnsupportedParams[providerType]; ok {
-					for _, p := range params {
-						delete(raw, p)
-					}
-				}
-				cacheKey := fmt.Sprintf("%s:%s", providerType, candidate.model.ModelID)
-				if cached := getCachedRejectedParams(&h.deprecationCache, cacheKey); cached != nil {
-					for param := range cached {
-						delete(raw, param)
-					}
-				}
-				// Inject provider-specific params required for reasoning/thinking.
-				// Clients don't know which upstream provider they're talking to,
-				// so the proxy must add these automatically.
-				InjectProviderParams(raw, providerType, candidate.model.ModelID)
-				if b, err := json.Marshal(raw); err == nil {
-					upstreamBody = b
-				}
-			}
+			upstreamBody = buildUpstreamBody(proxyReqBody, providerType, candidate.model.ModelID, reqModel, isStreaming, &h.deprecationCache, nil)
 		}
 		// Log the actual model name in the upstream body for debugging rewrite issues.
 		if upstreamModel, _, _ := strings.Cut(string(upstreamBody), ","); strings.Contains(upstreamModel, `"model"`) {
@@ -1585,66 +1578,55 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 						}
 						// CompareAndSwap failed — another goroutine updated it, retry.
 					}
-					// Rebuild the request body without rejected params
-					var raw map[string]interface{}
-					if json.Unmarshal(proxyReqBody, &raw) == nil {
-						raw["model"] = candidate.model.ModelID
-						for param := range rejected {
-							delete(raw, param)
-						}
-						// Also strip provider-universally-rejected params on retry
-						if params, ok := providerUnsupportedParams[providerType]; ok {
-							for _, p := range params {
-								delete(raw, p)
-							}
-						}
-						if rebuilt, err := json.Marshal(raw); err == nil {
-							retryCtx, rc := context.WithTimeout(r.Context(), failoverTimeout)
-							retryCtx = context.WithValue(retryCtx, ctxkeys.CancelOriginKey, "retry_timeout")
-							retryCtx = context.WithValue(retryCtx, ctxkeys.DialMsKey, &dialMs)
-							retryCancel = rc
-							streamCancelOrigin = "retry_timeout"
-							retryReq, retryErr := newRequestWithContext(retryCtx, "POST", targetURL, bytes.NewReader(rebuilt))
-							if retryErr != nil {
-								retryCancel()
-								lastErr = fmt.Sprintf("attempt %d: failed to create retry request: %v", attempt, retryErr)
-								continue
-							}
-							util.SetProviderAuthHeaders(retryReq, providerType, candidate.apiKey)
-							retryReq.Header.Set("Content-Type", "application/json")
-							var retryCheckRedirect func(req *http.Request, via []*http.Request) error
-							if h.safeDialer != nil {
-								retryCheckRedirect = h.safeDialer.CheckRedirect
-							}
-							retryClient := &http.Client{Transport: h.upstreamTransport, CheckRedirect: retryCheckRedirect}
-							resp, retryErr = retryClient.Do(retryReq)
-							if retryErr != nil {
-								retryCancel() // no body to consume on retry error
-								debuglog.Warn("proxy: auto-retry request failed", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", retryErr)
-								if errors.Is(retryErr, context.Canceled) || errors.Is(retryErr, context.DeadlineExceeded) {
-									// Branch like the main failover loop: Canceled = client
-									// disconnect, DeadlineExceeded = retry timeout.
-									origin := "retry_timeout"
-									if errors.Is(retryErr, context.Canceled) {
-										origin = "client_disconnect"
-									}
-									lastErr = fmt.Sprintf("attempt %d: %s", attempt, humanReadableCancelOrigin(origin))
-								} else {
-									lastErr = fmt.Sprintf("attempt %d: retry error: %v", attempt, retryErr)
-								}
-								continue
-							}
-							failoverCancel() // original 400 body already consumed, original context no longer needed
-							// Accumulate retry's dial time into total.
-							timings.dialMs += dialMs
-							dialMs = 0
-							proxyOverhead = timings.proxyOverheadMs(parseMs)
-							// retryCancel() must NOT be called here — retry resp.Body is read below.
-							// Store retryCancel for deferred cleanup after body consumption.
-							// Successfully retried — fall through to normal response handling
-							debuglog.Info("proxy: auto-retry succeeded", "model", candidate.model.ModelID, "rejected_params", mapKeys(rejected))
-						}
+					// Rebuild the request body using the shared rewrite path.
+					// This ensures stream_options injection, universal/learned param
+					// stripping, and InjectProviderParams are all applied on retry,
+					// preventing drift from the initial attempt path.
+					rebuilt := buildUpstreamBody(proxyReqBody, providerType, candidate.model.ModelID, reqModel, isStreaming, &h.deprecationCache, rejected)
+					retryCtx, rc := context.WithTimeout(r.Context(), failoverTimeout)
+					retryCtx = context.WithValue(retryCtx, ctxkeys.CancelOriginKey, "retry_timeout")
+					retryCtx = context.WithValue(retryCtx, ctxkeys.DialMsKey, &dialMs)
+					retryCancel = rc
+					streamCancelOrigin = "retry_timeout"
+					retryReq, retryErr := newRequestWithContext(retryCtx, "POST", targetURL, bytes.NewReader(rebuilt))
+					if retryErr != nil {
+						retryCancel()
+						lastErr = fmt.Sprintf("attempt %d: failed to create retry request: %v", attempt, retryErr)
+						continue
 					}
+					util.SetProviderAuthHeaders(retryReq, providerType, candidate.apiKey)
+					retryReq.Header.Set("Content-Type", "application/json")
+					var retryCheckRedirect func(req *http.Request, via []*http.Request) error
+					if h.safeDialer != nil {
+						retryCheckRedirect = h.safeDialer.CheckRedirect
+					}
+					retryClient := &http.Client{Transport: h.upstreamTransport, CheckRedirect: retryCheckRedirect}
+					resp, retryErr = retryClient.Do(retryReq)
+					if retryErr != nil {
+						retryCancel() // no body to consume on retry error
+						debuglog.Warn("proxy: auto-retry request failed", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", retryErr)
+						if errors.Is(retryErr, context.Canceled) || errors.Is(retryErr, context.DeadlineExceeded) {
+							// Branch like the main failover loop: Canceled = client
+							// disconnect, DeadlineExceeded = retry timeout.
+							origin := "retry_timeout"
+							if errors.Is(retryErr, context.Canceled) {
+								origin = "client_disconnect"
+							}
+							lastErr = fmt.Sprintf("attempt %d: %s", attempt, humanReadableCancelOrigin(origin))
+						} else {
+							lastErr = fmt.Sprintf("attempt %d: retry error: %v", attempt, retryErr)
+						}
+						continue
+					}
+					failoverCancel() // original 400 body already consumed, original context no longer needed
+					// Accumulate retry's dial time into total.
+					timings.dialMs += dialMs
+					dialMs = 0
+					proxyOverhead = timings.proxyOverheadMs(parseMs)
+					// retryCancel() must NOT be called here — retry resp.Body is read below.
+					// Store retryCancel for deferred cleanup after body consumption.
+					// Successfully retried — fall through to normal response handling
+					debuglog.Info("proxy: auto-retry succeeded", "model", candidate.model.ModelID, "rejected_params", mapKeys(rejected))
 				}
 			}
 		}
@@ -1655,21 +1637,31 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		isFailoverEligible := h.shouldFailover(r.Context(), resp.StatusCode)
 
 		if isFailoverEligible {
-			// Upstream is unhealthy — record failure for circuit breaker.
-			// Non-2xx streaming responses never reach the TTFT probe, so record now.
+			// Determine breaker action from status code.
+			// See breakerRecordAction for the full status→action mapping.
+			action := breakerRecordAction(resp.StatusCode)
 			if circuitBreakerEnabled {
-				h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
+				switch action {
+				case breakerActionFailure:
+					h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
+				case breakerActionNoOp:
+					// Model-specific client error (404/499): provider is alive
+					// but rejecting this request. No-op for the breaker — neither
+					// failure nor success. Recording success would erase real 5xx
+					// failure history (resetting consecutiveFails in Closed state)
+					// and could prematurely close a half-open circuit based on a
+					// model-specific error that says nothing about provider health.
+				case breakerActionSuccess:
+					// Not reached for failover-eligible codes: shouldFailover only
+					// returns true for {5xx,429,401,403,404,499}, all of which map to
+					// failure or no-op above. Retained so the switch stays exhaustive
+					// over breakerAction — if the shouldFailover/breakerRecordAction
+					// mappings ever diverge, a success is recorded rather than dropped.
+					h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
+				}
 			}
-		} else {
-			// Provider responded (even with a non-failover error like 400) —
-			// it's alive from a health perspective.
-			// For streaming 200 responses, recording is deferred until after the
-			// TTFT probe succeeds, to avoid double-counting with the stall watchdog.
-			// Streaming non-200 responses never reach the TTFT probe (they continue
-			// before it), so record now to maintain parity with non-streaming paths.
-			if circuitBreakerEnabled && (!isStreaming || resp.StatusCode != http.StatusOK) {
-				h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
-			}
+		} else if circuitBreakerEnabled && (!isStreaming || resp.StatusCode != http.StatusOK) {
+			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
 		}
 
 		shouldFailoverNow := isFailoverEligible && hasMoreCandidates

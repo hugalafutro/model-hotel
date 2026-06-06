@@ -632,3 +632,36 @@ func TestParseAccumulatedError_NonAccumulated(t *testing.T) {
 		t.Errorf("expected raw JSON string, got %q", result)
 	}
 }
+
+func TestProviderSupportsStreamOptions(t *testing.T) {
+	t.Parallel()
+
+	// Providers with non-OpenAI APIs that reject stream_options.
+	for _, pt := range []string{"anthropic", "google", "cohere", "opencode-go", "opencode-zen"} {
+		t.Run(pt+"_unsupported", func(t *testing.T) {
+			if providerSupportsStreamOptions(pt) {
+				t.Errorf("providerSupportsStreamOptions(%q) = true, want false", pt)
+			}
+		})
+	}
+
+	// OpenAI-compatible providers that accept or ignore stream_options.
+	for _, pt := range []string{
+		"openai", "deepseek", "xai", "openrouter",
+		"ollama", "ollama-cloud", "nanogpt", "zai-coding",
+		"lmstudio", "koboldcpp", "neuralwatt",
+	} {
+		t.Run(pt+"_supported", func(t *testing.T) {
+			if !providerSupportsStreamOptions(pt) {
+				t.Errorf("providerSupportsStreamOptions(%q) = false, want true", pt)
+			}
+		})
+	}
+
+	// Unknown provider types default to supported (OpenAI-compatible assumption).
+	t.Run("unknown_supported", func(t *testing.T) {
+		if !providerSupportsStreamOptions("some-new-provider") {
+			t.Error("unknown provider type should default to supported=true")
+		}
+	})
+}
