@@ -37,6 +37,7 @@ import { formatRelativeTime, formatTimestamp } from "../utils/format";
 import { isWebAuthnAvailable } from "../utils/webauthn";
 import { CollapsibleToggle, useCollapsible } from "./CollapsibleToggle";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { CountryFlag } from "./CountryFlag";
 import { LogDetailModal } from "./LogDetailModal";
 import { Logo } from "./Logo";
 import { ProviderQuotaPanel } from "./ProviderQuotaPanel";
@@ -727,12 +728,13 @@ function LanguageSelector() {
 								i18next.changeLanguage(lang.code);
 								setOpen(false);
 							}}
-							className={`w-full text-left px-3 py-1.5 text-xs transition-colors cursor-pointer ${
+							className={`w-full text-left px-3 py-1.5 text-xs transition-colors cursor-pointer flex items-center gap-1.5 ${
 								(i18n.resolvedLanguage ?? i18n.language) === lang.code
 									? "text-white bg-white/10"
 									: "text-gray-400 hover:text-white hover:bg-white/5"
 							}`}
 						>
+							<CountryFlag code={lang.code} />
 							{t(lang.labelKey)}
 						</button>
 					))}
