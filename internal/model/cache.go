@@ -91,6 +91,35 @@ func GetCachedByCompositeKey(providerID uuid.UUID, modelID string) (*Model, bool
 	return entry.model, true
 }
 
+// IsCachedByUUID reports whether a model for the given UUID is present in the
+// cache and not expired. It does not modify the cache.
+func IsCachedByUUID(id uuid.UUID) bool {
+	modelCacheMu.RLock()
+	entry, ok := modelByUUIDCache[id]
+	modelCacheMu.RUnlock()
+	return ok && !time.Now().After(entry.expiresAt)
+}
+
+// IsCachedByCompositeKey reports whether a model for the given provider+model
+// composite key is present in the cache and not expired. It does not modify
+// the cache.
+func IsCachedByCompositeKey(providerID uuid.UUID, modelID string) bool {
+	key := providerID.String() + ":" + modelID
+	modelCacheMu.RLock()
+	entry, ok := modelByCompositeKey[key]
+	modelCacheMu.RUnlock()
+	return ok && !time.Now().After(entry.expiresAt)
+}
+
+// IsCachedByModelID reports whether models for the given model ID string are
+// present in the cache and not expired. It does not modify the cache.
+func IsCachedByModelID(modelID string) bool {
+	modelCacheMu.RLock()
+	entry, ok := modelByModelIDCache[modelID]
+	modelCacheMu.RUnlock()
+	return ok && !time.Now().After(entry.expiresAt)
+}
+
 // InvalidateModelCache clears all model cache entries.
 func InvalidateModelCache() {
 	modelCacheMu.Lock()
@@ -101,10 +130,22 @@ func InvalidateModelCache() {
 }
 
 // WarmModelCache populates the model cache with the given models.
+// It fills all three sub-caches (by UUID, by ModelID string, and by
+// composite provider:modelID key) so that lookups from all resolve paths
+// hit cache on the first request.
 func WarmModelCache(models []*Model) {
 	modelCacheMu.Lock()
 	for _, m := range models {
 		modelByUUIDCache[m.ID] = modelByIDCacheEntry{model: m, expiresAt: time.Now().Add(modelCacheTTL)}
+		modelByCompositeKey[m.ProviderID.String()+":"+m.ModelID] = modelByIDCacheEntry{model: m, expiresAt: time.Now().Add(modelCacheTTL)}
+	}
+	// Group models by ModelID string for the byModelIDCache.
+	byModelID := make(map[string][]*Model)
+	for _, m := range models {
+		byModelID[m.ModelID] = append(byModelID[m.ModelID], m)
+	}
+	for modelID, group := range byModelID {
+		modelByModelIDCache[modelID] = modelCacheEntry{models: group, expiresAt: time.Now().Add(modelCacheTTL)}
 	}
 	modelCacheMu.Unlock()
 	debuglog.Info("model: warmed cache", "count", len(models))

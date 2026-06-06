@@ -504,7 +504,9 @@ func main() {
 			failover.WarmFailoverCache(failoverGroups)
 		}
 
-		debuglog.Info("cache: key, provider, model, and failover caches warmed")
+		settingsRepo.WarmCache(ctx)
+
+		debuglog.Info("cache: key, provider, model, failover, and settings caches warmed")
 	}
 
 	// Initialize key cache TTL from settings and react to changes.

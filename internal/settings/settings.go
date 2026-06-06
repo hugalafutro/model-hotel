@@ -204,6 +204,15 @@ func (r *Repository) Get(ctx context.Context, key string) (string, error) {
 	return value, nil
 }
 
+// IsCached reports whether a setting for the given key is present in the
+// cache and not expired. It does not modify the cache or access the database.
+func (r *Repository) IsCached(key string) bool {
+	r.mu.RLock()
+	entry, ok := r.cache[key]
+	r.mu.RUnlock()
+	return ok && time.Now().Before(entry.expiresAt)
+}
+
 // GetWithDefault retrieves a setting from cache or database, returning defaultValue if not found.
 func (r *Repository) GetWithDefault(ctx context.Context, key, defaultValue string) string {
 	r.mu.RLock()
@@ -267,6 +276,23 @@ func (r *Repository) InvalidateCache(key string) {
 	// still notify with an empty value so that listeners reset.
 	val := r.GetWithDefault(context.Background(), key, "")
 	r.notifyChange(key, val)
+}
+
+// WarmCache preloads all settings from the database into the in-memory cache.
+// Without this, settings are populated lazily on first read and expire after
+// cacheTTL (30s), causing periodic cache misses on the hot path.
+func (r *Repository) WarmCache(ctx context.Context) {
+	all, err := r.GetAll(ctx)
+	if err != nil {
+		debuglog.Warn("settings: failed to warm cache", "error", err)
+		return
+	}
+	r.mu.Lock()
+	for key, value := range all {
+		r.cache[key] = cacheEntry{value: value, expiresAt: time.Now().Add(r.cacheTTL)}
+	}
+	r.mu.Unlock()
+	debuglog.Info("settings: warmed cache", "count", len(all))
 }
 
 // GetAll retrieves all settings as a key-value map.

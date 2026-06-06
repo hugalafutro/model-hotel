@@ -76,6 +76,7 @@ type requestLogData struct {
 	keyDecryptMs              float64
 	dialMs                    float64
 	settingsReadMs            float64
+	cacheHits                 resolveCacheHits
 	responseHeaderMs          float64
 	ttftMs                    float64
 	tokensPerSecond           float64

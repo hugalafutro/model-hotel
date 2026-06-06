@@ -70,6 +70,28 @@ func GetCachedByName(name string) (*Provider, bool) {
 	return entry.provider, true
 }
 
+// IsCachedByID reports whether a provider for the given ID is present in the
+// cache and not expired. It does not modify the cache.
+func IsCachedByID(id uuid.UUID) bool {
+	providerCacheMu.RLock()
+	entry, ok := providerByIDCache[id]
+	providerCacheMu.RUnlock()
+	return ok && !time.Now().After(entry.expiresAt)
+}
+
+// IsCachedByName reports whether a provider for the given name (exact or
+// normalized) is present in the cache and not expired. It does not modify the
+// cache.
+func IsCachedByName(name string) bool {
+	providerCacheMu.RLock()
+	entry, ok := providerByNameCache[name]
+	if !ok {
+		entry, ok = providerByNormalNameCache[name]
+	}
+	providerCacheMu.RUnlock()
+	return ok && !time.Now().After(entry.expiresAt)
+}
+
 // InvalidateProviderCache clears all provider cache entries.
 func InvalidateProviderCache() {
 	providerCacheMu.Lock()

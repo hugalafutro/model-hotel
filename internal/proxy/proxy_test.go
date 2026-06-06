@@ -681,7 +681,7 @@ func TestFailRequest_PopulatesLogData(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.failRequest(logData, 502, "test error", 1, startTime, 1.5, timings, 0.5)
+	h.failRequest(logData, 502, "test error", 1, startTime, 1.5, timings, resolveCacheHits{}, 0.5)
 
 	if logData.statusCode != 502 {
 		t.Errorf("expected statusCode=502, got %d", logData.statusCode)

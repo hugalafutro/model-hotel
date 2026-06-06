@@ -2077,6 +2077,8 @@
 			"reasoning": "Reasoning",
 			"cacheHit": "Cache Hit",
 			"cacheMiss": "Cache Miss",
+			"overheadCacheHit": "(cache hit)",
+			"overheadCacheMiss": "(cache miss)",
 			"proxyOverheadBreakdown": "Proxy Overhead Breakdown",
 			"requestParsing": "Request Parsing",
 			"timeToParseRequest": "Time to parse and validate the incoming request body",

@@ -156,7 +156,7 @@ func TestShouldFailover_Integration_TableDriven(t *testing.T) {
 func TestResolveHotelModel_GroupNotFound(t *testing.T) {
 	h := newIntegrationHandler()
 
-	candidates, timings, err := h.resolveHotelModel(context.Background(), "nonexistent-model-xyz")
+	candidates, timings, _, err := h.resolveHotelModel(context.Background(), "nonexistent-model-xyz")
 
 	if err == nil {
 		t.Error("expected error for nonexistent failover group")
@@ -182,7 +182,7 @@ func TestResolveHotelModel_ContextCanceled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	_, _, err := h.resolveHotelModel(ctx, "some-model")
+	_, _, _, err := h.resolveHotelModel(ctx, "some-model")
 
 	if err == nil {
 		t.Error("expected error with canceled context")
@@ -196,7 +196,7 @@ func TestResolveHotelModel_ContextCanceled(t *testing.T) {
 func TestResolveSpecificProvider_ProviderNotFound(t *testing.T) {
 	h := newIntegrationHandler()
 
-	candidates, timings, err := h.resolveSpecificProvider(context.Background(), "nonexistent-provider", "some-model")
+	candidates, timings, _, err := h.resolveSpecificProvider(context.Background(), "nonexistent-provider", "some-model")
 
 	if err == nil {
 		t.Error("expected error for nonexistent provider")
@@ -216,7 +216,7 @@ func TestResolveSpecificProvider_ModelNotFound(t *testing.T) {
 		t.Skip("no providers in database")
 	}
 
-	candidates, _, err := h.resolveSpecificProvider(context.Background(), providers[0].Name, "nonexistent-model-xyz")
+	candidates, _, _, err := h.resolveSpecificProvider(context.Background(), providers[0].Name, "nonexistent-model-xyz")
 
 	if err == nil {
 		t.Error("expected error for nonexistent model")
@@ -232,7 +232,7 @@ func TestResolveSpecificProvider_ContextCanceled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	_, _, err := h.resolveSpecificProvider(ctx, "some-provider", "some-model")
+	_, _, _, err := h.resolveSpecificProvider(ctx, "some-provider", "some-model")
 
 	if err == nil {
 		t.Error("expected error with canceled context")
@@ -308,7 +308,7 @@ func TestResolveHotelModel_Success(t *testing.T) {
 	}
 	defer func() { _ = h.failoverRepo.Delete(context.Background(), "hotel-model") }()
 
-	candidates, timings, err := h.resolveHotelModel(context.Background(), "hotel-model")
+	candidates, timings, _, err := h.resolveHotelModel(context.Background(), "hotel-model")
 
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -381,7 +381,7 @@ func TestResolveSpecificProvider_Success(t *testing.T) {
 	}
 	defer func() { _ = h.modelRepo.DeleteByID(context.Background(), modelID) }()
 
-	candidates, timings, err := h.resolveSpecificProvider(context.Background(), providerName, "specific-model")
+	candidates, timings, _, err := h.resolveSpecificProvider(context.Background(), providerName, "specific-model")
 
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -483,7 +483,7 @@ func TestResolveHotelModel_MultipleEntriesWithDisabled(t *testing.T) {
 	}
 	defer func() { _ = h.failoverRepo.Delete(context.Background(), "multi-entry-model") }()
 
-	candidates, timings, err := h.resolveHotelModel(context.Background(), "multi-entry-model")
+	candidates, timings, _, err := h.resolveHotelModel(context.Background(), "multi-entry-model")
 
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -558,7 +558,7 @@ func TestResolveHotelModel_ModelDisabled(t *testing.T) {
 	// Invalidate the model cache so the handler reads fresh data from DB
 	model.InvalidateModelCache()
 
-	candidates, _, err := h.resolveHotelModel(context.Background(), "disabled-model-fg")
+	candidates, _, _, err := h.resolveHotelModel(context.Background(), "disabled-model-fg")
 
 	// When all candidates are disabled, returns empty candidates with no error
 	// (the error is returned later when trying to route the request)
@@ -624,7 +624,7 @@ func TestResolveHotelModel_ProviderDisabled(t *testing.T) {
 		t.Fatalf("failed to disable provider: %v", err)
 	}
 
-	candidates, _, err := h.resolveHotelModel(context.Background(), "provider-disabled-fg")
+	candidates, _, _, err := h.resolveHotelModel(context.Background(), "provider-disabled-fg")
 
 	// When all candidates are filtered out, returns empty candidates with no error
 	if err != nil {
@@ -688,7 +688,7 @@ func TestResolveHotelModel_CircuitBreakerOpen(t *testing.T) {
 		h.circuitBreaker.RecordFailure(createdProvider.ID, createdProvider.Name)
 	}
 
-	candidates, _, err := h.resolveHotelModel(context.Background(), "cb-fg")
+	candidates, _, _, err := h.resolveHotelModel(context.Background(), "cb-fg")
 
 	// When circuit breaker is open, returns empty candidates with no error
 	if err != nil {
@@ -742,7 +742,7 @@ func TestResolveHotelModel_EmptyAPIKey(t *testing.T) {
 	}
 	defer func() { _ = h.failoverRepo.Delete(context.Background(), "empty-key-fg") }()
 
-	candidates, timings, err := h.resolveHotelModel(context.Background(), "empty-key-fg")
+	candidates, timings, _, err := h.resolveHotelModel(context.Background(), "empty-key-fg")
 
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -809,7 +809,7 @@ func TestResolveSpecificProvider_WrongMasterKey(t *testing.T) {
 	}
 	defer func() { _ = h.modelRepo.DeleteByID(context.Background(), modelID) }()
 
-	candidates, _, err := h.resolveSpecificProvider(context.Background(), providerName, "wrong-key-model")
+	candidates, _, _, err := h.resolveSpecificProvider(context.Background(), providerName, "wrong-key-model")
 
 	if err == nil {
 		t.Error("expected error for wrong master key")
