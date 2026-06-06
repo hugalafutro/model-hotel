@@ -261,3 +261,19 @@ func writeSSEDataChunk(w io.Writer, payload []byte, bytesWritten *int64) error {
 	*bytesWritten += int64(n)
 	return err
 }
+
+// providerSupportsStreamOptions returns true for provider types that accept
+// the OpenAI stream_options parameter in their Chat Completions endpoint.
+// Providers with non-OpenAI APIs (Anthropic, Google, Cohere) or those that
+// strict-validate unknown fields should return false to avoid 400 errors.
+func providerSupportsStreamOptions(providerType string) bool {
+	switch providerType {
+	case "anthropic", "google", "cohere", "opencode-go", "opencode-zen":
+		return false
+	default:
+		// All OpenAI-compatible providers (openai, deepseek, xai, openrouter,
+		// ollama, ollama-cloud, nanogpt, zai-coding, lmstudio, koboldcpp,
+		// neuralwatt, etc.) accept or silently ignore stream_options.
+		return true
+	}
+}

@@ -1331,22 +1331,11 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	proxyOverhead := timings.proxyOverheadMs(parseMs)
 	debuglog.Debug("proxy: model resolved (pre-loop)", "model", logData.modelID, "provider", logData.providerName, "candidates", len(candidates), "overhead_ms", proxyOverhead)
 
-	var proxyReqBody []byte
-	if isStreaming {
-		var raw map[string]interface{}
-		if json.Unmarshal(bodyBytes, &raw) == nil {
-			raw["stream_options"] = map[string]interface{}{
-				"include_usage": true,
-			}
-			if b, err := json.Marshal(raw); err == nil {
-				proxyReqBody = b
-				debuglog.Debug("proxy: injected stream_options into request", "model", logData.modelID, "provider", logData.providerName)
-			}
-		}
-	}
-	if proxyReqBody == nil {
-		proxyReqBody = bodyBytes
-	}
+	// Use the original request body as the base for per-candidate rewrites.
+	// stream_options injection is deferred to the per-candidate rewrite block
+	// so it can be conditioned on provider type (avoided for providers that
+	// strict-validate unknown fields like Anthropic, Google, Cohere).
+	proxyReqBody := bodyBytes
 
 	// Per-request DNS resolution timing. SafeDialer's DialContext writes
 	// into this pointer via context, avoiding cross-request races on a
@@ -1430,13 +1419,22 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		debuglog.Debug("proxy: built target URL", "target_url", targetURL)
 
 		upstreamBody := proxyReqBody
-		needsRewrite := reqModel != candidate.model.ModelID || providerType == "anthropic" || NeedsProviderInjection(providerType)
+		needsRewrite := reqModel != candidate.model.ModelID || providerType == "anthropic" || NeedsProviderInjection(providerType) || isStreaming
 		debuglog.Debug("proxy: request rewrite check", "needs_rewrite", needsRewrite, "request_model", logData.modelID, "provider", logData.providerName, "resolved_model", candidate.model.ModelID, "provider_type", providerType)
 		if needsRewrite {
 			var raw map[string]interface{}
 			if json.Unmarshal(proxyReqBody, &raw) == nil {
 				if reqModel != candidate.model.ModelID {
 					raw["model"] = candidate.model.ModelID
+				}
+				// Inject stream_options for streaming requests to OpenAI-compatible
+				// providers. This must happen AFTER providerUnsupportedParams stripping
+				// so that providers which reject stream_options (Anthropic, Google, etc.)
+				// never receive it. The function below handles the ordering.
+				if isStreaming && providerSupportsStreamOptions(providerType) {
+					raw["stream_options"] = map[string]interface{}{
+						"include_usage": true,
+					}
 				}
 				// Preemptively strip params known to be universally rejected per provider.
 				// These are always unsupported and cause 400 errors if sent.
