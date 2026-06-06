@@ -43,6 +43,56 @@ func clearSettings(t *testing.T) {
 	}
 }
 
+func TestParseDuration(t *testing.T) {
+	tests := []struct {
+		input string
+		want  time.Duration
+		err   bool
+	}{
+		// Standard Go durations
+		{"30s", 30 * time.Second, false},
+		{"10m0s", 10 * time.Minute, false},
+		{"1h", time.Hour, false},
+		{"0s", 0, false},
+
+		// Day suffix
+		{"1d", 24 * time.Hour, false},
+		{"7d", 7 * 24 * time.Hour, false},
+		{"30d", 30 * 24 * time.Hour, false},
+
+		// Day + time
+		{"2d12h30m", 2*24*time.Hour + 12*time.Hour + 30*time.Minute, false},
+		{"1d30s", 24*time.Hour + 30*time.Second, false},
+
+		// Invalid
+		{"abc", 0, true},
+		{"5x", 0, true},
+		{"xd", 0, true},
+
+		// Zero days
+		{"0d", 0, false},
+		{"0d5m", 5 * time.Minute, false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.input, func(t *testing.T) {
+			got, err := parseDuration(tc.input)
+			if tc.err {
+				if err == nil {
+					t.Errorf("parseDuration(%q): expected error, got %v", tc.input, got)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("parseDuration(%q): unexpected error: %v", tc.input, err)
+				}
+				if got != tc.want {
+					t.Errorf("parseDuration(%q) = %v, want %v", tc.input, got, tc.want)
+				}
+			}
+		})
+	}
+}
+
 func TestGetWithDefault(t *testing.T) {
 	r := NewRepository(testPool)
 	ctx := context.Background()
