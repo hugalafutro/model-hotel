@@ -282,11 +282,10 @@ func (r *Repository) DeleteKeysTx(ctx context.Context, tx pgx.Tx, keys []string)
 	if err != nil {
 		return err
 	}
-	r.mu.Lock()
-	for _, key := range keys {
-		delete(r.cache, key)
-	}
-	r.mu.Unlock()
+	// Cache eviction is intentionally NOT done here. The caller must
+	// evict after the surrounding transaction commits; evicting before
+	// commit would let concurrent reads repopulate the cache with the
+	// pre-delete DB value on tx rollback.
 	return nil
 }
 

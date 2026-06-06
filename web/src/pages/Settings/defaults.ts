@@ -1,7 +1,12 @@
 /**
  * Default values for all settings. When a setting is deleted from the
  * database, the server falls through to its Go-side default — these
- * frontend defaults must match.
+ * frontend defaults MUST match the Go defaults in:
+ *   - internal/settings/settings.go (GetBool/GetInt/GetWithDefault fallbacks)
+ *   - internal/api/settings.go (allowedSettings map)
+ *
+ * There is no automated cross-language sync test. When changing a Go
+ * default, update the corresponding entry here (and in en.json labels).
  */
 export const SETTING_DEFAULTS: Record<string, string> = {
 	// Discovery

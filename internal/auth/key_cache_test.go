@@ -835,3 +835,51 @@ func TestDecryptCached_NewGCMError(t *testing.T) {
 		t.Error("expected error when newGCM fails")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// IsKeyCached
+// ---------------------------------------------------------------------------
+
+func TestIsKeyCached_NotCachedBeforeDecrypt(t *testing.T) {
+	// A freshly encrypted key should not appear in cache until DecryptCached is called.
+	masterKey := "test-master-key-for-caching"
+	kp, err := Encrypt("secret-api-key", masterKey)
+	if err != nil {
+		t.Fatalf("Encrypt: %v", err)
+	}
+	if IsKeyCached(kp.Ciphertext, kp.Nonce, kp.Salt) {
+		t.Error("IsKeyCached should return false before DecryptCached is called")
+	}
+}
+
+func TestIsKeyCached_PresentAfterDecrypt(t *testing.T) {
+	masterKey := "test-master-key-for-caching"
+	kp, err := Encrypt("secret-api-key", masterKey)
+	if err != nil {
+		t.Fatalf("Encrypt: %v", err)
+	}
+	_, err = DecryptCached(kp.Ciphertext, kp.Nonce, kp.Salt, masterKey)
+	if err != nil {
+		t.Fatalf("DecryptCached: %v", err)
+	}
+
+	if !IsKeyCached(kp.Ciphertext, kp.Nonce, kp.Salt) {
+		t.Error("IsKeyCached should return true after DecryptCached populates cache")
+	}
+}
+
+func TestIsKeyCached_DifferentCiphertext(t *testing.T) {
+	masterKey := "test-master-key-for-caching"
+	kp, err := Encrypt("secret-api-key", masterKey)
+	if err != nil {
+		t.Fatalf("Encrypt: %v", err)
+	}
+	_, err = DecryptCached(kp.Ciphertext, kp.Nonce, kp.Salt, masterKey)
+	if err != nil {
+		t.Fatalf("DecryptCached: %v", err)
+	}
+
+	if IsKeyCached([]byte("other-ct"), kp.Nonce, kp.Salt) {
+		t.Error("IsKeyCached should return false for different ciphertext")
+	}
+}

@@ -563,3 +563,34 @@ func TestInvalidateFailoverCache_ConcurrentWithReads(t *testing.T) {
 		t.Errorf("concurrent invalidation error: %v", err)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// IsCachedByModel
+// ---------------------------------------------------------------------------
+
+func TestIsCachedByModel_EmptyCache(t *testing.T) {
+	InvalidateFailoverCache()
+	if IsCachedByModel("nonexistent") {
+		t.Error("IsCachedByModel should return false for empty cache")
+	}
+}
+
+func TestIsCachedByModel_Cached(t *testing.T) {
+	InvalidateFailoverCache()
+	WarmFailoverCache([]*FailoverGroup{
+		{DisplayModel: "my-model"},
+	})
+	if !IsCachedByModel("my-model") {
+		t.Error("IsCachedByModel should return true for cached model")
+	}
+}
+
+func TestIsCachedByModel_Miss(t *testing.T) {
+	InvalidateFailoverCache()
+	WarmFailoverCache([]*FailoverGroup{
+		{DisplayModel: "my-model"},
+	})
+	if IsCachedByModel("other-model") {
+		t.Error("IsCachedByModel should return false for different model")
+	}
+}

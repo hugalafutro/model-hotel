@@ -195,6 +195,11 @@ func (h *Handler) ResetSettings(w http.ResponseWriter, r *http.Request) {
 		for k := range allowedSettings {
 			keys = append(keys, k)
 		}
+	} else if len(keys) > 50 {
+		// Guard only user-supplied lists against unbounded input.
+		// The internally-expanded "reset all" list is bounded by allowedSettings.
+		http.Error(w, "too many keys in one request", http.StatusBadRequest)
+		return
 	}
 
 	// Validate all keys before deleting.
@@ -203,11 +208,6 @@ func (h *Handler) ResetSettings(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("unknown setting: %s", key), http.StatusBadRequest)
 			return
 		}
-	}
-
-	if len(keys) > 50 {
-		http.Error(w, "too many keys in one request", http.StatusBadRequest)
-		return
 	}
 
 	tx, err := h.dbPool.Begin(r.Context())
