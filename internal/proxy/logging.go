@@ -12,6 +12,15 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/events"
 )
 
+// updateLogOption configures updateRequestLog behavior.
+type updateLogOption struct {
+	// skipWaitForInsert skips the WaitForInsert call before the UPDATE.
+	// Use for interim log writes on the streaming hot path where blocking
+	// on the async INSERT would delay the first streamed byte. The final
+	// log update (completed/failed state) should always wait.
+	skipWaitForInsert bool
+}
+
 // insertRequestLogAsync pre-generates the log ID and fires off the DB
 // insert in a goroutine so the handler is not blocked by the write. The ID
 // is assigned synchronously so updateRequestLog can reference it later. If
@@ -109,7 +118,7 @@ func (h *Handler) WaitForInsert(logEntry *requestLogData) {
 	}
 }
 
-func (h *Handler) updateRequestLog(logEntry *requestLogData) {
+func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOption) {
 	// Guard: if the log entry was never assigned an ID (insertRequestLogAsync
 	// not called), there is no row to update. An empty string is not a valid
 	// UUID and would cause "invalid input syntax for type uuid" errors.
@@ -126,8 +135,22 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData) {
 		return
 	}
 
-	// Ensure the async INSERT has completed before we try to UPDATE the row.
-	h.WaitForInsert(logEntry)
+	// Determine if we should skip WaitForInsert (fire-and-forget).
+	// The interim "streaming" state update runs on the hot path before the
+	// first streamed byte — blocking on the DB INSERT can delay the client
+	// by up to waitInsertTimeout (5s). Terminal states (completed/failed)
+	// always wait to guarantee the row exists for the final UPDATE.
+	skipWait := false
+	for _, o := range opts {
+		if o.skipWaitForInsert {
+			skipWait = true
+		}
+	}
+
+	if !skipWait {
+		// Ensure the async INSERT has completed before we try to UPDATE the row.
+		h.WaitForInsert(logEntry)
+	}
 
 	var providerID interface{}
 	if logEntry.providerID != uuid.Nil {

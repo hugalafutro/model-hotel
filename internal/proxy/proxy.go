@@ -66,7 +66,10 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	logData.ttftMs = opts.trueTtftMs
 	logData.failoverAttempt = opts.attempt
 	logData.state = "streaming"
-	h.updateRequestLog(logData)
+	// Fire-and-forget: the interim "streaming" state update runs before
+	// the first streamed byte. Blocking on WaitForInsert (up to 5s) would
+	// delay the client. The final update (completed/failed) waits properly.
+	h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 
 	flusher, canFlush := w.(http.Flusher)
 
