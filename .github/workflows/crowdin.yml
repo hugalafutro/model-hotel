@@ -42,8 +42,8 @@ jobs:
           pull_request_title: "New Crowdin translations"
           pull_request_labels: "i18n"
           pull_request_base_branch_name: master
-          # Use .github/crowdin.yml for file mapping
-          config: ".github/crowdin.yml"
+          # Use crowdin.yml at repo root for file mapping
+          config: "crowdin.yml"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CROWDIN_PROJECT_ID: ${{ secrets.CROWDIN_PROJECT_ID }}
