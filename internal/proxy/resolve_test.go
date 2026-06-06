@@ -308,7 +308,7 @@ func TestResolveHotelModel_Success(t *testing.T) {
 	}
 	defer func() { _ = h.failoverRepo.Delete(context.Background(), "hotel-model") }()
 
-	candidates, timings, _, err := h.resolveHotelModel(context.Background(), "hotel-model")
+	candidates, timings, cacheHits, err := h.resolveHotelModel(context.Background(), "hotel-model")
 
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -333,6 +333,22 @@ func TestResolveHotelModel_Success(t *testing.T) {
 	}
 	if timings.providerLookupMs < 0 {
 		t.Errorf("expected providerLookupMs > 0, got %f", timings.providerLookupMs)
+	}
+
+	// Verify cache hit status was recorded for populated caches.
+	// The test handler does not warm caches, so we only assert fields are
+	// set (not that they report "hit").
+	if cacheHits.Failover == nil {
+		t.Error("expected Failover cache hit status to be set, got nil")
+	}
+	if cacheHits.Model == nil {
+		t.Error("expected Model cache hit status to be set, got nil")
+	}
+	if cacheHits.Provider == nil {
+		t.Error("expected Provider cache hit status to be set, got nil")
+	}
+	if cacheHits.Key == nil {
+		t.Error("expected Key cache hit status to be set, got nil")
 	}
 }
 
@@ -381,7 +397,7 @@ func TestResolveSpecificProvider_Success(t *testing.T) {
 	}
 	defer func() { _ = h.modelRepo.DeleteByID(context.Background(), modelID) }()
 
-	candidates, timings, _, err := h.resolveSpecificProvider(context.Background(), providerName, "specific-model")
+	candidates, timings, cacheHits, err := h.resolveSpecificProvider(context.Background(), providerName, "specific-model")
 
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -409,6 +425,18 @@ func TestResolveSpecificProvider_Success(t *testing.T) {
 	}
 	if timings.keyDecryptMs < 0 {
 		t.Errorf("expected keyDecryptMs > 0, got %f", timings.keyDecryptMs)
+	}
+
+	// Verify cache hit status was recorded. The test handler does not warm
+	// caches, so we only assert fields are set (not that they report "hit").
+	if cacheHits.Provider == nil {
+		t.Error("expected Provider cache hit status to be set, got nil")
+	}
+	if cacheHits.Model == nil {
+		t.Error("expected Model cache hit status to be set, got nil")
+	}
+	if cacheHits.Key == nil {
+		t.Error("expected Key cache hit status to be set, got nil")
 	}
 }
 
@@ -483,7 +511,7 @@ func TestResolveHotelModel_MultipleEntriesWithDisabled(t *testing.T) {
 	}
 	defer func() { _ = h.failoverRepo.Delete(context.Background(), "multi-entry-model") }()
 
-	candidates, timings, _, err := h.resolveHotelModel(context.Background(), "multi-entry-model")
+	candidates, timings, cacheHits, err := h.resolveHotelModel(context.Background(), "multi-entry-model")
 
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -499,6 +527,15 @@ func TestResolveHotelModel_MultipleEntriesWithDisabled(t *testing.T) {
 	// Verify timings were recorded
 	if timings.modelLookupMs < 0 {
 		t.Errorf("expected modelLookupMs > 0, got %f", timings.modelLookupMs)
+	}
+
+	// Verify cache hit fields are populated (test handler doesn't warm caches,
+	// so we only check non-nil, not the hit value).
+	if cacheHits.Failover == nil {
+		t.Error("expected Failover cache hit status to be set, got nil")
+	}
+	if cacheHits.Model == nil {
+		t.Error("expected Model cache hit status to be set, got nil")
 	}
 }
 
@@ -742,7 +779,7 @@ func TestResolveHotelModel_EmptyAPIKey(t *testing.T) {
 	}
 	defer func() { _ = h.failoverRepo.Delete(context.Background(), "empty-key-fg") }()
 
-	candidates, timings, _, err := h.resolveHotelModel(context.Background(), "empty-key-fg")
+	candidates, timings, cacheHits, err := h.resolveHotelModel(context.Background(), "empty-key-fg")
 
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -760,6 +797,10 @@ func TestResolveHotelModel_EmptyAPIKey(t *testing.T) {
 	// Empty key providers should have empty API key
 	if candidates[0].apiKey != "" {
 		t.Errorf("expected empty API key, got %q", candidates[0].apiKey)
+	}
+	// Keyless providers should not report cache hit status for keys.
+	if cacheHits.Key != nil {
+		t.Errorf("expected Key cache hit to be nil for keyless provider, got %v", cacheHits.Key)
 	}
 
 	// Verify timings were recorded

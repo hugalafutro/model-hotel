@@ -84,12 +84,17 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 	}
 
 	// Check model cache before lookup (batch: all must hit to count as hit).
-	modelHit := true
-	for _, id := range enabledModelIDs {
-		if !model.IsCachedByUUID(id) {
-			modelHit = false
-			break
+	// Skip setting the field when there are no models to check; an empty
+	// set would otherwise default to "hit" which is misleading.
+	if len(enabledModelIDs) > 0 {
+		modelHit := true
+		for _, id := range enabledModelIDs {
+			if !model.IsCachedByUUID(id) {
+				modelHit = false
+				break
+			}
 		}
+		ch.Model = &modelHit
 	}
 
 	models, err := h.modelRepo.GetByIDs(ctx, enabledModelIDs)
@@ -97,7 +102,6 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 		return nil, t, ch, err
 	}
 
-	ch.Model = &modelHit
 	t.modelLookupMs = float64(time.Since(modelLookupStart).Microseconds()) / 1000.0
 
 	providerLookupStart := time.Now()
@@ -117,20 +121,23 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 	}
 
 	// Check provider cache before lookup (batch: all must hit to count as hit).
-	providerHit := true
-	for _, id := range providerIDs {
-		if !provider.IsCachedByID(id) {
-			providerHit = false
-			break
+	// Skip setting the field when there are no providers to check; an empty
+	// set would otherwise default to "hit" which is misleading.
+	if len(providerIDs) > 0 {
+		providerHit := true
+		for _, id := range providerIDs {
+			if !provider.IsCachedByID(id) {
+				providerHit = false
+				break
+			}
 		}
+		ch.Provider = &providerHit
 	}
 
 	providers, err := h.providerRepo.GetByIDs(ctx, providerIDs)
 	if err != nil {
 		return nil, t, ch, err
 	}
-
-	ch.Provider = &providerHit
 
 	// Read circuit_breaker_enabled once before the loop to avoid
 	// per-candidate settings reads. This single read is still accounted
