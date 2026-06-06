@@ -1,4 +1,4 @@
-name: Crowdin Translations
+name: Crowdin Action
 
 on:
   push:
@@ -17,33 +17,27 @@ concurrency:
 
 jobs:
   synchronize-with-crowdin:
-    name: Sync Crowdin
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
-      - name: Crowdin Sync
+      - name: crowdin action
         uses: crowdin/github-action@8868a33591d21088edfc398968173a3b98d51706 # v2
         with:
-          # Upload source strings when en.json changes on master
           upload_sources: true
-          # Download translated files and create a PR
+          upload_translations: false
           download_translations: true
-          # Skip locale files that have zero translated strings
-          # (prevents downloading empty JSON scaffolds for new languages)
           skip_untranslated_files: true
-          # PR configuration
           localization_branch_name: l10n_crowdin_translations
           create_pull_request: true
           pull_request_title: "New Crowdin translations"
+          pull_request_body: "New Crowdin translations by [Crowdin GH Action](https://github.com/crowdin/github-action)"
           pull_request_labels: "i18n"
           pull_request_base_branch_name: master
-          # Use crowdin.yml at repo root for file mapping
-          config: "crowdin.yml"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           CROWDIN_PROJECT_ID: ${{ secrets.CROWDIN_PROJECT_ID }}
           CROWDIN_PERSONAL_TOKEN: ${{ secrets.CROWDIN_PERSONAL_TOKEN }}
 
