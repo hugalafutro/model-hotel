@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import i18next from "i18next";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -75,6 +75,25 @@ describe("Layout", () => {
 			// Czech is inactive
 			const czechBtn = screen.getByText("Čeština");
 			expect(czechBtn).toHaveClass("text-gray-400");
+		});
+
+		it("highlights correct language with regional locale variant", async () => {
+			// Simulate a browser reporting "cs-CZ" when only "cs" resource exists.
+			// i18n.resolvedLanguage should resolve to "cs" for correct highlight.
+			const user = userEvent.setup();
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			// Switch to cs-CZ (regional variant) — i18next resolves to "cs"
+			await act(async () => {
+				i18next.changeLanguage("cs-CZ");
+			});
+
+			// After switching to Czech, the button label is "Jazyk" not "Language"
+			await user.click(screen.getByLabelText("Jazyk"));
+
+			// Czech should be highlighted because resolvedLanguage === "cs"
+			const czechBtn = screen.getByText("Čeština");
+			expect(czechBtn).toHaveClass("bg-white/10");
 		});
 
 		it("changes language on option click", async () => {
