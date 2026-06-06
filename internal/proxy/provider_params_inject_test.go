@@ -54,7 +54,7 @@ func TestInjectProviderParams_DeepSeekV4(t *testing.T) {
 	raw := map[string]interface{}{
 		"messages": []interface{}{
 			map[string]interface{}{
-				"role": "assistant",
+				"role":    "assistant",
 				"content": "Hello",
 			},
 		},
@@ -69,7 +69,7 @@ func TestInjectProviderParams_DeepSeekNonReasoning(t *testing.T) {
 	raw := map[string]interface{}{
 		"messages": []interface{}{
 			map[string]interface{}{
-				"role": "assistant",
+				"role":    "assistant",
 				"content": "Hello",
 			},
 		},

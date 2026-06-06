@@ -248,7 +248,7 @@ func TestBuildModelKeysetPredicate_StatusSort(t *testing.T) {
 }
 
 func containsSubstring(s, sub string) bool {
-	return len(s) >= len(sub) && (s == sub || len(s) > 0 && containsSubstringHelper(s, sub))
+	return len(s) >= len(sub) && (s == sub || s != "" && containsSubstringHelper(s, sub))
 }
 
 func containsSubstringHelper(s, sub string) bool {

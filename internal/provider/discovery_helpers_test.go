@@ -34,10 +34,10 @@ func TestToCohereNativeURL_TrailingSlash(t *testing.T) {
 
 func TestParseOpenRouterPricing(t *testing.T) {
 	tests := []struct {
-		name     string
-		pricing  OpenRouterPricing
-		wantIn   float64
-		wantOut  float64
+		name    string
+		pricing OpenRouterPricing
+		wantIn  float64
+		wantOut float64
 	}{
 		{
 			"valid pricing",
