@@ -1682,22 +1682,26 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 		hasMoreCandidates := attempt < len(candidates)-1
 		isFailoverEligible := h.shouldFailover(r.Context(), resp.StatusCode)
-		isProviderHealthFailure := resp.StatusCode >= 500 || resp.StatusCode == 429 || resp.StatusCode == 401 || resp.StatusCode == 403
 
 		if isFailoverEligible {
-			// Record failure for circuit breaker only for provider-level errors.
-			// 5xx = server error (provider unhealthy), 429 = rate limit (provider overloaded),
-			// 401/403 = auth failure (provider-wide bad/expired key — every request will fail).
-			// Model-specific client errors (404 = stale model, 499 = client disconnect)
-			// indicate the provider is alive but rejecting this specific request, so they
-			// trigger failover without affecting the breaker (neither success nor failure).
-			if circuitBreakerEnabled && isProviderHealthFailure {
-				h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
+			// Determine breaker action from status code.
+			// See breakerRecordAction for the full status→action mapping.
+			action := breakerRecordAction(resp.StatusCode)
+			if circuitBreakerEnabled {
+				switch action {
+				case breakerActionFailure:
+					h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
+				case breakerActionNoOp:
+					// Model-specific client error (404/499): provider is alive
+					// but rejecting this request. No-op for the breaker — neither
+					// failure nor success. Recording success would erase real 5xx
+					// failure history (resetting consecutiveFails in Closed state)
+					// and could prematurely close a half-open circuit based on a
+					// model-specific error that says nothing about provider health.
+				case breakerActionSuccess:
+					h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
+				}
 			}
-			// 404/499: no-op for the breaker. Recording success would erase real 5xx
-			// failure history (resetting consecutiveFails in Closed state) and could
-			// prematurely close a half-open circuit based on a model-specific error that
-			// says nothing about provider health.
 		} else {
 			// Provider responded (even with a non-failover error like 400) —
 			// it's alive from a health perspective.

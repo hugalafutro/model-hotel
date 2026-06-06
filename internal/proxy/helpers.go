@@ -277,3 +277,38 @@ func providerSupportsStreamOptions(providerType string) bool {
 		return true
 	}
 }
+
+// breakerAction represents the circuit-breaker recording decision for a
+// given upstream HTTP status code.
+type breakerAction int
+
+const (
+	// breakerActionFailure records a failure (provider is unhealthy).
+	breakerActionFailure breakerAction = iota
+	// breakerActionNoOp does nothing (model-specific client error; provider is
+	// alive but rejecting this request). Neither failure nor success — recording
+	// success would erase real 5xx history and prematurely close half-open circuits.
+	breakerActionNoOp
+	// breakerActionSuccess records a success (provider is healthy).
+	breakerActionSuccess
+)
+
+// breakerRecordAction determines the circuit-breaker recording action for a
+// given upstream HTTP status code. This is the single source of truth for the
+// status→breaker mapping and is intended to be table-tested.
+func breakerRecordAction(statusCode int) breakerAction {
+	switch {
+	case statusCode >= 500 || statusCode == 429 || statusCode == 401 || statusCode == 403:
+		// 5xx = server error (provider unhealthy)
+		// 429 = rate limit (provider overloaded)
+		// 401/403 = auth failure (provider-wide bad/expired key)
+		return breakerActionFailure
+	case statusCode == 404 || statusCode == 499:
+		// 404 = stale/renamed model (model-specific, not provider health)
+		// 499 = client closed request (Nginx convention; not a provider signal)
+		return breakerActionNoOp
+	default:
+		// Any other response (200, 400, etc.) indicates the provider is alive.
+		return breakerActionSuccess
+	}
+}
