@@ -1367,6 +1367,13 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	circuitBreakerEnabled := h.settingsRepo.GetBool(r.Context(), "circuit_breaker_enabled", true)
 	ctxkeys.AddSettingsReadMs(r.Context(), cbStart2)
 
+	// Overall request deadline: caps total time across all failover candidates
+	// to prevent resource pinning from silent clients. Without this, N candidates
+	// with per-candidate failoverTimeout could hold a goroutine for N×failoverTimeout.
+	// The ceiling is 2× the per-candidate timeout, giving a second attempt full time
+	// while capping any number of subsequent candidates to the remaining budget.
+	overallDeadline := startTime.Add(failoverTimeout * 2)
+
 	// Final re-read of accumulated settings read time. The initial read
 	// captured the rate limiter's contribution, resolve handlers added
 	// circuit breaker/failover settings, and the proxy loop added
@@ -1379,6 +1386,16 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for attempt, candidate := range candidates {
+		// Overall deadline check: stop failover if the total time budget
+		// across all candidates has been exceeded. This prevents N candidates
+		// from holding a goroutine for N×failoverTimeout when the client
+		// is silent but connected (no TCP reset).
+		if time.Now().After(overallDeadline) && attempt > 0 {
+			debuglog.Warn("proxy: overall request deadline exceeded, stopping failover", "model", logData.modelID, "attempt", attempt+1, "total_candidates", len(candidates), "deadline", overallDeadline)
+			lastErr = fmt.Sprintf("attempt %d: overall request deadline exceeded", attempt)
+			break
+		}
+
 		// Exponential backoff between failover attempts: 0ms, ~100ms, ~200ms, ~400ms...
 		// Capped at 2s, with ±50ms jitter to avoid thundering herd.
 		// First attempt (attempt=0) has no delay.
