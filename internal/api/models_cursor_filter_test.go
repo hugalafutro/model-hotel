@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/url"
 	"testing"
 	"time"
@@ -257,4 +258,82 @@ func containsSubstringHelper(s, sub string) bool {
 		}
 	}
 	return false
+}
+
+func TestSplitComma(t *testing.T) {
+	tests := []struct {
+		input string
+		want  []string
+	}{
+		{"a,b,c", []string{"a", "b", "c"}},
+		{"a, b , c", []string{"a", "b", "c"}},
+		{"a,,b", []string{"a", "b"}},
+		{"", []string{}},
+		{",,,", []string{}},
+		{"single", []string{"single"}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.input, func(t *testing.T) {
+			got := splitComma(tc.input)
+			if len(got) != len(tc.want) {
+				t.Fatalf("splitComma(%q) = %v, want %v", tc.input, got, tc.want)
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Errorf("splitComma(%q)[%d] = %q, want %q", tc.input, i, got[i], tc.want[i])
+				}
+			}
+		})
+	}
+}
+
+func TestJoinAnd(t *testing.T) {
+	tests := []struct {
+		conditions []string
+		want       string
+	}{
+		{nil, ""},
+		{[]string{}, ""},
+		{[]string{"a"}, "a"},
+		{[]string{"a", "b"}, "a AND b"},
+		{[]string{"a", "b", "c"}, "a AND b AND c"},
+	}
+	for _, tc := range tests {
+		name := fmt.Sprintf("%v", tc.conditions)
+		t.Run(name, func(t *testing.T) {
+			if got := joinAnd(tc.conditions); got != tc.want {
+				t.Errorf("joinAnd(%v) = %q, want %q", tc.conditions, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestModelSortColumn(t *testing.T) {
+	tests := []struct {
+		sortBy string
+		want   string
+	}{
+		{"discovered", "COALESCE(m.last_seen_at, m.created_at)"},
+		{"context", "COALESCE(m.context_length, 0)"},
+		{"output", "COALESCE(m.max_output_tokens, 0)"},
+		{"provider", "COALESCE(p.name, '')"},
+		{"name", "COALESCE(m.name, m.model_id, '')"},
+		{"", "COALESCE(m.name, m.model_id, '')"},
+		{"unknown", "COALESCE(m.name, m.model_id, '')"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.sortBy, func(t *testing.T) {
+			if got := modelSortColumn(tc.sortBy); got != tc.want {
+				t.Errorf("modelSortColumn(%q) = %q, want %q", tc.sortBy, got, tc.want)
+			}
+		})
+	}
+}
+
+// Verify status sort uses CASE expression
+func TestModelSortColumn_Status(t *testing.T) {
+	got := modelSortColumn("status")
+	if !containsSubstringHelper(got, "CASE") {
+		t.Errorf("Expected CASE in status sort column, got %q", got)
+	}
 }
