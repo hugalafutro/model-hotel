@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -319,4 +320,70 @@ func breakerRecordAction(statusCode int) breakerAction {
 		// Any other response (200, 400, etc.) indicates the provider is alive.
 		return breakerActionSuccess
 	}
+}
+
+// buildUpstreamBody rewrites the client request body for a specific provider
+// candidate. This is the single shared rewrite path used by both the initial
+// attempt and the 400 auto-retry, preventing drift between the two.
+//
+// Steps (applied in order):
+//  1. Model rename (client model → resolved model)
+//  2. stream_options injection (streaming + OpenAI-compatible providers only)
+//  3. Universal param stripping (providerUnsupportedParams)
+//  4. Learned param stripping (deprecationCache)
+//  5. Provider-specific param injection (InjectProviderParams)
+//  6. Extra param stripping (additional rejected params, e.g. from 400 auto-retry)
+func buildUpstreamBody(
+	proxyReqBody []byte,
+	providerType string,
+	resolvedModelID string,
+	requestModel string,
+	isStreaming bool,
+	deprecationCache *sync.Map,
+	extraStrip map[string]bool,
+) []byte {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(proxyReqBody, &raw); err != nil {
+		return proxyReqBody // unparseable — forward as-is
+	}
+
+	// 1. Model rename
+	if requestModel != resolvedModelID {
+		raw["model"] = resolvedModelID
+	}
+
+	// 2. stream_options injection
+	if isStreaming && providerSupportsStreamOptions(providerType) {
+		raw["stream_options"] = map[string]interface{}{
+			"include_usage": true,
+		}
+	}
+
+	// 3. Universal param stripping
+	if params, ok := providerUnsupportedParams[providerType]; ok {
+		for _, p := range params {
+			delete(raw, p)
+		}
+	}
+
+	// 4. Learned param stripping
+	cacheKey := fmt.Sprintf("%s:%s", providerType, resolvedModelID)
+	if cached := getCachedRejectedParams(deprecationCache, cacheKey); cached != nil {
+		for param := range cached {
+			delete(raw, param)
+		}
+	}
+
+	// 5. Provider-specific param injection
+	InjectProviderParams(raw, providerType, resolvedModelID)
+
+	// 6. Extra param stripping (e.g. newly-learned rejections from 400 auto-retry)
+	for param := range extraStrip {
+		delete(raw, param)
+	}
+
+	if b, err := json.Marshal(raw); err == nil {
+		return b
+	}
+	return proxyReqBody
 }

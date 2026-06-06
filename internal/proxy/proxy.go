@@ -1449,43 +1449,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		needsRewrite := reqModel != candidate.model.ModelID || providerType == "anthropic" || NeedsProviderInjection(providerType) || isStreaming
 		debuglog.Debug("proxy: request rewrite check", "needs_rewrite", needsRewrite, "request_model", logData.modelID, "provider", logData.providerName, "resolved_model", candidate.model.ModelID, "provider_type", providerType)
 		if needsRewrite {
-			var raw map[string]interface{}
-			if json.Unmarshal(proxyReqBody, &raw) == nil {
-				if reqModel != candidate.model.ModelID {
-					raw["model"] = candidate.model.ModelID
-				}
-				// Inject stream_options for streaming requests to OpenAI-compatible
-				// providers. Guarded by providerSupportsStreamOptions (allowlist) so
-				// providers that reject stream_options (Anthropic, Google, Cohere, etc.)
-				// never receive it. The allowlist is the gate, not the physical ordering
-				// relative to providerUnsupportedParams stripping below.
-				if isStreaming && providerSupportsStreamOptions(providerType) {
-					raw["stream_options"] = map[string]interface{}{
-						"include_usage": true,
-					}
-				}
-				// Preemptively strip params known to be universally rejected per provider.
-				// These are always unsupported and cause 400 errors if sent.
-				// Learned rejections (from 400 auto-retry) are cached per provider+model below.
-				if params, ok := providerUnsupportedParams[providerType]; ok {
-					for _, p := range params {
-						delete(raw, p)
-					}
-				}
-				cacheKey := fmt.Sprintf("%s:%s", providerType, candidate.model.ModelID)
-				if cached := getCachedRejectedParams(&h.deprecationCache, cacheKey); cached != nil {
-					for param := range cached {
-						delete(raw, param)
-					}
-				}
-				// Inject provider-specific params required for reasoning/thinking.
-				// Clients don't know which upstream provider they're talking to,
-				// so the proxy must add these automatically.
-				InjectProviderParams(raw, providerType, candidate.model.ModelID)
-				if b, err := json.Marshal(raw); err == nil {
-					upstreamBody = b
-				}
-			}
+			upstreamBody = buildUpstreamBody(proxyReqBody, providerType, candidate.model.ModelID, reqModel, isStreaming, &h.deprecationCache, nil)
 		}
 		// Log the actual model name in the upstream body for debugging rewrite issues.
 		if upstreamModel, _, _ := strings.Cut(string(upstreamBody), ","); strings.Contains(upstreamModel, `"model"`) {
@@ -1614,66 +1578,55 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 						}
 						// CompareAndSwap failed — another goroutine updated it, retry.
 					}
-					// Rebuild the request body without rejected params
-					var raw map[string]interface{}
-					if json.Unmarshal(proxyReqBody, &raw) == nil {
-						raw["model"] = candidate.model.ModelID
-						for param := range rejected {
-							delete(raw, param)
-						}
-						// Also strip provider-universally-rejected params on retry
-						if params, ok := providerUnsupportedParams[providerType]; ok {
-							for _, p := range params {
-								delete(raw, p)
-							}
-						}
-						if rebuilt, err := json.Marshal(raw); err == nil {
-							retryCtx, rc := context.WithTimeout(r.Context(), failoverTimeout)
-							retryCtx = context.WithValue(retryCtx, ctxkeys.CancelOriginKey, "retry_timeout")
-							retryCtx = context.WithValue(retryCtx, ctxkeys.DialMsKey, &dialMs)
-							retryCancel = rc
-							streamCancelOrigin = "retry_timeout"
-							retryReq, retryErr := newRequestWithContext(retryCtx, "POST", targetURL, bytes.NewReader(rebuilt))
-							if retryErr != nil {
-								retryCancel()
-								lastErr = fmt.Sprintf("attempt %d: failed to create retry request: %v", attempt, retryErr)
-								continue
-							}
-							util.SetProviderAuthHeaders(retryReq, providerType, candidate.apiKey)
-							retryReq.Header.Set("Content-Type", "application/json")
-							var retryCheckRedirect func(req *http.Request, via []*http.Request) error
-							if h.safeDialer != nil {
-								retryCheckRedirect = h.safeDialer.CheckRedirect
-							}
-							retryClient := &http.Client{Transport: h.upstreamTransport, CheckRedirect: retryCheckRedirect}
-							resp, retryErr = retryClient.Do(retryReq)
-							if retryErr != nil {
-								retryCancel() // no body to consume on retry error
-								debuglog.Warn("proxy: auto-retry request failed", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", retryErr)
-								if errors.Is(retryErr, context.Canceled) || errors.Is(retryErr, context.DeadlineExceeded) {
-									// Branch like the main failover loop: Canceled = client
-									// disconnect, DeadlineExceeded = retry timeout.
-									origin := "retry_timeout"
-									if errors.Is(retryErr, context.Canceled) {
-										origin = "client_disconnect"
-									}
-									lastErr = fmt.Sprintf("attempt %d: %s", attempt, humanReadableCancelOrigin(origin))
-								} else {
-									lastErr = fmt.Sprintf("attempt %d: retry error: %v", attempt, retryErr)
-								}
-								continue
-							}
-							failoverCancel() // original 400 body already consumed, original context no longer needed
-							// Accumulate retry's dial time into total.
-							timings.dialMs += dialMs
-							dialMs = 0
-							proxyOverhead = timings.proxyOverheadMs(parseMs)
-							// retryCancel() must NOT be called here — retry resp.Body is read below.
-							// Store retryCancel for deferred cleanup after body consumption.
-							// Successfully retried — fall through to normal response handling
-							debuglog.Info("proxy: auto-retry succeeded", "model", candidate.model.ModelID, "rejected_params", mapKeys(rejected))
-						}
+					// Rebuild the request body using the shared rewrite path.
+					// This ensures stream_options injection, universal/learned param
+					// stripping, and InjectProviderParams are all applied on retry,
+					// preventing drift from the initial attempt path.
+					rebuilt := buildUpstreamBody(proxyReqBody, providerType, candidate.model.ModelID, reqModel, isStreaming, &h.deprecationCache, rejected)
+					retryCtx, rc := context.WithTimeout(r.Context(), failoverTimeout)
+					retryCtx = context.WithValue(retryCtx, ctxkeys.CancelOriginKey, "retry_timeout")
+					retryCtx = context.WithValue(retryCtx, ctxkeys.DialMsKey, &dialMs)
+					retryCancel = rc
+					streamCancelOrigin = "retry_timeout"
+					retryReq, retryErr := newRequestWithContext(retryCtx, "POST", targetURL, bytes.NewReader(rebuilt))
+					if retryErr != nil {
+						retryCancel()
+						lastErr = fmt.Sprintf("attempt %d: failed to create retry request: %v", attempt, retryErr)
+						continue
 					}
+					util.SetProviderAuthHeaders(retryReq, providerType, candidate.apiKey)
+					retryReq.Header.Set("Content-Type", "application/json")
+					var retryCheckRedirect func(req *http.Request, via []*http.Request) error
+					if h.safeDialer != nil {
+						retryCheckRedirect = h.safeDialer.CheckRedirect
+					}
+					retryClient := &http.Client{Transport: h.upstreamTransport, CheckRedirect: retryCheckRedirect}
+					resp, retryErr = retryClient.Do(retryReq)
+					if retryErr != nil {
+						retryCancel() // no body to consume on retry error
+						debuglog.Warn("proxy: auto-retry request failed", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", retryErr)
+						if errors.Is(retryErr, context.Canceled) || errors.Is(retryErr, context.DeadlineExceeded) {
+							// Branch like the main failover loop: Canceled = client
+							// disconnect, DeadlineExceeded = retry timeout.
+							origin := "retry_timeout"
+							if errors.Is(retryErr, context.Canceled) {
+								origin = "client_disconnect"
+							}
+							lastErr = fmt.Sprintf("attempt %d: %s", attempt, humanReadableCancelOrigin(origin))
+						} else {
+							lastErr = fmt.Sprintf("attempt %d: retry error: %v", attempt, retryErr)
+						}
+						continue
+					}
+					failoverCancel() // original 400 body already consumed, original context no longer needed
+					// Accumulate retry's dial time into total.
+					timings.dialMs += dialMs
+					dialMs = 0
+					proxyOverhead = timings.proxyOverheadMs(parseMs)
+					// retryCancel() must NOT be called here — retry resp.Body is read below.
+					// Store retryCancel for deferred cleanup after body consumption.
+					// Successfully retried — fall through to normal response handling
+					debuglog.Info("proxy: auto-retry succeeded", "model", candidate.model.ModelID, "rejected_params", mapKeys(rejected))
 				}
 			}
 		}
