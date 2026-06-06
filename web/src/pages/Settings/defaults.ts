@@ -8,7 +8,7 @@
  * There is no automated cross-language sync test. When changing a Go
  * default, update the corresponding entry here (and in en.json labels).
  */
-export const SETTING_DEFAULTS: Record<string, string> = {
+export const SETTING_DEFAULTS: Record<SettingKey, string> = {
 	// Discovery
 	discovery_interval: "6h",
 	discovery_on_startup: "true",
@@ -40,11 +40,18 @@ export const SETTING_DEFAULTS: Record<string, string> = {
 	stale_request_timeout: "30m0s",
 };
 
+export type SectionName =
+	| "discovery"
+	| "proxy"
+	| "rateLimit"
+	| "circuitBreaker"
+	| "dataStorage";
+
 /**
  * Mapping of section names to their contained setting keys.
  * Used for section-level reset.
  */
-export const SECTION_SETTINGS: Record<string, string[]> = {
+export const SECTION_SETTINGS: Record<SectionName, string[]> = {
 	discovery: [
 		"discovery_interval",
 		"discovery_on_startup",
@@ -74,11 +81,33 @@ export const SECTION_SETTINGS: Record<string, string[]> = {
 	dataStorage: ["log_retention", "stale_request_timeout"],
 };
 
+export type SettingKey =
+	| "discovery_interval"
+	| "discovery_on_startup"
+	| "discovery_on_provider_create"
+	| "request_timeout"
+	| "key_cache_ttl"
+	| "ttft_timeout"
+	| "stream_stall_timeout"
+	| "rate_limit_enabled"
+	| "rate_limit_ip_enabled"
+	| "rate_limit_rps"
+	| "rate_limit_burst"
+	| "rate_limit_ip_rps"
+	| "rate_limit_ip_burst"
+	| "rate_limit_max_wait_ms"
+	| "circuit_breaker_enabled"
+	| "circuit_breaker_threshold"
+	| "circuit_breaker_cooldown"
+	| "failover_on_rate_limit"
+	| "log_retention"
+	| "stale_request_timeout";
+
 /**
  * Mapping from DB setting keys to their human-readable i18n keys.
  * Used in reset confirm dialogs to show names the user recognizes.
  */
-export const SETTING_LABELS: Record<string, string> = {
+export const SETTING_LABELS: Record<SettingKey, string> = {
 	discovery_interval: "settings.discovery.discoveryInterval",
 	discovery_on_startup: "settings.discovery.discoverOnStartup",
 	discovery_on_provider_create: "settings.discovery.discoverOnProviderCreation",
