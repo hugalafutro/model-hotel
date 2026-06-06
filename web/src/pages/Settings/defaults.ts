@@ -68,3 +68,30 @@ export const SECTION_SETTINGS: Record<string, string[]> = {
 	],
 	dataStorage: ["log_retention", "stale_request_timeout"],
 };
+
+/**
+ * Mapping from DB setting keys to their human-readable i18n keys.
+ * Used in reset confirm dialogs to show names the user recognizes.
+ */
+export const SETTING_LABELS: Record<string, string> = {
+	discovery_interval: "settings.discovery.discoveryInterval",
+	discovery_on_startup: "settings.discovery.discoverOnStartup",
+	discovery_on_provider_create: "settings.discovery.discoverOnProviderCreation",
+	request_timeout: "settings.proxy.requestTimeout",
+	key_cache_ttl: "settings.proxy.keyCacheTtl",
+	ttft_timeout: "settings.proxy.ttftTimeout",
+	stream_stall_timeout: "settings.proxy.streamStallTimeout",
+	rate_limit_enabled: "settings.rateLimit.enable",
+	rate_limit_ip_enabled: "settings.rateLimit.ipRateLimiting",
+	rate_limit_rps: "settings.rateLimit.requestsPerSecond",
+	rate_limit_burst: "settings.rateLimit.burstSize",
+	rate_limit_ip_rps: "settings.rateLimit.ipRequestsPerSecond",
+	rate_limit_ip_burst: "settings.rateLimit.ipBurstSize",
+	rate_limit_max_wait_ms: "settings.rateLimit.maxWait",
+	circuit_breaker_enabled: "settings.circuitBreaker.enable",
+	circuit_breaker_threshold: "settings.circuitBreaker.failureThreshold",
+	circuit_breaker_cooldown: "settings.circuitBreaker.cooldownPeriod",
+	failover_on_rate_limit: "settings.circuitBreaker.failoverOnRateLimit",
+	log_retention: "settings.logging.logRetention",
+	stale_request_timeout: "settings.logging.staleRequestTimeout",
+};

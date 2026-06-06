@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { SECTION_SETTINGS, SETTING_DEFAULTS } from "../defaults";
+import {
+	SECTION_SETTINGS,
+	SETTING_DEFAULTS,
+	SETTING_LABELS,
+} from "../defaults";
 
 describe("SETTING_DEFAULTS", () => {
 	it("has a default for every known setting key", () => {
@@ -54,6 +58,21 @@ describe("SETTING_DEFAULTS", () => {
 		for (const key of boolKeys) {
 			expect(["true", "false"], `${key} default should be boolean`).toContain(
 				SETTING_DEFAULTS[key],
+			);
+		}
+	});
+
+	it("SETTING_LABELS has a human-readable key for every default", () => {
+		const allKeys = Object.keys(SETTING_DEFAULTS);
+		for (const key of allKeys) {
+			expect(SETTING_LABELS[key], `Missing label for ${key}`).toBeDefined();
+		}
+	});
+
+	it("SETTING_LABELS values are valid i18n dot-paths", () => {
+		for (const [key, label] of Object.entries(SETTING_LABELS)) {
+			expect(label, `${key} label should be a dot-path`).toMatch(
+				/^settings\.[a-zA-Z]+\.[a-zA-Z]+/,
 			);
 		}
 	});

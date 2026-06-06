@@ -1485,6 +1485,7 @@
 			"clearHistoryAll.tooltip": "Delete all saved arena and compare session history",
 			"clearHistoryAllCleared": "All arena history cleared",
 			"cacheAndResets": "Cache & Resets",
+			"quotaBadges": "Quota Badges",
 			"providerQuotaCache": "Provider Quota Cache",
 			"clearCache": "Clear Cache",
 			"clearCache.tooltip": "Clear all cached provider quota data. Fresh data will be fetched on next refresh",

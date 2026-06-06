@@ -15,7 +15,7 @@ import { CircuitBreakerSettings } from "./Settings/CircuitBreakerSettings";
 import { DatabaseBackupSettings } from "./Settings/DatabaseBackupSettings";
 import { DataStorageSettings } from "./Settings/DataStorageSettings";
 import { DiscoverySettings } from "./Settings/DiscoverySettings";
-import { SECTION_SETTINGS } from "./Settings/defaults";
+import { SECTION_SETTINGS, SETTING_LABELS } from "./Settings/defaults";
 import { PasskeySettings } from "./Settings/PasskeySettings";
 import { ProxySettings } from "./Settings/ProxySettings";
 import { RateLimitSettings } from "./Settings/RateLimitSettings";
@@ -205,7 +205,9 @@ export function Settings() {
 				<ConfirmDialog
 					title={t("settings.common.resetSectionConfirmTitle")}
 					message={t("settings.common.resetSectionConfirmMessage")}
-					fields={SECTION_SETTINGS[resetSection] ?? []}
+					fields={(SECTION_SETTINGS[resetSection] ?? []).map((k) =>
+						t(SETTING_LABELS[k] ?? k),
+					)}
 					confirmLabel={t("settings.common.resetToDefaults")}
 					onConfirm={() =>
 						resetSectionMutation.mutate(SECTION_SETTINGS[resetSection] ?? [])

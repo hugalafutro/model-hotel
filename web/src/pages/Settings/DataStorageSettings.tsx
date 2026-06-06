@@ -417,6 +417,81 @@ export function DataStorageSettings({
 								</button>
 							</div>
 						</div>
+
+						<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+							{t("settings.dataStorage.quotaBadges")}
+						</h3>
+						<div className="space-y-5">
+							<div className="flex items-center justify-between">
+								<div>
+									<p className="text-sm font-medium text-gray-300">
+										{t("settings.sidebarQuota.showQuotasPill")}
+									</p>
+									<p className="text-gray-500 text-xs mt-0.5">
+										{t("settings.sidebarQuota.showQuotasPillDescription")}
+									</p>
+								</div>
+								<Toggle
+									checked={!quotaDisabled}
+									onChange={(v) => {
+										const newVal = !v;
+										setQuotaDisabled(newVal);
+										try {
+											localStorage.setItem(
+												"sidebarQuotaDisabled",
+												String(newVal),
+											);
+										} catch {
+											/* ignore */
+										}
+										toast(
+											newVal
+												? t("settings.sidebarQuota.disabledQuotas")
+												: t("settings.sidebarQuota.enabledQuotas"),
+											newVal ? "info" : "success",
+										);
+										window.dispatchEvent(new CustomEvent("sidebarQuotaToggle"));
+									}}
+								/>
+							</div>
+
+							<SettingsSlider
+								id="quota-refresh-interval"
+								label={t("settings.sidebarQuota.refreshInterval")}
+								value={Number(refreshMin)}
+								min={0}
+								max={30}
+								step={1}
+								clampStep={1}
+								infinityValue={0}
+								unit="m"
+								disabled={quotaDisabled}
+								onChange={(v) => {
+									const val = String(v);
+									setRefreshMin(val);
+									try {
+										localStorage.setItem("sidebarQuotaRefreshMin", val);
+									} catch {
+										/* ignore */
+									}
+									window.dispatchEvent(
+										new CustomEvent("sidebarQuotaRefreshChange"),
+									);
+									toast(
+										v === 0
+											? t("settings.sidebarQuota.disabled")
+											: t("settings.sidebarQuota.intervalSet", {
+													minutes: v,
+													count: v,
+												}),
+										"success",
+									);
+								}}
+								description={t(
+									"settings.sidebarQuota.refreshInterval.description",
+								)}
+							/>
+						</div>
 					</div>
 
 					<div className="space-y-5">
@@ -511,76 +586,6 @@ export function DataStorageSettings({
 								}}
 							/>
 						</div>
-
-						<div className="flex items-center justify-between">
-							<div>
-								<p className="text-sm font-medium text-gray-300">
-									{t("settings.sidebarQuota.showQuotasPill")}
-								</p>
-								<p className="text-gray-500 text-xs mt-0.5">
-									{t("settings.sidebarQuota.showQuotasPillDescription")}
-								</p>
-							</div>
-							<Toggle
-								checked={!quotaDisabled}
-								onChange={(v) => {
-									const newVal = !v;
-									setQuotaDisabled(newVal);
-									try {
-										localStorage.setItem(
-											"sidebarQuotaDisabled",
-											String(newVal),
-										);
-									} catch {
-										/* ignore */
-									}
-									toast(
-										newVal
-											? t("settings.sidebarQuota.disabledQuotas")
-											: t("settings.sidebarQuota.enabledQuotas"),
-										newVal ? "info" : "success",
-									);
-									window.dispatchEvent(new CustomEvent("sidebarQuotaToggle"));
-								}}
-							/>
-						</div>
-
-						<SettingsSlider
-							id="quota-refresh-interval"
-							label={t("settings.sidebarQuota.refreshInterval")}
-							value={Number(refreshMin)}
-							min={0}
-							max={30}
-							step={1}
-							clampStep={1}
-							infinityValue={0}
-							unit="m"
-							disabled={quotaDisabled}
-							onChange={(v) => {
-								const val = String(v);
-								setRefreshMin(val);
-								try {
-									localStorage.setItem("sidebarQuotaRefreshMin", val);
-								} catch {
-									/* ignore */
-								}
-								window.dispatchEvent(
-									new CustomEvent("sidebarQuotaRefreshChange"),
-								);
-								toast(
-									v === 0
-										? t("settings.sidebarQuota.disabled")
-										: t("settings.sidebarQuota.intervalSet", {
-												minutes: v,
-												count: v,
-											}),
-									"success",
-								);
-							}}
-							description={t(
-								"settings.sidebarQuota.refreshInterval.description",
-							)}
-						/>
 
 						<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
 							{t("settings.dataStorage.arenaHistory")}
