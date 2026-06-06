@@ -1,7 +1,7 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Timer } from "lucide-react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../../test/utils";
 import type { ProviderLatencyEntry } from "../ProviderLatencyPanel";
 import { ProviderLatencyPanel } from "../ProviderLatencyPanel";
@@ -40,6 +40,11 @@ describe("ProviderLatencyPanel", () => {
 		onRangeChange: vi.fn(),
 		loading: false,
 	};
+
+	afterEach(() => {
+		localStorage.removeItem("dashboard.latencySortField");
+		localStorage.removeItem("dashboard.latencySortDir");
+	});
 
 	it("renders with title and icon", () => {
 		renderWithProviders(<ProviderLatencyPanel {...defaultProps} />);
@@ -325,6 +330,64 @@ describe("ProviderLatencyPanel", () => {
 			const slowestStyle = responseValues[2]?.getAttribute("style");
 			expect(fastestStyle).toContain("rgb(38, 217, 38)"); // green
 			expect(slowestStyle).toContain("rgb(217, 128, 38)"); // orange
+		});
+
+		it("persists sort field and direction to localStorage", async () => {
+			const user = userEvent.setup();
+			renderWithProviders(<ProviderLatencyPanel {...defaultProps} />);
+
+			// Click overhead header to switch sort column
+			const overheadBtn = screen.getByText("Overhead").closest("button")!;
+			await user.click(overheadBtn);
+
+			expect(localStorage.getItem("dashboard.latencySortField")).toBe(
+				"overhead",
+			);
+			expect(localStorage.getItem("dashboard.latencySortDir")).toBe("desc");
+		});
+
+		it("persists ascending sort direction after toggling", async () => {
+			const user = userEvent.setup();
+			renderWithProviders(<ProviderLatencyPanel {...defaultProps} />);
+
+			// Click response header twice: once to switch column, once to toggle dir
+			const responseBtn = screen.getByText("Response").closest("button")!;
+			await user.click(responseBtn); // toggles to asc
+			expect(localStorage.getItem("dashboard.latencySortDir")).toBe("asc");
+
+			await user.click(responseBtn); // toggles to desc
+			expect(localStorage.getItem("dashboard.latencySortDir")).toBe("desc");
+		});
+
+		it("restores sort state from localStorage on mount", () => {
+			localStorage.setItem("dashboard.latencySortField", "overhead");
+			localStorage.setItem("dashboard.latencySortDir", "asc");
+
+			const { container } = renderWithProviders(
+				<ProviderLatencyPanel {...defaultProps} />,
+			);
+
+			// Ascending overhead: Provider B (80ms) first, Provider A (420ms) last
+			const rows = container.querySelectorAll(
+				'div[class*="grid-cols-3"][class*="items-center"]',
+			);
+			expect(rows[0]?.textContent).toContain("Provider B");
+			expect(rows[2]?.textContent).toContain("Provider A");
+		});
+
+		it("falls back to defaults for invalid localStorage values", () => {
+			localStorage.setItem("dashboard.latencySortField", "nonsense");
+			localStorage.setItem("dashboard.latencySortDir", "sideways");
+
+			const { container } = renderWithProviders(
+				<ProviderLatencyPanel {...defaultProps} />,
+			);
+
+			// Should fall back to default: response desc → Provider A (8420ms) first
+			const rows = container.querySelectorAll(
+				'div[class*="grid-cols-3"][class*="items-center"]',
+			);
+			expect(rows[0]?.textContent).toContain("Provider A");
 		});
 	});
 });

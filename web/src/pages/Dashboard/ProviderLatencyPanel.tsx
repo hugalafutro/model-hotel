@@ -1,13 +1,29 @@
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Spinner } from "../../components/Spinner";
+import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { formatLatency } from "../../utils/format";
 import { RangeToggle } from "./ToggleGroup";
 import type { Range } from "./types";
 
 type SortField = "response" | "overhead";
 type SortDir = "asc" | "desc";
+
+const VALID_SORT_FIELDS: SortField[] = ["response", "overhead"];
+const VALID_SORT_DIRS: SortDir[] = ["asc", "desc"];
+
+function deserializeSortField(stored: string, fallback: SortField): SortField {
+	return VALID_SORT_FIELDS.includes(stored as SortField)
+		? (stored as SortField)
+		: fallback;
+}
+
+function deserializeSortDir(stored: string, fallback: SortDir): SortDir {
+	return VALID_SORT_DIRS.includes(stored as SortDir)
+		? (stored as SortDir)
+		: fallback;
+}
 
 const FALLBACK_COLOR = "hsl(60, 70%, 50%)";
 
@@ -59,8 +75,16 @@ export function ProviderLatencyPanel({
 	loading?: boolean;
 }) {
 	const { t } = useTranslation();
-	const [sortField, setSortField] = useState<SortField>("response");
-	const [sortDir, setSortDir] = useState<SortDir>("desc");
+	const [sortField, setSortField] = useLocalStorage<SortField>(
+		"dashboard.latencySortField",
+		"response",
+		{ deserialize: deserializeSortField },
+	);
+	const [sortDir, setSortDir] = useLocalStorage<SortDir>(
+		"dashboard.latencySortDir",
+		"desc",
+		{ deserialize: deserializeSortDir },
+	);
 
 	// Build independent color maps based on ranking (worst→best)
 	const { responseColorMap, overheadColorMap } = useMemo(() => {
