@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -157,7 +158,7 @@ func TestBuildModelKeysetPredicate_DESCAfterUsesLessThan(t *testing.T) {
 		t.Fatal("Expected non-empty predicate")
 	}
 	// DESC + after → "<" operator
-	if !containsOp(pred, "<") {
+	if !strings.Contains(pred, "<") {
 		t.Errorf("Expected '<' operator for DESC+after, got %q", pred)
 	}
 }
@@ -175,18 +176,9 @@ func TestBuildModelKeysetPredicate_ASCAfterUsesGreaterThan(t *testing.T) {
 		t.Fatal("Expected non-empty predicate")
 	}
 	// ASC + after → ">" operator
-	if !containsOp(pred, ">") {
+	if !strings.Contains(pred, ">") {
 		t.Errorf("Expected '>' operator for ASC+after, got %q", pred)
 	}
-}
-
-func containsOp(s, op string) bool {
-	for i := 0; i < len(s); i++ {
-		if string(s[i]) == op {
-			return true
-		}
-	}
-	return false
 }
 
 func TestBuildModelKeysetPredicate_DiscoveredSort(t *testing.T) {
@@ -242,22 +234,9 @@ func TestBuildModelKeysetPredicate_StatusSort(t *testing.T) {
 		t.Fatalf("Expected 2 args, got %d", len(args))
 	}
 	// Should contain CASE expression for status
-	if !containsSubstring(pred, "CASE") {
+	if !strings.Contains(pred, "CASE") {
 		t.Errorf("Expected CASE in status predicate, got %q", pred)
 	}
-}
-
-func containsSubstring(s, sub string) bool {
-	return len(s) >= len(sub) && (s == sub || s != "" && containsSubstringHelper(s, sub))
-}
-
-func containsSubstringHelper(s, sub string) bool {
-	for i := 0; i <= len(s)-len(sub); i++ {
-		if s[i:i+len(sub)] == sub {
-			return true
-		}
-	}
-	return false
 }
 
 func TestSplitComma(t *testing.T) {
@@ -333,7 +312,7 @@ func TestModelSortColumn(t *testing.T) {
 // Verify status sort uses CASE expression
 func TestModelSortColumn_Status(t *testing.T) {
 	got := modelSortColumn("status")
-	if !containsSubstringHelper(got, "CASE") {
+	if !strings.Contains(got, "CASE") {
 		t.Errorf("Expected CASE in status sort column, got %q", got)
 	}
 }

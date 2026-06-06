@@ -14,7 +14,14 @@ func TestNeedsProviderInjection(t *testing.T) {
 		{"openai", false},
 		{"anthropic", false},
 		{"google", false},
+		{"ollama-cloud", false},
+		{"openrouter", false},
+		{"cohere", false},
+		{"xai", false},
+		{"nanogpt", false},
 		{"ollama", false},
+		{"koboldcpp", false},
+		{"lmstudio", false},
 		{"", false},
 	}
 

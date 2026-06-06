@@ -51,3 +51,13 @@ func TestExtractKey_WrongTypeFallsBack(t *testing.T) {
 		t.Errorf("Expected remote addr fallback for wrong type, got %q", key)
 	}
 }
+
+func TestExtractKey_IPv6RemoteAddr(t *testing.T) {
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	req.RemoteAddr = "[::1]:5678"
+
+	key := extractKey(req)
+	if key != "[::1]:5678" {
+		t.Errorf("Expected IPv6 remote addr, got %q", key)
+	}
+}
