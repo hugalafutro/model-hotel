@@ -15,9 +15,14 @@ import (
 // updateLogOption configures updateRequestLog behavior.
 type updateLogOption struct {
 	// skipWaitForInsert skips the WaitForInsert call before the UPDATE.
-	// Use for interim log writes on the streaming hot path where blocking
-	// on the async INSERT would delay the first streamed byte. The final
-	// log update (completed/failed state) should always wait.
+	// Used for all log updates that run before the response is written to the
+	// client, to avoid adding up to 5s INSERT-wait latency under DB stress.
+	//
+	// Tradeoff: if the UPDATE wins the race against the async INSERT goroutine,
+	// the UPDATE hits 0 rows and the row stays at state='pending' with no final
+	// metrics. This is a low-probability event (the INSERT has the entire
+	// provider round-trip to complete). Only the streaming final update (after
+	// the stream completes, off the hot path) still waits.
 	skipWaitForInsert bool
 }
 
