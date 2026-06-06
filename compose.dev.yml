@@ -13,6 +13,9 @@ services:
         restart: unless-stopped
         environment:
             - DEBUG_LOG=true
+            # Allow embedding in workspace browsers (e.g. Cursor, VS Code).
+            # Not enabled in production compose to keep frame-protection headers.
+            - ALLOW_EMBED=true
             - KNOWN_PROXIES=192.168.1.101/32
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock:ro

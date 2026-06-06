@@ -24,6 +24,7 @@ type Config struct {
 	DataDir              string
 	AdminToken           string
 	AllowHTTPProviders   bool
+	AllowEmbed           bool
 	RateLimitEnabled     bool
 	RateLimitIPRPS       float64
 	RateLimitIPBurst     int
@@ -91,6 +92,7 @@ func Load() (*Config, error) {
 		DataDir:              getEnvWithDefault("DATA_DIR", "./data"),
 		AdminToken:           getEnv("ADMIN_TOKEN"),
 		AllowHTTPProviders:   getBoolEnvWithDefault("ALLOW_HTTP_PROVIDERS", false),
+		AllowEmbed:           getBoolEnvWithDefault("ALLOW_EMBED", false),
 		RateLimitEnabled:     getBoolEnvWithDefault("RATE_LIMIT_ENABLED", true),
 		RateLimitIPRPS:       clampFloat(getFloatEnvWithDefault("RATE_LIMIT_IP_RPS", 30), 0, 10000),
 		RateLimitIPBurst:     clampInt(getIntEnvAsInt("RATE_LIMIT_IP_BURST", 60), 1, 10000),
@@ -147,6 +149,7 @@ func (c *Config) String() string {
 		{"Data Dir", c.DataDir},
 		{"Admin Token", adminTokenDisplay},
 		{"HTTP Providers", fmt.Sprintf("%t", c.AllowHTTPProviders)},
+		{"Allow Embed", fmt.Sprintf("%t", c.AllowEmbed)},
 		{"Rate Limiting", fmt.Sprintf("%t", c.RateLimitEnabled)},
 		{"Max Request Size", formatBytes(c.MaxRequestSize)},
 		{"Debug Log", fmt.Sprintf("%t", c.DebugLog)},
