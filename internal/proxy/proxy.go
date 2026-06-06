@@ -1653,12 +1653,20 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 		hasMoreCandidates := attempt < len(candidates)-1
 		isFailoverEligible := h.shouldFailover(r.Context(), resp.StatusCode)
+		isProviderHealthFailure := resp.StatusCode >= 500 || resp.StatusCode == 429
 
 		if isFailoverEligible {
-			// Upstream is unhealthy — record failure for circuit breaker.
-			// Non-2xx streaming responses never reach the TTFT probe, so record now.
-			if circuitBreakerEnabled {
+			// Record failure for circuit breaker only for provider-level errors.
+			// 5xx = server error (provider unhealthy), 429 = rate limit (provider overloaded).
+			// Client errors (401/403/404/499) mean the provider is alive but rejecting
+			// this specific request/model — they should open failover, not trip the breaker.
+			if circuitBreakerEnabled && isProviderHealthFailure {
 				h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
+			} else if circuitBreakerEnabled {
+				// Provider returned a client error (4xx) — it's alive and responding,
+				// just not with what we wanted. Record as a success so one stale model
+				// in a failover group doesn't take an entire provider offline.
+				h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
 			}
 		} else {
 			// Provider responded (even with a non-failover error like 400) —
