@@ -23,11 +23,13 @@ import { clearProviderCache, getProviderCacheCount } from "./constants";
 interface DataStorageSettingsProps {
 	collapsed: boolean;
 	onToggle: () => void;
+	onResetSection?: () => void;
 }
 
 export function DataStorageSettings({
 	collapsed,
 	onToggle,
+	onResetSection,
 }: DataStorageSettingsProps) {
 	const { t } = useTranslation();
 	const { toast } = useToast();
@@ -77,6 +79,20 @@ export function DataStorageSettings({
 			"success",
 		);
 	};
+
+	const resetSettingMutation = useMutation({
+		mutationFn: (keys: string[]) => api.settings.reset(keys),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["settings"] });
+			toast(t("settings.common.resetSettingDone"), "success");
+		},
+		onError: (err: Error) => {
+			toast(
+				t("settings.common.resetFailed", { message: err.message }),
+				"error",
+			);
+		},
+	});
 
 	const {
 		persistChat,
@@ -173,6 +189,7 @@ export function DataStorageSettings({
 			title={t("settings.dataStorageAndLogging.title")}
 			collapsed={collapsed}
 			onToggle={onToggle}
+			onResetSection={onResetSection}
 		>
 			<div className="space-y-5">
 				<p className="text-gray-400 text-sm">
@@ -200,6 +217,8 @@ export function DataStorageSettings({
 								})
 							}
 							description={t("settings.logging.logRetention.description")}
+							onReset={() => resetSettingMutation.mutate(["log_retention"])}
+							resetTooltip={t("settings.common.resetSetting")}
 						/>
 
 						<SettingsSlider
@@ -220,6 +239,10 @@ export function DataStorageSettings({
 							description={t(
 								"settings.logging.staleRequestTimeout.description",
 							)}
+							onReset={() =>
+								resetSettingMutation.mutate(["stale_request_timeout"])
+							}
+							resetTooltip={t("settings.common.resetSetting")}
 						/>
 
 						<div className="flex items-center gap-2 flex-wrap">

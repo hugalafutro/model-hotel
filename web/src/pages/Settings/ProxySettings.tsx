@@ -10,9 +10,14 @@ import { goDurationToSeconds, secondsToGoDuration } from "../../utils/duration";
 interface ProxySettingsProps {
 	collapsed: boolean;
 	onToggle: () => void;
+	onResetSection?: () => void;
 }
 
-export function ProxySettings({ collapsed, onToggle }: ProxySettingsProps) {
+export function ProxySettings({
+	collapsed,
+	onToggle,
+	onResetSection,
+}: ProxySettingsProps) {
 	const { t } = useTranslation();
 	const { toast } = useToast();
 	const queryClient = useQueryClient();
@@ -37,6 +42,20 @@ export function ProxySettings({ collapsed, onToggle }: ProxySettingsProps) {
 		},
 	});
 
+	const resetSettingMutation = useMutation({
+		mutationFn: (keys: string[]) => api.settings.reset(keys),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["settings"] });
+			toast(t("settings.common.resetSettingDone"), "success");
+		},
+		onError: (err: Error) => {
+			toast(
+				t("settings.common.resetFailed", { message: err.message }),
+				"error",
+			);
+		},
+	});
+
 	const requestTimeout = settings?.request_timeout || "1m0s";
 	const keyCacheTTL = settings?.key_cache_ttl || "10m0s";
 	const ttftTimeout = settings?.ttft_timeout || "1m0s";
@@ -48,6 +67,7 @@ export function ProxySettings({ collapsed, onToggle }: ProxySettingsProps) {
 			title={t("settings.proxy.title")}
 			collapsed={collapsed}
 			onToggle={onToggle}
+			onResetSection={onResetSection}
 		>
 			<div className="space-y-5">
 				<p className="text-gray-400 text-sm">
@@ -70,6 +90,8 @@ export function ProxySettings({ collapsed, onToggle }: ProxySettingsProps) {
 								})
 							}
 							description={t("settings.proxy.requestTimeout.description")}
+							onReset={() => resetSettingMutation.mutate(["request_timeout"])}
+							resetTooltip={t("settings.common.resetSetting")}
 						/>
 						<SettingsSlider
 							id="key-cache-ttl"
@@ -84,6 +106,8 @@ export function ProxySettings({ collapsed, onToggle }: ProxySettingsProps) {
 								updateMutation.mutate({ key_cache_ttl: secondsToGoDuration(v) })
 							}
 							description={t("settings.proxy.keyCacheTtl.description")}
+							onReset={() => resetSettingMutation.mutate(["key_cache_ttl"])}
+							resetTooltip={t("settings.common.resetSetting")}
 						/>
 					</div>
 					<div className="space-y-5">
@@ -101,6 +125,8 @@ export function ProxySettings({ collapsed, onToggle }: ProxySettingsProps) {
 								updateMutation.mutate({ ttft_timeout: secondsToGoDuration(v) })
 							}
 							description={t("settings.proxy.ttftTimeout.description")}
+							onReset={() => resetSettingMutation.mutate(["ttft_timeout"])}
+							resetTooltip={t("settings.common.resetSetting")}
 						/>
 						<SettingsSlider
 							id="stream-stall-timeout"
@@ -118,6 +144,10 @@ export function ProxySettings({ collapsed, onToggle }: ProxySettingsProps) {
 								})
 							}
 							description={t("settings.proxy.streamStallTimeout.description")}
+							onReset={() =>
+								resetSettingMutation.mutate(["stream_stall_timeout"])
+							}
+							resetTooltip={t("settings.common.resetSetting")}
 						/>
 					</div>
 				</div>

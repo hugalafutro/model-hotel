@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Play, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
+import { ResetButton } from "../../components/ResetButton";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
 import { Spinner } from "../../components/Spinner";
@@ -12,11 +13,13 @@ import { goDurationToHours, hoursToGoDuration } from "../../utils/duration";
 interface DiscoverySettingsProps {
 	collapsed: boolean;
 	onToggle: () => void;
+	onResetSection?: () => void;
 }
 
 export function DiscoverySettings({
 	collapsed,
 	onToggle,
+	onResetSection,
 }: DiscoverySettingsProps) {
 	const { t } = useTranslation();
 	const { toast } = useToast();
@@ -58,6 +61,21 @@ export function DiscoverySettings({
 	});
 
 	const isUpdating = updateMutation.isPending || discoverAllMutation.isPending;
+	const resetSettingMutation = useMutation({
+		mutationFn: (keys: string[]) => api.settings.reset(keys),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["settings"] });
+			toast(t("settings.common.resetSettingDone"), "success");
+		},
+		onError: (err: Error) => {
+			toast(
+				t("settings.common.resetFailed", { message: err.message }),
+				"error",
+			);
+		},
+	});
+	const isResetting = resetSettingMutation.isPending;
+
 	const discoveryIntervalHours = goDurationToHours(
 		settings?.discovery_interval || "6h",
 	);
@@ -70,6 +88,7 @@ export function DiscoverySettings({
 			title={t("settings.discovery.title")}
 			collapsed={collapsed}
 			onToggle={onToggle}
+			onResetSection={onResetSection}
 		>
 			<div className="space-y-5">
 				<p className="text-gray-400 text-sm col-span-2">
@@ -79,9 +98,19 @@ export function DiscoverySettings({
 					<div className="space-y-5">
 						<div className="flex items-center justify-between">
 							<div>
-								<p className="text-sm font-medium text-gray-300">
-									{t("settings.discovery.discoverOnStartup")}
-								</p>
+								<div className="flex items-center gap-1">
+									<p className="text-sm font-medium text-gray-300">
+										{t("settings.discovery.discoverOnStartup")}
+									</p>
+									<ResetButton
+										tooltip={t("settings.common.resetSetting")}
+										onClick={() =>
+											resetSettingMutation.mutate(["discovery_on_startup"])
+										}
+										size={12}
+										disabled={isResetting}
+									/>
+								</div>
 								<p className="text-gray-500 text-xs mt-0.5">
 									{t("settings.discovery.discoverOnStartupDescription")}
 								</p>
@@ -100,9 +129,21 @@ export function DiscoverySettings({
 
 						<div className="flex items-center justify-between">
 							<div>
-								<p className="text-sm font-medium text-gray-300">
-									{t("settings.discovery.discoverOnProviderCreation")}
-								</p>
+								<div className="flex items-center gap-1">
+									<p className="text-sm font-medium text-gray-300">
+										{t("settings.discovery.discoverOnProviderCreation")}
+									</p>
+									<ResetButton
+										tooltip={t("settings.common.resetSetting")}
+										onClick={() =>
+											resetSettingMutation.mutate([
+												"discovery_on_provider_create",
+											])
+										}
+										size={12}
+										disabled={isResetting}
+									/>
+								</div>
 								<p className="text-gray-500 text-xs mt-0.5">
 									{t(
 										"settings.discovery.discoverOnProviderCreationDescription",
@@ -141,6 +182,10 @@ export function DiscoverySettings({
 							description={t(
 								"settings.discovery.discoveryInterval.description",
 							)}
+							onReset={() =>
+								resetSettingMutation.mutate(["discovery_interval"])
+							}
+							resetTooltip={t("settings.common.resetSetting")}
 						/>
 						<div className="flex justify-end">
 							<button

@@ -616,6 +616,17 @@ export const api = {
 				"Failed to update settings",
 			);
 		},
+		reset: async (keys: string[] = []): Promise<Record<string, string>> => {
+			return fetchJSON<Record<string, string>>(
+				`${API_BASE}/api/settings`,
+				{
+					method: "DELETE",
+					headers: getAuthHeaders(),
+					body: JSON.stringify({ keys }),
+				},
+				"Failed to reset settings",
+			);
+		},
 	},
 
 	version: {
