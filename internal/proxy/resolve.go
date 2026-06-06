@@ -140,10 +140,10 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 	// per-candidate settings reads. This single read is still accounted
 	// for in both settingsReadMs (via context accumulator) and
 	// settingsReadInWindow (subtracted from providerLookupMs below).
-	// Track ALL settings checked in the resolve phase: if any miss cache,
-	// the overall settings hit status is "miss".
-	settingsHit := h.settingsRepo.IsCached("circuit_breaker_enabled") &&
-		h.settingsRepo.IsCached("failover_on_rate_limit")
+	// Only track settings actually read during resolve; failover_on_rate_limit
+	// is read later in shouldFailover (outside the resolve phase) so checking
+	// it here would show a false amber for requests that never trigger 429.
+	settingsHit := h.settingsRepo.IsCached("circuit_breaker_enabled")
 	cbStart := time.Now()
 	cbEnabled := h.settingsRepo.GetBool(ctx, "circuit_breaker_enabled", true)
 	cbElapsed := float64(time.Since(cbStart).Microseconds()) / 1000.0
