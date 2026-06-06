@@ -21,6 +21,7 @@ services:
             - POSTGRES_DB=${POSTGRES_DB:-modelhotel}
             - ADMIN_TOKEN=${ADMIN_TOKEN:-}
             - ALLOW_HTTP_PROVIDERS=false
+            - ALLOW_EMBED=false
             - DATA_DIR=/data
             - RATE_LIMIT_ENABLED=true
             - DEBUG_LOG=false

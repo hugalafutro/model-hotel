@@ -171,7 +171,12 @@ func main() {
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("X-Content-Type-Options", "nosniff")
-			w.Header().Set("X-Frame-Options", "DENY")
+			// When ALLOW_EMBED=true, X-Frame-Options and CSP frame-ancestors
+			// are omitted entirely so any origin can embed the page in an
+			// iframe (e.g. workspace browsers, Home Assistant).
+			if !cfg.AllowEmbed {
+				w.Header().Set("X-Frame-Options", "DENY")
+			}
 			w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 			// HSTS only over TLS. Plain HTTP (e.g. behind a reverse proxy that
 			// terminates TLS) must not set HSTS or browsers will cache a broken
@@ -186,7 +191,11 @@ func main() {
 			// Style 'unsafe-inline' is required for Vite's injected style tags (CSS-based
 			// animations and dynamic theme overrides). Script 'unsafe-inline' is NOT
 			// needed: Vite outputs module scripts, not inline ones.
-			w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
+			if cfg.AllowEmbed {
+				w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; base-uri 'self'; form-action 'self'")
+			} else {
+				w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
+			}
 			next.ServeHTTP(w, r)
 		})
 	})
