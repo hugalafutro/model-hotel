@@ -542,7 +542,7 @@ describe("Providers", () => {
 			// Button should be disabled and show "Discovering..."
 			await waitFor(() => {
 				const discoveringBtn = screen.getByRole("button", {
-					name: /discovering…/i,
+					name: /discovering\.\.\./i,
 				});
 				expect(discoveringBtn).toBeDisabled();
 			});
@@ -1006,7 +1006,7 @@ describe("Providers", () => {
 			// Button should be disabled and show "Refreshing..."
 			await waitFor(() => {
 				const refreshingBtn = screen.getByRole("button", {
-					name: /refreshing…/i,
+					name: /refreshing\.\.\./i,
 				});
 				expect(refreshingBtn).toBeDisabled();
 			});

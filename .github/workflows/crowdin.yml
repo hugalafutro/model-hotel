@@ -29,11 +29,8 @@ jobs:
         with:
           # Upload source strings when en.json changes on master
           upload_sources: true
-          # Don't upload translations — en is the source language and
-          # upload_translations tries to push ALL locale files including
-          # en.json, which CrowdIn rejects ("Project doesn't have 'en'
-          # language(s)"). Source upload handles en.json already.
-          upload_translations: false
+          # Upload existing translations so Crowdin has the latest
+          upload_translations: true
           # Download translated files and create a PR
           download_translations: true
           # Only include fully translated + approved strings
