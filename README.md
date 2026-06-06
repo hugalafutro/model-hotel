@@ -16,7 +16,7 @@
  <a href="/actions/workflows/ci.yml"><img src="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
  <a href="https://goreportcard.com/report/github.com/hugalafutro/model-hotel"><img src="https://goreportcard.com/badge/github.com/hugalafutro/model-hotel" alt="Go Report"></a>
  <a href="https://codecov.io/github/hugalafutro/model-hotel"><img src="https://codecov.io/github/hugalafutro/model-hotel/branch/master/graph/badge.svg" alt="Coverage"></a>
-<a href="https:///crowdin.com/project/model-hotel"><img src="https://badges.crowdin.net/model-hotel/localized.svg" alt="Crowdin"></a><br>
+<a href="https://crowdin.com/project/model-hotel"><img src="https://badges.crowdin.net/model-hotel/localized.svg" alt="Crowdin"></a><br>
 </p>
 
 > [!IMPORTANT]
