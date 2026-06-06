@@ -3,7 +3,6 @@ package proxy
 import (
 	"net"
 	"testing"
-	"time"
 )
 
 func TestSafeDialFunc_NilDialer(t *testing.T) {
@@ -14,14 +13,23 @@ func TestSafeDialFunc_NilDialer(t *testing.T) {
 }
 
 func TestSafeDialFunc_WithDialer(t *testing.T) {
-	sd := &SafeDialer{
-		d:        &net.Dialer{Timeout: 5 * time.Second},
-		hosts:    map[string]bool{"localhost": true},
-		resolver: net.DefaultResolver,
-	}
+	sd := newSafeDialerWithResolver(
+		[]string{"localhost", "API.OPENAI.COM"},
+		net.DefaultResolver,
+		nil,
+	)
 	fn := safeDialFunc(sd)
 	if fn == nil {
 		t.Fatal("Expected non-nil function for SafeDialer")
 	}
-	// Just verify the function is non-nil and callable
+	// Verify host normalization
+	if !sd.hosts["localhost"] {
+		t.Error("Expected localhost in hosts")
+	}
+	if !sd.hosts["api.openai.com"] {
+		t.Error("Expected api.openai.com (lowercased) in hosts")
+	}
+	if sd.hosts["API.OPENAI.COM"] {
+		t.Error("Expected original case not in hosts")
+	}
 }
