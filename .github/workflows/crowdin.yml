@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
       - name: Crowdin Sync
-        uses: crowdin/github-action@v2
+        uses: crowdin/github-action@8868a33591d21088edfc398968173a3b98d51706 # v2
         with:
           # Upload source strings when en.json changes on master
           upload_sources: true
