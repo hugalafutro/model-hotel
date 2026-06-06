@@ -109,11 +109,14 @@ func (s *SafeDialer) DialContext(ctx context.Context, network, addr string) (net
 		}
 	}
 	if err != nil {
-		// Resolution failure: let the underlying dial proceed so the
-		// caller sees a normal connection error instead of a confusing
-		// "private IP" error for a non-existent host.
-		debuglog.Warn("proxy: SafeDialer DNS resolution failed, falling through to dial", "host", host, "error", err)
-		return s.d.DialContext(ctx, network, addr)
+		// Resolution failure: return the DNS error directly rather than
+		// falling through to an unchecked dial. A host that can't be
+		// resolved can't be safely dialed — the fallback dial would bypass
+		// the IP blocklist, violating the invariant that every dial is
+		// IP-checked. The caller still sees a connection error, just a
+		// more specific one.
+		debuglog.Warn("proxy: SafeDialer DNS resolution failed, rejecting dial", "host", host, "error", err)
+		return nil, fmt.Errorf("safeDialer: DNS resolution failed for %s: %w", host, err)
 	}
 
 	debuglog.Debug("proxy: SafeDialer DNS resolved", "host", host, "ip_count", len(ips), "dns_ms", float64(time.Since(dnsStart).Microseconds())/1000.0)
