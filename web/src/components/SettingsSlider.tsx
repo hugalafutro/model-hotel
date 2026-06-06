@@ -184,15 +184,16 @@ export function SettingsSlider({
 					className="text-sm font-medium text-gray-300 flex-shrink-0"
 				>
 					{label}
-					{onReset && (
-						<ResetButton
-							tooltip={resetTooltip ?? ""}
-							onClick={onReset}
-							size={12}
-							className="ml-1 inline-flex align-middle"
-						/>
-					)}
 				</label>
+				{onReset && (
+					<ResetButton
+						tooltip={resetTooltip ?? ""}
+						onClick={onReset}
+						size={12}
+						className="inline-flex align-middle"
+						disabled={disabled}
+					/>
+				)}
 				<input
 					type="range"
 					id={id}
