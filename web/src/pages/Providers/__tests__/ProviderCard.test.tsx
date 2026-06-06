@@ -371,7 +371,7 @@ describe("ProviderCard", () => {
 				{ wrapper: AllProviders },
 			);
 
-			const discoverButton = screen.getByText("Discovering...");
+			const discoverButton = screen.getByText("Discovering…");
 			expect(discoverButton).toBeDisabled();
 		});
 
@@ -441,7 +441,7 @@ describe("ProviderCard", () => {
 				{ wrapper: AllProviders },
 			);
 
-			expect(screen.getByText("Discovering...")).toBeInTheDocument();
+			expect(screen.getByText("Discovering…")).toBeInTheDocument();
 		});
 
 		it("renders Delete button", () => {

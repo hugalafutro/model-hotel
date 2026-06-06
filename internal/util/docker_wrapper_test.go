@@ -2292,6 +2292,13 @@ func TestFilterContainers(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("nil slice", func(t *testing.T) {
+		got := filterContainers(nil, ContainerFilter{AppGroup: "model-hotel"})
+		if len(got) != 0 {
+			t.Errorf("filterContainers(nil, ...) = %d, want 0", len(got))
+		}
+	})
 }
 
 // TestDetectContainerFilter tests that DetectContainerFilter returns the compose project when present.
