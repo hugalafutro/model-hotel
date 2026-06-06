@@ -681,7 +681,7 @@ func TestFailRequest_PopulatesLogData(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.failRequest(logData, 502, "test error", 1, startTime, 1.5, timings, 0.5)
+	h.failRequest(logData, 502, "test error", 1, startTime, 1.5, timings, resolveCacheHits{}, 0.5)
 
 	if logData.statusCode != 502 {
 		t.Errorf("expected statusCode=502, got %d", logData.statusCode)
@@ -709,9 +709,65 @@ func TestFailRequest_PopulatesLogData(t *testing.T) {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Middleware context tests for ChatCompletions (lines 859-872, 902-907)
-// ---------------------------------------------------------------------------
+// TestCacheHits_RoundTrip verifies that cache hit data written to request_logs
+// can be read back from the database as valid JSON, confirming the full
+// proxy → DB → API path works for the cache_hits JSONB column.
+func TestCacheHits_RoundTrip(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	timings := resolveTimings{}
+	failoverHit := true
+	modelHit := false
+	cacheHits := resolveCacheHits{
+		Failover: &failoverHit,
+		Model:    &modelHit,
+	}
+
+	logData := &requestLogData{
+		modelID:         "roundtrip-model",
+		streaming:       false,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		failoverAttempt: 0,
+		state:           "pending",
+	}
+
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	h.failRequest(logData, 502, "cache hits round-trip test", 0, time.Now(), 0, timings, cacheHits, 0)
+
+	// Read the cache_hits column back from DB.
+	var rawJSON []byte
+	err := h.dbPool.QueryRow(context.Background(),
+		`SELECT cache_hits FROM request_logs WHERE model_id = $1`, "roundtrip-model",
+	).Scan(&rawJSON)
+	if err != nil {
+		t.Fatalf("failed to read cache_hits: %v", err)
+	}
+
+	// Empty JSON means the column is null (should not happen after update).
+	if len(rawJSON) == 0 {
+		t.Fatal("cache_hits column is null — updateRequestLog did not write it")
+	}
+
+	// Parse the JSON to verify the values round-tripped correctly.
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(rawJSON, &parsed); err != nil {
+		t.Fatalf("cache_hits is not valid JSON: %v (raw: %s)", err, string(rawJSON))
+	}
+	if parsed["failover"] != true {
+		t.Errorf("expected failover=true, got %v", parsed["failover"])
+	}
+	if parsed["model"] != false {
+		t.Errorf("expected model=false, got %v", parsed["model"])
+	}
+	// Provider, Key, Settings are nil (omitempty) so should not appear.
+	if _, exists := parsed["provider"]; exists {
+		t.Errorf("expected provider to be omitted (nil), but found: %v", parsed["provider"])
+	}
+}
 
 func TestChatCompletions_MiddlewareContextWithoutBodyBytes(t *testing.T) {
 	h := newIntegrationHandler()

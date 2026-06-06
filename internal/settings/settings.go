@@ -17,7 +17,8 @@ import (
 )
 
 // AllowedSettings is the allowlist of keys the API will accept.
-// Any key not in this set is rejected by UpdateSettings.
+// The key set MUST be kept in sync with api.allowedSettings — add a
+// key to both or neither. TestAllowedSettingsSync enforces this at CI time.
 var AllowedSettings = map[string]bool{
 	"discovery_interval":           true,
 	"discovery_on_startup":         true,
@@ -204,6 +205,15 @@ func (r *Repository) Get(ctx context.Context, key string) (string, error) {
 	return value, nil
 }
 
+// IsCached reports whether a setting for the given key is present in the
+// cache and not expired. It does not modify the cache or access the database.
+func (r *Repository) IsCached(key string) bool {
+	r.mu.RLock()
+	entry, ok := r.cache[key]
+	r.mu.RUnlock()
+	return ok && time.Now().Before(entry.expiresAt)
+}
+
 // GetWithDefault retrieves a setting from cache or database, returning defaultValue if not found.
 func (r *Repository) GetWithDefault(ctx context.Context, key, defaultValue string) string {
 	r.mu.RLock()
@@ -256,7 +266,32 @@ func (r *Repository) SetTx(ctx context.Context, tx pgx.Tx, key, value string) er
 	return err
 }
 
+// DeleteKeysTx removes the given settings keys from the database within an
+// existing transaction. After deletion, callers that read the setting will
+// fall through to their hardcoded Go default.
+func (r *Repository) DeleteKeysTx(ctx context.Context, tx pgx.Tx, keys []string) error {
+	if len(keys) == 0 {
+		return nil
+	}
+	for _, key := range keys {
+		if !AllowedSettings[key] {
+			return fmt.Errorf("setting %q is not in allowlist", key)
+		}
+	}
+	_, err := tx.Exec(ctx, `DELETE FROM settings WHERE key = ANY($1)`, keys)
+	if err != nil {
+		return err
+	}
+	// Cache eviction is intentionally NOT done here. The caller must
+	// evict after the surrounding transaction commits; evicting before
+	// commit would let concurrent reads repopulate the cache with the
+	// pre-delete DB value on tx rollback.
+	return nil
+}
+
 // InvalidateCache removes a key from the cache and notifies subscribers.
+// For reset-to-default flows where the key was deleted from the DB, use
+// NotifyDeleted instead to avoid a wasteful DB query.
 func (r *Repository) InvalidateCache(key string) {
 	r.mu.Lock()
 	delete(r.cache, key)
@@ -267,6 +302,34 @@ func (r *Repository) InvalidateCache(key string) {
 	// still notify with an empty value so that listeners reset.
 	val := r.GetWithDefault(context.Background(), key, "")
 	r.notifyChange(key, val)
+}
+
+// NotifyDeleted removes a key from the cache and notifies subscribers with
+// an empty value. Use this instead of InvalidateCache when the key was
+// deleted from the database (reset-to-default) to avoid a redundant DB
+// lookup — we already know the value is gone.
+func (r *Repository) NotifyDeleted(key string) {
+	r.mu.Lock()
+	delete(r.cache, key)
+	r.mu.Unlock()
+	r.notifyChange(key, "")
+}
+
+// WarmCache preloads all settings from the database into the in-memory cache.
+// Without this, settings are populated lazily on first read and expire after
+// cacheTTL (30s), causing periodic cache misses on the hot path.
+func (r *Repository) WarmCache(ctx context.Context) {
+	all, err := r.GetAll(ctx)
+	if err != nil {
+		debuglog.Warn("settings: failed to warm cache", "error", err)
+		return
+	}
+	r.mu.Lock()
+	for key, value := range all {
+		r.cache[key] = cacheEntry{value: value, expiresAt: time.Now().Add(r.cacheTTL)}
+	}
+	r.mu.Unlock()
+	debuglog.Info("settings: warmed cache", "count", len(all))
 }
 
 // GetAll retrieves all settings as a key-value map.

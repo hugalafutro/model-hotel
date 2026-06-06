@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Gauge } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
+import { ResetButton } from "../../components/ResetButton";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
 import { Toggle } from "../../components/Toggle";
@@ -10,11 +11,13 @@ import { useToast } from "../../context/ToastContext";
 interface RateLimitSettingsProps {
 	collapsed: boolean;
 	onToggle: () => void;
+	onResetSection?: () => void;
 }
 
 export function RateLimitSettings({
 	collapsed,
 	onToggle,
+	onResetSection,
 }: RateLimitSettingsProps) {
 	const { t } = useTranslation();
 	const { toast } = useToast();
@@ -40,6 +43,21 @@ export function RateLimitSettings({
 		},
 	});
 
+	const resetSettingMutation = useMutation({
+		mutationFn: (keys: string[]) => api.settings.reset(keys),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["settings"] });
+			toast(t("settings.common.resetSettingDone"), "success");
+		},
+		onError: (err: Error) => {
+			toast(
+				t("settings.common.resetFailed", { message: err.message }),
+				"error",
+			);
+		},
+	});
+	const isResetting = resetSettingMutation.isPending;
+
 	const rateLimitEnabled = settings?.rate_limit_enabled !== "false";
 	const rateLimitRPS = settings?.rate_limit_rps || "10";
 	const rateLimitBurst = settings?.rate_limit_burst || "20";
@@ -54,6 +72,7 @@ export function RateLimitSettings({
 			title={t("settings.rateLimit.title")}
 			collapsed={collapsed}
 			onToggle={onToggle}
+			onResetSection={onResetSection}
 		>
 			<div className="space-y-5">
 				<p className="text-gray-400 text-sm">
@@ -63,9 +82,19 @@ export function RateLimitSettings({
 					<div className="space-y-5">
 						<div className="flex items-center justify-between">
 							<div>
-								<p className="text-sm font-medium text-gray-300">
-									{t("settings.rateLimit.enable")}
-								</p>
+								<div className="flex items-center gap-1">
+									<p className="text-sm font-medium text-gray-300">
+										{t("settings.rateLimit.enable")}
+									</p>
+									<ResetButton
+										tooltip={t("settings.common.resetSetting")}
+										onClick={() =>
+											resetSettingMutation.mutate(["rate_limit_enabled"])
+										}
+										size={12}
+										disabled={isResetting}
+									/>
+								</div>
 								<p className="text-gray-500 text-xs mt-0.5">
 									{t("settings.rateLimit.enableDescription")}
 								</p>
@@ -82,9 +111,19 @@ export function RateLimitSettings({
 
 						<div className="flex items-center justify-between">
 							<div>
-								<p className="text-sm font-medium text-gray-300">
-									{t("settings.rateLimit.ipRateLimiting")}
-								</p>
+								<div className="flex items-center gap-1">
+									<p className="text-sm font-medium text-gray-300">
+										{t("settings.rateLimit.ipRateLimiting")}
+									</p>
+									<ResetButton
+										tooltip={t("settings.common.resetSetting")}
+										onClick={() =>
+											resetSettingMutation.mutate(["rate_limit_ip_enabled"])
+										}
+										size={12}
+										disabled={isResetting}
+									/>
+								</div>
 								<p className="text-gray-500 text-xs mt-0.5">
 									{t("settings.rateLimit.ipRateLimitingDescription")}
 								</p>
@@ -122,6 +161,10 @@ export function RateLimitSettings({
 										})
 									}
 									description={t("settings.rateLimit.maxWait.description")}
+									onReset={() =>
+										resetSettingMutation.mutate(["rate_limit_max_wait_ms"])
+									}
+									resetTooltip={t("settings.common.resetSetting")}
 								/>
 							</>
 						)}
@@ -146,6 +189,8 @@ export function RateLimitSettings({
 								description={t(
 									"settings.rateLimit.requestsPerSecond.description",
 								)}
+								onReset={() => resetSettingMutation.mutate(["rate_limit_rps"])}
+								resetTooltip={t("settings.common.resetSetting")}
 							/>
 						)}
 
@@ -167,6 +212,10 @@ export function RateLimitSettings({
 								description={t(
 									"settings.rateLimit.ipRequestsPerSecond.description",
 								)}
+								onReset={() =>
+									resetSettingMutation.mutate(["rate_limit_ip_rps"])
+								}
+								resetTooltip={t("settings.common.resetSetting")}
 							/>
 						)}
 
@@ -187,6 +236,10 @@ export function RateLimitSettings({
 									})
 								}
 								description={t("settings.rateLimit.burstSize.description")}
+								onReset={() =>
+									resetSettingMutation.mutate(["rate_limit_burst"])
+								}
+								resetTooltip={t("settings.common.resetSetting")}
 							/>
 						)}
 
@@ -207,6 +260,10 @@ export function RateLimitSettings({
 									})
 								}
 								description={t("settings.rateLimit.ipBurstSize.description")}
+								onReset={() =>
+									resetSettingMutation.mutate(["rate_limit_ip_burst"])
+								}
+								resetTooltip={t("settings.common.resetSetting")}
 							/>
 						)}
 					</div>

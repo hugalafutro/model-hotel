@@ -12,6 +12,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/hugalafutro/model-hotel/internal/settings"
 )
 
 // TestUpdateSettings_MalformedJSON tests that UpdateSettings returns 400
@@ -349,5 +351,25 @@ func TestUpdateSettings_NonNumericFloat(t *testing.T) {
 
 	if !strings.Contains(w.Body.String(), "must be a number") {
 		t.Errorf("expected error about numeric value, got: %s", w.Body.String())
+	}
+}
+
+// TestAllowedSettingsSync verifies that the API handler allowlist and the
+// settings repository allowlist have identical key sets. If they diverge,
+// the handler may accept keys that the DB layer rejects (or vice versa).
+func TestAllowedSettingsSync(t *testing.T) {
+	apiKeys := make(map[string]bool)
+	for k := range allowedSettings {
+		apiKeys[k] = true
+	}
+
+	for k := range settings.AllowedSettings {
+		if !apiKeys[k] {
+			t.Errorf("key %q in settings.AllowedSettings but missing from api.allowedSettings", k)
+		}
+		delete(apiKeys, k)
+	}
+	for k := range apiKeys {
+		t.Errorf("key %q in api.allowedSettings but missing from settings.AllowedSettings", k)
 	}
 }

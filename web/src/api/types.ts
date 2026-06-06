@@ -1,3 +1,11 @@
+export interface CacheHits {
+	failover?: boolean | null;
+	model?: boolean | null;
+	provider?: boolean | null;
+	key?: boolean | null;
+	settings?: boolean | null;
+}
+
 export interface Provider {
 	id: string;
 	name: string;
@@ -83,6 +91,7 @@ export interface LogEntry {
 	key_decrypt_ms: number;
 	dial_ms: number;
 	settings_read_ms: number;
+	cache_hits?: CacheHits | null;
 	tokens_per_second: number | null;
 	tokens_prompt: number;
 	tokens_completion: number;

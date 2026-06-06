@@ -10,6 +10,10 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/model"
+	"github.com/hugalafutro/model-hotel/internal/provider"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 type resolveTimings struct {
@@ -21,32 +25,44 @@ type resolveTimings struct {
 	settingsReadMs   float64
 }
 
+// resolveCacheHits tracks whether each overhead component hit a prewarmed cache.
+// true = cache hit (fast, prewarmed); false = cache miss (had to compute/DB read).
+// Absent fields (parse, dial) are not applicable — they have no cache.
+// The canonical definition lives in internal/util.CacheHits so both proxy and
+// api packages can reference a single type.
+type resolveCacheHits = util.CacheHits
+
 // proxyOverheadMs returns the total proxy overhead from accumulated timings.
 // dialMs may be 0 (before the failover loop) or populated after each dial.
 func (t resolveTimings) proxyOverheadMs(parseMs float64) float64 {
 	return parseMs + t.failoverLookupMs + t.modelLookupMs + t.providerLookupMs + t.keyDecryptMs + t.dialMs + t.settingsReadMs
 }
 
-func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([]modelCandidate, resolveTimings, error) {
+func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([]modelCandidate, resolveTimings, resolveCacheHits, error) {
 	debuglog.Debug("resolve: resolving hotel model", "model", displayModel)
 	var t resolveTimings
+	var ch resolveCacheHits
 	failoverLookupStart := time.Now()
+
+	// Check failover cache before lookup (lookup populates cache on miss).
+	failoverHit := failover.IsCachedByModel(displayModel)
 
 	fg, err := h.failoverRepo.GetByModel(ctx, displayModel)
 	if err != nil {
-		return nil, t, err
+		return nil, t, ch, err
 	}
 
 	if !fg.GroupEnabled {
 		debuglog.Warn("resolve: failover group disabled", "model", displayModel)
-		return nil, t, fmt.Errorf("failover group disabled")
+		return nil, t, ch, fmt.Errorf("failover group disabled")
 	}
 
 	if len(fg.PriorityOrder) == 0 {
 		debuglog.Warn("resolve: empty failover group", "model", displayModel)
-		return nil, t, fmt.Errorf("no entries in failover group")
+		return nil, t, ch, fmt.Errorf("no entries in failover group")
 	}
 
+	ch.Failover = &failoverHit
 	t.failoverLookupMs = float64(time.Since(failoverLookupStart).Microseconds()) / 1000.0
 	debuglog.Debug("resolve: failover group found", "model", displayModel, "entries", len(fg.PriorityOrder), "enabled", fg.GroupEnabled)
 
@@ -64,9 +80,23 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 		}
 	}
 
+	// Check model cache before lookup (batch: all must hit to count as hit).
+	// Skip setting the field when there are no models to check; an empty
+	// set would otherwise default to "hit" which is misleading.
+	if len(enabledModelIDs) > 0 {
+		modelHit := true
+		for _, id := range enabledModelIDs {
+			if !model.IsCachedByUUID(id) {
+				modelHit = false
+				break
+			}
+		}
+		ch.Model = &modelHit
+	}
+
 	models, err := h.modelRepo.GetByIDs(ctx, enabledModelIDs)
 	if err != nil {
-		return nil, t, err
+		return nil, t, ch, err
 	}
 
 	t.modelLookupMs = float64(time.Since(modelLookupStart).Microseconds()) / 1000.0
@@ -87,15 +117,33 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 		providerIDs = append(providerIDs, pid)
 	}
 
+	// Check provider cache before lookup (batch: all must hit to count as hit).
+	// Skip setting the field when there are no providers to check; an empty
+	// set would otherwise default to "hit" which is misleading.
+	if len(providerIDs) > 0 {
+		providerHit := true
+		for _, id := range providerIDs {
+			if !provider.IsCachedByID(id) {
+				providerHit = false
+				break
+			}
+		}
+		ch.Provider = &providerHit
+	}
+
 	providers, err := h.providerRepo.GetByIDs(ctx, providerIDs)
 	if err != nil {
-		return nil, t, err
+		return nil, t, ch, err
 	}
 
 	// Read circuit_breaker_enabled once before the loop to avoid
 	// per-candidate settings reads. This single read is still accounted
 	// for in both settingsReadMs (via context accumulator) and
 	// settingsReadInWindow (subtracted from providerLookupMs below).
+	// Only track settings actually read during resolve; failover_on_rate_limit
+	// is read later in shouldFailover (outside the resolve phase) so checking
+	// it here would show a false amber for requests that never trigger 429.
+	settingsHit := h.settingsRepo.IsCached("circuit_breaker_enabled")
 	cbStart := time.Now()
 	cbEnabled := h.settingsRepo.GetBool(ctx, "circuit_breaker_enabled", true)
 	cbElapsed := float64(time.Since(cbStart).Microseconds()) / 1000.0
@@ -108,9 +156,11 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 			*p += cbElapsed
 		}
 	}
+	ch.Settings = &settingsHit
 
 	candidates := make([]modelCandidate, 0, len(fg.PriorityOrder))
 	var decryptFailures int
+	keyHit := true
 	debuglog.Debug("resolve: building candidates from failover group", "model", displayModel, "priority_order_count", len(fg.PriorityOrder))
 	for _, modelUUID := range fg.PriorityOrder {
 		entryEnabled := true
@@ -154,6 +204,10 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 		if len(prov.EncryptedKey) == 0 {
 			apiKey = ""
 		} else {
+			// Check key cache before the actual decryption call.
+			if !auth.IsKeyCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt) {
+				keyHit = false
+			}
 			var err error
 			kdStart := time.Now()
 			apiKey, err = auth.DecryptCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
@@ -169,36 +223,51 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 		candidates = append(candidates, modelCandidate{model: m, provider: prov, apiKey: apiKey})
 	}
 
+	// Only record key cache hit if there were keys to decrypt.
+	if keyDecryptTotal > 0 {
+		ch.Key = &keyHit
+	}
+
 	t.providerLookupMs = max(0, float64(time.Since(providerLookupStart).Microseconds())/1000.0-keyDecryptTotal-settingsReadInWindow)
 	t.keyDecryptMs = keyDecryptTotal
 	if len(candidates) == 0 && decryptFailures > 0 {
-		return nil, t, fmt.Errorf("all %d candidate(s) failed key decryption (wrong master key?)", decryptFailures)
+		return nil, t, ch, fmt.Errorf("all %d candidate(s) failed key decryption (wrong master key?)", decryptFailures)
 	}
 	debuglog.Debug("resolve: hotel model resolved", "model", displayModel, "candidates", len(candidates), "decrypt_failures", decryptFailures)
-	return candidates, t, nil
+	return candidates, t, ch, nil
 }
 
-func (h *Handler) resolveSpecificProvider(ctx context.Context, providerName, modelID string) ([]modelCandidate, resolveTimings, error) {
+func (h *Handler) resolveSpecificProvider(ctx context.Context, providerName, modelID string) ([]modelCandidate, resolveTimings, resolveCacheHits, error) {
 	debuglog.Debug("resolve: resolving specific provider", "provider", providerName, "model", modelID)
 	var t resolveTimings
+	var ch resolveCacheHits
 	providerLookupStart := time.Now()
+
+	// Check provider cache before lookup.
+	provHit := provider.IsCachedByName(providerName)
 
 	prov, err := h.providerRepo.GetByName(ctx, providerName)
 	if err != nil {
 		debuglog.Warn("resolve: provider not found", "provider", providerName, "error", err)
-		return nil, t, fmt.Errorf("provider not found: %s", providerName)
+		return nil, t, ch, fmt.Errorf("provider not found: %s", providerName)
 	}
 	debuglog.Debug("resolve: provider found", "provider", prov.Name, "provider_id", prov.ID, "enabled", prov.Enabled)
 
+	ch.Provider = &provHit
 	t.providerLookupMs = float64(time.Since(providerLookupStart).Microseconds()) / 1000.0
 
 	modelLookupStart := time.Now()
+
+	// Check model cache before lookup.
+	modelHit := model.IsCachedByCompositeKey(prov.ID, modelID)
+
 	m, err := h.modelRepo.GetByProviderAndModelID(ctx, prov.ID, modelID)
 	if err != nil {
 		debuglog.Warn("resolve: model not found", "model", modelID, "provider", providerName, "error", err)
-		return nil, t, fmt.Errorf("model not found: %s on provider %s", modelID, providerName)
+		return nil, t, ch, fmt.Errorf("model not found: %s on provider %s", modelID, providerName)
 	}
 	debuglog.Debug("resolve: model found", "model", m.ModelID, "provider", prov.Name, "enabled", m.Enabled, "provider_enabled", m.ProviderEnabled)
+	ch.Model = &modelHit
 	t.modelLookupMs = float64(time.Since(modelLookupStart).Microseconds()) / 1000.0
 
 	if !m.Enabled {
@@ -208,7 +277,7 @@ func (h *Handler) resolveSpecificProvider(ctx context.Context, providerName, mod
 		debuglog.Info("resolve: provider disabled", "provider", providerName, "model", modelID)
 	}
 	if !m.Enabled || !prov.Enabled {
-		return nil, t, fmt.Errorf("model or provider disabled")
+		return nil, t, ch, fmt.Errorf("model or provider disabled")
 	}
 
 	// Keyless providers (e.g. OpenCode Zen free models) store nil encrypted
@@ -217,6 +286,9 @@ func (h *Handler) resolveSpecificProvider(ctx context.Context, providerName, mod
 	if len(prov.EncryptedKey) == 0 {
 		apiKey = ""
 	} else {
+		// Check key cache before the actual decryption call.
+		keyHit := auth.IsKeyCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt)
+		ch.Key = &keyHit
 		var err error
 		kdStart := time.Now()
 		apiKey, err = auth.DecryptCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
@@ -224,12 +296,12 @@ func (h *Handler) resolveSpecificProvider(ctx context.Context, providerName, mod
 		debuglog.Debug("resolve: key decrypted", "provider", prov.Name, "model", modelID, "decrypt_ms", t.keyDecryptMs)
 		if err != nil {
 			debuglog.Error("resolve: key decryption failed", "provider", prov.Name, "model", modelID, "error", err)
-			return nil, t, err
+			return nil, t, ch, err
 		}
 	}
 
 	debuglog.Debug("resolve: specific provider resolved", "provider", prov.Name, "model", m.ModelID, "id", m.ID, "has_api_key", apiKey != "")
-	return []modelCandidate{{model: m, provider: prov, apiKey: apiKey}}, t, nil
+	return []modelCandidate{{model: m, provider: prov, apiKey: apiKey}}, t, ch, nil
 }
 
 func (h *Handler) shouldFailover(ctx context.Context, statusCode int) bool {

@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { api } from "../../../api/client";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { RateLimitSettings } from "../RateLimitSettings";
@@ -876,3 +877,32 @@ describe("RateLimitSettings", () => {
 // existing tests that verify sliders appear/disappear based on toggle state:
 // - "hides RPS and Burst sliders when rate limiting is disabled"
 // - "hides IP RPS and IP Burst sliders when IP rate limiting is disabled"
+
+describe("per-setting reset", () => {
+	it("calls api.settings.reset when reset button is clicked", async () => {
+		const resetSpy = vi.spyOn(api.settings, "reset");
+		resetSpy.mockResolvedValueOnce({});
+
+		const user = userEvent.setup();
+		renderWithProviders(<RateLimitSettings onResetSection={() => {}} />);
+
+		await waitFor(() => {
+			expect(
+				screen.getAllByRole("button", {
+					name: /reset this setting to default/i,
+				}).length,
+			).toBeGreaterThanOrEqual(1);
+		});
+
+		const resetBtn = screen.getAllByRole("button", {
+			name: /reset this setting to default/i,
+		})[0];
+		await user.click(resetBtn);
+
+		await waitFor(() => {
+			expect(resetSpy).toHaveBeenCalledOnce();
+		});
+
+		resetSpy.mockRestore();
+	});
+});

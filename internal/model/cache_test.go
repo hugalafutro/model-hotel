@@ -408,6 +408,53 @@ func TestWarmModelCache_MultipleModels(t *testing.T) {
 	}
 }
 
+// TestWarmModelCache_FillsAllSubCaches verifies that WarmModelCache populates
+// all three model sub-caches (by UUID, by ModelID string, and by composite
+// provider:modelID key), not just the UUID cache.
+func TestWarmModelCache_FillsAllSubCaches(t *testing.T) {
+	InvalidateModelCache()
+
+	providerID := uuid.New()
+	models := []*Model{
+		{ID: uuid.New(), ProviderID: providerID, ModelID: "deepseek-r1"},
+		{ID: uuid.New(), ProviderID: providerID, ModelID: "deepseek-r1"},
+		{ID: uuid.New(), ProviderID: uuid.New(), ModelID: "gpt-4"},
+	}
+
+	WarmModelCache(models)
+
+	// 1. UUID cache: all models should be findable by their UUID.
+	for _, m := range models {
+		if !IsCachedByUUID(m.ID) {
+			t.Errorf("IsCachedByUUID: model %s should be cached", m.ID)
+		}
+	}
+
+	// 2. ModelID string cache: "deepseek-r1" and "gpt-4" should be cached.
+	if !IsCachedByModelID("deepseek-r1") {
+		t.Error("IsCachedByModelID: deepseek-r1 should be cached")
+	}
+	if !IsCachedByModelID("gpt-4") {
+		t.Error("IsCachedByModelID: gpt-4 should be cached")
+	}
+
+	// 3. Composite key cache: each provider:modelID pair should be cached.
+	for _, m := range models {
+		if !IsCachedByCompositeKey(m.ProviderID, m.ModelID) {
+			t.Errorf("IsCachedByCompositeKey: %s:%s should be cached", m.ProviderID, m.ModelID)
+		}
+	}
+
+	// 4. Verify data integrity: GetCachedByModelID for "deepseek-r1" returns 2 models.
+	found, ok := GetCachedByModelID("deepseek-r1")
+	if !ok {
+		t.Fatal("GetCachedByModelID: deepseek-r1 should be found")
+	}
+	if len(found) != 2 {
+		t.Errorf("GetCachedByModelID: expected 2 models for deepseek-r1, got %d", len(found))
+	}
+}
+
 func TestWarmModelCache_EmptySlice(t *testing.T) {
 	InvalidateModelCache()
 

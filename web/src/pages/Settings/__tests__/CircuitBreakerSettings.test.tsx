@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { api } from "../../../api/client";
 import { mockSettings } from "../../../test/helpers";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
@@ -534,6 +535,35 @@ describe("CircuitBreakerSettings", () => {
 		await waitFor(() => {
 			expect(capturedPayload).toEqual({ circuit_breaker_enabled: "true" });
 			expect(screen.getByText("Settings saved")).toBeInTheDocument();
+		});
+	});
+
+	describe("per-setting reset", () => {
+		it("calls api.settings.reset when reset button is clicked", async () => {
+			const resetSpy = vi.spyOn(api.settings, "reset");
+			resetSpy.mockResolvedValueOnce({});
+
+			const user = userEvent.setup();
+			renderWithProviders(<CircuitBreakerSettings onResetSection={() => {}} />);
+
+			await waitFor(() => {
+				expect(
+					screen.getAllByRole("button", {
+						name: /reset this setting to default/i,
+					}).length,
+				).toBeGreaterThanOrEqual(1);
+			});
+
+			const resetBtn = screen.getAllByRole("button", {
+				name: /reset this setting to default/i,
+			})[0];
+			await user.click(resetBtn);
+
+			await waitFor(() => {
+				expect(resetSpy).toHaveBeenCalledOnce();
+			});
+
+			resetSpy.mockRestore();
 		});
 	});
 });

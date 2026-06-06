@@ -310,39 +310,46 @@ export function RequestLogDetail({
 								label: t("components.requestLogDetail.requestParsing"),
 								value: requestLog.parse_ms,
 								tooltip: t("components.requestLogDetail.timeToParseRequest"),
+								cacheHit: null as boolean | null,
 							},
 							{
 								label: t("components.requestLogDetail.failoverGroupLookup"),
 								value: requestLog.failover_lookup_ms,
 								tooltip: t("components.requestLogDetail.timeToResolveFailover"),
+								cacheHit: requestLog.cache_hits?.failover ?? null,
 							},
 							{
 								label: t("components.requestLogDetail.modelLookup"),
 								value: requestLog.model_lookup_ms,
 								tooltip: t("components.requestLogDetail.timeToLookupModel"),
+								cacheHit: requestLog.cache_hits?.model ?? null,
 							},
 							{
 								label: t("components.requestLogDetail.providerLookup"),
 								value: requestLog.provider_lookup_ms,
 								tooltip: t("components.requestLogDetail.timeToLookupProvider"),
+								cacheHit: requestLog.cache_hits?.provider ?? null,
 							},
 							{
 								label: t("components.requestLogDetail.keyDecryption"),
 								value: requestLog.key_decrypt_ms,
 								tooltip: t("components.requestLogDetail.timeToDecryptKey"),
+								cacheHit: requestLog.cache_hits?.key ?? null,
 							},
 							{
 								label: t("components.requestLogDetail.dialDnsTcp"),
 								value: requestLog.dial_ms,
 								tooltip: t("components.requestLogDetail.timeToEstablishTcp"),
+								cacheHit: null as boolean | null,
 							},
 							{
 								label: t("components.requestLogDetail.settingsReads"),
 								value: requestLog.settings_read_ms,
 								tooltip: t("components.requestLogDetail.timeToReadSettings"),
+								cacheHit: requestLog.cache_hits?.settings ?? null,
 							},
 						].map(
-							({ label, value, tooltip }) =>
+							({ label, value, tooltip, cacheHit }) =>
 								(value > 0 ||
 									(label === t("components.requestLogDetail.dialDnsTcp") &&
 										value === 0)) && (
@@ -350,13 +357,27 @@ export function RequestLogDetail({
 										<span className="flex items-center gap-1 text-(--text-secondary)">
 											{label}
 											<span
-												title={tooltip}
+												title={
+													cacheHit === null
+														? tooltip
+														: cacheHit
+															? `${tooltip} ${t("components.requestLogDetail.overheadCacheHit")}`
+															: `${tooltip} ${t("components.requestLogDetail.overheadCacheMiss")}`
+												}
 												className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all"
 											>
 												<Info size={12} />
 											</span>
 										</span>
-										<span className="font-mono text-(--text-primary)">
+										<span
+											className={`font-mono ${
+												cacheHit === true
+													? "text-emerald-400"
+													: cacheHit === false
+														? "text-amber-400"
+														: "text-(--text-primary)"
+											}`}
+										>
 											{label === t("components.requestLogDetail.dialDnsTcp") &&
 											value === 0
 												? t("components.requestLogDetail.reused")

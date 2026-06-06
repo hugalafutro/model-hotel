@@ -56,6 +56,17 @@ func decryptionCacheKey(ciphertext, nonce, salt []byte) string {
 	return hex.EncodeToString(ciphertext) + ":" + hex.EncodeToString(nonce) + ":" + hex.EncodeToString(salt)
 }
 
+// IsKeyCached reports whether a decrypted key for the given ciphertext/nonce/salt
+// combination is present in the cache and not expired. It does not modify the
+// cache or perform any decryption.
+func IsKeyCached(ciphertext, nonce, salt []byte) bool {
+	ck := decryptionCacheKey(ciphertext, nonce, salt)
+	keyCacheMu.RLock()
+	entry, ok := keyCache[ck]
+	keyCacheMu.RUnlock()
+	return ok && time.Now().Before(entry.expiresAt)
+}
+
 // DecryptCached attempts to decrypt a provider key using the cached Argon2id key.
 func DecryptCached(ciphertext, nonce, salt []byte, masterKey string) (string, error) {
 	if len(salt) == 0 {

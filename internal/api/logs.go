@@ -19,41 +19,47 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
+// CacheHits is an alias for the shared CacheHits type defined in util.
+// The API uses this alias for clarity in LogEntry — the underlying type
+// is the same one the proxy produces.
+type CacheHits = util.CacheHits
+
 // LogEntry represents a single request log entry.
 type LogEntry struct {
-	ID                        string    `json:"id"`
-	ProviderID                string    `json:"provider_id"`
-	ProviderName              string    `json:"provider_name"`
-	ModelID                   string    `json:"model_id"`
-	RequestHash               string    `json:"request_hash"`
-	StatusCode                int       `json:"status_code"`
-	LatencyMs                 float64   `json:"latency_ms"`
-	DurationMs                float64   `json:"duration_ms"`
-	TTFTMs                    float64   `json:"ttft_ms"`
-	ResponseHeaderMs          float64   `json:"response_header_ms"`
-	ProxyOverheadMs           float64   `json:"proxy_overhead_ms"`
-	ParseMs                   float64   `json:"parse_ms"`
-	FailoverLookupMs          float64   `json:"failover_lookup_ms"`
-	ModelLookupMs             float64   `json:"model_lookup_ms"`
-	ProviderLookupMs          float64   `json:"provider_lookup_ms"`
-	KeyDecryptMs              float64   `json:"key_decrypt_ms"`
-	DialMs                    float64   `json:"dial_ms"`
-	SettingsReadMs            float64   `json:"settings_read_ms"`
-	TokensPerSecond           float64   `json:"tokens_per_second"`
-	TokensPrompt              int       `json:"tokens_prompt"`
-	TokensCompletion          int       `json:"tokens_completion"`
-	TokensCompletionReasoning int       `json:"tokens_completion_reasoning"`
-	TokensPromptCacheHit      int       `json:"tokens_prompt_cache_hit"`
-	TokensPromptCacheMiss     int       `json:"tokens_prompt_cache_miss"`
-	Streaming                 bool      `json:"streaming"`
-	VirtualKeyName            string    `json:"virtual_key_name"`
-	VirtualKeyDeleted         bool      `json:"virtual_key_deleted"`
-	VirtualKeyID              string    `json:"virtual_key_id"`
-	ErrorMessage              string    `json:"error_message"`
-	FailoverAttempt           int       `json:"failover_attempt"`
-	State                     string    `json:"state"`
-	CreatedAt                 time.Time `json:"created_at"`
-	ResolvedModelID           string    `json:"resolved_model_id"`
+	ID                        string     `json:"id"`
+	ProviderID                string     `json:"provider_id"`
+	ProviderName              string     `json:"provider_name"`
+	ModelID                   string     `json:"model_id"`
+	RequestHash               string     `json:"request_hash"`
+	StatusCode                int        `json:"status_code"`
+	LatencyMs                 float64    `json:"latency_ms"`
+	DurationMs                float64    `json:"duration_ms"`
+	TTFTMs                    float64    `json:"ttft_ms"`
+	ResponseHeaderMs          float64    `json:"response_header_ms"`
+	ProxyOverheadMs           float64    `json:"proxy_overhead_ms"`
+	ParseMs                   float64    `json:"parse_ms"`
+	FailoverLookupMs          float64    `json:"failover_lookup_ms"`
+	ModelLookupMs             float64    `json:"model_lookup_ms"`
+	ProviderLookupMs          float64    `json:"provider_lookup_ms"`
+	KeyDecryptMs              float64    `json:"key_decrypt_ms"`
+	DialMs                    float64    `json:"dial_ms"`
+	SettingsReadMs            float64    `json:"settings_read_ms"`
+	CacheHits                 *CacheHits `json:"cache_hits,omitempty"`
+	TokensPerSecond           float64    `json:"tokens_per_second"`
+	TokensPrompt              int        `json:"tokens_prompt"`
+	TokensCompletion          int        `json:"tokens_completion"`
+	TokensCompletionReasoning int        `json:"tokens_completion_reasoning"`
+	TokensPromptCacheHit      int        `json:"tokens_prompt_cache_hit"`
+	TokensPromptCacheMiss     int        `json:"tokens_prompt_cache_miss"`
+	Streaming                 bool       `json:"streaming"`
+	VirtualKeyName            string     `json:"virtual_key_name"`
+	VirtualKeyDeleted         bool       `json:"virtual_key_deleted"`
+	VirtualKeyID              string     `json:"virtual_key_id"`
+	ErrorMessage              string     `json:"error_message"`
+	FailoverAttempt           int        `json:"failover_attempt"`
+	State                     string     `json:"state"`
+	CreatedAt                 time.Time  `json:"created_at"`
+	ResolvedModelID           string     `json:"resolved_model_id"`
 }
 
 // LogsResponse is the paginated response for request logs.
@@ -96,8 +102,9 @@ func (h *Handler) GetLog(w http.ResponseWriter, r *http.Request) {
 			COALESCE(rl.request_hash, ''), COALESCE(rl.status_code, 0),
 			COALESCE(rl.latency_ms, 0), COALESCE(rl.duration_ms, 0),
 			COALESCE(rl.ttft_ms, 0), COALESCE(rl.proxy_overhead_ms, 0),
-			COALESCE(rl.parse_ms, 0), COALESCE(rl.failover_lookup_ms, 0), COALESCE(rl.model_lookup_ms, 0), COALESCE(rl.provider_lookup_ms, 0), COALESCE(rl.key_decrypt_ms, 0),
-			COALESCE(rl.dial_ms, 0), COALESCE(rl.settings_read_ms, 0),
+                COALESCE(rl.parse_ms, 0), COALESCE(rl.failover_lookup_ms, 0), COALESCE(rl.model_lookup_ms, 0), COALESCE(rl.provider_lookup_ms, 0), COALESCE(rl.key_decrypt_ms, 0),
+                COALESCE(rl.dial_ms, 0), COALESCE(rl.settings_read_ms, 0),
+                rl.cache_hits,
 			COALESCE(rl.tokens_per_second, 0),
 			COALESCE(rl.tokens_prompt, 0), COALESCE(rl.tokens_completion, 0),
 			COALESCE(rl.tokens_completion_reasoning, 0),
@@ -121,6 +128,7 @@ func (h *Handler) GetLog(w http.ResponseWriter, r *http.Request) {
 		&entry.TTFTMs, &entry.ProxyOverheadMs,
 		&entry.ParseMs, &entry.FailoverLookupMs, &entry.ModelLookupMs, &entry.ProviderLookupMs, &entry.KeyDecryptMs,
 		&entry.DialMs, &entry.SettingsReadMs,
+		&entry.CacheHits,
 		&entry.TokensPerSecond,
 		&entry.TokensPrompt, &entry.TokensCompletion, &entry.TokensCompletionReasoning,
 		&entry.TokensPromptCacheHit, &entry.TokensPromptCacheMiss,
@@ -214,6 +222,7 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
             COALESCE(rl.ttft_ms, 0), COALESCE(rl.proxy_overhead_ms, 0),
             COALESCE(rl.parse_ms, 0), COALESCE(rl.failover_lookup_ms, 0), COALESCE(rl.model_lookup_ms, 0), COALESCE(rl.provider_lookup_ms, 0), COALESCE(rl.key_decrypt_ms, 0),
             COALESCE(rl.dial_ms, 0), COALESCE(rl.settings_read_ms, 0),
+            rl.cache_hits,
             COALESCE(rl.tokens_per_second, 0),
             COALESCE(rl.tokens_prompt, 0), COALESCE(rl.tokens_completion, 0),
             COALESCE(rl.tokens_completion_reasoning, 0),
@@ -355,6 +364,7 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
 			&entry.TTFTMs, &entry.ProxyOverheadMs,
 			&entry.ParseMs, &entry.FailoverLookupMs, &entry.ModelLookupMs, &entry.ProviderLookupMs, &entry.KeyDecryptMs,
 			&entry.DialMs, &entry.SettingsReadMs,
+			&entry.CacheHits,
 			&entry.TokensPerSecond,
 			&entry.TokensPrompt, &entry.TokensCompletion, &entry.TokensCompletionReasoning,
 			&entry.TokensPromptCacheHit, &entry.TokensPromptCacheMiss,
@@ -605,8 +615,9 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
                COALESCE(rl.latency_ms, 0), COALESCE(rl.duration_ms, 0),
                COALESCE(rl.ttft_ms, 0), COALESCE(rl.proxy_overhead_ms, 0),
                COALESCE(rl.parse_ms, 0), COALESCE(rl.failover_lookup_ms, 0), COALESCE(rl.model_lookup_ms, 0), COALESCE(rl.provider_lookup_ms, 0), COALESCE(rl.key_decrypt_ms, 0),
-               COALESCE(rl.dial_ms, 0), COALESCE(rl.settings_read_ms, 0),
-               COALESCE(rl.tokens_per_second, 0),
+                COALESCE(rl.dial_ms, 0), COALESCE(rl.settings_read_ms, 0),
+                rl.cache_hits,
+                COALESCE(rl.tokens_per_second, 0),
                 COALESCE(rl.tokens_prompt, 0), COALESCE(rl.tokens_completion, 0),
                 COALESCE(rl.tokens_completion_reasoning, 0),
                 COALESCE(rl.tokens_prompt_cache_hit, 0), COALESCE(rl.tokens_prompt_cache_miss, 0),
@@ -713,6 +724,7 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 			&entry.TTFTMs, &entry.ProxyOverheadMs,
 			&entry.ParseMs, &entry.FailoverLookupMs, &entry.ModelLookupMs, &entry.ProviderLookupMs, &entry.KeyDecryptMs,
 			&entry.DialMs, &entry.SettingsReadMs,
+			&entry.CacheHits,
 			&entry.TokensPerSecond,
 			&entry.TokensPrompt, &entry.TokensCompletion, &entry.TokensCompletionReasoning,
 			&entry.TokensPromptCacheHit, &entry.TokensPromptCacheMiss,

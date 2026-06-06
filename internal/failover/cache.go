@@ -54,6 +54,15 @@ func InvalidateFailoverCache() {
 	failoverCacheMu.Unlock()
 }
 
+// IsCachedByModel reports whether a failover group for the given display model
+// is present in the cache and not expired. It does not modify the cache.
+func IsCachedByModel(displayModel string) bool {
+	failoverCacheMu.RLock()
+	entry, ok := failoverByModelCache[displayModel]
+	failoverCacheMu.RUnlock()
+	return ok && !time.Now().After(entry.expiresAt)
+}
+
 // WarmFailoverCache populates the cache with the provided failover groups.
 func WarmFailoverCache(groups []*FailoverGroup) {
 	for _, fg := range groups {

@@ -119,6 +119,7 @@ type mockSettingsStore struct {
 	setFn             func(ctx context.Context, key string, value string) error
 	getAllFn          func(ctx context.Context) (map[string]string, error)
 	setTxFn           func(ctx context.Context, tx pgx.Tx, key, value string) error
+	deleteKeysTxFn    func(ctx context.Context, tx pgx.Tx, keys []string) error
 	invalidateCacheFn func(key string)
 }
 
@@ -146,10 +147,19 @@ func (m *mockSettingsStore) SetTx(ctx context.Context, tx pgx.Tx, key, value str
 	}
 	return errors.New("mock: SetTx not implemented")
 }
+func (m *mockSettingsStore) DeleteKeysTx(ctx context.Context, tx pgx.Tx, keys []string) error {
+	if m.deleteKeysTxFn != nil {
+		return m.deleteKeysTxFn(ctx, tx, keys)
+	}
+	return errors.New("mock: DeleteKeysTx not implemented")
+}
 func (m *mockSettingsStore) InvalidateCache(key string) {
 	if m.invalidateCacheFn != nil {
 		m.invalidateCacheFn(key)
 	}
+}
+
+func (m *mockSettingsStore) NotifyDeleted(key string) {
 }
 
 type mockAdminAuth struct {

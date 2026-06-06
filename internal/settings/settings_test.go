@@ -896,3 +896,191 @@ func TestRepository_GetAll_SingleEntry(t *testing.T) {
 		t.Errorf("expected single_key=single_value, got %q", result["single_key"])
 	}
 }
+
+// ---------------------------------------------------------------------------
+// DeleteKeysTx
+// ---------------------------------------------------------------------------
+
+func TestDeleteKeysTx_DeletesSpecifiedKeys(t *testing.T) {
+	t.Helper()
+	r := NewRepository(testPool)
+	ctx := context.Background()
+	clearSettings(t)
+
+	// Insert settings directly.
+	for _, kv := range []struct{ k, v string }{
+		{"discovery_interval", "1h"},
+		{"discovery_on_startup", "true"},
+		{"circuit_breaker_enabled", "false"},
+	} {
+		_, err := testPool.Exec(ctx,
+			"INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, now()) ON CONFLICT (key) DO UPDATE SET value = $2",
+			kv.k, kv.v)
+		if err != nil {
+			t.Fatalf("insert %s: %v", kv.k, err)
+		}
+	}
+
+	tx, err := testPool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer tx.Rollback(ctx)
+
+	if err := r.DeleteKeysTx(ctx, tx, []string{"discovery_interval", "circuit_breaker_enabled"}); err != nil {
+		t.Fatalf("DeleteKeysTx: %v", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatalf("commit: %v", err)
+	}
+
+	// Verify deleted keys are gone.
+	var count int
+	err = testPool.QueryRow(ctx, "SELECT count(*) FROM settings WHERE key = ANY($1)", []string{"discovery_interval", "circuit_breaker_enabled"}).Scan(&count)
+	if err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("expected 0 deleted settings, got %d", count)
+	}
+
+	// Verify remaining key still exists.
+	val, err := r.Get(ctx, "discovery_on_startup")
+	if err != nil {
+		t.Fatalf("Get remaining: %v", err)
+	}
+	if val != "true" {
+		t.Errorf("remaining key = %q, want %q", val, "true")
+	}
+}
+
+func TestDeleteKeysTx_EmptyKeys(t *testing.T) {
+	t.Helper()
+	r := NewRepository(testPool)
+	ctx := context.Background()
+
+	tx, err := testPool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer tx.Rollback(ctx)
+
+	if err := r.DeleteKeysTx(ctx, tx, []string{}); err != nil {
+		t.Errorf("DeleteKeysTx with empty keys should not error, got: %v", err)
+	}
+}
+
+func TestDeleteKeysTx_InvalidKey(t *testing.T) {
+	t.Helper()
+	r := NewRepository(testPool)
+	ctx := context.Background()
+
+	tx, err := testPool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer tx.Rollback(ctx)
+
+	err = r.DeleteKeysTx(ctx, tx, []string{"not_a_real_setting"})
+	if err == nil {
+		t.Error("DeleteKeysTx should reject keys not in allowlist")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// NotifyDeleted
+// ---------------------------------------------------------------------------
+
+func TestNotifyDeleted_EvictsCacheAndNotifies(t *testing.T) {
+	t.Helper()
+	r := NewRepository(testPool)
+	ctx := context.Background()
+	clearSettings(t)
+
+	// Insert and cache a setting.
+	_, err := testPool.Exec(ctx,
+		"INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, now()) ON CONFLICT (key) DO UPDATE SET value = $2",
+		"discovery_interval", "5m")
+	if err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+	// Read to populate cache.
+	_ = r.GetWithDefault(ctx, "discovery_interval", "2h")
+
+	// NotifyDeleted should evict cache and publish SSE event.
+	r.NotifyDeleted("discovery_interval")
+
+	// Verify cache was evicted — the next read should come from DB (not cached).
+	r.mu.RLock()
+	_, inCache := r.cache["discovery_interval"]
+	r.mu.RUnlock()
+	if inCache {
+		t.Error("NotifyDeleted should have evicted cache entry")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// IsCached
+// ---------------------------------------------------------------------------
+
+func TestIsCached_AfterRead(t *testing.T) {
+	t.Helper()
+	r := NewRepository(testPool)
+	ctx := context.Background()
+	clearSettings(t)
+
+	// Before population, cache hit is false.
+	if r.IsCached("discovery_interval") {
+		t.Error("IsCached should return false before any read")
+	}
+
+	// Insert and read to populate cache.
+	_, err := testPool.Exec(ctx,
+		"INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, now()) ON CONFLICT (key) DO UPDATE SET value = $2",
+		"discovery_interval", "3h")
+	if err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+	_ = r.GetWithDefault(ctx, "discovery_interval", "2h")
+
+	if !r.IsCached("discovery_interval") {
+		t.Error("IsCached should return true after read populates cache")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// WarmCache
+// ---------------------------------------------------------------------------
+
+func TestWarmCache_PopulatesAllSettings(t *testing.T) {
+	t.Helper()
+	r := NewRepository(testPool)
+	ctx := context.Background()
+	clearSettings(t)
+
+	// Insert multiple settings.
+	for _, kv := range []struct{ k, v string }{
+		{"discovery_interval", "1h"},
+		{"discovery_on_startup", "true"},
+		{"circuit_breaker_enabled", "false"},
+	} {
+		_, err := testPool.Exec(ctx,
+			"INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, now()) ON CONFLICT (key) DO UPDATE SET value = $2",
+			kv.k, kv.v)
+		if err != nil {
+			t.Fatalf("insert %s: %v", kv.k, err)
+		}
+	}
+
+	r.WarmCache(ctx)
+
+	if !r.IsCached("discovery_interval") {
+		t.Error("WarmCache should populate discovery_interval")
+	}
+	if !r.IsCached("discovery_on_startup") {
+		t.Error("WarmCache should populate discovery_on_startup")
+	}
+	if !r.IsCached("circuit_breaker_enabled") {
+		t.Error("WarmCache should populate circuit_breaker_enabled")
+	}
+}

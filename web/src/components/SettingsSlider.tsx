@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ResetButton } from "./ResetButton";
 
 export interface SettingsSliderProps {
 	id: string;
@@ -15,6 +16,10 @@ export interface SettingsSliderProps {
 	hideUnit?: boolean;
 	unit?: string;
 	infinityValue?: number;
+	/** When present, renders a reset-to-default icon after the label */
+	onReset?: () => void;
+	/** Tooltip for the reset icon (already i18n'd) */
+	resetTooltip?: string;
 }
 
 function clampToStep(value: number, step: number): number {
@@ -36,6 +41,8 @@ export function SettingsSlider({
 	unit,
 	hideUnit = false,
 	infinityValue,
+	onReset,
+	resetTooltip,
 }: SettingsSliderProps) {
 	const [local, setLocal] = useState(value);
 	const prevValue = useRef(value);
@@ -178,6 +185,15 @@ export function SettingsSlider({
 				>
 					{label}
 				</label>
+				{onReset && (
+					<ResetButton
+						tooltip={resetTooltip ?? ""}
+						onClick={onReset}
+						size={12}
+						className="inline-flex align-middle"
+						disabled={disabled}
+					/>
+				)}
 				<input
 					type="range"
 					id={id}
