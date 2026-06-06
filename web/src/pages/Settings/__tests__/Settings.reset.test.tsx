@@ -154,4 +154,183 @@ describe("Settings reset flows", () => {
 
 		resetSpy.mockRestore();
 	});
+
+	it("completes global reset flow: click → type RESET → confirm", async () => {
+		const resetSpy = vi.spyOn(api.settings, "reset");
+		resetSpy.mockResolvedValueOnce({});
+
+		const user = userEvent.setup();
+		renderWithProviders(<Settings />);
+
+		await waitFor(() => {
+			expect(
+				screen.getByRole("button", {
+					name: /reset all settings to their defaults/i,
+				}),
+			).toBeInTheDocument();
+		});
+
+		// Click global reset button.
+		await user.click(
+			screen.getByRole("button", {
+				name: /reset all settings to their defaults/i,
+			}),
+		);
+
+		await waitFor(() => {
+			expect(
+				screen.getByText(/this will reset all settings/i),
+			).toBeInTheDocument();
+		});
+
+		// Type RESET and confirm.
+		const input = screen.getByPlaceholderText(/type reset to confirm/i);
+		await user.type(input, "RESET");
+
+		const confirmBtns = screen.getAllByRole("button", {
+			name: /reset to defaults/i,
+		});
+		await user.click(confirmBtns[confirmBtns.length - 1]);
+
+		await waitFor(() => {
+			expect(resetSpy).toHaveBeenCalledOnce();
+		});
+
+		resetSpy.mockRestore();
+	});
+
+	it("closes global reset modal on error", async () => {
+		const resetSpy = vi.spyOn(api.settings, "reset");
+		resetSpy.mockRejectedValueOnce(new Error("server error"));
+
+		const user = userEvent.setup();
+		renderWithProviders(<Settings />);
+
+		await waitFor(() => {
+			expect(
+				screen.getByRole("button", {
+					name: /reset all settings to their defaults/i,
+				}),
+			).toBeInTheDocument();
+		});
+
+		await user.click(
+			screen.getByRole("button", {
+				name: /reset all settings to their defaults/i,
+			}),
+		);
+
+		await waitFor(() => {
+			expect(
+				screen.getByText(/this will reset all settings/i),
+			).toBeInTheDocument();
+		});
+
+		const input = screen.getByPlaceholderText(/type reset to confirm/i);
+		await user.type(input, "RESET");
+
+		const confirmBtns = screen.getAllByRole("button", {
+			name: /reset to defaults/i,
+		});
+		await user.click(confirmBtns[confirmBtns.length - 1]);
+
+		// Toast should show error, modal should close.
+		await waitFor(() => {
+			expect(resetSpy).toHaveBeenCalledOnce();
+		});
+
+		// Modal should be closed (text disappears).
+		await waitFor(() => {
+			expect(
+				screen.queryByText(/this will reset all settings/i),
+			).not.toBeInTheDocument();
+		});
+
+		resetSpy.mockRestore();
+	});
+
+	it("completes section reset flow: click section reset → confirm", async () => {
+		const resetSpy = vi.spyOn(api.settings, "reset");
+		resetSpy.mockResolvedValueOnce({});
+
+		const user = userEvent.setup();
+		renderWithProviders(<Settings />);
+
+		await waitFor(() => {
+			expect(
+				screen.getAllByRole("button", {
+					name: /reset all settings in this section/i,
+				}).length,
+			).toBeGreaterThanOrEqual(1);
+		});
+
+		const sectionResetBtns = screen.getAllByRole("button", {
+			name: /reset all settings in this section/i,
+		});
+		await user.click(sectionResetBtns[0]);
+
+		// Confirm dialog appears.
+		await waitFor(() => {
+			expect(
+				screen.getByText(/reset all settings in this section/i),
+			).toBeInTheDocument();
+		});
+
+		// Click confirm.
+		const confirmBtn = screen.getByRole("button", {
+			name: /reset to defaults/i,
+		});
+		await user.click(confirmBtn);
+
+		await waitFor(() => {
+			expect(resetSpy).toHaveBeenCalledOnce();
+		});
+
+		resetSpy.mockRestore();
+	});
+
+	it("closes section reset modal on error", async () => {
+		const resetSpy = vi.spyOn(api.settings, "reset");
+		resetSpy.mockRejectedValueOnce(new Error("server error"));
+
+		const user = userEvent.setup();
+		renderWithProviders(<Settings />);
+
+		await waitFor(() => {
+			expect(
+				screen.getAllByRole("button", {
+					name: /reset all settings in this section/i,
+				}).length,
+			).toBeGreaterThanOrEqual(1);
+		});
+
+		const sectionResetBtns = screen.getAllByRole("button", {
+			name: /reset all settings in this section/i,
+		});
+		await user.click(sectionResetBtns[0]);
+
+		await waitFor(() => {
+			expect(
+				screen.getByText(/reset all settings in this section/i),
+			).toBeInTheDocument();
+		});
+
+		const confirmBtn = screen.getByRole("button", {
+			name: /reset to defaults/i,
+		});
+		await user.click(confirmBtn);
+
+		await waitFor(() => {
+			expect(resetSpy).toHaveBeenCalledOnce();
+		});
+
+		// Modal should close on error.
+		await waitFor(() => {
+			expect(
+				screen.queryByText(/reset all settings in this section/i),
+			).not.toBeInTheDocument();
+		});
+
+		resetSpy.mockRestore();
+	});
 });

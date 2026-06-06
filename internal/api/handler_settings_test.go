@@ -379,3 +379,38 @@ func TestResetSettings_InvalidKey(t *testing.T) {
 		t.Errorf("Expected 400 for unknown key, got %d", w.Code)
 	}
 }
+
+func TestResetSettings_InvalidJSON(t *testing.T) {
+	_, router := newTestHandlerWithRouter(t)
+
+	req := httptest.NewRequest("DELETE", "/settings", strings.NewReader(`{invalid`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected 400 for invalid JSON, got %d", w.Code)
+	}
+}
+
+func TestResetSettings_TooManyKeys(t *testing.T) {
+	_, router := newTestHandlerWithRouter(t)
+
+	// Build a request with 51 keys.
+	keys := make([]string, 51)
+	for i := range keys {
+		keys[i] = fmt.Sprintf("key_%d", i)
+	}
+	body := fmt.Sprintf(`{"keys":%s}`, strings.ReplaceAll(fmt.Sprintf("%q", keys), " ", ","))
+
+	req := httptest.NewRequest("DELETE", "/settings", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected 400 for too many keys, got %d", w.Code)
+	}
+}

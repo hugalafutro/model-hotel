@@ -73,7 +73,9 @@ export function Settings() {
 	});
 
 	// --- Reset section (single confirm) ---
-	const [resetSection, setResetSection] = useState<string | null>(null);
+	const [resetSection, setResetSection] = useState<
+		keyof typeof SECTION_SETTINGS | null
+	>(null);
 
 	const resetSectionMutation = useMutation({
 		mutationFn: (keys: string[]) => api.settings.reset(keys),
@@ -208,12 +210,12 @@ export function Settings() {
 				<ConfirmDialog
 					title={t("settings.common.resetSectionConfirmTitle")}
 					message={t("settings.common.resetSectionConfirmMessage")}
-					fields={(SECTION_SETTINGS[resetSection] ?? []).map((k) =>
+					fields={SECTION_SETTINGS[resetSection].map((k) =>
 						t(SETTING_LABELS[k] ?? k),
 					)}
 					confirmLabel={t("settings.common.resetToDefaults")}
 					onConfirm={() =>
-						resetSectionMutation.mutate(SECTION_SETTINGS[resetSection] ?? [])
+						resetSectionMutation.mutate(SECTION_SETTINGS[resetSection])
 					}
 					onCancel={() => setResetSection(null)}
 				/>
