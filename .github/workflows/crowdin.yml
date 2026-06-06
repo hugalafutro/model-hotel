@@ -31,9 +31,9 @@ jobs:
           upload_sources: true
           # Download translated files and create a PR
           download_translations: true
-          # Omit keys with no translation (empty strings fall back to
-          # English via returnEmptyString:false in i18next config)
-          skip_untranslated_strings: true
+          # Skip locale files that have zero translated strings
+          # (prevents downloading empty JSON scaffolds for new languages)
+          skip_untranslated_files: true
           # PR configuration
           localization_branch_name: l10n_crowdin_translations
           create_pull_request: true
