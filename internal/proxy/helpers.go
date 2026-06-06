@@ -296,11 +296,19 @@ const (
 // breakerRecordAction determines the circuit-breaker recording action for a
 // given upstream HTTP status code. This is the single source of truth for the
 // status→breaker mapping and is intended to be table-tested.
+//
+// Note on 429: this function maps it to a failure, but it is only consulted in
+// the failover-eligible branch of ChatCompletions — i.e. when shouldFailover
+// already returned true, which for 429 means failover_on_rate_limit is ON. When
+// that setting is OFF, a 429 is not failover-eligible and never reaches this
+// function; the caller's else branch intentionally records it as a success
+// (stay on the rate-limited provider rather than tripping its breaker). The 429
+// treatment is therefore consistent with the configured policy, not contradictory.
 func breakerRecordAction(statusCode int) breakerAction {
 	switch {
 	case statusCode >= 500 || statusCode == 429 || statusCode == 401 || statusCode == 403:
 		// 5xx = server error (provider unhealthy)
-		// 429 = rate limit (provider overloaded)
+		// 429 = rate limit (provider overloaded; see policy note above)
 		// 401/403 = auth failure (provider-wide bad/expired key)
 		return breakerActionFailure
 	case statusCode == 404 || statusCode == 499:

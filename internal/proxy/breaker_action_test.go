@@ -4,6 +4,8 @@ import (
 	"testing"
 )
 
+// TestBreakerRecordAction is the authoritative table test for the proxy's
+// status→circuit-breaker mapping. 15 cases: 7 failure, 2 no-op, 6 success.
 func TestBreakerRecordAction(t *testing.T) {
 	t.Parallel()
 
