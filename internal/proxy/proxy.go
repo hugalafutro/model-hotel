@@ -1040,7 +1040,10 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.tokensPromptCacheHit, logData.tokensPromptCacheMiss = extractCacheTokens(chatResp.Usage)
 		logData.failoverAttempt = attempt
 		logData.state = "completed"
-		h.updateRequestLog(logData)
+		// Fire-and-forget: skip WaitForInsert to avoid blocking TTFB.
+		// The async INSERT is very likely complete by now; if not, the
+		// UPDATE simply affects 0 rows (harmless, logged as warning).
+		h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 
 		if vkHash != "" {
 			h.recordTokenUsage(vkHash, chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, reasoningTokens, logData.virtualKeyName)
@@ -1103,8 +1106,8 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.errorMessage = fmt.Sprintf("response decode error: %s", errMsg)
 		logData.failoverAttempt = attempt
 		logData.state = "failed"
-		h.updateRequestLog(logData)
-		debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName)
+		// Fire-and-forget: skip WaitForInsert to avoid blocking before error response.
+		h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 		debuglog.Debug("proxy: non-streaming error details", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "error", errMsg, "duration_ms", totalDuration)
 		writeOpenAIError(w, fmt.Sprintf("upstream provider returned HTTP %d", resp.StatusCode), resp.StatusCode)
 	}
@@ -1126,7 +1129,8 @@ func (h *Handler) failRequest(logData *requestLogData, statusCode int, errMsg st
 	logData.settingsReadMs = timings.settingsReadMs
 	logData.failoverAttempt = attempt
 	logData.state = "failed"
-	h.updateRequestLog(logData)
+	// Fire-and-forget: skip WaitForInsert to avoid blocking before error response.
+	h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 }
 
 // ChatCompletions handles OpenAI-compatible chat completion requests with failover support.
@@ -1451,9 +1455,10 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 					raw["model"] = candidate.model.ModelID
 				}
 				// Inject stream_options for streaming requests to OpenAI-compatible
-				// providers. This must happen AFTER providerUnsupportedParams stripping
-				// so that providers which reject stream_options (Anthropic, Google, etc.)
-				// never receive it. The function below handles the ordering.
+				// providers. Guarded by providerSupportsStreamOptions (allowlist) so
+				// providers that reject stream_options (Anthropic, Google, Cohere, etc.)
+				// never receive it. The allowlist is the gate, not the physical ordering
+				// relative to providerUnsupportedParams stripping below.
 				if isStreaming && providerSupportsStreamOptions(providerType) {
 					raw["stream_options"] = map[string]interface{}{
 						"include_usage": true,
