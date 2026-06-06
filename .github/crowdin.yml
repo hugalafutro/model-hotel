@@ -7,8 +7,10 @@
 
 "preserve_hierarchy": true
 
-files:
-  - source: /web/src/i18n/locales/en.json
-    translation: /web/src/i18n/locales/%two_letters_code%.json
-    exclude_languages:
-      - en
+"files": [
+  {
+    "source": "/web/src/i18n/locales/en.json",
+    "translation": "/web/src/i18n/locales/%two_letters_code%.json",
+    "excluded_target_languages": ["en"]
+  }
+]
