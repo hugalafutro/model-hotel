@@ -48,7 +48,7 @@ jobs:
           import json, glob, os
           with open("web/src/i18n/locales/en.json") as f:
               en = json.load(f)
-          for fpath in glob.glob("web/src/i18n/locales/?.json"):
+          for fpath in glob.glob("web/src/i18n/locales/??.json"):
               if "en.json" in fpath:
                   continue
               with open(fpath) as f:
