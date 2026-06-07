@@ -1,6 +1,55 @@
 package proxy
 
-import "github.com/hugalafutro/model-hotel/internal/debuglog"
+import (
+	"encoding/json"
+	"strings"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
+)
+
+// captureSSEError handles the two error-extraction quirks over a data line:
+// P1-B split-error accumulation (providers that split an {"error":…} object
+// across multiple SSE data lines — accumulate until a non-error line arrives,
+// then parse) and P1-C Anthropic typed error events (a data line following an
+// "event: error" line). Any extracted message is recorded into streamState; it
+// returns whether it counted an Anthropic error for this line so the later
+// chunk.Error observer does not double-count it. lastAnthropicEvent is the carry
+// from the preceding "event:" line and is consumed (reset) here. No client output.
+func (st *streamState) captureSSEError(payload string, lastAnthropicEvent *string, chunkCount int, logData *requestLogData) bool {
+	// P1-B: accumulate error JSON split across data lines; flush on a non-error line.
+	if strings.HasPrefix(payload, `{"error"`) {
+		st.errAccum = append(st.errAccum, []byte(payload)...)
+	} else if len(st.errAccum) > 0 {
+		if accumulatedMsg := parseAccumulatedError(st.errAccum); accumulatedMsg != "" {
+			st.lastErrMsg = accumulatedMsg
+			st.errorChunkCount++
+			debuglog.Warn("proxy: accumulated SSE error", "error_message", accumulatedMsg, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
+		}
+		st.errAccum = nil
+	}
+
+	// P1-C: a data line after "event: error" is an Anthropic error payload,
+	// wrapped as {"type":"error","error":{...}} even when it doesn't start with
+	// {"error". Extract the message regardless.
+	anthropicErrorCounted := false
+	if *lastAnthropicEvent == "error" {
+		*lastAnthropicEvent = ""
+		var anthErr struct {
+			Type  string `json:"type"`
+			Error *struct {
+				Type    string `json:"type"`
+				Message string `json:"message"`
+			} `json:"error"`
+		}
+		if json.Unmarshal([]byte(payload), &anthErr) == nil && anthErr.Error != nil {
+			st.lastErrMsg = anthErr.Error.Message
+			anthropicErrorCounted = true
+			st.errorChunkCount++
+			debuglog.Warn("proxy: Anthropic SSE error event", "error_type", anthErr.Error.Type, "error_message", anthErr.Error.Message, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
+		}
+	}
+	return anthropicErrorCounted
+}
 
 // repeatedContentLimit is the consecutive-identical-content threshold (P2-5) at
 // which we log a warning. Lifted to package scope from handleStreamingResponse

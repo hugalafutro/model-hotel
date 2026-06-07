@@ -93,3 +93,58 @@ func TestObserveDataChunk_NativeFinishReason(t *testing.T) {
 		t.Errorf("lastNativeFinishReason = %q, want STOP", st.lastNativeFinishReason)
 	}
 }
+
+// TestCaptureSSEError covers P1-B split-error accumulation+flush and P1-C
+// Anthropic typed error events.
+func TestCaptureSSEError(t *testing.T) {
+	t.Parallel()
+	ld := &requestLogData{modelID: "m", providerName: "p"}
+
+	t.Run("P1-B accumulate then flush on non-error line", func(t *testing.T) {
+		st := &streamState{}
+		ev := ""
+		if counted := st.captureSSEError(`{"error":{"message":"boom"}}`, &ev, 1, ld); counted {
+			t.Error("error-prefixed line should accumulate, not count as Anthropic")
+		}
+		if st.lastErrMsg != "" || len(st.errAccum) == 0 {
+			t.Errorf("after accumulate: lastErrMsg=%q errAccum=%q (want empty msg, non-empty accum)", st.lastErrMsg, st.errAccum)
+		}
+		// A non-error line flushes the accumulated error.
+		st.captureSSEError(`{"id":"x","choices":[]}`, &ev, 2, ld)
+		if st.lastErrMsg != "boom" || st.errorChunkCount != 1 {
+			t.Errorf("after flush: lastErrMsg=%q errorChunkCount=%d, want boom/1", st.lastErrMsg, st.errorChunkCount)
+		}
+		if st.errAccum != nil {
+			t.Errorf("errAccum should be cleared, got %q", st.errAccum)
+		}
+	})
+
+	t.Run("P1-C Anthropic error event counts and consumes the carry", func(t *testing.T) {
+		st := &streamState{}
+		ev := "error"
+		counted := st.captureSSEError(`{"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}`, &ev, 1, ld)
+		if !counted {
+			t.Error("expected anthropicErrorCounted=true")
+		}
+		if st.lastErrMsg != "Overloaded" || st.errorChunkCount != 1 {
+			t.Errorf("got lastErrMsg=%q count=%d, want Overloaded/1", st.lastErrMsg, st.errorChunkCount)
+		}
+		if ev != "" {
+			t.Errorf("lastAnthropicEvent should be consumed (reset to \"\"), got %q", ev)
+		}
+	})
+
+	t.Run("P1-C carry consumed even when payload isn't an error", func(t *testing.T) {
+		st := &streamState{}
+		ev := "error"
+		if counted := st.captureSSEError(`{"choices":[{"delta":{"content":"hi"}}]}`, &ev, 1, ld); counted {
+			t.Error("non-error payload should not count")
+		}
+		if ev != "" {
+			t.Errorf("carry should still be consumed, got %q", ev)
+		}
+		if st.errorChunkCount != 0 {
+			t.Errorf("errorChunkCount = %d, want 0", st.errorChunkCount)
+		}
+	})
+}
