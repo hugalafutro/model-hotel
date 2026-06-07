@@ -88,11 +88,12 @@ describe("Layout", () => {
 				i18next.changeLanguage("cs-CZ");
 			});
 
-			// After switching to Czech, the button label is "Jazyk" not "Language"
-			await user.click(screen.getByLabelText("Jazyk"));
+			// Select by stable test id, not translated label text — the trigger's
+			// aria-label is localized and changes whenever translations are updated.
+			await user.click(screen.getByTestId("language-trigger"));
 
 			// Czech should be highlighted because resolvedLanguage === "cs"
-			const czechBtn = screen.getByText("Čeština");
+			const czechBtn = screen.getByTestId("language-option-cs");
 			expect(czechBtn).toHaveClass("bg-white/10");
 		});
 
@@ -153,20 +154,16 @@ describe("Layout", () => {
 			const user = userEvent.setup();
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
-			await user.click(screen.getByLabelText("Language"));
-			await user.click(screen.getByText("العربية"));
+			await user.click(screen.getByTestId("language-trigger"));
+			await user.click(screen.getByTestId("language-option-ar"));
 			await waitFor(() => {
 				expect(document.documentElement.dir).toBe("rtl");
 			});
 
-			// After switching to Arabic, the label falls back to English "Language"
-			// because ar.json doesn't have layout.language.label translated yet
-			const langButton =
-				document.querySelector('[aria-label="Language"]') ??
-				document.querySelector('[aria-label="اللغة"]');
-			if (!langButton) throw new Error("Language button not found");
-			await user.click(langButton);
-			await user.click(screen.getByText("English"));
+			// Reopen via stable test id — the trigger's aria-label is localized
+			// once Arabic is active, so don't match on label text.
+			await user.click(screen.getByTestId("language-trigger"));
+			await user.click(screen.getByTestId("language-option-en"));
 			await waitFor(() => {
 				expect(document.documentElement.dir).toBe("ltr");
 			});
