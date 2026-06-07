@@ -43,6 +43,13 @@ jobs:
           pull_request_labels: "i18n"
           pull_request_base_branch_name: master
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          # Authenticate the branch push + PR creation with a PAT (not the
+          # default GITHUB_TOKEN). GitHub deliberately does NOT trigger
+          # workflows for events made by the default token, which left the
+          # Crowdin PR's required checks stuck on "pending". A PAT makes the
+          # push/PR look like a real identity, so ci.yml runs automatically —
+          # no more close/reopen dance. PAT needs repo Contents + Pull
+          # requests write, plus the workflow scope.
+          GITHUB_TOKEN: ${{ secrets.CROWDIN_PAT }}
           CROWDIN_PROJECT_ID: ${{ secrets.CROWDIN_PROJECT_ID }}
           CROWDIN_PERSONAL_TOKEN: ${{ secrets.CROWDIN_PERSONAL_TOKEN }}
