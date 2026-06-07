@@ -2,6 +2,110 @@ package proxy
 
 import "encoding/json"
 
+// stripReasoningDecision is what computeStripReasoning decided for a chunk.
+type stripReasoningDecision int
+
+const (
+	stripPassthrough stripReasoningDecision = iota // payload didn't parse; fall through to reasoning-normalize
+	stripKeepalive                                 // delta empty after strip; emit the minimal keep-alive
+	stripForward                                   // delta still has content; emit the stripped chunk
+	stripDrop                                      // keep-alive marshal failed; drop the chunk (practically unreachable)
+)
+
+// computeStripReasoning applies the per-virtual-key strip_reasoning transform.
+// It removes reasoning* fields (and a redundant role-only field) from the delta,
+// then decides: forward the stripped chunk (delta still has content / tool_calls
+// / a non-null finish_reason), replace it with a minimal valid keep-alive
+// reusing the stream's real id (delta empty — avoids hollow deltas that make
+// clients like Warp disconnect), pass it through unchanged (payload didn't
+// parse), or drop it (keep-alive marshal failure). On stripKeepalive/stripForward
+// the returned JSON is emitted by the caller via sink.writeData (byte-identical
+// to the prior hand-built "data: …\n\n"). finish_reason is normalized in place on
+// the forward path via lastFinishReason.
+func computeStripReasoning(payload string, lastFinishReason *string, logData *requestLogData) (stripReasoningDecision, []byte) {
+	p, ok := parseChunkPayload(payload)
+	if !ok {
+		// parseChunkPayload failed on a chunk that passed the typed-struct guard.
+		// Forward unmodified (the later blocks handle it) rather than dropping.
+		return stripPassthrough, nil
+	}
+	deltaFields := p.delta
+	delete(deltaFields, "reasoning_content")
+	delete(deltaFields, "reasoning_details")
+	delete(deltaFields, "reasoning")
+
+	// Strip empty content ("") that normally accompanies reasoning-only deltas.
+	if cRaw, okC := deltaFields["content"]; okC {
+		var cStr string
+		if json.Unmarshal(cRaw, &cStr) == nil && cStr == "" {
+			delete(deltaFields, "content")
+		}
+	}
+
+	// Drop a redundant role-only delta (e.g. Ollama repeats "role":"assistant"
+	// on every delta); the role is already present on any content/tool_calls chunk.
+	_, hasContent := deltaFields["content"]
+	_, hasToolCalls := deltaFields["tool_calls"]
+	if !hasContent && !hasToolCalls {
+		delete(deltaFields, "role")
+	}
+
+	// Does the delta still carry meaningful data?
+	deltaHasContent := false
+	if cRaw, okC := deltaFields["content"]; okC {
+		var cStr string
+		if json.Unmarshal(cRaw, &cStr) == nil && cStr != "" {
+			deltaHasContent = true
+		}
+	}
+	if _, okR := deltaFields["role"]; okR {
+		deltaHasContent = true
+	}
+	if _, okT := deltaFields["tool_calls"]; okT {
+		deltaHasContent = true
+	}
+	// finish_reason lives at choices[0], not in the delta; a non-null value must
+	// still be forwarded (omitting the stop signal breaks clients).
+	if frRaw, okFR := p.choices[0]["finish_reason"]; okFR {
+		var frStr string
+		if json.Unmarshal(frRaw, &frStr) == nil && frStr != "" {
+			deltaHasContent = true
+		}
+	}
+
+	if !deltaHasContent {
+		keepAliveID := "chatcmpl"
+		if idRaw, ok := p.raw["id"]; ok {
+			var idStr string
+			if json.Unmarshal(idRaw, &idStr) == nil && idStr != "" {
+				keepAliveID = idStr
+			}
+		}
+		keepAlivePayload := map[string]interface{}{
+			"id":     keepAliveID,
+			"object": "chat.completion.chunk",
+			"choices": []map[string]interface{}{
+				{"index": 0, "delta": map[string]interface{}{}},
+			},
+		}
+		keepAliveJSON, err := json.Marshal(keepAlivePayload)
+		if err != nil {
+			return stripDrop, nil
+		}
+		return stripKeepalive, keepAliveJSON
+	}
+
+	newDelta, _ := json.Marshal(deltaFields)
+	p.choices[0]["delta"] = json.RawMessage(newDelta)
+	// Normalize finish_reason before re-serializing so non-standard values
+	// (e.g. "end_turn", "STOP") map to OpenAI equivalents.
+	normalizeFinishReasonInChoices(p.choices, lastFinishReason, logData.modelID, logData.providerName)
+	newChoices, _ := json.Marshal(p.choices)
+	p.raw["choices"] = json.RawMessage(newChoices)
+	newPayload, _ := json.Marshal(p.raw)
+	return stripForward, newPayload
+}
+
 // stream_transforms.go holds the emit-bearing SSE transforms' *compute* logic,
 // extracted from handleStreamingResponse one at a time (Phase 4). Each function
 // is pure except for the finish_reason normalization it shares via the

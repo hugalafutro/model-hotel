@@ -125,3 +125,63 @@ func TestNormalizeReasoningChunk(t *testing.T) {
 		}
 	})
 }
+
+// TestComputeStripReasoning covers the strip_reasoning transform's decisions:
+// keep-alive when the delta is empty after stripping, forward when content (or a
+// non-null finish_reason) remains, and passthrough when the payload won't parse.
+func TestComputeStripReasoning(t *testing.T) {
+	t.Parallel()
+	ld := &requestLogData{modelID: "m", providerName: "p"}
+
+	t.Run("reasoning-only delta → keep-alive with real id", func(t *testing.T) {
+		var lastFR string
+		in := `{"id":"cid","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"reasoning_content":"r","content":""},"finish_reason":null}]}`
+		d, out := computeStripReasoning(in, &lastFR, ld)
+		if d != stripKeepalive {
+			t.Fatalf("decision = %v, want stripKeepalive", d)
+		}
+		want := `{"choices":[{"delta":{},"index":0}],"id":"cid","object":"chat.completion.chunk"}`
+		if string(out) != want {
+			t.Errorf("keep-alive payload mismatch\n got: %s\nwant: %s", out, want)
+		}
+	})
+
+	t.Run("content survives strip → forward", func(t *testing.T) {
+		var lastFR string
+		in := `{"id":"x","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"reasoning_content":"r","content":"hello"},"finish_reason":null}]}`
+		d, out := computeStripReasoning(in, &lastFR, ld)
+		if d != stripForward {
+			t.Fatalf("decision = %v, want stripForward", d)
+		}
+		var raw struct {
+			Choices []struct {
+				Delta map[string]json.RawMessage `json:"delta"`
+			} `json:"choices"`
+		}
+		if err := json.Unmarshal(out, &raw); err != nil {
+			t.Fatalf("decode forward payload: %v", err)
+		}
+		delta := raw.Choices[0].Delta
+		if _, hasRC := delta["reasoning_content"]; hasRC {
+			t.Errorf("reasoning_content should be stripped, delta=%v", delta)
+		}
+		if string(delta["content"]) != `"hello"` {
+			t.Errorf("content = %s, want \"hello\"", delta["content"])
+		}
+	})
+
+	t.Run("empty delta but finish_reason → forward (keeps stop signal)", func(t *testing.T) {
+		var lastFR string
+		in := `{"id":"x","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"reasoning_content":"r"},"finish_reason":"stop"}]}`
+		if d, _ := computeStripReasoning(in, &lastFR, ld); d != stripForward {
+			t.Errorf("decision = %v, want stripForward (finish_reason keeps it)", d)
+		}
+	})
+
+	t.Run("unparseable payload → passthrough", func(t *testing.T) {
+		var lastFR string
+		if d, out := computeStripReasoning(`{}`, &lastFR, ld); d != stripPassthrough || out != nil {
+			t.Errorf("got (%v,%q), want (stripPassthrough,nil)", d, out)
+		}
+	})
+}

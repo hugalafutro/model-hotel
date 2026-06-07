@@ -289,114 +289,15 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			// "content" field, a "role" field (first assistant chunk), or
 			// "tool_calls".
 			if stripReasoning && len(chunk.Choices) > 0 && chunk.Choices[0].Delta != nil {
-				p, ok := parseChunkPayload(payload)
-				if !ok {
-					// parseChunkPayload failed on a chunk that passed the
-					// typed-struct guard. Forward the chunk unmodified instead
-					// of silently dropping it. This preserves the original
-					// pass-through semantics where a parse failure forwards the
-					// chunk rather than discarding it.
+				switch decision, newPayload := computeStripReasoning(payload, &lastFinishReason, logData); decision {
+				case stripPassthrough:
+					// Payload didn't parse — leave it for the later blocks.
 					goto stripReasoningDone
-				}
-				deltaFields := p.delta
-				// Remove reasoning fields from delta.
-				delete(deltaFields, "reasoning_content")
-				delete(deltaFields, "reasoning_details")
-				delete(deltaFields, "reasoning")
-
-				// Strip empty content ("") that normally
-				// accompanies reasoning-only deltas.
-				if cRaw, okC := deltaFields["content"]; okC {
-					var cStr string
-					if json.Unmarshal(cRaw, &cStr) == nil && cStr == "" {
-						delete(deltaFields, "content")
-					}
-				}
-
-				// Some providers (notably Ollama) include
-				// "role":"assistant" in every delta, not
-				// just the first one. When strip_reasoning
-				// is enabled and the only remaining field
-				// besides content is "role", remove it
-				// too — the role is already present in any
-				// subsequent content or tool_calls chunk,
-				// and forwarding 20+ role-only deltas
-				// defeats the purpose of stripping.
-				_, hasContent := deltaFields["content"]
-				_, hasToolCalls := deltaFields["tool_calls"]
-				if !hasContent && !hasToolCalls {
-					delete(deltaFields, "role")
-				}
-
-				// Check if the delta still carries
-				// meaningful data. If not, skip this chunk
-				// entirely — the client has no use for an
-				// empty delta. We DO forward chunks that
-				// carry a finish_reason even if the delta
-				// is empty; omitting the stop signal breaks
-				// clients that depend on it.
-				deltaHasContent := false
-				if cRaw, okC := deltaFields["content"]; okC {
-					var cStr string
-					if json.Unmarshal(cRaw, &cStr) == nil && cStr != "" {
-						deltaHasContent = true
-					}
-				}
-				if _, okR := deltaFields["role"]; okR {
-					deltaHasContent = true
-				}
-				if _, okT := deltaFields["tool_calls"]; okT {
-					deltaHasContent = true
-				}
-				// finish_reason lives at the choices[0]
-				// level, not inside delta. A chunk with
-				// an empty delta but a finish_reason must
-				// still be forwarded. Note: "finish_reason":null
-				// is present on every streaming chunk, so
-				// we must check the value is actually non-null.
-				if frRaw, okFR := p.choices[0]["finish_reason"]; okFR {
-					var frStr string
-					if json.Unmarshal(frRaw, &frStr) == nil && frStr != "" {
-						deltaHasContent = true
-					}
-				}
-
-				if !deltaHasContent {
-					// Delta is empty after stripping
-					// reasoning — skip the chunk entirely
-					// and send a minimal valid JSON keep-alive
-					// instead of an SSE comment or nothing:
-					// Warp's Go backend uses the openai-go
-					// ssestream package which crashes on SSE
-					// comment lines and also times out if no
-					// data: lines arrive for several seconds.
-					// A valid data: line with an empty delta
-					// keeps the connection alive without
-					// exposing reasoning.
-					// Use the stream's real completion ID from
-					// the parsed chunk so clients that validate
-					// ID consistency don't reject the keep-alive.
-					keepAliveID := "chatcmpl"
-					if idRaw, ok := p.raw["id"]; ok {
-						var idStr string
-						if json.Unmarshal(idRaw, &idStr) == nil && idStr != "" {
-							keepAliveID = idStr
-						}
-					}
-					keepAlivePayload := map[string]interface{}{
-						"id":     keepAliveID,
-						"object": "chat.completion.chunk",
-						"choices": []map[string]interface{}{
-							{"index": 0, "delta": map[string]interface{}{}},
-						},
-					}
-					keepAliveJSON, err := json.Marshal(keepAlivePayload)
-					if err != nil {
-						continue
-					}
-					keepAlive := append([]byte("data: "), keepAliveJSON...)
-					keepAlive = append(keepAlive, "\n\n"...)
-					if err := sink.write(keepAlive); err != nil {
+				case stripDrop:
+					// Keep-alive marshal failed (practically unreachable) — drop.
+					continue
+				case stripKeepalive:
+					if err := sink.writeData(newPayload); err != nil {
 						st.clientDisconnected = true
 						debuglog.Warn("proxy: client write failed during reasoning keep-alive", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
 						goto logUpdate
@@ -405,27 +306,17 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 					skipNextEmptyLine = true
 					written = true
 					continue
+				case stripForward:
+					if err := sink.writeData(newPayload); err != nil {
+						st.clientDisconnected = true
+						debuglog.Warn("proxy: client write failed during reasoning strip", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+						goto logUpdate
+					}
+					sink.flush()
+					written = true
+					skipNextEmptyLine = true
+					continue
 				}
-
-				newDelta, _ := json.Marshal(deltaFields)
-				p.choices[0]["delta"] = json.RawMessage(newDelta)
-				// Normalize finish_reason in-place before
-				// re-serializing, so non-standard values
-				// (e.g., "end_turn", "STOP") are mapped to
-				// OpenAI equivalents.
-				normalizeFinishReasonInChoices(p.choices, &lastFinishReason, logData.modelID, logData.providerName)
-				newChoices, _ := json.Marshal(p.choices)
-				p.raw["choices"] = json.RawMessage(newChoices)
-				newPayload, _ := json.Marshal(p.raw)
-				if err := sink.writeData(newPayload); err != nil {
-					st.clientDisconnected = true
-					debuglog.Warn("proxy: client write failed during reasoning strip", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-					goto logUpdate
-				}
-				sink.flush()
-				written = true
-				skipNextEmptyLine = true
-				continue
 			}
 		stripReasoningDone:
 
