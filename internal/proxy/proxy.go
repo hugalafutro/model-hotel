@@ -164,14 +164,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			}
 			// Flush any accumulated error when a non-data line arrives
 			// (the error payload has already been captured in the data line).
-			if len(st.errAccum) > 0 {
-				if accumulatedMsg := parseAccumulatedError(st.errAccum); accumulatedMsg != "" {
-					st.lastErrMsg = accumulatedMsg
-					st.errorChunkCount++
-					debuglog.Warn("proxy: accumulated SSE error", "error_message", accumulatedMsg, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
-				}
-				st.errAccum = nil
-			}
+			st.flushAccumulatedError(chunkCount, logData)
 			if err := sink.write(line); err != nil {
 				st.clientDisconnected = true
 				debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
@@ -250,6 +243,14 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 	var chunk streamChunk
 	jsonValid := json.Unmarshal([]byte(payload), &chunk) == nil
 	if jsonValid {
+		// Side-channel observers (usage, native_finish_reason, repeated content,
+		// chunk.Error) run for EVERY valid chunk — BEFORE the transforms, which may
+		// emit-and-return early (strip_reasoning keep-alive/forward). Running them
+		// here is what keeps usage/token metering from being silently dropped when a
+		// provider rides `usage` on the same chunk as a reasoning delta. They read
+		// the immutable typed chunk and never emit, so position doesn't affect output.
+		st.observeDataChunk(chunk, anthropicErrorCounted, chunkCount, logData)
+
 		// strip_reasoning: drop reasoning-only deltas (keep-alive) or forward the
 		// stripped chunk. See computeStripReasoning.
 		if stripReasoning && len(chunk.Choices) > 0 && chunk.Choices[0].Delta != nil {
@@ -315,10 +316,6 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 				}
 			}
 		}
-
-		// Side-channel observers (usage, native_finish_reason, repeated content,
-		// chunk.Error) — never emit, only update streamState.
-		st.observeDataChunk(chunk, anthropicErrorCounted, chunkCount, logData)
 
 		// Normalize provider finish_reason and suppress P2-2 bare duplicates.
 		switch decision, newPayload := computeFinishReason(chunk, payload, &st.lastFinishReason); decision {

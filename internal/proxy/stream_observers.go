@@ -19,13 +19,8 @@ func (st *streamState) captureSSEError(payload string, lastAnthropicEvent *strin
 	// P1-B: accumulate error JSON split across data lines; flush on a non-error line.
 	if strings.HasPrefix(payload, `{"error"`) {
 		st.errAccum = append(st.errAccum, []byte(payload)...)
-	} else if len(st.errAccum) > 0 {
-		if accumulatedMsg := parseAccumulatedError(st.errAccum); accumulatedMsg != "" {
-			st.lastErrMsg = accumulatedMsg
-			st.errorChunkCount++
-			debuglog.Warn("proxy: accumulated SSE error", "error_message", accumulatedMsg, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
-		}
-		st.errAccum = nil
+	} else {
+		st.flushAccumulatedError(chunkCount, logData)
 	}
 
 	// P1-C: a data line after "event: error" is an Anthropic error payload,
@@ -49,6 +44,22 @@ func (st *streamState) captureSSEError(payload string, lastAnthropicEvent *strin
 		}
 	}
 	return anthropicErrorCounted
+}
+
+// flushAccumulatedError parses and records any P1-B accumulated split-error bytes
+// (an {"error":…} object split across SSE data lines), then clears the buffer. A
+// no-op when nothing is accumulated. Shared by the comment-line handler and
+// captureSSEError's non-error data-line branch so the two flush sites co-evolve.
+func (st *streamState) flushAccumulatedError(chunkCount int, logData *requestLogData) {
+	if len(st.errAccum) == 0 {
+		return
+	}
+	if accumulatedMsg := parseAccumulatedError(st.errAccum); accumulatedMsg != "" {
+		st.lastErrMsg = accumulatedMsg
+		st.errorChunkCount++
+		debuglog.Warn("proxy: accumulated SSE error", "error_message", accumulatedMsg, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
+	}
+	st.errAccum = nil
 }
 
 // repeatedContentLimit is the consecutive-identical-content threshold (P2-5) at

@@ -124,6 +124,77 @@ func goldenStream(t *testing.T, h *Handler, upstreamBody string, stripReasoning 
 	return inner.Body.String()
 }
 
+// TestHandleStreamingResponse_StripReasoning_UsageOnFinalChunk is a regression
+// test for the metering bug Greptile flagged on PR #161: strip_reasoning's
+// emit-and-return early exit (stripForward) bypassed the usage observer, so a
+// provider that rides `usage` on the SAME chunk as a reasoning delta +
+// finish_reason had its tokens silently zeroed (provider bills, VK quota doesn't).
+// observeDataChunk now runs before the transforms, so the usage is counted.
+func TestHandleStreamingResponse_StripReasoning_UsageOnFinalChunk(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		// reasoning delta + finish_reason + usage on one chunk → the stripForward path.
+		fmt.Fprint(w, `data: {"id":"x","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"reasoning_content":"thinking","content":""},"finish_reason":"stop"}],"usage":{"prompt_tokens":7,"completion_tokens":11,"total_tokens":18}}`+"\n\n")
+		fmt.Fprint(w, "data: [DONE]\n\n")
+	}))
+	defer upstream.Close()
+
+	req, err := http.NewRequest("POST", upstream.URL+"/v1/chat/completions", strings.NewReader(`{"model":"test","stream":true,"messages":[]}`))
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req = withStripReasoningContext(req, true)
+	resp, err := upstream.Client().Do(req)
+	if err != nil {
+		t.Fatalf("failed to contact upstream: %v", err)
+	}
+	defer resp.Body.Close()
+
+	inner := httptest.NewRecorder()
+	logData := &requestLogData{
+		modelID:        "test-model",
+		streaming:      true,
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+		state:          "streaming",
+	}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(20 * time.Millisecond)
+	h.handleStreamingResponse(inner, req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1})
+
+	if logData.tokensPrompt != 7 || logData.tokensCompletion != 11 {
+		t.Errorf("usage dropped under strip_reasoning: tokensPrompt=%d tokensCompletion=%d, want 7/11", logData.tokensPrompt, logData.tokensCompletion)
+	}
+}
+
+// TestHandleStreamingResponse_GoldenStripReasoningKeepaliveThenComment closes the
+// gap Greptile noted: a keep-alive followed by an SSE comment before [DONE]. It
+// pins that the keep-alive's swallowBlank consumes the FIRST blank (its own
+// separator), while the comment's trailing blank is still forwarded — the exact
+// invariant that breaks if the blank handler's swallowBlank reset is ever touched.
+func TestHandleStreamingResponse_GoldenStripReasoningKeepaliveThenComment(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	upstream := `data: {"id":"k","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"reasoning_content":"r"},"finish_reason":null}]}` + "\n\n" +
+		": ping\n\n" +
+		"data: [DONE]\n\n"
+
+	got := goldenStream(t, h, upstream, true)
+
+	want := `data: {"choices":[{"delta":{},"index":0}],"id":"k","object":"chat.completion.chunk"}` + "\n\n" + // keep-alive (swallows the next blank)
+		": ping\n" + // comment forwarded verbatim + single newline
+		"\n" + // the comment's blank IS forwarded (swallowBlank was consumed by the keep-alive)
+		"data: [DONE]\n\n"
+	if got != want {
+		t.Errorf("keep-alive+comment bytes mismatch\n--- got  ---\n%q\n--- want ---\n%q", got, want)
+	}
+}
+
 // TestHandleStreamingResponse_GoldenStripReasoningKeepalive pins the exact bytes
 // of the strip_reasoning keep-alive path (§9 invariant 4): a reasoning-only delta
 // is replaced by a minimal valid data chunk reusing the stream's real id, and the
