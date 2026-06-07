@@ -54,6 +54,7 @@ i18next
 			ko: { translation: ko },
 			nl: { translation: nl },
 			no: { translation: no },
+			nb: { translation: no },
 			pl: { translation: pl },
 			pt: { translation: pt },
 			ro: { translation: ro },
