@@ -80,12 +80,12 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	// classified sseEvents; this orchestrator owns emits and transforms.
 	reader := newStreamReader(r.Context(), resp.Body, opts, logData)
 
-	var promptTokens, completionTokens, reasoningTokens int
-	var promptCacheHitTokens, promptCacheMissTokens int
-	var lastErrMsg string
-	clientDisconnected := false
-	sawDone := false
-	errorChunkCount := 0
+	// st accumulates the per-stream metrics, carry flags, and observer state
+	// (Phase 4 §6 migration). Created before the loop and mutated in place so
+	// the transforms/observers and the finalizer share one named contract
+	// instead of a fistful of loop-locals. The stall flag and final chunkCount
+	// are filled from the reader at logUpdate.
+	st := &streamState{}
 	// Periodic streaming progress logging (every 50 chunks) to give
 	// visibility into stream health without flooding logs.
 	const chunkLogInterval = 50
@@ -93,35 +93,16 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	// following SSE separator (empty line). Otherwise bare \n events
 	// reach the client, which breaks parsers like openai-go's ssestream.
 	skipNextEmptyLine := false
-	// P1-B: Error accumulation buffer. Some providers (e.g. go-openai) split
-	// error JSON across multiple SSE data lines. We accumulate bytes until a
-	// non-error chunk arrives, then try to unmarshal the full accumulated error.
-	var errAccum []byte
 	// P1-C: Tracks the last Anthropic SSE event type (e.g. "error") so we can
 	// extract error messages from the subsequent data line.
 	var lastAnthropicEvent string
-
 	// P2-2: Track last finish_reason to suppress duplicate finish chunks.
 	// Some providers (notably OpenRouter routing to certain models) send
 	// two consecutive chunks with the same finish_reason, where the second
 	// has no content or usage — just a bare finish_reason repeat. Suppressing
 	// avoids downstream "empty response text" errors.
 	var lastFinishReason string
-	// P2-5: Detect repeated identical content chunks. Some models (notably
-	// xAI Grok reasoning) send the same reasoning text in consecutive deltas,
-	// causing infinite-style loops in downstream processors. We track
-	// consecutive identical content and log a warning when the threshold
-	// is exceeded.
-	var lastContent string
-	var repeatedCount int
 	const repeatedContentLimit = 10
-	// P2-7: Track native_finish_reason from OpenRouter for logging.
-	// OpenRouter includes this field alongside the normalized finish_reason,
-	// preserving the original provider's value for debugging.
-	var lastNativeFinishReason string
-	// Track whether we've seen reasoning_content (thinking) in this stream
-	// for first-occurrence debug logging.
-	sawThinking := false
 	// Read strip_reasoning flag from context once before the scanner loop.
 	// The value is set by ProxyKeyMiddleware and never changes mid-stream.
 	stripReasoning := false
@@ -138,11 +119,11 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			// Reader stopped: disconnect (skip the stream-end error flush,
 			// matching the prior goto), empty-line abort, or normal EOF.
 			if reader.disconnected {
-				clientDisconnected = true
+				st.clientDisconnected = true
 				goto logUpdate
 			}
 			if reader.abortErrMsg != "" {
-				lastErrMsg = reader.abortErrMsg
+				st.lastErrMsg = reader.abortErrMsg
 			}
 			break
 		}
@@ -151,7 +132,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 
 		// Periodic streaming progress log for observability.
 		if chunkCount%chunkLogInterval == 0 {
-			debuglog.Debug("proxy: streaming progress", "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten, "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "thinking", sawThinking)
+			debuglog.Debug("proxy: streaming progress", "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten, "prompt_tokens", st.promptTokens, "completion_tokens", st.completionTokens, "thinking", st.sawThinking)
 		}
 
 		if ev.kind == sseBlank {
@@ -169,7 +150,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			// blank lines; omitting them causes all data lines to be
 			// concatenated into one invalid event.
 			if err := sink.write([]byte("\n")); err != nil {
-				clientDisconnected = true
+				st.clientDisconnected = true
 				debuglog.Warn("proxy: client write failed during stream (blank line)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
 				goto logUpdate
 			}
@@ -197,21 +178,21 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			}
 			// Flush any accumulated error when a non-data line arrives
 			// (the error payload has already been captured in the data line).
-			if len(errAccum) > 0 {
-				if accumulatedMsg := parseAccumulatedError(errAccum); accumulatedMsg != "" {
-					lastErrMsg = accumulatedMsg
-					errorChunkCount++
+			if len(st.errAccum) > 0 {
+				if accumulatedMsg := parseAccumulatedError(st.errAccum); accumulatedMsg != "" {
+					st.lastErrMsg = accumulatedMsg
+					st.errorChunkCount++
 					debuglog.Warn("proxy: accumulated SSE error", "error_message", accumulatedMsg, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 				}
-				errAccum = nil
+				st.errAccum = nil
 			}
 			if err := sink.write(line); err != nil {
-				clientDisconnected = true
+				st.clientDisconnected = true
 				debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
 				goto logUpdate
 			}
 			if err := sink.write([]byte("\n")); err != nil {
-				clientDisconnected = true
+				st.clientDisconnected = true
 				debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
 				goto logUpdate
 			}
@@ -220,15 +201,15 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 		}
 
 		if ev.kind == sseDone {
-			sawDone = true
+			st.sawDone = true
 			// Write [DONE] sentinel to the downstream client.
 			if err := sink.write(line); err != nil {
-				clientDisconnected = true
+				st.clientDisconnected = true
 				debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
 				goto logUpdate
 			}
 			if err := sink.write([]byte("\n\n")); err != nil {
-				clientDisconnected = true
+				st.clientDisconnected = true
 				debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
 				goto logUpdate
 			}
@@ -260,15 +241,15 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			// P1-B: Accumulate error JSON bytes. Some providers split error
 			// responses across multiple SSE data lines. We buffer bytes until
 			// a non-error chunk arrives, then try to parse the full object.
-			errAccum = append(errAccum, []byte(payload)...)
-		} else if len(errAccum) > 0 {
+			st.errAccum = append(st.errAccum, []byte(payload)...)
+		} else if len(st.errAccum) > 0 {
 			// Non-error line arrived — flush the accumulated error.
-			if accumulatedMsg := parseAccumulatedError(errAccum); accumulatedMsg != "" {
-				lastErrMsg = accumulatedMsg
-				errorChunkCount++
+			if accumulatedMsg := parseAccumulatedError(st.errAccum); accumulatedMsg != "" {
+				st.lastErrMsg = accumulatedMsg
+				st.errorChunkCount++
 				debuglog.Warn("proxy: accumulated SSE error", "error_message", accumulatedMsg, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 			}
-			errAccum = nil
+			st.errAccum = nil
 		}
 
 		// P1-C: If the preceding event was "event: error", this data line
@@ -289,9 +270,9 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				} `json:"error"`
 			}
 			if json.Unmarshal([]byte(payload), &anthErr) == nil && anthErr.Error != nil {
-				lastErrMsg = anthErr.Error.Message
+				st.lastErrMsg = anthErr.Error.Message
 				anthropicErrorCounted = true
-				errorChunkCount++
+				st.errorChunkCount++
 				debuglog.Warn("proxy: Anthropic SSE error event", "error_type", anthErr.Error.Type, "error_message", anthErr.Error.Message, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 			}
 		}
@@ -428,7 +409,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 					keepAlive := append([]byte("data: "), keepAliveJSON...)
 					keepAlive = append(keepAlive, "\n\n"...)
 					if err := sink.write(keepAlive); err != nil {
-						clientDisconnected = true
+						st.clientDisconnected = true
 						debuglog.Warn("proxy: client write failed during reasoning keep-alive", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
 						goto logUpdate
 					}
@@ -449,7 +430,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				p.raw["choices"] = json.RawMessage(newChoices)
 				newPayload, _ := json.Marshal(p.raw)
 				if err := sink.writeData(newPayload); err != nil {
-					clientDisconnected = true
+					st.clientDisconnected = true
 					debuglog.Warn("proxy: client write failed during reasoning strip", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
 					goto logUpdate
 				}
@@ -521,7 +502,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 						chunkParsed.raw["choices"] = json.RawMessage(newChoices)
 						newPayload, _ := json.Marshal(chunkParsed.raw)
 						if err := sink.writeData(newPayload); err != nil {
-							clientDisconnected = true
+							st.clientDisconnected = true
 							debuglog.Warn("proxy: client write failed during reasoning normalization", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
 							goto logUpdate
 						}
@@ -553,7 +534,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 						p.raw["choices"] = json.RawMessage(newChoices)
 						newPayload, _ := json.Marshal(p.raw)
 						if err := sink.writeData(newPayload); err != nil {
-							clientDisconnected = true
+							st.clientDisconnected = true
 							debuglog.Warn("proxy: client write failed during empty content strip", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
 							goto logUpdate
 						}
@@ -566,23 +547,23 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			}
 
 			if chunk.Usage != nil {
-				promptTokens = chunk.Usage.PromptTokens
-				completionTokens = chunk.Usage.CompletionTokens
+				st.promptTokens = chunk.Usage.PromptTokens
+				st.completionTokens = chunk.Usage.CompletionTokens
 				if chunk.Usage.CompletionTokensDetails != nil && chunk.Usage.CompletionTokensDetails.ReasoningTokens > 0 {
-					reasoningTokens = chunk.Usage.CompletionTokensDetails.ReasoningTokens
+					st.reasoningTokens = chunk.Usage.CompletionTokensDetails.ReasoningTokens
 				}
 				if hit, miss := extractCacheTokens(*chunk.Usage); hit > 0 || miss > 0 {
-					promptCacheHitTokens = hit
-					promptCacheMissTokens = miss
+					st.promptCacheHitTokens = hit
+					st.promptCacheMissTokens = miss
 				}
 			}
 			// P2-7: Log native_finish_reason from OpenRouter for debugging.
 			// OpenRouter includes this field alongside the normalized finish_reason,
 			// preserving the original provider's value (e.g. "STOP" instead of "stop").
 			if len(chunk.Choices) > 0 && chunk.Choices[0].NativeFinishReason != nil {
-				if *chunk.Choices[0].NativeFinishReason != lastNativeFinishReason {
-					lastNativeFinishReason = *chunk.Choices[0].NativeFinishReason
-					debuglog.Debug("proxy: native_finish_reason", "native_finish_reason", lastNativeFinishReason, "model", logData.modelID, "provider", logData.providerName)
+				if *chunk.Choices[0].NativeFinishReason != st.lastNativeFinishReason {
+					st.lastNativeFinishReason = *chunk.Choices[0].NativeFinishReason
+					debuglog.Debug("proxy: native_finish_reason", "native_finish_reason", st.lastNativeFinishReason, "model", logData.modelID, "provider", logData.providerName)
 				}
 			}
 			// P2-5: Detect repeated identical content. Some models (notably
@@ -598,14 +579,14 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				}
 				if delta.ReasoningContent != nil && currentContent == "" {
 					currentContent = *delta.ReasoningContent
-					if !sawThinking {
-						sawThinking = true
+					if !st.sawThinking {
+						st.sawThinking = true
 						debuglog.Debug("proxy: thinking/reasoning block started", "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 					}
 				}
-				if currentContent == lastContent && currentContent != "" {
-					repeatedCount++
-					if repeatedCount == repeatedContentLimit {
+				if currentContent == st.lastContent && currentContent != "" {
+					st.repeatedCount++
+					if st.repeatedCount == repeatedContentLimit {
 						preview := currentContent
 						if len(preview) > 50 {
 							runes := []rune(preview)
@@ -613,22 +594,22 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 								preview = string(runes[:50]) + "..."
 							}
 						}
-						debuglog.Warn("proxy: repeated content detected in stream", "repeated_count", repeatedCount, "content_preview", preview, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
+						debuglog.Warn("proxy: repeated content detected in stream", "repeated_count", st.repeatedCount, "content_preview", preview, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 					}
 				} else {
-					repeatedCount = 0
+					st.repeatedCount = 0
 				}
-				lastContent = currentContent
+				st.lastContent = currentContent
 			}
 			if chunk.Error != nil && !anthropicErrorCounted {
 				// Only count if P1-C didn't already handle this as an
 				// Anthropic error event (which shares the same data line).
-				lastErrMsg = chunk.Error.Message
-				errorChunkCount++
+				st.lastErrMsg = chunk.Error.Message
+				st.errorChunkCount++
 				debuglog.Warn("proxy: SSE error chunk", "model", logData.modelID, "provider", logData.providerName, "error_message", chunk.Error.Message, "chunk_number", chunkCount)
-				// Clear errAccum: chunk.Error already captured this error,
+				// Clear st.errAccum: chunk.Error already captured this error,
 				// so P1-B's next flush must not re-count it.
-				errAccum = nil
+				st.errAccum = nil
 			}
 			// Normalize provider-specific finish_reason values (e.g.,
 			// "STOP" from Gemini, "end_turn" from Anthropic) to OpenAI
@@ -686,7 +667,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 									raw["choices"] = json.RawMessage(newChoices)
 									if newPayload, err3 := json.Marshal(raw); err3 == nil {
 										if err := sink.writeData(newPayload); err != nil {
-											clientDisconnected = true
+											st.clientDisconnected = true
 											debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
 											goto logUpdate
 										}
@@ -722,12 +703,12 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 		if !written {
 			// No normalization needed — forward the original line.
 			if err := sink.write(line); err != nil {
-				clientDisconnected = true
+				st.clientDisconnected = true
 				debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
 				goto logUpdate
 			}
 			if err := sink.write([]byte("\n\n")); err != nil {
-				clientDisconnected = true
+				st.clientDisconnected = true
 				debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
 				goto logUpdate
 			}
@@ -737,10 +718,10 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	}
 
 	// Flush any remaining accumulated error bytes at stream end.
-	if len(errAccum) > 0 {
-		if accumulatedMsg := parseAccumulatedError(errAccum); accumulatedMsg != "" {
-			lastErrMsg = accumulatedMsg
-			errorChunkCount++
+	if len(st.errAccum) > 0 {
+		if accumulatedMsg := parseAccumulatedError(st.errAccum); accumulatedMsg != "" {
+			st.lastErrMsg = accumulatedMsg
+			st.errorChunkCount++
 			debuglog.Warn("proxy: accumulated SSE error (stream end)", "error_message", accumulatedMsg, "model", logData.modelID, "provider", logData.providerName, "chunks", reader.chunkCount)
 		}
 	}
@@ -749,20 +730,11 @@ logUpdate:
 	// Stop the watchdog before reading its stall flag, matching the prior
 	// inline ordering (close, then read the atomic).
 	reader.Close()
-	// Hand the accumulated metrics and carry flags to the finalizer.
-	st := &streamState{
-		promptTokens:          promptTokens,
-		completionTokens:      completionTokens,
-		reasoningTokens:       reasoningTokens,
-		promptCacheHitTokens:  promptCacheHitTokens,
-		promptCacheMissTokens: promptCacheMissTokens,
-		chunkCount:            reader.chunkCount,
-		errorChunkCount:       errorChunkCount,
-		lastErrMsg:            lastErrMsg,
-		sawDone:               sawDone,
-		clientDisconnected:    clientDisconnected,
-		stalled:               reader.stalled(),
-	}
+	// st was accumulated in place by the loop; fill the reader-owned fields the
+	// loop couldn't (final chunk count and the stall flag, read after watchdog
+	// teardown), then finalize.
+	st.chunkCount = reader.chunkCount
+	st.stalled = reader.stalled()
 	h.finalizeStream(st, sink, reader.err(), logData, opts, resp.StatusCode, startTime)
 }
 

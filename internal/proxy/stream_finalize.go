@@ -35,6 +35,15 @@ type streamState struct {
 	sawDone               bool
 	clientDisconnected    bool
 	stalled               bool
+
+	// Observer state carried across chunks (Phase 4). Not consumed by the
+	// finalizer, but co-located here so the data-chunk observers operate on one
+	// named accumulator instead of a fistful of loop-locals.
+	lastNativeFinishReason string // P2-7
+	sawThinking            bool   // first-occurrence reasoning log
+	lastContent            string // P2-5 repeated-content detection
+	repeatedCount          int    // P2-5
+	errAccum               []byte // P1-B split-error accumulation
 }
 
 // finalizeStream performs the end-of-stream bookkeeping that used to live under
