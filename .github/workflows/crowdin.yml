@@ -28,8 +28,13 @@ jobs:
         with:
           upload_sources: true
           upload_translations: false
-          auto_approve_imported: true
           download_translations: true
+          # Export every translated string regardless of approval state.
+          # This hobby project does not proofread/approve translations, so
+          # requiring approval (the Crowdin project default) exported empty
+          # files and wiped translations. Pin it false so a project-setting
+          # flip can never silently re-break the download.
+          export_only_approved: false
           skip_untranslated_strings: false
           localization_branch_name: l10n_crowdin_translations
           create_pull_request: true
@@ -41,31 +46,3 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           CROWDIN_PROJECT_ID: ${{ secrets.CROWDIN_PROJECT_ID }}
           CROWDIN_PERSONAL_TOKEN: ${{ secrets.CROWDIN_PERSONAL_TOKEN }}
-
-      - name: Fill empty translations from source
-        run: |
-          sudo chown -R $(id -u):$(id -g) web/src/i18n/locales/
-          python3 -c '
-          import json, glob, os
-          with open("web/src/i18n/locales/en.json") as f:
-              en = json.load(f)
-          for fpath in glob.glob("web/src/i18n/locales/??.json"):
-              if "en.json" in fpath:
-                  continue
-              with open(fpath) as f:
-                  d = json.load(f)
-              def fill(trans, src):
-                  out = {}
-                  for k, v in src.items():
-                      if isinstance(v, dict):
-                          out[k] = fill(trans.get(k, {}), v)
-                      else:
-                          tv = trans.get(k, "")
-                          out[k] = tv if tv != "" else v
-                  return out
-              d = fill(d, en)
-              with open(fpath, "w") as f:
-                  json.dump(d, f, indent="\t", ensure_ascii=False)
-                  f.write("\n")
-              print(f"  {os.path.basename(fpath)}: filled")
-          '
