@@ -124,5 +124,52 @@ describe("Layout", () => {
 				expect(i18next.language).toBe("cs");
 			});
 		});
+
+		it("sets document direction to rtl when Arabic is selected", async () => {
+			const user = userEvent.setup();
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(screen.getByLabelText("Language"));
+			await user.click(screen.getByText("العربية"));
+
+			await waitFor(() => {
+				expect(document.documentElement.dir).toBe("rtl");
+			});
+		});
+
+		it("sets document direction to rtl when Hebrew is selected", async () => {
+			const user = userEvent.setup();
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(screen.getByLabelText("Language"));
+			await user.click(screen.getByText("עברית"));
+
+			await waitFor(() => {
+				expect(document.documentElement.dir).toBe("rtl");
+			});
+		});
+
+		it("restores document direction to ltr when switching from RTL to LTR language", async () => {
+			const user = userEvent.setup();
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(screen.getByLabelText("Language"));
+			await user.click(screen.getByText("العربية"));
+			await waitFor(() => {
+				expect(document.documentElement.dir).toBe("rtl");
+			});
+
+			// After switching to Arabic, the label falls back to English "Language"
+			// because ar.json doesn't have layout.language.label translated yet
+			const langButton =
+				document.querySelector('[aria-label="Language"]') ??
+				document.querySelector('[aria-label="اللغة"]');
+			if (!langButton) throw new Error("Language button not found");
+			await user.click(langButton);
+			await user.click(screen.getByText("English"));
+			await waitFor(() => {
+				expect(document.documentElement.dir).toBe("ltr");
+			});
+		});
 	});
 });
