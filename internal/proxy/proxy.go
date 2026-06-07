@@ -509,18 +509,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				hasReasoning := delta.ReasoningContent != nil && *delta.ReasoningContent != ""
 				hasEmptyContent := delta.Content != nil && *delta.Content == ""
 				if hasReasoning && hasEmptyContent {
-					if p, ok := parseChunkPayload(payload); ok {
-						delete(p.delta, "content")
-						newDelta, _ := json.Marshal(p.delta)
-						p.choices[0]["delta"] = json.RawMessage(newDelta)
-						// Normalize finish_reason in-place before
-						// re-serializing. The written=true below
-						// would skip the finish_reason normalization
-						// block later in this loop iteration.
-						normalizeFinishReasonInChoices(p.choices, &lastFinishReason, logData.modelID, logData.providerName)
-						newChoices, _ := json.Marshal(p.choices)
-						p.raw["choices"] = json.RawMessage(newChoices)
-						newPayload, _ := json.Marshal(p.raw)
+					if newPayload, ok := stripEmptyReasoningContent(payload, &lastFinishReason, logData); ok {
 						if err := sink.writeData(newPayload); err != nil {
 							st.clientDisconnected = true
 							debuglog.Warn("proxy: client write failed during empty content strip", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
