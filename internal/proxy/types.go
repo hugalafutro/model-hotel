@@ -101,6 +101,21 @@ type modelCandidate struct {
 	apiKey   string
 }
 
+// requestState is the per-request scratch threaded through the ChatCompletions
+// phases (ingest → resolve → config → failover loop), replacing the ~20 closure
+// locals the handler previously carried. It is built by ingestRequest and
+// augmented by later phases. Helpers mutate the shared pointer instance — never
+// a copy — so timing/overhead accumulation is visible to subsequent phases.
+type requestState struct {
+	startTime   time.Time
+	reqModel    string
+	isStreaming bool
+	vkHash      string
+	bodyBytes   []byte
+	parseMs     float64
+	logData     *requestLogData
+}
+
 // streamOptions consolidates the parameters for handleStreamingResponse into
 // a single struct, replacing 17 positional parameters with named fields.
 type streamOptions struct {
