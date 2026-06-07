@@ -1,0 +1,2426 @@
+{
+	"common": {
+		"cancel": "",
+		"delete": "",
+		"deleting": "",
+		"close": "",
+		"closeDialog": "",
+		"clearFilter": "",
+		"copiedToClipboard": "",
+		"copied": "",
+		"failedToCopy": "",
+		"copy": "",
+		"expand": "",
+		"collapse": "",
+		"enabled": "",
+		"disabled": "",
+		"never": "",
+		"justNow": "",
+		"loading": "",
+		"loadingDots": "",
+		"off": "",
+		"prev": "",
+		"next": "",
+		"apply": "",
+		"clear": "",
+		"interrupted": "",
+		"selectAll": "",
+		"saving": "",
+		"add": "",
+		"edit": "",
+		"save": "",
+		"saveChanges": "",
+		"confirm": "",
+		"syncing": "",
+		"refresh": "",
+		"refreshing": "",
+		"discovering": "",
+		"n_a": "",
+		"current": "",
+		"optional": "",
+		"required": "",
+		"done": "",
+		"creating": "",
+		"resolving": "",
+		"live": "",
+		"deleted": "",
+		"internal": "",
+		"noLogsFound": "",
+		"global": "",
+		"manuallyDisabled": "",
+		"loadingNewer": "",
+		"loadingOlder": "",
+		"model": "",
+		"models": "",
+		"tokens": "",
+		"yes": "",
+		"no": "",
+		"random": "",
+		"unknownError": "",
+		"thisWeek": "",
+		"thisMonth": "",
+		"allTime": "",
+		"today": "",
+		"custom": "",
+		"unlimited": "",
+		"productNames": {
+			"powershell": "",
+			"javascript": "",
+			"python": "",
+			"claudeCode": "",
+			"openclaw": "",
+			"hermes": "",
+			"librechat": "",
+			"zed": "",
+			"opencode": ""
+		}
+	},
+	"layout": {
+		"title": "",
+		"subtitle": "",
+		"tagline": "",
+		"nav": {
+			"dashboard": "",
+			"chat": "",
+			"conversation": "",
+			"arena": "",
+			"compare": "",
+			"providers": "",
+			"models": "",
+			"failover": "",
+			"failoverClosed": "",
+			"failoverClosed_other": "",
+			"failoverHalfOpen": "",
+			"failoverHalfOpen_other": "",
+			"failoverOpen": "",
+			"failoverOpen_other": "",
+			"failoverBadgeTooltip_one": "",
+			"failoverBadgeTooltip_other": "",
+			"virtualKeys": "",
+			"logs": "",
+			"requests": "",
+			"appLogs": "",
+			"settings": ""
+		},
+		"status": {
+			"apiStatus": "",
+			"online": "",
+			"error": ""
+		},
+		"stats": {
+			"uptime": "",
+			"cpu": "",
+			"network": "",
+			"disk": "",
+			"memory": "",
+			"goroutines": "",
+			"requestsToday": "",
+			"db": "",
+			"procs_one": "",
+			"procs_other": "",
+			"aggregateCpu": "",
+			"aggregateNetwork": "",
+			"aggregateDisk": "",
+			"aggregateMemory": "",
+			"heap": "",
+			"hit": "",
+			"conn": "",
+			"txPerSec": ""
+		},
+		"toast": {
+			"copiedToClipboard": "",
+			"appErrorAcknowledged": "",
+			"requestErrorAcknowledged": ""
+		},
+		"auth": {
+			"logout": "",
+			"logoutConfirm": "",
+			"logoutMessage": "",
+			"adminToken": "",
+			"enterToken": "",
+			"signIn": "",
+			"signingIn": "",
+			"signInWithPasskey": "",
+			"orDivider": "",
+			"emptyToken": "",
+			"invalidToken": "",
+			"connectionFailed": "",
+			"passkeyFailed": "",
+			"hideToken": "",
+			"showToken": "",
+			"getTokenHint": ""
+		},
+		"theme": {
+			"switchToLight": "",
+			"switchToDark": ""
+		},
+		"language": {
+			"label": "",
+			"english": "",
+			"czech": ""
+		},
+		"errorPill": {
+			"appError": "",
+			"requestError": "",
+			"error": "",
+			"copyError": "",
+			"viewDetails": "",
+			"acknowledge": "",
+			"request": ""
+		},
+		"docs": "",
+		"running": "",
+		"runningLatest": "",
+		"updateAvailable": "",
+		"expandStats": "",
+		"collapseStats": "",
+		"tooltips": {
+			"uptime": "",
+			"goroutines": "",
+			"requestsToday": "",
+			"dbSize": "",
+			"dbHitRatio": "",
+			"dbConnections": "",
+			"dbTxPerSec": ""
+		},
+		"githubRepo": ""
+	},
+	"dashboard": {
+		"title": "",
+		"description": "",
+		"metricRequests": "",
+		"metricTokens": "",
+		"metricErrors": "",
+		"activeKeysOnly": "",
+		"allKeys": "",
+		"toggleKeyFilter": "",
+		"refresh": "",
+		"refreshing": "",
+		"loadingGauges": "",
+		"failedToLoadGaugeStats": "",
+		"gaugeLoadFailed": "",
+		"stats": {
+			"totalProviders": "",
+			"totalModels": "",
+			"requests": "",
+			"errorRate": "",
+			"avgDuration": "",
+			"totalTokens": "",
+			"avgTokensPerReq": ""
+		},
+		"gauge": {
+			"requestsPerRange": "",
+			"avgTtftPerRange": "",
+			"avgOverheadPerRange": "",
+			"rateLimitHitsPerRange": "",
+			"errorRatePerRange": "",
+			"viewRequestHistory": "",
+			"viewTtftHistory": "",
+			"viewOverheadHistory": "",
+			"viewRateLimitHistory": "",
+			"viewErrorRateHistory": "",
+			"viewDurationHistory": "",
+			"viewTokenHistory": "",
+			"svgTitle": "",
+			"modal": {
+				"avgOverheadTitle": "",
+				"overheadMetric": "",
+				"overheadLabel": "",
+				"errorRateTitle": "",
+				"errorRateMetric": "",
+				"errorRateLabel": "",
+				"avgDurationTitle": "",
+				"durationMetric": "",
+				"durationLabel": "",
+				"requestsTitle": "",
+				"requestsMetric": "",
+				"requestsLabel": "",
+				"avgTtftTitle": "",
+				"ttftMetric": "",
+				"ttftLabel": "",
+				"rateLimitHitsTitle": "",
+				"rateLimitHitsMetric": "",
+				"rateLimitHitsLabel": "",
+				"avgTokensTitle": "",
+				"tokensMetric": "",
+				"tokensLabel": ""
+			}
+		},
+		"chart": {
+			"hour": "",
+			"day": "",
+			"week": "",
+			"noData": "",
+			"dragToPan": "",
+			"requests": "",
+			"tokens": "",
+			"emptyState": "",
+			"requestsOver": "",
+			"avgTtftOver": "",
+			"avgOverheadOver": "",
+			"rateLimitHitsOver": "",
+			"errorRateOver": "",
+			"avgDurationOver": "",
+			"cacheHit": "",
+			"today": "",
+			"yesterday": ""
+		},
+		"usage": {
+			"topModels": "",
+			"topProviders": "",
+			"topVirtualKeys": "",
+			"emptyState": "",
+			"viewDetailsFor": ""
+		},
+		"latency": {
+			"topModels": "",
+			"emptyState": "",
+			"tooltip": "",
+			"providerTip": "",
+			"overheadTip": ""
+		},
+		"providerLatency": {
+			"title": "",
+			"response": "",
+			"overhead": "",
+			"emptyState": "",
+			"responseTooltip": "",
+			"overheadTooltip": "",
+			"requestCount": ""
+		},
+		"providers": {
+			"top": "",
+			"top_one": "",
+			"top_other": "",
+			"providers": "",
+			"noData": "",
+			"distributionChart": "",
+			"emptyState": "",
+			"chartAriaLabel": "",
+			"tokenUnit": "",
+			"tokensUnit": "",
+			"requestUnit": "",
+			"requestsUnit": ""
+		},
+		"models": {
+			"top": "",
+			"viewDetails": "",
+			"emptyState": ""
+		},
+		"virtualKeys": {
+			"top": "",
+			"emptyState": ""
+		},
+		"tokens": {
+			"tokenMix": "",
+			"noTokenData": "",
+			"tokens": "",
+			"prompt": "",
+			"completion": "",
+			"cacheHit": "",
+			"promptTooltip": "",
+			"completionTooltip": "",
+			"cacheHitTooltip": "",
+			"mixAriaLabel": "",
+			"promptTileTitle": "",
+			"completionTileTitle": ""
+		},
+		"modal": {
+			"avgOverhead": "",
+			"errorRate": "",
+			"avgDuration": "",
+			"requests": "",
+			"avgTtft": "",
+			"rateLimitHits": "",
+			"avgTokens": ""
+		},
+		"range": {
+			"1h": "",
+			"24h": "",
+			"1w": ""
+		},
+		"metric": {
+			"tokens": "",
+			"requests": ""
+		},
+		"label": {
+			"requests": "",
+			"tokens": "",
+			"errors": "",
+			"seconds": "",
+			"requestsPerQuery": ""
+		}
+	},
+	"chat": {
+		"chat": "",
+		"conversation": "",
+		"testModels": "",
+		"watchConversation": "",
+		"validation": {
+			"selectModelA": "",
+			"selectModelB": "",
+			"modelsMustDiffer": "",
+			"enterPrompt": ""
+		},
+		"stream": {
+			"stoppedByUser": "",
+			"unknownError": "",
+			"stalledTimeout": "",
+			"cutoffIncomplete": "",
+			"endedWithoutSignal": "",
+			"endedUnexpectedly": ""
+		},
+		"controls": {
+			"_": "",
+			"resetAll": "",
+			"modelA": "",
+			"modelB": "",
+			"personaA": "",
+			"personaB": "",
+			"clearMessages": "",
+			"modelLabel": "",
+			"personaLabel": "",
+			"title": "",
+			"stop": "",
+			"generating": "",
+			"sendMessage": "",
+			"send": ""
+		},
+		"chatWithAi": "",
+		"aiConversation": "",
+		"stop": "",
+		"clearMessages": "",
+		"resetAll": "",
+		"toast": {
+			"chatCleared": "",
+			"conversationCleared": ""
+		},
+		"chatCleared": "",
+		"conversationCleared": "",
+		"modelA": "",
+		"modelB": "",
+		"personaA": "",
+		"personaB": "",
+		"turn": "",
+		"totalDuration": "",
+		"totalTokens": "",
+		"modelGenerating": "",
+		"waitingForNextTurn": "",
+		"generationFailed": "",
+		"generationFailedWithModel": "",
+		"resetChat": "",
+		"resetConversation": "",
+		"resetChatMessage": "",
+		"resetConversationMessage": "",
+		"chatReset": "",
+		"conversationReset": "",
+		"selectModel": "",
+		"selectModelA": "",
+		"selectModelB": "",
+		"chatWillAppear": "",
+		"conversationWillAppear": "",
+		"removeImage": "",
+		"removeAudio": "",
+		"uploadImage": "",
+		"attachImage": "",
+		"uploadAudio": "",
+		"attachAudio": "",
+		"selectModelFirst": "",
+		"typeMessage": "",
+		"typeMessageOrPasteImage": "",
+		"generating": "",
+		"sendMessage": "",
+		"pressEnterToSend": "",
+		"selectModelToStart": "",
+		"modelError": "",
+		"generalError": "",
+		"modelLabel": "",
+		"stopLabel": "",
+		"clearLabel": "",
+		"resetAllLabel": "",
+		"cancel": "",
+		"messageInput": "",
+		"copy": "",
+		"regenerate": "",
+		"deleteMessage": "",
+		"settings": "",
+		"placeholder": {
+			"selectModel": "",
+			"selectModelSidebar": "",
+			"selectModelA": "",
+			"selectModelB": "",
+			"messageWithImage": "",
+			"message": "",
+			"selectModelFirst": ""
+		},
+		"message": {
+			"emptyChat": "",
+			"emptyConversation": "",
+			"audio": ""
+		},
+		"aria": {
+			"removeImage": "",
+			"removeAudio": "",
+			"uploadImage": "",
+			"attachImage": "",
+			"uploadAudio": "",
+			"attachAudio": "",
+			"messageInput": "",
+			"userAttachment": "",
+			"cancel": "",
+			"deleteMessage": "",
+			"regenerate": ""
+		},
+		"misc": {
+			"titleChat": "",
+			"titleConversation": "",
+			"descriptionChat": "",
+			"descriptionConversation": "",
+			"selectModelToStart": "",
+			"keyboardHint": "",
+			"turnCount": "",
+			"tokens": "",
+			"modelGenerating": "",
+			"waitingNextTurn": "",
+			"generationFailed": "",
+			"generationFailedNoModel": "",
+			"resetChatTitle": "",
+			"resetConversationTitle": "",
+			"resetChatMessage": "",
+			"resetConversationMessage": "",
+			"resetAllConfirm": ""
+		}
+	},
+	"arena": {
+		"title": {
+			"arena": "",
+			"compare": ""
+		},
+		"description": {
+			"arena": "",
+			"compare": ""
+		},
+		"controls": {
+			"label": ""
+		},
+		"mode": {
+			"arena": "",
+			"compare": ""
+		},
+		"modeDescription": {
+			"arena": "",
+			"compare": ""
+		},
+		"matchHistory": {
+			"title": ""
+		},
+		"toast": {
+			"cleared": "",
+			"reset": ""
+		},
+		"clearResults": {
+			"title": ""
+		},
+		"resetAll": {
+			"title": ""
+		},
+		"models": {
+			"bracketCount": "",
+			"bracketHint": "",
+			"compareCount": ""
+		},
+		"persona": {
+			"textareaPlaceholder": "",
+			"switchToCustom": "",
+			"overwrite": "",
+			"fieldLabel": ""
+		},
+		"round": {
+			"firstRound": "",
+			"generation": "",
+			"match": "",
+			"final": "",
+			"semifinals": "",
+			"quarterfinals": "",
+			"numbered": ""
+		},
+		"vs": "",
+		"status": {
+			"generating": "",
+			"voteToContinue": "",
+			"nextRoundReady": ""
+		},
+		"responses": {
+			"label": ""
+		},
+		"match": {
+			"label": ""
+		},
+		"confirmReset": {
+			"title": "",
+			"message": "",
+			"confirmLabel": ""
+		},
+		"winner": {
+			"title": ""
+		},
+		"vote": {
+			"title": "",
+			"voted": ""
+		},
+		"swapModel": {
+			"title": ""
+		},
+		"completed": {
+			"title": ""
+		},
+		"reroll": {
+			"title": ""
+		},
+		"error": {
+			"title": ""
+		},
+		"retry": {
+			"title": ""
+		},
+		"cancel": {
+			"title": ""
+		},
+		"copy": {
+			"title": ""
+		},
+		"swapPicker": {
+			"title": "",
+			"searchPlaceholder": "",
+			"expandAll": "",
+			"collapseAll": "",
+			"noModels": ""
+		},
+		"winnerModal": {
+			"title": "",
+			"wins": "",
+			"close": ""
+		},
+		"params": {
+			"temperature": "",
+			"maxTokens": "",
+			"topP": "",
+			"minP": "",
+			"topK": "",
+			"freqPenalty": "",
+			"presPenalty": "",
+			"resetAll": "",
+			"done": ""
+		},
+		"button": {
+			"stop": "",
+			"run": ""
+		},
+		"disabledReason": {
+			"selectTwoModels": "",
+			"pickOneMore": "",
+			"noDuplicates": "",
+			"enterPrompt": "",
+			"selectBracketModels": "",
+			"pickOrRemove": "",
+			"voteToContinue": "",
+			"enterPromptNextRound": ""
+		},
+		"tbd": "",
+		"close": "",
+		"custom": "",
+		"done": "",
+		"reasoningEffort": ""
+	},
+	"providers": {
+		"page_title_one": "",
+		"page_title_other": "",
+		"page_description": "",
+		"btn_discover_all": "",
+		"btn_refresh_quotas": "",
+		"btn_add_provider": "",
+		"btn_discovering": "",
+		"btn_refreshing": "",
+		"filter_placeholder": "",
+		"filter_provider_type": "",
+		"filter_all": "",
+		"sort_title_asc": "",
+		"sort_title_desc": "",
+		"empty_no_match": "",
+		"empty_no_providers": "",
+		"toast_discovery_failed_all": "",
+		"toast_discover_failed": "",
+		"toast_provider_added": "",
+		"toast_provider_updated": "",
+		"toast_provider_deleted": "",
+		"toast_delete_failed": "",
+		"toast_add_failed": "",
+		"toast_update_failed": "",
+		"toast_refresh_success": "",
+		"toast_refresh_warning": "",
+		"toast_refresh_none": "",
+		"toast_refresh_failed": "",
+		"toast_quota_detected_nanogpt": "",
+		"toast_quota_detected_zai": "",
+		"toast_quota_detected_deepseek": "",
+		"toast_quota_detected_openrouter": "",
+		"toast_quota_detected_ollama": "",
+		"toast_quota_refreshed": "",
+		"toast_quota_refresh_failed": "",
+		"toast_account_refreshed": "",
+		"toast_account_refresh_failed": "",
+		"type_custom": "",
+		"type_nanogpt": "",
+		"type_zai_coding": "",
+		"type_openai": "",
+		"type_anthropic": "",
+		"type_deepseek": "",
+		"type_ollama_cloud": "",
+		"type_ollama": "",
+		"type_opencode_zen": "",
+		"type_opencode_go": "",
+		"type_xai": "",
+		"type_google": "",
+		"type_cohere": "",
+		"type_openrouter": "",
+		"type_koboldcpp": "",
+		"type_lmstudio": "",
+		"form_modal_title": "",
+		"form_type_label": "",
+		"form_name_label": "",
+		"toast_ollama_cloud_plan_detected": "",
+		"form_name_placeholder": "",
+		"form_name_hint": "",
+		"form_base_url_label": "",
+		"form_base_url_placeholder": "",
+		"form_base_url_hint_preset": "",
+		"form_base_url_hint_local": "",
+		"form_base_url_hint_custom": "",
+		"form_api_key_label": "",
+		"form_api_key_placeholder_optional": "",
+		"form_api_key_placeholder_required": "",
+		"form_api_key_show": "",
+		"form_api_key_hide": "",
+		"form_btn_cancel": "",
+		"form_btn_add": "",
+		"form_btn_adding": "",
+		"form_btn_save": "",
+		"edit_modal_title": "",
+		"edit_enabled_label": "",
+		"edit_enabled_hint": "",
+		"edit_autodiscovery_label": "",
+		"edit_autodiscovery_hint": "",
+		"edit_api_key_current": "",
+		"edit_api_key_placeholder": "",
+		"dialog_unsaved_title": "",
+		"card_disabled": "",
+		"card_autodiscovery_off": "",
+		"card_tokens": "",
+		"card_created": "",
+		"card_api_key": "",
+		"card_last_used": "",
+		"card_last_discovery": "",
+		"card_btn_edit": "",
+		"card_btn_discover": "",
+		"card_btn_discovering": "",
+		"card_btn_delete": "",
+		"card_copy_name": "",
+		"card_copy_url": "",
+		"toast_discover_success_one": "",
+		"toast_discover_success_other": "",
+		"toast_delete_models_success_one": "",
+		"toast_delete_models_success_other": "",
+		"toast_delete_models_success": "",
+		"toast_delete_models_warning_one": "",
+		"toast_delete_models_warning_other": "",
+		"toast_delete_models_warning": "",
+		"card_models_one": "",
+		"card_models_other": "",
+		"add": {
+			"providerFallback": "",
+			"discoveredModels_one": "",
+			"discoveredModels_other": "",
+			"deepseekBalance": "",
+			"deepseekBalanceDetected": "",
+			"openrouterBalance": "",
+			"baseUrl": "",
+			"baseUrlHelperDefault": "",
+			"baseUrlHelperFull": "",
+			"apiKey": ""
+		},
+		"edit": {
+			"enabledToggle": "",
+			"enabledHelper": "",
+			"autodiscoveryToggle": "",
+			"autodiscoveryHelper": ""
+		},
+		"quotas": {
+			"expand": ""
+		},
+		"credits": {
+			"toggleLabel": "",
+			"showUsed": "",
+			"showRemaining": ""
+		},
+		"toast": {
+			"refreshedQuotas": ""
+		}
+	},
+	"models": {
+		"page_title_one": "",
+		"page_title_other": "",
+		"page_description": "",
+		"badge_enabled": "",
+		"badge_disabled": "",
+		"view_mode_pages": "",
+		"view_mode_scroll": "",
+		"switch_to_pagination": "",
+		"switch_to_scroll": "",
+		"toast_updated": "",
+		"toast_update_failed": "",
+		"toast_toggle_enabled": "",
+		"toast_toggle_disabled": "",
+		"toast_deleted": "",
+		"toast_delete_failed": "",
+		"detail_modal_title": "",
+		"toast_delete_bulk_success_one": "",
+		"toast_delete_bulk_success_other": "",
+		"toast_delete_bulk_warning_one": "",
+		"toast_delete_bulk_warning_other": "",
+		"toast_delete_bulk_warning": "",
+		"detail": {
+			"snippet": {
+				"curl": "",
+				"powershell": "",
+				"javascript": "",
+				"python": "",
+				"claudeCode": "",
+				"openClaw": "",
+				"hermes": "",
+				"librechat": "",
+				"zed": "",
+				"opencode": ""
+			},
+			"provider": "",
+			"lastDiscovered": "",
+			"displayName": "",
+			"contextLength": "",
+			"maxOutput": "",
+			"inputPrice": "",
+			"outputPrice": "",
+			"input": "",
+			"output": "",
+			"tokens": "",
+			"perMillionTokens": "",
+			"modality": {
+				"text": ""
+			},
+			"capabilities": "",
+			"subscription": "",
+			"snippetFormatPicker": "",
+			"test": "",
+			"testing": "",
+			"confirmDelete": "",
+			"updating": "",
+			"updateCooldown": "",
+			"updateInfo": "",
+			"placeholder": {
+				"price": ""
+			},
+			"testSuccess": "",
+			"testFailed": ""
+		},
+		"table": {
+			"sortByModelName": "",
+			"model": "",
+			"capabilities": "",
+			"sortByProviderName": "",
+			"provider": "",
+			"sortByDiscoveredDate": "",
+			"discovered": "",
+			"sortByContextLength": "",
+			"ctx": "",
+			"sortByMaxOutput": "",
+			"maxOut": "",
+			"sortByStatus": "",
+			"status": ""
+		}
+	},
+	"model": {
+		"revertToDiscoveredValue": "",
+		"clickToCopyModelId": "",
+		"noSpecialCapabilities": "",
+		"subscription": {
+			"included": "",
+			"notIncluded": ""
+		}
+	},
+	"failover": {
+		"page_title_one": "",
+		"page_title_other": "",
+		"page_description_lead": "",
+		"page_description_code": "",
+		"last_sync": "",
+		"btn_sync": "",
+		"btn_syncing": "",
+		"btn_new_group": "",
+		"hint_drag": "",
+		"filter_hotel_model": "",
+		"filter_providers": "",
+		"filter_states": "",
+		"filter_origins": "",
+		"filter_state_enabled": "",
+		"filter_state_disabled": "",
+		"filter_origin_auto": "",
+		"filter_origin_manual": "",
+		"select_all": "",
+		"deselect_all": "",
+		"selected_count": "",
+		"btn_enable_all": "",
+		"btn_disable_all": "",
+		"btn_delete_all": "",
+		"bulk_provider_enable": "",
+		"bulk_provider_disable": "",
+		"empty_no_auto": "",
+		"empty_no_manual": "",
+		"empty_no_match": "",
+		"empty_create_group": "",
+		"empty_clear_filters": "",
+		"empty_no_groups": "",
+		"empty_auto_discover": "",
+		"section_custom": "",
+		"section_letter": "",
+		"nav_custom": "",
+		"nav_letter": "",
+		"toast_bulk_toggle_failed": "",
+		"toast_provider_toggle_failed": "",
+		"toast_sync_deleted": "",
+		"toast_sync_purged": "",
+		"toast_sync_success": "",
+		"toast_sync_failed": "",
+		"toast_update_failed": "",
+		"toast_create_collision": "",
+		"toast_create_collision_this_model": "",
+		"toast_update_collision": "",
+		"toast_create_failed": "",
+		"toast_update_group_failed": "",
+		"toast_created": "",
+		"toast_updated": "",
+		"toast_delete_success": "",
+		"toast_delete_failed": "",
+		"toast_bulk_delete_warning": "",
+		"toast_entry_min_one": "",
+		"toast_min_entries": "",
+		"toast_display_model_required": "",
+		"badge_enabled_one": "",
+		"badge_enabled_other": "",
+		"badge_disabled_one": "",
+		"badge_disabled_other": "",
+		"delete_confirm_type": "",
+		"delete_confirm_type_plural": "",
+		"auto_created": "",
+		"on": "",
+		"off": "",
+		"copied_model": "",
+		"group": {
+			"clickToCopy": ""
+		},
+		"bulk_provider_count_one": "",
+		"bulk_provider_count_other": "",
+		"group_count_one": "",
+		"group_count_other": "",
+		"toast_bulk_toggle_success_one": "",
+		"toast_bulk_toggle_success_other": "",
+		"toast_provider_toggle_success_one": "",
+		"toast_provider_toggle_success_other": "",
+		"toast_bulk_delete_success_one": "",
+		"toast_bulk_delete_success_other": "",
+		"delete_confirm_bulk_title_one": "",
+		"delete_confirm_bulk_title_other": ""
+	},
+	"delete_confirm": {
+		"unsaved_changes": ""
+	},
+	"virtualkeys": {
+		"title": {
+			"singular": "",
+			"plural": ""
+		},
+		"description": "",
+		"createButton": "",
+		"deleted": "",
+		"deleteFailed": "",
+		"table": {
+			"name": "",
+			"key": "",
+			"rps": "",
+			"burst": "",
+			"created": "",
+			"tokens": "",
+			"lastUsed": "",
+			"keys": ""
+		},
+		"tooltip": {
+			"proxyUrl": "",
+			"name": "",
+			"key": "",
+			"rps": "",
+			"burst": "",
+			"created": "",
+			"tokens": "",
+			"lastUsed": "",
+			"providerRestricted": "",
+			"reasoningStripped": "",
+			"keyHashed": ""
+		},
+		"emptyState": "",
+		"steps": {
+			"createKey": "",
+			"copyKey": "",
+			"makeRequests": ""
+		},
+		"stepDescriptions": {
+			"createKey": "",
+			"copyKey": "",
+			"makeRequests": ""
+		},
+		"note": {
+			"title": "",
+			"text": ""
+		},
+		"modal": {
+			"createTitle": "",
+			"createdTitle": "",
+			"warningTitle": "",
+			"warningText": "",
+			"useAs": "",
+			"form": {
+				"name": "",
+				"namePlaceholder": "",
+				"rateLimitRps": "",
+				"rateLimitBurst": "",
+				"placeholderGlobal": "",
+				"providerAccess": "",
+				"providerInstructions": "",
+				"noProviders": "",
+				"restoreAccess": "",
+				"stripReasoning": "",
+				"stripReasoningDescription": "",
+				"enableStripReasoning": "",
+				"disableStripReasoning": ""
+			},
+			"detailTitle": "",
+			"sections": {
+				"identity": "",
+				"rateLimits": "",
+				"usage": "",
+				"providerAccess": "",
+				"stripReasoning": ""
+			},
+			"labels": {
+				"key": "",
+				"tokensConsumed": "",
+				"lastUsed": "",
+				"created": ""
+			},
+			"noProvidersConfigured": "",
+			"discardChanges": "",
+			"loadingProviders": "",
+			"stripReasoningDescriptionText": "",
+			"providerInstructionsText": "",
+			"nameLabel": "",
+			"rateLimitRpsLabel": "",
+			"rateLimitBurstLabel": "",
+			"keyCreated": "",
+			"keyCreatedFailed": "",
+			"keyUpdated": "",
+			"keyUpdateFailed": ""
+		}
+	},
+	"logs": {
+		"title": {
+			"requests": "",
+			"logs": ""
+		},
+		"description": "",
+		"appDescription": "",
+		"tabs": {
+			"requests": "",
+			"logs": ""
+		},
+		"filters": {
+			"modelPlaceholder": "",
+			"providerPlaceholder": "",
+			"status": "",
+			"statusOptions": {
+				"0": "",
+				"2xx": "",
+				"4xx": "",
+				"5xx": ""
+			},
+			"level": "",
+			"levelAll": "",
+			"source": "",
+			"logsPlaceholder": ""
+		},
+		"table": {
+			"timeDate": "",
+			"hash": "",
+			"model": "",
+			"provider": "",
+			"status": "",
+			"tokens": "",
+			"tps": "",
+			"headers": "",
+			"ttft": "",
+			"duration": "",
+			"overhead": "",
+			"key": "",
+			"providerDeleted": "",
+			"deletedProvider": "",
+			"resolving": "",
+			"live": "",
+			"interrupted": "",
+			"cacheInflated": "",
+			"keyDeleted": ""
+		},
+		"tooltip": {
+			"timeDate": "",
+			"hash": "",
+			"model": "",
+			"provider": "",
+			"status": "",
+			"tokens": "",
+			"tps": "",
+			"headers": "",
+			"ttft": "",
+			"duration": "",
+			"overhead": "",
+			"key": "",
+			"providerDeleted": "",
+			"totalOverhead": "",
+			"requestParsing": "",
+			"failoverGroupLookup": "",
+			"modelLookup": "",
+			"providerLookup": "",
+			"keyDecryption": "",
+			"dial": "",
+			"settingsReads": "",
+			"reused": ""
+		},
+		"status": {
+			"interrupted": ""
+		},
+		"emptyState": {
+			"requests": "",
+			"appNoEntries": "",
+			"appNoMatch": ""
+		},
+		"toast": {
+			"loadFailed": "",
+			"scrollLoadFailed": ""
+		},
+		"pagination": {
+			"label": ""
+		},
+		"loading": {
+			"newer": "",
+			"older": ""
+		}
+	},
+	"applogs": {
+		"title": "",
+		"description": "",
+		"tabs": {
+			"requests": "",
+			"logs": ""
+		},
+		"filters": {
+			"level": "",
+			"levelAll": "",
+			"source": "",
+			"all": "",
+			"search": ""
+		},
+		"table": {
+			"timeDate": "",
+			"level": "",
+			"source": "",
+			"message": ""
+		},
+		"emptyState": {
+			"noEntries": "",
+			"noMatch": ""
+		},
+		"toast": {
+			"loadFailed": "",
+			"scrollLoadFailed": ""
+		},
+		"pagination": {
+			"label": ""
+		},
+		"loading": {
+			"newer": "",
+			"older": ""
+		}
+	},
+	"format": {
+		"never": "",
+		"justNow": "",
+		"minutesAgo_one": "",
+		"minutesAgo_other": "",
+		"hoursAgo_one": "",
+		"hoursAgo_other": "",
+		"daysAgo_one": "",
+		"daysAgo_other": "",
+		"inDaysHours_one_day_one_hour": "",
+		"inDaysHours_one_day_other_hours": "",
+		"inDaysHours_other_days_one_hour": "",
+		"inDaysHours_other_days_other_hours": "",
+		"inDays_only_one": "",
+		"inDays_only_other": "",
+		"inHours_only_one": "",
+		"inHours_only_other": "",
+		"now": ""
+	},
+	"presets": {
+		"personas": {
+			"merlin": {
+				"label": "",
+				"prompt": ""
+			},
+			"madame-vex": {
+				"label": "",
+				"prompt": ""
+			},
+			"sarge": {
+				"label": "",
+				"prompt": ""
+			},
+			"auntie-wei": {
+				"label": "",
+				"prompt": ""
+			},
+			"grimm": {
+				"label": "",
+				"prompt": ""
+			},
+			"kairos": {
+				"label": "",
+				"prompt": ""
+			},
+			"phreak": {
+				"label": "",
+				"prompt": ""
+			},
+			"roux": {
+				"label": "",
+				"prompt": ""
+			},
+			"unit-734": {
+				"label": "",
+				"prompt": ""
+			},
+			"bramble": {
+				"label": "",
+				"prompt": ""
+			},
+			"nera": {
+				"label": "",
+				"prompt": ""
+			},
+			"oolo": {
+				"label": "",
+				"prompt": ""
+			},
+			"dr-maren": {
+				"label": "",
+				"prompt": ""
+			},
+			"nonna-pia": {
+				"label": "",
+				"prompt": ""
+			},
+			"whisper": {
+				"label": "",
+				"prompt": ""
+			}
+		},
+		"prompts": {
+			"dilemma": {
+				"label": "",
+				"text": ""
+			},
+			"lore": {
+				"label": "",
+				"text": ""
+			},
+			"hook": {
+				"label": "",
+				"text": ""
+			},
+			"blueprint": {
+				"label": "",
+				"text": ""
+			},
+			"spiral": {
+				"label": "",
+				"text": ""
+			},
+			"trolley": {
+				"label": "",
+				"text": ""
+			},
+			"algorithm": {
+				"label": "",
+				"text": ""
+			},
+			"paradox": {
+				"label": "",
+				"text": ""
+			},
+			"integral": {
+				"label": "",
+				"text": ""
+			},
+			"contract": {
+				"label": "",
+				"text": ""
+			},
+			"cipher": {
+				"label": "",
+				"text": ""
+			},
+			"eulogy": {
+				"label": "",
+				"text": ""
+			},
+			"fork": {
+				"label": "",
+				"text": ""
+			},
+			"mosaic": {
+				"label": "",
+				"text": ""
+			},
+			"heist": {
+				"label": "",
+				"text": ""
+			}
+		}
+	},
+	"settings": {
+		"title": "",
+		"description": "",
+		"proxy": {
+			"title": "",
+			"description": "",
+			"requestTimeout": "",
+			"requestTimeout.description": "",
+			"keyCacheTtl": "",
+			"keyCacheTtl.description": "",
+			"ttftTimeout": "",
+			"ttftTimeout.description": "",
+			"streamStallTimeout": "",
+			"streamStallTimeout.description": "",
+			"timeout": {
+				"30s": "",
+				"1m0s": "",
+				"2m0s": "",
+				"5m0s": "",
+				"10m0s": ""
+			},
+			"keyCache": {
+				"1m0s": "",
+				"5m0s": "",
+				"10m0s": "",
+				"30m0s": "",
+				"1h0m0s": ""
+			},
+			"ttft": {
+				"15s": "",
+				"30s": "",
+				"1m0s": "",
+				"2m0s": "",
+				"5m0s": "",
+				"disabled": ""
+			},
+			"streamStall": {
+				"10s": "",
+				"30s": "",
+				"1m0s": "",
+				"2m0s": "",
+				"5m0s": "",
+				"10m0s": "",
+				"disabled": ""
+			}
+		},
+		"rateLimit": {
+			"title": "",
+			"description": "",
+			"enable": "",
+			"enableDescription": "",
+			"requestsPerSecond": "",
+			"requestsPerSecond.description": "",
+			"burstSize": "",
+			"burstSize.description": "",
+			"ipRateLimiting": "",
+			"ipRateLimitingDescription": "",
+			"ipRequestsPerSecond": "",
+			"ipRequestsPerSecond.description": "",
+			"ipBurstSize": "",
+			"ipBurstSize.description": "",
+			"backpressure": "",
+			"backpressureDescription": "",
+			"maxWait": "",
+			"maxWait.description": ""
+		},
+		"circuitBreaker": {
+			"title": "",
+			"description": "",
+			"enable": "",
+			"enableDescription": "",
+			"failureThreshold": "",
+			"failureThreshold.description": "",
+			"cooldownPeriod": "",
+			"cooldownPeriod.description": "",
+			"failoverOnRateLimit": "",
+			"failoverOnRateLimitDescription": ""
+		},
+		"logging": {
+			"title": "",
+			"logRetention": "",
+			"logRetention.description": "",
+			"staleRequestTimeout": "",
+			"staleRequestTimeout.description": "",
+			"deleteRequests": "",
+			"deleteRequests.tooltip": "",
+			"deleteRequests.selectRange": "",
+			"deleteRequests.olderThan1d": "",
+			"deleteRequests.olderThan1w": "",
+			"deleteRequests.olderThan1m": "",
+			"deleteRequests.allLogs": "",
+			"deleteRequests.confirm": "",
+			"deleteRequests.cancel": "",
+			"deleteAppLogs": "",
+			"deleteAppLogs.tooltip": "",
+			"deleteAppLogs.confirmText": "",
+			"deleteAppLogs.confirm": "",
+			"deleteAppLogs.cancel": "",
+			"deleteAppLogs.deleting": "",
+			"retention": {
+				"disabled": "",
+				"24h": "",
+				"168h": "",
+				"720h": ""
+			},
+			"staleTimeout": {
+				"5m0s": "",
+				"10m0s": "",
+				"15m0s": "",
+				"30m0s": "",
+				"1h0m0s": "",
+				"2h0m0s": "",
+				"disabled": ""
+			}
+		},
+		"discovery": {
+			"title": "",
+			"description": "",
+			"discoveryInterval": "",
+			"discoveryInterval.description": "",
+			"discoverOnStartup": "",
+			"discoverOnStartupDescription": "",
+			"discoverOnProviderCreation": "",
+			"discoverOnProviderCreationDescription": "",
+			"discoverAll": "",
+			"discoverAllComplete": "",
+			"discoverAllFailed": "",
+			"intervals": {
+				"0.5h": "",
+				"1h": "",
+				"6h": "",
+				"12h": "",
+				"24h": "",
+				"48h": "",
+				"disabled": ""
+			}
+		},
+		"dataStorage": {
+			"title": "",
+			"description": "",
+			"sessionPersistence": "",
+			"persistChat": "",
+			"persistChatDescription": "",
+			"persistChatConfirm": "",
+			"persistChatEnabled": "",
+			"persistChatDisabled": "",
+			"persistArena": "",
+			"persistArenaDescription": "",
+			"persistArenaConfirm": "",
+			"persistArenaEnabled": "",
+			"persistArenaDisabled": "",
+			"persistConversation": "",
+			"persistConversationDescription": "",
+			"persistConversationConfirm": "",
+			"persistConversationEnabled": "",
+			"persistConversationDisabled": "",
+			"arenaHistory": "",
+			"saveMatchHistory": "",
+			"saveMatchHistoryDescription": "",
+			"saveMatchHistoryEnabled": "",
+			"saveMatchHistoryDisabled": "",
+			"maxSavedMatches": "",
+			"maxSavedMatches.description": "",
+			"matches": {
+				"10": "",
+				"25": "",
+				"50": "",
+				"100": ""
+			},
+			"historyLimitToast": "",
+			"clearHistory": "",
+			"clearHistoryConfirm": "",
+			"clearHistoryAll": "",
+			"clearHistoryAll.tooltip": "",
+			"clearHistoryAllCleared": "",
+			"cacheAndResets": "",
+			"quotaBadges": "",
+			"providerQuotaCache": "",
+			"clearCache": "",
+			"clearCache.tooltip": "",
+			"clearCacheConfirm": "",
+			"clearCacheCleared": "",
+			"dismissedErrorBanners": "",
+			"dismissedErrorBannersDescription": "",
+			"reset": "",
+			"reset.tooltip": "",
+			"resetDismissedBanners": "",
+			"clearHistoryDescription_one": "",
+			"clearHistoryDescription_other": "",
+			"providerQuotaCacheDescription_one": "",
+			"providerQuotaCacheDescription_other": ""
+		},
+		"dataStorageAndLogging": {
+			"title": ""
+		},
+		"backup": {
+			"title": "",
+			"description": "",
+			"restoreRequirements": "",
+			"restoreRequirements.masterKey": "",
+			"restoreRequirements.masterKeyDescription": "",
+			"restoreRequirements.adminToken": "",
+			"restoreRequirements.adminTokenDescription": "",
+			"restoreRequirements.virtualKeys": "",
+			"restoreRequirements.virtualKeysDescription": "",
+			"createBackup": "",
+			"creatingBackup": "",
+			"uploadRestore": "",
+			"restoring": "",
+			"selectBackupFile": "",
+			"availableBackups": "",
+			"noBackups": "",
+			"download": "",
+			"delete": "",
+			"deleteConfirm": "",
+			"confirm": "",
+			"cancel": "",
+			"backupFailed": "",
+			"backupDeleted": "",
+			"deleteFailed": "",
+			"restoreSuccess": "",
+			"serverBackOnline": "",
+			"serverRestarting": "",
+			"restoreFailed": "",
+			"backupCreated": "",
+			"downloadFailed": ""
+		},
+		"appearance": {
+			"title": "",
+			"uiStyle": "",
+			"theme": "",
+			"themeDescription": "",
+			"dark": "",
+			"light": "",
+			"accentColor": "",
+			"customColor": "",
+			"colorPicker": {
+				"title": "",
+				"cancel": "",
+				"apply": ""
+			},
+			"uiStyles": {
+				"cleanSaas": "",
+				"cleanSaasDescription": "",
+				"cyberTerminal": "",
+				"cyberTerminalDescription": "",
+				"glassmorphism": "",
+				"glassmorphismDescription": ""
+			}
+		},
+		"toast": {
+			"title": "",
+			"description": "",
+			"position": {
+				"topLeft": "",
+				"topCenter": "",
+				"topRight": "",
+				"bottomLeft": "",
+				"bottomCenter": "",
+				"bottomRight": ""
+			},
+			"testNotification": "",
+			"autoDismiss": "",
+			"autoDismissDescription": "",
+			"seconds": ""
+		},
+		"dashboard": {
+			"title": "",
+			"description": "",
+			"refreshInterval": "",
+			"refreshInterval.description": "",
+			"disabled": "",
+			"intervals": {
+				"10": "",
+				"30": "",
+				"60": "",
+				"120": "",
+				"300": "",
+				"600": "",
+				"disabled": ""
+			},
+			"intervalSet_one": "",
+			"intervalSet_other": "",
+			"pleaseWaitBeforeRefreshing": "",
+			"refreshingDashboard": ""
+		},
+		"sidebarQuota": {
+			"title": "",
+			"description": "",
+			"showQuotasPill": "",
+			"showQuotasPillDescription": "",
+			"refreshInterval": "",
+			"refreshInterval.description": "",
+			"disabled": "",
+			"enabledQuotas": "",
+			"disabledQuotas": "",
+			"intervals": {
+				"1": "",
+				"2": "",
+				"5": "",
+				"10": "",
+				"15": "",
+				"30": "",
+				"disabled": ""
+			},
+			"intervalSet_one": "",
+			"intervalSet_other": ""
+		},
+		"common": {
+			"cancel": "",
+			"enabled": "",
+			"disabled": "",
+			"deleting": "",
+			"settingsSaved": "",
+			"failedToSave": "",
+			"requestsDeleted": "",
+			"failedToDeleteRequests": "",
+			"entriesDeleted": "",
+			"failedToDeleteAppLogs": "",
+			"resetToDefaults": "",
+			"resetSection": "",
+			"resetSetting": "",
+			"resetAllSettings": "",
+			"resetAllConfirmTitle": "",
+			"resetAllConfirmMessage": "",
+			"resetAllConfirmField": "",
+			"resetSectionConfirmTitle": "",
+			"resetSectionConfirmMessage": "",
+			"resetSettingDone": "",
+			"resetSectionDone": "",
+			"resetAllDone": "",
+			"resetFailed": ""
+		},
+		"colorPicker": {
+			"title": "",
+			"cancel": "",
+			"apply": ""
+		},
+		"passkeys": {
+			"title": "",
+			"description": "",
+			"registerPasskey": "",
+			"registering": "",
+			"registerAriaLabel": "",
+			"securityKey": "",
+			"transportInternal": "",
+			"transportUsb": "",
+			"transportNfc": "",
+			"transportBle": "",
+			"transportHybrid": "",
+			"registered": "",
+			"deleteAriaLabel": "",
+			"deleted": "",
+			"failedToDelete": "",
+			"registeredSuccess": "",
+			"failedToRegister": "",
+			"alreadyRegistered": "",
+			"nameAriaLabel": "",
+			"saveNameAriaLabel": "",
+			"cancelNameAriaLabel": "",
+			"renameAriaLabel": "",
+			"failedToRename": ""
+		}
+	},
+	"components": {
+		"deleteConfirmModal": {
+			"confirmDelete": "",
+			"deleteType": "",
+			"areYouSure": ""
+		},
+		"confirmDialog": {
+			"discardChangesTo": "",
+			"close": ""
+		},
+		"confirmDeleteButton": {
+			"deleteKey": "",
+			"yesDelete": "",
+			"areYouSure": ""
+		},
+		"restoreConfirmModal": {
+			"title": "",
+			"overwriteWarning": "",
+			"destroyWarning": "",
+			"requirements": "",
+			"masterKeyMatch": "",
+			"masterKeyInfo": "",
+			"adminTokenNotInBackup": "",
+			"adminTokenInfo": "",
+			"virtualKeysIrrecoverable": "",
+			"virtualKeysInfo": "",
+			"confirmWithAdminToken": "",
+			"enterAdminToken": "",
+			"restoring": "",
+			"restoreDatabase": "",
+			"cancel": ""
+		},
+		"modal": {
+			"closeDialog": "",
+			"close": ""
+		},
+		"filterInput": {
+			"filter": "",
+			"clearFilter": ""
+		},
+		"copyButton": {
+			"copy": "",
+			"copiedToClipboard": "",
+			"failedToCopy": ""
+		},
+		"copyablePill": {
+			"copy": "",
+			"copyToClipboard": "",
+			"copied": "",
+			"failedToCopy": ""
+		},
+		"collapsibleToggle": {
+			"expand": "",
+			"collapse": ""
+		},
+		"loadingSpinner": {
+			"loading": ""
+		},
+		"logs": {
+			"liveToggle": {
+				"paused": "",
+				"resumed": "",
+				"live": ""
+			},
+			"viewModeToggle": {
+				"switchToScroll": "",
+				"switchToPagination": "",
+				"scroll": "",
+				"pages": ""
+			},
+			"dateFilterButton": {
+				"filterByDateRange": "",
+				"clearDateFilter": "",
+				"dateFilterWithRange": ""
+			},
+			"dateRangePicker": {
+				"selectDateRange": "",
+				"close": "",
+				"selectEndDate": "",
+				"selectStartDate": "",
+				"clear": "",
+				"apply": ""
+			},
+			"errorState": {
+				"failedToLoad": ""
+			}
+		},
+		"appLogDetail": {
+			"title": "",
+			"timestamp": "",
+			"level": "",
+			"source": "",
+			"message": "",
+			"copyMessage": ""
+		},
+		"paramSlider": {
+			"off": ""
+		},
+		"reasoningEffortSelect": {
+			"reasoningEffort": "",
+			"off": "",
+			"low": "",
+			"medium": "",
+			"high": ""
+		},
+		"dataTable": {
+			"sortBy": "",
+			"prev": "",
+			"next": "",
+			"entries": "",
+			"entriesShort": "",
+			"perPage": "",
+			"noEntries": "",
+			"countOne": "",
+			"to": "",
+			"of": ""
+		},
+		"modelPicker": {
+			"filterModels": "",
+			"random": "",
+			"expandAllProviders": "",
+			"collapseAllProviders": "",
+			"noModelsMatch": "",
+			"clearFilter": "",
+			"paramsLocked": "",
+			"editParams": "",
+			"addParams": ""
+		},
+		"modelDetailPanel": {
+			"resetParameters": "",
+			"generationParameters": "",
+			"close": "",
+			"expandModelDetails": "",
+			"collapseModelDetails": "",
+			"provider": "",
+			"modelId": "",
+			"context": "",
+			"inputPricePerMillion": "",
+			"outputPricePerMillion": "",
+			"capabilities": "",
+			"proxyId": "",
+			"parametersLockedWhileRunning": "",
+			"editGenerationParameters": "",
+			"addGenerationParameters": "",
+			"temperature": "",
+			"maxTokens": "",
+			"topP": "",
+			"minP": "",
+			"topK": "",
+			"freqPenalty": "",
+			"presPenalty": "",
+			"maxOut": ""
+		},
+		"modelTable": {
+			"searchModels": "",
+			"deleteDisabled": "",
+			"model": "",
+			"capabilities": "",
+			"provider": "",
+			"discovered": "",
+			"context": "",
+			"maxOutput": "",
+			"status": "",
+			"modelNameAndId": "",
+			"providerName": "",
+			"whenModelDiscovered": "",
+			"maximumContextLength": "",
+			"maximumOutputTokens": "",
+			"modelStatus": "",
+			"noModelsMatchFilters": "",
+			"noModelsDiscovered": "",
+			"deleteDisabledModels": "",
+			"models": "",
+			"deleteDisabledAria_one": "",
+			"deleteDisabledAria_other": "",
+			"deleteDisabledMessage_one": "",
+			"deleteDisabledMessage_other": "",
+			"clickToCopyId": "",
+			"deleteDisabledLabel_one": "",
+			"deleteDisabledLabel_other": ""
+		},
+		"virtualModelTable": {
+			"searchModels": "",
+			"deleteDisabled": "",
+			"noModelsFound": "",
+			"deleteDisabledModels": "",
+			"deleteDisabledAria_one": "",
+			"deleteDisabledAria_other": "",
+			"deleteDisabledMessage_one": "",
+			"deleteDisabledMessage_other": "",
+			"disabledModels_one": "",
+			"disabledModels_other": ""
+		},
+		"modelReplyCard": {
+			"modelDetails": "",
+			"maximizeReply": "",
+			"copy": "",
+			"disableModel": "",
+			"disable": "",
+			"thinking": "",
+			"waiting": "",
+			"thinkingDots": "",
+			"turn": "",
+			"tokPerSec": "",
+			"tok": ""
+		},
+		"providerFilter": {
+			"filterProviders": "",
+			"clearFilter": "",
+			"searchProviders": "",
+			"selectAll": "",
+			"clear": "",
+			"noProvidersFound": "",
+			"provider_one": "",
+			"provider_other": ""
+		},
+		"providerModals": {
+			"nanoGPTSubscription": "",
+			"active": "",
+			"inactive": "",
+			"showQuotaUsed": "",
+			"showQuotaRemaining": "",
+			"refresh": "",
+			"refreshQuotaInfo": "",
+			"toggleRemainingUsed": "",
+			"weeklyTokenQuota": "",
+			"used": "",
+			"noLimitSet": "",
+			"dailyImages": "",
+			"dailyInputTokens": "",
+			"subscriptionDetails": "",
+			"provider": "",
+			"status": "",
+			"periodEnd": "",
+			"allowOverage": "",
+			"yes": "",
+			"no": "",
+			"subscriptionWillCancel": "",
+			"lastRefreshed": "",
+			"zAICodingPlanQuota": "",
+			"plan": "",
+			"hTokenQuota": "",
+			"left": "",
+			"mcpTokenQuota": "",
+			"openRouterCredits": "",
+			"freeTier": "",
+			"paidAccount": "",
+			"showCreditsUsed": "",
+			"showCreditsRemaining": "",
+			"refreshBalanceInfo": "",
+			"accountBalance": "",
+			"spentTotal": "",
+			"keySpendingLimit": "",
+			"remaining": "",
+			"limitReset": "",
+			"resets": "",
+			"keyUsage": "",
+			"spendingByThisKey": "",
+			"today": "",
+			"thisWeek": "",
+			"thisMonth": "",
+			"allTime": "",
+			"quotaRefreshed": "",
+			"failedToRefreshQuota": "",
+			"balanceRefreshed": "",
+			"failedToRefreshBalance": "",
+			"noCredits": "",
+			"cancelAtPeriodEnd": "",
+			"neuralWattCredits": "",
+			"neuralwattBalance": "",
+			"neuralwattUsage": "",
+			"neuralwattSubscription": "",
+			"neuralwattPlan": "",
+			"neuralwattStatus": "",
+			"neuralwattBillingPeriod": "",
+			"neuralwattAutoRenew": "",
+			"neuralwattKwhIncluded": "",
+			"neuralwattKwhUsed": "",
+			"neuralwattKwhRemaining": "",
+			"neuralwattCurrentMonth": "",
+			"neuralwattCost": "",
+			"neuralwattRequests": "",
+			"neuralwattTokens": "",
+			"neuralwattEnergy": "",
+			"neuralwattKeyName": "",
+			"neuralwattAllowance": "",
+			"neuralwattRateLimitTier": "",
+			"neuralwattOverageLimit": "",
+			"neuralwattInOverage": "",
+			"neuralwattLifetime": "",
+			"neuralwattKeyInfo": "",
+			"neuralwattEnergyQuota": "",
+			"neuralwattEnergyAllocation": "",
+			"neuralwattBillingInterval": "",
+			"neuralwattAccountingMethod": "",
+			"limits": "",
+			"none": ""
+		},
+		"providerQuotaPanel": {
+			"quotas": "",
+			"expandQuotas": "",
+			"collapse": "",
+			"quotaPanelCollapsed": "",
+			"quotaPanelExpanded": "",
+			"refreshAllQuotas": "",
+			"pleaseWaitBeforeRefreshing": "",
+			"refreshingQuotas": ""
+		},
+		"personaPicker": {
+			"persona": "",
+			"customPersonaPlaceholder": "",
+			"switchToCustom": "",
+			"overwritePrompt": "",
+			"clearPersonaPrompt": "",
+			"systemPrompt": ""
+		},
+		"promptPicker": {
+			"prompt": "",
+			"enterPromptPlaceholder": "",
+			"switchToCustom": "",
+			"overwritePrompt": "",
+			"promptField": ""
+		},
+		"presetBar": {
+			"random": "",
+			"custom": ""
+		},
+		"conversationConfig": {
+			"title": "",
+			"rounds": "",
+			"delay": "",
+			"round": "",
+			"nextIn": "",
+			"status": "",
+			"expandConfig": "",
+			"collapseConfig": "",
+			"generationFailed": "",
+			"generationFailedWithModel": "",
+			"maxTurns": "",
+			"turnDelay": "",
+			"prompt": "",
+			"selectBothModelsFirst": "",
+			"enterTopicOrQuestion": "",
+			"continue": "",
+			"start": "",
+			"reenterOrEditPrompt": "",
+			"retry": "",
+			"retryFromTurn": "",
+			"stop": ""
+		},
+		"thinkingBlock": {
+			"thinking": ""
+		},
+		"arenaHistoryModal": {
+			"matchHistory": "",
+			"all": "",
+			"competition": "",
+			"compare": "",
+			"noMatchHistory": "",
+			"completedSessionsHere": "",
+			"match": "",
+			"final": "",
+			"semifinals": "",
+			"quarterfinals": "",
+			"round": "",
+			"winner": "",
+			"responsesAbbrev": "",
+			"error": "",
+			"restoreSetup": "",
+			"delete": "",
+			"customPrompt": "",
+			"clearAllHistory": "",
+			"clickAgainToConfirm": "",
+			"vs": "",
+			"bracket": "",
+			"response_one": "",
+			"response_other": "",
+			"entries_one": "",
+			"entries_other": "",
+			"entries": ""
+		},
+		"logDetailModal": {
+			"logEntryDetails": "",
+			"timestamp": "",
+			"level": "",
+			"source": "",
+			"message": "",
+			"copyMessage": ""
+		},
+		"requestLogDetail": {
+			"title": "",
+			"requestDetails": "",
+			"attempt": "",
+			"duration": "",
+			"totalWallClockTime": "",
+			"headers": "",
+			"timeToReceiveHeaders": "",
+			"ttft": "",
+			"timeToFirstToken": "",
+			"tokensPerSecond": "",
+			"outputTokensPerSecond": "",
+			"totalTokens": "",
+			"sumOfTokens": "",
+			"requestHash": "",
+			"model": "",
+			"copyModelId": "",
+			"resolved": "",
+			"provider": "",
+			"dbRowId": "",
+			"timestamp": "",
+			"copyDbRowId": "",
+			"virtualKey": "",
+			"tokenUsage": "",
+			"prompt": "",
+			"completion": "",
+			"reasoning": "",
+			"cacheHit": "",
+			"cacheMiss": "",
+			"overheadCacheHit": "",
+			"overheadCacheMiss": "",
+			"proxyOverheadBreakdown": "",
+			"requestParsing": "",
+			"timeToParseRequest": "",
+			"failoverGroupLookup": "",
+			"timeToResolveFailover": "",
+			"modelLookup": "",
+			"timeToLookupModel": "",
+			"providerLookup": "",
+			"timeToLookupProvider": "",
+			"keyDecryption": "",
+			"timeToDecryptKey": "",
+			"dialDnsTcp": "",
+			"timeToEstablishTcp": "",
+			"settingsReads": "",
+			"timeToReadSettings": "",
+			"reused": "",
+			"totalOverhead": "",
+			"error": "",
+			"copyErrorMessage": ""
+		},
+		"statusBadge": {
+			"streaming": "",
+			"pending": "",
+			"failed": "",
+			"ok": "",
+			"clientError": "",
+			"serverError": ""
+		},
+		"logDetailStatusBadge": {
+			"streaming": "",
+			"pending": "",
+			"failed": "",
+			"ok": "",
+			"clientError": "",
+			"serverError": ""
+		},
+		"virtualLogTable": {
+			"noLogsFound": "",
+			"entries": "",
+			"loadingNewer": "",
+			"loadingOlder": "",
+			"timeDate": "",
+			"hash": "",
+			"model": "",
+			"provider": "",
+			"providerDeleted": "",
+			"status": "",
+			"tokens": "",
+			"tps": "",
+			"tokensPerSecond": "",
+			"headers": "",
+			"ttft": "",
+			"duration": "",
+			"overhead": "",
+			"key": "",
+			"interrupted": "",
+			"internal": "",
+			"cacheInflated": "",
+			"deleted": "",
+			"zeroEntries": ""
+		},
+		"virtualAppLogTable": {
+			"noEntriesFound": "",
+			"entries": "",
+			"loadingNewer": "",
+			"loadingOlder": "",
+			"timeDate": "",
+			"level": "",
+			"source": "",
+			"message": "",
+			"zeroEntries": ""
+		},
+		"applyRecommendedButton": {
+			"loading": "",
+			"applyRecommended": "",
+			"params": "",
+			"modelsDevMatched": "",
+			"noRecommendationsAvailable": "",
+			"tooltip": ""
+		},
+		"viewModeToggle": {
+			"switchToScroll": "",
+			"switchToPagination": "",
+			"scroll": "",
+			"pages": ""
+		},
+		"liveToggleButton": {
+			"live": "",
+			"liveUpdatesPaused": "",
+			"liveUpdatesResumed": ""
+		},
+		"dateRangePickerPopover": {
+			"selectDateRange": "",
+			"closeDatePicker": "",
+			"selectEndDate": "",
+			"selectStartDate": "",
+			"clear": "",
+			"apply": ""
+		},
+		"dateFilterButton": {
+			"filterByDateRange": "",
+			"dateFilter": "",
+			"clearDateFilter": "",
+			"clearDateFilterShort": ""
+		},
+		"terminalPreview": {
+			"copySnippet": "",
+			"windows": "",
+			"bash": "",
+			"powershell": ""
+		},
+		"quotaBadge": {
+			"weeklyTokensRemaining": "",
+			"weeklyTokenQuota": "",
+			"zaiCodingRemaining": "",
+			"zaiCodingUsed": "",
+			"deepseekBalance": "",
+			"deepseekBalanceUnavailable": "",
+			"openrouterBalance": "",
+			"openrouterBalanceUnavailable": "",
+			"ollamaCloudPlan": "",
+			"ollamaCloudPlanEnds": "",
+			"ollamaCloudUnavailable": "",
+			"nanoWeeklyTokensRemaining": "",
+			"nanoWeeklyTokenQuota": "",
+			"openRouterKeyBalance": "",
+			"ollamaCloudPlanWithEnd": "",
+			"updated": "",
+			"neuralwattBalance": "",
+			"neuralwattBalanceUnavailable": ""
+		},
+		"filterDropdown": {
+			"placeholder": "",
+			"allLabel": ""
+		},
+		"providerModelsModal": {
+			"modelCount_one": "",
+			"modelCount_other": ""
+		}
+	},
+	"failoverGroups": {
+		"create": {
+			"editTitle": "",
+			"createTitle": "",
+			"displayModelName": "",
+			"displayModelNamePlaceholder": "",
+			"displayModelNameHelper": "",
+			"displayNameOptional": "",
+			"displayNamePlaceholder": "",
+			"descriptionOptional": "",
+			"descriptionPlaceholder": "",
+			"modelEntries": "",
+			"selectedCount_one": "",
+			"selectedCount_other": "",
+			"saving": "",
+			"creating": "",
+			"createGroup": ""
+		},
+		"countLabel_one": "",
+		"countLabel_other": "",
+		"alphabetSidebar": "",
+		"card": {
+			"copy": "",
+			"active": "",
+			"tokens": ""
+		},
+		"entry": {
+			"disableProvider": "",
+			"enableProvider": "",
+			"circuitBreakerOpen": "",
+			"circuitBreakerHalfOpen": ""
+		}
+	},
+	"virtualKeys": {
+		"global": "",
+		"snippet": {
+			"curl": "",
+			"powershell": "",
+			"python": "",
+			"openclaw": "",
+			"javascript": "",
+			"librechat": "",
+			"claudeCode": "",
+			"zed": "",
+			"hermes": "",
+			"opencode": ""
+		},
+		"create": {
+			"providerRequired": "",
+			"clickToCopyKey": "",
+			"createKey": ""
+		},
+		"detail": {
+			"rps": "",
+			"burst": ""
+		}
+	},
+	"hooks": {
+		"useMultimodalAttachments": {
+			"noImageSupport": "",
+			"imageTooLarge": "",
+			"audioTooLarge": "",
+			"imagePasted": ""
+		},
+		"useChatPersistence": {
+			"storageFullChat": ""
+		},
+		"useChat": {
+			"messageDeleted": "",
+			"canOnlyDeleteRecent": ""
+		},
+		"useConversationRunner": {
+			"generationError": ""
+		},
+		"useArenaPersistence": {
+			"storageFullArena": ""
+		},
+		"useArenaRunner": {
+			"generationError": "",
+			"retry": "",
+			"networkError": ""
+		},
+		"useQuotaData": {
+			"nanoGPTError": "",
+			"zaiError": "",
+			"deepSeekError": "",
+			"openRouterError": "",
+			"ollamaCloudError": "",
+			"neuralwattError": ""
+		},
+		"useDisableModel": {
+			"success": "",
+			"error": ""
+		},
+		"useBidirectionalFetch": {
+			"initialError": "",
+			"newerError": "",
+			"olderError": ""
+		},
+		"useRecommendedSettings": {
+			"fetchError": ""
+		}
+	},
+	"theme": {
+		"accent": {
+			"steelBlue": "",
+			"emerald": "",
+			"gold": "",
+			"forest": "",
+			"sky": "",
+			"violet": "",
+			"hotPink": "",
+			"lime": "",
+			"teal": "",
+			"fuchsia": ""
+		}
+	},
+	"context": {
+		"toast": {
+			"clickToCopyDismiss": ""
+		}
+	},
+	"paramCompat": {
+		"anthropic": {
+			"topP": "",
+			"frequencyPenalty": "",
+			"presencePenalty": "",
+			"minP": "",
+			"reasoningEffort": ""
+		},
+		"google": {
+			"frequencyPenalty": "",
+			"presencePenalty": "",
+			"topK": "",
+			"minP": "",
+			"reasoningEffort": ""
+		},
+		"cohere": {
+			"topK": "",
+			"minP": "",
+			"reasoningEffort": ""
+		},
+		"openai": {
+			"minP": "",
+			"topK": ""
+		},
+		"deepseek": {
+			"minP": "",
+			"topK": "",
+			"reasoningEffort": ""
+		},
+		"xai": {
+			"minP": "",
+			"topK": ""
+		},
+		"ollama": {
+			"minP": "",
+			"reasoningEffort": ""
+		},
+		"ollamaCloud": {
+			"minP": "",
+			"reasoningEffort": ""
+		},
+		"zaiCoding": {
+			"minP": "",
+			"topK": "",
+			"reasoningEffort": ""
+		},
+		"nanogpt": {
+			"reasoningEffort": ""
+		},
+		"openrouter": {
+			"reasoningEffort": ""
+		},
+		"opencodeZen": {
+			"reasoningEffort": ""
+		},
+		"opencodeGo": {
+			"reasoningEffort": ""
+		},
+		"koboldcpp": {
+			"reasoningEffort": ""
+		},
+		"lmstudio": {
+			"reasoningEffort": ""
+		},
+		"custom": {
+			"reasoningEffort": ""
+		}
+	}
+}
