@@ -195,7 +195,7 @@
 			"acknowledge": "Acknowledge (dismiss)",
 			"request": "Request"
 		},
-		"docs": "Docs",
+		"docs": "Wiki",
 		"running": "Running {{running}}",
 		"runningLatest": "Running latest ({{running}})",
 		"updateAvailable": "Update available: {{running}} → {{latest}}",

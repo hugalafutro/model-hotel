@@ -1032,7 +1032,7 @@ export function Layout({ children }: LayoutProps) {
 					<LastErrorPills />
 					<div className="flex justify-between items-center mb-2 gap-1">
 						<a
-							href="https://github.com/hugalafutro/model-hotel"
+							href="https://github.com/hugalafutro/model-hotel/wiki"
 							target="_blank"
 							rel="noopener noreferrer"
 							className="sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5"
