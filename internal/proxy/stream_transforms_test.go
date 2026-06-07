@@ -73,3 +73,55 @@ func TestStripEmptyReasoningContent(t *testing.T) {
 		}
 	})
 }
+
+// TestNormalizeReasoningChunk covers the reasoning-normalization transform's
+// compute (Phase 4): folding provider-specific reasoning fields into
+// reasoning_content, the no-op case, and the unparseable case.
+func TestNormalizeReasoningChunk(t *testing.T) {
+	t.Parallel()
+	ld := &requestLogData{modelID: "m", providerName: "p"}
+	strptr := func(s string) *string { return &s }
+
+	deltaOf := func(b []byte) map[string]json.RawMessage {
+		var raw struct {
+			Choices []struct {
+				Delta map[string]json.RawMessage `json:"delta"`
+			} `json:"choices"`
+		}
+		if err := json.Unmarshal(b, &raw); err != nil || len(raw.Choices) == 0 {
+			t.Fatalf("re-decode %q: %v", b, err)
+		}
+		return raw.Choices[0].Delta
+	}
+
+	t.Run("folds Ollama reasoning into reasoning_content", func(t *testing.T) {
+		var lastFR string
+		in := `{"id":"x","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"reasoning":"r"},"finish_reason":null}]}`
+		out, ok := normalizeReasoningChunk(nil, nil, in, &lastFR, ld)
+		if !ok {
+			t.Fatal("expected ok=true")
+		}
+		delta := deltaOf(out)
+		rc, has := delta["reasoning_content"]
+		if !has || string(rc) != `"r"` {
+			t.Errorf("reasoning_content = %s (has=%v), want \"r\"", rc, has)
+		}
+	})
+
+	t.Run("plain content is a no-op", func(t *testing.T) {
+		var lastFR string
+		in := `{"id":"x","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"hi"},"finish_reason":null}]}`
+		out, ok := normalizeReasoningChunk(strptr("hi"), nil, in, &lastFR, ld)
+		if ok || out != nil {
+			t.Errorf("expected (nil,false) for a plain content chunk, got (%q,%v)", out, ok)
+		}
+	})
+
+	t.Run("unparseable payload returns false", func(t *testing.T) {
+		var lastFR string
+		out, ok := normalizeReasoningChunk(nil, nil, `not json`, &lastFR, ld)
+		if ok || out != nil {
+			t.Errorf("expected (nil,false), got (%q,%v)", out, ok)
+		}
+	})
+}

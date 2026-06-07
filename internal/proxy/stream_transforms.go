@@ -34,3 +34,66 @@ func stripEmptyReasoningContent(payload string, lastFinishReason *string, logDat
 	newPayload, _ := json.Marshal(p.raw)
 	return newPayload, true
 }
+
+// normalizeReasoningChunk ensures reasoning_content is populated regardless of
+// upstream provider format: delta.reasoning (Ollama), delta.reasoning_details
+// (OpenRouter/MiniMax), or <thinking> tags in delta.content. content and
+// reasoningContent are the typed delta fields; the raw reasoning/reasoning_details
+// are pulled from the parsed payload. It returns the re-serialized payload and
+// true only when NormalizeReasoningFields changed something AND the payload
+// parsed; otherwise (nil, false), and the caller leaves the chunk for the later
+// blocks (matching the prior `if Normalize... { if parsedOk { … } }` nesting).
+// finish_reason is normalized in place via lastFinishReason.
+func normalizeReasoningChunk(content, reasoningContent *string, payload string, lastFinishReason *string, logData *requestLogData) ([]byte, bool) {
+	// Build a map from the typed delta fields for normalization.
+	deltaMap := make(map[string]interface{})
+	if content != nil {
+		deltaMap["content"] = *content
+	}
+	if reasoningContent != nil {
+		deltaMap["reasoning_content"] = *reasoningContent
+	}
+	// Parse the raw payload once to capture reasoning/reasoning_details which
+	// aren't in the typed struct, and reuse the parsed result for re-serialization.
+	chunkParsed, chunkParsedOk := parseChunkPayload(payload)
+	if chunkParsedOk {
+		// Extract reasoning field (Ollama, OpenRouter).
+		if rRaw, ok := chunkParsed.delta["reasoning"]; ok {
+			var rStr string
+			if json.Unmarshal(rRaw, &rStr) == nil && rStr != "" {
+				deltaMap["reasoning"] = rStr
+			}
+		}
+		// Extract reasoning_details (OpenRouter, MiniMax).
+		if rdRaw, ok := chunkParsed.delta["reasoning_details"]; ok {
+			var rdArr []interface{}
+			if json.Unmarshal(rdRaw, &rdArr) == nil {
+				deltaMap["reasoning_details"] = rdArr
+			}
+		}
+	}
+	if !NormalizeReasoningFields(deltaMap) || !chunkParsedOk {
+		return nil, false
+	}
+	// Patch reasoning_content into the delta.
+	if rc, ok := deltaMap["reasoning_content"]; ok {
+		if rcStr, ok2 := rc.(string); ok2 {
+			escaped, _ := json.Marshal(rcStr)
+			chunkParsed.delta["reasoning_content"] = json.RawMessage(escaped)
+		}
+	}
+	// Patch content if it was modified (tag extraction).
+	if c, ok := deltaMap["content"]; ok {
+		if cStr, ok2 := c.(string); ok2 {
+			escaped, _ := json.Marshal(cStr)
+			chunkParsed.delta["content"] = json.RawMessage(escaped)
+		}
+	}
+	newDelta, _ := json.Marshal(chunkParsed.delta)
+	chunkParsed.choices[0]["delta"] = json.RawMessage(newDelta)
+	normalizeFinishReasonInChoices(chunkParsed.choices, lastFinishReason, logData.modelID, logData.providerName)
+	newChoices, _ := json.Marshal(chunkParsed.choices)
+	chunkParsed.raw["choices"] = json.RawMessage(newChoices)
+	newPayload, _ := json.Marshal(chunkParsed.raw)
+	return newPayload, true
+}
