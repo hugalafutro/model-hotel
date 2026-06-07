@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -46,8 +45,9 @@ type streamState struct {
 // Extracted in Phase 2 of the streaming-pipeline refactor; behavior is
 // unchanged. The watchdog teardown stays in the orchestrator (it owns the
 // watchdog goroutine), so st.stalled is read from the atomic before this runs.
-// statusCode is the upstream response status (resp.StatusCode).
-func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanner *bufio.Scanner, logData *requestLogData, opts streamOptions, statusCode int, startTime time.Time) {
+// statusCode is the upstream response status (resp.StatusCode); scanErr is the
+// reader's terminal scanner error (reader.err()).
+func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr error, logData *requestLogData, opts streamOptions, statusCode int, startTime time.Time) {
 	totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
 	var tps float64
 	// Use total output tokens (text + reasoning) for TPS numerator,
@@ -69,8 +69,8 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanner *buf
 	}
 
 	errMsg := st.lastErrMsg
-	if errMsg == "" && scanner.Err() != nil {
-		scannerErr := scanner.Err()
+	if errMsg == "" && scanErr != nil {
+		scannerErr := scanErr
 		switch {
 		case errors.Is(scannerErr, context.Canceled):
 			// The scanner caught the cancellation before the select between
@@ -114,7 +114,7 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanner *buf
 		// Upstream closed without [DONE] sentinel. If we received content and
 		// the scanner didn't error, inject the sentinel for the downstream
 		// client so the frontend knows the stream completed normally.
-		if !st.clientDisconnected && scanner.Err() == nil && st.chunkCount > 0 {
+		if !st.clientDisconnected && scanErr == nil && st.chunkCount > 0 {
 			debuglog.Info("proxy: upstream omitted [DONE] sentinel; injecting for downstream", "model", logData.modelID, "provider", logData.providerName, "chunks", st.chunkCount)
 			if err := sink.write([]byte("data: [DONE]\n\n")); err != nil {
 				debuglog.Warn("proxy: failed to write injected [DONE]", "model", logData.modelID, "provider", logData.providerName, "error", err)

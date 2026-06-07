@@ -74,50 +74,17 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	// of the streaming-pipeline refactor). All emit paths go through it.
 	sink := newStreamSink(w)
 
-	// Create scanner: if TTFT probe was used, replay probed bytes first.
-	var scanner *bufio.Scanner
-	if opts.preReadBuf != nil {
-		scanner = bufio.NewScanner(io.MultiReader(bytes.NewReader(opts.preReadBuf.Bytes()), resp.Body))
-	} else {
-		scanner = bufio.NewScanner(resp.Body)
-	}
-	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024) // 4MB per line
-	debuglog.Debug("proxy: streaming scanner created", "model", logData.modelID, "provider", logData.providerName, "replaying_probe", opts.preReadBuf != nil)
+	// streamReader owns the scanner (replaying the TTFT probe buffer), the
+	// stall watchdog, chunk counting, the empty-line limit, client-disconnect
+	// detection, BOM/CR cleanup, and SSE classification (Phase 3). It yields
+	// classified sseEvents; this orchestrator owns emits and transforms.
+	reader := newStreamReader(r.Context(), resp.Body, opts, logData)
 
-	// Stall watchdog: if streamStallTimeout > 0, start a goroutine that
-	// closes resp.Body on timeout, unblocking the scanner.
-	var streamStalled int32 // set to 1 by watchdog on timeout
-	var stallCh chan time.Duration
-	var watchdogDone chan struct{}
-	if opts.streamStallTimeout > 0 {
-		stallCh = make(chan time.Duration, 1)
-		watchdogDone = make(chan struct{})
-		go func() {
-			timer := time.NewTimer(opts.streamStallTimeout)
-			defer timer.Stop()
-			for {
-				select {
-				case d := <-stallCh:
-					if !timer.Stop() {
-						<-timer.C
-					}
-					timer.Reset(d)
-				case <-timer.C:
-					atomic.StoreInt32(&streamStalled, 1)
-					_ = resp.Body.Close() // unblock scanner
-					return
-				case <-watchdogDone:
-					return
-				}
-			}
-		}()
-	}
 	var promptTokens, completionTokens, reasoningTokens int
 	var promptCacheHitTokens, promptCacheMissTokens int
 	var lastErrMsg string
 	clientDisconnected := false
 	sawDone := false
-	chunkCount := 0
 	errorChunkCount := 0
 	// Periodic streaming progress logging (every 50 chunks) to give
 	// visibility into stream health without flooding logs.
@@ -134,8 +101,6 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	// extract error messages from the subsequent data line.
 	var lastAnthropicEvent string
 
-	var emptyLines int
-	const emptyMessagesLimit = 1000
 	// P2-2: Track last finish_reason to suppress duplicate finish chunks.
 	// Some providers (notably OpenRouter routing to certain models) send
 	// two consecutive chunks with the same finish_reason, where the second
@@ -167,58 +132,29 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	}
 	debuglog.Debug("proxy: strip_reasoning flag", "enabled", stripReasoning, "model", logData.modelID, "provider", logData.providerName)
 
-	for scanner.Scan() {
-		line := scanner.Bytes()
-		chunkCount++
-
-		// Ping stall watchdog after each successful scan.
-		// After progressiveChunkThreshold chunks the stream is clearly
-		// alive — extend the timeout to tolerate tool-call pauses and
-		// long reasoning.
-		if stallCh != nil {
-			effectiveStall := opts.streamStallTimeout
-			if chunkCount > progressiveChunkThreshold {
-				effectiveStall = opts.streamStallTimeout * progressiveStallMultiplier
+	for {
+		ev, ok := reader.Next()
+		if !ok {
+			// Reader stopped: disconnect (skip the stream-end error flush,
+			// matching the prior goto), empty-line abort, or normal EOF.
+			if reader.disconnected {
+				clientDisconnected = true
+				goto logUpdate
 			}
-			select {
-			case stallCh <- effectiveStall:
-			default:
+			if reader.abortErrMsg != "" {
+				lastErrMsg = reader.abortErrMsg
 			}
+			break
 		}
+		chunkCount := reader.chunkCount
+		line := ev.raw
 
 		// Periodic streaming progress log for observability.
 		if chunkCount%chunkLogInterval == 0 {
 			debuglog.Debug("proxy: streaming progress", "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten, "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "thinking", sawThinking)
 		}
 
-		select {
-		case <-r.Context().Done():
-			clientDisconnected = true
-			goto logUpdate
-		default:
-		}
-
-		lineStr := string(line)
-		// P2-11: Strip UTF-8 BOM (\uFEFF) that some providers send at the
-		// start of a stream. Only check on the first chunk.
-		if chunkCount == 1 {
-			lineStr = strings.TrimPrefix(lineStr, "\uFEFF")
-		}
-		// P2-3: Trim leading \r and \n that some providers (notably Gemini)
-		// send before data: lines. SSE spec allows CR, LF, or CRLF as line
-		// terminators, but bufio.Scanner may leave a stray \r if the
-		// provider uses \r\r or \r\n\r\n between events.
-		lineStr = strings.TrimLeft(lineStr, "\r\n ")
-
-		if lineStr == "" {
-			// P2-4: Safety valve against streams that send only empty lines.
-			// go-openai uses ErrTooManyEmptyStreamMessages for this.
-			emptyLines++
-			if emptyLines > emptyMessagesLimit {
-				debuglog.Warn("proxy: too many empty SSE lines, aborting stream", "model", logData.modelID, "provider", logData.providerName, "limit", emptyMessagesLimit, "chunks", chunkCount)
-				lastErrMsg = "stream interrupted: too many empty lines"
-				break
-			}
+		if ev.kind == sseBlank {
 			// When strip_reasoning skips a reasoning chunk, the SSE
 			// separator (empty line) that followed it must also be
 			// suppressed. Bare \n events break parsers like openai-go's
@@ -240,22 +176,11 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			sink.flush()
 			continue
 		}
-		emptyLines = 0
 
-		// Match "data: " (standard) or "data:" (LM Studio and some proxies
-		// send SSE without a space after the colon). Strip leading whitespace
-		// from the payload so both forms yield the same JSON.
-		var payload string
-		//nolint:gocritic // if-else chain is clearer than switch for SSE prefix matching
-		if strings.HasPrefix(lineStr, "data: ") {
-			payload = lineStr[6:]
-		} else if strings.HasPrefix(lineStr, "data:") && len(lineStr) > 5 {
-			// "data:" with no space — LM Studio compatibility.
-			// Find where the JSON starts after optional whitespace.
-			payload = strings.TrimLeft(lineStr[5:], " \t")
-		} else {
-			// Not a data line — could be an SSE comment (": ..."),
-			// an event line, or a blank line. Pass through without parsing.
+		if ev.kind == sseComment {
+			// Not a data line — an SSE comment (": ..."), an event/id/retry
+			// directive, etc. Pass through without parsing.
+			lineStr := ev.clean
 			// P1-C: Detect Anthropic-style "event: error" lines for logging.
 			// Anthropic streams use typed events like:
 			//   event: error
@@ -293,7 +218,8 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			sink.flush()
 			continue
 		}
-		if payload == "[DONE]" {
+
+		if ev.kind == sseDone {
 			sawDone = true
 			// Write [DONE] sentinel to the downstream client.
 			if err := sink.write(line); err != nil {
@@ -310,6 +236,9 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			debuglog.Debug("proxy: received [DONE] sentinel", "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
 			break
 		}
+
+		// ev.kind == sseData — parse and transform the JSON payload.
+		payload := ev.payload
 
 		// Parse the JSON payload to extract usage, errors, and finish_reason.
 		// If finish_reason needs normalization, rewrite the line; otherwise
@@ -812,31 +741,29 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 		if accumulatedMsg := parseAccumulatedError(errAccum); accumulatedMsg != "" {
 			lastErrMsg = accumulatedMsg
 			errorChunkCount++
-			debuglog.Warn("proxy: accumulated SSE error (stream end)", "error_message", accumulatedMsg, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+			debuglog.Warn("proxy: accumulated SSE error (stream end)", "error_message", accumulatedMsg, "model", logData.modelID, "provider", logData.providerName, "chunks", reader.chunkCount)
 		}
 	}
 
 logUpdate:
-	// Signal watchdog to stop on all exit paths (goto or normal loop exit).
-	if watchdogDone != nil {
-		close(watchdogDone)
-	}
-	// Hand the accumulated metrics and carry flags to the finalizer. The
-	// stall flag is read from the watchdog's atomic here, after teardown.
+	// Stop the watchdog before reading its stall flag, matching the prior
+	// inline ordering (close, then read the atomic).
+	reader.Close()
+	// Hand the accumulated metrics and carry flags to the finalizer.
 	st := &streamState{
 		promptTokens:          promptTokens,
 		completionTokens:      completionTokens,
 		reasoningTokens:       reasoningTokens,
 		promptCacheHitTokens:  promptCacheHitTokens,
 		promptCacheMissTokens: promptCacheMissTokens,
-		chunkCount:            chunkCount,
+		chunkCount:            reader.chunkCount,
 		errorChunkCount:       errorChunkCount,
 		lastErrMsg:            lastErrMsg,
 		sawDone:               sawDone,
 		clientDisconnected:    clientDisconnected,
-		stalled:               atomic.LoadInt32(&streamStalled) == 1,
+		stalled:               reader.stalled(),
 	}
-	h.finalizeStream(st, sink, scanner, logData, opts, resp.StatusCode, startTime)
+	h.finalizeStream(st, sink, reader.err(), logData, opts, resp.StatusCode, startTime)
 }
 
 func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, proxyOverhead, parseMs, failoverLookupMs, modelLookupMs, providerLookupMs, keyDecryptMs, dialMs, settingsReadMs, responseHeaderMs float64, vkHash string, attempt int) {
