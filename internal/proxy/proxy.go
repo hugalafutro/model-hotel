@@ -29,11 +29,10 @@ var newRequestWithContext = http.NewRequestWithContext
 
 func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, opts streamOptions) {
 
-	// Progressive stall timeout: after this many chunks, the stream is
-	// clearly alive — extend the watchdog timeout to tolerate tool-call
-	// pauses and long reasoning chains.
-	const progressiveChunkThreshold = 50
-	const progressiveStallMultiplier = 3
+	// Progressive stall timeout (progressiveChunkThreshold /
+	// progressiveStallMultiplier, package consts): after this many chunks the
+	// stream is clearly alive — extend the watchdog timeout to tolerate
+	// tool-call pauses and long reasoning chains.
 
 	defer func() {
 		// Drain remaining bytes so the Transport reuses the connection.
@@ -71,92 +70,25 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	// delay the client. The final update (completed/failed) waits properly.
 	h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 
-	flusher, canFlush := w.(http.Flusher)
+	// streamSink owns w/flusher and the running bytesWritten total (Phase 1
+	// of the streaming-pipeline refactor). All emit paths go through it.
+	sink := newStreamSink(w)
 
-	// Create scanner: if TTFT probe was used, replay probed bytes first.
-	var scanner *bufio.Scanner
-	if opts.preReadBuf != nil {
-		scanner = bufio.NewScanner(io.MultiReader(bytes.NewReader(opts.preReadBuf.Bytes()), resp.Body))
-	} else {
-		scanner = bufio.NewScanner(resp.Body)
-	}
-	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024) // 4MB per line
-	debuglog.Debug("proxy: streaming scanner created", "model", logData.modelID, "provider", logData.providerName, "replaying_probe", opts.preReadBuf != nil)
+	// streamReader owns the scanner (replaying the TTFT probe buffer), the
+	// stall watchdog, chunk counting, the empty-line limit, client-disconnect
+	// detection, BOM/CR cleanup, and SSE classification (Phase 3). It yields
+	// classified sseEvents; this orchestrator owns emits and transforms.
+	reader := newStreamReader(r.Context(), resp.Body, opts, logData)
 
-	// Stall watchdog: if streamStallTimeout > 0, start a goroutine that
-	// closes resp.Body on timeout, unblocking the scanner.
-	var streamStalled int32 // set to 1 by watchdog on timeout
-	var stallCh chan time.Duration
-	var watchdogDone chan struct{}
-	if opts.streamStallTimeout > 0 {
-		stallCh = make(chan time.Duration, 1)
-		watchdogDone = make(chan struct{})
-		go func() {
-			timer := time.NewTimer(opts.streamStallTimeout)
-			defer timer.Stop()
-			for {
-				select {
-				case d := <-stallCh:
-					if !timer.Stop() {
-						<-timer.C
-					}
-					timer.Reset(d)
-				case <-timer.C:
-					atomic.StoreInt32(&streamStalled, 1)
-					_ = resp.Body.Close() // unblock scanner
-					return
-				case <-watchdogDone:
-					return
-				}
-			}
-		}()
-	}
-	var promptTokens, completionTokens, reasoningTokens int
-	var promptCacheHitTokens, promptCacheMissTokens int
-	var lastErrMsg string
-	clientDisconnected := false
-	sawDone := false
-	chunkCount := 0
-	errorChunkCount := 0
-	var bytesWritten int64
+	// st accumulates the per-stream metrics, carry flags, and observer state
+	// (Phase 4 §6 migration). Created before the loop and mutated in place so
+	// the transforms/observers and the finalizer share one named contract
+	// instead of a fistful of loop-locals. The stall flag and final chunkCount
+	// are filled from the reader at logUpdate.
+	st := &streamState{}
 	// Periodic streaming progress logging (every 50 chunks) to give
 	// visibility into stream health without flooding logs.
 	const chunkLogInterval = 50
-	// When strip_reasoning skips a chunk, we also need to suppress the
-	// following SSE separator (empty line). Otherwise bare \n events
-	// reach the client, which breaks parsers like openai-go's ssestream.
-	skipNextEmptyLine := false
-	// P1-B: Error accumulation buffer. Some providers (e.g. go-openai) split
-	// error JSON across multiple SSE data lines. We accumulate bytes until a
-	// non-error chunk arrives, then try to unmarshal the full accumulated error.
-	var errAccum []byte
-	// P1-C: Tracks the last Anthropic SSE event type (e.g. "error") so we can
-	// extract error messages from the subsequent data line.
-	var lastAnthropicEvent string
-
-	var emptyLines int
-	const emptyMessagesLimit = 1000
-	// P2-2: Track last finish_reason to suppress duplicate finish chunks.
-	// Some providers (notably OpenRouter routing to certain models) send
-	// two consecutive chunks with the same finish_reason, where the second
-	// has no content or usage — just a bare finish_reason repeat. Suppressing
-	// avoids downstream "empty response text" errors.
-	var lastFinishReason string
-	// P2-5: Detect repeated identical content chunks. Some models (notably
-	// xAI Grok reasoning) send the same reasoning text in consecutive deltas,
-	// causing infinite-style loops in downstream processors. We track
-	// consecutive identical content and log a warning when the threshold
-	// is exceeded.
-	var lastContent string
-	var repeatedCount int
-	const repeatedContentLimit = 10
-	// P2-7: Track native_finish_reason from OpenRouter for logging.
-	// OpenRouter includes this field alongside the normalized finish_reason,
-	// preserving the original provider's value for debugging.
-	var lastNativeFinishReason string
-	// Track whether we've seen reasoning_content (thinking) in this stream
-	// for first-occurrence debug logging.
-	sawThinking := false
 	// Read strip_reasoning flag from context once before the scanner loop.
 	// The value is set by ProxyKeyMiddleware and never changes mid-stream.
 	stripReasoning := false
@@ -167,100 +99,55 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	}
 	debuglog.Debug("proxy: strip_reasoning flag", "enabled", stripReasoning, "model", logData.modelID, "provider", logData.providerName)
 
-	for scanner.Scan() {
-		line := scanner.Bytes()
-		chunkCount++
-
-		// Ping stall watchdog after each successful scan.
-		// After progressiveChunkThreshold chunks the stream is clearly
-		// alive — extend the timeout to tolerate tool-call pauses and
-		// long reasoning.
-		if stallCh != nil {
-			effectiveStall := opts.streamStallTimeout
-			if chunkCount > progressiveChunkThreshold {
-				effectiveStall = opts.streamStallTimeout * progressiveStallMultiplier
+	for {
+		ev, ok := reader.Next()
+		if !ok {
+			// Reader stopped: disconnect (skip the stream-end error flush,
+			// matching the prior goto), empty-line abort, or normal EOF.
+			if reader.disconnected {
+				st.clientDisconnected = true
+				goto logUpdate
 			}
-			select {
-			case stallCh <- effectiveStall:
-			default:
+			if reader.abortErrMsg != "" {
+				st.lastErrMsg = reader.abortErrMsg
 			}
+			break
 		}
+		chunkCount := reader.chunkCount
+		line := ev.raw
 
 		// Periodic streaming progress log for observability.
 		if chunkCount%chunkLogInterval == 0 {
-			debuglog.Debug("proxy: streaming progress", "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", bytesWritten, "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "thinking", sawThinking)
+			debuglog.Debug("proxy: streaming progress", "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten, "prompt_tokens", st.promptTokens, "completion_tokens", st.completionTokens, "thinking", st.sawThinking)
 		}
 
-		select {
-		case <-r.Context().Done():
-			clientDisconnected = true
-			goto logUpdate
-		default:
-		}
-
-		lineStr := string(line)
-		// P2-11: Strip UTF-8 BOM (\uFEFF) that some providers send at the
-		// start of a stream. Only check on the first chunk.
-		if chunkCount == 1 {
-			lineStr = strings.TrimPrefix(lineStr, "\uFEFF")
-		}
-		// P2-3: Trim leading \r and \n that some providers (notably Gemini)
-		// send before data: lines. SSE spec allows CR, LF, or CRLF as line
-		// terminators, but bufio.Scanner may leave a stray \r if the
-		// provider uses \r\r or \r\n\r\n between events.
-		lineStr = strings.TrimLeft(lineStr, "\r\n ")
-
-		if lineStr == "" {
-			// P2-4: Safety valve against streams that send only empty lines.
-			// go-openai uses ErrTooManyEmptyStreamMessages for this.
-			emptyLines++
-			if emptyLines > emptyMessagesLimit {
-				debuglog.Warn("proxy: too many empty SSE lines, aborting stream", "model", logData.modelID, "provider", logData.providerName, "limit", emptyMessagesLimit, "chunks", chunkCount)
-				lastErrMsg = "stream interrupted: too many empty lines"
-				break
-			}
+		if ev.kind == sseBlank {
 			// When strip_reasoning skips a reasoning chunk, the SSE
 			// separator (empty line) that followed it must also be
 			// suppressed. Bare \n events break parsers like openai-go's
 			// ssestream (Warp's backend). Only forward the separator
 			// when the preceding data line was actually forwarded.
-			if skipNextEmptyLine {
-				skipNextEmptyLine = false
+			if sink.swallowBlank {
+				sink.swallowBlank = false
 				continue
 			}
 			// Forward empty lines — they are SSE event separators required by
 			// the spec. Clients like eventsource-parser dispatch events on
 			// blank lines; omitting them causes all data lines to be
 			// concatenated into one invalid event.
-			var n int
-			var err error
-			if n, err = w.Write([]byte("\n")); err != nil {
-				clientDisconnected = true
-				debuglog.Warn("proxy: client write failed during stream (blank line)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", bytesWritten)
+			if err := sink.write([]byte("\n")); err != nil {
+				st.clientDisconnected = true
+				debuglog.Warn("proxy: client write failed during stream (blank line)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
 				goto logUpdate
 			}
-			bytesWritten += int64(n)
-			if canFlush {
-				flusher.Flush()
-			}
+			sink.flush()
 			continue
 		}
-		emptyLines = 0
 
-		// Match "data: " (standard) or "data:" (LM Studio and some proxies
-		// send SSE without a space after the colon). Strip leading whitespace
-		// from the payload so both forms yield the same JSON.
-		var payload string
-		//nolint:gocritic // if-else chain is clearer than switch for SSE prefix matching
-		if strings.HasPrefix(lineStr, "data: ") {
-			payload = lineStr[6:]
-		} else if strings.HasPrefix(lineStr, "data:") && len(lineStr) > 5 {
-			// "data:" with no space — LM Studio compatibility.
-			// Find where the JSON starts after optional whitespace.
-			payload = strings.TrimLeft(lineStr[5:], " \t")
-		} else {
-			// Not a data line — could be an SSE comment (": ..."),
-			// an event line, or a blank line. Pass through without parsing.
+		if ev.kind == sseComment {
+			// Not a data line — an SSE comment (": ..."), an event/id/retry
+			// directive, etc. Pass through without parsing.
+			lineStr := ev.clean
 			// P1-C: Detect Anthropic-style "event: error" lines for logging.
 			// Anthropic streams use typed events like:
 			//   event: error
@@ -270,727 +157,219 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			if strings.HasPrefix(lineStr, "event:") {
 				evt := strings.TrimSpace(lineStr[6:])
 				if evt == "error" {
-					lastAnthropicEvent = "error"
+					st.lastAnthropicEvent = "error"
 				} else {
-					lastAnthropicEvent = ""
+					st.lastAnthropicEvent = ""
 				}
 			}
 			// Flush any accumulated error when a non-data line arrives
 			// (the error payload has already been captured in the data line).
-			if len(errAccum) > 0 {
-				if accumulatedMsg := parseAccumulatedError(errAccum); accumulatedMsg != "" {
-					lastErrMsg = accumulatedMsg
-					errorChunkCount++
-					debuglog.Warn("proxy: accumulated SSE error", "error_message", accumulatedMsg, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
-				}
-				errAccum = nil
-			}
-			var n int
-			var err error
-			if n, err = w.Write(line); err != nil {
-				clientDisconnected = true
-				debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", bytesWritten)
+			st.flushAccumulatedError(chunkCount, logData)
+			if err := sink.write(line); err != nil {
+				st.clientDisconnected = true
+				debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
 				goto logUpdate
 			}
-			bytesWritten += int64(n)
-			if n, err = w.Write([]byte("\n")); err != nil {
-				clientDisconnected = true
-				debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", bytesWritten)
+			if err := sink.write([]byte("\n")); err != nil {
+				st.clientDisconnected = true
+				debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
 				goto logUpdate
 			}
-			bytesWritten += int64(n)
-			if canFlush {
-				flusher.Flush()
-			}
+			sink.flush()
 			continue
 		}
-		if payload == "[DONE]" {
-			sawDone = true
+
+		if ev.kind == sseDone {
+			st.sawDone = true
 			// Write [DONE] sentinel to the downstream client.
-			var n int
-			var err error
-			if n, err = w.Write(line); err != nil {
-				clientDisconnected = true
-				debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", bytesWritten)
+			if err := sink.write(line); err != nil {
+				st.clientDisconnected = true
+				debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
 				goto logUpdate
 			}
-			bytesWritten += int64(n)
-			if n, err = w.Write([]byte("\n\n")); err != nil {
-				clientDisconnected = true
-				debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", bytesWritten)
+			if err := sink.write([]byte("\n\n")); err != nil {
+				st.clientDisconnected = true
+				debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
 				goto logUpdate
 			}
-			bytesWritten += int64(n)
-			if canFlush {
-				flusher.Flush()
-			}
+			sink.flush()
 			debuglog.Debug("proxy: received [DONE] sentinel", "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
 			break
 		}
 
-		// Parse the JSON payload to extract usage, errors, and finish_reason.
-		// If finish_reason needs normalization, rewrite the line; otherwise
-		// forward the original bytes to avoid unnecessary allocation.
-		//
-		// P1-B: Error accumulation. Some providers split error JSON across
-		// multiple data lines (e.g. a network boundary splits
-		//   data: {"error":{"message":"Rate limit
-		// into two chunks). We detect lines starting with {"error" and
-		// accumulate them until a non-error line arrives, then try to parse
-		// the accumulated bytes as a complete error object.
-		//
-		// P1-C: Anthropic-style errors. When an "event: error" SSE line
-		// precedes a data line, the payload is an Anthropic error event:
-		//   {"type":"error","error":{"type":"overloaded_error","message":"..."}}
-		// We detect this and extract the error message for logging.
-		isErrorPrefix := strings.HasPrefix(payload, `{"error"`)
-		if isErrorPrefix {
-			// P1-B: Accumulate error JSON bytes. Some providers split error
-			// responses across multiple SSE data lines. We buffer bytes until
-			// a non-error chunk arrives, then try to parse the full object.
-			errAccum = append(errAccum, []byte(payload)...)
-		} else if len(errAccum) > 0 {
-			// Non-error line arrived — flush the accumulated error.
-			if accumulatedMsg := parseAccumulatedError(errAccum); accumulatedMsg != "" {
-				lastErrMsg = accumulatedMsg
-				errorChunkCount++
-				debuglog.Warn("proxy: accumulated SSE error", "error_message", accumulatedMsg, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
-			}
-			errAccum = nil
-		}
-
-		// P1-C: If the preceding event was "event: error", this data line
-		// is an Anthropic error payload. Extract the message regardless of
-		// whether it starts with {"error" (Anthropic wraps it as
-		// {"type":"error","error":{...}}).
-		// Track whether P1-C already counted this error so we don't
-		// double-count when chunk.Error fires for the same line.
-		anthropicErrorCounted := false
-		if lastAnthropicEvent == "error" {
-			lastAnthropicEvent = ""
-			// Try Anthropic error format: {"type":"error","error":{"type":"...","message":"..."}}
-			var anthErr struct {
-				Type  string `json:"type"`
-				Error *struct {
-					Type    string `json:"type"`
-					Message string `json:"message"`
-				} `json:"error"`
-			}
-			if json.Unmarshal([]byte(payload), &anthErr) == nil && anthErr.Error != nil {
-				lastErrMsg = anthErr.Error.Message
-				anthropicErrorCounted = true
-				errorChunkCount++
-				debuglog.Warn("proxy: Anthropic SSE error event", "error_type", anthErr.Error.Type, "error_message", anthErr.Error.Message, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
-			}
-		}
-
-		var written bool
-		var chunk struct {
-			Choices []struct {
-				Delta *struct {
-					Content          *string `json:"content"`
-					ReasoningContent *string `json:"reasoning_content"`
-				} `json:"delta"`
-				FinishReason       *string `json:"finish_reason"`
-				NativeFinishReason *string `json:"native_finish_reason"` // P2-7: OpenRouter passthrough
-			} `json:"choices"`
-			Usage *Usage                    `json:"usage"`
-			Error *struct{ Message string } `json:"error"`
-		}
-		jsonValid := json.Unmarshal([]byte(payload), &chunk) == nil
-		if jsonValid {
-			// When strip_reasoning is enabled, remove reasoning fields from the chunk.
-			// If the delta becomes empty after stripping (i.e. the chunk only
-			// contained reasoning tokens), skip the chunk entirely rather than
-			// forwarding a hollow delta. Clients like Warp.dev disconnect when
-			// they receive long sequences of empty-content chunks during a
-			// thinking phase. We DO forward chunks that carry a non-empty
-			// "content" field, a "role" field (first assistant chunk), or
-			// "tool_calls".
-			if stripReasoning && len(chunk.Choices) > 0 && chunk.Choices[0].Delta != nil {
-				p, ok := parseChunkPayload(payload)
-				if !ok {
-					// parseChunkPayload failed on a chunk that passed the
-					// typed-struct guard. Forward the chunk unmodified instead
-					// of silently dropping it. This preserves the original
-					// pass-through semantics where a parse failure forwards the
-					// chunk rather than discarding it.
-					goto stripReasoningDone
-				}
-				deltaFields := p.delta
-				// Remove reasoning fields from delta.
-				delete(deltaFields, "reasoning_content")
-				delete(deltaFields, "reasoning_details")
-				delete(deltaFields, "reasoning")
-
-				// Strip empty content ("") that normally
-				// accompanies reasoning-only deltas.
-				if cRaw, okC := deltaFields["content"]; okC {
-					var cStr string
-					if json.Unmarshal(cRaw, &cStr) == nil && cStr == "" {
-						delete(deltaFields, "content")
-					}
-				}
-
-				// Some providers (notably Ollama) include
-				// "role":"assistant" in every delta, not
-				// just the first one. When strip_reasoning
-				// is enabled and the only remaining field
-				// besides content is "role", remove it
-				// too — the role is already present in any
-				// subsequent content or tool_calls chunk,
-				// and forwarding 20+ role-only deltas
-				// defeats the purpose of stripping.
-				_, hasContent := deltaFields["content"]
-				_, hasToolCalls := deltaFields["tool_calls"]
-				if !hasContent && !hasToolCalls {
-					delete(deltaFields, "role")
-				}
-
-				// Check if the delta still carries
-				// meaningful data. If not, skip this chunk
-				// entirely — the client has no use for an
-				// empty delta. We DO forward chunks that
-				// carry a finish_reason even if the delta
-				// is empty; omitting the stop signal breaks
-				// clients that depend on it.
-				deltaHasContent := false
-				if cRaw, okC := deltaFields["content"]; okC {
-					var cStr string
-					if json.Unmarshal(cRaw, &cStr) == nil && cStr != "" {
-						deltaHasContent = true
-					}
-				}
-				if _, okR := deltaFields["role"]; okR {
-					deltaHasContent = true
-				}
-				if _, okT := deltaFields["tool_calls"]; okT {
-					deltaHasContent = true
-				}
-				// finish_reason lives at the choices[0]
-				// level, not inside delta. A chunk with
-				// an empty delta but a finish_reason must
-				// still be forwarded. Note: "finish_reason":null
-				// is present on every streaming chunk, so
-				// we must check the value is actually non-null.
-				if frRaw, okFR := p.choices[0]["finish_reason"]; okFR {
-					var frStr string
-					if json.Unmarshal(frRaw, &frStr) == nil && frStr != "" {
-						deltaHasContent = true
-					}
-				}
-
-				if !deltaHasContent {
-					// Delta is empty after stripping
-					// reasoning — skip the chunk entirely
-					// and send a minimal valid JSON keep-alive
-					// instead of an SSE comment or nothing:
-					// Warp's Go backend uses the openai-go
-					// ssestream package which crashes on SSE
-					// comment lines and also times out if no
-					// data: lines arrive for several seconds.
-					// A valid data: line with an empty delta
-					// keeps the connection alive without
-					// exposing reasoning.
-					// Use the stream's real completion ID from
-					// the parsed chunk so clients that validate
-					// ID consistency don't reject the keep-alive.
-					keepAliveID := "chatcmpl"
-					if idRaw, ok := p.raw["id"]; ok {
-						var idStr string
-						if json.Unmarshal(idRaw, &idStr) == nil && idStr != "" {
-							keepAliveID = idStr
-						}
-					}
-					keepAlivePayload := map[string]interface{}{
-						"id":     keepAliveID,
-						"object": "chat.completion.chunk",
-						"choices": []map[string]interface{}{
-							{"index": 0, "delta": map[string]interface{}{}},
-						},
-					}
-					keepAliveJSON, err := json.Marshal(keepAlivePayload)
-					if err != nil {
-						continue
-					}
-					keepAlive := append([]byte("data: "), keepAliveJSON...)
-					keepAlive = append(keepAlive, "\n\n"...)
-					n, err := w.Write(keepAlive)
-					bytesWritten += int64(n)
-					if err != nil {
-						clientDisconnected = true
-						debuglog.Warn("proxy: client write failed during reasoning keep-alive", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-						goto logUpdate
-					}
-					if canFlush {
-						flusher.Flush()
-					}
-					skipNextEmptyLine = true
-					written = true
-					continue
-				}
-
-				newDelta, _ := json.Marshal(deltaFields)
-				p.choices[0]["delta"] = json.RawMessage(newDelta)
-				// Normalize finish_reason in-place before
-				// re-serializing, so non-standard values
-				// (e.g., "end_turn", "STOP") are mapped to
-				// OpenAI equivalents.
-				normalizeFinishReasonInChoices(p.choices, &lastFinishReason, logData.modelID, logData.providerName)
-				newChoices, _ := json.Marshal(p.choices)
-				p.raw["choices"] = json.RawMessage(newChoices)
-				newPayload, _ := json.Marshal(p.raw)
-				if err := writeSSEDataChunk(w, newPayload, &bytesWritten); err != nil {
-					clientDisconnected = true
-					debuglog.Warn("proxy: client write failed during reasoning strip", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-					goto logUpdate
-				}
-				if canFlush {
-					flusher.Flush()
-				}
-				written = true
-				skipNextEmptyLine = true
-				continue
-			}
-		stripReasoningDone:
-
-			// Reasoning field normalization: ensure reasoning_content is
-			// always populated regardless of upstream provider format.
-			// Handles: delta.reasoning (Ollama), delta.reasoning_details
-			// (OpenRouter/MiniMax), <thinking> tags in delta.content.
-			if len(chunk.Choices) > 0 && chunk.Choices[0].Delta != nil {
-				delta := chunk.Choices[0].Delta
-				// Build a map from the delta fields for normalization.
-				deltaMap := make(map[string]interface{})
-				if delta.Content != nil {
-					deltaMap["content"] = *delta.Content
-				}
-				if delta.ReasoningContent != nil {
-					deltaMap["reasoning_content"] = *delta.ReasoningContent
-				}
-				// Parse the raw payload once to capture reasoning/reasoning_details
-				// which aren't in the typed struct, and reuse the parsed result
-				// for re-serialization below.
-				chunkParsed, chunkParsedOk := parseChunkPayload(payload)
-				if chunkParsedOk {
-					// Extract reasoning field (Ollama, OpenRouter).
-					if rRaw, ok3 := chunkParsed.delta["reasoning"]; ok3 {
-						var rStr string
-						if json.Unmarshal(rRaw, &rStr) == nil && rStr != "" {
-							deltaMap["reasoning"] = rStr
-						}
-					}
-					// Extract reasoning_details (OpenRouter, MiniMax).
-					if rdRaw, ok3 := chunkParsed.delta["reasoning_details"]; ok3 {
-						var rdArr []interface{}
-						if json.Unmarshal(rdRaw, &rdArr) == nil {
-							deltaMap["reasoning_details"] = rdArr
-						}
-					}
-				}
-				if NormalizeReasoningFields(deltaMap) {
-					if chunkParsedOk {
-						// Patch reasoning_content into the delta.
-						if rc, ok3 := deltaMap["reasoning_content"]; ok3 {
-							if rcStr, ok4 := rc.(string); ok4 {
-								escaped, _ := json.Marshal(rcStr)
-								chunkParsed.delta["reasoning_content"] = json.RawMessage(escaped)
-							}
-						}
-						// Patch content if it was modified (tag extraction).
-						if c, ok3 := deltaMap["content"]; ok3 {
-							if cStr, ok4 := c.(string); ok4 {
-								escaped, _ := json.Marshal(cStr)
-								chunkParsed.delta["content"] = json.RawMessage(escaped)
-							}
-						}
-						newDelta, _ := json.Marshal(chunkParsed.delta)
-						chunkParsed.choices[0]["delta"] = json.RawMessage(newDelta)
-						// Normalize finish_reason in-place before
-						// re-serializing. The written=true below
-						// would skip the finish_reason normalization
-						// block later in this loop iteration.
-						normalizeFinishReasonInChoices(chunkParsed.choices, &lastFinishReason, logData.modelID, logData.providerName)
-						newChoices, _ := json.Marshal(chunkParsed.choices)
-						chunkParsed.raw["choices"] = json.RawMessage(newChoices)
-						newPayload, _ := json.Marshal(chunkParsed.raw)
-						if err := writeSSEDataChunk(w, newPayload, &bytesWritten); err != nil {
-							clientDisconnected = true
-							debuglog.Warn("proxy: client write failed during reasoning normalization", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-							goto logUpdate
-						}
-						if canFlush {
-							flusher.Flush()
-						}
-						written = true
-						skipNextEmptyLine = true
-						debuglog.Debug("proxy: normalized reasoning fields", "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
-					}
-				}
-			}
-
-			// Always strip empty content:"" from reasoning chunks to avoid noise.
-			// When a chunk has reasoning_content set and content is empty "", remove content.
-			if len(chunk.Choices) > 0 && chunk.Choices[0].Delta != nil {
-				delta := chunk.Choices[0].Delta
-				hasReasoning := delta.ReasoningContent != nil && *delta.ReasoningContent != ""
-				hasEmptyContent := delta.Content != nil && *delta.Content == ""
-				if hasReasoning && hasEmptyContent {
-					if p, ok := parseChunkPayload(payload); ok {
-						delete(p.delta, "content")
-						newDelta, _ := json.Marshal(p.delta)
-						p.choices[0]["delta"] = json.RawMessage(newDelta)
-						// Normalize finish_reason in-place before
-						// re-serializing. The written=true below
-						// would skip the finish_reason normalization
-						// block later in this loop iteration.
-						normalizeFinishReasonInChoices(p.choices, &lastFinishReason, logData.modelID, logData.providerName)
-						newChoices, _ := json.Marshal(p.choices)
-						p.raw["choices"] = json.RawMessage(newChoices)
-						newPayload, _ := json.Marshal(p.raw)
-						if err := writeSSEDataChunk(w, newPayload, &bytesWritten); err != nil {
-							clientDisconnected = true
-							debuglog.Warn("proxy: client write failed during empty content strip", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-							goto logUpdate
-						}
-						if canFlush {
-							flusher.Flush()
-						}
-						written = true
-						skipNextEmptyLine = true
-						debuglog.Debug("proxy: stripped empty content from reasoning chunk", "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
-					}
-				}
-			}
-
-			if chunk.Usage != nil {
-				promptTokens = chunk.Usage.PromptTokens
-				completionTokens = chunk.Usage.CompletionTokens
-				if chunk.Usage.CompletionTokensDetails != nil && chunk.Usage.CompletionTokensDetails.ReasoningTokens > 0 {
-					reasoningTokens = chunk.Usage.CompletionTokensDetails.ReasoningTokens
-				}
-				if hit, miss := extractCacheTokens(*chunk.Usage); hit > 0 || miss > 0 {
-					promptCacheHitTokens = hit
-					promptCacheMissTokens = miss
-				}
-			}
-			// P2-7: Log native_finish_reason from OpenRouter for debugging.
-			// OpenRouter includes this field alongside the normalized finish_reason,
-			// preserving the original provider's value (e.g. "STOP" instead of "stop").
-			if len(chunk.Choices) > 0 && chunk.Choices[0].NativeFinishReason != nil {
-				if *chunk.Choices[0].NativeFinishReason != lastNativeFinishReason {
-					lastNativeFinishReason = *chunk.Choices[0].NativeFinishReason
-					debuglog.Debug("proxy: native_finish_reason", "native_finish_reason", lastNativeFinishReason, "model", logData.modelID, "provider", logData.providerName)
-				}
-			}
-			// P2-5: Detect repeated identical content. Some models (notably
-			// xAI Grok reasoning) send the same reasoning text in consecutive
-			// deltas, causing "Thinking... Thinking... Thinking..." loops.
-			// We track consecutive identical content and log a warning when
-			// the threshold is exceeded.
-			if len(chunk.Choices) > 0 && chunk.Choices[0].Delta != nil {
-				delta := chunk.Choices[0].Delta
-				currentContent := ""
-				if delta.Content != nil {
-					currentContent = *delta.Content
-				}
-				if delta.ReasoningContent != nil && currentContent == "" {
-					currentContent = *delta.ReasoningContent
-					if !sawThinking {
-						sawThinking = true
-						debuglog.Debug("proxy: thinking/reasoning block started", "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
-					}
-				}
-				if currentContent == lastContent && currentContent != "" {
-					repeatedCount++
-					if repeatedCount == repeatedContentLimit {
-						preview := currentContent
-						if len(preview) > 50 {
-							runes := []rune(preview)
-							if len(runes) > 50 {
-								preview = string(runes[:50]) + "..."
-							}
-						}
-						debuglog.Warn("proxy: repeated content detected in stream", "repeated_count", repeatedCount, "content_preview", preview, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
-					}
-				} else {
-					repeatedCount = 0
-				}
-				lastContent = currentContent
-			}
-			if chunk.Error != nil && !anthropicErrorCounted {
-				// Only count if P1-C didn't already handle this as an
-				// Anthropic error event (which shares the same data line).
-				lastErrMsg = chunk.Error.Message
-				errorChunkCount++
-				debuglog.Warn("proxy: SSE error chunk", "model", logData.modelID, "provider", logData.providerName, "error_message", chunk.Error.Message, "chunk_number", chunkCount)
-				// Clear errAccum: chunk.Error already captured this error,
-				// so P1-B's next flush must not re-count it.
-				errAccum = nil
-			}
-			// Normalize provider-specific finish_reason values (e.g.,
-			// "STOP" from Gemini, "end_turn" from Anthropic) to OpenAI
-			// equivalents so downstream clients see consistent values.
-			if len(chunk.Choices) > 0 && chunk.Choices[0].FinishReason != nil {
-				normalized := normalizeFinishReason(*chunk.Choices[0].FinishReason)
-
-				// P2-2: Suppress duplicate finish_reason chunks. Some providers
-				// (notably OpenRouter routing to Gemini models) send two
-				// consecutive chunks with the same finish_reason, where the
-				// second has no content or usage. This causes downstream
-				// "Model stream ended with empty response text" errors.
-				// Only suppress if: same finish_reason as previous chunk,
-				// no content (delta is empty or absent), and no usage.
-				if normalized == lastFinishReason {
-					hasContent := false
-					if chunk.Choices[0].Delta != nil {
-						delta := chunk.Choices[0].Delta
-						if delta.Content != nil && *delta.Content != "" {
-							hasContent = true
-						}
-						if delta.ReasoningContent != nil && *delta.ReasoningContent != "" {
-							hasContent = true
-						}
-					}
-					if !hasContent && chunk.Usage == nil {
-						debuglog.Debug("proxy: suppressing duplicate finish_reason chunk", "finish_reason", normalized, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
-						// Skip writing this chunk — it's a bare duplicate.
-						// Also skip the following SSE separator to avoid
-						// an orphaned empty-line event.
-						skipNextEmptyLine = true
-						continue
-					}
-				}
-				lastFinishReason = normalized
-				if normalized != *chunk.Choices[0].FinishReason && !written {
-					// Rewrite the line with normalized finish_reason.
-					// Re-serialize the entire JSON payload with the fix.
-					// This is the uncommon path — most providers already
-					// send OpenAI-compatible values.
-					var raw map[string]json.RawMessage
-					if json.Unmarshal([]byte(payload), &raw) == nil {
-						if choicesRaw, ok := raw["choices"]; ok {
-							var choices []map[string]json.RawMessage
-							if json.Unmarshal(choicesRaw, &choices) == nil && len(choices) > 0 {
-								if frRaw, ok2 := choices[0]["finish_reason"]; ok2 {
-									// Replace the finish_reason value.
-									var newFR string
-									if json.Unmarshal(frRaw, &newFR) == nil {
-										choices[0]["finish_reason"] = json.RawMessage(`"` + normalized + `"`)
-									}
-								}
-								// Re-serialize choices and patch into the payload map.
-								if newChoices, err2 := json.Marshal(choices); err2 == nil {
-									raw["choices"] = json.RawMessage(newChoices)
-									if newPayload, err3 := json.Marshal(raw); err3 == nil {
-										if err := writeSSEDataChunk(w, newPayload, &bytesWritten); err != nil {
-											clientDisconnected = true
-											debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-											goto logUpdate
-										}
-										if canFlush {
-											flusher.Flush()
-										}
-										written = true
-										skipNextEmptyLine = true
-										debuglog.Debug("proxy: normalized finish_reason", "original", *chunk.Choices[0].FinishReason, "normalized", normalized, "model", logData.modelID, "provider", logData.providerName)
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-		if !written && !jsonValid {
-			// Skip invalid/truncated JSON chunks instead of forwarding them.
-			// Forwarding broken JSON causes downstream clients (e.g. Warp.dev)
-			// to fail with JSON parse errors, crashing the entire stream.
-			preview := payload
-			if len(preview) > 80 {
-				runes := []rune(preview)
-				if len(runes) > 80 {
-					preview = string(runes[:80]) + "..."
-				}
-			}
-			debuglog.Warn("proxy: skipping invalid JSON chunk from upstream",
-				"model", logData.modelID, "provider", logData.providerName,
-				"chunk_number", chunkCount, "payload_preview", preview)
-			skipNextEmptyLine = true
-			continue
-		}
-		if !written {
-			// No normalization needed — forward the original line.
-			var n int
-			var err error
-			if n, err = w.Write(line); err != nil {
-				clientDisconnected = true
-				debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", bytesWritten)
-				goto logUpdate
-			}
-			bytesWritten += int64(n)
-			if n, err = w.Write([]byte("\n\n")); err != nil {
-				clientDisconnected = true
-				debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", bytesWritten)
-				goto logUpdate
-			}
-			bytesWritten += int64(n)
-			if canFlush {
-				flusher.Flush()
-			}
-			skipNextEmptyLine = true
+		// ev.kind == sseData — parse, transform, observe, and forward the chunk.
+		if h.handleDataChunk(sink, st, ev, stripReasoning, chunkCount, logData) {
+			goto logUpdate
 		}
 	}
 
 	// Flush any remaining accumulated error bytes at stream end.
-	if len(errAccum) > 0 {
-		if accumulatedMsg := parseAccumulatedError(errAccum); accumulatedMsg != "" {
-			lastErrMsg = accumulatedMsg
-			errorChunkCount++
-			debuglog.Warn("proxy: accumulated SSE error (stream end)", "error_message", accumulatedMsg, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+	if len(st.errAccum) > 0 {
+		if accumulatedMsg := parseAccumulatedError(st.errAccum); accumulatedMsg != "" {
+			st.lastErrMsg = accumulatedMsg
+			st.errorChunkCount++
+			debuglog.Warn("proxy: accumulated SSE error (stream end)", "error_message", accumulatedMsg, "model", logData.modelID, "provider", logData.providerName, "chunks", reader.chunkCount)
 		}
 	}
 
 logUpdate:
-	// Signal watchdog to stop on all exit paths (goto or normal loop exit).
-	if watchdogDone != nil {
-		close(watchdogDone)
-	}
-	totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
-	var tps float64
-	// Use total output tokens (text + reasoning) for TPS numerator,
-	// and generation time as denominator. Prefer true TTFT (first token)
-	// when the probe measured it; fall back to response header time.
-	totalOutputTokens := completionTokens + reasoningTokens
-	ttftForTPS := opts.responseHeaderMs
-	if opts.trueTtftMs > 0 {
-		ttftForTPS = opts.trueTtftMs
-	}
-	generationDuration := totalDuration - ttftForTPS
-	// Avoid absurd TPS when generation time is negligible
-	// (e.g. non-streaming where response_header_ms ≈ duration_ms).
-	minGeneration := max(1.0, totalDuration*0.05)
-	if totalOutputTokens > 0 && generationDuration >= minGeneration {
-		tps = float64(totalOutputTokens) / float64(generationDuration) * 1000
-	} else if totalOutputTokens > 0 && totalDuration > 0 {
-		tps = float64(totalOutputTokens) / float64(totalDuration) * 1000
-	}
+	// Stop the watchdog before reading its stall flag, matching the prior
+	// inline ordering (close, then read the atomic).
+	reader.Close()
+	// st was accumulated in place by the loop; fill the reader-owned fields the
+	// loop couldn't (final chunk count and the stall flag, read after watchdog
+	// teardown), then finalize.
+	st.chunkCount = reader.chunkCount
+	st.stalled = reader.stalled()
+	h.finalizeStream(st, sink, reader.err(), logData, opts, resp.StatusCode, startTime)
+}
 
-	// Check for stream stall before error classification.
-	stalled := atomic.LoadInt32(&streamStalled) == 1
+// handleDataChunk processes one sseData event end-to-end: capture split/Anthropic
+// SSE errors (P1-B/P1-C), parse the chunk, run the transforms (strip_reasoning,
+// reasoning-normalize, empty-content-strip, finish_reason) and the side-channel
+// observers, then forward. It emits at most once; the `written` flag and the
+// whole transform dispatch are encapsulated here. Returns stop=true when a client
+// write failed (the caller jumps to finalize), false otherwise (advance to the
+// next event).
+func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent, stripReasoning bool, chunkCount int, logData *requestLogData) (stop bool) {
+	payload := ev.payload
+	line := ev.raw
 
-	errMsg := lastErrMsg
-	if errMsg == "" && scanner.Err() != nil {
-		scannerErr := scanner.Err()
-		switch {
-		case errors.Is(scannerErr, context.Canceled):
-			// The scanner caught the cancellation before the select between
-			// iterations could. This is always a client disconnect — the
-			// parent request context was cancelled.
-			clientDisconnected = true
-		case errors.Is(scannerErr, context.DeadlineExceeded):
-			// A derived context's deadline expired (failover or retry timeout).
-			// Use cancelOrigin to produce a human-readable message.
-			switch opts.cancelOrigin {
-			case "retry_timeout":
-				errMsg = "stream interrupted: param-strip retry timed out"
-			case "failover_timeout":
-				errMsg = "stream interrupted: upstream request timed out"
-			default:
-				// Unknown origin — preserve the value rather than guessing.
-				errMsg = fmt.Sprintf("stream interrupted: %s", humanReadableCancelOrigin(opts.cancelOrigin))
+	// Capture split (P1-B) and Anthropic typed (P1-C) SSE errors into streamState.
+	// anthropicErrorCounted prevents the chunk.Error observer from double-counting.
+	anthropicErrorCounted := st.captureSSEError(payload, &st.lastAnthropicEvent, chunkCount, logData)
+
+	var written bool
+	var chunk streamChunk
+	jsonValid := json.Unmarshal([]byte(payload), &chunk) == nil
+	if jsonValid {
+		// Side-channel observers (usage, native_finish_reason, repeated content,
+		// chunk.Error) run for EVERY valid chunk — BEFORE the transforms, which may
+		// emit-and-return early (strip_reasoning keep-alive/forward). Running them
+		// here is what keeps usage/token metering from being silently dropped when a
+		// provider rides `usage` on the same chunk as a reasoning delta. They read
+		// the immutable typed chunk and never emit, so position doesn't affect output.
+		st.observeDataChunk(chunk, anthropicErrorCounted, chunkCount, logData)
+
+		// strip_reasoning: drop reasoning-only deltas (keep-alive) or forward the
+		// stripped chunk. See computeStripReasoning.
+		if stripReasoning && len(chunk.Choices) > 0 && chunk.Choices[0].Delta != nil {
+			switch decision, newPayload := computeStripReasoning(payload, &st.lastFinishReason, logData); decision {
+			case stripPassthrough:
+				// Payload didn't parse — leave it for the later blocks.
+				goto stripReasoningDone
+			case stripDrop:
+				// Keep-alive marshal failed (practically unreachable) — drop.
+				return false
+			case stripKeepalive:
+				if err := sink.writeData(newPayload); err != nil {
+					st.clientDisconnected = true
+					debuglog.Warn("proxy: client write failed during reasoning keep-alive", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+					return true
+				}
+				sink.flush()
+				return false
+			case stripForward:
+				if err := sink.writeData(newPayload); err != nil {
+					st.clientDisconnected = true
+					debuglog.Warn("proxy: client write failed during reasoning strip", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+					return true
+				}
+				sink.flush()
+				return false
 			}
-		default:
-			errMsg = scannerErr.Error()
 		}
-	}
-	if clientDisconnected {
-		errMsg = "client disconnected"
-		debuglog.Warn("proxy: client disconnected during streaming", "model", logData.modelID)
-	}
-	// Stall detection takes precedence over the raw IO error produced by
-	// the watchdog's body.Close(). Replace it with a descriptive message.
-	// Only flag a stall when we did NOT see [DONE] — if the stream completed
-	// normally, a late timer fire is a false positive. Also skip when the
-	// client disconnected, which is a more meaningful diagnosis.
-	if stalled && !sawDone && !clientDisconnected {
-		effectiveStall := opts.streamStallTimeout
-		if chunkCount > progressiveChunkThreshold {
-			effectiveStall = opts.streamStallTimeout * progressiveStallMultiplier
-		}
-		errMsg = fmt.Sprintf("stream stalled: no data for %s", effectiveStall)
-		debuglog.Warn("proxy: stream stall detected", "model", logData.modelID, "provider", logData.providerName, "stall_timeout", effectiveStall, "base_timeout", opts.streamStallTimeout, "chunks", chunkCount)
-	}
-	if errMsg == "" && !sawDone {
-		// Upstream closed without [DONE] sentinel. If we received content and
-		// the scanner didn't error, inject the sentinel for the downstream
-		// client so the frontend knows the stream completed normally.
-		if !clientDisconnected && scanner.Err() == nil && chunkCount > 0 {
-			debuglog.Info("proxy: upstream omitted [DONE] sentinel; injecting for downstream", "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-			if _, err := w.Write([]byte("data: [DONE]\n\n")); err != nil {
-				debuglog.Warn("proxy: failed to write injected [DONE]", "model", logData.modelID, "provider", logData.providerName, "error", err)
-			} else if canFlush {
-				flusher.Flush()
+	stripReasoningDone:
+
+		// Reasoning field normalization: ensure reasoning_content is populated
+		// regardless of upstream format (Ollama reasoning, OpenRouter/MiniMax
+		// reasoning_details, <thinking> tags in content).
+		if len(chunk.Choices) > 0 && chunk.Choices[0].Delta != nil {
+			delta := chunk.Choices[0].Delta
+			if newPayload, ok := normalizeReasoningChunk(delta.Content, delta.ReasoningContent, payload, &st.lastFinishReason, logData); ok {
+				if err := sink.writeData(newPayload); err != nil {
+					st.clientDisconnected = true
+					debuglog.Warn("proxy: client write failed during reasoning normalization", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+					return true
+				}
+				sink.flush()
+				written = true
+				debuglog.Debug("proxy: normalized reasoning fields", "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 			}
-			// Stream was complete; the missing sentinel is benign.
-			debuglog.Info("proxy: stream completed (upstream omitted [DONE])", "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-		} else {
-			// No content received or scanner error - genuinely truncated.
-			errMsg = "stream truncated: upstream closed connection without [DONE] sentinel"
-			debuglog.Warn("proxy: stream ended without [DONE] sentinel", "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+		}
+
+		// Strip the noise content:"" that accompanies reasoning-only deltas.
+		if len(chunk.Choices) > 0 && chunk.Choices[0].Delta != nil {
+			delta := chunk.Choices[0].Delta
+			hasReasoning := delta.ReasoningContent != nil && *delta.ReasoningContent != ""
+			hasEmptyContent := delta.Content != nil && *delta.Content == ""
+			if hasReasoning && hasEmptyContent {
+				if newPayload, ok := stripEmptyReasoningContent(payload, &st.lastFinishReason, logData); ok {
+					if err := sink.writeData(newPayload); err != nil {
+						st.clientDisconnected = true
+						debuglog.Warn("proxy: client write failed during empty content strip", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+						return true
+					}
+					sink.flush()
+					written = true
+					debuglog.Debug("proxy: stripped empty content from reasoning chunk", "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
+				}
+			}
+		}
+
+		// Normalize provider finish_reason and suppress P2-2 bare duplicates.
+		switch decision, newPayload := computeFinishReason(chunk, payload, &st.lastFinishReason); decision {
+		case finishSuppress:
+			debuglog.Debug("proxy: suppressing duplicate finish_reason chunk", "finish_reason", normalizeFinishReason(*chunk.Choices[0].FinishReason), "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
+			sink.swallowBlank = true
+			return false
+		case finishRewrite:
+			// Only emit if an earlier transform hasn't already written.
+			if !written {
+				if err := sink.writeData(newPayload); err != nil {
+					st.clientDisconnected = true
+					debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+					return true
+				}
+				sink.flush()
+				written = true
+				debuglog.Debug("proxy: normalized finish_reason", "original", *chunk.Choices[0].FinishReason, "normalized", normalizeFinishReason(*chunk.Choices[0].FinishReason), "model", logData.modelID, "provider", logData.providerName)
+			}
+		case finishNone:
 		}
 	}
-
-	logData.statusCode = resp.StatusCode
-	logData.durationMs = totalDuration
-	logData.proxyOverheadMs = opts.proxyOverheadMs
-	logData.parseMs = opts.parseMs
-	logData.failoverLookupMs = opts.failoverLookupMs
-	logData.modelLookupMs = opts.modelLookupMs
-	logData.providerLookupMs = opts.providerLookupMs
-	logData.keyDecryptMs = opts.keyDecryptMs
-	logData.dialMs = opts.dialMs
-	logData.responseHeaderMs = opts.responseHeaderMs
-	logData.tokensPerSecond = tps
-	logData.tokensPrompt = promptTokens
-	logData.tokensCompletion = completionTokens
-	logData.tokensCompletionReasoning = reasoningTokens
-	logData.tokensPromptCacheHit = promptCacheHitTokens
-	logData.tokensPromptCacheMiss = promptCacheMissTokens
-	logData.errorMessage = errMsg
-	logData.failoverAttempt = opts.attempt
-	if errMsg != "" {
-		logData.statusCode = 0
-		logData.state = "failed"
-	} else {
-		logData.state = "completed"
-	}
-	h.updateRequestLog(logData)
-
-	// Record circuit breaker failure for stream stalls.
-	// Guard with !sawDone to avoid penalising a provider whose stream completed
-	// normally but whose stall timer fired concurrently with [DONE].
-	if stalled && !sawDone && !clientDisconnected && opts.circuitBreakerOn {
-		h.circuitBreaker.RecordFailure(opts.providerID, opts.providerName)
-		debuglog.Debug("proxy: recorded circuit breaker failure for stream stall", "provider", opts.providerName, "provider_id", opts.providerID)
-	}
-
-	debuglog.Info("proxy: streaming finished", "model", logData.modelID, "provider", logData.providerName, "attempt", opts.attempt, "response_header_ms", opts.responseHeaderMs, "true_ttft_ms", opts.trueTtftMs, "duration_ms", totalDuration, "chunks", chunkCount, "bytes_written", bytesWritten, "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "error_chunks", errorChunkCount, "has_error", errMsg != "")
-	if errMsg != "" {
-		debuglog.Warn("proxy: streaming error", "model", logData.modelID, "provider", logData.providerName, "error", errMsg, "upstream_status", resp.StatusCode, "attempt", opts.attempt, "duration_ms", totalDuration)
-	} else {
-		debuglog.Debug("proxy: streaming completed successfully", "model", logData.modelID, "provider", logData.providerName, "attempt", opts.attempt, "response_header_ms", opts.responseHeaderMs, "duration_ms", totalDuration)
-	}
-
-	// Always record token usage against the virtual key quota, even on
-	// client disconnect. The upstream provider already billed for these
-	// tokens; not counting them would cause quota drift (provider bill > VK meter).
-	if opts.vkHash != "" {
-		if clientDisconnected && (promptTokens > 0 || completionTokens > 0) {
-			debuglog.Info("proxy: recording token usage despite client disconnect", "model", logData.modelID, "provider", logData.providerName, "prompt_tokens", promptTokens, "completion_tokens", completionTokens)
+	if !written && !jsonValid {
+		// Drop invalid/truncated JSON instead of forwarding broken bytes.
+		preview := payload
+		if len(preview) > 80 {
+			runes := []rune(preview)
+			if len(runes) > 80 {
+				preview = string(runes[:80]) + "..."
+			}
 		}
-		h.recordTokenUsage(opts.vkHash, promptTokens, completionTokens, reasoningTokens, logData.virtualKeyName)
+		debuglog.Warn("proxy: skipping invalid JSON chunk from upstream",
+			"model", logData.modelID, "provider", logData.providerName,
+			"chunk_number", chunkCount, "payload_preview", preview)
+		sink.swallowBlank = true
+		return false
 	}
+	if !written {
+		// No transform applied — forward the original line verbatim (preserves
+		// upstream framing like LM Studio's no-space "data:").
+		if err := sink.write(line); err != nil {
+			st.clientDisconnected = true
+			debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
+			return true
+		}
+		if err := sink.write([]byte("\n\n")); err != nil {
+			st.clientDisconnected = true
+			debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
+			return true
+		}
+		sink.flush()
+		sink.swallowBlank = true
+	}
+	return false
 }
 
 func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, proxyOverhead, parseMs, failoverLookupMs, modelLookupMs, providerLookupMs, keyDecryptMs, dialMs, settingsReadMs, responseHeaderMs float64, vkHash string, attempt int) {
