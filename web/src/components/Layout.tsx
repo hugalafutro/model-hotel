@@ -722,7 +722,7 @@ function LanguageSelector() {
 	// Set document direction for RTL languages
 	useEffect(() => {
 		const rtlLanguages = new Set(["ar", "he"]);
-		const lang = i18n.resolvedLanguage ?? "en";
+		const lang = i18n.resolvedLanguage as string;
 		document.documentElement.dir = rtlLanguages.has(lang) ? "rtl" : "ltr";
 	}, [i18n.resolvedLanguage]);
 
