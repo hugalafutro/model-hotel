@@ -43,6 +43,26 @@ type paramRetryResult struct {
 	cont               bool
 }
 
+// failAllExhausted handles phase E: every candidate failed (or the overall
+// deadline was hit). It logs the exhaustion, records a 502 failure row, and
+// writes the failover-vs-single-provider error response. numCandidates is the
+// resolved candidate count (for the failRequest attempt index).
+func (h *Handler) failAllExhausted(w http.ResponseWriter, st *requestState, numCandidates int) {
+	if st.isFailover {
+		debuglog.Error("proxy: all providers exhausted", "model", st.logData.modelID, "provider", st.logData.providerName, "error", st.lastErr, "candidates", numCandidates, "failover_timeout", st.failoverTimeout)
+	} else {
+		debuglog.Error("proxy: provider request failed", "model", st.logData.modelID, "provider", st.logData.providerName, "error", st.lastErr, "request_timeout", st.failoverTimeout)
+	}
+	st.logData.providerID = uuid.Nil
+	if st.isFailover {
+		h.failRequest(st.logData, 502, fmt.Sprintf("all providers failed: %s", st.lastErr), numCandidates-1, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
+		writeOpenAIError(w, fmt.Sprintf("all providers failed for model %s", st.reqModel), http.StatusBadGateway)
+	} else {
+		h.failRequest(st.logData, 502, fmt.Sprintf("provider request failed: %s", st.lastErr), numCandidates-1, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
+		writeOpenAIError(w, fmt.Sprintf("provider request failed for model %s", st.reqModel), http.StatusBadGateway)
+	}
+}
+
 // attemptCandidate runs one failover attempt against a single candidate (phase
 // D3–D11): build and send the upstream request, handle the 400 auto-retry,
 // record the circuit-breaker outcome, and either fail over to the next

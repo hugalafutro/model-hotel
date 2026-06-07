@@ -15,8 +15,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -561,19 +559,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if st.isFailover {
-		debuglog.Error("proxy: all providers exhausted", "model", st.logData.modelID, "provider", st.logData.providerName, "error", st.lastErr, "candidates", len(candidates), "failover_timeout", st.failoverTimeout)
-	} else {
-		debuglog.Error("proxy: provider request failed", "model", st.logData.modelID, "provider", st.logData.providerName, "error", st.lastErr, "request_timeout", st.failoverTimeout)
-	}
-	st.logData.providerID = uuid.Nil
-	if st.isFailover {
-		h.failRequest(st.logData, 502, fmt.Sprintf("all providers failed: %s", st.lastErr), len(candidates)-1, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
-		writeOpenAIError(w, fmt.Sprintf("all providers failed for model %s", st.reqModel), http.StatusBadGateway)
-	} else {
-		h.failRequest(st.logData, 502, fmt.Sprintf("provider request failed: %s", st.lastErr), len(candidates)-1, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
-		writeOpenAIError(w, fmt.Sprintf("provider request failed for model %s", st.reqModel), http.StatusBadGateway)
-	}
+	h.failAllExhausted(w, st, len(candidates))
 }
 
 // probeFirstToken reads from body until it finds the first real SSE data chunk
