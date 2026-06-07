@@ -749,6 +749,7 @@ function LanguageSelector() {
 				className="sidebar-footer-link flex items-center justify-center px-1.5 py-1.5 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5 cursor-pointer"
 				title={t("layout.language.label")}
 				aria-label={t("layout.language.label")}
+				data-testid="language-trigger"
 			>
 				<Languages size={14} strokeWidth={2} />
 			</button>
@@ -758,6 +759,7 @@ function LanguageSelector() {
 						<button
 							key={lang.code}
 							type="button"
+							data-testid={`language-option-${lang.code}`}
 							onClick={() => {
 								i18next.changeLanguage(lang.code);
 								setOpen(false);
