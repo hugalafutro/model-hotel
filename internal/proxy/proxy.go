@@ -709,95 +709,19 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		// Works universally — any LLM API mentioning "temperature" or "top_p"
 		// in a 400 error can only mean the sampling parameter.
 		if resp.StatusCode == 400 {
-			body, readErr := io.ReadAll(resp.Body)
-			_ = resp.Body.Close()
-			failoverCancel() // 400 body consumed, context no longer needed
-			debuglog.Debug("proxy: received 400 from upstream, checking for param rejection", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "body_length", len(body))
-			// Restore the body so downstream error handling (line ~605) can read it
-			// if we don't successfully retry. Must be set before any fallthrough.
-			resp.Body = io.NopCloser(bytes.NewReader(body))
-			if readErr == nil {
-				if rejected := parseProviderParamError(body); rejected != nil {
-					// Cache the learned rejections for future preemptive stripping.
-					// Merge with any existing entries using CompareAndSwap to avoid
-					// data races from concurrent goroutines mutating the same map.
-					// NOTE: Values are stored as *map[string]bool to support CompareAndSwap
-					// (maps are not comparable, so pointers are required).
-					cacheKey := fmt.Sprintf("%s:%s", providerType, candidate.model.ModelID)
-					for {
-						existing, loaded := h.deprecationCache.LoadOrStore(cacheKey, &rejected)
-						if !loaded {
-							// First entry for this key — we just stored 'rejected'.
-							break
-						}
-						// Merge with existing, creating a new map to avoid data races.
-						merged := make(map[string]bool)
-						existingMap, ok := existing.(*map[string]bool)
-						if !ok {
-							debuglog.Error("deprecationCache: unexpected type", "key", cacheKey, "type", fmt.Sprintf("%T", existing))
-							break
-						}
-						for k := range *existingMap {
-							merged[k] = true
-						}
-						for k := range rejected {
-							merged[k] = true
-						}
-						if h.deprecationCache.CompareAndSwap(cacheKey, existing, &merged) {
-							break
-						}
-						// CompareAndSwap failed — another goroutine updated it, retry.
-					}
-					// Rebuild the request body using the shared rewrite path.
-					// This ensures stream_options injection, universal/learned param
-					// stripping, and InjectProviderParams are all applied on retry,
-					// preventing drift from the initial attempt path.
-					rebuilt := buildUpstreamBody(proxyReqBody, providerType, candidate.model.ModelID, reqModel, isStreaming, &h.deprecationCache, rejected)
-					retryCtx, rc := context.WithTimeout(r.Context(), failoverTimeout)
-					retryCtx = context.WithValue(retryCtx, ctxkeys.CancelOriginKey, "retry_timeout")
-					retryCtx = context.WithValue(retryCtx, ctxkeys.DialMsKey, &dialMs)
-					retryCancel = rc
-					streamCancelOrigin = "retry_timeout"
-					retryReq, retryErr := newRequestWithContext(retryCtx, "POST", targetURL, bytes.NewReader(rebuilt))
-					if retryErr != nil {
-						retryCancel()
-						lastErr = fmt.Sprintf("attempt %d: failed to create retry request: %v", attempt, retryErr)
-						continue
-					}
-					util.SetProviderAuthHeaders(retryReq, providerType, candidate.apiKey)
-					retryReq.Header.Set("Content-Type", "application/json")
-					var retryCheckRedirect func(req *http.Request, via []*http.Request) error
-					if h.safeDialer != nil {
-						retryCheckRedirect = h.safeDialer.CheckRedirect
-					}
-					retryClient := &http.Client{Transport: h.upstreamTransport, CheckRedirect: retryCheckRedirect}
-					resp, retryErr = retryClient.Do(retryReq)
-					if retryErr != nil {
-						retryCancel() // no body to consume on retry error
-						debuglog.Warn("proxy: auto-retry request failed", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", retryErr)
-						if errors.Is(retryErr, context.Canceled) || errors.Is(retryErr, context.DeadlineExceeded) {
-							// Branch like the main failover loop: Canceled = client
-							// disconnect, DeadlineExceeded = retry timeout.
-							origin := "retry_timeout"
-							if errors.Is(retryErr, context.Canceled) {
-								origin = "client_disconnect"
-							}
-							lastErr = fmt.Sprintf("attempt %d: %s", attempt, humanReadableCancelOrigin(origin))
-						} else {
-							lastErr = fmt.Sprintf("attempt %d: retry error: %v", attempt, retryErr)
-						}
-						continue
-					}
-					failoverCancel() // original 400 body already consumed, original context no longer needed
-					// Accumulate retry's dial time into total.
-					timings.dialMs += dialMs
-					dialMs = 0
-					proxyOverhead = timings.proxyOverheadMs(parseMs)
-					// retryCancel() must NOT be called here — retry resp.Body is read below.
-					// Store retryCancel for deferred cleanup after body consumption.
-					// Successfully retried — fall through to normal response handling
-					debuglog.Info("proxy: auto-retry succeeded", "model", candidate.model.ModelID, "rejected_params", mapKeys(rejected))
-				}
+			res := h.retryWithStrippedParams(r, st, candidate, providerType, targetURL, resp, attempt, &dialMs, failoverCancel, streamCancelOrigin)
+			resp = res.resp
+			streamCancelOrigin = res.streamCancelOrigin
+			retryCancel = res.retryCancel
+			if res.cont {
+				lastErr = res.lastErr
+				continue
+			}
+			if res.retried {
+				// Accumulate retry's dial time into total.
+				timings.dialMs += dialMs
+				dialMs = 0
+				proxyOverhead = timings.proxyOverheadMs(parseMs)
 			}
 		}
 
