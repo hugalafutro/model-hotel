@@ -683,14 +683,48 @@ function LastErrorPills() {
 }
 
 const SUPPORTED_LANGUAGES = [
-	{ code: "en", labelKey: "layout.language.english" },
+	{ code: "af", labelKey: "layout.language.afrikaans" },
+	{ code: "ar", labelKey: "layout.language.arabic" },
+	{ code: "ca", labelKey: "layout.language.catalan" },
 	{ code: "cs", labelKey: "layout.language.czech" },
+	{ code: "da", labelKey: "layout.language.danish" },
+	{ code: "de", labelKey: "layout.language.german" },
+	{ code: "el", labelKey: "layout.language.greek" },
+	{ code: "en", labelKey: "layout.language.english" },
+	{ code: "es", labelKey: "layout.language.spanish" },
+	{ code: "fi", labelKey: "layout.language.finnish" },
+	{ code: "fr", labelKey: "layout.language.french" },
+	{ code: "he", labelKey: "layout.language.hebrew" },
+	{ code: "hu", labelKey: "layout.language.hungarian" },
+	{ code: "it", labelKey: "layout.language.italian" },
+	{ code: "ja", labelKey: "layout.language.japanese" },
+	{ code: "ko", labelKey: "layout.language.korean" },
+	{ code: "nl", labelKey: "layout.language.dutch" },
+	{ code: "no", labelKey: "layout.language.norwegian" },
+	{ code: "pl", labelKey: "layout.language.polish" },
+	{ code: "pt", labelKey: "layout.language.portuguese" },
+	{ code: "ro", labelKey: "layout.language.romanian" },
+	{ code: "ru", labelKey: "layout.language.russian" },
+	{ code: "sk", labelKey: "layout.language.slovak" },
+	{ code: "sr", labelKey: "layout.language.serbian" },
+	{ code: "sv", labelKey: "layout.language.swedish" },
+	{ code: "tr", labelKey: "layout.language.turkish" },
+	{ code: "uk", labelKey: "layout.language.ukrainian" },
+	{ code: "vi", labelKey: "layout.language.vietnamese" },
+	{ code: "zh", labelKey: "layout.language.chinese" },
 ] as const;
 
 function LanguageSelector() {
 	const { t, i18n } = useTranslation();
 	const [open, setOpen] = useState(false);
 	const ref = useRef<HTMLDivElement>(null);
+
+	// Set document direction for RTL languages
+	useEffect(() => {
+		const rtlLanguages = new Set(["ar", "he"]);
+		const lang = i18n.resolvedLanguage as string;
+		document.documentElement.dir = rtlLanguages.has(lang) ? "rtl" : "ltr";
+	}, [i18n.resolvedLanguage]);
 
 	useEffect(() => {
 		function handleClickOutside(e: MouseEvent) {
