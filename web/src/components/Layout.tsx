@@ -682,9 +682,8 @@ function LastErrorPills() {
 	);
 }
 
-// Default UI language and the localStorage key the i18next language detector
-// reads/writes. Kept in sync with the detector config in i18n/index.ts.
-const DEFAULT_LANGUAGE = "en";
+// The localStorage key the i18next language detector reads/writes.
+// Kept in sync with lookupLocalStorage in i18n/index.ts.
 const LANGUAGE_STORAGE_KEY = "i18nextLng";
 
 // Language names are autonyms (each language in its own script), shown
@@ -772,16 +771,13 @@ function LanguageSelector() {
 							data-testid={`language-option-${lang.code}`}
 							onClick={() => {
 								i18next.changeLanguage(lang.code);
-								// Persist only deliberate choices that differ from the
-								// English default, so the effective priority is
-								// user choice > system locale > English. Choosing the
-								// default clears the override and reverts to
-								// system-locale (navigator) detection.
-								if (lang.code === DEFAULT_LANGUAGE) {
-									localStorage.removeItem(LANGUAGE_STORAGE_KEY);
-								} else {
-									localStorage.setItem(LANGUAGE_STORAGE_KEY, lang.code);
-								}
+								// Persist every deliberate choice — including English —
+								// so the effective priority is strictly
+								// user choice > system locale > English. The browser
+								// locale is never auto-cached (caches: [] in
+								// i18n/index.ts), so an explicit pick always wins on
+								// the next visit until the user changes it again.
+								localStorage.setItem(LANGUAGE_STORAGE_KEY, lang.code);
 								setOpen(false);
 							}}
 							className={`w-full text-left px-3 py-1.5 text-xs transition-colors cursor-pointer flex items-center gap-1.5 ${
