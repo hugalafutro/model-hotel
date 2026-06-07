@@ -730,33 +730,7 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		hasMoreCandidates := attempt < len(candidates)-1
 		isFailoverEligible := h.shouldFailover(r.Context(), resp.StatusCode)
 
-		if isFailoverEligible {
-			// Determine breaker action from status code.
-			// See breakerRecordAction for the full status→action mapping.
-			action := breakerRecordAction(resp.StatusCode)
-			if circuitBreakerEnabled {
-				switch action {
-				case breakerActionFailure:
-					h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
-				case breakerActionNoOp:
-					// Model-specific client error (404/499): provider is alive
-					// but rejecting this request. No-op for the breaker — neither
-					// failure nor success. Recording success would erase real 5xx
-					// failure history (resetting consecutiveFails in Closed state)
-					// and could prematurely close a half-open circuit based on a
-					// model-specific error that says nothing about provider health.
-				case breakerActionSuccess:
-					// Not reached for failover-eligible codes: shouldFailover only
-					// returns true for {5xx,429,401,403,404,499}, all of which map to
-					// failure or no-op above. Retained so the switch stays exhaustive
-					// over breakerAction — if the shouldFailover/breakerRecordAction
-					// mappings ever diverge, a success is recorded rather than dropped.
-					h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
-				}
-			}
-		} else if circuitBreakerEnabled && (!isStreaming || resp.StatusCode != http.StatusOK) {
-			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
-		}
+		h.recordBreakerOutcome(st, candidate, resp.StatusCode, isFailoverEligible)
 
 		shouldFailoverNow := isFailoverEligible && hasMoreCandidates
 		debuglog.Debug("proxy: failover decision", "status", resp.StatusCode, "is_failover_eligible", isFailoverEligible, "has_more_candidates", hasMoreCandidates, "should_failover_now", shouldFailoverNow, "attempt", attempt+1)

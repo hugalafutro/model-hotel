@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/config"
+	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
@@ -55,6 +56,63 @@ func resp400(body string) *http.Response {
 		StatusCode: http.StatusBadRequest,
 		Body:       io.NopCloser(strings.NewReader(body)),
 		Header:     make(http.Header),
+	}
+}
+
+// breakerOutcome describes the observable effect of recordBreakerOutcome on a
+// fresh circuit: failure creates a circuit with one consecutive fail, success
+// creates a circuit with zero, and "untouched" means no circuit was created
+// (no-op / disabled / deferred streaming-200).
+type breakerOutcome int
+
+const (
+	breakerUntouched breakerOutcome = iota
+	breakerFailureRecorded
+	breakerSuccessRecorded
+)
+
+func TestRecordBreakerOutcome(t *testing.T) {
+	cases := []struct {
+		name        string
+		cbEnabled   bool
+		isStreaming bool
+		statusCode  int
+		eligible    bool
+		want        breakerOutcome
+	}{
+		{"eligible 5xx -> failure", true, false, 500, true, breakerFailureRecorded},
+		{"eligible 404 -> no-op", true, false, 404, true, breakerUntouched},
+		{"non-eligible 200 non-streaming -> success", true, false, 200, false, breakerSuccessRecorded},
+		{"non-eligible 200 streaming -> deferred (untouched)", true, true, 200, false, breakerUntouched},
+		{"non-eligible non-200 streaming -> success", true, true, 204, false, breakerSuccessRecorded},
+		{"breaker disabled -> untouched", false, false, 500, true, breakerUntouched},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cb := failover.NewCircuitBreaker(nil)
+			h := &Handler{circuitBreaker: cb}
+			st := &requestState{circuitBreakerEnabled: tc.cbEnabled, isStreaming: tc.isStreaming}
+			provID := uuid.New()
+			cand := modelCandidate{provider: &provider.Provider{ID: provID, Name: "p"}}
+
+			h.recordBreakerOutcome(st, cand, tc.statusCode, tc.eligible)
+
+			fails, seen := cbConsecutiveFails(cb, provID)
+			switch tc.want {
+			case breakerUntouched:
+				if seen {
+					t.Errorf("expected breaker untouched, but circuit exists (fails=%d)", fails)
+				}
+			case breakerFailureRecorded:
+				if !seen || fails != 1 {
+					t.Errorf("expected one failure recorded, got seen=%v fails=%d", seen, fails)
+				}
+			case breakerSuccessRecorded:
+				if !seen || fails != 0 {
+					t.Errorf("expected success recorded (circuit at 0 fails), got seen=%v fails=%d", seen, fails)
+				}
+			}
+		})
 	}
 }
 
