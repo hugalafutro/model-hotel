@@ -180,6 +180,148 @@ func (h *StatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// statByModel fills stats.ByModel with the top-10 models by the requested
+// metric (Q2). A query failure is fatal (returned); a per-row scan error skips
+// the row, matching the original loop.
+func (h *StatsHandler) statByModel(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter, metric string, since time.Time) error {
+	query := `
+		SELECT
+			CASE
+				WHEN rl.model_id LIKE '%/%' THEN rl.model_id
+				WHEN p.name IS NOT NULL AND p.name != '' THEN p.name || '/' || rl.model_id
+				ELSE rl.model_id
+			END as model_id,
+			` + metricValueSelect(metric) + `
+		FROM request_logs rl
+		LEFT JOIN providers p ON rl.provider_id = p.id` + vkJoin + `
+		WHERE rl.created_at >= $1` + vkFilter + `
+		GROUP BY
+			CASE
+				WHEN rl.model_id LIKE '%/%' THEN rl.model_id
+				WHEN p.name IS NOT NULL AND p.name != '' THEN p.name || '/' || rl.model_id
+				ELSE rl.model_id
+			END
+		ORDER BY val DESC
+		LIMIT 10`
+
+	rows, err := h.dbPool.Query(ctx, query, since)
+	if err != nil {
+		debuglog.Error("stats: query failed", "query", "by_model", "error", err)
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var modelID string
+		var val int64
+		if err := rows.Scan(&modelID, &val); err != nil {
+			continue
+		}
+		stats.ByModel[modelID] = val
+	}
+	return nil
+}
+
+// statByProvider fills stats.ByProvider with the top-10 providers by the
+// requested metric (Q3). Query failure fatal; per-row scan error skips the row.
+func (h *StatsHandler) statByProvider(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter, metric string, since time.Time) error {
+	query := `
+		SELECT p.name, ` + metricValueSelect(metric) + `
+		FROM request_logs rl
+		JOIN providers p ON rl.provider_id = p.id` + vkJoin + `
+		WHERE rl.created_at >= $1` + vkFilter + `
+		GROUP BY p.name
+		ORDER BY val DESC
+		LIMIT 10`
+
+	rows, err := h.dbPool.Query(ctx, query, since)
+	if err != nil {
+		debuglog.Error("stats: query failed", "query", "by_provider", "error", err)
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var providerName string
+		var val int64
+		if err := rows.Scan(&providerName, &val); err != nil {
+			continue
+		}
+		stats.ByProvider[providerName] = val
+	}
+	return nil
+}
+
+// statByVirtualKey fills stats.ByVirtualKey from live virtual keys (Q4), plus
+// the deleted-key aggregate under the "Deleted" key (Q4b, only when not
+// excluding deleted keys) and the chat/arena admin routes keyed by
+// virtual_key_name (Q4c). The main query failure is fatal; the two aggregates
+// are best-effort (logged via their nil-error guards, never abort).
+func (h *StatsHandler) statByVirtualKey(ctx context.Context, stats *StatsResponse, metric string, since time.Time, excludeDeleted bool) error {
+	virtualKeyQuery := `
+		SELECT vk.name, ` + metricValueSelect(metric) + `
+		FROM request_logs rl
+		JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
+		WHERE rl.created_at >= $1
+		GROUP BY vk.name
+		ORDER BY val DESC
+		LIMIT 10`
+
+	rows, err := h.dbPool.Query(ctx, virtualKeyQuery, since)
+	if err != nil {
+		debuglog.Error("stats: query failed", "query", "by_virtual_key", "error", err)
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var name string
+		var val int64
+		if err := rows.Scan(&name, &val); err != nil {
+			continue
+		}
+		stats.ByVirtualKey[name] = val
+	}
+
+	// Query 4b: Deleted virtual keys aggregate — only when not excluding deleted keys
+	if !excludeDeleted {
+		deletedKeyQuery := `
+			SELECT ` + metricValueSelect(metric) + `
+			FROM request_logs rl
+			WHERE rl.created_at >= $1
+			  AND rl.virtual_key_id IS NOT NULL
+			  AND NOT EXISTS (SELECT 1 FROM virtual_keys vk WHERE vk.id = rl.virtual_key_id)`
+
+		var deletedVal int64
+		err = h.dbPool.QueryRow(ctx, deletedKeyQuery, since).Scan(&deletedVal)
+		if err == nil && deletedVal > 0 {
+			stats.ByVirtualKey["Deleted"] = deletedVal
+		}
+	}
+
+	// Query 4c: Chat and Arena -- stored via virtual_key_name for admin chat/arena routes
+	for _, keyName := range []string{"chat", "arena"} {
+		var val int64
+		if metric == "tokens" {
+			err = h.dbPool.QueryRow(ctx, `
+				SELECT SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0))
+				FROM request_logs rl
+				WHERE rl.created_at >= $1 AND rl.virtual_key_name = $2`,
+				since, keyName).Scan(&val)
+		} else {
+			err = h.dbPool.QueryRow(ctx, `
+				SELECT COUNT(*)
+				FROM request_logs rl
+				WHERE rl.created_at >= $1 AND rl.virtual_key_name = $2`,
+				since, keyName).Scan(&val)
+		}
+		if err == nil && val > 0 {
+			stats.ByVirtualKey[keyName] = val
+		}
+	}
+	return nil
+}
+
 func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration, excludeDeleted bool, metric string, includeLatency bool) (*StatsResponse, error) {
 	stats := &StatsResponse{
 		ByModel:      make(map[string]int64),
@@ -237,134 +379,15 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 		stats.TotalRequestsLast24h = count
 	}
 
-	// Query 2: By model
-	modelSelect := metricValueSelect(metric)
-	query = `
-		SELECT
-			CASE
-				WHEN rl.model_id LIKE '%/%' THEN rl.model_id
-				WHEN p.name IS NOT NULL AND p.name != '' THEN p.name || '/' || rl.model_id
-				ELSE rl.model_id
-			END as model_id,
-			` + modelSelect + `
-		FROM request_logs rl
-		LEFT JOIN providers p ON rl.provider_id = p.id` + vkJoin + `
-		WHERE rl.created_at >= $1` + vkFilter + `
-		GROUP BY
-			CASE
-				WHEN rl.model_id LIKE '%/%' THEN rl.model_id
-				WHEN p.name IS NOT NULL AND p.name != '' THEN p.name || '/' || rl.model_id
-				ELSE rl.model_id
-			END
-		ORDER BY val DESC
-		LIMIT 10`
-
-	rows, err := h.dbPool.Query(ctx, query, since)
-	if err != nil {
-		debuglog.Error("stats: query failed", "query", "by_model", "error", err)
+	// Queries 2–4c: dimension breakdowns (top-10 by model / provider / virtual key).
+	if err := h.statByModel(ctx, stats, vkJoin, vkFilter, metric, since); err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var modelID string
-		var val int64
-		if err := rows.Scan(&modelID, &val); err != nil {
-			continue
-		}
-		stats.ByModel[modelID] = val
-	}
-
-	// Query 3: By provider
-	providerSelect := metricValueSelect(metric)
-	query = `
-		SELECT p.name, ` + providerSelect + `
-		FROM request_logs rl
-		JOIN providers p ON rl.provider_id = p.id` + vkJoin + `
-		WHERE rl.created_at >= $1` + vkFilter + `
-		GROUP BY p.name
-		ORDER BY val DESC
-		LIMIT 10`
-
-	rows, err = h.dbPool.Query(ctx, query, since)
-	if err != nil {
-		debuglog.Error("stats: query failed", "query", "by_provider", "error", err)
+	if err := h.statByProvider(ctx, stats, vkJoin, vkFilter, metric, since); err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var providerName string
-		var val int64
-		if err := rows.Scan(&providerName, &val); err != nil {
-			continue
-		}
-		stats.ByProvider[providerName] = val
-	}
-
-	// Query 4: By virtual key
-	vkSelect := metricValueSelect(metric)
-	virtualKeyQuery := `
-		SELECT vk.name, ` + vkSelect + `
-		FROM request_logs rl
-		JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
-		WHERE rl.created_at >= $1
-		GROUP BY vk.name
-		ORDER BY val DESC
-		LIMIT 10`
-
-	rows, err = h.dbPool.Query(ctx, virtualKeyQuery, since)
-	if err != nil {
-		debuglog.Error("stats: query failed", "query", "by_virtual_key", "error", err)
+	if err := h.statByVirtualKey(ctx, stats, metric, since, excludeDeleted); err != nil {
 		return nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var name string
-		var val int64
-		if err := rows.Scan(&name, &val); err != nil {
-			continue
-		}
-		stats.ByVirtualKey[name] = val
-	}
-
-	// Query 4b: Deleted virtual keys aggregate — only when not excluding deleted keys
-	if !excludeDeleted {
-		deletedSelect := metricValueSelect(metric)
-		deletedKeyQuery := `
-			SELECT ` + deletedSelect + `
-			FROM request_logs rl
-			WHERE rl.created_at >= $1
-			  AND rl.virtual_key_id IS NOT NULL
-			  AND NOT EXISTS (SELECT 1 FROM virtual_keys vk WHERE vk.id = rl.virtual_key_id)`
-
-		var deletedVal int64
-		err = h.dbPool.QueryRow(ctx, deletedKeyQuery, since).Scan(&deletedVal)
-		if err == nil && deletedVal > 0 {
-			stats.ByVirtualKey["Deleted"] = deletedVal
-		}
-	}
-
-	// Query 4c: Chat and Arena -- stored via virtual_key_name for admin chat/arena routes
-	for _, keyName := range []string{"chat", "arena"} {
-		var val int64
-		if metric == "tokens" {
-			err = h.dbPool.QueryRow(ctx, `
-				SELECT SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0))
-				FROM request_logs rl
-				WHERE rl.created_at >= $1 AND rl.virtual_key_name = $2`,
-				since, keyName).Scan(&val)
-		} else {
-			err = h.dbPool.QueryRow(ctx, `
-				SELECT COUNT(*)
-				FROM request_logs rl
-				WHERE rl.created_at >= $1 AND rl.virtual_key_name = $2`,
-				since, keyName).Scan(&val)
-		}
-		if err == nil && val > 0 {
-			stats.ByVirtualKey[keyName] = val
-		}
 	}
 
 	// Query 5: Avg latency
@@ -501,7 +524,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 				GREATEST(0, avg_total - avg_overhead) as avg_provider
 			FROM model_latency`
 
-		rows, err = h.dbPool.Query(ctx, query, since)
+		rows, err := h.dbPool.Query(ctx, query, since)
 		if err != nil {
 			debuglog.Error("stats: query failed", "query", "by_model_latency", "error", err)
 		} else {
