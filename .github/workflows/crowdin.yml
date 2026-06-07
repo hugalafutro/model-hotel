@@ -27,7 +27,7 @@ jobs:
         uses: crowdin/github-action@8868a33591d21088edfc398968173a3b98d51706 # v2
         with:
           upload_sources: true
-          upload_translations: false
+          upload_translations: true
           download_translations: true
           skip_untranslated_strings: true
           localization_branch_name: l10n_crowdin_translations
@@ -41,23 +41,29 @@ jobs:
           CROWDIN_PROJECT_ID: ${{ secrets.CROWDIN_PROJECT_ID }}
           CROWDIN_PERSONAL_TOKEN: ${{ secrets.CROWDIN_PERSONAL_TOKEN }}
 
-      - name: Strip empty translation values
+      - name: Fill empty translations from source
         run: |
           python3 -c '
           import json, glob, os
-          for f in glob.glob("web/src/i18n/locales/?.json"):
-              with open(f) as fh: d = json.load(fh)
-              def strip(obj):
+          with open("web/src/i18n/locales/en.json") as f:
+              en = json.load(f)
+          for fpath in glob.glob("web/src/i18n/locales/?.json"):
+              if "en.json" in fpath:
+                  continue
+              with open(fpath) as f:
+                  d = json.load(f)
+              def fill(trans, src):
                   out = {}
-                  for k, v in obj.items():
+                  for k, v in src.items():
                       if isinstance(v, dict):
-                          s = strip(v)
-                          if s: out[k] = s
-                      elif v != "": out[k] = v
+                          out[k] = fill(trans.get(k, {}), v)
+                      else:
+                          tv = trans.get(k, "")
+                          out[k] = tv if tv != "" else v
                   return out
-              d = strip(d)
-              with open(f, "w") as fh:
-                  json.dump(d, fh, indent="\t", ensure_ascii=False)
-                  fh.write("\n")
-              print(f"  {os.path.basename(f)}: cleaned")
+              d = fill(d, en)
+              with open(fpath, "w") as f:
+                  json.dump(d, f, indent="\t", ensure_ascii=False)
+                  f.write("\n")
+              print(f"  {os.path.basename(fpath)}: filled")
           '
