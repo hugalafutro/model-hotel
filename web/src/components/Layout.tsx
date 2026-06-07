@@ -32,7 +32,7 @@ import { useSidebarMode } from "../context/SidebarModeContext";
 import { useTheme } from "../context/ThemeContext";
 import { useToast } from "../context/ToastContext";
 import { useGitHubVersion } from "../hooks/useGitHubVersion";
-import i18next from "../i18n";
+import i18next, { LANGUAGE_STORAGE_KEY } from "../i18n";
 import { formatRelativeTime, formatTimestamp } from "../utils/format";
 import { isWebAuthnAvailable } from "../utils/webauthn";
 import { CollapsibleToggle, useCollapsible } from "./CollapsibleToggle";
@@ -681,10 +681,6 @@ function LastErrorPills() {
 		</>
 	);
 }
-
-// The localStorage key the i18next language detector reads/writes.
-// Kept in sync with lookupLocalStorage in i18n/index.ts.
-const LANGUAGE_STORAGE_KEY = "i18nextLng";
 
 // Language names are autonyms (each language in its own script), shown
 // identically in every UI locale — the industry standard for language pickers,

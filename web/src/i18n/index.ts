@@ -31,6 +31,11 @@ import uk from "./locales/uk.json";
 import vi from "./locales/vi.json";
 import zh from "./locales/zh.json";
 
+// The localStorage key the language detector reads/writes. Exported as the
+// single source of truth so the explicit picker write (Layout.tsx) and the
+// detector's lookupLocalStorage below cannot drift apart.
+export const LANGUAGE_STORAGE_KEY = "i18nextLng";
+
 i18next
 	.use(LanguageDetector)
 	.use(initReactI18next)
@@ -78,7 +83,7 @@ i18next
 			// on every visit; only a deliberate selection in the language picker
 			// writes to localStorage (see LanguageSelector in Layout.tsx).
 			caches: [],
-			lookupLocalStorage: "i18nextLng",
+			lookupLocalStorage: LANGUAGE_STORAGE_KEY,
 		},
 		interpolation: {
 			escapeValue: false,
