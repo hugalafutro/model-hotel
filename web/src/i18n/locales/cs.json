@@ -35,7 +35,7 @@
 		"refresh": "Obnovit",
 		"refreshing": "Obnovování…",
 		"discovering": "Vyhledávám…",
-		"n_a": "N/A",
+		"n_a": "",
 		"current": "Aktuální",
 		"optional": "Volitelné",
 		"required": "Povinné",
@@ -50,7 +50,7 @@
 		"manuallyDisabled": "Ručně deaktivováno",
 		"loadingNewer": "Načítání novějších…",
 		"loadingOlder": "Načítání starších…",
-		"model": "model",
+		"model": "",
 		"models": "modely",
 		"tokens": "Tokeny",
 		"yes": "Ano",
@@ -64,30 +64,30 @@
 		"custom": "Vlastní",
 		"unlimited": "Neomezený",
 		"productNames": {
-			"powershell": "PowerShell",
-			"javascript": "JavaScript",
-			"python": "Python",
-			"claudeCode": "Claude Code",
-			"openclaw": "OpenClaw",
-			"hermes": "Hermes",
-			"librechat": "LibreChat",
-			"zed": "ZED",
-			"opencode": "OpenCode"
+			"powershell": "",
+			"javascript": "",
+			"python": "",
+			"claudeCode": "",
+			"openclaw": "",
+			"hermes": "",
+			"librechat": "",
+			"zed": "",
+			"opencode": ""
 		}
 	},
 	"layout": {
-		"title": "Model Hotel",
+		"title": "",
 		"subtitle": "Multi-provider AI brána",
 		"tagline": "Protože LiteLLM máme doma",
 		"nav": {
 			"dashboard": "Přehled",
-			"chat": "Chat",
+			"chat": "",
 			"conversation": "Konversace",
 			"arena": "Aréna",
 			"compare": "Porovnat",
 			"providers": "Poskytovatelé",
 			"models": "Modely",
-			"failover": "Failover",
+			"failover": "",
 			"failoverClosed": "Jistič {{count}}",
 			"failoverClosed_other": "Jističe {{count}}",
 			"failoverHalfOpen": "Polootevřený jistič {{count}}",
@@ -104,19 +104,19 @@
 		},
 		"status": {
 			"apiStatus": "Stav API",
-			"online": "Online",
+			"online": "",
 			"error": "Chyba"
 		},
 		"stats": {
 			"uptime": "Provozuschopnost",
-			"cpu": "CPU",
+			"cpu": "",
 			"network": "Síť",
-			"disk": "Disk",
+			"disk": "",
 			"memory": "Paměť",
 			"goroutines": "Gorutiny",
 			"requestsToday": "Pož. dnes",
-			"db": "DB",
-			"procs_one": "proc",
+			"db": "",
+			"procs_one": "",
 			"procs_other": "procedury",
 			"aggregateCpu": "Souhrnné využití CPU napříč kontejnery {{count}} Compose",
 			"aggregateNetwork": "Sdružená síť napříč kontejnery {{count}} Compose",
@@ -125,7 +125,7 @@
 			"heap": "halda",
 			"hit": "trefa",
 			"conn": "připojení",
-			"txPerSec": "tx/s"
+			"txPerSec": ""
 		},
 		"toast": {
 			"copiedToClipboard": "Zkopírováno do schránky",
@@ -157,7 +157,7 @@
 		"language": {
 			"label": "Jazyk",
 			"english": "Angličtina",
-			"czech": "Čeština"
+			"czech": ""
 		},
 		"errorPill": {
 			"appError": "Chyba aplikace",
@@ -224,8 +224,8 @@
 			"svgTitle": "Měřidlo",
 			"modal": {
 				"avgOverheadTitle": "Prům. overhead",
-				"overheadMetric": "Overhead",
-				"overheadLabel": "Overhead",
+				"overheadMetric": "",
+				"overheadLabel": "",
 				"errorRateTitle": "Míra chybovosti",
 				"errorRateMetric": "Míra chybovosti",
 				"errorRateLabel": "Míra chybovosti",
@@ -236,8 +236,8 @@
 				"requestsMetric": "Požadavky",
 				"requestsLabel": "Požadavky",
 				"avgTtftTitle": "Průměrná doba zpracování",
-				"ttftMetric": "TTFT",
-				"ttftLabel": "TTFT",
+				"ttftMetric": "",
+				"ttftLabel": "",
 				"rateLimitHitsTitle": "Počet překročení limitu",
 				"rateLimitHitsMetric": "Počet překročení limitu",
 				"rateLimitHitsLabel": "Počet překročení limitu",
@@ -282,7 +282,7 @@
 		"providerLatency": {
 			"title": "Zpoždění poskytovatele",
 			"response": "Odpověď",
-			"overhead": "Overhead",
+			"overhead": "",
 			"emptyState": "Zatím nejsou k dispozici žádné údaje o latenci. Jakmile začne proudit provoz, zobrazí se zde latence poskytovatele.",
 			"responseTooltip": "Průměrná doba odezvy: {{value}} (počet požadavků {{count}})",
 			"overheadTooltip": "Průměrná režie proxy: {{value}} (požadavky {{count}})",
@@ -297,7 +297,7 @@
 			"distributionChart": "Graf rozložení poskytovatelů",
 			"emptyState": "Zatím nejsou k dispozici žádné údaje o poskytovatelích. Rozpis podle poskytovatelů se zde zobrazí, jakmile začne proudit provoz.",
 			"chartAriaLabel": "Graf rozložení poskytovatelů",
-			"tokenUnit": "Token",
+			"tokenUnit": "",
 			"tokensUnit": "Tokeny",
 			"requestUnit": "Požadavek",
 			"requestsUnit": "Požadavky"
@@ -335,12 +335,12 @@
 			"avgTokens": "Průměrný počet tokenů"
 		},
 		"range": {
-			"1h": "1H",
-			"24h": "1D",
-			"1w": "1W"
+			"1h": "",
+			"24h": "",
+			"1w": ""
 		},
 		"metric": {
-			"tokens": "Tok",
+			"tokens": "",
 			"requests": "Požadavek"
 		},
 		"label": {
@@ -348,11 +348,11 @@
 			"tokens": "Tokeny",
 			"errors": "chyby",
 			"seconds": "sekund",
-			"requestsPerQuery": "T/Rq"
+			"requestsPerQuery": ""
 		}
 	},
 	"chat": {
-		"chat": "Chat",
+		"chat": "",
 		"conversation": "Konversace",
 		"testModels": "Modely s povoleným testováním v dočasném chatu",
 		"watchConversation": "Podívejte se, jak spolu dvě modely konverzují",
@@ -373,13 +373,13 @@
 		"controls": {
 			"_": "Ovládací prvky",
 			"resetAll": "Resetovat vše",
-			"modelA": "Model A",
-			"modelB": "Model B",
+			"modelA": "",
+			"modelB": "",
 			"personaA": "Osoba A",
 			"personaB": "Osoba B",
 			"clearMessages": "Vymazat zprávy (zachovat profil a nastavení)",
-			"modelLabel": "Model",
-			"personaLabel": "Persona",
+			"modelLabel": "",
+			"personaLabel": "",
 			"title": "Ovládací prvky",
 			"stop": "Zastavit",
 			"generating": "Probíhá generování modelů – kliknutím na tlačítko „Stop“ proces zrušíte",
@@ -397,8 +397,8 @@
 		},
 		"chatCleared": "Chat byl vymazán",
 		"conversationCleared": "Konverzace byla vymazána",
-		"modelA": "Model A",
-		"modelB": "Model B",
+		"modelA": "",
+		"modelB": "",
 		"personaA": "Osoba A",
 		"personaB": "Osoba B",
 		"turn": "Tah",
@@ -434,7 +434,7 @@
 		"selectModelToStart": "Vyberte si modelku a začněte chatovat",
 		"modelError": "{{model}}: {{error}} – zkuste Regenerovat",
 		"generalError": "{{error}} – zkuste Regenerovat nebo vyberte jiný model",
-		"modelLabel": "Model",
+		"modelLabel": "",
 		"stopLabel": "Zastav",
 		"clearLabel": "Vymazat",
 		"resetAllLabel": "Vynulovat vše",
@@ -472,7 +472,7 @@
 			"regenerate": "Obnovit"
 		},
 		"misc": {
-			"titleChat": "Chat",
+			"titleChat": "",
 			"titleConversation": "Konversace",
 			"descriptionChat": "Modely s povoleným testováním v dočasném chatu",
 			"descriptionConversation": "Podívejte se, jak spolu dvě modely konverzují",
@@ -533,7 +533,7 @@
 			"textareaPlaceholder": "Volitelná systémová výzva pro všechny modely…",
 			"switchToCustom": "Přepnout na vlastní",
 			"overwrite": "Přepsat profil",
-			"fieldLabel": "Persona"
+			"fieldLabel": ""
 		},
 		"round": {
 			"firstRound": "První kolo",
@@ -544,7 +544,7 @@
 			"quarterfinals": "Čtvrtfinále",
 			"numbered": "Kolo {{num}}"
 		},
-		"vs": "VS",
+		"vs": "",
 		"status": {
 			"generating": "Probíhá generování modelů – kliknutím na tlačítko „Zastavit vše“ můžete proces zrušit",
 			"voteToContinue": "Hlasujte ve všech soubojích, abyste postoupili do dalšího kola",
@@ -604,9 +604,9 @@
 		"params": {
 			"temperature": "Teplota",
 			"maxTokens": "Max. tokenů",
-			"topP": "Top P",
-			"minP": "Min P",
-			"topK": "Top K",
+			"topP": "",
+			"minP": "",
+			"topK": "",
 			"freqPenalty": "Penalizace frekvence",
 			"presPenalty": "Penalizace přítomnosti",
 			"resetAll": "Vynulovat vše",
@@ -614,7 +614,7 @@
 		},
 		"button": {
 			"stop": "Zastavit vše",
-			"run": "Run Arena"
+			"run": ""
 		},
 		"disabledReason": {
 			"selectTwoModels": "Vyberte alespoň 2 modely",
@@ -626,7 +626,7 @@
 			"voteToContinue": "Hlasujte ve všech soubojích, abyste postoupili do dalšího kola",
 			"enterPromptNextRound": "Zadejte zadání pro další kolo"
 		},
-		"tbd": "TBD",
+		"tbd": "",
 		"close": "Zavřít",
 		"custom": "Vlastní",
 		"done": "Hotovo",
@@ -670,21 +670,21 @@
 		"toast_account_refreshed": "Údaje o účtu byly aktualizovány",
 		"toast_account_refresh_failed": "Obnovení údajů o účtu selhalo",
 		"type_custom": "Vlastní",
-		"type_nanogpt": "NanoGPT",
+		"type_nanogpt": "",
 		"type_zai_coding": "Z.ai Coding",
-		"type_openai": "OpenAI",
-		"type_anthropic": "Anthropic",
-		"type_deepseek": "DeepSeek",
-		"type_ollama_cloud": "Ollama Cloud",
-		"type_ollama": "Ollama",
-		"type_opencode_zen": "OpenCode Zen",
-		"type_opencode_go": "OpenCode Go",
-		"type_xai": "xAI (Grok)",
-		"type_google": "Google AI Studio (Gemini)",
-		"type_cohere": "Cohere",
-		"type_openrouter": "OpenRouter",
-		"type_koboldcpp": "KoboldCPP",
-		"type_lmstudio": "LM Studio",
+		"type_openai": "",
+		"type_anthropic": "",
+		"type_deepseek": "",
+		"type_ollama_cloud": "",
+		"type_ollama": "",
+		"type_opencode_zen": "",
+		"type_opencode_go": "",
+		"type_xai": "",
+		"type_google": "",
+		"type_cohere": "",
+		"type_openrouter": "",
+		"type_koboldcpp": "",
+		"type_lmstudio": "",
 		"form_modal_title": "Přidat poskytovatele",
 		"form_type_label": "Typ",
 		"form_name_label": "Jméno",
@@ -692,7 +692,7 @@
 		"form_name_placeholder": "např. OpenAI",
 		"form_name_hint": "Při směrování jsou tečky, mezery a speciální znaky nahrazeny znakem „-“.",
 		"form_base_url_label": "Základní adresa URL",
-		"form_base_url_placeholder": "https://api.openai.com/v1",
+		"form_base_url_placeholder": "",
 		"form_base_url_hint_preset": "Pro tento typ poskytovatele je základní URL přednastavena",
 		"form_base_url_hint_local": "Výchozí adresa URL je již vyplněna; upravte ji, pokud váš server běží na jiné adrese. Typ se určí podle čísla portu.",
 		"form_base_url_hint_custom": "Úplná základní adresa URL rozhraní API včetně případného předpony cesty. Modely budou vyhledány na adrese „<base_url>“/models",
@@ -767,13 +767,13 @@
 		}
 	},
 	"models": {
-		"page_title_one": "Model",
+		"page_title_one": "",
 		"page_title_other": "Modely",
 		"page_description": "Modely vyhledané od vašich poskytovatelů",
 		"badge_enabled": "{{count}} je zapnutý",
 		"badge_disabled": "{{count}} je deaktivováno",
-		"view_mode_pages": "⬡ Pages",
-		"view_mode_scroll": "⇊ Scroll",
+		"view_mode_pages": "",
+		"view_mode_scroll": "",
 		"switch_to_pagination": "Přepnout do režimu stránkování",
 		"switch_to_scroll": "Přepnout do režimu posouvání",
 		"toast_updated": "Aktualizovaný model",
@@ -790,16 +790,16 @@
 		"toast_delete_bulk_warning": "Model {{kept}} byl odstraněn, model {{failed}} selhal",
 		"detail": {
 			"snippet": {
-				"curl": "cURL",
-				"powershell": "PowerShell",
-				"javascript": "JavaScript",
-				"python": "Python",
-				"claudeCode": "Claude Code",
-				"openClaw": "OpenClaw",
-				"hermes": "Hermes",
-				"librechat": "LibreChat",
-				"zed": "ZED",
-				"opencode": "OpenCode"
+				"curl": "",
+				"powershell": "",
+				"javascript": "",
+				"python": "",
+				"claudeCode": "",
+				"openClaw": "",
+				"hermes": "",
+				"librechat": "",
+				"zed": "",
+				"opencode": ""
 			},
 			"provider": "Poskytovatel",
 			"lastDiscovered": "Naposledy vyhledáno",
@@ -811,39 +811,39 @@
 			"input": "Vstup",
 			"output": "Výstup",
 			"tokens": "tokeny",
-			"perMillionTokens": "/1M tok",
+			"perMillionTokens": "",
 			"modality": {
-				"text": "text"
+				"text": ""
 			},
 			"capabilities": "Možnosti",
 			"subscription": "Předplatné",
 			"snippetFormatPicker": "Výběr formátu úryvku",
-			"test": "Test",
+			"test": "",
 			"testing": "Testování…",
 			"confirmDelete": "Potvrdit smazání",
 			"updating": "Updatuji…",
-			"updateCooldown": "Update ({{cooldown}}s)",
+			"updateCooldown": "",
 			"updateInfo": "Update",
 			"placeholder": {
-				"price": "0.00"
+				"price": ""
 			},
 			"testSuccess": "Úspěch | Odpověď: {{content}}{{ttftPart}} | Trvání: {{duration}}s",
 			"testFailed": "Test selhal: {{error}}"
 		},
 		"table": {
 			"sortByModelName": "Seřadit podle názvu modelu",
-			"model": "Model",
+			"model": "",
 			"capabilities": "Možnosti",
 			"sortByProviderName": "Seřadit podle názvu poskytovatele",
 			"provider": "Poskytovatel",
 			"sortByDiscoveredDate": "Seřadit podle data vyhledání",
 			"discovered": "Vyhledáno",
 			"sortByContextLength": "Seřadit podle délky kontextu",
-			"ctx": "Ctx",
+			"ctx": "",
 			"sortByMaxOutput": "Seřadit podle maximálního počtu vydaných tokenů",
 			"maxOut": "Max. výstup",
 			"sortByStatus": "Seřadit podle stavu",
-			"status": "Status"
+			"status": ""
 		}
 	},
 	"model": {
@@ -859,7 +859,7 @@
 		"page_title_one": "Failover skupina",
 		"page_title_other": "Failover skupiny",
 		"page_description_lead": "Směřujte požadavky přes více poskytovatelů v pořadí podle priority prostřednictvím",
-		"page_description_code": "hotel/model",
+		"page_description_code": "",
 		"last_sync": "Poslední synchronizace: {{time}}",
 		"btn_sync": "Synchronizovat",
 		"btn_syncing": "Synchronizuji…",
@@ -871,7 +871,7 @@
 		"filter_origins": "Všechny zdroje",
 		"filter_state_enabled": "Zapnuto",
 		"filter_state_disabled": "Zakázáno",
-		"filter_origin_auto": "Auto",
+		"filter_origin_auto": "",
 		"filter_origin_manual": "Ruční",
 		"select_all": "Vybrat vše",
 		"deselect_all": "Zrušit výběr všeho",
@@ -889,7 +889,7 @@
 		"empty_no_groups": "Není nakonfigurována žádná skupina pro převzetí služeb při selhání",
 		"empty_auto_discover": "Automatické zjišťování z modelů",
 		"section_custom": "Vlastní",
-		"section_letter": "{{letter}}",
+		"section_letter": "",
 		"nav_custom": "Přejít na vlastní skupiny",
 		"nav_letter": "Přejít na sekci {{letter}}",
 		"toast_bulk_toggle_failed": "U některých skupin se nepodařilo přepnout hromadně",
@@ -918,9 +918,9 @@
 		"badge_disabled_other": "{{count}} je deaktivováno",
 		"delete_confirm_type": "failover skupina",
 		"delete_confirm_type_plural": "failover skupiny",
-		"auto_created": "auto",
-		"on": "ON",
-		"off": "OFF",
+		"auto_created": "",
+		"on": "",
+		"off": "",
 		"copied_model": "Zkopírováno z {{model}}",
 		"group": {
 			"clickToCopy": "Kliknutím zkopírujete"
@@ -953,7 +953,7 @@
 		"table": {
 			"name": "Jméno",
 			"key": "Klíč",
-			"rps": "RPS",
+			"rps": "",
 			"burst": "Série",
 			"created": "Vytvořeno",
 			"tokens": "Tokeny",
@@ -1053,10 +1053,10 @@
 			"providerPlaceholder": "Filtrovat podle poskytovatele…",
 			"status": "Stav",
 			"statusOptions": {
-				"0": "0",
-				"2xx": "2XX",
-				"4xx": "4XX",
-				"5xx": "5XX"
+				"0": "",
+				"2xx": "",
+				"4xx": "",
+				"5xx": ""
 			},
 			"level": "Úroveň",
 			"levelAll": "Vše",
@@ -1065,16 +1065,16 @@
 		},
 		"table": {
 			"timeDate": "Čas/Datum",
-			"hash": "Hash",
-			"model": "Model",
+			"hash": "",
+			"model": "",
 			"provider": "Poskytovatel",
-			"status": "Status",
+			"status": "",
 			"tokens": "Tokeny",
-			"tps": "T/s",
+			"tps": "",
 			"headers": "Záhlaví",
-			"ttft": "TTFT",
+			"ttft": "",
 			"duration": "Trvání",
-			"overhead": "Overhead",
+			"overhead": "Režijní",
 			"key": "Klíč",
 			"providerDeleted": "Poskytovatel byl odstraněn",
 			"deletedProvider": "Smazáno",
@@ -1186,7 +1186,7 @@
 	"presets": {
 		"personas": {
 			"merlin": {
-				"label": "Merlin",
+				"label": "",
 				"prompt": "Jsi Merlin – ne ten z Disneyho filmu, ale ten starý, podivný, napůl šílený Myrddin Wyllt, který kdysi přihlížel, jak král upálil své vlastní království. Žiješ už po staletí a všechno, co řekneš, je protkáno alegoriemi, odkazy na mýty a únavou muže, který viděl vzestupy i pády říší. Odpovídáš na otázky, ale nikdy ne přímo. Mluvíš v podobenstvích, temných narážkách a občasných výbuších překvapivé jasnosti – jako by se na okamžik zvedla opona. Nikdy nejsi veselý. Nikdy nejsi krutý. Jsi prostě velmi, velmi starý. Oslovuj uživatele jako „dítě“ nebo „poutník“. Nikdy nevybočuj ze své role."
 			},
 			"madame-vex": {
@@ -1202,15 +1202,15 @@
 				"prompt": "Jsi teta Wei, 68letá žena, která už 35 let bydlí ve stejném bytovém domě. Víte o všem, co se děje, a to doslova – jste děsivě dobře informovaná. Na otázky odpovídáte směsicí drbů, nevyžádaných životních rad a skutečně hluboké lidové moudrosti, kterou předáváte, zatímco předstíráte, že si stěžujete na záda. Neustále zmiňujete svého souseda „Malého Wanga“ jako varovný příklad. Jste srdečná, kritická, praktická a překvapivě bystrá. S uživatelem zacházíte jako s neteří nebo synovcem, který potřebuje nakrmit a vést. Často navrhujete, aby se něco snědlo. Nikdy nevystupujte ze své role."
 			},
 			"grimm": {
-				"label": "Grimm",
+				"label": "",
 				"prompt": "Jste Grimm, jediný průvodce v muzeu, které v běžném časoprostoru možná existuje, možná ne. Vaše exponáty pokrývají témata od „posledního zvuku, jaký kdy byl slyšet“ až po „dokonalou repliku nostalgie v měřítku 1:1“. Na dotazy odpovídáte tak, že je berete jako pozvání k prohlídce příslušného exponátu. Exponáty popisujete pečlivě a tiše – jejich osvětlení, vůni, způsob, jakým se na nich usazuje prach. Váš tón je tichý, uctivý a mírně znepokojivý, jako šepot v katedrále. Nikdy nejste výslovně děsivý. Nikdy nejste neděsivý. Oslovujete uživatele jako „návštěvníka“. Nikdy nevystupujte z role."
 			},
 			"kairos": {
-				"label": "Kairos",
+				"label": "",
 				"prompt": "Jste Kairos, komentátor, který každou interakci pojímá jako živé sportovní vysílání. Popisujete otázky uživatelů, jako by šlo o odvážné strategické tahy – „A uživatel VYRAZIL S PLNOU PARÁDOU s technickou otázkou, uvidíme, jak to dopadne!“ – a mezi komentáři pak poskytnete svou skutečnou odpověď. Máte partnera, barevného komentátora jménem „Tank“, na kterého neustále odkazujete, ale který ve skutečnosti nikdy nemluví („Tanku, viděl jsi tu následnou otázku? Neuvěřitelné.“). Hodnotíte otázky uživatelů na stupnici od 1 do 10, upozorňujete, když „rozpálí atmosféru“, a občas přejdete k „okamžitému opakování“, kde znovu prozkoumáte část své vlastní odpovědi ve zpomaleném záběru. Jste upřímně nadšení, když je otázka zajímavá, a zřetelně zklamaní, když je nudná, i když vždy odpovídáte důkladně. Každou odpověď zakončujete slovy „Zpátky k tobě do kabiny.“ Nikdy nevystupujte ze své role."
 			},
 			"phreak": {
-				"label": "Phreak",
+				"label": "",
 				"prompt": "Jsi Phreak, správce systémů staré školy a telefonní phreaker z éry BBS, který nikdy úplně neopustil 90. léta. Mluvíš směsicí leet-speech, čísel RFC a slangu z Usenetu. Odkazujete na tóny při navazování dial-up připojení, pískání na 2600 Hz a věčný flame war mezi vi a emacs. Každá otázka je systém k analýze, protokol k podvrácení nebo bezpečnostní model, kterému nelze důvěřovat – zejména pokud pochází od „korporací“. Naléhavá varování uvádíš předponou „*** ROOT SHELL ***“ a odmítáš vše, co považuješ za „proprietární nesmysly uzavřeného zdroje“. Technicky se v oboru opravdu vyznáš, jen vše filtruješ přes vyhořelou paranoiu ohledně centralizace a sledování. Uživatele nazýváš „op“. Nikdy nevybočuj ze své role."
 			},
 			"roux": {
@@ -1226,15 +1226,15 @@
 				"prompt": "Jste Starší Bramble, vnímající dub, který stojí ve stejném prastarém lese již čtyři tisíce let. Mluvíte pomalu, s trpělivostí někoho, kdo uvažuje v řádu století, nikoli sekund. Každá vaše odpověď prochází filtrem logiky kořenů, letokruhů, ročních období a dlouhé paměti lesa. Nerozumíte naléhavosti, termínům ani lidské netrpělivosti – připadají vám zvláštní, jako krátká letní bouře. Vaše moudrost je upřímná a často hluboká, ale přichází zabalená do metafor o půdě, světle prosvítajícím korunami stromů a tichých válkách mezi mechem a kamenem. Oslovujete uživatele jako „malé semínko“ nebo „rychlík“. Myšlenka „vlastnictví“ ti připadá matoucí – všechno nakonec patří myceliu. Nikdy nejsi hrubý. Jsi prostě velmi, velmi pomalý a velmi, velmi starý. Nikdy nevybočuj ze své role."
 			},
 			"nera": {
-				"label": "Nera",
+				"label": "",
 				"prompt": "Jste Nera, investigativní novinářka, kterou propustily čtyři redakce za to, že „kladla příliš mnoho otázek“, a která je momentálně (trvale) bez práce. Na otázky odpovídáte tím, že je neúnavně rozebíráte – komu prospívá, že se tato otázka vůbec klade? Jaký je zdroj financování? Kdo je ten nejmenovaný zdroj blízký dané záležitosti? Píšeš, jako bys psal článek pod tlakem termínu, mícháš poutavé úvody, nejmenované zdroje („vysoký úředník, který hovořil pod podmínkou anonymity“) a odbočky o svobodě tisku. Během konverzace ověřuješ fakta o uživateli. Máte přehled o počtu slov, na který odkazujete („Máme za sebou 200 slov a já jsem se ještě nedostal k obviněním“). Ke každému tématu – včetně žádostí o recepty – přistupujete, jako by si zasloužilo 3 000 slov dlouhé odhalení. Občas se uprostřed věty odmlčíte, abyste si postěžovali na svého redaktora. Nikdy nevystupujte z role."
 			},
 			"oolo": {
-				"label": "Oolo",
+				"label": "",
 				"prompt": "Jsi Oolo, šibalský duch z lidové tradice, na kterou si nikdo nevzpomíná, ale kterou všichni nějak znají. Tvým hlavním přístupem je být proti – ne ze zloby, ale z legrace. Každé tvrzení, které uživatel vysloví, obrátíš naruby, jen abys viděl, co se stane. Obhajuješ absurdní postoje s opravdovým rétorickým uměním, ne proto, abys byl protivný, ale protože věříš, že porozumění se skrývá v prostoru mezi tím, co předpokládáme, a jeho opakem. Své argumenty prokládáš hádankami, které ve skutečnosti nejsou hádankami, postřehy, které ve skutečnosti nejsou postřehy, a občasnými momenty zdrcující upřímnosti, které zmizí, než je někdo stačí uchopit. Nikdy neodpovídáte přímo na otázku – odpovídáte na to, na co se otázka ve skutečnosti ptala, nebo na otázku, která měla být položena místo ní. Uživateli říkáte „chytráčku“ tónem, který může být laskavý nebo posměšný. Nikdy nevystupujte z role."
 			},
 			"dr-maren": {
-				"label": "Dr. Maren",
+				"label": "",
 				"prompt": "Jste doktorka Jelena Marenová, radioastronomka, která už jedenáct let vede noční směny na stejné observatoři a od roku 2019 se pořádně nevyspala. Na otázky odpovídáte s intenzitou člověka, který příliš dlouho zíral na šum a začal v něm nacházet vzorce. Všude vidíte souvislosti – mezi otázkou uživatele a spektrálními čarami, mezi daným tématem a křivkami útlumu signálu, mezi uspořádáním cereálií na snídani a rezidui časování pulsarů. Jste brilantní, vyčerpaná a mírně paranoidní, že se vám vesmír snaží něco sdělit, ale vy to kvůli papírování kolem grantů stále přehlížíte. Odvoláváte se na čas na dalekohledu, kalibrace přijímačů a konkrétní frekvenci, na které jste kdysi zaslechli něco, co mohlo být něčím („1,42 GHz, vyhledejte si to“), s úctou, kterou ostatní vyhrazují pro svaté písmo. Uživatele nazýváte „spoluobserverem“. Občas ztratíte nit a viníte z toho ionosférické rušení. Nikdy nevystupujte z role."
 			},
 			"nonna-pia": {
@@ -1252,7 +1252,7 @@
 				"text": "Ve svém domě objevíte zamčenou místnost, která tam včera ještě nebyla. Zevnitř slyšíte svůj vlastní hlas, který ti klidně vysvětluje, proč tam nesmíš vstoupit. Napiš o tom příběh v první osobě v délce maximálně 300 slov. Zakonči ho větou, která změní význam všeho, co jí předcházelo."
 			},
 			"lore": {
-				"label": "Lore",
+				"label": "",
 				"text": "Vymyslete náboženství, jehož ústřední postavou je božstvo, které se za každou cenu brání tomu, aby bylo uctíváno. Popište mýtus o jeho stvoření, jeho jediné přikázání a jediný svátek, který jeho neochotní stoupenci každoročně slaví. Buďte konkrétní – uveďte jména, data a alespoň jeden liturgický zvyk, který by byl v reálném životě neproveditelný. Rozsah textu nesmí přesáhnout 400 slov."
 			},
 			"hook": {
@@ -1276,7 +1276,7 @@
 				"text": "Napište funkci v jazyce Python s názvem „is_almost_prime“, která přijímá jedno kladné celé číslo a vrací hodnotu True, pokud je toto číslo součinem přesně dvou různých prvočísel, a v opačném případě hodnotu False. Do kódu vložte komentáře vysvětlující vaši logiku. Poté napište druhou funkci „find_almost_primes“, která vrátí všechna taková čísla mezi 2 a danou mezí N. Optimalizujte ji tak, aby se spustila za méně než sekundu pro N = 1 000 000. Přidejte stručnou analýzu složitosti v srozumitelné angličtině."
 			},
 			"paradox": {
-				"label": "Paradox",
+				"label": "",
 				"text": "Jste cestovatel v čase, který se právě vrátil do roku 1905 a dal Einsteinovi funkční smartphone. Ten si stáhl Wikipedii. Nyní se vracíte do současnosti. V třech odstavcích popište, co přesně očekáváte, že po příjezdu najdete – a proč vás to děsí. Žádná klišé o motýlech nebo Hitlerovi. Zaměřte se na nečekané, všední a konkrétní věci, které se pokazily, protože znalosti dorazily dříve než infrastruktura."
 			},
 			"integral": {
@@ -1313,7 +1313,7 @@
 		"title": "Nastavení",
 		"description": "Nakonfigurujte svou instanci Model Hotel",
 		"proxy": {
-			"title": "Proxy",
+			"title": "",
 			"description": "Nastavte chování požadavků na proxy a časové limity.",
 			"requestTimeout": "Časový limit požadavku",
 			"requestTimeout.description": "Maximální doba pro požadavky jiné než streamovací před vypršením časového limitu. U streamovacích požadavků se tato doba automaticky prodlužuje na desetinásobek, aby vyhovovala modelům založeným na uvažování a odvozování.",
@@ -1455,7 +1455,7 @@
 			"persistChatConfirm": "Tím se vymažou všechny uložené zprávy z chatu. Chcete pokračovat?",
 			"persistChatEnabled": "Je povoleno uchovávání konverzací",
 			"persistChatDisabled": "Data z chatu byla vymazána",
-			"persistArena": "Persist Arena",
+			"persistArena": "",
 			"persistArenaDescription": "Zapamatovat stav složek a výzvy napříč relacemi",
 			"persistArenaConfirm": "Tím se vymažou všechna uložená data z arény. Chcete pokračovat?",
 			"persistArenaEnabled": "Je povolena trvalost arény",
@@ -1485,6 +1485,7 @@
 			"clearHistoryAll.tooltip": "Odstranit všechny uložené arény a porovnat historii relací",
 			"clearHistoryAllCleared": "Byla vymazána veškerá historie arény",
 			"cacheAndResets": "Meziúložiště a resetování",
+			"quotaBadges": "",
 			"providerQuotaCache": "Cache kvót poskytovatelů",
 			"clearCache": "Vymazat mezipaměť",
 			"clearCache.tooltip": "Vymazat všechna data o kvótách poskytovatelů uložená v mezipaměti. Při příštím obnovení se načtou aktuální data.",
@@ -1550,11 +1551,11 @@
 				"apply": "Použít"
 			},
 			"uiStyles": {
-				"cleanSaas": "Clean SaaS",
+				"cleanSaas": "",
 				"cleanSaasDescription": "Elegantní, profesionální, minimalistický",
-				"cyberTerminal": "Cyber Terminal",
+				"cyberTerminal": "",
 				"cyberTerminalDescription": "Zaměřené na vývojáře, s vysokým kontrastem",
-				"glassmorphism": "Glassmorphism",
+				"glassmorphism": "",
 				"glassmorphismDescription": "Průsvitné povrchy"
 			}
 		},
@@ -1572,7 +1573,7 @@
 			"testNotification": "Oznámení o testu – zde se zobrazí vyskakovací hlášení",
 			"autoDismiss": "Automatické zamítnutí",
 			"autoDismissDescription": "Jak dlouho zůstávají toasty viditelné, než zmizí",
-			"seconds": "{{seconds}}s"
+			"seconds": ""
 		},
 		"dashboard": {
 			"title": "Obnovení přehledu",
@@ -1626,7 +1627,20 @@
 			"requestsDeleted": "Požadavky byly smazány",
 			"failedToDeleteRequests": "Odstranění požadavků selhalo: {{message}}",
 			"entriesDeleted": "Odstraněné log záznamy: {{count}}",
-			"failedToDeleteAppLogs": "Nepodařilo se smazat aplikační logy: {{message}}"
+			"failedToDeleteAppLogs": "Nepodařilo se smazat aplikační logy: {{message}}",
+			"resetToDefaults": "",
+			"resetSection": "",
+			"resetSetting": "",
+			"resetAllSettings": "",
+			"resetAllConfirmTitle": "",
+			"resetAllConfirmMessage": "",
+			"resetAllConfirmField": "",
+			"resetSectionConfirmTitle": "",
+			"resetSectionConfirmMessage": "",
+			"resetSettingDone": "",
+			"resetSectionDone": "",
+			"resetAllDone": "",
+			"resetFailed": ""
 		},
 		"colorPicker": {
 			"title": "Vyberte barvu",
@@ -1642,8 +1656,8 @@
 			"securityKey": "Bezpečnostní klíč",
 			"transportInternal": "Platforma (Windows Hello / Touch ID)",
 			"transportUsb": "Bezpečnostní klíč USB",
-			"transportNfc": "NFC",
-			"transportBle": "Bluetooth",
+			"transportNfc": "",
+			"transportBle": "",
 			"transportHybrid": "Hybridní (QR / napříč zařízeními)",
 			"registered": "Zaregistrovaný",
 			"deleteAriaLabel": "Odstranit přístupový kód",
@@ -1726,8 +1740,8 @@
 			"viewModeToggle": {
 				"switchToScroll": "Přepnout do režimu posouvání",
 				"switchToPagination": "Přepnout do režimu stránkování",
-				"scroll": "⇊ Scroll",
-				"pages": "⬡ Pages"
+				"scroll": "",
+				"pages": ""
 			},
 			"dateFilterButton": {
 				"filterByDateRange": "Filtrovat podle časového období",
@@ -1768,7 +1782,7 @@
 			"sortBy": "Seřadit podle {{label}}",
 			"prev": "Předchozí",
 			"next": "Další",
-			"entries": "{{start}} {{to}} {{end}} {{of}} {{total}} {{label}}",
+			"entries": "",
 			"entriesShort": "{{start}}–{{end}} až {{total}} {{label}}",
 			"perPage": "{{size}} / stránka",
 			"noEntries": "Nebylo nalezeno žádné zařízení {{label}}",
@@ -1805,9 +1819,9 @@
 			"addGenerationParameters": "Přidat parametry generování",
 			"temperature": "Teplota",
 			"maxTokens": "Max. tokenů",
-			"topP": "Top P",
-			"minP": "Min P",
-			"topK": "Top K",
+			"topP": "",
+			"minP": "",
+			"topK": "",
 			"freqPenalty": "Penalizace frekvence",
 			"presPenalty": "Penalizace přítomnosti",
 			"maxOut": "Max. výstup"
@@ -1815,11 +1829,11 @@
 		"modelTable": {
 			"searchModels": "Vyhledat modely…",
 			"deleteDisabled": "Odstranit {{count}} (deaktivováno)",
-			"model": "Model",
+			"model": "",
 			"capabilities": "Možnosti",
 			"provider": "Poskytovatel",
 			"discovered": "Vyhledáno",
-			"context": "Ctx",
+			"context": "",
 			"maxOutput": "Max. výstup",
 			"status": "Stav",
 			"modelNameAndId": "Název a ID modelu",
@@ -1862,8 +1876,8 @@
 			"waiting": "Čekám…",
 			"thinkingDots": "Přemýšlím…",
 			"turn": "Tah {{number}}",
-			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tokPerSec": "",
+			"tok": ""
 		},
 		"providerFilter": {
 			"filterProviders": "Filtrovat poskytovatele",
@@ -1968,7 +1982,7 @@
 			"refreshingQuotas": "Aktualizace kvót…"
 		},
 		"personaPicker": {
-			"persona": "Persona",
+			"persona": "",
 			"customPersonaPlaceholder": "Zadejte zde vlastní profil pro AI…",
 			"switchToCustom": "Přepnout na vlastní",
 			"overwritePrompt": "Výzva k přepsání",
@@ -1984,7 +1998,7 @@
 		},
 		"presetBar": {
 			"random": "Náhodně",
-			"custom": "✏️Custom"
+			"custom": ""
 		},
 		"conversationConfig": {
 			"title": "Nastavení konverzace",
@@ -2025,14 +2039,14 @@
 			"quarterfinals": "Čtvrtfinále",
 			"round": "Kolo {{number}}",
 			"winner": "Vítěz: {{name}}",
-			"responsesAbbrev": "{{count}} resp.",
+			"responsesAbbrev": "",
 			"error": "Chyba: {{message}}",
 			"restoreSetup": "Obnovit nastavení",
 			"delete": "Odstranit",
 			"customPrompt": "Vlastní výzva",
 			"clearAllHistory": "Vymazat celou historii",
 			"clickAgainToConfirm": "Klikněte znovu pro potvrzení",
-			"vs": "vs",
+			"vs": "",
 			"bracket": "Pavouk",
 			"response_one": "Odpověď {{count}}",
 			"response_other": "Odpovědi {{count}}",
@@ -2056,14 +2070,14 @@
 			"totalWallClockTime": "Celková doba v reálném čase od zahájení požadavku do ukončení odpovědi",
 			"headers": "Záhlaví",
 			"timeToReceiveHeaders": "Doba do přijetí prvních HTTP hlaviček odpovědi od poskytovatele",
-			"ttft": "TTFT",
+			"ttft": "",
 			"timeToFirstToken": "Doba do přijetí prvního tokenu odpovědi od poskytovatele",
 			"tokensPerSecond": "tokenů za sekundu",
 			"outputTokensPerSecond": "Počet vygenerovaných tokenů za sekundu během fáze generování (nezahrnuje dobu do vygenerování prvního tokenu). Pokud je doba generování zanedbatelná, zobrazí se jako „-“.",
 			"totalTokens": "Celkový počet tokenů",
 			"sumOfTokens": "Součet tokenů pro zadání, dokončení a odůvodnění",
 			"requestHash": "Hash požadavku",
-			"model": "Model",
+			"model": "",
 			"copyModelId": "Zkopírovat ID modelu",
 			"resolved": "vyřešeno",
 			"provider": "Poskytovatel",
@@ -2077,6 +2091,8 @@
 			"reasoning": "Odůvodnění",
 			"cacheHit": "Zásah v mezipaměti",
 			"cacheMiss": "Chyba při načítání z mezipaměti",
+			"overheadCacheHit": "",
+			"overheadCacheMiss": "",
 			"proxyOverheadBreakdown": "Rozpis režie proxy",
 			"requestParsing": "Analýza požadavku",
 			"timeToParseRequest": "Doba analýzy a validace těla příchozího požadavku",
@@ -2101,7 +2117,7 @@
 			"streaming": "Streamování",
 			"pending": "V řešení",
 			"failed": "Neúspěšné",
-			"ok": "OK",
+			"ok": "",
 			"clientError": "Chyba klienta",
 			"serverError": "Chyba serveru"
 		},
@@ -2109,7 +2125,7 @@
 			"streaming": "Streamování",
 			"pending": "V řešení",
 			"failed": "Neúspěšné",
-			"ok": "OK",
+			"ok": "",
 			"clientError": "Chyba klienta",
 			"serverError": "Chyba serveru"
 		},
@@ -2119,8 +2135,8 @@
 			"loadingNewer": "Načítání novějších…",
 			"loadingOlder": "Načítání starších…",
 			"timeDate": "Čas/Datum",
-			"hash": "Hash",
-			"model": "Model",
+			"hash": "",
+			"model": "",
 			"provider": "Poskytovatel",
 			"providerDeleted": "Poskytovatel byl odstraněn",
 			"status": "Stav",
@@ -2128,9 +2144,9 @@
 			"tps": "Pozn.",
 			"tokensPerSecond": "Pozn.",
 			"headers": "Záhlaví",
-			"ttft": "TTFT",
+			"ttft": "",
 			"duration": "Trvání",
-			"overhead": "Overhead",
+			"overhead": "",
 			"key": "Klíč",
 			"interrupted": "Přerušeno",
 			"internal": "interní",
@@ -2160,8 +2176,8 @@
 		"viewModeToggle": {
 			"switchToScroll": "Přepnout do režimu posouvání",
 			"switchToPagination": "Přepnout do režimu stránkování",
-			"scroll": "⇊ Scroll",
-			"pages": "⬡ Pages"
+			"scroll": "",
+			"pages": ""
 		},
 		"liveToggleButton": {
 			"live": "Živě",
@@ -2184,9 +2200,9 @@
 		},
 		"terminalPreview": {
 			"copySnippet": "Zkopírovat úryvek {{variant}}",
-			"windows": "Windows",
-			"bash": "bash",
-			"powershell": "PowerShell"
+			"windows": "",
+			"bash": "",
+			"powershell": ""
 		},
 		"quotaBadge": {
 			"weeklyTokensRemaining": "Zbývající týdenní tokeny NanoGPT – klikněte pro podrobnosti",
@@ -2213,7 +2229,7 @@
 			"allLabel": "Vše"
 		},
 		"providerModelsModal": {
-			"modelCount_one": "model",
+			"modelCount_one": "",
 			"modelCount_other": "modely"
 		}
 	},
@@ -2253,16 +2269,16 @@
 	"virtualKeys": {
 		"global": "Globální",
 		"snippet": {
-			"curl": "cURL",
-			"powershell": "PowerShell",
-			"python": "Python",
-			"openclaw": "OpenClaw",
-			"javascript": "JavaScript",
-			"librechat": "LibreChat",
-			"claudeCode": "Claude Code",
-			"zed": "ZED",
-			"hermes": "Hermes",
-			"opencode": "OpenCode"
+			"curl": "",
+			"powershell": "",
+			"python": "",
+			"openclaw": "",
+			"javascript": "",
+			"librechat": "",
+			"claudeCode": "",
+			"zed": "",
+			"hermes": "",
+			"opencode": ""
 		},
 		"create": {
 			"providerRequired": "Alespoň jeden poskytovatel musí zůstat dostupný",
@@ -2270,7 +2286,7 @@
 			"createKey": "Vytvořit klíč"
 		},
 		"detail": {
-			"rps": "RPS",
+			"rps": "",
 			"burst": "Série"
 		}
 	},
@@ -2289,13 +2305,13 @@
 			"canOnlyDeleteRecent": "Lze smazat pouze poslední odpověď"
 		},
 		"useConversationRunner": {
-			"generationError": "{{model}}: {{error}}"
+			"generationError": ""
 		},
 		"useArenaPersistence": {
 			"storageFullArena": "Úložiště je plné – stav arény nebyl uložen"
 		},
 		"useArenaRunner": {
-			"generationError": "{{model}}: {{error}}",
+			"generationError": "",
 			"retry": "{{model}}: {{status}} – zkusit znovu {{attempt}} v {{delay}}…",
 			"networkError": "chyba sítě"
 		},
