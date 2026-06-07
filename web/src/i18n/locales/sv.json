@@ -1074,7 +1074,7 @@
 			"headers": "",
 			"ttft": "",
 			"duration": "",
-			"overhead": "Režijní",
+			"overhead": "",
 			"key": "",
 			"providerDeleted": "",
 			"deletedProvider": "",
@@ -1786,7 +1786,7 @@
 			"entriesShort": "",
 			"perPage": "",
 			"noEntries": "",
-			"countOne": "1 {{label}}",
+			"countOne": "",
 			"to": "",
 			"of": ""
 		},
@@ -2371,7 +2371,7 @@
 			"reasoningEffort": ""
 		},
 		"cohere": {
-			"topK": "Soudržnost používá jiný parametr 'k', nedoporučuje se",
+			"topK": "",
 			"minP": "",
 			"reasoningEffort": ""
 		},
