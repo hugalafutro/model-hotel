@@ -322,81 +322,19 @@ func (h *StatsHandler) statByVirtualKey(ctx context.Context, stats *StatsRespons
 	return nil
 }
 
-func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration, excludeDeleted bool, metric string, includeLatency bool) (*StatsResponse, error) {
-	stats := &StatsResponse{
-		ByModel:      make(map[string]int64),
-		ByProvider:   make(map[string]int64),
-		ByVirtualKey: make(map[string]int64),
-	}
-
-	vkJoin, vkFilter := vkScope(excludeDeleted)
-
-	now := time.Now().UTC()
-	since := now.Add(-period)
-
-	switch period {
-	case 7 * 24 * time.Hour:
-		stats.TotalRequestsLast7d = 0
-	default:
-		stats.TotalRequestsLast24h = 0
-	}
-
-	// Query 1: Total request count
-	query := `
-		SELECT COUNT(*) as count
-		FROM request_logs rl` + vkJoin + `
-		WHERE rl.created_at >= $1` + vkFilter
-
-	var count int
-	err := h.dbPool.QueryRow(ctx, query, since).Scan(&count)
-	if err != nil {
-		debuglog.Error("stats: query failed", "query", "total_requests", "error", err)
-		return nil, err
-	}
-
-	switch period {
-	case 7 * 24 * time.Hour:
-		stats.TotalRequestsLast7d = count
-	default:
-		stats.TotalRequestsLast24h = count
-	}
-
-	if period == 24*time.Hour {
-		_7dAgo := now.Add(-7 * 24 * time.Hour)
-		err = h.dbPool.QueryRow(ctx, query, _7dAgo).Scan(&count)
-		if err != nil {
-			debuglog.Error("stats: query failed", "query", "total_requests_7d", "error", err)
-			return nil, err
-		}
-		stats.TotalRequestsLast7d = count
-	} else {
-		_24hAgo := now.Add(-24 * time.Hour)
-		err = h.dbPool.QueryRow(ctx, query, _24hAgo).Scan(&count)
-		if err != nil {
-			debuglog.Error("stats: query failed", "query", "total_requests_24h", "error", err)
-			return nil, err
-		}
-		stats.TotalRequestsLast24h = count
-	}
-
-	// Queries 2–4c: dimension breakdowns (top-10 by model / provider / virtual key).
-	if err := h.statByModel(ctx, stats, vkJoin, vkFilter, metric, since); err != nil {
-		return nil, err
-	}
-	if err := h.statByProvider(ctx, stats, vkJoin, vkFilter, metric, since); err != nil {
-		return nil, err
-	}
-	if err := h.statByVirtualKey(ctx, stats, metric, since, excludeDeleted); err != nil {
-		return nil, err
-	}
-
+// statScalars fills the scalar aggregate fields: avg latency (Q5), error rate
+// (Q6), avg overhead (Q7), total tokens (Q8), avg tokens/request (Q9), rate-limit
+// hits (Q10), avg TTFT (Q11), and the always-fresh requests-in-last-1h count.
+// Every query is best-effort: on error it logs and leaves the field(s) zeroed,
+// never aborting — matching the original inline behavior.
+func (h *StatsHandler) statScalars(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter string, since, now time.Time) {
 	// Query 5: Avg latency
-	query = `
+	query := `
 		SELECT COALESCE(AVG(rl.duration_ms), 0) as avg_duration
 		FROM request_logs rl` + vkJoin + `
 		WHERE rl.created_at >= $1 AND rl.status_code > 0 AND rl.status_code < 400` + vkFilter
 
-	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.AvgLatencyMs)
+	err := h.dbPool.QueryRow(ctx, query, since).Scan(&stats.AvgLatencyMs)
 	if err != nil {
 		debuglog.Error("stats: query failed", "query", "avg_latency", "error", err)
 		stats.AvgLatencyMs = 0
@@ -496,6 +434,78 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 		requests1h = 0
 	}
 	stats.RequestsLast1h = requests1h
+}
+
+func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration, excludeDeleted bool, metric string, includeLatency bool) (*StatsResponse, error) {
+	stats := &StatsResponse{
+		ByModel:      make(map[string]int64),
+		ByProvider:   make(map[string]int64),
+		ByVirtualKey: make(map[string]int64),
+	}
+
+	vkJoin, vkFilter := vkScope(excludeDeleted)
+
+	now := time.Now().UTC()
+	since := now.Add(-period)
+
+	switch period {
+	case 7 * 24 * time.Hour:
+		stats.TotalRequestsLast7d = 0
+	default:
+		stats.TotalRequestsLast24h = 0
+	}
+
+	// Query 1: Total request count
+	query := `
+		SELECT COUNT(*) as count
+		FROM request_logs rl` + vkJoin + `
+		WHERE rl.created_at >= $1` + vkFilter
+
+	var count int
+	err := h.dbPool.QueryRow(ctx, query, since).Scan(&count)
+	if err != nil {
+		debuglog.Error("stats: query failed", "query", "total_requests", "error", err)
+		return nil, err
+	}
+
+	switch period {
+	case 7 * 24 * time.Hour:
+		stats.TotalRequestsLast7d = count
+	default:
+		stats.TotalRequestsLast24h = count
+	}
+
+	if period == 24*time.Hour {
+		_7dAgo := now.Add(-7 * 24 * time.Hour)
+		err = h.dbPool.QueryRow(ctx, query, _7dAgo).Scan(&count)
+		if err != nil {
+			debuglog.Error("stats: query failed", "query", "total_requests_7d", "error", err)
+			return nil, err
+		}
+		stats.TotalRequestsLast7d = count
+	} else {
+		_24hAgo := now.Add(-24 * time.Hour)
+		err = h.dbPool.QueryRow(ctx, query, _24hAgo).Scan(&count)
+		if err != nil {
+			debuglog.Error("stats: query failed", "query", "total_requests_24h", "error", err)
+			return nil, err
+		}
+		stats.TotalRequestsLast24h = count
+	}
+
+	// Queries 2–4c: dimension breakdowns (top-10 by model / provider / virtual key).
+	if err := h.statByModel(ctx, stats, vkJoin, vkFilter, metric, since); err != nil {
+		return nil, err
+	}
+	if err := h.statByProvider(ctx, stats, vkJoin, vkFilter, metric, since); err != nil {
+		return nil, err
+	}
+	if err := h.statByVirtualKey(ctx, stats, metric, since, excludeDeleted); err != nil {
+		return nil, err
+	}
+
+	// Queries 5–11 + requests-in-last-1h: scalar aggregates (best-effort).
+	h.statScalars(ctx, stats, vkJoin, vkFilter, since, now)
 
 	// Query 12: Per-model latency breakdown (top 5 by avg total latency).
 	// Only runs when the caller requests it to avoid unnecessary work
