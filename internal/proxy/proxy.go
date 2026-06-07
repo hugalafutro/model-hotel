@@ -71,7 +71,9 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	// delay the client. The final update (completed/failed) waits properly.
 	h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 
-	flusher, canFlush := w.(http.Flusher)
+	// streamSink owns w/flusher and the running bytesWritten total (Phase 1
+	// of the streaming-pipeline refactor). All emit paths go through it.
+	sink := newStreamSink(w)
 
 	// Create scanner: if TTFT probe was used, replay probed bytes first.
 	var scanner *bufio.Scanner
@@ -118,7 +120,6 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	sawDone := false
 	chunkCount := 0
 	errorChunkCount := 0
-	var bytesWritten int64
 	// Periodic streaming progress logging (every 50 chunks) to give
 	// visibility into stream health without flooding logs.
 	const chunkLogInterval = 50
@@ -188,7 +189,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 
 		// Periodic streaming progress log for observability.
 		if chunkCount%chunkLogInterval == 0 {
-			debuglog.Debug("proxy: streaming progress", "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", bytesWritten, "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "thinking", sawThinking)
+			debuglog.Debug("proxy: streaming progress", "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten, "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "thinking", sawThinking)
 		}
 
 		select {
@@ -232,17 +233,12 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			// the spec. Clients like eventsource-parser dispatch events on
 			// blank lines; omitting them causes all data lines to be
 			// concatenated into one invalid event.
-			var n int
-			var err error
-			if n, err = w.Write([]byte("\n")); err != nil {
+			if err := sink.write([]byte("\n")); err != nil {
 				clientDisconnected = true
-				debuglog.Warn("proxy: client write failed during stream (blank line)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", bytesWritten)
+				debuglog.Warn("proxy: client write failed during stream (blank line)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
 				goto logUpdate
 			}
-			bytesWritten += int64(n)
-			if canFlush {
-				flusher.Flush()
-			}
+			sink.flush()
 			continue
 		}
 		emptyLines = 0
@@ -285,45 +281,33 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				}
 				errAccum = nil
 			}
-			var n int
-			var err error
-			if n, err = w.Write(line); err != nil {
+			if err := sink.write(line); err != nil {
 				clientDisconnected = true
-				debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", bytesWritten)
+				debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
 				goto logUpdate
 			}
-			bytesWritten += int64(n)
-			if n, err = w.Write([]byte("\n")); err != nil {
+			if err := sink.write([]byte("\n")); err != nil {
 				clientDisconnected = true
-				debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", bytesWritten)
+				debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
 				goto logUpdate
 			}
-			bytesWritten += int64(n)
-			if canFlush {
-				flusher.Flush()
-			}
+			sink.flush()
 			continue
 		}
 		if payload == "[DONE]" {
 			sawDone = true
 			// Write [DONE] sentinel to the downstream client.
-			var n int
-			var err error
-			if n, err = w.Write(line); err != nil {
+			if err := sink.write(line); err != nil {
 				clientDisconnected = true
-				debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", bytesWritten)
+				debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
 				goto logUpdate
 			}
-			bytesWritten += int64(n)
-			if n, err = w.Write([]byte("\n\n")); err != nil {
+			if err := sink.write([]byte("\n\n")); err != nil {
 				clientDisconnected = true
-				debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", bytesWritten)
+				debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
 				goto logUpdate
 			}
-			bytesWritten += int64(n)
-			if canFlush {
-				flusher.Flush()
-			}
+			sink.flush()
 			debuglog.Debug("proxy: received [DONE] sentinel", "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
 			break
 		}
@@ -515,16 +499,12 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 					}
 					keepAlive := append([]byte("data: "), keepAliveJSON...)
 					keepAlive = append(keepAlive, "\n\n"...)
-					n, err := w.Write(keepAlive)
-					bytesWritten += int64(n)
-					if err != nil {
+					if err := sink.write(keepAlive); err != nil {
 						clientDisconnected = true
 						debuglog.Warn("proxy: client write failed during reasoning keep-alive", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
 						goto logUpdate
 					}
-					if canFlush {
-						flusher.Flush()
-					}
+					sink.flush()
 					skipNextEmptyLine = true
 					written = true
 					continue
@@ -540,14 +520,12 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				newChoices, _ := json.Marshal(p.choices)
 				p.raw["choices"] = json.RawMessage(newChoices)
 				newPayload, _ := json.Marshal(p.raw)
-				if err := writeSSEDataChunk(w, newPayload, &bytesWritten); err != nil {
+				if err := sink.writeData(newPayload); err != nil {
 					clientDisconnected = true
 					debuglog.Warn("proxy: client write failed during reasoning strip", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
 					goto logUpdate
 				}
-				if canFlush {
-					flusher.Flush()
-				}
+				sink.flush()
 				written = true
 				skipNextEmptyLine = true
 				continue
@@ -614,14 +592,12 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 						newChoices, _ := json.Marshal(chunkParsed.choices)
 						chunkParsed.raw["choices"] = json.RawMessage(newChoices)
 						newPayload, _ := json.Marshal(chunkParsed.raw)
-						if err := writeSSEDataChunk(w, newPayload, &bytesWritten); err != nil {
+						if err := sink.writeData(newPayload); err != nil {
 							clientDisconnected = true
 							debuglog.Warn("proxy: client write failed during reasoning normalization", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
 							goto logUpdate
 						}
-						if canFlush {
-							flusher.Flush()
-						}
+						sink.flush()
 						written = true
 						skipNextEmptyLine = true
 						debuglog.Debug("proxy: normalized reasoning fields", "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
@@ -648,14 +624,12 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 						newChoices, _ := json.Marshal(p.choices)
 						p.raw["choices"] = json.RawMessage(newChoices)
 						newPayload, _ := json.Marshal(p.raw)
-						if err := writeSSEDataChunk(w, newPayload, &bytesWritten); err != nil {
+						if err := sink.writeData(newPayload); err != nil {
 							clientDisconnected = true
 							debuglog.Warn("proxy: client write failed during empty content strip", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
 							goto logUpdate
 						}
-						if canFlush {
-							flusher.Flush()
-						}
+						sink.flush()
 						written = true
 						skipNextEmptyLine = true
 						debuglog.Debug("proxy: stripped empty content from reasoning chunk", "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
@@ -783,14 +757,12 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 								if newChoices, err2 := json.Marshal(choices); err2 == nil {
 									raw["choices"] = json.RawMessage(newChoices)
 									if newPayload, err3 := json.Marshal(raw); err3 == nil {
-										if err := writeSSEDataChunk(w, newPayload, &bytesWritten); err != nil {
+										if err := sink.writeData(newPayload); err != nil {
 											clientDisconnected = true
 											debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
 											goto logUpdate
 										}
-										if canFlush {
-											flusher.Flush()
-										}
+										sink.flush()
 										written = true
 										skipNextEmptyLine = true
 										debuglog.Debug("proxy: normalized finish_reason", "original", *chunk.Choices[0].FinishReason, "normalized", normalized, "model", logData.modelID, "provider", logData.providerName)
@@ -821,23 +793,17 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 		}
 		if !written {
 			// No normalization needed — forward the original line.
-			var n int
-			var err error
-			if n, err = w.Write(line); err != nil {
+			if err := sink.write(line); err != nil {
 				clientDisconnected = true
-				debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", bytesWritten)
+				debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
 				goto logUpdate
 			}
-			bytesWritten += int64(n)
-			if n, err = w.Write([]byte("\n\n")); err != nil {
+			if err := sink.write([]byte("\n\n")); err != nil {
 				clientDisconnected = true
-				debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", bytesWritten)
+				debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
 				goto logUpdate
 			}
-			bytesWritten += int64(n)
-			if canFlush {
-				flusher.Flush()
-			}
+			sink.flush()
 			skipNextEmptyLine = true
 		}
 	}
@@ -927,10 +893,10 @@ logUpdate:
 		// client so the frontend knows the stream completed normally.
 		if !clientDisconnected && scanner.Err() == nil && chunkCount > 0 {
 			debuglog.Info("proxy: upstream omitted [DONE] sentinel; injecting for downstream", "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-			if _, err := w.Write([]byte("data: [DONE]\n\n")); err != nil {
+			if err := sink.write([]byte("data: [DONE]\n\n")); err != nil {
 				debuglog.Warn("proxy: failed to write injected [DONE]", "model", logData.modelID, "provider", logData.providerName, "error", err)
-			} else if canFlush {
-				flusher.Flush()
+			} else {
+				sink.flush()
 			}
 			// Stream was complete; the missing sentinel is benign.
 			debuglog.Info("proxy: stream completed (upstream omitted [DONE])", "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
@@ -975,7 +941,7 @@ logUpdate:
 		debuglog.Debug("proxy: recorded circuit breaker failure for stream stall", "provider", opts.providerName, "provider_id", opts.providerID)
 	}
 
-	debuglog.Info("proxy: streaming finished", "model", logData.modelID, "provider", logData.providerName, "attempt", opts.attempt, "response_header_ms", opts.responseHeaderMs, "true_ttft_ms", opts.trueTtftMs, "duration_ms", totalDuration, "chunks", chunkCount, "bytes_written", bytesWritten, "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "error_chunks", errorChunkCount, "has_error", errMsg != "")
+	debuglog.Info("proxy: streaming finished", "model", logData.modelID, "provider", logData.providerName, "attempt", opts.attempt, "response_header_ms", opts.responseHeaderMs, "true_ttft_ms", opts.trueTtftMs, "duration_ms", totalDuration, "chunks", chunkCount, "bytes_written", sink.bytesWritten, "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "error_chunks", errorChunkCount, "has_error", errMsg != "")
 	if errMsg != "" {
 		debuglog.Warn("proxy: streaming error", "model", logData.modelID, "provider", logData.providerName, "error", errMsg, "upstream_status", resp.StatusCode, "attempt", opts.attempt, "duration_ms", totalDuration)
 	} else {
