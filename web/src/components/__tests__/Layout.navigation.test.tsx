@@ -162,13 +162,13 @@ describe("Layout", () => {
 	});
 
 	describe("Sidebar Footer", () => {
-		it("renders Docs link", () => {
+		it("renders Wiki link", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
-			const docsLink = screen.getByText("Docs").closest("a");
+			const docsLink = screen.getByText("Wiki").closest("a");
 			expect(docsLink).toHaveAttribute(
 				"href",
-				"https://github.com/hugalafutro/model-hotel",
+				"https://github.com/hugalafutro/model-hotel/wiki",
 			);
 			expect(docsLink).toHaveAttribute("target", "_blank");
 		});
@@ -523,13 +523,13 @@ describe("Layout", () => {
 			});
 		});
 
-		it("renders Docs link with correct href", () => {
+		it("renders Wiki link with correct href", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
-			const docsLink = screen.getByText("Docs").closest("a");
+			const docsLink = screen.getByText("Wiki").closest("a");
 			expect(docsLink).toHaveAttribute(
 				"href",
-				"https://github.com/hugalafutro/model-hotel",
+				"https://github.com/hugalafutro/model-hotel/wiki",
 			);
 			expect(docsLink).toHaveAttribute("target", "_blank");
 		});

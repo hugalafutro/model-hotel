@@ -32,7 +32,7 @@ import { useSidebarMode } from "../context/SidebarModeContext";
 import { useTheme } from "../context/ThemeContext";
 import { useToast } from "../context/ToastContext";
 import { useGitHubVersion } from "../hooks/useGitHubVersion";
-import i18next from "../i18n";
+import i18next, { LANGUAGE_STORAGE_KEY } from "../i18n";
 import { formatRelativeTime, formatTimestamp } from "../utils/format";
 import { isWebAuthnAvailable } from "../utils/webauthn";
 import { CollapsibleToggle, useCollapsible } from "./CollapsibleToggle";
@@ -682,36 +682,41 @@ function LastErrorPills() {
 	);
 }
 
+// Language names are autonyms (each language in its own script), shown
+// identically in every UI locale — the industry standard for language pickers,
+// so a user stranded in the wrong language can still recognize their own.
+// English is intentionally last so it sits at the bottom of the upward-opening
+// menu (nearest the trigger) in every locale.
 const SUPPORTED_LANGUAGES = [
-	{ code: "af", labelKey: "layout.language.afrikaans" },
-	{ code: "ar", labelKey: "layout.language.arabic" },
-	{ code: "ca", labelKey: "layout.language.catalan" },
-	{ code: "cs", labelKey: "layout.language.czech" },
-	{ code: "da", labelKey: "layout.language.danish" },
-	{ code: "de", labelKey: "layout.language.german" },
-	{ code: "el", labelKey: "layout.language.greek" },
-	{ code: "en", labelKey: "layout.language.english" },
-	{ code: "es", labelKey: "layout.language.spanish" },
-	{ code: "fi", labelKey: "layout.language.finnish" },
-	{ code: "fr", labelKey: "layout.language.french" },
-	{ code: "he", labelKey: "layout.language.hebrew" },
-	{ code: "hu", labelKey: "layout.language.hungarian" },
-	{ code: "it", labelKey: "layout.language.italian" },
-	{ code: "ja", labelKey: "layout.language.japanese" },
-	{ code: "ko", labelKey: "layout.language.korean" },
-	{ code: "nl", labelKey: "layout.language.dutch" },
-	{ code: "no", labelKey: "layout.language.norwegian" },
-	{ code: "pl", labelKey: "layout.language.polish" },
-	{ code: "pt", labelKey: "layout.language.portuguese" },
-	{ code: "ro", labelKey: "layout.language.romanian" },
-	{ code: "ru", labelKey: "layout.language.russian" },
-	{ code: "sk", labelKey: "layout.language.slovak" },
-	{ code: "sr", labelKey: "layout.language.serbian" },
-	{ code: "sv", labelKey: "layout.language.swedish" },
-	{ code: "tr", labelKey: "layout.language.turkish" },
-	{ code: "uk", labelKey: "layout.language.ukrainian" },
-	{ code: "vi", labelKey: "layout.language.vietnamese" },
-	{ code: "zh", labelKey: "layout.language.chinese" },
+	{ code: "af", label: "Afrikaans" },
+	{ code: "ar", label: "العربية" },
+	{ code: "ca", label: "Català" },
+	{ code: "cs", label: "Čeština" },
+	{ code: "da", label: "Dansk" },
+	{ code: "de", label: "Deutsch" },
+	{ code: "el", label: "Ελληνικά" },
+	{ code: "es", label: "Español" },
+	{ code: "fi", label: "Suomi" },
+	{ code: "fr", label: "Français" },
+	{ code: "he", label: "עברית" },
+	{ code: "hu", label: "Magyar" },
+	{ code: "it", label: "Italiano" },
+	{ code: "ja", label: "日本語" },
+	{ code: "ko", label: "한국어" },
+	{ code: "nl", label: "Nederlands" },
+	{ code: "no", label: "Norsk" },
+	{ code: "pl", label: "Polski" },
+	{ code: "pt", label: "Português" },
+	{ code: "ro", label: "Română" },
+	{ code: "ru", label: "Русский" },
+	{ code: "sk", label: "Slovenčina" },
+	{ code: "sr", label: "Српски" },
+	{ code: "sv", label: "Svenska" },
+	{ code: "tr", label: "Türkçe" },
+	{ code: "uk", label: "Українська" },
+	{ code: "vi", label: "Tiếng Việt" },
+	{ code: "zh", label: "中文" },
+	{ code: "en", label: "English" },
 ] as const;
 
 function LanguageSelector() {
@@ -762,6 +767,13 @@ function LanguageSelector() {
 							data-testid={`language-option-${lang.code}`}
 							onClick={() => {
 								i18next.changeLanguage(lang.code);
+								// Persist every deliberate choice — including English —
+								// so the effective priority is strictly
+								// user choice > system locale > English. The browser
+								// locale is never auto-cached (caches: [] in
+								// i18n/index.ts), so an explicit pick always wins on
+								// the next visit until the user changes it again.
+								localStorage.setItem(LANGUAGE_STORAGE_KEY, lang.code);
 								setOpen(false);
 							}}
 							className={`w-full text-left px-3 py-1.5 text-xs transition-colors cursor-pointer flex items-center gap-1.5 ${
@@ -771,7 +783,7 @@ function LanguageSelector() {
 							}`}
 						>
 							<CountryFlag code={lang.code} />
-							{t(lang.labelKey)}
+							{lang.label}
 						</button>
 					))}
 				</div>
@@ -1032,7 +1044,7 @@ export function Layout({ children }: LayoutProps) {
 					<LastErrorPills />
 					<div className="flex justify-between items-center mb-2 gap-1">
 						<a
-							href="https://github.com/hugalafutro/model-hotel"
+							href="https://github.com/hugalafutro/model-hotel/wiki"
 							target="_blank"
 							rel="noopener noreferrer"
 							className="sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5"

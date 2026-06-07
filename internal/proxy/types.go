@@ -101,6 +101,49 @@ type modelCandidate struct {
 	apiKey   string
 }
 
+// requestState is the per-request scratch threaded through the ChatCompletions
+// phases (ingest → resolve → config → failover loop), replacing the ~20 closure
+// locals the handler previously carried. It is built by ingestRequest and
+// augmented by later phases. Helpers mutate the shared pointer instance — never
+// a copy — so timing/overhead accumulation is visible to subsequent phases.
+type requestState struct {
+	startTime   time.Time
+	reqModel    string
+	isStreaming bool
+	vkHash      string
+	bodyBytes   []byte
+	parseMs     float64
+	logData     *requestLogData
+
+	// Populated by resolveCandidates (phase B).
+	timings    resolveTimings
+	cacheHits  resolveCacheHits
+	isFailover bool
+
+	// Populated by loadFailoverConfig (phase C).
+	proxyOverhead         float64
+	failoverTimeout       time.Duration
+	overallDeadline       time.Time
+	circuitBreakerEnabled bool
+
+	// Accumulated across failover attempts (phase D / E).
+	lastErr string
+}
+
+// candidateOutcome is the result of a single failover attempt
+// (attemptCandidate): whether the caller should try the next candidate, has
+// already served the client, or has written a terminal error.
+type candidateOutcome int
+
+const (
+	// outcomeFailover: this candidate failed; try the next one (continue).
+	outcomeFailover candidateOutcome = iota
+	// outcomeServed: the response was fully handled; return.
+	outcomeServed
+	// outcomeFatal: a terminal error response was written; return.
+	outcomeFatal
+)
+
 // streamOptions consolidates the parameters for handleStreamingResponse into
 // a single struct, replacing 17 positional parameters with named fields.
 type streamOptions struct {
