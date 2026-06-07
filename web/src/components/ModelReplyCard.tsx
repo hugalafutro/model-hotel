@@ -241,7 +241,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 								)}
 								{showInfoIcon && onModelNameClick && (
 									<span
-										className="shrink-0 text-(--text-tertiary) group-hover/button:text-(--accent) group-hover/button:drop-shadow-[var(--glow-accent)] transition-all"
+										className="shrink-0 text-(--text-tertiary) group-hover/button:text-(--accent) group-hover/button:drop-shadow-[var(--glow-accent)] transition-all cursor-help"
 										title={t("components.modelReplyCard.modelDetails")}
 									>
 										<Info size={12} />

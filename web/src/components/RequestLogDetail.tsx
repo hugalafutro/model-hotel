@@ -85,7 +85,7 @@ export function RequestLogDetail({
 						{t("components.requestLogDetail.duration")}
 						<span
 							title={t("components.requestLogDetail.totalWallClockTime")}
-							className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all"
+							className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all cursor-help"
 						>
 							<Info size={12} />
 						</span>
@@ -110,7 +110,7 @@ export function RequestLogDetail({
 						{t("components.requestLogDetail.headers")}
 						<span
 							title={t("components.requestLogDetail.timeToReceiveHeaders")}
-							className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all"
+							className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all cursor-help"
 						>
 							<Info size={12} />
 						</span>
@@ -135,7 +135,7 @@ export function RequestLogDetail({
 						{t("components.requestLogDetail.ttft")}
 						<span
 							title={t("components.requestLogDetail.timeToFirstToken")}
-							className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all"
+							className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all cursor-help"
 						>
 							<Info size={12} />
 						</span>
@@ -159,7 +159,7 @@ export function RequestLogDetail({
 						{t("components.requestLogDetail.tokensPerSecond")}
 						<span
 							title={t("components.requestLogDetail.outputTokensPerSecond")}
-							className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all"
+							className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all cursor-help"
 						>
 							<Info size={12} />
 						</span>
@@ -174,7 +174,7 @@ export function RequestLogDetail({
 						{t("components.requestLogDetail.totalTokens")}
 						<span
 							title={t("components.requestLogDetail.sumOfTokens")}
-							className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all"
+							className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all cursor-help"
 						>
 							<Info size={12} />
 						</span>
@@ -364,7 +364,7 @@ export function RequestLogDetail({
 															? `${tooltip} ${t("components.requestLogDetail.overheadCacheHit")}`
 															: `${tooltip} ${t("components.requestLogDetail.overheadCacheMiss")}`
 												}
-												className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all"
+												className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all cursor-help"
 											>
 												<Info size={12} />
 											</span>
