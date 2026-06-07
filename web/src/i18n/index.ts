@@ -70,8 +70,14 @@ i18next
 		fallbackLng: "en",
 		returnEmptyString: false,
 		detection: {
+			// Priority: explicit user choice (localStorage) > browser/system
+			// locale (navigator) > English (fallbackLng).
 			order: ["localStorage", "navigator"],
-			caches: ["localStorage"],
+			// Do NOT auto-cache the detected locale. The detected browser locale
+			// must not be persisted, so changing the system language is respected
+			// on every visit; only a deliberate selection in the language picker
+			// writes to localStorage (see LanguageSelector in Layout.tsx).
+			caches: [],
 			lookupLocalStorage: "i18nextLng",
 		},
 		interpolation: {
