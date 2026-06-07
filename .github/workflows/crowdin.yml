@@ -44,6 +44,7 @@ jobs:
 
       - name: Fill empty translations from source
         run: |
+          sudo chown -R $(id -u):$(id -g) web/src/i18n/locales/
           python3 -c '
           import json, glob, os
           with open("web/src/i18n/locales/en.json") as f:
