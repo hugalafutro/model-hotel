@@ -719,6 +719,13 @@ function LanguageSelector() {
 	const [open, setOpen] = useState(false);
 	const ref = useRef<HTMLDivElement>(null);
 
+	// Set document direction for RTL languages
+	useEffect(() => {
+		const rtlLanguages = new Set(["ar", "he"]);
+		const lang = i18n.resolvedLanguage ?? i18n.language;
+		document.documentElement.dir = rtlLanguages.has(lang) ? "rtl" : "ltr";
+	}, [i18n.resolvedLanguage, i18n.language]);
+
 	useEffect(() => {
 		function handleClickOutside(e: MouseEvent) {
 			if (ref.current && !ref.current.contains(e.target as Node)) {
