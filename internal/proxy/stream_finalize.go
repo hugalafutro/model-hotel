@@ -44,6 +44,8 @@ type streamState struct {
 	lastContent            string // P2-5 repeated-content detection
 	repeatedCount          int    // P2-5
 	errAccum               []byte // P1-B split-error accumulation
+	lastFinishReason       string // P2-2 duplicate-finish suppression + normalization carry
+	lastAnthropicEvent     string // P1-C: last "event:" type, consumed by the next data line
 }
 
 // finalizeStream performs the end-of-stream bookkeeping that used to live under

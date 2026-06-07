@@ -89,15 +89,6 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	// Periodic streaming progress logging (every 50 chunks) to give
 	// visibility into stream health without flooding logs.
 	const chunkLogInterval = 50
-	// P1-C: Tracks the last Anthropic SSE event type (e.g. "error") so we can
-	// extract error messages from the subsequent data line.
-	var lastAnthropicEvent string
-	// P2-2: Track last finish_reason to suppress duplicate finish chunks.
-	// Some providers (notably OpenRouter routing to certain models) send
-	// two consecutive chunks with the same finish_reason, where the second
-	// has no content or usage — just a bare finish_reason repeat. Suppressing
-	// avoids downstream "empty response text" errors.
-	var lastFinishReason string
 	// Read strip_reasoning flag from context once before the scanner loop.
 	// The value is set by ProxyKeyMiddleware and never changes mid-stream.
 	stripReasoning := false
@@ -166,9 +157,9 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			if strings.HasPrefix(lineStr, "event:") {
 				evt := strings.TrimSpace(lineStr[6:])
 				if evt == "error" {
-					lastAnthropicEvent = "error"
+					st.lastAnthropicEvent = "error"
 				} else {
-					lastAnthropicEvent = ""
+					st.lastAnthropicEvent = ""
 				}
 			}
 			// Flush any accumulated error when a non-data line arrives
@@ -219,7 +210,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 		// Capture split (P1-B) and Anthropic typed (P1-C) SSE errors into
 		// streamState. anthropicErrorCounted prevents the chunk.Error
 		// observer from double-counting the same line.
-		anthropicErrorCounted := st.captureSSEError(payload, &lastAnthropicEvent, chunkCount, logData)
+		anthropicErrorCounted := st.captureSSEError(payload, &st.lastAnthropicEvent, chunkCount, logData)
 
 		var written bool
 		var chunk streamChunk
@@ -234,7 +225,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			// "content" field, a "role" field (first assistant chunk), or
 			// "tool_calls".
 			if stripReasoning && len(chunk.Choices) > 0 && chunk.Choices[0].Delta != nil {
-				switch decision, newPayload := computeStripReasoning(payload, &lastFinishReason, logData); decision {
+				switch decision, newPayload := computeStripReasoning(payload, &st.lastFinishReason, logData); decision {
 				case stripPassthrough:
 					// Payload didn't parse — leave it for the later blocks.
 					goto stripReasoningDone
@@ -269,7 +260,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			// (OpenRouter/MiniMax), <thinking> tags in delta.content.
 			if len(chunk.Choices) > 0 && chunk.Choices[0].Delta != nil {
 				delta := chunk.Choices[0].Delta
-				if newPayload, ok := normalizeReasoningChunk(delta.Content, delta.ReasoningContent, payload, &lastFinishReason, logData); ok {
+				if newPayload, ok := normalizeReasoningChunk(delta.Content, delta.ReasoningContent, payload, &st.lastFinishReason, logData); ok {
 					if err := sink.writeData(newPayload); err != nil {
 						st.clientDisconnected = true
 						debuglog.Warn("proxy: client write failed during reasoning normalization", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
@@ -288,7 +279,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				hasReasoning := delta.ReasoningContent != nil && *delta.ReasoningContent != ""
 				hasEmptyContent := delta.Content != nil && *delta.Content == ""
 				if hasReasoning && hasEmptyContent {
-					if newPayload, ok := stripEmptyReasoningContent(payload, &lastFinishReason, logData); ok {
+					if newPayload, ok := stripEmptyReasoningContent(payload, &st.lastFinishReason, logData); ok {
 						if err := sink.writeData(newPayload); err != nil {
 							st.clientDisconnected = true
 							debuglog.Warn("proxy: client write failed during empty content strip", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
@@ -309,7 +300,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			// Anthropic "end_turn") to OpenAI vocab, and suppress P2-2
 			// bare-duplicate finish_reason chunks. computeFinishReason owns the
 			// guard, the normalization, and the lastFinishReason update.
-			switch decision, newPayload := computeFinishReason(chunk, payload, &lastFinishReason); decision {
+			switch decision, newPayload := computeFinishReason(chunk, payload, &st.lastFinishReason); decision {
 			case finishSuppress:
 				// Bare duplicate — skip the chunk and the following separator.
 				debuglog.Debug("proxy: suppressing duplicate finish_reason chunk", "finish_reason", normalizeFinishReason(*chunk.Choices[0].FinishReason), "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
