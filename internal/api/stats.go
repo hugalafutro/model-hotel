@@ -140,6 +140,28 @@ func parseIncludeLatency(r *http.Request) bool {
 	return r.URL.Query().Get("include_latency") == "true"
 }
 
+// vkScope returns the LEFT JOIN and WHERE fragments that restrict a stats query
+// to non-deleted virtual keys (rows whose virtual_key_id still resolves, or is
+// NULL). Both are empty when excludeDeleted is false. Single source of truth for
+// the fragment pasted into nearly every stats query.
+func vkScope(excludeDeleted bool) (join, filter string) {
+	if excludeDeleted {
+		return " LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id",
+			" AND (rl.virtual_key_id IS NULL OR vk.id IS NOT NULL)"
+	}
+	return "", ""
+}
+
+// metricValueSelect returns the aggregate column expression (aliased "val") for
+// the requested metric: summed tokens vs request count. Single source of truth
+// for the SELECT used by the by-model/provider/virtual-key breakdowns.
+func metricValueSelect(metric string) string {
+	if metric == "tokens" {
+		return "SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) as val"
+	}
+	return "COUNT(*) as val"
+}
+
 // GetStats returns aggregated statistics for the specified period.
 func (h *StatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	period := parsePeriod(r)
@@ -165,11 +187,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 		ByVirtualKey: make(map[string]int64),
 	}
 
-	var vkJoin, vkFilter string
-	if excludeDeleted {
-		vkJoin = " LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id"
-		vkFilter = " AND (rl.virtual_key_id IS NULL OR vk.id IS NOT NULL)"
-	}
+	vkJoin, vkFilter := vkScope(excludeDeleted)
 
 	now := time.Now().UTC()
 	since := now.Add(-period)
@@ -220,14 +238,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 	}
 
 	// Query 2: By model
-	var modelSelect, modelOrder string
-	if metric == "tokens" {
-		modelSelect = "SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) as val"
-		modelOrder = "val"
-	} else {
-		modelSelect = "COUNT(*) as val"
-		modelOrder = "val"
-	}
+	modelSelect := metricValueSelect(metric)
 	query = `
 		SELECT
 			CASE
@@ -245,7 +256,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 				WHEN p.name IS NOT NULL AND p.name != '' THEN p.name || '/' || rl.model_id
 				ELSE rl.model_id
 			END
-		ORDER BY ` + modelOrder + ` DESC
+		ORDER BY val DESC
 		LIMIT 10`
 
 	rows, err := h.dbPool.Query(ctx, query, since)
@@ -265,21 +276,14 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 	}
 
 	// Query 3: By provider
-	var providerSelect, providerOrder string
-	if metric == "tokens" {
-		providerSelect = "SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) as val"
-		providerOrder = "val"
-	} else {
-		providerSelect = "COUNT(*) as val"
-		providerOrder = "val"
-	}
+	providerSelect := metricValueSelect(metric)
 	query = `
 		SELECT p.name, ` + providerSelect + `
 		FROM request_logs rl
 		JOIN providers p ON rl.provider_id = p.id` + vkJoin + `
 		WHERE rl.created_at >= $1` + vkFilter + `
 		GROUP BY p.name
-		ORDER BY ` + providerOrder + ` DESC
+		ORDER BY val DESC
 		LIMIT 10`
 
 	rows, err = h.dbPool.Query(ctx, query, since)
@@ -299,21 +303,14 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 	}
 
 	// Query 4: By virtual key
-	var vkSelect, vkOrder string
-	if metric == "tokens" {
-		vkSelect = "SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) as val"
-		vkOrder = "val"
-	} else {
-		vkSelect = "COUNT(*) as val"
-		vkOrder = "val"
-	}
+	vkSelect := metricValueSelect(metric)
 	virtualKeyQuery := `
 		SELECT vk.name, ` + vkSelect + `
 		FROM request_logs rl
 		JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
 		WHERE rl.created_at >= $1
 		GROUP BY vk.name
-		ORDER BY ` + vkOrder + ` DESC
+		ORDER BY val DESC
 		LIMIT 10`
 
 	rows, err = h.dbPool.Query(ctx, virtualKeyQuery, since)
@@ -334,12 +331,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 
 	// Query 4b: Deleted virtual keys aggregate — only when not excluding deleted keys
 	if !excludeDeleted {
-		var deletedSelect string
-		if metric == "tokens" {
-			deletedSelect = "SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) as val"
-		} else {
-			deletedSelect = "COUNT(*) as val"
-		}
+		deletedSelect := metricValueSelect(metric)
 		deletedKeyQuery := `
 			SELECT ` + deletedSelect + `
 			FROM request_logs rl
