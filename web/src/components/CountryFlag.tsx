@@ -39,6 +39,9 @@ const LANG_FLAGS: Record<string, string> = {
 	ro: "🇷🇴", // Romanian → Romania
 	hu: "🇭🇺", // Hungarian → Hungary
 	ca: "🏴", // Catalan → Catalonia
+	sk: "🇸🇰", // Slovak → Slovakia
+	sr: "🇷🇸", // Serbian → Serbia
+	af: "🇿🇦", // Afrikaans → South Africa
 	eo: "🌍", // Esperanto → globe (no country)
 };
 
