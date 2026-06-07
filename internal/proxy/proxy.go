@@ -102,7 +102,6 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	// has no content or usage — just a bare finish_reason repeat. Suppressing
 	// avoids downstream "empty response text" errors.
 	var lastFinishReason string
-	const repeatedContentLimit = 10
 	// Read strip_reasoning flag from context once before the scanner loop.
 	// The value is set by ProxyKeyMiddleware and never changes mid-stream.
 	stripReasoning := false
@@ -278,18 +277,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 		}
 
 		var written bool
-		var chunk struct {
-			Choices []struct {
-				Delta *struct {
-					Content          *string `json:"content"`
-					ReasoningContent *string `json:"reasoning_content"`
-				} `json:"delta"`
-				FinishReason       *string `json:"finish_reason"`
-				NativeFinishReason *string `json:"native_finish_reason"` // P2-7: OpenRouter passthrough
-			} `json:"choices"`
-			Usage *Usage                    `json:"usage"`
-			Error *struct{ Message string } `json:"error"`
-		}
+		var chunk streamChunk
 		jsonValid := json.Unmarshal([]byte(payload), &chunk) == nil
 		if jsonValid {
 			// When strip_reasoning is enabled, remove reasoning fields from the chunk.
@@ -546,71 +534,10 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				}
 			}
 
-			if chunk.Usage != nil {
-				st.promptTokens = chunk.Usage.PromptTokens
-				st.completionTokens = chunk.Usage.CompletionTokens
-				if chunk.Usage.CompletionTokensDetails != nil && chunk.Usage.CompletionTokensDetails.ReasoningTokens > 0 {
-					st.reasoningTokens = chunk.Usage.CompletionTokensDetails.ReasoningTokens
-				}
-				if hit, miss := extractCacheTokens(*chunk.Usage); hit > 0 || miss > 0 {
-					st.promptCacheHitTokens = hit
-					st.promptCacheMissTokens = miss
-				}
-			}
-			// P2-7: Log native_finish_reason from OpenRouter for debugging.
-			// OpenRouter includes this field alongside the normalized finish_reason,
-			// preserving the original provider's value (e.g. "STOP" instead of "stop").
-			if len(chunk.Choices) > 0 && chunk.Choices[0].NativeFinishReason != nil {
-				if *chunk.Choices[0].NativeFinishReason != st.lastNativeFinishReason {
-					st.lastNativeFinishReason = *chunk.Choices[0].NativeFinishReason
-					debuglog.Debug("proxy: native_finish_reason", "native_finish_reason", st.lastNativeFinishReason, "model", logData.modelID, "provider", logData.providerName)
-				}
-			}
-			// P2-5: Detect repeated identical content. Some models (notably
-			// xAI Grok reasoning) send the same reasoning text in consecutive
-			// deltas, causing "Thinking... Thinking... Thinking..." loops.
-			// We track consecutive identical content and log a warning when
-			// the threshold is exceeded.
-			if len(chunk.Choices) > 0 && chunk.Choices[0].Delta != nil {
-				delta := chunk.Choices[0].Delta
-				currentContent := ""
-				if delta.Content != nil {
-					currentContent = *delta.Content
-				}
-				if delta.ReasoningContent != nil && currentContent == "" {
-					currentContent = *delta.ReasoningContent
-					if !st.sawThinking {
-						st.sawThinking = true
-						debuglog.Debug("proxy: thinking/reasoning block started", "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
-					}
-				}
-				if currentContent == st.lastContent && currentContent != "" {
-					st.repeatedCount++
-					if st.repeatedCount == repeatedContentLimit {
-						preview := currentContent
-						if len(preview) > 50 {
-							runes := []rune(preview)
-							if len(runes) > 50 {
-								preview = string(runes[:50]) + "..."
-							}
-						}
-						debuglog.Warn("proxy: repeated content detected in stream", "repeated_count", st.repeatedCount, "content_preview", preview, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
-					}
-				} else {
-					st.repeatedCount = 0
-				}
-				st.lastContent = currentContent
-			}
-			if chunk.Error != nil && !anthropicErrorCounted {
-				// Only count if P1-C didn't already handle this as an
-				// Anthropic error event (which shares the same data line).
-				st.lastErrMsg = chunk.Error.Message
-				st.errorChunkCount++
-				debuglog.Warn("proxy: SSE error chunk", "model", logData.modelID, "provider", logData.providerName, "error_message", chunk.Error.Message, "chunk_number", chunkCount)
-				// Clear st.errAccum: chunk.Error already captured this error,
-				// so P1-B's next flush must not re-count it.
-				st.errAccum = nil
-			}
+			// Side-channel observers (usage, native_finish_reason, repeated
+			// content, chunk.Error). They never emit and never change the emit
+			// decision — only streamState. (Phase 4: first extracted stage.)
+			st.observeDataChunk(chunk, anthropicErrorCounted, chunkCount, logData)
 			// Normalize provider-specific finish_reason values (e.g.,
 			// "STOP" from Gemini, "end_turn" from Anthropic) to OpenAI
 			// equivalents so downstream clients see consistent values.
