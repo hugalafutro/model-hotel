@@ -106,6 +106,85 @@ func computeStripReasoning(payload string, lastFinishReason *string, logData *re
 	return stripForward, newPayload
 }
 
+// finishReasonDecision is what computeFinishReason decided for a chunk.
+type finishReasonDecision int
+
+const (
+	finishNone     finishReasonDecision = iota // no finish_reason, or already OpenAI-normalized
+	finishSuppress                             // P2-2 bare-duplicate finish_reason; drop the chunk
+	finishRewrite                              // finish_reason normalized; emit the rewritten payload
+)
+
+// computeFinishReason normalizes a provider-specific finish_reason (e.g. Gemini
+// "STOP", Anthropic "end_turn") to the OpenAI vocabulary and decides the chunk's
+// fate: finishSuppress for a P2-2 bare duplicate (same normalized value as the
+// previous chunk, no content, no usage), finishRewrite with the re-serialized
+// payload when normalization changed the value, or finishNone otherwise (no
+// finish_reason, value unchanged, or re-serialization failed — caller forwards
+// the original line). lastFinishReason is updated in place whenever a
+// finish_reason is present and not suppressed (matching the prior inline order:
+// update happens before, and independent of, the `written` rewrite guard the
+// caller still applies). The caller owns emit, the `written` guard, and logging.
+func computeFinishReason(chunk streamChunk, payload string, lastFinishReason *string) (finishReasonDecision, []byte) {
+	if len(chunk.Choices) == 0 || chunk.Choices[0].FinishReason == nil {
+		return finishNone, nil
+	}
+	original := *chunk.Choices[0].FinishReason
+	normalized := normalizeFinishReason(original)
+
+	// P2-2: suppress a bare duplicate (same finish_reason as the previous chunk,
+	// no content, no usage) — it causes downstream "empty response text" errors.
+	if normalized == *lastFinishReason {
+		hasContent := false
+		if chunk.Choices[0].Delta != nil {
+			delta := chunk.Choices[0].Delta
+			if delta.Content != nil && *delta.Content != "" {
+				hasContent = true
+			}
+			if delta.ReasoningContent != nil && *delta.ReasoningContent != "" {
+				hasContent = true
+			}
+		}
+		if !hasContent && chunk.Usage == nil {
+			return finishSuppress, nil
+		}
+	}
+	*lastFinishReason = normalized
+	if normalized == original {
+		return finishNone, nil
+	}
+	// Rewrite the line with the normalized finish_reason. Any parse/marshal
+	// failure → finishNone so the caller forwards the original unchanged.
+	var raw map[string]json.RawMessage
+	if json.Unmarshal([]byte(payload), &raw) != nil {
+		return finishNone, nil
+	}
+	choicesRaw, ok := raw["choices"]
+	if !ok {
+		return finishNone, nil
+	}
+	var choices []map[string]json.RawMessage
+	if json.Unmarshal(choicesRaw, &choices) != nil || len(choices) == 0 {
+		return finishNone, nil
+	}
+	if frRaw, ok2 := choices[0]["finish_reason"]; ok2 {
+		var newFR string
+		if json.Unmarshal(frRaw, &newFR) == nil {
+			choices[0]["finish_reason"] = json.RawMessage(`"` + normalized + `"`)
+		}
+	}
+	newChoices, err := json.Marshal(choices)
+	if err != nil {
+		return finishNone, nil
+	}
+	raw["choices"] = json.RawMessage(newChoices)
+	newPayload, err := json.Marshal(raw)
+	if err != nil {
+		return finishNone, nil
+	}
+	return finishRewrite, newPayload
+}
+
 // stream_transforms.go holds the emit-bearing SSE transforms' *compute* logic,
 // extracted from handleStreamingResponse one at a time (Phase 4). Each function
 // is pure except for the finish_reason normalization it shares via the

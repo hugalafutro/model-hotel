@@ -185,3 +185,68 @@ func TestComputeStripReasoning(t *testing.T) {
 		}
 	})
 }
+
+// TestComputeFinishReason covers the finish_reason transform's decisions:
+// rewrite (provider value → OpenAI), no-op (already normalized / absent), and
+// the P2-2 bare-duplicate suppression with its content/usage exceptions.
+func TestComputeFinishReason(t *testing.T) {
+	t.Parallel()
+
+	t.Run("STOP → rewrite to stop, updates lastFinishReason", func(t *testing.T) {
+		lastFR := ""
+		c := parseStreamChunk(t, `{"id":"x","choices":[{"index":0,"delta":{"content":"hi"},"finish_reason":"STOP"}]}`)
+		d, out := computeFinishReason(c, `{"id":"x","choices":[{"index":0,"delta":{"content":"hi"},"finish_reason":"STOP"}]}`, &lastFR)
+		if d != finishRewrite {
+			t.Fatalf("decision = %v, want finishRewrite", d)
+		}
+		if lastFR != "stop" {
+			t.Errorf("lastFinishReason = %q, want stop", lastFR)
+		}
+		var raw struct {
+			Choices []struct {
+				FinishReason string `json:"finish_reason"`
+			} `json:"choices"`
+		}
+		if err := json.Unmarshal(out, &raw); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		if raw.Choices[0].FinishReason != "stop" {
+			t.Errorf("finish_reason = %q, want stop", raw.Choices[0].FinishReason)
+		}
+	})
+
+	t.Run("already-normalized → none", func(t *testing.T) {
+		lastFR := ""
+		c := parseStreamChunk(t, `{"choices":[{"delta":{"content":"hi"},"finish_reason":"stop"}]}`)
+		if d, _ := computeFinishReason(c, `{}`, &lastFR); d != finishNone {
+			t.Errorf("decision = %v, want finishNone", d)
+		}
+		if lastFR != "stop" {
+			t.Errorf("lastFinishReason = %q, want stop (still updated)", lastFR)
+		}
+	})
+
+	t.Run("bare duplicate → suppress", func(t *testing.T) {
+		lastFR := "stop"
+		c := parseStreamChunk(t, `{"choices":[{"delta":{},"finish_reason":"stop"}]}`)
+		if d, _ := computeFinishReason(c, `{}`, &lastFR); d != finishSuppress {
+			t.Errorf("decision = %v, want finishSuppress", d)
+		}
+	})
+
+	t.Run("duplicate WITH content → not suppressed", func(t *testing.T) {
+		lastFR := "stop"
+		c := parseStreamChunk(t, `{"choices":[{"delta":{"content":"more"},"finish_reason":"stop"}]}`)
+		if d, _ := computeFinishReason(c, `{}`, &lastFR); d != finishNone {
+			t.Errorf("decision = %v, want finishNone (content present blocks suppression)", d)
+		}
+	})
+
+	t.Run("no finish_reason → none", func(t *testing.T) {
+		lastFR := ""
+		c := parseStreamChunk(t, `{"choices":[{"delta":{"content":"hi"},"finish_reason":null}]}`)
+		if d, _ := computeFinishReason(c, `{}`, &lastFR); d != finishNone {
+			t.Errorf("decision = %v, want finishNone", d)
+		}
+	})
+}

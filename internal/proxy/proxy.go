@@ -364,76 +364,31 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			// content, chunk.Error). They never emit and never change the emit
 			// decision — only streamState. (Phase 4: first extracted stage.)
 			st.observeDataChunk(chunk, anthropicErrorCounted, chunkCount, logData)
-			// Normalize provider-specific finish_reason values (e.g.,
-			// "STOP" from Gemini, "end_turn" from Anthropic) to OpenAI
-			// equivalents so downstream clients see consistent values.
-			if len(chunk.Choices) > 0 && chunk.Choices[0].FinishReason != nil {
-				normalized := normalizeFinishReason(*chunk.Choices[0].FinishReason)
-
-				// P2-2: Suppress duplicate finish_reason chunks. Some providers
-				// (notably OpenRouter routing to Gemini models) send two
-				// consecutive chunks with the same finish_reason, where the
-				// second has no content or usage. This causes downstream
-				// "Model stream ended with empty response text" errors.
-				// Only suppress if: same finish_reason as previous chunk,
-				// no content (delta is empty or absent), and no usage.
-				if normalized == lastFinishReason {
-					hasContent := false
-					if chunk.Choices[0].Delta != nil {
-						delta := chunk.Choices[0].Delta
-						if delta.Content != nil && *delta.Content != "" {
-							hasContent = true
-						}
-						if delta.ReasoningContent != nil && *delta.ReasoningContent != "" {
-							hasContent = true
-						}
+			// Normalize provider-specific finish_reason (e.g. Gemini "STOP",
+			// Anthropic "end_turn") to OpenAI vocab, and suppress P2-2
+			// bare-duplicate finish_reason chunks. computeFinishReason owns the
+			// guard, the normalization, and the lastFinishReason update.
+			switch decision, newPayload := computeFinishReason(chunk, payload, &lastFinishReason); decision {
+			case finishSuppress:
+				// Bare duplicate — skip the chunk and the following separator.
+				debuglog.Debug("proxy: suppressing duplicate finish_reason chunk", "finish_reason", normalizeFinishReason(*chunk.Choices[0].FinishReason), "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
+				skipNextEmptyLine = true
+				continue
+			case finishRewrite:
+				// Uncommon path — most providers already send OpenAI values.
+				// Only emit if an earlier transform hasn't already written.
+				if !written {
+					if err := sink.writeData(newPayload); err != nil {
+						st.clientDisconnected = true
+						debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+						goto logUpdate
 					}
-					if !hasContent && chunk.Usage == nil {
-						debuglog.Debug("proxy: suppressing duplicate finish_reason chunk", "finish_reason", normalized, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
-						// Skip writing this chunk — it's a bare duplicate.
-						// Also skip the following SSE separator to avoid
-						// an orphaned empty-line event.
-						skipNextEmptyLine = true
-						continue
-					}
+					sink.flush()
+					written = true
+					skipNextEmptyLine = true
+					debuglog.Debug("proxy: normalized finish_reason", "original", *chunk.Choices[0].FinishReason, "normalized", normalizeFinishReason(*chunk.Choices[0].FinishReason), "model", logData.modelID, "provider", logData.providerName)
 				}
-				lastFinishReason = normalized
-				if normalized != *chunk.Choices[0].FinishReason && !written {
-					// Rewrite the line with normalized finish_reason.
-					// Re-serialize the entire JSON payload with the fix.
-					// This is the uncommon path — most providers already
-					// send OpenAI-compatible values.
-					var raw map[string]json.RawMessage
-					if json.Unmarshal([]byte(payload), &raw) == nil {
-						if choicesRaw, ok := raw["choices"]; ok {
-							var choices []map[string]json.RawMessage
-							if json.Unmarshal(choicesRaw, &choices) == nil && len(choices) > 0 {
-								if frRaw, ok2 := choices[0]["finish_reason"]; ok2 {
-									// Replace the finish_reason value.
-									var newFR string
-									if json.Unmarshal(frRaw, &newFR) == nil {
-										choices[0]["finish_reason"] = json.RawMessage(`"` + normalized + `"`)
-									}
-								}
-								// Re-serialize choices and patch into the payload map.
-								if newChoices, err2 := json.Marshal(choices); err2 == nil {
-									raw["choices"] = json.RawMessage(newChoices)
-									if newPayload, err3 := json.Marshal(raw); err3 == nil {
-										if err := sink.writeData(newPayload); err != nil {
-											st.clientDisconnected = true
-											debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-											goto logUpdate
-										}
-										sink.flush()
-										written = true
-										skipNextEmptyLine = true
-										debuglog.Debug("proxy: normalized finish_reason", "original", *chunk.Choices[0].FinishReason, "normalized", normalized, "model", logData.modelID, "provider", logData.providerName)
-									}
-								}
-							}
-						}
-					}
-				}
+			case finishNone:
 			}
 		}
 		if !written && !jsonValid {
