@@ -114,6 +114,11 @@ type requestState struct {
 	bodyBytes   []byte
 	parseMs     float64
 	logData     *requestLogData
+
+	// Populated by resolveCandidates (phase B).
+	timings    resolveTimings
+	cacheHits  resolveCacheHits
+	isFailover bool
 }
 
 // streamOptions consolidates the parameters for handleStreamingResponse into

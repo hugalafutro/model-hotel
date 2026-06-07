@@ -530,90 +530,13 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	bodyBytes := st.bodyBytes
 	logData := st.logData
 
-	var candidates []modelCandidate
-	var timings resolveTimings
-	var cacheHits resolveCacheHits
-	var err error
-
-	// Capture accumulated settings read time (pointer in context, set by
-	// rate limiter middleware and added to by resolve/proxy handlers).
-	if v := r.Context().Value(ctxkeys.SettingsReadMsKey); v != nil {
-		if p, ok := v.(*float64); ok {
-			timings.settingsReadMs = *p
-		}
-	}
-
-	isFailover := false
-
-	switch {
-	case strings.HasPrefix(reqModel, "hotel/"):
-		isFailover = true
-		debuglog.Debug("proxy: model resolution path", "type", "hotel", "model", reqModel)
-		displayModel := strings.ToLower(strings.TrimPrefix(reqModel, "hotel/"))
-		candidates, timings, cacheHits, err = h.resolveHotelModel(r.Context(), displayModel)
-		if err != nil {
-			h.failRequest(logData, 404, err.Error(), 0, startTime, parseMs, timings, cacheHits, 0)
-			writeOpenAIError(w, err.Error(), http.StatusNotFound)
-			return
-		}
-		if len(candidates) == 0 {
-			h.failRequest(logData, 502, "no available provider for hotel/"+displayModel, 0, startTime, parseMs, timings, cacheHits, 0)
-			writeOpenAIError(w, "no available provider for hotel/"+displayModel, http.StatusBadGateway)
-			return
-		}
-	case strings.Contains(reqModel, "/") && !strings.HasPrefix(reqModel, "hotel/"):
-		debuglog.Debug("proxy: model resolution path", "type", "specific_provider", "model", reqModel)
-		parts := strings.SplitN(reqModel, "/", 2)
-		providerName, modelID := parts[0], parts[1]
-		candidates, timings, cacheHits, err = h.resolveSpecificProvider(r.Context(), providerName, modelID)
-		if err != nil {
-			h.failRequest(logData, 404, err.Error(), 0, startTime, parseMs, timings, cacheHits, 0)
-			writeOpenAIError(w, err.Error(), http.StatusNotFound)
-			return
-		}
-	default:
-		h.failRequest(logData, 400, "invalid model format: "+reqModel, 0, startTime, parseMs, timings, resolveCacheHits{}, 0)
-		writeOpenAIError(w, "invalid model format, expected provider/model or hotel/model", http.StatusBadRequest)
+	candidates, ok := h.resolveCandidates(w, r, st)
+	if !ok {
 		return
 	}
-
-	// Store cache hit data from resolve phase into the log entry.
-	logData.cacheHits = cacheHits
-
-	// Normalize logData fields after resolution: split the raw request model
-	// (e.g. "NanoGPT/deepseek-ai/DeepSeek-R1-0528") into provider name and
-	// model-only components so log lines are human-readable.
-	if parts := strings.SplitN(reqModel, "/", 2); len(parts) == 2 && !strings.HasPrefix(reqModel, "hotel/") {
-		logData.providerName = parts[0]
-		logData.modelID = parts[1]
-	} else {
-		logData.providerName = "hotel"
-	}
-
-	// Filter candidates by virtual key's allowed_providers.
-	// If the key has a non-nil allowed list, remove candidates whose
-	// provider ID is not in the list. nil = all providers allowed.
-	if v := r.Context().Value(ctxkeys.VirtualKeyAllowedProvidersKey); v != nil {
-		if allowed, ok := v.(*[]string); ok && allowed != nil && len(*allowed) > 0 {
-			allowedSet := make(map[string]struct{}, len(*allowed))
-			for _, id := range *allowed {
-				allowedSet[id] = struct{}{}
-			}
-			filtered := candidates[:0]
-			for _, c := range candidates {
-				if _, ok := allowedSet[c.provider.ID.String()]; ok {
-					filtered = append(filtered, c)
-				}
-			}
-			if len(filtered) == 0 {
-				h.failRequest(logData, 403, "virtual key does not have access to any provider for this model", 0, startTime, parseMs, timings, cacheHits, 0)
-				writeOpenAIError(w, "virtual key does not have access to any provider for this model", http.StatusForbidden)
-				return
-			}
-			debuglog.Info("proxy: filtered candidates by allowed_providers", "before", len(candidates), "after", len(filtered), "key", logData.virtualKeyName)
-			candidates = filtered
-		}
-	}
+	timings := st.timings
+	cacheHits := st.cacheHits
+	isFailover := st.isFailover
 
 	// Re-read accumulated settings read time from context pointer.
 	// The initial read captured the rate limiter's contribution,

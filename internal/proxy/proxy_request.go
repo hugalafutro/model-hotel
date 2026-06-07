@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
@@ -137,4 +138,104 @@ func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request) (*reques
 		parseMs:     parseMs,
 		logData:     logData,
 	}, true
+}
+
+// resolveCandidates performs phase B of ChatCompletions: resolve the request
+// model into an ordered candidate list (hotel failover group, specific
+// provider/model, or invalid-format), normalize the log entry's provider/model
+// fields, and apply the virtual key's allowed_providers access filter.
+//
+// On success it stores the resolve timings, cache hits, and failover flag into
+// st and returns (candidates, true). On any failure it records the failure,
+// writes the OpenAI error response, and returns (nil, false).
+func (h *Handler) resolveCandidates(w http.ResponseWriter, r *http.Request, st *requestState) ([]modelCandidate, bool) {
+	var candidates []modelCandidate
+	var timings resolveTimings
+	var cacheHits resolveCacheHits
+	var err error
+
+	// Capture accumulated settings read time (pointer in context, set by
+	// rate limiter middleware and added to by resolve/proxy handlers).
+	if v := r.Context().Value(ctxkeys.SettingsReadMsKey); v != nil {
+		if p, ok := v.(*float64); ok {
+			timings.settingsReadMs = *p
+		}
+	}
+
+	isFailover := false
+
+	switch {
+	case strings.HasPrefix(st.reqModel, "hotel/"):
+		isFailover = true
+		debuglog.Debug("proxy: model resolution path", "type", "hotel", "model", st.reqModel)
+		displayModel := strings.ToLower(strings.TrimPrefix(st.reqModel, "hotel/"))
+		candidates, timings, cacheHits, err = h.resolveHotelModel(r.Context(), displayModel)
+		if err != nil {
+			h.failRequest(st.logData, 404, err.Error(), 0, st.startTime, st.parseMs, timings, cacheHits, 0)
+			writeOpenAIError(w, err.Error(), http.StatusNotFound)
+			return nil, false
+		}
+		if len(candidates) == 0 {
+			h.failRequest(st.logData, 502, "no available provider for hotel/"+displayModel, 0, st.startTime, st.parseMs, timings, cacheHits, 0)
+			writeOpenAIError(w, "no available provider for hotel/"+displayModel, http.StatusBadGateway)
+			return nil, false
+		}
+	case strings.Contains(st.reqModel, "/") && !strings.HasPrefix(st.reqModel, "hotel/"):
+		debuglog.Debug("proxy: model resolution path", "type", "specific_provider", "model", st.reqModel)
+		parts := strings.SplitN(st.reqModel, "/", 2)
+		providerName, modelID := parts[0], parts[1]
+		candidates, timings, cacheHits, err = h.resolveSpecificProvider(r.Context(), providerName, modelID)
+		if err != nil {
+			h.failRequest(st.logData, 404, err.Error(), 0, st.startTime, st.parseMs, timings, cacheHits, 0)
+			writeOpenAIError(w, err.Error(), http.StatusNotFound)
+			return nil, false
+		}
+	default:
+		h.failRequest(st.logData, 400, "invalid model format: "+st.reqModel, 0, st.startTime, st.parseMs, timings, resolveCacheHits{}, 0)
+		writeOpenAIError(w, "invalid model format, expected provider/model or hotel/model", http.StatusBadRequest)
+		return nil, false
+	}
+
+	// Store cache hit data from resolve phase into the log entry.
+	st.logData.cacheHits = cacheHits
+
+	// Normalize logData fields after resolution: split the raw request model
+	// (e.g. "NanoGPT/deepseek-ai/DeepSeek-R1-0528") into provider name and
+	// model-only components so log lines are human-readable.
+	if parts := strings.SplitN(st.reqModel, "/", 2); len(parts) == 2 && !strings.HasPrefix(st.reqModel, "hotel/") {
+		st.logData.providerName = parts[0]
+		st.logData.modelID = parts[1]
+	} else {
+		st.logData.providerName = "hotel"
+	}
+
+	// Filter candidates by virtual key's allowed_providers.
+	// If the key has a non-nil allowed list, remove candidates whose
+	// provider ID is not in the list. nil = all providers allowed.
+	if v := r.Context().Value(ctxkeys.VirtualKeyAllowedProvidersKey); v != nil {
+		if allowed, ok := v.(*[]string); ok && allowed != nil && len(*allowed) > 0 {
+			allowedSet := make(map[string]struct{}, len(*allowed))
+			for _, id := range *allowed {
+				allowedSet[id] = struct{}{}
+			}
+			filtered := candidates[:0]
+			for _, c := range candidates {
+				if _, ok := allowedSet[c.provider.ID.String()]; ok {
+					filtered = append(filtered, c)
+				}
+			}
+			if len(filtered) == 0 {
+				h.failRequest(st.logData, 403, "virtual key does not have access to any provider for this model", 0, st.startTime, st.parseMs, timings, cacheHits, 0)
+				writeOpenAIError(w, "virtual key does not have access to any provider for this model", http.StatusForbidden)
+				return nil, false
+			}
+			debuglog.Info("proxy: filtered candidates by allowed_providers", "before", len(candidates), "after", len(filtered), "key", st.logData.virtualKeyName)
+			candidates = filtered
+		}
+	}
+
+	st.timings = timings
+	st.cacheHits = cacheHits
+	st.isFailover = isFailover
+	return candidates, true
 }
