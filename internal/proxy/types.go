@@ -119,6 +119,12 @@ type requestState struct {
 	timings    resolveTimings
 	cacheHits  resolveCacheHits
 	isFailover bool
+
+	// Populated by loadFailoverConfig (phase C).
+	proxyOverhead         float64
+	failoverTimeout       time.Duration
+	overallDeadline       time.Time
+	circuitBreakerEnabled bool
 }
 
 // streamOptions consolidates the parameters for handleStreamingResponse into

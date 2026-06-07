@@ -239,3 +239,63 @@ func (h *Handler) resolveCandidates(w http.ResponseWriter, r *http.Request, st *
 	st.isFailover = isFailover
 	return candidates, true
 }
+
+// loadFailoverConfig performs phase C of ChatCompletions: finalize the
+// accumulated settings-read time, compute the initial proxy-overhead estimate,
+// and read the per-request failover knobs (request timeout — 10× for streaming,
+// circuit-breaker enablement, and the overall request deadline). The results
+// are stored on st for the failover loop. The loop recomputes proxyOverhead
+// after each dial, so the value set here is only the pre-loop estimate.
+func (h *Handler) loadFailoverConfig(r *http.Request, st *requestState) {
+	// Re-read accumulated settings read time from context pointer.
+	// The initial read captured the rate limiter's contribution,
+	// but resolve handlers called AddSettingsReadMs for circuit breaker and
+	// failover settings. The pointer now holds the total.
+	if v := r.Context().Value(ctxkeys.SettingsReadMsKey); v != nil {
+		if p, ok := v.(*float64); ok {
+			st.timings.settingsReadMs = *p
+		}
+	}
+
+	// Initial overhead estimate (dialMs=0 — not yet populated).
+	// proxyOverhead is recomputed after each dial inside the failover loop
+	// so that all exit paths (backoff disconnect, error, failRequest) use
+	// the current accumulated total.
+	st.proxyOverhead = st.timings.proxyOverheadMs(st.parseMs)
+
+	// Non-streaming timeout is configurable via request_timeout setting (default 1m).
+	// Streaming requests get 10× the non-streaming timeout to accommodate
+	// thinking/reasoning models that can take several minutes before first token.
+	// Read once before the loop so all attempts within a single request use
+	// the same timeout, avoiding inconsistency if the setting changes mid-request.
+	rtStart := time.Now()
+	baseTimeout := h.settingsRepo.GetDuration(r.Context(), "request_timeout", time.Minute)
+	ctxkeys.AddSettingsReadMs(r.Context(), rtStart)
+	st.failoverTimeout = baseTimeout
+	if st.isStreaming {
+		st.failoverTimeout = baseTimeout * 10
+	}
+
+	// Read circuit_breaker_enabled once before the loop to avoid repeated settings reads.
+	cbStart2 := time.Now()
+	st.circuitBreakerEnabled = h.settingsRepo.GetBool(r.Context(), "circuit_breaker_enabled", true)
+	ctxkeys.AddSettingsReadMs(r.Context(), cbStart2)
+
+	// Overall request deadline: caps total time across all failover candidates
+	// to prevent resource pinning from silent clients. Without this, N candidates
+	// with per-candidate failoverTimeout could hold a goroutine for N×failoverTimeout.
+	// The ceiling is 2× the per-candidate timeout, giving a second attempt full time
+	// while capping any number of subsequent candidates to the remaining budget.
+	st.overallDeadline = st.startTime.Add(st.failoverTimeout * 2)
+
+	// Final re-read of accumulated settings read time. The initial read
+	// captured the rate limiter's contribution, resolve handlers added
+	// circuit breaker/failover settings, and the proxy loop added
+	// request_timeout and circuit_breaker_enabled reads. Recompute
+	// proxyOverhead with the complete total.
+	if v := r.Context().Value(ctxkeys.SettingsReadMsKey); v != nil {
+		if p, ok := v.(*float64); ok {
+			st.timings.settingsReadMs = *p
+		}
+	}
+}
