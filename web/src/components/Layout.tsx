@@ -1050,7 +1050,11 @@ export function Layout({ children }: LayoutProps) {
 							className="sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5"
 						>
 							<BookOpen size={14} strokeWidth={2} />
-							{t("layout.docs")}
+							{/* "Wiki" is a fixed brand/proper-noun label for the link to
+							    the GitHub wiki — intentionally not translated, so it
+							    reads the same in every locale (and Crowdin can't mangle
+							    it). Not routed through t(); see the autonym pattern above. */}
+							Wiki
 						</a>
 						<button
 							type="button"
