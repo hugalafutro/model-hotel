@@ -488,6 +488,84 @@ func (h *StatsHandler) statTotals(ctx context.Context, stats *StatsResponse, vkJ
 	return nil
 }
 
+// statLatencyBreakdown fills ByModelLatency / ByProviderLatency with the top-N
+// model (Q12) and provider (Q13) latency breakdowns. Best-effort: a query
+// failure logs and leaves that slice empty; a per-row scan error skips the row.
+// Only invoked when the caller requested latency data.
+func (h *StatsHandler) statLatencyBreakdown(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter string, since time.Time) {
+	// Query 12: Per-model latency breakdown (top 5 by avg total latency).
+	query := `
+			WITH model_latency AS (
+				SELECT
+					CASE
+						WHEN rl.model_id LIKE '%/%' THEN rl.model_id
+						WHEN p.name IS NOT NULL AND p.name != '' THEN p.name || '/' || rl.model_id
+						ELSE rl.model_id
+					END as model_id,
+					COUNT(*) as req_count,
+					COALESCE(AVG(rl.duration_ms), 0) as avg_total,
+					COALESCE(AVG(COALESCE(rl.proxy_overhead_ms, 0)), 0) as avg_overhead
+				FROM request_logs rl
+				LEFT JOIN providers p ON rl.provider_id = p.id` + vkJoin + `
+				WHERE rl.created_at >= $1 AND rl.status_code > 0 AND rl.status_code < 400` + vkFilter + `
+				GROUP BY 1
+				HAVING COUNT(*) >= 3
+				ORDER BY avg_total DESC
+				LIMIT 6
+			)
+			SELECT model_id, req_count, avg_total, avg_overhead,
+				GREATEST(0, avg_total - avg_overhead) as avg_provider
+			FROM model_latency`
+
+	rows, err := h.dbPool.Query(ctx, query, since)
+	if err != nil {
+		debuglog.Error("stats: query failed", "query", "by_model_latency", "error", err)
+	} else {
+		defer rows.Close()
+		for rows.Next() {
+			var entry ModelLatencyEntry
+			if err := rows.Scan(&entry.ModelID, &entry.RequestCount, &entry.TotalMs, &entry.OverheadMs, &entry.ProviderMs); err != nil {
+				continue
+			}
+			stats.ByModelLatency = append(stats.ByModelLatency, entry)
+		}
+	}
+
+	// Query 13: Per-provider latency breakdown (top 6 by avg total latency).
+	query = `
+			WITH provider_latency AS (
+				SELECT
+					p.name as provider_name,
+					COUNT(*) as req_count,
+					COALESCE(AVG(rl.duration_ms), 0) as avg_total,
+					COALESCE(AVG(COALESCE(rl.proxy_overhead_ms, 0)), 0) as avg_overhead
+				FROM request_logs rl
+				INNER JOIN providers p ON rl.provider_id = p.id` + vkJoin + `
+				WHERE rl.created_at >= $1 AND rl.status_code > 0 AND rl.status_code < 400` + vkFilter + `
+				GROUP BY p.name
+				HAVING COUNT(*) >= 3
+				ORDER BY avg_total DESC
+				LIMIT 6
+			)
+			SELECT provider_name, req_count, avg_total, avg_overhead,
+				GREATEST(0, avg_total - avg_overhead) as avg_provider
+			FROM provider_latency`
+
+	rows, err = h.dbPool.Query(ctx, query, since)
+	if err != nil {
+		debuglog.Error("stats: query failed", "query", "by_provider_latency", "error", err)
+	} else {
+		defer rows.Close()
+		for rows.Next() {
+			var entry ProviderLatencyEntry
+			if err := rows.Scan(&entry.ProviderName, &entry.RequestCount, &entry.TotalMs, &entry.OverheadMs, &entry.ProviderMs); err != nil {
+				continue
+			}
+			stats.ByProviderLatency = append(stats.ByProviderLatency, entry)
+		}
+	}
+}
+
 func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration, excludeDeleted bool, metric string, includeLatency bool) (*StatsResponse, error) {
 	stats := &StatsResponse{
 		ByModel:      make(map[string]int64),
@@ -519,80 +597,10 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 	// Queries 5–11 + requests-in-last-1h: scalar aggregates (best-effort).
 	h.statScalars(ctx, stats, vkJoin, vkFilter, since, now)
 
-	// Query 12: Per-model latency breakdown (top 5 by avg total latency).
-	// Only runs when the caller requests it to avoid unnecessary work
-	// on stats calls from non-latency dashboard panels.
+	// Queries 12–13: per-model / per-provider latency breakdown (best-effort,
+	// only when the caller requested latency data).
 	if includeLatency {
-		query := `
-			WITH model_latency AS (
-				SELECT
-					CASE
-						WHEN rl.model_id LIKE '%/%' THEN rl.model_id
-						WHEN p.name IS NOT NULL AND p.name != '' THEN p.name || '/' || rl.model_id
-						ELSE rl.model_id
-					END as model_id,
-					COUNT(*) as req_count,
-					COALESCE(AVG(rl.duration_ms), 0) as avg_total,
-					COALESCE(AVG(COALESCE(rl.proxy_overhead_ms, 0)), 0) as avg_overhead
-				FROM request_logs rl
-				LEFT JOIN providers p ON rl.provider_id = p.id` + vkJoin + `
-				WHERE rl.created_at >= $1 AND rl.status_code > 0 AND rl.status_code < 400` + vkFilter + `
-				GROUP BY 1
-				HAVING COUNT(*) >= 3
-				ORDER BY avg_total DESC
-				LIMIT 6
-			)
-			SELECT model_id, req_count, avg_total, avg_overhead,
-				GREATEST(0, avg_total - avg_overhead) as avg_provider
-			FROM model_latency`
-
-		rows, err := h.dbPool.Query(ctx, query, since)
-		if err != nil {
-			debuglog.Error("stats: query failed", "query", "by_model_latency", "error", err)
-		} else {
-			defer rows.Close()
-			for rows.Next() {
-				var entry ModelLatencyEntry
-				if err := rows.Scan(&entry.ModelID, &entry.RequestCount, &entry.TotalMs, &entry.OverheadMs, &entry.ProviderMs); err != nil {
-					continue
-				}
-				stats.ByModelLatency = append(stats.ByModelLatency, entry)
-			}
-		}
-
-		// Query 13: Per-provider latency breakdown (top 6 by avg total latency).
-		query = `
-			WITH provider_latency AS (
-				SELECT
-					p.name as provider_name,
-					COUNT(*) as req_count,
-					COALESCE(AVG(rl.duration_ms), 0) as avg_total,
-					COALESCE(AVG(COALESCE(rl.proxy_overhead_ms, 0)), 0) as avg_overhead
-				FROM request_logs rl
-				INNER JOIN providers p ON rl.provider_id = p.id` + vkJoin + `
-				WHERE rl.created_at >= $1 AND rl.status_code > 0 AND rl.status_code < 400` + vkFilter + `
-				GROUP BY p.name
-				HAVING COUNT(*) >= 3
-				ORDER BY avg_total DESC
-				LIMIT 6
-			)
-			SELECT provider_name, req_count, avg_total, avg_overhead,
-				GREATEST(0, avg_total - avg_overhead) as avg_provider
-			FROM provider_latency`
-
-		rows, err = h.dbPool.Query(ctx, query, since)
-		if err != nil {
-			debuglog.Error("stats: query failed", "query", "by_provider_latency", "error", err)
-		} else {
-			defer rows.Close()
-			for rows.Next() {
-				var entry ProviderLatencyEntry
-				if err := rows.Scan(&entry.ProviderName, &entry.RequestCount, &entry.TotalMs, &entry.OverheadMs, &entry.ProviderMs); err != nil {
-					continue
-				}
-				stats.ByProviderLatency = append(stats.ByProviderLatency, entry)
-			}
-		}
+		h.statLatencyBreakdown(ctx, stats, vkJoin, vkFilter, since)
 	}
 
 	return stats, nil
