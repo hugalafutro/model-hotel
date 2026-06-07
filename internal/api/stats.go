@@ -436,18 +436,11 @@ func (h *StatsHandler) statScalars(ctx context.Context, stats *StatsResponse, vk
 	stats.RequestsLast1h = requests1h
 }
 
-func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration, excludeDeleted bool, metric string, includeLatency bool) (*StatsResponse, error) {
-	stats := &StatsResponse{
-		ByModel:      make(map[string]int64),
-		ByProvider:   make(map[string]int64),
-		ByVirtualKey: make(map[string]int64),
-	}
-
-	vkJoin, vkFilter := vkScope(excludeDeleted)
-
-	now := time.Now().UTC()
-	since := now.Add(-period)
-
+// statTotals fills TotalRequestsLast24h / TotalRequestsLast7d: the count for the
+// requested period plus the cross-fill of the other window (a 24h request also
+// fills the 7d total and vice-versa). A query failure here is fatal — returned
+// so calculateStats aborts.
+func (h *StatsHandler) statTotals(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter string, period time.Duration, since, now time.Time) error {
 	switch period {
 	case 7 * 24 * time.Hour:
 		stats.TotalRequestsLast7d = 0
@@ -465,7 +458,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 	err := h.dbPool.QueryRow(ctx, query, since).Scan(&count)
 	if err != nil {
 		debuglog.Error("stats: query failed", "query", "total_requests", "error", err)
-		return nil, err
+		return err
 	}
 
 	switch period {
@@ -480,7 +473,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 		err = h.dbPool.QueryRow(ctx, query, _7dAgo).Scan(&count)
 		if err != nil {
 			debuglog.Error("stats: query failed", "query", "total_requests_7d", "error", err)
-			return nil, err
+			return err
 		}
 		stats.TotalRequestsLast7d = count
 	} else {
@@ -488,9 +481,28 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 		err = h.dbPool.QueryRow(ctx, query, _24hAgo).Scan(&count)
 		if err != nil {
 			debuglog.Error("stats: query failed", "query", "total_requests_24h", "error", err)
-			return nil, err
+			return err
 		}
 		stats.TotalRequestsLast24h = count
+	}
+	return nil
+}
+
+func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration, excludeDeleted bool, metric string, includeLatency bool) (*StatsResponse, error) {
+	stats := &StatsResponse{
+		ByModel:      make(map[string]int64),
+		ByProvider:   make(map[string]int64),
+		ByVirtualKey: make(map[string]int64),
+	}
+
+	vkJoin, vkFilter := vkScope(excludeDeleted)
+
+	now := time.Now().UTC()
+	since := now.Add(-period)
+
+	// Query 1 + cross-fill: total request counts (fatal on error).
+	if err := h.statTotals(ctx, stats, vkJoin, vkFilter, period, since, now); err != nil {
+		return nil, err
 	}
 
 	// Queries 2–4c: dimension breakdowns (top-10 by model / provider / virtual key).
@@ -511,7 +523,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 	// Only runs when the caller requests it to avoid unnecessary work
 	// on stats calls from non-latency dashboard panels.
 	if includeLatency {
-		query = `
+		query := `
 			WITH model_latency AS (
 				SELECT
 					CASE
