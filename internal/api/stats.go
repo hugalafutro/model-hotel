@@ -503,7 +503,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 				GROUP BY 1
 				HAVING COUNT(*) >= 3
 				ORDER BY avg_total DESC
-				LIMIT 5
+				LIMIT 6
 			)
 			SELECT model_id, req_count, avg_total, avg_overhead,
 				GREATEST(0, avg_total - avg_overhead) as avg_provider
@@ -523,7 +523,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 			}
 		}
 
-		// Query 13: Per-provider latency breakdown (top 5 by avg total latency).
+		// Query 13: Per-provider latency breakdown (top 6 by avg total latency).
 		query = `
 			WITH provider_latency AS (
 				SELECT
@@ -537,7 +537,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 				GROUP BY p.name
 				HAVING COUNT(*) >= 3
 				ORDER BY avg_total DESC
-				LIMIT 5
+				LIMIT 6
 			)
 			SELECT provider_name, req_count, avg_total, avg_overhead,
 				GREATEST(0, avg_total - avg_overhead) as avg_provider
