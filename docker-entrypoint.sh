@@ -22,12 +22,13 @@ fi
 DOCKER_SOCKET_GROUP=""
 if [ -S /var/run/docker.sock ]; then
 	socket_gid=$(stat -c '%g' /var/run/docker.sock 2>/dev/null || true)
+	# GID 0 means the socket is root-owned; we intentionally skip that case
+	# because no safe group membership can grant access without root privileges.
 	if [ -n "$socket_gid" ] && [ "$socket_gid" != "0" ]; then
 		if getent group "$socket_gid" >/dev/null 2>&1; then
 			DOCKER_SOCKET_GROUP=$(getent group "$socket_gid" | cut -d: -f1)
-		else
+		elif addgroup -g "$socket_gid" -S "docker-socket" 2>/dev/null; then
 			DOCKER_SOCKET_GROUP="docker-socket"
-			addgroup -g "$socket_gid" -S "$DOCKER_SOCKET_GROUP" 2>/dev/null || true
 		fi
 	fi
 fi
