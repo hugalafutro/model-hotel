@@ -125,7 +125,24 @@ type requestState struct {
 	failoverTimeout       time.Duration
 	overallDeadline       time.Time
 	circuitBreakerEnabled bool
+
+	// Accumulated across failover attempts (phase D / E).
+	lastErr string
 }
+
+// candidateOutcome is the result of a single failover attempt
+// (attemptCandidate): whether the caller should try the next candidate, has
+// already served the client, or has written a terminal error.
+type candidateOutcome int
+
+const (
+	// outcomeFailover: this candidate failed; try the next one (continue).
+	outcomeFailover candidateOutcome = iota
+	// outcomeServed: the response was fully handled; return.
+	outcomeServed
+	// outcomeFatal: a terminal error response was written; return.
+	outcomeFatal
+)
 
 // streamOptions consolidates the parameters for handleStreamingResponse into
 // a single struct, replacing 17 positional parameters with named fields.

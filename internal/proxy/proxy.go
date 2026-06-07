@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -20,7 +19,6 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
-	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -519,54 +517,22 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	// Re-bind the ingested state to locals so the resolve/config/failover
-	// phases below read unchanged. Subsequent refactor phases progressively
-	// move these into requestState methods.
-	startTime := st.startTime
-	parseMs := st.parseMs
-	reqModel := st.reqModel
-	isStreaming := st.isStreaming
-	vkHash := st.vkHash
-	bodyBytes := st.bodyBytes
-	logData := st.logData
-
 	candidates, ok := h.resolveCandidates(w, r, st)
 	if !ok {
 		return
 	}
 	h.loadFailoverConfig(r, st)
 
-	timings := st.timings
-	cacheHits := st.cacheHits
-	isFailover := st.isFailover
-	proxyOverhead := st.proxyOverhead
-	failoverTimeout := st.failoverTimeout
-	overallDeadline := st.overallDeadline
-	circuitBreakerEnabled := st.circuitBreakerEnabled
-
-	debuglog.Debug("proxy: model resolved (pre-loop)", "model", logData.modelID, "provider", logData.providerName, "candidates", len(candidates), "overhead_ms", proxyOverhead)
-
-	// Use the original request body as the base for per-candidate rewrites.
-	// stream_options injection is deferred to the per-candidate rewrite block
-	// so it can be conditioned on provider type (avoided for providers that
-	// strict-validate unknown fields like Anthropic, Google, Cohere).
-	proxyReqBody := bodyBytes
-
-	// Per-request DNS resolution timing. SafeDialer's DialContext writes
-	// into this pointer via context, avoiding cross-request races on a
-	// shared atomic field.
-	var dialMs float64
-
-	var lastErr string
+	debuglog.Debug("proxy: model resolved (pre-loop)", "model", st.logData.modelID, "provider", st.logData.providerName, "candidates", len(candidates), "overhead_ms", st.proxyOverhead)
 
 	for attempt, candidate := range candidates {
 		// Overall deadline check: stop failover if the total time budget
 		// across all candidates has been exceeded. This prevents N candidates
 		// from holding a goroutine for N×failoverTimeout when the client
 		// is silent but connected (no TCP reset).
-		if time.Now().After(overallDeadline) && attempt > 0 {
-			debuglog.Warn("proxy: overall request deadline exceeded, stopping failover", "model", logData.modelID, "attempt", attempt+1, "total_candidates", len(candidates), "deadline", overallDeadline)
-			lastErr = fmt.Sprintf("attempt %d: overall request deadline exceeded", attempt)
+		if time.Now().After(st.overallDeadline) && attempt > 0 {
+			debuglog.Warn("proxy: overall request deadline exceeded, stopping failover", "model", st.logData.modelID, "attempt", attempt+1, "total_candidates", len(candidates), "deadline", st.overallDeadline)
+			st.lastErr = fmt.Sprintf("attempt %d: overall request deadline exceeded", attempt)
 			break
 		}
 
@@ -579,298 +545,34 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			select {
 			case <-time.After(backoff):
 			case <-r.Context().Done():
-				debuglog.Info("proxy: client disconnected during failover backoff", "model", logData.modelID, "provider", logData.providerName, "attempt", attempt+1)
-				h.failRequest(logData, 499, "client disconnected during failover", attempt-1, startTime, parseMs, timings, cacheHits, proxyOverhead)
+				debuglog.Info("proxy: client disconnected during failover backoff", "model", st.logData.modelID, "provider", st.logData.providerName, "attempt", attempt+1)
+				h.failRequest(st.logData, 499, "client disconnected during failover", attempt-1, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
 				writeOpenAIError(w, "client disconnected", http.StatusRequestTimeout)
 				return
 			}
 		}
 
-		logData.providerID = candidate.provider.ID
-		logData.providerName = candidate.provider.Name
-		if isFailover {
-			logData.resolvedModelID = candidate.model.ModelID
-		}
-		if attempt == 0 {
-			debuglog.Info("proxy: routing to provider", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "total_candidates", len(candidates))
-		} else {
-			debuglog.Info("proxy: failover attempt", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID)
-		}
-		debuglog.Debug("proxy: candidate details", "provider_id", candidate.provider.ID, "provider_name", candidate.provider.Name, "model_id", candidate.model.ModelID, "provider_type", provider.DetectProviderType(candidate.provider.BaseURL), "attempt", attempt+1, "total_candidates", len(candidates))
-		//nolint:gosec // intentional: failover goroutine needs independent lifecycle
-		go func(pid uuid.UUID) {
-			defer func() {
-				if r := recover(); r != nil {
-					debuglog.Error("proxy: panic in TouchLastUsed (provider)", "error", r)
-				}
-			}()
-			tctx, tcancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer tcancel()
-			if err := h.providerRepo.TouchLastUsed(tctx, pid); err != nil {
-				debuglog.Debug("proxy: failed to touch provider last-used", "error", err)
-			}
-		}(candidate.provider.ID)
-		providerType := provider.DetectProviderType(candidate.provider.BaseURL)
-		debuglog.Debug("proxy: detected provider type", "provider_type", providerType, "base_url", util.SanitizeBaseURL(candidate.provider.BaseURL))
-		targetURL := util.BuildProviderTargetURL(candidate.provider.BaseURL, providerType)
-		debuglog.Debug("proxy: built target URL", "target_url", targetURL)
-
-		upstreamBody := proxyReqBody
-		needsRewrite := reqModel != candidate.model.ModelID || providerType == "anthropic" || NeedsProviderInjection(providerType) || isStreaming
-		debuglog.Debug("proxy: request rewrite check", "needs_rewrite", needsRewrite, "request_model", logData.modelID, "provider", logData.providerName, "resolved_model", candidate.model.ModelID, "provider_type", providerType)
-		if needsRewrite {
-			upstreamBody = buildUpstreamBody(proxyReqBody, providerType, candidate.model.ModelID, reqModel, isStreaming, &h.deprecationCache, nil)
-		}
-		// Log the actual model name in the upstream body for debugging rewrite issues.
-		if upstreamModel, _, _ := strings.Cut(string(upstreamBody), ","); strings.Contains(upstreamModel, `"model"`) {
-			debuglog.Debug("proxy: upstream body model", "upstream_model_snippet", upstreamModel)
-		}
-
-		var retryCancel context.CancelFunc
-		streamCancelOrigin := "failover_timeout"
-		failoverCtx, failoverCancel := context.WithTimeout(r.Context(), failoverTimeout)
-		failoverCtx = context.WithValue(failoverCtx, ctxkeys.CancelOriginKey, "failover_timeout")
-		proxyReq, err := newRequestWithContext(failoverCtx, "POST", targetURL, bytes.NewReader(upstreamBody))
-		if err != nil {
-			failoverCancel()
-			lastErr = fmt.Sprintf("attempt %d: failed to create request: %v", attempt, err)
-			continue
-		}
-
-		util.SetProviderAuthHeaders(proxyReq, providerType, candidate.apiKey)
-		proxyReq.Header.Set("Content-Type", "application/json")
-		debuglog.Debug("proxy: sending upstream request", "method", proxyReq.Method, "url", targetURL, "content_length", len(upstreamBody), "has_api_key", candidate.apiKey != "")
-
-		// Reuse the shared upstream Transport instead of creating a new one
-		// per request. A fresh Transport spawns persistent readLoop/writeLoop
-		// goroutines per connection that only die after IdleConnTimeout, so
-		// creating one per request causes unbounded goroutine growth.
-		// Inject per-request dial timing pointer so SafeDialer writes
-		// DNS resolution time into this request's own variable, avoiding
-		// cross-request race conditions on a shared atomic.
-		dialCtx := context.WithValue(failoverCtx, ctxkeys.DialMsKey, &dialMs)
-		proxyReq = proxyReq.WithContext(dialCtx)
-
-		var checkRedirect func(req *http.Request, via []*http.Request) error
-		if h.safeDialer != nil {
-			checkRedirect = h.safeDialer.CheckRedirect
-		}
-		upstreamClient := &http.Client{
-			Transport:     h.upstreamTransport,
-			CheckRedirect: checkRedirect,
-		}
-		//nolint:gosec // provider URL is admin-configured, not arbitrary user input
-		resp, err := upstreamClient.Do(proxyReq)
-		timings.dialMs += dialMs
-		dialMs = 0
-		proxyOverhead = timings.proxyOverheadMs(parseMs)
-		if err != nil {
-			failoverCancel() // no body to consume on error
-			// Determine the origin of context cancellation for actionable errors.
-			// "context canceled" is opaque — we need to know if the client
-			// disconnected, the failover timeout expired, or the retry timeout expired.
-			// Key insight: context.Canceled means the parent (client) context was
-			// canceled — always a client disconnect. context.DeadlineExceeded means
-			// the derived context's deadline expired — read CancelOriginKey to
-			// distinguish failover_timeout from retry_timeout.
-			isContextErr := errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
-			if isContextErr {
-				cancelOrigin := "client_disconnect"
-				if errors.Is(err, context.DeadlineExceeded) {
-					if v := proxyReq.Context().Value(ctxkeys.CancelOriginKey); v != nil {
-						if s, ok := v.(string); ok {
-							cancelOrigin = s
-						}
-					}
-				}
-				lastErr = fmt.Sprintf("attempt %d: %s", attempt, humanReadableCancelOrigin(cancelOrigin))
-				debuglog.Info("proxy: context cancelled during request to provider", "provider", logData.providerName, "provider_id", candidate.provider.ID, "model", logData.modelID, "origin", cancelOrigin, "error", err)
-			} else {
-				lastErr = fmt.Sprintf("attempt %d: provider error: %v", attempt, err)
-				debuglog.Warn("proxy: upstream request failed", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", err)
-			}
-			// Client-initiated cancellations and deadline exceeded are not
-			// provider failures. If the caller disconnected (Canceled) or
-			// the request timed out (DeadlineExceeded), we must not penalize
-			// the circuit breaker for that.
-			if !isContextErr {
-				if circuitBreakerEnabled {
-					h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
-				}
-			}
-			continue
-		}
-
-		// Log upstream response metadata for debugging.
-		debuglog.Debug("proxy: upstream response received", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "status", resp.StatusCode, "content_type", resp.Header.Get("Content-Type"), "x_request_id", resp.Header.Get("X-Request-Id"), "x_ratelimit_remaining", resp.Header.Get("X-RateLimit-Remaining"), "attempt", attempt+1)
-
-		// Auto-retry param-rejection 400s: parse the error, learn which params
-		// are rejected for this model, strip them, and retry once.
-		// Works universally — any LLM API mentioning "temperature" or "top_p"
-		// in a 400 error can only mean the sampling parameter.
-		if resp.StatusCode == 400 {
-			res := h.retryWithStrippedParams(r, st, candidate, providerType, targetURL, resp, attempt, &dialMs, failoverCancel, streamCancelOrigin)
-			resp = res.resp
-			streamCancelOrigin = res.streamCancelOrigin
-			retryCancel = res.retryCancel
-			if res.cont {
-				lastErr = res.lastErr
-				continue
-			}
-			if res.retried {
-				// Accumulate retry's dial time into total.
-				timings.dialMs += dialMs
-				dialMs = 0
-				proxyOverhead = timings.proxyOverheadMs(parseMs)
-			}
-		}
-
-		responseHeaderMs := float64(time.Since(startTime).Microseconds()) / 1000.0
-
-		hasMoreCandidates := attempt < len(candidates)-1
-		isFailoverEligible := h.shouldFailover(r.Context(), resp.StatusCode)
-
-		h.recordBreakerOutcome(st, candidate, resp.StatusCode, isFailoverEligible)
-
-		shouldFailoverNow := isFailoverEligible && hasMoreCandidates
-		debuglog.Debug("proxy: failover decision", "status", resp.StatusCode, "is_failover_eligible", isFailoverEligible, "has_more_candidates", hasMoreCandidates, "should_failover_now", shouldFailoverNow, "attempt", attempt+1)
-
-		if shouldFailoverNow {
-			_, _ = io.ReadAll(resp.Body)
-			_ = resp.Body.Close()
-			failoverCancel() // body consumed before failover continue
-			if retryCancel != nil {
-				retryCancel() // retry body consumed, context no longer needed
-			}
-			lastErr = fmt.Sprintf("attempt %d: HTTP %d", attempt, resp.StatusCode)
-			debuglog.Info("proxy: failover triggered", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
-			logData.failoverAttempt = attempt
-			continue
-		}
-
-		if resp.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(resp.Body)
-			_ = resp.Body.Close()
-			failoverCancel() // body consumed for non-200 response
-			if retryCancel != nil {
-				retryCancel() // retry body consumed, context no longer needed
-			}
-			errMsg := util.SanitizeLogBody(string(body), 10000)
-			debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "body", errMsg)
-			debuglog.Debug("proxy: upstream error response", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "body_length", len(body), "attempt", attempt+1)
-			logData.responseHeaderMs = responseHeaderMs
-			h.failRequest(logData, resp.StatusCode, errMsg, attempt, startTime, parseMs, timings, cacheHits, proxyOverhead)
-
-			if !hasMoreCandidates {
-				// All failover candidates exhausted — return a generic error.
-				// The full upstream body is logged server-side above but not
-				// forwarded, as it may contain provider-specific details.
-				writeOpenAIError(w, fmt.Sprintf("upstream provider returned HTTP %d", resp.StatusCode), resp.StatusCode)
-				return
-			}
-
-			// Non-failover-eligible error with remaining candidates — forward
-			// the upstream response so clients can react to semantic errors
-			// (e.g. context_length_exceeded, rate_limit_exceeded).
-			if json.Valid(body) {
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(resp.StatusCode)
-				_, _ = w.Write(body)
-			} else {
-				// Body is not JSON (e.g. HTML from a CDN). Wrap in an
-				// OpenAI-compatible envelope so JSON-parsing clients don't crash.
-				writeOpenAIError(w, errMsg, resp.StatusCode)
-			}
+		// One failover attempt. attemptCandidate owns its request contexts
+		// (cancelled via defer after body consumption) and reports whether to
+		// try the next candidate, that the response was served, or that a
+		// terminal error was written.
+		if h.attemptCandidate(w, r, st, candidate, attempt, len(candidates)) != outcomeFailover {
 			return
 		}
-
-		debuglog.Debug("proxy: upstream responded OK, dispatching to handler", "stream", isStreaming, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
-		if isStreaming {
-			ttftTimeout := h.settingsRepo.GetDuration(r.Context(), "ttft_timeout", 60*time.Second)
-			stallTimeout := h.settingsRepo.GetDuration(r.Context(), "stream_stall_timeout", 30*time.Second)
-
-			opts := streamOptions{
-				responseHeaderMs:   responseHeaderMs,
-				streamStallTimeout: stallTimeout,
-				providerID:         candidate.provider.ID,
-				providerName:       candidate.provider.Name,
-				circuitBreakerOn:   circuitBreakerEnabled,
-				proxyOverheadMs:    proxyOverhead,
-				parseMs:            parseMs,
-				failoverLookupMs:   timings.failoverLookupMs,
-				modelLookupMs:      timings.modelLookupMs,
-				providerLookupMs:   timings.providerLookupMs,
-				keyDecryptMs:       timings.keyDecryptMs,
-				dialMs:             timings.dialMs,
-				settingsReadMs:     timings.settingsReadMs,
-				vkHash:             vkHash,
-				attempt:            attempt,
-				cancelOrigin:       streamCancelOrigin,
-			}
-
-			if ttftTimeout > 0 {
-				// TTFT probe: read until first real data chunk.
-				probeBuf, trueTtftMs, probeErr := h.probeFirstToken(r.Context(), resp.Body, ttftTimeout, startTime)
-				if probeErr != nil {
-					// Timeout or read error — failover. probeFirstToken may
-					// or may not have closed the body (only on DeadlineExceeded);
-					// close it unconditionally to release the connection.
-					_ = resp.Body.Close()
-					// Skip circuit-breaker recording when the client disconnected:
-					// the probe failed because r.Context() was cancelled, not because
-					// the provider was unhealthy.
-					if circuitBreakerEnabled && r.Context().Err() == nil {
-						h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
-					}
-					lastErr = fmt.Sprintf("attempt %d: %v", attempt, probeErr)
-					failoverCancel()
-					if retryCancel != nil {
-						retryCancel()
-					}
-					logData.failoverAttempt = attempt
-					logData.responseHeaderMs = responseHeaderMs
-					debuglog.Warn("proxy: TTFT probe failed", "attempt", attempt+1, "provider", candidate.provider.Name, "error", probeErr)
-					continue
-				}
-				// First token confirmed (or [DONE] received).
-				if circuitBreakerEnabled {
-					h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
-				}
-				opts.preReadBuf = probeBuf
-				opts.trueTtftMs = trueTtftMs
-			} else if circuitBreakerEnabled {
-				// Disabled — immediate commit (backward compat).
-				h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
-			}
-
-			h.handleStreamingResponse(w, r, logData, resp, startTime, opts)
-			failoverCancel() // body consumed by handleStreamingResponse
-			if retryCancel != nil {
-				retryCancel()
-			}
-			return
-		}
-
-		h.handleNonStreamingResponse(w, r, logData, resp, startTime, proxyOverhead, parseMs, timings.failoverLookupMs, timings.modelLookupMs, timings.providerLookupMs, timings.keyDecryptMs, timings.dialMs, timings.settingsReadMs, responseHeaderMs, vkHash, attempt)
-		failoverCancel() // body consumed by handleNonStreamingResponse
-		if retryCancel != nil {
-			retryCancel()
-		}
-		return
 	}
 
-	if isFailover {
-		debuglog.Error("proxy: all providers exhausted", "model", logData.modelID, "provider", logData.providerName, "error", lastErr, "candidates", len(candidates), "failover_timeout", failoverTimeout)
+	if st.isFailover {
+		debuglog.Error("proxy: all providers exhausted", "model", st.logData.modelID, "provider", st.logData.providerName, "error", st.lastErr, "candidates", len(candidates), "failover_timeout", st.failoverTimeout)
 	} else {
-		debuglog.Error("proxy: provider request failed", "model", logData.modelID, "provider", logData.providerName, "error", lastErr, "request_timeout", failoverTimeout)
+		debuglog.Error("proxy: provider request failed", "model", st.logData.modelID, "provider", st.logData.providerName, "error", st.lastErr, "request_timeout", st.failoverTimeout)
 	}
-	logData.providerID = uuid.Nil
-	if isFailover {
-		h.failRequest(logData, 502, fmt.Sprintf("all providers failed: %s", lastErr), len(candidates)-1, startTime, parseMs, timings, cacheHits, proxyOverhead)
-		writeOpenAIError(w, fmt.Sprintf("all providers failed for model %s", reqModel), http.StatusBadGateway)
+	st.logData.providerID = uuid.Nil
+	if st.isFailover {
+		h.failRequest(st.logData, 502, fmt.Sprintf("all providers failed: %s", st.lastErr), len(candidates)-1, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
+		writeOpenAIError(w, fmt.Sprintf("all providers failed for model %s", st.reqModel), http.StatusBadGateway)
 	} else {
-		h.failRequest(logData, 502, fmt.Sprintf("provider request failed: %s", lastErr), len(candidates)-1, startTime, parseMs, timings, cacheHits, proxyOverhead)
-		writeOpenAIError(w, fmt.Sprintf("provider request failed for model %s", reqModel), http.StatusBadGateway)
+		h.failRequest(st.logData, 502, fmt.Sprintf("provider request failed: %s", st.lastErr), len(candidates)-1, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
+		writeOpenAIError(w, fmt.Sprintf("provider request failed for model %s", st.reqModel), http.StatusBadGateway)
 	}
 }
 
