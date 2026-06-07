@@ -29,11 +29,10 @@ var newRequestWithContext = http.NewRequestWithContext
 
 func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, opts streamOptions) {
 
-	// Progressive stall timeout: after this many chunks, the stream is
-	// clearly alive — extend the watchdog timeout to tolerate tool-call
-	// pauses and long reasoning chains.
-	const progressiveChunkThreshold = 50
-	const progressiveStallMultiplier = 3
+	// Progressive stall timeout (progressiveChunkThreshold /
+	// progressiveStallMultiplier, package consts): after this many chunks the
+	// stream is clearly alive — extend the watchdog timeout to tolerate
+	// tool-call pauses and long reasoning chains.
 
 	defer func() {
 		// Drain remaining bytes so the Transport reuses the connection.
@@ -822,141 +821,22 @@ logUpdate:
 	if watchdogDone != nil {
 		close(watchdogDone)
 	}
-	totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
-	var tps float64
-	// Use total output tokens (text + reasoning) for TPS numerator,
-	// and generation time as denominator. Prefer true TTFT (first token)
-	// when the probe measured it; fall back to response header time.
-	totalOutputTokens := completionTokens + reasoningTokens
-	ttftForTPS := opts.responseHeaderMs
-	if opts.trueTtftMs > 0 {
-		ttftForTPS = opts.trueTtftMs
+	// Hand the accumulated metrics and carry flags to the finalizer. The
+	// stall flag is read from the watchdog's atomic here, after teardown.
+	st := &streamState{
+		promptTokens:          promptTokens,
+		completionTokens:      completionTokens,
+		reasoningTokens:       reasoningTokens,
+		promptCacheHitTokens:  promptCacheHitTokens,
+		promptCacheMissTokens: promptCacheMissTokens,
+		chunkCount:            chunkCount,
+		errorChunkCount:       errorChunkCount,
+		lastErrMsg:            lastErrMsg,
+		sawDone:               sawDone,
+		clientDisconnected:    clientDisconnected,
+		stalled:               atomic.LoadInt32(&streamStalled) == 1,
 	}
-	generationDuration := totalDuration - ttftForTPS
-	// Avoid absurd TPS when generation time is negligible
-	// (e.g. non-streaming where response_header_ms ≈ duration_ms).
-	minGeneration := max(1.0, totalDuration*0.05)
-	if totalOutputTokens > 0 && generationDuration >= minGeneration {
-		tps = float64(totalOutputTokens) / float64(generationDuration) * 1000
-	} else if totalOutputTokens > 0 && totalDuration > 0 {
-		tps = float64(totalOutputTokens) / float64(totalDuration) * 1000
-	}
-
-	// Check for stream stall before error classification.
-	stalled := atomic.LoadInt32(&streamStalled) == 1
-
-	errMsg := lastErrMsg
-	if errMsg == "" && scanner.Err() != nil {
-		scannerErr := scanner.Err()
-		switch {
-		case errors.Is(scannerErr, context.Canceled):
-			// The scanner caught the cancellation before the select between
-			// iterations could. This is always a client disconnect — the
-			// parent request context was cancelled.
-			clientDisconnected = true
-		case errors.Is(scannerErr, context.DeadlineExceeded):
-			// A derived context's deadline expired (failover or retry timeout).
-			// Use cancelOrigin to produce a human-readable message.
-			switch opts.cancelOrigin {
-			case "retry_timeout":
-				errMsg = "stream interrupted: param-strip retry timed out"
-			case "failover_timeout":
-				errMsg = "stream interrupted: upstream request timed out"
-			default:
-				// Unknown origin — preserve the value rather than guessing.
-				errMsg = fmt.Sprintf("stream interrupted: %s", humanReadableCancelOrigin(opts.cancelOrigin))
-			}
-		default:
-			errMsg = scannerErr.Error()
-		}
-	}
-	if clientDisconnected {
-		errMsg = "client disconnected"
-		debuglog.Warn("proxy: client disconnected during streaming", "model", logData.modelID)
-	}
-	// Stall detection takes precedence over the raw IO error produced by
-	// the watchdog's body.Close(). Replace it with a descriptive message.
-	// Only flag a stall when we did NOT see [DONE] — if the stream completed
-	// normally, a late timer fire is a false positive. Also skip when the
-	// client disconnected, which is a more meaningful diagnosis.
-	if stalled && !sawDone && !clientDisconnected {
-		effectiveStall := opts.streamStallTimeout
-		if chunkCount > progressiveChunkThreshold {
-			effectiveStall = opts.streamStallTimeout * progressiveStallMultiplier
-		}
-		errMsg = fmt.Sprintf("stream stalled: no data for %s", effectiveStall)
-		debuglog.Warn("proxy: stream stall detected", "model", logData.modelID, "provider", logData.providerName, "stall_timeout", effectiveStall, "base_timeout", opts.streamStallTimeout, "chunks", chunkCount)
-	}
-	if errMsg == "" && !sawDone {
-		// Upstream closed without [DONE] sentinel. If we received content and
-		// the scanner didn't error, inject the sentinel for the downstream
-		// client so the frontend knows the stream completed normally.
-		if !clientDisconnected && scanner.Err() == nil && chunkCount > 0 {
-			debuglog.Info("proxy: upstream omitted [DONE] sentinel; injecting for downstream", "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-			if err := sink.write([]byte("data: [DONE]\n\n")); err != nil {
-				debuglog.Warn("proxy: failed to write injected [DONE]", "model", logData.modelID, "provider", logData.providerName, "error", err)
-			} else {
-				sink.flush()
-			}
-			// Stream was complete; the missing sentinel is benign.
-			debuglog.Info("proxy: stream completed (upstream omitted [DONE])", "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-		} else {
-			// No content received or scanner error - genuinely truncated.
-			errMsg = "stream truncated: upstream closed connection without [DONE] sentinel"
-			debuglog.Warn("proxy: stream ended without [DONE] sentinel", "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-		}
-	}
-
-	logData.statusCode = resp.StatusCode
-	logData.durationMs = totalDuration
-	logData.proxyOverheadMs = opts.proxyOverheadMs
-	logData.parseMs = opts.parseMs
-	logData.failoverLookupMs = opts.failoverLookupMs
-	logData.modelLookupMs = opts.modelLookupMs
-	logData.providerLookupMs = opts.providerLookupMs
-	logData.keyDecryptMs = opts.keyDecryptMs
-	logData.dialMs = opts.dialMs
-	logData.responseHeaderMs = opts.responseHeaderMs
-	logData.tokensPerSecond = tps
-	logData.tokensPrompt = promptTokens
-	logData.tokensCompletion = completionTokens
-	logData.tokensCompletionReasoning = reasoningTokens
-	logData.tokensPromptCacheHit = promptCacheHitTokens
-	logData.tokensPromptCacheMiss = promptCacheMissTokens
-	logData.errorMessage = errMsg
-	logData.failoverAttempt = opts.attempt
-	if errMsg != "" {
-		logData.statusCode = 0
-		logData.state = "failed"
-	} else {
-		logData.state = "completed"
-	}
-	h.updateRequestLog(logData)
-
-	// Record circuit breaker failure for stream stalls.
-	// Guard with !sawDone to avoid penalising a provider whose stream completed
-	// normally but whose stall timer fired concurrently with [DONE].
-	if stalled && !sawDone && !clientDisconnected && opts.circuitBreakerOn {
-		h.circuitBreaker.RecordFailure(opts.providerID, opts.providerName)
-		debuglog.Debug("proxy: recorded circuit breaker failure for stream stall", "provider", opts.providerName, "provider_id", opts.providerID)
-	}
-
-	debuglog.Info("proxy: streaming finished", "model", logData.modelID, "provider", logData.providerName, "attempt", opts.attempt, "response_header_ms", opts.responseHeaderMs, "true_ttft_ms", opts.trueTtftMs, "duration_ms", totalDuration, "chunks", chunkCount, "bytes_written", sink.bytesWritten, "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "error_chunks", errorChunkCount, "has_error", errMsg != "")
-	if errMsg != "" {
-		debuglog.Warn("proxy: streaming error", "model", logData.modelID, "provider", logData.providerName, "error", errMsg, "upstream_status", resp.StatusCode, "attempt", opts.attempt, "duration_ms", totalDuration)
-	} else {
-		debuglog.Debug("proxy: streaming completed successfully", "model", logData.modelID, "provider", logData.providerName, "attempt", opts.attempt, "response_header_ms", opts.responseHeaderMs, "duration_ms", totalDuration)
-	}
-
-	// Always record token usage against the virtual key quota, even on
-	// client disconnect. The upstream provider already billed for these
-	// tokens; not counting them would cause quota drift (provider bill > VK meter).
-	if opts.vkHash != "" {
-		if clientDisconnected && (promptTokens > 0 || completionTokens > 0) {
-			debuglog.Info("proxy: recording token usage despite client disconnect", "model", logData.modelID, "provider", logData.providerName, "prompt_tokens", promptTokens, "completion_tokens", completionTokens)
-		}
-		h.recordTokenUsage(opts.vkHash, promptTokens, completionTokens, reasoningTokens, logData.virtualKeyName)
-	}
+	h.finalizeStream(st, sink, scanner, logData, opts, resp.StatusCode, startTime)
 }
 
 func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, proxyOverhead, parseMs, failoverLookupMs, modelLookupMs, providerLookupMs, keyDecryptMs, dialMs, settingsReadMs, responseHeaderMs float64, vkHash string, attempt int) {
