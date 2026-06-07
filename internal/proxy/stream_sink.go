@@ -20,6 +20,13 @@ type streamSink struct {
 	flusher      http.Flusher
 	canFlush     bool
 	bytesWritten int64
+
+	// swallowBlank records that the previous line was a data line, so the next
+	// upstream blank separator should be dropped rather than forwarded (Phase 5
+	// — the old skipNextEmptyLine flag, relocated here). writeData sets it
+	// automatically; the dropped-chunk paths (invalid-JSON skip, finish-suppress)
+	// and the raw plain-forward set it explicitly. The blank handler consumes it.
+	swallowBlank bool
 }
 
 // newStreamSink wraps w, detecting http.Flusher support once up front.
@@ -40,8 +47,12 @@ func (s *streamSink) write(p []byte) error {
 
 // writeData emits a full "data: <payload>\n\n" SSE event (no flush),
 // delegating to writeSSEDataChunk for byte-identical framing and accounting.
+// It marks the next upstream blank for swallowing — every data emit owns its
+// own separator, so the upstream's trailing blank is redundant.
 func (s *streamSink) writeData(payload []byte) error {
-	return writeSSEDataChunk(s.w, payload, &s.bytesWritten)
+	err := writeSSEDataChunk(s.w, payload, &s.bytesWritten)
+	s.swallowBlank = true
+	return err
 }
 
 // flush flushes the underlying writer when it supports flushing.

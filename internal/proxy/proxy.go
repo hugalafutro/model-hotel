@@ -89,10 +89,6 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	// Periodic streaming progress logging (every 50 chunks) to give
 	// visibility into stream health without flooding logs.
 	const chunkLogInterval = 50
-	// When strip_reasoning skips a chunk, we also need to suppress the
-	// following SSE separator (empty line). Otherwise bare \n events
-	// reach the client, which breaks parsers like openai-go's ssestream.
-	skipNextEmptyLine := false
 	// P1-C: Tracks the last Anthropic SSE event type (e.g. "error") so we can
 	// extract error messages from the subsequent data line.
 	var lastAnthropicEvent string
@@ -140,8 +136,8 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			// suppressed. Bare \n events break parsers like openai-go's
 			// ssestream (Warp's backend). Only forward the separator
 			// when the preceding data line was actually forwarded.
-			if skipNextEmptyLine {
-				skipNextEmptyLine = false
+			if sink.swallowBlank {
+				sink.swallowBlank = false
 				continue
 			}
 			// Forward empty lines — they are SSE event separators required by
@@ -252,7 +248,6 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 						goto logUpdate
 					}
 					sink.flush()
-					skipNextEmptyLine = true
 					written = true
 					continue
 				case stripForward:
@@ -263,7 +258,6 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 					}
 					sink.flush()
 					written = true
-					skipNextEmptyLine = true
 					continue
 				}
 			}
@@ -283,7 +277,6 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 					}
 					sink.flush()
 					written = true
-					skipNextEmptyLine = true
 					debuglog.Debug("proxy: normalized reasoning fields", "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 				}
 			}
@@ -303,7 +296,6 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 						}
 						sink.flush()
 						written = true
-						skipNextEmptyLine = true
 						debuglog.Debug("proxy: stripped empty content from reasoning chunk", "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 					}
 				}
@@ -321,7 +313,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			case finishSuppress:
 				// Bare duplicate — skip the chunk and the following separator.
 				debuglog.Debug("proxy: suppressing duplicate finish_reason chunk", "finish_reason", normalizeFinishReason(*chunk.Choices[0].FinishReason), "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
-				skipNextEmptyLine = true
+				sink.swallowBlank = true
 				continue
 			case finishRewrite:
 				// Uncommon path — most providers already send OpenAI values.
@@ -334,7 +326,6 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 					}
 					sink.flush()
 					written = true
-					skipNextEmptyLine = true
 					debuglog.Debug("proxy: normalized finish_reason", "original", *chunk.Choices[0].FinishReason, "normalized", normalizeFinishReason(*chunk.Choices[0].FinishReason), "model", logData.modelID, "provider", logData.providerName)
 				}
 			case finishNone:
@@ -354,7 +345,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			debuglog.Warn("proxy: skipping invalid JSON chunk from upstream",
 				"model", logData.modelID, "provider", logData.providerName,
 				"chunk_number", chunkCount, "payload_preview", preview)
-			skipNextEmptyLine = true
+			sink.swallowBlank = true
 			continue
 		}
 		if !written {
@@ -370,7 +361,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 				goto logUpdate
 			}
 			sink.flush()
-			skipNextEmptyLine = true
+			sink.swallowBlank = true
 		}
 	}
 
