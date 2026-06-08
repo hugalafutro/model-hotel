@@ -104,9 +104,16 @@ export function DatabaseBackupSettings({
 	});
 
 	const backupEnabled = settings?.backup_enabled === "true";
-	const backupInterval = Number(
-		(settings?.backup_interval || "86400s").replace(/s$/, ""),
-	);
+	// Parse interval: backend stores as Go duration string (e.g. "86400s" or "24h").
+	// Display and edit in hours.
+	const rawInterval = settings?.backup_interval || "24h";
+	const intervalHours = (() => {
+		const hMatch = rawInterval.match(/^(\d+(?:\.\d+)?)h$/);
+		if (hMatch) return Number(hMatch[1]);
+		const sMatch = rawInterval.match(/^(\d+(?:\.\d+)?)s$/);
+		if (sMatch) return Math.round((Number(sMatch[1]) / 3600) * 10) / 10;
+		return 24;
+	})();
 	const sonRetention = Number(settings?.backup_son_retention || "7");
 	const fatherRetention = Number(settings?.backup_father_retention || "4");
 	const grandfatherRetention = Number(
@@ -157,6 +164,16 @@ export function DatabaseBackupSettings({
 			title={t("settings.backup.title")}
 			collapsed={collapsed}
 			onToggle={onToggle}
+			onResetSection={() =>
+				settingsUpdateMutation.mutate({
+					backup_enabled: "false",
+					backup_interval: "24h",
+					backup_son_retention: "7",
+					backup_father_retention: "4",
+					backup_grandfather_retention: "3",
+				})
+			}
+			resetTooltip={t("settings.common.resetSection")}
 		>
 			<div className="space-y-4">
 				<p className="text-(--text-secondary) text-sm">
@@ -200,19 +217,23 @@ export function DatabaseBackupSettings({
 					</div>
 
 					{backupEnabled && (
-						<div className="space-y-3 pt-2 border-t border-(--border-default)">
+						<div className="space-y-3 pt-2">
 							<SettingsSlider
 								id="backup-interval"
 								label={t("settings.backup.rotation.interval")}
-								value={backupInterval}
-								min={300}
-								max={604800}
-								step={300}
-								clampStep={300}
-								unit="s"
+								value={intervalHours}
+								min={1}
+								max={168}
+								step={1}
+								clampStep={1}
+								unit="h"
+								onReset={() =>
+									settingsUpdateMutation.mutate({ backup_interval: "24h" })
+								}
+								resetTooltip={t("settings.common.resetToDefault")}
 								onChange={(v) =>
 									settingsUpdateMutation.mutate({
-										backup_interval: `${v}s`,
+										backup_interval: `${v}h`,
 									})
 								}
 								description={t("settings.backup.rotation.intervalDescription")}
@@ -225,6 +246,11 @@ export function DatabaseBackupSettings({
 								max={365}
 								step={1}
 								clampStep={1}
+								unit="d"
+								onReset={() =>
+									settingsUpdateMutation.mutate({ backup_son_retention: "7" })
+								}
+								resetTooltip={t("settings.common.resetToDefault")}
 								onChange={(v) =>
 									settingsUpdateMutation.mutate({
 										backup_son_retention: String(v),
@@ -242,6 +268,13 @@ export function DatabaseBackupSettings({
 								max={52}
 								step={1}
 								clampStep={1}
+								unit="w"
+								onReset={() =>
+									settingsUpdateMutation.mutate({
+										backup_father_retention: "4",
+									})
+								}
+								resetTooltip={t("settings.common.resetToDefault")}
 								onChange={(v) =>
 									settingsUpdateMutation.mutate({
 										backup_father_retention: String(v),
@@ -259,6 +292,13 @@ export function DatabaseBackupSettings({
 								max={120}
 								step={1}
 								clampStep={1}
+								unit="m"
+								onReset={() =>
+									settingsUpdateMutation.mutate({
+										backup_grandfather_retention: "3",
+									})
+								}
+								resetTooltip={t("settings.common.resetToDefault")}
 								onChange={(v) =>
 									settingsUpdateMutation.mutate({
 										backup_grandfather_retention: String(v),
