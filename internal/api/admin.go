@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -51,11 +52,20 @@ type VirtualKeyStore interface {
 type SettingsStore interface {
 	GetAll(ctx context.Context) (map[string]string, error)
 	GetWithDefault(ctx context.Context, key string, defaultValue string) string
+	GetBool(ctx context.Context, key string, defaultValue bool) bool
+	GetDuration(ctx context.Context, key string, defaultValue time.Duration) time.Duration
+	GetInt(ctx context.Context, key string, defaultValue int) int
 	Set(ctx context.Context, key string, value string) error
 	SetTx(ctx context.Context, tx pgx.Tx, key string, value string) error
 	DeleteKeysTx(ctx context.Context, tx pgx.Tx, keys []string) error
 	InvalidateCache(key string)
 	NotifyDeleted(key string)
+}
+
+// BackupScheduler defines the interface for the periodic backup scheduler.
+type BackupScheduler interface {
+	StartScheduler(ctx context.Context)
+	StopScheduler()
 }
 
 // AdminAuthenticator defines admin token validation.
@@ -79,6 +89,7 @@ type Handler struct {
 	virtualKeyRepo         VirtualKeyStore
 	settingsRepo           SettingsStore
 	systemHandler          *SystemHandler
+	backupScheduler        BackupScheduler
 	appVersion             string
 	ghReleasesURL          string                                             // injectable for testing; defaults to githubReleasesURL const
 	ghTagsURL              string                                             // injectable for testing; defaults to githubTagsURL const
@@ -138,6 +149,20 @@ func (h *Handler) SetCircuitBreaker(cb CircuitBreakerReader) {
 	h.circuitBreaker = cb
 }
 
+// StartBackupScheduler starts the periodic backup scheduler if backup_enabled is true.
+func (h *Handler) StartBackupScheduler(ctx context.Context) {
+	if h.backupScheduler != nil {
+		h.backupScheduler.StartScheduler(ctx)
+	}
+}
+
+// StopBackupScheduler stops the periodic backup scheduler.
+func (h *Handler) StopBackupScheduler() {
+	if h.backupScheduler != nil {
+		h.backupScheduler.StopScheduler()
+	}
+}
+
 // Register mounts all admin API routes on the given router.
 func (h *Handler) Register(r chi.Router) {
 	r.Use(h.AuthMiddleware)
@@ -166,7 +191,9 @@ func (h *Handler) Register(r chi.Router) {
 	sh := NewSystemHandler(h.dbPool.Pool())
 	sh.Register(r)
 	h.systemHandler = sh
-	NewBackupHandler(h.cfg.DatabaseURL, filepath.Join(h.cfg.DataDir, "backups"), h.adminMgr).Register(r)
+	bh := NewBackupHandler(h.cfg.DatabaseURL, filepath.Join(h.cfg.DataDir, "backups"), h.adminMgr, h.settingsRepo)
+	bh.Register(r)
+	h.backupScheduler = bh
 }
 
 // AuthMiddleware validates admin token or webAuthn session token authentication.

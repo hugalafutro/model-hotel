@@ -25,7 +25,7 @@ import (
 func setupBackupRouter(t *testing.T) (chi.Router, string) {
 	t.Helper()
 	dir := t.TempDir()
-	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{})
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{}, nil)
 	r := chi.NewRouter()
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -255,7 +255,7 @@ func TestCreateBackup_Success_Integration(t *testing.T) {
 	}
 
 	dir := t.TempDir()
-	h := NewBackupHandler(apiTestDBURL, dir, &mockAdminAuth{})
+	h := NewBackupHandler(apiTestDBURL, dir, &mockAdminAuth{}, nil)
 	r := chi.NewRouter()
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -317,7 +317,7 @@ func TestBackupHandler_CreateBackup_MkdirAllError(t *testing.T) {
 	filePath := file.Name()
 	file.Close()
 
-	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", filePath, &mockAdminAuth{})
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", filePath, &mockAdminAuth{}, nil)
 	r := chi.NewRouter()
 	h.Register(r)
 
@@ -339,7 +339,7 @@ func TestBackupHandler_ListBackups_ReadDirError(t *testing.T) {
 	filePath := file.Name()
 	file.Close()
 
-	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", filePath, &mockAdminAuth{})
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", filePath, &mockAdminAuth{}, nil)
 	r := chi.NewRouter()
 	h.Register(r)
 
@@ -368,7 +368,7 @@ func TestBackupHandler_DeleteBackup_RemoveError(t *testing.T) {
 	}
 	defer os.Chmod(dir, 0o755) // restore for cleanup
 
-	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{})
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{}, nil)
 	r := chi.NewRouter()
 	h.Register(r)
 
@@ -624,7 +624,7 @@ func TestRestoreBackup_InvalidAdminToken(t *testing.T) {
 
 func TestRestoreBackup_MissingDumpFile(t *testing.T) {
 	dir := t.TempDir()
-	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{validateFn: func(s string) bool { return true }})
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{validateFn: func(s string) bool { return true }}, nil)
 	router := chi.NewRouter()
 	h.Register(router)
 
@@ -651,7 +651,7 @@ func TestNewBackupHandler_LongAbsolutePath(t *testing.T) {
 	// and the fallback (L39-41) is not exercised. This test verifies
 	// that NewBackupHandler handles long paths without panicking.
 	longPath := "/tmp/" + strings.Repeat("a", 5000)
-	h := NewBackupHandler("postgres://test", longPath, &mockAdminAuth{})
+	h := NewBackupHandler("postgres://test", longPath, &mockAdminAuth{}, nil)
 	if h.backupDir != longPath {
 		t.Errorf("expected backupDir to be original path, got %q", h.backupDir)
 	}
@@ -661,7 +661,7 @@ func TestNewBackupHandler_LongAbsolutePath(t *testing.T) {
 // is returned when a backup is already in progress.
 func TestBackupHandler_CreateBackup_ConcurrentLock(t *testing.T) {
 	dir := t.TempDir()
-	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{})
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{}, nil)
 
 	// Lock the mutex to simulate an in-progress backup
 	h.backupMu.Lock()
@@ -684,7 +684,7 @@ func TestBackupHandler_CreateBackup_ConcurrentLock(t *testing.T) {
 func TestBackupHandler_ListBackups_NonExistentDir(t *testing.T) {
 	// Create handler with a non-existent directory
 	dir := filepath.Join(t.TempDir(), "nonexistent")
-	h := NewBackupHandler("postgres://invalid", dir, &mockAdminAuth{})
+	h := NewBackupHandler("postgres://invalid", dir, &mockAdminAuth{}, nil)
 	r := chi.NewRouter()
 	h.Register(r)
 
@@ -713,7 +713,7 @@ func TestBackupHandler_ListBackups_NonExistentDir(t *testing.T) {
 // race conditions where a file is deleted between ReadDir and Info() calls.
 func TestBackupHandler_ListBackups_SingleDumpFile(t *testing.T) {
 	dir := t.TempDir()
-	h := NewBackupHandler("postgres://invalid", dir, &mockAdminAuth{})
+	h := NewBackupHandler("postgres://invalid", dir, &mockAdminAuth{}, nil)
 
 	// Create a .dump file (content is not a real pg_dump, but ListBackups
 	// only reads file info, not content).
@@ -747,7 +747,7 @@ func TestBackupHandler_ListBackups_SingleDumpFile(t *testing.T) {
 // the backup directory are rejected by the absolute path prefix check.
 func TestValidateBackupFilename_PathSeparators(t *testing.T) {
 	dir := t.TempDir()
-	h := NewBackupHandler("postgres://invalid", dir, &mockAdminAuth{})
+	h := NewBackupHandler("postgres://invalid", dir, &mockAdminAuth{}, nil)
 
 	// Filenames containing / or \ are rejected by the ContainsAny check
 	// (L186-187) before the prefix check is reached. These test the
@@ -775,7 +775,7 @@ func TestValidateBackupFilename_PathSeparators(t *testing.T) {
 // path separators and non-.dump extensions are rejected.
 func TestValidateBackupFilename_InvalidChars(t *testing.T) {
 	dir := t.TempDir()
-	h := NewBackupHandler("postgres://invalid", dir, &mockAdminAuth{})
+	h := NewBackupHandler("postgres://invalid", dir, &mockAdminAuth{}, nil)
 
 	cases := []struct {
 		name     string
@@ -1012,7 +1012,7 @@ func TestExtractMigrationNames_Integration(t *testing.T) {
 // when backup or restore is already in progress.
 func TestRestoreBackup_ConcurrentLock(t *testing.T) {
 	dir := t.TempDir()
-	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{validateFn: func(string) bool { return true }})
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
 
 	// Lock the mutex to simulate an in-progress operation
 	h.backupMu.Lock()
@@ -1042,7 +1042,7 @@ func TestRestoreBackup_ConcurrentLock(t *testing.T) {
 // returned when the multipart form cannot be parsed.
 func TestRestoreBackup_MultipartParseError(t *testing.T) {
 	dir := t.TempDir()
-	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{validateFn: func(string) bool { return true }})
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
 	r := chi.NewRouter()
 	h.Register(r)
 
@@ -1128,7 +1128,7 @@ func TestRestoreBackup_Integration(t *testing.T) {
 	dir := t.TempDir()
 
 	// Create handler with test DB
-	h := NewBackupHandler(apiTestDBURL, dir, &mockAdminAuth{validateFn: func(string) bool { return true }})
+	h := NewBackupHandler(apiTestDBURL, dir, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
 	r := chi.NewRouter()
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1194,7 +1194,7 @@ func TestRestoreBackup_Integration(t *testing.T) {
 
 func TestRestoreBackup_InvalidDump(t *testing.T) {
 	dir := t.TempDir()
-	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{validateFn: func(s string) bool { return true }})
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{validateFn: func(s string) bool { return true }}, nil)
 	router := chi.NewRouter()
 	h.Register(router)
 
@@ -1226,7 +1226,7 @@ func TestRestoreBackup_TempFileError(t *testing.T) {
 	filePath := file.Name()
 	file.Close()
 
-	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", filePath, &mockAdminAuth{validateFn: func(string) bool { return true }})
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", filePath, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
 	r := chi.NewRouter()
 	h.Register(r)
 
@@ -1252,7 +1252,7 @@ func TestRestoreBackup_TempFileError(t *testing.T) {
 // the MaxBytesReader path, not the io.Copy error path in RestoreBackup.
 func TestRestoreBackup_BodyTruncatedByMaxBytes(t *testing.T) {
 	dir := t.TempDir()
-	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{validateFn: func(string) bool { return true }})
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
 	r := chi.NewRouter()
 	h.Register(r)
 
@@ -1327,7 +1327,7 @@ func TestRestoreBackup_WithRealDump_Integration(t *testing.T) {
 	// Use an invalid database URL so pg_restore --clean fails after
 	// validation passes. This avoids the os.Exit(0) goroutine that
 	// a successful restore would trigger (which kills the test process).
-	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{validateFn: func(string) bool { return true }})
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
 	r := chi.NewRouter()
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1517,7 +1517,7 @@ func TestRestoreBackup_NoSchemaMigrationsInDump_Integration(t *testing.T) {
 	}
 
 	// Upload the dump via the restore endpoint
-	h := NewBackupHandler(apiTestDBURL, dir, &mockAdminAuth{validateFn: func(string) bool { return true }})
+	h := NewBackupHandler(apiTestDBURL, dir, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
 	r := chi.NewRouter()
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1635,7 +1635,7 @@ func TestRestoreBackup_DangerousObjectsHandler_Integration(t *testing.T) {
 	}
 
 	// Upload the dump via the restore endpoint
-	h := NewBackupHandler(apiTestDBURL, dir, &mockAdminAuth{validateFn: func(string) bool { return true }})
+	h := NewBackupHandler(apiTestDBURL, dir, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
 	r := chi.NewRouter()
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1750,7 +1750,7 @@ func TestRestoreBackup_UnknownMigrations_Integration(t *testing.T) {
 	}
 
 	// Upload the dump via the restore endpoint
-	h := NewBackupHandler(apiTestDBURL, dir, &mockAdminAuth{validateFn: func(string) bool { return true }})
+	h := NewBackupHandler(apiTestDBURL, dir, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
 	r := chi.NewRouter()
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1930,7 +1930,7 @@ func TestNewBackupHandler_Constructor(t *testing.T) {
 	adminAuth := &mockAdminAuth{}
 
 	// Test with normal inputs — NewBackupHandler always returns non-nil.
-	h := NewBackupHandler("postgres://user:pass@localhost/db", "/tmp/backups", adminAuth)
+	h := NewBackupHandler("postgres://user:pass@localhost/db", "/tmp/backups", adminAuth, nil)
 	if h.databaseURL != "postgres://user:pass@localhost/db" {
 		t.Errorf("expected databaseURL to be set, got %q", h.databaseURL)
 	}
@@ -1943,7 +1943,7 @@ func TestNewBackupHandler_Constructor(t *testing.T) {
 	}
 
 	// Test with empty backup dir path
-	hEmpty := NewBackupHandler("postgres://user:pass@localhost/db", "", adminAuth)
+	hEmpty := NewBackupHandler("postgres://user:pass@localhost/db", "", adminAuth, nil)
 	// Empty string should resolve to current working directory
 	if !filepath.IsAbs(hEmpty.backupDir) {
 		t.Errorf("expected backupDir to be absolute for empty input, got %q", hEmpty.backupDir)
@@ -1951,7 +1951,7 @@ func TestNewBackupHandler_Constructor(t *testing.T) {
 
 	// Test with long path
 	longPath := "/tmp/" + strings.Repeat("a", 5000)
-	hLong := NewBackupHandler("postgres://user:pass@localhost/db", longPath, adminAuth)
+	hLong := NewBackupHandler("postgres://user:pass@localhost/db", longPath, adminAuth, nil)
 	if hLong.backupDir != longPath {
 		t.Errorf("expected backupDir to be original long path, got %q", hLong.backupDir)
 	}
@@ -1961,7 +1961,7 @@ func TestNewBackupHandler_Constructor(t *testing.T) {
 // registers all backup routes.
 func TestBackupHandler_Register(t *testing.T) {
 	dir := t.TempDir()
-	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{})
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{}, nil)
 	r := chi.NewRouter()
 	h.Register(r)
 
@@ -2046,7 +2046,7 @@ func TestParseTOC_WithCommentLines(t *testing.T) {
 // various valid filename patterns.
 func TestValidateBackupFilename_ValidNames(t *testing.T) {
 	dir := t.TempDir()
-	h := NewBackupHandler("postgres://invalid", dir, &mockAdminAuth{})
+	h := NewBackupHandler("postgres://invalid", dir, &mockAdminAuth{}, nil)
 
 	// Valid names like "backup_20250101_120000.dump" should return the filename
 	validCases := []string{
@@ -2101,7 +2101,7 @@ func TestCreateBackup_Success(t *testing.T) {
 	}
 
 	backupDir := t.TempDir()
-	bh := NewBackupHandler(apiTestDBURL, backupDir, &mockAdminAuth{})
+	bh := NewBackupHandler(apiTestDBURL, backupDir, &mockAdminAuth{}, nil)
 
 	r := chi.NewRouter()
 	bh.Register(r)
@@ -2227,7 +2227,7 @@ func TestNewBackupHandler_PathHandling(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			h := NewBackupHandler("postgres://test", tc.backupDir, &mockAdminAuth{})
+			h := NewBackupHandler("postgres://test", tc.backupDir, &mockAdminAuth{}, nil)
 			if h.backupDir == "" {
 				t.Error("expected non-empty backupDir")
 			}
@@ -2243,7 +2243,7 @@ func TestCreateBackup_NoPgDump_ManipulatedPATH(t *testing.T) {
 	// without affecting other tests running in parallel.
 	if os.Getenv("TEST_NO_PG_DUMP") == "1" {
 		dir := t.TempDir()
-		h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{})
+		h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{}, nil)
 		r := chi.NewRouter()
 		r.Use(func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -2305,7 +2305,7 @@ func TestRestoreBackup_PgRestoreNotFound(t *testing.T) {
 	// without affecting other tests running in parallel.
 	if os.Getenv("TEST_NO_PG_RESTORE") == "1" {
 		dir := t.TempDir()
-		h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{validateFn: func(string) bool { return true }})
+		h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
 		r := chi.NewRouter()
 		r.Use(func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -2388,7 +2388,7 @@ func TestRestoreBackup_ExtractMigrationsError(t *testing.T) {
 			os.Exit(1)
 		}
 
-		h := NewBackupHandler(apiTestDBURL, dir, &mockAdminAuth{validateFn: func(string) bool { return true }})
+		h := NewBackupHandler(apiTestDBURL, dir, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
 		r := chi.NewRouter()
 		r.Use(func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -2449,7 +2449,7 @@ func TestRestoreBackup_ExtractMigrationsError(t *testing.T) {
 // edge cases where filepath.Join+Abs produces an unexpected path.
 func TestValidateBackupFilename_AbsPathPrefixEscape(t *testing.T) {
 	dir := t.TempDir()
-	h := NewBackupHandler("postgres://invalid", dir, &mockAdminAuth{})
+	h := NewBackupHandler("postgres://invalid", dir, &mockAdminAuth{}, nil)
 
 	// A filename without path separators that resolves inside backupDir
 	// should pass validation
@@ -2487,7 +2487,7 @@ func TestNewBackupHandler_AbsFallback_Subprocess(t *testing.T) {
 		// filepath.Abs should fail because os.Getwd() fails.
 
 		// Test L39-41: NewBackupHandler falls back to original path
-		h := NewBackupHandler("postgres://test", "my_backup_dir", &mockAdminAuth{})
+		h := NewBackupHandler("postgres://test", "my_backup_dir", &mockAdminAuth{}, nil)
 		if h.backupDir != "my_backup_dir" {
 			fmt.Printf("FALLBACK FAILED: expected my_backup_dir, got %q\n", h.backupDir)
 			os.Exit(1)
@@ -2583,7 +2583,7 @@ exit 0
 
 		backupDir := t.TempDir()
 		databaseURL := "postgresql://user:secret@localhost:5432/dbname"
-		h := NewBackupHandler(databaseURL, backupDir, &mockAdminAuth{})
+		h := NewBackupHandler(databaseURL, backupDir, &mockAdminAuth{}, nil)
 		r := chi.NewRouter()
 		h.Register(r)
 
@@ -2641,7 +2641,7 @@ exit 0
 
 		backupDir := t.TempDir()
 		databaseURL := "postgresql://user@localhost:5432/dbname"
-		h := NewBackupHandler(databaseURL, backupDir, &mockAdminAuth{})
+		h := NewBackupHandler(databaseURL, backupDir, &mockAdminAuth{}, nil)
 		r := chi.NewRouter()
 		r.Use(func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
