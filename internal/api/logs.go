@@ -219,13 +219,11 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// buildLogListQuery assembles the cursor data query: the column projection, the
-// shared filters, the keyset predicate (when a cursor is present), and the
-// ORDER BY + LIMIT — fetching limit+1 to detect has_more, with the sort
-// inverted for backward pagination so LIMIT picks from the correct end.
-func buildLogListQuery(p logListParams) (string, []any) {
-	query := `
-        SELECT rl.id, COALESCE(rl.provider_id::text, ''),
+// logEntrySelectColumns is the shared 30-column request_logs projection plus the
+// FROM/JOIN/WHERE 1=1 tail. The cursor list prefixes it with "SELECT "; the
+// offset list (ListLogs) prefixes it with the windowed total count. Its column
+// order matches logEntryScanDests exactly.
+const logEntrySelectColumns = `rl.id, COALESCE(rl.provider_id::text, ''),
             CASE
                 WHEN rl.provider_id IS NULL THEN ''
                 WHEN p.name IS NOT NULL THEN p.name
@@ -255,6 +253,13 @@ func buildLogListQuery(p logListParams) (string, []any) {
         LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
         WHERE 1=1
     `
+
+// buildLogListQuery assembles the cursor data query: the column projection, the
+// shared filters, the keyset predicate (when a cursor is present), and the
+// ORDER BY + LIMIT — fetching limit+1 to detect has_more, with the sort
+// inverted for backward pagination so LIMIT picks from the correct end.
+func buildLogListQuery(p logListParams) (string, []any) {
+	query := "SELECT " + logEntrySelectColumns
 
 	args := []any{}
 	argIndex := 1
@@ -604,38 +609,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := `
-        SELECT COUNT(*) OVER() AS total_count,
-               rl.id, COALESCE(rl.provider_id::text, ''),
-               CASE
-                   WHEN rl.provider_id IS NULL THEN ''
-                   WHEN p.name IS NOT NULL THEN p.name
-                   ELSE 'Deleted'
-               END,
-               rl.model_id,
-               COALESCE(rl.request_hash, ''), COALESCE(rl.status_code, 0),
-               COALESCE(rl.latency_ms, 0), COALESCE(rl.duration_ms, 0),
-               COALESCE(rl.ttft_ms, 0), COALESCE(rl.proxy_overhead_ms, 0),
-               COALESCE(rl.parse_ms, 0), COALESCE(rl.failover_lookup_ms, 0), COALESCE(rl.model_lookup_ms, 0), COALESCE(rl.provider_lookup_ms, 0), COALESCE(rl.key_decrypt_ms, 0),
-                COALESCE(rl.dial_ms, 0), COALESCE(rl.settings_read_ms, 0),
-                rl.cache_hits,
-                COALESCE(rl.tokens_per_second, 0),
-                COALESCE(rl.tokens_prompt, 0), COALESCE(rl.tokens_completion, 0),
-                COALESCE(rl.tokens_completion_reasoning, 0),
-                COALESCE(rl.tokens_prompt_cache_hit, 0), COALESCE(rl.tokens_prompt_cache_miss, 0),
-COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.virtual_key_id::text, ''),
-                CASE
-                    WHEN rl.virtual_key_id IS NULL OR rl.virtual_key_id::text = '' THEN false
-                    WHEN vk.id IS NULL THEN true
-                    ELSE false
-                END AS virtual_key_deleted,
-            COALESCE(rl.error_message, ''), COALESCE(rl.failover_attempt, 0), COALESCE(rl.state, 'completed'), rl.created_at,
-            COALESCE(rl.response_header_ms, 0),
-            COALESCE(rl.resolved_model_id, '')
-        FROM request_logs rl LEFT JOIN providers p ON rl.provider_id = p.id
-        LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
-        WHERE 1=1
-    `
+	query := "SELECT COUNT(*) OVER() AS total_count, " + logEntrySelectColumns
 
 	args := []interface{}{}
 	argIndex := 1
