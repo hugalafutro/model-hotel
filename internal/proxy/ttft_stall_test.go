@@ -1019,3 +1019,114 @@ func TestStallWatchdog_ProgressiveTimeout_Boundary50(t *testing.T) {
 		t.Errorf("expected duration < 500ms (stall fired early), got %.1fms", logData.durationMs)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// probeFirstToken additional edge case tests
+// ---------------------------------------------------------------------------
+
+func TestProbeFirstToken_DataNoSpaceAfterColon(t *testing.T) {
+	h := &Handler{}
+	// Some providers send "data:" without a space after the colon
+	body := makeSSEBody(t, "data:{\"choices\":[]}\n\n")
+	startTime := time.Now()
+
+	probeBuf, trueTtftMs, err := h.probeFirstToken(context.Background(), body, 5*time.Second, startTime)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if probeBuf == nil {
+		t.Fatal("expected probeBuf to be non-nil")
+		return
+	}
+	if trueTtftMs <= 0 {
+		t.Errorf("expected trueTtftMs > 0, got %f", trueTtftMs)
+	}
+}
+
+func TestProbeFirstToken_DataWithSpaces(t *testing.T) {
+	h := &Handler{}
+	// Standard "data: " with space
+	body := makeSSEBody(t, "data:   {\"choices\":[]}\n\n")
+	startTime := time.Now()
+
+	probeBuf, trueTtftMs, err := h.probeFirstToken(context.Background(), body, 5*time.Second, startTime)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if probeBuf == nil {
+		t.Fatal("expected probeBuf to be non-nil")
+		return
+	}
+	if trueTtftMs <= 0 {
+		t.Errorf("expected trueTtftMs > 0, got %f", trueTtftMs)
+	}
+}
+
+func TestProbeFirstToken_DoneWithDataAfter(t *testing.T) {
+	h := &Handler{}
+	// [DONE] first, then data (shouldn't happen normally but tests the short-circuit)
+	body := makeSSEBody(t, "data: [DONE]\n\ndata: {\"choices\":[]}\n\n")
+	startTime := time.Now()
+
+	_, trueTtftMs, err := h.probeFirstToken(context.Background(), body, 5*time.Second, startTime)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// [DONE] before any real token means trueTtftMs should be 0
+	if trueTtftMs != 0 {
+		t.Errorf("expected trueTtftMs == 0 for [DONE] first, got %f", trueTtftMs)
+	}
+}
+
+func TestProbeFirstToken_UnknownLineFormat(t *testing.T) {
+	h := &Handler{}
+	// Unknown line format (not data:, not a comment, not empty) — should be skipped
+	body := makeSSEBody(t, "some-random-text\ndata: {\"choices\":[]}\n\n")
+	startTime := time.Now()
+
+	probeBuf, trueTtftMs, err := h.probeFirstToken(context.Background(), body, 5*time.Second, startTime)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if probeBuf == nil {
+		t.Fatal("expected probeBuf to be non-nil")
+		return
+	}
+	if trueTtftMs <= 0 {
+		t.Errorf("expected trueTtftMs > 0, got %f", trueTtftMs)
+	}
+	// The unknown line should still be captured in the buffer
+	got := probeBuf.String()
+	if !strings.Contains(got, "some-random-text") {
+		t.Errorf("expected unknown line captured in probeBuf, got: %q", got)
+	}
+}
+
+func TestProbeFirstToken_MultipleDataLines(t *testing.T) {
+	h := &Handler{}
+	// Multiple data lines — should return on the first real one
+	body := makeSSEBody(t, "data: {\"choices\":[{\"delta\":{\"content\":\"hello\"}}]}\n\ndata: {\"choices\":[{\"delta\":{\"content\":\"world\"}}]}\n\n")
+	startTime := time.Now()
+
+	probeBuf, trueTtftMs, err := h.probeFirstToken(context.Background(), body, 5*time.Second, startTime)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if probeBuf == nil {
+		t.Fatal("expected probeBuf to be non-nil")
+		return
+	}
+	if trueTtftMs <= 0 {
+		t.Errorf("expected trueTtftMs > 0, got %f", trueTtftMs)
+	}
+	// Should contain the first data line and stop there
+	got := probeBuf.String()
+	if !strings.Contains(got, "hello") {
+		t.Errorf("expected first data line in buffer, got: %q", got)
+	}
+}
