@@ -244,49 +244,8 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
 	args := []interface{}{}
 	argIndex := 1
 
-	// Apply filters (same as ListLogs)
-	if modelID != "" {
-		query += " AND rl.model_id ILIKE $" + util.IntToStr(argIndex)
-		args = append(args, "%"+modelID+"%")
-		argIndex++
-	}
-	if providerID != "" {
-		providerUUID, err := uuid.Parse(providerID)
-		if err == nil {
-			query += " AND rl.provider_id = $" + util.IntToStr(argIndex)
-			args = append(args, providerUUID)
-			argIndex++
-		}
-	}
-	if statusCodeStr != "" {
-		if statusCodeStr == "4xx" {
-			query += " AND rl.status_code >= 400 AND rl.status_code < 500"
-		} else if statusCodeStr == "5xx" {
-			query += " AND rl.status_code >= 500"
-		} else if statusCode, err := strconv.Atoi(statusCodeStr); err == nil && statusCode >= 0 {
-			if statusCode == 0 {
-				query += " AND (rl.status_code = 0 OR rl.status_code IS NULL)"
-			} else {
-				query += " AND rl.status_code = $" + util.IntToStr(argIndex)
-				args = append(args, statusCode)
-				argIndex++
-			}
-		}
-	}
-	if fromDate != "" {
-		if parsedFrom, err := time.Parse(time.RFC3339, fromDate); err == nil {
-			query += " AND rl.created_at >= $" + util.IntToStr(argIndex)
-			args = append(args, parsedFrom)
-			argIndex++
-		}
-	}
-	if toDate != "" {
-		if parsedTo, err := time.Parse(time.RFC3339, toDate); err == nil {
-			query += " AND rl.created_at <= $" + util.IntToStr(argIndex)
-			args = append(args, parsedTo)
-			argIndex++
-		}
-	}
+	// Apply filters (shared with the count query below and with ListLogs).
+	query, args, argIndex = appendLogFilters(query, args, argIndex, modelID, providerID, statusCodeStr, fromDate, toDate)
 
 	// Apply cursor keyset predicate
 	// For "time desc" (default): "after" means older (created_at < cursor OR same ts but id < cursor)
@@ -398,52 +357,12 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
 		slices.Reverse(entries)
 	}
 
-	// Get total count for display (separate lightweight query)
+	// Get total count for display (separate lightweight query), reusing the
+	// exact same filter construction as the data query above.
 	var total int
-	countArgs := []interface{}{}
-	countArgIdx := 1
 	countQuery := "SELECT COUNT(*) FROM request_logs rl WHERE 1=1"
-	if modelID != "" {
-		countQuery += " AND rl.model_id ILIKE $" + util.IntToStr(countArgIdx)
-		countArgs = append(countArgs, "%"+modelID+"%")
-		countArgIdx++
-	}
-	if providerID != "" {
-		providerUUID, err := uuid.Parse(providerID)
-		if err == nil {
-			countQuery += " AND rl.provider_id = $" + util.IntToStr(countArgIdx)
-			countArgs = append(countArgs, providerUUID)
-			countArgIdx++
-		}
-	}
-	if statusCodeStr != "" {
-		if statusCodeStr == "4xx" {
-			countQuery += " AND rl.status_code >= 400 AND rl.status_code < 500"
-		} else if statusCodeStr == "5xx" {
-			countQuery += " AND rl.status_code >= 500"
-		} else if statusCode, err := strconv.Atoi(statusCodeStr); err == nil {
-			if statusCode == 0 {
-				countQuery += " AND (rl.status_code = 0 OR rl.status_code IS NULL)"
-			} else {
-				countQuery += " AND rl.status_code = $" + util.IntToStr(countArgIdx)
-				countArgs = append(countArgs, statusCode)
-				countArgIdx++
-			}
-		}
-	}
-	if fromDate != "" {
-		if parsedFrom, err := time.Parse(time.RFC3339, fromDate); err == nil {
-			countQuery += " AND rl.created_at >= $" + util.IntToStr(countArgIdx)
-			countArgs = append(countArgs, parsedFrom)
-			countArgIdx++
-		}
-	}
-	if toDate != "" {
-		if parsedTo, err := time.Parse(time.RFC3339, toDate); err == nil {
-			countQuery += " AND rl.created_at <= $" + util.IntToStr(countArgIdx)
-			countArgs = append(countArgs, parsedTo)
-		}
-	}
+	countArgs := []interface{}{}
+	countQuery, countArgs, _ = appendLogFilters(countQuery, countArgs, 1, modelID, providerID, statusCodeStr, fromDate, toDate)
 	_ = h.dbPool.Pool().QueryRow(ctx, countQuery, countArgs...).Scan(&total)
 
 	response := LogsCursorResponse{
@@ -481,6 +400,59 @@ func scanLogEntry(rows pgx.Rows) (LogEntry, error) {
 		&entry.ResolvedModelID,
 	)
 	return entry, err
+}
+
+// appendLogFilters appends the shared modelID/providerID/statusCode/from/to
+// WHERE fragments, returning the extended query, args, and next placeholder
+// index. The single source of truth used by both the data and count queries
+// in ListLogsCursor (previously two copy-pasted blocks that had drifted: the
+// count copy lacked the `statusCode >= 0` guard the data copy has; both now use
+// the guard, so an invalid negative status_code is uniformly ignored — a
+// behaviour-neutral fix since status codes are always >= 0).
+func appendLogFilters(query string, args []any, argIndex int, modelID, providerID, statusCodeStr, fromDate, toDate string) (string, []any, int) {
+	if modelID != "" {
+		query += " AND rl.model_id ILIKE $" + util.IntToStr(argIndex)
+		args = append(args, "%"+modelID+"%")
+		argIndex++
+	}
+	if providerID != "" {
+		providerUUID, err := uuid.Parse(providerID)
+		if err == nil {
+			query += " AND rl.provider_id = $" + util.IntToStr(argIndex)
+			args = append(args, providerUUID)
+			argIndex++
+		}
+	}
+	if statusCodeStr != "" {
+		if statusCodeStr == "4xx" {
+			query += " AND rl.status_code >= 400 AND rl.status_code < 500"
+		} else if statusCodeStr == "5xx" {
+			query += " AND rl.status_code >= 500"
+		} else if statusCode, err := strconv.Atoi(statusCodeStr); err == nil && statusCode >= 0 {
+			if statusCode == 0 {
+				query += " AND (rl.status_code = 0 OR rl.status_code IS NULL)"
+			} else {
+				query += " AND rl.status_code = $" + util.IntToStr(argIndex)
+				args = append(args, statusCode)
+				argIndex++
+			}
+		}
+	}
+	if fromDate != "" {
+		if parsedFrom, err := time.Parse(time.RFC3339, fromDate); err == nil {
+			query += " AND rl.created_at >= $" + util.IntToStr(argIndex)
+			args = append(args, parsedFrom)
+			argIndex++
+		}
+	}
+	if toDate != "" {
+		if parsedTo, err := time.Parse(time.RFC3339, toDate); err == nil {
+			query += " AND rl.created_at <= $" + util.IntToStr(argIndex)
+			args = append(args, parsedTo)
+			argIndex++
+		}
+	}
+	return query, args, argIndex
 }
 
 // logCursor is the keyset cursor for cursor-based log pagination.
