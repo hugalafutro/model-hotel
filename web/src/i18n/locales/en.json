@@ -861,7 +861,7 @@
 		"btn_sync": "Sync",
 		"btn_syncing": "Syncing…",
 		"btn_new_group": "New Group",
-		"hint_drag": "Drag models by the handle (⠿) to reorder priority",
+		"hint_drag": "Drag models by the handle to reorder priority",
 		"filter_hotel_model": "Filter hotel/model…",
 		"filter_providers": "All providers",
 		"filter_states": "All states",

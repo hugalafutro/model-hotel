@@ -861,7 +861,7 @@
 		"btn_sync": "Szinkronizálás",
 		"btn_syncing": "… szinkronizálása",
 		"btn_new_group": "Új csoport",
-		"hint_drag": "A modelleket a fogantyúnál (⠿) fogva húzva rendezheti át a prioritásukat",
+		"hint_drag": "A modelleket a fogantyúnál fogva húzva rendezheti át a prioritásukat",
 		"filter_hotel_model": "Szálloda/modell szűrése…",
 		"filter_providers": "Minden szolgáltató",
 		"filter_states": "Minden állam",

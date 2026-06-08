@@ -381,7 +381,7 @@ export function FailoverGroups() {
 	}
 
 	return (
-		<div className="space-y-6" style={{ scrollBehavior: "smooth" }}>
+		<div className="space-y-6 pb-0" style={{ scrollBehavior: "smooth" }}>
 			<PageHeader
 				icon={Shuffle}
 				title={countLabel(

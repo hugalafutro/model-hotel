@@ -861,7 +861,7 @@
 		"btn_sync": "Sincronitzar",
 		"btn_syncing": "Sincronitzant…",
 		"btn_new_group": "Grup Nou",
-		"hint_drag": "Arrossegueu els models pel mànec (⠿) per reordenar la prioritat.",
+		"hint_drag": "Arrossegueu els models pel mànec per reordenar la prioritat.",
 		"filter_hotel_model": "Filtreu hotel/model…",
 		"filter_providers": "Tots els proveïdors",
 		"filter_states": "Tots els estats",

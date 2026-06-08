@@ -861,7 +861,7 @@
 		"btn_sync": "Đồng bộ hóa",
 		"btn_syncing": "Đồng bộ hóa…",
 		"btn_new_group": "Nhóm mới",
-		"hint_drag": "Kéo các mô hình bằng tay cầm (⠿) để sắp xếp lại thứ tự ưu tiên",
+		"hint_drag": "Kéo các mô hình bằng tay cầm để sắp xếp lại thứ tự ưu tiên",
 		"filter_hotel_model": "Lọc theo khách sạn/mẫu…",
 		"filter_providers": "Tất cả các nhà cung cấp",
 		"filter_states": "Tất cả các bang",
