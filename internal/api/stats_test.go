@@ -2879,3 +2879,62 @@ func TestGetTimeSeries_5minBucket(t *testing.T) {
 		}
 	}
 }
+
+// ---------------------------------------------------------------------------
+// calculateStats edge cases
+// ---------------------------------------------------------------------------
+
+// TestCalculateStats_EmptyDB_IncludeLatency verifies that calculateStats
+// with includeLatency=true and no data returns empty stats without error,
+// exercising the statLatencyBreakdown best-effort path on an empty DB.
+func TestCalculateStats_EmptyDB_IncludeLatency(t *testing.T) {
+	handler, _, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	stats, err := handler.calculateStats(ctx, 24*time.Hour, true, "requests", true)
+	if err != nil {
+		t.Fatalf("calculateStats with empty DB and includeLatency=true: %v", err)
+	}
+
+	if len(stats.ByModelLatency) != 0 {
+		t.Errorf("Expected empty ByModelLatency, got %d entries", len(stats.ByModelLatency))
+	}
+	if len(stats.ByProviderLatency) != 0 {
+		t.Errorf("Expected empty ByProviderLatency, got %d entries", len(stats.ByProviderLatency))
+	}
+	if stats.TotalRequestsLast24h != 0 {
+		t.Errorf("Expected TotalRequestsLast24h=0, got %d", stats.TotalRequestsLast24h)
+	}
+}
+
+// TestCalculateStats_IncludeLatencyWithData verifies calculateStats with
+// includeLatency=true and sufficient data returns model and provider latency entries.
+func TestCalculateStats_IncludeLatencyWithData(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-provider-lat-data", "https://api.example.com/v1")
+
+	// Insert 3 requests for a single model to meet the HAVING COUNT(*) >= 3 threshold
+	for i := 0; i < 3; i++ {
+		insertRichTestRequestLog(t, pool, uuid.New(), providerID, "lat-model", 200, 150, 10, 20, requestLogOpts{
+			ProxyOverheadMs: 15.0,
+			LatencyMs:       135.0,
+		})
+	}
+
+	ctx := context.Background()
+	stats, err := handler.calculateStats(ctx, 24*time.Hour, true, "requests", true)
+	if err != nil {
+		t.Fatalf("calculateStats with includeLatency=true: %v", err)
+	}
+
+	if len(stats.ByModelLatency) == 0 {
+		t.Error("Expected ByModelLatency entries with 3+ requests and includeLatency=true")
+	}
+	if len(stats.ByProviderLatency) == 0 {
+		t.Error("Expected ByProviderLatency entries with 3+ requests and includeLatency=true")
+	}
+}

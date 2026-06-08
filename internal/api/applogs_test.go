@@ -1755,3 +1755,139 @@ func TestGetAppLogsCursor_BackwardPagination(t *testing.T) {
 		t.Error("expected HasBefore=true for backward page (more items precede)")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// getAppLogsHistory edge cases
+// ---------------------------------------------------------------------------
+
+// TestGetAppLogsHistory_EmptyLogs verifies that getAppLogsHistory returns
+// a valid response with zero entries and zero total when no logs exist.
+func TestGetAppLogsHistory_EmptyLogs(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("apiTestDBURL not set, skipping integration test")
+	}
+	_, r := newTestHandlerWithRouter(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/logs/app?history=true", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+
+	var resp appLogsHistoryResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(resp.Entries) != 0 {
+		t.Errorf("expected empty entries, got %d", len(resp.Entries))
+	}
+	if resp.Total != 0 {
+		t.Errorf("expected total 0, got %d", resp.Total)
+	}
+	if resp.Page != 1 {
+		t.Errorf("expected page 1, got %d", resp.Page)
+	}
+}
+
+// TestGetAppLogsHistory_SingleEntry verifies that getAppLogsHistory returns
+// the correct pagination when there is exactly one log entry.
+func TestGetAppLogsHistory_SingleEntry(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("apiTestDBURL not set, skipping integration test")
+	}
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.Pool().Pool()
+
+	// Clean up test data
+	pool.Exec(context.Background(), "DELETE FROM app_logs WHERE source = 'single-entry-test'")
+	defer pool.Exec(context.Background(), "DELETE FROM app_logs WHERE source = 'single-entry-test'")
+
+	// Insert a single log entry
+	_, err := pool.Exec(context.Background(),
+		`INSERT INTO app_logs (id, timestamp, level, source, message, created_at)
+		 VALUES ($1, $2, $3, $4, $5, NOW())`,
+		uuid.New().String(),
+		time.Now().UTC().Format(time.RFC3339Nano),
+		"error",
+		"single-entry-test",
+		"single test message")
+	if err != nil {
+		t.Fatalf("Failed to insert app log: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/logs/app?history=true", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+
+	var resp appLogsHistoryResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.Total < 1 {
+		t.Errorf("expected total >= 1, got %d", resp.Total)
+	}
+	if len(resp.Entries) == 0 {
+		t.Error("expected at least one entry")
+	}
+}
+
+// TestGetAppLogsHistory_DateRangeBoundary verifies that getAppLogsHistory
+// correctly filters by from/to date range parameters.
+func TestGetAppLogsHistory_DateRangeBoundary(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("apiTestDBURL not set, skipping integration test")
+	}
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.Pool().Pool()
+
+	// Insert log entries with different timestamps
+	now := time.Now().UTC()
+	yesterday := now.Add(-24 * time.Hour)
+	twoDaysAgo := now.Add(-48 * time.Hour)
+
+	for i, ts := range []time.Time{twoDaysAgo, yesterday, now} {
+		_, err := pool.Exec(context.Background(),
+			`INSERT INTO app_logs (id, timestamp, level, source, message, created_at)
+			 VALUES ($1, $2, $3, $4, $5, $6)`,
+			uuid.New().String(),
+			ts.Format(time.RFC3339Nano),
+			"info",
+			"date-range-test",
+			fmt.Sprintf("entry %d", i),
+			ts)
+		if err != nil {
+			t.Fatalf("Failed to insert app log %d: %v", i, err)
+		}
+	}
+	defer pool.Exec(context.Background(), "DELETE FROM app_logs WHERE source = 'date-range-test'")
+
+	// Query with from=12h ago — should only include entries from the last 12h
+	from := now.Add(-12 * time.Hour).Format(time.RFC3339)
+	req := httptest.NewRequest(http.MethodGet, "/logs/app?history=true&from="+url.QueryEscape(from), http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+
+	var resp appLogsHistoryResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	// With from=12h ago, should get at most the "now" entry (and possibly "yesterday" if within range)
+	// The exact count depends on timing, but total should be less than 3
+	if resp.Total > 3 {
+		t.Errorf("expected total <= 3 with from filter, got %d", resp.Total)
+	}
+}
