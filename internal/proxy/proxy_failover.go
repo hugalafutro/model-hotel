@@ -379,8 +379,9 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 
 	if !hasMoreCandidates {
 		// All failover candidates exhausted — return a generic error.
-		// The full upstream body is logged server-side above but not
-		// forwarded, as it may contain provider-specific details.
+		// The upstream body is recorded to the DB request log via failRequest
+		// (not the structured server log) and is not forwarded to the client,
+		// as it may contain provider-specific details.
 		writeOpenAIError(w, fmt.Sprintf("upstream provider returned HTTP %d", resp.StatusCode), resp.StatusCode)
 		return outcomeFatal
 	}

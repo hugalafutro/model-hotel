@@ -280,10 +280,12 @@ func formatCORSOriginRows(origins []string, labelW, indentLen, gapLen int) []con
 	return result
 }
 
-// ValidateProviderURL checks that a provider base_url is not a loopback address
-// and (if AllowedProviderHosts is set) is in the allowed list.
-// Built-in known provider hosts (OpenAI, Nano-GPT, Z.AI, DeepSeek, Ollama) are
-// always allowed regardless of the ALLOWED_PROVIDER_HOSTS env var.
+// ValidateProviderURL checks that a provider base_url does not resolve to a
+// private or reserved address (loopback, RFC 1918/ULA, link-local, CGNAT, or
+// cloud-metadata — see util.IsBlockedIP) and, if AllowedProviderHosts is set,
+// is in the allowed list. Built-in known provider hosts (OpenAI, Nano-GPT,
+// Z.AI, DeepSeek, Ollama) are always allowed regardless of the
+// ALLOWED_PROVIDER_HOSTS env var.
 func (c *Config) ValidateProviderURL(rawURL string) error {
 	u, err := url.Parse(rawURL)
 	if err != nil {
@@ -295,7 +297,7 @@ func (c *Config) ValidateProviderURL(rawURL string) error {
 		return fmt.Errorf("URL has no host")
 	}
 
-	// Built-in known provider hosts are always allowed (skip loopback check)
+	// Built-in known provider hosts are always allowed (skip the IP checks)
 	for _, knownHost := range defaultKnownProviderHosts {
 		if strings.EqualFold(host, knownHost) {
 			return nil
@@ -303,8 +305,8 @@ func (c *Config) ValidateProviderURL(rawURL string) error {
 	}
 
 	// If AllowedProviderHosts is set, the host must be in the allowlist.
-	// Hosts explicitly listed here bypass the loopback restriction so that
-	// localhost can be used as a provider URL in test environments.
+	// Hosts explicitly listed here bypass the private/reserved-IP checks so that
+	// internal LLM servers (or localhost in tests) can be used as provider URLs.
 	if len(c.AllowedProviderHosts) > 0 {
 		for _, allowedHost := range c.AllowedProviderHosts {
 			if strings.EqualFold(host, allowedHost) {
