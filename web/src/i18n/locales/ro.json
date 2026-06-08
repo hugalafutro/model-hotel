@@ -1554,7 +1554,7 @@
 				"confirmEnableNoRemoval": "Nicio copie de rezervă existentă nu ar fi eliminată.",
 				"prunePreviewFailed": "Previzualizarea pruning-ului backup-ului a eșuat",
 				"pruneFailed": "Nu s-a putut curăța copiile de rezervă",
-				"pruneSuccess": "Eliminate {{count}} copii de rezervă"
+				"pruneSuccess": "Curățate {{count}} copii de rezervă"
 			}
 		},
 		"appearance": {

@@ -937,7 +937,7 @@
 		"btn_manage_providers": "管理提供商",
 		"provider_modal_title": "管理提供商状态",
 		"provider_modal_description": "禁用一个提供商将在每个失败组禁用其所有模型",
-		"toast_provider_toggle_no_groups": "No failover groups use provider {{provider}}"
+		"toast_provider_toggle_no_groups": "没有故障转移组使用提供商 {{provider}}"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "未保存的更改"
