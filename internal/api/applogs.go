@@ -297,6 +297,47 @@ func (h *Handler) getAppLogCounts(ctx context.Context) (map[string]int, map[stri
 	return levelCounts, sourceCounts
 }
 
+// appendAppLogFilters appends the shared level/source/search/from/to WHERE
+// conditions for app_logs (no table alias — app_logs is queried without joins).
+// It is the single source of truth for getAppLogsHistory and both
+// GetAppLogsCursor queries (data + total count).
+//
+// Date-range filters use created_at (DB insertion time), not timestamp (event
+// time), for consistency with the cursor endpoint's keyset pagination; app logs
+// are ingested in real-time so the two columns fall within the same filter window.
+func appendAppLogFilters(conditions []string, args []any, argIdx int, level, source, search, from, to string) ([]string, []any, int) {
+	if level != "" {
+		conditions = append(conditions, fmt.Sprintf("level = $%d", argIdx))
+		args = append(args, level)
+		argIdx++
+	}
+	if source != "" {
+		conditions = append(conditions, fmt.Sprintf("source = $%d", argIdx))
+		args = append(args, source)
+		argIdx++
+	}
+	if search != "" {
+		conditions = append(conditions, fmt.Sprintf("message ILIKE $%d", argIdx))
+		args = append(args, "%"+search+"%")
+		argIdx++
+	}
+	if from != "" {
+		if t, err := time.Parse(time.RFC3339, from); err == nil {
+			conditions = append(conditions, fmt.Sprintf("created_at >= $%d", argIdx))
+			args = append(args, t.UTC())
+			argIdx++
+		}
+	}
+	if to != "" {
+		if t, err := time.Parse(time.RFC3339, to); err == nil {
+			conditions = append(conditions, fmt.Sprintf("created_at <= $%d", argIdx))
+			args = append(args, t.UTC())
+			argIdx++
+		}
+	}
+	return conditions, args, argIdx
+}
+
 // getAppLogsHistory queries app_logs from the database with filtering and pagination.
 func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 	if h.dbPool == nil {
@@ -323,45 +364,8 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build WHERE clause
-	conditions := []string{}
-	args := []interface{}{}
-	argIdx := 1
-
-	if level := q.Get("level"); level != "" {
-		conditions = append(conditions, fmt.Sprintf("level = $%d", argIdx))
-		args = append(args, level)
-		argIdx++
-	}
-	if source := q.Get("source"); source != "" {
-		conditions = append(conditions, fmt.Sprintf("source = $%d", argIdx))
-		args = append(args, source)
-		argIdx++
-	}
-	if search := q.Get("search"); search != "" {
-		conditions = append(conditions, fmt.Sprintf("message ILIKE $%d", argIdx))
-		args = append(args, "%"+search+"%")
-		argIdx++
-	}
-	// Date range filters use created_at (DB insertion time), not timestamp (event time),
-	// for consistency with the cursor endpoint's keyset pagination on created_at.
-	// App logs are ingested in real-time via the ring buffer, so timestamp and
-	// created_at are typically within the same second. The date picker only provides
-	// day-level granularity (start/end of day), so the two columns will always fall
-	// within the same filter window in practice.
-	if from := q.Get("from"); from != "" {
-		if t, err := time.Parse(time.RFC3339, from); err == nil {
-			conditions = append(conditions, fmt.Sprintf("created_at >= $%d", argIdx))
-			args = append(args, t.UTC())
-			argIdx++
-		}
-	}
-	if to := q.Get("to"); to != "" {
-		if t, err := time.Parse(time.RFC3339, to); err == nil {
-			conditions = append(conditions, fmt.Sprintf("created_at <= $%d", argIdx))
-			args = append(args, t.UTC())
-			argIdx++
-		}
-	}
+	conditions, args, argIdx := appendAppLogFilters(nil, nil, 1,
+		q.Get("level"), q.Get("source"), q.Get("search"), q.Get("from"), q.Get("to"))
 
 	// Sort
 	// "time" maps to created_at for consistency with the cursor endpoint.
@@ -515,40 +519,9 @@ func (h *Handler) GetAppLogsCursor(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Build WHERE clause (same as getAppLogsHistory)
-	conditions := []string{}
-	args := []interface{}{}
-	argIdx := 1
-
-	if level := q.Get("level"); level != "" {
-		conditions = append(conditions, fmt.Sprintf("level = $%d", argIdx))
-		args = append(args, level)
-		argIdx++
-	}
-	if source := q.Get("source"); source != "" {
-		conditions = append(conditions, fmt.Sprintf("source = $%d", argIdx))
-		args = append(args, source)
-		argIdx++
-	}
-	if search := q.Get("search"); search != "" {
-		conditions = append(conditions, fmt.Sprintf("message ILIKE $%d", argIdx))
-		args = append(args, "%"+search+"%")
-		argIdx++
-	}
-	if from := q.Get("from"); from != "" {
-		if t, err := time.Parse(time.RFC3339, from); err == nil {
-			conditions = append(conditions, fmt.Sprintf("created_at >= $%d", argIdx))
-			args = append(args, t.UTC())
-			argIdx++
-		}
-	}
-	if to := q.Get("to"); to != "" {
-		if t, err := time.Parse(time.RFC3339, to); err == nil {
-			conditions = append(conditions, fmt.Sprintf("created_at <= $%d", argIdx))
-			args = append(args, t.UTC())
-			argIdx++
-		}
-	}
+	// Build WHERE clause (same filters as getAppLogsHistory)
+	conditions, args, argIdx := appendAppLogFilters(nil, nil, 1,
+		q.Get("level"), q.Get("source"), q.Get("search"), q.Get("from"), q.Get("to"))
 
 	// Apply cursor keyset predicate
 	if cursorStr != "" {
@@ -674,38 +647,9 @@ func (h *Handler) GetAppLogsCursor(w http.ResponseWriter, r *http.Request) {
 	// Get cached counts
 	levelCounts, sourceCounts := h.getAppLogCounts(ctx)
 
-	// Total count (with filters applied, but without cursor predicate)
-	totalCountArgs := []interface{}{}
-	totalCountArgIdx := 1
-	totalCountConditions := []string{}
-	if level := q.Get("level"); level != "" {
-		totalCountConditions = append(totalCountConditions, fmt.Sprintf("level = $%d", totalCountArgIdx))
-		totalCountArgs = append(totalCountArgs, level)
-		totalCountArgIdx++
-	}
-	if source := q.Get("source"); source != "" {
-		totalCountConditions = append(totalCountConditions, fmt.Sprintf("source = $%d", totalCountArgIdx))
-		totalCountArgs = append(totalCountArgs, source)
-		totalCountArgIdx++
-	}
-	if search := q.Get("search"); search != "" {
-		totalCountConditions = append(totalCountConditions, fmt.Sprintf("message ILIKE $%d", totalCountArgIdx))
-		totalCountArgs = append(totalCountArgs, "%"+search+"%")
-		totalCountArgIdx++
-	}
-	if from := q.Get("from"); from != "" {
-		if t, err := time.Parse(time.RFC3339, from); err == nil {
-			totalCountConditions = append(totalCountConditions, fmt.Sprintf("created_at >= $%d", totalCountArgIdx))
-			totalCountArgs = append(totalCountArgs, t.UTC())
-			totalCountArgIdx++
-		}
-	}
-	if to := q.Get("to"); to != "" {
-		if t, err := time.Parse(time.RFC3339, to); err == nil {
-			totalCountConditions = append(totalCountConditions, fmt.Sprintf("created_at <= $%d", totalCountArgIdx))
-			totalCountArgs = append(totalCountArgs, t.UTC())
-		}
-	}
+	// Total count (with filters applied, but without cursor predicate).
+	totalCountConditions, totalCountArgs, _ := appendAppLogFilters(nil, nil, 1,
+		q.Get("level"), q.Get("source"), q.Get("search"), q.Get("from"), q.Get("to"))
 
 	totalWhereClause := ""
 	if len(totalCountConditions) > 0 {
