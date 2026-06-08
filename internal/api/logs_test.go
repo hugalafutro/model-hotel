@@ -181,7 +181,10 @@ func TestListLogs_FilterByModelID(t *testing.T) {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	// Verify that only the gpt-4 model log is returned.
+	// Verify that at least one entry is returned and all match the filter.
+	if len(resp.Entries) == 0 {
+		t.Fatal("expected at least one entry for model_id=gpt-4, got none")
+	}
 	for _, l := range resp.Entries {
 		if l.ModelID != "gpt-4" {
 			t.Errorf("expected only gpt-4 logs, got model_id=%s", l.ModelID)
@@ -244,6 +247,9 @@ func TestListLogs_FilterByStatusCode4xx(t *testing.T) {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
+	if len(resp.Entries) == 0 {
+		t.Fatal("expected at least one 4xx log entry, got none")
+	}
 	for _, l := range resp.Entries {
 		if l.StatusCode < 400 || l.StatusCode >= 500 {
 			t.Errorf("expected only 4xx logs, got status_code=%d", l.StatusCode)
@@ -284,6 +290,9 @@ func TestListLogs_FilterByStatusCode5xx(t *testing.T) {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
+	if len(resp.Entries) == 0 {
+		t.Fatal("expected at least one 5xx log entry, got none")
+	}
 	for _, l := range resp.Entries {
 		if l.StatusCode < 500 {
 			t.Errorf("expected only 5xx logs, got status_code=%d", l.StatusCode)
@@ -324,6 +333,9 @@ func TestListLogs_FilterByStatusCode0(t *testing.T) {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
+	if len(resp.Entries) == 0 {
+		t.Fatal("expected at least one status_code=0 log entry, got none")
+	}
 	for _, l := range resp.Entries {
 		if l.StatusCode != 0 {
 			t.Errorf("expected only status_code=0 logs, got status_code=%d", l.StatusCode)
