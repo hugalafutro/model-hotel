@@ -759,7 +759,7 @@ function LanguageSelector() {
 				<Languages size={14} strokeWidth={2} />
 			</button>
 			{open && (
-				<div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 py-1 min-w-[120px] max-h-[calc(100vh-5rem)] overflow-y-auto overscroll-contain bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50">
+				<div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 py-1 min-w-[120px] max-h-[50vh] overflow-y-auto overscroll-contain bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50">
 					{SUPPORTED_LANGUAGES.map((lang) => (
 						<button
 							key={lang.code}
