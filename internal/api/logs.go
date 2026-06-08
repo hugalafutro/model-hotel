@@ -173,44 +173,57 @@ type LogsCursorResponse struct {
 // Subsequent requests pass the cursor from the response boundary and
 // direction to scroll older ("before") or newer ("after").
 func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
-	limit := util.GetIntQueryParam(r, "limit", 20)
-	if limit < 1 {
-		limit = 1
+	p, ok := parseLogListParams(w, r)
+	if !ok {
+		return
 	}
-	if limit > 200 {
-		limit = 200
-	}
-	cursorStr := r.URL.Query().Get("cursor")
-	direction := r.URL.Query().Get("direction")
-	if direction != "before" && direction != "after" {
-		direction = "after"
-	}
-	sortDir := r.URL.Query().Get("sort_dir")
-	if sortDir != "asc" && sortDir != "desc" {
-		sortDir = "desc"
-	}
-
-	modelID := r.URL.Query().Get("model_id")
-	providerID := r.URL.Query().Get("provider_id")
-	statusCodeStr := r.URL.Query().Get("status_code")
-	fromDate := r.URL.Query().Get("from")
-	toDate := r.URL.Query().Get("to")
 
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
-	// Parse cursor if provided
-	var cursor logCursor
-	if cursorStr != "" {
-		if err := cursor.decode(cursorStr); err != nil {
-			respondBadRequest(w, "invalid cursor", err)
-			return
+	query, args := buildLogListQuery(p)
+
+	rows, err := h.dbPool.Pool().Query(ctx, query, args...)
+	if err != nil {
+		debuglog.Error("logs-cursor: failed to query logs", "error", err)
+		respondError(w, "failed to query logs", err, http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	// limit is clamped to [1, 200] above; prealloc with the hard upper bound
+	// to satisfy CodeQL's uncontrolled-allocation-size check (user input must
+	// not flow into make() capacity even after clamping).
+	entries := make([]LogEntry, 0, 201) // limit+1 for has_more detection
+	for rows.Next() {
+		entry, err := scanLogEntry(rows)
+		if err != nil {
+			debuglog.Error("logs-cursor: row scan failed", "error", err)
+			continue
 		}
+		entries = append(entries, entry)
 	}
 
-	// Build the base SELECT (same columns as ListLogs minus COUNT(*) OVER())
-	query := `
-        SELECT rl.id, COALESCE(rl.provider_id::text, ''),
+	entries, hasAfter, hasBefore := paginate(entries, p)
+
+	response := LogsCursorResponse{
+		Entries:   entries,
+		Total:     h.countLogs(ctx, p),
+		HasBefore: hasBefore,
+		HasAfter:  hasAfter,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		respondError(w, "failed to encode response", err, http.StatusInternalServerError)
+	}
+}
+
+// logEntrySelectColumns is the shared 34-column request_logs projection plus the
+// FROM/JOIN/WHERE 1=1 tail. The cursor list prefixes it with "SELECT "; the
+// offset list (ListLogs) prefixes it with the windowed total count. Its column
+// order matches logEntryScanDests exactly.
+const logEntrySelectColumns = `rl.id, COALESCE(rl.provider_id::text, ''),
             CASE
                 WHEN rl.provider_id IS NULL THEN ''
                 WHEN p.name IS NOT NULL THEN p.name
@@ -241,10 +254,121 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
         WHERE 1=1
     `
 
-	args := []interface{}{}
-	argIndex := 1
+// buildLogListQuery assembles the cursor data query: the column projection, the
+// shared filters, the keyset predicate (when a cursor is present), and the
+// ORDER BY + LIMIT — fetching limit+1 to detect has_more, with the sort
+// inverted for backward pagination so LIMIT picks from the correct end.
+func buildLogListQuery(p logListParams) (string, []any) {
+	query := "SELECT " + logEntrySelectColumns
 
-	// Apply filters (same as ListLogs)
+	args := []any{}
+	argIndex := 1
+	query, args, argIndex = appendLogFilters(query, args, argIndex, p.modelID, p.providerID, p.statusCode, p.fromDate, p.toDate)
+	if p.cursorStr != "" {
+		query, args, argIndex = appendKeysetPredicate(query, args, argIndex, p.cursor, p.direction, p.sortDir)
+	}
+
+	fetchSortDir := p.sortDir
+	if p.direction == "before" {
+		if fetchSortDir == "desc" {
+			fetchSortDir = "asc"
+		} else {
+			fetchSortDir = "desc"
+		}
+	}
+	query += " ORDER BY rl.created_at " + fetchSortDir + ", rl.id " + fetchSortDir
+	query += " LIMIT $" + util.IntToStr(argIndex)
+	args = append(args, p.limit+1)
+	return query, args
+}
+
+// countLogs returns the total row count for the same filters as the data query.
+// Best-effort: returns 0 on error (the cursor response is still useful without
+// an accurate total).
+func (h *Handler) countLogs(ctx context.Context, p logListParams) int {
+	query := "SELECT COUNT(*) FROM request_logs rl WHERE 1=1"
+	args := []any{}
+	query, args, _ = appendLogFilters(query, args, 1, p.modelID, p.providerID, p.statusCode, p.fromDate, p.toDate)
+	var total int
+	_ = h.dbPool.Pool().QueryRow(ctx, query, args...).Scan(&total)
+	return total
+}
+
+// paginate applies has_after/has_before detection (using the fetched-one-extra
+// signal and cursor presence), trims to p.limit, and reverses the slice for
+// backward pagination (which fetched in inverted sort order).
+func paginate(entries []LogEntry, p logListParams) ([]LogEntry, bool, bool) {
+	var hasAfter, hasBefore bool
+	switch p.direction {
+	case "after":
+		// Fetching older entries (scroll down or initial load).
+		if len(entries) > p.limit {
+			hasAfter = true
+			entries = entries[:p.limit]
+		}
+		// For an initial request (no cursor) we're at the newest — nothing
+		// before. For cursor requests, assume newer entries exist until proven
+		// otherwise (a fetchBefore returning 0 corrects this client-side).
+		if p.cursorStr != "" {
+			hasBefore = true
+		}
+	case "before":
+		// Fetching newer entries (scroll up).
+		if len(entries) > p.limit {
+			hasBefore = true
+			entries = entries[:p.limit]
+		}
+		// Items exist after the cursor by definition.
+		if p.cursorStr != "" {
+			hasAfter = true
+		}
+	}
+
+	if p.direction == "before" {
+		slices.Reverse(entries)
+	}
+	return entries, hasAfter, hasBefore
+}
+
+// logEntryScanDests returns the ordered Scan() targets for the shared 34-column
+// request_logs projection (logEntrySelectColumns). The cursor list scans these
+// directly; the offset list (ListLogs) prepends its windowed total count.
+func logEntryScanDests(entry *LogEntry) []any {
+	return []any{
+		&entry.ID, &entry.ProviderID, &entry.ProviderName, &entry.ModelID,
+		&entry.RequestHash, &entry.StatusCode, &entry.LatencyMs, &entry.DurationMs,
+		&entry.TTFTMs, &entry.ProxyOverheadMs,
+		&entry.ParseMs, &entry.FailoverLookupMs, &entry.ModelLookupMs, &entry.ProviderLookupMs, &entry.KeyDecryptMs,
+		&entry.DialMs, &entry.SettingsReadMs,
+		&entry.CacheHits,
+		&entry.TokensPerSecond,
+		&entry.TokensPrompt, &entry.TokensCompletion, &entry.TokensCompletionReasoning,
+		&entry.TokensPromptCacheHit, &entry.TokensPromptCacheMiss,
+		&entry.Streaming,
+		&entry.VirtualKeyName, &entry.VirtualKeyID, &entry.VirtualKeyDeleted,
+		&entry.ErrorMessage,
+		&entry.FailoverAttempt, &entry.State, &entry.CreatedAt,
+		&entry.ResponseHeaderMs,
+		&entry.ResolvedModelID,
+	}
+}
+
+// scanLogEntry scans one request_logs row (the 34-column projection shared by
+// ListLogsCursor and ListLogs) into a LogEntry.
+func scanLogEntry(rows pgx.Rows) (LogEntry, error) {
+	var entry LogEntry
+	err := rows.Scan(logEntryScanDests(&entry)...)
+	return entry, err
+}
+
+// appendLogFilters appends the shared modelID/providerID/statusCode/from/to
+// WHERE fragments, returning the extended query, args, and next placeholder
+// index. The single source of truth used by both the data and count queries
+// in ListLogsCursor (previously two copy-pasted blocks that had drifted: the
+// count copy lacked the `statusCode >= 0` guard the data copy has; both now use
+// the guard, so an invalid negative status_code is uniformly ignored — a
+// behaviour-neutral fix since status codes are always >= 0).
+func appendLogFilters(query string, args []any, argIndex int, modelID, providerID, statusCodeStr, fromDate, toDate string) (string, []any, int) {
 	if modelID != "" {
 		query += " AND rl.model_id ILIKE $" + util.IntToStr(argIndex)
 		args = append(args, "%"+modelID+"%")
@@ -287,193 +411,76 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
 			argIndex++
 		}
 	}
+	return query, args, argIndex
+}
 
-	// Apply cursor keyset predicate
-	// For "time desc" (default): "after" means older (created_at < cursor OR same ts but id < cursor)
-	//                              "before" means newer (created_at > cursor OR same ts but id > cursor)
-	// For "time asc": the directions invert.
-	if cursorStr != "" {
-		if direction == "after" {
-			if sortDir == "desc" {
-				// Scrolling older: (created_at, id) < (cursor.CreatedAt, cursor.ID)
-				query += " AND (rl.created_at < $" + util.IntToStr(argIndex) +
-					" OR (rl.created_at = $" + util.IntToStr(argIndex+1) +
-					" AND rl.id < $" + util.IntToStr(argIndex+2) + "))"
-				args = append(args, cursor.CreatedAt, cursor.CreatedAt, cursor.ID)
-				argIndex += 3
-			} else {
-				// Scrolling newer in asc mode: (created_at, id) > cursor
-				query += " AND (rl.created_at > $" + util.IntToStr(argIndex) +
-					" OR (rl.created_at = $" + util.IntToStr(argIndex+1) +
-					" AND rl.id > $" + util.IntToStr(argIndex+2) + "))"
-				args = append(args, cursor.CreatedAt, cursor.CreatedAt, cursor.ID)
-				argIndex += 3
-			}
-		} else { // before
-			if sortDir == "desc" {
-				// Scrolling newer: (created_at, id) > cursor
-				query += " AND (rl.created_at > $" + util.IntToStr(argIndex) +
-					" OR (rl.created_at = $" + util.IntToStr(argIndex+1) +
-					" AND rl.id > $" + util.IntToStr(argIndex+2) + "))"
-				args = append(args, cursor.CreatedAt, cursor.CreatedAt, cursor.ID)
-				argIndex += 3
-			} else {
-				// Scrolling older in asc mode: (created_at, id) < cursor
-				query += " AND (rl.created_at < $" + util.IntToStr(argIndex) +
-					" OR (rl.created_at = $" + util.IntToStr(argIndex+1) +
-					" AND rl.id < $" + util.IntToStr(argIndex+2) + "))"
-				args = append(args, cursor.CreatedAt, cursor.CreatedAt, cursor.ID)
-				argIndex += 3
-			}
-		}
+// appendKeysetPredicate appends the (created_at, id) keyset comparison relative
+// to the cursor. The comparison operator is "<" when scrolling toward older
+// rows — (after, desc) or (before, asc) — and ">" otherwise, collapsing the
+// four direction/sort branches into one template. SQL is byte-identical to the
+// per-branch form.
+func appendKeysetPredicate(query string, args []any, argIndex int, cursor logCursor, direction, sortDir string) (string, []any, int) {
+	op := ">"
+	if (direction == "after") == (sortDir == "desc") {
+		op = "<"
 	}
+	query += " AND (rl.created_at " + op + " $" + util.IntToStr(argIndex) +
+		" OR (rl.created_at = $" + util.IntToStr(argIndex+1) +
+		" AND rl.id " + op + " $" + util.IntToStr(argIndex+2) + "))"
+	args = append(args, cursor.CreatedAt, cursor.CreatedAt, cursor.ID)
+	argIndex += 3
+	return query, args, argIndex
+}
 
-	// ORDER BY + LIMIT (fetch limit+1 to detect has_more)
-	// When paginating backward, invert the sort direction so LIMIT picks from
-	// the correct end of the result set, then reverse the slice before returning.
-	fetchLimit := limit + 1
-	fetchSortDir := sortDir
-	if direction == "before" {
-		if fetchSortDir == "desc" {
-			fetchSortDir = "asc"
-		} else {
-			fetchSortDir = "desc"
-		}
-	}
-	query += " ORDER BY rl.created_at " + fetchSortDir + ", rl.id " + fetchSortDir
-	query += " LIMIT $" + util.IntToStr(argIndex)
-	args = append(args, fetchLimit)
+// logListParams holds the parsed, validated query inputs for the cursor log
+// endpoint: limit clamped to [1,200], direction/sortDir defaulted, filters, and
+// the decoded cursor.
+type logListParams struct {
+	limit      int
+	cursorStr  string
+	cursor     logCursor
+	direction  string
+	sortDir    string
+	modelID    string
+	providerID string
+	statusCode string
+	fromDate   string
+	toDate     string
+}
 
-	rows, err := h.dbPool.Pool().Query(ctx, query, args...)
-	if err != nil {
-		debuglog.Error("logs-cursor: failed to query logs", "error", err)
-		respondError(w, "failed to query logs", err, http.StatusInternalServerError)
-		return
+// parseLogListParams reads and validates the pagination/filter query params. On
+// an undecodable cursor it writes a 400 response and returns ok=false.
+func parseLogListParams(w http.ResponseWriter, r *http.Request) (logListParams, bool) {
+	p := logListParams{
+		limit:      util.GetIntQueryParam(r, "limit", 20),
+		cursorStr:  r.URL.Query().Get("cursor"),
+		direction:  r.URL.Query().Get("direction"),
+		sortDir:    r.URL.Query().Get("sort_dir"),
+		modelID:    r.URL.Query().Get("model_id"),
+		providerID: r.URL.Query().Get("provider_id"),
+		statusCode: r.URL.Query().Get("status_code"),
+		fromDate:   r.URL.Query().Get("from"),
+		toDate:     r.URL.Query().Get("to"),
 	}
-	defer rows.Close()
-
-	// limit is clamped to [1, 200] above; prealloc with the hard upper bound
-	// to satisfy CodeQL's uncontrolled-allocation-size check (user input must
-	// not flow into make() capacity even after clamping).
-	entries := make([]LogEntry, 0, 201) // limit+1 for has_more detection
-	for rows.Next() {
-		var entry LogEntry
-		err := rows.Scan(
-			&entry.ID, &entry.ProviderID, &entry.ProviderName, &entry.ModelID,
-			&entry.RequestHash, &entry.StatusCode, &entry.LatencyMs, &entry.DurationMs,
-			&entry.TTFTMs, &entry.ProxyOverheadMs,
-			&entry.ParseMs, &entry.FailoverLookupMs, &entry.ModelLookupMs, &entry.ProviderLookupMs, &entry.KeyDecryptMs,
-			&entry.DialMs, &entry.SettingsReadMs,
-			&entry.CacheHits,
-			&entry.TokensPerSecond,
-			&entry.TokensPrompt, &entry.TokensCompletion, &entry.TokensCompletionReasoning,
-			&entry.TokensPromptCacheHit, &entry.TokensPromptCacheMiss,
-			&entry.Streaming,
-			&entry.VirtualKeyName, &entry.VirtualKeyID, &entry.VirtualKeyDeleted,
-			&entry.ErrorMessage,
-			&entry.FailoverAttempt, &entry.State, &entry.CreatedAt,
-			&entry.ResponseHeaderMs,
-			&entry.ResolvedModelID,
-		)
-		if err != nil {
-			debuglog.Error("logs-cursor: row scan failed", "error", err)
-			continue
-		}
-		entries = append(entries, entry)
+	if p.limit < 1 {
+		p.limit = 1
 	}
-
-	// Determine has_after / has_before based on direction and fetched rows
-	var hasAfter, hasBefore bool
-	switch direction {
-	case "after":
-		// Fetching older entries (scroll down or initial load)
-		if len(entries) > limit {
-			hasAfter = true
-			entries = entries[:limit]
-		}
-		// For initial request (no cursor), we're at the newest — nothing before
-		// For cursor requests, assume there are newer entries until proven otherwise
-		// (a fetchBefore returning 0 entries will correct this on the client side)
-		if cursorStr != "" {
-			hasBefore = true
-		}
-	case "before":
-		// Fetching newer entries (scroll up)
-		if len(entries) > limit {
-			hasBefore = true
-			entries = entries[:limit]
-		}
-		// Items exist after the cursor by definition
-		if cursorStr != "" {
-			hasAfter = true
+	if p.limit > 200 {
+		p.limit = 200
+	}
+	if p.direction != "before" && p.direction != "after" {
+		p.direction = "after"
+	}
+	if p.sortDir != "asc" && p.sortDir != "desc" {
+		p.sortDir = "desc"
+	}
+	if p.cursorStr != "" {
+		if err := p.cursor.decode(p.cursorStr); err != nil {
+			respondBadRequest(w, "invalid cursor", err)
+			return p, false
 		}
 	}
-
-	// Reverse entries for backward pagination: we fetched in inverted sort order
-	// to get the correct window, but must return in the user's requested sort order.
-	if direction == "before" {
-		slices.Reverse(entries)
-	}
-
-	// Get total count for display (separate lightweight query)
-	var total int
-	countArgs := []interface{}{}
-	countArgIdx := 1
-	countQuery := "SELECT COUNT(*) FROM request_logs rl WHERE 1=1"
-	if modelID != "" {
-		countQuery += " AND rl.model_id ILIKE $" + util.IntToStr(countArgIdx)
-		countArgs = append(countArgs, "%"+modelID+"%")
-		countArgIdx++
-	}
-	if providerID != "" {
-		providerUUID, err := uuid.Parse(providerID)
-		if err == nil {
-			countQuery += " AND rl.provider_id = $" + util.IntToStr(countArgIdx)
-			countArgs = append(countArgs, providerUUID)
-			countArgIdx++
-		}
-	}
-	if statusCodeStr != "" {
-		if statusCodeStr == "4xx" {
-			countQuery += " AND rl.status_code >= 400 AND rl.status_code < 500"
-		} else if statusCodeStr == "5xx" {
-			countQuery += " AND rl.status_code >= 500"
-		} else if statusCode, err := strconv.Atoi(statusCodeStr); err == nil {
-			if statusCode == 0 {
-				countQuery += " AND (rl.status_code = 0 OR rl.status_code IS NULL)"
-			} else {
-				countQuery += " AND rl.status_code = $" + util.IntToStr(countArgIdx)
-				countArgs = append(countArgs, statusCode)
-				countArgIdx++
-			}
-		}
-	}
-	if fromDate != "" {
-		if parsedFrom, err := time.Parse(time.RFC3339, fromDate); err == nil {
-			countQuery += " AND rl.created_at >= $" + util.IntToStr(countArgIdx)
-			countArgs = append(countArgs, parsedFrom)
-			countArgIdx++
-		}
-	}
-	if toDate != "" {
-		if parsedTo, err := time.Parse(time.RFC3339, toDate); err == nil {
-			countQuery += " AND rl.created_at <= $" + util.IntToStr(countArgIdx)
-			countArgs = append(countArgs, parsedTo)
-		}
-	}
-	_ = h.dbPool.Pool().QueryRow(ctx, countQuery, countArgs...).Scan(&total)
-
-	response := LogsCursorResponse{
-		Entries:   entries,
-		Total:     total,
-		HasBefore: hasBefore,
-		HasAfter:  hasAfter,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		respondError(w, "failed to encode response", err, http.StatusInternalServerError)
-	}
+	return p, true
 }
 
 // logCursor is the keyset cursor for cursor-based log pagination.
@@ -602,92 +609,11 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := `
-        SELECT COUNT(*) OVER() AS total_count,
-               rl.id, COALESCE(rl.provider_id::text, ''),
-               CASE
-                   WHEN rl.provider_id IS NULL THEN ''
-                   WHEN p.name IS NOT NULL THEN p.name
-                   ELSE 'Deleted'
-               END,
-               rl.model_id,
-               COALESCE(rl.request_hash, ''), COALESCE(rl.status_code, 0),
-               COALESCE(rl.latency_ms, 0), COALESCE(rl.duration_ms, 0),
-               COALESCE(rl.ttft_ms, 0), COALESCE(rl.proxy_overhead_ms, 0),
-               COALESCE(rl.parse_ms, 0), COALESCE(rl.failover_lookup_ms, 0), COALESCE(rl.model_lookup_ms, 0), COALESCE(rl.provider_lookup_ms, 0), COALESCE(rl.key_decrypt_ms, 0),
-                COALESCE(rl.dial_ms, 0), COALESCE(rl.settings_read_ms, 0),
-                rl.cache_hits,
-                COALESCE(rl.tokens_per_second, 0),
-                COALESCE(rl.tokens_prompt, 0), COALESCE(rl.tokens_completion, 0),
-                COALESCE(rl.tokens_completion_reasoning, 0),
-                COALESCE(rl.tokens_prompt_cache_hit, 0), COALESCE(rl.tokens_prompt_cache_miss, 0),
-COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.virtual_key_id::text, ''),
-                CASE
-                    WHEN rl.virtual_key_id IS NULL OR rl.virtual_key_id::text = '' THEN false
-                    WHEN vk.id IS NULL THEN true
-                    ELSE false
-                END AS virtual_key_deleted,
-            COALESCE(rl.error_message, ''), COALESCE(rl.failover_attempt, 0), COALESCE(rl.state, 'completed'), rl.created_at,
-            COALESCE(rl.response_header_ms, 0),
-            COALESCE(rl.resolved_model_id, '')
-        FROM request_logs rl LEFT JOIN providers p ON rl.provider_id = p.id
-        LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
-        WHERE 1=1
-    `
+	query := "SELECT COUNT(*) OVER() AS total_count, " + logEntrySelectColumns
 
-	args := []interface{}{}
+	args := []any{}
 	argIndex := 1
-
-	if modelID != "" {
-		query += " AND rl.model_id ILIKE $" + util.IntToStr(argIndex)
-		args = append(args, "%"+modelID+"%")
-		argIndex++
-	}
-
-	if providerID != "" {
-		providerUUID, err := uuid.Parse(providerID)
-		if err == nil {
-			query += " AND rl.provider_id = $" + util.IntToStr(argIndex)
-			args = append(args, providerUUID)
-			argIndex++
-		}
-	}
-
-	if statusCodeStr != "" {
-		if statusCodeStr == "4xx" {
-			query += " AND rl.status_code >= 400 AND rl.status_code < 500"
-		} else if statusCodeStr == "5xx" {
-			query += " AND rl.status_code >= 500"
-		} else if statusCode, err := strconv.Atoi(statusCodeStr); err == nil && statusCode >= 0 {
-			if statusCode == 0 {
-				// COALESCE presents NULL status_code as 0 to the frontend,
-				// so "0 No Response" must match both actual 0 and NULL.
-				query += " AND (rl.status_code = 0 OR rl.status_code IS NULL)"
-			} else {
-				query += " AND rl.status_code = $" + util.IntToStr(argIndex)
-				args = append(args, statusCode)
-				argIndex++
-			}
-		}
-	}
-
-	if fromDate != "" {
-		parsedFrom, err := time.Parse(time.RFC3339, fromDate)
-		if err == nil {
-			query += " AND rl.created_at >= $" + util.IntToStr(argIndex)
-			args = append(args, parsedFrom)
-			argIndex++
-		}
-	}
-
-	if toDate != "" {
-		parsedTo, err := time.Parse(time.RFC3339, toDate)
-		if err == nil {
-			query += " AND rl.created_at <= $" + util.IntToStr(argIndex)
-			args = append(args, parsedTo)
-			argIndex++
-		}
-	}
+	query, args, argIndex = appendLogFilters(query, args, argIndex, modelID, providerID, statusCodeStr, fromDate, toDate)
 
 	sd := sortColumns[sortBy]
 	orderClause := " ORDER BY "
@@ -717,24 +643,8 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 	for rows.Next() {
 		var entry LogEntry
 		var totalCount int
-		err := rows.Scan(
-			&totalCount,
-			&entry.ID, &entry.ProviderID, &entry.ProviderName, &entry.ModelID,
-			&entry.RequestHash, &entry.StatusCode, &entry.LatencyMs, &entry.DurationMs,
-			&entry.TTFTMs, &entry.ProxyOverheadMs,
-			&entry.ParseMs, &entry.FailoverLookupMs, &entry.ModelLookupMs, &entry.ProviderLookupMs, &entry.KeyDecryptMs,
-			&entry.DialMs, &entry.SettingsReadMs,
-			&entry.CacheHits,
-			&entry.TokensPerSecond,
-			&entry.TokensPrompt, &entry.TokensCompletion, &entry.TokensCompletionReasoning,
-			&entry.TokensPromptCacheHit, &entry.TokensPromptCacheMiss,
-			&entry.Streaming,
-			&entry.VirtualKeyName, &entry.VirtualKeyID, &entry.VirtualKeyDeleted,
-			&entry.ErrorMessage,
-			&entry.FailoverAttempt, &entry.State, &entry.CreatedAt,
-			&entry.ResponseHeaderMs,
-			&entry.ResolvedModelID,
-		)
+		// Windowed COUNT(*) OVER() comes first; the rest is the shared projection.
+		err := rows.Scan(append([]any{&totalCount}, logEntryScanDests(&entry)...)...)
 		if err != nil {
 			debuglog.Error("logs: row scan failed", "error", err)
 			continue

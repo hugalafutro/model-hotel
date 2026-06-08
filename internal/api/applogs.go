@@ -297,6 +297,104 @@ func (h *Handler) getAppLogCounts(ctx context.Context) (map[string]int, map[stri
 	return levelCounts, sourceCounts
 }
 
+// appendAppLogFilters appends the shared level/source/search/from/to WHERE
+// conditions for app_logs (no table alias — app_logs is queried without joins).
+// It is the single source of truth for getAppLogsHistory and both
+// GetAppLogsCursor queries (data + total count).
+//
+// Date-range filters use created_at (DB insertion time), not timestamp (event
+// time), for consistency with the cursor endpoint's keyset pagination; app logs
+// are ingested in real-time so the two columns fall within the same filter window.
+func appendAppLogFilters(conditions []string, args []any, argIdx int, level, source, search, from, to string) ([]string, []any, int) {
+	if level != "" {
+		conditions = append(conditions, fmt.Sprintf("level = $%d", argIdx))
+		args = append(args, level)
+		argIdx++
+	}
+	if source != "" {
+		conditions = append(conditions, fmt.Sprintf("source = $%d", argIdx))
+		args = append(args, source)
+		argIdx++
+	}
+	if search != "" {
+		conditions = append(conditions, fmt.Sprintf("message ILIKE $%d", argIdx))
+		args = append(args, "%"+search+"%")
+		argIdx++
+	}
+	if from != "" {
+		if t, err := time.Parse(time.RFC3339, from); err == nil {
+			conditions = append(conditions, fmt.Sprintf("created_at >= $%d", argIdx))
+			args = append(args, t.UTC())
+			argIdx++
+		}
+	}
+	if to != "" {
+		if t, err := time.Parse(time.RFC3339, to); err == nil {
+			conditions = append(conditions, fmt.Sprintf("created_at <= $%d", argIdx))
+			args = append(args, t.UTC())
+			argIdx++
+		}
+	}
+	return conditions, args, argIdx
+}
+
+// appendAppLogKeysetPredicate appends the (created_at, id) cursor comparison for
+// app_logs. The operator is "<" when (direction=="after") == (sortDir=="DESC")
+// — scrolling older in desc, or "before" in asc — and ">" otherwise, collapsing
+// the four inlined (direction, sortDir) branches into one template.
+func appendAppLogKeysetPredicate(conditions []string, args []any, argIdx int, cursor appLogCursor, direction, sortDir string) ([]string, []any, int) {
+	op := ">"
+	if (direction == "after") == (sortDir == "DESC") {
+		op = "<"
+	}
+	conditions = append(conditions, fmt.Sprintf(
+		"(created_at %s $%d OR (created_at = $%d AND id %s $%d))",
+		op, argIdx, argIdx+1, op, argIdx+2,
+	))
+	args = append(args, cursor.CreatedAt, cursor.CreatedAt, cursor.ID)
+	argIdx += 3
+	return conditions, args, argIdx
+}
+
+// paginateAppLogs applies has_after/has_before detection (using the fetched-one-
+// extra signal and cursor presence), trims to limit, and reverses the slice for
+// backward pagination (which fetched in inverted sort order). Mirror of paginate
+// for AppLogEntry.
+func paginateAppLogs(entries []AppLogEntry, direction string, limit int, hasCursor bool) ([]AppLogEntry, bool, bool) {
+	var hasAfter, hasBefore bool
+	switch direction {
+	case "after":
+		// Fetching older entries (scroll down or initial load).
+		if len(entries) > limit {
+			hasAfter = true
+			entries = entries[:limit]
+		}
+		// For an initial request (no cursor) we're at the newest — nothing before.
+		// For cursor requests, assume newer entries exist until a fetchBefore proves
+		// otherwise.
+		if hasCursor {
+			hasBefore = true
+		}
+	case "before":
+		// Fetching newer entries (scroll up).
+		if len(entries) > limit {
+			hasBefore = true
+			entries = entries[:limit]
+		}
+		// Items exist after the cursor by definition.
+		if hasCursor {
+			hasAfter = true
+		}
+	}
+
+	// Reverse for backward pagination: we fetched in inverted sort order to get the
+	// correct window, but must return in the user's requested sort order.
+	if direction == "before" {
+		slices.Reverse(entries)
+	}
+	return entries, hasAfter, hasBefore
+}
+
 // getAppLogsHistory queries app_logs from the database with filtering and pagination.
 func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 	if h.dbPool == nil {
@@ -323,45 +421,8 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build WHERE clause
-	conditions := []string{}
-	args := []interface{}{}
-	argIdx := 1
-
-	if level := q.Get("level"); level != "" {
-		conditions = append(conditions, fmt.Sprintf("level = $%d", argIdx))
-		args = append(args, level)
-		argIdx++
-	}
-	if source := q.Get("source"); source != "" {
-		conditions = append(conditions, fmt.Sprintf("source = $%d", argIdx))
-		args = append(args, source)
-		argIdx++
-	}
-	if search := q.Get("search"); search != "" {
-		conditions = append(conditions, fmt.Sprintf("message ILIKE $%d", argIdx))
-		args = append(args, "%"+search+"%")
-		argIdx++
-	}
-	// Date range filters use created_at (DB insertion time), not timestamp (event time),
-	// for consistency with the cursor endpoint's keyset pagination on created_at.
-	// App logs are ingested in real-time via the ring buffer, so timestamp and
-	// created_at are typically within the same second. The date picker only provides
-	// day-level granularity (start/end of day), so the two columns will always fall
-	// within the same filter window in practice.
-	if from := q.Get("from"); from != "" {
-		if t, err := time.Parse(time.RFC3339, from); err == nil {
-			conditions = append(conditions, fmt.Sprintf("created_at >= $%d", argIdx))
-			args = append(args, t.UTC())
-			argIdx++
-		}
-	}
-	if to := q.Get("to"); to != "" {
-		if t, err := time.Parse(time.RFC3339, to); err == nil {
-			conditions = append(conditions, fmt.Sprintf("created_at <= $%d", argIdx))
-			args = append(args, t.UTC())
-			argIdx++
-		}
-	}
+	conditions, args, argIdx := appendAppLogFilters(nil, nil, 1,
+		q.Get("level"), q.Get("source"), q.Get("search"), q.Get("from"), q.Get("to"))
 
 	// Sort
 	// "time" maps to created_at for consistency with the cursor endpoint.
@@ -515,80 +576,13 @@ func (h *Handler) GetAppLogsCursor(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Build WHERE clause (same as getAppLogsHistory)
-	conditions := []string{}
-	args := []interface{}{}
-	argIdx := 1
-
-	if level := q.Get("level"); level != "" {
-		conditions = append(conditions, fmt.Sprintf("level = $%d", argIdx))
-		args = append(args, level)
-		argIdx++
-	}
-	if source := q.Get("source"); source != "" {
-		conditions = append(conditions, fmt.Sprintf("source = $%d", argIdx))
-		args = append(args, source)
-		argIdx++
-	}
-	if search := q.Get("search"); search != "" {
-		conditions = append(conditions, fmt.Sprintf("message ILIKE $%d", argIdx))
-		args = append(args, "%"+search+"%")
-		argIdx++
-	}
-	if from := q.Get("from"); from != "" {
-		if t, err := time.Parse(time.RFC3339, from); err == nil {
-			conditions = append(conditions, fmt.Sprintf("created_at >= $%d", argIdx))
-			args = append(args, t.UTC())
-			argIdx++
-		}
-	}
-	if to := q.Get("to"); to != "" {
-		if t, err := time.Parse(time.RFC3339, to); err == nil {
-			conditions = append(conditions, fmt.Sprintf("created_at <= $%d", argIdx))
-			args = append(args, t.UTC())
-			argIdx++
-		}
-	}
+	// Build WHERE clause (same filters as getAppLogsHistory)
+	conditions, args, argIdx := appendAppLogFilters(nil, nil, 1,
+		q.Get("level"), q.Get("source"), q.Get("search"), q.Get("from"), q.Get("to"))
 
 	// Apply cursor keyset predicate
 	if cursorStr != "" {
-		if direction == "after" {
-			if sortDir == "DESC" {
-				// Scrolling older: (created_at, id) < cursor
-				conditions = append(conditions, fmt.Sprintf(
-					"(created_at < $%d OR (created_at = $%d AND id < $%d))",
-					argIdx, argIdx+1, argIdx+2,
-				))
-				args = append(args, cursor.CreatedAt, cursor.CreatedAt, cursor.ID)
-				argIdx += 3
-			} else {
-				// Asc mode, after = newer
-				conditions = append(conditions, fmt.Sprintf(
-					"(created_at > $%d OR (created_at = $%d AND id > $%d))",
-					argIdx, argIdx+1, argIdx+2,
-				))
-				args = append(args, cursor.CreatedAt, cursor.CreatedAt, cursor.ID)
-				argIdx += 3
-			}
-		} else { // before
-			if sortDir == "DESC" {
-				// Scrolling newer: (created_at, id) > cursor
-				conditions = append(conditions, fmt.Sprintf(
-					"(created_at > $%d OR (created_at = $%d AND id > $%d))",
-					argIdx, argIdx+1, argIdx+2,
-				))
-				args = append(args, cursor.CreatedAt, cursor.CreatedAt, cursor.ID)
-				argIdx += 3
-			} else {
-				// Asc mode, before = older
-				conditions = append(conditions, fmt.Sprintf(
-					"(created_at < $%d OR (created_at = $%d AND id < $%d))",
-					argIdx, argIdx+1, argIdx+2,
-				))
-				args = append(args, cursor.CreatedAt, cursor.CreatedAt, cursor.ID)
-				argIdx += 3
-			}
-		}
+		conditions, args, argIdx = appendAppLogKeysetPredicate(conditions, args, argIdx, cursor, direction, sortDir)
 	}
 
 	whereClause := ""
@@ -639,73 +633,14 @@ func (h *Handler) GetAppLogsCursor(w http.ResponseWriter, r *http.Request) {
 		entries = append(entries, e)
 	}
 
-	// Determine has_after / has_before based on direction and fetched rows
-	var hasAfter, hasBefore bool
-	switch direction {
-	case "after":
-		// Fetching older entries (scroll down or initial load)
-		if len(entries) > limit {
-			hasAfter = true
-			entries = entries[:limit]
-		}
-		// For initial request (no cursor), we're at the newest — nothing before
-		// For cursor requests, assume newer entries exist until fetchBefore proves otherwise
-		if cursorStr != "" {
-			hasBefore = true
-		}
-	case "before":
-		// Fetching newer entries (scroll up)
-		if len(entries) > limit {
-			hasBefore = true
-			entries = entries[:limit]
-		}
-		// Items exist after the cursor by definition
-		if cursorStr != "" {
-			hasAfter = true
-		}
-	}
-
-	// Reverse entries for backward pagination: we fetched in inverted sort order
-	// to get the correct window, but must return in the user's requested sort order.
-	if direction == "before" {
-		slices.Reverse(entries)
-	}
+	entries, hasAfter, hasBefore := paginateAppLogs(entries, direction, limit, cursorStr != "")
 
 	// Get cached counts
 	levelCounts, sourceCounts := h.getAppLogCounts(ctx)
 
-	// Total count (with filters applied, but without cursor predicate)
-	totalCountArgs := []interface{}{}
-	totalCountArgIdx := 1
-	totalCountConditions := []string{}
-	if level := q.Get("level"); level != "" {
-		totalCountConditions = append(totalCountConditions, fmt.Sprintf("level = $%d", totalCountArgIdx))
-		totalCountArgs = append(totalCountArgs, level)
-		totalCountArgIdx++
-	}
-	if source := q.Get("source"); source != "" {
-		totalCountConditions = append(totalCountConditions, fmt.Sprintf("source = $%d", totalCountArgIdx))
-		totalCountArgs = append(totalCountArgs, source)
-		totalCountArgIdx++
-	}
-	if search := q.Get("search"); search != "" {
-		totalCountConditions = append(totalCountConditions, fmt.Sprintf("message ILIKE $%d", totalCountArgIdx))
-		totalCountArgs = append(totalCountArgs, "%"+search+"%")
-		totalCountArgIdx++
-	}
-	if from := q.Get("from"); from != "" {
-		if t, err := time.Parse(time.RFC3339, from); err == nil {
-			totalCountConditions = append(totalCountConditions, fmt.Sprintf("created_at >= $%d", totalCountArgIdx))
-			totalCountArgs = append(totalCountArgs, t.UTC())
-			totalCountArgIdx++
-		}
-	}
-	if to := q.Get("to"); to != "" {
-		if t, err := time.Parse(time.RFC3339, to); err == nil {
-			totalCountConditions = append(totalCountConditions, fmt.Sprintf("created_at <= $%d", totalCountArgIdx))
-			totalCountArgs = append(totalCountArgs, t.UTC())
-		}
-	}
+	// Total count (with filters applied, but without cursor predicate).
+	totalCountConditions, totalCountArgs, _ := appendAppLogFilters(nil, nil, 1,
+		q.Get("level"), q.Get("source"), q.Get("search"), q.Get("from"), q.Get("to"))
 
 	totalWhereClause := ""
 	if len(totalCountConditions) > 0 {
