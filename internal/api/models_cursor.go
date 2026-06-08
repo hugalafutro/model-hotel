@@ -35,7 +35,8 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p, ok := parseModelListParams(w, r)
+	q := r.URL.Query()
+	p, ok := parseModelListParams(w, q)
 	if !ok {
 		return
 	}
@@ -43,7 +44,7 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
-	query, args := buildModelListQuery(p, r.URL.Query())
+	query, args := buildModelListQuery(p, q)
 	rows, err := h.dbPool.Pool().Query(ctx, query, args...)
 	if err != nil {
 		respondError(w, "failed to query models", err, http.StatusInternalServerError)
@@ -67,7 +68,7 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, ModelsCursorResponse{
 		Entries:   entries,
-		Total:     h.countModels(ctx, r.URL.Query()),
+		Total:     h.countModels(ctx, q),
 		HasBefore: hasBefore,
 		HasAfter:  hasAfter,
 	})
@@ -134,8 +135,7 @@ type modelListParams struct {
 // limit clamp ([1,200], default 50), direction (after default), sort_dir
 // (ASC default), the sort_by whitelist, and the cursor (decode error → 400,
 // with the cursor's own sort_by taking precedence for consistency).
-func parseModelListParams(w http.ResponseWriter, r *http.Request) (modelListParams, bool) {
-	q := r.URL.Query()
+func parseModelListParams(w http.ResponseWriter, q url.Values) (modelListParams, bool) {
 	p := modelListParams{
 		limit:     50,
 		cursorStr: q.Get("cursor"),

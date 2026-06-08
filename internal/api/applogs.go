@@ -404,8 +404,7 @@ type appLogCursorParams struct {
 // parseAppLogCursorParams reads and validates the cursor query parameters: limit
 // clamp ([1,200], default 20), direction (after default), sort_dir (DESC
 // default), and the cursor (decode error → 400).
-func parseAppLogCursorParams(w http.ResponseWriter, r *http.Request) (appLogCursorParams, bool) {
-	q := r.URL.Query()
+func parseAppLogCursorParams(w http.ResponseWriter, q url.Values) (appLogCursorParams, bool) {
 	p := appLogCursorParams{
 		limit:     20,
 		cursorStr: q.Get("cursor"),
@@ -467,8 +466,7 @@ type appLogHistoryParams struct {
 // parseAppLogHistoryParams reads page (default 1), per_page (clamp [1,100],
 // default 20), the sort_by column (whitelist, "time" -> created_at), and sort_dir
 // (DESC default).
-func parseAppLogHistoryParams(r *http.Request) appLogHistoryParams {
-	q := r.URL.Query()
+func parseAppLogHistoryParams(q url.Values) appLogHistoryParams {
 	p := appLogHistoryParams{page: 1, perPage: 20, sortCol: "created_at", sortDir: "DESC"}
 	if v := q.Get("page"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n >= 1 {
@@ -521,7 +519,8 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p := parseAppLogHistoryParams(r)
+	q := r.URL.Query()
+	p := parseAppLogHistoryParams(q)
 
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
@@ -529,7 +528,7 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 	// Retrieve cached level/source counts (refreshed every appLogCountCacheTTL).
 	levelCounts, sourceCounts := h.getAppLogCounts(ctx)
 
-	total, err := h.countAppLogs(ctx, r.URL.Query())
+	total, err := h.countAppLogs(ctx, q)
 	if err != nil {
 		if encErr := json.NewEncoder(w).Encode(map[string]string{"error": "failed to count logs"}); encErr != nil {
 			debuglog.Error("applogs: failed to encode error response", "error", encErr)
@@ -537,7 +536,7 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query, args := buildAppLogHistoryQuery(p, r.URL.Query())
+	query, args := buildAppLogHistoryQuery(p, q)
 	rows, err := h.dbPool.Pool().Query(ctx, query, args...)
 	if err != nil {
 		if err := json.NewEncoder(w).Encode(map[string]string{"error": "failed to query logs"}); err != nil {
@@ -616,7 +615,8 @@ func (h *Handler) GetAppLogsCursor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p, ok := parseAppLogCursorParams(w, r)
+	q := r.URL.Query()
+	p, ok := parseAppLogCursorParams(w, q)
 	if !ok {
 		return
 	}
@@ -624,7 +624,7 @@ func (h *Handler) GetAppLogsCursor(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
-	query, args := buildAppLogCursorQuery(p, r.URL.Query())
+	query, args := buildAppLogCursorQuery(p, q)
 	rows, err := h.dbPool.Pool().Query(ctx, query, args...)
 	if err != nil {
 		respondError(w, "failed to query app logs", err, http.StatusInternalServerError)
@@ -646,7 +646,7 @@ func (h *Handler) GetAppLogsCursor(w http.ResponseWriter, r *http.Request) {
 	entries, hasAfter, hasBefore := paginateCursor(entries, p.direction, p.limit, p.cursorStr != "")
 
 	levelCounts, sourceCounts := h.getAppLogCounts(ctx)
-	total, _ := h.countAppLogs(ctx, r.URL.Query()) // best-effort
+	total, _ := h.countAppLogs(ctx, q) // best-effort
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(AppLogsCursorResponse{
