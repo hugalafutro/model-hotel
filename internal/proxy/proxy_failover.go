@@ -179,64 +179,75 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 
 	debuglog.Debug("proxy: upstream responded OK, dispatching to handler", "stream", st.isStreaming, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
 	if st.isStreaming {
-		ttftTimeout := h.settingsRepo.GetDuration(r.Context(), "ttft_timeout", 60*time.Second)
-		stallTimeout := h.settingsRepo.GetDuration(r.Context(), "stream_stall_timeout", 30*time.Second)
-
-		opts := streamOptions{
-			responseHeaderMs:   responseHeaderMs,
-			streamStallTimeout: stallTimeout,
-			providerID:         candidate.provider.ID,
-			providerName:       candidate.provider.Name,
-			circuitBreakerOn:   st.circuitBreakerEnabled,
-			proxyOverheadMs:    st.proxyOverhead,
-			parseMs:            st.parseMs,
-			failoverLookupMs:   st.timings.failoverLookupMs,
-			modelLookupMs:      st.timings.modelLookupMs,
-			providerLookupMs:   st.timings.providerLookupMs,
-			keyDecryptMs:       st.timings.keyDecryptMs,
-			dialMs:             st.timings.dialMs,
-			settingsReadMs:     st.timings.settingsReadMs,
-			vkHash:             st.vkHash,
-			attempt:            attempt,
-			cancelOrigin:       streamCancelOrigin,
-		}
-
-		if ttftTimeout > 0 {
-			// TTFT probe: read until first real data chunk.
-			probeBuf, trueTtftMs, probeErr := h.probeFirstToken(r.Context(), resp.Body, ttftTimeout, st.startTime)
-			if probeErr != nil {
-				// Timeout or read error — failover. probeFirstToken may
-				// or may not have closed the body (only on DeadlineExceeded);
-				// close it unconditionally to release the connection.
-				_ = resp.Body.Close()
-				// Skip circuit-breaker recording when the client disconnected:
-				// the probe failed because r.Context() was cancelled, not because
-				// the provider was unhealthy.
-				if st.circuitBreakerEnabled && r.Context().Err() == nil {
-					h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
-				}
-				st.lastErr = fmt.Sprintf("attempt %d: %v", attempt, probeErr)
-				logData.failoverAttempt = attempt
-				logData.responseHeaderMs = responseHeaderMs
-				debuglog.Warn("proxy: TTFT probe failed", "attempt", attempt+1, "provider", candidate.provider.Name, "error", probeErr)
-				return outcomeFailover
-			}
-			// First token confirmed (or [DONE] received).
-			if st.circuitBreakerEnabled {
-				h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
-			}
-			opts.preReadBuf = probeBuf
-			opts.trueTtftMs = trueTtftMs
-		} else if st.circuitBreakerEnabled {
-			// Disabled — immediate commit (backward compat).
-			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
-		}
-
-		h.handleStreamingResponse(w, r, logData, resp, st.startTime, opts)
-		return outcomeServed
+		return h.dispatchStreaming(w, r, st, candidate, resp, attempt, responseHeaderMs, streamCancelOrigin)
 	}
 
 	h.handleNonStreamingResponse(w, r, logData, resp, st.startTime, st.proxyOverhead, st.parseMs, st.timings.failoverLookupMs, st.timings.modelLookupMs, st.timings.providerLookupMs, st.timings.keyDecryptMs, st.timings.dialMs, st.timings.settingsReadMs, responseHeaderMs, st.vkHash, attempt)
+	return outcomeServed
+}
+
+// dispatchStreaming serves a streaming 200 response (phase H): read the TTFT and
+// stall timeouts, build the streamOptions, run the TTFT probe (on success commit
+// the breaker and stash the pre-read buffer; on failure close the body, record a
+// breaker failure unless the client disconnected, and fail over), then hand off
+// to handleStreamingResponse. Returns outcomeServed on a served stream or
+// outcomeFailover when the probe fails.
+func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, resp *http.Response, attempt int, responseHeaderMs float64, streamCancelOrigin string) candidateOutcome {
+	logData := st.logData
+	ttftTimeout := h.settingsRepo.GetDuration(r.Context(), "ttft_timeout", 60*time.Second)
+	stallTimeout := h.settingsRepo.GetDuration(r.Context(), "stream_stall_timeout", 30*time.Second)
+
+	opts := streamOptions{
+		responseHeaderMs:   responseHeaderMs,
+		streamStallTimeout: stallTimeout,
+		providerID:         candidate.provider.ID,
+		providerName:       candidate.provider.Name,
+		circuitBreakerOn:   st.circuitBreakerEnabled,
+		proxyOverheadMs:    st.proxyOverhead,
+		parseMs:            st.parseMs,
+		failoverLookupMs:   st.timings.failoverLookupMs,
+		modelLookupMs:      st.timings.modelLookupMs,
+		providerLookupMs:   st.timings.providerLookupMs,
+		keyDecryptMs:       st.timings.keyDecryptMs,
+		dialMs:             st.timings.dialMs,
+		settingsReadMs:     st.timings.settingsReadMs,
+		vkHash:             st.vkHash,
+		attempt:            attempt,
+		cancelOrigin:       streamCancelOrigin,
+	}
+
+	if ttftTimeout > 0 {
+		// TTFT probe: read until first real data chunk.
+		probeBuf, trueTtftMs, probeErr := h.probeFirstToken(r.Context(), resp.Body, ttftTimeout, st.startTime)
+		if probeErr != nil {
+			// Timeout or read error — failover. probeFirstToken may
+			// or may not have closed the body (only on DeadlineExceeded);
+			// close it unconditionally to release the connection.
+			_ = resp.Body.Close()
+			// Skip circuit-breaker recording when the client disconnected:
+			// the probe failed because r.Context() was cancelled, not because
+			// the provider was unhealthy.
+			if st.circuitBreakerEnabled && r.Context().Err() == nil {
+				h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
+			}
+			st.lastErr = fmt.Sprintf("attempt %d: %v", attempt, probeErr)
+			logData.failoverAttempt = attempt
+			logData.responseHeaderMs = responseHeaderMs
+			debuglog.Warn("proxy: TTFT probe failed", "attempt", attempt+1, "provider", candidate.provider.Name, "error", probeErr)
+			return outcomeFailover
+		}
+		// First token confirmed (or [DONE] received).
+		if st.circuitBreakerEnabled {
+			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
+		}
+		opts.preReadBuf = probeBuf
+		opts.trueTtftMs = trueTtftMs
+	} else if st.circuitBreakerEnabled {
+		// Disabled — immediate commit (backward compat).
+		h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
+	}
+
+	h.handleStreamingResponse(w, r, logData, resp, st.startTime, opts)
 	return outcomeServed
 }
 
