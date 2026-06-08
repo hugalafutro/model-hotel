@@ -12,8 +12,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
 // ListModelsCursor returns models using keyset (cursor) pagination.
@@ -110,7 +112,7 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 	}
 	orderClause := fmt.Sprintf(" ORDER BY %s %s, m.id %s", orderCol, fetchSortDir, fetchSortDir)
 
-	dataSQL := "SELECT m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, COALESCE(m.owned_by, ''), m.enabled, m.disabled_manually, m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name FROM models m JOIN providers p ON m.provider_id = p.id" +
+	dataSQL := "SELECT " + modelSelectColumns + modelFromJoin +
 		whereClause + orderClause + fmt.Sprintf(" LIMIT $%d", argIdx)
 	args = append(args, fetchLimit)
 
@@ -123,63 +125,12 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 
 	entries := make([]ModelResponse, 0, limit)
 	for rows.Next() {
-		var m struct {
-			ID                           uuid.UUID
-			ProviderID                   uuid.UUID
-			ModelID                      string
-			Name                         string
-			Description                  string
-			DisplayName                  string
-			Capabilities                 string
-			Params                       string
-			Modality                     string
-			InputModalities              string
-			OutputModalities             string
-			ContextLength                *int
-			MaxOutputTokens              *int
-			InputPricePerMillion         *float64
-			InputPricePerMillionCacheHit *float64
-			OutputPricePerMillion        *float64
-			OwnedBy                      string
-			Enabled                      bool
-			DisabledManually             bool
-			CreatedAt                    time.Time
-			LastSeenAt                   time.Time
-			ProviderName                 string
-		}
-		if err := rows.Scan(
-			&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName,
-			&m.Capabilities, &m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
-			&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
-			&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName,
-		); err != nil {
+		m, err := scanModelRow(rows)
+		if err != nil {
 			debuglog.Error("cursor row scan failed", "error", err)
 			continue
 		}
-		entries = append(entries, ModelResponse{
-			ID:                           m.ID.String(),
-			ModelID:                      m.ModelID,
-			Name:                         m.Name,
-			Description:                  m.Description,
-			DisplayName:                  m.DisplayName,
-			ProviderID:                   m.ProviderID.String(),
-			ProviderName:                 m.ProviderName,
-			Capabilities:                 m.Capabilities,
-			Params:                       m.Params,
-			Modality:                     m.Modality,
-			InputModalities:              m.InputModalities,
-			OutputModalities:             m.OutputModalities,
-			ContextLength:                m.ContextLength,
-			MaxOutputTokens:              m.MaxOutputTokens,
-			InputPricePerMillion:         m.InputPricePerMillion,
-			InputPricePerMillionCacheHit: m.InputPricePerMillionCacheHit,
-			OutputPricePerMillion:        m.OutputPricePerMillion,
-			OwnedBy:                      m.OwnedBy,
-			Enabled:                      m.Enabled,
-			DisabledManually:             m.DisabledManually,
-			CreatedAt:                    m.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-			LastSeenAt:                   m.LastSeenAt.Format("2006-01-02T15:04:05Z07:00"),
-		})
+		entries = append(entries, modelToResponse(m))
 	}
 
 	// Determine has_after / has_before based on direction and fetched rows
@@ -218,7 +169,7 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var total int
-	_ = h.dbPool.Pool().QueryRow(ctx, "SELECT COUNT(*) FROM models m JOIN providers p ON m.provider_id = p.id"+totalWhereClause, totalCountArgs...).Scan(&total)
+	_ = h.dbPool.Pool().QueryRow(ctx, "SELECT COUNT(*)"+modelFromJoin+totalWhereClause, totalCountArgs...).Scan(&total)
 
 	writeJSON(w, ModelsCursorResponse{
 		Entries:   entries,
@@ -226,6 +177,27 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 		HasBefore: hasBefore,
 		HasAfter:  hasAfter,
 	})
+}
+
+// modelSelectColumns is the cursor data query's column projection (models joined
+// to providers for p.name). Its order matches scanModelRow exactly.
+const modelSelectColumns = "m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, COALESCE(m.owned_by, ''), m.enabled, m.disabled_manually, m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name"
+
+// modelFromJoin is the shared FROM/JOIN tail for the models cursor data and
+// count queries.
+const modelFromJoin = " FROM models m JOIN providers p ON m.provider_id = p.id"
+
+// scanModelRow scans one row of the modelSelectColumns projection into a
+// model.Model, so modelToResponse can map it — the same mapping ListModels uses.
+func scanModelRow(rows pgx.Rows) (model.Model, error) {
+	var m model.Model
+	err := rows.Scan(
+		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName,
+		&m.Capabilities, &m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
+		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
+		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName,
+	)
+	return m, err
 }
 
 // modelSortColumn returns the SQL column expression for a given sort_by value.
