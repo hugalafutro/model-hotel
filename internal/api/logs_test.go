@@ -1092,6 +1092,389 @@ func TestListLogsCursor_BackwardPagination(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// appendLogFilters unit tests
+// ---------------------------------------------------------------------------
+
+func TestAppendLogFilters_NoFilters(t *testing.T) {
+	query, args, idx := appendLogFilters("SELECT * FROM t WHERE 1=1", nil, 1, "", "", "", "", "")
+	if !strings.Contains(query, "WHERE 1=1") {
+		t.Errorf("base query should be preserved, got %q", query)
+	}
+	if len(args) != 0 {
+		t.Errorf("expected 0 args, got %d", len(args))
+	}
+	if idx != 1 {
+		t.Errorf("expected argIdx=1, got %d", idx)
+	}
+}
+
+func TestAppendLogFilters_ModelID(t *testing.T) {
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "gpt-4", "", "", "", "")
+	if !strings.Contains(query, `AND rl.model_id ILIKE $1`) {
+		t.Errorf("expected model_id ILIKE filter, got %q", query)
+	}
+	if args[0] != "%gpt-4%" {
+		t.Errorf("expected %%gpt-4%%, got %v", args[0])
+	}
+	if idx != 2 {
+		t.Errorf("expected argIdx=2, got %d", idx)
+	}
+}
+
+func TestAppendLogFilters_ProviderID_ValidUUID(t *testing.T) {
+	validUUID := uuid.New().String()
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", validUUID, "", "", "")
+	if !strings.Contains(query, "AND rl.provider_id = $1") {
+		t.Errorf("expected provider_id filter for valid UUID, got %q", query)
+	}
+	if args[0] != uuid.MustParse(validUUID) {
+		t.Errorf("expected parsed UUID arg, got %v", args[0])
+	}
+	if idx != 2 {
+		t.Errorf("expected argIdx=2, got %d", idx)
+	}
+}
+
+func TestAppendLogFilters_ProviderID_InvalidUUID(t *testing.T) {
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "not-a-uuid", "", "", "")
+	if strings.Contains(query, "provider_id") {
+		t.Errorf("invalid UUID should not add provider_id filter, got %q", query)
+	}
+	if len(args) != 0 {
+		t.Errorf("expected 0 args for invalid UUID, got %d", len(args))
+	}
+	if idx != 1 {
+		t.Errorf("expected argIdx=1, got %d", idx)
+	}
+}
+
+func TestAppendLogFilters_StatusCode4xx(t *testing.T) {
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "4xx", "", "")
+	if !strings.Contains(query, "AND rl.status_code >= 400 AND rl.status_code < 500") {
+		t.Errorf("expected 4xx range filter, got %q", query)
+	}
+	if len(args) != 0 {
+		t.Errorf("4xx filter should not add args, got %d", len(args))
+	}
+	if idx != 1 {
+		t.Errorf("expected argIdx=1, got %d", idx)
+	}
+}
+
+func TestAppendLogFilters_StatusCode5xx(t *testing.T) {
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "5xx", "", "")
+	if !strings.Contains(query, "AND rl.status_code >= 500") {
+		t.Errorf("expected 5xx range filter, got %q", query)
+	}
+	if len(args) != 0 {
+		t.Errorf("5xx filter should not add args, got %d", len(args))
+	}
+	if idx != 1 {
+		t.Errorf("expected argIdx=1, got %d", idx)
+	}
+}
+
+func TestAppendLogFilters_StatusCodeSpecific(t *testing.T) {
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "404", "", "")
+	if !strings.Contains(query, "AND rl.status_code = $1") {
+		t.Errorf("expected specific status code filter, got %q", query)
+	}
+	if args[0] != 404 {
+		t.Errorf("expected arg 404, got %v", args[0])
+	}
+	if idx != 2 {
+		t.Errorf("expected argIdx=2, got %d", idx)
+	}
+}
+
+func TestAppendLogFilters_StatusCodeZero(t *testing.T) {
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "0", "", "")
+	if !strings.Contains(query, "AND (rl.status_code = 0 OR rl.status_code IS NULL)") {
+		t.Errorf("expected status_code=0 or NULL filter, got %q", query)
+	}
+	if len(args) != 0 {
+		t.Errorf("status_code=0 should not add args, got %d", len(args))
+	}
+	if idx != 1 {
+		t.Errorf("expected argIdx=1, got %d", idx)
+	}
+}
+
+func TestAppendLogFilters_StatusCodeNegative(t *testing.T) {
+	query, args, _ := appendLogFilters("WHERE 1=1", nil, 1, "", "", "-1", "", "")
+	if strings.Contains(query, "status_code") {
+		t.Errorf("negative status code should be ignored, got %q", query)
+	}
+	if len(args) != 0 {
+		t.Errorf("expected 0 args for negative status code, got %d", len(args))
+	}
+}
+
+func TestAppendLogFilters_StatusCodeNonNumeric(t *testing.T) {
+	query, args, _ := appendLogFilters("WHERE 1=1", nil, 1, "", "", "abc", "", "")
+	if strings.Contains(query, "status_code") {
+		t.Errorf("non-numeric status code should be ignored, got %q", query)
+	}
+	if len(args) != 0 {
+		t.Errorf("expected 0 args for non-numeric status code, got %d", len(args))
+	}
+}
+
+func TestAppendLogFilters_FromDate(t *testing.T) {
+	from := "2024-01-01T00:00:00Z"
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "", from, "")
+	if !strings.Contains(query, "AND rl.created_at >= $1") {
+		t.Errorf("expected from date filter, got %q", query)
+	}
+	if len(args) != 1 {
+		t.Fatalf("expected 1 arg, got %d", len(args))
+	}
+	if idx != 2 {
+		t.Errorf("expected argIdx=2, got %d", idx)
+	}
+}
+
+func TestAppendLogFilters_ToDate(t *testing.T) {
+	to := "2024-12-31T23:59:59Z"
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "", "", to)
+	if !strings.Contains(query, "AND rl.created_at <= $1") {
+		t.Errorf("expected to date filter, got %q", query)
+	}
+	if len(args) != 1 {
+		t.Fatalf("expected 1 arg, got %d", len(args))
+	}
+	if idx != 2 {
+		t.Errorf("expected argIdx=2, got %d", idx)
+	}
+}
+
+func TestAppendLogFilters_InvalidFromDate(t *testing.T) {
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "", "not-a-date", "")
+	if strings.Contains(query, "rl.created_at >=") {
+		t.Errorf("invalid from date should be ignored, got %q", query)
+	}
+	if len(args) != 0 {
+		t.Errorf("expected 0 args for invalid from, got %d", len(args))
+	}
+	if idx != 1 {
+		t.Errorf("expected argIdx=1, got %d", idx)
+	}
+}
+
+func TestAppendLogFilters_InvalidToDate(t *testing.T) {
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "", "", "garbage")
+	if strings.Contains(query, "rl.created_at <=") {
+		t.Errorf("invalid to date should be ignored, got %q", query)
+	}
+	if len(args) != 0 {
+		t.Errorf("expected 0 args for invalid to, got %d", len(args))
+	}
+	if idx != 1 {
+		t.Errorf("expected argIdx=1, got %d", idx)
+	}
+}
+
+func TestAppendLogFilters_AllFilters(t *testing.T) {
+	validUUID := uuid.New().String()
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 3, "gpt-4", validUUID, "404", "2024-01-01T00:00:00Z", "2024-12-31T23:59:59Z")
+	if !strings.Contains(query, `AND rl.model_id ILIKE $3`) {
+		t.Errorf("expected model_id filter at $3, got %q", query)
+	}
+	if !strings.Contains(query, "AND rl.provider_id = $4") {
+		t.Errorf("expected provider_id filter at $4, got %q", query)
+	}
+	if !strings.Contains(query, "AND rl.status_code = $5") {
+		t.Errorf("expected status_code filter at $5, got %q", query)
+	}
+	if !strings.Contains(query, "AND rl.created_at >= $6") {
+		t.Errorf("expected from date filter at $6, got %q", query)
+	}
+	if !strings.Contains(query, "AND rl.created_at <= $7") {
+		t.Errorf("expected to date filter at $7, got %q", query)
+	}
+	if len(args) != 5 {
+		t.Fatalf("expected 5 args, got %d", len(args))
+	}
+	if idx != 8 {
+		t.Errorf("expected argIdx=8, got %d", idx)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// appendKeysetPredicate unit tests
+// ---------------------------------------------------------------------------
+
+func TestAppendKeysetPredicate_AfterDesc_ReturnsLessThan(t *testing.T) {
+	ts := time.Now()
+	cursor := logCursor{CreatedAt: ts, ID: "test-id"}
+	query, args, idx := appendKeysetPredicate("WHERE 1=1", nil, 1, cursor, "after", "desc")
+	if !strings.Contains(query, "rl.created_at < $1") {
+		t.Errorf("after+desc should use '<', got %q", query)
+	}
+	if !strings.Contains(query, "rl.id < $3") {
+		t.Errorf("after+desc id should use '<', got %q", query)
+	}
+	if len(args) != 3 {
+		t.Fatalf("expected 3 args, got %d", len(args))
+	}
+	if idx != 4 {
+		t.Errorf("expected argIdx=4, got %d", idx)
+	}
+}
+
+func TestAppendKeysetPredicate_BeforeAsc_ReturnsLessThan(t *testing.T) {
+	ts := time.Now()
+	cursor := logCursor{CreatedAt: ts, ID: "test-id"}
+	query, _, _ := appendKeysetPredicate("WHERE 1=1", nil, 1, cursor, "before", "asc")
+	if !strings.Contains(query, "rl.created_at < $1") {
+		t.Errorf("before+asc should use '<', got %q", query)
+	}
+}
+
+func TestAppendKeysetPredicate_AfterAsc_ReturnsGreaterThan(t *testing.T) {
+	ts := time.Now()
+	cursor := logCursor{CreatedAt: ts, ID: "test-id"}
+	query, _, _ := appendKeysetPredicate("WHERE 1=1", nil, 1, cursor, "after", "asc")
+	if !strings.Contains(query, "rl.created_at > $1") {
+		t.Errorf("after+asc should use '>', got %q", query)
+	}
+}
+
+func TestAppendKeysetPredicate_BeforeDesc_ReturnsGreaterThan(t *testing.T) {
+	ts := time.Now()
+	cursor := logCursor{CreatedAt: ts, ID: "test-id"}
+	query, _, _ := appendKeysetPredicate("WHERE 1=1", nil, 1, cursor, "before", "desc")
+	if !strings.Contains(query, "rl.created_at > $1") {
+		t.Errorf("before+desc should use '>', got %q", query)
+	}
+}
+
+func TestAppendKeysetPredicate_ArgIndexOffset(t *testing.T) {
+	ts := time.Now()
+	cursor := logCursor{CreatedAt: ts, ID: "test-id"}
+	query, args, idx := appendKeysetPredicate("WHERE 1=1", nil, 5, cursor, "after", "desc")
+	if !strings.Contains(query, "rl.created_at < $5") {
+		t.Errorf("expected arg starting at $5, got %q", query)
+	}
+	if !strings.Contains(query, "rl.id < $7") {
+		t.Errorf("expected id arg at $7, got %q", query)
+	}
+	if len(args) != 3 {
+		t.Fatalf("expected 3 args, got %d", len(args))
+	}
+	if idx != 8 {
+		t.Errorf("expected argIdx=8, got %d", idx)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// buildLogListQuery unit tests
+// ---------------------------------------------------------------------------
+
+func TestBuildLogListQuery_NoCursorNoFilters(t *testing.T) {
+	p := logListParams{
+		limit:     20,
+		sortDir:   "desc",
+		direction: "after",
+	}
+	query, args := buildLogListQuery(p)
+
+	if !strings.Contains(query, "SELECT "+strings.TrimSpace(logEntrySelectColumns[:20])) {
+		t.Errorf("expected SELECT with log columns, got %q", query[:60])
+	}
+	if !strings.Contains(query, "ORDER BY rl.created_at desc, rl.id desc") {
+		t.Errorf("expected ORDER BY rl.created_at desc, rl.id desc, got %q", query)
+	}
+	if !strings.Contains(query, "LIMIT") {
+		t.Errorf("expected LIMIT clause, got %q", query)
+	}
+	if len(args) != 1 {
+		t.Fatalf("expected 1 arg (limit+1), got %d", len(args))
+	}
+	if args[0] != 21 {
+		t.Errorf("expected limit arg 21, got %v", args[0])
+	}
+}
+
+func TestBuildLogListQuery_WithFilters(t *testing.T) {
+	p := logListParams{
+		limit:      10,
+		sortDir:    "desc",
+		direction:  "after",
+		modelID:    "gpt-4",
+		statusCode: "4xx",
+	}
+	query, _ := buildLogListQuery(p)
+
+	if !strings.Contains(query, `rl.model_id ILIKE`) {
+		t.Errorf("expected model_id filter, got %q", query)
+	}
+	if !strings.Contains(query, "rl.status_code >= 400 AND rl.status_code < 500") {
+		t.Errorf("expected 4xx status code filter, got %q", query)
+	}
+}
+
+func TestBuildLogListQuery_WithCursor(t *testing.T) {
+	ts := time.Now()
+	cursor := logCursor{CreatedAt: ts, ID: "cursor-id"}
+	p := logListParams{
+		limit:     20,
+		sortDir:   "desc",
+		direction: "after",
+		cursorStr: cursor.encode(),
+		cursor:    cursor,
+	}
+	query, args := buildLogListQuery(p)
+
+	if !strings.Contains(query, "rl.created_at < $") {
+		t.Errorf("after+desc should produce keyset with '<', got %q", query)
+	}
+	// 3 keyset args + 1 limit arg
+	if len(args) != 4 {
+		t.Fatalf("expected 4 args, got %d", len(args))
+	}
+}
+
+func TestBuildLogListQuery_BackwardDescInvertsSort(t *testing.T) {
+	p := logListParams{
+		limit:     20,
+		sortDir:   "desc",
+		direction: "before",
+	}
+	query, _ := buildLogListQuery(p)
+
+	if !strings.Contains(query, "ORDER BY rl.created_at asc, rl.id asc") {
+		t.Errorf("before+desc should invert to asc sort in fetch query, got %q", query)
+	}
+}
+
+func TestBuildLogListQuery_BackwardAscInvertsSort(t *testing.T) {
+	p := logListParams{
+		limit:     20,
+		sortDir:   "asc",
+		direction: "before",
+	}
+	query, _ := buildLogListQuery(p)
+
+	if !strings.Contains(query, "ORDER BY rl.created_at desc, rl.id desc") {
+		t.Errorf("before+asc should invert to desc sort in fetch query, got %q", query)
+	}
+}
+
+func TestBuildLogListQuery_LimitPlusOne(t *testing.T) {
+	p := logListParams{
+		limit:     5,
+		sortDir:   "desc",
+		direction: "after",
+	}
+	_, args := buildLogListQuery(p)
+
+	if args[len(args)-1] != 6 {
+		t.Errorf("expected limit+1=6, got %v", args[len(args)-1])
+	}
+}
+
+// ---------------------------------------------------------------------------
 // GetLog Tests
 // ---------------------------------------------------------------------------
 
