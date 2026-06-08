@@ -943,10 +943,12 @@ export function FailoverGroups() {
 				<ProviderDisableModal
 					open={showProviderModal}
 					onClose={() => setShowProviderModal(false)}
-					providers={(providers ?? []).map((p) => ({
-						id: p.id,
-						name: p.name,
-					}))}
+					providers={(providers ?? [])
+						.filter((p) => providerNames.includes(p.name))
+						.map((p) => ({
+							id: p.id,
+							name: p.name,
+						}))}
 					disabledProviders={disabledProviders}
 					onToggleProvider={handleProviderToggle}
 					isProcessing={isProviderToggling}
