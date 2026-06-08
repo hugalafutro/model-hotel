@@ -15,7 +15,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
-	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
@@ -1575,26 +1574,7 @@ func TestListModels_MultipleProviders(t *testing.T) {
 	limiter := ratelimit.NewLimiter(settingsRepo)
 	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
 
-	handler := &Handler{
-		cfg:            &config.Config{MasterKey: "test-master-key"},
-		settingsRepo:   settingsRepo,
-		failoverRepo:   failoverRepo,
-		modelRepo:      modelRepo,
-		providerRepo:   providerRepo,
-		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
-		rateLimiter:    limiter,
-		ipLimiter:      ipLimiter,
-		dbPool:         pool,
-		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
-		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
-			ResponseHeaderTimeout: 120 * time.Second,
-			IdleConnTimeout:       120 * time.Second,
-			MaxIdleConns:          200,
-			MaxIdleConnsPerHost:   20,
-		},
-		safeDialer: NewSafeDialer(nil, nil),
-	}
+	handler := newCanonicalHandler(t, "test-master-key", pool, settingsRepo, failoverRepo, modelRepo, providerRepo, virtualKeyRepo, limiter, ipLimiter)
 
 	// Create two providers
 	keyPair1, err := auth.Encrypt("test-api-key-1", "test-master-key")
@@ -1743,26 +1723,7 @@ func TestListModels_NoModels(t *testing.T) {
 	limiter := ratelimit.NewLimiter(settingsRepo)
 	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
 
-	handler := &Handler{
-		cfg:            &config.Config{MasterKey: "test-master-key"},
-		settingsRepo:   settingsRepo,
-		failoverRepo:   failoverRepo,
-		modelRepo:      modelRepo,
-		providerRepo:   providerRepo,
-		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
-		rateLimiter:    limiter,
-		ipLimiter:      ipLimiter,
-		dbPool:         pool,
-		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
-		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
-			ResponseHeaderTimeout: 120 * time.Second,
-			IdleConnTimeout:       120 * time.Second,
-			MaxIdleConns:          200,
-			MaxIdleConnsPerHost:   20,
-		},
-		safeDialer: NewSafeDialer(nil, nil),
-	}
+	handler := newCanonicalHandler(t, "test-master-key", pool, settingsRepo, failoverRepo, modelRepo, providerRepo, virtualKeyRepo, limiter, ipLimiter)
 
 	req := httptest.NewRequest("GET", "/v1/models", http.NoBody)
 	req = withAuthContext(req)
@@ -1821,26 +1782,7 @@ func TestListModels_DisabledModelsFiltered(t *testing.T) {
 	limiter := ratelimit.NewLimiter(settingsRepo)
 	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
 
-	handler := &Handler{
-		cfg:            &config.Config{MasterKey: "test-master-key"},
-		settingsRepo:   settingsRepo,
-		failoverRepo:   failoverRepo,
-		modelRepo:      modelRepo,
-		providerRepo:   providerRepo,
-		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
-		rateLimiter:    limiter,
-		ipLimiter:      ipLimiter,
-		dbPool:         pool,
-		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
-		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
-			ResponseHeaderTimeout: 120 * time.Second,
-			IdleConnTimeout:       120 * time.Second,
-			MaxIdleConns:          200,
-			MaxIdleConnsPerHost:   20,
-		},
-		safeDialer: NewSafeDialer(nil, nil),
-	}
+	handler := newCanonicalHandler(t, "test-master-key", pool, settingsRepo, failoverRepo, modelRepo, providerRepo, virtualKeyRepo, limiter, ipLimiter)
 
 	// Create a provider
 	keyPair, err := auth.Encrypt("test-api-key", "test-master-key")
@@ -1976,26 +1918,7 @@ func TestListModels_WithFailoverGroups(t *testing.T) {
 	limiter := ratelimit.NewLimiter(settingsRepo)
 	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
 
-	handler := &Handler{
-		cfg:            &config.Config{MasterKey: "test-master-key"},
-		settingsRepo:   settingsRepo,
-		failoverRepo:   failoverRepo,
-		modelRepo:      modelRepo,
-		providerRepo:   providerRepo,
-		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
-		rateLimiter:    limiter,
-		ipLimiter:      ipLimiter,
-		dbPool:         pool,
-		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
-		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
-			ResponseHeaderTimeout: 120 * time.Second,
-			IdleConnTimeout:       120 * time.Second,
-			MaxIdleConns:          200,
-			MaxIdleConnsPerHost:   20,
-		},
-		safeDialer: NewSafeDialer(nil, nil),
-	}
+	handler := newCanonicalHandler(t, "test-master-key", pool, settingsRepo, failoverRepo, modelRepo, providerRepo, virtualKeyRepo, limiter, ipLimiter)
 
 	// Create a provider
 	keyPair, err := auth.Encrypt("test-api-key", "test-master-key")
@@ -2106,26 +2029,7 @@ func TestListModels_FilterByProvider(t *testing.T) {
 	limiter := ratelimit.NewLimiter(settingsRepo)
 	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
 
-	handler := &Handler{
-		cfg:            &config.Config{MasterKey: "test-master-key"},
-		settingsRepo:   settingsRepo,
-		failoverRepo:   failoverRepo,
-		modelRepo:      modelRepo,
-		providerRepo:   providerRepo,
-		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
-		rateLimiter:    limiter,
-		ipLimiter:      ipLimiter,
-		dbPool:         pool,
-		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
-		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
-			ResponseHeaderTimeout: 120 * time.Second,
-			IdleConnTimeout:       120 * time.Second,
-			MaxIdleConns:          200,
-			MaxIdleConnsPerHost:   20,
-		},
-		safeDialer: NewSafeDialer(nil, nil),
-	}
+	handler := newCanonicalHandler(t, "test-master-key", pool, settingsRepo, failoverRepo, modelRepo, providerRepo, virtualKeyRepo, limiter, ipLimiter)
 
 	// Create a provider
 	keyPair, err := auth.Encrypt("test-api-key", "test-master-key")

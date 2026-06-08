@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/config"
@@ -66,25 +67,61 @@ func newIntegrationHandler() *Handler {
 	limiter := ratelimit.NewLimiter(settingsRepo)
 	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
 	return &Handler{
-		cfg:            &config.Config{MasterKey: "test-master-key-for-proxy-tests"},
-		settingsRepo:   settingsRepo,
-		failoverRepo:   failoverRepo,
-		modelRepo:      modelRepo,
-		providerRepo:   providerRepo,
-		virtualKeyRepo: &virtualKeyRepoAdapter{repo: virtualKeyRepo},
-		rateLimiter:    limiter,
-		ipLimiter:      ipLimiter,
-		dbPool:         pool,
-		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
-		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
-			ResponseHeaderTimeout: 120 * time.Second,
-			IdleConnTimeout:       120 * time.Second,
-			MaxIdleConns:          200,
-			MaxIdleConnsPerHost:   20,
-		},
-		safeDialer: NewSafeDialer(nil, nil),
+		cfg:               &config.Config{MasterKey: "test-master-key-for-proxy-tests"},
+		settingsRepo:      settingsRepo,
+		failoverRepo:      failoverRepo,
+		modelRepo:         modelRepo,
+		providerRepo:      providerRepo,
+		virtualKeyRepo:    &virtualKeyRepoAdapter{repo: virtualKeyRepo},
+		rateLimiter:       limiter,
+		ipLimiter:         ipLimiter,
+		dbPool:            pool,
+		circuitBreaker:    failover.NewCircuitBreaker(settingsRepo),
+		upstreamTransport: newCanonicalTransport(),
+		safeDialer:        NewSafeDialer(nil, nil),
 	}
+}
+
+// newCanonicalTransport returns the standard upstream transport used by proxy
+// integration tests: loopback plus known provider hosts allowed, 120s timeouts.
+func newCanonicalTransport() *http.Transport {
+	return &http.Transport{
+		DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
+		ResponseHeaderTimeout: 120 * time.Second,
+		IdleConnTimeout:       120 * time.Second,
+		MaxIdleConns:          200,
+		MaxIdleConnsPerHost:   20,
+	}
+}
+
+// newCanonicalHandler assembles a fully-wired proxy Handler from the standard
+// set of test repositories and rate limiters. It is the shared replacement for
+// the ~20-line &Handler{...} literal that integration tests would otherwise
+// repeat verbatim. The upstream transport's idle connections are closed via
+// t.Cleanup, and a fresh circuit breaker is created from settingsRepo.
+func newCanonicalHandler(t *testing.T, masterKey string, pool *pgxpool.Pool,
+	settingsRepo *settings.Repository, failoverRepo *failover.Repository,
+	modelRepo ModelRepository, providerRepo *provider.Repository,
+	virtualKeyRepo *virtualkey.Repository,
+	limiter *ratelimit.Limiter, ipLimiter *ratelimit.IPLimiter,
+) *Handler {
+	t.Helper()
+	h := &Handler{
+		cfg:               &config.Config{MasterKey: masterKey},
+		settingsRepo:      settingsRepo,
+		failoverRepo:      failoverRepo,
+		modelRepo:         modelRepo,
+		providerRepo:      providerRepo,
+		virtualKeyRepo:    WrapVirtualKeyRepo(virtualKeyRepo),
+		rateLimiter:       limiter,
+		ipLimiter:         ipLimiter,
+		circuitBreaker:    failover.NewCircuitBreaker(settingsRepo),
+		dbPool:            pool,
+		upstreamTransport: newCanonicalTransport(),
+		safeDialer:        NewSafeDialer(nil, nil),
+	}
+	t.Cleanup(func() { h.upstreamTransport.CloseIdleConnections() })
+	return h
 }
 
 // ---------------------------------------------------------------------------
@@ -1481,27 +1518,7 @@ func TestChatCompletions_FailoverAllProvidersExhausted(t *testing.T) {
 		t.Fatalf("failed to create virtual key: %v", err)
 	}
 
-	handler := &Handler{
-		cfg:            &config.Config{MasterKey: masterKey},
-		settingsRepo:   settingsRepo,
-		failoverRepo:   failoverRepo,
-		modelRepo:      modelRepo,
-		providerRepo:   providerRepo,
-		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
-		rateLimiter:    limiter,
-		ipLimiter:      ipLimiter,
-		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
-		dbPool:         pool,
-		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
-			ResponseHeaderTimeout: 120 * time.Second,
-			IdleConnTimeout:       120 * time.Second,
-			MaxIdleConns:          200,
-			MaxIdleConnsPerHost:   20,
-		},
-		safeDialer: NewSafeDialer(nil, nil),
-	}
-	defer handler.upstreamTransport.CloseIdleConnections()
+	handler := newCanonicalHandler(t, masterKey, pool, settingsRepo, failoverRepo, modelRepo, providerRepo, virtualKeyRepo, limiter, ipLimiter)
 
 	body := `{"model": "hotel/` + modelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
 	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
@@ -1570,27 +1587,7 @@ func TestChatCompletions_SpecificProviderAllProvidersFail(t *testing.T) {
 		t.Fatalf("failed to create virtual key: %v", err)
 	}
 
-	handler := &Handler{
-		cfg:            &config.Config{MasterKey: masterKey},
-		settingsRepo:   settingsRepo,
-		failoverRepo:   failoverRepo,
-		modelRepo:      modelRepo,
-		providerRepo:   providerRepo,
-		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
-		rateLimiter:    limiter,
-		ipLimiter:      ipLimiter,
-		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
-		dbPool:         pool,
-		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
-			ResponseHeaderTimeout: 120 * time.Second,
-			IdleConnTimeout:       120 * time.Second,
-			MaxIdleConns:          200,
-			MaxIdleConnsPerHost:   20,
-		},
-		safeDialer: NewSafeDialer(nil, nil),
-	}
-	defer handler.upstreamTransport.CloseIdleConnections()
+	handler := newCanonicalHandler(t, masterKey, pool, settingsRepo, failoverRepo, modelRepo, providerRepo, virtualKeyRepo, limiter, ipLimiter)
 
 	// Use specific provider format (not hotel/) → single candidate → non-200 error forwarded
 	body := `{"model": "` + prov.Name + `/` + modelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
@@ -1766,27 +1763,7 @@ func TestChatCompletions_RetryCancelDuringFailover(t *testing.T) {
 		t.Fatalf("failed to create virtual key: %v", err)
 	}
 
-	handler := &Handler{
-		cfg:            &config.Config{MasterKey: masterKey},
-		settingsRepo:   settingsRepo,
-		failoverRepo:   failoverRepo,
-		modelRepo:      modelRepo,
-		providerRepo:   providerRepo,
-		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
-		rateLimiter:    limiter,
-		ipLimiter:      ipLimiter,
-		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
-		dbPool:         pool,
-		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
-			ResponseHeaderTimeout: 120 * time.Second,
-			IdleConnTimeout:       120 * time.Second,
-			MaxIdleConns:          200,
-			MaxIdleConnsPerHost:   20,
-		},
-		safeDialer: NewSafeDialer(nil, nil),
-	}
-	defer handler.upstreamTransport.CloseIdleConnections()
+	handler := newCanonicalHandler(t, masterKey, pool, settingsRepo, failoverRepo, modelRepo, providerRepo, virtualKeyRepo, limiter, ipLimiter)
 
 	body := `{"model": "hotel/` + modelName + `", "stream": false, "messages": [{"role": "user", "content": "hello"}], "top_p": 0.9}`
 	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
@@ -1946,27 +1923,7 @@ func TestChatCompletions_TTFTProbeSuccess(t *testing.T) {
 		t.Fatalf("failed to create virtual key: %v", err)
 	}
 
-	handler := &Handler{
-		cfg:            &config.Config{MasterKey: masterKey},
-		settingsRepo:   settingsRepo,
-		failoverRepo:   failoverRepo,
-		modelRepo:      modelRepo,
-		providerRepo:   providerRepo,
-		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
-		rateLimiter:    ratelimit.NewLimiter(settingsRepo),
-		ipLimiter:      ratelimit.NewIPLimiter(30, 60, nil, nil),
-		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
-		dbPool:         pool,
-		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
-			ResponseHeaderTimeout: 120 * time.Second,
-			IdleConnTimeout:       120 * time.Second,
-			MaxIdleConns:          200,
-			MaxIdleConnsPerHost:   20,
-		},
-		safeDialer: NewSafeDialer(nil, nil),
-	}
-	defer handler.upstreamTransport.CloseIdleConnections()
+	handler := newCanonicalHandler(t, masterKey, pool, settingsRepo, failoverRepo, modelRepo, providerRepo, virtualKeyRepo, ratelimit.NewLimiter(settingsRepo), ratelimit.NewIPLimiter(30, 60, nil, nil))
 
 	body := fmt.Sprintf(`{"model":"%s/%s","messages":[{"role":"user","content":"hi"}],"stream":true}`, prov.Name, modelName)
 	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
@@ -2061,27 +2018,7 @@ func TestChatCompletions_TTFTProbeTimeout(t *testing.T) {
 		t.Fatalf("failed to create virtual key: %v", err)
 	}
 
-	handler := &Handler{
-		cfg:            &config.Config{MasterKey: masterKey},
-		settingsRepo:   settingsRepo,
-		failoverRepo:   failoverRepo,
-		modelRepo:      modelRepo,
-		providerRepo:   providerRepo,
-		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
-		rateLimiter:    ratelimit.NewLimiter(settingsRepo),
-		ipLimiter:      ratelimit.NewIPLimiter(30, 60, nil, nil),
-		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
-		dbPool:         pool,
-		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
-			ResponseHeaderTimeout: 120 * time.Second,
-			IdleConnTimeout:       120 * time.Second,
-			MaxIdleConns:          200,
-			MaxIdleConnsPerHost:   20,
-		},
-		safeDialer: NewSafeDialer(nil, nil),
-	}
-	defer handler.upstreamTransport.CloseIdleConnections()
+	handler := newCanonicalHandler(t, masterKey, pool, settingsRepo, failoverRepo, modelRepo, providerRepo, virtualKeyRepo, ratelimit.NewLimiter(settingsRepo), ratelimit.NewIPLimiter(30, 60, nil, nil))
 
 	body := fmt.Sprintf(`{"model":"%s/%s","messages":[{"role":"user","content":"hi"}],"stream":true}`, prov.Name, modelName)
 	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
@@ -2173,27 +2110,7 @@ func TestChatCompletions_TTFTDisabled_CBRecordsSuccess(t *testing.T) {
 		t.Fatalf("failed to create virtual key: %v", err)
 	}
 
-	handler := &Handler{
-		cfg:            &config.Config{MasterKey: masterKey},
-		settingsRepo:   settingsRepo,
-		failoverRepo:   failoverRepo,
-		modelRepo:      modelRepo,
-		providerRepo:   providerRepo,
-		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
-		rateLimiter:    ratelimit.NewLimiter(settingsRepo),
-		ipLimiter:      ratelimit.NewIPLimiter(30, 60, nil, nil),
-		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
-		dbPool:         pool,
-		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
-			ResponseHeaderTimeout: 120 * time.Second,
-			IdleConnTimeout:       120 * time.Second,
-			MaxIdleConns:          200,
-			MaxIdleConnsPerHost:   20,
-		},
-		safeDialer: NewSafeDialer(nil, nil),
-	}
-	defer handler.upstreamTransport.CloseIdleConnections()
+	handler := newCanonicalHandler(t, masterKey, pool, settingsRepo, failoverRepo, modelRepo, providerRepo, virtualKeyRepo, ratelimit.NewLimiter(settingsRepo), ratelimit.NewIPLimiter(30, 60, nil, nil))
 
 	body := fmt.Sprintf(`{"model":"%s/%s","messages":[{"role":"user","content":"hi"}],"stream":true}`, prov.Name, modelName)
 	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
@@ -2336,27 +2253,7 @@ func TestChatCompletions_AllowedProviders_FilterAllowed(t *testing.T) {
 		t.Fatalf("failed to create virtual key: %v", err)
 	}
 
-	handler := &Handler{
-		cfg:            &config.Config{MasterKey: masterKey},
-		settingsRepo:   settingsRepo,
-		failoverRepo:   failoverRepo,
-		modelRepo:      modelRepo,
-		providerRepo:   providerRepo,
-		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
-		rateLimiter:    limiter,
-		ipLimiter:      ipLimiter,
-		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
-		dbPool:         pool,
-		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
-			ResponseHeaderTimeout: 120 * time.Second,
-			IdleConnTimeout:       120 * time.Second,
-			MaxIdleConns:          200,
-			MaxIdleConnsPerHost:   20,
-		},
-		safeDialer: NewSafeDialer(nil, nil),
-	}
-	defer handler.upstreamTransport.CloseIdleConnections()
+	handler := newCanonicalHandler(t, masterKey, pool, settingsRepo, failoverRepo, modelRepo, providerRepo, virtualKeyRepo, limiter, ipLimiter)
 
 	body := `{"model": "hotel/` + modelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
 	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
@@ -2429,27 +2326,7 @@ func TestChatCompletions_AllowedProviders_BlockAllReturns403(t *testing.T) {
 		t.Fatalf("failed to create virtual key: %v", err)
 	}
 
-	handler := &Handler{
-		cfg:            &config.Config{MasterKey: masterKey},
-		settingsRepo:   settingsRepo,
-		failoverRepo:   failoverRepo,
-		modelRepo:      modelRepo,
-		providerRepo:   providerRepo,
-		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
-		rateLimiter:    limiter,
-		ipLimiter:      ipLimiter,
-		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
-		dbPool:         pool,
-		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
-			ResponseHeaderTimeout: 120 * time.Second,
-			IdleConnTimeout:       120 * time.Second,
-			MaxIdleConns:          200,
-			MaxIdleConnsPerHost:   20,
-		},
-		safeDialer: NewSafeDialer(nil, nil),
-	}
-	defer handler.upstreamTransport.CloseIdleConnections()
+	handler := newCanonicalHandler(t, masterKey, pool, settingsRepo, failoverRepo, modelRepo, providerRepo, virtualKeyRepo, limiter, ipLimiter)
 
 	body := `{"model": "` + prov.Name + `/` + modelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
 	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
@@ -2561,27 +2438,7 @@ func TestChatCompletions_AllowedProviders_EmptySliceAllowsAll(t *testing.T) {
 		t.Fatalf("failed to create virtual key: %v", err)
 	}
 
-	handler := &Handler{
-		cfg:            &config.Config{MasterKey: masterKey},
-		settingsRepo:   settingsRepo,
-		failoverRepo:   failoverRepo,
-		modelRepo:      modelRepo,
-		providerRepo:   providerRepo,
-		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
-		rateLimiter:    limiter,
-		ipLimiter:      ipLimiter,
-		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
-		dbPool:         pool,
-		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
-			ResponseHeaderTimeout: 120 * time.Second,
-			IdleConnTimeout:       120 * time.Second,
-			MaxIdleConns:          200,
-			MaxIdleConnsPerHost:   20,
-		},
-		safeDialer: NewSafeDialer(nil, nil),
-	}
-	defer handler.upstreamTransport.CloseIdleConnections()
+	handler := newCanonicalHandler(t, masterKey, pool, settingsRepo, failoverRepo, modelRepo, providerRepo, virtualKeyRepo, limiter, ipLimiter)
 
 	body := `{"model": "` + prov.Name + `/` + modelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
 	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
@@ -2660,27 +2517,7 @@ func TestChatCompletions_UpstreamErrorForwarding(t *testing.T) {
 			t.Fatalf("failed to create virtual key: %v", err)
 		}
 
-		handler := &Handler{
-			cfg:            &config.Config{MasterKey: masterKey},
-			settingsRepo:   settingsRepo,
-			failoverRepo:   failoverRepo,
-			modelRepo:      modelRepo,
-			providerRepo:   providerRepo,
-			virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
-			rateLimiter:    limiter,
-			ipLimiter:      ipLimiter,
-			circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
-			dbPool:         pool,
-			upstreamTransport: &http.Transport{
-				DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
-				ResponseHeaderTimeout: 120 * time.Second,
-				IdleConnTimeout:       120 * time.Second,
-				MaxIdleConns:          200,
-				MaxIdleConnsPerHost:   20,
-			},
-			safeDialer: NewSafeDialer(nil, nil),
-		}
-		defer handler.upstreamTransport.CloseIdleConnections()
+		handler := newCanonicalHandler(t, masterKey, pool, settingsRepo, failoverRepo, modelRepo, providerRepo, virtualKeyRepo, limiter, ipLimiter)
 
 		body := `{"model": "` + provName + `/` + modelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
 		req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
@@ -2801,27 +2638,7 @@ func TestChatCompletions_UpstreamErrorForwarding(t *testing.T) {
 			t.Fatalf("failed to create virtual key: %v", err)
 		}
 
-		handler := &Handler{
-			cfg:            &config.Config{MasterKey: masterKey},
-			settingsRepo:   settingsRepo,
-			failoverRepo:   failoverRepo,
-			modelRepo:      modelRepo,
-			providerRepo:   providerRepo,
-			virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
-			rateLimiter:    limiter,
-			ipLimiter:      ipLimiter,
-			circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
-			dbPool:         pool,
-			upstreamTransport: &http.Transport{
-				DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
-				ResponseHeaderTimeout: 120 * time.Second,
-				IdleConnTimeout:       120 * time.Second,
-				MaxIdleConns:          200,
-				MaxIdleConnsPerHost:   20,
-			},
-			safeDialer: NewSafeDialer(nil, nil),
-		}
-		defer handler.upstreamTransport.CloseIdleConnections()
+		handler := newCanonicalHandler(t, masterKey, pool, settingsRepo, failoverRepo, modelRepo, providerRepo, virtualKeyRepo, limiter, ipLimiter)
 
 		// Use hotel/ format to trigger failover group
 		body := `{"model": "hotel/` + modelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
@@ -2950,27 +2767,7 @@ func TestChatCompletions_UpstreamErrorForwarding(t *testing.T) {
 			t.Fatalf("failed to create virtual key: %v", err)
 		}
 
-		handler := &Handler{
-			cfg:            &config.Config{MasterKey: masterKey},
-			settingsRepo:   settingsRepo,
-			failoverRepo:   failoverRepo,
-			modelRepo:      modelRepo,
-			providerRepo:   providerRepo,
-			virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
-			rateLimiter:    limiter,
-			ipLimiter:      ipLimiter,
-			circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
-			dbPool:         pool,
-			upstreamTransport: &http.Transport{
-				DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
-				ResponseHeaderTimeout: 120 * time.Second,
-				IdleConnTimeout:       120 * time.Second,
-				MaxIdleConns:          200,
-				MaxIdleConnsPerHost:   20,
-			},
-			safeDialer: NewSafeDialer(nil, nil),
-		}
-		defer handler.upstreamTransport.CloseIdleConnections()
+		handler := newCanonicalHandler(t, masterKey, pool, settingsRepo, failoverRepo, modelRepo, providerRepo, virtualKeyRepo, limiter, ipLimiter)
 
 		// Use hotel/ format to trigger failover group
 		body := `{"model": "hotel/` + modelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
@@ -3097,27 +2894,7 @@ func TestChatCompletions_UpstreamErrorForwarding(t *testing.T) {
 			t.Fatalf("failed to create virtual key: %v", err)
 		}
 
-		handler := &Handler{
-			cfg:            &config.Config{MasterKey: masterKey},
-			settingsRepo:   settingsRepo,
-			failoverRepo:   failoverRepo,
-			modelRepo:      modelRepo,
-			providerRepo:   providerRepo,
-			virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
-			rateLimiter:    limiter,
-			ipLimiter:      ipLimiter,
-			circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
-			dbPool:         pool,
-			upstreamTransport: &http.Transport{
-				DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
-				ResponseHeaderTimeout: 120 * time.Second,
-				IdleConnTimeout:       120 * time.Second,
-				MaxIdleConns:          200,
-				MaxIdleConnsPerHost:   20,
-			},
-			safeDialer: NewSafeDialer(nil, nil),
-		}
-		defer handler.upstreamTransport.CloseIdleConnections()
+		handler := newCanonicalHandler(t, masterKey, pool, settingsRepo, failoverRepo, modelRepo, providerRepo, virtualKeyRepo, limiter, ipLimiter)
 
 		// Use hotel/ format to trigger failover group
 		body := `{"model": "hotel/` + modelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
