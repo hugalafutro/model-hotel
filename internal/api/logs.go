@@ -252,39 +252,7 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
 	//                              "before" means newer (created_at > cursor OR same ts but id > cursor)
 	// For "time asc": the directions invert.
 	if cursorStr != "" {
-		if direction == "after" {
-			if sortDir == "desc" {
-				// Scrolling older: (created_at, id) < (cursor.CreatedAt, cursor.ID)
-				query += " AND (rl.created_at < $" + util.IntToStr(argIndex) +
-					" OR (rl.created_at = $" + util.IntToStr(argIndex+1) +
-					" AND rl.id < $" + util.IntToStr(argIndex+2) + "))"
-				args = append(args, cursor.CreatedAt, cursor.CreatedAt, cursor.ID)
-				argIndex += 3
-			} else {
-				// Scrolling newer in asc mode: (created_at, id) > cursor
-				query += " AND (rl.created_at > $" + util.IntToStr(argIndex) +
-					" OR (rl.created_at = $" + util.IntToStr(argIndex+1) +
-					" AND rl.id > $" + util.IntToStr(argIndex+2) + "))"
-				args = append(args, cursor.CreatedAt, cursor.CreatedAt, cursor.ID)
-				argIndex += 3
-			}
-		} else { // before
-			if sortDir == "desc" {
-				// Scrolling newer: (created_at, id) > cursor
-				query += " AND (rl.created_at > $" + util.IntToStr(argIndex) +
-					" OR (rl.created_at = $" + util.IntToStr(argIndex+1) +
-					" AND rl.id > $" + util.IntToStr(argIndex+2) + "))"
-				args = append(args, cursor.CreatedAt, cursor.CreatedAt, cursor.ID)
-				argIndex += 3
-			} else {
-				// Scrolling older in asc mode: (created_at, id) < cursor
-				query += " AND (rl.created_at < $" + util.IntToStr(argIndex) +
-					" OR (rl.created_at = $" + util.IntToStr(argIndex+1) +
-					" AND rl.id < $" + util.IntToStr(argIndex+2) + "))"
-				args = append(args, cursor.CreatedAt, cursor.CreatedAt, cursor.ID)
-				argIndex += 3
-			}
-		}
+		query, args, argIndex = appendKeysetPredicate(query, args, argIndex, cursor, direction, sortDir)
 	}
 
 	// ORDER BY + LIMIT (fetch limit+1 to detect has_more)
@@ -452,6 +420,24 @@ func appendLogFilters(query string, args []any, argIndex int, modelID, providerI
 			argIndex++
 		}
 	}
+	return query, args, argIndex
+}
+
+// appendKeysetPredicate appends the (created_at, id) keyset comparison relative
+// to the cursor. The comparison operator is "<" when scrolling toward older
+// rows — (after, desc) or (before, asc) — and ">" otherwise, collapsing the
+// four direction/sort branches into one template. SQL is byte-identical to the
+// per-branch form.
+func appendKeysetPredicate(query string, args []any, argIndex int, cursor logCursor, direction, sortDir string) (string, []any, int) {
+	op := ">"
+	if (direction == "after") == (sortDir == "desc") {
+		op = "<"
+	}
+	query += " AND (rl.created_at " + op + " $" + util.IntToStr(argIndex) +
+		" OR (rl.created_at = $" + util.IntToStr(argIndex+1) +
+		" AND rl.id " + op + " $" + util.IntToStr(argIndex+2) + "))"
+	args = append(args, cursor.CreatedAt, cursor.CreatedAt, cursor.ID)
+	argIndex += 3
 	return query, args, argIndex
 }
 
