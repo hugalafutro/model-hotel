@@ -1120,6 +1120,70 @@ describe("DatabaseBackupSettings", () => {
 			});
 			expect(pruneCalled).toBe(false);
 		});
+
+		it("shows error toast when prune succeeds but settings save fails", async () => {
+			let pruneCalled = false;
+			server.use(
+				http.get("/api/settings", () => {
+					return HttpResponse.json({ backup_enabled: "false" });
+				}),
+				http.post("/api/backups/prune-preview", () => {
+					return HttpResponse.json({
+						son: [],
+						father: [],
+						grandfather: [],
+						prune: [
+							{
+								filename: "backup-old.dump",
+								size_bytes: 1024,
+								created_at: "2024-06-01T00:00:00Z",
+							},
+						],
+					});
+				}),
+				http.post("/api/backups/prune", () => {
+					pruneCalled = true;
+					return HttpResponse.json({
+						son: [],
+						father: [],
+						grandfather: [],
+						prune: [],
+					});
+				}),
+				http.put("/api/settings", () => {
+					return HttpResponse.json(
+						{ error: "internal server error" },
+						{ status: 500 },
+					);
+				}),
+			);
+			const user = userEvent.setup();
+			renderWithProviders(
+				<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(screen.getByText("Periodic Backup")).toBeInTheDocument();
+			});
+			const toggle = screen.getByRole("switch");
+			await user.click(toggle);
+			await waitFor(() => {
+				expect(screen.getByText("Enable Periodic Backup?")).toBeInTheDocument();
+			});
+			const dialog = screen.getByRole("dialog", {
+				name: "Enable Periodic Backup?",
+			});
+			const confirmButton = within(dialog).getByRole("button", {
+				name: "Confirm",
+			});
+			await user.click(confirmButton);
+			await waitFor(() => {
+				expect(pruneCalled).toBe(true);
+			});
+			// The settings save failure should trigger an error toast
+			await waitFor(() => {
+				expect(screen.getByText(/failed to save/i)).toBeInTheDocument();
+			});
+		});
 	});
 
 	describe("Retention Sliders", () => {
