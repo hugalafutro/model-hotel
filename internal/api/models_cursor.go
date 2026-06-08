@@ -6,14 +6,15 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
 // ListModelsCursor returns models using keyset (cursor) pagination.
@@ -35,51 +36,54 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 	}
 
 	q := r.URL.Query()
-	limit := 50
-	if v := q.Get("limit"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n >= 1 && n <= 200 {
-			limit = n
-		}
-	}
-	cursorStr := q.Get("cursor")
-	direction := q.Get("direction")
-	if direction != "before" && direction != "after" {
-		direction = "after"
-	}
-	sortDir := "ASC"
-	if q.Get("sort_dir") == "desc" {
-		sortDir = "DESC"
-	}
-	sortBy := q.Get("sort_by")
-	switch sortBy {
-	case "discovered", "context", "output", "provider", "status":
-		// valid
-	default:
-		sortBy = "name"
+	p, ok := parseModelListParams(w, q)
+	if !ok {
+		return
 	}
 
-	// Parse cursor
-	var cursor modelCursor
-	if cursorStr != "" {
-		if err := cursor.decode(cursorStr); err != nil {
-			respondBadRequest(w, "invalid cursor", err)
-			return
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	query, args := buildModelListQuery(p, q)
+	rows, err := h.dbPool.Pool().Query(ctx, query, args...)
+	if err != nil {
+		respondError(w, "failed to query models", err, http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	// limit is clamped to [1, 200] in parseModelListParams; prealloc with the hard
+	// upper bound so user input never flows into make() capacity (CodeQL guard).
+	entries := make([]ModelResponse, 0, 201) // limit+1 for has_more detection
+	for rows.Next() {
+		m, err := scanModelRow(rows)
+		if err != nil {
+			debuglog.Error("cursor row scan failed", "error", err)
+			continue
 		}
-		// Use sort_by from cursor if present (ensures consistency)
-		if cursor.SortBy != "" {
-			sortBy = cursor.SortBy
-		}
+		entries = append(entries, modelToResponse(m))
 	}
 
-	// Build WHERE clause (shared with count query)
-	filterConds, filterArgs := buildModelFilterConditions(q)
-	conditions := filterConds
-	args := filterArgs
+	entries, hasAfter, hasBefore := paginateCursor(entries, p.direction, p.limit, p.cursorStr != "")
+
+	writeJSON(w, ModelsCursorResponse{
+		Entries:   entries,
+		Total:     h.countModels(ctx, q),
+		HasBefore: hasBefore,
+		HasAfter:  hasAfter,
+	})
+}
+
+// buildModelListQuery assembles the cursor data query: the column projection, the
+// shared filters, the keyset predicate (when a cursor is present), and the
+// ORDER BY + LIMIT — fetching limit+1 to detect has_more, with the sort inverted
+// for backward pagination so LIMIT picks from the correct end.
+func buildModelListQuery(p modelListParams, q url.Values) (string, []any) {
+	conditions, args := buildModelFilterConditions(q)
 	argIdx := len(args) + 1
 
-	// Apply cursor keyset predicate
-	if cursorStr != "" {
-		pred := buildModelKeysetPredicate(cursor, direction, sortDir, &argIdx, &args)
+	if p.cursorStr != "" {
+		pred := buildModelKeysetPredicate(p.cursor, p.direction, p.sortDir, &argIdx, &args)
 		if pred != "" {
 			conditions = append(conditions, pred)
 		}
@@ -90,142 +94,104 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 		whereClause = " WHERE " + joinAnd(conditions)
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
-	defer cancel()
-
-	// Fetch entries (limit+1 to detect has_more)
-	fetchLimit := limit + 1
-
-	// Build ORDER BY based on sort_by
-	// When paginating backward, invert the sort direction so LIMIT picks from
-	// the correct end of the result set, then reverse the slice before returning.
-	orderCol := modelSortColumn(sortBy)
-	fetchSortDir := sortDir
-	if direction == "before" {
+	fetchSortDir := p.sortDir
+	if p.direction == "before" {
 		if fetchSortDir == "ASC" {
 			fetchSortDir = "DESC"
 		} else {
 			fetchSortDir = "ASC"
 		}
 	}
-	orderClause := fmt.Sprintf(" ORDER BY %s %s, m.id %s", orderCol, fetchSortDir, fetchSortDir)
+	orderClause := fmt.Sprintf(" ORDER BY %s %s, m.id %s", modelSortColumn(p.sortBy), fetchSortDir, fetchSortDir)
 
-	dataSQL := "SELECT m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, COALESCE(m.owned_by, ''), m.enabled, m.disabled_manually, m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name FROM models m JOIN providers p ON m.provider_id = p.id" +
-		whereClause + orderClause + fmt.Sprintf(" LIMIT $%d", argIdx)
-	args = append(args, fetchLimit)
+	query := "SELECT " + modelSelectColumns + modelFromJoin + whereClause + orderClause + fmt.Sprintf(" LIMIT $%d", argIdx)
+	args = append(args, p.limit+1)
+	return query, args
+}
 
-	rows, err := h.dbPool.Pool().Query(ctx, dataSQL, args...)
-	if err != nil {
-		respondError(w, "failed to query models", err, http.StatusInternalServerError)
-		return
+// countModels returns the total row count for the same filters as the data query
+// (no keyset predicate). Best-effort: returns 0 on error.
+func (h *Handler) countModels(ctx context.Context, q url.Values) int {
+	conditions, args := buildModelFilterConditions(q)
+	whereClause := ""
+	if len(conditions) > 0 {
+		whereClause = " WHERE " + joinAnd(conditions)
 	}
-	defer rows.Close()
-
-	entries := make([]ModelResponse, 0, limit)
-	for rows.Next() {
-		var m struct {
-			ID                           uuid.UUID
-			ProviderID                   uuid.UUID
-			ModelID                      string
-			Name                         string
-			Description                  string
-			DisplayName                  string
-			Capabilities                 string
-			Params                       string
-			Modality                     string
-			InputModalities              string
-			OutputModalities             string
-			ContextLength                *int
-			MaxOutputTokens              *int
-			InputPricePerMillion         *float64
-			InputPricePerMillionCacheHit *float64
-			OutputPricePerMillion        *float64
-			OwnedBy                      string
-			Enabled                      bool
-			DisabledManually             bool
-			CreatedAt                    time.Time
-			LastSeenAt                   time.Time
-			ProviderName                 string
-		}
-		if err := rows.Scan(
-			&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName,
-			&m.Capabilities, &m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
-			&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
-			&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName,
-		); err != nil {
-			debuglog.Error("cursor row scan failed", "error", err)
-			continue
-		}
-		entries = append(entries, ModelResponse{
-			ID:                           m.ID.String(),
-			ModelID:                      m.ModelID,
-			Name:                         m.Name,
-			Description:                  m.Description,
-			DisplayName:                  m.DisplayName,
-			ProviderID:                   m.ProviderID.String(),
-			ProviderName:                 m.ProviderName,
-			Capabilities:                 m.Capabilities,
-			Params:                       m.Params,
-			Modality:                     m.Modality,
-			InputModalities:              m.InputModalities,
-			OutputModalities:             m.OutputModalities,
-			ContextLength:                m.ContextLength,
-			MaxOutputTokens:              m.MaxOutputTokens,
-			InputPricePerMillion:         m.InputPricePerMillion,
-			InputPricePerMillionCacheHit: m.InputPricePerMillionCacheHit,
-			OutputPricePerMillion:        m.OutputPricePerMillion,
-			OwnedBy:                      m.OwnedBy,
-			Enabled:                      m.Enabled,
-			DisabledManually:             m.DisabledManually,
-			CreatedAt:                    m.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-			LastSeenAt:                   m.LastSeenAt.Format("2006-01-02T15:04:05Z07:00"),
-		})
-	}
-
-	// Determine has_after / has_before based on direction and fetched rows
-	var hasAfter, hasBefore bool
-	switch direction {
-	case "after":
-		if len(entries) > limit {
-			hasAfter = true
-			entries = entries[:limit]
-		}
-		if cursorStr != "" {
-			hasBefore = true
-		}
-	case "before":
-		if len(entries) > limit {
-			hasBefore = true
-			entries = entries[:limit]
-		}
-		if cursorStr != "" {
-			hasAfter = true
-		}
-	}
-
-	// Reverse entries for backward pagination: we fetched in inverted sort order
-	// to get the correct window, but must return in the user's requested sort order.
-	if direction == "before" {
-		slices.Reverse(entries)
-	}
-
-	// Get total count (reuses same filter conditions, minus cursor predicate)
-	totalCountConditions, totalCountArgs := buildModelFilterConditions(q)
-
-	totalWhereClause := ""
-	if len(totalCountConditions) > 0 {
-		totalWhereClause = " WHERE " + joinAnd(totalCountConditions)
-	}
-
 	var total int
-	_ = h.dbPool.Pool().QueryRow(ctx, "SELECT COUNT(*) FROM models m JOIN providers p ON m.provider_id = p.id"+totalWhereClause, totalCountArgs...).Scan(&total)
+	_ = h.dbPool.Pool().QueryRow(ctx, "SELECT COUNT(*)"+modelFromJoin+whereClause, args...).Scan(&total)
+	return total
+}
 
-	writeJSON(w, ModelsCursorResponse{
-		Entries:   entries,
-		Total:     total,
-		HasBefore: hasBefore,
-		HasAfter:  hasAfter,
-	})
+// modelListParams holds the parsed, validated query inputs for ListModelsCursor.
+type modelListParams struct {
+	limit              int
+	cursorStr          string
+	cursor             modelCursor
+	direction, sortDir string
+	sortBy             string
+}
+
+// parseModelListParams reads and validates the cursor list query parameters:
+// limit clamp ([1,200], default 50), direction (after default), sort_dir
+// (ASC default), the sort_by whitelist, and the cursor (decode error → 400,
+// with the cursor's own sort_by taking precedence for consistency).
+func parseModelListParams(w http.ResponseWriter, q url.Values) (modelListParams, bool) {
+	p := modelListParams{
+		limit:     50,
+		cursorStr: q.Get("cursor"),
+		direction: q.Get("direction"),
+		sortDir:   "ASC",
+		sortBy:    q.Get("sort_by"),
+	}
+	if v := q.Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 1 && n <= 200 {
+			p.limit = n
+		}
+	}
+	if p.direction != "before" && p.direction != "after" {
+		p.direction = "after"
+	}
+	if q.Get("sort_dir") == "desc" {
+		p.sortDir = "DESC"
+	}
+	switch p.sortBy {
+	case "discovered", "context", "output", "provider", "status":
+		// valid
+	default:
+		p.sortBy = "name"
+	}
+	if p.cursorStr != "" {
+		if err := p.cursor.decode(p.cursorStr); err != nil {
+			respondBadRequest(w, "invalid cursor", err)
+			return p, false
+		}
+		// Use sort_by from cursor if present (ensures consistency).
+		if p.cursor.SortBy != "" {
+			p.sortBy = p.cursor.SortBy
+		}
+	}
+	return p, true
+}
+
+// modelSelectColumns is the cursor data query's column projection (models joined
+// to providers for p.name). Its order matches scanModelRow exactly.
+const modelSelectColumns = "m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, COALESCE(m.owned_by, ''), m.enabled, m.disabled_manually, m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name"
+
+// modelFromJoin is the shared FROM/JOIN tail for the models cursor data and
+// count queries.
+const modelFromJoin = " FROM models m JOIN providers p ON m.provider_id = p.id"
+
+// scanModelRow scans one row of the modelSelectColumns projection into a
+// model.Model, so modelToResponse can map it — the same mapping ListModels uses.
+func scanModelRow(rows pgx.Rows) (model.Model, error) {
+	var m model.Model
+	err := rows.Scan(
+		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName,
+		&m.Capabilities, &m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
+		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
+		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName,
+	)
+	return m, err
 }
 
 // modelSortColumn returns the SQL column expression for a given sort_by value.
