@@ -103,22 +103,6 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 			debuglog.Debug("proxy: failed to touch provider last-used", "error", err)
 		}
 	}(candidate.provider.ID)
-	providerType := provider.DetectProviderType(candidate.provider.BaseURL)
-	debuglog.Debug("proxy: detected provider type", "provider_type", providerType, "base_url", util.SanitizeBaseURL(candidate.provider.BaseURL))
-	targetURL := util.BuildProviderTargetURL(candidate.provider.BaseURL, providerType)
-	debuglog.Debug("proxy: built target URL", "target_url", targetURL)
-
-	upstreamBody := st.bodyBytes
-	needsRewrite := st.reqModel != candidate.model.ModelID || providerType == "anthropic" || NeedsProviderInjection(providerType) || st.isStreaming
-	debuglog.Debug("proxy: request rewrite check", "needs_rewrite", needsRewrite, "request_model", logData.modelID, "provider", logData.providerName, "resolved_model", candidate.model.ModelID, "provider_type", providerType)
-	if needsRewrite {
-		upstreamBody = buildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, st.isStreaming, &h.deprecationCache, nil)
-	}
-	// Log the actual model name in the upstream body for debugging rewrite issues.
-	if upstreamModel, _, _ := strings.Cut(string(upstreamBody), ","); strings.Contains(upstreamModel, `"model"`) {
-		debuglog.Debug("proxy: upstream body model", "upstream_model_snippet", upstreamModel)
-	}
-
 	// Per-attempt DNS resolution timing. SafeDialer's DialContext writes into
 	// this via context, avoiding cross-request races on a shared field.
 	var dialMs float64
@@ -137,15 +121,12 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		}
 	}()
 	failoverCtx = context.WithValue(failoverCtx, ctxkeys.CancelOriginKey, "failover_timeout")
-	proxyReq, err := newRequestWithContext(failoverCtx, "POST", targetURL, bytes.NewReader(upstreamBody))
+
+	proxyReq, providerType, targetURL, err := h.buildCandidateRequest(failoverCtx, st, candidate)
 	if err != nil {
 		st.lastErr = fmt.Sprintf("attempt %d: failed to create request: %v", attempt, err)
 		return outcomeFailover
 	}
-
-	util.SetProviderAuthHeaders(proxyReq, providerType, candidate.apiKey)
-	proxyReq.Header.Set("Content-Type", "application/json")
-	debuglog.Debug("proxy: sending upstream request", "method", proxyReq.Method, "url", targetURL, "content_length", len(upstreamBody), "has_api_key", candidate.apiKey != "")
 
 	// Reuse the shared upstream Transport instead of creating a new one
 	// per request. A fresh Transport spawns persistent readLoop/writeLoop
@@ -342,6 +323,41 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 
 	h.handleNonStreamingResponse(w, r, logData, resp, st.startTime, st.proxyOverhead, st.parseMs, st.timings.failoverLookupMs, st.timings.modelLookupMs, st.timings.providerLookupMs, st.timings.keyDecryptMs, st.timings.dialMs, st.timings.settingsReadMs, responseHeaderMs, st.vkHash, attempt)
 	return outcomeServed
+}
+
+// buildCandidateRequest builds the upstream HTTP request for a single failover
+// candidate (phase C): detect the provider type, build the target URL, rewrite
+// the request body when needed, create the request on the provided context, and
+// set the auth + content-type headers. The caller owns ctx cancellation; this
+// helper never cancels it. providerType and targetURL are returned so the caller
+// can thread them into the 400 auto-retry path.
+func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, candidate modelCandidate) (*http.Request, string, string, error) {
+	logData := st.logData
+	providerType := provider.DetectProviderType(candidate.provider.BaseURL)
+	debuglog.Debug("proxy: detected provider type", "provider_type", providerType, "base_url", util.SanitizeBaseURL(candidate.provider.BaseURL))
+	targetURL := util.BuildProviderTargetURL(candidate.provider.BaseURL, providerType)
+	debuglog.Debug("proxy: built target URL", "target_url", targetURL)
+
+	upstreamBody := st.bodyBytes
+	needsRewrite := st.reqModel != candidate.model.ModelID || providerType == "anthropic" || NeedsProviderInjection(providerType) || st.isStreaming
+	debuglog.Debug("proxy: request rewrite check", "needs_rewrite", needsRewrite, "request_model", logData.modelID, "provider", logData.providerName, "resolved_model", candidate.model.ModelID, "provider_type", providerType)
+	if needsRewrite {
+		upstreamBody = buildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, st.isStreaming, &h.deprecationCache, nil)
+	}
+	// Log the actual model name in the upstream body for debugging rewrite issues.
+	if upstreamModel, _, _ := strings.Cut(string(upstreamBody), ","); strings.Contains(upstreamModel, `"model"`) {
+		debuglog.Debug("proxy: upstream body model", "upstream_model_snippet", upstreamModel)
+	}
+
+	proxyReq, err := newRequestWithContext(ctx, "POST", targetURL, bytes.NewReader(upstreamBody))
+	if err != nil {
+		return nil, providerType, targetURL, err
+	}
+
+	util.SetProviderAuthHeaders(proxyReq, providerType, candidate.apiKey)
+	proxyReq.Header.Set("Content-Type", "application/json")
+	debuglog.Debug("proxy: sending upstream request", "method", proxyReq.Method, "url", targetURL, "content_length", len(upstreamBody), "has_api_key", candidate.apiKey != "")
+	return proxyReq, providerType, targetURL, nil
 }
 
 // recordBreakerOutcome records the circuit-breaker result for a completed
