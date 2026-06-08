@@ -6,7 +6,7 @@ import {
 	Shuffle,
 	Square,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { CircuitBreakerProviderStatus, FailoverGroup } from "../api/types";
@@ -43,9 +43,6 @@ export function FailoverGroups() {
 		new Set(),
 	);
 	const [showProviderModal, setShowProviderModal] = useState(false);
-	const [disabledProviders, setDisabledProviders] = useState<Set<string>>(
-		new Set(),
-	);
 	const [isProviderToggling, setIsProviderToggling] = useState(false);
 
 	const toggleLetterCollapse = (letter: string) => {
@@ -79,6 +76,26 @@ export function FailoverGroups() {
 	}
 
 	const allGroups = listData?.groups;
+
+	// A provider is considered disabled when it has failover entries and every
+	// one of them is disabled. Derived from server data so the modal reflects
+	// the real state on open (and after each toggle re-fetches the groups).
+	const disabledProviders = useMemo(() => {
+		const result = new Set<string>();
+		if (!allGroups) return result;
+		const anyEnabled = new Set<string>();
+		const seen = new Set<string>();
+		for (const g of allGroups) {
+			for (const e of g.entries) {
+				seen.add(e.provider_name);
+				if (e.enabled) anyEnabled.add(e.provider_name);
+			}
+		}
+		for (const name of seen) {
+			if (!anyEnabled.has(name)) result.add(name);
+		}
+		return result;
+	}, [allGroups]);
 
 	// Unique provider names for dropdown
 	const providerNames = allGroups
@@ -199,14 +216,18 @@ export function FailoverGroups() {
 					? enabled
 					: e.enabled;
 			});
-			// If disabling all entries in an active group, also disable the group
+			// Auto-disable a group that just lost its last enabled entry, and
+			// symmetrically auto-re-enable a group that regains one.
 			const remainingEnabled =
 				Object.values(entryEnabledMap).filter(Boolean).length;
 			const alsoDisableGroup =
 				!enabled && remainingEnabled === 0 && group.group_enabled;
+			const alsoEnableGroup =
+				enabled && remainingEnabled > 0 && !group.group_enabled;
 			return api.failoverGroups.update(group.id, {
 				entry_enabled: entryEnabledMap,
 				...(alsoDisableGroup ? { group_enabled: false } : {}),
+				...(alsoEnableGroup ? { group_enabled: true } : {}),
 			});
 		});
 
@@ -253,28 +274,25 @@ export function FailoverGroups() {
 				entryEnabledMap[e.model_uuid] =
 					e.provider_name === providerName ? enabled : e.enabled;
 			});
+			// Auto-disable a group that just lost its last enabled entry, and
+			// symmetrically auto-re-enable a group that regains one.
 			const remainingEnabled =
 				Object.values(entryEnabledMap).filter(Boolean).length;
 			const alsoDisableGroup =
 				!enabled && remainingEnabled === 0 && group.group_enabled;
+			const alsoEnableGroup =
+				enabled && remainingEnabled > 0 && !group.group_enabled;
 			return api.failoverGroups.update(group.id, {
 				entry_enabled: entryEnabledMap,
 				...(alsoDisableGroup ? { group_enabled: false } : {}),
+				...(alsoEnableGroup ? { group_enabled: true } : {}),
 			});
 		});
 
 		try {
 			await Promise.all(promises);
+			// Re-fetch groups; disabledProviders is derived from the result.
 			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
-			setDisabledProviders((prev) => {
-				const next = new Set(prev);
-				if (enabled) {
-					next.delete(providerName);
-				} else {
-					next.add(providerName);
-				}
-				return next;
-			});
 			toast(
 				t("failover.toast_provider_toggle_success", {
 					action: enabled ? t("common.enabled") : t("common.disabled"),

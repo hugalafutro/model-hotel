@@ -732,7 +732,6 @@ func classifyBackups(backups []backupEntry, sonRetention, fatherRetention, grand
 
 	// Track which backup filenames are kept in each tier
 	kept := make(map[string]bool)
-	_ = now
 
 	// Parse timestamps and index by filename
 	timestamps := make(map[string]time.Time)
@@ -745,8 +744,6 @@ func classifyBackups(backups []backupEntry, sonRetention, fatherRetention, grand
 		}
 		timestamps[b.Filename] = ts
 	}
-
-	_ = now
 
 	// ── Son (daily) ──
 	// Keep the most recent backup from each of the last sonRetention calendar days.
@@ -782,9 +779,7 @@ func classifyBackups(backups []backupEntry, sonRetention, fatherRetention, grand
 	// ── Father (weekly) ──
 	// Keep the most recent backup from each of the last fatherRetention ISO weeks
 	// that is NOT already kept as a son.
-	_, thisISOWeek := now.ISOWeek()
-	thisISOYear, _ := now.ISOWeek()
-	isoWeekBuckets := make(map[string][]backupEntry) // key: "2006-01" year-week composite
+	isoWeekBuckets := make(map[string][]backupEntry) // key: "year-week" composite
 	for _, b := range backups {
 		ts, ok := timestamps[b.Filename]
 		if !ok || kept[b.Filename] {
@@ -795,7 +790,8 @@ func classifyBackups(backups []backupEntry, sonRetention, fatherRetention, grand
 		isoWeekBuckets[key] = append(isoWeekBuckets[key], b)
 	}
 
-	// Collect the last M ISO weeks as year-week composites
+	// Collect the last M ISO weeks as year-week composites. The i=0 iteration
+	// covers the current week, so no separate "current week" entry is needed.
 	isoWeekSet := make(map[string]bool)
 	t := now
 	for i := 0; i < fatherRetention; i++ {
@@ -803,11 +799,6 @@ func classifyBackups(backups []backupEntry, sonRetention, fatherRetention, grand
 		key := fmt.Sprintf("%d-%d", y, iw)
 		isoWeekSet[key] = true
 		t = t.AddDate(0, 0, -7)
-	}
-	// Always include the current week even if fatherRetention=0
-	if fatherRetention > 0 {
-		key := fmt.Sprintf("%d-%d", thisISOYear, thisISOWeek)
-		isoWeekSet[key] = true
 	}
 
 	// Sort ISO weeks descending for deterministic ordering
@@ -1017,27 +1008,31 @@ func (h *BackupHandler) listBackupFiles() ([]backupEntry, error) {
 
 // ── Scheduler ────────────────────────────────────────────────────────
 
-// StartScheduler starts the periodic backup scheduler.
-// It reads backup_enabled and backup_interval from the settings store.
-// At each interval, if backup_enabled is true, it creates a backup
-// and then applies the rotation scheme.
+// backupSchedulerIdlePoll is how often the scheduler re-checks the
+// backup_enabled setting while disabled, so that toggling backups on at
+// runtime takes effect promptly instead of waiting a full backup_interval.
+const backupSchedulerIdlePoll = 1 * time.Minute
+
+// StartScheduler starts the periodic backup scheduler goroutine.
+//
+// The goroutine always runs (regardless of the current backup_enabled
+// value) and re-reads backup_enabled and backup_interval from the settings
+// store on every tick. This lets the toggle take effect at runtime without
+// a server restart: when disabled it polls on a short idle interval; when
+// enabled it creates a backup and applies the rotation scheme, then sleeps
+// for backup_interval.
 func (h *BackupHandler) StartScheduler(ctx context.Context) {
 	if h.settingsRepo == nil {
 		return
 	}
-	enabled := h.settingsRepo.GetBool(ctx, "backup_enabled", false)
-	if !enabled {
-		debuglog.Info("backup: scheduler not started (backup_enabled=false)")
+	// Guard against double-launch leaking the previous goroutine.
+	if h.schedulerCancel != nil {
 		return
 	}
 
 	schedCtx, cancel := context.WithCancel(ctx)
 	h.schedulerCancel = cancel
-	interval := h.settingsRepo.GetDuration(ctx, "backup_interval", 24*time.Hour)
-	if interval < 5*time.Minute {
-		interval = 5 * time.Minute
-	}
-	debuglog.Info("backup: scheduler started", "interval", interval)
+	debuglog.Info("backup: scheduler started")
 
 	go func() {
 		defer func() {
@@ -1055,22 +1050,21 @@ func (h *BackupHandler) StartScheduler(ctx context.Context) {
 		for {
 			// Re-read settings each tick for dynamic updates
 			enabled := h.settingsRepo.GetBool(schedCtx, "backup_enabled", false)
-			interval := h.settingsRepo.GetDuration(schedCtx, "backup_interval", 24*time.Hour)
-			if interval < 5*time.Minute {
-				interval = 5 * time.Minute
-			}
 
-			if !enabled {
-				debuglog.Info("backup: scheduler skipping (backup_enabled=false)")
-			} else {
+			sleep := backupSchedulerIdlePoll
+			if enabled {
 				h.runScheduledBackup(schedCtx)
+				sleep = h.settingsRepo.GetDuration(schedCtx, "backup_interval", 24*time.Hour)
+				if sleep < 5*time.Minute {
+					sleep = 5 * time.Minute
+				}
 			}
 
 			select {
 			case <-schedCtx.Done():
 				debuglog.Info("backup: scheduler stopped")
 				return
-			case <-time.After(interval):
+			case <-time.After(sleep):
 			}
 		}
 	}()
