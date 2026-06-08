@@ -249,4 +249,213 @@ func TestComputeFinishReason(t *testing.T) {
 			t.Errorf("decision = %v, want finishNone", d)
 		}
 	})
+
+	t.Run("duplicate WITH reasoning_content → not suppressed", func(t *testing.T) {
+		lastFR := "stop"
+		c := parseStreamChunk(t, `{"choices":[{"delta":{"reasoning_content":"thinking"},"finish_reason":"stop"}]}`)
+		if d, _ := computeFinishReason(c, `{}`, &lastFR); d != finishNone {
+			t.Errorf("decision = %v, want finishNone (reasoning_content blocks suppression)", d)
+		}
+	})
+
+	t.Run("duplicate WITH usage → not suppressed", func(t *testing.T) {
+		lastFR := "stop"
+		c := parseStreamChunk(t, `{"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":5}}`)
+		if d, _ := computeFinishReason(c, `{}`, &lastFR); d != finishNone {
+			t.Errorf("decision = %v, want finishNone (usage blocks suppression)", d)
+		}
+	})
+
+	t.Run("duplicate WITH content and usage → not suppressed", func(t *testing.T) {
+		lastFR := "stop"
+		c := parseStreamChunk(t, `{"choices":[{"delta":{"content":"more"},"finish_reason":"stop"}],"usage":{"prompt_tokens":5}}`)
+		if d, _ := computeFinishReason(c, `{}`, &lastFR); d != finishNone {
+			t.Errorf("decision = %v, want finishNone (content + usage present blocks suppression)", d)
+		}
+	})
+
+	t.Run("end_turn → rewrite to stop", func(t *testing.T) {
+		lastFR := ""
+		payload := `{"id":"x","choices":[{"index":0,"delta":{},"finish_reason":"end_turn"}]}`
+		c := parseStreamChunk(t, payload)
+		d, out := computeFinishReason(c, payload, &lastFR)
+		if d != finishRewrite {
+			t.Fatalf("decision = %v, want finishRewrite", d)
+		}
+		if lastFR != "stop" {
+			t.Errorf("lastFinishReason = %q, want stop", lastFR)
+		}
+		var raw struct {
+			Choices []struct {
+				FinishReason string `json:"finish_reason"`
+			} `json:"choices"`
+		}
+		if err := json.Unmarshal(out, &raw); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		if raw.Choices[0].FinishReason != "stop" {
+			t.Errorf("finish_reason = %q, want stop", raw.Choices[0].FinishReason)
+		}
+	})
+
+	t.Run("tool_use → rewrite to tool_calls", func(t *testing.T) {
+		lastFR := ""
+		payload := `{"id":"x","choices":[{"index":0,"delta":{},"finish_reason":"tool_use"}]}`
+		c := parseStreamChunk(t, payload)
+		d, out := computeFinishReason(c, payload, &lastFR)
+		if d != finishRewrite {
+			t.Fatalf("decision = %v, want finishRewrite", d)
+		}
+		if lastFR != "tool_calls" {
+			t.Errorf("lastFinishReason = %q, want tool_calls", lastFR)
+		}
+		var raw struct {
+			Choices []struct {
+				FinishReason string `json:"finish_reason"`
+			} `json:"choices"`
+		}
+		if err := json.Unmarshal(out, &raw); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		if raw.Choices[0].FinishReason != "tool_calls" {
+			t.Errorf("finish_reason = %q, want tool_calls", raw.Choices[0].FinishReason)
+		}
+	})
+
+	t.Run("bare duplicate with empty content string → suppressed", func(t *testing.T) {
+		lastFR := "stop"
+		c := parseStreamChunk(t, `{"choices":[{"delta":{"content":""},"finish_reason":"stop"}]}`)
+		if d, _ := computeFinishReason(c, `{}`, &lastFR); d != finishSuppress {
+			t.Errorf("decision = %v, want finishSuppress (empty content string is not real content)", d)
+		}
+	})
+
+	t.Run("bare duplicate with empty reasoning_content string → suppressed", func(t *testing.T) {
+		lastFR := "stop"
+		c := parseStreamChunk(t, `{"choices":[{"delta":{"reasoning_content":""},"finish_reason":"stop"}]}`)
+		if d, _ := computeFinishReason(c, `{}`, &lastFR); d != finishSuppress {
+			t.Errorf("decision = %v, want finishSuppress (empty reasoning_content string is not real content)", d)
+		}
+	})
+
+	t.Run("no choices array → none", func(t *testing.T) {
+		lastFR := ""
+		c := parseStreamChunk(t, `{"choices":[]}`)
+		// Empty choices means len(Choices)==0, so first branch returns finishNone
+		if d, _ := computeFinishReason(c, `{}`, &lastFR); d != finishNone {
+			t.Errorf("decision = %v, want finishNone", d)
+		}
+	})
+
+	t.Run("content_filter normalized from refusal", func(t *testing.T) {
+		lastFR := ""
+		payload := `{"id":"x","choices":[{"index":0,"delta":{},"finish_reason":"refusal"}]}`
+		c := parseStreamChunk(t, payload)
+		d, out := computeFinishReason(c, payload, &lastFR)
+		if d != finishRewrite {
+			t.Fatalf("decision = %v, want finishRewrite", d)
+		}
+		if lastFR != "content_filter" {
+			t.Errorf("lastFinishReason = %q, want content_filter", lastFR)
+		}
+		var raw struct {
+			Choices []struct {
+				FinishReason string `json:"finish_reason"`
+			} `json:"choices"`
+		}
+		if err := json.Unmarshal(out, &raw); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		if raw.Choices[0].FinishReason != "content_filter" {
+			t.Errorf("finish_reason = %q, want content_filter", raw.Choices[0].FinishReason)
+		}
+	})
+
+	t.Run("STOP normalized from Gemini", func(t *testing.T) {
+		lastFR := ""
+		payload := `{"id":"x","choices":[{"index":0,"delta":{"content":"done"},"finish_reason":"STOP"}]}`
+		c := parseStreamChunk(t, payload)
+		d, out := computeFinishReason(c, payload, &lastFR)
+		if d != finishRewrite {
+			t.Fatalf("decision = %v, want finishRewrite", d)
+		}
+		if lastFR != "stop" {
+			t.Errorf("lastFinishReason = %q, want stop", lastFR)
+		}
+		var raw struct {
+			Choices []struct {
+				FinishReason string `json:"finish_reason"`
+			} `json:"choices"`
+		}
+		if err := json.Unmarshal(out, &raw); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		if raw.Choices[0].FinishReason != "stop" {
+			t.Errorf("finish_reason = %q, want stop", raw.Choices[0].FinishReason)
+		}
+	})
+
+	t.Run("max_tokens normalized to length", func(t *testing.T) {
+		lastFR := ""
+		payload := `{"id":"x","choices":[{"index":0,"delta":{},"finish_reason":"max_tokens"}]}`
+		c := parseStreamChunk(t, payload)
+		d, out := computeFinishReason(c, payload, &lastFR)
+		if d != finishRewrite {
+			t.Fatalf("decision = %v, want finishRewrite", d)
+		}
+		if lastFR != "length" {
+			t.Errorf("lastFinishReason = %q, want length", lastFR)
+		}
+		var raw struct {
+			Choices []struct {
+				FinishReason string `json:"finish_reason"`
+			} `json:"choices"`
+		}
+		if err := json.Unmarshal(out, &raw); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		if raw.Choices[0].FinishReason != "length" {
+			t.Errorf("finish_reason = %q, want length", raw.Choices[0].FinishReason)
+		}
+	})
+
+	t.Run("SAFETY normalized to content_filter", func(t *testing.T) {
+		lastFR := ""
+		payload := `{"id":"x","choices":[{"index":0,"delta":{},"finish_reason":"SAFETY"}]}`
+		c := parseStreamChunk(t, payload)
+		d, out := computeFinishReason(c, payload, &lastFR)
+		if d != finishRewrite {
+			t.Fatalf("decision = %v, want finishRewrite", d)
+		}
+		if lastFR != "content_filter" {
+			t.Errorf("lastFinishReason = %q, want content_filter", lastFR)
+		}
+		var raw struct {
+			Choices []struct {
+				FinishReason string `json:"finish_reason"`
+			} `json:"choices"`
+		}
+		if err := json.Unmarshal(out, &raw); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		if raw.Choices[0].FinishReason != "content_filter" {
+			t.Errorf("finish_reason = %q, want content_filter", raw.Choices[0].FinishReason)
+		}
+	})
+
+	t.Run("unknown finish_reason passed through unchanged", func(t *testing.T) {
+		lastFR := ""
+		payload := `{"id":"x","choices":[{"index":0,"delta":{},"finish_reason":"custom_reason"}]}`
+		c := parseStreamChunk(t, payload)
+		// normalizeFinishReason returns the original value when no mapping exists.
+		// Since custom_reason == custom_reason, computeFinishReason returns finishNone
+		// (normalized == original), and lastFinishReason is updated.
+		d, _ := computeFinishReason(c, payload, &lastFR)
+		if d != finishNone {
+			t.Errorf("decision = %v, want finishNone (unknown reason unchanged)", d)
+		}
+		if lastFR != "custom_reason" {
+			t.Errorf("lastFinishReason = %q, want custom_reason", lastFR)
+		}
+	})
 }

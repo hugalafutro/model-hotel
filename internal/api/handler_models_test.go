@@ -766,4 +766,155 @@ func TestDeleteModel_InvalidUUID(t *testing.T) {
 	}
 }
 
+// TestDoTestModelRequest_ConnectionError tests that doTestModelRequest returns an error
+// when the target URL is unreachable (not just a bad HTTP status).
+func TestDoTestModelRequest_ConnectionError(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+
+	// Create a provider pointing to an unreachable host
+	providerData := fmt.Sprintf(`{"name":"test-unreachable-provider-%s","base_url":"https://127.0.0.1:1/v1","api_key":"sk-test"}`, uuid.New().String()[:8])
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d", rec.Code)
+	}
+
+	var providerResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
+		t.Fatalf("Failed to parse provider response: %v", err)
+	}
+
+	// Insert an enabled model
+	pool := h.Pool().Pool()
+	modelID := uuid.New().String()
+	_, err := pool.Exec(context.Background(),
+		`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
+		modelID, providerResp.ID, "test-model", "Test Model", true)
+	if err != nil {
+		t.Fatalf("Failed to insert model: %v", err)
+	}
+
+	// Test the model — the 127.0.0.1:1 connection should be refused
+	req = httptest.NewRequest(http.MethodPost, "/models/"+modelID+"/test", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec = httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	// Should return 200 with an error field (the handler catches the connection
+	// error and returns it in the response body, not as an HTTP error).
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var testResp TestModelResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &testResp); err != nil {
+		t.Fatalf("Failed to parse test response: %v", err)
+	}
+	if testResp.Error == "" {
+		t.Error("Expected non-empty error field for unreachable provider URL")
+	}
+}
+
+// TestDoTestModelRequest_CustomCheckRedirect tests that the custom CheckRedirect
+// hook is used when set on the handler.
+func TestDoTestModelRequest_CustomCheckRedirect(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+
+	// Create a mock server that returns a successful response.
+	redirectCalled := false
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Return a successful chat completions response
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"choices": []map[string]interface{}{
+				{"message": map[string]string{"content": "Hi"}},
+			},
+			"usage": map[string]int{"prompt_tokens": 5, "completion_tokens": 1},
+		})
+	}))
+	defer mockServer.Close()
+
+	// Set custom transport and a CheckRedirect that records it was called.
+	// To trigger a redirect, the mock server would need to return a 3xx,
+	// but that creates complexity. Instead, we just verify that setting
+	// CheckRedirect on the handler causes it to be applied to the test client.
+	// The redirect hook is verified by setting it and making a request that
+	// would follow a redirect (we simulate with a separate redirect server).
+	redirectServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Redirect to the main mock server
+		http.Redirect(w, r, mockServer.URL+r.URL.Path, http.StatusFound)
+	}))
+	defer redirectServer.Close()
+
+	origTransport := h.testModelTransport
+	origCheckRedirect := h.testModelCheckRedirect
+	h.testModelTransport = &http.Transport{}
+	h.testModelCheckRedirect = func(req *http.Request, via []*http.Request) error {
+		redirectCalled = true
+		return nil // Allow the redirect
+	}
+	defer func() {
+		h.testModelTransport = origTransport
+		h.testModelCheckRedirect = origCheckRedirect
+	}()
+
+	// Create a provider pointing to the redirect server
+	providerData := fmt.Sprintf(`{"name":"test-redirect-provider-%s","base_url":"%s","api_key":"sk-test"}`, uuid.New().String()[:8], redirectServer.URL)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d", rec.Code)
+	}
+
+	var providerResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
+		t.Fatalf("Failed to parse provider response: %v", err)
+	}
+
+	// Insert an enabled model
+	pool := h.Pool().Pool()
+	modelID := uuid.New().String()
+	_, err := pool.Exec(context.Background(),
+		`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
+		modelID, providerResp.ID, "test-model", "Test Model", true)
+	if err != nil {
+		t.Fatalf("Failed to insert model: %v", err)
+	}
+
+	// Test the model — should trigger the redirect and invoke CheckRedirect
+	req = httptest.NewRequest(http.MethodPost, "/models/"+modelID+"/test", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec = httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	if !redirectCalled {
+		t.Error("Expected custom CheckRedirect to be invoked")
+	}
+
+	var testResp TestModelResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &testResp); err != nil {
+		t.Fatalf("Failed to parse test response: %v", err)
+	}
+	// The redirected request should succeed and return a response
+	if testResp.Error != "" {
+		t.Errorf("Unexpected error in test response: %s", testResp.Error)
+	}
+}
+
 // TestPurgeLogs_BeforeTimestamp tests purging logs before a specific timestamp

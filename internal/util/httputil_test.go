@@ -124,6 +124,32 @@ func TestParseBearerToken_TokenWithSpaces(t *testing.T) {
 	}
 }
 
+func TestParseBearerToken_ExactSevenChars(t *testing.T) {
+	// 7-char auth header is too short for "Bearer " (7 chars + at least 1 token char)
+	r := httptest.NewRequest("GET", "/", http.NoBody)
+	r.Header.Set("Authorization", "Basica ")
+	token, ok := ParseBearerToken(r)
+	if ok {
+		t.Error("ParseBearerToken should return false for 7-char non-Bearer header")
+	}
+	if token != "" {
+		t.Errorf("expected empty token, got %q", token)
+	}
+}
+
+func TestParseBearerToken_TabAfterBearer(t *testing.T) {
+	// "Bearer\t" uses a tab instead of a space — should not match
+	r := httptest.NewRequest("GET", "/", http.NoBody)
+	r.Header.Set("Authorization", "Bearer\ttoken")
+	token, ok := ParseBearerToken(r)
+	if ok {
+		t.Error("ParseBearerToken should reject 'Bearer\\t' (tab instead of space)")
+	}
+	if token != "" {
+		t.Errorf("expected empty token, got %q", token)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // GetIntQueryParam
 // ---------------------------------------------------------------------------

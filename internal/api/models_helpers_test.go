@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -9,7 +10,9 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/model"
+	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -406,4 +409,340 @@ func ptrEqual(a, b interface{}) bool {
 		}
 	}
 	return false
+}
+
+// ---------------------------------------------------------------------------
+// parseTestModelResponse
+// ---------------------------------------------------------------------------
+
+func TestParseTestModelResponse_ValidJSON(t *testing.T) {
+	body := []byte(`{"choices":[{"message":{"content":"Hi"}}],"usage":{"prompt_tokens":5,"completion_tokens":2}}`)
+	content, tps, promptTokens, completionTokens := parseTestModelResponse(body, 1000)
+
+	if content != "Hi" {
+		t.Errorf("content: got %q, want %q", content, "Hi")
+	}
+	if tps != 2.0 { // 2 tokens / 1000ms * 1000 = 2.0
+		t.Errorf("tps: got %f, want %f", tps, 2.0)
+	}
+	if promptTokens != 5 {
+		t.Errorf("promptTokens: got %d, want %d", promptTokens, 5)
+	}
+	if completionTokens != 2 {
+		t.Errorf("completionTokens: got %d, want %d", completionTokens, 2)
+	}
+}
+
+func TestParseTestModelResponse_InvalidJSON(t *testing.T) {
+	body := []byte(`not json at all`)
+	content, tps, promptTokens, completionTokens := parseTestModelResponse(body, 1000)
+
+	if content != "" {
+		t.Errorf("content: got %q, want empty string for invalid JSON", content)
+	}
+	if tps != 0 {
+		t.Errorf("tps: got %f, want 0 for invalid JSON", tps)
+	}
+	if promptTokens != 0 {
+		t.Errorf("promptTokens: got %d, want 0 for invalid JSON", promptTokens)
+	}
+	if completionTokens != 0 {
+		t.Errorf("completionTokens: got %d, want 0 for invalid JSON", completionTokens)
+	}
+}
+
+func TestParseTestModelResponse_EmptyChoices(t *testing.T) {
+	body := []byte(`{"choices":[],"usage":{"prompt_tokens":5,"completion_tokens":0}}`)
+	content, tps, promptTokens, _ := parseTestModelResponse(body, 1000)
+
+	if content != "" {
+		t.Errorf("content: got %q, want empty string for empty choices", content)
+	}
+	if tps != 0 {
+		t.Errorf("tps: got %f, want 0 when completion tokens is 0", tps)
+	}
+	if promptTokens != 5 {
+		t.Errorf("promptTokens: got %d, want %d", promptTokens, 5)
+	}
+}
+
+func TestParseTestModelResponse_ZeroDuration(t *testing.T) {
+	body := []byte(`{"choices":[{"message":{"content":"Hi"}}],"usage":{"prompt_tokens":5,"completion_tokens":2}}`)
+	content, tps, _, _ := parseTestModelResponse(body, 0)
+
+	if content != "Hi" {
+		t.Errorf("content: got %q, want %q", content, "Hi")
+	}
+	if tps != 0 {
+		t.Errorf("tps: got %f, want 0 when duration is 0", tps)
+	}
+}
+
+func TestParseTestModelResponse_NoUsageField(t *testing.T) {
+	body := []byte(`{"choices":[{"message":{"content":"Hello world"}}]}`)
+	content, tps, promptTokens, completionTokens := parseTestModelResponse(body, 500)
+
+	if content != "Hello world" {
+		t.Errorf("content: got %q, want %q", content, "Hello world")
+	}
+	if tps != 0 {
+		t.Errorf("tps: got %f, want 0 when usage missing", tps)
+	}
+	if promptTokens != 0 {
+		t.Errorf("promptTokens: got %d, want 0 when usage missing", promptTokens)
+	}
+	if completionTokens != 0 {
+		t.Errorf("completionTokens: got %d, want 0 when usage missing", completionTokens)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// decryptTestModelKey
+// ---------------------------------------------------------------------------
+
+func TestDecryptTestModelKey_KeylessProvider(t *testing.T) {
+	h := newTestHandler(t)
+	w := httptest.NewRecorder()
+
+	// Keyless provider: EncryptedKey is nil/empty
+	prov := &provider.Provider{
+		ID:   uuid.New(),
+		Name: "keyless-test",
+	}
+	apiKey, ok := h.decryptTestModelKey(w, prov)
+	if !ok {
+		t.Fatal("expected ok=true for keyless provider")
+	}
+	if apiKey != "" {
+		t.Errorf("apiKey: got %q, want empty string for keyless provider", apiKey)
+	}
+}
+
+func TestDecryptTestModelKey_EncryptedKey(t *testing.T) {
+	h := newTestHandler(t)
+	w := httptest.NewRecorder()
+
+	// Encrypt a known key with the test master key
+	plainKey := "sk-test-decrypt-key-12345"
+	kp, err := auth.Encrypt(plainKey, h.cfg.MasterKey)
+	if err != nil {
+		t.Fatalf("Encrypt failed: %v", err)
+	}
+
+	prov := &provider.Provider{
+		ID:           uuid.New(),
+		Name:         "encrypted-test",
+		EncryptedKey: kp.Ciphertext,
+		KeyNonce:     kp.Nonce,
+		KeySalt:      kp.Salt,
+	}
+	apiKey, ok := h.decryptTestModelKey(w, prov)
+	if !ok {
+		t.Fatalf("expected ok=true for valid encrypted key, got false; body=%s", w.Body.String())
+	}
+	if apiKey != plainKey {
+		t.Errorf("apiKey: got %q, want %q", apiKey, plainKey)
+	}
+}
+
+func TestDecryptTestModelKey_InvalidEncryptedKey(t *testing.T) {
+	h := newTestHandler(t)
+	w := httptest.NewRecorder()
+
+	// Encrypt a key with the correct master key, then corrupt the ciphertext.
+	// Using a wrong master key for decryption would also work but the GCM
+	// auth tag check catches that. Corrupting ciphertext triggers a clean error.
+	kp, err := auth.Encrypt("sk-original", h.cfg.MasterKey)
+	if err != nil {
+		t.Fatalf("Encrypt failed: %v", err)
+	}
+
+	// Flip a byte in the ciphertext to make it invalid
+	corrupted := make([]byte, len(kp.Ciphertext))
+	copy(corrupted, kp.Ciphertext)
+	corrupted[0] ^= 0xFF
+
+	prov := &provider.Provider{
+		ID:           uuid.New(),
+		Name:         "corrupted-key-test",
+		EncryptedKey: corrupted,
+		KeyNonce:     kp.Nonce,
+		KeySalt:      kp.Salt,
+	}
+	apiKey, ok := h.decryptTestModelKey(w, prov)
+	if ok {
+		t.Errorf("expected ok=false for corrupted encrypted key, got true; apiKey=%q", apiKey)
+	}
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status: got %d, want %d", w.Code, http.StatusInternalServerError)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// logTestModelRequestError / logTestModelHTTPError / logTestModelCompleted
+// ---------------------------------------------------------------------------
+
+// insertTestModelForLog inserts a provider+model row needed by the
+// logTestModel* tests (request_logs has FK constraints on provider_id).
+func insertTestModelForLog(t *testing.T, h *Handler, modelIDStr string) *model.Model {
+	t.Helper()
+	ctx := context.Background()
+	pool := h.dbPool.Pool()
+
+	providerID := uuid.New()
+	_, err := pool.Exec(ctx,
+		`INSERT INTO providers (id, name, base_url, enabled, created_at, updated_at)
+		 VALUES ($1, $2, $3, true, now(), now())`,
+		providerID, "log-test-provider-"+modelIDStr, "https://log-test.example.com")
+	if err != nil {
+		t.Fatalf("insert provider: %v", err)
+	}
+
+	modelUUID := uuid.New()
+	_, err = pool.Exec(ctx,
+		`INSERT INTO models (id, provider_id, model_id, name, enabled, created_at, last_seen_at)
+		 VALUES ($1, $2, $3, $4, true, now(), now())`,
+		modelUUID, providerID, modelIDStr, modelIDStr)
+	if err != nil {
+		t.Fatalf("insert model: %v", err)
+	}
+
+	return &model.Model{
+		ID:         modelUUID,
+		ProviderID: providerID,
+		ModelID:    modelIDStr,
+	}
+}
+
+func TestLogTestModelRequestError(t *testing.T) {
+	h := newTestHandler(t)
+	ctx := context.Background()
+
+	m := insertTestModelForLog(t, h, "test-log-req-err")
+
+	h.logTestModelRequestError(ctx, m, "reqhash001", 1500, 200, 50, "connection refused")
+
+	// Verify the row was inserted
+	var count int
+	err := h.dbPool.Pool().QueryRow(ctx,
+		`SELECT count(*) FROM request_logs WHERE request_hash = $1 AND model_id = $2`,
+		"reqhash001", m.ModelID,
+	).Scan(&count)
+	if err != nil {
+		t.Fatalf("failed to query request_logs: %v", err)
+	}
+	if count != 1 {
+		t.Errorf("expected 1 request_log row, got %d", count)
+	}
+
+	// Verify key fields specific to logTestModelRequestError
+	var statusCode int
+	var state string
+	var keyDecryptMs float64
+	err = h.dbPool.Pool().QueryRow(ctx,
+		`SELECT status_code, state, key_decrypt_ms FROM request_logs WHERE request_hash = $1`,
+		"reqhash001",
+	).Scan(&statusCode, &state, &keyDecryptMs)
+	if err != nil {
+		t.Fatalf("failed to query request_log fields: %v", err)
+	}
+	if statusCode != 502 {
+		t.Errorf("status_code: got %d, want 502", statusCode)
+	}
+	if state != "failed" {
+		t.Errorf("state: got %q, want %q", state, "failed")
+	}
+	if keyDecryptMs != 50 {
+		t.Errorf("key_decrypt_ms: got %f, want 50", keyDecryptMs)
+	}
+}
+
+func TestLogTestModelHTTPError(t *testing.T) {
+	h := newTestHandler(t)
+	ctx := context.Background()
+
+	m := insertTestModelForLog(t, h, "test-log-http-err")
+
+	h.logTestModelHTTPError(ctx, m, "reqhash002", 429, 3000, 250, 30, "rate limited")
+
+	var count int
+	err := h.dbPool.Pool().QueryRow(ctx,
+		`SELECT count(*) FROM request_logs WHERE request_hash = $1 AND model_id = $2`,
+		"reqhash002", m.ModelID,
+	).Scan(&count)
+	if err != nil {
+		t.Fatalf("failed to query request_logs: %v", err)
+	}
+	if count != 1 {
+		t.Errorf("expected 1 request_log row, got %d", count)
+	}
+
+	var statusCode int
+	var state string
+	var durationMs float64
+	err = h.dbPool.Pool().QueryRow(ctx,
+		`SELECT status_code, state, duration_ms FROM request_logs WHERE request_hash = $1`,
+		"reqhash002",
+	).Scan(&statusCode, &state, &durationMs)
+	if err != nil {
+		t.Fatalf("failed to query request_log fields: %v", err)
+	}
+	if statusCode != 429 {
+		t.Errorf("status_code: got %d, want 429", statusCode)
+	}
+	if state != "failed" {
+		t.Errorf("state: got %q, want %q", state, "failed")
+	}
+	if durationMs != 3000 {
+		t.Errorf("duration_ms: got %f, want 3000", durationMs)
+	}
+}
+
+func TestLogTestModelCompleted(t *testing.T) {
+	h := newTestHandler(t)
+	ctx := context.Background()
+
+	m := insertTestModelForLog(t, h, "test-log-completed")
+
+	h.logTestModelCompleted(ctx, m, "reqhash003", 200, 2500, 100, 40, 8.5, 10, 3)
+
+	var count int
+	err := h.dbPool.Pool().QueryRow(ctx,
+		`SELECT count(*) FROM request_logs WHERE request_hash = $1 AND model_id = $2`,
+		"reqhash003", m.ModelID,
+	).Scan(&count)
+	if err != nil {
+		t.Fatalf("failed to query request_logs: %v", err)
+	}
+	if count != 1 {
+		t.Errorf("expected 1 request_log row, got %d", count)
+	}
+
+	var statusCode int
+	var state string
+	var tps float64
+	var tokensPrompt int
+	var tokensCompletion int
+	err = h.dbPool.Pool().QueryRow(ctx,
+		`SELECT status_code, state, tokens_per_second, tokens_prompt, tokens_completion FROM request_logs WHERE request_hash = $1`,
+		"reqhash003",
+	).Scan(&statusCode, &state, &tps, &tokensPrompt, &tokensCompletion)
+	if err != nil {
+		t.Fatalf("failed to query request_log fields: %v", err)
+	}
+	if statusCode != 200 {
+		t.Errorf("status_code: got %d, want 200", statusCode)
+	}
+	if state != "completed" {
+		t.Errorf("state: got %q, want %q", state, "completed")
+	}
+	if tps != 8.5 {
+		t.Errorf("tokens_per_second: got %f, want 8.5", tps)
+	}
+	if tokensPrompt != 10 {
+		t.Errorf("tokens_prompt: got %d, want 10", tokensPrompt)
+	}
+	if tokensCompletion != 3 {
+		t.Errorf("tokens_completion: got %d, want 3", tokensCompletion)
+	}
 }

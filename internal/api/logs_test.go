@@ -148,7 +148,23 @@ func TestListLogs_PerPageLessThanOne(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestListLogs_FilterByModelID(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.Pool().Pool()
+	ctx := context.Background()
+
+	// Create a provider via API so we have a valid provider_id FK.
+	providerID := createLogTestProvider(t, r, "filter-model-provider")
+	defer pool.Exec(ctx, `DELETE FROM providers WHERE id = $1`, providerID)
+
+	// Insert two logs with different model IDs.
+	if _, err := pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		VALUES (gen_random_uuid(), $1, 'gpt-4', 200, 100, now())`, providerID); err != nil {
+		t.Fatalf("insert gpt-4 log: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		VALUES (gen_random_uuid(), $1, 'claude-3', 200, 100, now())`, providerID); err != nil {
+		t.Fatalf("insert claude-3 log: %v", err)
+	}
 
 	req := httptest.NewRequest("GET", "/logs/?model_id=gpt-4", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -164,10 +180,57 @@ func TestListLogs_FilterByModelID(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
+
+	// Verify that at least one entry is returned and all match the filter.
+	if len(resp.Entries) == 0 {
+		t.Fatal("expected at least one entry for model_id=gpt-4, got none")
+	}
+	for _, l := range resp.Entries {
+		if l.ModelID != "gpt-4" {
+			t.Errorf("expected only gpt-4 logs, got model_id=%s", l.ModelID)
+		}
+	}
+}
+
+// createLogTestProvider creates a provider via the API and returns its UUID.
+func createLogTestProvider(t *testing.T, r chi.Router, name string) string {
+	t.Helper()
+	prefix := name + "-" + uuid.New().String()[:8]
+	providerData := fmt.Sprintf(`{"name": "%s", "base_url": "https://api.example.com", "api_key": "test-key"}`, prefix)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("failed to create provider %s: %d: %s", name, rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to parse provider response: %v", err)
+	}
+	return resp.ID
 }
 
 func TestListLogs_FilterByStatusCode4xx(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.Pool().Pool()
+	ctx := context.Background()
+
+	providerID := createLogTestProvider(t, r, "filter-4xx-provider")
+	defer pool.Exec(ctx, `DELETE FROM providers WHERE id = $1`, providerID)
+
+	// Insert logs with 400 and 500 status codes.
+	if _, err := pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		VALUES (gen_random_uuid(), $1, 'model-a', 400, 50, now())`, providerID); err != nil {
+		t.Fatalf("insert 400 log: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		VALUES (gen_random_uuid(), $1, 'model-b', 503, 50, now())`, providerID); err != nil {
+		t.Fatalf("insert 503 log: %v", err)
+	}
 
 	req := httptest.NewRequest("GET", "/logs/?status_code=4xx", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -183,10 +246,34 @@ func TestListLogs_FilterByStatusCode4xx(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
+
+	if len(resp.Entries) == 0 {
+		t.Fatal("expected at least one 4xx log entry, got none")
+	}
+	for _, l := range resp.Entries {
+		if l.StatusCode < 400 || l.StatusCode >= 500 {
+			t.Errorf("expected only 4xx logs, got status_code=%d", l.StatusCode)
+		}
+	}
 }
 
 func TestListLogs_FilterByStatusCode5xx(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.Pool().Pool()
+	ctx := context.Background()
+
+	providerID := createLogTestProvider(t, r, "filter-5xx-provider")
+	defer pool.Exec(ctx, `DELETE FROM providers WHERE id = $1`, providerID)
+
+	// Insert logs with 200 and 500 status codes.
+	if _, err := pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		VALUES (gen_random_uuid(), $1, 'model-a', 200, 50, now())`, providerID); err != nil {
+		t.Fatalf("insert 200 log: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		VALUES (gen_random_uuid(), $1, 'model-b', 503, 50, now())`, providerID); err != nil {
+		t.Fatalf("insert 503 log: %v", err)
+	}
 
 	req := httptest.NewRequest("GET", "/logs/?status_code=5xx", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -202,10 +289,34 @@ func TestListLogs_FilterByStatusCode5xx(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
+
+	if len(resp.Entries) == 0 {
+		t.Fatal("expected at least one 5xx log entry, got none")
+	}
+	for _, l := range resp.Entries {
+		if l.StatusCode < 500 {
+			t.Errorf("expected only 5xx logs, got status_code=%d", l.StatusCode)
+		}
+	}
 }
 
 func TestListLogs_FilterByStatusCode0(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.Pool().Pool()
+	ctx := context.Background()
+
+	providerID := createLogTestProvider(t, r, "filter-sc0-provider")
+	defer pool.Exec(ctx, `DELETE FROM providers WHERE id = $1`, providerID)
+
+	// Insert a log with status_code=0 (proxy error, no HTTP response).
+	if _, err := pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		VALUES (gen_random_uuid(), $1, 'model-a', 0, 50, now())`, providerID); err != nil {
+		t.Fatalf("insert status=0 log: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		VALUES (gen_random_uuid(), $1, 'model-b', 200, 50, now())`, providerID); err != nil {
+		t.Fatalf("insert status=200 log: %v", err)
+	}
 
 	req := httptest.NewRequest("GET", "/logs/?status_code=0", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -221,6 +332,15 @@ func TestListLogs_FilterByStatusCode0(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
+
+	if len(resp.Entries) == 0 {
+		t.Fatal("expected at least one status_code=0 log entry, got none")
+	}
+	for _, l := range resp.Entries {
+		if l.StatusCode != 0 {
+			t.Errorf("expected only status_code=0 logs, got status_code=%d", l.StatusCode)
+		}
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -228,7 +348,22 @@ func TestListLogs_FilterByStatusCode0(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestListLogs_SortByModel(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.Pool().Pool()
+	ctx := context.Background()
+
+	providerID := createLogTestProvider(t, r, "sort-test-provider")
+	defer pool.Exec(ctx, `DELETE FROM providers WHERE id = $1`, providerID)
+
+	// Insert logs with different model IDs to verify sort order.
+	if _, err := pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		VALUES (gen_random_uuid(), $1, 'beta-model', 200, 50, now())`, providerID); err != nil {
+		t.Fatalf("insert beta-model log: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		VALUES (gen_random_uuid(), $1, 'alpha-model', 200, 50, now())`, providerID); err != nil {
+		t.Fatalf("insert alpha-model log: %v", err)
+	}
 
 	req := httptest.NewRequest("GET", "/logs/?sort_by=model&sort_dir=asc", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -244,6 +379,33 @@ func TestListLogs_SortByModel(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
+
+	// Verify both inserted entries are present.
+	if len(resp.Entries) < 2 {
+		t.Fatalf("expected at least 2 entries, got %d", len(resp.Entries))
+	}
+
+	modelIDs := make(map[string]bool)
+	for _, l := range resp.Entries {
+		modelIDs[l.ModelID] = true
+	}
+	if !modelIDs["alpha-model"] || !modelIDs["beta-model"] {
+		t.Errorf("expected both alpha-model and beta-model in results, got models: %v", modelIDs)
+	}
+
+	// Verify ascending order among the inserted entries.
+	var alphaIdx, betaIdx = -1, -1
+	for i, l := range resp.Entries {
+		if l.ModelID == "alpha-model" {
+			alphaIdx = i
+		}
+		if l.ModelID == "beta-model" {
+			betaIdx = i
+		}
+	}
+	if alphaIdx >= 0 && betaIdx >= 0 && alphaIdx > betaIdx {
+		t.Errorf("expected alpha-model before beta-model in ascending sort, got alpha at %d, beta at %d", alphaIdx, betaIdx)
+	}
 }
 
 func TestListLogs_InvalidSortBy(t *testing.T) {
@@ -255,13 +417,9 @@ func TestListLogs_InvalidSortBy(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
+	// Invalid sort_by should not cause a server error; it falls back to default sort.
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
-	}
-
-	var resp LogsResponse
-	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("failed to decode response: %v", err)
 	}
 }
 
@@ -1088,6 +1246,389 @@ func TestListLogsCursor_BackwardPagination(t *testing.T) {
 	// Must have has_before=true since page1 entries still precede this page
 	if !beforePage.HasBefore {
 		t.Error("expected HasBefore=true for backward page (more items precede)")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// appendLogFilters unit tests
+// ---------------------------------------------------------------------------
+
+func TestAppendLogFilters_NoFilters(t *testing.T) {
+	query, args, idx := appendLogFilters("SELECT * FROM t WHERE 1=1", nil, 1, "", "", "", "", "")
+	if !strings.Contains(query, "WHERE 1=1") {
+		t.Errorf("base query should be preserved, got %q", query)
+	}
+	if len(args) != 0 {
+		t.Errorf("expected 0 args, got %d", len(args))
+	}
+	if idx != 1 {
+		t.Errorf("expected argIdx=1, got %d", idx)
+	}
+}
+
+func TestAppendLogFilters_ModelID(t *testing.T) {
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "gpt-4", "", "", "", "")
+	if !strings.Contains(query, `AND rl.model_id ILIKE $1`) {
+		t.Errorf("expected model_id ILIKE filter, got %q", query)
+	}
+	if args[0] != "%gpt-4%" {
+		t.Errorf("expected %%gpt-4%%, got %v", args[0])
+	}
+	if idx != 2 {
+		t.Errorf("expected argIdx=2, got %d", idx)
+	}
+}
+
+func TestAppendLogFilters_ProviderID_ValidUUID(t *testing.T) {
+	validUUID := uuid.New().String()
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", validUUID, "", "", "")
+	if !strings.Contains(query, "AND rl.provider_id = $1") {
+		t.Errorf("expected provider_id filter for valid UUID, got %q", query)
+	}
+	if args[0] != uuid.MustParse(validUUID) {
+		t.Errorf("expected parsed UUID arg, got %v", args[0])
+	}
+	if idx != 2 {
+		t.Errorf("expected argIdx=2, got %d", idx)
+	}
+}
+
+func TestAppendLogFilters_ProviderID_InvalidUUID(t *testing.T) {
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "not-a-uuid", "", "", "")
+	if strings.Contains(query, "provider_id") {
+		t.Errorf("invalid UUID should not add provider_id filter, got %q", query)
+	}
+	if len(args) != 0 {
+		t.Errorf("expected 0 args for invalid UUID, got %d", len(args))
+	}
+	if idx != 1 {
+		t.Errorf("expected argIdx=1, got %d", idx)
+	}
+}
+
+func TestAppendLogFilters_StatusCode4xx(t *testing.T) {
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "4xx", "", "")
+	if !strings.Contains(query, "AND rl.status_code >= 400 AND rl.status_code < 500") {
+		t.Errorf("expected 4xx range filter, got %q", query)
+	}
+	if len(args) != 0 {
+		t.Errorf("4xx filter should not add args, got %d", len(args))
+	}
+	if idx != 1 {
+		t.Errorf("expected argIdx=1, got %d", idx)
+	}
+}
+
+func TestAppendLogFilters_StatusCode5xx(t *testing.T) {
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "5xx", "", "")
+	if !strings.Contains(query, "AND rl.status_code >= 500") {
+		t.Errorf("expected 5xx range filter, got %q", query)
+	}
+	if len(args) != 0 {
+		t.Errorf("5xx filter should not add args, got %d", len(args))
+	}
+	if idx != 1 {
+		t.Errorf("expected argIdx=1, got %d", idx)
+	}
+}
+
+func TestAppendLogFilters_StatusCodeSpecific(t *testing.T) {
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "404", "", "")
+	if !strings.Contains(query, "AND rl.status_code = $1") {
+		t.Errorf("expected specific status code filter, got %q", query)
+	}
+	if args[0] != 404 {
+		t.Errorf("expected arg 404, got %v", args[0])
+	}
+	if idx != 2 {
+		t.Errorf("expected argIdx=2, got %d", idx)
+	}
+}
+
+func TestAppendLogFilters_StatusCodeZero(t *testing.T) {
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "0", "", "")
+	if !strings.Contains(query, "AND (rl.status_code = 0 OR rl.status_code IS NULL)") {
+		t.Errorf("expected status_code=0 or NULL filter, got %q", query)
+	}
+	if len(args) != 0 {
+		t.Errorf("status_code=0 should not add args, got %d", len(args))
+	}
+	if idx != 1 {
+		t.Errorf("expected argIdx=1, got %d", idx)
+	}
+}
+
+func TestAppendLogFilters_StatusCodeNegative(t *testing.T) {
+	query, args, _ := appendLogFilters("WHERE 1=1", nil, 1, "", "", "-1", "", "")
+	if strings.Contains(query, "status_code") {
+		t.Errorf("negative status code should be ignored, got %q", query)
+	}
+	if len(args) != 0 {
+		t.Errorf("expected 0 args for negative status code, got %d", len(args))
+	}
+}
+
+func TestAppendLogFilters_StatusCodeNonNumeric(t *testing.T) {
+	query, args, _ := appendLogFilters("WHERE 1=1", nil, 1, "", "", "abc", "", "")
+	if strings.Contains(query, "status_code") {
+		t.Errorf("non-numeric status code should be ignored, got %q", query)
+	}
+	if len(args) != 0 {
+		t.Errorf("expected 0 args for non-numeric status code, got %d", len(args))
+	}
+}
+
+func TestAppendLogFilters_FromDate(t *testing.T) {
+	from := "2024-01-01T00:00:00Z"
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "", from, "")
+	if !strings.Contains(query, "AND rl.created_at >= $1") {
+		t.Errorf("expected from date filter, got %q", query)
+	}
+	if len(args) != 1 {
+		t.Fatalf("expected 1 arg, got %d", len(args))
+	}
+	if idx != 2 {
+		t.Errorf("expected argIdx=2, got %d", idx)
+	}
+}
+
+func TestAppendLogFilters_ToDate(t *testing.T) {
+	to := "2024-12-31T23:59:59Z"
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "", "", to)
+	if !strings.Contains(query, "AND rl.created_at <= $1") {
+		t.Errorf("expected to date filter, got %q", query)
+	}
+	if len(args) != 1 {
+		t.Fatalf("expected 1 arg, got %d", len(args))
+	}
+	if idx != 2 {
+		t.Errorf("expected argIdx=2, got %d", idx)
+	}
+}
+
+func TestAppendLogFilters_InvalidFromDate(t *testing.T) {
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "", "not-a-date", "")
+	if strings.Contains(query, "rl.created_at >=") {
+		t.Errorf("invalid from date should be ignored, got %q", query)
+	}
+	if len(args) != 0 {
+		t.Errorf("expected 0 args for invalid from, got %d", len(args))
+	}
+	if idx != 1 {
+		t.Errorf("expected argIdx=1, got %d", idx)
+	}
+}
+
+func TestAppendLogFilters_InvalidToDate(t *testing.T) {
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "", "", "garbage")
+	if strings.Contains(query, "rl.created_at <=") {
+		t.Errorf("invalid to date should be ignored, got %q", query)
+	}
+	if len(args) != 0 {
+		t.Errorf("expected 0 args for invalid to, got %d", len(args))
+	}
+	if idx != 1 {
+		t.Errorf("expected argIdx=1, got %d", idx)
+	}
+}
+
+func TestAppendLogFilters_AllFilters(t *testing.T) {
+	validUUID := uuid.New().String()
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 3, "gpt-4", validUUID, "404", "2024-01-01T00:00:00Z", "2024-12-31T23:59:59Z")
+	if !strings.Contains(query, `AND rl.model_id ILIKE $3`) {
+		t.Errorf("expected model_id filter at $3, got %q", query)
+	}
+	if !strings.Contains(query, "AND rl.provider_id = $4") {
+		t.Errorf("expected provider_id filter at $4, got %q", query)
+	}
+	if !strings.Contains(query, "AND rl.status_code = $5") {
+		t.Errorf("expected status_code filter at $5, got %q", query)
+	}
+	if !strings.Contains(query, "AND rl.created_at >= $6") {
+		t.Errorf("expected from date filter at $6, got %q", query)
+	}
+	if !strings.Contains(query, "AND rl.created_at <= $7") {
+		t.Errorf("expected to date filter at $7, got %q", query)
+	}
+	if len(args) != 5 {
+		t.Fatalf("expected 5 args, got %d", len(args))
+	}
+	if idx != 8 {
+		t.Errorf("expected argIdx=8, got %d", idx)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// appendKeysetPredicate unit tests
+// ---------------------------------------------------------------------------
+
+func TestAppendKeysetPredicate_AfterDesc_ReturnsLessThan(t *testing.T) {
+	ts := time.Now()
+	cursor := logCursor{CreatedAt: ts, ID: "test-id"}
+	query, args, idx := appendKeysetPredicate("WHERE 1=1", nil, 1, cursor, "after", "desc")
+	if !strings.Contains(query, "rl.created_at < $1") {
+		t.Errorf("after+desc should use '<', got %q", query)
+	}
+	if !strings.Contains(query, "rl.id < $3") {
+		t.Errorf("after+desc id should use '<', got %q", query)
+	}
+	if len(args) != 3 {
+		t.Fatalf("expected 3 args, got %d", len(args))
+	}
+	if idx != 4 {
+		t.Errorf("expected argIdx=4, got %d", idx)
+	}
+}
+
+func TestAppendKeysetPredicate_BeforeAsc_ReturnsLessThan(t *testing.T) {
+	ts := time.Now()
+	cursor := logCursor{CreatedAt: ts, ID: "test-id"}
+	query, _, _ := appendKeysetPredicate("WHERE 1=1", nil, 1, cursor, "before", "asc")
+	if !strings.Contains(query, "rl.created_at < $1") {
+		t.Errorf("before+asc should use '<', got %q", query)
+	}
+}
+
+func TestAppendKeysetPredicate_AfterAsc_ReturnsGreaterThan(t *testing.T) {
+	ts := time.Now()
+	cursor := logCursor{CreatedAt: ts, ID: "test-id"}
+	query, _, _ := appendKeysetPredicate("WHERE 1=1", nil, 1, cursor, "after", "asc")
+	if !strings.Contains(query, "rl.created_at > $1") {
+		t.Errorf("after+asc should use '>', got %q", query)
+	}
+}
+
+func TestAppendKeysetPredicate_BeforeDesc_ReturnsGreaterThan(t *testing.T) {
+	ts := time.Now()
+	cursor := logCursor{CreatedAt: ts, ID: "test-id"}
+	query, _, _ := appendKeysetPredicate("WHERE 1=1", nil, 1, cursor, "before", "desc")
+	if !strings.Contains(query, "rl.created_at > $1") {
+		t.Errorf("before+desc should use '>', got %q", query)
+	}
+}
+
+func TestAppendKeysetPredicate_ArgIndexOffset(t *testing.T) {
+	ts := time.Now()
+	cursor := logCursor{CreatedAt: ts, ID: "test-id"}
+	query, args, idx := appendKeysetPredicate("WHERE 1=1", nil, 5, cursor, "after", "desc")
+	if !strings.Contains(query, "rl.created_at < $5") {
+		t.Errorf("expected arg starting at $5, got %q", query)
+	}
+	if !strings.Contains(query, "rl.id < $7") {
+		t.Errorf("expected id arg at $7, got %q", query)
+	}
+	if len(args) != 3 {
+		t.Fatalf("expected 3 args, got %d", len(args))
+	}
+	if idx != 8 {
+		t.Errorf("expected argIdx=8, got %d", idx)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// buildLogListQuery unit tests
+// ---------------------------------------------------------------------------
+
+func TestBuildLogListQuery_NoCursorNoFilters(t *testing.T) {
+	p := logListParams{
+		limit:     20,
+		sortDir:   "desc",
+		direction: "after",
+	}
+	query, args := buildLogListQuery(p)
+
+	if !strings.Contains(query, "SELECT "+strings.TrimSpace(logEntrySelectColumns[:20])) {
+		t.Errorf("expected SELECT with log columns, got %q", query[:60])
+	}
+	if !strings.Contains(query, "ORDER BY rl.created_at desc, rl.id desc") {
+		t.Errorf("expected ORDER BY rl.created_at desc, rl.id desc, got %q", query)
+	}
+	if !strings.Contains(query, "LIMIT") {
+		t.Errorf("expected LIMIT clause, got %q", query)
+	}
+	if len(args) != 1 {
+		t.Fatalf("expected 1 arg (limit+1), got %d", len(args))
+	}
+	if args[0] != 21 {
+		t.Errorf("expected limit arg 21, got %v", args[0])
+	}
+}
+
+func TestBuildLogListQuery_WithFilters(t *testing.T) {
+	p := logListParams{
+		limit:      10,
+		sortDir:    "desc",
+		direction:  "after",
+		modelID:    "gpt-4",
+		statusCode: "4xx",
+	}
+	query, _ := buildLogListQuery(p)
+
+	if !strings.Contains(query, `rl.model_id ILIKE`) {
+		t.Errorf("expected model_id filter, got %q", query)
+	}
+	if !strings.Contains(query, "rl.status_code >= 400 AND rl.status_code < 500") {
+		t.Errorf("expected 4xx status code filter, got %q", query)
+	}
+}
+
+func TestBuildLogListQuery_WithCursor(t *testing.T) {
+	ts := time.Now()
+	cursor := logCursor{CreatedAt: ts, ID: "cursor-id"}
+	p := logListParams{
+		limit:     20,
+		sortDir:   "desc",
+		direction: "after",
+		cursorStr: cursor.encode(),
+		cursor:    cursor,
+	}
+	query, args := buildLogListQuery(p)
+
+	if !strings.Contains(query, "rl.created_at < $") {
+		t.Errorf("after+desc should produce keyset with '<', got %q", query)
+	}
+	// 3 keyset args + 1 limit arg
+	if len(args) != 4 {
+		t.Fatalf("expected 4 args, got %d", len(args))
+	}
+}
+
+func TestBuildLogListQuery_BackwardDescInvertsSort(t *testing.T) {
+	p := logListParams{
+		limit:     20,
+		sortDir:   "desc",
+		direction: "before",
+	}
+	query, _ := buildLogListQuery(p)
+
+	if !strings.Contains(query, "ORDER BY rl.created_at asc, rl.id asc") {
+		t.Errorf("before+desc should invert to asc sort in fetch query, got %q", query)
+	}
+}
+
+func TestBuildLogListQuery_BackwardAscInvertsSort(t *testing.T) {
+	p := logListParams{
+		limit:     20,
+		sortDir:   "asc",
+		direction: "before",
+	}
+	query, _ := buildLogListQuery(p)
+
+	if !strings.Contains(query, "ORDER BY rl.created_at desc, rl.id desc") {
+		t.Errorf("before+asc should invert to desc sort in fetch query, got %q", query)
+	}
+}
+
+func TestBuildLogListQuery_LimitPlusOne(t *testing.T) {
+	p := logListParams{
+		limit:     5,
+		sortDir:   "desc",
+		direction: "after",
+	}
+	_, args := buildLogListQuery(p)
+
+	if args[len(args)-1] != 6 {
+		t.Errorf("expected limit+1=6, got %v", args[len(args)-1])
 	}
 }
 

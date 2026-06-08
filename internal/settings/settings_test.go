@@ -720,7 +720,6 @@ func TestRepository_GetWithDefault_Missing(t *testing.T) {
 // TestRepository_GetAll_DBError tests that GetAll returns an error when the
 // database query fails. Uses a canceled context to trigger the error.
 func TestRepository_GetAll_DBError(t *testing.T) {
-	t.Helper()
 	r := NewRepository(testPool)
 	// Use a canceled context to trigger a DB error
 	ctx, cancel := context.WithCancel(context.Background())
@@ -735,7 +734,6 @@ func TestRepository_GetAll_DBError(t *testing.T) {
 // TestRepository_Set_DBError tests that Set returns an error when the
 // database operation fails. Uses a canceled context to trigger the error.
 func TestRepository_Set_DBError(t *testing.T) {
-	t.Helper()
 	r := NewRepository(testPool)
 	// Use a canceled context to trigger a DB error
 	ctx, cancel := context.WithCancel(context.Background())
@@ -750,7 +748,6 @@ func TestRepository_Set_DBError(t *testing.T) {
 // TestRepository_Set_InvalidatesCache tests that Set invalidates the cache
 // entry for the key, so a subsequent GetWithDefault fetches the fresh value.
 func TestRepository_Set_InvalidatesCache(t *testing.T) {
-	t.Helper()
 	r := NewRepository(testPool)
 	ctx := context.Background()
 	clearSettings(t)
@@ -783,7 +780,6 @@ func TestRepository_Set_InvalidatesCache(t *testing.T) {
 // TestUnsubscribe_NotSubscribed tests that calling unsubscribe with a
 // subscription ID that doesn't exist does not panic.
 func TestUnsubscribe_NotSubscribed(t *testing.T) {
-	t.Helper()
 	r := NewRepository(testPool)
 
 	// Create a subscription and manually call unsubscribe with wrong ID
@@ -806,7 +802,6 @@ func TestUnsubscribe_NotSubscribed(t *testing.T) {
 // TestUnsubscribe_EmptySubscriptions tests that unsubscribe handles the case
 // where there are no subscriptions registered.
 func TestUnsubscribe_EmptySubscriptions(t *testing.T) {
-	t.Helper()
 	r := NewRepository(testPool)
 
 	// No subscriptions exist, calling unsubscribe should not panic
@@ -823,7 +818,6 @@ func TestUnsubscribe_EmptySubscriptions(t *testing.T) {
 // TestNotifyChange_NoSubscribers tests that notifyChange handles the case
 // where there are no subscribers registered without panicking.
 func TestNotifyChange_NoSubscribers(t *testing.T) {
-	t.Helper()
 	r := NewRepository(testPool)
 
 	// No subscribers registered, calling notifyChange should not panic
@@ -840,7 +834,6 @@ func TestNotifyChange_NoSubscribers(t *testing.T) {
 // TestNotifyChange_WithSubscribers tests that notifyChange delivers events
 // to all registered subscribers.
 func TestNotifyChange_WithSubscribers(t *testing.T) {
-	t.Helper()
 	r := NewRepository(testPool)
 	ctx := context.Background()
 	clearSettings(t)
@@ -872,7 +865,6 @@ func TestNotifyChange_WithSubscribers(t *testing.T) {
 
 // TestRepository_GetAll_SingleEntry tests GetAll with exactly one entry.
 func TestRepository_GetAll_SingleEntry(t *testing.T) {
-	t.Helper()
 	r := NewRepository(testPool)
 	ctx := context.Background()
 	clearSettings(t)
@@ -898,11 +890,42 @@ func TestRepository_GetAll_SingleEntry(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// Unsubscribe edge cases
+// ---------------------------------------------------------------------------
+
+// TestUnsubscribe_DoubleUnsubscribeViaSubscriptionMethod tests calling
+// Unsubscribe() on a Subscription that was never actually used (no events
+// received). This exercises the clean func / drain goroutine path when the
+// channel is empty — confirming the drain goroutine completes and closes
+// the channel without hanging.
+func TestUnsubscribe_UnusedSubscription(t *testing.T) {
+	r := NewRepository(testPool)
+	sub := r.Subscribe()
+
+	// Never read from sub.Events() — channel is empty.
+	// Unsubscribe should drain and close it without blocking.
+	done := make(chan struct{})
+	go func() {
+		sub.Unsubscribe()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// Success — unsubscribe completed.
+	case <-time.After(2 * time.Second):
+		t.Fatal("Unsubscribe on unused subscription hung — drain goroutine may be stuck")
+	}
+
+	// Double-unsubscribe must also be safe (sync.Once no-op).
+	sub.Unsubscribe()
+}
+
+// ---------------------------------------------------------------------------
 // DeleteKeysTx
 // ---------------------------------------------------------------------------
 
 func TestDeleteKeysTx_DeletesSpecifiedKeys(t *testing.T) {
-	t.Helper()
 	r := NewRepository(testPool)
 	ctx := context.Background()
 	clearSettings(t)
@@ -955,7 +978,6 @@ func TestDeleteKeysTx_DeletesSpecifiedKeys(t *testing.T) {
 }
 
 func TestDeleteKeysTx_EmptyKeys(t *testing.T) {
-	t.Helper()
 	r := NewRepository(testPool)
 	ctx := context.Background()
 
@@ -971,7 +993,6 @@ func TestDeleteKeysTx_EmptyKeys(t *testing.T) {
 }
 
 func TestDeleteKeysTx_InvalidKey(t *testing.T) {
-	t.Helper()
 	r := NewRepository(testPool)
 	ctx := context.Background()
 
@@ -987,12 +1008,49 @@ func TestDeleteKeysTx_InvalidKey(t *testing.T) {
 	}
 }
 
+// TestDeleteKeysTx_NilKeys tests that passing a nil slice returns nil
+// (same as empty slice — the early return at len(keys) == 0).
+func TestDeleteKeysTx_NilKeys(t *testing.T) {
+	r := NewRepository(testPool)
+	ctx := context.Background()
+
+	tx, err := testPool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer tx.Rollback(ctx)
+
+	if err := r.DeleteKeysTx(ctx, tx, nil); err != nil {
+		t.Errorf("DeleteKeysTx with nil keys should not error, got: %v", err)
+	}
+}
+
+// TestDeleteKeysTx_CancelledContext tests that DeleteKeysTx returns an error
+// when the transaction executes against a cancelled context (DB error path).
+func TestDeleteKeysTx_CancelledContext(t *testing.T) {
+	r := NewRepository(testPool)
+
+	tx, err := testPool.Begin(context.Background())
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer tx.Rollback(context.Background())
+
+	// Cancelled context should cause the SQL DELETE to fail.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err = r.DeleteKeysTx(ctx, tx, []string{"discovery_interval"})
+	if err == nil {
+		t.Error("expected error from DeleteKeysTx with cancelled context")
+	}
+}
+
 // ---------------------------------------------------------------------------
 // NotifyDeleted
 // ---------------------------------------------------------------------------
 
 func TestNotifyDeleted_EvictsCacheAndNotifies(t *testing.T) {
-	t.Helper()
 	r := NewRepository(testPool)
 	ctx := context.Background()
 	clearSettings(t)
@@ -1024,7 +1082,6 @@ func TestNotifyDeleted_EvictsCacheAndNotifies(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestIsCached_AfterRead(t *testing.T) {
-	t.Helper()
 	r := NewRepository(testPool)
 	ctx := context.Background()
 	clearSettings(t)
@@ -1053,7 +1110,6 @@ func TestIsCached_AfterRead(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestWarmCache_PopulatesAllSettings(t *testing.T) {
-	t.Helper()
 	r := NewRepository(testPool)
 	ctx := context.Background()
 	clearSettings(t)
@@ -1082,5 +1138,53 @@ func TestWarmCache_PopulatesAllSettings(t *testing.T) {
 	}
 	if !r.IsCached("circuit_breaker_enabled") {
 		t.Error("WarmCache should populate circuit_breaker_enabled")
+	}
+}
+
+// TestWarmCache_DBError tests that WarmCache gracefully handles a database
+// error by returning early without populating the cache. Uses a cancelled
+// context to make GetAll fail.
+func TestWarmCache_DBError(t *testing.T) {
+	r := NewRepository(testPool)
+	ctx := context.Background()
+	clearSettings(t)
+
+	// Insert a setting and verify it's not cached before WarmCache
+	_, err := testPool.Exec(ctx,
+		"INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, now()) ON CONFLICT (key) DO UPDATE SET value = $2",
+		"discovery_interval", "30m")
+	if err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	// Use a cancelled context so GetAll fails
+	cancelledCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	// WarmCache should not panic; it logs a warning and returns
+	r.WarmCache(cancelledCtx)
+
+	// Cache should remain empty since WarmCache failed
+	if r.IsCached("discovery_interval") {
+		t.Error("WarmCache should not populate cache when GetAll fails")
+	}
+}
+
+// TestWarmCache_EmptyDB tests that WarmCache handles an empty settings table
+// without error — the cache remains empty but the function succeeds.
+func TestWarmCache_EmptyDB(t *testing.T) {
+	r := NewRepository(testPool)
+	ctx := context.Background()
+	clearSettings(t)
+
+	// No settings in DB — WarmCache should succeed with nothing to cache
+	r.WarmCache(ctx)
+
+	// Cache should remain empty
+	r.mu.RLock()
+	cacheLen := len(r.cache)
+	r.mu.RUnlock()
+	if cacheLen != 0 {
+		t.Errorf("expected empty cache after WarmCache on empty DB, got %d entries", cacheLen)
 	}
 }

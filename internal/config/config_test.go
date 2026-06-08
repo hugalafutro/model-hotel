@@ -571,8 +571,215 @@ func TestValidateProviderURL_AllowListMultipleEntries(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// clampInt64
+// clampInt
 // ---------------------------------------------------------------------------
+
+func TestClampInt_WithinRange(t *testing.T) {
+	result := clampInt(5, 1, 10)
+	if result != 5 {
+		t.Errorf("clampInt(5, 1, 10) = %d, want 5", result)
+	}
+}
+
+func TestClampInt_BelowMin(t *testing.T) {
+	result := clampInt(0, 1, 10)
+	if result != 1 {
+		t.Errorf("clampInt(0, 1, 10) = %d, want 1", result)
+	}
+}
+
+func TestClampInt_AboveMax(t *testing.T) {
+	result := clampInt(15, 1, 10)
+	if result != 10 {
+		t.Errorf("clampInt(15, 1, 10) = %d, want 10", result)
+	}
+}
+
+func TestClampInt_AtMin(t *testing.T) {
+	result := clampInt(1, 1, 10)
+	if result != 1 {
+		t.Errorf("clampInt(1, 1, 10) = %d, want 1", result)
+	}
+}
+
+func TestClampInt_AtMax(t *testing.T) {
+	result := clampInt(10, 1, 10)
+	if result != 10 {
+		t.Errorf("clampInt(10, 1, 10) = %d, want 10", result)
+	}
+}
+
+func TestClampInt_NegativeValues(t *testing.T) {
+	result := clampInt(-5, -10, -1)
+	if result != -5 {
+		t.Errorf("clampInt(-5, -10, -1) = %d, want -5", result)
+	}
+}
+
+func TestClampInt_BelowMinNegative(t *testing.T) {
+	result := clampInt(-15, -10, -1)
+	if result != -10 {
+		t.Errorf("clampInt(-15, -10, -1) = %d, want -10", result)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// clampInt32
+// ---------------------------------------------------------------------------
+
+func TestClampInt32_WithinRange(t *testing.T) {
+	result := clampInt32(5, 1, 10)
+	if result != 5 {
+		t.Errorf("clampInt32(5, 1, 10) = %d, want 5", result)
+	}
+}
+
+func TestClampInt32_BelowMin(t *testing.T) {
+	result := clampInt32(0, 1, 10)
+	if result != 1 {
+		t.Errorf("clampInt32(0, 1, 10) = %d, want 1", result)
+	}
+}
+
+func TestClampInt32_AboveMax(t *testing.T) {
+	result := clampInt32(15, 1, 10)
+	if result != 10 {
+		t.Errorf("clampInt32(15, 1, 10) = %d, want 10", result)
+	}
+}
+
+func TestClampInt32_AtMin(t *testing.T) {
+	result := clampInt32(1, 1, 10)
+	if result != 1 {
+		t.Errorf("clampInt32(1, 1, 10) = %d, want 1", result)
+	}
+}
+
+func TestClampInt32_AtMax(t *testing.T) {
+	result := clampInt32(10, 1, 10)
+	if result != 10 {
+		t.Errorf("clampInt32(10, 1, 10) = %d, want 10", result)
+	}
+}
+
+func TestClampInt32_NegativeValues(t *testing.T) {
+	result := clampInt32(-5, -10, -1)
+	if result != -5 {
+		t.Errorf("clampInt32(-5, -10, -1) = %d, want -5", result)
+	}
+}
+
+func TestClampInt32_BelowMinNegative(t *testing.T) {
+	result := clampInt32(-15, -10, -1)
+	if result != -10 {
+		t.Errorf("clampInt32(-15, -10, -1) = %d, want -10", result)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// getIntEnvAsInt
+// ---------------------------------------------------------------------------
+
+func TestGetIntEnvAsInt_ValidValue(t *testing.T) {
+	os.Setenv("TEST_INTASINT", "42")
+	defer os.Unsetenv("TEST_INTASINT")
+	result := getIntEnvAsInt("TEST_INTASINT", 0)
+	if result != 42 {
+		t.Errorf("expected 42, got %d", result)
+	}
+}
+
+func TestGetIntEnvAsInt_Empty(t *testing.T) {
+	os.Unsetenv("TEST_INTASINT_MISSING")
+	result := getIntEnvAsInt("TEST_INTASINT_MISSING", 99)
+	if result != 99 {
+		t.Errorf("expected default 99, got %d", result)
+	}
+}
+
+func TestGetIntEnvAsInt_InvalidString(t *testing.T) {
+	os.Setenv("TEST_INTASINT", "not-a-number")
+	defer os.Unsetenv("TEST_INTASINT")
+	result := getIntEnvAsInt("TEST_INTASINT", 50)
+	if result != 50 {
+		t.Errorf("expected fallback default 50, got %d", result)
+	}
+}
+
+func TestGetIntEnvAsInt_NegativeValue(t *testing.T) {
+	os.Setenv("TEST_INTASINT", "-5")
+	defer os.Unsetenv("TEST_INTASINT")
+	result := getIntEnvAsInt("TEST_INTASINT", 0)
+	if result != -5 {
+		t.Errorf("expected -5, got %d", result)
+	}
+}
+
+func TestGetIntEnvAsInt_ZeroValue(t *testing.T) {
+	os.Setenv("TEST_INTASINT", "0")
+	defer os.Unsetenv("TEST_INTASINT")
+	result := getIntEnvAsInt("TEST_INTASINT", 10)
+	if result != 0 {
+		t.Errorf("expected 0, got %d", result)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// getIntEnvAsInt32
+// ---------------------------------------------------------------------------
+
+func TestGetIntEnvAsInt32_ValidValue(t *testing.T) {
+	os.Setenv("TEST_INTASINT32", "42")
+	defer os.Unsetenv("TEST_INTASINT32")
+	result := getIntEnvAsInt32("TEST_INTASINT32", 0)
+	if result != 42 {
+		t.Errorf("expected 42, got %d", result)
+	}
+}
+
+func TestGetIntEnvAsInt32_Empty(t *testing.T) {
+	os.Unsetenv("TEST_INTASINT32_MISSING")
+	result := getIntEnvAsInt32("TEST_INTASINT32_MISSING", 99)
+	if result != 99 {
+		t.Errorf("expected default 99, got %d", result)
+	}
+}
+
+func TestGetIntEnvAsInt32_InvalidString(t *testing.T) {
+	os.Setenv("TEST_INTASINT32", "not-a-number")
+	defer os.Unsetenv("TEST_INTASINT32")
+	result := getIntEnvAsInt32("TEST_INTASINT32", 50)
+	if result != 50 {
+		t.Errorf("expected fallback default 50, got %d", result)
+	}
+}
+
+func TestGetIntEnvAsInt32_NegativeValue(t *testing.T) {
+	os.Setenv("TEST_INTASINT32", "-5")
+	defer os.Unsetenv("TEST_INTASINT32")
+	result := getIntEnvAsInt32("TEST_INTASINT32", 0)
+	if result != -5 {
+		t.Errorf("expected -5, got %d", result)
+	}
+}
+
+func TestGetIntEnvAsInt32_Overflow(t *testing.T) {
+	os.Setenv("TEST_INTASINT32", "9999999999")
+	defer os.Unsetenv("TEST_INTASINT32")
+	result := getIntEnvAsInt32("TEST_INTASINT32", 10)
+	if result != 10 {
+		t.Errorf("expected fallback default 10 for overflow, got %d", result)
+	}
+}
+
+func TestGetIntEnvAsInt32_ZeroValue(t *testing.T) {
+	os.Setenv("TEST_INTASINT32", "0")
+	defer os.Unsetenv("TEST_INTASINT32")
+	result := getIntEnvAsInt32("TEST_INTASINT32", 10)
+	if result != 0 {
+		t.Errorf("expected 0, got %d", result)
+	}
+}
 
 func TestClampInt64_WithinRange(t *testing.T) {
 	result := clampInt64(5, 1, 10)

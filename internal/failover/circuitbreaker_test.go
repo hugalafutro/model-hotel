@@ -425,6 +425,62 @@ func TestCircuitBreaker_SeverityForState(t *testing.T) {
 	}
 }
 
+// TestCircuitBreaker_IsOpen_OpenStillWithinCooldown verifies that IsOpen returns
+// true (blocking requests) when the circuit has been open but the cooldown has
+// NOT yet elapsed. This is the "stay open" branch at line 160.
+func TestCircuitBreaker_IsOpen_OpenStillWithinCooldown(t *testing.T) {
+	t.Parallel()
+	cb := newTestCB(1, 10*time.Second) // long cooldown
+	pid := uuid.New()
+
+	cb.RecordFailure(pid, "test-provider") // opens the circuit
+
+	// Immediately after opening, cooldown has not elapsed.
+	if !cb.IsOpen(pid, "test-provider") {
+		t.Error("circuit should still be open (cooldown not elapsed)")
+	}
+
+	// Verify internal state is still StateOpen (not half-open)
+	cb.mu.RLock()
+	c := cb.circuits[pid.String()]
+	cb.mu.RUnlock()
+	if c.state != StateOpen {
+		t.Errorf("expected StateOpen, got %v", c.state)
+	}
+}
+
+// TestCircuitBreaker_IsOpen_HalfOpenAllowsProbesConcurrently verifies that
+// when a circuit is in half-open state, concurrent IsOpen calls all return
+// false (allowing probes through). This exercises the read-lock fast path
+// at line 133.
+func TestCircuitBreaker_IsOpen_HalfOpenAllowsProbesConcurrently(t *testing.T) {
+	t.Parallel()
+	cb := newTestCB(1, 50*time.Millisecond)
+	pid := uuid.New()
+
+	cb.RecordFailure(pid, "test-provider") // opens
+	time.Sleep(60 * time.Millisecond)
+	cb.IsOpen(pid, "test-provider") // triggers transition to half-open
+
+	var wg sync.WaitGroup
+	results := make(chan bool, 20)
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			results <- cb.IsOpen(pid, "test-provider")
+		}()
+	}
+	wg.Wait()
+	close(results)
+
+	for r := range results {
+		if r {
+			t.Error("IsOpen should return false for half-open circuit (probe allowed via read-lock fast path)")
+		}
+	}
+}
+
 func TestCircuitBreaker_IsOpen_Concurrent(t *testing.T) {
 	t.Parallel()
 	cb := newTestCB(100, 30*time.Second)
@@ -606,5 +662,147 @@ func TestCircuitBreaker_IsOpen_UnknownProvider(t *testing.T) {
 	// Verify state is closed
 	if s := cb.GetState(unknownPID); s != StateClosed {
 		t.Errorf("expected StateClosed for unknown provider, got %v", s)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// GetState additional edge case tests
+// ---------------------------------------------------------------------------
+
+func TestGetState_OpenCircuitBeforeCooldown(t *testing.T) {
+	t.Parallel()
+	cb := newTestCB(1, 30*time.Second)
+	pid := uuid.New()
+
+	cb.RecordFailure(pid, "test-provider") // threshold=1 → opens
+
+	// Immediately after opening (no cooldown elapsed), GetState should return StateOpen
+	if s := cb.GetState(pid); s != StateOpen {
+		t.Errorf("expected StateOpen immediately after opening, got %v", s)
+	}
+}
+
+func TestGetState_OpenCircuitAfterCooldown(t *testing.T) {
+	t.Parallel()
+	cb := newTestCB(1, 50*time.Millisecond)
+	pid := uuid.New()
+
+	cb.RecordFailure(pid, "test-provider") // opens
+	time.Sleep(60 * time.Millisecond)      // wait for cooldown
+
+	// After cooldown, GetState should return StateHalfOpen (logical transition)
+	if s := cb.GetState(pid); s != StateHalfOpen {
+		t.Errorf("expected StateHalfOpen after cooldown, got %v", s)
+	}
+}
+
+func TestGetState_DoesNotMutateInternalState(t *testing.T) {
+	t.Parallel()
+	cb := newTestCB(1, 50*time.Millisecond)
+	pid := uuid.New()
+
+	cb.RecordFailure(pid, "test-provider") // opens
+
+	// Wait for cooldown
+	time.Sleep(60 * time.Millisecond)
+
+	// GetState returns StateHalfOpen but should NOT mutate the internal state
+	state := cb.GetState(pid)
+	if state != StateHalfOpen {
+		t.Errorf("expected StateHalfOpen, got %v", state)
+	}
+
+	// Internal state should still be StateOpen (GetState computes logical state
+	// without mutation). Verify by checking GetState again returns the same.
+	state2 := cb.GetState(pid)
+	if state2 != StateHalfOpen {
+		t.Errorf("expected StateHalfOpen on second call, got %v", state2)
+	}
+}
+
+func TestGetState_ClosedCircuitAfterSuccess(t *testing.T) {
+	t.Parallel()
+	cb := newTestCB(3, 30*time.Second)
+	pid := uuid.New()
+
+	// Record some failures but not enough to open
+	cb.RecordFailure(pid, "test-provider")
+	cb.RecordFailure(pid, "test-provider")
+
+	if s := cb.GetState(pid); s != StateClosed {
+		t.Errorf("expected StateClosed after 2/3 failures, got %v", s)
+	}
+}
+
+func TestGetState_HalfOpenTransitionsToClosedOnSuccess(t *testing.T) {
+	t.Parallel()
+	cb := newTestCB(1, 50*time.Millisecond)
+	pid := uuid.New()
+
+	cb.RecordFailure(pid, "test-provider") // opens
+	time.Sleep(60 * time.Millisecond)
+
+	// Transition to half-open via IsOpen (which mutates internal state)
+	cb.IsOpen(pid, "test-provider")
+
+	// Record success → should close
+	cb.RecordSuccess(pid, "test-provider")
+
+	if s := cb.GetState(pid); s != StateClosed {
+		t.Errorf("expected StateClosed after successful probe, got %v", s)
+	}
+}
+
+func TestGetState_HalfOpenTransitionsToOpenOnFailure(t *testing.T) {
+	t.Parallel()
+	cb := newTestCB(1, 50*time.Millisecond)
+	pid := uuid.New()
+
+	cb.RecordFailure(pid, "test-provider") // opens
+	time.Sleep(60 * time.Millisecond)
+
+	// Transition to half-open via IsOpen (which mutates internal state)
+	cb.IsOpen(pid, "test-provider")
+
+	// Record failure in half-open state → should re-open
+	cb.RecordFailure(pid, "test-provider")
+
+	if s := cb.GetState(pid); s != StateOpen {
+		t.Errorf("expected StateOpen after failed probe in half-open, got %v", s)
+	}
+}
+
+func TestGetState_ConcurrentReads(t *testing.T) {
+	t.Parallel()
+	cb := newTestCB(100, 30*time.Second)
+	pid := uuid.New()
+
+	// Pre-populate with some failures
+	for i := 0; i < 50; i++ {
+		cb.RecordFailure(pid, "test-provider")
+	}
+
+	var wg sync.WaitGroup
+	errCh := make(chan error, 100)
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					errCh <- fmt.Errorf("panic in GetState: %v", r)
+				}
+			}()
+			s := cb.GetState(pid)
+			if s != StateClosed && s != StateOpen {
+				errCh <- fmt.Errorf("unexpected state: %v", s)
+			}
+		}()
+	}
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		t.Error(err)
 	}
 }

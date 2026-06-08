@@ -357,3 +357,126 @@ func TestScanFailoverGroups_NilDisplayName(t *testing.T) {
 		t.Errorf("DisplayName = %v, want nil", *groups[0].DisplayName)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// TestScanFailoverGroups_RowsErr
+// ---------------------------------------------------------------------------
+
+func TestScanFailoverGroups_RowsErr(t *testing.T) {
+	rows := &mockFailoverRows{
+		rows:      [][]any{},
+		scanErrOn: -1,
+		rowsErr:   errors.New("connection lost"),
+	}
+
+	groups, err := scanFailoverGroups(rows)
+	if err == nil {
+		t.Fatal("expected error from rows.Err(), got nil")
+	}
+	if !strings.Contains(err.Error(), "iteration error") {
+		t.Errorf("error should contain 'iteration error', got: %v", err)
+	}
+	if groups != nil {
+		t.Errorf("expected nil groups on rows.Err(), got %d groups", len(groups))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TestScanFailoverGroups_EmptyPriorityAndEntryEnabled
+// ---------------------------------------------------------------------------
+
+func TestScanFailoverGroups_EmptyPriorityAndEntryEnabled(t *testing.T) {
+	id1 := mustUUID("11111111-1111-1111-1111-111111111111")
+	now := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	rows := &mockFailoverRows{
+		rows: [][]any{
+			{id1, "empty-group", strPtr("Empty"), "", []byte(`[]`), []byte(`{}`), true, false, now, now},
+		},
+		scanErrOn: -1,
+	}
+
+	groups, err := scanFailoverGroups(rows)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(groups) != 1 {
+		t.Fatalf("expected 1 group, got %d", len(groups))
+	}
+	if len(groups[0].PriorityOrder) != 0 {
+		t.Errorf("expected empty PriorityOrder, got %d entries", len(groups[0].PriorityOrder))
+	}
+	if len(groups[0].EntryEnabled) != 0 {
+		t.Errorf("expected empty EntryEnabled, got %d entries", len(groups[0].EntryEnabled))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TestScanFailoverGroups_GroupEnabledFalse
+// ---------------------------------------------------------------------------
+
+func TestScanFailoverGroups_GroupEnabledFalse(t *testing.T) {
+	id1 := mustUUID("11111111-1111-1111-1111-111111111111")
+	now := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	rows := &mockFailoverRows{
+		rows: [][]any{
+			{id1, "disabled-group", strPtr("Disabled"), "", []byte(`[]`), []byte(`{}`), false, true, now, now},
+		},
+		scanErrOn: -1,
+	}
+
+	groups, err := scanFailoverGroups(rows)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(groups) != 1 {
+		t.Fatalf("expected 1 group, got %d", len(groups))
+	}
+	if groups[0].GroupEnabled != false {
+		t.Error("expected GroupEnabled=false")
+	}
+	if groups[0].AutoCreated != true {
+		t.Error("expected AutoCreated=true")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TestScanFailoverGroups_EntryEnabledPreservesValues
+// ---------------------------------------------------------------------------
+
+func TestScanFailoverGroups_EntryEnabledPreservesValues(t *testing.T) {
+	id1 := mustUUID("11111111-1111-1111-1111-111111111111")
+	now := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	modelA := mustUUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+	modelB := mustUUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
+
+	priority := []uuid.UUID{modelA, modelB}
+	priorityJSON, _ := json.Marshal(priority)
+	entryEnabled := map[string]bool{
+		modelA.String(): true,
+		modelB.String(): false,
+	}
+	entryEnabledJSON, _ := json.Marshal(entryEnabled)
+
+	rows := &mockFailoverRows{
+		rows: [][]any{
+			{id1, "mixed-entries", strPtr("Mixed"), "", priorityJSON, entryEnabledJSON, true, false, now, now},
+		},
+		scanErrOn: -1,
+	}
+
+	groups, err := scanFailoverGroups(rows)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(groups) != 1 {
+		t.Fatalf("expected 1 group, got %d", len(groups))
+	}
+	if groups[0].EntryEnabled[modelA.String()] != true {
+		t.Error("expected EntryEnabled[modelA]=true")
+	}
+	if groups[0].EntryEnabled[modelB.String()] != false {
+		t.Error("expected EntryEnabled[modelB]=false")
+	}
+}

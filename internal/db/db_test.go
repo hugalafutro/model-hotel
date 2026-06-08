@@ -734,6 +734,158 @@ func TestKnownMigrations_ReadDirError(t *testing.T) {
 	}
 }
 
-// verify hook
-// hook test
-// hook test
+// TestKnownMigrations_FiltersDirectories verifies that KnownMigrations excludes
+// directory entries from its result.
+func TestKnownMigrations_FiltersDirectories(t *testing.T) {
+	origFS := migrationsFS
+	t.Cleanup(func() { migrationsFS = origFS })
+
+	migrationsFS = mockMigrationsFS{
+		readDirFn: func(name string) ([]fs.DirEntry, error) {
+			return []fs.DirEntry{
+				mockDirEntry{name: "subdir", isDir: true},
+				mockDirEntry{name: "001_test.sql", isDir: false, typ: 0},
+			}, nil
+		},
+	}
+
+	names := KnownMigrations()
+	if len(names) != 1 {
+		t.Fatalf("expected 1 migration after filtering directories, got %d: %v", len(names), names)
+	}
+	if names[0] != "001_test.sql" {
+		t.Errorf("expected %q, got %q", "001_test.sql", names[0])
+	}
+}
+
+// TestKnownMigrations_FiltersDotfiles verifies that KnownMigrations excludes
+// dotfiles (entries starting with '.') from its result.
+func TestKnownMigrations_FiltersDotfiles(t *testing.T) {
+	origFS := migrationsFS
+	t.Cleanup(func() { migrationsFS = origFS })
+
+	migrationsFS = mockMigrationsFS{
+		readDirFn: func(name string) ([]fs.DirEntry, error) {
+			return []fs.DirEntry{
+				mockDirEntry{name: ".hidden.sql", isDir: false, typ: 0},
+				mockDirEntry{name: "002_real.sql", isDir: false, typ: 0},
+			}, nil
+		},
+	}
+
+	names := KnownMigrations()
+	if len(names) != 1 {
+		t.Fatalf("expected 1 migration after filtering dotfiles, got %d: %v", len(names), names)
+	}
+	if names[0] != "002_real.sql" {
+		t.Errorf("expected %q, got %q", "002_real.sql", names[0])
+	}
+}
+
+// TestKnownMigrations_FiltersNonRegularFiles verifies that KnownMigrations
+// excludes non-regular files (e.g., sockets, symlinks) from its result.
+func TestKnownMigrations_FiltersNonRegularFiles(t *testing.T) {
+	origFS := migrationsFS
+	t.Cleanup(func() { migrationsFS = origFS })
+
+	migrationsFS = mockMigrationsFS{
+		readDirFn: func(name string) ([]fs.DirEntry, error) {
+			return []fs.DirEntry{
+				mockDirEntry{name: "socket", isDir: false, typ: fs.ModeSocket},
+				mockDirEntry{name: "003_normal.sql", isDir: false, typ: 0},
+			}, nil
+		},
+	}
+
+	names := KnownMigrations()
+	if len(names) != 1 {
+		t.Fatalf("expected 1 migration after filtering non-regular files, got %d: %v", len(names), names)
+	}
+	if names[0] != "003_normal.sql" {
+		t.Errorf("expected %q, got %q", "003_normal.sql", names[0])
+	}
+}
+
+// TestKnownMigrations_EmptyResult verifies that KnownMigrations returns an
+// empty (non-nil) slice when the migrations directory contains only filtered entries.
+func TestKnownMigrations_EmptyResult(t *testing.T) {
+	origFS := migrationsFS
+	t.Cleanup(func() { migrationsFS = origFS })
+
+	migrationsFS = mockMigrationsFS{
+		readDirFn: func(name string) ([]fs.DirEntry, error) {
+			return []fs.DirEntry{
+				mockDirEntry{name: "subdir", isDir: true},
+				mockDirEntry{name: ".dotfile", isDir: false, typ: 0},
+				mockDirEntry{name: "socket", isDir: false, typ: fs.ModeSocket},
+			}, nil
+		},
+	}
+
+	names := KnownMigrations()
+	if len(names) != 0 {
+		t.Errorf("expected 0 migrations when all entries are filtered, got %d: %v", len(names), names)
+	}
+}
+
+// TestRunMigration_CommitError tests the error path when tx.Commit fails.
+// Uses a cancelled context to trigger the commit failure.
+func TestRunMigration_CommitError(t *testing.T) {
+	ctx := context.Background()
+	testURL, err := SetupTestDB("db_commit_err")
+	if err != nil {
+		t.Fatalf("failed to setup test DB: %v", err)
+	}
+	defer CleanupTestDB("db_commit_err")
+
+	d, err := New(ctx, testURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create DB: %v", err)
+	}
+	defer d.Close()
+
+	// Use a cancelled context — the operation will fail because the context is done
+	cancelledCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err = d.runMigration(cancelledCtx, "commit_fail_test.sql", "SELECT 1")
+	if err == nil {
+		t.Error("expected error when running migration with cancelled context")
+	}
+}
+
+// TestRunMigration_AlreadyAppliedViaDirectRecord tests that when a migration
+// record is already in schema_migrations (inserted directly), runMigration
+// correctly skips it and returns (false, nil).
+func TestRunMigration_AlreadyAppliedViaDirectRecord(t *testing.T) {
+	ctx := context.Background()
+	testURL, err := SetupTestDB("db_direct_record")
+	if err != nil {
+		t.Fatalf("failed to setup test DB: %v", err)
+	}
+	defer CleanupTestDB("db_direct_record")
+
+	d, err := New(ctx, testURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create DB: %v", err)
+	}
+	defer d.Close()
+
+	migrationName := "test_direct_record_" + time.Now().Format("20060102150405") + ".sql"
+
+	// Pre-insert the migration record directly
+	_, err = d.pool.Exec(ctx,
+		"INSERT INTO schema_migrations (name) VALUES ($1)", migrationName)
+	if err != nil {
+		t.Fatalf("failed to pre-insert migration record: %v", err)
+	}
+
+	// runMigration should detect it's already applied and return (false, nil)
+	newlyApplied, err := d.runMigration(ctx, migrationName, "SELECT 1")
+	if err != nil {
+		t.Fatalf("runMigration should succeed for already-recorded migration: %v", err)
+	}
+	if newlyApplied {
+		t.Error("expected newlyApplied=false for already-recorded migration")
+	}
+}

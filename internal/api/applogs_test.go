@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -1210,6 +1213,428 @@ func TestGetAppLogsCursor_WithFilters(t *testing.T) {
 // TestGetAppLogsCursor_BackwardPagination tests that direction=before returns
 // the items immediately preceding the cursor, not items from the start of
 // the dataset, and that results are in the requested sort order.
+// ---------------------------------------------------------------------------
+// appendAppLogFilters unit tests
+// ---------------------------------------------------------------------------
+
+func TestAppendAppLogFilters_NoFilters(t *testing.T) {
+	conds, args, idx := appendAppLogFilters(nil, nil, 1, "", "", "", "", "")
+	if len(conds) != 0 {
+		t.Errorf("expected 0 conditions, got %d", len(conds))
+	}
+	if len(args) != 0 {
+		t.Errorf("expected 0 args, got %d", len(args))
+	}
+	if idx != 1 {
+		t.Errorf("expected argIdx=1, got %d", idx)
+	}
+}
+
+func TestAppendAppLogFilters_LevelFilter(t *testing.T) {
+	conds, args, idx := appendAppLogFilters(nil, nil, 1, "error", "", "", "", "")
+	if len(conds) != 1 {
+		t.Fatalf("expected 1 condition, got %d", len(conds))
+	}
+	if conds[0] != "level = $1" {
+		t.Errorf("expected 'level = $1', got %q", conds[0])
+	}
+	if len(args) != 1 || args[0] != "error" {
+		t.Errorf("expected args=['error'], got %v", args)
+	}
+	if idx != 2 {
+		t.Errorf("expected argIdx=2, got %d", idx)
+	}
+}
+
+func TestAppendAppLogFilters_SourceFilter(t *testing.T) {
+	conds, args, idx := appendAppLogFilters(nil, nil, 1, "", "proxy", "", "", "")
+	if len(conds) != 1 {
+		t.Fatalf("expected 1 condition, got %d", len(conds))
+	}
+	if conds[0] != "source = $1" {
+		t.Errorf("expected 'source = $1', got %q", conds[0])
+	}
+	if args[0] != "proxy" {
+		t.Errorf("expected args=['proxy'], got %v", args)
+	}
+	if idx != 2 {
+		t.Errorf("expected argIdx=2, got %d", idx)
+	}
+}
+
+func TestAppendAppLogFilters_SearchFilter(t *testing.T) {
+	conds, args, idx := appendAppLogFilters(nil, nil, 1, "", "", "timeout", "", "")
+	if len(conds) != 1 {
+		t.Fatalf("expected 1 condition, got %d", len(conds))
+	}
+	if conds[0] != "message ILIKE $1" {
+		t.Errorf("expected 'message ILIKE $1', got %q", conds[0])
+	}
+	if args[0] != "%timeout%" {
+		t.Errorf("expected args=['%%timeout%%'], got %v", args)
+	}
+	if idx != 2 {
+		t.Errorf("expected argIdx=2, got %d", idx)
+	}
+}
+
+func TestAppendAppLogFilters_FromDate(t *testing.T) {
+	from := "2024-06-01T00:00:00Z"
+	conds, args, idx := appendAppLogFilters(nil, nil, 1, "", "", "", from, "")
+	if len(conds) != 1 {
+		t.Fatalf("expected 1 condition, got %d", len(conds))
+	}
+	if conds[0] != "created_at >= $1" {
+		t.Errorf("expected 'created_at >= $1', got %q", conds[0])
+	}
+	if len(args) != 1 {
+		t.Fatalf("expected 1 arg, got %d", len(args))
+	}
+	parsedFrom, _ := time.Parse(time.RFC3339, from)
+	if args[0].(time.Time).UTC() != parsedFrom.UTC() {
+		t.Errorf("expected %v, got %v", parsedFrom.UTC(), args[0])
+	}
+	if idx != 2 {
+		t.Errorf("expected argIdx=2, got %d", idx)
+	}
+}
+
+func TestAppendAppLogFilters_ToDate(t *testing.T) {
+	to := "2024-12-31T23:59:59Z"
+	conds, args, idx := appendAppLogFilters(nil, nil, 1, "", "", "", "", to)
+	if len(conds) != 1 {
+		t.Fatalf("expected 1 condition, got %d", len(conds))
+	}
+	if conds[0] != "created_at <= $1" {
+		t.Errorf("expected 'created_at <= $1', got %q", conds[0])
+	}
+	if len(args) != 1 {
+		t.Fatalf("expected 1 arg, got %d", len(args))
+	}
+	parsedTo, _ := time.Parse(time.RFC3339, to)
+	if args[0].(time.Time).UTC() != parsedTo.UTC() {
+		t.Errorf("expected %v, got %v", parsedTo.UTC(), args[0])
+	}
+	if idx != 2 {
+		t.Errorf("expected argIdx=2, got %d", idx)
+	}
+}
+
+func TestAppendAppLogFilters_InvalidFromDate(t *testing.T) {
+	conds, args, idx := appendAppLogFilters(nil, nil, 1, "", "", "", "not-a-date", "")
+	if len(conds) != 0 {
+		t.Errorf("invalid from date should produce no condition, got %d", len(conds))
+	}
+	if len(args) != 0 {
+		t.Errorf("invalid from date should produce no args, got %d", len(args))
+	}
+	if idx != 1 {
+		t.Errorf("expected argIdx=1, got %d", idx)
+	}
+}
+
+func TestAppendAppLogFilters_InvalidToDate(t *testing.T) {
+	conds, args, idx := appendAppLogFilters(nil, nil, 1, "", "", "", "", "garbage")
+	if len(conds) != 0 {
+		t.Errorf("invalid to date should produce no condition, got %d", len(conds))
+	}
+	if len(args) != 0 {
+		t.Errorf("invalid to date should produce no args, got %d", len(args))
+	}
+	if idx != 1 {
+		t.Errorf("expected argIdx=1, got %d", idx)
+	}
+}
+
+func TestAppendAppLogFilters_AllFilters(t *testing.T) {
+	conds, args, idx := appendAppLogFilters(nil, nil, 3, "error", "proxy", "fail", "2024-01-01T00:00:00Z", "2024-12-31T23:59:59Z")
+	if len(conds) != 5 {
+		t.Fatalf("expected 5 conditions, got %d", len(conds))
+	}
+	if conds[0] != "level = $3" {
+		t.Errorf("first condition: expected 'level = $3', got %q", conds[0])
+	}
+	if conds[1] != "source = $4" {
+		t.Errorf("second condition: expected 'source = $4', got %q", conds[1])
+	}
+	if conds[2] != "message ILIKE $5" {
+		t.Errorf("third condition: expected 'message ILIKE $5', got %q", conds[2])
+	}
+	if conds[3] != "created_at >= $6" {
+		t.Errorf("fourth condition: expected 'created_at >= $6', got %q", conds[3])
+	}
+	if conds[4] != "created_at <= $7" {
+		t.Errorf("fifth condition: expected 'created_at <= $7', got %q", conds[4])
+	}
+	if len(args) != 5 {
+		t.Fatalf("expected 5 args, got %d", len(args))
+	}
+	if idx != 8 {
+		t.Errorf("expected argIdx=8, got %d", idx)
+	}
+}
+
+func TestAppendAppLogFilters_PreservesExistingConditions(t *testing.T) {
+	existingConds := []string{"some_col = $0"}
+	existingArgs := []any{"existing"}
+	conds, args, idx := appendAppLogFilters(existingConds, existingArgs, 2, "info", "", "", "", "")
+	if len(conds) != 2 {
+		t.Fatalf("expected 2 conditions, got %d", len(conds))
+	}
+	if conds[0] != "some_col = $0" {
+		t.Errorf("existing condition should be preserved, got %q", conds[0])
+	}
+	if conds[1] != "level = $2" {
+		t.Errorf("new condition: expected 'level = $2', got %q", conds[1])
+	}
+	if len(args) != 2 {
+		t.Fatalf("expected 2 args, got %d", len(args))
+	}
+	if args[0] != "existing" {
+		t.Errorf("existing arg should be preserved, got %v", args[0])
+	}
+	if args[1] != "info" {
+		t.Errorf("new arg: expected 'info', got %v", args[1])
+	}
+	if idx != 3 {
+		t.Errorf("expected argIdx=3, got %d", idx)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// appendAppLogKeysetPredicate unit tests
+// ---------------------------------------------------------------------------
+
+func TestAppendAppLogKeysetPredicate_AfterDesc_ReturnsLessThan(t *testing.T) {
+	ts := time.Now()
+	cursor := appLogCursor{CreatedAt: ts, ID: "test-id"}
+	conds, args, idx := appendAppLogKeysetPredicate(nil, nil, 1, cursor, "after", "DESC")
+	if len(conds) != 1 {
+		t.Fatalf("expected 1 condition, got %d", len(conds))
+	}
+	if !strings.Contains(conds[0], "< $1") {
+		t.Errorf("after+DESC should use '<', got %q", conds[0])
+	}
+	if !strings.Contains(conds[0], "< $3") {
+		t.Errorf("after+DESC id comparison should use '<', got %q", conds[0])
+	}
+	if len(args) != 3 {
+		t.Fatalf("expected 3 args, got %d", len(args))
+	}
+	if idx != 4 {
+		t.Errorf("expected argIdx=4, got %d", idx)
+	}
+}
+
+func TestAppendAppLogKeysetPredicate_BeforeAsc_ReturnsLessThan(t *testing.T) {
+	ts := time.Now()
+	cursor := appLogCursor{CreatedAt: ts, ID: "test-id"}
+	conds, _, _ := appendAppLogKeysetPredicate(nil, nil, 1, cursor, "before", "ASC")
+	if len(conds) != 1 {
+		t.Fatalf("expected 1 condition, got %d", len(conds))
+	}
+	if !strings.Contains(conds[0], "< $1") {
+		t.Errorf("before+ASC should use '<', got %q", conds[0])
+	}
+}
+
+func TestAppendAppLogKeysetPredicate_AfterAsc_ReturnsGreaterThan(t *testing.T) {
+	ts := time.Now()
+	cursor := appLogCursor{CreatedAt: ts, ID: "test-id"}
+	conds, _, _ := appendAppLogKeysetPredicate(nil, nil, 1, cursor, "after", "ASC")
+	if len(conds) != 1 {
+		t.Fatalf("expected 1 condition, got %d", len(conds))
+	}
+	if !strings.Contains(conds[0], "> $1") {
+		t.Errorf("after+ASC should use '>', got %q", conds[0])
+	}
+}
+
+func TestAppendAppLogKeysetPredicate_BeforeDesc_ReturnsGreaterThan(t *testing.T) {
+	ts := time.Now()
+	cursor := appLogCursor{CreatedAt: ts, ID: "test-id"}
+	conds, _, _ := appendAppLogKeysetPredicate(nil, nil, 1, cursor, "before", "DESC")
+	if len(conds) != 1 {
+		t.Fatalf("expected 1 condition, got %d", len(conds))
+	}
+	if !strings.Contains(conds[0], "> $1") {
+		t.Errorf("before+DESC should use '>', got %q", conds[0])
+	}
+}
+
+func TestAppendAppLogKeysetPredicate_ArgIndexOffset(t *testing.T) {
+	ts := time.Now()
+	cursor := appLogCursor{CreatedAt: ts, ID: "test-id"}
+	conds, args, idx := appendAppLogKeysetPredicate(nil, nil, 5, cursor, "after", "DESC")
+	if !strings.Contains(conds[0], "< $5") {
+		t.Errorf("expected arg starting at $5, got %q", conds[0])
+	}
+	if !strings.Contains(conds[0], "< $7") {
+		t.Errorf("expected id arg at $7, got %q", conds[0])
+	}
+	if len(args) != 3 {
+		t.Fatalf("expected 3 args, got %d", len(args))
+	}
+	if idx != 8 {
+		t.Errorf("expected argIdx=8, got %d", idx)
+	}
+}
+
+func TestAppendAppLogKeysetPredicate_PreservesExisting(t *testing.T) {
+	ts := time.Now()
+	cursor := appLogCursor{CreatedAt: ts, ID: "test-id"}
+	existingConds := []string{"level = $1"}
+	existingArgs := []any{"error"}
+	conds, args, idx := appendAppLogKeysetPredicate(existingConds, existingArgs, 2, cursor, "after", "DESC")
+	if len(conds) != 2 {
+		t.Fatalf("expected 2 conditions, got %d", len(conds))
+	}
+	if conds[0] != "level = $1" {
+		t.Errorf("existing condition should be preserved, got %q", conds[0])
+	}
+	if len(args) != 4 {
+		t.Fatalf("expected 4 args (1 existing + 3 new), got %d", len(args))
+	}
+	if idx != 5 {
+		t.Errorf("expected argIdx=5, got %d", idx)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// appLogWhereClause unit tests
+// ---------------------------------------------------------------------------
+
+func TestAppLogWhereClause_Empty(t *testing.T) {
+	result := appLogWhereClause(nil)
+	if result != "" {
+		t.Errorf("expected empty string for nil conditions, got %q", result)
+	}
+	result = appLogWhereClause([]string{})
+	if result != "" {
+		t.Errorf("expected empty string for empty conditions, got %q", result)
+	}
+}
+
+func TestAppLogWhereClause_SingleCondition(t *testing.T) {
+	result := appLogWhereClause([]string{"level = $1"})
+	if result != " WHERE level = $1" {
+		t.Errorf("expected ' WHERE level = $1', got %q", result)
+	}
+}
+
+func TestAppLogWhereClause_MultipleConditions(t *testing.T) {
+	result := appLogWhereClause([]string{"level = $1", "source = $2"})
+	if result != " WHERE level = $1 AND source = $2" {
+		t.Errorf("expected conditions joined with AND, got %q", result)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// buildAppLogCursorQuery unit tests
+// ---------------------------------------------------------------------------
+
+func TestBuildAppLogCursorQuery_NoCursorNoFilters(t *testing.T) {
+	p := appLogCursorParams{
+		limit:     20,
+		sortDir:   "DESC",
+		direction: "after",
+	}
+	q := url.Values{}
+	query, args := buildAppLogCursorQuery(p, q)
+
+	if !strings.Contains(query, "SELECT id, created_at, timestamp, level, source, message FROM app_logs") {
+		t.Errorf("expected SELECT from app_logs, got %q", query)
+	}
+	if !strings.Contains(query, "ORDER BY created_at DESC, id DESC") {
+		t.Errorf("expected ORDER BY created_at DESC, id DESC, got %q", query)
+	}
+	if !strings.Contains(query, "LIMIT") {
+		t.Errorf("expected LIMIT clause, got %q", query)
+	}
+	if len(args) != 1 {
+		t.Fatalf("expected 1 arg (limit+1), got %d", len(args))
+	}
+	if args[0] != 21 { // limit+1
+		t.Errorf("expected limit arg 21, got %v", args[0])
+	}
+}
+
+func TestBuildAppLogCursorQuery_WithFilters(t *testing.T) {
+	p := appLogCursorParams{
+		limit:     10,
+		sortDir:   "DESC",
+		direction: "after",
+	}
+	q := url.Values{
+		"level":  {"error"},
+		"source": {"proxy"},
+	}
+	query, _ := buildAppLogCursorQuery(p, q)
+
+	if !strings.Contains(query, "WHERE") {
+		t.Errorf("expected WHERE clause with filters, got %q", query)
+	}
+	if !strings.Contains(query, "level = $1") {
+		t.Errorf("expected level filter, got %q", query)
+	}
+	if !strings.Contains(query, "source = $2") {
+		t.Errorf("expected source filter, got %q", query)
+	}
+}
+
+func TestBuildAppCursorQuery_WithCursor(t *testing.T) {
+	ts := time.Now()
+	cursor := appLogCursor{CreatedAt: ts, ID: "cursor-id"}
+	cursorStr := cursor.encode()
+	p := appLogCursorParams{
+		limit:     20,
+		sortDir:   "DESC",
+		direction: "after",
+		cursorStr: cursorStr,
+		cursor:    cursor,
+	}
+	q := url.Values{}
+	query, args := buildAppLogCursorQuery(p, q)
+
+	if !strings.Contains(query, "WHERE") {
+		t.Errorf("expected WHERE clause with keyset predicate, got %q", query)
+	}
+	if !strings.Contains(query, "created_at < $1") {
+		t.Errorf("after+DESC should produce '< for keyset, got %q", query)
+	}
+	if len(args) != 4 { // 3 from keyset + 1 from limit
+		t.Fatalf("expected 4 args, got %d", len(args))
+	}
+}
+
+func TestBuildAppLogCursorQuery_BackwardDescInvertsSort(t *testing.T) {
+	p := appLogCursorParams{
+		limit:     20,
+		sortDir:   "DESC",
+		direction: "before",
+	}
+	q := url.Values{}
+	query, _ := buildAppLogCursorQuery(p, q)
+
+	if !strings.Contains(query, "ORDER BY created_at ASC, id ASC") {
+		t.Errorf("before+DESC should invert to ASC sort in fetch query, got %q", query)
+	}
+}
+
+func TestBuildAppLogCursorQuery_BackwardAscInvertsSort(t *testing.T) {
+	p := appLogCursorParams{
+		limit:     20,
+		sortDir:   "ASC",
+		direction: "before",
+	}
+	q := url.Values{}
+	query, _ := buildAppLogCursorQuery(p, q)
+
+	if !strings.Contains(query, "ORDER BY created_at DESC, id DESC") {
+		t.Errorf("before+ASC should invert to DESC sort in fetch query, got %q", query)
+	}
+}
+
 func TestGetAppLogsCursor_BackwardPagination(t *testing.T) {
 	if apiTestDBURL == "" {
 		t.Skip("apiTestDBURL not set, skipping integration test")
@@ -1331,5 +1756,253 @@ func TestGetAppLogsCursor_BackwardPagination(t *testing.T) {
 	}
 	if !beforePage.HasBefore {
 		t.Error("expected HasBefore=true for backward page (more items precede)")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// getAppLogsHistory edge cases
+// ---------------------------------------------------------------------------
+
+// TestGetAppLogsHistory_EmptyLogs verifies that getAppLogsHistory returns
+// a valid response with zero entries and zero total when no logs exist.
+func TestGetAppLogsHistory_EmptyLogs(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("apiTestDBURL not set, skipping integration test")
+	}
+	_, r := newTestHandlerWithRouter(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/logs/app?history=true", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+
+	var resp appLogsHistoryResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(resp.Entries) != 0 {
+		t.Errorf("expected empty entries, got %d", len(resp.Entries))
+	}
+	if resp.Total != 0 {
+		t.Errorf("expected total 0, got %d", resp.Total)
+	}
+	if resp.Page != 1 {
+		t.Errorf("expected page 1, got %d", resp.Page)
+	}
+}
+
+// TestGetAppLogsHistory_SingleEntry verifies that getAppLogsHistory returns
+// the correct pagination when there is exactly one log entry.
+func TestGetAppLogsHistory_SingleEntry(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("apiTestDBURL not set, skipping integration test")
+	}
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.Pool().Pool()
+
+	// Clean up test data
+	pool.Exec(context.Background(), "DELETE FROM app_logs WHERE source = 'single-entry-test'")
+	defer pool.Exec(context.Background(), "DELETE FROM app_logs WHERE source = 'single-entry-test'")
+
+	// Insert a single log entry
+	_, err := pool.Exec(context.Background(),
+		`INSERT INTO app_logs (id, timestamp, level, source, message, created_at)
+		 VALUES ($1, $2, $3, $4, $5, NOW())`,
+		uuid.New().String(),
+		time.Now().UTC().Format(time.RFC3339Nano),
+		"error",
+		"single-entry-test",
+		"single test message")
+	if err != nil {
+		t.Fatalf("Failed to insert app log: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/logs/app?history=true", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+
+	var resp appLogsHistoryResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.Total < 1 {
+		t.Errorf("expected total >= 1, got %d", resp.Total)
+	}
+	if len(resp.Entries) == 0 {
+		t.Error("expected at least one entry")
+	}
+}
+
+// TestGetAppLogsHistory_DateRangeBoundary verifies that getAppLogsHistory
+// correctly filters by from/to date range parameters.
+func TestGetAppLogsHistory_DateRangeBoundary(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("apiTestDBURL not set, skipping integration test")
+	}
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.Pool().Pool()
+
+	// Insert log entries with different timestamps
+	now := time.Now().UTC()
+	yesterday := now.Add(-24 * time.Hour)
+	twoDaysAgo := now.Add(-48 * time.Hour)
+
+	for i, ts := range []time.Time{twoDaysAgo, yesterday, now} {
+		_, err := pool.Exec(context.Background(),
+			`INSERT INTO app_logs (id, timestamp, level, source, message, created_at)
+			 VALUES ($1, $2, $3, $4, $5, $6)`,
+			uuid.New().String(),
+			ts.Format(time.RFC3339Nano),
+			"info",
+			"date-range-test",
+			fmt.Sprintf("entry %d", i),
+			ts)
+		if err != nil {
+			t.Fatalf("Failed to insert app log %d: %v", i, err)
+		}
+	}
+	defer pool.Exec(context.Background(), "DELETE FROM app_logs WHERE source = 'date-range-test'")
+
+	// Query with from=12h ago — should only include entries from the last 12h
+	from := now.Add(-12 * time.Hour).Format(time.RFC3339)
+	req := httptest.NewRequest(http.MethodGet, "/logs/app?history=true&from="+url.QueryEscape(from), http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+
+	var resp appLogsHistoryResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	// Parse the from boundary so we can compare timestamps.
+	fromTime, err := time.Parse(time.RFC3339, from)
+	if err != nil {
+		t.Fatalf("failed to parse from time: %v", err)
+	}
+
+	// Verify that no entries from our test data with source="date-range-test"
+	// have a timestamp older than the from boundary.
+	for _, e := range resp.Entries {
+		if e.Source != "date-range-test" {
+			continue
+		}
+		ts, err := time.Parse(time.RFC3339Nano, e.Timestamp)
+		if err != nil {
+			t.Errorf("failed to parse entry timestamp %q: %v", e.Timestamp, err)
+			continue
+		}
+		if ts.Before(fromTime) {
+			t.Errorf("entry with timestamp %s is before from boundary %s, but should have been filtered out", ts.Format(time.RFC3339), fromTime.Format(time.RFC3339))
+		}
+	}
+
+	// Verify that at least the "now" entry is present.
+	foundNow := false
+	for _, e := range resp.Entries {
+		if e.Source == "date-range-test" && e.Message == "entry 2" {
+			foundNow = true
+		}
+	}
+	if !foundNow {
+		t.Error("expected 'entry 2' (the 'now' entry) to be present in results")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// scanAppLogRow unit tests
+// ---------------------------------------------------------------------------
+
+// mockAppLogRows implements pgx.Rows for testing scanAppLogRow error paths.
+type mockAppLogRows struct {
+	scanFn  func(dest ...interface{}) error
+	closeFn func()
+}
+
+func (m *mockAppLogRows) Close()                        { m.closeFn() }
+func (m *mockAppLogRows) Err() error                    { return nil }
+func (m *mockAppLogRows) CommandTag() pgconn.CommandTag { return pgconn.NewCommandTag("") }
+func (m *mockAppLogRows) FieldDescriptions() []pgconn.FieldDescription {
+	return nil
+}
+func (m *mockAppLogRows) Next() bool                     { return false }
+func (m *mockAppLogRows) Scan(dest ...interface{}) error { return m.scanFn(dest...) }
+func (m *mockAppLogRows) Values() ([]interface{}, error) { return nil, nil }
+func (m *mockAppLogRows) RawValues() [][]byte            { return nil }
+func (m *mockAppLogRows) Conn() *pgx.Conn                { return nil }
+
+// TestScanAppLogRow_ScanError tests that scanAppLogRow returns an error
+// when the underlying row scan fails (e.g. wrong column count or type mismatch).
+func TestScanAppLogRow_ScanError(t *testing.T) {
+	rows := &mockAppLogRows{
+		scanFn: func(dest ...interface{}) error {
+			return errors.New("scan error: wrong column count")
+		},
+		closeFn: func() {},
+	}
+
+	_, err := scanAppLogRow(rows)
+	if err == nil {
+		t.Fatal("expected error from scanAppLogRow when Scan fails, got nil")
+	}
+	if !strings.Contains(err.Error(), "scan error") {
+		t.Errorf("expected scan error message, got %q", err.Error())
+	}
+}
+
+// TestScanAppLogRow_Success tests that scanAppLogRow correctly maps
+// database columns to AppLogEntry fields with proper UTC formatting.
+func TestScanAppLogRow_Success(t *testing.T) {
+	now := time.Now().UTC()
+	catTime := now.Add(-time.Second)
+
+	rows := &mockAppLogRows{
+		scanFn: func(dest ...interface{}) error {
+			*(dest[0].(*string)) = "test-id-123"
+			*(dest[1].(*time.Time)) = catTime
+			*(dest[2].(*time.Time)) = now
+			*(dest[3].(*string)) = "error"
+			*(dest[4].(*string)) = "proxy"
+			*(dest[5].(*string)) = "connection refused"
+			return nil
+		},
+		closeFn: func() {},
+	}
+
+	entry, err := scanAppLogRow(rows)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if entry.ID != "test-id-123" {
+		t.Errorf("ID = %q, want %q", entry.ID, "test-id-123")
+	}
+	if entry.Level != "error" {
+		t.Errorf("Level = %q, want %q", entry.Level, "error")
+	}
+	if entry.Source != "proxy" {
+		t.Errorf("Source = %q, want %q", entry.Source, "proxy")
+	}
+	if entry.Message != "connection refused" {
+		t.Errorf("Message = %q, want %q", entry.Message, "connection refused")
+	}
+	// Verify timestamps are formatted as RFC3339Nano in UTC
+	if _, parseErr := time.Parse(time.RFC3339Nano, entry.CreatedAt); parseErr != nil {
+		t.Errorf("CreatedAt is not valid RFC3339Nano: %q, error: %v", entry.CreatedAt, parseErr)
+	}
+	if _, parseErr := time.Parse(time.RFC3339Nano, entry.Timestamp); parseErr != nil {
+		t.Errorf("Timestamp is not valid RFC3339Nano: %q, error: %v", entry.Timestamp, parseErr)
 	}
 }

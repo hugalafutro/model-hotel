@@ -3,11 +3,13 @@ package proxy
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/config"
+	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
@@ -242,20 +244,6 @@ func TestResolveSpecificProvider_ContextCanceled(t *testing.T) {
 // ---------------------------------------------------------------------------
 // resolveTimings struct tests
 // ---------------------------------------------------------------------------
-
-func TestResolveTimings_ZeroValue(t *testing.T) {
-	var rt resolveTimings
-
-	if rt.modelLookupMs != 0 {
-		t.Errorf("zero resolveTimings.modelLookupMs = %f, want 0", rt.modelLookupMs)
-	}
-	if rt.providerLookupMs != 0 {
-		t.Errorf("zero resolveTimings.providerLookupMs = %f, want 0", rt.providerLookupMs)
-	}
-	if rt.keyDecryptMs != 0 {
-		t.Errorf("zero resolveTimings.keyDecryptMs = %f, want 0", rt.keyDecryptMs)
-	}
-}
 
 // ---------------------------------------------------------------------------
 // resolveHotelModel integration tests (requires PostgreSQL) - expanded
@@ -857,5 +845,460 @@ func TestResolveSpecificProvider_WrongMasterKey(t *testing.T) {
 	}
 	if len(candidates) != 0 {
 		t.Errorf("expected 0 candidates, got %d", len(candidates))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// buildFailoverCandidates unit tests (no DB required)
+// ---------------------------------------------------------------------------
+
+func TestBuildFailoverCandidates_EmptyPriorityOrder(t *testing.T) {
+	h := &Handler{
+		cfg:            &config.Config{MasterKey: "test"},
+		circuitBreaker: failover.NewCircuitBreaker(nil),
+	}
+	fg := &failover.FailoverGroup{
+		PriorityOrder: []uuid.UUID{},
+		EntryEnabled:  map[string]bool{},
+	}
+
+	candidates, decryptTotal, decryptFails, keyHit := h.buildFailoverCandidates(fg, nil, nil, false)
+
+	if len(candidates) != 0 {
+		t.Errorf("expected 0 candidates, got %d", len(candidates))
+	}
+	if decryptTotal != 0 {
+		t.Errorf("expected 0 decrypt total, got %f", decryptTotal)
+	}
+	if decryptFails != 0 {
+		t.Errorf("expected 0 decrypt failures, got %d", decryptFails)
+	}
+	if !keyHit {
+		t.Error("expected keyHit=true for empty group (no keys checked)")
+	}
+}
+
+func TestBuildFailoverCandidates_ModelNotFound(t *testing.T) {
+	h := &Handler{
+		cfg:            &config.Config{MasterKey: "test"},
+		circuitBreaker: failover.NewCircuitBreaker(nil),
+	}
+	modelUUID := uuid.New()
+	fg := &failover.FailoverGroup{
+		PriorityOrder: []uuid.UUID{modelUUID},
+		EntryEnabled:  map[string]bool{modelUUID.String(): true},
+	}
+	models := map[uuid.UUID]*model.Model{} // model not in map
+
+	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, nil, false)
+
+	if len(candidates) != 0 {
+		t.Errorf("expected 0 candidates when model not found, got %d", len(candidates))
+	}
+}
+
+func TestBuildFailoverCandidates_DisabledModel(t *testing.T) {
+	h := &Handler{
+		cfg:            &config.Config{MasterKey: "test"},
+		circuitBreaker: failover.NewCircuitBreaker(nil),
+	}
+	modelUUID := uuid.New()
+	providerID := uuid.New()
+	fg := &failover.FailoverGroup{
+		PriorityOrder: []uuid.UUID{modelUUID},
+		EntryEnabled:  map[string]bool{modelUUID.String(): true},
+	}
+	models := map[uuid.UUID]*model.Model{
+		modelUUID: {
+			ID:              modelUUID,
+			ProviderID:      providerID,
+			ModelID:         "disabled-model",
+			Enabled:         false, // model disabled
+			ProviderEnabled: true,
+		},
+	}
+	providers := map[uuid.UUID]*provider.Provider{
+		providerID: {ID: providerID, Name: "test-prov", Enabled: true},
+	}
+
+	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, false)
+
+	if len(candidates) != 0 {
+		t.Errorf("expected 0 candidates when model disabled, got %d", len(candidates))
+	}
+}
+
+func TestBuildFailoverCandidates_ProviderDisabled(t *testing.T) {
+	h := &Handler{
+		cfg:            &config.Config{MasterKey: "test"},
+		circuitBreaker: failover.NewCircuitBreaker(nil),
+	}
+	modelUUID := uuid.New()
+	providerID := uuid.New()
+	fg := &failover.FailoverGroup{
+		PriorityOrder: []uuid.UUID{modelUUID},
+		EntryEnabled:  map[string]bool{modelUUID.String(): true},
+	}
+	models := map[uuid.UUID]*model.Model{
+		modelUUID: {
+			ID:              modelUUID,
+			ProviderID:      providerID,
+			ModelID:         "test-model",
+			Enabled:         true,
+			ProviderEnabled: true,
+		},
+	}
+	providers := map[uuid.UUID]*provider.Provider{
+		providerID: {ID: providerID, Name: "test-prov", Enabled: false}, // provider disabled
+	}
+
+	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, false)
+
+	if len(candidates) != 0 {
+		t.Errorf("expected 0 candidates when provider disabled, got %d", len(candidates))
+	}
+}
+
+func TestBuildFailoverCandidates_ProviderDisabledViaModelField(t *testing.T) {
+	h := &Handler{
+		cfg:            &config.Config{MasterKey: "test"},
+		circuitBreaker: failover.NewCircuitBreaker(nil),
+	}
+	modelUUID := uuid.New()
+	providerID := uuid.New()
+	fg := &failover.FailoverGroup{
+		PriorityOrder: []uuid.UUID{modelUUID},
+		EntryEnabled:  map[string]bool{modelUUID.String(): true},
+	}
+	models := map[uuid.UUID]*model.Model{
+		modelUUID: {
+			ID:              modelUUID,
+			ProviderID:      providerID,
+			ModelID:         "test-model",
+			Enabled:         true,
+			ProviderEnabled: false, // provider disabled via model's cached field
+		},
+	}
+	providers := map[uuid.UUID]*provider.Provider{
+		providerID: {ID: providerID, Name: "test-prov", Enabled: true},
+	}
+
+	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, false)
+
+	if len(candidates) != 0 {
+		t.Errorf("expected 0 candidates when ProviderEnabled=false on model, got %d", len(candidates))
+	}
+}
+
+func TestBuildFailoverCandidates_ProviderNotFound(t *testing.T) {
+	h := &Handler{
+		cfg:            &config.Config{MasterKey: "test"},
+		circuitBreaker: failover.NewCircuitBreaker(nil),
+	}
+	modelUUID := uuid.New()
+	providerID := uuid.New()
+	fg := &failover.FailoverGroup{
+		PriorityOrder: []uuid.UUID{modelUUID},
+		EntryEnabled:  map[string]bool{modelUUID.String(): true},
+	}
+	models := map[uuid.UUID]*model.Model{
+		modelUUID: {
+			ID:              modelUUID,
+			ProviderID:      providerID,
+			ModelID:         "test-model",
+			Enabled:         true,
+			ProviderEnabled: true,
+		},
+	}
+	providers := map[uuid.UUID]*provider.Provider{} // provider not in map
+
+	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, false)
+
+	if len(candidates) != 0 {
+		t.Errorf("expected 0 candidates when provider not found, got %d", len(candidates))
+	}
+}
+
+func TestBuildFailoverCandidates_EntryDisabled(t *testing.T) {
+	h := &Handler{
+		cfg:            &config.Config{MasterKey: "test"},
+		circuitBreaker: failover.NewCircuitBreaker(nil),
+	}
+	modelUUID := uuid.New()
+	providerID := uuid.New()
+	fg := &failover.FailoverGroup{
+		PriorityOrder: []uuid.UUID{modelUUID},
+		EntryEnabled:  map[string]bool{modelUUID.String(): false}, // entry disabled
+	}
+	models := map[uuid.UUID]*model.Model{
+		modelUUID: {
+			ID:              modelUUID,
+			ProviderID:      providerID,
+			ModelID:         "test-model",
+			Enabled:         true,
+			ProviderEnabled: true,
+		},
+	}
+	providers := map[uuid.UUID]*provider.Provider{
+		providerID: {ID: providerID, Name: "test-prov", Enabled: true},
+	}
+
+	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, false)
+
+	if len(candidates) != 0 {
+		t.Errorf("expected 0 candidates when entry disabled, got %d", len(candidates))
+	}
+}
+
+func TestBuildFailoverCandidates_EntryNotInEnabledMap(t *testing.T) {
+	// When a model UUID is not in the EntryEnabled map, it defaults to enabled=true
+	h := &Handler{
+		cfg:            &config.Config{MasterKey: "test"},
+		circuitBreaker: failover.NewCircuitBreaker(nil),
+	}
+	modelUUID := uuid.New()
+	providerID := uuid.New()
+	fg := &failover.FailoverGroup{
+		PriorityOrder: []uuid.UUID{modelUUID},
+		EntryEnabled:  map[string]bool{}, // model UUID not in map → default true
+	}
+	models := map[uuid.UUID]*model.Model{
+		modelUUID: {
+			ID:              modelUUID,
+			ProviderID:      providerID,
+			ModelID:         "test-model",
+			Enabled:         true,
+			ProviderEnabled: true,
+		},
+	}
+	providers := map[uuid.UUID]*provider.Provider{
+		providerID: {ID: providerID, Name: "test-prov", Enabled: true, EncryptedKey: nil},
+	}
+
+	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, false)
+
+	if len(candidates) != 1 {
+		t.Fatalf("expected 1 candidate (entry defaults to enabled), got %d", len(candidates))
+	}
+	if candidates[0].model.ID != modelUUID {
+		t.Errorf("expected model ID %v, got %v", modelUUID, candidates[0].model.ID)
+	}
+}
+
+func TestBuildFailoverCandidates_KeylessProvider(t *testing.T) {
+	h := &Handler{
+		cfg:            &config.Config{MasterKey: "test"},
+		circuitBreaker: failover.NewCircuitBreaker(nil),
+	}
+	modelUUID := uuid.New()
+	providerID := uuid.New()
+	fg := &failover.FailoverGroup{
+		PriorityOrder: []uuid.UUID{modelUUID},
+		EntryEnabled:  map[string]bool{modelUUID.String(): true},
+	}
+	models := map[uuid.UUID]*model.Model{
+		modelUUID: {
+			ID:              modelUUID,
+			ProviderID:      providerID,
+			ModelID:         "test-model",
+			Enabled:         true,
+			ProviderEnabled: true,
+		},
+	}
+	providers := map[uuid.UUID]*provider.Provider{
+		providerID: {ID: providerID, Name: "test-prov", Enabled: true, EncryptedKey: nil}, // keyless
+	}
+
+	candidates, decryptTotal, _, keyHit := h.buildFailoverCandidates(fg, models, providers, false)
+
+	if len(candidates) != 1 {
+		t.Fatalf("expected 1 candidate, got %d", len(candidates))
+	}
+	if candidates[0].apiKey != "" {
+		t.Errorf("expected empty API key for keyless provider, got %q", candidates[0].apiKey)
+	}
+	if decryptTotal != 0 {
+		t.Errorf("expected 0 decrypt total for keyless provider, got %f", decryptTotal)
+	}
+	if !keyHit {
+		t.Error("expected keyHit=true for keyless provider (no cache check)")
+	}
+}
+
+func TestBuildFailoverCandidates_CircuitBreakerOpen(t *testing.T) {
+	cb := failover.NewCircuitBreaker(nil)
+	cb.Threshold = 1
+	cb.Cooldown = 30 * time.Second
+	cb.HalfOpenMaxProbes = 1
+
+	h := &Handler{
+		cfg:            &config.Config{MasterKey: "test"},
+		circuitBreaker: cb,
+	}
+	modelUUID := uuid.New()
+	providerID := uuid.New()
+	providerName := "cb-open-provider"
+	fg := &failover.FailoverGroup{
+		PriorityOrder: []uuid.UUID{modelUUID},
+		EntryEnabled:  map[string]bool{modelUUID.String(): true},
+	}
+	models := map[uuid.UUID]*model.Model{
+		modelUUID: {
+			ID:              modelUUID,
+			ProviderID:      providerID,
+			ModelID:         "test-model",
+			Enabled:         true,
+			ProviderEnabled: true,
+		},
+	}
+	providers := map[uuid.UUID]*provider.Provider{
+		providerID: {ID: providerID, Name: providerName, Enabled: true},
+	}
+
+	// Open the circuit breaker
+	cb.RecordFailure(providerID, providerName)
+
+	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, true)
+
+	if len(candidates) != 0 {
+		t.Errorf("expected 0 candidates when circuit breaker open, got %d", len(candidates))
+	}
+}
+
+func TestBuildFailoverCandidates_CircuitBreakerOpenButDisabled(t *testing.T) {
+	cb := failover.NewCircuitBreaker(nil)
+	cb.Threshold = 1
+	cb.Cooldown = 30 * time.Second
+	cb.HalfOpenMaxProbes = 1
+
+	h := &Handler{
+		cfg:            &config.Config{MasterKey: "test"},
+		circuitBreaker: cb,
+	}
+	modelUUID := uuid.New()
+	providerID := uuid.New()
+	providerName := "cb-disabled-provider"
+	fg := &failover.FailoverGroup{
+		PriorityOrder: []uuid.UUID{modelUUID},
+		EntryEnabled:  map[string]bool{modelUUID.String(): true},
+	}
+	models := map[uuid.UUID]*model.Model{
+		modelUUID: {
+			ID:              modelUUID,
+			ProviderID:      providerID,
+			ModelID:         "test-model",
+			Enabled:         true,
+			ProviderEnabled: true,
+		},
+	}
+	providers := map[uuid.UUID]*provider.Provider{
+		providerID: {ID: providerID, Name: providerName, Enabled: true},
+	}
+
+	// Open the circuit breaker
+	cb.RecordFailure(providerID, providerName)
+
+	// cbEnabled=false → circuit breaker should be skipped
+	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, false)
+
+	if len(candidates) != 1 {
+		t.Errorf("expected 1 candidate when cbEnabled=false bypasses circuit breaker, got %d", len(candidates))
+	}
+}
+
+func TestBuildFailoverCandidates_MultipleCandidates(t *testing.T) {
+	h := &Handler{
+		cfg:            &config.Config{MasterKey: "test"},
+		circuitBreaker: failover.NewCircuitBreaker(nil),
+	}
+	model1 := uuid.New()
+	model2 := uuid.New()
+	provider1 := uuid.New()
+	provider2 := uuid.New()
+	fg := &failover.FailoverGroup{
+		PriorityOrder: []uuid.UUID{model1, model2},
+		EntryEnabled: map[string]bool{
+			model1.String(): true,
+			model2.String(): true,
+		},
+	}
+	models := map[uuid.UUID]*model.Model{
+		model1: {
+			ID: model1, ProviderID: provider1, ModelID: "m1",
+			Enabled: true, ProviderEnabled: true,
+		},
+		model2: {
+			ID: model2, ProviderID: provider2, ModelID: "m2",
+			Enabled: true, ProviderEnabled: true,
+		},
+	}
+	providers := map[uuid.UUID]*provider.Provider{
+		provider1: {ID: provider1, Name: "prov1", Enabled: true, EncryptedKey: nil},
+		provider2: {ID: provider2, Name: "prov2", Enabled: true, EncryptedKey: nil},
+	}
+
+	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, false)
+
+	if len(candidates) != 2 {
+		t.Fatalf("expected 2 candidates, got %d", len(candidates))
+	}
+	// Priority order should be preserved
+	if candidates[0].model.ID != model1 {
+		t.Errorf("first candidate model = %v, want %v", candidates[0].model.ID, model1)
+	}
+	if candidates[1].model.ID != model2 {
+		t.Errorf("second candidate model = %v, want %v", candidates[1].model.ID, model2)
+	}
+}
+
+func TestBuildFailoverCandidates_MixedEnabledDisabled(t *testing.T) {
+	h := &Handler{
+		cfg:            &config.Config{MasterKey: "test"},
+		circuitBreaker: failover.NewCircuitBreaker(nil),
+	}
+	model1 := uuid.New()
+	model2 := uuid.New()
+	model3 := uuid.New()
+	provider1 := uuid.New()
+	provider2 := uuid.New()
+	provider3 := uuid.New()
+	fg := &failover.FailoverGroup{
+		PriorityOrder: []uuid.UUID{model1, model2, model3},
+		EntryEnabled: map[string]bool{
+			model1.String(): true,
+			model2.String(): true,
+			model3.String(): true,
+		},
+	}
+	models := map[uuid.UUID]*model.Model{
+		model1: {
+			ID: model1, ProviderID: provider1, ModelID: "m1",
+			Enabled: true, ProviderEnabled: true,
+		},
+		model2: {
+			ID: model2, ProviderID: provider2, ModelID: "m2",
+			Enabled: false, ProviderEnabled: true, // model2 disabled
+		},
+		model3: {
+			ID: model3, ProviderID: provider3, ModelID: "m3",
+			Enabled: true, ProviderEnabled: true,
+		},
+	}
+	providers := map[uuid.UUID]*provider.Provider{
+		provider1: {ID: provider1, Name: "prov1", Enabled: true, EncryptedKey: nil},
+		provider2: {ID: provider2, Name: "prov2", Enabled: true, EncryptedKey: nil},
+		provider3: {ID: provider3, Name: "prov3", Enabled: true, EncryptedKey: nil},
+	}
+
+	candidates, _, _, _ := h.buildFailoverCandidates(fg, models, providers, false)
+
+	if len(candidates) != 2 {
+		t.Fatalf("expected 2 candidates (model2 disabled), got %d", len(candidates))
+	}
+	if candidates[0].model.ID != model1 {
+		t.Errorf("first candidate model = %v, want %v", candidates[0].model.ID, model1)
+	}
+	if candidates[1].model.ID != model3 {
+		t.Errorf("second candidate model = %v, want %v", candidates[1].model.ID, model3)
 	}
 }
