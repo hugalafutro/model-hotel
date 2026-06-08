@@ -338,6 +338,24 @@ func appendAppLogFilters(conditions []string, args []any, argIdx int, level, sou
 	return conditions, args, argIdx
 }
 
+// appendAppLogKeysetPredicate appends the (created_at, id) cursor comparison for
+// app_logs. The operator is "<" when (direction=="after") == (sortDir=="DESC")
+// — scrolling older in desc, or "before" in asc — and ">" otherwise, collapsing
+// the four inlined (direction, sortDir) branches into one template.
+func appendAppLogKeysetPredicate(conditions []string, args []any, argIdx int, cursor appLogCursor, direction, sortDir string) ([]string, []any, int) {
+	op := ">"
+	if (direction == "after") == (sortDir == "DESC") {
+		op = "<"
+	}
+	conditions = append(conditions, fmt.Sprintf(
+		"(created_at %s $%d OR (created_at = $%d AND id %s $%d))",
+		op, argIdx, argIdx+1, op, argIdx+2,
+	))
+	args = append(args, cursor.CreatedAt, cursor.CreatedAt, cursor.ID)
+	argIdx += 3
+	return conditions, args, argIdx
+}
+
 // getAppLogsHistory queries app_logs from the database with filtering and pagination.
 func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 	if h.dbPool == nil {
@@ -525,43 +543,7 @@ func (h *Handler) GetAppLogsCursor(w http.ResponseWriter, r *http.Request) {
 
 	// Apply cursor keyset predicate
 	if cursorStr != "" {
-		if direction == "after" {
-			if sortDir == "DESC" {
-				// Scrolling older: (created_at, id) < cursor
-				conditions = append(conditions, fmt.Sprintf(
-					"(created_at < $%d OR (created_at = $%d AND id < $%d))",
-					argIdx, argIdx+1, argIdx+2,
-				))
-				args = append(args, cursor.CreatedAt, cursor.CreatedAt, cursor.ID)
-				argIdx += 3
-			} else {
-				// Asc mode, after = newer
-				conditions = append(conditions, fmt.Sprintf(
-					"(created_at > $%d OR (created_at = $%d AND id > $%d))",
-					argIdx, argIdx+1, argIdx+2,
-				))
-				args = append(args, cursor.CreatedAt, cursor.CreatedAt, cursor.ID)
-				argIdx += 3
-			}
-		} else { // before
-			if sortDir == "DESC" {
-				// Scrolling newer: (created_at, id) > cursor
-				conditions = append(conditions, fmt.Sprintf(
-					"(created_at > $%d OR (created_at = $%d AND id > $%d))",
-					argIdx, argIdx+1, argIdx+2,
-				))
-				args = append(args, cursor.CreatedAt, cursor.CreatedAt, cursor.ID)
-				argIdx += 3
-			} else {
-				// Asc mode, before = older
-				conditions = append(conditions, fmt.Sprintf(
-					"(created_at < $%d OR (created_at = $%d AND id < $%d))",
-					argIdx, argIdx+1, argIdx+2,
-				))
-				args = append(args, cursor.CreatedAt, cursor.CreatedAt, cursor.ID)
-				argIdx += 3
-			}
-		}
+		conditions, args, argIdx = appendAppLogKeysetPredicate(conditions, args, argIdx, cursor, direction, sortDir)
 	}
 
 	whereClause := ""
