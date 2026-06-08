@@ -173,40 +173,23 @@ type LogsCursorResponse struct {
 // Subsequent requests pass the cursor from the response boundary and
 // direction to scroll older ("before") or newer ("after").
 func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
-	limit := util.GetIntQueryParam(r, "limit", 20)
-	if limit < 1 {
-		limit = 1
+	p, ok := parseLogListParams(w, r)
+	if !ok {
+		return
 	}
-	if limit > 200 {
-		limit = 200
-	}
-	cursorStr := r.URL.Query().Get("cursor")
-	direction := r.URL.Query().Get("direction")
-	if direction != "before" && direction != "after" {
-		direction = "after"
-	}
-	sortDir := r.URL.Query().Get("sort_dir")
-	if sortDir != "asc" && sortDir != "desc" {
-		sortDir = "desc"
-	}
-
-	modelID := r.URL.Query().Get("model_id")
-	providerID := r.URL.Query().Get("provider_id")
-	statusCodeStr := r.URL.Query().Get("status_code")
-	fromDate := r.URL.Query().Get("from")
-	toDate := r.URL.Query().Get("to")
+	limit := p.limit
+	cursorStr := p.cursorStr
+	cursor := p.cursor
+	direction := p.direction
+	sortDir := p.sortDir
+	modelID := p.modelID
+	providerID := p.providerID
+	statusCodeStr := p.statusCode
+	fromDate := p.fromDate
+	toDate := p.toDate
 
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
-
-	// Parse cursor if provided
-	var cursor logCursor
-	if cursorStr != "" {
-		if err := cursor.decode(cursorStr); err != nil {
-			respondBadRequest(w, "invalid cursor", err)
-			return
-		}
-	}
 
 	// Build the base SELECT (same columns as ListLogs minus COUNT(*) OVER())
 	query := `
@@ -439,6 +422,57 @@ func appendKeysetPredicate(query string, args []any, argIndex int, cursor logCur
 	args = append(args, cursor.CreatedAt, cursor.CreatedAt, cursor.ID)
 	argIndex += 3
 	return query, args, argIndex
+}
+
+// logListParams holds the parsed, validated query inputs for the cursor log
+// endpoint: limit clamped to [1,200], direction/sortDir defaulted, filters, and
+// the decoded cursor.
+type logListParams struct {
+	limit      int
+	cursorStr  string
+	cursor     logCursor
+	direction  string
+	sortDir    string
+	modelID    string
+	providerID string
+	statusCode string
+	fromDate   string
+	toDate     string
+}
+
+// parseLogListParams reads and validates the pagination/filter query params. On
+// an undecodable cursor it writes a 400 response and returns ok=false.
+func parseLogListParams(w http.ResponseWriter, r *http.Request) (logListParams, bool) {
+	p := logListParams{
+		limit:      util.GetIntQueryParam(r, "limit", 20),
+		cursorStr:  r.URL.Query().Get("cursor"),
+		direction:  r.URL.Query().Get("direction"),
+		sortDir:    r.URL.Query().Get("sort_dir"),
+		modelID:    r.URL.Query().Get("model_id"),
+		providerID: r.URL.Query().Get("provider_id"),
+		statusCode: r.URL.Query().Get("status_code"),
+		fromDate:   r.URL.Query().Get("from"),
+		toDate:     r.URL.Query().Get("to"),
+	}
+	if p.limit < 1 {
+		p.limit = 1
+	}
+	if p.limit > 200 {
+		p.limit = 200
+	}
+	if p.direction != "before" && p.direction != "after" {
+		p.direction = "after"
+	}
+	if p.sortDir != "asc" && p.sortDir != "desc" {
+		p.sortDir = "desc"
+	}
+	if p.cursorStr != "" {
+		if err := p.cursor.decode(p.cursorStr); err != nil {
+			respondBadRequest(w, "invalid cursor", err)
+			return p, false
+		}
+	}
+	return p, true
 }
 
 // logCursor is the keyset cursor for cursor-based log pagination.
