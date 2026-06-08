@@ -177,21 +177,53 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	limit := p.limit
-	cursorStr := p.cursorStr
-	cursor := p.cursor
-	direction := p.direction
-	sortDir := p.sortDir
-	modelID := p.modelID
-	providerID := p.providerID
-	statusCodeStr := p.statusCode
-	fromDate := p.fromDate
-	toDate := p.toDate
 
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
-	// Build the base SELECT (same columns as ListLogs minus COUNT(*) OVER())
+	query, args := buildLogListQuery(p)
+
+	rows, err := h.dbPool.Pool().Query(ctx, query, args...)
+	if err != nil {
+		debuglog.Error("logs-cursor: failed to query logs", "error", err)
+		respondError(w, "failed to query logs", err, http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	// limit is clamped to [1, 200] above; prealloc with the hard upper bound
+	// to satisfy CodeQL's uncontrolled-allocation-size check (user input must
+	// not flow into make() capacity even after clamping).
+	entries := make([]LogEntry, 0, 201) // limit+1 for has_more detection
+	for rows.Next() {
+		entry, err := scanLogEntry(rows)
+		if err != nil {
+			debuglog.Error("logs-cursor: row scan failed", "error", err)
+			continue
+		}
+		entries = append(entries, entry)
+	}
+
+	entries, hasAfter, hasBefore := paginate(entries, p)
+
+	response := LogsCursorResponse{
+		Entries:   entries,
+		Total:     h.countLogs(ctx, p),
+		HasBefore: hasBefore,
+		HasAfter:  hasAfter,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		respondError(w, "failed to encode response", err, http.StatusInternalServerError)
+	}
+}
+
+// buildLogListQuery assembles the cursor data query: the column projection, the
+// shared filters, the keyset predicate (when a cursor is present), and the
+// ORDER BY + LIMIT — fetching limit+1 to detect has_more, with the sort
+// inverted for backward pagination so LIMIT picks from the correct end.
+func buildLogListQuery(p logListParams) (string, []any) {
 	query := `
         SELECT rl.id, COALESCE(rl.provider_id::text, ''),
             CASE
@@ -224,26 +256,15 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
         WHERE 1=1
     `
 
-	args := []interface{}{}
+	args := []any{}
 	argIndex := 1
-
-	// Apply filters (shared with the count query below and with ListLogs).
-	query, args, argIndex = appendLogFilters(query, args, argIndex, modelID, providerID, statusCodeStr, fromDate, toDate)
-
-	// Apply cursor keyset predicate
-	// For "time desc" (default): "after" means older (created_at < cursor OR same ts but id < cursor)
-	//                              "before" means newer (created_at > cursor OR same ts but id > cursor)
-	// For "time asc": the directions invert.
-	if cursorStr != "" {
-		query, args, argIndex = appendKeysetPredicate(query, args, argIndex, cursor, direction, sortDir)
+	query, args, argIndex = appendLogFilters(query, args, argIndex, p.modelID, p.providerID, p.statusCode, p.fromDate, p.toDate)
+	if p.cursorStr != "" {
+		query, args, argIndex = appendKeysetPredicate(query, args, argIndex, p.cursor, p.direction, p.sortDir)
 	}
 
-	// ORDER BY + LIMIT (fetch limit+1 to detect has_more)
-	// When paginating backward, invert the sort direction so LIMIT picks from
-	// the correct end of the result set, then reverse the slice before returning.
-	fetchLimit := limit + 1
-	fetchSortDir := sortDir
-	if direction == "before" {
+	fetchSortDir := p.sortDir
+	if p.direction == "before" {
 		if fetchSortDir == "desc" {
 			fetchSortDir = "asc"
 		} else {
@@ -252,81 +273,56 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
 	}
 	query += " ORDER BY rl.created_at " + fetchSortDir + ", rl.id " + fetchSortDir
 	query += " LIMIT $" + util.IntToStr(argIndex)
-	args = append(args, fetchLimit)
+	args = append(args, p.limit+1)
+	return query, args
+}
 
-	rows, err := h.dbPool.Pool().Query(ctx, query, args...)
-	if err != nil {
-		debuglog.Error("logs-cursor: failed to query logs", "error", err)
-		respondError(w, "failed to query logs", err, http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
+// countLogs returns the total row count for the same filters as the data query.
+// Best-effort: returns 0 on error (the cursor response is still useful without
+// an accurate total).
+func (h *Handler) countLogs(ctx context.Context, p logListParams) int {
+	query := "SELECT COUNT(*) FROM request_logs rl WHERE 1=1"
+	args := []any{}
+	query, args, _ = appendLogFilters(query, args, 1, p.modelID, p.providerID, p.statusCode, p.fromDate, p.toDate)
+	var total int
+	_ = h.dbPool.Pool().QueryRow(ctx, query, args...).Scan(&total)
+	return total
+}
 
-	// limit is clamped to [1, 200] above; prealloc with the hard upper bound
-	// to satisfy CodeQL's uncontrolled-allocation-size check (user input must
-	// not flow into make() capacity even after clamping).
-	entries := make([]LogEntry, 0, 201) // limit+1 for has_more detection
-	for rows.Next() {
-		entry, err := scanLogEntry(rows)
-		if err != nil {
-			debuglog.Error("logs-cursor: row scan failed", "error", err)
-			continue
-		}
-		entries = append(entries, entry)
-	}
-
-	// Determine has_after / has_before based on direction and fetched rows
+// paginate applies has_after/has_before detection (using the fetched-one-extra
+// signal and cursor presence), trims to p.limit, and reverses the slice for
+// backward pagination (which fetched in inverted sort order).
+func paginate(entries []LogEntry, p logListParams) ([]LogEntry, bool, bool) {
 	var hasAfter, hasBefore bool
-	switch direction {
+	switch p.direction {
 	case "after":
-		// Fetching older entries (scroll down or initial load)
-		if len(entries) > limit {
+		// Fetching older entries (scroll down or initial load).
+		if len(entries) > p.limit {
 			hasAfter = true
-			entries = entries[:limit]
+			entries = entries[:p.limit]
 		}
-		// For initial request (no cursor), we're at the newest — nothing before
-		// For cursor requests, assume there are newer entries until proven otherwise
-		// (a fetchBefore returning 0 entries will correct this on the client side)
-		if cursorStr != "" {
+		// For an initial request (no cursor) we're at the newest — nothing
+		// before. For cursor requests, assume newer entries exist until proven
+		// otherwise (a fetchBefore returning 0 corrects this client-side).
+		if p.cursorStr != "" {
 			hasBefore = true
 		}
 	case "before":
-		// Fetching newer entries (scroll up)
-		if len(entries) > limit {
+		// Fetching newer entries (scroll up).
+		if len(entries) > p.limit {
 			hasBefore = true
-			entries = entries[:limit]
+			entries = entries[:p.limit]
 		}
-		// Items exist after the cursor by definition
-		if cursorStr != "" {
+		// Items exist after the cursor by definition.
+		if p.cursorStr != "" {
 			hasAfter = true
 		}
 	}
 
-	// Reverse entries for backward pagination: we fetched in inverted sort order
-	// to get the correct window, but must return in the user's requested sort order.
-	if direction == "before" {
+	if p.direction == "before" {
 		slices.Reverse(entries)
 	}
-
-	// Get total count for display (separate lightweight query), reusing the
-	// exact same filter construction as the data query above.
-	var total int
-	countQuery := "SELECT COUNT(*) FROM request_logs rl WHERE 1=1"
-	countArgs := []interface{}{}
-	countQuery, countArgs, _ = appendLogFilters(countQuery, countArgs, 1, modelID, providerID, statusCodeStr, fromDate, toDate)
-	_ = h.dbPool.Pool().QueryRow(ctx, countQuery, countArgs...).Scan(&total)
-
-	response := LogsCursorResponse{
-		Entries:   entries,
-		Total:     total,
-		HasBefore: hasBefore,
-		HasAfter:  hasAfter,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		respondError(w, "failed to encode response", err, http.StatusInternalServerError)
-	}
+	return entries, hasAfter, hasBefore
 }
 
 // scanLogEntry scans one request_logs row (the 30-column projection shared by
