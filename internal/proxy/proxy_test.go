@@ -2851,6 +2851,161 @@ func TestChatCompletions_UpstreamErrorForwarding(t *testing.T) {
 		}
 	})
 
+	t.Run("non-JSON error body wrapped in OpenAI envelope", func(t *testing.T) {
+		pool := testDB.Pool()
+		ctx := context.Background()
+
+		settingsRepo := settings.NewRepository(pool)
+		failoverRepo := failover.NewRepository(pool)
+		modelRepo := model.NewRepository(pool)
+		providerRepo := provider.NewRepository(pool)
+		virtualKeyRepo := virtualkey.NewRepository(pool)
+		limiter := ratelimit.NewLimiter(settingsRepo)
+		ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
+
+		masterKey := "test-master-key-for-nonjson-body"
+
+		// First provider returns a non-failover-eligible status (422) with a
+		// non-JSON body (e.g. HTML from a CDN). With a candidate remaining this
+		// exercises forwardUpstreamError's else branch: wrap the body in an
+		// OpenAI-compatible error envelope rather than forwarding raw HTML.
+		callCount := 0
+		htmlBody := `<html><body>502 Bad Gateway (cloudflare)</body></html>`
+		upstream1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			callCount++
+			w.Header().Set("Content-Type", "text/html")
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			w.Write([]byte(htmlBody))
+		}))
+		defer upstream1.Close()
+
+		upstream2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Second provider succeeds (we should never reach here for 422).
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"id": "cmpl-2", "choices": [{"message": {"content": "success"}}]}`))
+		}))
+		defer upstream2.Close()
+
+		keyPair1, err := auth.Encrypt("test-api-key-1", masterKey)
+		if err != nil {
+			t.Fatalf("failed to encrypt key1: %v", err)
+		}
+		keyPair2, err := auth.Encrypt("test-api-key-2", masterKey)
+		if err != nil {
+			t.Fatalf("failed to encrypt key2: %v", err)
+		}
+
+		provName1 := "nonjson-prov-1-" + uuid.New().String()[:8]
+		prov1, err := providerRepo.Create(ctx, provider.CreateProviderRequest{
+			Name:    provName1,
+			BaseURL: upstream1.URL,
+			APIKey:  "test-api-key-1",
+		}, keyPair1.Ciphertext, keyPair1.Nonce, keyPair1.Salt)
+		if err != nil {
+			t.Fatalf("failed to create provider1: %v", err)
+		}
+
+		provName2 := "nonjson-prov-2-" + uuid.New().String()[:8]
+		prov2, err := providerRepo.Create(ctx, provider.CreateProviderRequest{
+			Name:    provName2,
+			BaseURL: upstream2.URL,
+			APIKey:  "test-api-key-2",
+		}, keyPair2.Ciphertext, keyPair2.Nonce, keyPair2.Salt)
+		if err != nil {
+			t.Fatalf("failed to create provider2: %v", err)
+		}
+
+		modelName := "nonjson-model-" + uuid.New().String()[:8]
+		model1 := &model.Model{
+			ID: uuid.New(), ProviderID: prov1.ID, ModelID: modelName,
+			Name: "NonJSON Model 1", Description: "", Capabilities: "{}",
+			Params: "{}", Modality: "", InputModalities: "[]", OutputModalities: "[]",
+			Enabled: true, ProviderName: provName1, ProviderEnabled: true,
+		}
+		if err := modelRepo.Upsert(ctx, model1); err != nil {
+			t.Fatalf("failed to upsert model1: %v", err)
+		}
+
+		model2 := &model.Model{
+			ID: uuid.New(), ProviderID: prov2.ID, ModelID: modelName,
+			Name: "NonJSON Model 2", Description: "", Capabilities: "{}",
+			Params: "{}", Modality: "", InputModalities: "[]", OutputModalities: "[]",
+			Enabled: true, ProviderName: provName2, ProviderEnabled: true,
+		}
+		if err := modelRepo.Upsert(ctx, model2); err != nil {
+			t.Fatalf("failed to upsert model2: %v", err)
+		}
+
+		// Create failover group with both models
+		if _, err := failoverRepo.UpsertWithConfig(ctx, modelName,
+			[]uuid.UUID{model1.ID, model2.ID},
+			map[string]bool{}, nil, nil, nil, nil,
+		); err != nil {
+			t.Fatalf("failed to create failover group: %v", err)
+		}
+
+		vkName := "nonjson-test-key-" + uuid.New().String()[:8]
+		vkHash := virtualkey.Hash(vkName)
+		if _, err := virtualKeyRepo.Create(ctx, vkName, vkHash, "nj-"+vkHash[:8], nil, nil, nil, nil); err != nil {
+			t.Fatalf("failed to create virtual key: %v", err)
+		}
+
+		handler := &Handler{
+			cfg:            &config.Config{MasterKey: masterKey},
+			settingsRepo:   settingsRepo,
+			failoverRepo:   failoverRepo,
+			modelRepo:      modelRepo,
+			providerRepo:   providerRepo,
+			virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
+			rateLimiter:    limiter,
+			ipLimiter:      ipLimiter,
+			circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
+			dbPool:         pool,
+			upstreamTransport: &http.Transport{
+				DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
+				ResponseHeaderTimeout: 120 * time.Second,
+				IdleConnTimeout:       120 * time.Second,
+				MaxIdleConns:          200,
+				MaxIdleConnsPerHost:   20,
+			},
+			safeDialer: NewSafeDialer(nil, nil),
+		}
+		defer handler.upstreamTransport.CloseIdleConnections()
+
+		// Use hotel/ format to trigger failover group
+		body := `{"model": "hotel/` + modelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
+		req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+		rCtx := context.WithValue(req.Context(), virtualKeyNameKey, vkName)
+		rCtx = context.WithValue(rCtx, virtualKeyIDKey, uuid.New().String())
+		rCtx = context.WithValue(rCtx, VirtualKeyHashKey, vkHash)
+		req = req.WithContext(rCtx)
+
+		w := httptest.NewRecorder()
+		handler.ChatCompletions(w, req)
+
+		// 422 is NOT failover-eligible, so the first provider is terminal even
+		// with a candidate remaining; the non-JSON body is wrapped, not raw.
+		if w.Code != http.StatusUnprocessableEntity {
+			t.Errorf("expected status 422, got %d", w.Code)
+		}
+		bodyStr := w.Body.String()
+		// Response must be a valid JSON OpenAI-error envelope, never raw HTML.
+		if !json.Valid([]byte(bodyStr)) {
+			t.Errorf("expected wrapped JSON envelope, got non-JSON: %s", bodyStr)
+		}
+		if strings.HasPrefix(strings.TrimSpace(bodyStr), "<") {
+			t.Errorf("expected wrapped envelope, got raw HTML: %s", bodyStr)
+		}
+		// The sanitized upstream message should be carried in the envelope.
+		if !strings.Contains(bodyStr, "Bad Gateway") {
+			t.Errorf("expected upstream message in envelope, got: %s", bodyStr)
+		}
+		// Verify we only called the first provider (no failover for 422).
+		if callCount != 1 {
+			t.Errorf("expected 1 call (no failover for 422), got %d", callCount)
+		}
+	})
+
 	t.Run("all candidates exhausted returns generic error", func(t *testing.T) {
 		pool := testDB.Pool()
 		ctx := context.Background()
