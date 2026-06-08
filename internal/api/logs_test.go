@@ -152,14 +152,19 @@ func TestListLogs_FilterByModelID(t *testing.T) {
 	pool := h.Pool().Pool()
 	ctx := context.Background()
 
+	// Create a provider via API so we have a valid provider_id FK.
+	providerID := createLogTestProvider(t, r, "filter-model-provider")
+	defer pool.Exec(ctx, `DELETE FROM providers WHERE id = $1`, providerID)
+
 	// Insert two logs with different model IDs.
-	pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
-		VALUES ('log-filter-m1', '00000000-0000-0000-0000-000000000001', 'gpt-4', 200, 100, now())`)
-	pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
-		VALUES ('log-filter-m2', '00000000-0000-0000-0000-000000000001', 'claude-3', 200, 100, now())`)
-	defer func() {
-		pool.Exec(ctx, `DELETE FROM request_logs WHERE id IN ('log-filter-m1', 'log-filter-m2')`)
-	}()
+	if _, err := pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		VALUES (gen_random_uuid(), $1, 'gpt-4', 200, 100, now())`, providerID); err != nil {
+		t.Fatalf("insert gpt-4 log: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		VALUES (gen_random_uuid(), $1, 'claude-3', 200, 100, now())`, providerID); err != nil {
+		t.Fatalf("insert claude-3 log: %v", err)
+	}
 
 	req := httptest.NewRequest("GET", "/logs/?model_id=gpt-4", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -184,19 +189,45 @@ func TestListLogs_FilterByModelID(t *testing.T) {
 	}
 }
 
+// createLogTestProvider creates a provider via the API and returns its UUID.
+func createLogTestProvider(t *testing.T, r chi.Router, name string) string {
+	t.Helper()
+	prefix := name + "-" + uuid.New().String()[:8]
+	providerData := fmt.Sprintf(`{"name": "%s", "base_url": "https://api.example.com", "api_key": "test-key"}`, prefix)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("failed to create provider %s: %d: %s", name, rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to parse provider response: %v", err)
+	}
+	return resp.ID
+}
+
 func TestListLogs_FilterByStatusCode4xx(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 	pool := h.Pool().Pool()
 	ctx := context.Background()
 
+	providerID := createLogTestProvider(t, r, "filter-4xx-provider")
+	defer pool.Exec(ctx, `DELETE FROM providers WHERE id = $1`, providerID)
+
 	// Insert logs with 400 and 500 status codes.
-	pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
-		VALUES ('log-4xx-1', '00000000-0000-0000-0000-000000000001', 'model-a', 400, 50, now())`)
-	pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
-		VALUES ('log-4xx-2', '00000000-0000-0000-0000-000000000001', 'model-b', 503, 50, now())`)
-	defer func() {
-		pool.Exec(ctx, `DELETE FROM request_logs WHERE id IN ('log-4xx-1', 'log-4xx-2')`)
-	}()
+	if _, err := pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		VALUES (gen_random_uuid(), $1, 'model-a', 400, 50, now())`, providerID); err != nil {
+		t.Fatalf("insert 400 log: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		VALUES (gen_random_uuid(), $1, 'model-b', 503, 50, now())`, providerID); err != nil {
+		t.Fatalf("insert 503 log: %v", err)
+	}
 
 	req := httptest.NewRequest("GET", "/logs/?status_code=4xx", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -225,14 +256,18 @@ func TestListLogs_FilterByStatusCode5xx(t *testing.T) {
 	pool := h.Pool().Pool()
 	ctx := context.Background()
 
-	// Insert logs with 400 and 500 status codes.
-	pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
-		VALUES ('log-5xx-1', '00000000-0000-0000-0000-000000000001', 'model-a', 200, 50, now())`)
-	pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
-		VALUES ('log-5xx-2', '00000000-0000-0000-0000-000000000001', 'model-b', 503, 50, now())`)
-	defer func() {
-		pool.Exec(ctx, `DELETE FROM request_logs WHERE id IN ('log-5xx-1', 'log-5xx-2')`)
-	}()
+	providerID := createLogTestProvider(t, r, "filter-5xx-provider")
+	defer pool.Exec(ctx, `DELETE FROM providers WHERE id = $1`, providerID)
+
+	// Insert logs with 200 and 500 status codes.
+	if _, err := pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		VALUES (gen_random_uuid(), $1, 'model-a', 200, 50, now())`, providerID); err != nil {
+		t.Fatalf("insert 200 log: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		VALUES (gen_random_uuid(), $1, 'model-b', 503, 50, now())`, providerID); err != nil {
+		t.Fatalf("insert 503 log: %v", err)
+	}
 
 	req := httptest.NewRequest("GET", "/logs/?status_code=5xx", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -261,14 +296,18 @@ func TestListLogs_FilterByStatusCode0(t *testing.T) {
 	pool := h.Pool().Pool()
 	ctx := context.Background()
 
+	providerID := createLogTestProvider(t, r, "filter-sc0-provider")
+	defer pool.Exec(ctx, `DELETE FROM providers WHERE id = $1`, providerID)
+
 	// Insert a log with status_code=0 (proxy error, no HTTP response).
-	pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
-		VALUES ('log-sc0-1', '00000000-0000-0000-0000-000000000001', 'model-a', 0, 50, now())`)
-	pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
-		VALUES ('log-sc0-2', '00000000-0000-0000-0000-000000000001', 'model-b', 200, 50, now())`)
-	defer func() {
-		pool.Exec(ctx, `DELETE FROM request_logs WHERE id IN ('log-sc0-1', 'log-sc0-2')`)
-	}()
+	if _, err := pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		VALUES (gen_random_uuid(), $1, 'model-a', 0, 50, now())`, providerID); err != nil {
+		t.Fatalf("insert status=0 log: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		VALUES (gen_random_uuid(), $1, 'model-b', 200, 50, now())`, providerID); err != nil {
+		t.Fatalf("insert status=200 log: %v", err)
+	}
 
 	req := httptest.NewRequest("GET", "/logs/?status_code=0", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -301,14 +340,18 @@ func TestListLogs_SortByModel(t *testing.T) {
 	pool := h.Pool().Pool()
 	ctx := context.Background()
 
+	providerID := createLogTestProvider(t, r, "sort-test-provider")
+	defer pool.Exec(ctx, `DELETE FROM providers WHERE id = $1`, providerID)
+
 	// Insert logs with different model IDs to verify sort order.
-	pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
-		VALUES ('log-sort-b', '00000000-0000-0000-0000-000000000001', 'beta-model', 200, 50, now())`)
-	pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
-		VALUES ('log-sort-a', '00000000-0000-0000-0000-000000000001', 'alpha-model', 200, 50, now())`)
-	defer func() {
-		pool.Exec(ctx, `DELETE FROM request_logs WHERE id IN ('log-sort-a', 'log-sort-b')`)
-	}()
+	if _, err := pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		VALUES (gen_random_uuid(), $1, 'beta-model', 200, 50, now())`, providerID); err != nil {
+		t.Fatalf("insert beta-model log: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		VALUES (gen_random_uuid(), $1, 'alpha-model', 200, 50, now())`, providerID); err != nil {
+		t.Fatalf("insert alpha-model log: %v", err)
+	}
 
 	req := httptest.NewRequest("GET", "/logs/?sort_by=model&sort_dir=asc", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -325,11 +368,31 @@ func TestListLogs_SortByModel(t *testing.T) {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	// Verify ascending sort: alpha-model should come before beta-model.
-	if len(resp.Entries) >= 2 {
-		if resp.Entries[0].ModelID > resp.Entries[1].ModelID {
-			t.Errorf("expected ascending sort, got %s before %s", resp.Entries[0].ModelID, resp.Entries[1].ModelID)
+	// Verify both inserted entries are present.
+	if len(resp.Entries) < 2 {
+		t.Fatalf("expected at least 2 entries, got %d", len(resp.Entries))
+	}
+
+	modelIDs := make(map[string]bool)
+	for _, l := range resp.Entries {
+		modelIDs[l.ModelID] = true
+	}
+	if !modelIDs["alpha-model"] || !modelIDs["beta-model"] {
+		t.Errorf("expected both alpha-model and beta-model in results, got models: %v", modelIDs)
+	}
+
+	// Verify ascending order among the inserted entries.
+	var alphaIdx, betaIdx = -1, -1
+	for i, l := range resp.Entries {
+		if l.ModelID == "alpha-model" {
+			alphaIdx = i
 		}
+		if l.ModelID == "beta-model" {
+			betaIdx = i
+		}
+	}
+	if alphaIdx >= 0 && betaIdx >= 0 && alphaIdx > betaIdx {
+		t.Errorf("expected alpha-model before beta-model in ascending sort, got alpha at %d, beta at %d", alphaIdx, betaIdx)
 	}
 }
 
