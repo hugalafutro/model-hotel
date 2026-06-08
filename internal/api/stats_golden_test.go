@@ -162,3 +162,47 @@ func TestCalculateStats_Golden(t *testing.T) {
 		})
 	}
 }
+
+// TestCalculateStats_CrossFill exercises statTotals' period switch in BOTH
+// directions — the 24h primary path (cross-fills 7d) and the 7d primary path
+// (cross-fills 24h) — with a dataset whose 24h and 7d counts differ, so a
+// swapped cross-fill assignment is caught.
+func TestCalculateStats_CrossFill(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	provA := uuid.New()
+	insertTestProvider(t, pool, provA, "pa", "https://a.example/v1")
+
+	// One recent row (within 24h) and one ~2 days old (within 7d, outside 24h):
+	// 24h count = 1, 7d count = 2.
+	mustInsert := func(age string) {
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, tokens_prompt, tokens_completion, created_at)
+			VALUES ($1, $2, 'm1', 200, 100, 10, 20, NOW() - $3::interval)`,
+			uuid.New(), provA, age); err != nil {
+			t.Fatalf("insert request log (%s): %v", age, err)
+		}
+	}
+	mustInsert("1 hour")
+	mustInsert("2 days")
+
+	// period = 24h: primary fills 24h (1 recent), cross-fill fills 7d (both).
+	s24, err := handler.calculateStats(ctx, 24*time.Hour, false, "requests", false)
+	if err != nil {
+		t.Fatalf("calculateStats 24h: %v", err)
+	}
+	if s24.TotalRequestsLast24h != 1 || s24.TotalRequestsLast7d != 2 {
+		t.Errorf("24h period: got 24h=%d 7d=%d, want 24h=1 7d=2", s24.TotalRequestsLast24h, s24.TotalRequestsLast7d)
+	}
+
+	// period = 7d: primary fills 7d (both), cross-fill fills 24h (1 recent).
+	s7, err := handler.calculateStats(ctx, 7*24*time.Hour, false, "requests", false)
+	if err != nil {
+		t.Fatalf("calculateStats 7d: %v", err)
+	}
+	if s7.TotalRequestsLast7d != 2 || s7.TotalRequestsLast24h != 1 {
+		t.Errorf("7d period: got 7d=%d 24h=%d, want 7d=2 24h=1", s7.TotalRequestsLast7d, s7.TotalRequestsLast24h)
+	}
+}

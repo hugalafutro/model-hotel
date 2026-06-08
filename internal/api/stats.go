@@ -521,7 +521,6 @@ func (h *StatsHandler) statLatencyBreakdown(ctx context.Context, stats *StatsRes
 	if err != nil {
 		debuglog.Error("stats: query failed", "query", "by_model_latency", "error", err)
 	} else {
-		defer rows.Close()
 		for rows.Next() {
 			var entry ModelLatencyEntry
 			if err := rows.Scan(&entry.ModelID, &entry.RequestCount, &entry.TotalMs, &entry.OverheadMs, &entry.ProviderMs); err != nil {
@@ -529,6 +528,8 @@ func (h *StatsHandler) statLatencyBreakdown(ctx context.Context, stats *StatsRes
 			}
 			stats.ByModelLatency = append(stats.ByModelLatency, entry)
 		}
+		// Close promptly (not deferred) so the connection is released before Q13.
+		rows.Close()
 	}
 
 	// Query 13: Per-provider latency breakdown (top 6 by avg total latency).
@@ -555,7 +556,6 @@ func (h *StatsHandler) statLatencyBreakdown(ctx context.Context, stats *StatsRes
 	if err != nil {
 		debuglog.Error("stats: query failed", "query", "by_provider_latency", "error", err)
 	} else {
-		defer rows.Close()
 		for rows.Next() {
 			var entry ProviderLatencyEntry
 			if err := rows.Scan(&entry.ProviderName, &entry.RequestCount, &entry.TotalMs, &entry.OverheadMs, &entry.ProviderMs); err != nil {
@@ -563,6 +563,7 @@ func (h *StatsHandler) statLatencyBreakdown(ctx context.Context, stats *StatsRes
 			}
 			stats.ByProviderLatency = append(stats.ByProviderLatency, entry)
 		}
+		rows.Close()
 	}
 }
 
