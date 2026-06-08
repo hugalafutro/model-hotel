@@ -357,24 +357,7 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
 	// not flow into make() capacity even after clamping).
 	entries := make([]LogEntry, 0, 201) // limit+1 for has_more detection
 	for rows.Next() {
-		var entry LogEntry
-		err := rows.Scan(
-			&entry.ID, &entry.ProviderID, &entry.ProviderName, &entry.ModelID,
-			&entry.RequestHash, &entry.StatusCode, &entry.LatencyMs, &entry.DurationMs,
-			&entry.TTFTMs, &entry.ProxyOverheadMs,
-			&entry.ParseMs, &entry.FailoverLookupMs, &entry.ModelLookupMs, &entry.ProviderLookupMs, &entry.KeyDecryptMs,
-			&entry.DialMs, &entry.SettingsReadMs,
-			&entry.CacheHits,
-			&entry.TokensPerSecond,
-			&entry.TokensPrompt, &entry.TokensCompletion, &entry.TokensCompletionReasoning,
-			&entry.TokensPromptCacheHit, &entry.TokensPromptCacheMiss,
-			&entry.Streaming,
-			&entry.VirtualKeyName, &entry.VirtualKeyID, &entry.VirtualKeyDeleted,
-			&entry.ErrorMessage,
-			&entry.FailoverAttempt, &entry.State, &entry.CreatedAt,
-			&entry.ResponseHeaderMs,
-			&entry.ResolvedModelID,
-		)
+		entry, err := scanLogEntry(rows)
 		if err != nil {
 			debuglog.Error("logs-cursor: row scan failed", "error", err)
 			continue
@@ -474,6 +457,30 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		respondError(w, "failed to encode response", err, http.StatusInternalServerError)
 	}
+}
+
+// scanLogEntry scans one request_logs row (the 30-column projection shared by
+// ListLogsCursor and ListLogs) into a LogEntry.
+func scanLogEntry(rows pgx.Rows) (LogEntry, error) {
+	var entry LogEntry
+	err := rows.Scan(
+		&entry.ID, &entry.ProviderID, &entry.ProviderName, &entry.ModelID,
+		&entry.RequestHash, &entry.StatusCode, &entry.LatencyMs, &entry.DurationMs,
+		&entry.TTFTMs, &entry.ProxyOverheadMs,
+		&entry.ParseMs, &entry.FailoverLookupMs, &entry.ModelLookupMs, &entry.ProviderLookupMs, &entry.KeyDecryptMs,
+		&entry.DialMs, &entry.SettingsReadMs,
+		&entry.CacheHits,
+		&entry.TokensPerSecond,
+		&entry.TokensPrompt, &entry.TokensCompletion, &entry.TokensCompletionReasoning,
+		&entry.TokensPromptCacheHit, &entry.TokensPromptCacheMiss,
+		&entry.Streaming,
+		&entry.VirtualKeyName, &entry.VirtualKeyID, &entry.VirtualKeyDeleted,
+		&entry.ErrorMessage,
+		&entry.FailoverAttempt, &entry.State, &entry.CreatedAt,
+		&entry.ResponseHeaderMs,
+		&entry.ResolvedModelID,
+	)
+	return entry, err
 }
 
 // logCursor is the keyset cursor for cursor-based log pagination.
