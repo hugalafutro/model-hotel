@@ -36,42 +36,12 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	p, ok := parseModelListParams(w, r)
+	if !ok {
+		return
+	}
 	q := r.URL.Query()
-	limit := 50
-	if v := q.Get("limit"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n >= 1 && n <= 200 {
-			limit = n
-		}
-	}
-	cursorStr := q.Get("cursor")
-	direction := q.Get("direction")
-	if direction != "before" && direction != "after" {
-		direction = "after"
-	}
-	sortDir := "ASC"
-	if q.Get("sort_dir") == "desc" {
-		sortDir = "DESC"
-	}
-	sortBy := q.Get("sort_by")
-	switch sortBy {
-	case "discovered", "context", "output", "provider", "status":
-		// valid
-	default:
-		sortBy = "name"
-	}
-
-	// Parse cursor
-	var cursor modelCursor
-	if cursorStr != "" {
-		if err := cursor.decode(cursorStr); err != nil {
-			respondBadRequest(w, "invalid cursor", err)
-			return
-		}
-		// Use sort_by from cursor if present (ensures consistency)
-		if cursor.SortBy != "" {
-			sortBy = cursor.SortBy
-		}
-	}
+	limit, cursorStr, direction, sortDir, sortBy := p.limit, p.cursorStr, p.direction, p.sortDir, p.sortBy
 
 	// Build WHERE clause (shared with count query)
 	filterConds, filterArgs := buildModelFilterConditions(q)
@@ -81,7 +51,7 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 
 	// Apply cursor keyset predicate
 	if cursorStr != "" {
-		pred := buildModelKeysetPredicate(cursor, direction, sortDir, &argIdx, &args)
+		pred := buildModelKeysetPredicate(p.cursor, direction, sortDir, &argIdx, &args)
 		if pred != "" {
 			conditions = append(conditions, pred)
 		}
@@ -177,6 +147,58 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 		HasBefore: hasBefore,
 		HasAfter:  hasAfter,
 	})
+}
+
+// modelListParams holds the parsed, validated query inputs for ListModelsCursor.
+type modelListParams struct {
+	limit              int
+	cursorStr          string
+	cursor             modelCursor
+	direction, sortDir string
+	sortBy             string
+}
+
+// parseModelListParams reads and validates the cursor list query parameters:
+// limit clamp ([1,200], default 50), direction (after default), sort_dir
+// (ASC default), the sort_by whitelist, and the cursor (decode error → 400,
+// with the cursor's own sort_by taking precedence for consistency).
+func parseModelListParams(w http.ResponseWriter, r *http.Request) (modelListParams, bool) {
+	q := r.URL.Query()
+	p := modelListParams{
+		limit:     50,
+		cursorStr: q.Get("cursor"),
+		direction: q.Get("direction"),
+		sortDir:   "ASC",
+		sortBy:    q.Get("sort_by"),
+	}
+	if v := q.Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 1 && n <= 200 {
+			p.limit = n
+		}
+	}
+	if p.direction != "before" && p.direction != "after" {
+		p.direction = "after"
+	}
+	if q.Get("sort_dir") == "desc" {
+		p.sortDir = "DESC"
+	}
+	switch p.sortBy {
+	case "discovered", "context", "output", "provider", "status":
+		// valid
+	default:
+		p.sortBy = "name"
+	}
+	if p.cursorStr != "" {
+		if err := p.cursor.decode(p.cursorStr); err != nil {
+			respondBadRequest(w, "invalid cursor", err)
+			return p, false
+		}
+		// Use sort_by from cursor if present (ensures consistency).
+		if p.cursor.SortBy != "" {
+			p.sortBy = p.cursor.SortBy
+		}
+	}
+	return p, true
 }
 
 // modelSelectColumns is the cursor data query's column projection (models joined
