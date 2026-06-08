@@ -13,10 +13,10 @@
  <img src="https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL">
  <a href="https://hub.docker.com/r/hugalafutro/model-hotel"><img src="https://img.shields.io/docker/pulls/hugalafutro/model-hotel.svg" alt="Docker Pulls"></a>
 <br>
- <a href="/actions/workflows/ci.yml"><img src="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+ <a href="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml"><img src="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
  <a href="https://goreportcard.com/report/github.com/hugalafutro/model-hotel"><img src="https://goreportcard.com/badge/github.com/hugalafutro/model-hotel" alt="Go Report"></a>
  <a href="https://codecov.io/github/hugalafutro/model-hotel"><img src="https://codecov.io/github/hugalafutro/model-hotel/branch/master/graph/badge.svg" alt="Coverage"></a>
-<a href="https://crowdin.com/project/model-hotel"><img src="https://badges.crowdin.net/model-hotel/localized.svg" alt="Crowdin"></a><br>
+<a href="https://crwd.in/model-hotel/b36327c5f049f82a165eace874dd366d2790987"><img src="https://badges.crowdin.net/model-hotel/localized.svg" alt="Crowdin"></a><br>
 </p>
 
 > [!IMPORTANT]
@@ -25,16 +25,15 @@
 
 <div align="center">
   
-<sub>Localised with [Crowdin](https://crowdin.com/project/model-hotel) and [DeepL](https://www.deepl.com) - _expect mistakes_ - contributions welcome!<br>Made in [OpenChamber](https://github.com/openchamber/openchamber) with [OpenCode](https://opencode.ai) and [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim)</sub>
+<sub>Localised with [Crowdin](https://crwd.in/model-hotel/b36327c5f049f82a165eace874dd366d2790987) and [DeepL](https://www.deepl.com) - _expect mistakes_ - contributions welcome!<br>Made in [OpenChamber](https://github.com/openchamber/openchamber) with [OpenCode](https://opencode.ai) and [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim)</sub>
 <br>
 
  <img src="https://img.shields.io/badge/GLM_5.1-orchestrator,%20council-8B5CF6?style=flat" alt="GLM 5.1">
  <img src="https://img.shields.io/badge/Kimi_K2.6-designer,%20council-06B6D4?style=flat" alt="Kimi K2.6">
  <img src="https://img.shields.io/badge/DeepSeek_V4_Pro-oracle,%20council-E53E3E?style=flat" alt="DeepSeek V4 Pro">
 <br>
- <img src="https://img.shields.io/badge/Qwen3.5_397B-fixer-F59E0B?style=flat" alt="Qwen3.5 397B">
  <img src="https://img.shields.io/badge/DeepSeek_V4_Pro-librarian-E53E3E?style=flat" alt="DeepSeek V4 Pro">
- <img src="https://img.shields.io/badge/GLM_5.1_Fast-explorer-8B5CF6?style=flat" alt="GLM 5.1 Fast">
+ <img src="https://img.shields.io/badge/GLM_5.1_Fast-fixer,%20explorer-8B5CF6?style=flat" alt="GLM 5.1 Fast">
  <img src="https://img.shields.io/badge/Gemini_3_Flash-observer-4285F4?style=flat" alt="Gemini 3 Flash">
 </div><br>
 
