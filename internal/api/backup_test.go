@@ -4019,3 +4019,139 @@ func TestRunScheduledBackup_Integration_WithRotation(t *testing.T) {
 		t.Fatal("expected at least one backup file (the new one)")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Tests for parseMigrationNamesFromSQL edge cases (drives extractMigrationNames coverage)
+// ---------------------------------------------------------------------------
+
+func TestParseMigrationNamesFromSQL_EmptyInput(t *testing.T) {
+	names := parseMigrationNamesFromSQL("")
+	if len(names) != 0 {
+		t.Errorf("expected 0 names for empty input, got %d", len(names))
+	}
+}
+
+func TestParseMigrationNamesFromSQL_CopyBlockEmpty(t *testing.T) {
+	// COPY block with only the terminator — no data rows
+	sqlOutput := "COPY public.schema_migrations (id, name, applied_at) FROM stdin;\n\\.\n"
+	names := parseMigrationNamesFromSQL(sqlOutput)
+	if len(names) != 0 {
+		t.Errorf("expected 0 names for empty COPY block, got %d: %v", len(names), names)
+	}
+}
+
+func TestParseMigrationNamesFromSQL_SingleFieldRows(t *testing.T) {
+	// Rows with only one field (no tab separator) should be skipped
+	sqlOutput := "COPY public.schema_migrations (id, name, applied_at) FROM stdin;\n1\n\\.\n"
+	names := parseMigrationNamesFromSQL(sqlOutput)
+	if len(names) != 0 {
+		t.Errorf("expected 0 names for single-field rows, got %d: %v", len(names), names)
+	}
+}
+
+func TestParseMigrationNamesFromSQL_ManyMigrations(t *testing.T) {
+	// Test with more than 3 migrations to exercise loop accumulation
+	sqlOutput := "COPY public.schema_migrations (id, name, applied_at) FROM stdin;\n" +
+		"1\t001_init.sql\t2026-01-01\n" +
+		"2\t002_second.sql\t2026-01-02\n" +
+		"3\t003_third.sql\t2026-01-03\n" +
+		"4\t004_fourth.sql\t2026-01-04\n" +
+		"5\t005_fifth.sql\t2026-01-05\n" +
+		"\\.\n"
+	names := parseMigrationNamesFromSQL(sqlOutput)
+	if len(names) != 5 {
+		t.Fatalf("expected 5 names, got %d", len(names))
+	}
+	expected := []string{"001_init.sql", "002_second.sql", "003_third.sql", "004_fourth.sql", "005_fifth.sql"}
+	for i, want := range expected {
+		if names[i] != want {
+			t.Errorf("names[%d] = %q, want %q", i, names[i], want)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Tests for saveUploadedDump direct error paths
+// ---------------------------------------------------------------------------
+
+func TestSaveUploadedDump_MkdirAllError(t *testing.T) {
+	// Use a read-only parent directory so that MkdirAll fails when trying
+	// to create a subdirectory inside it.
+	parent := t.TempDir()
+	if err := os.Chmod(parent, 0o555); err != nil {
+		t.Skipf("cannot chmod temp dir: %v", err)
+	}
+	t.Cleanup(func() { os.Chmod(parent, 0o755) })
+
+	h := NewBackupHandler("postgres://x", filepath.Join(parent, "no-such-subdir", "backups"), &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	writer.WriteField("admin_token", "valid-token")
+	part, _ := writer.CreateFormFile("dump", "test.dump")
+	part.Write([]byte("dummy"))
+	writer.Close()
+
+	req := httptest.NewRequest("POST", "/backups/restore", &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	w := httptest.NewRecorder()
+
+	tmpPath, ok := h.saveUploadedDump(w, req)
+	if ok {
+		t.Error("expected saveUploadedDump to fail when MkdirAll fails")
+	}
+	if tmpPath != "" {
+		t.Errorf("expected empty tmpPath on failure, got %q", tmpPath)
+	}
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500 for MkdirAll failure, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestSaveUploadedDump_CreateTempError(t *testing.T) {
+	// Run as subprocess to manipulate TMPDIR without affecting parallel tests.
+	if os.Getenv("TEST_SAVE_UPLOAD_CREATE_TEMP") == "1" {
+		dir := t.TempDir()
+
+		// Make the backup directory read-only so os.CreateTemp fails inside it
+		h := NewBackupHandler("postgres://x", dir, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+
+		var buf bytes.Buffer
+		writer := multipart.NewWriter(&buf)
+		writer.WriteField("admin_token", "valid-token")
+		part, _ := writer.CreateFormFile("dump", "test.dump")
+		part.Write([]byte("dummy"))
+		writer.Close()
+
+		req := httptest.NewRequest("POST", "/backups/restore", &buf)
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+		w := httptest.NewRecorder()
+
+		// Make dir read-only after handler creation but before CreateTemp
+		os.Chmod(dir, 0o444)
+
+		tmpPath, ok := h.saveUploadedDump(w, req)
+		// Restore permissions for cleanup
+		os.Chmod(dir, 0o755)
+		if ok {
+			fmt.Printf("CREATE_TEMP: expected saveUploadedDump to fail\n")
+			os.Exit(1)
+		}
+		if tmpPath != "" {
+			fmt.Printf("CREATE_TEMP: expected empty tmpPath, got %q\n", tmpPath)
+			os.Exit(1)
+		}
+		if w.Code != http.StatusInternalServerError {
+			fmt.Printf("CREATE_TEMP: expected 500, got %d: %s\n", w.Code, w.Body.String())
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
+	cmd := exec.Command(os.Args[0], "-test.run=TestSaveUploadedDump_CreateTempError")
+	cmd.Env = append(os.Environ(), "TEST_SAVE_UPLOAD_CREATE_TEMP=1")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("subprocess failed: %v\noutput: %s", err, output)
+	}
+}
