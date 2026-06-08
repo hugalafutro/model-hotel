@@ -38,7 +38,7 @@ func TestSPAHandler_ServeHTTP_APIPathReturns404(t *testing.T) {
 	h := NewSPAHandler()
 	for _, path := range []string{"/api/providers", "/api/models", "/v1/chat/completions", "/health"} {
 		t.Run(path, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, path, nil)
+			req := httptest.NewRequest(http.MethodGet, path, http.NoBody)
 			w := httptest.NewRecorder()
 			h.ServeHTTP(w, req)
 			if w.Code != http.StatusNotFound {
@@ -50,7 +50,7 @@ func TestSPAHandler_ServeHTTP_APIPathReturns404(t *testing.T) {
 
 func TestSPAHandler_ServeHTTP_RootReturnsIndexHTML(t *testing.T) {
 	h := NewSPAHandler()
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 
@@ -69,7 +69,7 @@ func TestSPAHandler_ServeHTTP_RootReturnsIndexHTML(t *testing.T) {
 
 func TestSPAHandler_ServeHTTP_UnknownPathServesIndexHTML(t *testing.T) {
 	h := NewSPAHandler()
-	req := httptest.NewRequest(http.MethodGet, "/some/spa/route", nil)
+	req := httptest.NewRequest(http.MethodGet, "/some/spa/route", http.NoBody)
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 
@@ -88,7 +88,7 @@ func TestSPAHandler_ServeHTTP_StaticFileServedWhenAvailable(t *testing.T) {
 		t.Skip("skipping: embedded static files not available (need frontend build)")
 	}
 	// Request a JS file that should be served by the file server
-	req := httptest.NewRequest(http.MethodGet, "/assets/test-abc123.js", nil)
+	req := httptest.NewRequest(http.MethodGet, "/assets/test-abc123.js", http.NoBody)
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 	// If the file exists it should be served; if not the fileServer

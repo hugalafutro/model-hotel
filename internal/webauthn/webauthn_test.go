@@ -1,6 +1,7 @@
 package webauthn
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -1125,7 +1126,7 @@ func TestStoreCredential_Upsert(t *testing.T) {
 	}
 	count := 0
 	for _, c := range creds {
-		if string(c.ID) == string(credID) {
+		if bytes.Equal(c.ID, credID) {
 			count++
 		}
 	}
