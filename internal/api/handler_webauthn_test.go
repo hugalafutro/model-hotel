@@ -1456,6 +1456,43 @@ func TestSetWebAuthnSessionManager_NilArg(t *testing.T) {
 	}
 }
 
+// TestWebAuthnHandler_RegisterStart_RepoListError tests that RegisterStart
+// returns 500 when the repo fails to list credentials.
+func TestWebAuthnHandler_RegisterStart_RepoListError(t *testing.T) {
+	closedPool := newClosedPool(t)
+	repo := webauthn.NewRepository(closedPool)
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := newTestWebAuthnHandler(repo, nil, nil, adminMgr)
+
+	req, w := newChiRequest(http.MethodPost, "/webauthn/register/start", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-token")
+
+	h.RegisterStart(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
+	}
+}
+
+// TestWebAuthnHandler_ListCredentials_RepoError tests that ListCredentials
+// returns 500 when the repo fails to list credentials.
+func TestWebAuthnHandler_ListCredentials_RepoError(t *testing.T) {
+	closedPool := newClosedPool(t)
+	repo := webauthn.NewRepository(closedPool)
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := newTestWebAuthnHandler(repo, nil, nil, adminMgr)
+
+	req := httptest.NewRequest(http.MethodGet, "/webauthn/credentials", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-token")
+	w := httptest.NewRecorder()
+
+	h.ListCredentials(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
+	}
+}
+
 // mockWebAuthnSessionMgr implements WebAuthnSessionManager for testing
 type mockWebAuthnSessionMgr struct {
 	validateFn func(ctx context.Context, token string) bool
