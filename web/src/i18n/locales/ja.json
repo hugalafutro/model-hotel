@@ -933,7 +933,11 @@
 		"toast_bulk_delete_success_one": "削除された {{count}} グループ",
 		"toast_bulk_delete_success_other": "削除された {{count}} グループ",
 		"delete_confirm_bulk_title_one": "{{count}} フェイルオーバー グループ",
-		"delete_confirm_bulk_title_other": "{{count}} フェイルオーバー グループ"
+		"delete_confirm_bulk_title_other": "{{count}} フェイルオーバー グループ",
+		"btn_manage_providers": "Manage Providers",
+		"provider_modal_title": "Manage Provider Status",
+		"provider_modal_description": "Disabling a provider will disable all its models in every failover group",
+		"toast_provider_toggle_no_groups": "No failover groups use provider {{provider}}"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "保存されていない変更"

@@ -933,7 +933,11 @@
 		"toast_bulk_delete_success_one": "Gruppo {{count}} eliminato",
 		"toast_bulk_delete_success_other": "Eliminati gruppi {{count}}",
 		"delete_confirm_bulk_title_one": "Gruppo di failover {{count}}",
-		"delete_confirm_bulk_title_other": "Gruppi di failover {{count}}"
+		"delete_confirm_bulk_title_other": "Gruppi di failover {{count}}",
+		"btn_manage_providers": "Manage Providers",
+		"provider_modal_title": "Manage Provider Status",
+		"provider_modal_description": "Disabling a provider will disable all its models in every failover group",
+		"toast_provider_toggle_no_groups": "No failover groups use provider {{provider}}"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Modifiche Non Salvate"

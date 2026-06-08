@@ -933,7 +933,11 @@
 		"toast_bulk_delete_success_one": "{{count}} 그룹 삭제됨",
 		"toast_bulk_delete_success_other": "삭제됨 {{count}} 그룹",
 		"delete_confirm_bulk_title_one": "{{count}} 페일오버 그룹",
-		"delete_confirm_bulk_title_other": "{{count}} 페일오버 그룹"
+		"delete_confirm_bulk_title_other": "{{count}} 페일오버 그룹",
+		"btn_manage_providers": "Manage Providers",
+		"provider_modal_title": "Manage Provider Status",
+		"provider_modal_description": "Disabling a provider will disable all its models in every failover group",
+		"toast_provider_toggle_no_groups": "No failover groups use provider {{provider}}"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "저장되지 않은 변경 사항"

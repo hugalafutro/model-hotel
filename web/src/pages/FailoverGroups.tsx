@@ -1,5 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckSquare, ChevronRight, Shuffle, Square } from "lucide-react";
+import {
+	CheckSquare,
+	ChevronRight,
+	ShieldOff,
+	Shuffle,
+	Square,
+} from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
@@ -14,6 +20,7 @@ import { useToast } from "../context/ToastContext";
 import { countLabel, formatTimestamp } from "../utils/format";
 import { CreateGroupModal } from "./FailoverGroups/CreateGroupModal";
 import { FailoverGroupCard } from "./FailoverGroups/FailoverGroupCard";
+import { ProviderDisableModal } from "./FailoverGroups/ProviderDisableModal";
 
 export function FailoverGroups() {
 	const { toast } = useToast();
@@ -35,6 +42,11 @@ export function FailoverGroups() {
 	const [collapsedLetters, setCollapsedLetters] = useState<Set<string>>(
 		new Set(),
 	);
+	const [showProviderModal, setShowProviderModal] = useState(false);
+	const [disabledProviders, setDisabledProviders] = useState<Set<string>>(
+		new Set(),
+	);
+	const [isProviderToggling, setIsProviderToggling] = useState(false);
 
 	const toggleLetterCollapse = (letter: string) => {
 		setCollapsedLetters((prev) => {
@@ -214,6 +226,75 @@ export function FailoverGroups() {
 			toast(t("failover.toast_provider_toggle_failed"), "error");
 		}
 	};
+
+	// Provider modal toggle
+	const handleProviderToggle = async (
+		providerName: string,
+		enabled: boolean,
+	) => {
+		if (!allGroups) return;
+		const affectedGroups = allGroups.filter((g) =>
+			g.entries.some((e) => e.provider_name === providerName),
+		);
+		if (affectedGroups.length === 0) {
+			toast(
+				t("failover.toast_provider_toggle_no_groups", {
+					provider: providerName,
+				}),
+				"info",
+			);
+			return;
+		}
+
+		setIsProviderToggling(true);
+		const promises = affectedGroups.map((group) => {
+			const entryEnabledMap: Record<string, boolean> = {};
+			group.entries.forEach((e) => {
+				entryEnabledMap[e.model_uuid] =
+					e.provider_name === providerName ? enabled : e.enabled;
+			});
+			const remainingEnabled =
+				Object.values(entryEnabledMap).filter(Boolean).length;
+			const alsoDisableGroup =
+				!enabled && remainingEnabled === 0 && group.group_enabled;
+			return api.failoverGroups.update(group.id, {
+				entry_enabled: entryEnabledMap,
+				...(alsoDisableGroup ? { group_enabled: false } : {}),
+			});
+		});
+
+		try {
+			await Promise.all(promises);
+			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
+			setDisabledProviders((prev) => {
+				const next = new Set(prev);
+				if (enabled) {
+					next.delete(providerName);
+				} else {
+					next.add(providerName);
+				}
+				return next;
+			});
+			toast(
+				t("failover.toast_provider_toggle_success", {
+					action: enabled ? t("common.enabled") : t("common.disabled"),
+					provider: providerName,
+					count: affectedGroups.length,
+				}),
+				"success",
+			);
+		} catch {
+			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
+			toast(t("failover.toast_provider_toggle_failed"), "error");
+		} finally {
+			setIsProviderToggling(false);
+		}
+	};
+
+	const { data: providers } = useQuery({
+		queryKey: ["providers"],
+		queryFn: () => api.providers.list(),
+	});
 
 	const { data: candidates } = useQuery({
 		queryKey: ["failover-candidates"],
@@ -443,6 +524,14 @@ export function FailoverGroups() {
 							className="ui-btn ui-btn-primary"
 						>
 							{t("failover.btn_new_group")}
+						</button>
+						<button
+							type="button"
+							onClick={() => setShowProviderModal(true)}
+							className="ui-btn ui-btn-secondary text-sm px-3 py-1.5 flex items-center gap-1.5"
+						>
+							<ShieldOff className="h-4 w-4" />
+							{t("failover.btn_manage_providers")}
 						</button>
 					</>
 				}
@@ -826,6 +915,20 @@ export function FailoverGroups() {
 					isPending={isBulkDeleting}
 					onConfirm={confirmBulkDelete}
 					onCancel={() => setBulkDeleteIds(null)}
+				/>
+			)}
+
+			{showProviderModal && (
+				<ProviderDisableModal
+					open={showProviderModal}
+					onClose={() => setShowProviderModal(false)}
+					providers={(providers ?? []).map((p) => ({
+						id: p.id,
+						name: p.name,
+					}))}
+					disabledProviders={disabledProviders}
+					onToggleProvider={handleProviderToggle}
+					isProcessing={isProviderToggling}
 				/>
 			)}
 		</div>

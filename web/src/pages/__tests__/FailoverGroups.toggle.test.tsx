@@ -1,7 +1,11 @@
 import { screen, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
-import { mockFailoverGroup } from "../../test/mocks/data";
+import {
+	mockFailoverGroup,
+	mockProvider,
+	mockProvider2,
+} from "../../test/mocks/data";
 import { server } from "../../test/mocks/server";
 import { renderWithProviders } from "../../test/utils";
 import { FailoverGroups } from "../FailoverGroups";
@@ -826,6 +830,56 @@ describe("FailoverGroups", () => {
 			await waitFor(() => {
 				expect(
 					screen.getByText("Bulk provider toggle failed for some groups"),
+				).toBeInTheDocument();
+			});
+		});
+	});
+
+	describe("Provider Disable Modal", () => {
+		it("Manage Providers button renders and opens modal", async () => {
+			const groups = [
+				{
+					...mockFailoverGroup,
+					display_model: "alpha-model",
+					entries: [
+						{
+							provider_name: "OpenAI",
+							model_id: "gpt-4",
+							enabled: true,
+							model_uuid: "uuid-1",
+						},
+					],
+				},
+			];
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({ groups, last_synced_at: null }),
+				),
+				http.get("/api/failover-groups/candidates", () =>
+					HttpResponse.json([]),
+				),
+				http.get("/api/providers", () =>
+					HttpResponse.json([mockProvider, mockProvider2]),
+				),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.getByText("hotel/alpha-model")).toBeInTheDocument();
+			});
+
+			const manageBtn = screen.getByRole("button", {
+				name: "Manage Providers",
+			});
+			expect(manageBtn).toBeInTheDocument();
+
+			await user.click(manageBtn);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("heading", { name: "Manage Provider Status" }),
 				).toBeInTheDocument();
 			});
 		});

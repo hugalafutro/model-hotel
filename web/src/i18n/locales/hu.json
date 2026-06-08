@@ -933,7 +933,11 @@
 		"toast_bulk_delete_success_one": "Törölve: {{count}} csoport",
 		"toast_bulk_delete_success_other": "Törölt {{count}} csoportok",
 		"delete_confirm_bulk_title_one": "{{count}} átváltási csoport",
-		"delete_confirm_bulk_title_other": "{{count}} átváltási csoportok"
+		"delete_confirm_bulk_title_other": "{{count}} átváltási csoportok",
+		"btn_manage_providers": "Manage Providers",
+		"provider_modal_title": "Manage Provider Status",
+		"provider_modal_description": "Disabling a provider will disable all its models in every failover group",
+		"toast_provider_toggle_no_groups": "No failover groups use provider {{provider}}"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Még nem mentett módosítások"
