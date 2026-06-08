@@ -6,12 +6,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
 	"unicode"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
@@ -355,6 +357,107 @@ func appendAppLogKeysetPredicate(conditions []string, args []any, argIdx int, cu
 	return conditions, args, argIdx
 }
 
+// appLogWhereClause renders the shared filter/keyset conditions as a SQL WHERE
+// clause (empty string for no conditions).
+func appLogWhereClause(conditions []string) string {
+	if len(conditions) == 0 {
+		return ""
+	}
+	return " WHERE " + strings.Join(conditions, " AND ")
+}
+
+// scanAppLogRow scans one row of the cursor projection
+// (id, created_at, timestamp, level, source, message) into an AppLogEntry.
+func scanAppLogRow(rows pgx.Rows) (AppLogEntry, error) {
+	var e AppLogEntry
+	var id string
+	var cat, ts time.Time
+	if err := rows.Scan(&id, &cat, &ts, &e.Level, &e.Source, &e.Message); err != nil {
+		return e, err
+	}
+	e.ID = id
+	e.CreatedAt = cat.UTC().Format(time.RFC3339Nano)
+	e.Timestamp = ts.UTC().Format(time.RFC3339Nano)
+	return e, nil
+}
+
+// countAppLogs returns the total app_logs row count for the request's filters
+// (no keyset predicate). The cursor endpoint treats it as best-effort (ignores
+// the error); getAppLogsHistory surfaces the error.
+func (h *Handler) countAppLogs(ctx context.Context, q url.Values) (int, error) {
+	conditions, args, _ := appendAppLogFilters(nil, nil, 1,
+		q.Get("level"), q.Get("source"), q.Get("search"), q.Get("from"), q.Get("to"))
+	var total int
+	err := h.dbPool.Pool().QueryRow(ctx, "SELECT COUNT(*) FROM app_logs"+appLogWhereClause(conditions), args...).Scan(&total)
+	return total, err
+}
+
+// appLogCursorParams holds the parsed, validated inputs for GetAppLogsCursor.
+type appLogCursorParams struct {
+	limit     int
+	cursorStr string
+	cursor    appLogCursor
+	direction string
+	sortDir   string
+}
+
+// parseAppLogCursorParams reads and validates the cursor query parameters: limit
+// clamp ([1,200], default 20), direction (after default), sort_dir (DESC
+// default), and the cursor (decode error → 400).
+func parseAppLogCursorParams(w http.ResponseWriter, r *http.Request) (appLogCursorParams, bool) {
+	q := r.URL.Query()
+	p := appLogCursorParams{
+		limit:     20,
+		cursorStr: q.Get("cursor"),
+		direction: q.Get("direction"),
+		sortDir:   "DESC",
+	}
+	if v := q.Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 1 && n <= 200 {
+			p.limit = n
+		}
+	}
+	if p.direction != "before" && p.direction != "after" {
+		p.direction = "after"
+	}
+	if q.Get("sort_dir") == "asc" {
+		p.sortDir = "ASC"
+	}
+	if p.cursorStr != "" {
+		if err := p.cursor.decode(p.cursorStr); err != nil {
+			respondBadRequest(w, "invalid cursor", err)
+			return p, false
+		}
+	}
+	return p, true
+}
+
+// buildAppLogCursorQuery assembles the cursor data query: shared filters + keyset
+// predicate (when a cursor is present) + ORDER BY/LIMIT — fetching limit+1 to
+// detect has_more, with the sort inverted for backward pagination.
+func buildAppLogCursorQuery(p appLogCursorParams, q url.Values) (string, []any) {
+	conditions, args, argIdx := appendAppLogFilters(nil, nil, 1,
+		q.Get("level"), q.Get("source"), q.Get("search"), q.Get("from"), q.Get("to"))
+	if p.cursorStr != "" {
+		conditions, args, argIdx = appendAppLogKeysetPredicate(conditions, args, argIdx, p.cursor, p.direction, p.sortDir)
+	}
+
+	fetchSortDir := p.sortDir
+	if p.direction == "before" {
+		if fetchSortDir == "DESC" {
+			fetchSortDir = "ASC"
+		} else {
+			fetchSortDir = "DESC"
+		}
+	}
+	query := fmt.Sprintf(
+		"SELECT id, created_at, timestamp, level, source, message FROM app_logs%s ORDER BY created_at %s, id %s LIMIT $%d",
+		appLogWhereClause(conditions), fetchSortDir, fetchSortDir, argIdx,
+	)
+	args = append(args, p.limit+1)
+	return query, args
+}
+
 // getAppLogsHistory queries app_logs from the database with filtering and pagination.
 func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 	if h.dbPool == nil {
@@ -510,116 +613,47 @@ func (h *Handler) GetAppLogsCursor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	q := r.URL.Query()
-	limit := 20
-	if v := q.Get("limit"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n >= 1 && n <= 200 {
-			limit = n
-		}
-	}
-	cursorStr := q.Get("cursor")
-	direction := q.Get("direction")
-	if direction != "before" && direction != "after" {
-		direction = "after"
-	}
-	sortDir := "DESC"
-	if q.Get("sort_dir") == "asc" {
-		sortDir = "ASC"
-	}
-
-	// Parse cursor
-	var cursor appLogCursor
-	if cursorStr != "" {
-		if err := cursor.decode(cursorStr); err != nil {
-			respondBadRequest(w, "invalid cursor", err)
-			return
-		}
-	}
-
-	// Build WHERE clause (same filters as getAppLogsHistory)
-	conditions, args, argIdx := appendAppLogFilters(nil, nil, 1,
-		q.Get("level"), q.Get("source"), q.Get("search"), q.Get("from"), q.Get("to"))
-
-	// Apply cursor keyset predicate
-	if cursorStr != "" {
-		conditions, args, argIdx = appendAppLogKeysetPredicate(conditions, args, argIdx, cursor, direction, sortDir)
-	}
-
-	whereClause := ""
-	if len(conditions) > 0 {
-		whereClause = " WHERE " + strings.Join(conditions, " AND ")
+	p, ok := parseAppLogCursorParams(w, r)
+	if !ok {
+		return
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
-	// Fetch entries (limit+1 to detect has_more)
-	// When paginating backward, invert the sort direction so LIMIT picks from
-	// the correct end of the result set, then reverse the slice before returning.
-	fetchLimit := limit + 1
-	fetchSortDir := sortDir
-	if direction == "before" {
-		if fetchSortDir == "DESC" {
-			fetchSortDir = "ASC"
-		} else {
-			fetchSortDir = "DESC"
-		}
-	}
-	dataSQL := fmt.Sprintf(
-		"SELECT id, created_at, timestamp, level, source, message FROM app_logs%s ORDER BY created_at %s, id %s LIMIT $%d",
-		whereClause, fetchSortDir, fetchSortDir, argIdx,
-	)
-	args = append(args, fetchLimit)
-
-	rows, err := h.dbPool.Pool().Query(ctx, dataSQL, args...)
+	query, args := buildAppLogCursorQuery(p, r.URL.Query())
+	rows, err := h.dbPool.Pool().Query(ctx, query, args...)
 	if err != nil {
 		respondError(w, "failed to query app logs", err, http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
 
-	entries := make([]AppLogEntry, 0, limit)
+	// limit is clamped to [1, 200]; prealloc with the hard upper bound so user
+	// input never flows into make() capacity (CodeQL guard).
+	entries := make([]AppLogEntry, 0, 201) // limit+1 for has_more detection
 	for rows.Next() {
-		var id string
-		var e AppLogEntry
-		var ts time.Time
-		var cat time.Time
-		if err := rows.Scan(&id, &cat, &ts, &e.Level, &e.Source, &e.Message); err != nil {
+		e, err := scanAppLogRow(rows)
+		if err != nil {
 			continue
 		}
-		e.ID = id
-		e.CreatedAt = cat.UTC().Format(time.RFC3339Nano)
-		e.Timestamp = ts.UTC().Format(time.RFC3339Nano)
 		entries = append(entries, e)
 	}
 
-	entries, hasAfter, hasBefore := paginateCursor(entries, direction, limit, cursorStr != "")
+	entries, hasAfter, hasBefore := paginateCursor(entries, p.direction, p.limit, p.cursorStr != "")
 
-	// Get cached counts
 	levelCounts, sourceCounts := h.getAppLogCounts(ctx)
+	total, _ := h.countAppLogs(ctx, r.URL.Query()) // best-effort
 
-	// Total count (with filters applied, but without cursor predicate).
-	totalCountConditions, totalCountArgs, _ := appendAppLogFilters(nil, nil, 1,
-		q.Get("level"), q.Get("source"), q.Get("search"), q.Get("from"), q.Get("to"))
-
-	totalWhereClause := ""
-	if len(totalCountConditions) > 0 {
-		totalWhereClause = " WHERE " + strings.Join(totalCountConditions, " AND ")
-	}
-	var total int
-	_ = h.dbPool.Pool().QueryRow(ctx, "SELECT COUNT(*) FROM app_logs"+totalWhereClause, totalCountArgs...).Scan(&total)
-
-	response := AppLogsCursorResponse{
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(AppLogsCursorResponse{
 		Entries:      entries,
 		Total:        total,
 		HasBefore:    hasBefore,
 		HasAfter:     hasAfter,
 		LevelCounts:  levelCounts,
 		SourceCounts: sourceCounts,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
+	}); err != nil {
 		debuglog.Error("applogs-cursor: failed to encode response", "error", err)
 	}
 }
