@@ -861,7 +861,7 @@
 		"btn_sync": "同步",
 		"btn_syncing": "正在同步…",
 		"btn_new_group": "新建群组",
-		"hint_drag": "按句柄拖动模型(从键) 来重新排序优先级",
+		"hint_drag": "通过手柄拖动模型来重新排序优先级",
 		"filter_hotel_model": "过滤酒店/模型…",
 		"filter_providers": "所有提供商",
 		"filter_states": "所有状态",
@@ -934,9 +934,9 @@
 		"toast_bulk_delete_success_other": "已删除 {{count}} 群组",
 		"delete_confirm_bulk_title_one": "{{count}} 故障转移组",
 		"delete_confirm_bulk_title_other": "{{count}} 故障转移组",
-		"btn_manage_providers": "Manage Providers",
-		"provider_modal_title": "Manage Provider Status",
-		"provider_modal_description": "Disabling a provider will disable all its models in every failover group",
+		"btn_manage_providers": "管理提供商",
+		"provider_modal_title": "管理提供商状态",
+		"provider_modal_description": "禁用一个提供商将在每个失败组禁用其所有模型",
 		"toast_provider_toggle_no_groups": "No failover groups use provider {{provider}}"
 	},
 	"delete_confirm": {

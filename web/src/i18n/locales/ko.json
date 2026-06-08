@@ -861,7 +861,7 @@
 		"btn_sync": "동기화",
 		"btn_syncing": "… 동기화",
 		"btn_new_group": "새 그룹",
-		"hint_drag": "모델의 핸들(⠿)을 드래그하여 우선순위를 재정렬하세요",
+		"hint_drag": "핸들을 잡고 모델을 드래그하여 우선순위를 재정렬하세요",
 		"filter_hotel_model": "호텔/모델 필터…",
 		"filter_providers": "모든 제공업체",
 		"filter_states": "모든 주",
@@ -934,10 +934,10 @@
 		"toast_bulk_delete_success_other": "삭제됨 {{count}} 그룹",
 		"delete_confirm_bulk_title_one": "{{count}} 페일오버 그룹",
 		"delete_confirm_bulk_title_other": "{{count}} 페일오버 그룹",
-		"btn_manage_providers": "Manage Providers",
-		"provider_modal_title": "Manage Provider Status",
-		"provider_modal_description": "Disabling a provider will disable all its models in every failover group",
-		"toast_provider_toggle_no_groups": "No failover groups use provider {{provider}}"
+		"btn_manage_providers": "공급업체 관리",
+		"provider_modal_title": "공급자 상태 관리",
+		"provider_modal_description": "프로바이더를 비활성화하면 모든 페일오버 그룹에서 해당 프로바이더의 모든 모델이 비활성화됩니다.",
+		"toast_provider_toggle_no_groups": "이 공급자를 사용하는 장애 조치 그룹이 없습니다 {{provider}}"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "저장되지 않은 변경 사항"

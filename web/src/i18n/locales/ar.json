@@ -861,7 +861,7 @@
 		"btn_sync": "مزامنة",
 		"btn_syncing": "مزامنة…",
 		"btn_new_group": "مجموعة جديدة",
-		"hint_drag": "اسحب النماذج بواسطة المعالج (<unk> ) لإعادة ترتيب الأولوية",
+		"hint_drag": "اسحب النماذج عن طريق المعالج لإعادة ترتيب الأولوية",
 		"filter_hotel_model": "تصفية الفندق/النموذج…",
 		"filter_providers": "جميع مقدمي الخدمات",
 		"filter_states": "جميع الولايات",
@@ -934,10 +934,10 @@
 		"toast_bulk_delete_success_other": "مجموعات {{count}} المحذوفة",
 		"delete_confirm_bulk_title_one": "{{count}} مجموعة التحويل التلقائي",
 		"delete_confirm_bulk_title_other": "{{count}} مجموعات التحويل التلقائي",
-		"btn_manage_providers": "Manage Providers",
-		"provider_modal_title": "Manage Provider Status",
-		"provider_modal_description": "Disabling a provider will disable all its models in every failover group",
-		"toast_provider_toggle_no_groups": "No failover groups use provider {{provider}}"
+		"btn_manage_providers": "إدارة مقدمي الخدمات",
+		"provider_modal_title": "إدارة حالة المزود",
+		"provider_modal_description": "تعطيل موفر سيعطل جميع نماذجه في كل مجموعة فشل",
+		"toast_provider_toggle_no_groups": "لا يوجد فشل في المجموعات التي تستخدم موفر {{provider}}"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "التغييرات غير المحفوظة"

@@ -861,7 +861,7 @@
 		"btn_sync": "Sincronizar",
 		"btn_syncing": "Sincronizando…",
 		"btn_new_group": "Nuevo grupo",
-		"hint_drag": "Arrastre los modelos por el asa (named@@0) para reordenar la prioridad",
+		"hint_drag": "Arrastre los modelos por el asa para reordenar la prioridad",
 		"filter_hotel_model": "Filtrar hotel/modelo…",
 		"filter_providers": "Todos los proveedores",
 		"filter_states": "Todos los estados",
@@ -934,10 +934,10 @@
 		"toast_bulk_delete_success_other": "Grupos {{count}} eliminados",
 		"delete_confirm_bulk_title_one": "Grupo de tolerancia contra fallos {{count}}",
 		"delete_confirm_bulk_title_other": "Grupos de tolerancia contra fallos {{count}}",
-		"btn_manage_providers": "Manage Providers",
-		"provider_modal_title": "Manage Provider Status",
-		"provider_modal_description": "Disabling a provider will disable all its models in every failover group",
-		"toast_provider_toggle_no_groups": "No failover groups use provider {{provider}}"
+		"btn_manage_providers": "Administrar proveedores",
+		"provider_modal_title": "Administrar estado del proveedor",
+		"provider_modal_description": "Deshabilitar un proveedor desactivará todos sus modelos en cada grupo de tolerancia contra fallos",
+		"toast_provider_toggle_no_groups": "Ningún grupo de tolerancia contra fallos utiliza el proveedor {{provider}}"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Cambios sin guardar"

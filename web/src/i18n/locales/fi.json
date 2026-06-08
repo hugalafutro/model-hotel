@@ -861,7 +861,7 @@
 		"btn_sync": "Synkronointi",
 		"btn_syncing": "Synkronoidaan…",
 		"btn_new_group": "Uusi Ryhmä",
-		"hint_drag": "Vedä mallit kahvan toimesta (p) järjestääksesi prioriteetin uudelleen",
+		"hint_drag": "Vedä mallit kahvan mukaan järjestääksesi prioriteetin uudelleen",
 		"filter_hotel_model": "Suodata hotelli/malli…",
 		"filter_providers": "Kaikki palveluntarjoajat",
 		"filter_states": "Kaikki osavaltiot",
@@ -934,10 +934,10 @@
 		"toast_bulk_delete_success_other": "Poistettiin {{count}} ryhmää",
 		"delete_confirm_bulk_title_one": "{{count}} failover group",
 		"delete_confirm_bulk_title_other": "{{count}} failover group",
-		"btn_manage_providers": "Manage Providers",
-		"provider_modal_title": "Manage Provider Status",
-		"provider_modal_description": "Disabling a provider will disable all its models in every failover group",
-		"toast_provider_toggle_no_groups": "No failover groups use provider {{provider}}"
+		"btn_manage_providers": "Hallinnoi Palveluntarjoajia",
+		"provider_modal_title": "Hallinnoi Tarjoajan Tilaa",
+		"provider_modal_description": "Tarjoajan poistaminen käytöstä poistaa kaikki sen mallit käytöstä jokaisessa epäonnistumisryhmässä",
+		"toast_provider_toggle_no_groups": "Ei epäonnistumisryhmiä käytä tarjoajaa {{provider}}"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Tallentamattomat Muutokset"

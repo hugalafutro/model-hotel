@@ -861,7 +861,7 @@
 		"btn_sync": "Szinkronizálás",
 		"btn_syncing": "… szinkronizálása",
 		"btn_new_group": "Új csoport",
-		"hint_drag": "A modelleket a fogantyúnál fogva húzva rendezheti át a prioritásukat",
+		"hint_drag": "A prioritás sorrendjének megváltoztatásához húzza a modelleket a fogantyúnál fogva",
 		"filter_hotel_model": "Szálloda/modell szűrése…",
 		"filter_providers": "Minden szolgáltató",
 		"filter_states": "Minden állam",
@@ -934,10 +934,10 @@
 		"toast_bulk_delete_success_other": "Törölt {{count}} csoportok",
 		"delete_confirm_bulk_title_one": "{{count}} átváltási csoport",
 		"delete_confirm_bulk_title_other": "{{count}} átváltási csoportok",
-		"btn_manage_providers": "Manage Providers",
-		"provider_modal_title": "Manage Provider Status",
-		"provider_modal_description": "Disabling a provider will disable all its models in every failover group",
-		"toast_provider_toggle_no_groups": "No failover groups use provider {{provider}}"
+		"btn_manage_providers": "Szolgáltatók kezelése",
+		"provider_modal_title": "Szolgáltatói státusz kezelése",
+		"provider_modal_description": "Egy szolgáltató letiltása minden failover-csoportban letiltja az összes modelljét",
+		"toast_provider_toggle_no_groups": "Egyetlen átállási csoport sem használja a szolgáltatót {{provider}}"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Még nem mentett módosítások"
