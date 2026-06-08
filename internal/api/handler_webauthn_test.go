@@ -1105,3 +1105,373 @@ func TestWebAuthnHandler_RegisterFinish_EmptySessionID(t *testing.T) {
 		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
 	}
 }
+
+// --- NewWebAuthnHandler constructor tests ---
+
+// TestWebAuthnHandler_NewWebAuthnHandler_NilParams tests the constructor with nil params
+func TestWebAuthnHandler_NewWebAuthnHandler_NilParams(t *testing.T) {
+	h := NewWebAuthnHandler(nil, nil, nil, nil, nil)
+	if h == nil {
+		t.Fatal("expected non-nil handler")
+	}
+	if h.webauthnRepo != nil {
+		t.Error("expected nil webauthnRepo")
+	}
+	if h.relyingParty != nil {
+		t.Error("expected nil relyingParty")
+	}
+	if h.sessionMgr != nil {
+		t.Error("expected nil sessionMgr")
+	}
+	if h.adminMgr != nil {
+		t.Error("expected nil adminMgr")
+	}
+	if h.ipLimiter != nil {
+		t.Error("expected nil ipLimiter")
+	}
+}
+
+// TestWebAuthnHandler_NewWebAuthnHandler_NonNilParams tests the constructor with provided params
+func TestWebAuthnHandler_NewWebAuthnHandler_NonNilParams(t *testing.T) {
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	limiter := mockIPLimiter{}
+	h := NewWebAuthnHandler(nil, nil, nil, adminMgr, limiter)
+	if h == nil {
+		t.Fatal("expected non-nil handler")
+	}
+	if h.adminMgr == nil {
+		t.Error("expected non-nil adminMgr")
+	}
+	if h.ipLimiter == nil {
+		t.Error("expected non-nil ipLimiter")
+	}
+}
+
+// --- Register route mounting tests ---
+
+// TestWebAuthnHandler_Register_MountsRoutes tests that Register mounts the expected routes
+func TestWebAuthnHandler_Register_MountsRoutes(t *testing.T) {
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := newTestWebAuthnHandler(nil, nil, nil, adminMgr)
+
+	r := chi.NewRouter()
+	h.Register(r)
+
+	// Walk the routes and collect them
+	routePaths := map[string]bool{}
+	walkFn := func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
+		routePaths[method+" "+route] = true
+		return nil
+	}
+	if err := chi.Walk(r, walkFn); err != nil {
+		t.Fatalf("failed to walk routes: %v", err)
+	}
+
+	expectedRoutes := []string{
+		"GET /webauthn/available",
+		"POST /webauthn/register/start",
+		"POST /webauthn/register/finish",
+		"GET /webauthn/credentials",
+		"DELETE /webauthn/credentials/{id}",
+		"PATCH /webauthn/credentials/{id}",
+		"POST /webauthn/logout",
+		"POST /webauthn/login/start",
+		"POST /webauthn/login/finish",
+	}
+
+	for _, expected := range expectedRoutes {
+		if !routePaths[expected] {
+			t.Errorf("expected route %q to be mounted", expected)
+		}
+	}
+}
+
+// TestWebAuthnHandler_Register_ProtectedRoutesRequireAuth tests that protected routes reject unauthenticated requests
+func TestWebAuthnHandler_Register_ProtectedRoutesRequireAuth(t *testing.T) {
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return false }}
+	sessionMgr := webauthn.NewSessionManager(nil)
+	h := newTestWebAuthnHandler(nil, nil, sessionMgr, adminMgr)
+
+	r := chi.NewRouter()
+	h.Register(r)
+
+	protectedRoutes := []struct {
+		method string
+		path   string
+	}{
+		{http.MethodPost, "/webauthn/register/start"},
+		{http.MethodPost, "/webauthn/register/finish"},
+		{http.MethodGet, "/webauthn/credentials"},
+		{http.MethodDelete, "/webauthn/credentials/test"},
+		{http.MethodPatch, "/webauthn/credentials/test"},
+		{http.MethodPost, "/webauthn/logout"},
+	}
+
+	for _, tc := range protectedRoutes {
+		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.path, http.NoBody)
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+			if w.Code != http.StatusUnauthorized {
+				t.Errorf("expected status %d for %s %s, got %d; body: %s",
+					http.StatusUnauthorized, tc.method, tc.path, w.Code, w.Body.String())
+			}
+		})
+	}
+}
+
+// TestWebAuthnHandler_Register_PublicRoutesAccessible tests that public routes don't require auth
+func TestWebAuthnHandler_Register_PublicRoutesAccessible(t *testing.T) {
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return false }}
+	h := newTestWebAuthnHandler(nil, nil, nil, adminMgr)
+
+	r := chi.NewRouter()
+	h.Register(r)
+
+	// /webauthn/available is public and should return 200
+	req := httptest.NewRequest(http.MethodGet, "/webauthn/available", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status %d for GET /webauthn/available, got %d; body: %s",
+			http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+// --- RegisterStart error path tests ---
+
+// TestWebAuthnHandler_RegisterStart_NilRelyingPartyWithDB tests that RegisterStart
+// panics when relyingParty is nil even with a valid repo (rp.BeginRegistration is called on nil)
+func TestWebAuthnHandler_RegisterStart_NilRelyingPartyWithDB(t *testing.T) {
+	dbURL := apiTestDBURL
+	if dbURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	pool, err := pgxpool.New(context.Background(), dbURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	defer pool.Close()
+
+	repo := webauthn.NewRepository(pool)
+	h := newTestWebAuthnHandler(repo, nil, nil, nil)
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expected panic with nil relyingParty, but did not panic")
+		}
+	}()
+
+	req, w := newChiRequest(http.MethodPost, "/webauthn/register/start", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-token")
+
+	h.RegisterStart(w, req)
+}
+
+// --- RegisterFinish error path tests ---
+
+// TestWebAuthnHandler_RegisterFinish_InvalidSessionData tests that corrupt session
+// data (not valid SessionData JSON) returns 500 after successful session lookup
+func TestWebAuthnHandler_RegisterFinish_InvalidSessionData(t *testing.T) {
+	dbURL := apiTestDBURL
+	if dbURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	pool, err := pgxpool.New(context.Background(), dbURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	t.Cleanup(pool.Close)
+
+	ctx := context.Background()
+	repo := webauthn.NewRepository(pool)
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := newTestWebAuthnHandler(repo, nil, nil, adminMgr)
+
+	// Create a registration session with invalid JSON session data
+	sessionID := uuid.New()
+	session := &webauthn.SessionRecord{
+		ID:          sessionID,
+		Challenge:   "test-challenge",
+		SessionData: []byte(`not-valid-json`),
+		Type:        "registration",
+		UserID:      []byte("admin"),
+		ExpiresAt:   time.Now().Add(5 * time.Minute),
+	}
+	if err := repo.CreateSession(ctx, session); err != nil {
+		t.Fatalf("failed to create session: %v", err)
+	}
+	t.Cleanup(func() {
+		repo.DeleteSession(ctx, sessionID)
+	})
+
+	body := `{"session_id": "` + sessionID.String() + `", "credential": {}}`
+	req := httptest.NewRequest(http.MethodPost, "/webauthn/register/finish", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.RegisterFinish(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
+	}
+}
+
+// --- LoginStart error path tests ---
+
+// TestWebAuthnHandler_LoginStart_NilRepoWithRP tests that LoginStart panics
+// when repo is nil but relyingParty is set (repo.CreateSession called on nil)
+func TestWebAuthnHandler_LoginStart_NilRepoWithRP(t *testing.T) {
+	rp := &webauthnx.WebAuthn{}
+	h := newTestWebAuthnHandler(nil, rp, nil, nil)
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expected panic with nil repo and non-nil rp, but did not panic")
+		}
+	}()
+
+	req, w := newChiRequest(http.MethodPost, "/webauthn/login/start", http.NoBody)
+	h.LoginStart(w, req)
+}
+
+// --- LoginFinish error path tests ---
+
+// TestWebAuthnHandler_LoginFinish_InvalidSessionData tests that corrupt session
+// data (not valid SessionData JSON) returns 500 after successful session lookup
+func TestWebAuthnHandler_LoginFinish_InvalidSessionData(t *testing.T) {
+	dbURL := apiTestDBURL
+	if dbURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	pool, err := pgxpool.New(context.Background(), dbURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	t.Cleanup(pool.Close)
+
+	ctx := context.Background()
+	repo := webauthn.NewRepository(pool)
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := newTestWebAuthnHandler(repo, nil, nil, adminMgr)
+
+	// Create a login session with invalid JSON session data
+	sessionID := uuid.New()
+	session := &webauthn.SessionRecord{
+		ID:          sessionID,
+		Challenge:   "test-challenge",
+		SessionData: []byte(`not-valid-json`),
+		Type:        "login",
+		UserID:      []byte("admin"),
+		ExpiresAt:   time.Now().Add(5 * time.Minute),
+	}
+	if err := repo.CreateSession(ctx, session); err != nil {
+		t.Fatalf("failed to create session: %v", err)
+	}
+	t.Cleanup(func() {
+		repo.DeleteSession(ctx, sessionID)
+	})
+
+	body := `{"session_id": "` + sessionID.String() + `", "credential": {}}`
+	req := httptest.NewRequest(http.MethodPost, "/webauthn/login/finish", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.LoginFinish(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
+	}
+}
+
+// --- ListCredentials error path tests ---
+
+// TestWebAuthnHandler_ListCredentials_NilRepo tests that ListCredentials with nil repo panics
+func TestWebAuthnHandler_ListCredentials_NilRepo(t *testing.T) {
+	h := newTestWebAuthnHandler(nil, nil, nil, nil)
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expected panic with nil repo, but did not panic")
+		}
+	}()
+
+	req := httptest.NewRequest(http.MethodGet, "/webauthn/credentials", http.NoBody)
+	w := httptest.NewRecorder()
+
+	h.ListCredentials(w, req)
+}
+
+// --- SetWebAuthnSessionManager tests ---
+
+// TestWebAuthnHandler_SetWebAuthnSessionManager_Nil tests that SetWebAuthnSessionManager
+// sets the field even with a nil Handler (via the Handler type, not WebAuthnHandler)
+func TestSetWebAuthnSessionManager_SetsField(t *testing.T) {
+	h := newTestHandler(t)
+
+	// Initially nil
+	if h.webauthnSessionMgr != nil {
+		t.Error("expected nil webauthnSessionMgr before SetWebAuthnSessionManager")
+	}
+
+	// Create a mock WebAuthnSessionManager
+	mockMgr := &mockWebAuthnSessionMgr{
+		validateFn: func(_ context.Context, _ string) bool { return true },
+		revokeFn:   func(_ context.Context, _ string) bool { return true },
+	}
+	h.SetWebAuthnSessionManager(mockMgr)
+
+	if h.webauthnSessionMgr == nil {
+		t.Error("expected non-nil webauthnSessionMgr after SetWebAuthnSessionManager")
+	}
+
+	// Verify it actually works through the interface
+	if !h.webauthnSessionMgr.Validate(context.Background(), "any-token") {
+		t.Error("expected Validate to return true via mock")
+	}
+}
+
+// TestSetWebAuthnSessionManager_NilArg tests that SetWebAuthnSessionManager
+// can be called with a nil argument (clears the field)
+func TestSetWebAuthnSessionManager_NilArg(t *testing.T) {
+	h := newTestHandler(t)
+
+	mockMgr := &mockWebAuthnSessionMgr{
+		validateFn: func(_ context.Context, _ string) bool { return true },
+		revokeFn:   func(_ context.Context, _ string) bool { return true },
+	}
+	h.SetWebAuthnSessionManager(mockMgr)
+	if h.webauthnSessionMgr == nil {
+		t.Fatal("expected non-nil after set")
+	}
+
+	// Clear it
+	h.SetWebAuthnSessionManager(nil)
+	if h.webauthnSessionMgr != nil {
+		t.Error("expected nil webauthnSessionMgr after SetWebAuthnSessionManager(nil)")
+	}
+}
+
+// mockWebAuthnSessionMgr implements WebAuthnSessionManager for testing
+type mockWebAuthnSessionMgr struct {
+	validateFn func(ctx context.Context, token string) bool
+	revokeFn   func(ctx context.Context, token string) bool
+}
+
+func (m *mockWebAuthnSessionMgr) Validate(ctx context.Context, token string) bool {
+	if m.validateFn != nil {
+		return m.validateFn(ctx, token)
+	}
+	return false
+}
+
+func (m *mockWebAuthnSessionMgr) RevokeAuthToken(ctx context.Context, token string) bool {
+	if m.revokeFn != nil {
+		return m.revokeFn(ctx, token)
+	}
+	return false
+}
