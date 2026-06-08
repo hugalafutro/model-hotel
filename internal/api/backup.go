@@ -718,11 +718,12 @@ func parseBackupTimestamp(filename string) (time.Time, error) {
 //     (excluding weeks that already have a son)
 //   - Grandfather: keep the most recent backup from each of the last P months
 //     (excluding months that already have a son or father)
-func classifyBackups(backups []backupEntry, sonRetention, fatherRetention, grandfatherRetention int) backupClassification {
+func classifyBackups(backups []backupEntry, sonRetention, fatherRetention, grandfatherRetention int, now time.Time) backupClassification {
 	result := backupClassification{}
 
 	// Track which backup filenames are kept in each tier
 	kept := make(map[string]bool)
+	_ = now
 
 	// Parse timestamps and index by filename
 	timestamps := make(map[string]time.Time)
@@ -736,7 +737,7 @@ func classifyBackups(backups []backupEntry, sonRetention, fatherRetention, grand
 		timestamps[b.Filename] = ts
 	}
 
-	now := time.Now()
+	_ = now
 
 	// ── Son (daily) ──
 	// Keep the most recent backup from each of the last sonRetention calendar days.
@@ -773,37 +774,43 @@ func classifyBackups(backups []backupEntry, sonRetention, fatherRetention, grand
 	// Keep the most recent backup from each of the last fatherRetention ISO weeks
 	// that is NOT already kept as a son.
 	_, thisISOWeek := now.ISOWeek()
-	isoWeekBuckets := make(map[int][]backupEntry) // key: ISO week number
+	thisISOYear, _ := now.ISOWeek()
+	isoWeekBuckets := make(map[string][]backupEntry) // key: "2006-01" year-week composite
 	for _, b := range backups {
 		ts, ok := timestamps[b.Filename]
 		if !ok || kept[b.Filename] {
 			continue
 		}
-		_, iw := ts.ISOWeek()
-		isoWeekBuckets[iw] = append(isoWeekBuckets[iw], b)
+		y, iw := ts.ISOWeek()
+		key := fmt.Sprintf("%d-%d", y, iw)
+		isoWeekBuckets[key] = append(isoWeekBuckets[key], b)
 	}
 
-	// Collect the last M ISO week numbers
-	isoWeekSet := make(map[int]bool)
+	// Collect the last M ISO weeks as year-week composites
+	isoWeekSet := make(map[string]bool)
 	t := now
 	for i := 0; i < fatherRetention; i++ {
-		_, iw := t.ISOWeek()
-		isoWeekSet[iw] = true
+		y, iw := t.ISOWeek()
+		key := fmt.Sprintf("%d-%d", y, iw)
+		isoWeekSet[key] = true
 		t = t.AddDate(0, 0, -7)
 	}
 	// Always include the current week even if fatherRetention=0
 	if fatherRetention > 0 {
-		isoWeekSet[thisISOWeek] = true
+		key := fmt.Sprintf("%d-%d", thisISOYear, thisISOWeek)
+		isoWeekSet[key] = true
 	}
 
 	// Sort ISO weeks descending for deterministic ordering
-	var sortedWeeks []int
+	var sortedWeeks []string
 	for wk := range isoWeekSet {
 		sortedWeeks = append(sortedWeeks, wk)
 	}
-	sort.Ints(sortedWeeks)
+	sort.Strings(sortedWeeks)
 
-	for _, wk := range sortedWeeks {
+	// Iterate in reverse to pick most recent weeks first
+	for i := len(sortedWeeks) - 1; i >= 0; i-- {
+		wk := sortedWeeks[i]
 		entries, ok := isoWeekBuckets[wk]
 		if !ok {
 			continue
@@ -914,7 +921,7 @@ func (h *BackupHandler) PrunePreview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	son, father, grandfather := h.getRetentionSettings(r.Context())
-	classification := classifyBackups(backups, son, father, grandfather)
+	classification := classifyBackups(backups, son, father, grandfather, time.Now())
 	writeJSON(w, classification)
 }
 
@@ -934,7 +941,7 @@ func (h *BackupHandler) ApplyPrune(w http.ResponseWriter, r *http.Request) {
 	}
 
 	son, father, grandfather := h.getRetentionSettings(r.Context())
-	classification := classifyBackups(backups, son, father, grandfather)
+	classification := classifyBackups(backups, son, father, grandfather, time.Now())
 
 	var pruned []string
 	for _, b := range classification.Prune {
@@ -1018,9 +1025,17 @@ func (h *BackupHandler) StartScheduler(ctx context.Context) {
 	schedCtx, cancel := context.WithCancel(ctx)
 	h.schedulerCancel = cancel
 	interval := h.settingsRepo.GetDuration(ctx, "backup_interval", 24*time.Hour)
+	if interval < 5*time.Minute {
+		interval = 5 * time.Minute
+	}
 	debuglog.Info("backup: scheduler started", "interval", interval)
 
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				debuglog.Error("backup: scheduler panic recovered", "panic", r)
+			}
+		}()
 		// Initial delay to let the server fully start
 		select {
 		case <-schedCtx.Done():
@@ -1032,6 +1047,9 @@ func (h *BackupHandler) StartScheduler(ctx context.Context) {
 			// Re-read settings each tick for dynamic updates
 			enabled := h.settingsRepo.GetBool(schedCtx, "backup_enabled", false)
 			interval := h.settingsRepo.GetDuration(schedCtx, "backup_interval", 24*time.Hour)
+			if interval < 5*time.Minute {
+				interval = 5 * time.Minute
+			}
 
 			if !enabled {
 				debuglog.Info("backup: scheduler skipping (backup_enabled=false)")
@@ -1134,7 +1152,7 @@ func (h *BackupHandler) runScheduledBackup(ctx context.Context) {
 		return
 	}
 	son, father, grandfather := h.getRetentionSettings(ctx)
-	classification := classifyBackups(backups, son, father, grandfather)
+	classification := classifyBackups(backups, son, father, grandfather, time.Now())
 
 	for _, b := range classification.Prune {
 		absPath := h.validateBackupFilename(b.Filename)

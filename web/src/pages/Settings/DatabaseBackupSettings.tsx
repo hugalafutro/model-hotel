@@ -104,7 +104,9 @@ export function DatabaseBackupSettings({
 	});
 
 	const backupEnabled = settings?.backup_enabled === "true";
-	const backupInterval = Number(settings?.backup_interval || "86400");
+	const backupInterval = Number(
+		(settings?.backup_interval || "86400s").replace(/s$/, ""),
+	);
 	const sonRetention = Number(settings?.backup_son_retention || "7");
 	const fatherRetention = Number(settings?.backup_father_retention || "4");
 	const grandfatherRetention = Number(
@@ -210,7 +212,7 @@ export function DatabaseBackupSettings({
 								unit="s"
 								onChange={(v) =>
 									settingsUpdateMutation.mutate({
-										backup_interval: String(v),
+										backup_interval: `${v}s`,
 									})
 								}
 								description={t("settings.backup.rotation.intervalDescription")}

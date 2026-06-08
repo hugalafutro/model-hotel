@@ -29,7 +29,7 @@ export function ProviderDisableModal({
 			title={t("failover.provider_modal_title")}
 			maxWidth="max-w-lg"
 		>
-			<p className="text-sm text-gray-400 mb-4">
+			<p className="text-sm text-(--text-secondary) mb-4">
 				{t("failover.provider_modal_description")}
 			</p>
 			<div className="max-h-96 overflow-y-auto space-y-2">

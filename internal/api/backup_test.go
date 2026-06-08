@@ -2803,7 +2803,7 @@ func TestMostRecentEntry(t *testing.T) {
 
 func TestClassifyBackups(t *testing.T) {
 	t.Run("empty backup list", func(t *testing.T) {
-		result := classifyBackups(nil, 7, 4, 3)
+		result := classifyBackups(nil, 7, 4, 3, time.Now())
 		if len(result.Son) != 0 {
 			t.Errorf("expected 0 son, got %d", len(result.Son))
 		}
@@ -2822,7 +2822,7 @@ func TestClassifyBackups(t *testing.T) {
 		backups := []backupEntry{
 			{Filename: fmt.Sprintf("backup_%s_001.dump", time.Now().Format("20060102_150405")), SizeBytes: 100},
 		}
-		result := classifyBackups(backups, 7, 4, 3)
+		result := classifyBackups(backups, 7, 4, 3, time.Now())
 		if len(result.Son) != 1 {
 			t.Fatalf("expected 1 son, got %d", len(result.Son))
 		}
@@ -2842,7 +2842,7 @@ func TestClassifyBackups(t *testing.T) {
 		}
 		// With sonRetention=1, only the most recent from today is kept as son.
 		// The other one from the same day is not kept (only one son per day).
-		result := classifyBackups(backups, 1, 4, 3)
+		result := classifyBackups(backups, 1, 4, 3, time.Now())
 		if len(result.Son) != 1 {
 			t.Fatalf("expected 1 son (most recent from today), got %d", len(result.Son))
 		}
@@ -2856,7 +2856,7 @@ func TestClassifyBackups(t *testing.T) {
 			{Filename: fmt.Sprintf("backup_%s_120000_002.dump", dayKey), SizeBytes: 200},
 			{Filename: fmt.Sprintf("backup_%s_160000_003.dump", dayKey), SizeBytes: 300},
 		}
-		result := classifyBackups(backups, 7, 4, 3)
+		result := classifyBackups(backups, 7, 4, 3, time.Now())
 		if len(result.Son) != 1 {
 			t.Fatalf("expected 1 son, got %d", len(result.Son))
 		}
@@ -2885,7 +2885,7 @@ func TestClassifyBackups(t *testing.T) {
 			{Filename: fmt.Sprintf("backup_%s_001.dump", now.Format("20060102_150405")), SizeBytes: 100},
 			{Filename: fmt.Sprintf("backup_%s_001.dump", yesterday.Format("20060102_150405")), SizeBytes: 200},
 		}
-		result := classifyBackups(backups, 7, 4, 3)
+		result := classifyBackups(backups, 7, 4, 3, time.Now())
 		if len(result.Son) != 2 {
 			t.Fatalf("expected 2 sons (one per day), got %d", len(result.Son))
 		}
@@ -2900,7 +2900,7 @@ func TestClassifyBackups(t *testing.T) {
 		backups := []backupEntry{
 			{Filename: fmt.Sprintf("backup_%s_001.dump", old.Format("20060102_150405")), SizeBytes: 100},
 		}
-		result := classifyBackups(backups, 1, 0, 0)
+		result := classifyBackups(backups, 1, 0, 0, time.Now())
 		if len(result.Son) != 0 {
 			t.Errorf("expected 0 son (too old), got %d", len(result.Son))
 		}
@@ -2940,7 +2940,7 @@ func TestClassifyBackups(t *testing.T) {
 		}
 
 		backups := []backupEntry{todayBackup, weekBackup, monthBackup, pruneBackup}
-		result := classifyBackups(backups, 1, 5, 4)
+		result := classifyBackups(backups, 1, 5, 4, time.Now())
 
 		// Today should be son
 		if len(result.Son) < 1 {
@@ -2975,7 +2975,7 @@ func TestClassifyBackups(t *testing.T) {
 		backups := []backupEntry{
 			{Filename: "garbage.dump", SizeBytes: 50},
 		}
-		result := classifyBackups(backups, 7, 4, 3)
+		result := classifyBackups(backups, 7, 4, 3, time.Now())
 		if len(result.Prune) != 1 {
 			t.Fatalf("expected 1 prune (unparseable), got %d", len(result.Prune))
 		}
@@ -2990,7 +2990,7 @@ func TestClassifyBackups(t *testing.T) {
 			{Filename: fmt.Sprintf("backup_%s_001.dump", now.Format("20060102_150405")), SizeBytes: 100},
 		}
 		// sonRetention=1 keeps today, fatherRetention=0 and grandfatherRetention=0 don't add more
-		result := classifyBackups(backups, 1, 0, 0)
+		result := classifyBackups(backups, 1, 0, 0, time.Now())
 		if len(result.Son) != 1 {
 			t.Fatalf("expected 1 son (today), got %d", len(result.Son))
 		}
@@ -3015,7 +3015,7 @@ func TestClassifyBackups(t *testing.T) {
 			{Filename: fmt.Sprintf("backup_%s_090000_001.dump", yesterday.Format("20060102")), SizeBytes: 150},
 			{Filename: fmt.Sprintf("backup_%s_150000_002.dump", yesterday.Format("20060102")), SizeBytes: 250},
 		}
-		result := classifyBackups(backups, 2, 0, 0)
+		result := classifyBackups(backups, 2, 0, 0, time.Now())
 		// With sonRetention=2, we keep the most recent from today and yesterday
 		if len(result.Son) != 2 {
 			t.Fatalf("expected 2 sons, got %d", len(result.Son))
@@ -3043,7 +3043,7 @@ func TestClassifyBackups(t *testing.T) {
 		}
 		// sonRetention=1 keeps today; the 2-week-old is NOT a son.
 		// fatherRetention=4 should cover the ISO week of 2 weeks ago.
-		result := classifyBackups(backups, 1, 4, 0)
+		result := classifyBackups(backups, 1, 4, 0, time.Now())
 
 		if len(result.Son) != 1 {
 			t.Fatalf("expected 1 son, got %d", len(result.Son))
@@ -3058,6 +3058,32 @@ func TestClassifyBackups(t *testing.T) {
 		}
 		if sonFiles[backups[1].Filename] {
 			t.Errorf("2-week-old backup should NOT be in son tier")
+		}
+	})
+
+	t.Run("father tier uses year+week composite to avoid year-boundary issue", func(t *testing.T) {
+		// Simulate early January: fatherRetention=4 looks back into previous year's weeks.
+		// Without year+week composites, week 52 from 2024 and week 52 from 2023 would collide.
+		jan6 := time.Date(2026, 1, 6, 12, 0, 0, 0, time.UTC)
+		dec2025Week52 := time.Date(2025, 12, 22, 12, 0, 0, 0, time.UTC) // ISO week 52 of 2025
+		dec2024Week52 := time.Date(2024, 12, 23, 12, 0, 0, 0, time.UTC) // ISO week 52 of 2024
+
+		backups := []backupEntry{
+			{Filename: fmt.Sprintf("backup_%s_001.dump", jan6.Format("20060102_150405")), SizeBytes: 100},
+			{Filename: fmt.Sprintf("backup_%s_001.dump", dec2025Week52.Format("20060102_150405")), SizeBytes: 200},
+			{Filename: fmt.Sprintf("backup_%s_002.dump", dec2024Week52.Format("20060102_150405")), SizeBytes: 300},
+		}
+
+		// sonRetention=1 keeps today; fatherRetention=4 includes the last 4 ISO weeks.
+		result := classifyBackups(backups, 1, 4, 0, jan6)
+
+		// The 2024 week-52 backup should be pruned, not promoted to father.
+		pruneFiles := make(map[string]bool)
+		for _, p := range result.Prune {
+			pruneFiles[p.Filename] = true
+		}
+		if !pruneFiles[backups[2].Filename] {
+			t.Errorf("2024 week-52 backup should be pruned (too old for fatherRetention=4)")
 		}
 	})
 }
