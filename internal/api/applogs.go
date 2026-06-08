@@ -458,6 +458,60 @@ func buildAppLogCursorQuery(p appLogCursorParams, q url.Values) (string, []any) 
 	return query, args
 }
 
+// appLogHistoryParams holds the parsed inputs for the offset getAppLogsHistory.
+type appLogHistoryParams struct {
+	page, perPage    int
+	sortCol, sortDir string
+}
+
+// parseAppLogHistoryParams reads page (default 1), per_page (clamp [1,100],
+// default 20), the sort_by column (whitelist, "time" -> created_at), and sort_dir
+// (DESC default).
+func parseAppLogHistoryParams(r *http.Request) appLogHistoryParams {
+	q := r.URL.Query()
+	p := appLogHistoryParams{page: 1, perPage: 20, sortCol: "created_at", sortDir: "DESC"}
+	if v := q.Get("page"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 1 {
+			p.page = n
+		}
+	}
+	if v := q.Get("per_page"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 1 && n <= 100 {
+			p.perPage = n
+		}
+	}
+	// "time" maps to created_at for consistency with the cursor endpoint; the
+	// timestamp column (event time) is still returned for display.
+	allowedSortCols := map[string]string{
+		"time":    "created_at",
+		"level":   "level",
+		"source":  "source",
+		"message": "message",
+	}
+	if v := q.Get("sort_by"); v != "" {
+		if col, ok := allowedSortCols[v]; ok {
+			p.sortCol = col
+		}
+	}
+	if q.Get("sort_dir") == "asc" {
+		p.sortDir = "ASC"
+	}
+	return p
+}
+
+// buildAppLogHistoryQuery assembles the offset data query: shared filters +
+// ORDER BY + LIMIT/OFFSET.
+func buildAppLogHistoryQuery(p appLogHistoryParams, q url.Values) (string, []any) {
+	conditions, args, argIdx := appendAppLogFilters(nil, nil, 1,
+		q.Get("level"), q.Get("source"), q.Get("search"), q.Get("from"), q.Get("to"))
+	query := fmt.Sprintf(
+		"SELECT timestamp, level, source, message FROM app_logs%s ORDER BY %s %s LIMIT $%d OFFSET $%d",
+		appLogWhereClause(conditions), p.sortCol, p.sortDir, argIdx, argIdx+1,
+	)
+	args = append(args, p.perPage, (p.page-1)*p.perPage)
+	return query, args
+}
+
 // getAppLogsHistory queries app_logs from the database with filtering and pagination.
 func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 	if h.dbPool == nil {
@@ -467,50 +521,7 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	q := r.URL.Query()
-
-	// Pagination
-	page := 1
-	if v := q.Get("page"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n >= 1 {
-			page = n
-		}
-	}
-	perPage := 20
-	if v := q.Get("per_page"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n >= 1 && n <= 100 {
-			perPage = n
-		}
-	}
-
-	// Build WHERE clause
-	conditions, args, argIdx := appendAppLogFilters(nil, nil, 1,
-		q.Get("level"), q.Get("source"), q.Get("search"), q.Get("from"), q.Get("to"))
-
-	// Sort
-	// "time" maps to created_at for consistency with the cursor endpoint.
-	// The timestamp column (event time) is still returned for display.
-	allowedSortCols := map[string]string{
-		"time":    "created_at",
-		"level":   "level",
-		"source":  "source",
-		"message": "message",
-	}
-	sortCol := "created_at"
-	if v := q.Get("sort_by"); v != "" {
-		if col, ok := allowedSortCols[v]; ok {
-			sortCol = col
-		}
-	}
-	sortDir := "DESC"
-	if v := q.Get("sort_dir"); v == "asc" {
-		sortDir = "ASC"
-	}
-
-	whereClause := ""
-	if len(conditions) > 0 {
-		whereClause = " WHERE " + strings.Join(conditions, " AND ")
-	}
+	p := parseAppLogHistoryParams(r)
 
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
@@ -518,25 +529,16 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 	// Retrieve cached level/source counts (refreshed every appLogCountCacheTTL).
 	levelCounts, sourceCounts := h.getAppLogCounts(ctx)
 
-	// Count total (with filters applied)
-	countSQL := "SELECT COUNT(*) FROM app_logs" + whereClause
-	var total int
-	if err := h.dbPool.Pool().QueryRow(ctx, countSQL, args...).Scan(&total); err != nil {
+	total, err := h.countAppLogs(ctx, r.URL.Query())
+	if err != nil {
 		if encErr := json.NewEncoder(w).Encode(map[string]string{"error": "failed to count logs"}); encErr != nil {
 			debuglog.Error("applogs: failed to encode error response", "error", encErr)
 		}
 		return
 	}
 
-	// Fetch page
-	offset := (page - 1) * perPage
-	dataSQL := fmt.Sprintf(
-		"SELECT timestamp, level, source, message FROM app_logs%s ORDER BY %s %s LIMIT $%d OFFSET $%d",
-		whereClause, sortCol, sortDir, argIdx, argIdx+1,
-	)
-	args = append(args, perPage, offset)
-
-	rows, err := h.dbPool.Pool().Query(ctx, dataSQL, args...)
+	query, args := buildAppLogHistoryQuery(p, r.URL.Query())
+	rows, err := h.dbPool.Pool().Query(ctx, query, args...)
 	if err != nil {
 		if err := json.NewEncoder(w).Encode(map[string]string{"error": "failed to query logs"}); err != nil {
 			debuglog.Error("applogs: failed to encode error response", "error", err)
@@ -545,7 +547,8 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	entries := make([]AppLogEntry, 0, perPage)
+	// per_page is clamped to [1, 100]; prealloc with the hard upper bound (CodeQL).
+	entries := make([]AppLogEntry, 0, 100)
 	for rows.Next() {
 		var e AppLogEntry
 		var ts time.Time
@@ -560,8 +563,8 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(appLogsHistoryResponse{
 		Entries:      entries,
 		Total:        total,
-		Page:         page,
-		PerPage:      perPage,
+		Page:         p.page,
+		PerPage:      p.perPage,
 		LevelCounts:  levelCounts,
 		SourceCounts: sourceCounts,
 	}); err != nil {
