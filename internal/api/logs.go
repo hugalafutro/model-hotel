@@ -611,59 +611,9 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 
 	query := "SELECT COUNT(*) OVER() AS total_count, " + logEntrySelectColumns
 
-	args := []interface{}{}
+	args := []any{}
 	argIndex := 1
-
-	if modelID != "" {
-		query += " AND rl.model_id ILIKE $" + util.IntToStr(argIndex)
-		args = append(args, "%"+modelID+"%")
-		argIndex++
-	}
-
-	if providerID != "" {
-		providerUUID, err := uuid.Parse(providerID)
-		if err == nil {
-			query += " AND rl.provider_id = $" + util.IntToStr(argIndex)
-			args = append(args, providerUUID)
-			argIndex++
-		}
-	}
-
-	if statusCodeStr != "" {
-		if statusCodeStr == "4xx" {
-			query += " AND rl.status_code >= 400 AND rl.status_code < 500"
-		} else if statusCodeStr == "5xx" {
-			query += " AND rl.status_code >= 500"
-		} else if statusCode, err := strconv.Atoi(statusCodeStr); err == nil && statusCode >= 0 {
-			if statusCode == 0 {
-				// COALESCE presents NULL status_code as 0 to the frontend,
-				// so "0 No Response" must match both actual 0 and NULL.
-				query += " AND (rl.status_code = 0 OR rl.status_code IS NULL)"
-			} else {
-				query += " AND rl.status_code = $" + util.IntToStr(argIndex)
-				args = append(args, statusCode)
-				argIndex++
-			}
-		}
-	}
-
-	if fromDate != "" {
-		parsedFrom, err := time.Parse(time.RFC3339, fromDate)
-		if err == nil {
-			query += " AND rl.created_at >= $" + util.IntToStr(argIndex)
-			args = append(args, parsedFrom)
-			argIndex++
-		}
-	}
-
-	if toDate != "" {
-		parsedTo, err := time.Parse(time.RFC3339, toDate)
-		if err == nil {
-			query += " AND rl.created_at <= $" + util.IntToStr(argIndex)
-			args = append(args, parsedTo)
-			argIndex++
-		}
-	}
+	query, args, argIndex = appendLogFilters(query, args, argIndex, modelID, providerID, statusCodeStr, fromDate, toDate)
 
 	sd := sortColumns[sortBy]
 	orderClause := " ORDER BY "
