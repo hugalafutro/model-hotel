@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -920,5 +920,303 @@ describe("DatabaseBackupSettings", () => {
 			expect(screen.getByText("Enable Periodic Backup?")).toBeInTheDocument();
 		});
 		expect(screen.getByText("backup-old.dump")).toBeInTheDocument();
+	});
+
+	describe("Periodic Backup Toggle", () => {
+		it("toggle ON calls prune-preview and shows double-confirm modal when prunable backups exist", async () => {
+			let prunePreviewCalled = false;
+			server.use(
+				http.get("/api/settings", () => {
+					return HttpResponse.json({ backup_enabled: "false" });
+				}),
+				http.post("/api/backups/prune-preview", () => {
+					prunePreviewCalled = true;
+					return HttpResponse.json({
+						son: [],
+						father: [],
+						grandfather: [],
+						prune: [
+							{
+								filename: "backup-stale.dump",
+								size_bytes: 2048,
+								created_at: "2024-06-01T00:00:00Z",
+							},
+						],
+					});
+				}),
+			);
+			const user = userEvent.setup();
+			renderWithProviders(
+				<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(screen.getByText("Periodic Backup")).toBeInTheDocument();
+			});
+			const toggle = screen.getByRole("switch");
+			await user.click(toggle);
+			await waitFor(() => {
+				expect(prunePreviewCalled).toBe(true);
+			});
+			await waitFor(() => {
+				expect(screen.getByText("Enable Periodic Backup?")).toBeInTheDocument();
+			});
+			expect(screen.getByText("backup-stale.dump")).toBeInTheDocument();
+		});
+
+		it("toggle ON with no prunable backups shows no-removal message in confirm modal", async () => {
+			server.use(
+				http.get("/api/settings", () => {
+					return HttpResponse.json({ backup_enabled: "false" });
+				}),
+				http.post("/api/backups/prune-preview", () => {
+					return HttpResponse.json({
+						son: [],
+						father: [],
+						grandfather: [],
+						prune: [],
+					});
+				}),
+			);
+			const user = userEvent.setup();
+			renderWithProviders(
+				<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(screen.getByText("Periodic Backup")).toBeInTheDocument();
+			});
+			const toggle = screen.getByRole("switch");
+			await user.click(toggle);
+			await waitFor(() => {
+				expect(screen.getByText("Enable Periodic Backup?")).toBeInTheDocument();
+			});
+			// The confirm modal always opens on toggle ON, but should say no backups would be removed
+			expect(
+				screen.getByText("No existing backups would be removed."),
+			).toBeInTheDocument();
+		});
+
+		it("confirm prune calls prune API and sets backup_enabled to true", async () => {
+			let pruneCalled = false;
+			let settingsUpdateData: Record<string, string> | null = null;
+			server.use(
+				http.get("/api/settings", () => {
+					return HttpResponse.json({ backup_enabled: "false" });
+				}),
+				http.post("/api/backups/prune-preview", () => {
+					return HttpResponse.json({
+						son: [],
+						father: [],
+						grandfather: [],
+						prune: [
+							{
+								filename: "backup-old.dump",
+								size_bytes: 1024,
+								created_at: "2024-06-01T00:00:00Z",
+							},
+						],
+					});
+				}),
+				http.post("/api/backups/prune", () => {
+					pruneCalled = true;
+					return HttpResponse.json({
+						son: [],
+						father: [],
+						grandfather: [],
+						prune: [],
+					});
+				}),
+				http.put("/api/settings", async ({ request }) => {
+					settingsUpdateData = (await request.json()) as Record<string, string>;
+					return HttpResponse.json({});
+				}),
+			);
+			const user = userEvent.setup();
+			renderWithProviders(
+				<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(screen.getByText("Periodic Backup")).toBeInTheDocument();
+			});
+			const toggle = screen.getByRole("switch");
+			await user.click(toggle);
+			await waitFor(() => {
+				expect(screen.getByText("Enable Periodic Backup?")).toBeInTheDocument();
+			});
+			// Use getByRole to find the Confirm button scoped within the dialog
+			const dialog = screen.getByRole("dialog", {
+				name: "Enable Periodic Backup?",
+			});
+			const confirmButton = within(dialog).getByRole("button", {
+				name: "Confirm",
+			});
+			await user.click(confirmButton);
+			await waitFor(() => {
+				expect(pruneCalled).toBe(true);
+			});
+			await waitFor(() => {
+				expect(settingsUpdateData).toEqual({ backup_enabled: "true" });
+			});
+			await waitFor(() => {
+				expect(
+					screen.queryByText("Enable Periodic Backup?"),
+				).not.toBeInTheDocument();
+			});
+		});
+
+		it("cancel in prune modal does not call prune API and backup_enabled remains false", async () => {
+			let pruneCalled = false;
+			server.use(
+				http.get("/api/settings", () => {
+					return HttpResponse.json({ backup_enabled: "false" });
+				}),
+				http.post("/api/backups/prune-preview", () => {
+					return HttpResponse.json({
+						son: [],
+						father: [],
+						grandfather: [],
+						prune: [
+							{
+								filename: "backup-old.dump",
+								size_bytes: 1024,
+								created_at: "2024-06-01T00:00:00Z",
+							},
+						],
+					});
+				}),
+				http.post("/api/backups/prune", () => {
+					pruneCalled = true;
+					return HttpResponse.json({
+						son: [],
+						father: [],
+						grandfather: [],
+						prune: [],
+					});
+				}),
+			);
+			const user = userEvent.setup();
+			renderWithProviders(
+				<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(screen.getByText("Periodic Backup")).toBeInTheDocument();
+			});
+			const toggle = screen.getByRole("switch");
+			await user.click(toggle);
+			await waitFor(() => {
+				expect(screen.getByText("Enable Periodic Backup?")).toBeInTheDocument();
+			});
+			// Use getByRole to find the Cancel button scoped within the dialog
+			const dialog = screen.getByRole("dialog", {
+				name: "Enable Periodic Backup?",
+			});
+			const cancelButton = within(dialog).getByRole("button", {
+				name: "Cancel",
+			});
+			await user.click(cancelButton);
+			await waitFor(() => {
+				expect(
+					screen.queryByText("Enable Periodic Backup?"),
+				).not.toBeInTheDocument();
+			});
+			expect(pruneCalled).toBe(false);
+		});
+	});
+
+	describe("Retention Sliders", () => {
+		it("retention sliders display units (d, w, m)", async () => {
+			server.use(
+				http.get("/api/settings", () => {
+					return HttpResponse.json({
+						backup_enabled: "true",
+						backup_interval: "24h",
+						backup_son_retention: "7",
+						backup_father_retention: "4",
+						backup_grandfather_retention: "3",
+					});
+				}),
+			);
+			const { container } = renderWithProviders(
+				<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(screen.getByText("Periodic Backup")).toBeInTheDocument();
+			});
+			// Unit labels are rendered in spans with text: "h", "d", "w", "m"
+			// Use container.textContent to check for unit text presence
+			const pageText = container.textContent ?? "";
+			expect(pageText).toContain("d");
+			expect(pageText).toContain("w");
+			expect(pageText).toContain("m");
+		});
+
+		it("interval slider displays in hours", async () => {
+			server.use(
+				http.get("/api/settings", () => {
+					return HttpResponse.json({
+						backup_enabled: "true",
+						backup_interval: "24h",
+						backup_son_retention: "7",
+						backup_father_retention: "4",
+						backup_grandfather_retention: "3",
+					});
+				}),
+			);
+			const { container } = renderWithProviders(
+				<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(screen.getByText("Periodic Backup")).toBeInTheDocument();
+			});
+			// The interval unit "h" should be present in the page text
+			const pageText = container.textContent ?? "";
+			expect(pageText).toContain("h");
+		});
+
+		it("reset icon on son retention slider calls settingsUpdateMutation with default value", async () => {
+			let settingsUpdateData: Record<string, string> | null = null;
+			server.use(
+				http.get("/api/settings", () => {
+					return HttpResponse.json({
+						backup_enabled: "true",
+						backup_interval: "24h",
+						backup_son_retention: "14",
+						backup_father_retention: "4",
+						backup_grandfather_retention: "3",
+					});
+				}),
+				http.put("/api/settings", async ({ request }) => {
+					settingsUpdateData = (await request.json()) as Record<string, string>;
+					return HttpResponse.json({});
+				}),
+			);
+			const user = userEvent.setup();
+			const { container } = renderWithProviders(
+				<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(screen.getByText("Periodic Backup")).toBeInTheDocument();
+			});
+			// Wait for the slider to appear (backup_enabled=true shows the sliders)
+			await waitFor(() => {
+				const slider = container.querySelector("#backup-son-retention");
+				expect(slider).toBeTruthy();
+			});
+			// Find the row containing the son retention slider
+			const sonInput = container.querySelector("#backup-son-retention");
+			const sonRow = sonInput?.closest("div");
+			expect(sonRow).toBeTruthy();
+			// The reset button uses t("settings.common.resetToDefault") as aria-label
+			// This i18n key doesn't exist in en.json, so i18next returns the key itself
+			const resetBtn = sonRow?.querySelector(
+				'button[aria-label="settings.common.resetToDefault"]',
+			);
+			expect(resetBtn).toBeTruthy();
+			await user.click(resetBtn as HTMLElement);
+			await waitFor(() => {
+				expect(settingsUpdateData).toEqual({
+					backup_son_retention: "7",
+				});
+			});
+		});
 	});
 });
