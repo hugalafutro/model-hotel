@@ -81,11 +81,20 @@ func TestRecordBreakerOutcome(t *testing.T) {
 		want        breakerOutcome
 	}{
 		{"eligible 5xx -> failure", true, false, 500, true, breakerFailureRecorded},
+		{"eligible 429 -> failure", true, false, 429, true, breakerFailureRecorded},
+		{"eligible 401 -> failure", true, false, 401, true, breakerFailureRecorded},
+		{"eligible 403 -> failure", true, false, 403, true, breakerFailureRecorded},
 		{"eligible 404 -> no-op", true, false, 404, true, breakerUntouched},
+		{"eligible 499 -> no-op", true, false, 499, true, breakerUntouched},
+		{"eligible 200 -> success (exhaustive switch)", true, false, 200, true, breakerSuccessRecorded},
+		{"eligible 502 -> failure", true, false, 502, true, breakerFailureRecorded},
+		{"eligible 503 -> failure", true, false, 503, true, breakerFailureRecorded},
 		{"non-eligible 200 non-streaming -> success", true, false, 200, false, breakerSuccessRecorded},
 		{"non-eligible 200 streaming -> deferred (untouched)", true, true, 200, false, breakerUntouched},
 		{"non-eligible non-200 streaming -> success", true, true, 204, false, breakerSuccessRecorded},
+		{"non-eligible 204 non-streaming -> success", true, false, 204, false, breakerSuccessRecorded},
 		{"breaker disabled -> untouched", false, false, 500, true, breakerUntouched},
+		{"breaker disabled 200 streaming -> untouched", false, true, 200, false, breakerUntouched},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

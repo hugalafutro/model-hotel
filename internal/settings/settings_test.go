@@ -898,6 +898,38 @@ func TestRepository_GetAll_SingleEntry(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// Unsubscribe edge cases
+// ---------------------------------------------------------------------------
+
+// TestUnsubscribe_DoubleUnsubscribeViaSubscriptionMethod tests calling
+// Unsubscribe() on a Subscription that was never actually used (no events
+// received). This exercises the clean func / drain goroutine path when the
+// channel is empty — confirming the drain goroutine completes and closes
+// the channel without hanging.
+func TestUnsubscribe_UnusedSubscription(t *testing.T) {
+	r := NewRepository(testPool)
+	sub := r.Subscribe()
+
+	// Never read from sub.Events() — channel is empty.
+	// Unsubscribe should drain and close it without blocking.
+	done := make(chan struct{})
+	go func() {
+		sub.Unsubscribe()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// Success — unsubscribe completed.
+	case <-time.After(2 * time.Second):
+		t.Fatal("Unsubscribe on unused subscription hung — drain goroutine may be stuck")
+	}
+
+	// Double-unsubscribe must also be safe (sync.Once no-op).
+	sub.Unsubscribe()
+}
+
+// ---------------------------------------------------------------------------
 // DeleteKeysTx
 // ---------------------------------------------------------------------------
 
@@ -984,6 +1016,46 @@ func TestDeleteKeysTx_InvalidKey(t *testing.T) {
 	err = r.DeleteKeysTx(ctx, tx, []string{"not_a_real_setting"})
 	if err == nil {
 		t.Error("DeleteKeysTx should reject keys not in allowlist")
+	}
+}
+
+// TestDeleteKeysTx_NilKeys tests that passing a nil slice returns nil
+// (same as empty slice — the early return at len(keys) == 0).
+func TestDeleteKeysTx_NilKeys(t *testing.T) {
+	t.Helper()
+	r := NewRepository(testPool)
+	ctx := context.Background()
+
+	tx, err := testPool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer tx.Rollback(ctx)
+
+	if err := r.DeleteKeysTx(ctx, tx, nil); err != nil {
+		t.Errorf("DeleteKeysTx with nil keys should not error, got: %v", err)
+	}
+}
+
+// TestDeleteKeysTx_CancelledContext tests that DeleteKeysTx returns an error
+// when the transaction executes against a cancelled context (DB error path).
+func TestDeleteKeysTx_CancelledContext(t *testing.T) {
+	t.Helper()
+	r := NewRepository(testPool)
+
+	tx, err := testPool.Begin(context.Background())
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer tx.Rollback(context.Background())
+
+	// Cancelled context should cause the SQL DELETE to fail.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err = r.DeleteKeysTx(ctx, tx, []string{"discovery_interval"})
+	if err == nil {
+		t.Error("expected error from DeleteKeysTx with cancelled context")
 	}
 }
 

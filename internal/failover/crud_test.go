@@ -2,6 +2,7 @@ package failover
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"testing"
 
@@ -1286,5 +1287,88 @@ func TestPruneStaleEntries_GroupWithNoValidEntries(t *testing.T) {
 	}
 	if result.DeletedGroups[0].Reason != "no valid providers after prune" {
 		t.Errorf("expected reason for 0 valid entries, got %q", result.DeletedGroups[0].Reason)
+	}
+}
+
+// TestPruneStaleEntries_CancelledContext tests that pruneStaleEntries handles
+// a cancelled context gracefully — the function should return without panicking
+// when the DB query for existing model IDs fails.
+func TestPruneStaleEntries_CancelledContext(t *testing.T) {
+	repo := newTestRepo(t)
+
+	// Build an in-memory FailoverGroup with a UUID that won't exist in models.
+	modelID := uuid.New()
+	group := &FailoverGroup{
+		ID:            uuid.New(),
+		DisplayModel:  "test-psne-ctx-" + uuid.New().String()[:8],
+		PriorityOrder: []uuid.UUID{modelID},
+		EntryEnabled:  map[string]bool{modelID.String(): true},
+		GroupEnabled:  true,
+		AutoCreated:   false,
+	}
+
+	// Use cancelled context — the models query should fail.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	var result SyncResult
+	repo.pruneStaleEntries(ctx, []*FailoverGroup{group}, &result)
+
+	// Function should return without panic. With a cancelled context,
+	// the DB query fails, so no entries are pruned or deleted.
+	if len(result.DeletedGroups) != 0 {
+		t.Errorf("expected 0 deleted groups on cancelled context, got %d", len(result.DeletedGroups))
+	}
+	if len(result.PurgedEntries) != 0 {
+		t.Errorf("expected 0 purged entries on cancelled context, got %d", len(result.PurgedEntries))
+	}
+}
+
+// TestPruneStaleEntries_GroupWithOnlyStaleUUIDs tests that pruneStaleEntries
+// correctly deletes a group where ALL model UUIDs are stale (not in models
+// table) and preserves the "no valid providers after prune" reason.
+func TestPruneStaleEntries_GroupWithOnlyStaleUUIDs(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	// Create a group with two UUIDs that don't exist in the models table.
+	// We skip creating providers/models — the UUIDs are simply absent.
+	staleID1 := uuid.New()
+	staleID2 := uuid.New()
+
+	displayModel := "test-psne-allstale-" + uuid.New().String()[:8]
+	entryEnabled := map[string]bool{
+		staleID1.String(): true,
+		staleID2.String(): true,
+	}
+	priorityJSON, _ := json.Marshal([]uuid.UUID{staleID1, staleID2})
+	entryEnabledJSON, _ := json.Marshal(entryEnabled)
+
+	_, err := testDB.Pool().Exec(ctx, `
+		INSERT INTO model_failover_groups (display_model, priority_order, entry_enabled, group_enabled, auto_created, created_at, updated_at)
+		VALUES ($1, $2, $3, true, false, now(), now())
+	`, displayModel, priorityJSON, entryEnabledJSON)
+	if err != nil {
+		t.Fatalf("Failed to insert group: %v", err)
+	}
+	defer func() {
+		_, _ = testDB.Pool().Exec(ctx, "DELETE FROM model_failover_groups WHERE display_model = $1", displayModel)
+	}()
+
+	InvalidateFailoverCache()
+	groups, err := repo.List(ctx)
+	if err != nil {
+		t.Fatalf("List failed: %v", err)
+	}
+
+	var result SyncResult
+	repo.pruneStaleEntries(ctx, groups, &result)
+
+	// All UUIDs are stale → 0 valid entries → group deleted
+	if len(result.DeletedGroups) != 1 {
+		t.Fatalf("expected 1 deleted group, got %d", len(result.DeletedGroups))
+	}
+	if result.DeletedGroups[0].Reason != "no valid providers after prune" {
+		t.Errorf("expected 'no valid providers after prune', got %q", result.DeletedGroups[0].Reason)
 	}
 }

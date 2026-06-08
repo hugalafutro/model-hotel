@@ -97,6 +97,86 @@ func TestProbeFirstToken_DoneFirst(t *testing.T) {
 	}
 }
 
+// TestProbeFirstToken_SingleToken verifies that the probe correctly captures
+// a single SSE data chunk and returns the probe buffer with its contents.
+func TestProbeFirstToken_SingleToken(t *testing.T) {
+	h := &Handler{}
+	sse := "data: {\"id\":\"chatcmpl-1\",\"choices\":[{\"delta\":{\"content\":\"x\"}}]}\n\ndata: [DONE]\n\n"
+	body := makeSSEBody(t, sse)
+	startTime := time.Now()
+
+	probeBuf, ttftMs, err := h.probeFirstToken(context.Background(), body, 5*time.Second, startTime)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if probeBuf == nil {
+		t.Fatal("expected probeBuf to be non-nil")
+	}
+	if ttftMs <= 0 {
+		t.Errorf("expected ttftMs > 0, got %f", ttftMs)
+	}
+	got := probeBuf.String()
+	if !strings.Contains(got, `data: {"id":"chatcmpl-1"`) {
+		t.Errorf("probeBuf should contain the first data line, got: %q", got)
+	}
+}
+
+// TestProbeFirstToken_MultipleDataChunks verifies that the probe returns
+// immediately upon finding the FIRST data chunk, even when more follow.
+// The probe buffer should contain the preamble and first data line but
+// not subsequent chunks (they haven't been read yet).
+func TestProbeFirstToken_MultipleDataChunks(t *testing.T) {
+	h := &Handler{}
+	sse := "data: {\"id\":\"1\",\"choices\":[{\"delta\":{\"content\":\"a\"}}]}\n\ndata: {\"id\":\"1\",\"choices\":[{\"delta\":{\"content\":\"b\"}}]}\n\ndata: [DONE]\n\n"
+	body := makeSSEBody(t, sse)
+	startTime := time.Now()
+
+	probeBuf, ttftMs, err := h.probeFirstToken(context.Background(), body, 5*time.Second, startTime)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ttftMs <= 0 {
+		t.Errorf("expected ttftMs > 0, got %f", ttftMs)
+	}
+	got := probeBuf.String()
+	// Should contain first data chunk
+	if !strings.Contains(got, `"content":"a"`) {
+		t.Errorf("probeBuf should contain first chunk content 'a', got: %q", got)
+	}
+}
+
+// TestProbeFirstToken_MixedSSELines verifies the probe correctly skips
+// non-data SSE lines (keepalive comments, event/id/retry directives)
+// while still capturing them in the probe buffer for replay.
+func TestProbeFirstToken_MixedSSELines(t *testing.T) {
+	h := &Handler{}
+	sse := ": ping\n\nevent: message_start\nid: msg-1\nretry: 5000\ndata: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n"
+	body := makeSSEBody(t, sse)
+	startTime := time.Now()
+
+	probeBuf, ttftMs, err := h.probeFirstToken(context.Background(), body, 5*time.Second, startTime)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ttftMs <= 0 {
+		t.Errorf("expected ttftMs > 0, got %f", ttftMs)
+	}
+	got := probeBuf.String()
+	// All lines should be captured by TeeReader for replay
+	if !strings.Contains(got, ": ping") {
+		t.Error("probeBuf should contain keepalive comment")
+	}
+	if !strings.Contains(got, "event: message_start") {
+		t.Error("probeBuf should contain event directive")
+	}
+	if !strings.Contains(got, "id: msg-1") {
+		t.Error("probeBuf should contain id directive")
+	}
+	if !strings.Contains(got, "retry: 5000") {
+		t.Error("probeBuf should contain retry directive")
+	}
+}
+
 func TestProbeFirstToken_Timeout(t *testing.T) {
 	pr, pw := io.Pipe()
 	// Writer never sends anything — body blocks forever

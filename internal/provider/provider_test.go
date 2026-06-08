@@ -711,6 +711,28 @@ func TestRepository_GetByName_NotFound(t *testing.T) {
 	}
 }
 
+// TestLoadCatalog_ReturnsNonEmpty verifies that the embedded provider catalogs
+// are loadable and contain at least one entry each. This exercises the
+// loadCatalog path through the public accessor functions.
+func TestLoadCatalog_ReturnsNonEmpty(t *testing.T) {
+	// GetOpenAIModels and GetAnthropicPricing both use loadCatalog internally.
+	// If loadCatalog failed (invalid JSON or missing file), they would panic
+	// at init time — so simply calling them and verifying non-empty output
+	// confirms loadCatalog works correctly with the embedded FS.
+	catalogs := []struct {
+		name string
+		len  int
+	}{
+		{"OpenAI", len(GetOpenAIModels())},
+		{"Anthropic", len(GetAnthropicPricing())},
+	}
+	for _, c := range catalogs {
+		if c.len == 0 {
+			t.Errorf("loadCatalog: %s catalog should not be empty", c.name)
+		}
+	}
+}
+
 func TestRepository_GetByName_NormalizedName(t *testing.T) {
 	repo := newTestRepo(t)
 	ctx := context.Background()

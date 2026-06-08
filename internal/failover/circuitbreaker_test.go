@@ -425,6 +425,62 @@ func TestCircuitBreaker_SeverityForState(t *testing.T) {
 	}
 }
 
+// TestCircuitBreaker_IsOpen_OpenStillWithinCooldown verifies that IsOpen returns
+// true (blocking requests) when the circuit has been open but the cooldown has
+// NOT yet elapsed. This is the "stay open" branch at line 160.
+func TestCircuitBreaker_IsOpen_OpenStillWithinCooldown(t *testing.T) {
+	t.Parallel()
+	cb := newTestCB(1, 10*time.Second) // long cooldown
+	pid := uuid.New()
+
+	cb.RecordFailure(pid, "test-provider") // opens the circuit
+
+	// Immediately after opening, cooldown has not elapsed.
+	if !cb.IsOpen(pid, "test-provider") {
+		t.Error("circuit should still be open (cooldown not elapsed)")
+	}
+
+	// Verify internal state is still StateOpen (not half-open)
+	cb.mu.RLock()
+	c := cb.circuits[pid.String()]
+	cb.mu.RUnlock()
+	if c.state != StateOpen {
+		t.Errorf("expected StateOpen, got %v", c.state)
+	}
+}
+
+// TestCircuitBreaker_IsOpen_HalfOpenAllowsProbesConcurrently verifies that
+// when a circuit is in half-open state, concurrent IsOpen calls all return
+// false (allowing probes through). This exercises the read-lock fast path
+// at line 133.
+func TestCircuitBreaker_IsOpen_HalfOpenAllowsProbesConcurrently(t *testing.T) {
+	t.Parallel()
+	cb := newTestCB(1, 50*time.Millisecond)
+	pid := uuid.New()
+
+	cb.RecordFailure(pid, "test-provider") // opens
+	time.Sleep(60 * time.Millisecond)
+	cb.IsOpen(pid, "test-provider") // triggers transition to half-open
+
+	var wg sync.WaitGroup
+	results := make(chan bool, 20)
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			results <- cb.IsOpen(pid, "test-provider")
+		}()
+	}
+	wg.Wait()
+	close(results)
+
+	for r := range results {
+		if r {
+			t.Error("IsOpen should return false for half-open circuit (probe allowed via read-lock fast path)")
+		}
+	}
+}
+
 func TestCircuitBreaker_IsOpen_Concurrent(t *testing.T) {
 	t.Parallel()
 	cb := newTestCB(100, 30*time.Second)
