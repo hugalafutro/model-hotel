@@ -894,3 +894,203 @@ func TestExtractClientIP_XRealIPInvalid(t *testing.T) {
 		t.Errorf("expected fallback to RemoteAddr for invalid X-Real-IP, got %q", ip)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// isIPInTrustedNets tests
+// ---------------------------------------------------------------------------
+
+func TestIsIPInTrustedNets_IPv4InCIDR(t *testing.T) {
+	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
+	nets := []*net.IPNet{cidr}
+
+	if !isIPInTrustedNets("10.1.2.3", nets) {
+		t.Error("10.1.2.3 should be in 10.0.0.0/8")
+	}
+	if !isIPInTrustedNets("10.255.255.255", nets) {
+		t.Error("10.255.255.255 should be in 10.0.0.0/8")
+	}
+}
+
+func TestIsIPInTrustedNets_IPv4NotInCIDR(t *testing.T) {
+	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
+	nets := []*net.IPNet{cidr}
+
+	if isIPInTrustedNets("192.168.1.1", nets) {
+		t.Error("192.168.1.1 should not be in 10.0.0.0/8")
+	}
+	if isIPInTrustedNets("11.0.0.1", nets) {
+		t.Error("11.0.0.1 should not be in 10.0.0.0/8")
+	}
+}
+
+func TestIsIPInTrustedNets_IPv6InCIDR(t *testing.T) {
+	_, cidr, _ := net.ParseCIDR("2001:db8::/32")
+	nets := []*net.IPNet{cidr}
+
+	if !isIPInTrustedNets("2001:db8::1", nets) {
+		t.Error("2001:db8::1 should be in 2001:db8::/32")
+	}
+	if !isIPInTrustedNets("2001:db8:abcd::1", nets) {
+		t.Error("2001:db8:abcd::1 should be in 2001:db8::/32")
+	}
+}
+
+func TestIsIPInTrustedNets_IPv6NotInCIDR(t *testing.T) {
+	_, cidr, _ := net.ParseCIDR("2001:db8::/32")
+	nets := []*net.IPNet{cidr}
+
+	if isIPInTrustedNets("fe80::1", nets) {
+		t.Error("fe80::1 should not be in 2001:db8::/32")
+	}
+	if isIPInTrustedNets("2001:db9::1", nets) {
+		t.Error("2001:db9::1 should not be in 2001:db8::/32")
+	}
+}
+
+func TestIsIPInTrustedNets_InvalidIP(t *testing.T) {
+	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
+	nets := []*net.IPNet{cidr}
+
+	if isIPInTrustedNets("not-an-ip", nets) {
+		t.Error("invalid IP should return false")
+	}
+	if isIPInTrustedNets("", nets) {
+		t.Error("empty string should return false")
+	}
+	if isIPInTrustedNets("999.999.999.999", nets) {
+		t.Error("out-of-range IP should return false")
+	}
+}
+
+func TestIsIPInTrustedNets_EmptyNets(t *testing.T) {
+	if isIPInTrustedNets("10.0.0.1", nil) {
+		t.Error("no trusted nets should return false for any IP")
+	}
+	if isIPInTrustedNets("10.0.0.1", []*net.IPNet{}) {
+		t.Error("empty nets slice should return false for any IP")
+	}
+}
+
+func TestIsIPInTrustedNets_MultipleCIDRs(t *testing.T) {
+	_, cidr1, _ := net.ParseCIDR("10.0.0.0/8")
+	_, cidr2, _ := net.ParseCIDR("172.16.0.0/12")
+	_, cidr3, _ := net.ParseCIDR("192.168.0.0/16")
+	nets := []*net.IPNet{cidr1, cidr2, cidr3}
+
+	if !isIPInTrustedNets("10.5.5.5", nets) {
+		t.Error("10.5.5.5 should match first CIDR")
+	}
+	if !isIPInTrustedNets("172.20.0.1", nets) {
+		t.Error("172.20.0.1 should match second CIDR")
+	}
+	if !isIPInTrustedNets("192.168.100.50", nets) {
+		t.Error("192.168.100.50 should match third CIDR")
+	}
+	if isIPInTrustedNets("8.8.8.8", nets) {
+		t.Error("8.8.8.8 should not match any CIDR")
+	}
+}
+
+func TestIsIPInTrustedNets_Slash32CIDR(t *testing.T) {
+	_, cidr, _ := net.ParseCIDR("1.2.3.4/32")
+	nets := []*net.IPNet{cidr}
+
+	if !isIPInTrustedNets("1.2.3.4", nets) {
+		t.Error("1.2.3.4 should match /32")
+	}
+	if isIPInTrustedNets("1.2.3.5", nets) {
+		t.Error("1.2.3.5 should not match /32")
+	}
+}
+
+func TestIsIPInTrustedNets_IPv6ZeroCompression(t *testing.T) {
+	_, cidr, _ := net.ParseCIDR("2001:db8::/32")
+	nets := []*net.IPNet{cidr}
+
+	// :: zero-compression should work correctly (the reason isIPInTrustedNets exists
+	// instead of relying on IsTrustedProxy which requires host:port format)
+	if !isIPInTrustedNets("2001:db8::1", nets) {
+		t.Error("2001:db8::1 with zero-compression should be in 2001:db8::/32")
+	}
+}
+
+func TestIsIPInTrustedNets_IPv4MappedIPv6(t *testing.T) {
+	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
+	nets := []*net.IPNet{cidr}
+
+	// ::ffff:10.0.0.1 is an IPv4-mapped IPv6 address; net.ParseIP will parse it
+	// but it becomes a 16-byte IPv4-mapped form which differs from the 4-byte form
+	// used by the CIDR. net.IPNet.Contains handles this correctly.
+	if !isIPInTrustedNets("::ffff:10.0.0.1", nets) {
+		t.Error("::ffff:10.0.0.1 (IPv4-mapped IPv6) should match 10.0.0.0/8")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// IPLimiter Middleware additional tests
+// ---------------------------------------------------------------------------
+
+func TestIPLimiter_MiddlewareNoSettingsPassesThrough(t *testing.T) {
+	// When settings is nil, Middleware should still rate-limit using defaults.
+	// This covers the nil-settings branch in Middleware.
+	lim := NewIPLimiter(0.1, 2, nil, nil)
+	defer lim.Stop()
+
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	handler := lim.Middleware(next)
+
+	// burst=2 from constructor defaults
+	for i := 0; i < 2; i++ {
+		req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+		req.RemoteAddr = "7.7.7.7:7777"
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+		if rr.Code != http.StatusOK {
+			t.Fatalf("request %d: expected 200, got %d", i+1, rr.Code)
+		}
+	}
+
+	// 3rd should be rejected with default max_wait (200ms), wait > 200ms so 429
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	req.RemoteAddr = "7.7.7.7:7777"
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusTooManyRequests {
+		t.Errorf("expected 429 after exhausting burst with nil settings, got %d", rr.Code)
+	}
+}
+
+func TestIPLimiter_MiddlewareReservationNotOK(t *testing.T) {
+	// Test the path where reservation.OK() returns false.
+	// This can happen when the limiter's burst is 0. With burst=0, initial
+	// reservation fails (no tokens available). We use settings to set burst=0
+	// and RPS=0.1 so that even after waiting, no tokens are available.
+	settings := &stubIPSettings{values: map[string]string{
+		settingsKeyIPEnabled:   "true",
+		settingsKeyIPRPS:       "0.1",
+		settingsKeyIPBurst:     "0", // burst=0 means no tokens, reservation fails
+		settingsKeyIPMaxWaitMs: "0",
+	}}
+	lim := NewIPLimiter(0.1, 0, nil, settings)
+	defer lim.Stop()
+
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	handler := lim.Middleware(next)
+
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	req.RemoteAddr = "4.4.4.4:4444"
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusTooManyRequests {
+		t.Errorf("expected 429 when reservation fails (burst=0), got %d", rr.Code)
+	}
+	// With burst=0, reservation.OK() returns false → enters the first rejection path
+	// where writeHeaders is called with retryAfter=0, so no Retry-After header.
+	if h := rr.Header().Get("Retry-After"); h != "" {
+		t.Errorf("Retry-After should not be set when reservation fails with delay=0, got %q", h)
+	}
+}

@@ -777,3 +777,194 @@ func TestMiddleware_ExtractKeyFallbackToRemoteAddr(t *testing.T) {
 		t.Errorf("expected 429 (fallback to RemoteAddr rate limiting), got %d", rr.Code)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Additional coverage tests
+// ---------------------------------------------------------------------------
+
+// TestMiddleware_ReservationNotOK tests the path where the rate limiter's
+// Reserve() returns !OK. This happens when burst=0 (no tokens available).
+func TestMiddleware_ReservationNotOK(t *testing.T) {
+	repo := newStubSettings()
+	repo.set("rate_limit_enabled", "true")
+	repo.set(settingsKeyRPS, "0.1")
+	repo.set(settingsKeyBurst, "0") // burst=0 → reservation always fails
+	repo.set(settingsKeyMaxWaitMs, "0")
+
+	lim := &Limiter{
+		limiters: make(map[string]*keyEntry),
+		settings: repo,
+		stopCh:   make(chan struct{}),
+	}
+	defer lim.Stop()
+
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	handler := lim.Middleware(true)(next)
+
+	req := requestWithKey("key-reservation-fail")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusTooManyRequests {
+		t.Errorf("expected 429 when reservation fails (burst=0), got %d", rr.Code)
+	}
+	if h := rr.Header().Get("Retry-After"); h != "" {
+		// With burst=0 and delay=0, Retry-After should NOT be set
+		// (retryAfter=0 means no header)
+		t.Errorf("Retry-After should not be set when retryAfter=0, got %q", h)
+	}
+}
+
+// TestMiddleware_DisabledViaEnvNoBackpressure tests that when the enabled
+// parameter is false, requests pass through even if settings say enabled.
+// This verifies the hard kill-switch takes precedence over the DB setting.
+func TestMiddleware_DisabledViaEnvNoBackpressure(t *testing.T) {
+	repo := newStubSettings()
+	repo.set("rate_limit_enabled", "true")
+	repo.set(settingsKeyRPS, "1")
+	repo.set(settingsKeyBurst, "1")
+	repo.set(settingsKeyMaxWaitMs, "0")
+
+	lim := &Limiter{
+		limiters: make(map[string]*keyEntry),
+		settings: repo,
+		stopCh:   make(chan struct{}),
+	}
+	defer lim.Stop()
+
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	handler := lim.Middleware(false)(next) // enabled=false (env kill-switch)
+
+	// Even though DB says enabled=true with burst=1, many requests should pass
+	for i := 0; i < 10; i++ {
+		req := requestWithKey("key-env-disabled")
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+		if rr.Code != http.StatusOK {
+			t.Errorf("request %d: expected 200 when env kill-switch is off, got %d", i+1, rr.Code)
+		}
+	}
+}
+
+// TestMiddleware_ExtractKeyEmptyStringContext tests extractKey when the
+// context value exists but is an empty string. Should fall back to RemoteAddr.
+func TestMiddleware_ExtractKeyEmptyStringContext(t *testing.T) {
+	repo := newStubSettings()
+	repo.set("rate_limit_enabled", "true")
+	repo.set(settingsKeyRPS, "10")
+	repo.set(settingsKeyBurst, "2")
+	repo.set(settingsKeyMaxWaitMs, "0")
+
+	lim := &Limiter{
+		limiters: make(map[string]*keyEntry),
+		settings: repo,
+		stopCh:   make(chan struct{}),
+	}
+	defer lim.Stop()
+
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	handler := lim.Middleware(true)(next)
+
+	// Context has VirtualKeyHashKey but value is empty string
+	r := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	ctx := context.WithValue(r.Context(), ctxkeys.VirtualKeyHashKey, "")
+	r = r.WithContext(ctx)
+	r.RemoteAddr = "192.168.99.1:54321"
+
+	// Should fall back to RemoteAddr
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, r)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+}
+
+// TestMiddleware_BackpressurePassesContextValues tests that the middleware
+// passes the context with SettingsReadMsKey through to the next handler
+// even during backpressure (short wait within max_wait).
+func TestMiddleware_BackpressurePassesContextValues(t *testing.T) {
+	repo := newStubSettings()
+	repo.set("rate_limit_enabled", "true")
+	repo.set(settingsKeyRPS, "100")
+	repo.set(settingsKeyBurst, "1")
+	repo.set(settingsKeyMaxWaitMs, "500")
+
+	lim := &Limiter{
+		limiters: make(map[string]*keyEntry),
+		settings: repo,
+		stopCh:   make(chan struct{}),
+	}
+	defer lim.Stop()
+
+	var gotCtx context.Context
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotCtx = r.Context()
+		w.WriteHeader(http.StatusOK)
+	})
+	handler := lim.Middleware(true)(next)
+
+	// Use up burst
+	req := requestWithKey("key-ctx-bp")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	// Next request should go through backpressure path
+	req = requestWithKey("key-ctx-bp")
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200 via backpressure, got %d", rr.Code)
+	}
+
+	// Verify the context value was set
+	if gotCtx == nil {
+		t.Fatal("context should not be nil")
+	}
+	if gotCtx.Value(ctxkeys.SettingsReadMsKey) == nil {
+		t.Error("SettingsReadMsKey should be set in context during backpressure path")
+	}
+}
+
+// TestMiddleware_NonBackpressurePassesContextValues tests that the middleware
+// passes the context with SettingsReadMsKey through to the next handler
+// during the normal (non-backpressure) path.
+func TestMiddleware_NonBackpressurePassesContextValues(t *testing.T) {
+	repo := newStubSettings()
+	repo.set("rate_limit_enabled", "true")
+	repo.set(settingsKeyRPS, "10")
+	repo.set(settingsKeyBurst, "100")
+	repo.set(settingsKeyMaxWaitMs, "0")
+
+	lim := &Limiter{
+		limiters: make(map[string]*keyEntry),
+		settings: repo,
+		stopCh:   make(chan struct{}),
+	}
+	defer lim.Stop()
+
+	var gotCtx context.Context
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotCtx = r.Context()
+		w.WriteHeader(http.StatusOK)
+	})
+	handler := lim.Middleware(true)(next)
+
+	req := requestWithKey("key-ctx-normal")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+
+	if gotCtx == nil {
+		t.Fatal("context should not be nil")
+	}
+	if gotCtx.Value(ctxkeys.SettingsReadMsKey) == nil {
+		t.Error("SettingsReadMsKey should be set in context during normal path")
+	}
+}
