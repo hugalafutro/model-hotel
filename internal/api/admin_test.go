@@ -715,6 +715,116 @@ func TestAuthMiddleware_InvalidToken(t *testing.T) {
 	}
 }
 
+func TestAuthMiddleware_MalformedHeader_NoBearerPrefix(t *testing.T) {
+	mockAuth := &mockAdminAuth{validateFn: func(string) bool { return false }}
+	h := testHandler(nil, nil, nil, mockAuth, nil)
+	handler := h.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	req.Header.Set("Authorization", "Basic abc123")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("expected status %d for non-Bearer prefix, got %d", http.StatusUnauthorized, rec.Code)
+	}
+}
+
+func TestAuthMiddleware_EmptyAuthorizationHeader(t *testing.T) {
+	mockAuth := &mockAdminAuth{validateFn: func(string) bool { return false }}
+	h := testHandler(nil, nil, nil, mockAuth, nil)
+	handler := h.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	req.Header.Set("Authorization", "")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("expected status %d for empty Authorization header, got %d", http.StatusUnauthorized, rec.Code)
+	}
+}
+
+func TestAuthMiddleware_BearerWithEmptyToken(t *testing.T) {
+	mockAuth := &mockAdminAuth{validateFn: func(string) bool { return false }}
+	h := testHandler(nil, nil, nil, mockAuth, nil)
+	handler := h.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	req.Header.Set("Authorization", "Bearer ")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("expected status %d for Bearer with empty token, got %d", http.StatusUnauthorized, rec.Code)
+	}
+}
+
+func TestAuthMiddleware_TokenWithLeadingWhitespace(t *testing.T) {
+	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return token == "valid-token" }}
+	h := testHandler(nil, nil, nil, mockAuth, nil)
+	handler := h.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	// "Bearer  valid-token" (double space) — ParseBearerToken returns " valid-token"
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	req.Header.Set("Authorization", "Bearer  valid-token")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	// Token has leading space, so admin validation should fail
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("expected status %d for token with leading space, got %d", http.StatusUnauthorized, rec.Code)
+	}
+}
+
+func TestAuthMiddleware_WebAuthnSessionFallback(t *testing.T) {
+	mockAuth := &mockAdminAuth{validateFn: func(string) bool { return false }}
+	h := testHandler(nil, nil, nil, mockAuth, nil)
+	h.webauthnSessionMgr = &mockWebAuthnSessionMgr{
+		validateFn: func(_ context.Context, token string) bool { return token == "session-token" },
+	}
+	handler := h.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	req.Header.Set("Authorization", "Bearer session-token")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected status %d when webAuthn fallback succeeds, got %d", http.StatusOK, rec.Code)
+	}
+}
+
+func TestAuthMiddleware_WebAuthnSessionFallbackFails(t *testing.T) {
+	mockAuth := &mockAdminAuth{validateFn: func(string) bool { return false }}
+	h := testHandler(nil, nil, nil, mockAuth, nil)
+	h.webauthnSessionMgr = &mockWebAuthnSessionMgr{
+		validateFn: func(_ context.Context, _ string) bool { return false },
+	}
+	handler := h.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	req.Header.Set("Authorization", "Bearer bad-token")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("expected status %d when both admin and webAuthn fail, got %d", http.StatusUnauthorized, rec.Code)
+	}
+}
+
 // --- Pure function tests ---
 
 func TestIsUniqueViolation(t *testing.T) {
