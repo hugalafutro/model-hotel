@@ -204,7 +204,7 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
 		entries = append(entries, entry)
 	}
 
-	entries, hasAfter, hasBefore := paginate(entries, p)
+	entries, hasAfter, hasBefore := paginateCursor(entries, p.direction, p.limit, p.cursorStr != "")
 
 	response := LogsCursorResponse{
 		Entries:   entries,
@@ -294,37 +294,39 @@ func (h *Handler) countLogs(ctx context.Context, p logListParams) int {
 	return total
 }
 
-// paginate applies has_after/has_before detection (using the fetched-one-extra
-// signal and cursor presence), trims to p.limit, and reverses the slice for
-// backward pagination (which fetched in inverted sort order).
-func paginate(entries []LogEntry, p logListParams) ([]LogEntry, bool, bool) {
+// paginateCursor applies has_after/has_before detection (using the fetched-one-
+// extra signal and cursor presence), trims to limit, and reverses the slice for
+// backward pagination (which fetched in inverted sort order). It is the single
+// keyset-pagination tail shared by the request-log, app-log, and model cursor
+// endpoints (T = LogEntry | AppLogEntry | ModelResponse).
+func paginateCursor[T any](entries []T, direction string, limit int, hasCursor bool) ([]T, bool, bool) {
 	var hasAfter, hasBefore bool
-	switch p.direction {
+	switch direction {
 	case "after":
 		// Fetching older entries (scroll down or initial load).
-		if len(entries) > p.limit {
+		if len(entries) > limit {
 			hasAfter = true
-			entries = entries[:p.limit]
+			entries = entries[:limit]
 		}
 		// For an initial request (no cursor) we're at the newest — nothing
 		// before. For cursor requests, assume newer entries exist until proven
 		// otherwise (a fetchBefore returning 0 corrects this client-side).
-		if p.cursorStr != "" {
+		if hasCursor {
 			hasBefore = true
 		}
 	case "before":
 		// Fetching newer entries (scroll up).
-		if len(entries) > p.limit {
+		if len(entries) > limit {
 			hasBefore = true
-			entries = entries[:p.limit]
+			entries = entries[:limit]
 		}
 		// Items exist after the cursor by definition.
-		if p.cursorStr != "" {
+		if hasCursor {
 			hasAfter = true
 		}
 	}
 
-	if p.direction == "before" {
+	if direction == "before" {
 		slices.Reverse(entries)
 	}
 	return entries, hasAfter, hasBefore

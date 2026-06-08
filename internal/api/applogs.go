@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -356,45 +355,6 @@ func appendAppLogKeysetPredicate(conditions []string, args []any, argIdx int, cu
 	return conditions, args, argIdx
 }
 
-// paginateAppLogs applies has_after/has_before detection (using the fetched-one-
-// extra signal and cursor presence), trims to limit, and reverses the slice for
-// backward pagination (which fetched in inverted sort order). Mirror of paginate
-// for AppLogEntry.
-func paginateAppLogs(entries []AppLogEntry, direction string, limit int, hasCursor bool) ([]AppLogEntry, bool, bool) {
-	var hasAfter, hasBefore bool
-	switch direction {
-	case "after":
-		// Fetching older entries (scroll down or initial load).
-		if len(entries) > limit {
-			hasAfter = true
-			entries = entries[:limit]
-		}
-		// For an initial request (no cursor) we're at the newest — nothing before.
-		// For cursor requests, assume newer entries exist until a fetchBefore proves
-		// otherwise.
-		if hasCursor {
-			hasBefore = true
-		}
-	case "before":
-		// Fetching newer entries (scroll up).
-		if len(entries) > limit {
-			hasBefore = true
-			entries = entries[:limit]
-		}
-		// Items exist after the cursor by definition.
-		if hasCursor {
-			hasAfter = true
-		}
-	}
-
-	// Reverse for backward pagination: we fetched in inverted sort order to get the
-	// correct window, but must return in the user's requested sort order.
-	if direction == "before" {
-		slices.Reverse(entries)
-	}
-	return entries, hasAfter, hasBefore
-}
-
 // getAppLogsHistory queries app_logs from the database with filtering and pagination.
 func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 	if h.dbPool == nil {
@@ -633,7 +593,7 @@ func (h *Handler) GetAppLogsCursor(w http.ResponseWriter, r *http.Request) {
 		entries = append(entries, e)
 	}
 
-	entries, hasAfter, hasBefore := paginateAppLogs(entries, direction, limit, cursorStr != "")
+	entries, hasAfter, hasBefore := paginateCursor(entries, direction, limit, cursorStr != "")
 
 	// Get cached counts
 	levelCounts, sourceCounts := h.getAppLogCounts(ctx)

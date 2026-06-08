@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -64,7 +63,7 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 		entries = append(entries, modelToResponse(m))
 	}
 
-	entries, hasAfter, hasBefore := paginateModels(entries, p)
+	entries, hasAfter, hasBefore := paginateCursor(entries, p.direction, p.limit, p.cursorStr != "")
 
 	writeJSON(w, ModelsCursorResponse{
 		Entries:   entries,
@@ -172,38 +171,6 @@ func parseModelListParams(w http.ResponseWriter, r *http.Request) (modelListPara
 		}
 	}
 	return p, true
-}
-
-// paginateModels applies has_after/has_before detection (using the fetched-one-
-// extra signal and cursor presence), trims to p.limit, and reverses the slice for
-// backward pagination (which fetched in inverted sort order). Mirror of paginate.
-func paginateModels(entries []ModelResponse, p modelListParams) ([]ModelResponse, bool, bool) {
-	var hasAfter, hasBefore bool
-	switch p.direction {
-	case "after":
-		if len(entries) > p.limit {
-			hasAfter = true
-			entries = entries[:p.limit]
-		}
-		if p.cursorStr != "" {
-			hasBefore = true
-		}
-	case "before":
-		if len(entries) > p.limit {
-			hasBefore = true
-			entries = entries[:p.limit]
-		}
-		if p.cursorStr != "" {
-			hasAfter = true
-		}
-	}
-
-	// Reverse for backward pagination: we fetched in inverted sort order to get
-	// the correct window, but must return in the user's requested sort order.
-	if p.direction == "before" {
-		slices.Reverse(entries)
-	}
-	return entries, hasAfter, hasBefore
 }
 
 // modelSelectColumns is the cursor data query's column projection (models joined
