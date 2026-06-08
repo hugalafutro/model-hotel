@@ -1676,3 +1676,155 @@ func TestUpdate_CancelledContext(t *testing.T) {
 		t.Error("expected error with cancelled context, got nil")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// TestGetByIDs uncached/mixed paths
+// ---------------------------------------------------------------------------
+
+// TestGetByIDs_AfterCacheInvalidation verifies that GetByIDs fetches from the
+// database after the cache is invalidated, and that WarmModelCache is called
+// on the results (subsequent lookups hit the refreshed cache).
+func TestGetByIDs_AfterCacheInvalidation(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+	InvalidateModelCache()
+
+	providerID := insertTestProvider(ctx, t, "test-getbyids-after-invalidate")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+
+	id1 := insertTestModel(ctx, t, providerID, "post-invalidate-a")
+	id2 := insertTestModel(ctx, t, providerID, "post-invalidate-b")
+
+	// First call populates cache via WarmModelCache
+	result, err := repo.GetByIDs(ctx, []uuid.UUID{id1, id2})
+	if err != nil {
+		t.Fatalf("GetByIDs failed: %v", err)
+	}
+	if len(result) != 2 {
+		t.Fatalf("expected 2 models, got %d", len(result))
+	}
+	if result[id1].ModelID != "post-invalidate-a" {
+		t.Errorf("model 1 ModelID: got %q, want %q", result[id1].ModelID, "post-invalidate-a")
+	}
+	if result[id2].ModelID != "post-invalidate-b" {
+		t.Errorf("model 2 ModelID: got %q, want %q", result[id2].ModelID, "post-invalidate-b")
+	}
+
+	// Both should be cached now
+	if !IsCachedByUUID(id1) {
+		t.Error("id1 should be cached after GetByIDs")
+	}
+	if !IsCachedByUUID(id2) {
+		t.Error("id2 should be cached after GetByIDs")
+	}
+
+	// Invalidate cache and fetch again — should go to DB
+	InvalidateModelCache()
+
+	if IsCachedByUUID(id1) {
+		t.Error("id1 should not be cached after invalidation")
+	}
+
+	result2, err := repo.GetByIDs(ctx, []uuid.UUID{id1, id2})
+	if err != nil {
+		t.Fatalf("GetByIDs after invalidation failed: %v", err)
+	}
+	if len(result2) != 2 {
+		t.Fatalf("expected 2 models after invalidation, got %d", len(result2))
+	}
+
+	// WarmModelCache should have been called — both back in cache
+	if !IsCachedByUUID(id1) {
+		t.Error("id1 should be cached after second GetByIDs (WarmModelCache)")
+	}
+	if !IsCachedByUUID(id2) {
+		t.Error("id2 should be cached after second GetByIDs (WarmModelCache)")
+	}
+}
+
+// TestGetByIDs_MixedCacheAndDB verifies the uncached path where some requested
+// IDs are already in cache and others require a database fetch.
+func TestGetByIDs_MixedCacheAndDB(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+	InvalidateModelCache()
+
+	providerID := insertTestProvider(ctx, t, "test-getbyids-mixed")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+
+	id1 := insertTestModel(ctx, t, providerID, "mixed-cached")
+	id2 := insertTestModel(ctx, t, providerID, "mixed-uncached")
+	id3 := insertTestModel(ctx, t, providerID, "mixed-also-uncached")
+
+	// Fetch id1 alone to put it in the UUID cache
+	_, err := repo.Get(ctx, id1)
+	if err != nil {
+		t.Fatalf("Get id1 failed: %v", err)
+	}
+	if !IsCachedByUUID(id1) {
+		t.Fatal("id1 should be cached after Get")
+	}
+
+	// id2 and id3 should NOT be cached yet
+	if IsCachedByUUID(id2) {
+		t.Error("id2 should not be cached yet")
+	}
+	if IsCachedByUUID(id3) {
+		t.Error("id3 should not be cached yet")
+	}
+
+	// Now fetch all three — id1 from cache, id2+id3 from DB
+	result, err := repo.GetByIDs(ctx, []uuid.UUID{id1, id2, id3})
+	if err != nil {
+		t.Fatalf("GetByIDs failed: %v", err)
+	}
+	if len(result) != 3 {
+		t.Fatalf("expected 3 models, got %d", len(result))
+	}
+	if result[id1].ModelID != "mixed-cached" {
+		t.Errorf("cached model: ModelID got %q, want %q", result[id1].ModelID, "mixed-cached")
+	}
+	if result[id2].ModelID != "mixed-uncached" {
+		t.Errorf("uncached model: ModelID got %q, want %q", result[id2].ModelID, "mixed-uncached")
+	}
+	if result[id3].ModelID != "mixed-also-uncached" {
+		t.Errorf("uncached model: ModelID got %q, want %q", result[id3].ModelID, "mixed-also-uncached")
+	}
+
+	// WarmModelCache should have cached id2 and id3
+	if !IsCachedByUUID(id2) {
+		t.Error("id2 should be cached after GetByIDs mixed fetch")
+	}
+	if !IsCachedByUUID(id3) {
+		t.Error("id3 should be cached after GetByIDs mixed fetch")
+	}
+}
+
+// TestGetByIDs_PartiallyNonExistent verifies that when some IDs exist and
+// others don't, the existing ones are returned and the non-existent ones
+// are simply absent from the result map.
+func TestGetByIDs_PartiallyNonExistent(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+	InvalidateModelCache()
+
+	providerID := insertTestProvider(ctx, t, "test-getbyids-partial")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+
+	id1 := insertTestModel(ctx, t, providerID, "partial-exists")
+	id2 := uuid.New() // does not exist
+
+	result, err := repo.GetByIDs(ctx, []uuid.UUID{id1, id2})
+	if err != nil {
+		t.Fatalf("GetByIDs failed: %v", err)
+	}
+	if len(result) != 1 {
+		t.Fatalf("expected 1 model (existing), got %d", len(result))
+	}
+	if result[id1].ModelID != "partial-exists" {
+		t.Errorf("ModelID: got %q, want %q", result[id1].ModelID, "partial-exists")
+	}
+	if _, ok := result[id2]; ok {
+		t.Error("non-existent id2 should not be in result map")
+	}
+}
