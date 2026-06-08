@@ -174,35 +174,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		_ = resp.Body.Close()
-		errMsg := util.SanitizeLogBody(string(body), 10000)
-		debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "body", errMsg)
-		debuglog.Debug("proxy: upstream error response", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "body_length", len(body), "attempt", attempt+1)
-		logData.responseHeaderMs = responseHeaderMs
-		h.failRequest(logData, resp.StatusCode, errMsg, attempt, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
-
-		if !hasMoreCandidates {
-			// All failover candidates exhausted — return a generic error.
-			// The full upstream body is logged server-side above but not
-			// forwarded, as it may contain provider-specific details.
-			writeOpenAIError(w, fmt.Sprintf("upstream provider returned HTTP %d", resp.StatusCode), resp.StatusCode)
-			return outcomeFatal
-		}
-
-		// Non-failover-eligible error with remaining candidates — forward
-		// the upstream response so clients can react to semantic errors
-		// (e.g. context_length_exceeded, rate_limit_exceeded).
-		if json.Valid(body) {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(resp.StatusCode)
-			_, _ = w.Write(body)
-		} else {
-			// Body is not JSON (e.g. HTML from a CDN). Wrap in an
-			// OpenAI-compatible envelope so JSON-parsing clients don't crash.
-			writeOpenAIError(w, errMsg, resp.StatusCode)
-		}
-		return outcomeFatal
+		return h.forwardUpstreamError(w, st, candidate, resp, attempt, hasMoreCandidates, responseHeaderMs)
 	}
 
 	debuglog.Debug("proxy: upstream responded OK, dispatching to handler", "stream", st.isStreaming, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
@@ -376,6 +348,45 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 	// Log upstream response metadata for debugging.
 	debuglog.Debug("proxy: upstream response received", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "status", resp.StatusCode, "content_type", resp.Header.Get("Content-Type"), "x_request_id", resp.Header.Get("X-Request-Id"), "x_ratelimit_remaining", resp.Header.Get("X-RateLimit-Remaining"), "attempt", attempt+1)
 	return resp, true
+}
+
+// forwardUpstreamError handles a non-200 upstream response that is NOT being
+// failed over (phase G): log + meter the failure via failRequest, then either
+// return a generic OpenAI error when the candidates are exhausted or forward the
+// upstream body (wrapping non-JSON bodies in an OpenAI envelope) so clients can
+// react to semantic errors. Drains/closes resp.Body exactly once and always
+// returns outcomeFatal.
+func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, candidate modelCandidate, resp *http.Response, attempt int, hasMoreCandidates bool, responseHeaderMs float64) candidateOutcome {
+	logData := st.logData
+	body, _ := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	errMsg := util.SanitizeLogBody(string(body), 10000)
+	debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "body", errMsg)
+	debuglog.Debug("proxy: upstream error response", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "body_length", len(body), "attempt", attempt+1)
+	logData.responseHeaderMs = responseHeaderMs
+	h.failRequest(logData, resp.StatusCode, errMsg, attempt, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
+
+	if !hasMoreCandidates {
+		// All failover candidates exhausted — return a generic error.
+		// The full upstream body is logged server-side above but not
+		// forwarded, as it may contain provider-specific details.
+		writeOpenAIError(w, fmt.Sprintf("upstream provider returned HTTP %d", resp.StatusCode), resp.StatusCode)
+		return outcomeFatal
+	}
+
+	// Non-failover-eligible error with remaining candidates — forward
+	// the upstream response so clients can react to semantic errors
+	// (e.g. context_length_exceeded, rate_limit_exceeded).
+	if json.Valid(body) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(resp.StatusCode)
+		_, _ = w.Write(body)
+	} else {
+		// Body is not JSON (e.g. HTML from a CDN). Wrap in an
+		// OpenAI-compatible envelope so JSON-parsing clients don't crash.
+		writeOpenAIError(w, errMsg, resp.StatusCode)
+	}
+	return outcomeFatal
 }
 
 // recordBreakerOutcome records the circuit-breaker result for a completed
