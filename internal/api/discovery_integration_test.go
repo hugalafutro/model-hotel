@@ -3005,3 +3005,83 @@ func TestGetProviderUsage_NeuralWattError(t *testing.T) {
 		t.Errorf("expected error about fetch quota, got %q", w.Body.String())
 	}
 }
+
+// TestRefreshAllQuotas_MixedResults tests that RefreshAllQuotas continues
+// processing all providers even when one fails, returning partial results.
+func TestRefreshAllQuotas_MixedResults(t *testing.T) {
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{
+				roundTripFunc: func(req *http.Request) (*http.Response, error) {
+					// NanoGPT succeeds
+					if strings.Contains(req.URL.Host, "api.nano-gpt.com") || strings.Contains(req.URL.Host, "nano-gpt.com") {
+						resp := `{"active":true,"provider":"nanogpt","providerStatus":"active","providerStatusRaw":"active","limits":{},"dailyInputTokens":{"used":100,"limit":1000},"state":"active"}`
+						return &http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(strings.NewReader(resp)),
+							Header:     make(http.Header),
+						}, nil
+					}
+					// DeepSeek fails
+					if strings.Contains(req.URL.Host, "api.deepseek.com") {
+						return &http.Response{
+							StatusCode: http.StatusInternalServerError,
+							Body:       io.NopCloser(strings.NewReader(`{"error":"internal"}`)),
+							Header:     make(http.Header),
+						}, nil
+					}
+					return &http.Response{
+						StatusCode: http.StatusNotFound,
+						Body:       io.NopCloser(strings.NewReader(`not found`)),
+						Header:     make(http.Header),
+					}, nil
+				},
+			},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
+
+	nanoProv := createTestProvider(t, "mixed-nanogpt", "https://api.nano-gpt.com/v1", testMasterKeyForDiscovery)
+	dsProv := createTestProvider(t, "mixed-deepseek", "https://api.deepseek.com/v1", testMasterKeyForDiscovery)
+	mockProv := &mockProviderStore{
+		listFn: func(ctx context.Context) ([]*provider.Provider, error) {
+			return []*provider.Provider{nanoProv, dsProv}, nil
+		},
+	}
+	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := testHandler(mockProv, nil, nil, mockAuth, nil)
+	h.cfg.MasterKey = testMasterKeyForDiscovery
+
+	r := chi.NewRouter()
+	r.Post("/providers/refresh-quotas", h.RefreshAllQuotas)
+
+	req := httptest.NewRequest(http.MethodPost, "/providers/refresh-quotas", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	// One succeeded, one failed
+	if resp["refreshed"].(float64) != 1 {
+		t.Errorf("expected 1 refreshed, got %v", resp["refreshed"])
+	}
+	if resp["failed"].(float64) != 1 {
+		t.Errorf("expected 1 failed, got %v", resp["failed"])
+	}
+
+	results := resp["results"].([]interface{})
+	if len(results) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(results))
+	}
+}

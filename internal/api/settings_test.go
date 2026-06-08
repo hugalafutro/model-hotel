@@ -373,3 +373,39 @@ func TestAllowedSettingsSync(t *testing.T) {
 		t.Errorf("key %q in api.allowedSettings but missing from settings.AllowedSettings", k)
 	}
 }
+
+// TestUpdateSettings_EmptySettings tests that UpdateSettings returns 400
+// when the request body is an empty object.
+func TestUpdateSettings_EmptySettings(t *testing.T) {
+	h := &Handler{dbPool: nil}
+	req := httptest.NewRequest(http.MethodPut, "/api/settings", strings.NewReader("{}"))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	h.UpdateSettings(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d", http.StatusBadRequest, rr.Code)
+	}
+	if !strings.Contains(rr.Body.String(), "no settings provided") {
+		t.Errorf("expected body to contain %q, got %q", "no settings provided", rr.Body.String())
+	}
+}
+
+// TestUpdateSettings_UnknownKey tests that UpdateSettings returns 400
+// when the request contains a key not in the allowed settings list.
+func TestUpdateSettings_UnknownKey(t *testing.T) {
+	h := &Handler{dbPool: nil}
+	req := httptest.NewRequest(http.MethodPut, "/api/settings", strings.NewReader(`{"not_a_real_setting":"value"}`))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	h.UpdateSettings(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d", http.StatusBadRequest, rr.Code)
+	}
+	if !strings.Contains(rr.Body.String(), "unknown setting") {
+		t.Errorf("expected body to contain %q, got %q", "unknown setting", rr.Body.String())
+	}
+}

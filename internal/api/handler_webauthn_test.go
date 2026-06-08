@@ -1493,6 +1493,68 @@ func TestWebAuthnHandler_ListCredentials_RepoError(t *testing.T) {
 	}
 }
 
+// TestWebAuthnHandler_RenameCredential_MissingNameField tests that a request
+// with valid JSON but no "name" field (zero-value string) returns 400.
+func TestWebAuthnHandler_RenameCredential_MissingNameField(t *testing.T) {
+	h := newTestWebAuthnHandler(nil, nil, nil, nil)
+
+	body := `{}`
+	req := httptest.NewRequest(http.MethodPatch, "/webauthn/credentials/dGVzdA", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", "dGVzdA")
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+	h.RenameCredential(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "name must be 1-128 characters") {
+		t.Errorf("expected error about name length, got: %s", w.Body.String())
+	}
+}
+
+// TestWebAuthnHandler_RenameCredential_NonExistentCredential tests that
+// renaming a valid base64url ID that does not exist in the repo returns 500.
+func TestWebAuthnHandler_RenameCredential_NonExistentCredential(t *testing.T) {
+	dbURL := apiTestDBURL
+	if dbURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	pool, err := pgxpool.New(context.Background(), dbURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	t.Cleanup(pool.Close)
+
+	repo := webauthn.NewRepository(pool)
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := newTestWebAuthnHandler(repo, nil, nil, adminMgr)
+
+	// Use a valid base64url-encoded ID that was never stored
+	credID := []byte("nonexistent-rename-id")
+	encodedID := base64.RawURLEncoding.EncodeToString(credID)
+
+	body := renameCredentialRequest{Name: "New Name"}
+	bodyBytes, _ := json.Marshal(body)
+	req := httptest.NewRequest(http.MethodPatch, "/webauthn/credentials/"+encodedID, strings.NewReader(string(bodyBytes)))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-token")
+	w := httptest.NewRecorder()
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", encodedID)
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+	h.RenameCredential(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
+	}
+}
+
 // mockWebAuthnSessionMgr implements WebAuthnSessionManager for testing
 type mockWebAuthnSessionMgr struct {
 	validateFn func(ctx context.Context, token string) bool

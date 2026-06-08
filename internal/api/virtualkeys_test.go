@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/hugalafutro/model-hotel/internal/virtualkey"
 )
@@ -357,6 +358,41 @@ func TestCond_EmptyStringFalse(t *testing.T) {
 	result := cond("", false)
 	if result != "" {
 		t.Errorf("cond(%q, false) = %q, want empty string", "", result)
+	}
+}
+
+// TestCreateVirtualKey_DuplicateName tests that CreateVirtualKey returns
+// an error from the repo when creating a key with a name that already exists.
+// The unique constraint violation surfaces as a 500 (repo error).
+func TestCreateVirtualKey_DuplicateName(t *testing.T) {
+	mockVK := &mockVirtualKeyStore{
+		createFn: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
+			return nil, &pgconn.PgError{Code: "23505"}
+		},
+	}
+	h := testHandler(nil, mockVK, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	body := bytes.NewReader([]byte(`{"name":"duplicate-key"}`))
+	req, w := newChiRequest(http.MethodPost, "/virtual-keys", body)
+
+	h.CreateVirtualKey(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
+	}
+}
+
+// TestCreateVirtualKey_NameTooLong tests that CreateVirtualKey returns 400
+// when the name exceeds the maximum length.
+func TestCreateVirtualKey_NameTooLong(t *testing.T) {
+	h := testHandler(nil, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	longName := strings.Repeat("a", 101)
+	body := bytes.NewReader([]byte(fmt.Sprintf(`{"name":"%s"}`, longName)))
+	req, w := newChiRequest(http.MethodPost, "/virtual-keys", body)
+
+	h.CreateVirtualKey(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
 	}
 }
 
@@ -758,6 +794,146 @@ func TestUpdateVirtualKeyRequest_UnmarshalJSON_OnlyStripReasoningPresent(t *test
 	}
 	if !req.stripReasoningPresent {
 		t.Error("expected stripReasoningPresent=true")
+	}
+}
+
+// TestUpdateVirtualKey_NotFound tests that UpdateVirtualKey returns 404 when
+// the key does not exist in the database.
+func TestUpdateVirtualKey_NotFound(t *testing.T) {
+	mockVK := &mockVirtualKeyStore{
+		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
+			return nil, virtualkey.ErrNotFound
+		},
+	}
+	h := testHandler(nil, mockVK, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+
+	id := uuid.New()
+	// Include allowed_providers and strip_reasoning in the request to skip the Get call
+	body := bytes.NewReader([]byte(`{"name":"updated-name","allowed_providers":null,"strip_reasoning":false}`))
+	req, w := newChiRequest(http.MethodPut, "/virtual-keys/"+id.String(), body)
+	req = setChiURLParam(req, "id", id.String())
+
+	h.UpdateVirtualKey(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusNotFound, w.Code, w.Body.String())
+	}
+}
+
+// TestUpdateVirtualKey_PartialUpdate_NameOnly tests that UpdateVirtualKey
+// can update only the name while preserving existing allowed_providers and
+// strip_reasoning values from the existing key.
+func TestUpdateVirtualKey_PartialUpdate_NameOnly(t *testing.T) {
+	id := uuid.New()
+	existingProviders := []string{"prov-a", "prov-b"}
+
+	mockVK := &mockVirtualKeyStore{
+		getFn: func(ctx context.Context, vid uuid.UUID) (*virtualkey.VirtualKey, error) {
+			return &virtualkey.VirtualKey{
+				ID:               vid,
+				Name:             "old-name",
+				KeyHash:          "hash123",
+				KeyPreview:       "sk-...ex",
+				AllowedProviders: &existingProviders,
+				StripReasoning:   true,
+			}, nil
+		},
+		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
+			if name != "new-name" {
+				t.Errorf("expected name 'new-name', got %q", name)
+			}
+			// Verify existing providers were preserved
+			if allowedProviders == nil || len(*allowedProviders) != 2 {
+				t.Errorf("expected 2 allowed providers preserved, got %v", allowedProviders)
+			}
+			// Verify existing strip_reasoning was preserved
+			if stripReasoning == nil || !*stripReasoning {
+				t.Error("expected strip_reasoning=true to be preserved")
+			}
+			return &virtualkey.VirtualKey{
+				ID:               vid,
+				Name:             name,
+				KeyHash:          "hash123",
+				KeyPreview:       "sk-...up",
+				AllowedProviders: allowedProviders,
+				StripReasoning:   true,
+			}, nil
+		},
+	}
+	auth := &mockAdminAuth{validateFn: func(string) bool { return true }}
+	h := testHandler(nil, mockVK, nil, auth, nil)
+
+	// Body only contains name — allowed_providers and strip_reasoning are omitted
+	body := bytes.NewReader([]byte(`{"name":"new-name"}`))
+	req, w := newChiRequest(http.MethodPut, "/virtual-keys/"+id.String(), body)
+	req = setChiURLParam(req, "id", id.String())
+
+	h.UpdateVirtualKey(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+// TestUpdateVirtualKey_ReservedName tests that UpdateVirtualKey rejects
+// reserved names.
+func TestUpdateVirtualKey_ReservedName(t *testing.T) {
+	auth := &mockAdminAuth{validateFn: func(string) bool { return true }}
+	h := testHandler(nil, nil, nil, auth, nil)
+
+	for _, name := range []string{"chat", "arena", "completions", "admin"} {
+		t.Run(name, func(t *testing.T) {
+			id := uuid.New()
+			body := bytes.NewReader([]byte(fmt.Sprintf(`{"name":"%s"}`, name)))
+			req, w := newChiRequest(http.MethodPut, "/virtual-keys/"+id.String(), body)
+			req = setChiURLParam(req, "id", id.String())
+
+			h.UpdateVirtualKey(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Errorf("reserved name %q: expected status %d, got %d", name, http.StatusBadRequest, w.Code)
+			}
+		})
+	}
+}
+
+// TestUpdateVirtualKey_InvalidUUID tests that UpdateVirtualKey returns 400
+// when the URL contains an invalid UUID.
+func TestUpdateVirtualKey_InvalidUUID(t *testing.T) {
+	h := testHandler(nil, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	body := bytes.NewReader([]byte(`{"name":"test"}`))
+	req, w := newChiRequest(http.MethodPut, "/virtual-keys/not-a-uuid", body)
+	req = setChiURLParam(req, "id", "not-a-uuid")
+
+	h.UpdateVirtualKey(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+}
+
+// TestUpdateVirtualKey_GetKeyError tests that UpdateVirtualKey returns 500 when
+// fetching the existing key fails with a non-ErrNotFound error (during the
+// allowed_providers/strip_reasoning preservation lookup).
+func TestUpdateVirtualKey_GetKeyError(t *testing.T) {
+	id := uuid.New()
+	mockVK := &mockVirtualKeyStore{
+		getFn: func(ctx context.Context, vid uuid.UUID) (*virtualkey.VirtualKey, error) {
+			return nil, errors.New("db connection lost")
+		},
+	}
+	auth := &mockAdminAuth{validateFn: func(string) bool { return true }}
+	h := testHandler(nil, mockVK, nil, auth, nil)
+
+	// Omit allowed_providers to trigger the Get call for preservation
+	body := bytes.NewReader([]byte(`{"name":"updated-key"}`))
+	req, w := newChiRequest(http.MethodPut, "/virtual-keys/"+id.String(), body)
+	req = setChiURLParam(req, "id", id.String())
+
+	h.UpdateVirtualKey(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
 	}
 }
 

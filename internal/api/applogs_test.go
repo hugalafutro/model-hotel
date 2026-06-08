@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -1889,5 +1892,90 @@ func TestGetAppLogsHistory_DateRangeBoundary(t *testing.T) {
 	// The exact count depends on timing, but total should be less than 3
 	if resp.Total > 3 {
 		t.Errorf("expected total <= 3 with from filter, got %d", resp.Total)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// scanAppLogRow unit tests
+// ---------------------------------------------------------------------------
+
+// mockAppLogRows implements pgx.Rows for testing scanAppLogRow error paths.
+type mockAppLogRows struct {
+	scanFn  func(dest ...interface{}) error
+	closeFn func()
+}
+
+func (m *mockAppLogRows) Close()                        { m.closeFn() }
+func (m *mockAppLogRows) Err() error                    { return nil }
+func (m *mockAppLogRows) CommandTag() pgconn.CommandTag { return pgconn.NewCommandTag("") }
+func (m *mockAppLogRows) FieldDescriptions() []pgconn.FieldDescription {
+	return nil
+}
+func (m *mockAppLogRows) Next() bool                     { return false }
+func (m *mockAppLogRows) Scan(dest ...interface{}) error { return m.scanFn(dest...) }
+func (m *mockAppLogRows) Values() ([]interface{}, error) { return nil, nil }
+func (m *mockAppLogRows) RawValues() [][]byte            { return nil }
+func (m *mockAppLogRows) Conn() *pgx.Conn                { return nil }
+
+// TestScanAppLogRow_ScanError tests that scanAppLogRow returns an error
+// when the underlying row scan fails (e.g. wrong column count or type mismatch).
+func TestScanAppLogRow_ScanError(t *testing.T) {
+	rows := &mockAppLogRows{
+		scanFn: func(dest ...interface{}) error {
+			return errors.New("scan error: wrong column count")
+		},
+		closeFn: func() {},
+	}
+
+	_, err := scanAppLogRow(rows)
+	if err == nil {
+		t.Fatal("expected error from scanAppLogRow when Scan fails, got nil")
+	}
+	if !strings.Contains(err.Error(), "scan error") {
+		t.Errorf("expected scan error message, got %q", err.Error())
+	}
+}
+
+// TestScanAppLogRow_Success tests that scanAppLogRow correctly maps
+// database columns to AppLogEntry fields with proper UTC formatting.
+func TestScanAppLogRow_Success(t *testing.T) {
+	now := time.Now().UTC()
+	catTime := now.Add(-time.Second)
+
+	rows := &mockAppLogRows{
+		scanFn: func(dest ...interface{}) error {
+			*(dest[0].(*string)) = "test-id-123"
+			*(dest[1].(*time.Time)) = catTime
+			*(dest[2].(*time.Time)) = now
+			*(dest[3].(*string)) = "error"
+			*(dest[4].(*string)) = "proxy"
+			*(dest[5].(*string)) = "connection refused"
+			return nil
+		},
+		closeFn: func() {},
+	}
+
+	entry, err := scanAppLogRow(rows)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if entry.ID != "test-id-123" {
+		t.Errorf("ID = %q, want %q", entry.ID, "test-id-123")
+	}
+	if entry.Level != "error" {
+		t.Errorf("Level = %q, want %q", entry.Level, "error")
+	}
+	if entry.Source != "proxy" {
+		t.Errorf("Source = %q, want %q", entry.Source, "proxy")
+	}
+	if entry.Message != "connection refused" {
+		t.Errorf("Message = %q, want %q", entry.Message, "connection refused")
+	}
+	// Verify timestamps are formatted as RFC3339Nano in UTC
+	if _, parseErr := time.Parse(time.RFC3339Nano, entry.CreatedAt); parseErr != nil {
+		t.Errorf("CreatedAt is not valid RFC3339Nano: %q, error: %v", entry.CreatedAt, parseErr)
+	}
+	if _, parseErr := time.Parse(time.RFC3339Nano, entry.Timestamp); parseErr != nil {
+		t.Errorf("Timestamp is not valid RFC3339Nano: %q, error: %v", entry.Timestamp, parseErr)
 	}
 }
