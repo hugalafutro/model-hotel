@@ -1,12 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, HardDrive, Plus, Trash2, Upload } from "lucide-react";
+import {
+	AlertTriangle,
+	Download,
+	HardDrive,
+	Plus,
+	Trash2,
+	Upload,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, getAuthHeaders } from "../../api/client";
+import type { BackupClassification } from "../../api/types";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
+import { Modal } from "../../components/Modal";
 import { RestoreConfirmModal } from "../../components/RestoreConfirmModal";
 import { SettingsSection } from "../../components/SettingsSection";
+import { SettingsSlider } from "../../components/SettingsSlider";
 import { Spinner } from "../../components/Spinner";
+import { Toggle } from "../../components/Toggle";
 import { useToast } from "../../context/ToastContext";
 import { formatDateTimeShort } from "../../utils/format";
 
@@ -26,6 +37,10 @@ export function DatabaseBackupSettings({
 	const [restoreFile, setRestoreFile] = useState<File | null>(null);
 	const [showRestoreModal, setShowRestoreModal] = useState(false);
 	const [isRestoring, setIsRestoring] = useState(false);
+	const [showEnableConfirm, setShowEnableConfirm] = useState(false);
+	const [prunePreview, setPrunePreview] = useState<BackupClassification | null>(
+		null,
+	);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const pollingRef = useRef(false);
 
@@ -67,6 +82,43 @@ export function DatabaseBackupSettings({
 			);
 		},
 	});
+
+	// Settings for periodic backup
+	const { data: settings } = useQuery({
+		queryKey: ["settings"],
+		queryFn: () => api.settings.get(),
+	});
+
+	const settingsUpdateMutation = useMutation({
+		mutationFn: (updates: Record<string, string>) =>
+			api.settings.update(updates),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["settings"] });
+		},
+		onError: (err: Error) => {
+			toast(
+				t("settings.common.failedToSave", { message: err.message }),
+				"error",
+			);
+		},
+	});
+
+	const backupEnabled = settings?.backup_enabled === "true";
+	// Parse interval: backend stores as Go duration string (e.g. "86400s" or "24h").
+	// Display and edit in hours.
+	const rawInterval = settings?.backup_interval || "24h";
+	const intervalHours = (() => {
+		const hMatch = rawInterval.match(/^(\d+(?:\.\d+)?)h$/);
+		if (hMatch) return Number(hMatch[1]);
+		const sMatch = rawInterval.match(/^(\d+(?:\.\d+)?)s$/);
+		if (sMatch) return Math.round((Number(sMatch[1]) / 3600) * 10) / 10;
+		return 24;
+	})();
+	const sonRetention = Number(settings?.backup_son_retention || "7");
+	const fatherRetention = Number(settings?.backup_father_retention || "4");
+	const grandfatherRetention = Number(
+		settings?.backup_grandfather_retention || "3",
+	);
 
 	function formatBytes(bytes: number): string {
 		if (bytes === 0) return "0 B";
@@ -112,15 +164,243 @@ export function DatabaseBackupSettings({
 			title={t("settings.backup.title")}
 			collapsed={collapsed}
 			onToggle={onToggle}
+			onResetSection={() =>
+				settingsUpdateMutation.mutate({
+					backup_enabled: "false",
+					backup_interval: "24h",
+					backup_son_retention: "7",
+					backup_father_retention: "4",
+					backup_grandfather_retention: "3",
+				})
+			}
+			resetTooltip={t("settings.common.resetSection")}
 		>
 			<div className="space-y-4">
 				<p className="text-(--text-secondary) text-sm">
 					{t("settings.backup.description")}
 				</p>
 
+				{/* Periodic backup toggle */}
+				<div className="bg-(--surface-elevated) rounded-[var(--radius-card,0.375rem)] p-3 space-y-3">
+					<div className="flex items-center justify-between">
+						<div>
+							<div className="flex items-center gap-1">
+								<p className="text-sm font-medium text-(--text-primary)">
+									{t("settings.backup.rotation.title")}
+								</p>
+							</div>
+							<p className="text-xs text-(--text-muted) mt-0.5">
+								{t("settings.backup.rotation.enabledDescription")}
+							</p>
+						</div>
+						<Toggle
+							checked={backupEnabled}
+							onChange={async (v) => {
+								if (v) {
+									try {
+										const preview = await api.backups.prunePreview();
+										setPrunePreview(preview);
+										setShowEnableConfirm(true);
+									} catch {
+										toast(
+											t("settings.backup.rotation.prunePreviewFailed"),
+											"error",
+										);
+									}
+								} else {
+									settingsUpdateMutation.mutate({
+										backup_enabled: "false",
+									});
+								}
+							}}
+						/>
+					</div>
+
+					{backupEnabled && (
+						<div className="space-y-3 pt-2">
+							<SettingsSlider
+								id="backup-interval"
+								label={t("settings.backup.rotation.interval")}
+								value={intervalHours}
+								min={0.5}
+								max={168}
+								step={0.5}
+								clampStep={0.5}
+								unit="h"
+								onReset={() =>
+									settingsUpdateMutation.mutate({ backup_interval: "24h" })
+								}
+								resetTooltip={t("settings.common.resetToDefault")}
+								onChange={(v) =>
+									settingsUpdateMutation.mutate({
+										backup_interval: `${v}h`,
+									})
+								}
+								description={t("settings.backup.rotation.intervalDescription")}
+							/>
+							<SettingsSlider
+								id="backup-son-retention"
+								label={t("settings.backup.rotation.sonRetention")}
+								value={sonRetention}
+								min={1}
+								max={365}
+								step={1}
+								clampStep={1}
+								unit="d"
+								onReset={() =>
+									settingsUpdateMutation.mutate({ backup_son_retention: "7" })
+								}
+								resetTooltip={t("settings.common.resetToDefault")}
+								onChange={(v) =>
+									settingsUpdateMutation.mutate({
+										backup_son_retention: String(v),
+									})
+								}
+								description={t(
+									"settings.backup.rotation.sonRetentionDescription",
+								)}
+							/>
+							<SettingsSlider
+								id="backup-father-retention"
+								label={t("settings.backup.rotation.fatherRetention")}
+								value={fatherRetention}
+								min={0}
+								max={52}
+								step={1}
+								clampStep={1}
+								unit="w"
+								onReset={() =>
+									settingsUpdateMutation.mutate({
+										backup_father_retention: "4",
+									})
+								}
+								resetTooltip={t("settings.common.resetToDefault")}
+								onChange={(v) =>
+									settingsUpdateMutation.mutate({
+										backup_father_retention: String(v),
+									})
+								}
+								description={t(
+									"settings.backup.rotation.fatherRetentionDescription",
+								)}
+							/>
+							<SettingsSlider
+								id="backup-grandfather-retention"
+								label={t("settings.backup.rotation.grandfatherRetention")}
+								value={grandfatherRetention}
+								min={0}
+								max={120}
+								step={1}
+								clampStep={1}
+								unit="m"
+								onReset={() =>
+									settingsUpdateMutation.mutate({
+										backup_grandfather_retention: "3",
+									})
+								}
+								resetTooltip={t("settings.common.resetToDefault")}
+								onChange={(v) =>
+									settingsUpdateMutation.mutate({
+										backup_grandfather_retention: String(v),
+									})
+								}
+								description={t(
+									"settings.backup.rotation.grandfatherRetentionDescription",
+								)}
+							/>
+						</div>
+					)}
+				</div>
+
+				{/* Double-confirm modal for enabling periodic backup */}
+				{showEnableConfirm && (
+					<Modal
+						onClose={() => {
+							setShowEnableConfirm(false);
+							setPrunePreview(null);
+						}}
+						title={t("settings.backup.rotation.confirmEnableTitle")}
+						maxWidth="max-w-lg"
+					>
+						<div className="space-y-3">
+							<div className="flex items-start gap-2 text-amber-400">
+								<AlertTriangle size={18} className="shrink-0 mt-0.5" />
+								<p className="text-sm text-(--text-secondary)">
+									{t("settings.backup.rotation.confirmEnableDescription")}
+								</p>
+							</div>
+							{prunePreview && prunePreview.prune.length > 0 ? (
+								<div className="space-y-2">
+									<p className="text-sm text-(--text-primary)">
+										{t("settings.backup.rotation.confirmEnableWouldRemove", {
+											count: prunePreview.prune.length,
+										})}
+									</p>
+									<div className="max-h-40 overflow-y-auto rounded bg-(--surface-elevated) border border-(--border-default) p-2">
+										{prunePreview.prune.map((b) => (
+											<div
+												key={b.filename}
+												className="text-xs font-mono text-(--text-secondary) py-0.5"
+											>
+												{b.filename}
+											</div>
+										))}
+									</div>
+								</div>
+							) : (
+								<p className="text-sm text-(--text-secondary)">
+									{t("settings.backup.rotation.confirmEnableNoRemoval")}
+								</p>
+							)}
+							<div className="flex justify-end gap-2 pt-2">
+								<button
+									type="button"
+									onClick={() => {
+										setShowEnableConfirm(false);
+										setPrunePreview(null);
+									}}
+									className="ui-btn ui-btn-secondary text-sm px-4 py-2"
+								>
+									{t("common.cancel")}
+								</button>
+								<button
+									type="button"
+									onClick={async () => {
+										try {
+											if (prunePreview && prunePreview.prune.length > 0) {
+												await api.backups.prune();
+											}
+											await settingsUpdateMutation.mutateAsync({
+												backup_enabled: "true",
+											});
+											toast(
+												t("settings.backup.rotation.pruneSuccess", {
+													count: prunePreview?.prune.length ?? 0,
+												}),
+												"success",
+											);
+										} catch {
+											toast(t("settings.backup.rotation.pruneFailed"), "error");
+										} finally {
+											setShowEnableConfirm(false);
+											setPrunePreview(null);
+											queryClient.invalidateQueries({
+												queryKey: ["backups"],
+											});
+										}
+									}}
+									className="ui-btn ui-btn-primary text-sm px-4 py-2"
+								>
+									{t("settings.backup.confirm")}
+								</button>
+							</div>
+						</div>
+					</Modal>
+				)}
+
 				{/* Restore requirements */}
-				<div className="bg-(--surface-elevated) rounded-[var(--radius-card,0.375rem)] p-3 space-y-2">
-					<h4 className="text-xs font-semibold uppercase tracking-wider text-(--text-secondary)">
+				<div className="rounded-[var(--radius-card,0.375rem)] border border-(--accent)/30 bg-(--accent)/5 p-3 space-y-2">
+					<h4 className="text-xs font-semibold uppercase tracking-wider text-(--accent)">
 						{t("settings.backup.restoreRequirements")}
 					</h4>
 					<ul className="text-xs text-(--text-secondary) space-y-1 list-disc list-inside">

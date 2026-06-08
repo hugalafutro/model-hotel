@@ -198,7 +198,7 @@ export function DataStorageSettings({
 
 				<div className="grid grid-cols-2 gap-x-8">
 					<div className="space-y-5">
-						<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+						<h3 className="text-xs font-semibold uppercase tracking-wider text-(--accent)">
 							{t("settings.logging.title")}
 						</h3>
 						<SettingsSlider
@@ -337,24 +337,7 @@ export function DataStorageSettings({
 							)}
 						</div>
 
-						<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-							{t("settings.dashboard.title")}
-						</h3>
-						<SettingsSlider
-							id="dashboard-refresh-interval"
-							label={t("settings.dashboard.refreshInterval")}
-							value={Number(refreshSec)}
-							min={0}
-							max={600}
-							step={10}
-							clampStep={10}
-							infinityValue={0}
-							unit="s"
-							onChange={handleDashboardRefreshChange}
-							description={t("settings.dashboard.refreshInterval.description")}
-						/>
-
-						<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+						<h3 className="text-xs font-semibold uppercase tracking-wider text-(--accent)">
 							{t("settings.dataStorage.cacheAndResets")}
 						</h3>
 						<div className="space-y-5">
@@ -418,7 +401,7 @@ export function DataStorageSettings({
 							</div>
 						</div>
 
-						<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+						<h3 className="text-xs font-semibold uppercase tracking-wider text-(--accent)">
 							{t("settings.dataStorage.quotaBadges")}
 						</h3>
 						<div className="space-y-5">
@@ -495,7 +478,7 @@ export function DataStorageSettings({
 					</div>
 
 					<div className="space-y-5">
-						<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+						<h3 className="text-xs font-semibold uppercase tracking-wider text-(--accent)">
 							{t("settings.dataStorage.sessionPersistence")}
 						</h3>
 						<div className="flex items-center justify-between">
@@ -587,7 +570,7 @@ export function DataStorageSettings({
 							/>
 						</div>
 
-						<h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+						<h3 className="text-xs font-semibold uppercase tracking-wider text-(--accent)">
 							{t("settings.dataStorage.arenaHistory")}
 						</h3>
 						<div className="flex items-center justify-between">
@@ -666,6 +649,23 @@ export function DataStorageSettings({
 								{t("settings.dataStorage.clearHistoryAll")}
 							</button>
 						</div>
+
+						<h3 className="text-xs font-semibold uppercase tracking-wider text-(--accent)">
+							{t("settings.dashboard.title")}
+						</h3>
+						<SettingsSlider
+							id="dashboard-refresh-interval"
+							label={t("settings.dashboard.refreshInterval")}
+							value={Number(refreshSec)}
+							min={0}
+							max={600}
+							step={10}
+							clampStep={10}
+							infinityValue={0}
+							unit="s"
+							onChange={handleDashboardRefreshChange}
+							description={t("settings.dashboard.refreshInterval.description")}
+						/>
 					</div>
 				</div>
 			</div>

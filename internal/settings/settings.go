@@ -40,6 +40,11 @@ var AllowedSettings = map[string]bool{
 	"key_cache_ttl":                true,
 	"ttft_timeout":                 true,
 	"stream_stall_timeout":         true,
+	"backup_enabled":               true,
+	"backup_interval":              true,
+	"backup_son_retention":         true,
+	"backup_father_retention":      true,
+	"backup_grandfather_retention": true,
 }
 
 type cacheEntry struct {

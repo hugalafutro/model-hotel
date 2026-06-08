@@ -75,6 +75,11 @@ These settings are stored in the `settings` table and can be changed at runtime 
 | `toast_duration` | *(empty)* | Toast notification duration in milliseconds (min: 1000, max: 15000). |
 | `ttft_timeout` | `60s` | Time-to-first-token probe timeout for streaming requests (e.g. `30s`, `60s`). After the upstream responds 200, the proxy reads ahead to confirm the first token arrives before committing the stream to the client. If the provider fails to produce a token within this timeout, the request fails over to the next provider. Set to `0s` to disable the probe (immediate stream commit, backward-compatible behavior). |
 | `stream_stall_timeout` | `30s` | Maximum silence during streaming before the connection is terminated and the circuit breaker records a failure (e.g. `10s`, `30s`, `1m0s`). After 50 chunks the effective timeout is multiplied by 3 to tolerate tool-call pauses and long reasoning chains. Set to `0s` to disable the stall watchdog. |
+| `backup_enabled` | `false` | Enable periodic database backup with son/father/grandfather rotation. When enabled, backups are created at the configured interval and old backups are pruned according to the retention scheme. Enabling for the first time will prune any existing backups that fall outside the rotation tiers. |
+| `backup_interval` | `86400s` (24h) | Interval between automatic backups (e.g. `3600s` for hourly, `86400s` for daily). Minimum: 300s (5 minutes). Stored as a Go duration string. |
+| `backup_son_retention` | `7` | Number of daily backups to keep (son tier). Keeps the most recent backup from each of the last N days. |
+| `backup_father_retention` | `4` | Number of weekly backups to keep (father tier). Keeps the most recent backup from each of the last N weeks, excluding those already kept as sons. |
+| `backup_grandfather_retention` | `3` | Number of monthly backups to keep (grandfather tier). Keeps the most recent backup from each of the last N months, excluding those already kept as sons or fathers. |
 
 ### Rate Limiting Details
 

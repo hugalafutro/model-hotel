@@ -1,7 +1,11 @@
 import { screen, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
-import { mockFailoverGroup } from "../../test/mocks/data";
+import {
+	mockFailoverGroup,
+	mockProvider,
+	mockProvider2,
+} from "../../test/mocks/data";
 import { server } from "../../test/mocks/server";
 import { renderWithProviders } from "../../test/utils";
 import { FailoverGroups } from "../FailoverGroups";
@@ -826,6 +830,366 @@ describe("FailoverGroups", () => {
 			await waitFor(() => {
 				expect(
 					screen.getByText("Bulk provider toggle failed for some groups"),
+				).toBeInTheDocument();
+			});
+		});
+	});
+
+	describe("Provider Disable Modal", () => {
+		// Providers that match the provider_name values used in failover group entries
+		const openaiProvider = {
+			id: "provider-openai",
+			name: "OpenAI",
+			base_url: "https://api.openai.com/v1",
+			masked_key: "sk-••••",
+			enabled: true,
+			autodiscovery_enabled: true,
+			last_discovered_at: "2026-05-10T12:00:00Z",
+			last_used_at: "2026-05-11T08:30:00Z",
+			created_at: "2026-01-15T10:00:00Z",
+			updated_at: "2026-05-10T12:00:00Z",
+			model_count: 5,
+			total_tokens: 0,
+		};
+		const anthropicProvider = {
+			id: "provider-anthropic",
+			name: "Anthropic",
+			base_url: "https://api.anthropic.com/v1",
+			masked_key: "sk-ant-••••",
+			enabled: true,
+			autodiscovery_enabled: true,
+			last_discovered_at: "2026-05-10T12:00:00Z",
+			last_used_at: "2026-05-11T08:30:00Z",
+			created_at: "2026-01-15T10:00:00Z",
+			updated_at: "2026-05-10T12:00:00Z",
+			model_count: 3,
+			total_tokens: 0,
+		};
+
+		it("Manage Providers button renders and opens modal", async () => {
+			const groups = [
+				{
+					...mockFailoverGroup,
+					display_model: "alpha-model",
+					entries: [
+						{
+							provider_name: "OpenAI",
+							model_id: "gpt-4",
+							enabled: true,
+							model_uuid: "uuid-1",
+						},
+					],
+				},
+			];
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({ groups, last_synced_at: null }),
+				),
+				http.get("/api/failover-groups/candidates", () =>
+					HttpResponse.json([]),
+				),
+				http.get("/api/providers", () =>
+					HttpResponse.json([mockProvider, mockProvider2]),
+				),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.getByText("hotel/alpha-model")).toBeInTheDocument();
+			});
+
+			const manageBtn = screen.getByRole("button", {
+				name: "Manage Providers",
+			});
+			expect(manageBtn).toBeInTheDocument();
+
+			await user.click(manageBtn);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("heading", { name: "Manage Provider Status" }),
+				).toBeInTheDocument();
+			});
+		});
+
+		it("Only providers with failover entries shown in modal", async () => {
+			const groups = [
+				{
+					...mockFailoverGroup,
+					display_model: "alpha-model",
+					entries: [
+						{
+							provider_name: "OpenAI",
+							model_id: "gpt-4",
+							enabled: true,
+							model_uuid: "uuid-1",
+						},
+					],
+				},
+			];
+
+			// mockProvider2 is not referenced in any failover group entries
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({ groups, last_synced_at: null }),
+				),
+				http.get("/api/failover-groups/candidates", () =>
+					HttpResponse.json([]),
+				),
+				http.get("/api/providers", () =>
+					HttpResponse.json([openaiProvider, anthropicProvider, mockProvider2]),
+				),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.getByText("hotel/alpha-model")).toBeInTheDocument();
+			});
+
+			const manageBtn = screen.getByRole("button", {
+				name: "Manage Providers",
+			});
+			await user.click(manageBtn);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("heading", { name: "Manage Provider Status" }),
+				).toBeInTheDocument();
+			});
+
+			// OpenAI has entries in failover groups, so should appear in the modal
+			expect(screen.getAllByText("OpenAI").length).toBeGreaterThanOrEqual(1);
+			// mockProvider2 (Test Provider 2) has NO entries in any failover group
+			expect(screen.queryByText("Test Provider 2")).not.toBeInTheDocument();
+		});
+
+		it("Toggling provider off disables all its models in groups", async () => {
+			const groups = [
+				{
+					...mockFailoverGroup,
+					display_model: "alpha-model",
+					group_enabled: true,
+					entries: [
+						{
+							provider_name: "OpenAI",
+							model_id: "gpt-4",
+							enabled: true,
+							model_uuid: "uuid-1",
+						},
+						{
+							provider_name: "Anthropic",
+							model_id: "claude-3",
+							enabled: true,
+							model_uuid: "uuid-2",
+						},
+					],
+				},
+			];
+
+			const putCalls: Array<{ id: string; data: unknown }> = [];
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({ groups, last_synced_at: null }),
+				),
+				http.get("/api/failover-groups/candidates", () =>
+					HttpResponse.json([]),
+				),
+				http.get("/api/providers", () =>
+					HttpResponse.json([openaiProvider, anthropicProvider]),
+				),
+				http.put("/api/failover-groups/:id", async ({ params, request }) => {
+					const body = await request.json();
+					putCalls.push({ id: params.id as string, data: body });
+					return HttpResponse.json({});
+				}),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.getByText("hotel/alpha-model")).toBeInTheDocument();
+			});
+
+			const manageBtn = screen.getByRole("button", {
+				name: "Manage Providers",
+			});
+			await user.click(manageBtn);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("heading", { name: "Manage Provider Status" }),
+				).toBeInTheDocument();
+			});
+
+			// Find the OpenAI switch (wait for modal content to render)
+			const openaiToggle = await screen.findByRole("switch", {
+				name: "OpenAI",
+			});
+			await user.click(openaiToggle);
+
+			await waitFor(() => {
+				expect(putCalls.length).toBe(1);
+			});
+
+			// OpenAI entry should be disabled, Anthropic should remain enabled
+			expect(putCalls[0].data).toEqual({
+				entry_enabled: { "uuid-1": false, "uuid-2": true },
+			});
+		});
+
+		it("Toggling provider on re-enables models and groups", async () => {
+			const groups = [
+				{
+					...mockFailoverGroup,
+					display_model: "alpha-model",
+					group_enabled: false,
+					entries: [
+						{
+							provider_name: "OpenAI",
+							model_id: "gpt-4",
+							enabled: false,
+							model_uuid: "uuid-1",
+						},
+						{
+							provider_name: "Anthropic",
+							model_id: "claude-3",
+							enabled: false,
+							model_uuid: "uuid-2",
+						},
+					],
+				},
+			];
+
+			const putCalls: Array<{ id: string; data: unknown }> = [];
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({ groups, last_synced_at: null }),
+				),
+				http.get("/api/failover-groups/candidates", () =>
+					HttpResponse.json([]),
+				),
+				http.get("/api/providers", () =>
+					HttpResponse.json([openaiProvider, anthropicProvider]),
+				),
+				http.put("/api/failover-groups/:id", async ({ params, request }) => {
+					const body = await request.json();
+					putCalls.push({ id: params.id as string, data: body });
+					return HttpResponse.json({});
+				}),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.getByText("hotel/alpha-model")).toBeInTheDocument();
+			});
+
+			const manageBtn = screen.getByRole("button", {
+				name: "Manage Providers",
+			});
+			await user.click(manageBtn);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("heading", { name: "Manage Provider Status" }),
+				).toBeInTheDocument();
+			});
+
+			// Find the OpenAI switch (wait for modal content to render)
+			const openaiToggle = await screen.findByRole("switch", {
+				name: "OpenAI",
+			});
+			await user.click(openaiToggle);
+
+			await waitFor(() => {
+				expect(putCalls.length).toBe(1);
+			});
+
+			// OpenAI entry should be enabled, Anthropic stays disabled.
+			// Group should be re-enabled because there's now at least one enabled entry.
+			expect(putCalls[0].data).toEqual({
+				entry_enabled: { "uuid-1": true, "uuid-2": false },
+				group_enabled: true,
+			});
+		});
+
+		it("Toggle shows toast with affected group count", async () => {
+			const groups = [
+				{
+					...mockFailoverGroup,
+					id: "fg-001",
+					display_model: "alpha-model",
+					group_enabled: true,
+					entries: [
+						{
+							provider_name: "OpenAI",
+							model_id: "gpt-4",
+							enabled: true,
+							model_uuid: "uuid-1",
+						},
+					],
+				},
+				{
+					...mockFailoverGroup,
+					id: "fg-002",
+					display_model: "beta-model",
+					group_enabled: true,
+					entries: [
+						{
+							provider_name: "OpenAI",
+							model_id: "gpt-3.5",
+							enabled: true,
+							model_uuid: "uuid-2",
+						},
+					],
+				},
+			];
+
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({ groups, last_synced_at: null }),
+				),
+				http.get("/api/failover-groups/candidates", () =>
+					HttpResponse.json([]),
+				),
+				http.get("/api/providers", () =>
+					HttpResponse.json([openaiProvider, anthropicProvider]),
+				),
+				http.put("/api/failover-groups/:id", async () => {
+					return HttpResponse.json({});
+				}),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(screen.getByText("hotel/alpha-model")).toBeInTheDocument();
+			});
+
+			const manageBtn = screen.getByRole("button", {
+				name: "Manage Providers",
+			});
+			await user.click(manageBtn);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("heading", { name: "Manage Provider Status" }),
+				).toBeInTheDocument();
+			});
+
+			// Find the OpenAI switch directly and turn it off
+			const openaiToggle = screen.getByRole("switch", { name: "OpenAI" });
+			await user.click(openaiToggle);
+
+			await waitFor(() => {
+				// Toast should appear: "Disabled OpenAI across 2 groups"
+				expect(
+					screen.getByText(/Disabled OpenAI across 2 groups/),
 				).toBeInTheDocument();
 			});
 		});

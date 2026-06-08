@@ -18,7 +18,7 @@ func TestCreateBackup_AlreadyInProgress(t *testing.T) {
 
 	// Create a backup handler with a test directory and manually trigger the mutex
 	backupDir := filepath.Join(h.cfg.DataDir, "backups")
-	bh := NewBackupHandler(h.cfg.DatabaseURL, backupDir, h.adminMgr)
+	bh := NewBackupHandler(h.cfg.DatabaseURL, backupDir, h.adminMgr, nil)
 
 	// Manually lock the mutex to simulate an in-progress backup
 	bh.backupMu.Lock()
@@ -46,7 +46,7 @@ func TestCreateBackup_NoPgDump(t *testing.T) {
 
 	// Create a backup handler with a test directory
 	backupDir := filepath.Join(h.cfg.DataDir, "backups")
-	bh := NewBackupHandler(h.cfg.DatabaseURL, backupDir, h.adminMgr)
+	bh := NewBackupHandler(h.cfg.DatabaseURL, backupDir, h.adminMgr, nil)
 
 	// Register the backup handler on a separate router
 	backupRouter := chi.NewRouter()

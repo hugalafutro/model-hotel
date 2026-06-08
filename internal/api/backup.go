@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -27,23 +28,27 @@ import (
 // BackupHandler manages PostgreSQL database backups via pg_dump
 // and restores via pg_restore.
 type BackupHandler struct {
-	databaseURL string
-	backupDir   string
-	backupMu    sync.Mutex
-	adminMgr    AdminAuthenticator
+	databaseURL       string
+	backupDir         string
+	backupMu          sync.Mutex
+	adminMgr          AdminAuthenticator
+	settingsRepo      SettingsStore
+	schedulerCancelMu sync.Mutex
+	schedulerCancel   context.CancelFunc
 }
 
 // NewBackupHandler creates a new BackupHandler.
 // backupDir is the directory where backup files are stored (typically DATA_DIR/backups).
-func NewBackupHandler(databaseURL, backupDir string, adminMgr AdminAuthenticator) *BackupHandler {
+func NewBackupHandler(databaseURL, backupDir string, adminMgr AdminAuthenticator, settingsRepo SettingsStore) *BackupHandler {
 	absDir, err := filepath.Abs(backupDir)
 	if err != nil {
 		absDir = backupDir // fallback to original path
 	}
 	return &BackupHandler{
-		databaseURL: databaseURL,
-		backupDir:   absDir,
-		adminMgr:    adminMgr,
+		databaseURL:  databaseURL,
+		backupDir:    absDir,
+		adminMgr:     adminMgr,
+		settingsRepo: settingsRepo,
 	}
 }
 
@@ -55,6 +60,8 @@ func (h *BackupHandler) Register(r chi.Router) {
 		r.Post("/restore", h.RestoreBackup)
 		r.Get("/{filename}", h.DownloadBackup)
 		r.Delete("/{filename}", h.DeleteBackup)
+		r.Post("/prune-preview", h.PrunePreview)
+		r.Post("/prune", h.ApplyPrune)
 	})
 }
 
@@ -86,38 +93,15 @@ func (h *BackupHandler) CreateBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	now := time.Now()
-	filename := fmt.Sprintf("backup_%s_%04d.dump", now.Format("20060102_150405"), now.Nanosecond()/100000)
+	filename := generateBackupFilename()
 	path := filepath.Join(h.backupDir, filename)
 
-	// Build a connection string without the password for the command line.
-	// The password is passed via PGPASSWORD environment variable instead,
-	// preventing it from appearing in process listings (ps).
 	// Use a dedicated 10-minute timeout so large databases don't get killed
 	// by the chi request timeout middleware (~60s).
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
-	connURL := h.databaseURL
-	var envPassword string
-	if u, err := url.Parse(h.databaseURL); err == nil && u.User != nil {
-		if pass, ok := u.User.Password(); ok && pass != "" {
-			envPassword = pass
-			// Strip password from URL, keep username
-			u.User = url.User(u.User.Username())
-			connURL = u.String()
-		}
-	}
-	//nolint:gosec // pgDumpPath is a configured binary path, not arbitrary user input
-	cmd := exec.CommandContext(ctx, pgDumpPath,
-		"--format=custom",
-		"--no-password",
-		"--file="+path,
-		connURL,
-	)
-	if envPassword != "" {
-		cmd.Env = append(os.Environ(), "PGPASSWORD="+envPassword)
-	}
 
+	cmd := h.buildDumpCommand(ctx, pgDumpPath, path)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// Clean up partial file
@@ -224,6 +208,38 @@ func (h *BackupHandler) DownloadBackup(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename=%q`, filename))
 	w.Header().Set("Content-Type", "application/octet-stream")
 	http.ServeFile(w, r, absPath)
+}
+
+// buildDumpCommand creates a pg_dump command with the password stripped from
+// the connection URL and passed via PGPASSWORD instead. The caller is
+// responsible for running the command and handling errors.
+func (h *BackupHandler) buildDumpCommand(ctx context.Context, pgDumpPath, filePath string) *exec.Cmd {
+	connURL := h.databaseURL
+	var envPassword string
+	if u, err := url.Parse(h.databaseURL); err == nil && u.User != nil {
+		if pass, ok := u.User.Password(); ok && pass != "" {
+			envPassword = pass
+			u.User = url.User(u.User.Username())
+			connURL = u.String()
+		}
+	}
+	//nolint:gosec // pgDumpPath is a configured binary path, not arbitrary user input
+	cmd := exec.CommandContext(ctx, pgDumpPath,
+		"--format=custom",
+		"--no-password",
+		"--file="+filePath,
+		connURL,
+	)
+	if envPassword != "" {
+		cmd.Env = append(os.Environ(), "PGPASSWORD="+envPassword)
+	}
+	return cmd
+}
+
+// generateBackupFilename creates a timestamped backup filename.
+func generateBackupFilename() string {
+	now := time.Now()
+	return fmt.Sprintf("backup_%s_%04d.dump", now.Format("20060102_150405"), now.Nanosecond()/100000)
 }
 
 // DeleteBackup removes a backup file.
@@ -679,4 +695,466 @@ func (h *BackupHandler) RestoreBackup(w http.ResponseWriter, r *http.Request) {
 		os.Remove(tmpPath)                 //nolint:errcheck,gosec // best-effort cleanup before exit
 		os.Exit(0)
 	}()
+}
+
+// ── Son/Father/Grandfather Rotation ──────────────────────────────────
+
+// backupClassification holds the result of classifying backups into
+// son (daily), father (weekly), and grandfather (monthly) retention tiers.
+type backupClassification struct {
+	Son         []backupEntry `json:"son"`
+	Father      []backupEntry `json:"father"`
+	Grandfather []backupEntry `json:"grandfather"`
+	Prune       []backupEntry `json:"prune"`
+}
+
+// parseBackupTimestamp extracts the timestamp from a backup filename.
+// Expected format: backup_YYYYMMDD_HHmmss_NNN.dump
+func parseBackupTimestamp(filename string) (time.Time, error) {
+	base := strings.TrimSuffix(filename, ".dump")
+	parts := strings.SplitN(base, "_", 4)
+	if len(parts) < 3 {
+		return time.Time{}, fmt.Errorf("invalid backup filename format: %s", filename)
+	}
+	return time.Parse("20060102_150405", parts[1]+"_"+parts[2])
+}
+
+// classifyBackups sorts backups into son/father/grandfather retention tiers.
+// Backups not belonging to any tier are placed in the Prune list.
+//
+// The algorithm:
+//   - Son: keep the most recent backup from each of the last N days
+//   - Father: keep the most recent backup from each of the last M ISO weeks
+//     (excluding weeks that already have a son)
+//   - Grandfather: keep the most recent backup from each of the last P months
+//     (excluding months that already have a son or father)
+func classifyBackups(backups []backupEntry, sonRetention, fatherRetention, grandfatherRetention int, now time.Time) backupClassification {
+	result := backupClassification{}
+
+	// Track which backup filenames are kept in each tier
+	kept := make(map[string]bool)
+
+	// Parse timestamps and index by filename
+	timestamps := make(map[string]time.Time)
+	for _, b := range backups {
+		ts, err := parseBackupTimestamp(b.Filename)
+		if err != nil {
+			// Cannot parse timestamp; mark for pruning
+			result.Prune = append(result.Prune, b)
+			continue
+		}
+		timestamps[b.Filename] = ts
+	}
+
+	// ── Son (daily) ──
+	// Keep the most recent backup from each of the last sonRetention calendar days.
+	dayBuckets := make(map[string][]backupEntry) // key: "2006-01-02"
+	for _, b := range backups {
+		ts, ok := timestamps[b.Filename]
+		if !ok {
+			continue
+		}
+		dayKey := ts.Format("2006-01-02")
+		dayBuckets[dayKey] = append(dayBuckets[dayKey], b)
+	}
+
+	// Collect the last N day keys (including today)
+	dayKeys := make(map[string]bool)
+	for i := 0; i < sonRetention; i++ {
+		d := now.AddDate(0, 0, -i).Format("2006-01-02")
+		dayKeys[d] = true
+	}
+
+	for dk, entries := range dayBuckets {
+		if !dayKeys[dk] {
+			continue
+		}
+		// Pick the most recent entry from this day
+		picked := mostRecentEntry(entries, timestamps)
+		if picked != nil && !kept[picked.Filename] {
+			result.Son = append(result.Son, *picked)
+			kept[picked.Filename] = true
+		}
+	}
+
+	// ── Father (weekly) ──
+	// Keep the most recent backup from each of the last fatherRetention ISO weeks
+	// that is NOT already kept as a son.
+	isoWeekBuckets := make(map[string][]backupEntry) // key: "year-week" composite
+	for _, b := range backups {
+		ts, ok := timestamps[b.Filename]
+		if !ok || kept[b.Filename] {
+			continue
+		}
+		y, iw := ts.ISOWeek()
+		key := fmt.Sprintf("%d-%d", y, iw)
+		isoWeekBuckets[key] = append(isoWeekBuckets[key], b)
+	}
+
+	// Collect the last M ISO weeks as year-week composites. The i=0 iteration
+	// covers the current week, so no separate "current week" entry is needed.
+	isoWeekSet := make(map[string]bool)
+	t := now
+	for i := 0; i < fatherRetention; i++ {
+		y, iw := t.ISOWeek()
+		key := fmt.Sprintf("%d-%d", y, iw)
+		isoWeekSet[key] = true
+		t = t.AddDate(0, 0, -7)
+	}
+
+	// Sort ISO weeks descending for deterministic ordering
+	var sortedWeeks []string
+	for wk := range isoWeekSet {
+		sortedWeeks = append(sortedWeeks, wk)
+	}
+	sort.Strings(sortedWeeks)
+
+	// Iterate in reverse to pick most recent weeks first
+	for i := len(sortedWeeks) - 1; i >= 0; i-- {
+		wk := sortedWeeks[i]
+		entries, ok := isoWeekBuckets[wk]
+		if !ok {
+			continue
+		}
+		picked := mostRecentEntry(entries, timestamps)
+		if picked != nil && !kept[picked.Filename] {
+			result.Father = append(result.Father, *picked)
+			kept[picked.Filename] = true
+		}
+	}
+
+	// ── Grandfather (monthly) ──
+	// Keep the most recent backup from each of the last grandfatherRetention months
+	// that is NOT already kept as a son or father.
+	monthBuckets := make(map[string][]backupEntry) // key: "2006-01"
+	for _, b := range backups {
+		ts, ok := timestamps[b.Filename]
+		if !ok || kept[b.Filename] {
+			continue
+		}
+		mk := ts.Format("2006-01")
+		monthBuckets[mk] = append(monthBuckets[mk], b)
+	}
+
+	monthKeys := make(map[string]bool)
+	for i := 0; i < grandfatherRetention; i++ {
+		mk := now.AddDate(0, -i, 0).Format("2006-01")
+		monthKeys[mk] = true
+	}
+
+	// Sort month keys descending
+	var sortedMonths []string
+	for mk := range monthKeys {
+		sortedMonths = append(sortedMonths, mk)
+	}
+	sort.Sort(sort.Reverse(sort.StringSlice(sortedMonths)))
+
+	for _, mk := range sortedMonths {
+		entries, ok := monthBuckets[mk]
+		if !ok {
+			continue
+		}
+		picked := mostRecentEntry(entries, timestamps)
+		if picked != nil && !kept[picked.Filename] {
+			result.Grandfather = append(result.Grandfather, *picked)
+			kept[picked.Filename] = true
+		}
+	}
+
+	// ── Prune: everything not kept ──
+	for _, b := range backups {
+		if !kept[b.Filename] && timestamps[b.Filename].IsZero() {
+			// Already added to Prune above (parse error)
+			continue
+		}
+		if !kept[b.Filename] {
+			result.Prune = append(result.Prune, b)
+		}
+	}
+
+	return result
+}
+
+// mostRecentEntry returns the entry with the most recent timestamp.
+func mostRecentEntry(entries []backupEntry, timestamps map[string]time.Time) *backupEntry {
+	if len(entries) == 0 {
+		return nil
+	}
+	best := &entries[0]
+	bestTS := timestamps[best.Filename]
+	for i := 1; i < len(entries); i++ {
+		ts := timestamps[entries[i].Filename]
+		if ts.After(bestTS) {
+			best = &entries[i]
+			bestTS = ts
+		}
+	}
+	return best
+}
+
+// getRetentionSettings returns the current retention settings from the settings store.
+func (h *BackupHandler) getRetentionSettings(ctx context.Context) (son, father, grandfather int) {
+	son = 7
+	father = 4
+	grandfather = 3
+
+	if h.settingsRepo != nil {
+		if v, err := strconv.Atoi(h.settingsRepo.GetWithDefault(ctx, "backup_son_retention", "7")); err == nil && v > 0 {
+			son = v
+		}
+		if v, err := strconv.Atoi(h.settingsRepo.GetWithDefault(ctx, "backup_father_retention", "4")); err == nil && v >= 0 {
+			father = v
+		}
+		if v, err := strconv.Atoi(h.settingsRepo.GetWithDefault(ctx, "backup_grandfather_retention", "3")); err == nil && v >= 0 {
+			grandfather = v
+		}
+	}
+	return
+}
+
+// PrunePreview returns which backups would be pruned under the current
+// son/father/grandfather rotation scheme without actually deleting anything.
+func (h *BackupHandler) PrunePreview(w http.ResponseWriter, r *http.Request) {
+	backups, err := h.listBackupFiles()
+	if err != nil {
+		respondError(w, "failed to list backups", err, http.StatusInternalServerError)
+		return
+	}
+
+	son, father, grandfather := h.getRetentionSettings(r.Context())
+	classification := classifyBackups(backups, son, father, grandfather, time.Now())
+	writeJSON(w, classification)
+}
+
+// ApplyPrune runs the rotation and deletes backups that fall outside the
+// son/father/grandfather retention scheme.
+func (h *BackupHandler) ApplyPrune(w http.ResponseWriter, r *http.Request) {
+	if !h.backupMu.TryLock() {
+		respondError(w, "backup operation already in progress", nil, http.StatusConflict)
+		return
+	}
+	defer h.backupMu.Unlock()
+
+	backups, err := h.listBackupFiles()
+	if err != nil {
+		respondError(w, "failed to list backups", err, http.StatusInternalServerError)
+		return
+	}
+
+	son, father, grandfather := h.getRetentionSettings(r.Context())
+	classification := classifyBackups(backups, son, father, grandfather, time.Now())
+
+	var pruned []string
+	for _, b := range classification.Prune {
+		absPath := h.validateBackupFilename(b.Filename)
+		if absPath == "" {
+			continue
+		}
+		if err := os.Remove(absPath); err != nil && !os.IsNotExist(err) {
+			debuglog.Error("backup: failed to prune", "filename", b.Filename, "error", err)
+			continue
+		}
+		pruned = append(pruned, b.Filename)
+		debuglog.Info("backup: pruned", "filename", b.Filename)
+	}
+
+	if len(pruned) > 0 {
+		events.Publish(events.Event{
+			Type:     "backup.pruned",
+			Severity: "info",
+			Source:   "backup",
+			Message:  fmt.Sprintf("Pruned %d backup(s): %s", len(pruned), strings.Join(pruned, ", ")),
+			Metadata: map[string]interface{}{"pruned_count": len(pruned), "filenames": pruned},
+		})
+	}
+
+	writeJSON(w, classification)
+}
+
+// listBackupFiles reads all backup entries from disk (newest first).
+func (h *BackupHandler) listBackupFiles() ([]backupEntry, error) {
+	entries, err := os.ReadDir(h.backupDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []backupEntry{}, nil
+		}
+		return nil, err
+	}
+
+	var backups []backupEntry
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".dump") {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		backups = append(backups, backupEntry{
+			Filename:  entry.Name(),
+			SizeBytes: info.Size(),
+			CreatedAt: info.ModTime().Format(time.RFC3339),
+		})
+	}
+
+	sort.Slice(backups, func(i, j int) bool {
+		return backups[i].CreatedAt > backups[j].CreatedAt
+	})
+
+	if backups == nil {
+		backups = []backupEntry{}
+	}
+	return backups, nil
+}
+
+// ── Scheduler ────────────────────────────────────────────────────────
+
+// backupSchedulerIdlePoll is how often the scheduler re-checks the
+// backup_enabled setting while disabled, so that toggling backups on at
+// runtime takes effect promptly instead of waiting a full backup_interval.
+const backupSchedulerIdlePoll = 1 * time.Minute
+
+// StartScheduler starts the periodic backup scheduler goroutine.
+//
+// The goroutine always runs (regardless of the current backup_enabled
+// value) and re-reads backup_enabled and backup_interval from the settings
+// store on every tick. This lets the toggle take effect at runtime without
+// a server restart: when disabled it polls on a short idle interval; when
+// enabled it creates a backup and applies the rotation scheme, then sleeps
+// for backup_interval.
+func (h *BackupHandler) StartScheduler(ctx context.Context) {
+	if h.settingsRepo == nil {
+		return
+	}
+	// Guard against double-launch leaking the previous goroutine.
+	h.schedulerCancelMu.Lock()
+	if h.schedulerCancel != nil {
+		h.schedulerCancelMu.Unlock()
+		return
+	}
+
+	schedCtx, cancel := context.WithCancel(ctx)
+	h.schedulerCancel = cancel
+	h.schedulerCancelMu.Unlock()
+	debuglog.Info("backup: scheduler started")
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				debuglog.Error("backup: scheduler panic recovered", "panic", r)
+				// Reset so StartScheduler can restart the scheduler.
+				h.schedulerCancelMu.Lock()
+				h.schedulerCancel = nil
+				h.schedulerCancelMu.Unlock()
+			}
+		}()
+		// Initial delay to let the server fully start
+		select {
+		case <-schedCtx.Done():
+			return
+		case <-time.After(1 * time.Minute):
+		}
+
+		for {
+			// Re-read settings each tick for dynamic updates
+			enabled := h.settingsRepo.GetBool(schedCtx, "backup_enabled", false)
+
+			sleep := backupSchedulerIdlePoll
+			if enabled {
+				h.runScheduledBackup(schedCtx)
+				sleep = h.settingsRepo.GetDuration(schedCtx, "backup_interval", 24*time.Hour)
+				if sleep < 5*time.Minute {
+					sleep = 5 * time.Minute
+				}
+			}
+
+			select {
+			case <-schedCtx.Done():
+				debuglog.Info("backup: scheduler stopped")
+				return
+			case <-time.After(sleep):
+			}
+		}
+	}()
+}
+
+// StopScheduler stops the periodic backup scheduler.
+func (h *BackupHandler) StopScheduler() {
+	h.schedulerCancelMu.Lock()
+	defer h.schedulerCancelMu.Unlock()
+	if h.schedulerCancel != nil {
+		h.schedulerCancel()
+		h.schedulerCancel = nil
+	}
+}
+
+// runScheduledBackup creates a backup and applies the rotation scheme.
+// It uses the same pg_dump logic as CreateBackup but without HTTP request/response.
+func (h *BackupHandler) runScheduledBackup(ctx context.Context) {
+	if !h.backupMu.TryLock() {
+		debuglog.Warn("backup: scheduler skip, operation in progress")
+		return
+	}
+	defer h.backupMu.Unlock()
+
+	pgDumpPath, err := exec.LookPath("pg_dump")
+	if err != nil {
+		debuglog.Error("backup: scheduled backup failed, pg_dump not found", "error", err)
+		return
+	}
+
+	if err := os.MkdirAll(h.backupDir, 0o750); err != nil {
+		debuglog.Error("backup: scheduled backup failed, mkdir", "error", err)
+		return
+	}
+
+	filename := generateBackupFilename()
+	path := filepath.Join(h.backupDir, filename)
+
+	dumpCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	defer cancel()
+
+	cmd := h.buildDumpCommand(dumpCtx, pgDumpPath, path)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		_ = os.Remove(path)
+		debuglog.Error("backup: scheduled pg_dump failed", "output", strings.TrimSpace(string(output)), "error", err)
+		return
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		debuglog.Error("backup: scheduled backup stat failed", "error", err)
+		return
+	}
+
+	debuglog.Info("backup: scheduled backup created", "filename", filename, "size_bytes", info.Size())
+	events.Publish(events.Event{
+		Type:     "backup.created",
+		Severity: "success",
+		Source:   "backup",
+		Message:  fmt.Sprintf("Scheduled backup created: %s (%s)", filename, util.FormatBytes(info.Size())),
+		Metadata: map[string]interface{}{"filename": filename, "size_bytes": info.Size()},
+	})
+
+	// Apply rotation
+	backups, err := h.listBackupFiles()
+	if err != nil {
+		debuglog.Error("backup: failed to list backups for rotation", "error", err)
+		return
+	}
+	son, father, grandfather := h.getRetentionSettings(ctx)
+	classification := classifyBackups(backups, son, father, grandfather, time.Now())
+
+	for _, b := range classification.Prune {
+		absPath := h.validateBackupFilename(b.Filename)
+		if absPath == "" {
+			continue
+		}
+		if err := os.Remove(absPath); err != nil && !os.IsNotExist(err) {
+			debuglog.Error("backup: failed to prune", "filename", b.Filename, "error", err)
+		} else {
+			debuglog.Info("backup: pruned", "filename", b.Filename)
+		}
+	}
 }

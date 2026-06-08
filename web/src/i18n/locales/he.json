@@ -861,7 +861,7 @@
 		"btn_sync": "סנכרון",
 		"btn_syncing": "סנכרון ה-…",
 		"btn_new_group": "קבוצה חדשה",
-		"hint_drag": "גרור את הדגמים באמצעות הידית (⠿) כדי לשנות את סדר העדיפות",
+		"hint_drag": "גרור את הדגמים באמצעות הידית כדי לשנות את סדר העדיפות",
 		"filter_hotel_model": "סינון לפי מלון/דגם…",
 		"filter_providers": "כל הספקים",
 		"filter_states": "כל המדינות",
@@ -933,7 +933,11 @@
 		"toast_bulk_delete_success_one": "נמחק {{count}} קבוצה",
 		"toast_bulk_delete_success_other": "נמחקו {{count}} קבוצות",
 		"delete_confirm_bulk_title_one": "{{count}} קבוצת מעבר לגיבוי",
-		"delete_confirm_bulk_title_other": "{{count}} קבוצות מעבר לגיבוי"
+		"delete_confirm_bulk_title_other": "{{count}} קבוצות מעבר לגיבוי",
+		"btn_manage_providers": "Manage Providers",
+		"provider_modal_title": "Manage Provider Status",
+		"provider_modal_description": "Disabling a provider will disable all its models in every failover group",
+		"toast_provider_toggle_no_groups": "No failover groups use provider {{provider}}"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "שינויים שלא נשמרו"
@@ -1531,7 +1535,27 @@
 			"serverRestarting": "השרת לוקח יותר זמן מהצפוי להפעלה מחדש",
 			"restoreFailed": "השחזור נכשל: {{message}}",
 			"backupCreated": "הגיבוי נוצר",
-			"downloadFailed": "ההורדה נכשלה: {{message}}"
+			"downloadFailed": "ההורדה נכשלה: {{message}}",
+			"rotation": {
+				"title": "Periodic Backup",
+				"enabled": "Enable Periodic Backup",
+				"enabledDescription": "Automatically create backups at regular intervals and prune old ones using son/father/grandfather rotation.",
+				"interval": "Backup Interval",
+				"intervalDescription": "How often to create an automatic backup (0 = disabled).",
+				"sonRetention": "Daily Retention (Son)",
+				"sonRetentionDescription": "Keep the most recent backup from each of the last N days.",
+				"fatherRetention": "Weekly Retention (Father)",
+				"fatherRetentionDescription": "Keep the most recent backup from each of the last N weeks.",
+				"grandfatherRetention": "Monthly Retention (Grandfather)",
+				"grandfatherRetentionDescription": "Keep the most recent backup from each of the last N months.",
+				"confirmEnableTitle": "Enable Periodic Backup?",
+				"confirmEnableDescription": "Enabling periodic backup will prune existing backups that fall outside the son/father/grandfather rotation scheme.",
+				"confirmEnableWouldRemove": "This would remove the following {{count}} backup(s):",
+				"confirmEnableNoRemoval": "No existing backups would be removed.",
+				"prunePreviewFailed": "Failed to preview backup pruning",
+				"pruneFailed": "Failed to prune backups",
+				"pruneSuccess": "Pruned {{count}} backup(s)"
+			}
 		},
 		"appearance": {
 			"title": "מראה",

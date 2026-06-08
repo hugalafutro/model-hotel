@@ -260,6 +260,7 @@ func main() {
 	apiHandler := api.NewHandler(cfg, providerRepo, database, adminMgr, virtualKeyRepo, settingsRepo, version, testModelTransport, sd.CheckRedirect, sd.DialContext, sd.CheckRedirect)
 	proxyHandler := proxy.NewHandler(cfg, providerRepo, modelRepo, database.Pool(), virtualKeyRepo, failoverRepo, settingsRepo, rateLimiter, ipLimiter, sd)
 	apiHandler.SetCircuitBreaker(proxyHandler.CircuitBreaker())
+	apiHandler.StartBackupScheduler(context.Background())
 
 	// WebAuthn/FIDO2 passkey authentication (enabled when WEBAUTHN_RP_ID is set).
 	var webauthnHandler *api.WebAuthnHandler
@@ -767,6 +768,7 @@ func main() {
 
 	// Release goroutine-leaking resources before draining HTTP connections.
 	proxyHandler.Close()
+	apiHandler.StopBackupScheduler()
 	util.CloseDockerClient()
 
 	// Flush pending app log DB writes before closing the database.

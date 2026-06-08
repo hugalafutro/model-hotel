@@ -121,6 +121,9 @@ type mockSettingsStore struct {
 	setTxFn           func(ctx context.Context, tx pgx.Tx, key, value string) error
 	deleteKeysTxFn    func(ctx context.Context, tx pgx.Tx, keys []string) error
 	invalidateCacheFn func(key string)
+	getBoolFn         func(ctx context.Context, key string, defaultValue bool) bool
+	getDurationFn     func(ctx context.Context, key string, defaultValue time.Duration) time.Duration
+	getIntFn          func(ctx context.Context, key string, defaultValue int) int
 }
 
 func (m *mockSettingsStore) GetWithDefault(ctx context.Context, key, defaultValue string) string {
@@ -160,6 +163,27 @@ func (m *mockSettingsStore) InvalidateCache(key string) {
 }
 
 func (m *mockSettingsStore) NotifyDeleted(key string) {
+}
+
+func (m *mockSettingsStore) GetBool(ctx context.Context, key string, defaultValue bool) bool {
+	if m.getBoolFn != nil {
+		return m.getBoolFn(ctx, key, defaultValue)
+	}
+	return defaultValue
+}
+
+func (m *mockSettingsStore) GetDuration(ctx context.Context, key string, defaultValue time.Duration) time.Duration {
+	if m.getDurationFn != nil {
+		return m.getDurationFn(ctx, key, defaultValue)
+	}
+	return defaultValue
+}
+
+func (m *mockSettingsStore) GetInt(ctx context.Context, key string, defaultValue int) int {
+	if m.getIntFn != nil {
+		return m.getIntFn(ctx, key, defaultValue)
+	}
+	return defaultValue
 }
 
 type mockAdminAuth struct {

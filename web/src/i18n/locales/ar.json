@@ -933,7 +933,11 @@
 		"toast_bulk_delete_success_one": "مجموعة {{count}} المحذوفة",
 		"toast_bulk_delete_success_other": "مجموعات {{count}} المحذوفة",
 		"delete_confirm_bulk_title_one": "{{count}} مجموعة التحويل التلقائي",
-		"delete_confirm_bulk_title_other": "{{count}} مجموعات التحويل التلقائي"
+		"delete_confirm_bulk_title_other": "{{count}} مجموعات التحويل التلقائي",
+		"btn_manage_providers": "Manage Providers",
+		"provider_modal_title": "Manage Provider Status",
+		"provider_modal_description": "Disabling a provider will disable all its models in every failover group",
+		"toast_provider_toggle_no_groups": "No failover groups use provider {{provider}}"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "التغييرات غير المحفوظة"
@@ -1531,7 +1535,27 @@
 			"serverRestarting": "الخادم يستغرق وقتا أطول مما هو متوقع لإعادة التشغيل",
 			"restoreFailed": "فشلت الاستعادة: {{message}}",
 			"backupCreated": "تم إنشاء نسخة احتياطية",
-			"downloadFailed": "فشل التنزيل: {{message}}"
+			"downloadFailed": "فشل التنزيل: {{message}}",
+			"rotation": {
+				"title": "Periodic Backup",
+				"enabled": "Enable Periodic Backup",
+				"enabledDescription": "Automatically create backups at regular intervals and prune old ones using son/father/grandfather rotation.",
+				"interval": "Backup Interval",
+				"intervalDescription": "How often to create an automatic backup (0 = disabled).",
+				"sonRetention": "Daily Retention (Son)",
+				"sonRetentionDescription": "Keep the most recent backup from each of the last N days.",
+				"fatherRetention": "Weekly Retention (Father)",
+				"fatherRetentionDescription": "Keep the most recent backup from each of the last N weeks.",
+				"grandfatherRetention": "Monthly Retention (Grandfather)",
+				"grandfatherRetentionDescription": "Keep the most recent backup from each of the last N months.",
+				"confirmEnableTitle": "Enable Periodic Backup?",
+				"confirmEnableDescription": "Enabling periodic backup will prune existing backups that fall outside the son/father/grandfather rotation scheme.",
+				"confirmEnableWouldRemove": "This would remove the following {{count}} backup(s):",
+				"confirmEnableNoRemoval": "No existing backups would be removed.",
+				"prunePreviewFailed": "Failed to preview backup pruning",
+				"pruneFailed": "Failed to prune backups",
+				"pruneSuccess": "Pruned {{count}} backup(s)"
+			}
 		},
 		"appearance": {
 			"title": "المظهر",

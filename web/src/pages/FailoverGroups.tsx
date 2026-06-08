@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckSquare, ChevronRight, Shuffle, Square } from "lucide-react";
-import { useState } from "react";
+import {
+	CheckSquare,
+	ChevronRight,
+	ShieldOff,
+	Shuffle,
+	Square,
+} from "lucide-react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { CircuitBreakerProviderStatus, FailoverGroup } from "../api/types";
@@ -14,6 +20,7 @@ import { useToast } from "../context/ToastContext";
 import { countLabel, formatTimestamp } from "../utils/format";
 import { CreateGroupModal } from "./FailoverGroups/CreateGroupModal";
 import { FailoverGroupCard } from "./FailoverGroups/FailoverGroupCard";
+import { ProviderDisableModal } from "./FailoverGroups/ProviderDisableModal";
 
 export function FailoverGroups() {
 	const { toast } = useToast();
@@ -35,6 +42,8 @@ export function FailoverGroups() {
 	const [collapsedLetters, setCollapsedLetters] = useState<Set<string>>(
 		new Set(),
 	);
+	const [showProviderModal, setShowProviderModal] = useState(false);
+	const [isProviderToggling, setIsProviderToggling] = useState(false);
 
 	const toggleLetterCollapse = (letter: string) => {
 		setCollapsedLetters((prev) => {
@@ -67,6 +76,26 @@ export function FailoverGroups() {
 	}
 
 	const allGroups = listData?.groups;
+
+	// A provider is considered disabled when it has failover entries and every
+	// one of them is disabled. Derived from server data so the modal reflects
+	// the real state on open (and after each toggle re-fetches the groups).
+	const disabledProviders = useMemo(() => {
+		const result = new Set<string>();
+		if (!allGroups) return result;
+		const anyEnabled = new Set<string>();
+		const seen = new Set<string>();
+		for (const g of allGroups) {
+			for (const e of g.entries) {
+				seen.add(e.provider_name);
+				if (e.enabled) anyEnabled.add(e.provider_name);
+			}
+		}
+		for (const name of seen) {
+			if (!anyEnabled.has(name)) result.add(name);
+		}
+		return result;
+	}, [allGroups]);
 
 	// Unique provider names for dropdown
 	const providerNames = allGroups
@@ -142,11 +171,14 @@ export function FailoverGroups() {
 			group.entries.forEach((e) => {
 				entryEnabledMap[e.model_uuid] = enabled;
 			});
-			// If disabling all entries in an active group, also disable the group
+			// Auto-disable a group that just lost its last enabled entry, and
+			// symmetrically auto-re-enable a group that regains one.
 			const alsoDisableGroup = !enabled && group.group_enabled;
+			const alsoEnableGroup = enabled && !group.group_enabled;
 			return api.failoverGroups.update(group.id, {
 				entry_enabled: entryEnabledMap,
 				...(alsoDisableGroup ? { group_enabled: false } : {}),
+				...(alsoEnableGroup ? { group_enabled: true } : {}),
 			});
 		});
 
@@ -187,14 +219,18 @@ export function FailoverGroups() {
 					? enabled
 					: e.enabled;
 			});
-			// If disabling all entries in an active group, also disable the group
+			// Auto-disable a group that just lost its last enabled entry, and
+			// symmetrically auto-re-enable a group that regains one.
 			const remainingEnabled =
 				Object.values(entryEnabledMap).filter(Boolean).length;
 			const alsoDisableGroup =
 				!enabled && remainingEnabled === 0 && group.group_enabled;
+			const alsoEnableGroup =
+				enabled && remainingEnabled > 0 && !group.group_enabled;
 			return api.failoverGroups.update(group.id, {
 				entry_enabled: entryEnabledMap,
 				...(alsoDisableGroup ? { group_enabled: false } : {}),
+				...(alsoEnableGroup ? { group_enabled: true } : {}),
 			});
 		});
 
@@ -214,6 +250,72 @@ export function FailoverGroups() {
 			toast(t("failover.toast_provider_toggle_failed"), "error");
 		}
 	};
+
+	// Provider modal toggle
+	const handleProviderToggle = async (
+		providerName: string,
+		enabled: boolean,
+	) => {
+		if (!allGroups) return;
+		const affectedGroups = allGroups.filter((g) =>
+			g.entries.some((e) => e.provider_name === providerName),
+		);
+		if (affectedGroups.length === 0) {
+			toast(
+				t("failover.toast_provider_toggle_no_groups", {
+					provider: providerName,
+				}),
+				"info",
+			);
+			return;
+		}
+
+		setIsProviderToggling(true);
+		const promises = affectedGroups.map((group) => {
+			const entryEnabledMap: Record<string, boolean> = {};
+			group.entries.forEach((e) => {
+				entryEnabledMap[e.model_uuid] =
+					e.provider_name === providerName ? enabled : e.enabled;
+			});
+			// Auto-disable a group that just lost its last enabled entry, and
+			// symmetrically auto-re-enable a group that regains one.
+			const remainingEnabled =
+				Object.values(entryEnabledMap).filter(Boolean).length;
+			const alsoDisableGroup =
+				!enabled && remainingEnabled === 0 && group.group_enabled;
+			const alsoEnableGroup =
+				enabled && remainingEnabled > 0 && !group.group_enabled;
+			return api.failoverGroups.update(group.id, {
+				entry_enabled: entryEnabledMap,
+				...(alsoDisableGroup ? { group_enabled: false } : {}),
+				...(alsoEnableGroup ? { group_enabled: true } : {}),
+			});
+		});
+
+		try {
+			await Promise.all(promises);
+			// Re-fetch groups; disabledProviders is derived from the result.
+			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
+			toast(
+				t("failover.toast_provider_toggle_success", {
+					action: enabled ? t("common.enabled") : t("common.disabled"),
+					provider: providerName,
+					count: affectedGroups.length,
+				}),
+				"success",
+			);
+		} catch {
+			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
+			toast(t("failover.toast_provider_toggle_failed"), "error");
+		} finally {
+			setIsProviderToggling(false);
+		}
+	};
+
+	const { data: providers } = useQuery({
+		queryKey: ["providers"],
+		queryFn: () => api.providers.list(),
+	});
 
 	const { data: candidates } = useQuery({
 		queryKey: ["failover-candidates"],
@@ -381,7 +483,7 @@ export function FailoverGroups() {
 	}
 
 	return (
-		<div className="space-y-6" style={{ scrollBehavior: "smooth" }}>
+		<div className="space-y-6 pb-0" style={{ scrollBehavior: "smooth" }}>
 			<PageHeader
 				icon={Shuffle}
 				title={countLabel(
@@ -443,6 +545,14 @@ export function FailoverGroups() {
 							className="ui-btn ui-btn-primary"
 						>
 							{t("failover.btn_new_group")}
+						</button>
+						<button
+							type="button"
+							onClick={() => setShowProviderModal(true)}
+							className="ui-btn ui-btn-secondary text-sm px-3 py-1.5 flex items-center gap-1.5"
+						>
+							<ShieldOff className="h-4 w-4" />
+							{t("failover.btn_manage_providers")}
 						</button>
 					</>
 				}
@@ -826,6 +936,22 @@ export function FailoverGroups() {
 					isPending={isBulkDeleting}
 					onConfirm={confirmBulkDelete}
 					onCancel={() => setBulkDeleteIds(null)}
+				/>
+			)}
+
+			{showProviderModal && (
+				<ProviderDisableModal
+					open={showProviderModal}
+					onClose={() => setShowProviderModal(false)}
+					providers={(providers ?? [])
+						.filter((p) => providerNames.includes(p.name))
+						.map((p) => ({
+							id: p.id,
+							name: p.name,
+						}))}
+					disabledProviders={disabledProviders}
+					onToggleProvider={handleProviderToggle}
+					isProcessing={isProviderToggling}
 				/>
 			)}
 		</div>
