@@ -325,11 +325,11 @@ func paginate(entries []LogEntry, p logListParams) ([]LogEntry, bool, bool) {
 	return entries, hasAfter, hasBefore
 }
 
-// scanLogEntry scans one request_logs row (the 30-column projection shared by
-// ListLogsCursor and ListLogs) into a LogEntry.
-func scanLogEntry(rows pgx.Rows) (LogEntry, error) {
-	var entry LogEntry
-	err := rows.Scan(
+// logEntryScanDests returns the ordered Scan() targets for the shared 30-column
+// request_logs projection (logEntrySelectColumns). The cursor list scans these
+// directly; the offset list (ListLogs) prepends its windowed total count.
+func logEntryScanDests(entry *LogEntry) []any {
+	return []any{
 		&entry.ID, &entry.ProviderID, &entry.ProviderName, &entry.ModelID,
 		&entry.RequestHash, &entry.StatusCode, &entry.LatencyMs, &entry.DurationMs,
 		&entry.TTFTMs, &entry.ProxyOverheadMs,
@@ -345,7 +345,14 @@ func scanLogEntry(rows pgx.Rows) (LogEntry, error) {
 		&entry.FailoverAttempt, &entry.State, &entry.CreatedAt,
 		&entry.ResponseHeaderMs,
 		&entry.ResolvedModelID,
-	)
+	}
+}
+
+// scanLogEntry scans one request_logs row (the 30-column projection shared by
+// ListLogsCursor and ListLogs) into a LogEntry.
+func scanLogEntry(rows pgx.Rows) (LogEntry, error) {
+	var entry LogEntry
+	err := rows.Scan(logEntryScanDests(&entry)...)
 	return entry, err
 }
 
@@ -712,24 +719,8 @@ COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.vi
 	for rows.Next() {
 		var entry LogEntry
 		var totalCount int
-		err := rows.Scan(
-			&totalCount,
-			&entry.ID, &entry.ProviderID, &entry.ProviderName, &entry.ModelID,
-			&entry.RequestHash, &entry.StatusCode, &entry.LatencyMs, &entry.DurationMs,
-			&entry.TTFTMs, &entry.ProxyOverheadMs,
-			&entry.ParseMs, &entry.FailoverLookupMs, &entry.ModelLookupMs, &entry.ProviderLookupMs, &entry.KeyDecryptMs,
-			&entry.DialMs, &entry.SettingsReadMs,
-			&entry.CacheHits,
-			&entry.TokensPerSecond,
-			&entry.TokensPrompt, &entry.TokensCompletion, &entry.TokensCompletionReasoning,
-			&entry.TokensPromptCacheHit, &entry.TokensPromptCacheMiss,
-			&entry.Streaming,
-			&entry.VirtualKeyName, &entry.VirtualKeyID, &entry.VirtualKeyDeleted,
-			&entry.ErrorMessage,
-			&entry.FailoverAttempt, &entry.State, &entry.CreatedAt,
-			&entry.ResponseHeaderMs,
-			&entry.ResolvedModelID,
-		)
+		// Windowed COUNT(*) OVER() comes first; the rest is the shared projection.
+		err := rows.Scan(append([]any{&totalCount}, logEntryScanDests(&entry)...)...)
 		if err != nil {
 			debuglog.Error("logs: row scan failed", "error", err)
 			continue
