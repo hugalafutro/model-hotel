@@ -370,7 +370,7 @@ export function DatabaseBackupSettings({
 											if (prunePreview && prunePreview.prune.length > 0) {
 												await api.backups.prune();
 											}
-											settingsUpdateMutation.mutate({
+											await settingsUpdateMutation.mutateAsync({
 												backup_enabled: "true",
 											});
 											toast(
@@ -399,8 +399,8 @@ export function DatabaseBackupSettings({
 				)}
 
 				{/* Restore requirements */}
-				<div className="bg-(--surface-elevated) rounded-[var(--radius-card,0.375rem)] p-3 space-y-2">
-					<h4 className="text-xs font-semibold uppercase tracking-wider text-(--text-secondary)">
+				<div className="rounded-[var(--radius-card,0.375rem)] border border-(--accent)/30 bg-(--accent)/5 p-3 space-y-2">
+					<h4 className="text-xs font-semibold uppercase tracking-wider text-(--accent)">
 						{t("settings.backup.restoreRequirements")}
 					</h4>
 					<ul className="text-xs text-(--text-secondary) space-y-1 list-disc list-inside">

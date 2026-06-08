@@ -1038,6 +1038,8 @@ func (h *BackupHandler) StartScheduler(ctx context.Context) {
 		defer func() {
 			if r := recover(); r != nil {
 				debuglog.Error("backup: scheduler panic recovered", "panic", r)
+				// Reset so StartScheduler can restart the scheduler.
+				h.schedulerCancel = nil
 			}
 		}()
 		// Initial delay to let the server fully start

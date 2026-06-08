@@ -36,7 +36,7 @@ export function ProviderDisableModal({
 				{providers.map((provider) => (
 					<div
 						key={provider.id}
-						className="flex items-center justify-between rounded px-3 py-2 hover:bg-gray-800/50"
+						className="flex items-center justify-between rounded px-3 py-2 hover:bg-(--surface-hover)"
 					>
 						<span className="font-mono text-sm">{provider.name}</span>
 						<Toggle
