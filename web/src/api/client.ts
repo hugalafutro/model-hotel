@@ -1,5 +1,6 @@
 import type {
 	AppLogsCursorResponse,
+	BackupClassification,
 	BackupEntry,
 	CandidateModel,
 	CircuitBreakerStatus,
@@ -954,6 +955,26 @@ export const api = {
 				throw new Error(`Restore failed: ${response.status} ${text}`);
 			}
 			return response.json();
+		},
+		prunePreview: async (): Promise<BackupClassification> => {
+			return fetchJSON<BackupClassification>(
+				`${API_BASE}/api/backups/prune-preview`,
+				{
+					method: "POST",
+					headers: getAuthHeaders(),
+				},
+				"Failed to preview backup pruning",
+			);
+		},
+		prune: async (): Promise<BackupClassification> => {
+			return fetchJSON<BackupClassification>(
+				`${API_BASE}/api/backups/prune`,
+				{
+					method: "POST",
+					headers: getAuthHeaders(),
+				},
+				"Failed to prune backups",
+			);
 		},
 	},
 	webauthn: {

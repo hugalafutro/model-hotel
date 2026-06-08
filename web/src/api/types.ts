@@ -449,6 +449,13 @@ export interface BackupEntry {
 	created_at: string;
 }
 
+export interface BackupClassification {
+	son: BackupEntry[];
+	father: BackupEntry[];
+	grandfather: BackupEntry[];
+	prune: BackupEntry[];
+}
+
 export interface ZAICodingQuotaUsageDetail {
 	modelCode: string;
 	usage: number;

@@ -855,4 +855,70 @@ describe("DatabaseBackupSettings", () => {
 			expect(onToggle).toHaveBeenCalled();
 		});
 	});
+
+	it("shows Periodic Backup toggle", async () => {
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+		await waitFor(() => {
+			expect(screen.getByText("Periodic Backup")).toBeInTheDocument();
+		});
+	});
+
+	it("shows confirm modal when enabling periodic backup", async () => {
+		server.use(
+			http.post("/api/backups/prune-preview", () => {
+				return HttpResponse.json({
+					son: [],
+					father: [],
+					grandfather: [],
+					prune: [],
+				});
+			}),
+		);
+		const user = userEvent.setup();
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+		await waitFor(() => {
+			expect(screen.getByText("Periodic Backup")).toBeInTheDocument();
+		});
+		const toggle = screen.getByRole("switch");
+		await user.click(toggle);
+		await waitFor(() => {
+			expect(screen.getByText("Enable Periodic Backup?")).toBeInTheDocument();
+		});
+	});
+
+	it("shows backups that would be pruned in confirm modal", async () => {
+		server.use(
+			http.post("/api/backups/prune-preview", () => {
+				return HttpResponse.json({
+					son: [],
+					father: [],
+					grandfather: [],
+					prune: [
+						{
+							filename: "backup-old.dump",
+							size_bytes: 1024,
+							created_at: "2025-01-01T00:00:00Z",
+						},
+					],
+				});
+			}),
+		);
+		const user = userEvent.setup();
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+		await waitFor(() => {
+			expect(screen.getByText("Periodic Backup")).toBeInTheDocument();
+		});
+		const toggle = screen.getByRole("switch");
+		await user.click(toggle);
+		await waitFor(() => {
+			expect(screen.getByText("Enable Periodic Backup?")).toBeInTheDocument();
+		});
+		expect(screen.getByText("backup-old.dump")).toBeInTheDocument();
+	});
 });

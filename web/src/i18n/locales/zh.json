@@ -1535,7 +1535,27 @@
 			"serverRestarting": "服务器所需时间超过预计重启时间",
 			"restoreFailed": "恢复失败： {{message}}",
 			"backupCreated": "备份已创建",
-			"downloadFailed": "下载失败： {{message}}"
+			"downloadFailed": "下载失败： {{message}}",
+			"rotation": {
+				"title": "Periodic Backup",
+				"enabled": "Enable Periodic Backup",
+				"enabledDescription": "Automatically create backups at regular intervals and prune old ones using son/father/grandfather rotation.",
+				"interval": "Backup Interval",
+				"intervalDescription": "How often to create an automatic backup (0 = disabled).",
+				"sonRetention": "Daily Retention (Son)",
+				"sonRetentionDescription": "Keep the most recent backup from each of the last N days.",
+				"fatherRetention": "Weekly Retention (Father)",
+				"fatherRetentionDescription": "Keep the most recent backup from each of the last N weeks.",
+				"grandfatherRetention": "Monthly Retention (Grandfather)",
+				"grandfatherRetentionDescription": "Keep the most recent backup from each of the last N months.",
+				"confirmEnableTitle": "Enable Periodic Backup?",
+				"confirmEnableDescription": "Enabling periodic backup will prune existing backups that fall outside the son/father/grandfather rotation scheme.",
+				"confirmEnableWouldRemove": "This would remove the following {{count}} backup(s):",
+				"confirmEnableNoRemoval": "No existing backups would be removed.",
+				"prunePreviewFailed": "Failed to preview backup pruning",
+				"pruneFailed": "Failed to prune backups",
+				"pruneSuccess": "Pruned {{count}} backup(s)"
+			}
 		},
 		"appearance": {
 			"title": "外观",
