@@ -533,27 +533,73 @@ func (h *BackupHandler) RestoreBackup(w http.ResponseWriter, r *http.Request) {
 	}
 	defer h.backupMu.Unlock()
 
+	tmpPath, ok := h.saveUploadedDump(w, r)
+	if !ok {
+		return
+	}
+	//nolint:errcheck // cleanup: temp file removed after processing
+	defer os.Remove(tmpPath)
+
+	pgRestorePath, dumpMigrations, ok := validateRestoreDump(w, tmpPath)
+	if !ok {
+		return
+	}
+
+	if !h.runPgRestore(w, pgRestorePath, tmpPath) {
+		return
+	}
+
+	debuglog.Info("backup: restored", "migrations_in_dump", len(dumpMigrations))
+	events.Publish(events.Event{
+		Type:     "backup.restored",
+		Severity: "success",
+		Source:   "backup",
+		Message:  "Database restored successfully. Restarting...",
+		Metadata: map[string]interface{}{"migration_count": len(dumpMigrations)},
+	})
+
+	// Respond before exiting so the client gets the success response
+	result := restoreResult{
+		MigrationCount: len(dumpMigrations),
+		KnownCount:     len(db.KnownMigrations()),
+	}
+	writeJSON(w, result)
+
+	// Exit the process so Docker restarts it with fresh caches and
+	// re-runs any missing migrations against the restored database.
+	go func() {
+		time.Sleep(500 * time.Millisecond) // give the HTTP response time to flush
+		os.Remove(tmpPath)                 //nolint:errcheck,gosec // best-effort cleanup before exit
+		os.Exit(0)
+	}()
+}
+
+// saveUploadedDump validates the multipart upload (size limit, admin token,
+// dump file) and streams it to a temp file in the backup dir, returning the temp
+// path for the caller to clean up. It writes the appropriate HTTP error and
+// returns ok=false on any failure (removing the temp file if it was created).
+func (h *BackupHandler) saveUploadedDump(w http.ResponseWriter, r *http.Request) (tmpPath string, ok bool) {
 	// Limit upload size (100MB)
 	r.Body = http.MaxBytesReader(w, r.Body, 100*1024*1024)
 
 	// Parse multipart form (32MB max in-memory)
 	if err := r.ParseMultipartForm(32 << 20); err != nil { //nolint:gosec // bounded by MaxBytesReader above
 		respondBadRequest(w, "failed to parse multipart form", err)
-		return
+		return "", false
 	}
 
 	// Validate admin token from form field
 	adminToken := r.FormValue("admin_token")
 	if adminToken == "" || !h.adminMgr.Validate(adminToken) {
 		respondError(w, "invalid admin token", nil, http.StatusUnauthorized)
-		return
+		return "", false
 	}
 
 	// Get uploaded file
 	file, _, err := r.FormFile("dump")
 	if err != nil {
 		respondBadRequest(w, "missing dump file", err)
-		return
+		return "", false
 	}
 	//nolint:errcheck // cleanup: multipart file handle
 	defer file.Close()
@@ -561,32 +607,39 @@ func (h *BackupHandler) RestoreBackup(w http.ResponseWriter, r *http.Request) {
 	// Ensure backup directory exists
 	if err := os.MkdirAll(h.backupDir, 0o750); err != nil {
 		respondError(w, "failed to create backup directory", err, http.StatusInternalServerError)
-		return
+		return "", false
 	}
 
 	// Save to temp file
 	tmpFile, err := os.CreateTemp(h.backupDir, "restore-*.dump")
 	if err != nil {
 		respondError(w, "failed to create temp file", err, http.StatusInternalServerError)
-		return
+		return "", false
 	}
-	tmpPath := tmpFile.Name()
-	//nolint:errcheck // cleanup: temp file removed after processing
-	defer os.Remove(tmpPath)
+	tmpPath = tmpFile.Name()
 
 	if _, err := io.Copy(tmpFile, file); err != nil {
-		//nolint:errcheck // error path: closing after copy failure
-		tmpFile.Close() //nolint:errcheck,gosec // error path: closing after copy failure
+		tmpFile.Close()        //nolint:errcheck,gosec // error path: closing after copy failure
+		_ = os.Remove(tmpPath) // error path: discard partial temp file
 		respondError(w, "failed to save uploaded file", err, http.StatusInternalServerError)
-		return
+		return "", false
 	}
 	tmpFile.Close() //nolint:errcheck,gosec // cleanup: file fully written, closing for pg_restore
 
+	return tmpPath, true
+}
+
+// validateRestoreDump inspects a saved dump with pg_restore --list and rejects
+// it unless it is a safe, same-or-older model-hotel backup: no dangerous
+// objects, contains schema_migrations, and no migrations newer than this build.
+// It writes the appropriate HTTP error and returns ok=false on rejection;
+// otherwise it returns the dump's migration names.
+func validateRestoreDump(w http.ResponseWriter, tmpPath string) (pgRestorePath string, dumpMigrations []string, ok bool) {
 	// Step 1: Validate dump format with pg_restore --list
 	pgRestorePath, err := exec.LookPath("pg_restore")
 	if err != nil {
 		respondError(w, "pg_restore not found - install postgresql-client package", err, http.StatusPreconditionFailed)
-		return
+		return "", nil, false
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -600,7 +653,7 @@ func (h *BackupHandler) RestoreBackup(w http.ResponseWriter, r *http.Request) {
 
 	if err := listCmd.Run(); err != nil {
 		respondBadRequest(w, "invalid dump file: pg_restore --list failed", err)
-		return
+		return "", nil, false
 	}
 
 	// Step 2: Check for dangerous objects
@@ -609,7 +662,7 @@ func (h *BackupHandler) RestoreBackup(w http.ResponseWriter, r *http.Request) {
 	if len(dangerous) > 0 {
 		debuglog.Warn("backup: restore rejected - dangerous objects in dump", "objects", strings.Join(dangerous, ", "))
 		respondBadRequest(w, fmt.Sprintf("dump contains dangerous objects: %s", strings.Join(dangerous, ", ")), nil)
-		return
+		return "", nil, false
 	}
 
 	// Step 3: Extract and compare migrations
@@ -617,13 +670,13 @@ func (h *BackupHandler) RestoreBackup(w http.ResponseWriter, r *http.Request) {
 	if schemaEntry == 0 {
 		debuglog.Warn("backup: restore rejected - no schema_migrations in dump")
 		respondBadRequest(w, "dump does not contain schema_migrations table - not a model-hotel backup", nil)
-		return
+		return "", nil, false
 	}
 
-	dumpMigrations, err := extractMigrationNames(tmpPath, schemaEntry)
+	dumpMigrations, err = extractMigrationNames(tmpPath, schemaEntry)
 	if err != nil {
 		respondError(w, "failed to extract migration info from dump", err, http.StatusInternalServerError)
-		return
+		return "", nil, false
 	}
 
 	unknownMigrations := compareMigrations(dumpMigrations)
@@ -633,10 +686,17 @@ func (h *BackupHandler) RestoreBackup(w http.ResponseWriter, r *http.Request) {
 			"dump is from a newer version (unknown migrations: %s). Downgrade restore is not supported.",
 			strings.Join(unknownMigrations, ", "),
 		), nil)
-		return
+		return "", nil, false
 	}
 
-	// Step 4: Run pg_restore --clean --if-exists
+	return pgRestorePath, dumpMigrations, true
+}
+
+// runPgRestore runs pg_restore --clean --if-exists against the configured
+// database, stripping the password from the connection URL onto PGPASSWORD. The
+// pg_restore path is resolved once by validateRestoreDump and threaded in. It
+// writes an HTTP error and returns false if the restore command fails.
+func (h *BackupHandler) runPgRestore(w http.ResponseWriter, pgRestorePath, tmpPath string) bool {
 	restoreCtx, restoreCancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer restoreCancel()
 
@@ -669,32 +729,10 @@ func (h *BackupHandler) RestoreBackup(w http.ResponseWriter, r *http.Request) {
 	if err := restoreCmd.Run(); err != nil {
 		debuglog.Error("backup: pg_restore failed", "output", strings.TrimSpace(restoreStderr.String()), "error", err)
 		respondError(w, "pg_restore failed - check server logs for details", err, http.StatusInternalServerError)
-		return
+		return false
 	}
 
-	debuglog.Info("backup: restored", "migrations_in_dump", len(dumpMigrations))
-	events.Publish(events.Event{
-		Type:     "backup.restored",
-		Severity: "success",
-		Source:   "backup",
-		Message:  "Database restored successfully. Restarting...",
-		Metadata: map[string]interface{}{"migration_count": len(dumpMigrations)},
-	})
-
-	// Respond before exiting so the client gets the success response
-	result := restoreResult{
-		MigrationCount: len(dumpMigrations),
-		KnownCount:     len(db.KnownMigrations()),
-	}
-	writeJSON(w, result)
-
-	// Exit the process so Docker restarts it with fresh caches and
-	// re-runs any missing migrations against the restored database.
-	go func() {
-		time.Sleep(500 * time.Millisecond) // give the HTTP response time to flush
-		os.Remove(tmpPath)                 //nolint:errcheck,gosec // best-effort cleanup before exit
-		os.Exit(0)
-	}()
+	return true
 }
 
 // ── Son/Father/Grandfather Rotation ──────────────────────────────────

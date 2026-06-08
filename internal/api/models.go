@@ -280,47 +280,102 @@ type TestModelResponse struct {
 
 // TestModel tests a model by making a test request and returning latency metrics.
 func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
-	id, ok := parseUUIDParam(w, r, "id", "model ID")
+	m, prov, ok := h.resolveTestModelTarget(w, r)
 	if !ok {
 		return
+	}
+
+	start := time.Now()
+	keyDecryptStart := time.Now()
+	apiKey, ok := h.decryptTestModelKey(w, prov)
+	if !ok {
+		return
+	}
+	keyDecryptMs := float64(time.Since(keyDecryptStart).Microseconds()) / 1000.0
+	proxyOverheadMs := float64(time.Since(start).Microseconds()) / 1000.0
+
+	proxyReq, reqHash := buildTestModelRequest(r.Context(), m, prov, apiKey)
+
+	startRequest := time.Now()
+	resp, err := h.doTestModelRequest(proxyReq)
+	if err != nil {
+		durationMs := float64(time.Since(start).Milliseconds())
+		h.logTestModelRequestError(r.Context(), m, reqHash, durationMs, proxyOverheadMs, keyDecryptMs, err.Error())
+		writeJSON(w, TestModelResponse{Error: err.Error()})
+		return
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	respBody, _ := io.ReadAll(resp.Body)
+	duration := time.Since(startRequest).Milliseconds()
+
+	if resp.StatusCode != http.StatusOK {
+		errMsg := util.SanitizeLogBody(fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(respBody)), 10000)
+		h.logTestModelHTTPError(r.Context(), m, reqHash, resp.StatusCode, float64(duration), proxyOverheadMs, keyDecryptMs, errMsg)
+		writeJSON(w, TestModelResponse{DurationMs: duration, Error: errMsg})
+		return
+	}
+
+	content, tps, promptTokens, completionTokens := parseTestModelResponse(respBody, duration)
+	h.logTestModelCompleted(r.Context(), m, reqHash, resp.StatusCode, float64(duration), proxyOverheadMs, keyDecryptMs, tps, promptTokens, completionTokens)
+	writeJSON(w, TestModelResponse{
+		Success:          true,
+		Streaming:        false,
+		ResponseHeaderMs: &duration,
+		DurationMs:       duration,
+		Response:         content,
+	})
+}
+
+// resolveTestModelTarget loads and validates the model + provider for a test
+// request: parse the id param, fetch the (enabled) model, fetch its provider. It
+// writes the appropriate HTTP error and returns ok=false on any failure.
+func (h *Handler) resolveTestModelTarget(w http.ResponseWriter, r *http.Request) (m *model.Model, prov *provider.Provider, ok bool) {
+	id, ok := parseUUIDParam(w, r, "id", "model ID")
+	if !ok {
+		return nil, nil, false
 	}
 
 	modelRepo := model.NewRepository(h.dbPool.Pool())
 	m, err := modelRepo.Get(r.Context(), id)
 	if err != nil {
 		http.Error(w, "model not found", http.StatusNotFound)
-		return
+		return nil, nil, false
 	}
 
 	if !m.Enabled {
 		http.Error(w, "model is disabled", http.StatusBadRequest)
-		return
+		return nil, nil, false
 	}
 
-	prov, err := h.providerRepo.Get(r.Context(), m.ProviderID)
+	prov, err = h.providerRepo.Get(r.Context(), m.ProviderID)
 	if err != nil {
 		respondError(w, "provider not found", nil, http.StatusInternalServerError)
-		return
+		return nil, nil, false
 	}
+	return m, prov, true
+}
 
-	start := time.Now()
-	keyDecryptStart := time.Now()
-
+// decryptTestModelKey decrypts the provider API key for a test request. Keyless
+// providers (nil encrypted bytes) yield an empty key. It writes an HTTP error
+// and returns ok=false if decryption fails.
+func (h *Handler) decryptTestModelKey(w http.ResponseWriter, prov *provider.Provider) (apiKey string, ok bool) {
 	// Keyless providers store nil encrypted key bytes — skip decryption.
-	var apiKey string
 	if len(prov.EncryptedKey) == 0 {
-		apiKey = ""
-	} else {
-		var err error
-		apiKey, err = auth.Decrypt(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
-		if err != nil {
-			respondError(w, "failed to decrypt API key", nil, http.StatusInternalServerError)
-			return
-		}
+		return "", true
 	}
-	keyDecryptMs := float64(time.Since(keyDecryptStart).Microseconds()) / 1000.0
-	proxyOverheadMs := float64(time.Since(start).Microseconds()) / 1000.0
+	apiKey, err := auth.Decrypt(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
+	if err != nil {
+		respondError(w, "failed to decrypt API key", nil, http.StatusInternalServerError)
+		return "", false
+	}
+	return apiKey, true
+}
 
+// buildTestModelRequest constructs the upstream chat-completions probe request
+// (a one-token "Respond only with `Hi`" prompt) with provider-appropriate auth
+// headers, and returns it alongside a fresh random request hash for logging.
+func buildTestModelRequest(ctx context.Context, m *model.Model, prov *provider.Provider, apiKey string) (*http.Request, string) {
 	body := map[string]interface{}{
 		"model": m.ModelID,
 		"messages": []map[string]string{
@@ -333,7 +388,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 	providerType := provider.DetectProviderType(prov.BaseURL)
 	targetURL := util.BuildProviderTargetURL(prov.BaseURL, providerType)
 	//nolint:gosec // provider URL is admin-configured, not arbitrary user input
-	proxyReq, _ := http.NewRequestWithContext(r.Context(), "POST", targetURL, bytes.NewReader(bodyBytes))
+	proxyReq, _ := http.NewRequestWithContext(ctx, "POST", targetURL, bytes.NewReader(bodyBytes))
 	util.SetProviderAuthHeaders(proxyReq, providerType, apiKey)
 	proxyReq.Header.Set("Content-Type", "application/json")
 
@@ -341,7 +396,12 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 	rand.Read(reqHashBytes)
 	reqHash := hex.EncodeToString(reqHashBytes)
 
-	startRequest := time.Now()
+	return proxyReq, reqHash
+}
+
+// doTestModelRequest executes the probe request with a 30s-timeout client,
+// honoring the test-only transport/redirect hooks when set.
+func (h *Handler) doTestModelRequest(proxyReq *http.Request) (*http.Response, error) {
 	testClient := &http.Client{Timeout: 30 * time.Second}
 	if h.testModelTransport != nil {
 		testClient.Transport = h.testModelTransport
@@ -350,63 +410,13 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 		testClient.CheckRedirect = h.testModelCheckRedirect
 	}
 	//nolint:gosec // provider URL is admin-configured, not arbitrary user input
-	resp, err := testClient.Do(proxyReq)
-	if err != nil {
-		logQuery := `
-			INSERT INTO request_logs (
-				provider_id, model_id, request_hash, status_code,
-				latency_ms, duration_ms, response_header_ms, ttft_ms,
-				proxy_overhead_ms, parse_ms, failover_lookup_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, dial_ms, settings_read_ms,
-				error_message, streaming, virtual_key_name, virtual_key_id, failover_attempt, state
-			)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
-		`
-		durationMs := float64(time.Since(start).Milliseconds())
-		_, logErr := h.dbPool.Pool().Exec(r.Context(), logQuery,
-			m.ProviderID, m.ModelID, reqHash, 502,
-			durationMs, durationMs, 0,
-			proxyOverheadMs, 0, 0, 0, 0, keyDecryptMs, 0, 0,
-			err.Error(), false, "internal", nil, 0, "failed",
-		)
-		if logErr != nil {
-			debuglog.Error("admin: TestModel log insert failed", "error", logErr)
-		}
+	return testClient.Do(proxyReq)
+}
 
-		writeJSON(w, TestModelResponse{Error: err.Error()})
-		return
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	respBody, _ := io.ReadAll(resp.Body)
-	duration := time.Since(startRequest).Milliseconds()
-
-	if resp.StatusCode != http.StatusOK {
-		errMsg := util.SanitizeLogBody(fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(respBody)), 10000)
-
-		logQuery := `
-			INSERT INTO request_logs (
-				provider_id, model_id, request_hash, status_code,
-				latency_ms, duration_ms, response_header_ms, ttft_ms,
-				proxy_overhead_ms, parse_ms, failover_lookup_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, dial_ms, settings_read_ms,
-				error_message, tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name, virtual_key_id, failover_attempt, state
-			)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
-		`
-		durationMs := float64(duration)
-		_, logErr := h.dbPool.Pool().Exec(r.Context(), logQuery,
-			m.ProviderID, m.ModelID, reqHash, resp.StatusCode,
-			durationMs, durationMs, 0,
-			proxyOverheadMs, 0, 0, 0, 0, keyDecryptMs, 0, 0,
-			errMsg, 0, 0, 0, false, "internal", nil, 0, "failed",
-		)
-		if logErr != nil {
-			debuglog.Error("admin: TestModel log insert failed", "error", logErr)
-		}
-
-		writeJSON(w, TestModelResponse{DurationMs: duration, Error: errMsg})
-		return
-	}
-
+// parseTestModelResponse extracts the assistant content and computes
+// tokens-per-second from a successful test response body. A parse failure is
+// logged and yields empty content / zero usage.
+func parseTestModelResponse(respBody []byte, duration int64) (content string, tps float64, promptTokens, completionTokens int) {
 	var chatResp struct {
 		Choices []struct {
 			Message struct {
@@ -422,16 +432,68 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 		debuglog.Debug("admin: failed to parse test model chat response", "error", err)
 	}
 
-	content := ""
 	if len(chatResp.Choices) > 0 {
 		content = chatResp.Choices[0].Message.Content
 	}
 
-	var tps float64
 	if chatResp.Usage.CompletionTokens > 0 && duration > 0 {
 		tps = float64(chatResp.Usage.CompletionTokens) / float64(duration) * 1000
 	}
 
+	return content, tps, chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens
+}
+
+// logTestModelRequestError records a failed test request (the upstream call
+// never completed) as a 502 "failed" request_logs row.
+func (h *Handler) logTestModelRequestError(ctx context.Context, m *model.Model, reqHash string, durationMs, proxyOverheadMs, keyDecryptMs float64, errMsg string) {
+	logQuery := `
+		INSERT INTO request_logs (
+			provider_id, model_id, request_hash, status_code,
+			latency_ms, duration_ms, response_header_ms, ttft_ms,
+			proxy_overhead_ms, parse_ms, failover_lookup_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, dial_ms, settings_read_ms,
+			error_message, streaming, virtual_key_name, virtual_key_id, failover_attempt, state
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+	`
+	_, logErr := h.dbPool.Pool().Exec(ctx, logQuery,
+		m.ProviderID, m.ModelID, reqHash, 502,
+		durationMs, durationMs, 0,
+		proxyOverheadMs, 0, 0, 0, 0, keyDecryptMs, 0, 0,
+		errMsg, false, "internal", nil, 0, "failed",
+	)
+	if logErr != nil {
+		debuglog.Error("admin: TestModel log insert failed", "error", logErr)
+	}
+}
+
+// logTestModelHTTPError records a test request that reached the upstream but
+// returned a non-200 status as a "failed" request_logs row.
+func (h *Handler) logTestModelHTTPError(ctx context.Context, m *model.Model, reqHash string, statusCode int, durationMs, proxyOverheadMs, keyDecryptMs float64, errMsg string) {
+	logQuery := `
+		INSERT INTO request_logs (
+			provider_id, model_id, request_hash, status_code,
+			latency_ms, duration_ms, response_header_ms, ttft_ms,
+			proxy_overhead_ms, parse_ms, failover_lookup_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, dial_ms, settings_read_ms,
+			error_message, tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name, virtual_key_id, failover_attempt, state
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
+	`
+	_, logErr := h.dbPool.Pool().Exec(ctx, logQuery,
+		m.ProviderID, m.ModelID, reqHash, statusCode,
+		durationMs, durationMs, 0,
+		proxyOverheadMs, 0, 0, 0, 0, keyDecryptMs, 0, 0,
+		errMsg, 0, 0, 0, false, "internal", nil, 0, "failed",
+	)
+	if logErr != nil {
+		debuglog.Error("admin: TestModel log insert failed", "error", logErr)
+	}
+}
+
+// logTestModelCompleted records a successful (HTTP 200) test request as a
+// "completed" request_logs row. For a non-streaming test, response_header_ms
+// equals total duration (no separate streaming phase) and ttft_ms is stored as
+// 0 to indicate non-streaming.
+func (h *Handler) logTestModelCompleted(ctx context.Context, m *model.Model, reqHash string, statusCode int, durationMs, proxyOverheadMs, keyDecryptMs, tps float64, promptTokens, completionTokens int) {
 	logQuery := `
 		INSERT INTO request_logs (
 			provider_id, model_id, request_hash, status_code,
@@ -441,27 +503,15 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 		)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
 	`
-	durationMs := float64(duration)
-	// For a non-streaming test request, response_header_ms equals total duration
-	// (no separate streaming phase). The log stores ttft_ms = 0 to
-	// indicate non-streaming. The API response reports duration as response_header_ms.
-	_, logErr := h.dbPool.Pool().Exec(r.Context(), logQuery,
-		m.ProviderID, m.ModelID, reqHash, resp.StatusCode,
+	_, logErr := h.dbPool.Pool().Exec(ctx, logQuery,
+		m.ProviderID, m.ModelID, reqHash, statusCode,
 		durationMs, durationMs, durationMs,
 		proxyOverheadMs, 0, 0, 0, 0, keyDecryptMs, 0, 0,
-		tps, chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, false, "internal", nil, 0, "completed",
+		tps, promptTokens, completionTokens, false, "internal", nil, 0, "completed",
 	)
 	if logErr != nil {
 		debuglog.Error("admin: TestModel log insert failed", "error", logErr)
 	}
-
-	writeJSON(w, TestModelResponse{
-		Success:          true,
-		Streaming:        false,
-		ResponseHeaderMs: &duration,
-		DurationMs:       duration,
-		Response:         content,
-	})
 }
 
 // See util.BuildProviderTargetURL for URL construction and util.SetProviderAuthHeaders for auth.
