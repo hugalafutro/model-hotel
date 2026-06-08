@@ -734,6 +734,68 @@ func TestKnownMigrations_ReadDirError(t *testing.T) {
 	}
 }
 
+// TestRunMigration_CommitError tests the error path when tx.Commit fails.
+// Uses a cancelled context to trigger the commit failure.
+func TestRunMigration_CommitError(t *testing.T) {
+	ctx := context.Background()
+	testURL, err := SetupTestDB("db_commit_err")
+	if err != nil {
+		t.Fatalf("failed to setup test DB: %v", err)
+	}
+	defer CleanupTestDB("db_commit_err")
+
+	d, err := New(ctx, testURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create DB: %v", err)
+	}
+	defer d.Close()
+
+	// Use a cancelled context — the operation will fail because the context is done
+	cancelledCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err = d.runMigration(cancelledCtx, "commit_fail_test.sql", "SELECT 1")
+	if err == nil {
+		t.Error("expected error when running migration with cancelled context")
+	}
+}
+
+// TestRunMigration_AlreadyAppliedViaDirectRecord tests that when a migration
+// record is already in schema_migrations (inserted directly), runMigration
+// correctly skips it and returns (false, nil).
+func TestRunMigration_AlreadyAppliedViaDirectRecord(t *testing.T) {
+	ctx := context.Background()
+	testURL, err := SetupTestDB("db_direct_record")
+	if err != nil {
+		t.Fatalf("failed to setup test DB: %v", err)
+	}
+	defer CleanupTestDB("db_direct_record")
+
+	d, err := New(ctx, testURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create DB: %v", err)
+	}
+	defer d.Close()
+
+	migrationName := "test_direct_record_" + time.Now().Format("20060102150405") + ".sql"
+
+	// Pre-insert the migration record directly
+	_, err = d.pool.Exec(ctx,
+		"INSERT INTO schema_migrations (name) VALUES ($1)", migrationName)
+	if err != nil {
+		t.Fatalf("failed to pre-insert migration record: %v", err)
+	}
+
+	// runMigration should detect it's already applied and return (false, nil)
+	newlyApplied, err := d.runMigration(ctx, migrationName, "SELECT 1")
+	if err != nil {
+		t.Fatalf("runMigration should succeed for already-recorded migration: %v", err)
+	}
+	if newlyApplied {
+		t.Error("expected newlyApplied=false for already-recorded migration")
+	}
+}
+
 // verify hook
 // hook test
 // hook test

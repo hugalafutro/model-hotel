@@ -707,6 +707,28 @@ func TestGenerateToken_DeterministicLength(t *testing.T) {
 	}
 }
 
+// TestGenerateToken_IsHexString verifies that generateToken returns only
+// hexadecimal characters by checking the token derives from SHA-256 output.
+func TestGenerateToken_IsHexString(t *testing.T) {
+	tmpDir := t.TempDir()
+	mgr, err := newManagerForTest(tmpDir)
+	if err != nil {
+		t.Fatalf("Failed to create manager: %v", err)
+	}
+
+	for i := 0; i < 5; i++ {
+		token, err := mgr.generateToken()
+		if err != nil {
+			t.Fatalf("generateToken() failed: %v", err)
+		}
+		for _, c := range token {
+			if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+				t.Errorf("generateToken() iteration %d: token %q contains non-hex char %c", i, token, c)
+			}
+		}
+	}
+}
+
 // newManagerForTest creates a Manager without calling New() to allow
 // direct testing of unexported methods.
 func newManagerForTest(dataDir string) (*Manager, error) {

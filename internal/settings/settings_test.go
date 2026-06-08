@@ -1084,3 +1084,53 @@ func TestWarmCache_PopulatesAllSettings(t *testing.T) {
 		t.Error("WarmCache should populate circuit_breaker_enabled")
 	}
 }
+
+// TestWarmCache_DBError tests that WarmCache gracefully handles a database
+// error by returning early without populating the cache. Uses a cancelled
+// context to make GetAll fail.
+func TestWarmCache_DBError(t *testing.T) {
+	t.Helper()
+	r := NewRepository(testPool)
+	ctx := context.Background()
+	clearSettings(t)
+
+	// Insert a setting and verify it's not cached before WarmCache
+	_, err := testPool.Exec(ctx,
+		"INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, now()) ON CONFLICT (key) DO UPDATE SET value = $2",
+		"discovery_interval", "30m")
+	if err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	// Use a cancelled context so GetAll fails
+	cancelledCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	// WarmCache should not panic; it logs a warning and returns
+	r.WarmCache(cancelledCtx)
+
+	// Cache should remain empty since WarmCache failed
+	if r.IsCached("discovery_interval") {
+		t.Error("WarmCache should not populate cache when GetAll fails")
+	}
+}
+
+// TestWarmCache_EmptyDB tests that WarmCache handles an empty settings table
+// without error — the cache remains empty but the function succeeds.
+func TestWarmCache_EmptyDB(t *testing.T) {
+	t.Helper()
+	r := NewRepository(testPool)
+	ctx := context.Background()
+	clearSettings(t)
+
+	// No settings in DB — WarmCache should succeed with nothing to cache
+	r.WarmCache(ctx)
+
+	// Cache should remain empty
+	r.mu.RLock()
+	cacheLen := len(r.cache)
+	r.mu.RUnlock()
+	if cacheLen != 0 {
+		t.Errorf("expected empty cache after WarmCache on empty DB, got %d entries", cacheLen)
+	}
+}

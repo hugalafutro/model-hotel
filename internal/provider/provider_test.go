@@ -1101,3 +1101,106 @@ func TestList_Empty(t *testing.T) {
 		t.Errorf("expected 0 providers on empty table, got %d", len(providers))
 	}
 }
+
+// TestGetByIDs_UncachedDBFetch tests that GetByIDs correctly fetches providers
+// from the database when all entries are uncached (cache was invalidated).
+// This exercises the full DB query path: rows.Next(), cacheProvider, and rows.Err().
+func TestGetByIDs_UncachedDBFetch(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	// Create two providers
+	p1, err := repo.Create(ctx, CreateProviderRequest{
+		Name: uniqueName(t), BaseURL: "https://uncached1.example.com", APIKey: "sk-uncached1",
+	}, []byte("enc"), []byte("nonce"), []byte("salt"))
+	if err != nil {
+		t.Fatalf("Create p1: %v", err)
+	}
+
+	p2, err := repo.Create(ctx, CreateProviderRequest{
+		Name: uniqueName(t), BaseURL: "https://uncached2.example.com", APIKey: "sk-uncached2",
+	}, []byte("enc"), []byte("nonce"), []byte("salt"))
+	if err != nil {
+		t.Fatalf("Create p2: %v", err)
+	}
+
+	// Invalidate cache so both must be fetched from DB
+	InvalidateProviderCache()
+
+	result, err := repo.GetByIDs(ctx, []uuid.UUID{p1.ID, p2.ID})
+	if err != nil {
+		t.Fatalf("GetByIDs after cache invalidation: %v", err)
+	}
+
+	if len(result) != 2 {
+		t.Fatalf("expected 2 results from DB fetch, got %d", len(result))
+	}
+	if p, ok := result[p1.ID]; !ok {
+		t.Error("p1 not found in result from DB fetch")
+	} else if p.Name != p1.Name {
+		t.Errorf("p1 Name = %q, want %q", p.Name, p1.Name)
+	}
+	if p, ok := result[p2.ID]; !ok {
+		t.Error("p2 not found in result from DB fetch")
+	} else if p.Name != p2.Name {
+		t.Errorf("p2 Name = %q, want %q", p.Name, p2.Name)
+	}
+
+	// Verify both are now cached after the DB fetch
+	if !IsCachedByID(p1.ID) {
+		t.Error("p1 should be cached after GetByIDs DB fetch")
+	}
+	if !IsCachedByID(p2.ID) {
+		t.Error("p2 should be cached after GetByIDs DB fetch")
+	}
+}
+
+// TestGetByIDs_PartialCacheInvalidation tests that GetByIDs correctly handles
+// a mix of cached and uncached IDs after partial cache invalidation.
+func TestGetByIDs_PartialCacheInvalidation(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	// Create two providers
+	p1, err := repo.Create(ctx, CreateProviderRequest{
+		Name: uniqueName(t), BaseURL: "https://partial1.example.com", APIKey: "sk-partial1",
+	}, []byte("enc"), []byte("nonce"), []byte("salt"))
+	if err != nil {
+		t.Fatalf("Create p1: %v", err)
+	}
+
+	p2, err := repo.Create(ctx, CreateProviderRequest{
+		Name: uniqueName(t), BaseURL: "https://partial2.example.com", APIKey: "sk-partial2",
+	}, []byte("enc"), []byte("nonce"), []byte("salt"))
+	if err != nil {
+		t.Fatalf("Create p2: %v", err)
+	}
+
+	// Pre-populate cache for p1 only
+	_, err = repo.Get(ctx, p1.ID)
+	if err != nil {
+		t.Fatalf("Get p1: %v", err)
+	}
+
+	// Invalidate cache for p1 only, so both need DB fetch
+	InvalidateProviderCache()
+
+	// Now re-cache p1 by getting it
+	_, err = repo.Get(ctx, p1.ID)
+	if err != nil {
+		t.Fatalf("Get p1 after invalidation: %v", err)
+	}
+
+	// p1 is cached, p2 is not. GetByIDs should return both.
+	result, err := repo.GetByIDs(ctx, []uuid.UUID{p1.ID, p2.ID})
+	if err != nil {
+		t.Fatalf("GetByIDs: %v", err)
+	}
+	if len(result) != 2 {
+		t.Errorf("expected 2 results, got %d", len(result))
+	}
+	// p2 should now be cached after the DB fetch
+	if !IsCachedByID(p2.ID) {
+		t.Error("p2 should be cached after GetByIDs fetched it from DB")
+	}
+}
