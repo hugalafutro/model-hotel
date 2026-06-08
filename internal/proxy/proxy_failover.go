@@ -128,67 +128,10 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		return outcomeFailover
 	}
 
-	// Reuse the shared upstream Transport instead of creating a new one
-	// per request. A fresh Transport spawns persistent readLoop/writeLoop
-	// goroutines per connection that only die after IdleConnTimeout, so
-	// creating one per request causes unbounded goroutine growth.
-	// Inject per-request dial timing pointer so SafeDialer writes
-	// DNS resolution time into this request's own variable, avoiding
-	// cross-request race conditions on a shared atomic.
-	dialCtx := context.WithValue(failoverCtx, ctxkeys.DialMsKey, &dialMs)
-	proxyReq = proxyReq.WithContext(dialCtx)
-
-	var checkRedirect func(req *http.Request, via []*http.Request) error
-	if h.safeDialer != nil {
-		checkRedirect = h.safeDialer.CheckRedirect
-	}
-	upstreamClient := &http.Client{
-		Transport:     h.upstreamTransport,
-		CheckRedirect: checkRedirect,
-	}
-	//nolint:gosec // provider URL is admin-configured, not arbitrary user input
-	resp, err := upstreamClient.Do(proxyReq)
-	st.timings.dialMs += dialMs
-	dialMs = 0
-	st.proxyOverhead = st.timings.proxyOverheadMs(st.parseMs)
-	if err != nil {
-		// Determine the origin of context cancellation for actionable errors.
-		// "context canceled" is opaque — we need to know if the client
-		// disconnected, the failover timeout expired, or the retry timeout expired.
-		// Key insight: context.Canceled means the parent (client) context was
-		// canceled — always a client disconnect. context.DeadlineExceeded means
-		// the derived context's deadline expired — read CancelOriginKey to
-		// distinguish failover_timeout from retry_timeout.
-		isContextErr := errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
-		if isContextErr {
-			cancelOrigin := "client_disconnect"
-			if errors.Is(err, context.DeadlineExceeded) {
-				if v := proxyReq.Context().Value(ctxkeys.CancelOriginKey); v != nil {
-					if s, ok := v.(string); ok {
-						cancelOrigin = s
-					}
-				}
-			}
-			st.lastErr = fmt.Sprintf("attempt %d: %s", attempt, humanReadableCancelOrigin(cancelOrigin))
-			debuglog.Info("proxy: context cancelled during request to provider", "provider", logData.providerName, "provider_id", candidate.provider.ID, "model", logData.modelID, "origin", cancelOrigin, "error", err)
-		} else {
-			st.lastErr = fmt.Sprintf("attempt %d: provider error: %v", attempt, err)
-			debuglog.Warn("proxy: upstream request failed", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", err)
-		}
-		// Client-initiated cancellations and deadline exceeded are not
-		// provider failures. If the caller disconnected (Canceled) or
-		// the request timed out (DeadlineExceeded), we must not penalize
-		// the circuit breaker for that.
-		if !isContextErr {
-			if st.circuitBreakerEnabled {
-				h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
-			}
-		}
+	resp, ok := h.doUpstream(failoverCtx, proxyReq, st, candidate, attempt, &dialMs)
+	if !ok {
 		return outcomeFailover
 	}
-
-	// Log upstream response metadata for debugging.
-	debuglog.Debug("proxy: upstream response received", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "status", resp.StatusCode, "content_type", resp.Header.Get("Content-Type"), "x_request_id", resp.Header.Get("X-Request-Id"), "x_ratelimit_remaining", resp.Header.Get("X-RateLimit-Remaining"), "attempt", attempt+1)
 
 	// Auto-retry param-rejection 400s: parse the error, learn which params
 	// are rejected for this model, strip them, and retry once.
@@ -358,6 +301,81 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 	proxyReq.Header.Set("Content-Type", "application/json")
 	debuglog.Debug("proxy: sending upstream request", "method", proxyReq.Method, "url", targetURL, "content_length", len(upstreamBody), "has_api_key", candidate.apiKey != "")
 	return proxyReq, providerType, targetURL, nil
+}
+
+// doUpstream executes the built request against the shared upstream transport
+// (phase D): inject the per-request dial-timing pointer, run the request, fold
+// the dial sample into the running timings (and reset it to 0 for any retry),
+// and recompute proxy overhead. On failure it classifies the cause — client
+// disconnect vs failover/retry timeout vs provider error — and records a breaker
+// failure only for real provider errors, never for context cancellation.
+// Returns (resp, true) on a usable response; (nil, false) after setting
+// st.lastErr on a failover-worthy failure. The caller retains ownership of ctx
+// cancellation.
+func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *requestState, candidate modelCandidate, attempt int, dialMs *float64) (*http.Response, bool) {
+	logData := st.logData
+	// Reuse the shared upstream Transport instead of creating a new one
+	// per request. A fresh Transport spawns persistent readLoop/writeLoop
+	// goroutines per connection that only die after IdleConnTimeout, so
+	// creating one per request causes unbounded goroutine growth.
+	// Inject per-request dial timing pointer so SafeDialer writes
+	// DNS resolution time into this request's own variable, avoiding
+	// cross-request race conditions on a shared atomic.
+	dialCtx := context.WithValue(ctx, ctxkeys.DialMsKey, dialMs)
+	req = req.WithContext(dialCtx)
+
+	var checkRedirect func(req *http.Request, via []*http.Request) error
+	if h.safeDialer != nil {
+		checkRedirect = h.safeDialer.CheckRedirect
+	}
+	upstreamClient := &http.Client{
+		Transport:     h.upstreamTransport,
+		CheckRedirect: checkRedirect,
+	}
+	//nolint:gosec // provider URL is admin-configured, not arbitrary user input
+	resp, err := upstreamClient.Do(req)
+	st.timings.dialMs += *dialMs
+	*dialMs = 0
+	st.proxyOverhead = st.timings.proxyOverheadMs(st.parseMs)
+	if err != nil {
+		// Determine the origin of context cancellation for actionable errors.
+		// "context canceled" is opaque — we need to know if the client
+		// disconnected, the failover timeout expired, or the retry timeout expired.
+		// Key insight: context.Canceled means the parent (client) context was
+		// canceled — always a client disconnect. context.DeadlineExceeded means
+		// the derived context's deadline expired — read CancelOriginKey to
+		// distinguish failover_timeout from retry_timeout.
+		isContextErr := errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
+		if isContextErr {
+			cancelOrigin := "client_disconnect"
+			if errors.Is(err, context.DeadlineExceeded) {
+				if v := req.Context().Value(ctxkeys.CancelOriginKey); v != nil {
+					if s, ok := v.(string); ok {
+						cancelOrigin = s
+					}
+				}
+			}
+			st.lastErr = fmt.Sprintf("attempt %d: %s", attempt, humanReadableCancelOrigin(cancelOrigin))
+			debuglog.Info("proxy: context cancelled during request to provider", "provider", logData.providerName, "provider_id", candidate.provider.ID, "model", logData.modelID, "origin", cancelOrigin, "error", err)
+		} else {
+			st.lastErr = fmt.Sprintf("attempt %d: provider error: %v", attempt, err)
+			debuglog.Warn("proxy: upstream request failed", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", err)
+		}
+		// Client-initiated cancellations and deadline exceeded are not
+		// provider failures. If the caller disconnected (Canceled) or
+		// the request timed out (DeadlineExceeded), we must not penalize
+		// the circuit breaker for that.
+		if !isContextErr {
+			if st.circuitBreakerEnabled {
+				h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
+			}
+		}
+		return nil, false
+	}
+
+	// Log upstream response metadata for debugging.
+	debuglog.Debug("proxy: upstream response received", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "status", resp.StatusCode, "content_type", resp.Header.Get("Content-Type"), "x_request_id", resp.Header.Get("X-Request-Id"), "x_ratelimit_remaining", resp.Header.Get("X-RateLimit-Remaining"), "attempt", attempt+1)
+	return resp, true
 }
 
 // recordBreakerOutcome records the circuit-breaker result for a completed
