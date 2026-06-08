@@ -937,7 +937,7 @@
 		"btn_manage_providers": "Gestiona proveïdors",
 		"provider_modal_title": "Gestiona l'estat del proveïdor",
 		"provider_modal_description": "Desactivar un proveïdor desactivarà tots els seus models en cada grup de conmutació per error.",
-		"toast_provider_toggle_no_groups": "Cap grup de fallada utilitza proveïdor. {{provider}}"
+		"toast_provider_toggle_no_groups": "Cap grup de fallada utilitza proveïdor {{provider}}"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Canvis no desats"
