@@ -540,12 +540,12 @@ func (h *BackupHandler) RestoreBackup(w http.ResponseWriter, r *http.Request) {
 	//nolint:errcheck // cleanup: temp file removed after processing
 	defer os.Remove(tmpPath)
 
-	dumpMigrations, ok := validateRestoreDump(w, tmpPath)
+	pgRestorePath, dumpMigrations, ok := validateRestoreDump(w, tmpPath)
 	if !ok {
 		return
 	}
 
-	if !h.runPgRestore(w, tmpPath) {
+	if !h.runPgRestore(w, pgRestorePath, tmpPath) {
 		return
 	}
 
@@ -634,12 +634,12 @@ func (h *BackupHandler) saveUploadedDump(w http.ResponseWriter, r *http.Request)
 // objects, contains schema_migrations, and no migrations newer than this build.
 // It writes the appropriate HTTP error and returns ok=false on rejection;
 // otherwise it returns the dump's migration names.
-func validateRestoreDump(w http.ResponseWriter, tmpPath string) (dumpMigrations []string, ok bool) {
+func validateRestoreDump(w http.ResponseWriter, tmpPath string) (pgRestorePath string, dumpMigrations []string, ok bool) {
 	// Step 1: Validate dump format with pg_restore --list
 	pgRestorePath, err := exec.LookPath("pg_restore")
 	if err != nil {
 		respondError(w, "pg_restore not found - install postgresql-client package", err, http.StatusPreconditionFailed)
-		return nil, false
+		return "", nil, false
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -653,7 +653,7 @@ func validateRestoreDump(w http.ResponseWriter, tmpPath string) (dumpMigrations 
 
 	if err := listCmd.Run(); err != nil {
 		respondBadRequest(w, "invalid dump file: pg_restore --list failed", err)
-		return nil, false
+		return "", nil, false
 	}
 
 	// Step 2: Check for dangerous objects
@@ -662,7 +662,7 @@ func validateRestoreDump(w http.ResponseWriter, tmpPath string) (dumpMigrations 
 	if len(dangerous) > 0 {
 		debuglog.Warn("backup: restore rejected - dangerous objects in dump", "objects", strings.Join(dangerous, ", "))
 		respondBadRequest(w, fmt.Sprintf("dump contains dangerous objects: %s", strings.Join(dangerous, ", ")), nil)
-		return nil, false
+		return "", nil, false
 	}
 
 	// Step 3: Extract and compare migrations
@@ -670,13 +670,13 @@ func validateRestoreDump(w http.ResponseWriter, tmpPath string) (dumpMigrations 
 	if schemaEntry == 0 {
 		debuglog.Warn("backup: restore rejected - no schema_migrations in dump")
 		respondBadRequest(w, "dump does not contain schema_migrations table - not a model-hotel backup", nil)
-		return nil, false
+		return "", nil, false
 	}
 
 	dumpMigrations, err = extractMigrationNames(tmpPath, schemaEntry)
 	if err != nil {
 		respondError(w, "failed to extract migration info from dump", err, http.StatusInternalServerError)
-		return nil, false
+		return "", nil, false
 	}
 
 	unknownMigrations := compareMigrations(dumpMigrations)
@@ -686,22 +686,17 @@ func validateRestoreDump(w http.ResponseWriter, tmpPath string) (dumpMigrations 
 			"dump is from a newer version (unknown migrations: %s). Downgrade restore is not supported.",
 			strings.Join(unknownMigrations, ", "),
 		), nil)
-		return nil, false
+		return "", nil, false
 	}
 
-	return dumpMigrations, true
+	return pgRestorePath, dumpMigrations, true
 }
 
 // runPgRestore runs pg_restore --clean --if-exists against the configured
-// database, stripping the password from the connection URL onto PGPASSWORD. It
+// database, stripping the password from the connection URL onto PGPASSWORD. The
+// pg_restore path is resolved once by validateRestoreDump and threaded in. It
 // writes an HTTP error and returns false if the restore command fails.
-func (h *BackupHandler) runPgRestore(w http.ResponseWriter, tmpPath string) bool {
-	pgRestorePath, err := exec.LookPath("pg_restore")
-	if err != nil {
-		respondError(w, "pg_restore not found - install postgresql-client package", err, http.StatusPreconditionFailed)
-		return false
-	}
-
+func (h *BackupHandler) runPgRestore(w http.ResponseWriter, pgRestorePath, tmpPath string) bool {
 	restoreCtx, restoreCancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer restoreCancel()
 
