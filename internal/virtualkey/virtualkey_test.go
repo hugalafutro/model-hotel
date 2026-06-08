@@ -645,6 +645,18 @@ func TestRepository_Update_DBError(t *testing.T) {
 	}
 }
 
+func TestRepository_Get_DBError(t *testing.T) {
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	repo := NewRepository(testDB.Pool())
+
+	_, err := repo.Get(ctx, uuid.New())
+	if err == nil {
+		t.Error("expected error with canceled context in Get, got nil")
+	}
+}
+
 func TestRepository_List_Empty(t *testing.T) {
 
 	ctx := context.Background()

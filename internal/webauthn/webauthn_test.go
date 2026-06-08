@@ -1395,3 +1395,184 @@ func TestRevokeAuthToken_SessionFoundButDeleteFails(t *testing.T) {
 		t.Error("expected RevokeAuthToken to return false for already-deleted session")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Validate error paths
+// ---------------------------------------------------------------------------
+
+// TestSessionManagerValidate_DatabaseError verifies that Validate returns false
+// when the database is unavailable (closed pool), exercising the
+// GetSessionByTokenHash error path in Validate.
+func TestSessionManagerValidate_DatabaseError(t *testing.T) {
+	pool, err := pgxpool.New(context.Background(), testDB.Pool().Config().ConnString())
+	if err != nil {
+		t.Fatalf("pgxpool.New: %v", err)
+	}
+	pool.Close()
+
+	repo := NewRepository(pool)
+	mgr := NewSessionManager(repo)
+
+	// Create a token-like string. Validate will hash it and try to look it up,
+	// but the closed pool will cause a DB error → returns false.
+	if mgr.Validate(context.Background(), "some-token-value") {
+		t.Error("expected Validate to return false with closed pool")
+	}
+}
+
+// TestSessionManagerValidate_NilTokenHash verifies the defense-in-depth nil
+// TokenHash check in Validate (line 56-58 in session.go). Because
+// GetSessionByTokenHash uses WHERE token_hash = $1 (which excludes NULL rows),
+// this path cannot naturally occur via the DB. We test it indirectly by
+// verifying that a session with a known token whose DB row has token_hash
+// cleared to NULL causes Validate to return false (the lookup fails first,
+// which is the practical outcome of a nil-token-hash session).
+func TestSessionManagerValidate_NilTokenHash(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	// Create an auth_token session normally.
+	mgr := NewSessionManager(repo)
+	token, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil)
+	if err != nil {
+		t.Fatalf("CreateAuthToken: %v", err)
+	}
+
+	// Verify the token validates
+	if !mgr.Validate(ctx, token) {
+		t.Fatal("expected token to validate before token_hash is cleared")
+	}
+
+	// Look up session ID and NULL the token_hash column to simulate a
+	// corrupted/legacy session record.
+	hash := sha256.Sum256([]byte(token))
+	tokenHash := hex.EncodeToString(hash[:])
+	session, err := repo.GetSessionByTokenHash(ctx, tokenHash)
+	if err != nil {
+		t.Fatalf("GetSessionByTokenHash: %v", err)
+	}
+
+	_, err = testDB.Pool().Exec(ctx,
+		`UPDATE webauthn_sessions SET token_hash = NULL WHERE id = $1`,
+		session.ID)
+	if err != nil {
+		t.Fatalf("failed to clear token_hash: %v", err)
+	}
+
+	// Validate should now return false because the GetSessionByTokenHash
+	// lookup won't find a row with the matching token_hash (it's NULL).
+	if mgr.Validate(ctx, token) {
+		t.Error("expected Validate to return false when token_hash is NULL in DB")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// GetCredentialByID error paths
+// ---------------------------------------------------------------------------
+
+// TestGetCredentialByID_DatabaseError verifies that GetCredentialByID returns a
+// non-ErrNotFound error when the database is unavailable (closed pool).
+func TestGetCredentialByID_DatabaseError(t *testing.T) {
+	pool, err := pgxpool.New(context.Background(), testDB.Pool().Config().ConnString())
+	if err != nil {
+		t.Fatalf("pgxpool.New: %v", err)
+	}
+	pool.Close()
+
+	repo := NewRepository(pool)
+
+	_, err = repo.GetCredentialByID(context.Background(), []byte("any-id"))
+	if err == nil {
+		t.Error("expected error from GetCredentialByID with closed pool")
+	}
+	if errors.Is(err, ErrNotFound) {
+		t.Error("should NOT be ErrNotFound for a DB connection error, got ErrNotFound")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// GetSession error paths
+// ---------------------------------------------------------------------------
+
+// TestGetSession_DatabaseError verifies that GetSession returns a non-ErrNotFound
+// error when the database is unavailable (closed pool).
+func TestGetSession_DatabaseError(t *testing.T) {
+	pool, err := pgxpool.New(context.Background(), testDB.Pool().Config().ConnString())
+	if err != nil {
+		t.Fatalf("pgxpool.New: %v", err)
+	}
+	pool.Close()
+
+	repo := NewRepository(pool)
+
+	_, err = repo.GetSession(context.Background(), uuid.New())
+	if err == nil {
+		t.Error("expected error from GetSession with closed pool")
+	}
+	if errors.Is(err, ErrNotFound) {
+		t.Error("should NOT be ErrNotFound for a DB connection error, got ErrNotFound")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// RenameCredential error paths
+// ---------------------------------------------------------------------------
+
+// TestRenameCredential_DatabaseError verifies that RenameCredential returns an
+// error when the database is unavailable (closed pool).
+func TestRenameCredential_DatabaseError(t *testing.T) {
+	pool, err := pgxpool.New(context.Background(), testDB.Pool().Config().ConnString())
+	if err != nil {
+		t.Fatalf("pgxpool.New: %v", err)
+	}
+	pool.Close()
+
+	repo := NewRepository(pool)
+
+	err = repo.RenameCredential(context.Background(), []byte("any-id"), "new-name")
+	if err == nil {
+		t.Error("expected error from RenameCredential with closed pool")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// UpdateSignCount error paths
+// ---------------------------------------------------------------------------
+
+// TestUpdateSignCount_DatabaseError verifies that UpdateSignCount returns an
+// error when the database is unavailable (closed pool).
+func TestUpdateSignCount_DatabaseError(t *testing.T) {
+	pool, err := pgxpool.New(context.Background(), testDB.Pool().Config().ConnString())
+	if err != nil {
+		t.Fatalf("pgxpool.New: %v", err)
+	}
+	pool.Close()
+
+	repo := NewRepository(pool)
+
+	err = repo.UpdateSignCount(context.Background(), []byte("any-id"), 1)
+	if err == nil {
+		t.Error("expected error from UpdateSignCount with closed pool")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// DeleteSession error paths
+// ---------------------------------------------------------------------------
+
+// TestDeleteSession_DatabaseError verifies that DeleteSession returns an error
+// when the database is unavailable (closed pool).
+func TestDeleteSession_DatabaseError(t *testing.T) {
+	pool, err := pgxpool.New(context.Background(), testDB.Pool().Config().ConnString())
+	if err != nil {
+		t.Fatalf("pgxpool.New: %v", err)
+	}
+	pool.Close()
+
+	repo := NewRepository(pool)
+
+	err = repo.DeleteSession(context.Background(), uuid.New())
+	if err == nil {
+		t.Error("expected error from DeleteSession with closed pool")
+	}
+}

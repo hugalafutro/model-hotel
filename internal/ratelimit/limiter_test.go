@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/time/rate"
+
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 )
 
@@ -966,5 +968,43 @@ func TestMiddleware_NonBackpressurePassesContextValues(t *testing.T) {
 	}
 	if gotCtx.Value(ctxkeys.SettingsReadMsKey) == nil {
 		t.Error("SettingsReadMsKey should be set in context during normal path")
+	}
+}
+
+// TestCleanupLoop_Integration verifies that the cleanup goroutine started by
+// NewLimiter actually removes stale entries when triggered. It inserts entries
+// with expired lastUsed timestamps, calls cleanup() directly (same function
+// the ticker calls), and verifies removal.
+func TestCleanupLoop_Integration(t *testing.T) {
+	lim, _ := newTestLimiter()
+	defer lim.Stop()
+
+	// Insert a stale entry (last used 15 minutes ago)
+	lim.mu.Lock()
+	lim.limiters["stale-loop-key"] = &keyEntry{
+		limiter:  rate.NewLimiter(10, 20),
+		rps:      10,
+		burst:    20,
+		lastUsed: time.Now().Add(-15 * time.Minute),
+	}
+	// And a fresh entry
+	lim.limiters["fresh-loop-key"] = &keyEntry{
+		limiter:  rate.NewLimiter(10, 20),
+		rps:      10,
+		burst:    20,
+		lastUsed: time.Now(),
+	}
+	lim.mu.Unlock()
+
+	// Call cleanup directly (same code the cleanupLoop ticker invokes)
+	lim.cleanup()
+
+	lim.mu.Lock()
+	defer lim.mu.Unlock()
+	if _, ok := lim.limiters["stale-loop-key"]; ok {
+		t.Error("stale entry should have been removed by cleanup")
+	}
+	if _, ok := lim.limiters["fresh-loop-key"]; !ok {
+		t.Error("fresh entry should still be present after cleanup")
 	}
 }

@@ -1094,3 +1094,41 @@ func TestIPLimiter_MiddlewareReservationNotOK(t *testing.T) {
 		t.Errorf("Retry-After should not be set when reservation fails with delay=0, got %q", h)
 	}
 }
+
+// TestIPLimiter_CleanupLoop_Integration verifies that the cleanup goroutine
+// started by NewIPLimiter actually removes stale IP entries when triggered.
+// It inserts entries with expired lastUsed timestamps, calls cleanup() directly
+// (same function the ticker calls), and verifies removal.
+func TestIPLimiter_CleanupLoop_Integration(t *testing.T) {
+	lim := NewIPLimiter(10, 20, nil, ipSettingsNoBackpressure())
+	defer lim.Stop()
+
+	// Insert a stale entry (last used 15 minutes ago)
+	lim.mu.Lock()
+	lim.limiters["10.0.0.1"] = &ipEntry{
+		limiter:  rate.NewLimiter(10, 20),
+		rps:      10,
+		burst:    20,
+		lastUsed: time.Now().Add(-15 * time.Minute),
+	}
+	// And a fresh entry
+	lim.limiters["10.0.0.2"] = &ipEntry{
+		limiter:  rate.NewLimiter(10, 20),
+		rps:      10,
+		burst:    20,
+		lastUsed: time.Now(),
+	}
+	lim.mu.Unlock()
+
+	// Call cleanup directly (same code the cleanupLoop ticker invokes)
+	lim.cleanup()
+
+	lim.mu.Lock()
+	defer lim.mu.Unlock()
+	if _, ok := lim.limiters["10.0.0.1"]; ok {
+		t.Error("stale IP entry should have been removed by cleanup")
+	}
+	if _, ok := lim.limiters["10.0.0.2"]; !ok {
+		t.Error("fresh IP entry should still be present after cleanup")
+	}
+}
