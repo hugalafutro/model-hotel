@@ -92,38 +92,15 @@ func (h *BackupHandler) CreateBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	now := time.Now()
-	filename := fmt.Sprintf("backup_%s_%04d.dump", now.Format("20060102_150405"), now.Nanosecond()/100000)
+	filename := generateBackupFilename()
 	path := filepath.Join(h.backupDir, filename)
 
-	// Build a connection string without the password for the command line.
-	// The password is passed via PGPASSWORD environment variable instead,
-	// preventing it from appearing in process listings (ps).
 	// Use a dedicated 10-minute timeout so large databases don't get killed
 	// by the chi request timeout middleware (~60s).
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
-	connURL := h.databaseURL
-	var envPassword string
-	if u, err := url.Parse(h.databaseURL); err == nil && u.User != nil {
-		if pass, ok := u.User.Password(); ok && pass != "" {
-			envPassword = pass
-			// Strip password from URL, keep username
-			u.User = url.User(u.User.Username())
-			connURL = u.String()
-		}
-	}
-	//nolint:gosec // pgDumpPath is a configured binary path, not arbitrary user input
-	cmd := exec.CommandContext(ctx, pgDumpPath,
-		"--format=custom",
-		"--no-password",
-		"--file="+path,
-		connURL,
-	)
-	if envPassword != "" {
-		cmd.Env = append(os.Environ(), "PGPASSWORD="+envPassword)
-	}
 
+	cmd := h.buildDumpCommand(ctx, pgDumpPath, path)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// Clean up partial file
@@ -230,6 +207,38 @@ func (h *BackupHandler) DownloadBackup(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename=%q`, filename))
 	w.Header().Set("Content-Type", "application/octet-stream")
 	http.ServeFile(w, r, absPath)
+}
+
+// buildDumpCommand creates a pg_dump command with the password stripped from
+// the connection URL and passed via PGPASSWORD instead. The caller is
+// responsible for running the command and handling errors.
+func (h *BackupHandler) buildDumpCommand(ctx context.Context, pgDumpPath, filePath string) *exec.Cmd {
+	connURL := h.databaseURL
+	var envPassword string
+	if u, err := url.Parse(h.databaseURL); err == nil && u.User != nil {
+		if pass, ok := u.User.Password(); ok && pass != "" {
+			envPassword = pass
+			u.User = url.User(u.User.Username())
+			connURL = u.String()
+		}
+	}
+	//nolint:gosec // pgDumpPath is a configured binary path, not arbitrary user input
+	cmd := exec.CommandContext(ctx, pgDumpPath,
+		"--format=custom",
+		"--no-password",
+		"--file="+filePath,
+		connURL,
+	)
+	if envPassword != "" {
+		cmd.Env = append(os.Environ(), "PGPASSWORD="+envPassword)
+	}
+	return cmd
+}
+
+// generateBackupFilename creates a timestamped backup filename.
+func generateBackupFilename() string {
+	now := time.Now()
+	return fmt.Sprintf("backup_%s_%04d.dump", now.Format("20060102_150405"), now.Nanosecond()/100000)
 }
 
 // DeleteBackup removes a backup file.
@@ -1095,34 +1104,13 @@ func (h *BackupHandler) runScheduledBackup(ctx context.Context) {
 		return
 	}
 
-	now := time.Now()
-	filename := fmt.Sprintf("backup_%s_%04d.dump", now.Format("20060102_150405"), now.Nanosecond()/100000)
+	filename := generateBackupFilename()
 	path := filepath.Join(h.backupDir, filename)
 
 	dumpCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 
-	connURL := h.databaseURL
-	var envPassword string
-	if u, err := url.Parse(h.databaseURL); err == nil && u.User != nil {
-		if pass, ok := u.User.Password(); ok && pass != "" {
-			envPassword = pass
-			u.User = url.User(u.User.Username())
-			connURL = u.String()
-		}
-	}
-
-	//nolint:gosec // pgDumpPath is a configured binary path
-	cmd := exec.CommandContext(dumpCtx, pgDumpPath,
-		"--format=custom",
-		"--no-password",
-		"--file="+path,
-		connURL,
-	)
-	if envPassword != "" {
-		cmd.Env = append(os.Environ(), "PGPASSWORD="+envPassword)
-	}
-
+	cmd := h.buildDumpCommand(dumpCtx, pgDumpPath, path)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		_ = os.Remove(path)
