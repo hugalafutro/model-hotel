@@ -140,6 +140,28 @@ func parseIncludeLatency(r *http.Request) bool {
 	return r.URL.Query().Get("include_latency") == "true"
 }
 
+// vkScope returns the LEFT JOIN and WHERE fragments that restrict a stats query
+// to non-deleted virtual keys (rows whose virtual_key_id still resolves, or is
+// NULL). Both are empty when excludeDeleted is false. Single source of truth for
+// the fragment pasted into nearly every stats query.
+func vkScope(excludeDeleted bool) (join, filter string) {
+	if excludeDeleted {
+		return " LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id",
+			" AND (rl.virtual_key_id IS NULL OR vk.id IS NOT NULL)"
+	}
+	return "", ""
+}
+
+// metricValueSelect returns the aggregate column expression (aliased "val") for
+// the requested metric: summed tokens vs request count. Single source of truth
+// for the SELECT used by the by-model/provider/virtual-key breakdowns.
+func metricValueSelect(metric string) string {
+	if metric == "tokens" {
+		return "SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) as val"
+	}
+	return "COUNT(*) as val"
+}
+
 // GetStats returns aggregated statistics for the specified period.
 func (h *StatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	period := parsePeriod(r)
@@ -158,84 +180,18 @@ func (h *StatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration, excludeDeleted bool, metric string, includeLatency bool) (*StatsResponse, error) {
-	stats := &StatsResponse{
-		ByModel:      make(map[string]int64),
-		ByProvider:   make(map[string]int64),
-		ByVirtualKey: make(map[string]int64),
-	}
-
-	var vkJoin, vkFilter string
-	if excludeDeleted {
-		vkJoin = " LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id"
-		vkFilter = " AND (rl.virtual_key_id IS NULL OR vk.id IS NOT NULL)"
-	}
-
-	now := time.Now().UTC()
-	since := now.Add(-period)
-
-	switch period {
-	case 7 * 24 * time.Hour:
-		stats.TotalRequestsLast7d = 0
-	default:
-		stats.TotalRequestsLast24h = 0
-	}
-
-	// Query 1: Total request count
+// statByModel fills stats.ByModel with the top-10 models by the requested
+// metric (Q2). A query failure is fatal (returned); a per-row scan error skips
+// the row, matching the original loop.
+func (h *StatsHandler) statByModel(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter, metric string, since time.Time) error {
 	query := `
-		SELECT COUNT(*) as count
-		FROM request_logs rl` + vkJoin + `
-		WHERE rl.created_at >= $1` + vkFilter
-
-	var count int
-	err := h.dbPool.QueryRow(ctx, query, since).Scan(&count)
-	if err != nil {
-		debuglog.Error("stats: query failed", "query", "total_requests", "error", err)
-		return nil, err
-	}
-
-	switch period {
-	case 7 * 24 * time.Hour:
-		stats.TotalRequestsLast7d = count
-	default:
-		stats.TotalRequestsLast24h = count
-	}
-
-	if period == 24*time.Hour {
-		_7dAgo := now.Add(-7 * 24 * time.Hour)
-		err = h.dbPool.QueryRow(ctx, query, _7dAgo).Scan(&count)
-		if err != nil {
-			debuglog.Error("stats: query failed", "query", "total_requests_7d", "error", err)
-			return nil, err
-		}
-		stats.TotalRequestsLast7d = count
-	} else {
-		_24hAgo := now.Add(-24 * time.Hour)
-		err = h.dbPool.QueryRow(ctx, query, _24hAgo).Scan(&count)
-		if err != nil {
-			debuglog.Error("stats: query failed", "query", "total_requests_24h", "error", err)
-			return nil, err
-		}
-		stats.TotalRequestsLast24h = count
-	}
-
-	// Query 2: By model
-	var modelSelect, modelOrder string
-	if metric == "tokens" {
-		modelSelect = "SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) as val"
-		modelOrder = "val"
-	} else {
-		modelSelect = "COUNT(*) as val"
-		modelOrder = "val"
-	}
-	query = `
 		SELECT
 			CASE
 				WHEN rl.model_id LIKE '%/%' THEN rl.model_id
 				WHEN p.name IS NOT NULL AND p.name != '' THEN p.name || '/' || rl.model_id
 				ELSE rl.model_id
 			END as model_id,
-			` + modelSelect + `
+			` + metricValueSelect(metric) + `
 		FROM request_logs rl
 		LEFT JOIN providers p ON rl.provider_id = p.id` + vkJoin + `
 		WHERE rl.created_at >= $1` + vkFilter + `
@@ -245,13 +201,13 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 				WHEN p.name IS NOT NULL AND p.name != '' THEN p.name || '/' || rl.model_id
 				ELSE rl.model_id
 			END
-		ORDER BY ` + modelOrder + ` DESC
+		ORDER BY val DESC
 		LIMIT 10`
 
 	rows, err := h.dbPool.Query(ctx, query, since)
 	if err != nil {
 		debuglog.Error("stats: query failed", "query", "by_model", "error", err)
-		return nil, err
+		return err
 	}
 	defer rows.Close()
 
@@ -263,29 +219,25 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 		}
 		stats.ByModel[modelID] = val
 	}
+	return nil
+}
 
-	// Query 3: By provider
-	var providerSelect, providerOrder string
-	if metric == "tokens" {
-		providerSelect = "SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) as val"
-		providerOrder = "val"
-	} else {
-		providerSelect = "COUNT(*) as val"
-		providerOrder = "val"
-	}
-	query = `
-		SELECT p.name, ` + providerSelect + `
+// statByProvider fills stats.ByProvider with the top-10 providers by the
+// requested metric (Q3). Query failure fatal; per-row scan error skips the row.
+func (h *StatsHandler) statByProvider(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter, metric string, since time.Time) error {
+	query := `
+		SELECT p.name, ` + metricValueSelect(metric) + `
 		FROM request_logs rl
 		JOIN providers p ON rl.provider_id = p.id` + vkJoin + `
 		WHERE rl.created_at >= $1` + vkFilter + `
 		GROUP BY p.name
-		ORDER BY ` + providerOrder + ` DESC
+		ORDER BY val DESC
 		LIMIT 10`
 
-	rows, err = h.dbPool.Query(ctx, query, since)
+	rows, err := h.dbPool.Query(ctx, query, since)
 	if err != nil {
 		debuglog.Error("stats: query failed", "query", "by_provider", "error", err)
-		return nil, err
+		return err
 	}
 	defer rows.Close()
 
@@ -297,29 +249,28 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 		}
 		stats.ByProvider[providerName] = val
 	}
+	return nil
+}
 
-	// Query 4: By virtual key
-	var vkSelect, vkOrder string
-	if metric == "tokens" {
-		vkSelect = "SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) as val"
-		vkOrder = "val"
-	} else {
-		vkSelect = "COUNT(*) as val"
-		vkOrder = "val"
-	}
+// statByVirtualKey fills stats.ByVirtualKey from live virtual keys (Q4), plus
+// the deleted-key aggregate under the "Deleted" key (Q4b, only when not
+// excluding deleted keys) and the chat/arena admin routes keyed by
+// virtual_key_name (Q4c). The main query failure is fatal; the two aggregates
+// are best-effort (logged via their nil-error guards, never abort).
+func (h *StatsHandler) statByVirtualKey(ctx context.Context, stats *StatsResponse, metric string, since time.Time, excludeDeleted bool) error {
 	virtualKeyQuery := `
-		SELECT vk.name, ` + vkSelect + `
+		SELECT vk.name, ` + metricValueSelect(metric) + `
 		FROM request_logs rl
 		JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
 		WHERE rl.created_at >= $1
 		GROUP BY vk.name
-		ORDER BY ` + vkOrder + ` DESC
+		ORDER BY val DESC
 		LIMIT 10`
 
-	rows, err = h.dbPool.Query(ctx, virtualKeyQuery, since)
+	rows, err := h.dbPool.Query(ctx, virtualKeyQuery, since)
 	if err != nil {
 		debuglog.Error("stats: query failed", "query", "by_virtual_key", "error", err)
-		return nil, err
+		return err
 	}
 	defer rows.Close()
 
@@ -334,14 +285,8 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 
 	// Query 4b: Deleted virtual keys aggregate — only when not excluding deleted keys
 	if !excludeDeleted {
-		var deletedSelect string
-		if metric == "tokens" {
-			deletedSelect = "SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) as val"
-		} else {
-			deletedSelect = "COUNT(*) as val"
-		}
 		deletedKeyQuery := `
-			SELECT ` + deletedSelect + `
+			SELECT ` + metricValueSelect(metric) + `
 			FROM request_logs rl
 			WHERE rl.created_at >= $1
 			  AND rl.virtual_key_id IS NOT NULL
@@ -374,14 +319,22 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 			stats.ByVirtualKey[keyName] = val
 		}
 	}
+	return nil
+}
 
+// statScalars fills the scalar aggregate fields: avg latency (Q5), error rate
+// (Q6), avg overhead (Q7), total tokens (Q8), avg tokens/request (Q9), rate-limit
+// hits (Q10), avg TTFT (Q11), and the always-fresh requests-in-last-1h count.
+// Every query is best-effort: on error it logs and leaves the field(s) zeroed,
+// never aborting — matching the original inline behavior.
+func (h *StatsHandler) statScalars(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter string, since, now time.Time) {
 	// Query 5: Avg latency
-	query = `
+	query := `
 		SELECT COALESCE(AVG(rl.duration_ms), 0) as avg_duration
 		FROM request_logs rl` + vkJoin + `
 		WHERE rl.created_at >= $1 AND rl.status_code > 0 AND rl.status_code < 400` + vkFilter
 
-	err = h.dbPool.QueryRow(ctx, query, since).Scan(&stats.AvgLatencyMs)
+	err := h.dbPool.QueryRow(ctx, query, since).Scan(&stats.AvgLatencyMs)
 	if err != nil {
 		debuglog.Error("stats: query failed", "query", "avg_latency", "error", err)
 		stats.AvgLatencyMs = 0
@@ -481,12 +434,67 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 		requests1h = 0
 	}
 	stats.RequestsLast1h = requests1h
+}
 
+// statTotals fills TotalRequestsLast24h / TotalRequestsLast7d: the count for the
+// requested period plus the cross-fill of the other window (a 24h request also
+// fills the 7d total and vice-versa). A query failure here is fatal — returned
+// so calculateStats aborts.
+func (h *StatsHandler) statTotals(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter string, period time.Duration, since, now time.Time) error {
+	switch period {
+	case 7 * 24 * time.Hour:
+		stats.TotalRequestsLast7d = 0
+	default:
+		stats.TotalRequestsLast24h = 0
+	}
+
+	// Query 1: Total request count
+	query := `
+		SELECT COUNT(*) as count
+		FROM request_logs rl` + vkJoin + `
+		WHERE rl.created_at >= $1` + vkFilter
+
+	var count int
+	err := h.dbPool.QueryRow(ctx, query, since).Scan(&count)
+	if err != nil {
+		debuglog.Error("stats: query failed", "query", "total_requests", "error", err)
+		return err
+	}
+
+	switch period {
+	case 7 * 24 * time.Hour:
+		stats.TotalRequestsLast7d = count
+	default:
+		stats.TotalRequestsLast24h = count
+	}
+
+	if period == 24*time.Hour {
+		_7dAgo := now.Add(-7 * 24 * time.Hour)
+		err = h.dbPool.QueryRow(ctx, query, _7dAgo).Scan(&count)
+		if err != nil {
+			debuglog.Error("stats: query failed", "query", "total_requests_7d", "error", err)
+			return err
+		}
+		stats.TotalRequestsLast7d = count
+	} else {
+		_24hAgo := now.Add(-24 * time.Hour)
+		err = h.dbPool.QueryRow(ctx, query, _24hAgo).Scan(&count)
+		if err != nil {
+			debuglog.Error("stats: query failed", "query", "total_requests_24h", "error", err)
+			return err
+		}
+		stats.TotalRequestsLast24h = count
+	}
+	return nil
+}
+
+// statLatencyBreakdown fills ByModelLatency / ByProviderLatency with the top-N
+// model (Q12) and provider (Q13) latency breakdowns. Best-effort: a query
+// failure logs and leaves that slice empty; a per-row scan error skips the row.
+// Only invoked when the caller requested latency data.
+func (h *StatsHandler) statLatencyBreakdown(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter string, since time.Time) {
 	// Query 12: Per-model latency breakdown (top 5 by avg total latency).
-	// Only runs when the caller requests it to avoid unnecessary work
-	// on stats calls from non-latency dashboard panels.
-	if includeLatency {
-		query = `
+	query := `
 			WITH model_latency AS (
 				SELECT
 					CASE
@@ -509,22 +517,23 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 				GREATEST(0, avg_total - avg_overhead) as avg_provider
 			FROM model_latency`
 
-		rows, err = h.dbPool.Query(ctx, query, since)
-		if err != nil {
-			debuglog.Error("stats: query failed", "query", "by_model_latency", "error", err)
-		} else {
-			defer rows.Close()
-			for rows.Next() {
-				var entry ModelLatencyEntry
-				if err := rows.Scan(&entry.ModelID, &entry.RequestCount, &entry.TotalMs, &entry.OverheadMs, &entry.ProviderMs); err != nil {
-					continue
-				}
-				stats.ByModelLatency = append(stats.ByModelLatency, entry)
+	rows, err := h.dbPool.Query(ctx, query, since)
+	if err != nil {
+		debuglog.Error("stats: query failed", "query", "by_model_latency", "error", err)
+	} else {
+		for rows.Next() {
+			var entry ModelLatencyEntry
+			if err := rows.Scan(&entry.ModelID, &entry.RequestCount, &entry.TotalMs, &entry.OverheadMs, &entry.ProviderMs); err != nil {
+				continue
 			}
+			stats.ByModelLatency = append(stats.ByModelLatency, entry)
 		}
+		// Close promptly (not deferred) so the connection is released before Q13.
+		rows.Close()
+	}
 
-		// Query 13: Per-provider latency breakdown (top 6 by avg total latency).
-		query = `
+	// Query 13: Per-provider latency breakdown (top 6 by avg total latency).
+	query = `
 			WITH provider_latency AS (
 				SELECT
 					p.name as provider_name,
@@ -543,19 +552,56 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 				GREATEST(0, avg_total - avg_overhead) as avg_provider
 			FROM provider_latency`
 
-		rows, err = h.dbPool.Query(ctx, query, since)
-		if err != nil {
-			debuglog.Error("stats: query failed", "query", "by_provider_latency", "error", err)
-		} else {
-			defer rows.Close()
-			for rows.Next() {
-				var entry ProviderLatencyEntry
-				if err := rows.Scan(&entry.ProviderName, &entry.RequestCount, &entry.TotalMs, &entry.OverheadMs, &entry.ProviderMs); err != nil {
-					continue
-				}
-				stats.ByProviderLatency = append(stats.ByProviderLatency, entry)
+	rows, err = h.dbPool.Query(ctx, query, since)
+	if err != nil {
+		debuglog.Error("stats: query failed", "query", "by_provider_latency", "error", err)
+	} else {
+		for rows.Next() {
+			var entry ProviderLatencyEntry
+			if err := rows.Scan(&entry.ProviderName, &entry.RequestCount, &entry.TotalMs, &entry.OverheadMs, &entry.ProviderMs); err != nil {
+				continue
 			}
+			stats.ByProviderLatency = append(stats.ByProviderLatency, entry)
 		}
+		rows.Close()
+	}
+}
+
+func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration, excludeDeleted bool, metric string, includeLatency bool) (*StatsResponse, error) {
+	stats := &StatsResponse{
+		ByModel:      make(map[string]int64),
+		ByProvider:   make(map[string]int64),
+		ByVirtualKey: make(map[string]int64),
+	}
+
+	vkJoin, vkFilter := vkScope(excludeDeleted)
+
+	now := time.Now().UTC()
+	since := now.Add(-period)
+
+	// Query 1 + cross-fill: total request counts (fatal on error).
+	if err := h.statTotals(ctx, stats, vkJoin, vkFilter, period, since, now); err != nil {
+		return nil, err
+	}
+
+	// Queries 2–4c: dimension breakdowns (top-10 by model / provider / virtual key).
+	if err := h.statByModel(ctx, stats, vkJoin, vkFilter, metric, since); err != nil {
+		return nil, err
+	}
+	if err := h.statByProvider(ctx, stats, vkJoin, vkFilter, metric, since); err != nil {
+		return nil, err
+	}
+	if err := h.statByVirtualKey(ctx, stats, metric, since, excludeDeleted); err != nil {
+		return nil, err
+	}
+
+	// Queries 5–11 + requests-in-last-1h: scalar aggregates (best-effort).
+	h.statScalars(ctx, stats, vkJoin, vkFilter, since, now)
+
+	// Queries 12–13: per-model / per-provider latency breakdown (best-effort,
+	// only when the caller requested latency data).
+	if includeLatency {
+		h.statLatencyBreakdown(ctx, stats, vkJoin, vkFilter, since)
 	}
 
 	return stats, nil
