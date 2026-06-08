@@ -140,26 +140,7 @@ func newTestProxyHandler(t *testing.T) *testProxyEnv {
 		t.Fatalf("failed to create virtual key: %v", err)
 	}
 
-	handler := &Handler{
-		cfg:            &config.Config{MasterKey: "test-master-key-for-integration"},
-		settingsRepo:   settingsRepo,
-		failoverRepo:   failoverRepo,
-		modelRepo:      modelRepo,
-		providerRepo:   providerRepo,
-		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
-		rateLimiter:    limiter,
-		ipLimiter:      ipLimiter,
-		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
-		dbPool:         pool,
-		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
-			ResponseHeaderTimeout: 120 * time.Second,
-			IdleConnTimeout:       120 * time.Second,
-			MaxIdleConns:          200,
-			MaxIdleConnsPerHost:   20,
-		},
-		safeDialer: NewSafeDialer(nil, nil),
-	}
+	handler := newCanonicalHandler(t, "test-master-key-for-integration", pool, settingsRepo, failoverRepo, modelRepo, providerRepo, virtualKeyRepo, limiter, ipLimiter)
 
 	return &testProxyEnv{
 		Handler:      handler,
@@ -639,26 +620,7 @@ func TestChatCompletions_NonStreaming_Upstream4xxError(t *testing.T) {
 	}
 	defer func() { _ = virtualKeyRepo.Delete(context.Background(), virtualKey.ID) }()
 
-	handler := &Handler{
-		cfg:            &config.Config{MasterKey: "test-master-key-for-integration"},
-		settingsRepo:   settingsRepo,
-		failoverRepo:   failoverRepo,
-		modelRepo:      modelRepo,
-		providerRepo:   providerRepo,
-		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
-		rateLimiter:    limiter,
-		ipLimiter:      ipLimiter,
-		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
-		dbPool:         pool,
-		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
-			ResponseHeaderTimeout: 120 * time.Second,
-			IdleConnTimeout:       120 * time.Second,
-			MaxIdleConns:          200,
-			MaxIdleConnsPerHost:   20,
-		},
-		safeDialer: NewSafeDialer(nil, nil),
-	}
+	handler := newCanonicalHandler(t, "test-master-key-for-integration", pool, settingsRepo, failoverRepo, modelRepo, providerRepo, virtualKeyRepo, limiter, ipLimiter)
 
 	body := `{"model": "` + providerName + `/error-model", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
 	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
@@ -751,26 +713,7 @@ func TestChatCompletions_NonStreaming_Upstream5xxError(t *testing.T) {
 	}
 	defer func() { _ = virtualKeyRepo.Delete(context.Background(), virtualKey.ID) }()
 
-	handler := &Handler{
-		cfg:            &config.Config{MasterKey: "test-master-key-for-integration"},
-		settingsRepo:   settingsRepo,
-		failoverRepo:   failoverRepo,
-		modelRepo:      modelRepo,
-		providerRepo:   providerRepo,
-		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
-		rateLimiter:    limiter,
-		ipLimiter:      ipLimiter,
-		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
-		dbPool:         pool,
-		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
-			ResponseHeaderTimeout: 120 * time.Second,
-			IdleConnTimeout:       120 * time.Second,
-			MaxIdleConns:          200,
-			MaxIdleConnsPerHost:   20,
-		},
-		safeDialer: NewSafeDialer(nil, nil),
-	}
+	handler := newCanonicalHandler(t, "test-master-key-for-integration", pool, settingsRepo, failoverRepo, modelRepo, providerRepo, virtualKeyRepo, limiter, ipLimiter)
 
 	body := `{"model": "` + providerName + `/error-model-5xx", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
 	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
@@ -961,26 +904,7 @@ func TestChatCompletions_FailoverWithBackoff(t *testing.T) {
 	virtualKey, _ := virtualKeyRepo.Create(context.Background(), "test-key", virtualkey.Hash("test-vk-failover"), "sk-tes...", nil, nil, nil, nil)
 	defer func() { _ = virtualKeyRepo.Delete(context.Background(), virtualKey.ID) }()
 
-	handler := &Handler{
-		cfg:            &config.Config{MasterKey: "test-master-key-for-integration"},
-		settingsRepo:   settingsRepo,
-		failoverRepo:   failoverRepo,
-		modelRepo:      modelRepo,
-		providerRepo:   providerRepo,
-		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
-		rateLimiter:    limiter,
-		ipLimiter:      ipLimiter,
-		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
-		dbPool:         pool,
-		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
-			ResponseHeaderTimeout: 120 * time.Second,
-			IdleConnTimeout:       120 * time.Second,
-			MaxIdleConns:          200,
-			MaxIdleConnsPerHost:   20,
-		},
-		safeDialer: NewSafeDialer(nil, nil),
-	}
+	handler := newCanonicalHandler(t, "test-master-key-for-integration", pool, settingsRepo, failoverRepo, modelRepo, providerRepo, virtualKeyRepo, limiter, ipLimiter)
 
 	body := `{"model": "hotel/` + groupName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
 	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
@@ -1099,26 +1023,7 @@ func TestChatCompletions_ClientDisconnectDuringBackoff(t *testing.T) {
 	virtualKey, _ := virtualKeyRepo.Create(context.Background(), "test-key", virtualkey.Hash("test-vk-disconnect"), "sk-tes...", nil, nil, nil, nil)
 	defer func() { _ = virtualKeyRepo.Delete(context.Background(), virtualKey.ID) }()
 
-	handler := &Handler{
-		cfg:            &config.Config{MasterKey: "test-master-key-for-integration"},
-		settingsRepo:   settingsRepo,
-		failoverRepo:   failoverRepo,
-		modelRepo:      modelRepo,
-		providerRepo:   providerRepo,
-		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
-		rateLimiter:    limiter,
-		ipLimiter:      ipLimiter,
-		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
-		dbPool:         pool,
-		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
-			ResponseHeaderTimeout: 120 * time.Second,
-			IdleConnTimeout:       120 * time.Second,
-			MaxIdleConns:          200,
-			MaxIdleConnsPerHost:   20,
-		},
-		safeDialer: NewSafeDialer(nil, nil),
-	}
+	handler := newCanonicalHandler(t, "test-master-key-for-integration", pool, settingsRepo, failoverRepo, modelRepo, providerRepo, virtualKeyRepo, limiter, ipLimiter)
 
 	body := `{"model": "hotel/` + groupName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
 	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
@@ -1237,26 +1142,7 @@ func TestChatCompletions_ParamRejectionAutoRetry(t *testing.T) {
 	virtualKey, _ := virtualKeyRepo.Create(context.Background(), "test-key", virtualkey.Hash("test-vk-retry"), "sk-tes...", nil, nil, nil, nil)
 	defer func() { _ = virtualKeyRepo.Delete(context.Background(), virtualKey.ID) }()
 
-	handler := &Handler{
-		cfg:            &config.Config{MasterKey: "test-master-key-for-integration"},
-		settingsRepo:   settingsRepo,
-		failoverRepo:   failoverRepo,
-		modelRepo:      modelRepo,
-		providerRepo:   providerRepo,
-		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
-		rateLimiter:    limiter,
-		ipLimiter:      ipLimiter,
-		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
-		dbPool:         pool,
-		upstreamTransport: &http.Transport{
-			DialContext:           NewSafeDialer(append(config.KnownProviderHosts(), "127.0.0.1"), nil).DialContext,
-			ResponseHeaderTimeout: 120 * time.Second,
-			IdleConnTimeout:       120 * time.Second,
-			MaxIdleConns:          200,
-			MaxIdleConnsPerHost:   20,
-		},
-		safeDialer: NewSafeDialer(nil, nil),
-	}
+	handler := newCanonicalHandler(t, "test-master-key-for-integration", pool, settingsRepo, failoverRepo, modelRepo, providerRepo, virtualKeyRepo, limiter, ipLimiter)
 
 	// Request with temperature parameter
 	body := `{"model": "` + providerName + `/retry-model", "messages": [{"role": "user", "content": "hello"}], "stream": false, "temperature": 0.7}`
