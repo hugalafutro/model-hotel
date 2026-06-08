@@ -861,7 +861,7 @@
 		"btn_sync": "Synkroniser",
 		"btn_syncing": "Synkroniserer…",
 		"btn_new_group": "Ny Gruppe",
-		"hint_drag": "Træk modeller ved håndtaget (° ) for at omarrangere prioritet",
+		"hint_drag": "Træk modeller ved håndtaget for at omarrangere prioritet",
 		"filter_hotel_model": "Filtrer hotel/model…",
 		"filter_providers": "Alle udbydere",
 		"filter_states": "Alle stater",
@@ -934,10 +934,10 @@
 		"toast_bulk_delete_success_other": "Slettede {{count}} grupper",
 		"delete_confirm_bulk_title_one": "{{count}} failover gruppe",
 		"delete_confirm_bulk_title_other": "{{count}} failover grupper",
-		"btn_manage_providers": "Manage Providers",
-		"provider_modal_title": "Manage Provider Status",
-		"provider_modal_description": "Disabling a provider will disable all its models in every failover group",
-		"toast_provider_toggle_no_groups": "No failover groups use provider {{provider}}"
+		"btn_manage_providers": "Administrer Udbydere",
+		"provider_modal_title": "Administrer Udbyderstatus",
+		"provider_modal_description": "Deaktivering af en udbyder vil deaktivere alle sine modeller i hver failover gruppe",
+		"toast_provider_toggle_no_groups": "Ingen mislykkede grupper bruger udbyder {{provider}}"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Ikke-Gemte Ændringer"

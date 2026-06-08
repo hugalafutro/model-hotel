@@ -861,7 +861,7 @@
 		"btn_sync": "Synchroniser",
 		"btn_syncing": "Synchronisation de…",
 		"btn_new_group": "Nouveau groupe",
-		"hint_drag": "Faites glisser les modèles par la poignée (<unk> ) pour réordonner la priorité",
+		"hint_drag": "Faites glisser les modèles par la poignée pour réorganiser la priorité",
 		"filter_hotel_model": "Filtrer l'hôtel/le modèle…",
 		"filter_providers": "Tous les fournisseurs",
 		"filter_states": "Tous les états",
@@ -934,10 +934,10 @@
 		"toast_bulk_delete_success_other": "Groupes {{count}} supprimés",
 		"delete_confirm_bulk_title_one": "Groupe de basculement {{count}}",
 		"delete_confirm_bulk_title_other": "Groupes de basculement {{count}}",
-		"btn_manage_providers": "Manage Providers",
-		"provider_modal_title": "Manage Provider Status",
-		"provider_modal_description": "Disabling a provider will disable all its models in every failover group",
-		"toast_provider_toggle_no_groups": "No failover groups use provider {{provider}}"
+		"btn_manage_providers": "Gérer les fournisseurs",
+		"provider_modal_title": "Gérer le statut du fournisseur",
+		"provider_modal_description": "Désactiver un fournisseur désactivera tous ses modèles dans chaque groupe de basculement",
+		"toast_provider_toggle_no_groups": "Aucun groupe de basculement n'utilise le fournisseur {{provider}}"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Modifications non enregistrées"

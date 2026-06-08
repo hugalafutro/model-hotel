@@ -934,10 +934,10 @@
 		"toast_bulk_delete_success_other": "נמחקו {{count}} קבוצות",
 		"delete_confirm_bulk_title_one": "{{count}} קבוצת מעבר לגיבוי",
 		"delete_confirm_bulk_title_other": "{{count}} קבוצות מעבר לגיבוי",
-		"btn_manage_providers": "Manage Providers",
-		"provider_modal_title": "Manage Provider Status",
-		"provider_modal_description": "Disabling a provider will disable all its models in every failover group",
-		"toast_provider_toggle_no_groups": "No failover groups use provider {{provider}}"
+		"btn_manage_providers": "ניהול ספקים",
+		"provider_modal_title": "ניהול מצב הספק",
+		"provider_modal_description": "השבתת ספק תשבית את כל הדגמים שלו בכל קבוצת מעבר לגיבוי",
+		"toast_provider_toggle_no_groups": "אף קבוצת מעבר לגיבוי אינה משתמשת בספק {{provider}}"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "שינויים שלא נשמרו"

@@ -861,7 +861,7 @@
 		"btn_sync": "Синхр.",
 		"btn_syncing": "Синхронизация…",
 		"btn_new_group": "Новая группа",
-		"hint_drag": "Перетащите модели по указателю (<unk> ) для изменения приоритета",
+		"hint_drag": "Перетащите модели, чтобы изменить порядок приоритета",
 		"filter_hotel_model": "Фильтр отеля/модели…",
 		"filter_providers": "Все провайдеры",
 		"filter_states": "Все состояния",
@@ -934,10 +934,10 @@
 		"toast_bulk_delete_success_other": "Удаленные {{count}} группы",
 		"delete_confirm_bulk_title_one": "Группа отказов {{count}}",
 		"delete_confirm_bulk_title_other": "Группы отказов {{count}}",
-		"btn_manage_providers": "Manage Providers",
-		"provider_modal_title": "Manage Provider Status",
-		"provider_modal_description": "Disabling a provider will disable all its models in every failover group",
-		"toast_provider_toggle_no_groups": "No failover groups use provider {{provider}}"
+		"btn_manage_providers": "Управление поставщиками",
+		"provider_modal_title": "Управление статусом провайдера",
+		"provider_modal_description": "Отключение провайдера отключит все его модели в каждой группе отказов",
+		"toast_provider_toggle_no_groups": "Нет групп отказов использовать провайдера {{provider}}"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Несохраненные изменения"
