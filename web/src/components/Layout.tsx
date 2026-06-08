@@ -998,34 +998,19 @@ export function Layout({ children }: LayoutProps) {
 														});
 													})()}
 												>
-													<span
-														className="text-emerald-400 badge-text"
-														title={t("layout.nav.failoverClosed", {
-															count: cbStatus.closed,
-														})}
-													>
+													<span className="text-emerald-400 badge-text">
 														{cbStatus.closed}
 													</span>
 													<span className="text-(--text-muted) opacity-50">
 														/
 													</span>
-													<span
-														className="text-amber-400 badge-text"
-														title={t("layout.nav.failoverHalfOpen", {
-															count: cbStatus.half_open,
-														})}
-													>
+													<span className="text-amber-400 badge-text">
 														{cbStatus.half_open}
 													</span>
 													<span className="text-(--text-muted) opacity-50">
 														/
 													</span>
-													<span
-														className="text-red-400 badge-text"
-														title={t("layout.nav.failoverOpen", {
-															count: cbStatus.open,
-														})}
-													>
+													<span className="text-red-400 badge-text">
 														{cbStatus.open}
 													</span>
 												</span>
