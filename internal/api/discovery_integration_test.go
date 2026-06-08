@@ -2849,3 +2849,159 @@ func TestRefreshAllQuotas_OllamaCloudSuccess(t *testing.T) {
 		t.Errorf("expected at least 1 refreshed, got %v", resp["refreshed"])
 	}
 }
+
+// =============================================================================
+// GetProviderUsage - NeuralWatt Tests
+// =============================================================================
+
+func TestGetProviderUsage_NeuralWattSuccess(t *testing.T) {
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{
+				roundTripFunc: func(req *http.Request) (*http.Response, error) {
+					if strings.HasSuffix(req.URL.Path, "/quota") {
+						resp := `{"snapshot_at":"2026-06-02T17:42:29Z","balance":{"credits_remaining_usd":23.9,"total_credits_usd":23.9,"credits_used_usd":0,"accounting_method":"energy"},"usage":{"lifetime":{"cost_usd":1.0,"requests":100,"tokens":1000,"energy_kwh":0.5},"current_month":{"cost_usd":0.5,"requests":50,"tokens":500,"energy_kwh":0.25}},"limits":{"overage_limit_usd":null,"rate_limit_tier":"standard"},"subscription":{"plan":"standard","status":"active","billing_interval":"month","current_period_start":"2026-05-28T00:00:00Z","current_period_end":"2026-06-28T00:00:00Z","auto_renew":true,"kwh_included":16,"kwh_used":2,"kwh_remaining":14},"key":{"label":"test-key","usage_usd":0.5,"is_free_tier":false}}`
+						return &http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(strings.NewReader(resp)),
+							Header:     make(http.Header),
+						}, nil
+					}
+					return nil, fmt.Errorf("unexpected request to %s", req.URL.String())
+				},
+			},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
+
+	prov := createTestProvider(t, "neuralwatt-test", "https://api.neuralwatt.com", testMasterKeyForDiscovery)
+	mockProv := &mockProviderStore{
+		getFn: func(ctx context.Context, id uuid.UUID) (*provider.Provider, error) {
+			if id == prov.ID {
+				return prov, nil
+			}
+			return nil, errors.New("provider not found")
+		},
+	}
+	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := testHandler(mockProv, nil, nil, mockAuth, nil)
+	h.cfg.MasterKey = testMasterKeyForDiscovery
+
+	r := chi.NewRouter()
+	r.Get("/providers/{id}/usage", h.GetProviderUsage)
+
+	req := httptest.NewRequest(http.MethodGet, "/providers/"+prov.ID.String()+"/usage", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp["snapshot_at"] != "2026-06-02T17:42:29Z" {
+		t.Errorf("expected snapshot_at field, got %v", resp["snapshot_at"])
+	}
+}
+
+func TestGetProviderUsage_NeuralWattFreeTier(t *testing.T) {
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{
+				roundTripFunc: func(req *http.Request) (*http.Response, error) {
+					// NeuralWatt returns 404 for free tier keys (no quota endpoint)
+					return &http.Response{
+						StatusCode: http.StatusNotFound,
+						Body:       io.NopCloser(strings.NewReader(`{"error":"not found"}`)),
+						Header:     make(http.Header),
+					}, nil
+				},
+			},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
+
+	prov := createTestProvider(t, "neuralwatt-freetier", "https://api.neuralwatt.com", testMasterKeyForDiscovery)
+	mockProv := &mockProviderStore{
+		getFn: func(ctx context.Context, id uuid.UUID) (*provider.Provider, error) {
+			if id == prov.ID {
+				return prov, nil
+			}
+			return nil, errors.New("provider not found")
+		},
+	}
+	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := testHandler(mockProv, nil, nil, mockAuth, nil)
+	h.cfg.MasterKey = testMasterKeyForDiscovery
+
+	r := chi.NewRouter()
+	r.Get("/providers/{id}/usage", h.GetProviderUsage)
+
+	req := httptest.NewRequest(http.MethodGet, "/providers/"+prov.ID.String()+"/usage", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	// Free tier returns 204 No Content (nil quota, nil error)
+	if w.Code != http.StatusNoContent {
+		t.Errorf("expected status 204 for free tier NeuralWatt, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestGetProviderUsage_NeuralWattError(t *testing.T) {
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{
+				roundTripFunc: func(req *http.Request) (*http.Response, error) {
+					return &http.Response{
+						StatusCode: http.StatusInternalServerError,
+						Body:       io.NopCloser(strings.NewReader(`{"error":"internal"}`)),
+						Header:     make(http.Header),
+					}, nil
+				},
+			},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
+
+	prov := createTestProvider(t, "neuralwatt-err", "https://api.neuralwatt.com", testMasterKeyForDiscovery)
+	mockProv := &mockProviderStore{
+		getFn: func(ctx context.Context, id uuid.UUID) (*provider.Provider, error) {
+			if id == prov.ID {
+				return prov, nil
+			}
+			return nil, errors.New("provider not found")
+		},
+	}
+	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := testHandler(mockProv, nil, nil, mockAuth, nil)
+	h.cfg.MasterKey = testMasterKeyForDiscovery
+
+	r := chi.NewRouter()
+	r.Get("/providers/{id}/usage", h.GetProviderUsage)
+
+	req := httptest.NewRequest(http.MethodGet, "/providers/"+prov.ID.String()+"/usage", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status 500 for NeuralWatt error, got %d: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "failed to fetch quota") {
+		t.Errorf("expected error about fetch quota, got %q", w.Body.String())
+	}
+}

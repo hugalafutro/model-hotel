@@ -371,6 +371,56 @@ func TestClose_NilTransport(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// CircuitBreaker tests
+// ---------------------------------------------------------------------------
+
+func TestCircuitBreaker_ReturnsInternalBreaker(t *testing.T) {
+	settingsRepo := settings.NewRepository(nil)
+	rateLimiter := ratelimit.NewLimiter(settingsRepo)
+	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
+	defer rateLimiter.Stop()
+	defer ipLimiter.Stop()
+
+	cb := failover.NewCircuitBreaker(settingsRepo)
+	h := &Handler{
+		cfg:            &config.Config{MasterKey: "test"},
+		circuitBreaker: cb,
+		ipLimiter:      ipLimiter,
+	}
+
+	got := h.CircuitBreaker()
+	if got != cb {
+		t.Error("CircuitBreaker() should return the handler's internal circuit breaker")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// safeDialFunc tests
+// ---------------------------------------------------------------------------
+
+func TestSafeDialFunc_NilDialer(t *testing.T) {
+	result := safeDialFunc(nil)
+	if result != nil {
+		t.Error("safeDialFunc(nil) should return nil, allowing http.Transport to use default dialer")
+	}
+}
+
+func TestSafeDialFunc_NonNilDialer(t *testing.T) {
+	sd := NewSafeDialer(nil, nil)
+	result := safeDialFunc(sd)
+	if result == nil {
+		t.Error("safeDialFunc(non-nil) should return sd.DialContext, got nil")
+	}
+	// Verify the returned function is the DialContext method by calling it
+	// with a blocked IP — should get the expected blocked-IP error
+	conn, err := result(context.Background(), "tcp", "127.0.0.1:80")
+	if err == nil {
+		conn.Close()
+		t.Error("expected error from DialContext on blocked IP")
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Register tests
 // ---------------------------------------------------------------------------
 

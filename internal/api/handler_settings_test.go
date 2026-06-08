@@ -414,3 +414,75 @@ func TestResetSettings_TooManyKeys(t *testing.T) {
 		t.Errorf("Expected 400 for too many keys, got %d", w.Code)
 	}
 }
+
+func TestResetSettings_InvalidRequestBody(t *testing.T) {
+	_, router := newTestHandlerWithRouter(t)
+
+	// Send a non-JSON body
+	req := httptest.NewRequest("DELETE", "/settings", strings.NewReader(`not-json`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected 400 for invalid request body, got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "invalid request body") {
+		t.Errorf("Expected error about invalid request body, got: %s", w.Body.String())
+	}
+}
+
+func TestResetSettings_UnknownKeyInList(t *testing.T) {
+	_, router := newTestHandlerWithRouter(t)
+
+	// Mix a known key with an unknown one
+	resetBody := `{"keys":["rate_limit_rps","totally_unknown_key"]}`
+	req := httptest.NewRequest("DELETE", "/settings", strings.NewReader(resetBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected 400 for unknown key in list, got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "unknown setting") {
+		t.Errorf("Expected error about unknown setting, got: %s", w.Body.String())
+	}
+}
+
+func TestResetSettings_ValidSingleKeyReset(t *testing.T) {
+	_, router := newTestHandlerWithRouter(t)
+
+	// Set a value first
+	setBody := `{"circuit_breaker_threshold":"5"}`
+	req := httptest.NewRequest("PUT", "/settings", strings.NewReader(setBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("setup: expected 200, got %d", w.Code)
+	}
+
+	// Reset just that key
+	resetBody := `{"keys":["circuit_breaker_threshold"]}`
+	req = httptest.NewRequest("DELETE", "/settings", strings.NewReader(resetBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected 200 for valid single key reset, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var result map[string]string
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+	if _, exists := result["circuit_breaker_threshold"]; exists {
+		t.Error("circuit_breaker_threshold should have been removed after reset")
+	}
+}

@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -212,7 +213,7 @@ func TestNewDiscoveryService_WithCheckRedirect(t *testing.T) {
 	if !redirectChecked {
 		t.Error("expected CheckRedirect to be called")
 	}
-	if err != http.ErrUseLastResponse {
+	if !errors.Is(err, http.ErrUseLastResponse) {
 		t.Errorf("expected ErrUseLastResponse, got %v", err)
 	}
 }

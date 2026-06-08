@@ -660,6 +660,108 @@ func TestCreateVirtualKey_EmptyAllowedProvidersArray(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// UpdateVirtualKeyRequest.UnmarshalJSON tests
+// ---------------------------------------------------------------------------
+
+func TestUpdateVirtualKeyRequest_UnmarshalJSON_BothFieldsPresent(t *testing.T) {
+	data := `{"name":"test","allowed_providers":["p1"],"strip_reasoning":true}`
+	var req UpdateVirtualKeyRequest
+	if err := json.Unmarshal([]byte(data), &req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !req.allowedProvidersPresent {
+		t.Error("expected allowedProvidersPresent=true when allowed_providers is in JSON")
+	}
+	if !req.stripReasoningPresent {
+		t.Error("expected stripReasoningPresent=true when strip_reasoning is in JSON")
+	}
+	if req.AllowedProviders == nil || len(*req.AllowedProviders) != 1 || (*req.AllowedProviders)[0] != "p1" {
+		t.Errorf("AllowedProviders = %v, want [p1]", req.AllowedProviders)
+	}
+	if req.StripReasoning == nil || !*req.StripReasoning {
+		t.Error("StripReasoning should be true")
+	}
+}
+
+func TestUpdateVirtualKeyRequest_UnmarshalJSON_NeitherFieldPresent(t *testing.T) {
+	data := `{"name":"test"}`
+	var req UpdateVirtualKeyRequest
+	if err := json.Unmarshal([]byte(data), &req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if req.allowedProvidersPresent {
+		t.Error("expected allowedProvidersPresent=false when allowed_providers is absent")
+	}
+	if req.stripReasoningPresent {
+		t.Error("expected stripReasoningPresent=false when strip_reasoning is absent")
+	}
+}
+
+func TestUpdateVirtualKeyRequest_UnmarshalJSON_AllowedProvidersNull(t *testing.T) {
+	data := `{"name":"test","allowed_providers":null}`
+	var req UpdateVirtualKeyRequest
+	if err := json.Unmarshal([]byte(data), &req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !req.allowedProvidersPresent {
+		t.Error("expected allowedProvidersPresent=true when allowed_providers:null is explicitly in JSON")
+	}
+	if req.AllowedProviders != nil {
+		t.Errorf("AllowedProviders should be nil when JSON value is null, got %v", req.AllowedProviders)
+	}
+}
+
+func TestUpdateVirtualKeyRequest_UnmarshalJSON_StripReasoningFalse(t *testing.T) {
+	data := `{"name":"test","strip_reasoning":false}`
+	var req UpdateVirtualKeyRequest
+	if err := json.Unmarshal([]byte(data), &req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !req.stripReasoningPresent {
+		t.Error("expected stripReasoningPresent=true when strip_reasoning is in JSON (even if false)")
+	}
+	if req.StripReasoning == nil || *req.StripReasoning {
+		t.Error("StripReasoning should be false")
+	}
+}
+
+func TestUpdateVirtualKeyRequest_UnmarshalJSON_InvalidJSON(t *testing.T) {
+	data := `{invalid json}`
+	var req UpdateVirtualKeyRequest
+	if err := json.Unmarshal([]byte(data), &req); err == nil {
+		t.Error("expected error for invalid JSON, got nil")
+	}
+}
+
+func TestUpdateVirtualKeyRequest_UnmarshalJSON_OnlyAllowedProvidersPresent(t *testing.T) {
+	data := `{"name":"test","allowed_providers":["p1"]}`
+	var req UpdateVirtualKeyRequest
+	if err := json.Unmarshal([]byte(data), &req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !req.allowedProvidersPresent {
+		t.Error("expected allowedProvidersPresent=true")
+	}
+	if req.stripReasoningPresent {
+		t.Error("expected stripReasoningPresent=false when strip_reasoning absent")
+	}
+}
+
+func TestUpdateVirtualKeyRequest_UnmarshalJSON_OnlyStripReasoningPresent(t *testing.T) {
+	data := `{"name":"test","strip_reasoning":true}`
+	var req UpdateVirtualKeyRequest
+	if err := json.Unmarshal([]byte(data), &req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if req.allowedProvidersPresent {
+		t.Error("expected allowedProvidersPresent=false when allowed_providers absent")
+	}
+	if !req.stripReasoningPresent {
+		t.Error("expected stripReasoningPresent=true")
+	}
+}
+
+// ---------------------------------------------------------------------------
 // UpdateVirtualKey - empty allowed_providers rejection tests
 // ---------------------------------------------------------------------------
 
