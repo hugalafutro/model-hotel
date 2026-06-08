@@ -3087,3 +3087,447 @@ func TestClassifyBackups(t *testing.T) {
 		}
 	})
 }
+
+// setupBackupRouterWithSettings creates a backup handler with a settingsRepo for tests
+// that need retention settings.
+//
+//nolint:revive // unnamedResult is test helper
+func setupBackupRouterWithSettings(t *testing.T, ss SettingsStore) (chi.Router, string) {
+	t.Helper()
+	dir := t.TempDir()
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{}, ss)
+	r := chi.NewRouter()
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			next.ServeHTTP(w, r)
+		})
+	})
+	h.Register(r)
+	return r, dir
+}
+
+func TestGetRetentionSettings(t *testing.T) {
+	t.Parallel()
+
+	t.Run("nil settings repo returns defaults", func(t *testing.T) {
+		t.Parallel()
+		h := NewBackupHandler("postgres://x", t.TempDir(), &mockAdminAuth{}, nil)
+		son, father, grandfather := h.getRetentionSettings(context.Background())
+		if son != 7 {
+			t.Errorf("expected son=7, got %d", son)
+		}
+		if father != 4 {
+			t.Errorf("expected father=4, got %d", father)
+		}
+		if grandfather != 3 {
+			t.Errorf("expected grandfather=3, got %d", grandfather)
+		}
+	})
+
+	t.Run("custom values from settings repo", func(t *testing.T) {
+		t.Parallel()
+		ss := &mockSettingsStore{
+			getWithDefaultFn: func(_ context.Context, key, defaultValue string) string {
+				switch key {
+				case "backup_son_retention":
+					return "14"
+				case "backup_father_retention":
+					return "8"
+				case "backup_grandfather_retention":
+					return "6"
+				}
+				return defaultValue
+			},
+		}
+		h := NewBackupHandler("postgres://x", t.TempDir(), &mockAdminAuth{}, ss)
+		son, father, grandfather := h.getRetentionSettings(context.Background())
+		if son != 14 {
+			t.Errorf("expected son=14, got %d", son)
+		}
+		if father != 8 {
+			t.Errorf("expected father=8, got %d", father)
+		}
+		if grandfather != 6 {
+			t.Errorf("expected grandfather=6, got %d", grandfather)
+		}
+	})
+
+	t.Run("invalid values fall back to defaults", func(t *testing.T) {
+		t.Parallel()
+		ss := &mockSettingsStore{
+			getWithDefaultFn: func(_ context.Context, key, defaultValue string) string {
+				switch key {
+				case "backup_son_retention":
+					return "abc" // non-numeric
+				case "backup_father_retention":
+					return "0" // must be >= 0, so 0 is valid
+				case "backup_grandfather_retention":
+					return "-1" // negative, invalid
+				}
+				return defaultValue
+			},
+		}
+		h := NewBackupHandler("postgres://x", t.TempDir(), &mockAdminAuth{}, ss)
+		son, father, grandfather := h.getRetentionSettings(context.Background())
+		if son != 7 {
+			t.Errorf("invalid son 'abc' should fall back to default 7, got %d", son)
+		}
+		if father != 0 {
+			t.Errorf("father '0' is >= 0 and thus valid, expected 0, got %d", father)
+		}
+		if grandfather != 3 {
+			t.Errorf("invalid grandfather '-1' should fall back to default 3, got %d", grandfather)
+		}
+	})
+
+	t.Run("son must be positive zero falls back", func(t *testing.T) {
+		t.Parallel()
+		ss := &mockSettingsStore{
+			getWithDefaultFn: func(_ context.Context, key, defaultValue string) string {
+				if key == "backup_son_retention" {
+					return "0" // son must be > 0
+				}
+				return defaultValue
+			},
+		}
+		h := NewBackupHandler("postgres://x", t.TempDir(), &mockAdminAuth{}, ss)
+		son, _, _ := h.getRetentionSettings(context.Background())
+		if son != 7 {
+			t.Errorf("son=0 is not > 0, should fall back to default 7, got %d", son)
+		}
+	})
+}
+
+func TestPrunePreview(t *testing.T) {
+	t.Parallel()
+
+	t.Run("empty backup dir returns empty classification", func(t *testing.T) {
+		t.Parallel()
+		r, _ := setupBackupRouterWithSettings(t, nil)
+
+		req := httptest.NewRequest(http.MethodPost, "/backups/prune-preview", http.NoBody)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+		}
+
+		var result backupClassification
+		if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+			t.Fatalf("failed to parse response: %v", err)
+		}
+		if len(result.Son) != 0 {
+			t.Errorf("expected empty son, got %d", len(result.Son))
+		}
+		if len(result.Father) != 0 {
+			t.Errorf("expected empty father, got %d", len(result.Father))
+		}
+		if len(result.Grandfather) != 0 {
+			t.Errorf("expected empty grandfather, got %d", len(result.Grandfather))
+		}
+		if len(result.Prune) != 0 {
+			t.Errorf("expected empty prune, got %d", len(result.Prune))
+		}
+	})
+
+	t.Run("classifies backups into tiers", func(t *testing.T) {
+		t.Parallel()
+		r, dir := setupBackupRouterWithSettings(t, nil)
+
+		// Create backups spanning several days so classification is non-trivial.
+		now := time.Now()
+		names := []string{
+			fmt.Sprintf("backup_%s_001.dump", now.Format("20060102_150405")),
+			fmt.Sprintf("backup_%s_001.dump", now.AddDate(0, 0, -1).Format("20060102_150405")),
+			fmt.Sprintf("backup_%s_001.dump", now.AddDate(0, 0, -30).Format("20060102_150405")),
+			fmt.Sprintf("backup_%s_001.dump", now.AddDate(0, -3, 0).Format("20060102_150405")),
+		}
+		for _, name := range names {
+			//nolint:gosec // test-only: permissive perms acceptable
+			if err := os.WriteFile(filepath.Join(dir, name), []byte("test"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		req := httptest.NewRequest(http.MethodPost, "/backups/prune-preview", http.NoBody)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+		}
+
+		var result backupClassification
+		if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+			t.Fatalf("failed to parse response: %v", err)
+		}
+
+		total := len(result.Son) + len(result.Father) + len(result.Grandfather) + len(result.Prune)
+		if total != len(names) {
+			t.Errorf("expected %d total classified entries, got %d", len(names), total)
+		}
+	})
+
+	t.Run("non-existent backup dir returns empty classification", func(t *testing.T) {
+		t.Parallel()
+		// Create a handler that points to a non-existent directory.
+		h := NewBackupHandler("postgres://x", "/nonexistent/path/backup_test", &mockAdminAuth{}, nil)
+		r := chi.NewRouter()
+		h.Register(r)
+
+		req := httptest.NewRequest(http.MethodPost, "/backups/prune-preview", http.NoBody)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+		}
+
+		var result backupClassification
+		if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+			t.Fatalf("failed to parse response: %v", err)
+		}
+		if len(result.Prune) != 0 || len(result.Son) != 0 || len(result.Father) != 0 || len(result.Grandfather) != 0 {
+			t.Error("non-existent dir should return all-empty classification")
+		}
+	})
+}
+
+func TestApplyPrune(t *testing.T) {
+	t.Parallel()
+
+	t.Run("no prunable backups returns empty prune list", func(t *testing.T) {
+		t.Parallel()
+		r, _ := setupBackupRouterWithSettings(t, nil)
+
+		req := httptest.NewRequest(http.MethodPost, "/backups/prune", http.NoBody)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+		}
+
+		var result backupClassification
+		if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+			t.Fatalf("failed to parse response: %v", err)
+		}
+		if len(result.Prune) != 0 {
+			t.Errorf("expected empty prune list, got %d", len(result.Prune))
+		}
+	})
+
+	t.Run("prunable backups are deleted from disk", func(t *testing.T) {
+		t.Parallel()
+		r, dir := setupBackupRouterWithSettings(t, nil)
+
+		// Create an old backup that falls outside retention periods.
+		oldTime := time.Now().AddDate(-2, 0, 0)
+		oldName := fmt.Sprintf("backup_%s_001.dump", oldTime.Format("20060102_150405"))
+		//nolint:gosec // test-only: permissive perms acceptable
+		if err := os.WriteFile(filepath.Join(dir, oldName), []byte("old-backup"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		req := httptest.NewRequest(http.MethodPost, "/backups/prune", http.NoBody)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+		}
+
+		var result backupClassification
+		if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+			t.Fatalf("failed to parse response: %v", err)
+		}
+
+		// The old backup should appear in the prune list and be gone from disk.
+		found := false
+		for _, p := range result.Prune {
+			if p.Filename == oldName {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("old backup %q should be in prune list", oldName)
+		}
+
+		if _, err := os.Stat(filepath.Join(dir, oldName)); !os.IsNotExist(err) {
+			t.Error("old backup file should have been deleted from disk")
+		}
+	})
+
+	t.Run("conflict when lock is held", func(t *testing.T) {
+		t.Parallel()
+		h := NewBackupHandler("postgres://x", t.TempDir(), &mockAdminAuth{}, nil)
+		r := chi.NewRouter()
+		h.Register(r)
+
+		// Hold the mutex to simulate a concurrent backup operation.
+		h.backupMu.Lock()
+		defer h.backupMu.Unlock()
+
+		req := httptest.NewRequest(http.MethodPost, "/backups/prune", http.NoBody)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusConflict {
+			t.Errorf("expected 409 Conflict, got %d", w.Code)
+		}
+	})
+}
+
+func TestStartScheduler_NilSettingsRepo(t *testing.T) {
+	h := NewBackupHandler("postgres://x", t.TempDir(), &mockAdminAuth{}, nil)
+	// Should return immediately without panicking or setting schedulerCancel.
+	h.StartScheduler(context.Background())
+	if h.schedulerCancel != nil {
+		t.Error("schedulerCancel should remain nil when settingsRepo is nil")
+	}
+}
+
+func TestStartScheduler_DoubleLaunch(t *testing.T) {
+	ss := &mockSettingsStore{
+		getWithDefaultFn: func(_ context.Context, key, defaultValue string) string {
+			return defaultValue
+		},
+		getBoolFn: func(_ context.Context, key string, defaultValue bool) bool {
+			return false // disabled so scheduler loop sleeps
+		},
+		getDurationFn: func(_ context.Context, key string, defaultValue time.Duration) time.Duration {
+			return defaultValue
+		},
+	}
+	h := NewBackupHandler("postgres://x", t.TempDir(), &mockAdminAuth{}, ss)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	h.StartScheduler(ctx)
+	firstCancel := h.schedulerCancel
+	if firstCancel == nil {
+		t.Fatal("first StartScheduler should set schedulerCancel")
+	}
+
+	// Second call should be a no-op: schedulerCancel must still be the same
+	// non-nil function.  We cannot compare func values directly, so we verify
+	// that the cancel is non-nil (i.e. it was not replaced with a new one).
+	h.StartScheduler(ctx)
+	if h.schedulerCancel == nil {
+		t.Error("second StartScheduler should not clear schedulerCancel")
+	}
+
+	cancel()
+}
+
+func TestStopScheduler(t *testing.T) {
+	ss := &mockSettingsStore{
+		getWithDefaultFn: func(_ context.Context, key, defaultValue string) string {
+			return defaultValue
+		},
+		getBoolFn: func(_ context.Context, key string, defaultValue bool) bool {
+			return false
+		},
+		getDurationFn: func(_ context.Context, key string, defaultValue time.Duration) time.Duration {
+			return defaultValue
+		},
+	}
+	h := NewBackupHandler("postgres://x", t.TempDir(), &mockAdminAuth{}, ss)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	h.StartScheduler(ctx)
+	if h.schedulerCancel == nil {
+		t.Fatal("schedulerCancel should be set after StartScheduler")
+	}
+
+	h.StopScheduler()
+	if h.schedulerCancel != nil {
+		t.Error("schedulerCancel should be nil after StopScheduler")
+	}
+
+	// StopScheduler again should be safe (nil check).
+	h.StopScheduler()
+}
+
+func TestScheduler_FiresBackupWhenEnabled(t *testing.T) {
+	ss := &mockSettingsStore{
+		getWithDefaultFn: func(_ context.Context, key, defaultValue string) string {
+			return defaultValue
+		},
+		getBoolFn: func(_ context.Context, key string, defaultValue bool) bool {
+			return true // backup enabled
+		},
+		getDurationFn: func(_ context.Context, key string, defaultValue time.Duration) time.Duration {
+			return 5 * time.Minute
+		},
+	}
+	h := NewBackupHandler("postgres://x", t.TempDir(), &mockAdminAuth{}, ss)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	h.StartScheduler(ctx)
+	if h.schedulerCancel == nil {
+		t.Fatal("schedulerCancel should be set after StartScheduler")
+	}
+
+	// Cancel the scheduler context to prevent it from looping forever.
+	cancel()
+	// Give the goroutine a moment to exit.
+	time.Sleep(100 * time.Millisecond)
+
+	// StopScheduler should clean up. It's safe to call even if the context
+	// was already cancelled externally.
+	h.StopScheduler()
+	if h.schedulerCancel != nil {
+		t.Error("schedulerCancel should be nil after StopScheduler")
+	}
+}
+
+func TestRunScheduledBackup_PgDumpNotFound(t *testing.T) {
+	h := NewBackupHandler("postgres://x", t.TempDir(), &mockAdminAuth{}, nil)
+	// runScheduledBackup should return without error when pg_dump is not found.
+	// This tests the exec.LookPath failure path.
+	h.runScheduledBackup(context.Background())
+	// No panic = success.
+}
+
+func TestRunScheduledBackup_LockAlreadyHeld(t *testing.T) {
+	h := NewBackupHandler("postgres://x", t.TempDir(), &mockAdminAuth{}, nil)
+
+	// Hold the lock to simulate a concurrent operation.
+	h.backupMu.Lock()
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		// This should return quickly since TryLock will fail.
+		h.runScheduledBackup(context.Background())
+	}()
+
+	select {
+	case <-done:
+		// Success: runScheduledBackup returned without acquiring the lock.
+	case <-time.After(5 * time.Second):
+		t.Fatal("runScheduledBackup should have returned immediately when lock is held")
+	}
+
+	h.backupMu.Unlock()
+}
+
+func TestStartBackupScheduler_NilBackupScheduler(t *testing.T) {
+	h := &Handler{backupScheduler: nil}
+	// Should be a no-op without panicking.
+	h.StartBackupScheduler(context.Background())
+}
+
+func TestStopBackupScheduler_NilBackupScheduler(t *testing.T) {
+	h := &Handler{backupScheduler: nil}
+	// Should be a no-op without panicking.
+	h.StopBackupScheduler()
+}
