@@ -2681,3 +2681,383 @@ exit 0
 		}
 	})
 }
+
+// ────────────────────────────────────────────────────────────────────────
+// Son/Father/Grandfather Rotation Algorithm Tests
+// ────────────────────────────────────────────────────────────────────────
+
+func TestParseBackupTimestamp(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    time.Time
+		wantErr bool
+	}{
+		{
+			name:    "valid standard format",
+			input:   "backup_20240115_120000_001.dump",
+			want:    time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC),
+			wantErr: false,
+		},
+		{
+			name:    "valid with different sequence",
+			input:   "backup_20231231_235959_999.dump",
+			want:    time.Date(2023, 12, 31, 23, 59, 59, 0, time.UTC),
+			wantErr: false,
+		},
+		{
+			name:    "invalid garbage",
+			input:   "garbage.dump",
+			wantErr: true,
+		},
+		{
+			name:    "missing time part",
+			input:   "backup_20240115.dump",
+			wantErr: true,
+		},
+		{
+			name:    "empty string",
+			input:   "",
+			wantErr: true,
+		},
+		{
+			name:    "valid without sequence number",
+			input:   "backup_20240601_090000.dump",
+			want:    time.Date(2024, 6, 1, 9, 0, 0, 0, time.UTC),
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseBackupTimestamp(tt.input)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("parseBackupTimestamp(%q) expected error, got nil", tt.input)
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("parseBackupTimestamp(%q) unexpected error: %v", tt.input, err)
+				return
+			}
+			if !got.Equal(tt.want) {
+				t.Errorf("parseBackupTimestamp(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMostRecentEntry(t *testing.T) {
+	t.Run("empty list returns nil", func(t *testing.T) {
+		result := mostRecentEntry(nil, nil)
+		if result != nil {
+			t.Errorf("expected nil for empty list, got %+v", result)
+		}
+	})
+
+	t.Run("empty slice returns nil", func(t *testing.T) {
+		result := mostRecentEntry([]backupEntry{}, nil)
+		if result != nil {
+			t.Errorf("expected nil for empty slice, got %+v", result)
+		}
+	})
+
+	t.Run("single entry returns that entry", func(t *testing.T) {
+		entry := backupEntry{Filename: "backup_20240101_120000_001.dump", SizeBytes: 100}
+		ts := map[string]time.Time{
+			"backup_20240101_120000_001.dump": time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
+		}
+		result := mostRecentEntry([]backupEntry{entry}, ts)
+		if result == nil {
+			t.Fatal("expected non-nil result")
+		}
+		if result.Filename != entry.Filename {
+			t.Errorf("expected filename %q, got %q", entry.Filename, result.Filename)
+		}
+	})
+
+	t.Run("multiple entries returns most recent", func(t *testing.T) {
+		entries := []backupEntry{
+			{Filename: "backup_20240101_080000_001.dump", SizeBytes: 100},
+			{Filename: "backup_20240101_120000_001.dump", SizeBytes: 200},
+			{Filename: "backup_20240101_100000_001.dump", SizeBytes: 150},
+		}
+		ts := map[string]time.Time{
+			"backup_20240101_080000_001.dump": time.Date(2024, 1, 1, 8, 0, 0, 0, time.UTC),
+			"backup_20240101_120000_001.dump": time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
+			"backup_20240101_100000_001.dump": time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC),
+		}
+		result := mostRecentEntry(entries, ts)
+		if result == nil {
+			t.Fatal("expected non-nil result")
+		}
+		if result.Filename != "backup_20240101_120000_001.dump" {
+			t.Errorf("expected most recent entry, got %q", result.Filename)
+		}
+		if result.SizeBytes != 200 {
+			t.Errorf("expected size 200, got %d", result.SizeBytes)
+		}
+	})
+}
+
+func TestClassifyBackups(t *testing.T) {
+	t.Run("empty backup list", func(t *testing.T) {
+		result := classifyBackups(nil, 7, 4, 3)
+		if len(result.Son) != 0 {
+			t.Errorf("expected 0 son, got %d", len(result.Son))
+		}
+		if len(result.Father) != 0 {
+			t.Errorf("expected 0 father, got %d", len(result.Father))
+		}
+		if len(result.Grandfather) != 0 {
+			t.Errorf("expected 0 grandfather, got %d", len(result.Grandfather))
+		}
+		if len(result.Prune) != 0 {
+			t.Errorf("expected 0 prune, got %d", len(result.Prune))
+		}
+	})
+
+	t.Run("single backup is son", func(t *testing.T) {
+		backups := []backupEntry{
+			{Filename: fmt.Sprintf("backup_%s_001.dump", time.Now().Format("20060102_150405")), SizeBytes: 100},
+		}
+		result := classifyBackups(backups, 7, 4, 3)
+		if len(result.Son) != 1 {
+			t.Fatalf("expected 1 son, got %d", len(result.Son))
+		}
+		if result.Son[0].Filename != backups[0].Filename {
+			t.Errorf("expected son to be %q, got %q", backups[0].Filename, result.Son[0].Filename)
+		}
+		if len(result.Prune) != 0 {
+			t.Errorf("expected 0 prune, got %d", len(result.Prune))
+		}
+	})
+
+	t.Run("backups from today only are all son", func(t *testing.T) {
+		now := time.Now()
+		backups := []backupEntry{
+			{Filename: fmt.Sprintf("backup_%s_001.dump", now.Format("20060102_150405")), SizeBytes: 100},
+			{Filename: fmt.Sprintf("backup_%s_002.dump", now.Format("20060102_150405")), SizeBytes: 200},
+		}
+		// With sonRetention=1, only the most recent from today is kept as son.
+		// The other one from the same day is not kept (only one son per day).
+		result := classifyBackups(backups, 1, 4, 3)
+		if len(result.Son) != 1 {
+			t.Fatalf("expected 1 son (most recent from today), got %d", len(result.Son))
+		}
+	})
+
+	t.Run("multiple backups same day keeps most recent as son", func(t *testing.T) {
+		now := time.Now()
+		dayKey := now.Format("20060102")
+		backups := []backupEntry{
+			{Filename: fmt.Sprintf("backup_%s_080000_001.dump", dayKey), SizeBytes: 100},
+			{Filename: fmt.Sprintf("backup_%s_120000_002.dump", dayKey), SizeBytes: 200},
+			{Filename: fmt.Sprintf("backup_%s_160000_003.dump", dayKey), SizeBytes: 300},
+		}
+		result := classifyBackups(backups, 7, 4, 3)
+		if len(result.Son) != 1 {
+			t.Fatalf("expected 1 son, got %d", len(result.Son))
+		}
+		if result.Son[0].Filename != backups[2].Filename {
+			t.Errorf("expected most recent backup as son, got %q", result.Son[0].Filename)
+		}
+		// The remaining 2 backups from the same day are NOT sons (only 1 per day),
+		// but they may be kept as father (same ISO week) or grandfather (same month).
+		// Verify none of the non-most-recent backups are in the son tier.
+		sonFiles := make(map[string]bool)
+		for _, s := range result.Son {
+			sonFiles[s.Filename] = true
+		}
+		for i := 0; i < 2; i++ {
+			if sonFiles[backups[i].Filename] {
+				t.Errorf("backup %q should NOT be in son tier (only most recent per day)", backups[i].Filename)
+			}
+		}
+	})
+
+	t.Run("backups spanning multiple days", func(t *testing.T) {
+		now := time.Now()
+		yesterday := now.AddDate(0, 0, -1)
+
+		backups := []backupEntry{
+			{Filename: fmt.Sprintf("backup_%s_001.dump", now.Format("20060102_150405")), SizeBytes: 100},
+			{Filename: fmt.Sprintf("backup_%s_001.dump", yesterday.Format("20060102_150405")), SizeBytes: 200},
+		}
+		result := classifyBackups(backups, 7, 4, 3)
+		if len(result.Son) != 2 {
+			t.Fatalf("expected 2 sons (one per day), got %d", len(result.Son))
+		}
+		if len(result.Prune) != 0 {
+			t.Errorf("expected 0 prune, got %d", len(result.Prune))
+		}
+	})
+
+	t.Run("backups older than all retention periods are pruned", func(t *testing.T) {
+		// Create backups from 60 days ago, with retention of 1 day son, 0 father, 0 grandfather
+		old := time.Now().AddDate(0, 0, -60)
+		backups := []backupEntry{
+			{Filename: fmt.Sprintf("backup_%s_001.dump", old.Format("20060102_150405")), SizeBytes: 100},
+		}
+		result := classifyBackups(backups, 1, 0, 0)
+		if len(result.Son) != 0 {
+			t.Errorf("expected 0 son (too old), got %d", len(result.Son))
+		}
+		if len(result.Prune) != 1 {
+			t.Fatalf("expected 1 prune, got %d", len(result.Prune))
+		}
+		if result.Prune[0].Filename != backups[0].Filename {
+			t.Errorf("expected %q to be pruned, got %q", backups[0].Filename, result.Prune[0].Filename)
+		}
+	})
+
+	t.Run("son to father to grandfather to prune tier flow", func(t *testing.T) {
+		now := time.Now()
+
+		// Today's backup → son
+		todayBackup := backupEntry{
+			Filename:  fmt.Sprintf("backup_%s_001.dump", now.Format("20060102_150405")),
+			SizeBytes: 100,
+		}
+		// 10 days ago → father (not in son's daily range but in weekly range)
+		tenDaysAgo := now.AddDate(0, 0, -10)
+		weekBackup := backupEntry{
+			Filename:  fmt.Sprintf("backup_%s_001.dump", tenDaysAgo.Format("20060102_150405")),
+			SizeBytes: 200,
+		}
+		// 3 months ago → grandfather (not in son or father but in monthly range)
+		threeMonthsAgo := now.AddDate(0, -3, 0)
+		monthBackup := backupEntry{
+			Filename:  fmt.Sprintf("backup_%s_001.dump", threeMonthsAgo.Format("20060102_150405")),
+			SizeBytes: 300,
+		}
+		// 8 months ago → prune (beyond all retention)
+		eightMonthsAgo := now.AddDate(0, -8, 0)
+		pruneBackup := backupEntry{
+			Filename:  fmt.Sprintf("backup_%s_001.dump", eightMonthsAgo.Format("20060102_150405")),
+			SizeBytes: 400,
+		}
+
+		backups := []backupEntry{todayBackup, weekBackup, monthBackup, pruneBackup}
+		result := classifyBackups(backups, 1, 5, 4)
+
+		// Today should be son
+		if len(result.Son) < 1 {
+			t.Fatalf("expected at least 1 son, got %d", len(result.Son))
+		}
+		foundToday := false
+		for _, s := range result.Son {
+			if s.Filename == todayBackup.Filename {
+				foundToday = true
+			}
+		}
+		if !foundToday {
+			t.Errorf("today's backup should be in son tier")
+		}
+
+		// 8 months ago should be pruned (beyond grandfatherRetention=4)
+		if len(result.Prune) < 1 {
+			t.Fatalf("expected at least 1 prune, got %d", len(result.Prune))
+		}
+		foundPrune := false
+		for _, p := range result.Prune {
+			if p.Filename == pruneBackup.Filename {
+				foundPrune = true
+			}
+		}
+		if !foundPrune {
+			t.Errorf("8-month-old backup should be in prune tier, prune list: %v", result.Prune)
+		}
+	})
+
+	t.Run("unparseable filenames go to prune", func(t *testing.T) {
+		backups := []backupEntry{
+			{Filename: "garbage.dump", SizeBytes: 50},
+		}
+		result := classifyBackups(backups, 7, 4, 3)
+		if len(result.Prune) != 1 {
+			t.Fatalf("expected 1 prune (unparseable), got %d", len(result.Prune))
+		}
+		if result.Prune[0].Filename != "garbage.dump" {
+			t.Errorf("expected garbage.dump in prune, got %q", result.Prune[0].Filename)
+		}
+	})
+
+	t.Run("zero retention prunes everything except current day/week/month", func(t *testing.T) {
+		now := time.Now()
+		backups := []backupEntry{
+			{Filename: fmt.Sprintf("backup_%s_001.dump", now.Format("20060102_150405")), SizeBytes: 100},
+		}
+		// sonRetention=1 keeps today, fatherRetention=0 and grandfatherRetention=0 don't add more
+		result := classifyBackups(backups, 1, 0, 0)
+		if len(result.Son) != 1 {
+			t.Fatalf("expected 1 son (today), got %d", len(result.Son))
+		}
+		if len(result.Father) != 0 {
+			t.Errorf("expected 0 father, got %d", len(result.Father))
+		}
+		if len(result.Grandfather) != 0 {
+			t.Errorf("expected 0 grandfather, got %d", len(result.Grandfather))
+		}
+		if len(result.Prune) != 0 {
+			t.Errorf("expected 0 prune, got %d", len(result.Prune))
+		}
+	})
+
+	t.Run("backups from yesterday with daily retention 2", func(t *testing.T) {
+		now := time.Now()
+		yesterday := now.AddDate(0, 0, -1)
+
+		backups := []backupEntry{
+			{Filename: fmt.Sprintf("backup_%s_090000_001.dump", now.Format("20060102")), SizeBytes: 100},
+			{Filename: fmt.Sprintf("backup_%s_120000_002.dump", now.Format("20060102")), SizeBytes: 200},
+			{Filename: fmt.Sprintf("backup_%s_090000_001.dump", yesterday.Format("20060102")), SizeBytes: 150},
+			{Filename: fmt.Sprintf("backup_%s_150000_002.dump", yesterday.Format("20060102")), SizeBytes: 250},
+		}
+		result := classifyBackups(backups, 2, 0, 0)
+		// With sonRetention=2, we keep the most recent from today and yesterday
+		if len(result.Son) != 2 {
+			t.Fatalf("expected 2 sons, got %d", len(result.Son))
+		}
+		// Should keep 12:00 today and 15:00 yesterday (most recent per day)
+		sonFiles := make(map[string]bool)
+		for _, s := range result.Son {
+			sonFiles[s.Filename] = true
+		}
+		if !sonFiles[backups[1].Filename] {
+			t.Errorf("expected %q in son", backups[1].Filename)
+		}
+		if !sonFiles[backups[3].Filename] {
+			t.Errorf("expected %q in son", backups[3].Filename)
+		}
+	})
+
+	t.Run("son excludes father tier duplicates", func(t *testing.T) {
+		now := time.Now()
+		twoWeeksAgo := now.AddDate(0, 0, -14)
+
+		backups := []backupEntry{
+			{Filename: fmt.Sprintf("backup_%s_001.dump", now.Format("20060102_150405")), SizeBytes: 100},
+			{Filename: fmt.Sprintf("backup_%s_001.dump", twoWeeksAgo.Format("20060102_150405")), SizeBytes: 200},
+		}
+		// sonRetention=1 keeps today; the 2-week-old is NOT a son.
+		// fatherRetention=4 should cover the ISO week of 2 weeks ago.
+		result := classifyBackups(backups, 1, 4, 0)
+
+		if len(result.Son) != 1 {
+			t.Fatalf("expected 1 son, got %d", len(result.Son))
+		}
+		if result.Son[0].Filename != backups[0].Filename {
+			t.Errorf("expected today as son, got %q", result.Son[0].Filename)
+		}
+		// The 2-week-old backup should be father (not son), or pruned if week not in range
+		sonFiles := make(map[string]bool)
+		for _, s := range result.Son {
+			sonFiles[s.Filename] = true
+		}
+		if sonFiles[backups[1].Filename] {
+			t.Errorf("2-week-old backup should NOT be in son tier")
+		}
+	})
+}
