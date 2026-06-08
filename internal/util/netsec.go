@@ -4,7 +4,9 @@ import "net"
 
 // cgnatNet is the carrier-grade NAT range (RFC 6598), 100.64.0.0/10.
 // Go's net.IP.IsPrivate does not cover it, so we check it explicitly.
-var cgnatNet = &net.IPNet{IP: net.IPv4(100, 64, 0, 0), Mask: net.CIDRMask(10, 32)}
+// Parsed from the CIDR string so the IP and mask widths stay consistent
+// (a literal net.IPv4 is 16 bytes while net.CIDRMask(10, 32) is 4).
+var _, cgnatNet, _ = net.ParseCIDR("100.64.0.0/10")
 
 // IsBlockedIP reports whether an IP falls into a range that must never be
 // dialled by the proxy or accepted as a provider base URL: unspecified,
