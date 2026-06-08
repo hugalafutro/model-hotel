@@ -40,60 +40,21 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	q := r.URL.Query()
-	limit, cursorStr, direction, sortDir, sortBy := p.limit, p.cursorStr, p.direction, p.sortDir, p.sortBy
-
-	// Build WHERE clause (shared with count query)
-	filterConds, filterArgs := buildModelFilterConditions(q)
-	conditions := filterConds
-	args := filterArgs
-	argIdx := len(args) + 1
-
-	// Apply cursor keyset predicate
-	if cursorStr != "" {
-		pred := buildModelKeysetPredicate(p.cursor, direction, sortDir, &argIdx, &args)
-		if pred != "" {
-			conditions = append(conditions, pred)
-		}
-	}
-
-	whereClause := ""
-	if len(conditions) > 0 {
-		whereClause = " WHERE " + joinAnd(conditions)
-	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
-	// Fetch entries (limit+1 to detect has_more)
-	fetchLimit := limit + 1
-
-	// Build ORDER BY based on sort_by
-	// When paginating backward, invert the sort direction so LIMIT picks from
-	// the correct end of the result set, then reverse the slice before returning.
-	orderCol := modelSortColumn(sortBy)
-	fetchSortDir := sortDir
-	if direction == "before" {
-		if fetchSortDir == "ASC" {
-			fetchSortDir = "DESC"
-		} else {
-			fetchSortDir = "ASC"
-		}
-	}
-	orderClause := fmt.Sprintf(" ORDER BY %s %s, m.id %s", orderCol, fetchSortDir, fetchSortDir)
-
-	dataSQL := "SELECT " + modelSelectColumns + modelFromJoin +
-		whereClause + orderClause + fmt.Sprintf(" LIMIT $%d", argIdx)
-	args = append(args, fetchLimit)
-
-	rows, err := h.dbPool.Pool().Query(ctx, dataSQL, args...)
+	query, args := buildModelListQuery(p, r.URL.Query())
+	rows, err := h.dbPool.Pool().Query(ctx, query, args...)
 	if err != nil {
 		respondError(w, "failed to query models", err, http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
 
-	entries := make([]ModelResponse, 0, limit)
+	// limit is clamped to [1, 200] in parseModelListParams; prealloc with the hard
+	// upper bound so user input never flows into make() capacity (CodeQL guard).
+	entries := make([]ModelResponse, 0, 201) // limit+1 for has_more detection
 	for rows.Next() {
 		m, err := scanModelRow(rows)
 		if err != nil {
@@ -105,23 +66,60 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 
 	entries, hasAfter, hasBefore := paginateModels(entries, p)
 
-	// Get total count (reuses same filter conditions, minus cursor predicate)
-	totalCountConditions, totalCountArgs := buildModelFilterConditions(q)
-
-	totalWhereClause := ""
-	if len(totalCountConditions) > 0 {
-		totalWhereClause = " WHERE " + joinAnd(totalCountConditions)
-	}
-
-	var total int
-	_ = h.dbPool.Pool().QueryRow(ctx, "SELECT COUNT(*)"+modelFromJoin+totalWhereClause, totalCountArgs...).Scan(&total)
-
 	writeJSON(w, ModelsCursorResponse{
 		Entries:   entries,
-		Total:     total,
+		Total:     h.countModels(ctx, r.URL.Query()),
 		HasBefore: hasBefore,
 		HasAfter:  hasAfter,
 	})
+}
+
+// buildModelListQuery assembles the cursor data query: the column projection, the
+// shared filters, the keyset predicate (when a cursor is present), and the
+// ORDER BY + LIMIT — fetching limit+1 to detect has_more, with the sort inverted
+// for backward pagination so LIMIT picks from the correct end.
+func buildModelListQuery(p modelListParams, q url.Values) (string, []any) {
+	conditions, args := buildModelFilterConditions(q)
+	argIdx := len(args) + 1
+
+	if p.cursorStr != "" {
+		pred := buildModelKeysetPredicate(p.cursor, p.direction, p.sortDir, &argIdx, &args)
+		if pred != "" {
+			conditions = append(conditions, pred)
+		}
+	}
+
+	whereClause := ""
+	if len(conditions) > 0 {
+		whereClause = " WHERE " + joinAnd(conditions)
+	}
+
+	fetchSortDir := p.sortDir
+	if p.direction == "before" {
+		if fetchSortDir == "ASC" {
+			fetchSortDir = "DESC"
+		} else {
+			fetchSortDir = "ASC"
+		}
+	}
+	orderClause := fmt.Sprintf(" ORDER BY %s %s, m.id %s", modelSortColumn(p.sortBy), fetchSortDir, fetchSortDir)
+
+	query := "SELECT " + modelSelectColumns + modelFromJoin + whereClause + orderClause + fmt.Sprintf(" LIMIT $%d", argIdx)
+	args = append(args, p.limit+1)
+	return query, args
+}
+
+// countModels returns the total row count for the same filters as the data query
+// (no keyset predicate). Best-effort: returns 0 on error.
+func (h *Handler) countModels(ctx context.Context, q url.Values) int {
+	conditions, args := buildModelFilterConditions(q)
+	whereClause := ""
+	if len(conditions) > 0 {
+		whereClause = " WHERE " + joinAnd(conditions)
+	}
+	var total int
+	_ = h.dbPool.Pool().QueryRow(ctx, "SELECT COUNT(*)"+modelFromJoin+whereClause, args...).Scan(&total)
+	return total
 }
 
 // modelListParams holds the parsed, validated query inputs for ListModelsCursor.
