@@ -28,12 +28,13 @@ import (
 // BackupHandler manages PostgreSQL database backups via pg_dump
 // and restores via pg_restore.
 type BackupHandler struct {
-	databaseURL     string
-	backupDir       string
-	backupMu        sync.Mutex
-	adminMgr        AdminAuthenticator
-	settingsRepo    SettingsStore
-	schedulerCancel context.CancelFunc
+	databaseURL       string
+	backupDir         string
+	backupMu          sync.Mutex
+	adminMgr          AdminAuthenticator
+	settingsRepo      SettingsStore
+	schedulerCancelMu sync.Mutex
+	schedulerCancel   context.CancelFunc
 }
 
 // NewBackupHandler creates a new BackupHandler.
@@ -1026,12 +1027,15 @@ func (h *BackupHandler) StartScheduler(ctx context.Context) {
 		return
 	}
 	// Guard against double-launch leaking the previous goroutine.
+	h.schedulerCancelMu.Lock()
 	if h.schedulerCancel != nil {
+		h.schedulerCancelMu.Unlock()
 		return
 	}
 
 	schedCtx, cancel := context.WithCancel(ctx)
 	h.schedulerCancel = cancel
+	h.schedulerCancelMu.Unlock()
 	debuglog.Info("backup: scheduler started")
 
 	go func() {
@@ -1039,7 +1043,9 @@ func (h *BackupHandler) StartScheduler(ctx context.Context) {
 			if r := recover(); r != nil {
 				debuglog.Error("backup: scheduler panic recovered", "panic", r)
 				// Reset so StartScheduler can restart the scheduler.
+				h.schedulerCancelMu.Lock()
 				h.schedulerCancel = nil
+				h.schedulerCancelMu.Unlock()
 			}
 		}()
 		// Initial delay to let the server fully start
@@ -1074,6 +1080,8 @@ func (h *BackupHandler) StartScheduler(ctx context.Context) {
 
 // StopScheduler stops the periodic backup scheduler.
 func (h *BackupHandler) StopScheduler() {
+	h.schedulerCancelMu.Lock()
+	defer h.schedulerCancelMu.Unlock()
 	if h.schedulerCancel != nil {
 		h.schedulerCancel()
 		h.schedulerCancel = nil

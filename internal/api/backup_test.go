@@ -3573,3 +3573,449 @@ func TestStartScheduler_PanicRecoveryResetsCancel(t *testing.T) {
 	}
 	h.StopScheduler()
 }
+
+func TestStartBackupScheduler_NonNilBackupScheduler(t *testing.T) {
+	ss := &mockSettingsStore{
+		getWithDefaultFn: func(_ context.Context, key, defaultValue string) string { return defaultValue },
+		getBoolFn:        func(_ context.Context, key string, defaultValue bool) bool { return false },
+		getDurationFn:    func(_ context.Context, key string, defaultValue time.Duration) time.Duration { return defaultValue },
+	}
+	backupH := NewBackupHandler("postgres://x", t.TempDir(), &mockAdminAuth{}, ss)
+	h := &Handler{backupScheduler: backupH}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	h.StartBackupScheduler(ctx)
+	// Verify the scheduler was started by checking the backupHandler's schedulerCancel
+	backupH.schedulerCancelMu.Lock()
+	hasCancel := backupH.schedulerCancel != nil
+	backupH.schedulerCancelMu.Unlock()
+	if !hasCancel {
+		t.Error("expected schedulerCancel to be set after StartBackupScheduler")
+	}
+
+	h.StopBackupScheduler()
+	backupH.schedulerCancelMu.Lock()
+	hasCancel = backupH.schedulerCancel != nil
+	backupH.schedulerCancelMu.Unlock()
+	if hasCancel {
+		t.Error("expected schedulerCancel to be nil after StopBackupScheduler")
+	}
+}
+
+func TestRunScheduledBackup_MkdirError(t *testing.T) {
+	parent := t.TempDir()
+	// Make parent read-only so MkdirAll fails for a subdirectory
+	if err := os.Chmod(parent, 0o555); err != nil {
+		t.Skipf("cannot chmod temp dir: %v", err)
+	}
+	t.Cleanup(func() { os.Chmod(parent, 0o755) })
+
+	h := NewBackupHandler("postgres://x", filepath.Join(parent, "no-such-subdir", "backups"), &mockAdminAuth{}, nil)
+	// This should return after MkdirAll fails. It won't panic.
+	h.runScheduledBackup(context.Background())
+}
+
+func TestListBackupFiles_InfoError(t *testing.T) {
+	// On Linux, os.DirEntry.Info() on a dangling symlink does not return an error
+	// (it returns info about the symlink itself). To trigger the Info() error path,
+	// we create a file, read the directory, then delete the file before calling Info().
+	// However, ReadDir reads everything at once, so a race-based approach is unreliable.
+	//
+	// Instead, verify that listBackupFiles gracefully handles a dangling symlink
+	// (which on some OSes may cause Info() to fail). On Linux, the broken symlink
+	// will be included because Info() succeeds, but this is acceptable behavior.
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "test.dump"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Create a symlink to a non-existent target
+	if err := os.Symlink("/nonexistent/target.dump", filepath.Join(dir, "broken.dump")); err != nil {
+		t.Skipf("symlink not supported: %v", err)
+	}
+
+	h := NewBackupHandler("postgres://x", dir, &mockAdminAuth{}, nil)
+	backups, err := h.listBackupFiles()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// On Linux, both files appear (dangling symlink's Info() succeeds with symlink metadata).
+	// On other OSes, the broken symlink may be skipped. Just verify no crash and at least
+	// the real file appears.
+	found := false
+	for _, b := range backups {
+		if b.Filename == "test.dump" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected test.dump in results, got %v", backups)
+	}
+}
+
+func TestListBackupFiles_DirEntryFilter(t *testing.T) {
+	dir := t.TempDir()
+	// Create a subdirectory with .dump suffix (should be filtered by IsDir)
+	if err := os.Mkdir(filepath.Join(dir, "subdir.dump"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Create a non-.dump file (should be filtered by HasSuffix)
+	if err := os.WriteFile(filepath.Join(dir, "readme.txt"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Create a valid .dump file
+	if err := os.WriteFile(filepath.Join(dir, "backup_20240101_120000_001.dump"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	h := NewBackupHandler("postgres://x", dir, &mockAdminAuth{}, nil)
+	backups, err := h.listBackupFiles()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(backups) != 1 || backups[0].Filename != "backup_20240101_120000_001.dump" {
+		t.Errorf("expected 1 backup, got %v", backups)
+	}
+}
+
+func TestPrunePreview_WithSettingsRepo(t *testing.T) {
+	dir := t.TempDir()
+	// Create several backup files to classify
+	for _, name := range []string{
+		"backup_20240601_120000_001.dump",
+		"backup_20240608_120000_002.dump",
+		"backup_20240501_120000_003.dump",
+	} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	ss := &mockSettingsStore{
+		getWithDefaultFn: func(_ context.Context, key, defaultValue string) string {
+			switch key {
+			case "backup_son_retention":
+				return "1"
+			case "backup_father_retention":
+				return "1"
+			case "backup_grandfather_retention":
+				return "1"
+			default:
+				return defaultValue
+			}
+		},
+	}
+	h := NewBackupHandler("postgres://x", dir, &mockAdminAuth{}, ss)
+	r := chi.NewRouter()
+	h.Register(r)
+
+	req := httptest.NewRequest("POST", "/backups/prune-preview", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var result backupClassification
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	total := len(result.Son) + len(result.Father) + len(result.Grandfather) + len(result.Prune)
+	if total != 3 {
+		t.Errorf("expected 3 total backups, got %d", total)
+	}
+}
+
+func TestApplyPrune_WithSettingsRepo(t *testing.T) {
+	dir := t.TempDir()
+	// Create backup files: some will be pruned with aggressive retention
+	for _, name := range []string{
+		"backup_20240601_120000_001.dump",
+		"backup_20240608_120000_002.dump",
+		"backup_20240501_120000_003.dump",
+	} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	ss := &mockSettingsStore{
+		getWithDefaultFn: func(_ context.Context, key, defaultValue string) string {
+			switch key {
+			case "backup_son_retention":
+				return "1"
+			case "backup_father_retention":
+				return "0"
+			case "backup_grandfather_retention":
+				return "0"
+			default:
+				return defaultValue
+			}
+		},
+	}
+	h := NewBackupHandler("postgres://x", dir, &mockAdminAuth{}, ss)
+	r := chi.NewRouter()
+	h.Register(r)
+
+	req := httptest.NewRequest("POST", "/backups/prune", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var result backupClassification
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Verify at least one file was pruned (deleted from disk)
+	prunedCount := len(result.Prune)
+	if prunedCount == 0 {
+		t.Error("expected at least one backup to be in prune list")
+	}
+	// Verify files are actually removed from disk
+	for _, b := range result.Prune {
+		if _, err := os.Stat(filepath.Join(dir, b.Filename)); !os.IsNotExist(err) {
+			t.Errorf("expected pruned file %s to be removed from disk", b.Filename)
+		}
+	}
+}
+
+func TestApplyPrune_RemoveError(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "backup_20240101_120000_001.dump"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	ss := &mockSettingsStore{
+		getWithDefaultFn: func(_ context.Context, key, defaultValue string) string {
+			switch key {
+			case "backup_son_retention":
+				return "0"
+			case "backup_father_retention":
+				return "0"
+			case "backup_grandfather_retention":
+				return "0"
+			default:
+				return defaultValue
+			}
+		},
+	}
+	h := NewBackupHandler("postgres://x", dir, &mockAdminAuth{}, ss)
+
+	// Make parent dir read-only so Remove fails
+	if err := os.Chmod(dir, 0o555); err != nil {
+		t.Skipf("cannot chmod temp dir: %v", err)
+	}
+	t.Cleanup(func() { os.Chmod(dir, 0o755) })
+
+	req := httptest.NewRequest("POST", "/backups/prune", http.NoBody)
+	w := httptest.NewRecorder()
+	h.ApplyPrune(w, req)
+
+	// Should still succeed (errors are logged but not fatal)
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestPrunePreview_ListBackupFilesError(t *testing.T) {
+	// Use a file path as backupDir so os.ReadDir fails with a non-IsNotExist error
+	filePath := filepath.Join(t.TempDir(), "not-a-dir")
+	if err := os.WriteFile(filePath, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	h := NewBackupHandler("postgres://x", filePath, &mockAdminAuth{}, nil)
+
+	req := httptest.NewRequest("POST", "/backups/prune-preview", http.NoBody)
+	w := httptest.NewRecorder()
+	h.PrunePreview(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestApplyPrune_ListBackupFilesError(t *testing.T) {
+	// Use a file path as backupDir so os.ReadDir fails with a non-IsNotExist error
+	filePath := filepath.Join(t.TempDir(), "not-a-dir")
+	if err := os.WriteFile(filePath, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	h := NewBackupHandler("postgres://x", filePath, &mockAdminAuth{}, nil)
+
+	req := httptest.NewRequest("POST", "/backups/prune", http.NoBody)
+	w := httptest.NewRecorder()
+	h.ApplyPrune(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestListBackupFiles_ReadDirNotExists(t *testing.T) {
+	// listBackupFiles should return empty slice when dir doesn't exist (os.IsNotExist path)
+	h := NewBackupHandler("postgres://x", filepath.Join(t.TempDir(), "nonexistent"), &mockAdminAuth{}, nil)
+	backups, err := h.listBackupFiles()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(backups) != 0 {
+		t.Errorf("expected 0 backups, got %d", len(backups))
+	}
+}
+
+func TestGetRetentionSettings_WithSettingsRepo(t *testing.T) {
+	ss := &mockSettingsStore{
+		getWithDefaultFn: func(_ context.Context, key, defaultValue string) string {
+			switch key {
+			case "backup_son_retention":
+				return "3"
+			case "backup_father_retention":
+				return "2"
+			case "backup_grandfather_retention":
+				return "1"
+			default:
+				return defaultValue
+			}
+		},
+	}
+	h := NewBackupHandler("postgres://x", t.TempDir(), &mockAdminAuth{}, ss)
+
+	son, father, grandfather := h.getRetentionSettings(context.Background())
+	if son != 3 {
+		t.Errorf("expected son=3, got %d", son)
+	}
+	if father != 2 {
+		t.Errorf("expected father=2, got %d", father)
+	}
+	if grandfather != 1 {
+		t.Errorf("expected grandfather=1, got %d", grandfather)
+	}
+}
+
+func TestGetRetentionSettings_NilSettingsRepo(t *testing.T) {
+	h := NewBackupHandler("postgres://x", t.TempDir(), &mockAdminAuth{}, nil)
+
+	son, father, grandfather := h.getRetentionSettings(context.Background())
+	if son != 7 {
+		t.Errorf("expected default son=7, got %d", son)
+	}
+	if father != 4 {
+		t.Errorf("expected default father=4, got %d", father)
+	}
+	if grandfather != 3 {
+		t.Errorf("expected default grandfather=3, got %d", grandfather)
+	}
+}
+
+func TestGetRetentionSettings_InvalidValues(t *testing.T) {
+	ss := &mockSettingsStore{
+		getWithDefaultFn: func(_ context.Context, key, defaultValue string) string {
+			switch key {
+			case "backup_son_retention":
+				return "not-a-number"
+			case "backup_father_retention":
+				return "-5"
+			case "backup_grandfather_retention":
+				return "0"
+			default:
+				return defaultValue
+			}
+		},
+	}
+	h := NewBackupHandler("postgres://x", t.TempDir(), &mockAdminAuth{}, ss)
+
+	son, father, grandfather := h.getRetentionSettings(context.Background())
+	// Invalid son value falls back to default
+	if son != 7 {
+		t.Errorf("expected default son=7 for invalid value, got %d", son)
+	}
+	// Negative father value fails v >= 0 check, falls back to default
+	if father != 4 {
+		t.Errorf("expected default father=4 for negative value, got %d", father)
+	}
+	// grandfather=0 is valid (v >= 0)
+	if grandfather != 0 {
+		t.Errorf("expected grandfather=0, got %d", grandfather)
+	}
+}
+
+func TestRunScheduledBackup_Integration(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+	if _, err := exec.LookPath("pg_dump"); err != nil {
+		t.Skip("pg_dump not installed, skipping integration test")
+	}
+
+	ss := &mockSettingsStore{
+		getWithDefaultFn: func(_ context.Context, key, defaultValue string) string {
+			return defaultValue
+		},
+	}
+	dir := t.TempDir()
+	h := NewBackupHandler(apiTestDBURL, dir, &mockAdminAuth{}, ss)
+
+	// Run the full scheduled backup cycle.
+	h.runScheduledBackup(context.Background())
+
+	// Verify that a backup file was created.
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("failed to read backup dir: %v", err)
+	}
+	if len(entries) == 0 {
+		t.Fatal("expected at least one backup file after runScheduledBackup")
+	}
+
+	// Verify that rotation was applied (no error = success).
+	// The scheduler logs events but doesn't return errors.
+	// We just verify it completed without panicking.
+}
+
+func TestRunScheduledBackup_Integration_WithRotation(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+	if _, err := exec.LookPath("pg_dump"); err != nil {
+		t.Skip("pg_dump not installed, skipping integration test")
+	}
+
+	ss := &mockSettingsStore{
+		getWithDefaultFn: func(_ context.Context, key, defaultValue string) string {
+			switch key {
+			case "backup_son_retention":
+				return "1" // aggressive: only keep 1 son
+			case "backup_father_retention":
+				return "1"
+			case "backup_grandfather_retention":
+				return "1"
+			default:
+				return defaultValue
+			}
+		},
+	}
+	dir := t.TempDir()
+	h := NewBackupHandler(apiTestDBURL, dir, &mockAdminAuth{}, ss)
+
+	// Create an old backup file first
+	oldFilename := "backup_20240101_120000_001.dump"
+	if err := os.WriteFile(filepath.Join(dir, oldFilename), []byte("old backup"), 0o644); err != nil {
+		t.Fatalf("failed to create old backup: %v", err)
+	}
+
+	// Run the scheduled backup which should also apply rotation.
+	h.runScheduledBackup(context.Background())
+
+	// After rotation with aggressive settings, the old backup may have been pruned.
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("failed to read backup dir: %v", err)
+	}
+	if len(entries) == 0 {
+		t.Fatal("expected at least one backup file (the new one)")
+	}
+}
