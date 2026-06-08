@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	gowa "github.com/go-webauthn/webauthn/webauthn"
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/db"
@@ -834,5 +835,236 @@ func TestGenerateChallenge_OutputLength(t *testing.T) {
 	}
 	if result != "" {
 		t.Errorf("generateChallenge(0): got %q, want empty string", result)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// AdminUser.SetCredentials
+// ---------------------------------------------------------------------------
+
+// TestSetCredentials verifies that SetCredentials updates the credentials
+// returned by WebAuthnCredentials.
+func TestSetCredentials(t *testing.T) {
+	u := NewAdminUser()
+
+	if len(u.WebAuthnCredentials()) != 0 {
+		t.Fatalf("expected 0 credentials initially, got %d", len(u.WebAuthnCredentials()))
+	}
+
+	creds := []gowa.Credential{
+		{ID: []byte("cred-1")},
+		{ID: []byte("cred-2")},
+	}
+	u.SetCredentials(creds)
+
+	got := u.WebAuthnCredentials()
+	if len(got) != 2 {
+		t.Fatalf("expected 2 credentials after SetCredentials, got %d", len(got))
+	}
+	if string(got[0].ID) != "cred-1" {
+		t.Errorf("expected first credential ID 'cred-1', got %q", string(got[0].ID))
+	}
+	if string(got[1].ID) != "cred-2" {
+		t.Errorf("expected second credential ID 'cred-2', got %q", string(got[1].ID))
+	}
+
+	// SetCredentials replaces, not appends
+	u.SetCredentials([]gowa.Credential{{ID: []byte("cred-3")}})
+	got = u.WebAuthnCredentials()
+	if len(got) != 1 {
+		t.Fatalf("expected 1 credential after second SetCredentials, got %d", len(got))
+	}
+	if string(got[0].ID) != "cred-3" {
+		t.Errorf("expected credential ID 'cred-3', got %q", string(got[0].ID))
+	}
+
+	// Setting nil clears credentials
+	u.SetCredentials(nil)
+	if len(u.WebAuthnCredentials()) != 0 {
+		t.Errorf("expected 0 credentials after SetCredentials(nil), got %d", len(u.WebAuthnCredentials()))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// notFoundError.Error
+// ---------------------------------------------------------------------------
+
+// TestErrNotFound_Error verifies the sentinel error message.
+func TestErrNotFound_Error(t *testing.T) {
+	if ErrNotFound.Error() != "webauthn record not found" {
+		t.Errorf("expected 'webauthn record not found', got %q", ErrNotFound.Error())
+	}
+
+	// ErrNotFound should satisfy errors.Is
+	if !errors.Is(ErrNotFound, ErrNotFound) {
+		t.Error("errors.Is(ErrNotFound, ErrNotFound) should be true")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// NewRelyingParty
+// ---------------------------------------------------------------------------
+
+// TestNewRelyingParty_ValidConfig verifies that a valid config produces a
+// non-nil WebAuthn instance.
+func TestNewRelyingParty_ValidConfig(t *testing.T) {
+	w, err := NewRelyingParty("localhost", "Model Hotel", []string{"https://localhost:8081"})
+	if err != nil {
+		t.Fatalf("NewRelyingParty: %v", err)
+	}
+	if w == nil {
+		t.Fatal("expected non-nil WebAuthn instance")
+	}
+}
+
+// TestNewRelyingParty_MultipleOrigins verifies that multiple origins
+// are accepted without error.
+func TestNewRelyingParty_MultipleOrigins(t *testing.T) {
+	w, err := NewRelyingParty("example.com", "Test App", []string{"https://example.com", "https://app.example.com"})
+	if err != nil {
+		t.Fatalf("NewRelyingParty: %v", err)
+	}
+	if w == nil {
+		t.Fatal("expected non-nil WebAuthn instance")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ToWebAuthnCredential / FromWebAuthnCredential edge cases
+// ---------------------------------------------------------------------------
+
+// TestToWebAuthnCredential_EmptyTransport verifies that an empty transport
+// slice does not panic and produces a credential with nil transports.
+func TestToWebAuthnCredential_EmptyTransport(t *testing.T) {
+	record := &CredentialRecord{
+		ID:              []byte("empty-transport-id"),
+		PublicKey:       []byte("pub-key"),
+		AttestationType: "none",
+		AAGUID:          uuid.Nil,
+		Transport:       []string{},
+		FlagsByte:       0x01,
+	}
+
+	cred := record.ToWebAuthnCredential()
+	if string(cred.ID) != "empty-transport-id" {
+		t.Errorf("expected ID 'empty-transport-id', got %q", string(cred.ID))
+	}
+	if len(cred.Transport) != 0 {
+		t.Errorf("expected 0 transports, got %d", len(cred.Transport))
+	}
+}
+
+// TestToWebAuthnCredential_NilTransport verifies that a nil transport slice
+// produces a credential with nil transports.
+func TestToWebAuthnCredential_NilTransport(t *testing.T) {
+	record := &CredentialRecord{
+		ID:              []byte("nil-transport-id"),
+		PublicKey:       []byte("pub-key"),
+		AttestationType: "none",
+		AAGUID:          uuid.Nil,
+		Transport:       nil,
+		FlagsByte:       0x01,
+	}
+
+	cred := record.ToWebAuthnCredential()
+	if len(cred.Transport) != 0 {
+		t.Errorf("expected 0 transports for nil, got %d", len(cred.Transport))
+	}
+}
+
+// TestToWebAuthnCredential_FullAttestation verifies that all attestation
+// fields are properly propagated through the conversion.
+func TestToWebAuthnCredential_FullAttestation(t *testing.T) {
+	record := &CredentialRecord{
+		ID:                        []byte("full-att-id"),
+		PublicKey:                 []byte("pub-key"),
+		AttestationType:           "packed",
+		AttestationFormat:         "tpm",
+		Transport:                 []string{"usb", "nfc"},
+		FlagsByte:                 0x45,
+		SignCount:                 10,
+		AAGUID:                    uuid.Nil,
+		AttestationObject:         []byte("att-obj-full"),
+		AttestationClientData:     []byte("client-data-full"),
+		AttestationClientDataHash: []byte("client-hash-full"),
+		AttestationPublicKeyAlgo:  -257,
+		AuthenticatorData:         []byte("auth-data-full"),
+	}
+
+	cred := record.ToWebAuthnCredential()
+	if cred.AttestationType != "packed" {
+		t.Errorf("expected attestation type 'packed', got %q", cred.AttestationType)
+	}
+	if cred.AttestationFormat != "tpm" {
+		t.Errorf("expected attestation format 'tpm', got %q", cred.AttestationFormat)
+	}
+	if string(cred.Attestation.Object) != "att-obj-full" {
+		t.Errorf("expected attestation object 'att-obj-full', got %q", string(cred.Attestation.Object))
+	}
+	if string(cred.Attestation.ClientDataJSON) != "client-data-full" {
+		t.Errorf("expected client data 'client-data-full', got %q", string(cred.Attestation.ClientDataJSON))
+	}
+	if string(cred.Attestation.ClientDataHash) != "client-hash-full" {
+		t.Errorf("expected client data hash 'client-hash-full', got %q", string(cred.Attestation.ClientDataHash))
+	}
+	if cred.Attestation.PublicKeyAlgorithm != -257 {
+		t.Errorf("expected public key algo -257, got %d", cred.Attestation.PublicKeyAlgorithm)
+	}
+	if string(cred.Attestation.AuthenticatorData) != "auth-data-full" {
+		t.Errorf("expected auth data 'auth-data-full', got %q", string(cred.Attestation.AuthenticatorData))
+	}
+	if len(cred.Transport) != 2 {
+		t.Errorf("expected 2 transports, got %d", len(cred.Transport))
+	}
+	if cred.Authenticator.SignCount != 10 {
+		t.Errorf("expected sign count 10, got %d", cred.Authenticator.SignCount)
+	}
+}
+
+// TestFromWebAuthnCredential_InvalidAAGUID verifies that FromWebAuthnCredential
+// gracefully handles an invalid AAGUID by falling back to uuid.Nil.
+func TestFromWebAuthnCredential_InvalidAAGUID(t *testing.T) {
+	cred := &gowa.Credential{
+		ID:              []byte("invalid-aaguid-id"),
+		PublicKey:       []byte("pub-key"),
+		AttestationType: "none",
+		Authenticator: gowa.Authenticator{
+			AAGUID:    []byte{0xFF, 0xFF, 0xFF}, // too short for UUID
+			SignCount: 0,
+		},
+	}
+
+	record := FromWebAuthnCredential(cred)
+	if record.AAGUID != uuid.Nil {
+		t.Errorf("expected uuid.Nil for invalid AAGUID, got %q", record.AAGUID)
+	}
+	if string(record.ID) != "invalid-aaguid-id" {
+		t.Errorf("expected ID 'invalid-aaguid-id', got %q", string(record.ID))
+	}
+}
+
+// TestFromWebAuthnCredential_EmptyTransport verifies that empty transports
+// are handled correctly.
+func TestFromWebAuthnCredential_EmptyTransport(t *testing.T) {
+	validAAGUID := make([]byte, 16)
+	copy(validAAGUID, uuid.Nil[:])
+
+	cred := &gowa.Credential{
+		ID:              []byte("empty-transport-cred"),
+		PublicKey:       []byte("pub-key"),
+		AttestationType: "none",
+		Transport:       nil,
+		Authenticator: gowa.Authenticator{
+			AAGUID:    validAAGUID,
+			SignCount: 0,
+		},
+	}
+
+	record := FromWebAuthnCredential(cred)
+	if len(record.Transport) != 0 {
+		t.Errorf("expected 0 transports, got %d", len(record.Transport))
+	}
+	if record.AAGUID != uuid.Nil {
+		t.Errorf("expected uuid.Nil, got %q", record.AAGUID)
 	}
 }
