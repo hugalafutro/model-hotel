@@ -137,14 +137,7 @@ func (st *streamState) observeDataChunk(chunk streamChunk, anthropicErrorCounted
 		if currentContent == st.lastContent && currentContent != "" {
 			st.repeatedCount++
 			if st.repeatedCount == repeatedContentLimit {
-				preview := currentContent
-				if len(preview) > 50 {
-					runes := []rune(preview)
-					if len(runes) > 50 {
-						preview = string(runes[:50]) + "..."
-					}
-				}
-				debuglog.Warn("proxy: repeated content detected in stream", "repeated_count", st.repeatedCount, "content_preview", preview, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
+				debuglog.Warn("proxy: repeated content detected in stream", "repeated_count", st.repeatedCount, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 			}
 		} else {
 			st.repeatedCount = 0

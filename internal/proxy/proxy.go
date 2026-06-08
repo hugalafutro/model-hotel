@@ -684,7 +684,7 @@ func (h *Handler) probeFirstToken(
 			}
 			// First real data chunk found.
 			ttft := float64(time.Since(startTime).Microseconds()) / 1000.0
-			debuglog.Info("proxy: TTFT probe found first token", "ttft_ms", ttft, "preview", truncateString(content, 80))
+			debuglog.Info("proxy: TTFT probe found first token", "ttft_ms", ttft)
 			closeProbe()
 			return &buf, ttft, nil
 		}
@@ -732,15 +732,6 @@ func (h *Handler) probeFirstToken(
 
 	// Scanner finished without error and without finding data — body EOF.
 	return nil, 0, fmt.Errorf("TTFT probe: body closed before first data chunk")
-}
-
-// truncateString truncates a string to maxLen runes for logging.
-func truncateString(s string, maxLen int) string {
-	runes := []rune(s)
-	if len(runes) <= maxLen {
-		return s
-	}
-	return string(runes[:maxLen]) + "..."
 }
 
 // See util.BuildProviderTargetURL for URL construction and util.SetProviderAuthHeaders for auth.

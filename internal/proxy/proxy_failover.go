@@ -372,15 +372,16 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 	body, _ := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
 	errMsg := util.SanitizeLogBody(string(body), 10000)
-	debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "body", errMsg)
+	debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID)
 	debuglog.Debug("proxy: upstream error response", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "body_length", len(body), "attempt", attempt+1)
 	logData.responseHeaderMs = responseHeaderMs
 	h.failRequest(logData, resp.StatusCode, errMsg, attempt, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
 
 	if !hasMoreCandidates {
 		// All failover candidates exhausted — return a generic error.
-		// The full upstream body is logged server-side above but not
-		// forwarded, as it may contain provider-specific details.
+		// The upstream body is recorded to the DB request log via failRequest
+		// (not the structured server log) and is not forwarded to the client,
+		// as it may contain provider-specific details.
 		writeOpenAIError(w, fmt.Sprintf("upstream provider returned HTTP %d", resp.StatusCode), resp.StatusCode)
 		return outcomeFatal
 	}

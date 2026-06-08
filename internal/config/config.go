@@ -15,6 +15,11 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
+// recommendedMasterKeyLength is the minimum MASTER_KEY length we consider
+// strong enough for the low-cost Argon2id parameters. It matches the output of
+// the documented generator `openssl rand -base64 32` (44 chars), rounded down.
+const recommendedMasterKeyLength = 32
+
 // Config holds the application configuration.
 type Config struct {
 	Port        string
@@ -126,6 +131,18 @@ func Load() (*Config, error) {
 
 	if cfg.MasterKey == "" {
 		return nil, fmt.Errorf("MASTER_KEY is required")
+	}
+
+	// The at-rest encryption KDF (Argon2id) uses deliberately low cost
+	// parameters on the assumption that MASTER_KEY is a high-entropy random
+	// value rather than a memorable passphrase (see internal/auth/encryption.go).
+	// Warn — but do not fail — when the key is shorter than the documented
+	// generator (`openssl rand -base64 32` → 44 chars) so existing deployments
+	// keep booting (rotating MASTER_KEY would invalidate all encrypted keys),
+	// while operators are nudged toward a stronger value.
+	if len(cfg.MasterKey) < recommendedMasterKeyLength {
+		debuglog.Warn("config: MASTER_KEY is shorter than recommended — a low-entropy key weakens at-rest encryption of provider credentials; generate a strong one with `openssl rand -base64 32`",
+			"length", len(cfg.MasterKey), "recommended_min", recommendedMasterKeyLength)
 	}
 
 	return cfg, nil
@@ -263,10 +280,12 @@ func formatCORSOriginRows(origins []string, labelW, indentLen, gapLen int) []con
 	return result
 }
 
-// ValidateProviderURL checks that a provider base_url is not a loopback address
-// and (if AllowedProviderHosts is set) is in the allowed list.
-// Built-in known provider hosts (OpenAI, Nano-GPT, Z.AI, DeepSeek, Ollama) are
-// always allowed regardless of the ALLOWED_PROVIDER_HOSTS env var.
+// ValidateProviderURL checks that a provider base_url does not resolve to a
+// private or reserved address (loopback, RFC 1918/ULA, link-local, CGNAT, or
+// cloud-metadata — see util.IsBlockedIP) and, if AllowedProviderHosts is set,
+// is in the allowed list. Built-in known provider hosts (OpenAI, Nano-GPT,
+// Z.AI, DeepSeek, Ollama) are always allowed regardless of the
+// ALLOWED_PROVIDER_HOSTS env var.
 func (c *Config) ValidateProviderURL(rawURL string) error {
 	u, err := url.Parse(rawURL)
 	if err != nil {
@@ -278,7 +297,7 @@ func (c *Config) ValidateProviderURL(rawURL string) error {
 		return fmt.Errorf("URL has no host")
 	}
 
-	// Built-in known provider hosts are always allowed (skip loopback check)
+	// Built-in known provider hosts are always allowed (skip the IP checks)
 	for _, knownHost := range defaultKnownProviderHosts {
 		if strings.EqualFold(host, knownHost) {
 			return nil
@@ -286,8 +305,8 @@ func (c *Config) ValidateProviderURL(rawURL string) error {
 	}
 
 	// If AllowedProviderHosts is set, the host must be in the allowlist.
-	// Hosts explicitly listed here bypass the loopback restriction so that
-	// localhost can be used as a provider URL in test environments.
+	// Hosts explicitly listed here bypass the private/reserved-IP checks so that
+	// internal LLM servers (or localhost in tests) can be used as provider URLs.
 	if len(c.AllowedProviderHosts) > 0 {
 		for _, allowedHost := range c.AllowedProviderHosts {
 			if strings.EqualFold(host, allowedHost) {
@@ -302,10 +321,12 @@ func (c *Config) ValidateProviderURL(rawURL string) error {
 		return fmt.Errorf("loopback addresses are not allowed as provider URLs (add to ALLOWED_PROVIDER_HOSTS to permit)")
 	}
 
-	// Resolve the host and check all IPs.
-	// Store the resolved IPs to detect DNS rebinding: if the host later resolves
-	// to a different set of IPs, the provider URL should be re-validated.
-	// For now, we block any host that currently resolves to a loopback address.
+	// Resolve the host and block any private/reserved address. This mirrors
+	// the runtime SafeDialer (util.IsBlockedIP) so a base_url accepted here
+	// cannot later be silently refused at dial time, and closes the
+	// creation-time SSRF gap (e.g. http://10.0.0.1, http://169.254.169.254).
+	// Hosts that legitimately point at internal infrastructure must be added
+	// to ALLOWED_PROVIDER_HOSTS, which bypasses this check above.
 	lookupIP := c.lookupIP
 	if lookupIP == nil {
 		lookupIP = net.LookupIP
@@ -313,8 +334,8 @@ func (c *Config) ValidateProviderURL(rawURL string) error {
 	ips, err := lookupIP(host)
 	if err == nil {
 		for _, ip := range ips {
-			if ip.IsLoopback() {
-				return fmt.Errorf("host %q resolves to loopback address %s — not allowed as provider URL (add to ALLOWED_PROVIDER_HOSTS to permit)", host, ip)
+			if util.IsBlockedIP(ip) {
+				return fmt.Errorf("host %q resolves to private/reserved address %s — not allowed as provider URL (add to ALLOWED_PROVIDER_HOSTS to permit)", host, ip)
 			}
 		}
 	}

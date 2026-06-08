@@ -539,6 +539,45 @@ func TestValidateProviderURL_AllowsNonLocalhostCustom(t *testing.T) {
 	}
 }
 
+func TestValidateProviderURL_BlocksHostResolvingToPrivateIP(t *testing.T) {
+	// A non-allowlisted host that resolves to a private/reserved address must be
+	// rejected at creation time, mirroring the runtime SafeDialer.
+	cases := []struct {
+		name string
+		ip   string
+	}{
+		{"private 10", "10.0.0.5"},
+		{"link-local metadata", "169.254.169.254"},
+		{"cgnat", "100.64.0.1"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &Config{
+				lookupIP: func(string) ([]net.IP, error) {
+					return []net.IP{net.ParseIP(tc.ip)}, nil
+				},
+			}
+			err := cfg.ValidateProviderURL("https://internal.example.com/v1")
+			if err == nil {
+				t.Errorf("expected host resolving to %s to be blocked", tc.ip)
+			}
+		})
+	}
+}
+
+func TestValidateProviderURL_PrivateIPAllowedViaAllowlist(t *testing.T) {
+	// The allowlist remains the documented escape hatch for internal hosts.
+	cfg := &Config{
+		AllowedProviderHosts: []string{"internal.example.com"},
+		lookupIP: func(string) ([]net.IP, error) {
+			return []net.IP{net.ParseIP("10.0.0.5")}, nil
+		},
+	}
+	if err := cfg.ValidateProviderURL("https://internal.example.com/v1"); err != nil {
+		t.Errorf("allowlisted host must bypass the private-IP check, got: %v", err)
+	}
+}
+
 func TestValidateProviderURL_HTTPSchemes(t *testing.T) {
 	cfg := &Config{AllowedProviderHosts: []string{"my-proxy.example.com"}}
 	// Both http and https should pass ValidateProviderURL — scheme enforcement

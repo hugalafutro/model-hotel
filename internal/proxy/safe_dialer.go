@@ -10,6 +10,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // ipResolver is the interface for DNS resolution, allowing mocking in tests.
@@ -198,27 +199,9 @@ func (s *SafeDialer) CheckRedirect(req *http.Request, via []*http.Request) error
 }
 
 // isBlockedIP checks whether an IP falls into a range that should never be
-// dialled by the proxy: loopback, private, link-local, or cloud metadata.
+// dialled by the proxy: loopback, private, link-local, carrier-grade NAT, or
+// cloud metadata. It delegates to util.IsBlockedIP so provider-URL validation
+// (config.ValidateProviderURL) enforces the exact same ranges.
 func isBlockedIP(ip net.IP) bool {
-	if ip == nil {
-		return false
-	}
-	if ip.IsUnspecified() {
-		return true
-	}
-	if ip.IsLoopback() {
-		return true
-	}
-	if ip.IsPrivate() {
-		return true
-	}
-	if ip.IsLinkLocalUnicast() {
-		return true
-	}
-	// 169.254.169.254 is link-local unicast (caught above), but explicitly
-	// check the string form for defence-in-depth.
-	if ip.String() == "169.254.169.254" {
-		return true
-	}
-	return false
+	return util.IsBlockedIP(ip)
 }
