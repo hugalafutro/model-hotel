@@ -1043,6 +1043,149 @@ func TestFromWebAuthnCredential_InvalidAAGUID(t *testing.T) {
 	}
 }
 
+// TestStoreCredential_Upsert verifies that StoreCredential uses ON CONFLICT DO UPDATE
+// semantics: storing a credential with the same ID a second time updates the record
+// rather than failing, and the updated fields are persisted.
+func TestStoreCredential_Upsert(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	credID := []byte("upsert-cred-id")
+	original := &CredentialRecord{
+		ID:                credID,
+		Name:              "Original Key",
+		PublicKey:         []byte("original-public-key"),
+		AttestationType:   "none",
+		AttestationFormat: "packed",
+		Transport:         []string{"internal"},
+		FlagsByte:         0x01,
+		SignCount:         0,
+		AAGUID:            uuid.Nil,
+	}
+
+	if err := repo.StoreCredential(ctx, original); err != nil {
+		t.Fatalf("first StoreCredential: %v", err)
+	}
+
+	updated := &CredentialRecord{
+		ID:                        credID,
+		Name:                      "Replacement Key",
+		PublicKey:                 []byte("updated-public-key"),
+		AttestationType:           "packed",
+		AttestationFormat:         "tpm",
+		Transport:                 []string{"usb", "nfc"},
+		FlagsByte:                 0x45,
+		SignCount:                 7,
+		AAGUID:                    uuid.Nil,
+		AttestationObject:         []byte("att-obj-updated"),
+		AttestationClientData:     []byte("client-data-updated"),
+		AttestationClientDataHash: []byte("client-hash-updated"),
+		AttestationPublicKeyAlgo:  -257,
+		AuthenticatorData:         []byte("auth-data-updated"),
+	}
+
+	if err := repo.StoreCredential(ctx, updated); err != nil {
+		t.Fatalf("second StoreCredential (upsert): %v", err)
+	}
+
+	found, err := repo.GetCredentialByID(ctx, credID)
+	if err != nil {
+		t.Fatalf("GetCredentialByID after upsert: %v", err)
+	}
+
+	if found.Name != "Replacement Key" {
+		t.Errorf("expected name 'Replacement Key', got %q", found.Name)
+	}
+	if string(found.PublicKey) != "updated-public-key" {
+		t.Errorf("expected updated public key, got %q", string(found.PublicKey))
+	}
+	if found.AttestationType != "packed" {
+		t.Errorf("expected attestation type 'packed', got %q", found.AttestationType)
+	}
+	if found.AttestationFormat != "tpm" {
+		t.Errorf("expected attestation format 'tpm', got %q", found.AttestationFormat)
+	}
+	if len(found.Transport) != 2 || found.Transport[0] != "usb" || found.Transport[1] != "nfc" {
+		t.Errorf("expected transport ['usb','nfc'], got %v", found.Transport)
+	}
+	if found.FlagsByte != 0x45 {
+		t.Errorf("expected flags 0x45, got 0x%02x", found.FlagsByte)
+	}
+	if found.SignCount != 7 {
+		t.Errorf("expected sign count 7, got %d", found.SignCount)
+	}
+	if string(found.AttestationObject) != "att-obj-updated" {
+		t.Errorf("expected attestation object 'att-obj-updated', got %q", string(found.AttestationObject))
+	}
+
+	// Verify no duplicate rows were created
+	creds, err := repo.ListCredentials(ctx)
+	if err != nil {
+		t.Fatalf("ListCredentials after upsert: %v", err)
+	}
+	count := 0
+	for _, c := range creds {
+		if string(c.ID) == string(credID) {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Errorf("expected exactly 1 row for credential ID after upsert, got %d", count)
+	}
+}
+
+// TestDeleteCredential_NotFound verifies that deleting a non-existent credential
+// returns ErrNotFound.
+func TestDeleteCredential_NotFound(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	err := repo.DeleteCredential(ctx, []byte("nonexistent-cred-id"))
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("expected ErrNotFound for deleting non-existent credential, got %v", err)
+	}
+}
+
+// TestCleanupExpiredSessions_NoExpired verifies that CleanupExpiredSessions returns
+// a count of 0 and no error when there are no expired sessions to clean up.
+func TestCleanupExpiredSessions_NoExpired(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	// Purge any expired sessions left by earlier tests so the baseline is clean.
+	if _, err := repo.CleanupExpiredSessions(ctx); err != nil {
+		t.Fatalf("initial CleanupExpiredSessions: %v", err)
+	}
+
+	// Create only a non-expired session
+	validID := uuid.New()
+	validSession := &SessionRecord{
+		ID:          validID,
+		Challenge:   "no-expired-challenge",
+		SessionData: []byte(`{"type":"registration"}`),
+		Type:        "registration",
+		UserID:      []byte("admin"),
+		ExpiresAt:   time.Now().Add(1 * time.Hour),
+	}
+	if err := repo.CreateSession(ctx, validSession); err != nil {
+		t.Fatalf("CreateSession (valid): %v", err)
+	}
+
+	n, err := repo.CleanupExpiredSessions(ctx)
+	if err != nil {
+		t.Fatalf("CleanupExpiredSessions with no expired: %v", err)
+	}
+	if n != 0 {
+		t.Errorf("expected 0 expired sessions cleaned, got %d", n)
+	}
+
+	// Verify the valid session was not deleted
+	_, err = repo.GetSession(ctx, validID)
+	if err != nil {
+		t.Errorf("expected valid session to remain, got err=%v", err)
+	}
+}
+
 // TestFromWebAuthnCredential_EmptyTransport verifies that empty transports
 // are handled correctly.
 func TestFromWebAuthnCredential_EmptyTransport(t *testing.T) {
