@@ -982,3 +982,282 @@ func TestListModelsCursor_BackwardPagination(t *testing.T) {
 		t.Error("expected HasBefore=true for backward page (more items precede)")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// buildModelKeysetPredicate unit tests
+// ---------------------------------------------------------------------------
+
+func TestBuildModelKeysetPredicate_EmptyCursor(t *testing.T) {
+	argIdx := 1
+	var args []interface{}
+	result := buildModelKeysetPredicate(modelCursor{}, "after", "ASC", &argIdx, &args)
+	if result != "" {
+		t.Errorf("expected empty string for empty cursor, got %q", result)
+	}
+	if len(args) != 0 {
+		t.Errorf("expected no args, got %d", len(args))
+	}
+}
+
+func TestBuildModelKeysetPredicate_EmptyID(t *testing.T) {
+	argIdx := 1
+	var args []interface{}
+	result := buildModelKeysetPredicate(modelCursor{SortBy: "name"}, "after", "ASC", &argIdx, &args)
+	if result != "" {
+		t.Errorf("expected empty string for empty ID, got %q", result)
+	}
+}
+
+func TestBuildModelKeysetPredicate_NameSort(t *testing.T) {
+	argIdx := 1
+	var args []interface{}
+	cursor := modelCursor{SortBy: "name", Name: "my-model", ID: "test-id-1"}
+	result := buildModelKeysetPredicate(cursor, "after", "ASC", &argIdx, &args)
+	if result == "" {
+		t.Fatal("expected non-empty predicate")
+	}
+	if !strings.Contains(result, ">") {
+		t.Errorf("expected '>' operator for after+ASC, got %q", result)
+	}
+	if !strings.Contains(result, "$1") || !strings.Contains(result, "$2") {
+		t.Errorf("expected $1 and $2 placeholders, got %q", result)
+	}
+	if len(args) != 2 {
+		t.Fatalf("expected 2 args, got %d", len(args))
+	}
+	if args[0] != "my-model" {
+		t.Errorf("expected first arg 'my-model', got %v", args[0])
+	}
+	if args[1] != "test-id-1" {
+		t.Errorf("expected second arg 'test-id-1', got %v", args[1])
+	}
+}
+
+func TestBuildModelKeysetPredicate_DescAfterUsesLessThan(t *testing.T) {
+	argIdx := 1
+	var args []interface{}
+	cursor := modelCursor{SortBy: "name", Name: "my-model", ID: "test-id-2"}
+	result := buildModelKeysetPredicate(cursor, "after", "DESC", &argIdx, &args)
+	if !strings.Contains(result, "<") {
+		t.Errorf("expected '<' operator for after+DESC, got %q", result)
+	}
+}
+
+func TestBuildModelKeysetPredicate_BeforeAscUsesLessThan(t *testing.T) {
+	argIdx := 1
+	var args []interface{}
+	cursor := modelCursor{SortBy: "name", Name: "my-model", ID: "test-id-3"}
+	result := buildModelKeysetPredicate(cursor, "before", "ASC", &argIdx, &args)
+	if !strings.Contains(result, "<") {
+		t.Errorf("expected '<' operator for before+ASC, got %q", result)
+	}
+}
+
+func TestBuildModelKeysetPredicate_DiscoveredSort(t *testing.T) {
+	argIdx := 5
+	var args []interface{}
+	now := time.Now()
+	cursor := modelCursor{SortBy: "discovered", LastSeenAt: now, ID: "test-id-disc"}
+	result := buildModelKeysetPredicate(cursor, "after", "ASC", &argIdx, &args)
+	if result == "" {
+		t.Fatal("expected non-empty predicate for discovered sort")
+	}
+	if !strings.Contains(result, "last_seen_at") {
+		t.Errorf("expected last_seen_at reference, got %q", result)
+	}
+	if argIdx != 7 {
+		t.Errorf("expected argIdx=7 after appending 2 args, got %d", argIdx)
+	}
+}
+
+func TestBuildModelKeysetPredicate_DiscoveredSortZeroTime(t *testing.T) {
+	argIdx := 1
+	var args []interface{}
+	cursor := modelCursor{SortBy: "discovered", ID: "test-id-zero"}
+	result := buildModelKeysetPredicate(cursor, "after", "ASC", &argIdx, &args)
+	if result != "" {
+		t.Errorf("expected empty string when LastSeenAt is zero, got %q", result)
+	}
+}
+
+func TestBuildModelKeysetPredicate_ContextSort(t *testing.T) {
+	argIdx := 3
+	var args []interface{}
+	ctxLen := 8192
+	cursor := modelCursor{SortBy: "context", ContextLength: &ctxLen, ID: "test-id-ctx"}
+	result := buildModelKeysetPredicate(cursor, "after", "ASC", &argIdx, &args)
+	if result == "" {
+		t.Fatal("expected non-empty predicate for context sort")
+	}
+	if !strings.Contains(result, "context_length") {
+		t.Errorf("expected context_length reference, got %q", result)
+	}
+}
+
+func TestBuildModelKeysetPredicate_ContextSortNilLength(t *testing.T) {
+	argIdx := 1
+	var args []interface{}
+	cursor := modelCursor{SortBy: "context", ID: "test-id-ctx-nil"}
+	result := buildModelKeysetPredicate(cursor, "after", "ASC", &argIdx, &args)
+	if result != "" {
+		t.Errorf("expected empty string when ContextLength is nil, got %q", result)
+	}
+}
+
+func TestBuildModelKeysetPredicate_OutputSort(t *testing.T) {
+	argIdx := 1
+	var args []interface{}
+	maxOut := 4096
+	cursor := modelCursor{SortBy: "output", MaxOutput: &maxOut, ID: "test-id-out"}
+	result := buildModelKeysetPredicate(cursor, "after", "ASC", &argIdx, &args)
+	if result == "" {
+		t.Fatal("expected non-empty predicate for output sort")
+	}
+	if !strings.Contains(result, "max_output_tokens") {
+		t.Errorf("expected max_output_tokens reference, got %q", result)
+	}
+}
+
+func TestBuildModelKeysetPredicate_OutputSortNilOutput(t *testing.T) {
+	argIdx := 1
+	var args []interface{}
+	cursor := modelCursor{SortBy: "output", ID: "test-id-out-nil"}
+	result := buildModelKeysetPredicate(cursor, "after", "ASC", &argIdx, &args)
+	if result != "" {
+		t.Errorf("expected empty string when MaxOutput is nil, got %q", result)
+	}
+}
+
+func TestBuildModelKeysetPredicate_ProviderSort(t *testing.T) {
+	argIdx := 1
+	var args []interface{}
+	cursor := modelCursor{SortBy: "provider", ProviderName: "OpenAI", ID: "test-id-prov"}
+	result := buildModelKeysetPredicate(cursor, "after", "ASC", &argIdx, &args)
+	if result == "" {
+		t.Fatal("expected non-empty predicate for provider sort")
+	}
+	if !strings.Contains(result, "p.name") {
+		t.Errorf("expected p.name reference, got %q", result)
+	}
+}
+
+func TestBuildModelKeysetPredicate_ProviderSortEmptyName(t *testing.T) {
+	argIdx := 1
+	var args []interface{}
+	cursor := modelCursor{SortBy: "provider", ID: "test-id-prov-empty"}
+	result := buildModelKeysetPredicate(cursor, "after", "ASC", &argIdx, &args)
+	if result != "" {
+		t.Errorf("expected empty string when ProviderName is empty, got %q", result)
+	}
+}
+
+func TestBuildModelKeysetPredicate_StatusSort(t *testing.T) {
+	argIdx := 1
+	var args []interface{}
+	statusSort := 0
+	cursor := modelCursor{SortBy: "status", StatusSort: &statusSort, ID: "test-id-status"}
+	result := buildModelKeysetPredicate(cursor, "after", "ASC", &argIdx, &args)
+	if result == "" {
+		t.Fatal("expected non-empty predicate for status sort")
+	}
+	if !strings.Contains(result, "CASE") {
+		t.Errorf("expected CASE expression, got %q", result)
+	}
+}
+
+func TestBuildModelKeysetPredicate_StatusSortNil(t *testing.T) {
+	argIdx := 1
+	var args []interface{}
+	cursor := modelCursor{SortBy: "status", ID: "test-id-status-nil"}
+	result := buildModelKeysetPredicate(cursor, "after", "ASC", &argIdx, &args)
+	if result != "" {
+		t.Errorf("expected empty string when StatusSort is nil, got %q", result)
+	}
+}
+
+func TestBuildModelKeysetPredicate_DefaultSortFallsBackToModelID(t *testing.T) {
+	argIdx := 1
+	var args []interface{}
+	cursor := modelCursor{SortBy: "name", ModelID: "gpt-4", ID: "test-id-fallback"}
+	result := buildModelKeysetPredicate(cursor, "after", "ASC", &argIdx, &args)
+	if result == "" {
+		t.Fatal("expected non-empty predicate for default sort")
+	}
+	// When Name is empty, it falls back to ModelID
+	if len(args) < 1 {
+		t.Fatalf("expected at least 1 arg, got %d", len(args))
+	}
+	if args[0] != "gpt-4" {
+		t.Errorf("expected first arg 'gpt-4' (ModelID fallback), got %v", args[0])
+	}
+}
+
+func TestBuildModelKeysetPredicate_ArgIdxAdvances(t *testing.T) {
+	argIdx := 10
+	var args []interface{}
+	ctxLen := 128
+	cursor := modelCursor{SortBy: "context", ContextLength: &ctxLen, ID: "test-id-idx"}
+	buildModelKeysetPredicate(cursor, "after", "ASC", &argIdx, &args)
+	if argIdx != 12 {
+		t.Errorf("expected argIdx=12 after starting at 10, got %d", argIdx)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// joinAnd unit tests
+// ---------------------------------------------------------------------------
+
+func TestJoinAnd_EmptySlice(t *testing.T) {
+	result := joinAnd([]string{})
+	if result != "" {
+		t.Errorf("expected empty string, got %q", result)
+	}
+}
+
+func TestJoinAnd_SingleCondition(t *testing.T) {
+	result := joinAnd([]string{"a = 1"})
+	if result != "a = 1" {
+		t.Errorf("expected 'a = 1', got %q", result)
+	}
+}
+
+func TestJoinAnd_MultipleConditions(t *testing.T) {
+	result := joinAnd([]string{"a = 1", "b = 2", "c = 3"})
+	if result != "a = 1 AND b = 2 AND c = 3" {
+		t.Errorf("expected 'a = 1 AND b = 2 AND c = 3', got %q", result)
+	}
+}
+
+func TestJoinAnd_TwoConditions(t *testing.T) {
+	result := joinAnd([]string{"x > 0", "y < 10"})
+	if result != "x > 0 AND y < 10" {
+		t.Errorf("expected 'x > 0 AND y < 10', got %q", result)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// modelSortColumn unit tests
+// ---------------------------------------------------------------------------
+
+func TestModelSortColumn_Defaults(t *testing.T) {
+	tests := []struct {
+		sortBy   string
+		expected string
+	}{
+		{"name", "COALESCE(m.name, m.model_id, '')"},
+		{"discovered", "COALESCE(m.last_seen_at, m.created_at)"},
+		{"context", "COALESCE(m.context_length, 0)"},
+		{"output", "COALESCE(m.max_output_tokens, 0)"},
+		{"provider", "COALESCE(p.name, '')"},
+		{"", "COALESCE(m.name, m.model_id, '')"},
+		{"unknown", "COALESCE(m.name, m.model_id, '')"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.sortBy, func(t *testing.T) {
+			result := modelSortColumn(tc.sortBy)
+			if result != tc.expected {
+				t.Errorf("modelSortColumn(%q) = %q, want %q", tc.sortBy, result, tc.expected)
+			}
+		})
+	}
+}
