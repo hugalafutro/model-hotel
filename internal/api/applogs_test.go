@@ -1888,10 +1888,37 @@ func TestGetAppLogsHistory_DateRangeBoundary(t *testing.T) {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	// With from=12h ago, should get at most the "now" entry (and possibly "yesterday" if within range)
-	// The exact count depends on timing, but total should be less than 3
-	if resp.Total > 3 {
-		t.Errorf("expected total <= 3 with from filter, got %d", resp.Total)
+	// Parse the from boundary so we can compare timestamps.
+	fromTime, err := time.Parse(time.RFC3339, from)
+	if err != nil {
+		t.Fatalf("failed to parse from time: %v", err)
+	}
+
+	// Verify that no entries from our test data with source="date-range-test"
+	// have a timestamp older than the from boundary.
+	for _, e := range resp.Entries {
+		if e.Source != "date-range-test" {
+			continue
+		}
+		ts, err := time.Parse(time.RFC3339Nano, e.Timestamp)
+		if err != nil {
+			t.Errorf("failed to parse entry timestamp %q: %v", e.Timestamp, err)
+			continue
+		}
+		if ts.Before(fromTime) {
+			t.Errorf("entry with timestamp %s is before from boundary %s, but should have been filtered out", ts.Format(time.RFC3339), fromTime.Format(time.RFC3339))
+		}
+	}
+
+	// Verify that at least the "now" entry is present.
+	foundNow := false
+	for _, e := range resp.Entries {
+		if e.Source == "date-range-test" && e.Message == "entry 2" {
+			foundNow = true
+		}
+	}
+	if !foundNow {
+		t.Error("expected 'entry 2' (the 'now' entry) to be present in results")
 	}
 }
 
