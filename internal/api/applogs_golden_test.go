@@ -23,9 +23,6 @@ import (
 // Six rows are seeded under a unique source (isolated from any other data):
 // index 0 is newest .. index 5 oldest; rows 0–2 are "info", rows 3–5 "error".
 func TestGetAppLogsCursor_Golden(t *testing.T) {
-	if apiTestDBURL == "" {
-		t.Skip("apiTestDBURL not set, skipping integration test")
-	}
 	h, r := newTestHandlerWithRouter(t)
 	pool := h.Pool().Pool()
 	ctx := context.Background()

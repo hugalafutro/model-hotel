@@ -219,7 +219,7 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// logEntrySelectColumns is the shared 30-column request_logs projection plus the
+// logEntrySelectColumns is the shared 34-column request_logs projection plus the
 // FROM/JOIN/WHERE 1=1 tail. The cursor list prefixes it with "SELECT "; the
 // offset list (ListLogs) prefixes it with the windowed total count. Its column
 // order matches logEntryScanDests exactly.
@@ -330,7 +330,7 @@ func paginate(entries []LogEntry, p logListParams) ([]LogEntry, bool, bool) {
 	return entries, hasAfter, hasBefore
 }
 
-// logEntryScanDests returns the ordered Scan() targets for the shared 30-column
+// logEntryScanDests returns the ordered Scan() targets for the shared 34-column
 // request_logs projection (logEntrySelectColumns). The cursor list scans these
 // directly; the offset list (ListLogs) prepends its windowed total count.
 func logEntryScanDests(entry *LogEntry) []any {
@@ -353,7 +353,7 @@ func logEntryScanDests(entry *LogEntry) []any {
 	}
 }
 
-// scanLogEntry scans one request_logs row (the 30-column projection shared by
+// scanLogEntry scans one request_logs row (the 34-column projection shared by
 // ListLogsCursor and ListLogs) into a LogEntry.
 func scanLogEntry(rows pgx.Rows) (LogEntry, error) {
 	var entry LogEntry
