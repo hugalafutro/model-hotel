@@ -41,30 +41,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	}()
 	debuglog.Debug("proxy: handleStreamingResponse entered", "model", logData.modelID, "provider", logData.providerName, "upstream_status", resp.StatusCode, "attempt", opts.attempt, "response_header_ms", opts.responseHeaderMs, "true_ttft_ms", opts.trueTtftMs, "has_probe_buf", opts.preReadBuf != nil)
 
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("X-Accel-Buffering", "no")
-	w.WriteHeader(http.StatusOK)
-	debuglog.Debug("proxy: streaming headers sent", "model", logData.modelID, "provider", logData.providerName)
-
-	logData.statusCode = resp.StatusCode
-	logData.proxyOverheadMs = opts.proxyOverheadMs
-	logData.parseMs = opts.parseMs
-	logData.failoverLookupMs = opts.failoverLookupMs
-	logData.modelLookupMs = opts.modelLookupMs
-	logData.providerLookupMs = opts.providerLookupMs
-	logData.keyDecryptMs = opts.keyDecryptMs
-	logData.dialMs = opts.dialMs
-	logData.settingsReadMs = opts.settingsReadMs
-	logData.responseHeaderMs = opts.responseHeaderMs
-	logData.ttftMs = opts.trueTtftMs
-	logData.failoverAttempt = opts.attempt
-	logData.state = "streaming"
-	// Fire-and-forget: the interim "streaming" state update runs before
-	// the first streamed byte. Blocking on WaitForInsert (up to 5s) would
-	// delay the client. The final update (completed/failed) waits properly.
-	h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
+	h.initStreamResponse(w, logData, opts, resp)
 
 	// streamSink owns w/flusher and the running bytesWritten total (Phase 1
 	// of the streaming-pipeline refactor). All emit paths go through it.
@@ -110,7 +87,6 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			break
 		}
 		chunkCount := reader.chunkCount
-		line := ev.raw
 
 		// Periodic streaming progress log for observability.
 		if chunkCount%chunkLogInterval == 0 {
@@ -118,78 +94,23 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 		}
 
 		if ev.kind == sseBlank {
-			// When strip_reasoning skips a reasoning chunk, the SSE
-			// separator (empty line) that followed it must also be
-			// suppressed. Bare \n events break parsers like openai-go's
-			// ssestream (Warp's backend). Only forward the separator
-			// when the preceding data line was actually forwarded.
-			if sink.swallowBlank {
-				sink.swallowBlank = false
-				continue
-			}
-			// Forward empty lines — they are SSE event separators required by
-			// the spec. Clients like eventsource-parser dispatch events on
-			// blank lines; omitting them causes all data lines to be
-			// concatenated into one invalid event.
-			if err := sink.write([]byte("\n")); err != nil {
-				st.clientDisconnected = true
-				debuglog.Warn("proxy: client write failed during stream (blank line)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
+			if h.emitBlank(sink, st, chunkCount, logData) {
 				goto logUpdate
 			}
-			sink.flush()
 			continue
 		}
 
 		if ev.kind == sseComment {
-			// Not a data line — an SSE comment (": ..."), an event/id/retry
-			// directive, etc. Pass through without parsing.
-			lineStr := ev.clean
-			// P1-C: Detect Anthropic-style "event: error" lines for logging.
-			// Anthropic streams use typed events like:
-			//   event: error
-			//   data: {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}
-			// We track "event: error" so the next data line is known to be an
-			// error payload, allowing us to extract the message for logging.
-			if strings.HasPrefix(lineStr, "event:") {
-				evt := strings.TrimSpace(lineStr[6:])
-				if evt == "error" {
-					st.lastAnthropicEvent = "error"
-				} else {
-					st.lastAnthropicEvent = ""
-				}
-			}
-			// Flush any accumulated error when a non-data line arrives
-			// (the error payload has already been captured in the data line).
-			st.flushAccumulatedError(chunkCount, logData)
-			if err := sink.write(line); err != nil {
-				st.clientDisconnected = true
-				debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
+			if h.emitComment(sink, st, ev, chunkCount, logData) {
 				goto logUpdate
 			}
-			if err := sink.write([]byte("\n")); err != nil {
-				st.clientDisconnected = true
-				debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
-				goto logUpdate
-			}
-			sink.flush()
 			continue
 		}
 
 		if ev.kind == sseDone {
-			st.sawDone = true
-			// Write [DONE] sentinel to the downstream client.
-			if err := sink.write(line); err != nil {
-				st.clientDisconnected = true
-				debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
+			if h.emitDone(sink, st, ev, chunkCount, logData) {
 				goto logUpdate
 			}
-			if err := sink.write([]byte("\n\n")); err != nil {
-				st.clientDisconnected = true
-				debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
-				goto logUpdate
-			}
-			sink.flush()
-			debuglog.Debug("proxy: received [DONE] sentinel", "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
 			break
 		}
 
@@ -218,6 +139,126 @@ logUpdate:
 	st.chunkCount = reader.chunkCount
 	st.stalled = reader.stalled()
 	h.finalizeStream(st, sink, reader.err(), logData, opts, resp.StatusCode, startTime)
+}
+
+// initStreamResponse writes the SSE response headers and populates the interim
+// "streaming" logData (timings + status/attempt), then fires the fire-and-forget
+// interim updateRequestLog. Headers are written before any streamed byte, and
+// the interim log update must NOT wait for the async INSERT (blocking on
+// WaitForInsert would delay the client); the final update waits properly.
+func (h *Handler) initStreamResponse(w http.ResponseWriter, logData *requestLogData, opts streamOptions, resp *http.Response) {
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+	w.WriteHeader(http.StatusOK)
+	debuglog.Debug("proxy: streaming headers sent", "model", logData.modelID, "provider", logData.providerName)
+
+	logData.statusCode = resp.StatusCode
+	logData.proxyOverheadMs = opts.proxyOverheadMs
+	logData.parseMs = opts.parseMs
+	logData.failoverLookupMs = opts.failoverLookupMs
+	logData.modelLookupMs = opts.modelLookupMs
+	logData.providerLookupMs = opts.providerLookupMs
+	logData.keyDecryptMs = opts.keyDecryptMs
+	logData.dialMs = opts.dialMs
+	logData.settingsReadMs = opts.settingsReadMs
+	logData.responseHeaderMs = opts.responseHeaderMs
+	logData.ttftMs = opts.trueTtftMs
+	logData.failoverAttempt = opts.attempt
+	logData.state = "streaming"
+	// Fire-and-forget: the interim "streaming" state update runs before
+	// the first streamed byte. Blocking on WaitForInsert (up to 5s) would
+	// delay the client. The final update (completed/failed) waits properly.
+	h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
+}
+
+// emitBlank forwards or swallows a blank SSE separator line. When the preceding
+// data line was stripped (sink.swallowBlank), the trailing separator is
+// suppressed so downstream parsers don't see a bare "\n" event. Returns
+// stop=true on a client write failure (the caller jumps to finalize).
+func (h *Handler) emitBlank(sink *streamSink, st *streamState, chunkCount int, logData *requestLogData) (stop bool) {
+	// When strip_reasoning skips a reasoning chunk, the SSE separator (empty
+	// line) that followed it must also be suppressed. Bare \n events break
+	// parsers like openai-go's ssestream (Warp's backend). Only forward the
+	// separator when the preceding data line was actually forwarded.
+	if sink.swallowBlank {
+		sink.swallowBlank = false
+		return false
+	}
+	// Forward empty lines — they are SSE event separators required by the spec.
+	// Clients like eventsource-parser dispatch events on blank lines; omitting
+	// them causes all data lines to be concatenated into one invalid event.
+	if err := sink.write([]byte("\n")); err != nil {
+		st.clientDisconnected = true
+		debuglog.Warn("proxy: client write failed during stream (blank line)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
+		return true
+	}
+	sink.flush()
+	return false
+}
+
+// emitComment passes through a non-data SSE line (comment, event/id/retry
+// directive) verbatim, capturing the Anthropic-style "event: error" marker so
+// the next data line is known to be an error payload, and flushing any
+// accumulated split-error first. Returns stop=true on a client write failure.
+func (h *Handler) emitComment(sink *streamSink, st *streamState, ev sseEvent, chunkCount int, logData *requestLogData) (stop bool) {
+	line := ev.raw
+	// Not a data line — an SSE comment (": ..."), an event/id/retry directive,
+	// etc. Pass through without parsing.
+	lineStr := ev.clean
+	// P1-C: Detect Anthropic-style "event: error" lines for logging. Anthropic
+	// streams use typed events like:
+	//   event: error
+	//   data: {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}
+	// We track "event: error" so the next data line is known to be an error
+	// payload, allowing us to extract the message for logging.
+	if strings.HasPrefix(lineStr, "event:") {
+		evt := strings.TrimSpace(lineStr[6:])
+		if evt == "error" {
+			st.lastAnthropicEvent = "error"
+		} else {
+			st.lastAnthropicEvent = ""
+		}
+	}
+	// Flush any accumulated error when a non-data line arrives
+	// (the error payload has already been captured in the data line).
+	st.flushAccumulatedError(chunkCount, logData)
+	if err := sink.write(line); err != nil {
+		st.clientDisconnected = true
+		debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
+		return true
+	}
+	if err := sink.write([]byte("\n")); err != nil {
+		st.clientDisconnected = true
+		debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
+		return true
+	}
+	sink.flush()
+	return false
+}
+
+// emitDone forwards the [DONE] sentinel to the client. It sets st.sawDone before
+// the write — verbatim ordering — so a disconnect mid-[DONE] still leaves sawDone
+// set for finalizeStream's missing-[DONE] decision. Returns stop=true on a client
+// write failure; on success the caller breaks the loop into finalize.
+func (h *Handler) emitDone(sink *streamSink, st *streamState, ev sseEvent, chunkCount int, logData *requestLogData) (stop bool) {
+	line := ev.raw
+	st.sawDone = true
+	// Write [DONE] sentinel to the downstream client.
+	if err := sink.write(line); err != nil {
+		st.clientDisconnected = true
+		debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
+		return true
+	}
+	if err := sink.write([]byte("\n\n")); err != nil {
+		st.clientDisconnected = true
+		debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
+		return true
+	}
+	sink.flush()
+	debuglog.Debug("proxy: received [DONE] sentinel", "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+	return false
 }
 
 // handleDataChunk processes one sseData event end-to-end: capture split/Anthropic
