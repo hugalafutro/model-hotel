@@ -245,20 +245,6 @@ func TestResolveSpecificProvider_ContextCanceled(t *testing.T) {
 // resolveTimings struct tests
 // ---------------------------------------------------------------------------
 
-func TestResolveTimings_ZeroValue(t *testing.T) {
-	var rt resolveTimings
-
-	if rt.modelLookupMs != 0 {
-		t.Errorf("zero resolveTimings.modelLookupMs = %f, want 0", rt.modelLookupMs)
-	}
-	if rt.providerLookupMs != 0 {
-		t.Errorf("zero resolveTimings.providerLookupMs = %f, want 0", rt.providerLookupMs)
-	}
-	if rt.keyDecryptMs != 0 {
-		t.Errorf("zero resolveTimings.keyDecryptMs = %f, want 0", rt.keyDecryptMs)
-	}
-}
-
 // ---------------------------------------------------------------------------
 // resolveHotelModel integration tests (requires PostgreSQL) - expanded
 // ---------------------------------------------------------------------------

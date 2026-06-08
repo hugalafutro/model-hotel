@@ -1253,7 +1253,8 @@ func TestListCredentials_ScanError(t *testing.T) {
 		t.Fatalf("StoreCredential: %v", err)
 	}
 
-	// Override rowsScan to simulate a scan error
+	// Override rowsScan to simulate a scan error.
+	// NOTE: This mutates a package-level variable; do not use t.Parallel() in this test.
 	origRowsScan := rowsScan
 	rowsScan = func(rows pgx.Rows, dest ...any) error {
 		return errors.New("simulated scan error")

@@ -889,7 +889,3 @@ func TestRunMigration_AlreadyAppliedViaDirectRecord(t *testing.T) {
 		t.Error("expected newlyApplied=false for already-recorded migration")
 	}
 }
-
-// verify hook
-// hook test
-// hook test

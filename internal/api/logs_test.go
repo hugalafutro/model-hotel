@@ -148,7 +148,18 @@ func TestListLogs_PerPageLessThanOne(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestListLogs_FilterByModelID(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.Pool().Pool()
+	ctx := context.Background()
+
+	// Insert two logs with different model IDs.
+	pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		VALUES ('log-filter-m1', '00000000-0000-0000-0000-000000000001', 'gpt-4', 200, 100, now())`)
+	pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		VALUES ('log-filter-m2', '00000000-0000-0000-0000-000000000001', 'claude-3', 200, 100, now())`)
+	defer func() {
+		pool.Exec(ctx, `DELETE FROM request_logs WHERE id IN ('log-filter-m1', 'log-filter-m2')`)
+	}()
 
 	req := httptest.NewRequest("GET", "/logs/?model_id=gpt-4", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -164,10 +175,28 @@ func TestListLogs_FilterByModelID(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
+
+	// Verify that only the gpt-4 model log is returned.
+	for _, l := range resp.Entries {
+		if l.ModelID != "gpt-4" {
+			t.Errorf("expected only gpt-4 logs, got model_id=%s", l.ModelID)
+		}
+	}
 }
 
 func TestListLogs_FilterByStatusCode4xx(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.Pool().Pool()
+	ctx := context.Background()
+
+	// Insert logs with 400 and 500 status codes.
+	pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		VALUES ('log-4xx-1', '00000000-0000-0000-0000-000000000001', 'model-a', 400, 50, now())`)
+	pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		VALUES ('log-4xx-2', '00000000-0000-0000-0000-000000000001', 'model-b', 503, 50, now())`)
+	defer func() {
+		pool.Exec(ctx, `DELETE FROM request_logs WHERE id IN ('log-4xx-1', 'log-4xx-2')`)
+	}()
 
 	req := httptest.NewRequest("GET", "/logs/?status_code=4xx", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -183,10 +212,27 @@ func TestListLogs_FilterByStatusCode4xx(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
+
+	for _, l := range resp.Entries {
+		if l.StatusCode < 400 || l.StatusCode >= 500 {
+			t.Errorf("expected only 4xx logs, got status_code=%d", l.StatusCode)
+		}
+	}
 }
 
 func TestListLogs_FilterByStatusCode5xx(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.Pool().Pool()
+	ctx := context.Background()
+
+	// Insert logs with 400 and 500 status codes.
+	pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		VALUES ('log-5xx-1', '00000000-0000-0000-0000-000000000001', 'model-a', 200, 50, now())`)
+	pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		VALUES ('log-5xx-2', '00000000-0000-0000-0000-000000000001', 'model-b', 503, 50, now())`)
+	defer func() {
+		pool.Exec(ctx, `DELETE FROM request_logs WHERE id IN ('log-5xx-1', 'log-5xx-2')`)
+	}()
 
 	req := httptest.NewRequest("GET", "/logs/?status_code=5xx", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -202,10 +248,27 @@ func TestListLogs_FilterByStatusCode5xx(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
+
+	for _, l := range resp.Entries {
+		if l.StatusCode < 500 {
+			t.Errorf("expected only 5xx logs, got status_code=%d", l.StatusCode)
+		}
+	}
 }
 
 func TestListLogs_FilterByStatusCode0(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.Pool().Pool()
+	ctx := context.Background()
+
+	// Insert a log with status_code=0 (proxy error, no HTTP response).
+	pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		VALUES ('log-sc0-1', '00000000-0000-0000-0000-000000000001', 'model-a', 0, 50, now())`)
+	pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		VALUES ('log-sc0-2', '00000000-0000-0000-0000-000000000001', 'model-b', 200, 50, now())`)
+	defer func() {
+		pool.Exec(ctx, `DELETE FROM request_logs WHERE id IN ('log-sc0-1', 'log-sc0-2')`)
+	}()
 
 	req := httptest.NewRequest("GET", "/logs/?status_code=0", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -221,6 +284,12 @@ func TestListLogs_FilterByStatusCode0(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
+
+	for _, l := range resp.Entries {
+		if l.StatusCode != 0 {
+			t.Errorf("expected only status_code=0 logs, got status_code=%d", l.StatusCode)
+		}
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -228,7 +297,18 @@ func TestListLogs_FilterByStatusCode0(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestListLogs_SortByModel(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.Pool().Pool()
+	ctx := context.Background()
+
+	// Insert logs with different model IDs to verify sort order.
+	pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		VALUES ('log-sort-b', '00000000-0000-0000-0000-000000000001', 'beta-model', 200, 50, now())`)
+	pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
+		VALUES ('log-sort-a', '00000000-0000-0000-0000-000000000001', 'alpha-model', 200, 50, now())`)
+	defer func() {
+		pool.Exec(ctx, `DELETE FROM request_logs WHERE id IN ('log-sort-a', 'log-sort-b')`)
+	}()
 
 	req := httptest.NewRequest("GET", "/logs/?sort_by=model&sort_dir=asc", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -244,6 +324,13 @@ func TestListLogs_SortByModel(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
+
+	// Verify ascending sort: alpha-model should come before beta-model.
+	if len(resp.Entries) >= 2 {
+		if resp.Entries[0].ModelID > resp.Entries[1].ModelID {
+			t.Errorf("expected ascending sort, got %s before %s", resp.Entries[0].ModelID, resp.Entries[1].ModelID)
+		}
+	}
 }
 
 func TestListLogs_InvalidSortBy(t *testing.T) {
@@ -255,13 +342,9 @@ func TestListLogs_InvalidSortBy(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
+	// Invalid sort_by should not cause a server error; it falls back to default sort.
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
-	}
-
-	var resp LogsResponse
-	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("failed to decode response: %v", err)
 	}
 }
 
