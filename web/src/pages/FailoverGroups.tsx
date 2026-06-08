@@ -171,11 +171,14 @@ export function FailoverGroups() {
 			group.entries.forEach((e) => {
 				entryEnabledMap[e.model_uuid] = enabled;
 			});
-			// If disabling all entries in an active group, also disable the group
+			// Auto-disable a group that just lost its last enabled entry, and
+			// symmetrically auto-re-enable a group that regains one.
 			const alsoDisableGroup = !enabled && group.group_enabled;
+			const alsoEnableGroup = enabled && !group.group_enabled;
 			return api.failoverGroups.update(group.id, {
 				entry_enabled: entryEnabledMap,
 				...(alsoDisableGroup ? { group_enabled: false } : {}),
+				...(alsoEnableGroup ? { group_enabled: true } : {}),
 			});
 		});
 

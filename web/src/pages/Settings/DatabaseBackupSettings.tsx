@@ -222,10 +222,10 @@ export function DatabaseBackupSettings({
 								id="backup-interval"
 								label={t("settings.backup.rotation.interval")}
 								value={intervalHours}
-								min={1}
+								min={0.5}
 								max={168}
-								step={1}
-								clampStep={1}
+								step={0.5}
+								clampStep={0.5}
 								unit="h"
 								onReset={() =>
 									settingsUpdateMutation.mutate({ backup_interval: "24h" })
