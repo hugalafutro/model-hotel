@@ -259,7 +259,7 @@ describe("useChat", () => {
 			expect(result.current.isStreaming).toBe(false);
 		});
 
-		it("calls handleSend when Enter pressed without shift in chat mode and not streaming", () => {
+		it("calls handleSend when Enter pressed without shift in chat mode and not streaming", async () => {
 			mockStreamModelResponse.mockResolvedValue({
 				rawContent: "",
 				content: "Response",
@@ -291,6 +291,9 @@ describe("useChat", () => {
 			expect(result.current.isStreaming).toBe(true);
 			expect(result.current.messages.length).toBeGreaterThanOrEqual(1);
 			expect(result.current.messages[0].content).toBe("Hello");
+
+			// Flush the async handleSend resolution inside act().
+			await act(async () => {});
 		});
 
 		it("does nothing when Shift+Enter is pressed (no-op branch)", () => {
@@ -1147,7 +1150,7 @@ describe("useChat", () => {
 	});
 
 	describe("handleSend", () => {
-		it("includes pendingImage in the message when present", () => {
+		it("includes pendingImage in the message when present", async () => {
 			const pendingImageData = {
 				dataUrl: "data:image/png;base64,test",
 				format: "png",
@@ -1193,6 +1196,9 @@ describe("useChat", () => {
 			const userMsg = result.current.messages.find((m) => m.role === "user");
 			expect(userMsg?.imageUrl).toBe("data:image/png;base64,test");
 			expect(mockSetPendingImage).toHaveBeenCalledWith(null);
+
+			// Flush the async handleSend resolution inside act().
+			await act(async () => {});
 		});
 
 		it("returns early when already sending (sendingRef)", () => {
