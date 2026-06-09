@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { QuotaDataResult } from "../../hooks/useQuotaData";
@@ -315,7 +315,9 @@ describe("ProviderQuotaPanel", () => {
 			localStorage.setItem("sidebarQuotaDisabled", "true");
 
 			// Dispatch toggle event
-			window.dispatchEvent(new CustomEvent("sidebarQuotaToggle"));
+			await act(async () => {
+				window.dispatchEvent(new CustomEvent("sidebarQuotaToggle"));
+			});
 
 			// Panel should be hidden when disabled
 			await vi.waitFor(() => {
@@ -327,7 +329,9 @@ describe("ProviderQuotaPanel", () => {
 			setupPanel();
 
 			localStorage.setItem("sidebarQuotaRefreshMin", "10");
-			window.dispatchEvent(new CustomEvent("sidebarQuotaRefreshChange"));
+			await act(async () => {
+				window.dispatchEvent(new CustomEvent("sidebarQuotaRefreshChange"));
+			});
 
 			// The handler calls setRefreshIntervalMin which triggers a
 			// re-render with the updated refetchInterval passed to
@@ -355,7 +359,9 @@ describe("ProviderQuotaPanel", () => {
 			// The production handler re-reads localStorage directly and
 			// does not inspect event.key or event.newValue, so those
 			// fields are omitted to avoid implying key-based filtering.
-			window.dispatchEvent(new StorageEvent("storage"));
+			await act(async () => {
+				window.dispatchEvent(new StorageEvent("storage"));
+			});
 
 			// Panel should be hidden when disabled via cross-tab
 			await vi.waitFor(() => {

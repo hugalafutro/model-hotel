@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { lazy, Suspense } from "react";
@@ -276,7 +276,7 @@ describe("AppContent", () => {
 		expect(screen.getByRole("button", { name: "Sign In" })).toBeInTheDocument();
 	});
 
-	it("renders Layout with routes when token present", () => {
+	it("renders Layout with routes when token present", async () => {
 		localStorage.setItem("adminToken", "existing-token");
 
 		renderWithProviders(<App />);
@@ -289,17 +289,23 @@ describe("AppContent", () => {
 		expect(screen.getByText("Virtual Keys")).toBeInTheDocument();
 		expect(screen.getByText("Logs")).toBeInTheDocument();
 		expect(screen.getByText("Settings")).toBeInTheDocument();
+
+		// Flush Layout's background data hooks so their state updates settle
+		// inside act() (avoids "not wrapped in act" warnings under CI timing).
+		await act(async () => {});
 	});
 
-	it("calls setAdminToken with token from localStorage on mount", () => {
+	it("calls setAdminToken with token from localStorage on mount", async () => {
 		localStorage.setItem("adminToken", "stored-token");
 
 		renderWithProviders(<App />);
 
 		expect(setAdminToken).toHaveBeenCalledWith("stored-token");
+
+		await act(async () => {});
 	});
 
-	it("navigates to dashboard by default when token present", () => {
+	it("navigates to dashboard by default when token present", async () => {
 		localStorage.setItem("adminToken", "test-token");
 
 		renderWithProviders(<App />);
@@ -308,6 +314,8 @@ describe("AppContent", () => {
 		expect(window.location.pathname).toBe("/");
 		// Dashboard content should be visible
 		expect(screen.getByText("Dashboard")).toBeInTheDocument();
+
+		await act(async () => {});
 	});
 });
 

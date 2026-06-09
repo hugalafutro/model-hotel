@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import type { Provider } from "../../../api/types";
 import { mockAllDefaults } from "../../../test/helpers";
@@ -38,7 +38,9 @@ describe("Providers", () => {
 					metadata: { provider_id: mockProvider.id },
 				},
 			});
-			window.dispatchEvent(event);
+			await act(async () => {
+				window.dispatchEvent(event);
+			});
 
 			// The provider card should now show "Discovering..." state
 			// We can verify this by checking the button text and styling

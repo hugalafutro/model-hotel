@@ -184,6 +184,41 @@ describe("useDashboard", () => {
 			nowSpy.mockRestore();
 		});
 
+		it("clears the previous cooldown timer when refreshed again and on unmount", async () => {
+			const { result, unmount } = renderHook(() => useDashboard(), {
+				wrapper: AllProviders,
+			});
+			await waitFor(() => {
+				expect(result.current.stats).toBeDefined();
+			});
+
+			const clearSpy = vi.spyOn(globalThis, "clearTimeout");
+			const fixedNow = 1_000_000;
+			const nowSpy = vi.spyOn(Date, "now").mockReturnValue(fixedNow);
+
+			// First refresh schedules the cooldown timer.
+			act(() => {
+				result.current.handleRefresh();
+			});
+			expect(result.current.isRefreshing).toBe(true);
+
+			// Advance past the 5s cooldown so a second refresh is allowed; it must
+			// clear the previously scheduled timer before scheduling a new one.
+			nowSpy.mockReturnValue(fixedNow + 6000);
+			act(() => {
+				result.current.handleRefresh();
+			});
+			expect(clearSpy).toHaveBeenCalled();
+
+			// Unmounting clears the outstanding timer via the cleanup effect.
+			const callsBeforeUnmount = clearSpy.mock.calls.length;
+			unmount();
+			expect(clearSpy.mock.calls.length).toBeGreaterThan(callsBeforeUnmount);
+
+			nowSpy.mockRestore();
+			clearSpy.mockRestore();
+		});
+
 		it("handleRefresh invalidates all relevant queries", async () => {
 			const { result } = renderHook(() => useDashboard(), {
 				wrapper: AllProviders,
