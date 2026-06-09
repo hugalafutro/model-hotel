@@ -967,3 +967,122 @@ func TestUpdateVirtualKey_EmptyAllowedProvidersArray(t *testing.T) {
 		t.Errorf("expected error message about allowed_providers, got: %s", w.Body.String())
 	}
 }
+
+// TestUpdateVirtualKeyRequest_UnmarshalJSON_ArrayInput tests that UnmarshalJSON
+// returns an error when given a JSON array instead of an object. This exercises
+// the second json.Unmarshal(data, &raw) error path.
+func TestUpdateVirtualKeyRequest_UnmarshalJSON_ArrayInput(t *testing.T) {
+	data := `[1,2,3]`
+	var req UpdateVirtualKeyRequest
+	if err := json.Unmarshal([]byte(data), &req); err == nil {
+		t.Error("expected error for JSON array input, got nil")
+	}
+}
+
+// TestUpdateVirtualKeyRequest_UnmarshalJSON_NonObjectInput tests that
+// UnmarshalJSON returns an error when given a JSON value that is not an
+// object (e.g., a number), which fails the map[string]json.RawMessage
+// unmarshal in the second pass.
+func TestUpdateVirtualKeyRequest_UnmarshalJSON_NonObjectInput(t *testing.T) {
+	data := `42`
+	var req UpdateVirtualKeyRequest
+	if err := json.Unmarshal([]byte(data), &req); err == nil {
+		t.Error("expected error for non-object JSON input, got nil")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 11. filterContainers — AppGroup filter branch
+// ---------------------------------------------------------------------------
+
+// The Docker filter tests are in internal/util/docker_wrapper_test.go since
+// filterContainers and ContainerFilter are in that package.
+// Instead, test vkScope from stats.go which is in this package.
+
+// TestVKScope exercises the vkScope helper for both branches.
+func TestVKScope(t *testing.T) {
+	t.Run("excludeDeleted=true", func(t *testing.T) {
+		join, filter := vkScope(true)
+		if join == "" {
+			t.Error("expected non-empty join for excludeDeleted=true")
+		}
+		if filter == "" {
+			t.Error("expected non-empty filter for excludeDeleted=true")
+		}
+	})
+	t.Run("excludeDeleted=false", func(t *testing.T) {
+		join, filter := vkScope(false)
+		if join != "" {
+			t.Errorf("expected empty join for excludeDeleted=false, got %q", join)
+		}
+		if filter != "" {
+			t.Errorf("expected empty filter for excludeDeleted=false, got %q", filter)
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// 10. UnmarshalJSON (UpdateVirtualKeyRequest) — string input
+// ---------------------------------------------------------------------------
+
+func TestUpdateVirtualKeyRequest_UnmarshalJSON_StringInput(t *testing.T) {
+	data := `"hello"`
+	var req UpdateVirtualKeyRequest
+	if err := json.Unmarshal([]byte(data), &req); err == nil {
+		t.Error("expected error for JSON string input, got nil")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 18. CreateVirtualKey — empty name after trim
+// ---------------------------------------------------------------------------
+
+func TestCreateVirtualKey_NameEmptyAfterTrim(t *testing.T) {
+	h := testHandler(nil, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	body := bytes.NewReader([]byte(`{"name":"   "}`))
+	req, w := newChiRequest(http.MethodPost, "/virtual-keys", body)
+
+	h.CreateVirtualKey(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+}
+
+// TestCreateVirtualKey_InvalidRateLimitBurst covers the validateRateLimits
+// rejection branch in CreateVirtualKey (rate_limit_burst must be >= 1).
+func TestCreateVirtualKey_InvalidRateLimitBurst(t *testing.T) {
+	h := testHandler(nil, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	body := bytes.NewReader([]byte(`{"name":"valid-key","rate_limit_burst":0}`))
+	req, w := newChiRequest(http.MethodPost, "/virtual-keys", body)
+
+	h.CreateVirtualKey(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "rate_limit_burst") {
+		t.Errorf("expected rate_limit_burst error, got: %s", w.Body.String())
+	}
+}
+
+// TestUpdateVirtualKey_InvalidRateLimit covers the validateRateLimits rejection
+// branch in UpdateVirtualKey (rate_limit_rps must be >= 0). Both allowed_providers
+// and strip_reasoning are present so the handler skips the existing-key fetch and
+// reaches rate-limit validation without touching the repo.
+func TestUpdateVirtualKey_InvalidRateLimit(t *testing.T) {
+	h := testHandler(nil, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	id := uuid.New()
+	body := bytes.NewReader([]byte(`{"name":"valid-key","allowed_providers":["p1"],"strip_reasoning":false,"rate_limit_rps":-1}`))
+	req, w := newChiRequest(http.MethodPut, "/virtual-keys/"+id.String(), body)
+	req = setChiURLParam(req, "id", id.String())
+
+	h.UpdateVirtualKey(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "rate_limit_rps") {
+		t.Errorf("expected rate_limit_rps error, got: %s", w.Body.String())
+	}
+}

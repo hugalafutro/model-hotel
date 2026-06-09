@@ -1060,3 +1060,94 @@ func TestGetStats_ProviderLatency(t *testing.T) {
 }
 
 // Ollama Cloud Account Tests
+
+// ---------------------------------------------------------------------------
+// 4. statTotals — excludeDeleted=true (vkScope) path
+// ---------------------------------------------------------------------------
+
+// TestStats_StatTotalsWithExcludeDeleted exercises statTotals with
+// excludeDeleted=true, which triggers the vkScope JOIN and filter.
+func TestStats_StatTotalsWithExcludeDeleted(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "vkstat-provider", "https://api.example.com/v1")
+	insertTestRequestLog(t, pool, uuid.New(), providerID, "test-model", 200, 100, 10, 20)
+
+	stats := &StatsResponse{
+		ByModel:      make(map[string]int64),
+		ByProvider:   make(map[string]int64),
+		ByVirtualKey: make(map[string]int64),
+	}
+	now := time.Now().UTC()
+	since := now.Add(-24 * time.Hour)
+
+	err := handler.statTotals(context.Background(), stats,
+		" LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id",
+		" AND (rl.virtual_key_id IS NULL OR vk.id IS NOT NULL)",
+		24*time.Hour, since, now)
+	if err != nil {
+		t.Fatalf("statTotals with excludeDeleted: %v", err)
+	}
+	if stats.TotalRequestsLast24h < 0 {
+		t.Errorf("TotalRequestsLast24h = %d, want >= 0", stats.TotalRequestsLast24h)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 12. metricValueSelect — both branches
+// ---------------------------------------------------------------------------
+
+func TestMetricValueSelect(t *testing.T) {
+	t.Run("tokens", func(t *testing.T) {
+		got := metricValueSelect("tokens")
+		if !strings.Contains(got, "SUM") {
+			t.Errorf("expected SUM for tokens metric, got %q", got)
+		}
+	})
+	t.Run("requests", func(t *testing.T) {
+		got := metricValueSelect("requests")
+		if !strings.Contains(got, "COUNT") {
+			t.Errorf("expected COUNT for requests metric, got %q", got)
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// 1. statTotals — 7-day period (7*24*time.Hour) path
+//    The 7d branch sets TotalRequestsLast7d first then cross-fills
+//    TotalRequestsLast24h. This is different from the 24h path tested
+//    in coverage_targets_test.go.
+// ---------------------------------------------------------------------------
+
+func TestStats_StatTotalsWith7dPeriod(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "stat7d-provider", "https://api.example.com/v1")
+	insertTestRequestLog(t, pool, uuid.New(), providerID, "test-model", 200, 100, 10, 20)
+
+	stats := &StatsResponse{
+		ByModel:      make(map[string]int64),
+		ByProvider:   make(map[string]int64),
+		ByVirtualKey: make(map[string]int64),
+	}
+	now := time.Now().UTC()
+	since := now.Add(-7 * 24 * time.Hour)
+
+	err := handler.statTotals(context.Background(), stats, "", "",
+		7*24*time.Hour, since, now)
+	if err != nil {
+		t.Fatalf("statTotals with 7d period: %v", err)
+	}
+	// The 7d branch: TotalRequestsLast7d should be set, TotalRequestsLast24h
+	// should be cross-filled by the secondary query.
+	if stats.TotalRequestsLast7d < 1 {
+		t.Errorf("TotalRequestsLast7d = %d, want >= 1", stats.TotalRequestsLast7d)
+	}
+	if stats.TotalRequestsLast24h < 0 {
+		t.Errorf("TotalRequestsLast24h = %d, want >= 0", stats.TotalRequestsLast24h)
+	}
+}

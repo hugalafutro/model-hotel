@@ -16,6 +16,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/hugalafutro/model-hotel/internal/db"
 )
 
 // ---------------------------------------------------------------------------
@@ -1922,6 +1924,52 @@ func TestGetAppLogsHistory_DateRangeBoundary(t *testing.T) {
 	}
 }
 
+// TestGetAppLogsCursor_NilPool tests that GetAppLogsCursor returns an empty
+// cursor response when the handler has no database pool (nil dbPool early return).
+func TestGetAppLogsCursor_NilPool(t *testing.T) {
+	h := &Handler{}
+	req := httptest.NewRequest(http.MethodGet, "/logs/app/cursor", http.NoBody)
+	w := httptest.NewRecorder()
+	h.GetAppLogsCursor(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+
+	var resp AppLogsCursorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(resp.Entries) != 0 {
+		t.Errorf("expected empty entries, got %d", len(resp.Entries))
+	}
+	if resp.Total != 0 {
+		t.Errorf("expected total 0, got %d", resp.Total)
+	}
+	// Nil pool returns zeroed response; LevelCounts/SourceCounts will be nil
+	// which JSON encodes as null — this is the expected nil-pool behavior.
+}
+
+// TestGetAppLogsCursor_CancelledContext tests that GetAppLogsCursor returns
+// a 500 error when the request context is already cancelled.
+func TestGetAppLogsCursor_CancelledContext(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("apiTestDBURL not set, skipping integration test")
+	}
+	_, r := newTestHandlerWithRouter(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	req := httptest.NewRequest(http.MethodGet, "/logs/app/cursor", http.NoBody).WithContext(ctx)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", w.Code)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // scanAppLogRow unit tests
 // ---------------------------------------------------------------------------
@@ -2004,5 +2052,171 @@ func TestScanAppLogRow_Success(t *testing.T) {
 	}
 	if _, parseErr := time.Parse(time.RFC3339Nano, entry.Timestamp); parseErr != nil {
 		t.Errorf("Timestamp is not valid RFC3339Nano: %q, error: %v", entry.Timestamp, parseErr)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// getAppLogsHistory query error path
+// ---------------------------------------------------------------------------
+
+// TestGetAppLogsHistory_QueryFailsWithCancelledContext verifies getAppLogsHistory
+// when the DB query fails after countAppLogs succeeds. Uses a cancelled context
+// to trigger the query failure path.
+func TestGetAppLogsHistory_QueryFailsWithCancelledContext(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	// Create a db.DB and close it to force the query to fail
+	ctx := context.Background()
+	testDB, err := db.New(ctx, apiTestDBURL, 5, 1)
+	if err != nil {
+		t.Fatalf("failed to create test db: %v", err)
+	}
+	testDB.Close()
+
+	auth := &mockAdminAuth{validateFn: func(string) bool { return true }}
+	h := testHandler(nil, nil, nil, auth, testDB)
+
+	req := httptest.NewRequest("GET", "/app-logs/history", http.NoBody)
+	w := httptest.NewRecorder()
+	h.getAppLogsHistory(w, req)
+
+	// Should return an error JSON response (countAppLogs fails with closed pool)
+	var resp map[string]string
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if _, hasError := resp["error"]; !hasError {
+		t.Error("expected error response for closed pool in getAppLogsHistory")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// appLogCursor encode/decode tests
+// ---------------------------------------------------------------------------
+
+// TestAppLogCursor_EncodeDecode verifies that encode/decode round-trips correctly.
+func TestAppLogCursor_EncodeDecode(t *testing.T) {
+	now := time.Now().UTC().Truncate(time.Millisecond)
+	c := &appLogCursor{
+		CreatedAt: now,
+		ID:        "test-id-123",
+	}
+
+	encoded := c.encode()
+	if encoded == "" {
+		t.Error("expected non-empty encoded cursor")
+	}
+
+	decoded := &appLogCursor{}
+	if err := decoded.decode(encoded); err != nil {
+		t.Fatalf("decode failed: %v", err)
+	}
+
+	if decoded.ID != "test-id-123" {
+		t.Errorf("expected ID 'test-id-123', got %q", decoded.ID)
+	}
+}
+
+// TestAppLogCursor_DecodeInvalidBase64 tests that decode fails for invalid base64.
+func TestAppLogCursor_DecodeInvalidBase64(t *testing.T) {
+	c := &appLogCursor{}
+	if err := c.decode("not-valid-base64!!!"); err == nil {
+		t.Error("expected error for invalid base64")
+	}
+}
+
+// TestAppLogCursor_DecodeInvalidJSON tests that decode fails for valid base64
+// that doesn't contain valid JSON.
+func TestAppLogCursor_DecodeInvalidJSON(t *testing.T) {
+	c := &appLogCursor{}
+	// base64 of "not-json"
+	if err := c.decode("bm90LWpzb24="); err == nil {
+		t.Error("expected error for invalid JSON in cursor")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// parseAppLogHistoryParams edge case tests
+// ---------------------------------------------------------------------------
+
+// TestParseAppLogHistoryParams_Defaults verifies default parameter values.
+func TestParseAppLogHistoryParams_Defaults(t *testing.T) {
+	q := url.Values{}
+	p := parseAppLogHistoryParams(q)
+
+	if p.page != 1 {
+		t.Errorf("expected default page=1, got %d", p.page)
+	}
+	if p.perPage != 20 {
+		t.Errorf("expected default perPage=20, got %d", p.perPage)
+	}
+	if p.sortCol != "created_at" {
+		t.Errorf("expected default sortCol='created_at', got %q", p.sortCol)
+	}
+	if p.sortDir != "DESC" {
+		t.Errorf("expected default sortDir='DESC', got %q", p.sortDir)
+	}
+}
+
+// TestParseAppLogHistoryParams_InvalidPageNumber verifies that non-numeric
+// page values are ignored (defaults to 1).
+func TestParseAppLogHistoryParams_InvalidPageNumber(t *testing.T) {
+	q := url.Values{"page": {"abc"}}
+	p := parseAppLogHistoryParams(q)
+
+	if p.page != 1 {
+		t.Errorf("expected page=1 for invalid input, got %d", p.page)
+	}
+}
+
+// TestParseAppLogHistoryParams_NegativePageNumber verifies that negative
+// page values are ignored (defaults to 1).
+func TestParseAppLogHistoryParams_NegativePageNumber(t *testing.T) {
+	q := url.Values{"page": {"-1"}}
+	p := parseAppLogHistoryParams(q)
+
+	if p.page != 1 {
+		t.Errorf("expected page=1 for negative input, got %d", p.page)
+	}
+}
+
+// TestParseAppLogHistoryParams_ZeroPageNumber verifies that zero
+// page values are ignored (defaults to 1).
+func TestParseAppLogHistoryParams_ZeroPageNumber(t *testing.T) {
+	q := url.Values{"page": {"0"}}
+	p := parseAppLogHistoryParams(q)
+
+	if p.page != 1 {
+		t.Errorf("expected page=1 for zero input, got %d", p.page)
+	}
+}
+
+// TestParseAppLogHistoryParams_PerPageClamping verifies that per_page must be
+// in [1, 100]. Values outside this range are ignored (defaults to 20).
+func TestParseAppLogHistoryParams_PerPageClamping(t *testing.T) {
+	cases := []struct {
+		name     string
+		perPage  string
+		expected int
+	}{
+		{"zero falls back to default", "0", 20},
+		{"negative falls back to default", "-5", 20},
+		{"over 100 falls back to default", "200", 20},
+		{"valid", "50", 50},
+		{"invalid string falls back to default", "abc", 20},
+		{"boundary 1", "1", 1},
+		{"boundary 100", "100", 100},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			q := url.Values{"per_page": {tc.perPage}}
+			p := parseAppLogHistoryParams(q)
+			if p.perPage != tc.expected {
+				t.Errorf("expected perPage=%d, got %d", tc.expected, p.perPage)
+			}
+		})
 	}
 }

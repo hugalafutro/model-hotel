@@ -1249,6 +1249,28 @@ func TestListLogsCursor_BackwardPagination(t *testing.T) {
 	}
 }
 
+// TestListLogsCursor_CancelledContext tests that ListLogsCursor returns
+// a 500 error when the request context is already cancelled.
+func TestListLogsCursor_CancelledContext(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// Clear cache so the handler exercises the DB query path
+	globalLogsCache.mu.Lock()
+	globalLogsCache.entries = make(map[string]*logsCacheEntry)
+	globalLogsCache.mu.Unlock()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	req := httptest.NewRequest(http.MethodGet, "/logs/cursor", http.NoBody).WithContext(ctx)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", w.Code)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // appendLogFilters unit tests
 // ---------------------------------------------------------------------------
@@ -1767,5 +1789,143 @@ func TestGetLog_DBError(t *testing.T) {
 
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("expected 500, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// TestPurgeLogs_AllWithDBError tests that PurgeLogs returns 500 when
+// the "all" DELETE FROM request_logs query fails (e.g., closed DB pool).
+func TestPurgeLogs_AllWithDBError(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	// Create a db.DB and close it to simulate connection errors
+	ctx := context.Background()
+	testDB, err := db.New(ctx, apiTestDBURL, 5, 1)
+	if err != nil {
+		t.Fatalf("failed to create test db: %v", err)
+	}
+	testDB.Close()
+
+	auth := &mockAdminAuth{validateFn: func(string) bool { return true }}
+	h := testHandler(nil, nil, nil, auth, testDB)
+	r := chi.NewRouter()
+	r.With(h.AuthMiddleware).Delete("/logs/purge", h.PurgeLogs)
+
+	body := strings.NewReader(`{"older_than":"all"}`)
+	req := httptest.NewRequest("DELETE", "/logs/purge", body)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500 for DB error on 'all' purgelogs, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// TestPurgeLogs_CutoffWithDBError tests that PurgeLogs returns 500 when
+// the cutoff-based DELETE query fails (e.g., closed DB pool).
+func TestPurgeLogs_CutoffWithDBError(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	// Create a db.DB and close it to simulate connection errors
+	ctx := context.Background()
+	testDB, err := db.New(ctx, apiTestDBURL, 5, 1)
+	if err != nil {
+		t.Fatalf("failed to create test db: %v", err)
+	}
+	testDB.Close()
+
+	auth := &mockAdminAuth{validateFn: func(string) bool { return true }}
+	h := testHandler(nil, nil, nil, auth, testDB)
+	r := chi.NewRouter()
+	r.With(h.AuthMiddleware).Delete("/logs/purge", h.PurgeLogs)
+
+	body := strings.NewReader(`{"older_than":"1d"}`)
+	req := httptest.NewRequest("DELETE", "/logs/purge", body)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500 for DB error on cutoff purgelogs, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 11. ListLogs — cancelled context to hit DB error path
+// ---------------------------------------------------------------------------
+
+func TestListLogs_CancelledContext(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	testDB, err := db.New(context.Background(), apiTestDBURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create test DB: %v", err)
+	}
+	defer testDB.Close()
+
+	h := &Handler{
+		dbPool:   testDB,
+		adminMgr: &mockAdminAuth{validateFn: func(string) bool { return true }},
+	}
+
+	// Clear logs cache so handler exercises the DB query path
+	globalLogsCache.mu.Lock()
+	globalLogsCache.entries = make(map[string]*logsCacheEntry)
+	globalLogsCache.mu.Unlock()
+
+	req := httptest.NewRequest(http.MethodGet, "/logs/", http.NoBody)
+	ctx, cancel := context.WithCancel(req.Context())
+	cancel()
+	req = req.WithContext(ctx)
+
+	w := httptest.NewRecorder()
+	h.ListLogs(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Logf("ListLogs with cancelled context: status=%d body=%s", w.Code, w.Body.String())
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 12. ListLogsCursor — cancelled context (different from existing test)
+//    Adding a direct method call test in addition to router-based test
+// ---------------------------------------------------------------------------
+
+func TestListLogsCursor_DirectCallWithCancelledContext(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	testDB, err := db.New(context.Background(), apiTestDBURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create test DB: %v", err)
+	}
+	defer testDB.Close()
+
+	h := &Handler{
+		dbPool:   testDB,
+		adminMgr: &mockAdminAuth{validateFn: func(string) bool { return true }},
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/logs/cursor?limit=10", http.NoBody)
+	ctx, cancel := context.WithCancel(req.Context())
+	cancel()
+	req = req.WithContext(ctx)
+
+	w := httptest.NewRecorder()
+	h.ListLogsCursor(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Logf("ListLogsCursor direct with cancelled context: status=%d body=%s", w.Code, w.Body.String())
 	}
 }

@@ -889,3 +889,123 @@ func TestRunMigration_AlreadyAppliedViaDirectRecord(t *testing.T) {
 		t.Error("expected newlyApplied=false for already-recorded migration")
 	}
 }
+
+// TestRunMigration_InvalidSQL tests that runMigration returns an error when
+// the migration SQL is invalid (e.g., syntax error in the SQL statement).
+func TestRunMigration_InvalidSQL(t *testing.T) {
+	ctx := context.Background()
+	testURL, err := SetupTestDB("db_invalid_sql")
+	if err != nil {
+		t.Fatalf("failed to setup test DB: %v", err)
+	}
+	defer CleanupTestDB("db_invalid_sql")
+
+	d, err := New(ctx, testURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create DB: %v", err)
+	}
+	defer d.Close()
+
+	migrationName := "test_invalid_sql_" + time.Now().Format("20060102150405") + ".sql"
+
+	// Run a migration with invalid SQL syntax
+	newlyApplied, err := d.runMigration(ctx, migrationName, "INVALID SQL SYNTAX HERE")
+	if err == nil {
+		t.Fatal("expected error when running migration with invalid SQL")
+	}
+	if !strings.Contains(err.Error(), "failed to execute migration SQL") {
+		t.Errorf("expected 'failed to execute migration SQL' error, got: %v", err)
+	}
+	if newlyApplied {
+		t.Error("expected newlyApplied=false for failed migration")
+	}
+
+	// Verify the migration was NOT recorded (since it failed)
+	var count int
+	err = d.pool.QueryRow(ctx,
+		"SELECT COUNT(*) FROM schema_migrations WHERE name = $1", migrationName).Scan(&count)
+	if err != nil {
+		t.Fatalf("failed to check migration record: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("expected migration NOT to be recorded after failure, but found %d rows", count)
+	}
+}
+
+// TestRunMigration_RecordInsertError tests that runMigration returns an error
+// when the INSERT INTO schema_migrations fails (e.g., duplicate migration name
+// that wasn't caught by the SELECT EXISTS check due to a race).
+func TestRunMigration_RecordInsertError(t *testing.T) {
+	ctx := context.Background()
+	testURL, err := SetupTestDB("db_record_insert_err")
+	if err != nil {
+		t.Fatalf("failed to setup test DB: %v", err)
+	}
+	defer CleanupTestDB("db_record_insert_err")
+
+	d, err := New(ctx, testURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create DB: %v", err)
+	}
+	defer d.Close()
+
+	migrationName := "test_record_insert_" + time.Now().Format("20060102150405") + ".sql"
+
+	// Use a cancelled context — the Begin will succeed but later operations fail
+	cancelledCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err = d.runMigration(cancelledCtx, migrationName, "SELECT 1")
+	if err == nil {
+		t.Error("expected error when running migration with cancelled context (record insert path)")
+	}
+}
+
+// TestRunMigration_SchemaTableNotExist tests the path where schema_migrations
+// does NOT exist yet (the "if !exists" branch at lines 172-183 in db.go).
+// This branch creates the schema_migrations table, which is only hit on the
+// very first migration run. Existing tests all call New() first (which
+// creates the table via runMigrations), so subsequent runMigration calls
+// always find it exists.
+func TestRunMigration_SchemaTableNotExist(t *testing.T) {
+	ctx := context.Background()
+	testURL, err := SetupTestDB("db_no_schema_tbl")
+	if err != nil {
+		t.Fatalf("failed to setup test DB: %v", err)
+	}
+	defer CleanupTestDB("db_no_schema_tbl")
+
+	d, err := New(ctx, testURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create DB: %v", err)
+	}
+	defer d.Close()
+
+	// Drop the schema_migrations table so runMigration hits the "if !exists" branch
+	_, _ = d.pool.Exec(ctx, "DROP TABLE IF EXISTS schema_migrations")
+
+	migrationName := "test_no_schema_tbl_" + time.Now().Format("20060102150405") + ".sql"
+	newlyApplied, err := d.runMigration(ctx, migrationName, "SELECT 1")
+	if err != nil {
+		t.Fatalf("runMigration with no schema_migrations table: %v", err)
+	}
+	if !newlyApplied {
+		t.Error("expected newlyApplied=true for first migration after dropping schema_migrations")
+	}
+
+	// Verify the schema_migrations table was recreated
+	var exists bool
+	err = d.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM pg_tables
+			WHERE schemaname = 'public'
+			AND tablename = 'schema_migrations'
+		)
+	`).Scan(&exists)
+	if err != nil {
+		t.Fatalf("failed to check schema_migrations existence: %v", err)
+	}
+	if !exists {
+		t.Error("schema_migrations table should exist after runMigration")
+	}
+}

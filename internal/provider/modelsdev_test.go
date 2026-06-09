@@ -505,3 +505,76 @@ func TestLooksLikeDate_NineChars(t *testing.T) {
 		t.Error("expected false for 9-character string")
 	}
 }
+
+func TestLookupFuzzy_YearOnlySuffix(t *testing.T) {
+	// Test the YYYY suffix path: model-2024 → model
+	setupCacheWithModels(t, map[string]*ModelsDevModelSpec{
+		"test-model": {ID: "test-model", Name: "Test Model"},
+	})
+
+	cache := GetModelsDevCache()
+	if cache == nil {
+		t.Fatal("expected cache to be loaded")
+		return
+	}
+
+	// Search with -YYYY suffix should find the base model
+	result := cache.LookupFuzzy("test-model-2024")
+	if result == nil {
+		t.Error("expected to find test-model by stripping -2024 suffix")
+	} else if result.Name != "Test Model" {
+		t.Errorf("expected name 'Test Model', got %q", result.Name)
+	}
+}
+
+func TestLookupFuzzy_NonMatchingSuffix(t *testing.T) {
+	// Test that non-date, non-numeric suffixes don't match via prefix path
+	setupCacheWithModels(t, map[string]*ModelsDevModelSpec{
+		"test-model": {ID: "test-model", Name: "Test Model"},
+	})
+
+	cache := GetModelsDevCache()
+	if cache == nil {
+		t.Fatal("expected cache to be loaded")
+		return
+	}
+
+	// "test-model-search-api" should NOT match "test-model" because
+	// "search-api" is not a date/version suffix
+	result := cache.LookupFuzzy("test-model-search-api")
+	if result != nil {
+		t.Errorf("expected nil for non-date suffix, got %v", result)
+	}
+}
+
+func TestLookupFuzzy_VersionSuffixSixDigits(t *testing.T) {
+	// Test the version suffix path: model with trailing numeric segment >= 6 digits
+	setupCacheWithModels(t, map[string]*ModelsDevModelSpec{
+		"claude-sonnet-4": {ID: "claude-sonnet-4", Name: "Claude Sonnet 4"},
+	})
+
+	cache := GetModelsDevCache()
+	if cache == nil {
+		t.Fatal("expected cache to be loaded")
+		return
+	}
+
+	result := cache.LookupFuzzy("claude-sonnet-4-20250514")
+	if result == nil {
+		t.Error("expected to find claude-sonnet-4 by stripping -20250514 version suffix")
+	} else if result.Name != "Claude Sonnet 4" {
+		t.Errorf("expected name 'Claude Sonnet 4', got %q", result.Name)
+	}
+}
+
+// TestLoadModelsDev_ContextCancelled covers the LoadModelsDev wrapper (which
+// uses http.DefaultClient). A cancelled context makes the HTTP request fail
+// before any network round-trip, exercising the wrapper + the fetch error path.
+func TestLoadModelsDev_ContextCancelled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if err := LoadModelsDev(ctx); err == nil {
+		t.Error("expected error from LoadModelsDev with a cancelled context")
+	}
+}

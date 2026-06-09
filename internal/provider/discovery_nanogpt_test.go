@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
+	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
 func TestGetNanoGPTUsage_Success(t *testing.T) {
@@ -244,6 +246,334 @@ func TestGetNanoGPTUsage_ContextCancellation(t *testing.T) {
 	}
 }
 
+func TestDiscoverNanoGPT_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/models" || r.URL.Query().Get("detailed") != "true" || r.Method != "GET" {
+			http.NotFound(w, r)
+			return
+		}
+		auth := r.Header.Get("Authorization")
+		if auth != "Bearer test-api-key" {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		response := NanoGPTDetailedResponse{
+			Object: "list",
+			Data: []NanoGPTModel{
+				{
+					ID:              "gpt-4o",
+					Name:            "GPT-4o",
+					Description:     "OpenAI flagship model",
+					ContextLength:   intPtr(128000),
+					MaxOutputTokens: intPtr(16384),
+					OwnedBy:         "openai",
+					Architecture: NanoGPTArchitecture{
+						Modality:         "text",
+						InputModalities:  []string{"text", "image"},
+						OutputModalities: []string{"text"},
+					},
+					Capabilities: NanoGPTCapabilities{
+						Vision:           true,
+						Reasoning:        true,
+						ToolCalling:      true,
+						StructuredOutput: true,
+					},
+					Pricing: NanoGPTPricing{
+						Prompt:     2.5,
+						Completion: 10.0,
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		Name:    "nanogpt-test",
+		BaseURL: server.URL,
+	}
+
+	models, err := service.discoverNanoGPT(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverNanoGPT failed: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("Expected 1 model, got %d", len(models))
+	}
+	if models[0].ModelID != "gpt-4o" {
+		t.Errorf("Expected ModelID 'gpt-4o', got '%s'", models[0].ModelID)
+	}
+	if models[0].Name != "GPT-4o" {
+		t.Errorf("Expected Name 'GPT-4o', got '%s'", models[0].Name)
+	}
+	if models[0].Description != "OpenAI flagship model" {
+		t.Errorf("Expected Description 'OpenAI flagship model', got '%s'", models[0].Description)
+	}
+	if models[0].DisplayName != "GPT-4o" {
+		t.Errorf("Expected DisplayName 'GPT-4o', got '%s'", models[0].DisplayName)
+	}
+	if models[0].ContextLength == nil || *models[0].ContextLength != 128000 {
+		t.Errorf("Expected ContextLength 128000, got %v", models[0].ContextLength)
+	}
+	if models[0].MaxOutputTokens == nil || *models[0].MaxOutputTokens != 16384 {
+		t.Errorf("Expected MaxOutputTokens 16384, got %v", models[0].MaxOutputTokens)
+	}
+	if models[0].InputPricePerMillion == nil || *models[0].InputPricePerMillion != 2.5 {
+		t.Errorf("Expected InputPricePerMillion 2.5, got %v", models[0].InputPricePerMillion)
+	}
+	if models[0].OutputPricePerMillion == nil || *models[0].OutputPricePerMillion != 10.0 {
+		t.Errorf("Expected OutputPricePerMillion 10.0, got %v", models[0].OutputPricePerMillion)
+	}
+}
+
+func TestDiscoverNanoGPT_EmptyNameUsesID(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := NanoGPTDetailedResponse{
+			Object: "list",
+			Data: []NanoGPTModel{
+				{
+					ID:      "model-with-no-name",
+					OwnedBy: "test",
+					Architecture: NanoGPTArchitecture{
+						Modality:         "text",
+						InputModalities:  []string{"text"},
+						OutputModalities: []string{"text"},
+					},
+					Capabilities: NanoGPTCapabilities{},
+					Pricing:      NanoGPTPricing{},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		Name:    "nanogpt-test",
+		BaseURL: server.URL,
+	}
+
+	models, err := service.discoverNanoGPT(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverNanoGPT failed: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("Expected 1 model, got %d", len(models))
+	}
+	// When Name is empty, DisplayName should fall back to ID
+	if models[0].DisplayName != "model-with-no-name" {
+		t.Errorf("Expected DisplayName to fall back to ID 'model-with-no-name', got '%s'", models[0].DisplayName)
+	}
+}
+
+func TestDiscoverNanoGPT_WithSubscription(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := NanoGPTDetailedResponse{
+			Object: "list",
+			Data: []NanoGPTModel{
+				{
+					ID:      "sub-model",
+					Name:    "Subscription Model",
+					OwnedBy: "test",
+					Architecture: NanoGPTArchitecture{
+						Modality:         "text",
+						InputModalities:  []string{"text"},
+						OutputModalities: []string{"text"},
+					},
+					Capabilities: NanoGPTCapabilities{},
+					Pricing:      NanoGPTPricing{},
+					Subscription: &NanoGPTSubscription{
+						Included: true,
+						Note:     "Included in Pro plan",
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		Name:    "nanogpt-test",
+		BaseURL: server.URL,
+	}
+
+	models, err := service.discoverNanoGPT(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverNanoGPT failed: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("Expected 1 model, got %d", len(models))
+	}
+	// Verify subscription params were included
+	if models[0].Params == "" || models[0].Params == "{}" {
+		t.Error("Expected Params to contain subscription data")
+	}
+}
+
+func TestDiscoverNanoGPT_EmptyResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := NanoGPTDetailedResponse{
+			Object: "list",
+			Data:   []NanoGPTModel{},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		Name:    "nanogpt-test",
+		BaseURL: server.URL,
+	}
+
+	models, err := service.discoverNanoGPT(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverNanoGPT failed: %v", err)
+	}
+	if len(models) != 0 {
+		t.Errorf("Expected 0 models for empty response, got %d", len(models))
+	}
+}
+
+func TestDiscoverNanoGPT_InvalidJSON(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte("{ invalid json "))
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		Name:    "nanogpt-test",
+		BaseURL: server.URL,
+	}
+
+	_, err := service.discoverNanoGPT(context.Background(), provider, "test-api-key")
+	if err == nil {
+		t.Error("Expected error for invalid JSON, got nil")
+	}
+}
+
+func TestDiscoverNanoGPT_HTTPError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		Name:    "nanogpt-test",
+		BaseURL: server.URL,
+	}
+
+	_, err := service.discoverNanoGPT(context.Background(), provider, "test-api-key")
+	if err == nil {
+		t.Error("Expected error for HTTP 500, got nil")
+	}
+}
+
+func TestDiscoverNanoGPT_VisionCapability(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := NanoGPTDetailedResponse{
+			Object: "list",
+			Data: []NanoGPTModel{
+				{
+					ID:      "vision-model",
+					Name:    "Vision Model",
+					OwnedBy: "test",
+					Architecture: NanoGPTArchitecture{
+						Modality:         "vision",
+						InputModalities:  []string{"text", "image", "video"},
+						OutputModalities: []string{"text"},
+					},
+					Capabilities: NanoGPTCapabilities{
+						Vision:     true,
+						VideoInput: true,
+						Reasoning:  true,
+					},
+					Pricing: NanoGPTPricing{},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		Name:    "nanogpt-test",
+		BaseURL: server.URL,
+	}
+
+	models, err := service.discoverNanoGPT(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverNanoGPT failed: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("Expected 1 model, got %d", len(models))
+	}
+
+	var caps model.Capability
+	if err := json.Unmarshal([]byte(models[0].Capabilities), &caps); err != nil {
+		t.Fatalf("Failed to unmarshal capabilities: %v", err)
+	}
+	if !caps.Vision {
+		t.Error("Expected Vision capability to be true")
+	}
+	if !caps.VideoInput {
+		t.Error("Expected VideoInput capability to be true")
+	}
+	if !caps.Reasoning {
+		t.Error("Expected Reasoning capability to be true")
+	}
+
+	if !strings.Contains(models[0].InputModalities, "image") {
+		t.Errorf("Expected image in InputModalities, got %s", models[0].InputModalities)
+	}
+}
+
 func int64Ptr(v int64) *int64 {
+	return &v
+}
+
+func intPtr(v int) *int {
 	return &v
 }

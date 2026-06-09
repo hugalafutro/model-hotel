@@ -1,7 +1,7 @@
 import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import i18next from "i18next";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { server } from "../../test/mocks/server";
 import { renderWithProviders } from "../../test/utils";
 import { Layout } from "../Layout";
@@ -58,6 +58,49 @@ describe("Layout", () => {
 
 			await waitFor(() => {
 				expect(screen.queryByText("Čeština")).not.toBeInTheDocument();
+			});
+		});
+
+		it("marks active option with aria-selected", async () => {
+			const user = userEvent.setup();
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(screen.getByLabelText("Language"));
+
+			// English is active by default
+			const englishBtn = screen.getByTestId("language-option-en");
+			expect(englishBtn).toHaveAttribute("aria-selected", "true");
+
+			// Other options are not selected
+			const czechBtn = screen.getByTestId("language-option-cs");
+			expect(czechBtn).toHaveAttribute("aria-selected", "false");
+		});
+
+		it("uses role=listbox and role=option for accessibility", async () => {
+			const user = userEvent.setup();
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(screen.getByLabelText("Language"));
+
+			expect(screen.getByRole("listbox")).toBeInTheDocument();
+			// Option accessible names include a flag prefix (e.g. "en flagEnglish")
+			expect(
+				screen.getByRole("option", { name: /English/ }),
+			).toBeInTheDocument();
+		});
+
+		it("scrolls active language into view when dropdown opens", async () => {
+			const scrollIntoViewSpy = vi.fn();
+			Element.prototype.scrollIntoView = scrollIntoViewSpy;
+
+			const user = userEvent.setup();
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(screen.getByLabelText("Language"));
+
+			// The active (English) option should be scrolled into view
+			await waitFor(() => {
+				expect(scrollIntoViewSpy).toHaveBeenCalled();
 			});
 		});
 

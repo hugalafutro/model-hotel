@@ -1,9 +1,12 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -452,5 +455,176 @@ func TestGetLatestVersion_InvalidJSONFromTags(t *testing.T) {
 
 	if w.Code != http.StatusBadGateway {
 		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadGateway, w.Code, w.Body.String())
+	}
+}
+
+// ---------------------------------------------------------------------------
+// fetchLatestTagFromTags direct tests
+// ---------------------------------------------------------------------------
+
+func TestFetchLatestTagFromTags_Success(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode([]githubTag{{Name: "v1.0.0"}, {Name: "v0.9.0"}})
+	}))
+	defer ts.Close()
+
+	h := &Handler{}
+	tag, err := h.fetchLatestTagFromTags(context.Background(), ts.URL)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tag != "v1.0.0" {
+		t.Errorf("tag = %q, want v1.0.0", tag)
+	}
+}
+
+func TestFetchLatestTagFromTags_Non200Status(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer ts.Close()
+
+	h := &Handler{}
+	_, err := h.fetchLatestTagFromTags(context.Background(), ts.URL)
+	if err == nil {
+		t.Error("expected error for non-200 status")
+	}
+}
+
+func TestFetchLatestTagFromTags_EmptyTagsArray(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode([]githubTag{})
+	}))
+	defer ts.Close()
+
+	h := &Handler{}
+	_, err := h.fetchLatestTagFromTags(context.Background(), ts.URL)
+	if err == nil {
+		t.Error("expected error for empty tags array")
+	}
+}
+
+func TestFetchLatestTagFromTags_ConnectionError(t *testing.T) {
+	// Use a closed server to simulate connection error
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	ts.Close()
+
+	h := &Handler{}
+	_, err := h.fetchLatestTagFromTags(context.Background(), ts.URL)
+	if err == nil {
+		t.Error("expected error for connection failure")
+	}
+}
+
+func TestFetchLatestTagFromTags_InvalidJSON(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`not json`))
+	}))
+	defer ts.Close()
+
+	h := &Handler{}
+	_, err := h.fetchLatestTagFromTags(context.Background(), ts.URL)
+	if err == nil {
+		t.Error("expected error for invalid JSON")
+	}
+}
+
+func TestFetchLatestTag_Non200Status(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer ts.Close()
+
+	h := &Handler{}
+	_, err := h.fetchLatestTag(context.Background(), ts.URL)
+	if err == nil {
+		t.Error("expected error for non-200 status from fetchLatestTag")
+	}
+}
+
+func TestFetchLatestTag_404ReturnsErrNotFound(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer ts.Close()
+
+	h := &Handler{}
+	_, err := h.fetchLatestTag(context.Background(), ts.URL)
+	if err == nil {
+		t.Error("expected error for 404 from fetchLatestTag")
+	}
+	if !errors.Is(err, errNotFound) {
+		t.Errorf("expected errNotFound, got %v", err)
+	}
+}
+
+func TestFetchLatestTag_ConnectionError(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	ts.Close()
+
+	h := &Handler{}
+	_, err := h.fetchLatestTag(context.Background(), ts.URL)
+	if err == nil {
+		t.Error("expected error for connection failure from fetchLatestTag")
+	}
+}
+
+func TestFetchLatestTag_MissingTagName(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{}) // no tag_name
+	}))
+	defer ts.Close()
+
+	h := &Handler{}
+	_, err := h.fetchLatestTag(context.Background(), ts.URL)
+	if err == nil {
+		t.Error("expected error for missing tag_name from fetchLatestTag")
+	}
+}
+
+func TestFetchLatestTag_InvalidJSON(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{invalid}`))
+	}))
+	defer ts.Close()
+
+	h := &Handler{}
+	_, err := h.fetchLatestTag(context.Background(), ts.URL)
+	if err == nil {
+		t.Error("expected error for invalid JSON from fetchLatestTag")
+	}
+}
+
+func TestFetchLatestTagFromTags_EmptyTagNameInArray(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode([]githubTag{{Name: ""}})
+	}))
+	defer ts.Close()
+
+	h := &Handler{}
+	_, err := h.fetchLatestTagFromTags(context.Background(), ts.URL)
+	if err == nil {
+		t.Error("expected error for empty tag name from fetchLatestTagFromTags")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 8. fetchLatestTagFromTags — request creation error (invalid URL)
+// ---------------------------------------------------------------------------
+
+func TestFetchLatestTagFromTags_InvalidURL(t *testing.T) {
+	h := &Handler{}
+	_, err := h.fetchLatestTagFromTags(context.Background(), "http://invalid url with spaces.com/tags")
+	if err == nil {
+		t.Error("expected error for invalid URL")
+	}
+	if !strings.Contains(err.Error(), "create tags request") {
+		t.Errorf("expected error about creating request, got: %v", err)
 	}
 }

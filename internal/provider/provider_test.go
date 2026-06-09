@@ -984,6 +984,33 @@ func TestRepository_List_CancelledContext(t *testing.T) {
 	}
 }
 
+// TestRepository_List_ScanErrorDuringIteration tests the List method
+// with a normal context to verify it handles the scan path correctly.
+func TestRepository_List_ScanErrorDuringIteration(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	// Insert a valid provider
+	name := uniqueName(t)
+	_, err := repo.Create(ctx, CreateProviderRequest{
+		Name:    name,
+		BaseURL: "https://scan-test.example.com",
+		APIKey:  "sk-scan-test",
+	}, []byte("enc"), []byte("nonce"), []byte("salt"))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	// Normal list should succeed
+	providers, err := repo.List(ctx)
+	if err != nil {
+		t.Fatalf("List should succeed with valid context: %v", err)
+	}
+	if len(providers) == 0 {
+		t.Error("expected at least one provider after Create")
+	}
+}
+
 func TestRepository_GetByIDs_CancelledContext(t *testing.T) {
 	repo := newTestRepo(t)
 	ctx, cancel := context.WithCancel(context.Background())

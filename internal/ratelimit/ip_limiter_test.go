@@ -1132,3 +1132,66 @@ func TestIPLimiter_CleanupLoop_Integration(t *testing.T) {
 		t.Error("fresh IP entry should still be present after cleanup")
 	}
 }
+
+// TestIPLimiter_CleanupLoopTickerStartStop verifies that the IPLimiter's
+// cleanupLoop goroutine can be started and stopped without panic.
+// The ticker fires every 5 minutes in production; we just test start/stop.
+func TestIPLimiter_CleanupLoopTickerStartStop(t *testing.T) {
+	lim := NewIPLimiter(10, 20, nil, ipSettingsNoBackpressure())
+
+	// Give the goroutine a moment to start
+	time.Sleep(20 * time.Millisecond)
+
+	// Stop should close stopCh, causing cleanupLoop to exit
+	lim.Stop()
+	// No panic = success
+}
+
+// TestIPLimiter_CleanupLoop_TickerPathRemovesStaleEntries verifies that the
+// cleanup function (called by cleanupLoop on ticker.C) actually removes
+// stale IP entries. Since the production ticker is 5 minutes, we simulate
+// the ticker.C path by calling cleanup() directly.
+func TestIPLimiter_CleanupLoop_TickerPathRemovesStaleEntries(t *testing.T) {
+	lim := NewIPLimiter(10, 20, nil, ipSettingsNoBackpressure())
+	defer lim.Stop()
+
+	// Insert a stale IP entry (last used 15 minutes ago — beyond the 10-minute cutoff)
+	lim.mu.Lock()
+	lim.limiters["192.168.1.100"] = &ipEntry{
+		limiter:  rate.NewLimiter(10, 20),
+		rps:      10,
+		burst:    20,
+		lastUsed: time.Now().Add(-15 * time.Minute),
+	}
+	// And a fresh IP entry
+	lim.limiters["192.168.1.200"] = &ipEntry{
+		limiter:  rate.NewLimiter(10, 20),
+		rps:      10,
+		burst:    20,
+		lastUsed: time.Now(),
+	}
+	lim.mu.Unlock()
+
+	// Call cleanup directly (simulates what happens on ticker.C)
+	lim.cleanup()
+
+	lim.mu.Lock()
+	_, hasStale := lim.limiters["192.168.1.100"]
+	_, hasFresh := lim.limiters["192.168.1.200"]
+	lim.mu.Unlock()
+
+	if hasStale {
+		t.Error("stale IP entry should have been removed by cleanup (ticker.C path)")
+	}
+	if !hasFresh {
+		t.Error("fresh IP entry should still be present after cleanup")
+	}
+}
+
+// TestIPLimiter_CleanupLoop_TickerBranch_Unreachable documents that the
+// ticker.C select branch in IPLimiter.cleanupLoop (line 188) cannot be
+// directly tested because the production ticker is 5 minutes. The cleanup()
+// function called on ticker.C IS tested directly via
+// TestIPLimiter_CleanupRemovesStale and TestIPLimiter_CleanupLoop_TickerPathRemovesStaleEntries.
+// Only the select routing (ticker.C path) is untested; the actual cleanup
+// logic is fully covered. This is a structural limitation.

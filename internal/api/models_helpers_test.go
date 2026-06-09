@@ -746,3 +746,79 @@ func TestLogTestModelCompleted(t *testing.T) {
 		t.Errorf("tokens_completion: got %d, want 3", tokensCompletion)
 	}
 }
+
+// TestLogTestModelRequestError_InsertError exercises the log insert failure path
+// in logTestModelRequest by using a cancelled context.
+func TestLogTestModelRequestError_InsertError(t *testing.T) {
+	h := newTestHandler(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately so the DB INSERT fails.
+
+	m := insertTestModelForLog(t, h, "test-log-req-err-fail")
+
+	// This should not panic; the log insert failure is silently logged.
+	h.logTestModelRequestError(ctx, m, "reqhash-err-001", 1500, 200, 50, "connection refused")
+
+	// Verify no row was inserted (since the context was cancelled).
+	var count int
+	err := h.dbPool.Pool().QueryRow(context.Background(),
+		`SELECT count(*) FROM request_logs WHERE request_hash = $1`,
+		"reqhash-err-001",
+	).Scan(&count)
+	if err != nil {
+		t.Fatalf("failed to query request_logs: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("expected 0 request_log rows (insert should have failed), got %d", count)
+	}
+}
+
+// TestLogTestModelHTTPError_InsertError exercises the log insert failure path
+// in logTestModelHTTPError by using a cancelled context.
+func TestLogTestModelHTTPError_InsertError(t *testing.T) {
+	h := newTestHandler(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	m := insertTestModelForLog(t, h, "test-log-http-err-fail")
+
+	h.logTestModelHTTPError(ctx, m, "reqhash-err-002", 429, 3000, 250, 30, "rate limited")
+
+	// Verify no row was inserted.
+	var count int
+	err := h.dbPool.Pool().QueryRow(context.Background(),
+		`SELECT count(*) FROM request_logs WHERE request_hash = $1`,
+		"reqhash-err-002",
+	).Scan(&count)
+	if err != nil {
+		t.Fatalf("failed to query request_logs: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("expected 0 request_log rows (insert should have failed), got %d", count)
+	}
+}
+
+// TestLogTestModelCompleted_InsertError exercises the log insert failure path
+// in logTestModelCompleted by using a cancelled context.
+func TestLogTestModelCompleted_InsertError(t *testing.T) {
+	h := newTestHandler(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	m := insertTestModelForLog(t, h, "test-log-completed-fail")
+
+	h.logTestModelCompleted(ctx, m, "reqhash-err-003", 200, 2500, 100, 40, 8.5, 10, 3)
+
+	// Verify no row was inserted.
+	var count int
+	err := h.dbPool.Pool().QueryRow(context.Background(),
+		`SELECT count(*) FROM request_logs WHERE request_hash = $1`,
+		"reqhash-err-003",
+	).Scan(&count)
+	if err != nil {
+		t.Fatalf("failed to query request_logs: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("expected 0 request_log rows (insert should have failed), got %d", count)
+	}
+}

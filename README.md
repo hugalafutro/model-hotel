@@ -25,7 +25,7 @@
 
 <div align="center">
   
-<sub>Localised with [Crowdin](https://crwd.in/model-hotel/b36327c5f049f82a165eace874dd366d2790987) and [DeepL](https://www.deepl.com) - _expect mistakes_ - contributions welcome!<br>Made in [OpenChamber](https://github.com/openchamber/openchamber) with [OpenCode](https://opencode.ai) and [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim)</sub>
+<sub>Localised with [Crowdin](https://crwd.in/model-hotel/b36327c5f049f82a165eace874dd366d2790987) and [DeepL](https://www.deepl.com) - _expect mistakes_ - contributions welcome!<br>Made with [OpenCode](https://opencode.ai) and [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim)</sub>
 <br>
 
  <img src="https://img.shields.io/badge/GLM_5.1-orchestrator,%20council-8B5CF6?style=flat" alt="GLM 5.1">

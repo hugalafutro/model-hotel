@@ -3085,3 +3085,104 @@ func TestRefreshAllQuotas_MixedResults(t *testing.T) {
 		t.Fatalf("expected 2 results, got %d", len(results))
 	}
 }
+
+func TestRefreshAllQuotas_NeuralWattSuccess(t *testing.T) {
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{
+				roundTripFunc: func(req *http.Request) (*http.Response, error) {
+					resp := `{"active":true,"total_credits":100.0,"total_usage":10.0,"credits_remaining":90.0}`
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(strings.NewReader(resp)),
+						Header:     make(http.Header),
+					}, nil
+				},
+			},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
+
+	prov := createTestProvider(t, "refresh-neuralwatt", "https://api.neuralwatt.com/v1", testMasterKeyForDiscovery)
+	mockProv := &mockProviderStore{
+		listFn: func(ctx context.Context) ([]*provider.Provider, error) {
+			return []*provider.Provider{prov}, nil
+		},
+	}
+	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := testHandler(mockProv, nil, nil, mockAuth, nil)
+	h.cfg.MasterKey = testMasterKeyForDiscovery
+
+	r := chi.NewRouter()
+	r.Post("/providers/refresh-quotas", h.RefreshAllQuotas)
+
+	req := httptest.NewRequest(http.MethodPost, "/providers/refresh-quotas", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp["refreshed"].(float64) < 1 {
+		t.Errorf("expected at least 1 refreshed, got %v", resp["refreshed"])
+	}
+}
+
+func TestRefreshAllQuotas_NeuralWattError(t *testing.T) {
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{
+				roundTripFunc: func(req *http.Request) (*http.Response, error) {
+					return &http.Response{
+						StatusCode: http.StatusInternalServerError,
+						Body:       io.NopCloser(strings.NewReader(`{"error":"internal"}`)),
+						Header:     make(http.Header),
+					}, nil
+				},
+			},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
+
+	prov := createTestProvider(t, "refresh-neuralwatt-err", "https://api.neuralwatt.com/v1", testMasterKeyForDiscovery)
+	mockProv := &mockProviderStore{
+		listFn: func(ctx context.Context) ([]*provider.Provider, error) {
+			return []*provider.Provider{prov}, nil
+		},
+	}
+	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := testHandler(mockProv, nil, nil, mockAuth, nil)
+	h.cfg.MasterKey = testMasterKeyForDiscovery
+
+	r := chi.NewRouter()
+	r.Post("/providers/refresh-quotas", h.RefreshAllQuotas)
+
+	req := httptest.NewRequest(http.MethodPost, "/providers/refresh-quotas", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp["failed"].(float64) < 1 {
+		t.Errorf("expected at least 1 failed, got %v", resp["failed"])
+	}
+}

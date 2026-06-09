@@ -323,7 +323,107 @@ func TestDiscoverOpenCodeGo(t *testing.T) {
 	}
 }
 
-// Test discoverOpenCodeZen with mock server
+// Test discoverOpenCodeGo with a model that's not in the catalog
+func TestDiscoverOpenCodeGo_UnknownModelNotInCatalog(t *testing.T) {
+	mockResponse := `{
+		"data": [
+			{
+				"id": "totally-unknown-model-not-in-catalog",
+				"object": "model",
+				"owned_by": "unknown-vendor",
+				"created": 1700000000
+			}
+		],
+		"object": "list"
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/models" {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(mockResponse))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	svc := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL,
+	}
+
+	ctx := context.Background()
+	models, err := svc.discoverOpenCodeGo(ctx, provider, "test-key")
+	if err != nil {
+		t.Fatalf("discoverOpenCodeGo failed: %v", err)
+	}
+
+	if len(models) != 1 {
+		t.Fatalf("expected 1 model for unknown model (minimal entry), got %d", len(models))
+	}
+
+	m := models[0]
+	if m.ModelID != "totally-unknown-model-not-in-catalog" {
+		t.Errorf("expected model ID 'totally-unknown-model-not-in-catalog', got '%s'", m.ModelID)
+	}
+	if m.OwnedBy != "unknown-vendor" {
+		t.Errorf("expected OwnedBy 'unknown-vendor', got '%s'", m.OwnedBy)
+	}
+	if !m.Enabled {
+		t.Error("expected model to be enabled")
+	}
+}
+
+// Test discoverOpenCodeGo with a mix of catalog and unknown models
+func TestDiscoverOpenCodeGo_MixedCatalogAndUnknown(t *testing.T) {
+	mockResponse := `{
+		"data": [
+			{
+				"id": "totally-unknown-model-xyz",
+				"object": "model",
+				"owned_by": "unknown",
+				"created": 1700000000
+			}
+		],
+		"object": "list"
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/models" {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(mockResponse))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	svc := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL,
+	}
+
+	ctx := context.Background()
+	models, err := svc.discoverOpenCodeGo(ctx, provider, "test-key")
+	if err != nil {
+		t.Fatalf("discoverOpenCodeGo failed: %v", err)
+	}
+
+	if len(models) != 1 {
+		t.Fatalf("expected 1 model, got %d", len(models))
+	}
+	// Unknown model should get a minimal entry with streaming capability
+	var caps model.Capability
+	if err := json.Unmarshal([]byte(models[0].Capabilities), &caps); err != nil {
+		t.Fatalf("Failed to unmarshal capabilities: %v", err)
+	}
+	if !caps.Streaming {
+		t.Error("Expected Streaming capability to be true for unknown model")
+	}
+}
+
 // Test discoverOpenCodeZen with non-200 status
 func TestDiscoverOpenCodeZen_Non200Status(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

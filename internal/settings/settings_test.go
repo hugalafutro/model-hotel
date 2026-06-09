@@ -921,6 +921,39 @@ func TestUnsubscribe_UnusedSubscription(t *testing.T) {
 	sub.Unsubscribe()
 }
 
+// TestUnsubscribe_BufferedEventsInChannel tests that Unsubscribe correctly
+// drains buffered events from the channel before closing it, preventing
+// publishers from blocking on a full channel.
+func TestUnsubscribe_BufferedEventsInChannel(t *testing.T) {
+	r := NewRepository(testPool)
+	ctx := context.Background()
+	clearSettings(t)
+
+	sub := r.Subscribe()
+
+	// Send multiple events to buffer them in the channel
+	for i := 0; i < 5; i++ {
+		err := r.Set(ctx, "buffer_test_key", fmt.Sprintf("val_%d", i))
+		if err != nil {
+			t.Fatalf("Set failed: %v", err)
+		}
+	}
+
+	// Now unsubscribe — the drain goroutine should drain all buffered events
+	done := make(chan struct{})
+	go func() {
+		sub.Unsubscribe()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// Success — unsubscribe with buffered events completed
+	case <-time.After(2 * time.Second):
+		t.Fatal("Unsubscribe hung with buffered events — drain goroutine may be stuck")
+	}
+}
+
 // ---------------------------------------------------------------------------
 // DeleteKeysTx
 // ---------------------------------------------------------------------------

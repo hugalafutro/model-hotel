@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -584,5 +585,420 @@ func TestHttpError_Error(t *testing.T) {
 	expected := "unexpected status 403"
 	if err.Error() != expected {
 		t.Errorf("httpError.Error() = %q, want %q", err.Error(), expected)
+	}
+}
+
+func TestDiscoverXAIMinimalModels_ServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/models" {
+			http.Error(w, "Bad Gateway", http.StatusBadGateway)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		Name:    "test-xai",
+		BaseURL: server.URL,
+	}
+
+	models, err := service.discoverXAIMinimalModels(context.Background(), provider, "test-api-key", server.URL)
+	if err == nil {
+		t.Error("Expected error for 502 response, got nil")
+	}
+	if models != nil {
+		t.Errorf("Expected nil models, got %d models", len(models))
+	}
+}
+
+func TestDiscoverXAIMinimalModels_EmptyResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/models" {
+			response := XAIModelsResponse{
+				Object: "list",
+				Data:   []XAIModel{},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		Name:    "test-xai",
+		BaseURL: server.URL,
+	}
+
+	models, err := service.discoverXAIMinimalModels(context.Background(), provider, "test-api-key", server.URL)
+	if err != nil {
+		t.Fatalf("discoverXAIMinimalModels failed: %v", err)
+	}
+	if len(models) != 0 {
+		t.Errorf("Expected 0 models for empty response, got %d", len(models))
+	}
+}
+
+func TestDiscoverXAIMinimalModels_InvalidJSON(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/models" {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte("{ invalid json "))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		Name:    "test-xai",
+		BaseURL: server.URL,
+	}
+
+	_, err := service.discoverXAIMinimalModels(context.Background(), provider, "test-api-key", server.URL)
+	if err == nil {
+		t.Error("Expected error for invalid JSON, got nil")
+	}
+}
+
+func TestDiscoverXAIMinimalModels_429ReturnsError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/models" {
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = w.Write([]byte(`{"error": "rate limited"}`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		Name:    "test-xai",
+		BaseURL: server.URL,
+	}
+
+	models, err := service.discoverXAIMinimalModels(context.Background(), provider, "test-api-key", server.URL)
+	if models != nil {
+		t.Errorf("Expected nil models, got %d models", len(models))
+	}
+	if err == nil {
+		t.Fatal("Expected error for 429 response, got nil")
+	}
+	// 429 is NOT returned as httpError (only 403 is), so it should be a regular error
+	if !strings.Contains(err.Error(), "429") {
+		t.Errorf("Expected error to mention 429, got: %v", err)
+	}
+}
+
+func TestDiscoverXAI_429DoesNotFallbackToCatalog(t *testing.T) {
+	// Both endpoints return 429 (rate limit) which is NOT treated as httpError
+	// Only 403 triggers httpError catalog fallback, so 429 returns an error
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/language-models" || r.URL.Path == "/models" {
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = w.Write([]byte(`{"error": "rate limited"}`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		Name:    "test-xai",
+		BaseURL: server.URL,
+	}
+
+	_, err := service.discoverXAI(context.Background(), provider, "test-api-key")
+	if err == nil {
+		t.Error("Expected error for 429 (not a catalog fallback), got nil")
+	}
+}
+
+func TestDiscoverXAILanguageModels_ServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "Bad Gateway", http.StatusBadGateway)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL,
+	}
+
+	_, err := service.discoverXAILanguageModels(context.Background(), provider, "test-api-key", server.URL)
+	if err == nil {
+		t.Error("Expected error for 502 response, got nil")
+	}
+}
+
+func TestDiscoverXAILanguageModels_VisionModel(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/language-models" {
+			http.NotFound(w, r)
+			return
+		}
+		response := XAILanguageModelsResponse{
+			Models: []XAILanguageModel{
+				{
+					ID:                         "grok-vision",
+					Object:                     "model",
+					OwnedBy:                    "xai",
+					Version:                    "1.0",
+					InputModalities:            []string{"text", "image"},
+					OutputModalities:           []string{"text"},
+					PromptTextTokenPrice:       100,
+					CachedPromptTextTokenPrice: 50,
+					CompletionTextTokenPrice:   300,
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL,
+	}
+
+	models, err := service.discoverXAILanguageModels(context.Background(), provider, "test-api-key", server.URL)
+	if err != nil {
+		t.Fatalf("discoverXAILanguageModels failed: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("Expected 1 model, got %d", len(models))
+	}
+
+	var caps model.Capability
+	if err := json.Unmarshal([]byte(models[0].Capabilities), &caps); err != nil {
+		t.Fatalf("Failed to unmarshal capabilities: %v", err)
+	}
+	if !caps.Vision {
+		t.Error("Expected Vision capability to be true for multimodal model")
+	}
+}
+
+func TestDiscoverXAIMinimalModels_UnknownModel(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/models" {
+			http.NotFound(w, r)
+			return
+		}
+		response := XAIModelsResponse{
+			Object: "list",
+			Data: []XAIModel{
+				{
+					ID:      "grok-unknown-future-model",
+					Object:  "model",
+					OwnedBy: "xai",
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL,
+	}
+
+	models, err := service.discoverXAIMinimalModels(context.Background(), provider, "test-api-key", server.URL)
+	if err != nil {
+		t.Fatalf("discoverXAIMinimalModels failed: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("Expected 1 model, got %d", len(models))
+	}
+	// Unknown model should get minimal entry with streaming only
+	if models[0].ModelID != "grok-unknown-future-model" {
+		t.Errorf("Expected ModelID 'grok-unknown-future-model', got '%s'", models[0].ModelID)
+	}
+}
+
+func TestDiscoverXAIMinimalModels_ConnectionError(t *testing.T) {
+	// Use a closed server to simulate connection error
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		Name:    "test-xai",
+		BaseURL: server.URL,
+	}
+
+	_, err := service.discoverXAIMinimalModels(context.Background(), provider, "test-api-key", server.URL)
+	if err == nil {
+		t.Error("Expected error for connection failure, got nil")
+	}
+}
+
+func TestDiscoverXAIMinimalModels_CatalogModelLookup(t *testing.T) {
+	// Test that a model ID present in the xAI catalog gets the full catalog treatment
+	catalog := GetXAICatalog()
+	if len(catalog) == 0 {
+		t.Skip("No models in xAI catalog")
+	}
+	// Find a model ID that exists in the catalog
+	catalogModelID := catalog[0].ModelID
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/models" {
+			http.NotFound(w, r)
+			return
+		}
+		response := XAIModelsResponse{
+			Object: "list",
+			Data: []XAIModel{
+				{ID: catalogModelID, Object: "model", OwnedBy: "xai"},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL,
+	}
+
+	models, err := service.discoverXAIMinimalModels(context.Background(), provider, "test-api-key", server.URL)
+	if err != nil {
+		t.Fatalf("discoverXAIMinimalModels failed: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("Expected 1 model, got %d", len(models))
+	}
+
+	// Catalog model should have ContextLength set
+	m := models[0]
+	if m.ContextLength == nil {
+		t.Error("Expected ContextLength to be set from catalog")
+	}
+	if m.MaxOutputTokens == nil {
+		t.Error("Expected MaxOutputTokens to be set from catalog")
+	}
+}
+
+func TestDiscoverXAI_MinimalModelsFallback(t *testing.T) {
+	// Server where language models return error but minimal models succeed
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/language-models" || r.URL.Path == "/language-models" {
+			http.Error(w, "Not Found", http.StatusNotFound)
+			return
+		}
+		if r.URL.Path == "/v1/models" || r.URL.Path == "/models" {
+			response := XAIModelsResponse{
+				Object: "list",
+				Data: []XAIModel{
+					{ID: "test-minimal-model", Object: "model", OwnedBy: "xai"},
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	svc := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{
+		ID:      uuid.New(),
+		Name:    "test-xai-minimal-fallback",
+		BaseURL: server.URL,
+	}
+
+	models, err := svc.discoverXAI(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverXAI failed: %v", err)
+	}
+	if len(models) != 1 {
+		t.Errorf("expected 1 model from minimal fallback, got %d", len(models))
+	}
+	if models[0].ModelID != "test-minimal-model" {
+		t.Errorf("expected model ID 'test-minimal-model', got %q", models[0].ModelID)
+	}
+}
+
+func TestDiscoverXAI_LanguageModelsEmpty_MinimalModelsEmpty(t *testing.T) {
+	// Both endpoints return empty lists - discoverXAI should return empty with no error
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/language-models" || r.URL.Path == "/language-models" {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(XAILanguageModelsResponse{Models: []XAILanguageModel{}})
+			return
+		}
+		if r.URL.Path == "/v1/models" || r.URL.Path == "/models" {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(XAIModelsResponse{Object: "list", Data: []XAIModel{}})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	svc := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{
+		ID:      uuid.New(),
+		Name:    "test-xai-empty",
+		BaseURL: server.URL,
+	}
+
+	// Both return empty but no error => discoverXAI should attempt both
+	// and return the "both endpoints returned errors" error since len==0 doesn't count as success
+	_, err := svc.discoverXAI(context.Background(), provider, "test-api-key")
+	if err == nil {
+		t.Error("Expected error when both endpoints return empty lists, got nil")
 	}
 }

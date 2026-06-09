@@ -277,6 +277,104 @@ func TestGetOpenRouterBalance_DecryptionError(t *testing.T) {
 	}
 }
 
+func TestGetOpenRouterBalance_InvalidJSONKeyEndpoint(t *testing.T) {
+	// Create test server that returns valid credits but invalid JSON for key endpoint
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/credits":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(OpenRouterCreditsResponse{
+				Data: OpenRouterCreditsData{TotalCredits: 100.0, TotalUsage: 0.0},
+			})
+		case "/key":
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte("{ invalid json "))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	masterKey := "test-master-key-for-testing-only-32bytes!"
+	keyPair, err := auth.Encrypt("test-api-key", masterKey)
+	if err != nil {
+		t.Fatalf("Failed to encrypt API key: %v", err)
+	}
+
+	provider := &Provider{
+		ID:           uuid.New(),
+		BaseURL:      server.URL,
+		EncryptedKey: keyPair.Ciphertext,
+		KeyNonce:     keyPair.Nonce,
+		KeySalt:      keyPair.Salt,
+	}
+
+	_, err = service.GetOpenRouterBalance(context.Background(), provider, masterKey)
+	if err == nil {
+		t.Error("Expected error for invalid JSON on key endpoint, got nil")
+	}
+}
+
+func TestGetOpenRouterBalance_NegativeCreditsRemaining(t *testing.T) {
+	// Test that negative remaining credits are clamped to 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/credits":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(OpenRouterCreditsResponse{
+				Data: OpenRouterCreditsData{TotalCredits: 50.0, TotalUsage: 100.0},
+			})
+		case "/key":
+			limit := float64(1000.0)
+			limitRemaining := float64(0.0)
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(OpenRouterKeyResponse{
+				Data: OpenRouterKeyData{
+					Label:          "Test Key",
+					Limit:          &limit,
+					LimitRemaining: &limitRemaining,
+					Usage:          100.0,
+					IsFreeTier:     false,
+				},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	masterKey := "test-master-key-for-testing-only-32bytes!"
+	keyPair, err := auth.Encrypt("test-api-key", masterKey)
+	if err != nil {
+		t.Fatalf("Failed to encrypt API key: %v", err)
+	}
+
+	provider := &Provider{
+		ID:           uuid.New(),
+		BaseURL:      server.URL,
+		EncryptedKey: keyPair.Ciphertext,
+		KeyNonce:     keyPair.Nonce,
+		KeySalt:      keyPair.Salt,
+	}
+
+	balance, err := service.GetOpenRouterBalance(context.Background(), provider, masterKey)
+	if err != nil {
+		t.Fatalf("GetOpenRouterBalance failed: %v", err)
+	}
+	// Credits remaining = TotalCredits - TotalUsage = 50 - 100 = -50, clamped to 0
+	if balance.CreditsRemaining != 0 {
+		t.Errorf("Expected CreditsRemaining 0 (clamped from negative), got %f", balance.CreditsRemaining)
+	}
+}
+
 func TestGetOpenRouterBalance_ContextCancellation(t *testing.T) {
 	// Create a slow test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

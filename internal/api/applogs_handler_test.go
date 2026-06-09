@@ -801,3 +801,122 @@ func TestGetAppLogs_HistoryWithDB(t *testing.T) {
 		t.Errorf("expected to find at least 3 test entries, got %d", found)
 	}
 }
+
+// TestGetAppLogs_HistorySuccessWithDB tests the full success path of
+// getAppLogsHistory: entries are read from the DB, scanned, and returned
+// with proper pagination metadata including level/source counts.
+func TestGetAppLogs_HistorySuccessWithDB(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+
+	pool := h.Pool().Pool()
+	ctx := context.Background()
+
+	// Insert app log entries with varied levels and sources
+	levels := []string{"info", "warning", "error"}
+	sources := []string{"proxy", "auth"}
+	for i := 0; i < 5; i++ {
+		level := levels[i%len(levels)]
+		source := sources[i%len(sources)]
+		_, err := pool.Exec(ctx,
+			`INSERT INTO app_logs (timestamp, level, source, message)
+			 VALUES (NOW() + ($1 || ' seconds')::interval, $2, $3, $4)`,
+			fmt.Sprintf("%d", i), level, source, fmt.Sprintf("history success test message %d", i))
+		if err != nil {
+			t.Fatalf("Failed to insert app log: %v", err)
+		}
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/logs/app?history=true&per_page=3", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp appLogsHistoryResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	// Verify pagination
+	if resp.PerPage != 3 {
+		t.Errorf("expected PerPage=3, got %d", resp.PerPage)
+	}
+	if resp.Page != 1 {
+		t.Errorf("expected Page=1 (first page), got %d", resp.Page)
+	}
+	if resp.Total < 5 {
+		t.Errorf("expected Total >= 5, got %d", resp.Total)
+	}
+	if len(resp.Entries) != 3 {
+		t.Errorf("expected 3 entries on first page, got %d", len(resp.Entries))
+	}
+
+	// Verify entries have required fields
+	for i, entry := range resp.Entries {
+		if entry.Timestamp == "" {
+			t.Errorf("entry %d: expected non-empty Timestamp", i)
+		}
+		if entry.Level == "" {
+			t.Errorf("entry %d: expected non-empty Level", i)
+		}
+		if entry.Source == "" {
+			t.Errorf("entry %d: expected non-empty Source", i)
+		}
+		if entry.Message == "" {
+			t.Errorf("entry %d: expected non-empty Message", i)
+		}
+	}
+
+	// Verify level counts are populated (should have at least one entry per level)
+	if len(resp.LevelCounts) == 0 {
+		t.Error("expected non-empty LevelCounts")
+	}
+}
+
+// TestGetAppLogs_HistoryPagination tests that the history endpoint
+// correctly handles page navigation.
+func TestGetAppLogs_HistoryPagination(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+
+	pool := h.Pool().Pool()
+	ctx := context.Background()
+
+	// Insert more entries than one page can hold
+	for i := 0; i < 5; i++ {
+		_, err := pool.Exec(ctx,
+			`INSERT INTO app_logs (timestamp, level, source, message)
+			 VALUES (NOW() + ($1 || ' seconds')::interval, $2, $3, $4)`,
+			fmt.Sprintf("%d", i), "info", "pagination-test", fmt.Sprintf("page test %d", i))
+		if err != nil {
+			t.Fatalf("Failed to insert app log: %v", err)
+		}
+	}
+
+	// Request page 2 with per_page=2
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/logs/app?history=true&page=2&per_page=2", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp appLogsHistoryResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if resp.Page != 2 {
+		t.Errorf("expected Page=2, got %d", resp.Page)
+	}
+	if resp.PerPage != 2 {
+		t.Errorf("expected PerPage=2, got %d", resp.PerPage)
+	}
+	if len(resp.Entries) > 2 {
+		t.Errorf("expected at most 2 entries on page 2, got %d", len(resp.Entries))
+	}
+}
