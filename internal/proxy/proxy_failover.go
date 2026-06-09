@@ -90,19 +90,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		debuglog.Info("proxy: failover attempt", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID)
 	}
 	debuglog.Debug("proxy: candidate details", "provider_id", candidate.provider.ID, "provider_name", candidate.provider.Name, "model_id", candidate.model.ModelID, "provider_type", provider.DetectProviderType(candidate.provider.BaseURL), "attempt", attempt+1, "total_candidates", totalCandidates)
-	//nolint:gosec // intentional: failover goroutine needs independent lifecycle
-	go func(pid uuid.UUID) {
-		defer func() {
-			if r := recover(); r != nil {
-				debuglog.Error("proxy: panic in TouchLastUsed (provider)", "error", r)
-			}
-		}()
-		tctx, tcancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer tcancel()
-		if err := h.providerRepo.TouchLastUsed(tctx, pid); err != nil {
-			debuglog.Debug("proxy: failed to touch provider last-used", "error", err)
-		}
-	}(candidate.provider.ID)
+	h.touchProviderLastUsed(candidate.provider.ID)
 	// Per-attempt DNS resolution timing. SafeDialer's DialContext writes into
 	// this via context, avoiding cross-request races on a shared field.
 	var dialMs float64
@@ -251,28 +239,66 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 	return outcomeServed
 }
 
+// touchProviderLastUsed updates the provider's last-used timestamp in a
+// fire-and-forget goroutine with its own timeout, so the request path is
+// never blocked by a slow DB write.
+func (h *Handler) touchProviderLastUsed(pid uuid.UUID) {
+	//nolint:gosec // intentional: failover goroutine needs independent lifecycle
+	go func(pid uuid.UUID) {
+		defer func() {
+			if r := recover(); r != nil {
+				debuglog.Error("proxy: panic in TouchLastUsed (provider)", "error", r)
+			}
+		}()
+		tctx, tcancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer tcancel()
+		if err := h.providerRepo.TouchLastUsed(tctx, pid); err != nil {
+			debuglog.Debug("proxy: failed to touch provider last-used", "error", err)
+		}
+	}(pid)
+}
+
 // buildCandidateRequest builds the upstream HTTP request for a single failover
 // candidate (phase C): detect the provider type, build the target URL, rewrite
 // the request body when needed, create the request on the provided context, and
 // set the auth + content-type headers. The caller owns ctx cancellation; this
 // helper never cancels it. providerType and targetURL are returned so the caller
 // can thread them into the 400 auto-retry path.
+//
+// Chat requests (st.makeUpstreamBody == nil) go through the chat-specific
+// rewrite (buildUpstreamBody: model rename, stream_options, param stripping).
+// Multimodal requests provide st.makeUpstreamBody, which owns the body rewrite
+// and its Content-Type (JSON model rename, or multipart reconstruction).
 func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, candidate modelCandidate) (*http.Request, string, string, error) {
 	logData := st.logData
 	providerType := provider.DetectProviderType(candidate.provider.BaseURL)
 	debuglog.Debug("proxy: detected provider type", "provider_type", providerType, "base_url", util.SanitizeBaseURL(candidate.provider.BaseURL))
-	targetURL := util.BuildProviderTargetURL(candidate.provider.BaseURL, providerType)
+	endpoint := st.endpointPath
+	if endpoint == "" {
+		endpoint = "/chat/completions"
+	}
+	targetURL := util.BuildProviderTargetURL(candidate.provider.BaseURL, providerType, endpoint)
 	debuglog.Debug("proxy: built target URL", "target_url", targetURL)
 
 	upstreamBody := st.bodyBytes
-	needsRewrite := st.reqModel != candidate.model.ModelID || providerType == "anthropic" || NeedsProviderInjection(providerType) || st.isStreaming
-	debuglog.Debug("proxy: request rewrite check", "needs_rewrite", needsRewrite, "request_model", logData.modelID, "provider", logData.providerName, "resolved_model", candidate.model.ModelID, "provider_type", providerType)
-	if needsRewrite {
-		upstreamBody = buildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, st.isStreaming, &h.deprecationCache, nil)
-	}
-	// Log the actual model name in the upstream body for debugging rewrite issues.
-	if upstreamModel, _, _ := strings.Cut(string(upstreamBody), ","); strings.Contains(upstreamModel, `"model"`) {
-		debuglog.Debug("proxy: upstream body model", "upstream_model_snippet", upstreamModel)
+	contentType := "application/json"
+	if st.makeUpstreamBody != nil {
+		var err error
+		upstreamBody, contentType, err = st.makeUpstreamBody(candidate.model.ModelID)
+		if err != nil {
+			return nil, providerType, targetURL, err
+		}
+	} else {
+		needsRewrite := st.reqModel != candidate.model.ModelID || providerType == "anthropic" || NeedsProviderInjection(providerType) || st.isStreaming
+		debuglog.Debug("proxy: request rewrite check", "needs_rewrite", needsRewrite, "request_model", logData.modelID, "provider", logData.providerName, "resolved_model", candidate.model.ModelID, "provider_type", providerType)
+		if needsRewrite {
+			upstreamBody = buildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, st.isStreaming, &h.deprecationCache, nil)
+		}
+		// Log the actual model name in the upstream body for debugging rewrite
+		// issues. Chat-only: multipart bodies must never reach debug logs.
+		if upstreamModel, _, _ := strings.Cut(string(upstreamBody), ","); strings.Contains(upstreamModel, `"model"`) {
+			debuglog.Debug("proxy: upstream body model", "upstream_model_snippet", upstreamModel)
+		}
 	}
 
 	proxyReq, err := newRequestWithContext(ctx, "POST", targetURL, bytes.NewReader(upstreamBody))
@@ -281,7 +307,7 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 	}
 
 	util.SetProviderAuthHeaders(proxyReq, providerType, candidate.apiKey)
-	proxyReq.Header.Set("Content-Type", "application/json")
+	proxyReq.Header.Set("Content-Type", contentType)
 	debuglog.Debug("proxy: sending upstream request", "method", proxyReq.Method, "url", targetURL, "content_length", len(upstreamBody), "has_api_key", candidate.apiKey != "")
 	return proxyReq, providerType, targetURL, nil
 }

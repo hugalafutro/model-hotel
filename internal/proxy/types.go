@@ -59,6 +59,17 @@ const virtualKeyIDKey contextKey = "virtual_key_id"
 // The canonical definition lives in internal/ctxkeys to avoid import cycles.
 const VirtualKeyHashKey = ctxkeys.VirtualKeyHashKey
 
+// Endpoint families recorded in request_logs.endpoint_type. The proxy serves
+// chat completions plus the multimodal OpenAI-compatible endpoints; every
+// request log row is tagged with the family it came through.
+const (
+	endpointTypeChat       = "chat"
+	endpointTypeEmbeddings = "embeddings"
+	endpointTypeImage      = "image"
+	endpointTypeTTS        = "tts"
+	endpointTypeSTT        = "stt"
+)
+
 type requestLogData struct {
 	id                        string
 	providerID                uuid.UUID
@@ -92,6 +103,7 @@ type requestLogData struct {
 	failoverAttempt           int
 	state                     string
 	resolvedModelID           string
+	endpointType              string         // endpoint family: chat, embeddings, image, tts, stt
 	insertWg                  sync.WaitGroup // signals when the async INSERT has completed
 }
 
@@ -114,6 +126,14 @@ type requestState struct {
 	bodyBytes   []byte
 	parseMs     float64
 	logData     *requestLogData
+
+	// Multimodal pass-through fields (zero values = chat behavior).
+	// endpointPath is the upstream path suffix ("" = "/chat/completions").
+	// makeUpstreamBody, when set, replaces the chat-specific body rewrite in
+	// buildCandidateRequest: it receives the resolved upstream model ID and
+	// returns the upstream body plus its Content-Type.
+	endpointPath     string
+	makeUpstreamBody func(resolvedModelID string) (body []byte, contentType string, err error)
 
 	// Populated by resolveCandidates (phase B).
 	timings    resolveTimings

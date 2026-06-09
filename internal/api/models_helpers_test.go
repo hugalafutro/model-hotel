@@ -91,9 +91,9 @@ func TestBuildProviderTargetURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := util.BuildProviderTargetURL(tt.baseURL, tt.providerType)
+			got := util.BuildProviderTargetURL(tt.baseURL, tt.providerType, "/chat/completions")
 			if got != tt.want {
-				t.Errorf("BuildProviderTargetURL(%q, %q) = %q, want %q", tt.baseURL, tt.providerType, got, tt.want)
+				t.Errorf("BuildProviderTargetURL(%q, %q, %q) = %q, want %q", tt.baseURL, tt.providerType, "/chat/completions", got, tt.want)
 			}
 		})
 	}

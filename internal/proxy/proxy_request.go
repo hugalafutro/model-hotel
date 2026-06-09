@@ -11,16 +11,17 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
-// ingestRequest performs phase A of ChatCompletions: read the pre-parsed
-// model/stream/parse-time and virtual-key identity from the middleware context,
-// create the early "pending" request-log entry, fall back to parsing the body
-// when middleware did not pre-parse, publish the request.started event, and run
+// ingestRequest performs phase A of ChatCompletions and the JSON multimodal
+// endpoints: read the pre-parsed model/stream/parse-time and virtual-key
+// identity from the middleware context, create the early "pending" request-log
+// entry (tagged with endpointType), fall back to parsing the body when
+// middleware did not pre-parse, publish the request.started event, and run
 // the three early-failure guards (body read, body parse, empty model).
 //
 // On success it returns a populated *requestState and true. On any guard
 // failure it records the failure, writes the OpenAI error response, and returns
 // (nil, false) — the caller must simply return.
-func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request) (*requestState, bool) {
+func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request, endpointType string) (*requestState, bool) {
 	startTime := time.Now()
 
 	var parseMs float64
@@ -73,6 +74,7 @@ func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request) (*reques
 		virtualKeyID:    vkID,
 		failoverAttempt: 0,
 		state:           "pending",
+		endpointType:    endpointType,
 	}
 	h.insertRequestLogAsync(logData)
 

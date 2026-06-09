@@ -386,7 +386,7 @@ func buildTestModelRequest(ctx context.Context, m *model.Model, prov *provider.P
 	bodyBytes, _ := json.Marshal(body)
 
 	providerType := provider.DetectProviderType(prov.BaseURL)
-	targetURL := util.BuildProviderTargetURL(prov.BaseURL, providerType)
+	targetURL := util.BuildProviderTargetURL(prov.BaseURL, providerType, "/chat/completions")
 	//nolint:gosec // provider URL is admin-configured, not arbitrary user input
 	proxyReq, _ := http.NewRequestWithContext(ctx, "POST", targetURL, bytes.NewReader(bodyBytes))
 	util.SetProviderAuthHeaders(proxyReq, providerType, apiKey)

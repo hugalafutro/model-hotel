@@ -94,9 +94,9 @@ func TestBuildProviderTargetURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := util.BuildProviderTargetURL(tt.baseURL, tt.providerType)
+			got := util.BuildProviderTargetURL(tt.baseURL, tt.providerType, "/chat/completions")
 			if got != tt.want {
-				t.Errorf("BuildProviderTargetURL(%q, %q) = %q, want %q", tt.baseURL, tt.providerType, got, tt.want)
+				t.Errorf("BuildProviderTargetURL(%q, %q, %q) = %q, want %q", tt.baseURL, tt.providerType, "/chat/completions", got, tt.want)
 			}
 		})
 	}
@@ -590,9 +590,9 @@ func TestBuildProviderTargetURL_AnthropicEdgeCases(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := util.BuildProviderTargetURL(tc.baseURL, tc.providerType)
+			got := util.BuildProviderTargetURL(tc.baseURL, tc.providerType, "/chat/completions")
 			if got != tc.want {
-				t.Errorf("BuildProviderTargetURL(%q, %q) = %q, want %q", tc.baseURL, tc.providerType, got, tc.want)
+				t.Errorf("BuildProviderTargetURL(%q, %q, %q) = %q, want %q", tc.baseURL, tc.providerType, "/chat/completions", got, tc.want)
 			}
 		})
 	}
@@ -605,9 +605,9 @@ func TestBuildProviderTargetURL_VariousProviders(t *testing.T) {
 
 	for _, provider := range providers {
 		t.Run(provider, func(t *testing.T) {
-			got := util.BuildProviderTargetURL(baseURL, provider)
+			got := util.BuildProviderTargetURL(baseURL, provider, "/chat/completions")
 			if got != expected {
-				t.Errorf("BuildProviderTargetURL(%q, %q) = %q, want %q", baseURL, provider, got, expected)
+				t.Errorf("BuildProviderTargetURL(%q, %q, %q) = %q, want %q", baseURL, provider, "/chat/completions", got, expected)
 			}
 		})
 	}
@@ -660,7 +660,7 @@ func TestBuildProviderTargetURL_HasSuffixCheck(t *testing.T) {
 				}
 			}
 
-			got := util.BuildProviderTargetURL(tc.baseURL, tc.providerType)
+			got := util.BuildProviderTargetURL(tc.baseURL, tc.providerType, "/chat/completions")
 			if tc.providerType == "anthropic" && hasV1Suffix {
 				if strings.Contains(got, "/v1/v1/") {
 					t.Errorf("double /v1 detected in result: %q", got)

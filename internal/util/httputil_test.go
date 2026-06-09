@@ -728,6 +728,7 @@ func TestBuildProviderTargetURL(t *testing.T) {
 		name         string
 		baseURL      string
 		providerType string
+		endpoint     string
 		expected     string
 	}{
 		{
@@ -735,6 +736,48 @@ func TestBuildProviderTargetURL(t *testing.T) {
 			baseURL:      "https://api.openai.com/v1",
 			providerType: "openai",
 			expected:     "https://api.openai.com/v1/chat/completions",
+		},
+		{
+			name:         "Embeddings endpoint",
+			baseURL:      "https://api.openai.com/v1",
+			providerType: "openai",
+			endpoint:     "/embeddings",
+			expected:     "https://api.openai.com/v1/embeddings",
+		},
+		{
+			name:         "Image generations endpoint",
+			baseURL:      "https://api.openai.com/v1",
+			providerType: "openai",
+			endpoint:     "/images/generations",
+			expected:     "https://api.openai.com/v1/images/generations",
+		},
+		{
+			name:         "Audio speech endpoint",
+			baseURL:      "https://api.openai.com/v1",
+			providerType: "openai",
+			endpoint:     "/audio/speech",
+			expected:     "https://api.openai.com/v1/audio/speech",
+		},
+		{
+			name:         "Audio transcriptions endpoint with trailing slash base",
+			baseURL:      "https://api.openai.com/v1/",
+			providerType: "openai",
+			endpoint:     "/audio/transcriptions",
+			expected:     "https://api.openai.com/v1/audio/transcriptions",
+		},
+		{
+			name:         "Anthropic without /v1 gets prefix for any endpoint",
+			baseURL:      "https://api.anthropic.com",
+			providerType: "anthropic",
+			endpoint:     "/embeddings",
+			expected:     "https://api.anthropic.com/v1/embeddings",
+		},
+		{
+			name:         "Anthropic with /v1 already for any endpoint",
+			baseURL:      "https://api.anthropic.com/v1",
+			providerType: "anthropic",
+			endpoint:     "/embeddings",
+			expected:     "https://api.anthropic.com/v1/embeddings",
 		},
 		{
 			name:         "Wafer AI without /v1 (user must include it)",
@@ -794,9 +837,13 @@ func TestBuildProviderTargetURL(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := BuildProviderTargetURL(tc.baseURL, tc.providerType)
+			endpoint := tc.endpoint
+			if endpoint == "" {
+				endpoint = "/chat/completions"
+			}
+			result := BuildProviderTargetURL(tc.baseURL, tc.providerType, endpoint)
 			if result != tc.expected {
-				t.Errorf("BuildProviderTargetURL(%q, %q) = %q, want %q", tc.baseURL, tc.providerType, result, tc.expected)
+				t.Errorf("BuildProviderTargetURL(%q, %q, %q) = %q, want %q", tc.baseURL, tc.providerType, endpoint, result, tc.expected)
 			}
 		})
 	}
