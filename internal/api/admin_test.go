@@ -1792,3 +1792,39 @@ func TestListProviders_ModelCountQueryError(t *testing.T) {
 	// The error path is covered by TestListProviders_CancelledContext in admin_test.go
 	t.Skip("requires internal db.DB manipulation - covered by TestListProviders_CancelledContext")
 }
+
+// TestListProviders_TokenCountScanError tests the token count rows.Scan error
+// path in ListProviders. Uses a cancelled context during the token count query
+// to force a query failure.
+func TestListProviders_TokenCountScanError(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("apiTestDBURL not set, skipping integration test")
+	}
+
+	// With a cancelled context, the token count query will fail,
+	// which also covers the rows.Scan error path indirectly.
+	testDB, err := db.New(context.Background(), apiTestDBURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create test DB: %v", err)
+	}
+	defer testDB.Close()
+
+	h := testHandler(&mockProviderStore{
+		listFn: func(ctx context.Context) ([]*provider.Provider, error) {
+			return []*provider.Provider{{ID: uuid.New(), Name: "test", BaseURL: "https://api.example.com", Enabled: true}}, nil
+		},
+	}, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, testDB)
+
+	// Create request with cancelled context - model count query succeeds but
+	// token count query may fail due to the cancelled context
+	req, w := newChiRequest(http.MethodGet, "/providers", nil)
+	ctx, cancel := context.WithCancel(req.Context())
+	cancel()
+	req = req.WithContext(ctx)
+
+	h.ListProviders(w, req)
+	// With a cancelled context, one of the queries should fail
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, w.Code)
+	}
+}

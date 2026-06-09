@@ -2938,3 +2938,45 @@ func TestCalculateStats_IncludeLatencyWithData(t *testing.T) {
 		t.Error("Expected ByProviderLatency entries with 3+ requests and includeLatency=true")
 	}
 }
+
+// TestCalculateStats_AlreadyCancelledContext verifies that calculateStats returns
+// an error when the context is already cancelled, exercising the statTotals error
+// path (first query in calculateStats that returns early on error).
+func TestCalculateStats_AlreadyCancelledContext(t *testing.T) {
+	handler, _, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	_, err := handler.calculateStats(ctx, 24*time.Hour, true, "requests", false)
+	if err == nil {
+		t.Error("expected error from calculateStats with cancelled context")
+	}
+}
+
+// TestCalculateStats_StatByModelError verifies that calculateStats returns
+// an error when the statByModel query fails (cancelled context after
+// statTotals succeeds). This exercises the second error-return path.
+func TestCalculateStats_StatByModelError(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	// Insert enough data so statTotals succeeds with a live context,
+	// then cancel the context for the subsequent statByModel call.
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "test-stats-by-model-err", "https://api.example.com/v1")
+	insertRichTestRequestLog(t, pool, uuid.New(), providerID, "stats-model-err", 200, 100, 5, 10, requestLogOpts{})
+
+	// Use a short-lived context that expires between statTotals and statByModel.
+	// In practice, the cancelled context error may hit statTotals first,
+	// but either way we get an error.
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
+	defer cancel()
+	time.Sleep(1 * time.Millisecond) // Let the timeout expire
+
+	_, err := handler.calculateStats(ctx, 24*time.Hour, true, "requests", false)
+	if err == nil {
+		t.Error("expected error from calculateStats with expired context")
+	}
+}

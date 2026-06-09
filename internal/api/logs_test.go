@@ -1791,3 +1791,69 @@ func TestGetLog_DBError(t *testing.T) {
 		t.Errorf("expected 500, got %d: %s", w.Code, w.Body.String())
 	}
 }
+
+// TestPurgeLogs_AllWithDBError tests that PurgeLogs returns 500 when
+// the "all" DELETE FROM request_logs query fails (e.g., closed DB pool).
+func TestPurgeLogs_AllWithDBError(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	// Create a db.DB and close it to simulate connection errors
+	ctx := context.Background()
+	testDB, err := db.New(ctx, apiTestDBURL, 5, 1)
+	if err != nil {
+		t.Fatalf("failed to create test db: %v", err)
+	}
+	testDB.Close()
+
+	auth := &mockAdminAuth{validateFn: func(string) bool { return true }}
+	h := testHandler(nil, nil, nil, auth, testDB)
+	r := chi.NewRouter()
+	r.With(h.AuthMiddleware).Delete("/logs/purge", h.PurgeLogs)
+
+	body := strings.NewReader(`{"older_than":"all"}`)
+	req := httptest.NewRequest("DELETE", "/logs/purge", body)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500 for DB error on 'all' purgelogs, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// TestPurgeLogs_CutoffWithDBError tests that PurgeLogs returns 500 when
+// the cutoff-based DELETE query fails (e.g., closed DB pool).
+func TestPurgeLogs_CutoffWithDBError(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	// Create a db.DB and close it to simulate connection errors
+	ctx := context.Background()
+	testDB, err := db.New(ctx, apiTestDBURL, 5, 1)
+	if err != nil {
+		t.Fatalf("failed to create test db: %v", err)
+	}
+	testDB.Close()
+
+	auth := &mockAdminAuth{validateFn: func(string) bool { return true }}
+	h := testHandler(nil, nil, nil, auth, testDB)
+	r := chi.NewRouter()
+	r.With(h.AuthMiddleware).Delete("/logs/purge", h.PurgeLogs)
+
+	body := strings.NewReader(`{"older_than":"1d"}`)
+	req := httptest.NewRequest("DELETE", "/logs/purge", body)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500 for DB error on cutoff purgelogs, got %d: %s", w.Code, w.Body.String())
+	}
+}

@@ -1577,3 +1577,68 @@ func TestDeleteSession_DatabaseError(t *testing.T) {
 		t.Error("expected error from DeleteSession with closed pool")
 	}
 }
+
+// TestStoreCredential_DatabaseError verifies that StoreCredential returns an
+// error when the database is unavailable (closed pool).
+func TestStoreCredential_DatabaseError(t *testing.T) {
+	pool, err := pgxpool.New(context.Background(), testDB.Pool().Config().ConnString())
+	if err != nil {
+		t.Fatalf("pgxpool.New: %v", err)
+	}
+	pool.Close()
+
+	repo := NewRepository(pool)
+
+	cred := &CredentialRecord{
+		ID:                []byte("db-error-cred-id"),
+		PublicKey:         []byte("fake-public-key"),
+		AttestationType:   "none",
+		AttestationFormat: "packed",
+		Transport:         []string{"internal"},
+		FlagsByte:         0x41,
+		SignCount:         0,
+		AAGUID:            uuid.Nil,
+	}
+
+	err = repo.StoreCredential(context.Background(), cred)
+	if err == nil {
+		t.Error("expected error from StoreCredential with closed pool")
+	}
+}
+
+// TestCleanupExpiredSessions_DatabaseError verifies that CleanupExpiredSessions
+// returns an error when the database is unavailable (closed pool).
+func TestCleanupExpiredSessions_DatabaseError(t *testing.T) {
+	pool, err := pgxpool.New(context.Background(), testDB.Pool().Config().ConnString())
+	if err != nil {
+		t.Fatalf("pgxpool.New: %v", err)
+	}
+	pool.Close()
+
+	repo := NewRepository(pool)
+
+	_, err = repo.CleanupExpiredSessions(context.Background())
+	if err == nil {
+		t.Error("expected error from CleanupExpiredSessions with closed pool")
+	}
+}
+
+// TestDeleteCredential_DatabaseError verifies that DeleteCredential returns a
+// non-ErrNotFound error when the database is unavailable (closed pool).
+func TestDeleteCredential_DatabaseError(t *testing.T) {
+	pool, err := pgxpool.New(context.Background(), testDB.Pool().Config().ConnString())
+	if err != nil {
+		t.Fatalf("pgxpool.New: %v", err)
+	}
+	pool.Close()
+
+	repo := NewRepository(pool)
+
+	err = repo.DeleteCredential(context.Background(), []byte("any-id"))
+	if err == nil {
+		t.Error("expected error from DeleteCredential with closed pool")
+	}
+	if errors.Is(err, ErrNotFound) {
+		t.Error("should NOT be ErrNotFound for a DB connection error, got ErrNotFound")
+	}
+}

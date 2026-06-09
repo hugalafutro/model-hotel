@@ -1132,3 +1132,17 @@ func TestIPLimiter_CleanupLoop_Integration(t *testing.T) {
 		t.Error("fresh IP entry should still be present after cleanup")
 	}
 }
+
+// TestIPLimiter_CleanupLoopTickerStartStop verifies that the IPLimiter's
+// cleanupLoop goroutine can be started and stopped without panic.
+// The ticker fires every 5 minutes in production; we just test start/stop.
+func TestIPLimiter_CleanupLoopTickerStartStop(t *testing.T) {
+	lim := NewIPLimiter(10, 20, nil, ipSettingsNoBackpressure())
+
+	// Give the goroutine a moment to start
+	time.Sleep(20 * time.Millisecond)
+
+	// Stop should close stopCh, causing cleanupLoop to exit
+	lim.Stop()
+	// No panic = success
+}

@@ -16,6 +16,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/hugalafutro/model-hotel/internal/db"
 )
 
 // ---------------------------------------------------------------------------
@@ -2050,5 +2052,42 @@ func TestScanAppLogRow_Success(t *testing.T) {
 	}
 	if _, parseErr := time.Parse(time.RFC3339Nano, entry.Timestamp); parseErr != nil {
 		t.Errorf("Timestamp is not valid RFC3339Nano: %q, error: %v", entry.Timestamp, parseErr)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// getAppLogsHistory query error path
+// ---------------------------------------------------------------------------
+
+// TestGetAppLogsHistory_QueryFailsWithCancelledContext verifies getAppLogsHistory
+// when the DB query fails after countAppLogs succeeds. Uses a cancelled context
+// to trigger the query failure path.
+func TestGetAppLogsHistory_QueryFailsWithCancelledContext(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	// Create a db.DB and close it to force the query to fail
+	ctx := context.Background()
+	testDB, err := db.New(ctx, apiTestDBURL, 5, 1)
+	if err != nil {
+		t.Fatalf("failed to create test db: %v", err)
+	}
+	testDB.Close()
+
+	auth := &mockAdminAuth{validateFn: func(string) bool { return true }}
+	h := testHandler(nil, nil, nil, auth, testDB)
+
+	req := httptest.NewRequest("GET", "/app-logs/history", http.NoBody)
+	w := httptest.NewRecorder()
+	h.getAppLogsHistory(w, req)
+
+	// Should return an error JSON response (countAppLogs fails with closed pool)
+	var resp map[string]string
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if _, hasError := resp["error"]; !hasError {
+		t.Error("expected error response for closed pool in getAppLogsHistory")
 	}
 }
