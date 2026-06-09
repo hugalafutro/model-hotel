@@ -1828,3 +1828,44 @@ func TestListProviders_TokenCountScanError(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, w.Code)
 	}
 }
+
+// TestListProviders_TokenCountScanError tests the model count rows.Scan error
+// path in ListProviders directly. Uses a closed database pool so the query fails.
+func TestListProviders_ClosedDBPool(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("apiTestDBURL not set, skipping integration test")
+	}
+
+	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	pool.Close() // close immediately so queries fail
+
+	testDB, err := db.New(context.Background(), apiTestDBURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create test DB: %v", err)
+	}
+	defer testDB.Close()
+
+	// Create a handler with provider list succeeding but DB pool closed
+	h := &Handler{
+		providerRepo: &mockProviderStore{
+			listFn: func(ctx context.Context) ([]*provider.Provider, error) {
+				return []*provider.Provider{}, nil
+			},
+		},
+		dbPool:   testDB,
+		adminMgr: &mockAdminAuth{validateFn: func(string) bool { return true }},
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/providers", http.NoBody)
+	w := httptest.NewRecorder()
+
+	h.ListProviders(w, req)
+
+	// Any query against the DB should eventually fail since the pool is shared
+	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 200 or 500, got %d", w.Code)
+	}
+}

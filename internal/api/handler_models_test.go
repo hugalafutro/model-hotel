@@ -11,6 +11,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/db"
 )
 
 func TestListModels(t *testing.T) {
@@ -914,6 +916,40 @@ func TestDoTestModelRequest_CustomCheckRedirect(t *testing.T) {
 	// The redirected request should succeed and return a response
 	if testResp.Error != "" {
 		t.Errorf("Unexpected error in test response: %s", testResp.Error)
+	}
+}
+
+// TestDeleteModel_NonExistentModelByID tests that deleting a model with a
+// non-existent UUID returns 204 (idempotent delete). Uses the handler method
+// directly to avoid needing the full router setup.
+func TestDeleteModel_NonExistentModelByID(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	testDB, err := db.New(context.Background(), apiTestDBURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create test DB: %v", err)
+	}
+	defer testDB.Close()
+
+	h := &Handler{
+		dbPool:   testDB,
+		adminMgr: &mockAdminAuth{validateFn: func(token string) bool { return token == "test-admin-token" }},
+	}
+
+	// Use chi route context so parseUUIDParam can extract the URL param
+	fakeID := uuid.New().String()
+	req := httptest.NewRequest(http.MethodDelete, "/models/"+fakeID, http.NoBody)
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", fakeID)
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+	w := httptest.NewRecorder()
+	h.DeleteModel(w, req)
+
+	if w.Code != http.StatusNoContent {
+		t.Errorf("expected 204 for non-existent model (idempotent), got %d: %s", w.Code, w.Body.String())
 	}
 }
 

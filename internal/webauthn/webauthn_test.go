@@ -1685,3 +1685,67 @@ func TestDeleteCredential_DatabaseError(t *testing.T) {
 		t.Error("should NOT be ErrNotFound for a DB connection error, got ErrNotFound")
 	}
 }
+
+// TestToWebAuthnCredential_AAGUIDMarshalError verifies that ToWebAuthnCredential
+// handles AAGUID MarshalBinary errors gracefully by falling back to a zero-length
+// byte slice. Since uuid.Nil.MarshalBinary never fails in practice, we test with
+// a valid AAGUID to ensure the normal path works and document the fallback.
+func TestToWebAuthnCredential_AAGUIDMarshalError(t *testing.T) {
+	// Test with a valid UUID - this confirms the normal path works.
+	// The AAGUID error path (where MarshalBinary returns an error) is
+	// structurally impossible with any valid uuid.UUID since uuid's
+	// MarshalBinary implementation never returns an error.
+	// The fallback code (setting aaguidBytes = make([]byte, 16)) exists
+	// as a defensive measure.
+	record := &CredentialRecord{
+		ID:              []byte("aaguid-test-id"),
+		PublicKey:       []byte("pub-key"),
+		AttestationType: "none",
+		AAGUID:          uuid.New(),
+		Transport:       []string{"internal"},
+		FlagsByte:       0x01,
+		SignCount:       5,
+	}
+
+	cred := record.ToWebAuthnCredential()
+	if string(cred.ID) != "aaguid-test-id" {
+		t.Errorf("expected ID 'aaguid-test-id', got %q", string(cred.ID))
+	}
+	// The AAGUID in the Authenticator struct should be 16 bytes (from MarshalBinary)
+	if len(cred.Authenticator.AAGUID) != 16 {
+		t.Errorf("expected 16-byte AAGUID, got %d bytes", len(cred.Authenticator.AAGUID))
+	}
+	if cred.Authenticator.SignCount != 5 {
+		t.Errorf("expected SignCount=5, got %d", cred.Authenticator.SignCount)
+	}
+}
+
+// TestToWebAuthnCredential_EmptyAttestation verifies that all attestation fields
+// are propagated correctly when they are empty slices (not nil).
+func TestToWebAuthnCredential_EmptyAttestation(t *testing.T) {
+	record := &CredentialRecord{
+		ID:                        []byte("empty-att-id"),
+		PublicKey:                 []byte("pub-key"),
+		AttestationType:           "none",
+		AAGUID:                    uuid.Nil,
+		Transport:                 []string{},
+		FlagsByte:                 0x01,
+		SignCount:                 0,
+		AttestationObject:         []byte{},
+		AttestationClientData:     []byte{},
+		AttestationClientDataHash: []byte{},
+		AttestationPublicKeyAlgo:  0,
+		AuthenticatorData:         []byte{},
+	}
+
+	cred := record.ToWebAuthnCredential()
+	if len(cred.Attestation.Object) != 0 {
+		t.Errorf("expected empty attestation object, got %d bytes", len(cred.Attestation.Object))
+	}
+	if cred.Attestation.PublicKeyAlgorithm != 0 {
+		t.Errorf("expected PublicKeyAlgorithm=0, got %d", cred.Attestation.PublicKeyAlgorithm)
+	}
+	if len(cred.Attestation.ClientDataJSON) != 0 {
+		t.Errorf("expected empty ClientDataJSON, got %d bytes", len(cred.Attestation.ClientDataJSON))
+	}
+}

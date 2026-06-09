@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"mime/multipart"
 	"net/http"
@@ -5300,4 +5301,48 @@ exit 0
 	if _, err := os.Stat(filepath.Join(backupDir, oldName)); !os.IsNotExist(err) {
 		t.Errorf("expected old backup %q to be pruned (deleted), but it still exists", oldName)
 	}
+}
+
+// TestStartScheduler_SettingsGetAllError verifies that when settingsRepo.GetAll
+// returns an error, StartScheduler still starts (GetAll isn't called by the
+// scheduler - it uses GetBool/GetDuration directly). This test documents that
+// the scheduler doesn't depend on GetAll.
+func TestStartScheduler_SettingsGetAllError(t *testing.T) {
+	ss := &mockSettingsStore{
+		getAllFn: func(_ context.Context) (map[string]string, error) {
+			return nil, errors.New("database unavailable")
+		},
+		getBoolFn: func(_ context.Context, key string, defaultValue bool) bool {
+			return false // disabled
+		},
+	}
+	dir := t.TempDir()
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{}, ss)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // exit immediately
+
+	h.StartScheduler(ctx)
+	time.Sleep(50 * time.Millisecond)
+	h.StopScheduler()
+	// No panic = the scheduler doesn't call GetAll
+}
+
+// TestRunScheduledBackup_MkdirAllErrorPath tests the os.MkdirAll failure path
+// in runScheduledBackup when the backup directory cannot be created because
+// a file exists at the same path. This exercises the early-return error path
+// before pg_dump is even attempted.
+func TestRunScheduledBackup_MkdirAllErrorPath(t *testing.T) {
+	// Create a regular file where the backup dir should be
+	file, err := os.CreateTemp(t.TempDir(), "backup-blocker-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	filePath := file.Name()
+	file.Close()
+
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", filePath, &mockAdminAuth{}, nil)
+
+	// Should return without panic - MkdirAll fails on file path
+	h.runScheduledBackup(context.Background())
 }

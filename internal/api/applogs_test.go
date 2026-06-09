@@ -2091,3 +2091,132 @@ func TestGetAppLogsHistory_QueryFailsWithCancelledContext(t *testing.T) {
 		t.Error("expected error response for closed pool in getAppLogsHistory")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// appLogCursor encode/decode tests
+// ---------------------------------------------------------------------------
+
+// TestAppLogCursor_EncodeDecode verifies that encode/decode round-trips correctly.
+func TestAppLogCursor_EncodeDecode(t *testing.T) {
+	now := time.Now().UTC().Truncate(time.Millisecond)
+	c := &appLogCursor{
+		CreatedAt: now,
+		ID:        "test-id-123",
+	}
+
+	encoded := c.encode()
+	if encoded == "" {
+		t.Error("expected non-empty encoded cursor")
+	}
+
+	decoded := &appLogCursor{}
+	if err := decoded.decode(encoded); err != nil {
+		t.Fatalf("decode failed: %v", err)
+	}
+
+	if decoded.ID != "test-id-123" {
+		t.Errorf("expected ID 'test-id-123', got %q", decoded.ID)
+	}
+}
+
+// TestAppLogCursor_DecodeInvalidBase64 tests that decode fails for invalid base64.
+func TestAppLogCursor_DecodeInvalidBase64(t *testing.T) {
+	c := &appLogCursor{}
+	if err := c.decode("not-valid-base64!!!"); err == nil {
+		t.Error("expected error for invalid base64")
+	}
+}
+
+// TestAppLogCursor_DecodeInvalidJSON tests that decode fails for valid base64
+// that doesn't contain valid JSON.
+func TestAppLogCursor_DecodeInvalidJSON(t *testing.T) {
+	c := &appLogCursor{}
+	// base64 of "not-json"
+	if err := c.decode("bm90LWpzb24="); err == nil {
+		t.Error("expected error for invalid JSON in cursor")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// parseAppLogHistoryParams edge case tests
+// ---------------------------------------------------------------------------
+
+// TestParseAppLogHistoryParams_Defaults verifies default parameter values.
+func TestParseAppLogHistoryParams_Defaults(t *testing.T) {
+	q := url.Values{}
+	p := parseAppLogHistoryParams(q)
+
+	if p.page != 1 {
+		t.Errorf("expected default page=1, got %d", p.page)
+	}
+	if p.perPage != 20 {
+		t.Errorf("expected default perPage=20, got %d", p.perPage)
+	}
+	if p.sortCol != "created_at" {
+		t.Errorf("expected default sortCol='created_at', got %q", p.sortCol)
+	}
+	if p.sortDir != "DESC" {
+		t.Errorf("expected default sortDir='DESC', got %q", p.sortDir)
+	}
+}
+
+// TestParseAppLogHistoryParams_InvalidPageNumber verifies that non-numeric
+// page values are ignored (defaults to 1).
+func TestParseAppLogHistoryParams_InvalidPageNumber(t *testing.T) {
+	q := url.Values{"page": {"abc"}}
+	p := parseAppLogHistoryParams(q)
+
+	if p.page != 1 {
+		t.Errorf("expected page=1 for invalid input, got %d", p.page)
+	}
+}
+
+// TestParseAppLogHistoryParams_NegativePageNumber verifies that negative
+// page values are ignored (defaults to 1).
+func TestParseAppLogHistoryParams_NegativePageNumber(t *testing.T) {
+	q := url.Values{"page": {"-1"}}
+	p := parseAppLogHistoryParams(q)
+
+	if p.page != 1 {
+		t.Errorf("expected page=1 for negative input, got %d", p.page)
+	}
+}
+
+// TestParseAppLogHistoryParams_ZeroPageNumber verifies that zero
+// page values are ignored (defaults to 1).
+func TestParseAppLogHistoryParams_ZeroPageNumber(t *testing.T) {
+	q := url.Values{"page": {"0"}}
+	p := parseAppLogHistoryParams(q)
+
+	if p.page != 1 {
+		t.Errorf("expected page=1 for zero input, got %d", p.page)
+	}
+}
+
+// TestParseAppLogHistoryParams_PerPageClamping verifies that per_page must be
+// in [1, 100]. Values outside this range are ignored (defaults to 20).
+func TestParseAppLogHistoryParams_PerPageClamping(t *testing.T) {
+	cases := []struct {
+		name     string
+		perPage  string
+		expected int
+	}{
+		{"zero falls back to default", "0", 20},
+		{"negative falls back to default", "-5", 20},
+		{"over 100 falls back to default", "200", 20},
+		{"valid", "50", 50},
+		{"invalid string falls back to default", "abc", 20},
+		{"boundary 1", "1", 1},
+		{"boundary 100", "100", 100},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			q := url.Values{"per_page": {tc.perPage}}
+			p := parseAppLogHistoryParams(q)
+			if p.perPage != tc.expected {
+				t.Errorf("expected perPage=%d, got %d", tc.expected, p.perPage)
+			}
+		})
+	}
+}
