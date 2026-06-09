@@ -305,9 +305,23 @@ curl -X POST http://localhost:8081/v1/chat/completions \
   -H "Authorization: Bearer $VIRTUAL_KEY" \
   -H "Content-Type: application/json" \
   -d '{"model": "hotel/gpt-4o", "messages": [{"role": "user", "content": "Hello!"}]}'
+
+# Embeddings (multimodal endpoints support the same provider/model and hotel/ routing)
+curl -X POST http://localhost:8081/v1/embeddings \
+  -H "Authorization: Bearer $VIRTUAL_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "OpenAI/text-embedding-3-small", "input": "Hello!"}'
+
+# Speech-to-text (multipart upload)
+curl -X POST http://localhost:8081/v1/audio/transcriptions \
+  -H "Authorization: Bearer $VIRTUAL_KEY" \
+  -F model="OpenAI/whisper-1" -F file=@speech.mp3
 ```
 
-See the [API Reference](https://github.com/hugalafutro/model-hotel/wiki/API-Reference) for the full endpoint listing.
+The proxy also serves `/v1/images/generations`, `/v1/images/edits`, `/v1/images/variations`,
+`/v1/audio/speech`, and `/v1/audio/translations` as transparent OpenAI-compatible pass-through
+(failover, circuit breaker, and virtual-key access control included; request/response content
+is never logged). See the [API Reference](https://github.com/hugalafutro/model-hotel/wiki/API-Reference) for the full endpoint listing.
 
 ### Full Documentation
 - [Configuration](https://github.com/hugalafutro/model-hotel/wiki/Configuration): Environment variables, runtime settings, Docker Compose
