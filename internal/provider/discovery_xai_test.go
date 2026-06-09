@@ -268,3 +268,36 @@ func TestDiscoverXAILanguageModels_CatalogSpecOverride(t *testing.T) {
 		t.Errorf("OutputPricePerMillion = %v, want %v", m.OutputPricePerMillion, expectedOutputPrice)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// discoverXAI — both endpoints fail with real errors (not 403/429)
+// ---------------------------------------------------------------------------
+
+// TestDiscoverXAI_BothEndpointsInternalServerError tests that discoverXAI
+// returns an error when both the language-models and models endpoints
+// return internal server errors (not 403/429 which would trigger catalog fallback).
+func TestDiscoverXAI_BothEndpointsInternalServerError(t *testing.T) {
+	ctx := t.Context()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	p := &Provider{
+		ID:      uuid.New(),
+		Name:    "test-xai-500",
+		BaseURL: server.URL,
+	}
+
+	disc := &DiscoveryService{httpClient: server.Client()}
+	models, err := disc.discoverXAI(ctx, p, "test-api-key")
+
+	// Should return an error (not fall back to catalog since it's 500 not 403/429)
+	if err == nil {
+		t.Error("discoverXAI() expected error for 500 responses, got nil")
+	}
+	if models != nil {
+		t.Errorf("discoverXAI() expected nil models for 500, got %d", len(models))
+	}
+}
