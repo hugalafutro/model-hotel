@@ -1239,6 +1239,47 @@ func TestJoinAnd_TwoConditions(t *testing.T) {
 // modelSortColumn unit tests
 // ---------------------------------------------------------------------------
 
+// TestListModelsCursor_NilPool tests that ListModelsCursor returns an empty
+// cursor response when the handler has no database pool (nil dbPool early return).
+func TestListModelsCursor_NilPool(t *testing.T) {
+	h := &Handler{}
+	req := httptest.NewRequest(http.MethodGet, "/models/cursor", http.NoBody)
+	w := httptest.NewRecorder()
+	h.ListModelsCursor(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+
+	var resp ModelsCursorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(resp.Entries) != 0 {
+		t.Errorf("expected empty entries, got %d", len(resp.Entries))
+	}
+	if resp.Total != 0 {
+		t.Errorf("expected total 0, got %d", resp.Total)
+	}
+}
+
+// TestListModelsCursor_CancelledContext tests that ListModelsCursor returns
+// a 500 error when the request context is already cancelled.
+func TestListModelsCursor_CancelledContext(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	req := httptest.NewRequest(http.MethodGet, "/models/cursor", http.NoBody).WithContext(ctx)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", w.Code)
+	}
+}
+
 func TestModelSortColumn_Defaults(t *testing.T) {
 	tests := []struct {
 		sortBy   string

@@ -1922,6 +1922,52 @@ func TestGetAppLogsHistory_DateRangeBoundary(t *testing.T) {
 	}
 }
 
+// TestGetAppLogsCursor_NilPool tests that GetAppLogsCursor returns an empty
+// cursor response when the handler has no database pool (nil dbPool early return).
+func TestGetAppLogsCursor_NilPool(t *testing.T) {
+	h := &Handler{}
+	req := httptest.NewRequest(http.MethodGet, "/logs/app/cursor", http.NoBody)
+	w := httptest.NewRecorder()
+	h.GetAppLogsCursor(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+
+	var resp AppLogsCursorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(resp.Entries) != 0 {
+		t.Errorf("expected empty entries, got %d", len(resp.Entries))
+	}
+	if resp.Total != 0 {
+		t.Errorf("expected total 0, got %d", resp.Total)
+	}
+	// Nil pool returns zeroed response; LevelCounts/SourceCounts will be nil
+	// which JSON encodes as null — this is the expected nil-pool behavior.
+}
+
+// TestGetAppLogsCursor_CancelledContext tests that GetAppLogsCursor returns
+// a 500 error when the request context is already cancelled.
+func TestGetAppLogsCursor_CancelledContext(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("apiTestDBURL not set, skipping integration test")
+	}
+	_, r := newTestHandlerWithRouter(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	req := httptest.NewRequest(http.MethodGet, "/logs/app/cursor", http.NoBody).WithContext(ctx)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", w.Code)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // scanAppLogRow unit tests
 // ---------------------------------------------------------------------------

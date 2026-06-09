@@ -1249,6 +1249,28 @@ func TestListLogsCursor_BackwardPagination(t *testing.T) {
 	}
 }
 
+// TestListLogsCursor_CancelledContext tests that ListLogsCursor returns
+// a 500 error when the request context is already cancelled.
+func TestListLogsCursor_CancelledContext(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// Clear cache so the handler exercises the DB query path
+	globalLogsCache.mu.Lock()
+	globalLogsCache.entries = make(map[string]*logsCacheEntry)
+	globalLogsCache.mu.Unlock()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	req := httptest.NewRequest(http.MethodGet, "/logs/cursor", http.NoBody).WithContext(ctx)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", w.Code)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // appendLogFilters unit tests
 // ---------------------------------------------------------------------------
