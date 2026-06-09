@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
 func TestDiscoverDeepSeek(t *testing.T) {
@@ -265,5 +267,136 @@ func TestDiscoverDeepSeek_UnknownModel_DefaultValues(t *testing.T) {
 	}
 	if m.MaxOutputTokens == nil || *m.MaxOutputTokens != 8192 {
 		t.Errorf("Expected default MaxOutputTokens 8192, got %v", m.MaxOutputTokens)
+	}
+}
+
+func TestDiscoverDeepSeek_ConnectionError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL,
+	}
+
+	_, err := service.discoverDeepSeek(context.Background(), provider, "test-api-key")
+	if err == nil {
+		t.Error("Expected error for connection failure, got nil")
+	}
+}
+
+func TestDiscoverDeepSeek_ServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL,
+	}
+
+	_, err := service.discoverDeepSeek(context.Background(), provider, "test-api-key")
+	if err == nil {
+		t.Error("Expected error for 500 response, got nil")
+	}
+}
+
+func TestDiscoverDeepSeek_CapabilitiesSet(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := OpenAIModelsResponse{
+			Object: "list",
+			Data: []OpenAIModel{
+				{
+					ID:      "deepseek-chat",
+					Object:  "model",
+					Created: 1234567890,
+					OwnedBy: "deepseek",
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL,
+	}
+
+	models, err := service.discoverDeepSeek(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverDeepSeek failed: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("Expected 1 model, got %d", len(models))
+	}
+
+	var caps model.Capability
+	if err := json.Unmarshal([]byte(models[0].Capabilities), &caps); err != nil {
+		t.Fatalf("Failed to unmarshal capabilities: %v", err)
+	}
+	if !caps.Streaming {
+		t.Error("Expected Streaming capability to be true")
+	}
+	if !caps.ToolCalling {
+		t.Error("Expected ToolCalling capability to be true")
+	}
+}
+
+func TestDiscoverDeepSeek_CatalogReasoning(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := OpenAIModelsResponse{
+			Object: "list",
+			Data: []OpenAIModel{
+				{
+					ID:      "deepseek-v4-pro",
+					Object:  "model",
+					Created: 1234567890,
+					OwnedBy: "deepseek",
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL,
+	}
+
+	models, err := service.discoverDeepSeek(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverDeepSeek failed: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("Expected 1 model, got %d", len(models))
+	}
+
+	var caps model.Capability
+	if err := json.Unmarshal([]byte(models[0].Capabilities), &caps); err != nil {
+		t.Fatalf("Failed to unmarshal capabilities: %v", err)
+	}
+	if !caps.Reasoning {
+		t.Error("Expected Reasoning capability to be true for deepseek-v4-pro from catalog")
 	}
 }

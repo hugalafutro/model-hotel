@@ -1046,6 +1046,49 @@ func TestFromWebAuthnCredential_InvalidAAGUID(t *testing.T) {
 	}
 }
 
+// TestFromWebAuthnCredential_OversizedAAGUID verifies that FromWebAuthnCredential
+// gracefully handles an AAGUID that is too long (more than 16 bytes) by falling
+// back to uuid.Nil.
+func TestFromWebAuthnCredential_OversizedAAGUID(t *testing.T) {
+	cred := &gowa.Credential{
+		ID:              []byte("oversized-aaguid-id"),
+		PublicKey:       []byte("pub-key"),
+		AttestationType: "none",
+		Authenticator: gowa.Authenticator{
+			AAGUID:    make([]byte, 32), // too long for UUID
+			SignCount: 0,
+		},
+	}
+
+	record := FromWebAuthnCredential(cred)
+	if record.AAGUID != uuid.Nil {
+		t.Errorf("expected uuid.Nil for oversized AAGUID, got %q", record.AAGUID)
+	}
+	if string(record.ID) != "oversized-aaguid-id" {
+		t.Errorf("expected ID 'oversized-aaguid-id', got %q", string(record.ID))
+	}
+}
+
+// TestFromWebAuthnCredential_NilAAGUID verifies that FromWebAuthnCredential
+// handles a nil AAGUID byte slice gracefully, falling back to uuid.Nil.
+func TestFromWebAuthnCredential_NilAAGUID(t *testing.T) {
+	cred := &gowa.Credential{
+		ID:              []byte("nil-aaguid-id"),
+		PublicKey:       []byte("pub-key"),
+		AttestationType: "none",
+		Transport:       nil,
+		Authenticator: gowa.Authenticator{
+			AAGUID:    nil,
+			SignCount: 0,
+		},
+	}
+
+	record := FromWebAuthnCredential(cred)
+	if record.AAGUID != uuid.Nil {
+		t.Errorf("expected uuid.Nil for nil AAGUID, got %q", record.AAGUID)
+	}
+}
+
 // TestStoreCredential_Upsert verifies that StoreCredential uses ON CONFLICT DO UPDATE
 // semantics: storing a credential with the same ID a second time updates the record
 // rather than failing, and the updated fields are persisted.

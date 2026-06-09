@@ -1146,3 +1146,44 @@ func TestIPLimiter_CleanupLoopTickerStartStop(t *testing.T) {
 	lim.Stop()
 	// No panic = success
 }
+
+// TestIPLimiter_CleanupLoop_TickerPathRemovesStaleEntries verifies that the
+// cleanup function (called by cleanupLoop on ticker.C) actually removes
+// stale IP entries. Since the production ticker is 5 minutes, we simulate
+// the ticker.C path by calling cleanup() directly.
+func TestIPLimiter_CleanupLoop_TickerPathRemovesStaleEntries(t *testing.T) {
+	lim := NewIPLimiter(10, 20, nil, ipSettingsNoBackpressure())
+	defer lim.Stop()
+
+	// Insert a stale IP entry (last used 15 minutes ago — beyond the 10-minute cutoff)
+	lim.mu.Lock()
+	lim.limiters["192.168.1.100"] = &ipEntry{
+		limiter:  rate.NewLimiter(10, 20),
+		rps:      10,
+		burst:    20,
+		lastUsed: time.Now().Add(-15 * time.Minute),
+	}
+	// And a fresh IP entry
+	lim.limiters["192.168.1.200"] = &ipEntry{
+		limiter:  rate.NewLimiter(10, 20),
+		rps:      10,
+		burst:    20,
+		lastUsed: time.Now(),
+	}
+	lim.mu.Unlock()
+
+	// Call cleanup directly (simulates what happens on ticker.C)
+	lim.cleanup()
+
+	lim.mu.Lock()
+	_, hasStale := lim.limiters["192.168.1.100"]
+	_, hasFresh := lim.limiters["192.168.1.200"]
+	lim.mu.Unlock()
+
+	if hasStale {
+		t.Error("stale IP entry should have been removed by cleanup (ticker.C path)")
+	}
+	if !hasFresh {
+		t.Error("fresh IP entry should still be present after cleanup")
+	}
+}

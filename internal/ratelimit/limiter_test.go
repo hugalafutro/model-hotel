@@ -1050,3 +1050,70 @@ func TestNewLimiter_StartsCleanupLoop(t *testing.T) {
 	lim.Stop()
 	// No panic = success
 }
+
+// TestCleanupLoop_TickerPathRemovesStaleEntries verifies that when the
+// cleanupLoop's ticker fires, it actually removes stale entries from
+// the limiters map. Since the production ticker is 5 minutes, we test
+// by calling cleanup() directly (same function called on ticker.C).
+func TestCleanupLoop_TickerPathRemovesStaleEntries(t *testing.T) {
+	lim := &Limiter{
+		limiters: make(map[string]*keyEntry),
+		settings: newStubSettings(),
+		stopCh:   make(chan struct{}),
+	}
+
+	// Insert a stale entry (last used 15 minutes ago — beyond the 10-minute cutoff)
+	lim.mu.Lock()
+	lim.limiters["stale-ticker-key"] = &keyEntry{
+		limiter:  rate.NewLimiter(10, 20),
+		rps:      10,
+		burst:    20,
+		lastUsed: time.Now().Add(-15 * time.Minute),
+	}
+	// And a fresh entry
+	lim.limiters["fresh-ticker-key"] = &keyEntry{
+		limiter:  rate.NewLimiter(10, 20),
+		rps:      10,
+		burst:    20,
+		lastUsed: time.Now(),
+	}
+	lim.mu.Unlock()
+
+	// Start the cleanupLoop goroutine to verify it can start/stop,
+	// then directly call cleanup() to simulate the ticker.C path.
+	go lim.cleanupLoop()
+	time.Sleep(20 * time.Millisecond)
+
+	// Call cleanup directly (simulating what happens on ticker.C)
+	lim.cleanup()
+
+	lim.mu.Lock()
+	_, hasStale := lim.limiters["stale-ticker-key"]
+	_, hasFresh := lim.limiters["fresh-ticker-key"]
+	lim.mu.Unlock()
+
+	if hasStale {
+		t.Error("stale entry should have been removed by cleanup (ticker.C path)")
+	}
+	if !hasFresh {
+		t.Error("fresh entry should still be present after cleanup")
+	}
+
+	lim.Stop()
+}
+
+// TestCleanupLoop_ConcurrentStopAndTick verifies that cleanupLoop handles
+// the race between the stop channel and the ticker gracefully.
+func TestCleanupLoop_ConcurrentStopAndTick(t *testing.T) {
+	for i := 0; i < 10; i++ {
+		lim := &Limiter{
+			limiters: make(map[string]*keyEntry),
+			settings: newStubSettings(),
+			stopCh:   make(chan struct{}),
+		}
+		go lim.cleanupLoop()
+		// Immediately stop — races with the initial ticker wait
+		time.Sleep(time.Millisecond)
+		lim.Stop()
+	}
+}

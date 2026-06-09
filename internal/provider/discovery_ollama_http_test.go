@@ -645,3 +645,120 @@ func TestBuildOllamaModel_ThinkingCapabilityHTTP(t *testing.T) {
 		t.Error("Expected Reasoning capability to be true for thinking model")
 	}
 }
+
+func TestGetOllamaCloudAccount_ContextCancellation(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(50 * time.Millisecond)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(OllamaCloudAccount{ID: "user-1", Plan: "free"})
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	masterKey := "test-master-key-1234567890123456"
+	apiKey := "test-api-key"
+
+	kp, err := auth.Encrypt(apiKey, masterKey)
+	if err != nil {
+		t.Fatalf("Encrypt failed: %v", err)
+	}
+
+	provider := &Provider{
+		ID:           uuid.New(),
+		BaseURL:      server.URL + "/v1",
+		EncryptedKey: kp.Ciphertext,
+		KeyNonce:     kp.Nonce,
+		KeySalt:      kp.Salt,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Millisecond)
+	defer cancel()
+
+	_, err = service.GetOllamaCloudAccount(ctx, provider, masterKey)
+	if err == nil {
+		t.Error("Expected error for context cancellation, got nil")
+	}
+}
+
+func TestGetOllamaCloudAccount_SuccessWithoutV1Suffix(t *testing.T) {
+	var requestedPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestedPath = r.URL.Path
+		if r.URL.Path == "/api/me" && r.Method == "POST" {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(OllamaCloudAccount{ID: "user-1", Plan: "pro"})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	masterKey := "test-master-key-1234567890123456"
+	apiKey := "test-api-key"
+
+	kp, err := auth.Encrypt(apiKey, masterKey)
+	if err != nil {
+		t.Fatalf("Encrypt failed: %v", err)
+	}
+
+	// Test without /v1 suffix - should still hit /api/me
+	provider := &Provider{
+		ID:           uuid.New(),
+		BaseURL:      server.URL,
+		EncryptedKey: kp.Ciphertext,
+		KeyNonce:     kp.Nonce,
+		KeySalt:      kp.Salt,
+	}
+
+	_, err = service.GetOllamaCloudAccount(context.Background(), provider, masterKey)
+	if err != nil {
+		t.Fatalf("GetOllamaCloudAccount failed: %v", err)
+	}
+	if requestedPath != "/api/me" {
+		t.Errorf("Expected request to /api/me, got %s", requestedPath)
+	}
+}
+
+func TestGetOllamaCloudAccount_403Status(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/me" {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient:     server.Client(),
+		retryBaseDelay: time.Millisecond,
+	}
+
+	masterKey := "test-master-key-1234567890123456"
+	apiKey := "test-api-key"
+
+	kp, err := auth.Encrypt(apiKey, masterKey)
+	if err != nil {
+		t.Fatalf("Encrypt failed: %v", err)
+	}
+
+	provider := &Provider{
+		ID:           uuid.New(),
+		BaseURL:      server.URL + "/v1",
+		EncryptedKey: kp.Ciphertext,
+		KeyNonce:     kp.Nonce,
+		KeySalt:      kp.Salt,
+	}
+
+	_, err = service.GetOllamaCloudAccount(context.Background(), provider, masterKey)
+	if err == nil {
+		t.Error("Expected error for 403 response, got nil")
+	}
+}

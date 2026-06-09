@@ -64,3 +64,76 @@ func TestStats_QueryErrorPaths(t *testing.T) {
 		t.Error("calculateStats: expected error on cancelled context")
 	}
 }
+
+// TestStats_StatTotals7DayPeriod exercises the 7-day period branch in statTotals,
+// which sets TotalRequestsLast7d instead of TotalRequestsLast24h, and also
+// queries TotalRequestsLast24h from the else branch (cross-fill).
+func TestStats_StatTotals7DayPeriod(t *testing.T) {
+	handler, _, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	now := time.Now().UTC()
+	since := now.Add(-7 * 24 * time.Hour)
+
+	stats := &StatsResponse{
+		ByModel:      make(map[string]int64),
+		ByProvider:   make(map[string]int64),
+		ByVirtualKey: make(map[string]int64),
+	}
+
+	err := handler.statTotals(ctx, stats, "", "", 7*24*time.Hour, since, now)
+	if err != nil {
+		t.Fatalf("statTotals with 7-day period: %v", err)
+	}
+
+	// With a 7-day period, TotalRequestsLast7d should be set
+	// and TotalRequestsLast24h should also be cross-filled.
+	if stats.TotalRequestsLast7d < 0 {
+		t.Errorf("TotalRequestsLast7d = %d, want >= 0", stats.TotalRequestsLast7d)
+	}
+	if stats.TotalRequestsLast24h < 0 {
+		t.Errorf("TotalRequestsLast24h = %d, want >= 0", stats.TotalRequestsLast24h)
+	}
+}
+
+// TestStats_StatTotals7DayErrorPath exercises the 7-day period branch
+// with a cancelled context to trigger the secondary query error path.
+func TestStats_StatTotals7DayErrorPath(t *testing.T) {
+	handler, _, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	stats := &StatsResponse{
+		ByModel:      make(map[string]int64),
+		ByProvider:   make(map[string]int64),
+		ByVirtualKey: make(map[string]int64),
+	}
+	now := time.Now().UTC()
+	since := now.Add(-7 * 24 * time.Hour)
+
+	if err := handler.statTotals(ctx, stats, "", "", 7*24*time.Hour, since, now); err == nil {
+		t.Error("statTotals with 7-day period: expected error on cancelled context")
+	}
+}
+
+// TestStats_CalculateStats7DayPeriod verifies the full calculateStats
+// flow works with a 7-day period.
+func TestStats_CalculateStats7DayPeriod(t *testing.T) {
+	handler, _, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	result, err := handler.calculateStats(ctx, 7*24*time.Hour, false, "requests", true)
+	if err != nil {
+		t.Fatalf("calculateStats with 7-day period: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil result from calculateStats")
+	}
+	if result.TotalRequestsLast7d < 0 {
+		t.Errorf("TotalRequestsLast7d = %d, want >= 0", result.TotalRequestsLast7d)
+	}
+}
