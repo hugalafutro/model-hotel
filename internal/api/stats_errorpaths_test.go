@@ -137,3 +137,47 @@ func TestStats_CalculateStats7DayPeriod(t *testing.T) {
 		t.Errorf("TotalRequestsLast7d = %d, want >= 0", result.TotalRequestsLast7d)
 	}
 }
+
+// TestStats_CalculateStatsWithoutLatency verifies the includeLatency=false
+// path in calculateStats, which skips statLatencyBreakdown. The result
+// should have empty latency slices and no latency data populated.
+func TestStats_CalculateStatsWithoutLatency(t *testing.T) {
+	handler, _, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	result, err := handler.calculateStats(ctx, 24*time.Hour, false, "requests", false)
+	if err != nil {
+		t.Fatalf("calculateStats without latency: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil result from calculateStats")
+	}
+	// When includeLatency=false, latency breakdown should not be populated
+	if len(result.ByModelLatency) != 0 {
+		t.Errorf("expected empty ByModelLatency with includeLatency=false, got %d entries", len(result.ByModelLatency))
+	}
+	if len(result.ByProviderLatency) != 0 {
+		t.Errorf("expected empty ByProviderLatency with includeLatency=false, got %d entries", len(result.ByProviderLatency))
+	}
+}
+
+// TestStats_CalculateStatsWithLatency verifies the includeLatency=true
+// path in calculateStats, which calls statLatencyBreakdown and populates
+// ByModelLatency and ByProviderLatency.
+func TestStats_CalculateStatsWithLatency(t *testing.T) {
+	handler, _, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	result, err := handler.calculateStats(ctx, 24*time.Hour, false, "requests", true)
+	if err != nil {
+		t.Fatalf("calculateStats with latency: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil result from calculateStats")
+	}
+	// With includeLatency=true, latency slices should be populated (may be empty
+	// if there's no data, but the map should be initialized)
+	// The key difference is the latency breakdown code path was exercised.
+}

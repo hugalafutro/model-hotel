@@ -5346,3 +5346,412 @@ func TestRunScheduledBackup_MkdirAllErrorPath(t *testing.T) {
 	// Should return without panic - MkdirAll fails on file path
 	h.runScheduledBackup(context.Background())
 }
+
+// ---------------------------------------------------------------------------
+// StartScheduler: for-loop entry with short initial delay
+// ---------------------------------------------------------------------------
+
+// TestStartScheduler_EnabledForLoopWithShortDelay verifies that when
+// schedulerInitialDelay is set very short, the scheduler goroutine
+// actually enters the for-loop body: reads settings, calls
+// runScheduledBackup (which fails harmlessly), and reads the interval.
+// This exercises the time.After(initialDelay) select case that proceeds.
+func TestStartScheduler_EnabledForLoopWithShortDelay(t *testing.T) {
+	boolCalls := 0
+	durationCalls := 0
+	ss := &mockSettingsStore{
+		getWithDefaultFn: func(_ context.Context, key, defaultValue string) string {
+			return defaultValue
+		},
+		getBoolFn: func(_ context.Context, key string, defaultValue bool) bool {
+			boolCalls++
+			return true // enabled → runScheduledBackup is called
+		},
+		getDurationFn: func(_ context.Context, key string, defaultValue time.Duration) time.Duration {
+			durationCalls++
+			return 5 * time.Minute
+		},
+	}
+	dir := t.TempDir()
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{}, ss)
+	h.schedulerInitialDelay = 1 * time.Millisecond
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	h.StartScheduler(ctx)
+
+	// Wait for the goroutine to enter the for-loop and execute at least one tick.
+	// The initial delay is 1ms, so within 500ms the for-loop should have executed.
+	time.Sleep(500 * time.Millisecond)
+
+	// Verify that the enabled path was taken: getBoolFn should have been called
+	// at least once, and getDurationFn should have been called too.
+	if boolCalls == 0 {
+		t.Error("expected GetBool to be called at least once (scheduler entered the for-loop)")
+	}
+	if durationCalls == 0 {
+		t.Error("expected GetDuration to be called at least once (enabled path reads interval)")
+	}
+
+	h.StopScheduler()
+	if h.schedulerCancel != nil {
+		t.Error("expected schedulerCancel to be nil after StopScheduler")
+	}
+}
+
+// TestStartScheduler_DisabledForLoopWithShortDelay verifies that when
+// schedulerInitialDelay is short and backup_enabled=false, the scheduler
+// enters the for-loop and polls on the idle interval.
+func TestStartScheduler_DisabledForLoopWithShortDelay(t *testing.T) {
+	boolCalls := 0
+	ss := &mockSettingsStore{
+		getWithDefaultFn: func(_ context.Context, key, defaultValue string) string {
+			return defaultValue
+		},
+		getBoolFn: func(_ context.Context, key string, defaultValue bool) bool {
+			boolCalls++
+			return false // disabled
+		},
+		getDurationFn: func(_ context.Context, key string, defaultValue time.Duration) time.Duration {
+			return defaultValue
+		},
+	}
+	dir := t.TempDir()
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{}, ss)
+	h.schedulerInitialDelay = 1 * time.Millisecond
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	h.StartScheduler(ctx)
+
+	// Wait for the goroutine to enter the for-loop
+	time.Sleep(500 * time.Millisecond)
+
+	if boolCalls == 0 {
+		t.Error("expected GetBool to be called at least once (scheduler entered the for-loop)")
+	}
+
+	h.StopScheduler()
+}
+
+// TestStartScheduler_PanicInForLoopWithShortDelay verifies that when a panic
+// occurs inside the for-loop body (after the initial delay), the deferred
+// recover() resets schedulerCancel to nil, enabling a restart. This uses
+// schedulerInitialDelay = 1ms so the goroutine actually enters the for-loop.
+func TestStartScheduler_PanicInForLoopWithShortDelay(t *testing.T) {
+	boolCalls := 0
+	ss := &mockSettingsStore{
+		getWithDefaultFn: func(_ context.Context, key, defaultValue string) string {
+			return defaultValue
+		},
+		getBoolFn: func(_ context.Context, key string, defaultValue bool) bool {
+			boolCalls++
+			panic("test-induced panic in for-loop")
+		},
+		getDurationFn: func(_ context.Context, key string, defaultValue time.Duration) time.Duration {
+			return defaultValue
+		},
+	}
+	dir := t.TempDir()
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{}, ss)
+	h.schedulerInitialDelay = 1 * time.Millisecond
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	h.StartScheduler(ctx)
+
+	// Wait for the goroutine to: pass the initial delay, enter the for-loop,
+	// panic, and recover. With 1ms delay this should happen quickly.
+	time.Sleep(500 * time.Millisecond)
+
+	// After panic recovery, the deferred recover() should have reset
+	// schedulerCancel to nil, allowing a restart.
+	h.schedulerCancelMu.Lock()
+	cancelIsNil := h.schedulerCancel == nil
+	h.schedulerCancelMu.Unlock()
+
+	if !cancelIsNil {
+		t.Error("expected schedulerCancel to be nil after panic recovery in for-loop")
+	}
+
+	// The scheduler should be restartable after the panic
+	h.StartScheduler(ctx)
+	h.schedulerCancelMu.Lock()
+	isRestarted := h.schedulerCancel != nil
+	h.schedulerCancelMu.Unlock()
+
+	if !isRestarted {
+		t.Error("expected schedulerCancel to be non-nil after restart")
+	}
+
+	h.StopScheduler()
+}
+
+// TestStartScheduler_EnabledRunsWithShortDelayAndMockPgDump verifies the
+// full enabled path: initial delay → for-loop → runScheduledBackup →
+// read interval. Uses a mock pg_dump so runScheduledBackup completes
+// the stat + rotation code path.
+func TestStartScheduler_EnabledRunsWithShortDelayAndMockPgDump(t *testing.T) {
+	tmpDir := t.TempDir()
+	mockPgDump := filepath.Join(tmpDir, "pg_dump")
+
+	mockScript := `#!/bin/bash
+OUTPUT_FILE=""
+for arg in "$@"; do
+	if [[ "$arg" == --file=* ]]; then
+		OUTPUT_FILE="${arg#--file=}"
+	fi
+done
+if [ -n "$OUTPUT_FILE" ]; then
+	echo "scheduler mock backup" > "$OUTPUT_FILE"
+fi
+exit 0
+`
+	//nolint:gosec // test-only: script in temp dir
+	if err := os.WriteFile(mockPgDump, []byte(mockScript), 0o755); err != nil {
+		t.Fatalf("failed to write mock pg_dump: %v", err)
+	}
+
+	originalPath := os.Getenv("PATH")
+	//nolint:errcheck // cleanup: restore PATH after test
+	defer os.Setenv("PATH", originalPath)
+	//nolint:errcheck // prepend mock dir to PATH
+	os.Setenv("PATH", tmpDir+":"+originalPath)
+
+	boolCalls := 0
+	durationCalls := 0
+	ss := &mockSettingsStore{
+		getWithDefaultFn: func(_ context.Context, key, defaultValue string) string {
+			return defaultValue
+		},
+		getBoolFn: func(_ context.Context, key string, defaultValue bool) bool {
+			boolCalls++
+			return true
+		},
+		getDurationFn: func(_ context.Context, key string, defaultValue time.Duration) time.Duration {
+			durationCalls++
+			return 5 * time.Minute
+		},
+	}
+	backupDir := t.TempDir()
+	h := NewBackupHandler("postgres://user:pass@localhost/db", backupDir, &mockAdminAuth{}, ss)
+	h.schedulerInitialDelay = 1 * time.Millisecond
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	h.StartScheduler(ctx)
+
+	// Wait for the for-loop to execute at least one backup
+	time.Sleep(1 * time.Second)
+
+	h.StopScheduler()
+
+	if boolCalls == 0 {
+		t.Error("expected GetBool to be called")
+	}
+	if durationCalls == 0 {
+		t.Error("expected GetDuration to be called in enabled path")
+	}
+
+	// Verify a backup file was created by runScheduledBackup
+	entries, err := os.ReadDir(backupDir)
+	if err != nil {
+		t.Fatalf("failed to read backup dir: %v", err)
+	}
+	found := false
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".dump") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected a backup file to be created by the scheduler's runScheduledBackup")
+	}
+}
+
+// TestStartScheduler_ContextCancelledAfterInitialDelay verifies that when
+// the context is cancelled after the initial delay has passed but during
+// the sleep interval, the scheduler exits cleanly via the for-loop's
+// context check.
+func TestStartScheduler_ContextCancelledAfterInitialDelay(t *testing.T) {
+	boolCalls := 0
+	ss := &mockSettingsStore{
+		getWithDefaultFn: func(_ context.Context, key, defaultValue string) string {
+			return defaultValue
+		},
+		getBoolFn: func(_ context.Context, key string, defaultValue bool) bool {
+			boolCalls++
+			return false // disabled so it sleeps on idle poll
+		},
+		getDurationFn: func(_ context.Context, key string, defaultValue time.Duration) time.Duration {
+			return defaultValue
+		},
+	}
+	dir := t.TempDir()
+	h := NewBackupHandler("postgres://x", dir, &mockAdminAuth{}, ss)
+	h.schedulerInitialDelay = 1 * time.Millisecond
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	h.StartScheduler(ctx)
+
+	// Wait for the goroutine to enter the for-loop
+	time.Sleep(200 * time.Millisecond)
+
+	if boolCalls == 0 {
+		t.Error("expected GetBool to be called at least once")
+	}
+
+	// Cancel the context while the scheduler is sleeping in the for-loop
+	cancel()
+
+	// Give the goroutine time to observe the cancellation
+	time.Sleep(100 * time.Millisecond)
+
+	// StopScheduler should clean up safely
+	h.StopScheduler()
+	if h.schedulerCancel != nil {
+		t.Error("expected schedulerCancel to be nil after StopScheduler")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// RestoreBackup: validateRestoreDump success path with real pg_dump
+// ---------------------------------------------------------------------------
+
+// TestRestoreBackup_ValidDumpPassesValidation_Integration tests that
+// uploading a valid pg_dump file passes the validateRestoreDump step
+// and reaches the runPgRestore step. It uses an invalid database URL
+// so pg_restore --clean fails after validation, avoiding os.Exit(0).
+// This test is very similar to TestRestoreBackup_WithRealDump_Integration
+// but exists to ensure the validateRestoreDump success path (returning
+// ok=true with non-empty migration list) is explicitly covered.
+func TestRestoreBackup_ValidDumpPassesValidation_Integration(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+	if _, err := exec.LookPath("pg_dump"); err != nil {
+		t.Skip("pg_dump not installed")
+	}
+	if _, err := exec.LookPath("pg_restore"); err != nil {
+		t.Skip("pg_restore not installed")
+	}
+
+	dir := t.TempDir()
+	dumpPath := filepath.Join(dir, "valid_backup.dump")
+
+	u, err := url.Parse(apiTestDBURL)
+	if err != nil {
+		t.Fatalf("failed to parse DB URL: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	pgDumpPath, _ := exec.LookPath("pg_dump")
+	cmd := exec.CommandContext(ctx, pgDumpPath,
+		"--format=custom",
+		"--no-password",
+		"--file="+dumpPath,
+		apiTestDBURL,
+	)
+	if u.User != nil {
+		if pass, ok := u.User.Password(); ok {
+			cmd.Env = append(os.Environ(), "PGPASSWORD="+pass)
+		}
+	}
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("pg_dump failed: %v", err)
+	}
+
+	// Upload the dump via restore endpoint with an invalid DB URL.
+	// validateRestoreDump should pass (valid dump, no dangerous objects,
+	// has schema_migrations, migrations match), but runPgRestore will
+	// fail because the database URL is invalid.
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	r := chi.NewRouter()
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			next.ServeHTTP(w, r)
+		})
+	})
+	h.Register(r)
+
+	dumpContent, err := os.ReadFile(dumpPath)
+	if err != nil {
+		t.Fatalf("failed to read dump file: %v", err)
+	}
+
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	writer.WriteField("admin_token", "valid-token")
+	part, _ := writer.CreateFormFile("dump", "valid_backup.dump")
+	part.Write(dumpContent)
+	writer.Close()
+
+	req := httptest.NewRequest("POST", "/backups/restore", &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	// Validation passes but pg_restore fails on invalid DB → 500
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500 (pg_restore fails on invalid DB after validation passes), got %d: %s", w.Code, w.Body.String())
+	}
+	// The error should be about pg_restore, not about validation
+	if strings.Contains(w.Body.String(), "invalid dump") || strings.Contains(w.Body.String(), "dangerous") {
+		t.Errorf("validation should have passed, got validation error: %s", w.Body.String())
+	}
+}
+
+// ---------------------------------------------------------------------------
+// StartScheduler: schedulerInitialDelay fallback to backupSchedulerInitialDelay
+// ---------------------------------------------------------------------------
+
+// TestStartScheduler_DefaultInitialDelayFallback verifies that when
+// schedulerInitialDelay is zero (the default), the goroutine falls back
+// to the package-level backupSchedulerInitialDelay variable. Since the
+// default is 1 minute, we temporarily override the package-level var
+// to a short duration for testing.
+func TestStartScheduler_DefaultInitialDelayFallback(t *testing.T) {
+	origDelay := backupSchedulerInitialDelay
+	backupSchedulerInitialDelay = 10 * time.Millisecond
+	defer func() { backupSchedulerInitialDelay = origDelay }()
+
+	boolCalls := 0
+	ss := &mockSettingsStore{
+		getWithDefaultFn: func(_ context.Context, key, defaultValue string) string {
+			return defaultValue
+		},
+		getBoolFn: func(_ context.Context, key string, defaultValue bool) bool {
+			boolCalls++
+			return false
+		},
+		getDurationFn: func(_ context.Context, key string, defaultValue time.Duration) time.Duration {
+			return defaultValue
+		},
+	}
+	dir := t.TempDir()
+	h := NewBackupHandler("postgres://x", dir, &mockAdminAuth{}, ss)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	h.StartScheduler(ctx)
+
+	// With 10ms initial delay (from overridden backupSchedulerInitialDelay),
+	// the goroutine should enter the for-loop quickly.
+	time.Sleep(500 * time.Millisecond)
+
+	if boolCalls == 0 {
+		t.Error("expected GetBool to be called (goroutine entered the for-loop via fallback delay)")
+	}
+
+	h.StopScheduler()
+}
