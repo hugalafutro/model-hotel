@@ -297,7 +297,20 @@ export function useDashboard(): UseDashboardReturn {
 	const { toast } = useToast();
 	const lastManualRefresh = useRef(0);
 	const refreshCooldownMs = 5000;
+	const refreshCooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+		null,
+	);
 	const [isRefreshing, setIsRefreshing] = useState(false);
+
+	// Clear the cooldown timer on unmount so the deferred setIsRefreshing(false)
+	// never fires after the component is gone (avoids a leaked state update).
+	useEffect(() => {
+		return () => {
+			if (refreshCooldownTimerRef.current) {
+				clearTimeout(refreshCooldownTimerRef.current);
+			}
+		};
+	}, []);
 
 	const [dashboardRefreshMs, setDashboardRefreshMs] = useState(() => {
 		try {
@@ -357,7 +370,13 @@ export function useDashboard(): UseDashboardReturn {
 		queryClient.invalidateQueries({ queryKey: ["stats-usage"] });
 		queryClient.invalidateQueries({ queryKey: ["stats-tokens"] });
 		toast(t("settings.dashboard.refreshingDashboard"), "info");
-		setTimeout(() => setIsRefreshing(false), refreshCooldownMs);
+		if (refreshCooldownTimerRef.current) {
+			clearTimeout(refreshCooldownTimerRef.current);
+		}
+		refreshCooldownTimerRef.current = setTimeout(
+			() => setIsRefreshing(false),
+			refreshCooldownMs,
+		);
 	}, [queryClient, toast, t]);
 
 	// Hide manual refresh when auto-refresh is 10s or faster
