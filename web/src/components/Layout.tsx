@@ -723,6 +723,7 @@ function LanguageSelector() {
 	const { t, i18n } = useTranslation();
 	const [open, setOpen] = useState(false);
 	const ref = useRef<HTMLDivElement>(null);
+	const scrollRef = useRef<HTMLDivElement>(null);
 
 	// Set document direction for RTL languages
 	useEffect(() => {
@@ -744,6 +745,14 @@ function LanguageSelector() {
 		}
 	}, [open]);
 
+	// Scroll the active language into view when dropdown opens
+	useEffect(() => {
+		if (open && scrollRef.current) {
+			const active = scrollRef.current.querySelector("[aria-checked]");
+			active?.scrollIntoView({ block: "nearest" });
+		}
+	}, [open]);
+
 	if (SUPPORTED_LANGUAGES.length <= 1) return null;
 
 	return (
@@ -759,12 +768,21 @@ function LanguageSelector() {
 				<Languages size={14} strokeWidth={2} />
 			</button>
 			{open && (
-				<div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 py-1 min-w-[120px] max-h-[50vh] overflow-y-auto overscroll-contain bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50">
+				<div
+					ref={scrollRef}
+					className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 py-1 min-w-[120px] max-h-[50vh] overflow-y-auto overscroll-contain bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50"
+					role="listbox"
+				>
 					{SUPPORTED_LANGUAGES.map((lang) => (
 						<button
 							key={lang.code}
 							type="button"
+							role="option"
+							aria-checked={
+								(i18n.resolvedLanguage ?? i18n.language) === lang.code
+							}
 							data-testid={`language-option-${lang.code}`}
+							id={`language-option-${lang.code}`}
 							onClick={() => {
 								i18next.changeLanguage(lang.code);
 								// Persist every deliberate choice — including English —
