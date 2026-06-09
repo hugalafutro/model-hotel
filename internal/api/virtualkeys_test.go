@@ -967,3 +967,26 @@ func TestUpdateVirtualKey_EmptyAllowedProvidersArray(t *testing.T) {
 		t.Errorf("expected error message about allowed_providers, got: %s", w.Body.String())
 	}
 }
+
+// TestUpdateVirtualKeyRequest_UnmarshalJSON_ArrayInput tests that UnmarshalJSON
+// returns an error when given a JSON array instead of an object. This exercises
+// the second json.Unmarshal(data, &raw) error path.
+func TestUpdateVirtualKeyRequest_UnmarshalJSON_ArrayInput(t *testing.T) {
+	data := `[1,2,3]`
+	var req UpdateVirtualKeyRequest
+	if err := json.Unmarshal([]byte(data), &req); err == nil {
+		t.Error("expected error for JSON array input, got nil")
+	}
+}
+
+// TestUpdateVirtualKeyRequest_UnmarshalJSON_NonObjectInput tests that
+// UnmarshalJSON returns an error when given a JSON value that is not an
+// object (e.g., a number), which fails the map[string]json.RawMessage
+// unmarshal in the second pass.
+func TestUpdateVirtualKeyRequest_UnmarshalJSON_NonObjectInput(t *testing.T) {
+	data := `42`
+	var req UpdateVirtualKeyRequest
+	if err := json.Unmarshal([]byte(data), &req); err == nil {
+		t.Error("expected error for non-object JSON input, got nil")
+	}
+}
