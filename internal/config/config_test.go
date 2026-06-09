@@ -386,8 +386,8 @@ func TestLoad_DefaultMaxRequestSize(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() failed: %v", err)
 	}
-	if cfg.MaxRequestSize != 10*1024*1024 {
-		t.Errorf("expected default MaxRequestSize %d, got %d", 10*1024*1024, cfg.MaxRequestSize)
+	if cfg.MaxRequestSize != 50*1024*1024 {
+		t.Errorf("expected default MaxRequestSize %d, got %d", 50*1024*1024, cfg.MaxRequestSize)
 	}
 }
 
