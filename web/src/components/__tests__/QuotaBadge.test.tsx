@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import type {
 	DeepSeekBalance,
 	NanoGPTUsage,
@@ -697,11 +697,13 @@ describe("QuotaBadges", () => {
 		expect(screen.getByText("800K/1M")).toBeInTheDocument();
 
 		localStorage.setItem("quota-bar-mode", "used");
-		window.dispatchEvent(
-			new CustomEvent("localStorageChange", {
-				detail: { key: "quota-bar-mode" },
-			}),
-		);
+		await act(async () => {
+			window.dispatchEvent(
+				new CustomEvent("localStorageChange", {
+					detail: { key: "quota-bar-mode" },
+				}),
+			);
+		});
 
 		await waitFor(() => {
 			expect(screen.getByText("200K/1M")).toBeInTheDocument();

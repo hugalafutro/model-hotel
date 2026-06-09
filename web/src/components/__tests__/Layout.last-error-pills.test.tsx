@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -265,7 +265,9 @@ describe("Layout", () => {
 					screen.queryByTitle("Acknowledge (dismiss)"),
 				).not.toBeInTheDocument();
 			});
-			window.dispatchEvent(new Event("dismissedErrorsReset"));
+			await act(async () => {
+				window.dispatchEvent(new Event("dismissedErrorsReset"));
+			});
 			await waitFor(() => {
 				expect(screen.getByTitle("Acknowledge (dismiss)")).toBeInTheDocument();
 			});

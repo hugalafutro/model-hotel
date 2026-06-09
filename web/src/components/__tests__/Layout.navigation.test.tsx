@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -712,7 +712,9 @@ describe("Layout", () => {
 			const event = new CustomEvent("server-event", {
 				detail: { type: "circuit_breaker.open", message: "Provider down" },
 			});
-			window.dispatchEvent(event);
+			await act(async () => {
+				window.dispatchEvent(event);
+			});
 
 			await waitFor(() => {
 				expect(fetchCount).toBeGreaterThan(initialCount);
@@ -723,7 +725,9 @@ describe("Layout", () => {
 			const nonMatchingEvent = new CustomEvent("server-event", {
 				detail: { type: "provider.created", message: "New provider" },
 			});
-			window.dispatchEvent(nonMatchingEvent);
+			await act(async () => {
+				window.dispatchEvent(nonMatchingEvent);
+			});
 
 			// Give a tick for any potential refetch
 			await new Promise((r) => setTimeout(r, 100));
