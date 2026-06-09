@@ -883,13 +883,17 @@ func streamingAwareTimeout(maxNonStreamingDur time.Duration) func(http.Handler) 
 
 			// Extract both stream and model in a single unmarshal so
 			// downstream handlers can skip re-parsing cached bytes.
+			// Non-JSON bodies (multipart audio/image uploads) skip the peek:
+			// their model field lives in the form, parsed by the handler.
 			var parsed struct {
 				Stream bool   `json:"stream"`
 				Model  string `json:"model"`
 			}
 			isStreaming := false
 			modelName := ""
-			if json.Unmarshal(body, &parsed) == nil {
+			contentType := r.Header.Get("Content-Type")
+			peekJSON := contentType == "" || strings.Contains(strings.ToLower(contentType), "json")
+			if peekJSON && json.Unmarshal(body, &parsed) == nil {
 				isStreaming = parsed.Stream
 				modelName = parsed.Model
 			}

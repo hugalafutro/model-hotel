@@ -184,6 +184,72 @@ func TestStreamingAwareTimeout_MalformedJSON(t *testing.T) {
 	}
 }
 
+func TestStreamingAwareTimeout_NonJSONContentTypeSkipsPeek(t *testing.T) {
+	var capturedBody []byte
+	var capturedModel string
+	var capturedIsStreaming bool
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if v, ok := r.Context().Value(ctxkeys.RequestBodyKey).([]byte); ok {
+			capturedBody = v
+		}
+		if v, ok := r.Context().Value(ctxkeys.RequestModelKey).(string); ok {
+			capturedModel = v
+		}
+		if v, ok := r.Context().Value(ctxkeys.IsStreamingKey).(bool); ok {
+			capturedIsStreaming = v
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+
+	middleware := streamingAwareTimeout(5 * time.Minute)
+	wrapped := middleware(handler)
+
+	// A multipart upload whose bytes happen to be valid JSON must NOT be
+	// JSON-peeked: the model lives in the form and is parsed by the handler.
+	body := []byte(`{"model":"gpt-4","stream":true}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/audio/transcriptions", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "multipart/form-data; boundary=xyz")
+	rr := httptest.NewRecorder()
+
+	wrapped.ServeHTTP(rr, req)
+
+	if !bytes.Equal(capturedBody, body) {
+		t.Errorf("RequestBodyKey: got %q, want %q (body must still be cached)", capturedBody, body)
+	}
+	if capturedModel != "" {
+		t.Errorf("RequestModelKey should be empty for non-JSON content type, got %q", capturedModel)
+	}
+	if capturedIsStreaming != false {
+		t.Errorf("IsStreamingKey should be false for non-JSON content type, got %v", capturedIsStreaming)
+	}
+}
+
+func TestStreamingAwareTimeout_ExplicitJSONContentTypePeeks(t *testing.T) {
+	var capturedModel string
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if v, ok := r.Context().Value(ctxkeys.RequestModelKey).(string); ok {
+			capturedModel = v
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+
+	middleware := streamingAwareTimeout(5 * time.Minute)
+	wrapped := middleware(handler)
+
+	body := []byte(`{"model":"text-embedding-3-small","input":"hi"}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/embeddings", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json; charset=utf-8")
+	rr := httptest.NewRecorder()
+
+	wrapped.ServeHTTP(rr, req)
+
+	if capturedModel != "text-embedding-3-small" {
+		t.Errorf("RequestModelKey: got %q, want text-embedding-3-small", capturedModel)
+	}
+}
+
 // recordHandler implements slog.Handler to capture log records for testing
 type recordHandler struct {
 	mu      *sync.Mutex
