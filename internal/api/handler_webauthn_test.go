@@ -1574,3 +1574,201 @@ func (m *mockWebAuthnSessionMgr) RevokeAuthToken(ctx context.Context, token stri
 	}
 	return false
 }
+
+// --- RegisterStart / LoginStart success path tests (require DB) ---
+
+// TestWebAuthnHandler_RegisterStart_Success tests the full success path through
+// RegisterStart: ListCredentials → BeginRegistration → json.Marshal → CreateSession → writeJSON.
+func TestWebAuthnHandler_RegisterStart_Success(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	t.Cleanup(pool.Close)
+
+	repo := webauthn.NewRepository(pool)
+	rp, err := webauthn.NewRelyingParty("localhost", "Model Hotel Test", []string{"http://localhost"})
+	if err != nil {
+		t.Fatalf("failed to create relying party: %v", err)
+	}
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := newTestWebAuthnHandler(repo, rp, nil, adminMgr)
+
+	req, w := newChiRequest(http.MethodPost, "/webauthn/register/start", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-token")
+
+	h.RegisterStart(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d; body: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+
+	var resp map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	sessionID, ok := resp["session_id"].(string)
+	if !ok || sessionID == "" {
+		t.Fatal("expected non-empty session_id in response")
+	}
+
+	options, ok := resp["options"]
+	if !ok || options == nil {
+		t.Fatal("expected options in response")
+	}
+
+	// Verify session was persisted in DB
+	parsedID, err := uuid.Parse(sessionID)
+	if err != nil {
+		t.Fatalf("failed to parse session_id: %v", err)
+	}
+	session, err := repo.GetSession(context.Background(), parsedID)
+	if err != nil {
+		t.Fatalf("failed to get session from DB: %v", err)
+	}
+	if session.Type != "registration" {
+		t.Errorf("expected session type 'registration', got %q", session.Type)
+	}
+
+	// Cleanup
+	repo.DeleteSession(context.Background(), parsedID)
+}
+
+// TestWebAuthnHandler_LoginStart_Success tests the full success path through
+// LoginStart: BeginDiscoverableLogin → json.Marshal → CreateSession → writeJSON.
+func TestWebAuthnHandler_LoginStart_Success(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	t.Cleanup(pool.Close)
+
+	repo := webauthn.NewRepository(pool)
+	rp, err := webauthn.NewRelyingParty("localhost", "Model Hotel Test", []string{"http://localhost"})
+	if err != nil {
+		t.Fatalf("failed to create relying party: %v", err)
+	}
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := newTestWebAuthnHandler(repo, rp, nil, adminMgr)
+
+	req, w := newChiRequest(http.MethodPost, "/webauthn/login/start", http.NoBody)
+
+	h.LoginStart(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d; body: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+
+	var resp map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	sessionID, ok := resp["session_id"].(string)
+	if !ok || sessionID == "" {
+		t.Fatal("expected non-empty session_id in response")
+	}
+
+	options, ok := resp["options"]
+	if !ok || options == nil {
+		t.Fatal("expected options in response")
+	}
+
+	// Verify session was persisted in DB
+	parsedID, err := uuid.Parse(sessionID)
+	if err != nil {
+		t.Fatalf("failed to parse session_id: %v", err)
+	}
+	session, err := repo.GetSession(context.Background(), parsedID)
+	if err != nil {
+		t.Fatalf("failed to get session from DB: %v", err)
+	}
+	if session.Type != "login" {
+		t.Errorf("expected session type 'login', got %q", session.Type)
+	}
+
+	// Cleanup
+	repo.DeleteSession(context.Background(), parsedID)
+}
+
+// TestWebAuthnHandler_RegisterStart_CancelledContext tests that RegisterStart
+// returns 500 when the request context is cancelled (ListCredentials fails).
+func TestWebAuthnHandler_RegisterStart_CancelledContext(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	t.Cleanup(pool.Close)
+
+	repo := webauthn.NewRepository(pool)
+	rp, err := webauthn.NewRelyingParty("localhost", "Model Hotel Test", []string{"http://localhost"})
+	if err != nil {
+		t.Fatalf("failed to create relying party: %v", err)
+	}
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := newTestWebAuthnHandler(repo, rp, nil, adminMgr)
+
+	// Cancel context to trigger DB errors
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	req, w := newChiRequest(http.MethodPost, "/webauthn/register/start", http.NoBody)
+	req = req.WithContext(ctx)
+	req.Header.Set("Authorization", "Bearer test-token")
+
+	h.RegisterStart(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
+	}
+}
+
+// TestWebAuthnHandler_LoginStart_CancelledContext tests that LoginStart
+// returns 500 when the request context is cancelled (CreateSession fails;
+// BeginDiscoverableLogin does not use the context).
+func TestWebAuthnHandler_LoginStart_CancelledContext(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	t.Cleanup(pool.Close)
+
+	repo := webauthn.NewRepository(pool)
+	rp, err := webauthn.NewRelyingParty("localhost", "Model Hotel Test", []string{"http://localhost"})
+	if err != nil {
+		t.Fatalf("failed to create relying party: %v", err)
+	}
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := newTestWebAuthnHandler(repo, rp, nil, adminMgr)
+
+	// LoginStart: BeginDiscoverableLogin (no context) then CreateSession (uses context).
+	// Cancel context so CreateSession fails after BeginDiscoverableLogin succeeds.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	req, w := newChiRequest(http.MethodPost, "/webauthn/login/start", http.NoBody)
+	req = req.WithContext(ctx)
+
+	h.LoginStart(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
+	}
+}
