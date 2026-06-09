@@ -2609,3 +2609,111 @@ func TestDetectContainerFilter_NoLabels(t *testing.T) {
 		t.Errorf("Expected empty ContainerFilter when no labels, got %+v", result)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// filterContainers — AppGroup filter branch
+// ---------------------------------------------------------------------------
+
+// TestFilterContainers_AppGroup tests the AppGroup filter branch in
+// filterContainers. The ComposeProject branch is covered by existing
+// ListComposeContainers tests, but the AppGroup branch needs explicit coverage.
+func TestFilterContainers_AppGroup(t *testing.T) {
+	all := []DockerContainer{
+		{ID: "1", Name: "web", Labels: map[string]string{"app.group": "mygroup"}, State: "running"},
+		{ID: "2", Name: "db", Labels: map[string]string{"app.group": "othergroup"}, State: "running"},
+		{ID: "3", Name: "cache", Labels: map[string]string{"com.docker.compose.project": "myapp"}, State: "running"},
+	}
+
+	result := filterContainers(all, ContainerFilter{AppGroup: "mygroup"})
+	if len(result) != 1 {
+		t.Fatalf("expected 1 container matching app.group=mygroup, got %d", len(result))
+	}
+	if result[0].ID != "1" {
+		t.Errorf("expected container ID 1, got %s", result[0].ID)
+	}
+}
+
+// TestFilterContainers_EmptyFilter_ReturnsNone tests that an empty filter
+// returns no containers (by design — avoids accidentally including every
+// container on the host).
+func TestFilterContainers_EmptyFilter_ReturnsNone(t *testing.T) {
+	all := []DockerContainer{
+		{ID: "1", Name: "web", Labels: map[string]string{"app.group": "mygroup"}, State: "running"},
+		{ID: "2", Name: "db", Labels: map[string]string{"com.docker.compose.project": "myapp"}, State: "running"},
+	}
+
+	result := filterContainers(all, ContainerFilter{})
+	if len(result) != 0 {
+		t.Errorf("expected 0 containers with empty filter, got %d", len(result))
+	}
+}
+
+// TestFilterContainers_ComposeProjectNoMatch tests that containers without
+// a matching com.docker.compose.project label are excluded.
+func TestFilterContainers_ComposeProjectNoMatch(t *testing.T) {
+	all := []DockerContainer{
+		{ID: "1", Name: "web", Labels: map[string]string{"com.docker.compose.project": "otherapp"}, State: "running"},
+		{ID: "2", Name: "db", Labels: map[string]string{"com.docker.compose.project": "myapp"}, State: "running"},
+	}
+
+	result := filterContainers(all, ContainerFilter{ComposeProject: "myapp"})
+	if len(result) != 1 {
+		t.Fatalf("expected 1 container matching project=myapp, got %d", len(result))
+	}
+	if result[0].ID != "2" {
+		t.Errorf("expected container ID 2, got %s", result[0].ID)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ListComposeContainers — Docker API non-200 status
+// TestListComposeContainers_AppGroupFilter tests that the AppGroup filter
+// correctly reaches the Docker API and filters by the app.group label.
+func TestListComposeContainers_AppGroupFilter(t *testing.T) {
+	resetDockerState()
+
+	containers := []DockerContainer{
+		{ID: "abc1", Name: "web", Labels: map[string]string{"app.group": "myapp"}, State: "running"},
+		{ID: "def2", Name: "db", Labels: map[string]string{"app.group": "other"}, State: "running"},
+	}
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/info" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		if r.URL.Path == "/containers/json" && r.URL.Query().Get("all") == "true" {
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(containers)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer ts.Close()
+
+	customTransport := &localhostRedirectTransport{
+		targetURL: ts.URL,
+		backend:   http.DefaultTransport,
+	}
+
+	sharedDockerOnce.Do(func() {})
+	sharedDockerCli = &http.Client{
+		Transport: customTransport,
+		Timeout:   5 * time.Second,
+	}
+
+	if !IsDockerAvailable() {
+		t.Skip("Docker not available in test setup")
+	}
+
+	result, err := ListComposeContainers(ContainerFilter{AppGroup: "myapp"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result) != 1 {
+		t.Fatalf("expected 1 container matching app.group=myapp, got %d", len(result))
+	}
+	if result[0].ID != "abc1" {
+		t.Errorf("expected container abc1, got %s", result[0].ID)
+	}
+}

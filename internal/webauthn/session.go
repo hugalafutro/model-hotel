@@ -41,7 +41,13 @@ func (m *SessionManager) Validate(ctx context.Context, token string) bool {
 	hash := sha256.Sum256([]byte(token))
 	tokenHash := hex.EncodeToString(hash[:])
 
-	session, err := m.repo.GetSessionByTokenHash(ctx, tokenHash)
+	var session *SessionRecord
+	var err error
+	if getSessionByTokenHashFn != nil {
+		session, err = getSessionByTokenHashFn(ctx, tokenHash)
+	} else {
+		session, err = m.repo.GetSessionByTokenHash(ctx, tokenHash)
+	}
 	if err != nil {
 		return false
 	}
@@ -73,7 +79,7 @@ func (m *SessionManager) Validate(ctx context.Context, token string) bool {
 func (m *SessionManager) CreateAuthToken(ctx context.Context, userID, credentialID []byte) (string, error) {
 	// Generate a high-entropy random token (32 bytes = 256 bits).
 	tokenBytes := make([]byte, 32)
-	if _, err := io.ReadFull(rand.Reader, tokenBytes); err != nil {
+	if _, err := ioReadFull(randReader, tokenBytes); err != nil {
 		return "", err
 	}
 	token := hex.EncodeToString(tokenBytes)
@@ -82,7 +88,7 @@ func (m *SessionManager) CreateAuthToken(ctx context.Context, userID, credential
 	hash := sha256.Sum256([]byte(token))
 	tokenHash := hex.EncodeToString(hash[:])
 
-	id, err := uuid.NewRandom()
+	id, err := uuidNewRandom()
 	if err != nil {
 		return "", err
 	}
@@ -125,13 +131,25 @@ func (m *SessionManager) RevokeAuthToken(ctx context.Context, token string) bool
 	hash := sha256.Sum256([]byte(token))
 	tokenHash := hex.EncodeToString(hash[:])
 
-	session, err := m.repo.GetSessionByTokenHash(ctx, tokenHash)
+	var session *SessionRecord
+	var err error
+	if getSessionByTokenHashFn != nil {
+		session, err = getSessionByTokenHashFn(ctx, tokenHash)
+	} else {
+		session, err = m.repo.GetSessionByTokenHash(ctx, tokenHash)
+	}
 	if err != nil {
 		return false
 	}
 
-	if err := m.repo.DeleteSession(ctx, session.ID); err != nil {
-		debuglog.Error("webauthn: failed to revoke auth token", "error", err)
+	var delErr error
+	if deleteSessionFn != nil {
+		delErr = deleteSessionFn(ctx, session.ID)
+	} else {
+		delErr = m.repo.DeleteSession(ctx, session.ID)
+	}
+	if delErr != nil {
+		debuglog.Error("webauthn: failed to revoke auth token", "error", delErr)
 		return false
 	}
 
@@ -141,8 +159,29 @@ func (m *SessionManager) RevokeAuthToken(ctx context.Context, token string) bool
 // generateChallenge returns a hex-encoded random challenge of the given byte length.
 func generateChallenge(length int) (string, error) {
 	buf := make([]byte, length)
-	if _, err := io.ReadFull(rand.Reader, buf); err != nil {
+	if _, err := ioReadFull(randReader, buf); err != nil {
 		return "", err
 	}
 	return hex.EncodeToString(buf), nil
 }
+
+// The following variables allow tests to override internal dependencies for
+// error-path coverage of functions that are otherwise impossible to fail
+// (e.g., crypto/rand.Reader, uuid.NewRandom) or impossible to trigger via real
+// DB queries (e.g., GetSessionByTokenHash returning a session with nil TokenHash).
+
+var (
+	ioReadFull    = io.ReadFull
+	randReader    = rand.Reader
+	uuidNewRandom = uuid.NewRandom
+
+	// getSessionByTokenHashFn allows tests to override the repo lookup in
+	// Validate and RevokeAuthToken. When nil (the default), the real
+	// repo.GetSessionByTokenHash is used.
+	getSessionByTokenHashFn func(ctx context.Context, tokenHash string) (*SessionRecord, error)
+
+	// deleteSessionFn allows tests to override the repo delete in
+	// RevokeAuthToken. When nil (the default), the real repo.DeleteSession
+	// is used.
+	deleteSessionFn func(ctx context.Context, id uuid.UUID) error
+)
