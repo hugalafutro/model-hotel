@@ -748,7 +748,7 @@ function LanguageSelector() {
 	// Scroll the active language into view when dropdown opens
 	useEffect(() => {
 		if (open && scrollRef.current) {
-			const active = scrollRef.current.querySelector("[aria-checked]");
+			const active = scrollRef.current.querySelector("[aria-selected='true']");
 			active?.scrollIntoView({ block: "nearest" });
 		}
 	}, [open]);
@@ -778,7 +778,7 @@ function LanguageSelector() {
 							key={lang.code}
 							type="button"
 							role="option"
-							aria-checked={
+							aria-selected={
 								(i18n.resolvedLanguage ?? i18n.language) === lang.code
 							}
 							data-testid={`language-option-${lang.code}`}
