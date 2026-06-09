@@ -248,3 +248,195 @@ func TestSilentLogger_NoisyEndpointsAtDebugLevel(t *testing.T) {
 		t.Errorf("normal endpoint: expected Info level, got %v", records[1].Level)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// silentLogger additional coverage tests
+// ---------------------------------------------------------------------------
+
+func TestSilentLogger_ServerErrorLogLevel(t *testing.T) {
+	var mu sync.Mutex
+	var records []slog.Record
+	origDefault := slog.Default()
+	defer slog.SetDefault(origDefault)
+
+	impl := &recordHandler{mu: &mu, records: &records}
+	slog.SetDefault(slog.New(impl))
+
+	handler := silentLogger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/providers", http.NoBody)
+	req.Host = "test"
+	handler.ServeHTTP(httptest.NewRecorder(), req)
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(records) != 1 {
+		t.Fatalf("expected 1 record, got %d", len(records))
+	}
+	if records[0].Level != slog.LevelError {
+		t.Errorf("500 response: expected Error level, got %v", records[0].Level)
+	}
+}
+
+func TestSilentLogger_ClientErrorLogLevel(t *testing.T) {
+	var mu sync.Mutex
+	var records []slog.Record
+	origDefault := slog.Default()
+	defer slog.SetDefault(origDefault)
+
+	impl := &recordHandler{mu: &mu, records: &records}
+	slog.SetDefault(slog.New(impl))
+
+	handler := silentLogger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/providers", http.NoBody)
+	req.Host = "test"
+	handler.ServeHTTP(httptest.NewRecorder(), req)
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(records) != 1 {
+		t.Fatalf("expected 1 record, got %d", len(records))
+	}
+	if records[0].Level != slog.LevelWarn {
+		t.Errorf("404 response: expected Warn level, got %v", records[0].Level)
+	}
+}
+
+func TestSilentLogger_StaticAssetsSuppressed(t *testing.T) {
+	var mu sync.Mutex
+	var records []slog.Record
+	origDefault := slog.Default()
+	defer slog.SetDefault(origDefault)
+
+	impl := &recordHandler{mu: &mu, records: &records}
+	slog.SetDefault(slog.New(impl))
+
+	handler := silentLogger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/assets/main.js", http.NoBody)
+	req.Host = "test"
+	handler.ServeHTTP(httptest.NewRecorder(), req)
+
+	req2 := httptest.NewRequest(http.MethodGet, "/favicon.ico", http.NoBody)
+	req2.Host = "test"
+	handler.ServeHTTP(httptest.NewRecorder(), req2)
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(records) != 0 {
+		t.Errorf("expected 0 records for static assets with 200 status, got %d", len(records))
+	}
+}
+
+func TestSilentLogger_StaticAssetWithErrorCodeNotSuppressed(t *testing.T) {
+	var mu sync.Mutex
+	var records []slog.Record
+	origDefault := slog.Default()
+	defer slog.SetDefault(origDefault)
+
+	impl := &recordHandler{mu: &mu, records: &records}
+	slog.SetDefault(slog.New(impl))
+
+	handler := silentLogger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/assets/missing.js", http.NoBody)
+	req.Host = "test"
+	handler.ServeHTTP(httptest.NewRecorder(), req)
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(records) != 1 {
+		t.Fatalf("expected 1 record for static asset with 404 status, got %d", len(records))
+	}
+	// 404 on static assets should log at Warn level (status >= 400)
+	if records[0].Level != slog.LevelWarn {
+		t.Errorf("static asset 404: expected Warn level, got %v", records[0].Level)
+	}
+}
+
+func TestSilentLogger_NoisyEndpoints(t *testing.T) {
+	tests := []struct {
+		name   string
+		path   string
+		method string
+	}{
+		{"health endpoint", "/health", "GET"},
+		{"app logs endpoint", "/api/logs/app/cursor", "GET"},
+		{"api logs GET", "/api/logs", "GET"},
+		{"api system GET", "/api/system", "GET"},
+		{"api events GET", "/api/events", "GET"},
+		{"api stats GET", "/api/stats", "GET"},
+		{"api stats timeseries GET", "/api/stats/timeseries", "GET"},
+		{"api stats provider-distribution GET", "/api/stats/provider-distribution", "GET"},
+		{"api models GET", "/api/models", "GET"},
+		{"api providers GET", "/api/providers", "GET"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var mu sync.Mutex
+			var records []slog.Record
+			origDefault := slog.Default()
+			defer slog.SetDefault(origDefault)
+
+			impl := &recordHandler{mu: &mu, records: &records}
+			slog.SetDefault(slog.New(impl))
+
+			handler := silentLogger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			}))
+
+			req := httptest.NewRequest(tc.method, tc.path, http.NoBody)
+			req.Host = "test"
+			handler.ServeHTTP(httptest.NewRecorder(), req)
+
+			mu.Lock()
+			defer mu.Unlock()
+			if len(records) != 1 {
+				t.Fatalf("expected 1 record, got %d", len(records))
+			}
+			if records[0].Level != slog.LevelDebug {
+				t.Errorf("noisy endpoint %s: expected Debug level, got %v", tc.path, records[0].Level)
+			}
+		})
+	}
+}
+
+func TestSilentLogger_LogsNonGETNoisyEndpointAtInfo(t *testing.T) {
+	// Non-GET requests to noisy paths should still be logged at Info (not Debug)
+	// because the isNoisy check requires specific method + path combinations
+	var mu sync.Mutex
+	var records []slog.Record
+	origDefault := slog.Default()
+	defer slog.SetDefault(origDefault)
+
+	impl := &recordHandler{mu: &mu, records: &records}
+	slog.SetDefault(slog.New(impl))
+
+	handler := silentLogger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	// POST /api/models is NOT in the noisy list (only GET is)
+	req := httptest.NewRequest(http.MethodPost, "/api/models", http.NoBody)
+	req.Host = "test"
+	handler.ServeHTTP(httptest.NewRecorder(), req)
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(records) != 1 {
+		t.Fatalf("expected 1 record, got %d", len(records))
+	}
+	if records[0].Level != slog.LevelInfo {
+		t.Errorf("POST /api/models: expected Info level (not noisy for POST), got %v", records[0].Level)
+	}
+}

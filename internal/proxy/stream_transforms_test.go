@@ -458,4 +458,54 @@ func TestComputeFinishReason(t *testing.T) {
 			t.Errorf("lastFinishReason = %q, want custom_reason", lastFR)
 		}
 	})
+
+	t.Run("rewrite with missing choices key in payload returns none", func(t *testing.T) {
+		// When the chunk has a normalizable finish_reason but the raw payload
+		// has no "choices" key (malformed), the rewrite should fall back to finishNone.
+		lastFR := ""
+		c := parseStreamChunk(t, `{"id":"x","choices":[{"index":0,"delta":{},"finish_reason":"STOP"}]}`)
+		d, out := computeFinishReason(c, `{"id":"x","object":"chat.completion.chunk"}`, &lastFR)
+		if d != finishNone {
+			t.Errorf("decision = %v, want finishNone (no choices in payload)", d)
+		}
+		if out != nil {
+			t.Errorf("expected nil output, got %q", out)
+		}
+	})
+
+	t.Run("rewrite with empty choices array in payload returns none", func(t *testing.T) {
+		lastFR := ""
+		c := parseStreamChunk(t, `{"id":"x","choices":[{"index":0,"delta":{},"finish_reason":"STOP"}]}`)
+		d, out := computeFinishReason(c, `{"id":"x","choices":[]}`, &lastFR)
+		if d != finishNone {
+			t.Errorf("decision = %v, want finishNone (empty choices in payload)", d)
+		}
+		if out != nil {
+			t.Errorf("expected nil output, got %q", out)
+		}
+	})
+
+	t.Run("length normalized from Anthropic max_tokens", func(t *testing.T) {
+		lastFR := ""
+		payload := `{"id":"x","choices":[{"index":0,"delta":{},"finish_reason":"max_tokens"}]}`
+		c := parseStreamChunk(t, payload)
+		d, out := computeFinishReason(c, payload, &lastFR)
+		if d != finishRewrite {
+			t.Fatalf("decision = %v, want finishRewrite", d)
+		}
+		if lastFR != "length" {
+			t.Errorf("lastFinishReason = %q, want length", lastFR)
+		}
+		var raw struct {
+			Choices []struct {
+				FinishReason string `json:"finish_reason"`
+			} `json:"choices"`
+		}
+		if err := json.Unmarshal(out, &raw); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		if raw.Choices[0].FinishReason != "length" {
+			t.Errorf("finish_reason = %q, want length", raw.Choices[0].FinishReason)
+		}
+	})
 }

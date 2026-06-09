@@ -207,3 +207,265 @@ func TestDiscoverOpenRouter_InvalidResponse(t *testing.T) {
 		t.Error("Expected error for invalid JSON, got nil")
 	}
 }
+
+func TestDiscoverOpenRouter_SkipsAliasPrefix(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/models" || r.Method != "GET" {
+			http.NotFound(w, r)
+			return
+		}
+		response := OpenRouterModelsResponse{
+			Data: []OpenRouterModel{
+				{
+					ID:            "~anthropic/claude-latest",
+					Name:          "Claude Latest Alias",
+					ContextLength: 200000,
+					Architecture: OpenRouterArchitecture{
+						Modality:         "chat",
+						InputModalities:  []string{"text"},
+						OutputModalities: []string{"text"},
+					},
+					Pricing: OpenRouterPricing{
+						Prompt:     "0",
+						Completion: "0",
+					},
+				},
+				{
+					ID:            "anthropic/claude-3-opus",
+					Name:          "Claude 3 Opus",
+					ContextLength: 200000,
+					Architecture: OpenRouterArchitecture{
+						Modality:         "chat",
+						InputModalities:  []string{"text"},
+						OutputModalities: []string{"text"},
+					},
+					Pricing: OpenRouterPricing{
+						Prompt:     "0.015",
+						Completion: "0.075",
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL,
+	}
+
+	models, err := service.discoverOpenRouter(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverOpenRouter failed: %v", err)
+	}
+	// The ~alias model should be filtered out
+	if len(models) != 1 {
+		t.Fatalf("Expected 1 model (alias skipped), got %d", len(models))
+	}
+	if models[0].ModelID != "anthropic/claude-3-opus" {
+		t.Errorf("Expected ModelID 'anthropic/claude-3-opus', got '%s'", models[0].ModelID)
+	}
+}
+
+func TestDiscoverOpenRouter_CachePricing(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/models" || r.Method != "GET" {
+			http.NotFound(w, r)
+			return
+		}
+		response := OpenRouterModelsResponse{
+			Data: []OpenRouterModel{
+				{
+					ID:            "anthropic/claude-3-haiku",
+					Name:          "Claude 3 Haiku",
+					ContextLength: 200000,
+					Architecture: OpenRouterArchitecture{
+						Modality:         "chat",
+						InputModalities:  []string{"text"},
+						OutputModalities: []string{"text"},
+					},
+					Pricing: OpenRouterPricing{
+						Prompt:         "0.000001",
+						Completion:     "0.000004",
+						InputCacheRead: "0.0000001",
+					},
+					TopProvider: OpenRouterTopProvider{
+						MaxCompletionTokens: 4096,
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL,
+	}
+
+	models, err := service.discoverOpenRouter(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverOpenRouter failed: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("Expected 1 model, got %d", len(models))
+	}
+	// Verify cache pricing was parsed
+	if models[0].InputPricePerMillionCacheHit == nil {
+		t.Error("Expected InputPricePerMillionCacheHit to be set")
+	} else {
+		cacheVal := *models[0].InputPricePerMillionCacheHit
+		if cacheVal < 0.09 || cacheVal > 0.11 {
+			t.Errorf("Expected cache price ~0.1, got %f", cacheVal)
+		}
+	}
+}
+
+func TestDiscoverOpenRouter_EmptyResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := OpenRouterModelsResponse{
+			Data: []OpenRouterModel{},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL,
+	}
+
+	models, err := service.discoverOpenRouter(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverOpenRouter failed: %v", err)
+	}
+	if len(models) != 0 {
+		t.Errorf("Expected 0 models for empty response, got %d", len(models))
+	}
+}
+
+func TestDiscoverOpenRouter_NonChatModelsSkipped(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := OpenRouterModelsResponse{
+			Data: []OpenRouterModel{
+				{
+					ID:            "image-only-model",
+					Name:          "Image Gen Only",
+					ContextLength: 0,
+					Architecture: OpenRouterArchitecture{
+						Modality:         "image",
+						InputModalities:  []string{"text"},
+						OutputModalities: []string{"image"},
+					},
+					Pricing: OpenRouterPricing{},
+				},
+				{
+					ID:            "text-model",
+					Name:          "Text Model",
+					ContextLength: 8192,
+					Architecture: OpenRouterArchitecture{
+						Modality:         "chat",
+						InputModalities:  []string{"text"},
+						OutputModalities: []string{"text"},
+					},
+					Pricing: OpenRouterPricing{
+						Prompt:     "0.001",
+						Completion: "0.002",
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL,
+	}
+
+	models, err := service.discoverOpenRouter(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverOpenRouter failed: %v", err)
+	}
+	// Only the text model should be included
+	if len(models) != 1 {
+		t.Fatalf("Expected 1 model (image-only skipped), got %d", len(models))
+	}
+	if models[0].ModelID != "text-model" {
+		t.Errorf("Expected ModelID 'text-model', got '%s'", models[0].ModelID)
+	}
+}
+
+func TestDiscoverOpenRouter_ContextLengthFallback(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := OpenRouterModelsResponse{
+			Data: []OpenRouterModel{
+				{
+					ID:            "test/model",
+					Name:          "Test Model",
+					ContextLength: 0, // Zero on model, should fall back to TopProvider
+					Architecture: OpenRouterArchitecture{
+						Modality:         "chat",
+						InputModalities:  []string{"text"},
+						OutputModalities: []string{"text"},
+					},
+					Pricing: OpenRouterPricing{
+						Prompt:     "0.001",
+						Completion: "0.002",
+					},
+					TopProvider: OpenRouterTopProvider{
+						ContextLength:       32768,
+						MaxCompletionTokens: 4096,
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL,
+	}
+
+	models, err := service.discoverOpenRouter(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverOpenRouter failed: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("Expected 1 model, got %d", len(models))
+	}
+	// ContextLength should fall back to TopProvider.ContextLength
+	if models[0].ContextLength == nil || *models[0].ContextLength != 32768 {
+		t.Errorf("Expected ContextLength 32768 from TopProvider fallback, got %v", models[0].ContextLength)
+	}
+}

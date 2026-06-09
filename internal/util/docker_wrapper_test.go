@@ -2419,6 +2419,137 @@ func TestDetectContainerFilter_AppGroupLabel(t *testing.T) {
 	}
 }
 
+// TestIsDockerAvailable_Non200Status tests that Docker is reported as
+// unavailable when the /info endpoint returns a non-200 status code.
+func TestIsDockerAvailable_Non200Status(t *testing.T) {
+	resetDockerState()
+
+	dir := t.TempDir()
+	socketFile := filepath.Join(dir, "docker.sock")
+	if err := os.WriteFile(socketFile, []byte{}, 0o644); err != nil {
+		t.Fatalf("Failed to write socket file: %v", err)
+	}
+
+	origSocket := dockerSocketPath
+	dockerSocketPath = socketFile
+	defer func() { dockerSocketPath = origSocket }()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/info" {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer ts.Close()
+
+	customTransport := &localhostRedirectTransport{
+		targetURL: ts.URL,
+		backend:   http.DefaultTransport,
+	}
+
+	sharedDockerOnce.Do(func() {})
+	sharedDockerCli = &http.Client{
+		Transport: customTransport,
+		Timeout:   5 * time.Second,
+	}
+
+	if IsDockerAvailable() {
+		t.Error("Expected Docker to be unavailable when /info returns 503")
+	}
+}
+
+// TestListComposeContainers_Non200Status tests that ListComposeContainers
+// returns an error when the Docker API returns a non-200 status.
+func TestListComposeContainers_Non200Status(t *testing.T) {
+	resetDockerState()
+
+	dir := t.TempDir()
+	socketFile := filepath.Join(dir, "docker.sock")
+	if err := os.WriteFile(socketFile, []byte{}, 0o644); err != nil {
+		t.Fatalf("Failed to write socket file: %v", err)
+	}
+
+	origSocket := dockerSocketPath
+	dockerSocketPath = socketFile
+	defer func() { dockerSocketPath = origSocket }()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/info":
+			w.WriteHeader(http.StatusOK)
+		case "/containers/json":
+			w.WriteHeader(http.StatusInternalServerError)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	customTransport := &localhostRedirectTransport{
+		targetURL: ts.URL,
+		backend:   http.DefaultTransport,
+	}
+
+	sharedDockerOnce.Do(func() {})
+	sharedDockerCli = &http.Client{
+		Transport: customTransport,
+		Timeout:   5 * time.Second,
+	}
+
+	if !IsDockerAvailable() {
+		t.Skip("Docker not available in test setup")
+	}
+
+	_, err := ListComposeContainers(ContainerFilter{ComposeProject: "myapp"})
+	if err == nil {
+		t.Error("Expected error when Docker API returns 500")
+	}
+}
+
+// TestFilterContainers_AppGroupOnly tests filtering by AppGroup when
+// ComposeProject is empty.
+func TestFilterContainers_AppGroupOnly(t *testing.T) {
+	containers := []DockerContainer{
+		{ID: "1", Name: "app", Labels: map[string]string{"com.docker.compose.project": "myapp", "app.group": "hotel"}, State: "running"},
+		{ID: "2", Name: "db", Labels: map[string]string{"app.group": "hotel"}, State: "running"},
+		{ID: "3", Name: "other", Labels: map[string]string{"com.docker.compose.project": "otherapp"}, State: "running"},
+		{ID: "4", Name: "standalone", Labels: map[string]string{}, State: "running"},
+	}
+
+	result := filterContainers(containers, ContainerFilter{AppGroup: "hotel"})
+	if len(result) != 2 {
+		t.Errorf("Expected 2 containers with AppGroup=hotel, got %d", len(result))
+	}
+}
+
+// TestIsDockerAvailable_HTTPClientError tests that IsDockerAvailable returns
+// false when the HTTP client fails to connect (e.g. connection refused).
+func TestIsDockerAvailable_HTTPClientError(t *testing.T) {
+	resetDockerState()
+
+	dir := t.TempDir()
+	socketFile := filepath.Join(dir, "docker.sock")
+	if err := os.WriteFile(socketFile, []byte{}, 0o644); err != nil {
+		t.Fatalf("Failed to write socket file: %v", err)
+	}
+
+	origSocket := dockerSocketPath
+	dockerSocketPath = socketFile
+	defer func() { dockerSocketPath = origSocket }()
+
+	// Use a client that always fails
+	sharedDockerOnce.Do(func() {})
+	sharedDockerCli = &http.Client{
+		Transport: errorRoundTripper{},
+		Timeout:   5 * time.Second,
+	}
+
+	if IsDockerAvailable() {
+		t.Error("Expected Docker to be unavailable when HTTP client errors")
+	}
+}
+
 // TestDetectContainerFilter_NoLabels tests when container has no relevant labels.
 func TestDetectContainerFilter_NoLabels(t *testing.T) {
 	resetDockerState()

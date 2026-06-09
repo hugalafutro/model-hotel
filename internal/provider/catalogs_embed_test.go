@@ -62,3 +62,84 @@ func TestLoadCatalog_InvalidPath(t *testing.T) {
 // Note: Invalid JSON panic paths cannot be tested because embed.FS
 // contents are fixed at compile time. The panic-on-read-error path
 // is covered by TestLoadCatalog_InvalidPath above.
+
+func TestLoadCatalog_DeepSeekCatalog(t *testing.T) {
+	catalog := loadCatalog[[]DeepSeekModelSpec]("deepseek.json")
+	if len(catalog) == 0 {
+		t.Error("deepseek.json should contain at least one entry")
+	}
+
+	first := catalog[0]
+	if first.ModelID == "" {
+		t.Error("first entry should have a non-empty ModelID")
+	}
+	if first.ContextLength <= 0 {
+		t.Errorf("first entry (%s): ContextLength = %d, want > 0", first.ModelID, first.ContextLength)
+	}
+}
+
+func TestLoadCatalog_XAICatalog(t *testing.T) {
+	catalog := loadCatalog[[]OpenCodeModelSpec]("xai.json")
+	if len(catalog) == 0 {
+		t.Error("xai.json should contain at least one entry")
+	}
+
+	first := catalog[0]
+	if first.ModelID == "" {
+		t.Error("first entry should have a non-empty ModelID")
+	}
+	if first.ContextLength <= 0 {
+		t.Errorf("first entry (%s): ContextLength = %d, want > 0", first.ModelID, first.ContextLength)
+	}
+}
+
+func TestLoadCatalog_ZAICatalog(t *testing.T) {
+	catalog := loadCatalog[[]ZAICodingModelSpec]("zai.json")
+	if len(catalog) == 0 {
+		t.Error("zai.json should contain at least one entry")
+	}
+
+	first := catalog[0]
+	if first.ModelID == "" {
+		t.Error("first entry should have a non-empty ModelID")
+	}
+	if first.ContextLength <= 0 {
+		t.Errorf("first entry (%s): ContextLength = %d, want > 0", first.ModelID, first.ContextLength)
+	}
+}
+
+func TestLoadCatalog_GooglePricingCatalog(t *testing.T) {
+	catalog := loadCatalog[[]GoogleModelPricing]("google.json")
+	if len(catalog) == 0 {
+		t.Error("google.json should contain at least one pricing entry")
+	}
+
+	first := catalog[0]
+	if first.ModelID == "" {
+		t.Error("first entry should have a non-empty ModelID")
+	}
+}
+
+func TestLoadCatalog_AnthropicPricingCatalog(t *testing.T) {
+	catalog := loadCatalog[[]AnthropicPricingSpec]("anthropic.json")
+	if len(catalog) == 0 {
+		t.Error("anthropic.json should contain at least one pricing entry")
+	}
+
+	first := catalog[0]
+	if first.ModelID == "" {
+		t.Error("first entry should have a non-empty ModelID")
+	}
+}
+
+func TestLoadCatalog_CoherePricingCatalog(t *testing.T) {
+	catalog := loadCatalog[[]CoherePricingEntry]("cohere.json")
+	if len(catalog) == 0 {
+		t.Error("cohere.json should contain at least one pricing entry")
+	}
+
+	first := catalog[0]
+	if first.ModelID == "" {
+		t.Error("first entry should have a non-empty ModelID")
+	}
+}

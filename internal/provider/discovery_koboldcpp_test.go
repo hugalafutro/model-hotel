@@ -465,3 +465,74 @@ func TestDiscoverKoboldCPP_PerfFailsGracefully(t *testing.T) {
 		t.Error("expected ContextLength to be nil when perf endpoint fails")
 	}
 }
+
+func TestKoboldCPPPerf_ZeroMaxContextLength(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"last_process":0,"last_gen":0,"queue":0,"maxcontextlen":0,"model_loaded":true}`))
+	}))
+	defer srv.Close()
+
+	svc := &DiscoveryService{httpClient: srv.Client()}
+	perf, err := svc.koboldcppPerf(context.Background(), srv.URL)
+	if err != nil {
+		t.Fatalf("koboldcppPerf failed: %v", err)
+	}
+	if perf.MaxContextLength != 0 {
+		t.Errorf("expected MaxContextLength 0, got %d", perf.MaxContextLength)
+	}
+	if !perf.ModelLoaded {
+		t.Error("expected ModelLoaded to be true")
+	}
+}
+
+func TestKoboldCPPVersion_RequestCreationError(t *testing.T) {
+	svc := &DiscoveryService{httpClient: http.DefaultClient}
+	// Use an invalid URL that will cause request creation to fail
+	_, err := svc.koboldcppVersion(context.Background(), "http://invalid host with spaces")
+	if err == nil {
+		t.Fatal("expected error for invalid URL")
+	}
+}
+
+func TestKoboldCPPPerf_RequestCreationError(t *testing.T) {
+	svc := &DiscoveryService{httpClient: http.DefaultClient}
+	_, err := svc.koboldcppPerf(context.Background(), "http://invalid host with spaces")
+	if err == nil {
+		t.Fatal("expected error for invalid URL")
+	}
+}
+
+func TestDiscoverKoboldCPP_PerfNoContextLength(t *testing.T) {
+	// When perf succeeds but MaxContextLength=0, ContextLength should be nil
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/extra/version":
+			_, _ = w.Write([]byte(`{"result":"KoboldCpp","version":"1.0.0"}`))
+		case "/models":
+			_, _ = w.Write([]byte(`{"object":"list","data":[{"id":"test","object":"model","created":0,"owned_by":""}]}`))
+		case "/api/extra/perf":
+			_, _ = w.Write([]byte(`{"last_process":0,"last_gen":0,"queue":0,"maxcontextlen":0,"model_loaded":false}`))
+		}
+	}))
+	defer srv.Close()
+
+	svc := &DiscoveryService{httpClient: srv.Client()}
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: srv.URL,
+	}
+
+	models, err := svc.discoverKoboldCPP(context.Background(), provider, "")
+	if err != nil {
+		t.Fatalf("discoverKoboldCPP failed: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("expected 1 model, got %d", len(models))
+	}
+	// MaxContextLength=0 means no context length was determined
+	if models[0].ContextLength != nil {
+		t.Error("expected ContextLength to be nil when perf.MaxContextLength=0")
+	}
+}

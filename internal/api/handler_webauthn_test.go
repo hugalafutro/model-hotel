@@ -2,7 +2,9 @@ package api
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fxamacker/cbor/v2"
 	"github.com/go-chi/chi/v5"
 	webauthnx "github.com/go-webauthn/webauthn/webauthn"
 	"github.com/google/uuid"
@@ -1770,5 +1773,704 @@ func TestWebAuthnHandler_LoginStart_CancelledContext(t *testing.T) {
 
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
+	}
+}
+
+// --- failingResponseWriter tests writeJSON error paths ---
+
+// TestWebAuthnHandler_RegisterStart_WriteJSONError tests that RegisterStart
+// handles writeJSON failures gracefully (the response is written with headers
+// set but the body write fails). The handler must not panic.
+func TestWebAuthnHandler_RegisterStart_WriteJSONError(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	t.Cleanup(pool.Close)
+
+	repo := webauthn.NewRepository(pool)
+	rp, err := webauthn.NewRelyingParty("localhost", "Model Hotel Test", []string{"http://localhost"})
+	if err != nil {
+		t.Fatalf("failed to create relying party: %v", err)
+	}
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := newTestWebAuthnHandler(repo, rp, nil, adminMgr)
+
+	req := httptest.NewRequest(http.MethodPost, "/webauthn/register/start", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-token")
+	// Use the existing failingResponseWriter from handler_test.go
+	fw := &failingResponseWriter{}
+
+	h.RegisterStart(fw, req)
+
+	// The key assertion: the handler did not panic. writeJSON logged the error
+	// internally, and the response body is empty (Write failed).
+}
+
+// TestWebAuthnHandler_LoginStart_WriteJSONError tests that LoginStart
+// handles writeJSON failures gracefully.
+func TestWebAuthnHandler_LoginStart_WriteJSONError(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	t.Cleanup(pool.Close)
+
+	repo := webauthn.NewRepository(pool)
+	rp, err := webauthn.NewRelyingParty("localhost", "Model Hotel Test", []string{"http://localhost"})
+	if err != nil {
+		t.Fatalf("failed to create relying party: %v", err)
+	}
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := newTestWebAuthnHandler(repo, rp, nil, adminMgr)
+
+	req := httptest.NewRequest(http.MethodPost, "/webauthn/login/start", http.NoBody)
+	fw := &failingResponseWriter{}
+
+	h.LoginStart(fw, req)
+
+	// The key assertion: the handler did not panic.
+}
+
+// --- RegisterFinish / LoginFinish empty body tests ---
+
+// TestWebAuthnHandler_RegisterFinish_EmptyBody tests that an empty request body
+// returns 400 (json.NewDecoder fails on empty input).
+func TestWebAuthnHandler_RegisterFinish_EmptyBody(t *testing.T) {
+	h := newTestWebAuthnHandler(nil, nil, nil, nil)
+
+	req := httptest.NewRequest(http.MethodPost, "/webauthn/register/finish", strings.NewReader(""))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.RegisterFinish(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+}
+
+// TestWebAuthnHandler_LoginFinish_EmptyBody tests that an empty request body
+// returns 400 (json.NewDecoder fails on empty input).
+func TestWebAuthnHandler_LoginFinish_EmptyBody(t *testing.T) {
+	h := newTestWebAuthnHandler(nil, nil, nil, nil)
+
+	req := httptest.NewRequest(http.MethodPost, "/webauthn/login/finish", strings.NewReader(""))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.LoginFinish(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+}
+
+// --- RegisterFinish deep error path tests ---
+
+// TestWebAuthnHandler_RegisterFinish_WithSyntacticallyValidCredential tests the path
+// through RegisterFinish where ParseCredentialCreationResponseBody succeeds (valid
+// JSON structure) but CreateCredential fails (cryptographically invalid data).
+// This covers the ListCredentials + CreateCredential error paths that are unreachable
+// with empty/malformed credential bodies.
+func TestWebAuthnHandler_RegisterFinish_WithSyntacticallyValidCredential(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	t.Cleanup(pool.Close)
+
+	ctx := context.Background()
+	repo := webauthn.NewRepository(pool)
+	rp, err := webauthn.NewRelyingParty("localhost", "Model Hotel Test", []string{"http://localhost"})
+	if err != nil {
+		t.Fatalf("failed to create relying party: %v", err)
+	}
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := newTestWebAuthnHandler(repo, rp, nil, adminMgr)
+
+	// Step 1: Call RegisterStart to create a valid session with real SessionData
+	req, w := newChiRequest(http.MethodPost, "/webauthn/register/start", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-token")
+	h.RegisterStart(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("RegisterStart failed: %d %s", w.Code, w.Body.String())
+	}
+
+	var startResp map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&startResp); err != nil {
+		t.Fatalf("failed to decode RegisterStart response: %v", err)
+	}
+	sessionID, _ := startResp["session_id"].(string)
+	if sessionID == "" {
+		t.Fatal("expected non-empty session_id from RegisterStart")
+	}
+	defer repo.DeleteSession(ctx, uuid.MustParse(sessionID))
+
+	// Step 2: Build a syntactically valid but cryptographically invalid credential.
+	// ParseCredentialCreationResponseBody requires: id, rawId, type="public-key",
+	// response.attestationObject (CBOR-encoded), response.clientDataJSON (JSON, base64url).
+	// We construct a minimal valid CBOR attestation object with proper authData
+	// structure so that ParseCredentialCreationResponseBody succeeds, then
+	// CreateCredential fails (challenge mismatch).
+	fakeCred := buildFakeRegistrationCredential(t, "dGVzdA")
+
+	// Step 3: Call RegisterFinish with the valid session + fake credential
+	finishBody := map[string]interface{}{
+		"session_id": sessionID,
+		"credential": json.RawMessage(fakeCred),
+	}
+	finishBytes, _ := json.Marshal(finishBody)
+
+	req2 := httptest.NewRequest(http.MethodPost, "/webauthn/register/finish", strings.NewReader(string(finishBytes)))
+	req2.Header.Set("Content-Type", "application/json")
+	w2 := httptest.NewRecorder()
+
+	h.RegisterFinish(w2, req2)
+
+	// CreateCredential fails because the challenge in clientDataJSON doesn't
+	// match the session's challenge. Returns 400 "credential verification failed".
+	if w2.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w2.Code, w2.Body.String())
+	}
+}
+
+// buildFakeRegistrationCredential constructs a JSON-encoded credential response
+// that passes ParseCredentialCreationResponseBody (valid CBOR attestation object)
+// but fails at CreateCredential (challenge mismatch).
+func buildFakeRegistrationCredential(t *testing.T, credentialIDB64 string) json.RawMessage {
+	t.Helper()
+
+	// Build clientDataJSON as proper JSON
+	clientData := map[string]interface{}{
+		"type":        "webauthn.create",
+		"challenge":   "",
+		"origin":      "http://localhost",
+		"crossOrigin": false,
+	}
+	clientDataJSON, err := json.Marshal(clientData)
+	if err != nil {
+		t.Fatalf("failed to marshal clientDataJSON: %v", err)
+	}
+
+	// Build a minimal AuthenticatorData
+	rpIDHash := sha256.Sum256([]byte("localhost"))
+	flags := byte(0x41) // UP (0x01) | AT (0x40) = attested credential data present
+	var signCount uint32
+
+	// Attested credential data
+	aaguid := make([]byte, 16)
+	credID := []byte("test-credential")
+	credIDLen := make([]byte, 2)
+	binary.BigEndian.PutUint16(credIDLen, uint16(len(credID)))
+
+	// Minimal COSE key: EC2/P-256 with placeholder coordinates
+	coseKey := map[int]interface{}{
+		1:  2,                // kty: EC2
+		3:  -25,              // alg: ES256
+		-1: make([]byte, 32), // x: 32 zero bytes
+		-2: make([]byte, 32), // y: 32 zero bytes
+	}
+	coseKeyCBOR, err := cbor.Marshal(coseKey)
+	if err != nil {
+		t.Fatalf("failed to marshal COSE key: %v", err)
+	}
+
+	// Assemble authData
+	authData := make([]byte, 0)
+	authData = append(authData, rpIDHash[:]...)
+	authData = append(authData, flags)
+	signCountBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(signCountBytes, signCount)
+	authData = append(authData, signCountBytes...)
+	authData = append(authData, aaguid...)
+	authData = append(authData, credIDLen...)
+	authData = append(authData, credID...)
+	authData = append(authData, coseKeyCBOR...)
+
+	// Build attestation object as CBOR
+	attObj := map[string]interface{}{
+		"fmt":      "none",
+		"attStmt":  map[string]interface{}{},
+		"authData": authData,
+	}
+	attObjCBOR, err := cbor.Marshal(attObj)
+	if err != nil {
+		t.Fatalf("failed to marshal attestation object: %v", err)
+	}
+
+	// Build the credential response JSON
+	cred := map[string]interface{}{
+		"id":    credentialIDB64,
+		"rawId": credentialIDB64,
+		"type":  "public-key",
+		"response": map[string]interface{}{
+			"attestationObject": base64.RawURLEncoding.EncodeToString(attObjCBOR),
+			"clientDataJSON":    base64.RawURLEncoding.EncodeToString(clientDataJSON),
+			"transports":        []string{"internal"},
+		},
+	}
+	credJSON, err := json.Marshal(cred)
+	if err != nil {
+		t.Fatalf("failed to marshal credential: %v", err)
+	}
+	return credJSON
+}
+
+// buildFakeLoginCredential constructs a JSON-encoded credential assertion response
+// that passes ParseCredentialRequestResponseBody (valid structure)
+// but fails at ValidatePasskeyLogin (challenge mismatch / no matching credential).
+func buildFakeLoginCredential(t *testing.T, credentialIDB64 string) json.RawMessage {
+	t.Helper()
+
+	// Build clientDataJSON
+	clientData := map[string]interface{}{
+		"type":        "webauthn.get",
+		"challenge":   "",
+		"origin":      "http://localhost",
+		"crossOrigin": false,
+	}
+	clientDataJSON, err := json.Marshal(clientData)
+	if err != nil {
+		t.Fatalf("failed to marshal clientDataJSON: %v", err)
+	}
+
+	// Build minimal authenticatorData (no attested credential data for assertion)
+	rpIDHash := sha256.Sum256([]byte("localhost"))
+	flags := byte(0x01) // UP only
+	var signCount uint32
+
+	authData := make([]byte, 0)
+	authData = append(authData, rpIDHash[:]...)
+	authData = append(authData, flags)
+	signCountBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(signCountBytes, signCount)
+	authData = append(authData, signCountBytes...)
+
+	// Build the credential assertion response JSON
+	cred := map[string]interface{}{
+		"id":    credentialIDB64,
+		"rawId": credentialIDB64,
+		"type":  "public-key",
+		"response": map[string]interface{}{
+			"authenticatorData": base64.RawURLEncoding.EncodeToString(authData),
+			"clientDataJSON":    base64.RawURLEncoding.EncodeToString(clientDataJSON),
+			"signature":         base64.RawURLEncoding.EncodeToString(make([]byte, 64)),
+			"userHandle":        base64.RawURLEncoding.EncodeToString([]byte("admin")),
+		},
+	}
+	credJSON, err := json.Marshal(cred)
+	if err != nil {
+		t.Fatalf("failed to marshal credential: %v", err)
+	}
+	return credJSON
+}
+
+// --- LoginFinish deep error path tests ---
+
+// TestWebAuthnHandler_LoginFinish_WithSyntacticallyValidCredential tests the path
+// through LoginFinish where ParseCredentialRequestResponseBody succeeds but
+// ValidatePasskeyLogin fails (cryptographically invalid data).
+// This covers the userLookup + ValidatePasskeyLogin error paths.
+func TestWebAuthnHandler_LoginFinish_WithSyntacticallyValidCredential(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	t.Cleanup(pool.Close)
+
+	ctx := context.Background()
+	repo := webauthn.NewRepository(pool)
+	rp, err := webauthn.NewRelyingParty("localhost", "Model Hotel Test", []string{"http://localhost"})
+	if err != nil {
+		t.Fatalf("failed to create relying party: %v", err)
+	}
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := newTestWebAuthnHandler(repo, rp, nil, adminMgr)
+
+	// Step 1: Call LoginStart to create a valid session
+	req, w := newChiRequest(http.MethodPost, "/webauthn/login/start", http.NoBody)
+	h.LoginStart(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("LoginStart failed: %d %s", w.Code, w.Body.String())
+	}
+
+	var startResp map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&startResp); err != nil {
+		t.Fatalf("failed to decode LoginStart response: %v", err)
+	}
+	sessionID, _ := startResp["session_id"].(string)
+	if sessionID == "" {
+		t.Fatal("expected non-empty session_id from LoginStart")
+	}
+	defer repo.DeleteSession(ctx, uuid.MustParse(sessionID))
+
+	// Step 2: Build a syntactically valid but cryptographically invalid credential
+	// using the helper that constructs proper authenticatorData.
+	fakeCred := buildFakeLoginCredential(t, "dGVzdA")
+
+	// Step 3: Call LoginFinish with the valid session + fake credential
+	finishBody := map[string]interface{}{
+		"session_id": sessionID,
+		"credential": fakeCred,
+	}
+	finishBytes, _ := json.Marshal(finishBody)
+
+	req2 := httptest.NewRequest(http.MethodPost, "/webauthn/login/finish", strings.NewReader(string(finishBytes)))
+	req2.Header.Set("Content-Type", "application/json")
+	w2 := httptest.NewRecorder()
+
+	h.LoginFinish(w2, req2)
+
+	// ValidatePasskeyLogin should fail, returning 400
+	if w2.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w2.Code, w2.Body.String())
+	}
+}
+
+// --- RegisterFinish/LoginFinish with cancelled context ---
+
+// TestWebAuthnHandler_RegisterFinish_CancelledContext tests that RegisterFinish
+// returns an error when the request context is cancelled (GetSession fails).
+func TestWebAuthnHandler_RegisterFinish_CancelledContext(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	t.Cleanup(pool.Close)
+
+	repo := webauthn.NewRepository(pool)
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := newTestWebAuthnHandler(repo, nil, nil, adminMgr)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	fakeSessionID := uuid.New()
+	body := `{"session_id": "` + fakeSessionID.String() + `", "credential": {}}`
+	req := httptest.NewRequest(http.MethodPost, "/webauthn/register/finish", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(ctx)
+	w := httptest.NewRecorder()
+
+	h.RegisterFinish(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+}
+
+// TestWebAuthnHandler_LoginFinish_CancelledContext tests that LoginFinish returns
+// an error when the request context is cancelled (GetSession fails).
+func TestWebAuthnHandler_LoginFinish_CancelledContext(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	t.Cleanup(pool.Close)
+
+	repo := webauthn.NewRepository(pool)
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := newTestWebAuthnHandler(repo, nil, nil, adminMgr)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	fakeSessionID := uuid.New()
+	body := `{"session_id": "` + fakeSessionID.String() + `", "credential": {}}`
+	req := httptest.NewRequest(http.MethodPost, "/webauthn/login/finish", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(ctx)
+	w := httptest.NewRecorder()
+
+	h.LoginFinish(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+}
+
+// --- RegisterFinish / LoginFinish with closed pool ---
+
+// TestWebAuthnHandler_RegisterFinish_ClosedPool tests that RegisterFinish returns
+// an error when the database pool is closed (GetSession fails, mapped to 400).
+func TestWebAuthnHandler_RegisterFinish_ClosedPool(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	t.Cleanup(pool.Close)
+
+	ctx := context.Background()
+	workingRepo := webauthn.NewRepository(pool)
+	sessionID := uuid.New()
+	session := &webauthn.SessionRecord{
+		ID:          sessionID,
+		Challenge:   "test-challenge",
+		SessionData: []byte(`{"challenge":"test"}`),
+		Type:        "registration",
+		UserID:      []byte("admin"),
+		ExpiresAt:   time.Now().Add(5 * time.Minute),
+	}
+	if err := workingRepo.CreateSession(ctx, session); err != nil {
+		t.Fatalf("failed to create session: %v", err)
+	}
+	t.Cleanup(func() { workingRepo.DeleteSession(ctx, sessionID) })
+
+	closedPool := newClosedPool(t)
+	closedRepo := webauthn.NewRepository(closedPool)
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := newTestWebAuthnHandler(closedRepo, nil, nil, adminMgr)
+
+	body := `{"session_id": "` + sessionID.String() + `", "credential": {}}`
+	req := httptest.NewRequest(http.MethodPost, "/webauthn/register/finish", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.RegisterFinish(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+}
+
+// TestWebAuthnHandler_LoginFinish_ClosedPool tests that LoginFinish returns
+// an error when the database pool is closed (GetSession fails, mapped to 400).
+func TestWebAuthnHandler_LoginFinish_ClosedPool(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	t.Cleanup(pool.Close)
+
+	ctx := context.Background()
+	workingRepo := webauthn.NewRepository(pool)
+	sessionID := uuid.New()
+	session := &webauthn.SessionRecord{
+		ID:          sessionID,
+		Challenge:   "test-challenge",
+		SessionData: []byte(`{"challenge":"test"}`),
+		Type:        "login",
+		UserID:      []byte("admin"),
+		ExpiresAt:   time.Now().Add(5 * time.Minute),
+	}
+	if err := workingRepo.CreateSession(ctx, session); err != nil {
+		t.Fatalf("failed to create session: %v", err)
+	}
+	t.Cleanup(func() { workingRepo.DeleteSession(ctx, sessionID) })
+
+	closedPool := newClosedPool(t)
+	closedRepo := webauthn.NewRepository(closedPool)
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := newTestWebAuthnHandler(closedRepo, nil, nil, adminMgr)
+
+	body := `{"session_id": "` + sessionID.String() + `", "credential": {}}`
+	req := httptest.NewRequest(http.MethodPost, "/webauthn/login/finish", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.LoginFinish(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+}
+
+// --- RegisterStart / LoginStart with misconfigured RP ---
+
+// TestWebAuthnHandler_RegisterStart_BeginRegistrationError tests that RegisterStart
+// returns 500 when BeginRegistration fails. A WebAuthn RP with an empty RPID
+// is created successfully by the library but BeginRegistration returns an error.
+func TestWebAuthnHandler_RegisterStart_BeginRegistrationError(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	t.Cleanup(pool.Close)
+
+	repo := webauthn.NewRepository(pool)
+
+	// Create an RP with empty RPID: NewRelyingParty succeeds but BeginRegistration
+	// fails with "the relying party id must be provided"
+	misconfiguredRP, rpErr := webauthn.NewRelyingParty("", "Test", []string{"http://localhost"})
+	if rpErr != nil {
+		t.Fatalf("failed to create misconfigured RP: %v", rpErr)
+	}
+
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := newTestWebAuthnHandler(repo, misconfiguredRP, nil, adminMgr)
+
+	req := httptest.NewRequest(http.MethodPost, "/webauthn/register/start", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-token")
+	w := httptest.NewRecorder()
+
+	h.RegisterStart(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "failed to begin registration") {
+		t.Errorf("expected 'failed to begin registration' error, got: %s", w.Body.String())
+	}
+}
+
+// TestWebAuthnHandler_LoginStart_BeginDiscoverableLoginError tests that LoginStart
+// returns 500 when BeginDiscoverableLogin fails. A WebAuthn RP with an empty RPID
+// causes BeginDiscoverableLogin to return an error.
+func TestWebAuthnHandler_LoginStart_BeginDiscoverableLoginError(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	t.Cleanup(pool.Close)
+
+	repo := webauthn.NewRepository(pool)
+
+	misconfiguredRP, rpErr := webauthn.NewRelyingParty("", "Test", []string{"http://localhost"})
+	if rpErr != nil {
+		t.Fatalf("failed to create misconfigured RP: %v", rpErr)
+	}
+
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := newTestWebAuthnHandler(repo, misconfiguredRP, nil, adminMgr)
+
+	req := httptest.NewRequest(http.MethodPost, "/webauthn/login/start", http.NoBody)
+	w := httptest.NewRecorder()
+
+	h.LoginStart(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "failed to begin login") {
+		t.Errorf("expected 'failed to begin login' error, got: %s", w.Body.String())
+	}
+}
+
+// --- LoginFinish with stored credential for userLookup callback ---
+
+// TestWebAuthnHandler_LoginFinish_WithStoredCredential tests the LoginFinish path
+// where the userLookup callback finds a matching credential via GetCredentialByID,
+// but ValidatePasskeyLogin still fails (signature is fake).
+func TestWebAuthnHandler_LoginFinish_WithStoredCredential(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
+	if err != nil {
+		t.Skip("skipping: test database not available")
+	}
+	t.Cleanup(pool.Close)
+
+	ctx := context.Background()
+	repo := webauthn.NewRepository(pool)
+	rp, err := webauthn.NewRelyingParty("localhost", "Model Hotel Test", []string{"http://localhost"})
+	if err != nil {
+		t.Fatalf("failed to create relying party: %v", err)
+	}
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
+	h := newTestWebAuthnHandler(repo, rp, nil, adminMgr)
+
+	// Step 1: Create a credential in the DB so that GetCredentialByID finds it
+	credID := []byte("login-finish-test-cred")
+	credRecord := &webauthn.CredentialRecord{
+		ID:                credID,
+		Name:              "Test Key",
+		PublicKey:         make([]byte, 64), // fake ECDSA public key
+		AttestationType:   "none",
+		AttestationFormat: "packed",
+		Transport:         []string{"internal"},
+		FlagsByte:         0x41,
+		SignCount:         0,
+		AAGUID:            uuid.Nil,
+	}
+	if err := repo.StoreCredential(ctx, credRecord); err != nil {
+		t.Fatalf("failed to store credential: %v", err)
+	}
+	t.Cleanup(func() { repo.DeleteCredential(ctx, credID) })
+
+	// Step 2: Call LoginStart to create a valid session
+	req, w := newChiRequest(http.MethodPost, "/webauthn/login/start", http.NoBody)
+	h.LoginStart(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("LoginStart failed: %d %s", w.Code, w.Body.String())
+	}
+
+	var startResp map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&startResp); err != nil {
+		t.Fatalf("failed to decode LoginStart response: %v", err)
+	}
+	sessionID, _ := startResp["session_id"].(string)
+	if sessionID == "" {
+		t.Fatal("expected non-empty session_id from LoginStart")
+	}
+	defer repo.DeleteSession(ctx, uuid.MustParse(sessionID))
+
+	// Step 3: Build a fake assertion credential with the stored credential's ID
+	credIDB64 := base64.RawURLEncoding.EncodeToString(credID)
+	fakeCred := buildFakeLoginCredential(t, credIDB64)
+
+	// Step 4: Call LoginFinish - userLookup finds the credential via
+	// GetCredentialByID, but ValidatePasskeyLogin fails (fake signature)
+	finishBody := map[string]interface{}{
+		"session_id": sessionID,
+		"credential": fakeCred,
+	}
+	finishBytes, _ := json.Marshal(finishBody)
+
+	req2 := httptest.NewRequest(http.MethodPost, "/webauthn/login/finish", strings.NewReader(string(finishBytes)))
+	req2.Header.Set("Content-Type", "application/json")
+	w2 := httptest.NewRecorder()
+
+	h.LoginFinish(w2, req2)
+
+	// ValidatePasskeyLogin should fail because the signature is fake,
+	// returning 400 "passkey login verification failed"
+	if w2.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w2.Code, w2.Body.String())
+	}
+	if !strings.Contains(w2.Body.String(), "passkey login verification failed") {
+		t.Errorf("expected 'passkey login verification failed' error, got: %s", w2.Body.String())
 	}
 }

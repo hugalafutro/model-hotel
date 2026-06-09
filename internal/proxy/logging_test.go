@@ -345,3 +345,57 @@ func TestWaitForInsert_Completes(t *testing.T) {
 		t.Errorf("WaitForInsert took too long: %v (expected ~10ms)", elapsed)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// updateRequestLog edge case tests
+// ---------------------------------------------------------------------------
+
+// TestUpdateRequestLog_EmptyIDSkips tests that updateRequestLog does nothing
+// when the log entry has no ID (never inserted).
+func TestUpdateRequestLog_EmptyIDSkips(t *testing.T) {
+	h := &Handler{}
+
+	logEntry := &requestLogData{
+		id:         "", // empty ID — should be skipped
+		modelID:    "test-model",
+		state:      "completed",
+		statusCode: 200,
+	}
+
+	// Should not panic with empty ID
+	h.updateRequestLog(logEntry)
+}
+
+// TestUpdateRequestLog_NilDBPoolSkips tests that updateRequestLog does nothing
+// when dbPool is nil (unit tests without DB).
+func TestUpdateRequestLog_NilDBPoolSkips(t *testing.T) {
+	h := &Handler{dbPool: nil}
+
+	logEntry := &requestLogData{
+		id:         uuid.NewString(),
+		modelID:    "test-model",
+		state:      "completed",
+		statusCode: 200,
+	}
+
+	// Should not panic with nil dbPool
+	h.updateRequestLog(logEntry)
+}
+
+// TestUpdateRequestLog_SkipWaitForInsert tests the skipWaitForInsert option
+// path. When requested, the update should not call WaitForInsert.
+func TestUpdateRequestLog_SkipWaitForInsert(t *testing.T) {
+	h := &Handler{}
+
+	logEntry := &requestLogData{
+		id:         uuid.NewString(),
+		modelID:    "test-model",
+		state:      "streaming",
+		statusCode: 200,
+	}
+
+	// With skipWaitForInsert, the function should not attempt to wait for
+	// the async insert (which would hang since insertWg is never Done).
+	// The nil dbPool also prevents any DB operations.
+	h.updateRequestLog(logEntry, updateLogOption{skipWaitForInsert: true})
+}

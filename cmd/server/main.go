@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -44,6 +45,11 @@ var version = "dev"
 
 //go:embed all:static
 var staticFiles embed.FS
+
+// staticFS is the fs.FS interface backed by staticFiles. Tests can replace
+// this with a test FS to exercise the SPA handler's embedded-file code paths
+// without requiring a frontend build.
+var staticFS fs.FS = staticFiles
 
 type DiscoveryResult struct {
 	ProvidersScanned int

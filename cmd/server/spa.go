@@ -14,7 +14,7 @@ type SPAHandler struct {
 }
 
 func NewSPAHandler() *SPAHandler {
-	subFS, err := fs.Sub(staticFiles, "static")
+	subFS, err := fs.Sub(staticFS, "static")
 	if err != nil {
 		debuglog.Error("server: embedded static files not found", "error", err)
 		return &SPAHandler{
@@ -48,7 +48,7 @@ func (h *SPAHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if path != "/" {
 		cleanPath := strings.TrimPrefix(path, "/")
 		if cleanPath != "" {
-			subFS, _ := fs.Sub(staticFiles, "static")
+			subFS, _ := fs.Sub(staticFS, "static")
 			if f, err := fs.Stat(subFS, cleanPath); err == nil && !f.IsDir() {
 				if strings.Contains(cleanPath, "-") && (strings.HasSuffix(cleanPath, ".js") || strings.HasSuffix(cleanPath, ".css")) {
 					w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")

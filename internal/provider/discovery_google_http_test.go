@@ -462,3 +462,147 @@ func TestDiscoverGoogleAIStudio_VisionModel(t *testing.T) {
 		t.Errorf("Expected image in InputModalities, got %s", models[0].InputModalities)
 	}
 }
+
+func TestDiscoverGoogleAIStudio_EmbeddingModel(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1beta/models" {
+			response := GoogleModelsResponse{
+				Models: []GoogleModel{
+					{
+						Name:                       "models/text-embedding-004",
+						DisplayName:                "Text Embedding 004",
+						Description:                "Embedding model",
+						InputTokenLimit:            2048,
+						OutputTokenLimit:           768,
+						SupportedGenerationMethods: []string{"embedContent"},
+						Thinking:                   false,
+					},
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL + "/v1beta/openai",
+	}
+
+	models, err := service.discoverGoogleAIStudio(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverGoogleAIStudio failed: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("Expected 1 model, got %d", len(models))
+	}
+	if models[0].Modality != "embedding" {
+		t.Errorf("Expected Modality 'embedding', got '%s'", models[0].Modality)
+	}
+}
+
+func TestDiscoverGoogleAIStudio_AudioModel(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1beta/models" {
+			response := GoogleModelsResponse{
+				Models: []GoogleModel{
+					{
+						Name:                       "models/gemini-2.0-flash-tts",
+						DisplayName:                "Gemini 2.0 Flash TTS",
+						Description:                "Audio model",
+						InputTokenLimit:            1000000,
+						OutputTokenLimit:           8192,
+						SupportedGenerationMethods: []string{"generateContent"},
+						Thinking:                   false,
+					},
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL + "/v1beta/openai",
+	}
+
+	models, err := service.discoverGoogleAIStudio(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverGoogleAIStudio failed: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("Expected 1 model, got %d", len(models))
+	}
+	if !strings.Contains(models[0].InputModalities, "audio") {
+		t.Errorf("Expected audio in InputModalities for TTS model, got %s", models[0].InputModalities)
+	}
+	if !strings.Contains(models[0].OutputModalities, "audio") {
+		t.Errorf("Expected audio in OutputModalities for TTS model, got %s", models[0].OutputModalities)
+	}
+}
+
+func TestDiscoverGoogleAIStudio_ImageGenModel(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1beta/models" {
+			response := GoogleModelsResponse{
+				Models: []GoogleModel{
+					{
+						Name:                       "models/imagen-3.0-generate",
+						DisplayName:                "Imagen 3.0",
+						Description:                "Image generation model",
+						InputTokenLimit:            1000,
+						OutputTokenLimit:           100,
+						SupportedGenerationMethods: []string{"generateContent"},
+						Thinking:                   false,
+					},
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient: server.Client(),
+	}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: server.URL + "/v1beta/openai",
+	}
+
+	models, err := service.discoverGoogleAIStudio(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverGoogleAIStudio failed: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("Expected 1 model, got %d", len(models))
+	}
+	if !strings.Contains(models[0].OutputModalities, "image") {
+		t.Errorf("Expected image in OutputModalities for image gen model, got %s", models[0].OutputModalities)
+	}
+}

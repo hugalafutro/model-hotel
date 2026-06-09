@@ -288,3 +288,61 @@ func TestGetNeuralWattQuota_ContextCancellation(t *testing.T) {
 		t.Error("Expected error for context cancellation, got nil")
 	}
 }
+
+func TestGetNeuralWattQuota_403Forbidden(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{
+		httpClient:     server.Client(),
+		retryBaseDelay: time.Millisecond,
+	}
+
+	masterKey := "test-master-key-for-testing-only-32bytes!"
+	keyPair, err := auth.Encrypt("test-api-key", masterKey)
+	if err != nil {
+		t.Fatalf("Failed to encrypt API key: %v", err)
+	}
+
+	provider := &Provider{
+		ID:           uuid.New(),
+		BaseURL:      server.URL,
+		EncryptedKey: keyPair.Ciphertext,
+		KeyNonce:     keyPair.Nonce,
+		KeySalt:      keyPair.Salt,
+	}
+
+	_, err = service.GetNeuralWattQuota(context.Background(), provider, masterKey)
+	if err == nil {
+		t.Error("Expected error for 403 status, got nil")
+	}
+}
+
+func TestGetNeuralWattQuota_NilProvider(t *testing.T) {
+	// Not applicable - provider is always required
+	// but test that decryption error path works for nil-like encrypted key
+	service := &DiscoveryService{
+		httpClient: &http.Client{Timeout: 5 * time.Second},
+	}
+
+	masterKey := "test-master-key-for-testing-only-32bytes!"
+	wrongKeyPair, err := auth.Encrypt("test-api-key", "different-master-key-32bytes!!")
+	if err != nil {
+		t.Fatalf("Failed to encrypt API key: %v", err)
+	}
+
+	provider := &Provider{
+		ID:           uuid.New(),
+		BaseURL:      "https://api.neuralwatt.com",
+		EncryptedKey: wrongKeyPair.Ciphertext,
+		KeyNonce:     wrongKeyPair.Nonce,
+		KeySalt:      wrongKeyPair.Salt,
+	}
+
+	_, err = service.GetNeuralWattQuota(context.Background(), provider, masterKey)
+	if err == nil {
+		t.Error("Expected error for decryption failure, got nil")
+	}
+}
