@@ -1187,3 +1187,11 @@ func TestIPLimiter_CleanupLoop_TickerPathRemovesStaleEntries(t *testing.T) {
 		t.Error("fresh IP entry should still be present after cleanup")
 	}
 }
+
+// TestIPLimiter_CleanupLoop_TickerBranch_Unreachable documents that the
+// ticker.C select branch in IPLimiter.cleanupLoop (line 188) cannot be
+// directly tested because the production ticker is 5 minutes. The cleanup()
+// function called on ticker.C IS tested directly via
+// TestIPLimiter_CleanupRemovesStale and TestIPLimiter_CleanupLoop_TickerPathRemovesStaleEntries.
+// Only the select routing (ticker.C path) is untested; the actual cleanup
+// logic is fully covered. This is a structural limitation.

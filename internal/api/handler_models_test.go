@@ -953,4 +953,74 @@ func TestDeleteModel_NonExistentModelByID(t *testing.T) {
 	}
 }
 
+// TestDeleteModel_ClosedPool tests that DeleteModel returns 500 when the
+// database pool is closed. This covers the QueryRow error path (not ErrNoRows)
+// and the DeleteByID error path.
+func TestDeleteModel_ClosedPool(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	// Create a DB, then close its underlying pool to cause query errors
+	testDB, err := db.New(context.Background(), apiTestDBURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create test DB: %v", err)
+	}
+	testDB.Close()
+
+	h := &Handler{
+		dbPool:   testDB,
+		adminMgr: &mockAdminAuth{validateFn: func(token string) bool { return true }},
+	}
+
+	fakeID := uuid.New().String()
+	req := httptest.NewRequest(http.MethodDelete, "/models/"+fakeID, http.NoBody)
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", fakeID)
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+	w := httptest.NewRecorder()
+	h.DeleteModel(w, req)
+
+	// With a closed pool, QueryRow should fail → 500
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
+	}
+}
+
+// TestDeleteModel_CancelledContext_Direct tests that DeleteModel returns 500 when the
+// request context is cancelled before the database query executes, using a direct
+// handler call rather than the router to avoid route middleware interference.
+func TestDeleteModel_CancelledContext_Direct(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	testDB, err := db.New(context.Background(), apiTestDBURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create test DB: %v", err)
+	}
+	defer testDB.Close()
+
+	h := &Handler{
+		dbPool:   testDB,
+		adminMgr: &mockAdminAuth{validateFn: func(token string) bool { return true }},
+	}
+
+	fakeID := uuid.New().String()
+	req := httptest.NewRequest(http.MethodDelete, "/models/"+fakeID, http.NoBody)
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", fakeID)
+	ctx, cancel := context.WithCancel(req.Context())
+	cancel()
+	req = req.WithContext(context.WithValue(ctx, chi.RouteCtxKey, rctx))
+
+	w := httptest.NewRecorder()
+	h.DeleteModel(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
+	}
+}
+
 // TestPurgeLogs_BeforeTimestamp tests purging logs before a specific timestamp

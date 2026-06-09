@@ -1117,3 +1117,13 @@ func TestCleanupLoop_ConcurrentStopAndTick(t *testing.T) {
 		lim.Stop()
 	}
 }
+
+// TestCleanupLoop_TickerBranch_Unreachable documents that the ticker.C
+// select branch in cleanupLoop (line 258) cannot be directly tested
+// because the production ticker is 5 minutes, and there's no way to
+// inject a shorter ticker without modifying the function signature.
+// The cleanup() function called by the ticker branch IS tested directly
+// via TestCleanup_RemovesStaleEntries, TestCleanupLoop_TickerPathRemovesStaleEntries,
+// and TestCleanupLoop_Integration. Only the select case routing itself
+// (ticker.C vs stopCh) is untested; the actual cleanup logic is fully covered.
+// This is a structural limitation, not a gap in test intent.
