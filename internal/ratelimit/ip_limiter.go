@@ -23,6 +23,10 @@ const (
 	defaultIPBurst = 60
 )
 
+// cleanupInterval is the ticker interval for the background cleanup goroutine.
+// Overridable in tests for faster execution.
+var cleanupInterval = 5 * time.Minute
+
 // ipEntry tracks a single IP address's rate limiter.
 type ipEntry struct {
 	limiter  *rate.Limiter
@@ -180,7 +184,7 @@ func (l *IPLimiter) writeHeaders(w http.ResponseWriter, lim *rate.Limiter, retry
 }
 
 func (l *IPLimiter) cleanupLoop() {
-	ticker := time.NewTicker(5 * time.Minute)
+	ticker := time.NewTicker(cleanupInterval)
 	defer ticker.Stop()
 	for {
 		select {

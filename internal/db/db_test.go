@@ -960,3 +960,52 @@ func TestRunMigration_RecordInsertError(t *testing.T) {
 		t.Error("expected error when running migration with cancelled context (record insert path)")
 	}
 }
+
+// TestRunMigration_SchemaTableNotExist tests the path where schema_migrations
+// does NOT exist yet (the "if !exists" branch at lines 172-183 in db.go).
+// This branch creates the schema_migrations table, which is only hit on the
+// very first migration run. Existing tests all call New() first (which
+// creates the table via runMigrations), so subsequent runMigration calls
+// always find it exists.
+func TestRunMigration_SchemaTableNotExist(t *testing.T) {
+	ctx := context.Background()
+	testURL, err := SetupTestDB("db_no_schema_tbl")
+	if err != nil {
+		t.Fatalf("failed to setup test DB: %v", err)
+	}
+	defer CleanupTestDB("db_no_schema_tbl")
+
+	d, err := New(ctx, testURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create DB: %v", err)
+	}
+	defer d.Close()
+
+	// Drop the schema_migrations table so runMigration hits the "if !exists" branch
+	_, _ = d.pool.Exec(ctx, "DROP TABLE IF EXISTS schema_migrations")
+
+	migrationName := "test_no_schema_tbl_" + time.Now().Format("20060102150405") + ".sql"
+	newlyApplied, err := d.runMigration(ctx, migrationName, "SELECT 1")
+	if err != nil {
+		t.Fatalf("runMigration with no schema_migrations table: %v", err)
+	}
+	if !newlyApplied {
+		t.Error("expected newlyApplied=true for first migration after dropping schema_migrations")
+	}
+
+	// Verify the schema_migrations table was recreated
+	var exists bool
+	err = d.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM pg_tables
+			WHERE schemaname = 'public'
+			AND tablename = 'schema_migrations'
+		)
+	`).Scan(&exists)
+	if err != nil {
+		t.Fatalf("failed to check schema_migrations existence: %v", err)
+	}
+	if !exists {
+		t.Error("schema_migrations table should exist after runMigration")
+	}
+}

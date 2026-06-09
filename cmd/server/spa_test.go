@@ -847,3 +847,57 @@ func TestServeHTTP_APIPathsReturn404_WithTestFS(t *testing.T) {
 		})
 	}
 }
+
+// TestNewSPAHandler_EmptyIndexHTMLPath tests the branch where fs.ReadFile
+// returns an empty byte slice (len(indexHTML) == 0 at line 26 of spa.go).
+// This exercises the fallback indexHTML path when the embedded FS has an
+// index.html file but it's empty.
+func TestNewSPAHandler_EmptyIndexHTMLPath(t *testing.T) {
+	origStaticFiles := staticFS
+	staticFS = fstest.MapFS{
+		"static/index.html": &fstest.MapFile{Data: []byte{}},
+	}
+	defer func() { staticFS = origStaticFiles }()
+
+	h := NewSPAHandler()
+	if h == nil {
+		t.Fatal("NewSPAHandler() returned nil")
+	}
+	if len(h.indexHTML) == 0 {
+		t.Error("expected non-empty fallback indexHTML when embedded index.html is empty")
+	}
+	// Should use the fallback HTML since the file was empty
+	if !strings.Contains(string(h.indexHTML), "Model Hotel") {
+		t.Errorf("expected fallback content with 'Model Hotel', got: %s", string(h.indexHTML)[:min(100, len(h.indexHTML))])
+	}
+	// fileServer should be nil since fs.Sub succeeds but index.html is empty
+	if h.fileServer != nil {
+		t.Log("fileServer is non-nil (unexpected when index.html is empty)")
+	}
+}
+
+// TestNewSPAHandler_FSSubErrorPath tests the branch where fs.Sub fails
+// (line 17-23 of spa.go). When the embedded FS doesn't contain a "static"
+// subdirectory, fs.Sub returns an error.
+func TestNewSPAHandler_FSSubErrorPath(t *testing.T) {
+	origStaticFiles := staticFS
+	// Create a FS without a "static" directory — fs.Sub will fail
+	staticFS = fstest.MapFS{
+		"other.txt": &fstest.MapFile{Data: []byte("not static")},
+	}
+	defer func() { staticFS = origStaticFiles }()
+
+	h := NewSPAHandler()
+	if h == nil {
+		t.Fatal("NewSPAHandler() returned nil")
+	}
+	if len(h.indexHTML) == 0 {
+		t.Error("expected non-empty fallback indexHTML when fs.Sub fails")
+	}
+	if !strings.Contains(string(h.indexHTML), "Frontend not available") {
+		t.Errorf("expected fallback HTML with 'Frontend not available', got: %s", string(h.indexHTML)[:min(100, len(h.indexHTML))])
+	}
+	if h.fileServer != nil {
+		t.Error("expected nil fileServer when fs.Sub fails")
+	}
+}
