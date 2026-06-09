@@ -616,3 +616,29 @@ func TestPurgeLogs_InvalidData(t *testing.T) {
 }
 
 // TestUpdateProvider_EnableDisable tests enabling and disabling a provider
+
+// TestListLogs_SortByProvider covers the tier-expression branch of the ListLogs
+// ORDER BY builder (sortColumns["provider"] has a non-empty tierExpr).
+func TestListLogs_SortByProvider(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+	req := httptest.NewRequest(http.MethodGet, "/logs?sort_by=provider&sort_dir=asc", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// TestListLogs_SortByStatus covers the status-specific secondary ORDER BY clause
+// in ListLogs (sortBy == "status").
+func TestListLogs_SortByStatus(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+	req := httptest.NewRequest(http.MethodGet, "/logs?sort_by=status", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+}

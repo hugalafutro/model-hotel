@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -610,5 +611,20 @@ func TestFetchLatestTagFromTags_EmptyTagNameInArray(t *testing.T) {
 	_, err := h.fetchLatestTagFromTags(context.Background(), ts.URL)
 	if err == nil {
 		t.Error("expected error for empty tag name from fetchLatestTagFromTags")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 8. fetchLatestTagFromTags — request creation error (invalid URL)
+// ---------------------------------------------------------------------------
+
+func TestFetchLatestTagFromTags_InvalidURL(t *testing.T) {
+	h := &Handler{}
+	_, err := h.fetchLatestTagFromTags(context.Background(), "http://invalid url with spaces.com/tags")
+	if err == nil {
+		t.Error("expected error for invalid URL")
+	}
+	if !strings.Contains(err.Error(), "create tags request") {
+		t.Errorf("expected error about creating request, got: %v", err)
 	}
 }

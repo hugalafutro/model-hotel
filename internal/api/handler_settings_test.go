@@ -656,3 +656,177 @@ func TestResetSettings_NilGetAll(t *testing.T) {
 		t.Error("app_version should always be present")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// 1. UpdateSettings — int-type value below minimum
+// ---------------------------------------------------------------------------
+
+func TestUpdateSettings_IntBelowMin(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// rate_limit_burst min is 1, so 0 should fail
+	body := `{"rate_limit_burst": "0"}`
+	req := httptest.NewRequest(http.MethodPut, "/settings", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400 Bad Request, got %d: %s", w.Code, w.Body.String())
+	}
+
+	if !strings.Contains(w.Body.String(), "must be between") {
+		t.Errorf("expected error about range, got: %s", w.Body.String())
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 2. UpdateSettings — float-type value below minimum
+// ---------------------------------------------------------------------------
+
+func TestUpdateSettings_FloatBelowMin(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// rate_limit_ip_rps min is 0, so -1 should fail
+	body := `{"rate_limit_ip_rps": "-1"}`
+	req := httptest.NewRequest(http.MethodPut, "/settings", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400 Bad Request, got %d: %s", w.Code, w.Body.String())
+	}
+
+	if !strings.Contains(w.Body.String(), "must be between") {
+		t.Errorf("expected error about range, got: %s", w.Body.String())
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 3. UpdateSettings — begin transaction error (cancelled context)
+// ---------------------------------------------------------------------------
+
+func TestUpdateSettings_BeginTxError(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	testDB, err := db.New(context.Background(), apiTestDBURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create test DB: %v", err)
+	}
+	defer testDB.Close()
+
+	h := newTestHandler(t)
+	body := bytes.NewReader([]byte(`{"rate_limit_enabled":"true"}`))
+	req := httptest.NewRequest(http.MethodPut, "/settings", body)
+	req.Header.Set("Content-Type", "application/json")
+	ctx, cancel := context.WithCancel(req.Context())
+	cancel()
+	req = req.WithContext(ctx)
+
+	w := httptest.NewRecorder()
+	h.UpdateSettings(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 4. UpdateSettings — commit error (cancelled context)
+// ---------------------------------------------------------------------------
+
+func TestUpdateSettings_CommitError(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	h := newTestHandler(t)
+	body := bytes.NewReader([]byte(`{"rate_limit_enabled":"true"}`))
+	req := httptest.NewRequest(http.MethodPut, "/settings", body)
+	req.Header.Set("Content-Type", "application/json")
+	ctx, cancel := context.WithCancel(req.Context())
+	cancel()
+	req = req.WithContext(ctx)
+
+	w := httptest.NewRecorder()
+	h.UpdateSettings(w, req)
+
+	// The handler returns an error; exact status depends on where cancellation hits
+	if w.Code != http.StatusInternalServerError && w.Code != http.StatusBadRequest {
+		t.Logf("UpdateSettings with cancelled context: status=%d body=%s", w.Code, w.Body.String())
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 5. UpdateSettings — encode error on response
+// ---------------------------------------------------------------------------
+
+func TestUpdateSettings_ResponseEncodeError(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	h := newTestHandler(t)
+	body := bytes.NewReader([]byte(`{"rate_limit_enabled":"true"}`))
+	req := httptest.NewRequest(http.MethodPut, "/settings", body)
+	req.Header.Set("Content-Type", "application/json")
+
+	fw := &statusTrackingFailWriter{}
+	h.UpdateSettings(fw, req)
+
+	if fw.statusCode != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d", http.StatusInternalServerError, fw.statusCode)
+	}
+}
+
+// statusTrackingFailWriter tracks status code and always fails on Write.
+type statusTrackingFailWriter struct {
+	header     http.Header
+	statusCode int
+}
+
+func (f *statusTrackingFailWriter) Header() http.Header {
+	if f.header == nil {
+		f.header = make(http.Header)
+	}
+	return f.header
+}
+
+func (f *statusTrackingFailWriter) WriteHeader(code int) {
+	f.statusCode = code
+}
+
+func (f *statusTrackingFailWriter) Write([]byte) (int, error) {
+	return 0, &mockWriteError{"write failed"}
+}
+
+// TestGetSettings_NilGetAll covers the nil-map guard in GetSettings: when the
+// settings store returns a nil map, the handler must initialize it before
+// injecting app_version.
+func TestGetSettings_NilGetAll(t *testing.T) {
+	setsStore := &mockSettingsStore{
+		getAllFn: func(_ context.Context) (map[string]string, error) { return nil, nil },
+	}
+	h := testHandler(nil, nil, setsStore, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	req, w := newChiRequest(http.MethodGet, "/settings", nil)
+
+	h.GetSettings(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+	var result map[string]string
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+		t.Fatalf("failed to parse response: %v", err)
+	}
+	if result["app_version"] == "" {
+		t.Error("app_version should be present even when GetAll returns nil")
+	}
+}

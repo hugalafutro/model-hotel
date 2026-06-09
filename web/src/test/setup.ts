@@ -82,6 +82,10 @@ vi.stubGlobal("EventSource", MockEventSource);
 if (typeof HTMLElement !== "undefined" && !HTMLElement.prototype.scrollTo) {
 	HTMLElement.prototype.scrollTo = () => {};
 }
+// Mock scrollIntoView on Element (jsdom doesn't implement it)
+if (typeof Element !== "undefined" && !Element.prototype.scrollIntoView) {
+	Element.prototype.scrollIntoView = () => {};
+}
 // Suppress jsdom "Not implemented" warnings (window.scrollTo, navigation, etc.)
 // jsdom's VirtualConsole forwards jsdomError events to the Node.js console.error,
 // not the jsdom window.console — so wrapping window.console.error won't intercept them.

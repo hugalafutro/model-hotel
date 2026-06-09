@@ -1302,3 +1302,17 @@ func TestModelSortColumn_Defaults(t *testing.T) {
 		})
 	}
 }
+
+// TestListModelsCursor_DirectionBefore covers the fetch-direction flip in
+// ListModelsCursor: with direction=before and a DESC sort, the fetch order is
+// inverted to ASC (the else branch).
+func TestListModelsCursor_DirectionBefore(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+	req := httptest.NewRequest(http.MethodGet, "/models/cursor?direction=before&sort_dir=desc", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+}

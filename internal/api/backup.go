@@ -28,14 +28,13 @@ import (
 // BackupHandler manages PostgreSQL database backups via pg_dump
 // and restores via pg_restore.
 type BackupHandler struct {
-	databaseURL           string
-	backupDir             string
-	backupMu              sync.Mutex
-	adminMgr              AdminAuthenticator
-	settingsRepo          SettingsStore
-	schedulerCancelMu     sync.Mutex
-	schedulerCancel       context.CancelFunc
-	schedulerInitialDelay time.Duration // defaults to backupSchedulerInitialDelay; override in tests
+	databaseURL       string
+	backupDir         string
+	backupMu          sync.Mutex
+	adminMgr          AdminAuthenticator
+	settingsRepo      SettingsStore
+	schedulerCancelMu sync.Mutex
+	schedulerCancel   context.CancelFunc
 }
 
 // NewBackupHandler creates a new BackupHandler.
@@ -1053,11 +1052,6 @@ func (h *BackupHandler) listBackupFiles() ([]backupEntry, error) {
 // runtime takes effect promptly instead of waiting a full backup_interval.
 const backupSchedulerIdlePoll = 1 * time.Minute
 
-// backupSchedulerInitialDelay is the pause before the first backup tick,
-// giving the server time to fully start. Tests can override this via the
-// BackupHandler.schedulerInitialDelay field.
-var backupSchedulerInitialDelay = 1 * time.Minute
-
 // StartScheduler starts the periodic backup scheduler goroutine.
 //
 // The goroutine always runs (regardless of the current backup_enabled
@@ -1092,15 +1086,11 @@ func (h *BackupHandler) StartScheduler(ctx context.Context) {
 				h.schedulerCancelMu.Unlock()
 			}
 		}()
-		initialDelay := h.schedulerInitialDelay
-		if initialDelay == 0 {
-			initialDelay = backupSchedulerInitialDelay
-		}
 		// Initial delay to let the server fully start
 		select {
 		case <-schedCtx.Done():
 			return
-		case <-time.After(initialDelay):
+		case <-time.After(1 * time.Minute):
 		}
 
 		for {

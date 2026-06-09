@@ -153,7 +153,7 @@ func TestSPAHandler_ServeHTTP_NonAPIPathNotRootServesFallback(t *testing.T) {
 // the hash-cache-header path when the embedded FS contains the requested file.
 func TestSPAHandler_ServeHTTP_HashNamedJSFileWithCacheHeaders(t *testing.T) {
 	// Check if the embedded FS has a hash-named JS file (requires frontend build)
-	subFS, err := fs.Sub(staticFS, "static")
+	subFS, err := fs.Sub(staticFiles, "static")
 	if err != nil {
 		t.Skip("embedded static files not available")
 	}
@@ -195,7 +195,7 @@ func TestSPAHandler_ServeHTTP_HashNamedJSFileWithCacheHeaders(t *testing.T) {
 // hash-named CSS files receive long-lived cache headers when the frontend
 // has been built and embedded.
 func TestSPAHandler_ServeHTTP_HashNamedCSSFileWithCacheHeaders(t *testing.T) {
-	subFS, err := fs.Sub(staticFS, "static")
+	subFS, err := fs.Sub(staticFiles, "static")
 	if err != nil {
 		t.Skip("embedded static files not available")
 	}
@@ -235,7 +235,7 @@ func TestSPAHandler_ServeHTTP_HashNamedCSSFileWithCacheHeaders(t *testing.T) {
 // TestSPAHandler_ServeHTTP_NonHashNamedJSFileNoCacheHeaders tests that
 // JS files without a hash in the name do NOT get the long-lived cache header.
 func TestSPAHandler_ServeHTTP_NonHashNamedJSFileNoCacheHeaders(t *testing.T) {
-	subFS, err := fs.Sub(staticFS, "static")
+	subFS, err := fs.Sub(staticFiles, "static")
 	if err != nil {
 		t.Skip("embedded static files not available")
 	}
@@ -273,7 +273,7 @@ func TestSPAHandler_ServeHTTP_NonHashNamedJSFileNoCacheHeaders(t *testing.T) {
 // TestSPAHandler_ServeHTTP_EmbeddedIndexHTMLServed tests that the root path
 // serves the embedded index.html (not the fallback) when frontend is built.
 func TestSPAHandler_ServeHTTP_EmbeddedIndexHTMLServed(t *testing.T) {
-	subFS, err := fs.Sub(staticFS, "static")
+	subFS, err := fs.Sub(staticFiles, "static")
 	if err != nil {
 		t.Skip("embedded static files not available")
 	}
@@ -557,7 +557,7 @@ func TestSPAHandler_ServeHTTP_CSSFileWithHash_WithCustomFileServer(t *testing.T)
 // file from the embedded FS when available (requires frontend build).
 // This exercises the fs.Stat → fileServer.ServeHTTP path in ServeHTTP (L52-57).
 func TestSPAHandler_ServeHTTP_StaticFileInEmbedFS(t *testing.T) {
-	subFS, err := fs.Sub(staticFS, "static")
+	subFS, err := fs.Sub(staticFiles, "static")
 	if err != nil {
 		t.Skip("embedded static files not available (need frontend build)")
 	}
@@ -624,8 +624,8 @@ func TestNewSPAHandler_CoversEmbedFSPath(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Tests that temporarily replace staticFS to exercise fs.Stat and
-// fileServer.ServeHTTP code paths in ServeHTTP
+// Tests that build a handler over an in-memory filesystem (via newSPAHandler)
+// to exercise fs.Stat and fileServer.ServeHTTP code paths in ServeHTTP
 // ---------------------------------------------------------------------------
 
 // testStaticFS creates an in-memory fs.FS that mimics the embedded static
@@ -645,15 +645,10 @@ func testStaticFS() fstest.MapFS {
 	return fsys
 }
 
-// TestNewSPAHandler_WithTestFS exercises the full constructor path when
-// staticFS contains valid content (index.html exists, sub FS works).
-// It temporarily replaces the package-level staticFS with a test FS.
+// TestNewSPAHandler_WithTestFS exercises the full constructor path when the
+// supplied filesystem contains valid content (index.html exists, sub FS works).
 func TestNewSPAHandler_WithTestFS(t *testing.T) {
-	origStaticFiles := staticFS
-	staticFS = testStaticFS()
-	defer func() { staticFS = origStaticFiles }()
-
-	h := NewSPAHandler()
+	h := newSPAHandler(testStaticFS())
 	if h == nil {
 		t.Fatal("NewSPAHandler() returned nil")
 	}
@@ -672,11 +667,7 @@ func TestNewSPAHandler_WithTestFS(t *testing.T) {
 // fs.Stat branch and immutable cache header for hash-named JS files
 // in ServeHTTP (L51-57).
 func TestServeHTTP_HashNamedJSFileWithCacheHeaders_WithTestFS(t *testing.T) {
-	origStaticFiles := staticFS
-	staticFS = testStaticFS()
-	defer func() { staticFS = origStaticFiles }()
-
-	h := NewSPAHandler()
+	h := newSPAHandler(testStaticFS())
 	if h.fileServer == nil {
 		t.Fatal("expected fileServer to be non-nil with test FS")
 	}
@@ -698,11 +689,7 @@ func TestServeHTTP_HashNamedJSFileWithCacheHeaders_WithTestFS(t *testing.T) {
 // TestServeHTTP_HashNamedCSSFileWithCacheHeaders_WithTestFS exercises the
 // immutable cache header for hash-named CSS files.
 func TestServeHTTP_HashNamedCSSFileWithCacheHeaders_WithTestFS(t *testing.T) {
-	origStaticFiles := staticFS
-	staticFS = testStaticFS()
-	defer func() { staticFS = origStaticFiles }()
-
-	h := NewSPAHandler()
+	h := newSPAHandler(testStaticFS())
 
 	req := httptest.NewRequest(http.MethodGet, "/assets/style-def456.css", http.NoBody)
 	w := httptest.NewRecorder()
@@ -722,11 +709,7 @@ func TestServeHTTP_HashNamedCSSFileWithCacheHeaders_WithTestFS(t *testing.T) {
 // path where a JS file without a hash in the name does NOT get the immutable
 // cache header, but the fileServer still serves it.
 func TestServeHTTP_NonHashNamedJSFileNoImmutableCache_WithTestFS(t *testing.T) {
-	origStaticFiles := staticFS
-	staticFS = testStaticFS()
-	defer func() { staticFS = origStaticFiles }()
-
-	h := NewSPAHandler()
+	h := newSPAHandler(testStaticFS())
 
 	req := httptest.NewRequest(http.MethodGet, "/assets/sw.js", http.NoBody)
 	w := httptest.NewRecorder()
@@ -746,11 +729,7 @@ func TestServeHTTP_NonHashNamedJSFileNoImmutableCache_WithTestFS(t *testing.T) {
 // path where a requested file is NOT in the embedded FS, so ServeHTTP
 // falls through to serving indexHTML (SPA fallback).
 func TestServeHTTP_StaticFileNotInEmbedFS_FallsBackToIndexHTML(t *testing.T) {
-	origStaticFiles := staticFS
-	staticFS = testStaticFS()
-	defer func() { staticFS = origStaticFiles }()
-
-	h := NewSPAHandler()
+	h := newSPAHandler(testStaticFS())
 
 	req := httptest.NewRequest(http.MethodGet, "/dashboard", http.NoBody)
 	w := httptest.NewRecorder()
@@ -776,11 +755,7 @@ func TestServeHTTP_StaticFileNotInEmbedFS_FallsBackToIndexHTML(t *testing.T) {
 // TestServeHTTP_RootServesIndexHTML_WithTestFS exercises the root path
 // serving indexHTML from the test FS (not fallback).
 func TestServeHTTP_RootServesIndexHTML_WithTestFS(t *testing.T) {
-	origStaticFiles := staticFS
-	staticFS = testStaticFS()
-	defer func() { staticFS = origStaticFiles }()
-
-	h := NewSPAHandler()
+	h := newSPAHandler(testStaticFS())
 
 	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	w := httptest.NewRecorder()
@@ -806,11 +781,7 @@ func TestServeHTTP_RootServesIndexHTML_WithTestFS(t *testing.T) {
 // static file (favicon.ico) that is neither .js nor .css, so it gets
 // served by the fileServer but without the immutable cache header.
 func TestServeHTTP_FaviconServedWithoutImmutableCache(t *testing.T) {
-	origStaticFiles := staticFS
-	staticFS = testStaticFS()
-	defer func() { staticFS = origStaticFiles }()
-
-	h := NewSPAHandler()
+	h := newSPAHandler(testStaticFS())
 
 	req := httptest.NewRequest(http.MethodGet, "/favicon.ico", http.NoBody)
 	w := httptest.NewRecorder()
@@ -830,11 +801,7 @@ func TestServeHTTP_FaviconServedWithoutImmutableCache(t *testing.T) {
 // TestServeHTTP_APIPathsReturn404_WithTestFS verifies that API paths
 // are correctly rejected even when the static FS has content.
 func TestServeHTTP_APIPathsReturn404_WithTestFS(t *testing.T) {
-	origStaticFiles := staticFS
-	staticFS = testStaticFS()
-	defer func() { staticFS = origStaticFiles }()
-
-	h := NewSPAHandler()
+	h := newSPAHandler(testStaticFS())
 
 	for _, path := range []string{"/api/providers", "/v1/chat/completions", "/health"} {
 		t.Run(path, func(t *testing.T) {
@@ -853,15 +820,11 @@ func TestServeHTTP_APIPathsReturn404_WithTestFS(t *testing.T) {
 // This exercises the fallback indexHTML path when the embedded FS has an
 // index.html file but it's empty.
 func TestNewSPAHandler_EmptyIndexHTMLPath(t *testing.T) {
-	origStaticFiles := staticFS
-	staticFS = fstest.MapFS{
+	h := newSPAHandler(fstest.MapFS{
 		"static/index.html": &fstest.MapFile{Data: []byte{}},
-	}
-	defer func() { staticFS = origStaticFiles }()
-
-	h := NewSPAHandler()
+	})
 	if h == nil {
-		t.Fatal("NewSPAHandler() returned nil")
+		t.Fatal("newSPAHandler() returned nil")
 	}
 	if len(h.indexHTML) == 0 {
 		t.Error("expected non-empty fallback indexHTML when embedded index.html is empty")
@@ -880,16 +843,13 @@ func TestNewSPAHandler_EmptyIndexHTMLPath(t *testing.T) {
 // (line 17-23 of spa.go). When the embedded FS doesn't contain a "static"
 // subdirectory, fs.Sub returns an error.
 func TestNewSPAHandler_FSSubErrorPath(t *testing.T) {
-	origStaticFiles := staticFS
-	// Create a FS without a "static" directory — fs.Sub will fail
-	staticFS = fstest.MapFS{
+	// A filesystem without a populated "static/index.html" — the constructor
+	// falls back to the minimal "Frontend not available" page.
+	h := newSPAHandler(fstest.MapFS{
 		"other.txt": &fstest.MapFile{Data: []byte("not static")},
-	}
-	defer func() { staticFS = origStaticFiles }()
-
-	h := NewSPAHandler()
+	})
 	if h == nil {
-		t.Fatal("NewSPAHandler() returned nil")
+		t.Fatal("newSPAHandler() returned nil")
 	}
 	if len(h.indexHTML) == 0 {
 		t.Error("expected non-empty fallback indexHTML when fs.Sub fails")

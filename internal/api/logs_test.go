@@ -1857,3 +1857,75 @@ func TestPurgeLogs_CutoffWithDBError(t *testing.T) {
 		t.Errorf("expected 500 for DB error on cutoff purgelogs, got %d: %s", w.Code, w.Body.String())
 	}
 }
+
+// ---------------------------------------------------------------------------
+// 11. ListLogs — cancelled context to hit DB error path
+// ---------------------------------------------------------------------------
+
+func TestListLogs_CancelledContext(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	testDB, err := db.New(context.Background(), apiTestDBURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create test DB: %v", err)
+	}
+	defer testDB.Close()
+
+	h := &Handler{
+		dbPool:   testDB,
+		adminMgr: &mockAdminAuth{validateFn: func(string) bool { return true }},
+	}
+
+	// Clear logs cache so handler exercises the DB query path
+	globalLogsCache.mu.Lock()
+	globalLogsCache.entries = make(map[string]*logsCacheEntry)
+	globalLogsCache.mu.Unlock()
+
+	req := httptest.NewRequest(http.MethodGet, "/logs/", http.NoBody)
+	ctx, cancel := context.WithCancel(req.Context())
+	cancel()
+	req = req.WithContext(ctx)
+
+	w := httptest.NewRecorder()
+	h.ListLogs(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Logf("ListLogs with cancelled context: status=%d body=%s", w.Code, w.Body.String())
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 12. ListLogsCursor — cancelled context (different from existing test)
+//    Adding a direct method call test in addition to router-based test
+// ---------------------------------------------------------------------------
+
+func TestListLogsCursor_DirectCallWithCancelledContext(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+
+	testDB, err := db.New(context.Background(), apiTestDBURL, 25, 5)
+	if err != nil {
+		t.Fatalf("failed to create test DB: %v", err)
+	}
+	defer testDB.Close()
+
+	h := &Handler{
+		dbPool:   testDB,
+		adminMgr: &mockAdminAuth{validateFn: func(string) bool { return true }},
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/logs/cursor?limit=10", http.NoBody)
+	ctx, cancel := context.WithCancel(req.Context())
+	cancel()
+	req = req.WithContext(ctx)
+
+	w := httptest.NewRecorder()
+	h.ListLogsCursor(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Logf("ListLogsCursor direct with cancelled context: status=%d body=%s", w.Code, w.Body.String())
+	}
+}

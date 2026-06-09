@@ -248,7 +248,7 @@ func (l *Limiter) writeRateLimitHeaders(w http.ResponseWriter, lim *rate.Limiter
 // cleanupLoop periodically removes limiter entries that haven't been
 // used recently, preventing unbounded memory growth.
 func (l *Limiter) cleanupLoop() {
-	ticker := time.NewTicker(cleanupInterval)
+	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
 	for {

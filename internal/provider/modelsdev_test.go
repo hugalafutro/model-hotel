@@ -566,3 +566,15 @@ func TestLookupFuzzy_VersionSuffixSixDigits(t *testing.T) {
 		t.Errorf("expected name 'Claude Sonnet 4', got %q", result.Name)
 	}
 }
+
+// TestLoadModelsDev_ContextCancelled covers the LoadModelsDev wrapper (which
+// uses http.DefaultClient). A cancelled context makes the HTTP request fail
+// before any network round-trip, exercising the wrapper + the fetch error path.
+func TestLoadModelsDev_ContextCancelled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if err := LoadModelsDev(ctx); err == nil {
+		t.Error("expected error from LoadModelsDev with a cancelled context")
+	}
+}

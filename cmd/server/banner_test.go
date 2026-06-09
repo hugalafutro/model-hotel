@@ -145,3 +145,17 @@ func TestPrintStartupBannerContainsConfigFields(t *testing.T) {
 		t.Error("banner should contain the configured data dir")
 	}
 }
+
+// TestPrintStdoutWrappers exercises the thin os.Stdout wrappers. The core
+// formatting is verified above against a buffer; here we just ensure the
+// wrappers invoke the core functions without panicking.
+func TestPrintStdoutWrappers(t *testing.T) {
+	cfg := &config.Config{
+		Port:       ":8080",
+		DataDir:    "/data",
+		AdminToken: "test-token",
+	}
+	printStartupBannerStdout(cfg)
+	printAdminTokenBoxStdout("abc123")
+	printReadyMessageStdout("v1.2.3")
+}

@@ -3033,3 +3033,119 @@ func TestCalculateStats_IncludeLatencyTrue(t *testing.T) {
 	_ = stats.ByModelLatency
 	_ = stats.ByProviderLatency
 }
+
+// ---------------------------------------------------------------------------
+// 3. calculateStats — includeLatency=true path
+// ---------------------------------------------------------------------------
+
+// TestCalculateStats_WithLatency exercises the includeLatency=true branch
+// in calculateStats, which invokes statLatencyBreakdown.
+func TestCalculateStats_WithLatency(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	// Insert enough request logs to populate latency data (>=3 for HAVING clause)
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "latency-provider", "https://api.example.com/v1")
+	for i := 0; i < 5; i++ {
+		insertRichTestRequestLog(t, pool, uuid.New(), providerID, "latency-model", 200, 100+i*10, 10, 20, requestLogOpts{
+			ResponseHeaderMs: float64(50 + i*5),
+			ProxyOverheadMs:  float64(10 + i*2),
+			LatencyMs:        float64(80 + i*3),
+		})
+	}
+
+	result, err := handler.calculateStats(context.Background(), 24*time.Hour, false, "requests", true)
+	if err != nil {
+		t.Fatalf("calculateStats with latency: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil result from calculateStats with latency")
+	}
+	// The key coverage is that the includeLatency=true branch is exercised.
+	_ = result.ByModelLatency
+	_ = result.ByProviderLatency
+}
+
+// TestCalculateStats_WithoutLatency exercises the includeLatency=false branch,
+// confirming statLatencyBreakdown is NOT called.
+func TestCalculateStats_WithoutLatency(t *testing.T) {
+	handler, _, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	result, err := handler.calculateStats(context.Background(), 24*time.Hour, false, "requests", false)
+	if err != nil {
+		t.Fatalf("calculateStats without latency: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil result from calculateStats without latency")
+	}
+	if len(result.ByModelLatency) != 0 {
+		t.Errorf("expected empty ByModelLatency with includeLatency=false, got %d", len(result.ByModelLatency))
+	}
+	if len(result.ByProviderLatency) != 0 {
+		t.Errorf("expected empty ByProviderLatency with includeLatency=false, got %d", len(result.ByProviderLatency))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 2. calculateStats — "tokens" metric path
+//    Existing tests use metric="requests". The tokens metric changes the
+//    SQL SELECT from COUNT(*) to SUM(...) which uses a different code path
+//    in statByModel/statByProvider/statByVirtualKey.
+// ---------------------------------------------------------------------------
+
+func TestCalculateStats_WithTokensMetric(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "tokens-metric-provider", "https://api.example.com/v1")
+	insertTestRequestLog(t, pool, uuid.New(), providerID, "tokens-model", 200, 100, 10, 20)
+	insertTestRequestLog(t, pool, uuid.New(), providerID, "tokens-model", 200, 200, 20, 40)
+
+	result, err := handler.calculateStats(context.Background(), 24*time.Hour, false, "tokens", false)
+	if err != nil {
+		t.Fatalf("calculateStats with tokens metric: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+	// Verify the tokens metric was used (ByModel values reflect token sums, not counts)
+	if len(result.ByModel) == 0 {
+		t.Error("expected at least one model in ByModel with tokens metric")
+	}
+	_ = result.ByProvider
+	_ = result.ByVirtualKey
+}
+
+// ---------------------------------------------------------------------------
+// 3. calculateStats — 7-day period with latency
+//    Tests the combination of 7d period AND includeLatency=true.
+// ---------------------------------------------------------------------------
+
+func TestCalculateStats_7dWithLatency(t *testing.T) {
+	handler, pool, cleanup := newStatsHandler(t)
+	defer cleanup()
+
+	providerID := uuid.New()
+	insertTestProvider(t, pool, providerID, "latency-7d-provider", "https://api.example.com/v1")
+	for i := 0; i < 5; i++ {
+		insertRichTestRequestLog(t, pool, uuid.New(), providerID, "latency-7d-model", 200, 100+i*10, 10, 20, requestLogOpts{
+			ResponseHeaderMs: float64(50 + i*5),
+			ProxyOverheadMs:  float64(10 + i*2),
+			LatencyMs:        float64(80 + i*3),
+		})
+	}
+
+	result, err := handler.calculateStats(context.Background(), 7*24*time.Hour, false, "requests", true)
+	if err != nil {
+		t.Fatalf("calculateStats 7d with latency: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+	_ = result.ByModelLatency
+	_ = result.ByProviderLatency
+	_ = result.TotalRequestsLast7d
+}

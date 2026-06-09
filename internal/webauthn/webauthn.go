@@ -48,10 +48,6 @@ type CredentialRecord struct {
 	UpdatedAt                 time.Time `json:"updated_at"`
 }
 
-// aaguidMarshalBinary allows tests to override uuid.UUID.MarshalBinary for
-// error-path coverage. When nil (the default), the real MarshalBinary is used.
-var aaguidMarshalBinary func(u uuid.UUID) ([]byte, error)
-
 // ToWebAuthnCredential converts a CredentialRecord into a webauthn.Credential
 // suitable for use with the go-webauthn library.
 func (r *CredentialRecord) ToWebAuthnCredential() gowa.Credential {
@@ -60,13 +56,7 @@ func (r *CredentialRecord) ToWebAuthnCredential() gowa.Credential {
 		transports = append(transports, protocol.AuthenticatorTransport(t))
 	}
 
-	var aaguidBytes []byte
-	var err error
-	if aaguidMarshalBinary != nil {
-		aaguidBytes, err = aaguidMarshalBinary(r.AAGUID)
-	} else {
-		aaguidBytes, err = r.AAGUID.MarshalBinary()
-	}
+	aaguidBytes, err := r.AAGUID.MarshalBinary()
 	if err != nil {
 		debuglog.Error("webauthn: failed to marshal AAGUID", "aaguid", r.AAGUID, "error", err)
 		aaguidBytes = make([]byte, 16)
@@ -186,26 +176,6 @@ var rowsScan = func(rows pgx.Rows, dest ...any) error {
 	return rows.Scan(dest...)
 }
 
-// txCommitFn allows tests to override tx.Commit in DeleteCredential.
-// When nil (the default), the real tx.Commit is used.
-var txCommitFn func() error
-
-// txSessionDeleteFn allows tests to override the session DELETE tx.Exec
-// in DeleteCredential. When nil (the default), the real tx.Exec is used.
-var txSessionDeleteFn func() error
-
-// txCredentialDeleteFn allows tests to override the credential DELETE tx.Exec
-// in DeleteCredential. When nil (the default), the real tx.Exec is used.
-var txCredentialDeleteFn func() error
-
-// deleteCredCommit calls tx.Commit or the txCommitFn override.
-func deleteCredCommit(ctx context.Context, tx pgx.Tx) error {
-	if txCommitFn != nil {
-		return txCommitFn()
-	}
-	return tx.Commit(ctx)
-}
-
 // Repository provides database access for WebAuthn credentials and sessions.
 type Repository struct {
 	pool *pgxpool.Pool
@@ -309,39 +279,12 @@ func (r *Repository) DeleteCredential(ctx context.Context, id []byte) error {
 	// Revoke auth_token sessions derived from this credential before deleting it.
 	// This ensures a deleted (potentially compromised) passkey cannot continue
 	// granting admin API access for its 30-day session TTL.
-	if err := deleteCredSessionDelete(ctx, tx, id); err != nil {
-		return err
-	}
-
-	if err := deleteCredCredentialDelete(ctx, tx, id); err != nil {
-		return err
-	}
-
-	if err := deleteCredCommit(ctx, tx); err != nil {
-		return err
-	}
-	debuglog.Info("webauthn: deleted credential", "credential_id_len", len(id))
-	return nil
-}
-
-// deleteCredSessionDelete executes the session DELETE within a DeleteCredential
-// transaction. txSessionDeleteFn allows tests to override for error-path coverage.
-func deleteCredSessionDelete(ctx context.Context, tx pgx.Tx, id []byte) error {
-	if txSessionDeleteFn != nil {
-		return txSessionDeleteFn()
-	}
-	_, err := tx.Exec(ctx,
+	if _, err := tx.Exec(ctx,
 		`DELETE FROM webauthn_sessions WHERE credential_id = $1 AND type = 'auth_token'`, id,
-	)
-	return err
-}
-
-// deleteCredCredentialDelete executes the credential DELETE within a DeleteCredential
-// transaction. txCredentialDeleteFn allows tests to override for error-path coverage.
-func deleteCredCredentialDelete(ctx context.Context, tx pgx.Tx, id []byte) error {
-	if txCredentialDeleteFn != nil {
-		return txCredentialDeleteFn()
+	); err != nil {
+		return err
 	}
+
 	tag, err := tx.Exec(ctx, `DELETE FROM webauthn_credentials WHERE id = $1`, id)
 	if err != nil {
 		return err
@@ -349,6 +292,11 @@ func deleteCredCredentialDelete(ctx context.Context, tx pgx.Tx, id []byte) error
 	if tag.RowsAffected() == 0 {
 		return ErrNotFound
 	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+	debuglog.Info("webauthn: deleted credential", "credential_id_len", len(id))
 	return nil
 }
 
