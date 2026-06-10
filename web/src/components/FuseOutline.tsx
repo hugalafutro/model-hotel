@@ -75,6 +75,7 @@ export function FuseOutline({
 	// animation when the rect element changes (unmount/remount cycle), or when
 	// the animation string changes. Always sync play state since it's safe to
 	// toggle without restarting the timeline.
+	// biome-ignore lint/correctness/useExhaustiveDependencies(showRect): the rect element unmounts/remounts when showRect toggles, and the effect must re-run to re-apply the animation to the new element (see resume logic below).
 	useLayoutEffect(() => {
 		const rect = rectRef.current;
 		if (!rect) return;

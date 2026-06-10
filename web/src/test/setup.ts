@@ -123,8 +123,6 @@ vi.stubGlobal(
 if (typeof globalThis.ResizeObserver === "undefined") {
 	globalThis.ResizeObserver = class ResizeObserver {
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
-		constructor(_callback: ResizeObserverCallback) {}
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		observe(_target: Element, _options?: ResizeObserverOptions) {}
 		unobserve() {}
 		disconnect() {}
