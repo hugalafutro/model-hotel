@@ -116,6 +116,7 @@ interface MockLogEntry {
 	virtual_key_deleted: boolean;
 	virtual_key_id: string;
 	virtual_key_name?: string;
+	endpoint_type?: string;
 }
 
 function createMockLogEntry(
@@ -302,6 +303,45 @@ describe("Logs", () => {
 			// Wait for filter to apply
 			await waitFor(() => {
 				expect(screen.getByText("500")).toBeInTheDocument();
+			});
+		});
+
+		it("filters by endpoint type", async () => {
+			const mockLogs = createMockLogs([
+				createMockLogEntry({
+					request_hash: "embedhash123",
+					model_id: "text-embedding-3-small",
+					endpoint_type: "embeddings",
+				}),
+			]);
+
+			server.use(
+				http.get("/api/logs", ({ request }) => {
+					const url = new URL(request.url);
+					const endpointType = url.searchParams.get("endpoint_type");
+					if (endpointType === "embeddings") {
+						return HttpResponse.json(mockLogs);
+					}
+					return HttpResponse.json(createMockLogs([]));
+				}),
+			);
+
+			const { user } = renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getAllByText("Requests")[0]).toBeInTheDocument();
+			});
+
+			// Open endpoint dropdown and select Embeddings
+			const endpointButton = screen.getByRole("button", { name: "Endpoint" });
+			await user.click(endpointButton);
+
+			const optionEmbeddings = screen.getByText("Embeddings");
+			await user.click(optionEmbeddings);
+
+			// Wait for filter to apply
+			await waitFor(() => {
+				expect(screen.getByText("text-embedding-3-small")).toBeInTheDocument();
 			});
 		});
 	});

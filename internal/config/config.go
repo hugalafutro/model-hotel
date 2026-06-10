@@ -101,7 +101,7 @@ func Load() (*Config, error) {
 		RateLimitEnabled:     getBoolEnvWithDefault("RATE_LIMIT_ENABLED", true),
 		RateLimitIPRPS:       clampFloat(getFloatEnvWithDefault("RATE_LIMIT_IP_RPS", 30), 0, 10000),
 		RateLimitIPBurst:     clampInt(getIntEnvAsInt("RATE_LIMIT_IP_BURST", 60), 1, 10000),
-		MaxRequestSize:       clampInt64(getIntEnvWithDefault("MAX_REQUEST_SIZE", 10*1024*1024), 1024, 100*1024*1024), // 1KB–100MB
+		MaxRequestSize:       clampInt64(getIntEnvWithDefault("MAX_REQUEST_SIZE", 50*1024*1024), 1024, 100*1024*1024), // 1KB–100MB; default 50MB covers multipart audio uploads (OpenAI limit: 25MB)
 		CORSOrigins:          parseCORSOrigins(getEnvWithDefault("CORS_ORIGINS", "http://localhost:5173,http://localhost:8081")),
 		AllowedProviderHosts: parseProviderHosts(getEnvWithDefault("ALLOWED_PROVIDER_HOSTS", "")),
 		DBMaxConns:           clampInt32(getIntEnvAsInt32("DATABASE_MAX_CONNS", 25), 1, 1000),

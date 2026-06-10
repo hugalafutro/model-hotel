@@ -861,12 +861,38 @@ func silentLogger(next http.Handler) http.Handler {
 // The request body is stored in the context so downstream handlers can
 // reuse it without a second allocation, and also restored as r.Body for
 // any handler that reads it directly.
+// isLongRunningPath reports whether the request targets a multimodal proxy
+// endpoint whose legitimate latency exceeds the non-streaming deadline:
+// image generation/edits and audio synthesis/transcription regularly take
+// minutes. The proxy's per-attempt failover timeout and overall deadline
+// still bound these requests.
+func isLongRunningPath(path string) bool {
+	return strings.HasPrefix(path, "/v1/images/") || strings.HasPrefix(path, "/v1/audio/")
+}
+
 func streamingAwareTimeout(maxNonStreamingDur time.Duration) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Only POST /v1/chat/completions carries a stream flag;
 			// other routes (e.g. GET /v1/models) get the non-streaming timeout.
 			if r.Method != http.MethodPost {
+				ctx, cancel := context.WithTimeout(r.Context(), maxNonStreamingDur)
+				defer cancel()
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
+
+			// Multipart uploads (audio transcription/translation, image
+			// edits/variations) are never buffered here: reading megabytes
+			// into memory before auth would let unauthenticated clients pin
+			// large allocations, and the JSON peek cannot apply anyway (the
+			// model field lives in the form, parsed by the handler after
+			// auth). These routes are long-running, so no deadline either.
+			if strings.HasPrefix(strings.ToLower(r.Header.Get("Content-Type")), "multipart/") {
+				if isLongRunningPath(r.URL.Path) {
+					next.ServeHTTP(w, r)
+					return
+				}
 				ctx, cancel := context.WithTimeout(r.Context(), maxNonStreamingDur)
 				defer cancel()
 				next.ServeHTTP(w, r.WithContext(ctx))
@@ -882,7 +908,10 @@ func streamingAwareTimeout(maxNonStreamingDur time.Duration) func(http.Handler) 
 			}
 
 			// Extract both stream and model in a single unmarshal so
-			// downstream handlers can skip re-parsing cached bytes.
+			// downstream handlers can skip re-parsing cached bytes. The peek
+			// runs regardless of Content-Type: clients send JSON chat bodies
+			// with text/plain or form-urlencoded headers, and skipping them
+			// would wrongly impose the non-streaming deadline on their streams.
 			var parsed struct {
 				Stream bool   `json:"stream"`
 				Model  string `json:"model"`
@@ -904,7 +933,12 @@ func streamingAwareTimeout(maxNonStreamingDur time.Duration) func(http.Handler) 
 			ctx = context.WithValue(ctx, ctxkeys.RequestModelKey, modelName)
 			ctx = context.WithValue(ctx, ctxkeys.IsStreamingKey, isStreaming)
 
-			if isStreaming {
+			// Long-running multimodal routes (image generation, audio) get the
+			// streaming treatment even without a body stream flag: their
+			// legitimate latencies (image models, large transcriptions, SSE
+			// synthesis) exceed the non-streaming deadline. The proxy's
+			// per-attempt failover timeout still bounds each upstream call.
+			if isStreaming || isLongRunningPath(r.URL.Path) {
 				next.ServeHTTP(w, r.WithContext(ctx))
 			} else {
 				ctx, cancel := context.WithTimeout(ctx, maxNonStreamingDur)

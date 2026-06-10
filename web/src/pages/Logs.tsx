@@ -24,6 +24,8 @@ import { LogDetailModal } from "../components/LogDetailModal";
 import {
 	DateFilterButton,
 	DateRangePickerPopover,
+	ENDPOINT_FILTER_OPTIONS,
+	EndpointTypeBadge,
 	LiveToggleButton,
 	LogsErrorState,
 	ViewModeToggle,
@@ -66,6 +68,7 @@ function RequestLogs() {
 		model_id: "",
 		provider_id: "",
 		status_code: "",
+		endpoint_type: "",
 	});
 	const debouncedModelId = useDebounce(filters.model_id, 300);
 	const debouncedProviderId = useDebounce(filters.provider_id, 300);
@@ -146,6 +149,7 @@ function RequestLogs() {
 			debouncedModelId,
 			debouncedProviderId,
 			filters.status_code,
+			filters.endpoint_type,
 			dateFrom,
 			dateTo,
 			sort,
@@ -157,6 +161,7 @@ function RequestLogs() {
 				model_id: debouncedModelId || undefined,
 				provider_id: debouncedProviderId || undefined,
 				status_code: filters.status_code || undefined,
+				endpoint_type: filters.endpoint_type || undefined,
 				from: dateFrom || undefined,
 				to: dateTo || undefined,
 				sort_by: sort.field,
@@ -177,6 +182,7 @@ function RequestLogs() {
 			model_id: debouncedModelId || undefined,
 			provider_id: debouncedProviderId || undefined,
 			status_code: filters.status_code || undefined,
+			endpoint_type: filters.endpoint_type || undefined,
 			from: dateFrom || undefined,
 			to: dateTo || undefined,
 		}),
@@ -184,6 +190,7 @@ function RequestLogs() {
 			debouncedModelId,
 			debouncedProviderId,
 			filters.status_code,
+			filters.endpoint_type,
 			dateFrom,
 			dateTo,
 		],
@@ -211,6 +218,7 @@ function RequestLogs() {
 				model_id: params.model_id as string | undefined,
 				provider_id: params.provider_id as string | undefined,
 				status_code: params.status_code as string | undefined,
+				endpoint_type: params.endpoint_type as string | undefined,
 				from: params.from as string | undefined,
 				to: params.to as string | undefined,
 			}),
@@ -438,6 +446,19 @@ function RequestLogs() {
 								]}
 								className="w-28"
 							/>
+							<FilterDropdown
+								value={filters.endpoint_type}
+								onChange={(v) => {
+									setFilters({ ...filters, endpoint_type: v });
+									setPage(1);
+								}}
+								placeholder={t("logs.filters.endpoint")}
+								options={ENDPOINT_FILTER_OPTIONS.map((o) => ({
+									value: o.value,
+									label: t(o.labelKey),
+								}))}
+								className="w-36"
+							/>
 
 							<div className="relative" ref={datePickerRef}>
 								<DateFilterButton
@@ -610,6 +631,7 @@ function RequestLogs() {
 															: log.model_id
 													}
 												>
+													<EndpointTypeBadge endpointType={log.endpoint_type} />
 													{log.model_id ? (
 														log.model_id.startsWith("hotel/") ? (
 															<>

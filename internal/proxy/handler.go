@@ -177,6 +177,13 @@ func (h *Handler) Register(r chi.Router) {
 
 	r.Get("/models", h.ListModels)
 	r.Post("/chat/completions", h.ChatCompletions)
+	r.Post("/embeddings", h.Embeddings)
+	r.Post("/images/generations", h.ImageGenerations)
+	r.Post("/images/edits", h.ImageEdits)
+	r.Post("/images/variations", h.ImageVariations)
+	r.Post("/audio/speech", h.AudioSpeech)
+	r.Post("/audio/transcriptions", h.AudioTranscriptions)
+	r.Post("/audio/translations", h.AudioTranslations)
 }
 
 // RegisterAdminChat adds the admin chat endpoint.

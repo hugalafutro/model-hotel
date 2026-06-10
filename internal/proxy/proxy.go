@@ -552,7 +552,7 @@ func (h *Handler) failRequest(logData *requestLogData, statusCode int, errMsg st
 
 // ChatCompletions handles OpenAI-compatible chat completion requests with failover support.
 func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
-	st, ok := h.ingestRequest(w, r)
+	st, ok := h.ingestRequest(w, r, endpointTypeChat)
 	if !ok {
 		return
 	}
@@ -564,6 +564,19 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 	debuglog.Debug("proxy: model resolved (pre-loop)", "model", st.logData.modelID, "provider", st.logData.providerName, "candidates", len(candidates), "overhead_ms", st.proxyOverhead)
 
+	h.runFailoverLoop(w, r, st, candidates, h.attemptCandidate)
+}
+
+// attemptFn runs one failover attempt against a single candidate and reports
+// whether the loop should try the next candidate (outcomeFailover) or stop.
+// ChatCompletions uses attemptCandidate; the multimodal endpoints use
+// attemptPassthroughCandidate.
+type attemptFn func(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, attempt, totalCandidates int) candidateOutcome
+
+// runFailoverLoop drives the shared failover loop (phase D): the overall
+// deadline check, exponential backoff between attempts, one attempt call per
+// candidate, and the all-exhausted failure path.
+func (h *Handler) runFailoverLoop(w http.ResponseWriter, r *http.Request, st *requestState, candidates []modelCandidate, attemptOne attemptFn) {
 	for attempt, candidate := range candidates {
 		// Overall deadline check: stop failover if the total time budget
 		// across all candidates has been exceeded. This prevents N candidates
@@ -591,11 +604,11 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// One failover attempt. attemptCandidate owns its request contexts
+		// One failover attempt. The attempt fn owns its request contexts
 		// (cancelled via defer after body consumption) and reports whether to
 		// try the next candidate, that the response was served, or that a
 		// terminal error was written.
-		if h.attemptCandidate(w, r, st, candidate, attempt, len(candidates)) != outcomeFailover {
+		if attemptOne(w, r, st, candidate, attempt, len(candidates)) != outcomeFailover {
 			return
 		}
 	}

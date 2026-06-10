@@ -6,6 +6,7 @@ import { formatMs, formatTPS } from "../pages/Logs/utils";
 import { formatNumber } from "../utils/format";
 import { isCancelled } from "../utils/logHelpers";
 import { Badge } from "./Badge";
+import { EndpointTypeBadge } from "./logs";
 import { LOG_COL_WIDTHS } from "./logTableWidths";
 
 interface VirtualLogTableProps {
@@ -283,6 +284,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 												: log.model_id
 										}
 									>
+										<EndpointTypeBadge endpointType={log.endpoint_type} />
 										{log.model_id ? (
 											log.model_id.startsWith("hotel/") ? (
 												<>

@@ -101,25 +101,26 @@ func WriteOpenAIError(w http.ResponseWriter, message string, statusCode int) {
 	})
 }
 
-// BuildProviderTargetURL constructs the full upstream URL for a given provider.
-// Most providers use base + "/chat/completions" but Anthropic needs "/v1/chat/completions"
+// BuildProviderTargetURL constructs the full upstream URL for a given provider
+// and endpoint path (e.g. "/chat/completions", "/embeddings", "/audio/speech").
+// Most providers use base + endpoint but Anthropic needs "/v1" + endpoint
 // because its base URL (https://api.anthropic.com) lacks the /v1 prefix.
 // Defensive: if the base URL already ends with /v1, don't double-append it.
-func BuildProviderTargetURL(baseURL, providerType string) string {
+func BuildProviderTargetURL(baseURL, providerType, endpoint string) string {
 	sanitized := SanitizeBaseURL(baseURL)
 	switch providerType {
 	case "anthropic":
 		// Avoid double /v1 if the user configured https://api.anthropic.com/v1
 		if strings.HasSuffix(sanitized, "/v1") {
-			return sanitized + "/chat/completions"
+			return sanitized + endpoint
 		}
-		return sanitized + "/v1/chat/completions"
+		return sanitized + "/v1" + endpoint
 	default:
 		// Pass the user's base URL as-is. The user is responsible for
 		// including the correct path prefix (e.g. /v1) in the base URL.
 		// Known providers already have /v1 in their configured base URLs.
 		// Custom providers must be configured with the full path by the user.
-		return sanitized + "/chat/completions"
+		return sanitized + endpoint
 	}
 }
 

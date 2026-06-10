@@ -60,6 +60,7 @@ type LogEntry struct {
 	State                     string     `json:"state"`
 	CreatedAt                 time.Time  `json:"created_at"`
 	ResolvedModelID           string     `json:"resolved_model_id"`
+	EndpointType              string     `json:"endpoint_type"`
 }
 
 // LogsResponse is the paginated response for request logs.
@@ -117,7 +118,8 @@ func (h *Handler) GetLog(w http.ResponseWriter, r *http.Request) {
 			END AS virtual_key_deleted,
 			COALESCE(rl.error_message, ''), COALESCE(rl.failover_attempt, 0), COALESCE(rl.state, 'completed'), rl.created_at,
 			COALESCE(rl.response_header_ms, 0),
-			COALESCE(rl.resolved_model_id, '')
+			COALESCE(rl.resolved_model_id, ''),
+			COALESCE(rl.endpoint_type, 'chat')
 		FROM request_logs rl LEFT JOIN providers p ON rl.provider_id = p.id
 		LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
 		WHERE rl.id = $1`,
@@ -138,6 +140,7 @@ func (h *Handler) GetLog(w http.ResponseWriter, r *http.Request) {
 		&entry.FailoverAttempt, &entry.State, &entry.CreatedAt,
 		&entry.ResponseHeaderMs,
 		&entry.ResolvedModelID,
+		&entry.EndpointType,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -219,7 +222,7 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// logEntrySelectColumns is the shared 34-column request_logs projection plus the
+// logEntrySelectColumns is the shared 35-column request_logs projection plus the
 // FROM/JOIN/WHERE 1=1 tail. The cursor list prefixes it with "SELECT "; the
 // offset list (ListLogs) prefixes it with the windowed total count. Its column
 // order matches logEntryScanDests exactly.
@@ -248,7 +251,8 @@ const logEntrySelectColumns = `rl.id, COALESCE(rl.provider_id::text, ''),
             END AS virtual_key_deleted,
             COALESCE(rl.error_message, ''), COALESCE(rl.failover_attempt, 0), COALESCE(rl.state, 'completed'), rl.created_at,
             COALESCE(rl.response_header_ms, 0),
-            COALESCE(rl.resolved_model_id, '')
+            COALESCE(rl.resolved_model_id, ''),
+            COALESCE(rl.endpoint_type, 'chat')
         FROM request_logs rl LEFT JOIN providers p ON rl.provider_id = p.id
         LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
         WHERE 1=1
@@ -263,7 +267,7 @@ func buildLogListQuery(p logListParams) (string, []any) {
 
 	args := []any{}
 	argIndex := 1
-	query, args, argIndex = appendLogFilters(query, args, argIndex, p.modelID, p.providerID, p.statusCode, p.fromDate, p.toDate)
+	query, args, argIndex = appendLogFilters(query, args, argIndex, p.modelID, p.providerID, p.statusCode, p.fromDate, p.toDate, p.endpointType)
 	if p.cursorStr != "" {
 		query, args, argIndex = appendKeysetPredicate(query, args, argIndex, p.cursor, p.direction, p.sortDir)
 	}
@@ -288,7 +292,7 @@ func buildLogListQuery(p logListParams) (string, []any) {
 func (h *Handler) countLogs(ctx context.Context, p logListParams) int {
 	query := "SELECT COUNT(*) FROM request_logs rl WHERE 1=1"
 	args := []any{}
-	query, args, _ = appendLogFilters(query, args, 1, p.modelID, p.providerID, p.statusCode, p.fromDate, p.toDate)
+	query, args, _ = appendLogFilters(query, args, 1, p.modelID, p.providerID, p.statusCode, p.fromDate, p.toDate, p.endpointType)
 	var total int
 	_ = h.dbPool.Pool().QueryRow(ctx, query, args...).Scan(&total)
 	return total
@@ -332,7 +336,7 @@ func paginateCursor[T any](entries []T, direction string, limit int, hasCursor b
 	return entries, hasAfter, hasBefore
 }
 
-// logEntryScanDests returns the ordered Scan() targets for the shared 34-column
+// logEntryScanDests returns the ordered Scan() targets for the shared 35-column
 // request_logs projection (logEntrySelectColumns). The cursor list scans these
 // directly; the offset list (ListLogs) prepends its windowed total count.
 func logEntryScanDests(entry *LogEntry) []any {
@@ -352,10 +356,11 @@ func logEntryScanDests(entry *LogEntry) []any {
 		&entry.FailoverAttempt, &entry.State, &entry.CreatedAt,
 		&entry.ResponseHeaderMs,
 		&entry.ResolvedModelID,
+		&entry.EndpointType,
 	}
 }
 
-// scanLogEntry scans one request_logs row (the 34-column projection shared by
+// scanLogEntry scans one request_logs row (the 35-column projection shared by
 // ListLogsCursor and ListLogs) into a LogEntry.
 func scanLogEntry(rows pgx.Rows) (LogEntry, error) {
 	var entry LogEntry
@@ -370,10 +375,15 @@ func scanLogEntry(rows pgx.Rows) (LogEntry, error) {
 // count copy lacked the `statusCode >= 0` guard the data copy has; both now use
 // the guard, so an invalid negative status_code is uniformly ignored — a
 // behaviour-neutral fix since status codes are always >= 0).
-func appendLogFilters(query string, args []any, argIndex int, modelID, providerID, statusCodeStr, fromDate, toDate string) (string, []any, int) {
+func appendLogFilters(query string, args []any, argIndex int, modelID, providerID, statusCodeStr, fromDate, toDate, endpointType string) (string, []any, int) {
 	if modelID != "" {
 		query += " AND rl.model_id ILIKE $" + util.IntToStr(argIndex)
 		args = append(args, "%"+modelID+"%")
+		argIndex++
+	}
+	if isValidEndpointType(endpointType) {
+		query += " AND COALESCE(rl.endpoint_type, 'chat') = $" + util.IntToStr(argIndex)
+		args = append(args, endpointType)
 		argIndex++
 	}
 	if providerID != "" {
@@ -416,6 +426,18 @@ func appendLogFilters(query string, args []any, argIndex int, modelID, providerI
 	return query, args, argIndex
 }
 
+// isValidEndpointType reports whether s is a known endpoint family for the
+// endpoint_type log filter. Unknown values are ignored (no filter applied)
+// rather than rejected, matching the other filters' lenient behavior.
+func isValidEndpointType(s string) bool {
+	switch s {
+	case "chat", "embeddings", "image", "tts", "stt":
+		return true
+	default:
+		return false
+	}
+}
+
 // appendKeysetPredicate appends the (created_at, id) keyset comparison relative
 // to the cursor. The comparison operator is "<" when scrolling toward older
 // rows — (after, desc) or (before, asc) — and ">" otherwise, collapsing the
@@ -438,31 +460,33 @@ func appendKeysetPredicate(query string, args []any, argIndex int, cursor logCur
 // endpoint: limit clamped to [1,200], direction/sortDir defaulted, filters, and
 // the decoded cursor.
 type logListParams struct {
-	limit      int
-	cursorStr  string
-	cursor     logCursor
-	direction  string
-	sortDir    string
-	modelID    string
-	providerID string
-	statusCode string
-	fromDate   string
-	toDate     string
+	limit        int
+	cursorStr    string
+	cursor       logCursor
+	direction    string
+	sortDir      string
+	modelID      string
+	providerID   string
+	statusCode   string
+	fromDate     string
+	toDate       string
+	endpointType string
 }
 
 // parseLogListParams reads and validates the pagination/filter query params. On
 // an undecodable cursor it writes a 400 response and returns ok=false.
 func parseLogListParams(w http.ResponseWriter, r *http.Request) (logListParams, bool) {
 	p := logListParams{
-		limit:      util.GetIntQueryParam(r, "limit", 20),
-		cursorStr:  r.URL.Query().Get("cursor"),
-		direction:  r.URL.Query().Get("direction"),
-		sortDir:    r.URL.Query().Get("sort_dir"),
-		modelID:    r.URL.Query().Get("model_id"),
-		providerID: r.URL.Query().Get("provider_id"),
-		statusCode: r.URL.Query().Get("status_code"),
-		fromDate:   r.URL.Query().Get("from"),
-		toDate:     r.URL.Query().Get("to"),
+		limit:        util.GetIntQueryParam(r, "limit", 20),
+		cursorStr:    r.URL.Query().Get("cursor"),
+		direction:    r.URL.Query().Get("direction"),
+		sortDir:      r.URL.Query().Get("sort_dir"),
+		modelID:      r.URL.Query().Get("model_id"),
+		providerID:   r.URL.Query().Get("provider_id"),
+		statusCode:   r.URL.Query().Get("status_code"),
+		fromDate:     r.URL.Query().Get("from"),
+		toDate:       r.URL.Query().Get("to"),
+		endpointType: r.URL.Query().Get("endpoint_type"),
 	}
 	if p.limit < 1 {
 		p.limit = 1
@@ -573,6 +597,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 	statusCodeStr := r.URL.Query().Get("status_code")
 	fromDate := r.URL.Query().Get("from")
 	toDate := r.URL.Query().Get("to")
+	endpointType := r.URL.Query().Get("endpoint_type")
 	sortBy := r.URL.Query().Get("sort_by")
 	sortDir := r.URL.Query().Get("sort_dir")
 
@@ -615,7 +640,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 
 	args := []any{}
 	argIndex := 1
-	query, args, argIndex = appendLogFilters(query, args, argIndex, modelID, providerID, statusCodeStr, fromDate, toDate)
+	query, args, argIndex = appendLogFilters(query, args, argIndex, modelID, providerID, statusCodeStr, fromDate, toDate, endpointType)
 
 	sd := sortColumns[sortBy]
 	orderClause := " ORDER BY "

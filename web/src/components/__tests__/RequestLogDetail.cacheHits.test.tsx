@@ -37,6 +37,7 @@ const baseLog: LogEntry = {
 	failover_attempt: 0,
 	created_at: "2024-01-01T00:00:00Z",
 	resolved_model_id: "resolved-1",
+	endpoint_type: "chat",
 };
 
 const onClose = () => {};

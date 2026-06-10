@@ -147,6 +147,102 @@ func TestListLogs_WithProviderIDFilter(t *testing.T) {
 	}
 }
 
+// TestListLogs_WithEndpointTypeFilter tests filtering logs by endpoint_type
+// and that the field is exposed in the response.
+
+func TestListLogs_WithEndpointTypeFilter(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+
+	body := `{"name":"test-logs-provider-ep","base_url":"https://api.openai.com","api_key":"sk-test-ep"}`
+	reqCreate := httptest.NewRequest("POST", "/providers", strings.NewReader(body))
+	reqCreate.Header.Set("Authorization", "Bearer test-admin-token")
+	reqCreate.Header.Set("Content-Type", "application/json")
+	wCreate := httptest.NewRecorder()
+	r.ServeHTTP(wCreate, reqCreate)
+
+	var created map[string]interface{}
+	json.NewDecoder(wCreate.Body).Decode(&created)
+	providerID := created["id"].(string)
+
+	// One embeddings request and one chat request (default endpoint_type).
+	pool := h.Pool().Pool()
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO request_logs (provider_id, model_id, status_code, duration_ms, tokens_prompt, tokens_completion, endpoint_type, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		uuid.MustParse(providerID), "text-embedding-3-small", 200, 50, 8, 0, "embeddings", time.Now())
+	if err != nil {
+		t.Fatalf("Failed to insert embeddings log: %v", err)
+	}
+	_, err = pool.Exec(context.Background(), `
+		INSERT INTO request_logs (provider_id, model_id, status_code, duration_ms, tokens_prompt, tokens_completion, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		uuid.MustParse(providerID), "gpt-4", 200, 1000, 100, 200, time.Now())
+	if err != nil {
+		t.Fatalf("Failed to insert chat log: %v", err)
+	}
+
+	// Filter by endpoint_type=embeddings (scoped to this provider so the
+	// shared test DB doesn't bleed rows from other tests).
+	req := httptest.NewRequest("GET", "/logs?endpoint_type=embeddings&provider_id="+providerID, http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var response struct {
+		Entries []struct {
+			ModelID      string `json:"model_id"`
+			EndpointType string `json:"endpoint_type"`
+		} `json:"entries"`
+	}
+	json.NewDecoder(w.Body).Decode(&response)
+	if len(response.Entries) != 1 {
+		t.Fatalf("expected 1 embeddings log entry, got %d", len(response.Entries))
+	}
+	if response.Entries[0].EndpointType != "embeddings" {
+		t.Errorf("endpoint_type = %q, want embeddings", response.Entries[0].EndpointType)
+	}
+	if response.Entries[0].ModelID != "text-embedding-3-small" {
+		t.Errorf("model_id = %q, want text-embedding-3-small", response.Entries[0].ModelID)
+	}
+
+	// chat filter must return the chat row (legacy rows default to 'chat').
+	req2 := httptest.NewRequest("GET", "/logs?endpoint_type=chat&provider_id="+providerID, http.NoBody)
+	req2.Header.Set("Authorization", "Bearer test-admin-token")
+	w2 := httptest.NewRecorder()
+	r.ServeHTTP(w2, req2)
+
+	var response2 struct {
+		Entries []struct {
+			EndpointType string `json:"endpoint_type"`
+		} `json:"entries"`
+	}
+	json.NewDecoder(w2.Body).Decode(&response2)
+	if len(response2.Entries) != 1 {
+		t.Fatalf("expected 1 chat log entry, got %d", len(response2.Entries))
+	}
+	if response2.Entries[0].EndpointType != "chat" {
+		t.Errorf("endpoint_type = %q, want chat", response2.Entries[0].EndpointType)
+	}
+
+	// Unknown endpoint_type values are ignored (no filter): both rows return.
+	req3 := httptest.NewRequest("GET", "/logs?endpoint_type=bogus&provider_id="+providerID, http.NoBody)
+	req3.Header.Set("Authorization", "Bearer test-admin-token")
+	w3 := httptest.NewRecorder()
+	r.ServeHTTP(w3, req3)
+
+	var response3 struct {
+		Entries []json.RawMessage `json:"entries"`
+	}
+	json.NewDecoder(w3.Body).Decode(&response3)
+	if len(response3.Entries) != 2 {
+		t.Errorf("expected 2 entries with unknown endpoint_type filter (ignored), got %d", len(response3.Entries))
+	}
+}
+
 // TestListLogs_WithModelIDFilter tests filtering logs by model_id
 
 func TestListLogs_WithModelIDFilter(t *testing.T) {

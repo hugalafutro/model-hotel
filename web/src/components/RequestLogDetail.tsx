@@ -19,6 +19,7 @@ import { CopyablePill } from "./CopyablePill";
 import { DetailItem } from "./LogDetailItem";
 import { StatusBadge } from "./LogDetailStatusBadge";
 import { formatDateTime, splitDuration } from "./logDetailUtils";
+import { EndpointTypeBadge } from "./logs";
 import { Modal } from "./Modal";
 
 export function RequestLogDetail({
@@ -49,6 +50,10 @@ export function RequestLogDetail({
 						code={requestLog.status_code}
 						state={requestLog.state}
 						errorMessage={requestLog.error_message}
+					/>
+					<EndpointTypeBadge
+						endpointType={requestLog.endpoint_type}
+						showLabel
 					/>
 					{requestLog.failover_attempt > 0 && (
 						<span className="inline-flex items-center gap-1 px-2 py-1 leading-[1.6] rounded-full text-xs font-medium bg-purple-500/15 text-purple-400 border border-purple-500/30">

@@ -57,6 +57,10 @@ func (h *Handler) insertRequestLogAsync(logEntry *requestLogData) {
 	virtualKeyID := logEntry.virtualKeyID
 	failoverAttempt := logEntry.failoverAttempt
 	state := logEntry.state
+	endpointType := logEntry.endpointType
+	if endpointType == "" {
+		endpointType = endpointTypeChat
+	}
 	wg := &logEntry.insertWg
 
 	go func() {
@@ -74,9 +78,9 @@ func (h *Handler) insertRequestLogAsync(logEntry *requestLogData) {
 			vkID = virtualKeyID
 		}
 		_, err := h.dbPool.Exec(ctx, `
-			INSERT INTO request_logs (id, model_id, request_hash, streaming, virtual_key_name, virtual_key_id, failover_attempt, state)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-			id, modelID, requestHash, streaming, virtualKeyName, vkID, failoverAttempt, state,
+			INSERT INTO request_logs (id, model_id, request_hash, streaming, virtual_key_name, virtual_key_id, failover_attempt, state, endpoint_type)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+			id, modelID, requestHash, streaming, virtualKeyName, vkID, failoverAttempt, state, endpointType,
 		)
 		if err != nil {
 			debuglog.Error("proxy: failed to insert initial request log", "request_id", id, "error", err)
