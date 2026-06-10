@@ -253,12 +253,8 @@ describe("Logs", () => {
 				screen.getByText("1 to 20 of 50 entries", { exact: true }),
 			).toBeInTheDocument();
 			// Page navigation buttons use i18n translations
-			expect(
-				screen.getByRole("button", { name: "Prev", exact: true }),
-			).toBeInTheDocument();
-			expect(
-				screen.getByRole("button", { name: "Next", exact: true }),
-			).toBeInTheDocument();
+			expect(screen.getByRole("button", { name: "Prev" })).toBeInTheDocument();
+			expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
 			expect(screen.getByText("2")).toBeInTheDocument();
 		});
 
@@ -286,9 +282,7 @@ describe("Logs", () => {
 			});
 
 			// Click Next button to go to page 2
-			await user.click(
-				screen.getByRole("button", { name: "Next", exact: true }),
-			);
+			await user.click(screen.getByRole("button", { name: "Next" }));
 
 			// Should navigate to page 2 - pagination shows "21 to 40 of 50 entries"
 			await waitFor(() => {
