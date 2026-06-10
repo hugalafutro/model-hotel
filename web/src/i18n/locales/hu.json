@@ -1059,10 +1059,18 @@
 				"4xx": "4XX",
 				"5xx": "5XX"
 			},
+			"endpoint": "Végpont",
 			"level": "Szint",
 			"levelAll": "Minden",
 			"source": "Forrás",
 			"logsPlaceholder": "Naplók szűrése:…"
+		},
+		"endpoint": {
+			"chat": "Csevegés",
+			"embeddings": "Beágyazások",
+			"image": "Kép",
+			"tts": "TTS",
+			"stt": "STT"
 		},
 		"table": {
 			"timeDate": "Idő/Dátum",
@@ -1537,24 +1545,24 @@
 			"backupCreated": "A biztonsági másolat elkészült",
 			"downloadFailed": "A letöltés nem sikerült: {{message}}",
 			"rotation": {
-				"title": "Periodic Backup",
-				"enabled": "Enable Periodic Backup",
-				"enabledDescription": "Automatically create backups at regular intervals and prune old ones using son/father/grandfather rotation.",
-				"interval": "Backup Interval",
-				"intervalDescription": "How often to create an automatic backup (0 = disabled).",
-				"sonRetention": "Daily Retention (Son)",
-				"sonRetentionDescription": "Keep the most recent backup from each of the last N days.",
-				"fatherRetention": "Weekly Retention (Father)",
-				"fatherRetentionDescription": "Keep the most recent backup from each of the last N weeks.",
-				"grandfatherRetention": "Monthly Retention (Grandfather)",
-				"grandfatherRetentionDescription": "Keep the most recent backup from each of the last N months.",
-				"confirmEnableTitle": "Enable Periodic Backup?",
-				"confirmEnableDescription": "Enabling periodic backup will prune existing backups that fall outside the son/father/grandfather rotation scheme.",
-				"confirmEnableWouldRemove": "This would remove the following {{count}} backup(s):",
-				"confirmEnableNoRemoval": "No existing backups would be removed.",
-				"prunePreviewFailed": "Failed to preview backup pruning",
-				"pruneFailed": "Failed to prune backups",
-				"pruneSuccess": "Pruned {{count}} backup(s)"
+				"title": "Rendszeres biztonsági mentés",
+				"enabled": "Időszakos biztonsági mentés engedélyezése",
+				"enabledDescription": "Rendszeres időközönként automatikusan készítsen biztonsági másolatokat, és a „son/father/grandfather” rotációs elv alapján törölje a régebbieket.",
+				"interval": "Biztonsági mentés gyakorisága",
+				"intervalDescription": "Milyen gyakorisággal készítsen automatikus biztonsági másolatot (0 = ki van kapcsolva).",
+				"sonRetention": "Napi megtartás (fiú)",
+				"sonRetentionDescription": "Az elmúlt N napból mindegyikből őrizze meg a legfrissebb biztonsági másolatot.",
+				"fatherRetention": "Heti megtartás (apa)",
+				"fatherRetentionDescription": "Az elmúlt N hétből mindegyikből őrizze meg a legfrissebb biztonsági másolatot.",
+				"grandfatherRetention": "Havi megtartási díj (régi rendszer)",
+				"grandfatherRetentionDescription": "Az elmúlt N hónap mindegyikéből őrizze meg a legfrissebb biztonsági másolatot.",
+				"confirmEnableTitle": "Engedélyezni az időszakos biztonsági mentést?",
+				"confirmEnableDescription": "Az időszakos biztonsági mentés engedélyezése esetén a rendszer törli azokat a meglévő biztonsági mentéseket, amelyek már nem felelnek meg a „fiú/apa/nagyapa” rotációs sémának.",
+				"confirmEnableWouldRemove": "Ezzel a következő {{count}} biztonsági másolat(ok) törlésre kerül(nek):",
+				"confirmEnableNoRemoval": "A meglévő biztonsági másolatok nem kerülnek törlésre.",
+				"prunePreviewFailed": "A biztonsági mentés tisztításának előnézete nem sikerült",
+				"pruneFailed": "A biztonsági másolatok törlése nem sikerült",
+				"pruneSuccess": "{{count}} biztonsági másolat(ok) törlése"
 			}
 		},
 		"appearance": {

@@ -1059,10 +1059,18 @@
 				"4xx": "4XX",
 				"5xx": "5XX"
 			},
+			"endpoint": "Endpoint",
 			"level": "Livello",
 			"levelAll": "Tutti",
 			"source": "Fonte",
 			"logsPlaceholder": "Filtro log…"
+		},
+		"endpoint": {
+			"chat": "Chat",
+			"embeddings": "Incorporazioni",
+			"image": "Immagine",
+			"tts": "TTS",
+			"stt": "STT"
 		},
 		"table": {
 			"timeDate": "Ora/Data",
@@ -1537,24 +1545,24 @@
 			"backupCreated": "Backup creato",
 			"downloadFailed": "Download fallito: {{message}}",
 			"rotation": {
-				"title": "Periodic Backup",
-				"enabled": "Enable Periodic Backup",
-				"enabledDescription": "Automatically create backups at regular intervals and prune old ones using son/father/grandfather rotation.",
-				"interval": "Backup Interval",
-				"intervalDescription": "How often to create an automatic backup (0 = disabled).",
-				"sonRetention": "Daily Retention (Son)",
-				"sonRetentionDescription": "Keep the most recent backup from each of the last N days.",
-				"fatherRetention": "Weekly Retention (Father)",
-				"fatherRetentionDescription": "Keep the most recent backup from each of the last N weeks.",
-				"grandfatherRetention": "Monthly Retention (Grandfather)",
-				"grandfatherRetentionDescription": "Keep the most recent backup from each of the last N months.",
-				"confirmEnableTitle": "Enable Periodic Backup?",
-				"confirmEnableDescription": "Enabling periodic backup will prune existing backups that fall outside the son/father/grandfather rotation scheme.",
-				"confirmEnableWouldRemove": "This would remove the following {{count}} backup(s):",
-				"confirmEnableNoRemoval": "No existing backups would be removed.",
-				"prunePreviewFailed": "Failed to preview backup pruning",
-				"pruneFailed": "Failed to prune backups",
-				"pruneSuccess": "Pruned {{count}} backup(s)"
+				"title": "Backup Periodico",
+				"enabled": "Abilita Backup Periodico",
+				"enabledDescription": "Crea automaticamente i backup ad intervalli regolari e pota quelli vecchi usando la rotazione figlio/padre/nonno.",
+				"interval": "Intervallo Di Backup",
+				"intervalDescription": "Quanto spesso creare un backup automatico (0 = disabilitato).",
+				"sonRetention": "Conservazione giornaliera (Figlio)",
+				"sonRetentionDescription": "Mantenere il backup più recente da ciascuno degli ultimi N giorni.",
+				"fatherRetention": "Conservazione settimanale (Padre)",
+				"fatherRetentionDescription": "Mantenere il backup più recente da ciascuna delle ultime N settimane.",
+				"grandfatherRetention": "Conservazione mensile (Nonno)",
+				"grandfatherRetentionDescription": "Mantenere il backup più recente da ciascuno degli ultimi N mesi.",
+				"confirmEnableTitle": "Abilitare Il Backup Periodico?",
+				"confirmEnableDescription": "Abilitando il backup periodico si poteranno i backup esistenti che cadono al di fuori dello schema di rotazione figlio/padre/nonno.",
+				"confirmEnableWouldRemove": "Questo rimuoverebbe i seguenti backup {{count}}:",
+				"confirmEnableNoRemoval": "Nessun backup esistente sarebbe stato rimosso.",
+				"prunePreviewFailed": "Impossibile visualizzare l'anteprima della potatura del backup",
+				"pruneFailed": "Potatura backup non riuscita",
+				"pruneSuccess": "Eliminati {{count}} backup"
 			}
 		},
 		"appearance": {

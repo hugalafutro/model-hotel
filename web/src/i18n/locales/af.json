@@ -1059,10 +1059,18 @@
 				"4xx": "4XX",
 				"5xx": "5XX"
 			},
+			"endpoint": "Eindpunt",
 			"level": "Vlak",
 			"levelAll": "Alles",
 			"source": "Bron",
 			"logsPlaceholder": "Filtreer logboeke…"
+		},
+		"endpoint": {
+			"chat": "Klets",
+			"embeddings": "Inbeddings",
+			"image": "Beeld",
+			"tts": "TTS",
+			"stt": "STT"
 		},
 		"table": {
 			"timeDate": "Tyd/Datum",

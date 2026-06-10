@@ -1059,10 +1059,18 @@
 				"4xx": "4XX",
 				"5xx": "5XX"
 			},
+			"endpoint": "Крајња тачка",
 			"level": "Ниво",
 			"levelAll": "Све",
 			"source": "Извор",
 			"logsPlaceholder": "Филтрирај логове…"
+		},
+		"endpoint": {
+			"chat": "Чет",
+			"embeddings": "Ембединзи",
+			"image": "Слика",
+			"tts": "ТТС",
+			"stt": "СТТ"
 		},
 		"table": {
 			"timeDate": "Време/Датум",
@@ -1537,24 +1545,24 @@
 			"backupCreated": "Резервна копија креирана",
 			"downloadFailed": "Преузимање је неуспело: {{message}}",
 			"rotation": {
-				"title": "Periodic Backup",
-				"enabled": "Enable Periodic Backup",
-				"enabledDescription": "Automatically create backups at regular intervals and prune old ones using son/father/grandfather rotation.",
-				"interval": "Backup Interval",
-				"intervalDescription": "How often to create an automatic backup (0 = disabled).",
-				"sonRetention": "Daily Retention (Son)",
-				"sonRetentionDescription": "Keep the most recent backup from each of the last N days.",
-				"fatherRetention": "Weekly Retention (Father)",
-				"fatherRetentionDescription": "Keep the most recent backup from each of the last N weeks.",
-				"grandfatherRetention": "Monthly Retention (Grandfather)",
-				"grandfatherRetentionDescription": "Keep the most recent backup from each of the last N months.",
-				"confirmEnableTitle": "Enable Periodic Backup?",
-				"confirmEnableDescription": "Enabling periodic backup will prune existing backups that fall outside the son/father/grandfather rotation scheme.",
-				"confirmEnableWouldRemove": "This would remove the following {{count}} backup(s):",
-				"confirmEnableNoRemoval": "No existing backups would be removed.",
-				"prunePreviewFailed": "Failed to preview backup pruning",
-				"pruneFailed": "Failed to prune backups",
-				"pruneSuccess": "Pruned {{count}} backup(s)"
+				"title": "Периодична резервна копија",
+				"enabled": "Омогућите периодично резервно копирање",
+				"enabledDescription": "Аутоматски креирајте резервне копије у редовним интервалима и бришите старе користећи ротацију син/отац/деда.",
+				"interval": "Интервал резервног копирања",
+				"intervalDescription": "Колико често креирати аутоматско резервно копирање (0 = онемогућено).",
+				"sonRetention": "Дневно задржавање (Син)",
+				"sonRetentionDescription": "Сачувајте најновију резервну копију из сваког од последњих N дана.",
+				"fatherRetention": "Недељно задржавање (отац)",
+				"fatherRetentionDescription": "Чувајте најновију резервну копију из сваке од последњих N недеља.",
+				"grandfatherRetention": "Месечна задржавања (Грандфадер)",
+				"grandfatherRetentionDescription": "Сачувајте најновију резервну копију из сваког од последњих N месеци.",
+				"confirmEnableTitle": "Омогућити периодичну резервну копију?",
+				"confirmEnableDescription": "Омогућавање периодичног резервног копирања ће обрисати постојеће резервне копије које излазе ван шеме ротације син/отац/деда.",
+				"confirmEnableWouldRemove": "Ово би уклонило следеће резервне копије {{count}}:",
+				"confirmEnableNoRemoval": "Ниједан постојећи бекап неће бити уклоњен.",
+				"prunePreviewFailed": "Преглед обрезивања резервне копије није успео",
+				"pruneFailed": "Није успело чишћење резервних копија",
+				"pruneSuccess": "Очишћене резервне копије {{count}}"
 			}
 		},
 		"appearance": {

@@ -1059,10 +1059,18 @@
 				"4xx": "4XX",
 				"5xx": "5XX"
 			},
+			"endpoint": "Endpoint",
 			"level": "Nivel",
 			"levelAll": "Toate",
 			"source": "Sursa",
 			"logsPlaceholder": "Filtrează jurnalele…"
+		},
+		"endpoint": {
+			"chat": "Chat",
+			"embeddings": "Constatări",
+			"image": "Imagine",
+			"tts": "TTS",
+			"stt": "STT"
 		},
 		"table": {
 			"timeDate": "Ora/Dată",

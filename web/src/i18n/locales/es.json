@@ -1059,10 +1059,18 @@
 				"4xx": "4XX",
 				"5xx": "5XX"
 			},
+			"endpoint": "Endpoint",
 			"level": "Nivel",
 			"levelAll": "Todos",
 			"source": "Fuente",
 			"logsPlaceholder": "Filtrar registros…"
+		},
+		"endpoint": {
+			"chat": "Chatear",
+			"embeddings": "Incrustaciones",
+			"image": "Imagen",
+			"tts": "TTS",
+			"stt": "STT"
 		},
 		"table": {
 			"timeDate": "Hora/Fecha",
@@ -1537,24 +1545,24 @@
 			"backupCreated": "Copia de seguridad creada",
 			"downloadFailed": "Descarga fallida: {{message}}",
 			"rotation": {
-				"title": "Periodic Backup",
-				"enabled": "Enable Periodic Backup",
-				"enabledDescription": "Automatically create backups at regular intervals and prune old ones using son/father/grandfather rotation.",
-				"interval": "Backup Interval",
-				"intervalDescription": "How often to create an automatic backup (0 = disabled).",
-				"sonRetention": "Daily Retention (Son)",
-				"sonRetentionDescription": "Keep the most recent backup from each of the last N days.",
-				"fatherRetention": "Weekly Retention (Father)",
-				"fatherRetentionDescription": "Keep the most recent backup from each of the last N weeks.",
-				"grandfatherRetention": "Monthly Retention (Grandfather)",
-				"grandfatherRetentionDescription": "Keep the most recent backup from each of the last N months.",
-				"confirmEnableTitle": "Enable Periodic Backup?",
-				"confirmEnableDescription": "Enabling periodic backup will prune existing backups that fall outside the son/father/grandfather rotation scheme.",
-				"confirmEnableWouldRemove": "This would remove the following {{count}} backup(s):",
-				"confirmEnableNoRemoval": "No existing backups would be removed.",
-				"prunePreviewFailed": "Failed to preview backup pruning",
-				"pruneFailed": "Failed to prune backups",
-				"pruneSuccess": "Pruned {{count}} backup(s)"
+				"title": "Copia de seguridad periódica",
+				"enabled": "Habilitar copia de seguridad periódica",
+				"enabledDescription": "Crea automáticamente copias de seguridad a intervalos regulares y elimina las antiguas usando la rotación hijo/padre/abuelo.",
+				"interval": "Intervalo de copia de seguridad",
+				"intervalDescription": "Con qué frecuencia crear una copia de seguridad automática (0 = deshabilitado).",
+				"sonRetention": "Retención diaria (Hijo)",
+				"sonRetentionDescription": "Mantenga la copia de seguridad más reciente de cada uno de los últimos N días.",
+				"fatherRetention": "Retención semanal (Padre)",
+				"fatherRetentionDescription": "Mantenga la copia de seguridad más reciente de cada una de las últimas N semanas.",
+				"grandfatherRetention": "Retención mensual (Abuelo)",
+				"grandfatherRetentionDescription": "Mantenga la copia de seguridad más reciente de cada uno de los últimos N meses.",
+				"confirmEnableTitle": "¿Habilitar copia de seguridad periódica?",
+				"confirmEnableDescription": "Habilitar copia de seguridad periódica limpiará las copias de seguridad existentes que quedan fuera del esquema de rotación de hijo/padre/abuelo.",
+				"confirmEnableWouldRemove": "Esto eliminaría las siguientes {{count}} copia(s) de seguridad:",
+				"confirmEnableNoRemoval": "No se eliminarían copias de seguridad existentes.",
+				"prunePreviewFailed": "Error al previsualizar la limpieza de copia de seguridad",
+				"pruneFailed": "Error al limpiar las copias de seguridad",
+				"pruneSuccess": "Se han eliminado {{count}} copia(s) de seguridad"
 			}
 		},
 		"appearance": {

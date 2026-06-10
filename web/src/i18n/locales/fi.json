@@ -1059,10 +1059,18 @@
 				"4xx": "4XX",
 				"5xx": "5XX"
 			},
+			"endpoint": "Endpoint",
 			"level": "Taso",
 			"levelAll": "Kaikki",
 			"source": "Lähde",
 			"logsPlaceholder": "Suodata lokit…"
+		},
+		"endpoint": {
+			"chat": "Keskustelu",
+			"embeddings": "Upotukset",
+			"image": "Kuva",
+			"tts": "TTS",
+			"stt": "STT"
 		},
 		"table": {
 			"timeDate": "Aika/Päivämäärä",
@@ -1537,24 +1545,24 @@
 			"backupCreated": "Varmuuskopio luotu",
 			"downloadFailed": "Lataus epäonnistui: {{message}}",
 			"rotation": {
-				"title": "Periodic Backup",
-				"enabled": "Enable Periodic Backup",
-				"enabledDescription": "Automatically create backups at regular intervals and prune old ones using son/father/grandfather rotation.",
-				"interval": "Backup Interval",
-				"intervalDescription": "How often to create an automatic backup (0 = disabled).",
-				"sonRetention": "Daily Retention (Son)",
-				"sonRetentionDescription": "Keep the most recent backup from each of the last N days.",
-				"fatherRetention": "Weekly Retention (Father)",
-				"fatherRetentionDescription": "Keep the most recent backup from each of the last N weeks.",
-				"grandfatherRetention": "Monthly Retention (Grandfather)",
-				"grandfatherRetentionDescription": "Keep the most recent backup from each of the last N months.",
-				"confirmEnableTitle": "Enable Periodic Backup?",
-				"confirmEnableDescription": "Enabling periodic backup will prune existing backups that fall outside the son/father/grandfather rotation scheme.",
-				"confirmEnableWouldRemove": "This would remove the following {{count}} backup(s):",
-				"confirmEnableNoRemoval": "No existing backups would be removed.",
-				"prunePreviewFailed": "Failed to preview backup pruning",
-				"pruneFailed": "Failed to prune backups",
-				"pruneSuccess": "Pruned {{count}} backup(s)"
+				"title": "Säännöllinen Varmuuskopiointi",
+				"enabled": "Ota Käyttöön Säännöllinen Varmuuskopiointi",
+				"enabledDescription": "Luo varmuuskopiot automaattisesti säännöllisin väliajoin ja karsita vanhat käyttämällä poika/isä/isoisä -kierrosta",
+				"interval": "Varmuuskopioinnin Aikaväli",
+				"intervalDescription": "Kuinka usein automaattisen varmuuskopion luominen (0 = pois päältä).",
+				"sonRetention": "Päivittäinen Säilytys (Son)",
+				"sonRetentionDescription": "Pidä viimeisin varmuuskopio jokaisesta viimeisestä N päivästä.",
+				"fatherRetention": "Viikoittainen Säilyttäminen (Saksa)",
+				"fatherRetentionDescription": "Pidä viimeisin varmuuskopio jokaisesta viimeisestä N viikosta.",
+				"grandfatherRetention": "Kuukausittainen Säilyttäminen (synnytys)",
+				"grandfatherRetentionDescription": "Pidä viimeisin varmuuskopio jokaisesta viimeisestä N kuukaudesta.",
+				"confirmEnableTitle": "Ota Käyttöön Säännöllinen Varmuuskopio?",
+				"confirmEnableDescription": "Jaksoittaisen varmuuskopioinnin käyttöönotto karsii olemassa olevia varmuuskopioita, jotka jäävät poika/isä/isoisä -kiertojärjestelmän ulkopuolelle.",
+				"confirmEnableWouldRemove": "Tämä poistaa seuraavat {{count}} varmuuskopiot:",
+				"confirmEnableNoRemoval": "Olemassa olevia varmuuskopioita ei poistettaisi.",
+				"prunePreviewFailed": "Varmuuskopioinnin purkamisen esikatselu epäonnistui",
+				"pruneFailed": "Varmuuskopioinnin lopettaminen epäonnistui",
+				"pruneSuccess": "Karsittu {{count}} varmuuskopio(t)"
 			}
 		},
 		"appearance": {
