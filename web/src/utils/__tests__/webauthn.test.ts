@@ -131,8 +131,7 @@ describe("webauthn utils", () => {
 					clientDataJSON: "client-data",
 					attestationObject: "attestation-obj",
 				},
-				getClientExtensionResults: () => ({}),
-				toJSON: () => ({}),
+				clientExtensionResults: {},
 			});
 			const result = await webauthn.registerPasskey();
 			expect(result).toBe(true);
@@ -220,8 +219,7 @@ describe("webauthn utils", () => {
 					signature: "signature",
 					userHandle: "user-123",
 				},
-				getClientExtensionResults: () => ({}),
-				toJSON: () => ({}),
+				clientExtensionResults: {},
 			});
 			const result = await webauthn.loginWithPasskey();
 			expect(result).toBe("mock-token-123");

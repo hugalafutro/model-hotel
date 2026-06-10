@@ -6,12 +6,14 @@ export interface MockLogEntry {
 	created_at: string;
 	request_hash: string;
 	model_id: string;
+	resolved_model_id: string;
 	provider_name: string;
 	status_code: number;
 	tokens_prompt: number;
 	tokens_completion: number;
 	tokens_per_second: number;
 	tokens_completion_reasoning: number;
+	tokens_prompt_cache_hit: number;
 	ttft_ms: number;
 	response_header_ms: number;
 	duration_ms: number;
@@ -38,12 +40,14 @@ export function createMockLogEntry(
 		created_at: "2026-05-11T10:00:00Z",
 		request_hash: "abc123",
 		model_id: "test-model",
+		resolved_model_id: "test-model",
 		provider_name: "Test",
 		status_code: 200,
 		tokens_prompt: 0,
 		tokens_completion: 0,
 		tokens_per_second: 0,
 		tokens_completion_reasoning: 0,
+		tokens_prompt_cache_hit: 0,
 		ttft_ms: 0,
 		response_header_ms: 0,
 		duration_ms: 0,

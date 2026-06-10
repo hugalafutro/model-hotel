@@ -71,7 +71,7 @@ describe("ChatMessageList", () => {
 				{
 					role: "user",
 					content: "Transcribe this",
-					audioAttachment: { format: "wav", duration: 30 },
+					audioAttachment: { format: "wav", data: "base64-audio-data" },
 					timestamp: Date.now(),
 				},
 			];

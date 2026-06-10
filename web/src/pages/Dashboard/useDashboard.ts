@@ -137,6 +137,7 @@ export interface UseDashboardReturn {
 		value: number;
 		suffix: string;
 		failoverGroup?: boolean;
+		deleted?: boolean;
 	}>;
 	byModelLatency: Array<{
 		label: string;
