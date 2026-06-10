@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptrace"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -330,11 +332,14 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 }
 
 // doUpstream executes the built request against the shared upstream transport
-// (phase D): inject the per-request dial-timing pointer, run the request, fold
-// the dial sample into the running timings (and reset it to 0 for any retry),
-// and recompute proxy overhead. On failure it classifies the cause — client
-// disconnect vs failover/retry timeout vs provider error — and records a breaker
-// failure only for real provider errors, never for context cancellation.
+// (phase D): inject the per-request dial-timing pointer, run the request —
+// retrying up to maxTransientRetries times against the same provider on
+// transient network errors (see isRetryableUpstreamError) — fold each try's
+// dial sample into the running timings, and recompute proxy overhead. Retries
+// share the per-attempt failover timeout, replay the body via GetBody, and
+// back off briefly between tries. On final failure it classifies the cause —
+// client disconnect vs failover/retry timeout vs provider error — and records a
+// breaker failure only for real provider errors, never for context cancellation.
 // Returns (resp, true) on a usable response; (nil, false) after setting
 // st.lastErr on a failover-worthy failure. The caller retains ownership of ctx
 // cancellation.
@@ -348,7 +353,6 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 	// DNS resolution time into this request's own variable, avoiding
 	// cross-request race conditions on a shared atomic.
 	dialCtx := context.WithValue(ctx, ctxkeys.DialMsKey, dialMs)
-	req = req.WithContext(dialCtx)
 
 	var checkRedirect func(req *http.Request, via []*http.Request) error
 	if h.safeDialer != nil {
@@ -358,10 +362,50 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 		Transport:     h.upstreamTransport,
 		CheckRedirect: checkRedirect,
 	}
-	//nolint:gosec // provider URL is admin-configured, not arbitrary user input
-	resp, err := upstreamClient.Do(req)
-	st.timings.dialMs += *dialMs
-	*dialMs = 0
+
+	var resp *http.Response
+	var err error
+	for try := 0; ; try++ {
+		// Track whether any request bytes reached the wire on this try, so
+		// isRetryableUpstreamError can tell provably-safe pre-write failures
+		// from ambiguous post-write ones. WroteHeaders may fire on a transport
+		// goroutine, hence the atomic.
+		var wroteRequest atomic.Bool
+		tryCtx := httptrace.WithClientTrace(dialCtx, &httptrace.ClientTrace{
+			WroteHeaders: func() { wroteRequest.Store(true) },
+		})
+		tryReq := req.WithContext(tryCtx)
+		if try > 0 {
+			// The previous try consumed (and the transport closed) the body.
+			// GetBody is always set: buildCandidateRequest builds the request
+			// from a bytes.Reader.
+			body, gbErr := req.GetBody()
+			if gbErr != nil {
+				break
+			}
+			tryReq.Body = body
+		}
+		//nolint:gosec // provider URL is admin-configured, not arbitrary user input
+		resp, err = upstreamClient.Do(tryReq)
+		st.timings.dialMs += *dialMs
+		*dialMs = 0
+		if err == nil || try == maxTransientRetries || !isRetryableUpstreamError(err, wroteRequest.Load()) {
+			break
+		}
+		backoff := failoverBackoff(100*time.Millisecond, 500*time.Millisecond, try+1)
+		debuglog.Warn("proxy: transient upstream error, retrying same provider", "attempt", attempt+1, "try", try+1, "backoff", backoff, "request_written", wroteRequest.Load(), "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", err)
+		select {
+		case <-time.After(backoff):
+		case <-dialCtx.Done():
+			// Client disconnect or failover timeout during backoff: stop
+			// retrying and let the classification below treat it as a context
+			// error so the circuit breaker is not penalized.
+			err = dialCtx.Err()
+		}
+		if dialCtx.Err() != nil {
+			break
+		}
+	}
 	st.proxyOverhead = st.timings.proxyOverheadMs(st.parseMs)
 	if err != nil {
 		// Determine the origin of context cancellation for actionable errors.
@@ -375,7 +419,7 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 		if isContextErr {
 			cancelOrigin := "client_disconnect"
 			if errors.Is(err, context.DeadlineExceeded) {
-				if v := req.Context().Value(ctxkeys.CancelOriginKey); v != nil {
+				if v := dialCtx.Value(ctxkeys.CancelOriginKey); v != nil {
 					if s, ok := v.(string); ok {
 						cancelOrigin = s
 					}
@@ -390,7 +434,10 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 		// Client-initiated cancellations and deadline exceeded are not
 		// provider failures. If the caller disconnected (Canceled) or
 		// the request timed out (DeadlineExceeded), we must not penalize
-		// the circuit breaker for that.
+		// the circuit breaker for that. Real provider errors record exactly
+		// one breaker failure per candidate attempt — here, after any
+		// transient retries are exhausted — so a blip that self-heals on
+		// retry never counts against the provider.
 		if !isContextErr {
 			if st.circuitBreakerEnabled {
 				h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)

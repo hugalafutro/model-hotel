@@ -39,16 +39,6 @@ type testProxyEnv struct {
 // newTestProxyHandler creates a Handler with test data for ChatCompletions testing.
 // Returns a testProxyEnv struct containing all test fixtures.
 func newTestProxyHandler(t *testing.T) *testProxyEnv {
-
-	pool := testDB.Pool()
-	settingsRepo := settings.NewRepository(pool)
-	failoverRepo := failover.NewRepository(pool)
-	modelRepo := model.NewRepository(pool)
-	providerRepo := provider.NewRepository(pool)
-	virtualKeyRepo := virtualkey.NewRepository(pool)
-	limiter := ratelimit.NewLimiter(settingsRepo)
-	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
-
 	// Create a mock upstream server that returns a simple chat completion
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Verify auth header
@@ -91,6 +81,22 @@ func newTestProxyHandler(t *testing.T) *testProxyEnv {
 			json.NewEncoder(w).Encode(response)
 		}
 	}))
+
+	return newTestProxyEnvWithUpstream(t, upstream)
+}
+
+// newTestProxyEnvWithUpstream builds the standard single-provider test fixtures
+// (provider, model, virtual key, handler) around a caller-supplied upstream.
+// The provider's API key is "test-api-key".
+func newTestProxyEnvWithUpstream(t *testing.T, upstream *httptest.Server) *testProxyEnv {
+	pool := testDB.Pool()
+	settingsRepo := settings.NewRepository(pool)
+	failoverRepo := failover.NewRepository(pool)
+	modelRepo := model.NewRepository(pool)
+	providerRepo := provider.NewRepository(pool)
+	virtualKeyRepo := virtualkey.NewRepository(pool)
+	limiter := ratelimit.NewLimiter(settingsRepo)
+	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
 
 	// Create test provider
 	keyPair, err := auth.Encrypt("test-api-key", "test-master-key-for-integration")
