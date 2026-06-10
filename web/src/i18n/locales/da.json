@@ -267,7 +267,8 @@
 			"topProviders": "Topudbydere",
 			"topVirtualKeys": "Øverste virtuelle nøgler",
 			"emptyState": "Ingen brugsdata endnu. Brugsfejl vises her, når trafikken strømmer.",
-			"viewDetailsFor": "Se detaljer for {{label}}"
+			"viewDetailsFor": "Se detaljer for {{label}}",
+			"deletedModelTooltip": "Model no longer available — it may have been deleted or its provider was removed"
 		},
 		"latency": {
 			"topModels": "Langsomste modeller",

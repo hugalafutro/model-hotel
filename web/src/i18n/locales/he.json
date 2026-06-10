@@ -267,7 +267,8 @@
 			"topProviders": "ספקים מובילים",
 			"topVirtualKeys": "מפתחות וירטואליים מובילים",
 			"emptyState": "עדיין אין נתוני שימוש. פירוט השימוש יופיע כאן ברגע שתתחיל תנועת הגולשים.",
-			"viewDetailsFor": "הצג פרטים על {{label}}"
+			"viewDetailsFor": "הצג פרטים על {{label}}",
+			"deletedModelTooltip": "Model no longer available — it may have been deleted or its provider was removed"
 		},
 		"latency": {
 			"topModels": "המודלים האיטיים ביותר",

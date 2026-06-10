@@ -267,7 +267,8 @@
 			"topProviders": "Suosituimmat tarjoajat",
 			"topVirtualKeys": "Suosituimmat virtuaaliavaimet",
 			"emptyState": "Käyttötietoja ei ole vielä. Käytön jakautuminen näkyy tässä liikennevirtojen jälkeen.",
-			"viewDetailsFor": "Näytä tiedot {{label}}"
+			"viewDetailsFor": "Näytä tiedot {{label}}",
+			"deletedModelTooltip": "Model no longer available — it may have been deleted or its provider was removed"
 		},
 		"latency": {
 			"topModels": "Hitaimmat mallit",

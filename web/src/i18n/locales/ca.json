@@ -267,7 +267,8 @@
 			"topProviders": "Millors proveïdors",
 			"topVirtualKeys": "Millors claus virtuals",
 			"emptyState": "Encara no hi ha dades d'ús. El desglossament de l'ús apareixerà aquí un cop hi hagi trànsit.",
-			"viewDetailsFor": "Veure detalls de {{label}}"
+			"viewDetailsFor": "Veure detalls de {{label}}",
+			"deletedModelTooltip": "Model no longer available — it may have been deleted or its provider was removed"
 		},
 		"latency": {
 			"topModels": "Models més lents",

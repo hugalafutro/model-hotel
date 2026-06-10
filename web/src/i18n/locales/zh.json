@@ -267,7 +267,8 @@
 			"topProviders": "热门提供商",
 			"topVirtualKeys": "热门虚拟密钥",
 			"emptyState": "尚无使用数据。一旦流量流量，使用情况将会在这里显示。",
-			"viewDetailsFor": "查看详情 {{label}}"
+			"viewDetailsFor": "查看详情 {{label}}",
+			"deletedModelTooltip": "Model no longer available — it may have been deleted or its provider was removed"
 		},
 		"latency": {
 			"topModels": "最慢的模型",

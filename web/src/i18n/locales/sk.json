@@ -267,7 +267,8 @@
 			"topProviders": "Najlepší poskytovatelia",
 			"topVirtualKeys": "Najlepšie virtuálne kľúče",
 			"emptyState": "Zatiaľ nie sú k dispozícii žiadne údaje o využívaní. Rozpis využívania sa tu zobrazí, akonáhle začne prúdiť prevádzka.",
-			"viewDetailsFor": "Zobraziť podrobnosti o {{label}}"
+			"viewDetailsFor": "Zobraziť podrobnosti o {{label}}",
+			"deletedModelTooltip": "Model no longer available — it may have been deleted or its provider was removed"
 		},
 		"latency": {
 			"topModels": "Najpomalšie modely",

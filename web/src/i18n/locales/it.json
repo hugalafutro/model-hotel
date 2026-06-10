@@ -267,7 +267,8 @@
 			"topProviders": "Provider principali",
 			"topVirtualKeys": "Chiavi virtuali principali",
 			"emptyState": "Ancora nessun dato di utilizzo. Il guasto di utilizzo apparirà qui una volta che i flussi di traffico.",
-			"viewDetailsFor": "Visualizza i dettagli per {{label}}"
+			"viewDetailsFor": "Visualizza i dettagli per {{label}}",
+			"deletedModelTooltip": "Model no longer available — it may have been deleted or its provider was removed"
 		},
 		"latency": {
 			"topModels": "Modelli più lenti",

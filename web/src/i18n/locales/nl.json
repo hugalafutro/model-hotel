@@ -267,7 +267,8 @@
 			"topProviders": "Topproviders",
 			"topVirtualKeys": "Top virtuele sleutels",
 			"emptyState": "Er zijn nog geen gebruiksgegevens. Het gebruik zal hier verschijnen zodra het verkeer stroomt.",
-			"viewDetailsFor": "Bekijk de details van {{label}}"
+			"viewDetailsFor": "Bekijk de details van {{label}}",
+			"deletedModelTooltip": "Model no longer available — it may have been deleted or its provider was removed"
 		},
 		"latency": {
 			"topModels": "Traagste modellen",

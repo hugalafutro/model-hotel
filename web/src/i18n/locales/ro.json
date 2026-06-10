@@ -267,7 +267,8 @@
 			"topProviders": "Cei mai buni furnizori",
 			"topVirtualKeys": "Cele mai bune chei virtuale",
 			"emptyState": "Nu există încă date de utilizare. Defalcarea utilizării va apărea aici odată cu traficul de trafic.",
-			"viewDetailsFor": "Vezi detalii pentru {{label}}"
+			"viewDetailsFor": "Vezi detalii pentru {{label}}",
+			"deletedModelTooltip": "Model no longer available — it may have been deleted or its provider was removed"
 		},
 		"latency": {
 			"topModels": "Cele mai lente modele",

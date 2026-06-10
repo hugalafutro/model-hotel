@@ -267,7 +267,8 @@
 			"topProviders": "トッププロバイダー",
 			"topVirtualKeys": "トップ仮想キー",
 			"emptyState": "利用データはまだありません。トラフィックが流れると、利用状況の内訳がここに表示されます。",
-			"viewDetailsFor": "{{label}} の詳細を表示"
+			"viewDetailsFor": "{{label}} の詳細を表示",
+			"deletedModelTooltip": "Model no longer available — it may have been deleted or its provider was removed"
 		},
 		"latency": {
 			"topModels": "最も遅いモデル",

@@ -267,7 +267,8 @@
 			"topProviders": "أبرز المزودين",
 			"topVirtualKeys": "أبرز المفاتيح الافتراضية",
 			"emptyState": "لا توجد بيانات استخدام حتى الآن. سيظهر تفكيك الاستخدام هنا بمجرد تدفق حركة المرور.",
-			"viewDetailsFor": "عرض التفاصيل ل {{label}}"
+			"viewDetailsFor": "عرض التفاصيل ل {{label}}",
+			"deletedModelTooltip": "Model no longer available — it may have been deleted or its provider was removed"
 		},
 		"latency": {
 			"topModels": "أبطأ النماذج",

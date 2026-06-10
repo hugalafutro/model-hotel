@@ -267,7 +267,8 @@
 			"topProviders": "상위 프로바이더",
 			"topVirtualKeys": "상위 가상 키",
 			"emptyState": "아직 사용 데이터가 없습니다. 트래픽이 발생하면 사용 내역이 여기에 표시됩니다.",
-			"viewDetailsFor": "상세 정보 보기 {{label}}"
+			"viewDetailsFor": "상세 정보 보기 {{label}}",
+			"deletedModelTooltip": "Model no longer available — it may have been deleted or its provider was removed"
 		},
 		"latency": {
 			"topModels": "가장 느린 모델",

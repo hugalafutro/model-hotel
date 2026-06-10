@@ -267,7 +267,8 @@
 			"topProviders": "Najlepsi dostawcy",
 			"topVirtualKeys": "Najlepsze klucze wirtualne",
 			"emptyState": "Brak danych o użytkowaniu. Podział użycia pojawi się tutaj po przepływie ruchu.",
-			"viewDetailsFor": "Zobacz szczegóły dla {{label}}"
+			"viewDetailsFor": "Zobacz szczegóły dla {{label}}",
+			"deletedModelTooltip": "Model no longer available — it may have been deleted or its provider was removed"
 		},
 		"latency": {
 			"topModels": "Najwolniejsze modele",

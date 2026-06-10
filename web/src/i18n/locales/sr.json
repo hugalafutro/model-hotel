@@ -267,7 +267,8 @@
 			"topProviders": "Најбољи провајдери",
 			"topVirtualKeys": "Најбољи виртуелни кључеви",
 			"emptyState": "Још нема података о коришћењу. Расподела коришћења ће се појавити овде када саобраћај почне.",
-			"viewDetailsFor": "Прикажи детаље за {{label}}"
+			"viewDetailsFor": "Прикажи детаље за {{label}}",
+			"deletedModelTooltip": "Model no longer available — it may have been deleted or its provider was removed"
 		},
 		"latency": {
 			"topModels": "Најспорији модели",
