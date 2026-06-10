@@ -1069,6 +1069,7 @@ describe("Dashboard Refresh", () => {
 			(s) => (s as HTMLInputElement).id === "dashboard-refresh-interval",
 		);
 		expect(dashboardSlider).toBeInTheDocument();
+		if (!dashboardSlider) throw new Error("dashboard slider not found");
 
 		await user.click(dashboardSlider);
 		fireEvent.input(dashboardSlider, { target: { value: "0" } });
@@ -1193,6 +1194,7 @@ describe("DataStorageSettings collapsed state", () => {
 			(s) => (s as HTMLInputElement).id === "quota-refresh-interval",
 		);
 		expect(quotaSlider).toBeInTheDocument();
+		if (!quotaSlider) throw new Error("quota slider not found");
 
 		await user.click(quotaSlider);
 		fireEvent.input(quotaSlider, { target: { value: "10" } });
@@ -1217,6 +1219,7 @@ describe("DataStorageSettings collapsed state", () => {
 			(s) => (s as HTMLInputElement).id === "quota-refresh-interval",
 		);
 		expect(quotaSlider).toBeInTheDocument();
+		if (!quotaSlider) throw new Error("quota slider not found");
 
 		await user.click(quotaSlider);
 		fireEvent.input(quotaSlider, { target: { value: "10" } });
@@ -1239,6 +1242,7 @@ describe("DataStorageSettings collapsed state", () => {
 			(s) => (s as HTMLInputElement).id === "quota-refresh-interval",
 		);
 		expect(quotaSlider).toBeInTheDocument();
+		if (!quotaSlider) throw new Error("quota slider not found");
 
 		await user.click(quotaSlider);
 		fireEvent.input(quotaSlider, { target: { value: "0" } });

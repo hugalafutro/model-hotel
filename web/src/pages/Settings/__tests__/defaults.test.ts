@@ -3,11 +3,12 @@ import {
 	SECTION_SETTINGS,
 	SETTING_DEFAULTS,
 	SETTING_LABELS,
+	type SettingKey,
 } from "../defaults";
 
 describe("SETTING_DEFAULTS", () => {
 	it("has a default for every known setting key", () => {
-		const allKeys = Object.values(SECTION_SETTINGS).flat();
+		const allKeys = Object.values(SECTION_SETTINGS).flat() as SettingKey[];
 		for (const key of allKeys) {
 			expect(SETTING_DEFAULTS[key], `Missing default for ${key}`).toBeDefined();
 		}
@@ -30,7 +31,7 @@ describe("SETTING_DEFAULTS", () => {
 	});
 
 	it("numeric-like defaults parse as valid numbers", () => {
-		const numericKeys = [
+		const numericKeys: SettingKey[] = [
 			"rate_limit_rps",
 			"rate_limit_burst",
 			"rate_limit_ip_rps",
@@ -47,7 +48,7 @@ describe("SETTING_DEFAULTS", () => {
 	});
 
 	it("boolean-like defaults are true or false strings", () => {
-		const boolKeys = [
+		const boolKeys: SettingKey[] = [
 			"discovery_on_startup",
 			"discovery_on_provider_create",
 			"rate_limit_enabled",
@@ -63,7 +64,7 @@ describe("SETTING_DEFAULTS", () => {
 	});
 
 	it("SETTING_LABELS has a human-readable key for every default", () => {
-		const allKeys = Object.keys(SETTING_DEFAULTS);
+		const allKeys = Object.keys(SETTING_DEFAULTS) as SettingKey[];
 		for (const key of allKeys) {
 			expect(SETTING_LABELS[key], `Missing label for ${key}`).toBeDefined();
 		}

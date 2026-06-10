@@ -544,7 +544,13 @@ describe("CircuitBreakerSettings", () => {
 			resetSpy.mockResolvedValueOnce({});
 
 			const user = userEvent.setup();
-			renderWithProviders(<CircuitBreakerSettings onResetSection={() => {}} />);
+			renderWithProviders(
+				<CircuitBreakerSettings
+					collapsed={false}
+					onToggle={() => {}}
+					onResetSection={() => {}}
+				/>,
+			);
 
 			await waitFor(() => {
 				expect(

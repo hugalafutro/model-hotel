@@ -607,7 +607,8 @@ describe("DatabaseBackupSettings", () => {
 			server.use(
 				http.get("/api/backups/:filename", () => {
 					const encoder = new TextEncoder();
-					return HttpResponse.arrayBuffer(encoder.encode("backup data"), {
+					const buf = encoder.encode("backup data");
+					return HttpResponse.arrayBuffer(buf.buffer as ArrayBuffer, {
 						status: 200,
 						headers: { "Content-Type": "application/octet-stream" },
 					});
