@@ -276,21 +276,18 @@ func (h *Handler) ingestMultipartRequest(w http.ResponseWriter, r *http.Request,
 	// modelID gets updated after the multipart form is parsed.
 	logData, vkHash := h.newPendingRequestLog(r, endpointType, "", false)
 
+	// Multipart bodies are never buffered by streamingAwareTimeout (the
+	// middleware passes them through unread, post-auth memory only), so the
+	// body is always read here.
 	parseStart := time.Now()
-	var bodyBytes []byte
-	if cached, ok := r.Context().Value(ctxkeys.RequestBodyKey).([]byte); ok {
-		bodyBytes = cached
-	} else {
-		var err error
-		bodyBytes, err = io.ReadAll(r.Body)
-		if err != nil {
-			debuglog.Warn("proxy: failed to read multipart request body", "error", err)
-			publishRequestStartedEvent(logData)
-			h.failRequest(logData, 400, "failed to read request body", 0, startTime, 0, resolveTimings{}, resolveCacheHits{}, 0)
-			writeOpenAIError(w, "failed to read request body", http.StatusBadRequest)
-			return nil, nil, false
-		}
-		_ = r.Body.Close()
+	bodyBytes, err := io.ReadAll(r.Body)
+	_ = r.Body.Close()
+	if err != nil {
+		debuglog.Warn("proxy: failed to read multipart request body", "error", err)
+		publishRequestStartedEvent(logData)
+		h.failRequest(logData, 400, "failed to read request body", 0, startTime, 0, resolveTimings{}, resolveCacheHits{}, 0)
+		writeOpenAIError(w, "failed to read request body", http.StatusBadRequest)
+		return nil, nil, false
 	}
 
 	mediaType, ctParams, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
@@ -439,23 +436,27 @@ func (h *Handler) servePassthroughResponse(w http.ResponseWriter, r *http.Reques
 	h.serveStreamedPassthrough(w, r, st, candidate, resp, contentType, isSSE, attempt, responseHeaderMs)
 }
 
-// serveBufferedJSONPassthrough handles the application/json shape: breaker
-// success on headers (parity with chat's non-streaming recording), bounded
-// buffering for usage extraction, and streamed forwarding beyond the cap.
-// Response headers are only written once the upstream body read succeeded,
-// so the read-error path emits a clean OpenAI error response.
+// serveBufferedJSONPassthrough handles the application/json shape: bounded
+// buffering for usage extraction with streamed forwarding beyond the cap.
+// The circuit breaker commits only once the buffered read succeeds — a 200
+// whose body dies mid-read records a failure, not a success — and response
+// headers are only written after that point, so the read-error path emits a
+// clean OpenAI error response.
 func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, st *requestState, candidate modelCandidate, resp *http.Response, contentType string, attempt int, responseHeaderMs float64) {
 	logData := st.logData
-	if st.circuitBreakerEnabled {
-		h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
-	}
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, passthroughJSONBufferCap+1))
 	if err != nil {
+		if st.circuitBreakerEnabled {
+			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
+		}
 		debuglog.Warn("proxy: passthrough body read failed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", err)
 		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, "failed", fmt.Sprintf("upstream body read error: %v", err))
 		writeOpenAIError(w, "failed to read upstream response", http.StatusBadGateway)
 		return
+	}
+	if st.circuitBreakerEnabled {
+		h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
 	}
 	copyPassthroughHeaders(w, resp, contentType)
 
@@ -494,11 +495,15 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, st *reques
 func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, resp *http.Response, contentType string, isSSE bool, attempt int, responseHeaderMs float64) {
 	logData := st.logData
 
-	// Commit-point probe: a 200 whose body errors before the first byte is a
-	// provider failure, not a success.
+	// Commit-point probe: a 200 whose body errors — or ends — before the
+	// first byte is a provider failure, not a success: SSE and binary 200s
+	// promise content (audio bytes, events), so an empty body means the
+	// provider broke after committing the status. Non-200 2xx statuses
+	// (e.g. 204 No Content) legitimately carry empty bodies and pass through.
 	firstByte := make([]byte, 1)
 	n, readErr := resp.Body.Read(firstByte)
-	if n == 0 && readErr != nil && !errors.Is(readErr, io.EOF) {
+	emptyBodyIsFailure := resp.StatusCode == http.StatusOK || !errors.Is(readErr, io.EOF)
+	if n == 0 && readErr != nil && emptyBodyIsFailure {
 		if st.circuitBreakerEnabled && r.Context().Err() == nil {
 			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
 		}

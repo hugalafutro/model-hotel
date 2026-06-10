@@ -585,6 +585,245 @@ func TestLoadFailoverConfig_LongRunningGetsExtendedBudget(t *testing.T) {
 	}
 }
 
+func TestAudioSpeech_EmptyBody200Returns502(t *testing.T) {
+	// A 200 with a genuinely empty body breaks the binary/SSE content
+	// contract: the provider must record a breaker failure and the client
+	// must get a clean 502, not an empty "success".
+	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "audio/mpeg")
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	body := fmt.Sprintf(`{"model":"%s/%s","input":"hello","voice":"alloy"}`, env.providerName, env.modelName)
+	req := env.request("/v1/audio/speech", "application/json", strings.NewReader(body))
+	w := httptest.NewRecorder()
+	env.handler.AudioSpeech(w, req)
+
+	if w.Code != http.StatusBadGateway {
+		t.Fatalf("status = %d, want 502 for empty 200 body (body: %s)", w.Code, w.Body.String())
+	}
+	if fails, seen := cbConsecutiveFails(env.handler.circuitBreaker, env.providerID); !seen || fails != 1 {
+		t.Errorf("expected one breaker failure recorded, got seen=%v fails=%d", seen, fails)
+	}
+}
+
+func TestEmbeddings_JSONBodyReadFailureReturns502(t *testing.T) {
+	// A JSON 200 whose body dies mid-read must produce a 502 (headers were
+	// not committed) and a breaker failure, not a success.
+	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hj, ok := w.(http.Hijacker)
+		if !ok {
+			t.Fatal("test server does not support hijacking")
+		}
+		conn, buf, err := hj.Hijack()
+		if err != nil {
+			t.Fatalf("hijack: %v", err)
+		}
+		_, _ = buf.WriteString("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 1000\r\n\r\n{\"object\":")
+		_ = buf.Flush()
+		_ = conn.Close()
+	}))
+
+	body := fmt.Sprintf(`{"model":"%s/%s","input":"hi"}`, env.providerName, env.modelName)
+	req := env.request("/v1/embeddings", "application/json", strings.NewReader(body))
+	w := httptest.NewRecorder()
+	env.handler.Embeddings(w, req)
+
+	if w.Code != http.StatusBadGateway {
+		t.Fatalf("status = %d, want 502 (body: %s)", w.Code, w.Body.String())
+	}
+	if fails, seen := cbConsecutiveFails(env.handler.circuitBreaker, env.providerID); !seen || fails != 1 {
+		t.Errorf("expected one breaker failure recorded, got seen=%v fails=%d", seen, fails)
+	}
+}
+
+func TestAudioSpeech_MidStreamFailureAfterCommit(t *testing.T) {
+	// Once the first byte committed (200 sent to the client), a mid-stream
+	// upstream death cannot be retried: the partial bytes reach the client
+	// and the breaker keeps the commit-point success.
+	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hj, ok := w.(http.Hijacker)
+		if !ok {
+			t.Fatal("test server does not support hijacking")
+		}
+		conn, buf, err := hj.Hijack()
+		if err != nil {
+			t.Fatalf("hijack: %v", err)
+		}
+		_, _ = buf.WriteString("HTTP/1.1 200 OK\r\nContent-Type: audio/mpeg\r\nContent-Length: 1000\r\n\r\n0123456789")
+		_ = buf.Flush()
+		_ = conn.Close()
+	}))
+
+	body := fmt.Sprintf(`{"model":"%s/%s","input":"hello","voice":"alloy"}`, env.providerName, env.modelName)
+	req := env.request("/v1/audio/speech", "application/json", strings.NewReader(body))
+	w := httptest.NewRecorder()
+	env.handler.AudioSpeech(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (already committed)", w.Code)
+	}
+	if got := w.Body.String(); got != "0123456789" {
+		t.Errorf("partial body = %q, want the 10 bytes delivered before the failure", got)
+	}
+	if fails, seen := cbConsecutiveFails(env.handler.circuitBreaker, env.providerID); !seen || fails != 0 {
+		t.Errorf("expected breaker success (commit point reached), got seen=%v fails=%d", seen, fails)
+	}
+}
+
+func TestEmbeddings_UnknownProviderReturns404(t *testing.T) {
+	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		t.Error("upstream must not be called for an unresolvable model")
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := env.request("/v1/embeddings", "application/json", strings.NewReader(`{"model":"no-such-provider/embed-1","input":"hi"}`))
+	w := httptest.NewRecorder()
+	env.handler.Embeddings(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404 (body: %s)", w.Code, w.Body.String())
+	}
+}
+
+func TestEmbeddings_UpstreamConnectFailureReturns502(t *testing.T) {
+	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	// Kill the upstream so the dial fails and the (single-candidate)
+	// failover loop exhausts.
+	env.upstream.Close()
+
+	body := fmt.Sprintf(`{"model":"%s/%s","input":"hi"}`, env.providerName, env.modelName)
+	req := env.request("/v1/embeddings", "application/json", strings.NewReader(body))
+	w := httptest.NewRecorder()
+	env.handler.Embeddings(w, req)
+
+	if w.Code != http.StatusBadGateway {
+		t.Errorf("status = %d, want 502 (body: %s)", w.Code, w.Body.String())
+	}
+}
+
+func TestAudioTranscriptions_MalformedFormReturns400(t *testing.T) {
+	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		t.Error("upstream must not be called for a malformed form")
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	// Declared boundary with a malformed part header (no colon).
+	body := "--xyz\r\nno-colon-header-line\r\n\r\nhi\r\n--xyz--\r\n"
+	req := env.request("/v1/audio/transcriptions", "multipart/form-data; boundary=xyz", strings.NewReader(body))
+	w := httptest.NewRecorder()
+	env.handler.AudioTranscriptions(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "invalid multipart form") {
+		t.Errorf("body = %q, want invalid-multipart error", w.Body.String())
+	}
+}
+
+func TestAudioSpeech_MissingContentTypeDefaultsToOctetStream(t *testing.T) {
+	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hj, ok := w.(http.Hijacker)
+		if !ok {
+			t.Fatal("test server does not support hijacking")
+		}
+		conn, buf, err := hj.Hijack()
+		if err != nil {
+			t.Fatalf("hijack: %v", err)
+		}
+		// Raw response without a Content-Type header.
+		_, _ = buf.WriteString("HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nMP3!")
+		_ = buf.Flush()
+		_ = conn.Close()
+	}))
+
+	body := fmt.Sprintf(`{"model":"%s/%s","input":"hello","voice":"alloy"}`, env.providerName, env.modelName)
+	req := env.request("/v1/audio/speech", "application/json", strings.NewReader(body))
+	w := httptest.NewRecorder()
+	env.handler.AudioSpeech(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body: %s)", w.Code, w.Body.String())
+	}
+	if ct := w.Header().Get("Content-Type"); ct != "application/octet-stream" {
+		t.Errorf("Content-Type = %q, want application/octet-stream default", ct)
+	}
+	if w.Body.String() != "MP3!" {
+		t.Errorf("body = %q, want MP3!", w.Body.String())
+	}
+}
+
+func TestAudioSpeech_ContentDispositionForwarded(t *testing.T) {
+	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "audio/mpeg")
+		w.Header().Set("Content-Disposition", `attachment; filename="speech.mp3"`)
+		_, _ = w.Write([]byte{0xFF, 0xFB})
+	}))
+
+	body := fmt.Sprintf(`{"model":"%s/%s","input":"hello","voice":"alloy"}`, env.providerName, env.modelName)
+	req := env.request("/v1/audio/speech", "application/json", strings.NewReader(body))
+	w := httptest.NewRecorder()
+	env.handler.AudioSpeech(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+	if cd := w.Header().Get("Content-Disposition"); cd != `attachment; filename="speech.mp3"` {
+		t.Errorf("Content-Disposition = %q, want it forwarded on success", cd)
+	}
+}
+
+func TestEmbeddings_RequestCreationFailureReturns502(t *testing.T) {
+	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		t.Error("upstream must not be called when request creation fails")
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	origNewReq := newRequestWithContext
+	defer func() { newRequestWithContext = origNewReq }()
+	newRequestWithContext = func(_ context.Context, _, _ string, _ io.Reader) (*http.Request, error) {
+		return nil, fmt.Errorf("simulated request creation failure")
+	}
+
+	body := fmt.Sprintf(`{"model":"%s/%s","input":"hi"}`, env.providerName, env.modelName)
+	req := env.request("/v1/embeddings", "application/json", strings.NewReader(body))
+	w := httptest.NewRecorder()
+	env.handler.Embeddings(w, req)
+
+	if w.Code != http.StatusBadGateway {
+		t.Errorf("status = %d, want 502 (body: %s)", w.Code, w.Body.String())
+	}
+}
+
+// failingReader errors on the first read, simulating a client that aborts
+// mid-upload.
+type failingReader struct{}
+
+func (failingReader) Read([]byte) (int, error) {
+	return 0, fmt.Errorf("simulated client abort")
+}
+
+func TestAudioTranscriptions_BodyReadFailureReturns400(t *testing.T) {
+	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		t.Error("upstream must not be called when the upload aborts")
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := env.request("/v1/audio/transcriptions", "multipart/form-data; boundary=xyz", failingReader{})
+	w := httptest.NewRecorder()
+	env.handler.AudioTranscriptions(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "failed to read request body") {
+		t.Errorf("body = %q, want read-failure error", w.Body.String())
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Audio translations / image edits / variations (same multipart pipeline,
 // verify the endpoint path routing)
