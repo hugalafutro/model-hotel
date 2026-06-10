@@ -87,7 +87,7 @@ const loadedLangs = new Map<string, Promise<void>>();
 
 function getHighlighterCore(): Promise<HighlighterCore> {
 	if (!highlighterPromise) {
-		highlighterPromise = (async () => {
+		const created = (async () => {
 			const [
 				{ createHighlighterCore },
 				{ createJavaScriptRegexEngine },
@@ -103,6 +103,12 @@ function getHighlighterCore(): Promise<HighlighterCore> {
 				engine: createJavaScriptRegexEngine({ forgiving: true }),
 			});
 		})();
+		highlighterPromise = created;
+		// Evict a rejected promise so a transient chunk-load failure doesn't
+		// permanently disable highlighting — the next call retries the import.
+		created.catch(() => {
+			if (highlighterPromise === created) highlighterPromise = null;
+		});
 	}
 	return highlighterPromise;
 }
@@ -120,10 +126,16 @@ export async function getSnippetHighlighter(
 	const highlighter = await getHighlighterCore();
 	let loading = loadedLangs.get(canonical);
 	if (!loading) {
-		loading = GRAMMAR_IMPORTS[canonical]().then((mod) =>
+		const started = GRAMMAR_IMPORTS[canonical]().then((mod) =>
 			highlighter.loadLanguage(...mod.default),
 		);
-		loadedLangs.set(canonical, loading);
+		loadedLangs.set(canonical, started);
+		// Evict a rejected promise so a transient chunk-load failure doesn't
+		// permanently disable this grammar — the next call retries the import.
+		started.catch(() => {
+			if (loadedLangs.get(canonical) === started) loadedLangs.delete(canonical);
+		});
+		loading = started;
 	}
 	await loading;
 	return highlighter;
