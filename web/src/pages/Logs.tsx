@@ -24,6 +24,7 @@ import { LogDetailModal } from "../components/LogDetailModal";
 import {
 	DateFilterButton,
 	DateRangePickerPopover,
+	ENDPOINT_FILTER_OPTIONS,
 	EndpointTypeBadge,
 	LiveToggleButton,
 	LogsErrorState,
@@ -452,16 +453,10 @@ function RequestLogs() {
 									setPage(1);
 								}}
 								placeholder={t("logs.filters.endpoint")}
-								options={[
-									{ value: "chat", label: t("logs.endpoint.chat") },
-									{
-										value: "embeddings",
-										label: t("logs.endpoint.embeddings"),
-									},
-									{ value: "image", label: t("logs.endpoint.image") },
-									{ value: "tts", label: t("logs.endpoint.tts") },
-									{ value: "stt", label: t("logs.endpoint.stt") },
-								]}
+								options={ENDPOINT_FILTER_OPTIONS.map((o) => ({
+									value: o.value,
+									label: t(o.labelKey),
+								}))}
 								className="w-36"
 							/>
 
