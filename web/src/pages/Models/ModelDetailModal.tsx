@@ -631,7 +631,7 @@ export function ModelDetailModal({
 					<button
 						type="button"
 						onClick={() => onToggle(model.id, !model.enabled)}
-						className={`ui-btn ${model.enabled ? "ui-badge-success" : "ui-badge-error"}`}
+						className={`ui-btn ${model.enabled ? "ui-btn-primary" : "ui-btn-danger"}`}
 					>
 						{model.enabled ? t("common.enabled") : t("common.disabled")}
 					</button>
@@ -644,7 +644,7 @@ export function ModelDetailModal({
 								? "bg-red-900/50 text-red-300 border-red-700/50"
 								: testing
 									? "bg-amber-900/30 text-amber-300/70 border-amber-700/30 cursor-wait"
-									: "ui-badge-warning cursor-pointer hover:brightness-125 hover:shadow-[var(--glow-box-amber)]"
+									: "ui-btn-secondary cursor-pointer hover:brightness-125 hover:shadow-[var(--glow-box-amber)]"
 						}`}
 					>
 						{testing && <Spinner />}
@@ -665,7 +665,7 @@ export function ModelDetailModal({
 								onDelete(model.id);
 								onClose();
 							}}
-							className="ui-btn ui-badge-error cursor-pointer hover:brightness-125 hover:shadow-[var(--glow-box-red)]"
+							className="ui-btn ui-btn-danger cursor-pointer hover:brightness-125 hover:shadow-[var(--glow-box-red)]"
 						>
 							{t("models.detail.confirmDelete")}
 						</button>

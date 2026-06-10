@@ -6,6 +6,7 @@ import { api } from "../../api/client";
 import type { VirtualKey } from "../../api/types";
 import { CopyablePill } from "../../components/CopyablePill";
 import { Modal } from "../../components/Modal";
+import { Toggle } from "../../components/Toggle";
 
 function BrainSlashIcon({
 	size = 14,
@@ -279,28 +280,12 @@ export function CreateKeyModal({
 							</span>
 						</div>
 						<div className="flex items-center gap-3">
-							<button
-								type="button"
-								onClick={() => setStripReasoning(!stripReasoning)}
-								aria-pressed={stripReasoning}
-								aria-label={
-									stripReasoning
-										? t("virtualkeys.modal.form.disableStripReasoning")
-										: t("virtualkeys.modal.form.enableStripReasoning")
-								}
-								className={`relative inline-flex items-center h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-									stripReasoning
-										? "bg-(--accent) shadow-[var(--glow-accent)]"
-										: "bg-gray-600"
-								}`}
-							>
-								<span
-									aria-hidden="true"
-									className={`pointer-events-none block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 ease-in-out ${
-										stripReasoning ? "translate-x-6" : "translate-x-0"
-									}`}
-								/>
-							</button>
+							<Toggle
+								checked={stripReasoning}
+								onChange={setStripReasoning}
+								size="sm"
+								ariaLabel={t("virtualkeys.modal.form.stripReasoning")}
+							/>
 							<span className="text-sm text-gray-200">
 								{stripReasoning ? t("common.enabled") : t("common.disabled")}
 							</span>

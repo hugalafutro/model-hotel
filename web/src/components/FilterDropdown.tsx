@@ -68,7 +68,7 @@ export function FilterDropdown({
 						<span
 							role="button"
 							tabIndex={0}
-							className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-medium bg-(--accent-light) text-(--accent) hover:bg-(--accent) hover:text-white transition-colors cursor-pointer"
+							className="ui-badge inline-flex items-center justify-center w-4 h-4 text-[10px] font-medium bg-(--accent-light) text-(--accent) hover:bg-(--accent) hover:text-white transition-colors cursor-pointer"
 							onClick={(e) => {
 								e.stopPropagation();
 								onChange("");

@@ -1356,21 +1356,6 @@ html[data-ui-style="cyber-terminal"] .ui-btn-danger:hover:not(:disabled) {
 	filter: none;
 }
 
-/* Terminal: force pill-shaped interactive/badge elements to sharp corners.
-   Uses [class*="rounded-full"] to match any Tailwind rounded-full usage.
-   Exclude spinners/avatars/dots by only targeting interactive & badge elements. */
-html[data-ui-style="cyber-terminal"] span[class*="rounded-full"],
-html[data-ui-style="cyber-terminal"] button[class*="rounded-full"],
-html[data-ui-style="cyber-terminal"] a[class*="rounded-full"] {
-	border-radius: 2px !important;
-}
-
-/* Terminal: softer rounding (rounded ≈ 0.25rem) → 2px for badge-like spans only */
-html[data-ui-style="cyber-terminal"] span[class="rounded"][class*="bg-"],
-html[data-ui-style="cyber-terminal"] span[class*=" rounded"][class*="bg-"] {
-	border-radius: 2px !important;
-}
-
 html[data-ui-style="glassmorphism-lite"] .ui-btn {
 	backdrop-filter: blur(16px);
 	-webkit-backdrop-filter: blur(16px);
