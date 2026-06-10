@@ -391,7 +391,7 @@ function RequestLogs() {
 								className={`ui-btn px-3 py-1 text-xs font-medium transition-all ${
 									logsSubMode === "request"
 										? "ui-btn-primary"
-										: "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer"
+										: "ui-btn-secondary cursor-pointer"
 								}`}
 							>
 								<ScrollText size={12} className="inline mr-1 -mt-0.5" />
@@ -403,7 +403,7 @@ function RequestLogs() {
 								className={`ui-btn px-3 py-1 text-xs font-medium transition-all ${
 									logsSubMode === "app"
 										? "ui-btn-primary"
-										: "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer"
+										: "ui-btn-secondary cursor-pointer"
 								}`}
 							>
 								<FileText size={12} className="inline mr-1 -mt-0.5" />
