@@ -1150,9 +1150,9 @@ describe("useArenaRunner", () => {
 				});
 			});
 
-			expect(capturedBody).not.toBeNull();
-			expect(capturedBody).not.toBeNull();
-			const body = capturedBody as unknown as Record<string, unknown>;
+			// TS cannot see the closure assignment above, so re-widen before narrowing
+			const body = capturedBody as Record<string, unknown> | null;
+			if (!body) throw new Error("request body was not captured");
 			expect(body.temperature).toBe(0.8);
 			expect(body.max_tokens).toBe(500);
 		});
