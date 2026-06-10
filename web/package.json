@@ -16,6 +16,8 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "@shikijs/langs": "^4.2.0",
+    "@shikijs/themes": "^4.2.0",
     "@simplewebauthn/browser": "^13.3.0",
     "@tanstack/react-query": "^5.101.0",
     "@tanstack/react-virtual": "^3.14.2",
@@ -33,7 +35,8 @@
     "recharts": "^3.8.1",
     "rehype-katex": "^7.0.1",
     "remark-gfm": "^4.0.1",
-    "remark-math": "^6.0.0"
+    "remark-math": "^6.0.0",
+    "shiki": "^4.2.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.16",

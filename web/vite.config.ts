@@ -15,6 +15,17 @@ export default defineConfig({
 			output: {
 				manualChunks(id) {
 					if (id.includes("node_modules")) {
+						// Syntax highlighting (shiki + its oniguruma regex translator)
+						// — only ever loaded on demand via dynamic import; leaving it
+						// unassigned keeps it out of the eagerly-loaded vendor chunks.
+						if (
+							id.includes("/shiki/") ||
+							id.includes("/@shikijs/") ||
+							id.includes("/oniguruma-to-es/") ||
+							id.includes("/oniguruma-parser/") ||
+							id.includes("/hast-util-to-html/")
+						)
+							return undefined;
 						// Framework core — changes least often
 						if (id.includes("/react-dom/") || id.includes("/react/"))
 							return "vendor-react";

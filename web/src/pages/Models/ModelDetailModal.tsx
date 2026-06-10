@@ -7,6 +7,7 @@ import { CopyablePill } from "../../components/CopyablePill";
 import { CAP_META, hasCap } from "../../components/capMeta";
 import { LangIcon, type LangIconKey } from "../../components/langIcons";
 import { Modal } from "../../components/Modal";
+import { ShikiCode } from "../../components/ShikiCode";
 import { Spinner } from "../../components/Spinner";
 import { TerminalPreview } from "../../components/TerminalPreview";
 import { formatNumber, formatRelativeTime } from "../../utils/format";
@@ -16,26 +17,17 @@ import {
 	parseCapabilities,
 	proxyModelID,
 } from "../../utils/model";
+import type { SnippetLang } from "../../utils/shikiHighlighter";
 import {
-	snippetClaudeCodeModel,
 	snippetClaudeCodeModelText,
-	snippetCurlModel,
 	snippetCurlModelText,
-	snippetHermesModel,
 	snippetHermesModelText,
-	snippetJSModel,
 	snippetJSModelText,
-	snippetLibreChatModel,
 	snippetLibreChatModelText,
-	snippetOpenClawModel,
 	snippetOpenClawModelText,
-	snippetOpencodeModel,
 	snippetOpencodeModelText,
-	snippetPowershellModel,
 	snippetPowershellModelText,
-	snippetPythonModel,
 	snippetPythonModelText,
-	snippetZedModel,
 	snippetZedModelText,
 } from "../../utils/snippets";
 import { useModelEditor } from "./useModelEditor";
@@ -245,7 +237,7 @@ export function ModelDetailModal({
 	type SnippetEntry = {
 		key: LangIconKey;
 		title: string;
-		content: ReturnType<typeof snippetCurlModel>;
+		lang: SnippetLang;
 		copyText: string;
 	};
 
@@ -253,61 +245,61 @@ export function ModelDetailModal({
 		{
 			key: "curl",
 			title: t("models.detail.snippet.curl"),
-			content: snippetCurlModel(modelSnippetOpts),
+			lang: "bash",
 			copyText: snippetCurlModelText(modelSnippetOpts),
 		},
 		{
 			key: "powershell",
 			title: t("models.detail.snippet.powershell"),
-			content: snippetPowershellModel(modelSnippetOpts),
+			lang: "powershell",
 			copyText: snippetPowershellModelText(modelSnippetOpts),
 		},
 		{
 			key: "javascript",
 			title: t("models.detail.snippet.javascript"),
-			content: snippetJSModel(modelSnippetOpts),
+			lang: "javascript",
 			copyText: snippetJSModelText(modelSnippetOpts),
 		},
 		{
 			key: "python",
 			title: t("models.detail.snippet.python"),
-			content: snippetPythonModel(modelSnippetOpts),
+			lang: "python",
 			copyText: snippetPythonModelText(modelSnippetOpts),
 		},
 		{
 			key: "claude",
 			title: t("models.detail.snippet.claudeCode"),
-			content: snippetClaudeCodeModel(modelSnippetOpts),
+			lang: "bash",
 			copyText: snippetClaudeCodeModelText(modelSnippetOpts),
 		},
 		{
 			key: "openclaw",
 			title: t("models.detail.snippet.openClaw"),
-			content: snippetOpenClawModel(modelSnippetOpts),
+			lang: "bash",
 			copyText: snippetOpenClawModelText(modelSnippetOpts),
 		},
 		{
 			key: "hermes",
 			title: t("models.detail.snippet.hermes"),
-			content: snippetHermesModel(modelSnippetOpts),
+			lang: "bash",
 			copyText: snippetHermesModelText(modelSnippetOpts),
 		},
 		{
 			key: "librechat",
 			title: t("models.detail.snippet.librechat"),
-			content: snippetLibreChatModel(modelSnippetOpts),
+			lang: "yaml",
 			copyText: snippetLibreChatModelText(modelSnippetOpts),
 		},
 		{
 			key: "zed",
 			title: t("models.detail.snippet.zed"),
-			content: snippetZedModel(zedOpts),
+			lang: "json",
 			copyText: snippetZedModelText(zedOpts),
 		},
 		{
 			key: "opencode",
 			title: t("models.detail.snippet.opencode"),
-			content: snippetOpencodeModel(opencodeOpts),
+			lang: "json",
 			copyText: snippetOpencodeModelText(opencodeOpts),
 		},
 	];
@@ -626,7 +618,11 @@ export function ModelDetailModal({
 					copyText={activeSnippet.copyText}
 					height={200}
 				>
-					{activeSnippet.content}
+					<ShikiCode
+						code={activeSnippet.copyText}
+						lang={activeSnippet.lang}
+						highlights={[origin, "YOUR_API_KEY", pMid]}
+					/>
 				</TerminalPreview>
 			</div>
 
