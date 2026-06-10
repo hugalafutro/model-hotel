@@ -161,8 +161,7 @@ ADMIN_TOKEN=
 
 **2.** Create `docker-compose.yml` with your preferred image source:
 
-<details>
-<summary>docker-compose.yml (click to expand, then copy)</summary>
+**`docker-compose.yml`** (copy and save as `docker-compose.yml`):
 
 ```yaml
 name: model-hotel
