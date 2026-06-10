@@ -268,7 +268,7 @@
 			"topVirtualKeys": "Cele mai bune chei virtuale",
 			"emptyState": "Nu există încă date de utilizare. Defalcarea utilizării va apărea aici odată cu traficul de trafic.",
 			"viewDetailsFor": "Vezi detalii pentru {{label}}",
-			"deletedModelTooltip": "Model no longer available — it may have been deleted or its provider was removed"
+			"deletedModelTooltip": "Modelul nu mai este disponibil — este posibil să fi fost eliminat sau furnizorul său să fi fost eliminat"
 		},
 		"latency": {
 			"topModels": "Cele mai lente modele",

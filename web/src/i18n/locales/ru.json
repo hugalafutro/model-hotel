@@ -268,7 +268,7 @@
 			"topVirtualKeys": "Топ виртуальных ключей",
 			"emptyState": "Данные об использовании пока не появятся здесь после передачи трафика.",
 			"viewDetailsFor": "Подробности для {{label}}",
-			"deletedModelTooltip": "Model no longer available — it may have been deleted or its provider was removed"
+			"deletedModelTooltip": "Модель больше не доступна — возможно, она была удалена или ее поставщик был исключен из списка"
 		},
 		"latency": {
 			"topModels": "Самые медленные модели",

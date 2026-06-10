@@ -268,7 +268,7 @@
 			"topVirtualKeys": "أبرز المفاتيح الافتراضية",
 			"emptyState": "لا توجد بيانات استخدام حتى الآن. سيظهر تفكيك الاستخدام هنا بمجرد تدفق حركة المرور.",
 			"viewDetailsFor": "عرض التفاصيل ل {{label}}",
-			"deletedModelTooltip": "Model no longer available — it may have been deleted or its provider was removed"
+			"deletedModelTooltip": "هذا الطراز لم يعد متوفراً — ربما تم حذفه أو تم إزالة مزوده"
 		},
 		"latency": {
 			"topModels": "أبطأ النماذج",

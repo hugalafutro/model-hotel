@@ -268,7 +268,7 @@
 			"topVirtualKeys": "상위 가상 키",
 			"emptyState": "아직 사용 데이터가 없습니다. 트래픽이 발생하면 사용 내역이 여기에 표시됩니다.",
 			"viewDetailsFor": "상세 정보 보기 {{label}}",
-			"deletedModelTooltip": "Model no longer available — it may have been deleted or its provider was removed"
+			"deletedModelTooltip": "모델을 더 이상 사용할 수 없습니다 — 삭제되었거나 해당 프로바이더가 제거되었을 수 있습니다"
 		},
 		"latency": {
 			"topModels": "가장 느린 모델",

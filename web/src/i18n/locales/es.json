@@ -268,7 +268,7 @@
 			"topVirtualKeys": "Claves virtuales principales",
 			"emptyState": "Aún no hay datos de uso. El desglose de uso aparecerá aquí una vez que fluya el tráfico.",
 			"viewDetailsFor": "Ver detalles de {{label}}",
-			"deletedModelTooltip": "Model no longer available — it may have been deleted or its provider was removed"
+			"deletedModelTooltip": "El modelo ya no está disponible; es posible que se haya eliminado o que se haya retirado su proveedor"
 		},
 		"latency": {
 			"topModels": "Modelos más lentos",

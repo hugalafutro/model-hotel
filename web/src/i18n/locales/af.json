@@ -268,7 +268,7 @@
 			"topVirtualKeys": "Top virtuele sleutels",
 			"emptyState": "Nog geen gebruiksdata nie. 'n Gebruiksopdeling sal hier verskyn sodra verkeer vloei.",
 			"viewDetailsFor": "Beskou besonderhede vir {{label}}",
-			"deletedModelTooltip": "Model no longer available — it may have been deleted or its provider was removed"
+			"deletedModelTooltip": "Model nie meer beskikbaar nie — dit is moontlik geskrap of sy verskaffer is verwyder"
 		},
 		"latency": {
 			"topModels": "Stadigste modelle",

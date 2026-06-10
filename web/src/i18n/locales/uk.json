@@ -268,7 +268,7 @@
 			"topVirtualKeys": "Топ віртуальних ключів",
 			"emptyState": "Даних про використання поки поки немає. Використання розриву буде показано тут після потоку трафіку.",
 			"viewDetailsFor": "Переглянути деталі для {{label}}",
-			"deletedModelTooltip": "Model no longer available — it may have been deleted or its provider was removed"
+			"deletedModelTooltip": "Ця модель більше не доступна — можливо, її було видалено або її постачальник більше не представлений"
 		},
 		"latency": {
 			"topModels": "Найповільніші моделі",

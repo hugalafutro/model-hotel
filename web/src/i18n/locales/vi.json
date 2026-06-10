@@ -268,7 +268,7 @@
 			"topVirtualKeys": "Khóa ảo hàng đầu",
 			"emptyState": "Chưa có dữ liệu sử dụng. Bảng phân tích sử dụng sẽ hiển thị tại đây ngay khi có lưu lượng truy cập.",
 			"viewDetailsFor": "Xem chi tiết về {{label}}",
-			"deletedModelTooltip": "Model no longer available — it may have been deleted or its provider was removed"
+			"deletedModelTooltip": "Mô hình không còn khả dụng — có thể đã bị xóa hoặc nhà cung cấp của nó đã bị gỡ bỏ"
 		},
 		"latency": {
 			"topModels": "Mô hình chậm nhất",

@@ -268,7 +268,7 @@
 			"topVirtualKeys": "Top-Virtual-Keys",
 			"emptyState": "Noch keine Nutzungsdaten. Die Aufschlüsselung der Nutzung wird hier angezeigt, sobald der Datenverkehr abläuft.",
 			"viewDetailsFor": "Details für {{label}} anzeigen",
-			"deletedModelTooltip": "Model no longer available — it may have been deleted or its provider was removed"
+			"deletedModelTooltip": "Modell nicht mehr verfügbar – es wurde möglicherweise entfernt oder der Anbieter wurde gelöscht"
 		},
 		"latency": {
 			"topModels": "Langsamste Modelle",
