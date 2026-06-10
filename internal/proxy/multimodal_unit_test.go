@@ -276,6 +276,119 @@ func TestExtractPassthroughUsage(t *testing.T) {
 	}
 }
 
+func TestMakeJSONModelRewriter_PreservesLargeIntegers(t *testing.T) {
+	body := []byte(`{"model":"prov/img","prompt":"x","seed":9007199254740993}`)
+	rewrite := makeJSONModelRewriter(body, "prov/img")
+
+	out, _, err := rewrite("img")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !bytes.Contains(out, []byte("9007199254740993")) {
+		t.Errorf("large integer lost precision in rewrite: %s", out)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// newMultipartBodyBuilder
+// ---------------------------------------------------------------------------
+
+func TestNewMultipartBodyBuilder_MemoizesSameModel(t *testing.T) {
+	parts := []multipartPart{
+		{fieldName: "model", data: []byte("prov/whisper")},
+		{fieldName: "file", fileName: "a.wav", contentType: "audio/wav", data: []byte("RIFFdata")},
+	}
+	build := newMultipartBodyBuilder(parts)
+
+	first, firstCT, err := build("whisper-1")
+	if err != nil {
+		t.Fatalf("first build: %v", err)
+	}
+	second, secondCT, err := build("whisper-1")
+	if err != nil {
+		t.Fatalf("second build: %v", err)
+	}
+	// Memoized: same backing array, not a fresh serialization.
+	if &first[0] != &second[0] || firstCT != secondCT {
+		t.Error("expected memoized body for repeated model ID")
+	}
+
+	third, _, err := build("whisper-large")
+	if err != nil {
+		t.Fatalf("third build: %v", err)
+	}
+	if bytes.Equal(first, third) {
+		t.Error("expected a fresh build for a different model ID")
+	}
+	if !bytes.Contains(third, []byte("whisper-large")) {
+		t.Error("rebuilt body must carry the new model ID")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// tailBuffer / extractPassthroughSSEUsage
+// ---------------------------------------------------------------------------
+
+func TestTailBuffer_KeepsTrailingBytes(t *testing.T) {
+	tb := newTailBuffer(8)
+	for _, chunk := range []string{"abc", "defg", "hij"} {
+		if _, err := tb.Write([]byte(chunk)); err != nil {
+			t.Fatalf("write: %v", err)
+		}
+	}
+	if got := string(tb.Bytes()); got != "cdefghij" {
+		t.Errorf("tail = %q, want cdefghij", got)
+	}
+}
+
+func TestTailBuffer_OversizedSingleWrite(t *testing.T) {
+	tb := newTailBuffer(4)
+	if _, err := tb.Write([]byte("0123456789")); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if got := string(tb.Bytes()); got != "6789" {
+		t.Errorf("tail = %q, want 6789", got)
+	}
+}
+
+func TestExtractPassthroughSSEUsage(t *testing.T) {
+	cases := []struct {
+		name           string
+		tail           string
+		wantPrompt     int
+		wantCompletion int
+	}{
+		{
+			name:           "usage on final event",
+			tail:           "data: {\"type\":\"partial\"}\n\ndata: {\"type\":\"done\",\"usage\":{\"input_tokens\":14,\"output_tokens\":45}}\n\n",
+			wantPrompt:     14,
+			wantCompletion: 45,
+		},
+		{
+			name:           "partial leading line is skipped",
+			tail:           "AAAA...truncated-b64\n\ndata: {\"usage\":{\"prompt_tokens\":7,\"total_tokens\":7}}\n\n",
+			wantPrompt:     7,
+			wantCompletion: 0,
+		},
+		{
+			name:           "last usage wins",
+			tail:           "data: {\"usage\":{\"input_tokens\":1,\"output_tokens\":1}}\n\ndata: {\"usage\":{\"input_tokens\":2,\"output_tokens\":3}}\n\n",
+			wantPrompt:     2,
+			wantCompletion: 3,
+		},
+		{name: "no usage", tail: "data: {\"type\":\"chunk\"}\n\ndata: [DONE]\n\n"},
+		{name: "empty", tail: ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			p, c := extractPassthroughSSEUsage([]byte(tc.tail))
+			if p != tc.wantPrompt || c != tc.wantCompletion {
+				t.Errorf("got (%d, %d), want (%d, %d)", p, c, tc.wantPrompt, tc.wantCompletion)
+			}
+		})
+	}
+}
+
 // ---------------------------------------------------------------------------
 // flushWriter
 // ---------------------------------------------------------------------------

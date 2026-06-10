@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -467,6 +468,120 @@ func TestAudioTranscriptions_ModelRequired(t *testing.T) {
 	}
 	if !strings.Contains(w.Body.String(), "model is required") {
 		t.Errorf("body = %q, want model-is-required error", w.Body.String())
+	}
+}
+
+func TestAudioSpeech_SSEUsageMetered(t *testing.T) {
+	// Streaming TTS/STT responses carry usage on the final SSE event; the
+	// pass-through must scrape it and meter the virtual key.
+	sse := "data: {\"type\":\"speech.audio.delta\",\"audio\":\"cGFydA==\"}\n\ndata: {\"type\":\"speech.audio.done\",\"usage\":{\"input_tokens\":12,\"output_tokens\":34,\"total_tokens\":46}}\n\n"
+	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = io.WriteString(w, sse)
+	}))
+
+	body := fmt.Sprintf(`{"model":"%s/%s","input":"hello","voice":"alloy","stream_format":"sse"}`, env.providerName, env.modelName)
+	req := env.request("/v1/audio/speech", "application/json", strings.NewReader(body))
+	w := httptest.NewRecorder()
+	env.handler.AudioSpeech(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body: %s)", w.Code, w.Body.String())
+	}
+	if w.Body.String() != sse {
+		t.Errorf("SSE stream not passed through verbatim:\ngot  %q\nwant %q", w.Body.String(), sse)
+	}
+
+	// recordTokenUsage runs synchronously before the handler returns.
+	vkRepo := virtualkey.NewRepository(testDB.Pool())
+	vk, err := vkRepo.FindByKeyHash(context.Background(), env.keyHash)
+	if err != nil {
+		t.Fatalf("FindByKeyHash: %v", err)
+	}
+	if vk.TokensUsed != 46 {
+		t.Errorf("tokens_used = %d, want 46 (12 input + 34 output)", vk.TokensUsed)
+	}
+}
+
+func TestAudioSpeech_FirstByteFailureReturns502(t *testing.T) {
+	// A 200 whose body dies before the first byte must NOT be served: the
+	// client gets a clean OpenAI 502 (headers were not committed) and the
+	// circuit breaker records a failure instead of a success.
+	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hj, ok := w.(http.Hijacker)
+		if !ok {
+			t.Fatal("test server does not support hijacking")
+		}
+		conn, buf, err := hj.Hijack()
+		if err != nil {
+			t.Fatalf("hijack: %v", err)
+		}
+		// Promise a body, send none, drop the connection.
+		_, _ = buf.WriteString("HTTP/1.1 200 OK\r\nContent-Type: audio/mpeg\r\nContent-Length: 1000\r\n\r\n")
+		_ = buf.Flush()
+		_ = conn.Close()
+	}))
+
+	body := fmt.Sprintf(`{"model":"%s/%s","input":"hello","voice":"alloy"}`, env.providerName, env.modelName)
+	req := env.request("/v1/audio/speech", "application/json", strings.NewReader(body))
+	w := httptest.NewRecorder()
+	env.handler.AudioSpeech(w, req)
+
+	if w.Code != http.StatusBadGateway {
+		t.Fatalf("status = %d, want 502 (body: %s)", w.Code, w.Body.String())
+	}
+	var errResp struct {
+		Error *struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &errResp); err != nil || errResp.Error == nil {
+		t.Fatalf("expected OpenAI-shaped error JSON, got %q", w.Body.String())
+	}
+	if fails, seen := cbConsecutiveFails(env.handler.circuitBreaker, env.providerID); !seen || fails != 1 {
+		t.Errorf("expected one breaker failure recorded, got seen=%v fails=%d", seen, fails)
+	}
+}
+
+func TestImageGenerations_OversizedJSONStreamsThrough(t *testing.T) {
+	// JSON bodies beyond the usage-extraction cap must still pass through
+	// verbatim (memory-bounded streaming), with usage extraction skipped.
+	hugePayload := strings.Repeat("A", passthroughJSONBufferCap+4096)
+	upstreamBody := `{"created":1,"data":[{"b64_json":"` + hugePayload + `"}],"usage":{"input_tokens":5,"output_tokens":9}}`
+	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, upstreamBody)
+	}))
+
+	body := fmt.Sprintf(`{"model":"%s/%s","prompt":"a cat"}`, env.providerName, env.modelName)
+	req := env.request("/v1/images/generations", "application/json", strings.NewReader(body))
+	w := httptest.NewRecorder()
+	env.handler.ImageGenerations(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+	got := w.Body.String()
+	if len(got) != len(upstreamBody) {
+		t.Fatalf("body length = %d, want %d (oversized body must stream through whole)", len(got), len(upstreamBody))
+	}
+	if got[:64] != upstreamBody[:64] || got[len(got)-64:] != upstreamBody[len(upstreamBody)-64:] {
+		t.Error("oversized body corrupted in passthrough")
+	}
+}
+
+func TestLoadFailoverConfig_LongRunningGetsExtendedBudget(t *testing.T) {
+	h := newIntegrationHandler()
+	req := httptest.NewRequest("POST", "/v1/images/generations", http.NoBody)
+
+	base := &requestState{startTime: time.Now()}
+	h.loadFailoverConfig(req, base)
+
+	long := &requestState{startTime: time.Now(), longRunning: true}
+	h.loadFailoverConfig(req, long)
+
+	if long.failoverTimeout != base.failoverTimeout*10 {
+		t.Errorf("longRunning timeout = %v, want 10x base %v", long.failoverTimeout, base.failoverTimeout)
 	}
 }
 

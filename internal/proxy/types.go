@@ -132,8 +132,13 @@ type requestState struct {
 	// makeUpstreamBody, when set, replaces the chat-specific body rewrite in
 	// buildCandidateRequest: it receives the resolved upstream model ID and
 	// returns the upstream body plus its Content-Type.
+	// longRunning marks endpoints whose legitimate latency rivals streaming
+	// chat (image generation, audio synthesis/transcription); it grants the
+	// same extended per-attempt timeout budget as isStreaming without
+	// implying chat-stream semantics (body rewrite, breaker probe deferral).
 	endpointPath     string
 	makeUpstreamBody func(resolvedModelID string) (body []byte, contentType string, err error)
+	longRunning      bool
 
 	// Populated by resolveCandidates (phase B).
 	timings    resolveTimings

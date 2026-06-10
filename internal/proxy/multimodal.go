@@ -80,8 +80,22 @@ func (h *Handler) serveJSONPassthrough(w http.ResponseWriter, r *http.Request, e
 		return
 	}
 	st.endpointPath = endpointPath
+	st.longRunning = isLongRunningEndpoint(endpointType)
 	st.makeUpstreamBody = makeJSONModelRewriter(st.bodyBytes, st.reqModel)
 	h.servePassthroughPipeline(w, r, st)
+}
+
+// isLongRunningEndpoint reports whether an endpoint family's legitimate
+// latency rivals streaming chat: image generation and audio synthesis/
+// transcription regularly take minutes. Embeddings respond in seconds and
+// keep the standard budget.
+func isLongRunningEndpoint(endpointType string) bool {
+	switch endpointType {
+	case endpointTypeImage, endpointTypeTTS, endpointTypeSTT:
+		return true
+	default:
+		return false
+	}
 }
 
 // serveMultipartPassthrough handles a multipart-bodied multimodal endpoint
@@ -94,9 +108,8 @@ func (h *Handler) serveMultipartPassthrough(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	st.endpointPath = endpointPath
-	st.makeUpstreamBody = func(resolvedModelID string) ([]byte, string, error) {
-		return rebuildMultipartBody(parts, resolvedModelID)
-	}
+	st.longRunning = isLongRunningEndpoint(endpointType)
+	st.makeUpstreamBody = newMultipartBodyBuilder(parts)
 	h.servePassthroughPipeline(w, r, st)
 }
 
@@ -116,7 +129,9 @@ func (h *Handler) servePassthroughPipeline(w http.ResponseWriter, r *http.Reques
 
 // makeJSONModelRewriter returns a makeUpstreamBody fn that rewrites only the
 // `model` field of a JSON body to the resolved upstream model ID, forwarding
-// everything else untouched. An unparseable body is forwarded as-is, mirroring
+// everything else untouched. Numbers are decoded as json.Number so large
+// integers (e.g. 64-bit seeds beyond 2^53) survive the round-trip without
+// float64 precision loss. An unparseable body is forwarded as-is, mirroring
 // chat's buildUpstreamBody behavior.
 func makeJSONModelRewriter(body []byte, requestModel string) func(string) ([]byte, string, error) {
 	return func(resolvedModelID string) ([]byte, string, error) {
@@ -124,8 +139,10 @@ func makeJSONModelRewriter(body []byte, requestModel string) func(string) ([]byt
 		if requestModel != resolvedModelID {
 			// Best-effort rewrite: an unparseable body is forwarded as-is
 			// (mirrors buildUpstreamBody).
+			dec := json.NewDecoder(bytes.NewReader(body))
+			dec.UseNumber()
 			var raw map[string]interface{}
-			if json.Unmarshal(body, &raw) == nil {
+			if dec.Decode(&raw) == nil {
 				raw["model"] = resolvedModelID
 				if rewritten, err := json.Marshal(raw); err == nil {
 					out = rewritten
@@ -222,6 +239,28 @@ func rebuildMultipartBody(parts []multipartPart, resolvedModelID string) ([]byte
 	return buf.Bytes(), mw.FormDataContentType(), nil
 }
 
+// newMultipartBodyBuilder returns a makeUpstreamBody fn that rebuilds the
+// multipart form with the resolved model ID, memoizing the last build:
+// failover-group candidates frequently resolve to the same upstream model ID
+// (the same model offered by different providers), so the expensive full
+// re-serialization of the upload happens once per distinct model instead of
+// once per attempt.
+func newMultipartBodyBuilder(parts []multipartPart) func(string) ([]byte, string, error) {
+	var lastModelID, lastContentType string
+	var lastBody []byte
+	return func(resolvedModelID string) ([]byte, string, error) {
+		if lastBody != nil && resolvedModelID == lastModelID {
+			return lastBody, lastContentType, nil
+		}
+		body, contentType, err := rebuildMultipartBody(parts, resolvedModelID)
+		if err != nil {
+			return nil, "", err
+		}
+		lastModelID, lastBody, lastContentType = resolvedModelID, body, contentType
+		return body, contentType, nil
+	}
+}
+
 // ingestMultipartRequest performs phase A for multipart endpoints: read the
 // (middleware-cached) body, parse the multipart form, extract the `model`
 // field, create the early "pending" request-log entry, publish the
@@ -233,29 +272,9 @@ func rebuildMultipartBody(parts []multipartPart, resolvedModelID string) ([]byte
 func (h *Handler) ingestMultipartRequest(w http.ResponseWriter, r *http.Request, endpointType string) (*requestState, []multipartPart, bool) {
 	startTime := time.Now()
 
-	vkName := ""
-	var vkID string
-	var vkHash string
-	if v := r.Context().Value(virtualKeyNameKey); v != nil {
-		vkName, _ = v.(string)
-	}
-	if v := r.Context().Value(virtualKeyIDKey); v != nil {
-		vkID, _ = v.(string)
-	}
-	if v := r.Context().Value(VirtualKeyHashKey); v != nil {
-		vkHash, _ = v.(string)
-	}
-
 	// Create the log entry early so early-return paths can record failures.
 	// modelID gets updated after the multipart form is parsed.
-	logData := &requestLogData{
-		virtualKeyName:  vkName,
-		virtualKeyID:    vkID,
-		failoverAttempt: 0,
-		state:           "pending",
-		endpointType:    endpointType,
-	}
-	h.insertRequestLogAsync(logData)
+	logData, vkHash := h.newPendingRequestLog(r, endpointType, "", false)
 
 	parseStart := time.Now()
 	var bodyBytes []byte
@@ -301,13 +320,15 @@ func (h *Handler) ingestMultipartRequest(w http.ResponseWriter, r *http.Request,
 		return nil, nil, false
 	}
 
-	debuglog.Info("proxy: multipart request start", "endpoint", endpointType, "model", reqModel, "key", vkName, "parts", len(parts), "client_ip", r.RemoteAddr)
+	debuglog.Info("proxy: multipart request start", "endpoint", endpointType, "model", reqModel, "key", logData.virtualKeyName, "parts", len(parts), "client_ip", r.RemoteAddr)
 
+	// bodyBytes stays nil: the parsed parts are the upstream-body source for
+	// multipart requests (via makeUpstreamBody), so retaining the raw body
+	// would pin a redundant full copy of the upload for the request lifetime.
 	return &requestState{
 		startTime: startTime,
 		reqModel:  reqModel,
 		vkHash:    vkHash,
-		bodyBytes: bodyBytes,
 		parseMs:   parseMs,
 		logData:   logData,
 	}, parts, true
@@ -321,18 +342,6 @@ func (h *Handler) ingestMultipartRequest(w http.ResponseWriter, r *http.Request,
 // SSE transform pipeline.
 func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, attempt, totalCandidates int) candidateOutcome {
 	logData := st.logData
-	logData.providerID = candidate.provider.ID
-	logData.providerName = candidate.provider.Name
-	if st.isFailover {
-		logData.resolvedModelID = candidate.model.ModelID
-	}
-	if attempt == 0 {
-		debuglog.Info("proxy: routing to provider", "endpoint", logData.endpointType, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "total_candidates", totalCandidates)
-	} else {
-		debuglog.Info("proxy: failover attempt", "endpoint", logData.endpointType, "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID)
-	}
-	h.touchProviderLastUsed(candidate.provider.ID)
-
 	// Per-attempt DNS resolution timing, written by SafeDialer via context.
 	var dialMs float64
 	failoverCtx, failoverCancel := context.WithTimeout(r.Context(), st.failoverTimeout)
@@ -341,13 +350,7 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 	defer failoverCancel()
 	failoverCtx = context.WithValue(failoverCtx, ctxkeys.CancelOriginKey, "failover_timeout")
 
-	proxyReq, _, _, err := h.buildCandidateRequest(failoverCtx, st, candidate)
-	if err != nil {
-		st.lastErr = fmt.Sprintf("attempt %d: failed to create request: %v", attempt, err)
-		return outcomeFailover
-	}
-
-	resp, ok := h.doUpstream(failoverCtx, proxyReq, st, candidate, attempt, &dialMs)
+	resp, _, _, ok := h.beginAttempt(failoverCtx, st, candidate, attempt, totalCandidates, &dialMs)
 	if !ok {
 		return outcomeFailover
 	}
@@ -366,30 +369,53 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 			logData.failoverAttempt = attempt
 			return outcomeFailover
 		}
-	} else if st.circuitBreakerEnabled {
-		// No TTFT probe on pass-through responses: a non-failover-eligible
-		// status means the provider answered, so the success is recorded here
-		// (chat defers a streaming 200 to the probe; multimodal does not).
-		h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		// A definitive non-failover-eligible error (e.g. 400) means the
+		// provider is alive: record the success before forwarding, matching
+		// chat's recordBreakerOutcome for non-eligible statuses.
+		if !isFailoverEligible && st.circuitBreakerEnabled {
+			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
+		}
 		return h.forwardUpstreamError(w, st, candidate, resp, attempt, hasMoreCandidates, responseHeaderMs)
 	}
 
+	// Breaker success for 2xx is recorded inside servePassthroughResponse at
+	// the commit point (headers for buffered JSON, first body byte for
+	// SSE/binary), so a provider that returns 200 and then stalls or dies
+	// before producing any data still accrues breaker failures.
 	debuglog.Debug("proxy: upstream responded OK, dispatching passthrough", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "status", resp.StatusCode, "content_type", resp.Header.Get("Content-Type"))
-	h.servePassthroughResponse(w, r, st, resp, attempt, responseHeaderMs)
+	h.servePassthroughResponse(w, r, st, candidate, resp, attempt, responseHeaderMs)
 	return outcomeServed
 }
 
-// servePassthroughResponse forwards a successful upstream response to the
-// client verbatim. Three response shapes:
-//   - application/json: buffered copy-through with token-usage extraction
-//     (only usage counts are read; content is never inspected or logged)
+// passthroughJSONBufferCap bounds how much of a JSON pass-through response is
+// buffered for token-usage extraction. Bodies beyond the cap (e.g. multi-image
+// b64_json payloads) are streamed through unbuffered with usage skipped,
+// keeping per-request memory bounded.
+const passthroughJSONBufferCap = 8 << 20 // 8MB
+
+// passthroughSSETailCap is how many trailing SSE bytes are retained for usage
+// extraction: the usage-bearing event is the final (small) event of OpenAI
+// streaming responses, after potentially multi-MB partial-image events.
+const passthroughSSETailCap = 64 << 10 // 64KB
+
+// servePassthroughResponse forwards a successful (2xx) upstream response to
+// the client verbatim. Three response shapes:
+//   - application/json: bounded buffered copy-through with token-usage
+//     extraction (only usage counts are read; content is never inspected or
+//     logged); oversized bodies stream through with usage skipped
 //   - text/event-stream: flush-per-read streaming copy (image partial_images,
-//     TTS stream_format=sse, STT stream=true)
-//   - anything else (binary audio, images): streaming copy
-func (h *Handler) servePassthroughResponse(w http.ResponseWriter, r *http.Request, st *requestState, resp *http.Response, attempt int, responseHeaderMs float64) {
+//     TTS stream_format=sse, STT stream=true) with usage scraped from the
+//     trailing events
+//   - anything else (binary audio, images): plain streaming copy
+//
+// Circuit-breaker success is recorded at the commit point: immediately for
+// buffered JSON (headers received, body about to be read), and at the first
+// body byte for streamed responses, so a provider that returns 200 and then
+// produces nothing records a breaker failure instead of a success.
+func (h *Handler) servePassthroughResponse(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, resp *http.Response, attempt int, responseHeaderMs float64) {
 	defer func() {
 		// Drain remaining bytes so the Transport reuses the connection,
 		// unless the client already disconnected.
@@ -398,42 +424,94 @@ func (h *Handler) servePassthroughResponse(w http.ResponseWriter, r *http.Reques
 		}
 		_ = resp.Body.Close()
 	}()
-	logData := st.logData
 
 	contentType := resp.Header.Get("Content-Type")
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
-	w.Header().Set("Content-Type", contentType)
-	if cd := resp.Header.Get("Content-Disposition"); cd != "" {
-		w.Header().Set("Content-Disposition", cd)
-	}
-
 	isSSE := strings.HasPrefix(contentType, "text/event-stream")
 	isJSON := !isSSE && strings.Contains(contentType, "json")
 
 	if isJSON {
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			debuglog.Warn("proxy: passthrough body read failed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", err)
-			h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, "failed", fmt.Sprintf("upstream body read error: %v", err))
-			writeOpenAIError(w, "failed to read upstream response", http.StatusBadGateway)
-			return
-		}
-		promptTokens, completionTokens := extractPassthroughUsage(body)
-		w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+		h.serveBufferedJSONPassthrough(w, st, candidate, resp, contentType, attempt, responseHeaderMs)
+		return
+	}
+	h.serveStreamedPassthrough(w, r, st, candidate, resp, contentType, isSSE, attempt, responseHeaderMs)
+}
+
+// serveBufferedJSONPassthrough handles the application/json shape: breaker
+// success on headers (parity with chat's non-streaming recording), bounded
+// buffering for usage extraction, and streamed forwarding beyond the cap.
+// Response headers are only written once the upstream body read succeeded,
+// so the read-error path emits a clean OpenAI error response.
+func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, st *requestState, candidate modelCandidate, resp *http.Response, contentType string, attempt int, responseHeaderMs float64) {
+	logData := st.logData
+	if st.circuitBreakerEnabled {
+		h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, passthroughJSONBufferCap+1))
+	if err != nil {
+		debuglog.Warn("proxy: passthrough body read failed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", err)
+		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, "failed", fmt.Sprintf("upstream body read error: %v", err))
+		writeOpenAIError(w, "failed to read upstream response", http.StatusBadGateway)
+		return
+	}
+	copyPassthroughHeaders(w, resp, contentType)
+
+	if len(body) > passthroughJSONBufferCap {
+		// Oversized JSON (e.g. several b64 images): forward the buffered
+		// prefix and stream the rest; usage extraction is skipped to keep
+		// memory bounded.
 		w.WriteHeader(resp.StatusCode)
-		if _, writeErr := w.Write(body); writeErr != nil {
-			debuglog.Warn("proxy: client write failed during passthrough", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", writeErr)
+		written := int64(len(body))
+		if _, writeErr := w.Write(body); writeErr == nil {
+			n, _ := io.Copy(w, resp.Body)
+			written += n
 		}
-		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, promptTokens, completionTokens, "completed", "")
-		if st.vkHash != "" && (promptTokens > 0 || completionTokens > 0) {
-			h.recordTokenUsage(st.vkHash, promptTokens, completionTokens, 0, logData.virtualKeyName)
-		}
-		debuglog.Info("proxy: passthrough completed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "bytes", len(body), "prompt_tokens", promptTokens, "completion_tokens", completionTokens)
+		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, "completed", "")
+		debuglog.Info("proxy: passthrough completed (oversized json)", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "bytes", written)
 		return
 	}
 
+	promptTokens, completionTokens := extractPassthroughUsage(body)
+	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+	w.WriteHeader(resp.StatusCode)
+	if _, writeErr := w.Write(body); writeErr != nil {
+		debuglog.Warn("proxy: client write failed during passthrough", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", writeErr)
+	}
+	h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, promptTokens, completionTokens, "completed", "")
+	if st.vkHash != "" && (promptTokens > 0 || completionTokens > 0) {
+		h.recordTokenUsage(st.vkHash, promptTokens, completionTokens, 0, logData.virtualKeyName)
+	}
+	debuglog.Info("proxy: passthrough completed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "bytes", len(body), "prompt_tokens", promptTokens, "completion_tokens", completionTokens)
+}
+
+// serveStreamedPassthrough handles SSE and binary shapes: probe the first
+// body byte before committing (breaker failure on a dead 200, clean 502
+// since no headers have been written), then stream through — flushing
+// per-write for SSE only — while retaining an SSE tail for usage metering.
+func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, resp *http.Response, contentType string, isSSE bool, attempt int, responseHeaderMs float64) {
+	logData := st.logData
+
+	// Commit-point probe: a 200 whose body errors before the first byte is a
+	// provider failure, not a success.
+	firstByte := make([]byte, 1)
+	n, readErr := resp.Body.Read(firstByte)
+	if n == 0 && readErr != nil && !errors.Is(readErr, io.EOF) {
+		if st.circuitBreakerEnabled && r.Context().Err() == nil {
+			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
+		}
+		debuglog.Warn("proxy: passthrough first-byte read failed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", readErr)
+		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, "failed", fmt.Sprintf("upstream body read error: %v", readErr))
+		writeOpenAIError(w, "upstream produced no response data", http.StatusBadGateway)
+		return
+	}
+	if st.circuitBreakerEnabled {
+		h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
+	}
+
+	copyPassthroughHeaders(w, resp, contentType)
 	if isSSE {
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Connection", "keep-alive")
@@ -445,18 +523,59 @@ func (h *Handler) servePassthroughResponse(w http.ResponseWriter, r *http.Reques
 	}
 	w.WriteHeader(resp.StatusCode)
 
-	written, copyErr := io.Copy(newFlushWriter(w), resp.Body)
+	// SSE needs an immediate flush per write (event latency) and a trailing
+	// tail buffer for usage extraction; binary streams use the ResponseWriter's
+	// own buffering — per-chunk flushes would just multiply syscalls.
+	var tail *tailBuffer
+	var dst io.Writer = w
+	if isSSE {
+		tail = newTailBuffer(passthroughSSETailCap)
+		dst = io.MultiWriter(newFlushWriter(w), tail)
+	}
+
+	var written int64
+	var copyErr error
+	if n > 0 {
+		var writeErr error
+		nw, writeErr := dst.Write(firstByte[:n])
+		written += int64(nw)
+		copyErr = writeErr
+	}
+	if copyErr == nil && readErr == nil {
+		var nc int64
+		nc, copyErr = io.Copy(dst, resp.Body)
+		written += nc
+	}
+
+	promptTokens, completionTokens := 0, 0
+	if tail != nil {
+		promptTokens, completionTokens = extractPassthroughSSEUsage(tail.Bytes())
+	}
+
 	if copyErr != nil {
 		errMsg := fmt.Sprintf("response copy error: %v", copyErr)
 		if r.Context().Err() != nil {
 			errMsg = "client disconnected during response"
 		}
 		debuglog.Warn("proxy: passthrough copy interrupted", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "bytes", written, "error", copyErr)
-		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, "failed", errMsg)
+		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, promptTokens, completionTokens, "failed", errMsg)
 		return
 	}
-	h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, "completed", "")
-	debuglog.Info("proxy: passthrough completed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "bytes", written, "sse", isSSE)
+	h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, promptTokens, completionTokens, "completed", "")
+	if st.vkHash != "" && (promptTokens > 0 || completionTokens > 0) {
+		h.recordTokenUsage(st.vkHash, promptTokens, completionTokens, 0, logData.virtualKeyName)
+	}
+	debuglog.Info("proxy: passthrough completed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "bytes", written, "sse", isSSE, "prompt_tokens", promptTokens, "completion_tokens", completionTokens)
+}
+
+// copyPassthroughHeaders sets the upstream Content-Type and (when present)
+// Content-Disposition on the response. Called only once the response is
+// committed, so error paths never inherit attachment semantics.
+func copyPassthroughHeaders(w http.ResponseWriter, resp *http.Response, contentType string) {
+	w.Header().Set("Content-Type", contentType)
+	if cd := resp.Header.Get("Content-Disposition"); cd != "" {
+		w.Header().Set("Content-Disposition", cd)
+	}
 }
 
 // finalizePassthroughLog writes the terminal request-log update for a
@@ -510,6 +629,52 @@ func extractPassthroughUsage(body []byte) (promptTokens, completionTokens int) {
 		completionTokens = resp.Usage.OutputTokens
 	}
 	return promptTokens, completionTokens
+}
+
+// extractPassthroughSSEUsage scrapes token counts from the trailing bytes of
+// a pass-through SSE stream: OpenAI streaming responses carry usage on the
+// final (small) event, so scanning the retained tail is enough. A leading
+// partial line (cut by the tail cap) simply fails to parse and is skipped.
+func extractPassthroughSSEUsage(tail []byte) (promptTokens, completionTokens int) {
+	for _, line := range strings.Split(string(tail), "\n") {
+		payload, ok := strings.CutPrefix(strings.TrimSpace(line), "data:")
+		if !ok {
+			continue
+		}
+		if p, c := extractPassthroughUsage([]byte(strings.TrimSpace(payload))); p > 0 || c > 0 {
+			promptTokens, completionTokens = p, c
+		}
+	}
+	return promptTokens, completionTokens
+}
+
+// tailBuffer is an io.Writer that retains only the last capacity bytes
+// written through it, used to scrape usage from the end of SSE streams
+// without buffering multi-MB event payloads.
+type tailBuffer struct {
+	buf      []byte
+	capacity int
+}
+
+func newTailBuffer(capacity int) *tailBuffer {
+	return &tailBuffer{capacity: capacity}
+}
+
+func (t *tailBuffer) Write(p []byte) (int, error) {
+	if len(p) >= t.capacity {
+		t.buf = append(t.buf[:0], p[len(p)-t.capacity:]...)
+		return len(p), nil
+	}
+	if overflow := len(t.buf) + len(p) - t.capacity; overflow > 0 {
+		t.buf = t.buf[:copy(t.buf, t.buf[overflow:])]
+	}
+	t.buf = append(t.buf, p...)
+	return len(p), nil
+}
+
+// Bytes returns the retained tail.
+func (t *tailBuffer) Bytes() []byte {
+	return t.buf
 }
 
 // flushWriter flushes the underlying ResponseWriter after every write so

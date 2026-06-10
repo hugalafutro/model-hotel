@@ -51,32 +51,7 @@ func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request, endpoint
 	// not covered by streamingAwareTimeout), parse from body directly.
 	var bodyBytes []byte
 
-	// Extract virtual key info early from context (available before body parsing).
-	vkName := ""
-	var vkID string
-	var vkHash string
-	if v := r.Context().Value(virtualKeyNameKey); v != nil {
-		vkName, _ = v.(string)
-	}
-	if v := r.Context().Value(virtualKeyIDKey); v != nil {
-		vkID, _ = v.(string)
-	}
-	if v := r.Context().Value(VirtualKeyHashKey); v != nil {
-		vkHash, _ = v.(string)
-	}
-
-	// Create the log entry early so early-return paths can record failures.
-	// modelID may be empty here; it gets updated after body parsing.
-	logData := &requestLogData{
-		modelID:         reqModel,
-		streaming:       isStreaming,
-		virtualKeyName:  vkName,
-		virtualKeyID:    vkID,
-		failoverAttempt: 0,
-		state:           "pending",
-		endpointType:    endpointType,
-	}
-	h.insertRequestLogAsync(logData)
+	logData, vkHash := h.newPendingRequestLog(r, endpointType, reqModel, isStreaming)
 
 	if reqModel == "" {
 		parseStart := time.Now()
@@ -128,8 +103,8 @@ func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request, endpoint
 		return nil, false
 	}
 
-	debuglog.Info("proxy: request start", "model", reqModel, "stream", isStreaming, "key", vkName, "client_ip", r.RemoteAddr)
-	debuglog.Debug("proxy: request details", "model", reqModel, "stream", isStreaming, "key", vkName, "vk_id", vkID, "has_hash", vkHash != "", "body_length", len(bodyBytes))
+	debuglog.Info("proxy: request start", "model", reqModel, "stream", isStreaming, "key", logData.virtualKeyName, "client_ip", r.RemoteAddr)
+	debuglog.Debug("proxy: request details", "model", reqModel, "stream", isStreaming, "key", logData.virtualKeyName, "vk_id", logData.virtualKeyID, "has_hash", vkHash != "", "body_length", len(bodyBytes))
 
 	return &requestState{
 		startTime:   startTime,
@@ -140,6 +115,38 @@ func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request, endpoint
 		parseMs:     parseMs,
 		logData:     logData,
 	}, true
+}
+
+// newPendingRequestLog extracts the virtual-key identity from the request
+// context and creates + async-inserts the early "pending" request-log entry,
+// the phase-A preamble shared by the chat and multipart ingest paths.
+// modelID/streaming may be zero when the body has not been parsed yet; the
+// caller updates logData once they are known. The virtual-key hash is
+// returned separately because requestState carries it outside the log entry.
+func (h *Handler) newPendingRequestLog(r *http.Request, endpointType, modelID string, isStreaming bool) (logData *requestLogData, vkHash string) {
+	vkName := ""
+	var vkID string
+	if v := r.Context().Value(virtualKeyNameKey); v != nil {
+		vkName, _ = v.(string)
+	}
+	if v := r.Context().Value(virtualKeyIDKey); v != nil {
+		vkID, _ = v.(string)
+	}
+	if v := r.Context().Value(VirtualKeyHashKey); v != nil {
+		vkHash, _ = v.(string)
+	}
+
+	logData = &requestLogData{
+		modelID:         modelID,
+		streaming:       isStreaming,
+		virtualKeyName:  vkName,
+		virtualKeyID:    vkID,
+		failoverAttempt: 0,
+		state:           "pending",
+		endpointType:    endpointType,
+	}
+	h.insertRequestLogAsync(logData)
+	return logData, vkHash
 }
 
 // resolveCandidates performs phase B of ChatCompletions: resolve the request
@@ -268,13 +275,16 @@ func (h *Handler) loadFailoverConfig(r *http.Request, st *requestState) {
 	// Non-streaming timeout is configurable via request_timeout setting (default 1m).
 	// Streaming requests get 10× the non-streaming timeout to accommodate
 	// thinking/reasoning models that can take several minutes before first token.
+	// Long-running multimodal endpoints (image generation, audio) get the same
+	// extended budget: their legitimate latencies and response transfers also
+	// run for minutes without carrying a chat-style stream flag.
 	// Read once before the loop so all attempts within a single request use
 	// the same timeout, avoiding inconsistency if the setting changes mid-request.
 	rtStart := time.Now()
 	baseTimeout := h.settingsRepo.GetDuration(r.Context(), "request_timeout", time.Minute)
 	ctxkeys.AddSettingsReadMs(r.Context(), rtStart)
 	st.failoverTimeout = baseTimeout
-	if st.isStreaming {
+	if st.isStreaming || st.longRunning {
 		st.failoverTimeout = baseTimeout * 10
 	}
 
