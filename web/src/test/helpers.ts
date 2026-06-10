@@ -19,6 +19,7 @@ import { HttpResponse, http, type RequestHandler } from "msw";
 import type {
 	BackupEntry,
 	FailoverGroup,
+	FailoverListResponse,
 	LogsResponse,
 	Model,
 	Provider,
@@ -91,10 +92,12 @@ export function mockFailoverGroups(
 	options: OverrideOptions = {},
 ): RequestHandler[] {
 	const { status = 200, body } = options;
-	const data = body ?? {
-		groups: [mockFailoverGroup],
-		last_synced_at: null,
-	};
+	const data =
+		body ??
+		({
+			groups: [mockFailoverGroup],
+			last_synced_at: null,
+		} satisfies FailoverListResponse);
 	return [
 		http.get("/api/failover-groups", () =>
 			status === 200
@@ -176,12 +179,14 @@ export function mockVersionLatest(
 /** Create handler that returns empty logs. */
 export function mockLogs(options: OverrideOptions = {}): RequestHandler[] {
 	const { status = 200, body } = options;
-	const data = body ?? {
-		entries: [],
-		total: 0,
-		page: 1,
-		per_page: 25,
-	};
+	const data =
+		body ??
+		({
+			entries: [],
+			total: 0,
+			page: 1,
+			per_page: 25,
+		} satisfies LogsResponse);
 	return [
 		http.get("/api/logs", () =>
 			status === 200

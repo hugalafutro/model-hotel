@@ -1,11 +1,13 @@
 import { render, screen } from "@testing-library/react";
 import type { LucideProps } from "lucide-react";
+import { forwardRef } from "react";
 import { describe, expect, it } from "vitest";
 import { PageHeader } from "../PageHeader";
 
-const StubIcon = Object.assign(
-	({ className, size, strokeWidth }: LucideProps) => (
+const StubIcon = forwardRef<SVGSVGElement, LucideProps>(
+	({ className, size, strokeWidth }, ref) => (
 		<svg
+			ref={ref}
 			className={className}
 			data-testid="stub-icon"
 			width={size}
@@ -13,7 +15,6 @@ const StubIcon = Object.assign(
 			data-strokeWidth={strokeWidth}
 		/>
 	),
-	{ $$typeof: Symbol.for("react.forward_ref") },
 );
 
 describe("PageHeader", () => {
