@@ -1,8 +1,8 @@
 import { screen, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
+import type { Provider } from "../../../api/types";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
-import type { Provider } from "../../api/types";
 import { EditProviderModal } from "../EditProviderModal";
 
 describe("EditProviderModal", () => {
