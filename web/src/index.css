@@ -1108,10 +1108,6 @@ html[data-ui-style="clean-saas"] .ui-card {
 	transition: box-shadow 0.2s ease;
 }
 
-html[data-ui-style="clean-saas"] .ui-card > .ui-table tbody tr:last-child td {
-	border-bottom: none;
-}
-
 html[data-ui-style="clean-saas"] .ui-card.has-dropdown {
 	position: relative;
 	z-index: 20;
@@ -1406,6 +1402,9 @@ html[data-ui-style="glassmorphism-lite"].dark button.bg-red-900\/50 {
 html[data-ui-style="cyber-terminal"] .ui-toggle {
 	border-radius: 2px;
 	border: 1px solid var(--border-default);
+	/* The component's transition-colors omits box-shadow, which would make the
+	   checked-state glow below snap on/off instead of fading. */
+	transition-property: color, background-color, border-color, box-shadow;
 }
 
 html[data-ui-style="cyber-terminal"] .ui-toggle[aria-checked="true"] {
@@ -1656,6 +1655,10 @@ html.light [data-ui-style] .ui-table th {
 	border-bottom: 1px solid var(--border-subtle);
 	font-size: 0.8125rem;
 	color: var(--text-secondary);
+}
+
+html[data-ui-style="clean-saas"] .ui-card > .ui-table tbody tr:last-child td {
+	border-bottom: none;
 }
 
 [data-ui-style] .ui-table:not(.ui-table-virtual) tbody tr:nth-child(even) {
