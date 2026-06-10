@@ -219,11 +219,6 @@ services:
             interval: 5s
             timeout: 5s
             retries: 5
-```
-
-</details>
-
-**3.** Deploy:
 
 ```bash
 docker compose up -d
