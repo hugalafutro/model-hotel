@@ -281,7 +281,7 @@ export function AppLogs() {
 								}}
 								className={`ui-btn px-3 py-1 text-xs font-medium transition-all ${
 									logsSubMode === "request"
-										? "ui-btn-primary"
+										? "ui-btn-primary cursor-default"
 										: "ui-btn-secondary cursor-pointer"
 								}`}
 							>
@@ -296,7 +296,7 @@ export function AppLogs() {
 								}}
 								className={`ui-btn px-3 py-1 text-xs font-medium transition-all ${
 									logsSubMode === "app"
-										? "ui-btn-primary"
+										? "ui-btn-primary cursor-default"
 										: "ui-btn-secondary cursor-pointer"
 								}`}
 							>
