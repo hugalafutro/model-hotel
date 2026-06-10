@@ -272,6 +272,7 @@ ADMIN_TOKEN=
                 - POSTGRES_DB=${POSTGRES_DB:-modelhotel}
             volumes:
                 - ./.data/pgdata:/var/lib/postgresql/data
+            restart: unless-stopped
             healthcheck:
                 test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-modelhotel}"]
                 interval: 5s
