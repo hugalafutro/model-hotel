@@ -1,7 +1,5 @@
-import { ArrowLeftRight, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { NeuralWattQuotaResponse } from "../../api/types";
-import { useTheme } from "../../context/ThemeContext";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import {
 	formatDate,
@@ -11,8 +9,11 @@ import {
 	formatTokens,
 } from "../../utils/format";
 import { Modal } from "../Modal";
-import { Spinner } from "../Spinner";
-import { remainingBarColor, usedBarColor } from "./shared";
+import {
+	QuotaModalHeaderActions,
+	remainingBarColor,
+	usedBarColor,
+} from "./shared";
 
 export function NeuralWattQuotaModal({
 	quota,
@@ -29,7 +30,6 @@ export function NeuralWattQuotaModal({
 	onToast: (msg: string, type: "success" | "error" | "info") => void;
 	lastRefreshed?: number;
 }) {
-	const { uiStyle } = useTheme();
 	const { t } = useTranslation();
 	const [barMode, setBarMode] = useLocalStorage<"remaining" | "used">(
 		"quota-bar-mode",
@@ -99,42 +99,23 @@ export function NeuralWattQuotaModal({
 							)}
 						</p>
 					</div>
-					<div className="flex items-center gap-2">
-						<button
-							type="button"
-							onClick={() =>
-								setBarMode((prev) =>
-									prev === "remaining" ? "used" : "remaining",
-								)
-							}
-							className="absolute top-4 right-20 text-gray-400 hover:text-(--text-primary) transition-all cursor-pointer p-1.5 hover:drop-shadow-[var(--glow-accent-lg)]"
-							aria-label={t("components.providerModals.toggleRemainingUsed")}
-							title={
-								barMode === "remaining"
-									? t("components.providerModals.showQuotaUsed")
-									: t("components.providerModals.showQuotaRemaining")
-							}
-						>
-							<ArrowLeftRight size={18} />
-						</button>
-						<button
-							type="button"
-							onClick={handleRefresh}
-							disabled={isRefreshing}
-							className="absolute top-4 right-10 text-gray-400 hover:text-(--text-primary) transition-all cursor-pointer p-1.5 hover:drop-shadow-[var(--glow-accent-lg)]"
-							aria-label={t("common.refresh")}
-							title={t("components.providerModals.refreshQuotaInfo")}
-						>
-							{isRefreshing && uiStyle === "cyber-terminal" ? (
-								<Spinner className="w-[18px] h-[18px] text-[18px] leading-[18px]" />
-							) : (
-								<RefreshCw
-									size={18}
-									className={isRefreshing ? "animate-spin" : ""}
-								/>
-							)}
-						</button>
-					</div>
+					<QuotaModalHeaderActions
+						onToggleBarMode={() =>
+							setBarMode((prev) =>
+								prev === "remaining" ? "used" : "remaining",
+							)
+						}
+						onRefresh={handleRefresh}
+						isRefreshing={isRefreshing}
+						toggleAriaLabel={t("components.providerModals.toggleRemainingUsed")}
+						toggleTitle={
+							barMode === "remaining"
+								? t("components.providerModals.showQuotaUsed")
+								: t("components.providerModals.showQuotaRemaining")
+						}
+						refreshAriaLabel={t("common.refresh")}
+						refreshTitle={t("components.providerModals.refreshQuotaInfo")}
+					/>
 				</div>
 			}
 			onClose={onClose}
