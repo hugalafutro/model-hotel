@@ -641,9 +641,9 @@ export function ModelDetailModal({
 						onClick={handleTest}
 						className={`ui-btn ${
 							testError
-								? "bg-red-900/50 text-red-300 border-red-700/50"
+								? "ui-btn-danger bg-red-900/50 text-red-300 border-red-700/50"
 								: testing
-									? "bg-amber-900/30 text-amber-300/70 border-amber-700/30 cursor-wait"
+									? "ui-btn-secondary bg-amber-900/30 text-amber-300/70 border-amber-700/30 cursor-wait"
 									: "ui-btn-secondary cursor-pointer hover:brightness-125 hover:shadow-[var(--glow-box-amber)]"
 						}`}
 					>

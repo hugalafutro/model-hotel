@@ -291,7 +291,7 @@ export function AppearanceSettings({
 								className={`ui-btn px-4 py-2 text-sm font-medium transition-colors ${
 									theme === "dark"
 										? "ui-btn-primary"
-										: "text-gray-400 hover:bg-gray-600"
+										: "bg-gray-700 text-gray-400 hover:bg-gray-600"
 								}`}
 							>
 								{t("settings.appearance.dark")}
@@ -302,7 +302,7 @@ export function AppearanceSettings({
 								className={`ui-btn px-4 py-2 text-sm font-medium transition-colors ${
 									theme === "light"
 										? "ui-btn-primary"
-										: "text-gray-400 hover:bg-gray-600"
+										: "bg-gray-700 text-gray-400 hover:bg-gray-600"
 								}`}
 							>
 								{t("settings.appearance.light")}
