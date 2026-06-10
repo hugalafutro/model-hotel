@@ -92,10 +92,12 @@ export function mockFailoverGroups(
 	options: OverrideOptions = {},
 ): RequestHandler[] {
 	const { status = 200, body } = options;
-	const data: FailoverListResponse = body ?? {
-		groups: [mockFailoverGroup],
-		last_synced_at: null,
-	};
+	const data =
+		body ??
+		({
+			groups: [mockFailoverGroup],
+			last_synced_at: null,
+		} satisfies FailoverListResponse);
 	return [
 		http.get("/api/failover-groups", () =>
 			status === 200
@@ -177,12 +179,14 @@ export function mockVersionLatest(
 /** Create handler that returns empty logs. */
 export function mockLogs(options: OverrideOptions = {}): RequestHandler[] {
 	const { status = 200, body } = options;
-	const data: LogsResponse = body ?? {
-		entries: [],
-		total: 0,
-		page: 1,
-		per_page: 25,
-	};
+	const data =
+		body ??
+		({
+			entries: [],
+			total: 0,
+			page: 1,
+			per_page: 25,
+		} satisfies LogsResponse);
 	return [
 		http.get("/api/logs", () =>
 			status === 200
@@ -366,11 +370,11 @@ export function mockAllDefaults(
 		versionLatest: OverrideOptions | { tag_name: string };
 	}> = {},
 ): RequestHandler[] {
-	function toOpts<T>(v: OverrideOptions | T[] | undefined): OverrideOptions {
+	function toOpts(v: unknown): OverrideOptions {
 		if (!v) return {};
-		if (Array.isArray(v) || !("status" in (v as OverrideOptions)))
-			return { body: v };
-		return v as OverrideOptions;
+		if (typeof v === "object" && v !== null && "status" in v)
+			return v as OverrideOptions;
+		return { body: v };
 	}
 
 	return [

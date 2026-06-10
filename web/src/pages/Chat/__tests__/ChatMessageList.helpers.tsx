@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import type { ChatMessage, Model } from "../../api/types";
+import type { ChatMessage, Model } from "../../../api/types";
 
 export const mockMessages: ChatMessage[] = [
 	{

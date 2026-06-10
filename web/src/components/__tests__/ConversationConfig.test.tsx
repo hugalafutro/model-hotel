@@ -300,8 +300,8 @@ describe("ConversationConfig", () => {
 			renderWithProviders(
 				<ConversationConfig
 					{...defaultProps}
-					selectedModel={undefined}
-					selectedModelB={undefined}
+					selectedModel={""}
+					selectedModelB={""}
 				/>,
 			);
 			expect(screen.getByLabelText("Prompt")).toBeDisabled();

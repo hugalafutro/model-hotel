@@ -1,24 +1,20 @@
-// @ts-expect-error - StubIcon is sufficient for testing
 import { render, screen } from "@testing-library/react";
+import type { LucideProps } from "lucide-react";
+import { forwardRef } from "react";
 import { describe, expect, it } from "vitest";
 import { PageHeader } from "../PageHeader";
 
-const StubIcon = ({
-	className,
-	size,
-	strokeWidth,
-}: {
-	className?: string;
-	size?: number;
-	strokeWidth?: number;
-}) => (
-	<svg
-		className={className}
-		data-testid="stub-icon"
-		width={size}
-		height={size}
-		data-strokeWidth={strokeWidth}
-	/>
+const StubIcon = forwardRef<SVGSVGElement, LucideProps>(
+	({ className, size, strokeWidth }, ref) => (
+		<svg
+			ref={ref}
+			className={className}
+			data-testid="stub-icon"
+			width={size}
+			height={size}
+			data-strokeWidth={strokeWidth}
+		/>
+	),
 );
 
 describe("PageHeader", () => {

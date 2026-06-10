@@ -473,9 +473,9 @@ describe("arenaHistory", () => {
 			// Verify privacy: custom persona prompts are stripped
 			const round = entry.rounds?.[0];
 			expect(round).toBeDefined();
-			const matchup = round.matchups[0];
-			expect(matchup.slotA?.personaId).toBe("merlin"); // preset preserved
-			expect(matchup.slotB?.personaId).toBe(null); // null preserved
+			const matchup = round?.matchups[0];
+			expect(matchup?.slotA?.personaId).toBe("merlin"); // preset preserved
+			expect(matchup?.slotB?.personaId).toBe(null); // null preserved
 		});
 
 		it("strips non-preset persona IDs", () => {
@@ -507,7 +507,7 @@ describe("arenaHistory", () => {
 			const entry = getArenaHistory()[0];
 			const round2 = entry.rounds?.[0];
 			expect(round2).toBeDefined();
-			expect(round2.matchups[0].slotA?.personaId).toBe(null); // Non-preset stripped
+			expect(round2?.matchups[0].slotA?.personaId).toBe(null); // Non-preset stripped
 		});
 
 		it("preserves all prompt preset IDs from ARENA_PROMPTS", () => {

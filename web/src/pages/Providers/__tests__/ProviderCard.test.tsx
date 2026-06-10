@@ -47,6 +47,7 @@ const defaultProps = {
 	onSetModalNano: vi.fn(),
 	onSetModalZaiCoding: vi.fn(),
 	onSetModalOpenRouter: vi.fn(),
+	onSetModalNeuralwatt: vi.fn(),
 	toast: vi.fn(),
 };
 

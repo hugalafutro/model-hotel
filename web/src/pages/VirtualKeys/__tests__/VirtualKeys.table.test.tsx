@@ -711,9 +711,7 @@ describe("VirtualKeys", () => {
 				expect(screen.getByText("Key 1")).toBeInTheDocument();
 			});
 
-			expect(
-				screen.getByRole("button", { name: "Prev", exact: true }),
-			).toBeDisabled();
+			expect(screen.getByRole("button", { name: "Prev" })).toBeDisabled();
 		});
 
 		it("disables Next button on last page", async () => {
@@ -734,9 +732,7 @@ describe("VirtualKeys", () => {
 			await user.click(screen.getByRole("button", { name: "2" }));
 
 			await waitFor(() => {
-				expect(
-					screen.getByRole("button", { name: "Next", exact: true }),
-				).toBeDisabled();
+				expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
 			});
 		});
 	});

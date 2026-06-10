@@ -84,7 +84,7 @@ describe("CopyablePill", () => {
 		const span = screen.getByText("a-very-long-model-id-value");
 		// line-clamp style applied
 		expect(span.style.display).toBe("-webkit-box");
-		expect(span.style.WebkitLineClamp).toBe("2");
+		expect(span.style.webkitLineClamp).toBe("2");
 		// button uses items-start (icon aligns with first text line)
 		const button = span.closest("button") as HTMLButtonElement;
 		expect(button.className).toContain("items-start");

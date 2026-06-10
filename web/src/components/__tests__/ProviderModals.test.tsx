@@ -364,13 +364,14 @@ describe("NanoGPTQuotaModal", () => {
 		});
 
 		it("shows 'N/A' for daily images reset when resetAt is undefined", () => {
+			// Intentionally invalid: API may omit resetAt, exercise the null-guard path
 			const usageWithNoReset = {
 				...mockUsage,
 				dailyImages: {
 					...mockUsage.dailyImages,
 					resetAt: undefined,
 				},
-			};
+			} as unknown as import("../../api/types").NanoGPTUsage;
 			renderWithProviders(
 				<NanoGPTQuotaModal {...defaultProps} usage={usageWithNoReset} />,
 			);
@@ -381,13 +382,14 @@ describe("NanoGPTQuotaModal", () => {
 		});
 
 		it("shows 'N/A' for daily input tokens reset when resetAt is undefined", () => {
+			// Intentionally invalid: API may omit resetAt, exercise the null-guard path
 			const usageWithNoReset = {
 				...mockUsage,
 				dailyInputTokens: {
 					...mockUsage.dailyInputTokens,
 					resetAt: undefined,
 				},
-			};
+			} as unknown as import("../../api/types").NanoGPTUsage;
 			renderWithProviders(
 				<NanoGPTQuotaModal {...defaultProps} usage={usageWithNoReset} />,
 			);
@@ -645,10 +647,11 @@ describe("ZAICodingQuotaModal", () => {
 
 	describe("edge cases", () => {
 		it("shows '-' when plan level is undefined", () => {
+			// Intentionally invalid: API may omit level, exercise the fallback path
 			const usageWithNoLevel = {
 				...mockUsage,
 				data: { ...mockUsage.data, level: undefined },
-			};
+			} as unknown as import("../../api/types").ZAICodingQuotaResponse;
 			renderWithProviders(
 				<ZAICodingQuotaModal {...defaultProps} usage={usageWithNoLevel} />,
 			);
@@ -853,6 +856,7 @@ describe("ZAICodingQuotaModal", () => {
 		});
 
 		it("shows 'N/A' for MCP reset time when nextResetTime is undefined", () => {
+			// Intentionally invalid: API may omit nextResetTime, exercise the fallback path
 			const usageWithNoReset = {
 				...mockUsage,
 				data: {
@@ -890,7 +894,7 @@ describe("ZAICodingQuotaModal", () => {
 						},
 					],
 				},
-			};
+			} as unknown as import("../../api/types").ZAICodingQuotaResponse;
 			renderWithProviders(
 				<ZAICodingQuotaModal {...defaultProps} usage={usageWithNoReset} />,
 			);

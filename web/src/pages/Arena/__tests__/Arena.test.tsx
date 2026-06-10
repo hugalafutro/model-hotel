@@ -51,7 +51,13 @@ vi.mock("../useArena", () => ({
 
 // Stub child components that need full context
 vi.mock("../../../components/PageHeader", () => ({
-	PageHeader: ({ title, description }) => (
+	PageHeader: ({
+		title,
+		description,
+	}: {
+		title: string;
+		description?: React.ReactNode;
+	}) => (
 		<div data-testid="page-header">
 			<span data-testid="page-title">{title}</span>
 			<span data-testid="page-description">{description}</span>
@@ -59,7 +65,15 @@ vi.mock("../../../components/PageHeader", () => ({
 	),
 }));
 vi.mock("../../../components/SubModeToggle", () => ({
-	SubModeToggle: ({ onChange, value, disabled }) => (
+	SubModeToggle: ({
+		onChange,
+		value,
+		disabled,
+	}: {
+		onChange: (v: string) => void;
+		value: string;
+		disabled?: boolean;
+	}) => (
 		<div
 			data-testid="submode-toggle"
 			data-value={value}
@@ -76,7 +90,13 @@ vi.mock("../../../components/SubModeToggle", () => ({
 	),
 }));
 vi.mock("../../../components/PromptPicker", () => ({
-	PromptPicker: ({ prompt, disabled }) => (
+	PromptPicker: ({
+		prompt,
+		disabled,
+	}: {
+		prompt: string;
+		disabled?: boolean;
+	}) => (
 		<div
 			data-testid="prompt-picker"
 			data-prompt={prompt}
@@ -85,7 +105,13 @@ vi.mock("../../../components/PromptPicker", () => ({
 	),
 }));
 vi.mock("../../../components/ModelPicker", () => ({
-	ModelPicker: ({ id, selected }) => (
+	ModelPicker: ({
+		id,
+		selected,
+	}: {
+		id?: string;
+		selected: string | string[];
+	}) => (
 		<div
 			data-testid={`model-picker-${id}`}
 			data-selected={JSON.stringify(selected)}
@@ -93,12 +119,18 @@ vi.mock("../../../components/ModelPicker", () => ({
 	),
 }));
 vi.mock("../../../components/PersonaPicker", () => ({
-	PersonaPicker: ({ activePersonaId }) => (
+	PersonaPicker: ({ activePersonaId }: { activePersonaId: string | null }) => (
 		<div data-testid="persona-picker" data-persona={activePersonaId} />
 	),
 }));
 vi.mock("../../../components/CollapsibleToggle", () => ({
-	CollapsibleToggle: ({ collapsed, onToggle }) => (
+	CollapsibleToggle: ({
+		collapsed,
+		onToggle,
+	}: {
+		collapsed: boolean;
+		onToggle: () => void;
+	}) => (
 		<button
 			type="button"
 			onClick={onToggle}
@@ -110,10 +142,11 @@ vi.mock("../../../components/CollapsibleToggle", () => ({
 	),
 }));
 vi.mock("../../../components/ActionIconButton", () => ({
-	ActionIconButton: (props) => mockActionIconButton(props),
+	ActionIconButton: (props: MockActionIconButtonProps) =>
+		mockActionIconButton(props),
 }));
 vi.mock("../../../components/ArenaHistoryModal", () => ({
-	ArenaHistoryModal: ({ onClose }) => (
+	ArenaHistoryModal: ({ onClose }: { onClose: () => void }) => (
 		<div data-testid="arena-history-modal">
 			<button type="button" onClick={onClose}>
 				Close
@@ -122,7 +155,7 @@ vi.mock("../../../components/ArenaHistoryModal", () => ({
 	),
 }));
 vi.mock("../../../components/ConfirmDialog", () => ({
-	ConfirmDialog: (props) => mockConfirmDialog(props),
+	ConfirmDialog: (props: MockConfirmDialogProps) => mockConfirmDialog(props),
 }));
 vi.mock("../MatchupCard", () => ({
 	MatchupCard: () => null,
@@ -131,7 +164,13 @@ vi.mock("../ResponseCard", () => ({
 	ResponseCard: () => null,
 }));
 vi.mock("../ParamEditorModal", () => ({
-	ParamEditorModal: ({ modelId, onClose }) => (
+	ParamEditorModal: ({
+		modelId,
+		onClose,
+	}: {
+		modelId: string;
+		onClose: () => void;
+	}) => (
 		<div data-testid="param-editor-modal" data-model={modelId}>
 			<button type="button" onClick={onClose}>
 				Close
@@ -140,7 +179,13 @@ vi.mock("../ParamEditorModal", () => ({
 	),
 }));
 vi.mock("../WinnerSummaryModal", () => ({
-	WinnerSummaryModal: ({ winner, onClose }) => (
+	WinnerSummaryModal: ({
+		winner,
+		onClose,
+	}: {
+		winner: string;
+		onClose: () => void;
+	}) => (
 		<div data-testid="winner-summary-modal" data-winner={winner}>
 			<button type="button" onClick={onClose}>
 				Close
@@ -152,7 +197,15 @@ vi.mock("../SwapPicker", () => ({
 	SwapPicker: () => null,
 }));
 vi.mock("../shared", () => ({
-	BracketPreviewPill: ({ modelId, displayName, isTbd }) => (
+	BracketPreviewPill: ({
+		modelId,
+		displayName,
+		isTbd,
+	}: {
+		modelId: string;
+		displayName?: string;
+		isTbd?: boolean;
+	}) => (
 		<span
 			data-testid="bracket-pill"
 			data-model={modelId}

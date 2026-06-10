@@ -540,7 +540,7 @@ describe("ModelDetailPanel", () => {
 		await user.type(input, "1024");
 
 		expect(onParamsChange).toHaveBeenCalled();
-		const lastCall = onParamsChange.mock.calls.at(-1)[0];
+		const lastCall = onParamsChange.mock.calls.at(-1)?.[0];
 		expect(lastCall).toHaveProperty("max_tokens");
 	});
 
@@ -564,7 +564,7 @@ describe("ModelDetailPanel", () => {
 		await user.type(input, "0.9");
 
 		expect(onParamsChange).toHaveBeenCalled();
-		const lastCall = onParamsChange.mock.calls.at(-1)[0];
+		const lastCall = onParamsChange.mock.calls.at(-1)?.[0];
 		expect(lastCall).toHaveProperty("top_p");
 	});
 
@@ -588,7 +588,7 @@ describe("ModelDetailPanel", () => {
 		await user.type(input, "0.1");
 
 		expect(onParamsChange).toHaveBeenCalled();
-		const lastCall = onParamsChange.mock.calls.at(-1)[0];
+		const lastCall = onParamsChange.mock.calls.at(-1)?.[0];
 		expect(lastCall).toHaveProperty("min_p");
 	});
 
@@ -612,7 +612,7 @@ describe("ModelDetailPanel", () => {
 		await user.type(input, "50");
 
 		expect(onParamsChange).toHaveBeenCalled();
-		const lastCall = onParamsChange.mock.calls.at(-1)[0];
+		const lastCall = onParamsChange.mock.calls.at(-1)?.[0];
 		expect(lastCall).toHaveProperty("top_k");
 	});
 
@@ -638,7 +638,7 @@ describe("ModelDetailPanel", () => {
 		await user.type(input, "0.5");
 
 		expect(onParamsChange).toHaveBeenCalled();
-		const lastCall = onParamsChange.mock.calls.at(-1)[0];
+		const lastCall = onParamsChange.mock.calls.at(-1)?.[0];
 		expect(lastCall).toHaveProperty("frequency_penalty");
 	});
 
@@ -664,7 +664,7 @@ describe("ModelDetailPanel", () => {
 		await user.type(input, "0.3");
 
 		expect(onParamsChange).toHaveBeenCalled();
-		const lastCall = onParamsChange.mock.calls.at(-1)[0];
+		const lastCall = onParamsChange.mock.calls.at(-1)?.[0];
 		expect(lastCall).toHaveProperty("presence_penalty");
 	});
 
@@ -690,7 +690,7 @@ describe("ModelDetailPanel", () => {
 		await user.click(screen.getByRole("button", { name: /Medium/i }));
 
 		expect(onParamsChange).toHaveBeenCalled();
-		const lastCall = onParamsChange.mock.calls.at(-1)[0];
+		const lastCall = onParamsChange.mock.calls.at(-1)?.[0];
 		expect(lastCall).toHaveProperty("reasoning_effort");
 	});
 

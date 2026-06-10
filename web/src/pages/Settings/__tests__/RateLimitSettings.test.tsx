@@ -884,7 +884,13 @@ describe("per-setting reset", () => {
 		resetSpy.mockResolvedValueOnce({});
 
 		const user = userEvent.setup();
-		renderWithProviders(<RateLimitSettings onResetSection={() => {}} />);
+		renderWithProviders(
+			<RateLimitSettings
+				collapsed={false}
+				onToggle={() => {}}
+				onResetSection={() => {}}
+			/>,
+		);
 
 		await waitFor(() => {
 			expect(
@@ -911,7 +917,13 @@ describe("per-setting reset", () => {
 		resetSpy.mockRejectedValueOnce(new Error("reset went sideways"));
 
 		const user = userEvent.setup();
-		renderWithProviders(<RateLimitSettings onResetSection={() => {}} />);
+		renderWithProviders(
+			<RateLimitSettings
+				collapsed={false}
+				onToggle={() => {}}
+				onResetSection={() => {}}
+			/>,
+		);
 
 		await waitFor(() => {
 			expect(
