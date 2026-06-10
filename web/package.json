@@ -6,7 +6,8 @@
   "packageManager": "pnpm@10.33.0",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b tsconfig.app.json tsconfig.node.json && vite build",
+    "typecheck:tests": "tsc --noEmit -p tsconfig.test.json",
     "lint": "eslint ${@:-.}",
     "preview": "vite preview",
     "test": "NODE_OPTIONS='--disable-warning=ExperimentalWarning --disable-warning=DEP0205' vitest run",
