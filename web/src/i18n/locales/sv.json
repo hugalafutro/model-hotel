@@ -1059,10 +1059,18 @@
 				"4xx": "4XX",
 				"5xx": "5XX"
 			},
+			"endpoint": "Endpoint",
 			"level": "Nivå",
 			"levelAll": "Alla",
 			"source": "Källa",
 			"logsPlaceholder": "Filtrera loggar…"
+		},
+		"endpoint": {
+			"chat": "Chatt",
+			"embeddings": "Inbäddning",
+			"image": "Bild",
+			"tts": "TTS",
+			"stt": "STT"
 		},
 		"table": {
 			"timeDate": "Tid/datum",
@@ -1537,24 +1545,24 @@
 			"backupCreated": "Säkerhetskopia skapad",
 			"downloadFailed": "Hämtning misslyckades: {{message}}",
 			"rotation": {
-				"title": "Periodic Backup",
-				"enabled": "Enable Periodic Backup",
-				"enabledDescription": "Automatically create backups at regular intervals and prune old ones using son/father/grandfather rotation.",
-				"interval": "Backup Interval",
-				"intervalDescription": "How often to create an automatic backup (0 = disabled).",
-				"sonRetention": "Daily Retention (Son)",
-				"sonRetentionDescription": "Keep the most recent backup from each of the last N days.",
-				"fatherRetention": "Weekly Retention (Father)",
-				"fatherRetentionDescription": "Keep the most recent backup from each of the last N weeks.",
-				"grandfatherRetention": "Monthly Retention (Grandfather)",
-				"grandfatherRetentionDescription": "Keep the most recent backup from each of the last N months.",
-				"confirmEnableTitle": "Enable Periodic Backup?",
-				"confirmEnableDescription": "Enabling periodic backup will prune existing backups that fall outside the son/father/grandfather rotation scheme.",
-				"confirmEnableWouldRemove": "This would remove the following {{count}} backup(s):",
-				"confirmEnableNoRemoval": "No existing backups would be removed.",
-				"prunePreviewFailed": "Failed to preview backup pruning",
-				"pruneFailed": "Failed to prune backups",
-				"pruneSuccess": "Pruned {{count}} backup(s)"
+				"title": "Periodisk säkerhetskopia",
+				"enabled": "Aktivera periodisk säkerhetskopiering",
+				"enabledDescription": "Skapa automatiskt säkerhetskopior med jämna mellanrum och beskära gamla med hjälp av son/far/farfars rotation.",
+				"interval": "Intervall för säkerhetskopiering",
+				"intervalDescription": "Hur ofta du skapar en automatisk backup (0 = inaktiverad).",
+				"sonRetention": "Daglig lagring (Son)",
+				"sonRetentionDescription": "Håll den senaste säkerhetskopian från var och en av de senaste N dagarna.",
+				"fatherRetention": "Veckovis kvarhållande (fader)",
+				"fatherRetentionDescription": "Håll den senaste säkerhetskopian från var och en av de senaste N-veckorna.",
+				"grandfatherRetention": "Månatligt uppehållande (farfar)",
+				"grandfatherRetentionDescription": "Håll den senaste säkerhetskopian från var och en av de senaste N-månaderna.",
+				"confirmEnableTitle": "Aktivera periodisk säkerhetskopiering?",
+				"confirmEnableDescription": "Aktivering av periodisk säkerhetskopiering kommer att beskära befintliga säkerhetskopior som faller utanför son/fars/fars rotationssystem.",
+				"confirmEnableWouldRemove": "Detta skulle ta bort följande {{count}} backup(er):",
+				"confirmEnableNoRemoval": "Inga befintliga säkerhetskopior skulle tas bort.",
+				"prunePreviewFailed": "Det gick inte att förhandsgranska säkerhetskopia",
+				"pruneFailed": "Det gick inte att beskära säkerhetskopior",
+				"pruneSuccess": "Beskärda {{count}} säkerhetskopior"
 			}
 		},
 		"appearance": {

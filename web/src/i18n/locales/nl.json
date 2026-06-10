@@ -1059,10 +1059,18 @@
 				"4xx": "4XX",
 				"5xx": "5XX"
 			},
+			"endpoint": "Endpoint",
 			"level": "Niveau",
 			"levelAll": "Allemaal",
 			"source": "Bron",
 			"logsPlaceholder": "Logbestanden filteren…"
+		},
+		"endpoint": {
+			"chat": "Chatten",
+			"embeddings": "Insluiten",
+			"image": "Afbeelding",
+			"tts": "TTS",
+			"stt": "STT"
 		},
 		"table": {
 			"timeDate": "Tijd/Datum",
@@ -1537,24 +1545,24 @@
 			"backupCreated": "Back-up gemaakt",
 			"downloadFailed": "Downloaden mislukt: {{message}}",
 			"rotation": {
-				"title": "Periodic Backup",
-				"enabled": "Enable Periodic Backup",
-				"enabledDescription": "Automatically create backups at regular intervals and prune old ones using son/father/grandfather rotation.",
-				"interval": "Backup Interval",
-				"intervalDescription": "How often to create an automatic backup (0 = disabled).",
-				"sonRetention": "Daily Retention (Son)",
-				"sonRetentionDescription": "Keep the most recent backup from each of the last N days.",
-				"fatherRetention": "Weekly Retention (Father)",
-				"fatherRetentionDescription": "Keep the most recent backup from each of the last N weeks.",
-				"grandfatherRetention": "Monthly Retention (Grandfather)",
-				"grandfatherRetentionDescription": "Keep the most recent backup from each of the last N months.",
-				"confirmEnableTitle": "Enable Periodic Backup?",
-				"confirmEnableDescription": "Enabling periodic backup will prune existing backups that fall outside the son/father/grandfather rotation scheme.",
-				"confirmEnableWouldRemove": "This would remove the following {{count}} backup(s):",
-				"confirmEnableNoRemoval": "No existing backups would be removed.",
-				"prunePreviewFailed": "Failed to preview backup pruning",
-				"pruneFailed": "Failed to prune backups",
-				"pruneSuccess": "Pruned {{count}} backup(s)"
+				"title": "Periodieke back-up",
+				"enabled": "Periodieke back-up inschakelen",
+				"enabledDescription": "Automatisch back-ups maken met regelmatige intervallen en oude verwijderen met zoon/vader/grootvader-rotatie.",
+				"interval": "Back-up interval",
+				"intervalDescription": "Hoe vaak een automatische back-up wordt gemaakt (0 = uitgeschakeld).",
+				"sonRetention": "Dagelijkse bewaring (Zoon)",
+				"sonRetentionDescription": "Houd de meest recente back-up van elk van de laatste N dagen.",
+				"fatherRetention": "Wekelijkse bewaring (Vader)",
+				"fatherRetentionDescription": "Houd de meest recente back-up van elk van de laatste N weken.",
+				"grandfatherRetention": "Maandelijkse bewaring (Grootvader)",
+				"grandfatherRetentionDescription": "Behoud de meest recente back-up van elk van de laatste N maanden.",
+				"confirmEnableTitle": "Periodieke back-up inschakelen?",
+				"confirmEnableDescription": "Het inschakelen van periodieke back-up zal bestaande back-ups verwijderen die buiten het zoon/vader/grootvader-rotatieschema vallen.",
+				"confirmEnableWouldRemove": "Dit zal de volgende {{count}} backup(s) verwijderen:",
+				"confirmEnableNoRemoval": "Er zouden geen bestaande back-ups worden verwijderd.",
+				"prunePreviewFailed": "Voorbeeld van reservekopie verwijderen mislukt",
+				"pruneFailed": "Opschonen van back-ups mislukt",
+				"pruneSuccess": "{{count}} backup(s) verwijderd"
 			}
 		},
 		"appearance": {

@@ -1059,10 +1059,18 @@
 				"4xx": "4XX",
 				"5xx": "5XX"
 			},
+			"endpoint": "엔드포인트",
 			"level": "레벨",
 			"levelAll": "모두",
 			"source": "출처",
 			"logsPlaceholder": "로그 필터링…"
+		},
+		"endpoint": {
+			"chat": "채팅",
+			"embeddings": "임베딩",
+			"image": "이미지",
+			"tts": "TTS",
+			"stt": "STT"
 		},
 		"table": {
 			"timeDate": "시간/날짜",
@@ -1537,24 +1545,24 @@
 			"backupCreated": "백업이 생성되었습니다",
 			"downloadFailed": "다운로드에 실패했습니다: {{message}}",
 			"rotation": {
-				"title": "Periodic Backup",
-				"enabled": "Enable Periodic Backup",
-				"enabledDescription": "Automatically create backups at regular intervals and prune old ones using son/father/grandfather rotation.",
-				"interval": "Backup Interval",
-				"intervalDescription": "How often to create an automatic backup (0 = disabled).",
-				"sonRetention": "Daily Retention (Son)",
-				"sonRetentionDescription": "Keep the most recent backup from each of the last N days.",
-				"fatherRetention": "Weekly Retention (Father)",
-				"fatherRetentionDescription": "Keep the most recent backup from each of the last N weeks.",
-				"grandfatherRetention": "Monthly Retention (Grandfather)",
-				"grandfatherRetentionDescription": "Keep the most recent backup from each of the last N months.",
-				"confirmEnableTitle": "Enable Periodic Backup?",
-				"confirmEnableDescription": "Enabling periodic backup will prune existing backups that fall outside the son/father/grandfather rotation scheme.",
-				"confirmEnableWouldRemove": "This would remove the following {{count}} backup(s):",
-				"confirmEnableNoRemoval": "No existing backups would be removed.",
-				"prunePreviewFailed": "Failed to preview backup pruning",
-				"pruneFailed": "Failed to prune backups",
-				"pruneSuccess": "Pruned {{count}} backup(s)"
+				"title": "정기 백업",
+				"enabled": "주기적 백업 활성화",
+				"enabledDescription": "정기적으로 백업을 자동으로 생성하고, ‘son/father/grandfather’ 순환 방식을 사용하여 오래된 백업을 삭제합니다.",
+				"interval": "백업 주기",
+				"intervalDescription": "자동 백업을 생성할 빈도(0 = 비활성화).",
+				"sonRetention": "일일 유지율 (아들)",
+				"sonRetentionDescription": "지난 N일 동안 매일 생성된 백업 중 가장 최근의 백업을 보관하십시오.",
+				"fatherRetention": "주간 유지율 (아버지)",
+				"fatherRetentionDescription": "지난 N주 동안의 각 주별 최신 백업본을 보관하십시오.",
+				"grandfatherRetention": "월별 유지율 (기존 고객)",
+				"grandfatherRetentionDescription": "지난 N개월 동안의 백업 파일 중 가장 최근의 것을 각각 보관하십시오.",
+				"confirmEnableTitle": "주기적 백업을 활성화하시겠습니까?",
+				"confirmEnableDescription": "주기적 백업을 활성화하면 ‘자식/부모/조부모’ 순환 체계에 포함되지 않는 기존 백업이 삭제됩니다.",
+				"confirmEnableWouldRemove": "이렇게 하면 다음 {{count}} 백업이 삭제됩니다:",
+				"confirmEnableNoRemoval": "기존 백업은 삭제되지 않습니다.",
+				"prunePreviewFailed": "백업 정리 미리 보기에 실패했습니다",
+				"pruneFailed": "백업 정리 실패",
+				"pruneSuccess": "{{count}} 백업 파일 삭제"
 			}
 		},
 		"appearance": {
