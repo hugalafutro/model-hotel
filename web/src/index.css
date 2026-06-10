@@ -1387,14 +1387,6 @@ html[data-ui-style="glassmorphism-lite"] .ui-btn-danger {
 	color: #fff;
 }
 
-/* Glassmorphism dark: ConfirmDeleteButton inline danger button fix */
-html[data-ui-style="glassmorphism-lite"].dark .bg-red-900\/50.text-red-400,
-html[data-ui-style="glassmorphism-lite"].dark button.bg-red-900\/50 {
-	background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-	color: #fff;
-	border-color: rgba(255, 255, 255, 0.15);
-}
-
 /* =============================================
    TOGGLES / SWITCHES
    ============================================= */
