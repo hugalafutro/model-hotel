@@ -22,7 +22,7 @@ export function LiveToggleButton({ enabled, onToggle }: LiveToggleButtonProps) {
 					"info",
 				);
 			}}
-			className={`flex items-center px-1.5 py-px leading-[1.6] rounded text-[10px] font-semibold transition-colors ${
+			className={`ui-badge flex items-center px-1.5 py-px leading-[1.6] text-[10px] font-semibold transition-colors ${
 				enabled
 					? "bg-green-500/20 text-green-400 hover:bg-green-500/30"
 					: "bg-gray-700 text-gray-400 hover:bg-gray-600"

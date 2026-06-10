@@ -143,7 +143,7 @@ describe("AppLogs", () => {
 		const requestsTab = screen.getByRole("button", { name: "Requests" });
 		await user.click(requestsTab);
 		await waitFor(() => {
-			expect(requestsTab).toHaveClass("bg-(--accent)/20");
+			expect(requestsTab).toHaveClass("ui-btn-primary");
 		});
 	});
 

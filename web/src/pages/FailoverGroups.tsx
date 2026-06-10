@@ -501,7 +501,7 @@ export function FailoverGroups() {
 				}
 				badge={
 					!allSameState && groups && groups.length > 0 ? (
-						<span className="inline-flex items-center gap-2 px-2.5 py-1 leading-[1.6] rounded-full text-xs font-medium bg-gray-700/60 border border-gray-600/50">
+						<span className="inline-flex items-center gap-2 px-2.5 py-1 leading-[1.6] text-xs font-medium bg-gray-700/60 border border-gray-600/50 ui-badge">
 							<span className="text-green-400">
 								<span className="badge-text">
 									{t("failover.badge_enabled", { count: totalEnabled })}

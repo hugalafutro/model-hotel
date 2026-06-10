@@ -388,9 +388,9 @@ function RequestLogs() {
 							<button
 								type="button"
 								onClick={() => setLogsSubMode("request")}
-								className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+								className={`ui-btn px-3 py-1 text-xs font-medium transition-all ${
 									logsSubMode === "request"
-										? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
+										? "ui-btn-primary"
 										: "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer"
 								}`}
 							>
@@ -400,9 +400,9 @@ function RequestLogs() {
 							<button
 								type="button"
 								onClick={() => setLogsSubMode("app")}
-								className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+								className={`ui-btn px-3 py-1 text-xs font-medium transition-all ${
 									logsSubMode === "app"
-										? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
+										? "ui-btn-primary"
 										: "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer"
 								}`}
 							>

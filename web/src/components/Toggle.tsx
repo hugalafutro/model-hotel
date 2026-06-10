@@ -37,12 +37,12 @@ export function Toggle({
 			aria-label={ariaLabel}
 			disabled={disabled}
 			onClick={() => onChange(!checked)}
-			className={`relative inline-flex ${sizeClasses} items-center rounded-full transition-colors translate-z-0 ${focusClasses} ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"} ${
+			className={`ui-toggle relative inline-flex ${sizeClasses} items-center rounded-full transition-colors translate-z-0 ${focusClasses} ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"} ${
 				checked ? "bg-(--accent)" : "bg-gray-600"
 			} ${className ?? ""}`}
 		>
 			<span
-				className={`inline-block ${dotSize} transform rounded-full bg-white transition-transform ${
+				className={`ui-toggle-dot inline-block ${dotSize} transform rounded-full bg-white transition-transform ${
 					checked ? onTranslate : offTranslate
 				}`}
 			/>

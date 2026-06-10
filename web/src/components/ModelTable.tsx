@@ -203,7 +203,7 @@ export function ModelTable({
 						<button
 							type="button"
 							onClick={() => setConfirmDeleteDisabled(true)}
-							className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-red-400 border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 hover:border-red-400/50 transition-colors cursor-pointer"
+							className="ui-btn ui-btn-danger flex items-center gap-1 px-2 py-1 text-xs"
 							aria-label={t("components.modelTable.deleteDisabledAria", {
 								count: disabledCount,
 							})}
@@ -326,7 +326,7 @@ export function ModelTable({
 												type="button"
 												disabled={isDisabled}
 												onClick={() => toggleCapFilter(m.key)}
-												className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors ${isActive ? m.style : isDisabled ? m.disabled : m.muted}`}
+												className={`ui-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium border transition-colors ${isActive ? m.style : isDisabled ? m.disabled : m.muted}`}
 											>
 												{m.label}
 											</button>
@@ -339,7 +339,7 @@ export function ModelTable({
 												setCapFilter(new Set());
 												setCurrentPage(1);
 											}}
-											className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-400 hover:text-gray-200"
+											className="ui-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium text-gray-400 hover:text-gray-200"
 										>
 											✕
 										</button>
@@ -417,7 +417,7 @@ export function ModelTable({
 										<td aria-hidden />
 										<td className="px-4 py-1.5 whitespace-nowrap">
 											<span
-												className={`px-2 py-px leading-[1.6] text-xs rounded-full ${model.enabled && !model.disabled_manually ? "bg-green-900/50 text-green-400" : model.enabled && model.disabled_manually ? "bg-yellow-900/50 text-yellow-400" : "bg-red-900/50 text-red-400"}`}
+												className={`ui-badge px-2 py-px leading-[1.6] text-xs ${model.enabled && !model.disabled_manually ? "bg-green-900/50 text-green-400" : model.enabled && model.disabled_manually ? "bg-yellow-900/50 text-yellow-400" : "bg-red-900/50 text-red-400"}`}
 											>
 												<span className="badge-text">
 													{model.enabled && !model.disabled_manually

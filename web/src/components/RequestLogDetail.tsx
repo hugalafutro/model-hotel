@@ -56,7 +56,7 @@ export function RequestLogDetail({
 						showLabel
 					/>
 					{requestLog.failover_attempt > 0 && (
-						<span className="inline-flex items-center gap-1 px-2 py-1 leading-[1.6] rounded-full text-xs font-medium bg-purple-500/15 text-purple-400 border border-purple-500/30">
+						<span className="ui-badge inline-flex items-center gap-1 px-2 py-1 leading-[1.6] text-xs font-medium bg-purple-500/15 text-purple-400 border border-purple-500/30">
 							<Layers size={12} />
 							<span className="badge-text">
 								{t("components.requestLogDetail.attempt", {

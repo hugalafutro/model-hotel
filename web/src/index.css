@@ -1317,6 +1317,7 @@ html[data-ui-style="cyber-terminal"] .ui-btn {
 	font-family: var(--font-mono);
 	letter-spacing: 0.05em;
 	text-transform: uppercase;
+	border-radius: var(--radius-button);
 }
 
 html[data-ui-style="cyber-terminal"] .ui-btn-primary {
@@ -1325,7 +1326,49 @@ html[data-ui-style="cyber-terminal"] .ui-btn-primary {
 
 html[data-ui-style="cyber-terminal"] .ui-btn-primary:hover:not(:disabled) {
 	border: 1px solid var(--accent);
-	filter: brightness(1.1);
+	box-shadow:
+		0 0 0 1px var(--accent),
+		0 0 15px rgba(var(--accent-rgb), 0.25);
+	filter: none;
+}
+
+html[data-ui-style="cyber-terminal"] .ui-btn-secondary {
+	border: 1px solid var(--border-default);
+}
+
+html[data-ui-style="cyber-terminal"] .ui-btn-secondary:hover:not(:disabled) {
+	border-color: var(--accent);
+	box-shadow:
+		0 0 0 1px var(--accent),
+		0 0 12px rgba(var(--accent-rgb), 0.15);
+	filter: none;
+}
+
+html[data-ui-style="cyber-terminal"] .ui-btn-danger {
+	border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+html[data-ui-style="cyber-terminal"] .ui-btn-danger:hover:not(:disabled) {
+	border-color: #f87171;
+	box-shadow:
+		0 0 0 1px #f87171,
+		0 0 12px rgba(239, 68, 68, 0.2);
+	filter: none;
+}
+
+/* Terminal: force pill-shaped interactive/badge elements to sharp corners.
+   Uses [class*="rounded-full"] to match any Tailwind rounded-full usage.
+   Exclude spinners/avatars/dots by only targeting interactive & badge elements. */
+html[data-ui-style="cyber-terminal"] span[class*="rounded-full"],
+html[data-ui-style="cyber-terminal"] button[class*="rounded-full"],
+html[data-ui-style="cyber-terminal"] a[class*="rounded-full"] {
+	border-radius: 2px !important;
+}
+
+/* Terminal: softer rounding (rounded ≈ 0.25rem) → 2px for badge-like spans only */
+html[data-ui-style="cyber-terminal"] span[class="rounded"][class*="bg-"],
+html[data-ui-style="cyber-terminal"] span[class*=" rounded"][class*="bg-"] {
+	border-radius: 2px !important;
 }
 
 html[data-ui-style="glassmorphism-lite"] .ui-btn {
@@ -1369,6 +1412,83 @@ html[data-ui-style="glassmorphism-lite"].dark button.bg-red-900\/50 {
 	background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
 	color: #fff;
 	border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* =============================================
+   TOGGLES / SWITCHES
+   ============================================= */
+
+html[data-ui-style="cyber-terminal"] .ui-toggle {
+	border-radius: 2px;
+	border: 1px solid var(--border-default);
+}
+
+html[data-ui-style="cyber-terminal"] .ui-toggle[aria-checked="true"] {
+	border-color: var(--accent);
+	box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.2);
+}
+
+html[data-ui-style="cyber-terminal"] .ui-toggle-dot {
+	border-radius: 1px;
+}
+
+/* Terminal: rectangular checkboxes and radio buttons */
+html[data-ui-style="cyber-terminal"] input[type="checkbox"] {
+	border-radius: 2px;
+	appearance: none;
+	-webkit-appearance: none;
+	width: 1rem;
+	height: 1rem;
+	border: 1px solid var(--border-default);
+	background-color: var(--surface-input);
+	cursor: pointer;
+	position: relative;
+	transition: all 0.15s ease;
+}
+
+html[data-ui-style="cyber-terminal"] input[type="checkbox"]:checked {
+	border-color: var(--accent);
+	background-color: rgba(var(--accent-rgb), 0.2);
+	box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.15);
+}
+
+html[data-ui-style="cyber-terminal"] input[type="checkbox"]:checked::after {
+	content: "✓";
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--accent);
+	font-size: 0.7rem;
+	font-family: var(--font-mono);
+	line-height: 1;
+}
+
+html[data-ui-style="cyber-terminal"] input[type="radio"] {
+	border-radius: 2px;
+	appearance: none;
+	-webkit-appearance: none;
+	width: 1rem;
+	height: 1rem;
+	border: 1px solid var(--border-default);
+	background-color: var(--surface-input);
+	cursor: pointer;
+	position: relative;
+	transition: all 0.15s ease;
+}
+
+html[data-ui-style="cyber-terminal"] input[type="radio"]:checked {
+	border-color: var(--accent);
+	background-color: rgba(var(--accent-rgb), 0.2);
+	box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.15);
+}
+
+html[data-ui-style="cyber-terminal"] input[type="radio"]:checked::after {
+	content: "";
+	position: absolute;
+	inset: 3px;
+	background-color: var(--accent);
 }
 
 /* =============================================
@@ -1732,6 +1852,14 @@ html[data-ui-style="cyber-terminal"] .ui-badge {
 	font-size: 9px;
 	letter-spacing: 0.05em;
 	text-transform: uppercase;
+}
+
+/* Compact toggle-tab buttons (1h/1d/1w, Tok/Req) */
+[data-ui-style] .ui-tab {
+	border-radius: 0.25rem;
+}
+html[data-ui-style="cyber-terminal"] .ui-tab {
+	border-radius: 0;
 }
 
 /* Badge color variants */
@@ -2671,4 +2799,33 @@ html.light .toast-timeout-slider::-moz-range-thumb:active,
 
 .gen-slider::-moz-range-thumb:hover {
 	transform: scale(1.2);
+}
+
+/* Terminal: square slider thumbs with accent glow */
+html[data-ui-style="cyber-terminal"] .gen-slider::-webkit-slider-thumb {
+	border-radius: 1px;
+	width: 12px;
+	height: 12px;
+	margin-top: -3px;
+	background: var(--accent);
+	border: 1px solid var(--accent);
+	box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.3);
+}
+
+html[data-ui-style="cyber-terminal"]
+	.gen-slider::-webkit-slider-runnable-track {
+	border-radius: 1px;
+}
+
+html[data-ui-style="cyber-terminal"] .gen-slider::-moz-range-thumb {
+	border-radius: 1px;
+	width: 12px;
+	height: 12px;
+	background: var(--accent);
+	border: 1px solid var(--accent);
+	box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.3);
+}
+
+html[data-ui-style="cyber-terminal"] .gen-slider::-moz-range-track {
+	border-radius: 1px;
 }

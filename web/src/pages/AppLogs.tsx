@@ -279,9 +279,9 @@ export function AppLogs() {
 									setLogsSubMode("request");
 									setSourceFilter("all");
 								}}
-								className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+								className={`ui-btn px-3 py-1 text-xs font-medium transition-all ${
 									logsSubMode === "request"
-										? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
+										? "ui-btn-primary"
 										: "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer"
 								}`}
 							>
@@ -294,9 +294,9 @@ export function AppLogs() {
 									setLogsSubMode("app");
 									setSourceFilter("all");
 								}}
-								className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+								className={`ui-btn px-3 py-1 text-xs font-medium transition-all ${
 									logsSubMode === "app"
-										? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
+										? "ui-btn-primary"
 										: "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer"
 								}`}
 							>

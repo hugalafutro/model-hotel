@@ -336,7 +336,7 @@ export function VirtualModelTable({
 						<button
 							type="button"
 							onClick={() => setConfirmDeleteDisabled(true)}
-							className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-red-400 border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 hover:border-red-400/50 transition-colors cursor-pointer"
+							className="ui-btn ui-btn-danger flex items-center gap-1 px-2 py-1 text-xs"
 							aria-label={t("components.virtualModelTable.deleteDisabledAria", {
 								count: disabledCount,
 							})}
@@ -510,7 +510,7 @@ export function VirtualModelTable({
 												key={m.key}
 												type="button"
 												onClick={() => toggleCapFilter(m.key)}
-												className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors ${
+												className={`ui-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium border transition-colors ${
 													isActive ? m.style : m.muted
 												}`}
 											>
@@ -522,7 +522,7 @@ export function VirtualModelTable({
 										<button
 											type="button"
 											onClick={() => setCapFilter(new Set())}
-											className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-400 hover:text-gray-200"
+											className="ui-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium text-gray-400 hover:text-gray-200"
 										>
 											✕
 										</button>
@@ -591,7 +591,7 @@ export function VirtualModelTable({
 													(m) => (
 														<span
 															key={m.key}
-															className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${m.style}`}
+															className={`ui-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium border ${m.style}`}
 														>
 															{m.label}
 														</span>
@@ -618,7 +618,7 @@ export function VirtualModelTable({
 										<td aria-hidden />
 										<td className="px-4 py-1.5 whitespace-nowrap">
 											<span
-												className={`px-2 py-px leading-[1.6] text-xs rounded-full ${
+												className={`ui-badge px-2 py-px leading-[1.6] text-xs ${
 													isActive
 														? "bg-green-900/50 text-green-400"
 														: isManuallyDisabled

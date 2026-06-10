@@ -93,8 +93,6 @@ describe("ViewModeToggle", () => {
 			<ViewModeToggle viewMode="scroll" onChange={vi.fn()} />,
 		);
 		const button = screen.getByRole("button");
-		expect(button).toHaveClass("bg-(--accent)/20");
-		expect(button).toHaveClass("text-(--accent)");
-		expect(button).toHaveClass("border-(--accent)/40");
+		expect(button).toHaveClass("ui-btn-primary");
 	});
 });
