@@ -173,7 +173,7 @@ export function ProviderCard({
 							!provider.enabled ||
 							!provider.autodiscovery_enabled
 						}
-						className={`px-3 py-1.5 text-xs border transition-all ui-badge ${
+						className={`px-3 py-1.5 text-xs border transition-all ui-btn ui-btn-primary ${
 							discoveringId === provider.id ||
 							discoverAllCurrentId === provider.id
 								? "bg-(--accent-lighter) text-(--accent)/50 border-(--accent-light) cursor-not-allowed"
