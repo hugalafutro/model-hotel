@@ -107,6 +107,7 @@ export interface LogEntry {
 	failover_attempt: number;
 	created_at: string;
 	resolved_model_id: string;
+	endpoint_type: string;
 }
 
 export interface AppLogEntry {

@@ -382,6 +382,7 @@ export const api = {
 				model_id?: string;
 				provider_id?: string;
 				status_code?: string;
+				endpoint_type?: string;
 				from?: string;
 				to?: string;
 				sort_by?: string;
@@ -395,6 +396,7 @@ export const api = {
 					model_id: params.model_id,
 					provider_id: params.provider_id,
 					status_code: params.status_code,
+					endpoint_type: params.endpoint_type,
 					from: params.from,
 					to: params.to,
 					sort_by: params.sort_by,
@@ -429,6 +431,7 @@ export const api = {
 			model_id?: string;
 			provider_id?: string;
 			status_code?: string;
+			endpoint_type?: string;
 			from?: string;
 			to?: string;
 			sort_dir?: string;
@@ -441,6 +444,7 @@ export const api = {
 					model_id: params.model_id,
 					provider_id: params.provider_id,
 					status_code: params.status_code,
+					endpoint_type: params.endpoint_type,
 					from: params.from,
 					to: params.to,
 					sort_dir: params.sort_dir,

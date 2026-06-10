@@ -112,6 +112,7 @@ interface MockLogEntry {
 	virtual_key_deleted: boolean;
 	virtual_key_id: string;
 	virtual_key_name?: string;
+	endpoint_type?: string;
 }
 
 function createMockLogEntry(
@@ -240,6 +241,56 @@ describe("Logs", () => {
 			expect(screen.getByText("Duration")).toBeInTheDocument();
 			expect(screen.getByText("Overhead")).toBeInTheDocument();
 			expect(screen.getByText("Key")).toBeInTheDocument();
+		});
+
+		it("renders endpoint badge for multimodal entries", async () => {
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								id: "log-tts",
+								request_hash: "ttshash12345",
+								model_id: "gpt-4o-mini-tts",
+								endpoint_type: "tts",
+							}),
+						]),
+					),
+				),
+			);
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByTestId("endpoint-type-badge")).toBeInTheDocument();
+			});
+			expect(screen.getByTestId("endpoint-type-badge")).toHaveTextContent(
+				"TTS",
+			);
+		});
+
+		it("renders no endpoint badge for chat entries", async () => {
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								id: "log-chat",
+								request_hash: "chathash1234",
+								model_id: "gpt-4",
+								endpoint_type: "chat",
+							}),
+						]),
+					),
+				),
+			);
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByText("gpt-4")).toBeInTheDocument();
+			});
+			expect(
+				screen.queryByTestId("endpoint-type-badge"),
+			).not.toBeInTheDocument();
 		});
 
 		it("renders filter inputs", async () => {

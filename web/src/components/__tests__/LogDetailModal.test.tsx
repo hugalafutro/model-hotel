@@ -40,6 +40,7 @@ describe("LogDetailModal", () => {
 		failover_attempt: 0,
 		created_at: "2025-05-12T10:30:00Z",
 		resolved_model_id: "",
+		endpoint_type: "chat",
 	};
 
 	const mockAppLog: AppLogEntry = {

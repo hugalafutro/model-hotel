@@ -52,6 +52,7 @@ function createLogEntry(overrides: Partial<LogEntry> = {}): LogEntry {
 		failover_attempt: 0,
 		created_at: "2026-05-23T10:00:00Z",
 		resolved_model_id: "",
+		endpoint_type: "chat",
 		...overrides,
 	};
 }

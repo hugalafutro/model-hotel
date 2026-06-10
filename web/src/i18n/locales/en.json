@@ -1059,10 +1059,18 @@
 				"4xx": "4XX",
 				"5xx": "5XX"
 			},
+			"endpoint": "Endpoint",
 			"level": "Level",
 			"levelAll": "All",
 			"source": "Source",
 			"logsPlaceholder": "Filter logs…"
+		},
+		"endpoint": {
+			"chat": "Chat",
+			"embeddings": "Embeddings",
+			"image": "Image",
+			"tts": "TTS",
+			"stt": "STT"
 		},
 		"table": {
 			"timeDate": "Time/Date",

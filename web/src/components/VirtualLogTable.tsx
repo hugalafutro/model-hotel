@@ -6,6 +6,7 @@ import { formatMs, formatTPS } from "../pages/Logs/utils";
 import { formatNumber } from "../utils/format";
 import { isCancelled } from "../utils/logHelpers";
 import { Badge } from "./Badge";
+import { EndpointTypeBadge } from "./logs";
 import { LOG_COL_WIDTHS } from "./logTableWidths";
 
 interface VirtualLogTableProps {
@@ -304,6 +305,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 										) : (
 											"-"
 										)}
+										<EndpointTypeBadge endpointType={log.endpoint_type} />
 									</td>
 									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-300 truncate">
 										{log.provider_name === "Deleted" ? (
