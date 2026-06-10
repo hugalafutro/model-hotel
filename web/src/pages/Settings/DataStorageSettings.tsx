@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Database } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -19,6 +19,7 @@ import {
 	minutesToGoDuration,
 } from "../../utils/duration";
 import { clearProviderCache, getProviderCacheCount } from "./constants";
+import { useSettingsMutations } from "./useSettingsMutations";
 
 interface DataStorageSettingsProps {
 	collapsed: boolean;
@@ -34,6 +35,8 @@ export function DataStorageSettings({
 	const { t } = useTranslation();
 	const { toast } = useToast();
 	const queryClient = useQueryClient();
+	const { settings, updateMutation, resetSettingMutation } =
+		useSettingsMutations();
 	const [confirmDelete, setConfirmDelete] = useState(false);
 	const [deleteSelection, setDeleteSelection] = useState("");
 	const [confirmDeleteAppLogs, setConfirmDeleteAppLogs] = useState(false);
@@ -80,20 +83,6 @@ export function DataStorageSettings({
 		);
 	};
 
-	const resetSettingMutation = useMutation({
-		mutationFn: (keys: string[]) => api.settings.reset(keys),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["settings"] });
-			toast(t("settings.common.resetSettingDone"), "success");
-		},
-		onError: (err: Error) => {
-			toast(
-				t("settings.common.resetFailed", { message: err.message }),
-				"error",
-			);
-		},
-	});
-
 	const {
 		persistChat,
 		setPersistChat,
@@ -106,26 +95,6 @@ export function DataStorageSettings({
 		arenaHistoryLimit,
 		setArenaHistoryLimit,
 	} = useStorage();
-
-	const { data: settings } = useQuery({
-		queryKey: ["settings"],
-		queryFn: () => api.settings.get(),
-	});
-
-	const updateMutation = useMutation({
-		mutationFn: (updates: Record<string, string>) =>
-			api.settings.update(updates),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["settings"] });
-			toast(t("settings.common.settingsSaved"), "success");
-		},
-		onError: (err: Error) => {
-			toast(
-				t("settings.common.failedToSave", { message: err.message }),
-				"error",
-			);
-		},
-	});
 
 	const purgeMutation = useMutation({
 		mutationFn: (olderThan: string) => api.logs.purge(olderThan),
