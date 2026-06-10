@@ -184,44 +184,119 @@ func TestStreamingAwareTimeout_MalformedJSON(t *testing.T) {
 	}
 }
 
-func TestStreamingAwareTimeout_NonJSONContentTypeSkipsPeek(t *testing.T) {
-	var capturedBody []byte
-	var capturedModel string
-	var capturedIsStreaming bool
+func TestStreamingAwareTimeout_MultipartNotBuffered(t *testing.T) {
+	var capturedBodyVal interface{}
+	var readBody []byte
+	var hadDeadline bool
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if v, ok := r.Context().Value(ctxkeys.RequestBodyKey).([]byte); ok {
-			capturedBody = v
-		}
-		if v, ok := r.Context().Value(ctxkeys.RequestModelKey).(string); ok {
-			capturedModel = v
-		}
-		if v, ok := r.Context().Value(ctxkeys.IsStreamingKey).(bool); ok {
-			capturedIsStreaming = v
-		}
+		capturedBodyVal = r.Context().Value(ctxkeys.RequestBodyKey)
+		readBody, _ = io.ReadAll(r.Body)
+		_, hadDeadline = r.Context().Deadline()
 		w.WriteHeader(http.StatusOK)
 	})
 
 	middleware := streamingAwareTimeout(5 * time.Minute)
 	wrapped := middleware(handler)
 
-	// A multipart upload whose bytes happen to be valid JSON must NOT be
-	// JSON-peeked: the model lives in the form and is parsed by the handler.
-	body := []byte(`{"model":"gpt-4","stream":true}`)
+	// Multipart uploads must NOT be buffered into the context (pre-auth
+	// memory amplification) and long-running audio routes get no deadline;
+	// the raw body must still reach the handler untouched.
+	body := []byte("--xyz\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\nwhisper-1\r\n--xyz--\r\n")
 	req := httptest.NewRequest(http.MethodPost, "/v1/audio/transcriptions", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "multipart/form-data; boundary=xyz")
 	rr := httptest.NewRecorder()
 
 	wrapped.ServeHTTP(rr, req)
 
-	if !bytes.Equal(capturedBody, body) {
-		t.Errorf("RequestBodyKey: got %q, want %q (body must still be cached)", capturedBody, body)
+	if capturedBodyVal != nil {
+		t.Errorf("RequestBodyKey should be nil for multipart (no pre-auth buffering), got %v", capturedBodyVal)
 	}
-	if capturedModel != "" {
-		t.Errorf("RequestModelKey should be empty for non-JSON content type, got %q", capturedModel)
+	if !bytes.Equal(readBody, body) {
+		t.Errorf("handler must receive the raw body: got %q, want %q", readBody, body)
 	}
-	if capturedIsStreaming != false {
-		t.Errorf("IsStreamingKey should be false for non-JSON content type, got %v", capturedIsStreaming)
+	if hadDeadline {
+		t.Error("long-running multipart route should have no context deadline")
+	}
+}
+
+func TestStreamingAwareTimeout_MultipartOnShortRouteGetsDeadline(t *testing.T) {
+	var hadDeadline bool
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, hadDeadline = r.Context().Deadline()
+		w.WriteHeader(http.StatusOK)
+	})
+
+	middleware := streamingAwareTimeout(5 * time.Minute)
+	wrapped := middleware(handler)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader([]byte("--xyz--")))
+	req.Header.Set("Content-Type", "multipart/form-data; boundary=xyz")
+	rr := httptest.NewRecorder()
+
+	wrapped.ServeHTTP(rr, req)
+
+	if !hadDeadline {
+		t.Error("multipart on a non-long-running route should get the non-streaming deadline")
+	}
+}
+
+func TestStreamingAwareTimeout_TextPlainJSONBodyStillPeeked(t *testing.T) {
+	var capturedIsStreaming bool
+	var hadDeadline bool
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if v, ok := r.Context().Value(ctxkeys.IsStreamingKey).(bool); ok {
+			capturedIsStreaming = v
+		}
+		_, hadDeadline = r.Context().Deadline()
+		w.WriteHeader(http.StatusOK)
+	})
+
+	middleware := streamingAwareTimeout(5 * time.Minute)
+	wrapped := middleware(handler)
+
+	// Clients send JSON chat bodies with text/plain or form-urlencoded
+	// headers; the peek must still detect stream:true so their long
+	// streams are not killed by the non-streaming deadline.
+	body := []byte(`{"model":"gpt-4","stream":true}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "text/plain;charset=UTF-8")
+	rr := httptest.NewRecorder()
+
+	wrapped.ServeHTTP(rr, req)
+
+	if !capturedIsStreaming {
+		t.Error("IsStreamingKey should be true for JSON body regardless of Content-Type")
+	}
+	if hadDeadline {
+		t.Error("streaming request should have no context deadline")
+	}
+}
+
+func TestStreamingAwareTimeout_LongRunningPathNoDeadline(t *testing.T) {
+	var hadDeadline bool
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, hadDeadline = r.Context().Deadline()
+		w.WriteHeader(http.StatusOK)
+	})
+
+	middleware := streamingAwareTimeout(5 * time.Minute)
+	wrapped := middleware(handler)
+
+	// Image generation takes minutes without any stream flag in the body;
+	// the long-running route exemption must lift the 5-minute deadline.
+	body := []byte(`{"model":"prov/gpt-image-1","prompt":"a cat"}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	wrapped.ServeHTTP(rr, req)
+
+	if hadDeadline {
+		t.Error("long-running image route should have no context deadline")
 	}
 }
 
