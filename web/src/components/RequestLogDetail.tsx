@@ -51,7 +51,10 @@ export function RequestLogDetail({
 						state={requestLog.state}
 						errorMessage={requestLog.error_message}
 					/>
-					<EndpointTypeBadge endpointType={requestLog.endpoint_type} />
+					<EndpointTypeBadge
+						endpointType={requestLog.endpoint_type}
+						showLabel
+					/>
 					{requestLog.failover_attempt > 0 && (
 						<span className="inline-flex items-center gap-1 px-2 py-1 leading-[1.6] rounded-full text-xs font-medium bg-purple-500/15 text-purple-400 border border-purple-500/30">
 							<Layers size={12} />

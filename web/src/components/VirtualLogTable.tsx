@@ -284,6 +284,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 												: log.model_id
 										}
 									>
+										<EndpointTypeBadge endpointType={log.endpoint_type} />
 										{log.model_id ? (
 											log.model_id.startsWith("hotel/") ? (
 												<>
@@ -305,7 +306,6 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 										) : (
 											"-"
 										)}
-										<EndpointTypeBadge endpointType={log.endpoint_type} />
 									</td>
 									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-300 truncate">
 										{log.provider_name === "Deleted" ? (

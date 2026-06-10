@@ -263,7 +263,13 @@ describe("Logs", () => {
 			await waitFor(() => {
 				expect(screen.getByTestId("endpoint-type-badge")).toBeInTheDocument();
 			});
-			expect(screen.getByTestId("endpoint-type-badge")).toHaveTextContent(
+			// Icon-only in the table: the family name lives in the tooltip/aria-label.
+			expect(screen.getByTestId("endpoint-type-badge")).toHaveAttribute(
+				"aria-label",
+				"TTS",
+			);
+			expect(screen.getByTestId("endpoint-type-badge")).toHaveAttribute(
+				"title",
 				"TTS",
 			);
 		});
