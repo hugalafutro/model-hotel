@@ -161,7 +161,7 @@ ADMIN_TOKEN=
 
 **2.** Create `docker-compose.yml` with your preferred image source:
 
-**`docker-compose.yml`** (copy and save as `docker-compose.yml`):
+**docker-compose.yml:**
 
 ```yaml
 name: model-hotel
@@ -219,6 +219,9 @@ services:
             interval: 5s
             timeout: 5s
             retries: 5
+```
+
+**3.** Deploy:
 
 ```bash
 docker compose up -d
