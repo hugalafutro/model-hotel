@@ -2,15 +2,17 @@ import { Fragment, useEffect, useState } from "react";
 import type { ThemedToken } from "shiki/core";
 import {
 	getSnippetHighlighter,
-	type SnippetLang,
+	resolveShikiLang,
 } from "../utils/shikiHighlighter";
 import { splitLineByHighlights } from "../utils/snippetHighlights";
 
 interface ShikiCodeProps {
 	/** The plain-text snippet (same string the copy button uses). */
 	code: string;
-	/** Grammar to tokenize with. */
-	lang: SnippetLang;
+	/** Grammar to tokenize with — a canonical shiki id or a common alias
+	 *  (e.g. a markdown fence string like "py"). Unsupported languages render
+	 *  as plain text. */
+	lang: string;
 	/** Substrings to emphasize with the white terminal-highlight style
 	 *  (instance origin, YOUR_API_KEY, model id). */
 	highlights?: string[];
@@ -27,10 +29,12 @@ export function ShikiCode({ code, lang, highlights = [] }: ShikiCodeProps) {
 
 	useEffect(() => {
 		let cancelled = false;
-		getSnippetHighlighter()
+		getSnippetHighlighter(lang)
 			.then((highlighter) => {
-				if (cancelled) return;
-				setTokens(highlighter.codeToTokensBase(code, { lang }));
+				if (cancelled || !highlighter) return;
+				const canonical = resolveShikiLang(lang);
+				if (!canonical) return;
+				setTokens(highlighter.codeToTokensBase(code, { lang: canonical }));
 			})
 			.catch(() => {
 				// Keep the plain-text fallback.
