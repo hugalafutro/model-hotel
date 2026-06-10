@@ -397,12 +397,14 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 		select {
 		case <-time.After(backoff):
 		case <-dialCtx.Done():
-			// Client disconnect or failover timeout during backoff: stop
-			// retrying and let the classification below treat it as a context
-			// error so the circuit breaker is not penalized.
-			err = dialCtx.Err()
 		}
-		if dialCtx.Err() != nil {
+		// Client disconnect or failover timeout during backoff: stop retrying
+		// and surface the context error so the classification below does not
+		// penalize the circuit breaker. Checked outside the select because when
+		// both channels are ready Go picks a branch at random — the timer
+		// branch must not leave the transport error in err.
+		if ctxErr := dialCtx.Err(); ctxErr != nil {
+			err = ctxErr
 			break
 		}
 	}

@@ -47,6 +47,10 @@ func isRetryableUpstreamError(err error, requestWritten bool) bool {
 	if !requestWritten {
 		return true
 	}
+	// ECONNRESET/EPIPE are the POSIX reset signatures; io.EOF and
+	// io.ErrUnexpectedEOF are the cross-platform catch-all for a connection
+	// the server closed mid-exchange (e.g. on Windows resets surface as
+	// wsarecv errors, not those syscall values).
 	if errors.Is(err, syscall.ECONNRESET) || errors.Is(err, syscall.EPIPE) ||
 		errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
 		return true
