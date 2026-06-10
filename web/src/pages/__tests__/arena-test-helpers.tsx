@@ -1,5 +1,5 @@
 import { screen, waitFor } from "@testing-library/react";
-import type { User } from "@testing-library/user-event";
+import type { UserEvent } from "@testing-library/user-event";
 import type { Model } from "../../api/types";
 import { mockAllDefaults } from "../../test/helpers";
 import { mockModel } from "../../test/mocks/data";
@@ -40,7 +40,7 @@ export interface SetupAndRunOptions {
 }
 
 export async function setupAndRunArena(
-	user: User,
+	user: UserEvent,
 	options: SetupAndRunOptions = {},
 ): Promise<void> {
 	const {

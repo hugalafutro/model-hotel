@@ -1115,7 +1115,7 @@ describe("useArenaRunner", () => {
 			let capturedBody: Record<string, unknown> | null = null;
 			server.use(
 				http.post("/api/chat/arena", async ({ request }) => {
-					capturedBody = await request.json();
+					capturedBody = (await request.json()) as Record<string, unknown>;
 					const encoder = new TextEncoder();
 					const stream = new ReadableStream({
 						start(controller) {
@@ -1150,8 +1150,11 @@ describe("useArenaRunner", () => {
 				});
 			});
 
-			expect(capturedBody?.temperature).toBe(0.8);
-			expect(capturedBody?.max_tokens).toBe(500);
+			expect(capturedBody).not.toBeNull();
+			expect(capturedBody).not.toBeNull();
+			const body = capturedBody as unknown as Record<string, unknown>;
+			expect(body.temperature).toBe(0.8);
+			expect(body.max_tokens).toBe(500);
 		});
 
 		it("handles thinking content in stream", async () => {
