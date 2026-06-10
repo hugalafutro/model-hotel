@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { MarkdownContent } from "../MarkdownContent";
 
@@ -67,5 +67,49 @@ describe("MarkdownContent", () => {
 		const container = screen.getByText("Content").parentElement;
 		expect(container).toHaveClass("prose");
 		expect(container).toHaveClass("prose-invert");
+	});
+
+	it("syntax-highlights fenced code blocks with a supported language", async () => {
+		const code = 'const x = "hello";';
+		const { container } = render(
+			<MarkdownContent>{`\`\`\`js\n${code}\n\`\`\``}</MarkdownContent>,
+		);
+
+		// Plain text is available immediately, tokens arrive async.
+		const block = container.querySelector("pre code");
+		expect(block?.textContent).toContain(code);
+		await waitFor(() => {
+			expect(block?.querySelectorAll("span[style]").length).toBeGreaterThan(1);
+		});
+		expect(block?.textContent).toContain(code);
+	});
+
+	it("resolves fence aliases like py", async () => {
+		const { container } = render(
+			<MarkdownContent>{"```py\nprint('hi')\n```"}</MarkdownContent>,
+		);
+		const block = container.querySelector("pre code");
+		await waitFor(() => {
+			expect(block?.querySelectorAll("span[style]").length).toBeGreaterThan(1);
+		});
+		expect(block?.textContent).toContain("print('hi')");
+	});
+
+	it("leaves unsupported fence languages as plain text", async () => {
+		const { container } = render(
+			<MarkdownContent>{"```brainfuck\n+++\n```"}</MarkdownContent>,
+		);
+		const block = container.querySelector("pre code");
+		expect(block?.textContent).toContain("+++");
+		// Give any (incorrect) async highlighting a chance to land.
+		await new Promise((r) => setTimeout(r, 50));
+		expect(block?.querySelectorAll("span[style]").length).toBe(0);
+	});
+
+	it("leaves inline code untouched", () => {
+		const { container } = render(<MarkdownContent>`inline`</MarkdownContent>);
+		const inline = container.querySelector("code");
+		expect(inline?.textContent).toBe("inline");
+		expect(inline?.querySelector("span")).toBeNull();
 	});
 });

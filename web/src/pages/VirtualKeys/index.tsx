@@ -15,29 +15,20 @@ import {
 import { EmptyState } from "../../components/EmptyState";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { PageHeader } from "../../components/PageHeader";
+import { ShikiCode } from "../../components/ShikiCode";
 import { TerminalPreview } from "../../components/TerminalPreview";
 import { useToast } from "../../context/ToastContext";
 import { formatNumber, formatRelativeTime } from "../../utils/format";
 import {
-	snippetBash,
 	snippetBashText,
-	snippetClaudeCode,
 	snippetClaudeCodeText,
-	snippetHermes,
 	snippetHermesText,
-	snippetJS,
 	snippetJSText,
-	snippetLibreChat,
 	snippetLibreChatText,
-	snippetOpenClaw,
 	snippetOpenClawText,
-	snippetOpencodeVK,
 	snippetOpencodeVKText,
-	snippetPowershell,
 	snippetPowershellText,
-	snippetPython,
 	snippetPythonText,
-	snippetZedVK,
 	snippetZedVKText,
 } from "../../utils/snippets";
 import { CreateKeyModal } from "./CreateKeyModal";
@@ -80,6 +71,23 @@ export function VirtualKeys() {
 		typeof window !== "undefined"
 			? window.location.origin
 			: "http://localhost:8080";
+
+	// Plain-text snippets are the single source of truth: the same string is
+	// copied to the clipboard and syntax-highlighted by ShikiCode, with the
+	// user-replaceable parts emphasized.
+	const snippetHighlights = [proxyOrigin, "YOUR_API_KEY", "model_name"];
+	const snippets = {
+		bash: snippetBashText({ origin: proxyOrigin }),
+		powershell: snippetPowershellText({ origin: proxyOrigin }),
+		python: snippetPythonText({ origin: proxyOrigin }),
+		openclaw: snippetOpenClawText({ origin: proxyOrigin }),
+		javascript: snippetJSText({ origin: proxyOrigin }),
+		librechat: snippetLibreChatText({ origin: proxyOrigin }),
+		claudeCode: snippetClaudeCodeText({ origin: proxyOrigin }),
+		zed: snippetZedVKText({ origin: proxyOrigin }),
+		hermes: snippetHermesText({ origin: proxyOrigin }),
+		opencode: snippetOpencodeVKText({ origin: proxyOrigin }),
+	};
 
 	const sortedKeys = useMemo(() => {
 		if (!keys) return [];
@@ -368,18 +376,26 @@ export function VirtualKeys() {
 								variant="code"
 								title={t("virtualKeys.snippet.curl")}
 								icon="curl"
-								copyText={snippetBashText({ origin: proxyOrigin })}
+								copyText={snippets.bash}
 							>
-								{snippetBash({ origin: proxyOrigin })}
+								<ShikiCode
+									code={snippets.bash}
+									lang="bash"
+									highlights={snippetHighlights}
+								/>
 							</TerminalPreview>
 
 							<TerminalPreview
 								variant="code"
 								title={t("virtualKeys.snippet.powershell")}
 								icon="powershell"
-								copyText={snippetPowershellText({ origin: proxyOrigin })}
+								copyText={snippets.powershell}
 							>
-								{snippetPowershell({ origin: proxyOrigin })}
+								<ShikiCode
+									code={snippets.powershell}
+									lang="powershell"
+									highlights={snippetHighlights}
+								/>
 							</TerminalPreview>
 						</div>
 
@@ -388,72 +404,104 @@ export function VirtualKeys() {
 								variant="code"
 								title={t("virtualKeys.snippet.python")}
 								icon="python"
-								copyText={snippetPythonText({ origin: proxyOrigin })}
+								copyText={snippets.python}
 							>
-								{snippetPython({ origin: proxyOrigin })}
+								<ShikiCode
+									code={snippets.python}
+									lang="python"
+									highlights={snippetHighlights}
+								/>
 							</TerminalPreview>
 
 							<TerminalPreview
 								variant="code"
 								title={t("virtualKeys.snippet.openclaw")}
 								icon="openclaw"
-								copyText={snippetOpenClawText({ origin: proxyOrigin })}
+								copyText={snippets.openclaw}
 							>
-								{snippetOpenClaw({ origin: proxyOrigin })}
+								<ShikiCode
+									code={snippets.openclaw}
+									lang="bash"
+									highlights={snippetHighlights}
+								/>
 							</TerminalPreview>
 
 							<TerminalPreview
 								variant="code"
 								title={t("virtualKeys.snippet.javascript")}
 								icon="javascript"
-								copyText={snippetJSText({ origin: proxyOrigin })}
+								copyText={snippets.javascript}
 							>
-								{snippetJS({ origin: proxyOrigin })}
+								<ShikiCode
+									code={snippets.javascript}
+									lang="javascript"
+									highlights={snippetHighlights}
+								/>
 							</TerminalPreview>
 
 							<TerminalPreview
 								variant="code"
 								title={t("virtualKeys.snippet.librechat")}
 								icon="librechat"
-								copyText={snippetLibreChatText({ origin: proxyOrigin })}
+								copyText={snippets.librechat}
 							>
-								{snippetLibreChat({ origin: proxyOrigin })}
+								<ShikiCode
+									code={snippets.librechat}
+									lang="yaml"
+									highlights={snippetHighlights}
+								/>
 							</TerminalPreview>
 
 							<TerminalPreview
 								variant="code"
 								title={t("virtualKeys.snippet.claudeCode")}
 								icon="claude"
-								copyText={snippetClaudeCodeText({ origin: proxyOrigin })}
+								copyText={snippets.claudeCode}
 							>
-								{snippetClaudeCode({ origin: proxyOrigin })}
+								<ShikiCode
+									code={snippets.claudeCode}
+									lang="bash"
+									highlights={snippetHighlights}
+								/>
 							</TerminalPreview>
 
 							<TerminalPreview
 								variant="code"
 								title={t("virtualKeys.snippet.zed")}
 								icon="zed"
-								copyText={snippetZedVKText({ origin: proxyOrigin })}
+								copyText={snippets.zed}
 							>
-								{snippetZedVK({ origin: proxyOrigin })}
+								<ShikiCode
+									code={snippets.zed}
+									lang="json"
+									highlights={snippetHighlights}
+								/>
 							</TerminalPreview>
 
 							<TerminalPreview
 								variant="code"
 								title={t("virtualKeys.snippet.hermes")}
 								icon="hermes"
-								copyText={snippetHermesText({ origin: proxyOrigin })}
+								copyText={snippets.hermes}
 							>
-								{snippetHermes({ origin: proxyOrigin })}
+								<ShikiCode
+									code={snippets.hermes}
+									lang="bash"
+									highlights={snippetHighlights}
+								/>
 							</TerminalPreview>
 
 							<TerminalPreview
 								variant="code"
 								title={t("virtualKeys.snippet.opencode")}
 								icon="opencode"
-								copyText={snippetOpencodeVKText({ origin: proxyOrigin })}
+								copyText={snippets.opencode}
 							>
-								{snippetOpencodeVK({ origin: proxyOrigin })}
+								<ShikiCode
+									code={snippets.opencode}
+									lang="json"
+									highlights={snippetHighlights}
+								/>
 							</TerminalPreview>
 						</div>
 					</div>

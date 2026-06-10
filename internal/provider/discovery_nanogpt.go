@@ -4,12 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/google/uuid"
 
-	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -103,38 +101,9 @@ func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provid
 
 // GetNanoGPTUsage retrieves usage information from a NanoGPT provider.
 func (d *DiscoveryService) GetNanoGPTUsage(ctx context.Context, provider *Provider, masterKey string) (*NanoGPTUsageResponse, error) {
-	apiKey, err := auth.Decrypt(provider.EncryptedKey, provider.KeyNonce, provider.KeySalt, masterKey)
-	if err != nil {
-		return nil, fmt.Errorf("nanogpt: failed to decrypt API key for provider %s: %w", provider.Name, err)
-	}
-
-	baseURL := util.SanitizeBaseURL(provider.BaseURL)
-	usageURL := baseURL + "/usage"
-
-	req, err := http.NewRequestWithContext(ctx, "GET", usageURL, http.NoBody)
-	if err != nil {
-		return nil, fmt.Errorf("nanogpt: failed to create request for provider %s: %w", provider.Name, err)
-	}
-
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := d.doQuotaRequestWithRetry(ctx, req, provider.ID.String(), provider.Name, "nanogpt")
-	if err != nil {
-		return nil, fmt.Errorf("nanogpt: failed to fetch usage for provider %s: %w", provider.Name, err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		debuglog.Error("discovery: nanogpt usage non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.SanitizeLogBody(string(body), 2000))
-		return nil, fmt.Errorf("nanogpt: unexpected status code %d for provider %s", resp.StatusCode, provider.Name)
-	}
-
 	var usage NanoGPTUsageResponse
-	if err := json.NewDecoder(resp.Body).Decode(&usage); err != nil {
-		return nil, fmt.Errorf("nanogpt: failed to decode usage response for provider %s: %w", provider.Name, err)
+	if err := d.fetchQuotaJSON(ctx, provider, masterKey, "/usage", "nanogpt", "usage", &usage); err != nil {
+		return nil, err
 	}
-
 	return &usage, nil
 }

@@ -1,13 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Shield } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { api } from "../../api/client";
 import { ResetButton } from "../../components/ResetButton";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
 import { Toggle } from "../../components/Toggle";
-import { useToast } from "../../context/ToastContext";
 import { goDurationToSeconds, secondsToGoDuration } from "../../utils/duration";
+import { useSettingsMutations } from "./useSettingsMutations";
 
 interface CircuitBreakerSettingsProps {
 	collapsed: boolean;
@@ -21,43 +19,8 @@ export function CircuitBreakerSettings({
 	onResetSection,
 }: CircuitBreakerSettingsProps) {
 	const { t } = useTranslation();
-	const { toast } = useToast();
-	const queryClient = useQueryClient();
-
-	const { data: settings } = useQuery({
-		queryKey: ["settings"],
-		queryFn: () => api.settings.get(),
-	});
-
-	const updateMutation = useMutation({
-		mutationFn: (updates: Record<string, string>) =>
-			api.settings.update(updates),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["settings"] });
-			toast(t("settings.common.settingsSaved"), "success");
-		},
-		onError: (err: Error) => {
-			toast(
-				t("settings.common.failedToSave", { message: err.message }),
-				"error",
-			);
-		},
-	});
-
-	const resetSettingMutation = useMutation({
-		mutationFn: (keys: string[]) => api.settings.reset(keys),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["settings"] });
-			toast(t("settings.common.resetSettingDone"), "success");
-		},
-		onError: (err: Error) => {
-			toast(
-				t("settings.common.resetFailed", { message: err.message }),
-				"error",
-			);
-		},
-	});
-	const isResetting = resetSettingMutation.isPending;
+	const { settings, updateMutation, resetSettingMutation, isResetting } =
+		useSettingsMutations();
 
 	const circuitBreakerEnabled = settings?.circuit_breaker_enabled !== "false";
 	const circuitBreakerThreshold = settings?.circuit_breaker_threshold || "5";

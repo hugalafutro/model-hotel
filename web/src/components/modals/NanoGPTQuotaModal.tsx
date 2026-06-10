@@ -1,7 +1,5 @@
-import { ArrowLeftRight, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { NanoGPTUsage } from "../../api/types";
-import { useTheme } from "../../context/ThemeContext";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import {
 	formatDate,
@@ -11,8 +9,12 @@ import {
 	formatTokens,
 } from "../../utils/format";
 import { Modal } from "../Modal";
-import { Spinner } from "../Spinner";
-import { remainingBarColor, usedBarColor } from "./shared";
+import {
+	QuotaBar,
+	QuotaModalHeaderActions,
+	remainingBarColor,
+	usedBarColor,
+} from "./shared";
 
 export function NanoGPTQuotaModal({
 	usage,
@@ -26,10 +28,9 @@ export function NanoGPTQuotaModal({
 	onClose: () => void;
 	onRefresh: () => Promise<unknown>;
 	isRefreshing: boolean;
-	onToast: (msg: string, type: "success" | "error" | "info") => void;
+	onToast: (msg: string, type: "success" | "info" | "error") => void;
 	lastRefreshed?: number;
 }) {
-	const { uiStyle } = useTheme();
 	const { t } = useTranslation();
 	const [barMode, setBarMode] = useLocalStorage<"remaining" | "used">(
 		"quota-bar-mode",
@@ -77,78 +78,44 @@ export function NanoGPTQuotaModal({
 							)}
 						</p>
 					</div>
-					<div className="flex items-center gap-2">
-						<button
-							type="button"
-							onClick={() =>
-								setBarMode((prev) =>
-									prev === "remaining" ? "used" : "remaining",
-								)
-							}
-							className="absolute top-4 right-20 text-gray-400 hover:text-(--text-primary) transition-all cursor-pointer p-1.5 hover:drop-shadow-[var(--glow-accent-lg)]"
-							aria-label={t("components.providerModals.toggleRemainingUsed")}
-							title={
-								barMode === "remaining"
-									? t("components.providerModals.showQuotaUsed")
-									: t("components.providerModals.showQuotaRemaining")
-							}
-						>
-							<ArrowLeftRight size={18} />
-						</button>
-						<button
-							type="button"
-							onClick={handleRefresh}
-							disabled={isRefreshing}
-							className="absolute top-4 right-10 text-gray-400 hover:text-(--text-primary) transition-all cursor-pointer p-1.5 hover:drop-shadow-[var(--glow-accent-lg)]"
-							aria-label={t("common.refresh")}
-							title={t("components.providerModals.refreshQuotaInfo")}
-						>
-							{isRefreshing && uiStyle === "cyber-terminal" ? (
-								<Spinner className="w-[18px] h-[18px] text-[18px] leading-[18px]" />
-							) : (
-								<RefreshCw
-									size={18}
-									className={isRefreshing ? "animate-spin" : ""}
-								/>
-							)}
-						</button>
-					</div>
+					<QuotaModalHeaderActions
+						onToggleBarMode={() =>
+							setBarMode((prev) =>
+								prev === "remaining" ? "used" : "remaining",
+							)
+						}
+						onRefresh={handleRefresh}
+						isRefreshing={isRefreshing}
+						toggleAriaLabel={t("components.providerModals.toggleRemainingUsed")}
+						toggleTitle={
+							barMode === "remaining"
+								? t("components.providerModals.showQuotaUsed")
+								: t("components.providerModals.showQuotaRemaining")
+						}
+						refreshAriaLabel={t("common.refresh")}
+						refreshTitle={t("components.providerModals.refreshQuotaInfo")}
+					/>
 				</div>
 			}
 			onClose={onClose}
 			scrollable
 		>
 			<div className="space-y-6">
-				<div>
-					<div className="flex justify-between items-center mb-2">
-						<span className="text-sm font-medium text-gray-300">
-							{t("components.providerModals.weeklyTokenQuota")}
-						</span>
-						<span className="text-sm text-gray-400">
-							{formatTokens(weeklyUsed)} / {formatTokens(weeklyLimit)}
-						</span>
-					</div>
-					<div
-						data-testid="weekly-progress-bar"
-						className="w-full bg-gray-700 rounded-full h-3"
-					>
-						<div
-							data-testid="weekly-progress-fill"
-							className={`${barMode === "used" ? usedBarColor(100 - weeklyRemaining) : remainingBarColor(weeklyRemaining)} h-3 rounded-full transition-all`}
-							style={{
-								width: `${barMode === "used" ? Math.min(100 - weeklyRemaining, 100) : Math.min(weeklyRemaining, 100)}%`,
-							}}
-						/>
-					</div>
-					<p className="text-xs text-gray-500 mt-1">
-						{weeklyLimit > 0
-							? `${(100 - weeklyRemaining).toFixed(1)}% ${t("components.providerModals.used")}`
-							: t("components.providerModals.noLimitSet")}
-						{usage.weeklyInputTokens?.resetAt
-							? `. ${t("components.providerModals.resets")} ${formatTimestamp(usage.weeklyInputTokens.resetAt)} - ${formatTimeUntil(usage.weeklyInputTokens.resetAt)}`
-							: ""}
-					</p>
-				</div>
+				<QuotaBar
+					label={t("components.providerModals.weeklyTokenQuota")}
+					rightText={`${formatTokens(weeklyUsed)} / ${formatTokens(weeklyLimit)}`}
+					percentage={100 - weeklyRemaining}
+					barMode={barMode}
+					dataTestId="weekly-progress-bar"
+					fillTestId="weekly-progress-fill"
+				>
+					{weeklyLimit > 0
+						? `${(100 - weeklyRemaining).toFixed(1)}% ${t("components.providerModals.used")}`
+						: t("components.providerModals.noLimitSet")}
+					{usage.weeklyInputTokens?.resetAt
+						? `. ${t("components.providerModals.resets")} ${formatTimestamp(usage.weeklyInputTokens.resetAt)} - ${formatTimeUntil(usage.weeklyInputTokens.resetAt)}`
+						: ""}
+				</QuotaBar>
 
 				{usage.dailyImages && (
 					<div>

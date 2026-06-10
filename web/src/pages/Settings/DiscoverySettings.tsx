@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Play, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
@@ -9,6 +9,7 @@ import { Spinner } from "../../components/Spinner";
 import { Toggle } from "../../components/Toggle";
 import { useToast } from "../../context/ToastContext";
 import { goDurationToHours, hoursToGoDuration } from "../../utils/duration";
+import { useSettingsMutations } from "./useSettingsMutations";
 
 interface DiscoverySettingsProps {
 	collapsed: boolean;
@@ -25,25 +26,8 @@ export function DiscoverySettings({
 	const { toast } = useToast();
 	const queryClient = useQueryClient();
 
-	const { data: settings } = useQuery({
-		queryKey: ["settings"],
-		queryFn: () => api.settings.get(),
-	});
-
-	const updateMutation = useMutation({
-		mutationFn: (updates: Record<string, string>) =>
-			api.settings.update(updates),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["settings"] });
-			toast(t("settings.common.settingsSaved"), "success");
-		},
-		onError: (err: Error) => {
-			toast(
-				t("settings.common.failedToSave", { message: err.message }),
-				"error",
-			);
-		},
-	});
+	const { settings, updateMutation, resetSettingMutation, isResetting } =
+		useSettingsMutations();
 
 	const discoverAllMutation = useMutation({
 		mutationFn: () => api.providers.discoverAll(),
@@ -61,20 +45,6 @@ export function DiscoverySettings({
 	});
 
 	const isUpdating = updateMutation.isPending || discoverAllMutation.isPending;
-	const resetSettingMutation = useMutation({
-		mutationFn: (keys: string[]) => api.settings.reset(keys),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["settings"] });
-			toast(t("settings.common.resetSettingDone"), "success");
-		},
-		onError: (err: Error) => {
-			toast(
-				t("settings.common.resetFailed", { message: err.message }),
-				"error",
-			);
-		},
-	});
-	const isResetting = resetSettingMutation.isPending;
 
 	const discoveryIntervalHours = goDurationToHours(
 		settings?.discovery_interval || "6h",

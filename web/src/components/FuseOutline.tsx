@@ -54,6 +54,14 @@ export function FuseOutline({
 	const lastAnimationRef = useRef<string | undefined>(undefined);
 	const lastRectRef = useRef<SVGRectElement | null>(null);
 
+	// Wall-clock bookkeeping so a remounted rect resumes mid-animation
+	// instead of restarting from zero (which would make the fuse drift
+	// ahead of the real cooldown it visualizes). Paused time is excluded
+	// so a toast paused on hover resumes at the right point.
+	const animationStartRef = useRef(0);
+	const pausedAtRef = useRef<number | null>(null);
+	const pausedTotalRef = useRef(0);
+
 	// Compute perimeter of the rounded rect
 	const w = Math.max(0, width - 2);
 	const h = Math.max(0, height - 2);
@@ -71,14 +79,36 @@ export function FuseOutline({
 		const rect = rectRef.current;
 		if (!rect) return;
 
+		const now = performance.now();
 		const animationStr = `fuse ${durationMs}ms linear forwards`;
-		if (
-			lastRectRef.current !== rect ||
-			lastAnimationRef.current !== animationStr
-		) {
-			lastRectRef.current = rect;
+		if (lastAnimationRef.current !== animationStr) {
+			// New animation timeline: start from zero. The shorthand resets
+			// animation-delay back to 0s.
 			lastAnimationRef.current = animationStr;
+			lastRectRef.current = rect;
+			animationStartRef.current = now;
+			pausedAtRef.current = null;
+			pausedTotalRef.current = 0;
 			rect.style.animation = animationStr;
+		} else if (lastRectRef.current !== rect) {
+			// Same timeline but the rect remounted (e.g. its size collapsed
+			// during a drag-settle): resume mid-animation via a negative
+			// delay rather than restarting, so the fuse keeps tracking the
+			// real cooldown.
+			lastRectRef.current = rect;
+			const pausedMs =
+				pausedTotalRef.current +
+				(pausedAtRef.current !== null ? now - pausedAtRef.current : 0);
+			const elapsedMs = now - animationStartRef.current - pausedMs;
+			rect.style.animation = animationStr;
+			rect.style.animationDelay = `-${elapsedMs}ms`;
+		}
+
+		if (paused && pausedAtRef.current === null) {
+			pausedAtRef.current = now;
+		} else if (!paused && pausedAtRef.current !== null) {
+			pausedTotalRef.current += now - pausedAtRef.current;
+			pausedAtRef.current = null;
 		}
 		rect.style.animationPlayState = paused ? "paused" : "running";
 	}, [durationMs, paused, showRect]);

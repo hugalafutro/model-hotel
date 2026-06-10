@@ -1,0 +1,4 @@
+# Marks web/ as its own pnpm workspace root. Without this, pnpm walks up the
+# directory tree looking for a workspace and can adopt one outside the repo
+# (e.g. a stray ~/pnpm-workspace.yaml), linking node_modules to it.
+packages: []

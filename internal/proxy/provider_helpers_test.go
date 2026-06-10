@@ -103,65 +103,6 @@ func TestBuildProviderTargetURL(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// setProviderAuthHeaders
-// ---------------------------------------------------------------------------
-
-func TestSetProviderAuthHeaders_EmptyKey(t *testing.T) {
-	req := httptest.NewRequest(http.MethodPost, "/test", http.NoBody)
-	util.SetProviderAuthHeaders(req, "anthropic", "")
-	if req.Header.Get("x-api-key") != "" {
-		t.Error("expected no x-api-key header for empty key")
-	}
-	if req.Header.Get("anthropic-version") != "" {
-		t.Error("expected no anthropic-version header for empty key")
-	}
-	if req.Header.Get("Authorization") != "" {
-		t.Error("expected no Authorization header for empty key")
-	}
-}
-
-func TestSetProviderAuthHeaders_Anthropic(t *testing.T) {
-	req := httptest.NewRequest(http.MethodPost, "/test", http.NoBody)
-	util.SetProviderAuthHeaders(req, "anthropic", "sk-test-key")
-	if v := req.Header.Get("x-api-key"); v != "sk-test-key" {
-		t.Errorf("x-api-key = %q, want %q", v, "sk-test-key")
-	}
-	if v := req.Header.Get("anthropic-version"); v != "2023-06-01" {
-		t.Errorf("anthropic-version = %q, want %q", v, "2023-06-01")
-	}
-	if v := req.Header.Get("Authorization"); v != "" {
-		t.Errorf("Authorization should not be set for anthropic, got %q", v)
-	}
-}
-
-func TestSetProviderAuthHeaders_OpenAI(t *testing.T) {
-	req := httptest.NewRequest(http.MethodPost, "/test", http.NoBody)
-	util.SetProviderAuthHeaders(req, "openai", "sk-test-key")
-	if v := req.Header.Get("Authorization"); v != "Bearer sk-test-key" {
-		t.Errorf("Authorization = %q, want %q", v, "Bearer sk-test-key")
-	}
-	if v := req.Header.Get("x-api-key"); v != "" {
-		t.Errorf("x-api-key should not be set for openai, got %q", v)
-	}
-}
-
-func TestSetProviderAuthHeaders_Google(t *testing.T) {
-	req := httptest.NewRequest(http.MethodPost, "/test", http.NoBody)
-	util.SetProviderAuthHeaders(req, "google", "test-key")
-	if v := req.Header.Get("Authorization"); v != "Bearer test-key" {
-		t.Errorf("Authorization = %q, want %q", v, "Bearer test-key")
-	}
-}
-
-func TestSetProviderAuthHeaders_EmptyProvider(t *testing.T) {
-	req := httptest.NewRequest(http.MethodPost, "/test", http.NoBody)
-	util.SetProviderAuthHeaders(req, "", "key")
-	if v := req.Header.Get("Authorization"); v != "Bearer key" {
-		t.Errorf("Authorization = %q, want %q", v, "Bearer key")
-	}
-}
-
-// ---------------------------------------------------------------------------
 // getCachedRejectedParams
 // ---------------------------------------------------------------------------
 
