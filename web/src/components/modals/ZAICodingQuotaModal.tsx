@@ -136,6 +136,24 @@ export function ZAICodingQuotaModal({
 						}
 						percentage={mcpLimit.percentage}
 						barMode={barMode}
+						footer={
+							mcpLimit.usageDetails &&
+							mcpLimit.usageDetails.length > 0 && (
+								<div className="mt-2 space-y-1">
+									{mcpLimit.usageDetails.map((detail) => (
+										<div
+											key={detail.modelCode}
+											className="flex justify-between text-xs text-gray-500"
+										>
+											<span className="capitalize">{detail.modelCode}</span>
+											<span>
+												{detail.usage} {t("components.providerModals.used")}
+											</span>
+										</div>
+									))}
+								</div>
+							)
+						}
 					>
 						{mcpLimit.percentage.toFixed(0)}%{" "}
 						{t("components.providerModals.used")}.{" "}
@@ -143,21 +161,6 @@ export function ZAICodingQuotaModal({
 						{mcpLimit.nextResetTime
 							? `${formatTimestamp(mcpLimit.nextResetTime)} - ${formatTimeUntil(mcpLimit.nextResetTime)}`
 							: "N/A"}
-						{mcpLimit.usageDetails && mcpLimit.usageDetails.length > 0 && (
-							<div className="mt-2 space-y-1">
-								{mcpLimit.usageDetails.map((detail) => (
-									<div
-										key={detail.modelCode}
-										className="flex justify-between text-xs text-gray-500"
-									>
-										<span className="capitalize">{detail.modelCode}</span>
-										<span>
-											{detail.usage} {t("components.providerModals.used")}
-										</span>
-									</div>
-								))}
-							</div>
-						)}
 					</QuotaBar>
 				)}
 

@@ -32,6 +32,8 @@ interface QuotaBarProps {
 	fillTestId?: string;
 	/** Optional sublabel content rendered below the bar. */
 	children?: React.ReactNode;
+	/** Optional block content rendered as a sibling after the sublabel paragraph. */
+	footer?: React.ReactNode;
 }
 
 /**
@@ -49,6 +51,7 @@ export function QuotaBar({
 	dataTestId,
 	fillTestId,
 	children,
+	footer,
 }: QuotaBarProps) {
 	return (
 		<div>
@@ -69,6 +72,7 @@ export function QuotaBar({
 				/>
 			</div>
 			{children && <p className="text-xs text-gray-500 mt-1">{children}</p>}
+			{footer}
 		</div>
 	);
 }
