@@ -905,4 +905,31 @@ describe("per-setting reset", () => {
 
 		resetSpy.mockRestore();
 	});
+
+	it("shows error toast when reset fails", async () => {
+		const resetSpy = vi.spyOn(api.settings, "reset");
+		resetSpy.mockRejectedValueOnce(new Error("reset went sideways"));
+
+		const user = userEvent.setup();
+		renderWithProviders(<RateLimitSettings onResetSection={() => {}} />);
+
+		await waitFor(() => {
+			expect(
+				screen.getAllByRole("button", {
+					name: /reset this setting to default/i,
+				}).length,
+			).toBeGreaterThanOrEqual(1);
+		});
+
+		const resetBtn = screen.getAllByRole("button", {
+			name: /reset this setting to default/i,
+		})[0];
+		await user.click(resetBtn);
+
+		await waitFor(() => {
+			expect(screen.getByText(/reset went sideways/i)).toBeInTheDocument();
+		});
+
+		resetSpy.mockRestore();
+	});
 });
