@@ -1059,10 +1059,18 @@
 				"4xx": "4XX",
 				"5xx": "5XX"
 			},
+			"endpoint": "Endpoint",
 			"level": "Level",
 			"levelAll": "Alle",
 			"source": "Quelle",
 			"logsPlaceholder": "Protokolle… filtern"
+		},
+		"endpoint": {
+			"chat": "Chat",
+			"embeddings": "Einbetten",
+			"image": "Bild",
+			"tts": "TTS",
+			"stt": "STT"
 		},
 		"table": {
 			"timeDate": "Zeit/Datum",
@@ -1537,24 +1545,24 @@
 			"backupCreated": "Backup erstellt",
 			"downloadFailed": "Download fehlgeschlagen: {{message}}",
 			"rotation": {
-				"title": "Periodic Backup",
-				"enabled": "Enable Periodic Backup",
-				"enabledDescription": "Automatically create backups at regular intervals and prune old ones using son/father/grandfather rotation.",
-				"interval": "Backup Interval",
-				"intervalDescription": "How often to create an automatic backup (0 = disabled).",
-				"sonRetention": "Daily Retention (Son)",
-				"sonRetentionDescription": "Keep the most recent backup from each of the last N days.",
-				"fatherRetention": "Weekly Retention (Father)",
-				"fatherRetentionDescription": "Keep the most recent backup from each of the last N weeks.",
-				"grandfatherRetention": "Monthly Retention (Grandfather)",
-				"grandfatherRetentionDescription": "Keep the most recent backup from each of the last N months.",
-				"confirmEnableTitle": "Enable Periodic Backup?",
-				"confirmEnableDescription": "Enabling periodic backup will prune existing backups that fall outside the son/father/grandfather rotation scheme.",
-				"confirmEnableWouldRemove": "This would remove the following {{count}} backup(s):",
-				"confirmEnableNoRemoval": "No existing backups would be removed.",
-				"prunePreviewFailed": "Failed to preview backup pruning",
-				"pruneFailed": "Failed to prune backups",
-				"pruneSuccess": "Pruned {{count}} backup(s)"
+				"title": "Periodische Sicherung",
+				"enabled": "Periodische Sicherung aktivieren",
+				"enabledDescription": "Erstellen Sie automatisch Sicherungen in regelmäßigen Abständen und entfernen Sie alte per Sohn/Vater/Großvater-Rotation.",
+				"interval": "Sicherungsintervall",
+				"intervalDescription": "Wie oft ein automatisches Backup erstellt werden soll (0 = deaktiviert).",
+				"sonRetention": "Tägliche Aufbewahrung (Sohn)",
+				"sonRetentionDescription": "Behalte die aktuellste Sicherung aus jedem der letzten N Tage.",
+				"fatherRetention": "Wöchentliche Aufbewahrung (Vater)",
+				"fatherRetentionDescription": "Behalten Sie die aktuellste Sicherung aus jeder der letzten N Wochen.",
+				"grandfatherRetention": "Monatliche Aufbewahrung (Großvater)",
+				"grandfatherRetentionDescription": "Behalten Sie die aktuellste Sicherung aus jedem der letzten N Monate.",
+				"confirmEnableTitle": "Periodische Sicherung aktivieren?",
+				"confirmEnableDescription": "Durch das Aktivieren von periodischen Sicherungen werden bestehende Sicherungen reduziert, die außerhalb des Rotationsschemas Sohn/Vater/Großvater liegen.",
+				"confirmEnableWouldRemove": "Dies würde folgende {{count}} Sicherung(en) entfernen:",
+				"confirmEnableNoRemoval": "Keine vorhandenen Sicherungen würden entfernt.",
+				"prunePreviewFailed": "Fehler beim Abschneiden der Sicherung",
+				"pruneFailed": "Fehler beim Beschneiden der Backups",
+				"pruneSuccess": "{{count}} Sicherung(en) bereinigt"
 			}
 		},
 		"appearance": {

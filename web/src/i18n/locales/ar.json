@@ -1059,10 +1059,18 @@
 				"4xx": "4XX",
 				"5xx": "5XX"
 			},
+			"endpoint": "Endpoint",
 			"level": "المستوى",
 			"levelAll": "الكل",
 			"source": "المصدر",
 			"logsPlaceholder": "تصفية السجلات…"
+		},
+		"endpoint": {
+			"chat": "الدردشة",
+			"embeddings": "المضمنات",
+			"image": "صورة",
+			"tts": "TTS",
+			"stt": "STT"
 		},
 		"table": {
 			"timeDate": "الوقت/التاريخ",
@@ -1537,24 +1545,24 @@
 			"backupCreated": "تم إنشاء نسخة احتياطية",
 			"downloadFailed": "فشل التنزيل: {{message}}",
 			"rotation": {
-				"title": "Periodic Backup",
-				"enabled": "Enable Periodic Backup",
-				"enabledDescription": "Automatically create backups at regular intervals and prune old ones using son/father/grandfather rotation.",
-				"interval": "Backup Interval",
-				"intervalDescription": "How often to create an automatic backup (0 = disabled).",
-				"sonRetention": "Daily Retention (Son)",
-				"sonRetentionDescription": "Keep the most recent backup from each of the last N days.",
-				"fatherRetention": "Weekly Retention (Father)",
-				"fatherRetentionDescription": "Keep the most recent backup from each of the last N weeks.",
-				"grandfatherRetention": "Monthly Retention (Grandfather)",
-				"grandfatherRetentionDescription": "Keep the most recent backup from each of the last N months.",
-				"confirmEnableTitle": "Enable Periodic Backup?",
-				"confirmEnableDescription": "Enabling periodic backup will prune existing backups that fall outside the son/father/grandfather rotation scheme.",
-				"confirmEnableWouldRemove": "This would remove the following {{count}} backup(s):",
-				"confirmEnableNoRemoval": "No existing backups would be removed.",
-				"prunePreviewFailed": "Failed to preview backup pruning",
-				"pruneFailed": "Failed to prune backups",
-				"pruneSuccess": "Pruned {{count}} backup(s)"
+				"title": "نسخ احتياطي دوري",
+				"enabled": "تمكين النسخ الاحتياطي الدوري",
+				"enabledDescription": "إنشاء نسخ احتياطية تلقائياً على فترات منتظمة ونهائية قديمة باستخدام تناوب الابن/الأب / الجد.",
+				"interval": "الفاصل الزمني للنسخ الاحتياطي",
+				"intervalDescription": "كم مرة لإنشاء نسخة احتياطية تلقائية (0 = معطل).",
+				"sonRetention": "الاحتفاظ اليومي (ابن)",
+				"sonRetentionDescription": "الاحتفاظ بأحدث نسخة احتياطية من كل يوم من الأيام الـ N الأخيرة.",
+				"fatherRetention": "الاحتفاظ الأسبوعي (والد)",
+				"fatherRetentionDescription": "الاحتفاظ بأحدث نسخة احتياطية من كل أسبوع من الأسابيع ال N.",
+				"grandfatherRetention": "الاحتفاظ الشهري (عشوائيات)",
+				"grandfatherRetentionDescription": "الاحتفاظ بأحدث نسخة احتياطية من كل شهر من أشهر N.",
+				"confirmEnableTitle": "تمكين النسخ الاحتياطي الدوري؟",
+				"confirmEnableDescription": "ومن شأن توفير نسخة احتياطية دورية ممكنة أن يؤدي إلى تقلب النسخ الاحتياطية القائمة التي تقع خارج نطاق خطة تناوب الأبناء والأب والجد.",
+				"confirmEnableWouldRemove": "سيؤدي هذا إلى إزالة النسخة الاحتياطية {{count}} التالية:",
+				"confirmEnableNoRemoval": "لن تتم إزالة أي نسخ احتياطية موجودة.",
+				"prunePreviewFailed": "فشل في معاينة التقسيم الاحتياطي",
+				"pruneFailed": "فشل في تقريب النسخ الاحتياطي",
+				"pruneSuccess": "النسخ الاحتياطي {{count}} المتقلب"
 			}
 		},
 		"appearance": {

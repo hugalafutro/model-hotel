@@ -1059,10 +1059,18 @@
 				"4xx": "4XX",
 				"5xx": "5XX"
 			},
+			"endpoint": "נקודת קצה",
 			"level": "רמה",
 			"levelAll": "הכל",
 			"source": "מקור",
 			"logsPlaceholder": "סינון יומנים…"
+		},
+		"endpoint": {
+			"chat": "צ'אט",
+			"embeddings": "הטמעות",
+			"image": "תמונה",
+			"tts": "TTS",
+			"stt": "STT"
 		},
 		"table": {
 			"timeDate": "שעה/תאריך",
@@ -1537,24 +1545,24 @@
 			"backupCreated": "הגיבוי נוצר",
 			"downloadFailed": "ההורדה נכשלה: {{message}}",
 			"rotation": {
-				"title": "Periodic Backup",
-				"enabled": "Enable Periodic Backup",
-				"enabledDescription": "Automatically create backups at regular intervals and prune old ones using son/father/grandfather rotation.",
-				"interval": "Backup Interval",
-				"intervalDescription": "How often to create an automatic backup (0 = disabled).",
-				"sonRetention": "Daily Retention (Son)",
-				"sonRetentionDescription": "Keep the most recent backup from each of the last N days.",
-				"fatherRetention": "Weekly Retention (Father)",
-				"fatherRetentionDescription": "Keep the most recent backup from each of the last N weeks.",
-				"grandfatherRetention": "Monthly Retention (Grandfather)",
-				"grandfatherRetentionDescription": "Keep the most recent backup from each of the last N months.",
-				"confirmEnableTitle": "Enable Periodic Backup?",
-				"confirmEnableDescription": "Enabling periodic backup will prune existing backups that fall outside the son/father/grandfather rotation scheme.",
-				"confirmEnableWouldRemove": "This would remove the following {{count}} backup(s):",
-				"confirmEnableNoRemoval": "No existing backups would be removed.",
-				"prunePreviewFailed": "Failed to preview backup pruning",
-				"pruneFailed": "Failed to prune backups",
-				"pruneSuccess": "Pruned {{count}} backup(s)"
+				"title": "גיבוי תקופתי",
+				"enabled": "הפעל גיבוי תקופתי",
+				"enabledDescription": "יצירת גיבויים באופן אוטומטי במרווחי זמן קבועים ומחיקת הגיבויים הישנים באמצעות שיטת הרוטציה \"בן/אב/סב\".",
+				"interval": "תדירות הגיבוי",
+				"intervalDescription": "באיזו תדירות ליצור גיבוי אוטומטי (0 = מושבת).",
+				"sonRetention": "שימור יומי (בן)",
+				"sonRetentionDescription": "שמור את הגיבוי האחרון מכל אחד מ-N הימים האחרונים.",
+				"fatherRetention": "שימור שבועי (אבא)",
+				"fatherRetentionDescription": "שמור את הגיבוי האחרון מכל אחת מ-N השבועות האחרונים.",
+				"grandfatherRetention": "שימור חודשי (תנאי מעבר)",
+				"grandfatherRetentionDescription": "שמור את הגיבוי האחרון מכל אחד מ-N החודשים האחרונים.",
+				"confirmEnableTitle": "להפעיל גיבוי תקופתי?",
+				"confirmEnableDescription": "הפעלת גיבוי תקופתי תנקה גיבויים קיימים שאינם נכללים בתוכנית הרוטציה של \"בן/אב/סב\".",
+				"confirmEnableWouldRemove": "פעולה זו תסיר את הגיבוי/ים הבא/ים: {{count}}",
+				"confirmEnableNoRemoval": "לא יוסרו גיבויים קיימים.",
+				"prunePreviewFailed": "לא ניתן להציג תצוגה מקדימה של צמצום הגיבוי",
+				"pruneFailed": "לא הצליחו לנקות את הגיבויים",
+				"pruneSuccess": "גיזום {{count}} גיבוי/גיבויים"
 			}
 		},
 		"appearance": {

@@ -1059,10 +1059,18 @@
 				"4xx": "4XX",
 				"5xx": "5XX"
 			},
+			"endpoint": "Điểm cuối",
 			"level": "Cấp độ",
 			"levelAll": "Tất cả",
 			"source": "Nguồn",
 			"logsPlaceholder": "Lọc nhật ký…"
+		},
+		"endpoint": {
+			"chat": "Trò chuyện",
+			"embeddings": "Mô hình nhúng",
+			"image": "Hình ảnh",
+			"tts": "TTS",
+			"stt": "Số thứ tự"
 		},
 		"table": {
 			"timeDate": "Thời gian/Ngày",
@@ -1537,24 +1545,24 @@
 			"backupCreated": "Đã tạo bản sao lưu",
 			"downloadFailed": "Tải xuống không thành công: {{message}}",
 			"rotation": {
-				"title": "Periodic Backup",
-				"enabled": "Enable Periodic Backup",
-				"enabledDescription": "Automatically create backups at regular intervals and prune old ones using son/father/grandfather rotation.",
-				"interval": "Backup Interval",
-				"intervalDescription": "How often to create an automatic backup (0 = disabled).",
-				"sonRetention": "Daily Retention (Son)",
-				"sonRetentionDescription": "Keep the most recent backup from each of the last N days.",
-				"fatherRetention": "Weekly Retention (Father)",
-				"fatherRetentionDescription": "Keep the most recent backup from each of the last N weeks.",
-				"grandfatherRetention": "Monthly Retention (Grandfather)",
-				"grandfatherRetentionDescription": "Keep the most recent backup from each of the last N months.",
-				"confirmEnableTitle": "Enable Periodic Backup?",
-				"confirmEnableDescription": "Enabling periodic backup will prune existing backups that fall outside the son/father/grandfather rotation scheme.",
-				"confirmEnableWouldRemove": "This would remove the following {{count}} backup(s):",
-				"confirmEnableNoRemoval": "No existing backups would be removed.",
-				"prunePreviewFailed": "Failed to preview backup pruning",
-				"pruneFailed": "Failed to prune backups",
-				"pruneSuccess": "Pruned {{count}} backup(s)"
+				"title": "Sao lưu định kỳ",
+				"enabled": "Bật tính năng sao lưu định kỳ",
+				"enabledDescription": "Tự động tạo bản sao lưu theo định kỳ và xóa các bản sao lưu cũ theo chu kỳ luân phiên son/father/grandfather.",
+				"interval": "Khoảng thời gian sao lưu",
+				"intervalDescription": "Tần suất tạo bản sao lưu tự động (0 = tắt).",
+				"sonRetention": "Tỷ lệ giữ chân hàng ngày (Son)",
+				"sonRetentionDescription": "Giữ lại bản sao lưu mới nhất trong mỗi ngày trong số N ngày gần đây nhất.",
+				"fatherRetention": "Tỷ lệ duy trì hàng tuần (Cha)",
+				"fatherRetentionDescription": "Giữ lại bản sao lưu mới nhất của mỗi tuần trong N tuần gần đây nhất.",
+				"grandfatherRetention": "Tỷ lệ duy trì hàng tháng (Chính sách cũ)",
+				"grandfatherRetentionDescription": "Giữ lại bản sao lưu mới nhất của mỗi tháng trong N tháng gần đây nhất.",
+				"confirmEnableTitle": "Bật tính năng sao lưu định kỳ?",
+				"confirmEnableDescription": "Việc bật tính năng sao lưu định kỳ sẽ xóa các bản sao lưu hiện có không còn nằm trong chu kỳ luân phiên \"son/father/grandfather\".",
+				"confirmEnableWouldRemove": "Thao tác này sẽ xóa (các) bản sao lưu sau đây: {{count}}",
+				"confirmEnableNoRemoval": "Không có bản sao lưu hiện có nào sẽ bị xóa.",
+				"prunePreviewFailed": "Không thể xem trước quá trình cắt giảm bản sao lưu",
+				"pruneFailed": "Không thể xóa các bản sao lưu",
+				"pruneSuccess": "Đã xóa bản sao lưu của {{count}}"
 			}
 		},
 		"appearance": {

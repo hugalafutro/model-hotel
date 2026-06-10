@@ -1059,10 +1059,18 @@
 				"4xx": "4XX",
 				"5xx": "5XX"
 			},
+			"endpoint": "Koncový bod",
 			"level": "Úroveň",
 			"levelAll": "Všetko",
 			"source": "Zdroj",
 			"logsPlaceholder": "Filtrovanie protokolov…"
+		},
+		"endpoint": {
+			"chat": "Chat",
+			"embeddings": "Vloženia",
+			"image": "Obrázok",
+			"tts": "TTS",
+			"stt": "STT"
 		},
 		"table": {
 			"timeDate": "Čas/Dátum",
@@ -1537,24 +1545,24 @@
 			"backupCreated": "Záloha bola vytvorená",
 			"downloadFailed": "Stiahnutie sa nepodarilo: {{message}}",
 			"rotation": {
-				"title": "Periodic Backup",
-				"enabled": "Enable Periodic Backup",
-				"enabledDescription": "Automatically create backups at regular intervals and prune old ones using son/father/grandfather rotation.",
-				"interval": "Backup Interval",
-				"intervalDescription": "How often to create an automatic backup (0 = disabled).",
-				"sonRetention": "Daily Retention (Son)",
-				"sonRetentionDescription": "Keep the most recent backup from each of the last N days.",
-				"fatherRetention": "Weekly Retention (Father)",
-				"fatherRetentionDescription": "Keep the most recent backup from each of the last N weeks.",
-				"grandfatherRetention": "Monthly Retention (Grandfather)",
-				"grandfatherRetentionDescription": "Keep the most recent backup from each of the last N months.",
-				"confirmEnableTitle": "Enable Periodic Backup?",
-				"confirmEnableDescription": "Enabling periodic backup will prune existing backups that fall outside the son/father/grandfather rotation scheme.",
-				"confirmEnableWouldRemove": "This would remove the following {{count}} backup(s):",
-				"confirmEnableNoRemoval": "No existing backups would be removed.",
-				"prunePreviewFailed": "Failed to preview backup pruning",
-				"pruneFailed": "Failed to prune backups",
-				"pruneSuccess": "Pruned {{count}} backup(s)"
+				"title": "Pravidelné zálohovanie",
+				"enabled": "Zapnúť pravidelné zálohovanie",
+				"enabledDescription": "Automaticky vytvárajte zálohy v pravidelných intervaloch a staré zálohy odstraňujte pomocou rotácie typu „syn/otec/dedko“.",
+				"interval": "Interval zálohovania",
+				"intervalDescription": "Ako často vytvárať automatickú zálohu (0 = vypnuté).",
+				"sonRetention": "Denná retencia (syn)",
+				"sonRetentionDescription": "Uložte si najnovšiu zálohu z každého z posledných N dní.",
+				"fatherRetention": "Týždenná retencia (otec)",
+				"fatherRetentionDescription": "Uložte si najnovšiu zálohu z každého z posledných N týždňov.",
+				"grandfatherRetention": "Mesačná retencia (starý systém)",
+				"grandfatherRetentionDescription": "Uložte si najnovšiu zálohu z každého z posledných N mesiacov.",
+				"confirmEnableTitle": "Chcete povoliť pravidelné zálohovanie?",
+				"confirmEnableDescription": "Aktiváciou pravidelného zálohovania sa odstránia existujúce zálohy, ktoré nespadajú do schémy striedania typu „syn/otec/dedko“.",
+				"confirmEnableWouldRemove": "Týmto by sa odstránili nasledujúce zálohy: {{count}}",
+				"confirmEnableNoRemoval": "Žiadne existujúce zálohy nebudú odstránené.",
+				"prunePreviewFailed": "Nepodarilo sa zobraziť náhľad na redukciu zálohy",
+				"pruneFailed": "Neúspešné vyprázdnenie zálohy",
+				"pruneSuccess": "Odstránené zálohy {{count}}"
 			}
 		},
 		"appearance": {

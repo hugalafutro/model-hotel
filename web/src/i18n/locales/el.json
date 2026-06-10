@@ -1059,10 +1059,18 @@
 				"4xx": "4XX",
 				"5xx": "5XX"
 			},
+			"endpoint": "Endpoint",
 			"level": "Επίπεδο",
 			"levelAll": "Όλα",
 			"source": "Πηγή",
 			"logsPlaceholder": "Φιλτράρισμα αρχείων καταγραφής…"
+		},
+		"endpoint": {
+			"chat": "Συνομιλία",
+			"embeddings": "Ενσωμάτωση",
+			"image": "Εικόνα",
+			"tts": "TTS",
+			"stt": "STT"
 		},
 		"table": {
 			"timeDate": "Ώρα/Ημερομηνία",
@@ -1537,24 +1545,24 @@
 			"backupCreated": "Δημιουργία αντιγράφου ασφαλείας",
 			"downloadFailed": "Η λήψη απέτυχε: {{message}}",
 			"rotation": {
-				"title": "Periodic Backup",
-				"enabled": "Enable Periodic Backup",
-				"enabledDescription": "Automatically create backups at regular intervals and prune old ones using son/father/grandfather rotation.",
-				"interval": "Backup Interval",
-				"intervalDescription": "How often to create an automatic backup (0 = disabled).",
-				"sonRetention": "Daily Retention (Son)",
-				"sonRetentionDescription": "Keep the most recent backup from each of the last N days.",
-				"fatherRetention": "Weekly Retention (Father)",
-				"fatherRetentionDescription": "Keep the most recent backup from each of the last N weeks.",
-				"grandfatherRetention": "Monthly Retention (Grandfather)",
-				"grandfatherRetentionDescription": "Keep the most recent backup from each of the last N months.",
-				"confirmEnableTitle": "Enable Periodic Backup?",
-				"confirmEnableDescription": "Enabling periodic backup will prune existing backups that fall outside the son/father/grandfather rotation scheme.",
-				"confirmEnableWouldRemove": "This would remove the following {{count}} backup(s):",
-				"confirmEnableNoRemoval": "No existing backups would be removed.",
-				"prunePreviewFailed": "Failed to preview backup pruning",
-				"pruneFailed": "Failed to prune backups",
-				"pruneSuccess": "Pruned {{count}} backup(s)"
+				"title": "Περιοδικό Αντίγραφο Ασφαλείας",
+				"enabled": "Ενεργοποίηση Περιοδικού Αντιγράφου Ασφαλείας",
+				"enabledDescription": "Δημιουργήστε αυτόματα αντίγραφα ασφαλείας σε τακτά χρονικά διαστήματα και συνθλίψτε τα παλαιά χρησιμοποιώντας περιστροφή γιο/πατέρα/παππού.",
+				"interval": "Διάστημα Αντιγράφου Ασφαλείας",
+				"intervalDescription": "Πόσο συχνά δημιουργείται ένα αυτόματο αντίγραφο ασφαλείας (0 = απενεργοποιημένο).",
+				"sonRetention": "Ημερήσια Διατήρηση (Son)",
+				"sonRetentionDescription": "Κρατήστε το πιο πρόσφατο αντίγραφο ασφαλείας από κάθε μία από τις τελευταίες N ημέρες.",
+				"fatherRetention": "Εβδομαδιαία Διατήρηση (Πατέρα)",
+				"fatherRetentionDescription": "Κρατήστε το πιο πρόσφατο αντίγραφο ασφαλείας από κάθε μία από τις τελευταίες N εβδομάδες.",
+				"grandfatherRetention": "Μηνιαία Διατήρηση (Παππούς)",
+				"grandfatherRetentionDescription": "Κρατήστε το πιο πρόσφατο αντίγραφο ασφαλείας από κάθε έναν από τους τελευταίους N μήνες.",
+				"confirmEnableTitle": "Ενεργοποίηση Περιοδικού Αντιγράφου Ασφαλείας?",
+				"confirmEnableDescription": "Η ενεργοποίηση των περιοδικών αντιγράφων ασφαλείας θα συνθλίψει τα υπάρχοντα αντίγραφα ασφαλείας που δεν εμπίπτουν στο σύστημα περιστροφής γιο/πατέρα/παππού.",
+				"confirmEnableWouldRemove": "Αυτό θα αφαιρέσει τα ακόλουθα αντίγραφα ασφαλείας {{count}}",
+				"confirmEnableNoRemoval": "Δεν θα αφαιρεθούν τα υπάρχοντα αντίγραφα ασφαλείας.",
+				"prunePreviewFailed": "Απέτυχε η προεπισκόπηση της περικοπής αντιγράφων ασφαλείας",
+				"pruneFailed": "Αποτυχία αυτόματης συντήρησης αντιγράφων ασφαλείας",
+				"pruneSuccess": "Καθαρισμένα αντίγραφα ασφαλείας του {{count}}"
 			}
 		},
 		"appearance": {

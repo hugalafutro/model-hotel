@@ -1059,10 +1059,18 @@
 				"4xx": "4XX",
 				"5xx": "5Х"
 			},
+			"endpoint": "Endpoint",
 			"level": "Рівень",
 			"levelAll": "Всі",
 			"source": "Джерело",
 			"logsPlaceholder": "Фільтрувати журнали…"
+		},
+		"endpoint": {
+			"chat": "Чат",
+			"embeddings": "Вбудовані об'єкти",
+			"image": "Зображення",
+			"tts": "Озвучування",
+			"stt": "STT"
 		},
 		"table": {
 			"timeDate": "Час/Дата",
@@ -1537,24 +1545,24 @@
 			"backupCreated": "Резервна копія створена",
 			"downloadFailed": "Помилка завантаження: {{message}}",
 			"rotation": {
-				"title": "Periodic Backup",
-				"enabled": "Enable Periodic Backup",
-				"enabledDescription": "Automatically create backups at regular intervals and prune old ones using son/father/grandfather rotation.",
-				"interval": "Backup Interval",
-				"intervalDescription": "How often to create an automatic backup (0 = disabled).",
-				"sonRetention": "Daily Retention (Son)",
-				"sonRetentionDescription": "Keep the most recent backup from each of the last N days.",
-				"fatherRetention": "Weekly Retention (Father)",
-				"fatherRetentionDescription": "Keep the most recent backup from each of the last N weeks.",
-				"grandfatherRetention": "Monthly Retention (Grandfather)",
-				"grandfatherRetentionDescription": "Keep the most recent backup from each of the last N months.",
-				"confirmEnableTitle": "Enable Periodic Backup?",
-				"confirmEnableDescription": "Enabling periodic backup will prune existing backups that fall outside the son/father/grandfather rotation scheme.",
-				"confirmEnableWouldRemove": "This would remove the following {{count}} backup(s):",
-				"confirmEnableNoRemoval": "No existing backups would be removed.",
-				"prunePreviewFailed": "Failed to preview backup pruning",
-				"pruneFailed": "Failed to prune backups",
-				"pruneSuccess": "Pruned {{count}} backup(s)"
+				"title": "Періодична резервна копія",
+				"enabled": "Періодичне резервне копіювання",
+				"enabledDescription": "Автоматично створювати резервні копії з регулярними проміжками і чистити старі з допомогою сина/батька/діда обертання.",
+				"interval": "Інтервал резервного копіювання",
+				"intervalDescription": "Як часто створювати автоматичне резервне копіювання (0 = вимкнено).",
+				"sonRetention": "Щоденне утримання (Son)",
+				"sonRetentionDescription": "Зберігати останнє резервне копіювання з останніх N днів.",
+				"fatherRetention": "Щотижневе утримання (зерен)",
+				"fatherRetentionDescription": "Зберігати останнє резервне копіювання з кожного з останніх N тижнів.",
+				"grandfatherRetention": "Щомісячне утримання (дідуська)",
+				"grandfatherRetentionDescription": "Зберегти найсвіжішу резервну копію з останніх N місяців.",
+				"confirmEnableTitle": "Увімкнути періодичне резервне копіювання?",
+				"confirmEnableDescription": "Увімкнення періодичної резервної копії знищить існуючі резервні копії, які знаходяться поза схемою обертання сина/батька/дідуся.",
+				"confirmEnableWouldRemove": "Буде видалено наступні резервні копії {{count}}:",
+				"confirmEnableNoRemoval": "Відсутні існуючі резервні копії буде видалено.",
+				"prunePreviewFailed": "Не вдалося зробити резервне копіювання для попереднього перегляду",
+				"pruneFailed": "Не вдалося підчистити резервні копії",
+				"pruneSuccess": "Видалені резервні копії {{count}}"
 			}
 		},
 		"appearance": {

@@ -937,7 +937,7 @@
 		"btn_manage_providers": "管理提供商",
 		"provider_modal_title": "管理提供商状态",
 		"provider_modal_description": "禁用一个提供商将在每个失败组禁用其所有模型",
-		"toast_provider_toggle_no_groups": "没有故障转移组使用提供商 {{provider}}"
+		"toast_provider_toggle_no_groups": "没有故障转移组使用该提供程序 {{provider}}"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "未保存的更改"
@@ -1059,10 +1059,18 @@
 				"4xx": "4XX",
 				"5xx": "5XXX"
 			},
+			"endpoint": "Endpoint",
 			"level": "关卡",
 			"levelAll": "所有的",
 			"source": "来源",
 			"logsPlaceholder": "过滤日志…"
+		},
+		"endpoint": {
+			"chat": "聊天",
+			"embeddings": "嵌入",
+			"image": "图片",
+			"tts": "TTS",
+			"stt": "STT"
 		},
 		"table": {
 			"timeDate": "时间/日期",
@@ -1537,24 +1545,24 @@
 			"backupCreated": "备份已创建",
 			"downloadFailed": "下载失败： {{message}}",
 			"rotation": {
-				"title": "Periodic Backup",
-				"enabled": "Enable Periodic Backup",
-				"enabledDescription": "Automatically create backups at regular intervals and prune old ones using son/father/grandfather rotation.",
-				"interval": "Backup Interval",
-				"intervalDescription": "How often to create an automatic backup (0 = disabled).",
-				"sonRetention": "Daily Retention (Son)",
-				"sonRetentionDescription": "Keep the most recent backup from each of the last N days.",
-				"fatherRetention": "Weekly Retention (Father)",
-				"fatherRetentionDescription": "Keep the most recent backup from each of the last N weeks.",
-				"grandfatherRetention": "Monthly Retention (Grandfather)",
-				"grandfatherRetentionDescription": "Keep the most recent backup from each of the last N months.",
-				"confirmEnableTitle": "Enable Periodic Backup?",
-				"confirmEnableDescription": "Enabling periodic backup will prune existing backups that fall outside the son/father/grandfather rotation scheme.",
-				"confirmEnableWouldRemove": "This would remove the following {{count}} backup(s):",
-				"confirmEnableNoRemoval": "No existing backups would be removed.",
-				"prunePreviewFailed": "Failed to preview backup pruning",
-				"pruneFailed": "Failed to prune backups",
-				"pruneSuccess": "Pruned {{count}} backup(s)"
+				"title": "定期备份",
+				"enabled": "启用定期备份",
+				"enabledDescription": "自动使用儿子/父亲/祖父轮换，定期创建备份并修整旧备份。",
+				"interval": "备份间隔",
+				"intervalDescription": "创建自动备份的频率(0=禁用)。",
+				"sonRetention": "每日保留(松)",
+				"sonRetentionDescription": "保留过去N天中每次的最新备份。",
+				"fatherRetention": "每周保留(保留)",
+				"fatherRetentionDescription": "保留最后N周的最新备份。",
+				"grandfatherRetention": "每月保留(随机)",
+				"grandfatherRetentionDescription": "保留过去N个月中每个月的最新备份。",
+				"confirmEnableTitle": "启用定期备份？",
+				"confirmEnableDescription": "启用定期备份将会缩小现有的备份，这些备份不属于儿子/父亲/祖父轮换计划。",
+				"confirmEnableWouldRemove": "这将删除以下备份： {{count}}：",
+				"confirmEnableNoRemoval": "不会删除现有的备份。",
+				"prunePreviewFailed": "预览备份打印失败",
+				"pruneFailed": "刷新备份失败",
+				"pruneSuccess": "已删除 {{count}} 备份"
 			}
 		},
 		"appearance": {

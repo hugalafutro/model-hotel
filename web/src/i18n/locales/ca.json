@@ -937,7 +937,7 @@
 		"btn_manage_providers": "Gestiona proveïdors",
 		"provider_modal_title": "Gestiona l'estat del proveïdor",
 		"provider_modal_description": "Desactivar un proveïdor desactivarà tots els seus models en cada grup de conmutació per error.",
-		"toast_provider_toggle_no_groups": "Cap grup de fallada utilitza proveïdor {{provider}}"
+		"toast_provider_toggle_no_groups": "Cap grup de fallada utilitza proveïdor. {{provider}}"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Canvis no desats"
@@ -1059,10 +1059,18 @@
 				"4xx": "4XX",
 				"5xx": "5XX"
 			},
+			"endpoint": "Punt final",
 			"level": "Nivell",
 			"levelAll": "Tots",
 			"source": "Font",
 			"logsPlaceholder": "Filtreu els registres…"
+		},
+		"endpoint": {
+			"chat": "Xat",
+			"embeddings": "Embequidaments",
+			"image": "Imatge",
+			"tts": "TTS",
+			"stt": "STT"
 		},
 		"table": {
 			"timeDate": "Hora/Data",
@@ -1537,24 +1545,24 @@
 			"backupCreated": "Còpia de seguretat creada",
 			"downloadFailed": "La descàrrega ha fallat: {{message}}",
 			"rotation": {
-				"title": "Periodic Backup",
-				"enabled": "Enable Periodic Backup",
-				"enabledDescription": "Automatically create backups at regular intervals and prune old ones using son/father/grandfather rotation.",
-				"interval": "Backup Interval",
-				"intervalDescription": "How often to create an automatic backup (0 = disabled).",
-				"sonRetention": "Daily Retention (Son)",
-				"sonRetentionDescription": "Keep the most recent backup from each of the last N days.",
-				"fatherRetention": "Weekly Retention (Father)",
-				"fatherRetentionDescription": "Keep the most recent backup from each of the last N weeks.",
-				"grandfatherRetention": "Monthly Retention (Grandfather)",
-				"grandfatherRetentionDescription": "Keep the most recent backup from each of the last N months.",
-				"confirmEnableTitle": "Enable Periodic Backup?",
-				"confirmEnableDescription": "Enabling periodic backup will prune existing backups that fall outside the son/father/grandfather rotation scheme.",
-				"confirmEnableWouldRemove": "This would remove the following {{count}} backup(s):",
-				"confirmEnableNoRemoval": "No existing backups would be removed.",
-				"prunePreviewFailed": "Failed to preview backup pruning",
-				"pruneFailed": "Failed to prune backups",
-				"pruneSuccess": "Pruned {{count}} backup(s)"
+				"title": "Còpia de seguretat periòdica",
+				"enabled": "Activa la còpia de seguretat periòdica",
+				"enabledDescription": "Crea automàticament còpies de seguretat a intervals regulars i elimina les més antigues seguint una rotació de tipus fill/pare/avi.",
+				"interval": "Interval de còpia de seguretat",
+				"intervalDescription": "Amb quina freqüència crear una còpia de seguretat automàtica (0 = desactivat).",
+				"sonRetention": "Retenció diària (fill)",
+				"sonRetentionDescription": "Conserva la còpia de seguretat més recent de cadascun dels últims N dies.",
+				"fatherRetention": "Retenció setmanal (pare)",
+				"fatherRetentionDescription": "Conserva la còpia de seguretat més recent de cadascuna de les últimes N setmanes.",
+				"grandfatherRetention": "Retenció mensual (grandfather)",
+				"grandfatherRetentionDescription": "Conserva la còpia de seguretat més recent de cadascun dels últims N mesos.",
+				"confirmEnableTitle": "Activar la còpia de seguretat periòdica?",
+				"confirmEnableDescription": "Activant les còpies de seguretat periòdiques s'eliminaran les còpies existents que quedin fora de l'esquema de rotació fill/pare/avi.",
+				"confirmEnableWouldRemove": "Això eliminaria les còpies de seguretat següents de {{count}}:",
+				"confirmEnableNoRemoval": "No s'eliminarien cap de les còpies de seguretat existents.",
+				"prunePreviewFailed": "S'ha produït un error en previsualitzar la poda de còpies de seguretat.",
+				"pruneFailed": "S'ha fallat la poda de còpies de seguretat",
+				"pruneSuccess": "Retallat(s) de còpia de seguretat de {{count}}"
 			}
 		},
 		"appearance": {

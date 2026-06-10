@@ -1059,10 +1059,18 @@
 				"4xx": "4XX",
 				"5xx": "5XX"
 			},
+			"endpoint": "Uç nokta",
 			"level": "Seviye",
 			"levelAll": "Tümü",
 			"source": "Kaynak",
 			"logsPlaceholder": "… 'daki günlükleri filtrele"
+		},
+		"endpoint": {
+			"chat": "Sohbet",
+			"embeddings": "Gömülmeler",
+			"image": "Resim",
+			"tts": "TTS",
+			"stt": "STT"
 		},
 		"table": {
 			"timeDate": "Saat/Tarih",
@@ -1537,24 +1545,24 @@
 			"backupCreated": "Yedekleme oluşturuldu",
 			"downloadFailed": "İndirme başarısız: {{message}}",
 			"rotation": {
-				"title": "Periodic Backup",
-				"enabled": "Enable Periodic Backup",
-				"enabledDescription": "Automatically create backups at regular intervals and prune old ones using son/father/grandfather rotation.",
-				"interval": "Backup Interval",
-				"intervalDescription": "How often to create an automatic backup (0 = disabled).",
-				"sonRetention": "Daily Retention (Son)",
-				"sonRetentionDescription": "Keep the most recent backup from each of the last N days.",
-				"fatherRetention": "Weekly Retention (Father)",
-				"fatherRetentionDescription": "Keep the most recent backup from each of the last N weeks.",
-				"grandfatherRetention": "Monthly Retention (Grandfather)",
-				"grandfatherRetentionDescription": "Keep the most recent backup from each of the last N months.",
-				"confirmEnableTitle": "Enable Periodic Backup?",
-				"confirmEnableDescription": "Enabling periodic backup will prune existing backups that fall outside the son/father/grandfather rotation scheme.",
-				"confirmEnableWouldRemove": "This would remove the following {{count}} backup(s):",
-				"confirmEnableNoRemoval": "No existing backups would be removed.",
-				"prunePreviewFailed": "Failed to preview backup pruning",
-				"pruneFailed": "Failed to prune backups",
-				"pruneSuccess": "Pruned {{count}} backup(s)"
+				"title": "Periyodik Yedekleme",
+				"enabled": "Periyodik Yedeklemeyi Etkinleştir",
+				"enabledDescription": "Düzenli aralıklarla otomatik olarak yedeklemeler oluşturun ve \"son/father/grandfather\" rotasyonunu kullanarak eski yedekleri silin.",
+				"interval": "Yedekleme Aralığı",
+				"intervalDescription": "Otomatik yedekleme ne sıklıkla oluşturulacak (0 = devre dışı).",
+				"sonRetention": "Günlük Tutma Oranı (Oğul)",
+				"sonRetentionDescription": "Son N günün her birinden en güncel yedeği saklayın.",
+				"fatherRetention": "Haftalık Kalıcılık (Baba)",
+				"fatherRetentionDescription": "Son N haftanın her birinden en güncel yedeği saklayın.",
+				"grandfatherRetention": "Aylık Tutma (Eski Düzen)",
+				"grandfatherRetentionDescription": "Son N ayın her birinden en güncel yedeği saklayın.",
+				"confirmEnableTitle": "Periyodik yedeklemeyi etkinleştirmek ister misiniz?",
+				"confirmEnableDescription": "Periyodik yedeklemeyi etkinleştirdiğinizde, \"son/baba/büyükbaba\" rotasyon şemasının dışında kalan mevcut yedeklemeler silinecektir.",
+				"confirmEnableWouldRemove": "Bu işlem, aşağıdaki {{count}} yedeklerini siler:",
+				"confirmEnableNoRemoval": "Mevcut yedeklemeler silinmeyecektir.",
+				"prunePreviewFailed": "Yedekleme budama işleminin önizlemesi yapılamadı",
+				"pruneFailed": "Yedeklemeler budanamadı",
+				"pruneSuccess": "{{count}} yedeklemesi/yedeklemeleri silindi"
 			}
 		},
 		"appearance": {
