@@ -1,7 +1,6 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import type {
 	DeepSeekBalance,
-	NanoGPTUsage,
 	NeuralWattQuotaResponse,
 	OllamaCloudAccount,
 	OpenRouterBalance,
@@ -255,9 +254,20 @@ describe("QuotaBadge", () => {
 
 	describe("deepseek type", () => {
 		const mockDeepSeekBalance: DeepSeekBalance = {
+			is_available: true,
 			balance_infos: [
-				{ currency: "USD", total_balance: 25.5 },
-				{ currency: "CNY", total_balance: 100 },
+				{
+					currency: "USD",
+					total_balance: "25.5",
+					granted_balance: "25.5",
+					topped_up_balance: "0",
+				},
+				{
+					currency: "CNY",
+					total_balance: "100",
+					granted_balance: "100",
+					topped_up_balance: "0",
+				},
 			],
 		};
 
@@ -285,7 +295,15 @@ describe("QuotaBadge", () => {
 
 		it("handles missing USD balance", () => {
 			const balanceNoUSD: DeepSeekBalance = {
-				balance_infos: [{ currency: "CNY", total_balance: 100 }],
+				is_available: true,
+				balance_infos: [
+					{
+						currency: "CNY",
+						total_balance: "100",
+						granted_balance: "100",
+						topped_up_balance: "0",
+					},
+				],
 			};
 			render(
 				<QuotaBadge
@@ -305,7 +323,18 @@ describe("QuotaBadge", () => {
 
 	describe("openrouter type", () => {
 		const mockOpenRouterBalance: OpenRouterBalance = {
+			label: "OpenRouter",
+			limit: null,
+			limit_reset: "",
+			limit_remaining: null,
+			usage: 0,
+			usage_daily: 0,
+			usage_weekly: 0,
+			usage_monthly: 0,
+			credits_total: 0,
+			credits_used: 0,
 			credits_remaining: 15.75,
+			is_free_tier: false,
 		};
 
 		it("renders with openrouter type and shows balance", () => {
@@ -340,8 +369,15 @@ describe("QuotaBadge", () => {
 
 	describe("ollama-cloud type", () => {
 		const mockOllamaCloudAccount: OllamaCloudAccount = {
+			id: "acct-1",
+			email: "user@example.com",
+			name: "Test User",
 			plan: "pro",
-			subscription_period_end: undefined,
+			customer_id: { string: "", valid: false },
+			subscription_id: { string: "", valid: false },
+			subscription_period_start: { time: "", valid: false },
+			subscription_period_end: { time: "", valid: false },
+			suspended_at: { time: "", valid: false },
 		};
 
 		it("renders with ollama-cloud type and shows plan", () => {
@@ -370,6 +406,7 @@ describe("QuotaBadge", () => {
 
 		it("shows subscription end date when available", () => {
 			const accountWithEnd: OllamaCloudAccount = {
+				...mockOllamaCloudAccount,
 				plan: "enterprise",
 				subscription_period_end: {
 					time: "2026-12-31T23:59:59Z",
@@ -549,10 +586,39 @@ describe("QuotaBadges", () => {
 	const nanoQuotaData: QuotaDataResult = {
 		showNanoBadge: true,
 		nanogptUsage: {
-			weeklyInputTokens: { used: 200000, limit: 1000000 },
-			limits: { weeklyInputTokens: 1000000 },
+			active: true,
+			provider: "nanogpt",
 			providerStatus: "active",
-		} as NanoGPTUsage,
+			providerStatusRaw: "active",
+			stripeSubscriptionId: "sub_test",
+			cancellationReason: null,
+			canceledAt: null,
+			endedAt: null,
+			cancelAt: null,
+			cancelAtPeriodEnd: false,
+			limits: {
+				weeklyInputTokens: 1000000,
+				dailyInputTokens: 200000,
+				dailyImages: 100,
+			},
+			allowOverage: false,
+			period: { currentPeriodEnd: "2026-12-31" },
+			dailyImages: { used: 10, remaining: 90, percentUsed: 10, resetAt: 0 },
+			dailyInputTokens: {
+				used: 50000,
+				remaining: 150000,
+				percentUsed: 25,
+				resetAt: 0,
+			},
+			weeklyInputTokens: {
+				used: 200000,
+				remaining: 800000,
+				percentUsed: 20,
+				resetAt: 0,
+			},
+			state: "active",
+			graceUntil: null,
+		},
 		nanoWeeklyUsed: 200000,
 		nanoWeeklyLimit: 1000000,
 		showZaiCodingBadge: false,
@@ -563,11 +629,14 @@ describe("QuotaBadges", () => {
 		openrouterBalance: undefined,
 		showOllamaCloudBadge: false,
 		ollamaCloudAccount: undefined,
+		showNeuralwattBadge: false,
+		neuralwattQuota: undefined,
 		nanogptProviderId: "nanogpt-1",
 		zaiCodingProviderId: undefined,
 		deepseekProviderId: undefined,
 		openrouterProviderId: undefined,
 		ollamaCloudProviderId: undefined,
+		neuralwattProviderId: undefined,
 		zaiCodingFiveHour: undefined,
 		zaiCodingWeekly: undefined,
 		hasAnyProvider: true,
@@ -576,11 +645,13 @@ describe("QuotaBadges", () => {
 		refetchDeepseek: vi.fn(),
 		refetchOpenRouter: vi.fn(),
 		refetchOllamaCloud: vi.fn(),
+		refetchNeuralwatt: vi.fn(),
 		isNanoRefetching: false,
 		isZaiCodingRefetching: false,
 		isDsRefetching: false,
 		isOrRefetching: false,
 		isOllamaCloudRefetching: false,
+		isNeuralwattRefetching: false,
 		nanogptDataUpdatedAt: 0,
 		zaiCodingDataUpdatedAt: 0,
 		deepseekDataUpdatedAt: 0,

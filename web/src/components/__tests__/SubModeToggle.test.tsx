@@ -1,17 +1,20 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { LucideProps } from "lucide-react";
 import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../test/utils";
 import { SubModeToggle } from "../SubModeToggle";
 
-const StubIcon = ({ className }: { className?: string }) => (
-	<svg className={className} data-testid="stub-icon" />
+const StubIcon = Object.assign(
+	({ className }: LucideProps) => (
+		<svg className={className} data-testid="stub-icon" />
+	),
+	{ $$typeof: Symbol.for("react.forward_ref") },
 );
 
-const options = [
-	{ value: "list", label: "List", icon: StubIcon },
-	{ value: "grid", label: "Grid", icon: StubIcon },
-];
+const listOpt = { value: "list", label: "List", icon: StubIcon };
+const gridOpt = { value: "grid", label: "Grid", icon: StubIcon };
+const options = [listOpt, gridOpt] as [typeof listOpt, typeof gridOpt];
 
 describe("SubModeToggle", () => {
 	it("renders options", () => {

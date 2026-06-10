@@ -52,7 +52,9 @@ describe("TerminalPreview", () => {
 			);
 
 			// Outer container should have explicit height style instead of min-h-70
-			const outerDiv = container.querySelector(".relative");
+			const outerDiv = container.querySelector(
+				".relative",
+			) as HTMLElement | null;
 			expect(outerDiv).toBeInTheDocument();
 			expect(outerDiv?.style.height).toBe("200px");
 			expect(outerDiv?.className).not.toContain("min-h-70");
@@ -67,7 +69,9 @@ describe("TerminalPreview", () => {
 				<TerminalPreview {...defaultProps} />,
 			);
 
-			const outerDiv = container.querySelector(".relative");
+			const outerDiv = container.querySelector(
+				".relative",
+			) as HTMLElement | null;
 			expect(outerDiv).toBeInTheDocument();
 			expect(outerDiv?.style.height).toBe("");
 			expect(outerDiv?.className).toContain("min-h-70");
@@ -119,7 +123,9 @@ describe("TerminalPreview", () => {
 			);
 
 			// Outer container should have explicit height style instead of min-h-70
-			const outerDiv = container.querySelector(".terminal-win11");
+			const outerDiv = container.querySelector(
+				".terminal-win11",
+			) as HTMLElement | null;
 			expect(outerDiv).toBeInTheDocument();
 			expect(outerDiv?.style.height).toBe("200px");
 			expect(outerDiv?.className).not.toContain("min-h-70");
@@ -134,7 +140,9 @@ describe("TerminalPreview", () => {
 				<TerminalPreview {...defaultProps} variant="powershell" />,
 			);
 
-			const outerDiv = container.querySelector(".terminal-win11");
+			const outerDiv = container.querySelector(
+				".terminal-win11",
+			) as HTMLElement | null;
 			expect(outerDiv).toBeInTheDocument();
 			expect(outerDiv?.style.height).toBe("");
 			expect(outerDiv?.className).toContain("min-h-70");

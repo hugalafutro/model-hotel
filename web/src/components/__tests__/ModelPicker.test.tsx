@@ -398,7 +398,12 @@ describe("ModelPicker", () => {
 		it("allows multiple model selection", async () => {
 			const onChange = vi.fn();
 			const { user } = renderWithProviders(
-				<ModelPicker {...defaultProps} multi={true} onChange={onChange} />,
+				<ModelPicker
+					{...defaultProps}
+					multi={true}
+					selected={[]}
+					onChange={onChange}
+				/>,
 			);
 			const gptButton = screen.getByText("GPT-4");
 			const claudeButton = screen.getByText("Claude 3");
