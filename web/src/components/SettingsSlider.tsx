@@ -58,7 +58,7 @@ export function SettingsSlider({
 
 	const isInfinity = infinityValue !== undefined && local === infinityValue;
 	const pct = isInfinity
-		? 100
+		? 0
 		: max === min
 			? 100
 			: Math.round(((local - min) / (max - min)) * 200) / 2;
