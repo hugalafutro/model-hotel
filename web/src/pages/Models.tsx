@@ -202,7 +202,7 @@ export function Models() {
 						onClick={() =>
 							setViewMode(viewMode === "scroll" ? "paginate" : "scroll")
 						}
-						className={`flex items-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium transition-all border cursor-pointer ${
+						className={`ui-tab flex items-center gap-1 px-2 py-1.5 text-xs font-medium transition-all border cursor-pointer ${
 							viewMode === "scroll"
 								? "bg-(--accent)/20 text-(--accent) border-(--accent)/40"
 								: "text-gray-400 border-gray-700 hover:text-white hover:border-gray-500"
