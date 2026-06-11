@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Kopia zapasowa bazy danych",
-			"description": "Utwórz i pobierz kopie zapasowe PostgreSQL. Używa `pg_dump` z niestandardowym formatem dla efektywnej kompresji.",
+			"description": "Utwórz i pobierz kopie zapasowe PostgreSQL. Używa pg_dump z niestandardowym formatem dla efektywnej kompresji.",
 			"restoreRequirements": "Wymagania przywracania",
 			"restoreRequirements.masterKey": "MASTER_KEY musi się zgadzać",
 			"restoreRequirements.masterKeyDescription": "Klucze API dostawcy to AES-256-GCM zaszyfrowane. Przywracanie z innym MASTER_KEY sprawi, że wszystkie klucze dostawcy nie będą mogły zostać odzyskane.",

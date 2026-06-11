@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Databasis-rugsteun",
-			"description": "Skep en laai PostgreSQL-rugsteun af. Gebruik `pg_dump` met 'n pasgemaakte formaat vir doeltreffende kompressie.",
+			"description": "Skep en laai PostgreSQL-rugsteun af. Gebruik pg_dump met 'n pasgemaakte formaat vir doeltreffende kompressie.",
 			"restoreRequirements": "Herstel vereistes",
 			"restoreRequirements.masterKey": "MASTER_KEY moet ooreenstem",
 			"restoreRequirements.masterKeyDescription": "Verskaffer-API-sleutels is met AES-256-GCM versleuteld. As jy met 'n ander MASTER_KEY herstel, sal alle verskaffer-sleutels onherstelbaar verlore wees.",

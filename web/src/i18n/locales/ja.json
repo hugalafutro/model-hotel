@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "データベースバックアップ",
-			"description": "PostgreSQLバックアップを作成してダウンロードします。効率的な圧縮のために、`pg_dump`をカスタムフォーマットで使用します。",
+			"description": "PostgreSQLバックアップを作成してダウンロードします。効率的な圧縮のために、pg_dumpをカスタムフォーマットで使用します。",
 			"restoreRequirements": "復元要件",
 			"restoreRequirements.masterKey": "MASTER_KEY は一致する必要があります",
 			"restoreRequirements.masterKeyDescription": "プロバイダー API キーは AES-256-GCM 暗号化されています。別の MASTER_KEY で復元すると、すべてのプロバイダーキーが復元できなくなります。",

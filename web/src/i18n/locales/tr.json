@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Veritabanı Yedekleme",
-			"description": "PostgreSQL yedeklemeleri oluşturun ve indirin. Verimli sıkıştırma için özel biçimle `pg_dump` komutunu kullanır.",
+			"description": "PostgreSQL yedeklemeleri oluşturun ve indirin. Verimli sıkıştırma için özel biçimle pg_dump komutunu kullanır.",
 			"restoreRequirements": "Geri Yükleme Gereksinimleri",
 			"restoreRequirements.masterKey": "MASTER_KEY eşleşmelidir",
 			"restoreRequirements.masterKeyDescription": "Sağlayıcı API anahtarları AES-256-GCM şifreleme yöntemiyle şifrelenmiştir. Farklı bir MASTER_KEY kullanılarak geri yükleme işlemi gerçekleştirildiğinde, tüm sağlayıcı anahtarları kurtarılamaz hale gelir.",

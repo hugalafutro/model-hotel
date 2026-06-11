@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "النسخ الاحتياطي لقاعدة البيانات",
-			"description": "إنشاء وتنزيل النسخ الاحتياطية من PostgreSQL. يستخدم 'pg_dump` مع تنسيق مخصص للضغط الفعال.",
+			"description": "إنشاء وتنزيل النسخ الاحتياطية من PostgreSQL. يستخدم pg_dump مع تنسيق مخصص للضغط الفعال.",
 			"restoreRequirements": "إستعادة المتطلبات",
 			"restoreRequirements.masterKey": "يجب أن يتطابق",
 			"restoreRequirements.masterKeyDescription": "مفاتيح API المزود هي مشفرة AES-256-GCM. الاستعادة باستخدام MASTER_KEY ستترك جميع مفاتيح المزود غير قابلة للاسترداد.",

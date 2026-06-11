@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "데이터베이스 백업",
-			"description": "PostgreSQL 백업을 생성하고 다운로드합니다. 효율적인 압축을 위해 사용자 정의 형식을 적용한 `pg_dump`를 사용합니다.",
+			"description": "PostgreSQL 백업을 생성하고 다운로드합니다. 효율적인 압축을 위해 사용자 정의 형식을 적용한 pg_dump를 사용합니다.",
 			"restoreRequirements": "복원 요구 사항",
 			"restoreRequirements.masterKey": "MASTER_KEY가 일치해야 합니다",
 			"restoreRequirements.masterKeyDescription": "프로바이더 API 키는 AES-256-GCM 방식으로 암호화됩니다. 다른 MASTER_KEY로 복원할 경우 모든 프로바이더 키를 복구할 수 없게 됩니다.",

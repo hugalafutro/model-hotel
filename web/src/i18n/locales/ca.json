@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Còpia de seguretat de la base de dades",
-			"description": "Crea i descarrega còpies de seguretat de PostgreSQL. Utilitza `pg_dump` amb un format personalitzat per a una compressió eficient.",
+			"description": "Crea i descarrega còpies de seguretat de PostgreSQL. Utilitza pg_dump amb un format personalitzat per a una compressió eficient.",
 			"restoreRequirements": "Restabliu els requisits",
 			"restoreRequirements.masterKey": "MASTER_KEY ha de coincidir",
 			"restoreRequirements.masterKeyDescription": "Les claus de l'API del proveïdor estan xifrades amb AES-256-GCM. Restaurar amb una MASTER_KEY diferent deixarà totes les claus del proveïdor irrecuperables.",

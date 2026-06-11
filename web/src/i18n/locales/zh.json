@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "数据库备份",
-			"description": "创建并下载 PostgreSQL 备份。使用自定义格式的 pg_dump` 进行有效压缩。",
+			"description": "创建并下载 PostgreSQL 备份。使用自定义格式的 pg_dump 进行有效压缩。",
 			"restoreRequirements": "还原需求",
 			"restoreRequirements.masterKey": "MASTER_KEY 必须匹配",
 			"restoreRequirements.masterKeyDescription": "提供者API密钥是AES256-GCM加密。用不同的 MASTER_Key恢复将使所有提供者密钥无法恢复。",

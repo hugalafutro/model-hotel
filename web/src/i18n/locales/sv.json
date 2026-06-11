@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Säkerhetskopia av databas",
-			"description": "Skapa och ladda ner PostgreSQL-säkerhetskopior. Använder `pg_dump` med anpassat format för effektiv komprimering.",
+			"description": "Skapa och ladda ner PostgreSQL-säkerhetskopior. Använder pg_dump med anpassat format för effektiv komprimering.",
 			"restoreRequirements": "Återställ Krav",
 			"restoreRequirements.masterKey": "MASTER_KEY måste matcha",
 			"restoreRequirements.masterKeyDescription": "API-nycklar för leverantörer är AES-256-GCM-krypterade. Återställning med en annan MASTER_KEY kommer att lämna alla leverantörsnycklar oåterkalleliga.",

@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Adatbázis-mentés",
-			"description": "PostgreSQL-biztonsági másolatok létrehozása és letöltése. A hatékony tömörítés érdekében a `pg_dump` parancsot egyéni formátummal használja.",
+			"description": "PostgreSQL-biztonsági másolatok létrehozása és letöltése. A hatékony tömörítés érdekében a pg_dump parancsot egyéni formátummal használja.",
 			"restoreRequirements": "A visszaállítás feltételei",
 			"restoreRequirements.masterKey": "A MASTER_KEY-nek egyeznie kell",
 			"restoreRequirements.masterKeyDescription": "A szolgáltatói API-kulcsok AES-256-GCM titkosításúak. Ha a visszaállítást egy másik MASTER_KEY kulccsal hajtja végre, a szolgáltatói kulcsok visszaállíthatatlanná válnak.",

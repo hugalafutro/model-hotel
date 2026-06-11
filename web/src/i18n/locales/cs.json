@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Zálohování databáze",
-			"description": "Vytváření a stahování záloh PostgreSQL. Využívá nástroj `pg_dump` s vlastním formátem pro efektivní kompresi.",
+			"description": "Vytváření a stahování záloh PostgreSQL. Využívá nástroj pg_dump s vlastním formátem pro efektivní kompresi.",
 			"restoreRequirements": "Požadavky na obnovení",
 			"restoreRequirements.masterKey": "Hlavní klíč se musí shodovat",
 			"restoreRequirements.masterKeyDescription": "Klíče API poskytovatele jsou šifrovány pomocí algoritmu AES-256-GCM. Obnovení pomocí jiného klíče MASTER_KEY způsobí, že všechny klíče poskytovatele budou nenávratně ztraceny.",

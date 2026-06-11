@@ -177,7 +177,24 @@ export function DatabaseBackupSettings({
 		>
 			<div className="space-y-4">
 				<p className="text-(--text-secondary) text-sm">
-					{t("settings.backup.description")}
+					{/* Render the literal pg_dump tool name as code; locales keep it
+					    as a plain token (no backticks - nothing parses markdown here). */}
+					{t("settings.backup.description")
+						.split("pg_dump")
+						.flatMap((part, i, arr) =>
+							i < arr.length - 1
+								? [
+										part,
+										<code
+											// biome-ignore lint/suspicious/noArrayIndexKey: static split, order never changes
+											key={i}
+											className="font-mono text-(--text-primary)"
+										>
+											pg_dump
+										</code>,
+									]
+								: [part],
+						)}
 				</p>
 
 				{/* Periodic backup toggle */}

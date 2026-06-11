@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Sauvegarde de la base de données",
-			"description": "Créer et télécharger des sauvegardes PostgreSQL. Utilise `pg_dump` avec un format personnalisé pour une compression efficace.",
+			"description": "Créer et télécharger des sauvegardes PostgreSQL. Utilise pg_dump avec un format personnalisé pour une compression efficace.",
 			"restoreRequirements": "Restaurer les conditions requises",
 			"restoreRequirements.masterKey": "MASTER_KEY doit correspondre",
 			"restoreRequirements.masterKeyDescription": "Les clés API du fournisseur sont chiffrées AES-256-GCM. La restauration avec un MASTER_KEY différent laissera toutes les clés du fournisseur irrécupérable.",

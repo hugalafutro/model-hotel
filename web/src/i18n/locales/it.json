@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Backup Database",
-			"description": "Crea e scarica backup PostgreSQL. Usa `pg_dump` con formato personalizzato per una compressione efficiente.",
+			"description": "Crea e scarica backup PostgreSQL. Usa pg_dump con formato personalizzato per una compressione efficiente.",
 			"restoreRequirements": "Ripristina Requisiti",
 			"restoreRequirements.masterKey": "MASTER_KEY deve corrispondere",
 			"restoreRequirements.masterKeyDescription": "Le chiavi API del provider sono crittografate AES-256-GCM. Il ripristino con un diverso MASTER_KEY lascerà tutte le chiavi provider non recuperabili.",

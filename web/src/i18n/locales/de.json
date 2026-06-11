@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Datenbanksicherung",
-			"description": "Erstelle und lade PostgreSQL Backups. Verwendet `pg_dump` im benutzerdefinierten Format für eine effiziente Kompression.",
+			"description": "Erstelle und lade PostgreSQL Backups. Verwendet pg_dump im benutzerdefinierten Format für eine effiziente Kompression.",
 			"restoreRequirements": "Anforderungen wiederherstellen",
 			"restoreRequirements.masterKey": "MASTER_KEY muss übereinstimmen",
 			"restoreRequirements.masterKeyDescription": "Provider-API-Schlüssel sind AES-256-GCM verschlüsselt. Wiederherstellen mit einem anderen MASTER_KEY lässt alle Provider-Schlüssel nicht wiederherstellen.",

@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "גיבוי מסד נתונים",
-			"description": "יצירת והורדת גיבויים של PostgreSQL. משתמש ב-`pg_dump` בפורמט מותאם אישית לדחיסה יעילה.",
+			"description": "יצירת והורדת גיבויים של PostgreSQL. משתמש ב-pg_dump בפורמט מותאם אישית לדחיסה יעילה.",
 			"restoreRequirements": "דרישות השחזור",
 			"restoreRequirements.masterKey": "MASTER_KEY חייב להתאים",
 			"restoreRequirements.masterKeyDescription": "מפתחות ה-API של הספק מוצפנים ב-AES-256-GCM. שחזור באמצעות מפתח MASTER_KEY שונה יגרום לכך שלא ניתן יהיה לשחזר את כל מפתחות הספק.",
