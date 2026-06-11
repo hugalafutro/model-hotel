@@ -213,6 +213,10 @@ describe("UsageBarPanel", () => {
 		const deletedLabel = screen.getByText("Deleted Model");
 		expect(deletedLabel).toHaveClass("text-red-400");
 		expect(deletedLabel).toHaveClass("italic");
+		expect(deletedLabel).toHaveAttribute(
+			"title",
+			"Model no longer available — it may have been deleted or its provider was removed",
+		);
 	});
 
 	it("does not apply deleted styling to non-deleted entries", () => {

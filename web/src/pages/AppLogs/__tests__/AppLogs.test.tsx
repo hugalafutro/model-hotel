@@ -91,7 +91,7 @@ describe("AppLogs", () => {
 			const liveButton = screen.getByRole("button", { name: /^Live$/ });
 			expect(liveButton).toBeInTheDocument();
 			// Check for green styling
-			expect(liveButton).toHaveClass("bg-green-500/20");
+			expect(liveButton).toHaveClass("ui-badge-success");
 		});
 	});
 
@@ -143,7 +143,7 @@ describe("AppLogs", () => {
 		const requestsTab = screen.getByRole("button", { name: "Requests" });
 		await user.click(requestsTab);
 		await waitFor(() => {
-			expect(requestsTab).toHaveClass("bg-(--accent)/20");
+			expect(requestsTab).toHaveClass("ui-btn-primary");
 		});
 	});
 
@@ -612,13 +612,13 @@ describe("AppLogs", () => {
 		// Note: getByText finds the inner <span class="badge-text">, so we use
 		// closest('[data-test-variant]') to find the outer Badge span
 		const infoBadge = screen.getByText("INFO").closest("[data-test-variant]");
-		expect(infoBadge).toHaveClass("bg-blue-900/30");
+		expect(infoBadge).toHaveClass("ui-badge-info");
 		const warningBadge = screen
 			.getByText("WARNING")
 			.closest("[data-test-variant]");
-		expect(warningBadge).toHaveClass("bg-yellow-900/30");
+		expect(warningBadge).toHaveClass("ui-badge-warning");
 		const errorBadge = screen.getByText("ERROR").closest("[data-test-variant]");
-		expect(errorBadge).toHaveClass("bg-red-900/30");
+		expect(errorBadge).toHaveClass("ui-badge-error");
 	});
 
 	it("source badge has correct color classes", async () => {
@@ -663,13 +663,13 @@ describe("AppLogs", () => {
 			await waitFor(() => {
 				expect(screen.getByText("Live updates paused")).toBeInTheDocument();
 			});
-			expect(liveButton).toHaveClass("bg-gray-700");
+			expect(liveButton).toHaveClass("ui-badge-neutral");
 			// Second click: resume
 			await user.click(liveButton);
 			await waitFor(() => {
 				expect(screen.getByText("Live updates resumed")).toBeInTheDocument();
 			});
-			expect(liveButton).toHaveClass("bg-green-500/20");
+			expect(liveButton).toHaveClass("ui-badge-success");
 		});
 	});
 

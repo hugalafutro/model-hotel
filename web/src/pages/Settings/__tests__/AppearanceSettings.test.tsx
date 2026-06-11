@@ -234,7 +234,7 @@ describe("AppearanceSettings", () => {
 			// Click Dark to ensure it's the active theme
 			await user.click(screen.getByText("Dark"));
 			const darkButton = screen.getByText("Dark").closest("button");
-			expect(darkButton?.className).toContain("bg-(--accent)");
+			expect(darkButton?.className).toContain("ui-btn-primary");
 		});
 
 		it("reflects active UI style with accent border", async () => {

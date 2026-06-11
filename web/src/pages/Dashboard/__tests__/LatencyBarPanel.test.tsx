@@ -342,8 +342,7 @@ describe("LatencyBarPanel", () => {
 			"div.rounded-r-full[style*='background-color']",
 		);
 		expect(overheadBar).toBeTruthy();
-		const style = overheadBar!.getAttribute("style");
 		// overheadPct should be clamped to totalPct (100% for single entry)
-		expect(style).toMatch(/width: 100%/);
+		expect(overheadBar?.getAttribute("style")).toMatch(/width: 100%/);
 	});
 });

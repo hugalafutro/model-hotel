@@ -267,7 +267,8 @@
 			"topProviders": "Top-Anbieter",
 			"topVirtualKeys": "Top-Virtual-Keys",
 			"emptyState": "Noch keine Nutzungsdaten. Die Aufschlüsselung der Nutzung wird hier angezeigt, sobald der Datenverkehr abläuft.",
-			"viewDetailsFor": "Details für {{label}} anzeigen"
+			"viewDetailsFor": "Details für {{label}} anzeigen",
+			"deletedModelTooltip": "Modell nicht mehr verfügbar – es wurde möglicherweise entfernt oder der Anbieter wurde gelöscht"
 		},
 		"latency": {
 			"topModels": "Langsamste Modelle",

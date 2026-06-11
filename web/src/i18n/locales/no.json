@@ -267,7 +267,8 @@
 			"topProviders": "Toppleverandører",
 			"topVirtualKeys": "Øverste virtuelle nøkler",
 			"emptyState": "Ingen bruksdata enda. Bruk nedbrytning vil vises her når trafikk flyter.",
-			"viewDetailsFor": "Vis detaljer for {{label}}"
+			"viewDetailsFor": "Vis detaljer for {{label}}",
+			"deletedModelTooltip": "Modellen er ikke lenger tilgjengelig – den kan ha blitt slettet, eller leverandøren kan ha blitt fjernet"
 		},
 		"latency": {
 			"topModels": "Tregeste modeller",

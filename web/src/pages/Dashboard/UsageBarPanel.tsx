@@ -79,7 +79,11 @@ export function UsageBarPanel({
 									) : (
 										<span
 											className={`truncate max-w-[70%] ${entry.deleted ? "text-red-400 italic pr-1" : "text-(--text-secondary)"}`}
-											title={entry.label}
+											title={
+												entry.deleted
+													? t("dashboard.usage.deletedModelTooltip")
+													: entry.label
+											}
 										>
 											{entry.label}
 										</span>

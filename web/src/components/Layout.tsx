@@ -760,7 +760,7 @@ function LanguageSelector() {
 			<button
 				type="button"
 				onClick={() => setOpen((v) => !v)}
-				className="sidebar-footer-link flex items-center justify-center px-1.5 py-1.5 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5 cursor-pointer"
+				className="sidebar-footer-link flex items-center justify-center px-1.5 py-1.5 text-xs text-gray-400 hover:text-white transition-colors ui-btn hover:bg-white/5 cursor-pointer"
 				title={t("layout.language.label")}
 				aria-label={t("layout.language.label")}
 				data-testid="language-trigger"
@@ -1000,7 +1000,7 @@ export function Layout({ children }: LayoutProps) {
 											<span className="flex items-center gap-1.5">
 												<span>{item.name}</span>
 												<span
-													className="inline-flex items-center gap-[2px] text-[0.625rem] leading-[1.6] font-medium bg-white/10 px-[7px] py-[1px] rounded-full translate-y-[1px]"
+													className="inline-flex items-center gap-[2px] text-[0.625rem] leading-[1.6] font-medium bg-white/10 px-[7px] py-[1px] translate-y-[1px] ui-badge"
 													title={(() => {
 														if (!cbStatus.providers) return undefined;
 														const unhealthy = cbStatus.providers.filter(
@@ -1050,7 +1050,7 @@ export function Layout({ children }: LayoutProps) {
 							href="https://github.com/hugalafutro/model-hotel/wiki"
 							target="_blank"
 							rel="noopener noreferrer"
-							className="sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5"
+							className="sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors ui-btn hover:bg-white/5"
 						>
 							<BookOpen size={14} strokeWidth={2} />
 							{/* "Wiki" is a fixed brand/proper-noun label for the link to
@@ -1062,7 +1062,7 @@ export function Layout({ children }: LayoutProps) {
 						<button
 							type="button"
 							onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-							className="sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5 cursor-pointer"
+							className="sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors ui-btn hover:bg-white/5 cursor-pointer"
 							title={
 								theme === "dark"
 									? t("layout.theme.switchToLight")
@@ -1088,7 +1088,7 @@ export function Layout({ children }: LayoutProps) {
 										? t("layout.updateAvailable", { running, latest })
 										: t("layout.running", { running })
 							}
-							className={`sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5`}
+							className={`sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors ui-btn hover:bg-white/5`}
 						>
 							<GitBranch size={14} strokeWidth={2} />
 							<span

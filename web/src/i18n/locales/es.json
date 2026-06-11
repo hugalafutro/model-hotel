@@ -267,7 +267,8 @@
 			"topProviders": "Proveedores principales",
 			"topVirtualKeys": "Claves virtuales principales",
 			"emptyState": "Aún no hay datos de uso. El desglose de uso aparecerá aquí una vez que fluya el tráfico.",
-			"viewDetailsFor": "Ver detalles de {{label}}"
+			"viewDetailsFor": "Ver detalles de {{label}}",
+			"deletedModelTooltip": "El modelo ya no está disponible; es posible que se haya eliminado o que se haya retirado su proveedor"
 		},
 		"latency": {
 			"topModels": "Modelos más lentos",

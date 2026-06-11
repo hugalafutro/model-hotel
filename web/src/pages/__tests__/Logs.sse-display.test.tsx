@@ -623,7 +623,7 @@ describe("Logs", () => {
 			expect(statusElement).toBeInTheDocument();
 			// Find the span containing the status text and check its class directly
 			const badge = statusElement.closest("[data-test-variant]");
-			expect(badge).toHaveClass("text-gray-400");
+			expect(badge).toHaveClass("ui-badge-neutral");
 		});
 	});
 

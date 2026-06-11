@@ -30,7 +30,7 @@ export function EndpointTypeBadge({
 		return (
 			<span
 				data-testid="endpoint-type-badge"
-				className="inline-flex items-center gap-1 px-2 py-1 leading-[1.6] rounded-full text-xs font-medium bg-sky-500/15 text-sky-400 border border-sky-500/30"
+				className="ui-badge ui-badge-info inline-flex items-center gap-1 px-2 py-1 leading-[1.6] text-xs font-medium"
 			>
 				<Icon size={12} />
 				<span className="badge-text">{label}</span>

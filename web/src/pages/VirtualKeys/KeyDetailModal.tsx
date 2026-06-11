@@ -6,6 +6,7 @@ import { api } from "../../api/client";
 import type { VirtualKey } from "../../api/types";
 import { ConfirmDeleteButton } from "../../components/ConfirmDeleteButton";
 import { Modal } from "../../components/Modal";
+import { Toggle } from "../../components/Toggle";
 import { formatNumber } from "../../utils/format";
 
 function SectionHeader({
@@ -348,11 +349,11 @@ export function KeyDetailModal({
 												type="button"
 												onClick={() => toggleProvider(provider.id)}
 												aria-pressed={isExcluded}
-												className={`inline-flex items-center rounded-full px-2 py-px leading-[1.6] text-xs font-medium cursor-pointer transition-colors
+												className={`inline-flex items-center px-2 py-px leading-[1.6] text-xs font-medium cursor-pointer transition-colors ui-badge
 													${
 														isExcluded
-															? "bg-gray-800/60 text-gray-500 border border-gray-700/60 line-through hover:bg-gray-700/60"
-															: "bg-(--accent)/20 text-(--accent) border border-(--accent)/40"
+															? "ui-badge-neutral line-through opacity-60 hover:brightness-125"
+															: "ui-badge-accent"
 													}`}
 											>
 												{provider.name}
@@ -373,28 +374,12 @@ export function KeyDetailModal({
 						/>
 						<div>
 							<div className="flex items-center gap-3">
-								<button
-									type="button"
-									onClick={() => setEditStripReasoning(!editStripReasoning)}
-									aria-pressed={editStripReasoning}
-									aria-label={
-										editStripReasoning
-											? t("virtualkeys.modal.form.disableStripReasoning")
-											: t("virtualkeys.modal.form.enableStripReasoning")
-									}
-									className={`relative inline-flex items-center h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-										editStripReasoning
-											? "bg-(--accent) shadow-[var(--glow-accent)]"
-											: "bg-gray-600"
-									}`}
-								>
-									<span
-										aria-hidden="true"
-										className={`pointer-events-none block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 ease-in-out ${
-											editStripReasoning ? "translate-x-6" : "translate-x-0"
-										}`}
-									/>
-								</button>
+								<Toggle
+									checked={editStripReasoning}
+									onChange={setEditStripReasoning}
+									size="sm"
+									ariaLabel={t("virtualkeys.modal.form.stripReasoning")}
+								/>
 								<span className="text-sm text-gray-200">
 									{editStripReasoning
 										? t("common.enabled")
@@ -499,11 +484,11 @@ export function KeyDetailModal({
 										return (
 											<span
 												key={provider.id}
-												className={`inline-flex items-center rounded-full px-2 py-px leading-[1.6] text-xs font-medium
+												className={`inline-flex items-center px-2 py-px leading-[1.6] text-xs font-medium ui-badge
 													${
 														isAllowed
-															? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40"
-															: "bg-gray-800/60 text-gray-500 border border-gray-700/60 line-through"
+															? "ui-badge-accent"
+															: "ui-badge-neutral line-through opacity-60"
 													}`}
 											>
 												{provider.name}

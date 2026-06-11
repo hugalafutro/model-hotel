@@ -27,7 +27,7 @@ describe("SubModeToggle", () => {
 		expect(screen.getByText("Grid")).toBeInTheDocument();
 	});
 
-	it("highlights active option", () => {
+	it("highlights active option with ui-btn-primary", () => {
 		const onChange = vi.fn();
 		renderWithProviders(
 			<SubModeToggle options={options} value="list" onChange={onChange} />,
@@ -36,13 +36,10 @@ describe("SubModeToggle", () => {
 		const listButton = screen.getByText("List").closest("button");
 		const gridButton = screen.getByText("Grid").closest("button");
 
-		expect(listButton).toHaveClass("bg-(--accent)/20");
-		expect(listButton).toHaveClass("text-(--accent)");
-		expect(listButton).toHaveClass("border-(--accent)/40");
+		expect(listButton).toHaveClass("ui-btn-primary");
 		expect(listButton).toHaveClass("cursor-default");
 
-		expect(gridButton).not.toHaveClass("bg-(--accent)/20");
-		expect(gridButton).not.toHaveClass("text-(--accent)");
+		expect(gridButton).not.toHaveClass("ui-btn-primary");
 	});
 
 	it("calls onChange with selected value", async () => {

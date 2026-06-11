@@ -163,10 +163,10 @@ export function Dashboard() {
 									: t("dashboard.allKeys")
 							}
 							aria-label={t("dashboard.toggleKeyFilter")}
-							className={`flex items-center gap-1 px-1.5 py-px leading-[1.6] rounded text-[10px] font-semibold transition-colors ${
+							className={`ui-badge flex items-center gap-1 px-1.5 py-px leading-[1.6] text-[10px] font-semibold transition-colors ${
 								excludeDeleted
-									? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"
-									: "bg-green-500/20 text-green-400 hover:bg-green-500/30"
+									? "ui-badge-warning hover:brightness-125"
+									: "ui-badge-success hover:brightness-125"
 							}`}
 						>
 							<span className="badge-text">

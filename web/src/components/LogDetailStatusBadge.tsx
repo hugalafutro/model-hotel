@@ -11,10 +11,10 @@ interface StatusBadgeProps {
 type BadgeVariant = "blue" | "red" | "green" | "orange";
 
 const VARIANT_STYLES: Record<BadgeVariant, string> = {
-	blue: "bg-blue-500/15 text-blue-400 border-blue-500/30",
-	red: "bg-red-500/15 text-red-400 border-red-500/30",
-	green: "bg-green-500/15 text-green-400 border-green-500/30",
-	orange: "bg-orange-500/15 text-orange-400 border-orange-500/30",
+	blue: "ui-badge-info",
+	red: "ui-badge-error",
+	green: "ui-badge-success",
+	orange: "ui-badge-orange",
 };
 
 interface StatusDisplay {
@@ -107,7 +107,7 @@ export function StatusBadge({ code, state, errorMessage }: StatusBadgeProps) {
 	const Icon = display.icon;
 	return (
 		<span
-			className={`inline-flex items-center gap-1.5 px-2.5 py-1 leading-[1.6] rounded-full text-xs font-medium border ${VARIANT_STYLES[display.variant]}`}
+			className={`ui-badge inline-flex items-center gap-1.5 px-2.5 py-1 leading-[1.6] text-xs font-medium ${VARIANT_STYLES[display.variant]}`}
 		>
 			{display.animate ? (
 				<span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />

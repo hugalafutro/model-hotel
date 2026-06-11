@@ -295,6 +295,35 @@ describe("SettingsSlider", () => {
 			const stepDownBtn = buttons[1];
 			expect(stepDownBtn).toBeDisabled();
 		});
+
+		it("draws slider bar without accent color when at infinityValue", () => {
+			renderWithProviders(
+				<SettingsSlider {...defaultProps} value={0} infinityValue={0} />,
+			);
+			const slider = screen.getByRole("slider");
+			// When at infinityValue (off/disabled position), the bar should
+			// NOT be filled with accent color. pct=0 means no gradient fill.
+			expect(slider.style.background).toBe(
+				"linear-gradient(to right, var(--accent) 0%, var(--surface-hover) 0%)",
+			);
+		});
+
+		it("draws slider bar with accent color when NOT at infinityValue", () => {
+			renderWithProviders(
+				<SettingsSlider
+					{...defaultProps}
+					value={50}
+					min={0}
+					max={100}
+					infinityValue={0}
+				/>,
+			);
+			const slider = screen.getByRole("slider");
+			// When value is 50 of 100, pct should be 50
+			expect(slider.style.background).toBe(
+				"linear-gradient(to right, var(--accent) 50%, var(--surface-hover) 50%)",
+			);
+		});
 	});
 
 	it("clamps to step on blur when value is not aligned to step", () => {

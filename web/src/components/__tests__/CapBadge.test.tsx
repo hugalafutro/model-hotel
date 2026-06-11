@@ -83,4 +83,10 @@ describe("CapBadge", () => {
 		);
 		expect(container.firstChild).toBeNull();
 	});
+
+	it("applies ui-badge class for terminal theme styling", () => {
+		render(<CapBadge caps={mockCapsWithVision} capKey="vision" />);
+		const badge = screen.getByText("Vision");
+		expect(badge).toHaveClass("ui-badge");
+	});
 });

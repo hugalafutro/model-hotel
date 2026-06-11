@@ -284,13 +284,13 @@ export function AppearanceSettings({
 						<p className="text-sm font-medium text-gray-300">
 							{t("settings.appearance.theme")}
 						</p>
-						<div className="flex rounded-lg overflow-hidden border border-gray-600">
+						<div className="flex overflow-hidden border border-gray-600">
 							<button
 								type="button"
 								onClick={() => setTheme("dark")}
-								className={`px-4 py-2 text-sm font-medium transition-colors ${
+								className={`ui-btn px-4 py-2 text-sm font-medium transition-colors ${
 									theme === "dark"
-										? "bg-(--accent) text-white"
+										? "ui-btn-primary"
 										: "bg-gray-700 text-gray-400 hover:bg-gray-600"
 								}`}
 							>
@@ -299,9 +299,9 @@ export function AppearanceSettings({
 							<button
 								type="button"
 								onClick={() => setTheme("light")}
-								className={`px-4 py-2 text-sm font-medium transition-colors ${
+								className={`ui-btn px-4 py-2 text-sm font-medium transition-colors ${
 									theme === "light"
-										? "bg-(--accent) text-white"
+										? "ui-btn-primary"
 										: "bg-gray-700 text-gray-400 hover:bg-gray-600"
 								}`}
 							>

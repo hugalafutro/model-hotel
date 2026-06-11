@@ -21,7 +21,7 @@ export const CapBadge = memo(function CapBadge({
 				: meta.style;
 	return (
 		<span
-			className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium border ${style}`}
+			className={`ui-badge inline-flex items-center px-1.5 py-0.5 text-[11px] font-medium border ${style}`}
 		>
 			{meta.label}
 		</span>

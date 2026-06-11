@@ -249,7 +249,7 @@ export function TimeSeriesChart({
 					/>
 				)}
 				{panDateLabel && (
-					<div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 px-3 py-1 leading-[1.6] rounded-full text-xs font-medium bg-(--surface-elevated)/90 text-(--text-secondary) border border-(--border-subtle) pointer-events-none backdrop-blur-sm">
+					<div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 px-3 py-1 leading-[1.6] text-xs font-medium bg-(--surface-elevated)/90 text-(--text-secondary) border border-(--border-subtle) pointer-events-none backdrop-blur-sm ui-badge">
 						{panDateLabel}
 					</div>
 				)}

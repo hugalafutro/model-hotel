@@ -567,10 +567,10 @@ export function ModelDetailModal({
 					</h3>
 					<div className="flex items-center gap-2">
 						<span
-							className={`inline-flex items-center px-2 py-px leading-[1.6] rounded text-xs font-medium ${
+							className={`ui-badge inline-flex items-center px-2 py-px leading-[1.6] text-xs font-medium ${
 								params.subscription_included
-									? "bg-green-900/40 text-green-300 border border-green-700/50"
-									: "bg-yellow-900/40 text-yellow-300 border border-yellow-700/50"
+									? "ui-badge-success"
+									: "ui-badge-warning"
 							}`}
 						>
 							{params.subscription_included
@@ -631,11 +631,7 @@ export function ModelDetailModal({
 					<button
 						type="button"
 						onClick={() => onToggle(model.id, !model.enabled)}
-						className={`px-3 py-1.5 text-xs rounded-full border cursor-pointer transition-all ${
-							model.enabled
-								? "bg-green-900/50 text-green-400 border-green-700/50 hover:brightness-125 hover:shadow-[var(--glow-box-green)]"
-								: "bg-red-900/50 text-red-400 border-red-700/50 hover:brightness-125 hover:shadow-[var(--glow-box-red)]"
-						}`}
+						className={`ui-btn ${model.enabled ? "ui-btn-primary" : "ui-btn-danger"}`}
 					>
 						{model.enabled ? t("common.enabled") : t("common.disabled")}
 					</button>
@@ -643,12 +639,12 @@ export function ModelDetailModal({
 						type="button"
 						disabled={testing}
 						onClick={handleTest}
-						className={`px-3 py-1.5 text-xs rounded-full border transition-all flex items-center gap-1.5 ${
+						className={`ui-btn ${
 							testError
-								? "bg-red-900/50 text-red-300 border-red-700/50"
+								? "ui-btn-danger bg-red-900/50 text-red-300 border-red-700/50"
 								: testing
-									? "bg-amber-900/30 text-amber-300/70 border-amber-700/30 cursor-wait"
-									: "bg-amber-900/40 text-amber-300 border-amber-700/50 cursor-pointer hover:brightness-125 hover:shadow-[var(--glow-box-amber)]"
+									? "ui-btn-secondary bg-amber-900/30 text-amber-300/70 border-amber-700/30 cursor-wait"
+									: "ui-btn-secondary cursor-pointer hover:brightness-125 hover:shadow-[var(--glow-box-amber)]"
 						}`}
 					>
 						{testing && <Spinner />}
@@ -658,7 +654,7 @@ export function ModelDetailModal({
 						<button
 							type="button"
 							onClick={() => setConfirmDelete(true)}
-							className="px-3 py-1.5 text-xs rounded-full border bg-red-900/20 text-red-500/60 border-red-700/30 cursor-pointer hover:bg-red-900/40 hover:text-red-400 transition-all"
+							className="ui-btn bg-red-900/20 text-red-500/60 border-red-700/30 cursor-pointer hover:bg-red-900/40 hover:text-red-400"
 						>
 							{t("common.delete")}
 						</button>
@@ -669,7 +665,7 @@ export function ModelDetailModal({
 								onDelete(model.id);
 								onClose();
 							}}
-							className="px-3 py-1.5 text-xs rounded-full border bg-red-900/50 text-red-400 border-red-700/50 cursor-pointer hover:brightness-125 hover:shadow-[var(--glow-box-red)] transition-all"
+							className="ui-btn ui-btn-danger cursor-pointer hover:brightness-125 hover:shadow-[var(--glow-box-red)]"
 						>
 							{t("models.detail.confirmDelete")}
 						</button>
@@ -706,7 +702,7 @@ export function ModelDetailModal({
 								type="button"
 								disabled={cooldown > 0 || discovering}
 								onClick={handleDiscover}
-								className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
+								className={`ui-btn ${
 									cooldown > 0 || discovering
 										? "bg-(--accent-lighter) text-(--accent)/50 border-(--accent-light) cursor-not-allowed"
 										: "bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125"

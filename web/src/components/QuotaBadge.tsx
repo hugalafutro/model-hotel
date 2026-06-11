@@ -28,7 +28,7 @@ export type QuotaBadgeVariant = "sidebar" | "card";
 
 const VARIANT_CLASSES: Record<QuotaBadgeVariant, string> = {
 	sidebar: "",
-	card: "px-2 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-colors",
+	card: "px-2 py-1.5 text-xs font-medium cursor-pointer transition-colors ui-badge",
 };
 
 /** Type-safe prefix lookup - backed by the central brand map. */

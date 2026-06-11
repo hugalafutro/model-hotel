@@ -283,7 +283,7 @@ describe("ProviderLatencyPanel", () => {
 			);
 
 			// Click once to toggle to asc
-			const responseBtn = screen.getByText("Response").closest("button")!;
+			const responseBtn = screen.getByRole("button", { name: "Response" });
 			await user.click(responseBtn);
 
 			const rows = container.querySelectorAll(
@@ -300,7 +300,7 @@ describe("ProviderLatencyPanel", () => {
 				<ProviderLatencyPanel {...defaultProps} />,
 			);
 
-			const overheadBtn = screen.getByText("Overhead").closest("button")!;
+			const overheadBtn = screen.getByRole("button", { name: "Overhead" });
 			await user.click(overheadBtn);
 
 			const rows = container.querySelectorAll(
@@ -318,7 +318,7 @@ describe("ProviderLatencyPanel", () => {
 			);
 
 			// Toggle to ascending
-			const responseBtn = screen.getByText("Response").closest("button")!;
+			const responseBtn = screen.getByRole("button", { name: "Response" });
 			await user.click(responseBtn);
 
 			// Colors should still be assigned by ranking, not by display order
@@ -337,7 +337,7 @@ describe("ProviderLatencyPanel", () => {
 			renderWithProviders(<ProviderLatencyPanel {...defaultProps} />);
 
 			// Click overhead header to switch sort column
-			const overheadBtn = screen.getByText("Overhead").closest("button")!;
+			const overheadBtn = screen.getByRole("button", { name: "Overhead" });
 			await user.click(overheadBtn);
 
 			expect(localStorage.getItem("dashboard.latencySortField")).toBe(
@@ -351,7 +351,7 @@ describe("ProviderLatencyPanel", () => {
 			renderWithProviders(<ProviderLatencyPanel {...defaultProps} />);
 
 			// Click response header twice: once to switch column, once to toggle dir
-			const responseBtn = screen.getByText("Response").closest("button")!;
+			const responseBtn = screen.getByRole("button", { name: "Response" });
 			await user.click(responseBtn); // toggles to asc
 			expect(localStorage.getItem("dashboard.latencySortDir")).toBe("asc");
 

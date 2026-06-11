@@ -267,7 +267,8 @@
 			"topProviders": "Legjobb szolgáltatók",
 			"topVirtualKeys": "Legjobb virtuális kulcsok",
 			"emptyState": "Még nincsenek használati adatok. A forgalom megindulásával itt jelennek meg a használati adatok.",
-			"viewDetailsFor": "Részletek megtekintése {{label}}"
+			"viewDetailsFor": "Részletek megtekintése {{label}}",
+			"deletedModelTooltip": "A modell már nem elérhető – lehet, hogy törölték, vagy a forgalmazóját eltávolították"
 		},
 		"latency": {
 			"topModels": "Leglassúbb modellek",

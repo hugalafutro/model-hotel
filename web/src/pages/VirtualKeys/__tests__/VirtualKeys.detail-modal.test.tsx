@@ -904,17 +904,17 @@ describe("VirtualKeys", () => {
 			});
 			await user.click(editButton);
 
-			// Find the strip reasoning toggle
-			const toggle = within(dialog).getByRole("button", {
-				name: "Enable strip reasoning",
+			// Find the strip reasoning toggle (Toggle component uses role="switch")
+			const toggle = within(dialog).getByRole("switch", {
+				name: "Strip Reasoning",
 			});
-			expect(toggle).toHaveAttribute("aria-pressed", "false");
+			expect(toggle).toHaveAttribute("aria-checked", "false");
 
 			// Click the toggle
 			await user.click(toggle);
 
 			// Should now be enabled
-			expect(toggle).toHaveAttribute("aria-pressed", "true");
+			expect(toggle).toHaveAttribute("aria-checked", "true");
 			expect(within(dialog).getByText("Enabled")).toBeInTheDocument();
 		});
 

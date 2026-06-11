@@ -30,7 +30,7 @@ describe("ProviderModelsModal", () => {
 
 		// Badge renders count and plural separately
 		// t("components.providerModelsModal.modelCount", { count: 2 }) resolves to "models" (the _other form)
-		const badge = document.querySelector("span.rounded-full");
+		const badge = document.querySelector("span.ui-badge");
 		expect(badge).toBeInTheDocument();
 		expect(badge?.textContent).toMatch(/2\s+models/);
 	});
@@ -57,7 +57,7 @@ describe("ProviderModelsModal", () => {
 		);
 
 		// Badge renders count and plural: "5 models"
-		const badge = document.querySelector("span.rounded-full");
+		const badge = document.querySelector("span.ui-badge");
 		expect(badge).toBeInTheDocument();
 		expect(badge?.textContent).toMatch(/5\s+models/);
 	});
@@ -150,7 +150,7 @@ describe("ProviderModelsModal", () => {
 		);
 
 		// Badge renders count and plural: "0 models" (t key with count=0 uses _other form)
-		const badge = document.querySelector("span.rounded-full");
+		const badge = document.querySelector("span.ui-badge");
 		expect(badge).toBeInTheDocument();
 		expect(badge?.textContent).toMatch(/0\s+models/);
 

@@ -282,7 +282,7 @@ describe("VirtualLogTable", () => {
 			);
 
 			const badge = screen.getByText("200").closest("[data-test-variant]");
-			expect(badge).toHaveClass("bg-green-900/30", "text-green-400");
+			expect(badge).toHaveClass("ui-badge-success");
 		});
 
 		it("renders status badge variant correctly for status 0 (error)", () => {
@@ -297,7 +297,7 @@ describe("VirtualLogTable", () => {
 			);
 
 			const badge = screen.getByText("0").closest("[data-test-variant]");
-			expect(badge).toHaveClass("bg-red-900/30", "text-red-400");
+			expect(badge).toHaveClass("ui-badge-error");
 		});
 
 		it("renders status badge variant correctly for status 429 (orange - 4xx)", () => {
@@ -312,7 +312,7 @@ describe("VirtualLogTable", () => {
 			);
 
 			const badge = screen.getByText("429").closest("[data-test-variant]");
-			expect(badge).toHaveClass("bg-orange-900/30", "text-orange-400");
+			expect(badge).toHaveClass("ui-badge-orange");
 		});
 
 		it("renders status badge variant correctly for status 500 (error - 5xx)", () => {
@@ -327,7 +327,7 @@ describe("VirtualLogTable", () => {
 			);
 
 			const badge = screen.getByText("500").closest("[data-test-variant]");
-			expect(badge).toHaveClass("bg-red-900/30", "text-red-400");
+			expect(badge).toHaveClass("ui-badge-error");
 		});
 
 		it("renders status badge variant correctly for status 100 (muted - 1xx)", () => {
@@ -342,7 +342,7 @@ describe("VirtualLogTable", () => {
 			);
 
 			const badge = screen.getByText("100").closest("[data-test-variant]");
-			expect(badge).toHaveClass("bg-gray-700/30", "text-gray-400");
+			expect(badge).toHaveClass("ui-badge-neutral");
 		});
 
 		it('renders "Interrupted" for cancelled error messages in tokens column', () => {

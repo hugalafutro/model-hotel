@@ -267,7 +267,8 @@
 			"topProviders": "En iyi sağlayıcılar",
 			"topVirtualKeys": "En iyi sanal anahtarlar",
 			"emptyState": "Henüz kullanım verisi yok. Trafik akışı başladığında kullanım dağılımı burada görünecektir.",
-			"viewDetailsFor": "Ayrıntıları görüntüle {{label}}"
+			"viewDetailsFor": "Ayrıntıları görüntüle {{label}}",
+			"deletedModelTooltip": "Model artık mevcut değil — silinmiş olabilir veya satıcısı kaldırılmış olabilir"
 		},
 		"latency": {
 			"topModels": "En yavaş modeller",

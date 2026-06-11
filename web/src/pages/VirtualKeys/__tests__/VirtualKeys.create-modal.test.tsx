@@ -721,20 +721,15 @@ describe("VirtualKeys", () => {
 				name: "Create Virtual Key",
 			});
 
-			const toggle = within(dialog).getByRole("button", {
-				name: "Enable strip reasoning",
+			const toggle = within(dialog).getByRole("switch", {
+				name: "Strip Reasoning",
 			});
-			expect(toggle).toHaveAttribute("aria-pressed", "false");
+			expect(toggle).toHaveAttribute("aria-checked", "false");
 			expect(within(dialog).getByText("Disabled")).toBeInTheDocument();
 
 			await user.click(toggle);
 
-			expect(toggle).toHaveAttribute("aria-pressed", "true");
-			expect(
-				within(dialog).getByRole("button", {
-					name: "Disable strip reasoning",
-				}),
-			).toBeInTheDocument();
+			expect(toggle).toHaveAttribute("aria-checked", "true");
 			expect(within(dialog).getByText("Enabled")).toBeInTheDocument();
 		});
 
@@ -778,8 +773,8 @@ describe("VirtualKeys", () => {
 			const nameInput = within(dialog).getByLabelText("Name");
 			await user.type(nameInput, "Strip Key");
 
-			const toggle = within(dialog).getByRole("button", {
-				name: "Enable strip reasoning",
+			const toggle = within(dialog).getByRole("switch", {
+				name: "Strip Reasoning",
 			});
 			await user.click(toggle);
 

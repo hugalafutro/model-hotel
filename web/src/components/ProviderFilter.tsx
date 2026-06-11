@@ -105,7 +105,7 @@ export function ProviderFilter({
 						<span
 							role="button"
 							tabIndex={0}
-							className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-medium bg-(--accent-light) text-(--accent) cursor-pointer"
+							className="ui-badge inline-flex items-center justify-center w-4 h-4 text-[10px] font-medium bg-(--accent-light) text-(--accent) cursor-pointer"
 							onClick={(e) => {
 								e.stopPropagation();
 								clear();

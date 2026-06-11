@@ -825,9 +825,11 @@ describe("ModelTable", () => {
 			const statusBadge = screen.getByText("Manually Disabled");
 			expect(statusBadge).toBeInTheDocument();
 
-			// Verify the badge has yellow/warning styling
+			// Verify the badge has warning styling
 			// The text is in the inner <span class="badge-text">, check parent's class
-			expect(statusBadge.parentElement?.className).toMatch(/yellow/);
+			expect(statusBadge.parentElement?.className).toContain(
+				"ui-badge-warning",
+			);
 		});
 	});
 
