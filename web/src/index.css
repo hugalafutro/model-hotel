@@ -1832,6 +1832,9 @@ html[data-ui-style="glassmorphism-lite"].dark .ui-table-header-text {
 	border-radius: var(--radius-pill);
 	font-size: 0.6875rem;
 	font-weight: 500;
+	/* Badges are short labels: never let a long locale wrap them, which
+	   squeezes neighbors (e.g. the range toggles) into vertical breaks. */
+	white-space: nowrap;
 }
 
 html[data-ui-style="cyber-terminal"] .ui-badge {
@@ -1845,6 +1848,8 @@ html[data-ui-style="cyber-terminal"] .ui-badge {
 /* Compact toggle-tab buttons (1h/1d/1w, Tok/Req) */
 [data-ui-style] .ui-tab {
 	border-radius: 0.25rem;
+	/* The digit and unit letter must never split onto two lines. */
+	white-space: nowrap;
 }
 html[data-ui-style="cyber-terminal"] .ui-tab {
 	border-radius: 0;
