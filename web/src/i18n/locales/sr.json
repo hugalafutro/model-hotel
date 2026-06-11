@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Резервна копија базе података",
-			"description": "Креирајте и преузмите резервне копије PostgreSQL-а. Користи pg_dump са прилагођеним форматом за ефикасно компримовање.",
+			"description": "Креирајте и преузмите резервне копије PostgreSQL-а. Користи <code>pg_dump</code> са прилагођеним форматом за ефикасно компримовање.",
 			"restoreRequirements": "Обнови захтеве",
 			"restoreRequirements.masterKey": "MASTER_KEY мора да се подудара",
 			"restoreRequirements.masterKeyDescription": "API кључеви провајдера су шифровани AES-256-GCM. Опорављање помоћу другог MASTER_KEY-а учиниће све кључеве провајдера неповратним.",

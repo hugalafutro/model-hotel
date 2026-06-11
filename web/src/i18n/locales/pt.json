@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Backup do banco",
-			"description": "Criar e baixar backups do PostgreSQL. Usa pg_dump com formato personalizado para compressão eficiente.",
+			"description": "Criar e baixar backups do PostgreSQL. Usa <code>pg_dump</code> com formato personalizado para compressão eficiente.",
 			"restoreRequirements": "Restaurar Requisitos",
 			"restoreRequirements.masterKey": "MASTER_KEY deve corresponder",
 			"restoreRequirements.masterKeyDescription": "Chaves API do provedor são AES-256-GCM criptografados. Restaurar com uma MASTER_KEY diferente fará com que todas as chaves do provedor fiquem inrecuperáveis.",

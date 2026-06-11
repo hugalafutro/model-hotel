@@ -791,8 +791,8 @@
 		"page_description": "Odkryte modele od Twoich dostawców",
 		"badge_enabled": "{{count}} włączony",
 		"badge_disabled": "{{count}} wyłączony",
-		"view_mode_pages": "<unk> Strony",
-		"view_mode_scroll": "<unk> Przewiń",
+		"view_mode_pages": "⬡ Strony",
+		"view_mode_scroll": "⇊ Przewiń",
 		"switch_to_pagination": "Przełącz na tryb paginacji",
 		"switch_to_scroll": "Przełącz na tryb przewijania",
 		"toast_updated": "Model zaktualizowany",
@@ -1156,8 +1156,8 @@
 			"label": "wpisy"
 		},
 		"loading": {
-			"newer": "<unk> Ładowanie nowszych…",
-			"older": "<unk> Ładowanie starszego…"
+			"newer": "↻ Ładowanie nowszych…",
+			"older": "↻ Ładowanie starszego…"
 		}
 	},
 	"applogs": {
@@ -1192,8 +1192,8 @@
 			"label": "wpisy"
 		},
 		"loading": {
-			"newer": "<unk> Ładowanie nowszych…",
-			"older": "<unk> Ładowanie starszego…"
+			"newer": "↻ Ładowanie nowszych…",
+			"older": "↻ Ładowanie starszego…"
 		}
 	},
 	"format": {
@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Kopia zapasowa bazy danych",
-			"description": "Utwórz i pobierz kopie zapasowe PostgreSQL. Używa pg_dump z niestandardowym formatem dla efektywnej kompresji.",
+			"description": "Utwórz i pobierz kopie zapasowe PostgreSQL. Używa <code>pg_dump</code> z niestandardowym formatem dla efektywnej kompresji.",
 			"restoreRequirements": "Wymagania przywracania",
 			"restoreRequirements.masterKey": "MASTER_KEY musi się zgadzać",
 			"restoreRequirements.masterKeyDescription": "Klucze API dostawcy to AES-256-GCM zaszyfrowane. Przywracanie z innym MASTER_KEY sprawi, że wszystkie klucze dostawcy nie będą mogły zostać odzyskane.",
@@ -1792,8 +1792,8 @@
 			"viewModeToggle": {
 				"switchToScroll": "Przełącz na tryb przewijania",
 				"switchToPagination": "Przełącz na tryb paginacji",
-				"scroll": "<unk> Przewiń",
-				"pages": "<unk> Strony"
+				"scroll": "⇊ Przewiń",
+				"pages": "⬡ Strony"
 			},
 			"dateFilterButton": {
 				"filterByDateRange": "Filtruj według zakresu dat",
@@ -2228,8 +2228,8 @@
 		"viewModeToggle": {
 			"switchToScroll": "Przełącz na tryb przewijania",
 			"switchToPagination": "Przełącz na tryb paginacji",
-			"scroll": "<unk> Przewiń",
-			"pages": "<unk> Strony"
+			"scroll": "⇊ Przewiń",
+			"pages": "⬡ Strony"
 		},
 		"liveToggleButton": {
 			"live": "Żywe",

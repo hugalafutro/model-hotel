@@ -791,8 +791,8 @@
 		"page_description": "Modely vyhledané od vašich poskytovatelů",
 		"badge_enabled": "{{count}} je zapnutý",
 		"badge_disabled": "{{count}} je deaktivováno",
-		"view_mode_pages": "<unk> Stránky",
-		"view_mode_scroll": "<unk> Posunout",
+		"view_mode_pages": "⬡ Stránky",
+		"view_mode_scroll": "⇊ Posunout",
 		"switch_to_pagination": "Přepnout do režimu stránkování",
 		"switch_to_scroll": "Přepnout do režimu posouvání",
 		"toast_updated": "Aktualizovaný model",
@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Zálohování databáze",
-			"description": "Vytváření a stahování záloh PostgreSQL. Využívá nástroj pg_dump s vlastním formátem pro efektivní kompresi.",
+			"description": "Vytváření a stahování záloh PostgreSQL. Využívá nástroj <code>pg_dump</code> s vlastním formátem pro efektivní kompresi.",
 			"restoreRequirements": "Požadavky na obnovení",
 			"restoreRequirements.masterKey": "Hlavní klíč se musí shodovat",
 			"restoreRequirements.masterKeyDescription": "Klíče API poskytovatele jsou šifrovány pomocí algoritmu AES-256-GCM. Obnovení pomocí jiného klíče MASTER_KEY způsobí, že všechny klíče poskytovatele budou nenávratně ztraceny.",
@@ -1792,8 +1792,8 @@
 			"viewModeToggle": {
 				"switchToScroll": "Přepnout do režimu posouvání",
 				"switchToPagination": "Přepnout do režimu stránkování",
-				"scroll": "<unk> Posunout",
-				"pages": "<unk> Stránky"
+				"scroll": "⇊ Posunout",
+				"pages": "⬡ Stránky"
 			},
 			"dateFilterButton": {
 				"filterByDateRange": "Filtrovat podle časového období",
@@ -2228,8 +2228,8 @@
 		"viewModeToggle": {
 			"switchToScroll": "Přepnout do režimu posouvání",
 			"switchToPagination": "Přepnout do režimu stránkování",
-			"scroll": "<unk> Posunout",
-			"pages": "<unk> Stránky"
+			"scroll": "⇊ Posunout",
+			"pages": "⬡ Stránky"
 		},
 		"liveToggleButton": {
 			"live": "Živě",

@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Backup baze de date",
-			"description": "Creează și descarcă copii de rezervă PostgreSQL. Folosește pg_dump cu format personalizat pentru compresie eficientă.",
+			"description": "Creează și descarcă copii de rezervă PostgreSQL. Folosește <code>pg_dump</code> cu format personalizat pentru compresie eficientă.",
 			"restoreRequirements": "Restabilire Cerințe",
 			"restoreRequirements.masterKey": "KEY trebuie să se potrivească",
 			"restoreRequirements.masterKeyDescription": "Furnizorul de API cheile sunt criptate AES-256-GCM. Restaurarea cu o MASTER_KEY diferită va lăsa toate cheile furnizoare nerecuperabile.",

@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Tietokannan Varmuuskopiointi",
-			"description": "Luo ja lataa PostgreSQL-varmuuskopio. Käyttää pg_dump-sovellusta mukautetulla formaatilla tehokkaan pakkauksen.",
+			"description": "Luo ja lataa PostgreSQL-varmuuskopio. Käyttää <code>pg_dump</code>-sovellusta mukautetulla formaatilla tehokkaan pakkauksen.",
 			"restoreRequirements": "Palauta Vaatimukset",
 			"restoreRequirements.masterKey": "MASTER_KEY täytyy täsmätä",
 			"restoreRequirements.masterKeyDescription": "Tarjoajan API-avaimet ovat AES-256-GCM salattu. Palautus eri MASTER_KEY jättää kaikki palveluntarjoajan avaimet palautumattomiksi.",

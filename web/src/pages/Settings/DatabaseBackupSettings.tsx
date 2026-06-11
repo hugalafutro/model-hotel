@@ -8,7 +8,7 @@ import {
 	Upload,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { api, getAuthHeaders } from "../../api/client";
 import type { BackupClassification } from "../../api/types";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
@@ -177,24 +177,14 @@ export function DatabaseBackupSettings({
 		>
 			<div className="space-y-4">
 				<p className="text-(--text-secondary) text-sm">
-					{/* Render the literal pg_dump tool name as code; locales keep it
-					    as a plain token (no backticks - nothing parses markdown here). */}
-					{t("settings.backup.description")
-						.split("pg_dump")
-						.flatMap((part, i, arr) =>
-							i < arr.length - 1
-								? [
-										part,
-										<code
-											// biome-ignore lint/suspicious/noArrayIndexKey: static split, order never changes
-											key={i}
-											className="font-mono text-(--text-primary)"
-										>
-											pg_dump
-										</code>,
-									]
-								: [part],
-						)}
+					{/* Locale strings carry <code>pg_dump</code> tags; if a translation
+					    ever drops them, the text still renders, just unstyled. */}
+					<Trans
+						i18nKey="settings.backup.description"
+						components={{
+							code: <code className="font-mono text-(--text-primary)" />,
+						}}
+					/>
 				</p>
 
 				{/* Periodic backup toggle */}

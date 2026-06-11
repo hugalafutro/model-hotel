@@ -791,7 +791,7 @@
 		"page_description": "Upptäckta modeller från dina leverantörer",
 		"badge_enabled": "{{count}} aktiverat",
 		"badge_disabled": "{{count}} inaktiverad",
-		"view_mode_pages": "<unk> sidor",
+		"view_mode_pages": "⬡ sidor",
 		"view_mode_scroll": "Skrolla",
 		"switch_to_pagination": "Växla till sidnumreringsläge",
 		"switch_to_scroll": "Växla till rullningsläge",
@@ -846,7 +846,7 @@
 			"placeholder": {
 				"price": "0.00"
 			},
-			"testSuccess": "Lyckad <unk> Svar: {{content}}{{ttftPart}} <unk> Varaktighet: {{duration}}s",
+			"testSuccess": "Lyckad | Svar: {{content}}{{ttftPart}} | Varaktighet: {{duration}}s",
 			"testFailed": "Test misslyckades: {{error}}"
 		},
 		"table": {
@@ -1156,8 +1156,8 @@
 			"label": "poster"
 		},
 		"loading": {
-			"newer": "<unk> Laddar nyare…",
-			"older": "<unk> Laddar äldre…"
+			"newer": "↻ Laddar nyare…",
+			"older": "↻ Laddar äldre…"
 		}
 	},
 	"applogs": {
@@ -1192,8 +1192,8 @@
 			"label": "poster"
 		},
 		"loading": {
-			"newer": "<unk> Laddar nyare…",
-			"older": "<unk> Laddar äldre…"
+			"newer": "↻ Laddar nyare…",
+			"older": "↻ Laddar äldre…"
 		}
 	},
 	"format": {
@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Säkerhetskopia av databas",
-			"description": "Skapa och ladda ner PostgreSQL-säkerhetskopior. Använder pg_dump med anpassat format för effektiv komprimering.",
+			"description": "Skapa och ladda ner PostgreSQL-säkerhetskopior. Använder <code>pg_dump</code> med anpassat format för effektiv komprimering.",
 			"restoreRequirements": "Återställ Krav",
 			"restoreRequirements.masterKey": "MASTER_KEY måste matcha",
 			"restoreRequirements.masterKeyDescription": "API-nycklar för leverantörer är AES-256-GCM-krypterade. Återställning med en annan MASTER_KEY kommer att lämna alla leverantörsnycklar oåterkalleliga.",
@@ -1793,7 +1793,7 @@
 				"switchToScroll": "Växla till rullningsläge",
 				"switchToPagination": "Växla till sidnumreringsläge",
 				"scroll": "Skrolla",
-				"pages": "<unk> sidor"
+				"pages": "⬡ sidor"
 			},
 			"dateFilterButton": {
 				"filterByDateRange": "Filtrera efter datumintervall",
@@ -2229,7 +2229,7 @@
 			"switchToScroll": "Växla till rullningsläge",
 			"switchToPagination": "Växla till sidnumreringsläge",
 			"scroll": "Skrolla",
-			"pages": "<unk> sidor"
+			"pages": "⬡ sidor"
 		},
 		"liveToggleButton": {
 			"live": "Live",

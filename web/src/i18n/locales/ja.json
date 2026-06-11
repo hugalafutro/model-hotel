@@ -791,8 +791,8 @@
 		"page_description": "プロバイダーからモデルが検出されました",
 		"badge_enabled": "{{count}} は有効です",
 		"badge_disabled": "{{count}} は無効です",
-		"view_mode_pages": "<unk> ページ",
-		"view_mode_scroll": "<unk> スクロール",
+		"view_mode_pages": "⬡ ページ",
+		"view_mode_scroll": "⇊ スクロール",
 		"switch_to_pagination": "ページネーションモードに切り替える",
 		"switch_to_scroll": "スクロールモードに切り替える",
 		"toast_updated": "モデルが更新されました",
@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "データベースバックアップ",
-			"description": "PostgreSQLバックアップを作成してダウンロードします。効率的な圧縮のために、pg_dumpをカスタムフォーマットで使用します。",
+			"description": "PostgreSQLバックアップを作成してダウンロードします。効率的な圧縮のために、<code>pg_dump</code>をカスタムフォーマットで使用します。",
 			"restoreRequirements": "復元要件",
 			"restoreRequirements.masterKey": "MASTER_KEY は一致する必要があります",
 			"restoreRequirements.masterKeyDescription": "プロバイダー API キーは AES-256-GCM 暗号化されています。別の MASTER_KEY で復元すると、すべてのプロバイダーキーが復元できなくなります。",
@@ -1792,8 +1792,8 @@
 			"viewModeToggle": {
 				"switchToScroll": "スクロールモードに切り替える",
 				"switchToPagination": "ページネーションモードに切り替える",
-				"scroll": "<unk> スクロール",
-				"pages": "<unk> ページ"
+				"scroll": "⇊ スクロール",
+				"pages": "⬡ ページ"
 			},
 			"dateFilterButton": {
 				"filterByDateRange": "日付範囲でフィルター",
@@ -2228,8 +2228,8 @@
 		"viewModeToggle": {
 			"switchToScroll": "スクロールモードに切り替える",
 			"switchToPagination": "ページネーションモードに切り替える",
-			"scroll": "<unk> スクロール",
-			"pages": "<unk> ページ"
+			"scroll": "⇊ スクロール",
+			"pages": "⬡ ページ"
 		},
 		"liveToggleButton": {
 			"live": "ライブ",

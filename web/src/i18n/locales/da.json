@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Database Sikkerhedskopi",
-			"description": "Opret og download PostgreSQL sikkerhedskopier. Bruger pg_dump med brugerdefineret format til effektiv komprimering.",
+			"description": "Opret og download PostgreSQL sikkerhedskopier. Bruger <code>pg_dump</code> med brugerdefineret format til effektiv komprimering.",
 			"restoreRequirements": "Gendan Krav",
 			"restoreRequirements.masterKey": "MASTER_KEY skal matche",
 			"restoreRequirements.masterKeyDescription": "Leverandør API-nøgler er AES-256-GCM krypteret. Gendannelse med en anden MASTER_KEY vil efterlade alle leverandørnøgler uoprettelige.",

@@ -791,8 +791,8 @@
 		"page_description": "Entdeckte Modelle von Ihren Anbietern",
 		"badge_enabled": "{{count}} aktiviert",
 		"badge_disabled": "{{count}} deaktiviert",
-		"view_mode_pages": "<unk> Seiten",
-		"view_mode_scroll": "<unk> Scrollen",
+		"view_mode_pages": "⬡ Seiten",
+		"view_mode_scroll": "⇊ Scrollen",
 		"switch_to_pagination": "Zum Seiteneinstellungsmodus wechseln",
 		"switch_to_scroll": "Zum Scroll-Modus wechseln",
 		"toast_updated": "Modell aktualisiert",
@@ -1156,8 +1156,8 @@
 			"label": "einträge"
 		},
 		"loading": {
-			"newer": "<unk> Lade neuere…",
-			"older": "<unk> Lade ältere…"
+			"newer": "↻ Lade neuere…",
+			"older": "↻ Lade ältere…"
 		}
 	},
 	"applogs": {
@@ -1192,8 +1192,8 @@
 			"label": "einträge"
 		},
 		"loading": {
-			"newer": "<unk> Lade neuere…",
-			"older": "<unk> Lade ältere…"
+			"newer": "↻ Lade neuere…",
+			"older": "↻ Lade ältere…"
 		}
 	},
 	"format": {
@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Datenbanksicherung",
-			"description": "Erstelle und lade PostgreSQL Backups. Verwendet pg_dump im benutzerdefinierten Format für eine effiziente Kompression.",
+			"description": "Erstelle und lade PostgreSQL Backups. Verwendet <code>pg_dump</code> im benutzerdefinierten Format für eine effiziente Kompression.",
 			"restoreRequirements": "Anforderungen wiederherstellen",
 			"restoreRequirements.masterKey": "MASTER_KEY muss übereinstimmen",
 			"restoreRequirements.masterKeyDescription": "Provider-API-Schlüssel sind AES-256-GCM verschlüsselt. Wiederherstellen mit einem anderen MASTER_KEY lässt alle Provider-Schlüssel nicht wiederherstellen.",
@@ -1792,8 +1792,8 @@
 			"viewModeToggle": {
 				"switchToScroll": "Zum Scroll-Modus wechseln",
 				"switchToPagination": "Zum Seiteneinstellungsmodus wechseln",
-				"scroll": "<unk> Scrollen",
-				"pages": "<unk> Seiten"
+				"scroll": "⇊ Scrollen",
+				"pages": "⬡ Seiten"
 			},
 			"dateFilterButton": {
 				"filterByDateRange": "Nach Datumsbereich filtern",
@@ -2228,8 +2228,8 @@
 		"viewModeToggle": {
 			"switchToScroll": "Zum Scroll-Modus wechseln",
 			"switchToPagination": "Zum Seiteneinstellungsmodus wechseln",
-			"scroll": "<unk> Scrollen",
-			"pages": "<unk> Seiten"
+			"scroll": "⇊ Scrollen",
+			"pages": "⬡ Seiten"
 		},
 		"liveToggleButton": {
 			"live": "Live",

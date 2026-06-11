@@ -137,7 +137,7 @@ def check_usage() -> dict:
 # ── Interpolation protection ────────────────────────────────────────────────
 
 def protect(text: str) -> tuple[str, dict[str, str]]:
-    """Replace {{vars}} with stable placeholders."""
+    """Replace {{vars}} and <markup> tags with stable placeholders."""
     placeholders = {}
     counter = [0]
 
@@ -147,7 +147,7 @@ def protect(text: str) -> tuple[str, dict[str, str]]:
         placeholders[ph] = m.group(0)
         return ph
 
-    protected = re.sub(r"\{\{[^}]+\}\}", repl, text)
+    protected = re.sub(PROTECTED_RE, repl, text)
     return protected, placeholders
 
 
@@ -158,9 +158,15 @@ def restore(text: str, placeholders: dict[str, str]) -> str:
     return text
 
 
+# {{interpolations}} plus <Trans> markup tags (e.g. <code>...</code>); both
+# must survive translation verbatim, so both are protected from DeepL and
+# compared against en.json by the check.
+PROTECTED_RE = r"\{\{[^}]+\}\}|</?[a-zA-Z][a-zA-Z0-9]*>"
+
+
 def interpolations(text: str) -> set[str]:
-    """The set of {{placeholders}} a string uses."""
-    return set(re.findall(r"\{\{[^}]+\}\}", text))
+    """The set of {{placeholders}} and markup tags a string uses."""
+    return set(re.findall(PROTECTED_RE, text))
 
 
 def translate_batch(values: list[str], target_lang: str) -> list[str]:
@@ -330,6 +336,11 @@ def cmd_check() -> int:
         "\nDeepL mistakes (word order, temporal vs causal 'since'), and commit."
         "\nIntentionally-English values go into tools/i18n-translate/allow-english.json."
     )
+    if problems["malformed"]:
+        print(
+            "Note: `malformed` entries (value is not a string) are NOT fixed by"
+            "\ni18n-fill - edit those locale files by hand."
+        )
     return 1
 
 
