@@ -35,7 +35,7 @@ export function Gauge({
 			type="button"
 			onClick={onClick}
 			title={tooltip}
-			className={`flex flex-col items-center ${onClick ? "cursor-pointer hover:opacity-80 transition-opacity" : "cursor-default"}`}
+			className={`flex flex-col items-center ${onClick ? "hover:opacity-80 transition-opacity" : "cursor-default"}`}
 		>
 			<div className="relative w-28 h-14">
 				<svg className="w-full h-full" viewBox="0 0 100 60">

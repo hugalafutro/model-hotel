@@ -299,7 +299,7 @@ export function ModelPicker({
 								onClick={onRandom}
 								title={t("common.random")}
 								aria-label={t("common.random")}
-								className="cursor-pointer text-white/70 hover:text-(--accent) transition-colors p-1 flex items-center"
+								className="text-white/70 hover:text-(--accent) transition-colors p-1 flex items-center"
 							>
 								<Dices size={13} />
 							</button>
@@ -316,7 +316,7 @@ export function ModelPicker({
 									? t("components.modelPicker.expandAllProviders")
 									: t("components.modelPicker.collapseAllProviders")
 							}
-							className="cursor-pointer text-white/70 hover:text-(--accent) transition-colors p-1 flex items-center"
+							className="text-white/70 hover:text-(--accent) transition-colors p-1 flex items-center"
 						>
 							{collapsedProviders.size === groupedModels.size ? (
 								<ChevronsUpDown size={13} />
@@ -336,7 +336,7 @@ export function ModelPicker({
 								<button
 									type="button"
 									onClick={() => toggleCollapse(providerName)}
-									className={`flex items-center gap-1.5 w-full text-[10px] font-medium cursor-pointer transition-colors text-(--text-secondary) hover:text-(--text-primary)}`}
+									className={`flex items-center gap-1.5 w-full text-[10px] font-medium transition-colors text-(--text-secondary) hover:text-(--text-primary)}`}
 								>
 									<ChevronDown
 										size={10}
@@ -375,7 +375,7 @@ export function ModelPicker({
 													<button
 														type="button"
 														onClick={() => toggleModel(val)}
-														className={`${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}
+														className={`${disabled ? "cursor-not-allowed" : ""}`}
 														disabled={disabled}
 													>
 														{m.display_name || m.model_id}
@@ -391,7 +391,7 @@ export function ModelPicker({
 															className={`shrink-0 flex items-center transition-all ${
 																paramsReadonly
 																	? "opacity-30 cursor-not-allowed"
-																	: "cursor-pointer hover:drop-shadow-[var(--glow-accent)] hover:text-(--accent)"
+																	: "hover:drop-shadow-[var(--glow-accent)] hover:text-(--accent)"
 															}`}
 															title={
 																paramsReadonly

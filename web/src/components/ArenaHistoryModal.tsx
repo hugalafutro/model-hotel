@@ -382,7 +382,7 @@ export function ArenaHistoryModal({
 						className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
 							activeFilter === value
 								? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40 cursor-default"
-								: "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent cursor-pointer"
+								: "text-(--text-tertiary) hover:text-(--text-secondary) border border-transparent"
 						}`}
 					>
 						<Icon size={12} className="inline mr-1 -mt-0.5" />
@@ -423,7 +423,7 @@ export function ArenaHistoryModal({
 								<button
 									type="button"
 									onClick={() => toggleExpand(entry.id)}
-									className="w-full flex items-center gap-3 text-left cursor-pointer"
+									className="w-full flex items-center gap-3 text-left"
 								>
 									{/* Left: mode badge + timestamp */}
 									<div className="flex items-center gap-2 shrink-0">

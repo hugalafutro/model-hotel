@@ -45,7 +45,7 @@ function RevertButton({
 		<button
 			type="button"
 			onClick={onClick}
-			className={`text-[10px] px-1.5 py-0.5 rounded-(--radius-button) bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer ${className ?? ""}`}
+			className={`text-[10px] px-1.5 py-0.5 rounded-(--radius-button) bg-gray-700 text-gray-400 hover:text-white border border-gray-600 ${className ?? ""}`}
 			title={t("model.revertToDiscoveredValue")}
 			aria-label={t("model.revertToDiscoveredValue")}
 		>
@@ -599,7 +599,7 @@ export function ModelDetailModal({
 							role="tab"
 							aria-selected={snippetTab === entry.key}
 							onClick={() => setSnippetTab(entry.key)}
-							className={`ui-tab p-1.5 cursor-pointer transition-all ${
+							className={`ui-tab p-1.5 transition-all ${
 								snippetTab === entry.key
 									? "bg-slate-700/30 border border-slate-600/30"
 									: "text-slate-500 hover:text-slate-400 border border-transparent"
@@ -644,7 +644,7 @@ export function ModelDetailModal({
 								? "ui-btn-danger bg-red-900/50 text-red-300 border-red-700/50"
 								: testing
 									? "ui-btn-secondary bg-amber-900/30 text-amber-300/70 border-amber-700/30 cursor-wait"
-									: "ui-btn-secondary cursor-pointer hover:brightness-125 hover:shadow-[var(--glow-box-amber)]"
+									: "ui-btn-secondary hover:brightness-125 hover:shadow-[var(--glow-box-amber)]"
 						}`}
 					>
 						{testing && <Spinner />}
@@ -654,7 +654,7 @@ export function ModelDetailModal({
 						<button
 							type="button"
 							onClick={() => setConfirmDelete(true)}
-							className="ui-btn bg-red-900/20 text-red-500/60 border-red-700/30 cursor-pointer hover:bg-red-900/40 hover:text-red-400"
+							className="ui-btn bg-red-900/20 text-red-500/60 border-red-700/30 hover:bg-red-900/40 hover:text-red-400"
 						>
 							{t("common.delete")}
 						</button>
@@ -665,7 +665,7 @@ export function ModelDetailModal({
 								onDelete(model.id);
 								onClose();
 							}}
-							className="ui-btn ui-btn-danger cursor-pointer hover:brightness-125 hover:shadow-[var(--glow-box-red)]"
+							className="ui-btn ui-btn-danger hover:brightness-125 hover:shadow-[var(--glow-box-red)]"
 						>
 							{t("models.detail.confirmDelete")}
 						</button>
@@ -705,7 +705,7 @@ export function ModelDetailModal({
 								className={`ui-btn ${
 									cooldown > 0 || discovering
 										? "bg-(--accent-lighter) text-(--accent)/50 border-(--accent-light) cursor-not-allowed"
-										: "bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125"
+										: "bg-(--accent-light) text-(--accent) border-(--accent-lighter) hover:brightness-125"
 								}`}
 							>
 								{discovering ? (

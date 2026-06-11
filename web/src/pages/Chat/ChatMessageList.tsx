@@ -174,7 +174,7 @@ export function ChatMessageList({
 											<button
 												type="button"
 												onClick={onStopConversation}
-												className="text-red-400/60 hover:text-red-400 transition-colors cursor-pointer ml-1"
+												className="text-red-400/60 hover:text-red-400 transition-colors ml-1"
 												title={t("chat.aria.cancel")}
 												aria-label={t("chat.aria.cancel")}
 											>
@@ -189,7 +189,7 @@ export function ChatMessageList({
 											{canDelete && (
 												<button
 													type="button"
-													className="inline-flex items-center cursor-pointer hover:drop-shadow-[var(--glow-red)] text-red-500 transition-all"
+													className="inline-flex items-center hover:drop-shadow-[var(--glow-red)] text-red-500 transition-all"
 													onClick={() => onDeleteMessage(i)}
 													title={t("chat.aria.deleteMessage")}
 													aria-label={t("chat.aria.deleteMessage")}
@@ -246,7 +246,7 @@ export function ChatMessageList({
 													? onStopConversation
 													: onStop
 											}
-											className="text-red-400/60 hover:text-red-400 transition-colors cursor-pointer ml-1"
+											className="text-red-400/60 hover:text-red-400 transition-colors ml-1"
 											title={t("chat.aria.cancel")}
 											aria-label={t("chat.aria.cancel")}
 										>
@@ -258,7 +258,7 @@ export function ChatMessageList({
 											<button
 												type="button"
 												onClick={onRegenerate}
-												className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all cursor-pointer ml-1"
+												className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all ml-1"
 												title={t("chat.aria.regenerate")}
 												aria-label={t("chat.aria.regenerate")}
 											>
@@ -274,7 +274,7 @@ export function ChatMessageList({
 										{canDelete && (
 											<button
 												type="button"
-												className="inline-flex items-center cursor-pointer hover:drop-shadow-[var(--glow-red)] text-red-500 transition-all"
+												className="inline-flex items-center hover:drop-shadow-[var(--glow-red)] text-red-500 transition-all"
 												onClick={() => onDeleteMessage(i)}
 												title={t("chat.aria.deleteMessage")}
 												aria-label={t("chat.aria.deleteMessage")}
@@ -285,7 +285,7 @@ export function ChatMessageList({
 										{msg.params && (
 											<button
 												type="button"
-												className="inline-flex items-center text-(--accent) cursor-pointer hover:drop-shadow-[var(--glow-accent-sm)] transition-all"
+												className="inline-flex items-center text-(--accent) hover:drop-shadow-[var(--glow-accent-sm)] transition-all"
 												title={t("chat.settings")}
 												aria-label={t("chat.settings")}
 											>

@@ -142,7 +142,7 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 				<button
 					type="button"
 					onClick={handleClose}
-					className="absolute top-3 right-3 z-10 text-(--text-secondary) hover:text-(--text-primary) transition-all cursor-pointer p-2 hover:drop-shadow-[var(--glow-accent-lg)]"
+					className="absolute top-3 right-3 z-10 text-(--text-secondary) hover:text-(--text-primary) transition-all p-2 hover:drop-shadow-[var(--glow-accent-lg)]"
 					aria-label={t("common.close")}
 				>
 					<X size={20} />

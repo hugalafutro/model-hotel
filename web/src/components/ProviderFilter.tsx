@@ -92,7 +92,7 @@ export function ProviderFilter({
 			<button
 				type="button"
 				onClick={() => setOpen((v) => !v)}
-				className="ui-input text-xs py-1.5 px-2.5 h-9 w-full flex items-center justify-between gap-2 cursor-pointer"
+				className="ui-input text-xs py-1.5 px-2.5 h-9 w-full flex items-center justify-between gap-2"
 			>
 				<span
 					className={`truncate ${selected.size === 0 ? "text-(--text-tertiary)" : "text-(--text-primary)"}`}
@@ -105,7 +105,7 @@ export function ProviderFilter({
 						<span
 							role="button"
 							tabIndex={0}
-							className="ui-badge inline-flex items-center justify-center w-4 h-4 text-[10px] font-medium bg-(--accent-light) text-(--accent) cursor-pointer"
+							className="ui-badge inline-flex items-center justify-center w-4 h-4 text-[10px] font-medium bg-(--accent-light) text-(--accent)"
 							onClick={(e) => {
 								e.stopPropagation();
 								clear();
@@ -210,7 +210,7 @@ export function ProviderFilter({
 										key={provider.id}
 										type="button"
 										onClick={() => toggle(provider.id)}
-										className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-(--radius-button) text-xs text-left transition-colors cursor-pointer ${isSelected ? "bg-(--accent-light) text-(--accent)" : "text-(--text-secondary) hover:bg-(--surface-hover)"}`}
+										className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-(--radius-button) text-xs text-left transition-colors ${isSelected ? "bg-(--accent-light) text-(--accent)" : "text-(--text-secondary) hover:bg-(--surface-hover)"}`}
 										style={{
 											fontFamily: "var(--font-mono), ui-monospace, monospace",
 										}}

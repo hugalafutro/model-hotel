@@ -119,7 +119,7 @@ export function Arena() {
 						<button
 							type="button"
 							onClick={() => arena.setShowHistoryModal(true)}
-							className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]"
+							className="p-1.5 rounded-md transition-all text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]"
 							title={t("arena.matchHistory.title")}
 							aria-label={t("arena.matchHistory.title")}
 						>

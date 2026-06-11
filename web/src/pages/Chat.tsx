@@ -428,7 +428,7 @@ export function Chat() {
 										<button
 											type="button"
 											onClick={() => chat.setPendingImage(null)}
-											className="absolute -top-1.5 -right-1.5 bg-red-500/90 hover:bg-red-400 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] leading-none cursor-pointer"
+											className="absolute -top-1.5 -right-1.5 bg-red-500/90 hover:bg-red-400 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] leading-none"
 											title={t("chat.aria.removeImage")}
 											aria-label={t("chat.aria.removeImage")}
 										>
@@ -445,7 +445,7 @@ export function Chat() {
 										<button
 											type="button"
 											onClick={() => chat.setPendingAudio(null)}
-											className="text-red-400 hover:text-red-300 cursor-pointer ml-0.5"
+											className="text-red-400 hover:text-red-300 ml-0.5"
 											title={t("chat.aria.removeAudio")}
 											aria-label={t("chat.aria.removeAudio")}
 										>
@@ -472,7 +472,7 @@ export function Chat() {
 											<button
 												type="button"
 												onClick={() => chat.imageInputRef.current?.click()}
-												className={`p-2 rounded-(--radius-button) cursor-pointer transition-colors ${
+												className={`p-2 rounded-(--radius-button) transition-colors ${
 													chat.pendingImage
 														? "bg-(--accent)/20 text-(--accent)"
 														: "text-(--text-tertiary) hover:text-(--text-secondary) hover:bg-(--surface)"
@@ -497,7 +497,7 @@ export function Chat() {
 											<button
 												type="button"
 												onClick={() => chat.audioInputRef.current?.click()}
-												className={`p-2 rounded-(--radius-button) cursor-pointer transition-colors ${
+												className={`p-2 rounded-(--radius-button) transition-colors ${
 													chat.pendingAudio
 														? "bg-(--accent)/20 text-(--accent)"
 														: "text-(--text-tertiary) hover:text-(--text-secondary) hover:bg-(--surface)"

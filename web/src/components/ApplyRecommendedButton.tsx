@@ -29,7 +29,7 @@ export function ApplyRecommendedButton({
 			onClick={() => {
 				if (recommended) onApply(recommended);
 			}}
-			className={`w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-(--radius-button) text-xs font-medium transition-colors cursor-pointer border ${
+			className={`w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-(--radius-button) text-xs font-medium transition-colors border ${
 				hasRecommended && !loading
 					? "border-(--accent)/30 bg-(--accent)/10 text-(--accent) hover:bg-(--accent)/20 hover:border-(--accent)/50"
 					: "border-(--border-subtle) bg-(--surface-hover)/50 text-(--text-muted) cursor-not-allowed"

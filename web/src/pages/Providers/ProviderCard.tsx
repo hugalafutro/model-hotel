@@ -82,7 +82,7 @@ export function ProviderCard({
 						<button
 							type="button"
 							onClick={() => onSetModelsProvider(provider)}
-							className="px-2 py-px leading-[1.6] text-xs font-medium cursor-pointer hover:brightness-125 transition-colors whitespace-nowrap ui-badge ui-badge-cyan"
+							className="px-2 py-px leading-[1.6] text-xs font-medium hover:brightness-125 transition-colors whitespace-nowrap ui-badge ui-badge-cyan"
 						>
 							<span className="badge-text">
 								{t("providers.card_models", { count: modelCount })}
@@ -181,7 +181,7 @@ export function ProviderCard({
 									? "bg-gray-800/50 text-gray-600 border-gray-700/30 cursor-not-allowed"
 									: !provider.enabled || !provider.autodiscovery_enabled
 										? "bg-gray-800/50 text-gray-600 border-gray-700/30 cursor-not-allowed"
-										: "bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125"
+										: "bg-(--accent-light) text-(--accent) border-(--accent-lighter) hover:brightness-125"
 						}`}
 					>
 						{discoveringId === provider.id ||

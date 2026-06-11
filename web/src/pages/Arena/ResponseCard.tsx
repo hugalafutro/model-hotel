@@ -73,7 +73,7 @@ export function ResponseCard({
 							onClick={() =>
 								onSwapModel(roundIdx, matchupIdx, slotKey, response.model)
 							}
-							className="shrink-0 text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+							className="shrink-0 text-red-400 hover:text-red-300 transition-colors"
 							title={t("arena.swapModel.title")}
 							aria-label={t("arena.swapModel.title")}
 						>
@@ -91,7 +91,7 @@ export function ResponseCard({
 								<button
 									type="button"
 									onClick={() => onRetry(roundIdx, matchupIdx, slotKey)}
-									className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all cursor-pointer"
+									className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all"
 									title={t("arena.reroll.title")}
 									aria-label={t("arena.reroll.title")}
 								>
@@ -102,7 +102,7 @@ export function ResponseCard({
 									onClick={() =>
 										onSwapModel(roundIdx, matchupIdx, slotKey, response.model)
 									}
-									className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all cursor-pointer"
+									className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all"
 									title={t("arena.swapModel.title")}
 									aria-label={t("arena.swapModel.title")}
 								>
@@ -118,7 +118,7 @@ export function ResponseCard({
 								<button
 									type="button"
 									onClick={() => onRetry(roundIdx, matchupIdx, slotKey)}
-									className="text-(--text-tertiary) hover:text-(--text-primary) transition-colors cursor-pointer"
+									className="text-(--text-tertiary) hover:text-(--text-primary) transition-colors"
 									title={t("arena.retry.title")}
 									aria-label={t("arena.retry.title")}
 								>
@@ -131,7 +131,7 @@ export function ResponseCard({
 							onClick={() =>
 								onCancelSlot(roundIdx, matchupIdx, slotKey, response.model)
 							}
-							className={`text-red-400/60 hover:text-red-400 transition-colors ${response.done ? "invisible pointer-events-none" : "cursor-pointer"}`}
+							className={`text-red-400/60 hover:text-red-400 transition-colors ${response.done ? "invisible pointer-events-none" : ""}`}
 							title={t("arena.cancel.title")}
 							aria-label={t("arena.cancel.title")}
 							disabled={response.done}
@@ -157,7 +157,7 @@ export function ResponseCard({
 								}
 								disabled={vote !== null}
 								className={`flex items-center gap-1 transition-all ${
-									vote === null ? "cursor-pointer" : "cursor-default"
+									vote === null ? "" : "cursor-default"
 								} ${
 									isWinner
 										? "text-green-400 hover:text-green-300"

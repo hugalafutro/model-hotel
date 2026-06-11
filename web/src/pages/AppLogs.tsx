@@ -282,7 +282,7 @@ export function AppLogs() {
 								className={`ui-btn px-3 py-1 text-xs font-medium transition-all ${
 									logsSubMode === "request"
 										? "ui-btn-primary cursor-default"
-										: "ui-btn-secondary cursor-pointer"
+										: "ui-btn-secondary"
 								}`}
 							>
 								<ScrollText size={12} className="inline mr-1 -mt-0.5" />
@@ -297,7 +297,7 @@ export function AppLogs() {
 								className={`ui-btn px-3 py-1 text-xs font-medium transition-all ${
 									logsSubMode === "app"
 										? "ui-btn-primary cursor-default"
-										: "ui-btn-secondary cursor-pointer"
+										: "ui-btn-secondary"
 								}`}
 							>
 								<FileText size={12} className="inline mr-1 -mt-0.5" />

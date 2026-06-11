@@ -151,7 +151,7 @@ export function ParamEditorModal({
 						<button
 							type="button"
 							onClick={() => onChange({})}
-							className="text-[11px] text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+							className="text-[11px] text-red-400 hover:text-red-300 transition-colors"
 						>
 							{t("arena.params.resetAll")}
 						</button>

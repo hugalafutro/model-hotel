@@ -193,7 +193,7 @@ export function Dashboard() {
 								className={`p-1.5 rounded-md transition-all text-(--text-tertiary) ${
 									isRefreshing
 										? "cursor-not-allowed opacity-60"
-										: "cursor-pointer hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]"
+										: "hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]"
 								}`}
 							>
 								<RefreshCw

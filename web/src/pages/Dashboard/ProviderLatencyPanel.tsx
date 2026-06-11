@@ -156,7 +156,7 @@ export function ProviderLatencyPanel({
 						<button
 							type="button"
 							onClick={() => handleSort("response")}
-							className="text-right cursor-pointer hover:text-(--text-primary) transition-colors flex items-center justify-end gap-0.5 ml-auto"
+							className="text-right hover:text-(--text-primary) transition-colors flex items-center justify-end gap-0.5 ml-auto"
 						>
 							{t("dashboard.providerLatency.response")}
 							<SortArrow
@@ -168,7 +168,7 @@ export function ProviderLatencyPanel({
 						<button
 							type="button"
 							onClick={() => handleSort("overhead")}
-							className="text-right cursor-pointer hover:text-(--text-primary) transition-colors flex items-center justify-end gap-0.5 ml-auto"
+							className="text-right hover:text-(--text-primary) transition-colors flex items-center justify-end gap-0.5 ml-auto"
 						>
 							{t("dashboard.providerLatency.overhead")}
 							<SortArrow

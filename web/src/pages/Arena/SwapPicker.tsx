@@ -96,7 +96,7 @@ export function SwapPicker({
 								? t("arena.swapPicker.expandAll")
 								: t("arena.swapPicker.collapseAll")
 						}
-						className="cursor-pointer text-white/70 hover:text-(--accent) transition-colors p-1 flex items-center"
+						className="text-white/70 hover:text-(--accent) transition-colors p-1 flex items-center"
 					>
 						{effectiveCollapsed.size === groupedModels.size ? (
 							<ChevronsUpDown size={13} />
@@ -114,7 +114,7 @@ export function SwapPicker({
 							<button
 								type="button"
 								onClick={() => toggleCollapse(providerName)}
-								className="flex items-center gap-1.5 w-full text-[10px] font-medium cursor-pointer transition-colors text-(--text-secondary) hover:text-(--text-primary)"
+								className="flex items-center gap-1.5 w-full text-[10px] font-medium transition-colors text-(--text-secondary) hover:text-(--text-primary)"
 							>
 								<ChevronDown
 									size={10}
@@ -136,7 +136,7 @@ export function SwapPicker({
 												type="button"
 												key={id}
 												onClick={() => onSelect(id)}
-												className="ui-tab px-2 py-0.5 text-[11px] border bg-(--surface-hover) border-(--border-subtle) text-(--text-secondary) hover:text-(--text-primary) hover:border-(--accent)/40 transition-colors cursor-pointer"
+												className="ui-tab px-2 py-0.5 text-[11px] border bg-(--surface-hover) border-(--border-subtle) text-(--text-secondary) hover:text-(--text-primary) hover:border-(--accent)/40 transition-colors"
 											>
 												{m.display_name || m.model_id}
 											</button>

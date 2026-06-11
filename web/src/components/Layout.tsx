@@ -589,7 +589,7 @@ function LastErrorPills() {
 							navigator.clipboard.writeText(msg);
 							toast(t("common.copiedToClipboard"), "info");
 						}}
-						className="p-0.5 rounded text-[var(--error-text-muted)] hover:text-[var(--error-text)] hover:bg-[var(--error-bg-strong)] transition-colors cursor-pointer"
+						className="p-0.5 rounded text-[var(--error-text-muted)] hover:text-[var(--error-text)] hover:bg-[var(--error-bg-strong)] transition-colors"
 						title={t("layout.errorPill.copyError")}
 					>
 						<Copy size={10} />
@@ -605,7 +605,7 @@ function LastErrorPills() {
 								navigate("/logs");
 							}
 						}}
-						className="p-0.5 rounded text-[var(--error-text-muted)] hover:text-[var(--error-text)] hover:bg-[var(--error-bg-strong)] transition-colors cursor-pointer"
+						className="p-0.5 rounded text-[var(--error-text-muted)] hover:text-[var(--error-text)] hover:bg-[var(--error-bg-strong)] transition-colors"
 						title={t("layout.errorPill.viewDetails")}
 					>
 						<ExternalLink size={10} />
@@ -622,7 +622,7 @@ function LastErrorPills() {
 								"info",
 							);
 						}}
-						className="p-0.5 rounded text-[var(--error-text-muted)] hover:text-[var(--error-text)] hover:bg-[var(--error-bg-strong)] transition-colors cursor-pointer"
+						className="p-0.5 rounded text-[var(--error-text-muted)] hover:text-[var(--error-text)] hover:bg-[var(--error-bg-strong)] transition-colors"
 						title={t("layout.errorPill.acknowledge")}
 					>
 						<X size={10} />
@@ -760,7 +760,7 @@ function LanguageSelector() {
 			<button
 				type="button"
 				onClick={() => setOpen((v) => !v)}
-				className="sidebar-footer-link flex items-center justify-center px-1.5 py-1.5 text-xs text-gray-400 hover:text-white transition-colors ui-btn hover:bg-white/5 cursor-pointer"
+				className="sidebar-footer-link flex items-center justify-center px-1.5 py-1.5 text-xs text-gray-400 hover:text-white transition-colors ui-btn hover:bg-white/5"
 				title={t("layout.language.label")}
 				aria-label={t("layout.language.label")}
 				data-testid="language-trigger"
@@ -794,7 +794,7 @@ function LanguageSelector() {
 								localStorage.setItem(LANGUAGE_STORAGE_KEY, lang.code);
 								setOpen(false);
 							}}
-							className={`w-full text-left px-3 py-1.5 text-xs transition-colors cursor-pointer flex items-center gap-1.5 ${
+							className={`w-full text-left px-3 py-1.5 text-xs transition-colors flex items-center gap-1.5 ${
 								(i18n.resolvedLanguage ?? i18n.language) === lang.code
 									? "text-white bg-white/10"
 									: "text-gray-400 hover:text-white hover:bg-white/5"
@@ -1057,7 +1057,7 @@ export function Layout({ children }: LayoutProps) {
 						<button
 							type="button"
 							onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-							className="sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors ui-btn hover:bg-white/5 cursor-pointer"
+							className="sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors ui-btn hover:bg-white/5"
 							title={
 								theme === "dark"
 									? t("layout.theme.switchToLight")

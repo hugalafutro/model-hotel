@@ -229,7 +229,7 @@ export function CreateKeyModal({
 								<button
 									type="button"
 									onClick={resetProviders}
-									className="text-gray-500 hover:text-gray-300 transition-colors cursor-pointer"
+									className="text-gray-500 hover:text-gray-300 transition-colors"
 									aria-label={t("virtualkeys.modal.form.restoreAccess")}
 									title={t("virtualkeys.modal.form.restoreAccess")}
 								>
@@ -254,7 +254,7 @@ export function CreateKeyModal({
 											type="button"
 											onClick={() => toggleProvider(provider.id)}
 											aria-pressed={isExcluded}
-											className={`inline-flex items-center px-2 py-px leading-[1.6] text-xs font-medium cursor-pointer transition-colors ui-badge
+											className={`inline-flex items-center px-2 py-px leading-[1.6] text-xs font-medium transition-colors ui-badge
 												${
 													isExcluded
 														? "ui-badge-neutral line-through opacity-60 hover:brightness-125"

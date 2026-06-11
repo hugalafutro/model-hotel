@@ -359,7 +359,7 @@ export function Providers() {
 								? t("providers.sort_title_asc")
 								: t("providers.sort_title_desc")
 						}
-						className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]"
+						className="p-1.5 rounded-md transition-all text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]"
 					>
 						{sortAsc ? <ArrowDownAZ size={16} /> : <ArrowUpZA size={16} />}
 					</button>

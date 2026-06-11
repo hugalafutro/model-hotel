@@ -55,7 +55,7 @@ export function FilterDropdown({
 						? `${effectivePlaceholder}: ${displayLabel}`
 						: effectivePlaceholder
 				}
-				className="ui-input text-xs py-1.5 px-2.5 h-9 w-full flex items-center justify-between gap-2 cursor-pointer"
+				className="ui-input text-xs py-1.5 px-2.5 h-9 w-full flex items-center justify-between gap-2"
 			>
 				<span
 					className={`truncate ${value === "" ? "text-(--text-secondary)" : "text-(--text-primary)"}`}
@@ -68,7 +68,7 @@ export function FilterDropdown({
 						<span
 							role="button"
 							tabIndex={0}
-							className="inline-flex items-center justify-center text-(--text-tertiary) hover:text-(--text-primary) transition-colors cursor-pointer"
+							className="inline-flex items-center justify-center text-(--text-tertiary) hover:text-(--text-primary) transition-colors"
 							onClick={(e) => {
 								e.stopPropagation();
 								onChange("");
@@ -107,7 +107,7 @@ export function FilterDropdown({
 								onChange("");
 								setOpen(false);
 							}}
-							className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-(--radius-button) text-xs text-left transition-colors cursor-pointer ${value === "" ? "bg-(--accent-light) text-(--accent)" : "text-(--text-secondary) hover:bg-(--surface-hover)"}`}
+							className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-(--radius-button) text-xs text-left transition-colors ${value === "" ? "bg-(--accent-light) text-(--accent)" : "text-(--text-secondary) hover:bg-(--surface-hover)"}`}
 						>
 							<span
 								className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded border transition-colors shrink-0 ${value === "" ? "bg-(--accent) border-(--accent)" : "border-(--border-input) bg-(--surface-input)"}`}
@@ -127,7 +127,7 @@ export function FilterDropdown({
 										onChange(option.value);
 										setOpen(false);
 									}}
-									className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-(--radius-button) text-xs text-left transition-colors cursor-pointer ${isSelected ? "bg-(--accent-light) text-(--accent)" : "text-(--text-secondary) hover:bg-(--surface-hover)"}`}
+									className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-(--radius-button) text-xs text-left transition-colors ${isSelected ? "bg-(--accent-light) text-(--accent)" : "text-(--text-secondary) hover:bg-(--surface-hover)"}`}
 								>
 									<span
 										className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded border transition-colors shrink-0 ${isSelected ? "bg-(--accent) border-(--accent)" : "border-(--border-input) bg-(--surface-input)"}`}
