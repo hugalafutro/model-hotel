@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+/* Tailwind v4 dropped the v3 preflight rule that gave buttons a pointer
+   cursor, which is why hand-cursor coverage drifted per element. Restore
+   it in the base layer: any cursor-* utility (not-allowed on disabled
+   states, help on info icons) still wins over this. */
+@layer base {
+	button:not(:disabled),
+	[role="button"]:not([aria-disabled="true"]),
+	select:not(:disabled),
+	summary {
+		cursor: pointer;
+	}
+}
+
 html {
 	font-size: clamp(14px, 0.8vw + 10px, 17px);
 }
