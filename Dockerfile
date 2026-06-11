@@ -30,7 +30,13 @@ RUN go build -ldflags "-X main.version=$VERSION" -o server ./cmd/server/
 # Stage 3: Minimal runtime image
 FROM alpine:3.23
 
-RUN apk add --no-cache ca-certificates postgresql16-client su-exec
+# Upgrade base packages so security patches in the 3.23 line (e.g. OpenSSL)
+# land even when the alpine:3.23 tag itself lags behind.
+# Deliberate trade-off: builds are not reproducible across time (each build picks
+# up the current v3.23 patch level). Preferred over pinning package versions,
+# which Alpine purges from its repos once superseded, breaking the build.
+RUN apk upgrade --no-cache && \
+    apk add --no-cache ca-certificates postgresql16-client su-exec
 
 # Create non-root user (uid 1000 matches typical host user)
 RUN adduser -D -u 1000 -H appuser
