@@ -190,15 +190,15 @@ export function Dashboard() {
 										: t("dashboard.refresh")
 								}
 								aria-label={t("dashboard.refresh")}
-								className={`flex items-center justify-center w-7 h-7 rounded-full transition-all ${
+								className={`p-1.5 rounded-md transition-all text-(--text-tertiary) ${
 									isRefreshing
 										? "cursor-not-allowed opacity-60"
-										: "cursor-pointer hover:bg-(--accent)/20 hover:drop-shadow-[var(--glow-accent-lg)]"
+										: "cursor-pointer hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]"
 								}`}
 							>
 								<RefreshCw
-									size={14}
-									className={`text-(--text-muted) ${isRefreshing ? "animate-spin" : ""}`}
+									size={16}
+									className={isRefreshing ? "animate-spin" : ""}
 								/>
 							</button>
 						)}

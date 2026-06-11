@@ -1000,7 +1000,7 @@ export function Layout({ children }: LayoutProps) {
 											<span className="flex items-center gap-1.5">
 												<span>{item.name}</span>
 												<span
-													className="inline-flex items-center gap-[2px] text-[0.625rem] leading-[1.6] font-medium bg-white/10 px-[7px] py-[1px] translate-y-[1px] ui-badge"
+													className="inline-flex items-center gap-[2px] leading-[1.6] translate-y-[1px] ui-badge ui-badge-neutral"
 													title={(() => {
 														if (!cbStatus.providers) return undefined;
 														const unhealthy = cbStatus.providers.filter(
@@ -1019,15 +1019,11 @@ export function Layout({ children }: LayoutProps) {
 													<span className="text-emerald-400 badge-text">
 														{cbStatus.closed}
 													</span>
-													<span className="text-(--text-muted) opacity-50">
-														/
-													</span>
+													<span className="text-(--text-secondary)">/</span>
 													<span className="text-amber-400 badge-text">
 														{cbStatus.half_open}
 													</span>
-													<span className="text-(--text-muted) opacity-50">
-														/
-													</span>
+													<span className="text-(--text-secondary)">/</span>
 													<span className="text-red-400 badge-text">
 														{cbStatus.open}
 													</span>

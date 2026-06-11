@@ -1850,6 +1850,20 @@ html[data-ui-style="cyber-terminal"] .ui-tab {
 	border-radius: 0;
 }
 
+/* Wrapper for a row of ui-tab buttons: the same subtle outline the badge
+   variants carry, so the toggles read as one segmented control. */
+[data-ui-style] .ui-tab-group {
+	display: inline-flex;
+	align-items: center;
+	gap: 1px;
+	padding: 1px;
+	border: 1px solid var(--border-default);
+	border-radius: 0.3125rem;
+}
+html[data-ui-style="cyber-terminal"] .ui-tab-group {
+	border-radius: 0;
+}
+
 /* Badge color variants */
 [data-ui-style] .ui-badge-neutral {
 	background-color: var(--surface-hover);
