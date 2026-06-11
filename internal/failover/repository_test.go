@@ -253,7 +253,7 @@ func TestRepository_SyncForModel_TwoProviders(t *testing.T) {
 	}()
 
 	// Call SyncForModel
-	err = repo.SyncForModel(ctx, baseModel)
+	_, err = repo.SyncForModel(ctx, baseModel)
 	if err != nil {
 		t.Fatalf("SyncForModel failed: %v", err)
 	}
@@ -316,7 +316,7 @@ func TestRepository_SyncForModel_SingleProvider(t *testing.T) {
 	}()
 
 	// Call SyncForModel - should delete any existing auto-group
-	err = repo.SyncForModel(ctx, baseModel)
+	_, err = repo.SyncForModel(ctx, baseModel)
 	if err != nil {
 		t.Fatalf("SyncForModel failed: %v", err)
 	}
@@ -397,7 +397,7 @@ func TestRepository_SyncForModel_WithPrefix(t *testing.T) {
 	}()
 
 	// Call SyncForModel with prefixed model ID
-	err = repo.SyncForModel(ctx, modelID1)
+	_, err = repo.SyncForModel(ctx, modelID1)
 	if err != nil {
 		t.Fatalf("SyncForModel failed: %v", err)
 	}
@@ -1023,7 +1023,7 @@ func TestRepository_SyncForModel_WithPrefixVariants(t *testing.T) {
 	}()
 
 	// Call SyncForModel with the prefixed model ID
-	err = repo.SyncForModel(ctx, prefixedModel)
+	_, err = repo.SyncForModel(ctx, prefixedModel)
 	if err != nil {
 		t.Fatalf("SyncForModel failed: %v", err)
 	}
@@ -1566,7 +1566,7 @@ func TestRepository_SyncForModel_PreservesDisabledEntries(t *testing.T) {
 	}()
 
 	// Call SyncForModel - should add model3 as enabled, preserve model2 as disabled
-	err = repo.SyncForModel(ctx, baseModel)
+	_, err = repo.SyncForModel(ctx, baseModel)
 	if err != nil {
 		t.Fatalf("SyncForModel failed: %v", err)
 	}
@@ -1793,7 +1793,7 @@ func TestRepository_SyncForModel_SuccessfulSync(t *testing.T) {
 	}
 
 	// Call SyncForModel - should succeed normally
-	err := repo.SyncForModel(ctx, baseModel)
+	_, err := repo.SyncForModel(ctx, baseModel)
 	if err != nil {
 		t.Fatalf("SyncForModel failed: %v", err)
 	}
@@ -1954,7 +1954,7 @@ func TestRepository_SyncForModel_ValidRowScan(t *testing.T) {
 	}
 
 	// Call SyncForModel - should handle all rows correctly
-	err := repo.SyncForModel(ctx, baseModel)
+	_, err := repo.SyncForModel(ctx, baseModel)
 	if err != nil {
 		t.Fatalf("SyncForModel failed: %v", err)
 	}
@@ -2050,7 +2050,7 @@ func TestRepository_SyncForModel_PreservesPriorityOrder(t *testing.T) {
 	}()
 
 	// Call SyncForModel - should preserve the custom order
-	err = repo.SyncForModel(ctx, baseModel)
+	_, err = repo.SyncForModel(ctx, baseModel)
 	if err != nil {
 		t.Fatalf("SyncForModel failed: %v", err)
 	}
@@ -2103,7 +2103,7 @@ func TestRepository_SyncForModel_PreservesPriorityOrder(t *testing.T) {
 	}()
 
 	// Call SyncForModel again - should preserve existing order and append new model
-	err = repo.SyncForModel(ctx, baseModel)
+	_, err = repo.SyncForModel(ctx, baseModel)
 	if err != nil {
 		t.Fatalf("SyncForModel failed on second call: %v", err)
 	}
@@ -2381,7 +2381,7 @@ func TestSyncForModel_PreservesDescription(t *testing.T) {
 		_ = repo.Delete(ctx, baseModel)
 	}()
 
-	err = repo.SyncForModel(ctx, baseModel)
+	_, err = repo.SyncForModel(ctx, baseModel)
 	if err != nil {
 		t.Fatalf("SyncForModel failed: %v", err)
 	}
@@ -2465,7 +2465,7 @@ func TestSyncForModel_UpsertError(t *testing.T) {
 		return origMarshal(v)
 	}
 
-	err = repo.SyncForModel(ctx, baseModel)
+	_, err = repo.SyncForModel(ctx, baseModel)
 	if err == nil {
 		t.Error("SyncForModel should return error when UpsertWithConfig fails")
 	}
@@ -2712,8 +2712,150 @@ func TestRepository_SyncForModel_QueryError(t *testing.T) {
 	ctx := context.Background()
 
 	// SyncForModel should return an error from the query/rows.Err()
-	err = repo.SyncForModel(ctx, "gpt-4o-mini")
+	_, err = repo.SyncForModel(ctx, "gpt-4o-mini")
 	if err == nil {
 		t.Error("Expected SyncForModel to return error with closed pool")
+	}
+}
+
+// TestRepository_SyncForModel_ReportsMembershipChanges verifies the SyncResult
+// returned by SyncForModel: UpdatedGroups carries removed/added model UUIDs,
+// a no-change sync returns an empty result, and dropping to a single enabled
+// member reports the group deletion.
+func TestRepository_SyncForModel_ReportsMembershipChanges(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	baseModel := "test-syncresult-" + uuid.New().String()[:8]
+
+	providerIDs := make([]uuid.UUID, 3)
+	modelIDs := make([]uuid.UUID, 3)
+	for i := range providerIDs {
+		providerIDs[i] = uuid.New()
+		modelIDs[i] = uuid.New()
+		providerName := fmt.Sprintf("test-syncresult-prov-%d-%s", i, uuid.New().String()[:8])
+		_, err := testDB.Pool().Exec(ctx, `
+			INSERT INTO providers (id, name, base_url, encrypted_key, key_nonce, key_salt, enabled, created_at)
+			VALUES ($1, $2, 'http://localhost:11434', 'dGVzdA==', 'dGVzdA==', 'dGVzdA==', true, now())
+		`, providerIDs[i], providerName)
+		if err != nil {
+			t.Fatalf("Failed to insert provider %d: %v", i, err)
+		}
+		pid := providerIDs[i]
+		defer func() {
+			_, _ = testDB.Pool().Exec(ctx, "DELETE FROM providers WHERE id = $1", pid)
+		}()
+
+		_, err = testDB.Pool().Exec(ctx, `
+			INSERT INTO models (id, model_id, provider_id, enabled, created_at)
+			VALUES ($1, $2, $3, true, now())
+		`, modelIDs[i], baseModel, providerIDs[i])
+		if err != nil {
+			t.Fatalf("Failed to insert model %d: %v", i, err)
+		}
+		mid := modelIDs[i]
+		defer func() {
+			_, _ = testDB.Pool().Exec(ctx, "DELETE FROM models WHERE id = $1", mid)
+		}()
+	}
+	defer func() {
+		InvalidateFailoverCache()
+		if existing, _ := repo.GetByModel(ctx, baseModel); existing != nil {
+			_ = repo.Delete(ctx, baseModel)
+		}
+	}()
+
+	// First sync creates the group; the creation is reported as an update
+	// with every member listed as added.
+	result, err := repo.SyncForModel(ctx, baseModel)
+	if err != nil {
+		t.Fatalf("SyncForModel (create) failed: %v", err)
+	}
+	if len(result.DeletedGroups) != 0 {
+		t.Errorf("expected no deleted groups on creation, got %+v", result.DeletedGroups)
+	}
+	if len(result.UpdatedGroups) != 1 {
+		t.Fatalf("expected 1 updated group on creation, got %+v", result.UpdatedGroups)
+	}
+	created := result.UpdatedGroups[0]
+	if created.DisplayModel != baseModel {
+		t.Errorf("expected created group %q, got %q", baseModel, created.DisplayModel)
+	}
+	if len(created.AddedModelIDs) != 3 || len(created.RemovedModelIDs) != 0 {
+		t.Errorf("expected all 3 members added and none removed on creation, got %+v", created)
+	}
+
+	// No-change sync returns an empty result.
+	InvalidateFailoverCache()
+	result, err = repo.SyncForModel(ctx, baseModel)
+	if err != nil {
+		t.Fatalf("SyncForModel (no-op) failed: %v", err)
+	}
+	if len(result.UpdatedGroups) != 0 || len(result.DeletedGroups) != 0 {
+		t.Errorf("expected empty result on no-change sync, got %+v", result)
+	}
+
+	// Disable one member: the next sync must report its UUID as removed.
+	if _, err := testDB.Pool().Exec(ctx, `UPDATE models SET enabled = false WHERE id = $1`, modelIDs[2]); err != nil {
+		t.Fatalf("Failed to disable model: %v", err)
+	}
+	InvalidateFailoverCache()
+	result, err = repo.SyncForModel(ctx, baseModel)
+	if err != nil {
+		t.Fatalf("SyncForModel (member disabled) failed: %v", err)
+	}
+	if len(result.UpdatedGroups) != 1 {
+		t.Fatalf("expected 1 updated group, got %+v", result)
+	}
+	updated := result.UpdatedGroups[0]
+	if updated.DisplayModel != baseModel {
+		t.Errorf("expected updated group %q, got %q", baseModel, updated.DisplayModel)
+	}
+	if len(updated.RemovedModelIDs) != 1 || updated.RemovedModelIDs[0] != modelIDs[2].String() {
+		t.Errorf("expected removed model %s, got %v", modelIDs[2], updated.RemovedModelIDs)
+	}
+	if len(updated.AddedModelIDs) != 0 {
+		t.Errorf("expected no added models, got %v", updated.AddedModelIDs)
+	}
+
+	// Re-enable the member: the next sync must report its UUID as added.
+	if _, err := testDB.Pool().Exec(ctx, `UPDATE models SET enabled = true WHERE id = $1`, modelIDs[2]); err != nil {
+		t.Fatalf("Failed to re-enable model: %v", err)
+	}
+	InvalidateFailoverCache()
+	result, err = repo.SyncForModel(ctx, baseModel)
+	if err != nil {
+		t.Fatalf("SyncForModel (member re-enabled) failed: %v", err)
+	}
+	if len(result.UpdatedGroups) != 1 {
+		t.Fatalf("expected 1 updated group after re-enable, got %+v", result)
+	}
+	updated = result.UpdatedGroups[0]
+	if len(updated.AddedModelIDs) != 1 || updated.AddedModelIDs[0] != modelIDs[2].String() {
+		t.Errorf("expected added model %s, got %v", modelIDs[2], updated.AddedModelIDs)
+	}
+
+	// Disable two members: the group drops to one enabled member and the
+	// sync must report the deletion.
+	if _, err := testDB.Pool().Exec(ctx, `UPDATE models SET enabled = false WHERE id = ANY($1)`, []uuid.UUID{modelIDs[1], modelIDs[2]}); err != nil {
+		t.Fatalf("Failed to disable models: %v", err)
+	}
+	InvalidateFailoverCache()
+	result, err = repo.SyncForModel(ctx, baseModel)
+	if err != nil {
+		t.Fatalf("SyncForModel (drop to one) failed: %v", err)
+	}
+	if len(result.DeletedGroups) != 1 {
+		t.Fatalf("expected 1 deleted group, got %+v", result)
+	}
+	deleted := result.DeletedGroups[0]
+	if deleted.DisplayModel != baseModel {
+		t.Errorf("expected deleted group %q, got %q", baseModel, deleted.DisplayModel)
+	}
+	if deleted.Reason != "only 1 enabled provider (need 2+ for failover)" {
+		t.Errorf("unexpected deletion reason %q", deleted.Reason)
+	}
+	if deleted.ProviderCount != 1 {
+		t.Errorf("expected provider count 1, got %d", deleted.ProviderCount)
 	}
 }

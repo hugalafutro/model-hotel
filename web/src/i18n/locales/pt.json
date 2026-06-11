@@ -762,6 +762,27 @@
 		},
 		"toast": {
 			"refreshedQuotas": "Cotas {{refreshed}} atualizadas ({{failed}} falhou, {{skipped}} não suportado)"
+		},
+		"discoverySummary": {
+			"title": "Resumo da descoberta",
+			"noChanges": "Sem alterações. Tudo corresponde à lista do provedor.",
+			"added": "Adicionado",
+			"reenabled": "Reativado",
+			"disabled": "Desativado",
+			"failoverDeleted": "Grupos de failover excluídos",
+			"failoverUpdated": "Grupos de failover atualizados",
+			"removedCount": "Removido: {{count}}",
+			"addedCount": "Adicionado: {{count}}",
+			"reason": {
+				"new_model": "Novo modelo",
+				"reappeared": "Listado novamente pelo provedor",
+				"not_listed": "Não está mais listado pelo provedor"
+			},
+			"failoverReason": {
+				"noProviders": "Não há mais provedores habilitados",
+				"onlyOne": "Resta apenas um provedor habilitado (o failover requer pelo menos dois)"
+			},
+			"error": "Erro"
 		}
 	},
 	"models": {
@@ -842,7 +863,8 @@
 			"maxOut": "Capacidade Máxima",
 			"sortByStatus": "Ordenar por situação",
 			"status": "SItuação"
-		}
+		},
+		"disabledByDiscovery": "Não listado pelo provedor desde {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Reverter para o valor descoberto",
@@ -2293,7 +2315,12 @@
 			"disableProvider": "Desativar provedor",
 			"enableProvider": "Ativar provedor",
 			"circuitBreakerOpen": "Disjuntor aberto - esperando por recarga",
-			"circuitBreakerHalfOpen": "Disjuntor meio-aberto - recuperação de sondagem"
+			"circuitBreakerHalfOpen": "Disjuntor meio-aberto - recuperação de sondagem",
+			"modelDisabled": "Modelo desativado",
+			"providerDisabled": "Provedor desativado"
+		},
+		"modal": {
+			"unavailable": "indisponível"
 		}
 	},
 	"virtualKeys": {

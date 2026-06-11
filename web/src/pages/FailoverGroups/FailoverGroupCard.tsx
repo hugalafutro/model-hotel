@@ -68,7 +68,12 @@ export function FailoverGroupCard({
 		setLocalEntries(group.entries);
 	}
 
-	const enabledCount = localEntries.filter((e) => e.enabled).length;
+	// Count only entries the router will actually use: the entry toggle must
+	// be on AND the underlying model and provider must be enabled (matches
+	// SortableEntry's effective-state display).
+	const enabledCount = localEntries.filter(
+		(e) => e.enabled && e.model_enabled && e.provider_enabled,
+	).length;
 	const totalCount = localEntries.length;
 
 	const sensors = useSensors(

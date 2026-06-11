@@ -762,6 +762,27 @@
 		},
 		"toast": {
 			"refreshedQuotas": "A {{refreshed}} kvóták frissítése (a{{failed}} frissítése sikertelen, a {{skipped}} nem támogatott)"
+		},
+		"discoverySummary": {
+			"title": "Felfedezés összefoglalása",
+			"noChanges": "Nincs változás. Minden megegyezik a szolgáltató listájával.",
+			"added": "Hozzáadva",
+			"reenabled": "Újra engedélyezve",
+			"disabled": "Letiltva",
+			"failoverDeleted": "Törölt failover csoportok",
+			"failoverUpdated": "Frissített failover csoportok",
+			"removedCount": "Eltávolítva: {{count}}",
+			"addedCount": "Hozzáadva: {{count}}",
+			"reason": {
+				"new_model": "Új modell",
+				"reappeared": "A szolgáltató által újra felsorolt",
+				"not_listed": "A szolgáltató már nem sorolja fel"
+			},
+			"failoverReason": {
+				"noProviders": "Nincs engedélyezett szolgáltató",
+				"onlyOne": "Csak egy engedélyezett szolgáltató maradt (a failoverhez legalább kettőre van szükség)"
+			},
+			"error": "Hiba"
 		}
 	},
 	"models": {
@@ -842,7 +863,8 @@
 			"maxOut": "Maximális teljesítmény",
 			"sortByStatus": "Állapot szerint rendezés",
 			"status": "Állapot"
-		}
+		},
+		"disabledByDiscovery": "A szolgáltató nem listázza {{date}} óta"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Vissza a megállapított értékhez",
@@ -2293,7 +2315,12 @@
 			"disableProvider": "Szolgáltató letiltása",
 			"enableProvider": "Szolgáltató engedélyezése",
 			"circuitBreakerOpen": "A megszakító nyitott – a lehűlési idő lejártát várja",
-			"circuitBreakerHalfOpen": "A megszakító félig nyitott – helyreállítási vizsgálat"
+			"circuitBreakerHalfOpen": "A megszakító félig nyitott – helyreállítási vizsgálat",
+			"modelDisabled": "Modell letiltva",
+			"providerDisabled": "Szolgáltató letiltva"
+		},
+		"modal": {
+			"unavailable": "nem elérhető"
 		}
 	},
 	"virtualKeys": {

@@ -762,6 +762,27 @@
 		},
 		"toast": {
 			"refreshedQuotas": "Quotes de {{refreshed}} actualitzades ({{failed}} ha fallat, {{skipped}} no és compatible)"
+		},
+		"discoverySummary": {
+			"title": "Resum de descobriment",
+			"noChanges": "Sense canvis. Tot coincideix amb la llista del proveïdor.",
+			"added": "Afeït",
+			"reenabled": "Reactivat",
+			"disabled": "Desactivat",
+			"failoverDeleted": "Grups de fallada eliminats",
+			"failoverUpdated": "Grups de fallada actualitzats",
+			"removedCount": "Eliminat: {{count}}",
+			"addedCount": "Afeït: {{count}}",
+			"reason": {
+				"new_model": "Nou model",
+				"reappeared": "Repetir la llista pel proveïdor",
+				"not_listed": "Ja no està llistat pel proveïdor"
+			},
+			"failoverReason": {
+				"noProviders": "No queden proveïdors habilitats",
+				"onlyOne": "Només queda un proveïdor habilitat (el failover necessita com a mínim dos)"
+			},
+			"error": "Error"
 		}
 	},
 	"models": {
@@ -842,7 +863,8 @@
 			"maxOut": "Màxim",
 			"sortByStatus": "Ordena per estat",
 			"status": "Estat"
-		}
+		},
+		"disabledByDiscovery": "No llistat pel proveïdor des de {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Restablir al valor descobert",
@@ -2293,7 +2315,12 @@
 			"disableProvider": "Desactivar proveïdor",
 			"enableProvider": "Activa el proveïdor",
 			"circuitBreakerOpen": "Interruptor automàtic obert - esperant el refredament",
-			"circuitBreakerHalfOpen": "Interruptor automàtic mig obert - prova de recuperació"
+			"circuitBreakerHalfOpen": "Interruptor automàtic mig obert - prova de recuperació",
+			"modelDisabled": "Model desactivat",
+			"providerDisabled": "Proveïdor desactivat"
+		},
+		"modal": {
+			"unavailable": "no disponible"
 		}
 	},
 	"virtualKeys": {

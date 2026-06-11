@@ -762,6 +762,27 @@
 		},
 		"toast": {
 			"refreshedQuotas": "Quote aggiornate {{refreshed}} ({{failed}} fallito, {{skipped}} non supportato)"
+		},
+		"discoverySummary": {
+			"title": "Riepilogo della scoperta",
+			"noChanges": "Nessuna modifica. Tutto corrisponde all'elenco del provider.",
+			"added": "Aggiunto",
+			"reenabled": "Riattivato",
+			"disabled": "Disabilitato",
+			"failoverDeleted": "Gruppi di failover eliminati",
+			"failoverUpdated": "Gruppi di failover aggiornati",
+			"removedCount": "Rimosso: {{count}}",
+			"addedCount": "Aggiunto: {{count}}",
+			"reason": {
+				"new_model": "Nuovo modello",
+				"reappeared": "Elencato nuovamente dal provider",
+				"not_listed": "Non più elencato dal provider"
+			},
+			"failoverReason": {
+				"noProviders": "Non ci sono più provider abilitati",
+				"onlyOne": "Rimane un solo provider abilitato (il failover ne richiede almeno due)"
+			},
+			"error": "Errore"
 		}
 	},
 	"models": {
@@ -842,7 +863,8 @@
 			"maxOut": "Max Out",
 			"sortByStatus": "Ordina per stato",
 			"status": "Stato"
-		}
+		},
+		"disabledByDiscovery": "Non elencato dal provider dal {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Ripristina al valore scoperto",
@@ -2293,7 +2315,12 @@
 			"disableProvider": "Disabilita provider",
 			"enableProvider": "Abilita provider",
 			"circuitBreakerOpen": "Interruttore aperto - in attesa di raffreddamento",
-			"circuitBreakerHalfOpen": "Interruttore semi-aperto - recupero sondaggio"
+			"circuitBreakerHalfOpen": "Interruttore semi-aperto - recupero sondaggio",
+			"modelDisabled": "Modello disabilitato",
+			"providerDisabled": "Fornitore disabilitato"
+		},
+		"modal": {
+			"unavailable": "non disponibile"
 		}
 	},
 	"virtualKeys": {

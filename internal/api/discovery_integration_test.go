@@ -1599,7 +1599,10 @@ func createTestProvider(t *testing.T, name, baseURL, masterKey string) *provider
 // DiscoverProviderModels Error Path Tests (Integration with real DB)
 // =============================================================================
 
-func TestDiscoverProviderModels_UpsertError(t *testing.T) {
+// TestDiscoverProviderModels_ModelRepoError verifies that a broken model repo
+// fails the discovery request with a 500. The snapshot is the first DB touch,
+// so the closed pool surfaces there.
+func TestDiscoverProviderModels_ModelRepoError(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	// Create a mock OpenAI-compatible server
@@ -1654,6 +1657,76 @@ func TestDiscoverProviderModels_UpsertError(t *testing.T) {
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("expected status 500, got %d: %s", w.Code, w.Body.String())
 	}
+	if !strings.Contains(w.Body.String(), "failed to snapshot models") {
+		t.Errorf("expected error about model snapshot, got %q", w.Body.String())
+	}
+}
+
+// TestDiscoverProviderModels_UpsertError covers the upsert 500 branch: a
+// read-only pool lets the pre-scan snapshot (SELECT) succeed while the
+// model upsert (INSERT) fails.
+func TestDiscoverProviderModels_UpsertError(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// Create a mock OpenAI-compatible server
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/models" {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"data": []map[string]interface{}{
+					{"id": "upsert-error-model", "owned_by": "test", "object": "model"},
+				},
+			})
+		}
+	}))
+	defer mockServer.Close()
+
+	providerData := fmt.Sprintf(`{"name":"upsert-error-branch-test","base_url":"%s/v1","api_key":"sk-test"}`, mockServer.URL)
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create provider: expected 201, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var created struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode created provider: %v", err)
+	}
+
+	// Override newModelRepo with a repo on a read-only connection: the
+	// snapshot SELECT succeeds, the first Upsert INSERT fails.
+	roURL := apiTestDBURL
+	if strings.Contains(roURL, "?") {
+		roURL += "&default_transaction_read_only=on"
+	} else {
+		roURL += "?default_transaction_read_only=on"
+	}
+	roPool, err := pgxpool.New(context.Background(), roURL)
+	if err != nil {
+		t.Fatalf("create read-only pool: %v", err)
+	}
+	defer roPool.Close()
+
+	origNewModelRepo := newModelRepo
+	defer func() { newModelRepo = origNewModelRepo }()
+	newModelRepo = func(pool *pgxpool.Pool) *model.Repository {
+		return model.NewRepository(roPool)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/providers/"+created.ID+"/discover", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status 500, got %d: %s", w.Code, w.Body.String())
+	}
 	if !strings.Contains(w.Body.String(), "failed to upsert model") {
 		t.Errorf("expected error about upsert, got %q", w.Body.String())
 	}
@@ -1698,8 +1771,8 @@ func TestDiscoverProviderModels_DisableMissingError(t *testing.T) {
 	origModelRepoDisableMissing := modelRepoDisableMissing
 	defer func() { modelRepoDisableMissing = origModelRepoDisableMissing }()
 
-	modelRepoDisableMissing = func(repo *model.Repository, ctx context.Context, providerID uuid.UUID, providerName string, modelIDs []string) (int64, error) {
-		return 0, errors.New("disable missing models error")
+	modelRepoDisableMissing = func(repo *model.Repository, ctx context.Context, providerID uuid.UUID, providerName string, modelIDs []string) ([]model.DisabledModelRef, error) {
+		return nil, errors.New("disable missing models error")
 	}
 
 	// Call discover endpoint
@@ -1755,8 +1828,8 @@ func TestDiscoverProviderModels_SyncForModelError(t *testing.T) {
 	origFailoverRepoSyncForModel := failoverRepoSyncForModel
 	defer func() { failoverRepoSyncForModel = origFailoverRepoSyncForModel }()
 
-	failoverRepoSyncForModel = func(repo *failover.Repository, ctx context.Context, modelID string) error {
-		return errors.New("sync for model error")
+	failoverRepoSyncForModel = func(repo *failover.Repository, ctx context.Context, modelID string) (*failover.SyncResult, error) {
+		return nil, errors.New("sync for model error")
 	}
 
 	// Call discover endpoint
@@ -2364,8 +2437,8 @@ func TestDiscoverAllModels_DisableMissingError(t *testing.T) {
 	origModelRepoDisableMissing := modelRepoDisableMissing
 	defer func() { modelRepoDisableMissing = origModelRepoDisableMissing }()
 
-	modelRepoDisableMissing = func(repo *model.Repository, ctx context.Context, providerID uuid.UUID, providerName string, modelIDs []string) (int64, error) {
-		return 0, errors.New("disable missing models error")
+	modelRepoDisableMissing = func(repo *model.Repository, ctx context.Context, providerID uuid.UUID, providerName string, modelIDs []string) ([]model.DisabledModelRef, error) {
+		return nil, errors.New("disable missing models error")
 	}
 
 	// Call discover-all endpoint (should still return 200, just log debug)
@@ -2411,8 +2484,8 @@ func TestDiscoverAllModels_SyncForModelError(t *testing.T) {
 	origFailoverRepoSyncForModel := failoverRepoSyncForModel
 	defer func() { failoverRepoSyncForModel = origFailoverRepoSyncForModel }()
 
-	failoverRepoSyncForModel = func(repo *failover.Repository, ctx context.Context, modelID string) error {
-		return errors.New("sync for model error")
+	failoverRepoSyncForModel = func(repo *failover.Repository, ctx context.Context, modelID string) (*failover.SyncResult, error) {
+		return nil, errors.New("sync for model error")
 	}
 
 	// Call discover-all endpoint (should still return 200, just log debug)

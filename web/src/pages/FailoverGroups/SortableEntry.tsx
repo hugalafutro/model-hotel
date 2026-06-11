@@ -43,6 +43,10 @@ export function SortableEntry({
 
 	const dragProps = groupEnabled ? { ...attributes, ...listeners } : {};
 
+	// The router skips entries whose model or provider is disabled regardless
+	// of the per-entry toggle; reflect that effective state in the UI.
+	const effectivelyDisabled = !entry.model_enabled || !entry.provider_enabled;
+
 	// Determine if fuse should show (circuit breaker open/half-open).
 	// We trust the circuit breaker's own state — the backend already enforces
 	// the configured threshold before transitioning to open/half-open.
@@ -88,7 +92,9 @@ export function SortableEntry({
 			ref={setNodeRef}
 			style={{ ...style, overflow: showFuse ? "hidden" : undefined }}
 			className={`relative flex items-center justify-between px-2 py-1 rounded group text-sm ${
-				entry.enabled ? "bg-gray-700" : "failover-entry-disabled"
+				entry.enabled && !effectivelyDisabled
+					? "bg-gray-700"
+					: "failover-entry-disabled"
 			}`}
 			{...(fuseTitle ? { title: fuseTitle } : {})}
 		>
@@ -123,6 +129,16 @@ export function SortableEntry({
 					<span className="text-gray-500 mx-1">/</span>
 					<span className="text-gray-400 truncate">{entry.model_id}</span>
 				</div>
+				{effectivelyDisabled && (
+					<span
+						className="ui-badge ui-badge-warning shrink-0"
+						data-testid="failover-entry-effective-disabled"
+					>
+						{entry.provider_enabled
+							? t("failoverGroups.entry.modelDisabled")
+							: t("failoverGroups.entry.providerDisabled")}
+					</span>
+				)}
 			</div>
 			<Toggle
 				size="sm"

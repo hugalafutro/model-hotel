@@ -762,6 +762,27 @@
 		},
 		"toast": {
 			"refreshedQuotas": "تحديث الحصص {{refreshed}} ( فشل{{failed}} ، {{skipped}} غير مدعوم)"
+		},
+		"discoverySummary": {
+			"title": "ملخص الاكتشاف",
+			"noChanges": "لا توجد تغييرات. كل شيء يتطابق مع قائمة المزود.",
+			"added": "تمت الإضافة",
+			"reenabled": "أعيد تمكينها",
+			"disabled": "معطل",
+			"failoverDeleted": "تم حذف مجموعات التحويل التلقائي",
+			"failoverUpdated": "تم تحديث مجموعات التحويل التلقائي",
+			"removedCount": "تمت إزالة: {{count}}",
+			"addedCount": "تمت الإضافة: {{count}}",
+			"reason": {
+				"new_model": "نموذج جديد",
+				"reappeared": "مدرج مرة أخرى من قبل المزود",
+				"not_listed": "لم يعد مدرجًا من قبل المزود"
+			},
+			"failoverReason": {
+				"noProviders": "لا يوجد مزودون ممكّنون متبقون",
+				"onlyOne": "لم يتبق سوى مزود واحد ممكّن (يحتاج التحويل التلقائي إلى اثنين على الأقل)"
+			},
+			"error": "خطأ"
 		}
 	},
 	"models": {
@@ -842,7 +863,8 @@
 			"maxOut": "الحد الاقصى للخارج",
 			"sortByStatus": "الترتيب حسب الحالة",
 			"status": "الحالة"
-		}
+		},
+		"disabledByDiscovery": "غير مدرج من قبل المزود منذ {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "العودة إلى القيمة المكتشفة",
@@ -2293,7 +2315,12 @@
 			"disableProvider": "تعطيل المزود",
 			"enableProvider": "تمكين المزود",
 			"circuitBreakerOpen": "فتح كسر الدائرة - في انتظار التبريد",
-			"circuitBreakerHalfOpen": "كسر الدائرة نصف مفتوح - اختبار الاسترداد"
+			"circuitBreakerHalfOpen": "كسر الدائرة نصف مفتوح - اختبار الاسترداد",
+			"modelDisabled": "النموذج معطل",
+			"providerDisabled": "المزود معطل"
+		},
+		"modal": {
+			"unavailable": "غير متوفر"
 		}
 	},
 	"virtualKeys": {

@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Model, Provider } from "../api/types";
-import { formatRelativeTime, formatTokens } from "../utils/format";
+import { formatDate, formatRelativeTime, formatTokens } from "../utils/format";
 import { parseCapabilities, proxyModelID } from "../utils/model";
 import { CapBadge } from "./CapBadge";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -418,6 +418,14 @@ export function ModelTable({
 										<td className="px-4 py-1.5 whitespace-nowrap">
 											<span
 												className={`ui-badge px-2 py-px leading-[1.6] text-xs ${model.enabled && !model.disabled_manually ? "ui-badge-success" : model.enabled && model.disabled_manually ? "ui-badge-warning" : "ui-badge-error"}`}
+												{...(!model.enabled && !model.disabled_manually
+													? {
+															title: t("models.disabledByDiscovery", {
+																date: formatDate(model.last_seen_at),
+															}),
+															"data-testid": "disabled-by-discovery",
+														}
+													: {})}
 											>
 												<span className="badge-text">
 													{model.enabled && !model.disabled_manually

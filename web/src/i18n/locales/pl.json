@@ -762,6 +762,27 @@
 		},
 		"toast": {
 			"refreshedQuotas": "Odświeżone kontyngenty {{refreshed}} ({{failed}} nie powiodło się, {{skipped}} nieobsługiwane)"
+		},
+		"discoverySummary": {
+			"title": "Podsumowanie wykrywania",
+			"noChanges": "Bez zmian. Wszystko jest zgodne z listą dostawcy.",
+			"added": "Dodano",
+			"reenabled": "Ponownie włączono",
+			"disabled": "Wyłączone",
+			"failoverDeleted": "Grupy przełączania awaryjnego usunięte",
+			"failoverUpdated": "Zaktualizowane grupy przełączania awaryjnego",
+			"removedCount": "Usunięto: {{count}}",
+			"addedCount": "Dodano: {{count}}",
+			"reason": {
+				"new_model": "Nowy model",
+				"reappeared": "Ponownie wymieniony przez dostawcę",
+				"not_listed": "Model nie jest już wymieniony przez dostawcę"
+			},
+			"failoverReason": {
+				"noProviders": "Nie pozostało żadnych aktywnych dostawców",
+				"onlyOne": "Pozostał tylko jeden włączony dostawca (przełączanie awaryjne wymaga co najmniej dwóch)."
+			},
+			"error": "Błąd"
 		}
 	},
 	"models": {
@@ -842,7 +863,8 @@
 			"maxOut": "Maks. wyjście",
 			"sortByStatus": "Sortuj według statusu",
 			"status": "Status"
-		}
+		},
+		"disabledByDiscovery": "Nie figuruje na liście dostawcy od {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Przywróć do odkrytej wartości",
@@ -2293,7 +2315,12 @@
 			"disableProvider": "Wyłącz dostawcę",
 			"enableProvider": "Włącz dostawcę",
 			"circuitBreakerOpen": "Wyłącznik obwodu otwarty - oczekiwanie na czas odnowienia",
-			"circuitBreakerHalfOpen": "Wyłącznik wyłącznika w połowie otwarty - odzysk sondy"
+			"circuitBreakerHalfOpen": "Wyłącznik wyłącznika w połowie otwarty - odzysk sondy",
+			"modelDisabled": "Model wyłączony",
+			"providerDisabled": "Dostawca wyłączony"
+		},
+		"modal": {
+			"unavailable": "niedostępne"
 		}
 	},
 	"virtualKeys": {

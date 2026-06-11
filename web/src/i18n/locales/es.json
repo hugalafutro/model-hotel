@@ -762,6 +762,27 @@
 		},
 		"toast": {
 			"refreshedQuotas": "Cuotas {{refreshed}} actualizadas ({{failed}} fallaron, {{skipped}} no soportados)"
+		},
+		"discoverySummary": {
+			"title": "Resumen de descubrimiento",
+			"noChanges": "Sin cambios. Todo coincide con la lista del proveedor.",
+			"added": "Añadido",
+			"reenabled": "Reactivado",
+			"disabled": "Desactivado",
+			"failoverDeleted": "Grupos de conmutación por error eliminados",
+			"failoverUpdated": "Grupos de conmutación por error actualizados",
+			"removedCount": "Eliminado: {{count}}",
+			"addedCount": "Añadido: {{count}}",
+			"reason": {
+				"new_model": "Nuevo modelo",
+				"reappeared": "Incluido de nuevo por el proveedor",
+				"not_listed": "Ya no aparece en la lista del proveedor"
+			},
+			"failoverReason": {
+				"noProviders": "No queda ningún proveedor habilitado",
+				"onlyOne": "Solo queda un proveedor habilitado (la conmutación por error necesita al menos dos)."
+			},
+			"error": "Error"
 		}
 	},
 	"models": {
@@ -842,7 +863,8 @@
 			"maxOut": "Máximo ausente",
 			"sortByStatus": "Ordenar por estado",
 			"status": "Estado"
-		}
+		},
+		"disabledByDiscovery": "No aparece en la lista del proveedor desde {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Revertir al valor descubierto",
@@ -2293,7 +2315,12 @@
 			"disableProvider": "Desactivar proveedor",
 			"enableProvider": "Habilitar proveedor",
 			"circuitBreakerOpen": "Interruptor de circuito abierto - esperando enfriamiento",
-			"circuitBreakerHalfOpen": "Rompeador de circuitos medio abierto - recuperación de sondeo"
+			"circuitBreakerHalfOpen": "Rompeador de circuitos medio abierto - recuperación de sondeo",
+			"modelDisabled": "Modelo desactivado",
+			"providerDisabled": "Proveedor desactivado"
+		},
+		"modal": {
+			"unavailable": "no disponible"
 		}
 	},
 	"virtualKeys": {

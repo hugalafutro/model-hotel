@@ -762,6 +762,27 @@
 		},
 		"toast": {
 			"refreshedQuotas": "{{refreshed}} kota değerleri güncellendi ({{failed}} başarısız, {{skipped}} desteklenmiyor)"
+		},
+		"discoverySummary": {
+			"title": "Keşif özeti",
+			"noChanges": "Değişiklik yok. Her şey sağlayıcı listesiyle uyumludur.",
+			"added": "Eklendi",
+			"reenabled": "Yeniden etkinleştirildi",
+			"disabled": "Devre dışı",
+			"failoverDeleted": "Yedekleme grupları silindi",
+			"failoverUpdated": "Yedekleme grupları güncellendi",
+			"removedCount": "Kaldırılanlar: {{count}}",
+			"addedCount": "Eklenenler: {{count}}",
+			"reason": {
+				"new_model": "Yeni model",
+				"reappeared": "Sağlayıcı tarafından yeniden listelenen",
+				"not_listed": "Artık sağlayıcı tarafından listelenmiyor"
+			},
+			"failoverReason": {
+				"noProviders": "Etkin sağlayıcı kalmadı",
+				"onlyOne": "Yalnızca bir etkin sağlayıcı kalmıştır (yedekleme için en az iki sağlayıcı gerekir)"
+			},
+			"error": "Hata"
 		}
 	},
 	"models": {
@@ -842,7 +863,8 @@
 			"maxOut": "Sınırı Zorla",
 			"sortByStatus": "Duruma göre sırala",
 			"status": "Durum"
-		}
+		},
+		"disabledByDiscovery": "{{date}} tarihinden beri sağlayıcı tarafından listelenmiyor"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Tespit edilen değere geri dön",
@@ -2293,7 +2315,12 @@
 			"disableProvider": "Sağlayıcıyı devre dışı bırak",
 			"enableProvider": "Sağlayıcıyı etkinleştir",
 			"circuitBreakerOpen": "Devre kesici açık - soğuma süresinin bitmesini bekliyor",
-			"circuitBreakerHalfOpen": "Devre kesici yarı açık - geri kazanım testi"
+			"circuitBreakerHalfOpen": "Devre kesici yarı açık - geri kazanım testi",
+			"modelDisabled": "Model devre dışı",
+			"providerDisabled": "Sağlayıcı devre dışı"
+		},
+		"modal": {
+			"unavailable": "kullanılamıyor"
 		}
 	},
 	"virtualKeys": {

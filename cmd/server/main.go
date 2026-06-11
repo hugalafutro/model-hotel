@@ -389,16 +389,16 @@ func main() {
 					existingModelIDs = append(existingModelIDs, m.ModelID)
 				}
 			}
-			disabledCount, err := modelRepo.DisableMissingModels(ctx, p.ID, p.Name, existingModelIDs)
+			disabledRefs, err := modelRepo.DisableMissingModels(ctx, p.ID, p.Name, existingModelIDs)
 			if err != nil {
 				debuglog.Error("discovery: failed to disable missing models", "provider", p.Name, "error", err)
-			} else if disabledCount > 0 {
-				result.ModelsDisabled += int(disabledCount)
+			} else if len(disabledRefs) > 0 {
+				result.ModelsDisabled += len(disabledRefs)
 				events.Publish(events.Event{
 					Type:     "discovery.models_disabled",
 					Severity: "warning",
-					Message:  fmt.Sprintf("%d models no longer available at '%s' and were disabled", disabledCount, p.Name),
-					Metadata: map[string]interface{}{"provider": p.Name, "count": disabledCount},
+					Message:  fmt.Sprintf("%d models no longer available at '%s' and were disabled", len(disabledRefs), p.Name),
+					Metadata: map[string]interface{}{"provider": p.Name, "count": len(disabledRefs)},
 				})
 			}
 			now := time.Now()
@@ -419,7 +419,7 @@ func main() {
 			}
 		}
 		for modelID := range seenModelIDs {
-			if err := failoverRepo.SyncForModel(ctx, modelID); err != nil {
+			if _, err := failoverRepo.SyncForModel(ctx, modelID); err != nil {
 				debuglog.Error("discovery: failed to sync failover", "model_id", modelID, "error", err)
 				result.FailoverSyncErrs++
 				events.Publish(events.Event{

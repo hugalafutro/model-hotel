@@ -762,6 +762,27 @@
 		},
 		"toast": {
 			"refreshedQuotas": "Aktualizované kvóty {{refreshed}} ({{failed}} selhalo, {{skipped}} není podporováno)"
+		},
+		"discoverySummary": {
+			"title": "Shrnutí zjištění",
+			"noChanges": "Žádné změny. Vše odpovídá seznamu poskytovatele.",
+			"added": "Přidáno",
+			"reenabled": "Znovu povoleno",
+			"disabled": "Zakázáno",
+			"failoverDeleted": "Failover skupiny smazány",
+			"failoverUpdated": "Failover skupiny aktualizovány",
+			"removedCount": "Odstraněno: {{count}}",
+			"addedCount": "Přidáno: {{count}}",
+			"reason": {
+				"new_model": "Nový model",
+				"reappeared": "Opět uveden poskytovatelem",
+				"not_listed": "Poskytovatel již tento model neuvádí"
+			},
+			"failoverReason": {
+				"noProviders": "Nezbývají žádní povolené poskytovatelé",
+				"onlyOne": "Zbývá pouze jeden povolený poskytovatel (pro failover jsou potřeba alespoň dva)"
+			},
+			"error": "Chyba"
 		}
 	},
 	"models": {
@@ -842,7 +863,8 @@
 			"maxOut": "Max. výstup",
 			"sortByStatus": "Seřadit podle stavu",
 			"status": "Stav"
-		}
+		},
+		"disabledByDiscovery": "Poskytovatelem není uveden od {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Vrátit se k zjištěné hodnotě",
@@ -2293,7 +2315,12 @@
 			"disableProvider": "Zakázat poskytovatele",
 			"enableProvider": "Povolit poskytovatele",
 			"circuitBreakerOpen": "Jistič je rozpojený – čeká na ochlazení",
-			"circuitBreakerHalfOpen": "Jistič je v poloze částečně otevřené – testování obnovy"
+			"circuitBreakerHalfOpen": "Jistič je v poloze částečně otevřené – testování obnovy",
+			"modelDisabled": "Model deaktivován",
+			"providerDisabled": "Poskytovatel deaktivován"
+		},
+		"modal": {
+			"unavailable": "nedostupné"
 		}
 	},
 	"virtualKeys": {

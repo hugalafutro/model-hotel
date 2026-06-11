@@ -762,6 +762,27 @@
 		},
 		"toast": {
 			"refreshedQuotas": "{{refreshed}} -kiintiöt on päivitetty ({{failed}} -kiintiöiden päivitys epäonnistui, {{skipped}} -kiintiöitä ei tueta)"
+		},
+		"discoverySummary": {
+			"title": "Haku-yhteenveto",
+			"noChanges": "Ei muutoksia. Kaikki vastaa palveluntarjoajan luetteloa.",
+			"added": "Lisätty",
+			"reenabled": "Otettu uudelleen käyttöön",
+			"disabled": "Poissa käytöstä",
+			"failoverDeleted": "Vikasietoryhmät poistettu",
+			"failoverUpdated": "Vikasietoryhmät päivitetty",
+			"removedCount": "Poistettu: {{count}}",
+			"addedCount": "Lisätty: {{count}}",
+			"reason": {
+				"new_model": "Uusi malli",
+				"reappeared": "Palveluntarjoajan uudelleen listama",
+				"not_listed": "Palveluntarjoaja ei enää listaa"
+			},
+			"failoverReason": {
+				"noProviders": "Käytössä olevia palveluntarjoajia ei ole jäljellä",
+				"onlyOne": "Vain yksi käytössä oleva palveluntarjoaja on jäljellä (failover vaatii vähintään kaksi)"
+			},
+			"error": "Virhe"
 		}
 	},
 	"models": {
@@ -842,7 +863,8 @@
 			"maxOut": "Maksimi Ulos",
 			"sortByStatus": "Järjestä tilan mukaan",
 			"status": "Tila"
-		}
+		},
+		"disabledByDiscovery": "Ei palveluntarjoajan listalla {{date}} lähtien"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Palauta löydettyyn arvoon",
@@ -2293,7 +2315,12 @@
 			"disableProvider": "Poista tarjoaja käytöstä",
 			"enableProvider": "Ota palveluntarjoaja käyttöön",
 			"circuitBreakerOpen": "Katkaisin auki - odottaa jäähtymistä",
-			"circuitBreakerHalfOpen": "Circuit katkaisija puoli-avoin - anturi elpyminen"
+			"circuitBreakerHalfOpen": "Circuit katkaisija puoli-avoin - anturi elpyminen",
+			"modelDisabled": "Malli poistettu käytöstä",
+			"providerDisabled": "Palveluntarjoaja poistettu käytöstä"
+		},
+		"modal": {
+			"unavailable": "ei saatavilla"
 		}
 	},
 	"virtualKeys": {

@@ -762,6 +762,27 @@
 		},
 		"toast": {
 			"refreshedQuotas": "מכסות ה- {{refreshed}} עודכנו ({{failed}} נכשל, {{skipped}} אינו נתמך)"
+		},
+		"discoverySummary": {
+			"title": "סיכום הגילוי",
+			"noChanges": "אין שינויים. הכל תואם לרשימת הספקים.",
+			"added": "נוסף",
+			"reenabled": "הופעל מחדש",
+			"disabled": "מושבת",
+			"failoverDeleted": "קבוצות מעבר למקרה כשל שנמחקו",
+			"failoverUpdated": "קבוצות מעבר לגיבוי עודכנו",
+			"removedCount": "הוסרו: {{count}}",
+			"addedCount": "נוסף: {{count}}",
+			"reason": {
+				"new_model": "מודל חדש",
+				"reappeared": "מופיע שוב ברשימת הספק",
+				"not_listed": "כבר לא מופיע ברשימת הספק"
+			},
+			"failoverReason": {
+				"noProviders": "לא נותרו ספקים מופעלים",
+				"onlyOne": "נותר ספק מופעל אחד בלבד (למעבר לגיבוי דרושים לפחות שניים)"
+			},
+			"error": "שגיאה"
 		}
 	},
 	"models": {
@@ -842,7 +863,8 @@
 			"maxOut": "למקסם",
 			"sortByStatus": "מיין לפי סטטוס",
 			"status": "סטטוס"
-		}
+		},
+		"disabledByDiscovery": "לא מופיע ברשימת הספק מאז {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "חזור לערך שנמצא",
@@ -2293,7 +2315,12 @@
 			"disableProvider": "השבת ספק",
 			"enableProvider": "הפעל ספק",
 			"circuitBreakerOpen": "מפסק זרם פתוח - ממתינים לסיום זמן ההמתנה",
-			"circuitBreakerHalfOpen": "מפסק חצי פתוח – בדיקת התאוששות"
+			"circuitBreakerHalfOpen": "מפסק חצי פתוח – בדיקת התאוששות",
+			"modelDisabled": "המודל מושבת",
+			"providerDisabled": "ספק מושבת"
+		},
+		"modal": {
+			"unavailable": "לא זמין"
 		}
 	},
 	"virtualKeys": {

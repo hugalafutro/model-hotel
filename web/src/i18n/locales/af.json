@@ -762,6 +762,27 @@
 		},
 		"toast": {
 			"refreshedQuotas": "Geverfriste {{refreshed}} -kotas ({{failed}} het misluk, {{skipped}} word nie ondersteun nie)"
+		},
+		"discoverySummary": {
+			"title": "Ontdekkingsopsomming",
+			"noChanges": "Geen veranderinge nie. Alles stem ooreen met die verskaffer se lys.",
+			"added": "Bygevoeg",
+			"reenabled": "Hergeaktiveer",
+			"disabled": "Gedeaktiveer",
+			"failoverDeleted": "Failover-groepe verwyder",
+			"failoverUpdated": "Oorgangsgroepe opgedateer",
+			"removedCount": "Verwyder: {{count}}",
+			"addedCount": "Bygevoeg: {{count}}",
+			"reason": {
+				"new_model": "Nuwe model",
+				"reappeared": "Weereens gelys deur die verskaffer",
+				"not_listed": "Nie meer deur die verskaffer gelys nie"
+			},
+			"failoverReason": {
+				"noProviders": "Daar is geen geaktiveerde verskaffers oor nie",
+				"onlyOne": "Slegs een geaktiveerde verskaffer bly oor (failover benodig ten minste twee)"
+			},
+			"error": "Fout"
 		}
 	},
 	"models": {
@@ -842,7 +863,8 @@
 			"maxOut": "Maximeer",
 			"sortByStatus": "Sorteer volgens status",
 			"status": "Status"
-		}
+		},
+		"disabledByDiscovery": "Nie deur die verskaffer gelys sedert {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Keer terug na die ontdekte waarde",
@@ -2293,7 +2315,12 @@
 			"disableProvider": "Skakel verskaffer uit",
 			"enableProvider": "Aktiveer verskaffer",
 			"circuitBreakerOpen": "Kringskakelaar oop - wag vir afkoeling",
-			"circuitBreakerHalfOpen": "Sekering half-oop - herstelondersoek"
+			"circuitBreakerHalfOpen": "Sekering half-oop - herstelondersoek",
+			"modelDisabled": "Model gedeaktiveer",
+			"providerDisabled": "Verskaffer gedeaktiveer"
+		},
+		"modal": {
+			"unavailable": "onbeskikbaar"
 		}
 	},
 	"virtualKeys": {

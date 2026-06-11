@@ -762,6 +762,27 @@
 		},
 		"toast": {
 			"refreshedQuotas": "Оновлено квоти {{refreshed}} ({{failed}} не вдалося, {{skipped}} не підтримується)"
+		},
+		"discoverySummary": {
+			"title": "Підсумок пошуку",
+			"noChanges": "Без змін. Все відповідає списку провайдера.",
+			"added": "Додано",
+			"reenabled": "Повернуто",
+			"disabled": "Вимкнено",
+			"failoverDeleted": "Групи відмовостійкості видалено",
+			"failoverUpdated": "Оновлено групи відмовостійкості",
+			"removedCount": "Вилучено: {{count}}",
+			"addedCount": "Додано: {{count}}",
+			"reason": {
+				"new_model": "Нова модель",
+				"reappeared": "Знову вказано провайдером",
+				"not_listed": "Більше не вказано провайдером"
+			},
+			"failoverReason": {
+				"noProviders": "Не залишилося жодного активного постачальника",
+				"onlyOne": "Залишився лише один увімкнений постачальник (для відмовостійкості потрібно щонайменше два)"
+			},
+			"error": "Помилка"
 		}
 	},
 	"models": {
@@ -842,7 +863,8 @@
 			"maxOut": "Максимум вийшов",
 			"sortByStatus": "За статусом",
 			"status": "Статус"
-		}
+		},
+		"disabledByDiscovery": "Не вказано провайдером з {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Повернутися до знайденого значення",
@@ -2293,7 +2315,12 @@
 			"disableProvider": "Вимкнути провайдера",
 			"enableProvider": "Увімкнути провайдера",
 			"circuitBreakerOpen": "Мережевий вимикач відкритий - чекає завершення роботи",
-			"circuitBreakerHalfOpen": "Мережевий вимикач напіввідкритий - зондування відновлення"
+			"circuitBreakerHalfOpen": "Мережевий вимикач напіввідкритий - зондування відновлення",
+			"modelDisabled": "Модель вимкнена",
+			"providerDisabled": "Провайдер вимкнено"
+		},
+		"modal": {
+			"unavailable": "недоступно"
 		}
 	},
 	"virtualKeys": {

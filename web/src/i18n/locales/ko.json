@@ -762,6 +762,27 @@
 		},
 		"toast": {
 			"refreshedQuotas": "{{refreshed}} 할당량 갱신 ({{failed}} 실패, {{skipped}} 미지원)"
+		},
+		"discoverySummary": {
+			"title": "검색 요약",
+			"noChanges": "변경 사항 없음. 모든 내용이 제공업체 목록과 일치합니다.",
+			"added": "추가됨",
+			"reenabled": "재활성화됨",
+			"disabled": "비활성화됨",
+			"failoverDeleted": "페일오버 그룹 삭제됨",
+			"failoverUpdated": "페일오버 그룹 업데이트됨",
+			"removedCount": "제거됨: {{count}}",
+			"addedCount": "추가: {{count}}",
+			"reason": {
+				"new_model": "새 모델",
+				"reappeared": "프로바이더에 의해 다시 등재됨",
+				"not_listed": "제공업체에서 더 이상 목록에 포함하지 않음"
+			},
+			"failoverReason": {
+				"noProviders": "활성화된 제공자가 남아 있지 않습니다",
+				"onlyOne": "활성화된 제공업체가 하나만 남아 있습니다(페일오버에는 최소 두 개가 필요합니다)."
+			},
+			"error": "오류"
 		}
 	},
 	"models": {
@@ -842,7 +863,8 @@
 			"maxOut": "최대치",
 			"sortByStatus": "상태별로 정렬",
 			"status": "상태"
-		}
+		},
+		"disabledByDiscovery": "{{date}} 이후 제공업체 목록에 없음"
 	},
 	"model": {
 		"revertToDiscoveredValue": "발견된 값으로 되돌리기",
@@ -2293,7 +2315,12 @@
 			"disableProvider": "제공자 비활성화",
 			"enableProvider": "제공자 활성화",
 			"circuitBreakerOpen": "회로 차단기 개방 - 쿨타임 대기 중",
-			"circuitBreakerHalfOpen": "회로 차단기 반개 상태 - 복구 확인"
+			"circuitBreakerHalfOpen": "회로 차단기 반개 상태 - 복구 확인",
+			"modelDisabled": "모델 비활성화",
+			"providerDisabled": "제공업체 비활성화"
+		},
+		"modal": {
+			"unavailable": "사용 불가"
 		}
 	},
 	"virtualKeys": {

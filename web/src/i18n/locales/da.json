@@ -762,6 +762,27 @@
 		},
 		"toast": {
 			"refreshedQuotas": "Refreshed {{refreshed}} quotas ({{failed}} mislykkedes, {{skipped}} uunderstøttet)"
+		},
+		"discoverySummary": {
+			"title": "Oversigt over opdagelse",
+			"noChanges": "Ingen ændringer. Alt stemmer overens med udbyderens liste.",
+			"added": "Tilføjet",
+			"reenabled": "Genaktiveret",
+			"disabled": "Deaktiveret",
+			"failoverDeleted": "Failover-grupper slettet",
+			"failoverUpdated": "Failover-grupper opdateret",
+			"removedCount": "Fjernet: {{count}}",
+			"addedCount": "Tilføjet: {{count}}",
+			"reason": {
+				"new_model": "Ny model",
+				"reappeared": "Opført igen af udbyderen",
+				"not_listed": "Ikke længere opført af udbyderen"
+			},
+			"failoverReason": {
+				"noProviders": "Der er ingen aktive udbydere tilbage",
+				"onlyOne": "Der er kun én aktiveret udbyder tilbage (failover kræver mindst to)"
+			},
+			"error": "Fejl"
 		}
 	},
 	"models": {
@@ -842,7 +863,8 @@
 			"maxOut": "Maks. Ud",
 			"sortByStatus": "Sorter efter status",
 			"status": "Status"
-		}
+		},
+		"disabledByDiscovery": "Ikke opført af udbyderen siden {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Tilbagefør til fundne værdier",
@@ -2293,7 +2315,12 @@
 			"disableProvider": "Deaktivér udbyder",
 			"enableProvider": "Aktiver udbyder",
 			"circuitBreakerOpen": "Circuit breaker åben - venter på nedkøling",
-			"circuitBreakerHalfOpen": "Circuit breaker halvt åben - probing recovery"
+			"circuitBreakerHalfOpen": "Circuit breaker halvt åben - probing recovery",
+			"modelDisabled": "Model deaktiveret",
+			"providerDisabled": "Udbyder deaktiveret"
+		},
+		"modal": {
+			"unavailable": "ikke tilgængelig"
 		}
 	},
 	"virtualKeys": {

@@ -98,21 +98,21 @@ func TestDisableMissingModels_EmptyList(t *testing.T) {
 
 	repo := NewRepository(testPool)
 
-	// Empty list should return (0, nil) without executing any query.
-	count, err := repo.DisableMissingModels(ctx, uuid.New(), "test-provider", nil)
+	// Empty list should return (nil, nil) without executing any query.
+	refs, err := repo.DisableMissingModels(ctx, uuid.New(), "test-provider", nil)
 	if err != nil {
 		t.Fatalf("DisableMissingModels with nil list: %v", err)
 	}
-	if count != 0 {
-		t.Errorf("expected 0 rows affected, got %d", count)
+	if len(refs) != 0 {
+		t.Errorf("expected 0 disabled refs, got %d", len(refs))
 	}
 
-	count, err = repo.DisableMissingModels(ctx, uuid.New(), "test-provider", []string{})
+	refs, err = repo.DisableMissingModels(ctx, uuid.New(), "test-provider", []string{})
 	if err != nil {
 		t.Fatalf("DisableMissingModels with empty list: %v", err)
 	}
-	if count != 0 {
-		t.Errorf("expected 0 rows affected, got %d", count)
+	if len(refs) != 0 {
+		t.Errorf("expected 0 disabled refs, got %d", len(refs))
 	}
 }
 
@@ -132,14 +132,24 @@ func TestDisableMissingModels_DisablesMissing(t *testing.T) {
 	// Mark "model-b" and "model-d" as still existing. "model-a" and "model-c" are missing.
 	existing := []string{"model-b", "model-d"}
 
-	count, err := repo.DisableMissingModels(ctx, providerID, "test-provider", existing)
+	refs, err := repo.DisableMissingModels(ctx, providerID, "test-provider", existing)
 	if err != nil {
 		t.Fatalf("DisableMissingModels: %v", err)
 	}
 
-	// 2 models (model-a, model-c) should be disabled.
-	if count != 2 {
-		t.Errorf("expected 2 rows affected, got %d", count)
+	// 2 models (model-a, model-c) should be disabled and returned.
+	if len(refs) != 2 {
+		t.Fatalf("expected 2 disabled refs, got %d", len(refs))
+	}
+	disabledIDs := map[string]bool{}
+	for _, ref := range refs {
+		if ref.ID == uuid.Nil {
+			t.Errorf("expected non-nil UUID for disabled ref %q", ref.ModelID)
+		}
+		disabledIDs[ref.ModelID] = true
+	}
+	if !disabledIDs["model-a"] || !disabledIDs["model-c"] {
+		t.Errorf("expected refs for model-a and model-c, got %v", disabledIDs)
 	}
 
 	// Verify: only model-b and model-d remain enabled.
@@ -164,14 +174,14 @@ func TestDisableMissingModels_AllPresent(t *testing.T) {
 	// All models are "still existing".
 	existing := []string{"alpha", "beta", "gamma"}
 
-	count, err := repo.DisableMissingModels(ctx, providerID, "test-provider", existing)
+	refs, err := repo.DisableMissingModels(ctx, providerID, "test-provider", existing)
 	if err != nil {
 		t.Fatalf("DisableMissingModels: %v", err)
 	}
 
 	// 0 models should be disabled.
-	if count != 0 {
-		t.Errorf("expected 0 rows affected, got %d", count)
+	if len(refs) != 0 {
+		t.Errorf("expected 0 disabled refs, got %d", len(refs))
 	}
 
 	// All models should still be enabled.
@@ -201,14 +211,14 @@ func TestDisableMissingModels_IgnoresOtherProviders(t *testing.T) {
 	insertTestModel(ctx, t, providerB, "model-b2")
 
 	// Disable missing on provider A, saying only model-a1 still exists.
-	count, err := repo.DisableMissingModels(ctx, providerA, "test-provider-a", []string{"model-a1"})
+	refs, err := repo.DisableMissingModels(ctx, providerA, "test-provider-a", []string{"model-a1"})
 	if err != nil {
 		t.Fatalf("DisableMissingModels: %v", err)
 	}
 
-	// Only model-a2 should be disabled (1 row).
-	if count != 1 {
-		t.Errorf("expected 1 row affected, got %d", count)
+	// Only model-a2 should be disabled.
+	if len(refs) != 1 || refs[0].ModelID != "model-a2" {
+		t.Errorf("expected single ref for model-a2, got %v", refs)
 	}
 
 	// Provider B should be untouched — both models still enabled.
@@ -239,21 +249,49 @@ func TestDisableMissingModels_AlreadyDisabledUnaffected(t *testing.T) {
 	}
 
 	// Only "active-1" and "active-2" are in the existing list.
-	// "already-off" is not in the list, but it's already disabled — should still
-	// count as a matched row (the WHERE clause matches, but SET enabled = false
-	// on an already-false row is still a no-op update). pgx RowsAffected
-	// returns the number of rows matched, not actually changed.
+	// "already-off" is not in the list, but it was already disabled — the
+	// AND enabled = true guard means it is NOT reported as newly disabled.
 	existing := []string{"active-1", "active-2"}
 
-	count, err := repo.DisableMissingModels(ctx, providerID, "test-provider", existing)
+	refs, err := repo.DisableMissingModels(ctx, providerID, "test-provider", existing)
 	if err != nil {
 		t.Fatalf("DisableMissingModels: %v", err)
 	}
 
-	// "already-off" matched the WHERE clause (provider_id matches AND model_id
-	// is not in the list). pgx reports it as affected even though value didn't change.
-	if count != 1 {
-		t.Errorf("expected 1 row affected (already-off matched), got %d", count)
+	if len(refs) != 0 {
+		t.Errorf("expected 0 disabled refs (already-off was disabled before), got %v", refs)
+	}
+}
+
+func TestDisableMissingModels_SecondScanReturnsNothing(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+
+	providerID := insertTestProvider(ctx, t, "test-disable-missing-second-scan")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+
+	insertTestModel(ctx, t, providerID, "kept-model")
+	insertTestModel(ctx, t, providerID, "gone-model")
+
+	existing := []string{"kept-model"}
+
+	// First scan: "gone-model" is newly disabled and returned.
+	refs, err := repo.DisableMissingModels(ctx, providerID, "test-provider", existing)
+	if err != nil {
+		t.Fatalf("DisableMissingModels first scan: %v", err)
+	}
+	if len(refs) != 1 || refs[0].ModelID != "gone-model" {
+		t.Fatalf("expected single ref for gone-model on first scan, got %v", refs)
+	}
+
+	// Second scan with the same listing: gone-model is already disabled and
+	// must not be returned again.
+	refs, err = repo.DisableMissingModels(ctx, providerID, "test-provider", existing)
+	if err != nil {
+		t.Fatalf("DisableMissingModels second scan: %v", err)
+	}
+	if len(refs) != 0 {
+		t.Errorf("expected 0 disabled refs on second scan, got %v", refs)
 	}
 }
 
@@ -262,13 +300,13 @@ func TestDisableMissingModels_NonExistentProvider(t *testing.T) {
 
 	repo := NewRepository(testPool)
 
-	// A provider UUID that does not exist should result in 0 rows affected.
-	count, err := repo.DisableMissingModels(ctx, uuid.New(), "test-provider", []string{"some-model"})
+	// A provider UUID that does not exist should result in no disabled refs.
+	refs, err := repo.DisableMissingModels(ctx, uuid.New(), "test-provider", []string{"some-model"})
 	if err != nil {
 		t.Fatalf("DisableMissingModels with non-existent provider: %v", err)
 	}
-	if count != 0 {
-		t.Errorf("expected 0 rows affected, got %d", count)
+	if len(refs) != 0 {
+		t.Errorf("expected 0 disabled refs, got %d", len(refs))
 	}
 }
 

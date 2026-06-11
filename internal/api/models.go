@@ -257,7 +257,7 @@ func (h *Handler) DeleteModel(w http.ResponseWriter, r *http.Request) {
 	// that reference the deleted model UUID.
 	failoverRepo := failover.NewRepository(h.dbPool.Pool())
 	bgCtx := context.WithoutCancel(r.Context())
-	if err := failoverRepo.SyncForModel(bgCtx, modelID); err != nil {
+	if _, err := failoverRepo.SyncForModel(bgCtx, modelID); err != nil {
 		debuglog.Info("admin: failed to sync failover groups after model delete", "error", err)
 	}
 	if err := failoverRepo.PruneModelUUID(bgCtx, id); err != nil {

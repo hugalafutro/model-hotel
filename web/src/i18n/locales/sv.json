@@ -762,6 +762,27 @@
 		},
 		"toast": {
 			"refreshedQuotas": "Uppdaterad {{refreshed}} quotas ({{failed}} misslyckades, {{skipped}} stöds inte)"
+		},
+		"discoverySummary": {
+			"title": "Sammanfattning av upptäckten",
+			"noChanges": "Inga ändringar. Allt stämmer överens med leverantörens lista.",
+			"added": "Tillagt",
+			"reenabled": "Återaktiverad",
+			"disabled": "Inaktiverad",
+			"failoverDeleted": "Failover-grupper som har tagits bort",
+			"failoverUpdated": "Failover-grupper uppdaterade",
+			"removedCount": "Borttaget: {{count}}",
+			"addedCount": "Tillagt: {{count}}",
+			"reason": {
+				"new_model": "Ny modell",
+				"reappeared": "Listad igen av leverantören",
+				"not_listed": "Listas inte längre av leverantören"
+			},
+			"failoverReason": {
+				"noProviders": "Inga aktiverade leverantörer kvar",
+				"onlyOne": "Endast en aktiverad leverantör återstår (failover kräver minst två)"
+			},
+			"error": "Fel"
 		}
 	},
 	"models": {
@@ -842,7 +863,8 @@
 			"maxOut": "Max Ut",
 			"sortByStatus": "Sortera efter status",
 			"status": "Status"
-		}
+		},
+		"disabledByDiscovery": "Inte listad av leverantören sedan {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Återgå till upptäckt värde",
@@ -2293,7 +2315,12 @@
 			"disableProvider": "Inaktivera leverantör",
 			"enableProvider": "Aktivera leverantör",
 			"circuitBreakerOpen": "Kretsbrytare öppen - väntar på cooldown",
-			"circuitBreakerHalfOpen": "Circuit breaker halv-öppen - sondering återhämtning"
+			"circuitBreakerHalfOpen": "Circuit breaker halv-öppen - sondering återhämtning",
+			"modelDisabled": "Modell inaktiverad",
+			"providerDisabled": "Leverantör inaktiverad"
+		},
+		"modal": {
+			"unavailable": "otillgänglig"
 		}
 	},
 	"virtualKeys": {

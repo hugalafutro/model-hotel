@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
 // Provider represents an LLM provider configuration.
@@ -249,6 +250,10 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateProvide
 
 	InvalidateProviderCache()
 	cacheProvider(p)
+	// Cached model rows denormalize provider name and enabled state, so a
+	// provider update must drop them or failover entries report stale
+	// provider_enabled until the model cache TTL expires.
+	model.InvalidateModelCache()
 	return p, nil
 }
 
@@ -266,6 +271,8 @@ func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 
 	InvalidateProviderCache()
+	// The DB cascade removes this provider's models; drop their cached rows too.
+	model.InvalidateModelCache()
 	return nil
 }
 

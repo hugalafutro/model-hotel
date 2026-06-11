@@ -762,6 +762,27 @@
 		},
 		"toast": {
 			"refreshedQuotas": "Обновленные квот {{refreshed}} ({{failed}} не удалось, {{skipped}} не поддерживается)"
+		},
+		"discoverySummary": {
+			"title": "Сводка по обнаружению",
+			"noChanges": "Без изменений. Все соответствует списку провайдера.",
+			"added": "Добавлено",
+			"reenabled": "Вновь включено",
+			"disabled": "Отключено",
+			"failoverDeleted": "Удаленные группы отказоустойчивости",
+			"failoverUpdated": "Обновлены группы отказоустойчивости",
+			"removedCount": "Удалено: {{count}}",
+			"addedCount": "Добавлено: {{count}}",
+			"reason": {
+				"new_model": "Новая модель",
+				"reappeared": "Снова указана поставщиком",
+				"not_listed": "Больше не указана поставщиком"
+			},
+			"failoverReason": {
+				"noProviders": "Не осталось ни одного активного поставщика",
+				"onlyOne": "Остался только один включенный провайдер (для отработки отказа требуется как минимум два)"
+			},
+			"error": "Ошибка"
 		}
 	},
 	"models": {
@@ -842,7 +863,8 @@
 			"maxOut": "Максимум",
 			"sortByStatus": "Сортировать по статусу",
 			"status": "Статус"
-		}
+		},
+		"disabledByDiscovery": "Не указано поставщиком с {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Вернуться к обнаруженному значению",
@@ -2293,7 +2315,12 @@
 			"disableProvider": "Отключить провайдера",
 			"enableProvider": "Включить провайдер",
 			"circuitBreakerOpen": "Выключатель отключен - ожидается перезарядка",
-			"circuitBreakerHalfOpen": "Полуоткрытый выключатель - выздоровление"
+			"circuitBreakerHalfOpen": "Полуоткрытый выключатель - выздоровление",
+			"modelDisabled": "Модель отключена",
+			"providerDisabled": "Провайдер отключен"
+		},
+		"modal": {
+			"unavailable": "недоступно"
 		}
 	},
 	"virtualKeys": {

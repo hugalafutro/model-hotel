@@ -762,6 +762,27 @@
 		},
 		"toast": {
 			"refreshedQuotas": "Oppdaterte {{refreshed}} kvoter ({{failed}} mislyktes, {{skipped}} ikke støttet)"
+		},
+		"discoverySummary": {
+			"title": "Oppdagelsessammendrag",
+			"noChanges": "Ingen endringer. Alt samsvarer med leverandørens liste.",
+			"added": "Lagt til",
+			"reenabled": "Aktiveres på nytt",
+			"disabled": "Deaktivert",
+			"failoverDeleted": "Failover-grupper slettet",
+			"failoverUpdated": "Failover-grupper oppdatert",
+			"removedCount": "Fjernet: {{count}}",
+			"addedCount": "Lagt til: {{count}}",
+			"reason": {
+				"new_model": "Ny modell",
+				"reappeared": "Oppført på nytt av leverandøren",
+				"not_listed": "Ikke lenger oppført av leverandøren"
+			},
+			"failoverReason": {
+				"noProviders": "Ingen aktiverte leverandører gjenstår",
+				"onlyOne": "Det er bare én aktivert leverandør igjen (failover krever minst to)"
+			},
+			"error": "Feil"
 		}
 	},
 	"models": {
@@ -842,7 +863,8 @@
 			"maxOut": "Maks ut",
 			"sortByStatus": "Sorter etter status",
 			"status": "Status:"
-		}
+		},
+		"disabledByDiscovery": "Ikke oppført av leverandøren siden {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Gå tilbake til oppdaget verdi",
@@ -2293,7 +2315,12 @@
 			"disableProvider": "Deaktiver søkeleverandør",
 			"enableProvider": "Aktiver leverandør",
 			"circuitBreakerOpen": "Krets breaker åpen - venter på cooldown",
-			"circuitBreakerHalfOpen": "Krets pauseåpning – ettersyns gjenoppretting"
+			"circuitBreakerHalfOpen": "Krets pauseåpning – ettersyns gjenoppretting",
+			"modelDisabled": "Modell deaktivert",
+			"providerDisabled": "Leverandør deaktivert"
+		},
+		"modal": {
+			"unavailable": "utilgjengelig"
 		}
 	},
 	"virtualKeys": {

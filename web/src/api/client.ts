@@ -7,6 +7,8 @@ import type {
 	CreateFailoverGroupRequest,
 	CreateProviderRequest,
 	DeepSeekBalance,
+	DiscoverAllResult,
+	DiscoveryDiff,
 	FailoverGroup,
 	FailoverListResponse,
 	LogEntry,
@@ -159,8 +161,10 @@ export const api = {
 				"Failed to update provider",
 			);
 		},
-		discover: async (id: string): Promise<{ discovered: number }> => {
-			return fetchJSON<{ discovered: number }>(
+		discover: async (
+			id: string,
+		): Promise<{ discovered: number; diff: DiscoveryDiff }> => {
+			return fetchJSON<{ discovered: number; diff: DiscoveryDiff }>(
 				`${API_BASE}/api/providers/${id}/discover`,
 				{
 					method: "POST",
@@ -173,21 +177,13 @@ export const api = {
 			succeeded: number;
 			failed: number;
 			discovered: number;
-			results: {
-				provider_name: string;
-				discovered: number;
-				error?: string;
-			}[];
+			results: DiscoverAllResult[];
 		}> => {
 			return fetchJSON<{
 				succeeded: number;
 				failed: number;
 				discovered: number;
-				results: {
-					provider_name: string;
-					discovered: number;
-					error?: string;
-				}[];
+				results: DiscoverAllResult[];
 			}>(
 				`${API_BASE}/api/providers/discover-all`,
 				{

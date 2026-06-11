@@ -762,6 +762,27 @@
 		},
 		"toast": {
 			"refreshedQuotas": "Đã cập nhật hạn ngạch của {{refreshed}} ({{failed}} không thành công, {{skipped}} không được hỗ trợ)"
+		},
+		"discoverySummary": {
+			"title": "Tóm tắt quá trình khám phá",
+			"noChanges": "Không có thay đổi. Mọi thứ đều khớp với danh sách của nhà cung cấp.",
+			"added": "Đã thêm",
+			"reenabled": "Đã kích hoạt lại",
+			"disabled": "Đã tắt",
+			"failoverDeleted": "Các nhóm dự phòng đã bị xóa",
+			"failoverUpdated": "Các nhóm dự phòng đã được cập nhật",
+			"removedCount": "Đã xóa: {{count}}",
+			"addedCount": "Đã thêm: {{count}}",
+			"reason": {
+				"new_model": "Mô hình mới",
+				"reappeared": "Được nhà cung cấp liệt kê lại",
+				"not_listed": "Không còn được nhà cung cấp liệt kê"
+			},
+			"failoverReason": {
+				"noProviders": "Không còn nhà cung cấp nào được kích hoạt",
+				"onlyOne": "Chỉ còn lại một nhà cung cấp được kích hoạt (chế độ dự phòng cần ít nhất hai nhà cung cấp)"
+			},
+			"error": "Lỗi"
 		}
 	},
 	"models": {
@@ -842,7 +863,8 @@
 			"maxOut": "Tận dụng tối đa",
 			"sortByStatus": "Sắp xếp theo trạng thái",
 			"status": "Trạng thái"
-		}
+		},
+		"disabledByDiscovery": "Không được nhà cung cấp liệt kê kể từ {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Quay lại giá trị đã tìm thấy",
@@ -2293,7 +2315,12 @@
 			"disableProvider": "Tắt nhà cung cấp",
 			"enableProvider": "Bật nhà cung cấp",
 			"circuitBreakerOpen": "Công tắc ngắt mạch đang mở - đang chờ hết thời gian chờ",
-			"circuitBreakerHalfOpen": "Cầu dao ở trạng thái nửa mở - kiểm tra khả năng phục hồi"
+			"circuitBreakerHalfOpen": "Cầu dao ở trạng thái nửa mở - kiểm tra khả năng phục hồi",
+			"modelDisabled": "Mô hình bị vô hiệu hóa",
+			"providerDisabled": "Nhà cung cấp bị vô hiệu hóa"
+		},
+		"modal": {
+			"unavailable": "không có sẵn"
 		}
 	},
 	"virtualKeys": {

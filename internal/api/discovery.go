@@ -32,13 +32,119 @@ var (
 	dbExec          = func(pool *pgxpool.Pool, ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
 		return pool.Exec(ctx, sql, args...)
 	}
-	modelRepoDisableMissing = func(repo *model.Repository, ctx context.Context, providerID uuid.UUID, providerName string, modelIDs []string) (int64, error) {
+	modelRepoDisableMissing = func(repo *model.Repository, ctx context.Context, providerID uuid.UUID, providerName string, modelIDs []string) ([]model.DisabledModelRef, error) {
 		return repo.DisableMissingModels(ctx, providerID, providerName, modelIDs)
 	}
-	failoverRepoSyncForModel = func(repo *failover.Repository, ctx context.Context, modelID string) error {
+	failoverRepoSyncForModel = func(repo *failover.Repository, ctx context.Context, modelID string) (*failover.SyncResult, error) {
 		return repo.SyncForModel(ctx, modelID)
 	}
 )
+
+// ModelChange describes one model affected by a discovery scan.
+type ModelChange struct {
+	ModelID string `json:"model_id"`
+	Reason  string `json:"reason"` // machine-readable: new_model | reappeared | not_listed
+}
+
+// Reason codes for ModelChange entries; translated client-side.
+const (
+	changeReasonNewModel   = "new_model"
+	changeReasonReappeared = "reappeared"
+	changeReasonNotListed  = "not_listed"
+)
+
+// DiscoveryDiff summarizes the state changes one provider scan caused.
+type DiscoveryDiff struct {
+	Added                 []ModelChange               `json:"added,omitempty"`
+	Reenabled             []ModelChange               `json:"reenabled,omitempty"`
+	Disabled              []ModelChange               `json:"disabled,omitempty"`
+	FailoverDeletedGroups []failover.DeletedGroupInfo `json:"failover_deleted_groups,omitempty"`
+	FailoverUpdatedGroups []failover.UpdatedGroupInfo `json:"failover_updated_groups,omitempty"`
+}
+
+// modelSnapshot captures a model's enabled state before a scan upserts it.
+type modelSnapshot struct {
+	enabled          bool
+	disabledManually bool
+}
+
+// snapshotProviderModels maps model_id to its pre-scan enabled state for one provider.
+func snapshotProviderModels(ctx context.Context, repo *model.Repository, providerID uuid.UUID) (map[string]modelSnapshot, error) {
+	existing, err := repo.List(ctx, &providerID)
+	if err != nil {
+		return nil, err
+	}
+	snap := make(map[string]modelSnapshot, len(existing))
+	for _, m := range existing {
+		snap[m.ModelID] = modelSnapshot{enabled: m.Enabled, disabledManually: m.DisabledManually}
+	}
+	return snap, nil
+}
+
+// buildDiscoveryDiff classifies one provider scan against its before-snapshot:
+// upserted models absent from the snapshot are new; snapshot models that were
+// discovery-disabled (not manually — Upsert never re-enables those) count as
+// reappeared; disabledRefs are the models this scan just disabled.
+func buildDiscoveryDiff(snapshot map[string]modelSnapshot, upsertedModelIDs []string, disabledRefs []model.DisabledModelRef) *DiscoveryDiff {
+	diff := &DiscoveryDiff{}
+	for _, id := range upsertedModelIDs {
+		prev, ok := snapshot[id]
+		switch {
+		case !ok:
+			diff.Added = append(diff.Added, ModelChange{ModelID: id, Reason: changeReasonNewModel})
+		case !prev.enabled && !prev.disabledManually:
+			diff.Reenabled = append(diff.Reenabled, ModelChange{ModelID: id, Reason: changeReasonReappeared})
+		}
+	}
+	for _, ref := range disabledRefs {
+		diff.Disabled = append(diff.Disabled, ModelChange{ModelID: ref.ModelID, Reason: changeReasonNotListed})
+	}
+	return diff
+}
+
+// mergeSyncResult folds one SyncForModel result into the diff's failover
+// slices. Safe on a nil diff (discover-all skips the diff when the snapshot
+// failed) and a nil result.
+func (d *DiscoveryDiff) mergeSyncResult(res *failover.SyncResult) {
+	if d == nil || res == nil {
+		return
+	}
+	d.FailoverDeletedGroups = append(d.FailoverDeletedGroups, res.DeletedGroups...)
+	d.FailoverUpdatedGroups = append(d.FailoverUpdatedGroups, res.UpdatedGroups...)
+}
+
+// syncFailoverForScan syncs failover groups for every model a scan touched:
+// the still-listed models and the newly disabled ones (whose stale group
+// entries must be pruned the same way a manual failover Sync would). Results
+// are folded into diff. onErr reports a failed sync (disabled marks which
+// loop) and returns false to abort the remaining syncs.
+func syncFailoverForScan(ctx context.Context, repo *failover.Repository, upsertedModelIDs []string, disabledRefs []model.DisabledModelRef, diff *DiscoveryDiff, onErr func(modelID string, disabled bool, err error) bool) bool {
+	seenModelIDs := make(map[string]bool)
+	for _, mid := range upsertedModelIDs {
+		seenModelIDs[mid] = true
+	}
+	for modelID := range seenModelIDs {
+		syncRes, err := failoverRepoSyncForModel(repo, ctx, modelID)
+		if err != nil {
+			if !onErr(modelID, false, err) {
+				return false
+			}
+			continue
+		}
+		diff.mergeSyncResult(syncRes)
+	}
+	for _, d := range disabledRefs {
+		syncRes, err := failoverRepoSyncForModel(repo, ctx, d.ModelID)
+		if err != nil {
+			if !onErr(d.ModelID, true, err) {
+				return false
+			}
+			continue
+		}
+		diff.mergeSyncResult(syncRes)
+	}
+	return true
+}
 
 // RegisterProviderDiscovery mounts provider discovery and usage routes.
 func (h *Handler) RegisterProviderDiscovery(r chi.Router) {
@@ -119,6 +225,12 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 
 	modelRepo := newModelRepo(h.dbPool.Pool())
 
+	snapshot, err := snapshotProviderModels(provCtx, modelRepo, providerID)
+	if err != nil {
+		respondError(w, fmt.Sprintf("failed to snapshot models for provider %s", prov.Name), err, http.StatusInternalServerError)
+		return
+	}
+
 	existingModelIDs := make([]string, 0, len(models))
 	for _, m := range models {
 		if err := modelRepo.Upsert(provCtx, m); err != nil {
@@ -128,21 +240,24 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 		existingModelIDs = append(existingModelIDs, m.ModelID)
 	}
 
-	if _, err := modelRepoDisableMissing(modelRepo, provCtx, providerID, prov.Name, existingModelIDs); err != nil {
+	disabledRefs, err := modelRepoDisableMissing(modelRepo, provCtx, providerID, prov.Name, existingModelIDs)
+	if err != nil {
 		respondError(w, fmt.Sprintf("failed to disable missing models for provider %s", prov.Name), err, http.StatusInternalServerError)
 		return
 	}
 
+	diff := buildDiscoveryDiff(snapshot, existingModelIDs, disabledRefs)
+
 	failoverRepo := newFailoverRepo(h.dbPool.Pool())
-	seenModelIDs := make(map[string]bool)
-	for _, mid := range existingModelIDs {
-		seenModelIDs[mid] = true
-	}
-	for modelID := range seenModelIDs {
-		if err := failoverRepoSyncForModel(failoverRepo, provCtx, modelID); err != nil {
-			respondError(w, fmt.Sprintf("failed to sync failover group for model %s", modelID), err, http.StatusInternalServerError)
-			return
+	if !syncFailoverForScan(provCtx, failoverRepo, existingModelIDs, disabledRefs, diff, func(modelID string, disabled bool, err error) bool {
+		label := "model"
+		if disabled {
+			label = "disabled model"
 		}
+		respondError(w, fmt.Sprintf("failed to sync failover group for %s %s", label, modelID), err, http.StatusInternalServerError)
+		return false
+	}) {
+		return
 	}
 
 	now := time.Now()
@@ -155,6 +270,7 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 	response := map[string]interface{}{
 		"discovered": len(models),
 		"models":     models,
+		"diff":       diff,
 	}
 
 	writeJSON(w, response)
@@ -293,9 +409,10 @@ func (h *Handler) GetOllamaCloudAccount(w http.ResponseWriter, r *http.Request) 
 
 // DiscoverAllResult holds the result of discovering models from a single provider.
 type DiscoverAllResult struct {
-	ProviderName string `json:"provider_name"`
-	Discovered   int    `json:"discovered"`
-	Error        string `json:"error,omitempty"`
+	ProviderName string         `json:"provider_name"`
+	Discovered   int            `json:"discovered"`
+	Diff         *DiscoveryDiff `json:"diff,omitempty"`
+	Error        string         `json:"error,omitempty"`
 }
 
 // DiscoverAllModels discovers and imports models from all enabled providers.
@@ -376,6 +493,11 @@ func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		snapshot, snapErr := snapshotProviderModels(provCtx, modelRepo, prov.ID)
+		if snapErr != nil {
+			debuglog.Debug("discovery: failed to snapshot models", "provider", prov.Name, "error", snapErr)
+		}
+
 		existingModelIDs := make([]string, 0, len(models))
 		for _, m := range models {
 			if err := modelRepo.Upsert(provCtx, m); err != nil {
@@ -385,19 +507,27 @@ func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 			existingModelIDs = append(existingModelIDs, m.ModelID)
 		}
 
-		if _, err := modelRepoDisableMissing(modelRepo, provCtx, prov.ID, prov.Name, existingModelIDs); err != nil {
+		disabledRefs, err := modelRepoDisableMissing(modelRepo, provCtx, prov.ID, prov.Name, existingModelIDs)
+		if err != nil {
 			debuglog.Debug("discovery: failed to disable missing models", "provider", prov.Name, "error", err)
 		}
 
-		seenModelIDs := make(map[string]bool)
-		for _, mid := range existingModelIDs {
-			seenModelIDs[mid] = true
+		// Without the before-snapshot the diff cannot be classified; the scan
+		// itself still completes and the result just omits the diff.
+		var diff *DiscoveryDiff
+		if snapErr == nil {
+			diff = buildDiscoveryDiff(snapshot, existingModelIDs, disabledRefs)
 		}
-		for modelID := range seenModelIDs {
-			if err := failoverRepoSyncForModel(failoverRepo, provCtx, modelID); err != nil {
-				debuglog.Debug("discovery: failed to sync failover for model", "model_id", modelID, "error", err)
+
+		syncFailoverForScan(provCtx, failoverRepo, existingModelIDs, disabledRefs, diff, func(modelID string, disabled bool, err error) bool {
+			label := "model"
+			if disabled {
+				label = "disabled model"
 			}
-		}
+			debuglog.Debug("discovery: failed to sync failover for "+label, "model_id", modelID, "error", err)
+			return true
+		})
+		result.Diff = diff
 
 		now := time.Now()
 		if _, err := dbExec(h.dbPool.Pool(), provCtx,

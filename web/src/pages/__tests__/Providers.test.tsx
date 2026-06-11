@@ -369,6 +369,63 @@ describe("Providers", () => {
 			});
 		});
 
+		it("opens the discovery summary modal after discover all", async () => {
+			server.use(
+				http.get("/api/providers", () => {
+					return HttpResponse.json([mockProvider]);
+				}),
+				http.post("/api/providers/discover-all", () => {
+					return HttpResponse.json({
+						succeeded: 1,
+						failed: 0,
+						discovered: 5,
+						results: [
+							{
+								provider_name: mockProvider.name,
+								discovered: 5,
+								diff: {
+									added: [{ model_id: "brand-new-model", reason: "new_model" }],
+									disabled: [
+										{ model_id: "vanished-model", reason: "not_listed" },
+									],
+								},
+							},
+						],
+					});
+				}),
+			);
+
+			const { user } = renderWithProviders(<Providers />);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", { name: "Discover All Models" }),
+				).toBeInTheDocument();
+			});
+
+			await user.click(
+				screen.getByRole("button", { name: "Discover All Models" }),
+			);
+
+			await waitFor(() => {
+				expect(screen.getByTestId("discovery-summary")).toBeInTheDocument();
+			});
+			expect(screen.getByTestId("discovery-summary-added")).toHaveTextContent(
+				"brand-new-model",
+			);
+			expect(
+				screen.getByTestId("discovery-summary-disabled"),
+			).toHaveTextContent("vanished-model");
+
+			// Closing the summary clears it.
+			await user.click(screen.getByRole("button", { name: "Close" }));
+			await waitFor(() => {
+				expect(
+					screen.queryByTestId("discovery-summary"),
+				).not.toBeInTheDocument();
+			});
+		});
+
 		it("shows error toast when discover all fails for all providers", async () => {
 			server.use(
 				http.get("/api/providers", () => {

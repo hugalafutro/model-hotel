@@ -762,6 +762,27 @@
 		},
 		"toast": {
 			"refreshedQuotas": "{{refreshed}} クォータを更新しました ({{failed}} 失敗しました, {{skipped}} サポートされていません)"
+		},
+		"discoverySummary": {
+			"title": "ディスカバリー概要",
+			"noChanges": "変更なし。すべてプロバイダーのリストと一致しています。",
+			"added": "追加",
+			"reenabled": "再有効化",
+			"disabled": "無効",
+			"failoverDeleted": "フェイルオーバーグループが削除されました",
+			"failoverUpdated": "フェイルオーバーグループが更新されました",
+			"removedCount": "削除： {{count}}",
+			"addedCount": "追加： {{count}}",
+			"reason": {
+				"new_model": "新しいモデル",
+				"reappeared": "プロバイダーによって再度掲載された",
+				"not_listed": "プロバイダーによる掲載が終了しました"
+			},
+			"failoverReason": {
+				"noProviders": "有効なプロバイダーは残っていません",
+				"onlyOne": "有効なプロバイダーが1つしか残っていません（フェイルオーバーには少なくとも2つ必要です）"
+			},
+			"error": "エラー"
 		}
 	},
 	"models": {
@@ -842,7 +863,8 @@
 			"maxOut": "最大出力",
 			"sortByStatus": "状態でソート",
 			"status": "ステータス"
-		}
+		},
+		"disabledByDiscovery": "{{date}} 以降、プロバイダーのリストに掲載されていません"
 	},
 	"model": {
 		"revertToDiscoveredValue": "発見された値に戻す",
@@ -2293,7 +2315,12 @@
 			"disableProvider": "プロバイダを無効にする",
 			"enableProvider": "プロバイダを有効にする",
 			"circuitBreakerOpen": "Circuit breaker open - waiting for resfriend",
-			"circuitBreakerHalfOpen": "サーキットブレーカーハーフオープン - プローブ回復"
+			"circuitBreakerHalfOpen": "サーキットブレーカーハーフオープン - プローブ回復",
+			"modelDisabled": "モデルが無効化されています",
+			"providerDisabled": "プロバイダーが無効化されています"
+		},
+		"modal": {
+			"unavailable": "利用不可"
 		}
 	},
 	"virtualKeys": {

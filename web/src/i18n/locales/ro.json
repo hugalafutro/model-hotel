@@ -762,6 +762,27 @@
 		},
 		"toast": {
 			"refreshedQuotas": "Reîmprospătat {{refreshed}} cote ({{failed}} a eșuat, {{skipped}} nesuportat)"
+		},
+		"discoverySummary": {
+			"title": "Rezumatul descoperirii",
+			"noChanges": "Fără modificări. Totul corespunde listei furnizorului.",
+			"added": "Adăugat",
+			"reenabled": "Reactivat",
+			"disabled": "Dezactivat",
+			"failoverDeleted": "Grupuri de failover șterse",
+			"failoverUpdated": "Grupuri de failover actualizate",
+			"removedCount": "Eliminat: {{count}}",
+			"addedCount": "Adăugat: {{count}}",
+			"reason": {
+				"new_model": "Model nou",
+				"reappeared": "Listat din nou de către furnizor",
+				"not_listed": "Nu mai este listat de către furnizor"
+			},
+			"failoverReason": {
+				"noProviders": "Nu mai există furnizori activați",
+				"onlyOne": "Rămâne un singur furnizor activat (failover-ul necesită cel puțin doi)"
+			},
+			"error": "Eroare"
 		}
 	},
 	"models": {
@@ -842,7 +863,8 @@
 			"maxOut": "Ieșire Max",
 			"sortByStatus": "Sortează după stare",
 			"status": "Status"
-		}
+		},
+		"disabledByDiscovery": "Nu este listat de furnizor din {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Revenire la valoarea descoperită",
@@ -2293,7 +2315,12 @@
 			"disableProvider": "Dezactivare furnizor",
 			"enableProvider": "Activare furnizor",
 			"circuitBreakerOpen": "Rupator de circuit deschis - aşteptare pentru răcire",
-			"circuitBreakerHalfOpen": "Circuit breaker semi-deschis - recuperare probabilă"
+			"circuitBreakerHalfOpen": "Circuit breaker semi-deschis - recuperare probabilă",
+			"modelDisabled": "Model dezactivat",
+			"providerDisabled": "Furnizor dezactivat"
+		},
+		"modal": {
+			"unavailable": "indisponibil"
 		}
 	},
 	"virtualKeys": {

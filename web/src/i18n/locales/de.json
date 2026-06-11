@@ -762,6 +762,27 @@
 		},
 		"toast": {
 			"refreshedQuotas": "Aktualisierte {{refreshed}} Quoten ({{failed}} fehlgeschlagen, {{skipped}} nicht unterstützt)"
+		},
+		"discoverySummary": {
+			"title": "Zusammenfassung der Erkennung",
+			"noChanges": "Keine Änderungen. Alles stimmt mit der Anbieterliste überein.",
+			"added": "Hinzugefügt",
+			"reenabled": "Wieder aktiviert",
+			"disabled": "Deaktiviert",
+			"failoverDeleted": "Failover-Gruppen gelöscht",
+			"failoverUpdated": "Failover-Gruppen aktualisiert",
+			"removedCount": "Entfernt: {{count}}",
+			"addedCount": "Hinzugefügt: {{count}}",
+			"reason": {
+				"new_model": "Neues Modell",
+				"reappeared": "Erneut vom Anbieter gelistet",
+				"not_listed": "Nicht mehr vom Anbieter gelistet"
+			},
+			"failoverReason": {
+				"noProviders": "Es sind keine aktivierten Anbieter mehr vorhanden",
+				"onlyOne": "Es ist nur noch ein aktivierter Anbieter vorhanden (für Failover sind mindestens zwei erforderlich)"
+			},
+			"error": "Fehler"
 		}
 	},
 	"models": {
@@ -842,7 +863,8 @@
 			"maxOut": "Max. Out",
 			"sortByStatus": "Nach Status sortieren",
 			"status": "Status"
-		}
+		},
+		"disabledByDiscovery": "Vom Anbieter nicht aufgeführt seit {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Auf den entdeckten Wert zurücksetzen",
@@ -2293,7 +2315,12 @@
 			"disableProvider": "Anbieter deaktivieren",
 			"enableProvider": "Anbieter aktivieren",
 			"circuitBreakerOpen": "Strombrecher offen - Warten auf Abklingzeit",
-			"circuitBreakerHalfOpen": "Schaltkreisbrecher halb offen - Abtastung"
+			"circuitBreakerHalfOpen": "Schaltkreisbrecher halb offen - Abtastung",
+			"modelDisabled": "Modell deaktiviert",
+			"providerDisabled": "Anbieter deaktiviert"
+		},
+		"modal": {
+			"unavailable": "nicht verfügbar"
 		}
 	},
 	"virtualKeys": {

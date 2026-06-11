@@ -362,6 +362,8 @@ export interface FailoverEntry {
 	provider_name: string;
 	display_name: string;
 	enabled: boolean;
+	model_enabled: boolean;
+	provider_enabled: boolean;
 	context_length: number | null;
 	owned_by: string;
 }
@@ -439,9 +441,37 @@ export interface PrunedEntryInfo {
 	pruned_model_ids: string[];
 }
 
+export interface UpdatedGroupInfo {
+	display_model: string;
+	removed_model_ids?: string[];
+	added_model_ids?: string[];
+}
+
 export interface SyncResult {
 	deleted_groups: DeletedGroupInfo[];
+	updated_groups?: UpdatedGroupInfo[];
 	purged_entries?: PrunedEntryInfo[];
+}
+
+export interface ModelChange {
+	model_id: string;
+	/** Machine-readable code: new_model | reappeared | not_listed */
+	reason: string;
+}
+
+export interface DiscoveryDiff {
+	added?: ModelChange[];
+	reenabled?: ModelChange[];
+	disabled?: ModelChange[];
+	failover_deleted_groups?: DeletedGroupInfo[];
+	failover_updated_groups?: UpdatedGroupInfo[];
+}
+
+export interface DiscoverAllResult {
+	provider_name: string;
+	discovered: number;
+	diff?: DiscoveryDiff;
+	error?: string;
 }
 
 export interface BackupEntry {

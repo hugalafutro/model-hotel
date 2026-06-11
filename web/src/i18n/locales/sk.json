@@ -762,6 +762,27 @@
 		},
 		"toast": {
 			"refreshedQuotas": "Aktualizované kvóty pre doménu {{refreshed}} ({{failed}} sa nepodarilo aktualizovať, doména {{skipped}} nie je podporovaná)"
+		},
+		"discoverySummary": {
+			"title": "Súhrn zistení",
+			"noChanges": "Žiadne zmeny. Všetko zodpovedá zoznamu poskytovateľa.",
+			"added": "Pridané",
+			"reenabled": "Znovu povolené",
+			"disabled": "Deaktivované",
+			"failoverDeleted": "Skupiny pre prevzatie pri výpadku boli odstránené",
+			"failoverUpdated": "Skupiny pre prevzatie pri výpadku boli aktualizované",
+			"removedCount": "Odstránené: {{count}}",
+			"addedCount": "Pridané: {{count}}",
+			"reason": {
+				"new_model": "Nový model",
+				"reappeared": "Znovu uvedený poskytovateľom",
+				"not_listed": "Poskytovateľom už nie je uvedený v zozname"
+			},
+			"failoverReason": {
+				"noProviders": "Nezostali žiadni aktivovaní poskytovatelia",
+				"onlyOne": "Zostáva len jeden povolený poskytovateľ (pre failover sú potrební aspoň dvaja)"
+			},
+			"error": "Chyba"
 		}
 	},
 	"models": {
@@ -842,7 +863,8 @@
 			"maxOut": "Na maximum",
 			"sortByStatus": "Zoraď podľa stavu",
 			"status": "Stav"
-		}
+		},
+		"disabledByDiscovery": "Poskytovateľom nezaradené od {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Vrátiť sa k zistenej hodnote",
@@ -2293,7 +2315,12 @@
 			"disableProvider": "Zakázať poskytovateľa",
 			"enableProvider": "Aktivovať poskytovateľa",
 			"circuitBreakerOpen": "Istič je otvorený – čaká sa na ochladenie",
-			"circuitBreakerHalfOpen": "Istič je čiastočne otvorený – testovanie obnovy"
+			"circuitBreakerHalfOpen": "Istič je čiastočne otvorený – testovanie obnovy",
+			"modelDisabled": "Model je deaktivovaný",
+			"providerDisabled": "Poskytovateľ deaktivovaný"
+		},
+		"modal": {
+			"unavailable": "nedostupné"
 		}
 	},
 	"virtualKeys": {

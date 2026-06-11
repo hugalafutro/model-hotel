@@ -762,6 +762,27 @@
 		},
 		"toast": {
 			"refreshedQuotas": "Mise à jour des quotas {{refreshed}} ({{failed}} échoué, {{skipped}} non pris en charge)"
+		},
+		"discoverySummary": {
+			"title": "Résumé de la découverte",
+			"noChanges": "Aucune modification. Tout correspond à la liste du fournisseur.",
+			"added": "Ajouté",
+			"reenabled": "Réactivé",
+			"disabled": "Désactivé",
+			"failoverDeleted": "Groupes de basculement supprimés",
+			"failoverUpdated": "Mise à jour des groupes de basculement",
+			"removedCount": "Supprimé : {{count}}",
+			"addedCount": "Ajouté : {{count}}",
+			"reason": {
+				"new_model": "Nouveau modèle",
+				"reappeared": "Répertorié à nouveau par le fournisseur",
+				"not_listed": "N'est plus répertorié par le fournisseur"
+			},
+			"failoverReason": {
+				"noProviders": "Il ne reste aucun fournisseur activé",
+				"onlyOne": "Il ne reste qu'un seul fournisseur activé (le basculement nécessite au moins deux)."
+			},
+			"error": "Erreur"
 		}
 	},
 	"models": {
@@ -842,7 +863,8 @@
 			"maxOut": "Maximum de sortie",
 			"sortByStatus": "Trier par statut",
 			"status": "Statut"
-		}
+		},
+		"disabledByDiscovery": "Non répertorié par le fournisseur depuis {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Revenir à la valeur découverte",
@@ -2293,7 +2315,12 @@
 			"disableProvider": "Désactiver le fournisseur",
 			"enableProvider": "Activer le fournisseur",
 			"circuitBreakerOpen": "Disjoncteur ouvert - en attente de rechargement",
-			"circuitBreakerHalfOpen": "Disjoncteur à moitié ouvert - Récupération de la sonde"
+			"circuitBreakerHalfOpen": "Disjoncteur à moitié ouvert - Récupération de la sonde",
+			"modelDisabled": "Modèle désactivé",
+			"providerDisabled": "Fournisseur désactivé"
+		},
+		"modal": {
+			"unavailable": "indisponible"
 		}
 	},
 	"virtualKeys": {
