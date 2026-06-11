@@ -230,7 +230,7 @@ export function AppearanceSettings({
 									key={preset.name}
 									type="button"
 									onClick={() => setAccentColor(preset.color)}
-									className={`w-8 h-8 rounded-full border-2 border-transparent transition-transform hover:scale-110 ${
+									className={`color-swatch w-8 h-8 border-2 border-transparent transition-transform hover:scale-110 ${
 										accentColor === preset.color
 											? "ring-2 ring-white scale-110"
 											: ""
@@ -244,7 +244,7 @@ export function AppearanceSettings({
 							<button
 								type="button"
 								onClick={openPicker}
-								className={`w-8 h-8 rounded-full border-2 border-dashed border-gray-500 flex items-center justify-center hover:border-gray-400 transition-colors ${
+								className={`color-swatch w-8 h-8 border-2 border-dashed border-gray-500 flex items-center justify-center hover:border-gray-400 transition-colors ${
 									accentColor &&
 									!accentPresets.some((p) => p.color === accentColor)
 										? "bg-gray-800"

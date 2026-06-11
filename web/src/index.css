@@ -2602,6 +2602,14 @@ html.light .terminal-titlebar-win11 .win11-icon {
 }
 
 /* Disabled failover entry pill - CSS-only styles */
+/* Accent color swatches: circles everywhere, squares in Terminal. */
+.color-swatch {
+	border-radius: 9999px;
+}
+html[data-ui-style="cyber-terminal"] .color-swatch {
+	border-radius: 0;
+}
+
 /* Failover group member rows; themes control the corner radius. */
 .failover-entry {
 	border-radius: 0.25rem;

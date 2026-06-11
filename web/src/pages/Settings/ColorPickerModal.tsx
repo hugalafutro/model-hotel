@@ -44,7 +44,7 @@ export function ColorPickerModal({
 					/>
 					<div
 						data-testid="color-preview"
-						className="w-8 h-8 rounded-full border-2 border-gray-600 shrink-0"
+						className="color-swatch w-8 h-8 border-2 border-gray-600 shrink-0"
 						style={{ backgroundColor: color }}
 					/>
 				</div>
