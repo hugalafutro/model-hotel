@@ -764,25 +764,25 @@
 			"refreshedQuotas": "Refreshed {{refreshed}} quotas ({{failed}} mislykkedes, {{skipped}} uunderstøttet)"
 		},
 		"discoverySummary": {
-			"title": "Discovery summary",
-			"noChanges": "No changes. Everything matches the provider listing.",
-			"added": "Added",
-			"reenabled": "Re-enabled",
-			"disabled": "Disabled",
-			"failoverDeleted": "Failover groups deleted",
-			"failoverUpdated": "Failover groups updated",
-			"removedCount": "Removed: {{count}}",
-			"addedCount": "Added: {{count}}",
+			"title": "Oversigt over opdagelse",
+			"noChanges": "Ingen ændringer. Alt stemmer overens med udbyderens liste.",
+			"added": "Tilføjet",
+			"reenabled": "Genaktiveret",
+			"disabled": "Deaktiveret",
+			"failoverDeleted": "Failover-grupper slettet",
+			"failoverUpdated": "Failover-grupper opdateret",
+			"removedCount": "Fjernet: {{count}}",
+			"addedCount": "Tilføjet: {{count}}",
 			"reason": {
-				"new_model": "New model",
-				"reappeared": "Listed again by the provider",
-				"not_listed": "No longer listed by the provider"
+				"new_model": "Ny model",
+				"reappeared": "Opført igen af udbyderen",
+				"not_listed": "Ikke længere opført af udbyderen"
 			},
 			"failoverReason": {
-				"noProviders": "No enabled providers remain",
-				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
+				"noProviders": "Der er ingen aktive udbydere tilbage",
+				"onlyOne": "Der er kun én aktiveret udbyder tilbage (failover kræver mindst to)"
 			},
-			"error": "Error"
+			"error": "Fejl"
 		}
 	},
 	"models": {
@@ -864,7 +864,7 @@
 			"sortByStatus": "Sorter efter status",
 			"status": "Status"
 		},
-		"disabledByDiscovery": "Not listed by the provider since {{date}}"
+		"disabledByDiscovery": "Ikke opført af udbyderen siden {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Tilbagefør til fundne værdier",
@@ -2316,11 +2316,11 @@
 			"enableProvider": "Aktiver udbyder",
 			"circuitBreakerOpen": "Circuit breaker åben - venter på nedkøling",
 			"circuitBreakerHalfOpen": "Circuit breaker halvt åben - probing recovery",
-			"modelDisabled": "Model disabled",
-			"providerDisabled": "Provider disabled"
+			"modelDisabled": "Model deaktiveret",
+			"providerDisabled": "Udbyder deaktiveret"
 		},
 		"modal": {
-			"unavailable": "unavailable"
+			"unavailable": "ikke tilgængelig"
 		}
 	},
 	"virtualKeys": {

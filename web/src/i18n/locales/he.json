@@ -764,25 +764,25 @@
 			"refreshedQuotas": "מכסות ה- {{refreshed}} עודכנו ({{failed}} נכשל, {{skipped}} אינו נתמך)"
 		},
 		"discoverySummary": {
-			"title": "Discovery summary",
-			"noChanges": "No changes. Everything matches the provider listing.",
-			"added": "Added",
-			"reenabled": "Re-enabled",
-			"disabled": "Disabled",
-			"failoverDeleted": "Failover groups deleted",
-			"failoverUpdated": "Failover groups updated",
-			"removedCount": "Removed: {{count}}",
-			"addedCount": "Added: {{count}}",
+			"title": "סיכום הגילוי",
+			"noChanges": "אין שינויים. הכל תואם לרשימת הספקים.",
+			"added": "נוסף",
+			"reenabled": "הופעל מחדש",
+			"disabled": "מושבת",
+			"failoverDeleted": "קבוצות מעבר למקרה כשל שנמחקו",
+			"failoverUpdated": "קבוצות מעבר לגיבוי עודכנו",
+			"removedCount": "הוסרו: {{count}}",
+			"addedCount": "נוסף: {{count}}",
 			"reason": {
-				"new_model": "New model",
-				"reappeared": "Listed again by the provider",
-				"not_listed": "No longer listed by the provider"
+				"new_model": "מודל חדש",
+				"reappeared": "מופיע שוב ברשימת הספק",
+				"not_listed": "כבר לא מופיע ברשימת הספק"
 			},
 			"failoverReason": {
-				"noProviders": "No enabled providers remain",
-				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
+				"noProviders": "לא נותרו ספקים מופעלים",
+				"onlyOne": "נותר ספק מופעל אחד בלבד (למעבר לגיבוי דרושים לפחות שניים)"
 			},
-			"error": "Error"
+			"error": "שגיאה"
 		}
 	},
 	"models": {
@@ -864,7 +864,7 @@
 			"sortByStatus": "מיין לפי סטטוס",
 			"status": "סטטוס"
 		},
-		"disabledByDiscovery": "Not listed by the provider since {{date}}"
+		"disabledByDiscovery": "לא מופיע ברשימת הספק מאז {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "חזור לערך שנמצא",
@@ -2316,11 +2316,11 @@
 			"enableProvider": "הפעל ספק",
 			"circuitBreakerOpen": "מפסק זרם פתוח - ממתינים לסיום זמן ההמתנה",
 			"circuitBreakerHalfOpen": "מפסק חצי פתוח – בדיקת התאוששות",
-			"modelDisabled": "Model disabled",
-			"providerDisabled": "Provider disabled"
+			"modelDisabled": "המודל מושבת",
+			"providerDisabled": "ספק מושבת"
 		},
 		"modal": {
-			"unavailable": "unavailable"
+			"unavailable": "לא זמין"
 		}
 	},
 	"virtualKeys": {

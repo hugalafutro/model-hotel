@@ -764,25 +764,25 @@
 			"refreshedQuotas": "تحديث الحصص {{refreshed}} ( فشل{{failed}} ، {{skipped}} غير مدعوم)"
 		},
 		"discoverySummary": {
-			"title": "Discovery summary",
-			"noChanges": "No changes. Everything matches the provider listing.",
-			"added": "Added",
-			"reenabled": "Re-enabled",
-			"disabled": "Disabled",
-			"failoverDeleted": "Failover groups deleted",
-			"failoverUpdated": "Failover groups updated",
-			"removedCount": "Removed: {{count}}",
-			"addedCount": "Added: {{count}}",
+			"title": "ملخص الاكتشاف",
+			"noChanges": "لا توجد تغييرات. كل شيء يتطابق مع قائمة المزود.",
+			"added": "تمت الإضافة",
+			"reenabled": "أعيد تمكينها",
+			"disabled": "معطل",
+			"failoverDeleted": "تم حذف مجموعات التحويل التلقائي",
+			"failoverUpdated": "تم تحديث مجموعات التحويل التلقائي",
+			"removedCount": "تمت إزالة: {{count}}",
+			"addedCount": "تمت الإضافة: {{count}}",
 			"reason": {
-				"new_model": "New model",
-				"reappeared": "Listed again by the provider",
-				"not_listed": "No longer listed by the provider"
+				"new_model": "نموذج جديد",
+				"reappeared": "مدرج مرة أخرى من قبل المزود",
+				"not_listed": "لم يعد مدرجًا من قبل المزود"
 			},
 			"failoverReason": {
-				"noProviders": "No enabled providers remain",
-				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
+				"noProviders": "لا يوجد مزودون ممكّنون متبقون",
+				"onlyOne": "لم يتبق سوى مزود واحد ممكّن (يحتاج التحويل التلقائي إلى اثنين على الأقل)"
 			},
-			"error": "Error"
+			"error": "خطأ"
 		}
 	},
 	"models": {
@@ -864,7 +864,7 @@
 			"sortByStatus": "الترتيب حسب الحالة",
 			"status": "الحالة"
 		},
-		"disabledByDiscovery": "Not listed by the provider since {{date}}"
+		"disabledByDiscovery": "غير مدرج من قبل المزود منذ {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "العودة إلى القيمة المكتشفة",
@@ -2316,11 +2316,11 @@
 			"enableProvider": "تمكين المزود",
 			"circuitBreakerOpen": "فتح كسر الدائرة - في انتظار التبريد",
 			"circuitBreakerHalfOpen": "كسر الدائرة نصف مفتوح - اختبار الاسترداد",
-			"modelDisabled": "Model disabled",
-			"providerDisabled": "Provider disabled"
+			"modelDisabled": "النموذج معطل",
+			"providerDisabled": "المزود معطل"
 		},
 		"modal": {
-			"unavailable": "unavailable"
+			"unavailable": "غير متوفر"
 		}
 	},
 	"virtualKeys": {

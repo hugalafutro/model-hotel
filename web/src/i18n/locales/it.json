@@ -764,25 +764,25 @@
 			"refreshedQuotas": "Quote aggiornate {{refreshed}} ({{failed}} fallito, {{skipped}} non supportato)"
 		},
 		"discoverySummary": {
-			"title": "Discovery summary",
-			"noChanges": "No changes. Everything matches the provider listing.",
-			"added": "Added",
-			"reenabled": "Re-enabled",
-			"disabled": "Disabled",
-			"failoverDeleted": "Failover groups deleted",
-			"failoverUpdated": "Failover groups updated",
-			"removedCount": "Removed: {{count}}",
-			"addedCount": "Added: {{count}}",
+			"title": "Riepilogo della scoperta",
+			"noChanges": "Nessuna modifica. Tutto corrisponde all'elenco del provider.",
+			"added": "Aggiunto",
+			"reenabled": "Riattivato",
+			"disabled": "Disabilitato",
+			"failoverDeleted": "Gruppi di failover eliminati",
+			"failoverUpdated": "Gruppi di failover aggiornati",
+			"removedCount": "Rimosso: {{count}}",
+			"addedCount": "Aggiunto: {{count}}",
 			"reason": {
-				"new_model": "New model",
-				"reappeared": "Listed again by the provider",
-				"not_listed": "No longer listed by the provider"
+				"new_model": "Nuovo modello",
+				"reappeared": "Elencato nuovamente dal provider",
+				"not_listed": "Non più elencato dal provider"
 			},
 			"failoverReason": {
-				"noProviders": "No enabled providers remain",
-				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
+				"noProviders": "Non ci sono più provider abilitati",
+				"onlyOne": "Rimane un solo provider abilitato (il failover ne richiede almeno due)"
 			},
-			"error": "Error"
+			"error": "Errore"
 		}
 	},
 	"models": {
@@ -864,7 +864,7 @@
 			"sortByStatus": "Ordina per stato",
 			"status": "Stato"
 		},
-		"disabledByDiscovery": "Not listed by the provider since {{date}}"
+		"disabledByDiscovery": "Non elencato dal provider dal {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Ripristina al valore scoperto",
@@ -2316,11 +2316,11 @@
 			"enableProvider": "Abilita provider",
 			"circuitBreakerOpen": "Interruttore aperto - in attesa di raffreddamento",
 			"circuitBreakerHalfOpen": "Interruttore semi-aperto - recupero sondaggio",
-			"modelDisabled": "Model disabled",
-			"providerDisabled": "Provider disabled"
+			"modelDisabled": "Modello disabilitato",
+			"providerDisabled": "Fornitore disabilitato"
 		},
 		"modal": {
-			"unavailable": "unavailable"
+			"unavailable": "non disponibile"
 		}
 	},
 	"virtualKeys": {

@@ -764,25 +764,25 @@
 			"refreshedQuotas": "Uppdaterad {{refreshed}} quotas ({{failed}} misslyckades, {{skipped}} stöds inte)"
 		},
 		"discoverySummary": {
-			"title": "Discovery summary",
-			"noChanges": "No changes. Everything matches the provider listing.",
-			"added": "Added",
-			"reenabled": "Re-enabled",
-			"disabled": "Disabled",
-			"failoverDeleted": "Failover groups deleted",
-			"failoverUpdated": "Failover groups updated",
-			"removedCount": "Removed: {{count}}",
-			"addedCount": "Added: {{count}}",
+			"title": "Sammanfattning av upptäckten",
+			"noChanges": "Inga ändringar. Allt stämmer överens med leverantörens lista.",
+			"added": "Tillagt",
+			"reenabled": "Återaktiverad",
+			"disabled": "Inaktiverad",
+			"failoverDeleted": "Failover-grupper som har tagits bort",
+			"failoverUpdated": "Failover-grupper uppdaterade",
+			"removedCount": "Borttaget: {{count}}",
+			"addedCount": "Tillagt: {{count}}",
 			"reason": {
-				"new_model": "New model",
-				"reappeared": "Listed again by the provider",
-				"not_listed": "No longer listed by the provider"
+				"new_model": "Ny modell",
+				"reappeared": "Listad igen av leverantören",
+				"not_listed": "Listas inte längre av leverantören"
 			},
 			"failoverReason": {
-				"noProviders": "No enabled providers remain",
-				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
+				"noProviders": "Inga aktiverade leverantörer kvar",
+				"onlyOne": "Endast en aktiverad leverantör återstår (failover kräver minst två)"
 			},
-			"error": "Error"
+			"error": "Fel"
 		}
 	},
 	"models": {
@@ -864,7 +864,7 @@
 			"sortByStatus": "Sortera efter status",
 			"status": "Status"
 		},
-		"disabledByDiscovery": "Not listed by the provider since {{date}}"
+		"disabledByDiscovery": "Inte listad av leverantören sedan {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Återgå till upptäckt värde",
@@ -2316,11 +2316,11 @@
 			"enableProvider": "Aktivera leverantör",
 			"circuitBreakerOpen": "Kretsbrytare öppen - väntar på cooldown",
 			"circuitBreakerHalfOpen": "Circuit breaker halv-öppen - sondering återhämtning",
-			"modelDisabled": "Model disabled",
-			"providerDisabled": "Provider disabled"
+			"modelDisabled": "Modell inaktiverad",
+			"providerDisabled": "Leverantör inaktiverad"
 		},
 		"modal": {
-			"unavailable": "unavailable"
+			"unavailable": "otillgänglig"
 		}
 	},
 	"virtualKeys": {

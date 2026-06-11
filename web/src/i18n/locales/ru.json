@@ -764,25 +764,25 @@
 			"refreshedQuotas": "Обновленные квот {{refreshed}} ({{failed}} не удалось, {{skipped}} не поддерживается)"
 		},
 		"discoverySummary": {
-			"title": "Discovery summary",
-			"noChanges": "No changes. Everything matches the provider listing.",
-			"added": "Added",
-			"reenabled": "Re-enabled",
-			"disabled": "Disabled",
-			"failoverDeleted": "Failover groups deleted",
-			"failoverUpdated": "Failover groups updated",
-			"removedCount": "Removed: {{count}}",
-			"addedCount": "Added: {{count}}",
+			"title": "Сводка по обнаружению",
+			"noChanges": "Без изменений. Все соответствует списку провайдера.",
+			"added": "Добавлено",
+			"reenabled": "Вновь включено",
+			"disabled": "Отключено",
+			"failoverDeleted": "Удаленные группы отказоустойчивости",
+			"failoverUpdated": "Обновлены группы отказоустойчивости",
+			"removedCount": "Удалено: {{count}}",
+			"addedCount": "Добавлено: {{count}}",
 			"reason": {
-				"new_model": "New model",
-				"reappeared": "Listed again by the provider",
-				"not_listed": "No longer listed by the provider"
+				"new_model": "Новая модель",
+				"reappeared": "Снова указана поставщиком",
+				"not_listed": "Больше не указана поставщиком"
 			},
 			"failoverReason": {
-				"noProviders": "No enabled providers remain",
-				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
+				"noProviders": "Не осталось ни одного активного поставщика",
+				"onlyOne": "Остался только один включенный провайдер (для отработки отказа требуется как минимум два)"
 			},
-			"error": "Error"
+			"error": "Ошибка"
 		}
 	},
 	"models": {
@@ -864,7 +864,7 @@
 			"sortByStatus": "Сортировать по статусу",
 			"status": "Статус"
 		},
-		"disabledByDiscovery": "Not listed by the provider since {{date}}"
+		"disabledByDiscovery": "Не указано поставщиком с {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Вернуться к обнаруженному значению",
@@ -2316,11 +2316,11 @@
 			"enableProvider": "Включить провайдер",
 			"circuitBreakerOpen": "Выключатель отключен - ожидается перезарядка",
 			"circuitBreakerHalfOpen": "Полуоткрытый выключатель - выздоровление",
-			"modelDisabled": "Model disabled",
-			"providerDisabled": "Provider disabled"
+			"modelDisabled": "Модель отключена",
+			"providerDisabled": "Провайдер отключен"
 		},
 		"modal": {
-			"unavailable": "unavailable"
+			"unavailable": "недоступно"
 		}
 	},
 	"virtualKeys": {

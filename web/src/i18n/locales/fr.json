@@ -764,25 +764,25 @@
 			"refreshedQuotas": "Mise à jour des quotas {{refreshed}} ({{failed}} échoué, {{skipped}} non pris en charge)"
 		},
 		"discoverySummary": {
-			"title": "Discovery summary",
-			"noChanges": "No changes. Everything matches the provider listing.",
-			"added": "Added",
-			"reenabled": "Re-enabled",
-			"disabled": "Disabled",
-			"failoverDeleted": "Failover groups deleted",
-			"failoverUpdated": "Failover groups updated",
-			"removedCount": "Removed: {{count}}",
-			"addedCount": "Added: {{count}}",
+			"title": "Résumé de la découverte",
+			"noChanges": "Aucune modification. Tout correspond à la liste du fournisseur.",
+			"added": "Ajouté",
+			"reenabled": "Réactivé",
+			"disabled": "Désactivé",
+			"failoverDeleted": "Groupes de basculement supprimés",
+			"failoverUpdated": "Mise à jour des groupes de basculement",
+			"removedCount": "Supprimé : {{count}}",
+			"addedCount": "Ajouté : {{count}}",
 			"reason": {
-				"new_model": "New model",
-				"reappeared": "Listed again by the provider",
-				"not_listed": "No longer listed by the provider"
+				"new_model": "Nouveau modèle",
+				"reappeared": "Répertorié à nouveau par le fournisseur",
+				"not_listed": "N'est plus répertorié par le fournisseur"
 			},
 			"failoverReason": {
-				"noProviders": "No enabled providers remain",
-				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
+				"noProviders": "Il ne reste aucun fournisseur activé",
+				"onlyOne": "Il ne reste qu'un seul fournisseur activé (le basculement nécessite au moins deux)."
 			},
-			"error": "Error"
+			"error": "Erreur"
 		}
 	},
 	"models": {
@@ -864,7 +864,7 @@
 			"sortByStatus": "Trier par statut",
 			"status": "Statut"
 		},
-		"disabledByDiscovery": "Not listed by the provider since {{date}}"
+		"disabledByDiscovery": "Non répertorié par le fournisseur depuis {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Revenir à la valeur découverte",
@@ -2316,11 +2316,11 @@
 			"enableProvider": "Activer le fournisseur",
 			"circuitBreakerOpen": "Disjoncteur ouvert - en attente de rechargement",
 			"circuitBreakerHalfOpen": "Disjoncteur à moitié ouvert - Récupération de la sonde",
-			"modelDisabled": "Model disabled",
-			"providerDisabled": "Provider disabled"
+			"modelDisabled": "Modèle désactivé",
+			"providerDisabled": "Fournisseur désactivé"
 		},
 		"modal": {
-			"unavailable": "unavailable"
+			"unavailable": "indisponible"
 		}
 	},
 	"virtualKeys": {

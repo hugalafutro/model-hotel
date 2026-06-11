@@ -764,23 +764,23 @@
 			"refreshedQuotas": "Cuotas {{refreshed}} actualizadas ({{failed}} fallaron, {{skipped}} no soportados)"
 		},
 		"discoverySummary": {
-			"title": "Discovery summary",
-			"noChanges": "No changes. Everything matches the provider listing.",
-			"added": "Added",
-			"reenabled": "Re-enabled",
-			"disabled": "Disabled",
-			"failoverDeleted": "Failover groups deleted",
-			"failoverUpdated": "Failover groups updated",
-			"removedCount": "Removed: {{count}}",
-			"addedCount": "Added: {{count}}",
+			"title": "Resumen de descubrimiento",
+			"noChanges": "Sin cambios. Todo coincide con la lista del proveedor.",
+			"added": "Añadido",
+			"reenabled": "Reactivado",
+			"disabled": "Desactivado",
+			"failoverDeleted": "Grupos de conmutación por error eliminados",
+			"failoverUpdated": "Grupos de conmutación por error actualizados",
+			"removedCount": "Eliminado: {{count}}",
+			"addedCount": "Añadido: {{count}}",
 			"reason": {
-				"new_model": "New model",
-				"reappeared": "Listed again by the provider",
-				"not_listed": "No longer listed by the provider"
+				"new_model": "Nuevo modelo",
+				"reappeared": "Incluido de nuevo por el proveedor",
+				"not_listed": "Ya no aparece en la lista del proveedor"
 			},
 			"failoverReason": {
-				"noProviders": "No enabled providers remain",
-				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
+				"noProviders": "No queda ningún proveedor habilitado",
+				"onlyOne": "Solo queda un proveedor habilitado (la conmutación por error necesita al menos dos)."
 			},
 			"error": "Error"
 		}
@@ -864,7 +864,7 @@
 			"sortByStatus": "Ordenar por estado",
 			"status": "Estado"
 		},
-		"disabledByDiscovery": "Not listed by the provider since {{date}}"
+		"disabledByDiscovery": "No aparece en la lista del proveedor desde {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Revertir al valor descubierto",
@@ -2316,11 +2316,11 @@
 			"enableProvider": "Habilitar proveedor",
 			"circuitBreakerOpen": "Interruptor de circuito abierto - esperando enfriamiento",
 			"circuitBreakerHalfOpen": "Rompeador de circuitos medio abierto - recuperación de sondeo",
-			"modelDisabled": "Model disabled",
-			"providerDisabled": "Provider disabled"
+			"modelDisabled": "Modelo desactivado",
+			"providerDisabled": "Proveedor desactivado"
 		},
 		"modal": {
-			"unavailable": "unavailable"
+			"unavailable": "no disponible"
 		}
 	},
 	"virtualKeys": {

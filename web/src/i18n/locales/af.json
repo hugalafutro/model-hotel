@@ -764,25 +764,25 @@
 			"refreshedQuotas": "Geverfriste {{refreshed}} -kotas ({{failed}} het misluk, {{skipped}} word nie ondersteun nie)"
 		},
 		"discoverySummary": {
-			"title": "Discovery summary",
-			"noChanges": "No changes. Everything matches the provider listing.",
-			"added": "Added",
-			"reenabled": "Re-enabled",
-			"disabled": "Disabled",
-			"failoverDeleted": "Failover groups deleted",
-			"failoverUpdated": "Failover groups updated",
-			"removedCount": "Removed: {{count}}",
-			"addedCount": "Added: {{count}}",
+			"title": "Ontdekkingsopsomming",
+			"noChanges": "Geen veranderinge nie. Alles stem ooreen met die verskaffer se lys.",
+			"added": "Bygevoeg",
+			"reenabled": "Hergeaktiveer",
+			"disabled": "Gedeaktiveer",
+			"failoverDeleted": "Failover-groepe verwyder",
+			"failoverUpdated": "Oorgangsgroepe opgedateer",
+			"removedCount": "Verwyder: {{count}}",
+			"addedCount": "Bygevoeg: {{count}}",
 			"reason": {
-				"new_model": "New model",
-				"reappeared": "Listed again by the provider",
-				"not_listed": "No longer listed by the provider"
+				"new_model": "Nuwe model",
+				"reappeared": "Weereens gelys deur die verskaffer",
+				"not_listed": "Nie meer deur die verskaffer gelys nie"
 			},
 			"failoverReason": {
-				"noProviders": "No enabled providers remain",
-				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
+				"noProviders": "Daar is geen geaktiveerde verskaffers oor nie",
+				"onlyOne": "Slegs een geaktiveerde verskaffer bly oor (failover benodig ten minste twee)"
 			},
-			"error": "Error"
+			"error": "Fout"
 		}
 	},
 	"models": {
@@ -864,7 +864,7 @@
 			"sortByStatus": "Sorteer volgens status",
 			"status": "Status"
 		},
-		"disabledByDiscovery": "Not listed by the provider since {{date}}"
+		"disabledByDiscovery": "Nie deur die verskaffer gelys sedert {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Keer terug na die ontdekte waarde",
@@ -2316,11 +2316,11 @@
 			"enableProvider": "Aktiveer verskaffer",
 			"circuitBreakerOpen": "Kringskakelaar oop - wag vir afkoeling",
 			"circuitBreakerHalfOpen": "Sekering half-oop - herstelondersoek",
-			"modelDisabled": "Model disabled",
-			"providerDisabled": "Provider disabled"
+			"modelDisabled": "Model gedeaktiveer",
+			"providerDisabled": "Verskaffer gedeaktiveer"
 		},
 		"modal": {
-			"unavailable": "unavailable"
+			"unavailable": "onbeskikbaar"
 		}
 	},
 	"virtualKeys": {

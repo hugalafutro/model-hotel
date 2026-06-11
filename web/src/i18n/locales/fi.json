@@ -764,25 +764,25 @@
 			"refreshedQuotas": "{{refreshed}} -kiintiöt on päivitetty ({{failed}} -kiintiöiden päivitys epäonnistui, {{skipped}} -kiintiöitä ei tueta)"
 		},
 		"discoverySummary": {
-			"title": "Discovery summary",
-			"noChanges": "No changes. Everything matches the provider listing.",
-			"added": "Added",
-			"reenabled": "Re-enabled",
-			"disabled": "Disabled",
-			"failoverDeleted": "Failover groups deleted",
-			"failoverUpdated": "Failover groups updated",
-			"removedCount": "Removed: {{count}}",
-			"addedCount": "Added: {{count}}",
+			"title": "Haku-yhteenveto",
+			"noChanges": "Ei muutoksia. Kaikki vastaa palveluntarjoajan luetteloa.",
+			"added": "Lisätty",
+			"reenabled": "Otettu uudelleen käyttöön",
+			"disabled": "Poissa käytöstä",
+			"failoverDeleted": "Vikasietoryhmät poistettu",
+			"failoverUpdated": "Vikasietoryhmät päivitetty",
+			"removedCount": "Poistettu: {{count}}",
+			"addedCount": "Lisätty: {{count}}",
 			"reason": {
-				"new_model": "New model",
-				"reappeared": "Listed again by the provider",
-				"not_listed": "No longer listed by the provider"
+				"new_model": "Uusi malli",
+				"reappeared": "Palveluntarjoajan uudelleen listama",
+				"not_listed": "Palveluntarjoaja ei enää listaa"
 			},
 			"failoverReason": {
-				"noProviders": "No enabled providers remain",
-				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
+				"noProviders": "Käytössä olevia palveluntarjoajia ei ole jäljellä",
+				"onlyOne": "Vain yksi käytössä oleva palveluntarjoaja on jäljellä (failover vaatii vähintään kaksi)"
 			},
-			"error": "Error"
+			"error": "Virhe"
 		}
 	},
 	"models": {
@@ -864,7 +864,7 @@
 			"sortByStatus": "Järjestä tilan mukaan",
 			"status": "Tila"
 		},
-		"disabledByDiscovery": "Not listed by the provider since {{date}}"
+		"disabledByDiscovery": "Ei palveluntarjoajan listalla {{date}} lähtien"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Palauta löydettyyn arvoon",
@@ -2316,11 +2316,11 @@
 			"enableProvider": "Ota palveluntarjoaja käyttöön",
 			"circuitBreakerOpen": "Katkaisin auki - odottaa jäähtymistä",
 			"circuitBreakerHalfOpen": "Circuit katkaisija puoli-avoin - anturi elpyminen",
-			"modelDisabled": "Model disabled",
-			"providerDisabled": "Provider disabled"
+			"modelDisabled": "Malli poistettu käytöstä",
+			"providerDisabled": "Palveluntarjoaja poistettu käytöstä"
 		},
 		"modal": {
-			"unavailable": "unavailable"
+			"unavailable": "ei saatavilla"
 		}
 	},
 	"virtualKeys": {

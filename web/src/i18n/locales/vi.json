@@ -764,25 +764,25 @@
 			"refreshedQuotas": "Đã cập nhật hạn ngạch của {{refreshed}} ({{failed}} không thành công, {{skipped}} không được hỗ trợ)"
 		},
 		"discoverySummary": {
-			"title": "Discovery summary",
-			"noChanges": "No changes. Everything matches the provider listing.",
-			"added": "Added",
-			"reenabled": "Re-enabled",
-			"disabled": "Disabled",
-			"failoverDeleted": "Failover groups deleted",
-			"failoverUpdated": "Failover groups updated",
-			"removedCount": "Removed: {{count}}",
-			"addedCount": "Added: {{count}}",
+			"title": "Tóm tắt quá trình khám phá",
+			"noChanges": "Không có thay đổi. Mọi thứ đều khớp với danh sách của nhà cung cấp.",
+			"added": "Đã thêm",
+			"reenabled": "Đã kích hoạt lại",
+			"disabled": "Đã tắt",
+			"failoverDeleted": "Các nhóm dự phòng đã bị xóa",
+			"failoverUpdated": "Các nhóm dự phòng đã được cập nhật",
+			"removedCount": "Đã xóa: {{count}}",
+			"addedCount": "Đã thêm: {{count}}",
 			"reason": {
-				"new_model": "New model",
-				"reappeared": "Listed again by the provider",
-				"not_listed": "No longer listed by the provider"
+				"new_model": "Mô hình mới",
+				"reappeared": "Được nhà cung cấp liệt kê lại",
+				"not_listed": "Không còn được nhà cung cấp liệt kê"
 			},
 			"failoverReason": {
-				"noProviders": "No enabled providers remain",
-				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
+				"noProviders": "Không còn nhà cung cấp nào được kích hoạt",
+				"onlyOne": "Chỉ còn lại một nhà cung cấp được kích hoạt (chế độ dự phòng cần ít nhất hai nhà cung cấp)"
 			},
-			"error": "Error"
+			"error": "Lỗi"
 		}
 	},
 	"models": {
@@ -864,7 +864,7 @@
 			"sortByStatus": "Sắp xếp theo trạng thái",
 			"status": "Trạng thái"
 		},
-		"disabledByDiscovery": "Not listed by the provider since {{date}}"
+		"disabledByDiscovery": "Không được nhà cung cấp liệt kê kể từ {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Quay lại giá trị đã tìm thấy",
@@ -2316,11 +2316,11 @@
 			"enableProvider": "Bật nhà cung cấp",
 			"circuitBreakerOpen": "Công tắc ngắt mạch đang mở - đang chờ hết thời gian chờ",
 			"circuitBreakerHalfOpen": "Cầu dao ở trạng thái nửa mở - kiểm tra khả năng phục hồi",
-			"modelDisabled": "Model disabled",
-			"providerDisabled": "Provider disabled"
+			"modelDisabled": "Mô hình bị vô hiệu hóa",
+			"providerDisabled": "Nhà cung cấp bị vô hiệu hóa"
 		},
 		"modal": {
-			"unavailable": "unavailable"
+			"unavailable": "không có sẵn"
 		}
 	},
 	"virtualKeys": {

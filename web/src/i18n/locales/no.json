@@ -764,25 +764,25 @@
 			"refreshedQuotas": "Oppdaterte {{refreshed}} kvoter ({{failed}} mislyktes, {{skipped}} ikke støttet)"
 		},
 		"discoverySummary": {
-			"title": "Discovery summary",
-			"noChanges": "No changes. Everything matches the provider listing.",
-			"added": "Added",
-			"reenabled": "Re-enabled",
-			"disabled": "Disabled",
-			"failoverDeleted": "Failover groups deleted",
-			"failoverUpdated": "Failover groups updated",
-			"removedCount": "Removed: {{count}}",
-			"addedCount": "Added: {{count}}",
+			"title": "Oppdagelsessammendrag",
+			"noChanges": "Ingen endringer. Alt samsvarer med leverandørens liste.",
+			"added": "Lagt til",
+			"reenabled": "Aktiveres på nytt",
+			"disabled": "Deaktivert",
+			"failoverDeleted": "Failover-grupper slettet",
+			"failoverUpdated": "Failover-grupper oppdatert",
+			"removedCount": "Fjernet: {{count}}",
+			"addedCount": "Lagt til: {{count}}",
 			"reason": {
-				"new_model": "New model",
-				"reappeared": "Listed again by the provider",
-				"not_listed": "No longer listed by the provider"
+				"new_model": "Ny modell",
+				"reappeared": "Oppført på nytt av leverandøren",
+				"not_listed": "Ikke lenger oppført av leverandøren"
 			},
 			"failoverReason": {
-				"noProviders": "No enabled providers remain",
-				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
+				"noProviders": "Ingen aktiverte leverandører gjenstår",
+				"onlyOne": "Det er bare én aktivert leverandør igjen (failover krever minst to)"
 			},
-			"error": "Error"
+			"error": "Feil"
 		}
 	},
 	"models": {
@@ -864,7 +864,7 @@
 			"sortByStatus": "Sorter etter status",
 			"status": "Status:"
 		},
-		"disabledByDiscovery": "Not listed by the provider since {{date}}"
+		"disabledByDiscovery": "Ikke oppført av leverandøren siden {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Gå tilbake til oppdaget verdi",
@@ -2316,11 +2316,11 @@
 			"enableProvider": "Aktiver leverandør",
 			"circuitBreakerOpen": "Krets breaker åpen - venter på cooldown",
 			"circuitBreakerHalfOpen": "Krets pauseåpning – ettersyns gjenoppretting",
-			"modelDisabled": "Model disabled",
-			"providerDisabled": "Provider disabled"
+			"modelDisabled": "Modell deaktivert",
+			"providerDisabled": "Leverandør deaktivert"
 		},
 		"modal": {
-			"unavailable": "unavailable"
+			"unavailable": "utilgjengelig"
 		}
 	},
 	"virtualKeys": {

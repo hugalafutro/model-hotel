@@ -764,25 +764,25 @@
 			"refreshedQuotas": "Aktualizované kvóty pre doménu {{refreshed}} ({{failed}} sa nepodarilo aktualizovať, doména {{skipped}} nie je podporovaná)"
 		},
 		"discoverySummary": {
-			"title": "Discovery summary",
-			"noChanges": "No changes. Everything matches the provider listing.",
-			"added": "Added",
-			"reenabled": "Re-enabled",
-			"disabled": "Disabled",
-			"failoverDeleted": "Failover groups deleted",
-			"failoverUpdated": "Failover groups updated",
-			"removedCount": "Removed: {{count}}",
-			"addedCount": "Added: {{count}}",
+			"title": "Súhrn zistení",
+			"noChanges": "Žiadne zmeny. Všetko zodpovedá zoznamu poskytovateľa.",
+			"added": "Pridané",
+			"reenabled": "Znovu povolené",
+			"disabled": "Deaktivované",
+			"failoverDeleted": "Skupiny pre prevzatie pri výpadku boli odstránené",
+			"failoverUpdated": "Skupiny pre prevzatie pri výpadku boli aktualizované",
+			"removedCount": "Odstránené: {{count}}",
+			"addedCount": "Pridané: {{count}}",
 			"reason": {
-				"new_model": "New model",
-				"reappeared": "Listed again by the provider",
-				"not_listed": "No longer listed by the provider"
+				"new_model": "Nový model",
+				"reappeared": "Znovu uvedený poskytovateľom",
+				"not_listed": "Poskytovateľom už nie je uvedený v zozname"
 			},
 			"failoverReason": {
-				"noProviders": "No enabled providers remain",
-				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
+				"noProviders": "Nezostali žiadni aktivovaní poskytovatelia",
+				"onlyOne": "Zostáva len jeden povolený poskytovateľ (pre failover sú potrební aspoň dvaja)"
 			},
-			"error": "Error"
+			"error": "Chyba"
 		}
 	},
 	"models": {
@@ -864,7 +864,7 @@
 			"sortByStatus": "Zoraď podľa stavu",
 			"status": "Stav"
 		},
-		"disabledByDiscovery": "Not listed by the provider since {{date}}"
+		"disabledByDiscovery": "Poskytovateľom nezaradené od {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Vrátiť sa k zistenej hodnote",
@@ -2316,11 +2316,11 @@
 			"enableProvider": "Aktivovať poskytovateľa",
 			"circuitBreakerOpen": "Istič je otvorený – čaká sa na ochladenie",
 			"circuitBreakerHalfOpen": "Istič je čiastočne otvorený – testovanie obnovy",
-			"modelDisabled": "Model disabled",
-			"providerDisabled": "Provider disabled"
+			"modelDisabled": "Model je deaktivovaný",
+			"providerDisabled": "Poskytovateľ deaktivovaný"
 		},
 		"modal": {
-			"unavailable": "unavailable"
+			"unavailable": "nedostupné"
 		}
 	},
 	"virtualKeys": {

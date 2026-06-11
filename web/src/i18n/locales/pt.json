@@ -764,25 +764,25 @@
 			"refreshedQuotas": "Cotas {{refreshed}} atualizadas ({{failed}} falhou, {{skipped}} não suportado)"
 		},
 		"discoverySummary": {
-			"title": "Discovery summary",
-			"noChanges": "No changes. Everything matches the provider listing.",
-			"added": "Added",
-			"reenabled": "Re-enabled",
-			"disabled": "Disabled",
-			"failoverDeleted": "Failover groups deleted",
-			"failoverUpdated": "Failover groups updated",
-			"removedCount": "Removed: {{count}}",
-			"addedCount": "Added: {{count}}",
+			"title": "Resumo da descoberta",
+			"noChanges": "Sem alterações. Tudo corresponde à lista do provedor.",
+			"added": "Adicionado",
+			"reenabled": "Reativado",
+			"disabled": "Desativado",
+			"failoverDeleted": "Grupos de failover excluídos",
+			"failoverUpdated": "Grupos de failover atualizados",
+			"removedCount": "Removido: {{count}}",
+			"addedCount": "Adicionado: {{count}}",
 			"reason": {
-				"new_model": "New model",
-				"reappeared": "Listed again by the provider",
-				"not_listed": "No longer listed by the provider"
+				"new_model": "Novo modelo",
+				"reappeared": "Listado novamente pelo provedor",
+				"not_listed": "Não está mais listado pelo provedor"
 			},
 			"failoverReason": {
-				"noProviders": "No enabled providers remain",
-				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
+				"noProviders": "Não há mais provedores habilitados",
+				"onlyOne": "Resta apenas um provedor habilitado (o failover requer pelo menos dois)"
 			},
-			"error": "Error"
+			"error": "Erro"
 		}
 	},
 	"models": {
@@ -864,7 +864,7 @@
 			"sortByStatus": "Ordenar por situação",
 			"status": "SItuação"
 		},
-		"disabledByDiscovery": "Not listed by the provider since {{date}}"
+		"disabledByDiscovery": "Não listado pelo provedor desde {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Reverter para o valor descoberto",
@@ -2316,11 +2316,11 @@
 			"enableProvider": "Ativar provedor",
 			"circuitBreakerOpen": "Disjuntor aberto - esperando por recarga",
 			"circuitBreakerHalfOpen": "Disjuntor meio-aberto - recuperação de sondagem",
-			"modelDisabled": "Model disabled",
-			"providerDisabled": "Provider disabled"
+			"modelDisabled": "Modelo desativado",
+			"providerDisabled": "Provedor desativado"
 		},
 		"modal": {
-			"unavailable": "unavailable"
+			"unavailable": "indisponível"
 		}
 	},
 	"virtualKeys": {

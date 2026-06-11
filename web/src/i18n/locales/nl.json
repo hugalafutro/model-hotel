@@ -764,25 +764,25 @@
 			"refreshedQuotas": "Vernieuwde {{refreshed}} quota ({{failed}} mislukt, {{skipped}} niet ondersteund)"
 		},
 		"discoverySummary": {
-			"title": "Discovery summary",
-			"noChanges": "No changes. Everything matches the provider listing.",
-			"added": "Added",
-			"reenabled": "Re-enabled",
-			"disabled": "Disabled",
-			"failoverDeleted": "Failover groups deleted",
-			"failoverUpdated": "Failover groups updated",
-			"removedCount": "Removed: {{count}}",
-			"addedCount": "Added: {{count}}",
+			"title": "Overzicht van de detectie",
+			"noChanges": "Geen wijzigingen. Alles komt overeen met de lijst van de provider.",
+			"added": "Toegevoegd",
+			"reenabled": "Opnieuw ingeschakeld",
+			"disabled": "Uitgeschakeld",
+			"failoverDeleted": "Failover-groepen verwijderd",
+			"failoverUpdated": "Failover-groepen bijgewerkt",
+			"removedCount": "Verwijderd: {{count}}",
+			"addedCount": "Toegevoegd: {{count}}",
 			"reason": {
-				"new_model": "New model",
-				"reappeared": "Listed again by the provider",
-				"not_listed": "No longer listed by the provider"
+				"new_model": "Nieuw model",
+				"reappeared": "Opnieuw vermeld door de provider",
+				"not_listed": "Niet langer vermeld door de provider"
 			},
 			"failoverReason": {
-				"noProviders": "No enabled providers remain",
-				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
+				"noProviders": "Er zijn geen geactiveerde providers meer",
+				"onlyOne": "Er is nog maar één ingeschakelde provider over (voor failover zijn er minstens twee nodig)"
 			},
-			"error": "Error"
+			"error": "Fout"
 		}
 	},
 	"models": {
@@ -864,7 +864,7 @@
 			"sortByStatus": "Sorteren op status",
 			"status": "status"
 		},
-		"disabledByDiscovery": "Not listed by the provider since {{date}}"
+		"disabledByDiscovery": "Niet vermeld door de provider sinds {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Terugkeren naar gevonden waarde",
@@ -2316,11 +2316,11 @@
 			"enableProvider": "Provider inschakelen",
 			"circuitBreakerOpen": "Schakelaar open - wacht op afkoeling",
 			"circuitBreakerHalfOpen": "Circuit breaker half-open - proeftijd herstel",
-			"modelDisabled": "Model disabled",
-			"providerDisabled": "Provider disabled"
+			"modelDisabled": "Model uitgeschakeld",
+			"providerDisabled": "Provider uitgeschakeld"
 		},
 		"modal": {
-			"unavailable": "unavailable"
+			"unavailable": "niet beschikbaar"
 		}
 	},
 	"virtualKeys": {

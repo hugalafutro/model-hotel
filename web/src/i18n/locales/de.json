@@ -764,25 +764,25 @@
 			"refreshedQuotas": "Aktualisierte {{refreshed}} Quoten ({{failed}} fehlgeschlagen, {{skipped}} nicht unterstützt)"
 		},
 		"discoverySummary": {
-			"title": "Discovery summary",
-			"noChanges": "No changes. Everything matches the provider listing.",
-			"added": "Added",
-			"reenabled": "Re-enabled",
-			"disabled": "Disabled",
-			"failoverDeleted": "Failover groups deleted",
-			"failoverUpdated": "Failover groups updated",
-			"removedCount": "Removed: {{count}}",
-			"addedCount": "Added: {{count}}",
+			"title": "Zusammenfassung der Erkennung",
+			"noChanges": "Keine Änderungen. Alles stimmt mit der Anbieterliste überein.",
+			"added": "Hinzugefügt",
+			"reenabled": "Wieder aktiviert",
+			"disabled": "Deaktiviert",
+			"failoverDeleted": "Failover-Gruppen gelöscht",
+			"failoverUpdated": "Failover-Gruppen aktualisiert",
+			"removedCount": "Entfernt: {{count}}",
+			"addedCount": "Hinzugefügt: {{count}}",
 			"reason": {
-				"new_model": "New model",
-				"reappeared": "Listed again by the provider",
-				"not_listed": "No longer listed by the provider"
+				"new_model": "Neues Modell",
+				"reappeared": "Erneut vom Anbieter gelistet",
+				"not_listed": "Nicht mehr vom Anbieter gelistet"
 			},
 			"failoverReason": {
-				"noProviders": "No enabled providers remain",
-				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
+				"noProviders": "Es sind keine aktivierten Anbieter mehr vorhanden",
+				"onlyOne": "Es ist nur noch ein aktivierter Anbieter vorhanden (für Failover sind mindestens zwei erforderlich)"
 			},
-			"error": "Error"
+			"error": "Fehler"
 		}
 	},
 	"models": {
@@ -864,7 +864,7 @@
 			"sortByStatus": "Nach Status sortieren",
 			"status": "Status"
 		},
-		"disabledByDiscovery": "Not listed by the provider since {{date}}"
+		"disabledByDiscovery": "Vom Anbieter nicht aufgeführt seit {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Auf den entdeckten Wert zurücksetzen",
@@ -2316,11 +2316,11 @@
 			"enableProvider": "Anbieter aktivieren",
 			"circuitBreakerOpen": "Strombrecher offen - Warten auf Abklingzeit",
 			"circuitBreakerHalfOpen": "Schaltkreisbrecher halb offen - Abtastung",
-			"modelDisabled": "Model disabled",
-			"providerDisabled": "Provider disabled"
+			"modelDisabled": "Modell deaktiviert",
+			"providerDisabled": "Anbieter deaktiviert"
 		},
 		"modal": {
-			"unavailable": "unavailable"
+			"unavailable": "nicht verfügbar"
 		}
 	},
 	"virtualKeys": {

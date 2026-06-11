@@ -764,25 +764,25 @@
 			"refreshedQuotas": "Обновиле се квоте за {{refreshed}} ({{failed}} није успео, {{skipped}} није подржан)"
 		},
 		"discoverySummary": {
-			"title": "Discovery summary",
-			"noChanges": "No changes. Everything matches the provider listing.",
-			"added": "Added",
-			"reenabled": "Re-enabled",
-			"disabled": "Disabled",
-			"failoverDeleted": "Failover groups deleted",
-			"failoverUpdated": "Failover groups updated",
-			"removedCount": "Removed: {{count}}",
-			"addedCount": "Added: {{count}}",
+			"title": "Сажетак откривања",
+			"noChanges": "Без промена. Све одговара листи провајдера.",
+			"added": "Додато",
+			"reenabled": "Поново омогућено",
+			"disabled": "Онемогућено",
+			"failoverDeleted": "Фејловер групе су избрисане",
+			"failoverUpdated": "Фејловер групе ажуриране",
+			"removedCount": "Уклоњено: {{count}}",
+			"addedCount": "Додато: {{count}}",
 			"reason": {
-				"new_model": "New model",
-				"reappeared": "Listed again by the provider",
-				"not_listed": "No longer listed by the provider"
+				"new_model": "Нови модел",
+				"reappeared": "Поново наведен од стране провајдера",
+				"not_listed": "Више није наведен код провајдера"
 			},
 			"failoverReason": {
-				"noProviders": "No enabled providers remain",
-				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
+				"noProviders": "Нема омогућених провајдера",
+				"onlyOne": "Остаје само један омогућен провајдер (за резервно преусмеравање су потребна најмање два)"
 			},
-			"error": "Error"
+			"error": "Грешка"
 		}
 	},
 	"models": {
@@ -864,7 +864,7 @@
 			"sortByStatus": "Сортирај по статусу",
 			"status": "Статус"
 		},
-		"disabledByDiscovery": "Not listed by the provider since {{date}}"
+		"disabledByDiscovery": "Није наведен од стране провајдера од {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Вратите на откривену вредност",
@@ -2316,11 +2316,11 @@
 			"enableProvider": "Омогући провајдера",
 			"circuitBreakerOpen": "Прекидач је отворен - чека се хлађење",
 			"circuitBreakerHalfOpen": "Прекидач у полуотвореном положају - испитивање опоравка",
-			"modelDisabled": "Model disabled",
-			"providerDisabled": "Provider disabled"
+			"modelDisabled": "Модел онемогућен",
+			"providerDisabled": "Провајдер онемогућен"
 		},
 		"modal": {
-			"unavailable": "unavailable"
+			"unavailable": "није доступан"
 		}
 	},
 	"virtualKeys": {

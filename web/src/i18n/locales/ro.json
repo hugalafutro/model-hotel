@@ -764,25 +764,25 @@
 			"refreshedQuotas": "Reîmprospătat {{refreshed}} cote ({{failed}} a eșuat, {{skipped}} nesuportat)"
 		},
 		"discoverySummary": {
-			"title": "Discovery summary",
-			"noChanges": "No changes. Everything matches the provider listing.",
-			"added": "Added",
-			"reenabled": "Re-enabled",
-			"disabled": "Disabled",
-			"failoverDeleted": "Failover groups deleted",
-			"failoverUpdated": "Failover groups updated",
-			"removedCount": "Removed: {{count}}",
-			"addedCount": "Added: {{count}}",
+			"title": "Rezumatul descoperirii",
+			"noChanges": "Fără modificări. Totul corespunde listei furnizorului.",
+			"added": "Adăugat",
+			"reenabled": "Reactivat",
+			"disabled": "Dezactivat",
+			"failoverDeleted": "Grupuri de failover șterse",
+			"failoverUpdated": "Grupuri de failover actualizate",
+			"removedCount": "Eliminat: {{count}}",
+			"addedCount": "Adăugat: {{count}}",
 			"reason": {
-				"new_model": "New model",
-				"reappeared": "Listed again by the provider",
-				"not_listed": "No longer listed by the provider"
+				"new_model": "Model nou",
+				"reappeared": "Listat din nou de către furnizor",
+				"not_listed": "Nu mai este listat de către furnizor"
 			},
 			"failoverReason": {
-				"noProviders": "No enabled providers remain",
-				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
+				"noProviders": "Nu mai există furnizori activați",
+				"onlyOne": "Rămâne un singur furnizor activat (failover-ul necesită cel puțin doi)"
 			},
-			"error": "Error"
+			"error": "Eroare"
 		}
 	},
 	"models": {
@@ -864,7 +864,7 @@
 			"sortByStatus": "Sortează după stare",
 			"status": "Status"
 		},
-		"disabledByDiscovery": "Not listed by the provider since {{date}}"
+		"disabledByDiscovery": "Nu este listat de furnizor din {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Revenire la valoarea descoperită",
@@ -2316,11 +2316,11 @@
 			"enableProvider": "Activare furnizor",
 			"circuitBreakerOpen": "Rupator de circuit deschis - aşteptare pentru răcire",
 			"circuitBreakerHalfOpen": "Circuit breaker semi-deschis - recuperare probabilă",
-			"modelDisabled": "Model disabled",
-			"providerDisabled": "Provider disabled"
+			"modelDisabled": "Model dezactivat",
+			"providerDisabled": "Furnizor dezactivat"
 		},
 		"modal": {
-			"unavailable": "unavailable"
+			"unavailable": "indisponibil"
 		}
 	},
 	"virtualKeys": {

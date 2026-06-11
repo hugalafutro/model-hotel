@@ -764,25 +764,25 @@
 			"refreshedQuotas": "Ενημερώθηκαν οι ποσοστώσεις του {{refreshed}} (το{{failed}} απέτυχε, το {{skipped}} δεν υποστηρίζεται)"
 		},
 		"discoverySummary": {
-			"title": "Discovery summary",
-			"noChanges": "No changes. Everything matches the provider listing.",
-			"added": "Added",
-			"reenabled": "Re-enabled",
-			"disabled": "Disabled",
-			"failoverDeleted": "Failover groups deleted",
-			"failoverUpdated": "Failover groups updated",
-			"removedCount": "Removed: {{count}}",
-			"addedCount": "Added: {{count}}",
+			"title": "Περίληψη ανακάλυψης",
+			"noChanges": "Καμία αλλαγή. Όλα ταιριάζουν με τη λίστα του παρόχου.",
+			"added": "Προστέθηκε",
+			"reenabled": "Επανενεργοποιήθηκε",
+			"disabled": "Απενεργοποιημένο",
+			"failoverDeleted": "Ομάδες ανακατεύθυνσης που έχουν διαγραφεί",
+			"failoverUpdated": "Ενημερωμένες ομάδες ανακατεύθυνσης",
+			"removedCount": "Καταργήθηκε: {{count}}",
+			"addedCount": "Προστέθηκε: {{count}}",
 			"reason": {
-				"new_model": "New model",
-				"reappeared": "Listed again by the provider",
-				"not_listed": "No longer listed by the provider"
+				"new_model": "Νέο μοντέλο",
+				"reappeared": "Καταχωρημένο εκ νέου από τον πάροχο",
+				"not_listed": "Δεν περιλαμβάνεται πλέον στη λίστα του παρόχου"
 			},
 			"failoverReason": {
-				"noProviders": "No enabled providers remain",
-				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
+				"noProviders": "Δεν υπάρχουν ενεργοποιημένοι πάροχοι",
+				"onlyOne": "Παραμένει μόνο ένας ενεργοποιημένος πάροχος (η ανακατεύθυνση απαιτεί τουλάχιστον δύο)"
 			},
-			"error": "Error"
+			"error": "Σφάλμα"
 		}
 	},
 	"models": {
@@ -864,7 +864,7 @@
 			"sortByStatus": "Ταξινόμηση κατά κατάσταση",
 			"status": "Κατάσταση"
 		},
-		"disabledByDiscovery": "Not listed by the provider since {{date}}"
+		"disabledByDiscovery": "Δεν περιλαμβάνεται στον κατάλογο του παρόχου από {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Επαναφορά στην τιμή που ανακαλύφθηκε",
@@ -2316,11 +2316,11 @@
 			"enableProvider": "Ενεργοποίηση παρόχου",
 			"circuitBreakerOpen": "Ανοίξτε τον διακόπτη κυκλώματος - αναμονή για επαναφόρτιση",
 			"circuitBreakerHalfOpen": "Ημιανοικτός διακόπτης κυκλώματος - ανίχνευση αποκατάστασης",
-			"modelDisabled": "Model disabled",
-			"providerDisabled": "Provider disabled"
+			"modelDisabled": "Μοντέλο απενεργοποιημένο",
+			"providerDisabled": "Ο πάροχος έχει απενεργοποιηθεί"
 		},
 		"modal": {
-			"unavailable": "unavailable"
+			"unavailable": "μη διαθέσιμο"
 		}
 	},
 	"virtualKeys": {

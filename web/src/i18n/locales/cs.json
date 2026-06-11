@@ -764,25 +764,25 @@
 			"refreshedQuotas": "Aktualizované kvóty {{refreshed}} ({{failed}} selhalo, {{skipped}} není podporováno)"
 		},
 		"discoverySummary": {
-			"title": "Discovery summary",
-			"noChanges": "No changes. Everything matches the provider listing.",
-			"added": "Added",
-			"reenabled": "Re-enabled",
-			"disabled": "Disabled",
-			"failoverDeleted": "Failover groups deleted",
-			"failoverUpdated": "Failover groups updated",
-			"removedCount": "Removed: {{count}}",
-			"addedCount": "Added: {{count}}",
+			"title": "Shrnutí zjištění",
+			"noChanges": "Žádné změny. Vše odpovídá seznamu poskytovatele.",
+			"added": "Přidáno",
+			"reenabled": "Znovu povoleno",
+			"disabled": "Zakázáno",
+			"failoverDeleted": "Failover skupiny smazány",
+			"failoverUpdated": "Failover skupiny aktualizovány",
+			"removedCount": "Odstraněno: {{count}}",
+			"addedCount": "Přidáno: {{count}}",
 			"reason": {
-				"new_model": "New model",
-				"reappeared": "Listed again by the provider",
-				"not_listed": "No longer listed by the provider"
+				"new_model": "Nový model",
+				"reappeared": "Opět uveden poskytovatelem",
+				"not_listed": "Poskytovatel již tento model neuvádí"
 			},
 			"failoverReason": {
-				"noProviders": "No enabled providers remain",
-				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
+				"noProviders": "Nezbývají žádní povolené poskytovatelé",
+				"onlyOne": "Zbývá pouze jeden povolený poskytovatel (pro failover jsou potřeba alespoň dva)"
 			},
-			"error": "Error"
+			"error": "Chyba"
 		}
 	},
 	"models": {
@@ -864,7 +864,7 @@
 			"sortByStatus": "Seřadit podle stavu",
 			"status": "Stav"
 		},
-		"disabledByDiscovery": "Not listed by the provider since {{date}}"
+		"disabledByDiscovery": "Poskytovatelem není uveden od {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Vrátit se k zjištěné hodnotě",
@@ -2316,11 +2316,11 @@
 			"enableProvider": "Povolit poskytovatele",
 			"circuitBreakerOpen": "Jistič je rozpojený – čeká na ochlazení",
 			"circuitBreakerHalfOpen": "Jistič je v poloze částečně otevřené – testování obnovy",
-			"modelDisabled": "Model disabled",
-			"providerDisabled": "Provider disabled"
+			"modelDisabled": "Model deaktivován",
+			"providerDisabled": "Poskytovatel deaktivován"
 		},
 		"modal": {
-			"unavailable": "unavailable"
+			"unavailable": "nedostupné"
 		}
 	},
 	"virtualKeys": {

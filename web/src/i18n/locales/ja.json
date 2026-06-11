@@ -764,25 +764,25 @@
 			"refreshedQuotas": "{{refreshed}} クォータを更新しました ({{failed}} 失敗しました, {{skipped}} サポートされていません)"
 		},
 		"discoverySummary": {
-			"title": "Discovery summary",
-			"noChanges": "No changes. Everything matches the provider listing.",
-			"added": "Added",
-			"reenabled": "Re-enabled",
-			"disabled": "Disabled",
-			"failoverDeleted": "Failover groups deleted",
-			"failoverUpdated": "Failover groups updated",
-			"removedCount": "Removed: {{count}}",
-			"addedCount": "Added: {{count}}",
+			"title": "ディスカバリー概要",
+			"noChanges": "変更なし。すべてプロバイダーのリストと一致しています。",
+			"added": "追加",
+			"reenabled": "再有効化",
+			"disabled": "無効",
+			"failoverDeleted": "フェイルオーバーグループが削除されました",
+			"failoverUpdated": "フェイルオーバーグループが更新されました",
+			"removedCount": "削除： {{count}}",
+			"addedCount": "追加： {{count}}",
 			"reason": {
-				"new_model": "New model",
-				"reappeared": "Listed again by the provider",
-				"not_listed": "No longer listed by the provider"
+				"new_model": "新しいモデル",
+				"reappeared": "プロバイダーによって再度掲載された",
+				"not_listed": "プロバイダーによる掲載が終了しました"
 			},
 			"failoverReason": {
-				"noProviders": "No enabled providers remain",
-				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
+				"noProviders": "有効なプロバイダーは残っていません",
+				"onlyOne": "有効なプロバイダーが1つしか残っていません（フェイルオーバーには少なくとも2つ必要です）"
 			},
-			"error": "Error"
+			"error": "エラー"
 		}
 	},
 	"models": {
@@ -864,7 +864,7 @@
 			"sortByStatus": "状態でソート",
 			"status": "ステータス"
 		},
-		"disabledByDiscovery": "Not listed by the provider since {{date}}"
+		"disabledByDiscovery": "{{date}} 以降、プロバイダーのリストに掲載されていません"
 	},
 	"model": {
 		"revertToDiscoveredValue": "発見された値に戻す",
@@ -2316,11 +2316,11 @@
 			"enableProvider": "プロバイダを有効にする",
 			"circuitBreakerOpen": "Circuit breaker open - waiting for resfriend",
 			"circuitBreakerHalfOpen": "サーキットブレーカーハーフオープン - プローブ回復",
-			"modelDisabled": "Model disabled",
-			"providerDisabled": "Provider disabled"
+			"modelDisabled": "モデルが無効化されています",
+			"providerDisabled": "プロバイダーが無効化されています"
 		},
 		"modal": {
-			"unavailable": "unavailable"
+			"unavailable": "利用不可"
 		}
 	},
 	"virtualKeys": {

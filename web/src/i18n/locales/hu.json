@@ -764,25 +764,25 @@
 			"refreshedQuotas": "A {{refreshed}} kvóták frissítése (a{{failed}} frissítése sikertelen, a {{skipped}} nem támogatott)"
 		},
 		"discoverySummary": {
-			"title": "Discovery summary",
-			"noChanges": "No changes. Everything matches the provider listing.",
-			"added": "Added",
-			"reenabled": "Re-enabled",
-			"disabled": "Disabled",
-			"failoverDeleted": "Failover groups deleted",
-			"failoverUpdated": "Failover groups updated",
-			"removedCount": "Removed: {{count}}",
-			"addedCount": "Added: {{count}}",
+			"title": "Felfedezés összefoglalása",
+			"noChanges": "Nincs változás. Minden megegyezik a szolgáltató listájával.",
+			"added": "Hozzáadva",
+			"reenabled": "Újra engedélyezve",
+			"disabled": "Letiltva",
+			"failoverDeleted": "Törölt failover csoportok",
+			"failoverUpdated": "Frissített failover csoportok",
+			"removedCount": "Eltávolítva: {{count}}",
+			"addedCount": "Hozzáadva: {{count}}",
 			"reason": {
-				"new_model": "New model",
-				"reappeared": "Listed again by the provider",
-				"not_listed": "No longer listed by the provider"
+				"new_model": "Új modell",
+				"reappeared": "A szolgáltató által újra felsorolt",
+				"not_listed": "A szolgáltató már nem sorolja fel"
 			},
 			"failoverReason": {
-				"noProviders": "No enabled providers remain",
-				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
+				"noProviders": "Nincs engedélyezett szolgáltató",
+				"onlyOne": "Csak egy engedélyezett szolgáltató maradt (a failoverhez legalább kettőre van szükség)"
 			},
-			"error": "Error"
+			"error": "Hiba"
 		}
 	},
 	"models": {
@@ -864,7 +864,7 @@
 			"sortByStatus": "Állapot szerint rendezés",
 			"status": "Állapot"
 		},
-		"disabledByDiscovery": "Not listed by the provider since {{date}}"
+		"disabledByDiscovery": "A szolgáltató nem listázza {{date}} óta"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Vissza a megállapított értékhez",
@@ -2316,11 +2316,11 @@
 			"enableProvider": "Szolgáltató engedélyezése",
 			"circuitBreakerOpen": "A megszakító nyitott – a lehűlési idő lejártát várja",
 			"circuitBreakerHalfOpen": "A megszakító félig nyitott – helyreállítási vizsgálat",
-			"modelDisabled": "Model disabled",
-			"providerDisabled": "Provider disabled"
+			"modelDisabled": "Modell letiltva",
+			"providerDisabled": "Szolgáltató letiltva"
 		},
 		"modal": {
-			"unavailable": "unavailable"
+			"unavailable": "nem elérhető"
 		}
 	},
 	"virtualKeys": {

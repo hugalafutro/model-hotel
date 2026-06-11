@@ -764,25 +764,25 @@
 			"refreshedQuotas": "Оновлено квоти {{refreshed}} ({{failed}} не вдалося, {{skipped}} не підтримується)"
 		},
 		"discoverySummary": {
-			"title": "Discovery summary",
-			"noChanges": "No changes. Everything matches the provider listing.",
-			"added": "Added",
-			"reenabled": "Re-enabled",
-			"disabled": "Disabled",
-			"failoverDeleted": "Failover groups deleted",
-			"failoverUpdated": "Failover groups updated",
-			"removedCount": "Removed: {{count}}",
-			"addedCount": "Added: {{count}}",
+			"title": "Підсумок пошуку",
+			"noChanges": "Без змін. Все відповідає списку провайдера.",
+			"added": "Додано",
+			"reenabled": "Повернуто",
+			"disabled": "Вимкнено",
+			"failoverDeleted": "Групи відмовостійкості видалено",
+			"failoverUpdated": "Оновлено групи відмовостійкості",
+			"removedCount": "Вилучено: {{count}}",
+			"addedCount": "Додано: {{count}}",
 			"reason": {
-				"new_model": "New model",
-				"reappeared": "Listed again by the provider",
-				"not_listed": "No longer listed by the provider"
+				"new_model": "Нова модель",
+				"reappeared": "Знову вказано провайдером",
+				"not_listed": "Більше не вказано провайдером"
 			},
 			"failoverReason": {
-				"noProviders": "No enabled providers remain",
-				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
+				"noProviders": "Не залишилося жодного активного постачальника",
+				"onlyOne": "Залишився лише один увімкнений постачальник (для відмовостійкості потрібно щонайменше два)"
 			},
-			"error": "Error"
+			"error": "Помилка"
 		}
 	},
 	"models": {
@@ -864,7 +864,7 @@
 			"sortByStatus": "За статусом",
 			"status": "Статус"
 		},
-		"disabledByDiscovery": "Not listed by the provider since {{date}}"
+		"disabledByDiscovery": "Не вказано провайдером з {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Повернутися до знайденого значення",
@@ -2316,11 +2316,11 @@
 			"enableProvider": "Увімкнути провайдера",
 			"circuitBreakerOpen": "Мережевий вимикач відкритий - чекає завершення роботи",
 			"circuitBreakerHalfOpen": "Мережевий вимикач напіввідкритий - зондування відновлення",
-			"modelDisabled": "Model disabled",
-			"providerDisabled": "Provider disabled"
+			"modelDisabled": "Модель вимкнена",
+			"providerDisabled": "Провайдер вимкнено"
 		},
 		"modal": {
-			"unavailable": "unavailable"
+			"unavailable": "недоступно"
 		}
 	},
 	"virtualKeys": {
