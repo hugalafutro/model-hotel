@@ -91,7 +91,7 @@ export function SortableEntry({
 		<div
 			ref={setNodeRef}
 			style={{ ...style, overflow: showFuse ? "hidden" : undefined }}
-			className={`relative flex items-center justify-between px-2 py-1 rounded group text-sm ${
+			className={`failover-entry relative flex items-center justify-between px-2 py-1 group text-sm ${
 				entry.enabled && !effectivelyDisabled
 					? "bg-gray-700"
 					: "failover-entry-disabled"
@@ -100,7 +100,7 @@ export function SortableEntry({
 		>
 			{showFuse && fuseColor && isHalfOpen && (
 				<div
-					className="absolute inset-0 rounded pointer-events-none"
+					className="absolute inset-0 rounded-[inherit] pointer-events-none"
 					style={{ boxShadow: `inset 0 0 0 1.5px ${fuseColor}` }}
 				/>
 			)}
@@ -109,7 +109,7 @@ export function SortableEntry({
 			)}
 			{showFuse && fuseColor && !isHalfOpen && elapsedCooldown && (
 				<div
-					className="absolute inset-0 rounded pointer-events-none"
+					className="absolute inset-0 rounded-[inherit] pointer-events-none"
 					style={{ boxShadow: `inset 0 0 0 1.5px ${fuseColor}` }}
 				/>
 			)}

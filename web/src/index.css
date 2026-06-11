@@ -2602,6 +2602,14 @@ html.light .terminal-titlebar-win11 .win11-icon {
 }
 
 /* Disabled failover entry pill - CSS-only styles */
+/* Failover group member rows; themes control the corner radius. */
+.failover-entry {
+	border-radius: 0.25rem;
+}
+html[data-ui-style="cyber-terminal"] .failover-entry {
+	border-radius: 0;
+}
+
 .failover-entry-disabled {
 	border: 1px dashed var(--text-muted);
 }
