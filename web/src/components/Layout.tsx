@@ -937,8 +937,7 @@ export function Layout({ children }: LayoutProps) {
 			<aside className="w-64 ui-sidebar shrink-0 flex flex-col min-h-0">
 				<div className="px-6 pt-3 pb-3 text-center shrink-0">
 					<Logo className="h-10 w-auto text-white mx-auto" />
-					<p className="text-sm text-gray-200 mt-1">{t("layout.subtitle")}</p>
-					<p className="text-xs text-(--accent) mt-0.5 italic">
+					<p className="text-xs text-(--accent) mt-1 italic">
 						{t("layout.tagline")}
 					</p>
 				</div>
