@@ -762,6 +762,27 @@
 		},
 		"toast": {
 			"refreshedQuotas": "{{refreshed}} kota değerleri güncellendi ({{failed}} başarısız, {{skipped}} desteklenmiyor)"
+		},
+		"discoverySummary": {
+			"title": "Discovery summary",
+			"noChanges": "No changes. Everything matches the provider listing.",
+			"added": "Added",
+			"reenabled": "Re-enabled",
+			"disabled": "Disabled",
+			"failoverDeleted": "Failover groups deleted",
+			"failoverUpdated": "Failover groups updated",
+			"removedCount": "Removed: {{count}}",
+			"addedCount": "Added: {{count}}",
+			"reason": {
+				"new_model": "New model",
+				"reappeared": "Listed again by the provider",
+				"not_listed": "No longer listed by the provider"
+			},
+			"failoverReason": {
+				"noProviders": "No enabled providers remain",
+				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
+			},
+			"error": "Error"
 		}
 	},
 	"models": {
@@ -842,7 +863,8 @@
 			"maxOut": "Sınırı Zorla",
 			"sortByStatus": "Duruma göre sırala",
 			"status": "Durum"
-		}
+		},
+		"disabledByDiscovery": "Not listed by the provider since {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Tespit edilen değere geri dön",
@@ -2293,7 +2315,12 @@
 			"disableProvider": "Sağlayıcıyı devre dışı bırak",
 			"enableProvider": "Sağlayıcıyı etkinleştir",
 			"circuitBreakerOpen": "Devre kesici açık - soğuma süresinin bitmesini bekliyor",
-			"circuitBreakerHalfOpen": "Devre kesici yarı açık - geri kazanım testi"
+			"circuitBreakerHalfOpen": "Devre kesici yarı açık - geri kazanım testi",
+			"modelDisabled": "Model disabled",
+			"providerDisabled": "Provider disabled"
+		},
+		"modal": {
+			"unavailable": "unavailable"
 		}
 	},
 	"virtualKeys": {

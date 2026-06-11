@@ -762,6 +762,27 @@
 		},
 		"toast": {
 			"refreshedQuotas": "Quotes de {{refreshed}} actualitzades ({{failed}} ha fallat, {{skipped}} no és compatible)"
+		},
+		"discoverySummary": {
+			"title": "Discovery summary",
+			"noChanges": "No changes. Everything matches the provider listing.",
+			"added": "Added",
+			"reenabled": "Re-enabled",
+			"disabled": "Disabled",
+			"failoverDeleted": "Failover groups deleted",
+			"failoverUpdated": "Failover groups updated",
+			"removedCount": "Removed: {{count}}",
+			"addedCount": "Added: {{count}}",
+			"reason": {
+				"new_model": "New model",
+				"reappeared": "Listed again by the provider",
+				"not_listed": "No longer listed by the provider"
+			},
+			"failoverReason": {
+				"noProviders": "No enabled providers remain",
+				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
+			},
+			"error": "Error"
 		}
 	},
 	"models": {
@@ -842,7 +863,8 @@
 			"maxOut": "Màxim",
 			"sortByStatus": "Ordena per estat",
 			"status": "Estat"
-		}
+		},
+		"disabledByDiscovery": "Not listed by the provider since {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Restablir al valor descobert",
@@ -2293,7 +2315,12 @@
 			"disableProvider": "Desactivar proveïdor",
 			"enableProvider": "Activa el proveïdor",
 			"circuitBreakerOpen": "Interruptor automàtic obert - esperant el refredament",
-			"circuitBreakerHalfOpen": "Interruptor automàtic mig obert - prova de recuperació"
+			"circuitBreakerHalfOpen": "Interruptor automàtic mig obert - prova de recuperació",
+			"modelDisabled": "Model disabled",
+			"providerDisabled": "Provider disabled"
+		},
+		"modal": {
+			"unavailable": "unavailable"
 		}
 	},
 	"virtualKeys": {

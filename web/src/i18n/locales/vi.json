@@ -762,6 +762,27 @@
 		},
 		"toast": {
 			"refreshedQuotas": "Đã cập nhật hạn ngạch của {{refreshed}} ({{failed}} không thành công, {{skipped}} không được hỗ trợ)"
+		},
+		"discoverySummary": {
+			"title": "Discovery summary",
+			"noChanges": "No changes. Everything matches the provider listing.",
+			"added": "Added",
+			"reenabled": "Re-enabled",
+			"disabled": "Disabled",
+			"failoverDeleted": "Failover groups deleted",
+			"failoverUpdated": "Failover groups updated",
+			"removedCount": "Removed: {{count}}",
+			"addedCount": "Added: {{count}}",
+			"reason": {
+				"new_model": "New model",
+				"reappeared": "Listed again by the provider",
+				"not_listed": "No longer listed by the provider"
+			},
+			"failoverReason": {
+				"noProviders": "No enabled providers remain",
+				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
+			},
+			"error": "Error"
 		}
 	},
 	"models": {
@@ -842,7 +863,8 @@
 			"maxOut": "Tận dụng tối đa",
 			"sortByStatus": "Sắp xếp theo trạng thái",
 			"status": "Trạng thái"
-		}
+		},
+		"disabledByDiscovery": "Not listed by the provider since {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Quay lại giá trị đã tìm thấy",
@@ -2293,7 +2315,12 @@
 			"disableProvider": "Tắt nhà cung cấp",
 			"enableProvider": "Bật nhà cung cấp",
 			"circuitBreakerOpen": "Công tắc ngắt mạch đang mở - đang chờ hết thời gian chờ",
-			"circuitBreakerHalfOpen": "Cầu dao ở trạng thái nửa mở - kiểm tra khả năng phục hồi"
+			"circuitBreakerHalfOpen": "Cầu dao ở trạng thái nửa mở - kiểm tra khả năng phục hồi",
+			"modelDisabled": "Model disabled",
+			"providerDisabled": "Provider disabled"
+		},
+		"modal": {
+			"unavailable": "unavailable"
 		}
 	},
 	"virtualKeys": {

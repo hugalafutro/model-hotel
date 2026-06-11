@@ -762,6 +762,27 @@
 		},
 		"toast": {
 			"refreshedQuotas": "已刷新 {{refreshed}} 配额（{{failed}} 操作失败， {{skipped}} 不支持）"
+		},
+		"discoverySummary": {
+			"title": "Discovery summary",
+			"noChanges": "No changes. Everything matches the provider listing.",
+			"added": "Added",
+			"reenabled": "Re-enabled",
+			"disabled": "Disabled",
+			"failoverDeleted": "Failover groups deleted",
+			"failoverUpdated": "Failover groups updated",
+			"removedCount": "Removed: {{count}}",
+			"addedCount": "Added: {{count}}",
+			"reason": {
+				"new_model": "New model",
+				"reappeared": "Listed again by the provider",
+				"not_listed": "No longer listed by the provider"
+			},
+			"failoverReason": {
+				"noProviders": "No enabled providers remain",
+				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
+			},
+			"error": "Error"
 		}
 	},
 	"models": {
@@ -842,7 +863,8 @@
 			"maxOut": "最大输出",
 			"sortByStatus": "按状态排序",
 			"status": "状态"
-		}
+		},
+		"disabledByDiscovery": "Not listed by the provider since {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "恢复到发现的值",
@@ -2293,7 +2315,12 @@
 			"disableProvider": "禁用提供商",
 			"enableProvider": "启用提供商",
 			"circuitBreakerOpen": "线路断路器打开 - 等待冷却时间",
-			"circuitBreakerHalfOpen": "断路器半开启-探测恢复"
+			"circuitBreakerHalfOpen": "断路器半开启-探测恢复",
+			"modelDisabled": "Model disabled",
+			"providerDisabled": "Provider disabled"
+		},
+		"modal": {
+			"unavailable": "unavailable"
 		}
 	},
 	"virtualKeys": {

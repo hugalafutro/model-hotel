@@ -762,6 +762,27 @@
 		},
 		"toast": {
 			"refreshedQuotas": "Odświeżone kontyngenty {{refreshed}} ({{failed}} nie powiodło się, {{skipped}} nieobsługiwane)"
+		},
+		"discoverySummary": {
+			"title": "Discovery summary",
+			"noChanges": "No changes. Everything matches the provider listing.",
+			"added": "Added",
+			"reenabled": "Re-enabled",
+			"disabled": "Disabled",
+			"failoverDeleted": "Failover groups deleted",
+			"failoverUpdated": "Failover groups updated",
+			"removedCount": "Removed: {{count}}",
+			"addedCount": "Added: {{count}}",
+			"reason": {
+				"new_model": "New model",
+				"reappeared": "Listed again by the provider",
+				"not_listed": "No longer listed by the provider"
+			},
+			"failoverReason": {
+				"noProviders": "No enabled providers remain",
+				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
+			},
+			"error": "Error"
 		}
 	},
 	"models": {
@@ -842,7 +863,8 @@
 			"maxOut": "Maks. wyjście",
 			"sortByStatus": "Sortuj według statusu",
 			"status": "Status"
-		}
+		},
+		"disabledByDiscovery": "Not listed by the provider since {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Przywróć do odkrytej wartości",
@@ -2293,7 +2315,12 @@
 			"disableProvider": "Wyłącz dostawcę",
 			"enableProvider": "Włącz dostawcę",
 			"circuitBreakerOpen": "Wyłącznik obwodu otwarty - oczekiwanie na czas odnowienia",
-			"circuitBreakerHalfOpen": "Wyłącznik wyłącznika w połowie otwarty - odzysk sondy"
+			"circuitBreakerHalfOpen": "Wyłącznik wyłącznika w połowie otwarty - odzysk sondy",
+			"modelDisabled": "Model disabled",
+			"providerDisabled": "Provider disabled"
+		},
+		"modal": {
+			"unavailable": "unavailable"
 		}
 	},
 	"virtualKeys": {

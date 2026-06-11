@@ -762,6 +762,27 @@
 		},
 		"toast": {
 			"refreshedQuotas": "Aktualizované kvóty pre doménu {{refreshed}} ({{failed}} sa nepodarilo aktualizovať, doména {{skipped}} nie je podporovaná)"
+		},
+		"discoverySummary": {
+			"title": "Discovery summary",
+			"noChanges": "No changes. Everything matches the provider listing.",
+			"added": "Added",
+			"reenabled": "Re-enabled",
+			"disabled": "Disabled",
+			"failoverDeleted": "Failover groups deleted",
+			"failoverUpdated": "Failover groups updated",
+			"removedCount": "Removed: {{count}}",
+			"addedCount": "Added: {{count}}",
+			"reason": {
+				"new_model": "New model",
+				"reappeared": "Listed again by the provider",
+				"not_listed": "No longer listed by the provider"
+			},
+			"failoverReason": {
+				"noProviders": "No enabled providers remain",
+				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
+			},
+			"error": "Error"
 		}
 	},
 	"models": {
@@ -842,7 +863,8 @@
 			"maxOut": "Na maximum",
 			"sortByStatus": "Zoraď podľa stavu",
 			"status": "Stav"
-		}
+		},
+		"disabledByDiscovery": "Not listed by the provider since {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "Vrátiť sa k zistenej hodnote",
@@ -2293,7 +2315,12 @@
 			"disableProvider": "Zakázať poskytovateľa",
 			"enableProvider": "Aktivovať poskytovateľa",
 			"circuitBreakerOpen": "Istič je otvorený – čaká sa na ochladenie",
-			"circuitBreakerHalfOpen": "Istič je čiastočne otvorený – testovanie obnovy"
+			"circuitBreakerHalfOpen": "Istič je čiastočne otvorený – testovanie obnovy",
+			"modelDisabled": "Model disabled",
+			"providerDisabled": "Provider disabled"
+		},
+		"modal": {
+			"unavailable": "unavailable"
 		}
 	},
 	"virtualKeys": {

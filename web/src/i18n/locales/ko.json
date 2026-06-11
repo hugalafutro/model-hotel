@@ -762,6 +762,27 @@
 		},
 		"toast": {
 			"refreshedQuotas": "{{refreshed}} 할당량 갱신 ({{failed}} 실패, {{skipped}} 미지원)"
+		},
+		"discoverySummary": {
+			"title": "Discovery summary",
+			"noChanges": "No changes. Everything matches the provider listing.",
+			"added": "Added",
+			"reenabled": "Re-enabled",
+			"disabled": "Disabled",
+			"failoverDeleted": "Failover groups deleted",
+			"failoverUpdated": "Failover groups updated",
+			"removedCount": "Removed: {{count}}",
+			"addedCount": "Added: {{count}}",
+			"reason": {
+				"new_model": "New model",
+				"reappeared": "Listed again by the provider",
+				"not_listed": "No longer listed by the provider"
+			},
+			"failoverReason": {
+				"noProviders": "No enabled providers remain",
+				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
+			},
+			"error": "Error"
 		}
 	},
 	"models": {
@@ -842,7 +863,8 @@
 			"maxOut": "최대치",
 			"sortByStatus": "상태별로 정렬",
 			"status": "상태"
-		}
+		},
+		"disabledByDiscovery": "Not listed by the provider since {{date}}"
 	},
 	"model": {
 		"revertToDiscoveredValue": "발견된 값으로 되돌리기",
@@ -2293,7 +2315,12 @@
 			"disableProvider": "제공자 비활성화",
 			"enableProvider": "제공자 활성화",
 			"circuitBreakerOpen": "회로 차단기 개방 - 쿨타임 대기 중",
-			"circuitBreakerHalfOpen": "회로 차단기 반개 상태 - 복구 확인"
+			"circuitBreakerHalfOpen": "회로 차단기 반개 상태 - 복구 확인",
+			"modelDisabled": "Model disabled",
+			"providerDisabled": "Provider disabled"
+		},
+		"modal": {
+			"unavailable": "unavailable"
 		}
 	},
 	"virtualKeys": {
