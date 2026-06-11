@@ -15,7 +15,7 @@ export function RangeToggle({
 		"1w": t("dashboard.range.1w"),
 	};
 	return (
-		<div className="ui-tab-group">
+		<div className="flex items-center gap-px">
 			{(["1h", "24h", "1w"] as Range[]).map((r) => {
 				const active = value === r;
 				return (
@@ -47,7 +47,7 @@ export function MetricToggle({
 }) {
 	const { t } = useTranslation();
 	return (
-		<div className="ui-tab-group">
+		<div className="flex items-center gap-px">
 			{(["tokens", "requests"] as MetricType[]).map((m) => {
 				const active = value === m;
 				const label =
