@@ -485,9 +485,17 @@ type PrunedEntryInfo struct {
 	PrunedModelIDs    []string `json:"pruned_model_ids"`
 }
 
+// UpdatedGroupInfo describes membership changes applied to a group during sync.
+type UpdatedGroupInfo struct {
+	DisplayModel    string   `json:"display_model"`
+	RemovedModelIDs []string `json:"removed_model_ids,omitempty"` // model UUIDs dropped
+	AddedModelIDs   []string `json:"added_model_ids,omitempty"`   // model UUIDs added
+}
+
 // SyncResult describes the outcome of a failover group sync operation.
 type SyncResult struct {
 	DeletedGroups []DeletedGroupInfo `json:"deleted_groups"`
+	UpdatedGroups []UpdatedGroupInfo `json:"updated_groups,omitempty"`
 	PurgedEntries []PrunedEntryInfo  `json:"purged_entries,omitempty"`
 	SyncErrors    []string           `json:"sync_errors,omitempty"`
 }
@@ -685,9 +693,11 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 	return result, nil
 }
 
-// SyncForModel syncs the failover group for a specific model.
-func (r *Repository) SyncForModel(ctx context.Context, modelID string) error {
+// SyncForModel syncs the failover group for a specific model. The returned
+// SyncResult describes the group changes applied (never nil on success).
+func (r *Repository) SyncForModel(ctx context.Context, modelID string) (*SyncResult, error) {
 	base := normalizeBaseModel(modelID)
+	result := &SyncResult{}
 
 	// Match all enabled models whose leaf name (after last "/", lowercased) equals base.
 	// SUBSTRING(... FROM '[^/]+$') extracts the segment after the last "/".
@@ -702,7 +712,7 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) error {
 		ORDER BY p.created_at ASC
 	`, base)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -716,12 +726,23 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) error {
 	}
 	if err := rows.Err(); err != nil {
 		debuglog.Error("failover: error iterating model rows during SyncForModel", "error", err)
-		return err
+		return nil, err
 	}
 
 	if len(currentIDs) <= 1 {
-		r.deleteAutoGroup(ctx, base)
-		return nil
+		if r.deleteAutoGroup(ctx, base) {
+			reason := "no enabled providers found"
+			if len(currentIDs) == 1 {
+				reason = "only 1 enabled provider (need 2+ for failover)"
+			}
+			result.DeletedGroups = append(result.DeletedGroups, DeletedGroupInfo{
+				DisplayModel:  base,
+				ProviderCount: len(currentIDs),
+				Reason:        reason,
+				ProviderNames: []string{},
+			})
+		}
+		return result, nil
 	}
 
 	entryEnabled := make(map[string]bool)
@@ -745,6 +766,35 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) error {
 		priorityOrder = currentIDs
 	}
 
+	if existing != nil {
+		currentSet := make(map[uuid.UUID]struct{}, len(currentIDs))
+		for _, id := range currentIDs {
+			currentSet[id] = struct{}{}
+		}
+		existingSet := make(map[uuid.UUID]struct{}, len(existing.PriorityOrder))
+		for _, id := range existing.PriorityOrder {
+			existingSet[id] = struct{}{}
+		}
+		var removed, added []string
+		for _, id := range existing.PriorityOrder {
+			if _, ok := currentSet[id]; !ok {
+				removed = append(removed, id.String())
+			}
+		}
+		for _, id := range currentIDs {
+			if _, ok := existingSet[id]; !ok {
+				added = append(added, id.String())
+			}
+		}
+		if len(removed) > 0 || len(added) > 0 {
+			result.UpdatedGroups = append(result.UpdatedGroups, UpdatedGroupInfo{
+				DisplayModel:    base,
+				RemovedModelIDs: removed,
+				AddedModelIDs:   added,
+			})
+		}
+	}
+
 	groupEnabled := true
 	autoCreated := true
 	var syncDisplayName, syncDescription *string
@@ -757,10 +807,10 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) error {
 	_, err = r.UpsertWithConfig(ctx, base, priorityOrder, entryEnabled, &groupEnabled, syncDisplayName, syncDescription, &autoCreated)
 	if err != nil {
 		debuglog.Error("failover: failed to sync group", "display_model", base, "error", err)
-		return err
+		return nil, err
 	}
 	debuglog.Info("failover: synced group", "display_model", base, "providers", len(priorityOrder))
-	return err
+	return result, nil
 }
 
 // PruneModelUUID finds failover groups containing the given model UUID in their

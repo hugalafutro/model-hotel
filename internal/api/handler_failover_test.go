@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
 func TestListFailoverGroups(t *testing.T) {
@@ -1540,5 +1541,126 @@ func TestCircuitBreakerStatus_ProviderName(t *testing.T) {
 	name, _ := p["provider_name"].(string)
 	if !strings.Contains(name, "test-cb-name-provider") {
 		t.Errorf("expected provider_name to contain 'test-cb-name-provider', got %q", name)
+	}
+}
+
+// TestFailoverGroupResponse_EffectiveState verifies that group entries expose
+// the underlying model/provider enabled state alongside the per-entry intent
+// toggle, so the UI can mark entries the router will actually skip.
+func TestFailoverGroupResponse_EffectiveState(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	ctx := context.Background()
+	pool := h.Pool().Pool()
+
+	providerIDs := make([]string, 2)
+	for i := range providerIDs {
+		providerData := fmt.Sprintf(`{"name":"test-effective-state-p%d","base_url":"https://api.example.com/v1","api_key":"sk-test"}`, i+1)
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+		req.Header.Set("Authorization", "Bearer test-admin-token")
+		req.Header.Set("Content-Type", "application/json")
+		r.ServeHTTP(rec, req)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("create provider %d: expected 201, got %d: %s", i+1, rec.Code, rec.Body.String())
+		}
+		var created struct {
+			ID string `json:"id"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+			t.Fatalf("decode provider %d: %v", i+1, err)
+		}
+		providerIDs[i] = created.ID
+	}
+
+	modelUUIDs := []string{uuid.New().String(), uuid.New().String()}
+	for i, providerID := range providerIDs {
+		_, err := pool.Exec(ctx,
+			`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, true)`,
+			modelUUIDs[i], providerID, "effective-state-model", fmt.Sprintf("Effective State Model %d", i+1))
+		if err != nil {
+			t.Fatalf("insert model %d: %v", i+1, err)
+		}
+	}
+	model.InvalidateModelCache()
+
+	groupData := `{"display_model":"effective-state-group","entry_ids":["` + modelUUIDs[0] + `","` + modelUUIDs[1] + `"]}`
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/failover-groups/", strings.NewReader(groupData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create group: expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var group struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &group); err != nil {
+		t.Fatalf("decode group: %v", err)
+	}
+
+	// Disable model 2 directly (discovery-style). The raw SQL bypasses the
+	// repository, so invalidate manually exactly like the production
+	// discovery path (DisableMissingModels) does.
+	if _, err := pool.Exec(ctx, `UPDATE models SET enabled = false WHERE id = $1`, modelUUIDs[1]); err != nil {
+		t.Fatalf("disable model 2: %v", err)
+	}
+	model.InvalidateModelCache()
+
+	// Warm the model cache before toggling the provider, so the assertions
+	// below also prove provider.Update invalidates it on its own (stale
+	// cached rows would still report provider_enabled=true).
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/failover-groups/"+group.ID, http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("warm cache get group: expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPut, "/providers/"+providerIDs[0], strings.NewReader(`{"enabled": false}`))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("disable provider 1: expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/failover-groups/"+group.ID, http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("get group: expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var groupResp FailoverGroupResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &groupResp); err != nil {
+		t.Fatalf("decode group response: %v", err)
+	}
+	if len(groupResp.Entries) != 2 {
+		t.Fatalf("expected 2 entries, got %+v", groupResp.Entries)
+	}
+
+	byUUID := make(map[string]FailoverEntryResponse, len(groupResp.Entries))
+	for _, e := range groupResp.Entries {
+		byUUID[e.ModelUUID] = e
+	}
+
+	entry1, ok := byUUID[modelUUIDs[0]]
+	if !ok {
+		t.Fatalf("entry for model 1 missing: %+v", groupResp.Entries)
+	}
+	if !entry1.Enabled || !entry1.ModelEnabled || entry1.ProviderEnabled {
+		t.Errorf("entry 1: expected enabled=true model_enabled=true provider_enabled=false, got %+v", entry1)
+	}
+
+	entry2, ok := byUUID[modelUUIDs[1]]
+	if !ok {
+		t.Fatalf("entry for model 2 missing: %+v", groupResp.Entries)
+	}
+	if !entry2.Enabled || entry2.ModelEnabled || !entry2.ProviderEnabled {
+		t.Errorf("entry 2: expected enabled=true model_enabled=false provider_enabled=true, got %+v", entry2)
 	}
 }

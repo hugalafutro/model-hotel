@@ -1473,12 +1473,12 @@ func TestRepository_DisableMissingModels_WithProviderAndModel(t *testing.T) {
 	}
 
 	// Call DisableMissingModels with only modelID1 in the list - should disable modelID2
-	count, err := repo.DisableMissingModels(ctx, providerID, "test-provider", []string{"keep-this-model"})
+	refs, err := repo.DisableMissingModels(ctx, providerID, "test-provider", []string{"keep-this-model"})
 	if err != nil {
 		t.Fatalf("DisableMissingModels failed: %v", err)
 	}
-	if count != 1 {
-		t.Errorf("expected 1 row affected, got %d", count)
+	if len(refs) != 1 || refs[0].ModelID != "remove-this-model" || refs[0].ID != modelID2 {
+		t.Errorf("expected single ref for remove-this-model (%s), got %v", modelID2, refs)
 	}
 
 	// Verify modelID1 is still enabled

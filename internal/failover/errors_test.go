@@ -488,7 +488,7 @@ func TestSyncForModel_DBError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	err := repo.SyncForModel(ctx, "test-model")
+	_, err := repo.SyncForModel(ctx, "test-model")
 	if err == nil {
 		t.Error("SyncForModel should return error with canceled context")
 	}

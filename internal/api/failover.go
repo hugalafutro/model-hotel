@@ -64,14 +64,16 @@ func NewFailoverHandler(dbPool *pgxpool.Pool, failoverRepo *failover.Repository,
 
 // FailoverEntryResponse represents a failover group entry in API responses.
 type FailoverEntryResponse struct {
-	ModelUUID     string `json:"model_uuid"`
-	ModelID       string `json:"model_id"`
-	ProviderID    string `json:"provider_id"`
-	ProviderName  string `json:"provider_name"`
-	DisplayName   string `json:"display_name"`
-	Enabled       bool   `json:"enabled"`
-	ContextLength *int   `json:"context_length"`
-	OwnedBy       string `json:"owned_by"`
+	ModelUUID       string `json:"model_uuid"`
+	ModelID         string `json:"model_id"`
+	ProviderID      string `json:"provider_id"`
+	ProviderName    string `json:"provider_name"`
+	DisplayName     string `json:"display_name"`
+	Enabled         bool   `json:"enabled"`
+	ModelEnabled    bool   `json:"model_enabled"`
+	ProviderEnabled bool   `json:"provider_enabled"`
+	ContextLength   *int   `json:"context_length"`
+	OwnedBy         string `json:"owned_by"`
 }
 
 // FailoverGroupResponse represents a failover group in API responses.
@@ -680,14 +682,16 @@ func (h *FailoverHandler) buildGroupResponse(ctx context.Context, g *failover.Fa
 		}
 
 		entries = append(entries, FailoverEntryResponse{
-			ModelUUID:     modelUUID.String(),
-			ModelID:       m.ModelID,
-			ProviderID:    m.ProviderID.String(),
-			ProviderName:  m.ProviderName,
-			DisplayName:   m.DisplayName,
-			Enabled:       enabled,
-			ContextLength: m.ContextLength,
-			OwnedBy:       m.OwnedBy,
+			ModelUUID:       modelUUID.String(),
+			ModelID:         m.ModelID,
+			ProviderID:      m.ProviderID.String(),
+			ProviderName:    m.ProviderName,
+			DisplayName:     m.DisplayName,
+			Enabled:         enabled,
+			ModelEnabled:    m.Enabled,
+			ProviderEnabled: m.ProviderEnabled,
+			ContextLength:   m.ContextLength,
+			OwnedBy:         m.OwnedBy,
 		})
 	}
 

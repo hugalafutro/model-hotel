@@ -283,26 +283,48 @@ func (r *Repository) GetByProviderAndModelID(ctx context.Context, providerID uui
 	return &m, nil
 }
 
-// DisableMissingModels disables models not present in the current discovery result.
-func (r *Repository) DisableMissingModels(ctx context.Context, providerID uuid.UUID, providerName string, existingModelIDs []string) (int64, error) {
+// DisabledModelRef identifies a model that was newly disabled by discovery.
+type DisabledModelRef struct {
+	ID      uuid.UUID
+	ModelID string
+}
+
+// DisableMissingModels disables models not present in the current discovery
+// result. Returns only the models that were enabled before this call.
+func (r *Repository) DisableMissingModels(ctx context.Context, providerID uuid.UUID, providerName string, existingModelIDs []string) ([]DisabledModelRef, error) {
 	if len(existingModelIDs) == 0 {
-		return 0, nil
+		return nil, nil
 	}
 	query := `
 		UPDATE models
 		SET enabled = false
-		WHERE provider_id = $1 AND model_id != ALL($2)
+		WHERE provider_id = $1 AND model_id != ALL($2) AND enabled = true
+		RETURNING id, model_id
 	`
 
-	tag, err := r.pool.Exec(ctx, query, providerID, existingModelIDs)
+	rows, err := r.pool.Query(ctx, query, providerID, existingModelIDs)
 	if err != nil {
 		debuglog.Error("model: disable missing failed", "provider", providerName, "provider_id", providerID, "error", err)
-		return 0, err
+		return nil, err
 	}
-	rowsAffected := tag.RowsAffected()
-	debuglog.Info("model: disabled missing models", "provider", providerName, "provider_id", providerID, "count", rowsAffected)
+	defer rows.Close()
+
+	var refs []DisabledModelRef
+	for rows.Next() {
+		var ref DisabledModelRef
+		if err := rows.Scan(&ref.ID, &ref.ModelID); err != nil {
+			debuglog.Error("model: disable missing scan failed", "provider", providerName, "provider_id", providerID, "error", err)
+			return nil, err
+		}
+		refs = append(refs, ref)
+	}
+	if err := rows.Err(); err != nil {
+		debuglog.Error("model: disable missing failed", "provider", providerName, "provider_id", providerID, "error", err)
+		return nil, err
+	}
+	debuglog.Info("model: disabled missing models", "provider", providerName, "provider_id", providerID, "count", len(refs))
 	InvalidateModelCache()
-	return rowsAffected, nil
+	return refs, nil
 }
 
 // SetEnabled enables or disables a model by its UUID.
