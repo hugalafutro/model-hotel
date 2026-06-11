@@ -2,14 +2,22 @@
 
 /* Tailwind v4 dropped the v3 preflight rule that gave buttons a pointer
    cursor, which is why hand-cursor coverage drifted per element. Restore
-   it in the base layer: any cursor-* utility (not-allowed on disabled
-   states, help on info icons) still wins over this. */
+   it in the base layer, with a not-allowed companion for disabled states
+   so neither has to be hand-rolled per component: any cursor-* utility
+   (e.g. help on info icons) still wins over both. */
 @layer base {
-	button:not(:disabled),
+	button:not(:disabled):not([aria-disabled="true"]),
 	[role="button"]:not([aria-disabled="true"]),
 	select:not(:disabled),
 	summary {
 		cursor: pointer;
+	}
+
+	button:disabled,
+	button[aria-disabled="true"],
+	[role="button"][aria-disabled="true"],
+	select:disabled {
+		cursor: not-allowed;
 	}
 }
 

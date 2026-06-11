@@ -1050,8 +1050,8 @@ export function Layout({ children }: LayoutProps) {
 							<BookOpen size={14} strokeWidth={2} />
 							{/* "Wiki" is a fixed brand/proper-noun label for the link to
 							    the GitHub wiki — intentionally not translated, so it
-							    reads the same in every locale (and Crowdin can't mangle
-							    it). Not routed through t(); see the autonym pattern above. */}
+							    reads the same in every locale. Not routed through t();
+							    see the autonym pattern above. */}
 							Wiki
 						</a>
 						<button

@@ -336,7 +336,7 @@ export function ModelPicker({
 								<button
 									type="button"
 									onClick={() => toggleCollapse(providerName)}
-									className={`flex items-center gap-1.5 w-full text-[10px] font-medium transition-colors text-(--text-secondary) hover:text-(--text-primary)}`}
+									className={`flex items-center gap-1.5 w-full text-[10px] font-medium transition-colors text-(--text-secondary) hover:text-(--text-primary)`}
 								>
 									<ChevronDown
 										size={10}

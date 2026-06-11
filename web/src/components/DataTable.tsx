@@ -36,7 +36,6 @@ export function SortableHeader<F extends string>({
 		>
 			<button
 				type="button"
-				className=""
 				onClick={() => onSort(field)}
 				aria-label={t("components.dataTable.sortBy", { label })}
 			>

@@ -38,8 +38,8 @@ export function CollapsibleToggle({
 	const className =
 		overrideClassName ??
 		(variant === "muted"
-			? "p-1.5 rounded-md transition-all cursor-pointer text-gray-400 hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]"
-			: "p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]");
+			? "p-1.5 rounded-md transition-all text-gray-400 hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]"
+			: "p-1.5 rounded-md transition-all text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]");
 
 	const icons =
 		iconStyle === "double" ? (
