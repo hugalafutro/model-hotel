@@ -269,7 +269,7 @@ export function ModelPicker({
 										return next;
 									});
 								}}
-								className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors ${
+								className={`ui-tab inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium border transition-colors ${
 									isActive ? m.style : isDisabled ? m.disabled : m.muted
 								}`}
 							>
@@ -281,7 +281,7 @@ export function ModelPicker({
 						<button
 							type="button"
 							onClick={() => setCapFilter(new Set())}
-							className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-400 hover:text-gray-200"
+							className="ui-tab inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium text-gray-400 hover:text-gray-200"
 							aria-label={t("components.modelPicker.clearFilter")}
 						>
 							✕
@@ -365,7 +365,7 @@ export function ModelPicker({
 											return (
 												<div
 													key={val}
-													className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-md border transition-all whitespace-nowrap ${
+													className={`ui-tab inline-flex items-center gap-1 px-2 py-0.5 text-[11px] border transition-all whitespace-nowrap ${
 														isSelected
 															? "bg-(--accent)/15 border-(--accent)/40 text-(--accent)"
 															: "bg-(--surface-hover) border-(--border-subtle) text-(--text-secondary) hover:text-(--text-primary)"
