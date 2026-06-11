@@ -74,3 +74,5 @@ Thumbs.db
 .windsurfrules
 .omo
 web/.pnpm-store/
+# Demo VPS stack (local-only, deployed by hand to the demo server)
+/demo/
