@@ -265,7 +265,7 @@
 		"usage": {
 			"topModels": "Toppmodeller",
 			"topProviders": "Toppleverandører",
-			"topVirtualKeys": "Øverste virtuelle nøkler",
+			"topVirtualKeys": "Topp virtuelle nøkler",
 			"emptyState": "Ingen bruksdata enda. Bruk nedbrytning vil vises her når trafikk flyter.",
 			"viewDetailsFor": "Vis detaljer for {{label}}",
 			"deletedModelTooltip": "Modellen er ikke lenger tilgjengelig – den kan ha blitt slettet, eller leverandøren kan ha blitt fjernet"
@@ -306,7 +306,7 @@
 			"emptyState": "Ingen modelldata enda. Modell brytning vil dukke opp her når trafikk flytter."
 		},
 		"virtualKeys": {
-			"top": "Øverste virtuelle nøkler",
+			"top": "Topp virtuelle nøkler",
 			"emptyState": "Ingen virtuelle nøkkeldata enda. Virtuell nøkkel vises her når trafikk flytter."
 		},
 		"tokens": {
@@ -333,13 +333,13 @@
 			"avgTokens": "Snitt symbol"
 		},
 		"range": {
-			"1h": "1t",
+			"1h": "1T",
 			"24h": "1D",
-			"1w": "1V"
+			"1w": "1U"
 		},
 		"metric": {
 			"tokens": "Tok",
-			"requests": "Refq"
+			"requests": "Req"
 		},
 		"label": {
 			"requests": "Forespørsler",
@@ -602,7 +602,7 @@
 		"params": {
 			"temperature": "Temperatur",
 			"maxTokens": "Maks tegn",
-			"topP": "Topp P",
+			"topP": "Top P",
 			"minP": "Min. P",
 			"topK": "Topp K",
 			"freqPenalty": "Freq straff",
@@ -1871,7 +1871,7 @@
 			"addGenerationParameters": "Legg til genereringsparametere",
 			"temperature": "Temperatur",
 			"maxTokens": "Maks tegn",
-			"topP": "Topp P",
+			"topP": "Top P",
 			"minP": "Min. P",
 			"topK": "Topp K",
 			"freqPenalty": "Freq straff",

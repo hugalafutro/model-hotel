@@ -333,13 +333,13 @@
 			"avgTokens": "Средние токены"
 		},
 		"range": {
-			"1h": "1Н",
+			"1h": "1Ч",
 			"24h": "1Д",
-			"1w": "1Вт"
+			"1w": "1Н"
 		},
 		"metric": {
-			"tokens": "Tok",
-			"requests": "Рек"
+			"tokens": "Ток",
+			"requests": "Зап"
 		},
 		"label": {
 			"requests": "Запросы",
@@ -602,7 +602,7 @@
 		"params": {
 			"temperature": "Температура",
 			"maxTokens": "Макс. токенов",
-			"topP": "Верхний П",
+			"topP": "Top P",
 			"minP": "Мин. П",
 			"topK": "Топ K",
 			"freqPenalty": "Штраф Фрека",
@@ -1871,7 +1871,7 @@
 			"addGenerationParameters": "Добавить параметры генерации",
 			"temperature": "Температура",
 			"maxTokens": "Макс. токенов",
-			"topP": "Верхний П",
+			"topP": "Top P",
 			"minP": "Мин. П",
 			"topK": "Топ K",
 			"freqPenalty": "Штраф Фрека",

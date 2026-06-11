@@ -334,8 +334,8 @@
 		},
 		"range": {
 			"1h": "1H",
-			"24h": "1D",
-			"1w": "1W"
+			"24h": "1G",
+			"1w": "1S"
 		},
 		"metric": {
 			"tokens": "Tok",
@@ -602,7 +602,7 @@
 		"params": {
 			"temperature": "Temperatura",
 			"maxTokens": "Max Tokens",
-			"topP": "P Superiore",
+			"topP": "Top P",
 			"minP": "Min P",
 			"topK": "Top K",
 			"freqPenalty": "Penalità Freq",
@@ -1871,7 +1871,7 @@
 			"addGenerationParameters": "Aggiungi parametri di generazione",
 			"temperature": "Temperatura",
 			"maxTokens": "Max Tokens",
-			"topP": "P Superiore",
+			"topP": "Top P",
 			"minP": "Min P",
 			"topK": "Top K",
 			"freqPenalty": "Penalità Freq",

@@ -265,7 +265,7 @@
 		"usage": {
 			"topModels": "Topmodeller",
 			"topProviders": "Topudbydere",
-			"topVirtualKeys": "Øverste virtuelle nøgler",
+			"topVirtualKeys": "Top virtuelle nøgler",
 			"emptyState": "Ingen brugsdata endnu. Brugsfejl vises her, når trafikken strømmer.",
 			"viewDetailsFor": "Se detaljer for {{label}}",
 			"deletedModelTooltip": "Modellen er ikke længere tilgængelig — den er muligvis blevet slettet, eller leverandøren er blevet fjernet"
@@ -306,7 +306,7 @@
 			"emptyState": "Ingen modeldata endnu. Modelopdeling vil blive vist her, når trafikken strømmer."
 		},
 		"virtualKeys": {
-			"top": "Øverste virtuelle nøgler",
+			"top": "Top virtuelle nøgler",
 			"emptyState": "Ingen virtuelle nøgledata endnu. Virtuel nøgleopdeling vil blive vist her, når trafikstrømmene."
 		},
 		"tokens": {
@@ -333,9 +333,9 @@
 			"avgTokens": "Gns. Tokens"
 		},
 		"range": {
-			"1h": "1H",
+			"1h": "1T",
 			"24h": "1D",
-			"1w": "1V"
+			"1w": "1U"
 		},
 		"metric": {
 			"tokens": "Tok",

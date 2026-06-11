@@ -265,7 +265,7 @@
 		"usage": {
 			"topModels": "Toppmodeller",
 			"topProviders": "Toppleverantörer",
-			"topVirtualKeys": "Främsta virtuella nycklar",
+			"topVirtualKeys": "Topp virtuella nycklar",
 			"emptyState": "Inga användningsdata än. Användningen kommer att visas här när trafikflöden.",
 			"viewDetailsFor": "Visa detaljer för {{label}}",
 			"deletedModelTooltip": "Modellen finns inte längre tillgänglig – den kan ha tagits bort eller så har leverantören av den avregistrerats"
@@ -306,7 +306,7 @@
 			"emptyState": "Inga modelldata ännu. Modelldelning visas här när trafikflöden."
 		},
 		"virtualKeys": {
-			"top": "Främsta virtuella nycklar",
+			"top": "Topp virtuella nycklar",
 			"emptyState": "Inga virtuella nyckeldata än. Virtuell nyckeldelning visas här när trafikflöden."
 		},
 		"tokens": {
@@ -333,13 +333,13 @@
 			"avgTokens": "Snitt-tokens"
 		},
 		"range": {
-			"1h": "1h",
+			"1h": "1T",
 			"24h": "1D",
-			"1w": "1W"
+			"1w": "1V"
 		},
 		"metric": {
 			"tokens": "Tok",
-			"requests": "Kräv"
+			"requests": "Req"
 		},
 		"label": {
 			"requests": "Förfrågningar",
@@ -602,7 +602,7 @@
 		"params": {
 			"temperature": "Temperatur",
 			"maxTokens": "Max antal tokens",
-			"topP": "Topp P",
+			"topP": "Top P",
 			"minP": "Minst P",
 			"topK": "Topp K",
 			"freqPenalty": "Freq-straff",
@@ -1871,7 +1871,7 @@
 			"addGenerationParameters": "Lägg till genereringsparametrar",
 			"temperature": "Temperatur",
 			"maxTokens": "Max antal tokens",
-			"topP": "Topp P",
+			"topP": "Top P",
 			"minP": "Minst P",
 			"topK": "Topp K",
 			"freqPenalty": "Freq-straff",

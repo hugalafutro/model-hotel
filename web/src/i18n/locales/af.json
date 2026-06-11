@@ -288,7 +288,7 @@
 		},
 		"providers": {
 			"top": "Top verskaffers",
-			"top_one": "Top {{count}} -verskaffer",
+			"top_one": "Top {{count}} verskaffer",
 			"top_other": "Top {{count}} -verskaffers",
 			"providers": "Verskaffers",
 			"noData": "Nog geen verskafferinligting nie. 'n Oorsig van die verskaffers sal hier verskyn sodra verkeer vloei.",
@@ -333,13 +333,13 @@
 			"avgTokens": "Gemiddelde tokens"
 		},
 		"range": {
-			"1h": "Een halfuur",
-			"24h": "Een dimensie",
-			"1w": "Een W"
+			"1h": "1U",
+			"24h": "1D",
+			"1w": "1W"
 		},
 		"metric": {
 			"tokens": "Tok",
-			"requests": "Vereis"
+			"requests": "Req"
 		},
 		"label": {
 			"requests": "Versoeke",

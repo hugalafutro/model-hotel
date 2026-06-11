@@ -263,9 +263,9 @@
 			"yesterday": "Včera, {{date}}"
 		},
 		"usage": {
-			"topModels": "Nejpoužívanější modely",
-			"topProviders": "Nejlepší poskytovatelé",
-			"topVirtualKeys": "Nejpoužívanější virtuální klíče",
+			"topModels": "Nej. modely",
+			"topProviders": "Nej. poskytovatelé",
+			"topVirtualKeys": "Nej. virtuální klíče",
 			"emptyState": "Zatím nejsou k dispozici žádné údaje o využití. Rozpis využití se zde zobrazí, jakmile začne proudit provoz.",
 			"viewDetailsFor": "Zobrazit podrobnosti o modelu {{label}}",
 			"deletedModelTooltip": "Tento model již není k dispozici – mohl být vyřazen z nabídky nebo byl zrušen jeho dodavatel"
@@ -287,9 +287,9 @@
 			"requestCount": "Požadavky {{count}}"
 		},
 		"providers": {
-			"top": "Nejlepší poskytovatelé",
-			"top_one": "Nejlepší poskytovatel {{count}}",
-			"top_other": "Nejlepší poskytovatelé {{count}}",
+			"top": "Nej. poskytovatelé",
+			"top_one": "Nej. {{count}} poskytovatel",
+			"top_other": "Nej. {{count}} poskytovatelé",
 			"providers": "Poskytovatelé",
 			"noData": "Zatím nejsou k dispozici žádné údaje o poskytovatelích. Rozpis podle poskytovatelů se zde zobrazí, jakmile začne přenos dat.",
 			"distributionChart": "Graf rozložení poskytovatelů",
@@ -301,16 +301,16 @@
 			"requestsUnit": "Požadavky"
 		},
 		"models": {
-			"top": "Nejpoužívanější modely",
+			"top": "Nej. modely",
 			"viewDetails": "Zobrazit podrobnosti o modelu {{label}}",
 			"emptyState": "Zatím nejsou k dispozici žádné údaje o modelu. Rozpis modelu se zde zobrazí, jakmile budou k dispozici údaje o dopravním provozu."
 		},
 		"virtualKeys": {
-			"top": "Nejpoužívanější virtuální klíče",
+			"top": "Nej. virtuální klíče",
 			"emptyState": "Zatím nejsou k dispozici žádné údaje o virtuálních klíčích. Rozpis virtuálních klíčů se zde zobrazí, jakmile začne provoz."
 		},
 		"tokens": {
-			"tokenMix": "Skladba tokenů",
+			"tokenMix": "Poměr tokenů",
 			"noTokenData": "Zatím nejsou k dispozici žádné údaje o tokenech. Jakmile se rozběhne provoz, zobrazí se zde přehled tokenů.",
 			"tokens": "Tokeny",
 			"prompt": "Výzva",
@@ -335,11 +335,11 @@
 		"range": {
 			"1h": "1H",
 			"24h": "1D",
-			"1w": "1 W"
+			"1w": "1T"
 		},
 		"metric": {
 			"tokens": "Tok",
-			"requests": "Požadavek"
+			"requests": "Req"
 		},
 		"label": {
 			"requests": "Požadavky",
@@ -602,7 +602,7 @@
 		"params": {
 			"temperature": "Teplota",
 			"maxTokens": "Max. tokenů",
-			"topP": "Nejvyšší P",
+			"topP": "Top P",
 			"minP": "Min P",
 			"topK": "Horní K",
 			"freqPenalty": "Penalizace frekvence",
@@ -1871,7 +1871,7 @@
 			"addGenerationParameters": "Přidat parametry generování",
 			"temperature": "Teplota",
 			"maxTokens": "Max. tokenů",
-			"topP": "Nejvyšší P",
+			"topP": "Top P",
 			"minP": "Min P",
 			"topK": "Horní K",
 			"freqPenalty": "Penalizace frekvence",

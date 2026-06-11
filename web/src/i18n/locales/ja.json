@@ -333,9 +333,9 @@
 			"avgTokens": "平均トークン"
 		},
 		"range": {
-			"1h": "1H",
-			"24h": "1 D",
-			"1w": "1W"
+			"1h": "1時",
+			"24h": "1日",
+			"1w": "1週"
 		},
 		"metric": {
 			"tokens": "Tok",
@@ -602,7 +602,7 @@
 		"params": {
 			"temperature": "温度",
 			"maxTokens": "最大トークン",
-			"topP": "トップ P",
+			"topP": "Top P",
 			"minP": "最小P",
 			"topK": "トップ K",
 			"freqPenalty": "フリークペナルティ",
@@ -1871,7 +1871,7 @@
 			"addGenerationParameters": "生成パラメータを追加",
 			"temperature": "温度",
 			"maxTokens": "最大トークン",
-			"topP": "トップ P",
+			"topP": "Top P",
 			"minP": "最小P",
 			"topK": "トップ K",
 			"freqPenalty": "フリークペナルティ",

@@ -265,7 +265,7 @@
 		"usage": {
 			"topModels": "Millors models",
 			"topProviders": "Millors proveïdors",
-			"topVirtualKeys": "Millors claus virtuals",
+			"topVirtualKeys": "Top claus virtuals",
 			"emptyState": "Encara no hi ha dades d'ús. El desglossament de l'ús apareixerà aquí un cop hi hagi trànsit.",
 			"viewDetailsFor": "Veure detalls de {{label}}",
 			"deletedModelTooltip": "El model ja no està disponible — pot haver estat suprimit o el seu proveïdor s'ha eliminat"
@@ -288,8 +288,8 @@
 		},
 		"providers": {
 			"top": "Millors proveïdors",
-			"top_one": "Principal proveïdor de {{count}}",
-			"top_other": "Principals proveïdors de {{count}}",
+			"top_one": "Top {{count}} proveïdor",
+			"top_other": "Top {{count}} proveïdors",
 			"providers": "Proveïdors",
 			"noData": "Encara no hi ha dades dels proveïdors. El desglossament dels proveïdors apareixerà aquí un cop flueixi el trànsit.",
 			"distributionChart": "Gràfic de distribució de proveïdors",
@@ -306,7 +306,7 @@
 			"emptyState": "Encara no hi ha dades del model. El desglossament del model apareixerà aquí un cop hi hagi fluxos de trànsit."
 		},
 		"virtualKeys": {
-			"top": "Millors claus virtuals",
+			"top": "Top claus virtuals",
 			"emptyState": "Encara no hi ha dades de les claus virtuals. El desglossament de les claus virtuals apareixerà aquí un cop hi hagi fluxos de trànsit."
 		},
 		"tokens": {
@@ -335,7 +335,7 @@
 		"range": {
 			"1h": "1H",
 			"24h": "1D",
-			"1w": "1W"
+			"1w": "1S"
 		},
 		"metric": {
 			"tokens": "Tok",
@@ -602,7 +602,7 @@
 		"params": {
 			"temperature": "Temperatura",
 			"maxTokens": "Maxim de fitxes",
-			"topP": "P de dalt",
+			"topP": "Top P",
 			"minP": "Min P",
 			"topK": "K superior",
 			"freqPenalty": "Penalització freqüent",
@@ -1871,7 +1871,7 @@
 			"addGenerationParameters": "Afegir paràmetres de generació",
 			"temperature": "Temperatura",
 			"maxTokens": "Maxim de fitxes",
-			"topP": "P de dalt",
+			"topP": "Top P",
 			"minP": "Min P",
 			"topK": "K superior",
 			"freqPenalty": "Penalització freqüent",

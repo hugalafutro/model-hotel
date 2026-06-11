@@ -288,7 +288,7 @@
 		},
 		"providers": {
 			"top": "Top-Anbieter",
-			"top_one": "Top- {{count}} Anbieter",
+			"top_one": "Top {{count}} Anbieter",
 			"top_other": "Top {{count}} Anbieter",
 			"providers": "Anbieter",
 			"noData": "Noch keine Daten des Anbieters. Die Aufschlüsselung des Anbieters wird hier angezeigt, sobald der Datenverkehr abläuft.",
@@ -333,9 +333,9 @@
 			"avgTokens": "Mittlere Token"
 		},
 		"range": {
-			"1h": "1S",
-			"24h": "1D",
-			"1w": "1 W"
+			"1h": "1H",
+			"24h": "1T",
+			"1w": "1W"
 		},
 		"metric": {
 			"tokens": "Tok",
@@ -602,7 +602,7 @@
 		"params": {
 			"temperature": "Temperatur",
 			"maxTokens": "Max. Token",
-			"topP": "Oben P",
+			"topP": "Top P",
 			"minP": "Min P",
 			"topK": "Top K",
 			"freqPenalty": "Freq Strafe",
@@ -1871,7 +1871,7 @@
 			"addGenerationParameters": "Generierungsparameter hinzufügen",
 			"temperature": "Temperatur",
 			"maxTokens": "Max. Token",
-			"topP": "Oben P",
+			"topP": "Top P",
 			"minP": "Min P",
 			"topK": "Top K",
 			"freqPenalty": "Freq Strafe",

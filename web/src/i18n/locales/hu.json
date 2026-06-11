@@ -263,9 +263,9 @@
 			"yesterday": "Tegnap, {{date}}"
 		},
 		"usage": {
-			"topModels": "Legjobb modellek",
-			"topProviders": "Legjobb szolgáltatók",
-			"topVirtualKeys": "Legjobb virtuális kulcsok",
+			"topModels": "Top modellek",
+			"topProviders": "Top szolgáltatók",
+			"topVirtualKeys": "Top virtuális kulcsok",
 			"emptyState": "Még nincsenek használati adatok. A forgalom megindulásával itt jelennek meg a használati adatok.",
 			"viewDetailsFor": "Részletek megtekintése {{label}}",
 			"deletedModelTooltip": "A modell már nem elérhető – lehet, hogy törölték, vagy a forgalmazóját eltávolították"
@@ -287,9 +287,9 @@
 			"requestCount": "{{count}} kérelmek"
 		},
 		"providers": {
-			"top": "Legjobb szolgáltatók",
-			"top_one": "A legjobb {{count}} szolgáltató",
-			"top_other": "A legjobb {{count}} szolgáltatók",
+			"top": "Top szolgáltatók",
+			"top_one": "Top {{count}} szolgáltató",
+			"top_other": "Top {{count}} szolgáltató",
 			"providers": "Szolgáltatók",
 			"noData": "Még nincsenek szolgáltatói adatok. A forgalom megindulásával itt megjelenik a szolgáltatók szerinti bontás.",
 			"distributionChart": "Szolgáltatók eloszlásának ábrája",
@@ -301,12 +301,12 @@
 			"requestsUnit": "Kérelmek"
 		},
 		"models": {
-			"top": "Legjobb modellek",
+			"top": "Top modellek",
 			"viewDetails": "Részletek megtekintése {{label}}",
 			"emptyState": "Még nincsenek modellezési adatok. A forgalmi adatok beérkezése után a modell bontása itt jelenik meg."
 		},
 		"virtualKeys": {
-			"top": "Legjobb virtuális kulcsok",
+			"top": "Top virtuális kulcsok",
 			"emptyState": "Még nincsenek adatok a virtuális kulcsokról. A virtuális kulcsok bontása itt jelenik meg, amint megindul a forgalom."
 		},
 		"tokens": {
@@ -333,13 +333,13 @@
 			"avgTokens": "Átlagos tokenek"
 		},
 		"range": {
-			"1h": "1. félév",
-			"24h": "1D",
-			"1w": "1 W"
+			"1h": "1Ó",
+			"24h": "1N",
+			"1w": "1H"
 		},
 		"metric": {
 			"tokens": "Tok",
-			"requests": "Kérés"
+			"requests": "Kér"
 		},
 		"label": {
 			"requests": "Kérelmek",
@@ -602,7 +602,7 @@
 		"params": {
 			"temperature": "Hőmérséklet",
 			"maxTokens": "Maximális zsetonok",
-			"topP": "Legnépszerűbb P",
+			"topP": "Top P",
 			"minP": "Min P",
 			"topK": "Top K",
 			"freqPenalty": "Frekvencia-büntetés",
@@ -1871,7 +1871,7 @@
 			"addGenerationParameters": "Generálási paraméterek hozzáadása",
 			"temperature": "Hőmérséklet",
 			"maxTokens": "Maximális zsetonok",
-			"topP": "Legnépszerűbb P",
+			"topP": "Top P",
 			"minP": "Min P",
 			"topK": "Top K",
 			"freqPenalty": "Frekvencia-büntetés",

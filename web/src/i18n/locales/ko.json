@@ -333,9 +333,9 @@
 			"avgTokens": "평균 토큰 수"
 		},
 		"range": {
-			"1h": "상반기",
-			"24h": "1D",
-			"1w": "1W"
+			"1h": "1시",
+			"24h": "1일",
+			"1w": "1주"
 		},
 		"metric": {
 			"tokens": "톡",
@@ -602,7 +602,7 @@
 		"params": {
 			"temperature": "온도",
 			"maxTokens": "최대 토큰 수",
-			"topP": "상위 P",
+			"topP": "Top P",
 			"minP": "민 P",
 			"topK": "Top K",
 			"freqPenalty": "주파수 페널티",
@@ -1871,7 +1871,7 @@
 			"addGenerationParameters": "생성 매개변수 추가",
 			"temperature": "온도",
 			"maxTokens": "최대 토큰 수",
-			"topP": "상위 P",
+			"topP": "Top P",
 			"minP": "민 P",
 			"topK": "Top K",
 			"freqPenalty": "주파수 페널티",

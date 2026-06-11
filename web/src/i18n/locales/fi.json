@@ -263,9 +263,9 @@
 			"yesterday": "Eilen, {{date}}"
 		},
 		"usage": {
-			"topModels": "Suosituimmat mallit",
-			"topProviders": "Suosituimmat tarjoajat",
-			"topVirtualKeys": "Suosituimmat virtuaaliavaimet",
+			"topModels": "Top-mallit",
+			"topProviders": "Top-tarjoajat",
+			"topVirtualKeys": "Top-virtuaaliavaimet",
 			"emptyState": "Käyttötietoja ei ole vielä. Käytön jakautuminen näkyy tässä liikennevirtojen jälkeen.",
 			"viewDetailsFor": "Näytä tiedot {{label}}",
 			"deletedModelTooltip": "Mallia ei ole enää saatavilla – se on mahdollisesti poistettu tai sen tarjoaja on poistettu"
@@ -287,9 +287,9 @@
 			"requestCount": "{{count}} pyyntöä"
 		},
 		"providers": {
-			"top": "Suosituimmat tarjoajat",
-			"top_one": "Top {{count}} Tarjoaja",
-			"top_other": "Eniten {{count}} Tarjoajaa",
+			"top": "Top-tarjoajat",
+			"top_one": "Top {{count}} tarjoaja",
+			"top_other": "Top {{count}} tarjoajaa",
 			"providers": "Palveluntarjoajat",
 			"noData": "Ei vielä toimittajan tietoja. Tarjoajan erittely näkyy tässä liikennevirtojen jälkeen.",
 			"distributionChart": "Tarjoajan jakelukaavio",
@@ -301,12 +301,12 @@
 			"requestsUnit": "Pyynnöt"
 		},
 		"models": {
-			"top": "Suosituimmat mallit",
+			"top": "Top-mallit",
 			"viewDetails": "Näytä tiedot {{label}}",
 			"emptyState": "Mallitietoja ei vielä. Mallikohtainen erittely ilmestyy tässä liikennevirtojen jälkeen."
 		},
 		"virtualKeys": {
-			"top": "Suosituimmat virtuaaliavaimet",
+			"top": "Top-virtuaaliavaimet",
 			"emptyState": "Virtuaalisia avaintietoja ei ole vielä. Virtuaalisen avaimen jakautuminen näkyy täällä, kun liikennevirrat näkyvät."
 		},
 		"tokens": {
@@ -333,9 +333,9 @@
 			"avgTokens": "Keskim. Tokeneita"
 		},
 		"range": {
-			"1h": "1H",
-			"24h": "1D",
-			"1w": "1W"
+			"1h": "1T",
+			"24h": "1P",
+			"1w": "1V"
 		},
 		"metric": {
 			"tokens": "Tok",
@@ -602,7 +602,7 @@
 		"params": {
 			"temperature": "Lämpötila",
 			"maxTokens": "Maksimi Tokenit",
-			"topP": "Ylin P",
+			"topP": "Top P",
 			"minP": "Minimi P",
 			"topK": "Yläosa K",
 			"freqPenalty": "Freq-rangaistus",
@@ -1871,7 +1871,7 @@
 			"addGenerationParameters": "Lisää generointiparametrit",
 			"temperature": "Lämpötila",
 			"maxTokens": "Maksimi Tokenit",
-			"topP": "Ylin P",
+			"topP": "Top P",
 			"minP": "Minimi P",
 			"topK": "Yläosa K",
 			"freqPenalty": "Freq-rangaistus",

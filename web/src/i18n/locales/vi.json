@@ -288,8 +288,8 @@
 		},
 		"providers": {
 			"top": "Nhà cung cấp hàng đầu",
-			"top_one": "Nhà cung cấp dịch vụ {{count}} hàng đầu",
-			"top_other": "Các nhà cung cấp dịch vụ {{count}} hàng đầu",
+			"top_one": "Top {{count}} nhà cung cấp",
+			"top_other": "Top {{count}} nhà cung cấp",
 			"providers": "Nhà cung cấp",
 			"noData": "Chưa có dữ liệu về nhà cung cấp. Thông tin chi tiết về các nhà cung cấp sẽ hiển thị tại đây khi có lưu lượng truy cập.",
 			"distributionChart": "Biểu đồ phân phối nhà cung cấp",
@@ -333,13 +333,13 @@
 			"avgTokens": "Số token trung bình"
 		},
 		"range": {
-			"1h": "6 tháng đầu",
-			"24h": "1D",
-			"1w": "1W"
+			"1h": "1G",
+			"24h": "1N",
+			"1w": "1T"
 		},
 		"metric": {
 			"tokens": "Tok",
-			"requests": "Yêu cầu"
+			"requests": "Req"
 		},
 		"label": {
 			"requests": "Yêu cầu",

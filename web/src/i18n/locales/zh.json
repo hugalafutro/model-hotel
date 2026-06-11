@@ -333,13 +333,13 @@
 			"avgTokens": "平均代币"
 		},
 		"range": {
-			"1h": "1H",
-			"24h": "1D",
-			"1w": "1 W"
+			"1h": "1时",
+			"24h": "1天",
+			"1w": "1周"
 		},
 		"metric": {
-			"tokens": "Tok",
-			"requests": "雷克"
+			"tokens": "令牌",
+			"requests": "请求"
 		},
 		"label": {
 			"requests": "请求",
@@ -602,7 +602,7 @@
 		"params": {
 			"temperature": "温度",
 			"maxTokens": "最大令牌",
-			"topP": "顶部 P",
+			"topP": "Top P",
 			"minP": "最小P",
 			"topK": "前 K",
 			"freqPenalty": "Freq penalty",
@@ -1871,7 +1871,7 @@
 			"addGenerationParameters": "添加生成参数",
 			"temperature": "温度",
 			"maxTokens": "最大令牌",
-			"topP": "顶部 P",
+			"topP": "Top P",
 			"minP": "最小P",
 			"topK": "前 K",
 			"freqPenalty": "Freq penalty",

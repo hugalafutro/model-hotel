@@ -288,8 +288,8 @@
 		},
 		"providers": {
 			"top": "Κορυφαίοι πάροχοι",
-			"top_one": "Κορυφαίος πάροχος υπηρεσιών « {{count}}»",
-			"top_other": "Κορυφαίοι πάροχοι υπηρεσιών « {{count}}»",
+			"top_one": "Κορυφαίος {{count}} πάροχος",
+			"top_other": "Κορυφαίοι {{count}} πάροχοι",
 			"providers": "Πάροχοι",
 			"noData": "Δεν υπάρχουν δεδομένα παρόχου ακόμα. Η ανάλυση παρόχου θα εμφανιστεί εδώ μόλις ρεύσει η κυκλοφορία.",
 			"distributionChart": "Διάγραμμα διανομής παρόχου",
@@ -333,13 +333,13 @@
 			"avgTokens": "Μέσος Όρος Tokens"
 		},
 		"range": {
-			"1h": "1Η",
-			"24h": "1Δ",
-			"1w": "1Δ"
+			"1h": "1Ω",
+			"24h": "1Η",
+			"1w": "1Ε"
 		},
 		"metric": {
 			"tokens": "Tok",
-			"requests": "Δευτερόλεπτο"
+			"requests": "Req"
 		},
 		"label": {
 			"requests": "Αιτήματα",
@@ -602,7 +602,7 @@
 		"params": {
 			"temperature": "Θερμοκρασία",
 			"maxTokens": "Μέγιστα Tokens",
-			"topP": "Πάνω P",
+			"topP": "Top P",
 			"minP": "Ελάχιστο P",
 			"topK": "Κορυφή K",
 			"freqPenalty": "Freq Ποινή",
@@ -1871,7 +1871,7 @@
 			"addGenerationParameters": "Προσθήκη παραμέτρων γενιάς",
 			"temperature": "Θερμοκρασία",
 			"maxTokens": "Μέγιστα Tokens",
-			"topP": "Πάνω P",
+			"topP": "Top P",
 			"minP": "Ελάχιστο P",
 			"topK": "Κορυφή K",
 			"freqPenalty": "Freq Ποινή",

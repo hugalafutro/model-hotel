@@ -339,7 +339,7 @@
 		},
 		"metric": {
 			"tokens": "Tok",
-			"requests": "Aangevraagd"
+			"requests": "Req"
 		},
 		"label": {
 			"requests": "Verzoeken",
@@ -602,7 +602,7 @@
 		"params": {
 			"temperature": "Temperatuur",
 			"maxTokens": "Max Tokens",
-			"topP": "Boven P",
+			"topP": "Top P",
 			"minP": "Min. P",
 			"topK": "Boven K",
 			"freqPenalty": "Freq boete",
@@ -1871,7 +1871,7 @@
 			"addGenerationParameters": "Generatieparameters toevoegen",
 			"temperature": "Temperatuur",
 			"maxTokens": "Max Tokens",
-			"topP": "Boven P",
+			"topP": "Top P",
 			"minP": "Min. P",
 			"topK": "Boven K",
 			"freqPenalty": "Freq boete",

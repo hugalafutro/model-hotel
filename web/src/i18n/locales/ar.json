@@ -334,12 +334,12 @@
 		},
 		"range": {
 			"1h": "1س",
-			"24h": "1D",
-			"1w": "1W"
+			"24h": "1ي",
+			"1w": "1أ"
 		},
 		"metric": {
-			"tokens": "Tok",
-			"requests": "ريك"
+			"tokens": "توك",
+			"requests": "طلب"
 		},
 		"label": {
 			"requests": "الطلبات",
@@ -602,7 +602,7 @@
 		"params": {
 			"temperature": "درجة",
 			"maxTokens": "الحد الاقصى للرموز",
-			"topP": "أعلى P",
+			"topP": "Top P",
 			"minP": "الحد الأدنى P",
 			"topK": "أعلى KA",
 			"freqPenalty": "عقوبة فريق",
@@ -1871,7 +1871,7 @@
 			"addGenerationParameters": "إضافة معلمات توليد",
 			"temperature": "درجة",
 			"maxTokens": "الحد الاقصى للرموز",
-			"topP": "أعلى P",
+			"topP": "Top P",
 			"minP": "الحد الأدنى P",
 			"topK": "أعلى KA",
 			"freqPenalty": "عقوبة فريق",

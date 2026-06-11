@@ -333,13 +333,13 @@
 			"avgTokens": "ממוצע אסימונים"
 		},
 		"range": {
-			"1h": "המחצית הראשונה",
-			"24h": "1D",
-			"1w": "1 וואט"
+			"1h": "1ש",
+			"24h": "1י",
+			"1w": "1שב"
 		},
 		"metric": {
 			"tokens": "טוק",
-			"requests": "דרישה"
+			"requests": "בקש"
 		},
 		"label": {
 			"requests": "בקשות",
@@ -602,7 +602,7 @@
 		"params": {
 			"temperature": "טמפרטורה",
 			"maxTokens": "מקס אסימונים",
-			"topP": "הראשון",
+			"topP": "Top P",
 			"minP": "מין פ",
 			"topK": "הטופ K",
 			"freqPenalty": "עונש תדירות",
@@ -1871,7 +1871,7 @@
 			"addGenerationParameters": "הוסף פרמטרים של הדור",
 			"temperature": "טמפרטורה",
 			"maxTokens": "מקס אסימונים",
-			"topP": "הראשון",
+			"topP": "Top P",
 			"minP": "מין פ",
 			"topK": "הטופ K",
 			"freqPenalty": "עונש תדירות",
