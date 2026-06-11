@@ -207,7 +207,7 @@
 		},
 		"gauge": {
 			"requestsPerRange": "Žiadosti /{{range}}",
-			"avgTtftPerRange": "Priemerný čas od začiatku do konca (TTFT)/{{range}}",
+			"avgTtftPerRange": "Prie. čas prvého tokenu/{{range}}",
 			"avgOverheadPerRange": "Priemerné režijné náklady/{{range}}",
 			"rateLimitHitsPerRange": "Limit počtu požiadaviek/{{range}}",
 			"errorRatePerRange": "Miera chýb/{{range}}",
@@ -232,7 +232,7 @@
 				"requestsTitle": "Žiadosti",
 				"requestsMetric": "Žiadosti",
 				"requestsLabel": "Žiadosti",
-				"avgTtftTitle": "Priemerný čas od začiatku do konca",
+				"avgTtftTitle": "Priemerný čas prvého tokenu",
 				"ttftMetric": "TTFT",
 				"ttftLabel": "TTFT",
 				"rateLimitHitsTitle": "Počet dosiahnutých limitov",
@@ -253,7 +253,7 @@
 			"tokens": "Žetóny",
 			"emptyState": "Zatiaľ nie sú k dispozícii žiadne časové rady. {{metric}} sa tu zobrazí, akonáhle budú k dispozícii údaje o dopravných tokoch.",
 			"requestsOver": "Žiadosti /{{range}}",
-			"avgTtftOver": "Priemerný čas od začiatku do konca (TTFT)/{{range}}",
+			"avgTtftOver": "Prie. čas prvého tokenu/{{range}}",
 			"avgOverheadOver": "Priemerné režijné náklady/{{range}}",
 			"rateLimitHitsOver": "Limit počtu požiadaviek/{{range}}",
 			"errorRateOver": "Miera chýb/{{range}}",
@@ -263,9 +263,9 @@
 			"yesterday": "Včera, {{date}}"
 		},
 		"usage": {
-			"topModels": "Najlepšie modely",
-			"topProviders": "Najlepší poskytovatelia",
-			"topVirtualKeys": "Najlepšie virtuálne kľúče",
+			"topModels": "Naj. modely",
+			"topProviders": "Naj. poskytovatelia",
+			"topVirtualKeys": "Naj. virtuálne kľúče",
 			"emptyState": "Zatiaľ nie sú k dispozícii žiadne údaje o využívaní. Rozpis využívania sa tu zobrazí, akonáhle začne prúdiť prevádzka.",
 			"viewDetailsFor": "Zobraziť podrobnosti o {{label}}",
 			"deletedModelTooltip": "Tento model už nie je k dispozícii – mohol byť vyradený alebo bol zrušený jeho dodávateľ"
@@ -287,9 +287,9 @@
 			"requestCount": "{{count}} žiadosti"
 		},
 		"providers": {
-			"top": "Najlepší poskytovatelia",
-			"top_one": "Najlepší poskytovateľ služieb typu „ {{count}}“",
-			"top_other": "Najlepší poskytovatelia služieb typu „ {{count}}“",
+			"top": "Naj. poskytovatelia",
+			"top_one": "Naj. {{count}} poskytovateľ",
+			"top_other": "Naj. {{count}} poskytovatelia",
 			"providers": "Poskytovatelia",
 			"noData": "Zatiaľ nie sú k dispozícii žiadne údaje o poskytovateľoch. Rozpis podľa poskytovateľov sa tu zobrazí, akonáhle začne prúdiť prevádzka.",
 			"distributionChart": "Graf rozdelenia poskytovateľov",
@@ -301,16 +301,16 @@
 			"requestsUnit": "Žiadosti"
 		},
 		"models": {
-			"top": "Najlepšie modely",
+			"top": "Naj. modely",
 			"viewDetails": "Zobraziť podrobnosti o {{label}}",
 			"emptyState": "Zatiaľ nie sú k dispozícii žiadne údaje z modelu. Rozpis údajov z modelu sa tu zobrazí, akonáhle budú k dispozícii údaje o dopravných tokoch."
 		},
 		"virtualKeys": {
-			"top": "Najlepšie virtuálne kľúče",
+			"top": "Naj. virtuálne kľúče",
 			"emptyState": "Zatiaľ nie sú k dispozícii žiadne údaje o virtuálnych kľúčoch. Rozpis virtuálnych kľúčov sa tu zobrazí, akonáhle začne prevádzka."
 		},
 		"tokens": {
-			"tokenMix": "Zloženie tokenov",
+			"tokenMix": "Pomer tokenov",
 			"noTokenData": "Zatiaľ nie sú k dispozícii žiadne údaje o tokenoch. Zoznam tokenov sa tu zobrazí, akonáhle začne prevádzka.",
 			"tokens": "Žetóny",
 			"prompt": "Výzva",
@@ -333,13 +333,13 @@
 			"avgTokens": "Priemerný počet žetónov"
 		},
 		"range": {
-			"1h": "1. polrok",
+			"1h": "1H",
 			"24h": "1D",
-			"1w": "1 W"
+			"1w": "1T"
 		},
 		"metric": {
 			"tokens": "Tok",
-			"requests": "Požiadavka"
+			"requests": "Req"
 		},
 		"label": {
 			"requests": "Žiadosti",
@@ -602,7 +602,7 @@
 		"params": {
 			"temperature": "Teplota",
 			"maxTokens": "Maximálny počet žetónov",
-			"topP": "Najlepšie P",
+			"topP": "Top P",
 			"minP": "Min P",
 			"topK": "Top K",
 			"freqPenalty": "Trest za prekročenie frekvencie",
@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Zálohovanie databázy",
-			"description": "Vytvárajte a sťahujte zálohy PostgreSQL. Využívajte nástroj `pg_dump` s vlastným formátom pre efektívnu kompresiu.",
+			"description": "Vytvárajte a sťahujte zálohy PostgreSQL. Využívajte nástroj <code>pg_dump</code> s vlastným formátom pre efektívnu kompresiu.",
 			"restoreRequirements": "Požiadavky na obnovenie",
 			"restoreRequirements.masterKey": "Hlavný kľúč sa musí zhodovať",
 			"restoreRequirements.masterKeyDescription": "Kľúče API poskytovateľa sú šifrované pomocou algoritmu AES-256-GCM. Obnovenie s iným MASTER_KEY spôsobí, že všetky kľúče poskytovateľa budú nenávratne stratené.",
@@ -1871,7 +1871,7 @@
 			"addGenerationParameters": "Pridať parametre generovania",
 			"temperature": "Teplota",
 			"maxTokens": "Maximálny počet žetónov",
-			"topP": "Najlepšie P",
+			"topP": "Top P",
 			"minP": "Min P",
 			"topK": "Top K",
 			"freqPenalty": "Trest za prekročenie frekvencie",

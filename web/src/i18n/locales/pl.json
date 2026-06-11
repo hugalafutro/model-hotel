@@ -263,9 +263,9 @@
 			"yesterday": "Wczoraj {{date}}"
 		},
 		"usage": {
-			"topModels": "Najlepsze modele",
-			"topProviders": "Najlepsi dostawcy",
-			"topVirtualKeys": "Najlepsze klucze wirtualne",
+			"topModels": "Top modele",
+			"topProviders": "Top dostawcy",
+			"topVirtualKeys": "Top klucze wirtualne",
 			"emptyState": "Brak danych o użytkowaniu. Podział użycia pojawi się tutaj po przepływie ruchu.",
 			"viewDetailsFor": "Zobacz szczegóły dla {{label}}",
 			"deletedModelTooltip": "Model nie jest już dostępny — mógł zostać usunięty lub jego dostawca został wycofany"
@@ -287,9 +287,9 @@
 			"requestCount": "Prośby {{count}}"
 		},
 		"providers": {
-			"top": "Najlepsi dostawcy",
-			"top_one": "Najwięcej dostawców {{count}}",
-			"top_other": "Najwięcej dostawców {{count}}",
+			"top": "Top dostawcy",
+			"top_one": "Top {{count}} dostawca",
+			"top_other": "Top {{count}} dostawców",
 			"providers": "Dostawcy",
 			"noData": "Brak danych dostawcy. Podział dostawcy pojawi się tutaj po przepływie ruchu.",
 			"distributionChart": "Wykres dystrybucji dostawcy",
@@ -301,12 +301,12 @@
 			"requestsUnit": "Żądania"
 		},
 		"models": {
-			"top": "Najlepsze modele",
+			"top": "Top modele",
 			"viewDetails": "Zobacz szczegóły dla {{label}}",
 			"emptyState": "Brak danych modelu. Podział modelu pojawi się tutaj po przepływie ruchu."
 		},
 		"virtualKeys": {
-			"top": "Najlepsze klucze wirtualne",
+			"top": "Top klucze wirtualne",
 			"emptyState": "Brak danych klucza wirtualnego. Wirtualny podział klucza pojawi się tutaj po przepływie ruchu."
 		},
 		"tokens": {
@@ -333,9 +333,9 @@
 			"avgTokens": "Średnie tokeny"
 		},
 		"range": {
-			"1h": "1H",
+			"1h": "1G",
 			"24h": "1D",
-			"1w": "1 W"
+			"1w": "1T"
 		},
 		"metric": {
 			"tokens": "Tok",
@@ -602,7 +602,7 @@
 		"params": {
 			"temperature": "Temperatura",
 			"maxTokens": "Maks. tokeny",
-			"topP": "Górny P",
+			"topP": "Top P",
 			"minP": "Min. P",
 			"topK": "Górny K",
 			"freqPenalty": "Kara Freq",
@@ -791,8 +791,8 @@
 		"page_description": "Odkryte modele od Twoich dostawców",
 		"badge_enabled": "{{count}} włączony",
 		"badge_disabled": "{{count}} wyłączony",
-		"view_mode_pages": "<unk> Strony",
-		"view_mode_scroll": "<unk> Przewiń",
+		"view_mode_pages": "⬡ Strony",
+		"view_mode_scroll": "⇊ Przewiń",
 		"switch_to_pagination": "Przełącz na tryb paginacji",
 		"switch_to_scroll": "Przełącz na tryb przewijania",
 		"toast_updated": "Model zaktualizowany",
@@ -1156,8 +1156,8 @@
 			"label": "wpisy"
 		},
 		"loading": {
-			"newer": "<unk> Ładowanie nowszych…",
-			"older": "<unk> Ładowanie starszego…"
+			"newer": "↻ Ładowanie nowszych…",
+			"older": "↻ Ładowanie starszego…"
 		}
 	},
 	"applogs": {
@@ -1192,8 +1192,8 @@
 			"label": "wpisy"
 		},
 		"loading": {
-			"newer": "<unk> Ładowanie nowszych…",
-			"older": "<unk> Ładowanie starszego…"
+			"newer": "↻ Ładowanie nowszych…",
+			"older": "↻ Ładowanie starszego…"
 		}
 	},
 	"format": {
@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Kopia zapasowa bazy danych",
-			"description": "Utwórz i pobierz kopie zapasowe PostgreSQL. Używa `pg_dump` z niestandardowym formatem dla efektywnej kompresji.",
+			"description": "Utwórz i pobierz kopie zapasowe PostgreSQL. Używa <code>pg_dump</code> z niestandardowym formatem dla efektywnej kompresji.",
 			"restoreRequirements": "Wymagania przywracania",
 			"restoreRequirements.masterKey": "MASTER_KEY musi się zgadzać",
 			"restoreRequirements.masterKeyDescription": "Klucze API dostawcy to AES-256-GCM zaszyfrowane. Przywracanie z innym MASTER_KEY sprawi, że wszystkie klucze dostawcy nie będą mogły zostać odzyskane.",
@@ -1792,8 +1792,8 @@
 			"viewModeToggle": {
 				"switchToScroll": "Przełącz na tryb przewijania",
 				"switchToPagination": "Przełącz na tryb paginacji",
-				"scroll": "<unk> Przewiń",
-				"pages": "<unk> Strony"
+				"scroll": "⇊ Przewiń",
+				"pages": "⬡ Strony"
 			},
 			"dateFilterButton": {
 				"filterByDateRange": "Filtruj według zakresu dat",
@@ -1871,7 +1871,7 @@
 			"addGenerationParameters": "Dodaj parametry generowania",
 			"temperature": "Temperatura",
 			"maxTokens": "Maks. tokeny",
-			"topP": "Górny P",
+			"topP": "Top P",
 			"minP": "Min. P",
 			"topK": "Górny K",
 			"freqPenalty": "Kara Freq",
@@ -2228,8 +2228,8 @@
 		"viewModeToggle": {
 			"switchToScroll": "Przełącz na tryb przewijania",
 			"switchToPagination": "Przełącz na tryb paginacji",
-			"scroll": "<unk> Przewiń",
-			"pages": "<unk> Strony"
+			"scroll": "⇊ Przewiń",
+			"pages": "⬡ Strony"
 		},
 		"liveToggleButton": {
 			"live": "Żywe",

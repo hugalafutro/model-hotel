@@ -8,7 +8,7 @@ import {
 	Upload,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { api, getAuthHeaders } from "../../api/client";
 import type { BackupClassification } from "../../api/types";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
@@ -177,7 +177,14 @@ export function DatabaseBackupSettings({
 		>
 			<div className="space-y-4">
 				<p className="text-(--text-secondary) text-sm">
-					{t("settings.backup.description")}
+					{/* Locale strings carry <code>pg_dump</code> tags; if a translation
+					    ever drops them, the text still renders, just unstyled. */}
+					<Trans
+						i18nKey="settings.backup.description"
+						components={{
+							code: <code className="font-mono text-(--text-primary)" />,
+						}}
+					/>
 				</p>
 
 				{/* Periodic backup toggle */}

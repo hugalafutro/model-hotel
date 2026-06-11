@@ -232,7 +232,7 @@ function ToastItem({
 			{...(toast.type === "error"
 				? { title: t("context.toast.clickToCopyDismiss") }
 				: {})}
-			className={`relative px-4 py-2 rounded-md shadow-lg text-sm font-medium cursor-pointer hover:brightness-125 whitespace-pre-line text-left border-0 ${bgColors[toast.type]} ${fading ? "opacity-0" : "opacity-100"}`}
+			className={`relative px-4 py-2 rounded-(--radius-card) shadow-lg text-sm font-medium hover:brightness-125 whitespace-pre-line text-left border-0 ${bgColors[toast.type]} ${fading ? "opacity-0" : "opacity-100"}`}
 			style={{
 				overflow: "hidden",
 				transition: "opacity 300ms ease",

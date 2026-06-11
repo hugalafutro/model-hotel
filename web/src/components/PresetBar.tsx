@@ -32,7 +32,7 @@ export function PresetBar<T extends PresetItem>({
 					type="button"
 					onClick={onRandom}
 					title={t("common.random")}
-					className="cursor-pointer text-white/70 hover:text-(--accent) transition-colors p-1 -m-1"
+					className="text-white/70 hover:text-(--accent) transition-colors p-1 -m-1"
 				>
 					<Dices size={13} />
 				</button>

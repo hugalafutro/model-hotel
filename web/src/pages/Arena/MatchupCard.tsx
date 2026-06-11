@@ -78,7 +78,7 @@ export function MatchupCard({
 						disabled={vote !== null}
 						className={`flex items-center text-xs transition-all ${
 							vote === null
-								? "cursor-pointer text-(--text-tertiary) hover:text-(--text-secondary)"
+								? "text-(--text-tertiary) hover:text-(--text-secondary)"
 								: "cursor-default"
 						} ${isWinner ? "text-green-400" : ""}`}
 						title={vote === null ? t("arena.vote.title") : undefined}

@@ -263,9 +263,9 @@
 			"yesterday": "Ayer, {{date}}"
 		},
 		"usage": {
-			"topModels": "Modelos principales",
-			"topProviders": "Proveedores principales",
-			"topVirtualKeys": "Claves virtuales principales",
+			"topModels": "Top modelos",
+			"topProviders": "Top proveedores",
+			"topVirtualKeys": "Top claves virtuales",
 			"emptyState": "Aún no hay datos de uso. El desglose de uso aparecerá aquí una vez que fluya el tráfico.",
 			"viewDetailsFor": "Ver detalles de {{label}}",
 			"deletedModelTooltip": "El modelo ya no está disponible; es posible que se haya eliminado o que se haya retirado su proveedor"
@@ -287,9 +287,9 @@
 			"requestCount": "{{count}} solicitudes"
 		},
 		"providers": {
-			"top": "Proveedores principales",
-			"top_one": "Top proveedor {{count}}",
-			"top_other": "Top proveedores {{count}}",
+			"top": "Top proveedores",
+			"top_one": "Top {{count}} proveedor",
+			"top_other": "Top {{count}} proveedores",
 			"providers": "Proveedores",
 			"noData": "Aún no hay datos de proveedores. El desglose del proveedor aparecerá aquí una vez que fluya el tráfico.",
 			"distributionChart": "Tabla de distribución de proveedores",
@@ -301,12 +301,12 @@
 			"requestsUnit": "Solicitudes"
 		},
 		"models": {
-			"top": "Modelos principales",
+			"top": "Top modelos",
 			"viewDetails": "Ver detalles de {{label}}",
 			"emptyState": "Aún no hay datos del modelo. El desglose del modelo aparecerá aquí una vez que fluya el tráfico."
 		},
 		"virtualKeys": {
-			"top": "Claves virtuales principales",
+			"top": "Top claves virtuales",
 			"emptyState": "Aún no hay datos de claves virtuales. El desglose de claves virtuales aparecerá aquí una vez que fluya el tráfico."
 		},
 		"tokens": {
@@ -333,9 +333,9 @@
 			"avgTokens": "Fichas Media"
 		},
 		"range": {
-			"1h": "1 H",
+			"1h": "1H",
 			"24h": "1D",
-			"1w": "1 W"
+			"1w": "1S"
 		},
 		"metric": {
 			"tokens": "Tok",
@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Copia de seguridad de base de datos",
-			"description": "Crea y descarga copias de seguridad de PostgreSQL. Utiliza `pg_dump` con formato personalizado para una compresión eficiente.",
+			"description": "Crea y descarga copias de seguridad de PostgreSQL. Utiliza <code>pg_dump</code> con formato personalizado para una compresión eficiente.",
 			"restoreRequirements": "Requisitos de restauración",
 			"restoreRequirements.masterKey": "MASTER_KEY debe coincidir",
 			"restoreRequirements.masterKeyDescription": "Las claves API del proveedor son cifradas AES-256-GCM. Restaurar con un MASTER_KEY diferente hará que todas las claves del proveedor sean irrecuperables.",

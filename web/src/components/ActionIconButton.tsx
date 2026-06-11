@@ -52,7 +52,7 @@ export function ActionIconButton({
 		<button
 			type="button"
 			onClick={onClick}
-			className={`p-1.5 rounded-md transition-all cursor-pointer ${base} ${
+			className={`p-1.5 rounded-md transition-all ${base} ${
 				pulse ? "animate-[pulse-ring_1.5s_ease-in-out_infinite]" : glow
 			}`}
 			title={title}

@@ -207,7 +207,7 @@
 		},
 		"gauge": {
 			"requestsPerRange": "בקשות /{{range}}",
-			"avgTtftPerRange": "זמן ממוצע עד לתוצאות (TTFT) / זמן ממוצע עד לתוצאות ({{range}} )",
+			"avgTtftPerRange": "TTFT ממוצע/{{range}}",
 			"avgOverheadPerRange": "{{range}} ממוצע",
 			"rateLimitHitsPerRange": "מגבלת בקשות ל-{{range}}",
 			"errorRatePerRange": "שיעור השגיאות /{{range}}",
@@ -232,7 +232,7 @@
 				"requestsTitle": "בקשות",
 				"requestsMetric": "בקשות",
 				"requestsLabel": "בקשות",
-				"avgTtftTitle": "זמן ממוצע עד לתוצאה",
+				"avgTtftTitle": "TTFT ממוצע",
 				"ttftMetric": "TTFT",
 				"ttftLabel": "TTFT",
 				"rateLimitHitsTitle": "הגבלת מספר הכניסות",
@@ -253,7 +253,7 @@
 			"tokens": "אסימונים",
 			"emptyState": "אין עדיין נתוני סדרות זמן. {{metric}} יופיע כאן ברגע שתתחיל התעבורה.",
 			"requestsOver": "בקשות /{{range}}",
-			"avgTtftOver": "זמן ממוצע עד לתוצאות (TTFT) / זמן ממוצע עד לתוצאות ({{range}} )",
+			"avgTtftOver": "TTFT ממוצע/{{range}}",
 			"avgOverheadOver": "עלות תפעול ממוצעת/{{range}}",
 			"rateLimitHitsOver": "מגבלת בקשות ל-{{range}}",
 			"errorRateOver": "שיעור השגיאות /{{range}}",
@@ -333,13 +333,13 @@
 			"avgTokens": "ממוצע אסימונים"
 		},
 		"range": {
-			"1h": "המחצית הראשונה",
-			"24h": "1D",
-			"1w": "1 וואט"
+			"1h": "1ש",
+			"24h": "1י",
+			"1w": "1שב"
 		},
 		"metric": {
 			"tokens": "טוק",
-			"requests": "דרישה"
+			"requests": "בקש"
 		},
 		"label": {
 			"requests": "בקשות",
@@ -602,7 +602,7 @@
 		"params": {
 			"temperature": "טמפרטורה",
 			"maxTokens": "מקס אסימונים",
-			"topP": "הראשון",
+			"topP": "Top P",
 			"minP": "מין פ",
 			"topK": "הטופ K",
 			"freqPenalty": "עונש תדירות",
@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "גיבוי מסד נתונים",
-			"description": "יצירת והורדת גיבויים של PostgreSQL. משתמש ב-`pg_dump` בפורמט מותאם אישית לדחיסה יעילה.",
+			"description": "יצירת והורדת גיבויים של PostgreSQL. משתמש ב-<code>pg_dump</code> בפורמט מותאם אישית לדחיסה יעילה.",
 			"restoreRequirements": "דרישות השחזור",
 			"restoreRequirements.masterKey": "MASTER_KEY חייב להתאים",
 			"restoreRequirements.masterKeyDescription": "מפתחות ה-API של הספק מוצפנים ב-AES-256-GCM. שחזור באמצעות מפתח MASTER_KEY שונה יגרום לכך שלא ניתן יהיה לשחזר את כל מפתחות הספק.",
@@ -1871,7 +1871,7 @@
 			"addGenerationParameters": "הוסף פרמטרים של הדור",
 			"temperature": "טמפרטורה",
 			"maxTokens": "מקס אסימונים",
-			"topP": "הראשון",
+			"topP": "Top P",
 			"minP": "מין פ",
 			"topK": "הטופ K",
 			"freqPenalty": "עונש תדירות",

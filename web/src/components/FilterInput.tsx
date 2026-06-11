@@ -40,7 +40,7 @@ export const FilterInput = memo(function FilterInput({
 					type="button"
 					onClick={() => onChange("")}
 					aria-label={t("common.clearFilter")}
-					className="absolute right-2 top-1/2 -translate-y-1/2 text-(--text-tertiary) hover:text-(--text-primary) transition-colors cursor-pointer"
+					className="absolute right-2 top-1/2 -translate-y-1/2 text-(--text-tertiary) hover:text-(--text-primary) transition-colors"
 				>
 					<X size={14} />
 				</button>

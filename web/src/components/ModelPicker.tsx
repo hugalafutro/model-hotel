@@ -269,7 +269,7 @@ export function ModelPicker({
 										return next;
 									});
 								}}
-								className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors ${
+								className={`ui-tab inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium border transition-colors ${
 									isActive ? m.style : isDisabled ? m.disabled : m.muted
 								}`}
 							>
@@ -281,7 +281,7 @@ export function ModelPicker({
 						<button
 							type="button"
 							onClick={() => setCapFilter(new Set())}
-							className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-400 hover:text-gray-200"
+							className="ui-tab inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium text-gray-400 hover:text-gray-200"
 							aria-label={t("components.modelPicker.clearFilter")}
 						>
 							✕
@@ -299,7 +299,7 @@ export function ModelPicker({
 								onClick={onRandom}
 								title={t("common.random")}
 								aria-label={t("common.random")}
-								className="cursor-pointer text-white/70 hover:text-(--accent) transition-colors p-1 flex items-center"
+								className="text-white/70 hover:text-(--accent) transition-colors p-1 flex items-center"
 							>
 								<Dices size={13} />
 							</button>
@@ -316,7 +316,7 @@ export function ModelPicker({
 									? t("components.modelPicker.expandAllProviders")
 									: t("components.modelPicker.collapseAllProviders")
 							}
-							className="cursor-pointer text-white/70 hover:text-(--accent) transition-colors p-1 flex items-center"
+							className="text-white/70 hover:text-(--accent) transition-colors p-1 flex items-center"
 						>
 							{collapsedProviders.size === groupedModels.size ? (
 								<ChevronsUpDown size={13} />
@@ -336,7 +336,7 @@ export function ModelPicker({
 								<button
 									type="button"
 									onClick={() => toggleCollapse(providerName)}
-									className={`flex items-center gap-1.5 w-full text-[10px] font-medium cursor-pointer transition-colors text-(--text-secondary) hover:text-(--text-primary)}`}
+									className={`flex items-center gap-1.5 w-full text-[10px] font-medium transition-colors text-(--text-secondary) hover:text-(--text-primary)`}
 								>
 									<ChevronDown
 										size={10}
@@ -365,7 +365,7 @@ export function ModelPicker({
 											return (
 												<div
 													key={val}
-													className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-md border transition-all whitespace-nowrap ${
+													className={`ui-tab inline-flex items-center gap-1 px-2 py-0.5 text-[11px] border transition-all whitespace-nowrap ${
 														isSelected
 															? "bg-(--accent)/15 border-(--accent)/40 text-(--accent)"
 															: "bg-(--surface-hover) border-(--border-subtle) text-(--text-secondary) hover:text-(--text-primary)"
@@ -375,7 +375,7 @@ export function ModelPicker({
 													<button
 														type="button"
 														onClick={() => toggleModel(val)}
-														className={`${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}
+														className={`${disabled ? "cursor-not-allowed" : ""}`}
 														disabled={disabled}
 													>
 														{m.display_name || m.model_id}
@@ -391,7 +391,7 @@ export function ModelPicker({
 															className={`shrink-0 flex items-center transition-all ${
 																paramsReadonly
 																	? "opacity-30 cursor-not-allowed"
-																	: "cursor-pointer hover:drop-shadow-[var(--glow-accent)] hover:text-(--accent)"
+																	: "hover:drop-shadow-[var(--glow-accent)] hover:text-(--accent)"
 															}`}
 															title={
 																paramsReadonly

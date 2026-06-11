@@ -224,11 +224,10 @@ describe("ModelTable", () => {
 				<ModelTable models={models} providers={[mockProvider]} />,
 			);
 
-			// Use getAllByRole since "Prev"/"Next" appear in multiple PaginationBar instances
-			const prevButtons = screen.getAllByRole("button", { name: "Prev" });
-			const nextButtons = screen.getAllByRole("button", { name: "Next" });
-			expect(prevButtons.length).toBeGreaterThanOrEqual(1);
-			expect(nextButtons.length).toBeGreaterThanOrEqual(1);
+			// Exactly one pagination bar: a copy-paste once rendered it twice,
+			// and this test's getAllByRole leniency let that slip through.
+			expect(screen.getByRole("button", { name: "Prev" })).toBeInTheDocument();
+			expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
 		});
 
 		it("renders provider filter dropdown", () => {

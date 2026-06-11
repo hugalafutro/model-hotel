@@ -15,8 +15,7 @@
 <br>
  <a href="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml"><img src="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
  <a href="https://goreportcard.com/report/github.com/hugalafutro/model-hotel"><img src="https://goreportcard.com/badge/github.com/hugalafutro/model-hotel" alt="Go Report"></a>
- <a href="https://codecov.io/github/hugalafutro/model-hotel"><img src="https://codecov.io/github/hugalafutro/model-hotel/branch/master/graph/badge.svg" alt="Coverage"></a>
-<a href="https://crwd.in/model-hotel/b36327c5f049f82a165eace874dd366d2790987"><img src="https://badges.crowdin.net/model-hotel/localized.svg" alt="Crowdin"></a><br>
+ <a href="https://codecov.io/github/hugalafutro/model-hotel"><img src="https://codecov.io/github/hugalafutro/model-hotel/branch/master/graph/badge.svg" alt="Coverage"></a><br>
 </p>
 
 > [!IMPORTANT]
@@ -25,7 +24,7 @@
 
 <div align="center">
   
-<sub>Localised with [Crowdin](https://crwd.in/model-hotel/b36327c5f049f82a165eace874dd366d2790987) and [DeepL](https://www.deepl.com) - _expect mistakes_ - contributions welcome!<br>Made with [OpenCode](https://opencode.ai) and [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim)</sub>
+<sub>Localised with [DeepL](https://www.deepl.com) - _expect mistakes_ - translation fixes welcome as PRs against `web/src/i18n/locales/`!<br>Made with [OpenCode](https://opencode.ai) and [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim)</sub>
 <br>
 
  <img src="https://img.shields.io/badge/GLM_5.1-orchestrator,%20council-8B5CF6?style=flat" alt="GLM 5.1">

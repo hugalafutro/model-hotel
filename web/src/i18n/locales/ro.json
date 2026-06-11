@@ -263,9 +263,9 @@
 			"yesterday": "Ieri, {{date}}"
 		},
 		"usage": {
-			"topModels": "Cele mai bune modele",
-			"topProviders": "Cei mai buni furnizori",
-			"topVirtualKeys": "Cele mai bune chei virtuale",
+			"topModels": "Top modele",
+			"topProviders": "Top furnizori",
+			"topVirtualKeys": "Top chei virtuale",
 			"emptyState": "Nu există încă date de utilizare. Defalcarea utilizării va apărea aici odată cu traficul de trafic.",
 			"viewDetailsFor": "Vezi detalii pentru {{label}}",
 			"deletedModelTooltip": "Modelul nu mai este disponibil — este posibil să fi fost eliminat sau furnizorul său să fi fost eliminat"
@@ -287,9 +287,9 @@
 			"requestCount": "{{count}} cereri"
 		},
 		"providers": {
-			"top": "Cei mai buni furnizori",
-			"top_one": "Top {{count}} Furnizor",
-			"top_other": "Top {{count}} Furnizori",
+			"top": "Top furnizori",
+			"top_one": "Top {{count}} furnizor",
+			"top_other": "Top {{count}} furnizori",
 			"providers": "Furnizori",
 			"noData": "Nu există încă date furnizor. Defalcarea furnizorului va apărea aici odată ce traficul se va schimba.",
 			"distributionChart": "Graficul de distribuție furnizor",
@@ -301,12 +301,12 @@
 			"requestsUnit": "Cereri"
 		},
 		"models": {
-			"top": "Cele mai bune modele",
+			"top": "Top modele",
 			"viewDetails": "Vezi detalii pentru {{label}}",
 			"emptyState": "Nici un model de date încă. Defalcarea modelului va apărea aici odată ce traficul se va schimba."
 		},
 		"virtualKeys": {
-			"top": "Cele mai bune chei virtuale",
+			"top": "Top chei virtuale",
 			"emptyState": "Nu există încă date ale cheii virtuale. Defalcarea cheii virtuale va apărea aici odată ce traficul curge."
 		},
 		"tokens": {
@@ -333,13 +333,13 @@
 			"avgTokens": "Jetoane medii"
 		},
 		"range": {
-			"1h": "1A",
-			"24h": "1D",
-			"1w": "1L"
+			"1h": "1H",
+			"24h": "1Z",
+			"1w": "1S"
 		},
 		"metric": {
 			"tokens": "Tok",
-			"requests": "Răspuns"
+			"requests": "Req"
 		},
 		"label": {
 			"requests": "Cereri",
@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Backup baze de date",
-			"description": "Creează și descarcă copii de rezervă PostgreSQL. Folosește `pg_dump` cu format personalizat pentru compresie eficientă.",
+			"description": "Creează și descarcă copii de rezervă PostgreSQL. Folosește <code>pg_dump</code> cu format personalizat pentru compresie eficientă.",
 			"restoreRequirements": "Restabilire Cerințe",
 			"restoreRequirements.masterKey": "KEY trebuie să se potrivească",
 			"restoreRequirements.masterKeyDescription": "Furnizorul de API cheile sunt criptate AES-256-GCM. Restaurarea cu o MASTER_KEY diferită va lăsa toate cheile furnizoare nerecuperabile.",

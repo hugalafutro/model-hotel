@@ -383,7 +383,7 @@ export function VirtualModelTable({
 							>
 								<button
 									type="button"
-									className="cursor-pointer"
+									className=""
 									aria-label={t("models.table.sortByModelName")}
 								>
 									{t("models.table.model")}{" "}
@@ -404,7 +404,7 @@ export function VirtualModelTable({
 								>
 									<button
 										type="button"
-										className="cursor-pointer"
+										className=""
 										aria-label={t("models.table.sortByProviderName")}
 									>
 										{t("models.table.provider")}{" "}
@@ -424,7 +424,7 @@ export function VirtualModelTable({
 							>
 								<button
 									type="button"
-									className="cursor-pointer"
+									className=""
 									aria-label={t("models.table.sortByDiscoveredDate")}
 								>
 									{t("models.table.discovered")}{" "}
@@ -444,7 +444,7 @@ export function VirtualModelTable({
 							>
 								<button
 									type="button"
-									className="cursor-pointer"
+									className=""
 									aria-label={t("models.table.sortByContextLength")}
 								>
 									{t("models.table.ctx")}{" "}
@@ -464,7 +464,7 @@ export function VirtualModelTable({
 							>
 								<button
 									type="button"
-									className="cursor-pointer"
+									className=""
 									aria-label={t("models.table.sortByMaxOutput")}
 								>
 									{t("models.table.maxOut")}{" "}
@@ -484,7 +484,7 @@ export function VirtualModelTable({
 							>
 								<button
 									type="button"
-									className="cursor-pointer"
+									className=""
 									aria-label={t("models.table.sortByStatus")}
 								>
 									{t("models.table.status")}{" "}

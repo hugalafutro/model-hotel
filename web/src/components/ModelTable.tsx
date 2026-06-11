@@ -229,22 +229,6 @@ export function ModelTable({
 							label={t("components.modelTable.models")}
 						/>
 					)}
-					<div className="flex-1 flex justify-end">
-						{models && models.length > 0 && (
-							<PaginationBar
-								page={currentPage}
-								totalPages={totalPages}
-								totalItems={sortedAndFiltered.length}
-								pageSize={pageSize}
-								onPageChange={setCurrentPage}
-								onPageSizeChange={(s) => {
-									setPageSize(s);
-									setCurrentPage(1);
-								}}
-								label={t("components.modelTable.models")}
-							/>
-						)}
-					</div>
 				</div>
 			</div>
 

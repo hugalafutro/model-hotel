@@ -333,13 +333,13 @@
 			"avgTokens": "Ortalama Jeton Sayısı"
 		},
 		"range": {
-			"1h": "1. yarı",
-			"24h": "1D",
-			"1w": "1 W"
+			"1h": "1S",
+			"24h": "1G",
+			"1w": "1H"
 		},
 		"metric": {
 			"tokens": "Tok",
-			"requests": "Talep"
+			"requests": "Req"
 		},
 		"label": {
 			"requests": "İstekler",
@@ -602,7 +602,7 @@
 		"params": {
 			"temperature": "Sıcaklık",
 			"maxTokens": "Maksimum Jeton",
-			"topP": "En çok arananlar",
+			"topP": "Top P",
 			"minP": "Min P",
 			"topK": "En İyi K",
 			"freqPenalty": "Frekans Cezası",
@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Veritabanı Yedekleme",
-			"description": "PostgreSQL yedeklemeleri oluşturun ve indirin. Verimli sıkıştırma için özel biçimle `pg_dump` komutunu kullanır.",
+			"description": "PostgreSQL yedeklemeleri oluşturun ve indirin. Verimli sıkıştırma için özel biçimle <code>pg_dump</code> komutunu kullanır.",
 			"restoreRequirements": "Geri Yükleme Gereksinimleri",
 			"restoreRequirements.masterKey": "MASTER_KEY eşleşmelidir",
 			"restoreRequirements.masterKeyDescription": "Sağlayıcı API anahtarları AES-256-GCM şifreleme yöntemiyle şifrelenmiştir. Farklı bir MASTER_KEY kullanılarak geri yükleme işlemi gerçekleştirildiğinde, tüm sağlayıcı anahtarları kurtarılamaz hale gelir.",
@@ -1871,7 +1871,7 @@
 			"addGenerationParameters": "Oluşturma parametrelerini ekle",
 			"temperature": "Sıcaklık",
 			"maxTokens": "Maksimum Jeton",
-			"topP": "En çok arananlar",
+			"topP": "Top P",
 			"minP": "Min P",
 			"topK": "En İyi K",
 			"freqPenalty": "Frekans Cezası",

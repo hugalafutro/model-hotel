@@ -115,7 +115,7 @@ export function QuotaModalHeaderActions({
 			<button
 				type="button"
 				onClick={() => onToggleBarMode()}
-				className="absolute top-4 right-20 text-gray-400 hover:text-(--text-primary) transition-all cursor-pointer p-1.5 hover:drop-shadow-[var(--glow-accent-lg)]"
+				className="absolute top-4 right-20 text-gray-400 hover:text-(--text-primary) transition-all p-1.5 hover:drop-shadow-[var(--glow-accent-lg)]"
 				aria-label={toggleAriaLabel}
 				title={toggleTitle}
 			>
@@ -125,7 +125,7 @@ export function QuotaModalHeaderActions({
 				type="button"
 				onClick={onRefresh}
 				disabled={isRefreshing}
-				className="absolute top-4 right-10 text-gray-400 hover:text-(--text-primary) transition-all cursor-pointer p-1.5 hover:drop-shadow-[var(--glow-accent-lg)]"
+				className="absolute top-4 right-10 text-gray-400 hover:text-(--text-primary) transition-all p-1.5 hover:drop-shadow-[var(--glow-accent-lg)]"
 				aria-label={refreshAriaLabel}
 				title={refreshTitle}
 			>

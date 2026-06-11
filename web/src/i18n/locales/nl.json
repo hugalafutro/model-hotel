@@ -339,7 +339,7 @@
 		},
 		"metric": {
 			"tokens": "Tok",
-			"requests": "Aangevraagd"
+			"requests": "Req"
 		},
 		"label": {
 			"requests": "Verzoeken",
@@ -602,7 +602,7 @@
 		"params": {
 			"temperature": "Temperatuur",
 			"maxTokens": "Max Tokens",
-			"topP": "Boven P",
+			"topP": "Top P",
 			"minP": "Min. P",
 			"topK": "Boven K",
 			"freqPenalty": "Freq boete",
@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Database backup",
-			"description": "Maak en download PostgreSQL backups. Maakt gebruik van `pg_dump` met een aangepast formaat voor efficiënte compressie.",
+			"description": "Maak en download PostgreSQL backups. Maakt gebruik van <code>pg_dump</code> met een aangepast formaat voor efficiënte compressie.",
 			"restoreRequirements": "Herstel vereisten",
 			"restoreRequirements.masterKey": "MASTER_KEY moet overeenkomen",
 			"restoreRequirements.masterKeyDescription": "Zoekmachine API sleutels zijn AES-256-GCM versleuteld. Herstellen met een andere MASTER_KEY laat alle providersleutels onherstelbaar.",
@@ -1871,7 +1871,7 @@
 			"addGenerationParameters": "Generatieparameters toevoegen",
 			"temperature": "Temperatuur",
 			"maxTokens": "Max Tokens",
-			"topP": "Boven P",
+			"topP": "Top P",
 			"minP": "Min. P",
 			"topK": "Boven K",
 			"freqPenalty": "Freq boete",

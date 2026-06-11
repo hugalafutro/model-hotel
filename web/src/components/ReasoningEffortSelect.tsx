@@ -20,7 +20,7 @@ export function ReasoningEffortSelect({
 					<button
 						type="button"
 						onClick={() => onChange(undefined)}
-						className="text-[10px] text-red-400/80 hover:text-red-400 transition-colors cursor-pointer"
+						className="text-[10px] text-red-400/80 hover:text-red-400 transition-colors"
 					>
 						{t("components.reasoningEffortSelect.off")}
 					</button>
@@ -41,7 +41,7 @@ export function ReasoningEffortSelect({
 						onClick={() =>
 							onChange(value === opt.value ? undefined : opt.value)
 						}
-						className={`flex-1 px-2 py-1 rounded text-[10px] font-medium transition-all cursor-pointer ${
+						className={`ui-tab flex-1 px-2 py-1 text-[10px] font-medium transition-all ${
 							value === opt.value
 								? "bg-(--accent) text-white shadow-[var(--glow-accent)]"
 								: "bg-(--surface-hover) text-(--text-secondary) hover:bg-(--surface-hover)/80"

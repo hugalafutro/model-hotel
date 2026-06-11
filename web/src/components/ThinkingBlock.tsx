@@ -51,8 +51,8 @@ export const ThinkingBlock = memo(function ThinkingBlock({
 				onClick={() => setOpen(!open)}
 				className={`inline-flex items-center gap-1.5 text-xs transition-colors mb-2 ${
 					isStreaming
-						? "text-(--accent) animate-pulse cursor-pointer"
-						: "text-(--accent)/70 hover:text-(--accent) cursor-pointer"
+						? "text-(--accent) animate-pulse"
+						: "text-(--accent)/70 hover:text-(--accent)"
 				}`}
 			>
 				<Brain size={12} />

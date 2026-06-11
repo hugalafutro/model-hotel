@@ -331,13 +331,13 @@ describe("AppearanceSettings accent color", () => {
 		// The preset buttons have title attributes from i18n keys
 		const allButtons = screen.getAllByRole("button");
 		const colorButtons = allButtons.filter((btn) => {
-			// Filter for buttons with circular shape (w-8 h-8 rounded-full) and background-color style
+			// Filter for swatch buttons (color-swatch w-8 h-8) with background-color style
 			const className = btn.className;
 			const hasBackground = btn
 				.getAttribute("style")
 				?.includes("background-color");
 			return (
-				className?.includes("rounded-full") &&
+				className?.includes("color-swatch") &&
 				className?.includes("w-8") &&
 				hasBackground
 			);
@@ -429,7 +429,7 @@ describe("AppearanceSettings accent color", () => {
 		const colorButtons = allButtons.filter((btn) => {
 			const className = btn.className;
 			return (
-				className?.includes("rounded-full") &&
+				className?.includes("color-swatch") &&
 				className?.includes("w-8") &&
 				btn.getAttribute("style")?.includes("background-color")
 			);

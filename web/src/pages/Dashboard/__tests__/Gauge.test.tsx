@@ -73,7 +73,9 @@ describe("Gauge", () => {
 		render(<Gauge {...defaultProps} onClick={onClick} />);
 
 		const button = screen.getByRole("button");
-		expect(button).toHaveClass("cursor-pointer");
+		// Pointer comes from the global base rule; clickable gauges only add
+		// the hover affordance and must not opt out via cursor-default.
+		expect(button).not.toHaveClass("cursor-default");
 		expect(button).toHaveClass("hover:opacity-80");
 	});
 

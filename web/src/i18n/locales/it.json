@@ -334,8 +334,8 @@
 		},
 		"range": {
 			"1h": "1H",
-			"24h": "1D",
-			"1w": "1W"
+			"24h": "1G",
+			"1w": "1S"
 		},
 		"metric": {
 			"tokens": "Tok",
@@ -602,7 +602,7 @@
 		"params": {
 			"temperature": "Temperatura",
 			"maxTokens": "Max Tokens",
-			"topP": "P Superiore",
+			"topP": "Top P",
 			"minP": "Min P",
 			"topK": "Top K",
 			"freqPenalty": "Penalità Freq",
@@ -791,8 +791,8 @@
 		"page_description": "Modelli scoperti dai tuoi provider",
 		"badge_enabled": "{{count}} abilitato",
 		"badge_disabled": "{{count}} disabilitato",
-		"view_mode_pages": "<unk> Pagine",
-		"view_mode_scroll": "<unk> Scorrimento",
+		"view_mode_pages": "⬡ Pagine",
+		"view_mode_scroll": "⇊ Scorrimento",
 		"switch_to_pagination": "Passa alla modalità di paginazione",
 		"switch_to_scroll": "Passa alla modalità di scorrimento",
 		"toast_updated": "Modello aggiornato",
@@ -846,7 +846,7 @@
 			"placeholder": {
 				"price": "0.00"
 			},
-			"testSuccess": "Successo <unk> Risposta: {{content}}{{ttftPart}} <unk> Durata: {{duration}}s",
+			"testSuccess": "Successo | Risposta: {{content}}{{ttftPart}} | Durata: {{duration}}s",
 			"testFailed": "Test fallito: {{error}}"
 		},
 		"table": {
@@ -1156,8 +1156,8 @@
 			"label": "voci"
 		},
 		"loading": {
-			"newer": "<unk> Caricamento più recente…",
-			"older": "<unk> Caricamento più vecchio…"
+			"newer": "↻ Caricamento più recente…",
+			"older": "↻ Caricamento più vecchio…"
 		}
 	},
 	"applogs": {
@@ -1192,8 +1192,8 @@
 			"label": "voci"
 		},
 		"loading": {
-			"newer": "<unk> Caricamento più recente…",
-			"older": "<unk> Caricamento più vecchio…"
+			"newer": "↻ Caricamento più recente…",
+			"older": "↻ Caricamento più vecchio…"
 		}
 	},
 	"format": {
@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Backup Database",
-			"description": "Crea e scarica backup PostgreSQL. Usa `pg_dump` con formato personalizzato per una compressione efficiente.",
+			"description": "Crea e scarica backup PostgreSQL. Usa <code>pg_dump</code> con formato personalizzato per una compressione efficiente.",
 			"restoreRequirements": "Ripristina Requisiti",
 			"restoreRequirements.masterKey": "MASTER_KEY deve corrispondere",
 			"restoreRequirements.masterKeyDescription": "Le chiavi API del provider sono crittografate AES-256-GCM. Il ripristino con un diverso MASTER_KEY lascerà tutte le chiavi provider non recuperabili.",
@@ -1792,8 +1792,8 @@
 			"viewModeToggle": {
 				"switchToScroll": "Passa alla modalità di scorrimento",
 				"switchToPagination": "Passa alla modalità di paginazione",
-				"scroll": "<unk> Scorrimento",
-				"pages": "<unk> Pagine"
+				"scroll": "⇊ Scorrimento",
+				"pages": "⬡ Pagine"
 			},
 			"dateFilterButton": {
 				"filterByDateRange": "Filtra per intervallo di date",
@@ -1871,7 +1871,7 @@
 			"addGenerationParameters": "Aggiungi parametri di generazione",
 			"temperature": "Temperatura",
 			"maxTokens": "Max Tokens",
-			"topP": "P Superiore",
+			"topP": "Top P",
 			"minP": "Min P",
 			"topK": "Top K",
 			"freqPenalty": "Penalità Freq",
@@ -2228,8 +2228,8 @@
 		"viewModeToggle": {
 			"switchToScroll": "Passa alla modalità di scorrimento",
 			"switchToPagination": "Passa alla modalità di paginazione",
-			"scroll": "<unk> Scorrimento",
-			"pages": "<unk> Pagine"
+			"scroll": "⇊ Scorrimento",
+			"pages": "⬡ Pagine"
 		},
 		"liveToggleButton": {
 			"live": "Live",

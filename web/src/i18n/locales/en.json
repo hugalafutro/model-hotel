@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Database Backup",
-			"description": "Create and download PostgreSQL backups. Uses `pg_dump` with custom format for efficient compression.",
+			"description": "Create and download PostgreSQL backups. Uses <code>pg_dump</code> with custom format for efficient compression.",
 			"restoreRequirements": "Restore Requirements",
 			"restoreRequirements.masterKey": "MASTER_KEY must match",
 			"restoreRequirements.masterKeyDescription": "Provider API keys are AES-256-GCM encrypted. Restoring with a different MASTER_KEY will leave all provider keys unrecoverable.",

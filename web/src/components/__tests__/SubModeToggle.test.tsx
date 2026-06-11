@@ -109,13 +109,16 @@ describe("SubModeToggle", () => {
 		expect(listButton).toHaveClass("cursor-default");
 	});
 
-	it("inactive option has cursor-pointer when not disabled", () => {
+	it("inactive option gets the pointer cursor when not disabled", () => {
 		const onChange = vi.fn();
 		renderWithProviders(
 			<SubModeToggle options={options} value="list" onChange={onChange} />,
 		);
 
+		// Pointer comes from the global base rule for enabled buttons; the
+		// component only opts OUT via cursor-default on the active option.
 		const gridButton = screen.getByText("Grid").closest("button");
-		expect(gridButton).toHaveClass("cursor-pointer");
+		expect(gridButton).not.toHaveClass("cursor-default");
+		expect(gridButton).not.toBeDisabled();
 	});
 });

@@ -207,7 +207,7 @@
 		},
 		"gauge": {
 			"requestsPerRange": "Yêu cầu /{{range}}",
-			"avgTtftPerRange": "Thời gian hoàn thành trung bình (TTFT)/{{range}}",
+			"avgTtftPerRange": "TTFT trung bình/{{range}}",
 			"avgOverheadPerRange": "Chi phí quản lý trung bình/{{range}}",
 			"rateLimitHitsPerRange": "Giới hạn số lần truy cập/{{range}}",
 			"errorRatePerRange": "Tỷ lệ lỗi/{{range}}",
@@ -232,7 +232,7 @@
 				"requestsTitle": "Yêu cầu",
 				"requestsMetric": "Yêu cầu",
 				"requestsLabel": "Yêu cầu",
-				"avgTtftTitle": "Thời gian hoàn thành trung bình",
+				"avgTtftTitle": "TTFT trung bình",
 				"ttftMetric": "TTFT",
 				"ttftLabel": "TTFT",
 				"rateLimitHitsTitle": "Đã đạt giới hạn số lần truy cập",
@@ -253,7 +253,7 @@
 			"tokens": "Token",
 			"emptyState": "Hiện chưa có dữ liệu chuỗi thời gian. {{metric}} sẽ hiển thị tại đây khi có lưu lượng truy cập.",
 			"requestsOver": "Yêu cầu /{{range}}",
-			"avgTtftOver": "Thời gian hoàn thành trung bình (TTFT)/{{range}}",
+			"avgTtftOver": "TTFT trung bình/{{range}}",
 			"avgOverheadOver": "Chi phí quản lý trung bình/{{range}}",
 			"rateLimitHitsOver": "Giới hạn số lần truy cập/{{range}}",
 			"errorRateOver": "Tỷ lệ lỗi/{{range}}",
@@ -288,8 +288,8 @@
 		},
 		"providers": {
 			"top": "Nhà cung cấp hàng đầu",
-			"top_one": "Nhà cung cấp dịch vụ {{count}} hàng đầu",
-			"top_other": "Các nhà cung cấp dịch vụ {{count}} hàng đầu",
+			"top_one": "Top {{count}} nhà cung cấp",
+			"top_other": "Top {{count}} nhà cung cấp",
 			"providers": "Nhà cung cấp",
 			"noData": "Chưa có dữ liệu về nhà cung cấp. Thông tin chi tiết về các nhà cung cấp sẽ hiển thị tại đây khi có lưu lượng truy cập.",
 			"distributionChart": "Biểu đồ phân phối nhà cung cấp",
@@ -333,13 +333,13 @@
 			"avgTokens": "Số token trung bình"
 		},
 		"range": {
-			"1h": "6 tháng đầu",
-			"24h": "1D",
-			"1w": "1W"
+			"1h": "1G",
+			"24h": "1N",
+			"1w": "1T"
 		},
 		"metric": {
 			"tokens": "Tok",
-			"requests": "Yêu cầu"
+			"requests": "Req"
 		},
 		"label": {
 			"requests": "Yêu cầu",
@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Sao lưu cơ sở dữ liệu",
-			"description": "Tạo và tải xuống bản sao lưu PostgreSQL. Sử dụng `pg_dump` với định dạng tùy chỉnh để nén dữ liệu hiệu quả.",
+			"description": "Tạo và tải xuống bản sao lưu PostgreSQL. Sử dụng <code>pg_dump</code> với định dạng tùy chỉnh để nén dữ liệu hiệu quả.",
 			"restoreRequirements": "Yêu cầu khôi phục",
 			"restoreRequirements.masterKey": "MASTER_KEY phải trùng khớp",
 			"restoreRequirements.masterKeyDescription": "Các khóa API của nhà cung cấp được mã hóa bằng AES-256-GCM. Việc khôi phục bằng một khóa MASTER_KEY khác sẽ khiến tất cả các khóa của nhà cung cấp không thể khôi phục được.",

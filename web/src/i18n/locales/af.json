@@ -207,7 +207,7 @@
 		},
 		"gauge": {
 			"requestsPerRange": "Versoeke /{{range}}",
-			"avgTtftPerRange": "Gemiddelde TTFT /{{range}}",
+			"avgTtftPerRange": "Gem. TTFT/{{range}}",
 			"avgOverheadPerRange": "Gemiddelde Overhead /{{range}}",
 			"rateLimitHitsPerRange": "Trefferbeperkings /{{range}}",
 			"errorRatePerRange": "Foutkoers /{{range}}",
@@ -253,7 +253,7 @@
 			"tokens": "Tokens",
 			"emptyState": "Nog geen tydreekse-data nie. {{metric}} sal hier verskyn sodra verkeersvloei daar is.",
 			"requestsOver": "Versoeke /{{range}}",
-			"avgTtftOver": "Gemiddelde TTFT /{{range}}",
+			"avgTtftOver": "Gem. TTFT/{{range}}",
 			"avgOverheadOver": "Gemiddelde Overhead /{{range}}",
 			"rateLimitHitsOver": "Trefferbeperkings /{{range}}",
 			"errorRateOver": "Foutkoers /{{range}}",
@@ -288,7 +288,7 @@
 		},
 		"providers": {
 			"top": "Top verskaffers",
-			"top_one": "Top {{count}} -verskaffer",
+			"top_one": "Top {{count}} verskaffer",
 			"top_other": "Top {{count}} -verskaffers",
 			"providers": "Verskaffers",
 			"noData": "Nog geen verskafferinligting nie. 'n Oorsig van die verskaffers sal hier verskyn sodra verkeer vloei.",
@@ -333,13 +333,13 @@
 			"avgTokens": "Gemiddelde tokens"
 		},
 		"range": {
-			"1h": "Een halfuur",
-			"24h": "Een dimensie",
-			"1w": "Een W"
+			"1h": "1U",
+			"24h": "1D",
+			"1w": "1W"
 		},
 		"metric": {
 			"tokens": "Tok",
-			"requests": "Vereis"
+			"requests": "Req"
 		},
 		"label": {
 			"requests": "Versoeke",
@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Databasis-rugsteun",
-			"description": "Skep en laai PostgreSQL-rugsteun af. Gebruik `pg_dump` met 'n pasgemaakte formaat vir doeltreffende kompressie.",
+			"description": "Skep en laai PostgreSQL-rugsteun af. Gebruik <code>pg_dump</code> met 'n pasgemaakte formaat vir doeltreffende kompressie.",
 			"restoreRequirements": "Herstel vereistes",
 			"restoreRequirements.masterKey": "MASTER_KEY moet ooreenstem",
 			"restoreRequirements.masterKeyDescription": "Verskaffer-API-sleutels is met AES-256-GCM versleuteld. As jy met 'n ander MASTER_KEY herstel, sal alle verskaffer-sleutels onherstelbaar verlore wees.",

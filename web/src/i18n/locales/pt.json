@@ -207,7 +207,7 @@
 		},
 		"gauge": {
 			"requestsPerRange": "Solicitações /{{range}}",
-			"avgTtftPerRange": "Média do TTF/{{range}}",
+			"avgTtftPerRange": "TTFT médio/{{range}}",
 			"avgOverheadPerRange": "Avg Overhead/{{range}}",
 			"rateLimitHitsPerRange": "Taxa limite de ataques /{{range}}",
 			"errorRatePerRange": "Taxa de erro /{{range}}",
@@ -253,7 +253,7 @@
 			"tokens": "Tokens",
 			"emptyState": "Nenhum dado da cronologia ainda. {{metric}} aparecerá aqui quando o tráfego fluir.",
 			"requestsOver": "Solicitações /{{range}}",
-			"avgTtftOver": "Média do TTF/{{range}}",
+			"avgTtftOver": "TTFT médio/{{range}}",
 			"avgOverheadOver": "Avg Overhead/{{range}}",
 			"rateLimitHitsOver": "Taxa limite de ataques /{{range}}",
 			"errorRateOver": "Taxa de erro /{{range}}",
@@ -263,9 +263,9 @@
 			"yesterday": "Ontem, {{date}}"
 		},
 		"usage": {
-			"topModels": "Principais modelos",
-			"topProviders": "Principais fornecedores",
-			"topVirtualKeys": "Principais chaves virtuais",
+			"topModels": "Top modelos",
+			"topProviders": "Top provedores",
+			"topVirtualKeys": "Top chaves virtuais",
 			"emptyState": "Nenhum dado de uso ainda. O problema de uso aparecerá aqui quando o tráfego fluir.",
 			"viewDetailsFor": "Ver detalhes do {{label}}",
 			"deletedModelTooltip": "O modelo já não está disponível — pode ter sido eliminado ou o seu fornecedor foi removido"
@@ -287,9 +287,9 @@
 			"requestCount": "Solicitações {{count}}"
 		},
 		"providers": {
-			"top": "Principais fornecedores",
-			"top_one": "Provedor {{count}} Superior",
-			"top_other": "Principais provedores {{count}}",
+			"top": "Top provedores",
+			"top_one": "Top {{count}} provedor",
+			"top_other": "Top {{count}} provedores",
 			"providers": "Provedores",
 			"noData": "Não há dados do provedor ainda. O problema do provedor aparecerá aqui quando o tráfego fluir.",
 			"distributionChart": "Gráfico de distribuição provedor",
@@ -301,12 +301,12 @@
 			"requestsUnit": "Solicitações"
 		},
 		"models": {
-			"top": "Principais modelos",
+			"top": "Top modelos",
 			"viewDetails": "Ver detalhes do {{label}}",
 			"emptyState": "Ainda não há dados do modelo. O detalhamento do modelo aparecerá aqui quando o tráfego fluir."
 		},
 		"virtualKeys": {
-			"top": "Principais chaves virtuais",
+			"top": "Top chaves virtuais",
 			"emptyState": "Ainda não há dados de chave virtual. O avistamento de chaves virtuais aparecerá aqui quando o tráfego fluir."
 		},
 		"tokens": {
@@ -333,13 +333,13 @@
 			"avgTokens": "Tokens Médios"
 		},
 		"range": {
-			"1h": "1A",
+			"1h": "1H",
 			"24h": "1D",
-			"1w": "1O"
+			"1w": "1S"
 		},
 		"metric": {
 			"tokens": "Tok",
-			"requests": "Req."
+			"requests": "Req"
 		},
 		"label": {
 			"requests": "Solicitações",
@@ -602,7 +602,7 @@
 		"params": {
 			"temperature": "Temperatura",
 			"maxTokens": "Max Tokens",
-			"topP": "Superior P",
+			"topP": "Top P",
 			"minP": "P Mínimo",
 			"topK": "Superior K",
 			"freqPenalty": "Penalidade de Freq",
@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Backup do banco",
-			"description": "Criar e baixar backups do PostgreSQL. Usa `pg_dump` com formato personalizado para compressão eficiente.",
+			"description": "Criar e baixar backups do PostgreSQL. Usa <code>pg_dump</code> com formato personalizado para compressão eficiente.",
 			"restoreRequirements": "Restaurar Requisitos",
 			"restoreRequirements.masterKey": "MASTER_KEY deve corresponder",
 			"restoreRequirements.masterKeyDescription": "Chaves API do provedor são AES-256-GCM criptografados. Restaurar com uma MASTER_KEY diferente fará com que todas as chaves do provedor fiquem inrecuperáveis.",
@@ -1871,7 +1871,7 @@
 			"addGenerationParameters": "Adicionar parâmetros de geração",
 			"temperature": "Temperatura",
 			"maxTokens": "Max Tokens",
-			"topP": "Superior P",
+			"topP": "Top P",
 			"minP": "P Mínimo",
 			"topK": "Superior K",
 			"freqPenalty": "Penalidade de Freq",

@@ -333,13 +333,13 @@
 			"avgTokens": "Средние токены"
 		},
 		"range": {
-			"1h": "1Н",
+			"1h": "1Ч",
 			"24h": "1Д",
-			"1w": "1Вт"
+			"1w": "1Н"
 		},
 		"metric": {
-			"tokens": "Tok",
-			"requests": "Рек"
+			"tokens": "Ток",
+			"requests": "Зап"
 		},
 		"label": {
 			"requests": "Запросы",
@@ -602,7 +602,7 @@
 		"params": {
 			"temperature": "Температура",
 			"maxTokens": "Макс. токенов",
-			"topP": "Верхний П",
+			"topP": "Top P",
 			"minP": "Мин. П",
 			"topK": "Топ K",
 			"freqPenalty": "Штраф Фрека",
@@ -791,8 +791,8 @@
 		"page_description": "Найденные модели от ваших провайдеров",
 		"badge_enabled": "{{count}} включен",
 		"badge_disabled": "{{count}} отключен",
-		"view_mode_pages": "<unk> Страницы",
-		"view_mode_scroll": "<unk> Прокрутка",
+		"view_mode_pages": "⬡ Страницы",
+		"view_mode_scroll": "⇊ Прокрутка",
 		"switch_to_pagination": "Переключиться в режим пагинации",
 		"switch_to_scroll": "Переключиться в режим прокрутки",
 		"toast_updated": "Модель обновлена",
@@ -1156,8 +1156,8 @@
 			"label": "записи"
 		},
 		"loading": {
-			"newer": "<unk> Загрузка новых…",
-			"older": "<unk> Загрузка старых…"
+			"newer": "↻ Загрузка новых…",
+			"older": "↻ Загрузка старых…"
 		}
 	},
 	"applogs": {
@@ -1192,8 +1192,8 @@
 			"label": "записи"
 		},
 		"loading": {
-			"newer": "<unk> Загрузка новых…",
-			"older": "<unk> Загрузка старых…"
+			"newer": "↻ Загрузка новых…",
+			"older": "↻ Загрузка старых…"
 		}
 	},
 	"format": {
@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Резервное копирование базы данных",
-			"description": "Создавайте и загружайте резервные копии PostgreSQL. Использует `pg_dump` с пользовательским форматом для эффективного сжатия.",
+			"description": "Создавайте и загружайте резервные копии PostgreSQL. Использует <code>pg_dump</code> с пользовательским форматом для эффективного сжатия.",
 			"restoreRequirements": "Восстановление требований",
 			"restoreRequirements.masterKey": "Должен совпадать с MASTER_KEY",
 			"restoreRequirements.masterKeyDescription": "Ключи API провайдера шифруются AES-256-GCM. Восстановление с помощью другого MASTER_KEY оставит все ключи провайдера невосстановимыми.",
@@ -1792,8 +1792,8 @@
 			"viewModeToggle": {
 				"switchToScroll": "Переключиться в режим прокрутки",
 				"switchToPagination": "Переключиться в режим пагинации",
-				"scroll": "<unk> Прокрутка",
-				"pages": "<unk> Страницы"
+				"scroll": "⇊ Прокрутка",
+				"pages": "⬡ Страницы"
 			},
 			"dateFilterButton": {
 				"filterByDateRange": "Фильтр по диапазону дат",
@@ -1871,7 +1871,7 @@
 			"addGenerationParameters": "Добавить параметры генерации",
 			"temperature": "Температура",
 			"maxTokens": "Макс. токенов",
-			"topP": "Верхний П",
+			"topP": "Top P",
 			"minP": "Мин. П",
 			"topK": "Топ K",
 			"freqPenalty": "Штраф Фрека",
@@ -2228,8 +2228,8 @@
 		"viewModeToggle": {
 			"switchToScroll": "Переключиться в режим прокрутки",
 			"switchToPagination": "Переключиться в режим пагинации",
-			"scroll": "<unk> Прокрутка",
-			"pages": "<unk> Страницы"
+			"scroll": "⇊ Прокрутка",
+			"pages": "⬡ Страницы"
 		},
 		"liveToggleButton": {
 			"live": "Онлайн",

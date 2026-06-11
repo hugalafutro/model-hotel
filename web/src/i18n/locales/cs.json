@@ -121,7 +121,7 @@
 			"aggregateCpu": "Souhrnné využití CPU napříč kontejnery {{count}} Compose",
 			"aggregateNetwork": "Sdružená síť napříč kontejnery {{count}} Compose",
 			"aggregateDisk": "Souhrnné údaje o diskových operacích I/O napříč kontejnery {{count}} Compose",
-			"aggregateMemory": "Souhrnná paměť napříč kontejnery",
+			"aggregateMemory": "Souhrnná paměť napříč {{count}} compose kontejnery",
 			"heap": "halda",
 			"hit": "trefa",
 			"conn": "připojení",
@@ -207,7 +207,7 @@
 		},
 		"gauge": {
 			"requestsPerRange": "Požadavky/{{range}}",
-			"avgTtftPerRange": "Průměrná doba TTFT/{{range}}",
+			"avgTtftPerRange": "Prům. čas prvního tokenu/{{range}}",
 			"avgOverheadPerRange": "Prům. overhead/{{range}}",
 			"rateLimitHitsPerRange": "Počet přístupů za minutu/{{range}}",
 			"errorRatePerRange": "Míra chybovosti/{{range}}",
@@ -232,7 +232,7 @@
 				"requestsTitle": "Požadavky",
 				"requestsMetric": "Požadavky",
 				"requestsLabel": "Požadavky",
-				"avgTtftTitle": "Průměrná doba zpracování",
+				"avgTtftTitle": "Průměrný čas prvního tokenu",
 				"ttftMetric": "TTFT",
 				"ttftLabel": "TTFT",
 				"rateLimitHitsTitle": "Počet překročení limitu",
@@ -253,7 +253,7 @@
 			"tokens": "Tokeny",
 			"emptyState": "Zatím nejsou k dispozici žádné časové řady. Jakmile se objeví provozní data, {{metric}} se zobrazí zde.",
 			"requestsOver": "Požadavky/{{range}}",
-			"avgTtftOver": "Průměrná doba TTFT/{{range}}",
+			"avgTtftOver": "Prům. čas prvního tokenu/{{range}}",
 			"avgOverheadOver": "Prům. overhead/{{range}}",
 			"rateLimitHitsOver": "Počet přístupů za minutu/{{range}}",
 			"errorRateOver": "Míra chybovosti/{{range}}",
@@ -263,9 +263,9 @@
 			"yesterday": "Včera, {{date}}"
 		},
 		"usage": {
-			"topModels": "Nejpoužívanější modely",
-			"topProviders": "Nejlepší poskytovatelé",
-			"topVirtualKeys": "Nejpoužívanější virtuální klíče",
+			"topModels": "Nej. modely",
+			"topProviders": "Nej. poskytovatelé",
+			"topVirtualKeys": "Nej. virtuální klíče",
 			"emptyState": "Zatím nejsou k dispozici žádné údaje o využití. Rozpis využití se zde zobrazí, jakmile začne proudit provoz.",
 			"viewDetailsFor": "Zobrazit podrobnosti o modelu {{label}}",
 			"deletedModelTooltip": "Tento model již není k dispozici – mohl být vyřazen z nabídky nebo byl zrušen jeho dodavatel"
@@ -287,9 +287,9 @@
 			"requestCount": "Požadavky {{count}}"
 		},
 		"providers": {
-			"top": "Nejlepší poskytovatelé",
-			"top_one": "Nejlepší poskytovatel {{count}}",
-			"top_other": "Nejlepší poskytovatelé {{count}}",
+			"top": "Nej. poskytovatelé",
+			"top_one": "Nej. {{count}} poskytovatel",
+			"top_other": "Nej. {{count}} poskytovatelé",
 			"providers": "Poskytovatelé",
 			"noData": "Zatím nejsou k dispozici žádné údaje o poskytovatelích. Rozpis podle poskytovatelů se zde zobrazí, jakmile začne přenos dat.",
 			"distributionChart": "Graf rozložení poskytovatelů",
@@ -301,16 +301,16 @@
 			"requestsUnit": "Požadavky"
 		},
 		"models": {
-			"top": "Nejpoužívanější modely",
+			"top": "Nej. modely",
 			"viewDetails": "Zobrazit podrobnosti o modelu {{label}}",
 			"emptyState": "Zatím nejsou k dispozici žádné údaje o modelu. Rozpis modelu se zde zobrazí, jakmile budou k dispozici údaje o dopravním provozu."
 		},
 		"virtualKeys": {
-			"top": "Nejpoužívanější virtuální klíče",
+			"top": "Nej. virtuální klíče",
 			"emptyState": "Zatím nejsou k dispozici žádné údaje o virtuálních klíčích. Rozpis virtuálních klíčů se zde zobrazí, jakmile začne provoz."
 		},
 		"tokens": {
-			"tokenMix": "Skladba tokenů",
+			"tokenMix": "Poměr tokenů",
 			"noTokenData": "Zatím nejsou k dispozici žádné údaje o tokenech. Jakmile se rozběhne provoz, zobrazí se zde přehled tokenů.",
 			"tokens": "Tokeny",
 			"prompt": "Výzva",
@@ -328,18 +328,18 @@
 			"errorRate": "Míra chybovosti",
 			"avgDuration": "Prům. trvání",
 			"requests": "Požadavky",
-			"avgTtft": "Průměrná doba zpracování",
+			"avgTtft": "Prům. TTFT",
 			"rateLimitHits": "Počet překročení limitu",
 			"avgTokens": "Průměrný počet tokenů"
 		},
 		"range": {
 			"1h": "1H",
 			"24h": "1D",
-			"1w": "1 W"
+			"1w": "1T"
 		},
 		"metric": {
 			"tokens": "Tok",
-			"requests": "Požadavek"
+			"requests": "Req"
 		},
 		"label": {
 			"requests": "Požadavky",
@@ -602,7 +602,7 @@
 		"params": {
 			"temperature": "Teplota",
 			"maxTokens": "Max. tokenů",
-			"topP": "Nejvyšší P",
+			"topP": "Top P",
 			"minP": "Min P",
 			"topK": "Horní K",
 			"freqPenalty": "Penalizace frekvence",
@@ -791,8 +791,8 @@
 		"page_description": "Modely vyhledané od vašich poskytovatelů",
 		"badge_enabled": "{{count}} je zapnutý",
 		"badge_disabled": "{{count}} je deaktivováno",
-		"view_mode_pages": "<unk> Stránky",
-		"view_mode_scroll": "<unk> Posunout",
+		"view_mode_pages": "⬡ Stránky",
+		"view_mode_scroll": "⇊ Posunout",
 		"switch_to_pagination": "Přepnout do režimu stránkování",
 		"switch_to_scroll": "Přepnout do režimu posouvání",
 		"toast_updated": "Aktualizovaný model",
@@ -1208,7 +1208,7 @@
 		"inDaysHours_one_day_one_hour": "v den {{days}}, hodina {{hours}}",
 		"inDaysHours_one_day_other_hours": "v {{days}} dní, {{hours}} hodin",
 		"inDaysHours_other_days_one_hour": "za X dní {{days}}, za X hodin {{hours}}",
-		"inDaysHours_other_days_other_hours": "za X dní a X hodin",
+		"inDaysHours_other_days_other_hours": "za {{days}} dní, {{hours}} hodin",
 		"inDays_only_one": "v rámci dne {{days}}",
 		"inDays_only_other": "v dnech {{days}}",
 		"inHours_only_one": "v hodině {{hours}}",
@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Zálohování databáze",
-			"description": "Vytváření a stahování záloh PostgreSQL. Využívá nástroj `pg_dump` s vlastním formátem pro efektivní kompresi.",
+			"description": "Vytváření a stahování záloh PostgreSQL. Využívá nástroj <code>pg_dump</code> s vlastním formátem pro efektivní kompresi.",
 			"restoreRequirements": "Požadavky na obnovení",
 			"restoreRequirements.masterKey": "Hlavní klíč se musí shodovat",
 			"restoreRequirements.masterKeyDescription": "Klíče API poskytovatele jsou šifrovány pomocí algoritmu AES-256-GCM. Obnovení pomocí jiného klíče MASTER_KEY způsobí, že všechny klíče poskytovatele budou nenávratně ztraceny.",
@@ -1792,8 +1792,8 @@
 			"viewModeToggle": {
 				"switchToScroll": "Přepnout do režimu posouvání",
 				"switchToPagination": "Přepnout do režimu stránkování",
-				"scroll": "<unk> Posunout",
-				"pages": "<unk> Stránky"
+				"scroll": "⇊ Posunout",
+				"pages": "⬡ Stránky"
 			},
 			"dateFilterButton": {
 				"filterByDateRange": "Filtrovat podle časového období",
@@ -1871,7 +1871,7 @@
 			"addGenerationParameters": "Přidat parametry generování",
 			"temperature": "Teplota",
 			"maxTokens": "Max. tokenů",
-			"topP": "Nejvyšší P",
+			"topP": "Top P",
 			"minP": "Min P",
 			"topK": "Horní K",
 			"freqPenalty": "Penalizace frekvence",
@@ -2228,8 +2228,8 @@
 		"viewModeToggle": {
 			"switchToScroll": "Přepnout do režimu posouvání",
 			"switchToPagination": "Přepnout do režimu stránkování",
-			"scroll": "<unk> Posunout",
-			"pages": "<unk> Stránky"
+			"scroll": "⇊ Posunout",
+			"pages": "⬡ Stránky"
 		},
 		"liveToggleButton": {
 			"live": "Živě",

@@ -177,7 +177,9 @@ describe("UsageBarPanel", () => {
 		// Should have 3 entry buttons + 3 range buttons
 		expect(buttons.length).toBeGreaterThanOrEqual(3);
 
-		expect(screen.getByText("Model A")).toHaveClass("cursor-pointer");
+		// Clickable entries render as real buttons (pointer cursor comes from
+		// the global base rule, not a per-element class).
+		expect(screen.getByText("Model A").closest("button")).not.toBeNull();
 	});
 
 	it("calls onEntryClick when entry is clicked", async () => {

@@ -263,9 +263,9 @@
 			"yesterday": "Hier, {{date}}"
 		},
 		"usage": {
-			"topModels": "Meilleurs modèles",
-			"topProviders": "Meilleurs fournisseurs",
-			"topVirtualKeys": "Meilleures clés virtuelles",
+			"topModels": "Top modèles",
+			"topProviders": "Top fournisseurs",
+			"topVirtualKeys": "Top clés virtuelles",
 			"emptyState": "Aucune donnée d'utilisation pour le moment. La ventilation de l'utilisation apparaîtra ici une fois le trafic écoulé.",
 			"viewDetailsFor": "Voir les détails pour {{label}}",
 			"deletedModelTooltip": "Ce modèle n'est plus disponible — il a peut-être été supprimé ou son fournisseur a été retiré"
@@ -287,9 +287,9 @@
 			"requestCount": "Demandes {{count}}"
 		},
 		"providers": {
-			"top": "Meilleurs fournisseurs",
-			"top_one": "Meilleur fournisseur {{count}}",
-			"top_other": "Meilleurs fournisseurs {{count}}",
+			"top": "Top fournisseurs",
+			"top_one": "Top {{count}} fournisseur",
+			"top_other": "Top {{count}} fournisseurs",
 			"providers": "Fournisseurs",
 			"noData": "Aucune donnée fournisseur pour le moment. La ventilation du fournisseur apparaîtra ici une fois le trafic écoulé.",
 			"distributionChart": "Graphique de distribution des fournisseurs",
@@ -301,12 +301,12 @@
 			"requestsUnit": "Requêtes"
 		},
 		"models": {
-			"top": "Meilleurs modèles",
+			"top": "Top modèles",
 			"viewDetails": "Voir les détails pour {{label}}",
 			"emptyState": "Aucune donnée de modèle pour le moment. La ventilation du modèle apparaîtra ici une fois le trafic écoulé."
 		},
 		"virtualKeys": {
-			"top": "Meilleures clés virtuelles",
+			"top": "Top clés virtuelles",
 			"emptyState": "Aucune donnée de clé virtuelle pour le moment. La ventilation des clés virtuelles apparaîtra ici une fois le trafic écoulé."
 		},
 		"tokens": {
@@ -334,12 +334,12 @@
 		},
 		"range": {
 			"1h": "1H",
-			"24h": "1D",
-			"1w": "1W"
+			"24h": "1J",
+			"1w": "1S"
 		},
 		"metric": {
 			"tokens": "Tok",
-			"requests": "Requis"
+			"requests": "Req"
 		},
 		"label": {
 			"requests": "Requêtes",
@@ -792,7 +792,7 @@
 		"badge_enabled": "{{count}} activé",
 		"badge_disabled": "{{count}} désactivé",
 		"view_mode_pages": "Pages",
-		"view_mode_scroll": "<unk> Défilement",
+		"view_mode_scroll": "⇊ Défilement",
 		"switch_to_pagination": "Passer en mode pagination",
 		"switch_to_scroll": "Passer en mode défilement",
 		"toast_updated": "Modèle mis à jour",
@@ -1156,8 +1156,8 @@
 			"label": "entrées"
 		},
 		"loading": {
-			"newer": "<unk> Chargement des plus récents…",
-			"older": "<unk> Chargement des anciens…"
+			"newer": "↻ Chargement des plus récents…",
+			"older": "↻ Chargement des anciens…"
 		}
 	},
 	"applogs": {
@@ -1192,8 +1192,8 @@
 			"label": "entrées"
 		},
 		"loading": {
-			"newer": "<unk> Chargement des plus récents…",
-			"older": "<unk> Chargement des anciens…"
+			"newer": "↻ Chargement des plus récents…",
+			"older": "↻ Chargement des anciens…"
 		}
 	},
 	"format": {
@@ -1538,7 +1538,7 @@
 		},
 		"backup": {
 			"title": "Sauvegarde de la base de données",
-			"description": "Créer et télécharger des sauvegardes PostgreSQL. Utilise `pg_dump` avec un format personnalisé pour une compression efficace.",
+			"description": "Créer et télécharger des sauvegardes PostgreSQL. Utilise <code>pg_dump</code> avec un format personnalisé pour une compression efficace.",
 			"restoreRequirements": "Restaurer les conditions requises",
 			"restoreRequirements.masterKey": "MASTER_KEY doit correspondre",
 			"restoreRequirements.masterKeyDescription": "Les clés API du fournisseur sont chiffrées AES-256-GCM. La restauration avec un MASTER_KEY différent laissera toutes les clés du fournisseur irrécupérable.",
@@ -1792,7 +1792,7 @@
 			"viewModeToggle": {
 				"switchToScroll": "Passer en mode défilement",
 				"switchToPagination": "Passer en mode pagination",
-				"scroll": "<unk> Défilement",
+				"scroll": "⇊ Défilement",
 				"pages": "Pages"
 			},
 			"dateFilterButton": {
@@ -2228,7 +2228,7 @@
 		"viewModeToggle": {
 			"switchToScroll": "Passer en mode défilement",
 			"switchToPagination": "Passer en mode pagination",
-			"scroll": "<unk> Défilement",
+			"scroll": "⇊ Défilement",
 			"pages": "Pages"
 		},
 		"liveToggleButton": {

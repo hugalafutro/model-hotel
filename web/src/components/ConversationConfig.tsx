@@ -128,7 +128,7 @@ export function ConversationConfig({
 					<button
 						type="button"
 						onClick={onToggleCollapsed}
-						className="p-1.5 rounded-md transition-all cursor-pointer text-(--text-tertiary) hover:text-(--accent)"
+						className="p-1.5 rounded-md transition-all text-(--text-tertiary) hover:text-(--accent)"
 						title={
 							configCollapsed
 								? t("components.conversationConfig.expandConfig")

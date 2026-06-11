@@ -35,7 +35,7 @@ export function SubModeToggle<T extends string>({
 								? "ui-btn-primary cursor-default"
 								: disabled
 									? "text-(--text-tertiary) border border-transparent cursor-default"
-									: "ui-btn-secondary cursor-pointer"
+									: "ui-btn-secondary"
 						}`}
 					>
 						<Icon size={12} className="inline mr-1 -mt-0.5" />

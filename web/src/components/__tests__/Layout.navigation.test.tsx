@@ -20,7 +20,11 @@ describe("Layout", () => {
 
 			// Logo has aria-label "Model Hotel"
 			expect(screen.getByLabelText("Model Hotel")).toBeInTheDocument();
-			expect(screen.getByText("Multi-Provider AI Gateway")).toBeInTheDocument();
+			// The 'Multi-Provider AI Gateway' subtitle lives on the login
+			// screen only; the sidebar shows just the logo and tagline.
+			expect(
+				screen.queryByText("Multi-Provider AI Gateway"),
+			).not.toBeInTheDocument();
 		});
 
 		it("renders tagline", () => {

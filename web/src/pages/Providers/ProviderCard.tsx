@@ -56,7 +56,7 @@ export function ProviderCard({
 						tooltip={t("providers.card_copy_name")}
 					/>
 				</div>
-				<div className="flex items-center gap-2 mt-1">
+				<div className="flex flex-wrap items-center gap-2 mt-1">
 					{!provider.enabled && (
 						<span className="px-2 py-px leading-[1.6] text-xs font-medium ui-badge ui-badge-neutral">
 							<span className="badge-text">{t("providers.card_disabled")}</span>
@@ -82,13 +82,40 @@ export function ProviderCard({
 						<button
 							type="button"
 							onClick={() => onSetModelsProvider(provider)}
-							className="px-2 py-px leading-[1.6] text-xs font-medium cursor-pointer hover:brightness-125 transition-colors whitespace-nowrap ui-badge ui-badge-cyan"
+							className="px-2 py-px leading-[1.6] text-xs font-medium hover:brightness-125 transition-colors whitespace-nowrap ui-badge ui-badge-cyan"
 						>
 							<span className="badge-text">
 								{t("providers.card_models", { count: modelCount })}
 							</span>
 						</button>
 					)}
+					<span className="ml-auto inline-flex items-center gap-2">
+						<QuotaBadges
+							quotaData={quotaData}
+							variant="card"
+							providerBaseUrl={provider.base_url}
+							onNanoClick={() => onSetModalNano()}
+							onZaiCodingClick={() => onSetModalZaiCoding()}
+							onDeepseekClick={async () => {
+								try {
+									await quotaData.refetchDeepseek();
+									toast(t("providers.toast_quota_refreshed"), "success");
+								} catch {
+									toast(t("providers.toast_quota_refresh_failed"), "error");
+								}
+							}}
+							onOpenRouterClick={() => onSetModalOpenRouter()}
+							onOllamaCloudClick={async () => {
+								try {
+									await quotaData.refetchOllamaCloud();
+									toast(t("providers.toast_account_refreshed"), "success");
+								} catch {
+									toast(t("providers.toast_account_refresh_failed"), "error");
+								}
+							}}
+							onNeuralwattClick={() => onSetModalNeuralwatt()}
+						/>
+					</span>
 				</div>
 				<CopyablePill
 					text={provider.base_url}
@@ -128,34 +155,7 @@ export function ProviderCard({
 				)}
 			</div>
 
-			<div className="mt-auto pt-4 flex flex-wrap items-center justify-between gap-x-2 gap-y-3">
-				<div className="flex items-center gap-2 min-h-7">
-					<QuotaBadges
-						quotaData={quotaData}
-						variant="card"
-						providerBaseUrl={provider.base_url}
-						onNanoClick={() => onSetModalNano()}
-						onZaiCodingClick={() => onSetModalZaiCoding()}
-						onDeepseekClick={async () => {
-							try {
-								await quotaData.refetchDeepseek();
-								toast(t("providers.toast_quota_refreshed"), "success");
-							} catch {
-								toast(t("providers.toast_quota_refresh_failed"), "error");
-							}
-						}}
-						onOpenRouterClick={() => onSetModalOpenRouter()}
-						onOllamaCloudClick={async () => {
-							try {
-								await quotaData.refetchOllamaCloud();
-								toast(t("providers.toast_account_refreshed"), "success");
-							} catch {
-								toast(t("providers.toast_account_refresh_failed"), "error");
-							}
-						}}
-						onNeuralwattClick={() => onSetModalNeuralwatt()}
-					/>
-				</div>
+			<div className="mt-auto pt-4 flex flex-wrap items-center justify-end gap-x-2 gap-y-3">
 				<div className="flex gap-2">
 					<button
 						type="button"
@@ -181,7 +181,7 @@ export function ProviderCard({
 									? "bg-gray-800/50 text-gray-600 border-gray-700/30 cursor-not-allowed"
 									: !provider.enabled || !provider.autodiscovery_enabled
 										? "bg-gray-800/50 text-gray-600 border-gray-700/30 cursor-not-allowed"
-										: "bg-(--accent-light) text-(--accent) border-(--accent-lighter) cursor-pointer hover:brightness-125"
+										: "bg-(--accent-light) text-(--accent) border-(--accent-lighter) hover:brightness-125"
 						}`}
 					>
 						{discoveringId === provider.id ||
