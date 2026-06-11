@@ -4,12 +4,14 @@ i18n locale maintenance via DeepL (stdlib only, no dependencies).
 
 Subcommands:
     check        CI gate: fail when any locale is missing keys, has extra
-                 keys, breaks {{placeholder}} parity, or carries an
-                 English-equal value that is not allowlisted.
-    fill         Translate only the keys `check` would flag (missing or
-                 non-allowlisted English) for every locale, in place.
-                 Review the printed report before committing - DeepL gets
-                 word order and temporal/causal "since" wrong sometimes.
+                 keys, breaks {{placeholder}} parity, carries a non-string
+                 value, or carries an English-equal value that is not
+                 allowlisted.
+    fill         Fix what `check` flags, in place: translate missing and
+                 non-allowlisted English keys, delete stale keys that left
+                 en.json. Review the printed report before committing -
+                 DeepL gets word order and temporal/causal "since" wrong
+                 sometimes.
     bootstrap    Translate the full en.json into one new language
                  (the original behavior of this script).
     grandfather  Snapshot all current English-equal values into the
@@ -93,29 +95,28 @@ def deepl_translate(texts: list[str], target_lang: str, source_lang: str = "EN")
     )
 
     for attempt in range(RETRY_MAX):
+        last_attempt = attempt == RETRY_MAX - 1
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
                 result = json.loads(resp.read().decode("utf-8"))
                 return [t["text"] for t in result["translations"]]
         except urllib.error.HTTPError as e:
-            if e.code in (429, *range(500, 600)):
-                wait = RETRY_BASE_WAIT ** (attempt + 1)
-                print(f"  HTTP {e.code}, retry {attempt+1}/{RETRY_MAX} in {wait}s...", file=sys.stderr)
-                time.sleep(wait)
-                continue
-            body = e.read().decode("utf-8", errors="replace")
-            print(f"DeepL API error {e.code}: {body}", file=sys.stderr)
-            sys.exit(1)
-        except Exception as e:
-            if attempt < RETRY_MAX - 1:
-                wait = RETRY_BASE_WAIT ** (attempt + 1)
-                print(f"  Network error: {e}, retry in {wait}s...", file=sys.stderr)
-                time.sleep(wait)
-                continue
-            raise
+            if e.code not in (429, *range(500, 600)) or last_attempt:
+                body = e.read().decode("utf-8", errors="replace")
+                print(f"DeepL API error {e.code}: {body}", file=sys.stderr)
+                sys.exit(1)
+            retry_after = e.headers.get("Retry-After", "")
+            wait = int(retry_after) if retry_after.isdigit() else RETRY_BASE_WAIT ** (attempt + 1)
+            print(f"  HTTP {e.code}, retry {attempt+1}/{RETRY_MAX} in {wait}s...", file=sys.stderr)
+            time.sleep(wait)
+        except urllib.error.URLError as e:
+            if last_attempt:
+                raise
+            wait = RETRY_BASE_WAIT ** (attempt + 1)
+            print(f"  Network error: {e}, retry in {wait}s...", file=sys.stderr)
+            time.sleep(wait)
 
-    print("Max retries reached", file=sys.stderr)
-    sys.exit(1)
+    raise AssertionError("unreachable: the last attempt returns, exits, or raises")
 
 
 def check_usage() -> dict:
@@ -162,6 +163,17 @@ def interpolations(text: str) -> set[str]:
     return set(re.findall(r"\{\{[^}]+\}\}", text))
 
 
+def translate_batch(values: list[str], target_lang: str) -> list[str]:
+    """Protect {{vars}} in a batch of source strings, translate, restore."""
+    protected, all_ph = [], []
+    for value in values:
+        pv, ph = protect(value)
+        protected.append(pv)
+        all_ph.append(ph)
+    translated = deepl_translate(protected, target_lang)
+    return [restore(text, ph) for text, ph in zip(translated, all_ph)]
+
+
 # ── Locale file helpers ─────────────────────────────────────────────────────
 
 def locale_codes() -> list[str]:
@@ -197,12 +209,44 @@ def flatten(obj, prefix="") -> dict[str, str]:
     return out
 
 
-def set_path(obj: dict, path: str, value: str):
-    parts = path.split(".")
-    cur = obj
-    for p in parts[:-1]:
+def true_path(obj: dict, path: str) -> list[str] | None:
+    """The actual key chain in `obj` whose flatten() path equals `path`.
+    Locale keys may contain literal dots (e.g. "restoreRequirements.masterKey"
+    nested under settings.backup), so splitting on "." is ambiguous."""
+    if path in obj and not isinstance(obj[path], dict):
+        return [path]
+    for k, v in obj.items():
+        if isinstance(v, dict) and path.startswith(k + "."):
+            rest = true_path(v, path[len(k) + 1:])
+            if rest is not None:
+                return [k, *rest]
+    return None
+
+
+def set_path(data: dict, en: dict, path: str, value: str):
+    """Set `path` in `data`, updating an existing entry in place or else
+    mirroring en.json's actual nesting for new keys."""
+    chain = true_path(data, path) or true_path(en, path) or path.split(".")
+    cur = data
+    for p in chain[:-1]:
         cur = cur.setdefault(p, {})
-    cur[parts[-1]] = value
+    cur[chain[-1]] = value
+
+
+def delete_path(data: dict, path: str) -> bool:
+    """Remove `path` from `data`, pruning parents it leaves empty."""
+    chain = true_path(data, path)
+    if chain is None:
+        return False
+    parents = [data]
+    for p in chain[:-1]:
+        parents.append(parents[-1][p])
+    del parents[-1][chain[-1]]
+    for i in range(len(parents) - 1, 0, -1):
+        if parents[i]:
+            break
+        del parents[i - 1][chain[i - 1]]
+    return True
 
 
 def load_allowlist() -> dict[str, list[str]]:
@@ -249,7 +293,7 @@ def should_skip(value: str) -> bool:
 def find_problems(allow: dict[str, list[str]]) -> dict[str, list[tuple[str, str]]]:
     """Map of problem type -> [(locale, key)]."""
     en = flatten(load_locale("en"))
-    problems = {"missing": [], "extra": [], "placeholders": [], "untranslated": []}
+    problems = {"missing": [], "extra": [], "malformed": [], "placeholders": [], "untranslated": []}
     for code in locale_codes():
         loc = flatten(load_locale(code))
         for key in en.keys() - loc.keys():
@@ -259,7 +303,9 @@ def find_problems(allow: dict[str, list[str]]) -> dict[str, list[tuple[str, str]
         for key, value in loc.items():
             if key not in en:
                 continue
-            if interpolations(value) != interpolations(en[key]):
+            if not isinstance(value, str) or not isinstance(en[key], str):
+                problems["malformed"].append((code, key))
+            elif interpolations(value) != interpolations(en[key]):
                 problems["placeholders"].append((code, key))
             elif value == en[key] and not should_skip(value) and not allowed(allow, key, code):
                 problems["untranslated"].append((code, key))
@@ -291,7 +337,8 @@ def cmd_check() -> int:
 
 def cmd_fill(only_langs: list[str] | None) -> int:
     allow = load_allowlist()
-    en_flat = flatten(load_locale("en"))
+    en = load_locale("en")
+    en_flat = flatten(en)
     problems = find_problems(allow)
     work: dict[str, list[str]] = {}
     for kind in ("missing", "untranslated", "placeholders"):
@@ -299,29 +346,34 @@ def cmd_fill(only_langs: list[str] | None) -> int:
             if only_langs and code not in only_langs:
                 continue
             work.setdefault(code, []).append(key)
+    removals: dict[str, list[str]] = {}
+    for code, key in problems["extra"]:
+        if only_langs and code not in only_langs:
+            continue
+        removals.setdefault(code, []).append(key)
 
-    if not work:
+    if not work and not removals:
         print("nothing to fill - all locales in sync")
         return 0
 
-    for code in sorted(work):
-        keys = sorted(set(work[code]))
+    for code in sorted(set(work) | set(removals)):
         data = load_locale(code)
-        target = DEEPL_LANG.get(code, code.upper())
-        print(f"{code} ({target}): translating {len(keys)} strings")
-        for i in range(0, len(keys), BATCH_SIZE):
-            chunk = keys[i:i + BATCH_SIZE]
-            protected, all_ph = [], []
-            for key in chunk:
-                pv, ph = protect(en_flat[key])
-                protected.append(pv)
-                all_ph.append(ph)
-            translated = deepl_translate(protected, target)
-            for key, text, ph in zip(chunk, translated, all_ph):
-                value = restore(text, ph)
-                set_path(data, key, value)
-                print(f"  {key} = {value}")
-            time.sleep(0.3)
+        for key in sorted(set(removals.get(code, []))):
+            if delete_path(data, key):
+                print(f"{code}: removed stale key {key}")
+        keys = sorted(set(work.get(code, [])))
+        if keys:
+            target = DEEPL_LANG.get(code, code.upper())
+            print(f"{code} ({target}): translating {len(keys)} strings")
+            for i in range(0, len(keys), BATCH_SIZE):
+                chunk = keys[i:i + BATCH_SIZE]
+                for key, value in zip(chunk, translate_batch([en_flat[k] for k in chunk], target)):
+                    set_path(data, en, key, value)
+                    print(f"  {key} = {value}")
+                    if interpolations(value) != interpolations(en_flat[key]):
+                        print(f"  WARNING: DeepL broke placeholder parity in {key}; fix by hand", file=sys.stderr)
+                if i + BATCH_SIZE < len(keys):
+                    time.sleep(0.3)
         save_locale(code, data)
 
     print(
@@ -372,16 +424,11 @@ def cmd_bootstrap(target_lang: str, output: str | None) -> int:
     total = len(to_translate)
     for i in range(0, total, BATCH_SIZE):
         chunk = to_translate[i:i + BATCH_SIZE]
-        protected, all_ph = [], []
-        for _, _, value in chunk:
-            pv, ph = protect(value)
-            protected.append(pv)
-            all_ph.append(ph)
-        translated = deepl_translate(protected, deepl_code)
-        for j, (parent, key, _) in enumerate(chunk):
-            parent[key] = restore(translated[j], all_ph[j])
+        for (parent, key, _), value in zip(chunk, translate_batch([v for _, _, v in chunk], deepl_code)):
+            parent[key] = value
         print(f"  Batch {i // BATCH_SIZE + 1}/{(total + BATCH_SIZE - 1) // BATCH_SIZE} done")
-        time.sleep(0.3)
+        if i + BATCH_SIZE < total:
+            time.sleep(0.3)
 
     out = output or os.path.join(LOCALES_DIR, f"{target_lang.lower()}.json")
     with open(out, "w", encoding="utf-8") as f:

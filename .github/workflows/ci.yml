@@ -130,7 +130,7 @@ jobs:
       # (DeepL) and review the diff; intentional English goes into
       # tools/i18n-translate/allow-english.json.
       - name: locale sync check
-        run: python3 tools/i18n-translate/translate.py check
+        run: make i18n-check
 
   workflow-lint:
     name: Workflow Lint
