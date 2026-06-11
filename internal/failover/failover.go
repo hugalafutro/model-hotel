@@ -793,6 +793,17 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) (*SyncRes
 				AddedModelIDs:   added,
 			})
 		}
+	} else {
+		// A brand-new auto-group: report every member as added so the
+		// creation is visible in discovery summaries instead of silent.
+		added := make([]string, 0, len(currentIDs))
+		for _, id := range currentIDs {
+			added = append(added, id.String())
+		}
+		result.UpdatedGroups = append(result.UpdatedGroups, UpdatedGroupInfo{
+			DisplayModel:  base,
+			AddedModelIDs: added,
+		})
 	}
 
 	groupEnabled := true

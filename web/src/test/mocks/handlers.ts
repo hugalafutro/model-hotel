@@ -100,7 +100,9 @@ export const handlers: RequestHandler[] = [
 		if (!hasValidAuth(request)) {
 			return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
 		}
-		return HttpResponse.json({ discovered: 0 });
+		// The real endpoint always returns a diff (empty object = no changes),
+		// matching client.ts's non-optional typing.
+		return HttpResponse.json({ discovered: 0, diff: {} });
 	}),
 
 	http.post("/api/providers/discover-all", ({ request }) => {

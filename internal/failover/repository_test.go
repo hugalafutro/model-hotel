@@ -2765,14 +2765,24 @@ func TestRepository_SyncForModel_ReportsMembershipChanges(t *testing.T) {
 		}
 	}()
 
-	// First sync creates the group; no pre-existing group means no
-	// UpdatedGroups entry is reported.
+	// First sync creates the group; the creation is reported as an update
+	// with every member listed as added.
 	result, err := repo.SyncForModel(ctx, baseModel)
 	if err != nil {
 		t.Fatalf("SyncForModel (create) failed: %v", err)
 	}
-	if len(result.UpdatedGroups) != 0 || len(result.DeletedGroups) != 0 {
-		t.Errorf("expected empty result on group creation, got %+v", result)
+	if len(result.DeletedGroups) != 0 {
+		t.Errorf("expected no deleted groups on creation, got %+v", result.DeletedGroups)
+	}
+	if len(result.UpdatedGroups) != 1 {
+		t.Fatalf("expected 1 updated group on creation, got %+v", result.UpdatedGroups)
+	}
+	created := result.UpdatedGroups[0]
+	if created.DisplayModel != baseModel {
+		t.Errorf("expected created group %q, got %q", baseModel, created.DisplayModel)
+	}
+	if len(created.AddedModelIDs) != 3 || len(created.RemovedModelIDs) != 0 {
+		t.Errorf("expected all 3 members added and none removed on creation, got %+v", created)
 	}
 
 	// No-change sync returns an empty result.
