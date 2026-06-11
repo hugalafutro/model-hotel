@@ -268,7 +268,7 @@
 			"topVirtualKeys": "热门虚拟密钥",
 			"emptyState": "尚无使用数据。一旦流量流量，使用情况将会在这里显示。",
 			"viewDetailsFor": "查看详情 {{label}}",
-			"deletedModelTooltip": "模型已不可用——可能已被删除，或其提供商已被移除"
+			"deletedModelTooltip": "模型不再可用——它可能已被删除或其提供者已被删除"
 		},
 		"latency": {
 			"topModels": "最慢的模型",

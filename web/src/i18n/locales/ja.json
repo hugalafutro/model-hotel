@@ -268,7 +268,7 @@
 			"topVirtualKeys": "トップ仮想キー",
 			"emptyState": "利用データはまだありません。トラフィックが流れると、利用状況の内訳がここに表示されます。",
 			"viewDetailsFor": "{{label}} の詳細を表示",
-			"deletedModelTooltip": "このモデルは利用できなくなりました — 削除されたか、プロバイダーが削除された可能性があります"
+			"deletedModelTooltip": "モデルが利用できなくなりました — 削除されたか、プロバイダが削除された可能性があります"
 		},
 		"latency": {
 			"topModels": "最も遅いモデル",

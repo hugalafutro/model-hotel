@@ -268,7 +268,7 @@
 			"topVirtualKeys": "Främsta virtuella nycklar",
 			"emptyState": "Inga användningsdata än. Användningen kommer att visas här när trafikflöden.",
 			"viewDetailsFor": "Visa detaljer för {{label}}",
-			"deletedModelTooltip": "Modellen finns inte längre tillgänglig – den kan ha tagits bort eller så har leverantören av den avregistrerats"
+			"deletedModelTooltip": "Modell inte längre tillgänglig — det kan ha tagits bort eller dess leverantör har tagits bort"
 		},
 		"latency": {
 			"topModels": "Långsammaste modeller",

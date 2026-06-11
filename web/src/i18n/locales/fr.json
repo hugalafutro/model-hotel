@@ -268,7 +268,7 @@
 			"topVirtualKeys": "Meilleures clés virtuelles",
 			"emptyState": "Aucune donnée d'utilisation pour le moment. La ventilation de l'utilisation apparaîtra ici une fois le trafic écoulé.",
 			"viewDetailsFor": "Voir les détails pour {{label}}",
-			"deletedModelTooltip": "Ce modèle n'est plus disponible — il a peut-être été supprimé ou son fournisseur a été retiré"
+			"deletedModelTooltip": "Le modèle n'est plus disponible — il peut avoir été supprimé ou son fournisseur a été supprimé"
 		},
 		"latency": {
 			"topModels": "Modèles les plus lents",

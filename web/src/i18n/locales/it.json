@@ -268,7 +268,7 @@
 			"topVirtualKeys": "Chiavi virtuali principali",
 			"emptyState": "Ancora nessun dato di utilizzo. Il guasto di utilizzo apparirà qui una volta che i flussi di traffico.",
 			"viewDetailsFor": "Visualizza i dettagli per {{label}}",
-			"deletedModelTooltip": "Il modello non è più disponibile: potrebbe essere stato eliminato oppure il fornitore è stato rimosso"
+			"deletedModelTooltip": "Modello non più disponibile — potrebbe essere stato cancellato o il suo fornitore è stato rimosso"
 		},
 		"latency": {
 			"topModels": "Modelli più lenti",

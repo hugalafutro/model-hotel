@@ -268,7 +268,7 @@
 			"topVirtualKeys": "Suosituimmat virtuaaliavaimet",
 			"emptyState": "Käyttötietoja ei ole vielä. Käytön jakautuminen näkyy tässä liikennevirtojen jälkeen.",
 			"viewDetailsFor": "Näytä tiedot {{label}}",
-			"deletedModelTooltip": "Mallia ei ole enää saatavilla – se on mahdollisesti poistettu tai sen tarjoaja on poistettu"
+			"deletedModelTooltip": "Malli ei enää käytettävissä, se on voitu poistaa tai sen tarjoaja on poistettu"
 		},
 		"latency": {
 			"topModels": "Hitaimmat mallit",
