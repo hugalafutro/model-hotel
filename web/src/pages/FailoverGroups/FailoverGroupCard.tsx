@@ -205,7 +205,7 @@ export function FailoverGroupCard({
 						<button
 							type="button"
 							onClick={onEdit}
-							className="text-gray-500 hover:text-amber-400 cursor-pointer px-2 py-1 rounded-md hover:bg-amber-400/10 transition-all"
+							className="ui-btn ui-btn-compact text-gray-500 hover:text-amber-400 hover:bg-white/5 cursor-pointer transition-all"
 						>
 							{t("common.edit")}
 						</button>
@@ -213,7 +213,7 @@ export function FailoverGroupCard({
 					<button
 						type="button"
 						onClick={() => onDelete()}
-						className="text-gray-500 hover:text-red-400 cursor-pointer px-2 py-1 rounded-md hover:bg-red-400/10 transition-all"
+						className="ui-btn ui-btn-compact text-gray-500 hover:text-red-400 hover:bg-white/5 cursor-pointer transition-all"
 					>
 						{t("common.delete")}
 					</button>
