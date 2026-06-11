@@ -569,8 +569,8 @@ export function ModelDetailModal({
 						<span
 							className={`ui-badge inline-flex items-center px-2 py-px leading-[1.6] text-xs font-medium ${
 								params.subscription_included
-									? "bg-green-900/40 text-green-300 border border-green-700/50"
-									: "bg-yellow-900/40 text-yellow-300 border border-yellow-700/50"
+									? "ui-badge-success"
+									: "ui-badge-warning"
 							}`}
 						>
 							{params.subscription_included

@@ -620,10 +620,10 @@ export function VirtualModelTable({
 											<span
 												className={`ui-badge px-2 py-px leading-[1.6] text-xs ${
 													isActive
-														? "bg-green-900/50 text-green-400"
+														? "ui-badge-success"
 														: isManuallyDisabled
-															? "bg-yellow-900/50 text-yellow-400"
-															: "bg-red-900/50 text-red-400"
+															? "ui-badge-warning"
+															: "ui-badge-error"
 												}`}
 											>
 												<span className="badge-text">

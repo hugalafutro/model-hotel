@@ -157,8 +157,8 @@ export function FailoverGroupCard({
 					onClick={() => onToggleGroup(!group.group_enabled)}
 					className={`ui-badge px-2 py-px leading-[1.6] text-xs font-medium transition-colors ${
 						group.group_enabled
-							? "bg-(--accent-light) text-(--accent) hover:bg-(--accent)/30"
-							: "bg-gray-600 text-gray-300 hover:bg-gray-500"
+							? "ui-badge-accent hover:brightness-125"
+							: "ui-badge-neutral hover:brightness-125"
 					}`}
 				>
 					<span className="badge-text">

@@ -11,13 +11,13 @@ export type BadgeVariant =
 	| "custom";
 
 const VARIANT_CLASSES: Record<BadgeVariant, string> = {
-	error: "bg-red-900/30 text-red-400",
-	warning: "bg-yellow-900/30 text-yellow-400",
-	info: "bg-blue-900/30 text-blue-400",
-	success: "bg-green-900/30 text-green-400",
-	muted: "bg-gray-700/30 text-gray-400",
-	accent: "bg-(--accent)/20 text-(--accent)",
-	orange: "bg-orange-900/30 text-orange-400",
+	error: "ui-badge-error",
+	warning: "ui-badge-warning",
+	info: "ui-badge-info",
+	success: "ui-badge-success",
+	muted: "ui-badge-neutral",
+	accent: "ui-badge-accent",
+	orange: "ui-badge-orange",
 	custom: "",
 };
 

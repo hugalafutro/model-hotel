@@ -352,8 +352,8 @@ export function KeyDetailModal({
 												className={`inline-flex items-center px-2 py-px leading-[1.6] text-xs font-medium cursor-pointer transition-colors ui-badge
 													${
 														isExcluded
-															? "bg-gray-800/60 text-gray-500 border border-gray-700/60 line-through hover:bg-gray-700/60"
-															: "bg-(--accent)/20 text-(--accent) border border-(--accent)/40"
+															? "ui-badge-neutral line-through opacity-60 hover:brightness-125"
+															: "ui-badge-accent"
 													}`}
 											>
 												{provider.name}
@@ -487,8 +487,8 @@ export function KeyDetailModal({
 												className={`inline-flex items-center px-2 py-px leading-[1.6] text-xs font-medium ui-badge
 													${
 														isAllowed
-															? "bg-(--accent)/20 text-(--accent) border border-(--accent)/40"
-															: "bg-gray-800/60 text-gray-500 border border-gray-700/60 line-through"
+															? "ui-badge-accent"
+															: "ui-badge-neutral line-through opacity-60"
 													}`}
 											>
 												{provider.name}

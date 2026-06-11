@@ -49,10 +49,10 @@ function AppLogDetail({
 					<span
 						className={`inline-flex items-center px-2 py-px leading-[1.6] text-xs font-medium ui-badge ${
 							log.level === "error"
-								? "bg-red-500/15 text-red-400 border border-red-500/30"
+								? "ui-badge-error"
 								: log.level === "warning"
-									? "bg-yellow-500/15 text-yellow-400 border border-yellow-500/30"
-									: "bg-blue-500/15 text-blue-400 border border-blue-500/30"
+									? "ui-badge-warning"
+									: "ui-badge-info"
 						}`}
 					>
 						<span className="badge-text">{log.level.toUpperCase()}</span>

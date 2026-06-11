@@ -417,7 +417,7 @@ export function ModelTable({
 										<td aria-hidden />
 										<td className="px-4 py-1.5 whitespace-nowrap">
 											<span
-												className={`ui-badge px-2 py-px leading-[1.6] text-xs ${model.enabled && !model.disabled_manually ? "bg-green-900/50 text-green-400" : model.enabled && model.disabled_manually ? "bg-yellow-900/50 text-yellow-400" : "bg-red-900/50 text-red-400"}`}
+												className={`ui-badge px-2 py-px leading-[1.6] text-xs ${model.enabled && !model.disabled_manually ? "ui-badge-success" : model.enabled && model.disabled_manually ? "ui-badge-warning" : "ui-badge-error"}`}
 											>
 												<span className="badge-text">
 													{model.enabled && !model.disabled_manually

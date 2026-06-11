@@ -1879,6 +1879,24 @@ html[data-ui-style="cyber-terminal"] .ui-tab {
 	border: 1px solid var(--accent-lighter);
 }
 
+[data-ui-style] .ui-badge-orange {
+	background-color: rgba(249, 115, 22, 0.15);
+	color: #fb923c;
+	border: 1px solid rgba(249, 115, 22, 0.3);
+}
+
+[data-ui-style] .ui-badge-purple {
+	background-color: rgba(168, 85, 247, 0.15);
+	color: #c084fc;
+	border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+[data-ui-style] .ui-badge-cyan {
+	background-color: rgba(6, 182, 212, 0.15);
+	color: #22d3ee;
+	border: 1px solid rgba(6, 182, 212, 0.3);
+}
+
 [data-ui-style].light .ui-badge-neutral {
 	background-color: rgba(0, 0, 0, 0.06);
 	color: var(--text-secondary);
@@ -1907,6 +1925,24 @@ html[data-ui-style="cyber-terminal"] .ui-tab {
 	background-color: rgba(37, 99, 235, 0.1);
 	color: #2563eb;
 	border-color: rgba(37, 99, 235, 0.25);
+}
+
+[data-ui-style].light .ui-badge-orange {
+	background-color: rgba(234, 88, 12, 0.1);
+	color: #c2410c;
+	border-color: rgba(234, 88, 12, 0.25);
+}
+
+[data-ui-style].light .ui-badge-purple {
+	background-color: rgba(147, 51, 234, 0.1);
+	color: #9333ea;
+	border-color: rgba(147, 51, 234, 0.25);
+}
+
+[data-ui-style].light .ui-badge-cyan {
+	background-color: rgba(8, 145, 178, 0.1);
+	color: #0e7490;
+	border-color: rgba(8, 145, 178, 0.25);
 }
 
 /* =============================================

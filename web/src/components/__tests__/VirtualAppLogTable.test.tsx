@@ -265,8 +265,7 @@ describe("VirtualAppLogTable", () => {
 			// closest('[data-test-variant]') to find the outer Badge span
 			const badge = screen.getByText("ERROR").closest("[data-test-variant]");
 			expect(badge).toBeInTheDocument();
-			expect(badge?.className).toContain("bg-red-900/30");
-			expect(badge?.className).toContain("text-red-400");
+			expect(badge?.className).toContain("ui-badge-error");
 		});
 
 		it('renders level badge with correct variant for "warning" level', () => {
@@ -289,8 +288,7 @@ describe("VirtualAppLogTable", () => {
 
 			const badge = screen.getByText("WARNING").closest("[data-test-variant]");
 			expect(badge).toBeInTheDocument();
-			expect(badge?.className).toContain("bg-yellow-900/30");
-			expect(badge?.className).toContain("text-yellow-400");
+			expect(badge?.className).toContain("ui-badge-warning");
 		});
 
 		it('renders level badge with correct variant for "info" level', () => {
@@ -310,8 +308,7 @@ describe("VirtualAppLogTable", () => {
 
 			const badge = screen.getByText("INFO").closest("[data-test-variant]");
 			expect(badge).toBeInTheDocument();
-			expect(badge?.className).toContain("bg-blue-900/30");
-			expect(badge?.className).toContain("text-blue-400");
+			expect(badge?.className).toContain("ui-badge-info");
 		});
 	});
 

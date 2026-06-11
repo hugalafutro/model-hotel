@@ -23,8 +23,7 @@ describe("LiveToggleButton", () => {
 	it("shows green button styling when enabled", () => {
 		renderWithProviders(<LiveToggleButton enabled={true} onToggle={vi.fn()} />);
 		const button = screen.getByRole("button");
-		expect(button).toHaveClass("bg-green-500/20");
-		expect(button).toHaveClass("text-green-400");
+		expect(button).toHaveClass("ui-badge-success");
 	});
 
 	it("shows gray button styling when disabled", () => {
@@ -32,8 +31,7 @@ describe("LiveToggleButton", () => {
 			<LiveToggleButton enabled={false} onToggle={vi.fn()} />,
 		);
 		const button = screen.getByRole("button");
-		expect(button).toHaveClass("bg-gray-700");
-		expect(button).toHaveClass("text-gray-400");
+		expect(button).toHaveClass("ui-badge-neutral");
 	});
 
 	it("calls onToggle with flipped value (true->false) on click", async () => {
