@@ -1,0 +1,53 @@
+# Weekly vulnerability scan of the published image.
+#
+# The CI gate only runs when a PR is open, but CVEs land in already-published
+# images (this is exactly how the OpenSSL 3.5.6 flags appeared on Docker Hub:
+# no code changed, the world did). A failed run here means a rebuild/release
+# would fix something — the docker-publish workflow's apk upgrade pulls current
+# Alpine patches — so it doubles as the signal to cut a patch release. It also
+# catches the publish workflow's GHA layer cache serving a stale apk upgrade
+# layer.
+name: Scan Published Image
+
+on:
+  schedule:
+    - cron: '17 6 * * 1' # Mondays 06:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  scan:
+    name: Trivy Scan (latest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      # Full-picture report (all severities, unfixed included) for the GitHub
+      # Security tab, so findings are tracked over time — deliberately broader
+      # than the gate below, which only fails on what is actionable.
+      - name: Scan published image (SARIF report)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: docker.io/hugalafutro/model-hotel:latest
+          format: sarif
+          output: trivy-image.sarif
+
+      - name: Upload SARIF to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@1a818fd5f97ed0ee9a823421bd5b171add01227f # v4.36.2
+        with:
+          sarif_file: trivy-image.sarif
+          category: published-image
+
+      # Same actionable-only policy as the CI gate: fixable HIGH/CRITICAL only.
+      - name: Scan published image for fixable HIGH/CRITICAL vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: docker.io/hugalafutro/model-hotel:latest
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: 1
