@@ -105,10 +105,11 @@ jobs:
 
       # Sync the Docker Hub repository README from the tracked, Hub-tailored
       # copy (absolute URLs only — the GitHub README's relative links break on
-      # Docker Hub, so the two are deliberately separate documents). The file
-      # is uploaded verbatim; nothing is rewritten. Requires the DOCKERHUB_TOKEN
-      # PAT to have read/write/delete scope. Non-blocking: a failed README sync
-      # must never fail a release.
+      # Docker Hub, so the two are deliberately separate documents; it lives
+      # at the repo root next to README.md so doc updates don't miss it). The
+      # file is uploaded verbatim; nothing is rewritten. Requires the
+      # DOCKERHUB_TOKEN PAT to have read/write/delete scope. Non-blocking: a
+      # failed README sync must never fail a release.
       - name: Sync Docker Hub README
         if: steps.version.outputs.skip_existing == 'false'
         continue-on-error: true
@@ -117,4 +118,4 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: ${{ env.DOCKERHUB_IMAGE }}
-          readme-filepath: ./docs/DOCKERHUB.md
+          readme-filepath: ./DOCKERHUB.md
