@@ -28,6 +28,8 @@ const mockEntry: FailoverGroup["entries"][0] = {
 	provider_name: mockProvider.name,
 	display_name: "Test Model",
 	enabled: true,
+	model_enabled: true,
+	provider_enabled: true,
 	context_length: 8192,
 	owned_by: "test-provider",
 };
@@ -155,6 +157,8 @@ describe("SortableEntry", () => {
 			provider_name: "Different Provider",
 			display_name: "Different Model",
 			enabled: false,
+			model_enabled: true,
+			provider_enabled: true,
 			context_length: 16384,
 			owned_by: "different-provider",
 		};
@@ -220,5 +224,62 @@ describe("SortableEntry", () => {
 		renderWithProviders(<SortableEntry {...defaultProps} />);
 
 		expect(screen.getByText("Test Provider")).toBeInTheDocument();
+	});
+
+	it("does not render effective-disabled badge when model and provider are enabled", () => {
+		renderWithProviders(<SortableEntry {...defaultProps} />);
+
+		expect(
+			screen.queryByTestId("failover-entry-effective-disabled"),
+		).not.toBeInTheDocument();
+	});
+
+	it("greys and badges entry when model is disabled even with entry toggle on", () => {
+		const entry = { ...mockEntry, enabled: true, model_enabled: false };
+
+		renderWithProviders(
+			<SortableEntry entry={entry} groupEnabled={true} onToggle={vi.fn()} />,
+		);
+
+		const badge = screen.getByTestId("failover-entry-effective-disabled");
+		expect(badge).toHaveClass("ui-badge-warning");
+
+		// Disabled styling applies despite the entry intent toggle being on...
+		const entryDiv = screen.getByRole("switch").closest("div");
+		expect(entryDiv).toHaveClass("failover-entry-disabled");
+
+		// ...and the toggle stays functional so the user can keep their intent.
+		expect(screen.getByRole("switch")).toBeChecked();
+		expect(screen.getByRole("switch")).not.toBeDisabled();
+	});
+
+	it("badges entry when provider is disabled", () => {
+		const modelBadgeEntry = { ...mockEntry, model_enabled: false };
+		const { unmount } = renderWithProviders(
+			<SortableEntry
+				entry={modelBadgeEntry}
+				groupEnabled={true}
+				onToggle={vi.fn()}
+			/>,
+		);
+		const modelBadgeText = screen.getByTestId(
+			"failover-entry-effective-disabled",
+		).textContent;
+		unmount();
+
+		const providerBadgeEntry = { ...mockEntry, provider_enabled: false };
+		renderWithProviders(
+			<SortableEntry
+				entry={providerBadgeEntry}
+				groupEnabled={true}
+				onToggle={vi.fn()}
+			/>,
+		);
+		const providerBadge = screen.getByTestId(
+			"failover-entry-effective-disabled",
+		);
+		expect(providerBadge).toHaveClass("ui-badge-warning");
+		// Provider-disabled wording differs from model-disabled wording.
+		expect(providerBadge.textContent).not.toBe(modelBadgeText);
 	});
 });

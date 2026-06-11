@@ -27,6 +27,10 @@ import {
 	getProviderType,
 	providerTypeTranslationKeys,
 } from "./Providers/constants";
+import {
+	type DiscoverySummaryEntry,
+	DiscoverySummaryModal,
+} from "./Providers/DiscoverySummaryModal";
 import { EditProviderModal } from "./Providers/EditProviderModal";
 import { ProviderCard } from "./Providers/ProviderCard";
 
@@ -42,6 +46,11 @@ export function Providers() {
 		string | null
 	>(null);
 	const [modelsProvider, setModelsProvider] = useState<Provider | null>(null);
+	// Post-scan summary for manually triggered discovery runs only; scheduled
+	// or background discovery must never pop modals (SSE events cover those).
+	const [discoverySummary, setDiscoverySummary] = useState<
+		DiscoverySummaryEntry[] | null
+	>(null);
 	const [typeFilter, setTypeFilter] = useState("");
 	const [nameFilter, setNameFilter] = useState("");
 	const [sortAsc, setSortAsc] = useState(true);
@@ -116,6 +125,15 @@ export function Providers() {
 					"error",
 				);
 			}
+			if (data.results.length > 0) {
+				setDiscoverySummary(
+					data.results.map((r) => ({
+						providerName: r.provider_name,
+						diff: r.diff,
+						error: r.error,
+					})),
+				);
+			}
 		},
 		onError: (err: Error) => {
 			toast(
@@ -163,9 +181,11 @@ export function Providers() {
 			setDiscoveringId(id);
 			return api.providers.discover(id);
 		},
-		onSuccess: () => {
+		onSuccess: (data, id) => {
 			queryClient.invalidateQueries({ queryKey: ["providers"] });
 			queryClient.invalidateQueries({ queryKey: ["models"] });
+			const providerName = providers?.find((p) => p.id === id)?.name ?? id;
+			setDiscoverySummary([{ providerName, diff: data.diff }]);
 		},
 		onError: (err: Error) => {
 			toast(
@@ -396,6 +416,13 @@ export function Providers() {
 					onToast={toast}
 					settings={settings}
 					providers={providers}
+				/>
+			)}
+
+			{discoverySummary && (
+				<DiscoverySummaryModal
+					results={discoverySummary}
+					onClose={() => setDiscoverySummary(null)}
 				/>
 			)}
 

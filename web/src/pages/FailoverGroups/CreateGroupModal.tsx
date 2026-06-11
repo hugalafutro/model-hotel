@@ -53,16 +53,19 @@ export function CreateGroupModal({
 				const pid = proxyModelID(e.provider_name, e.model_id);
 				if (!seen.has(pid)) {
 					seen.add(pid);
+					// Entries absent from candidates have a disabled model or
+					// provider; suffix the label so same-named pills stay
+					// distinguishable from their available counterparts.
 					items.push({
 						provider_name: e.provider_name,
 						model_id: e.model_id,
-						display_name: e.display_name || undefined,
+						display_name: `${e.display_name || e.model_id} (${t("failoverGroups.modal.unavailable")})`,
 					});
 				}
 			}
 		}
 		return items;
-	}, [candidates, group]);
+	}, [candidates, group, t]);
 
 	// Build proxyID → model_uuid lookup for submission
 	// Includes candidates AND group entries (edit mode) so unavailable providers aren't lost

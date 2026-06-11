@@ -60,6 +60,8 @@ const mockEditGroup: FailoverGroup = {
 			provider_name: "Ollama Cloud",
 			display_name: "Gemma 3 4B",
 			enabled: true,
+			model_enabled: true,
+			provider_enabled: true,
 			context_length: 8192,
 			owned_by: "google",
 		},
@@ -70,6 +72,8 @@ const mockEditGroup: FailoverGroup = {
 			provider_name: "NanoGPT",
 			display_name: "Gemma 3",
 			enabled: true,
+			model_enabled: true,
+			provider_enabled: true,
 			context_length: 8192,
 			owned_by: "google",
 		},
@@ -1004,6 +1008,8 @@ describe("CreateGroupModal", () => {
 						provider_name: "Old Provider",
 						display_name: "Old Model",
 						enabled: true,
+						model_enabled: true,
+						provider_enabled: true,
 						context_length: 4096,
 						owned_by: "old",
 					},
@@ -1022,8 +1028,46 @@ describe("CreateGroupModal", () => {
 			// All 3 entries should show as selected (2 from candidates + 1 unavailable)
 			expect(screen.getByText("3 selected")).toBeInTheDocument();
 
-			// The unavailable entry's provider should appear as a pill
-			expect(screen.getByText("Old Model")).toBeInTheDocument();
+			// The unavailable entry's pill is suffixed so it stays
+			// distinguishable from a same-named available candidate
+			expect(screen.getByText("Old Model (unavailable)")).toBeInTheDocument();
+		});
+
+		it("keeps same-named stale and available pills distinguishable", () => {
+			// The group references an old model whose display name collides with
+			// an available candidate (the rename scenario): only the stale one
+			// gets the unavailable suffix.
+			const groupWithRenamedEntry: FailoverGroup = {
+				...mockEditGroup,
+				entries: [
+					...mockEditGroup.entries,
+					{
+						model_uuid: "uuid-renamed-away",
+						model_id: "gemma3:4b-old",
+						provider_id: "provider-005",
+						provider_name: "Renamed Provider",
+						display_name: "Gemma 3 4B",
+						enabled: true,
+						model_enabled: false,
+						provider_enabled: true,
+						context_length: 8192,
+						owned_by: "google",
+					},
+				],
+			};
+
+			renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					group={groupWithRenamedEntry}
+					onClose={mockOnClose}
+					onUpdated={mockOnUpdated}
+				/>,
+			);
+
+			// Available candidate keeps its plain label; stale entry is suffixed.
+			expect(screen.getByText("Gemma 3 4B")).toBeInTheDocument();
+			expect(screen.getByText("Gemma 3 4B (unavailable)")).toBeInTheDocument();
 		});
 
 		it("sends empty description when cleared in edit mode", async () => {
@@ -1083,6 +1127,8 @@ describe("CreateGroupModal", () => {
 						provider_name: "Old Provider No Display",
 						display_name: "",
 						enabled: true,
+						model_enabled: true,
+						provider_enabled: true,
 						context_length: 4096,
 						owned_by: "old",
 					},
@@ -1093,6 +1139,8 @@ describe("CreateGroupModal", () => {
 						provider_name: "NanoGPT",
 						display_name: "Gemma 3",
 						enabled: true,
+						model_enabled: true,
+						provider_enabled: true,
 						context_length: 8192,
 						owned_by: "google",
 					},
@@ -1109,7 +1157,10 @@ describe("CreateGroupModal", () => {
 			);
 
 			// The unavailable entry with empty display_name should show model_id
-			expect(screen.getByText("old-model-no-display")).toBeInTheDocument();
+			// (with the unavailable suffix, since it is absent from candidates)
+			expect(
+				screen.getByText("old-model-no-display (unavailable)"),
+			).toBeInTheDocument();
 		});
 
 		it("updates display_model when changed in edit mode", async () => {

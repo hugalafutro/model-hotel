@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Model, Provider } from "../../api/types";
 import { renderWithProviders } from "../../test/utils";
+import { formatDate } from "../../utils/format";
 import { VirtualModelTable } from "../VirtualModelTable";
 
 // Mock @tanstack/react-virtual (same pattern as VirtualLogTable/AppLogTable)
@@ -428,6 +429,32 @@ describe("VirtualModelTable", () => {
 			setupWithEntries(entries);
 			renderWithProviders(<VirtualModelTable />);
 			expect(screen.getByText("Disabled")).toBeInTheDocument();
+		});
+
+		it("shows discovery tooltip on badge for discovery-disabled models", () => {
+			const entries = [
+				createModel({
+					enabled: false,
+					disabled_manually: false,
+					last_seen_at: "2026-05-11T08:30:00Z",
+				}),
+			];
+			setupWithEntries(entries);
+			renderWithProviders(<VirtualModelTable />);
+			const badge = screen.getByTestId("disabled-by-discovery");
+			expect(badge).toHaveAttribute(
+				"title",
+				expect.stringContaining(formatDate("2026-05-11T08:30:00Z")),
+			);
+		});
+
+		it("does not show discovery tooltip for manually disabled models", () => {
+			const entries = [createModel({ enabled: true, disabled_manually: true })];
+			setupWithEntries(entries);
+			renderWithProviders(<VirtualModelTable />);
+			expect(
+				screen.queryByTestId("disabled-by-discovery"),
+			).not.toBeInTheDocument();
 		});
 
 		it("renders capability badges on model rows", () => {

@@ -13,6 +13,7 @@ import type { Model, ModelsCursorResponse, Provider } from "../api/types";
 import { useBidirectionalFetch } from "../hooks/useBidirectionalFetch";
 import {
 	encodeCursor,
+	formatDate,
 	formatNumber,
 	formatRelativeTime,
 } from "../utils/format";
@@ -625,6 +626,14 @@ export function VirtualModelTable({
 															? "ui-badge-warning"
 															: "ui-badge-error"
 												}`}
+												{...(!model.enabled && !model.disabled_manually
+													? {
+															title: t("models.disabledByDiscovery", {
+																date: formatDate(model.last_seen_at),
+															}),
+															"data-testid": "disabled-by-discovery",
+														}
+													: {})}
 											>
 												<span className="badge-text">
 													{isActive

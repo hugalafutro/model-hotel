@@ -503,6 +503,8 @@ export const handlers: RequestHandler[] = [
 					provider_name: "Unknown Provider",
 					display_name: `Model ${uuid.slice(0, 8)}`,
 					enabled: true,
+					model_enabled: true,
+					provider_enabled: true,
 					context_length: null,
 					owned_by: "unknown",
 				};

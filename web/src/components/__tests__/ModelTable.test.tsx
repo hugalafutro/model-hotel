@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockModel, mockProvider } from "../../test/mocks/data";
 import { server } from "../../test/mocks/server";
 import { renderWithProviders } from "../../test/utils";
+import { formatDate } from "../../utils/format";
 import { ModelTable } from "../ModelTable";
 
 describe("ModelTable", () => {
@@ -162,6 +163,47 @@ describe("ModelTable", () => {
 			const table = screen.getByRole("table");
 			const disabledBadges = within(table).getAllByText("Disabled");
 			expect(disabledBadges.length).toBeGreaterThan(0);
+		});
+
+		it("shows discovery tooltip on badge for discovery-disabled model", () => {
+			const discoveryDisabledModel = {
+				...mockModel,
+				enabled: false,
+				disabled_manually: false,
+			};
+
+			renderWithProviders(
+				<ModelTable
+					models={[discoveryDisabledModel]}
+					providers={[mockProvider]}
+				/>,
+			);
+
+			const badge = screen.getByTestId("disabled-by-discovery");
+			// Tooltip mentions the model's last_seen_at date in the user's locale.
+			expect(badge).toHaveAttribute(
+				"title",
+				expect.stringContaining(formatDate(mockModel.last_seen_at)),
+			);
+		});
+
+		it("does not show discovery tooltip for manually disabled model", () => {
+			const manuallyDisabledModel = {
+				...mockModel,
+				enabled: false,
+				disabled_manually: true,
+			};
+
+			renderWithProviders(
+				<ModelTable
+					models={[manuallyDisabledModel]}
+					providers={[mockProvider]}
+				/>,
+			);
+
+			expect(
+				screen.queryByTestId("disabled-by-discovery"),
+			).not.toBeInTheDocument();
 		});
 
 		it("renders search input", () => {
