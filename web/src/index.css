@@ -2602,6 +2602,19 @@ html.light .terminal-titlebar-win11 .win11-icon {
 }
 
 /* Disabled failover entry pill - CSS-only styles */
+/* Dark/Light selector: two separate buttons in most themes; Terminal
+   joins them into one outlined segmented toggle. */
+.theme-mode-toggle {
+	display: flex;
+	gap: 0.5rem;
+}
+html[data-ui-style="cyber-terminal"] .theme-mode-toggle {
+	gap: 0;
+	border: 1px solid var(--border-default);
+	border-radius: var(--radius-button);
+	overflow: hidden;
+}
+
 /* Accent color swatches: circles everywhere, squares in Terminal. */
 .color-swatch {
 	border-radius: 9999px;

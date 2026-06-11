@@ -284,7 +284,7 @@ export function AppearanceSettings({
 						<p className="text-sm font-medium text-gray-300">
 							{t("settings.appearance.theme")}
 						</p>
-						<div className="flex overflow-hidden border border-gray-600 rounded-(--radius-button)">
+						<div className="theme-mode-toggle">
 							<button
 								type="button"
 								onClick={() => setTheme("dark")}
