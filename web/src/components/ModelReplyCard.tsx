@@ -288,7 +288,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 								<button
 									type="button"
 									onClick={onDisableModel}
-									className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-red-500/15 text-red-400 hover:bg-red-500/25 hover:text-red-300 border border-red-500/30 transition-all cursor-pointer"
+									className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-(--radius-button) text-xs font-medium bg-red-500/15 text-red-400 hover:bg-red-500/25 hover:text-red-300 border border-red-500/30 transition-all cursor-pointer"
 									title={t("components.modelReplyCard.disableModelTooltip")}
 								>
 									<PowerOff size={12} />
@@ -324,7 +324,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 											<button
 												type="button"
 												onClick={onDisableModel}
-												className="inline-flex items-center gap-1 shrink-0 px-2 py-0.5 rounded text-[11px] font-medium bg-red-500/20 text-red-400 hover:bg-red-500/30 hover:text-red-300 border border-red-500/30 transition-all cursor-pointer"
+												className="inline-flex items-center gap-1 shrink-0 px-2 py-0.5 rounded-(--radius-button) text-[11px] font-medium bg-red-500/20 text-red-400 hover:bg-red-500/30 hover:text-red-300 border border-red-500/30 transition-all cursor-pointer"
 												title={t(
 													"components.modelReplyCard.disableModelTooltip",
 												)}

@@ -136,7 +136,7 @@ export function SwapPicker({
 												type="button"
 												key={id}
 												onClick={() => onSelect(id)}
-												className="px-2 py-0.5 text-[11px] rounded-md border bg-(--surface-hover) border-(--border-subtle) text-(--text-secondary) hover:text-(--text-primary) hover:border-(--accent)/40 transition-colors cursor-pointer"
+												className="ui-tab px-2 py-0.5 text-[11px] border bg-(--surface-hover) border-(--border-subtle) text-(--text-secondary) hover:text-(--text-primary) hover:border-(--accent)/40 transition-colors cursor-pointer"
 											>
 												{m.display_name || m.model_id}
 											</button>

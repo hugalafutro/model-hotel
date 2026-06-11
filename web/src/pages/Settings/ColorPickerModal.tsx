@@ -52,7 +52,7 @@ export function ColorPickerModal({
 					<button
 						type="button"
 						onClick={onClose}
-						className="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors"
+						className="flex-1 px-3 py-2 rounded-(--radius-button) text-sm font-medium bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors"
 					>
 						{t("settings.colorPicker.cancel")}
 					</button>

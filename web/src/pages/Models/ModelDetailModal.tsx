@@ -45,7 +45,7 @@ function RevertButton({
 		<button
 			type="button"
 			onClick={onClick}
-			className={`text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer ${className ?? ""}`}
+			className={`text-[10px] px-1.5 py-0.5 rounded-(--radius-button) bg-gray-700 text-gray-400 hover:text-white border border-gray-600 cursor-pointer ${className ?? ""}`}
 			title={t("model.revertToDiscoveredValue")}
 			aria-label={t("model.revertToDiscoveredValue")}
 		>
@@ -599,7 +599,7 @@ export function ModelDetailModal({
 							role="tab"
 							aria-selected={snippetTab === entry.key}
 							onClick={() => setSnippetTab(entry.key)}
-							className={`p-1.5 rounded cursor-pointer transition-all ${
+							className={`ui-tab p-1.5 cursor-pointer transition-all ${
 								snippetTab === entry.key
 									? "bg-slate-700/30 border border-slate-600/30"
 									: "text-slate-500 hover:text-slate-400 border border-transparent"

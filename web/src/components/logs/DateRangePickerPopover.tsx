@@ -152,7 +152,7 @@ export function DateRangePickerPopover({
 				<button
 					type="button"
 					onClick={onClear}
-					className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-(--border-input) text-(--text-secondary) hover:text-(--text-primary) hover:bg-(--surface-hover) transition-colors"
+					className="flex-1 px-3 py-1.5 text-xs rounded-(--radius-button) border border-(--border-input) text-(--text-secondary) hover:text-(--text-primary) hover:bg-(--surface-hover) transition-colors"
 				>
 					{t("components.logs.dateRangePicker.clear")}
 				</button>
@@ -160,7 +160,7 @@ export function DateRangePickerPopover({
 					type="button"
 					onClick={onApply}
 					disabled={!pendingFrom}
-					className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-(--accent-light) bg-(--accent-light) text-(--accent) hover:brightness-125 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+					className="flex-1 px-3 py-1.5 text-xs rounded-(--radius-button) border border-(--accent-light) bg-(--accent-light) text-(--accent) hover:brightness-125 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
 				>
 					{t("components.logs.dateRangePicker.apply")}
 				</button>

@@ -472,7 +472,7 @@ export function Chat() {
 											<button
 												type="button"
 												onClick={() => chat.imageInputRef.current?.click()}
-												className={`p-2 rounded-lg cursor-pointer transition-colors ${
+												className={`p-2 rounded-(--radius-button) cursor-pointer transition-colors ${
 													chat.pendingImage
 														? "bg-(--accent)/20 text-(--accent)"
 														: "text-(--text-tertiary) hover:text-(--text-secondary) hover:bg-(--surface)"
@@ -497,7 +497,7 @@ export function Chat() {
 											<button
 												type="button"
 												onClick={() => chat.audioInputRef.current?.click()}
-												className={`p-2 rounded-lg cursor-pointer transition-colors ${
+												className={`p-2 rounded-(--radius-button) cursor-pointer transition-colors ${
 													chat.pendingAudio
 														? "bg-(--accent)/20 text-(--accent)"
 														: "text-(--text-tertiary) hover:text-(--text-secondary) hover:bg-(--surface)"
