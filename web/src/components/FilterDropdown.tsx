@@ -108,9 +108,6 @@ export function FilterDropdown({
 								setOpen(false);
 							}}
 							className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-xl text-xs text-left transition-colors cursor-pointer ${value === "" ? "bg-(--accent-light) text-(--accent)" : "text-(--text-secondary) hover:bg-(--surface-hover)"}`}
-							style={{
-								fontFamily: "var(--font-mono), ui-monospace, monospace",
-							}}
 						>
 							<span
 								className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded border transition-colors shrink-0 ${value === "" ? "bg-(--accent) border-(--accent)" : "border-(--border-input) bg-(--surface-input)"}`}
@@ -131,9 +128,6 @@ export function FilterDropdown({
 										setOpen(false);
 									}}
 									className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-xl text-xs text-left transition-colors cursor-pointer ${isSelected ? "bg-(--accent-light) text-(--accent)" : "text-(--text-secondary) hover:bg-(--surface-hover)"}`}
-									style={{
-										fontFamily: "var(--font-mono), ui-monospace, monospace",
-									}}
 								>
 									<span
 										className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded border transition-colors shrink-0 ${isSelected ? "bg-(--accent) border-(--accent)" : "border-(--border-input) bg-(--surface-input)"}`}
