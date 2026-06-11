@@ -68,7 +68,7 @@ export function FilterDropdown({
 						<span
 							role="button"
 							tabIndex={0}
-							className="ui-badge inline-flex items-center justify-center w-4 h-4 text-[10px] font-medium bg-(--accent-light) text-(--accent) hover:bg-(--accent) hover:text-white transition-colors cursor-pointer"
+							className="inline-flex items-center justify-center text-(--text-tertiary) hover:text-(--text-primary) transition-colors cursor-pointer"
 							onClick={(e) => {
 								e.stopPropagation();
 								onChange("");
@@ -82,7 +82,7 @@ export function FilterDropdown({
 							}}
 							title={t("common.clearFilter")}
 						>
-							<X size={10} />
+							<X size={14} />
 						</span>
 					)}
 					<ChevronDown
