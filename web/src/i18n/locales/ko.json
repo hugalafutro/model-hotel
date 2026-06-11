@@ -232,7 +232,7 @@
 				"requestsTitle": "요청",
 				"requestsMetric": "요청",
 				"requestsLabel": "요청",
-				"avgTtftTitle": "평균 처리 시간",
+				"avgTtftTitle": "평균 TTFT",
 				"ttftMetric": "TTFT",
 				"ttftLabel": "TTFT",
 				"rateLimitHitsTitle": "요청 횟수 제한 초과",

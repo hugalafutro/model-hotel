@@ -207,7 +207,7 @@
 		},
 		"gauge": {
 			"requestsPerRange": "Sol·licituds/{{range}}",
-			"avgTtftPerRange": "Mitjana TTFT /{{range}}",
+			"avgTtftPerRange": "Mitjana TTFT/{{range}}",
 			"avgOverheadPerRange": "Mitjana de despeses generals /{{range}}",
 			"rateLimitHitsPerRange": "Rate Limit Hits /{{range}}",
 			"errorRatePerRange": "Taxa d'errors /{{range}}",
@@ -253,7 +253,7 @@
 			"tokens": "Fitxes",
 			"emptyState": "Encara no hi ha dades de sèrie temporal. {{metric}} apareixerà aquí un cop hi hagi fluxos de trànsit.",
 			"requestsOver": "Sol·licituds/{{range}}",
-			"avgTtftOver": "Mitjana TTFT /{{range}}",
+			"avgTtftOver": "Mitjana TTFT/{{range}}",
 			"avgOverheadOver": "Mitjana de despeses generals /{{range}}",
 			"rateLimitHitsOver": "Rate Limit Hits /{{range}}",
 			"errorRateOver": "Taxa d'errors /{{range}}",

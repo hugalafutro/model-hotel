@@ -207,7 +207,7 @@
 		},
 		"gauge": {
 			"requestsPerRange": "Versoeke /{{range}}",
-			"avgTtftPerRange": "Gemiddelde TTFT /{{range}}",
+			"avgTtftPerRange": "Gem. TTFT/{{range}}",
 			"avgOverheadPerRange": "Gemiddelde Overhead /{{range}}",
 			"rateLimitHitsPerRange": "Trefferbeperkings /{{range}}",
 			"errorRatePerRange": "Foutkoers /{{range}}",
@@ -253,7 +253,7 @@
 			"tokens": "Tokens",
 			"emptyState": "Nog geen tydreekse-data nie. {{metric}} sal hier verskyn sodra verkeersvloei daar is.",
 			"requestsOver": "Versoeke /{{range}}",
-			"avgTtftOver": "Gemiddelde TTFT /{{range}}",
+			"avgTtftOver": "Gem. TTFT/{{range}}",
 			"avgOverheadOver": "Gemiddelde Overhead /{{range}}",
 			"rateLimitHitsOver": "Trefferbeperkings /{{range}}",
 			"errorRateOver": "Foutkoers /{{range}}",

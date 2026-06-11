@@ -207,7 +207,7 @@
 		},
 		"gauge": {
 			"requestsPerRange": "Pyynnöt/{{range}}",
-			"avgTtftPerRange": "Keskim. TTFt/{{range}}",
+			"avgTtftPerRange": "Keskim. TTFT/{{range}}",
 			"avgOverheadPerRange": "Keskim. Overhead/{{range}}",
 			"rateLimitHitsPerRange": "Arvostele Rajoitus Hittiä/{{range}}",
 			"errorRatePerRange": "Virheiden Hinta/{{range}}",
@@ -253,7 +253,7 @@
 			"tokens": "Tokenit",
 			"emptyState": "Aikasarjatietoja ei ole vielä. {{metric}} ilmestyy tänne liikennevirtojen jälkeen.",
 			"requestsOver": "Pyynnöt/{{range}}",
-			"avgTtftOver": "Keskim. TTFt/{{range}}",
+			"avgTtftOver": "Keskim. TTFT/{{range}}",
 			"avgOverheadOver": "Keskim. Overhead/{{range}}",
 			"rateLimitHitsOver": "Arvostele Rajoitus Hittiä/{{range}}",
 			"errorRateOver": "Virheiden Hinta/{{range}}",

@@ -232,7 +232,7 @@
 				"requestsTitle": "Kérelmek",
 				"requestsMetric": "Kérelmek",
 				"requestsLabel": "Kérelmek",
-				"avgTtftTitle": "Átlagos teljes feldolgozási idő",
+				"avgTtftTitle": "Átlagos TTFT",
 				"ttftMetric": "TTFT",
 				"ttftLabel": "TTFT",
 				"rateLimitHitsTitle": "A kéréskorlátozás elérése",

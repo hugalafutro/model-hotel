@@ -207,7 +207,7 @@
 		},
 		"gauge": {
 			"requestsPerRange": "Solicitações /{{range}}",
-			"avgTtftPerRange": "Média do TTF/{{range}}",
+			"avgTtftPerRange": "TTFT médio/{{range}}",
 			"avgOverheadPerRange": "Avg Overhead/{{range}}",
 			"rateLimitHitsPerRange": "Taxa limite de ataques /{{range}}",
 			"errorRatePerRange": "Taxa de erro /{{range}}",
@@ -253,7 +253,7 @@
 			"tokens": "Tokens",
 			"emptyState": "Nenhum dado da cronologia ainda. {{metric}} aparecerá aqui quando o tráfego fluir.",
 			"requestsOver": "Solicitações /{{range}}",
-			"avgTtftOver": "Média do TTF/{{range}}",
+			"avgTtftOver": "TTFT médio/{{range}}",
 			"avgOverheadOver": "Avg Overhead/{{range}}",
 			"rateLimitHitsOver": "Taxa limite de ataques /{{range}}",
 			"errorRateOver": "Taxa de erro /{{range}}",

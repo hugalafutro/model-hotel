@@ -207,7 +207,7 @@
 		},
 		"gauge": {
 			"requestsPerRange": "Anfragen/{{range}}",
-			"avgTtftPerRange": "Durchschnittliche TTFT/{{range}}",
+			"avgTtftPerRange": "Durchschn. TTFT/{{range}}",
 			"avgOverheadPerRange": "Durchschnittlicher Overhead/{{range}}",
 			"rateLimitHitsPerRange": "Bewertungslimit Hits/{{range}}",
 			"errorRatePerRange": "Fehlerrate/{{range}}",
@@ -253,7 +253,7 @@
 			"tokens": "Token",
 			"emptyState": "Noch keine Zeitseriedaten. {{metric}} wird hier erscheinen, sobald der Datenverkehr fließt.",
 			"requestsOver": "Anfragen/{{range}}",
-			"avgTtftOver": "Durchschnittliche TTFT/{{range}}",
+			"avgTtftOver": "Durchschn. TTFT/{{range}}",
 			"avgOverheadOver": "Durchschnittlicher Overhead/{{range}}",
 			"rateLimitHitsOver": "Bewertungslimit Hits/{{range}}",
 			"errorRateOver": "Fehlerrate/{{range}}",
