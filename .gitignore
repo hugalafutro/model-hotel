@@ -60,8 +60,9 @@ docs/superpowers/
 *.test
 Thumbs.db
 .tokensave
-# Tool / editor metadata
-/tools/
+# Tool / editor metadata (i18n tooling is tracked - CI runs it)
+/tools/*
+!/tools/i18n-translate/
 /vendor/
 .vscode/
 /web/.coverage-result.json

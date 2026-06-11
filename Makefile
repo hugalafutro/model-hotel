@@ -46,6 +46,14 @@ test-db-up:
 test-db-down:
 	docker compose -f docker-compose.test.yml down -v
 
+# -- i18n (DeepL-based; see tools/i18n-translate/translate.py) --
+
+i18n-check:
+	python3 tools/i18n-translate/translate.py check
+
+i18n-fill:
+	python3 tools/i18n-translate/translate.py fill
+
 # -- One-time setup after cloning --
 
 setup:
