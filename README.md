@@ -34,6 +34,8 @@
  <img src="https://img.shields.io/badge/DeepSeek_V4_Pro-librarian-E53E3E?style=flat" alt="DeepSeek V4 Pro">
  <img src="https://img.shields.io/badge/GLM_5.1_Fast-fixer,%20explorer-8B5CF6?style=flat" alt="GLM 5.1 Fast">
  <img src="https://img.shields.io/badge/Gemini_3_Flash-observer-4285F4?style=flat" alt="Gemini 3 Flash">
+<br>
+ <img src="https://img.shields.io/badge/Claude_Fable-refactor,%20code%20review-D97757?style=flat" alt="Claude Fable">
 </div><br>
 
 A single OpenAI-compatible endpoint that sits in front of all your LLM providers. Models are auto-discovered the moment you add a provider and optionally on schedule; failover groups form automatically around shared model names and retry transparently when a provider goes down; no prompt data is ever stored.
