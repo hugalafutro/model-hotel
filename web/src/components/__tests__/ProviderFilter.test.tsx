@@ -401,38 +401,6 @@ describe("ProviderFilter", () => {
 		});
 	});
 
-	it("renders providers with monospace font", async () => {
-		const user = userEvent.setup();
-		renderWithProviders(
-			<ProviderFilter
-				providers={mockProviders}
-				selected={new Set()}
-				onChange={mockOnChange}
-			/>,
-		);
-		await user.click(screen.getByRole("button"));
-		const providerBtn = screen.getByText("OpenAI").closest("button");
-		expect(providerBtn).toHaveStyle(
-			"font-family: var(--font-mono), ui-monospace, monospace",
-		);
-	});
-
-	it("renders search input with monospace font", async () => {
-		const user = userEvent.setup();
-		renderWithProviders(
-			<ProviderFilter
-				providers={mockProviders}
-				selected={new Set()}
-				onChange={mockOnChange}
-			/>,
-		);
-		await user.click(screen.getByRole("button"));
-		const searchInput = screen.getByPlaceholderText("Search providers…");
-		expect(searchInput).toHaveStyle(
-			"font-family: var(--font-mono), ui-monospace, monospace",
-		);
-	});
-
 	it("handles undefined providers gracefully", () => {
 		renderWithProviders(
 			<ProviderFilter

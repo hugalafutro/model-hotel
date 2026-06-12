@@ -18,6 +18,7 @@ export function Models() {
 	const { t } = useTranslation();
 	const queryClient = useQueryClient();
 	const [detailModel, setDetailModel] = useState<Model | null>(null);
+	const [providerFilter, setProviderFilter] = useState("");
 	const [modelRefreshTrigger, setModelRefreshTrigger] = useState(0);
 	const [scrollTotal, setScrollTotal] = useState<number | undefined>(undefined);
 	const [viewMode, setViewMode] = useLocalStorage<"scroll" | "paginate">(
@@ -228,6 +229,8 @@ export function Models() {
 			{viewMode === "scroll" ? (
 				<VirtualModelTable
 					providers={providers}
+					providerFilter={providerFilter}
+					onProviderFilterChange={setProviderFilter}
 					onModelClick={setDetailModel}
 					refreshTrigger={modelRefreshTrigger}
 					onDeleteDisabled={handleDeleteDisabled}
@@ -237,6 +240,8 @@ export function Models() {
 				<ModelTable
 					models={models ?? []}
 					providers={providers}
+					providerFilter={providerFilter}
+					onProviderFilterChange={setProviderFilter}
 					onModelClick={setDetailModel}
 					onDeleteDisabled={handleDeleteDisabled}
 				/>

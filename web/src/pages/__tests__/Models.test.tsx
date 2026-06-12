@@ -42,6 +42,25 @@ describe("Models", () => {
 			expect(screen.queryByText(/\d+ enabled/)).not.toBeInTheDocument();
 		});
 
+		it("renders the provider filter dropdown above the table", async () => {
+			server.use(
+				http.get("/api/models", () => {
+					return HttpResponse.json([mockModel]);
+				}),
+				http.get("/api/providers", () => {
+					return HttpResponse.json([mockProvider]);
+				}),
+			);
+
+			renderWithProviders(<Models />);
+
+			// Shared FilterDropdown shows the all-providers label until a
+			// provider is picked
+			await waitFor(() => {
+				expect(screen.getByText("All providers")).toBeInTheDocument();
+			});
+		});
+
 		it("switches from scroll to paginate mode when clicking toggle", async () => {
 			localStorage.removeItem("modelsViewMode");
 

@@ -20,16 +20,19 @@ import {
 import { parseCapabilities, proxyModelID } from "../utils/model";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CAP_META, type CapKey, hasCap } from "./capMeta";
+import { FilterDropdown } from "./FilterDropdown";
 import { FilterInput } from "./FilterInput";
 import {
 	MODEL_COL_WIDTHS_NO_PROVIDER,
 	MODEL_COL_WIDTHS_WITH_PROVIDER,
 } from "./modelTableWidths";
-import { ProviderFilter } from "./ProviderFilter";
 
 interface VirtualModelTableProps {
 	providers?: Provider[];
-	initialProviderFilter?: Set<string>;
+	/** Active provider filter (provider id, "" = all). Owned by the page. */
+	providerFilter?: string;
+	/** When set (and providers given), renders the provider dropdown in the toolbar. */
+	onProviderFilterChange?: (providerId: string) => void;
 	onModelClick?: (model: Model) => void;
 	refreshTrigger?: number;
 	/** When provided, shows a "Delete disabled" button. Called with IDs of disabled models. */
@@ -50,7 +53,8 @@ const EDGE_THRESHOLD_PX = 500;
 
 export function VirtualModelTable({
 	providers,
-	initialProviderFilter,
+	providerFilter = "",
+	onProviderFilterChange,
 	onModelClick,
 	refreshTrigger,
 	onDeleteDisabled,
@@ -58,9 +62,6 @@ export function VirtualModelTable({
 }: VirtualModelTableProps) {
 	"use no memo";
 	const [searchQuery, setSearchQuery] = useState("");
-	const [selectedProviders, setSelectedProviders] = useState<Set<string>>(
-		initialProviderFilter ?? new Set(),
-	);
 	const [capFilter, setCapFilter] = useState<Set<CapKey>>(new Set());
 	const [sort, setSort] = useState<SortState>({
 		field: "name",
@@ -116,15 +117,14 @@ export function VirtualModelTable({
 			search: searchQuery || undefined,
 			sort_by: sort.field,
 		};
-		// Pass provider_id(s): comma-separated for multiple selection
-		if (selectedProviders.size > 0) {
-			result.provider_id = Array.from(selectedProviders).join(",");
+		if (providerFilter) {
+			result.provider_id = providerFilter;
 		}
 		if (capFilter.size > 0) {
 			result.capabilities = Array.from(capFilter).join(",");
 		}
 		return result;
-	}, [searchQuery, sort.field, selectedProviders, capFilter]);
+	}, [searchQuery, sort.field, providerFilter, capFilter]);
 
 	const getCursor = useCallback(
 		(entry: Model): string => {
@@ -326,6 +326,19 @@ export function VirtualModelTable({
 		<div className="flex flex-col min-h-0">
 			<div className="flex items-center gap-4 mb-4">
 				<div className="flex items-center gap-2 shrink-0">
+					{providers !== undefined && onProviderFilterChange && (
+						<FilterDropdown
+							value={providerFilter}
+							onChange={onProviderFilterChange}
+							placeholder={t("failover.filter_providers")}
+							allLabel={t("failover.filter_providers")}
+							options={providers.map((p) => ({
+								value: p.id,
+								label: p.name,
+							}))}
+							className="w-[220px] shrink-0"
+						/>
+					)}
 					<FilterInput
 						value={searchQuery}
 						onChange={setSearchQuery}
@@ -375,7 +388,7 @@ export function VirtualModelTable({
 							<col key={i} className={w} />
 						))}
 					</colgroup>
-					<thead className="sticky top-0 z-10 bg-(--surface)">
+					<thead className="sticky top-0 z-10">
 						<tr>
 							<th
 								className={`${HEADER_BASE} cursor-pointer select-none hover:text-gray-200`}
@@ -530,15 +543,7 @@ export function VirtualModelTable({
 									)}
 								</span>
 							</th>
-							{showProviderCol && (
-								<th className="px-4 py-2">
-									<ProviderFilter
-										providers={providers}
-										selected={selectedProviders}
-										onChange={setSelectedProviders}
-									/>
-								</th>
-							)}
+							{showProviderCol && <th className="px-4 py-2" />}
 							<th className="px-4 py-2" />
 							<th aria-hidden />
 							<th className="px-4 py-2" />

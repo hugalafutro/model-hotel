@@ -9,12 +9,12 @@ import { CopyablePill } from "./CopyablePill";
 import { CAP_META, type CapKey, hasCap, matchesAllCaps } from "./capMeta";
 import type { SortState } from "./DataTable";
 import { EmptyRow, PaginationBar, Row, SortableHeader } from "./DataTable";
+import { FilterDropdown } from "./FilterDropdown";
 import { FilterInput } from "./FilterInput";
 import {
 	MODEL_COL_WIDTHS_NO_PROVIDER,
 	MODEL_COL_WIDTHS_WITH_PROVIDER,
 } from "./modelTableWidths";
-import { ProviderFilter } from "./ProviderFilter";
 
 export type SortField =
 	| "name"
@@ -28,7 +28,10 @@ export type SortField =
 export interface ModelTableProps {
 	models: Model[];
 	providers?: Provider[];
-	initialProviderFilter?: Set<string>;
+	/** Active provider filter (provider id, "" = all). Owned by the page. */
+	providerFilter?: string;
+	/** When set (and providers given), renders the provider dropdown in the toolbar. */
+	onProviderFilterChange?: (providerId: string) => void;
 	onModelClick?: (model: Model) => void;
 	/** When provided, shows a "Delete disabled" button. Called with IDs of disabled models. */
 	onDeleteDisabled?: (ids: string[]) => void;
@@ -37,14 +40,12 @@ export interface ModelTableProps {
 export function ModelTable({
 	models,
 	providers,
-	initialProviderFilter,
+	providerFilter = "",
+	onProviderFilterChange,
 	onModelClick,
 	onDeleteDisabled,
 }: ModelTableProps) {
 	const [searchQuery, setSearchQuery] = useState("");
-	const [selectedProviders, setSelectedProviders] = useState<Set<string>>(
-		initialProviderFilter ?? new Set(),
-	);
 	const [sort, setSort] = useState<SortState<SortField>>({
 		field: "name",
 		dir: "asc",
@@ -55,6 +56,14 @@ export function ModelTable({
 
 	const [pageSize, setPageSize] = useState(20);
 	const [currentPage, setCurrentPage] = useState(1);
+
+	// Provider filter is owned by the page; jump back to page 1 when it
+	// changes (adjust-during-render pattern, no effect needed).
+	const [prevProviderFilter, setPrevProviderFilter] = useState(providerFilter);
+	if (prevProviderFilter !== providerFilter) {
+		setPrevProviderFilter(providerFilter);
+		setCurrentPage(1);
+	}
 
 	const showProviderCol = providers !== undefined;
 
@@ -86,8 +95,8 @@ export function ModelTable({
 
 		let filtered = baseFiltered;
 
-		if (selectedProviders.size > 0) {
-			filtered = filtered.filter((m) => selectedProviders.has(m.provider_id));
+		if (providerFilter) {
+			filtered = filtered.filter((m) => m.provider_id === providerFilter);
 		}
 
 		if (capFilter.size > 0) {
@@ -151,7 +160,7 @@ export function ModelTable({
 			pillAvailability: availability,
 			existingCaps: capsInData,
 		};
-	}, [models, searchQuery, sort, capFilter, selectedProviders]);
+	}, [models, searchQuery, sort, capFilter, providerFilter]);
 
 	const disabledModelIds = useMemo(
 		() => sortedAndFiltered.filter((m) => !m.enabled).map((m) => m.id),
@@ -189,6 +198,19 @@ export function ModelTable({
 		<div className="space-y-4">
 			<div className="flex items-center gap-4">
 				<div className="flex items-center gap-2 shrink-0">
+					{providers !== undefined && onProviderFilterChange && (
+						<FilterDropdown
+							value={providerFilter}
+							onChange={onProviderFilterChange}
+							placeholder={t("failover.filter_providers")}
+							allLabel={t("failover.filter_providers")}
+							options={providers.map((p) => ({
+								value: p.id,
+								label: p.name,
+							}))}
+							className="w-[220px] shrink-0"
+						/>
+					)}
 					<FilterInput
 						value={searchQuery}
 						onChange={(v) => {
@@ -330,18 +352,7 @@ export function ModelTable({
 									)}
 								</span>
 							</th>
-							{showProviderCol && (
-								<th className="px-4 py-2">
-									<ProviderFilter
-										providers={providers}
-										selected={selectedProviders}
-										onChange={(next) => {
-											setSelectedProviders(next);
-											setCurrentPage(1);
-										}}
-									/>
-								</th>
-							)}
+							{showProviderCol && <th className="px-4 py-2" />}
 							<th className="px-4 py-2" />
 							<th aria-hidden />
 							<th className="px-4 py-2" />
@@ -427,9 +438,7 @@ export function ModelTable({
 							<EmptyRow
 								colSpan={colSpan}
 								message={
-									searchQuery ||
-									selectedProviders.size > 0 ||
-									capFilter.size > 0
+									searchQuery || providerFilter !== "" || capFilter.size > 0
 										? t("components.modelTable.noModelsMatchFilters")
 										: t("components.modelTable.noModelsDiscovered")
 								}
