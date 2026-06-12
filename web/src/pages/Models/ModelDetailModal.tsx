@@ -83,12 +83,15 @@ export function ModelDetailModal({
 	onToast,
 	onUpdate,
 	onDelete,
+	zIndex,
 }: {
 	model: Model;
 	onClose: () => void;
-	onToggle: (id: string, enabled: boolean) => void;
-	onDiscover: (providerId: string) => Promise<unknown>;
-	onTest: (id: string) => Promise<{
+	/** Management callbacks. When omitted (read-only viewers like the
+	 * Dashboard and Arena), the action footer and editing are hidden. */
+	onToggle?: (id: string, enabled: boolean) => void;
+	onDiscover?: (providerId: string) => Promise<unknown>;
+	onTest?: (id: string) => Promise<{
 		success: boolean;
 		streaming: boolean;
 		ttft_ms: number;
@@ -96,11 +99,16 @@ export function ModelDetailModal({
 		response: string;
 		error?: string;
 	}>;
-	onToast: (msg: string, type?: "success" | "error" | "info") => void;
-	onUpdate: (id: string, updates: Partial<Model>) => void;
-	onDelete: (id: string) => void;
+	onToast?: (msg: string, type?: "success" | "error" | "info") => void;
+	onUpdate?: (id: string, updates: Partial<Model>) => void;
+	onDelete?: (id: string) => void;
+	/** Forwarded to Modal for callers that open it above another modal */
+	zIndex?: string;
 }) {
 	const { t } = useTranslation();
+	const manageable = Boolean(
+		onToggle && onDiscover && onTest && onToast && onUpdate && onDelete,
+	);
 	const caps = parseCapabilities(model.capabilities);
 	const params = parseParams(model.params);
 	const inputMods = (() => {
@@ -135,7 +143,7 @@ export function ModelDetailModal({
 		handleCancelEdit,
 		handleSave,
 		revertField,
-	} = useModelEditor({ model, onUpdate });
+	} = useModelEditor({ model, onUpdate: onUpdate ?? (() => {}) });
 	const [confirmDelete, setConfirmDelete] = useState(false);
 	const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 	const testErrorTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -149,7 +157,7 @@ export function ModelDetailModal({
 	}, []);
 
 	const handleDiscover = async () => {
-		if (cooldown > 0 || discovering) return;
+		if (!onDiscover || cooldown > 0 || discovering) return;
 		setDiscovering(true);
 		try {
 			await onDiscover(model.provider_id);
@@ -169,7 +177,7 @@ export function ModelDetailModal({
 	};
 
 	const handleTest = async () => {
-		if (testing) return;
+		if (!onTest || !onToast || testing) return;
 		setTesting(true);
 		setTestError(false);
 		try {
@@ -339,6 +347,7 @@ export function ModelDetailModal({
 			}
 			onClose={handleClose}
 			maxWidth="max-w-lg"
+			zIndex={zIndex}
 			scrollable
 		>
 			{model.description && (
@@ -630,102 +639,104 @@ export function ModelDetailModal({
 				</TerminalPreview>
 			</div>
 
-			<div className="flex items-center justify-between mt-4 pt-4">
-				<div className="flex items-center gap-2">
-					<button
-						type="button"
-						onClick={() => onToggle(model.id, !model.enabled)}
-						className={`ui-btn ${model.enabled ? "ui-btn-primary" : "ui-btn-danger"}`}
-					>
-						{model.enabled ? t("common.enabled") : t("common.disabled")}
-					</button>
-					<button
-						type="button"
-						disabled={testing}
-						onClick={handleTest}
-						className={`ui-btn ${
-							testError
-								? "ui-btn-danger bg-red-900/50 text-red-300 border-red-700/50"
-								: testing
-									? "ui-btn-secondary bg-amber-900/30 text-amber-300/70 border-amber-700/30 cursor-wait"
-									: "ui-btn-secondary"
-						}`}
-					>
-						{testing && <Spinner />}
-						{testing ? t("models.detail.testing") : t("models.detail.test")}
-					</button>
-					{!confirmDelete ? (
+			{manageable && (
+				<div className="flex items-center justify-between mt-4 pt-4">
+					<div className="flex items-center gap-2">
 						<button
 							type="button"
-							onClick={() => setConfirmDelete(true)}
-							className="ui-btn bg-red-900/20 text-red-500/60 border-red-700/30 hover:bg-red-900/40 hover:text-red-400"
+							onClick={() => onToggle?.(model.id, !model.enabled)}
+							className={`ui-btn ${model.enabled ? "ui-btn-primary" : "ui-btn-danger"}`}
 						>
-							{t("common.delete")}
+							{model.enabled ? t("common.enabled") : t("common.disabled")}
 						</button>
-					) : (
 						<button
 							type="button"
-							onClick={() => {
-								onDelete(model.id);
-								onClose();
-							}}
-							className="ui-btn ui-btn-danger"
+							disabled={testing}
+							onClick={handleTest}
+							className={`ui-btn ${
+								testError
+									? "ui-btn-danger bg-red-900/50 text-red-300 border-red-700/50"
+									: testing
+										? "ui-btn-secondary bg-amber-900/30 text-amber-300/70 border-amber-700/30 cursor-wait"
+										: "ui-btn-secondary"
+							}`}
 						>
-							{t("models.detail.confirmDelete")}
+							{testing && <Spinner />}
+							{testing ? t("models.detail.testing") : t("models.detail.test")}
 						</button>
-					)}
+						{!confirmDelete ? (
+							<button
+								type="button"
+								onClick={() => setConfirmDelete(true)}
+								className="ui-btn bg-red-900/20 text-red-500/60 border-red-700/30 hover:bg-red-900/40 hover:text-red-400"
+							>
+								{t("common.delete")}
+							</button>
+						) : (
+							<button
+								type="button"
+								onClick={() => {
+									onDelete?.(model.id);
+									onClose();
+								}}
+								className="ui-btn ui-btn-danger"
+							>
+								{t("models.detail.confirmDelete")}
+							</button>
+						)}
+					</div>
+					<div className="flex items-center gap-2">
+						{editing ? (
+							<>
+								<button
+									type="button"
+									onClick={handleCancelEdit}
+									className="ui-btn ui-btn-secondary"
+								>
+									{t("common.cancel")}
+								</button>
+								<button
+									type="button"
+									onClick={handleSave}
+									className="ui-btn ui-btn-primary"
+								>
+									{t("common.saveChanges")}
+								</button>
+							</>
+						) : (
+							<>
+								<button
+									type="button"
+									onClick={() => setEditing(true)}
+									className="ui-btn ui-btn-secondary"
+								>
+									{t("common.edit")}
+								</button>
+								<button
+									type="button"
+									disabled={cooldown > 0 || discovering}
+									onClick={handleDiscover}
+									className={`ui-btn ${
+										cooldown > 0 || discovering
+											? "bg-(--accent-lighter) text-(--accent)/50 border-(--accent-light) cursor-not-allowed"
+											: "bg-(--accent-light) text-(--accent) border-(--accent-lighter) hover:brightness-125"
+									}`}
+								>
+									{discovering ? (
+										<>
+											<Spinner /> {t("models.detail.updating")}
+										</>
+									) : cooldown > 0 ? (
+										t("models.detail.updateCooldown", { cooldown })
+									) : (
+										t("models.detail.updateInfo")
+									)}
+								</button>
+							</>
+						)}
+					</div>
 				</div>
-				<div className="flex items-center gap-2">
-					{editing ? (
-						<>
-							<button
-								type="button"
-								onClick={handleCancelEdit}
-								className="ui-btn ui-btn-secondary"
-							>
-								{t("common.cancel")}
-							</button>
-							<button
-								type="button"
-								onClick={handleSave}
-								className="ui-btn ui-btn-primary"
-							>
-								{t("common.saveChanges")}
-							</button>
-						</>
-					) : (
-						<>
-							<button
-								type="button"
-								onClick={() => setEditing(true)}
-								className="ui-btn ui-btn-secondary"
-							>
-								{t("common.edit")}
-							</button>
-							<button
-								type="button"
-								disabled={cooldown > 0 || discovering}
-								onClick={handleDiscover}
-								className={`ui-btn ${
-									cooldown > 0 || discovering
-										? "bg-(--accent-lighter) text-(--accent)/50 border-(--accent-light) cursor-not-allowed"
-										: "bg-(--accent-light) text-(--accent) border-(--accent-lighter) hover:brightness-125"
-								}`}
-							>
-								{discovering ? (
-									<>
-										<Spinner /> {t("models.detail.updating")}
-									</>
-								) : cooldown > 0 ? (
-									t("models.detail.updateCooldown", { cooldown })
-								) : (
-									t("models.detail.updateInfo")
-								)}
-							</button>
-						</>
-					)}
-				</div>
-			</div>
+			)}
 
 			{confirmFields && (
 				<ConfirmDialog

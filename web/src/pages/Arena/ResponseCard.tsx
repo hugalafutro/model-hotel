@@ -11,10 +11,10 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Model } from "../../api/types";
 import { CopyButton } from "../../components/CopyButton";
-import { ModelDetailModal } from "../../components/ModelDetailPanel";
 import { ModelReplyCard } from "../../components/ModelReplyCard";
 import { useDisableModel } from "../../hooks/useDisableModel";
 import { parseCapabilities, proxyModelID } from "../../utils/model";
+import { ModelDetailModal } from "../Models/ModelDetailModal";
 import { VoteThumb } from "./shared";
 import type { ResponseCardProps } from "./types";
 
@@ -187,6 +187,7 @@ export function ResponseCard({
 				<ModelDetailModal
 					model={detailModel}
 					onClose={() => setDetailModel(null)}
+					zIndex="z-60"
 				/>
 			)}
 		</>
