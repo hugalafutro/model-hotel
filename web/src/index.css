@@ -36,6 +36,9 @@ html {
 	--radius-card: 0.75rem;
 	--radius-button: 0.5rem;
 	--radius-pill: 9999px;
+	/* Detail boxes: the tinted label/value tiles in log, request and model
+	   detail modals. Themes override (terminal: square). */
+	--radius-box: 0.5rem;
 	--shadow-card: none;
 	--shadow-sm: 0 1px 2px rgb(0 0 0 / 0.05);
 	--shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
@@ -44,9 +47,7 @@ html {
 	--shadow-glow: 0 0 20px var(--accent-light);
 
 	/* Hover glow tokens — drop-shadow values */
-	--glow-accent-sm: 0 0 8px var(--accent);
 	--glow-accent: 0 0 12px var(--accent);
-	--glow-accent-lg: 0 0 16px var(--accent);
 	--glow-text-accent:
 		0 0 2px var(--accent),
 		0 0 4px color-mix(in srgb, var(--accent) 60%, transparent);
@@ -54,11 +55,19 @@ html {
 	--glow-amber: 0 0 12px var(--color-amber-400, amber);
 	--glow-white: 0 0 8px white;
 	--glow-text-primary: 0 0 8px white;
-	/* Hover glow tokens — box-shadow values */
-	--glow-box-red: 0 0 12px 2px rgba(239, 68, 68, 0.3);
-	--glow-box-green: 0 0 12px 2px rgba(34, 197, 94, 0.3);
-	--glow-box-amber: 0 0 12px 2px rgba(245, 158, 11, 0.3);
-	--glow-box-gray: 0 0 12px 2px rgba(156, 163, 175, 0.2);
+
+	/* Unified interactive-hover knobs. Every hoverable icon and inline text
+	   link consumes these through the ui-icon-btn / ui-link-accent classes
+	   (see ICON BUTTONS section). Retune the hover effect app-wide — or per
+	   theme, by overriding inside a theme block — by changing these alone. */
+	--icon-hover-color: var(--accent);
+	--icon-hover-glow: var(--glow-accent);
+	--icon-hover-danger-color: var(--error-icon);
+	--icon-hover-danger-glow: var(--glow-red);
+	--icon-hover-warning-color: var(--color-amber-300, #fcd34d);
+	--icon-hover-warning-glow: var(--glow-amber);
+	--link-hover-color: var(--accent);
+	--link-hover-glow: var(--glow-text-accent);
 }
 
 /* =============================================
@@ -130,7 +139,6 @@ html[data-ui-style="clean-saas"].light {
 	--shadow-md: 0 4px 12px rgb(0 0 0 / 0.08), 0 0 0 1px rgba(0, 0, 0, 0.03);
 	--glow-white: 0 0 8px rgba(0, 0, 0, 0.2);
 	--glow-text-primary: 0 0 8px rgba(17, 19, 24, 0.25);
-	--glow-box-gray: 0 0 12px 2px rgba(0, 0, 0, 0.1);
 }
 
 html[data-ui-style="clean-saas"] {
@@ -140,6 +148,10 @@ html[data-ui-style="clean-saas"] {
 /* =============================================
    STYLE 2: CYBER TERMINAL  (dark only)
    ============================================= */
+
+html[data-ui-style="cyber-terminal"] {
+	--radius-box: 0;
+}
 
 html[data-ui-style="cyber-terminal"].dark {
 	--surface-bg: #020203;
@@ -210,12 +222,15 @@ html[data-ui-style="cyber-terminal"].light {
 	--warning-text: #c2410c;
 	--glow-white: 0 0 8px rgba(0, 0, 0, 0.2);
 	--glow-text-primary: 0 0 8px rgba(224, 224, 229, 0.3);
-	--glow-box-gray: 0 0 12px 2px rgba(0, 0, 0, 0.12);
 }
 
 /* =============================================
    STYLE 3: GLASSMORPHISM LITE
    ============================================= */
+
+html[data-ui-style="glassmorphism-lite"] {
+	--radius-box: 12px;
+}
 
 html[data-ui-style="glassmorphism-lite"].dark {
 	--surface-bg: #03040a;
@@ -284,12 +299,12 @@ html[data-ui-style="glassmorphism-lite"].light {
 	--warning-text: #c2410c;
 	--glow-white: 0 0 8px rgba(0, 0, 0, 0.2);
 	--glow-text-primary: 0 0 8px rgba(240, 241, 247, 0.3);
-	--glow-box-gray: 0 0 12px 2px rgba(0, 0, 0, 0.1);
 }
 
-html[data-ui-style="glassmorphism-lite"] {
-	backdrop-filter: blur(20px);
-}
+/* NOTE: never put backdrop-filter on the root element. It filters nothing
+   (there is no content behind <html>) but turns the root into a filtered
+   backdrop root, which in Chromium silently disables every descendant
+   backdrop-filter — i.e. it killed ALL frosted-glass blur in this theme. */
 
 /* =============================================
    ACCENT RGB HELPER — needed for glow effects
@@ -498,6 +513,14 @@ html[data-ui-style="glassmorphism-lite"] {
 	border-color: var(--border-input);
 }
 
+[data-ui-style] .hover\:border-gray-600:hover {
+	border-color: var(--border-input);
+}
+
+[data-ui-style] .hover\:border-gray-400:hover {
+	border-color: var(--border-default);
+}
+
 /* Hover bg gray variants */
 [data-ui-style] .hover\:bg-gray-800:hover {
 	background-color: var(--surface-elevated-hover);
@@ -623,8 +646,6 @@ html[data-ui-style="cyber-terminal"] .ui-sidebar-subtitle {
 html[data-ui-style="glassmorphism-lite"] .ui-sidebar {
 	border-right: 1px solid var(--border-default);
 	background: var(--surface-sidebar);
-	backdrop-filter: blur(40px);
-	-webkit-backdrop-filter: blur(40px);
 }
 
 html[data-ui-style="glassmorphism-lite"] .ui-main {
@@ -693,28 +714,15 @@ html[data-ui-style="clean-saas"] .sidebar-link {
 	color: var(--text-muted);
 }
 
+/* Layout only — color/hover/disabled come from the shared ui-icon-btn. */
 .sidebar-quota-btn {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	padding: 2px;
 	border-radius: 4px;
-	color: var(--text-muted);
-	cursor: pointer;
 	background: transparent;
 	border: none;
-	transition:
-		color 0.15s,
-		background-color 0.15s;
-}
-.sidebar-quota-btn:hover {
-	/* Match the accent hover of the CollapsibleToggle sitting next to it. */
-	color: var(--accent);
-	filter: drop-shadow(var(--glow-accent));
-}
-.sidebar-quota-btn:disabled {
-	opacity: 0.4;
-	cursor: not-allowed;
 }
 
 .sidebar-quota-pill-prefix {
@@ -955,8 +963,6 @@ html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-neuralwatt {
 
 html[data-ui-style="glassmorphism-lite"] .sidebar-quota-pill {
 	border-radius: 8px;
-	backdrop-filter: blur(12px);
-	-webkit-backdrop-filter: blur(12px);
 }
 
 html[data-ui-style="glassmorphism-lite"] .sidebar-quota-pill {
@@ -1050,11 +1056,6 @@ html[data-ui-style="cyber-terminal"] .pagination-btn:hover:not(:disabled) {
 
 html[data-ui-style="cyber-terminal"] .pagination-btn:disabled {
 	opacity: 0.3;
-}
-
-html[data-ui-style="glassmorphism-lite"] .pagination-btn {
-	backdrop-filter: blur(12px);
-	-webkit-backdrop-filter: blur(12px);
 }
 
 html[data-ui-style="glassmorphism-lite"] .pagination-btn:hover:not(:disabled) {
@@ -1152,9 +1153,13 @@ html[data-ui-style="cyber-terminal"] .ui-card:hover {
 		0 0 15px rgba(var(--accent-rgb), 0.08);
 }
 
+/* Cards deliberately carry NO backdrop-filter. They sit on the flat page
+   background, so a blur has nothing visible to blur — and worse, Firefox
+   never renders backdrop-filter on an element whose ANCESTOR has an
+   active backdrop-filter, so card-level blur silently killed the frosted
+   table chrome rows inside (one frost layer per stack, placed where
+   something actually scrolls behind it: thead rows, modal overlay/card). */
 html[data-ui-style="glassmorphism-lite"] .ui-card {
-	backdrop-filter: blur(40px);
-	-webkit-backdrop-filter: blur(40px);
 	border: 1px solid var(--border-default);
 	box-shadow: none;
 }
@@ -1164,18 +1169,15 @@ html[data-ui-style="glassmorphism-lite"] .ui-card:hover {
 
 html[data-ui-style="glassmorphism-lite"].light .ui-card {
 	background-color: rgba(255, 255, 255, 0.45);
-	backdrop-filter: blur(24px);
-	-webkit-backdrop-filter: blur(24px);
 	border: 1px solid rgba(255, 255, 255, 0.6);
 	box-shadow: none;
 }
 
-/* Clip backdrop-filter to the card border-radius so the blur
-   rectangle doesn't bleed past rounded corners into the gap between
-   stacked cards. Cards with tables are excluded because clip-path
-   breaks position:sticky in Chromium. Cards with dropdowns
-   (.has-dropdown) use a ::before pseudo-element approach instead
-   (see below). Absolute cards (dropdowns) get solid backgrounds. */
+/* Clip card content to the rounded corners (zebra rows, full-bleed
+   children). Cards with tables are excluded because clip-path breaks
+   position:sticky in Chromium; cards with dropdowns are excluded so the
+   dropdown can overflow the card boundary. Absolute cards (dropdowns)
+   get solid backgrounds. */
 html[data-ui-style="glassmorphism-lite"]
 .ui-card:not(.absolute, .has-dropdown, :has(> .absolute)) {
 	clip-path: inset(0 round var(--radius-card));
@@ -1185,26 +1187,12 @@ html[data-ui-style="glassmorphism-lite"]
 	clip-path: none;
 }
 
-/* Cards containing dropdowns: move backdrop-filter to a ::before
-   pseudo-element so clip-path on the pseudo clips the blur to
-   rounded corners while the card itself has no clip-path, allowing
-   the dropdown to overflow past the card boundary. */
+/* Cards containing dropdowns skip the clip-path above so the dropdown can
+   overflow the card boundary; they only need the stacking bump. (The old
+   ::before blur carrier is gone — cards no longer blur, see note above.) */
 html[data-ui-style="glassmorphism-lite"] .ui-card.has-dropdown {
-	backdrop-filter: none;
-	-webkit-backdrop-filter: none;
 	position: relative;
 	z-index: 20;
-}
-html[data-ui-style="glassmorphism-lite"] .ui-card.has-dropdown::before {
-	content: "";
-	position: absolute;
-	inset: 0;
-	backdrop-filter: blur(40px);
-	-webkit-backdrop-filter: blur(40px);
-	clip-path: inset(0 round var(--radius-card));
-	pointer-events: none;
-	z-index: 0;
-	border-radius: var(--radius-card);
 }
 
 /* Dropdown/popover cards: solid opaque background (backdrop-filter does not
@@ -1219,35 +1207,57 @@ html[data-ui-style="glassmorphism-lite"].light .ui-card.fixed {
 	background-color: rgb(255, 255, 255);
 }
 
+/* Frosted popovers (language menu, …). Their blur is top-level: they
+   float above the sidebar and cards, none of which blur (see the no-nesting
+   note in the cards section). */
+html[data-ui-style="glassmorphism-lite"] .ui-popover {
+	background: rgba(14, 16, 26, 0.7);
+	backdrop-filter: blur(16px) saturate(1.4);
+	border-color: rgba(255, 255, 255, 0.14);
+}
+
+html[data-ui-style="glassmorphism-lite"].light .ui-popover {
+	background: rgba(238, 240, 248, 0.72);
+	backdrop-filter: blur(16px) saturate(1.2);
+	border-color: rgba(0, 0, 0, 0.1);
+}
+
 /* =============================================
    GLASSMORPHISM MODALS
    ============================================= */
 
-/* Blur + dim EVERYTHING behind any modal (wrapper level) */
-html[data-ui-style="glassmorphism-lite"] [role="dialog"] {
-	backdrop-filter: blur(32px);
-	-webkit-backdrop-filter: blur(32px);
-	background-color: rgba(0, 0, 0, 0.5);
-}
-
-/* Remove redundant darkness from overlay buttons so we don't double-dim */
+/* The page behind a modal is dimmed and GENTLY blurred via the overlay
+   close-button (absolute inset-0) — a SIBLING of the dialog card, never
+   the [role="dialog"] wrapper itself: Firefox does not render
+   backdrop-filter on descendants of an element that has backdrop-filter,
+   so a blurred wrapper kills the card's frost. blur(6px) recedes the page
+   while keeping its structure recognizable (32px read as one giant
+   artifact). */
 html[data-ui-style="glassmorphism-lite"] [role="dialog"]
 	> button.absolute.inset-0 {
-	background-color: transparent;
+	background-color: rgba(2, 4, 12, 0.55);
+	/* Fine grain dithers the 8-bit banding that gaussian blur produces on
+	   smooth dark gradients (same trick as film grain / macOS materials). */
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='0.05'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='128' height='128' filter='url(%23n)'/%3E%3C/svg%3E");
+	backdrop-filter: blur(6px);
 }
 
-/* Dialog cards — nearly solid so text underneath cannot bleed through */
+/* Dialog cards — the actual frosted glass: translucent, strongly blurred,
+   slightly saturated so the receded page glows through as soft color. */
 html[data-ui-style="glassmorphism-lite"].dark [role="dialog"] .ui-card,
 html[data-ui-style="glassmorphism-lite"] [role="dialog"] .ui-card {
-	background-color: rgba(18, 20, 30, 0.95);
-	border: 1px solid rgba(255, 255, 255, 0.1);
+	background-color: rgba(15, 17, 27, 0.62);
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='0.05'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='128' height='128' filter='url(%23n)'/%3E%3C/svg%3E");
+	backdrop-filter: blur(24px) saturate(1.4);
+	border: 1px solid rgba(255, 255, 255, 0.12);
 	box-shadow:
 		0 24px 64px rgba(0, 0, 0, 0.45),
 		inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 html[data-ui-style="glassmorphism-lite"].light [role="dialog"] .ui-card {
-	background-color: rgba(235, 236, 245, 0.95);
+	background-color: rgba(235, 236, 245, 0.65);
+	backdrop-filter: blur(24px) saturate(1.2);
 	border: 1px solid rgba(255, 255, 255, 0.55);
 	box-shadow:
 		0 24px 64px rgba(0, 0, 0, 0.1),
@@ -1346,6 +1356,17 @@ html[data-ui-style="cyber-terminal"] .ui-btn {
 	border-radius: var(--radius-button);
 }
 
+/* Generic terminal hover outline for buttons without a ui-btn-* variant
+   (e.g. custom-colored Delete / Update Info). currentColor adapts the
+   outline to the button's own text color; the variant rules below have
+   higher specificity and keep their exact styles. */
+html[data-ui-style="cyber-terminal"] .ui-btn:hover:not(:disabled) {
+	border-color: currentColor;
+	box-shadow:
+		0 0 0 1px currentColor,
+		0 0 12px color-mix(in srgb, currentColor 25%, transparent);
+}
+
 html[data-ui-style="cyber-terminal"] .ui-btn-primary {
 	border: 1px solid var(--accent);
 }
@@ -1382,11 +1403,6 @@ html[data-ui-style="cyber-terminal"] .ui-btn-danger:hover:not(:disabled) {
 	filter: none;
 }
 
-html[data-ui-style="glassmorphism-lite"] .ui-btn {
-	backdrop-filter: blur(16px);
-	-webkit-backdrop-filter: blur(16px);
-}
-
 html[data-ui-style="glassmorphism-lite"] .ui-btn-primary {
 	background: linear-gradient(
 		135deg,
@@ -1402,6 +1418,14 @@ html[data-ui-style="glassmorphism-lite"] .ui-btn-secondary {
 	border: 1px solid rgba(255, 255, 255, 0.1);
 	color: var(--text-primary);
 }
+/* brightness() on a 5%-alpha background is imperceptible — hover must
+   raise the alpha instead */
+html[data-ui-style="glassmorphism-lite"]
+.ui-btn-secondary:hover:not(:disabled) {
+	background-color: rgba(255, 255, 255, 0.14);
+	border-color: rgba(255, 255, 255, 0.22);
+	filter: none;
+}
 html[data-ui-style="glassmorphism-lite"].light .ui-btn-primary {
 	border: 1px solid rgba(0, 0, 0, 0.25);
 }
@@ -1410,11 +1434,81 @@ html[data-ui-style="glassmorphism-lite"].light .ui-btn-secondary {
 	border: 1px solid rgba(0, 0, 0, 0.12);
 	color: var(--text-primary);
 }
+html[data-ui-style="glassmorphism-lite"].light
+	.ui-btn-secondary:hover:not(:disabled) {
+	background-color: rgba(0, 0, 0, 0.12);
+	border-color: rgba(0, 0, 0, 0.22);
+	filter: none;
+}
 
 html[data-ui-style="glassmorphism-lite"] .ui-btn-danger {
 	background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
 	border: 1px solid rgba(255, 255, 255, 0.15);
 	color: #fff;
+}
+
+/* =============================================
+   ICON BUTTONS — unified hover system
+   Every hoverable icon (collapse/expand chevrons, reset, refresh, copy,
+   close, info, …) shares one effect per role, driven by the
+   --icon-hover-* / --link-hover-* variables in :root. The -in-group
+   variants apply the same effect when a parent .group (or .group/button)
+   is hovered, for row-level hover targets. These classes must stay
+   unlayered: the gray-scale overrides above are unlayered too and would
+   otherwise beat Tailwind hover: utilities to the base color.
+   ============================================= */
+
+[data-ui-style] .ui-icon-btn {
+	color: var(--text-tertiary);
+	transition:
+		color 0.15s,
+		filter 0.15s,
+		background-color 0.15s;
+}
+
+[data-ui-style] .ui-icon-btn:disabled,
+[data-ui-style] .ui-icon-btn[aria-disabled="true"] {
+	opacity: 0.35;
+}
+
+[data-ui-style] .ui-icon-btn:hover:not(:disabled):not([aria-disabled="true"]),
+[data-ui-style] :is(.group, .group\/button):hover .ui-icon-btn-in-group {
+	color: var(--icon-hover-color);
+	filter: drop-shadow(var(--icon-hover-glow));
+}
+
+[data-ui-style] .ui-icon-btn-danger {
+	color: color-mix(in srgb, var(--error-icon) 85%, transparent);
+}
+
+[data-ui-style]
+	.ui-icon-btn-danger:hover:not(:disabled):not([aria-disabled="true"]) {
+	color: var(--icon-hover-danger-color);
+	filter: drop-shadow(var(--icon-hover-danger-glow));
+}
+
+[data-ui-style] .ui-icon-btn-warning {
+	color: var(--color-amber-400, #fbbf24);
+}
+
+[data-ui-style]
+	.ui-icon-btn-warning:hover:not(:disabled):not([aria-disabled="true"]) {
+	color: var(--icon-hover-warning-color);
+	filter: drop-shadow(var(--icon-hover-warning-glow));
+}
+
+/* Inline text links / clickable labels: text-shadow flavor of the same
+   effect (drop-shadow looks smeared on glyphs). */
+[data-ui-style] .ui-link-accent {
+	transition:
+		color 0.15s,
+		text-shadow 0.15s;
+}
+
+[data-ui-style] .ui-link-accent:hover,
+[data-ui-style] :is(.group, .group\/button):hover .ui-link-accent-in-group {
+	color: var(--link-hover-color);
+	text-shadow: var(--link-hover-glow);
 }
 
 /* =============================================
@@ -1573,8 +1667,6 @@ html[data-ui-style="cyber-terminal"] .settings-slider-infinity {
 }
 
 html[data-ui-style="glassmorphism-lite"] .ui-input {
-	backdrop-filter: blur(20px);
-	-webkit-backdrop-filter: blur(20px);
 	background: var(--surface-input);
 }
 html[data-ui-style="glassmorphism-lite"].dark .ui-input::placeholder {
@@ -1726,24 +1818,22 @@ html[data-ui-style="glassmorphism-lite"] .ui-card > .ui-table {
 	border-radius: 0;
 }
 
+/* Frosted table chrome rows (title + filter), painted on the <tr> —
+   identical to the .ui-table-row-filter look and outranking it, so all
+   thead rows render the same.
+   IMPORTANT: never hand-write -webkit-backdrop-filter next to the
+   standard property anywhere in this file. The CSS pipeline treats the
+   two as aliases and keeps only the LAST declaration, so the usual
+   "standard then -webkit-" ordering shipped webkit-only bundles that
+   Firefox ignores — that's why glassmorphism blur was invisible
+   everywhere except the one rule written without the prefix. */
 html[data-ui-style="glassmorphism-lite"] .ui-table thead tr {
 	background: linear-gradient(
 		180deg,
-		rgba(255, 255, 255, 0.12) 0%,
-		rgba(255, 255, 255, 0.08) 100%
+		var(--surface-sidebar) 0%,
+		transparent 100%
 	);
-	backdrop-filter: blur(40px);
-	-webkit-backdrop-filter: blur(40px);
-}
-
-html[data-ui-style="glassmorphism-lite"] .ui-table-virtual thead {
-	background: rgba(10, 10, 14, 0.85);
-	backdrop-filter: blur(40px);
-	-webkit-backdrop-filter: blur(40px);
-}
-
-html[data-ui-style="glassmorphism-lite"].light .ui-table-virtual thead {
-	background: rgba(240, 241, 245, 0.9);
+	backdrop-filter: blur(16px);
 }
 
 html[data-ui-style="glassmorphism-lite"]
@@ -1799,14 +1889,8 @@ html[data-ui-style="cyber-terminal"] .ui-table-row-filter {
 	border-top: 1px solid var(--border-subtle);
 }
 
-html[data-ui-style="glassmorphism-lite"] .ui-table-row-filter {
-	background: linear-gradient(
-		180deg,
-		var(--surface-sidebar) 0%,
-		transparent 100%
-	);
-	backdrop-filter: blur(16px);
-}
+/* Glassmorphism: no dedicated rule — the frosted "thead tr" rule above
+   already styles the filter row identically to the title row. */
 
 /* =============================================
    TABLE HEADER TEXT
