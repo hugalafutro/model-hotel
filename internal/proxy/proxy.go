@@ -261,13 +261,6 @@ func (h *Handler) emitDone(sink *streamSink, st *streamState, ev sseEvent, chunk
 	return false
 }
 
-// handleDataChunk processes one sseData event end-to-end: capture split/Anthropic
-// SSE errors (P1-B/P1-C), parse the chunk, run the transforms (strip_reasoning,
-// reasoning-normalize, empty-content-strip, finish_reason) and the side-channel
-// observers, then forward. It emits at most once; the `written` flag and the
-// whole transform dispatch are encapsulated here. Returns stop=true when a client
-// write failed (the caller jumps to finalize), false otherwise (advance to the
-// next event).
 // emitData writes payload as an SSE data event and flushes it, returning true
 // on success. On a write failure it records the client disconnect on st and
 // logs it; transform names which pipeline step was emitting, for the log line.
@@ -282,6 +275,13 @@ func (st *streamState) emitData(sink *streamSink, payload []byte, transform stri
 	return true
 }
 
+// handleDataChunk processes one sseData event end-to-end: capture split/Anthropic
+// SSE errors (P1-B/P1-C), parse the chunk, run the transforms (strip_reasoning,
+// reasoning-normalize, empty-content-strip, finish_reason) and the side-channel
+// observers, then forward. It emits at most once; the `written` flag and the
+// whole transform dispatch are encapsulated here. Returns stop=true when a client
+// write failed (the caller jumps to finalize), false otherwise (advance to the
+// next event).
 func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent, stripReasoning bool, chunkCount int, logData *requestLogData) (stop bool) {
 	payload := ev.payload
 	line := ev.raw
