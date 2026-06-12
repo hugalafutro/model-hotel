@@ -1,78 +1,70 @@
 import i18next from "i18next";
 import LanguageDetector from "i18next-browser-languagedetector";
 import { initReactI18next } from "react-i18next";
-import af from "./locales/af.json";
-import ar from "./locales/ar.json";
-import ca from "./locales/ca.json";
-import cs from "./locales/cs.json";
-import da from "./locales/da.json";
-import de from "./locales/de.json";
-import el from "./locales/el.json";
 import en from "./locales/en.json";
-import es from "./locales/es.json";
-import fi from "./locales/fi.json";
-import fr from "./locales/fr.json";
-import he from "./locales/he.json";
-import hu from "./locales/hu.json";
-import it from "./locales/it.json";
-import ja from "./locales/ja.json";
-import ko from "./locales/ko.json";
-import nl from "./locales/nl.json";
-import no from "./locales/no.json";
-import pl from "./locales/pl.json";
-import pt from "./locales/pt.json";
-import ro from "./locales/ro.json";
-import ru from "./locales/ru.json";
-import sk from "./locales/sk.json";
-import sr from "./locales/sr.json";
-import sv from "./locales/sv.json";
-import tr from "./locales/tr.json";
-import uk from "./locales/uk.json";
-import vi from "./locales/vi.json";
-import zh from "./locales/zh.json";
 
 // The localStorage key the language detector reads/writes. Exported as the
 // single source of truth so the explicit picker write (Layout.tsx) and the
 // detector's lookupLocalStorage below cannot drift apart.
 export const LANGUAGE_STORAGE_KEY = "i18nextLng";
 
+// Locale catalogs ship as one lazily-loaded chunk per language instead of
+// ~3.6MB of JSON in the entry bundle. English is bundled eagerly (and
+// excluded from the glob) because it is the fallback language: fallback
+// strings must never wait on a network fetch.
+const localeLoaders = import.meta.glob<{ default: object }>([
+	"./locales/*.json",
+	"!./locales/en.json",
+]);
+
+// Languages whose catalog lives in another language's file.
+const FILE_ALIASES: Record<string, string> = {
+	// "no" doubles as Norwegian Bokmål.
+	nb: "no",
+};
+
+const SUPPORTED_LANGUAGES = [
+	"en",
+	...Object.keys(FILE_ALIASES),
+	...Object.keys(localeLoaders).map((p) =>
+		p.slice("./locales/".length, -".json".length),
+	),
+];
+
+const lazyLocaleBackend = {
+	type: "backend" as const,
+	init() {},
+	read(
+		language: string,
+		_namespace: string,
+		callback: (err: unknown, data: object | null) => void,
+	) {
+		const file = FILE_ALIASES[language] ?? language;
+		const load = localeLoaders[`./locales/${file}.json`];
+		if (!load) {
+			callback(new Error(`no catalog for language "${language}"`), null);
+			return;
+		}
+		load().then(
+			(mod) => callback(null, mod.default),
+			(err) => callback(err, null),
+		);
+	},
+};
+
 i18next
+	.use(lazyLocaleBackend)
 	.use(LanguageDetector)
 	.use(initReactI18next)
 	.init({
-		resources: {
-			af: { translation: af },
-			ar: { translation: ar },
-			ca: { translation: ca },
-			cs: { translation: cs },
-			da: { translation: da },
-			de: { translation: de },
-			el: { translation: el },
-			en: { translation: en },
-			es: { translation: es },
-			fi: { translation: fi },
-			fr: { translation: fr },
-			he: { translation: he },
-			hu: { translation: hu },
-			it: { translation: it },
-			ja: { translation: ja },
-			ko: { translation: ko },
-			nl: { translation: nl },
-			no: { translation: no },
-			nb: { translation: no },
-			pl: { translation: pl },
-			pt: { translation: pt },
-			ro: { translation: ro },
-			ru: { translation: ru },
-			sk: { translation: sk },
-			sr: { translation: sr },
-			sv: { translation: sv },
-			tr: { translation: tr },
-			uk: { translation: uk },
-			vi: { translation: vi },
-			zh: { translation: zh },
-		},
+		// Only English is bundled; partialBundledLanguages makes i18next pull
+		// every other language from the lazy backend on demand.
+		resources: { en: { translation: en } },
+		partialBundledLanguages: true,
 		fallbackLng: "en",
+		// Catalogs are per-language, never per-region: "de-AT" → "de".
+		load: "languageOnly",
+		supportedLngs: SUPPORTED_LANGUAGES,
 		returnEmptyString: false,
 		detection: {
 			// Priority: explicit user choice (localStorage) > browser/system
