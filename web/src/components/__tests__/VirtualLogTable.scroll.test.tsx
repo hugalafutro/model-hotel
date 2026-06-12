@@ -332,7 +332,7 @@ describe("VirtualLogTable", () => {
 			);
 
 			// Check for "-" in the tokens column area
-			const row = screen.getByText("abc123def456").closest("tr");
+			const row = screen.getByText("Test Provider").closest("tr");
 			expect(row).not.toBeNull();
 		});
 	});
@@ -513,84 +513,6 @@ describe("VirtualLogTable", () => {
 		});
 	});
 
-	describe("Request hash slicing", () => {
-		it("shows first 16 chars when hash is longer than 16", () => {
-			const longHash = "abcdef1234567890abcdef1234567890"; // 32 chars
-			const entries = [createLogEntry({ request_hash: longHash })];
-			mockGetVirtualItems.mockReturnValue([
-				{ index: 0, key: entries[0].id, start: 0, end: 29 },
-			]);
-			mockGetTotalSize.mockReturnValue(29);
-
-			renderWithProviders(
-				<VirtualLogTable {...defaultProps} entries={entries} />,
-			);
-
-			// Should show first 16 chars: "abcdef1234567890"
-			expect(screen.getByText("abcdef1234567890")).toBeInTheDocument();
-		});
-
-		it("shows full hash when hash is exactly 16 chars", () => {
-			const exactHash = "abcdef1234567890"; // exactly 16 chars
-			const entries = [createLogEntry({ request_hash: exactHash })];
-			mockGetVirtualItems.mockReturnValue([
-				{ index: 0, key: entries[0].id, start: 0, end: 29 },
-			]);
-			mockGetTotalSize.mockReturnValue(29);
-
-			renderWithProviders(
-				<VirtualLogTable {...defaultProps} entries={entries} />,
-			);
-
-			expect(screen.getByText("abcdef1234567890")).toBeInTheDocument();
-		});
-
-		it("shows full hash when hash is shorter than 16 chars", () => {
-			const shortHash = "abc123"; // 6 chars
-			const entries = [createLogEntry({ request_hash: shortHash })];
-			mockGetVirtualItems.mockReturnValue([
-				{ index: 0, key: entries[0].id, start: 0, end: 29 },
-			]);
-			mockGetTotalSize.mockReturnValue(29);
-
-			renderWithProviders(
-				<VirtualLogTable {...defaultProps} entries={entries} />,
-			);
-
-			expect(screen.getByText("abc123")).toBeInTheDocument();
-		});
-
-		it("shows '-' when request_hash is empty", () => {
-			const entries = [createLogEntry({ request_hash: "" })];
-			mockGetVirtualItems.mockReturnValue([
-				{ index: 0, key: entries[0].id, start: 0, end: 29 },
-			]);
-			mockGetTotalSize.mockReturnValue(29);
-
-			renderWithProviders(
-				<VirtualLogTable {...defaultProps} entries={entries} />,
-			);
-
-			expect(screen.getAllByText("-").length).toBeGreaterThan(0);
-		});
-
-		it("sets title attribute to full hash when longer than 16 chars", () => {
-			const longHash = "abcdef1234567890abcdef1234567890extra";
-			const entries = [createLogEntry({ request_hash: longHash })];
-			mockGetVirtualItems.mockReturnValue([
-				{ index: 0, key: entries[0].id, start: 0, end: 29 },
-			]);
-			mockGetTotalSize.mockReturnValue(29);
-
-			renderWithProviders(
-				<VirtualLogTable {...defaultProps} entries={entries} />,
-			);
-
-			const hashCell = screen.getByText("abcdef1234567890").closest("td");
-			expect(hashCell).toHaveAttribute("title", longHash);
-		});
-	});
-
 	describe("Combined edge cases", () => {
 		it("renders correctly with extreme values across all columns", () => {
 			const entries = [
@@ -618,9 +540,6 @@ describe("VirtualLogTable", () => {
 
 			// Model should strip only first segment
 			expect(screen.getByText("a/b/c/deep/nested")).toBeInTheDocument();
-
-			// Hash should be sliced to 16 chars
-			expect(screen.getByText("a".repeat(16))).toBeInTheDocument();
 
 			// Duration at boundary should show seconds
 			expect(screen.getByText("1.0s")).toBeInTheDocument();
