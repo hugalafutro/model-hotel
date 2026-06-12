@@ -405,8 +405,7 @@ export function ModelDetailModal({
 						</div>
 					) : (
 						<p className="text-gray-200">
-							{formatNumber(model.context_length)}
-							{t("models.detail.tokens")}
+							{formatNumber(model.context_length)} {t("models.detail.tokens")}
 						</p>
 					)}
 				</div>
@@ -437,7 +436,7 @@ export function ModelDetailModal({
 						</div>
 					) : (
 						<p className="text-gray-200">
-							{formatNumber(model.max_output_tokens)}
+							{formatNumber(model.max_output_tokens)}{" "}
 							{t("models.detail.tokens")}
 						</p>
 					)}
