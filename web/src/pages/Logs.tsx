@@ -605,7 +605,7 @@ function RequestLogs() {
 												}
 												onClick={() => setSelectedLog(log)}
 											>
-												<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400">
+												<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
 													{log.created_at
 														? new Date(log.created_at).toLocaleString()
 														: "-"}
@@ -679,7 +679,7 @@ function RequestLogs() {
 														)}
 													</Badge>
 												</td>
-												<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400">
+												<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
 													{isCancelled(log.error_message) ? (
 														t("logs.table.interrupted")
 													) : log.tokens_prompt + log.tokens_completion > 0 ? (
@@ -692,7 +692,7 @@ function RequestLogs() {
 														"-"
 													)}
 												</td>
-												<td className="px-2 py-1 whitespace-nowrap text-xs">
+												<td className="px-2 py-1 whitespace-nowrap text-xs font-mono">
 													{isCancelled(log.error_message) ? (
 														"-"
 													) : (
@@ -712,15 +712,15 @@ function RequestLogs() {
 														</span>
 													)}
 												</td>
-												<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400">
+												<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
 													{log.response_header_ms > 0
 														? formatMs(log.response_header_ms, 1)
 														: "-"}
 												</td>
-												<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400">
+												<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
 													{log.ttft_ms > 0 ? formatMs(log.ttft_ms, 1) : "-"}
 												</td>
-												<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400">
+												<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
 													{isInProgress(log) && log.duration_ms === 0 ? (
 														<span className="inline-block text-blue-400">
 															-
@@ -735,7 +735,7 @@ function RequestLogs() {
 														"-"
 													)}
 												</td>
-												<td className="px-2 py-1 whitespace-nowrap text-xs">
+												<td className="px-2 py-1 whitespace-nowrap text-xs font-mono">
 													{log.proxy_overhead_ms != null &&
 													log.proxy_overhead_ms > 0 ? (
 														<span
