@@ -25,10 +25,9 @@ export function RangeToggle({
 						onClick={() => onChange(r)}
 						className={`ui-tab px-1.5 py-px leading-[1.6] text-[10px] font-semibold transition-colors ${
 							active
-								? "text-white"
+								? "ui-tab-active"
 								: "text-(--text-muted) hover:text-(--text-secondary)"
 						}`}
-						style={active ? { backgroundColor: "var(--accent)" } : {}}
 					>
 						<span className="badge-text">{labels[r]}</span>
 					</button>
@@ -61,10 +60,9 @@ export function MetricToggle({
 						onClick={() => onChange(m)}
 						className={`ui-tab px-1.5 py-px leading-[1.6] text-[10px] font-semibold transition-colors ${
 							active
-								? "text-white"
+								? "ui-tab-active"
 								: "text-(--text-muted) hover:text-(--text-secondary)"
 						}`}
-						style={active ? { backgroundColor: "var(--accent)" } : {}}
 					>
 						<span className="badge-text">{label}</span>
 					</button>

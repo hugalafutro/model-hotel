@@ -55,8 +55,7 @@ describe("RangeToggle", () => {
 		// Note: getByText finds the inner <span class="badge-text">, so we check
 		// the parent element which is the button with styling
 		const activeButton = screen.getByText("1D").closest("button");
-		expect(activeButton).toHaveStyle("background-color: var(--accent)");
-		expect(activeButton).toHaveClass("text-white");
+		expect(activeButton).toHaveClass("ui-tab-active");
 	});
 
 	it("applies inactive style to non-selected values", () => {
@@ -65,10 +64,10 @@ describe("RangeToggle", () => {
 		const inactiveButton1h = screen.getByText("1H").closest("button");
 		const inactiveButton1w = screen.getByText("1W").closest("button");
 
-		expect(inactiveButton1h).not.toHaveStyle("background-color: var(--accent)");
+		expect(inactiveButton1h).not.toHaveClass("ui-tab-active");
 		expect(inactiveButton1h).toHaveClass("text-(--text-muted)");
 
-		expect(inactiveButton1w).not.toHaveStyle("background-color: var(--accent)");
+		expect(inactiveButton1w).not.toHaveClass("ui-tab-active");
 		expect(inactiveButton1w).toHaveClass("text-(--text-muted)");
 	});
 
@@ -118,15 +117,14 @@ describe("MetricToggle", () => {
 		render(<MetricToggle value="requests" onChange={vi.fn()} />);
 
 		const activeButton = screen.getByText("Req").closest("button");
-		expect(activeButton).toHaveStyle("background-color: var(--accent)");
-		expect(activeButton).toHaveClass("text-white");
+		expect(activeButton).toHaveClass("ui-tab-active");
 	});
 
 	it("applies inactive style to non-selected values", () => {
 		render(<MetricToggle value="requests" onChange={vi.fn()} />);
 
 		const inactiveButton = screen.getByText("Tok").closest("button");
-		expect(inactiveButton).not.toHaveStyle("background-color: var(--accent)");
+		expect(inactiveButton).not.toHaveClass("ui-tab-active");
 		expect(inactiveButton).toHaveClass("text-(--text-muted)");
 	});
 

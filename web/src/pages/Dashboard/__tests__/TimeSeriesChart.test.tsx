@@ -345,8 +345,7 @@ describe("TimeSeriesChart", () => {
 		renderWithProviders(<TimeSeriesChart {...defaultProps} range="24h" />);
 
 		const oneDButton = screen.getByText("1D").closest("button");
-		expect(oneDButton).toHaveStyle("background-color: var(--accent)");
-		expect(oneDButton).toHaveClass("text-white");
+		expect(oneDButton).toHaveClass("ui-tab-active");
 	});
 
 	it("renders responsive container", () => {

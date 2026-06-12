@@ -100,7 +100,7 @@ export function TokenSplitBar({
 					<div
 						// biome-ignore lint/suspicious/noArrayIndexKey: static tile grid, never reordered
 						key={`${tile.type}-${i}`}
-						className="flex-1 rounded-sm animate-waffle-pop"
+						className="ui-waffle-cell flex-1 rounded-sm animate-waffle-pop"
 						data-tile-type={tile.type}
 						style={{
 							backgroundColor: tileColor(tile.type),

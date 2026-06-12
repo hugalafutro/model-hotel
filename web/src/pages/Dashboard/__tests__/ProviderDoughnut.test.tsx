@@ -307,16 +307,14 @@ describe("ProviderDoughnut", () => {
 		renderWithProviders(<ProviderDoughnut {...defaultProps} range="24h" />);
 
 		const oneDButton = screen.getByText("1D").closest("button");
-		expect(oneDButton).toHaveStyle("background-color: var(--accent)");
-		expect(oneDButton).toHaveClass("text-white");
+		expect(oneDButton).toHaveClass("ui-tab-active");
 	});
 
 	it("highlights active metric button", () => {
 		renderWithProviders(<ProviderDoughnut {...defaultProps} metric="tokens" />);
 
 		const tokButton = screen.getByText("Tok").closest("button");
-		expect(tokButton).toHaveStyle("background-color: var(--accent)");
-		expect(tokButton).toHaveClass("text-white");
+		expect(tokButton).toHaveClass("ui-tab-active");
 	});
 
 	it("formats large token numbers with formatCompact", () => {
