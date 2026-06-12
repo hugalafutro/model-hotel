@@ -1,0 +1,46 @@
+name: Docker Hub README guard
+
+# DOCKERHUB.md is a deliberately separate, Hub-tailored copy of the README
+# (absolute URLs only) that docker-publish.yml uploads verbatim on release.
+# Nothing keeps it honest except a human remembering it exists - this check
+# fails any PR that touches README.md without touching DOCKERHUB.md, so the
+# decision ("update it" or "doesn't apply") happens while the diff is fresh.
+# When the README change genuinely doesn't concern Docker Hub, add the
+# `dockerhub-readme-not-needed` label to the PR to pass the check.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+    paths:
+      - README.md
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    name: README/DOCKERHUB.md sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Fail if README.md changed without DOCKERHUB.md
+        env:
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ' ') }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          case " $LABELS " in
+            *" dockerhub-readme-not-needed "*)
+              echo "Label 'dockerhub-readme-not-needed' present - skipping."
+              exit 0
+              ;;
+          esac
+          if git diff --name-only "$BASE_SHA" "$HEAD_SHA" | grep -qx "DOCKERHUB.md"; then
+            echo "DOCKERHUB.md updated alongside README.md - OK."
+            exit 0
+          fi
+          echo "::error file=README.md::README.md changed but DOCKERHUB.md did not. Update DOCKERHUB.md (the Docker Hub copy, uploaded on release) or add the 'dockerhub-readme-not-needed' label if the change doesn't apply to Docker Hub."
+          exit 1
