@@ -101,7 +101,7 @@ export function ModelDetailPanel({
 						<button
 							type="button"
 							onClick={() => onParamsChange?.({})}
-							className="p-1.5 rounded-md transition-all shrink-0 text-red-500/80 hover:text-red-500 hover:drop-shadow-[var(--glow-red)]"
+							className="ui-icon-btn ui-icon-btn-danger p-1.5 rounded-md shrink-0"
 							title={t("components.modelDetailPanel.resetParameters")}
 						>
 							<RotateCcw size={14} />
@@ -114,7 +114,7 @@ export function ModelDetailPanel({
 							className={`p-1.5 rounded-md transition-all shrink-0 ${
 								open || hasCustom
 									? "text-(--accent) drop-shadow-[var(--glow-accent)]"
-									: "text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]"
+									: "ui-icon-btn"
 							}`}
 							title={t("components.modelDetailPanel.generationParameters")}
 						>
@@ -125,7 +125,7 @@ export function ModelDetailPanel({
 						<button
 							type="button"
 							onClick={onClose}
-							className="p-1.5 rounded-md text-(--text-tertiary) hover:text-(--text-primary) transition-colors"
+							className="ui-icon-btn p-1.5 rounded-md"
 							title={t("components.modal.close")}
 						>
 							<X size={14} />
@@ -135,7 +135,7 @@ export function ModelDetailPanel({
 						<button
 							type="button"
 							onClick={() => setCollapsed((c) => !c)}
-							className="p-1.5 rounded-md transition-all text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]"
+							className="ui-icon-btn p-1.5 rounded-md"
 							title={
 								collapsed
 									? t("components.modelDetailPanel.expandModelDetails")

@@ -27,7 +27,7 @@ export function ResetButton({
 			disabled={disabled}
 			title={tooltip}
 			aria-label={tooltip}
-			className={`p-1 rounded-md transition-all text-gray-400 hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] disabled:opacity-30 disabled:cursor-not-allowed ${className}`}
+			className={`ui-icon-btn p-1 rounded-md ${className}`}
 		>
 			<RotateCcw size={size} />
 		</button>

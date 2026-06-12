@@ -232,13 +232,13 @@ function CredentialRow({
 								setDraft(cred.name);
 								setEditing(true);
 							}}
-							className="flex items-center gap-1.5 text-sm text-white hover:text-(--accent) transition-colors group truncate"
+							className="ui-link-accent flex items-center gap-1.5 text-sm text-white group truncate"
 							aria-label={t("settings.passkeys.renameAriaLabel")}
 						>
 							<span className="truncate">{displayName}</span>
 							<Pencil
 								size={12}
-								className="shrink-0 text-(--text-muted) group-hover:text-(--accent) transition-colors"
+								className="ui-icon-btn-in-group shrink-0 text-(--text-muted)"
 							/>
 						</button>
 					)}

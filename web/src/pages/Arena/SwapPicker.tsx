@@ -96,7 +96,7 @@ export function SwapPicker({
 								? t("arena.swapPicker.expandAll")
 								: t("arena.swapPicker.collapseAll")
 						}
-						className="text-white/70 hover:text-(--accent) transition-colors p-1 flex items-center"
+						className="ui-icon-btn p-1 flex items-center"
 					>
 						{effectiveCollapsed.size === groupedModels.size ? (
 							<ChevronsUpDown size={13} />

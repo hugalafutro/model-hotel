@@ -12,7 +12,7 @@ interface CopyButtonProps {
 export function CopyButton({
 	text,
 	size = 10,
-	className = "inline-flex items-center transition-all text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent-sm)]",
+	className = "ui-icon-btn inline-flex items-center",
 	title,
 }: CopyButtonProps) {
 	const { t } = useTranslation();

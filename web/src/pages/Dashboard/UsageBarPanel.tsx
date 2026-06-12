@@ -66,7 +66,7 @@ export function UsageBarPanel({
 										<button
 											type="button"
 											onClick={() => onEntryClick(entry.label)}
-											className="truncate max-w-[70%] text-left transition-colors hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] text-(--text-secondary)"
+											className="ui-link-accent truncate max-w-[70%] text-left text-(--text-secondary)"
 											title={t("dashboard.usage.viewDetailsFor", {
 												label: entry.label,
 											})}

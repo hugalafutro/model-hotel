@@ -218,7 +218,7 @@ export function SettingsSlider({
 							type="button"
 							onClick={stepUp}
 							disabled={disabled || local >= max}
-							className="px-1 py-0 text-gray-500 hover:text-(--accent) disabled:opacity-30 disabled:cursor-not-allowed leading-none"
+							className="ui-icon-btn px-1 py-0 leading-none"
 						>
 							<ChevronUp size={10} />
 						</button>
@@ -226,7 +226,7 @@ export function SettingsSlider({
 							type="button"
 							onClick={stepDown}
 							disabled={disabled || local <= min}
-							className="px-1 py-0 text-gray-500 hover:text-(--accent) disabled:opacity-30 disabled:cursor-not-allowed leading-none"
+							className="ui-icon-btn px-1 py-0 leading-none"
 						>
 							<ChevronDown size={10} />
 						</button>

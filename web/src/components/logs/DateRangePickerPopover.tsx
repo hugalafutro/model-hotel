@@ -120,7 +120,7 @@ export function DateRangePickerPopover({
 				<button
 					type="button"
 					onClick={onClose}
-					className="text-gray-400 hover:text-(--text-primary) transition-colors leading-none p-1 hover:drop-shadow-[var(--glow-accent-lg)]"
+					className="ui-icon-btn leading-none p-1"
 					title={t("components.logs.dateRangePicker.close")}
 					aria-label={t("components.logs.dateRangePicker.close")}
 				>

@@ -281,7 +281,7 @@ describe("UsageBarPanel", () => {
 		);
 
 		const label = screen.getByText("hotel/my-group");
-		expect(label).not.toHaveClass("hover:drop-shadow-[var(--glow-accent)]");
+		expect(label).not.toHaveClass("ui-link-accent");
 	});
 
 	it("applies glow hover style to clickable entries", () => {
@@ -290,7 +290,7 @@ describe("UsageBarPanel", () => {
 		);
 
 		const modelA = screen.getByText("Model A");
-		expect(modelA).toHaveClass("hover:drop-shadow-[var(--glow-accent)]");
+		expect(modelA).toHaveClass("ui-link-accent");
 	});
 
 	it("renders multiple entries with progress bars", () => {

@@ -226,7 +226,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 							>
 								{onModelNameClick ? (
 									<span
-										className={`text-sm font-medium truncate group-hover/button:text-(--accent) group-hover/button:[text-shadow:var(--glow-text-accent)] transition-all ${modelMaxWidth} ${tint === "accent" || tint === "blue" ? "text-(--accent)" : "text-(--text-primary)"}`}
+										className={`text-sm font-medium truncate ui-link-accent ui-link-accent-in-group ${modelMaxWidth} ${tint === "accent" || tint === "blue" ? "text-(--accent)" : "text-(--text-primary)"}`}
 										title={model}
 									>
 										{displayName}
@@ -241,7 +241,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 								)}
 								{showInfoIcon && onModelNameClick && (
 									<span
-										className="shrink-0 text-(--text-tertiary) group-hover/button:text-(--accent) group-hover/button:drop-shadow-[var(--glow-accent)] transition-all cursor-help"
+										className="ui-icon-btn ui-icon-btn-in-group shrink-0 cursor-help"
 										title={t("components.modelReplyCard.modelDetails")}
 									>
 										<Info size={12} />
@@ -268,7 +268,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 								<button
 									type="button"
 									onClick={() => setMaximized(true)}
-									className="p-1 rounded-md transition-all text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]"
+									className="ui-icon-btn p-1 rounded-md"
 									title={t("components.modelReplyCard.maximizeReply")}
 								>
 									<Maximize2 size={14} />
@@ -451,7 +451,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 								onClick={() => {
 									navigator.clipboard.writeText(content);
 								}}
-								className="p-1.5 rounded-md transition-all text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]"
+								className="ui-icon-btn p-1.5 rounded-md"
 								title={t("common.copy")}
 							>
 								<Copy size={16} />

@@ -190,11 +190,7 @@ export function Dashboard() {
 										: t("dashboard.refresh")
 								}
 								aria-label={t("dashboard.refresh")}
-								className={`p-1.5 rounded-md transition-all text-(--text-tertiary) ${
-									isRefreshing
-										? "cursor-not-allowed opacity-60"
-										: "hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]"
-								}`}
+								className="ui-icon-btn p-1.5 rounded-md"
 							>
 								<RefreshCw
 									size={16}

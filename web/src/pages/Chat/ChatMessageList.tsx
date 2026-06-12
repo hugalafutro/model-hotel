@@ -189,7 +189,7 @@ export function ChatMessageList({
 											{canDelete && (
 												<button
 													type="button"
-													className="inline-flex items-center hover:drop-shadow-[var(--glow-red)] text-red-500 transition-all"
+													className="ui-icon-btn ui-icon-btn-danger inline-flex items-center"
 													onClick={() => onDeleteMessage(i)}
 													title={t("chat.aria.deleteMessage")}
 													aria-label={t("chat.aria.deleteMessage")}
@@ -258,7 +258,7 @@ export function ChatMessageList({
 											<button
 												type="button"
 												onClick={onRegenerate}
-												className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all ml-1"
+												className="ui-icon-btn ml-1"
 												title={t("chat.aria.regenerate")}
 												aria-label={t("chat.aria.regenerate")}
 											>
@@ -274,7 +274,7 @@ export function ChatMessageList({
 										{canDelete && (
 											<button
 												type="button"
-												className="inline-flex items-center hover:drop-shadow-[var(--glow-red)] text-red-500 transition-all"
+												className="ui-icon-btn ui-icon-btn-danger inline-flex items-center"
 												onClick={() => onDeleteMessage(i)}
 												title={t("chat.aria.deleteMessage")}
 												aria-label={t("chat.aria.deleteMessage")}
@@ -285,7 +285,7 @@ export function ChatMessageList({
 										{msg.params && (
 											<button
 												type="button"
-												className="inline-flex items-center text-(--accent) hover:drop-shadow-[var(--glow-accent-sm)] transition-all"
+												className="ui-icon-btn inline-flex items-center"
 												title={t("chat.settings")}
 												aria-label={t("chat.settings")}
 											>

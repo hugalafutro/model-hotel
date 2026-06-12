@@ -91,7 +91,7 @@ export function ResponseCard({
 								<button
 									type="button"
 									onClick={() => onRetry(roundIdx, matchupIdx, slotKey)}
-									className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all"
+									className="ui-icon-btn"
 									title={t("arena.reroll.title")}
 									aria-label={t("arena.reroll.title")}
 								>
@@ -102,7 +102,7 @@ export function ResponseCard({
 									onClick={() =>
 										onSwapModel(roundIdx, matchupIdx, slotKey, response.model)
 									}
-									className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all"
+									className="ui-icon-btn"
 									title={t("arena.swapModel.title")}
 									aria-label={t("arena.swapModel.title")}
 								>

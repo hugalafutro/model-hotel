@@ -69,7 +69,7 @@ export const CopyablePill = memo(function CopyablePill({
 					{displayText || text}
 				</span>
 				<svg
-					className={`w-3.5 h-3.5 text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all shrink-0 ${iconClassName}`}
+					className={`ui-icon-btn w-3.5 h-3.5 shrink-0 ${iconClassName}`}
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"

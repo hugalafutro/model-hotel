@@ -162,7 +162,7 @@ export function ProviderQuotaPanel() {
 							type="button"
 							onClick={handleRefresh}
 							disabled={anyRefreshing}
-							className="sidebar-quota-btn"
+							className="sidebar-quota-btn ui-icon-btn"
 							title={t("components.providerQuotaPanel.refreshAllQuotas")}
 						>
 							<RefreshCw

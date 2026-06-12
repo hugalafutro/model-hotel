@@ -18,8 +18,6 @@ interface CollapsibleToggleProps {
 	iconStyle?: "single" | "double";
 	/** Icon size in px. Default 14 */
 	size?: number;
-	/** Visual variant: "accent" glows on hover, "muted" is a subtle gray. Default "accent" */
-	variant?: "accent" | "muted";
 	/** Override the default className entirely */
 	className?: string;
 }
@@ -31,15 +29,10 @@ export function CollapsibleToggle({
 	collapseTitle,
 	iconStyle = "single",
 	size = 14,
-	variant = "accent",
 	className: overrideClassName,
 }: CollapsibleToggleProps) {
 	const { t } = useTranslation();
-	const className =
-		overrideClassName ??
-		(variant === "muted"
-			? "p-1.5 rounded-md transition-all text-gray-400 hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]"
-			: "p-1.5 rounded-md transition-all text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)]");
+	const className = overrideClassName ?? "ui-icon-btn p-1.5 rounded-md";
 
 	const icons =
 		iconStyle === "double" ? (
