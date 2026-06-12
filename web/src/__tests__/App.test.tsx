@@ -503,11 +503,16 @@ describe("Route navigation", () => {
 		const dashboardLink = screen.getByRole("link", { name: "Dashboard" });
 		await userEvent.click(dashboardLink);
 
-		await waitFor(() => {
-			expect(
-				screen.getByText("Overview of your Model Hotel usage"),
-			).toBeInTheDocument();
-		});
+		// Lazy route chunk + render can exceed the default 1s under coverage
+		// instrumentation (see the 10s precedent above).
+		await waitFor(
+			() => {
+				expect(
+					screen.getByText("Overview of your Model Hotel usage"),
+				).toBeInTheDocument();
+			},
+			{ timeout: 10000 },
+		);
 	});
 
 	it("navigates to Providers page", async () => {

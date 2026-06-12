@@ -31,7 +31,7 @@ const SUPPORTED_LANGUAGES = [
 	),
 ];
 
-const lazyLocaleBackend = {
+export const lazyLocaleBackend = {
 	type: "backend" as const,
 	init() {},
 	read(
