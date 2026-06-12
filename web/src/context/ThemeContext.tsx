@@ -14,7 +14,11 @@ const ACCENT_PRESETS: AccentPreset[] = [
 	{ name: "theme.accent.steelBlue", color: "#546de5", lightColor: "#3b3b98" },
 	{ name: "theme.accent.emerald", color: "#1dd1a1", lightColor: "#10ac84" },
 	{ name: "theme.accent.gold", color: "#b8860b", lightColor: "#996515" },
-	{ name: "theme.accent.forest", color: "#2ed573", lightColor: "#218c74" },
+	// Deep forest green (CSS forestgreen) — deliberately distinct from the
+	// terminal theme's phosphor-green default (#2ed573): swatch colors must
+	// never equal a THEME_DEFAULT_ACCENT value, or resetting to the theme
+	// default would highlight that swatch as if the user had picked it.
+	{ name: "theme.accent.forest", color: "#228b22", lightColor: "#1e7a1e" },
 	{ name: "theme.accent.sky", color: "#2196f3", lightColor: "#1976d2" },
 	{ name: "theme.accent.violet", color: "#a55eea", lightColor: "#8854d0" },
 	{ name: "theme.accent.hotPink", color: "#e84393", lightColor: "#c2185b" },

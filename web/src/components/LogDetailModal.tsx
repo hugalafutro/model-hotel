@@ -38,13 +38,11 @@ function AppLogDetail({
 					icon={Calendar}
 					label={t("components.appLogDetail.timestamp")}
 					value={formatDateTime(log.timestamp)}
-					accent
 				/>
 				<DetailItem
 					icon={Activity}
 					label={t("components.appLogDetail.level")}
 					value={log.level.toUpperCase()}
-					accent
 				>
 					<span
 						className={`inline-flex items-center px-2 py-px leading-[1.6] text-xs font-medium ui-badge ${
@@ -62,12 +60,10 @@ function AppLogDetail({
 					icon={Tag}
 					label={t("components.appLogDetail.source")}
 					value={log.source || "-"}
-					accent
 				/>
 				<DetailItem
 					icon={FileText}
 					label={t("components.appLogDetail.message")}
-					accent
 					labelExtra={
 						<CopyablePill
 							text={log.message}

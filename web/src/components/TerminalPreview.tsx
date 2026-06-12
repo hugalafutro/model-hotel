@@ -39,7 +39,7 @@ export function TerminalPreview({
 
 	if (variant === "code") {
 		return (
-			<div className="relative rounded-lg bg-gray-950 border border-gray-800 overflow-hidden">
+			<div className="terminal-frame relative rounded-lg bg-gray-950 border border-gray-800 overflow-hidden">
 				<div className="flex items-center gap-2 px-3 py-2 border-b border-gray-800 bg-gray-900/50">
 					{icon && <LangIcon name={icon} size={14} />}
 					<span className="text-xs text-gray-200 font-mono">
@@ -68,7 +68,7 @@ export function TerminalPreview({
 	if (variant === "bash") {
 		return (
 			<div
-				className={`relative rounded-b-lg rounded-tr-lg bg-gray-950 border border-gray-800 overflow-hidden${height ? "" : " min-h-70"}`}
+				className={`terminal-frame relative rounded-b-lg rounded-tr-lg bg-gray-950 border border-gray-800 overflow-hidden${height ? "" : " min-h-70"}`}
 				style={height ? { height: `${height}px` } : undefined}
 			>
 				<div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-gray-800 terminal-titlebar">
@@ -99,7 +99,7 @@ export function TerminalPreview({
 
 	return (
 		<div
-			className={`terminal-win11 relative rounded-b-lg rounded-tr-lg overflow-hidden border border-[#333]${height ? "" : " min-h-70"}`}
+			className={`terminal-win11 terminal-frame relative rounded-b-lg rounded-tr-lg overflow-hidden border border-[#333]${height ? "" : " min-h-70"}`}
 			style={height ? { height: `${height}px` } : undefined}
 		>
 			<div className="terminal-win11-titlebar flex items-center gap-2 px-3 py-1.5 border-b border-[#333]">

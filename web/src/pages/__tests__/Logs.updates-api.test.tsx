@@ -238,7 +238,7 @@ describe("Logs", () => {
 						createMockLogs([
 							createMockLogEntry({
 								created_at: oldDate,
-								request_hash: "abc123",
+								model_id: "abc123",
 								status_code: 0,
 								state: "pending",
 							}),
@@ -268,7 +268,7 @@ describe("Logs", () => {
 					HttpResponse.json(
 						createMockLogs([
 							createMockLogEntry({
-								request_hash: "abc123",
+								model_id: "abc123",
 								tokens_prompt: 100,
 								tokens_completion: 200,
 								tokens_per_second: 50,
@@ -305,7 +305,7 @@ describe("Logs", () => {
 					HttpResponse.json(
 						createMockLogs([
 							createMockLogEntry({
-								request_hash: "abc123",
+								model_id: "abc123",
 								duration_ms: 1000,
 								proxy_overhead_ms: 10,
 							}),
@@ -333,7 +333,7 @@ describe("Logs", () => {
 					HttpResponse.json(
 						createMockLogs([
 							createMockLogEntry({
-								request_hash: "abc123",
+								model_id: "abc123",
 								duration_ms: 6500,
 								proxy_overhead_ms: 10,
 							}),
@@ -358,7 +358,7 @@ describe("Logs", () => {
 					HttpResponse.json(
 						createMockLogs([
 							createMockLogEntry({
-								request_hash: "abc123",
+								model_id: "abc123",
 								duration_ms: 450,
 								proxy_overhead_ms: 10,
 							}),
@@ -385,7 +385,7 @@ describe("Logs", () => {
 					HttpResponse.json(
 						createMockLogs([
 							createMockLogEntry({
-								request_hash: "abc123",
+								model_id: "abc123",
 								duration_ms: 1000,
 								proxy_overhead_ms: 45,
 								parse_ms: 5,
@@ -414,7 +414,7 @@ describe("Logs", () => {
 					HttpResponse.json(
 						createMockLogs([
 							createMockLogEntry({
-								request_hash: "abc123",
+								model_id: "abc123",
 								duration_ms: 1000,
 								proxy_overhead_ms: 0,
 							}),

@@ -485,9 +485,12 @@ describe("ResponseCard", () => {
 			const modelNameText = screen.getByText(/gemma3:4b/);
 			fireEvent.click(modelNameText);
 
-			// Modal should appear with model details
+			// Modal should appear with model details (the heading; the display
+			// name also appears as a detail field in the unified modal)
 			await waitFor(() => {
-				expect(screen.getByText("Gemma 3 4B")).toBeInTheDocument();
+				expect(
+					screen.getByRole("heading", { name: "Gemma 3 4B" }),
+				).toBeInTheDocument();
 			});
 		});
 
@@ -499,7 +502,9 @@ describe("ResponseCard", () => {
 			fireEvent.click(modelNameText);
 
 			await waitFor(() => {
-				expect(screen.getByText("Gemma 3 4B")).toBeInTheDocument();
+				expect(
+					screen.getByRole("heading", { name: "Gemma 3 4B" }),
+				).toBeInTheDocument();
 			});
 
 			// Close modal - find by aria-label or close text
@@ -508,7 +513,9 @@ describe("ResponseCard", () => {
 
 			// Modal should close
 			await waitFor(() => {
-				expect(screen.queryByText("Gemma 3 4B")).not.toBeInTheDocument();
+				expect(
+					screen.queryByRole("heading", { name: "Gemma 3 4B" }),
+				).not.toBeInTheDocument();
 			});
 		});
 	});

@@ -294,10 +294,10 @@ export function TimeSeriesChart({
 								if (!payload?.length) return null;
 								return (
 									<div
+										className="chart-tooltip"
 										style={{
 											backgroundColor: "var(--surface-elevated)",
 											border: "1px solid var(--border-default)",
-											borderRadius: "10px",
 											padding: "8px 12px",
 											fontSize: "12px",
 										}}

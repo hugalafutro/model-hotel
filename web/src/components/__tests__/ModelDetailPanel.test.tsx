@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { mockModel } from "../../test/mocks/data";
 import { renderWithProviders } from "../../test/utils";
-import { ModelDetailModal, ModelDetailPanel } from "../ModelDetailPanel";
+import { ModelDetailPanel } from "../ModelDetailPanel";
 
 describe("ModelDetailPanel", () => {
 	const defaultProps = {
@@ -748,65 +748,5 @@ describe("ModelDetailPanel", () => {
 		const maxOutLabel = screen.getByText("Max Out");
 		const maxOutValue = maxOutLabel.nextElementSibling;
 		expect(maxOutValue).toHaveTextContent("-");
-	});
-});
-
-describe("ModelDetailModal", () => {
-	const onClose = vi.fn();
-
-	it("renders Modal wrapper with ModelDetailPanel inside", () => {
-		renderWithProviders(
-			<ModelDetailModal model={mockModel} onClose={onClose} />,
-		);
-
-		expect(screen.getByText("Test Model v1")).toBeInTheDocument();
-		expect(screen.getByText("Test Provider")).toBeInTheDocument();
-	});
-
-	it("passes collapsible prop to ModelDetailPanel", () => {
-		renderWithProviders(
-			<ModelDetailModal model={mockModel} onClose={onClose} collapsible />,
-		);
-
-		expect(
-			screen.getByRole("button", { name: /Collapse model details/i }),
-		).toBeInTheDocument();
-	});
-
-	it("does not show collapsible toggle by default", () => {
-		renderWithProviders(
-			<ModelDetailModal model={mockModel} onClose={onClose} />,
-		);
-
-		expect(
-			screen.queryByRole("button", { name: /Collapse model details/i }),
-		).not.toBeInTheDocument();
-	});
-
-	it("passes embedded prop to ModelDetailPanel", () => {
-		const { baseElement } = renderWithProviders(
-			<ModelDetailModal model={mockModel} onClose={onClose} />,
-		);
-
-		// The panel should not have the outer card wrapper when embedded.
-		// Modal portals to document.body, so query baseElement, not container.
-		const panel = baseElement.querySelector(
-			".text-xs.relative.overflow-y-auto",
-		);
-		expect(panel).toBeInTheDocument();
-	});
-
-	it("calls onClose when modal is closed", async () => {
-		const user = userEvent.setup();
-		renderWithProviders(
-			<ModelDetailModal model={mockModel} onClose={onClose} />,
-		);
-
-		const closeButton = screen.getByLabelText("Close");
-		await user.click(closeButton);
-
-		await waitFor(() => {
-			expect(onClose).toHaveBeenCalled();
-		});
 	});
 });

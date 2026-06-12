@@ -786,118 +786,40 @@ func classifyBackups(backups []backupEntry, sonRetention, fatherRetention, grand
 
 	// ── Son (daily) ──
 	// Keep the most recent backup from each of the last sonRetention calendar days.
-	dayBuckets := make(map[string][]backupEntry) // key: "2006-01-02"
-	for _, b := range backups {
-		ts, ok := timestamps[b.Filename]
-		if !ok {
-			continue
-		}
-		dayKey := ts.Format("2006-01-02")
-		dayBuckets[dayKey] = append(dayBuckets[dayKey], b)
-	}
-
-	// Collect the last N day keys (including today)
 	dayKeys := make(map[string]bool)
 	for i := 0; i < sonRetention; i++ {
-		d := now.AddDate(0, 0, -i).Format("2006-01-02")
-		dayKeys[d] = true
+		dayKeys[now.AddDate(0, 0, -i).Format("2006-01-02")] = true
 	}
-
-	for dk, entries := range dayBuckets {
-		if !dayKeys[dk] {
-			continue
-		}
-		// Pick the most recent entry from this day
-		picked := mostRecentEntry(entries, timestamps)
-		if picked != nil && !kept[picked.Filename] {
-			result.Son = append(result.Son, *picked)
-			kept[picked.Filename] = true
-		}
-	}
+	result.Son = keepMostRecentPerBucket(backups, timestamps, kept, dayKeys, func(ts time.Time) string {
+		return ts.Format("2006-01-02")
+	})
 
 	// ── Father (weekly) ──
 	// Keep the most recent backup from each of the last fatherRetention ISO weeks
-	// that is NOT already kept as a son.
-	isoWeekBuckets := make(map[string][]backupEntry) // key: "year-week" composite
-	for _, b := range backups {
-		ts, ok := timestamps[b.Filename]
-		if !ok || kept[b.Filename] {
-			continue
-		}
+	// that is NOT already kept as a son. The i=0 iteration covers the current
+	// week, so no separate "current week" entry is needed.
+	isoWeekKey := func(ts time.Time) string {
 		y, iw := ts.ISOWeek()
-		key := fmt.Sprintf("%d-%d", y, iw)
-		isoWeekBuckets[key] = append(isoWeekBuckets[key], b)
+		return fmt.Sprintf("%d-%d", y, iw)
 	}
-
-	// Collect the last M ISO weeks as year-week composites. The i=0 iteration
-	// covers the current week, so no separate "current week" entry is needed.
 	isoWeekSet := make(map[string]bool)
 	t := now
 	for i := 0; i < fatherRetention; i++ {
-		y, iw := t.ISOWeek()
-		key := fmt.Sprintf("%d-%d", y, iw)
-		isoWeekSet[key] = true
+		isoWeekSet[isoWeekKey(t)] = true
 		t = t.AddDate(0, 0, -7)
 	}
-
-	// Sort ISO weeks descending for deterministic ordering
-	var sortedWeeks []string
-	for wk := range isoWeekSet {
-		sortedWeeks = append(sortedWeeks, wk)
-	}
-	sort.Strings(sortedWeeks)
-
-	// Iterate in reverse to pick most recent weeks first
-	for i := len(sortedWeeks) - 1; i >= 0; i-- {
-		wk := sortedWeeks[i]
-		entries, ok := isoWeekBuckets[wk]
-		if !ok {
-			continue
-		}
-		picked := mostRecentEntry(entries, timestamps)
-		if picked != nil && !kept[picked.Filename] {
-			result.Father = append(result.Father, *picked)
-			kept[picked.Filename] = true
-		}
-	}
+	result.Father = keepMostRecentPerBucket(backups, timestamps, kept, isoWeekSet, isoWeekKey)
 
 	// ── Grandfather (monthly) ──
 	// Keep the most recent backup from each of the last grandfatherRetention months
 	// that is NOT already kept as a son or father.
-	monthBuckets := make(map[string][]backupEntry) // key: "2006-01"
-	for _, b := range backups {
-		ts, ok := timestamps[b.Filename]
-		if !ok || kept[b.Filename] {
-			continue
-		}
-		mk := ts.Format("2006-01")
-		monthBuckets[mk] = append(monthBuckets[mk], b)
-	}
-
 	monthKeys := make(map[string]bool)
 	for i := 0; i < grandfatherRetention; i++ {
-		mk := now.AddDate(0, -i, 0).Format("2006-01")
-		monthKeys[mk] = true
+		monthKeys[now.AddDate(0, -i, 0).Format("2006-01")] = true
 	}
-
-	// Sort month keys descending
-	var sortedMonths []string
-	for mk := range monthKeys {
-		sortedMonths = append(sortedMonths, mk)
-	}
-	sort.Sort(sort.Reverse(sort.StringSlice(sortedMonths)))
-
-	for _, mk := range sortedMonths {
-		entries, ok := monthBuckets[mk]
-		if !ok {
-			continue
-		}
-		picked := mostRecentEntry(entries, timestamps)
-		if picked != nil && !kept[picked.Filename] {
-			result.Grandfather = append(result.Grandfather, *picked)
-			kept[picked.Filename] = true
-		}
-	}
+	result.Grandfather = keepMostRecentPerBucket(backups, timestamps, kept, monthKeys, func(ts time.Time) string {
+		return ts.Format("2006-01")
+	})
 
 	// ── Prune: everything not kept ──
 	for _, b := range backups {
@@ -911,6 +833,44 @@ func classifyBackups(backups []backupEntry, sonRetention, fatherRetention, grand
 	}
 
 	return result
+}
+
+// keepMostRecentPerBucket implements one GFS retention tier: it buckets the
+// not-yet-kept backups by keyFn, and for each bucket whose key is in wantKeys
+// keeps the most recent entry, marking it in kept. Buckets are visited in
+// descending lexicographic key order so the returned tier is deterministic
+// (exact period order for zero-padded day/month keys; ISO week keys are not
+// zero-padded, matching the ordering the per-tier code always used).
+// Backups without a parsed timestamp are skipped (they are pruned elsewhere).
+func keepMostRecentPerBucket(backups []backupEntry, timestamps map[string]time.Time, kept, wantKeys map[string]bool, keyFn func(time.Time) string) []backupEntry {
+	buckets := make(map[string][]backupEntry)
+	for _, b := range backups {
+		ts, ok := timestamps[b.Filename]
+		if !ok || kept[b.Filename] {
+			continue
+		}
+		key := keyFn(ts)
+		if !wantKeys[key] {
+			continue
+		}
+		buckets[key] = append(buckets[key], b)
+	}
+
+	keys := make([]string, 0, len(buckets))
+	for k := range buckets {
+		keys = append(keys, k)
+	}
+	sort.Sort(sort.Reverse(sort.StringSlice(keys)))
+
+	var tier []backupEntry
+	for _, k := range keys {
+		picked := mostRecentEntry(buckets[k], timestamps)
+		if picked != nil && !kept[picked.Filename] {
+			tier = append(tier, *picked)
+			kept[picked.Filename] = true
+		}
+	}
+	return tier
 }
 
 // mostRecentEntry returns the entry with the most recent timestamp.

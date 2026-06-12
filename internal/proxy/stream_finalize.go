@@ -79,48 +79,7 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 		tps = float64(totalOutputTokens) / float64(totalDuration) * 1000
 	}
 
-	errMsg := st.lastErrMsg
-	if errMsg == "" && scanErr != nil {
-		scannerErr := scanErr
-		switch {
-		case errors.Is(scannerErr, context.Canceled):
-			// The scanner caught the cancellation before the select between
-			// iterations could. This is always a client disconnect — the
-			// parent request context was cancelled.
-			st.clientDisconnected = true
-		case errors.Is(scannerErr, context.DeadlineExceeded):
-			// A derived context's deadline expired (failover or retry timeout).
-			// Use cancelOrigin to produce a human-readable message.
-			switch opts.cancelOrigin {
-			case "retry_timeout":
-				errMsg = "stream interrupted: param-strip retry timed out"
-			case "failover_timeout":
-				errMsg = "stream interrupted: upstream request timed out"
-			default:
-				// Unknown origin — preserve the value rather than guessing.
-				errMsg = fmt.Sprintf("stream interrupted: %s", humanReadableCancelOrigin(opts.cancelOrigin))
-			}
-		default:
-			errMsg = scannerErr.Error()
-		}
-	}
-	if st.clientDisconnected {
-		errMsg = "client disconnected"
-		debuglog.Warn("proxy: client disconnected during streaming", "model", logData.modelID)
-	}
-	// Stall detection takes precedence over the raw IO error produced by
-	// the watchdog's body.Close(). Replace it with a descriptive message.
-	// Only flag a stall when we did NOT see [DONE] — if the stream completed
-	// normally, a late timer fire is a false positive. Also skip when the
-	// client disconnected, which is a more meaningful diagnosis.
-	if st.stalled && !st.sawDone && !st.clientDisconnected {
-		effectiveStall := opts.streamStallTimeout
-		if st.chunkCount > progressiveChunkThreshold {
-			effectiveStall = opts.streamStallTimeout * progressiveStallMultiplier
-		}
-		errMsg = fmt.Sprintf("stream stalled: no data for %s", effectiveStall)
-		debuglog.Warn("proxy: stream stall detected", "model", logData.modelID, "provider", logData.providerName, "stall_timeout", effectiveStall, "base_timeout", opts.streamStallTimeout, "chunks", st.chunkCount)
-	}
+	errMsg := deriveStreamError(st, scanErr, opts, logData)
 	if errMsg == "" && !st.sawDone {
 		// Upstream closed without [DONE] sentinel. If we received content and
 		// the scanner didn't error, inject the sentinel for the downstream
@@ -191,4 +150,57 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 		}
 		h.recordTokenUsage(opts.vkHash, st.promptTokens, st.completionTokens, st.reasoningTokens, logData.virtualKeyName)
 	}
+}
+
+// deriveStreamError classifies how the stream ended into the error message
+// recorded on the request log, or "" when no error applies. The ladder order is
+// semantic and must not be reshuffled: an in-stream SSE error wins, then the
+// scanner error is classified (a context.Canceled scan marks the stream as a
+// client disconnect on st), then a client disconnect overrides whatever message
+// was derived so far, and finally a stall overrides the raw IO error produced
+// by the watchdog's body.Close(). The missing-[DONE] diagnosis is NOT handled
+// here — it may write to the client, so it stays in finalizeStream.
+func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logData *requestLogData) string {
+	errMsg := st.lastErrMsg
+	if errMsg == "" && scanErr != nil {
+		switch {
+		case errors.Is(scanErr, context.Canceled):
+			// The scanner caught the cancellation before the select between
+			// iterations could. This is always a client disconnect — the
+			// parent request context was cancelled.
+			st.clientDisconnected = true
+		case errors.Is(scanErr, context.DeadlineExceeded):
+			// A derived context's deadline expired (failover or retry timeout).
+			// Use cancelOrigin to produce a human-readable message.
+			switch opts.cancelOrigin {
+			case "retry_timeout":
+				errMsg = "stream interrupted: param-strip retry timed out"
+			case "failover_timeout":
+				errMsg = "stream interrupted: upstream request timed out"
+			default:
+				// Unknown origin — preserve the value rather than guessing.
+				errMsg = fmt.Sprintf("stream interrupted: %s", humanReadableCancelOrigin(opts.cancelOrigin))
+			}
+		default:
+			errMsg = scanErr.Error()
+		}
+	}
+	if st.clientDisconnected {
+		errMsg = "client disconnected"
+		debuglog.Warn("proxy: client disconnected during streaming", "model", logData.modelID)
+	}
+	// Stall detection takes precedence over the raw IO error produced by
+	// the watchdog's body.Close(). Replace it with a descriptive message.
+	// Only flag a stall when we did NOT see [DONE] — if the stream completed
+	// normally, a late timer fire is a false positive. Also skip when the
+	// client disconnected, which is a more meaningful diagnosis.
+	if st.stalled && !st.sawDone && !st.clientDisconnected {
+		effectiveStall := opts.streamStallTimeout
+		if st.chunkCount > progressiveChunkThreshold {
+			effectiveStall = opts.streamStallTimeout * progressiveStallMultiplier
+		}
+		errMsg = fmt.Sprintf("stream stalled: no data for %s", effectiveStall)
+		debuglog.Warn("proxy: stream stall detected", "model", logData.modelID, "provider", logData.providerName, "stall_timeout", effectiveStall, "base_timeout", opts.streamStallTimeout, "chunks", st.chunkCount)
+	}
+	return errMsg
 }

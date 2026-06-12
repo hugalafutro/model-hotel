@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { LoadingSpinner } from "../components/LoadingSpinner";
-import { ModelDetailModal } from "../components/ModelDetailPanel";
 import { PageHeader } from "../components/PageHeader";
 import { formatCompact, formatTokens, formatWithCommas } from "../utils/format";
 import { Gauge } from "./Dashboard/Gauge";
@@ -28,6 +27,7 @@ import { MetricToggle, RangeToggle } from "./Dashboard/ToggleGroup";
 import { TokenSplitBar } from "./Dashboard/TokenSplitBar";
 import { UsageBarPanel } from "./Dashboard/UsageBarPanel";
 import { useDashboard } from "./Dashboard/useDashboard";
+import { ModelDetailModal } from "./Models/ModelDetailModal";
 
 /* =====================================================
    DASHBOARD
@@ -561,6 +561,7 @@ export function Dashboard() {
 				<ModelDetailModal
 					model={detailModel}
 					onClose={() => setDetailModel(null)}
+					zIndex="z-60"
 				/>
 			)}
 		</div>

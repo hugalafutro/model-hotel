@@ -205,14 +205,14 @@ export function SettingsSlider({
 					onPointerUp={handleSliderCommit}
 					onKeyUp={handleSliderKeyUp}
 					disabled={disabled}
-					className={`gen-slider flex-1 h-1.5 rounded-lg appearance-none ${
+					className={`gen-slider flex-1 min-w-0 h-1.5 rounded-lg appearance-none ${
 						disabled ? "cursor-not-allowed opacity-40" : "cursor-pointer"
 					} bg-(--surface-hover) accent-(--accent)`}
 					style={{
 						background: `linear-gradient(to right, var(--accent) ${pct}%, var(--surface-hover) ${pct}%)`,
 					}}
 				/>
-				<div className="flex items-center gap-px">
+				<div className="flex items-center gap-px shrink-0">
 					<div className="flex flex-col">
 						<button
 							type="button"
@@ -258,7 +258,7 @@ export function SettingsSlider({
 				</div>
 				{unit && (
 					<span
-						className={`text-xs -ml-1 ${hideUnit ? "text-transparent" : "text-(--text-tertiary)"}`}
+						className={`text-xs -ml-1 shrink-0 ${hideUnit ? "text-transparent" : "text-(--text-tertiary)"}`}
 						aria-hidden={hideUnit}
 					>
 						{unit}

@@ -157,7 +157,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 						<tbody>
 							<tr>
 								<td
-									colSpan={12}
+									colSpan={11}
 									className="px-4 py-8 text-center text-gray-500 text-sm"
 								>
 									{t("components.virtualLogTable.noLogsFound")}
@@ -219,9 +219,6 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 								{sortDir === "desc" ? "↓" : "↑"}
 							</th>
 							<th className={HEADER_BASE}>
-								{t("components.virtualLogTable.hash")}
-							</th>
-							<th className={HEADER_BASE}>
 								{t("components.virtualLogTable.model")}
 							</th>
 							<th className={HEADER_BASE}>
@@ -264,16 +261,10 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 									className={`hover:bg-(--surface-hover) ${vItem.index % 2 === 1 ? "ui-row-even" : ""} cursor-pointer`}
 									onClick={() => onRowClick(log)}
 								>
-									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400">
+									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
 										{log.created_at
 											? new Date(log.created_at).toLocaleString()
 											: "-"}
-									</td>
-									<td
-										className="px-2 py-1 text-xs font-mono text-gray-400 truncate"
-										title={log.request_hash}
-									>
-										{log.request_hash ? log.request_hash.slice(0, 16) : "-"}
 									</td>
 									<td
 										className="px-2 py-1 whitespace-nowrap text-xs text-gray-200 truncate"
@@ -330,7 +321,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 											{log.status_code}
 										</Badge>
 									</td>
-									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400">
+									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
 										{isCancelled(log.error_message) ? (
 											t("components.virtualLogTable.interrupted")
 										) : log.tokens_prompt + log.tokens_completion > 0 ? (
@@ -343,7 +334,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 											"-"
 										)}
 									</td>
-									<td className="px-2 py-1 whitespace-nowrap text-xs">
+									<td className="px-2 py-1 whitespace-nowrap text-xs font-mono">
 										{isCancelled(log.error_message) ? (
 											"-"
 										) : (
@@ -363,28 +354,28 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 											</span>
 										)}
 									</td>
-									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400">
+									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
 										{isCancelled(log.error_message)
 											? "-"
 											: log.response_header_ms > 0
 												? formatMs(log.response_header_ms, 1)
 												: "-"}
 									</td>
-									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400">
+									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
 										{isCancelled(log.error_message)
 											? "-"
 											: log.ttft_ms > 0
 												? formatMs(log.ttft_ms, 1)
 												: "-"}
 									</td>
-									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400">
+									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
 										{log.duration_ms > 0
 											? log.duration_ms >= 1000
 												? `${(log.duration_ms / 1000).toFixed(1)}s`
 												: `${log.duration_ms.toFixed(0)}ms`
 											: "-"}
 									</td>
-									<td className="px-2 py-1 whitespace-nowrap text-xs">
+									<td className="px-2 py-1 whitespace-nowrap text-xs font-mono">
 										{log.proxy_overhead_ms != null &&
 										log.proxy_overhead_ms > 0 ? (
 											<span className="text-(--accent)">

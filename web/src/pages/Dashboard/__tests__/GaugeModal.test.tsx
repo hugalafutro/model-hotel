@@ -193,8 +193,8 @@ describe("GaugeModal", () => {
 		renderWithProviders(<GaugeModal {...defaultProps} />);
 
 		await waitFor(() => {
-			expect(screen.getByText("1D").closest("button")).toHaveStyle(
-				"background-color: var(--accent)",
+			expect(screen.getByText("1D").closest("button")).toHaveClass(
+				"ui-tab-active",
 			);
 		});
 	});
@@ -218,8 +218,8 @@ describe("GaugeModal", () => {
 		await user.click(sevenDButton);
 
 		await waitFor(() => {
-			expect(screen.getByText("1W").closest("button")).toHaveStyle(
-				"background-color: var(--accent)",
+			expect(screen.getByText("1W").closest("button")).toHaveClass(
+				"ui-tab-active",
 			);
 		});
 	});

@@ -1010,27 +1010,12 @@ html[data-ui-style="cyber-terminal"] .sidebar-quota-pill {
 	letter-spacing: 0.05em;
 }
 
-html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-anthropic,
-html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-openai,
-html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-google,
-html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-deepseek,
-html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-xai,
-html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-ollama,
-html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-ollama-cloud,
-html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-openrouter,
-html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-cohere,
-html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-zai-coding,
-html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-nanogpt,
-html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-lmstudio,
-html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-koboldcpp,
-html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-opencode,
-html[data-ui-style="cyber-terminal"] .sidebar-quota-pill-neuralwatt {
-	border-color: var(--accent);
-	box-shadow: inset 0 0 8px rgba(var(--accent-rgb), 0.05);
-}
-
 html[data-ui-style="glassmorphism-lite"] .sidebar-quota-pill {
 	border-radius: 8px;
+	/* Match the ui-badge base size (sidebar failover badge, provider-card
+	   badges) so all badges read at one size. Terminal keeps the smaller
+	   base size, which its quota pills already share with ui-badge. */
+	font-size: 0.6875rem;
 }
 
 html[data-ui-style="glassmorphism-lite"] .sidebar-quota-pill {
@@ -1040,6 +1025,7 @@ html[data-ui-style="glassmorphism-lite"] .sidebar-quota-pill {
 
 html[data-ui-style="clean-saas"] .sidebar-quota-pill {
 	border-radius: 9999px;
+	font-size: 0.6875rem;
 }
 
 /* Light-mode readability: providers with dark/gray brand colors need darker text on light backgrounds */
@@ -1357,6 +1343,15 @@ html[data-ui-style="glassmorphism-lite"].light [role="dialog"] .ui-card {
 	font-size: 0.6875rem;
 	line-height: 1;
 	gap: 0;
+}
+
+/* Prominent CTAs (login screen). Size-only variant like ui-btn-compact:
+   these rules are unlayered, so per-button Tailwind padding and font-size
+   utilities cannot override the base ui-btn sizing. */
+[data-ui-style] .ui-btn-lg {
+	padding: 0.75rem 1rem;
+	font-size: 0.875rem;
+	gap: 0.5rem;
 }
 
 /* Sidebar footer links (Wiki, theme, language, GitHub version) share ui-btn
@@ -1834,7 +1829,11 @@ html.light [data-ui-style] .ui-table th {
 [data-ui-style] .ui-table td {
 	padding: 0.25rem 0.5rem;
 	border-bottom: 1px solid var(--border-subtle);
-	font-size: 0.8125rem;
+	/* Dense data tables (Logs/Requests): 13px overflowed the shared fixed
+	   column widths in Terminal's wider mono (date+time vs hash), and the
+	   widths are deliberately theme-agnostic - so the font gives, not the
+	   columns. */
+	font-size: 0.75rem;
 	color: var(--text-secondary);
 }
 
@@ -2027,7 +2026,9 @@ html[data-ui-style="glassmorphism-lite"].dark .ui-table-header-text {
 html[data-ui-style="cyber-terminal"] .ui-badge {
 	border-radius: 0;
 	font-family: var(--font-mono);
-	font-size: 9px;
+	/* Same size as the sidebar quota pills: 9px mono uppercase rendered
+	   squashed (fractional device pixels at common scale factors). */
+	font-size: 0.625rem;
 	letter-spacing: 0.05em;
 	text-transform: uppercase;
 }
@@ -2040,6 +2041,27 @@ html[data-ui-style="cyber-terminal"] .ui-badge {
 }
 html[data-ui-style="cyber-terminal"] .ui-tab {
 	border-radius: 0;
+}
+
+/* Active toggle-tab (1h/24h/1w, Tok/Req): ui-btn-primary's readable tinted
+   look without its sizing. The ring is an inset box-shadow instead of a
+   border so active and inactive buttons keep identical widths. */
+[data-ui-style] .ui-tab-active {
+	background-color: var(--accent-light);
+	color: var(--accent);
+	box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+[data-ui-style] .ui-tab-active:hover {
+	filter: brightness(1.1);
+}
+
+html[data-ui-style="cyber-terminal"] .ui-tab-active:hover {
+	filter: none;
+	box-shadow:
+		inset 0 0 0 1px var(--accent),
+		0 0 0 1px var(--accent),
+		0 0 15px rgba(var(--accent-rgb), 0.25);
 }
 
 /* Badge color variants */
@@ -2175,24 +2197,19 @@ html[data-ui-style="cyber-terminal"].dark body {
 }
 
 html[data-ui-style="cyber-terminal"].dark .ui-surface-bg,
-html[data-ui-style="cyber-terminal"] .ui-surface-bg {
-	/* CRT scanlines (1px every 3px, ~1.3%) over the existing dot grid */
-	background-image:
-		repeating-linear-gradient(
-			0deg,
-			rgba(255, 255, 255, 0.013) 0px,
-			rgba(255, 255, 255, 0.013) 1px,
-			transparent 1px,
-			transparent 3px
-		),
-		radial-gradient(
-			circle at 1px 1px,
-			rgba(255, 255, 255, 0.03) 1px,
-			transparent 0
-		);
-	background-size:
-		auto,
-		32px 32px;
+html[data-ui-style="cyber-terminal"] .ui-surface-bg,
+html[data-ui-style="cyber-terminal"] .ui-main {
+	/* CRT scanlines (1px every 3px, ~1.3%) only - the dot grid stays on
+	   the sidebar. .ui-main needs the texture itself: its opaque
+	   background-color sits on top of the .ui-surface-bg wrapper and
+	   would hide it. */
+	background-image: repeating-linear-gradient(
+		0deg,
+		rgba(255, 255, 255, 0.013) 0px,
+		rgba(255, 255, 255, 0.013) 1px,
+		transparent 1px,
+		transparent 3px
+	);
 }
 
 /* Ensure sidebar in dark terminal blends */
@@ -2216,13 +2233,16 @@ html[data-ui-style="cyber-terminal"].light body {
 	background-size: 32px 32px;
 }
 
-html[data-ui-style="cyber-terminal"].light .ui-surface-bg {
-	background-image: radial-gradient(
-		circle at 1px 1px,
-		rgba(0, 0, 0, 0.08) 1px,
-		transparent 0
+html[data-ui-style="cyber-terminal"].light .ui-surface-bg,
+html[data-ui-style="cyber-terminal"].light .ui-main {
+	/* Same scanlines-only as dark mode, with dark lines instead. */
+	background-image: repeating-linear-gradient(
+		0deg,
+		rgba(0, 0, 0, 0.04) 0px,
+		rgba(0, 0, 0, 0.04) 1px,
+		transparent 1px,
+		transparent 3px
 	);
-	background-size: 32px 32px;
 }
 
 html[data-ui-style="cyber-terminal"].light .ui-sidebar {
@@ -2812,6 +2832,12 @@ html.light .terminal-titlebar-win11 .win11-icon {
 	animation: waffle-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
+/* Waffle cells/bars (token split, provider waffle) keep their soft utility
+   radius in most themes; Terminal squares them off like everything else. */
+html[data-ui-style="cyber-terminal"] .ui-waffle-cell {
+	border-radius: 0;
+}
+
 /* Disabled failover entry pill - CSS-only styles */
 /* Dark/Light selector: two separate buttons in most themes; Terminal
    joins them into one outlined segmented toggle. */
@@ -2831,6 +2857,28 @@ html[data-ui-style="cyber-terminal"] .theme-mode-toggle {
 	border-radius: 9999px;
 }
 html[data-ui-style="cyber-terminal"] .color-swatch {
+	border-radius: 0;
+}
+
+/* Appearance settings chrome: the three ui-style picker cards and the mock
+   monitor for toast placement; Terminal squares them off. */
+html[data-ui-style="cyber-terminal"] .ui-style-card,
+html[data-ui-style="cyber-terminal"] .toast-monitor {
+	border-radius: 0;
+}
+
+/* Recharts tooltips style themselves inline, so the radius lives here
+   where Terminal can flatten it. */
+.chart-tooltip {
+	border-radius: 10px;
+}
+
+/* Terminal corner squaring: dashboard stat-card icon chips, the Virtual
+   Keys note pill, the mock-terminal snippet frames, and chart tooltips. */
+html[data-ui-style="cyber-terminal"] .ui-stat-icon,
+html[data-ui-style="cyber-terminal"] .ui-note-pill,
+html[data-ui-style="cyber-terminal"] .terminal-frame,
+html[data-ui-style="cyber-terminal"] .chart-tooltip {
 	border-radius: 0;
 }
 
@@ -3069,6 +3117,13 @@ html.light .toast-timeout-slider::-moz-range-thumb:active,
 
 .gen-slider::-moz-range-thumb:hover {
 	transform: scale(1.2);
+}
+
+/* Terminal: square corners on the bar itself - the input element's own
+   background gradient paints the visible bar, so the pseudo-element track
+   overrides below don't reach it. */
+html[data-ui-style="cyber-terminal"] .gen-slider {
+	border-radius: 0;
 }
 
 /* Terminal: square slider thumbs with accent glow */

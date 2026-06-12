@@ -645,9 +645,11 @@ describe("Dashboard.coverage", () => {
 			});
 			await user.click(modelButton);
 
-			// Wait for modal to open
+			// Wait for modal to open (the unified modal heads with the display name)
 			await waitFor(() => {
-				expect(screen.getByText("test-model-v1")).toBeInTheDocument();
+				expect(
+					screen.getByRole("heading", { name: "Test Model v1" }),
+				).toBeInTheDocument();
 			});
 
 			// Close modal - find the X button by its aria-label
@@ -656,7 +658,9 @@ describe("Dashboard.coverage", () => {
 
 			// Wait for modal to close
 			await waitFor(() => {
-				expect(screen.queryByText("test-model-v1")).not.toBeInTheDocument();
+				expect(
+					screen.queryByRole("heading", { name: "Test Model v1" }),
+				).not.toBeInTheDocument();
 			});
 		});
 	});

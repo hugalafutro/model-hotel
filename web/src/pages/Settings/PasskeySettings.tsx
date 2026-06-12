@@ -119,7 +119,7 @@ export function PasskeySettings({ collapsed, onToggle }: PasskeySettingsProps) {
 					type="button"
 					onClick={handleRegister}
 					disabled={registering}
-					className="flex items-center gap-2 px-4 py-2 bg-(--accent) text-white rounded-(--radius-button) hover:brightness-110 transition-all text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+					className="ui-btn ui-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
 					aria-label={t("settings.passkeys.registerAriaLabel")}
 				>
 					<Plus size={16} />

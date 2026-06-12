@@ -122,7 +122,7 @@ function LoginScreen() {
 								type="button"
 								onClick={handlePasskeyLogin}
 								disabled={passkeyLoading}
-								className="w-full bg-(--accent) text-white py-3 rounded-lg hover:brightness-110 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+								className="ui-btn ui-btn-primary ui-btn-lg w-full disabled:opacity-50 disabled:cursor-not-allowed"
 								aria-label={t("layout.auth.signInWithPasskey")}
 							>
 								<Fingerprint size={20} />
@@ -177,7 +177,7 @@ function LoginScreen() {
 						type="button"
 						onClick={handleLogin}
 						disabled={loading}
-						className="w-full bg-(--accent) text-white py-3 rounded-lg hover:brightness-110 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+						className="ui-btn ui-btn-primary ui-btn-lg w-full disabled:opacity-50 disabled:cursor-not-allowed"
 					>
 						{loading ? t("layout.auth.signingIn") : t("layout.auth.signIn")}
 					</button>

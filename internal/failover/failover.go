@@ -547,6 +547,98 @@ func normalizeBaseModel(modelID string) string {
 	return strings.ToLower(modelID)
 }
 
+// deleteUndersizedAutoGroup deletes the auto-created group for base when fewer
+// than two enabled providers remain, recording the deletion in result.
+// providerCount is the number of enabled providers found (0 or 1);
+// providerNames may be empty when the caller only resolved UUIDs.
+// No-op when no auto group exists for base.
+func (r *Repository) deleteUndersizedAutoGroup(ctx context.Context, base string, providerCount int, providerNames []string, result *SyncResult) {
+	if !r.deleteAutoGroup(ctx, base) {
+		return
+	}
+	reason := "no enabled providers found"
+	if providerCount == 1 {
+		reason = "only 1 enabled provider (need 2+ for failover)"
+	}
+	result.DeletedGroups = append(result.DeletedGroups, DeletedGroupInfo{
+		DisplayModel:  base,
+		ProviderCount: providerCount,
+		Reason:        reason,
+		ProviderNames: providerNames,
+	})
+}
+
+// upsertAutoGroup creates or updates the auto failover group for base from the
+// current enabled member model UUIDs, preserving the existing group's entry
+// toggles (for members still present), user priority order, display name, and
+// description. It returns the pre-upsert group snapshot (nil when the group is
+// new) and the merged priority order that was written.
+func (r *Repository) upsertAutoGroup(ctx context.Context, base string, currentIDs []uuid.UUID) (existing *FailoverGroup, priorityOrder []uuid.UUID, err error) {
+	entryEnabled := make(map[string]bool, len(currentIDs))
+	for _, id := range currentIDs {
+		entryEnabled[id.String()] = true
+	}
+
+	existing, _ = r.GetByModel(ctx, base)
+	if existing != nil {
+		for uuidStr, enabled := range existing.EntryEnabled {
+			if _, stillPresent := entryEnabled[uuidStr]; stillPresent {
+				entryEnabled[uuidStr] = enabled
+			}
+		}
+	}
+
+	priorityOrder = currentIDs
+	if existing != nil {
+		priorityOrder = mergePriorityOrder(existing.PriorityOrder, currentIDs)
+	}
+
+	groupEnabled := true
+	autoCreated := true
+	var syncDisplayName, syncDescription *string
+	if existing != nil {
+		syncDisplayName = existing.DisplayName
+		if existing.Description != "" {
+			syncDescription = &existing.Description
+		}
+	}
+	_, err = r.UpsertWithConfig(ctx, base, priorityOrder, entryEnabled, &groupEnabled, syncDisplayName, syncDescription, &autoCreated)
+	return existing, priorityOrder, err
+}
+
+// diffGroupMembership reports which model UUIDs the sync removed from and added
+// to a group, comparing the pre-upsert snapshot against the current members.
+// A nil existing (brand-new group) reports every member as added.
+func diffGroupMembership(existing *FailoverGroup, currentIDs []uuid.UUID) (removed, added []string) {
+	if existing == nil {
+		added = make([]string, 0, len(currentIDs))
+		for _, id := range currentIDs {
+			added = append(added, id.String())
+		}
+		return nil, added
+	}
+
+	currentSet := make(map[uuid.UUID]struct{}, len(currentIDs))
+	for _, id := range currentIDs {
+		currentSet[id] = struct{}{}
+	}
+	existingSet := make(map[uuid.UUID]struct{}, len(existing.PriorityOrder))
+	for _, id := range existing.PriorityOrder {
+		existingSet[id] = struct{}{}
+	}
+	for _, id := range existing.PriorityOrder {
+		if _, ok := currentSet[id]; !ok {
+			removed = append(removed, id.String())
+		}
+	}
+	for _, id := range currentIDs {
+		if _, ok := existingSet[id]; !ok {
+			added = append(added, id.String())
+		}
+	}
+	return removed, added
+}
+
 // SyncAllModels synchronizes all enabled models with providers and updates failover groups.
 func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 	result := &SyncResult{}
@@ -593,60 +685,21 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 	syncedBases := make(map[string]bool)
 	for base, models := range baseToModels {
 		if len(models) <= 1 {
-			if r.deleteAutoGroup(ctx, base) {
-				providerNames := make([]string, 0, len(models))
-				for _, m := range models {
-					providerNames = append(providerNames, m.providerName)
-				}
-				reason := "no enabled providers found"
-				if len(models) == 1 {
-					reason = "only 1 enabled provider (need 2+ for failover)"
-				}
-				result.DeletedGroups = append(result.DeletedGroups, DeletedGroupInfo{
-					DisplayModel:  base,
-					ProviderCount: len(models),
-					Reason:        reason,
-					ProviderNames: providerNames,
-				})
+			providerNames := make([]string, 0, len(models))
+			for _, m := range models {
+				providerNames = append(providerNames, m.providerName)
 			}
+			r.deleteUndersizedAutoGroup(ctx, base, len(models), providerNames, result)
 			continue
 		}
 
 		currentIDs := make([]uuid.UUID, len(models))
-		entryEnabled := make(map[string]bool)
 		for i, m := range models {
 			currentIDs[i] = m.uuid
-			entryEnabled[m.uuid.String()] = true
-		}
-
-		existing, _ := r.GetByModel(ctx, base)
-		if existing != nil {
-			for uuidStr, enabled := range existing.EntryEnabled {
-				if _, stillPresent := entryEnabled[uuidStr]; stillPresent {
-					entryEnabled[uuidStr] = enabled
-				}
-			}
-		}
-
-		var priorityOrder []uuid.UUID
-		if existing != nil {
-			priorityOrder = mergePriorityOrder(existing.PriorityOrder, currentIDs)
-		} else {
-			priorityOrder = currentIDs
 		}
 
 		syncedBases[base] = true
-		groupEnabled := true
-		autoCreated := true
-		var syncDisplayName, syncDescription *string
-		if existing != nil {
-			syncDisplayName = existing.DisplayName
-			if existing.Description != "" {
-				syncDescription = &existing.Description
-			}
-		}
-		_, err := r.UpsertWithConfig(ctx, base, priorityOrder, entryEnabled, &groupEnabled, syncDisplayName, syncDescription, &autoCreated)
-		if err != nil {
+		if _, _, err := r.upsertAutoGroup(ctx, base, currentIDs); err != nil {
 			result.SyncErrors = append(result.SyncErrors, fmt.Sprintf("%s: %v", base, err))
 			continue
 		}
@@ -730,96 +783,26 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) (*SyncRes
 	}
 
 	if len(currentIDs) <= 1 {
-		if r.deleteAutoGroup(ctx, base) {
-			reason := "no enabled providers found"
-			if len(currentIDs) == 1 {
-				reason = "only 1 enabled provider (need 2+ for failover)"
-			}
-			result.DeletedGroups = append(result.DeletedGroups, DeletedGroupInfo{
-				DisplayModel:  base,
-				ProviderCount: len(currentIDs),
-				Reason:        reason,
-				ProviderNames: []string{},
-			})
-		}
+		r.deleteUndersizedAutoGroup(ctx, base, len(currentIDs), []string{}, result)
 		return result, nil
 	}
 
-	entryEnabled := make(map[string]bool)
-	for _, id := range currentIDs {
-		entryEnabled[id.String()] = true
-	}
-
-	existing, _ := r.GetByModel(ctx, base)
-	if existing != nil {
-		for uuidStr, enabled := range existing.EntryEnabled {
-			if _, stillPresent := entryEnabled[uuidStr]; stillPresent {
-				entryEnabled[uuidStr] = enabled
-			}
-		}
-	}
-
-	var priorityOrder []uuid.UUID
-	if existing != nil {
-		priorityOrder = mergePriorityOrder(existing.PriorityOrder, currentIDs)
-	} else {
-		priorityOrder = currentIDs
-	}
-
-	if existing != nil {
-		currentSet := make(map[uuid.UUID]struct{}, len(currentIDs))
-		for _, id := range currentIDs {
-			currentSet[id] = struct{}{}
-		}
-		existingSet := make(map[uuid.UUID]struct{}, len(existing.PriorityOrder))
-		for _, id := range existing.PriorityOrder {
-			existingSet[id] = struct{}{}
-		}
-		var removed, added []string
-		for _, id := range existing.PriorityOrder {
-			if _, ok := currentSet[id]; !ok {
-				removed = append(removed, id.String())
-			}
-		}
-		for _, id := range currentIDs {
-			if _, ok := existingSet[id]; !ok {
-				added = append(added, id.String())
-			}
-		}
-		if len(removed) > 0 || len(added) > 0 {
-			result.UpdatedGroups = append(result.UpdatedGroups, UpdatedGroupInfo{
-				DisplayModel:    base,
-				RemovedModelIDs: removed,
-				AddedModelIDs:   added,
-			})
-		}
-	} else {
-		// A brand-new auto-group: report every member as added so the
-		// creation is visible in discovery summaries instead of silent.
-		added := make([]string, 0, len(currentIDs))
-		for _, id := range currentIDs {
-			added = append(added, id.String())
-		}
-		result.UpdatedGroups = append(result.UpdatedGroups, UpdatedGroupInfo{
-			DisplayModel:  base,
-			AddedModelIDs: added,
-		})
-	}
-
-	groupEnabled := true
-	autoCreated := true
-	var syncDisplayName, syncDescription *string
-	if existing != nil {
-		syncDisplayName = existing.DisplayName
-		if existing.Description != "" {
-			syncDescription = &existing.Description
-		}
-	}
-	_, err = r.UpsertWithConfig(ctx, base, priorityOrder, entryEnabled, &groupEnabled, syncDisplayName, syncDescription, &autoCreated)
+	existing, priorityOrder, err := r.upsertAutoGroup(ctx, base, currentIDs)
 	if err != nil {
 		debuglog.Error("failover: failed to sync group", "display_model", base, "error", err)
 		return nil, err
 	}
+
+	// Report membership changes so discovery summaries show what the sync did;
+	// a brand-new auto-group reports every member as added instead of being silent.
+	if removed, added := diffGroupMembership(existing, currentIDs); len(removed) > 0 || len(added) > 0 {
+		result.UpdatedGroups = append(result.UpdatedGroups, UpdatedGroupInfo{
+			DisplayModel:    base,
+			RemovedModelIDs: removed,
+			AddedModelIDs:   added,
+		})
+	}
+
 	debuglog.Info("failover: synced group", "display_model", base, "providers", len(priorityOrder))
 	return result, nil
 }

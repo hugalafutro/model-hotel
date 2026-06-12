@@ -135,7 +135,7 @@ export function ProviderDoughnut({
 								<div
 									// biome-ignore lint/suspicious/noArrayIndexKey: fixed 100-cell grid, order never changes
 									key={i}
-									className="absolute rounded-[2px] animate-waffle-pop"
+									className="ui-waffle-cell absolute rounded-[2px] animate-waffle-pop"
 									style={{
 										width: CELL,
 										height: CELL,

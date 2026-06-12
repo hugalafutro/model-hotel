@@ -173,9 +173,7 @@ describe("Logs", () => {
 				http.get("/api/logs/cursor", () => {
 					cursorCallCount++;
 					return HttpResponse.json({
-						entries: [
-							createMockLogEntry({ id: "log-1", request_hash: "abc123" }),
-						],
+						entries: [createMockLogEntry({ id: "log-1", model_id: "abc123" })],
 						total: 1,
 						has_before: false,
 						has_after: false,
@@ -220,9 +218,7 @@ describe("Logs", () => {
 				http.get("/api/logs/cursor", () => {
 					cursorCallCount++;
 					return HttpResponse.json({
-						entries: [
-							createMockLogEntry({ id: "log-1", request_hash: "abc123" }),
-						],
+						entries: [createMockLogEntry({ id: "log-1", model_id: "abc123" })],
 						total: 1,
 						has_before: false,
 						has_after: false,
@@ -267,9 +263,7 @@ describe("Logs", () => {
 				http.get("/api/logs/cursor", () => {
 					cursorCallCount++;
 					return HttpResponse.json({
-						entries: [
-							createMockLogEntry({ id: "log-1", request_hash: "abc123" }),
-						],
+						entries: [createMockLogEntry({ id: "log-1", model_id: "abc123" })],
 						total: 1,
 						has_before: false,
 						has_after: false,
@@ -314,9 +308,7 @@ describe("Logs", () => {
 				http.get("/api/logs/cursor", () => {
 					cursorCallCount++;
 					return HttpResponse.json({
-						entries: [
-							createMockLogEntry({ id: "log-1", request_hash: "abc123" }),
-						],
+						entries: [createMockLogEntry({ id: "log-1", model_id: "abc123" })],
 						total: 1,
 						has_before: false,
 						has_after: false,
@@ -374,7 +366,7 @@ describe("Logs", () => {
 					HttpResponse.json(
 						createMockLogs([
 							createMockLogEntry({
-								request_hash: "stale-min-001",
+								model_id: "stale-min-001",
 								state: "pending",
 								created_at: new Date(Date.now() - 50 * 60 * 1000).toISOString(),
 								status_code: 0,
@@ -406,7 +398,7 @@ describe("Logs", () => {
 					HttpResponse.json(
 						createMockLogs([
 							createMockLogEntry({
-								request_hash: "stale-sec-001",
+								model_id: "stale-sec-001",
 								state: "streaming",
 								created_at: new Date(Date.now() - 120 * 1000).toISOString(),
 								status_code: 0,
@@ -438,7 +430,7 @@ describe("Logs", () => {
 			const { user } = renderWithProviders(<Logs />);
 
 			await waitFor(() => {
-				expect(screen.getByText("abc123")).toBeInTheDocument();
+				expect(screen.getByText("test-model")).toBeInTheDocument();
 			});
 
 			// Apply a date filter first
@@ -604,7 +596,7 @@ describe("Logs", () => {
 					HttpResponse.json(
 						createMockLogs([
 							createMockLogEntry({
-								request_hash: "3xx-001",
+								model_id: "3xx-001",
 								status_code: 301,
 								state: "completed",
 							}),
@@ -634,7 +626,7 @@ describe("Logs", () => {
 					HttpResponse.json(
 						createMockLogs([
 							createMockLogEntry({
-								request_hash: "cancel-broad-001",
+								model_id: "cancel-broad-001",
 								error_message: "request cancelled by user",
 								state: "completed",
 								status_code: 0,
@@ -667,7 +659,7 @@ describe("Logs", () => {
 							Array.from({ length: newPageSize }, (_, i) =>
 								createMockLogEntry({
 									id: `log-${i}`,
-									request_hash: `hash${i}`,
+									model_id: `hash${i}`,
 								}),
 							),
 							100,
@@ -725,7 +717,7 @@ describe("Logs", () => {
 					HttpResponse.json(
 						createMockLogs([
 							createMockLogEntry({
-								request_hash: "oh-parse-001",
+								model_id: "oh-parse-001",
 								proxy_overhead_ms: 20,
 								parse_ms: 5,
 								model_lookup_ms: 0,
@@ -754,7 +746,7 @@ describe("Logs", () => {
 					HttpResponse.json(
 						createMockLogs([
 							createMockLogEntry({
-								request_hash: "oh-prov-001",
+								model_id: "oh-prov-001",
 								proxy_overhead_ms: 30,
 								parse_ms: 0,
 								model_lookup_ms: 0,
@@ -792,7 +784,7 @@ describe("Logs", () => {
 			const { user } = renderWithProviders(<Logs />);
 
 			await waitFor(() => {
-				expect(screen.getByText("abc123")).toBeInTheDocument();
+				expect(screen.getByText("test-model")).toBeInTheDocument();
 			});
 
 			// Type model filter

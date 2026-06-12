@@ -18,7 +18,6 @@ import { ApplyRecommendedButton } from "./ApplyRecommendedButton";
 import { CapBadge } from "./CapBadge";
 import { CopyablePill } from "./CopyablePill";
 import { CAP_META } from "./capMeta";
-import { Modal } from "./Modal";
 import { ParamSlider } from "./ParamSlider";
 import { ReasoningEffortSelect } from "./ReasoningEffortSelect";
 
@@ -413,29 +412,5 @@ export function ModelDetailPanel({
 				</div>
 			</div>
 		</div>
-	);
-}
-
-interface ModelDetailModalProps {
-	model: Model;
-	onClose: () => void;
-	/** Whether the panel can be collapsed (default: false) */
-	collapsible?: boolean;
-}
-
-export function ModelDetailModal({
-	model,
-	onClose,
-	collapsible = false,
-}: ModelDetailModalProps) {
-	return (
-		<Modal onClose={onClose} maxWidth="max-w-sm" zIndex="z-60" scrollable>
-			<ModelDetailPanel
-				model={model}
-				onClose={onClose}
-				collapsible={collapsible}
-				embedded
-			/>
-		</Modal>
 	);
 }

@@ -53,7 +53,15 @@ export function SettingsSection({
 					collapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"
 				}`}
 			>
-				<div className="overflow-hidden">{children}</div>
+				{/* The clip wrapper the 0fr/1fr trick needs would also clip the
+				    Terminal theme's hover glow on buttons flush with the content
+				    edge, so when expanded the clip box gets a 1rem bleed (p-4
+				    cancelled by -m-4, so layout is unchanged). Collapsed keeps
+				    the tight box: padding is unsqueezable, so a bleed there
+				    would leave a visible band. */}
+				<div className={`overflow-hidden ${collapsed ? "" : "p-4 -m-4"}`}>
+					{children}
+				</div>
 			</div>
 		</div>
 	);
