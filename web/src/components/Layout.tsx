@@ -770,7 +770,7 @@ function LanguageSelector() {
 			{open && (
 				<div
 					ref={scrollRef}
-					className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 py-1 min-w-[120px] max-h-[50vh] overflow-y-auto overscroll-contain bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50"
+					className="ui-popover absolute bottom-full left-1/2 -translate-x-1/2 mb-1 py-1 min-w-[120px] max-h-[50vh] overflow-y-auto overscroll-contain bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50"
 					role="listbox"
 				>
 					{SUPPORTED_LANGUAGES.map((lang) => (
@@ -936,10 +936,16 @@ export function Layout({ children }: LayoutProps) {
 		<div className="flex h-screen ui-surface-bg">
 			<aside className="w-64 ui-sidebar shrink-0 flex flex-col min-h-0">
 				<div className="px-6 pt-3 pb-3 text-center shrink-0">
-					<Logo className="h-10 w-auto text-white mx-auto" />
-					<p className="text-xs text-(--accent) mt-1 italic">
-						{t("layout.tagline")}
-					</p>
+					<Link
+						to="/dashboard"
+						className="block"
+						title={t("layout.nav.dashboard")}
+					>
+						<Logo className="h-10 w-auto text-white mx-auto" />
+						<p className="text-xs text-(--accent) mt-1 italic">
+							{t("layout.tagline")}
+						</p>
+					</Link>
 				</div>
 				<nav className="flex-1 min-h-0 px-4 py-2 overflow-y-auto">
 					<ul className="space-y-0.5">
