@@ -120,10 +120,10 @@ describe("NanoGPTQuotaModal", () => {
 		});
 
 		it("renders progress bar for weekly quota", () => {
-			const { container } = renderWithProviders(
+			const { baseElement } = renderWithProviders(
 				<NanoGPTQuotaModal {...defaultProps} />,
 			);
-			expect(container.querySelector("[style*=width]")).toBeInTheDocument();
+			expect(baseElement.querySelector("[style*=width]")).toBeInTheDocument();
 		});
 
 		it("renders daily images section", () => {
@@ -734,10 +734,10 @@ describe("ZAICodingQuotaModal", () => {
 					],
 				},
 			};
-			const { container } = renderWithProviders(
+			const { baseElement } = renderWithProviders(
 				<ZAICodingQuotaModal {...defaultProps} usage={usageWithLowQuota} />,
 			);
-			const progressBar = container.querySelector(
+			const progressBar = baseElement.querySelector(
 				".bg-red-500.h-3.rounded-full",
 			);
 			expect(progressBar).toBeInTheDocument();
@@ -762,10 +762,10 @@ describe("ZAICodingQuotaModal", () => {
 					],
 				},
 			};
-			const { container } = renderWithProviders(
+			const { baseElement } = renderWithProviders(
 				<ZAICodingQuotaModal {...defaultProps} usage={usageWithMediumQuota} />,
 			);
-			const progressBar = container.querySelector(
+			const progressBar = baseElement.querySelector(
 				".bg-amber-500.h-3.rounded-full",
 			);
 			expect(progressBar).toBeInTheDocument();
@@ -790,10 +790,10 @@ describe("ZAICodingQuotaModal", () => {
 					],
 				},
 			};
-			const { container } = renderWithProviders(
+			const { baseElement } = renderWithProviders(
 				<ZAICodingQuotaModal {...defaultProps} usage={usageWithHighQuota} />,
 			);
-			const progressBar = container.querySelector(
+			const progressBar = baseElement.querySelector(
 				".bg-\\[\\#6366F1\\].h-3.rounded-full",
 			);
 			expect(progressBar).toBeInTheDocument();
@@ -926,18 +926,18 @@ describe("ZAICodingQuotaModal", () => {
 		});
 
 		it("defaults to remaining mode", () => {
-			const { container } = renderWithProviders(
+			const { baseElement } = renderWithProviders(
 				<ZAICodingQuotaModal {...defaultProps} />,
 			);
 			// 5h quota: 50% remaining (100 - 50% used) → >60% remaining → indigo
-			const progressBar = container.querySelector(
+			const progressBar = baseElement.querySelector(
 				".bg-\\[\\#6366F1\\].h-3.rounded-full",
 			);
 			expect(progressBar).toBeInTheDocument();
 		});
 
 		it("switches to used mode on toggle click", async () => {
-			const { user, container } = renderWithProviders(
+			const { user, baseElement } = renderWithProviders(
 				<ZAICodingQuotaModal {...defaultProps} />,
 			);
 			const toggleButton = screen.getByRole("button", {
@@ -945,14 +945,14 @@ describe("ZAICodingQuotaModal", () => {
 			});
 			await user.click(toggleButton);
 			// In used mode with 50% used: usedPct >= 50 && < 80 → orange
-			const progressBar = container.querySelector(
+			const progressBar = baseElement.querySelector(
 				".bg-orange-500.h-3.rounded-full",
 			);
 			expect(progressBar).toBeInTheDocument();
 		});
 
 		it("toggles bar colors between remaining and used modes", async () => {
-			const { user, container } = renderWithProviders(
+			const { user, baseElement } = renderWithProviders(
 				<ZAICodingQuotaModal {...defaultProps} />,
 			);
 			const toggleButton = screen.getByRole("button", {
@@ -960,19 +960,19 @@ describe("ZAICodingQuotaModal", () => {
 			});
 
 			// Initial state: remaining mode (indigo for 50% remaining)
-			let progressBar = container.querySelector(
+			let progressBar = baseElement.querySelector(
 				".bg-\\[\\#6366F1\\].h-3.rounded-full",
 			);
 			expect(progressBar).toBeInTheDocument();
 
 			// Toggle to used mode
 			await user.click(toggleButton);
-			progressBar = container.querySelector(".bg-amber-500.h-3.rounded-full");
+			progressBar = baseElement.querySelector(".bg-amber-500.h-3.rounded-full");
 			expect(progressBar).toBeInTheDocument();
 
 			// Toggle back to remaining mode
 			await user.click(toggleButton);
-			progressBar = container.querySelector(
+			progressBar = baseElement.querySelector(
 				".bg-\\[\\#6366F1\\].h-3.rounded-full",
 			);
 			expect(progressBar).toBeInTheDocument();
@@ -1217,13 +1217,13 @@ describe("OpenRouterQuotaModal", () => {
 				limit: 10,
 				limit_remaining: 1,
 			};
-			const { container } = renderWithProviders(
+			const { baseElement } = renderWithProviders(
 				<OpenRouterQuotaModal
 					{...defaultProps}
 					balance={balanceWithLowRemaining}
 				/>,
 			);
-			const progressBar = container.querySelector(
+			const progressBar = baseElement.querySelector(
 				".bg-red-500.h-3.rounded-full",
 			);
 			expect(progressBar).toBeInTheDocument();
@@ -1235,13 +1235,13 @@ describe("OpenRouterQuotaModal", () => {
 				limit: 10,
 				limit_remaining: 4,
 			};
-			const { container } = renderWithProviders(
+			const { baseElement } = renderWithProviders(
 				<OpenRouterQuotaModal
 					{...defaultProps}
 					balance={balanceWithMediumRemaining}
 				/>,
 			);
-			const progressBar = container.querySelector(
+			const progressBar = baseElement.querySelector(
 				".bg-amber-500.h-3.rounded-full",
 			);
 			expect(progressBar).toBeInTheDocument();
@@ -1253,13 +1253,13 @@ describe("OpenRouterQuotaModal", () => {
 				limit: 10,
 				limit_remaining: 8,
 			};
-			const { container } = renderWithProviders(
+			const { baseElement } = renderWithProviders(
 				<OpenRouterQuotaModal
 					{...defaultProps}
 					balance={balanceWithHighRemaining}
 				/>,
 			);
-			const progressBar = container.querySelector(
+			const progressBar = baseElement.querySelector(
 				".bg-\\[\\#6366F1\\].h-3.rounded-full",
 			);
 			expect(progressBar).toBeInTheDocument();
@@ -1271,14 +1271,14 @@ describe("OpenRouterQuotaModal", () => {
 				limit: 0,
 				limit_remaining: 0,
 			};
-			const { container } = renderWithProviders(
+			const { baseElement } = renderWithProviders(
 				<OpenRouterQuotaModal
 					{...defaultProps}
 					balance={balanceWithZeroLimit}
 				/>,
 			);
 			// When limit is 0, the bar should use amber fallback color
-			const progressBar = container.querySelector(
+			const progressBar = baseElement.querySelector(
 				".bg-amber-500.h-3.rounded-full",
 			);
 			expect(progressBar).toBeInTheDocument();
@@ -1292,13 +1292,13 @@ describe("OpenRouterQuotaModal", () => {
 				limit: -1,
 				limit_remaining: -1,
 			};
-			const { container } = renderWithProviders(
+			const { baseElement } = renderWithProviders(
 				<OpenRouterQuotaModal
 					{...defaultProps}
 					balance={balanceWithNegativeLimit}
 				/>,
 			);
-			const progressBar = container.querySelector(
+			const progressBar = baseElement.querySelector(
 				".bg-amber-500.h-3.rounded-full",
 			);
 			expect(progressBar).toBeInTheDocument();
@@ -1345,11 +1345,11 @@ describe("OpenRouterQuotaModal", () => {
 		});
 
 		it("renders progress bar when credits_total > 0", () => {
-			const { container } = renderWithProviders(
+			const { baseElement } = renderWithProviders(
 				<OpenRouterQuotaModal {...defaultProps} />,
 			);
 			// Find the progress bar div in the Account Balance section
-			const progressBar = container.querySelector(
+			const progressBar = baseElement.querySelector(
 				".bg-\\[\\#6366F1\\].h-3.rounded-full",
 			);
 			expect(progressBar).toBeInTheDocument();
@@ -1410,14 +1410,14 @@ describe("OpenRouterQuotaModal", () => {
 				credits_total: 1000000,
 				credits_remaining: 100000,
 			};
-			const { container } = renderWithProviders(
+			const { baseElement } = renderWithProviders(
 				<OpenRouterQuotaModal
 					{...defaultProps}
 					balance={balanceWithLowCredits}
 				/>,
 			);
 			// Find the progress bar div with bg-red-500 class in the Account Balance section
-			const accountBalanceSection = container.querySelector(
+			const accountBalanceSection = baseElement.querySelector(
 				".bg-red-500.h-3.rounded-full",
 			);
 			expect(accountBalanceSection).toBeInTheDocument();
@@ -1429,13 +1429,13 @@ describe("OpenRouterQuotaModal", () => {
 				credits_total: 1000000,
 				credits_remaining: 400000,
 			};
-			const { container } = renderWithProviders(
+			const { baseElement } = renderWithProviders(
 				<OpenRouterQuotaModal
 					{...defaultProps}
 					balance={balanceWithMediumCredits}
 				/>,
 			);
-			const accountBalanceSection = container.querySelector(
+			const accountBalanceSection = baseElement.querySelector(
 				".bg-amber-500.h-3.rounded-full",
 			);
 			expect(accountBalanceSection).toBeInTheDocument();
@@ -1447,13 +1447,13 @@ describe("OpenRouterQuotaModal", () => {
 				credits_total: 1000000,
 				credits_remaining: 800000,
 			};
-			const { container } = renderWithProviders(
+			const { baseElement } = renderWithProviders(
 				<OpenRouterQuotaModal
 					{...defaultProps}
 					balance={balanceWithHighCredits}
 				/>,
 			);
-			const accountBalanceSection = container.querySelector(
+			const accountBalanceSection = baseElement.querySelector(
 				".bg-\\[\\#6366F1\\].h-3.rounded-full",
 			);
 			expect(accountBalanceSection).toBeInTheDocument();
@@ -1531,18 +1531,18 @@ describe("OpenRouterQuotaModal", () => {
 		});
 
 		it("defaults to remaining mode", () => {
-			const { container } = renderWithProviders(
+			const { baseElement } = renderWithProviders(
 				<OpenRouterQuotaModal {...defaultProps} />,
 			);
 			// credits_remaining: 900000 / credits_total: 1000000 = 90% remaining → >60% → indigo
-			const progressBar = container.querySelector(
+			const progressBar = baseElement.querySelector(
 				".bg-\\[\\#6366F1\\].h-3.rounded-full",
 			);
 			expect(progressBar).toBeInTheDocument();
 		});
 
 		it("switches to used mode on toggle click", async () => {
-			const { user, container } = renderWithProviders(
+			const { user, baseElement } = renderWithProviders(
 				<OpenRouterQuotaModal {...defaultProps} />,
 			);
 			const toggleButton = screen.getByRole("button", {
@@ -1550,14 +1550,14 @@ describe("OpenRouterQuotaModal", () => {
 			});
 			await user.click(toggleButton);
 			// In used mode with 10% used (100 - 90% remaining), bar should be amber (usedPct < 50)
-			const progressBar = container.querySelector(
+			const progressBar = baseElement.querySelector(
 				".bg-amber-500.h-3.rounded-full",
 			);
 			expect(progressBar).toBeInTheDocument();
 		});
 
 		it("toggles bar colors between remaining and used modes", async () => {
-			const { user, container } = renderWithProviders(
+			const { user, baseElement } = renderWithProviders(
 				<OpenRouterQuotaModal {...defaultProps} />,
 			);
 			const toggleButton = screen.getByRole("button", {
@@ -1565,19 +1565,19 @@ describe("OpenRouterQuotaModal", () => {
 			});
 
 			// Initial state: remaining mode (indigo for 90% remaining)
-			let progressBar = container.querySelector(
+			let progressBar = baseElement.querySelector(
 				".bg-\\[\\#6366F1\\].h-3.rounded-full",
 			);
 			expect(progressBar).toBeInTheDocument();
 
 			// Toggle to used mode
 			await user.click(toggleButton);
-			progressBar = container.querySelector(".bg-amber-500.h-3.rounded-full");
+			progressBar = baseElement.querySelector(".bg-amber-500.h-3.rounded-full");
 			expect(progressBar).toBeInTheDocument();
 
 			// Toggle back to remaining mode
 			await user.click(toggleButton);
-			progressBar = container.querySelector(
+			progressBar = baseElement.querySelector(
 				".bg-\\[\\#6366F1\\].h-3.rounded-full",
 			);
 			expect(progressBar).toBeInTheDocument();
