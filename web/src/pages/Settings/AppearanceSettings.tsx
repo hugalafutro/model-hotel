@@ -3,7 +3,7 @@ import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
-import { useTheme } from "../../context/ThemeContext";
+import { THEME_DEFAULT_ACCENT, useTheme } from "../../context/ThemeContext";
 import { useToast } from "../../context/ToastContext";
 import { ColorPickerModal } from "./ColorPickerModal";
 import { UI_STYLES } from "./constants";
@@ -27,6 +27,12 @@ export function AppearanceSettings({
 		setAccentColor,
 		accentPresets,
 	} = useTheme();
+	// The per-theme default accents are not presets, but they are not a
+	// user's custom pick either — the dashed swatch must stay neutral.
+	const isCustomAccent =
+		!!accentColor &&
+		!accentPresets.some((p) => p.color === accentColor) &&
+		!Object.values(THEME_DEFAULT_ACCENT).includes(accentColor);
 	const {
 		toast,
 		position: toastPosition,
@@ -245,15 +251,11 @@ export function AppearanceSettings({
 								type="button"
 								onClick={openPicker}
 								className={`color-swatch w-8 h-8 border-2 border-dashed border-gray-500 flex items-center justify-center hover:border-gray-400 transition-colors ${
-									accentColor &&
-									!accentPresets.some((p) => p.color === accentColor)
-										? "bg-gray-800"
-										: ""
+									isCustomAccent ? "bg-gray-800" : ""
 								}`}
 								title={t("settings.appearance.customColor")}
 							>
-								{accentColor &&
-								!accentPresets.some((p) => p.color === accentColor) ? (
+								{isCustomAccent ? (
 									<div
 										className="w-5 h-5 rounded-full"
 										style={{

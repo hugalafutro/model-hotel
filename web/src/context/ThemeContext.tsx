@@ -26,7 +26,8 @@ const ACCENT_PRESETS: AccentPreset[] = [
 // Per-theme default accents (used until the user explicitly picks one):
 // phosphor green for the terminal, aqua for glass, warm copper for SaaS —
 // anything but the ubiquitous default-indigo.
-const THEME_DEFAULT_ACCENT: Record<UIStyle, string> = {
+// eslint-disable-next-line react-refresh/only-export-components -- constant shared with AppearanceSettings' custom-swatch check
+export const THEME_DEFAULT_ACCENT: Record<UIStyle, string> = {
 	"clean-saas": "#e0823f",
 	"cyber-terminal": "#2ed573",
 	"glassmorphism-lite": "#35cfc3",

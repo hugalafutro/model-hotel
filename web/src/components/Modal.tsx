@@ -132,7 +132,7 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 		>
 			<button
 				type="button"
-				className="absolute inset-0 bg-black/60 cursor-default"
+				className="ui-modal-backdrop absolute inset-0 bg-black/60 cursor-default"
 				onClick={closeOnBackdrop ? handleClose : undefined}
 				aria-label={t("common.closeDialog")}
 			/>
