@@ -1829,7 +1829,11 @@ html.light [data-ui-style] .ui-table th {
 [data-ui-style] .ui-table td {
 	padding: 0.25rem 0.5rem;
 	border-bottom: 1px solid var(--border-subtle);
-	font-size: 0.8125rem;
+	/* Dense data tables (Logs/Requests): 13px overflowed the shared fixed
+	   column widths in Terminal's wider mono (date+time vs hash), and the
+	   widths are deliberately theme-agnostic - so the font gives, not the
+	   columns. */
+	font-size: 0.75rem;
 	color: var(--text-secondary);
 }
 

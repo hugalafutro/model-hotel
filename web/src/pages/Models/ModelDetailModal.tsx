@@ -354,7 +354,6 @@ export function ModelDetailModal({
 					icon={Server}
 					label={t("models.detail.provider")}
 					value={model.provider_name}
-					accent
 				/>
 				<DetailItem
 					icon={Clock}
