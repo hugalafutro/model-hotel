@@ -10,7 +10,8 @@ describe("ThemeContext", () => {
 
 		expect(result.current.theme).toBe("dark");
 		expect(result.current.uiStyle).toBe("clean-saas");
-		expect(result.current.accentColor).toBe("#546de5");
+		// Default accent is per-theme now (clean-saas default = warm copper)
+		expect(result.current.accentColor).toBe("#e0823f");
 		expect(result.current.accentPresets).toBeInstanceOf(Array);
 		expect(result.current.accentPresets.length).toBeGreaterThan(0);
 	});

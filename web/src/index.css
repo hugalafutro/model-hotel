@@ -2146,28 +2146,42 @@ html[data-ui-style="cyber-terminal"].light .ui-sidebar {
    GLASSMORPHISM MAIN BACKGROUND
    ============================================= */
 
+/* Two-tone aurora: accent + its 150deg counter-hue (--accent-rgb-alt,
+   set by ThemeContext alongside --accent-rgb), so the glass panes always
+   have colored light to refract. */
 html[data-ui-style="glassmorphism-lite"] .ui-surface-bg {
 	background:
 		radial-gradient(
-			ellipse at 20% 20%,
-			rgba(var(--accent-rgb), 0.18) 0%,
+			ellipse at 15% 12%,
+			rgba(var(--accent-rgb), 0.2) 0%,
+			transparent 52%
+		),
+		radial-gradient(
+			ellipse at 85% 80%,
+			rgba(var(--accent-rgb-alt, var(--accent-rgb)), 0.14) 0%,
 			transparent 55%
 		),
 		radial-gradient(
-			ellipse at 80% 80%,
-			rgba(var(--accent-rgb), 0.12) 0%,
-			transparent 55%
-		),
-		radial-gradient(
-			ellipse at 50% 50%,
-			rgba(var(--accent-rgb), 0.08) 0%,
+			ellipse at 70% 25%,
+			rgba(var(--accent-rgb), 0.07) 0%,
 			transparent 60%
 		),
 		var(--surface-bg);
 }
 
 html[data-ui-style="glassmorphism-lite"].light .ui-surface-bg {
-	background: linear-gradient(135deg, #dde1f5 0%, #e8e0f2 40%, #e0e8f8 100%);
+	background:
+		radial-gradient(
+			ellipse at 15% 12%,
+			rgba(var(--accent-rgb), 0.14) 0%,
+			transparent 52%
+		),
+		radial-gradient(
+			ellipse at 85% 80%,
+			rgba(var(--accent-rgb-alt, var(--accent-rgb)), 0.1) 0%,
+			transparent 55%
+		),
+		linear-gradient(135deg, #dde1f5 0%, #e8e0f2 40%, #e0e8f8 100%);
 }
 
 /* =============================================
