@@ -22,7 +22,33 @@
 }
 
 html {
-	font-size: clamp(14px, 0.8vw + 10px, 17px);
+	/* Fluid root size, re-sloped so it is still growing through desktop
+	   widths instead of capping at ~875px: 16px on 1080p-class viewports
+	   (1920w), 17px from 1440p (2560w) up, 14px floor on small screens.
+	   The 1080p step-down keeps wide-locale terminal mono headers (e.g.
+	   Slovak "Naj. Virtualne Kluce") clear of their range toggles. */
+	font-size: clamp(14px, 0.15625vw + 13px, 17px);
+}
+
+body {
+	font-family: var(--font-sans);
+}
+
+/* Per-theme typefaces (self-hosted variable fonts, imported in main.tsx).
+   The terminal goes full mono — that IS the aesthetic. */
+html[data-ui-style="clean-saas"] {
+	--font-sans:
+		"Schibsted Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
+}
+
+html[data-ui-style="glassmorphism-lite"] {
+	--font-sans: "Onest Variable", ui-sans-serif, system-ui, sans-serif;
+}
+
+html[data-ui-style="cyber-terminal"] {
+	--font-mono:
+		"JetBrains Mono Variable", ui-monospace, "SFMono-Regular", Menlo, monospace;
+	--font-sans: var(--font-mono);
 }
 
 /* =============================================
@@ -573,6 +599,17 @@ html[data-ui-style="glassmorphism-lite"].light .ui-sidebar-subtitle {
 html.light .system-status {
 	color: var(--text-secondary);
 	--text-muted: var(--text-tertiary);
+}
+
+/* Sidebar tagline: a one-liner joke must stay a one-liner. Terminal's
+   full-mono is too wide for the 13rem column at text-xs, so it steps
+   down instead of wrapping. */
+.ui-tagline {
+	white-space: nowrap;
+}
+
+html[data-ui-style="cyber-terminal"] .ui-tagline {
+	font-size: 0.62rem;
 }
 
 /* =============================================

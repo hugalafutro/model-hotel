@@ -942,7 +942,7 @@ export function Layout({ children }: LayoutProps) {
 						title={t("layout.nav.dashboard")}
 					>
 						<Logo className="h-10 w-auto text-white mx-auto" />
-						<p className="text-xs text-(--accent) mt-1 italic">
+						<p className="ui-tagline text-xs text-(--accent) mt-1 italic">
 							{t("layout.tagline")}
 						</p>
 					</Link>

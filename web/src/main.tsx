@@ -4,6 +4,12 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App.tsx";
 import "./i18n";
+// Per-theme typefaces (variable woff2, self-hosted — no CDN fetches):
+// Schibsted Grotesk = clean-saas, Onest = glassmorphism,
+// JetBrains Mono = cyber-terminal. Wired via --font-sans/--font-mono.
+import "@fontsource-variable/schibsted-grotesk/index.css";
+import "@fontsource-variable/onest/index.css";
+import "@fontsource-variable/jetbrains-mono/index.css";
 import "./index.css";
 
 const queryClient = new QueryClient({
