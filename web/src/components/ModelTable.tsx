@@ -204,10 +204,9 @@ export function ModelTable({
 							onChange={onProviderFilterChange}
 							placeholder={t("failover.filter_providers")}
 							allLabel={t("failover.filter_providers")}
-							options={providers.map((p) => ({
-								value: p.id,
-								label: p.name,
-							}))}
+							options={[...providers]
+								.sort((a, b) => a.name.localeCompare(b.name))
+								.map((p) => ({ value: p.id, label: p.name }))}
 							className="w-[220px] shrink-0"
 						/>
 					)}

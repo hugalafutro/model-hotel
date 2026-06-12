@@ -45,7 +45,7 @@ export function StatCard({
 		>
 			<div className="flex items-center justify-between mb-2">
 				<div
-					className="w-9 h-9 flex items-center justify-center rounded-lg"
+					className="ui-stat-icon w-9 h-9 flex items-center justify-center rounded-lg"
 					style={{ backgroundColor: `${accent}18` }}
 				>
 					<Icon size={18} style={{ color: accent }} />

@@ -506,7 +506,7 @@ export function VirtualKeys() {
 						</div>
 					</div>
 
-					<div className="flex items-start gap-3 p-4 rounded-lg bg-(--accent-light) border border-(--accent-lighter)">
+					<div className="ui-note-pill flex items-start gap-3 p-4 rounded-lg bg-(--accent-light) border border-(--accent-lighter)">
 						<div className="w-1.5 h-1.5 rounded-full bg-(--accent) mt-1.5 shrink-0" />
 						<p className="text-xs text-gray-300 leading-relaxed">
 							{t("virtualkeys.note.text")}

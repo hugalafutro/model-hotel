@@ -2195,25 +2195,17 @@ html[data-ui-style="cyber-terminal"].dark body {
 html[data-ui-style="cyber-terminal"].dark .ui-surface-bg,
 html[data-ui-style="cyber-terminal"] .ui-surface-bg,
 html[data-ui-style="cyber-terminal"] .ui-main {
-	/* CRT scanlines (1px every 3px, ~1.3%) over the existing dot grid.
-	   .ui-main needs the texture too: its opaque background-color sits on
-	   top of the .ui-surface-bg wrapper and would hide it. */
-	background-image:
-		repeating-linear-gradient(
-			0deg,
-			rgba(255, 255, 255, 0.013) 0px,
-			rgba(255, 255, 255, 0.013) 1px,
-			transparent 1px,
-			transparent 3px
-		),
-		radial-gradient(
-			circle at 1px 1px,
-			rgba(255, 255, 255, 0.03) 1px,
-			transparent 0
-		);
-	background-size:
-		auto,
-		32px 32px;
+	/* CRT scanlines (1px every 3px, ~1.3%) only - the dot grid stays on
+	   the sidebar. .ui-main needs the texture itself: its opaque
+	   background-color sits on top of the .ui-surface-bg wrapper and
+	   would hide it. */
+	background-image: repeating-linear-gradient(
+		0deg,
+		rgba(255, 255, 255, 0.013) 0px,
+		rgba(255, 255, 255, 0.013) 1px,
+		transparent 1px,
+		transparent 3px
+	);
 }
 
 /* Ensure sidebar in dark terminal blends */
@@ -2239,19 +2231,14 @@ html[data-ui-style="cyber-terminal"].light body {
 
 html[data-ui-style="cyber-terminal"].light .ui-surface-bg,
 html[data-ui-style="cyber-terminal"].light .ui-main {
-	/* Same scanlines-over-dots as dark mode, with dark lines instead. */
-	background-image:
-		repeating-linear-gradient(
-			0deg,
-			rgba(0, 0, 0, 0.04) 0px,
-			rgba(0, 0, 0, 0.04) 1px,
-			transparent 1px,
-			transparent 3px
-		),
-		radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.08) 1px, transparent 0);
-	background-size:
-		auto,
-		32px 32px;
+	/* Same scanlines-only as dark mode, with dark lines instead. */
+	background-image: repeating-linear-gradient(
+		0deg,
+		rgba(0, 0, 0, 0.04) 0px,
+		rgba(0, 0, 0, 0.04) 1px,
+		transparent 1px,
+		transparent 3px
+	);
 }
 
 html[data-ui-style="cyber-terminal"].light .ui-sidebar {
@@ -2873,6 +2860,21 @@ html[data-ui-style="cyber-terminal"] .color-swatch {
    monitor for toast placement; Terminal squares them off. */
 html[data-ui-style="cyber-terminal"] .ui-style-card,
 html[data-ui-style="cyber-terminal"] .toast-monitor {
+	border-radius: 0;
+}
+
+/* Recharts tooltips style themselves inline, so the radius lives here
+   where Terminal can flatten it. */
+.chart-tooltip {
+	border-radius: 10px;
+}
+
+/* Terminal corner squaring: dashboard stat-card icon chips, the Virtual
+   Keys note pill, the mock-terminal snippet frames, and chart tooltips. */
+html[data-ui-style="cyber-terminal"] .ui-stat-icon,
+html[data-ui-style="cyber-terminal"] .ui-note-pill,
+html[data-ui-style="cyber-terminal"] .terminal-frame,
+html[data-ui-style="cyber-terminal"] .chart-tooltip {
 	border-radius: 0;
 }
 
