@@ -5,8 +5,8 @@
  *  font-mono in every theme, so the budget is theme-independent):
  *  ~7.2px per character plus the 16px px-2 cell padding. */
 export const LOG_COL_WIDTHS = [
-	{ key: "date", width: "w-44" }, // Time/Date - "6/12/2026, 10:45:12 AM" (22ch)
-	{ key: "model", width: "w-48" }, // Model
+	{ key: "date", width: "w-38" }, // Time/Date - "12/06/2026, 10:45:12" (20ch)
+	{ key: "model", width: "w-54" }, // Model
 	{ key: "provider", width: "w-25" }, // Provider
 	{ key: "status", width: "w-12" }, // Status
 	{ key: "tokens", width: "w-27" }, // Tokens - "99,999+9,999" (12ch)
