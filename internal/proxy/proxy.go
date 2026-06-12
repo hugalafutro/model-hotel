@@ -268,6 +268,20 @@ func (h *Handler) emitDone(sink *streamSink, st *streamState, ev sseEvent, chunk
 // whole transform dispatch are encapsulated here. Returns stop=true when a client
 // write failed (the caller jumps to finalize), false otherwise (advance to the
 // next event).
+// emitData writes payload as an SSE data event and flushes it, returning true
+// on success. On a write failure it records the client disconnect on st and
+// logs it; transform names which pipeline step was emitting, for the log line.
+// Callers must stop the stream (return stop=true) when this returns false.
+func (st *streamState) emitData(sink *streamSink, payload []byte, transform string, chunkCount int, logData *requestLogData) bool {
+	if err := sink.writeData(payload); err != nil {
+		st.clientDisconnected = true
+		debuglog.Warn("proxy: client write failed during "+transform, "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+		return false
+	}
+	sink.flush()
+	return true
+}
+
 func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent, stripReasoning bool, chunkCount int, logData *requestLogData) (stop bool) {
 	payload := ev.payload
 	line := ev.raw
@@ -299,21 +313,9 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 				// Keep-alive marshal failed (practically unreachable) — drop.
 				return false
 			case stripKeepalive:
-				if err := sink.writeData(newPayload); err != nil {
-					st.clientDisconnected = true
-					debuglog.Warn("proxy: client write failed during reasoning keep-alive", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-					return true
-				}
-				sink.flush()
-				return false
+				return !st.emitData(sink, newPayload, "reasoning keep-alive", chunkCount, logData)
 			case stripForward:
-				if err := sink.writeData(newPayload); err != nil {
-					st.clientDisconnected = true
-					debuglog.Warn("proxy: client write failed during reasoning strip", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-					return true
-				}
-				sink.flush()
-				return false
+				return !st.emitData(sink, newPayload, "reasoning strip", chunkCount, logData)
 			}
 		}
 	stripReasoningDone:
@@ -324,12 +326,9 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 		if len(chunk.Choices) > 0 && chunk.Choices[0].Delta != nil {
 			delta := chunk.Choices[0].Delta
 			if newPayload, ok := normalizeReasoningChunk(delta.Content, delta.ReasoningContent, payload, &st.lastFinishReason, logData); ok {
-				if err := sink.writeData(newPayload); err != nil {
-					st.clientDisconnected = true
-					debuglog.Warn("proxy: client write failed during reasoning normalization", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+				if !st.emitData(sink, newPayload, "reasoning normalization", chunkCount, logData) {
 					return true
 				}
-				sink.flush()
 				written = true
 				debuglog.Debug("proxy: normalized reasoning fields", "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 			}
@@ -342,12 +341,9 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 			hasEmptyContent := delta.Content != nil && *delta.Content == ""
 			if hasReasoning && hasEmptyContent {
 				if newPayload, ok := stripEmptyReasoningContent(payload, &st.lastFinishReason, logData); ok {
-					if err := sink.writeData(newPayload); err != nil {
-						st.clientDisconnected = true
-						debuglog.Warn("proxy: client write failed during empty content strip", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+					if !st.emitData(sink, newPayload, "empty content strip", chunkCount, logData) {
 						return true
 					}
-					sink.flush()
 					written = true
 					debuglog.Debug("proxy: stripped empty content from reasoning chunk", "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 				}
@@ -363,12 +359,9 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 		case finishRewrite:
 			// Only emit if an earlier transform hasn't already written.
 			if !written {
-				if err := sink.writeData(newPayload); err != nil {
-					st.clientDisconnected = true
-					debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+				if !st.emitData(sink, newPayload, "stream", chunkCount, logData) {
 					return true
 				}
-				sink.flush()
 				written = true
 				debuglog.Debug("proxy: normalized finish_reason", "original", *chunk.Choices[0].FinishReason, "normalized", normalizeFinishReason(*chunk.Choices[0].FinishReason), "model", logData.modelID, "provider", logData.providerName)
 			}
