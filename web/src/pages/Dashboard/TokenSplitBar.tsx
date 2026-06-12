@@ -1,4 +1,5 @@
 import { Target } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Spinner } from "../../components/Spinner";
 import {
@@ -36,6 +37,25 @@ export function TokenSplitBar({
 	loading?: boolean;
 }) {
 	const { t } = useTranslation();
+
+	// Measured bar width for integer-pixel tile layout. Fractional flex-1
+	// tile widths make the 2px gaps land on sub-pixels and anti-alias
+	// unevenly; the provider waffle avoids this with absolute integer
+	// positioning, and so does this bar once measured. Before the first
+	// measurement (and in jsdom, where ResizeObserver is a no-op) the
+	// tiles fall back to the flex layout.
+	const barRef = useRef<HTMLDivElement>(null);
+	const [barWidth, setBarWidth] = useState(0);
+	useEffect(() => {
+		const el = barRef.current;
+		if (!el) return;
+		const ro = new ResizeObserver((entries) => {
+			setBarWidth(Math.floor(entries[0].contentRect.width));
+		});
+		ro.observe(el);
+		return () => ro.disconnect();
+	}, []);
+
 	const totalPC = prompt + completion;
 	if (totalPC === 0) {
 		return (
@@ -68,6 +88,23 @@ export function TokenSplitBar({
 		return COMPLETION_COLOR;
 	};
 
+	// Integer-pixel tile layout: every gap is exactly GAP px; the leftover
+	// pixels widen the first `rem` tiles by 1px each (imperceptible),
+	// instead of letting the browser smear fractions into the gaps.
+	const GAP = 2; // keep in sync with the flex fallback's gap-0.5
+	const n = tiles.length;
+	const cellW = n > 0 ? Math.floor((barWidth - (n - 1) * GAP) / n) : 0;
+	const useIntegerLayout = barWidth > 0 && cellW >= 2;
+	const rem = useIntegerLayout ? barWidth - (cellW * n + (n - 1) * GAP) : 0;
+	const lefts: number[] = [];
+	if (useIntegerLayout) {
+		let x = 0;
+		for (let i = 0; i < n; i++) {
+			lefts.push(x);
+			x += cellW + (i < rem ? 1 : 0) + GAP;
+		}
+	}
+
 	return (
 		<div className="ui-card p-6">
 			<div className="flex items-center justify-between mb-1">
@@ -89,7 +126,8 @@ export function TokenSplitBar({
 				</span>
 			</p>
 			<div
-				className="flex gap-0.5 h-6"
+				ref={barRef}
+				className="relative flex gap-0.5 h-6"
 				role="img"
 				aria-label={t("dashboard.tokens.mixAriaLabel", {
 					promptPct: promptPct.toFixed(1),
@@ -100,12 +138,17 @@ export function TokenSplitBar({
 					<div
 						// biome-ignore lint/suspicious/noArrayIndexKey: static tile grid, never reordered
 						key={`${tile.type}-${i}`}
-						className="ui-waffle-cell flex-1 rounded-sm animate-waffle-pop"
+						className={`ui-waffle-cell rounded-sm animate-waffle-pop ${
+							useIntegerLayout ? "absolute inset-y-0" : "flex-1"
+						}`}
 						data-tile-type={tile.type}
 						style={{
 							backgroundColor: tileColor(tile.type),
 							opacity: tile.opacity,
 							animationDelay: `${i * 20}ms`,
+							...(useIntegerLayout
+								? { left: lefts[i], width: cellW + (i < rem ? 1 : 0) }
+								: {}),
 						}}
 						title={
 							tile.type === "cache_hit"
