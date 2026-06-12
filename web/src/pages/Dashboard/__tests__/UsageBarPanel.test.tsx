@@ -217,7 +217,7 @@ describe("UsageBarPanel", () => {
 		expect(deletedLabel).toHaveClass("italic");
 		expect(deletedLabel).toHaveAttribute(
 			"title",
-			"Model no longer available — it may have been deleted or its provider was removed",
+			"Model no longer available - it may have been deleted or its provider was removed",
 		);
 	});
 
