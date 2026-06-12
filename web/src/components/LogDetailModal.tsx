@@ -78,7 +78,7 @@ function AppLogDetail({
 						/>
 					}
 				>
-					<pre className="text-sm text-(--text-primary) font-mono whitespace-pre-wrap break-words bg-(--surface-elevated) p-3 rounded-lg border border-(--border-subtle) max-h-60 overflow-y-auto">
+					<pre className="text-sm text-(--text-primary) font-mono whitespace-pre-wrap break-words bg-(--surface-elevated) p-3 rounded-(--radius-box) border border-(--border-subtle) max-h-60 overflow-y-auto">
 						{log.message}
 					</pre>
 				</DetailItem>
