@@ -73,7 +73,7 @@ export function RequestLogDetail({
 		>
 			{/* Timing Overview */}
 			<div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
-				<div className="p-3 rounded-lg bg-(--surface-bg) border border-(--border-subtle) text-center">
+				<div className="p-3 rounded-(--radius-box) bg-(--surface-bg) border border-(--border-subtle) text-center">
 					<Clock size={16} className="mx-auto mb-1 text-(--accent)" />
 					<div className="text-lg font-bold text-(--text-primary)">
 						{(() => {
@@ -90,13 +90,13 @@ export function RequestLogDetail({
 						{t("components.requestLogDetail.duration")}
 						<span
 							title={t("components.requestLogDetail.totalWallClockTime")}
-							className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all cursor-help"
+							className="ui-icon-btn cursor-help"
 						>
 							<Info size={12} />
 						</span>
 					</div>
 				</div>
-				<div className="p-3 rounded-lg bg-(--surface-bg) border border-(--border-subtle) text-center">
+				<div className="p-3 rounded-(--radius-box) bg-(--surface-bg) border border-(--border-subtle) text-center">
 					<Timer size={16} className="mx-auto mb-1 text-(--accent)" />
 					<div className="text-lg font-bold text-(--text-primary)">
 						{requestLog.response_header_ms > 0
@@ -115,13 +115,13 @@ export function RequestLogDetail({
 						{t("components.requestLogDetail.headers")}
 						<span
 							title={t("components.requestLogDetail.timeToReceiveHeaders")}
-							className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all cursor-help"
+							className="ui-icon-btn cursor-help"
 						>
 							<Info size={12} />
 						</span>
 					</div>
 				</div>
-				<div className="p-3 rounded-lg bg-(--surface-bg) border border-(--border-subtle) text-center">
+				<div className="p-3 rounded-(--radius-box) bg-(--surface-bg) border border-(--border-subtle) text-center">
 					<Timer size={16} className="mx-auto mb-1 text-(--accent)" />
 					<div className="text-lg font-bold text-(--text-primary)">
 						{requestLog.ttft_ms > 0
@@ -140,13 +140,13 @@ export function RequestLogDetail({
 						{t("components.requestLogDetail.ttft")}
 						<span
 							title={t("components.requestLogDetail.timeToFirstToken")}
-							className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all cursor-help"
+							className="ui-icon-btn cursor-help"
 						>
 							<Info size={12} />
 						</span>
 					</div>
 				</div>
-				<div className="p-3 rounded-lg bg-(--surface-bg) border border-(--border-subtle) text-center">
+				<div className="p-3 rounded-(--radius-box) bg-(--surface-bg) border border-(--border-subtle) text-center">
 					<Zap size={16} className="mx-auto mb-1 text-(--accent)" />
 					<div
 						className={`text-lg font-bold ${requestLog.tokens_prompt_cache_hit > 0 ? "text-(--text-tertiary)" : "text-(--text-primary)"}`}
@@ -164,13 +164,13 @@ export function RequestLogDetail({
 						{t("components.requestLogDetail.tokensPerSecond")}
 						<span
 							title={t("components.requestLogDetail.outputTokensPerSecond")}
-							className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all cursor-help"
+							className="ui-icon-btn cursor-help"
 						>
 							<Info size={12} />
 						</span>
 					</div>
 				</div>
-				<div className="p-3 rounded-lg bg-(--surface-bg) border border-(--border-subtle) text-center">
+				<div className="p-3 rounded-(--radius-box) bg-(--surface-bg) border border-(--border-subtle) text-center">
 					<Gauge size={16} className="mx-auto mb-1 text-(--accent)" />
 					<div className="text-lg font-bold text-(--text-primary)">
 						{totalTokens > 0 ? totalTokens.toLocaleString() : "-"}
@@ -179,7 +179,7 @@ export function RequestLogDetail({
 						{t("components.requestLogDetail.totalTokens")}
 						<span
 							title={t("components.requestLogDetail.sumOfTokens")}
-							className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all cursor-help"
+							className="ui-icon-btn cursor-help"
 						>
 							<Info size={12} />
 						</span>
@@ -244,7 +244,7 @@ export function RequestLogDetail({
 
 			{/* Token Breakdown */}
 			{totalTokens > 0 && (
-				<div className="mb-6 p-4 rounded-lg bg-(--surface-bg) border border-(--border-subtle)">
+				<div className="mb-6 p-4 rounded-(--radius-box) bg-(--surface-bg) border border-(--border-subtle)">
 					<h4 className="text-sm font-semibold text-(--text-primary) mb-3 flex items-center gap-2">
 						<Layers size={14} className="text-(--accent)" />
 						{t("components.requestLogDetail.tokenUsage")}
@@ -304,7 +304,7 @@ export function RequestLogDetail({
 
 			{/* Overhead Breakdown */}
 			{requestLog.proxy_overhead_ms > 0 && (
-				<div className="mb-6 p-4 rounded-lg bg-(--surface-bg) border border-(--border-subtle)">
+				<div className="mb-6 p-4 rounded-(--radius-box) bg-(--surface-bg) border border-(--border-subtle)">
 					<h4 className="text-sm font-semibold text-(--text-primary) mb-3 flex items-center gap-2">
 						<Gauge size={14} className="text-(--accent)" />
 						{t("components.requestLogDetail.proxyOverheadBreakdown")}
@@ -369,7 +369,7 @@ export function RequestLogDetail({
 															? `${tooltip} ${t("components.requestLogDetail.overheadCacheHit")}`
 															: `${tooltip} ${t("components.requestLogDetail.overheadCacheMiss")}`
 												}
-												className="text-(--text-tertiary) hover:text-(--accent) hover:drop-shadow-[var(--glow-accent)] transition-all cursor-help"
+												className="ui-icon-btn cursor-help"
 											>
 												<Info size={12} />
 											</span>
@@ -415,7 +415,7 @@ export function RequestLogDetail({
 
 			{/* Error Message */}
 			{requestLog.error_message && (
-				<div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30">
+				<div className="p-4 rounded-(--radius-box) bg-red-500/10 border border-red-500/30">
 					<div className="flex items-center gap-2 mb-2">
 						<AlertTriangle size={14} className="text-red-400" />
 						<CopyablePill

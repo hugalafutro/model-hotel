@@ -268,7 +268,7 @@
 			"topVirtualKeys": "Top Virtual Keys",
 			"emptyState": "No usage data yet. Usage breakdown will appear here once traffic flows.",
 			"viewDetailsFor": "View details for {{label}}",
-			"deletedModelTooltip": "Model no longer available — it may have been deleted or its provider was removed"
+			"deletedModelTooltip": "Model no longer available - it may have been deleted or its provider was removed"
 		},
 		"latency": {
 			"topModels": "Slowest Models",
@@ -1597,6 +1597,7 @@
 			"light": "Light",
 			"accentColor": "Accent Color",
 			"customColor": "Custom color",
+			"resetAccent": "Reset to theme default",
 			"colorPicker": {
 				"title": "Pick a Color",
 				"cancel": "Cancel",
@@ -1650,7 +1651,7 @@
 		"sidebarQuota": {
 			"title": "Sidebar Quotas",
 			"description": "Configure how often provider quota and balance data is refreshed in the sidebar panel.",
-			"showQuotasPill": "Show Quotas Pill",
+			"showQuotasPill": "Show Quota Panel",
 			"showQuotasPillDescription": "Display the quota panel in the sidebar",
 			"refreshInterval": "Refresh Interval",
 			"refreshInterval.description": "Minimum 1 minute. 0 to disable. Changes take effect on next scheduled refresh.",
@@ -2261,17 +2262,17 @@
 			"weeklyTokenQuota": "NanoGPT weekly token quota - click for details",
 			"zaiCodingRemaining": "Z.ai Coding remaining quota - click for details",
 			"zaiCodingUsed": "Z.ai Coding used quota - click for details",
-			"deepseekBalance": "DeepSeek balance: ${{usd}} USD{{refreshed}} - click to refresh",
+			"deepseekBalance": "DeepSeek balance: ${{usd}} USD {{refreshed}} - click to refresh",
 			"deepseekBalanceUnavailable": "DeepSeek balance unavailable",
 			"openrouterBalance": "OpenRouter key balance - click for details",
 			"openrouterBalanceUnavailable": "OpenRouter balance unavailable",
-			"ollamaCloudPlan": "Ollama Cloud {{plan}} plan{{refreshed}} - click to update",
-			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} plan (ends {{date}}){{refreshed}} - click to update",
+			"ollamaCloudPlan": "Ollama Cloud {{plan}} plan {{refreshed}} - click to update",
+			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} plan (ends {{date}}) {{refreshed}} - click to update",
 			"ollamaCloudUnavailable": "Ollama Cloud account unavailable",
 			"nanoWeeklyTokensRemaining": "NanoGPT weekly tokens remaining - click for details",
 			"nanoWeeklyTokenQuota": "NanoGPT weekly token quota - click for details",
 			"openRouterKeyBalance": "OpenRouter key balance - click for details",
-			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} plan (ends {{endDate}}){{refreshed}} - click to update",
+			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} plan (ends {{endDate}}) {{refreshed}} - click to update",
 			"updated": "- updated {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} kWh remaining {{refreshed}}",
 			"neuralwattBalanceUnavailable": "NeuralWatt balance unavailable"

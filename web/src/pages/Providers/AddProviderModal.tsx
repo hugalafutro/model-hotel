@@ -358,7 +358,7 @@ export function AddProviderModal({
 						<button
 							type="button"
 							onClick={() => setShowApiKey(!showApiKey)}
-							className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+							className="ui-icon-btn absolute right-3 top-1/2 -translate-y-1/2"
 							tabIndex={-1}
 							aria-label={
 								showApiKey

@@ -15,7 +15,7 @@ export function ViewModeToggle({ viewMode, onChange }: ViewModeToggleProps) {
 			className={`ui-btn flex items-center gap-1 px-2 py-1.5 text-xs font-medium transition-all border ${
 				viewMode === "scroll"
 					? "ui-btn-primary"
-					: "text-gray-400 border-gray-700 hover:text-(--text-primary) hover:border-gray-500"
+					: "text-gray-400 border-gray-700 hover:text-white hover:border-gray-500"
 			}`}
 			title={
 				viewMode === "paginate"

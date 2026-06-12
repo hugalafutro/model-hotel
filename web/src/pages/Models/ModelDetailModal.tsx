@@ -1,3 +1,14 @@
+import {
+	ArrowDownToLine,
+	ArrowUpFromLine,
+	Clock,
+	Coins,
+	DollarSign,
+	Hash,
+	Layers,
+	Server,
+	Tag,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Model } from "../../api/types";
@@ -5,6 +16,7 @@ import { CapBadge } from "../../components/CapBadge";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { CopyablePill } from "../../components/CopyablePill";
 import { CAP_META, hasCap } from "../../components/capMeta";
+import { DetailItem } from "../../components/LogDetailItem";
 import { LangIcon, type LangIconKey } from "../../components/langIcons";
 import { Modal } from "../../components/Modal";
 import { ShikiCode } from "../../components/ShikiCode";
@@ -337,23 +349,24 @@ export function ModelDetailModal({
 				</div>
 			)}
 
-			<div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm mb-4">
-				<div>
-					<span className="text-gray-500">{t("models.detail.provider")}</span>
-					<p className="text-gray-200">{model.provider_name}</p>
-				</div>
-				<div>
-					<span className="text-gray-500">
-						{t("models.detail.lastDiscovered")}
-					</span>
-					<p className="text-gray-200">
-						{formatRelativeTime(model.last_seen_at)}
-					</p>
-				</div>
-				<div className="col-span-2">
-					<span className="text-gray-500">
-						{t("models.detail.displayName")}
-					</span>
+			<div className="grid grid-cols-2 gap-2 mb-4">
+				<DetailItem
+					icon={Server}
+					label={t("models.detail.provider")}
+					value={model.provider_name}
+					accent
+				/>
+				<DetailItem
+					icon={Clock}
+					label={t("models.detail.lastDiscovered")}
+					value={formatRelativeTime(model.last_seen_at)}
+				/>
+				<DetailItem
+					icon={Tag}
+					label={t("models.detail.displayName")}
+					value={model.display_name || model.name || "-"}
+					className="col-span-2"
+				>
 					{editing ? (
 						<div className="flex items-center gap-1">
 							<input
@@ -372,16 +385,14 @@ export function ModelDetailModal({
 								<RevertButton onClick={() => revertField("display_name")} />
 							)}
 						</div>
-					) : (
-						<p className="text-gray-200">
-							{model.display_name || model.name || "-"}
-						</p>
-					)}
-				</div>
-				<div>
-					<span className="text-gray-500">
-						{t("models.detail.contextLength")}
-					</span>
+					) : undefined}
+				</DetailItem>
+				<DetailItem
+					icon={Layers}
+					label={t("models.detail.contextLength")}
+					value={`${formatNumber(model.context_length)} ${t("models.detail.tokens")}`}
+					mono
+				>
 					{editing ? (
 						<div className="flex items-center gap-1">
 							<input
@@ -403,15 +414,14 @@ export function ModelDetailModal({
 								<RevertButton onClick={() => revertField("context_length")} />
 							)}
 						</div>
-					) : (
-						<p className="text-gray-200">
-							{formatNumber(model.context_length)}
-							{t("models.detail.tokens")}
-						</p>
-					)}
-				</div>
-				<div>
-					<span className="text-gray-500">{t("models.detail.maxOutput")}</span>
+					) : undefined}
+				</DetailItem>
+				<DetailItem
+					icon={Hash}
+					label={t("models.detail.maxOutput")}
+					value={`${formatNumber(model.max_output_tokens)} ${t("models.detail.tokens")}`}
+					mono
+				>
 					{editing ? (
 						<div className="flex items-center gap-1">
 							<input
@@ -435,15 +445,18 @@ export function ModelDetailModal({
 								/>
 							)}
 						</div>
-					) : (
-						<p className="text-gray-200">
-							{formatNumber(model.max_output_tokens)}
-							{t("models.detail.tokens")}
-						</p>
-					)}
-				</div>
-				<div>
-					<span className="text-gray-500">{t("models.detail.inputPrice")}</span>
+					) : undefined}
+				</DetailItem>
+				<DetailItem
+					icon={DollarSign}
+					label={t("models.detail.inputPrice")}
+					value={
+						model.input_price_per_million != null
+							? `$${formatPrice(model.input_price_per_million)}/1M`
+							: "-"
+					}
+					mono
+				>
 					{editing ? (
 						<div className="flex items-center gap-1">
 							<div className="relative w-full">
@@ -476,18 +489,18 @@ export function ModelDetailModal({
 								/>
 							)}
 						</div>
-					) : (
-						<p className="text-gray-200">
-							{model.input_price_per_million != null
-								? `$${formatPrice(model.input_price_per_million)}/1M`
-								: "-"}
-						</p>
-					)}
-				</div>
-				<div>
-					<span className="text-gray-500">
-						{t("models.detail.outputPrice")}
-					</span>
+					) : undefined}
+				</DetailItem>
+				<DetailItem
+					icon={Coins}
+					label={t("models.detail.outputPrice")}
+					value={
+						model.output_price_per_million != null
+							? `$${formatPrice(model.output_price_per_million)}/1M`
+							: "-"
+					}
+					mono
+				>
 					{editing ? (
 						<div className="flex items-center gap-1">
 							<div className="relative w-full">
@@ -520,26 +533,18 @@ export function ModelDetailModal({
 								/>
 							)}
 						</div>
-					) : (
-						<p className="text-gray-200">
-							{model.output_price_per_million != null
-								? `$${formatPrice(model.output_price_per_million)}/1M`
-								: "-"}
-						</p>
-					)}
-				</div>
-				<div>
-					<span className="text-gray-500">{t("models.detail.input")}</span>
-					<p className="text-gray-200">
-						{inputMods.join(", ") || t("models.detail.modality.text")}
-					</p>
-				</div>
-				<div>
-					<span className="text-gray-500">{t("models.detail.output")}</span>
-					<p className="text-gray-200">
-						{outputMods.join(", ") || t("models.detail.modality.text")}
-					</p>
-				</div>
+					) : undefined}
+				</DetailItem>
+				<DetailItem
+					icon={ArrowDownToLine}
+					label={t("models.detail.input")}
+					value={inputMods.join(", ") || t("models.detail.modality.text")}
+				/>
+				<DetailItem
+					icon={ArrowUpFromLine}
+					label={t("models.detail.output")}
+					value={outputMods.join(", ") || t("models.detail.modality.text")}
+				/>
 			</div>
 
 			{caps && (
@@ -644,7 +649,7 @@ export function ModelDetailModal({
 								? "ui-btn-danger bg-red-900/50 text-red-300 border-red-700/50"
 								: testing
 									? "ui-btn-secondary bg-amber-900/30 text-amber-300/70 border-amber-700/30 cursor-wait"
-									: "ui-btn-secondary hover:brightness-125 hover:shadow-[var(--glow-box-amber)]"
+									: "ui-btn-secondary"
 						}`}
 					>
 						{testing && <Spinner />}
@@ -665,7 +670,7 @@ export function ModelDetailModal({
 								onDelete(model.id);
 								onClose();
 							}}
-							className="ui-btn ui-btn-danger hover:brightness-125 hover:shadow-[var(--glow-box-red)]"
+							className="ui-btn ui-btn-danger"
 						>
 							{t("models.detail.confirmDelete")}
 						</button>

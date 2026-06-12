@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Utviklingssentrisk og høy kontrast",
 				"glassmorphism": "Glassmorfisme",
 				"glassmorphismDescription": "Klipp, gjennomskinnelig flater"
-			}
+			},
+			"resetAccent": "Tilbakestill til standardtema"
 		},
 		"toast": {
 			"title": "Populære varslinger",
@@ -1650,7 +1651,7 @@
 		"sidebarQuota": {
 			"title": "Sitater for sidepanel",
 			"description": "Konfigurer hvor ofte kildekvote og balansedata blir forløst i sidepanelet.",
-			"showQuotasPill": "Vis sitater p-pille",
+			"showQuotasPill": "Vis kvotepanel",
 			"showQuotasPillDescription": "Vise kvotepanelet i sidestolpen",
 			"refreshInterval": "Oppdater intervall",
 			"refreshInterval.description": "Minimum 1 minutt. 0 for å deaktivere. Endringene trer i kraft på neste planlagte oppdatering.",
@@ -2261,17 +2262,17 @@
 			"weeklyTokenQuota": "NanoGPT ukentlig token kvote - klikk for detaljer",
 			"zaiCodingRemaining": "Z.ai Kodingsgjenværende kvote - Klikk for detaljer",
 			"zaiCodingUsed": "Z.ai Programmerings kvote - Klikk for detaljer",
-			"deepseekBalance": "DeepSeek saldo: ${{usd}} USD{{refreshed}} - klikk for å oppdatere",
+			"deepseekBalance": "DeepSeek saldo: ${{usd}} USD {{refreshed}} - klikk for å oppdatere",
 			"deepseekBalanceUnavailable": "DeepSeek saldo er utilgjengelig",
 			"openrouterBalance": "OpenRouter nøkkelsaldo - klikk for detaljer",
 			"openrouterBalanceUnavailable": "OpenRouter balance unavailable",
-			"ollamaCloudPlan": "Ollama Cloud {{plan}} abonnementet{{refreshed}} - klikk for å oppdatere",
-			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} plan (slutter {{date}}){{refreshed}} - klikk for å oppdatere",
+			"ollamaCloudPlan": "Ollama Cloud {{plan}} abonnementet {{refreshed}} - klikk for å oppdatere",
+			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} plan (slutter {{date}}) {{refreshed}} - klikk for å oppdatere",
 			"ollamaCloudUnavailable": "Ollama Cloud konto utilgjengelig",
 			"nanoWeeklyTokensRemaining": "NanoGPT ukentlige tokens gjenværende - klikk for detaljer",
 			"nanoWeeklyTokenQuota": "NanoGPT ukentlig token kvote - klikk for detaljer",
 			"openRouterKeyBalance": "OpenRouter nøkkelsaldo - klikk for detaljer",
-			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} plan (slutter {{endDate}}){{refreshed}} - klikk for å oppdatere",
+			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} plan (slutter {{endDate}}) {{refreshed}} - klikk for å oppdatere",
 			"updated": "– oppdatert {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} kWh gjenstår {{refreshed}}",
 			"neuralwattBalanceUnavailable": "NeuralWatts balanse utilgjengelig"

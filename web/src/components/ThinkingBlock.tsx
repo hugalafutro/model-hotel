@@ -52,7 +52,7 @@ export const ThinkingBlock = memo(function ThinkingBlock({
 				className={`inline-flex items-center gap-1.5 text-xs transition-colors mb-2 ${
 					isStreaming
 						? "text-(--accent) animate-pulse"
-						: "text-(--accent)/70 hover:text-(--accent)"
+						: "ui-link-accent text-(--accent)/70"
 				}`}
 			>
 				<Brain size={12} />

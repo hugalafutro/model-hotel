@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Ontwikkelaar-gesentreerd, hoë kontras",
 				"glassmorphism": "Glasmorfeïsme",
 				"glassmorphismDescription": "Gladde, deurskynende oppervlaktes"
-			}
+			},
+			"resetAccent": "Stel terug na tema-standaard"
 		},
 		"toast": {
 			"title": "Toast-kennisgewings",
@@ -1650,7 +1651,7 @@
 		"sidebarQuota": {
 			"title": "Sypaal-kota's",
 			"description": "Konfigureer hoe gereeld verskafferkwota- en balansdata in die sybalkpaneel opgedateer word.",
-			"showQuotasPill": "Wys kworums-pil",
+			"showQuotasPill": "Wys Kwota-paneel",
 			"showQuotasPillDescription": "Vertoon die kwota-paneel in die sybalk",
 			"refreshInterval": "Verfrissingsinterval",
 			"refreshInterval.description": "Minimum 1 minuut. 0 om uit te skakel. Veranderings tree in werking by die volgende geskeduleerde opfris.",
@@ -2261,17 +2262,17 @@
 			"weeklyTokenQuota": "NanoGPT weeklikse tokenkwota - klik vir besonderhede",
 			"zaiCodingRemaining": "Z.ai Koderings-oorskotkwota - klik vir besonderhede",
 			"zaiCodingUsed": "Z.ai Koding het kwota gebruik - klik vir besonderhede",
-			"deepseekBalance": "DeepSeek balans: ${{usd}} USD{{refreshed}} - klik om te verfris",
+			"deepseekBalance": "DeepSeek balans: ${{usd}} USD {{refreshed}} - klik om te verfris",
 			"deepseekBalanceUnavailable": "DeepSeek-balans nie beskikbaar nie",
 			"openrouterBalance": "OpenRouter sleutelbalans - klik vir besonderhede",
 			"openrouterBalanceUnavailable": "OpenRouter-balans onbeskikbaar",
-			"ollamaCloudPlan": "Ollama Cloud {{plan}} -plan{{refreshed}} - klik om op te dateer",
-			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} -plan (eindig {{date}}){{refreshed}} - klik om op te dateer",
+			"ollamaCloudPlan": "Ollama Cloud {{plan}} -plan {{refreshed}} - klik om op te dateer",
+			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} -plan (eindig {{date}}) {{refreshed}} - klik om op te dateer",
 			"ollamaCloudUnavailable": "Ollama Cloud-rekening nie beskikbaar nie",
 			"nanoWeeklyTokensRemaining": "NanoGPT weeklikse oorblywende tokens - klik vir besonderhede",
 			"nanoWeeklyTokenQuota": "NanoGPT weeklikse tokenkwota - klik vir besonderhede",
 			"openRouterKeyBalance": "OpenRouter sleutelbalans - klik vir besonderhede",
-			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} -plan (eindig {{endDate}}){{refreshed}} - klik om op te dateer",
+			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} -plan (eindig {{endDate}}) {{refreshed}} - klik om op te dateer",
 			"updated": "- bygewerk {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} oorblywende kWh {{refreshed}}",
 			"neuralwattBalanceUnavailable": "NeuralWatt-balans onbeskikbaar"

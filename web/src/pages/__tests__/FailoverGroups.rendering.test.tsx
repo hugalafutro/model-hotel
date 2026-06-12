@@ -33,6 +33,47 @@ describe("FailoverGroups", () => {
 		});
 	});
 
+	describe("Section collapsing", () => {
+		it("rotates the section chevrons when custom and letter sections collapse", async () => {
+			const autoGroup = {
+				...mockFailoverGroup,
+				id: "fg-auto",
+				display_model: "auto-model",
+				display_name: "Auto Group",
+				auto_created: true,
+			};
+			server.use(
+				http.get("/api/failover-groups", () => {
+					return HttpResponse.json({
+						groups: [mockFailoverGroup, autoGroup],
+						last_synced_at: null,
+					});
+				}),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+			await waitFor(() => {
+				expect(
+					document.querySelector("#failover-section-custom"),
+				).toBeInTheDocument();
+			});
+
+			for (const sectionId of [
+				"failover-section-custom",
+				"failover-section-A",
+			]) {
+				const section = document.querySelector(`#${sectionId}`);
+				expect(section).toBeInTheDocument();
+				const header = section?.querySelector("button");
+				const chevron = header?.querySelector("svg");
+				// Expanded by default: chevron points down (rotated)
+				expect(chevron).toHaveClass("rotate-90");
+				if (header) await user.click(header);
+				expect(chevron).not.toHaveClass("rotate-90");
+			}
+		});
+	});
+
 	describe("Rendering", () => {
 		it("renders page header with 'Failover Groups' title", async () => {
 			server.use(

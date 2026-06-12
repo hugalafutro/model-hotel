@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "المطور-المتمحور مع التباين العالي",
 				"glassmorphism": "الجلاسوروفية",
 				"glassmorphismDescription": "أسطح متقطعة وشفافة"
-			}
+			},
+			"resetAccent": "إعادة التعيين إلى الإعدادات الافتراضية للسمة"
 		},
 		"toast": {
 			"title": "الإشعارات المنبثقة",
@@ -1650,7 +1651,7 @@
 		"sidebarQuota": {
 			"title": "حصص الشريط الجانبي",
 			"description": "تكوين عدد المرات التي يتم فيها تحديث بيانات الحصة والتوازن في لوحة الشريط الجانبي.",
-			"showQuotasPill": "إظهار حزم الحصص",
+			"showQuotasPill": "إظهار لوحة الحصص",
 			"showQuotasPillDescription": "عرض لوحة الحصص في الشريط الجانبي",
 			"refreshInterval": "الفاصل الزمني للتحديث",
 			"refreshInterval.description": "الحد الأدنى 1 دقيقة. 0 لتعطيل. تصبح التغييرات سارية المفعول على التحديث المجدول التالي.",
@@ -2261,17 +2262,17 @@
 			"weeklyTokenQuota": "حصة رمزية NanoGPT الأسبوعية - انقر للحصول على التفاصيل",
 			"zaiCodingRemaining": "ترميز Z.ai الحصة المتبقية - انقر للحصول على التفاصيل",
 			"zaiCodingUsed": "ترميز Z.ai الحصة المستخدمة - انقر للحصول على التفاصيل",
-			"deepseekBalance": "رصيد عميق: ${{usd}} ${{refreshed}} - انقر للتحديث",
+			"deepseekBalance": "رصيد عميق: ${{usd}} $ {{refreshed}} - انقر للتحديث",
 			"deepseekBalanceUnavailable": "رصيد أعمق غير متوفر",
 			"openrouterBalance": "رصيد مفتاح OpenRouter - انقر للحصول على التفاصيل",
 			"openrouterBalanceUnavailable": "OpenRouter balance unavailable",
-			"ollamaCloudPlan": "Ollama Cloud {{plan}} خطة{{refreshed}} - انقر للتحديث",
-			"ollamaCloudPlanEnds": "خطة Ollama Cloud {{plan}} (ينتهي {{date}}){{refreshed}} - انقر للتحديث",
+			"ollamaCloudPlan": "Ollama Cloud {{plan}} خطة {{refreshed}} - انقر للتحديث",
+			"ollamaCloudPlanEnds": "خطة Ollama Cloud {{plan}} (ينتهي {{date}}) {{refreshed}} - انقر للتحديث",
 			"ollamaCloudUnavailable": "حساب Ollama Cloud غير متوفر",
 			"nanoWeeklyTokensRemaining": "عملات NanoGPT الأسبوعية المتبقية - انقر للحصول على التفاصيل",
 			"nanoWeeklyTokenQuota": "حصة رمزية NanoGPT الأسبوعية - انقر للحصول على التفاصيل",
 			"openRouterKeyBalance": "رصيد مفتاح OpenRouter - انقر للحصول على التفاصيل",
-			"ollamaCloudPlanWithEnd": "خطة Ollama Cloud {{plan}} (ينتهي {{endDate}}){{refreshed}} - انقر للتحديث",
+			"ollamaCloudPlanWithEnd": "خطة Ollama Cloud {{plan}} (ينتهي {{endDate}}) {{refreshed}} - انقر للتحديث",
 			"updated": "- تم تحديثه {{time}}",
 			"neuralwattBalance": "نيورالواط: {{amount}} kwh تبقى {{refreshed}}",
 			"neuralwattBalanceUnavailable": "رصيد NeuralWatt غير متوفر"

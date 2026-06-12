@@ -78,7 +78,7 @@ describe("ActionIconButton", () => {
 				color="amber"
 			/>,
 		);
-		expect(screen.getByRole("button")).toHaveClass("text-amber-400");
+		expect(screen.getByRole("button")).toHaveClass("ui-icon-btn-warning");
 	});
 
 	it("applies red color classes", () => {
@@ -90,7 +90,7 @@ describe("ActionIconButton", () => {
 				color="red"
 			/>,
 		);
-		expect(screen.getByRole("button")).toHaveClass("text-red-500");
+		expect(screen.getByRole("button")).toHaveClass("ui-icon-btn-danger");
 	});
 
 	it("uses default size 14", () => {

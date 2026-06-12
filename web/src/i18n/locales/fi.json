@@ -655,7 +655,7 @@
 		"toast_add_failed": "Tarjoajan lisääminen epäonnistui: {{message}}",
 		"toast_update_failed": "Päivitys epäonnistui: {{message}}",
 		"toast_refresh_success": "Päivitetyt {{count}} kiintiötä/saldoa",
-		"toast_refresh_warning": "{{refreshed}} -kiintiöt on päivitetty ({{failed}} -kiintiöiden päivitys epäonnistui, {{skipped}} -kiintiöitä ei tueta)",
+		"toast_refresh_warning": " {{refreshed}} -kiintiöt on päivitetty ({{failed}} -kiintiöiden päivitys epäonnistui, {{skipped}} -kiintiöitä ei tueta)",
 		"toast_refresh_none": "Yhtään palveluntarjoajaa, joilla on kiintiö-/saldotukea",
 		"toast_refresh_failed": "Kiintiöiden päivitys epäonnistui: {{message}}",
 		"toast_quota_detected_nanogpt": "NanoGPT-kiintiö havaittu",
@@ -761,7 +761,7 @@
 			"showRemaining": "Näytä hyvitykset jäljellä"
 		},
 		"toast": {
-			"refreshedQuotas": "{{refreshed}} -kiintiöt on päivitetty ({{failed}} -kiintiöiden päivitys epäonnistui, {{skipped}} -kiintiöitä ei tueta)"
+			"refreshedQuotas": " {{refreshed}} -kiintiöt on päivitetty ({{failed}} -kiintiöiden päivitys epäonnistui, {{skipped}} -kiintiöitä ei tueta)"
 		},
 		"discoverySummary": {
 			"title": "Haku-yhteenveto",
@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Kehittäjäkeskeinen, korkea kontrasti",
 				"glassmorphism": "Glassmorphismi",
 				"glassmorphismDescription": "Läpikuultavat pinnat"
-			}
+			},
+			"resetAccent": "Palauta teeman oletusasetukset"
 		},
 		"toast": {
 			"title": "Toast Ilmoitukset",
@@ -1650,7 +1651,7 @@
 		"sidebarQuota": {
 			"title": "Sivupalkin Kiintiöt",
 			"description": "Määritä kuinka usein palveluntarjoajan kiintiö- ja saldotietoja päivitetään sivupaneelissa.",
-			"showQuotasPill": "Näytä Kiintiöiden Pill",
+			"showQuotasPill": "Näytä kiintiöpaneeli",
 			"showQuotasPillDescription": "Näytä kiintiön paneeli sivupalkissa",
 			"refreshInterval": "Päivitä Aikaväli",
 			"refreshInterval.description": "Minimi 1 minuutti. 0 poistaaksesi käytöstä. Muutokset tulevat voimaan seuraavan ajastetun päivityksen.",
@@ -2261,17 +2262,17 @@
 			"weeklyTokenQuota": "NanoGPT viikkotunnuksen kiintiö - klikkaa saadaksesi lisätietoja",
 			"zaiCodingRemaining": "Z.ai Koodaus jäljellä oleva kiintiö - klikkaa saadaksesi lisätietoja",
 			"zaiCodingUsed": "Z.ai Koodaus käytetty kiintiö - klikkaa lisätietoja",
-			"deepseekBalance": "DeepSeek-saldo:{{usd}} USD{{refreshed}} – päivitä näkymä napsauttamalla",
+			"deepseekBalance": "DeepSeek-saldo:{{usd}} USD {{refreshed}} – päivitä näkymä napsauttamalla",
 			"deepseekBalanceUnavailable": "DeepSeek saldo ei käytettävissä",
 			"openrouterBalance": "OpenRouter avaimen saldo - klikkaa saadaksesi lisätietoja",
 			"openrouterBalanceUnavailable": "OpenRouter balance unavailable",
-			"ollamaCloudPlan": "Ollama Cloud {{plan}} paketti{{refreshed}} – päivitä napsauttamalla",
-			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} -paketti (voimassa {{date}}){{refreshed}} - päivitä napsauttamalla",
+			"ollamaCloudPlan": "Ollama Cloud {{plan}} paketti {{refreshed}} – päivitä napsauttamalla",
+			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} -paketti (voimassa {{date}}) {{refreshed}} - päivitä napsauttamalla",
 			"ollamaCloudUnavailable": "Ollama Cloud tili ei käytettävissä",
 			"nanoWeeklyTokensRemaining": "NanoGPT viikoittain kuponkia jäljellä - klikkaa saadaksesi lisätietoja",
 			"nanoWeeklyTokenQuota": "NanoGPT viikkotunnuksen kiintiö - klikkaa saadaksesi lisätietoja",
 			"openRouterKeyBalance": "OpenRouter avaimen saldo - klikkaa saadaksesi lisätietoja",
-			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} -paketti (voimassa {{endDate}}){{refreshed}} - päivitä napsauttamalla",
+			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} -paketti (voimassa {{endDate}}) {{refreshed}} - päivitä napsauttamalla",
 			"updated": "- päivitetty {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} jäljellä olevat kWh {{refreshed}}",
 			"neuralwattBalanceUnavailable": "NeuralWatt saldo ei saatavilla"

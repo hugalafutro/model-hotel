@@ -611,7 +611,7 @@ export function FailoverGroups() {
 							setSelectedGroupIds(new Set(groups.map((g) => g.id)));
 						}
 					}}
-					className="ml-auto text-gray-400 hover:text-(--accent) hover:drop-shadow-[0_0_8px_var(--accent)] transition-all"
+					className="ui-icon-btn ml-auto"
 					aria-label={
 						selectedGroupIds.size > 0
 							? t("failover.deselect_all")
@@ -751,9 +751,9 @@ export function FailoverGroups() {
 								>
 									<ChevronRight
 										size={16}
-										className={`text-gray-500 transition-transform group-hover:text-(--accent) group-hover:drop-shadow-[0_0_8px_var(--accent)] ${collapsedLetters.has("custom") ? "" : "rotate-90"}`}
+										className={`ui-icon-btn-in-group text-gray-500 transition-transform ${collapsedLetters.has("custom") ? "" : "rotate-90"}`}
 									/>
-									<span className="text-lg font-bold text-(--accent) group-hover:[text-shadow:0_0_8px_var(--accent)]">
+									<span className="ui-link-accent-in-group text-lg font-bold text-(--accent)">
 										{t("failover.section_custom")}
 									</span>
 									<div className="flex-1 h-px bg-gray-700/50" />
@@ -811,9 +811,9 @@ export function FailoverGroups() {
 								>
 									<ChevronRight
 										size={16}
-										className={`text-gray-500 transition-transform group-hover:text-(--accent) group-hover:drop-shadow-[0_0_8px_var(--accent)] ${collapsedLetters.has(letter) ? "" : "rotate-90"}`}
+										className={`ui-icon-btn-in-group text-gray-500 transition-transform ${collapsedLetters.has(letter) ? "" : "rotate-90"}`}
 									/>
-									<span className="text-lg font-bold text-(--accent) group-hover:[text-shadow:0_0_8px_var(--accent)]">
+									<span className="ui-link-accent-in-group text-lg font-bold text-(--accent)">
 										{letter}
 									</span>
 									<div className="flex-1 h-px bg-gray-700/50" />
@@ -875,7 +875,7 @@ export function FailoverGroups() {
 											.getElementById("failover-section-custom")
 											?.scrollIntoView({ behavior: "smooth", block: "start" })
 									}
-									className="text-xs font-medium text-(--accent) hover:[text-shadow:0_0_8px_var(--accent)] transition-all px-1.5 py-0.5 rounded"
+									className="ui-link-accent text-xs font-medium text-(--accent) px-1.5 py-0.5 rounded"
 									aria-label={t("failover.nav_custom")}
 								>
 									★
@@ -890,7 +890,7 @@ export function FailoverGroups() {
 											.getElementById(`failover-section-${letter}`)
 											?.scrollIntoView({ behavior: "smooth", block: "start" })
 									}
-									className="text-xs font-medium text-gray-500 hover:text-(--accent) hover:[text-shadow:0_0_8px_var(--accent)] transition-all px-1.5 py-0.5 rounded"
+									className="ui-link-accent text-xs font-medium text-gray-500 px-1.5 py-0.5 rounded"
 								>
 									{letter}
 								</button>

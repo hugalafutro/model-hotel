@@ -13,14 +13,8 @@ interface ActionIconButtonProps {
 }
 
 const colorClasses = {
-	amber: {
-		base: "text-amber-400",
-		glow: "hover:drop-shadow-[var(--glow-amber)]",
-	},
-	red: {
-		base: "text-red-500",
-		glow: "hover:drop-shadow-[var(--glow-red)]",
-	},
+	amber: "ui-icon-btn ui-icon-btn-warning",
+	red: "ui-icon-btn ui-icon-btn-danger",
 };
 
 export function ActionIconButton({
@@ -33,14 +27,14 @@ export function ActionIconButton({
 	label,
 	withLabel = false,
 }: ActionIconButtonProps) {
-	const { base, glow } = colorClasses[color];
+	const iconClasses = colorClasses[color];
 
 	if (withLabel && label) {
 		return (
 			<button
 				type="button"
 				onClick={onClick}
-				className={`ui-btn flex items-center gap-2 ${base} ${glow}`}
+				className={`ui-btn flex items-center gap-2 ${iconClasses}`}
 			>
 				<Icon size={size} />
 				{label}
@@ -52,8 +46,8 @@ export function ActionIconButton({
 		<button
 			type="button"
 			onClick={onClick}
-			className={`p-1.5 rounded-md transition-all ${base} ${
-				pulse ? "animate-[pulse-ring_1.5s_ease-in-out_infinite]" : glow
+			className={`${iconClasses} p-1.5 rounded-md ${
+				pulse ? "animate-[pulse-ring_1.5s_ease-in-out_infinite]" : ""
 			}`}
 			title={title}
 			aria-label={title}

@@ -341,24 +341,6 @@ describe("VirtualModelTable", () => {
 			expect(searchInput).toHaveValue("gpt");
 		});
 
-		it("renders ProviderFilter when providers prop is given", () => {
-			const entries = [createModel()];
-			const providers = [
-				{ id: "p1", name: "OpenAI" },
-				{ id: "p2", name: "Anthropic" },
-			] as unknown as Provider[];
-			setupWithEntries(entries);
-			renderWithProviders(<VirtualModelTable providers={providers} />);
-			expect(screen.getByText("Filter Providers")).toBeInTheDocument();
-		});
-
-		it("does not render ProviderFilter when no providers prop", () => {
-			const entries = [createModel()];
-			setupWithEntries(entries);
-			renderWithProviders(<VirtualModelTable />);
-			expect(screen.queryByText("Filter Providers")).not.toBeInTheDocument();
-		});
-
 		it("renders capability filter buttons from existing model caps", () => {
 			const entries = [
 				createModel({
@@ -757,7 +739,7 @@ describe("VirtualModelTable", () => {
 	});
 
 	describe("Provider filter integration", () => {
-		it("passes provider_id in filters when a provider is selected", () => {
+		it("passes provider_id in filters when a provider filter is set", () => {
 			const capturedFilters: Record<string, unknown>[] = [];
 			const entries = [createModel({ capabilities: '{"vision":true}' })];
 			const providers = [
@@ -785,15 +767,11 @@ describe("VirtualModelTable", () => {
 			);
 			mockGetTotalSize.mockReturnValue(entries.length * 45);
 
-			renderWithProviders(<VirtualModelTable providers={providers} />);
+			renderWithProviders(
+				<VirtualModelTable providers={providers} providerFilter="p1" />,
+			);
 
-			// Open provider filter dropdown
-			fireEvent.click(screen.getByText("Filter Providers"));
-
-			// Click a provider to select it
-			fireEvent.click(screen.getByText("OpenAI"));
-
-			// Verify filters passed to useBidirectionalFetch now include provider_id
+			// Verify filters passed to useBidirectionalFetch include provider_id
 			const lastFilter = capturedFilters[capturedFilters.length - 1];
 			expect(lastFilter.provider_id).toBe("p1");
 		});

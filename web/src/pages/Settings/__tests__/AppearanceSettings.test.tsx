@@ -38,6 +38,25 @@ describe("AppearanceSettings", () => {
 		expect(screen.getByText("Accent Color")).toBeInTheDocument();
 	});
 
+	it("resets an explicit accent back to the theme default", async () => {
+		localStorage.setItem("accentColor", "#123456");
+		const { user } = renderWithProviders(
+			<AppearanceSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const reset = screen.getByRole("button", {
+			name: "Reset to theme default",
+		});
+		await user.click(reset);
+
+		// Explicit pick cleared: theme default applies again and the reset
+		// affordance disappears.
+		expect(localStorage.getItem("accentColor")).toBe("");
+		expect(
+			screen.queryByRole("button", { name: "Reset to theme default" }),
+		).not.toBeInTheDocument();
+	});
+
 	it("renders custom color picker button", () => {
 		renderWithProviders(
 			<AppearanceSettings collapsed={false} onToggle={onToggle} />,

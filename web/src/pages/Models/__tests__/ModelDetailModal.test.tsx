@@ -62,8 +62,8 @@ describe("ModelDetailModal", () => {
 	it("displays context length and max output tokens", () => {
 		renderWithProviders(<ModelDetailModal {...defaultProps} />);
 
-		expect(screen.getByText(/8,192tokens/)).toBeInTheDocument();
-		expect(screen.getByText(/4,096tokens/)).toBeInTheDocument();
+		expect(screen.getByText(/8,192 tokens/)).toBeInTheDocument();
+		expect(screen.getByText(/4,096 tokens/)).toBeInTheDocument();
 	});
 
 	it("displays pricing information", () => {

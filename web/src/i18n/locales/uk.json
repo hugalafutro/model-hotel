@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Розробник-центрик",
 				"glassmorphism": "Окуляроморфізм",
 				"glassmorphismDescription": "Текстові, напівпрозорі поверхні"
-			}
+			},
+			"resetAccent": "Скинути до стандартних налаштувань теми"
 		},
 		"toast": {
 			"title": "Спливаюче сповіщення",
@@ -1650,7 +1651,7 @@
 		"sidebarQuota": {
 			"title": "Бокова панель",
 			"description": "Налаштувати часто, як заповнюються квоти та баланс даних на бічній панелі.",
-			"showQuotasPill": "Показати пінг цитат",
+			"showQuotasPill": "Показати панель квот",
 			"showQuotasPillDescription": "Відображати панель квот у бічній панелі",
 			"refreshInterval": "Інтервал оновлення",
 			"refreshInterval.description": "Мінімум 1 хвилину. 0 для відключення. Зміни набувають чинності при наступному запланованому оновленні.",
@@ -2261,17 +2262,17 @@
 			"weeklyTokenQuota": "NanoGPT тижнева квота - натисніть для деталей",
 			"zaiCodingRemaining": "Z.ai Кодування залишилось квоти - натисніть, щоб дізнатись подробиці",
 			"zaiCodingUsed": "Параметри кодування Z.ai - клікніть для деталей",
-			"deepseekBalance": "Баланс DeepSeek ${{usd}} USD{{refreshed}} - клік, щоб оновити",
+			"deepseekBalance": "Баланс DeepSeek ${{usd}} USD {{refreshed}} - клік, щоб оновити",
 			"deepseekBalanceUnavailable": "Баланс DeepSeek недоступний",
 			"openrouterBalance": "Баланс ключа OpenRouter - натисніть для деталей",
 			"openrouterBalanceUnavailable": "OpenRouter balance unavailable",
-			"ollamaCloudPlan": "Ollama Cloud {{plan}} тарифний план{{refreshed}} — натисніть, щоб оновити",
-			"ollamaCloudPlanEnds": "План Ollama Cloud {{plan}} (закінчується {{date}}){{refreshed}} — натисніть, щоб оновити",
+			"ollamaCloudPlan": "Ollama Cloud {{plan}} тарифний план {{refreshed}} — натисніть, щоб оновити",
+			"ollamaCloudPlanEnds": "План Ollama Cloud {{plan}} (закінчується {{date}}) {{refreshed}} — натисніть, щоб оновити",
 			"ollamaCloudUnavailable": "Обліковий запис в Ollama Cloud недоступний",
 			"nanoWeeklyTokensRemaining": "Залишилось NanoGPT тижневих токенів - натисніть для деталей",
 			"nanoWeeklyTokenQuota": "NanoGPT тижнева квота - натисніть для деталей",
 			"openRouterKeyBalance": "Баланс ключа OpenRouter - натисніть для деталей",
-			"ollamaCloudPlanWithEnd": "Тарифний план Ollama Cloud {{plan}} (закінчується {{endDate}}){{refreshed}} — натисніть, щоб оновити",
+			"ollamaCloudPlanWithEnd": "Тарифний план Ollama Cloud {{plan}} (закінчується {{endDate}}) {{refreshed}} — натисніть, щоб оновити",
 			"updated": "- оновлено {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} кВт залишилося {{refreshed}}",
 			"neuralwattBalanceUnavailable": "Баланс NeuralWatt недоступний"

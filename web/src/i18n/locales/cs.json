@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Zaměřené na vývojáře, s vysokým kontrastem",
 				"glassmorphism": "Glassmorfismus",
 				"glassmorphismDescription": "Průsvitné povrchy"
-			}
+			},
+			"resetAccent": "Obnovit výchozí nastavení motivu"
 		},
 		"toast": {
 			"title": "Oznámení v oznamovací liště",
@@ -1650,7 +1651,7 @@
 		"sidebarQuota": {
 			"title": "Kvóty v postranním panelu",
 			"description": "Nastavte, jak často se mají v postranním panelu aktualizovat údaje o kvótách a zůstatcích poskytovatele.",
-			"showQuotasPill": "Zobrazit tabletu s kvótami",
+			"showQuotasPill": "Zobrazit panel kvót",
 			"showQuotasPillDescription": "Zobrazit panel kvót v postranním panelu",
 			"refreshInterval": "Interval aktualizace",
 			"refreshInterval.description": "Minimálně 1 minuta. 0 pro deaktivaci. Změny se projeví při příštím plánovaném obnovení.",
@@ -2261,7 +2262,7 @@
 			"weeklyTokenQuota": "Týdenní kvóta tokenů NanoGPT – klikněte pro podrobnosti",
 			"zaiCodingRemaining": "Z.ai: Zbývající počet míst – klikněte pro podrobnosti",
 			"zaiCodingUsed": "Z.ai Využitá kvóta – klikněte pro podrobnosti",
-			"deepseekBalance": "Stav účtu DeepSeek: ${{usd}} USD{{refreshed}} – kliknutím obnovíte",
+			"deepseekBalance": "Stav účtu DeepSeek: ${{usd}} USD {{refreshed}} – kliknutím obnovíte",
 			"deepseekBalanceUnavailable": "Zůstatek na účtu DeepSeek není k dispozici",
 			"openrouterBalance": "Stav klíče OpenRouter – klikněte pro podrobnosti",
 			"openrouterBalanceUnavailable": "Zůstatek na účtu OpenRouter není k dispozici",

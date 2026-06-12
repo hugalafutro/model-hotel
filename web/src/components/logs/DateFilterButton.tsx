@@ -52,7 +52,7 @@ export function DateFilterButton({
 			{hasDateFilter && (
 				<button
 					type="button"
-					className="inline-flex items-center justify-center h-9 w-6 rounded-(--radius-button) bg-(--accent)/30 text-(--accent) hover:text-(--text-primary) transition-all cursor-default hover:drop-shadow-[var(--glow-accent-lg)]"
+					className="inline-flex items-center justify-center h-9 w-6 rounded-(--radius-button) bg-(--accent)/30 text-(--accent) hover:text-(--text-primary) transition-all cursor-default hover:drop-shadow-[var(--icon-hover-glow)]"
 					onClick={onClearDateFilter}
 					title={
 						hasDateFilter && dateFrom && dateTo

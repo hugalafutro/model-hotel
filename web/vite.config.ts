@@ -2,6 +2,24 @@ import path from "node:path";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
+// Module-id matcher for a vendor group. Restricting to node_modules keeps
+// app code in the entry chunk, mirroring the old manualChunks behavior.
+const vendor =
+	(...needles: string[]) =>
+	(id: string) =>
+		id.includes("node_modules") && needles.some((n) => id.includes(n));
+
+// Syntax highlighting (shiki + its oniguruma regex translator) — only ever
+// loaded on demand via dynamic import; keeping it out of every group leaves
+// it lazily chunked instead of riding in an eagerly-loaded vendor chunk.
+const SHIKI_LAZY = [
+	"/shiki/",
+	"/@shikijs/",
+	"/oniguruma-to-es/",
+	"/oniguruma-parser/",
+	"/hast-util-to-html/",
+];
+
 // https://vite.dev/config/
 export default defineConfig({
 	plugins: [react()],
@@ -11,45 +29,48 @@ export default defineConfig({
 		},
 	},
 	build: {
-		rollupOptions: {
+		// rolldown-vite ignores rollupOptions.output.manualChunks; vendor
+		// splitting must go through rolldown's codeSplitting groups. Groups
+		// are matched top-down (equal priority → smaller index wins), so the
+		// order below mirrors the old manualChunks if/else chain.
+		rolldownOptions: {
 			output: {
-				manualChunks(id) {
-					if (id.includes("node_modules")) {
-						// Syntax highlighting (shiki + its oniguruma regex translator)
-						// — only ever loaded on demand via dynamic import; leaving it
-						// unassigned keeps it out of the eagerly-loaded vendor chunks.
-						if (
-							id.includes("/shiki/") ||
-							id.includes("/@shikijs/") ||
-							id.includes("/oniguruma-to-es/") ||
-							id.includes("/oniguruma-parser/") ||
-							id.includes("/hast-util-to-html/")
-						)
-							return undefined;
+				codeSplitting: {
+					groups: [
 						// Framework core — changes least often
-						if (id.includes("/react-dom/") || id.includes("/react/"))
-							return "vendor-react";
+						{ name: "vendor-react", test: vendor("/react-dom/", "/react/") },
 						// Routing + data fetching
-						if (id.includes("/react-router-dom/") || id.includes("/@tanstack/"))
-							return "vendor-router-query";
+						{
+							name: "vendor-router-query",
+							test: vendor("/react-router-dom/", "/@tanstack/"),
+						},
 						// Internationalization
-						if (id.includes("/i18next/") || id.includes("/react-i18next/"))
-							return "vendor-i18n";
+						{
+							name: "vendor-i18n",
+							test: vendor("/i18next/", "/react-i18next/"),
+						},
 						// Markdown rendering (katex is large)
-						if (
-							id.includes("/react-markdown/") ||
-							id.includes("/remark-") ||
-							id.includes("/rehype-") ||
-							id.includes("/katex/")
-						)
-							return "vendor-markdown";
+						{
+							name: "vendor-markdown",
+							test: vendor(
+								"/react-markdown/",
+								"/remark-",
+								"/rehype-",
+								"/katex/",
+							),
+						},
 						// Charts
-						if (id.includes("/recharts/")) return "vendor-charts";
+						{ name: "vendor-charts", test: vendor("/recharts/") },
 						// Drag and drop
-						if (id.includes("/@dnd-kit/")) return "vendor-dnd";
+						{ name: "vendor-dnd", test: vendor("/@dnd-kit/") },
 						// Everything else (lucide, react-colorful, immer, etc.)
-						return "vendor-misc";
-					}
+						{
+							name: "vendor-misc",
+							test: (id: string) =>
+								id.includes("node_modules") &&
+								!SHIKI_LAZY.some((n) => id.includes(n)),
+						},
+					],
 				},
 			},
 		},

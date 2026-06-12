@@ -221,7 +221,9 @@ describe("LogDetailModal", () => {
 			// Find the Headers label and navigate to the parent card container
 			const headersLabel = screen.getByText("Headers");
 			// The label div is inside the card div, so closest gets us the card
-			const headersCard = headersLabel.closest('[class*="rounded-lg"]');
+			const headersCard = headersLabel.closest(
+				'[class*="rounded-(--radius-box)"]',
+			);
 			expect(headersCard).toBeInTheDocument();
 			// The card contains "Headers" label and the dash value
 			expect(headersCard?.textContent).toContain("Headers");
@@ -737,7 +739,7 @@ describe("LogDetailModal", () => {
 
 			// The Tokens/s timing card contains both the label and the value
 			const tpsLabel = screen.getByText("Tokens/s");
-			const tpsCard = tpsLabel.closest("[class*=rounded-lg]");
+			const tpsCard = tpsLabel.closest('[class*="rounded-(--radius-box)"]');
 			expect(tpsCard).toBeInTheDocument();
 			expect(tpsCard?.textContent).toContain("-");
 		});
@@ -753,7 +755,7 @@ describe("LogDetailModal", () => {
 
 			// The Tokens/s timing card contains both the label and the value
 			const tpsLabel = screen.getByText("Tokens/s");
-			const tpsCard = tpsLabel.closest("[class*=rounded-lg]");
+			const tpsCard = tpsLabel.closest('[class*="rounded-(--radius-box)"]');
 			expect(tpsCard).toBeInTheDocument();
 			expect(tpsCard?.textContent).toContain("-");
 		});
@@ -971,7 +973,7 @@ describe("LogDetailModal", () => {
 
 			// DetailItem renders the value in a div after the label
 			const vkLabel = screen.getByText("Virtual Key");
-			const vkItem = vkLabel.closest("[class*=rounded-lg]");
+			const vkItem = vkLabel.closest('[class*="rounded-(--radius-box)"]');
 			expect(vkItem).toBeInTheDocument();
 			expect(vkItem?.textContent).toContain("-");
 		});

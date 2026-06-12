@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Entwickler-zentristische, kontrastreiche",
 				"glassmorphism": "Glasmorphismus",
 				"glassmorphismDescription": "Slick, transparente Oberflächen"
-			}
+			},
+			"resetAccent": "Auf Standard-Theme zurücksetzen"
 		},
 		"toast": {
 			"title": "Toast Benachrichtigungen",
@@ -1650,7 +1651,7 @@
 		"sidebarQuota": {
 			"title": "Sidebar Quoten",
 			"description": "Konfigurieren Sie, wie oft die Kontingent- und Kontodaten des Anbieters im Seitenleisten-Fenster aktualisiert werden.",
-			"showQuotasPill": "Quoten Pille anzeigen",
+			"showQuotasPill": "Quoten-Panel anzeigen",
 			"showQuotasPillDescription": "Quota-Panel in der Seitenleiste anzeigen",
 			"refreshInterval": "Aktualisierungsintervall",
 			"refreshInterval.description": "Mindestens 1 Minute. 0 zum Deaktivieren. Änderungen wirken auf die nächste geplante Aktualisierung.",
@@ -2261,17 +2262,17 @@
 			"weeklyTokenQuota": "NanoGPT wöchentliche Token-Quota - für Details klicken",
 			"zaiCodingRemaining": "Z.ai Coding Restbetrag - Klicken Sie für Details",
 			"zaiCodingUsed": "Z.ai Coding verwendete Quote - für Details klicken",
-			"deepseekBalance": "DeepSeek Kontostand: ${{usd}} USD{{refreshed}} - Klicke zum Aktualisieren",
+			"deepseekBalance": "DeepSeek Kontostand: ${{usd}} USD {{refreshed}} - Klicke zum Aktualisieren",
 			"deepseekBalanceUnavailable": "DeepSeek Guthaben nicht verfügbar",
 			"openrouterBalance": "OpenRouter Tastenausgleich - Klicken für Details",
 			"openrouterBalanceUnavailable": "OpenRouter balance unavailable",
-			"ollamaCloudPlan": "Ollama Cloud {{plan}} Plan{{refreshed}} - Zum Aktualisieren klicken",
-			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} Plan (endet {{date}}){{refreshed}} - Klicke zum Aktualisieren",
+			"ollamaCloudPlan": "Ollama Cloud {{plan}} Plan {{refreshed}} - Zum Aktualisieren klicken",
+			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} Plan (endet {{date}}) {{refreshed}} - Klicke zum Aktualisieren",
 			"ollamaCloudUnavailable": "Ollama Cloud-Konto nicht verfügbar",
 			"nanoWeeklyTokensRemaining": "NanoGPT wöchentliche Token verbleibend - für Details klicken",
 			"nanoWeeklyTokenQuota": "NanoGPT wöchentliche Token-Quota - für Details klicken",
 			"openRouterKeyBalance": "OpenRouter Tastenausgleich - Klicken für Details",
-			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} Plan (endet {{endDate}}){{refreshed}} - Klicke zum Aktualisieren",
+			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} Plan (endet {{endDate}}) {{refreshed}} - Klicke zum Aktualisieren",
 			"updated": "- aktualisierte {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} verbleibende kWh {{refreshed}}",
 			"neuralwattBalanceUnavailable": "NeuralWatt-Guthaben nicht verfügbar"

@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Dezvoltator-centrat, cu contrast ridicat",
 				"glassmorphism": "Glazmorfismul",
 				"glassmorphismDescription": "Suprafețe netede, translucide"
-			}
+			},
+			"resetAccent": "Resetați la setările implicite ale temei"
 		},
 		"toast": {
 			"title": "Notificări toast",
@@ -1650,7 +1651,7 @@
 		"sidebarQuota": {
 			"title": "Cote bară laterală",
 			"description": "Configurează cât de des sunt reîmprospătate datele privind cota furnizorului și soldul în panoul sidebar.",
-			"showQuotasPill": "Afișare pastilă cu cote",
+			"showQuotasPill": "Afișare panou cote",
 			"showQuotasPillDescription": "Afișează panoul de cotă în bara laterală",
 			"refreshInterval": "Reîmprospătare interval",
 			"refreshInterval.description": "Minim 1 minut. 0 pentru dezactivare. Modificările intră în vigoare la următoarea reîmprospătare programată.",
@@ -2261,17 +2262,17 @@
 			"weeklyTokenQuota": "NanoGPT cotă token săptămânal - click pentru detalii",
 			"zaiCodingRemaining": "Codificarea Z.ai cota rămasă - click pentru detalii",
 			"zaiCodingUsed": "Codificarea Z.ai a folosit cota - click pentru detalii",
-			"deepseekBalance": "Soldul DeepSeek: ${{usd}} USD{{refreshed}} - faceți clic pentru a actualiza",
+			"deepseekBalance": "Soldul DeepSeek: ${{usd}} USD {{refreshed}} - faceți clic pentru a actualiza",
 			"deepseekBalanceUnavailable": "Sold DeepSeek indisponibil",
 			"openrouterBalance": "Balanța tastelor OpenRouter - click pentru detalii",
 			"openrouterBalanceUnavailable": "OpenRouter balance unavailable",
-			"ollamaCloudPlan": "{{plan}} planul{{refreshed}} - click pentru actualizare",
-			"ollamaCloudPlanEnds": "{{plan}} planul Ollama Cloud (termină {{date}}){{refreshed}} - click pentru actualizare",
+			"ollamaCloudPlan": "{{plan}} planul {{refreshed}} - click pentru actualizare",
+			"ollamaCloudPlanEnds": "{{plan}} planul Ollama Cloud (termină {{date}}) {{refreshed}} - click pentru actualizare",
 			"ollamaCloudUnavailable": "Contul Ollama Cloud indisponibil",
 			"nanoWeeklyTokensRemaining": "Tokeni săptămânali NanoGPT rămași - click pentru detalii",
 			"nanoWeeklyTokenQuota": "NanoGPT cotă token săptămânal - click pentru detalii",
 			"openRouterKeyBalance": "Balanța tastelor OpenRouter - click pentru detalii",
-			"ollamaCloudPlanWithEnd": "{{plan}} planul Ollama Cloud (termină {{endDate}}){{refreshed}} - click pentru actualizare",
+			"ollamaCloudPlanWithEnd": "{{plan}} planul Ollama Cloud (termină {{endDate}}) {{refreshed}} - click pentru actualizare",
 			"updated": "- Actualizare {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} kWh rămași {{refreshed}}",
 			"neuralwattBalanceUnavailable": "Balanță NeuralWatt indisponibilă"

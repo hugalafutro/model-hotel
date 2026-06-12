@@ -74,7 +74,7 @@ describe("ModelTable", () => {
 				<ModelTable
 					models={[]}
 					providers={[mockProvider]}
-					initialProviderFilter={new Set(["provider-1"])}
+					providerFilter="provider-1"
 				/>,
 			);
 
@@ -228,20 +228,6 @@ describe("ModelTable", () => {
 			// and this test's getAllByRole leniency let that slip through.
 			expect(screen.getByRole("button", { name: "Prev" })).toBeInTheDocument();
 			expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
-		});
-
-		it("renders provider filter dropdown", () => {
-			const providers = [
-				mockProvider,
-				{ ...mockProvider, id: "provider-2", name: "Provider 2" },
-			];
-
-			renderWithProviders(
-				<ModelTable models={[mockModel]} providers={providers} />,
-			);
-
-			// Provider filter button with placeholder text
-			expect(screen.getByText("Filter Providers")).toBeInTheDocument();
 		});
 
 		it("does not render provider column when providers prop is omitted", () => {
@@ -406,7 +392,7 @@ describe("ModelTable", () => {
 			});
 		});
 
-		it("filters by provider", async () => {
+		it("filters by provider", () => {
 			const providers = [
 				{ ...mockProvider, id: "provider-1", name: "Provider 1" },
 				{ ...mockProvider, id: "provider-2", name: "Provider 2" },
@@ -427,7 +413,7 @@ describe("ModelTable", () => {
 				},
 			];
 
-			const { user } = renderWithProviders(
+			const { rerender } = renderWithProviders(
 				<ModelTable models={models} providers={providers} />,
 			);
 
@@ -436,22 +422,19 @@ describe("ModelTable", () => {
 				screen.getByRole("table").querySelectorAll("tbody tr").length,
 			).toBe(2);
 
-			// Open provider filter dropdown
-			const providerFilter = screen.getByText("Filter Providers");
-			await user.click(providerFilter);
-
-			// Click Provider 1 option - find by text content in buttons
-			const allButtons = screen.getAllByRole("button");
-			const provider1Button = allButtons.find(
-				(btn) => btn.textContent === "Provider 1",
+			// Page-owned provider filter narrows the table
+			rerender(
+				<ModelTable
+					models={models}
+					providers={providers}
+					providerFilter="provider-1"
+				/>,
 			);
-			if (provider1Button) await user.click(provider1Button);
 
-			await waitFor(() => {
-				// Only Provider 1 model should be visible in tbody
-				const rows = screen.getByRole("table").querySelectorAll("tbody tr");
-				expect(rows.length).toBe(1);
-			});
+			expect(
+				screen.getByRole("table").querySelectorAll("tbody tr").length,
+			).toBe(1);
+			expect(screen.queryByText("Provider 2")).not.toBeInTheDocument();
 		});
 
 		it("filters by capabilities", async () => {
@@ -831,13 +814,11 @@ describe("ModelTable", () => {
 				},
 			];
 
-			const initialFilter = new Set(["provider-1"]);
-
 			renderWithProviders(
 				<ModelTable
 					models={models}
 					providers={providers}
-					initialProviderFilter={initialFilter}
+					providerFilter="provider-1"
 				/>,
 			);
 
@@ -1108,7 +1089,7 @@ describe("ModelTable", () => {
 				{ ...mockProvider, id: "provider-2", name: "Provider 2" },
 			];
 
-			const { user } = renderWithProviders(
+			const { user, rerender } = renderWithProviders(
 				<ModelTable models={models} providers={providers} />,
 			);
 
@@ -1121,15 +1102,14 @@ describe("ModelTable", () => {
 				expect(screen.getAllByText(/21 to 25 of 25/).length).toBeGreaterThan(0);
 			});
 
-			// Open provider filter dropdown
-			const providerFilter = screen.getByText("Filter Providers");
-			await user.click(providerFilter);
-
-			// Click Provider 1 option
-			const provider1Button = screen.getByRole("button", {
-				name: "Provider 1",
-			});
-			await user.click(provider1Button);
+			// Page-owned provider filter changes
+			rerender(
+				<ModelTable
+					models={models}
+					providers={providers}
+					providerFilter="provider-1"
+				/>,
+			);
 
 			// Verify we're back on page 1 (pagination shows "1 to 15 of 15 models")
 			// Anchor "1" to start to avoid matching "21 of 15" (broken state)
@@ -1141,9 +1121,7 @@ describe("ModelTable", () => {
 				expect(paginationTexts.length).toBeGreaterThan(0);
 			});
 		});
-	});
 
-	describe("Delete Disabled Button", () => {
 		it("does not render delete disabled button when onDeleteDisabled is not provided", () => {
 			const disabledModel = {
 				...mockModel,
@@ -1302,7 +1280,7 @@ describe("ModelTable", () => {
 					models={models}
 					providers={[mockProvider, otherProvider]}
 					onDeleteDisabled={onDeleteDisabled}
-					initialProviderFilter={new Set(["provider-001"])}
+					providerFilter="provider-001"
 				/>,
 			);
 
@@ -1340,7 +1318,7 @@ describe("ModelTable", () => {
 					models={models}
 					providers={[mockProvider, otherProvider]}
 					onDeleteDisabled={onDeleteDisabled}
-					initialProviderFilter={new Set(["provider-001"])}
+					providerFilter="provider-001"
 				/>,
 			);
 

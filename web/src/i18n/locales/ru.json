@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Контраст для разработчиков",
 				"glassmorphism": "Стекломорфизм",
 				"glassmorphismDescription": "Плотные, полупрозрачные поверхности"
-			}
+			},
+			"resetAccent": "Сбросить настройки к значениям по умолчанию"
 		},
 		"toast": {
 			"title": "Всплывающие уведомления",
@@ -1650,7 +1651,7 @@
 		"sidebarQuota": {
 			"title": "Квоты боковой панели",
 			"description": "Настройте как часто обновляются данные о квотах и балансе провайдеров в боковой панели.",
-			"showQuotasPill": "Показать кавычки",
+			"showQuotasPill": "Показать панель квот",
 			"showQuotasPillDescription": "Показывать панель квот в боковой панели",
 			"refreshInterval": "Интервал обновления",
 			"refreshInterval.description": "Минимум 1 минута. 0 для отключения. Изменения вступят в силу после следующего запланированного обновления.",
@@ -2261,17 +2262,17 @@
 			"weeklyTokenQuota": "Еженедельная квота токенов NanoGPT - нажмите для подробностей",
 			"zaiCodingRemaining": "Оставшаяся квота Z.ai - нажмите для получения подробной информации",
 			"zaiCodingUsed": "Используемая квота Z.ai кодирование - нажмите для получения подробной информации",
-			"deepseekBalance": "Баланс DeepSeek: ${{usd}} USD{{refreshed}} - нажмите, чтобы обновить",
+			"deepseekBalance": "Баланс DeepSeek: ${{usd}} USD {{refreshed}} - нажмите, чтобы обновить",
 			"deepseekBalanceUnavailable": "Баланс DeepSeek недоступен",
 			"openrouterBalance": "Баланс ключа OpenRouter - нажмите для подробностей",
 			"openrouterBalanceUnavailable": "OpenRouter balance unavailable",
-			"ollamaCloudPlan": "Ollama облачный {{plan}} план{{refreshed}} - Нажмите, чтобы обновить",
-			"ollamaCloudPlanEnds": "Ollama облачный {{plan}} план (заканчивается {{date}}){{refreshed}} - нажмите для обновления",
+			"ollamaCloudPlan": "Ollama облачный {{plan}} план {{refreshed}} - Нажмите, чтобы обновить",
+			"ollamaCloudPlanEnds": "Ollama облачный {{plan}} план (заканчивается {{date}}) {{refreshed}} - нажмите для обновления",
 			"ollamaCloudUnavailable": "Учетная запись Ollama Cloud недоступна",
 			"nanoWeeklyTokensRemaining": "Осталось еженедельных токенов NanoGPT - нажмите для подробностей",
 			"nanoWeeklyTokenQuota": "Еженедельная квота токенов NanoGPT - нажмите для подробностей",
 			"openRouterKeyBalance": "Баланс ключа OpenRouter - нажмите для подробностей",
-			"ollamaCloudPlanWithEnd": "Ollama облачный {{plan}} план (заканчивается {{endDate}}){{refreshed}} - нажмите для обновления",
+			"ollamaCloudPlanWithEnd": "Ollama облачный {{plan}} план (заканчивается {{endDate}}) {{refreshed}} - нажмите для обновления",
 			"updated": "- обновлено {{time}}",
 			"neuralwattBalance": "НевральWatt: {{amount}} кВтч осталось {{refreshed}}",
 			"neuralwattBalanceUnavailable": "Баланс NeuralWatt недоступен"

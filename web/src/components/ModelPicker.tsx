@@ -299,7 +299,7 @@ export function ModelPicker({
 								onClick={onRandom}
 								title={t("common.random")}
 								aria-label={t("common.random")}
-								className="text-white/70 hover:text-(--accent) transition-colors p-1 flex items-center"
+								className="ui-icon-btn p-1 flex items-center"
 							>
 								<Dices size={13} />
 							</button>
@@ -316,7 +316,7 @@ export function ModelPicker({
 									? t("components.modelPicker.expandAllProviders")
 									: t("components.modelPicker.collapseAllProviders")
 							}
-							className="text-white/70 hover:text-(--accent) transition-colors p-1 flex items-center"
+							className="ui-icon-btn p-1 flex items-center"
 						>
 							{collapsedProviders.size === groupedModels.size ? (
 								<ChevronsUpDown size={13} />
@@ -388,11 +388,7 @@ export function ModelPicker({
 																onConfigureParams(val);
 															}}
 															disabled={paramsReadonly}
-															className={`shrink-0 flex items-center transition-all ${
-																paramsReadonly
-																	? "opacity-30 cursor-not-allowed"
-																	: "hover:drop-shadow-[var(--glow-accent)] hover:text-(--accent)"
-															}`}
+															className="ui-icon-btn shrink-0 flex items-center"
 															title={
 																paramsReadonly
 																	? t("components.modelPicker.paramsLocked")

@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "ממוקד במפתחים, בעל ניגודיות גבוהה",
 				"glassmorphism": "זכוכית-מורפיזם",
 				"glassmorphismDescription": "משטחים חלקים ושקופים"
-			}
+			},
+			"resetAccent": "אפס להגדרות ברירת המחדל של העיצוב"
 		},
 		"toast": {
 			"title": "התראות Toast",
@@ -1650,7 +1651,7 @@
 		"sidebarQuota": {
 			"title": "מכסות בסרגל הצד",
 			"description": "הגדר את תדירות הרענון של נתוני המכסה והיתרה של הספק בלוח הצדדי.",
-			"showQuotasPill": "הצג את הכדורים של Quotas",
+			"showQuotasPill": "הצג את לוח המכסות",
 			"showQuotasPillDescription": "הצג את לוח המכסות בסרגל הצדדי",
 			"refreshInterval": "מרווח הרענון",
 			"refreshInterval.description": "מינימום דקה אחת. 0 כדי להשבית. השינויים ייכנסו לתוקף בעת הרענון המתוזמן הבא.",
@@ -2261,17 +2262,17 @@
 			"weeklyTokenQuota": "מכסת האסימונים השבועית של NanoGPT - לחץ כאן לפרטים",
 			"zaiCodingRemaining": "Z.ai: מכסת מקומות פנויה - לחץ כאן לפרטים",
 			"zaiCodingUsed": "Z.ai: מכסת השימוש בקוד - לחץ לפרטים",
-			"deepseekBalance": "יתרת DeepSeek: ${{usd}} USD{{refreshed}} - לחץ כדי לרענן",
+			"deepseekBalance": "יתרת DeepSeek: ${{usd}} USD {{refreshed}} - לחץ כדי לרענן",
 			"deepseekBalanceUnavailable": "יתרת DeepSeek אינה זמינה",
 			"openrouterBalance": "יתרת מפתחות ב-OpenRouter - לחץ לפרטים",
 			"openrouterBalanceUnavailable": "היתרה ב-OpenRouter אינה זמינה",
-			"ollamaCloudPlan": "Ollama Cloud {{plan}} תוכנית{{refreshed}} - לחץ כדי לעדכן",
-			"ollamaCloudPlanEnds": "תוכנית Ollama Cloud {{plan}} (מסתיימת ב- {{date}}){{refreshed}} - לחץ כדי לעדכן",
+			"ollamaCloudPlan": "Ollama Cloud {{plan}} תוכנית {{refreshed}} - לחץ כדי לעדכן",
+			"ollamaCloudPlanEnds": "תוכנית Ollama Cloud {{plan}} (מסתיימת ב- {{date}}) {{refreshed}} - לחץ כדי לעדכן",
 			"ollamaCloudUnavailable": "חשבון Ollama Cloud אינו זמין",
 			"nanoWeeklyTokensRemaining": "אסימונים שבועיים שנותרו ב-NanoGPT - לחץ לפרטים",
 			"nanoWeeklyTokenQuota": "מכסת האסימונים השבועית של NanoGPT - לחץ כאן לפרטים",
 			"openRouterKeyBalance": "יתרת מפתחות ב-OpenRouter - לחץ לפרטים",
-			"ollamaCloudPlanWithEnd": "תוכנית Ollama Cloud {{plan}} (מסתיימת ב- {{endDate}}){{refreshed}} - לחץ כדי לעדכן",
+			"ollamaCloudPlanWithEnd": "תוכנית Ollama Cloud {{plan}} (מסתיימת ב- {{endDate}}) {{refreshed}} - לחץ כדי לעדכן",
 			"updated": "- עודכן {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} קוט\"ש שנותרו {{refreshed}}",
 			"neuralwattBalanceUnavailable": "מאזן NeuralWatt אינו זמין"

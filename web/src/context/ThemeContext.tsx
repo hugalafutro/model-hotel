@@ -23,12 +23,25 @@ const ACCENT_PRESETS: AccentPreset[] = [
 	{ name: "theme.accent.fuchsia", color: "#ff6b81", lightColor: "#e84393" },
 ];
 
+// Per-theme default accents (used until the user explicitly picks one):
+// phosphor green for the terminal, aqua for glass, warm copper for SaaS —
+// anything but the ubiquitous default-indigo.
+// eslint-disable-next-line react-refresh/only-export-components -- constant shared with AppearanceSettings' custom-swatch check
+export const THEME_DEFAULT_ACCENT: Record<UIStyle, string> = {
+	"clean-saas": "#e0823f",
+	"cyber-terminal": "#2ed573",
+	"glassmorphism-lite": "#35cfc3",
+};
+
 interface ThemeContextType {
 	theme: Theme;
 	setTheme: (theme: Theme) => void;
 	uiStyle: UIStyle;
 	setUIStyle: (style: UIStyle) => void;
 	accentColor: string;
+	/** True when the accent comes from an explicit user pick (persisted),
+	 * false while the per-theme default applies. */
+	accentIsExplicit: boolean;
 	setAccentColor: (color: string) => void;
 	accentPresets: AccentPreset[];
 }
@@ -38,7 +51,8 @@ const ThemeContext = createContext<ThemeContextType>({
 	setTheme: () => {},
 	uiStyle: "clean-saas",
 	setUIStyle: () => {},
-	accentColor: "#546de5",
+	accentColor: THEME_DEFAULT_ACCENT["clean-saas"],
+	accentIsExplicit: false,
 	setAccentColor: () => {},
 	accentPresets: ACCENT_PRESETS,
 });
@@ -73,6 +87,20 @@ function hexToHSL(hex: string): { h: number; s: number; l: number } {
 	return { h: h * 360, s: s * 100, l: l * 100 };
 }
 
+function hslToRGB(h: number, s: number, l: number): [number, number, number] {
+	const sn = s / 100;
+	const ln = l / 100;
+	const k = (n: number) => (n + h / 30) % 12;
+	const a = sn * Math.min(ln, 1 - ln);
+	const f = (n: number) =>
+		ln - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+	return [
+		Math.round(f(0) * 255),
+		Math.round(f(8) * 255),
+		Math.round(f(4) * 255),
+	];
+}
+
 function applyAccentColor(color: string, theme: Theme) {
 	const hsl = hexToHSL(color);
 	if (Number.isNaN(hsl.h) || Number.isNaN(hsl.s) || Number.isNaN(hsl.l)) {
@@ -102,6 +130,14 @@ function applyAccentColor(color: string, theme: Theme) {
 		"--accent-lighter",
 		`hsla(${hsl.h}, ${hsl.s}%, ${baseL}%, ${lighterAlpha})`,
 	);
+
+	// RGB triplets for rgba(var(--accent-rgb), a) consumers (terminal glows,
+	// glass aurora). The alt triplet is the accent hue rotated 150deg — the
+	// counter-color that gives the glass aurora its two-tone depth.
+	const [r, g, b] = hslToRGB(hsl.h, hsl.s, baseL);
+	root.style.setProperty("--accent-rgb", `${r}, ${g}, ${b}`);
+	const [ar, ag, ab] = hslToRGB((hsl.h + 150) % 360, hsl.s, baseL);
+	root.style.setProperty("--accent-rgb-alt", `${ar}, ${ag}, ${ab}`);
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -122,10 +158,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 		},
 	);
 
-	const [accentColor, setAccentColor] = useLocalStorage<string>(
+	// Empty string = "never explicitly picked": the theme default applies and
+	// switching ui styles re-themes the accent until the user chooses one.
+	const [storedAccent, setAccentColor] = useLocalStorage<string>(
 		"accentColor",
-		"#546de5",
+		"",
 	);
+	const accentColor = storedAccent || THEME_DEFAULT_ACCENT[uiStyle];
+	const accentIsExplicit = storedAccent !== "";
 
 	useEffect(() => {
 		document.documentElement.classList.remove("light", "dark");
@@ -142,6 +182,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 				uiStyle,
 				setUIStyle,
 				accentColor,
+				accentIsExplicit,
 				setAccentColor,
 				accentPresets: ACCENT_PRESETS,
 			}}

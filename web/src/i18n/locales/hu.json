@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Fejlesztőknek szóló, nagy kontrasztú",
 				"glassmorphism": "Üvegmorfizmus",
 				"glassmorphismDescription": "Sima, áttetsző felületek"
-			}
+			},
+			"resetAccent": "Visszaállítás a téma alapértelmezett beállításaira"
 		},
 		"toast": {
 			"title": "Toast értesítések",
@@ -1650,7 +1651,7 @@
 		"sidebarQuota": {
 			"title": "Oldalsáv-kvóták",
 			"description": "Az oldalsávon állítsa be, hogy milyen gyakorisággal frissüljenek a szolgáltatói kvóta- és egyenlegadatok.",
-			"showQuotasPill": "Kvóták megjelenítése",
+			"showQuotasPill": "Kvótapanel megjelenítése",
 			"showQuotasPillDescription": "A kvótapanel megjelenítése az oldalsávban",
 			"refreshInterval": "Frissítési gyakoriság",
 			"refreshInterval.description": "Legalább 1 perc. 0: kikapcsolás. A módosítások a következő ütemezett frissítéskor lépnek életbe.",
@@ -2261,17 +2262,17 @@
 			"weeklyTokenQuota": "A NanoGPT heti token-kvótája – kattintson a részletekért",
 			"zaiCodingRemaining": "Z.ai Kódolás: fennmaradó kvóta – kattintson a részletekért",
 			"zaiCodingUsed": "Z.ai Coding felhasznált kvóta – kattintson a részletekért",
-			"deepseekBalance": "DeepSeek egyenleg:{{usd}} USD{{refreshed}} – kattintson a frissítéshez",
+			"deepseekBalance": "DeepSeek egyenleg:{{usd}} USD {{refreshed}} – kattintson a frissítéshez",
 			"deepseekBalanceUnavailable": "A DeepSeek egyenlege nem elérhető",
 			"openrouterBalance": "OpenRouter kulcsállomány – kattintson a részletekért",
 			"openrouterBalanceUnavailable": "Az OpenRouter egyenlege nem elérhető",
-			"ollamaCloudPlan": "Ollama Cloud {{plan}} csomag{{refreshed}} – kattintson a frissítéshez",
-			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} csomag (lejár: {{date}}){{refreshed}} – kattintson a frissítéshez",
+			"ollamaCloudPlan": "Ollama Cloud {{plan}} csomag {{refreshed}} – kattintson a frissítéshez",
+			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} csomag (lejár: {{date}}) {{refreshed}} – kattintson a frissítéshez",
 			"ollamaCloudUnavailable": "Az Ollama Cloud-fiók nem érhető el",
 			"nanoWeeklyTokensRemaining": "A NanoGPT heti tokenjeinek fennmaradó mennyisége – kattintson a részletekért",
 			"nanoWeeklyTokenQuota": "A NanoGPT heti token-kvótája – kattintson a részletekért",
 			"openRouterKeyBalance": "OpenRouter kulcsállomány – kattintson a részletekért",
-			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} csomag (lejár: {{endDate}}){{refreshed}} – kattintson a frissítéshez",
+			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} csomag (lejár: {{endDate}}) {{refreshed}} – kattintson a frissítéshez",
 			"updated": "- frissítve {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} maradt kWh {{refreshed}}",
 			"neuralwattBalanceUnavailable": "A NeuralWatt mérleg nem elérhető"

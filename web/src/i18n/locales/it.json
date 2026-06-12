@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Sviluppatore-centrico, ad alto contrasto",
 				"glassmorphism": "Vetmorfismo",
 				"glassmorphismDescription": "Superfici leccate, traslucide"
-			}
+			},
+			"resetAccent": "Ripristina impostazioni predefinite del tema"
 		},
 		"toast": {
 			"title": "Notifiche Toast",
@@ -1650,7 +1651,7 @@
 		"sidebarQuota": {
 			"title": "Quote Barra Laterale",
 			"description": "Configura quanto spesso i dati di quota e bilanciamento del provider vengono aggiornati nel pannello della barra laterale.",
-			"showQuotasPill": "Mostra Pillola Preventive",
+			"showQuotasPill": "Mostra Pannello Quota",
 			"showQuotasPillDescription": "Mostra il pannello quote nella barra laterale",
 			"refreshInterval": "Intervallo Di Aggiornamento",
 			"refreshInterval.description": "Minimo 1 minuto. 0 per disabilitare. Le modifiche hanno effetto sul successivo aggiornamento programmato.",
@@ -2261,17 +2262,17 @@
 			"weeklyTokenQuota": "Quota token settimanale NanoGPT - clicca per dettagli",
 			"zaiCodingRemaining": "Z.ai Codifica rimanente quota - clicca per dettagli",
 			"zaiCodingUsed": "Z.ai Coding utilizzato quota - clicca per i dettagli",
-			"deepseekBalance": "Saldo DeepSeek: ${{usd}} USD{{refreshed}} - clicca per aggiornare",
+			"deepseekBalance": "Saldo DeepSeek: ${{usd}} USD {{refreshed}} - clicca per aggiornare",
 			"deepseekBalanceUnavailable": "Saldo DeepSeek non disponibile",
 			"openrouterBalance": "Bilanciamento tasti OpenRouter - clicca per dettagli",
 			"openrouterBalanceUnavailable": "OpenRouter balance unavailable",
-			"ollamaCloudPlan": "Ollama Cloud {{plan}} piano{{refreshed}} - clicca per aggiornare",
-			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} piano (termina {{date}}){{refreshed}} - clicca per aggiornare",
+			"ollamaCloudPlan": "Ollama Cloud {{plan}} piano {{refreshed}} - clicca per aggiornare",
+			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} piano (termina {{date}}) {{refreshed}} - clicca per aggiornare",
 			"ollamaCloudUnavailable": "Account Ollama Cloud non disponibile",
 			"nanoWeeklyTokensRemaining": "NanoGPT gettoni settimanali rimanenti - clicca per dettagli",
 			"nanoWeeklyTokenQuota": "Quota token settimanale NanoGPT - clicca per dettagli",
 			"openRouterKeyBalance": "Bilanciamento tasti OpenRouter - clicca per dettagli",
-			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} piano (termina {{endDate}}){{refreshed}} - clicca per aggiornare",
+			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} piano (termina {{endDate}}) {{refreshed}} - clicca per aggiornare",
 			"updated": "- aggiornato {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} kWh rimanenti {{refreshed}}",
 			"neuralwattBalanceUnavailable": "Bilancio NeuralWatt non disponibile"

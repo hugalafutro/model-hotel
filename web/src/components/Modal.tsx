@@ -10,6 +10,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 
 export interface ModalHandle {
@@ -110,7 +111,11 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 
 	useImperativeHandle(ref, () => ({ close: handleClose }), [handleClose]);
 
-	return (
+	// Portal to <body>: pages open modals from inside glassmorphism cards whose
+	// backdrop-filter would otherwise trap the overlay's blur (it could only
+	// sample the card, not the page) and hijack position:fixed (a filtered
+	// ancestor becomes the containing block for fixed descendants).
+	return createPortal(
 		<div
 			ref={dialogRef}
 			role="dialog"
@@ -127,7 +132,7 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 		>
 			<button
 				type="button"
-				className="absolute inset-0 bg-black/60 cursor-default"
+				className="ui-modal-backdrop absolute inset-0 bg-black/60 cursor-default"
 				onClick={closeOnBackdrop ? handleClose : undefined}
 				aria-label={t("common.closeDialog")}
 			/>
@@ -142,7 +147,7 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 				<button
 					type="button"
 					onClick={handleClose}
-					className="absolute top-3 right-3 z-10 text-(--text-secondary) hover:text-(--text-primary) transition-all p-2 hover:drop-shadow-[var(--glow-accent-lg)]"
+					className="ui-icon-btn absolute top-3 right-3 z-10 p-2"
 					aria-label={t("common.close")}
 				>
 					<X size={20} />
@@ -163,6 +168,7 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 				)}
 				{children}
 			</div>
-		</div>
+		</div>,
+		document.body,
 	);
 });

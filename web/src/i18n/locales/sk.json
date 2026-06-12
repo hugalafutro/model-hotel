@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Zamerané na vývojárov, s vysokým kontrastom",
 				"glassmorphism": "Glassmorfizmus",
 				"glassmorphismDescription": "Hladké, priehľadné povrchy"
-			}
+			},
+			"resetAccent": "Obnoviť predvolené nastavenia témy"
 		},
 		"toast": {
 			"title": "Oznámenia v lište",
@@ -1650,7 +1651,7 @@
 		"sidebarQuota": {
 			"title": "Kvóty v bočnom paneli",
 			"description": "V bočnom paneli nastavte, ako často sa majú aktualizovať údaje o kvótach a zostatkoch poskytovateľov.",
-			"showQuotasPill": "Zobraziť tabletku s kvótami",
+			"showQuotasPill": "Zobraziť panel kvót",
 			"showQuotasPillDescription": "Zobraziť panel kvót v bočnom paneli",
 			"refreshInterval": "Interval aktualizácie",
 			"refreshInterval.description": "Minimálne 1 minúta. 0 – vypnúť. Zmeny nadobudnú platnosť pri najbližšej naplánovanej aktualizácii.",
@@ -2261,17 +2262,17 @@
 			"weeklyTokenQuota": "Týždenný limit tokenov NanoGPT – kliknite pre podrobnosti",
 			"zaiCodingRemaining": "Z.ai – Zostávajúca kvóta na kódovanie – kliknite pre podrobnosti",
 			"zaiCodingUsed": "Z.ai Coding – využitá kvóta – kliknite pre podrobnosti",
-			"deepseekBalance": "Zostatok na účte DeepSeek: ${{usd}} USD{{refreshed}} – kliknutím obnovíte",
+			"deepseekBalance": "Zostatok na účte DeepSeek: ${{usd}} USD {{refreshed}} – kliknutím obnovíte",
 			"deepseekBalanceUnavailable": "Zostatok na účte DeepSeek nie je k dispozícii",
 			"openrouterBalance": "Stav kľúčov OpenRouter – kliknite pre podrobnosti",
 			"openrouterBalanceUnavailable": "Informácie o zostatku na účte OpenRouter nie sú k dispozícii",
-			"ollamaCloudPlan": "Ollama Cloud {{plan}} plán{{refreshed}} – kliknite pre aktualizáciu",
-			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} plán (končí {{date}}){{refreshed}} – kliknite pre aktualizáciu",
+			"ollamaCloudPlan": "Ollama Cloud {{plan}} plán {{refreshed}} – kliknite pre aktualizáciu",
+			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} plán (končí {{date}}) {{refreshed}} – kliknite pre aktualizáciu",
 			"ollamaCloudUnavailable": "Účet Ollama Cloud nie je k dispozícii",
 			"nanoWeeklyTokensRemaining": "Zostávajúce týždenné tokeny NanoGPT – kliknite pre podrobnosti",
 			"nanoWeeklyTokenQuota": "Týždenný limit tokenov NanoGPT – kliknite pre podrobnosti",
 			"openRouterKeyBalance": "Stav kľúčov OpenRouter – kliknite pre podrobnosti",
-			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} plán (končí {{endDate}}){{refreshed}} – kliknite pre aktualizáciu",
+			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} plán (končí {{endDate}}) {{refreshed}} – kliknite pre aktualizáciu",
 			"updated": "- aktualizované {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} zostávajúce kWh {{refreshed}}",
 			"neuralwattBalanceUnavailable": "Údaje o spotrebe energie v aplikácii NeuralWatt nie sú k dispozícii"

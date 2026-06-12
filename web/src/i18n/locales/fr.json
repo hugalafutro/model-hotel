@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Développeur-centré sur le développeur et contraste élevé",
 				"glassmorphism": "Glassmorphisme",
 				"glassmorphismDescription": "Surfaces scintillantes et translucides"
-			}
+			},
+			"resetAccent": "Réinitialiser aux paramètres par défaut du thème"
 		},
 		"toast": {
 			"title": "Notifications Toast",
@@ -1650,7 +1651,7 @@
 		"sidebarQuota": {
 			"title": "Quotas de la barre latérale",
 			"description": "Configurer la fréquence de mise à jour des quotas du fournisseur et des données de solde dans le panneau latéral.",
-			"showQuotasPill": "Afficher la pilule Quotas",
+			"showQuotasPill": "Afficher le panneau de quotas",
 			"showQuotasPillDescription": "Afficher le panneau de quota dans la barre latérale",
 			"refreshInterval": "Intervalle de rafraîchissement",
 			"refreshInterval.description": "Minimum 1 minute. 0 pour désactiver. Les modifications prennent effet lors du prochain rafraîchissement planifié.",
@@ -2261,17 +2262,17 @@
 			"weeklyTokenQuota": "Quota de jeton NanoGPT hebdomadaire - cliquez pour plus de détails",
 			"zaiCodingRemaining": "Quota restant de codage Z.ai - cliquez pour plus de détails",
 			"zaiCodingUsed": "Quota utilisé de codage Z.ai - cliquez pour plus de détails",
-			"deepseekBalance": "Solde DeepSeek : ${{usd}} USD{{refreshed}} - cliquez pour actualiser",
+			"deepseekBalance": "Solde DeepSeek : ${{usd}} USD {{refreshed}} - cliquez pour actualiser",
 			"deepseekBalanceUnavailable": "Solde DeepSeek indisponible",
 			"openrouterBalance": "Solde de clé OpenRouter - cliquez pour plus de détails",
 			"openrouterBalanceUnavailable": "OpenRouter balance unavailable",
-			"ollamaCloudPlan": "Ollama Cloud {{plan}} plan{{refreshed}} - cliquez pour mettre à jour",
-			"ollamaCloudPlanEnds": "Plan Ollama Cloud {{plan}} (se termine {{date}}){{refreshed}} - cliquez pour mettre à jour",
+			"ollamaCloudPlan": "Ollama Cloud {{plan}} plan {{refreshed}} - cliquez pour mettre à jour",
+			"ollamaCloudPlanEnds": "Plan Ollama Cloud {{plan}} (se termine {{date}}) {{refreshed}} - cliquez pour mettre à jour",
 			"ollamaCloudUnavailable": "Compte Ollama Cloud indisponible",
 			"nanoWeeklyTokensRemaining": "Jetons hebdomadaires NanoGPT restants - cliquez pour plus de détails",
 			"nanoWeeklyTokenQuota": "Quota de jeton NanoGPT hebdomadaire - cliquez pour plus de détails",
 			"openRouterKeyBalance": "Solde de clé OpenRouter - cliquez pour plus de détails",
-			"ollamaCloudPlanWithEnd": "Plan Ollama Cloud {{plan}} (se termine {{endDate}}){{refreshed}} - cliquez pour mettre à jour",
+			"ollamaCloudPlanWithEnd": "Plan Ollama Cloud {{plan}} (se termine {{endDate}}) {{refreshed}} - cliquez pour mettre à jour",
 			"updated": "- mise à jour {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} kWh restants {{refreshed}}",
 			"neuralwattBalanceUnavailable": "Solde NeuralWatt indisponible"

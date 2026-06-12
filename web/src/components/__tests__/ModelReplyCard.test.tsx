@@ -422,6 +422,17 @@ describe("ModelReplyCard", () => {
 			expect(parent).toBeInTheDocument();
 		});
 
+		it("tints the clickable model name when the card is accent-tinted", () => {
+			renderWithProviders(
+				<ModelReplyCard
+					{...defaultProps}
+					tint="accent"
+					onModelNameClick={vi.fn()}
+				/>,
+			);
+			expect(screen.getByText("gemma3:4b")).toHaveClass("text-(--accent)");
+		});
+
 		it("calls onModelNameClick when model name is clicked", async () => {
 			const { user } = renderWithProviders(
 				<ModelReplyCard {...defaultProps} onModelNameClick={vi.fn()} />,

@@ -8,6 +8,8 @@ interface DetailItemProps {
 	accent?: boolean;
 	labelExtra?: React.ReactNode;
 	children?: React.ReactNode;
+	/** Extra classes on the tile wrapper (e.g. col-span-2) */
+	className?: string;
 }
 
 export function DetailItem({
@@ -18,12 +20,15 @@ export function DetailItem({
 	accent = false,
 	labelExtra,
 	children,
+	className = "",
 }: DetailItemProps) {
 	const displayValue =
 		value === null || value === undefined || value === "" ? "-" : value;
 
 	return (
-		<div className="flex items-start gap-3 p-3 rounded-lg bg-(--surface-bg) border border-(--border-subtle)">
+		<div
+			className={`flex items-start gap-3 p-3 rounded-(--radius-box) bg-(--surface-bg) border border-(--border-subtle) ${className}`}
+		>
 			<div className="shrink-0 mt-0.5">
 				<Icon
 					size={16}

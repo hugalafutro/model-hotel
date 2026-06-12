@@ -35,7 +35,7 @@ export function FuseOutline({
 	color,
 	durationMs,
 	paused = false,
-	strokeWidth = 1.5,
+	strokeWidth = 1,
 	rx = 5,
 	className = "absolute inset-0 w-full h-full pointer-events-none",
 }: FuseOutlineProps) {

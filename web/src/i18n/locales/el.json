@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Προγραμματιστής-κεντρικός, υψηλής αντίθεσης",
 				"glassmorphism": "Γυαλισμός",
 				"glassmorphismDescription": "Λεπτές, ημιδιαφανείς επιφάνειες"
-			}
+			},
+			"resetAccent": "Επαναφορά στις προεπιλεγμένες ρυθμίσεις του θέματος"
 		},
 		"toast": {
 			"title": "Ειδοποιήσεις Toast",
@@ -1650,7 +1651,7 @@
 		"sidebarQuota": {
 			"title": "Ποσοστώσεις Πλευρικής Μπάρας",
 			"description": "Ρυθμίστε τη συχνότητα ανανέωσης των δεδομένων ποσοστώσεων και εξισορρόπησης του παρόχου στον πίνακα πλευρικής μπάρας.",
-			"showQuotasPill": "Εμφάνιση Χάπια Ποσοστώσεων",
+			"showQuotasPill": "Εμφάνιση Πίνακα Ποσοστώσεων",
 			"showQuotasPillDescription": "Εμφάνιση του πίνακα ποσοστώσεων στην πλαϊνή μπάρα",
 			"refreshInterval": "Διάστημα Ανανέωσης",
 			"refreshInterval.description": "Ελάχιστο 1 λεπτό. 0 για απενεργοποίηση. Οι αλλαγές τίθενται σε ισχύ την επόμενη προγραμματισμένη ανανέωση.",
@@ -2261,17 +2262,17 @@
 			"weeklyTokenQuota": "NanoGPT εβδομαδιαίο όριο token - κάντε κλικ για λεπτομέρειες",
 			"zaiCodingRemaining": "Z.ai Κωδικοποίηση υπόλοιπο όριο - κάντε κλικ για λεπτομέρειες",
 			"zaiCodingUsed": "Z.ai Κωδικοποίηση χρησιμοποιημένο όριο - κάντε κλικ για λεπτομέρειες",
-			"deepseekBalance": "DeepSeek balance: ${{usd}} USD{{refreshed}} - κάντε κλικ για να ανανεώσετε",
+			"deepseekBalance": "DeepSeek balance: ${{usd}} USD {{refreshed}} - κάντε κλικ για να ανανεώσετε",
 			"deepseekBalanceUnavailable": "Μη διαθέσιμο υπόλοιπο DeepSeek",
 			"openrouterBalance": "Υπόλοιπο κλειδιού OpenRouter - κάντε κλικ για λεπτομέρειες",
 			"openrouterBalanceUnavailable": "OpenRouter balance unavailable",
-			"ollamaCloudPlan": "Ollama Cloud {{plan}} σχέδιο{{refreshed}} - κάντε κλικ για ενημέρωση",
-			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} plan (ends {{date}}){{refreshed}} - κάντε κλικ για ενημέρωση",
+			"ollamaCloudPlan": "Ollama Cloud {{plan}} σχέδιο {{refreshed}} - κάντε κλικ για ενημέρωση",
+			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} plan (ends {{date}}) {{refreshed}} - κάντε κλικ για ενημέρωση",
 			"ollamaCloudUnavailable": "Μη διαθέσιμος λογαριασμός Ollama Cloud",
 			"nanoWeeklyTokensRemaining": "Απομένει NanoGPT εβδομαδιαία tokens - κάντε κλικ για λεπτομέρειες",
 			"nanoWeeklyTokenQuota": "NanoGPT εβδομαδιαίο όριο token - κάντε κλικ για λεπτομέρειες",
 			"openRouterKeyBalance": "Υπόλοιπο κλειδιού OpenRouter - κάντε κλικ για λεπτομέρειες",
-			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} plan (ends {{endDate}}){{refreshed}} - κάντε κλικ για ενημέρωση",
+			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} plan (ends {{endDate}}) {{refreshed}} - κάντε κλικ για ενημέρωση",
 			"updated": "- ενημερωμένο {{time}}",
 			"neuralwattBalance": "NeuralWatt: Απομένει {{amount}} kWh {{refreshed}}",
 			"neuralwattBalanceUnavailable": "NeuralWatt υπόλοιπο μη διαθέσιμο"

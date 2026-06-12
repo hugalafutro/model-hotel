@@ -655,7 +655,7 @@
 		"toast_add_failed": "프로바이더 추가에 실패했습니다: {{message}}",
 		"toast_update_failed": "업데이트에 실패했습니다: {{message}}",
 		"toast_refresh_success": "{{count}} 의 할당량/잔액 업데이트",
-		"toast_refresh_warning": "{{refreshed}} 할당량 갱신 ({{failed}} 실패, {{skipped}} 미지원)",
+		"toast_refresh_warning": " {{refreshed}} 할당량 갱신 ({{failed}} 실패, {{skipped}} 미지원)",
 		"toast_refresh_none": "할당량/잔액 기능을 지원하는 제공자가 없습니다.",
 		"toast_refresh_failed": "할당량 갱신에 실패했습니다: {{message}}",
 		"toast_quota_detected_nanogpt": "NanoGPT 할당량 감지됨",
@@ -761,7 +761,7 @@
 			"showRemaining": "남은 크레딧 표시"
 		},
 		"toast": {
-			"refreshedQuotas": "{{refreshed}} 할당량 갱신 ({{failed}} 실패, {{skipped}} 미지원)"
+			"refreshedQuotas": " {{refreshed}} 할당량 갱신 ({{failed}} 실패, {{skipped}} 미지원)"
 		},
 		"discoverySummary": {
 			"title": "검색 요약",
@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "개발자 중심, 고대비",
 				"glassmorphism": "글래스모피즘",
 				"glassmorphismDescription": "매끄럽고 반투명한 표면"
-			}
+			},
+			"resetAccent": "테마 기본값으로 재설정"
 		},
 		"toast": {
 			"title": "토스트 알림",
@@ -1650,7 +1651,7 @@
 		"sidebarQuota": {
 			"title": "사이드바 할당량",
 			"description": "사이드바 패널에서 공급자 할당량 및 잔액 데이터가 갱신되는 빈도를 설정합니다.",
-			"showQuotasPill": "할당량 표시 버튼",
+			"showQuotasPill": "할당량 패널 표시",
 			"showQuotasPillDescription": "사이드바에 할당량 패널 표시",
 			"refreshInterval": "갱신 간격",
 			"refreshInterval.description": "최소 1분. 0으로 설정하면 비활성화됩니다. 변경 사항은 다음 예약된 새로고침 시 적용됩니다.",
@@ -2261,17 +2262,17 @@
 			"weeklyTokenQuota": "NanoGPT 주간 토큰 할당량 - 자세한 내용을 보려면 클릭하세요",
 			"zaiCodingRemaining": "Z.ai 코딩 과정 잔여 정원 - 자세한 내용을 보려면 클릭하세요",
 			"zaiCodingUsed": "Z.ai 코딩 사용 할당량 - 자세한 내용을 보려면 클릭하세요",
-			"deepseekBalance": "DeepSeek 잔액: ${{usd}} USD{{refreshed}} - 새로 고치려면 클릭하세요",
+			"deepseekBalance": "DeepSeek 잔액: ${{usd}} USD {{refreshed}} - 새로 고치려면 클릭하세요",
 			"deepseekBalanceUnavailable": "DeepSeek 잔액 확인 불가",
 			"openrouterBalance": "OpenRouter 키 잔액 - 자세한 내용을 보려면 클릭하세요",
 			"openrouterBalanceUnavailable": "OpenRouter 잔액 확인 불가",
-			"ollamaCloudPlan": "Ollama Cloud {{plan}} 요금제{{refreshed}} - 클릭하여 업데이트",
-			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} 요금제 ( {{date}}까지){{refreshed}} - 클릭하여 업데이트",
+			"ollamaCloudPlan": "Ollama Cloud {{plan}} 요금제 {{refreshed}} - 클릭하여 업데이트",
+			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} 요금제 ( {{date}}까지) {{refreshed}} - 클릭하여 업데이트",
 			"ollamaCloudUnavailable": "Ollama Cloud 계정을 사용할 수 없습니다",
 			"nanoWeeklyTokensRemaining": "NanoGPT 주간 토큰 잔여량 - 자세한 내용을 보려면 클릭하세요",
 			"nanoWeeklyTokenQuota": "NanoGPT 주간 토큰 할당량 - 자세한 내용을 보려면 클릭하세요",
 			"openRouterKeyBalance": "OpenRouter 키 잔액 - 자세한 내용을 보려면 클릭하세요",
-			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} 요금제 ( {{endDate}}까지){{refreshed}} - 클릭하여 업데이트",
+			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} 요금제 ( {{endDate}}까지) {{refreshed}} - 클릭하여 업데이트",
 			"updated": "- 업데이트됨 {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} 잔여 kWh {{refreshed}}",
 			"neuralwattBalanceUnavailable": "NeuralWatt 잔액 확인 불가"

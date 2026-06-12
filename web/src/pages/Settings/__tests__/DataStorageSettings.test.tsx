@@ -686,7 +686,7 @@ describe("Quota Sidebar section", () => {
 			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
 		);
 
-		expect(screen.getByText("Show Quotas Pill")).toBeInTheDocument();
+		expect(screen.getByText("Show Quota Panel")).toBeInTheDocument();
 	});
 
 	it("renders Quota refresh slider with default 5m", () => {
@@ -711,7 +711,7 @@ describe("Quota Sidebar section", () => {
 			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
 		);
 
-		const toggle = getToggleByLabel("Show Quotas Pill");
+		const toggle = getToggleByLabel("Show Quota Panel");
 		await user.click(toggle);
 
 		expect(dispatchSpy).toHaveBeenCalledWith(
@@ -1157,7 +1157,7 @@ describe("DataStorageSettings collapsed state", () => {
 			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
 		);
 
-		const toggle = getToggleByLabel("Show Quotas Pill");
+		const toggle = getToggleByLabel("Show Quota Panel");
 		await user.click(toggle);
 
 		await waitFor(() => {
@@ -1173,7 +1173,7 @@ describe("DataStorageSettings collapsed state", () => {
 			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
 		);
 
-		const toggle = getToggleByLabel("Show Quotas Pill");
+		const toggle = getToggleByLabel("Show Quota Panel");
 		await user.click(toggle);
 
 		await waitFor(() => {

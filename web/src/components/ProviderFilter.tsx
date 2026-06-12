@@ -148,9 +148,6 @@ export function ProviderFilter({
 								placeholder={t("components.providerFilter.searchProviders")}
 								aria-label={t("components.providerFilter.searchProviders")}
 								className="ui-input text-xs h-8 pl-2! pr-7! w-full"
-								style={{
-									fontFamily: "var(--font-mono), ui-monospace, monospace",
-								}}
 								onKeyDown={(e) => {
 									if (e.key === "Escape") {
 										setSearch("");
@@ -177,7 +174,7 @@ export function ProviderFilter({
 							<button
 								type="button"
 								onClick={selectAllVisible}
-								className="text-[11px] text-(--text-tertiary) hover:text-(--accent) transition-colors"
+								className="ui-link-accent text-[11px] text-(--text-tertiary)"
 							>
 								{t("components.providerFilter.selectAll")}
 							</button>
@@ -194,12 +191,7 @@ export function ProviderFilter({
 					{/* List */}
 					<div className="max-h-48 overflow-y-auto px-1">
 						{filtered.length === 0 ? (
-							<div
-								className="px-2.5 py-3 text-xs text-(--text-muted) text-center"
-								style={{
-									fontFamily: "var(--font-mono), ui-monospace, monospace",
-								}}
-							>
+							<div className="px-2.5 py-3 text-xs text-(--text-muted) text-center">
 								{t("components.providerFilter.noProvidersFound")}
 							</div>
 						) : (
@@ -211,9 +203,6 @@ export function ProviderFilter({
 										type="button"
 										onClick={() => toggle(provider.id)}
 										className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-(--radius-button) text-xs text-left transition-colors ${isSelected ? "bg-(--accent-light) text-(--accent)" : "text-(--text-secondary) hover:bg-(--surface-hover)"}`}
-										style={{
-											fontFamily: "var(--font-mono), ui-monospace, monospace",
-										}}
 									>
 										<span
 											className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded border transition-colors shrink-0 ${isSelected ? "bg-(--accent) border-(--accent)" : "border-(--border-input) bg-(--surface-input)"}`}

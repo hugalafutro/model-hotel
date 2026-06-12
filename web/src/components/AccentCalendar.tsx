@@ -92,7 +92,7 @@ export function AccentCalendar({
 				<button
 					type="button"
 					onClick={handlePrev}
-					className="text-gray-400 hover:text-white transition-colors p-1 rounded-(--radius-button) hover:bg-gray-700"
+					className="ui-icon-btn p-1 rounded-(--radius-button) hover:bg-gray-700"
 				>
 					<ChevronLeft size={16} />
 				</button>
@@ -102,7 +102,7 @@ export function AccentCalendar({
 				<button
 					type="button"
 					onClick={handleNext}
-					className="text-gray-400 hover:text-white transition-colors p-1 rounded-(--radius-button) hover:bg-gray-700"
+					className="ui-icon-btn p-1 rounded-(--radius-button) hover:bg-gray-700"
 				>
 					<ChevronRight size={16} />
 				</button>

@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Centrada en el desenvolupador, d'alt contrast",
 				"glassmorphism": "Glassmorfisme",
 				"glassmorphismDescription": "Superfícies llises i translúcides"
-			}
+			},
+			"resetAccent": "Restablir al tema per defecte"
 		},
 		"toast": {
 			"title": "Notificacions de torrada",
@@ -1650,7 +1651,7 @@
 		"sidebarQuota": {
 			"title": "Quotes de la barra lateral",
 			"description": "Configurar amb quina freqüència es refresca la quota del proveïdor i les dades del saldo al panell de la barra lateral.",
-			"showQuotasPill": "Mostra la píndola de quotes",
+			"showQuotasPill": "Mostra el panell de quotes",
 			"showQuotasPillDescription": "Mostra el panell de quota a la barra lateral",
 			"refreshInterval": "Interval de refresc",
 			"refreshInterval.description": "Mínim 1 minut. 0 per desactivar. Els canvis s'apliquen en la següent actualització programada.",
@@ -2261,17 +2262,17 @@
 			"weeklyTokenQuota": "Quota setmanal de tokens de NanoGPT - fes clic per a més detalls",
 			"zaiCodingRemaining": "Quota restant de Z.ai Coding - fes clic per a més detalls",
 			"zaiCodingUsed": "Z.ai Coding quota utilitzada - fes clic per a més detalls",
-			"deepseekBalance": "Saldo de DeepSeek: ${{usd}} USD{{refreshed}} - fes clic per refrescar",
+			"deepseekBalance": "Saldo de DeepSeek: ${{usd}} USD {{refreshed}} - fes clic per refrescar",
 			"deepseekBalanceUnavailable": "El saldo de DeepSeek no està disponible",
 			"openrouterBalance": "Saldo de claus de l'OpenRouter - feu clic per a més detalls",
 			"openrouterBalanceUnavailable": "L'equilibri d'OpenRouter no està disponible",
-			"ollamaCloudPlan": "Ollama Cloud {{plan}} pla{{refreshed}} - fes clic per actualitzar",
-			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} plan (acaba el {{date}}){{refreshed}} - fes clic per actualitzar",
+			"ollamaCloudPlan": "Ollama Cloud {{plan}} pla {{refreshed}} - fes clic per actualitzar",
+			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} plan (acaba el {{date}}) {{refreshed}} - fes clic per actualitzar",
 			"ollamaCloudUnavailable": "El compte d'Ollama Cloud no està disponible",
 			"nanoWeeklyTokensRemaining": "Tòkens setmanals de NanoGPT restants - fes clic per a més detalls",
 			"nanoWeeklyTokenQuota": "Quota setmanal de tokens de NanoGPT - fes clic per a més detalls",
 			"openRouterKeyBalance": "Saldo de claus de l'OpenRouter - feu clic per a més detalls",
-			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} plan (acaba el {{endDate}}){{refreshed}} - fes clic per actualitzar",
+			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} plan (acaba el {{endDate}}) {{refreshed}} - fes clic per actualitzar",
 			"updated": "- actualitzat {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} kWh restants {{refreshed}}",
 			"neuralwattBalanceUnavailable": "El balanç de NeuralWatt no està disponible"

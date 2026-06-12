@@ -45,7 +45,6 @@ export function SettingsSection({
 						collapsed={collapsed}
 						onToggle={onToggle}
 						size={16}
-						variant="muted"
 					/>
 				</div>
 			</div>

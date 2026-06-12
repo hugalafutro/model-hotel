@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "以开发者为中心，高对比度",
 				"glassmorphism": "孤立无援的",
 				"glassmorphismDescription": "切片半透明面"
-			}
+			},
+			"resetAccent": "重置为主题默认值"
 		},
 		"toast": {
 			"title": "Toast 通知",
@@ -1650,7 +1651,7 @@
 		"sidebarQuota": {
 			"title": "侧边栏限额",
 			"description": "配置在侧边栏面板中刷新供应商配额和平衡数据的频率。",
-			"showQuotasPill": "显示配额药剂",
+			"showQuotasPill": "显示配额面板",
 			"showQuotasPillDescription": "在侧边栏显示配额面板",
 			"refreshInterval": "刷新间隔",
 			"refreshInterval.description": "至少 1 分钟。0 表示禁用。更改将在下次计划刷新时生效。",
@@ -2261,17 +2262,17 @@
 			"weeklyTokenQuota": "NanoGPT 每周代币配额-点击查看详情",
 			"zaiCodingRemaining": "Z.ai 编码剩余配额-点击查看详情",
 			"zaiCodingUsed": "Z.ai 编码使用的配额-点击查看详情",
-			"deepseekBalance": "DeepSeek 余额：{{usd}} 美元{{refreshed}} - 点击刷新",
+			"deepseekBalance": "DeepSeek 余额：{{usd}} 美元 {{refreshed}} - 点击刷新",
 			"deepseekBalanceUnavailable": "DeepSeek余额不可用",
 			"openrouterBalance": "OpenRouter 密钥余额 - 点击查看详情",
 			"openrouterBalanceUnavailable": "OpenRouter balance unavailable",
-			"ollamaCloudPlan": "Ollama Cloud {{plan}} 套餐{{refreshed}} - 点击更新",
-			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} 套餐（截止日期： {{date}}）{{refreshed}} - 点击更新",
+			"ollamaCloudPlan": "Ollama Cloud {{plan}} 套餐 {{refreshed}} - 点击更新",
+			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} 套餐（截止日期： {{date}}） {{refreshed}} - 点击更新",
 			"ollamaCloudUnavailable": "Ollama 云帐户不可用",
 			"nanoWeeklyTokensRemaining": "NanoGPT 每周代币剩余 - 点击查看详情",
 			"nanoWeeklyTokenQuota": "NanoGPT 每周代币配额-点击查看详情",
 			"openRouterKeyBalance": "OpenRouter 密钥余额 - 点击查看详情",
-			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} 套餐（截止日期： {{endDate}}）{{refreshed}} - 点击更新",
+			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} 套餐（截止日期： {{endDate}}） {{refreshed}} - 点击更新",
 			"updated": "- 已更新 {{time}}",
 			"neuralwattBalance": "NeuralWatt： {{amount}} 剩余电量（千瓦时） {{refreshed}}",
 			"neuralwattBalanceUnavailable": "NeuralWatt余额不可用"

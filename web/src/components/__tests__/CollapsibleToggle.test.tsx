@@ -61,16 +61,10 @@ describe("CollapsibleToggle", () => {
 		expect(screen.getByRole("button")).toHaveClass("custom-class");
 	});
 
-	it("uses muted variant styling", () => {
-		render(<CollapsibleToggle collapsed onToggle={onToggle} variant="muted" />);
-		const button = screen.getByRole("button");
-		expect(button.className).toContain("text-gray-400");
-	});
-
-	it("uses accent variant styling by default", () => {
+	it("uses the unified icon-button styling by default", () => {
 		render(<CollapsibleToggle collapsed onToggle={onToggle} />);
 		const button = screen.getByRole("button");
-		expect(button.className).toContain("text-(--text-tertiary)");
+		expect(button).toHaveClass("ui-icon-btn");
 	});
 
 	it("uses double icon style when specified", () => {

@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Ontwikkelaar centraal, hoog contrast",
 				"glassmorphism": "Glasmorfisme",
 				"glassmorphismDescription": "Plak, doorschijnend oppervlak"
-			}
+			},
+			"resetAccent": "Terugzetten naar standaardthema"
 		},
 		"toast": {
 			"title": "Toast meldingen",
@@ -1650,7 +1651,7 @@
 		"sidebarQuota": {
 			"title": "Quota sidebar",
 			"description": "Configureer hoe vaak provider-quota en saldo gegevens worden vernieuwd in het zijbalkpaneel.",
-			"showQuotasPill": "Toon Quotas Pill",
+			"showQuotasPill": "Toon Quotapaneel",
 			"showQuotasPillDescription": "Toon het quotumpaneel in de zijbalk",
 			"refreshInterval": "Interval vernieuwen",
 			"refreshInterval.description": "Minimum 1 minuut. 0 om uit te schakelen. Wijzigingen worden van kracht bij de volgende geplande vernieuwing.",
@@ -2261,17 +2262,17 @@
 			"weeklyTokenQuota": "NanoGPT wekelijkse token quotum - klik voor details",
 			"zaiCodingRemaining": "Z.ai Codering resterende quota - klik voor details",
 			"zaiCodingUsed": "Z.ai Coding gebruikte quota - klik voor details",
-			"deepseekBalance": "DeepSeek saldo: ${{usd}} USD{{refreshed}} - klik om te vernieuwen",
+			"deepseekBalance": "DeepSeek saldo: ${{usd}} USD {{refreshed}} - klik om te vernieuwen",
 			"deepseekBalanceUnavailable": "DeepSeek saldo niet beschikbaar",
 			"openrouterBalance": "OpenRouter sleutelbalans - klik voor details",
 			"openrouterBalanceUnavailable": "OpenRouter balance unavailable",
-			"ollamaCloudPlan": "Ollama Cloud {{plan}} plan{{refreshed}} - klik om te updaten",
-			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} plan (eindigt {{date}}){{refreshed}} - klik om te updaten",
+			"ollamaCloudPlan": "Ollama Cloud {{plan}} plan {{refreshed}} - klik om te updaten",
+			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} plan (eindigt {{date}}) {{refreshed}} - klik om te updaten",
 			"ollamaCloudUnavailable": "Ollama Cloud-account niet beschikbaar",
 			"nanoWeeklyTokensRemaining": "NanoGPT wekelijks tokens - klik voor details",
 			"nanoWeeklyTokenQuota": "NanoGPT wekelijkse token quotum - klik voor details",
 			"openRouterKeyBalance": "OpenRouter sleutelbalans - klik voor details",
-			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} plan (eindigt {{endDate}}){{refreshed}} - klik om te updaten",
+			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} plan (eindigt {{endDate}}) {{refreshed}} - klik om te updaten",
 			"updated": "- bijgewerkt {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} kWh resterend {{refreshed}}",
 			"neuralwattBalanceUnavailable": "NeuralWatt saldo niet beschikbaar"

@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Оријентисан на програмере, са високим контрастом",
 				"glassmorphism": "Гласморфизам",
 				"glassmorphismDescription": "Глатке, провидне површине"
-			}
+			},
+			"resetAccent": "Ресетујте на подразумевану тему"
 		},
 		"toast": {
 			"title": "Тост обавештења",
@@ -1650,7 +1651,7 @@
 		"sidebarQuota": {
 			"title": "Квоте у бочној траци",
 			"description": "Конфигуришите у панелу са бочне траке колико често се освежавају подаци о квоти провајдера и стању.",
-			"showQuotasPill": "Прикажи таблету квота",
+			"showQuotasPill": "Прикажи панел квота",
 			"showQuotasPillDescription": "Прикажи панел квоте у бочној траци",
 			"refreshInterval": "Интервал освежавања",
 			"refreshInterval.description": "Минимално 1 минут. 0 за онемогућавање. Промене ступају на снагу при следећем заказаном освежавању.",
@@ -2261,17 +2262,17 @@
 			"weeklyTokenQuota": "Недељна квота токена NanoGPT - кликните за детаље",
 			"zaiCodingRemaining": "Z.ai Кодирање преосталог квоте - кликните за детаље",
 			"zaiCodingUsed": "Искоришћена квота Z.ai Coding - кликните за детаље",
-			"deepseekBalance": "DeepSeek баланс: ${{usd}} USD{{refreshed}} - кликните да освежите",
+			"deepseekBalance": "DeepSeek баланс: ${{usd}} USD {{refreshed}} - кликните да освежите",
 			"deepseekBalanceUnavailable": "DeepSeek баланс недоступан",
 			"openrouterBalance": "Отворени рутер: баланс кључева – кликните за детаље",
 			"openrouterBalanceUnavailable": "Отворени рутер баланс недоступан",
-			"ollamaCloudPlan": "Ollama Cloud {{plan}} план{{refreshed}} - кликните да ажурирате",
-			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} план (завршава се {{date}}){{refreshed}} - кликните да ажурирате",
+			"ollamaCloudPlan": "Ollama Cloud {{plan}} план {{refreshed}} - кликните да ажурирате",
+			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} план (завршава се {{date}}) {{refreshed}} - кликните да ажурирате",
 			"ollamaCloudUnavailable": "Оллома клауд налог недоступан",
 			"nanoWeeklyTokensRemaining": "Преосталих недељних токена NanoGPT - кликните за детаље",
 			"nanoWeeklyTokenQuota": "Недељна квота токена NanoGPT - кликните за детаље",
 			"openRouterKeyBalance": "Отворени рутер: баланс кључева – кликните за детаље",
-			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} план (завршава се {{endDate}}){{refreshed}} - кликните да освежите",
+			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} план (завршава се {{endDate}}) {{refreshed}} - кликните да освежите",
 			"updated": "- ажурирано {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} преосталих kWh {{refreshed}}",
 			"neuralwattBalanceUnavailable": "НеуралВат баланс недоступан"

@@ -784,12 +784,15 @@ describe("ModelDetailModal", () => {
 	});
 
 	it("passes embedded prop to ModelDetailPanel", () => {
-		const { container } = renderWithProviders(
+		const { baseElement } = renderWithProviders(
 			<ModelDetailModal model={mockModel} onClose={onClose} />,
 		);
 
-		// The panel should not have the outer card wrapper when embedded
-		const panel = container.querySelector(".text-xs.relative.overflow-y-auto");
+		// The panel should not have the outer card wrapper when embedded.
+		// Modal portals to document.body, so query baseElement, not container.
+		const panel = baseElement.querySelector(
+			".text-xs.relative.overflow-y-auto",
+		);
 		expect(panel).toBeInTheDocument();
 	});
 
