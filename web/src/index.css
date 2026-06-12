@@ -141,10 +141,10 @@ html[data-ui-style="clean-saas"].dark {
 
 	--radius-card: 14px;
 	--radius-button: 9999px;
-	--shadow-card:
-		0 1px 2px rgb(0 0 0 / 0.25), 0 0 0 1px rgba(255, 255, 255, 0.04);
-	--shadow-md:
-		0 4px 12px rgb(0 0 0 / 0.35), 0 0 0 1px rgba(255, 255, 255, 0.04);
+	/* Borderless cards: elevation comes from a soft long-throw shadow,
+	   not a 1px ring — hairline dividers carry structure instead. */
+	--shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 12px 32px -16px rgb(0 0 0 / 0.5);
+	--shadow-md: 0 4px 12px rgb(0 0 0 / 0.4), 0 16px 40px -20px rgb(0 0 0 / 0.5);
 }
 
 html[data-ui-style="clean-saas"].light {
@@ -161,14 +161,21 @@ html[data-ui-style="clean-saas"].light {
 
 	--radius-card: 14px;
 	--radius-button: 9999px;
-	--shadow-card: 0 1px 3px rgb(0 0 0 / 0.08), 0 0 0 1px rgba(0, 0, 0, 0.03);
-	--shadow-md: 0 4px 12px rgb(0 0 0 / 0.08), 0 0 0 1px rgba(0, 0, 0, 0.03);
+	--shadow-card:
+		0 1px 3px rgb(0 0 0 / 0.07), 0 12px 32px -18px rgb(0 0 0 / 0.18);
+	--shadow-md:
+		0 4px 12px rgb(0 0 0 / 0.08), 0 16px 40px -20px rgb(0 0 0 / 0.16);
 	--glow-white: 0 0 8px rgba(0, 0, 0, 0.2);
 	--glow-text-primary: 0 0 8px rgba(17, 19, 24, 0.25);
 }
 
 html[data-ui-style="clean-saas"] {
 	--nav-icon: var(--text-tertiary);
+}
+
+html[data-ui-style="clean-saas"] h1,
+html[data-ui-style="clean-saas"] h2 {
+	letter-spacing: -0.025em;
 }
 
 /* =============================================
@@ -660,6 +667,20 @@ html[data-ui-style="cyber-terminal"] .sidebar-link-active {
 	background-color: transparent;
 	border-left-color: var(--accent);
 	box-shadow: inset 4px 0 12px rgba(var(--accent-rgb), 0.15);
+}
+
+/* Blinking block caret marks the active "prompt line" */
+html[data-ui-style="cyber-terminal"] .sidebar-link-active::after {
+	content: "▌";
+	margin-left: auto;
+	color: var(--accent);
+	animation: term-caret 1.2s steps(1, end) infinite;
+}
+
+@keyframes term-caret {
+	50% {
+		opacity: 0;
+	}
 }
 
 html[data-ui-style="cyber-terminal"] .ui-sidebar-title,
@@ -1914,6 +1935,20 @@ html[data-ui-style="clean-saas"] .border-t.border-gray-800 {
 }
 
 /* =============================================
+   STAT NUMERALS — dashboard stat values get a deliberate numeric
+   treatment instead of inheriting body text
+   ============================================= */
+
+.ui-stat-value {
+	font-variant-numeric: tabular-nums;
+	letter-spacing: -0.02em;
+}
+
+html[data-ui-style="cyber-terminal"] .ui-stat-value {
+	text-shadow: 0 0 14px rgba(var(--accent-rgb), 0.35);
+}
+
+/* =============================================
    TABLE FILTER ROW
    ============================================= */
 
@@ -2132,12 +2167,23 @@ html[data-ui-style="cyber-terminal"].dark body {
 
 html[data-ui-style="cyber-terminal"].dark .ui-surface-bg,
 html[data-ui-style="cyber-terminal"] .ui-surface-bg {
-	background-image: radial-gradient(
-		circle at 1px 1px,
-		rgba(255, 255, 255, 0.03) 1px,
-		transparent 0
-	);
-	background-size: 32px 32px;
+	/* CRT scanlines (1px every 3px, ~1.3%) over the existing dot grid */
+	background-image:
+		repeating-linear-gradient(
+			0deg,
+			rgba(255, 255, 255, 0.013) 0px,
+			rgba(255, 255, 255, 0.013) 1px,
+			transparent 1px,
+			transparent 3px
+		),
+		radial-gradient(
+			circle at 1px 1px,
+			rgba(255, 255, 255, 0.03) 1px,
+			transparent 0
+		);
+	background-size:
+		auto,
+		32px 32px;
 }
 
 /* Ensure sidebar in dark terminal blends */

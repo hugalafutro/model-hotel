@@ -59,8 +59,8 @@ export function StatCard({
 			</div>
 			<p
 				data-testid="stat-value"
-				className="font-bold text-(--text-primary)"
-				style={{ fontSize: "clamp(14px, 1.2vw, 20px)", textTransform: "none" }}
+				className="ui-stat-value font-bold text-(--text-primary)"
+				style={{ fontSize: "clamp(15px, 1.4vw, 24px)", textTransform: "none" }}
 			>
 				<AnimatedValue
 					value={value}
