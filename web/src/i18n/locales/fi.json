@@ -1650,7 +1650,7 @@
 		"sidebarQuota": {
 			"title": "Sivupalkin Kiintiöt",
 			"description": "Määritä kuinka usein palveluntarjoajan kiintiö- ja saldotietoja päivitetään sivupaneelissa.",
-			"showQuotasPill": "Näytä Kiintiöiden Pill",
+			"showQuotasPill": "Näytä kiintiöpaneeli",
 			"showQuotasPillDescription": "Näytä kiintiön paneeli sivupalkissa",
 			"refreshInterval": "Päivitä Aikaväli",
 			"refreshInterval.description": "Minimi 1 minuutti. 0 poistaaksesi käytöstä. Muutokset tulevat voimaan seuraavan ajastetun päivityksen.",

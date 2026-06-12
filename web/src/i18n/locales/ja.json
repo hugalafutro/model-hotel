@@ -1650,7 +1650,7 @@
 		"sidebarQuota": {
 			"title": "サイドバーのクォータ",
 			"description": "サイドバーパネルでプロバイダーのクオータと残高データが更新される頻度を設定します。",
-			"showQuotasPill": "クォータピルを表示",
+			"showQuotasPill": "クォータパネルを表示",
 			"showQuotasPillDescription": "サイドバーにクォータパネルを表示する",
 			"refreshInterval": "更新間隔",
 			"refreshInterval.description": "最小1分間です。0で無効にします。変更は次回のスケジュール更新時に反映されます。",

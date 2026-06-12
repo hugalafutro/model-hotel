@@ -1650,7 +1650,7 @@
 		"sidebarQuota": {
 			"title": "Oldalsáv-kvóták",
 			"description": "Az oldalsávon állítsa be, hogy milyen gyakorisággal frissüljenek a szolgáltatói kvóta- és egyenlegadatok.",
-			"showQuotasPill": "Kvóták megjelenítése",
+			"showQuotasPill": "Kvótapanel megjelenítése",
 			"showQuotasPillDescription": "A kvótapanel megjelenítése az oldalsávban",
 			"refreshInterval": "Frissítési gyakoriság",
 			"refreshInterval.description": "Legalább 1 perc. 0: kikapcsolás. A módosítások a következő ütemezett frissítéskor lépnek életbe.",

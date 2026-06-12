@@ -1650,7 +1650,7 @@
 		"sidebarQuota": {
 			"title": "Cotações barra lateral",
 			"description": "Configure com que frequência a cota de provedor e os dados de saldo são atualizados no painel da barra lateral.",
-			"showQuotasPill": "Mostrar Pílula de Quotas",
+			"showQuotasPill": "Mostrar Painel de Quotas",
 			"showQuotasPillDescription": "Exibir o painel de cotas na barra lateral",
 			"refreshInterval": "Intervalo de atualização",
 			"refreshInterval.description": "Mínimo de 1 minuto. 0 para desativar. Alterações terão efeito na próxima atualização programada.",

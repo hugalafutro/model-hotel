@@ -1650,7 +1650,7 @@
 		"sidebarQuota": {
 			"title": "Sitater for sidepanel",
 			"description": "Konfigurer hvor ofte kildekvote og balansedata blir forløst i sidepanelet.",
-			"showQuotasPill": "Vis sitater p-pille",
+			"showQuotasPill": "Vis kvotepanel",
 			"showQuotasPillDescription": "Vise kvotepanelet i sidestolpen",
 			"refreshInterval": "Oppdater intervall",
 			"refreshInterval.description": "Minimum 1 minutt. 0 for å deaktivere. Endringene trer i kraft på neste planlagte oppdatering.",

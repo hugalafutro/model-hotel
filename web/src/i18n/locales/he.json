@@ -1650,7 +1650,7 @@
 		"sidebarQuota": {
 			"title": "מכסות בסרגל הצד",
 			"description": "הגדר את תדירות הרענון של נתוני המכסה והיתרה של הספק בלוח הצדדי.",
-			"showQuotasPill": "הצג את הכדורים של Quotas",
+			"showQuotasPill": "הצג את לוח המכסות",
 			"showQuotasPillDescription": "הצג את לוח המכסות בסרגל הצדדי",
 			"refreshInterval": "מרווח הרענון",
 			"refreshInterval.description": "מינימום דקה אחת. 0 כדי להשבית. השינויים ייכנסו לתוקף בעת הרענון המתוזמן הבא.",

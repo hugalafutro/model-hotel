@@ -1650,7 +1650,7 @@
 		"sidebarQuota": {
 			"title": "侧边栏限额",
 			"description": "配置在侧边栏面板中刷新供应商配额和平衡数据的频率。",
-			"showQuotasPill": "显示配额药剂",
+			"showQuotasPill": "显示配额面板",
 			"showQuotasPillDescription": "在侧边栏显示配额面板",
 			"refreshInterval": "刷新间隔",
 			"refreshInterval.description": "至少 1 分钟。0 表示禁用。更改将在下次计划刷新时生效。",

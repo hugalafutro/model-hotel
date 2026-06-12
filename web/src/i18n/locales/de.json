@@ -1650,7 +1650,7 @@
 		"sidebarQuota": {
 			"title": "Sidebar Quoten",
 			"description": "Konfigurieren Sie, wie oft die Kontingent- und Kontodaten des Anbieters im Seitenleisten-Fenster aktualisiert werden.",
-			"showQuotasPill": "Quoten Pille anzeigen",
+			"showQuotasPill": "Quoten-Panel anzeigen",
 			"showQuotasPillDescription": "Quota-Panel in der Seitenleiste anzeigen",
 			"refreshInterval": "Aktualisierungsintervall",
 			"refreshInterval.description": "Mindestens 1 Minute. 0 zum Deaktivieren. Änderungen wirken auf die nächste geplante Aktualisierung.",

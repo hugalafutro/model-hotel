@@ -1650,7 +1650,7 @@
 		"sidebarQuota": {
 			"title": "Offert för sidofält",
 			"description": "Konfigurera hur ofta leverantörskvot och balansdata uppdateras i sidomenyn.",
-			"showQuotasPill": "Visa Offertpiller",
+			"showQuotasPill": "Visa kvotpanel",
 			"showQuotasPillDescription": "Visa kvotpanelen i sidofältet",
 			"refreshInterval": "Uppdatera intervall",
 			"refreshInterval.description": "Minsta 1 minut. 0 för att inaktivera. Ändringar träder i kraft vid nästa schemalagd uppdatering.",

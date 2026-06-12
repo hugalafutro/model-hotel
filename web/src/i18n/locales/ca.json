@@ -1650,7 +1650,7 @@
 		"sidebarQuota": {
 			"title": "Quotes de la barra lateral",
 			"description": "Configurar amb quina freqüència es refresca la quota del proveïdor i les dades del saldo al panell de la barra lateral.",
-			"showQuotasPill": "Mostra la píndola de quotes",
+			"showQuotasPill": "Mostra el panell de quotes",
 			"showQuotasPillDescription": "Mostra el panell de quota a la barra lateral",
 			"refreshInterval": "Interval de refresc",
 			"refreshInterval.description": "Mínim 1 minut. 0 per desactivar. Els canvis s'apliquen en la següent actualització programada.",

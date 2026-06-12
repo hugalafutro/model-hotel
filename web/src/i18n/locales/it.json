@@ -1650,7 +1650,7 @@
 		"sidebarQuota": {
 			"title": "Quote Barra Laterale",
 			"description": "Configura quanto spesso i dati di quota e bilanciamento del provider vengono aggiornati nel pannello della barra laterale.",
-			"showQuotasPill": "Mostra Pillola Preventive",
+			"showQuotasPill": "Mostra Pannello Quota",
 			"showQuotasPillDescription": "Mostra il pannello quote nella barra laterale",
 			"refreshInterval": "Intervallo Di Aggiornamento",
 			"refreshInterval.description": "Minimo 1 minuto. 0 per disabilitare. Le modifiche hanno effetto sul successivo aggiornamento programmato.",

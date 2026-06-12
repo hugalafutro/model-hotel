@@ -1650,7 +1650,7 @@
 		"sidebarQuota": {
 			"title": "Kvóty v bočnom paneli",
 			"description": "V bočnom paneli nastavte, ako často sa majú aktualizovať údaje o kvótach a zostatkoch poskytovateľov.",
-			"showQuotasPill": "Zobraziť tabletku s kvótami",
+			"showQuotasPill": "Zobraziť panel kvót",
 			"showQuotasPillDescription": "Zobraziť panel kvót v bočnom paneli",
 			"refreshInterval": "Interval aktualizácie",
 			"refreshInterval.description": "Minimálne 1 minúta. 0 – vypnúť. Zmeny nadobudnú platnosť pri najbližšej naplánovanej aktualizácii.",

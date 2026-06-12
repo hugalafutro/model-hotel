@@ -1650,7 +1650,7 @@
 		"sidebarQuota": {
 			"title": "Citas de barra lateral",
 			"description": "Configura la frecuencia con la que los datos del proveedor se actualizan en el panel de la barra lateral.",
-			"showQuotasPill": "Mostrar píldora de cuotas",
+			"showQuotasPill": "Mostrar panel de cuotas",
 			"showQuotasPillDescription": "Mostrar el panel de cuotas en la barra lateral",
 			"refreshInterval": "Intervalo de actualización",
 			"refreshInterval.description": "Mínimo 1 minuto. 0 para desactivar. Los cambios tendrán efecto en la próxima actualización programada.",

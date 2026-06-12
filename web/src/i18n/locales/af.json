@@ -1650,7 +1650,7 @@
 		"sidebarQuota": {
 			"title": "Sypaal-kota's",
 			"description": "Konfigureer hoe gereeld verskafferkwota- en balansdata in die sybalkpaneel opgedateer word.",
-			"showQuotasPill": "Wys kworums-pil",
+			"showQuotasPill": "Wys Kwota-paneel",
 			"showQuotasPillDescription": "Vertoon die kwota-paneel in die sybalk",
 			"refreshInterval": "Verfrissingsinterval",
 			"refreshInterval.description": "Minimum 1 minuut. 0 om uit te skakel. Veranderings tree in werking by die volgende geskeduleerde opfris.",

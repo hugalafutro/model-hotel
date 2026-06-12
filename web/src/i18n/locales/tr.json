@@ -1650,7 +1650,7 @@
 		"sidebarQuota": {
 			"title": "Kenar Çubuğu Kotaları",
 			"description": "Kenar çubuğu panelinde sağlayıcı kota ve bakiye verilerinin ne sıklıkla yenileneceğini ayarlayın.",
-			"showQuotasPill": "Kota Hapını Göster",
+			"showQuotasPill": "Kota Panelini Göster",
 			"showQuotasPillDescription": "Kenar çubuğunda kota panelini göster",
 			"refreshInterval": "Güncelleme Aralığı",
 			"refreshInterval.description": "En az 1 dakika. 0 olarak ayarlandığında devre dışı bırakılır. Değişiklikler bir sonraki planlanmış yenileme sırasında yürürlüğe girer.",

@@ -1650,7 +1650,7 @@
 		"sidebarQuota": {
 			"title": "Cote bară laterală",
 			"description": "Configurează cât de des sunt reîmprospătate datele privind cota furnizorului și soldul în panoul sidebar.",
-			"showQuotasPill": "Afișare pastilă cu cote",
+			"showQuotasPill": "Afișare panou cote",
 			"showQuotasPillDescription": "Afișează panoul de cotă în bara laterală",
 			"refreshInterval": "Reîmprospătare interval",
 			"refreshInterval.description": "Minim 1 minut. 0 pentru dezactivare. Modificările intră în vigoare la următoarea reîmprospătare programată.",

@@ -1650,7 +1650,7 @@
 		"sidebarQuota": {
 			"title": "Quotas de la barre latérale",
 			"description": "Configurer la fréquence de mise à jour des quotas du fournisseur et des données de solde dans le panneau latéral.",
-			"showQuotasPill": "Afficher la pilule Quotas",
+			"showQuotasPill": "Afficher le panneau de quotas",
 			"showQuotasPillDescription": "Afficher le panneau de quota dans la barre latérale",
 			"refreshInterval": "Intervalle de rafraîchissement",
 			"refreshInterval.description": "Minimum 1 minute. 0 pour désactiver. Les modifications prennent effet lors du prochain rafraîchissement planifié.",

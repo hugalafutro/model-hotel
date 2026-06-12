@@ -1650,7 +1650,7 @@
 		"sidebarQuota": {
 			"title": "Hạn ngạch thanh bên",
 			"description": "Cấu hình tần suất làm mới dữ liệu hạn mức và số dư của nhà cung cấp trong bảng điều khiển bên.",
-			"showQuotasPill": "Hiển thị viên thuốc hạn ngạch",
+			"showQuotasPill": "Hiển thị bảng hạn mức",
 			"showQuotasPillDescription": "Hiển thị bảng hạn mức trong thanh bên",
 			"refreshInterval": "Khoảng thời gian làm mới",
 			"refreshInterval.description": "Tối thiểu 1 phút. 0 để tắt. Các thay đổi sẽ có hiệu lực vào lần làm mới theo lịch trình tiếp theo.",

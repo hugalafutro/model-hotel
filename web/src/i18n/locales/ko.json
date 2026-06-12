@@ -1650,7 +1650,7 @@
 		"sidebarQuota": {
 			"title": "사이드바 할당량",
 			"description": "사이드바 패널에서 공급자 할당량 및 잔액 데이터가 갱신되는 빈도를 설정합니다.",
-			"showQuotasPill": "할당량 표시 버튼",
+			"showQuotasPill": "할당량 패널 표시",
 			"showQuotasPillDescription": "사이드바에 할당량 패널 표시",
 			"refreshInterval": "갱신 간격",
 			"refreshInterval.description": "최소 1분. 0으로 설정하면 비활성화됩니다. 변경 사항은 다음 예약된 새로고침 시 적용됩니다.",

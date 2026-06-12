@@ -1650,7 +1650,7 @@
 		"sidebarQuota": {
 			"title": "Kwoty na pasku bocznym",
 			"description": "Skonfiguruj jak często dane dostawcy są odświeżane w panelu bocznym.",
-			"showQuotasPill": "Pokaż pigułkę kwot",
+			"showQuotasPill": "Pokaż panel kwot",
 			"showQuotasPillDescription": "Wyświetl panel kwot na pasku bocznym",
 			"refreshInterval": "Odśwież interwał",
 			"refreshInterval.description": "Minimum 1 minuta. 0 aby wyłączyć. Zmiany mają wpływ na następne zaplanowane odświeżenie.",

@@ -1650,7 +1650,7 @@
 		"sidebarQuota": {
 			"title": "Sidebar Kvoter",
 			"description": "Konfigurer hvor ofte udbyderens kvote og balancedata opdateres i sidepanelet.",
-			"showQuotasPill": "Vis Kvote Pille",
+			"showQuotasPill": "Vis Kvotepanel",
 			"showQuotasPillDescription": "Vis kvotepanelet i sidepanelet",
 			"refreshInterval": "Opdater Interval",
 			"refreshInterval.description": "Minimum 1 minut. 0 for at deaktivere. Ændringer træder i kraft på næste planlagte opdatering.",
