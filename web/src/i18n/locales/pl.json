@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Centralny deweloper, wysoki kontrast",
 				"glassmorphism": "Glassmorfizm",
 				"glassmorphismDescription": "Przesuń, półprzezroczyste powierzchnie"
-			}
+			},
+			"resetAccent": "Przywróć domyślny motyw"
 		},
 		"toast": {
 			"title": "Powiadomienia w dymku",

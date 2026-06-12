@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Entwickler-zentristische, kontrastreiche",
 				"glassmorphism": "Glasmorphismus",
 				"glassmorphismDescription": "Slick, transparente Oberflächen"
-			}
+			},
+			"resetAccent": "Auf Standard-Theme zurücksetzen"
 		},
 		"toast": {
 			"title": "Toast Benachrichtigungen",

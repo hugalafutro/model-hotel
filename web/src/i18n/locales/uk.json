@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Розробник-центрик",
 				"glassmorphism": "Окуляроморфізм",
 				"glassmorphismDescription": "Текстові, напівпрозорі поверхні"
-			}
+			},
+			"resetAccent": "Скинути до стандартних налаштувань теми"
 		},
 		"toast": {
 			"title": "Спливаюче сповіщення",

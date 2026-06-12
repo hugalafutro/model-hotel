@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "開発者中心、高コントラストformat@@0",
 				"glassmorphism": "ガラスモーフィズム",
 				"glassmorphismDescription": "滑らかな、半透明な面"
-			}
+			},
+			"resetAccent": "テーマのデフォルト設定に戻す"
 		},
 		"toast": {
 			"title": "トースト通知",

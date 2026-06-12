@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Контраст для разработчиков",
 				"glassmorphism": "Стекломорфизм",
 				"glassmorphismDescription": "Плотные, полупрозрачные поверхности"
-			}
+			},
+			"resetAccent": "Сбросить настройки к значениям по умолчанию"
 		},
 		"toast": {
 			"title": "Всплывающие уведомления",

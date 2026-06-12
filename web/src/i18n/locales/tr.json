@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Geliştirici odaklı, yüksek kontrastlı",
 				"glassmorphism": "Cam morfizmi",
 				"glassmorphismDescription": "Pürüzsüz, yarı saydam yüzeyler"
-			}
+			},
+			"resetAccent": "Tema varsayılanına sıfırla"
 		},
 		"toast": {
 			"title": "Bildirimler",

@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Utviklingssentrisk og høy kontrast",
 				"glassmorphism": "Glassmorfisme",
 				"glassmorphismDescription": "Klipp, gjennomskinnelig flater"
-			}
+			},
+			"resetAccent": "Tilbakestill til standardtema"
 		},
 		"toast": {
 			"title": "Populære varslinger",

@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "ממוקד במפתחים, בעל ניגודיות גבוהה",
 				"glassmorphism": "זכוכית-מורפיזם",
 				"glassmorphismDescription": "משטחים חלקים ושקופים"
-			}
+			},
+			"resetAccent": "אפס להגדרות ברירת המחדל של העיצוב"
 		},
 		"toast": {
 			"title": "התראות Toast",

@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Developer-centreret, høj kontrast",
 				"glassmorphism": "Glassmorfisme",
 				"glassmorphismDescription": "Slik, gennemskinnelige overflader"
-			}
+			},
+			"resetAccent": "Nulstil til temastandard"
 		},
 		"toast": {
 			"title": "Toast Notifikationer",

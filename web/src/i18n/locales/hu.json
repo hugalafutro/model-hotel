@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Fejlesztőknek szóló, nagy kontrasztú",
 				"glassmorphism": "Üvegmorfizmus",
 				"glassmorphismDescription": "Sima, áttetsző felületek"
-			}
+			},
+			"resetAccent": "Visszaállítás a téma alapértelmezett beállításaira"
 		},
 		"toast": {
 			"title": "Toast értesítések",

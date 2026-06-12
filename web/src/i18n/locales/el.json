@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Προγραμματιστής-κεντρικός, υψηλής αντίθεσης",
 				"glassmorphism": "Γυαλισμός",
 				"glassmorphismDescription": "Λεπτές, ημιδιαφανείς επιφάνειες"
-			}
+			},
+			"resetAccent": "Επαναφορά στις προεπιλεγμένες ρυθμίσεις του θέματος"
 		},
 		"toast": {
 			"title": "Ειδοποιήσεις Toast",

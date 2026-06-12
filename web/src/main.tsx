@@ -21,6 +21,25 @@ const queryClient = new QueryClient({
 	},
 });
 
+// While the active language's catalog chunk loads, ThemeProvider (inside
+// App) hasn't run yet, so no theme CSS applies — a null fallback would
+// flash an unstyled white page in a dark room. Read the stored theme
+// synchronously and paint a matching blank surface; deliberately
+// translation-free (the catalog is exactly what we're waiting for).
+function bootSurface(): React.ReactElement {
+	let dark = true;
+	try {
+		dark = localStorage.getItem("theme") !== "light";
+	} catch {
+		/* private mode etc. — dark is the safer default */
+	}
+	return (
+		<div
+			style={{ minHeight: "100vh", background: dark ? "#0b0c0f" : "#f9fafb" }}
+		/>
+	);
+}
+
 const rootElement = document.getElementById("root");
 if (!rootElement) throw new Error("Root element not found");
 createRoot(rootElement).render(
@@ -29,9 +48,8 @@ createRoot(rootElement).render(
 			<BrowserRouter>
 				{/* Locale catalogs other than English load lazily; useTranslation
 				    suspends app-wide until the active language's chunk arrives,
-				    so the boundary must sit above everything that translates.
-				    The fallback is deliberately translation-free. */}
-				<Suspense fallback={null}>
+				    so the boundary must sit above everything that translates. */}
+				<Suspense fallback={bootSurface()}>
 					<App />
 				</Suspense>
 			</BrowserRouter>

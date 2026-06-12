@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Ontwikkelaar centraal, hoog contrast",
 				"glassmorphism": "Glasmorfisme",
 				"glassmorphismDescription": "Plak, doorschijnend oppervlak"
-			}
+			},
+			"resetAccent": "Terugzetten naar standaardthema"
 		},
 		"toast": {
 			"title": "Toast meldingen",

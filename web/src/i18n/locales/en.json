@@ -1597,6 +1597,7 @@
 			"light": "Light",
 			"accentColor": "Accent Color",
 			"customColor": "Custom color",
+			"resetAccent": "Reset to theme default",
 			"colorPicker": {
 				"title": "Pick a Color",
 				"cancel": "Cancel",

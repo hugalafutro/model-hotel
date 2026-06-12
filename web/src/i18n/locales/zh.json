@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "以开发者为中心，高对比度",
 				"glassmorphism": "孤立无援的",
 				"glassmorphismDescription": "切片半透明面"
-			}
+			},
+			"resetAccent": "重置为主题默认值"
 		},
 		"toast": {
 			"title": "Toast 通知",

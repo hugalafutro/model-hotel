@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Centrada en el desenvolupador, d'alt contrast",
 				"glassmorphism": "Glassmorfisme",
 				"glassmorphismDescription": "Superfícies llises i translúcides"
-			}
+			},
+			"resetAccent": "Restablir al tema per defecte"
 		},
 		"toast": {
 			"title": "Notificacions de torrada",

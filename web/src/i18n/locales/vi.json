@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Tập trung vào nhà phát triển, độ tương phản cao",
 				"glassmorphism": "Hiện tượng biến dạng thủy tinh",
 				"glassmorphismDescription": "Bề mặt bóng loáng, trong suốt"
-			}
+			},
+			"resetAccent": "Đặt lại về mặc định của chủ đề"
 		},
 		"toast": {
 			"title": "Thông báo trên màn hình khóa",

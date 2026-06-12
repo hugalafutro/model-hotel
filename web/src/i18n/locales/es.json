@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Desarrollador centrado en alto contraste",
 				"glassmorphism": "Gassmorfismo",
 				"glassmorphismDescription": "Superficies traslúcidas y cortadas"
-			}
+			},
+			"resetAccent": "Restablecer a la configuración predeterminada del tema"
 		},
 		"toast": {
 			"title": "Notificaciones Toast",

@@ -12,6 +12,7 @@ export const LANGUAGE_STORAGE_KEY = "i18nextLng";
 // ~3.6MB of JSON in the entry bundle. English is bundled eagerly (and
 // excluded from the glob) because it is the fallback language: fallback
 // strings must never wait on a network fetch.
+/* v8 ignore next 4 -- bundler macro: rewritten at build time, runs at module load */
 const localeLoaders = import.meta.glob<{ default: object }>([
 	"./locales/*.json",
 	"!./locales/en.json",
@@ -31,26 +32,32 @@ const SUPPORTED_LANGUAGES = [
 	),
 ];
 
-export const lazyLocaleBackend = {
-	type: "backend" as const,
-	init() {},
-	read(
-		language: string,
-		_namespace: string,
-		callback: (err: unknown, data: object | null) => void,
-	) {
-		const file = FILE_ALIASES[language] ?? language;
-		const load = localeLoaders[`./locales/${file}.json`];
-		if (!load) {
-			callback(new Error(`no catalog for language "${language}"`), null);
-			return;
-		}
-		load().then(
-			(mod) => callback(null, mod.default),
-			(err) => callback(err, null),
-		);
-	},
-};
+export function createLocaleBackend(
+	loaders: Record<string, () => Promise<{ default: object }>>,
+) {
+	return {
+		type: "backend" as const,
+		init() {},
+		read(
+			language: string,
+			_namespace: string,
+			callback: (err: unknown, data: object | null) => void,
+		) {
+			const file = FILE_ALIASES[language] ?? language;
+			const load = loaders[`./locales/${file}.json`];
+			if (!load) {
+				callback(new Error(`no catalog for language "${language}"`), null);
+				return;
+			}
+			load().then(
+				(mod) => callback(null, mod.default),
+				(err) => callback(err, null),
+			);
+		},
+	};
+}
+
+export const lazyLocaleBackend = createLocaleBackend(localeLoaders);
 
 i18next
 	.use(lazyLocaleBackend)

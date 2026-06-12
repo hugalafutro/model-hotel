@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "المطور-المتمحور مع التباين العالي",
 				"glassmorphism": "الجلاسوروفية",
 				"glassmorphismDescription": "أسطح متقطعة وشفافة"
-			}
+			},
+			"resetAccent": "إعادة التعيين إلى الإعدادات الافتراضية للسمة"
 		},
 		"toast": {
 			"title": "الإشعارات المنبثقة",

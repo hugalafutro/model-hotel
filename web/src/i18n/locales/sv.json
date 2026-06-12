@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Utvecklarcentrerad, hög kontrast",
 				"glassmorphism": "Glasmorfism",
 				"glassmorphismDescription": "Slick, genomskinliga ytor"
-			}
+			},
+			"resetAccent": "Återställ till temastandard"
 		},
 		"toast": {
 			"title": "Toast aviseringar",

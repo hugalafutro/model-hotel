@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Kehittäjäkeskeinen, korkea kontrasti",
 				"glassmorphism": "Glassmorphismi",
 				"glassmorphismDescription": "Läpikuultavat pinnat"
-			}
+			},
+			"resetAccent": "Palauta teeman oletusasetukset"
 		},
 		"toast": {
 			"title": "Toast Ilmoitukset",

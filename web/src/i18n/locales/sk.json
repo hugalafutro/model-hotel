@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Zamerané na vývojárov, s vysokým kontrastom",
 				"glassmorphism": "Glassmorfizmus",
 				"glassmorphismDescription": "Hladké, priehľadné povrchy"
-			}
+			},
+			"resetAccent": "Obnoviť predvolené nastavenia témy"
 		},
 		"toast": {
 			"title": "Oznámenia v lište",

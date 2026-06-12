@@ -1,6 +1,7 @@
 import { Palette } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ResetButton } from "../../components/ResetButton";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
 import { THEME_DEFAULT_ACCENT, useTheme } from "../../context/ThemeContext";
@@ -24,6 +25,7 @@ export function AppearanceSettings({
 		uiStyle,
 		setUIStyle,
 		accentColor,
+		accentIsExplicit,
 		setAccentColor,
 		accentPresets,
 	} = useTheme();
@@ -279,6 +281,13 @@ export function AppearanceSettings({
 									</svg>
 								)}
 							</button>
+							{accentIsExplicit && (
+								<ResetButton
+									tooltip={t("settings.appearance.resetAccent")}
+									onClick={() => setAccentColor("")}
+									className="self-center"
+								/>
+							)}
 						</div>
 					</div>
 

@@ -23,6 +23,7 @@ describe("LangIcon", () => {
 			uiStyle: "clean-saas",
 			setUIStyle: vi.fn(),
 			accentColor: "#546de5",
+			accentIsExplicit: true,
 			setAccentColor: vi.fn(),
 			accentPresets: [],
 		});
@@ -54,6 +55,7 @@ describe("LangIcon", () => {
 			uiStyle: "clean-saas",
 			setUIStyle: vi.fn(),
 			accentColor: "#546de5",
+			accentIsExplicit: true,
 			setAccentColor: vi.fn(),
 			accentPresets: [],
 		});
@@ -70,6 +72,7 @@ describe("LangIcon", () => {
 			uiStyle: "clean-saas",
 			setUIStyle: vi.fn(),
 			accentColor: "#546de5",
+			accentIsExplicit: true,
 			setAccentColor: vi.fn(),
 			accentPresets: [],
 		});
@@ -86,6 +89,7 @@ describe("LangIcon", () => {
 			uiStyle: "clean-saas",
 			setUIStyle: vi.fn(),
 			accentColor: "#546de5",
+			accentIsExplicit: true,
 			setAccentColor: vi.fn(),
 			accentPresets: [],
 		});
@@ -102,6 +106,7 @@ describe("LangIcon", () => {
 			uiStyle: "clean-saas",
 			setUIStyle: vi.fn(),
 			accentColor: "#546de5",
+			accentIsExplicit: true,
 			setAccentColor: vi.fn(),
 			accentPresets: [],
 		});
@@ -118,6 +123,7 @@ describe("LangIcon", () => {
 			uiStyle: "clean-saas",
 			setUIStyle: vi.fn(),
 			accentColor: "#546de5",
+			accentIsExplicit: true,
 			setAccentColor: vi.fn(),
 			accentPresets: [],
 		});
@@ -134,6 +140,7 @@ describe("LangIcon", () => {
 			uiStyle: "clean-saas",
 			setUIStyle: vi.fn(),
 			accentColor: "#546de5",
+			accentIsExplicit: true,
 			setAccentColor: vi.fn(),
 			accentPresets: [],
 		});

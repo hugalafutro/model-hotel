@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Dezvoltator-centrat, cu contrast ridicat",
 				"glassmorphism": "Glazmorfismul",
 				"glassmorphismDescription": "Suprafețe netede, translucide"
-			}
+			},
+			"resetAccent": "Resetați la setările implicite ale temei"
 		},
 		"toast": {
 			"title": "Notificări toast",

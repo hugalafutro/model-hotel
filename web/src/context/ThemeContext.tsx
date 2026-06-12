@@ -39,6 +39,9 @@ interface ThemeContextType {
 	uiStyle: UIStyle;
 	setUIStyle: (style: UIStyle) => void;
 	accentColor: string;
+	/** True when the accent comes from an explicit user pick (persisted),
+	 * false while the per-theme default applies. */
+	accentIsExplicit: boolean;
 	setAccentColor: (color: string) => void;
 	accentPresets: AccentPreset[];
 }
@@ -49,6 +52,7 @@ const ThemeContext = createContext<ThemeContextType>({
 	uiStyle: "clean-saas",
 	setUIStyle: () => {},
 	accentColor: THEME_DEFAULT_ACCENT["clean-saas"],
+	accentIsExplicit: false,
 	setAccentColor: () => {},
 	accentPresets: ACCENT_PRESETS,
 });
@@ -161,6 +165,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 		"",
 	);
 	const accentColor = storedAccent || THEME_DEFAULT_ACCENT[uiStyle];
+	const accentIsExplicit = storedAccent !== "";
 
 	useEffect(() => {
 		document.documentElement.classList.remove("light", "dark");
@@ -177,6 +182,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 				uiStyle,
 				setUIStyle,
 				accentColor,
+				accentIsExplicit,
 				setAccentColor,
 				accentPresets: ACCENT_PRESETS,
 			}}

@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "개발자 중심, 고대비",
 				"glassmorphism": "글래스모피즘",
 				"glassmorphismDescription": "매끄럽고 반투명한 표면"
-			}
+			},
+			"resetAccent": "테마 기본값으로 재설정"
 		},
 		"toast": {
 			"title": "토스트 알림",

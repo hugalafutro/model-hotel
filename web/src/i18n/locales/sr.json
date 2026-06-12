@@ -1609,7 +1609,8 @@
 				"cyberTerminalDescription": "Оријентисан на програмере, са високим контрастом",
 				"glassmorphism": "Гласморфизам",
 				"glassmorphismDescription": "Глатке, провидне површине"
-			}
+			},
+			"resetAccent": "Ресетујте на подразумевану тему"
 		},
 		"toast": {
 			"title": "Тост обавештења",
