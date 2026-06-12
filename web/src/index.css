@@ -1359,6 +1359,15 @@ html[data-ui-style="glassmorphism-lite"].light [role="dialog"] .ui-card {
 	gap: 0;
 }
 
+/* Prominent CTAs (login screen). Size-only variant like ui-btn-compact:
+   these rules are unlayered, so per-button Tailwind padding and font-size
+   utilities cannot override the base ui-btn sizing. */
+[data-ui-style] .ui-btn-lg {
+	padding: 0.75rem 1rem;
+	font-size: 0.875rem;
+	gap: 0.5rem;
+}
+
 /* Sidebar footer links (Wiki, theme, language, GitHub version) share ui-btn
    styling but must stay slim: all four sit on one sidebar row, and the base
    ui-btn padding makes them overflow (Terminal's mono uppercase is widest),
