@@ -2858,6 +2858,13 @@ html[data-ui-style="cyber-terminal"] .color-swatch {
 	border-radius: 0;
 }
 
+/* Appearance settings chrome: the three ui-style picker cards and the mock
+   monitor for toast placement; Terminal squares them off. */
+html[data-ui-style="cyber-terminal"] .ui-style-card,
+html[data-ui-style="cyber-terminal"] .toast-monitor {
+	border-radius: 0;
+}
+
 /* Failover group member rows; themes control the corner radius. */
 .failover-entry {
 	border-radius: 0.25rem;
@@ -3093,6 +3100,13 @@ html.light .toast-timeout-slider::-moz-range-thumb:active,
 
 .gen-slider::-moz-range-thumb:hover {
 	transform: scale(1.2);
+}
+
+/* Terminal: square corners on the bar itself - the input element's own
+   background gradient paints the visible bar, so the pseudo-element track
+   overrides below don't reach it. */
+html[data-ui-style="cyber-terminal"] .gen-slider {
+	border-radius: 0;
 }
 
 /* Terminal: square slider thumbs with accent glow */

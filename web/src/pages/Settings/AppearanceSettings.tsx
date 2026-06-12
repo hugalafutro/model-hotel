@@ -86,7 +86,7 @@ export function AppearanceSettings({
 										key={style.id}
 										type="button"
 										onClick={() => setUIStyle(style.id)}
-										className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${
+										className={`ui-style-card flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${
 											active
 												? "border-(--accent) bg-(--accent-lighter)"
 												: "border-gray-700 hover:border-gray-600 bg-gray-800/50"
@@ -120,7 +120,7 @@ export function AppearanceSettings({
 							{t("settings.toast.title")}
 						</p>
 						<div className="flex justify-center">
-							<div className="relative w-40 h-26 rounded-lg border-2 border-gray-600 bg-gray-800/50 overflow-visible">
+							<div className="toast-monitor relative w-40 h-26 rounded-lg border-2 border-gray-600 bg-gray-800/50 overflow-visible">
 								{/* top-left */}
 								<button
 									type="button"
