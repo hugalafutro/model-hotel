@@ -157,7 +157,6 @@ describe("Logs", () => {
 			await waitFor(() => {
 				expect(screen.getByText("Time/Date")).toBeInTheDocument();
 			});
-			expect(screen.getByText("Hash")).toBeInTheDocument();
 			expect(screen.getByText("Model")).toBeInTheDocument();
 			expect(screen.getByText("Provider")).toBeInTheDocument();
 			expect(screen.getAllByText("Status").length).toBeGreaterThan(0);
@@ -339,34 +338,10 @@ describe("Logs", () => {
 			renderWithProviders(<Logs />);
 
 			await waitFor(() => {
-				expect(screen.getByText("abc123def456")).toBeInTheDocument();
+				expect(screen.getByText("test-model-v1")).toBeInTheDocument();
 			});
-
-			// Log data should be displayed
-			expect(screen.getByText("abc123def456")).toBeInTheDocument();
-			expect(screen.getByText("test-model-v1")).toBeInTheDocument();
 			expect(screen.getByText("Test Provider")).toBeInTheDocument();
 			expect(screen.getByText("200")).toBeInTheDocument();
-		});
-
-		it("displays truncated request hash (16 chars)", async () => {
-			server.use(
-				http.get("/api/logs", () =>
-					HttpResponse.json(
-						createMockLogs([
-							createMockLogEntry({
-								request_hash: "abcdefghij1234567890",
-							}),
-						]),
-					),
-				),
-			);
-
-			renderWithProviders(<Logs />);
-
-			await waitFor(() => {
-				expect(screen.getByText("abcdefghij123456")).toBeInTheDocument();
-			});
 		});
 
 		it("displays cancelled status for cancelled requests", async () => {

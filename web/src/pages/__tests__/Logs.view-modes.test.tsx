@@ -180,10 +180,8 @@ describe("Logs", () => {
 			renderWithProviders(<Logs />);
 
 			await waitFor(() => {
-				expect(screen.getByText("hotel-model-001")).toBeInTheDocument();
+				expect(screen.getByText("hotel/my-group")).toBeInTheDocument();
 			});
-
-			expect(screen.getByText("hotel/my-group")).toBeInTheDocument();
 		});
 
 		it("strips provider prefix from non-hotel slash model IDs", async () => {
@@ -203,7 +201,7 @@ describe("Logs", () => {
 			renderWithProviders(<Logs />);
 
 			await waitFor(() => {
-				expect(screen.getByText("openai-model-001")).toBeInTheDocument();
+				expect(screen.getByText("gpt-4")).toBeInTheDocument();
 			});
 
 			// Should show gpt-4 but NOT openai/gpt-4
@@ -230,10 +228,8 @@ describe("Logs", () => {
 			renderWithProviders(<Logs />);
 
 			await waitFor(() => {
-				expect(screen.getByText("simple-model-001")).toBeInTheDocument();
+				expect(screen.getByText("llama3")).toBeInTheDocument();
 			});
-
-			expect(screen.getByText("llama3")).toBeInTheDocument();
 		});
 	});
 
@@ -244,7 +240,7 @@ describe("Logs", () => {
 					HttpResponse.json(
 						createMockLogs([
 							createMockLogEntry({
-								request_hash: "streaming-001",
+								model_id: "streaming-001",
 								state: "streaming",
 								created_at: new Date().toISOString(),
 								status_code: 0,
@@ -277,7 +273,7 @@ describe("Logs", () => {
 					HttpResponse.json(
 						createMockLogs([
 							createMockLogEntry({
-								request_hash: "4xx-001",
+								model_id: "4xx-001",
 								status_code: 403,
 								state: "completed",
 							}),
@@ -305,7 +301,7 @@ describe("Logs", () => {
 					HttpResponse.json(
 						createMockLogs([
 							createMockLogEntry({
-								request_hash: "5xx-001",
+								model_id: "5xx-001",
 								status_code: 500,
 								state: "completed",
 							}),
@@ -335,7 +331,7 @@ describe("Logs", () => {
 					HttpResponse.json(
 						createMockLogs([
 							createMockLogEntry({
-								request_hash: "cancel-001",
+								model_id: "cancel-001",
 								error_message: "stream disconnect",
 								state: "completed",
 								status_code: 0,
@@ -360,7 +356,7 @@ describe("Logs", () => {
 					HttpResponse.json(
 						createMockLogs([
 							createMockLogEntry({
-								request_hash: "cancel-002",
+								model_id: "cancel-002",
 								error_message: "client disconnected",
 								state: "completed",
 								status_code: 0,
@@ -385,7 +381,7 @@ describe("Logs", () => {
 					HttpResponse.json(
 						createMockLogs([
 							createMockLogEntry({
-								request_hash: "timeout-001",
+								model_id: "timeout-001",
 								error_message:
 									"all providers failed: upstream request timed out",
 								state: "completed",
@@ -411,7 +407,7 @@ describe("Logs", () => {
 					HttpResponse.json(
 						createMockLogs([
 							createMockLogEntry({
-								request_hash: "cancel-003",
+								model_id: "cancel-003",
 								error_message: "cancelled",
 								tokens_per_second: 42.5,
 								state: "completed",
@@ -454,7 +450,7 @@ describe("Logs", () => {
 					HttpResponse.json(
 						createMockLogs([
 							createMockLogEntry({
-								request_hash: "ttft-001",
+								model_id: "ttft-001",
 								ttft_ms: 350,
 								response_header_ms: 100,
 							}),
@@ -480,7 +476,7 @@ describe("Logs", () => {
 					HttpResponse.json(
 						createMockLogs([
 							createMockLogEntry({
-								request_hash: "inprogress-001",
+								model_id: "inprogress-001",
 								state: "streaming",
 								duration_ms: 0,
 								created_at: new Date().toISOString(),
@@ -532,7 +528,7 @@ describe("Logs", () => {
 			renderWithProviders(<Logs />);
 
 			await waitFor(() => {
-				expect(screen.getByText("abc123")).toBeInTheDocument();
+				expect(screen.getByText("test-model")).toBeInTheDocument();
 			});
 
 			// Check that overhead has accent styling
@@ -561,7 +557,7 @@ describe("Logs", () => {
 			renderWithProviders(<Logs />);
 
 			await waitFor(() => {
-				expect(screen.getByText("abc123")).toBeInTheDocument();
+				expect(screen.getByText("test-model")).toBeInTheDocument();
 			});
 
 			// Check that overhead has gray styling
@@ -578,7 +574,7 @@ describe("Logs", () => {
 					HttpResponse.json(
 						createMockLogs([
 							createMockLogEntry({
-								request_hash: "vk-fallback-001",
+								model_id: "vk-fallback-001",
 								virtual_key_name: "",
 								virtual_key_id: "vk-abc123",
 							}),
@@ -602,7 +598,7 @@ describe("Logs", () => {
 					HttpResponse.json(
 						createMockLogs([
 							createMockLogEntry({
-								request_hash: "internal-cap-001",
+								model_id: "internal-cap-001",
 								virtual_key_name: "Internal",
 							}),
 						]),
@@ -635,7 +631,7 @@ describe("Logs", () => {
 			renderWithProviders(<Logs />);
 
 			await waitFor(() => {
-				expect(screen.getByText("abc123")).toBeInTheDocument();
+				expect(screen.getByText("test-model")).toBeInTheDocument();
 			});
 
 			expect(screen.getByText("internal")).toBeInTheDocument();
@@ -647,7 +643,7 @@ describe("Logs", () => {
 					HttpResponse.json(
 						createMockLogs([
 							createMockLogEntry({
-								request_hash: "vk-empty-001",
+								model_id: "vk-empty-001",
 								virtual_key_deleted: false,
 								virtual_key_name: "",
 								virtual_key_id: "",
@@ -702,7 +698,7 @@ describe("Logs", () => {
 			renderWithProviders(<Logs />);
 
 			await waitFor(() => {
-				expect(screen.getByText("abc123")).toBeInTheDocument();
+				expect(screen.getByText("test-model")).toBeInTheDocument();
 			});
 
 			// Should NOT show stale warning (under threshold)

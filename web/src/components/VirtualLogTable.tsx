@@ -157,7 +157,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 						<tbody>
 							<tr>
 								<td
-									colSpan={12}
+									colSpan={11}
 									className="px-4 py-8 text-center text-gray-500 text-sm"
 								>
 									{t("components.virtualLogTable.noLogsFound")}
@@ -219,9 +219,6 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 								{sortDir === "desc" ? "↓" : "↑"}
 							</th>
 							<th className={HEADER_BASE}>
-								{t("components.virtualLogTable.hash")}
-							</th>
-							<th className={HEADER_BASE}>
 								{t("components.virtualLogTable.model")}
 							</th>
 							<th className={HEADER_BASE}>
@@ -268,12 +265,6 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 										{log.created_at
 											? new Date(log.created_at).toLocaleString()
 											: "-"}
-									</td>
-									<td
-										className="px-2 py-1 text-xs font-mono text-gray-400 truncate"
-										title={log.request_hash}
-									>
-										{log.request_hash ? log.request_hash.slice(0, 16) : "-"}
 									</td>
 									<td
 										className="px-2 py-1 whitespace-nowrap text-xs text-gray-200 truncate"

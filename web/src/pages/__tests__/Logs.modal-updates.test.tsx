@@ -126,11 +126,11 @@ describe("Logs", () => {
 			const { user } = renderWithProviders(<Logs />);
 
 			await waitFor(() => {
-				expect(screen.getByText("abc123")).toBeInTheDocument();
+				expect(screen.getByText("test-model")).toBeInTheDocument();
 			});
 
 			// Click on the row
-			const row = screen.getByText("abc123").closest("tr");
+			const row = screen.getByText("test-model").closest("tr");
 			if (row) {
 				await user.click(row);
 				await waitFor(() => {
@@ -168,11 +168,11 @@ describe("Logs", () => {
 			const { user } = renderWithProviders(<Logs />);
 
 			await waitFor(() => {
-				expect(screen.getByText("abc123")).toBeInTheDocument();
+				expect(screen.getByText("test-model")).toBeInTheDocument();
 			});
 
 			// Click on the row
-			const row = screen.getByText("abc123").closest("tr");
+			const row = screen.getByText("test-model").closest("tr");
 			if (row) {
 				await user.click(row);
 
@@ -232,7 +232,7 @@ describe("Logs", () => {
 							Array.from({ length: 25 }, (_, i) =>
 								createMockLogEntry({
 									id: `log-${i}`,
-									request_hash: `hash${i}`,
+									model_id: `hash${i}`,
 								}),
 							),
 							50,
@@ -266,7 +266,7 @@ describe("Logs", () => {
 							Array.from({ length: 25 }, (_, i) =>
 								createMockLogEntry({
 									id: `log-${i}`,
-									request_hash: `hash${i}`,
+									model_id: `hash${i}`,
 								}),
 							),
 							50,

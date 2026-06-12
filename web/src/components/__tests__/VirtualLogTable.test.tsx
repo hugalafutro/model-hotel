@@ -929,7 +929,7 @@ describe("VirtualLogTable", () => {
 			);
 
 			// TTFT column should show "-"
-			const row = screen.getByText("abc123def456").closest("tr");
+			const row = screen.getByText("Test Provider").closest("tr");
 			expect(row).not.toBeNull();
 			if (row) {
 				const cells = row.querySelectorAll("td");
@@ -951,7 +951,7 @@ describe("VirtualLogTable", () => {
 				<VirtualLogTable {...defaultProps} entries={entries} />,
 			);
 
-			const row = screen.getByText("abc123def456").closest("tr");
+			const row = screen.getByText("Test Provider").closest("tr");
 			expect(row).not.toBeNull();
 			if (row) {
 				const cells = row.querySelectorAll("td");
@@ -971,7 +971,7 @@ describe("VirtualLogTable", () => {
 				<VirtualLogTable {...defaultProps} entries={entries} />,
 			);
 
-			const row = screen.getByText("abc123def456").closest("tr");
+			const row = screen.getByText("Test Provider").closest("tr");
 			expect(row).not.toBeNull();
 			if (row) {
 				const cells = row.querySelectorAll("td");
@@ -1397,23 +1397,6 @@ describe("VirtualLogTable", () => {
 			);
 
 			expect(screen.getByText("Interrupted")).toBeInTheDocument();
-		});
-	});
-
-	describe("Request hash formatting", () => {
-		it('renders "-" when request_hash is empty', () => {
-			const entries = [createLogEntry({ request_hash: "" })];
-			mockGetVirtualItems.mockReturnValue([
-				{ index: 0, key: entries[0].id, start: 0, end: 29 },
-			]);
-			mockGetTotalSize.mockReturnValue(29);
-
-			renderWithProviders(
-				<VirtualLogTable {...defaultProps} entries={entries} />,
-			);
-
-			// Hash column should show "-"
-			expect(screen.getAllByText("-").length).toBeGreaterThanOrEqual(1);
 		});
 	});
 });
