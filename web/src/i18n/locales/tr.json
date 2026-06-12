@@ -655,7 +655,7 @@
 		"toast_add_failed": "Sağlayıcı eklenemedi: {{message}}",
 		"toast_update_failed": "Güncelleme başarısız: {{message}}",
 		"toast_refresh_success": "Güncellenen {{count}} kota/bakiye bilgileri",
-		"toast_refresh_warning": "{{refreshed}} kota değerleri güncellendi ({{failed}} başarısız, {{skipped}} desteklenmiyor)",
+		"toast_refresh_warning": " {{refreshed}} kota değerleri güncellendi ({{failed}} başarısız, {{skipped}} desteklenmiyor)",
 		"toast_refresh_none": "Kota/bakiye desteği sunan sağlayıcı bulunamadı",
 		"toast_refresh_failed": "Kota yenileme işlemi başarısız oldu: {{message}}",
 		"toast_quota_detected_nanogpt": "NanoGPT kotası tespit edildi",
@@ -761,7 +761,7 @@
 			"showRemaining": "Kalan kredileri göster"
 		},
 		"toast": {
-			"refreshedQuotas": "{{refreshed}} kota değerleri güncellendi ({{failed}} başarısız, {{skipped}} desteklenmiyor)"
+			"refreshedQuotas": " {{refreshed}} kota değerleri güncellendi ({{failed}} başarısız, {{skipped}} desteklenmiyor)"
 		},
 		"discoverySummary": {
 			"title": "Keşif özeti",
@@ -2261,17 +2261,17 @@
 			"weeklyTokenQuota": "NanoGPT haftalık token kotası - ayrıntılar için tıklayın",
 			"zaiCodingRemaining": "Z.ai Kodlama kalan kontenjanı - ayrıntılar için tıklayın",
 			"zaiCodingUsed": "Z.ai Kodlama kotası kullanıldı - ayrıntılar için tıklayın",
-			"deepseekBalance": "DeepSeek bakiyesi: ${{usd}} USD{{refreshed}} - yenilemek için tıklayın",
+			"deepseekBalance": "DeepSeek bakiyesi: ${{usd}} USD {{refreshed}} - yenilemek için tıklayın",
 			"deepseekBalanceUnavailable": "DeepSeek bakiyesi mevcut değil",
 			"openrouterBalance": "OpenRouter anahtar bakiyesi - ayrıntılar için tıklayın",
 			"openrouterBalanceUnavailable": "OpenRouter bakiyesi mevcut değil",
-			"ollamaCloudPlan": "Ollama Cloud {{plan}} plan{{refreshed}} - güncellemek için tıklayın",
-			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} paketi (süresi {{date}}tarihinde sona eriyor){{refreshed}} - güncellemek için tıklayın",
+			"ollamaCloudPlan": "Ollama Cloud {{plan}} plan {{refreshed}} - güncellemek için tıklayın",
+			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} paketi (süresi {{date}}tarihinde sona eriyor) {{refreshed}} - güncellemek için tıklayın",
 			"ollamaCloudUnavailable": "Ollama Cloud hesabı kullanılamıyor",
 			"nanoWeeklyTokensRemaining": "NanoGPT haftalık kalan token sayısı - ayrıntılar için tıklayın",
 			"nanoWeeklyTokenQuota": "NanoGPT haftalık token kotası - ayrıntılar için tıklayın",
 			"openRouterKeyBalance": "OpenRouter anahtar bakiyesi - ayrıntılar için tıklayın",
-			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} paketi (süresi {{endDate}}tarihinde sona eriyor){{refreshed}} - güncellemek için tıklayın",
+			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} paketi (süresi {{endDate}}tarihinde sona eriyor) {{refreshed}} - güncellemek için tıklayın",
 			"updated": "- güncellendi {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} Kalan kWh {{refreshed}}",
 			"neuralwattBalanceUnavailable": "NeuralWatt dengesi mevcut değil"

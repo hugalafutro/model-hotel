@@ -655,7 +655,7 @@
 		"toast_add_failed": "プロバイダの追加に失敗しました: {{message}}",
 		"toast_update_failed": "更新に失敗しました: {{message}}",
 		"toast_refresh_success": "更新された {{count}} クォータ/残高",
-		"toast_refresh_warning": "{{refreshed}} クォータを更新しました ({{failed}} 失敗しました, {{skipped}} サポートされていません)",
+		"toast_refresh_warning": " {{refreshed}} クォータを更新しました ({{failed}} 失敗しました, {{skipped}} サポートされていません)",
 		"toast_refresh_none": "クォータ/残高サポートを持つプロバイダが見つかりません",
 		"toast_refresh_failed": "クォータの更新に失敗しました: {{message}}",
 		"toast_quota_detected_nanogpt": "NanoGPT クォータが検出されました",
@@ -761,7 +761,7 @@
 			"showRemaining": "残りのクレジットを表示"
 		},
 		"toast": {
-			"refreshedQuotas": "{{refreshed}} クォータを更新しました ({{failed}} 失敗しました, {{skipped}} サポートされていません)"
+			"refreshedQuotas": " {{refreshed}} クォータを更新しました ({{failed}} 失敗しました, {{skipped}} サポートされていません)"
 		},
 		"discoverySummary": {
 			"title": "ディスカバリー概要",
@@ -2261,17 +2261,17 @@
 			"weeklyTokenQuota": "NanoGPT毎週のトークンクォータ - 詳細をクリックしてください",
 			"zaiCodingRemaining": "Z.ai Coding remaining quota - Click for details",
 			"zaiCodingUsed": "Z.ai Coding used quota - click for details",
-			"deepseekBalance": "DeepSeek balance: ${{usd}} USD{{refreshed}} - クリックして更新",
+			"deepseekBalance": "DeepSeek balance: ${{usd}} USD {{refreshed}} - クリックして更新",
 			"deepseekBalanceUnavailable": "DeepSeek残高が利用できません",
 			"openrouterBalance": "OpenRouter キー残高 - 詳細についてはクリックしてください",
 			"openrouterBalanceUnavailable": "OpenRouter balance unavailable",
-			"ollamaCloudPlan": "Orlama Cloud {{plan}} プラン{{refreshed}} - クリックして更新",
-			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} plan (termines {{date}}){{refreshed}} - クリックして更新",
+			"ollamaCloudPlan": "Orlama Cloud {{plan}} プラン {{refreshed}} - クリックして更新",
+			"ollamaCloudPlanEnds": "Ollama Cloud {{plan}} plan (termines {{date}}) {{refreshed}} - クリックして更新",
 			"ollamaCloudUnavailable": "Ollama Cloudアカウントが利用できません",
 			"nanoWeeklyTokensRemaining": "残りのNanoGPT週間トークン - 詳細をクリックしてください",
 			"nanoWeeklyTokenQuota": "NanoGPT毎週のトークンクォータ - 詳細をクリックしてください",
 			"openRouterKeyBalance": "OpenRouter キー残高 - 詳細についてはクリックしてください",
-			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} plan (termines {{endDate}}){{refreshed}} - クリックして更新",
+			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} plan (termines {{endDate}}) {{refreshed}} - クリックして更新",
 			"updated": "- {{time}} を更新しました",
 			"neuralwattBalance": "NeuralWatt: {{amount}} kWh残り {{refreshed}}",
 			"neuralwattBalanceUnavailable": "NeuralWattが利用できません"

@@ -2261,7 +2261,7 @@
 			"weeklyTokenQuota": "Týdenní kvóta tokenů NanoGPT – klikněte pro podrobnosti",
 			"zaiCodingRemaining": "Z.ai: Zbývající počet míst – klikněte pro podrobnosti",
 			"zaiCodingUsed": "Z.ai Využitá kvóta – klikněte pro podrobnosti",
-			"deepseekBalance": "Stav účtu DeepSeek: ${{usd}} USD{{refreshed}} – kliknutím obnovíte",
+			"deepseekBalance": "Stav účtu DeepSeek: ${{usd}} USD {{refreshed}} – kliknutím obnovíte",
 			"deepseekBalanceUnavailable": "Zůstatek na účtu DeepSeek není k dispozici",
 			"openrouterBalance": "Stav klíče OpenRouter – klikněte pro podrobnosti",
 			"openrouterBalanceUnavailable": "Zůstatek na účtu OpenRouter není k dispozici",
