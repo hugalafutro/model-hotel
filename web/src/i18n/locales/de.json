@@ -268,7 +268,8 @@
 			"topVirtualKeys": "Top-Virtual-Keys",
 			"emptyState": "Noch keine Nutzungsdaten. Die Aufschlüsselung der Nutzung wird hier angezeigt, sobald der Datenverkehr abläuft.",
 			"viewDetailsFor": "Details für {{label}} anzeigen",
-			"deletedModelTooltip": "Modell nicht mehr verfügbar – es wurde möglicherweise entfernt oder der Anbieter wurde gelöscht"
+			"deletedModelTooltip": "Modell nicht mehr verfügbar – es wurde möglicherweise entfernt oder der Anbieter wurde gelöscht",
+			"reservedKeyTooltip": "Interner reservierter Name, kein von Ihnen erstellter Schlüssel – diese Verwendung stammt aus den eigenen „{{name}}“-Routen von Model Hotel"
 		},
 		"latency": {
 			"topModels": "Langsamste Modelle",

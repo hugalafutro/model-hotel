@@ -268,7 +268,8 @@
 			"topVirtualKeys": "Top virtuelle nøgler",
 			"emptyState": "Ingen brugsdata endnu. Brugsfejl vises her, når trafikken strømmer.",
 			"viewDetailsFor": "Se detaljer for {{label}}",
-			"deletedModelTooltip": "Modellen er ikke længere tilgængelig — den er muligvis blevet slettet, eller leverandøren er blevet fjernet"
+			"deletedModelTooltip": "Modellen er ikke længere tilgængelig — den er muligvis blevet slettet, eller leverandøren er blevet fjernet",
+			"reservedKeyTooltip": "Internt reserveret navn, ikke en nøgle, du har oprettet – denne anvendelse stammer fra Model Hotels egne \"{{name}}\"-ruter"
 		},
 		"latency": {
 			"topModels": "Langsomste modeller",

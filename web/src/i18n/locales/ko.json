@@ -268,7 +268,8 @@
 			"topVirtualKeys": "상위 가상 키",
 			"emptyState": "아직 사용 데이터가 없습니다. 트래픽이 발생하면 사용 내역이 여기에 표시됩니다.",
 			"viewDetailsFor": "상세 정보 보기 {{label}}",
-			"deletedModelTooltip": "모델을 더 이상 사용할 수 없습니다 — 삭제되었거나 해당 프로바이더가 제거되었을 수 있습니다"
+			"deletedModelTooltip": "모델을 더 이상 사용할 수 없습니다 — 삭제되었거나 해당 프로바이더가 제거되었을 수 있습니다",
+			"reservedKeyTooltip": "사용자가 생성한 키가 아닌 내부 예약 이름입니다. 이 용법은 Model Hotel의 자체 \"{{name}}\" 경로에서 유래했습니다."
 		},
 		"latency": {
 			"topModels": "가장 느린 모델",

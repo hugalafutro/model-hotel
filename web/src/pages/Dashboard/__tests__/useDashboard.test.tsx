@@ -898,6 +898,39 @@ describe("useDashboard", () => {
 				expect(deletedEntry?.deleted).toBe(true);
 			});
 		});
+
+		it("byVK marks internal reserved names (chat/arena/internal) as reserved", async () => {
+			server.use(
+				http.get("/api/stats", () => {
+					return HttpResponse.json({
+						...mockStats,
+						by_virtual_key: {
+							"vk-1": 100,
+							chat: 80,
+							arena: 60,
+							internal: 40,
+							CHAT: 30, // case-insensitive
+						},
+					} as Stats);
+				}),
+			);
+
+			const { result } = renderHook(() => useDashboard(), {
+				wrapper: AllProviders,
+			});
+
+			await waitFor(() => {
+				expect(result.current.byVK.length).toBeGreaterThan(0);
+			});
+
+			for (const name of ["chat", "arena", "internal", "CHAT"]) {
+				const entry = result.current.byVK.find((e) => e.label === name);
+				expect(entry?.reserved).toBe(true);
+			}
+			// A real user key is not flagged reserved.
+			const real = result.current.byVK.find((e) => e.label === "vk-1");
+			expect(real?.reserved).toBe(false);
+		});
 	});
 
 	describe("dashboardRefreshChange event", () => {

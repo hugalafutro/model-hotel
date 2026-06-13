@@ -268,7 +268,8 @@
 			"topVirtualKeys": "Top-virtuaaliavaimet",
 			"emptyState": "Käyttötietoja ei ole vielä. Käytön jakautuminen näkyy tässä liikennevirtojen jälkeen.",
 			"viewDetailsFor": "Näytä tiedot {{label}}",
-			"deletedModelTooltip": "Mallia ei ole enää saatavilla – se on mahdollisesti poistettu tai sen tarjoaja on poistettu"
+			"deletedModelTooltip": "Mallia ei ole enää saatavilla – se on mahdollisesti poistettu tai sen tarjoaja on poistettu",
+			"reservedKeyTooltip": "Sisäinen varattu nimi, ei käyttäjän luoma avain – tämä käyttöperinne on peräisin Model Hotelin omista \"{{name}}\"-reiteistä"
 		},
 		"latency": {
 			"topModels": "Hitaimmat mallit",

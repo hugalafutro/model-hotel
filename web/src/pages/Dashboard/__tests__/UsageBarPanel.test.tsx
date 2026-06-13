@@ -249,6 +249,30 @@ describe("UsageBarPanel", () => {
 		expect(deletedLabel.tagName).toBe("SPAN");
 	});
 
+	it("renders reserved entries as non-clickable spans with an explanatory tooltip", () => {
+		const reservedEntries: UsageEntry[] = [
+			{ label: "chat", value: 100, reserved: true },
+		];
+
+		renderWithProviders(
+			<UsageBarPanel
+				{...defaultProps}
+				entries={reservedEntries}
+				onEntryClick={vi.fn()}
+			/>,
+		);
+
+		const reservedLabel = screen.getByText("chat");
+		// Not clickable even though onEntryClick is provided.
+		expect(reservedLabel.tagName).toBe("SPAN");
+		expect(reservedLabel).toHaveClass("italic");
+		// Tooltip interpolates the reserved name and explains it isn't a user key.
+		expect(reservedLabel).toHaveAttribute(
+			"title",
+			'Internal reserved name, not a key you created - this usage comes from Model Hotel\'s own "chat" routes',
+		);
+	});
+
 	it("renders failover group entries as non-interactive spans even when onEntryClick is provided", () => {
 		const failoverEntries: UsageEntry[] = [
 			{ label: "hotel/my-group", value: 100, failoverGroup: true },

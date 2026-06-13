@@ -268,7 +268,8 @@
 			"topVirtualKeys": "Top claves virtuales",
 			"emptyState": "Aún no hay datos de uso. El desglose de uso aparecerá aquí una vez que fluya el tráfico.",
 			"viewDetailsFor": "Ver detalles de {{label}}",
-			"deletedModelTooltip": "El modelo ya no está disponible; es posible que se haya eliminado o que se haya retirado su proveedor"
+			"deletedModelTooltip": "El modelo ya no está disponible; es posible que se haya eliminado o que se haya retirado su proveedor",
+			"reservedKeyTooltip": "Nombre reservado interno, no una clave creada por ti: este uso proviene de las propias rutas «{{name}}» de Model Hotel."
 		},
 		"latency": {
 			"topModels": "Modelos más lentos",
