@@ -117,10 +117,11 @@ Absolute: no prompt, request, or response content in any log line or error
 message — only routing/metering/diagnostic metadata. This is what makes logs
 safe to export to a collector.
 
-## 6. Pending mechanical follow-up
+## 6. Audit status
 
-The full audit/normalization of all ~440 existing `debuglog.*` call sites
-against §3 (field-name unification, any remaining level adjustments) is tracked
-as ongoing mechanical cleanup — the conventions above are the spec. The
-structural pieces (kinds, message renderer, `LOG_FORMAT=json`, level fixes for
-client-disconnect paths) are in place.
+The `debuglog.*` call sites were audited against §3 (2026-06-13). The codebase
+was already largely consistent; the only field-key fixes needed were
+`providerID`→`provider_id` and `provider_name`→`provider`. The structural pieces
+(kinds, message renderer, `LOG_FORMAT=json`, client-disconnect level fixes) are
+in place. New code must follow the conventions above; keep them as the spec for
+any future logging.
