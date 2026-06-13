@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { MarkdownStreamingContext } from "../markdownStreamingContext";
 import { ShikiCode } from "../ShikiCode";
 
 const BASH_CODE = `curl -X POST http://my-hotel:8080/v1/chat/completions \\
@@ -41,6 +42,38 @@ describe("ShikiCode", () => {
 		});
 		const url = screen.getByText("http://my-hotel:8080");
 		expect(url.className).toContain("terminal-highlight");
+	});
+
+	it("stays plain text while streaming, then highlights once it ends", async () => {
+		// While streaming, tokenizing the whole block on every delta pins the
+		// main thread — so the gate renders plain text (a single text node, no
+		// colored spans).
+		const { container, rerender } = render(
+			<MarkdownStreamingContext.Provider value={true}>
+				<ShikiCode code={BASH_CODE} lang="bash" />
+			</MarkdownStreamingContext.Provider>,
+		);
+		expect(container.textContent).toBe(BASH_CODE);
+		expect(container.querySelectorAll("span").length).toBe(0);
+
+		// A delta arrives but highlighting must still not run.
+		rerender(
+			<MarkdownStreamingContext.Provider value={true}>
+				<ShikiCode code={`${BASH_CODE}\necho done`} lang="bash" />
+			</MarkdownStreamingContext.Provider>,
+		);
+		expect(container.querySelectorAll("span").length).toBe(0);
+
+		// Stream completes — highlight once.
+		rerender(
+			<MarkdownStreamingContext.Provider value={false}>
+				<ShikiCode code={`${BASH_CODE}\necho done`} lang="bash" />
+			</MarkdownStreamingContext.Provider>,
+		);
+		await waitFor(() => {
+			expect(container.querySelectorAll("span").length).toBeGreaterThan(1);
+		});
+		expect(container.textContent).toBe(`${BASH_CODE}\necho done`);
 	});
 
 	it("highlights instance origin and model id in JSON snippets", async () => {

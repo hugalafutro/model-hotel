@@ -90,7 +90,7 @@ const MAXIMIZED_PROSE_CLASSES =
 	"prose prose-invert prose-base max-w-none text-(--text-primary) text-base font-medium " +
 	"[&_p]:my-2.5 [&_ul]:my-2.5 [&_ol]:my-2.5 [&_li]:my-0.5 " +
 	"[&_h1]:text-lg [&_h2]:text-base [&_h3]:text-base " +
-	"[&_code]:text-(--accent) [&_code]:bg-(--surface-hover) [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-sm " +
+	"[&_:not(pre)>code]:text-(--accent) [&_:not(pre)>code]:bg-(--surface-hover) [&_:not(pre)>code]:px-1 [&_:not(pre)>code]:py-0.5 [&_:not(pre)>code]:rounded [&_:not(pre)>code]:text-sm " +
 	"[&_pre]:bg-(--surface-hover) [&_pre]:rounded-lg [&_pre]:p-4 [&_pre]:overflow-x-auto [&_pre]:my-3 [&_pre]:text-sm " +
 	"[&_blockquote]:border-l-2 [&_blockquote]:border-(--accent)/40 [&_blockquote]:pl-4 [&_blockquote]:text-(--text-secondary) " +
 	"[&_strong]:font-semibold [&_strong]:text-(--text-primary) [&_em]:text-(--text-secondary) " +
@@ -305,7 +305,9 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 								/>
 							)}
 							{content ? (
-								<MarkdownContent>{content}</MarkdownContent>
+								<MarkdownContent isStreaming={isStreaming}>
+									{content}
+								</MarkdownContent>
 							) : !hasThinking && isStreaming ? (
 								<div className="text-(--text-tertiary) text-xs flex items-center gap-2">
 									<span
