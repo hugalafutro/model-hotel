@@ -245,10 +245,9 @@ export function VirtualKeys() {
 						<tbody>
 							{paginatedKeys.map((vk) => (
 								<Row key={vk.id} onClick={() => setSelectedKey(vk)}>
-									<td
-										className="px-4 py-3 text-sm text-gray-200 truncate overflow-hidden text-ellipsis max-w-0"
-										title={vk.name}
-									>
+									{/* tooltip lives on the inner name span so it fires on
+									    overflow, not on the icon-only regions of the cell */}
+									<td className="px-4 py-3 text-sm text-gray-200 truncate overflow-hidden text-ellipsis max-w-0">
 										<div className="flex items-center gap-1.5">
 											{vk.allowed_providers &&
 												vk.allowed_providers.length > 0 && (

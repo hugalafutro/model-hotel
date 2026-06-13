@@ -20,7 +20,8 @@ export function Gauge({
 	onClick?: () => void;
 	tooltip?: string;
 	maxScale?: number;
-	/** Custom display formatter for the value (e.g. compact 1.2K). */
+	/** Custom display formatter for the value (e.g. compact 1.2K). When set,
+	 * it owns the entire display string and `suffix` is not appended. */
 	formatValue?: (value: number) => string;
 }) {
 	const { t } = useTranslation();
@@ -65,10 +66,16 @@ export function Gauge({
 				</svg>
 				<div className="absolute inset-x-0 bottom-0 text-center">
 					<p className="text-sm font-bold text-(--text-primary)">
-						{formatValue
-							? formatValue(value)
-							: dropTrailingZero(value, decimals)}
-						{suffix}
+						{formatValue ? (
+							// formatValue owns the full display string (incl. any unit),
+							// so suffix is intentionally not appended here.
+							formatValue(value)
+						) : (
+							<>
+								{dropTrailingZero(value, decimals)}
+								{suffix}
+							</>
+						)}
 					</p>
 				</div>
 			</div>
