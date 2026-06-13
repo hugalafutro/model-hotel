@@ -891,7 +891,7 @@
 		"filter_state_enabled": "Geskakel",
 		"filter_state_disabled": "Gestremd",
 		"filter_origin_auto": "Outomaties",
-		"filter_origin_manual": "Handboek",
+		"filter_origin_manual": "Custom",
 		"select_all": "Kies alles",
 		"deselect_all": "Ontkies almal",
 		"selected_count": "{{count}} geselekteer",

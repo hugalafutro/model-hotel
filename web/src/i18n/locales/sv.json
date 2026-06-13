@@ -891,7 +891,7 @@
 		"filter_state_enabled": "Aktiverad",
 		"filter_state_disabled": "Inaktiverad",
 		"filter_origin_auto": "Automatiskt",
-		"filter_origin_manual": "Manuell",
+		"filter_origin_manual": "Custom",
 		"select_all": "Markera alla",
 		"deselect_all": "Avmarkera alla",
 		"selected_count": "{{count}} vald",

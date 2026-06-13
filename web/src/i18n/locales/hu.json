@@ -891,7 +891,7 @@
 		"filter_state_enabled": "Engedélyezve",
 		"filter_state_disabled": "Fogyatékkal élők",
 		"filter_origin_auto": "Autó",
-		"filter_origin_manual": "Kézikönyv",
+		"filter_origin_manual": "Custom",
 		"select_all": "Összes kijelölése",
 		"deselect_all": "Minden kijelölésének megszüntetése",
 		"selected_count": "{{count}} kiválasztott",

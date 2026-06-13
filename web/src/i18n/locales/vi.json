@@ -891,7 +891,7 @@
 		"filter_state_enabled": "Đã bật",
 		"filter_state_disabled": "Người khuyết tật",
 		"filter_origin_auto": "Tự động",
-		"filter_origin_manual": "Hướng dẫn sử dụng",
+		"filter_origin_manual": "Custom",
 		"select_all": "Chọn tất cả",
 		"deselect_all": "Bỏ chọn tất cả",
 		"selected_count": "{{count}} đã chọn",

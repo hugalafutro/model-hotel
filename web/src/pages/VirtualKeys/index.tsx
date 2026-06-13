@@ -245,7 +245,10 @@ export function VirtualKeys() {
 						<tbody>
 							{paginatedKeys.map((vk) => (
 								<Row key={vk.id} onClick={() => setSelectedKey(vk)}>
-									<td className="px-4 py-3 text-sm text-gray-200 truncate overflow-hidden text-ellipsis max-w-0">
+									<td
+										className="px-4 py-3 text-sm text-gray-200 truncate overflow-hidden text-ellipsis max-w-0"
+										title={vk.name}
+									>
 										<div className="flex items-center gap-1.5">
 											{vk.allowed_providers &&
 												vk.allowed_providers.length > 0 && (
@@ -282,7 +285,9 @@ export function VirtualKeys() {
 													</svg>
 												</span>
 											)}
-											<span className="truncate">{vk.name}</span>
+											<span className="truncate" title={vk.name}>
+												{vk.name}
+											</span>
 										</div>
 									</td>
 									<td className="px-4 py-3 text-gray-500 font-mono text-xs">

@@ -891,7 +891,7 @@
 		"filter_state_enabled": "Увімкнено",
 		"filter_state_disabled": "Вимкнено",
 		"filter_origin_auto": "Авто",
-		"filter_origin_manual": "Вручну",
+		"filter_origin_manual": "Custom",
 		"select_all": "Виділити все",
 		"deselect_all": "Зняти всі виділення",
 		"selected_count": "Вибрано {{count}}",

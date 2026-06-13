@@ -891,7 +891,7 @@
 		"filter_state_enabled": "Aktiveret",
 		"filter_state_disabled": "Deaktiveret",
 		"filter_origin_auto": "Automatisk",
-		"filter_origin_manual": "Manuelt",
+		"filter_origin_manual": "Custom",
 		"select_all": "Vælg alle",
 		"deselect_all": "Fravælg alle",
 		"selected_count": "{{count}} valgt",

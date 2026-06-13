@@ -891,7 +891,7 @@
 		"filter_state_enabled": "تمكين",
 		"filter_state_disabled": "معطل",
 		"filter_origin_auto": "تلقائي",
-		"filter_origin_manual": "دليل",
+		"filter_origin_manual": "Custom",
 		"select_all": "حدد الكل",
 		"deselect_all": "إلغاء تحديد الكل",
 		"selected_count": "{{count}} المختار",

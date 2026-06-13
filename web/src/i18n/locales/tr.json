@@ -891,7 +891,7 @@
 		"filter_state_enabled": "Etkin",
 		"filter_state_disabled": "Engelli",
 		"filter_origin_auto": "Otomatik",
-		"filter_origin_manual": "Kılavuz",
+		"filter_origin_manual": "Custom",
 		"select_all": "Tümünü seç",
 		"deselect_all": "Tümünü seçmeyi kaldır",
 		"selected_count": "{{count}} seçilen",

@@ -891,7 +891,7 @@
 		"filter_state_enabled": "활성화됨",
 		"filter_state_disabled": "비활성화됨",
 		"filter_origin_auto": "자동",
-		"filter_origin_manual": "사용 설명서",
+		"filter_origin_manual": "Custom",
 		"select_all": "모두 선택",
 		"deselect_all": "모두 선택 해제",
 		"selected_count": "{{count}} 선택됨",

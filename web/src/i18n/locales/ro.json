@@ -891,7 +891,7 @@
 		"filter_state_enabled": "Activat",
 		"filter_state_disabled": "Dezactivat",
 		"filter_origin_auto": "Automat",
-		"filter_origin_manual": "Manual",
+		"filter_origin_manual": "Custom",
 		"select_all": "Selectează tot",
 		"deselect_all": "Deselectează tot",
 		"selected_count": "{{count}} selectate",

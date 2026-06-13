@@ -177,6 +177,7 @@ export function ProviderDoughnut({
 										/>
 										<span
 											className="text-sm text-(--text-secondary) truncate"
+											title={it.name}
 											style={{
 												color: isHighlighted
 													? COLORS[i % COLORS.length]

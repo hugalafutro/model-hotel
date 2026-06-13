@@ -891,7 +891,7 @@
 		"filter_state_enabled": "Омогућено",
 		"filter_state_disabled": "Онеспособљен",
 		"filter_origin_auto": "Ауто",
-		"filter_origin_manual": "Приручник",
+		"filter_origin_manual": "Custom",
 		"select_all": "Изабери све",
 		"deselect_all": "Одерегистровати све",
 		"selected_count": "{{count}} изабрано",

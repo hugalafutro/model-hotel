@@ -891,7 +891,7 @@
 		"filter_state_enabled": "Käytössä",
 		"filter_state_disabled": "Pois Käytöstä",
 		"filter_origin_auto": "Automaattinen",
-		"filter_origin_manual": "Manuaalinen",
+		"filter_origin_manual": "Custom",
 		"select_all": "Valitse kaikki",
 		"deselect_all": "Poista kaikki valinnat",
 		"selected_count": "{{count}} valittu",

@@ -891,7 +891,7 @@
 		"filter_state_enabled": "Zapnuté",
 		"filter_state_disabled": "Znevýhodnení",
 		"filter_origin_auto": "Auto",
-		"filter_origin_manual": "Návod",
+		"filter_origin_manual": "Custom",
 		"select_all": "Vybrať všetko",
 		"deselect_all": "Zrušiť výber všetkých",
 		"selected_count": "{{count}} vybrané",

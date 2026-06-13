@@ -58,7 +58,10 @@ function SummarySection<T>({
 						key={itemKey(item)}
 						className="flex items-baseline justify-between gap-3 text-sm"
 					>
-						<span className="text-(--text-primary) truncate">
+						<span
+							className="text-(--text-primary) truncate"
+							title={String(primary(item))}
+						>
 							{primary(item)}
 						</span>
 						<span className="text-(--text-tertiary) text-xs shrink-0">

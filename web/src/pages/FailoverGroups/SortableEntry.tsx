@@ -124,7 +124,10 @@ export function SortableEntry({
 				>
 					⠿
 				</span>
-				<div className="truncate failover-entry-text flex-1 min-w-0">
+				<div
+					className="truncate failover-entry-text flex-1 min-w-0"
+					title={`${entry.provider_name} / ${entry.model_id}`}
+				>
 					<span className="text-(--text-primary)">{entry.provider_name}</span>
 					<span className="text-gray-500 mx-1">/</span>
 					<span className="text-gray-400 truncate">{entry.model_id}</span>

@@ -891,7 +891,7 @@
 		"filter_state_enabled": "מופעל",
 		"filter_state_disabled": "מוגבלים",
 		"filter_origin_auto": "אוטומטי",
-		"filter_origin_manual": "מדריך",
+		"filter_origin_manual": "Custom",
 		"select_all": "בחר הכל",
 		"deselect_all": "בטל את הבחירה של הכל",
 		"selected_count": "{{count}} נבחר",

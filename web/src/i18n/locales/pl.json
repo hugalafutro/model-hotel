@@ -891,7 +891,7 @@
 		"filter_state_enabled": "Włączone",
 		"filter_state_disabled": "Wyłączone",
 		"filter_origin_auto": "Auto",
-		"filter_origin_manual": "Ręcznie",
+		"filter_origin_manual": "Custom",
 		"select_all": "Zaznacz wszystkie",
 		"deselect_all": "Odznacz wszystkie",
 		"selected_count": "Wybrano {{count}}",

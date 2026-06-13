@@ -298,7 +298,10 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 											"-"
 										)}
 									</td>
-									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-300 truncate">
+									<td
+										className="px-2 py-1 whitespace-nowrap text-xs text-gray-300 truncate"
+										title={log.provider_name || undefined}
+									>
 										{log.provider_name === "Deleted" ? (
 											<span
 												className="text-red-400 italic"

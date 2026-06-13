@@ -75,7 +75,10 @@ export function BracketPreviewPill({
 		);
 	}
 	return (
-		<div className="px-3 py-2 rounded-lg border bg-(--accent)/15 border-(--accent)/40 text-(--accent) text-xs font-medium truncate max-w-40">
+		<div
+			className="px-3 py-2 rounded-lg border bg-(--accent)/15 border-(--accent)/40 text-(--accent) text-xs font-medium truncate max-w-40"
+			title={displayName || modelId}
+		>
 			{displayName || modelId.split("/").pop()}
 		</div>
 	);

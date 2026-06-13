@@ -892,7 +892,7 @@
 		"filter_state_enabled": "Enabled",
 		"filter_state_disabled": "Disabled",
 		"filter_origin_auto": "Auto",
-		"filter_origin_manual": "Manual",
+		"filter_origin_manual": "Custom",
 		"select_all": "Select all",
 		"deselect_all": "Deselect all",
 		"selected_count": "{{count}} selected",

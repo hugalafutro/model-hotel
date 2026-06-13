@@ -891,7 +891,7 @@
 		"filter_state_enabled": "有効",
 		"filter_state_disabled": "無効",
 		"filter_origin_auto": "自動",
-		"filter_origin_manual": "マニュアル",
+		"filter_origin_manual": "Custom",
 		"select_all": "すべて選択",
 		"deselect_all": "すべての選択を解除",
 		"selected_count": "{{count}} が選択されました",

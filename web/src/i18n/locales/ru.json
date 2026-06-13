@@ -891,7 +891,7 @@
 		"filter_state_enabled": "Включено",
 		"filter_state_disabled": "Отключено",
 		"filter_origin_auto": "Авто",
-		"filter_origin_manual": "Ручной",
+		"filter_origin_manual": "Custom",
 		"select_all": "Выбрать все",
 		"deselect_all": "Отменить выбор",
 		"selected_count": "{{count}} выбран",

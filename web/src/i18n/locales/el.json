@@ -891,7 +891,7 @@
 		"filter_state_enabled": "Ενεργοποιημένο",
 		"filter_state_disabled": "Απενεργοποιημένο",
 		"filter_origin_auto": "Αυτόματο",
-		"filter_origin_manual": "Χειροκίνητα",
+		"filter_origin_manual": "Custom",
 		"select_all": "Επιλογή όλων",
 		"deselect_all": "Αποεπιλογή όλων",
 		"selected_count": "{{count}} επιλεγμένα",

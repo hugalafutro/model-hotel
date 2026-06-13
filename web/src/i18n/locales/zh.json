@@ -891,7 +891,7 @@
 		"filter_state_enabled": "已启用",
 		"filter_state_disabled": "已禁用",
 		"filter_origin_auto": "自动操作",
-		"filter_origin_manual": "手动模式",
+		"filter_origin_manual": "Custom",
 		"select_all": "选择所有",
 		"deselect_all": "取消全选",
 		"selected_count": "{{count}} 已选中",
