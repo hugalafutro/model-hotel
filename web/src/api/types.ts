@@ -104,6 +104,8 @@ export interface LogEntry {
 	virtual_key_deleted?: boolean;
 	virtual_key_id?: string;
 	error_message: string;
+	/** Machine-readable failure classification; "" or absent for legacy rows. */
+	error_kind?: string;
 	failover_attempt: number;
 	created_at: string;
 	resolved_model_id: string;

@@ -165,6 +165,12 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 	if logEntry.providerID != uuid.Nil {
 		providerID = logEntry.providerID
 	}
+	// NULL (not "") when unclassified, so the dashboard can distinguish "no kind
+	// recorded" (fall back to substring matching) from a real classification.
+	var errKind interface{}
+	if logEntry.errorKind != "" {
+		errKind = string(logEntry.errorKind)
+	}
 	logEntry.latencyMs = logEntry.durationMs - logEntry.proxyOverheadMs
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -197,7 +203,8 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 			error_message = $18,
 			failover_attempt = $19,
 			state = $20,
-			resolved_model_id = $26
+			resolved_model_id = $26,
+			error_kind = $28
 		WHERE id = $1`,
 		logEntry.id, logEntry.modelID, providerID, logEntry.statusCode, logEntry.durationMs,
 		logEntry.proxyOverheadMs, logEntry.parseMs, logEntry.failoverLookupMs, logEntry.modelLookupMs, logEntry.providerLookupMs,
@@ -205,7 +212,7 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 		logEntry.tokensCompletion, logEntry.tokensPromptCacheHit, logEntry.tokensPromptCacheMiss,
 		logEntry.errorMessage, logEntry.failoverAttempt, logEntry.state, logEntry.latencyMs,
 		logEntry.dialMs, logEntry.settingsReadMs, logEntry.tokensCompletionReasoning, logEntry.ttftMs,
-		logEntry.resolvedModelID, logEntry.cacheHits,
+		logEntry.resolvedModelID, logEntry.cacheHits, errKind,
 	)
 	if err != nil {
 		debuglog.Error("proxy: failed to update request log", "request_id", logEntry.id, "error", err)

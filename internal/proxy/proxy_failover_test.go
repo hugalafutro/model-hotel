@@ -154,7 +154,7 @@ func TestRetryWithStrippedParams_ParamErrorRetries(t *testing.T) {
 		0, &dialMs, failoverCancel, "failover_timeout")
 
 	if !res.retried {
-		t.Fatalf("expected retried=true, got false (cont=%v lastErr=%q)", res.cont, res.lastErr)
+		t.Fatalf("expected retried=true, got false (cont=%v lastReqErr=%+v)", res.cont, res.lastReqErr)
 	}
 	if res.cont {
 		t.Errorf("expected cont=false on successful retry")
@@ -223,5 +223,71 @@ func TestRetryWithStrippedParams_NonParamErrorFallsThrough(t *testing.T) {
 	body, _ := io.ReadAll(res.resp.Body)
 	if string(body) != origBody {
 		t.Errorf("expected original body restored, got %q", string(body))
+	}
+}
+
+// TestDoUpstream_ProviderErrorCapturesUnderlying verifies that a terminal
+// transport error (here: connection refused, retried then exhausted) is
+// captured into the structured error's Underlying field, classified as a
+// provider error.
+func TestDoUpstream_ProviderErrorCapturesUnderlying(t *testing.T) {
+	h := newRetryTestHandler()
+	st := newRetryTestState()
+	st.logData = &requestLogData{}
+	cand := newRetryTestCandidate("http://127.0.0.1:1")
+
+	req, err := http.NewRequestWithContext(context.Background(), "POST",
+		"http://127.0.0.1:1/chat/completions", strings.NewReader(string(st.bodyBytes)))
+	if err != nil {
+		t.Fatalf("build request: %v", err)
+	}
+	var dialMs float64
+	resp, ok := h.doUpstream(context.Background(), req, st, cand, 0, &dialMs)
+	if ok || resp != nil {
+		t.Fatalf("expected failure, got ok=%v resp=%v", ok, resp)
+	}
+	if st.lastReqErr.Kind != KindProviderError {
+		t.Errorf("expected Kind=%q, got %q", KindProviderError, st.lastReqErr.Kind)
+	}
+	if !strings.Contains(st.lastReqErr.Underlying, "connection refused") {
+		t.Errorf("Underlying did not capture transport error: %q", st.lastReqErr.Underlying)
+	}
+	if st.lastReqErr.Provider != "retry-prov" {
+		t.Errorf("expected Provider=retry-prov, got %q", st.lastReqErr.Provider)
+	}
+}
+
+// TestDoUpstream_ClientDisconnectPreservesProviderError is the regression test
+// for the motivating bug: when the client disconnects while we are retrying a
+// flaky provider, the real provider error must NOT be silently dropped — it is
+// preserved as Underlying even though the terminal cause is the disconnect.
+// The first try (connection refused) is retryable; the context is cancelled
+// during the (>=100ms) backoff, well after the ~40ms cancel timer.
+func TestDoUpstream_ClientDisconnectPreservesProviderError(t *testing.T) {
+	h := newRetryTestHandler()
+	st := newRetryTestState()
+	st.logData = &requestLogData{}
+	cand := newRetryTestCandidate("http://127.0.0.1:1")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	req, err := http.NewRequestWithContext(ctx, "POST",
+		"http://127.0.0.1:1/chat/completions", strings.NewReader(string(st.bodyBytes)))
+	if err != nil {
+		t.Fatalf("build request: %v", err)
+	}
+	go func() {
+		time.Sleep(40 * time.Millisecond)
+		cancel()
+	}()
+	var dialMs float64
+	resp, ok := h.doUpstream(ctx, req, st, cand, 0, &dialMs)
+	if ok || resp != nil {
+		t.Fatalf("expected failure, got ok=%v resp=%v", ok, resp)
+	}
+	if st.lastReqErr.Kind != KindClientDisconnect {
+		t.Errorf("expected Kind=%q, got %q", KindClientDisconnect, st.lastReqErr.Kind)
+	}
+	if !strings.Contains(st.lastReqErr.Underlying, "connection refused") {
+		t.Errorf("client disconnect DROPPED the real provider error (the bug this fixes): Underlying=%q", st.lastReqErr.Underlying)
 	}
 }

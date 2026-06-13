@@ -298,9 +298,9 @@ function RequestLogs() {
 
 	const getStatusBadgeVariant = (
 		statusCode: number,
-		errorMessage?: string,
+		log?: { error_kind?: string; error_message?: string },
 	): "error" | "warning" | "success" | "orange" | "muted" => {
-		if (isCancelled(errorMessage)) return "warning";
+		if (isCancelled(log)) return "warning";
 		if (statusCode === 0) return "error";
 		if (statusCode >= 200 && statusCode < 300) return "success";
 		if (statusCode >= 400 && statusCode < 500) return "orange";
@@ -667,7 +667,7 @@ function RequestLogs() {
 													<Badge
 														variant={getStatusBadgeVariant(
 															log.status_code,
-															log.error_message,
+															log,
 														)}
 														className="gap-1 whitespace-nowrap"
 													>
@@ -685,7 +685,7 @@ function RequestLogs() {
 													</Badge>
 												</td>
 												<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
-													{isCancelled(log.error_message) ? (
+													{isCancelled(log) ? (
 														t("logs.table.interrupted")
 													) : log.tokens_prompt + log.tokens_completion > 0 ? (
 														<>
@@ -698,7 +698,7 @@ function RequestLogs() {
 													)}
 												</td>
 												<td className="px-2 py-1 whitespace-nowrap text-xs font-mono">
-													{isCancelled(log.error_message) ? (
+													{isCancelled(log) ? (
 														"-"
 													) : (
 														<span

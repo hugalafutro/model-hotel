@@ -56,6 +56,7 @@ type LogEntry struct {
 	VirtualKeyDeleted         bool       `json:"virtual_key_deleted"`
 	VirtualKeyID              string     `json:"virtual_key_id"`
 	ErrorMessage              string     `json:"error_message"`
+	ErrorKind                 string     `json:"error_kind"` // "" when unclassified (legacy rows); frontend falls back to substring matching
 	FailoverAttempt           int        `json:"failover_attempt"`
 	State                     string     `json:"state"`
 	CreatedAt                 time.Time  `json:"created_at"`
@@ -119,7 +120,8 @@ func (h *Handler) GetLog(w http.ResponseWriter, r *http.Request) {
 			COALESCE(rl.error_message, ''), COALESCE(rl.failover_attempt, 0), COALESCE(rl.state, 'completed'), rl.created_at,
 			COALESCE(rl.response_header_ms, 0),
 			COALESCE(rl.resolved_model_id, ''),
-			COALESCE(rl.endpoint_type, 'chat')
+			COALESCE(rl.endpoint_type, 'chat'),
+			COALESCE(rl.error_kind, '')
 		FROM request_logs rl LEFT JOIN providers p ON rl.provider_id = p.id
 		LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
 		WHERE rl.id = $1`,
@@ -141,6 +143,7 @@ func (h *Handler) GetLog(w http.ResponseWriter, r *http.Request) {
 		&entry.ResponseHeaderMs,
 		&entry.ResolvedModelID,
 		&entry.EndpointType,
+		&entry.ErrorKind,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -222,7 +225,7 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// logEntrySelectColumns is the shared 35-column request_logs projection plus the
+// logEntrySelectColumns is the shared 36-column request_logs projection plus the
 // FROM/JOIN/WHERE 1=1 tail. The cursor list prefixes it with "SELECT "; the
 // offset list (ListLogs) prefixes it with the windowed total count. Its column
 // order matches logEntryScanDests exactly.
@@ -252,7 +255,8 @@ const logEntrySelectColumns = `rl.id, COALESCE(rl.provider_id::text, ''),
             COALESCE(rl.error_message, ''), COALESCE(rl.failover_attempt, 0), COALESCE(rl.state, 'completed'), rl.created_at,
             COALESCE(rl.response_header_ms, 0),
             COALESCE(rl.resolved_model_id, ''),
-            COALESCE(rl.endpoint_type, 'chat')
+            COALESCE(rl.endpoint_type, 'chat'),
+            COALESCE(rl.error_kind, '')
         FROM request_logs rl LEFT JOIN providers p ON rl.provider_id = p.id
         LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
         WHERE 1=1
@@ -357,6 +361,7 @@ func logEntryScanDests(entry *LogEntry) []any {
 		&entry.ResponseHeaderMs,
 		&entry.ResolvedModelID,
 		&entry.EndpointType,
+		&entry.ErrorKind,
 	}
 }
 

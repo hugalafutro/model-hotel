@@ -162,6 +162,10 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 // here — it may write to the client, so it stays in finalizeStream.
 func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logData *requestLogData) string {
 	errMsg := st.lastErrMsg
+	if errMsg != "" {
+		// An in-stream SSE error body from the provider.
+		logData.errorKind = KindProviderError
+	}
 	if errMsg == "" && scanErr != nil {
 		switch {
 		case errors.Is(scanErr, context.Canceled):
@@ -175,18 +179,23 @@ func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logDa
 			switch opts.cancelOrigin {
 			case "retry_timeout":
 				errMsg = "stream interrupted: param-strip retry timed out"
+				logData.errorKind = KindRetryTimeout
 			case "failover_timeout":
 				errMsg = "stream interrupted: upstream request timed out"
+				logData.errorKind = KindFailoverTimeout
 			default:
 				// Unknown origin — preserve the value rather than guessing.
 				errMsg = fmt.Sprintf("stream interrupted: %s", humanReadableCancelOrigin(opts.cancelOrigin))
+				logData.errorKind = cancelOriginToKind(opts.cancelOrigin)
 			}
 		default:
 			errMsg = scanErr.Error()
+			logData.errorKind = KindProviderError
 		}
 	}
 	if st.clientDisconnected {
 		errMsg = "client disconnected"
+		logData.errorKind = KindClientDisconnect
 		debuglog.Warn("proxy: client disconnected during streaming", "model", logData.modelID)
 	}
 	// Stall detection takes precedence over the raw IO error produced by
@@ -200,6 +209,7 @@ func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logDa
 			effectiveStall = opts.streamStallTimeout * progressiveStallMultiplier
 		}
 		errMsg = fmt.Sprintf("stream stalled: no data for %s", effectiveStall)
+		logData.errorKind = KindProviderTimeout
 		debuglog.Warn("proxy: stream stall detected", "model", logData.modelID, "provider", logData.providerName, "stall_timeout", effectiveStall, "base_timeout", opts.streamStallTimeout, "chunks", st.chunkCount)
 	}
 	return errMsg

@@ -100,6 +100,7 @@ type requestLogData struct {
 	virtualKeyName            string
 	virtualKeyID              string
 	errorMessage              string
+	errorKind                 ErrorKind // machine-readable classification; "" = unclassified (NULL in DB)
 	failoverAttempt           int
 	state                     string
 	resolvedModelID           string
@@ -151,8 +152,22 @@ type requestState struct {
 	overallDeadline       time.Time
 	circuitBreakerEnabled bool
 
-	// Accumulated across failover attempts (phase D / E).
-	lastErr string
+	// Accumulated across failover attempts (phase D / E). lastReqErr is the
+	// structured cause of the most recent attempt's failure; lastErr is its
+	// rendered string, kept in sync by setReqErr for the debug-log "error"
+	// field. The exhaustion path renders the terminal message/status from
+	// lastReqErr.
+	lastErr    string
+	lastReqErr reqError
+}
+
+// setReqErr records the structured cause of the most recent failed attempt and
+// keeps the rendered lastErr string in sync. Every failover-loop site that used
+// to assign st.lastErr a fmt.Sprintf string now goes through here so the
+// exhaustion path always has a structured error to render and classify.
+func (st *requestState) setReqErr(e reqError) {
+	st.lastReqErr = e
+	st.lastErr = e.render()
 }
 
 // candidateOutcome is the result of a single failover attempt

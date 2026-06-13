@@ -577,7 +577,7 @@ func (h *Handler) runFailoverLoop(w http.ResponseWriter, r *http.Request, st *re
 		// is silent but connected (no TCP reset).
 		if time.Now().After(st.overallDeadline) && attempt > 0 {
 			debuglog.Warn("proxy: overall request deadline exceeded, stopping failover", "model", st.logData.modelID, "attempt", attempt+1, "total_candidates", len(candidates), "deadline", st.overallDeadline)
-			st.lastErr = fmt.Sprintf("attempt %d: overall request deadline exceeded", attempt)
+			st.setReqErr(reqError{Kind: KindFailoverTimeout, Attempt: attempt - 1, Provider: st.logData.providerName, Underlying: st.lastReqErr.Underlying})
 			break
 		}
 
@@ -591,8 +591,13 @@ func (h *Handler) runFailoverLoop(w http.ResponseWriter, r *http.Request, st *re
 			case <-time.After(backoff):
 			case <-r.Context().Done():
 				debuglog.Info("proxy: client disconnected during failover backoff", "model", st.logData.modelID, "provider", st.logData.providerName, "attempt", attempt+1)
-				h.failRequest(st.logData, 499, "client disconnected during failover", attempt-1, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
-				writeOpenAIError(w, "client disconnected", http.StatusRequestTimeout)
+				// Carry the prior attempt's provider error (if any) so the log
+				// shows what was failing when the client gave up. 499 (client
+				// closed request) on both the log and the wire — see plan §7.
+				st.setReqErr(reqError{Kind: KindClientDisconnect, Attempt: attempt - 1, Provider: st.logData.providerName, Underlying: st.lastReqErr.Underlying})
+				st.logData.errorKind = KindClientDisconnect
+				h.failRequest(st.logData, statusClientClosedRequest, st.lastErr, attempt-1, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
+				writeOpenAIError(w, "client disconnected", statusClientClosedRequest)
 				return
 			}
 		}

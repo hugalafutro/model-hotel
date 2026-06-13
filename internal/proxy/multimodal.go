@@ -361,7 +361,7 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 		if hasMoreCandidates {
 			_, _ = io.ReadAll(resp.Body)
 			_ = resp.Body.Close()
-			st.lastErr = fmt.Sprintf("attempt %d: HTTP %d", attempt, resp.StatusCode)
+			st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Detail: fmt.Sprintf("HTTP %d", resp.StatusCode)})
 			debuglog.Info("proxy: failover triggered", "endpoint", logData.endpointType, "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
 			logData.failoverAttempt = attempt
 			return outcomeFailover

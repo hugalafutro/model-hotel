@@ -33,7 +33,8 @@ import (
 //     the caller's original value, unchanged.
 //   - retried: true when a retry request succeeded — the caller must fold the
 //     retry's dial time into the running totals.
-//   - lastErr: set only when cont is true.
+//   - lastReqErr: set only when cont is true; the structured cause the caller
+//     records via st.setReqErr before failing over.
 //   - cont: true => the caller should `continue` to the next candidate (a retry
 //     request could not be created or failed).
 type paramRetryResult struct {
@@ -41,7 +42,7 @@ type paramRetryResult struct {
 	retryCancel        context.CancelFunc
 	streamCancelOrigin string
 	retried            bool
-	lastErr            string
+	lastReqErr         reqError
 	cont               bool
 }
 
@@ -50,19 +51,19 @@ type paramRetryResult struct {
 // writes the failover-vs-single-provider error response. numCandidates is the
 // resolved candidate count (for the failRequest attempt index).
 func (h *Handler) failAllExhausted(w http.ResponseWriter, st *requestState, numCandidates int) {
+	last := st.lastReqErr
+	status := last.terminalStatus()
+	logMsg := last.terminalLogMessage(st.isFailover, numCandidates)
+	clientMsg := last.terminalClientMessage(st.reqModel, st.isFailover)
 	if st.isFailover {
-		debuglog.Error("proxy: all providers exhausted", "model", st.logData.modelID, "provider", st.logData.providerName, "error", st.lastErr, "candidates", numCandidates, "failover_timeout", st.failoverTimeout)
+		debuglog.Error("proxy: all providers exhausted", "model", st.logData.modelID, "provider", st.logData.providerName, "error", logMsg, "kind", string(last.Kind), "status", status, "candidates", numCandidates, "failover_timeout", st.failoverTimeout)
 	} else {
-		debuglog.Error("proxy: provider request failed", "model", st.logData.modelID, "provider", st.logData.providerName, "error", st.lastErr, "request_timeout", st.failoverTimeout)
+		debuglog.Error("proxy: provider request failed", "model", st.logData.modelID, "provider", st.logData.providerName, "error", logMsg, "kind", string(last.Kind), "status", status, "request_timeout", st.failoverTimeout)
 	}
 	st.logData.providerID = uuid.Nil
-	if st.isFailover {
-		h.failRequest(st.logData, 502, fmt.Sprintf("all providers failed: %s", st.lastErr), numCandidates-1, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
-		writeOpenAIError(w, fmt.Sprintf("all providers failed for model %s", st.reqModel), http.StatusBadGateway)
-	} else {
-		h.failRequest(st.logData, 502, fmt.Sprintf("provider request failed: %s", st.lastErr), numCandidates-1, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
-		writeOpenAIError(w, fmt.Sprintf("provider request failed for model %s", st.reqModel), http.StatusBadGateway)
-	}
+	st.logData.errorKind = last.Kind
+	h.failRequest(st.logData, status, logMsg, numCandidates-1, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
+	writeOpenAIError(w, clientMsg, status)
 }
 
 // attemptCandidate runs one failover attempt against a single candidate (phase
@@ -115,7 +116,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		streamCancelOrigin = res.streamCancelOrigin
 		retryCancel = res.retryCancel
 		if res.cont {
-			st.lastErr = res.lastErr
+			st.setReqErr(res.lastReqErr)
 			return outcomeFailover
 		}
 		if res.retried {
@@ -139,7 +140,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	if shouldFailoverNow {
 		_, _ = io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
-		st.lastErr = fmt.Sprintf("attempt %d: HTTP %d", attempt, resp.StatusCode)
+		st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Detail: fmt.Sprintf("HTTP %d", resp.StatusCode)})
 		debuglog.Info("proxy: failover triggered", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
 		logData.failoverAttempt = attempt
 		return outcomeFailover
@@ -199,10 +200,17 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 			// Skip circuit-breaker recording when the client disconnected:
 			// the probe failed because r.Context() was cancelled, not because
 			// the provider was unhealthy.
-			if st.circuitBreakerEnabled && r.Context().Err() == nil {
+			clientGone := r.Context().Err() != nil
+			if st.circuitBreakerEnabled && !clientGone {
 				h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
 			}
-			st.lastErr = fmt.Sprintf("attempt %d: %v", attempt, probeErr)
+			// Distinguish a client disconnect (don't blame the provider) from a
+			// genuine TTFT timeout (the provider was too slow to first token).
+			probeKind := KindProviderTimeout
+			if clientGone {
+				probeKind = KindClientDisconnect
+			}
+			st.setReqErr(reqError{Kind: probeKind, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(probeErr)})
 			logData.failoverAttempt = attempt
 			logData.responseHeaderMs = responseHeaderMs
 			debuglog.Warn("proxy: TTFT probe failed", "attempt", attempt+1, "provider", candidate.provider.Name, "error", probeErr)
@@ -247,7 +255,7 @@ func (h *Handler) beginAttempt(failoverCtx context.Context, st *requestState, ca
 
 	proxyReq, providerType, targetURL, err := h.buildCandidateRequest(failoverCtx, st, candidate)
 	if err != nil {
-		st.lastErr = fmt.Sprintf("attempt %d: failed to create request: %v", attempt, err)
+		st.setReqErr(reqError{Kind: KindInternal, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
 		return nil, providerType, targetURL, false
 	}
 
@@ -365,6 +373,13 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 
 	var resp *http.Response
 	var err error
+	// lastTransportErr preserves the real provider/transport error that drove
+	// the retry loop, so that if a client disconnect or timeout later overwrites
+	// `err` with a context error (below), the original cause is not lost — it is
+	// carried into the structured error as Underlying. This is the fix for the
+	// "provider request failed: client disconnected" bug where the real provider
+	// error was silently dropped.
+	var lastTransportErr error
 	for try := 0; ; try++ {
 		// Track whether any request bytes reached the wire on this try, so
 		// isRetryableUpstreamError can tell provably-safe pre-write failures
@@ -392,6 +407,9 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 		if err == nil || try == maxTransientRetries || !isRetryableUpstreamError(err, wroteRequest.Load()) {
 			break
 		}
+		// Retryable transport error: remember it before backing off, in case the
+		// context is cancelled during the backoff and overwrites `err` below.
+		lastTransportErr = err
 		backoff := failoverBackoff(100*time.Millisecond, 500*time.Millisecond, try+1)
 		debuglog.Warn("proxy: transient upstream error, retrying same provider", "attempt", attempt+1, "try", try+1, "backoff", backoff, "request_written", wroteRequest.Load(), "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", err)
 		select {
@@ -427,10 +445,23 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 					}
 				}
 			}
-			st.lastErr = fmt.Sprintf("attempt %d: %s", attempt, humanReadableCancelOrigin(cancelOrigin))
-			debuglog.Info("proxy: context cancelled during request to provider", "provider", logData.providerName, "provider_id", candidate.provider.ID, "model", logData.modelID, "origin", cancelOrigin, "error", err)
+			// The context error is the terminal cause, but the provider error
+			// that drove the retries (lastTransportErr) is preserved as
+			// Underlying so it survives into the request log and response.
+			st.setReqErr(reqError{
+				Kind:       cancelOriginToKind(cancelOrigin),
+				Attempt:    attempt,
+				Provider:   candidate.provider.Name,
+				Underlying: errString(lastTransportErr),
+			})
+			debuglog.Info("proxy: context cancelled during request to provider", "provider", logData.providerName, "provider_id", candidate.provider.ID, "model", logData.modelID, "origin", cancelOrigin, "error", err, "underlying", errString(lastTransportErr))
 		} else {
-			st.lastErr = fmt.Sprintf("attempt %d: provider error: %v", attempt, err)
+			st.setReqErr(reqError{
+				Kind:       KindProviderError,
+				Attempt:    attempt,
+				Provider:   candidate.provider.Name,
+				Underlying: errString(err),
+			})
 			debuglog.Warn("proxy: upstream request failed", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", err)
 		}
 		// Client-initiated cancellations and deadline exceeded are not
@@ -467,6 +498,7 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 	debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID)
 	debuglog.Debug("proxy: upstream error response", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "body_length", len(body), "attempt", attempt+1)
 	logData.responseHeaderMs = responseHeaderMs
+	logData.errorKind = KindProviderError
 	h.failRequest(logData, resp.StatusCode, errMsg, attempt, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
 
 	if !hasMoreCandidates {
@@ -613,7 +645,7 @@ func (h *Handler) retryWithStrippedParams(
 	retryReq, retryErr := newRequestWithContext(retryCtx, "POST", targetURL, bytes.NewReader(rebuilt))
 	if retryErr != nil {
 		rc()
-		res.lastErr = fmt.Sprintf("attempt %d: failed to create retry request: %v", attempt, retryErr)
+		res.lastReqErr = reqError{Kind: KindInternal, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(retryErr)}
 		res.cont = true
 		return res
 	}
@@ -636,9 +668,9 @@ func (h *Handler) retryWithStrippedParams(
 			if errors.Is(retryErr, context.Canceled) {
 				origin = "client_disconnect"
 			}
-			res.lastErr = fmt.Sprintf("attempt %d: %s", attempt, humanReadableCancelOrigin(origin))
+			res.lastReqErr = reqError{Kind: cancelOriginToKind(origin), Attempt: attempt, Provider: candidate.provider.Name}
 		} else {
-			res.lastErr = fmt.Sprintf("attempt %d: retry error: %v", attempt, retryErr)
+			res.lastReqErr = reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(retryErr)}
 		}
 		res.cont = true
 		return res

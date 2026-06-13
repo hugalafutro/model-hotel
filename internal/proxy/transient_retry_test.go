@@ -207,8 +207,8 @@ func TestDoUpstream_GetBodyErrorStopsRetry(t *testing.T) {
 	if got := calls.Load(); got != 1 {
 		t.Errorf("expected 1 upstream call (no retry without replayable body), got %d", got)
 	}
-	if !strings.Contains(st.lastErr, "provider error") {
-		t.Errorf("expected lastErr to contain the transport error, got %q", st.lastErr)
+	if st.lastReqErr.Kind != KindProviderError || st.lastReqErr.Underlying == "" {
+		t.Errorf("expected a provider error carrying the transport cause, got kind=%q underlying=%q", st.lastReqErr.Kind, st.lastReqErr.Underlying)
 	}
 }
 
@@ -261,8 +261,10 @@ func TestChatCompletions_TransientRetryClientDisconnectDuringBackoff(t *testing.
 	w := httptest.NewRecorder()
 	env.Handler.ChatCompletions(w, req)
 
-	if w.Code != http.StatusBadGateway {
-		t.Errorf("expected 502 after client disconnect, got %d: %s", w.Code, w.Body.String())
+	// A client hangup is not a provider failure: it is reported as 499 (client
+	// closed request), no longer misattributed as a 502 provider failure.
+	if w.Code != 499 {
+		t.Errorf("expected 499 after client disconnect, got %d: %s", w.Code, w.Body.String())
 	}
 	if got := calls.Load(); got != 1 {
 		t.Errorf("expected 1 upstream call (no retry after disconnect), got %d", got)
