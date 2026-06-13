@@ -3,10 +3,17 @@ package api
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/hugalafutro/model-hotel/internal/config"
+	"github.com/hugalafutro/model-hotel/internal/failover"
 )
+
+// fakeBreakerReader is a CircuitBreakerReader stub for the metrics handler test.
+type fakeBreakerReader struct{ statuses []failover.ProviderStatus }
+
+func (f fakeBreakerReader) Status() []failover.ProviderStatus { return f.statuses }
 
 func TestMetricsAuth_DedicatedToken(t *testing.T) {
 	h := &Handler{cfg: &config.Config{MetricsToken: "s3cret"}}
@@ -63,5 +70,32 @@ func TestBreakerStateCode(t *testing.T) {
 		if got := breakerStateCode(state); got != want {
 			t.Errorf("breakerStateCode(%q) = %d, want %d", state, got, want)
 		}
+	}
+}
+
+// TestMetricsHandler_ServesBreakerGauge exercises MetricsHandler end-to-end:
+// it registers the scrape-time breaker collector from the handler's circuit
+// breaker and serves the authenticated /metrics scrape, asserting the breaker
+// gauge reflects the reader's state (open -> 2).
+func TestMetricsHandler_ServesBreakerGauge(t *testing.T) {
+	h := &Handler{
+		cfg: &config.Config{MetricsToken: "tok"},
+		circuitBreaker: fakeBreakerReader{statuses: []failover.ProviderStatus{
+			{ProviderID: "prov-x", State: "open"},
+		}},
+	}
+	srv := h.MetricsHandler()
+
+	r := httptest.NewRequest("GET", "/metrics", http.NoBody)
+	r.Header.Set("Authorization", "Bearer tok")
+	rr := httptest.NewRecorder()
+	srv.ServeHTTP(rr, r)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rr.Code)
+	}
+	body := rr.Body.String()
+	if !strings.Contains(body, `modelhotel_circuit_breaker_state{provider_id="prov-x"} 2`) {
+		t.Errorf("expected open breaker gauge for prov-x, got:\n%s", body)
 	}
 }

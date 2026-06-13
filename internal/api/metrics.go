@@ -10,9 +10,9 @@ import (
 
 // MetricsHandler returns the authenticated Prometheus /metrics handler and
 // registers the live circuit-breaker-state collector. Authentication: when
-// METRICS_TOKEN is set it must match (Bearer header or ?token=); otherwise the
-// admin token / passkey session is required. The endpoint is never served
-// unauthenticated.
+// METRICS_TOKEN is set it must match, presented as an Authorization: Bearer
+// header; otherwise the admin token / passkey session is required. The endpoint
+// is never served unauthenticated.
 func (h *Handler) MetricsHandler() http.Handler {
 	// Register the breaker-state collector once; it reads live state at scrape
 	// time so the time-based open→half-open transition is reflected.
