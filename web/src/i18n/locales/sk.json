@@ -301,12 +301,10 @@
 			"requestsUnit": "Žiadosti"
 		},
 		"models": {
-			"top": "Naj. modely",
 			"viewDetails": "Zobraziť podrobnosti o {{label}}",
 			"emptyState": "Zatiaľ nie sú k dispozícii žiadne údaje z modelu. Rozpis údajov z modelu sa tu zobrazí, akonáhle budú k dispozícii údaje o dopravných tokoch."
 		},
 		"virtualKeys": {
-			"top": "Naj. virtuálne kľúče",
 			"emptyState": "Zatiaľ nie sú k dispozícii žiadne údaje o virtuálnych kľúčoch. Rozpis virtuálnych kľúčov sa tu zobrazí, akonáhle začne prevádzka."
 		},
 		"tokens": {

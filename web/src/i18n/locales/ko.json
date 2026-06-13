@@ -301,12 +301,10 @@
 			"requestsUnit": "요청"
 		},
 		"models": {
-			"top": "상위 모델",
 			"viewDetails": "상세 정보 보기 {{label}}",
 			"emptyState": "아직 모델 데이터가 없습니다. 트래픽이 유입되면 모델 분석 결과가 이곳에 표시될 예정입니다."
 		},
 		"virtualKeys": {
-			"top": "상위 가상 키",
 			"emptyState": "아직 가상 키 데이터가 없습니다. 트래픽이 발생하면 가상 키별 분석 결과가 이곳에 표시됩니다."
 		},
 		"tokens": {

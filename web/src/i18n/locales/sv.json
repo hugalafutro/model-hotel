@@ -301,12 +301,10 @@
 			"requestsUnit": "Förfrågningar"
 		},
 		"models": {
-			"top": "Toppmodeller",
 			"viewDetails": "Visa detaljer för {{label}}",
 			"emptyState": "Inga modelldata ännu. Modelldelning visas här när trafikflöden."
 		},
 		"virtualKeys": {
-			"top": "Topp virtuella nycklar",
 			"emptyState": "Inga virtuella nyckeldata än. Virtuell nyckeldelning visas här när trafikflöden."
 		},
 		"tokens": {

@@ -301,12 +301,10 @@
 			"requestsUnit": "请求"
 		},
 		"models": {
-			"top": "热门模型",
 			"viewDetails": "查看详情 {{label}}",
 			"emptyState": "尚无模型数据。一旦流量流量，模型将会显示在此处。"
 		},
 		"virtualKeys": {
-			"top": "热门虚拟密钥",
 			"emptyState": "尚无虚拟密钥数据。一旦流量流量，虚拟密钥会出现在这里。"
 		},
 		"tokens": {

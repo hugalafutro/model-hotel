@@ -301,12 +301,10 @@
 			"requestsUnit": "Requêtes"
 		},
 		"models": {
-			"top": "Top modèles",
 			"viewDetails": "Voir les détails pour {{label}}",
 			"emptyState": "Aucune donnée de modèle pour le moment. La ventilation du modèle apparaîtra ici une fois le trafic écoulé."
 		},
 		"virtualKeys": {
-			"top": "Top clés virtuelles",
 			"emptyState": "Aucune donnée de clé virtuelle pour le moment. La ventilation des clés virtuelles apparaîtra ici une fois le trafic écoulé."
 		},
 		"tokens": {

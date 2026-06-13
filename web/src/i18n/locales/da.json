@@ -301,12 +301,10 @@
 			"requestsUnit": "Anmodninger"
 		},
 		"models": {
-			"top": "Topmodeller",
 			"viewDetails": "Se detaljer for {{label}}",
 			"emptyState": "Ingen modeldata endnu. Modelopdeling vil blive vist her, når trafikken strømmer."
 		},
 		"virtualKeys": {
-			"top": "Top virtuelle nøgler",
 			"emptyState": "Ingen virtuelle nøgledata endnu. Virtuel nøgleopdeling vil blive vist her, når trafikstrømmene."
 		},
 		"tokens": {

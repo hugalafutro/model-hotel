@@ -301,12 +301,10 @@
 			"requestsUnit": "Solicitações"
 		},
 		"models": {
-			"top": "Top modelos",
 			"viewDetails": "Ver detalhes do {{label}}",
 			"emptyState": "Ainda não há dados do modelo. O detalhamento do modelo aparecerá aqui quando o tráfego fluir."
 		},
 		"virtualKeys": {
-			"top": "Top chaves virtuais",
 			"emptyState": "Ainda não há dados de chave virtual. O avistamento de chaves virtuais aparecerá aqui quando o tráfego fluir."
 		},
 		"tokens": {

@@ -301,12 +301,10 @@
 			"requestsUnit": "Yêu cầu"
 		},
 		"models": {
-			"top": "Mô hình hàng đầu",
 			"viewDetails": "Xem chi tiết về {{label}}",
 			"emptyState": "Hiện chưa có dữ liệu mô hình. Thông tin chi tiết về mô hình sẽ hiển thị tại đây ngay khi có lưu lượng giao thông."
 		},
 		"virtualKeys": {
-			"top": "Khóa ảo hàng đầu",
 			"emptyState": "Hiện chưa có dữ liệu về phím ảo. Bảng phân tích chi tiết về phím ảo sẽ hiển thị tại đây ngay khi có lưu lượng truy cập."
 		},
 		"tokens": {

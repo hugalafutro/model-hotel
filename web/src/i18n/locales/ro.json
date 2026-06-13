@@ -301,12 +301,10 @@
 			"requestsUnit": "Cereri"
 		},
 		"models": {
-			"top": "Top modele",
 			"viewDetails": "Vezi detalii pentru {{label}}",
 			"emptyState": "Nici un model de date încă. Defalcarea modelului va apărea aici odată ce traficul se va schimba."
 		},
 		"virtualKeys": {
-			"top": "Top chei virtuale",
 			"emptyState": "Nu există încă date ale cheii virtuale. Defalcarea cheii virtuale va apărea aici odată ce traficul curge."
 		},
 		"tokens": {

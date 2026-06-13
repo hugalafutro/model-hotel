@@ -301,12 +301,10 @@
 			"requestsUnit": "Verzoeken"
 		},
 		"models": {
-			"top": "Topmodellen",
 			"viewDetails": "Bekijk de details van {{label}}",
 			"emptyState": "Nog geen modelgegevens. Het uiteenvallen van model zal hier verschijnen zodra het verkeer stroomt."
 		},
 		"virtualKeys": {
-			"top": "Top virtuele sleutels",
 			"emptyState": "Nog geen virtuele sleutelgegevens. Virtuele sleutelverdeling verschijnt hier zodra het verkeer stroomt."
 		},
 		"tokens": {

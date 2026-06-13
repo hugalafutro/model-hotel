@@ -301,12 +301,10 @@
 			"requestsUnit": "Requests"
 		},
 		"models": {
-			"top": "Top Models",
 			"viewDetails": "View details for {{label}}",
 			"emptyState": "No model data yet. Model breakdown will appear here once traffic flows."
 		},
 		"virtualKeys": {
-			"top": "Top Virtual Keys",
 			"emptyState": "No virtual key data yet. Virtual key breakdown will appear here once traffic flows."
 		},
 		"tokens": {

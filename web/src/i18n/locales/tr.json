@@ -301,12 +301,10 @@
 			"requestsUnit": "İstekler"
 		},
 		"models": {
-			"top": "En iyi modeller",
 			"viewDetails": "Ayrıntıları görüntüle {{label}}",
 			"emptyState": "Henüz model verisi yok. Trafik akışı başladığında model dökümü burada görünecektir."
 		},
 		"virtualKeys": {
-			"top": "En iyi sanal anahtarlar",
 			"emptyState": "Henüz sanal anahtar verisi yok. Trafik akışı başladığında sanal anahtar dağılımı burada görünecektir."
 		},
 		"tokens": {

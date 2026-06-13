@@ -301,12 +301,10 @@
 			"requestsUnit": "Sol·licituds"
 		},
 		"models": {
-			"top": "Millors models",
 			"viewDetails": "Veure detalls de {{label}}",
 			"emptyState": "Encara no hi ha dades del model. El desglossament del model apareixerà aquí un cop hi hagi fluxos de trànsit."
 		},
 		"virtualKeys": {
-			"top": "Top claus virtuals",
 			"emptyState": "Encara no hi ha dades de les claus virtuals. El desglossament de les claus virtuals apareixerà aquí un cop hi hagi fluxos de trànsit."
 		},
 		"tokens": {

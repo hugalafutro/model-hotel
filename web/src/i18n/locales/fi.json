@@ -301,12 +301,10 @@
 			"requestsUnit": "Pyynnöt"
 		},
 		"models": {
-			"top": "Top-mallit",
 			"viewDetails": "Näytä tiedot {{label}}",
 			"emptyState": "Mallitietoja ei vielä. Mallikohtainen erittely ilmestyy tässä liikennevirtojen jälkeen."
 		},
 		"virtualKeys": {
-			"top": "Top-virtuaaliavaimet",
 			"emptyState": "Virtuaalisia avaintietoja ei ole vielä. Virtuaalisen avaimen jakautuminen näkyy täällä, kun liikennevirrat näkyvät."
 		},
 		"tokens": {

@@ -301,12 +301,10 @@
 			"requestsUnit": "Požadavky"
 		},
 		"models": {
-			"top": "Nej. modely",
 			"viewDetails": "Zobrazit podrobnosti o modelu {{label}}",
 			"emptyState": "Zatím nejsou k dispozici žádné údaje o modelu. Rozpis modelu se zde zobrazí, jakmile budou k dispozici údaje o dopravním provozu."
 		},
 		"virtualKeys": {
-			"top": "Nej. virtuální klíče",
 			"emptyState": "Zatím nejsou k dispozici žádné údaje o virtuálních klíčích. Rozpis virtuálních klíčů se zde zobrazí, jakmile začne provoz."
 		},
 		"tokens": {

@@ -301,12 +301,10 @@
 			"requestsUnit": "Richieste"
 		},
 		"models": {
-			"top": "Modelli principali",
 			"viewDetails": "Visualizza i dettagli per {{label}}",
 			"emptyState": "Nessun dato del modello. Ripartizione del modello apparirà qui una volta che i flussi di traffico."
 		},
 		"virtualKeys": {
-			"top": "Chiavi virtuali principali",
 			"emptyState": "Ancora non ci sono dati di chiave virtuali. Verranno visualizzate qui le interruzioni di chiave virtuali una volta che il traffico fluisce."
 		},
 		"tokens": {

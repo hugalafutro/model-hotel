@@ -301,12 +301,10 @@
 			"requestsUnit": "Kérelmek"
 		},
 		"models": {
-			"top": "Top modellek",
 			"viewDetails": "Részletek megtekintése {{label}}",
 			"emptyState": "Még nincsenek modellezési adatok. A forgalmi adatok beérkezése után a modell bontása itt jelenik meg."
 		},
 		"virtualKeys": {
-			"top": "Top virtuális kulcsok",
 			"emptyState": "Még nincsenek adatok a virtuális kulcsokról. A virtuális kulcsok bontása itt jelenik meg, amint megindul a forgalom."
 		},
 		"tokens": {

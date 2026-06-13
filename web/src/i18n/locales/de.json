@@ -301,12 +301,10 @@
 			"requestsUnit": "Anfragen"
 		},
 		"models": {
-			"top": "Top-Modelle",
 			"viewDetails": "Details für {{label}} anzeigen",
 			"emptyState": "Noch keine Modelldaten. Die Modellaufteilung wird hier angezeigt, sobald der Verkehr fließt."
 		},
 		"virtualKeys": {
-			"top": "Top-Virtual-Keys",
 			"emptyState": "Noch keine virtuellen Schlüsseldaten werden hier angezeigt, sobald der Datenverkehr abläuft."
 		},
 		"tokens": {

@@ -301,12 +301,10 @@
 			"requestsUnit": "Żądania"
 		},
 		"models": {
-			"top": "Top modele",
 			"viewDetails": "Zobacz szczegóły dla {{label}}",
 			"emptyState": "Brak danych modelu. Podział modelu pojawi się tutaj po przepływie ruchu."
 		},
 		"virtualKeys": {
-			"top": "Top klucze wirtualne",
 			"emptyState": "Brak danych klucza wirtualnego. Wirtualny podział klucza pojawi się tutaj po przepływie ruchu."
 		},
 		"tokens": {
