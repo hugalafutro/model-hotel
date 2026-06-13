@@ -28,6 +28,7 @@ type Config struct {
 
 	DataDir              string
 	AdminToken           string
+	MetricsToken         string
 	AllowHTTPProviders   bool
 	AllowEmbed           bool
 	RateLimitEnabled     bool
@@ -96,6 +97,7 @@ func Load() (*Config, error) {
 
 		DataDir:              getEnvWithDefault("DATA_DIR", "./data"),
 		AdminToken:           getEnv("ADMIN_TOKEN"),
+		MetricsToken:         getEnv("METRICS_TOKEN"),
 		AllowHTTPProviders:   getBoolEnvWithDefault("ALLOW_HTTP_PROVIDERS", false),
 		AllowEmbed:           getBoolEnvWithDefault("ALLOW_EMBED", false),
 		RateLimitEnabled:     getBoolEnvWithDefault("RATE_LIMIT_ENABLED", true),

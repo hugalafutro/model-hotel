@@ -10,6 +10,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/metrics"
 )
 
 // updateLogOption configures updateRequestLog behavior.
@@ -222,6 +223,22 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 
 	// Publish request lifecycle event for terminal states
 	if logEntry.state == "completed" || logEntry.state == "failed" {
+		// Single Prometheus recording seam: every terminal request passes
+		// through here exactly once with its provider/model/status/tokens.
+		metrics.Record(metrics.Observation{
+			Provider:         logEntry.providerName,
+			Model:            logEntry.modelID,
+			StatusCode:       logEntry.statusCode,
+			ErrorKind:        string(logEntry.errorKind),
+			DurationSeconds:  logEntry.durationMs / 1000.0,
+			TTFTSeconds:      logEntry.ttftMs / 1000.0,
+			Streaming:        logEntry.streaming,
+			PromptTokens:     logEntry.tokensPrompt,
+			CompletionTokens: logEntry.tokensCompletion,
+			ReasoningTokens:  logEntry.tokensCompletionReasoning,
+			FailoverAttempt:  logEntry.failoverAttempt,
+		})
+
 		severity := "success"
 		if logEntry.state == "failed" {
 			severity = "warning"

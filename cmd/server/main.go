@@ -262,6 +262,11 @@ func main() {
 	apiHandler.SetCircuitBreaker(proxyHandler.CircuitBreaker())
 	apiHandler.StartBackupScheduler(context.Background())
 
+	// Prometheus metrics at the conventional /metrics path (root, no IP rate
+	// limiter so scrapers aren't throttled). Authenticated via METRICS_TOKEN or
+	// the admin token — never unauthenticated.
+	r.Handle("/metrics", apiHandler.MetricsHandler())
+
 	// WebAuthn/FIDO2 passkey authentication (enabled when WEBAUTHN_RP_ID is set).
 	var webauthnHandler *api.WebAuthnHandler
 
