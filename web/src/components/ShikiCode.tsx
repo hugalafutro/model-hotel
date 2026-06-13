@@ -1,10 +1,11 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useContext, useEffect, useState } from "react";
 import type { ThemedToken } from "shiki/core";
 import {
 	getSnippetHighlighter,
 	resolveShikiLang,
 } from "../utils/shikiHighlighter";
 import { splitLineByHighlights } from "../utils/snippetHighlights";
+import { MarkdownStreamingContext } from "./markdownStreamingContext";
 
 interface ShikiCodeProps {
 	/** The plain-text snippet (same string the copy button uses). */
@@ -26,8 +27,15 @@ interface ShikiCodeProps {
  */
 export function ShikiCode({ code, lang, highlights = [] }: ShikiCodeProps) {
 	const [tokens, setTokens] = useState<ThemedToken[][] | null>(null);
+	// While the surrounding markdown streams, render plain text and defer
+	// highlighting. codeToTokensBase is synchronous and re-tokenizes the whole
+	// block on every delta (~O(n²) over a stream); on a large code block that
+	// pins the main thread and freezes the auto-scroll. Highlight once, on
+	// completion, when this flips to false.
+	const isStreaming = useContext(MarkdownStreamingContext);
 
 	useEffect(() => {
+		if (isStreaming) return;
 		let cancelled = false;
 		getSnippetHighlighter(lang)
 			.then((highlighter) => {
@@ -42,7 +50,7 @@ export function ShikiCode({ code, lang, highlights = [] }: ShikiCodeProps) {
 		return () => {
 			cancelled = true;
 		};
-	}, [code, lang]);
+	}, [code, lang, isStreaming]);
 
 	if (!tokens) return code;
 
