@@ -330,7 +330,7 @@ export function VirtualKeys() {
 				<div className="ui-card p-6 space-y-5">
 					<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 						<div className="flex items-start gap-3 p-4 ui-card">
-							<div className="flex items-center justify-center w-7 h-7 rounded-lg bg-(--accent-light) text-(--accent) text-sm font-bold shrink-0">
+							<div className="flex items-center justify-center w-7 h-7 rounded-full bg-(--accent)/15 text-(--accent) ring-1 ring-(--accent)/30 text-sm font-bold shrink-0">
 								1
 							</div>
 							<div>
@@ -343,7 +343,7 @@ export function VirtualKeys() {
 							</div>
 						</div>
 						<div className="flex items-start gap-3 p-4 ui-card">
-							<div className="flex items-center justify-center w-7 h-7 rounded-lg bg-(--accent-light) text-(--accent) text-sm font-bold shrink-0">
+							<div className="flex items-center justify-center w-7 h-7 rounded-full bg-(--accent)/15 text-(--accent) ring-1 ring-(--accent)/30 text-sm font-bold shrink-0">
 								2
 							</div>
 							<div>
@@ -356,7 +356,7 @@ export function VirtualKeys() {
 							</div>
 						</div>
 						<div className="flex items-start gap-3 p-4 ui-card">
-							<div className="flex items-center justify-center w-7 h-7 rounded-lg bg-(--accent-light) text-(--accent) text-sm font-bold shrink-0">
+							<div className="flex items-center justify-center w-7 h-7 rounded-full bg-(--accent)/15 text-(--accent) ring-1 ring-(--accent)/30 text-sm font-bold shrink-0">
 								3
 							</div>
 							<div>

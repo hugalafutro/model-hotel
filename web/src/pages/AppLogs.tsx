@@ -313,13 +313,13 @@ export function AppLogs() {
 									setPage(1);
 								}}
 								placeholder={t("applogs.filters.level")}
-								allLabel={t("applogs.filters.all", { count: totalItems })}
+								allLabel={t("applogs.filters.allLevels")}
 								options={(["info", "warning", "error"] as const).map((lvl) => ({
 									value: lvl,
 									label: lvl.charAt(0).toUpperCase() + lvl.slice(1),
 									count: levelCounts[lvl] ?? 0,
 								}))}
-								className="w-32"
+								className="w-36"
 							/>
 							{sources.length > 1 && (
 								<FilterDropdown
@@ -329,6 +329,7 @@ export function AppLogs() {
 										setPage(1);
 									}}
 									placeholder={t("applogs.filters.source")}
+									allLabel={t("applogs.filters.allKeys")}
 									options={sources.map((src) => ({
 										value: src,
 										label: src,
