@@ -189,6 +189,7 @@ html[data-ui-style="clean-saas"] h2 {
 
 html[data-ui-style="cyber-terminal"] {
 	--radius-box: 0;
+	--radius-pill: 0;
 }
 
 html[data-ui-style="cyber-terminal"].dark {
