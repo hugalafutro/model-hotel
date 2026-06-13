@@ -641,7 +641,7 @@
 		"btn_refreshing": "상쾌하네요...",
 		"filter_placeholder": "필터 제공업체…",
 		"filter_provider_type": "제공자 유형",
-		"filter_all": "전체 ({{count}})",
+		"filter_all": "전체 ({{count}}) 제공업체",
 		"sort_title_asc": "A-Z 순서 (클릭하면 순서 반전)",
 		"sort_title_desc": "Z-A 순서 (클릭하면 순서 반전)",
 		"empty_no_match": "선택한 필터에 해당하는 제공자가 없습니다.",
@@ -880,15 +880,14 @@
 		"page_title_other": "장애 조치 그룹",
 		"page_description_lead": "다음과 같이 우선순위 순서대로 여러 공급자를 통해 요청을 전달합니다.",
 		"page_description_code": "호텔/모델",
-		"last_sync": "마지막 동기화: {{time}}",
 		"btn_sync": "동기화",
 		"btn_syncing": "… 동기화",
 		"btn_new_group": "새 그룹",
 		"hint_drag": "핸들을 잡고 모델을 드래그하여 우선순위를 재정렬하세요",
 		"filter_hotel_model": "호텔/모델 필터…",
-		"filter_providers": "모든 제공업체",
-		"filter_states": "모든 주",
-		"filter_origins": "모든 출처",
+		"filter_providers": "모든 ({{count}}) 제공업체",
+		"filter_states": "모든 ({{count}}) 주",
+		"filter_origins": "모든 ({{count}}) 출처",
 		"filter_state_enabled": "활성화됨",
 		"filter_state_disabled": "비활성화됨",
 		"filter_origin_auto": "자동",
@@ -960,7 +959,8 @@
 		"btn_manage_providers": "공급업체 관리",
 		"provider_modal_title": "공급자 상태 관리",
 		"provider_modal_description": "프로바이더를 비활성화하면 모든 페일오버 그룹에서 해당 프로바이더의 모든 모델이 비활성화됩니다.",
-		"toast_provider_toggle_no_groups": "이 공급자를 사용하는 장애 조치 그룹이 없습니다 {{provider}}"
+		"toast_provider_toggle_no_groups": "이 공급자를 사용하는 장애 조치 그룹이 없습니다 {{provider}}",
+		"last_sync_label": "마지막 동기화:"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "저장되지 않은 변경 사항"
@@ -1086,7 +1086,9 @@
 			"level": "레벨",
 			"levelAll": "모두",
 			"source": "출처",
-			"logsPlaceholder": "로그 필터링…"
+			"logsPlaceholder": "로그 필터링…",
+			"allStatus": "All Status",
+			"allEndpoints": "All Modalities"
 		},
 		"endpoint": {
 			"chat": "채팅",
@@ -1172,7 +1174,9 @@
 			"levelAll": "모두",
 			"source": "출처",
 			"all": "전체 ({{count}})",
-			"search": "로그 필터링…"
+			"search": "로그 필터링…",
+			"allLevels": "All Levels",
+			"allKeys": "All Keys"
 		},
 		"table": {
 			"timeDate": "시간/날짜",

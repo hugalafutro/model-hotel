@@ -641,7 +641,7 @@
 		"btn_refreshing": "Oppdaterer...",
 		"filter_placeholder": "Filtrer leverandører…",
 		"filter_provider_type": "Type søkeleverandør",
-		"filter_all": "Alle ({{count}})",
+		"filter_all": "Alle ({{count}}) leverandører",
 		"sort_title_asc": "Sortert A-Z (klikk for å reversere)",
 		"sort_title_desc": "Sortert Z-A (klikk for å reversere)",
 		"empty_no_match": "Ingen leverandører stemmer med det valgte filteret.",
@@ -880,15 +880,14 @@
 		"page_title_other": "Feil over grupper",
 		"page_description_lead": "Ruteforespørsler gjennom flere leverandører i prioritert rekkefølge via",
 		"page_description_code": "hotell/modell",
-		"last_sync": "Sist synkronisert: {{time}}",
 		"btn_sync": "Synkronisering",
 		"btn_syncing": "Synkroniserer…",
 		"btn_new_group": "Ny gruppe",
 		"hint_drag": "Dra modeller gjennom håndtaket for å omorganisere",
 		"filter_hotel_model": "Filtrer hotell/model…",
-		"filter_providers": "Alle leverandører",
-		"filter_states": "Alle stater",
-		"filter_origins": "Alle tilslag",
+		"filter_providers": "Alle ({{count}}) leverandører",
+		"filter_states": "Alle ({{count}}) stater",
+		"filter_origins": "Alle ({{count}}) tilslag",
 		"filter_state_enabled": "Aktivert",
 		"filter_state_disabled": "Deaktivert",
 		"filter_origin_auto": "Automatisk",
@@ -960,7 +959,8 @@
 		"btn_manage_providers": "Behandle leverandører",
 		"provider_modal_title": "Administrere søkeleverandørstatus",
 		"provider_modal_description": "Deaktivering av en leverandør vil deaktivere alle modellene i hver feilovergruppe",
-		"toast_provider_toggle_no_groups": "Ingen mislykket gruppe bruk {{provider}}"
+		"toast_provider_toggle_no_groups": "Ingen mislykket gruppe bruk {{provider}}",
+		"last_sync_label": "Sist synkronisert:"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Ulagrede endringer"
@@ -1086,7 +1086,9 @@
 			"level": "Nivå",
 			"levelAll": "Alle",
 			"source": "Kilde",
-			"logsPlaceholder": "Filtrer logger…"
+			"logsPlaceholder": "Filtrer logger…",
+			"allStatus": "All Status",
+			"allEndpoints": "All Modalities"
 		},
 		"endpoint": {
 			"chat": "Samtale",
@@ -1172,7 +1174,9 @@
 			"levelAll": "Alle",
 			"source": "Kilde",
 			"all": "Alle ({{count}})",
-			"search": "Filtrer logger…"
+			"search": "Filtrer logger…",
+			"allLevels": "All Levels",
+			"allKeys": "All Keys"
 		},
 		"table": {
 			"timeDate": "Tid/dato",

@@ -641,7 +641,7 @@
 		"btn_refreshing": "正在刷新...",
 		"filter_placeholder": "过滤提供商…",
 		"filter_provider_type": "提供者类型",
-		"filter_all": "全部 ({{count}})",
+		"filter_all": "全部 ({{count}}) 提供商",
 		"sort_title_asc": "排序 A-Z (单击以还原)",
 		"sort_title_desc": "排序 Z-A (点击还原)",
 		"empty_no_match": "没有匹配所选过滤器的提供者。",
@@ -880,15 +880,14 @@
 		"page_title_other": "失败的组",
 		"page_description_lead": "按优先顺序通过多个提供商发送请求",
 		"page_description_code": "酒店/模型",
-		"last_sync": "最后同步时间： {{time}}",
 		"btn_sync": "同步",
 		"btn_syncing": "正在同步…",
 		"btn_new_group": "新建群组",
 		"hint_drag": "通过手柄拖动模型来重新排序优先级",
 		"filter_hotel_model": "过滤酒店/模型…",
-		"filter_providers": "所有提供商",
-		"filter_states": "所有状态",
-		"filter_origins": "所有来源",
+		"filter_providers": "所有 ({{count}}) 提供商",
+		"filter_states": "所有 ({{count}}) 状态",
+		"filter_origins": "所有 ({{count}}) 来源",
 		"filter_state_enabled": "已启用",
 		"filter_state_disabled": "已禁用",
 		"filter_origin_auto": "自动操作",
@@ -960,7 +959,8 @@
 		"btn_manage_providers": "管理提供商",
 		"provider_modal_title": "管理提供商状态",
 		"provider_modal_description": "禁用一个提供商将在每个失败组禁用其所有模型",
-		"toast_provider_toggle_no_groups": "没有故障转移组使用该提供程序 {{provider}}"
+		"toast_provider_toggle_no_groups": "没有故障转移组使用该提供程序 {{provider}}",
+		"last_sync_label": "最后同步时间："
 	},
 	"delete_confirm": {
 		"unsaved_changes": "未保存的更改"
@@ -1086,7 +1086,9 @@
 			"level": "关卡",
 			"levelAll": "所有的",
 			"source": "来源",
-			"logsPlaceholder": "过滤日志…"
+			"logsPlaceholder": "过滤日志…",
+			"allStatus": "All Status",
+			"allEndpoints": "All Modalities"
 		},
 		"endpoint": {
 			"chat": "聊天",
@@ -1172,7 +1174,9 @@
 			"levelAll": "所有的",
 			"source": "来源",
 			"all": "全部 ({{count}})",
-			"search": "过滤日志…"
+			"search": "过滤日志…",
+			"allLevels": "All Levels",
+			"allKeys": "All Keys"
 		},
 		"table": {
 			"timeDate": "时间/日期",

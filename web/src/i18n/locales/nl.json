@@ -641,7 +641,7 @@
 		"btn_refreshing": "Vernieuwen...",
 		"filter_placeholder": "Filteraanbieders…",
 		"filter_provider_type": "Type provider",
-		"filter_all": "Alle ({{count}})",
+		"filter_all": "Alle ({{count}}) aanbieders",
 		"sort_title_asc": "A-Z gesorteerd (klik om terug te draaien)",
 		"sort_title_desc": "Gesorteerd op Z-A (klik om terug te keren)",
 		"empty_no_match": "Geen enkele provider komt overeen met het geselecteerde filter.",
@@ -880,15 +880,14 @@
 		"page_title_other": "Failover groepen",
 		"page_description_lead": "Route verzoeken via meerdere aanbieders in prioriteitsvolgorde via",
 		"page_description_code": "hotel/model",
-		"last_sync": "Laatste synchronisatie: {{time}}",
 		"btn_sync": "Synchroniseren",
 		"btn_syncing": "Synchroniseren…",
 		"btn_new_group": "Nieuwe groep",
 		"hint_drag": "Sleep modellen door het handvat om prioriteit te rangschikken",
 		"filter_hotel_model": "Filter hotel/model…",
-		"filter_providers": "Alle aanbieders",
-		"filter_states": "Alle staten",
-		"filter_origins": "Alle oorsprong",
+		"filter_providers": "Alle ({{count}}) aanbieders",
+		"filter_states": "Alle ({{count}}) staten",
+		"filter_origins": "Alle ({{count}}) oorsprong",
 		"filter_state_enabled": "Ingeschakeld",
 		"filter_state_disabled": "Uitgeschakeld",
 		"filter_origin_auto": "Automatisch",
@@ -960,7 +959,8 @@
 		"btn_manage_providers": "Beheer leveranciers",
 		"provider_modal_title": "Provider Status beheren",
 		"provider_modal_description": "Het uitschakelen van een provider zal al zijn modellen in elke mislukte groep uitschakelen",
-		"toast_provider_toggle_no_groups": "Geen failover groepen gebruiken provider {{provider}}"
+		"toast_provider_toggle_no_groups": "Geen failover groepen gebruiken provider {{provider}}",
+		"last_sync_label": "Laatste synchronisatie:"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Niet-opgeslagen wijzigingen"
@@ -1086,7 +1086,9 @@
 			"level": "Niveau",
 			"levelAll": "Allemaal",
 			"source": "Bron",
-			"logsPlaceholder": "Logbestanden filteren…"
+			"logsPlaceholder": "Logbestanden filteren…",
+			"allStatus": "All Status",
+			"allEndpoints": "All Modalities"
 		},
 		"endpoint": {
 			"chat": "Chatten",
@@ -1172,7 +1174,9 @@
 			"levelAll": "Allemaal",
 			"source": "Bron",
 			"all": "Alle ({{count}})",
-			"search": "Logbestanden filteren…"
+			"search": "Logbestanden filteren…",
+			"allLevels": "All Levels",
+			"allKeys": "All Keys"
 		},
 		"table": {
 			"timeDate": "Tijd/Datum",

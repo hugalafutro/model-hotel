@@ -641,7 +641,7 @@
 		"btn_refreshing": "Frissítő...",
 		"filter_placeholder": "Szolgáltatók szűrése…",
 		"filter_provider_type": "Szolgáltató típusa",
-		"filter_all": "Összes ({{count}})",
+		"filter_all": "Összes ({{count}}) szolgáltató",
 		"sort_title_asc": "A–Z sorrendben (kattintson a sorrend megfordításához)",
 		"sort_title_desc": "Z–A sorrendben (kattintson a sorrend megfordításához)",
 		"empty_no_match": "A kiválasztott szűrőnek nem felel meg egyetlen szolgáltató sem.",
@@ -880,15 +880,14 @@
 		"page_title_other": "Failover-csoportok",
 		"page_description_lead": "A kéréseket prioritási sorrendben továbbítsa több szolgáltatón keresztül a következő útvonalon keresztül",
 		"page_description_code": "szálloda/modell",
-		"last_sync": "Utolsó szinkronizálás: {{time}}",
 		"btn_sync": "Szinkronizálás",
 		"btn_syncing": "… szinkronizálása",
 		"btn_new_group": "Új csoport",
 		"hint_drag": "A prioritás sorrendjének megváltoztatásához húzza a modelleket a fogantyúnál fogva",
 		"filter_hotel_model": "Szálloda/modell szűrése…",
-		"filter_providers": "Minden szolgáltató",
-		"filter_states": "Minden állam",
-		"filter_origins": "Minden származás",
+		"filter_providers": "Minden ({{count}}) szolgáltató",
+		"filter_states": "Minden ({{count}}) állam",
+		"filter_origins": "Minden ({{count}}) származás",
 		"filter_state_enabled": "Engedélyezve",
 		"filter_state_disabled": "Fogyatékkal élők",
 		"filter_origin_auto": "Autó",
@@ -960,7 +959,8 @@
 		"btn_manage_providers": "Szolgáltatók kezelése",
 		"provider_modal_title": "Szolgáltatói státusz kezelése",
 		"provider_modal_description": "Egy szolgáltató letiltása minden failover-csoportban letiltja az összes modelljét",
-		"toast_provider_toggle_no_groups": "Egyetlen átállási csoport sem használja a szolgáltatót {{provider}}"
+		"toast_provider_toggle_no_groups": "Egyetlen átállási csoport sem használja a szolgáltatót {{provider}}",
+		"last_sync_label": "Utolsó szinkronizálás:"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Még nem mentett módosítások"
@@ -1086,7 +1086,9 @@
 			"level": "Szint",
 			"levelAll": "Minden",
 			"source": "Forrás",
-			"logsPlaceholder": "Naplók szűrése:…"
+			"logsPlaceholder": "Naplók szűrése:…",
+			"allStatus": "All Status",
+			"allEndpoints": "All Modalities"
 		},
 		"endpoint": {
 			"chat": "Csevegés",
@@ -1172,7 +1174,9 @@
 			"levelAll": "Minden",
 			"source": "Forrás",
 			"all": "Összes ({{count}})",
-			"search": "Naplók szűrése:…"
+			"search": "Naplók szűrése:…",
+			"allLevels": "All Levels",
+			"allKeys": "All Keys"
 		},
 		"table": {
 			"timeDate": "Idő/Dátum",

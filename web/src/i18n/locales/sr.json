@@ -641,7 +641,7 @@
 		"btn_refreshing": "Освежавајуће...",
 		"filter_placeholder": "Провајдери филтера…",
 		"filter_provider_type": "Тип пружаоца",
-		"filter_all": "Све ({{count}})",
+		"filter_all": "Све ({{count}}) провајдери",
 		"sort_title_asc": "Сортирано од А до Ш (кликните да бисте обрнули)",
 		"sort_title_desc": "Сортирано Z-A (кликните за обрнуто)",
 		"empty_no_match": "Нема пружалаца услуга који одговарају изабраном филтеру.",
@@ -880,15 +880,14 @@
 		"page_title_other": "Групе за преузимање",
 		"page_description_lead": "Проследите захтеве кроз више провајдера по редоследу приоритета путем",
 		"page_description_code": "хотел/модел",
-		"last_sync": "Последња синхронизација: {{time}}",
 		"btn_sync": "Синхронизуј",
 		"btn_syncing": "Синхронизација…",
 		"btn_new_group": "Нова група",
 		"hint_drag": "Повуците моделе за повлачење по ручки да бисте променили приоритет",
 		"filter_hotel_model": "Филтрирајте хотел/модел…",
-		"filter_providers": "Сви провајдери",
-		"filter_states": "Све државе",
-		"filter_origins": "Сва порекло",
+		"filter_providers": "Сви ({{count}}) провајдери",
+		"filter_states": "Све ({{count}}) државе",
+		"filter_origins": "Сва ({{count}}) порекло",
 		"filter_state_enabled": "Омогућено",
 		"filter_state_disabled": "Онеспособљен",
 		"filter_origin_auto": "Ауто",
@@ -960,7 +959,8 @@
 		"btn_manage_providers": "Управљање провајдерима",
 		"provider_modal_title": "Управљање статусом провајдера",
 		"provider_modal_description": "Онемогућавање провајдера онемогућиће све његове моделе у свакој групи за преузимање.",
-		"toast_provider_toggle_no_groups": "Ниједна група за преузимање не користи провајдера {{provider}}"
+		"toast_provider_toggle_no_groups": "Ниједна група за преузимање не користи провајдера {{provider}}",
+		"last_sync_label": "Последња синхронизација:"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Несачуване измене"
@@ -1086,7 +1086,9 @@
 			"level": "Ниво",
 			"levelAll": "Све",
 			"source": "Извор",
-			"logsPlaceholder": "Филтрирај логове…"
+			"logsPlaceholder": "Филтрирај логове…",
+			"allStatus": "All Status",
+			"allEndpoints": "All Modalities"
 		},
 		"endpoint": {
 			"chat": "Чет",
@@ -1172,7 +1174,9 @@
 			"levelAll": "Све",
 			"source": "Извор",
 			"all": "Све ({{count}})",
-			"search": "Филтрирај логове…"
+			"search": "Филтрирај логове…",
+			"allLevels": "All Levels",
+			"allKeys": "All Keys"
 		},
 		"table": {
 			"timeDate": "Време/Датум",

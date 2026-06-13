@@ -641,7 +641,7 @@
 		"btn_refreshing": "Đang làm mới...",
 		"filter_placeholder": "Các nhà cung cấp bộ lọc…",
 		"filter_provider_type": "Loại nhà cung cấp",
-		"filter_all": "Tất cả ({{count}})",
+		"filter_all": "Tất cả ({{count}}) cả các nhà cung cấp",
 		"sort_title_asc": "Sắp xếp theo thứ tự A-Z (nhấp để đảo ngược)",
 		"sort_title_desc": "Sắp xếp theo thứ tự Z-A (nhấp để đảo ngược)",
 		"empty_no_match": "Không có nhà cung cấp nào phù hợp với bộ lọc đã chọn.",
@@ -880,15 +880,14 @@
 		"page_title_other": "Nhóm chuyển đổi dự phòng",
 		"page_description_lead": "Chuyển các yêu cầu qua nhiều nhà cung cấp theo thứ tự ưu tiên thông qua",
 		"page_description_code": "khách sạn/mẫu",
-		"last_sync": "Lần đồng bộ hóa gần nhất: {{time}}",
 		"btn_sync": "Đồng bộ hóa",
 		"btn_syncing": "Đồng bộ hóa…",
 		"btn_new_group": "Nhóm mới",
 		"hint_drag": "Kéo các mô hình bằng tay cầm để sắp xếp lại thứ tự ưu tiên",
 		"filter_hotel_model": "Lọc theo khách sạn/mẫu…",
-		"filter_providers": "Tất cả các nhà cung cấp",
-		"filter_states": "Tất cả các bang",
-		"filter_origins": "Tất cả các nguồn gốc",
+		"filter_providers": "Tất ({{count}}) cả các nhà cung cấp",
+		"filter_states": "Tất ({{count}}) cả các bang",
+		"filter_origins": "Tất ({{count}}) cả các nguồn gốc",
 		"filter_state_enabled": "Đã bật",
 		"filter_state_disabled": "Người khuyết tật",
 		"filter_origin_auto": "Tự động",
@@ -960,7 +959,8 @@
 		"btn_manage_providers": "Quản lý nhà cung cấp",
 		"provider_modal_title": "Quản lý trạng thái nhà cung cấp",
 		"provider_modal_description": "Việc vô hiệu hóa một nhà cung cấp sẽ vô hiệu hóa tất cả các mô hình của nhà cung cấp đó trong mọi nhóm chuyển đổi dự phòng",
-		"toast_provider_toggle_no_groups": "Không có nhóm chuyển đổi dự phòng nào sử dụng nhà cung cấp {{provider}}"
+		"toast_provider_toggle_no_groups": "Không có nhóm chuyển đổi dự phòng nào sử dụng nhà cung cấp {{provider}}",
+		"last_sync_label": "Lần đồng bộ hóa gần nhất:"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Các thay đổi chưa được lưu"
@@ -1086,7 +1086,9 @@
 			"level": "Cấp độ",
 			"levelAll": "Tất cả",
 			"source": "Nguồn",
-			"logsPlaceholder": "Lọc nhật ký…"
+			"logsPlaceholder": "Lọc nhật ký…",
+			"allStatus": "All Status",
+			"allEndpoints": "All Modalities"
 		},
 		"endpoint": {
 			"chat": "Trò chuyện",
@@ -1172,7 +1174,9 @@
 			"levelAll": "Tất cả",
 			"source": "Nguồn",
 			"all": "Tất cả ({{count}})",
-			"search": "Lọc nhật ký…"
+			"search": "Lọc nhật ký…",
+			"allLevels": "All Levels",
+			"allKeys": "All Keys"
 		},
 		"table": {
 			"timeDate": "Thời gian/Ngày",

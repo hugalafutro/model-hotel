@@ -641,7 +641,7 @@
 		"btn_refreshing": "Actualizando...",
 		"filter_placeholder": "Filtrar proveedores…",
 		"filter_provider_type": "Tipo de proveedor",
-		"filter_all": "Todos ({{count}})",
+		"filter_all": "Todos ({{count}}) los proveedores",
 		"sort_title_asc": "Ordenado A-Z (clic para revertir)",
 		"sort_title_desc": "Z-A ordenada (haga clic para revertir)",
 		"empty_no_match": "Ningún proveedor coincide con el filtro seleccionado.",
@@ -880,15 +880,14 @@
 		"page_title_other": "Grupos de Error",
 		"page_description_lead": "Solicitudes de ruta a través de múltiples proveedores en orden prioritario a través",
 		"page_description_code": "hotel/modelo",
-		"last_sync": "Última sincronización: {{time}}",
 		"btn_sync": "Sincronizar",
 		"btn_syncing": "Sincronizando…",
 		"btn_new_group": "Nuevo grupo",
 		"hint_drag": "Arrastre los modelos por el asa para reordenar la prioridad",
 		"filter_hotel_model": "Filtrar hotel/modelo…",
-		"filter_providers": "Todos los proveedores",
-		"filter_states": "Todos los estados",
-		"filter_origins": "Todos los orígenes",
+		"filter_providers": "Todos ({{count}}) los proveedores",
+		"filter_states": "Todos ({{count}}) los estados",
+		"filter_origins": "Todos ({{count}}) los orígenes",
 		"filter_state_enabled": "Activado",
 		"filter_state_disabled": "Deshabilitado",
 		"filter_origin_auto": "Auto",
@@ -960,7 +959,8 @@
 		"btn_manage_providers": "Administrar proveedores",
 		"provider_modal_title": "Administrar estado del proveedor",
 		"provider_modal_description": "Deshabilitar un proveedor desactivará todos sus modelos en cada grupo de tolerancia contra fallos",
-		"toast_provider_toggle_no_groups": "Ningún grupo de tolerancia contra fallos utiliza el proveedor {{provider}}"
+		"toast_provider_toggle_no_groups": "Ningún grupo de tolerancia contra fallos utiliza el proveedor {{provider}}",
+		"last_sync_label": "Última sincronización:"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Cambios sin guardar"
@@ -1086,7 +1086,9 @@
 			"level": "Nivel",
 			"levelAll": "Todos",
 			"source": "Fuente",
-			"logsPlaceholder": "Filtrar registros…"
+			"logsPlaceholder": "Filtrar registros…",
+			"allStatus": "All Status",
+			"allEndpoints": "All Modalities"
 		},
 		"endpoint": {
 			"chat": "Chatear",
@@ -1172,7 +1174,9 @@
 			"levelAll": "Todos",
 			"source": "Fuente",
 			"all": "Todos ({{count}})",
-			"search": "Filtrar registros…"
+			"search": "Filtrar registros…",
+			"allLevels": "All Levels",
+			"allKeys": "All Keys"
 		},
 		"table": {
 			"timeDate": "Hora/Fecha",

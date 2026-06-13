@@ -641,7 +641,7 @@
 		"btn_refreshing": "Aktualizuji…",
 		"filter_placeholder": "Filtrovat poskytovatele…",
 		"filter_provider_type": "Typ poskytovatele",
-		"filter_all": "Vše ({{count}})",
+		"filter_all": "Vše ({{count}}) poskytovatelé",
 		"sort_title_asc": "Seřazeno podle abecedy (kliknutím obrátíte pořadí)",
 		"sort_title_desc": "Seřazeno podle abecedy (kliknutím obrátíte pořadí)",
 		"empty_no_match": "Žádný poskytovatel neodpovídá zadaným kritériím.",
@@ -880,15 +880,14 @@
 		"page_title_other": "Failover skupiny",
 		"page_description_lead": "Směřujte požadavky přes více poskytovatelů v pořadí podle priority prostřednictvím",
 		"page_description_code": "hotel/model",
-		"last_sync": "Poslední synchronizace: {{time}}",
 		"btn_sync": "Synchronizovat",
 		"btn_syncing": "Synchronizuji…",
 		"btn_new_group": "Nová skupina",
 		"hint_drag": "Přetáhněte modely pomocí úchytu pro změnu pořadí priority",
 		"filter_hotel_model": "Filtrovat podle hotelu/modelu…",
-		"filter_providers": "Všichni poskytovatelé",
-		"filter_states": "Všechny stavy",
-		"filter_origins": "Všechny zdroje",
+		"filter_providers": "Všichni ({{count}}) poskytovatelé",
+		"filter_states": "Všechny ({{count}}) stavy",
+		"filter_origins": "Všechny ({{count}}) zdroje",
 		"filter_state_enabled": "Zapnuto",
 		"filter_state_disabled": "Zakázáno",
 		"filter_origin_auto": "Automaticky",
@@ -960,7 +959,8 @@
 		"btn_manage_providers": "Spravovat poskytovatele",
 		"provider_modal_title": "Správa stavu poskytovatele",
 		"provider_modal_description": "Zakázáním poskytovatele dojde k vypnutí všech modelů v každé skupině selhání",
-		"toast_provider_toggle_no_groups": "Není použito poskytovatele {{provider}}"
+		"toast_provider_toggle_no_groups": "Není použito poskytovatele {{provider}}",
+		"last_sync_label": "Poslední synchronizace:"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Neuložené změny"
@@ -1086,7 +1086,9 @@
 			"level": "Úroveň",
 			"levelAll": "Vše",
 			"source": "Zdroj",
-			"logsPlaceholder": "Filtrovat logy…"
+			"logsPlaceholder": "Filtrovat logy…",
+			"allStatus": "All Status",
+			"allEndpoints": "All Modalities"
 		},
 		"endpoint": {
 			"chat": "Chat",
@@ -1172,7 +1174,9 @@
 			"levelAll": "Vše",
 			"source": "Zdroj",
 			"all": "Vše ({{count}})",
-			"search": "Filtrovat logy…"
+			"search": "Filtrovat logy…",
+			"allLevels": "All Levels",
+			"allKeys": "All Keys"
 		},
 		"table": {
 			"timeDate": "Čas/Datum",

@@ -641,7 +641,7 @@
 		"btn_refreshing": "Odświeżanie...",
 		"filter_placeholder": "Filtruj dostawców…",
 		"filter_provider_type": "Typ dostawcy",
-		"filter_all": "Wszystkie ({{count}})",
+		"filter_all": "Wszystkie ({{count}}) dostawcy",
 		"sort_title_asc": "Sortuj A-Z (kliknij, aby cofnąć)",
 		"sort_title_desc": "Sortowane Z-A (kliknij, aby cofnąć)",
 		"empty_no_match": "Żaden dostawca nie pasuje do wybranego filtra.",
@@ -880,15 +880,14 @@
 		"page_title_other": "Grupy niepowodzeń",
 		"page_description_lead": "Żądania trasy przez wielu dostawców w kolejności priorytetowej przez",
 		"page_description_code": "hotelu/model",
-		"last_sync": "Ostatnia synchronizacja: {{time}}",
 		"btn_sync": "Synchronizacja",
 		"btn_syncing": "Synchronizuję…",
 		"btn_new_group": "Nowa grupa",
 		"hint_drag": "Przeciągnij modele uchwytem, aby zmienić kolejność priorytetów",
 		"filter_hotel_model": "Filtruj hotel/model…",
-		"filter_providers": "Wszyscy dostawcy",
-		"filter_states": "Wszystkie stany",
-		"filter_origins": "Wszystkie źródła",
+		"filter_providers": "Wszyscy ({{count}}) dostawcy",
+		"filter_states": "Wszystkie ({{count}}) stany",
+		"filter_origins": "Wszystkie ({{count}}) źródła",
 		"filter_state_enabled": "Włączone",
 		"filter_state_disabled": "Wyłączone",
 		"filter_origin_auto": "Auto",
@@ -960,7 +959,8 @@
 		"btn_manage_providers": "Zarządzaj dostawcami",
 		"provider_modal_title": "Zarządzaj statusem dostawcy",
 		"provider_modal_description": "Wyłączenie dostawcy wyłączy wszystkie jego modele w każdej grupie awaryjnej",
-		"toast_provider_toggle_no_groups": "Żadne grupy awaryjne nie używają dostawcy {{provider}}"
+		"toast_provider_toggle_no_groups": "Żadne grupy awaryjne nie używają dostawcy {{provider}}",
+		"last_sync_label": "Ostatnia synchronizacja:"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Niezapisane zmiany"
@@ -1086,7 +1086,9 @@
 			"level": "Poziom",
 			"levelAll": "Wszystkie",
 			"source": "Źródło",
-			"logsPlaceholder": "Filtruj logi…"
+			"logsPlaceholder": "Filtruj logi…",
+			"allStatus": "All Status",
+			"allEndpoints": "All Modalities"
 		},
 		"endpoint": {
 			"chat": "Czat",
@@ -1172,7 +1174,9 @@
 			"levelAll": "Wszystkie",
 			"source": "Źródło",
 			"all": "Wszystkie ({{count}})",
-			"search": "Filtruj logi…"
+			"search": "Filtruj logi…",
+			"allLevels": "All Levels",
+			"allKeys": "All Keys"
 		},
 		"table": {
 			"timeDate": "Czas/Data",

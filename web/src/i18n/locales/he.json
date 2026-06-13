@@ -641,7 +641,7 @@
 		"btn_refreshing": "מרענן...",
 		"filter_placeholder": "ספקי מסננים…",
 		"filter_provider_type": "סוג ספק",
-		"filter_all": "הכל ({{count}})",
+		"filter_all": "הכל ({{count}}) הספקים",
 		"sort_title_asc": "מסודר לפי א-ב (לחץ כדי להפוך את הסדר)",
 		"sort_title_desc": "מסודר לפי Z-A (לחץ כדי להפוך את הסדר)",
 		"empty_no_match": "אין ספקים העונים על הקריטריונים שנבחרו.",
@@ -880,15 +880,14 @@
 		"page_title_other": "קבוצות מעבר לגיבוי",
 		"page_description_lead": "העבר בקשות דרך מספר ספקים לפי סדר עדיפות באמצעות",
 		"page_description_code": "מלון/דגם",
-		"last_sync": "הסנכרון האחרון: {{time}}",
 		"btn_sync": "סנכרון",
 		"btn_syncing": "סנכרון ה-…",
 		"btn_new_group": "קבוצה חדשה",
 		"hint_drag": "גרור את הדגמים באמצעות הידית כדי לשנות את סדר העדיפות",
 		"filter_hotel_model": "סינון לפי מלון/דגם…",
-		"filter_providers": "כל הספקים",
-		"filter_states": "כל המדינות",
-		"filter_origins": "כל המקורות",
+		"filter_providers": "כל ({{count}}) הספקים",
+		"filter_states": "כל ({{count}}) המדינות",
+		"filter_origins": "כל ({{count}}) המקורות",
 		"filter_state_enabled": "מופעל",
 		"filter_state_disabled": "מוגבלים",
 		"filter_origin_auto": "אוטומטי",
@@ -960,7 +959,8 @@
 		"btn_manage_providers": "ניהול ספקים",
 		"provider_modal_title": "ניהול מצב הספק",
 		"provider_modal_description": "השבתת ספק תשבית את כל הדגמים שלו בכל קבוצת מעבר לגיבוי",
-		"toast_provider_toggle_no_groups": "אף קבוצת מעבר לגיבוי אינה משתמשת בספק {{provider}}"
+		"toast_provider_toggle_no_groups": "אף קבוצת מעבר לגיבוי אינה משתמשת בספק {{provider}}",
+		"last_sync_label": "הסנכרון האחרון:"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "שינויים שלא נשמרו"
@@ -1086,7 +1086,9 @@
 			"level": "רמה",
 			"levelAll": "הכל",
 			"source": "מקור",
-			"logsPlaceholder": "סינון יומנים…"
+			"logsPlaceholder": "סינון יומנים…",
+			"allStatus": "All Status",
+			"allEndpoints": "All Modalities"
 		},
 		"endpoint": {
 			"chat": "צ'אט",
@@ -1172,7 +1174,9 @@
 			"levelAll": "הכל",
 			"source": "מקור",
 			"all": "הכל ({{count}})",
-			"search": "סינון יומנים…"
+			"search": "סינון יומנים…",
+			"allLevels": "All Levels",
+			"allKeys": "All Keys"
 		},
 		"table": {
 			"timeDate": "שעה/תאריך",
