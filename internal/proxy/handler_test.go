@@ -912,8 +912,8 @@ func TestProxyKeyMiddleware_InvalidAuth(t *testing.T) {
 	}
 	if msg, ok := resp["error"].(map[string]interface{}); !ok {
 		t.Error("response should have error object")
-	} else if msg["message"] != "Invalid virtual key" {
-		t.Errorf("expected error message 'Invalid virtual key', got %v", msg["message"])
+	} else if msg["message"] != "invalid virtual key" {
+		t.Errorf("expected error message 'invalid virtual key', got %v", msg["message"])
 	}
 }
 

@@ -201,7 +201,7 @@ func (h *Handler) resolveCandidates(w http.ResponseWriter, r *http.Request, st *
 		}
 	default:
 		h.failRequest(st.logData, 400, "invalid model format: "+st.reqModel, 0, st.startTime, st.parseMs, timings, resolveCacheHits{}, 0)
-		writeOpenAIError(w, "invalid model format, expected provider/model or hotel/model", http.StatusBadRequest)
+		writeOpenAIError(w, `invalid model format: expected "provider/model" or "hotel/group"`, http.StatusBadRequest)
 		return nil, false
 	}
 

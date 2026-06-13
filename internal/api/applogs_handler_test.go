@@ -920,3 +920,73 @@ func TestGetAppLogs_HistoryPagination(t *testing.T) {
 		t.Errorf("expected at most 2 entries on page 2, got %d", len(resp.Entries))
 	}
 }
+
+// TestAppSlogHandlerJSONOutput verifies that in JSON mode the stderr line is a
+// single valid JSON object carrying the reserved keys plus slog attrs as
+// fields. A warning record is used so it passes the filter's level gate without
+// depending on the global debug level.
+func TestAppSlogHandlerJSONOutput(t *testing.T) {
+	var buf bytes.Buffer
+	h := &appSlogHandler{
+		level:      slog.LevelDebug,
+		stderr:     &stderrLogFilter{dst: &buf},
+		jsonOutput: true,
+	}
+
+	rec := slog.NewRecord(time.Now(), slog.LevelWarn, "proxy: failover triggered", 0)
+	rec.AddAttrs(slog.String("provider", "groq"), slog.Int("attempt", 2))
+	if err := h.Handle(context.Background(), rec); err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+
+	out := strings.TrimSpace(buf.String())
+	if out == "" {
+		t.Fatal("expected a JSON line on stderr, got nothing")
+	}
+	var got map[string]any
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("stderr line is not valid JSON: %v\nline: %s", err, out)
+	}
+	if got["level"] != "warning" {
+		t.Errorf("level = %v, want warning", got["level"])
+	}
+	if got["source"] != "proxy" {
+		t.Errorf("source = %v, want proxy", got["source"])
+	}
+	if got["msg"] != "failover triggered" {
+		t.Errorf("msg = %v, want %q", got["msg"], "failover triggered")
+	}
+	if got["provider"] != "groq" {
+		t.Errorf("provider field = %v, want groq", got["provider"])
+	}
+	if got["attempt"] != "2" {
+		t.Errorf("attempt field = %v, want \"2\"", got["attempt"])
+	}
+}
+
+// TestParseLogLineJSON verifies the stderr filter's classifier understands
+// JSON log lines, so the level gate and source suppression work identically in
+// JSON mode. This is what keeps an info JSON line from being misclassified (and
+// dropped) by the text-only heuristics.
+func TestParseLogLineJSON(t *testing.T) {
+	line := `{"attempt":"2","level":"info","msg":"routing to provider","provider":"groq","source":"proxy","time":"2026-06-13T00:00:00Z"}`
+	source, level, msg := parseLogLine(line)
+	if source != "proxy" {
+		t.Errorf("source = %q, want proxy", source)
+	}
+	if level != "info" {
+		t.Errorf("level = %q, want info", level)
+	}
+	if msg != "routing to provider" {
+		t.Errorf("msg = %q, want %q", msg, "routing to provider")
+	}
+
+	// A non-JSON line must still fall through to the text parser.
+	source, level, _ = parseLogLine("2026/06/13 00:00:00 proxy: something happened")
+	if source != "proxy" {
+		t.Errorf("text fallthrough source = %q, want proxy", source)
+	}
+	if level == "" {
+		t.Error("text fallthrough should still detect a level")
+	}
+}

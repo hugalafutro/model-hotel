@@ -196,7 +196,9 @@ func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logDa
 	if st.clientDisconnected {
 		errMsg = "client disconnected"
 		logData.errorKind = KindClientDisconnect
-		debuglog.Warn("proxy: client disconnected during streaming", "model", logData.modelID)
+		// A client hangup is normal client behavior, not a gateway/provider
+		// fault — log at Info (see the level semantics in doc/logging.md).
+		debuglog.Info("proxy: client disconnected during streaming", "model", logData.modelID)
 	}
 	// Stall detection takes precedence over the raw IO error produced by
 	// the watchdog's body.Close(). Replace it with a descriptive message.

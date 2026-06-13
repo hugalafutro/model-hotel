@@ -27,6 +27,11 @@ var currentLevel slog.Level
 // If debug is true, log level is set to Debug; otherwise Info.
 // This also reads the DEBUG_LOG env var as a fallback if debug is false
 // but the env var is explicitly set to a truthy value.
+//
+// The output format honors LOG_FORMAT (see JSONFormat): "json" emits one JSON
+// object per line for external log collectors, anything else (default) keeps
+// the human-readable text format. The choice lives here, not in the caller, so
+// every binary that calls Init (server today, Front Desk later) inherits it.
 func Init(debug bool) {
 	if debug || isDebugLogEnv() {
 		currentLevel = slog.LevelDebug
@@ -34,10 +39,22 @@ func Init(debug bool) {
 		currentLevel = slog.LevelInfo
 	}
 
-	handler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: currentLevel,
-	})
+	opts := &slog.HandlerOptions{Level: currentLevel}
+	var handler slog.Handler
+	if JSONFormat() {
+		handler = slog.NewJSONHandler(os.Stdout, opts)
+	} else {
+		handler = slog.NewTextHandler(os.Stdout, opts)
+	}
 	slog.SetDefault(slog.New(handler))
+}
+
+// JSONFormat reports whether structured JSON log output is requested via
+// LOG_FORMAT=json (case-insensitive). When false, callers should emit the
+// human-readable text format. This is the single source of truth for the log
+// output format across all binaries and handlers.
+func JSONFormat() bool {
+	return strings.EqualFold(strings.TrimSpace(os.Getenv("LOG_FORMAT")), "json")
 }
 
 // Level returns the current slog log level (set by Init).
