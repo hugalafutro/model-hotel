@@ -146,7 +146,7 @@ export function Dashboard() {
 	}
 
 	return (
-		<div className="space-y-6">
+		<div className="space-y-6 pb-8">
 			{/* Page header */}
 			<PageHeader
 				icon={LayoutDashboard}
