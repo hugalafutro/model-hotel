@@ -268,7 +268,8 @@
 			"topVirtualKeys": "Topp virtuella nycklar",
 			"emptyState": "Inga användningsdata än. Användningen kommer att visas här när trafikflöden.",
 			"viewDetailsFor": "Visa detaljer för {{label}}",
-			"deletedModelTooltip": "Modellen finns inte längre tillgänglig – den kan ha tagits bort eller så har leverantören av den avregistrerats"
+			"deletedModelTooltip": "Modellen finns inte längre tillgänglig – den kan ha tagits bort eller så har leverantören av den avregistrerats",
+			"reservedKeyTooltip": "Internt reserverat namn, inte en nyckel som du har skapat – denna användning kommer från Model Hotels egna ”{{name}}”-rutter"
 		},
 		"latency": {
 			"topModels": "Långsammaste modeller",
@@ -1996,7 +1997,7 @@
 			"failedToRefreshBalance": "Det gick inte att uppdatera saldot",
 			"noCredits": "Inga krediter",
 			"cancelAtPeriodEnd": "Prenumerationen avbryts vid slutet av perioden ({{date}})",
-			"neuralWattCredits": "Medverkande",
+			"neuralWattCredits": "NeuralWatt Krediter",
 			"neuralwattBalance": "Saldo",
 			"neuralwattUsage": "Användning",
 			"neuralwattSubscription": "Prenumeration",

@@ -15,6 +15,18 @@ import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { proxyModelID } from "../../utils/model";
 import type { Range } from "./types";
 
+/** Synthetic virtual_key_name values the backend meters under its own routes
+ * (admin chat/arena and internal model requests) plus the reserved names users
+ * are forbidden from creating. These can surface in the by-virtual-key usage
+ * breakdown even though the user never created such a key. */
+const RESERVED_VK_NAMES = new Set([
+	"internal",
+	"chat",
+	"arena",
+	"completions",
+	"admin",
+]);
+
 export interface UseDashboardReturn {
 	// State: global
 	globalRange: Range;
@@ -158,6 +170,7 @@ export interface UseDashboardReturn {
 		value: number;
 		suffix: string;
 		deleted?: boolean;
+		reserved?: boolean;
 	}>;
 	accents: {
 		providers: string;
@@ -663,6 +676,7 @@ export function useDashboard(): UseDashboardReturn {
 					value: Number(v),
 					suffix: virtualKeysMetric === "tokens" ? " tokens" : " requests",
 					deleted: k === "Deleted",
+					reserved: RESERVED_VK_NAMES.has(k.toLowerCase()),
 				}))
 		: [];
 

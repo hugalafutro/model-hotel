@@ -268,7 +268,8 @@
 			"topVirtualKeys": "Khóa ảo hàng đầu",
 			"emptyState": "Chưa có dữ liệu sử dụng. Bảng phân tích sử dụng sẽ hiển thị tại đây ngay khi có lưu lượng truy cập.",
 			"viewDetailsFor": "Xem chi tiết về {{label}}",
-			"deletedModelTooltip": "Mô hình không còn khả dụng — có thể đã bị xóa hoặc nhà cung cấp của nó đã bị gỡ bỏ"
+			"deletedModelTooltip": "Mô hình không còn khả dụng — có thể đã bị xóa hoặc nhà cung cấp của nó đã bị gỡ bỏ",
+			"reservedKeyTooltip": "Tên được dành riêng nội bộ, không phải là khóa do bạn tạo - cách sử dụng này xuất phát từ các tuyến \"{{name}}\" của chính Model Hotel"
 		},
 		"latency": {
 			"topModels": "Mô hình chậm nhất",
@@ -1996,7 +1997,7 @@
 			"failedToRefreshBalance": "Không thể cập nhật số dư",
 			"noCredits": "Không có tín chỉ",
 			"cancelAtPeriodEnd": "Gói đăng ký sẽ hết hạn vào cuối kỳ ({{date}})",
-			"neuralWattCredits": "Phần cảm ơn",
+			"neuralWattCredits": "Tín dụng NeuralWatt",
 			"neuralwattBalance": "Cân bằng",
 			"neuralwattUsage": "Cách sử dụng",
 			"neuralwattSubscription": "Đăng ký",

@@ -62,7 +62,10 @@ export function UsageBarPanel({
 						return (
 							<div key={entry.label} className="space-y-1.5">
 								<div className="flex justify-between items-center text-sm">
-									{onEntryClick && !entry.failoverGroup && !entry.deleted ? (
+									{onEntryClick &&
+									!entry.failoverGroup &&
+									!entry.deleted &&
+									!entry.reserved ? (
 										<button
 											type="button"
 											onClick={() => onEntryClick(entry.label)}
@@ -78,11 +81,21 @@ export function UsageBarPanel({
 										</button>
 									) : (
 										<span
-											className={`truncate max-w-[70%] ${entry.deleted ? "text-red-400 italic pr-1" : "text-(--text-secondary)"}`}
+											className={`truncate max-w-[70%] ${
+												entry.deleted
+													? "text-red-400 italic pr-1"
+													: entry.reserved
+														? "text-(--text-muted) italic pr-1"
+														: "text-(--text-secondary)"
+											}`}
 											title={
 												entry.deleted
 													? t("dashboard.usage.deletedModelTooltip")
-													: entry.label
+													: entry.reserved
+														? t("dashboard.usage.reservedKeyTooltip", {
+																name: entry.label,
+															})
+														: entry.label
 											}
 										>
 											{entry.label}

@@ -268,7 +268,8 @@
 			"topVirtualKeys": "מפתחות וירטואליים מובילים",
 			"emptyState": "עדיין אין נתוני שימוש. פירוט השימוש יופיע כאן ברגע שתתחיל תנועת הגולשים.",
 			"viewDetailsFor": "הצג פרטים על {{label}}",
-			"deletedModelTooltip": "הדגם אינו זמין עוד — ייתכן שהוא נמחק או שהספק שלו הוסר"
+			"deletedModelTooltip": "הדגם אינו זמין עוד — ייתכן שהוא נמחק או שהספק שלו הוסר",
+			"reservedKeyTooltip": "שם שמור פנימי, לא מפתח שיצרת - שימוש זה מקורו בנתיבי \"{{name}}\" של Model Hotel עצמה"
 		},
 		"latency": {
 			"topModels": "המודלים האיטיים ביותר",
@@ -1996,7 +1997,7 @@
 			"failedToRefreshBalance": "לא הצליח לרענן את היתרה",
 			"noCredits": "ללא קרדיטים",
 			"cancelAtPeriodEnd": "המנוי יבוטל בתום התקופה ({{date}})",
-			"neuralWattCredits": "קרדיטים",
+			"neuralWattCredits": "קרדיטים ל-NeuralWatt",
 			"neuralwattBalance": "איזון",
 			"neuralwattUsage": "שימוש",
 			"neuralwattSubscription": "מנוי",

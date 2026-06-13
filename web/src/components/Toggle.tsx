@@ -37,7 +37,7 @@ export function Toggle({
 			aria-label={ariaLabel}
 			disabled={disabled}
 			onClick={() => onChange(!checked)}
-			className={`ui-toggle relative inline-flex ${sizeClasses} items-center rounded-full transition-colors translate-z-0 ${focusClasses} ${disabled ? "opacity-50 cursor-not-allowed" : ""} ${
+			className={`ui-toggle relative inline-flex shrink-0 ${sizeClasses} items-center rounded-full transition-colors translate-z-0 ${focusClasses} ${disabled ? "opacity-50 cursor-not-allowed" : ""} ${
 				checked ? "bg-(--accent)" : "bg-gray-600"
 			} ${className ?? ""}`}
 		>

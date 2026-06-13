@@ -268,7 +268,8 @@
 			"topVirtualKeys": "Top virtuális kulcsok",
 			"emptyState": "Még nincsenek használati adatok. A forgalom megindulásával itt jelennek meg a használati adatok.",
 			"viewDetailsFor": "Részletek megtekintése {{label}}",
-			"deletedModelTooltip": "A modell már nem elérhető – lehet, hogy törölték, vagy a forgalmazóját eltávolították"
+			"deletedModelTooltip": "A modell már nem elérhető – lehet, hogy törölték, vagy a forgalmazóját eltávolították",
+			"reservedKeyTooltip": "Belső fenntartott név, nem az Ön által létrehozott kulcs – ez a használat a Model Hotel saját „{{name}}” útvonalából származik"
 		},
 		"latency": {
 			"topModels": "Leglassúbb modellek",
@@ -1996,7 +1997,7 @@
 			"failedToRefreshBalance": "Nem sikerült frissíteni az egyenleget",
 			"noCredits": "Nincs stáblista",
 			"cancelAtPeriodEnd": "Az előfizetés az időszak végén megszűnik ({{date}})",
-			"neuralWattCredits": "Közreműködők",
+			"neuralWattCredits": "NeuralWatt kreditek",
 			"neuralwattBalance": "Egyensúly",
 			"neuralwattUsage": "Használat",
 			"neuralwattSubscription": "Előfizetés",

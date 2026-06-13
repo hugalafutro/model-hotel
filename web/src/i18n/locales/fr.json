@@ -268,7 +268,8 @@
 			"topVirtualKeys": "Top clés virtuelles",
 			"emptyState": "Aucune donnée d'utilisation pour le moment. La ventilation de l'utilisation apparaîtra ici une fois le trafic écoulé.",
 			"viewDetailsFor": "Voir les détails pour {{label}}",
-			"deletedModelTooltip": "Ce modèle n'est plus disponible — il a peut-être été supprimé ou son fournisseur a été retiré"
+			"deletedModelTooltip": "Ce modèle n'est plus disponible — il a peut-être été supprimé ou son fournisseur a été retiré",
+			"reservedKeyTooltip": "Nom réservé en interne, il ne s'agit pas d'une clé que vous avez créée — cette utilisation provient des routes « {{name}} » propres à Model Hotel"
 		},
 		"latency": {
 			"topModels": "Modèles les plus lents",
@@ -1996,7 +1997,7 @@
 			"failedToRefreshBalance": "Impossible de rafraichir le solde",
 			"noCredits": "Pas de crédits",
 			"cancelAtPeriodEnd": "L'abonnement sera annulé à la fin de la période ({{date}})",
-			"neuralWattCredits": "Crédits",
+			"neuralWattCredits": "Crédits NeuralWatt",
 			"neuralwattBalance": "Solde",
 			"neuralwattUsage": "Usage",
 			"neuralwattSubscription": "Abonnement",

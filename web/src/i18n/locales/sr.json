@@ -268,7 +268,8 @@
 			"topVirtualKeys": "Топ виртуелни кључеви",
 			"emptyState": "Још нема података о коришћењу. Расподела коришћења ће се појавити овде када саобраћај почне.",
 			"viewDetailsFor": "Прикажи детаље за {{label}}",
-			"deletedModelTooltip": "Модел више није доступан — можда је обрисан или је његов провајдер уклоњен"
+			"deletedModelTooltip": "Модел више није доступан — можда је обрисан или је његов провајдер уклоњен",
+			"reservedKeyTooltip": "Унутрашње резервисано име, а не кључ који сте креирали - ова употреба потиче од рута \"{{name}}\" самог Model Hotela"
 		},
 		"latency": {
 			"topModels": "Најспорији модели",
@@ -1972,7 +1973,7 @@
 			"hTokenQuota": "{{hours}}Квота токена",
 			"left": "лево",
 			"mcpTokenQuota": "МЦП временска квота",
-			"openRouterCredits": "Заслуге OpenRouter-а",
+			"openRouterCredits": "Кредити OpenRouter-а",
 			"freeTier": "Бесплатни ниво",
 			"paidAccount": "Плаћени налог",
 			"showCreditsUsed": "Прикажи коришћене кредите",
@@ -1996,7 +1997,7 @@
 			"failedToRefreshBalance": "Обнову баланса није успело",
 			"noCredits": "Нема кредита",
 			"cancelAtPeriodEnd": "Претплата ће бити отказана на крају периода ({{date}})",
-			"neuralWattCredits": "Заслуге",
+			"neuralWattCredits": "Кредити NeuralWatt-а",
 			"neuralwattBalance": "Равнотежа",
 			"neuralwattUsage": "Употреба",
 			"neuralwattSubscription": "Претплата",

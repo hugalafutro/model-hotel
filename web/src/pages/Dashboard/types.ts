@@ -35,6 +35,9 @@ export type UsageEntry = {
 	deleted?: boolean;
 	/** When true, entry represents a failover group (hotel/ prefix) and should not be clickable */
 	failoverGroup?: boolean;
+	/** When true, the label is an internal reserved virtual-key name (chat/arena/internal/...)
+	 * that Model Hotel meters under its own routes, not a key the user created. */
+	reserved?: boolean;
 };
 
 export type { MetricType };

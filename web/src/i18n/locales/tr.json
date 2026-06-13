@@ -268,7 +268,8 @@
 			"topVirtualKeys": "En iyi sanal anahtarlar",
 			"emptyState": "Henüz kullanım verisi yok. Trafik akışı başladığında kullanım dağılımı burada görünecektir.",
 			"viewDetailsFor": "Ayrıntıları görüntüle {{label}}",
-			"deletedModelTooltip": "Model artık mevcut değil — silinmiş olabilir veya satıcısı kaldırılmış olabilir"
+			"deletedModelTooltip": "Model artık mevcut değil — silinmiş olabilir veya satıcısı kaldırılmış olabilir",
+			"reservedKeyTooltip": "Dahili ayrılmış ad, sizin oluşturduğunuz bir anahtar değil - bu kullanım Model Hotel'in kendi \"{{name}}\" rotalarından gelmektedir"
 		},
 		"latency": {
 			"topModels": "En yavaş modeller",
@@ -1996,7 +1997,7 @@
 			"failedToRefreshBalance": "Bakiye yenilenemedi",
 			"noCredits": "Kredi yok",
 			"cancelAtPeriodEnd": "Abonelik dönem sonunda iptal edilecektir ({{date}})",
-			"neuralWattCredits": "Teşekkürler",
+			"neuralWattCredits": "NeuralWatt Kredileri",
 			"neuralwattBalance": "Denge",
 			"neuralwattUsage": "Kullanım",
 			"neuralwattSubscription": "Abonelik",

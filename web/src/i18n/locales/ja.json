@@ -268,7 +268,8 @@
 			"topVirtualKeys": "トップ仮想キー",
 			"emptyState": "利用データはまだありません。トラフィックが流れると、利用状況の内訳がここに表示されます。",
 			"viewDetailsFor": "{{label}} の詳細を表示",
-			"deletedModelTooltip": "このモデルは利用できなくなりました — 削除されたか、プロバイダーが削除された可能性があります"
+			"deletedModelTooltip": "このモデルは利用できなくなりました — 削除されたか、プロバイダーが削除された可能性があります",
+			"reservedKeyTooltip": "内部で予約済みの名前であり、ユーザーが作成したキーではありません。この使用法は、Model Hotel独自の「{{name}}」ルートに由来します。"
 		},
 		"latency": {
 			"topModels": "最も遅いモデル",
@@ -1996,7 +1997,7 @@
 			"failedToRefreshBalance": "残高の更新に失敗しました",
 			"noCredits": "クレジットがありません",
 			"cancelAtPeriodEnd": "サブスクリプションは期間終了時にキャンセルされます ({{date}})",
-			"neuralWattCredits": "クレジット",
+			"neuralWattCredits": "NeuralWatt クレジット",
 			"neuralwattBalance": "残高",
 			"neuralwattUsage": "使用法",
 			"neuralwattSubscription": "サブスクリプション",

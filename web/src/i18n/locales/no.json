@@ -268,7 +268,8 @@
 			"topVirtualKeys": "Topp virtuelle nøkler",
 			"emptyState": "Ingen bruksdata enda. Bruk nedbrytning vil vises her når trafikk flyter.",
 			"viewDetailsFor": "Vis detaljer for {{label}}",
-			"deletedModelTooltip": "Modellen er ikke lenger tilgjengelig – den kan ha blitt slettet, eller leverandøren kan ha blitt fjernet"
+			"deletedModelTooltip": "Modellen er ikke lenger tilgjengelig – den kan ha blitt slettet, eller leverandøren kan ha blitt fjernet",
+			"reservedKeyTooltip": "Internt reservert navn, ikke en nøkkel du har opprettet – denne bruken kommer fra Model Hotels egne «{{name}}»-ruter"
 		},
 		"latency": {
 			"topModels": "Tregeste modeller",
@@ -1996,7 +1997,7 @@
 			"failedToRefreshBalance": "Kunne ikke oppdatere saldoen",
 			"noCredits": "Ingen kreditt",
 			"cancelAtPeriodEnd": "Abonnementet vil avbryte ved slutten ({{date}})",
-			"neuralWattCredits": "Medvirkende",
+			"neuralWattCredits": "NeuralWatt kreditter",
 			"neuralwattBalance": "Balanse",
 			"neuralwattUsage": "Bruk",
 			"neuralwattSubscription": "Abonnement",

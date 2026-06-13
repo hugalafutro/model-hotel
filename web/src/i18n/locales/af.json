@@ -268,7 +268,8 @@
 			"topVirtualKeys": "Top virtuele sleutels",
 			"emptyState": "Nog geen gebruiksdata nie. 'n Gebruiksopdeling sal hier verskyn sodra verkeer vloei.",
 			"viewDetailsFor": "Beskou besonderhede vir {{label}}",
-			"deletedModelTooltip": "Model nie meer beskikbaar nie — dit is moontlik geskrap of sy verskaffer is verwyder"
+			"deletedModelTooltip": "Model nie meer beskikbaar nie — dit is moontlik geskrap of sy verskaffer is verwyder",
+			"reservedKeyTooltip": "Interne voorbehoude naam, nie 'n sleutel wat jy geskep het nie - hierdie gebruik kom van Model Hotel se eie \"{{name}}\"-roetes"
 		},
 		"latency": {
 			"topModels": "Stadigste modelle",
@@ -1996,7 +1997,7 @@
 			"failedToRefreshBalance": "Het misluk om die balans op te dateer",
 			"noCredits": "Geen krediete",
 			"cancelAtPeriodEnd": "Inskrywing sal aan die einde van die periode gekanselleer word ({{date}})",
-			"neuralWattCredits": "Krediete",
+			"neuralWattCredits": "NeuralWatt Krediete",
 			"neuralwattBalance": "Balans",
 			"neuralwattUsage": "Gebruik",
 			"neuralwattSubscription": "Inskrywing",

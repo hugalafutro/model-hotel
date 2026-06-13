@@ -268,7 +268,8 @@
 			"topVirtualKeys": "Nej. virtuální klíče",
 			"emptyState": "Zatím nejsou k dispozici žádné údaje o využití. Rozpis využití se zde zobrazí, jakmile začne proudit provoz.",
 			"viewDetailsFor": "Zobrazit podrobnosti o modelu {{label}}",
-			"deletedModelTooltip": "Tento model již není k dispozici – mohl být vyřazen z nabídky nebo byl zrušen jeho dodavatel"
+			"deletedModelTooltip": "Tento model již není k dispozici – mohl být vyřazen z nabídky nebo byl zrušen jeho dodavatel",
+			"reservedKeyTooltip": "Interní vyhrazené jméno, nikoli klíč, který jste vytvořili – toto použití pochází z vlastních tras „{{name}}“ služby Model Hotel."
 		},
 		"latency": {
 			"topModels": "Nejpomalejší modely",
@@ -1996,7 +1997,7 @@
 			"failedToRefreshBalance": "Obnovení zůstatku selhalo",
 			"noCredits": "Žádné kredity",
 			"cancelAtPeriodEnd": "Předplatné bude na konci období zrušeno ({{date}})",
-			"neuralWattCredits": "Kredity",
+			"neuralWattCredits": "Kredity NeuralWatt",
 			"neuralwattBalance": "Zůstatek",
 			"neuralwattUsage": "Použití",
 			"neuralwattSubscription": "Předplatné",

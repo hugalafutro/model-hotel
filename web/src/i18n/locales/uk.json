@@ -268,7 +268,8 @@
 			"topVirtualKeys": "Топ віртуальних ключів",
 			"emptyState": "Даних про використання поки поки немає. Використання розриву буде показано тут після потоку трафіку.",
 			"viewDetailsFor": "Переглянути деталі для {{label}}",
-			"deletedModelTooltip": "Ця модель більше не доступна — можливо, її було видалено або її постачальник більше не представлений"
+			"deletedModelTooltip": "Ця модель більше не доступна — можливо, її було видалено або її постачальник більше не представлений",
+			"reservedKeyTooltip": "Внутрішнє зарезервоване ім’я, а не ключ, який ви створили — це використання походить від власних маршрутів Model Hotel «{{name}}»"
 		},
 		"latency": {
 			"topModels": "Найповільніші моделі",
@@ -1972,7 +1973,7 @@
 			"hTokenQuota": "Квота маркера {{hours}}",
 			"left": "ліворуч",
 			"mcpTokenQuota": "Квота часу MCP",
-			"openRouterCredits": "Внески OpenRouter",
+			"openRouterCredits": "Кредити OpenRouter",
 			"freeTier": "Безоплатний рівень",
 			"paidAccount": "Платний обліковий запис",
 			"showCreditsUsed": "Показати використовувані кредити",
@@ -1996,7 +1997,7 @@
 			"failedToRefreshBalance": "Не вдалося оновити баланс",
 			"noCredits": "Немає кредитів",
 			"cancelAtPeriodEnd": "Підписка буде скорочуватися в кінці ({{date}})",
-			"neuralWattCredits": "Автори",
+			"neuralWattCredits": "Кредити NeuralWatt",
 			"neuralwattBalance": "Баланс",
 			"neuralwattUsage": "Використання",
 			"neuralwattSubscription": "Підписка",

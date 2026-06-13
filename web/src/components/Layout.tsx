@@ -565,7 +565,7 @@ function LastErrorPills() {
 		timestamp: string | null,
 		entry?: LogEntry | AppLogEntry,
 	) => (
-		<div className="group relative rounded-md border border-[var(--error-border)] bg-[var(--error-bg)] overflow-hidden">
+		<div className="ui-error-pill group relative rounded-md border border-[var(--error-border)] bg-[var(--error-bg)] overflow-hidden">
 			{/* Header row with icon, label, and action buttons */}
 			<div className="flex items-center justify-between px-2 py-px bg-[var(--error-bg-strong)]">
 				<div className="flex items-center gap-1.5">

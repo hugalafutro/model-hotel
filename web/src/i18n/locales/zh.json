@@ -268,7 +268,8 @@
 			"topVirtualKeys": "热门虚拟密钥",
 			"emptyState": "尚无使用数据。一旦流量流量，使用情况将会在这里显示。",
 			"viewDetailsFor": "查看详情 {{label}}",
-			"deletedModelTooltip": "模型已不可用——可能已被删除，或其提供商已被移除"
+			"deletedModelTooltip": "模型已不可用——可能已被删除，或其提供商已被移除",
+			"reservedKeyTooltip": "内部保留名称，非您创建的键——此用法源自 Model Hotel 自身的“{{name}}”路由"
 		},
 		"latency": {
 			"topModels": "最慢的模型",
@@ -1996,7 +1997,7 @@
 			"failedToRefreshBalance": "刷新余额失败",
 			"noCredits": "无点数",
 			"cancelAtPeriodEnd": "订阅将在期满时自动取消（{{date}}）",
-			"neuralWattCredits": "致谢",
+			"neuralWattCredits": "NeuralWatt 积分",
 			"neuralwattBalance": "余额",
 			"neuralwattUsage": "用法",
 			"neuralwattSubscription": "订阅",

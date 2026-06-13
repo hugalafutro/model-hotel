@@ -268,7 +268,8 @@
 			"topVirtualKeys": "Top claus virtuals",
 			"emptyState": "Encara no hi ha dades d'ús. El desglossament de l'ús apareixerà aquí un cop hi hagi trànsit.",
 			"viewDetailsFor": "Veure detalls de {{label}}",
-			"deletedModelTooltip": "El model ja no està disponible — pot haver estat suprimit o el seu proveïdor s'ha eliminat"
+			"deletedModelTooltip": "El model ja no està disponible — pot haver estat suprimit o el seu proveïdor s'ha eliminat",
+			"reservedKeyTooltip": "Nom intern reservat, no és una clau que hàgiu creat - aquest ús prové de les rutes \"{{name}}\" del mateix Model Hotel."
 		},
 		"latency": {
 			"topModels": "Models més lents",
@@ -1996,7 +1997,7 @@
 			"failedToRefreshBalance": "No s'ha pogut actualitzar el saldo",
 			"noCredits": "Sense crèdits",
 			"cancelAtPeriodEnd": "La subscripció s'anul·larà al final del període ({{date}})",
-			"neuralWattCredits": "Crèdits",
+			"neuralWattCredits": "Crèdits d'NeuralWatt",
 			"neuralwattBalance": "Equilibri",
 			"neuralwattUsage": "Ús",
 			"neuralwattSubscription": "Subscripció",
