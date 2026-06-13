@@ -61,8 +61,7 @@ func (h *Handler) failAllExhausted(w http.ResponseWriter, st *requestState, numC
 		debuglog.Error("proxy: provider request failed", "model", st.logData.modelID, "provider", st.logData.providerName, "error", logMsg, "kind", string(last.Kind), "status", status, "request_timeout", st.failoverTimeout)
 	}
 	st.logData.providerID = uuid.Nil
-	st.logData.errorKind = last.Kind
-	h.failRequest(st.logData, status, logMsg, numCandidates-1, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
+	h.failRequest(st.logData, status, last.Kind, logMsg, numCandidates-1, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
 	writeOpenAIError(w, clientMsg, status)
 }
 
@@ -498,8 +497,7 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 	debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID)
 	debuglog.Debug("proxy: upstream error response", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "body_length", len(body), "attempt", attempt+1)
 	logData.responseHeaderMs = responseHeaderMs
-	logData.errorKind = KindProviderError
-	h.failRequest(logData, resp.StatusCode, errMsg, attempt, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
+	h.failRequest(logData, resp.StatusCode, KindProviderError, errMsg, attempt, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
 
 	if !hasMoreCandidates {
 		// All failover candidates exhausted — return a generic error.

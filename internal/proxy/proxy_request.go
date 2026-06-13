@@ -63,7 +63,7 @@ func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request, endpoint
 			if err != nil {
 				debuglog.Warn("proxy: failed to read request body", "error", err)
 				publishRequestStartedEvent(logData)
-				h.failRequest(logData, 400, "failed to read request body", 0, startTime, parseMs, resolveTimings{}, resolveCacheHits{}, 0)
+				h.failRequest(logData, 400, KindValidation, "failed to read request body", 0, startTime, parseMs, resolveTimings{}, resolveCacheHits{}, 0)
 				writeOpenAIError(w, "failed to read request body", http.StatusBadRequest)
 				return nil, false
 			}
@@ -74,7 +74,7 @@ func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request, endpoint
 		if err := json.Unmarshal(bodyBytes, &req); err != nil {
 			debuglog.Warn("proxy: failed to parse request body", "error", err)
 			publishRequestStartedEvent(logData)
-			h.failRequest(logData, 400, "invalid request body", 0, startTime, parseMs, resolveTimings{}, resolveCacheHits{}, 0)
+			h.failRequest(logData, 400, KindValidation, "invalid request body", 0, startTime, parseMs, resolveTimings{}, resolveCacheHits{}, 0)
 			writeOpenAIError(w, "invalid request body", http.StatusBadRequest)
 			return nil, false
 		}
@@ -98,7 +98,7 @@ func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request, endpoint
 	publishRequestStartedEvent(logData)
 
 	if reqModel == "" {
-		h.failRequest(logData, 400, "model is required", 0, startTime, parseMs, resolveTimings{}, resolveCacheHits{}, 0)
+		h.failRequest(logData, 400, KindValidation, "model is required", 0, startTime, parseMs, resolveTimings{}, resolveCacheHits{}, 0)
 		writeOpenAIError(w, "model is required", http.StatusBadRequest)
 		return nil, false
 	}
@@ -180,12 +180,12 @@ func (h *Handler) resolveCandidates(w http.ResponseWriter, r *http.Request, st *
 		displayModel := strings.ToLower(strings.TrimPrefix(st.reqModel, "hotel/"))
 		candidates, timings, cacheHits, err = h.resolveHotelModel(r.Context(), displayModel)
 		if err != nil {
-			h.failRequest(st.logData, 404, err.Error(), 0, st.startTime, st.parseMs, timings, cacheHits, 0)
+			h.failRequest(st.logData, 404, KindValidation, err.Error(), 0, st.startTime, st.parseMs, timings, cacheHits, 0)
 			writeOpenAIError(w, err.Error(), http.StatusNotFound)
 			return nil, false
 		}
 		if len(candidates) == 0 {
-			h.failRequest(st.logData, 502, "no available provider for hotel/"+displayModel, 0, st.startTime, st.parseMs, timings, cacheHits, 0)
+			h.failRequest(st.logData, 502, KindProviderError, "no available provider for hotel/"+displayModel, 0, st.startTime, st.parseMs, timings, cacheHits, 0)
 			writeOpenAIError(w, "no available provider for hotel/"+displayModel, http.StatusBadGateway)
 			return nil, false
 		}
@@ -195,12 +195,12 @@ func (h *Handler) resolveCandidates(w http.ResponseWriter, r *http.Request, st *
 		providerName, modelID := parts[0], parts[1]
 		candidates, timings, cacheHits, err = h.resolveSpecificProvider(r.Context(), providerName, modelID)
 		if err != nil {
-			h.failRequest(st.logData, 404, err.Error(), 0, st.startTime, st.parseMs, timings, cacheHits, 0)
+			h.failRequest(st.logData, 404, KindValidation, err.Error(), 0, st.startTime, st.parseMs, timings, cacheHits, 0)
 			writeOpenAIError(w, err.Error(), http.StatusNotFound)
 			return nil, false
 		}
 	default:
-		h.failRequest(st.logData, 400, "invalid model format: "+st.reqModel, 0, st.startTime, st.parseMs, timings, resolveCacheHits{}, 0)
+		h.failRequest(st.logData, 400, KindValidation, "invalid model format: "+st.reqModel, 0, st.startTime, st.parseMs, timings, resolveCacheHits{}, 0)
 		writeOpenAIError(w, `invalid model format: expected "provider/model" or "hotel/group"`, http.StatusBadRequest)
 		return nil, false
 	}
@@ -234,7 +234,7 @@ func (h *Handler) resolveCandidates(w http.ResponseWriter, r *http.Request, st *
 				}
 			}
 			if len(filtered) == 0 {
-				h.failRequest(st.logData, 403, "virtual key does not have access to any provider for this model", 0, st.startTime, st.parseMs, timings, cacheHits, 0)
+				h.failRequest(st.logData, 403, KindAuth, "virtual key does not have access to any provider for this model", 0, st.startTime, st.parseMs, timings, cacheHits, 0)
 				writeOpenAIError(w, "virtual key does not have access to any provider for this model", http.StatusForbidden)
 				return nil, false
 			}

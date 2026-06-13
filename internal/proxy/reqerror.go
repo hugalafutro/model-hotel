@@ -25,6 +25,11 @@ const (
 	KindRetryTimeout ErrorKind = "retry_timeout"
 	// KindInternal is a gateway-internal failure (e.g. could not build the request).
 	KindInternal ErrorKind = "internal"
+	// KindValidation is a bad request from the client (malformed body, missing
+	// model, unknown model, invalid model format).
+	KindValidation ErrorKind = "validation"
+	// KindAuth is an authorization failure (virtual key lacks access).
+	KindAuth ErrorKind = "auth"
 )
 
 // reqError is the structured description of a single failed failover attempt,
@@ -101,6 +106,10 @@ func (e reqError) render() string {
 			return fmt.Sprintf("internal error on attempt %d: %s", n, e.Underlying)
 		}
 		return fmt.Sprintf("internal error on attempt %d", n)
+	case KindValidation:
+		return "invalid request"
+	case KindAuth:
+		return "authorization failed"
 	default: // KindProviderError and any unclassified failure
 		if e.Detail != "" {
 			return fmt.Sprintf("%s returned %s on attempt %d", e.providerLabel(), e.Detail, n)

@@ -285,7 +285,7 @@ func (h *Handler) ingestMultipartRequest(w http.ResponseWriter, r *http.Request,
 	if err != nil {
 		debuglog.Warn("proxy: failed to read multipart request body", "error", err)
 		publishRequestStartedEvent(logData)
-		h.failRequest(logData, 400, "failed to read request body", 0, startTime, 0, resolveTimings{}, resolveCacheHits{}, 0)
+		h.failRequest(logData, 400, KindValidation, "failed to read request body", 0, startTime, 0, resolveTimings{}, resolveCacheHits{}, 0)
 		writeOpenAIError(w, "failed to read request body", http.StatusBadRequest)
 		return nil, nil, false
 	}
@@ -293,7 +293,7 @@ func (h *Handler) ingestMultipartRequest(w http.ResponseWriter, r *http.Request,
 	mediaType, ctParams, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || !strings.HasPrefix(mediaType, "multipart/") || ctParams["boundary"] == "" {
 		publishRequestStartedEvent(logData)
-		h.failRequest(logData, 400, "Content-Type must be multipart/form-data with a boundary", 0, startTime, 0, resolveTimings{}, resolveCacheHits{}, 0)
+		h.failRequest(logData, 400, KindValidation, "Content-Type must be multipart/form-data with a boundary", 0, startTime, 0, resolveTimings{}, resolveCacheHits{}, 0)
 		writeOpenAIError(w, "Content-Type must be multipart/form-data with a boundary", http.StatusBadRequest)
 		return nil, nil, false
 	}
@@ -302,7 +302,7 @@ func (h *Handler) ingestMultipartRequest(w http.ResponseWriter, r *http.Request,
 	if err != nil {
 		debuglog.Warn("proxy: failed to parse multipart form", "error", err)
 		publishRequestStartedEvent(logData)
-		h.failRequest(logData, 400, "invalid multipart form", 0, startTime, 0, resolveTimings{}, resolveCacheHits{}, 0)
+		h.failRequest(logData, 400, KindValidation, "invalid multipart form", 0, startTime, 0, resolveTimings{}, resolveCacheHits{}, 0)
 		writeOpenAIError(w, "invalid multipart form", http.StatusBadRequest)
 		return nil, nil, false
 	}
@@ -312,7 +312,7 @@ func (h *Handler) ingestMultipartRequest(w http.ResponseWriter, r *http.Request,
 	publishRequestStartedEvent(logData)
 
 	if reqModel == "" {
-		h.failRequest(logData, 400, "model is required", 0, startTime, parseMs, resolveTimings{}, resolveCacheHits{}, 0)
+		h.failRequest(logData, 400, KindValidation, "model is required", 0, startTime, parseMs, resolveTimings{}, resolveCacheHits{}, 0)
 		writeOpenAIError(w, "model is required", http.StatusBadRequest)
 		return nil, nil, false
 	}

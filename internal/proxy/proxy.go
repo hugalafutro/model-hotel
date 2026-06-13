@@ -524,8 +524,11 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 
 // failRequest populates logData with failure details and updates the request log.
 // Always populates all timing fields from timings - if zero-valued, they record as 0ms.
-func (h *Handler) failRequest(logData *requestLogData, statusCode int, errMsg string, attempt int, startTime time.Time, parseMs float64, timings resolveTimings, cacheHits resolveCacheHits, proxyOverhead float64) {
+// kind is the machine-readable classification (a required argument so no failure
+// path can silently omit it); it is stored in request_logs.error_kind.
+func (h *Handler) failRequest(logData *requestLogData, statusCode int, kind ErrorKind, errMsg string, attempt int, startTime time.Time, parseMs float64, timings resolveTimings, cacheHits resolveCacheHits, proxyOverhead float64) {
 	logData.statusCode = statusCode
+	logData.errorKind = kind
 	logData.errorMessage = errMsg
 	logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
 	logData.proxyOverheadMs = proxyOverhead
@@ -595,8 +598,7 @@ func (h *Handler) runFailoverLoop(w http.ResponseWriter, r *http.Request, st *re
 				// shows what was failing when the client gave up. 499 (client
 				// closed request) on both the log and the wire — see plan §7.
 				st.setReqErr(reqError{Kind: KindClientDisconnect, Attempt: attempt - 1, Provider: st.logData.providerName, Underlying: st.lastReqErr.Underlying})
-				st.logData.errorKind = KindClientDisconnect
-				h.failRequest(st.logData, statusClientClosedRequest, st.lastErr, attempt-1, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
+				h.failRequest(st.logData, statusClientClosedRequest, KindClientDisconnect, st.lastErr, attempt-1, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
 				writeOpenAIError(w, "client disconnected", statusClientClosedRequest)
 				return
 			}

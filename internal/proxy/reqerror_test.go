@@ -85,6 +85,16 @@ func TestReqErrorRender(t *testing.T) {
 			want: `internal error on attempt 1: bad url`,
 		},
 		{
+			name: "validation",
+			err:  reqError{Kind: KindValidation},
+			want: `invalid request`,
+		},
+		{
+			name: "auth",
+			err:  reqError{Kind: KindAuth},
+			want: `authorization failed`,
+		},
+		{
 			name: "no provider name falls back to generic phrase",
 			err:  reqError{Kind: KindProviderError, Attempt: 0},
 			want: `the provider failed on attempt 1`,

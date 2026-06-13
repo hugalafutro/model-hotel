@@ -27,6 +27,11 @@ of the message kept only as a fallback for legacy NULL rows.
 | `failover_timeout` | overall failover deadline expired | **504** |
 | `retry_timeout` | param-strip retry deadline expired | **504** |
 | `internal` | gateway-internal failure (e.g. request build) | 502 |
+| `validation` | bad client request (malformed body, missing/unknown model) | 400/404 |
+| `auth` | virtual key lacks access | 403 |
+
+`failRequest` takes `kind` as a required argument, so no failure path can record
+a request without classifying it (compile-time guardrail).
 
 Rules:
 
