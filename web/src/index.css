@@ -1006,6 +1006,13 @@ html[data-ui-style="cyber-terminal"] .sidebar-quota-pill {
 	letter-spacing: 0.05em;
 }
 
+/* Sidebar last-error pills: square the container to match the rest of the
+   terminal UI (the pill uses raw Tailwind rounding with no theme hook of its
+   own). overflow-hidden on the pill already clips the header corners square. */
+html[data-ui-style="cyber-terminal"] .ui-error-pill {
+	border-radius: 0;
+}
+
 html[data-ui-style="glassmorphism-lite"] .sidebar-quota-pill {
 	border-radius: 8px;
 	/* Match the ui-badge base size (sidebar failover badge, provider-card
