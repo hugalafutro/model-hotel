@@ -113,7 +113,7 @@ export function SortableEntry({
 					style={{ boxShadow: `inset 0 0 0 1.5px ${fuseColor}` }}
 				/>
 			)}
-			<div className="flex items-center gap-2 min-w-0">
+			<div className="flex items-center gap-2 flex-1 overflow-hidden min-w-0">
 				<span
 					{...dragProps}
 					className={`text-(--text-tertiary) shrink-0 transition-opacity ${
