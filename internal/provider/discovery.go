@@ -344,7 +344,7 @@ func (d *DiscoveryService) getOrCreateCircuit(providerID string) *quotaCircuitSt
 	val, _ := d.quotaBreaker.LoadOrStore(providerID, &quotaCircuitState{})
 	circuit, ok := val.(*quotaCircuitState)
 	if !ok {
-		debuglog.Error("quotaBreaker: unexpected type", "providerID", providerID, "type", fmt.Sprintf("%T", val))
+		debuglog.Error("quotaBreaker: unexpected type", "provider_id", providerID, "type", fmt.Sprintf("%T", val))
 		return &quotaCircuitState{}
 	}
 	return circuit

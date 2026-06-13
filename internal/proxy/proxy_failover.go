@@ -250,7 +250,7 @@ func (h *Handler) beginAttempt(failoverCtx context.Context, st *requestState, ca
 	} else {
 		debuglog.Info("proxy: failover attempt", "endpoint", logData.endpointType, "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID)
 	}
-	debuglog.Debug("proxy: candidate details", "provider_id", candidate.provider.ID, "provider_name", candidate.provider.Name, "model_id", candidate.model.ModelID, "provider_type", provider.DetectProviderType(candidate.provider.BaseURL), "attempt", attempt+1, "total_candidates", totalCandidates)
+	debuglog.Debug("proxy: candidate details", "provider_id", candidate.provider.ID, "provider", candidate.provider.Name, "model_id", candidate.model.ModelID, "provider_type", provider.DetectProviderType(candidate.provider.BaseURL), "attempt", attempt+1, "total_candidates", totalCandidates)
 	h.touchProviderLastUsed(candidate.provider.ID)
 
 	proxyReq, providerType, targetURL, err := h.buildCandidateRequest(failoverCtx, st, candidate)
