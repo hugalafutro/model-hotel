@@ -127,6 +127,17 @@ Models that aren't covered by any built-in catalog are automatically enriched fr
 ### [<img src="docs/icons/health.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Model Health at a Glance](#-model-health-at-a-glance)
 Test any model from the Models page with a single click. The test sends a minimal chat completion directly to the provider and reports total duration and the actual model response, so you know the provider is alive and responsive. DeepSeek providers show live account balance; NanoGPT and Z.AI providers show token quota and usage data; NeuralWatt providers show energy quota and credit balance (Standard plan or higher). All fetched from their respective APIs and displayed on both the provider cards and the sidebar quota panel.
 
+### [<img src="docs/icons/health.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Provider Quotas & Usage](#-provider-quotas--usage)
+For providers that expose it, click a provider's quota badge (on its card or in the sidebar panel) to open a live usage breakdown — no need to leave the dashboard for the provider's billing page. **OpenRouter** shows credit balance and per-key spend; **Z.ai Coding Plan** shows its 5-hour, weekly, and MCP token quotas; **NeuralWatt** shows energy-based quota with subscription and lifetime usage. Each modal toggles between **quota used** and **quota remaining**, and refreshes on demand. Some providers surface usage without a dedicated modal — **DeepSeek** shows account balance and **Ollama Cloud** shows plan status on their cards and sidebar badges.
+
+<p align="center">
+  <a href="docs/screenshots/quota_openrouter.png"><img src="docs/screenshots/quota_openrouter.png" height="240" alt="OpenRouter credits & usage"></a>
+  &nbsp;&nbsp;
+  <a href="docs/screenshots/quota_zaicoding.png"><img src="docs/screenshots/quota_zaicoding.png" height="240" alt="Z.ai Coding Plan quota"></a>
+  &nbsp;&nbsp;
+  <a href="docs/screenshots/quota_neuralwatt.png"><img src="docs/screenshots/quota_neuralwatt_thumb.png" height="240" alt="NeuralWatt energy quota — click for full"></a>
+</p>
+
 ### [<img src="docs/icons/api.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Interactive Chat & Arena](#-interactive-chat--arena)
 The dashboard includes a built-in **Chat** interface for testing models interactively, with support for system personas (presets or custom prompts), generation parameters (temperature, top_p, max_tokens, min_p, top_k, frequency/presence penalties), and streaming responses with collapsible thinking-block rendering. Vision-capable models show an image upload button: attach a photo for the model to describe or analyze. Audio-capable models show an audio upload button for sending audio input. Attachments are sent as OpenAI-compatible multimodal content parts (`image_url`, `input_audio`). Switch to **Conversation** mode to watch two models talk to each other: enter a starter prompt, set the number of rounds and optional delay between turns, and observe the back-and-forth with per-message metrics (duration, tokens, chars/sec).
 
@@ -154,7 +165,7 @@ Provider API keys are encrypted at rest with AES-256-GCM. The `MASTER_KEY` is st
 Log into the admin dashboard using a FIDO2/WebAuthn passkey (Touch ID, Windows Hello, YubiKey, etc.) instead of the admin token. Register passkeys from the Settings page and use them on the login screen alongside the traditional admin token.
 
 <div align="center">
-<br><img src="docs/screenshots/login_passkey.png" alt="Passkey Login" width="720"><br>
+<br><img src="docs/screenshots/login_passkey.png" alt="Passkey Login" width="360"><br>
 </div>
 
 Passkey login is disabled by default. Enable it by setting `WEBAUTHN_RP_ID` (your domain) in the environment; `WEBAUTHN_RP_ORIGINS` (your origin URLs) falls back to `CORS_ORIGINS`, then to `http://localhost:<port>`. Session tokens are SHA-256 hashed, never stored in plaintext, and expire after 30 days.
