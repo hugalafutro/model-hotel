@@ -301,12 +301,10 @@
 			"requestsUnit": "İstekler"
 		},
 		"models": {
-			"top": "En iyi modeller",
 			"viewDetails": "Ayrıntıları görüntüle {{label}}",
 			"emptyState": "Henüz model verisi yok. Trafik akışı başladığında model dökümü burada görünecektir."
 		},
 		"virtualKeys": {
-			"top": "En iyi sanal anahtarlar",
 			"emptyState": "Henüz sanal anahtar verisi yok. Trafik akışı başladığında sanal anahtar dağılımı burada görünecektir."
 		},
 		"tokens": {
@@ -641,7 +639,7 @@
 		"btn_refreshing": "Ferahlatıcı...",
 		"filter_placeholder": "Filtre sağlayıcıları…",
 		"filter_provider_type": "Sağlayıcı türü",
-		"filter_all": "Tümü ({{count}})",
+		"filter_all": "Tümü ({{count}}) sağlayıcılar",
 		"sort_title_asc": "A'dan Z'ye sıralanmış (tersine çevirmek için tıklayın)",
 		"sort_title_desc": "Z-A sırasına göre (tersine çevirmek için tıklayın)",
 		"empty_no_match": "Seçilen filtreye uyan sağlayıcı bulunamadı.",
@@ -880,19 +878,18 @@
 		"page_title_other": "Yedekleme Grupları",
 		"page_description_lead": "İstekleri öncelik sırasına göre birden fazla sağlayıcı üzerinden yönlendirin",
 		"page_description_code": "otel/model",
-		"last_sync": "Son senkronizasyon: {{time}}",
 		"btn_sync": "Senkronize et",
 		"btn_syncing": "… 'i senkronize etme",
 		"btn_new_group": "Yeni Grup",
 		"hint_drag": "Öncelik sırasını değiştirmek için modelleri tutamağından sürükleyin",
 		"filter_hotel_model": "Otel/model filtrele…",
-		"filter_providers": "Tüm sağlayıcılar",
-		"filter_states": "Tüm eyaletler",
-		"filter_origins": "Tüm kaynaklar",
+		"filter_providers": "Tüm ({{count}}) sağlayıcılar",
+		"filter_states": "Tüm ({{count}}) eyaletler",
+		"filter_origins": "Tüm ({{count}}) kaynaklar",
 		"filter_state_enabled": "Etkin",
 		"filter_state_disabled": "Engelli",
 		"filter_origin_auto": "Otomatik",
-		"filter_origin_manual": "Kılavuz",
+		"filter_origin_manual": "Özel",
 		"select_all": "Tümünü seç",
 		"deselect_all": "Tümünü seçmeyi kaldır",
 		"selected_count": "{{count}} seçilen",
@@ -960,7 +957,8 @@
 		"btn_manage_providers": "Sağlayıcıları Yönet",
 		"provider_modal_title": "Sağlayıcı Durumunu Yönet",
 		"provider_modal_description": "Bir sağlayıcının devre dışı bırakılması, tüm yedekleme gruplarındaki tüm modellerini devre dışı bırakır",
-		"toast_provider_toggle_no_groups": "Hiçbir yük devretme grubu bu sağlayıcıyı kullanmıyor {{provider}}"
+		"toast_provider_toggle_no_groups": "Hiçbir yük devretme grubu bu sağlayıcıyı kullanmıyor {{provider}}",
+		"last_sync_label": "Son senkronizasyon:"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Kaydedilmemiş Değişiklikler"
@@ -1086,7 +1084,9 @@
 			"level": "Seviye",
 			"levelAll": "Tümü",
 			"source": "Kaynak",
-			"logsPlaceholder": "… 'daki günlükleri filtrele"
+			"logsPlaceholder": "… 'daki günlükleri filtrele",
+			"allStatus": "Tüm Durumlar",
+			"allEndpoints": "Tüm Modaliteler"
 		},
 		"endpoint": {
 			"chat": "Sohbet",
@@ -1172,7 +1172,9 @@
 			"levelAll": "Tümü",
 			"source": "Kaynak",
 			"all": "Tümü ({{count}})",
-			"search": "… 'daki günlükleri filtrele"
+			"search": "… 'daki günlükleri filtrele",
+			"allLevels": "Tüm Seviyeler",
+			"allKeys": "Tüm Anahtarlar"
 		},
 		"table": {
 			"timeDate": "Saat/Tarih",

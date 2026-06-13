@@ -209,6 +209,7 @@ export function ArenaHistoryModal({
 													? "text-(--accent) font-semibold"
 													: "text-(--text-secondary)"
 											}`}
+											title={aName}
 										>
 											{aIsWinner && (
 												<Trophy size={10} className="inline mr-1 -mt-0.5" />
@@ -224,6 +225,7 @@ export function ArenaHistoryModal({
 													? "text-(--accent) font-semibold"
 													: "text-(--text-secondary)"
 											}`}
+											title={bName}
 										>
 											{bName}
 											{bIsWinner && (
@@ -291,7 +293,7 @@ export function ArenaHistoryModal({
 								)}
 							</div>
 							{resp.error ? (
-								<p className="text-xs text-red-400 truncate">
+								<p className="text-xs text-red-400 truncate" title={resp.error}>
 									{t("components.arenaHistoryModal.error", {
 										message: resp.error,
 									})}
@@ -445,7 +447,33 @@ export function ArenaHistoryModal({
 
 									{/* Middle: model names + preset */}
 									<div className="flex-1 min-w-0 flex flex-col gap-0.5">
-										<span className="text-sm text-(--text-primary) truncate">
+										<span
+											className="text-sm text-(--text-primary) truncate"
+											title={
+												entry.mode === "competition"
+													? entry.rounds &&
+														entry.rounds.length > 0 &&
+														entry.rounds[0].matchups.length > 0
+														? entry.rounds[0].matchups
+																.map((mu) => {
+																	const names: string[] = [];
+																	if (mu.slotA)
+																		names.push(
+																			shortModelName(mu.slotA.modelId),
+																		);
+																	if (mu.slotB)
+																		names.push(
+																			shortModelName(mu.slotB.modelId),
+																		);
+																	return names.join(" vs ");
+																})
+																.join(" · ")
+														: t("components.arenaHistoryModal.bracket")
+													: entry.compareModels
+														? entry.compareModels.map(shortModelName).join(", ")
+														: t("components.arenaHistoryModal.compare")
+											}
+										>
 											{entry.mode === "competition"
 												? entry.rounds &&
 													entry.rounds.length > 0 &&

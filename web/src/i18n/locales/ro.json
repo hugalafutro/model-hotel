@@ -301,12 +301,10 @@
 			"requestsUnit": "Cereri"
 		},
 		"models": {
-			"top": "Top modele",
 			"viewDetails": "Vezi detalii pentru {{label}}",
 			"emptyState": "Nici un model de date încă. Defalcarea modelului va apărea aici odată ce traficul se va schimba."
 		},
 		"virtualKeys": {
-			"top": "Top chei virtuale",
 			"emptyState": "Nu există încă date ale cheii virtuale. Defalcarea cheii virtuale va apărea aici odată ce traficul curge."
 		},
 		"tokens": {
@@ -641,7 +639,7 @@
 		"btn_refreshing": "Reîmprospătare...",
 		"filter_placeholder": "Filtrează furnizorii…",
 		"filter_provider_type": "Tip furnizor",
-		"filter_all": "Toate ({{count}})",
+		"filter_all": "Toate ({{count}}) furnizorii",
 		"sort_title_asc": "Sortează A-Z (click pentru a inversa)",
 		"sort_title_desc": "Z-A sortat (click pentru a inversa)",
 		"empty_no_match": "Niciun furnizor nu se potrivește cu filtrul selectat.",
@@ -880,19 +878,18 @@
 		"page_title_other": "Grupuri eșuate",
 		"page_description_lead": "Rutează cererile prin mai mulți furnizori în ordinea prioritară prin",
 		"page_description_code": "hotel/model",
-		"last_sync": "Ultima sincronizare: {{time}}",
 		"btn_sync": "Sincronizare",
 		"btn_syncing": "Se sincronizează…",
 		"btn_new_group": "Grup nou",
 		"hint_drag": "Trageți modelele după mâner pentru a reordona prioritatea",
 		"filter_hotel_model": "Filtrează hotelul/modelul…",
-		"filter_providers": "Toți furnizorii",
-		"filter_states": "Toate stările",
-		"filter_origins": "Toate originile",
+		"filter_providers": "Toți ({{count}}) furnizorii",
+		"filter_states": "Toate ({{count}}) stările",
+		"filter_origins": "Toate ({{count}}) originile",
 		"filter_state_enabled": "Activat",
 		"filter_state_disabled": "Dezactivat",
 		"filter_origin_auto": "Automat",
-		"filter_origin_manual": "Manual",
+		"filter_origin_manual": "Personalizat",
 		"select_all": "Selectează tot",
 		"deselect_all": "Deselectează tot",
 		"selected_count": "{{count}} selectate",
@@ -960,7 +957,8 @@
 		"btn_manage_providers": "Gestionează furnizorii",
 		"provider_modal_title": "Gestionează starea furnizorului",
 		"provider_modal_description": "Dezactivarea unui furnizor va dezactiva toate modelele sale în fiecare grup de eșec",
-		"toast_provider_toggle_no_groups": "Niciun grup eșuat utilizați furnizorul {{provider}}"
+		"toast_provider_toggle_no_groups": "Niciun grup eșuat utilizați furnizorul {{provider}}",
+		"last_sync_label": "Ultima sincronizare:"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Modificări nesalvate"
@@ -1086,7 +1084,9 @@
 			"level": "Nivel",
 			"levelAll": "Toate",
 			"source": "Sursa",
-			"logsPlaceholder": "Filtrează jurnalele…"
+			"logsPlaceholder": "Filtrează jurnalele…",
+			"allStatus": "Toate stările",
+			"allEndpoints": "Toate modalitățile"
 		},
 		"endpoint": {
 			"chat": "Chat",
@@ -1172,7 +1172,9 @@
 			"levelAll": "Toate",
 			"source": "Sursa",
 			"all": "Toate ({{count}})",
-			"search": "Filtrează jurnalele…"
+			"search": "Filtrează jurnalele…",
+			"allLevels": "Toate nivelurile",
+			"allKeys": "Toate cheile"
 		},
 		"table": {
 			"timeDate": "Ora/Dată",

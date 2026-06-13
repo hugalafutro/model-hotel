@@ -34,6 +34,7 @@ import { useToast } from "../context/ToastContext";
 import { useGitHubVersion } from "../hooks/useGitHubVersion";
 import i18next, { LANGUAGE_STORAGE_KEY } from "../i18n";
 import { formatRelativeTime, formatTimestamp } from "../utils/format";
+import { truncateWithEllipsis } from "../utils/truncate";
 import { isWebAuthnAvailable } from "../utils/webauthn";
 import { CollapsibleToggle, useCollapsible } from "./CollapsibleToggle";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -635,7 +636,7 @@ function LastErrorPills() {
 					className="font-mono text-[9.5px] text-[var(--error-text-muted)] break-words leading-relaxed line-clamp-3"
 					title={msg}
 				>
-					{msg.length > 200 ? `${msg.slice(0, 200)}…` : msg}
+					{msg.length > 200 ? truncateWithEllipsis(msg, 200) : msg}
 				</div>
 			</div>
 		</div>
@@ -1091,7 +1092,6 @@ export function Layout({ children }: LayoutProps) {
 							}
 							className={`sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors ui-btn hover:bg-white/5`}
 						>
-							<GitBranch size={14} strokeWidth={2} />
 							<span
 								className={
 									updateAvailable
@@ -1101,6 +1101,7 @@ export function Layout({ children }: LayoutProps) {
 							>
 								{running}
 							</span>
+							<GitBranch size={14} strokeWidth={2} />
 						</a>
 					</div>
 					<button

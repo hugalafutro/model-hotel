@@ -439,7 +439,10 @@ export function Chat() {
 								{chat.pendingAudio && (
 									<div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-(--surface) border border-(--border) text-xs text-(--text-secondary)">
 										<Mic size={12} />
-										<span className="max-w-[120px] truncate">
+										<span
+											className="max-w-[120px] truncate"
+											title={chat.pendingAudio.name}
+										>
 											{chat.pendingAudio.name}
 										</span>
 										<button

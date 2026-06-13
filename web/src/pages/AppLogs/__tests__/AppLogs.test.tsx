@@ -165,9 +165,10 @@ describe("AppLogs", () => {
 		const levelButton = screen.getByRole("button", { name: "Level" });
 		await user.click(levelButton);
 		await waitFor(() => {
-			// The "All" option in the dropdown shows total count
-			// There are now two "All (3)" texts (trigger + dropdown option), so getAllByText
-			expect(screen.getAllByText("All (3)").length).toBeGreaterThanOrEqual(1);
+			// The "All" option in the dropdown shows "All Levels" without count
+			expect(screen.getAllByText("All Levels").length).toBeGreaterThanOrEqual(
+				1,
+			);
 			expect(screen.getByText("Info")).toBeInTheDocument();
 			expect(screen.getByText("Warning")).toBeInTheDocument();
 			expect(screen.getByText("Error")).toBeInTheDocument();

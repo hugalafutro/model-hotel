@@ -301,12 +301,10 @@
 			"requestsUnit": "Versoeke"
 		},
 		"models": {
-			"top": "Top modelle",
 			"viewDetails": "Beskou besonderhede vir {{label}}",
 			"emptyState": "Nog geen modeldata nie. Die modelopdeling sal hier verskyn sodra verkeersvloei daar is."
 		},
 		"virtualKeys": {
-			"top": "Top virtuele sleutels",
 			"emptyState": "Nog geen virtuele sleutelgegewens nie. Die virtuele sleutelopdeling sal hier verskyn sodra verkeersvloei daar is."
 		},
 		"tokens": {
@@ -641,7 +639,7 @@
 		"btn_refreshing": "Verfrissend...",
 		"filter_placeholder": "Filterverskaffers…",
 		"filter_provider_type": "Verskaffertipe",
-		"filter_all": "Alles ({{count}})",
+		"filter_all": "Alles ({{count}}) verskaffers",
 		"sort_title_asc": "Gesoortseer A-Z (klik om om te keer)",
 		"sort_title_desc": "Gesorteer Z-A (klik om om te keer)",
 		"empty_no_match": "Geen verskaffers pas by die gekose filter nie.",
@@ -880,19 +878,18 @@
 		"page_title_other": "Oorgangsgroepe",
 		"page_description_lead": "Route versoeke deur verskeie verskaffers in prioriteitsorde via",
 		"page_description_code": "hotel/model",
-		"last_sync": "Laaste sinchronisasie: {{time}}",
 		"btn_sync": "Sinkroniseer",
 		"btn_syncing": "Sinkroniseer…",
 		"btn_new_group": "Nuwe groep",
 		"hint_drag": "Sleep modelle aan die handvatsel om die prioriteit te verander.",
 		"filter_hotel_model": "Filter hotel/model…",
-		"filter_providers": "Alle verskaffers",
-		"filter_states": "Alle state",
-		"filter_origins": "Alle oorspronge",
+		"filter_providers": "Alle ({{count}}) verskaffers",
+		"filter_states": "Alle ({{count}}) state",
+		"filter_origins": "Alle ({{count}}) oorspronge",
 		"filter_state_enabled": "Geskakel",
 		"filter_state_disabled": "Gestremd",
 		"filter_origin_auto": "Outomaties",
-		"filter_origin_manual": "Handboek",
+		"filter_origin_manual": "Pasgemaak",
 		"select_all": "Kies alles",
 		"deselect_all": "Ontkies almal",
 		"selected_count": "{{count}} geselekteer",
@@ -960,7 +957,8 @@
 		"btn_manage_providers": "Bestuur verskaffers",
 		"provider_modal_title": "Bestuur verskafferstatus",
 		"provider_modal_description": "Deur 'n verskaffer te deaktiveer, word al sy modelle in elke failover-groep gedeaktiveer.",
-		"toast_provider_toggle_no_groups": "Geen failover-groepe gebruik verskaffer {{provider}}"
+		"toast_provider_toggle_no_groups": "Geen failover-groepe gebruik verskaffer {{provider}}",
+		"last_sync_label": "Laaste sinchronisasie:"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Onbewaarde veranderinge"
@@ -1086,7 +1084,9 @@
 			"level": "Vlak",
 			"levelAll": "Alles",
 			"source": "Bron",
-			"logsPlaceholder": "Filtreer logboeke…"
+			"logsPlaceholder": "Filtreer logboeke…",
+			"allStatus": "Alle statusse",
+			"allEndpoints": "Alle modaliteite"
 		},
 		"endpoint": {
 			"chat": "Klets",
@@ -1172,7 +1172,9 @@
 			"levelAll": "Alles",
 			"source": "Bron",
 			"all": "Alles ({{count}})",
-			"search": "Filtreer logboeke…"
+			"search": "Filtreer logboeke…",
+			"allLevels": "Alle vlakke",
+			"allKeys": "Alle Sleutels"
 		},
 		"table": {
 			"timeDate": "Tyd/Datum",

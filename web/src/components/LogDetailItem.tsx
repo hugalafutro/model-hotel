@@ -1,7 +1,6 @@
-import type { LucideIcon } from "lucide-react";
-
 interface DetailItemProps {
-	icon: LucideIcon;
+	/** Optional leading icon. Accepts lucide icons and custom icon components. */
+	icon?: React.ComponentType<{ size?: number; className?: string }>;
 	label: string;
 	value?: string | number | null;
 	mono?: boolean;
@@ -27,9 +26,11 @@ export function DetailItem({
 		<div
 			className={`flex items-start gap-3 p-3 rounded-(--radius-box) bg-(--surface-bg) border border-(--border-subtle) ${className}`}
 		>
-			<div className="shrink-0 mt-0.5">
-				<Icon size={16} className="text-(--accent)" />
-			</div>
+			{Icon && (
+				<div className="shrink-0 mt-0.5">
+					<Icon size={16} className="text-(--accent)" />
+				</div>
+			)}
 			<div className="flex-1 min-w-0">
 				<div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-(--text-tertiary) font-medium mb-1">
 					{label}

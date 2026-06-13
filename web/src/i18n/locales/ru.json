@@ -301,12 +301,10 @@
 			"requestsUnit": "Запросы"
 		},
 		"models": {
-			"top": "Топ моделей",
 			"viewDetails": "Подробности для {{label}}",
 			"emptyState": "Данные модели пока не появятся здесь после потока трафика."
 		},
 		"virtualKeys": {
-			"top": "Топ виртуальных ключей",
 			"emptyState": "Нет данных о виртуальных ключах. Распределение виртуальных ключей появится здесь после движения трафика."
 		},
 		"tokens": {
@@ -641,7 +639,7 @@
 		"btn_refreshing": "Обновление...",
 		"filter_placeholder": "Фильтр провайдеров…",
 		"filter_provider_type": "Тип поставщика",
-		"filter_all": "Все ({{count}})",
+		"filter_all": "Все ({{count}}) провайдеры",
 		"sort_title_asc": "Сортировка A-Z (нажмите, чтобы вернуть)",
 		"sort_title_desc": "Сортировка Z-A (нажмите, чтобы вернуться)",
 		"empty_no_match": "Ни один провайдер не соответствует выбранному фильтру.",
@@ -880,19 +878,18 @@
 		"page_title_other": "Группы отказов",
 		"page_description_lead": "Маршрутизация запросов через нескольких провайдеров в порядке приоритета через",
 		"page_description_code": "гостиница/модель",
-		"last_sync": "Последняя синхронизация: {{time}}",
 		"btn_sync": "Синхр.",
 		"btn_syncing": "Синхронизация…",
 		"btn_new_group": "Новая группа",
 		"hint_drag": "Перетащите модели, чтобы изменить порядок приоритета",
 		"filter_hotel_model": "Фильтр отеля/модели…",
-		"filter_providers": "Все провайдеры",
-		"filter_states": "Все состояния",
-		"filter_origins": "Все происхождения",
+		"filter_providers": "Все ({{count}}) провайдеры",
+		"filter_states": "Все ({{count}}) состояния",
+		"filter_origins": "Все ({{count}}) происхождения",
 		"filter_state_enabled": "Включено",
 		"filter_state_disabled": "Отключено",
 		"filter_origin_auto": "Авто",
-		"filter_origin_manual": "Ручной",
+		"filter_origin_manual": "Пользовательский",
 		"select_all": "Выбрать все",
 		"deselect_all": "Отменить выбор",
 		"selected_count": "{{count}} выбран",
@@ -960,7 +957,8 @@
 		"btn_manage_providers": "Управление поставщиками",
 		"provider_modal_title": "Управление статусом провайдера",
 		"provider_modal_description": "Отключение провайдера отключит все его модели в каждой группе отказов",
-		"toast_provider_toggle_no_groups": "Нет групп отказов использовать провайдера {{provider}}"
+		"toast_provider_toggle_no_groups": "Нет групп отказов использовать провайдера {{provider}}",
+		"last_sync_label": "Последняя синхронизация:"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Несохраненные изменения"
@@ -1086,7 +1084,9 @@
 			"level": "Уровень",
 			"levelAll": "Все",
 			"source": "Источник",
-			"logsPlaceholder": "Фильтр журналов…"
+			"logsPlaceholder": "Фильтр журналов…",
+			"allStatus": "Все статусы",
+			"allEndpoints": "Все модальности"
 		},
 		"endpoint": {
 			"chat": "Чат",
@@ -1172,7 +1172,9 @@
 			"levelAll": "Все",
 			"source": "Источник",
 			"all": "Все ({{count}})",
-			"search": "Фильтр журналов…"
+			"search": "Фильтр журналов…",
+			"allLevels": "Все уровни",
+			"allKeys": "Все ключи"
 		},
 		"table": {
 			"timeDate": "Время/Дата",

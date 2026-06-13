@@ -52,7 +52,10 @@ export function MatchupCard({
 		>
 			<div className="flex items-center gap-2 mb-1">
 				<Bot size={12} className="text-(--accent)" />
-				<span className="text-xs font-medium text-(--text-primary) truncate">
+				<span
+					className="text-xs font-medium text-(--text-primary) truncate"
+					title={slot.modelId}
+				>
 					{slot.modelId.split("/").pop()}
 				</span>
 				<SlotParamsTooltip params={slot.params} />

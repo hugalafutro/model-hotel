@@ -10,6 +10,7 @@ export function Gauge({
 	onClick,
 	tooltip,
 	maxScale,
+	formatValue,
 }: {
 	label: string;
 	value: number;
@@ -19,6 +20,9 @@ export function Gauge({
 	onClick?: () => void;
 	tooltip?: string;
 	maxScale?: number;
+	/** Custom display formatter for the value (e.g. compact 1.2K). When set,
+	 * it owns the entire display string and `suffix` is not appended. */
+	formatValue?: (value: number) => string;
 }) {
 	const { t } = useTranslation();
 	const radius = 40;
@@ -41,6 +45,7 @@ export function Gauge({
 				<svg className="w-full h-full" viewBox="0 0 100 60">
 					<title>{t("dashboard.gauge.svgTitle")}</title>
 					<path
+						className="gauge-arc"
 						d="M 10 50 A 40 40 0 0 1 90 50"
 						fill="none"
 						stroke="var(--border-subtle)"
@@ -48,6 +53,7 @@ export function Gauge({
 						strokeLinecap="round"
 					/>
 					<path
+						className="gauge-arc"
 						d="M 10 50 A 40 40 0 0 1 90 50"
 						fill="none"
 						stroke={color}
@@ -60,8 +66,16 @@ export function Gauge({
 				</svg>
 				<div className="absolute inset-x-0 bottom-0 text-center">
 					<p className="text-sm font-bold text-(--text-primary)">
-						{dropTrailingZero(value, decimals)}
-						{suffix}
+						{formatValue ? (
+							// formatValue owns the full display string (incl. any unit),
+							// so suffix is intentionally not appended here.
+							formatValue(value)
+						) : (
+							<>
+								{dropTrailingZero(value, decimals)}
+								{suffix}
+							</>
+						)}
 					</p>
 				</div>
 			</div>

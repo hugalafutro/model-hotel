@@ -301,12 +301,10 @@
 			"requestsUnit": "Anfragen"
 		},
 		"models": {
-			"top": "Top-Modelle",
 			"viewDetails": "Details für {{label}} anzeigen",
 			"emptyState": "Noch keine Modelldaten. Die Modellaufteilung wird hier angezeigt, sobald der Verkehr fließt."
 		},
 		"virtualKeys": {
-			"top": "Top-Virtual-Keys",
 			"emptyState": "Noch keine virtuellen Schlüsseldaten werden hier angezeigt, sobald der Datenverkehr abläuft."
 		},
 		"tokens": {
@@ -641,7 +639,7 @@
 		"btn_refreshing": "Aktualisieren...",
 		"filter_placeholder": "Anbieter filtern…",
 		"filter_provider_type": "Anbietertyp",
-		"filter_all": "Alle ({{count}})",
+		"filter_all": "Alle ({{count}}) Anbieter",
 		"sort_title_asc": "Sortiert A-Z (zum Umkehren)",
 		"sort_title_desc": "Z-A sortiert (zum Umkehren)",
 		"empty_no_match": "Keine Anbieter stimmen mit dem ausgewählten Filter überein.",
@@ -880,19 +878,18 @@
 		"page_title_other": "Failover-Gruppen",
 		"page_description_lead": "Anfragen über mehrere Anbieter in der Prioritätsreihenfolge per",
 		"page_description_code": "Hotel/Modell",
-		"last_sync": "Letzter Sync: {{time}}",
 		"btn_sync": "Sync",
 		"btn_syncing": "Synchronisiere…",
 		"btn_new_group": "Neue Gruppe",
 		"hint_drag": "Ziehen Sie Modelle nach dem Handle um die Priorität neu zu ordnen",
 		"filter_hotel_model": "Hotel/Modell… filtern",
-		"filter_providers": "Alle Anbieter",
-		"filter_states": "Alle Bundesstaaten",
-		"filter_origins": "Alle Ursprünge",
+		"filter_providers": "Alle ({{count}}) Anbieter",
+		"filter_states": "Alle ({{count}}) Bundesstaaten",
+		"filter_origins": "Alle ({{count}}) Ursprünge",
 		"filter_state_enabled": "Aktiviert",
 		"filter_state_disabled": "Deaktiviert",
 		"filter_origin_auto": "Auto",
-		"filter_origin_manual": "Manuell",
+		"filter_origin_manual": "Benutzerdefiniert",
 		"select_all": "Alles auswählen",
 		"deselect_all": "Alle abwählen",
 		"selected_count": "{{count}} ausgewählt",
@@ -960,7 +957,8 @@
 		"btn_manage_providers": "Anbieter verwalten",
 		"provider_modal_title": "Anbieter-Status verwalten",
 		"provider_modal_description": "Das Deaktivieren eines Anbieters wird alle seine Modelle in jeder Failover-Gruppe deaktivieren",
-		"toast_provider_toggle_no_groups": "Keine Failover-Gruppen verwenden den Anbieter {{provider}}"
+		"toast_provider_toggle_no_groups": "Keine Failover-Gruppen verwenden den Anbieter {{provider}}",
+		"last_sync_label": "Letzter Sync:"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Ungespeicherte Änderungen"
@@ -1086,7 +1084,9 @@
 			"level": "Level",
 			"levelAll": "Alle",
 			"source": "Quelle",
-			"logsPlaceholder": "Protokolle… filtern"
+			"logsPlaceholder": "Protokolle… filtern",
+			"allStatus": "Alle Status",
+			"allEndpoints": "Alle Modalitäten"
 		},
 		"endpoint": {
 			"chat": "Chat",
@@ -1172,7 +1172,9 @@
 			"levelAll": "Alle",
 			"source": "Quelle",
 			"all": "Alle ({{count}})",
-			"search": "Protokolle… filtern"
+			"search": "Protokolle… filtern",
+			"allLevels": "Alle Ebenen",
+			"allKeys": "Alle Schlüssel"
 		},
 		"table": {
 			"timeDate": "Zeit/Datum",

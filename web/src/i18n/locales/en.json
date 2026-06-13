@@ -301,12 +301,10 @@
 			"requestsUnit": "Requests"
 		},
 		"models": {
-			"top": "Top Models",
 			"viewDetails": "View details for {{label}}",
 			"emptyState": "No model data yet. Model breakdown will appear here once traffic flows."
 		},
 		"virtualKeys": {
-			"top": "Top Virtual Keys",
 			"emptyState": "No virtual key data yet. Virtual key breakdown will appear here once traffic flows."
 		},
 		"tokens": {
@@ -641,7 +639,7 @@
 		"btn_refreshing": "Refreshing...",
 		"filter_placeholder": "Filter providers…",
 		"filter_provider_type": "Provider type",
-		"filter_all": "All ({{count}})",
+		"filter_all": "All ({{count}}) Providers",
 		"sort_title_asc": "Sorted A-Z (click to reverse)",
 		"sort_title_desc": "Sorted Z-A (click to reverse)",
 		"empty_no_match": "No providers match the selected filter.",
@@ -880,19 +878,19 @@
 		"page_title_other": "Failover Groups",
 		"page_description_lead": "Route requests through multiple providers in priority order via",
 		"page_description_code": "hotel/model",
-		"last_sync": "Last sync: {{time}}",
+		"last_sync_label": "Last sync:",
 		"btn_sync": "Sync",
 		"btn_syncing": "Syncing…",
 		"btn_new_group": "New Group",
 		"hint_drag": "Drag models by the handle to reorder priority",
 		"filter_hotel_model": "Filter hotel/model…",
-		"filter_providers": "All providers",
-		"filter_states": "All states",
-		"filter_origins": "All origins",
+		"filter_providers": "All ({{count}}) Providers",
+		"filter_states": "All ({{count}}) States",
+		"filter_origins": "All ({{count}}) Origins",
 		"filter_state_enabled": "Enabled",
 		"filter_state_disabled": "Disabled",
 		"filter_origin_auto": "Auto",
-		"filter_origin_manual": "Manual",
+		"filter_origin_manual": "Custom",
 		"select_all": "Select all",
 		"deselect_all": "Deselect all",
 		"selected_count": "{{count}} selected",
@@ -1083,6 +1081,8 @@
 				"5xx": "5XX"
 			},
 			"endpoint": "Endpoint",
+			"allStatus": "All Status",
+			"allEndpoints": "All Modalities",
 			"level": "Level",
 			"levelAll": "All",
 			"source": "Source",
@@ -1172,6 +1172,8 @@
 			"levelAll": "All",
 			"source": "Source",
 			"all": "All ({{count}})",
+			"allLevels": "All Levels",
+			"allKeys": "All Keys",
 			"search": "Filter logs…"
 		},
 		"table": {
@@ -2025,7 +2027,7 @@
 			"none": "None"
 		},
 		"providerQuotaPanel": {
-			"quotas": "Quotas",
+			"quotas": "Usage",
 			"expandQuotas": "Expand quotas",
 			"collapse": "Collapse",
 			"quotaPanelCollapsed": "Quota panel collapsed - auto-refresh paused",

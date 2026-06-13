@@ -301,12 +301,10 @@
 			"requestsUnit": "Αιτήματα"
 		},
 		"models": {
-			"top": "Κορυφαία μοντέλα",
 			"viewDetails": "Δείτε λεπτομέρειες για το {{label}}",
 			"emptyState": "Δεν υπάρχουν δεδομένα μοντέλου ακόμα. Η ανάλυση μοντέλου θα εμφανιστεί εδώ μόλις ρεύσει η κυκλοφορία."
 		},
 		"virtualKeys": {
-			"top": "Κορυφαία εικονικά κλειδιά",
 			"emptyState": "Δεν υπάρχουν ακόμα εικονικά βασικά δεδομένα. Η ανάλυση εικονικού κλειδιού θα εμφανιστεί εδώ μόλις ρεύσει η κυκλοφορία."
 		},
 		"tokens": {
@@ -641,7 +639,7 @@
 		"btn_refreshing": "Ανανέωση...",
 		"filter_placeholder": "Παροχείς φίλτρων…",
 		"filter_provider_type": "Τύπος παρόχου",
-		"filter_all": "Όλα ({{count}})",
+		"filter_all": "Όλα ({{count}}) οι πάροχοι",
 		"sort_title_asc": "Ταξινόμηση A-Z (κλικ για αντιστροφή)",
 		"sort_title_desc": "Ταξινόμηση Z-A (κλικ για αντιστροφή)",
 		"empty_no_match": "Κανένας πάροχος δεν ταιριάζει με το επιλεγμένο φίλτρο.",
@@ -880,19 +878,18 @@
 		"page_title_other": "Ομάδες Αποτυχίας",
 		"page_description_lead": "Αιτήσεις διαδρομής μέσω πολλαπλών παρόχων με σειρά προτεραιότητας μέσω",
 		"page_description_code": "ξενοδοχείο/μοντέλο",
-		"last_sync": "Τελευταίος συγχρονισμός: {{time}}",
 		"btn_sync": "Συγχρονισμός",
 		"btn_syncing": "Συγχρονισμός του…",
 		"btn_new_group": "Νέα Ομάδα",
 		"hint_drag": "Σύρετε τα μοντέλα από τη λαβή για να αναδιατάξετε την προτεραιότητα",
 		"filter_hotel_model": "Φίλτρο ξενοδοχείου/μοντέλου…",
-		"filter_providers": "Όλοι οι πάροχοι",
-		"filter_states": "Όλες οι πολιτείες",
-		"filter_origins": "Όλες οι χώρες καταγωγής",
+		"filter_providers": "Όλοι ({{count}}) οι πάροχοι",
+		"filter_states": "Όλες ({{count}}) οι πολιτείες",
+		"filter_origins": "Όλες ({{count}}) οι χώρες καταγωγής",
 		"filter_state_enabled": "Ενεργοποιημένο",
 		"filter_state_disabled": "Απενεργοποιημένο",
 		"filter_origin_auto": "Αυτόματο",
-		"filter_origin_manual": "Χειροκίνητα",
+		"filter_origin_manual": "Προσαρμοσμένο",
 		"select_all": "Επιλογή όλων",
 		"deselect_all": "Αποεπιλογή όλων",
 		"selected_count": "{{count}} επιλεγμένα",
@@ -960,7 +957,8 @@
 		"btn_manage_providers": "Διαχείριση Παρόχων",
 		"provider_modal_title": "Διαχείριση Κατάστασης Παρόχου",
 		"provider_modal_description": "Η απενεργοποίηση ενός παρόχου θα απενεργοποιήσει όλα τα μοντέλα του σε κάθε ομάδα αποτυχίας",
-		"toast_provider_toggle_no_groups": "Δεν υπάρχουν ομάδες αποτυχίας χρήσης παρόχου {{provider}}"
+		"toast_provider_toggle_no_groups": "Δεν υπάρχουν ομάδες αποτυχίας χρήσης παρόχου {{provider}}",
+		"last_sync_label": "Τελευταίος συγχρονισμός:"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Μη Αποθηκευμένες Αλλαγές"
@@ -1086,7 +1084,9 @@
 			"level": "Επίπεδο",
 			"levelAll": "Όλα",
 			"source": "Πηγή",
-			"logsPlaceholder": "Φιλτράρισμα αρχείων καταγραφής…"
+			"logsPlaceholder": "Φιλτράρισμα αρχείων καταγραφής…",
+			"allStatus": "Όλες οι καταστάσεις",
+			"allEndpoints": "Όλες οι λειτουργίες"
 		},
 		"endpoint": {
 			"chat": "Συνομιλία",
@@ -1172,7 +1172,9 @@
 			"levelAll": "Όλα",
 			"source": "Πηγή",
 			"all": "Όλα ({{count}})",
-			"search": "Φιλτράρισμα αρχείων καταγραφής…"
+			"search": "Φιλτράρισμα αρχείων καταγραφής…",
+			"allLevels": "Όλα τα επίπεδα",
+			"allKeys": "Όλα τα κλειδιά"
 		},
 		"table": {
 			"timeDate": "Ώρα/Ημερομηνία",

@@ -301,12 +301,10 @@
 			"requestsUnit": "Solicitações"
 		},
 		"models": {
-			"top": "Top modelos",
 			"viewDetails": "Ver detalhes do {{label}}",
 			"emptyState": "Ainda não há dados do modelo. O detalhamento do modelo aparecerá aqui quando o tráfego fluir."
 		},
 		"virtualKeys": {
-			"top": "Top chaves virtuais",
 			"emptyState": "Ainda não há dados de chave virtual. O avistamento de chaves virtuais aparecerá aqui quando o tráfego fluir."
 		},
 		"tokens": {
@@ -641,7 +639,7 @@
 		"btn_refreshing": "Atualizando...",
 		"filter_placeholder": "Filtrar provedores…",
 		"filter_provider_type": "Tipo de provedor",
-		"filter_all": "Todos ({{count}})",
+		"filter_all": "Todos ({{count}}) os provedores",
 		"sort_title_asc": "Ordenado A-Z (clique para reverter)",
 		"sort_title_desc": "Ordenado Z-A (clique para reverter)",
 		"empty_no_match": "Nenhum provedor corresponde ao filtro selecionado.",
@@ -880,19 +878,18 @@
 		"page_title_other": "Grupos de Falhas",
 		"page_description_lead": "Rotear pedidos por meio de vários provedores em ordem de prioridade via",
 		"page_description_code": "hotel/modelo",
-		"last_sync": "Última sincronização: {{time}}",
 		"btn_sync": "Sincronizar",
 		"btn_syncing": "Sincronizando…",
 		"btn_new_group": "Novo Grupo",
 		"hint_drag": "Arraste os modelos da manipulação para reordenar a prioridade",
 		"filter_hotel_model": "Filtrar hotel/modelo…",
-		"filter_providers": "Todos os provedores",
-		"filter_states": "Todos os estados",
-		"filter_origins": "Todas as origens",
+		"filter_providers": "Todos ({{count}}) os provedores",
+		"filter_states": "Todos ({{count}}) os estados",
+		"filter_origins": "Todas ({{count}}) as origens",
 		"filter_state_enabled": "Ativado",
 		"filter_state_disabled": "Desabilitado",
 		"filter_origin_auto": "Automático",
-		"filter_origin_manual": "Manualmente",
+		"filter_origin_manual": "Personalizado",
 		"select_all": "Selecionar todos",
 		"deselect_all": "Desmarcar todos",
 		"selected_count": "{{count}} selecionado",
@@ -960,7 +957,8 @@
 		"btn_manage_providers": "Gerenciar provedores",
 		"provider_modal_title": "Gerenciar Status do Provedor",
 		"provider_modal_description": "Desabilitar um provedor desativará todos os seus modelos em cada grupo de falhas",
-		"toast_provider_toggle_no_groups": "Nenhum grupo de falha usa o provedor {{provider}}"
+		"toast_provider_toggle_no_groups": "Nenhum grupo de falha usa o provedor {{provider}}",
+		"last_sync_label": "Última sincronização:"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Alterações Não Salvas"
@@ -1086,7 +1084,9 @@
 			"level": "Nível",
 			"levelAll": "TODOS",
 			"source": "fonte",
-			"logsPlaceholder": "Filtrar logs…"
+			"logsPlaceholder": "Filtrar logs…",
+			"allStatus": "Todos os status",
+			"allEndpoints": "Todas as modalidades"
 		},
 		"endpoint": {
 			"chat": "Bate-papo",
@@ -1172,7 +1172,9 @@
 			"levelAll": "TODOS",
 			"source": "fonte",
 			"all": "Todos ({{count}})",
-			"search": "Filtrar logs…"
+			"search": "Filtrar logs…",
+			"allLevels": "Todos os níveis",
+			"allKeys": "Todas as chaves"
 		},
 		"table": {
 			"timeDate": "Hora/Data",

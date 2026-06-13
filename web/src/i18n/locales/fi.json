@@ -301,12 +301,10 @@
 			"requestsUnit": "Pyynnöt"
 		},
 		"models": {
-			"top": "Top-mallit",
 			"viewDetails": "Näytä tiedot {{label}}",
 			"emptyState": "Mallitietoja ei vielä. Mallikohtainen erittely ilmestyy tässä liikennevirtojen jälkeen."
 		},
 		"virtualKeys": {
-			"top": "Top-virtuaaliavaimet",
 			"emptyState": "Virtuaalisia avaintietoja ei ole vielä. Virtuaalisen avaimen jakautuminen näkyy täällä, kun liikennevirrat näkyvät."
 		},
 		"tokens": {
@@ -641,7 +639,7 @@
 		"btn_refreshing": "Päivitetään...",
 		"filter_placeholder": "Suodattimen tarjoajat…",
 		"filter_provider_type": "Tarjoajan tyyppi",
-		"filter_all": "Kaikki ({{count}})",
+		"filter_all": "Kaikki ({{count}}) palveluntarjoajat",
 		"sort_title_asc": "Lajiteltu A-Z (klikkaa peruuttaaksesi)",
 		"sort_title_desc": "Lajiteltu Z-A (klikkaa peruuttaaksesi)",
 		"empty_no_match": "Yksikään tarjoaja ei vastaa valittua suodatinta.",
@@ -880,19 +878,18 @@
 		"page_title_other": "Epäonnistuneen Tilin Ryhmät",
 		"page_description_lead": "Reititä pyynnöt useiden palveluntarjoajien kautta ensisijaisessa järjestyksessä kautta",
 		"page_description_code": "hotelli/malli",
-		"last_sync": "Viimeisin synkronointi: {{time}}",
 		"btn_sync": "Synkronointi",
 		"btn_syncing": "Synkronoidaan…",
 		"btn_new_group": "Uusi Ryhmä",
 		"hint_drag": "Vedä mallit kahvan mukaan järjestääksesi prioriteetin uudelleen",
 		"filter_hotel_model": "Suodata hotelli/malli…",
-		"filter_providers": "Kaikki palveluntarjoajat",
-		"filter_states": "Kaikki osavaltiot",
-		"filter_origins": "Kaikki alkuperät",
+		"filter_providers": "Kaikki ({{count}}) palveluntarjoajat",
+		"filter_states": "Kaikki ({{count}}) osavaltiot",
+		"filter_origins": "Kaikki ({{count}}) alkuperät",
 		"filter_state_enabled": "Käytössä",
 		"filter_state_disabled": "Pois Käytöstä",
 		"filter_origin_auto": "Automaattinen",
-		"filter_origin_manual": "Manuaalinen",
+		"filter_origin_manual": "Mukautettu",
 		"select_all": "Valitse kaikki",
 		"deselect_all": "Poista kaikki valinnat",
 		"selected_count": "{{count}} valittu",
@@ -960,7 +957,8 @@
 		"btn_manage_providers": "Hallinnoi Palveluntarjoajia",
 		"provider_modal_title": "Hallinnoi Tarjoajan Tilaa",
 		"provider_modal_description": "Tarjoajan poistaminen käytöstä poistaa kaikki sen mallit käytöstä jokaisessa epäonnistumisryhmässä",
-		"toast_provider_toggle_no_groups": "Ei epäonnistumisryhmiä käytä tarjoajaa {{provider}}"
+		"toast_provider_toggle_no_groups": "Ei epäonnistumisryhmiä käytä tarjoajaa {{provider}}",
+		"last_sync_label": "Viimeisin synkronointi:"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Tallentamattomat Muutokset"
@@ -1086,7 +1084,9 @@
 			"level": "Taso",
 			"levelAll": "Kaikki",
 			"source": "Lähde",
-			"logsPlaceholder": "Suodata lokit…"
+			"logsPlaceholder": "Suodata lokit…",
+			"allStatus": "Kaikki tilat",
+			"allEndpoints": "Kaikki modaliteetit"
 		},
 		"endpoint": {
 			"chat": "Keskustelu",
@@ -1172,7 +1172,9 @@
 			"levelAll": "Kaikki",
 			"source": "Lähde",
 			"all": "Kaikki ({{count}})",
-			"search": "Suodata lokit…"
+			"search": "Suodata lokit…",
+			"allLevels": "Kaikki tasot",
+			"allKeys": "Kaikki avaimet"
 		},
 		"table": {
 			"timeDate": "Aika/Päivämäärä",

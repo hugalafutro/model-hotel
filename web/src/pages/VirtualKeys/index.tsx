@@ -245,6 +245,8 @@ export function VirtualKeys() {
 						<tbody>
 							{paginatedKeys.map((vk) => (
 								<Row key={vk.id} onClick={() => setSelectedKey(vk)}>
+									{/* tooltip lives on the inner name span so it fires on
+									    overflow, not on the icon-only regions of the cell */}
 									<td className="px-4 py-3 text-sm text-gray-200 truncate overflow-hidden text-ellipsis max-w-0">
 										<div className="flex items-center gap-1.5">
 											{vk.allowed_providers &&
@@ -282,7 +284,9 @@ export function VirtualKeys() {
 													</svg>
 												</span>
 											)}
-											<span className="truncate">{vk.name}</span>
+											<span className="truncate" title={vk.name}>
+												{vk.name}
+											</span>
 										</div>
 									</td>
 									<td className="px-4 py-3 text-gray-500 font-mono text-xs">
@@ -330,7 +334,7 @@ export function VirtualKeys() {
 				<div className="ui-card p-6 space-y-5">
 					<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 						<div className="flex items-start gap-3 p-4 ui-card">
-							<div className="flex items-center justify-center w-7 h-7 rounded-lg bg-(--accent-light) text-(--accent) text-sm font-bold shrink-0">
+							<div className="flex items-center justify-center w-7 h-7 rounded-(--radius-pill) bg-(--accent)/15 text-(--accent) ring-1 ring-(--accent)/30 text-sm font-bold shrink-0">
 								1
 							</div>
 							<div>
@@ -343,7 +347,7 @@ export function VirtualKeys() {
 							</div>
 						</div>
 						<div className="flex items-start gap-3 p-4 ui-card">
-							<div className="flex items-center justify-center w-7 h-7 rounded-lg bg-(--accent-light) text-(--accent) text-sm font-bold shrink-0">
+							<div className="flex items-center justify-center w-7 h-7 rounded-(--radius-pill) bg-(--accent)/15 text-(--accent) ring-1 ring-(--accent)/30 text-sm font-bold shrink-0">
 								2
 							</div>
 							<div>
@@ -356,7 +360,7 @@ export function VirtualKeys() {
 							</div>
 						</div>
 						<div className="flex items-start gap-3 p-4 ui-card">
-							<div className="flex items-center justify-center w-7 h-7 rounded-lg bg-(--accent-light) text-(--accent) text-sm font-bold shrink-0">
+							<div className="flex items-center justify-center w-7 h-7 rounded-(--radius-pill) bg-(--accent)/15 text-(--accent) ring-1 ring-(--accent)/30 text-sm font-bold shrink-0">
 								3
 							</div>
 							<div>
@@ -507,7 +511,7 @@ export function VirtualKeys() {
 					</div>
 
 					<div className="ui-note-pill flex items-start gap-3 p-4 rounded-lg bg-(--accent-light) border border-(--accent-lighter)">
-						<div className="w-1.5 h-1.5 rounded-full bg-(--accent) mt-1.5 shrink-0" />
+						<div className="w-1.5 h-1.5 rounded-(--radius-pill) bg-(--accent) mt-1.5 shrink-0" />
 						<p className="text-xs text-gray-300 leading-relaxed">
 							{t("virtualkeys.note.text")}
 						</p>

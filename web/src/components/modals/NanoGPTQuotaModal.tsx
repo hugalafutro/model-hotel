@@ -8,6 +8,7 @@ import {
 	formatTimeUntil,
 	formatTokens,
 } from "../../utils/format";
+import { DetailItem } from "../LogDetailItem";
 import { Modal } from "../Modal";
 import {
 	QuotaBar,
@@ -58,7 +59,7 @@ export function NanoGPTQuotaModal({
 						<h2 className="text-xl font-bold text-(--text-primary)">
 							{t("components.providerModals.nanoGPTSubscription")}
 						</h2>
-						<p className="text-sm text-gray-400 mt-1">
+						<p className="text-sm text-(--text-tertiary) mt-1">
 							{usage.active ? (
 								<span className="inline-flex items-center gap-1.5">
 									<span
@@ -120,14 +121,14 @@ export function NanoGPTQuotaModal({
 				{usage.dailyImages && (
 					<div>
 						<div className="flex justify-between items-center mb-2">
-							<span className="text-sm font-medium text-gray-300">
+							<span className="text-sm font-medium text-(--text-secondary)">
 								{t("components.providerModals.dailyImages")}
 							</span>
-							<span className="text-sm text-gray-400">
+							<span className="text-sm text-(--text-tertiary)">
 								{usage.dailyImages.used} / {usage.limits.dailyImages ?? "∞"}
 							</span>
 						</div>
-						<div className="w-full bg-gray-700 rounded-full h-3">
+						<div className="w-full bg-(--surface-input) rounded-full h-3">
 							<div
 								className={`${barMode === "used" ? usedBarColor(usage.dailyImages.percentUsed * 100) : remainingBarColor(100 - usage.dailyImages.percentUsed * 100)} h-3 rounded-full transition-all`}
 								style={{
@@ -135,7 +136,7 @@ export function NanoGPTQuotaModal({
 								}}
 							/>
 						</div>
-						<p className="text-xs text-gray-500 mt-1">
+						<p className="text-xs text-(--text-muted) mt-1">
 							{usage.dailyImages.percentUsed.toFixed(1)}%{" "}
 							{t("components.providerModals.used")}.{" "}
 							{t("components.providerModals.resets")}{" "}
@@ -149,17 +150,17 @@ export function NanoGPTQuotaModal({
 				{usage.dailyInputTokens && (
 					<div>
 						<div className="flex justify-between items-center mb-2">
-							<span className="text-sm font-medium text-gray-300">
+							<span className="text-sm font-medium text-(--text-secondary)">
 								{t("components.providerModals.dailyInputTokens")}
 							</span>
-							<span className="text-sm text-gray-400">
+							<span className="text-sm text-(--text-tertiary)">
 								{formatTokens(usage.dailyInputTokens.used)} /{" "}
 								{usage.limits.dailyInputTokens
 									? formatTokens(usage.limits.dailyInputTokens)
 									: "∞"}
 							</span>
 						</div>
-						<div className="w-full bg-gray-700 rounded-full h-3">
+						<div className="w-full bg-(--surface-input) rounded-full h-3">
 							<div
 								className={`${barMode === "used" ? usedBarColor(usage.dailyInputTokens.percentUsed * 100) : remainingBarColor(100 - usage.dailyInputTokens.percentUsed * 100)} h-3 rounded-full transition-all`}
 								style={{
@@ -167,7 +168,7 @@ export function NanoGPTQuotaModal({
 								}}
 							/>
 						</div>
-						<p className="text-xs text-gray-500 mt-1">
+						<p className="text-xs text-(--text-muted) mt-1">
 							{usage.dailyInputTokens.percentUsed.toFixed(1)}%{" "}
 							{t("components.providerModals.used")}.{" "}
 							{t("components.providerModals.resets")}{" "}
@@ -179,40 +180,32 @@ export function NanoGPTQuotaModal({
 				)}
 
 				<div>
-					<h3 className="text-sm font-medium text-gray-300 mb-3">
+					<h3 className="text-sm font-medium text-(--text-secondary) mb-3">
 						{t("components.providerModals.subscriptionDetails")}
 					</h3>
-					<div className="grid grid-cols-2 gap-3 text-sm">
-						<div>
-							<span className="text-gray-500">
-								{t("components.providerModals.provider")}
-							</span>
-							<p className="text-gray-200 capitalize">{usage.provider}</p>
-						</div>
-						<div>
-							<span className="text-gray-500">
-								{t("components.providerModals.status")}
-							</span>
-							<p className="text-gray-200 capitalize">{usage.providerStatus}</p>
-						</div>
-						<div>
-							<span className="text-gray-500">
-								{t("components.providerModals.periodEnd")}
-							</span>
-							<p className="text-gray-200">
-								{formatDate(usage.period.currentPeriodEnd)}
-							</p>
-						</div>
-						<div>
-							<span className="text-gray-500">
-								{t("components.providerModals.allowOverage")}
-							</span>
-							<p className="text-gray-200">
-								{usage.allowOverage
+					<div className="grid grid-cols-2 gap-2">
+						<DetailItem label={t("components.providerModals.provider")}>
+							<div className="text-sm text-(--text-primary) capitalize">
+								{usage.provider}
+							</div>
+						</DetailItem>
+						<DetailItem label={t("components.providerModals.status")}>
+							<div className="text-sm text-(--text-primary) capitalize">
+								{usage.providerStatus}
+							</div>
+						</DetailItem>
+						<DetailItem
+							label={t("components.providerModals.periodEnd")}
+							value={formatDate(usage.period.currentPeriodEnd)}
+						/>
+						<DetailItem
+							label={t("components.providerModals.allowOverage")}
+							value={
+								usage.allowOverage
 									? t("components.providerModals.yes")
-									: t("components.providerModals.no")}
-							</p>
-						</div>
+									: t("components.providerModals.no")
+							}
+						/>
 					</div>
 				</div>
 
@@ -227,7 +220,7 @@ export function NanoGPTQuotaModal({
 				)}
 
 				{lastRefreshed ? (
-					<div className="flex justify-between items-center text-xs text-gray-500 pt-2 ">
+					<div className="flex justify-between items-center text-xs text-(--text-muted) pt-2 ">
 						<span>{t("components.providerModals.lastRefreshed")}</span>
 						<span>
 							{formatRelativeTime(new Date(lastRefreshed).toISOString())}

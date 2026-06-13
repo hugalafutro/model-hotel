@@ -330,8 +330,12 @@ export function VirtualModelTable({
 						<FilterDropdown
 							value={providerFilter}
 							onChange={onProviderFilterChange}
-							placeholder={t("failover.filter_providers")}
-							allLabel={t("failover.filter_providers")}
+							placeholder={t("failover.filter_providers", {
+								count: providers.length,
+							})}
+							allLabel={t("failover.filter_providers", {
+								count: providers.length,
+							})}
 							options={[...providers]
 								.sort((a, b) => a.name.localeCompare(b.name))
 								.map((p) => ({ value: p.id, label: p.name }))}
@@ -585,7 +589,13 @@ export function VirtualModelTable({
 													{model.name ||
 														proxyModelID(model.provider_name, model.model_id)}
 												</span>
-												<span className="text-[11px] model-id-text font-mono leading-tight truncate">
+												<span
+													className="text-[11px] model-id-text font-mono leading-tight truncate"
+													title={proxyModelID(
+														model.provider_name,
+														model.model_id,
+													)}
+												>
 													{proxyModelID(model.provider_name, model.model_id)}
 												</span>
 											</div>
@@ -605,7 +615,10 @@ export function VirtualModelTable({
 											</div>
 										</td>
 										{showProviderCol && (
-											<td className="px-4 py-1.5 whitespace-nowrap text-sm text-gray-300 truncate">
+											<td
+												className="px-4 py-1.5 whitespace-nowrap text-sm text-gray-300 truncate"
+												title={model.provider_name}
+											>
 												{model.provider_name}
 											</td>
 										)}

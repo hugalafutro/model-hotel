@@ -131,7 +131,7 @@ export function Dashboard() {
 
 	if (!stats && statsError) {
 		return (
-			<div className="space-y-6">
+			<div className="space-y-6 pb-8">
 				<div>
 					<h1 className="text-2xl font-bold text-(--text-primary)">
 						{t("dashboard.title")}
@@ -146,7 +146,7 @@ export function Dashboard() {
 	}
 
 	return (
-		<div className="space-y-6">
+		<div className="space-y-6 pb-8">
 			{/* Page header */}
 			<PageHeader
 				icon={LayoutDashboard}
@@ -224,6 +224,7 @@ export function Dashboard() {
 									onClick={() => setRequestsModalOpen(true)}
 									tooltip={t("dashboard.gauge.viewRequestHistory")}
 									maxScale={Math.max(100, gaugeRequestCount * 1.2)}
+									formatValue={formatCompact}
 								/>
 								<Gauge
 									label={t("dashboard.chart.avgTtftOver", {
@@ -263,6 +264,7 @@ export function Dashboard() {
 									onClick={() => setRateLimitModalOpen(true)}
 									tooltip={t("dashboard.gauge.viewRateLimitHistory")}
 									maxScale={Math.max(10, (stats?.rate_limit_hits || 0) * 1.5)}
+									formatValue={formatCompact}
 								/>
 								<Gauge
 									label={t("dashboard.chart.errorRateOver", {
@@ -445,7 +447,7 @@ export function Dashboard() {
 			{/* Bottom row: three usage panels with horizontal bars */}
 			<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 				<UsageBarPanel
-					title={t("dashboard.models.top")}
+					title={t("models.page_title_other")}
 					icon={ArrowUpRight}
 					entries={byModel}
 					range={modelsRange}
@@ -465,7 +467,7 @@ export function Dashboard() {
 					loading={latencyStatsLoading}
 				/>
 				<UsageBarPanel
-					title={t("dashboard.virtualKeys.top")}
+					title={t("virtualkeys.title.plural")}
 					icon={ArrowUpRight}
 					entries={byVK}
 					range={virtualKeysRange}

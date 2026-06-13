@@ -235,7 +235,9 @@ function CredentialRow({
 							className="ui-link-accent flex items-center gap-1.5 text-sm text-white group truncate"
 							aria-label={t("settings.passkeys.renameAriaLabel")}
 						>
-							<span className="truncate">{displayName}</span>
+							<span className="truncate" title={displayName}>
+								{displayName}
+							</span>
 							<Pencil
 								size={12}
 								className="ui-icon-btn-in-group shrink-0 text-(--text-muted)"

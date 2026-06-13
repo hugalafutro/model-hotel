@@ -301,12 +301,10 @@
 			"requestsUnit": "Запити"
 		},
 		"models": {
-			"top": "Топ моделей",
 			"viewDetails": "Переглянути деталі для {{label}}",
 			"emptyState": "Дані моделі поки що не встановлено. Тут з'явиться рух після передачі даних."
 		},
 		"virtualKeys": {
-			"top": "Топ віртуальних ключів",
 			"emptyState": "Дані віртуального ключа поки не з'являтимуться. Віртуальний ключ з'явиться тут після передачі трафіку."
 		},
 		"tokens": {
@@ -641,7 +639,7 @@
 		"btn_refreshing": "Оновлення...",
 		"filter_placeholder": "Постачальники фільтрів…",
 		"filter_provider_type": "Тип джерела",
-		"filter_all": "Всі ({{count}})",
+		"filter_all": "Всі ({{count}}) постачальники",
 		"sort_title_asc": "Сортовано A-Z (натисніть, щоб повернути)",
 		"sort_title_desc": "Сортовано Z-A (натисніть, щоб повернути)",
 		"empty_no_match": "Немає провайдерів, які відповідають вибраному фільтру.",
@@ -880,19 +878,18 @@
 		"page_title_other": "Групи для відмови",
 		"page_description_lead": "Запити на маршрут через декілька провайдерів пріоритетного замовлення через",
 		"page_description_code": "модель готелю/модель",
-		"last_sync": "Остання синхронізація: {{time}}",
 		"btn_sync": "Синхр",
 		"btn_syncing": "Синхронізація…",
 		"btn_new_group": "Нова група",
 		"hint_drag": "Перетягніть моделі ручкою для зміни порядку",
 		"filter_hotel_model": "Фільтр за готелем/моделлю…",
-		"filter_providers": "Усі постачальники",
-		"filter_states": "Всі статуси",
-		"filter_origins": "Всі джерела",
+		"filter_providers": "Усі ({{count}}) постачальники",
+		"filter_states": "Всі ({{count}}) статуси",
+		"filter_origins": "Всі ({{count}}) джерела",
 		"filter_state_enabled": "Увімкнено",
 		"filter_state_disabled": "Вимкнено",
 		"filter_origin_auto": "Авто",
-		"filter_origin_manual": "Вручну",
+		"filter_origin_manual": "Користувацький",
 		"select_all": "Виділити все",
 		"deselect_all": "Зняти всі виділення",
 		"selected_count": "Вибрано {{count}}",
@@ -960,7 +957,8 @@
 		"btn_manage_providers": "Управління постачальниками",
 		"provider_modal_title": "Управління статусом постачальника",
 		"provider_modal_description": "Вимкнення постачальника вимкне всі її моделі у кожній її групі з відмовою",
-		"toast_provider_toggle_no_groups": "Немає групи відмови використовувати провайдера {{provider}}"
+		"toast_provider_toggle_no_groups": "Немає групи відмови використовувати провайдера {{provider}}",
+		"last_sync_label": "Остання синхронізація:"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Незбережені зміни"
@@ -1086,7 +1084,9 @@
 			"level": "Рівень",
 			"levelAll": "Всі",
 			"source": "Джерело",
-			"logsPlaceholder": "Фільтрувати журнали…"
+			"logsPlaceholder": "Фільтрувати журнали…",
+			"allStatus": "Усі статуси",
+			"allEndpoints": "Усі модальності"
 		},
 		"endpoint": {
 			"chat": "Чат",
@@ -1172,7 +1172,9 @@
 			"levelAll": "Всі",
 			"source": "Джерело",
 			"all": "Всі ({{count}})",
-			"search": "Фільтрувати журнали…"
+			"search": "Фільтрувати журнали…",
+			"allLevels": "Усі рівні",
+			"allKeys": "Усі ключі"
 		},
 		"table": {
 			"timeDate": "Час/Дата",

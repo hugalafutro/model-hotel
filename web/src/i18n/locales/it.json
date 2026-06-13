@@ -301,12 +301,10 @@
 			"requestsUnit": "Richieste"
 		},
 		"models": {
-			"top": "Modelli principali",
 			"viewDetails": "Visualizza i dettagli per {{label}}",
 			"emptyState": "Nessun dato del modello. Ripartizione del modello apparirà qui una volta che i flussi di traffico."
 		},
 		"virtualKeys": {
-			"top": "Chiavi virtuali principali",
 			"emptyState": "Ancora non ci sono dati di chiave virtuali. Verranno visualizzate qui le interruzioni di chiave virtuali una volta che il traffico fluisce."
 		},
 		"tokens": {
@@ -641,7 +639,7 @@
 		"btn_refreshing": "Aggiornamento...",
 		"filter_placeholder": "Filtro provider…",
 		"filter_provider_type": "Tipo fornitore",
-		"filter_all": "Tutti ({{count}})",
+		"filter_all": "Tutti ({{count}}) i provider",
 		"sort_title_asc": "Ordinato A-Z (clicca per invertire)",
 		"sort_title_desc": "Z-A ordinata (clicca per invertire)",
 		"empty_no_match": "Nessun provider corrisponde al filtro selezionato.",
@@ -880,19 +878,18 @@
 		"page_title_other": "Gruppi Di Fallimento",
 		"page_description_lead": "Richiesta di percorso tramite più fornitori in ordine di priorità tramite",
 		"page_description_code": "hotel/modello",
-		"last_sync": "Ultima sincronizzazione: {{time}}",
 		"btn_sync": "Sincronizza",
 		"btn_syncing": "Sincronizzazione…",
 		"btn_new_group": "Nuovo Gruppo",
 		"hint_drag": "Trascina i modelli dalla maniglia per riordinare la priorità",
 		"filter_hotel_model": "Filtra hotel/modello…",
-		"filter_providers": "Tutti i provider",
-		"filter_states": "Tutti gli stati",
-		"filter_origins": "Tutte le origini",
+		"filter_providers": "Tutti ({{count}}) i provider",
+		"filter_states": "Tutti ({{count}}) gli stati",
+		"filter_origins": "Tutte ({{count}}) le origini",
 		"filter_state_enabled": "Abilitato",
 		"filter_state_disabled": "Disabilitato",
 		"filter_origin_auto": "Automatico",
-		"filter_origin_manual": "Manuale",
+		"filter_origin_manual": "Personalizzato",
 		"select_all": "Seleziona tutto",
 		"deselect_all": "Deseleziona tutto",
 		"selected_count": "{{count}} selezionato",
@@ -960,7 +957,8 @@
 		"btn_manage_providers": "Gestisci Fornitori",
 		"provider_modal_title": "Gestisci Stato Provider",
 		"provider_modal_description": "Disabilitare un provider disabiliterà tutti i suoi modelli in ogni gruppo di failover",
-		"toast_provider_toggle_no_groups": "Nessun gruppo di failover usa il provider {{provider}}"
+		"toast_provider_toggle_no_groups": "Nessun gruppo di failover usa il provider {{provider}}",
+		"last_sync_label": "Ultima sincronizzazione:"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Modifiche Non Salvate"
@@ -1086,7 +1084,9 @@
 			"level": "Livello",
 			"levelAll": "Tutti",
 			"source": "Fonte",
-			"logsPlaceholder": "Filtro log…"
+			"logsPlaceholder": "Filtro log…",
+			"allStatus": "Tutti gli stati",
+			"allEndpoints": "Tutte le modalità"
 		},
 		"endpoint": {
 			"chat": "Chat",
@@ -1172,7 +1172,9 @@
 			"levelAll": "Tutti",
 			"source": "Fonte",
 			"all": "Tutti ({{count}})",
-			"search": "Filtro log…"
+			"search": "Filtro log…",
+			"allLevels": "Tutti i livelli",
+			"allKeys": "Tutte le chiavi"
 		},
 		"table": {
 			"timeDate": "Ora/Data",

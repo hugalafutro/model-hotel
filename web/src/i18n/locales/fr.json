@@ -301,12 +301,10 @@
 			"requestsUnit": "Requêtes"
 		},
 		"models": {
-			"top": "Top modèles",
 			"viewDetails": "Voir les détails pour {{label}}",
 			"emptyState": "Aucune donnée de modèle pour le moment. La ventilation du modèle apparaîtra ici une fois le trafic écoulé."
 		},
 		"virtualKeys": {
-			"top": "Top clés virtuelles",
 			"emptyState": "Aucune donnée de clé virtuelle pour le moment. La ventilation des clés virtuelles apparaîtra ici une fois le trafic écoulé."
 		},
 		"tokens": {
@@ -641,7 +639,7 @@
 		"btn_refreshing": "Rafraîchissement...",
 		"filter_placeholder": "Filtrer les fournisseurs…",
 		"filter_provider_type": "Type de fournisseur",
-		"filter_all": "Tout ({{count}})",
+		"filter_all": "Tout ({{count}}) les fournisseurs",
 		"sort_title_asc": "Tri de A-Z (cliquez pour inverser)",
 		"sort_title_desc": "Trié Z-A (cliquez pour inverser)",
 		"empty_no_match": "Aucun fournisseur ne correspond au filtre sélectionné.",
@@ -880,19 +878,18 @@
 		"page_title_other": "Groupes de basculement",
 		"page_description_lead": "Requêtes de route via plusieurs fournisseurs dans l'ordre prioritaire via",
 		"page_description_code": "hôtel/modèle",
-		"last_sync": "Dernière synchronisation : {{time}}",
 		"btn_sync": "Synchroniser",
 		"btn_syncing": "Synchronisation de…",
 		"btn_new_group": "Nouveau groupe",
 		"hint_drag": "Faites glisser les modèles par la poignée pour réorganiser la priorité",
 		"filter_hotel_model": "Filtrer l'hôtel/le modèle…",
-		"filter_providers": "Tous les fournisseurs",
-		"filter_states": "Tous les états",
-		"filter_origins": "Toutes les origines",
+		"filter_providers": "Tous ({{count}}) les fournisseurs",
+		"filter_states": "Tous ({{count}}) les états",
+		"filter_origins": "Toutes ({{count}}) les origines",
 		"filter_state_enabled": "Activé",
 		"filter_state_disabled": "Désactivé",
 		"filter_origin_auto": "Automatique",
-		"filter_origin_manual": "Manuelle",
+		"filter_origin_manual": "Personnalisé",
 		"select_all": "Tout sélectionner",
 		"deselect_all": "Désélectionner tout",
 		"selected_count": "{{count}} sélectionné",
@@ -960,7 +957,8 @@
 		"btn_manage_providers": "Gérer les fournisseurs",
 		"provider_modal_title": "Gérer le statut du fournisseur",
 		"provider_modal_description": "Désactiver un fournisseur désactivera tous ses modèles dans chaque groupe de basculement",
-		"toast_provider_toggle_no_groups": "Aucun groupe de basculement n'utilise le fournisseur {{provider}}"
+		"toast_provider_toggle_no_groups": "Aucun groupe de basculement n'utilise le fournisseur {{provider}}",
+		"last_sync_label": "Dernière synchronisation :"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Modifications non enregistrées"
@@ -1086,7 +1084,9 @@
 			"level": "Niveau",
 			"levelAll": "Tous",
 			"source": "Source",
-			"logsPlaceholder": "Filtrer les logs…"
+			"logsPlaceholder": "Filtrer les logs…",
+			"allStatus": "Tous les statuts",
+			"allEndpoints": "Toutes les modalités"
 		},
 		"endpoint": {
 			"chat": "Discuter",
@@ -1172,7 +1172,9 @@
 			"levelAll": "Tous",
 			"source": "Source",
 			"all": "Tout ({{count}})",
-			"search": "Filtrer les logs…"
+			"search": "Filtrer les logs…",
+			"allLevels": "Tous les niveaux",
+			"allKeys": "Toutes les clés"
 		},
 		"table": {
 			"timeDate": "Heure/Date",

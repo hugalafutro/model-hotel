@@ -418,7 +418,7 @@ function RequestLogs() {
 									setPage(1);
 								}}
 								placeholder={t("logs.filters.modelPlaceholder")}
-								className="w-[320px]"
+								className="w-50"
 								autoFocus
 							/>
 							<FilterInput
@@ -437,13 +437,14 @@ function RequestLogs() {
 									setPage(1);
 								}}
 								placeholder={t("logs.filters.status")}
+								allLabel={t("logs.filters.allStatus")}
 								options={[
 									{ value: "2xx", label: "2XX" },
 									{ value: "4xx", label: "4XX" },
 									{ value: "5xx", label: "5XX" },
 									{ value: "0", label: "0" },
 								]}
-								className="w-28"
+								className="w-36"
 							/>
 							<FilterDropdown
 								value={filters.endpoint_type}
@@ -452,6 +453,7 @@ function RequestLogs() {
 									setPage(1);
 								}}
 								placeholder={t("logs.filters.endpoint")}
+								allLabel={t("logs.filters.allEndpoints")}
 								options={ENDPOINT_FILTER_OPTIONS.map((o) => ({
 									value: o.value,
 									label: t(o.labelKey),
@@ -642,7 +644,10 @@ function RequestLogs() {
 														"-"
 													)}
 												</td>
-												<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-300 truncate">
+												<td
+													className="px-2 py-1 whitespace-nowrap text-xs text-gray-300 truncate"
+													title={log.provider_name || undefined}
+												>
 													{log.provider_name === "Deleted" ? (
 														<span
 															className="text-red-400 italic"

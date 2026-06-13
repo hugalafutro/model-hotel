@@ -151,7 +151,7 @@ export function ProviderLatencyPanel({
 			) : (
 				<div className="space-y-3">
 					{/* Column headers — clickable to sort */}
-					<div className="grid grid-cols-3 gap-2 text-xs font-semibold text-(--text-muted) uppercase tracking-wide">
+					<div className="grid grid-cols-[1fr_auto_auto] gap-2 text-xs font-semibold text-(--text-muted) uppercase tracking-wide">
 						<div></div>
 						<button
 							type="button"
@@ -188,7 +188,7 @@ export function ProviderLatencyPanel({
 						return (
 							<div
 								key={entry.label}
-								className="grid grid-cols-3 gap-2 items-center text-sm"
+								className="grid grid-cols-[1fr_auto_auto] gap-2 items-center text-sm"
 							>
 								<div
 									className="truncate text-(--text-secondary)"

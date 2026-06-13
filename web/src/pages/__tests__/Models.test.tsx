@@ -55,9 +55,9 @@ describe("Models", () => {
 			renderWithProviders(<Models />);
 
 			// Shared FilterDropdown shows the all-providers label until a
-			// provider is picked
+			// provider is picked (1 provider in mock data → "All (1) Providers")
 			await waitFor(() => {
-				expect(screen.getByText("All providers")).toBeInTheDocument();
+				expect(screen.getByText("All (1) Providers")).toBeInTheDocument();
 			});
 		});
 

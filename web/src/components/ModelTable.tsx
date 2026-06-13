@@ -202,8 +202,12 @@ export function ModelTable({
 						<FilterDropdown
 							value={providerFilter}
 							onChange={onProviderFilterChange}
-							placeholder={t("failover.filter_providers")}
-							allLabel={t("failover.filter_providers")}
+							placeholder={t("failover.filter_providers", {
+								count: providers.length,
+							})}
+							allLabel={t("failover.filter_providers", {
+								count: providers.length,
+							})}
 							options={[...providers]
 								.sort((a, b) => a.name.localeCompare(b.name))
 								.map((p) => ({ value: p.id, label: p.name }))}

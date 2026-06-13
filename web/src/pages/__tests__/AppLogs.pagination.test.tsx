@@ -181,9 +181,9 @@ describe("AppLogs paginate mode - level filter counts", () => {
 		// Click level filter to open dropdown and see counts
 		await userEvent.click(levelButtons[0]);
 
-		// Check "All (5)" option appears in dropdown
+		// Check "All Levels" option appears in dropdown
 		// May appear multiple times (trigger + dropdown option), so check existence
-		expect(screen.getAllByText("All (5)").length).toBeGreaterThanOrEqual(1);
+		expect(screen.getAllByText("All Levels").length).toBeGreaterThanOrEqual(1);
 	});
 });
 

@@ -494,7 +494,7 @@ export function FailoverGroups() {
 				description={
 					<>
 						{t("failover.page_description_lead")}{" "}
-						<code className="text-(--accent)">
+						<code className="text-(--accent) whitespace-nowrap">
 							{t("failover.page_description_code")}
 						</code>
 					</>
@@ -519,10 +519,11 @@ export function FailoverGroups() {
 				actions={
 					<>
 						{lastSyncedAt && (
-							<span className="text-xs text-gray-500">
-								{t("failover.last_sync", {
-									time: lastSyncedAt ? formatTimestamp(lastSyncedAt) : "",
-								})}
+							<span className="text-xs text-(--text-muted)">
+								<span className="whitespace-nowrap">
+									{t("failover.last_sync_label")}
+								</span>{" "}
+								<span>{formatTimestamp(lastSyncedAt)}</span>
 							</span>
 						)}
 						<button
@@ -575,16 +576,20 @@ export function FailoverGroups() {
 				<FilterDropdown
 					value={providerFilter}
 					onChange={setProviderFilter}
-					placeholder={t("failover.filter_providers")}
-					allLabel={t("failover.filter_providers")}
+					placeholder={t("failover.filter_providers", {
+						count: providerNames.length,
+					})}
+					allLabel={t("failover.filter_providers", {
+						count: providerNames.length,
+					})}
 					options={providerNames.map((name) => ({ value: name, label: name }))}
 					className="w-[220px] shrink-0"
 				/>
 				<FilterDropdown
 					value={enabledFilter}
 					onChange={setEnabledFilter}
-					placeholder={t("failover.filter_states")}
-					allLabel={t("failover.filter_states")}
+					placeholder={t("failover.filter_states", { count: 2 })}
+					allLabel={t("failover.filter_states", { count: 2 })}
 					options={[
 						{ value: "enabled", label: t("failover.filter_state_enabled") },
 						{ value: "disabled", label: t("failover.filter_state_disabled") },
@@ -594,8 +599,8 @@ export function FailoverGroups() {
 				<FilterDropdown
 					value={originFilter}
 					onChange={setOriginFilter}
-					placeholder={t("failover.filter_origins")}
-					allLabel={t("failover.filter_origins")}
+					placeholder={t("failover.filter_origins", { count: 2 })}
+					allLabel={t("failover.filter_origins", { count: 2 })}
 					options={[
 						{ value: "auto", label: t("failover.filter_origin_auto") },
 						{ value: "manual", label: t("failover.filter_origin_manual") },

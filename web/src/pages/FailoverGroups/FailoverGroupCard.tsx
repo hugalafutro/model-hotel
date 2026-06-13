@@ -133,7 +133,10 @@ export function FailoverGroupCard({
 						className="flex items-center gap-1.5 min-w-0 select-none px-1.5 py-0.5 -mx-1.5 -my-0.5 rounded hover:bg-gray-700 transition-colors group cursor-default"
 						title={t("failover.group.clickToCopy")}
 					>
-						<h3 className="text-(--accent) font-medium text-sm truncate">
+						<h3
+							className="text-(--accent) font-medium text-sm truncate"
+							title={`hotel/${group.display_model}`}
+						>
 							hotel/{group.display_model}
 						</h3>
 						<svg
@@ -151,25 +154,27 @@ export function FailoverGroupCard({
 							/>
 						</svg>
 					</div>
+				</div>
+				<div className="flex items-center gap-2 shrink-0">
 					{group.auto_created && (
-						<span className="text-xs text-gray-500 shrink-0">
+						<span className="text-xs text-gray-500">
 							{t("failover.auto_created")}
 						</span>
 					)}
+					<button
+						type="button"
+						onClick={() => onToggleGroup(!group.group_enabled)}
+						className={`ui-badge px-2 py-px leading-[1.6] text-xs font-medium transition-colors ${
+							group.group_enabled
+								? "ui-badge-accent hover:brightness-125"
+								: "ui-badge-neutral hover:brightness-125"
+						}`}
+					>
+						<span className="badge-text">
+							{group.group_enabled ? t("failover.on") : t("failover.off")}
+						</span>
+					</button>
 				</div>
-				<button
-					type="button"
-					onClick={() => onToggleGroup(!group.group_enabled)}
-					className={`ui-badge px-2 py-px leading-[1.6] text-xs font-medium transition-colors ${
-						group.group_enabled
-							? "ui-badge-accent hover:brightness-125"
-							: "ui-badge-neutral hover:brightness-125"
-					}`}
-				>
-					<span className="badge-text">
-						{group.group_enabled ? t("failover.on") : t("failover.off")}
-					</span>
-				</button>
 			</div>
 
 			<DndContext

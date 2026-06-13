@@ -2196,11 +2196,6 @@
 		"pl",
 		"sk"
 	],
-	"failover.filter_origin_manual": [
-		"ca",
-		"es",
-		"ro"
-	],
 	"failover.section_letter": [
 		"af",
 		"ar",

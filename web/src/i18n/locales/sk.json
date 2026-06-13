@@ -301,12 +301,10 @@
 			"requestsUnit": "Žiadosti"
 		},
 		"models": {
-			"top": "Naj. modely",
 			"viewDetails": "Zobraziť podrobnosti o {{label}}",
 			"emptyState": "Zatiaľ nie sú k dispozícii žiadne údaje z modelu. Rozpis údajov z modelu sa tu zobrazí, akonáhle budú k dispozícii údaje o dopravných tokoch."
 		},
 		"virtualKeys": {
-			"top": "Naj. virtuálne kľúče",
 			"emptyState": "Zatiaľ nie sú k dispozícii žiadne údaje o virtuálnych kľúčoch. Rozpis virtuálnych kľúčov sa tu zobrazí, akonáhle začne prevádzka."
 		},
 		"tokens": {
@@ -641,7 +639,7 @@
 		"btn_refreshing": "Osviežujúce...",
 		"filter_placeholder": "Filtrovanie poskytovateľov…",
 		"filter_provider_type": "Typ poskytovateľa",
-		"filter_all": "Všetko ({{count}})",
+		"filter_all": "Všetko ({{count}}) poskytovatelia",
 		"sort_title_asc": "Zoradené podľa abecedy (kliknutím zmeníte poradie)",
 		"sort_title_desc": "Zoradené podľa abecedy (kliknutím obrátite poradie)",
 		"empty_no_match": "Žiadny poskytovateľ nezodpovedá zvoleným kritériám.",
@@ -880,19 +878,18 @@
 		"page_title_other": "Skupiny pre prevzatie pri výpadku",
 		"page_description_lead": "Smerujte požiadavky cez viacerých poskytovateľov v poradí podľa priority prostredníctvom",
 		"page_description_code": "hotel/model",
-		"last_sync": "Posledná synchronizácia: {{time}}",
 		"btn_sync": "Synchronizácia",
 		"btn_syncing": "Synchronizácia…",
 		"btn_new_group": "Nová skupina",
 		"hint_drag": "Pre zmenu poradia priorít pretiahnite modely za úchyt",
 		"filter_hotel_model": "Filtrovať podľa hotela/modelu…",
-		"filter_providers": "Všetci poskytovatelia",
-		"filter_states": "Všetky štáty",
-		"filter_origins": "Všetky krajiny pôvodu",
+		"filter_providers": "Všetci ({{count}}) poskytovatelia",
+		"filter_states": "Všetky ({{count}}) štáty",
+		"filter_origins": "Všetky ({{count}}) krajiny pôvodu",
 		"filter_state_enabled": "Zapnuté",
 		"filter_state_disabled": "Znevýhodnení",
 		"filter_origin_auto": "Auto",
-		"filter_origin_manual": "Návod",
+		"filter_origin_manual": "Vlastné",
 		"select_all": "Vybrať všetko",
 		"deselect_all": "Zrušiť výber všetkých",
 		"selected_count": "{{count}} vybrané",
@@ -960,7 +957,8 @@
 		"btn_manage_providers": "Správa poskytovateľov",
 		"provider_modal_title": "Správa stavu poskytovateľa",
 		"provider_modal_description": "Deaktiváciou poskytovateľa sa deaktivujú všetky jeho modely vo všetkých skupinách pre prevzatie pri výpadku",
-		"toast_provider_toggle_no_groups": "Žiadna skupina pre prechod na záložný systém nepoužíva poskytovateľa {{provider}}"
+		"toast_provider_toggle_no_groups": "Žiadna skupina pre prechod na záložný systém nepoužíva poskytovateľa {{provider}}",
+		"last_sync_label": "Posledná synchronizácia:"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Neuložené zmeny"
@@ -1086,7 +1084,9 @@
 			"level": "Úroveň",
 			"levelAll": "Všetko",
 			"source": "Zdroj",
-			"logsPlaceholder": "Filtrovanie protokolov…"
+			"logsPlaceholder": "Filtrovanie protokolov…",
+			"allStatus": "Všetky stavy",
+			"allEndpoints": "Všetky modality"
 		},
 		"endpoint": {
 			"chat": "Chat",
@@ -1172,7 +1172,9 @@
 			"levelAll": "Všetko",
 			"source": "Zdroj",
 			"all": "Všetko ({{count}})",
-			"search": "Filtrovať protokoly…"
+			"search": "Filtrovať protokoly…",
+			"allLevels": "Všetky úrovne",
+			"allKeys": "Všetky kľúče"
 		},
 		"table": {
 			"timeDate": "Čas/Dátum",

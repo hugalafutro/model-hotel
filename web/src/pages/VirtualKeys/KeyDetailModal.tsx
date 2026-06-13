@@ -1,10 +1,22 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Brain, Gauge, Key, RotateCcw, ShieldCheck, Zap } from "lucide-react";
+import {
+	Brain,
+	CalendarPlus,
+	Clock,
+	Coins,
+	Gauge,
+	Key,
+	RotateCcw,
+	ShieldCheck,
+	Tag,
+	Zap,
+} from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { VirtualKey } from "../../api/types";
 import { ConfirmDeleteButton } from "../../components/ConfirmDeleteButton";
+import { DetailItem } from "../../components/LogDetailItem";
 import { Modal } from "../../components/Modal";
 import { Toggle } from "../../components/Toggle";
 import { formatNumber } from "../../utils/format";
@@ -47,27 +59,6 @@ function BrainSlashIcon({
 				<span className="w-full h-[1.5px] bg-current rotate-45" />
 			</span>
 		</span>
-	);
-}
-
-function InfoItem({
-	label,
-	value,
-	mono = false,
-}: {
-	label: string;
-	value: string;
-	mono?: boolean;
-}) {
-	return (
-		<div>
-			<span className="text-xs text-gray-500 uppercase tracking-wider">
-				{label}
-			</span>
-			<p className={`text-sm text-gray-200 mt-0.5 ${mono ? "font-mono" : ""}`}>
-				{value}
-			</p>
-		</div>
 	);
 }
 
@@ -392,85 +383,72 @@ export function KeyDetailModal({
 						</div>
 					</>
 				) : (
-					<>
-						{/* Identity Section */}
-						<SectionHeader
-							icon={Key}
-							label={t("virtualkeys.modal.sections.identity")}
+					<div className="grid grid-cols-2 gap-2">
+						<DetailItem
+							icon={Tag}
+							label={t("virtualkeys.modal.form.name")}
+							value={vk.name}
 						/>
-						<div className="grid grid-cols-2 gap-4">
-							<InfoItem
-								label={t("virtualkeys.modal.form.name")}
-								value={vk.name}
-							/>
-							<div>
-								<span className="text-xs text-gray-500 uppercase tracking-wider">
-									{t("virtualkeys.modal.labels.key")}
-								</span>
-								<p
-									className="text-sm font-mono text-gray-200 mt-0.5 select-none"
-									title={t("virtualkeys.tooltip.keyHashed")}
-								>
-									{vk.key_preview}
-								</p>
+						<DetailItem icon={Key} label={t("virtualkeys.modal.labels.key")}>
+							<div
+								className="text-sm font-mono text-(--text-primary) truncate select-none"
+								title={t("virtualkeys.tooltip.keyHashed")}
+							>
+								{vk.key_preview}
 							</div>
-						</div>
-
-						{/* Rate Limits Section */}
-						<SectionHeader
+						</DetailItem>
+						<DetailItem
 							icon={Gauge}
-							label={t("virtualkeys.modal.sections.rateLimits")}
+							label={t("virtualKeys.detail.rps")}
+							value={
+								vk.rate_limit_rps != null
+									? String(vk.rate_limit_rps)
+									: t("common.global")
+							}
+							mono
 						/>
-						<div className="grid grid-cols-2 gap-4">
-							<InfoItem
-								label={t("virtualKeys.detail.rps")}
-								value={
-									vk.rate_limit_rps != null
-										? String(vk.rate_limit_rps)
-										: t("common.global")
-								}
-								mono
-							/>
-							<InfoItem
-								label={t("virtualKeys.detail.burst")}
-								value={
-									vk.rate_limit_burst != null
-										? String(vk.rate_limit_burst)
-										: t("common.global")
-								}
-								mono
-							/>
-						</div>
-
-						{/* Usage Section */}
-						<SectionHeader
+						<DetailItem
 							icon={Zap}
-							label={t("virtualkeys.modal.sections.usage")}
+							label={t("virtualKeys.detail.burst")}
+							value={
+								vk.rate_limit_burst != null
+									? String(vk.rate_limit_burst)
+									: t("common.global")
+							}
+							mono
 						/>
-						<div className="grid grid-cols-2 gap-4">
-							<InfoItem
-								label={t("virtualkeys.modal.labels.tokensConsumed")}
-								value={formatNumber(vk.tokens_used)}
-							/>
-							<InfoItem
-								label={t("virtualkeys.modal.labels.lastUsed")}
-								value={
-									vk.last_used_at
-										? new Date(vk.last_used_at).toLocaleString()
-										: t("common.never")
-								}
-							/>
-							<InfoItem
-								label={t("virtualkeys.modal.labels.created")}
-								value={new Date(vk.created_at).toLocaleString()}
-							/>
-						</div>
-
-						<SectionHeader
+						<DetailItem
+							icon={Coins}
+							label={t("virtualkeys.modal.labels.tokensConsumed")}
+							value={formatNumber(vk.tokens_used)}
+							mono
+						/>
+						<DetailItem
+							icon={Clock}
+							label={t("virtualkeys.modal.labels.lastUsed")}
+							value={
+								vk.last_used_at
+									? new Date(vk.last_used_at).toLocaleString()
+									: t("common.never")
+							}
+						/>
+						<DetailItem
+							icon={CalendarPlus}
+							label={t("virtualkeys.modal.labels.created")}
+							value={new Date(vk.created_at).toLocaleString()}
+						/>
+						<DetailItem
+							icon={BrainSlashIcon}
+							label={t("virtualkeys.modal.form.stripReasoning")}
+							value={
+								vk.strip_reasoning ? t("common.enabled") : t("common.disabled")
+							}
+						/>
+						<DetailItem
 							icon={ShieldCheck}
 							label={t("virtualkeys.modal.sections.providerAccess")}
-						/>
-						<div>
+							className="col-span-2"
+						>
 							{sortedProviders.length === 0 ? (
 								<p className="text-xs text-gray-500 italic">
 									{t("virtualkeys.modal.noProvidersConfigured")}
@@ -497,23 +475,8 @@ export function KeyDetailModal({
 									})}
 								</div>
 							)}
-						</div>
-
-						<SectionHeader
-							icon={BrainSlashIcon}
-							label={t("virtualkeys.modal.form.stripReasoning")}
-						/>
-						<div>
-							<InfoItem
-								label={t("virtualkeys.modal.form.stripReasoning")}
-								value={
-									vk.strip_reasoning
-										? t("common.enabled")
-										: t("common.disabled")
-								}
-							/>
-						</div>
-					</>
+						</DetailItem>
+					</div>
 				)}
 			</div>
 

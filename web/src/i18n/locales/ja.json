@@ -301,12 +301,10 @@
 			"requestsUnit": "リクエスト"
 		},
 		"models": {
-			"top": "トップモデル",
 			"viewDetails": "{{label}} の詳細を表示",
 			"emptyState": "モデルデータはまだありません。トラフィックが流れるとモデルの内訳がここに表示されます。"
 		},
 		"virtualKeys": {
-			"top": "トップ仮想キー",
 			"emptyState": "仮想キーのデータはまだありません。トラフィックが流れると、仮想キーの内訳がここに表示されます。"
 		},
 		"tokens": {
@@ -641,7 +639,7 @@
 		"btn_refreshing": "更新中...",
 		"filter_placeholder": "フィルタプロバイダ…",
 		"filter_provider_type": "プロバイダーの種類",
-		"filter_all": "すべて ({{count}})",
+		"filter_all": "すべて ({{count}}) プロバイダー",
 		"sort_title_asc": "A-Z (クリックで元に戻す)",
 		"sort_title_desc": "Z-Aを並べ替えました（クリックすると元に戻します）",
 		"empty_no_match": "選択したフィルタに一致するプロバイダがありません。",
@@ -880,19 +878,18 @@
 		"page_title_other": "フェイルオーバーグループ",
 		"page_description_lead": "優先順位順に複数のプロバイダを通じてリクエストをルート",
 		"page_description_code": "ホテル/モデル",
-		"last_sync": "前回の同期: {{time}}",
 		"btn_sync": "同期",
 		"btn_syncing": "… の同期",
 		"btn_new_group": "新しいグループ",
 		"hint_drag": "ハンドルでモデルをドラッグして優先順位を変更する",
 		"filter_hotel_model": "ホテル/モデル… をフィルター",
-		"filter_providers": "すべてのプロバイダー",
-		"filter_states": "すべての状態",
-		"filter_origins": "すべての由来",
+		"filter_providers": "すべての ({{count}}) プロバイダー",
+		"filter_states": "すべての ({{count}}) 状態",
+		"filter_origins": "すべての ({{count}}) 由来",
 		"filter_state_enabled": "有効",
 		"filter_state_disabled": "無効",
 		"filter_origin_auto": "自動",
-		"filter_origin_manual": "マニュアル",
+		"filter_origin_manual": "カスタム",
 		"select_all": "すべて選択",
 		"deselect_all": "すべての選択を解除",
 		"selected_count": "{{count}} が選択されました",
@@ -960,7 +957,8 @@
 		"btn_manage_providers": "プロバイダーの管理",
 		"provider_modal_title": "プロバイダーの状態を管理",
 		"provider_modal_description": "プロバイダを無効にすると、フェイルオーバーグループのすべてのモデルが無効になります",
-		"toast_provider_toggle_no_groups": "フェイルオーバーグループでプロバイダ {{provider}}を使用しません"
+		"toast_provider_toggle_no_groups": "フェイルオーバーグループでプロバイダ {{provider}}を使用しません",
+		"last_sync_label": "前回の同期:"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "保存されていない変更"
@@ -1086,7 +1084,9 @@
 			"level": "レベル",
 			"levelAll": "すべて",
 			"source": "ソース",
-			"logsPlaceholder": "ログのフィルタリング…"
+			"logsPlaceholder": "ログのフィルタリング…",
+			"allStatus": "すべてのステータス",
+			"allEndpoints": "すべてのモダリティ"
 		},
 		"endpoint": {
 			"chat": "チャット",
@@ -1172,7 +1172,9 @@
 			"levelAll": "すべて",
 			"source": "ソース",
 			"all": "すべて ({{count}})",
-			"search": "ログのフィルタリング…"
+			"search": "ログのフィルタリング…",
+			"allLevels": "全レベル",
+			"allKeys": "すべてのキー"
 		},
 		"table": {
 			"timeDate": "時刻/日付",

@@ -7,6 +7,7 @@ import {
 	formatTimestamp,
 	formatTimeUntil,
 } from "../../utils/format";
+import { DetailItem } from "../LogDetailItem";
 import { Modal } from "../Modal";
 import {
 	QuotaModalHeaderActions,
@@ -57,7 +58,7 @@ export function OpenRouterQuotaModal({
 						<h2 className="text-xl font-bold text-(--text-primary)">
 							{t("components.providerModals.openRouterCredits")}
 						</h2>
-						<p className="text-sm text-gray-400 mt-1">
+						<p className="text-sm text-(--text-tertiary) mt-1">
 							{balance.is_free_tier ? (
 								<span className="inline-flex items-center gap-1.5">
 									<span className="w-2 h-2 rounded-full bg-yellow-400"></span>
@@ -96,7 +97,7 @@ export function OpenRouterQuotaModal({
 			<div className="space-y-6">
 				<div>
 					<div className="flex justify-between items-center mb-2">
-						<span className="text-sm font-medium text-gray-300">
+						<span className="text-sm font-medium text-(--text-secondary)">
 							{t("components.providerModals.accountBalance")}
 						</span>
 						<span className="text-sm text-(--text-primary) font-medium">
@@ -104,7 +105,7 @@ export function OpenRouterQuotaModal({
 						</span>
 					</div>
 					{balance.credits_total > 0 && (
-						<div className="w-full bg-gray-700 rounded-full h-3">
+						<div className="w-full bg-(--surface-input) rounded-full h-3">
 							<div
 								className={`${barMode === "used" ? usedBarColor(100 - creditsRemaining) : remainingBarColor(creditsRemaining)} h-3 rounded-full transition-all`}
 								style={{
@@ -113,7 +114,7 @@ export function OpenRouterQuotaModal({
 							/>
 						</div>
 					)}
-					<p className="text-xs text-gray-500 mt-1">
+					<p className="text-xs text-(--text-muted) mt-1">
 						{balance.credits_total > 0
 							? t("components.providerModals.spentTotal", {
 									amount: formatDollars(balance.credits_used),
@@ -125,15 +126,15 @@ export function OpenRouterQuotaModal({
 				{balance.limit !== null && (
 					<div>
 						<div className="flex justify-between items-center mb-2">
-							<span className="text-sm font-medium text-gray-300">
+							<span className="text-sm font-medium text-(--text-secondary)">
 								{t("components.providerModals.keySpendingLimit")}
 							</span>
-							<span className="text-sm text-gray-400">
+							<span className="text-sm text-(--text-tertiary)">
 								{formatDollars(balance.limit_remaining ?? 0)}{" "}
 								{t("components.providerModals.remaining")}
 							</span>
 						</div>
-						<div className="w-full bg-gray-700 rounded-full h-3">
+						<div className="w-full bg-(--surface-input) rounded-full h-3">
 							<div
 								className={`${balance.limit > 0 ? (barMode === "used" ? usedBarColor(100 - ((balance.limit_remaining ?? 0) / balance.limit) * 100) : remainingBarColor(((balance.limit_remaining ?? 0) / balance.limit) * 100)) : "bg-amber-500"} h-3 rounded-full transition-all`}
 								style={{
@@ -156,7 +157,7 @@ export function OpenRouterQuotaModal({
 								}}
 							/>
 						</div>
-						<p className="text-xs text-gray-500 mt-1">
+						<p className="text-xs text-(--text-muted) mt-1">
 							{balance.limit > 0
 								? `${barMode === "used" ? (100 - ((balance.limit_remaining ?? 0) / balance.limit) * 100).toFixed(1) : (((balance.limit_remaining ?? 0) / balance.limit) * 100).toFixed(1)}% ${barMode === "used" ? t("components.providerModals.used") : t("components.providerModals.remaining")}`
 								: balance.limit === 0
@@ -170,40 +171,38 @@ export function OpenRouterQuotaModal({
 				)}
 
 				<div>
-					<h3 className="text-sm font-medium text-gray-300 mb-3">
+					<h3 className="text-sm font-medium text-(--text-secondary) mb-3">
 						{t("components.providerModals.keyUsage")}
 					</h3>
-					<p className="text-xs text-gray-500 mb-3">
+					<p className="text-xs text-(--text-muted) mb-3">
 						{t("components.providerModals.spendingByThisKey")}
 					</p>
-					<div className="grid grid-cols-2 gap-3 text-sm">
-						<div>
-							<span className="text-gray-500">{t("common.today")}</span>
-							<p className="text-gray-200">
-								{formatDollars(balance.usage_daily)}
-							</p>
-						</div>
-						<div>
-							<span className="text-gray-500">{t("common.thisWeek")}</span>
-							<p className="text-gray-200">
-								{formatDollars(balance.usage_weekly)}
-							</p>
-						</div>
-						<div>
-							<span className="text-gray-500">{t("common.thisMonth")}</span>
-							<p className="text-gray-200">
-								{formatDollars(balance.usage_monthly)}
-							</p>
-						</div>
-						<div>
-							<span className="text-gray-500">{t("common.allTime")}</span>
-							<p className="text-gray-200">{formatDollars(balance.usage)}</p>
-						</div>
+					<div className="grid grid-cols-2 gap-2">
+						<DetailItem
+							label={t("common.today")}
+							value={formatDollars(balance.usage_daily)}
+							mono
+						/>
+						<DetailItem
+							label={t("common.thisWeek")}
+							value={formatDollars(balance.usage_weekly)}
+							mono
+						/>
+						<DetailItem
+							label={t("common.thisMonth")}
+							value={formatDollars(balance.usage_monthly)}
+							mono
+						/>
+						<DetailItem
+							label={t("common.allTime")}
+							value={formatDollars(balance.usage)}
+							mono
+						/>
 					</div>
 				</div>
 
 				{lastRefreshed ? (
-					<div className="flex justify-between items-center text-xs text-gray-500 pt-2 ">
+					<div className="flex justify-between items-center text-xs text-(--text-muted) pt-2 ">
 						<span>{t("components.providerModals.lastRefreshed")}</span>
 						<span>
 							{formatRelativeTime(new Date(lastRefreshed).toISOString())}

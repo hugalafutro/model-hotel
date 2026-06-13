@@ -264,9 +264,7 @@ describe("ProviderLatencyPanel", () => {
 			);
 
 			// Provider A (8420ms) should be first, Provider B (980ms) last
-			const rows = container.querySelectorAll(
-				'div[class*="grid-cols-3"][class*="items-center"]',
-			);
+			const rows = container.querySelectorAll("div.items-center.text-sm");
 			expect(rows[0]?.textContent).toContain("Provider A");
 			expect(rows[2]?.textContent).toContain("Provider B");
 
@@ -285,9 +283,7 @@ describe("ProviderLatencyPanel", () => {
 			const responseBtn = screen.getByRole("button", { name: "Response" });
 			await user.click(responseBtn);
 
-			const rows = container.querySelectorAll(
-				'div[class*="grid-cols-3"][class*="items-center"]',
-			);
+			const rows = container.querySelectorAll("div.items-center.text-sm");
 			// Ascending: Provider B (980ms) first, Provider A (8420ms) last
 			expect(rows[0]?.textContent).toContain("Provider B");
 			expect(rows[2]?.textContent).toContain("Provider A");
@@ -302,9 +298,7 @@ describe("ProviderLatencyPanel", () => {
 			const overheadBtn = screen.getByRole("button", { name: "Overhead" });
 			await user.click(overheadBtn);
 
-			const rows = container.querySelectorAll(
-				'div[class*="grid-cols-3"][class*="items-center"]',
-			);
+			const rows = container.querySelectorAll("div.items-center.text-sm");
 			// Descending overhead: Provider A (420) first, Provider B (80) last
 			expect(rows[0]?.textContent).toContain("Provider A");
 			expect(rows[2]?.textContent).toContain("Provider B");
@@ -367,9 +361,7 @@ describe("ProviderLatencyPanel", () => {
 			);
 
 			// Ascending overhead: Provider B (80ms) first, Provider A (420ms) last
-			const rows = container.querySelectorAll(
-				'div[class*="grid-cols-3"][class*="items-center"]',
-			);
+			const rows = container.querySelectorAll("div.items-center.text-sm");
 			expect(rows[0]?.textContent).toContain("Provider B");
 			expect(rows[2]?.textContent).toContain("Provider A");
 		});
@@ -383,9 +375,7 @@ describe("ProviderLatencyPanel", () => {
 			);
 
 			// Should fall back to default: response desc → Provider A (8420ms) first
-			const rows = container.querySelectorAll(
-				'div[class*="grid-cols-3"][class*="items-center"]',
-			);
+			const rows = container.querySelectorAll("div.items-center.text-sm");
 			expect(rows[0]?.textContent).toContain("Provider A");
 		});
 	});

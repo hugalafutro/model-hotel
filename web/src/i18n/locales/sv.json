@@ -301,12 +301,10 @@
 			"requestsUnit": "Förfrågningar"
 		},
 		"models": {
-			"top": "Toppmodeller",
 			"viewDetails": "Visa detaljer för {{label}}",
 			"emptyState": "Inga modelldata ännu. Modelldelning visas här när trafikflöden."
 		},
 		"virtualKeys": {
-			"top": "Topp virtuella nycklar",
 			"emptyState": "Inga virtuella nyckeldata än. Virtuell nyckeldelning visas här när trafikflöden."
 		},
 		"tokens": {
@@ -641,7 +639,7 @@
 		"btn_refreshing": "Uppdaterar...",
 		"filter_placeholder": "Filtrera leverantörer…",
 		"filter_provider_type": "Typ av leverantör",
-		"filter_all": "Alla ({{count}})",
+		"filter_all": "Alla ({{count}}) leverantörer",
 		"sort_title_asc": "Sorterade A-Ö (klicka för att reversera)",
 		"sort_title_desc": "Sorterade Z-A (klicka för att återställa)",
 		"empty_no_match": "Inga leverantörer matchar det valda filtret.",
@@ -880,19 +878,18 @@
 		"page_title_other": "Misslyckade grupper",
 		"page_description_lead": "Rutt förfrågningar via flera leverantörer i prioritetsordning via",
 		"page_description_code": "hotell/modell",
-		"last_sync": "Senaste synkronisering: {{time}}",
 		"btn_sync": "Synk",
 		"btn_syncing": "Synkroniserar…",
 		"btn_new_group": "Ny grupp",
 		"hint_drag": "Dra modeller med handtaget för att ändra ordning på prioritet",
 		"filter_hotel_model": "Filtrera hotell/modell…",
-		"filter_providers": "Alla leverantörer",
-		"filter_states": "Alla delstater",
-		"filter_origins": "Alla ursprung",
+		"filter_providers": "Alla ({{count}}) leverantörer",
+		"filter_states": "Alla ({{count}}) delstater",
+		"filter_origins": "Alla ({{count}}) ursprung",
 		"filter_state_enabled": "Aktiverad",
 		"filter_state_disabled": "Inaktiverad",
 		"filter_origin_auto": "Automatiskt",
-		"filter_origin_manual": "Manuell",
+		"filter_origin_manual": "Anpassad",
 		"select_all": "Markera alla",
 		"deselect_all": "Avmarkera alla",
 		"selected_count": "{{count}} vald",
@@ -960,7 +957,8 @@
 		"btn_manage_providers": "Hantera leverantörer",
 		"provider_modal_title": "Hantera leverantörsstatus",
 		"provider_modal_description": "Inaktivera en leverantör kommer att inaktivera alla dess modeller i varje felöversättningsgrupp",
-		"toast_provider_toggle_no_groups": "Inga övergångsgrupper använder leverantören {{provider}}"
+		"toast_provider_toggle_no_groups": "Inga övergångsgrupper använder leverantören {{provider}}",
+		"last_sync_label": "Senaste synkronisering:"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Osparade ändringar"
@@ -1086,7 +1084,9 @@
 			"level": "Nivå",
 			"levelAll": "Alla",
 			"source": "Källa",
-			"logsPlaceholder": "Filtrera loggar…"
+			"logsPlaceholder": "Filtrera loggar…",
+			"allStatus": "Alla statusar",
+			"allEndpoints": "Alla modaliteter"
 		},
 		"endpoint": {
 			"chat": "Chatt",
@@ -1172,7 +1172,9 @@
 			"levelAll": "Alla",
 			"source": "Källa",
 			"all": "Alla ({{count}})",
-			"search": "Filtrera loggar…"
+			"search": "Filtrera loggar…",
+			"allLevels": "Alla nivåer",
+			"allKeys": "Alla nycklar"
 		},
 		"table": {
 			"timeDate": "Tid/datum",

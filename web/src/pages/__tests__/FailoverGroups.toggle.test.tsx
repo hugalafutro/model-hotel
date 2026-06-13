@@ -597,7 +597,9 @@ describe("FailoverGroups", () => {
 				expect(screen.getByText("hotel/alpha-model")).toBeInTheDocument();
 			});
 
-			await user.click(screen.getByRole("button", { name: "All providers" }));
+			await user.click(
+				screen.getByRole("button", { name: "All (2) Providers" }),
+			);
 			await user.click(screen.getByRole("button", { name: "OpenAI" }));
 
 			await waitFor(() => {
@@ -657,7 +659,9 @@ describe("FailoverGroups", () => {
 				expect(screen.getByText("hotel/alpha-model")).toBeInTheDocument();
 			});
 
-			await user.click(screen.getByRole("button", { name: "All providers" }));
+			await user.click(
+				screen.getByRole("button", { name: "All (2) Providers" }),
+			);
 			await user.click(screen.getByRole("button", { name: "OpenAI" }));
 
 			await user.click(
@@ -716,7 +720,9 @@ describe("FailoverGroups", () => {
 				expect(screen.getByText("hotel/alpha-model")).toBeInTheDocument();
 			});
 
-			await user.click(screen.getByRole("button", { name: "All providers" }));
+			await user.click(
+				screen.getByRole("button", { name: "All (2) Providers" }),
+			);
 			await user.click(screen.getByRole("button", { name: "OpenAI" }));
 
 			await user.click(
@@ -770,7 +776,9 @@ describe("FailoverGroups", () => {
 				expect(screen.getByText("hotel/alpha-model")).toBeInTheDocument();
 			});
 
-			await user.click(screen.getByRole("button", { name: "All providers" }));
+			await user.click(
+				screen.getByRole("button", { name: "All (1) Providers" }),
+			);
 			await user.click(screen.getByRole("button", { name: "OpenAI" }));
 
 			await user.click(
@@ -820,7 +828,9 @@ describe("FailoverGroups", () => {
 				expect(screen.getByText("hotel/alpha-model")).toBeInTheDocument();
 			});
 
-			await user.click(screen.getByRole("button", { name: "All providers" }));
+			await user.click(
+				screen.getByRole("button", { name: "All (1) Providers" }),
+			);
 			await user.click(screen.getByRole("button", { name: "OpenAI" }));
 
 			await user.click(
