@@ -24,7 +24,7 @@
 
 <div align="center">
   
-<sub>Localised with [DeepL](https://www.deepl.com) - _expect mistakes_ - translation fixes welcome as PRs against `web/src/i18n/locales/`!<br>Made with [OpenCode](https://opencode.ai) and [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim)</sub>
+<sub>Localised with [DeepL](https://www.deepl.com) - _expect mistakes_ - translation fixes welcome as PRs against [`web/src/i18n/locales/`](https://github.com/hugalafutro/model-hotel/tree/master/web/src/i18n/locales)!<br>Made with [OpenCode](https://opencode.ai) and [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim)</sub>
 <br>
 
  <img src="https://img.shields.io/badge/GLM_5.1-orchestrator,%20council-8B5CF6?style=flat" alt="GLM 5.1">

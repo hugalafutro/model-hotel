@@ -149,14 +149,20 @@ export function ProviderLatencyPanel({
 					{t("dashboard.providerLatency.emptyState")}
 				</p>
 			) : (
-				<div className="space-y-3">
+				// One grid owns the column tracks; the header and each provider row
+				// are subgrids spanning all three columns, so the two value columns
+				// auto-size to the widest content across every row and stay aligned.
+				// (Independent per-row grids each sized their own columns, which is
+				// what broke the alignment.) gap-x is tight; the label column (1fr)
+				// takes the remaining room.
+				<div className="grid grid-cols-[1fr_auto_auto] gap-x-4 gap-y-3">
 					{/* Column headers — clickable to sort */}
-					<div className="grid grid-cols-[1fr_auto_auto] gap-2 text-xs font-semibold text-(--text-muted) uppercase tracking-wide">
+					<div className="col-span-3 grid grid-cols-subgrid items-center text-xs font-semibold text-(--text-muted) uppercase tracking-wide">
 						<div></div>
 						<button
 							type="button"
 							onClick={() => handleSort("response")}
-							className="text-right hover:text-(--text-primary) transition-colors flex items-center justify-end gap-0.5 ml-auto"
+							className="text-right hover:text-(--text-primary) transition-colors flex items-center justify-end gap-0.5"
 						>
 							{t("dashboard.providerLatency.response")}
 							<SortArrow
@@ -168,7 +174,7 @@ export function ProviderLatencyPanel({
 						<button
 							type="button"
 							onClick={() => handleSort("overhead")}
-							className="text-right hover:text-(--text-primary) transition-colors flex items-center justify-end gap-0.5 ml-auto"
+							className="text-right hover:text-(--text-primary) transition-colors flex items-center justify-end gap-0.5"
 						>
 							{t("dashboard.providerLatency.overhead")}
 							<SortArrow
@@ -188,10 +194,10 @@ export function ProviderLatencyPanel({
 						return (
 							<div
 								key={entry.label}
-								className="grid grid-cols-[1fr_auto_auto] gap-2 items-center text-sm"
+								className="col-span-3 grid grid-cols-subgrid items-center text-sm"
 							>
 								<div
-									className="truncate text-(--text-secondary)"
+									className="min-w-0 truncate text-(--text-secondary)"
 									title={entry.label}
 								>
 									{entry.label}
