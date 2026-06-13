@@ -1996,7 +1996,7 @@
 			"failedToRefreshBalance": "Obnovenie zostatku sa nepodarilo",
 			"noCredits": "Žiadne kredity",
 			"cancelAtPeriodEnd": "Predplatné sa ukončí na konci obdobia ({{date}})",
-			"neuralWattCredits": "Zoznam tvorcov",
+			"neuralWattCredits": "Kredity NeuralWatt",
 			"neuralwattBalance": "Zostatok",
 			"neuralwattUsage": "Použitie",
 			"neuralwattSubscription": "Predplatné",

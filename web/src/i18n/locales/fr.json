@@ -1996,7 +1996,7 @@
 			"failedToRefreshBalance": "Impossible de rafraichir le solde",
 			"noCredits": "Pas de crédits",
 			"cancelAtPeriodEnd": "L'abonnement sera annulé à la fin de la période ({{date}})",
-			"neuralWattCredits": "Crédits",
+			"neuralWattCredits": "Crédits NeuralWatt",
 			"neuralwattBalance": "Solde",
 			"neuralwattUsage": "Usage",
 			"neuralwattSubscription": "Abonnement",

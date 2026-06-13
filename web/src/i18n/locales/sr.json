@@ -1996,7 +1996,7 @@
 			"failedToRefreshBalance": "Обнову баланса није успело",
 			"noCredits": "Нема кредита",
 			"cancelAtPeriodEnd": "Претплата ће бити отказана на крају периода ({{date}})",
-			"neuralWattCredits": "Заслуге",
+			"neuralWattCredits": "Заслуге NeuralWatt-а",
 			"neuralwattBalance": "Равнотежа",
 			"neuralwattUsage": "Употреба",
 			"neuralwattSubscription": "Претплата",

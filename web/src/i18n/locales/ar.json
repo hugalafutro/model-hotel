@@ -1996,7 +1996,7 @@
 			"failedToRefreshBalance": "فشل تحديث الرصيد",
 			"noCredits": "لا توجد أرصدة",
 			"cancelAtPeriodEnd": "سيتم إلغاء الاشتراك في نهاية الفترة ({{date}})",
-			"neuralWattCredits": "الاعتمادات",
+			"neuralWattCredits": "رصيد NeuralWatt",
 			"neuralwattBalance": "الرصيد",
 			"neuralwattUsage": "الاستخدام",
 			"neuralwattSubscription": "الاشتراك",

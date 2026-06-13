@@ -1996,7 +1996,7 @@
 			"failedToRefreshBalance": "Bakiye yenilenemedi",
 			"noCredits": "Kredi yok",
 			"cancelAtPeriodEnd": "Abonelik dönem sonunda iptal edilecektir ({{date}})",
-			"neuralWattCredits": "Teşekkürler",
+			"neuralWattCredits": "NeuralWatt Kredileri",
 			"neuralwattBalance": "Denge",
 			"neuralwattUsage": "Kullanım",
 			"neuralwattSubscription": "Abonelik",

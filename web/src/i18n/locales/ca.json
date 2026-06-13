@@ -1996,7 +1996,7 @@
 			"failedToRefreshBalance": "No s'ha pogut actualitzar el saldo",
 			"noCredits": "Sense crèdits",
 			"cancelAtPeriodEnd": "La subscripció s'anul·larà al final del període ({{date}})",
-			"neuralWattCredits": "Crèdits",
+			"neuralWattCredits": "Crèdits d'NeuralWatt",
 			"neuralwattBalance": "Equilibri",
 			"neuralwattUsage": "Ús",
 			"neuralwattSubscription": "Subscripció",

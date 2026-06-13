@@ -1996,7 +1996,7 @@
 			"failedToRefreshBalance": "Het misluk om die balans op te dateer",
 			"noCredits": "Geen krediete",
 			"cancelAtPeriodEnd": "Inskrywing sal aan die einde van die periode gekanselleer word ({{date}})",
-			"neuralWattCredits": "Krediete",
+			"neuralWattCredits": "NeuralWatt Krediete",
 			"neuralwattBalance": "Balans",
 			"neuralwattUsage": "Gebruik",
 			"neuralwattSubscription": "Inskrywing",

@@ -1996,7 +1996,7 @@
 			"failedToRefreshBalance": "Saldoa ei voitu päivittää",
 			"noCredits": "Ei krediittejä",
 			"cancelAtPeriodEnd": "Tilaus peruutetaan jakson lopussa ({{date}})",
-			"neuralWattCredits": "Tekijät",
+			"neuralWattCredits": "NeuralWatt Tekijät",
 			"neuralwattBalance": "Saldo",
 			"neuralwattUsage": "Käyttö",
 			"neuralwattSubscription": "Tilaus",

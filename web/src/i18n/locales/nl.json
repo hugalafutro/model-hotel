@@ -1996,7 +1996,7 @@
 			"failedToRefreshBalance": "Vernieuwen van saldo mislukt",
 			"noCredits": "Geen credits",
 			"cancelAtPeriodEnd": "Abonnement wordt aan het einde van de periode geannuleerd ({{date}})",
-			"neuralWattCredits": "Kredieten",
+			"neuralWattCredits": "NeuralWatt credits",
 			"neuralwattBalance": "Saldo",
 			"neuralwattUsage": "Gebruik",
 			"neuralwattSubscription": "Abonnement",

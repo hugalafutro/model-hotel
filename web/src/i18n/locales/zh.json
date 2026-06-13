@@ -1996,7 +1996,7 @@
 			"failedToRefreshBalance": "刷新余额失败",
 			"noCredits": "无点数",
 			"cancelAtPeriodEnd": "订阅将在期满时自动取消（{{date}}）",
-			"neuralWattCredits": "致谢",
+			"neuralWattCredits": "NeuralWatt 积分",
 			"neuralwattBalance": "余额",
 			"neuralwattUsage": "用法",
 			"neuralwattSubscription": "订阅",

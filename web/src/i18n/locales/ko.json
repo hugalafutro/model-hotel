@@ -1996,7 +1996,7 @@
 			"failedToRefreshBalance": "잔액 갱신에 실패했습니다",
 			"noCredits": "크레딧 없음",
 			"cancelAtPeriodEnd": "구독은 해당 기간이 종료되면 해지됩니다 ({{date}}).",
-			"neuralWattCredits": "제작진",
+			"neuralWattCredits": "NeuralWatt 크레딧",
 			"neuralwattBalance": "균형",
 			"neuralwattUsage": "사용법",
 			"neuralwattSubscription": "구독",

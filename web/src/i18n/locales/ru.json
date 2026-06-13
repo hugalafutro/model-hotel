@@ -1996,7 +1996,7 @@
 			"failedToRefreshBalance": "Не удалось обновить баланс",
 			"noCredits": "Нет кредитов",
 			"cancelAtPeriodEnd": "Подписка будет отменена в конце периода ({{date}})",
-			"neuralWattCredits": "Кредиты",
+			"neuralWattCredits": "Кредиты NeuralWatt",
 			"neuralwattBalance": "Баланс",
 			"neuralwattUsage": "Использование",
 			"neuralwattSubscription": "Подписка",

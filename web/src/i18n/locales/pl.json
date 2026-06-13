@@ -1996,7 +1996,7 @@
 			"failedToRefreshBalance": "Nie udało się odświeżyć salda",
 			"noCredits": "Brak kredytów",
 			"cancelAtPeriodEnd": "Subskrypcja zostanie anulowana pod koniec okresu ({{date}})",
-			"neuralWattCredits": "Kredyty",
+			"neuralWattCredits": "Kredyty NeuralWatt",
 			"neuralwattBalance": "Saldo",
 			"neuralwattUsage": "Użycie",
 			"neuralwattSubscription": "Subskrypcja",

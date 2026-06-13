@@ -1996,7 +1996,7 @@
 			"failedToRefreshBalance": "לא הצליח לרענן את היתרה",
 			"noCredits": "ללא קרדיטים",
 			"cancelAtPeriodEnd": "המנוי יבוטל בתום התקופה ({{date}})",
-			"neuralWattCredits": "קרדיטים",
+			"neuralWattCredits": "קרדיטים ל-NeuralWatt",
 			"neuralwattBalance": "איזון",
 			"neuralwattUsage": "שימוש",
 			"neuralwattSubscription": "מנוי",

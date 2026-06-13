@@ -1996,7 +1996,7 @@
 			"failedToRefreshBalance": "Αποτυχία ανανέωσης υπολοίπου",
 			"noCredits": "Χωρίς μονάδες",
 			"cancelAtPeriodEnd": "Η συνδρομή θα ακυρωθεί στο τέλος της περιόδου ({{date}})",
-			"neuralWattCredits": "Συντελεστές",
+			"neuralWattCredits": "Πιστώσεις NeuralWatt",
 			"neuralwattBalance": "Υπόλοιπο",
 			"neuralwattUsage": "Χρήση",
 			"neuralwattSubscription": "Συνδρομή",

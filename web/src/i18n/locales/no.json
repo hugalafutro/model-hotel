@@ -1996,7 +1996,7 @@
 			"failedToRefreshBalance": "Kunne ikke oppdatere saldoen",
 			"noCredits": "Ingen kreditt",
 			"cancelAtPeriodEnd": "Abonnementet vil avbryte ved slutten ({{date}})",
-			"neuralWattCredits": "Medvirkende",
+			"neuralWattCredits": "NeuralWatt kreditter",
 			"neuralwattBalance": "Balanse",
 			"neuralwattUsage": "Bruk",
 			"neuralwattSubscription": "Abonnement",

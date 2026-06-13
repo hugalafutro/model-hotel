@@ -1996,7 +1996,7 @@
 			"failedToRefreshBalance": "Kontostand konnte nicht aktualisiert werden",
 			"noCredits": "Keine Credits",
 			"cancelAtPeriodEnd": "Abonnement wird am Ende des Zeitraums storniert ({{date}})",
-			"neuralWattCredits": "Credits",
+			"neuralWattCredits": "NeuralWatt Credits",
 			"neuralwattBalance": "Saldo",
 			"neuralwattUsage": "Auslastung",
 			"neuralwattSubscription": "Abonnement",

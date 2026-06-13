@@ -1996,7 +1996,7 @@
 			"failedToRefreshBalance": "残高の更新に失敗しました",
 			"noCredits": "クレジットがありません",
 			"cancelAtPeriodEnd": "サブスクリプションは期間終了時にキャンセルされます ({{date}})",
-			"neuralWattCredits": "クレジット",
+			"neuralWattCredits": "NeuralWatt クレジット",
 			"neuralwattBalance": "残高",
 			"neuralwattUsage": "使用法",
 			"neuralwattSubscription": "サブスクリプション",

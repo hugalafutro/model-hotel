@@ -1996,7 +1996,7 @@
 			"failedToRefreshBalance": "Nem sikerült frissíteni az egyenleget",
 			"noCredits": "Nincs stáblista",
 			"cancelAtPeriodEnd": "Az előfizetés az időszak végén megszűnik ({{date}})",
-			"neuralWattCredits": "Közreműködők",
+			"neuralWattCredits": "NeuralWatt kreditek",
 			"neuralwattBalance": "Egyensúly",
 			"neuralwattUsage": "Használat",
 			"neuralwattSubscription": "Előfizetés",
