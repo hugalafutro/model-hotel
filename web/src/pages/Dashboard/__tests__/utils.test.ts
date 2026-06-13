@@ -37,6 +37,12 @@ describe("formatCompact", () => {
 		expect(formatCompact(10000000)).toBe("10M");
 	});
 
+	it("formats billions with B suffix", () => {
+		expect(formatCompact(1000000000)).toBe("1B");
+		expect(formatCompact(1500000000)).toBe("1.5B");
+		expect(formatCompact(-2000000000)).toBe("-2B");
+	});
+
 	it("formats negative numbers correctly", () => {
 		expect(formatCompact(-1000)).toBe("-1K");
 		expect(formatCompact(-1500)).toBe("-1.5K");

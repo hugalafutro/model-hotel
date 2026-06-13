@@ -35,12 +35,7 @@ export function formatNumber(n: number | null | undefined): string {
 
 export function formatTokens(n: number | null | undefined): string {
 	if (n == null) return "-";
-	if (n >= 1_000_000_000)
-		return `${(n / 1_000_000_000).toFixed(1).replace(/\.0$/, "")}B`;
-	if (n >= 1_000_000)
-		return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
-	if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
-	return n.toString();
+	return formatCompact(n);
 }
 
 export function formatTimestamp(ts: number | string): string {
@@ -99,6 +94,7 @@ export function formatCompact(n: number): string {
 		const s = v.toFixed(1);
 		return s.endsWith(".0") ? s.slice(0, -2) : s;
 	};
+	if (abs >= 1_000_000_000) return `${fmt(n / 1_000_000_000)}B`;
 	if (abs >= 1_000_000) return `${fmt(n / 1_000_000)}M`;
 	if (abs >= 1_000) return `${fmt(n / 1_000)}K`;
 	return fmt(n);

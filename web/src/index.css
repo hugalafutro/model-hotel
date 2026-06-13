@@ -192,6 +192,11 @@ html[data-ui-style="cyber-terminal"] {
 	--radius-pill: 0;
 }
 
+/* Square the dashboard gauge arc ends - no rounded caps on the terminal. */
+html[data-ui-style="cyber-terminal"] .gauge-arc {
+	stroke-linecap: butt;
+}
+
 html[data-ui-style="cyber-terminal"].dark {
 	--surface-bg: #020203;
 	--surface-elevated: #0a0a0c;
@@ -818,16 +823,6 @@ html[data-ui-style="clean-saas"] .sidebar-link {
 		translate: 0 0;
 	}
 }
-/* Firefox: badge and controls in PageHeader title row sit slightly too high
-   in the items-center flex row compared to Chrome. */
-/* stylelint-disable at-rule-no-vendor-prefix */
-@-moz-document url-prefix() {
-	.page-header-title-row > button,
-	.page-header-title-row > .flex {
-		translate: 0 2px;
-	}
-}
-
 .sidebar-quota-pill {
 	display: inline-flex;
 	align-items: center;
@@ -2206,8 +2201,8 @@ html[data-ui-style="cyber-terminal"] .ui-main {
 	   would hide it. */
 	background-image: repeating-linear-gradient(
 		0deg,
-		rgba(255, 255, 255, 0.013) 0px,
-		rgba(255, 255, 255, 0.013) 1px,
+		rgba(255, 255, 255, 0.02) 0px,
+		rgba(255, 255, 255, 0.02) 1px,
 		transparent 1px,
 		transparent 3px
 	);
@@ -2239,8 +2234,8 @@ html[data-ui-style="cyber-terminal"].light .ui-main {
 	/* Same scanlines-only as dark mode, with dark lines instead. */
 	background-image: repeating-linear-gradient(
 		0deg,
-		rgba(0, 0, 0, 0.04) 0px,
-		rgba(0, 0, 0, 0.04) 1px,
+		rgba(0, 0, 0, 0.06) 0px,
+		rgba(0, 0, 0, 0.06) 1px,
 		transparent 1px,
 		transparent 3px
 	);

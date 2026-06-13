@@ -367,10 +367,15 @@ describe("Dashboard", () => {
 				expect(screen.getByText("Dashboard")).toBeInTheDocument();
 			});
 
-			// All three panel titles should be present
-			expect(screen.getByText(/Top Models/)).toBeInTheDocument();
+			// All three panel titles should be present (heading role avoids
+			// collision with the sidebar nav links of the same name)
+			expect(
+				screen.getByRole("heading", { name: "Models" }),
+			).toBeInTheDocument();
 			expect(screen.getByText(/Provider Latency/)).toBeInTheDocument();
-			expect(screen.getByText(/Top Virtual Keys/)).toBeInTheDocument();
+			expect(
+				screen.getByRole("heading", { name: "Virtual Keys" }),
+			).toBeInTheDocument();
 		});
 
 		it("displays models in Top Models panel", async () => {
