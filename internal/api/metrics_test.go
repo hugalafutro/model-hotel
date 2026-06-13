@@ -24,7 +24,7 @@ func TestMetricsAuth_DedicatedToken(t *testing.T) {
 		{"no token", func(_ *http.Request) {}, http.StatusUnauthorized},
 		{"wrong bearer", func(r *http.Request) { r.Header.Set("Authorization", "Bearer nope") }, http.StatusUnauthorized},
 		{"correct bearer", func(r *http.Request) { r.Header.Set("Authorization", "Bearer s3cret") }, http.StatusOK},
-		{"correct query param", func(r *http.Request) { r.URL.RawQuery = "token=s3cret" }, http.StatusOK},
+		{"query param rejected (Bearer required)", func(r *http.Request) { r.URL.RawQuery = "token=s3cret" }, http.StatusUnauthorized},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

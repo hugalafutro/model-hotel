@@ -180,11 +180,13 @@ func errString(err error) string {
 		return ""
 	}
 	const maxLen = 500
-	s := err.Error()
-	if len(s) > maxLen {
-		return s[:maxLen] + "…"
+	// Truncate on rune boundaries, not bytes, so a multi-byte rune straddling
+	// the cap is never split into invalid UTF-8 in the stored error_message.
+	r := []rune(err.Error())
+	if len(r) > maxLen {
+		return string(r[:maxLen]) + "…"
 	}
-	return s
+	return string(r)
 }
 
 // statusClientClosedRequest is nginx's non-standard 499 "Client Closed Request".

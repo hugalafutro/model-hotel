@@ -225,9 +225,16 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 	if logEntry.state == "completed" || logEntry.state == "failed" {
 		// Single Prometheus recording seam: every terminal request passes
 		// through here exactly once with its provider/model/status/tokens.
+		// Validation failures carry the raw, client-supplied model string, which
+		// is unbounded — collapse it to a constant label so a client sending
+		// bogus model names can't explode Prometheus series cardinality.
+		metricModel := logEntry.modelID
+		if logEntry.errorKind == KindValidation {
+			metricModel = "unresolved"
+		}
 		metrics.Record(metrics.Observation{
 			Provider:         logEntry.providerName,
-			Model:            logEntry.modelID,
+			Model:            metricModel,
 			StatusCode:       logEntry.statusCode,
 			ErrorKind:        string(logEntry.errorKind),
 			DurationSeconds:  logEntry.durationMs / 1000.0,

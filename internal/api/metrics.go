@@ -48,14 +48,13 @@ func breakerStateCode(state string) int {
 
 // metricsAuth gates the metrics endpoint. A dedicated METRICS_TOKEN (so the
 // Prometheus scrape config need not hold the admin token) takes precedence;
-// without one, the standard admin auth applies.
+// without one, the standard admin auth applies. The token must be presented as
+// an Authorization: Bearer header — not a query parameter — so it does not leak
+// into reverse-proxy access logs, browser history, or referrers.
 func (h *Handler) metricsAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if h.cfg != nil && h.cfg.MetricsToken != "" {
-			tok, ok := util.ParseBearerToken(r)
-			if !ok || tok == "" {
-				tok = r.URL.Query().Get("token")
-			}
+			tok, _ := util.ParseBearerToken(r)
 			if subtle.ConstantTimeCompare([]byte(tok), []byte(h.cfg.MetricsToken)) == 1 {
 				next.ServeHTTP(w, r)
 				return
