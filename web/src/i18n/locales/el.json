@@ -891,7 +891,7 @@
 		"filter_state_enabled": "Ενεργοποιημένο",
 		"filter_state_disabled": "Απενεργοποιημένο",
 		"filter_origin_auto": "Αυτόματο",
-		"filter_origin_manual": "Custom",
+		"filter_origin_manual": "Προσαρμοσμένο",
 		"select_all": "Επιλογή όλων",
 		"deselect_all": "Αποεπιλογή όλων",
 		"selected_count": "{{count}} επιλεγμένα",
@@ -1087,8 +1087,8 @@
 			"levelAll": "Όλα",
 			"source": "Πηγή",
 			"logsPlaceholder": "Φιλτράρισμα αρχείων καταγραφής…",
-			"allStatus": "All Status",
-			"allEndpoints": "All Modalities"
+			"allStatus": "Όλες οι καταστάσεις",
+			"allEndpoints": "Όλες οι λειτουργίες"
 		},
 		"endpoint": {
 			"chat": "Συνομιλία",
@@ -1175,8 +1175,8 @@
 			"source": "Πηγή",
 			"all": "Όλα ({{count}})",
 			"search": "Φιλτράρισμα αρχείων καταγραφής…",
-			"allLevels": "All Levels",
-			"allKeys": "All Keys"
+			"allLevels": "Όλα τα επίπεδα",
+			"allKeys": "Όλα τα κλειδιά"
 		},
 		"table": {
 			"timeDate": "Ώρα/Ημερομηνία",

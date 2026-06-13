@@ -891,7 +891,7 @@
 		"filter_state_enabled": "Käytössä",
 		"filter_state_disabled": "Pois Käytöstä",
 		"filter_origin_auto": "Automaattinen",
-		"filter_origin_manual": "Custom",
+		"filter_origin_manual": "Mukautettu",
 		"select_all": "Valitse kaikki",
 		"deselect_all": "Poista kaikki valinnat",
 		"selected_count": "{{count}} valittu",
@@ -1087,8 +1087,8 @@
 			"levelAll": "Kaikki",
 			"source": "Lähde",
 			"logsPlaceholder": "Suodata lokit…",
-			"allStatus": "All Status",
-			"allEndpoints": "All Modalities"
+			"allStatus": "Kaikki tilat",
+			"allEndpoints": "Kaikki modaliteetit"
 		},
 		"endpoint": {
 			"chat": "Keskustelu",
@@ -1175,8 +1175,8 @@
 			"source": "Lähde",
 			"all": "Kaikki ({{count}})",
 			"search": "Suodata lokit…",
-			"allLevels": "All Levels",
-			"allKeys": "All Keys"
+			"allLevels": "Kaikki tasot",
+			"allKeys": "Kaikki avaimet"
 		},
 		"table": {
 			"timeDate": "Aika/Päivämäärä",

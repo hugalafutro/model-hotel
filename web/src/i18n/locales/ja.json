@@ -891,7 +891,7 @@
 		"filter_state_enabled": "有効",
 		"filter_state_disabled": "無効",
 		"filter_origin_auto": "自動",
-		"filter_origin_manual": "Custom",
+		"filter_origin_manual": "カスタム",
 		"select_all": "すべて選択",
 		"deselect_all": "すべての選択を解除",
 		"selected_count": "{{count}} が選択されました",
@@ -1087,8 +1087,8 @@
 			"levelAll": "すべて",
 			"source": "ソース",
 			"logsPlaceholder": "ログのフィルタリング…",
-			"allStatus": "All Status",
-			"allEndpoints": "All Modalities"
+			"allStatus": "すべてのステータス",
+			"allEndpoints": "すべてのモダリティ"
 		},
 		"endpoint": {
 			"chat": "チャット",
@@ -1175,8 +1175,8 @@
 			"source": "ソース",
 			"all": "すべて ({{count}})",
 			"search": "ログのフィルタリング…",
-			"allLevels": "All Levels",
-			"allKeys": "All Keys"
+			"allLevels": "全レベル",
+			"allKeys": "すべてのキー"
 		},
 		"table": {
 			"timeDate": "時刻/日付",

@@ -891,7 +891,7 @@
 		"filter_state_enabled": "Ativado",
 		"filter_state_disabled": "Desabilitado",
 		"filter_origin_auto": "Automático",
-		"filter_origin_manual": "Custom",
+		"filter_origin_manual": "Personalizado",
 		"select_all": "Selecionar todos",
 		"deselect_all": "Desmarcar todos",
 		"selected_count": "{{count}} selecionado",
@@ -1087,8 +1087,8 @@
 			"levelAll": "TODOS",
 			"source": "fonte",
 			"logsPlaceholder": "Filtrar logs…",
-			"allStatus": "All Status",
-			"allEndpoints": "All Modalities"
+			"allStatus": "Todos os status",
+			"allEndpoints": "Todas as modalidades"
 		},
 		"endpoint": {
 			"chat": "Bate-papo",
@@ -1175,8 +1175,8 @@
 			"source": "fonte",
 			"all": "Todos ({{count}})",
 			"search": "Filtrar logs…",
-			"allLevels": "All Levels",
-			"allKeys": "All Keys"
+			"allLevels": "Todos os níveis",
+			"allKeys": "Todas as chaves"
 		},
 		"table": {
 			"timeDate": "Hora/Data",

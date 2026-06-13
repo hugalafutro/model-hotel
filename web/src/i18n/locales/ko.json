@@ -891,7 +891,7 @@
 		"filter_state_enabled": "활성화됨",
 		"filter_state_disabled": "비활성화됨",
 		"filter_origin_auto": "자동",
-		"filter_origin_manual": "Custom",
+		"filter_origin_manual": "사용자 정의",
 		"select_all": "모두 선택",
 		"deselect_all": "모두 선택 해제",
 		"selected_count": "{{count}} 선택됨",
@@ -1087,8 +1087,8 @@
 			"levelAll": "모두",
 			"source": "출처",
 			"logsPlaceholder": "로그 필터링…",
-			"allStatus": "All Status",
-			"allEndpoints": "All Modalities"
+			"allStatus": "모든 상태",
+			"allEndpoints": "모든 모달리티"
 		},
 		"endpoint": {
 			"chat": "채팅",
@@ -1175,8 +1175,8 @@
 			"source": "출처",
 			"all": "전체 ({{count}})",
 			"search": "로그 필터링…",
-			"allLevels": "All Levels",
-			"allKeys": "All Keys"
+			"allLevels": "모든 레벨",
+			"allKeys": "모든 키"
 		},
 		"table": {
 			"timeDate": "시간/날짜",

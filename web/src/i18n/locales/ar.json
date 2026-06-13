@@ -891,7 +891,7 @@
 		"filter_state_enabled": "تمكين",
 		"filter_state_disabled": "معطل",
 		"filter_origin_auto": "تلقائي",
-		"filter_origin_manual": "Custom",
+		"filter_origin_manual": "مخصص",
 		"select_all": "حدد الكل",
 		"deselect_all": "إلغاء تحديد الكل",
 		"selected_count": "{{count}} المختار",
@@ -1087,8 +1087,8 @@
 			"levelAll": "الكل",
 			"source": "المصدر",
 			"logsPlaceholder": "تصفية السجلات…",
-			"allStatus": "All Status",
-			"allEndpoints": "All Modalities"
+			"allStatus": "جميع الحالات",
+			"allEndpoints": "جميع الأنماط"
 		},
 		"endpoint": {
 			"chat": "الدردشة",
@@ -1175,8 +1175,8 @@
 			"source": "المصدر",
 			"all": "الكل ({{count}})",
 			"search": "تصفية السجلات…",
-			"allLevels": "All Levels",
-			"allKeys": "All Keys"
+			"allLevels": "جميع المستويات",
+			"allKeys": "جميع المفاتيح"
 		},
 		"table": {
 			"timeDate": "الوقت/التاريخ",

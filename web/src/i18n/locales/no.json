@@ -891,7 +891,7 @@
 		"filter_state_enabled": "Aktivert",
 		"filter_state_disabled": "Deaktivert",
 		"filter_origin_auto": "Automatisk",
-		"filter_origin_manual": "Custom",
+		"filter_origin_manual": "Tilpasset",
 		"select_all": "Velg alle",
 		"deselect_all": "Fjern all merking",
 		"selected_count": "{{count}} selected",
@@ -1087,8 +1087,8 @@
 			"levelAll": "Alle",
 			"source": "Kilde",
 			"logsPlaceholder": "Filtrer logger…",
-			"allStatus": "All Status",
-			"allEndpoints": "All Modalities"
+			"allStatus": "Alle statuser",
+			"allEndpoints": "Alle modaliteter"
 		},
 		"endpoint": {
 			"chat": "Samtale",
@@ -1175,8 +1175,8 @@
 			"source": "Kilde",
 			"all": "Alle ({{count}})",
 			"search": "Filtrer logger…",
-			"allLevels": "All Levels",
-			"allKeys": "All Keys"
+			"allLevels": "Alle nivåer",
+			"allKeys": "Alle nøkler"
 		},
 		"table": {
 			"timeDate": "Tid/dato",

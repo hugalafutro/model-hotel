@@ -891,7 +891,7 @@
 		"filter_state_enabled": "Etkin",
 		"filter_state_disabled": "Engelli",
 		"filter_origin_auto": "Otomatik",
-		"filter_origin_manual": "Custom",
+		"filter_origin_manual": "Özel",
 		"select_all": "Tümünü seç",
 		"deselect_all": "Tümünü seçmeyi kaldır",
 		"selected_count": "{{count}} seçilen",
@@ -1087,8 +1087,8 @@
 			"levelAll": "Tümü",
 			"source": "Kaynak",
 			"logsPlaceholder": "… 'daki günlükleri filtrele",
-			"allStatus": "All Status",
-			"allEndpoints": "All Modalities"
+			"allStatus": "Tüm Durumlar",
+			"allEndpoints": "Tüm Modaliteler"
 		},
 		"endpoint": {
 			"chat": "Sohbet",
@@ -1175,8 +1175,8 @@
 			"source": "Kaynak",
 			"all": "Tümü ({{count}})",
 			"search": "… 'daki günlükleri filtrele",
-			"allLevels": "All Levels",
-			"allKeys": "All Keys"
+			"allLevels": "Tüm Seviyeler",
+			"allKeys": "Tüm Anahtarlar"
 		},
 		"table": {
 			"timeDate": "Saat/Tarih",

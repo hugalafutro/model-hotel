@@ -891,7 +891,7 @@
 		"filter_state_enabled": "Zapnuté",
 		"filter_state_disabled": "Znevýhodnení",
 		"filter_origin_auto": "Auto",
-		"filter_origin_manual": "Custom",
+		"filter_origin_manual": "Vlastné",
 		"select_all": "Vybrať všetko",
 		"deselect_all": "Zrušiť výber všetkých",
 		"selected_count": "{{count}} vybrané",
@@ -1087,8 +1087,8 @@
 			"levelAll": "Všetko",
 			"source": "Zdroj",
 			"logsPlaceholder": "Filtrovanie protokolov…",
-			"allStatus": "All Status",
-			"allEndpoints": "All Modalities"
+			"allStatus": "Všetky stavy",
+			"allEndpoints": "Všetky modality"
 		},
 		"endpoint": {
 			"chat": "Chat",
@@ -1175,8 +1175,8 @@
 			"source": "Zdroj",
 			"all": "Všetko ({{count}})",
 			"search": "Filtrovať protokoly…",
-			"allLevels": "All Levels",
-			"allKeys": "All Keys"
+			"allLevels": "Všetky úrovne",
+			"allKeys": "Všetky kľúče"
 		},
 		"table": {
 			"timeDate": "Čas/Dátum",

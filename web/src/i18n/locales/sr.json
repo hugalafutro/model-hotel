@@ -891,7 +891,7 @@
 		"filter_state_enabled": "Омогућено",
 		"filter_state_disabled": "Онеспособљен",
 		"filter_origin_auto": "Ауто",
-		"filter_origin_manual": "Custom",
+		"filter_origin_manual": "Прилагођено",
 		"select_all": "Изабери све",
 		"deselect_all": "Одерегистровати све",
 		"selected_count": "{{count}} изабрано",
@@ -1087,8 +1087,8 @@
 			"levelAll": "Све",
 			"source": "Извор",
 			"logsPlaceholder": "Филтрирај логове…",
-			"allStatus": "All Status",
-			"allEndpoints": "All Modalities"
+			"allStatus": "Сви статуси",
+			"allEndpoints": "Сви модалитети"
 		},
 		"endpoint": {
 			"chat": "Чет",
@@ -1175,8 +1175,8 @@
 			"source": "Извор",
 			"all": "Све ({{count}})",
 			"search": "Филтрирај логове…",
-			"allLevels": "All Levels",
-			"allKeys": "All Keys"
+			"allLevels": "Сви нивои",
+			"allKeys": "Сви кључеви"
 		},
 		"table": {
 			"timeDate": "Време/Датум",

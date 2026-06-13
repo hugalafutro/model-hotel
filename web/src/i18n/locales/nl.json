@@ -891,7 +891,7 @@
 		"filter_state_enabled": "Ingeschakeld",
 		"filter_state_disabled": "Uitgeschakeld",
 		"filter_origin_auto": "Automatisch",
-		"filter_origin_manual": "Custom",
+		"filter_origin_manual": "Aangepast",
 		"select_all": "Alles selecteren",
 		"deselect_all": "Deselecteer alles",
 		"selected_count": "{{count}} geselecteerd",
@@ -1087,8 +1087,8 @@
 			"levelAll": "Allemaal",
 			"source": "Bron",
 			"logsPlaceholder": "Logbestanden filteren…",
-			"allStatus": "All Status",
-			"allEndpoints": "All Modalities"
+			"allStatus": "Alle statussen",
+			"allEndpoints": "Alle modaliteiten"
 		},
 		"endpoint": {
 			"chat": "Chatten",
@@ -1175,8 +1175,8 @@
 			"source": "Bron",
 			"all": "Alle ({{count}})",
 			"search": "Logbestanden filteren…",
-			"allLevels": "All Levels",
-			"allKeys": "All Keys"
+			"allLevels": "Alle niveaus",
+			"allKeys": "Alle sleutels"
 		},
 		"table": {
 			"timeDate": "Tijd/Datum",

@@ -891,7 +891,7 @@
 		"filter_state_enabled": "Włączone",
 		"filter_state_disabled": "Wyłączone",
 		"filter_origin_auto": "Auto",
-		"filter_origin_manual": "Custom",
+		"filter_origin_manual": "Niestandardowe",
 		"select_all": "Zaznacz wszystkie",
 		"deselect_all": "Odznacz wszystkie",
 		"selected_count": "Wybrano {{count}}",
@@ -1087,8 +1087,8 @@
 			"levelAll": "Wszystkie",
 			"source": "Źródło",
 			"logsPlaceholder": "Filtruj logi…",
-			"allStatus": "All Status",
-			"allEndpoints": "All Modalities"
+			"allStatus": "Wszystkie statusy",
+			"allEndpoints": "Wszystkie modalności"
 		},
 		"endpoint": {
 			"chat": "Czat",
@@ -1175,8 +1175,8 @@
 			"source": "Źródło",
 			"all": "Wszystkie ({{count}})",
 			"search": "Filtruj logi…",
-			"allLevels": "All Levels",
-			"allKeys": "All Keys"
+			"allLevels": "Wszystkie poziomy",
+			"allKeys": "Wszystkie klucze"
 		},
 		"table": {
 			"timeDate": "Czas/Data",

@@ -891,7 +891,7 @@
 		"filter_state_enabled": "Geskakel",
 		"filter_state_disabled": "Gestremd",
 		"filter_origin_auto": "Outomaties",
-		"filter_origin_manual": "Custom",
+		"filter_origin_manual": "Pasgemaak",
 		"select_all": "Kies alles",
 		"deselect_all": "Ontkies almal",
 		"selected_count": "{{count}} geselekteer",
@@ -1087,8 +1087,8 @@
 			"levelAll": "Alles",
 			"source": "Bron",
 			"logsPlaceholder": "Filtreer logboeke…",
-			"allStatus": "All Status",
-			"allEndpoints": "All Modalities"
+			"allStatus": "Alle statusse",
+			"allEndpoints": "Alle modaliteite"
 		},
 		"endpoint": {
 			"chat": "Klets",
@@ -1175,8 +1175,8 @@
 			"source": "Bron",
 			"all": "Alles ({{count}})",
 			"search": "Filtreer logboeke…",
-			"allLevels": "All Levels",
-			"allKeys": "All Keys"
+			"allLevels": "Alle vlakke",
+			"allKeys": "Alle Sleutels"
 		},
 		"table": {
 			"timeDate": "Tyd/Datum",

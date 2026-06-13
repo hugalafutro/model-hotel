@@ -891,7 +891,7 @@
 		"filter_state_enabled": "Đã bật",
 		"filter_state_disabled": "Người khuyết tật",
 		"filter_origin_auto": "Tự động",
-		"filter_origin_manual": "Custom",
+		"filter_origin_manual": "Tùy chỉnh",
 		"select_all": "Chọn tất cả",
 		"deselect_all": "Bỏ chọn tất cả",
 		"selected_count": "{{count}} đã chọn",
@@ -1087,8 +1087,8 @@
 			"levelAll": "Tất cả",
 			"source": "Nguồn",
 			"logsPlaceholder": "Lọc nhật ký…",
-			"allStatus": "All Status",
-			"allEndpoints": "All Modalities"
+			"allStatus": "Tất cả trạng thái",
+			"allEndpoints": "Tất cả các phương thức"
 		},
 		"endpoint": {
 			"chat": "Trò chuyện",
@@ -1175,8 +1175,8 @@
 			"source": "Nguồn",
 			"all": "Tất cả ({{count}})",
 			"search": "Lọc nhật ký…",
-			"allLevels": "All Levels",
-			"allKeys": "All Keys"
+			"allLevels": "Tất cả các cấp độ",
+			"allKeys": "Tất cả các khóa"
 		},
 		"table": {
 			"timeDate": "Thời gian/Ngày",

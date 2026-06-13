@@ -891,7 +891,7 @@
 		"filter_state_enabled": "Включено",
 		"filter_state_disabled": "Отключено",
 		"filter_origin_auto": "Авто",
-		"filter_origin_manual": "Custom",
+		"filter_origin_manual": "Пользовательский",
 		"select_all": "Выбрать все",
 		"deselect_all": "Отменить выбор",
 		"selected_count": "{{count}} выбран",
@@ -1087,8 +1087,8 @@
 			"levelAll": "Все",
 			"source": "Источник",
 			"logsPlaceholder": "Фильтр журналов…",
-			"allStatus": "All Status",
-			"allEndpoints": "All Modalities"
+			"allStatus": "Все статусы",
+			"allEndpoints": "Все модальности"
 		},
 		"endpoint": {
 			"chat": "Чат",
@@ -1175,8 +1175,8 @@
 			"source": "Источник",
 			"all": "Все ({{count}})",
 			"search": "Фильтр журналов…",
-			"allLevels": "All Levels",
-			"allKeys": "All Keys"
+			"allLevels": "Все уровни",
+			"allKeys": "Все ключи"
 		},
 		"table": {
 			"timeDate": "Время/Дата",

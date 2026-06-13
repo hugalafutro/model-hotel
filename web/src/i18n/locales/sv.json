@@ -891,7 +891,7 @@
 		"filter_state_enabled": "Aktiverad",
 		"filter_state_disabled": "Inaktiverad",
 		"filter_origin_auto": "Automatiskt",
-		"filter_origin_manual": "Custom",
+		"filter_origin_manual": "Anpassad",
 		"select_all": "Markera alla",
 		"deselect_all": "Avmarkera alla",
 		"selected_count": "{{count}} vald",
@@ -1087,8 +1087,8 @@
 			"levelAll": "Alla",
 			"source": "Källa",
 			"logsPlaceholder": "Filtrera loggar…",
-			"allStatus": "All Status",
-			"allEndpoints": "All Modalities"
+			"allStatus": "Alla statusar",
+			"allEndpoints": "Alla modaliteter"
 		},
 		"endpoint": {
 			"chat": "Chatt",
@@ -1175,8 +1175,8 @@
 			"source": "Källa",
 			"all": "Alla ({{count}})",
 			"search": "Filtrera loggar…",
-			"allLevels": "All Levels",
-			"allKeys": "All Keys"
+			"allLevels": "Alla nivåer",
+			"allKeys": "Alla nycklar"
 		},
 		"table": {
 			"timeDate": "Tid/datum",

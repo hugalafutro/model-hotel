@@ -891,7 +891,7 @@
 		"filter_state_enabled": "Activat",
 		"filter_state_disabled": "Dezactivat",
 		"filter_origin_auto": "Automat",
-		"filter_origin_manual": "Custom",
+		"filter_origin_manual": "Personalizat",
 		"select_all": "Selectează tot",
 		"deselect_all": "Deselectează tot",
 		"selected_count": "{{count}} selectate",
@@ -1087,8 +1087,8 @@
 			"levelAll": "Toate",
 			"source": "Sursa",
 			"logsPlaceholder": "Filtrează jurnalele…",
-			"allStatus": "All Status",
-			"allEndpoints": "All Modalities"
+			"allStatus": "Toate stările",
+			"allEndpoints": "Toate modalitățile"
 		},
 		"endpoint": {
 			"chat": "Chat",
@@ -1175,8 +1175,8 @@
 			"source": "Sursa",
 			"all": "Toate ({{count}})",
 			"search": "Filtrează jurnalele…",
-			"allLevels": "All Levels",
-			"allKeys": "All Keys"
+			"allLevels": "Toate nivelurile",
+			"allKeys": "Toate cheile"
 		},
 		"table": {
 			"timeDate": "Ora/Dată",

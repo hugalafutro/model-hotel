@@ -891,7 +891,7 @@
 		"filter_state_enabled": "Activat",
 		"filter_state_disabled": "Discapacitat",
 		"filter_origin_auto": "Automàtic",
-		"filter_origin_manual": "Custom",
+		"filter_origin_manual": "Personalitzat",
 		"select_all": "Selecciona-ho tot",
 		"deselect_all": "Deselecciona-ho tot",
 		"selected_count": "{{count}} Seleccionat",
@@ -1087,8 +1087,8 @@
 			"levelAll": "Tots",
 			"source": "Font",
 			"logsPlaceholder": "Filtreu els registres…",
-			"allStatus": "All Status",
-			"allEndpoints": "All Modalities"
+			"allStatus": "Tots els estats",
+			"allEndpoints": "Totes les modalitats"
 		},
 		"endpoint": {
 			"chat": "Xat",
@@ -1175,8 +1175,8 @@
 			"source": "Font",
 			"all": "Tots ({{count}})",
 			"search": "Filtreu els registres…",
-			"allLevels": "All Levels",
-			"allKeys": "All Keys"
+			"allLevels": "Tots els nivells",
+			"allKeys": "Totes les claus"
 		},
 		"table": {
 			"timeDate": "Hora/Data",

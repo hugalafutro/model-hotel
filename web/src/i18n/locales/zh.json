@@ -891,7 +891,7 @@
 		"filter_state_enabled": "已启用",
 		"filter_state_disabled": "已禁用",
 		"filter_origin_auto": "自动操作",
-		"filter_origin_manual": "Custom",
+		"filter_origin_manual": "自定义",
 		"select_all": "选择所有",
 		"deselect_all": "取消全选",
 		"selected_count": "{{count}} 已选中",
@@ -1087,8 +1087,8 @@
 			"levelAll": "所有的",
 			"source": "来源",
 			"logsPlaceholder": "过滤日志…",
-			"allStatus": "All Status",
-			"allEndpoints": "All Modalities"
+			"allStatus": "所有状态",
+			"allEndpoints": "所有模态"
 		},
 		"endpoint": {
 			"chat": "聊天",
@@ -1175,8 +1175,8 @@
 			"source": "来源",
 			"all": "全部 ({{count}})",
 			"search": "过滤日志…",
-			"allLevels": "All Levels",
-			"allKeys": "All Keys"
+			"allLevels": "所有级别",
+			"allKeys": "所有键"
 		},
 		"table": {
 			"timeDate": "时间/日期",

@@ -891,7 +891,7 @@
 		"filter_state_enabled": "Aktiveret",
 		"filter_state_disabled": "Deaktiveret",
 		"filter_origin_auto": "Automatisk",
-		"filter_origin_manual": "Custom",
+		"filter_origin_manual": "Brugerdefineret",
 		"select_all": "Vælg alle",
 		"deselect_all": "Fravælg alle",
 		"selected_count": "{{count}} valgt",
@@ -1087,8 +1087,8 @@
 			"levelAll": "Alle",
 			"source": "Kilde",
 			"logsPlaceholder": "Filtrer logs…",
-			"allStatus": "All Status",
-			"allEndpoints": "All Modalities"
+			"allStatus": "Alle statusser",
+			"allEndpoints": "Alle modaliteter"
 		},
 		"endpoint": {
 			"chat": "Chat",
@@ -1175,8 +1175,8 @@
 			"source": "Kilde",
 			"all": "Alle ({{count}})",
 			"search": "Filtrer logs…",
-			"allLevels": "All Levels",
-			"allKeys": "All Keys"
+			"allLevels": "Alle niveauer",
+			"allKeys": "Alle nøgler"
 		},
 		"table": {
 			"timeDate": "Tid/Dato",
