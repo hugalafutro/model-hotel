@@ -25,9 +25,9 @@ interface VirtualLogTableProps {
 
 const getStatusBadgeVariant = (
 	statusCode: number,
-	errorMessage?: string,
+	log?: { error_kind?: string; error_message?: string },
 ): "error" | "warning" | "success" | "orange" | "muted" => {
-	if (isCancelled(errorMessage)) return "warning";
+	if (isCancelled(log)) return "warning";
 	if (statusCode === 0) return "error";
 	if (statusCode >= 200 && statusCode < 300) return "success";
 	if (statusCode >= 400 && statusCode < 500) return "orange";
@@ -315,17 +315,14 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 									</td>
 									<td className="px-2 py-1 whitespace-nowrap">
 										<Badge
-											variant={getStatusBadgeVariant(
-												log.status_code,
-												log.error_message,
-											)}
+											variant={getStatusBadgeVariant(log.status_code, log)}
 											className="gap-1 whitespace-nowrap"
 										>
 											{log.status_code}
 										</Badge>
 									</td>
 									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
-										{isCancelled(log.error_message) ? (
+										{isCancelled(log) ? (
 											t("components.virtualLogTable.interrupted")
 										) : log.tokens_prompt + log.tokens_completion > 0 ? (
 											<>
@@ -338,7 +335,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 										)}
 									</td>
 									<td className="px-2 py-1 whitespace-nowrap text-xs font-mono">
-										{isCancelled(log.error_message) ? (
+										{isCancelled(log) ? (
 											"-"
 										) : (
 											<span
@@ -358,14 +355,14 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 										)}
 									</td>
 									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
-										{isCancelled(log.error_message)
+										{isCancelled(log)
 											? "-"
 											: log.response_header_ms > 0
 												? formatMs(log.response_header_ms, 1)
 												: "-"}
 									</td>
 									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
-										{isCancelled(log.error_message)
+										{isCancelled(log)
 											? "-"
 											: log.ttft_ms > 0
 												? formatMs(log.ttft_ms, 1)

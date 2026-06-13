@@ -1062,9 +1062,11 @@ func TestChatCompletions_ClientDisconnectDuringBackoff(t *testing.T) {
 		t.Fatal("ChatCompletions did not finish")
 	}
 
-	// Should get 408 (client disconnected during failover)
-	if w.Code != http.StatusRequestTimeout {
-		t.Errorf("expected 408, got %d", w.Code)
+	// Should get 499 (client closed request) — a client hangup is not a
+	// provider failure, so it is no longer reported as 408/502 (see
+	// plans/logging-and-errors-overhaul.md §7).
+	if w.Code != 499 {
+		t.Errorf("expected 499, got %d", w.Code)
 	}
 }
 

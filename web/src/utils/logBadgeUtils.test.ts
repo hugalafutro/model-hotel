@@ -18,8 +18,11 @@ describe("getLevelBadgeVariant", () => {
 		expect(getLevelBadgeVariant("info")).toBe("info");
 	});
 
+	it("returns 'muted' for debug level (distinct from info)", () => {
+		expect(getLevelBadgeVariant("debug")).toBe("muted");
+	});
+
 	it("returns 'info' for unknown level", () => {
-		expect(getLevelBadgeVariant("debug")).toBe("info");
 		expect(getLevelBadgeVariant("unknown")).toBe("info");
 		expect(getLevelBadgeVariant("")).toBe("info");
 	});

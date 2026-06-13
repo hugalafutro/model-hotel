@@ -718,10 +718,13 @@ func TestFailRequest_PopulatesLogData(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.failRequest(logData, 502, "test error", 1, startTime, 1.5, timings, resolveCacheHits{}, 0.5)
+	h.failRequest(logData, 502, KindProviderError, "test error", 1, startTime, 1.5, timings, resolveCacheHits{}, 0.5)
 
 	if logData.statusCode != 502 {
 		t.Errorf("expected statusCode=502, got %d", logData.statusCode)
+	}
+	if logData.errorKind != KindProviderError {
+		t.Errorf("expected errorKind=%q, got %q", KindProviderError, logData.errorKind)
 	}
 	if logData.errorMessage != "test error" {
 		t.Errorf("expected errorMessage='test error', got %q", logData.errorMessage)
@@ -773,7 +776,7 @@ func TestCacheHits_RoundTrip(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.failRequest(logData, 502, "cache hits round-trip test", 0, time.Now(), 0, timings, cacheHits, 0)
+	h.failRequest(logData, 502, KindProviderError, "cache hits round-trip test", 0, time.Now(), 0, timings, cacheHits, 0)
 
 	// Read the cache_hits column back from DB.
 	var rawJSON []byte

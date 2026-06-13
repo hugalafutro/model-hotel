@@ -8,6 +8,9 @@ export const getLevelBadgeVariant = (level: string) => {
 			return "error" as const;
 		case "warning":
 			return "warning" as const;
+		case "debug":
+			// Lowest severity — neutral/gray, distinct from info's color.
+			return "muted" as const;
 		default:
 			return "info" as const;
 	}

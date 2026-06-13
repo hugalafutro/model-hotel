@@ -190,6 +190,8 @@ services:
             - DATA_DIR=/data
             - RATE_LIMIT_ENABLED=true
             - DEBUG_LOG=false
+            - LOG_FORMAT=text          # "json" for log collectors (Fluent Bit, Vector, Promtail, …)
+            - METRICS_TOKEN=${METRICS_TOKEN:-}   # optional dedicated token for the /metrics scrape
             - CORS_ORIGINS=http://localhost:5173,http://localhost:${HOST_PORT:-8081}
             - WEBAUTHN_RP_ID=${WEBAUTHN_RP_ID:-}
             - WEBAUTHN_RP_ORIGINS=${WEBAUTHN_RP_ORIGINS:-}
@@ -262,6 +264,22 @@ curl -X POST http://localhost:8081/v1/audio/transcriptions \
 ```
 
 See the [API Reference](https://github.com/hugalafutro/model-hotel/wiki/API-Reference) for the full endpoint listing.
+
+## Metrics & log shipping
+
+A Prometheus endpoint is exposed at `/metrics` (request rates by provider/model/status, latency and TTFT histograms, token counters, failover attempts, and per-provider circuit-breaker state, plus Go runtime metrics). It is authenticated — set a dedicated `METRICS_TOKEN` so your scrape config need not carry the admin token (the admin token also works). No prompt content is ever exposed.
+
+```yaml
+# prometheus.yml
+scrape_configs:
+  - job_name: model-hotel
+    authorization:
+      credentials: "${METRICS_TOKEN}"
+    static_configs:
+      - targets: ["model-hotel:8080"]
+```
+
+For logs, set `LOG_FORMAT=json` to emit one structured JSON object per line on stdout for Fluent Bit / Vector / Promtail / Datadog and friends — no extra endpoint, and (like everything here) never any prompt content.
 
 ## Full Documentation
 

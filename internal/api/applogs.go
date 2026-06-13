@@ -33,11 +33,37 @@ type AppLogEntry struct {
 // level, and strips any level prefix from the message. This is the shared
 // parsing logic used by both the ring buffer (UI) and stderr filter.
 func parseLogLine(line string) (source, level, msg string) {
+	// JSON log lines (LOG_FORMAT=json) carry level/source/msg as fields; use
+	// them directly so the stderr filter's level gate and source suppression
+	// behave identically to the text format.
+	if s, l, m, ok := parseJSONLogLine(line); ok {
+		return s, l, m
+	}
 	stripped := stripLogTimestamp(line)
 	source, msg = extractSource(stripped)
 	level = detectLevel(msg)
 	msg = stripLevelPrefix(msg)
 	return source, level, msg
+}
+
+// parseJSONLogLine extracts source/level/msg from a structured JSON log line as
+// emitted by appSlogHandler in JSON mode (renderJSONLine). Returns ok=false for
+// anything that is not a JSON object carrying a "level" field, so plain text
+// lines fall through to the legacy text parser.
+func parseJSONLogLine(line string) (source, level, msg string, ok bool) {
+	line = strings.TrimSpace(line)
+	if line == "" || line[0] != '{' {
+		return "", "", "", false
+	}
+	var rec struct {
+		Level  string `json:"level"`
+		Source string `json:"source"`
+		Msg    string `json:"msg"`
+	}
+	if err := json.Unmarshal([]byte(line), &rec); err != nil || rec.Level == "" {
+		return "", "", "", false
+	}
+	return rec.Source, rec.Level, rec.Msg, true
 }
 
 // stripLogTimestamp removes the Go standard log timestamp prefix (e.g. "2026/04/28 09:55:43 ")

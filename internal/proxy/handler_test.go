@@ -912,8 +912,8 @@ func TestProxyKeyMiddleware_InvalidAuth(t *testing.T) {
 	}
 	if msg, ok := resp["error"].(map[string]interface{}); !ok {
 		t.Error("response should have error object")
-	} else if msg["message"] != "Invalid virtual key" {
-		t.Errorf("expected error message 'Invalid virtual key', got %v", msg["message"])
+	} else if msg["message"] != "invalid virtual key" {
+		t.Errorf("expected error message 'invalid virtual key', got %v", msg["message"])
 	}
 }
 
@@ -1262,6 +1262,9 @@ func TestChatCompletions_NewRequestWithContextError(t *testing.T) {
 	}
 }
 
+// TestChatCompletions_ContextErrorHandling drives a provider that is slower than
+// the configured request_timeout, so the per-attempt failover deadline expires.
+// That is a gateway timeout (504), not a generic provider failure (502).
 func TestChatCompletions_ContextErrorHandling(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandlerIntegration(h)
@@ -1307,8 +1310,8 @@ func TestChatCompletions_ContextErrorHandling(t *testing.T) {
 	w := httptest.NewRecorder()
 	h.ChatCompletions(w, req)
 
-	if w.Code != http.StatusBadGateway {
-		t.Errorf("expected 502, got %d", w.Code)
+	if w.Code != http.StatusGatewayTimeout {
+		t.Errorf("expected 504 (provider exceeded request_timeout), got %d", w.Code)
 	}
 }
 

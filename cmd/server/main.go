@@ -133,7 +133,7 @@ func main() {
 	serverStartTime := time.Now()
 	tag, err := database.Pool().Exec(context.Background(), `
 		UPDATE request_logs
-		SET state = 'failed', error_message = 'request interrupted (server restart)'
+		SET state = 'failed', error_kind = 'internal', error_message = 'request interrupted (server restart)'
 		WHERE state IN ('pending', 'streaming')
 		  AND created_at < $1`, serverStartTime)
 	if err == nil && tag.RowsAffected() > 0 {
@@ -261,6 +261,11 @@ func main() {
 	proxyHandler := proxy.NewHandler(cfg, providerRepo, modelRepo, database.Pool(), virtualKeyRepo, failoverRepo, settingsRepo, rateLimiter, ipLimiter, sd)
 	apiHandler.SetCircuitBreaker(proxyHandler.CircuitBreaker())
 	apiHandler.StartBackupScheduler(context.Background())
+
+	// Prometheus metrics at the conventional /metrics path (root, no IP rate
+	// limiter so scrapers aren't throttled). Authenticated via METRICS_TOKEN or
+	// the admin token — never unauthenticated.
+	r.Handle("/metrics", apiHandler.MetricsHandler())
 
 	// WebAuthn/FIDO2 passkey authentication (enabled when WEBAUTHN_RP_ID is set).
 	var webauthnHandler *api.WebAuthnHandler
@@ -672,7 +677,7 @@ func main() {
 			intervalStr := fmt.Sprintf("%d hours %d minutes %d seconds", hours, mins, secs)
 			tag, err := database.Pool().Exec(context.Background(), `
 				UPDATE request_logs
-				SET state = 'failed', error_message = 'request interrupted (stale)'
+				SET state = 'failed', error_kind = 'internal', error_message = 'request interrupted (stale)'
 				WHERE state IN ('pending', 'streaming')
 				  AND (created_at < $1 OR created_at < NOW() - $2::interval)`,
 				serverStartTime, intervalStr)
