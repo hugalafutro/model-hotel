@@ -8,6 +8,7 @@ import {
 	formatTimeUntil,
 	formatTokens,
 } from "../../utils/format";
+import { DetailItem } from "../LogDetailItem";
 import { Modal } from "../Modal";
 import {
 	QuotaBar,
@@ -182,37 +183,29 @@ export function NanoGPTQuotaModal({
 					<h3 className="text-sm font-medium text-(--text-secondary) mb-3">
 						{t("components.providerModals.subscriptionDetails")}
 					</h3>
-					<div className="grid grid-cols-2 gap-3 text-sm">
-						<div>
-							<span className="text-(--text-muted)">
-								{t("components.providerModals.provider")}
-							</span>
-							<p className="text-gray-200 capitalize">{usage.provider}</p>
-						</div>
-						<div>
-							<span className="text-(--text-muted)">
-								{t("components.providerModals.status")}
-							</span>
-							<p className="text-gray-200 capitalize">{usage.providerStatus}</p>
-						</div>
-						<div>
-							<span className="text-(--text-muted)">
-								{t("components.providerModals.periodEnd")}
-							</span>
-							<p className="text-gray-200">
-								{formatDate(usage.period.currentPeriodEnd)}
-							</p>
-						</div>
-						<div>
-							<span className="text-(--text-muted)">
-								{t("components.providerModals.allowOverage")}
-							</span>
-							<p className="text-gray-200">
-								{usage.allowOverage
+					<div className="grid grid-cols-2 gap-2">
+						<DetailItem label={t("components.providerModals.provider")}>
+							<div className="text-sm text-(--text-primary) capitalize">
+								{usage.provider}
+							</div>
+						</DetailItem>
+						<DetailItem label={t("components.providerModals.status")}>
+							<div className="text-sm text-(--text-primary) capitalize">
+								{usage.providerStatus}
+							</div>
+						</DetailItem>
+						<DetailItem
+							label={t("components.providerModals.periodEnd")}
+							value={formatDate(usage.period.currentPeriodEnd)}
+						/>
+						<DetailItem
+							label={t("components.providerModals.allowOverage")}
+							value={
+								usage.allowOverage
 									? t("components.providerModals.yes")
-									: t("components.providerModals.no")}
-							</p>
-						</div>
+									: t("components.providerModals.no")
+							}
+						/>
 					</div>
 				</div>
 

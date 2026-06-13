@@ -7,6 +7,7 @@ import {
 	formatTimestamp,
 	formatTimeUntil,
 } from "../../utils/format";
+import { DetailItem } from "../LogDetailItem";
 import { Modal } from "../Modal";
 import {
 	QuotaModalHeaderActions,
@@ -176,33 +177,27 @@ export function OpenRouterQuotaModal({
 					<p className="text-xs text-(--text-muted) mb-3">
 						{t("components.providerModals.spendingByThisKey")}
 					</p>
-					<div className="grid grid-cols-2 gap-3 text-sm">
-						<div>
-							<span className="text-(--text-muted)">{t("common.today")}</span>
-							<p className="text-gray-200">
-								{formatDollars(balance.usage_daily)}
-							</p>
-						</div>
-						<div>
-							<span className="text-(--text-muted)">
-								{t("common.thisWeek")}
-							</span>
-							<p className="text-gray-200">
-								{formatDollars(balance.usage_weekly)}
-							</p>
-						</div>
-						<div>
-							<span className="text-(--text-muted)">
-								{t("common.thisMonth")}
-							</span>
-							<p className="text-gray-200">
-								{formatDollars(balance.usage_monthly)}
-							</p>
-						</div>
-						<div>
-							<span className="text-(--text-muted)">{t("common.allTime")}</span>
-							<p className="text-gray-200">{formatDollars(balance.usage)}</p>
-						</div>
+					<div className="grid grid-cols-2 gap-2">
+						<DetailItem
+							label={t("common.today")}
+							value={formatDollars(balance.usage_daily)}
+							mono
+						/>
+						<DetailItem
+							label={t("common.thisWeek")}
+							value={formatDollars(balance.usage_weekly)}
+							mono
+						/>
+						<DetailItem
+							label={t("common.thisMonth")}
+							value={formatDollars(balance.usage_monthly)}
+							mono
+						/>
+						<DetailItem
+							label={t("common.allTime")}
+							value={formatDollars(balance.usage)}
+							mono
+						/>
 					</div>
 				</div>
 

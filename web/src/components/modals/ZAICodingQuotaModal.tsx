@@ -139,7 +139,7 @@ export function ZAICodingQuotaModal({
 						footer={
 							mcpLimit.usageDetails &&
 							mcpLimit.usageDetails.length > 0 && (
-								<div className="mt-2 space-y-1">
+								<div className="mt-2 space-y-1 p-3 rounded-(--radius-box) bg-(--surface-bg) border border-(--border-subtle)">
 									{mcpLimit.usageDetails.map((detail) => (
 										<div
 											key={detail.modelCode}

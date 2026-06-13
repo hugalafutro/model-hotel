@@ -8,6 +8,7 @@ import {
 	formatRelativeTime,
 	formatTokens,
 } from "../../utils/format";
+import { DetailItem } from "../LogDetailItem";
 import { Modal } from "../Modal";
 import {
 	QuotaModalHeaderActions,
@@ -192,60 +193,44 @@ export function NeuralWattQuotaModal({
 					<h3 className="text-sm font-medium text-(--text-secondary) mb-3">
 						{t("components.providerModals.neuralwattSubscription")}
 					</h3>
-					<div className="grid grid-cols-2 gap-3 text-sm">
-						<div>
-							<span className="text-(--text-muted)">
-								{t("components.providerModals.neuralwattPlan")}
-							</span>
-							<p className="text-gray-200 capitalize">
+					<div className="grid grid-cols-2 gap-2">
+						<DetailItem label={t("components.providerModals.neuralwattPlan")}>
+							<div className="text-sm text-(--text-primary) capitalize">
 								{quota.subscription.plan}
-							</p>
-						</div>
-						<div>
-							<span className="text-(--text-muted)">
-								{t("components.providerModals.neuralwattStatus")}
-							</span>
-							<p className="text-gray-200 capitalize">
+							</div>
+						</DetailItem>
+						<DetailItem label={t("components.providerModals.neuralwattStatus")}>
+							<div className="text-sm text-(--text-primary) capitalize">
 								{quota.subscription.status}
-							</p>
-						</div>
-						<div>
-							<span className="text-(--text-muted)">
-								{t("components.providerModals.neuralwattBillingPeriod")}
-							</span>
-							<p className="text-gray-200">
-								{formatDate(quota.subscription.current_period_start)} -{" "}
-								{formatDate(quota.subscription.current_period_end)}
-							</p>
-						</div>
-						<div>
-							<span className="text-(--text-muted)">
-								{t("components.providerModals.neuralwattBillingInterval")}
-							</span>
-							<p className="text-gray-200 capitalize">
+							</div>
+						</DetailItem>
+						<DetailItem
+							label={t("components.providerModals.neuralwattBillingPeriod")}
+							value={`${formatDate(quota.subscription.current_period_start)} - ${formatDate(quota.subscription.current_period_end)}`}
+						/>
+						<DetailItem
+							label={t("components.providerModals.neuralwattBillingInterval")}
+						>
+							<div className="text-sm text-(--text-primary) capitalize">
 								{quota.subscription.billing_interval}
-							</p>
-						</div>
-						<div>
-							<span className="text-(--text-muted)">
-								{t("components.providerModals.neuralwattAutoRenew")}
-							</span>
-							<p className="text-gray-200">
-								{quota.subscription.auto_renew
+							</div>
+						</DetailItem>
+						<DetailItem
+							label={t("components.providerModals.neuralwattAutoRenew")}
+							value={
+								quota.subscription.auto_renew
 									? t("components.providerModals.yes")
-									: t("components.providerModals.no")}
-							</p>
-						</div>
-						<div>
-							<span className="text-(--text-muted)">
-								{t("components.providerModals.neuralwattInOverage")}
-							</span>
-							<p className="text-gray-200">
-								{quota.subscription.in_overage
+									: t("components.providerModals.no")
+							}
+						/>
+						<DetailItem
+							label={t("components.providerModals.neuralwattInOverage")}
+							value={
+								quota.subscription.in_overage
 									? t("components.providerModals.yes")
-									: t("components.providerModals.no")}
-							</p>
-						</div>
+									: t("components.providerModals.no")
+							}
+						/>
 					</div>
 				</div>
 
@@ -254,33 +239,26 @@ export function NeuralWattQuotaModal({
 					<h3 className="text-sm font-medium text-(--text-secondary) mb-3">
 						{t("components.providerModals.neuralwattEnergyAllocation")}
 					</h3>
-					<div className="grid grid-cols-3 gap-3 text-sm">
-						<div>
-							<span className="text-(--text-muted)">
-								{t("components.providerModals.neuralwattKwhIncluded")}
-							</span>
-							<p className="text-gray-200">
-								{formatKwh(quota.subscription.kwh_included)} kWh
-							</p>
-						</div>
-						<div>
-							<span className="text-(--text-muted)">
-								{t("components.providerModals.neuralwattKwhUsed")}
-							</span>
-							<p className="text-gray-200">
-								{formatKwh(quota.subscription.kwh_used)} kWh
-							</p>
-						</div>
-						<div>
-							<span className="text-(--text-muted)">
-								{t("components.providerModals.neuralwattKwhRemaining")}
-							</span>
-							<p
-								className={`text-gray-200 ${quota.subscription.kwh_remaining < quota.subscription.kwh_included * 0.2 ? "text-amber-400" : ""}`}
+					<div className="grid grid-cols-3 gap-2">
+						<DetailItem
+							label={t("components.providerModals.neuralwattKwhIncluded")}
+							value={`${formatKwh(quota.subscription.kwh_included)} kWh`}
+							mono
+						/>
+						<DetailItem
+							label={t("components.providerModals.neuralwattKwhUsed")}
+							value={`${formatKwh(quota.subscription.kwh_used)} kWh`}
+							mono
+						/>
+						<DetailItem
+							label={t("components.providerModals.neuralwattKwhRemaining")}
+						>
+							<div
+								className={`text-sm font-mono truncate ${quota.subscription.kwh_remaining < quota.subscription.kwh_included * 0.2 ? "text-amber-400" : "text-(--text-primary)"}`}
 							>
 								{formatKwh(quota.subscription.kwh_remaining)} kWh
-							</p>
-						</div>
+							</div>
+						</DetailItem>
 					</div>
 				</div>
 
@@ -289,7 +267,7 @@ export function NeuralWattQuotaModal({
 					<h3 className="text-sm font-medium text-(--text-secondary) mb-3">
 						{t("components.providerModals.neuralwattUsage")}
 					</h3>
-					<div className="grid grid-cols-5 gap-2 text-xs">
+					<div className="grid grid-cols-5 gap-2 text-xs p-3 rounded-(--radius-box) bg-(--surface-bg) border border-(--border-subtle)">
 						<div></div>
 						<div>
 							<span className="text-(--text-muted)">
@@ -349,35 +327,30 @@ export function NeuralWattQuotaModal({
 					<h3 className="text-sm font-medium text-(--text-secondary) mb-3">
 						{t("components.providerModals.limits")}
 					</h3>
-					<div className="grid grid-cols-3 gap-3 text-sm">
-						<div>
-							<span className="text-(--text-muted)">
-								{t("components.providerModals.neuralwattOverageLimit")}
-							</span>
-							<p className="text-gray-200">
-								{quota.limits.overage_limit_usd !== null
+					<div className="grid grid-cols-3 gap-2">
+						<DetailItem
+							label={t("components.providerModals.neuralwattOverageLimit")}
+							value={
+								quota.limits.overage_limit_usd !== null
 									? formatDollars(quota.limits.overage_limit_usd)
-									: t("components.providerModals.none")}
-							</p>
-						</div>
-						<div>
-							<span className="text-(--text-muted)">
-								{t("components.providerModals.neuralwattRateLimitTier")}
-							</span>
-							<p className="text-gray-200 capitalize">
+									: t("components.providerModals.none")
+							}
+						/>
+						<DetailItem
+							label={t("components.providerModals.neuralwattRateLimitTier")}
+						>
+							<div className="text-sm text-(--text-primary) capitalize">
 								{quota.limits.rate_limit_tier}
-							</p>
-						</div>
-						<div>
-							<span className="text-(--text-muted)">
-								{t("components.providerModals.neuralwattAllowance")}
-							</span>
-							<p className="text-gray-200">
-								{quota.key.allowance !== null
+							</div>
+						</DetailItem>
+						<DetailItem
+							label={t("components.providerModals.neuralwattAllowance")}
+							value={
+								quota.key.allowance !== null
 									? formatDollars(quota.key.allowance)
-									: t("common.unlimited")}
-							</p>
-						</div>
+									: t("common.unlimited")
+							}
+						/>
 					</div>
 				</div>
 
