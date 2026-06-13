@@ -201,7 +201,7 @@ describe("FailoverGroups", () => {
 			await waitFor(() => {
 				// Provider filter is a FilterDropdown button with placeholder text
 				expect(
-					screen.getByRole("button", { name: "All providers" }),
+					screen.getByRole("button", { name: "All (1) Providers" }),
 				).toBeInTheDocument();
 			});
 		});
@@ -221,10 +221,10 @@ describe("FailoverGroups", () => {
 			await waitFor(() => {
 				// Both FilterDropdown buttons should be present
 				expect(
-					screen.getByRole("button", { name: "All providers" }),
+					screen.getByRole("button", { name: "All (0) Providers" }),
 				).toBeInTheDocument();
 				expect(
-					screen.getByRole("button", { name: "All states" }),
+					screen.getByRole("button", { name: "All (2) States" }),
 				).toBeInTheDocument();
 			});
 		});

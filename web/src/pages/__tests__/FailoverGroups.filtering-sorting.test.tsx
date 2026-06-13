@@ -100,7 +100,9 @@ describe("FailoverGroups", () => {
 			});
 
 			// Use provider FilterDropdown to filter
-			await user.click(screen.getByRole("button", { name: "All providers" }));
+			await user.click(
+				screen.getByRole("button", { name: "All (2) Providers" }),
+			);
 			await user.click(screen.getByRole("button", { name: "Provider Alpha" }));
 
 			await waitFor(() => {
@@ -141,7 +143,7 @@ describe("FailoverGroups", () => {
 			});
 
 			// Use enabled FilterDropdown to filter
-			await user.click(screen.getByRole("button", { name: "All states" }));
+			await user.click(screen.getByRole("button", { name: "All (2) States" }));
 			await user.click(screen.getByRole("button", { name: "Enabled" }));
 
 			await waitFor(() => {
@@ -184,7 +186,7 @@ describe("FailoverGroups", () => {
 			});
 
 			// Use enabled FilterDropdown to filter
-			await user.click(screen.getByRole("button", { name: "All states" }));
+			await user.click(screen.getByRole("button", { name: "All (2) States" }));
 			await user.click(screen.getByRole("button", { name: "Disabled" }));
 
 			await waitFor(() => {
