@@ -232,7 +232,7 @@ describe("RateLimitSettings", () => {
 			<RateLimitSettings collapsed={false} onToggle={onToggle} />,
 		);
 		await waitFor(() => {
-			expect(screen.getByText("Rate Limit Backpressure")).toBeInTheDocument();
+			expect(screen.getByLabelText("Max Wait (ms)")).toBeInTheDocument();
 		});
 	});
 
@@ -276,7 +276,7 @@ describe("RateLimitSettings", () => {
 			<RateLimitSettings collapsed={false} onToggle={onToggle} />,
 		);
 		await waitFor(() => {
-			expect(screen.getByText("Rate Limit Backpressure")).toBeInTheDocument();
+			expect(screen.getByLabelText("Max Wait (ms)")).toBeInTheDocument();
 		});
 		expect(
 			screen.getByText(
@@ -375,11 +375,8 @@ describe("RateLimitSettings", () => {
 			expect(screen.getByText("Enable Rate Limiting")).toBeInTheDocument();
 		});
 		await waitFor(() => {
-			expect(
-				screen.queryByText("Rate Limit Backpressure"),
-			).not.toBeInTheDocument();
+			expect(screen.queryByLabelText("Max Wait (ms)")).not.toBeInTheDocument();
 		});
-		expect(screen.queryByLabelText("Max Wait (ms)")).not.toBeInTheDocument();
 	});
 
 	it("shows backpressure section when rate limiting is enabled but IP rate limiting is disabled", async () => {
@@ -404,7 +401,7 @@ describe("RateLimitSettings", () => {
 			<RateLimitSettings collapsed={false} onToggle={onToggle} />,
 		);
 		await waitFor(() => {
-			expect(screen.getByText("Rate Limit Backpressure")).toBeInTheDocument();
+			expect(screen.getByLabelText("Max Wait (ms)")).toBeInTheDocument();
 		});
 		await waitFor(() => {
 			expect(screen.getByLabelText("Max Wait (ms)")).toBeInTheDocument();
@@ -433,7 +430,7 @@ describe("RateLimitSettings", () => {
 			<RateLimitSettings collapsed={false} onToggle={onToggle} />,
 		);
 		await waitFor(() => {
-			expect(screen.getByText("Rate Limit Backpressure")).toBeInTheDocument();
+			expect(screen.getByLabelText("Max Wait (ms)")).toBeInTheDocument();
 		});
 		await waitFor(() => {
 			expect(screen.getByLabelText("Max Wait (ms)")).toBeInTheDocument();

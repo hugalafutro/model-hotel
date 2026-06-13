@@ -202,6 +202,7 @@ export function DatabaseBackupSettings({
 						</div>
 						<Toggle
 							checked={backupEnabled}
+							size="sm"
 							onChange={async (v) => {
 								if (v) {
 									try {

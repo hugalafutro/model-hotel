@@ -41,8 +41,8 @@ export function CircuitBreakerSettings({
 				</p>
 				<div className="grid grid-cols-2 gap-x-8 gap-y-5 [align-items:start]">
 					<div className="space-y-5">
-						<div className="flex items-center justify-between">
-							<div>
+						<div className="flex items-center justify-between gap-3">
+							<div className="min-w-0">
 								<div className="flex items-center gap-1">
 									<p className="text-sm font-medium text-gray-300">
 										{t("settings.circuitBreaker.enable")}
@@ -62,6 +62,7 @@ export function CircuitBreakerSettings({
 							</div>
 							<Toggle
 								checked={circuitBreakerEnabled}
+								size="sm"
 								onChange={(v) =>
 									updateMutation.mutate({
 										circuit_breaker_enabled: v ? "true" : "false",
@@ -71,8 +72,8 @@ export function CircuitBreakerSettings({
 							/>
 						</div>
 
-						<div className="flex items-center justify-between">
-							<div>
+						<div className="flex items-center justify-between gap-3">
+							<div className="min-w-0">
 								<div className="flex items-center gap-1">
 									<p className="text-sm font-medium text-gray-300">
 										{t("settings.circuitBreaker.failoverOnRateLimit")}
@@ -92,6 +93,7 @@ export function CircuitBreakerSettings({
 							</div>
 							<Toggle
 								checked={failoverOnRateLimit}
+								size="sm"
 								onChange={(v) =>
 									updateMutation.mutate({
 										failover_on_rate_limit: v ? "true" : "false",

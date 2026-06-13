@@ -385,6 +385,7 @@ export function DataStorageSettings({
 								</div>
 								<Toggle
 									checked={!quotaDisabled}
+									size="sm"
 									onChange={(v) => {
 										const newVal = !v;
 										setQuotaDisabled(newVal);
@@ -461,6 +462,7 @@ export function DataStorageSettings({
 							</div>
 							<Toggle
 								checked={persistChat}
+								size="sm"
 								onChange={(v) => {
 									const next = v;
 									if (
@@ -490,6 +492,7 @@ export function DataStorageSettings({
 							</div>
 							<Toggle
 								checked={persistArena}
+								size="sm"
 								onChange={(v) => {
 									const next = v;
 									if (
@@ -519,6 +522,7 @@ export function DataStorageSettings({
 							</div>
 							<Toggle
 								checked={persistConversation}
+								size="sm"
 								onChange={(v) => {
 									const next = v;
 									if (
@@ -553,6 +557,7 @@ export function DataStorageSettings({
 							</div>
 							<Toggle
 								checked={arenaHistoryEnabled}
+								size="sm"
 								onChange={(v) => {
 									const next = v;
 									setArenaHistoryEnabled(next);

@@ -43,8 +43,8 @@ export function RateLimitSettings({
 				</p>
 				<div className="grid grid-cols-2 gap-x-8 gap-y-5 [align-items:start]">
 					<div className="space-y-5">
-						<div className="flex items-center justify-between">
-							<div>
+						<div className="flex items-center justify-between gap-3">
+							<div className="min-w-0">
 								<div className="flex items-center gap-1">
 									<p className="text-sm font-medium text-gray-300">
 										{t("settings.rateLimit.enable")}
@@ -64,6 +64,7 @@ export function RateLimitSettings({
 							</div>
 							<Toggle
 								checked={rateLimitEnabled}
+								size="sm"
 								onChange={(v) =>
 									updateMutation.mutate({
 										rate_limit_enabled: v ? "true" : "false",
@@ -72,8 +73,8 @@ export function RateLimitSettings({
 							/>
 						</div>
 
-						<div className="flex items-center justify-between">
-							<div>
+						<div className="flex items-center justify-between gap-3">
+							<div className="min-w-0">
 								<div className="flex items-center gap-1">
 									<p className="text-sm font-medium text-gray-300">
 										{t("settings.rateLimit.ipRateLimiting")}
@@ -93,6 +94,7 @@ export function RateLimitSettings({
 							</div>
 							<Toggle
 								checked={rateLimitIpEnabled}
+								size="sm"
 								onChange={(v) =>
 									updateMutation.mutate({
 										rate_limit_ip_enabled: v ? "true" : "false",
@@ -102,34 +104,32 @@ export function RateLimitSettings({
 						</div>
 
 						{(rateLimitEnabled || rateLimitIpEnabled) && (
-							<>
-								<p className="text-sm font-medium text-gray-300">
-									{t("settings.rateLimit.backpressure")}
-								</p>
-								<p className="text-gray-500 text-xs">
-									{t("settings.rateLimit.backpressureDescription")}
-								</p>
-								<SettingsSlider
-									id="rate-limit-max-wait"
-									label={t("settings.rateLimit.maxWait")}
-									value={Number(rateLimitMaxWaitMs)}
-									min={0}
-									max={10000}
-									step={100}
-									clampStep={100}
-									unit="ms"
-									onChange={(v) =>
-										updateMutation.mutate({
-											rate_limit_max_wait_ms: String(v),
-										})
-									}
-									description={t("settings.rateLimit.maxWait.description")}
-									onReset={() =>
-										resetSettingMutation.mutate(["rate_limit_max_wait_ms"])
-									}
-									resetTooltip={t("settings.common.resetSetting")}
-								/>
-							</>
+							<SettingsSlider
+								id="rate-limit-max-wait"
+								label={t("settings.rateLimit.maxWait")}
+								value={Number(rateLimitMaxWaitMs)}
+								min={0}
+								max={10000}
+								step={100}
+								clampStep={100}
+								unit="ms"
+								onChange={(v) =>
+									updateMutation.mutate({
+										rate_limit_max_wait_ms: String(v),
+									})
+								}
+								description={
+									<>
+										{t("settings.rateLimit.backpressureDescription")}
+										{" — "}
+										{t("settings.rateLimit.maxWait.description")}
+									</>
+								}
+								onReset={() =>
+									resetSettingMutation.mutate(["rate_limit_max_wait_ms"])
+								}
+								resetTooltip={t("settings.common.resetSetting")}
+							/>
 						)}
 					</div>
 

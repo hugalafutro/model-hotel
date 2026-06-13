@@ -87,6 +87,7 @@ export function DiscoverySettings({
 							</div>
 							<Toggle
 								checked={discoveryOnStartup}
+								size="sm"
 								onChange={(v) =>
 									updateMutation.mutate({
 										discovery_on_startup: v ? "true" : "false",
@@ -122,6 +123,7 @@ export function DiscoverySettings({
 							</div>
 							<Toggle
 								checked={discoveryOnCreate}
+								size="sm"
 								onChange={(v) =>
 									updateMutation.mutate({
 										discovery_on_provider_create: v ? "true" : "false",
