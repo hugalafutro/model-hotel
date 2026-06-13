@@ -56,7 +56,7 @@ export function ZAICodingQuotaModal({
 						<h2 className="text-xl font-bold text-(--text-primary)">
 							{t("components.providerModals.zAICodingPlanQuota")}
 						</h2>
-						<p className="text-sm text-gray-400 mt-1">
+						<p className="text-sm text-(--text-tertiary) mt-1">
 							{t("components.providerModals.plan")}{" "}
 							<span className="text-gray-200 capitalize">
 								{usage.data?.level ?? "-"}
@@ -143,7 +143,7 @@ export function ZAICodingQuotaModal({
 									{mcpLimit.usageDetails.map((detail) => (
 										<div
 											key={detail.modelCode}
-											className="flex justify-between text-xs text-gray-500"
+											className="flex justify-between text-xs text-(--text-muted)"
 										>
 											<span className="capitalize">{detail.modelCode}</span>
 											<span>
@@ -165,7 +165,7 @@ export function ZAICodingQuotaModal({
 				)}
 
 				{lastRefreshed ? (
-					<div className="flex justify-between items-center text-xs text-gray-500 pt-2 ">
+					<div className="flex justify-between items-center text-xs text-(--text-muted) pt-2 ">
 						<span>{t("components.providerModals.lastRefreshed")}</span>
 						<span>
 							{formatRelativeTime(new Date(lastRefreshed).toISOString())}

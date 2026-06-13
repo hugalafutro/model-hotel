@@ -76,7 +76,7 @@ export function NeuralWattQuotaModal({
 						<h2 className="text-xl font-bold text-(--text-primary)">
 							{t("components.providerModals.neuralWattCredits")}
 						</h2>
-						<p className="text-sm text-gray-400 mt-1">
+						<p className="text-sm text-(--text-tertiary) mt-1">
 							<span className="inline-flex items-center gap-1.5">
 								<span
 									data-testid="neuralwatt-status-dot"
@@ -90,7 +90,7 @@ export function NeuralWattQuotaModal({
 								)}
 							</span>
 							{quota.balance.accounting_method && (
-								<span className="text-gray-500 text-xs ml-2">
+								<span className="text-(--text-muted) text-xs ml-2">
 									{t("components.providerModals.neuralwattAccountingMethod")}:{" "}
 									<span className="capitalize">
 										{quota.balance.accounting_method}
@@ -125,7 +125,7 @@ export function NeuralWattQuotaModal({
 				{/* ── Credit balance bar ── */}
 				<div>
 					<div className="flex justify-between items-center mb-2">
-						<span className="text-sm font-medium text-gray-300">
+						<span className="text-sm font-medium text-(--text-secondary)">
 							{t("components.providerModals.neuralwattBalance")}
 						</span>
 						<span className="text-sm text-(--text-primary) font-medium">
@@ -135,7 +135,7 @@ export function NeuralWattQuotaModal({
 					{quota.balance.total_credits_usd > 0 && (
 						<div
 							data-testid="neuralwatt-credits-bar"
-							className="w-full bg-gray-700 rounded-full h-3"
+							className="w-full bg-(--surface-input) rounded-full h-3"
 						>
 							<div
 								className={`${barMode === "used" ? usedBarColor(creditsUsed) : remainingBarColor(creditsRemaining)} h-3 rounded-full transition-all`}
@@ -145,7 +145,7 @@ export function NeuralWattQuotaModal({
 							/>
 						</div>
 					)}
-					<p className="text-xs text-gray-500 mt-1">
+					<p className="text-xs text-(--text-muted) mt-1">
 						{quota.balance.total_credits_usd > 0
 							? t("components.providerModals.spentTotal", {
 									amount: formatDollars(quota.balance.credits_used_usd),
@@ -158,17 +158,17 @@ export function NeuralWattQuotaModal({
 				{quota.subscription.kwh_included > 0 && (
 					<div>
 						<div className="flex justify-between items-center mb-2">
-							<span className="text-sm font-medium text-gray-300">
+							<span className="text-sm font-medium text-(--text-secondary)">
 								{t("components.providerModals.neuralwattEnergyQuota")}
 							</span>
-							<span className="text-sm text-gray-400">
+							<span className="text-sm text-(--text-tertiary)">
 								{formatKwh(quota.subscription.kwh_used)} /{" "}
 								{formatKwh(quota.subscription.kwh_included)} kWh
 							</span>
 						</div>
 						<div
 							data-testid="neuralwatt-kwh-bar"
-							className="w-full bg-gray-700 rounded-full h-3"
+							className="w-full bg-(--surface-input) rounded-full h-3"
 						>
 							<div
 								className={`${barMode === "used" ? usedBarColor(kwhUsed) : remainingBarColor(kwhRemaining)} h-3 rounded-full transition-all`}
@@ -177,7 +177,7 @@ export function NeuralWattQuotaModal({
 								}}
 							/>
 						</div>
-						<p className="text-xs text-gray-500 mt-1">
+						<p className="text-xs text-(--text-muted) mt-1">
 							{kwhUsed.toFixed(1)}% {t("components.providerModals.used")}.{" "}
 							{formatKwh(quota.subscription.kwh_remaining)} kWh{" "}
 							{t("components.providerModals.remaining")}
@@ -189,12 +189,12 @@ export function NeuralWattQuotaModal({
 
 				{/* ── Subscription details ── */}
 				<div>
-					<h3 className="text-sm font-medium text-gray-300 mb-3">
+					<h3 className="text-sm font-medium text-(--text-secondary) mb-3">
 						{t("components.providerModals.neuralwattSubscription")}
 					</h3>
 					<div className="grid grid-cols-2 gap-3 text-sm">
 						<div>
-							<span className="text-gray-500">
+							<span className="text-(--text-muted)">
 								{t("components.providerModals.neuralwattPlan")}
 							</span>
 							<p className="text-gray-200 capitalize">
@@ -202,7 +202,7 @@ export function NeuralWattQuotaModal({
 							</p>
 						</div>
 						<div>
-							<span className="text-gray-500">
+							<span className="text-(--text-muted)">
 								{t("components.providerModals.neuralwattStatus")}
 							</span>
 							<p className="text-gray-200 capitalize">
@@ -210,7 +210,7 @@ export function NeuralWattQuotaModal({
 							</p>
 						</div>
 						<div>
-							<span className="text-gray-500">
+							<span className="text-(--text-muted)">
 								{t("components.providerModals.neuralwattBillingPeriod")}
 							</span>
 							<p className="text-gray-200">
@@ -219,7 +219,7 @@ export function NeuralWattQuotaModal({
 							</p>
 						</div>
 						<div>
-							<span className="text-gray-500">
+							<span className="text-(--text-muted)">
 								{t("components.providerModals.neuralwattBillingInterval")}
 							</span>
 							<p className="text-gray-200 capitalize">
@@ -227,7 +227,7 @@ export function NeuralWattQuotaModal({
 							</p>
 						</div>
 						<div>
-							<span className="text-gray-500">
+							<span className="text-(--text-muted)">
 								{t("components.providerModals.neuralwattAutoRenew")}
 							</span>
 							<p className="text-gray-200">
@@ -237,7 +237,7 @@ export function NeuralWattQuotaModal({
 							</p>
 						</div>
 						<div>
-							<span className="text-gray-500">
+							<span className="text-(--text-muted)">
 								{t("components.providerModals.neuralwattInOverage")}
 							</span>
 							<p className="text-gray-200">
@@ -251,12 +251,12 @@ export function NeuralWattQuotaModal({
 
 				{/* ── Energy allocation ── */}
 				<div>
-					<h3 className="text-sm font-medium text-gray-300 mb-3">
+					<h3 className="text-sm font-medium text-(--text-secondary) mb-3">
 						{t("components.providerModals.neuralwattEnergyAllocation")}
 					</h3>
 					<div className="grid grid-cols-3 gap-3 text-sm">
 						<div>
-							<span className="text-gray-500">
+							<span className="text-(--text-muted)">
 								{t("components.providerModals.neuralwattKwhIncluded")}
 							</span>
 							<p className="text-gray-200">
@@ -264,7 +264,7 @@ export function NeuralWattQuotaModal({
 							</p>
 						</div>
 						<div>
-							<span className="text-gray-500">
+							<span className="text-(--text-muted)">
 								{t("components.providerModals.neuralwattKwhUsed")}
 							</span>
 							<p className="text-gray-200">
@@ -272,7 +272,7 @@ export function NeuralWattQuotaModal({
 							</p>
 						</div>
 						<div>
-							<span className="text-gray-500">
+							<span className="text-(--text-muted)">
 								{t("components.providerModals.neuralwattKwhRemaining")}
 							</span>
 							<p
@@ -286,32 +286,32 @@ export function NeuralWattQuotaModal({
 
 				{/* ── Usage stats ── */}
 				<div>
-					<h3 className="text-sm font-medium text-gray-300 mb-3">
+					<h3 className="text-sm font-medium text-(--text-secondary) mb-3">
 						{t("components.providerModals.neuralwattUsage")}
 					</h3>
 					<div className="grid grid-cols-5 gap-2 text-xs">
 						<div></div>
 						<div>
-							<span className="text-gray-500">
+							<span className="text-(--text-muted)">
 								{t("components.providerModals.neuralwattCost")}
 							</span>
 						</div>
 						<div>
-							<span className="text-gray-500">
+							<span className="text-(--text-muted)">
 								{t("components.providerModals.neuralwattRequests")}
 							</span>
 						</div>
 						<div>
-							<span className="text-gray-500">
+							<span className="text-(--text-muted)">
 								{t("components.providerModals.neuralwattTokens")}
 							</span>
 						</div>
 						<div>
-							<span className="text-gray-500">
+							<span className="text-(--text-muted)">
 								{t("components.providerModals.neuralwattEnergy")}
 							</span>
 						</div>
-						<span className="text-gray-500">
+						<span className="text-(--text-muted)">
 							{t("components.providerModals.neuralwattCurrentMonth")}
 						</span>
 						<p className="text-gray-200">
@@ -326,7 +326,7 @@ export function NeuralWattQuotaModal({
 						<p className="text-gray-200">
 							{formatKwh(quota.usage.current_month.energy_kwh)} kWh
 						</p>
-						<span className="text-gray-500">
+						<span className="text-(--text-muted)">
 							{t("components.providerModals.neuralwattLifetime")}
 						</span>
 						<p className="text-gray-200">
@@ -346,12 +346,12 @@ export function NeuralWattQuotaModal({
 
 				{/* ── Limits ── */}
 				<div>
-					<h3 className="text-sm font-medium text-gray-300 mb-3">
+					<h3 className="text-sm font-medium text-(--text-secondary) mb-3">
 						{t("components.providerModals.limits")}
 					</h3>
 					<div className="grid grid-cols-3 gap-3 text-sm">
 						<div>
-							<span className="text-gray-500">
+							<span className="text-(--text-muted)">
 								{t("components.providerModals.neuralwattOverageLimit")}
 							</span>
 							<p className="text-gray-200">
@@ -361,7 +361,7 @@ export function NeuralWattQuotaModal({
 							</p>
 						</div>
 						<div>
-							<span className="text-gray-500">
+							<span className="text-(--text-muted)">
 								{t("components.providerModals.neuralwattRateLimitTier")}
 							</span>
 							<p className="text-gray-200 capitalize">
@@ -369,7 +369,7 @@ export function NeuralWattQuotaModal({
 							</p>
 						</div>
 						<div>
-							<span className="text-gray-500">
+							<span className="text-(--text-muted)">
 								{t("components.providerModals.neuralwattAllowance")}
 							</span>
 							<p className="text-gray-200">
@@ -382,7 +382,7 @@ export function NeuralWattQuotaModal({
 				</div>
 
 				{lastRefreshed ? (
-					<div className="flex justify-between items-center text-xs text-gray-500 pt-2 ">
+					<div className="flex justify-between items-center text-xs text-(--text-muted) pt-2 ">
 						<span>{t("components.providerModals.lastRefreshed")}</span>
 						<span>
 							{formatRelativeTime(new Date(lastRefreshed).toISOString())}
