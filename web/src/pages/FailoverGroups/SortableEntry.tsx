@@ -124,7 +124,7 @@ export function SortableEntry({
 				>
 					⠿
 				</span>
-				<div className="truncate failover-entry-text">
+				<div className="truncate failover-entry-text flex-1 min-w-0">
 					<span className="text-(--text-primary)">{entry.provider_name}</span>
 					<span className="text-gray-500 mx-1">/</span>
 					<span className="text-gray-400 truncate">{entry.model_id}</span>
