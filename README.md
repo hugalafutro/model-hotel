@@ -24,7 +24,7 @@
 
 <div align="center">
   
-<sub>Localised with [DeepL](https://www.deepl.com) - _expect mistakes_ - translation fixes welcome as PRs against [`web/src/i18n/locales/`](https://github.com/hugalafutro/model-hotel/tree/master/web/src/i18n/locales)!<br>Made with [OpenCode](https://opencode.ai) and [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim)</sub>
+<sub>Localised with [DeepL](https://www.deepl.com) - _expect mistakes_ - translation fixes welcome as PRs against [`web/src/i18n/locales/`](https://github.com/hugalafutro/model-hotel/tree/master/web/src/i18n/locales)!<br>Made with [OpenCode](https://opencode.ai) + [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim) & [Claude Code](https://claude.com/claude-code)</sub>
 <br>
 
  <img src="https://img.shields.io/badge/GLM_5.2-orchestrator,%20council-8B5CF6?style=flat" alt="GLM 5.2">
@@ -35,7 +35,7 @@
  <img src="https://img.shields.io/badge/GLM_5.1_Fast-fixer,%20explorer-8B5CF6?style=flat" alt="GLM 5.1 Fast">
  <img src="https://img.shields.io/badge/Gemini_3_Flash-observer-4285F4?style=flat" alt="Gemini 3 Flash">
 <br>
- <img src="https://img.shields.io/badge/Claude_Fable-refactor,%20code%20review-D97757?style=flat" alt="Claude Fable">
+ <img src="https://img.shields.io/badge/Claude_Fable_5-refactor,%20code%20review-D97757?style=flat" alt="Claude Fable 5">
 </div><br>
 
 A single OpenAI-compatible endpoint that sits in front of all your LLM providers. Models are auto-discovered the moment you add a provider and optionally on schedule; failover groups form automatically around shared model names and retry transparently when a provider goes down; no prompt data is ever stored.
@@ -120,7 +120,7 @@ Add a provider and the service pulls the model list automatically via the provid
 | Cohere | ✅ | ✅ | ✅ | ✅ (vision) | API (`/v1/models`, paginated) + Pricing catalog |
 | Ollama / Ollama Cloud | ✅ | *(none)* | ✅ | ✅ | API (`/api/show`) |
 
-**Z.AI, xAI, OpenAI, DeepSeek, and OpenCode (Go & Zen) combine a live `/models` listing with a built-in catalog:** the API supplies the authoritative model list (plus live pricing and modalities for xAI) and the catalog backfills the fields the API leaves out (context window, max output, capability flags, pricing). For Z.AI, xAI, and OpenCode the catalog *also* surfaces models the listing doesn't advertise but that still work — a freshly released GLM the listing hasn't caught up to, or older Grok models xAI keeps callable without listing them. Live values always win; the catalog only fills gaps. xAI (on 403/429) and OpenCode Go (on 404) fall back to the pure catalog when the account or endpoint can't list; the others abort the scan on error so a transient failure never disables existing models. Google AI Studio provides rich metadata (context, thinking support) from its native API, supplemented with a pricing catalog. Cohere uses its native API with full pagination for model discovery, enriched with a pricing catalog for cost data, capability detection (tool calling, vision, structured output, reasoning), and modality mapping. NanoGPT and Anthropic expose richer model metadata through their own APIs; Anthropic additionally uses a pricing catalog for per-model cost data. Ollama and Ollama Cloud enrich models via the `/api/show` endpoint.
+**Z.AI, xAI, OpenAI, DeepSeek, and OpenCode (Go & Zen) combine a live `/models` listing with a built-in catalog:** the API supplies the authoritative model list (plus live pricing and modalities for xAI) and the catalog backfills the fields the API leaves out (context window, max output, capability flags, pricing). For Z.AI, xAI, and OpenCode the catalog *also* surfaces models the listing doesn't advertise but that still work - a freshly released GLM the listing hasn't caught up to, or older Grok models xAI keeps callable without listing them. Live values always win; the catalog only fills gaps. xAI (on 403/429) and OpenCode Go (on 404) fall back to the pure catalog when the account or endpoint can't list; the others abort the scan on error so a transient failure never disables existing models. Google AI Studio provides rich metadata (context, thinking support) from its native API, supplemented with a pricing catalog. Cohere uses its native API with full pagination for model discovery, enriched with a pricing catalog for cost data, capability detection (tool calling, vision, structured output, reasoning), and modality mapping. NanoGPT and Anthropic expose richer model metadata through their own APIs; Anthropic additionally uses a pricing catalog for per-model cost data. Ollama and Ollama Cloud enrich models via the `/api/show` endpoint.
 
 Models that aren't covered by any built-in catalog are automatically enriched from [models.dev](https://models.dev/), an open-source model catalogue that provides pricing, context limits, capabilities, and modality data for 40+ providers. The enrichment is non-destructive: it only fills fields that are empty or missing, never overwriting data that was already populated. This makes the full precedence per field **live provider data → built-in catalog → models.dev → empty**: you get the freshest values the provider reports, the catalog and models.dev only fill what's missing, and a stale catalog can never mask fresh live data. If models.dev is unreachable, discovery proceeds normally using whatever data the provider returned, so your existing catalogue is never at risk.
 
@@ -128,7 +128,7 @@ Models that aren't covered by any built-in catalog are automatically enriched fr
 Test any model from the Models page with a single click. The test sends a minimal chat completion directly to the provider and reports total duration and the actual model response, so you know the provider is alive and responsive. DeepSeek providers show live account balance; NanoGPT and Z.AI providers show token quota and usage data; NeuralWatt providers show energy quota and credit balance (Standard plan or higher). All fetched from their respective APIs and displayed on both the provider cards and the sidebar quota panel.
 
 ### [<img src="docs/icons/health.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Provider Quotas & Usage](#-provider-quotas--usage)
-For providers that expose it, click a provider's quota badge (on its card or in the sidebar panel) to open a live usage breakdown — no need to leave the dashboard for the provider's billing page. **OpenRouter** shows credit balance and per-key spend; **Z.ai Coding Plan** shows its 5-hour, weekly, and MCP token quotas; **NanoGPT** shows weekly token and daily image quotas with subscription details; **NeuralWatt** shows energy-based quota with subscription and lifetime usage. Each modal toggles between **quota used** and **quota remaining**, and refreshes on demand. Some providers surface usage without a dedicated modal — **DeepSeek** shows account balance and **Ollama Cloud** shows plan status on their cards and sidebar badges.
+For providers that expose it, click a provider's quota badge (on its card or in the sidebar panel) to open a live usage breakdown - no need to leave the dashboard for the provider's billing page. **OpenRouter** shows credit balance and per-key spend; **Z.ai Coding Plan** shows its 5-hour, weekly, and MCP token quotas; **NanoGPT** shows weekly token and daily image quotas with subscription details; **NeuralWatt** shows energy-based quota with subscription and lifetime usage. Each modal toggles between **quota used** and **quota remaining**, and refreshes on demand. Some providers surface usage without a dedicated modal - **DeepSeek** shows account balance and **Ollama Cloud** shows plan status on their cards and sidebar badges.
 
 <p align="center">
   <a href="docs/screenshots/quota_openrouter.png"><img src="docs/screenshots/quota_openrouter.png" height="200" alt="OpenRouter credits & usage"></a>
@@ -137,7 +137,7 @@ For providers that expose it, click a provider's quota badge (on its card or in 
   &nbsp;&nbsp;
   <a href="docs/screenshots/quota_nanogpt.png"><img src="docs/screenshots/quota_nanogpt.png" height="200" alt="NanoGPT weekly token & image quotas"></a>
   &nbsp;&nbsp;
-  <a href="docs/screenshots/quota_neuralwatt.png"><img src="docs/screenshots/quota_neuralwatt_thumb.png" height="200" alt="NeuralWatt energy quota — click for full"></a>
+  <a href="docs/screenshots/quota_neuralwatt.png"><img src="docs/screenshots/quota_neuralwatt_thumb.png" height="200" alt="NeuralWatt energy quota - click for full"></a>
 </p>
 
 ### [<img src="docs/icons/api.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Interactive Chat & Arena](#-interactive-chat--arena)
@@ -344,7 +344,7 @@ is never logged). See the [API Reference](https://github.com/hugalafutro/model-h
 
 A Prometheus endpoint is exposed at `/metrics` (request rates by provider/model/status,
 latency and TTFT histograms, token counters, failover attempts, and per-provider circuit-breaker
-state, plus Go runtime metrics). It is authenticated — set a dedicated `METRICS_TOKEN` so your
+state, plus Go runtime metrics). It is authenticated - set a dedicated `METRICS_TOKEN` so your
 scrape config need not carry the admin token (the admin token also works). No prompt content is
 ever exposed.
 
@@ -359,8 +359,10 @@ scrape_configs:
 ```
 
 For logs, set `LOG_FORMAT=json` to emit one structured JSON object per line on stdout for
-Fluent Bit / Vector / Promtail / Datadog and friends — no extra endpoint, and (like everything
-here) never any prompt content.
+Fluent Bit / Vector / Promtail / Datadog and friends - no extra endpoint, and (like everything
+here) never any prompt content. Need verbose debug output without the flood? `DEBUG_LOG=true`
+turns on Debug for everything; `DEBUG_LOG_SCOPES=failover,ratelimit` turns it on for just those
+areas. See the [Configuration wiki](https://github.com/hugalafutro/model-hotel/wiki/Configuration).
 
 ### Full Documentation
 - [Configuration](https://github.com/hugalafutro/model-hotel/wiki/Configuration): Environment variables, runtime settings, Docker Compose
