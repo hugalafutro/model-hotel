@@ -16,6 +16,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { VirtualKey } from "../../api/types";
 import { ConfirmDeleteButton } from "../../components/ConfirmDeleteButton";
+import { InfoHint } from "../../components/InfoHint";
 import { DetailItem } from "../../components/LogDetailItem";
 import { Modal } from "../../components/Modal";
 import { Toggle } from "../../components/Toggle";
@@ -400,6 +401,7 @@ export function KeyDetailModal({
 						<DetailItem
 							icon={Gauge}
 							label={t("virtualKeys.detail.rps")}
+							labelExtra={<InfoHint tooltip={t("virtualkeys.tooltip.rps")} />}
 							value={
 								vk.rate_limit_rps != null
 									? String(vk.rate_limit_rps)
@@ -410,6 +412,7 @@ export function KeyDetailModal({
 						<DetailItem
 							icon={Zap}
 							label={t("virtualKeys.detail.burst")}
+							labelExtra={<InfoHint tooltip={t("virtualkeys.tooltip.burst")} />}
 							value={
 								vk.rate_limit_burst != null
 									? String(vk.rate_limit_burst)

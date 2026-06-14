@@ -2,7 +2,6 @@ import {
 	Bot,
 	Clock,
 	Copy,
-	Info,
 	Maximize2,
 	PowerOff,
 	Settings,
@@ -13,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import type { GenerationParams } from "../api/types";
 import { formatDuration, formatNumber } from "../utils/format";
 import { is5xxError } from "../utils/model";
+import { InfoHint } from "./InfoHint";
 import { MARKDOWN_PROSE_CLASSES, MarkdownContent } from "./MarkdownContent";
 import { Modal } from "./Modal";
 import { ThinkingBlock } from "./ThinkingBlock";
@@ -240,12 +240,10 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 									</span>
 								)}
 								{showInfoIcon && onModelNameClick && (
-									<span
-										className="ui-icon-btn ui-icon-btn-in-group shrink-0 cursor-help"
-										title={t("components.modelReplyCard.modelDetails")}
-									>
-										<Info size={12} />
-									</span>
+									<InfoHint
+										tooltip={t("components.modelReplyCard.modelDetails")}
+										className="ui-icon-btn-in-group shrink-0"
+									/>
 								)}
 							</div>
 							{hasCustomParams && (
