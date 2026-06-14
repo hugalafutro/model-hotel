@@ -771,7 +771,7 @@ function LanguageSelector() {
 			{open && (
 				<div
 					ref={scrollRef}
-					className="ui-popover absolute bottom-full left-1/2 -translate-x-1/2 mb-1 py-1 min-w-[120px] max-h-[50vh] overflow-y-auto overscroll-contain bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50"
+					className="ui-popover absolute bottom-full left-1/2 -translate-x-1/2 mb-1 py-1 min-w-[120px] max-h-[50vh] overflow-y-auto overscroll-contain bg-gray-800 border border-gray-700 rounded-(--radius-card) shadow-lg z-50"
 					role="listbox"
 				>
 					{SUPPORTED_LANGUAGES.map((lang) => (
