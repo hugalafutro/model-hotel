@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 1400" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
+    </marker>
+    <marker id="arr-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#f87171"/>
+    </marker>
+    <marker id="arr-grn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#4ade80"/>
+    </marker>
+    <filter id="shadow" x="-2%" y="-2%" width="104%" height="104%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- CLIENT -->
+  <rect x="370" y="15" width="220" height="50" rx="8" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="480" y="37" text-anchor="middle" fill="#93c5fd" font-size="13" font-weight="700">CLIENT</text>
+  <text x="480" y="55" text-anchor="middle" fill="#64748b" font-size="9">POST /v1/chat/completions</text>
+  <text x="480" y="60" text-anchor="middle" fill="#64748b" font-size="9"></text>
+
+  <line x1="480" y1="65" x2="480" y2="90" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- PROXY -->
+  <rect x="100" y="95" width="760" height="70" rx="8" fill="#1e293b" stroke="#a78bfa" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="100" y="95" width="760" height="26" rx="8" fill="#a78bfa" opacity="0.15"/>
+  <text x="480" y="113" text-anchor="middle" fill="#c4b5fd" font-size="12" font-weight="700">PROXY (internal/proxy/proxy.go)</text>
+  <text x="120" y="138" fill="#94a3b8" font-size="10">1. Parse request body</text>
+  <text x="120" y="153" fill="#94a3b8" font-size="10">2. Detect "hotel/" prefix → extract "gpt-4o"</text>
+  <text x="500" y="138" fill="#94a3b8" font-size="10">3. Call resolveHotelModel(ctx, "gpt-4o")</text>
+
+  <line x1="480" y1="165" x2="480" y2="190" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- FAILOVER LOOKUP -->
+  <rect x="100" y="195" width="760" height="90" rx="8" fill="#1e293b" stroke="#3b82f6" stroke-width="1" filter="url(#shadow)"/>
+  <rect x="100" y="195" width="760" height="26" rx="8" fill="#3b82f6" opacity="0.15"/>
+  <text x="480" y="213" text-anchor="middle" fill="#60a5fa" font-size="12" font-weight="700">FAILOVER LOOKUP (internal/proxy/resolve.go)</text>
+  <text x="120" y="238" fill="#94a3b8" font-size="10">1. Check cache: GetCachedFailoverByModel("gpt-4o") — Cache hit (TTL: 5min) → return cached group</text>
+  <text x="120" y="253" fill="#94a3b8" font-size="10">2. Cache miss → DB: SELECT * FROM model_failover_groups WHERE display_model='gpt-4o'</text>
+  <text x="120" y="268" fill="#94a3b8" font-size="10">3. Validate: group_enabled = true, priority_order not empty</text>
+
+  <line x1="480" y1="285" x2="480" y2="310" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- CANDIDATE SELECTION -->
+  <rect x="100" y="315" width="760" height="110" rx="8" fill="#1e293b" stroke="#f59e0b" stroke-width="1" filter="url(#shadow)"/>
+  <rect x="100" y="315" width="760" height="26" rx="8" fill="#f59e0b" opacity="0.15"/>
+  <text x="480" y="333" text-anchor="middle" fill="#fbbf24" font-size="12" font-weight="700">CANDIDATE SELECTION</text>
+  <text x="120" y="358" fill="#94a3b8" font-size="10">1. Filter by entry_enabled → [uuid1, uuid3]</text>
+  <text x="120" y="373" fill="#94a3b8" font-size="10">2. Batch load models/providers</text>
+  <text x="120" y="388" fill="#94a3b8" font-size="10">3. Filter: skip disabled models/providers</text>
+  <text x="500" y="358" fill="#94a3b8" font-size="10">4. Filter: skip circuit breaker open</text>
+  <text x="500" y="373" fill="#94a3b8" font-size="10">5. Decrypt API keys via DecryptCached(...)</text>
+  <text x="500" y="388" fill="#94a3b8" font-size="10">6. Build ordered candidate list</text>
+
+  <line x1="480" y1="425" x2="480" y2="455" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- FAILOVER LOOP container -->
+  <rect x="60" y="460" width="840" height="680" rx="10" fill="none" stroke="#475569" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="480" y="485" text-anchor="middle" fill="#64748b" font-size="12" font-weight="600" letter-spacing="1">FAILOVER LOOP</text>
+  <text x="480" y="500" text-anchor="middle" fill="#475569" font-size="9">for attempt, candidate := range candidates</text>
+
+  <!-- Attempt 0 -->
+  <rect x="100" y="515" width="760" height="240" rx="8" fill="#1e293b" stroke="#f43f5e" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="100" y="515" width="760" height="28" rx="8" fill="#f43f5e" opacity="0.15"/>
+  <text x="120" y="533" fill="#fb7185" font-size="12" font-weight="700">ATTEMPT 0: candidate #1 (uuid1)</text>
+
+  <text x="120" y="565" fill="#94a3b8" font-size="10">- Build upstream POST /chat/completions</text>
+  <text x="120" y="580" fill="#94a3b8" font-size="10">- Set auth headers (Bearer or x-api-key)</text>
+  <text x="120" y="595" fill="#94a3b8" font-size="10">- Inject stream_options for streaming</text>
+  <text x="120" y="610" fill="#94a3b8" font-size="10">- Send with timeout</text>
+
+  <rect x="140" y="625" width="280" height="40" rx="6" fill="#f43f5e" opacity="0.12"/>
+  <text x="280" y="650" text-anchor="middle" fill="#f87171" font-size="11" font-weight="700">Response: HTTP 502 Bad Gateway</text>
+
+  <text x="460" y="650" fill="#94a3b8" font-size="10">shouldFailover(502) = true (5xx)</text>
+  <text x="460" y="668" fill="#94a3b8" font-size="10">hasMoreCandidates = true → Continue</text>
+  <text x="460" y="686" fill="#94a3b8" font-size="10">Circuit breaker: RecordFailure(uuid1)</text>
+  <text x="460" y="704" fill="#64748b" font-size="9">consecutiveFails = 1, threshold = 5</text>
+
+  <line x1="480" y1="755" x2="480" y2="780" stroke="#f87171" stroke-width="1.5" marker-end="url(#arr-red)"/>
+
+  <!-- Backoff -->
+  <rect x="340" y="785" width="280" height="35" rx="6" fill="#1e293b" stroke="#f59e0b" stroke-width="1" filter="url(#shadow)"/>
+  <text x="480" y="807" text-anchor="middle" fill="#fbbf24" font-size="10" font-weight="600">Backoff: 100ms + jitter</text>
+
+  <line x1="480" y1="820" x2="480" y2="845" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Attempt 1 -->
+  <rect x="100" y="850" width="760" height="240" rx="8" fill="#1e293b" stroke="#10b981" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="100" y="850" width="760" height="28" rx="8" fill="#10b981" opacity="0.15"/>
+  <text x="120" y="868" fill="#34d399" font-size="12" font-weight="700">ATTEMPT 1: candidate #2 (uuid3)</text>
+
+  <text x="120" y="900" fill="#94a3b8" font-size="10">- Backoff: 100ms + jitter</text>
+  <text x="120" y="915" fill="#94a3b8" font-size="10">- Build upstream request</text>
+  <text x="120" y="930" fill="#94a3b8" font-size="10">- Send request</text>
+
+  <rect x="140" y="945" width="200" height="40" rx="6" fill="#10b981" opacity="0.12"/>
+  <text x="240" y="970" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="700">Response: HTTP 200 OK</text>
+
+  <text x="400" y="970" fill="#94a3b8" font-size="10">shouldFailover(200) = false → Dispatch to handler</text>
+  <text x="400" y="988" fill="#94a3b8" font-size="10">Circuit breaker: RecordSuccess(uuid3)</text>
+  <text x="400" y="1006" fill="#64748b" font-size="9">consecutiveFails = 0 (reset)</text>
+
+  <text x="480" y="1055" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="600">return (exit loop on success)</text>
+
+  <line x1="480" y1="1140" x2="480" y2="1175" stroke="#4ade80" stroke-width="1.5" marker-end="url(#arr-grn)"/>
+
+  <!-- CLIENT receives -->
+  <rect x="280" y="1180" width="400" height="70" rx="8" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="480" y="1205" text-anchor="middle" fill="#93c5fd" font-size="13" font-weight="700">CLIENT</text>
+  <text x="480" y="1223" text-anchor="middle" fill="#94a3b8" font-size="10">HTTP 200 — SSE stream + completion</text>
+  <text x="480" y="1240" text-anchor="middle" fill="#94a3b8" font-size="10">Usage: {prompt_tokens: 10, completion_tokens: 50}</text>
+
+</svg>

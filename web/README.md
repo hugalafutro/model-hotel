@@ -78,7 +78,7 @@ web/
 - Add/edit/delete LLM providers
 - Auto-detect provider type from URL
 - Manual and automatic model discovery
-- View quota/balance (DeepSeek, NanoGPT, Z.AI, NeuralWatt — Standard plan or higher)
+- View quota/balance (DeepSeek, NanoGPT, Z.AI, NeuralWatt - Standard plan or higher)
 
 ### Model Management (`/models`)
 - Browse discovered models
