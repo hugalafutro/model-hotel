@@ -1018,7 +1018,6 @@
 			"createdTitle": "Vytvořen virtuální klíč",
 			"warningTitle": "Po zavření tohoto modálního okna již nebude možné tento klíč obnovit.",
 			"warningText": "Virtuální klíče se před uložením zašifrují. Zkopírujte si je hned, jinak o ně navždy přijdete.",
-			"useAs": "Použití:",
 			"form": {
 				"name": "Jméno",
 				"namePlaceholder": "např. Moje aplikace",

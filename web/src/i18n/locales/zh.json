@@ -1018,7 +1018,6 @@
 			"createdTitle": "虚拟密钥已创建",
 			"warningTitle": "此密钥在您关闭此版主后无法恢复。",
 			"warningText": "虚拟键在存储前被哈希。现在复制或永久移除。",
-			"useAs": "用作：",
 			"form": {
 				"name": "名称",
 				"namePlaceholder": "例如，我的应用程序",

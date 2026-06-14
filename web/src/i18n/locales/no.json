@@ -1018,7 +1018,6 @@
 			"createdTitle": "Virtuell nøkkel opprettet",
 			"warningTitle": "Denne nøkkelen kan ikke bli gjenopprettet etter du lukker denne modalen.",
 			"warningText": "Virtuelle nøkler er lagt før lagring. Kopier den nå eller den er borte for alltid.",
-			"useAs": "Bruk som:",
 			"form": {
 				"name": "Navn",
 				"namePlaceholder": "f.eks min App",

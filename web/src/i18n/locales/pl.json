@@ -1018,7 +1018,6 @@
 			"createdTitle": "Klucz wirtualny został utworzony",
 			"warningTitle": "Ten klucz nie może zostać odzyskany po zamknięciu tego modalu.",
 			"warningText": "Klucze wirtualne są hashowane przed pamięcią. Skopiuj je teraz lub na zawsze.",
-			"useAs": "Użyj jako:",
 			"form": {
 				"name": "Nazwisko",
 				"namePlaceholder": "np. Moja aplikacja",

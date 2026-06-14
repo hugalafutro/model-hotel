@@ -1018,7 +1018,6 @@
 			"createdTitle": "Virtuele Sleutel Geskep",
 			"warningTitle": "Hierdie sleutel kan nie herstel word nadat jy hierdie modaal gesluit het nie.",
 			"warningText": "Virtuele sleutels word gehaas voordat dit gestoor word. Kopieer dit nou of dit is vir altyd weg.",
-			"useAs": "Gebruik as:",
 			"form": {
 				"name": "Naam",
 				"namePlaceholder": "bv., My App",

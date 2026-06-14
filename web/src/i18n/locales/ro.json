@@ -1018,7 +1018,6 @@
 			"createdTitle": "Cheie virtuală creată",
 			"warningTitle": "Această cheie nu poate fi recuperată după ce închideți acest modal.",
 			"warningText": "Cheile virtuale sunt hashate înainte de stocare. Copiază-le acum sau dispar pentru totdeauna.",
-			"useAs": "Folosiți ca:",
 			"form": {
 				"name": "Nume",
 				"namePlaceholder": "de exemplu aplicația mea",

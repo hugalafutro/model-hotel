@@ -1018,7 +1018,6 @@
 			"createdTitle": "Sanal Anahtar Oluşturuldu",
 			"warningTitle": "Bu pencereyi kapattıktan sonra bu anahtar kurtarılamaz.",
 			"warningText": "Sanal anahtarlar depolanmadan önce karma işleme tabi tutulur. Hemen kopyalayın, yoksa sonsuza dek kaybolur.",
-			"useAs": "Kullanım şekli:",
 			"form": {
 				"name": "Ad",
 				"namePlaceholder": "Örneğin, Uygulamam",
