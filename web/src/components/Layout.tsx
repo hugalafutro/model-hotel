@@ -1103,7 +1103,7 @@ export function Layout({ children }: LayoutProps) {
 							<span
 								className={
 									updateAvailable
-										? "text-amber-400 outline-solid outline-1 outline-amber-400/60 rounded px-0.5"
+										? "text-amber-400 [text-shadow:var(--glow-amber)]"
 										: ""
 								}
 							>
