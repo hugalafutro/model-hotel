@@ -2823,16 +2823,16 @@ html.light .terminal-titlebar-win11 .win11-icon {
 
 /* Sidebar API-status dot. Online: one slow pulse each time the system-stats
    query refetches (the span is remounted via a dataUpdatedAt key). Offline:
-   the same pulse, slower and looping, to keep signalling the stalled link. */
+   the same pulse, slower and looping, to keep signalling the stalled link.
+   Pulse brightness only — never scale — so the dot keeps a constant footprint
+   and stays vertically centred next to the status label. */
 @keyframes status-dot-pulse {
 	0%,
 	100% {
 		opacity: 1;
-		transform: scale(1);
 	}
 	50% {
-		opacity: 0.35;
-		transform: scale(1.6);
+		opacity: 0.3;
 	}
 }
 
