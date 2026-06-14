@@ -323,7 +323,11 @@ func (s *quotaCircuitState) isCircuitOpen() bool {
 func (s *quotaCircuitState) recordSuccess() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	wasFailing := s.consecFailures > 0 || !s.openUntil.IsZero()
+	// Only report recovery for a circuit that actually tripped (open) or is
+	// probing after a trip (half-open keeps consecFailures at/above threshold
+	// until this success). A sub-threshold blip never opened, so its recovery
+	// isn't worth a line.
+	wasFailing := s.consecFailures >= quotaBreakerThreshold || !s.openUntil.IsZero()
 	s.consecFailures = 0
 	s.openUntil = time.Time{}
 	return wasFailing
