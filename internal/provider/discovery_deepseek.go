@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/google/uuid"
-
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -32,60 +30,19 @@ func (d *DiscoveryService) discoverDeepSeek(ctx context.Context, provider *Provi
 		return nil, fmt.Errorf("deepseek: failed to decode response for provider %s: %w", provider.Name, err)
 	}
 
-	catalog := GetDeepSeekModels()
-	catalogMap := make(map[string]DeepSeekModelSpec)
-	for _, spec := range catalog {
-		catalogMap[spec.ModelID] = spec
-	}
-
-	models := make([]*model.Model, 0, len(openAIResp.Data))
+	// Live /models only carries id + owner; merge unions it with the catalog
+	// (live wins, catalog backfills context/max-output/pricing/reasoning). The
+	// old hardcoded 128k/8k default for uncatalogued models is dropped: such a
+	// model now becomes a clean stub enriched by models.dev, the same as every
+	// other provider (DeepSeek models are 1M/384K, so the old default was stale).
+	live := make([]*model.Model, 0, len(openAIResp.Data))
 	for _, m := range openAIResp.Data {
-		contextLen := 128000
-		maxOutput := 8192
-		reasoning := false
-		inPriceCacheHit := 0.0
-		inPriceCacheMiss := 0.0
-		outPrice := 0.0
-
-		if spec, ok := catalogMap[m.ID]; ok {
-			contextLen = spec.ContextLength
-			maxOutput = spec.MaxOutputTokens
-			reasoning = spec.Reasoning
-			inPriceCacheHit = spec.InputPricePerMillionCacheHit
-			inPriceCacheMiss = spec.InputPricePerMillionCacheMiss
-			outPrice = spec.OutputPricePerMillion
-		}
-
-		caps := model.Capability{
-			Streaming:   true,
-			Reasoning:   reasoning,
-			ToolCalling: true,
-		}
-		capJSON, _ := json.Marshal(caps)
-
-		models = append(models, &model.Model{
-			ID:                           uuid.New(),
-			ProviderID:                   provider.ID,
-			ModelID:                      m.ID,
-			Name:                         m.ID,
-			DisplayName:                  m.ID,
-			Capabilities:                 string(capJSON),
-			Params:                       "{}",
-			Modality:                     "text",
-			InputModalities:              "[]",
-			OutputModalities:             "[]",
-			ContextLength:                &contextLen,
-			MaxOutputTokens:              &maxOutput,
-			InputPricePerMillion:         &inPriceCacheMiss,
-			InputPricePerMillionCacheHit: &inPriceCacheHit,
-			OutputPricePerMillion:        &outPrice,
-			OwnedBy:                      m.OwnedBy,
-			Enabled:                      true,
-		})
+		live = append(live, liveModelStub(m.ID, m.OwnedBy, provider.ID))
 	}
 
-	debuglog.Info("discovery: deepseek discovered models", "models", len(models), "provider", provider.Name, "provider_id", provider.ID)
-	return models, nil
+	merged := mergeLiveAndCatalog(live, deepseekCatalogModels(provider.ID))
+	debuglog.Info("discovery: deepseek discovered models", "provider", provider.Name, "provider_id", provider.ID, "live", len(live), "catalog", len(GetDeepSeekModels()), "merged", len(merged))
+	return merged, nil
 }
 
 // GetDeepSeekBalance retrieves the account balance from DeepSeek.

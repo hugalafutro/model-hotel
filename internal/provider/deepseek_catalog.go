@@ -1,5 +1,13 @@
 package provider
 
+import (
+	"encoding/json"
+
+	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/model"
+)
+
 // DeepSeekModelSpec contains specification and pricing for a DeepSeek model.
 type DeepSeekModelSpec struct {
 	ModelID                       string  `json:"model_id"`
@@ -26,4 +34,53 @@ func GetDeepSeekModelSpec(modelID string) *DeepSeekModelSpec {
 		}
 	}
 	return nil
+}
+
+// deepseekSpecToModel converts a DeepSeekModelSpec into a model.Model. The
+// catalog's cache-miss price maps to the model's standard input price; cache-hit
+// is carried separately.
+func deepseekSpecToModel(spec *DeepSeekModelSpec, providerID uuid.UUID) *model.Model {
+	caps := model.Capability{
+		Streaming:   true,
+		Reasoning:   spec.Reasoning,
+		ToolCalling: true,
+	}
+	capJSON, _ := json.Marshal(caps)
+
+	contextLen := spec.ContextLength
+	maxOutput := spec.MaxOutputTokens
+	inPriceCacheHit := spec.InputPricePerMillionCacheHit
+	inPriceCacheMiss := spec.InputPricePerMillionCacheMiss
+	outPrice := spec.OutputPricePerMillion
+
+	return &model.Model{
+		ID:                           uuid.New(),
+		ProviderID:                   providerID,
+		ModelID:                      spec.ModelID,
+		Name:                         spec.ModelID,
+		DisplayName:                  spec.ModelID,
+		Capabilities:                 string(capJSON),
+		Params:                       "{}",
+		Modality:                     "text",
+		InputModalities:              "[]",
+		OutputModalities:             "[]",
+		ContextLength:                &contextLen,
+		MaxOutputTokens:              &maxOutput,
+		InputPricePerMillion:         &inPriceCacheMiss,
+		InputPricePerMillionCacheHit: &inPriceCacheHit,
+		OutputPricePerMillion:        &outPrice,
+		OwnedBy:                      "deepseek",
+		Enabled:                      true,
+	}
+}
+
+// deepseekCatalogModels converts the whole DeepSeek catalog into models, ready
+// to union with a live /models listing via mergeLiveAndCatalog.
+func deepseekCatalogModels(providerID uuid.UUID) []*model.Model {
+	specs := GetDeepSeekModels()
+	models := make([]*model.Model, 0, len(specs))
+	for i := range specs {
+		models = append(models, deepseekSpecToModel(&specs[i], providerID))
+	}
+	return models
 }
