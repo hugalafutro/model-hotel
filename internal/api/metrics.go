@@ -4,6 +4,7 @@ import (
 	"crypto/subtle"
 	"net/http"
 
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/metrics"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -59,6 +60,7 @@ func (h *Handler) metricsAuth(next http.Handler) http.Handler {
 				next.ServeHTTP(w, r)
 				return
 			}
+			debuglog.Warn("auth: metrics scrape with invalid token", "remote_addr", r.RemoteAddr)
 			http.Error(w, "invalid metrics token", http.StatusUnauthorized)
 			return
 		}
