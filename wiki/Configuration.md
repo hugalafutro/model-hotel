@@ -210,7 +210,7 @@ User preferences are stored in `localStorage` (client-side only, never sent to t
 | `adminToken` | Admin authentication token (used for API calls) |
 | `theme` | dark/light |
 | `accentColor` | Hex color string |
-| `uiStyle` | cyber-terminal, glassmorphism-lite, or default |
+| `uiStyle` | clean-saas (default), cyber-terminal, or glassmorphism-lite |
 | `toastPosition` | Toast notification position |
 | `toastTimeout` | Toast display duration (ms) |
 | `persistChat` | Whether to persist chat state across sessions |
@@ -234,7 +234,7 @@ Backend settings: `discovery_interval`, `discovery_on_startup`, `discovery_on_pr
 WebAuthn/FIDO2 credential management: register new passkeys, rename and delete existing ones. Registration is available only when `WEBAUTHN_RP_ID` is configured (see [Security](Security)).
 
 #### Appearance (localStorage only)
-- **UI Style:** `cyber-terminal`, `glassmorphism-lite` - stored in localStorage `uiStyle` (note: `clean-saas` is not available)
+- **UI Style:** `clean-saas` (default), `cyber-terminal`, `glassmorphism-lite` - stored in localStorage `uiStyle`
 - **Theme:** `dark` / `light` - stored in localStorage `theme`
 - **Accent Color:** 10 preset swatches + custom hex picker - stored in localStorage `accentColor`
 - **Toast Notifications:** 6-position visual picker (`toastPosition`) and 1s–15s auto-dismiss slider (`toastTimeout`)
@@ -290,7 +290,19 @@ Backend settings: `ttft_timeout`, `stream_stall_timeout`
 *Settings page - showing the 8 collapsible sections: Model Discovery, Passkeys, Appearance, Data Storage & Logging, Database Backup, Rate Limiting, Circuit Breaker & Failover, and Proxy.*
 
 ![Settings Appearance](screenshots/settings_appearance.png)
-*Settings page - Appearance section expanded, showing UI Style cards (cyber-terminal, glassmorphism-lite), Theme toggle, and Accent Color picker.*
+*Settings page - Appearance section expanded, showing the UI Style cards (Clean SaaS, Cyber Terminal, Glassmorphism), Theme toggle, and Accent Color picker.*
+
+The three UI styles applied to the dashboard (dark mode, each style's default accent):
+
+<p align="center">
+  <img src="screenshots/dashboard_saas.png" width="260" alt="Clean SaaS UI style">
+  &nbsp;
+  <img src="screenshots/dashboard_terminal.png" width="260" alt="Cyber Terminal UI style">
+  &nbsp;
+  <img src="screenshots/dashboard_glass.png" width="260" alt="Glassmorphism UI style">
+</p>
+
+*Left to right: Clean SaaS (default), Cyber Terminal, Glassmorphism.*
 
 ![Settings Rate Limiting](screenshots/settings_ratelimit_failover.png)
 *Settings page - Rate Limiting section expanded, showing the enable toggle, RPS selector, and Burst selector.*
