@@ -83,6 +83,8 @@ These settings are stored in the `settings` table and can be changed at runtime 
 | `backup_father_retention` | `4` | Number of weekly backups to keep (father tier). Keeps the most recent backup from each of the last N weeks, excluding those already kept as sons. |
 | `backup_grandfather_retention` | `3` | Number of monthly backups to keep (grandfather tier). Keeps the most recent backup from each of the last N months, excluding those already kept as sons or fathers. |
 
+**Backup scheduling:** while `backup_enabled` is `true`, a background scheduler (no external cron) creates one backup every `backup_interval` (default 24h, minimum 5 min; first run ~1 min after startup) and immediately prunes per the son/father/grandfather tiers above. The backup settings are re-read each cycle, so changes take effect without a restart. Each scheduled backup emits a `backup.created` success toast (when the dashboard is open) and an App Logs entry. Manual download/restore are separate, on-demand actions.
+
 ### Rate Limiting Details
 
 The rate limiting system uses a token bucket per virtual key (backed by `golang.org/x/time/rate`):

@@ -266,6 +266,10 @@ When periodic backup is enabled, backups are classified into three tiers:
 
 When enabling periodic backup for the first time, a confirmation dialog shows which existing backups would be removed under the rotation scheme.
 
+##### How scheduling works
+
+A background scheduler (started about a minute after the server boots) drives periodic backups - there is no external cron job. While `backup_enabled` is `true`, each cycle it creates one backup with `pg_dump`, then immediately applies the son/father/grandfather rotation above (pruning any backup outside the retention tiers), and sleeps for `backup_interval` (default 24h, floored at 5 minutes) before repeating. `backup_enabled`, `backup_interval`, and the retention counts are re-read every cycle, so changes take effect without a restart. Each scheduled backup publishes a `backup.created` event, which surfaces as a success toast in the dashboard (when a session is connected) and as an App Logs entry. The manual **Download** / **Restore** buttons are separate, on-demand actions.
+
 #### Rate Limiting
 Backend settings: `rate_limit_enabled`, `rate_limit_rps`, `rate_limit_burst`, `rate_limit_ip_enabled`, `rate_limit_ip_rps`, `rate_limit_ip_burst`, `rate_limit_max_wait_ms`
 
