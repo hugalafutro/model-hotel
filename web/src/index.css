@@ -2815,6 +2815,29 @@ html.light .terminal-titlebar-win11 .win11-icon {
 	animation: pulse-subtle 2s ease-in-out infinite;
 }
 
+/* Sidebar API-status dot. Online: one slow pulse each time the system-stats
+   query refetches (the span is remounted via a dataUpdatedAt key). Offline:
+   the same pulse, slower and looping, to keep signalling the stalled link. */
+@keyframes status-dot-pulse {
+	0%,
+	100% {
+		opacity: 1;
+		transform: scale(1);
+	}
+	50% {
+		opacity: 0.35;
+		transform: scale(1.6);
+	}
+}
+
+.status-dot-online {
+	animation: status-dot-pulse 1.2s ease-in-out;
+}
+
+.status-dot-offline {
+	animation: status-dot-pulse 1.6s ease-in-out infinite;
+}
+
 /* Waffle Pulse: staggered bounce pop */
 @keyframes waffle-pop {
 	from {

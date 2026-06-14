@@ -145,7 +145,11 @@ function formatBytesPerSec(bytesPerSec: number) {
 
 function SystemStatus() {
 	const { t } = useTranslation();
-	const { data: stats, isError } = useQuery({
+	const {
+		data: stats,
+		isError,
+		dataUpdatedAt,
+	} = useQuery({
 		queryKey: ["system"],
 		queryFn: () => api.system.get(),
 		refetchInterval: 10000,
@@ -221,7 +225,11 @@ function SystemStatus() {
 						className={`flex items-center ${isError ? "text-red-400" : "text-green-400"}`}
 					>
 						<span
-							className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isError ? "bg-red-400" : "bg-green-400"}`}
+							// Remount on each successful refetch so the online dot
+							// replays its one-shot pulse; offline keeps a constant key
+							// so its looping pulse runs uninterrupted.
+							key={isError ? "offline" : dataUpdatedAt}
+							className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isError ? "bg-red-400 status-dot-offline" : "bg-green-400 status-dot-online"}`}
 						/>
 						{isError ? t("layout.status.error") : t("layout.status.online")}
 					</span>
