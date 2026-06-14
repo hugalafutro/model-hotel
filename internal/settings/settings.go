@@ -3,6 +3,7 @@ package settings
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -231,6 +232,12 @@ func (r *Repository) GetWithDefault(ctx context.Context, key, defaultValue strin
 	var value string
 	err := r.pool.QueryRow(ctx, "SELECT value FROM settings WHERE key = $1", key).Scan(&value)
 	if err != nil {
+		// An unset key (no row) is the normal "use the default" path and must
+		// stay silent. A real DB error, though, silently reverts behaviour to
+		// defaults (e.g. rate limits) — worth a Warn so it's not invisible.
+		if !errors.Is(err, pgx.ErrNoRows) {
+			debuglog.Warn("settings: DB read failed, falling back to default", "key", key, "error", err)
+		}
 		return defaultValue
 	}
 

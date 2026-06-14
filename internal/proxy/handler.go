@@ -214,7 +214,9 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token, ok := util.ParseBearerToken(r)
 		if !ok {
-			debuglog.Error("auth: missing authorization header", "remote_addr", r.RemoteAddr)
+			// Client error, not a server fault — Warn keeps the Error stream
+			// reserved for things the operator must act on.
+			debuglog.Warn("auth: missing authorization header", "remote_addr", r.RemoteAddr)
 			writeOpenAIError(w, "missing authorization header: expected \"Authorization: Bearer <virtual key>\"", http.StatusUnauthorized)
 			return
 		}
@@ -223,7 +225,7 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 		vk, err := h.virtualKeyRepo.FindByKeyHash(r.Context(), keyHash)
 		if err != nil {
 			if errors.Is(err, virtualkey.ErrNotFound) {
-				debuglog.Error("auth: key not found", "remote_addr", r.RemoteAddr)
+				debuglog.Warn("auth: key not found", "remote_addr", r.RemoteAddr)
 				writeOpenAIError(w, "invalid virtual key", http.StatusUnauthorized)
 			} else {
 				debuglog.Error("auth: db lookup failed", "error", err)

@@ -317,12 +317,16 @@ func (s *quotaCircuitState) isCircuitOpen() bool {
 	return false
 }
 
-// recordSuccess resets the circuit breaker state on a successful fetch.
-func (s *quotaCircuitState) recordSuccess() {
+// recordSuccess resets the circuit breaker state on a successful fetch and
+// reports whether the circuit had been failing/open (so the caller can log the
+// recovery transition).
+func (s *quotaCircuitState) recordSuccess() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	wasFailing := s.consecFailures > 0 || !s.openUntil.IsZero()
 	s.consecFailures = 0
 	s.openUntil = time.Time{}
+	return wasFailing
 }
 
 // recordFailure increments the failure counter and opens the circuit if the
@@ -431,7 +435,9 @@ func (d *DiscoveryService) doQuotaRequestWithRetry(ctx context.Context, req *htt
 				lastErr = err
 				continue
 			}
-			circuit.recordFailure()
+			if opened := circuit.recordFailure(); opened {
+				debuglog.Warn("discovery: circuit breaker opened for quota fetch", "type", providerType, "provider", providerName, "provider_id", providerID, "threshold", quotaBreakerThreshold)
+			}
 			return nil, err
 		}
 		// Retry on 429 (rate-limited) and 5xx (server error) responses.
@@ -443,7 +449,9 @@ func (d *DiscoveryService) doQuotaRequestWithRetry(ctx context.Context, req *htt
 			continue
 		}
 		// Success or non-retryable status — return as-is.
-		circuit.recordSuccess()
+		if recovered := circuit.recordSuccess(); recovered {
+			debuglog.Info("discovery: quota circuit breaker recovered", "type", providerType, "provider", providerName, "provider_id", providerID)
+		}
 		return resp, nil
 	}
 	if opened := circuit.recordFailure(); opened {
