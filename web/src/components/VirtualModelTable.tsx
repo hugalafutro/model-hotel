@@ -19,6 +19,7 @@ import {
 } from "../utils/format";
 import { parseCapabilities, proxyModelID } from "../utils/model";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { CopyablePill } from "./CopyablePill";
 import { CAP_META, type CapKey, hasCap } from "./capMeta";
 import { FilterDropdown } from "./FilterDropdown";
 import { FilterInput } from "./FilterInput";
@@ -217,9 +218,13 @@ export function VirtualModelTable({
 		return caps;
 	}, [entries]);
 
-	const disabledModelIds = useMemo(
-		() => entries.filter((m) => !m.enabled).map((m) => m.id),
+	const disabledModels = useMemo(
+		() => entries.filter((m) => !m.enabled),
 		[entries],
+	);
+	const disabledModelIds = useMemo(
+		() => disabledModels.map((m) => m.id),
+		[disabledModels],
 	);
 	const disabledCount = disabledModelIds.length;
 
@@ -589,15 +594,14 @@ export function VirtualModelTable({
 													{model.name ||
 														proxyModelID(model.provider_name, model.model_id)}
 												</span>
-												<span
-													className="text-[11px] model-id-text font-mono leading-tight truncate"
-													title={proxyModelID(
+												<CopyablePill
+													text={proxyModelID(
 														model.provider_name,
 														model.model_id,
 													)}
-												>
-													{proxyModelID(model.provider_name, model.model_id)}
-												</span>
+													textClassName="text-[11px] model-id-text font-mono leading-tight"
+													tooltip={t("components.modelTable.clickToCopyId")}
+												/>
 											</div>
 										</td>
 										<td className="px-4 py-1.5">
@@ -692,11 +696,9 @@ export function VirtualModelTable({
 					message={t("components.virtualModelTable.deleteDisabledMessage", {
 						count: disabledCount,
 					})}
-					fields={[
-						t("components.virtualModelTable.disabledModels", {
-							count: disabledCount,
-						}),
-					]}
+					fields={disabledModels.map((m) =>
+						proxyModelID(m.provider_name, m.model_id),
+					)}
 					confirmLabel={t("common.delete")}
 					onConfirm={() => {
 						onDeleteDisabled?.(disabledModelIds);

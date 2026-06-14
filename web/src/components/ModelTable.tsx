@@ -162,9 +162,13 @@ export function ModelTable({
 		};
 	}, [models, searchQuery, sort, capFilter, providerFilter]);
 
-	const disabledModelIds = useMemo(
-		() => sortedAndFiltered.filter((m) => !m.enabled).map((m) => m.id),
+	const disabledModels = useMemo(
+		() => sortedAndFiltered.filter((m) => !m.enabled),
 		[sortedAndFiltered],
+	);
+	const disabledModelIds = useMemo(
+		() => disabledModels.map((m) => m.id),
+		[disabledModels],
 	);
 	const disabledCount = disabledModelIds.length;
 
@@ -375,14 +379,10 @@ export function ModelTable({
 											<div
 												className={`flex flex-col ${model.enabled ? "" : "opacity-50"}`}
 											>
-												<CopyablePill
-													text={
-														model.name ||
-														proxyModelID(model.provider_name, model.model_id)
-													}
-													textClassName="text-left text-sm font-medium text-white"
-													tooltip={t("components.modelTable.clickToCopyName")}
-												/>
+												<span className="text-left text-sm font-medium text-white">
+													{model.name ||
+														proxyModelID(model.provider_name, model.model_id)}
+												</span>
 												<CopyablePill
 													text={proxyModelID(
 														model.provider_name,
@@ -460,11 +460,9 @@ export function ModelTable({
 					message={t("components.modelTable.deleteDisabledMessage", {
 						count: disabledCount,
 					})}
-					fields={[
-						t("components.modelTable.deleteDisabledLabel", {
-							count: disabledCount,
-						}),
-					]}
+					fields={disabledModels.map((m) =>
+						proxyModelID(m.provider_name, m.model_id),
+					)}
 					confirmLabel={t("common.delete")}
 					onConfirm={() => {
 						onDeleteDisabled?.(disabledModelIds);

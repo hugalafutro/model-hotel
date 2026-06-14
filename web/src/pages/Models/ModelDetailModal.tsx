@@ -189,11 +189,18 @@ export function ModelDetailModal({
 					? ` | TTFT: ${(result.ttft_ms / 1000).toFixed(1)}s`
 					: "";
 				onToast(
-					t("models.detail.testSuccess", {
-						content,
-						ttftPart,
-						duration: (result.duration_ms / 1000).toFixed(1),
-					}),
+					t(
+						// Reasoning models can succeed with empty content (the budget
+						// went to reasoning); omit the "Response:" part in that case.
+						content
+							? "models.detail.testSuccess"
+							: "models.detail.testSuccessNoResponse",
+						{
+							content,
+							ttftPart,
+							duration: (result.duration_ms / 1000).toFixed(1),
+						},
+					),
 					"success",
 				);
 			} else {

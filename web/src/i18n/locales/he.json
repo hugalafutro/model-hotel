@@ -846,7 +846,8 @@
 				"price": "0.00"
 			},
 			"testSuccess": "הצלחה | תגובה: {{content}}{{ttftPart}} | משך: {{duration}}שניות",
-			"testFailed": "הבדיקה נכשלה: {{error}}"
+			"testFailed": "הבדיקה נכשלה: {{error}}",
+			"testSuccessNoResponse": "הצלחה{{ttftPart}} | משך: {{duration}}שניות"
 		},
 		"table": {
 			"sortByModelName": "מיין לפי שם הדגם",
@@ -1908,10 +1909,7 @@
 			"deleteDisabledAria_other": "מחק {{count}} דגמים שהושבתו",
 			"deleteDisabledMessage_one": "פעולה זו תמחק לצמיתות את הדגם המושבת {{count}} . אם זיהוי אוטומטי מופעל אצל הספק שלהם, הם יזוהו מחדש במחזור הבא. יש להשבית את הזיהוי האוטומטי אצל הספק כדי למנוע זאת.",
 			"deleteDisabledMessage_other": "פעולה זו תמחק לצמיתות את הדגמים המושבתים ב- {{count}} . אם זיהוי אוטומטי מופעל אצל הספק שלהם, הם יזוהו מחדש במחזור הבא. יש להשבית את הזיהוי האוטומטי אצל הספק כדי למנוע זאת.",
-			"clickToCopyId": "לחץ כדי להעתיק את מזהה הדגם",
-			"deleteDisabledLabel_one": "{{count}} דגם מושבת",
-			"deleteDisabledLabel_other": "{{count}} דוגמניות עם מוגבלות",
-			"clickToCopyName": "לחץ כדי להעתיק את שם המודל"
+			"clickToCopyId": "לחץ כדי להעתיק את מזהה הדגם"
 		},
 		"virtualModelTable": {
 			"searchModels": "חפש דגמים…",
@@ -1921,9 +1919,7 @@
 			"deleteDisabledAria_one": "מחק {{count}} דגם מושבת",
 			"deleteDisabledAria_other": "מחק {{count}} דגמים שהושבתו",
 			"deleteDisabledMessage_one": "פעולה זו תמחק לצמיתות את הדגם המושבת {{count}} . אם זיהוי אוטומטי מופעל אצל הספק שלהם, הם יזוהו מחדש במחזור הבא. יש להשבית את הזיהוי האוטומטי אצל הספק כדי למנוע זאת.",
-			"deleteDisabledMessage_other": "פעולה זו תמחק לצמיתות את הדגמים המושבתים ב- {{count}} . אם זיהוי אוטומטי מופעל אצל הספק שלהם, הם יזוהו מחדש במחזור הבא. יש להשבית את הזיהוי האוטומטי אצל הספק כדי למנוע זאת.",
-			"disabledModels_one": "דגם אחד לא תקין",
-			"disabledModels_other": "{{count}} דוגמניות עם מוגבלות"
+			"deleteDisabledMessage_other": "פעולה זו תמחק לצמיתות את הדגמים המושבתים ב- {{count}} . אם זיהוי אוטומטי מופעל אצל הספק שלהם, הם יזוהו מחדש במחזור הבא. יש להשבית את הזיהוי האוטומטי אצל הספק כדי למנוע זאת."
 		},
 		"modelReplyCard": {
 			"modelDetails": "פרטי הדגם",

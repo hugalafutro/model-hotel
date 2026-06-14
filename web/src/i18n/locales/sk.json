@@ -846,7 +846,8 @@
 				"price": "0,00"
 			},
 			"testSuccess": "Úspech | Odkaz: {{content}}{{ttftPart}} | Trvanie: {{duration}}s",
-			"testFailed": "Test sa nepodaril: {{error}}"
+			"testFailed": "Test sa nepodaril: {{error}}",
+			"testSuccessNoResponse": "Úspech{{ttftPart}} | Trvanie: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Zoradiť podľa názvu modelu",
@@ -1908,10 +1909,7 @@
 			"deleteDisabledAria_other": "Odstrániť {{count}} neaktívne modely",
 			"deleteDisabledMessage_one": "Týmto sa natrvalo odstráni deaktivovaný model {{count}} . Ak je u daného poskytovateľa povolené automatické vyhľadávanie, model sa pri nasledujúcom cykle opäť vyhľadá. Ak tomu chcete zabrániť, deaktivujte automatické vyhľadávanie u poskytovateľa.",
 			"deleteDisabledMessage_other": "Týmto sa trvalo odstránia deaktivované modely na adrese {{count}} . Ak je u ich poskytovateľa povolené automatické vyhľadávanie, budú pri nasledujúcom cykle opäť vyhľadané. Ak tomu chcete zabrániť, deaktivujte automatické vyhľadávanie u poskytovateľa.",
-			"clickToCopyId": "Kliknite na tlačidlo pre skopírovanie ID modelu",
-			"deleteDisabledLabel_one": "{{count}} nefunkčný model",
-			"deleteDisabledLabel_other": "{{count}} modely s obmedzenou schopnosťou pohybu",
-			"clickToCopyName": "Kliknutím skopírujte názov modelu"
+			"clickToCopyId": "Kliknite na tlačidlo pre skopírovanie ID modelu"
 		},
 		"virtualModelTable": {
 			"searchModels": "Vyhľadávať modely…",
@@ -1921,9 +1919,7 @@
 			"deleteDisabledAria_one": "Odstrániť {{count}} nefunkčný model",
 			"deleteDisabledAria_other": "Odstrániť {{count}} neaktívne modely",
 			"deleteDisabledMessage_one": "Týmto sa natrvalo odstráni deaktivovaný model {{count}} . Ak je u daného poskytovateľa povolené automatické vyhľadávanie, model sa pri nasledujúcom cykle opäť vyhľadá. Ak tomu chcete zabrániť, deaktivujte automatické vyhľadávanie u poskytovateľa.",
-			"deleteDisabledMessage_other": "Týmto sa natrvalo odstránia deaktivované modely na adrese {{count}} . Ak je u ich poskytovateľa povolené automatické vyhľadávanie, budú pri nasledujúcom cykle opäť vyhľadané. Ak tomu chcete zabrániť, deaktivujte automatické vyhľadávanie u poskytovateľa.",
-			"disabledModels_one": "1 model s postihnutím",
-			"disabledModels_other": "{{count}} modely s obmedzenou schopnosťou pohybu"
+			"deleteDisabledMessage_other": "Týmto sa natrvalo odstránia deaktivované modely na adrese {{count}} . Ak je u ich poskytovateľa povolené automatické vyhľadávanie, budú pri nasledujúcom cykle opäť vyhľadané. Ak tomu chcete zabrániť, deaktivujte automatické vyhľadávanie u poskytovateľa."
 		},
 		"modelReplyCard": {
 			"modelDetails": "Podrobnosti o modeli",

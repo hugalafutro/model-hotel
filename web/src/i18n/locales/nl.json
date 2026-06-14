@@ -790,8 +790,8 @@
 		"page_description": "Ontdekte modellen van jouw aanbieders",
 		"badge_enabled": "{{count}} ingeschakeld",
 		"badge_disabled": "{{count}} uitgeschakeld",
-		"view_mode_pages": "%% Pagina's",
-		"view_mode_scroll": "≥ Scroll",
+		"view_mode_pages": "⬡ Pagina's",
+		"view_mode_scroll": "⇊ Scroll",
 		"switch_to_pagination": "Schakel naar pagineringsmodus",
 		"switch_to_scroll": "Overschakelen naar scrollmodus",
 		"toast_updated": "Model bijgewerkt",
@@ -845,8 +845,9 @@
 			"placeholder": {
 				"price": "0.00"
 			},
-			"testSuccess": "Succes ½ Reactie: {{content}}{{ttftPart}} {{ttftPart}} s Duur: {{duration}}s",
-			"testFailed": "Test mislukt: {{error}}"
+			"testSuccess": "Succes | Reactie: {{content}}{{ttftPart}} | Duur: {{duration}}s",
+			"testFailed": "Test mislukt: {{error}}",
+			"testSuccessNoResponse": "Succes{{ttftPart}} | Duur: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Sorteren op modelnaam",
@@ -1157,8 +1158,8 @@
 			"label": "invoergegevens"
 		},
 		"loading": {
-			"newer": "Cerberus Laden nieuwer…",
-			"older": "Cerberus Laden ouder…"
+			"newer": "↻ Nieuwere laden…",
+			"older": "↻ Oudere laden…"
 		}
 	},
 	"applogs": {
@@ -1195,8 +1196,8 @@
 			"label": "invoergegevens"
 		},
 		"loading": {
-			"newer": "Cerberus Laden nieuwer…",
-			"older": "Cerberus Laden ouder…"
+			"newer": "↻ Nieuwere laden…",
+			"older": "↻ Oudere laden…"
 		}
 	},
 	"format": {
@@ -1798,8 +1799,8 @@
 			"viewModeToggle": {
 				"switchToScroll": "Overschakelen naar scrollmodus",
 				"switchToPagination": "Schakel naar pagineringsmodus",
-				"scroll": "≥ Scroll",
-				"pages": "%% Pagina's"
+				"scroll": "⇊ Scroll",
+				"pages": "⬡ Pagina's"
 			},
 			"dateFilterButton": {
 				"filterByDateRange": "Op datumbereik filteren",
@@ -1908,10 +1909,7 @@
 			"deleteDisabledAria_other": "Verwijder {{count}} uitgeschakelde modellen",
 			"deleteDisabledMessage_one": "Dit zal {{count}} uitgeschakeld model permanent verwijderen. Als autodiscovery is ingeschakeld bij hun provider, worden ze opnieuw ontdekt bij de volgende cyclus. Schakel autodiscovery uit bij de provider om dit te voorkomen.",
 			"deleteDisabledMessage_other": "Dit zal {{count}} uitgeschakelde modellen permanent verwijderen. Als autodiscovery is ingeschakeld bij hun provider, worden ze opnieuw ontdekt bij de volgende cyclus. Schakel autodiscovery uit bij de provider om dit te voorkomen.",
-			"clickToCopyId": "Klik om model-ID te kopiëren",
-			"deleteDisabledLabel_one": "{{count}} uitgeschakeld model",
-			"deleteDisabledLabel_other": "{{count}} uitgeschakelde modellen",
-			"clickToCopyName": "Klik om de modelnaam te kopiëren"
+			"clickToCopyId": "Klik om model-ID te kopiëren"
 		},
 		"virtualModelTable": {
 			"searchModels": "Zoek modellen…",
@@ -1921,9 +1919,7 @@
 			"deleteDisabledAria_one": "{{count}} uitgeschakelde model verwijderen",
 			"deleteDisabledAria_other": "Verwijder {{count}} uitgeschakelde modellen",
 			"deleteDisabledMessage_one": "Dit zal {{count}} uitgeschakeld model permanent verwijderen. Als autodiscovery is ingeschakeld bij hun provider, worden ze opnieuw ontdekt bij de volgende cyclus. Schakel autodiscovery uit bij de provider om dit te voorkomen.",
-			"deleteDisabledMessage_other": "Dit zal {{count}} uitgeschakelde modellen permanent verwijderen. Als autodiscovery is ingeschakeld bij hun provider, worden ze opnieuw ontdekt bij de volgende cyclus. Schakel autodiscovery uit bij de provider om dit te voorkomen.",
-			"disabledModels_one": "1 uitgeschakeld model",
-			"disabledModels_other": "{{count}} uitgeschakelde modellen"
+			"deleteDisabledMessage_other": "Dit zal {{count}} uitgeschakelde modellen permanent verwijderen. Als autodiscovery is ingeschakeld bij hun provider, worden ze opnieuw ontdekt bij de volgende cyclus. Schakel autodiscovery uit bij de provider om dit te voorkomen."
 		},
 		"modelReplyCard": {
 			"modelDetails": "Model details",
@@ -2235,8 +2231,8 @@
 		"viewModeToggle": {
 			"switchToScroll": "Overschakelen naar scrollmodus",
 			"switchToPagination": "Schakel naar pagineringsmodus",
-			"scroll": "≥ Scroll",
-			"pages": "%% Pagina's"
+			"scroll": "⇊ Scroll",
+			"pages": "⬡ Pagina's"
 		},
 		"liveToggleButton": {
 			"live": "Zichtbaar",

@@ -846,7 +846,8 @@
 				"price": "0,00"
 			},
 			"testSuccess": "Thành công | Liên hệ: {{content}}{{ttftPart}} | Thời lượng: {{duration}}giây",
-			"testFailed": "Thử nghiệm không thành công: {{error}}"
+			"testFailed": "Thử nghiệm không thành công: {{error}}",
+			"testSuccessNoResponse": "Thành công{{ttftPart}} | Thời lượng: {{duration}}giây"
 		},
 		"table": {
 			"sortByModelName": "Sắp xếp theo tên mẫu",
@@ -1908,10 +1909,7 @@
 			"deleteDisabledAria_other": "Xóa {{count}} các mẫu đã bị vô hiệu hóa",
 			"deleteDisabledMessage_one": "Thao tác này sẽ xóa vĩnh viễn mô hình bị vô hiệu hóa tại địa chỉ {{count}} . Nếu tính năng tự động phát hiện được bật trên nhà cung cấp của họ, các mô hình này sẽ được phát hiện lại trong chu kỳ tiếp theo. Vui lòng tắt tính năng tự động phát hiện trên nhà cung cấp để ngăn chặn điều này.",
 			"deleteDisabledMessage_other": "Thao tác này sẽ xóa vĩnh viễn các mô hình bị vô hiệu hóa tại {{count}} . Nếu tính năng tự động phát hiện được bật trên nhà cung cấp của chúng, các mô hình này sẽ được phát hiện lại trong chu kỳ tiếp theo. Vui lòng tắt tính năng tự động phát hiện trên nhà cung cấp để ngăn chặn điều này.",
-			"clickToCopyId": "Nhấp để sao chép ID mẫu",
-			"deleteDisabledLabel_one": "{{count}} mô hình bị vô hiệu hóa",
-			"deleteDisabledLabel_other": "{{count}} các mẫu bị vô hiệu hóa",
-			"clickToCopyName": "Nhấp để sao chép tên mô hình"
+			"clickToCopyId": "Nhấp để sao chép ID mẫu"
 		},
 		"virtualModelTable": {
 			"searchModels": "Tìm kiếm các mẫu xe…",
@@ -1921,9 +1919,7 @@
 			"deleteDisabledAria_one": "Xóa {{count}} mẫu đã bị vô hiệu hóa",
 			"deleteDisabledAria_other": "Xóa {{count}} các mẫu đã bị vô hiệu hóa",
 			"deleteDisabledMessage_one": "Thao tác này sẽ xóa vĩnh viễn mô hình đã bị vô hiệu hóa tại địa chỉ {{count}} . Nếu tính năng tự động phát hiện được bật trên nhà cung cấp của họ, các mô hình này sẽ được phát hiện lại trong chu kỳ tiếp theo. Vui lòng tắt tính năng tự động phát hiện trên nhà cung cấp để ngăn chặn điều này.",
-			"deleteDisabledMessage_other": "Thao tác này sẽ xóa vĩnh viễn các mô hình bị vô hiệu hóa tại {{count}} . Nếu tính năng tự động phát hiện được bật trên nhà cung cấp của chúng, các mô hình này sẽ được phát hiện lại trong chu kỳ tiếp theo. Vui lòng tắt tính năng tự động phát hiện trên nhà cung cấp để ngăn chặn điều này.",
-			"disabledModels_one": "1 mẫu bị hỏng",
-			"disabledModels_other": "{{count}} các mẫu bị vô hiệu hóa"
+			"deleteDisabledMessage_other": "Thao tác này sẽ xóa vĩnh viễn các mô hình bị vô hiệu hóa tại {{count}} . Nếu tính năng tự động phát hiện được bật trên nhà cung cấp của chúng, các mô hình này sẽ được phát hiện lại trong chu kỳ tiếp theo. Vui lòng tắt tính năng tự động phát hiện trên nhà cung cấp để ngăn chặn điều này."
 		},
 		"modelReplyCard": {
 			"modelDetails": "Chi tiết về mẫu",

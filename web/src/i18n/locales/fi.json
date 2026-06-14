@@ -790,8 +790,8 @@
 		"page_description": "Löydetty malleja palveluntarjoajilta",
 		"badge_enabled": "{{count}} käytössä",
 		"badge_disabled": "{{count}} pois käytöstä",
-		"view_mode_pages": "¶ Sivut",
-		"view_mode_scroll": "¶ Vieritä",
+		"view_mode_pages": "⬡ Sivut",
+		"view_mode_scroll": "⇊ Vieritä",
 		"switch_to_pagination": "Vaihda sivutustilaan",
 		"switch_to_scroll": "Vaihda vieritystilaan",
 		"toast_updated": "Malli päivitetty",
@@ -845,8 +845,9 @@
 			"placeholder": {
 				"price": "0.00"
 			},
-			"testSuccess": "Onnistui: {{content}}{{ttftPart}} ¶ Kesto: {{duration}}s",
-			"testFailed": "Testi epäonnistui: {{error}}"
+			"testSuccess": "Onnistui | Vastaus: {{content}}{{ttftPart}} | Kesto: {{duration}}s",
+			"testFailed": "Testi epäonnistui: {{error}}",
+			"testSuccessNoResponse": "Onnistui{{ttftPart}} | Kesto: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Järjestä mallin nimen mukaan",
@@ -1157,8 +1158,8 @@
 			"label": "merkinnät"
 		},
 		"loading": {
-			"newer": "- Ladataan uudempaa…",
-			"older": "- Ladataan vanhempaa…"
+			"newer": "↻ Ladataan uudempaa…",
+			"older": "↻ Ladataan vanhempaa…"
 		}
 	},
 	"applogs": {
@@ -1195,8 +1196,8 @@
 			"label": "merkinnät"
 		},
 		"loading": {
-			"newer": "- Ladataan uudempaa…",
-			"older": "- Ladataan vanhempaa…"
+			"newer": "↻ Ladataan uudempaa…",
+			"older": "↻ Ladataan vanhempaa…"
 		}
 	},
 	"format": {
@@ -1798,8 +1799,8 @@
 			"viewModeToggle": {
 				"switchToScroll": "Vaihda vieritystilaan",
 				"switchToPagination": "Vaihda sivutustilaan",
-				"scroll": "¶ Vieritä",
-				"pages": "¶ Sivut"
+				"scroll": "⇊ Vieritä",
+				"pages": "⬡ Sivut"
 			},
 			"dateFilterButton": {
 				"filterByDateRange": "Suodata päivämäärän mukaan",
@@ -1908,10 +1909,7 @@
 			"deleteDisabledAria_other": "Poista {{count}} käytöstä poistetut mallit",
 			"deleteDisabledMessage_one": "Tämä poistaa pysyvästi {{count}} käytöstä poistetun mallin. Jos autodiskointi on käytössä palveluntarjoajassa, ne löydetään uudelleen seuraavassa syklissä. Poista automaattinen etsintä käytöstä palveluntarjoajalta estääksesi tämän.",
 			"deleteDisabledMessage_other": "Tämä poistaa pysyvästi {{count}} käytöstä poistetut mallit. Jos autodiskointi on käytössä palveluntarjoajassa, ne löydetään uudelleen seuraavan syklin aikana. Ota automaattinen diskointi pois käytöstä estääksesi tämän.",
-			"clickToCopyId": "Klikkaa kopioidaksesi mallin ID",
-			"deleteDisabledLabel_one": "{{count}} poistettu käytöstä",
-			"deleteDisabledLabel_other": "{{count}} käytöstä poistetut mallit",
-			"clickToCopyName": "Klikkaa kopioidaksesi mallin nimen"
+			"clickToCopyId": "Klikkaa kopioidaksesi mallin ID"
 		},
 		"virtualModelTable": {
 			"searchModels": "Etsi malleja…",
@@ -1921,9 +1919,7 @@
 			"deleteDisabledAria_one": "Poista {{count}} pois käytöstä -malli",
 			"deleteDisabledAria_other": "Poista {{count}} käytöstä poistetut mallit",
 			"deleteDisabledMessage_one": "Tämä poistaa pysyvästi {{count}} käytöstä poistetun mallin. Jos autodiskointi on käytössä palveluntarjoajassa, ne löydetään uudelleen seuraavassa syklissä. Poista automaattinen etsintä käytöstä palveluntarjoajalta estääksesi tämän.",
-			"deleteDisabledMessage_other": "Tämä poistaa pysyvästi {{count}} käytöstä poistetut mallit. Jos autodiskointi on käytössä palveluntarjoajassa, ne löydetään uudelleen seuraavan syklin aikana. Ota automaattinen diskointi pois käytöstä estääksesi tämän.",
-			"disabledModels_one": "1 estetty malli",
-			"disabledModels_other": "{{count}} käytöstä poistetut mallit"
+			"deleteDisabledMessage_other": "Tämä poistaa pysyvästi {{count}} käytöstä poistetut mallit. Jos autodiskointi on käytössä palveluntarjoajassa, ne löydetään uudelleen seuraavan syklin aikana. Ota automaattinen diskointi pois käytöstä estääksesi tämän."
 		},
 		"modelReplyCard": {
 			"modelDetails": "Mallin tiedot",
@@ -2235,8 +2231,8 @@
 		"viewModeToggle": {
 			"switchToScroll": "Vaihda vieritystilaan",
 			"switchToPagination": "Vaihda sivutustilaan",
-			"scroll": "¶ Vieritä",
-			"pages": "¶ Sivut"
+			"scroll": "⇊ Vieritä",
+			"pages": "⬡ Sivut"
 		},
 		"liveToggleButton": {
 			"live": "Suora",

@@ -790,8 +790,8 @@
 		"page_description": "Descoperă modele de la furnizorii tăi",
 		"badge_enabled": "{{count}} activat",
 		"badge_disabled": "{{count}} dezactivat",
-		"view_mode_pages": "Pagini",
-		"view_mode_scroll": "Asteptare",
+		"view_mode_pages": "⬡ Pagini",
+		"view_mode_scroll": "⇊ Derulare",
 		"switch_to_pagination": "Comutați la modul paginare",
 		"switch_to_scroll": "Comutați la modul derulare",
 		"toast_updated": "Model actualizat",
@@ -846,7 +846,8 @@
 				"price": "0.00"
 			},
 			"testSuccess": "Succes | Răspuns: {{content}}{{ttftPart}} | Durată: {{duration}}s",
-			"testFailed": "Test eșuat: {{error}}"
+			"testFailed": "Test eșuat: {{error}}",
+			"testSuccessNoResponse": "Succes{{ttftPart}} | Durată: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Sortează după numele modelului",
@@ -1157,8 +1158,8 @@
 			"label": "intrări"
 		},
 		"loading": {
-			"newer": "● Se încarcă mai nou…",
-			"older": "> Încărcare mai veche…"
+			"newer": "↻ Se încarcă mai nou…",
+			"older": "↻ Încărcare mai veche…"
 		}
 	},
 	"applogs": {
@@ -1195,8 +1196,8 @@
 			"label": "intrări"
 		},
 		"loading": {
-			"newer": "● Se încarcă mai nou…",
-			"older": "> Încărcare mai veche…"
+			"newer": "↻ Se încarcă mai nou…",
+			"older": "↻ Încărcare mai veche…"
 		}
 	},
 	"format": {
@@ -1798,8 +1799,8 @@
 			"viewModeToggle": {
 				"switchToScroll": "Comutați la modul derulare",
 				"switchToPagination": "Comutați la modul paginare",
-				"scroll": "Asteptare",
-				"pages": "Pagini"
+				"scroll": "⇊ Derulare",
+				"pages": "⬡ Pagini"
 			},
 			"dateFilterButton": {
 				"filterByDateRange": "Filtrează după intervalul de date",
@@ -1908,10 +1909,7 @@
 			"deleteDisabledAria_other": "Șterge {{count}} modele dezactivate",
 			"deleteDisabledMessage_one": "Acest lucru va șterge permanent modelul dezactivat {{count}} . Dacă autodescoperirea este activată pe furnizorul lor, acestea vor fi redescoperite în următorul ciclu. Dezactivați autodescoperirea pe furnizor pentru a preveni acest lucru.",
 			"deleteDisabledMessage_other": "Acest lucru va șterge permanent modelele dezactivate {{count}} . Dacă autodescoperirea este activată pe furnizor, vor fi redescoperite pe următorul ciclu. Dezactivați autodescoperirea pe furnizor pentru a preveni acest lucru.",
-			"clickToCopyId": "Faceți clic pentru a copia ID-ul modelului",
-			"deleteDisabledLabel_one": "{{count}} model dezactivat",
-			"deleteDisabledLabel_other": "{{count}} modele dezactivate",
-			"clickToCopyName": "Faceți clic pentru a copia numele modelului"
+			"clickToCopyId": "Faceți clic pentru a copia ID-ul modelului"
 		},
 		"virtualModelTable": {
 			"searchModels": "Căutare modele…",
@@ -1921,9 +1919,7 @@
 			"deleteDisabledAria_one": "Ștergere model dezactivat {{count}}",
 			"deleteDisabledAria_other": "Șterge {{count}} modele dezactivate",
 			"deleteDisabledMessage_one": "Acest lucru va șterge permanent modelul dezactivat {{count}} . Dacă autodescoperirea este activată pe furnizorul lor, acestea vor fi redescoperite în următorul ciclu. Dezactivați autodescoperirea pe furnizor pentru a preveni acest lucru.",
-			"deleteDisabledMessage_other": "Acest lucru va șterge permanent modelele dezactivate {{count}} . Dacă autodescoperirea este activată pe furnizor, vor fi redescoperite pe următorul ciclu. Dezactivați autodescoperirea pe furnizor pentru a preveni acest lucru.",
-			"disabledModels_one": "1 model dezactivat",
-			"disabledModels_other": "{{count}} modele dezactivate"
+			"deleteDisabledMessage_other": "Acest lucru va șterge permanent modelele dezactivate {{count}} . Dacă autodescoperirea este activată pe furnizor, vor fi redescoperite pe următorul ciclu. Dezactivați autodescoperirea pe furnizor pentru a preveni acest lucru."
 		},
 		"modelReplyCard": {
 			"modelDetails": "Detalii model",
@@ -2235,8 +2231,8 @@
 		"viewModeToggle": {
 			"switchToScroll": "Comutați la modul derulare",
 			"switchToPagination": "Comutați la modul paginare",
-			"scroll": "Asteptare",
-			"pages": "Pagini"
+			"scroll": "⇊ Derulare",
+			"pages": "⬡ Pagini"
 		},
 		"liveToggleButton": {
 			"live": "Live",

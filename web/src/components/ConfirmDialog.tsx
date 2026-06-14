@@ -45,7 +45,7 @@ export function ConfirmDialog({
 				{message ?? t("components.confirmDialog.discardChangesTo")}
 			</p>
 			{fields.length > 0 && (
-				<ul className="text-sm text-gray-400 mb-5 list-disc list-inside">
+				<ul className="text-sm text-gray-400 mb-5 list-disc list-inside max-h-60 overflow-y-auto">
 					{fields.map((f) => (
 						<li key={f}>{f}</li>
 					))}

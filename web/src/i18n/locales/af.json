@@ -791,7 +791,7 @@
 		"badge_enabled": "{{count}} bevoeg",
 		"badge_disabled": "{{count}} gestremd",
 		"view_mode_pages": "⬡ Bladsye",
-		"view_mode_scroll": "⇊ Skakel af",
+		"view_mode_scroll": "⇊ Rol",
 		"switch_to_pagination": "Skakel oor na bladsyverdelingsmodus",
 		"switch_to_scroll": "Skakel na blaaimodus",
 		"toast_updated": "Model opgedateer",
@@ -846,7 +846,8 @@
 				"price": "nul kom nul nul"
 			},
 			"testSuccess": "Sukses | Reaksie: {{content}}{{ttftPart}} | Duur: {{duration}}",
-			"testFailed": "Toets misluk: {{error}}"
+			"testFailed": "Toets misluk: {{error}}",
+			"testSuccessNoResponse": "Sukses{{ttftPart}} | Duur: {{duration}}"
 		},
 		"table": {
 			"sortByModelName": "Sorteer volgens modelnaam",
@@ -1798,7 +1799,7 @@
 			"viewModeToggle": {
 				"switchToScroll": "Skakel na blaaimodus",
 				"switchToPagination": "Skakel oor na bladsyverdelingsmodus",
-				"scroll": "⇊ Skakel af",
+				"scroll": "⇊ Rol",
 				"pages": "⬡ Bladsye"
 			},
 			"dateFilterButton": {
@@ -1908,10 +1909,7 @@
 			"deleteDisabledAria_other": "Verwyder {{count}} -gehandikapte modelle",
 			"deleteDisabledMessage_one": "Dit sal die gedeaktiveerde model {{count}} permanent verwyder. As outo-ontdekking by hul verskaffer geaktiveer is, sal hulle in die volgende siklus weer ontdek word. Skakel outo-ontdekking by die verskaffer uit om dit te voorkom.",
 			"deleteDisabledMessage_other": "Dit sal die gedeaktiveerde modelle van {{count}} permanent uitvee. As outo-ontdekking op hul verskaffer geaktiveer is, sal hulle in die volgende siklus weer ontdek word. Skakel outo-ontdekking op die verskaffer uit om dit te voorkom.",
-			"clickToCopyId": "Klik om model-ID te kopieer",
-			"deleteDisabledLabel_one": "{{count}} gestremde model",
-			"deleteDisabledLabel_other": "{{count}} gestremde modelle",
-			"clickToCopyName": "Klik om modelnaam te kopieer"
+			"clickToCopyId": "Klik om model-ID te kopieer"
 		},
 		"virtualModelTable": {
 			"searchModels": "Soek modelle…",
@@ -1921,9 +1919,7 @@
 			"deleteDisabledAria_one": "Verwyder {{count}} gedeaktiveerde model",
 			"deleteDisabledAria_other": "Verwyder {{count}} -gehandikapte modelle",
 			"deleteDisabledMessage_one": "Dit sal die gedeaktiveerde model {{count}} permanent verwyder. As outo-ontdekking by hul verskaffer geaktiveer is, sal hulle in die volgende siklus weer ontdek word. Deaktiveer outo-ontdekking by die verskaffer om dit te voorkom.",
-			"deleteDisabledMessage_other": "Dit sal die gedeaktiveerde modelle van {{count}} permanent verwyder. As outo-ontdekking op hul verskaffer geaktiveer is, sal hulle in die volgende siklus weer ontdek word. Deaktiveer outo-ontdekking op die verskaffer om dit te voorkom.",
-			"disabledModels_one": "1 gestremde model",
-			"disabledModels_other": "{{count}} gestremde modelle"
+			"deleteDisabledMessage_other": "Dit sal die gedeaktiveerde modelle van {{count}} permanent verwyder. As outo-ontdekking op hul verskaffer geaktiveer is, sal hulle in die volgende siklus weer ontdek word. Deaktiveer outo-ontdekking op die verskaffer om dit te voorkom."
 		},
 		"modelReplyCard": {
 			"modelDetails": "Modelbesonderhede",
@@ -2235,7 +2231,7 @@
 		"viewModeToggle": {
 			"switchToScroll": "Skakel na blaaimodus",
 			"switchToPagination": "Skakel oor na bladsyverdelingsmodus",
-			"scroll": "⇊ Skakel af",
+			"scroll": "⇊ Rol",
 			"pages": "⬡ Bladsye"
 		},
 		"liveToggleButton": {

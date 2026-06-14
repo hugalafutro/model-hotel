@@ -791,7 +791,7 @@
 		"badge_enabled": "{{count}} aktiverat",
 		"badge_disabled": "{{count}} inaktiverad",
 		"view_mode_pages": "⬡ sidor",
-		"view_mode_scroll": "Skrolla",
+		"view_mode_scroll": "⇊ Skrolla",
 		"switch_to_pagination": "Växla till sidnumreringsläge",
 		"switch_to_scroll": "Växla till rullningsläge",
 		"toast_updated": "Modell uppdaterad",
@@ -846,7 +846,8 @@
 				"price": "0.00"
 			},
 			"testSuccess": "Lyckad | Svar: {{content}}{{ttftPart}} | Varaktighet: {{duration}}s",
-			"testFailed": "Test misslyckades: {{error}}"
+			"testFailed": "Test misslyckades: {{error}}",
+			"testSuccessNoResponse": "Lyckad{{ttftPart}} | Varaktighet: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Sortera efter modellnamn",
@@ -1798,7 +1799,7 @@
 			"viewModeToggle": {
 				"switchToScroll": "Växla till rullningsläge",
 				"switchToPagination": "Växla till sidnumreringsläge",
-				"scroll": "Skrolla",
+				"scroll": "⇊ Skrolla",
 				"pages": "⬡ sidor"
 			},
 			"dateFilterButton": {
@@ -1908,10 +1909,7 @@
 			"deleteDisabledAria_other": "Ta bort {{count}} inaktiverade modeller",
 			"deleteDisabledMessage_one": "Detta kommer att permanent ta bort {{count}} inaktiverad modell. Om autodiscovery är aktiverat på deras leverantör, kommer de att upptäckas igen på nästa cykel. Inaktivera autodiscovery på leverantören för att förhindra detta.",
 			"deleteDisabledMessage_other": "Detta kommer att ta bort {{count}} inaktiverade modeller. Om autodiscovery är aktiverat på deras leverantör, kommer de att återupptäckas på nästa cykel. Inaktivera autodiscovery på leverantören för att förhindra detta.",
-			"clickToCopyId": "Klicka för att kopiera modell-ID",
-			"deleteDisabledLabel_one": "{{count}} inaktiverad modell",
-			"deleteDisabledLabel_other": "{{count}} inaktiverade modeller",
-			"clickToCopyName": "Klicka för att kopiera modellnamn"
+			"clickToCopyId": "Klicka för att kopiera modell-ID"
 		},
 		"virtualModelTable": {
 			"searchModels": "Sök modeller…",
@@ -1921,9 +1919,7 @@
 			"deleteDisabledAria_one": "Ta bort {{count}} inaktiverad modell",
 			"deleteDisabledAria_other": "Ta bort {{count}} inaktiverade modeller",
 			"deleteDisabledMessage_one": "Detta kommer att permanent ta bort {{count}} inaktiverad modell. Om autodiscovery är aktiverat på deras leverantör, kommer de att upptäckas igen på nästa cykel. Inaktivera autodiscovery på leverantören för att förhindra detta.",
-			"deleteDisabledMessage_other": "Detta kommer att ta bort {{count}} inaktiverade modeller. Om autodiscovery är aktiverat på deras leverantör, kommer de att återupptäckas på nästa cykel. Inaktivera autodiscovery på leverantören för att förhindra detta.",
-			"disabledModels_one": "1 inaktiverad modell",
-			"disabledModels_other": "{{count}} inaktiverade modeller"
+			"deleteDisabledMessage_other": "Detta kommer att ta bort {{count}} inaktiverade modeller. Om autodiscovery är aktiverat på deras leverantör, kommer de att återupptäckas på nästa cykel. Inaktivera autodiscovery på leverantören för att förhindra detta."
 		},
 		"modelReplyCard": {
 			"modelDetails": "Modell detaljer",
@@ -2235,7 +2231,7 @@
 		"viewModeToggle": {
 			"switchToScroll": "Växla till rullningsläge",
 			"switchToPagination": "Växla till sidnumreringsläge",
-			"scroll": "Skrolla",
+			"scroll": "⇊ Skrolla",
 			"pages": "⬡ sidor"
 		},
 		"liveToggleButton": {

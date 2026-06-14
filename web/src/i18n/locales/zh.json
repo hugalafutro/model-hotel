@@ -790,8 +790,8 @@
 		"page_description": "从您的提供商发现模型",
 		"badge_enabled": "{{count}} 已启用",
 		"badge_disabled": "{{count}} 已禁用",
-		"view_mode_pages": "配置页面",
-		"view_mode_scroll": "二次滚动",
+		"view_mode_pages": "⬡ 页面",
+		"view_mode_scroll": "⇊ 滚动",
 		"switch_to_pagination": "切换到分页模式",
 		"switch_to_scroll": "切换到滚动模式",
 		"toast_updated": "模型已更新",
@@ -846,7 +846,8 @@
 				"price": "0.00"
 			},
 			"testSuccess": "成功 | 响应： {{content}}{{ttftPart}} | 时长： {{duration}}秒",
-			"testFailed": "测试失败： {{error}}"
+			"testFailed": "测试失败： {{error}}",
+			"testSuccessNoResponse": "成功{{ttftPart}} | 时长： {{duration}}秒"
 		},
 		"table": {
 			"sortByModelName": "按模型名称排序",
@@ -1157,8 +1158,8 @@
 			"label": "条目"
 		},
 		"loading": {
-			"newer": "正在加载新的…",
-			"older": "正在加载旧…"
+			"newer": "↻ 正在加载新的…",
+			"older": "↻ 正在加载旧…"
 		}
 	},
 	"applogs": {
@@ -1195,8 +1196,8 @@
 			"label": "条目"
 		},
 		"loading": {
-			"newer": "正在加载新的…",
-			"older": "正在加载旧…"
+			"newer": "↻ 正在加载新的…",
+			"older": "↻ 正在加载旧…"
 		}
 	},
 	"format": {
@@ -1798,8 +1799,8 @@
 			"viewModeToggle": {
 				"switchToScroll": "切换到滚动模式",
 				"switchToPagination": "切换到分页模式",
-				"scroll": "二次滚动",
-				"pages": "配置页面"
+				"scroll": "⇊ 滚动",
+				"pages": "⬡ 页面"
 			},
 			"dateFilterButton": {
 				"filterByDateRange": "按日期范围过滤",
@@ -1908,10 +1909,7 @@
 			"deleteDisabledAria_other": "删除 {{count}} 已停用的模型",
 			"deleteDisabledMessage_one": "这将永久删除 {{count}} 中的已禁用模型。如果其提供商启用了自动发现功能，这些模型将在下一个周期中被重新发现。如需防止此情况发生，请在提供商端禁用自动发现功能。",
 			"deleteDisabledMessage_other": "这将永久删除 {{count}} 中的已禁用模型。如果其提供商启用了自动发现功能，这些模型将在下一个周期中被重新发现。若要防止这种情况发生，请在提供商端禁用自动发现功能。",
-			"clickToCopyId": "点击复制模型ID",
-			"deleteDisabledLabel_one": "{{count}} 残障模特",
-			"deleteDisabledLabel_other": "{{count}} 残障模特",
-			"clickToCopyName": "点击复制模型名称"
+			"clickToCopyId": "点击复制模型ID"
 		},
 		"virtualModelTable": {
 			"searchModels": "搜索模型…",
@@ -1921,9 +1919,7 @@
 			"deleteDisabledAria_one": "删除 {{count}} 已停用的模型",
 			"deleteDisabledAria_other": "删除 {{count}} 已停用的模型",
 			"deleteDisabledMessage_one": "这将永久删除已禁用的模型 {{count}} 。如果其提供商启用了自动发现功能，该模型将在下一个周期被重新发现。若要防止此情况发生，请在提供商端禁用自动发现功能。",
-			"deleteDisabledMessage_other": "这将永久删除 {{count}} 中的已禁用模型。如果其提供商启用了自动发现功能，这些模型将在下一个周期中被重新发现。若要防止这种情况发生，请在提供商端禁用自动发现功能。",
-			"disabledModels_one": "1 个已禁用模型",
-			"disabledModels_other": "{{count}} 残障模特"
+			"deleteDisabledMessage_other": "这将永久删除 {{count}} 中的已禁用模型。如果其提供商启用了自动发现功能，这些模型将在下一个周期中被重新发现。若要防止这种情况发生，请在提供商端禁用自动发现功能。"
 		},
 		"modelReplyCard": {
 			"modelDetails": "模型详细信息",
@@ -2235,8 +2231,8 @@
 		"viewModeToggle": {
 			"switchToScroll": "切换到滚动模式",
 			"switchToPagination": "切换到分页模式",
-			"scroll": "二次滚动",
-			"pages": "配置页面"
+			"scroll": "⇊ 滚动",
+			"pages": "⬡ 页面"
 		},
 		"liveToggleButton": {
 			"live": "实时模式",

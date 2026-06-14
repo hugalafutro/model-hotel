@@ -846,7 +846,8 @@
 				"price": "0.00"
 			},
 			"testSuccess": "Erfolg | Antwort: {{content}}{{ttftPart}} | Dauer: {{duration}}s",
-			"testFailed": "Test fehlgeschlagen: {{error}}"
+			"testFailed": "Test fehlgeschlagen: {{error}}",
+			"testSuccessNoResponse": "Erfolg{{ttftPart}} | Dauer: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Nach Modellnamen sortieren",
@@ -1908,10 +1909,7 @@
 			"deleteDisabledAria_other": "{{count}} deaktivierte Modelle löschen",
 			"deleteDisabledMessage_one": "Dies löscht das deaktivierte {{count}} Modell. Wenn die Autoentdeckung auf ihrem Provider aktiviert ist, werden sie im nächsten Zyklus wiederentdeckt. Deaktivieren Sie die Autoentdeckung am Anbieter, um dies zu verhindern.",
 			"deleteDisabledMessage_other": "Dies löscht {{count}} deaktivierte Modelle. Wenn die Autoentdeckung auf ihrem Provider aktiviert ist, werden sie im nächsten Zyklus wiederentdeckt. Deaktivieren Sie die Autoentdeckung auf dem Provider, um dies zu verhindern.",
-			"clickToCopyId": "Hier klicken, um Model-ID zu kopieren",
-			"deleteDisabledLabel_one": "{{count}} deaktiviertes Modell",
-			"deleteDisabledLabel_other": "{{count}} deaktivierte Modelle",
-			"clickToCopyName": "Zum Kopieren des Modellnamens hier klicken"
+			"clickToCopyId": "Hier klicken, um Model-ID zu kopieren"
 		},
 		"virtualModelTable": {
 			"searchModels": "Modelle… suchen",
@@ -1921,9 +1919,7 @@
 			"deleteDisabledAria_one": "{{count}} deaktiviertes Modell löschen",
 			"deleteDisabledAria_other": "{{count}} deaktivierte Modelle löschen",
 			"deleteDisabledMessage_one": "Dies löscht das deaktivierte {{count}} Modell. Wenn die Autoentdeckung auf ihrem Provider aktiviert ist, werden sie im nächsten Zyklus wiederentdeckt. Deaktivieren Sie die Autoentdeckung am Anbieter, um dies zu verhindern.",
-			"deleteDisabledMessage_other": "Dies löscht {{count}} deaktivierte Modelle. Wenn die Autoentdeckung auf ihrem Provider aktiviert ist, werden sie im nächsten Zyklus wiederentdeckt. Deaktivieren Sie die Autoentdeckung auf dem Provider, um dies zu verhindern.",
-			"disabledModels_one": "1 deaktiviertes Modell",
-			"disabledModels_other": "{{count}} deaktivierte Modelle"
+			"deleteDisabledMessage_other": "Dies löscht {{count}} deaktivierte Modelle. Wenn die Autoentdeckung auf ihrem Provider aktiviert ist, werden sie im nächsten Zyklus wiederentdeckt. Deaktivieren Sie die Autoentdeckung auf dem Provider, um dies zu verhindern."
 		},
 		"modelReplyCard": {
 			"modelDetails": "Modelldetails",

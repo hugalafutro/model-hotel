@@ -790,7 +790,7 @@
 		"page_description": "Des modèles découverts de vos fournisseurs",
 		"badge_enabled": "{{count}} activé",
 		"badge_disabled": "{{count}} désactivé",
-		"view_mode_pages": "Pages",
+		"view_mode_pages": "⬡ Pages",
 		"view_mode_scroll": "⇊ Défilement",
 		"switch_to_pagination": "Passer en mode pagination",
 		"switch_to_scroll": "Passer en mode défilement",
@@ -846,7 +846,8 @@
 				"price": "0.00"
 			},
 			"testSuccess": "Succès | Réponse: {{content}}{{ttftPart}} | Durée: {{duration}}s",
-			"testFailed": "Échec du test : {{error}}"
+			"testFailed": "Échec du test : {{error}}",
+			"testSuccessNoResponse": "Succès{{ttftPart}} | Durée: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Trier par nom de modèle",
@@ -1799,7 +1800,7 @@
 				"switchToScroll": "Passer en mode défilement",
 				"switchToPagination": "Passer en mode pagination",
 				"scroll": "⇊ Défilement",
-				"pages": "Pages"
+				"pages": "⬡ Pages"
 			},
 			"dateFilterButton": {
 				"filterByDateRange": "Filtrer par plage de dates",
@@ -1908,10 +1909,7 @@
 			"deleteDisabledAria_other": "Supprimer les modèles {{count}} désactivés",
 			"deleteDisabledMessage_one": "Ceci supprimera définitivement le modèle {{count}} désactivé. Si la découverte automatique est activée sur leur fournisseur, ils seront redécouverts lors du prochain cycle. Désactiver la découverte automatique sur le fournisseur pour éviter cela.",
 			"deleteDisabledMessage_other": "Ceci supprimera définitivement les modèles {{count}} désactivés. Si la découverte automatique est activée sur leur fournisseur, ils seront redécouverts lors du prochain cycle. Désactivez la découverte automatique sur le fournisseur pour éviter cela.",
-			"clickToCopyId": "Cliquer pour copier l'ID du modèle",
-			"deleteDisabledLabel_one": "{{count}} a désactivé le modèle",
-			"deleteDisabledLabel_other": "Modèles {{count}} désactivés",
-			"clickToCopyName": "Cliquez pour copier le nom du modèle"
+			"clickToCopyId": "Cliquer pour copier l'ID du modèle"
 		},
 		"virtualModelTable": {
 			"searchModels": "Rechercher les modèles…",
@@ -1921,9 +1919,7 @@
 			"deleteDisabledAria_one": "Supprimer le modèle {{count}} désactivé",
 			"deleteDisabledAria_other": "Supprimer les modèles {{count}} désactivés",
 			"deleteDisabledMessage_one": "Ceci supprimera définitivement le modèle {{count}} désactivé. Si la découverte automatique est activée sur leur fournisseur, ils seront redécouverts lors du prochain cycle. Désactiver la découverte automatique sur le fournisseur pour éviter cela.",
-			"deleteDisabledMessage_other": "Ceci supprimera définitivement les modèles {{count}} désactivés. Si la découverte automatique est activée sur leur fournisseur, ils seront redécouverts lors du prochain cycle. Désactivez la découverte automatique sur le fournisseur pour éviter cela.",
-			"disabledModels_one": "1 modèle désactivé",
-			"disabledModels_other": "Modèles {{count}} désactivés"
+			"deleteDisabledMessage_other": "Ceci supprimera définitivement les modèles {{count}} désactivés. Si la découverte automatique est activée sur leur fournisseur, ils seront redécouverts lors du prochain cycle. Désactivez la découverte automatique sur le fournisseur pour éviter cela."
 		},
 		"modelReplyCard": {
 			"modelDetails": "Détails du modèle",
@@ -2236,7 +2232,7 @@
 			"switchToScroll": "Passer en mode défilement",
 			"switchToPagination": "Passer en mode pagination",
 			"scroll": "⇊ Défilement",
-			"pages": "Pages"
+			"pages": "⬡ Pages"
 		},
 		"liveToggleButton": {
 			"live": "En direct",

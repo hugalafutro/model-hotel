@@ -846,7 +846,8 @@
 				"price": "0,00"
 			},
 			"testSuccess": "Başarı | Yanıt: {{content}}{{ttftPart}} | Süre: {{duration}}saniye",
-			"testFailed": "Test başarısız: {{error}}"
+			"testFailed": "Test başarısız: {{error}}",
+			"testSuccessNoResponse": "Başarı{{ttftPart}} | Süre: {{duration}}saniye"
 		},
 		"table": {
 			"sortByModelName": "Model adına göre sırala",
@@ -1908,10 +1909,7 @@
 			"deleteDisabledAria_other": "{{count}} 'daki devre dışı bırakılmış modelleri sil",
 			"deleteDisabledMessage_one": "Bu işlem, {{count}} adresindeki devre dışı bırakılmış modeli kalıcı olarak siler. Sağlayıcıda otomatik keşif özelliği etkinse, bir sonraki döngüde bu model yeniden keşfedilecektir. Bunu önlemek için sağlayıcıda otomatik keşif özelliğini devre dışı bırakın.",
 			"deleteDisabledMessage_other": "Bu işlem, {{count}} adresindeki devre dışı bırakılmış modelleri kalıcı olarak siler. Sağlayıcıda otomatik keşif özelliği etkinse, bu modeller bir sonraki döngüde yeniden keşfedilecektir. Bunu önlemek için sağlayıcıda otomatik keşif özelliğini devre dışı bırakın.",
-			"clickToCopyId": "Model kimliğini kopyalamak için tıklayın",
-			"deleteDisabledLabel_one": "{{count}} devre dışı bırakılmış model",
-			"deleteDisabledLabel_other": "{{count}} engelli modeller",
-			"clickToCopyName": "Model adını kopyalamak için tıklayın"
+			"clickToCopyId": "Model kimliğini kopyalamak için tıklayın"
 		},
 		"virtualModelTable": {
 			"searchModels": "… modellerini ara",
@@ -1921,9 +1919,7 @@
 			"deleteDisabledAria_one": "{{count}} devre dışı bırakılmış modeli sil",
 			"deleteDisabledAria_other": "{{count}} adresindeki devre dışı bırakılmış modelleri sil",
 			"deleteDisabledMessage_one": "Bu işlem, {{count}} adresindeki devre dışı bırakılmış modeli kalıcı olarak silecektir. Sağlayıcıda otomatik keşif özelliği etkinse, bir sonraki döngüde bu model yeniden keşfedilecektir. Bunu önlemek için sağlayıcıda otomatik keşif özelliğini devre dışı bırakın.",
-			"deleteDisabledMessage_other": "Bu işlem, {{count}} adresindeki devre dışı bırakılmış modelleri kalıcı olarak siler. Sağlayıcıda otomatik keşif özelliği etkinse, bu modeller bir sonraki döngüde yeniden keşfedilecektir. Bunu önlemek için sağlayıcıda otomatik keşif özelliğini devre dışı bırakın.",
-			"disabledModels_one": "1 engelli model",
-			"disabledModels_other": "{{count}} engelli modeller"
+			"deleteDisabledMessage_other": "Bu işlem, {{count}} adresindeki devre dışı bırakılmış modelleri kalıcı olarak siler. Sağlayıcıda otomatik keşif özelliği etkinse, bu modeller bir sonraki döngüde yeniden keşfedilecektir. Bunu önlemek için sağlayıcıda otomatik keşif özelliğini devre dışı bırakın."
 		},
 		"modelReplyCard": {
 			"modelDetails": "Model bilgileri",

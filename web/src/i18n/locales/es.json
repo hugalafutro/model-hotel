@@ -790,8 +790,8 @@
 		"page_description": "Modelos descubiertos de tus proveedores",
 		"badge_enabled": "{{count}} habilitado",
 		"badge_disabled": "{{count}} deshabilitado",
-		"view_mode_pages": "Páginas",
-		"view_mode_scroll": "Desplazamiento",
+		"view_mode_pages": "⬡ Páginas",
+		"view_mode_scroll": "⇊ Desplazamiento",
 		"switch_to_pagination": "Cambiar al modo de paginación",
 		"switch_to_scroll": "Cambiar al modo de desplazamiento",
 		"toast_updated": "Modelo actualizado",
@@ -846,7 +846,8 @@
 				"price": "0.00"
 			},
 			"testSuccess": "Éxito | Respuesta: {{content}}{{ttftPart}} | Duración: {{duration}}s",
-			"testFailed": "Prueba fallida: {{error}}"
+			"testFailed": "Prueba fallida: {{error}}",
+			"testSuccessNoResponse": "Éxito{{ttftPart}} | Duración: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Ordenar por nombre del modelo",
@@ -1157,8 +1158,8 @@
 			"label": "entradas"
 		},
 		"loading": {
-			"newer": "mañana: Cargando nuevo…",
-			"older": "Cargando antigua…"
+			"newer": "↻ Cargando más recientes…",
+			"older": "↻ Cargando más antiguas…"
 		}
 	},
 	"applogs": {
@@ -1195,8 +1196,8 @@
 			"label": "entradas"
 		},
 		"loading": {
-			"newer": "mañana: Cargando nuevo…",
-			"older": "Cargando antigua…"
+			"newer": "↻ Cargando más recientes…",
+			"older": "↻ Cargando más antiguas…"
 		}
 	},
 	"format": {
@@ -1798,8 +1799,8 @@
 			"viewModeToggle": {
 				"switchToScroll": "Cambiar al modo de desplazamiento",
 				"switchToPagination": "Cambiar al modo de paginación",
-				"scroll": "Desplazamiento",
-				"pages": "Páginas"
+				"scroll": "⇊ Desplazamiento",
+				"pages": "⬡ Páginas"
 			},
 			"dateFilterButton": {
 				"filterByDateRange": "Filtrar por rango de fechas",
@@ -1908,10 +1909,7 @@
 			"deleteDisabledAria_other": "Eliminar modelos deshabilitados {{count}}",
 			"deleteDisabledMessage_one": "Esto eliminará permanentemente el modelo {{count}} desactivado. Si el autodescubrimiento está activado en su proveedor, será re-descubierto en el siguiente ciclo. Desactivar el autodescubrimiento en el proveedor para evitar esto.",
 			"deleteDisabledMessage_other": "Esto eliminará permanentemente los modelos deshabilitados {{count}} . Si el autodescubrimiento está activado en su proveedor, serán redescubiertos en el siguiente ciclo. Deshabilita el autodescubrimiento en el proveedor para evitarlo.",
-			"clickToCopyId": "Haga clic para copiar el ID del modelo",
-			"deleteDisabledLabel_one": "modelo {{count}} deshabilitado",
-			"deleteDisabledLabel_other": "{{count}} modelos deshabilitados",
-			"clickToCopyName": "Haga clic para copiar el nombre del modelo"
+			"clickToCopyId": "Haga clic para copiar el ID del modelo"
 		},
 		"virtualModelTable": {
 			"searchModels": "Buscar modelos…",
@@ -1921,9 +1919,7 @@
 			"deleteDisabledAria_one": "Eliminar modelo deshabilitado {{count}}",
 			"deleteDisabledAria_other": "Eliminar modelos deshabilitados {{count}}",
 			"deleteDisabledMessage_one": "Esto eliminará permanentemente el modelo {{count}} desactivado. Si el autodescubrimiento está activado en su proveedor, será re-descubierto en el siguiente ciclo. Desactivar el autodescubrimiento en el proveedor para evitar esto.",
-			"deleteDisabledMessage_other": "Esto eliminará permanentemente los modelos deshabilitados {{count}} . Si el autodescubrimiento está activado en su proveedor, serán redescubiertos en el siguiente ciclo. Deshabilita el autodescubrimiento en el proveedor para evitarlo.",
-			"disabledModels_one": "1 modelo desactivado",
-			"disabledModels_other": "{{count}} modelos deshabilitados"
+			"deleteDisabledMessage_other": "Esto eliminará permanentemente los modelos deshabilitados {{count}} . Si el autodescubrimiento está activado en su proveedor, serán redescubiertos en el siguiente ciclo. Deshabilita el autodescubrimiento en el proveedor para evitarlo."
 		},
 		"modelReplyCard": {
 			"modelDetails": "Detalles del modelo",
@@ -2235,8 +2231,8 @@
 		"viewModeToggle": {
 			"switchToScroll": "Cambiar al modo de desplazamiento",
 			"switchToPagination": "Cambiar al modo de paginación",
-			"scroll": "Desplazamiento",
-			"pages": "Páginas"
+			"scroll": "⇊ Desplazamiento",
+			"pages": "⬡ Páginas"
 		},
 		"liveToggleButton": {
 			"live": "Vivo",
