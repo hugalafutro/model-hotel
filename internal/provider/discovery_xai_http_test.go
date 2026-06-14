@@ -372,8 +372,18 @@ func TestDiscoverXAI_SuccessLanguageModels(t *testing.T) {
 	if err != nil {
 		t.Fatalf("discoverXAI failed: %v", err)
 	}
-	if len(models) != 1 {
-		t.Errorf("expected 1 model, got %d", len(models))
+	// Live model "test-model" is unioned with the catalog.
+	if len(models) != len(GetXAICatalog())+1 {
+		t.Errorf("expected catalog+1 merged models, got %d", len(models))
+	}
+	var foundLive bool
+	for _, m := range models {
+		if m.ModelID == "test-model" {
+			foundLive = true
+		}
+	}
+	if !foundLive {
+		t.Error("expected live 'test-model' present in merged results")
 	}
 }
 
@@ -414,8 +424,18 @@ func TestDiscoverXAI_FallbackToMinimalModels(t *testing.T) {
 	if err != nil {
 		t.Fatalf("discoverXAI failed: %v", err)
 	}
-	if len(models) != 1 {
-		t.Errorf("expected 1 model from fallback, got %d", len(models))
+	// Empty /language-models -> minimal /models -> unioned with the catalog.
+	if len(models) != len(GetXAICatalog())+1 {
+		t.Errorf("expected catalog+1 merged models from minimal fallback, got %d", len(models))
+	}
+	var foundLive bool
+	for _, m := range models {
+		if m.ModelID == "minimal-model" {
+			foundLive = true
+		}
+	}
+	if !foundLive {
+		t.Error("expected live 'minimal-model' present in merged results")
 	}
 }
 
@@ -879,12 +899,14 @@ func TestDiscoverXAIMinimalModels_ConnectionError(t *testing.T) {
 }
 
 func TestDiscoverXAIMinimalModels_CatalogModelLookup(t *testing.T) {
-	// Test that a model ID present in the xAI catalog gets the full catalog treatment
+	// The minimal /models path returns clean live entries (id + owner only);
+	// catalog backfill now happens in mergeLiveAndCatalog, not at this layer.
 	catalog := GetXAICatalog()
 	if len(catalog) == 0 {
 		t.Skip("No models in xAI catalog")
 	}
-	// Find a model ID that exists in the catalog
+	// Use a model ID that exists in the catalog to prove this layer does NOT
+	// apply catalog data on its own.
 	catalogModelID := catalog[0].ModelID
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -920,13 +942,17 @@ func TestDiscoverXAIMinimalModels_CatalogModelLookup(t *testing.T) {
 		t.Fatalf("Expected 1 model, got %d", len(models))
 	}
 
-	// Catalog model should have ContextLength set
+	// Minimal layer must NOT backfill from the catalog: context/max-output stay
+	// nil here and are filled later by mergeLiveAndCatalog.
 	m := models[0]
-	if m.ContextLength == nil {
-		t.Error("Expected ContextLength to be set from catalog")
+	if m.ModelID != catalogModelID {
+		t.Errorf("ModelID = %q, want %q", m.ModelID, catalogModelID)
 	}
-	if m.MaxOutputTokens == nil {
-		t.Error("Expected MaxOutputTokens to be set from catalog")
+	if m.ContextLength != nil {
+		t.Errorf("ContextLength = %d, want nil at the minimal layer", *m.ContextLength)
+	}
+	if m.MaxOutputTokens != nil {
+		t.Errorf("MaxOutputTokens = %d, want nil at the minimal layer", *m.MaxOutputTokens)
 	}
 }
 
@@ -963,16 +989,26 @@ func TestDiscoverXAI_MinimalModelsFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("discoverXAI failed: %v", err)
 	}
-	if len(models) != 1 {
-		t.Errorf("expected 1 model from minimal fallback, got %d", len(models))
+	// The minimal live model is now unioned with the catalog, so the result is
+	// the catalog plus the one live-only model.
+	if len(models) != len(GetXAICatalog())+1 {
+		t.Errorf("expected catalog+1 merged models, got %d", len(models))
 	}
-	if models[0].ModelID != "test-minimal-model" {
-		t.Errorf("expected model ID 'test-minimal-model', got %q", models[0].ModelID)
+	var foundLive bool
+	for _, m := range models {
+		if m.ModelID == "test-minimal-model" {
+			foundLive = true
+		}
+	}
+	if !foundLive {
+		t.Error("expected live-only 'test-minimal-model' present in merged results")
 	}
 }
 
 func TestDiscoverXAI_LanguageModelsEmpty_MinimalModelsEmpty(t *testing.T) {
-	// Both endpoints return empty lists - discoverXAI should return empty with no error
+	// The rich endpoint returns an empty (but successful) list. The union with
+	// the catalog means discovery still yields the catalog models rather than
+	// failing.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/v1/language-models" || r.URL.Path == "/language-models" {
 			w.Header().Set("Content-Type", "application/json")
@@ -995,10 +1031,11 @@ func TestDiscoverXAI_LanguageModelsEmpty_MinimalModelsEmpty(t *testing.T) {
 		BaseURL: server.URL,
 	}
 
-	// Both return empty but no error => discoverXAI should attempt both
-	// and return the "both endpoints returned errors" error since len==0 doesn't count as success
-	_, err := svc.discoverXAI(context.Background(), provider, "test-api-key")
-	if err == nil {
-		t.Error("Expected error when both endpoints return empty lists, got nil")
+	models, err := svc.discoverXAI(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("expected no error with empty live + catalog, got: %v", err)
+	}
+	if len(models) != len(GetXAICatalog()) {
+		t.Errorf("expected catalog models when live is empty, got %d", len(models))
 	}
 }

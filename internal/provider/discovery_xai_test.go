@@ -173,7 +173,8 @@ func TestDiscoverXAIMinimalModels_403ReturnsHttpError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Catalog spec override (lines 100-102 + 141-158)
+// Rich /language-models path returns clean live-only fields; catalog backfill
+// happens later in mergeLiveAndCatalog (see catalog_merge_test.go).
 // ---------------------------------------------------------------------------
 
 func TestDiscoverXAILanguageModels_CatalogSpecOverride(t *testing.T) {
@@ -228,34 +229,22 @@ func TestDiscoverXAILanguageModels_CatalogSpecOverride(t *testing.T) {
 
 	m := models[0]
 
-	// Get expected catalog spec
-	catalog := GetXAICatalog()
-	spec := LookupOpenCodeCatalog(catalog, catalogModelID)
-	if spec == nil {
-		t.Fatal("catalog spec not found for", catalogModelID)
-		return
+	// This layer no longer applies the catalog: it returns only what the live
+	// API provides. Display name is the raw id placeholder, description is empty
+	// (no fabricated "xAI language model (vX)"), and context/max-output are nil
+	// because xAI's API does not report them. mergeLiveAndCatalog backfills all
+	// of these afterwards.
+	if m.DisplayName != catalogModelID {
+		t.Errorf("DisplayName = %q, want raw id %q (no catalog override here)", m.DisplayName, catalogModelID)
 	}
-
-	// Verify catalog fields override API values
-	if m.DisplayName != spec.DisplayName {
-		t.Errorf("DisplayName = %q, want %q (from catalog)", m.DisplayName, spec.DisplayName)
+	if m.Description != "" {
+		t.Errorf("Description = %q, want empty (no fabricated placeholder)", m.Description)
 	}
-	if m.Description != spec.Description {
-		t.Errorf("Description = %q, want %q (from catalog)", m.Description, spec.Description)
+	if m.ContextLength != nil {
+		t.Errorf("ContextLength = %d, want nil (backfilled later by catalog)", *m.ContextLength)
 	}
-
-	// ContextLength should be set from catalog (API doesn't provide it)
-	if m.ContextLength == nil {
-		t.Error("ContextLength = nil, want value from catalog")
-	} else if *m.ContextLength != spec.ContextLength {
-		t.Errorf("ContextLength = %d, want %d (from catalog)", *m.ContextLength, spec.ContextLength)
-	}
-
-	// MaxOutputTokens should be set from catalog (API doesn't provide it)
-	if m.MaxOutputTokens == nil {
-		t.Error("MaxOutputTokens = nil, want value from catalog")
-	} else if *m.MaxOutputTokens != spec.MaxOutputTokens {
-		t.Errorf("MaxOutputTokens = %d, want %d (from catalog)", *m.MaxOutputTokens, spec.MaxOutputTokens)
+	if m.MaxOutputTokens != nil {
+		t.Errorf("MaxOutputTokens = %d, want nil (backfilled later by catalog)", *m.MaxOutputTokens)
 	}
 
 	// Verify pricing was converted correctly from API (cents per 100M -> dollars per 1M)
