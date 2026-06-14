@@ -523,7 +523,9 @@ export function FailoverGroups() {
 								<span className="whitespace-nowrap">
 									{t("failover.last_sync_label")}
 								</span>{" "}
-								<span>{formatTimestamp(lastSyncedAt)}</span>
+								<span className="whitespace-nowrap">
+									{formatTimestamp(lastSyncedAt)}
+								</span>
 							</span>
 						)}
 						<button
