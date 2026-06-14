@@ -317,7 +317,7 @@ func TestAnthropicPricingLookupDated(t *testing.T) {
 		{"claude-opus-4-6", true, 5.00, 25.00},
 		{"claude-opus-4-5-20251101", true, 5.00, 25.00},
 		{"claude-opus-4-1-20250805", true, 15.00, 75.00},
-		{"claude-opus-4-20250514", true, 5.00, 25.00},
+		{"claude-opus-4-20250514", true, 15.00, 75.00},
 		{"claude-sonnet-4-6", true, 3.00, 15.00},
 		{"claude-sonnet-4-5-20250929", true, 3.00, 15.00},
 		{"claude-sonnet-4-20250514", true, 3.00, 15.00},
