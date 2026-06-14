@@ -1,5 +1,17 @@
 [
   {
+    "model_id": "claude-fable-5",
+    "input_price_per_million": 10,
+    "input_price_per_million_cache_hit": 1,
+    "output_price_per_million": 50
+  },
+  {
+    "model_id": "claude-opus-4-8",
+    "input_price_per_million": 5,
+    "input_price_per_million_cache_hit": 0.5,
+    "output_price_per_million": 25
+  },
+  {
     "model_id": "claude-opus-4-7",
     "input_price_per_million": 5,
     "input_price_per_million_cache_hit": 0.5,
@@ -25,9 +37,9 @@
   },
   {
     "model_id": "claude-opus-4",
-    "input_price_per_million": 5,
-    "input_price_per_million_cache_hit": 0.5,
-    "output_price_per_million": 25
+    "input_price_per_million": 15,
+    "input_price_per_million_cache_hit": 1.5,
+    "output_price_per_million": 75
   },
   {
     "model_id": "claude-sonnet-4-6",
