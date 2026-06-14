@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 200" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
+    </marker>
+    <filter id="shadow" x="-2%" y="-2%" width="104%" height="104%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- Background (transparent) -->
+  <rect width="700" height="200" fill="none" rx="8"/>
+
+  <!-- Client Box -->
+  <rect x="30" y="50" width="150" height="100" rx="10" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="105" y="90" text-anchor="middle" fill="#93c5fd" font-size="16" font-weight="700">Client</text>
+  <text x="105" y="112" text-anchor="middle" fill="#94a3b8" font-size="10">Authorization:</text>
+  <text x="105" y="126" text-anchor="middle" fill="#64748b" font-size="9">Bearer sk-abc123...</text>
+
+  <!-- Virtual Key arrow -->
+  <line x1="180" y1="85" x2="280" y2="85" stroke="#3b82f6" stroke-width="1.8" marker-end="url(#arr)"/>
+  <text x="230" y="78" text-anchor="middle" fill="#60a5fa" font-size="9" font-weight="600">Virtual Key</text>
+
+  <!-- Proxy Box -->
+  <rect x="280" y="30" width="160" height="140" rx="10" fill="#1e293b" stroke="#a78bfa" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="360" y="65" text-anchor="middle" fill="#c4b5fd" font-size="16" font-weight="700">Proxy</text>
+  <line x1="295" y1="75" x2="425" y2="75" stroke="#334155" stroke-width="1"/>
+  <text x="360" y="95" text-anchor="middle" fill="#94a3b8" font-size="10">SHA-256 hash</text>
+  <text x="360" y="110" text-anchor="middle" fill="#94a3b8" font-size="10">DB lookup</text>
+  <text x="360" y="130" text-anchor="middle" fill="#94a3b8" font-size="10">Decrypt provider key</text>
+  <text x="360" y="145" text-anchor="middle" fill="#64748b" font-size="9">via MASTER_KEY</text>
+
+  <!-- Provider API Key arrow -->
+  <line x1="440" y1="85" x2="520" y2="85" stroke="#a78bfa" stroke-width="1.8" marker-end="url(#arr)"/>
+  <text x="480" y="78" text-anchor="middle" fill="#c4b5fd" font-size="9" font-weight="600">API Key</text>
+
+  <!-- Provider Box -->
+  <rect x="520" y="50" width="150" height="100" rx="10" fill="#1e293b" stroke="#f43f5e" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="595" y="90" text-anchor="middle" fill="#fb7185" font-size="16" font-weight="700">Provider</text>
+  <text x="595" y="112" text-anchor="middle" fill="#94a3b8" font-size="10">OpenAI / Anthropic</text>
+  <text x="595" y="126" text-anchor="middle" fill="#64748b" font-size="9">/v1/chat/completions</text>
+</svg>

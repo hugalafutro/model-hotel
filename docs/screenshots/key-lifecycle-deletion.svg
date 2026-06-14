@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 400" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
+    </marker>
+    <filter id="shadow" x="-2%" y="-2%" width="104%" height="104%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- Title -->
+  <rect x="280" y="15" width="340" height="36" rx="18" fill="#1e293b" stroke="#f43f5e" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="450" y="39" text-anchor="middle" fill="#fb7185" font-size="14" font-weight="700">Key Deletion</text>
+
+  <line x1="450" y1="51" x2="450" y2="80" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- DELETE -->
+  <rect x="225" y="85" width="450" height="50" rx="6" fill="#1e293b" stroke="#f43f5e" stroke-width="1" filter="url(#shadow)"/>
+  <rect x="225" y="85" width="450" height="24" rx="6" fill="#f43f5e" opacity="0.15"/>
+  <text x="450" y="103" text-anchor="middle" fill="#fb7185" font-size="12" font-weight="700">DELETE FROM virtual_keys WHERE id = $1</text>
+  <text x="450" y="125" text-anchor="middle" fill="#94a3b8" font-size="9">Permanent removal from database</text>
+
+  <line x1="450" y1="135" x2="450" y2="165" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Hash removed -->
+  <rect x="225" y="170" width="450" height="50" rx="6" fill="#1e293b" stroke="#f59e0b" stroke-width="1" filter="url(#shadow)"/>
+  <rect x="225" y="170" width="450" height="24" rx="6" fill="#f59e0b" opacity="0.15"/>
+  <text x="450" y="188" text-anchor="middle" fill="#fbbf24" font-size="12" font-weight="700">Key hash removed from database</text>
+  <text x="450" y="210" text-anchor="middle" fill="#94a3b8" font-size="10">SHA-256 hash no longer matches any record</text>
+
+  <line x1="450" y1="220" x2="450" y2="250" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- 401 -->
+  <rect x="225" y="255" width="450" height="50" rx="6" fill="#1e293b" stroke="#f43f5e" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="225" y="255" width="450" height="24" rx="6" fill="#f43f5e" opacity="0.15"/>
+  <text x="450" y="273" text-anchor="middle" fill="#fb7185" font-size="12" font-weight="700">Subsequent requests → 401 Unauthorized</text>
+  <text x="450" y="295" text-anchor="middle" fill="#94a3b8" font-size="10">Effective immediately; no cache or grace period</text>
+
+  <line x1="450" y1="305" x2="450" y2="335" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Audit trail -->
+  <rect x="225" y="340" width="450" height="50" rx="6" fill="#1e293b" stroke="#10b981" stroke-width="1" filter="url(#shadow)"/>
+  <rect x="225" y="340" width="450" height="24" rx="6" fill="#10b981" opacity="0.15"/>
+  <text x="450" y="358" text-anchor="middle" fill="#34d399" font-size="12" font-weight="700">Historical logs retain virtual_key_name</text>
+  <text x="450" y="380" text-anchor="middle" fill="#94a3b8" font-size="10">Request logs preserve key name for audit trail</text>
+
+</svg>
