@@ -7,6 +7,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { FuseOutline } from "../components/FuseOutline";
 import { useLocalStorage } from "../hooks/useLocalStorage";
@@ -138,19 +139,27 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 			}}
 		>
 			{children}
-			<div
-				className={`${containerClass} z-50 flex flex-col ${alignClass} gap-2`}
-			>
-				{toasts.map((t) => (
-					<ToastItem
-						key={t.id}
-						toast={t}
-						timeout={timeout}
-						fuse={fuse}
-						onDone={() => removeToast(t.id)}
-					/>
-				))}
-			</div>
+			{/* Portal to <body> at a z-index above modals (z-50/z-60). Toasts open
+			    from pages and modals whose glassmorphism backdrop-filter would
+			    otherwise sample and blur the toast (it would render behind the
+			    modal card as a colored blob), and a filtered ancestor would also
+			    trap the fixed-position container. Same fix Modal uses. */}
+			{createPortal(
+				<div
+					className={`${containerClass} z-[70] flex flex-col ${alignClass} gap-2`}
+				>
+					{toasts.map((t) => (
+						<ToastItem
+							key={t.id}
+							toast={t}
+							timeout={timeout}
+							fuse={fuse}
+							onDone={() => removeToast(t.id)}
+						/>
+					))}
+				</div>,
+				document.body,
+			)}
 		</ToastContext.Provider>
 	);
 }
