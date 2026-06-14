@@ -22,7 +22,7 @@ Add any OpenAI-compatible provider (Anthropic, DeepSeek, KoboldCPP, LMStudio, Na
 
 ## Multimodal Endpoints
 
-Beyond chat, the proxy serves `/v1/embeddings`, `/v1/images/generations`, `/v1/images/edits`, `/v1/images/variations`, `/v1/audio/speech` (text-to-speech, binary or SSE), `/v1/audio/transcriptions`, and `/v1/audio/translations` (multipart speech-to-text) as transparent OpenAI-compatible pass-through. Only the `model` field is rewritten to the resolved upstream model; responses (JSON, SSE streams, binary audio) are forwarded verbatim. Every endpoint gets the same `hotel/` failover routing, virtual-key access control, rate limiting, circuit breaker, and token metering as chat — and the same privacy guarantee: request and response content (audio uploads, generated images, embedding inputs) is never inspected or logged.
+Beyond chat, the proxy serves `/v1/embeddings`, `/v1/images/generations`, `/v1/images/edits`, `/v1/images/variations`, `/v1/audio/speech` (text-to-speech, binary or SSE), `/v1/audio/transcriptions`, and `/v1/audio/translations` (multipart speech-to-text) as transparent OpenAI-compatible pass-through. Only the `model` field is rewritten to the resolved upstream model; responses (JSON, SSE streams, binary audio) are forwarded verbatim. Every endpoint gets the same `hotel/` failover routing, virtual-key access control, rate limiting, circuit breaker, and token metering as chat - and the same privacy guarantee: request and response content (audio uploads, generated images, embedding inputs) is never inspected or logged.
 
 ## Transparent Failover
 
@@ -82,7 +82,7 @@ Add a provider and the service pulls the model list automatically via the provid
 | Cohere | ✅ | ✅ | ✅ | ✅ (vision) | API (`/v1/models`, paginated) + Pricing catalog |
 | Ollama / Ollama Cloud | ✅ | *(none)* | ✅ | ✅ | API (`/api/show`) |
 
-**Z.AI, xAI, OpenAI, DeepSeek, and OpenCode (Go & Zen) combine a live `/models` listing with a built-in catalog:** the API supplies the authoritative model list (plus live pricing and modalities for xAI) and the catalog backfills the fields the API leaves out (context window, max output, capability flags, pricing). For Z.AI, xAI, and OpenCode the catalog *also* surfaces models the listing doesn't advertise but that still work — a freshly released GLM, or older Grok models xAI keeps callable without listing them. Live values always win; the catalog only fills gaps. xAI (on 403/429) and OpenCode Go (on 404) fall back to the pure catalog when the account or endpoint can't list; the others abort the scan on error so a transient failure never disables existing models. Google AI Studio provides rich metadata from its native API, supplemented with a pricing catalog. Cohere uses its native API with full pagination for model discovery, enriched with a pricing catalog for cost data, capability detection, and modality mapping. NanoGPT and Anthropic expose richer model metadata through their own APIs; Anthropic additionally uses a pricing catalog for per-model cost data. Ollama and Ollama Cloud enrich models via the `/api/show` endpoint.
+**Z.AI, xAI, OpenAI, DeepSeek, and OpenCode (Go & Zen) combine a live `/models` listing with a built-in catalog:** the API supplies the authoritative model list (plus live pricing and modalities for xAI) and the catalog backfills the fields the API leaves out (context window, max output, capability flags, pricing). For Z.AI, xAI, and OpenCode the catalog *also* surfaces models the listing doesn't advertise but that still work - a freshly released GLM, or older Grok models xAI keeps callable without listing them. Live values always win; the catalog only fills gaps. xAI (on 403/429) and OpenCode Go (on 404) fall back to the pure catalog when the account or endpoint can't list; the others abort the scan on error so a transient failure never disables existing models. Google AI Studio provides rich metadata from its native API, supplemented with a pricing catalog. Cohere uses its native API with full pagination for model discovery, enriched with a pricing catalog for cost data, capability detection, and modality mapping. NanoGPT and Anthropic expose richer model metadata through their own APIs; Anthropic additionally uses a pricing catalog for per-model cost data. Ollama and Ollama Cloud enrich models via the `/api/show` endpoint.
 
 Models that aren't covered by any built-in catalog are automatically enriched from [models.dev](https://models.dev/), an open-source model catalogue that provides pricing, context limits, capabilities, and modality data for 40+ providers. The enrichment is non-destructive: it only fills fields that are empty or missing, never overwriting data that was already populated. This makes the full precedence per field **live provider data → built-in catalog → models.dev → empty**: you get the freshest values the provider reports, the catalog and models.dev only fill what's missing, and a stale catalog can never mask fresh live data. If models.dev is unreachable, discovery proceeds normally using whatever data the provider returned, so your existing catalogue is never at risk.
 
@@ -92,7 +92,7 @@ Test any model from the Models page with a single click. The test sends a minima
 
 ## Provider Quotas & Usage
 
-For providers that expose it, click a provider's quota badge (on its card or in the sidebar panel) to open a live usage breakdown without leaving the dashboard. OpenRouter shows credit balance and per-key spend; Z.ai Coding Plan shows its 5-hour, weekly, and MCP token quotas; NanoGPT shows weekly token and daily image quotas with subscription details; NeuralWatt shows energy-based quota with subscription and lifetime usage. Each modal toggles between quota used and quota remaining, and refreshes on demand. Some providers surface usage without a dedicated modal — DeepSeek shows account balance and Ollama Cloud shows plan status on their cards and sidebar badges.
+For providers that expose it, click a provider's quota badge (on its card or in the sidebar panel) to open a live usage breakdown without leaving the dashboard. OpenRouter shows credit balance and per-key spend; Z.ai Coding Plan shows its 5-hour, weekly, and MCP token quotas; NanoGPT shows weekly token and daily image quotas with subscription details; NeuralWatt shows energy-based quota with subscription and lifetime usage. Each modal toggles between quota used and quota remaining, and refreshes on demand. Some providers surface usage without a dedicated modal - DeepSeek shows account balance and Ollama Cloud shows plan status on their cards and sidebar badges.
 
 ## Interactive Chat & Arena
 
@@ -267,7 +267,7 @@ See the [API Reference](https://github.com/hugalafutro/model-hotel/wiki/API-Refe
 
 ## Metrics & log shipping
 
-A Prometheus endpoint is exposed at `/metrics` (request rates by provider/model/status, latency and TTFT histograms, token counters, failover attempts, and per-provider circuit-breaker state, plus Go runtime metrics). It is authenticated — set a dedicated `METRICS_TOKEN` so your scrape config need not carry the admin token (the admin token also works). No prompt content is ever exposed.
+A Prometheus endpoint is exposed at `/metrics` (request rates by provider/model/status, latency and TTFT histograms, token counters, failover attempts, and per-provider circuit-breaker state, plus Go runtime metrics). It is authenticated - set a dedicated `METRICS_TOKEN` so your scrape config need not carry the admin token (the admin token also works). No prompt content is ever exposed.
 
 ```yaml
 # prometheus.yml
@@ -279,7 +279,7 @@ scrape_configs:
       - targets: ["model-hotel:8080"]
 ```
 
-For logs, set `LOG_FORMAT=json` to emit one structured JSON object per line on stdout for Fluent Bit / Vector / Promtail / Datadog and friends — no extra endpoint, and (like everything here) never any prompt content. Need verbose debug output without the flood? `DEBUG_LOG=true` turns on Debug for everything; `DEBUG_LOG_SCOPES=failover,ratelimit` turns it on for just those areas.
+For logs, set `LOG_FORMAT=json` to emit one structured JSON object per line on stdout for Fluent Bit / Vector / Promtail / Datadog and friends - no extra endpoint, and (like everything here) never any prompt content. Need verbose debug output without the flood? `DEBUG_LOG=true` turns on Debug for everything; `DEBUG_LOG_SCOPES=failover,ratelimit` turns it on for just those areas.
 
 ## Full Documentation
 

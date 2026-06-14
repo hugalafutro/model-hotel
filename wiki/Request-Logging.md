@@ -268,7 +268,7 @@ mechanics:
 - **`DEBUG_LOG=true`** turns Debug on for **every** scope. Thorough, but it floods
   both stdout and this App Logs view at any real request rate.
 - **`DEBUG_LOG_SCOPES=failover,ratelimit`** turns Debug on for **only** the named
-  scopes — far more usable in production. It is ignored when `DEBUG_LOG=true`.
+  scopes - far more usable in production. It is ignored when `DEBUG_LOG=true`.
 
 A scope is the source prefix before the first `:` in a log line (matched
 case-insensitively). The canonical scopes are:

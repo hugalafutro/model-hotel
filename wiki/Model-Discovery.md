@@ -114,12 +114,12 @@ Each provider type has its own discovery implementation in `internal/provider/di
 Providers that expose a live model list **and** ship a built-in catalog are combined through a shared helper, `mergeLiveAndCatalog` (`internal/provider/catalog_merge.go`), instead of picking one source or the other. The merge has three rules:
 
 1. **Union of models.** The result is every model the live API returned **plus** every catalog model the API did not list. This surfaces models the provider keeps callable without advertising them in its listing endpoint (a freshly released GLM the listing hasn't caught up to, or older Grok models xAI keeps serving), and it means new models the provider adds are picked up automatically with no catalog edit.
-2. **Live wins per field.** For a model present in both sources the live value is authoritative. The catalog only fills fields the live result left empty, nil, or a known placeholder (a `display_name` equal to the `model_id`, or `"[]"` modalities). A stale catalog can therefore never mask fresh live data — at worst it supplies slightly outdated gap-fill.
+2. **Live wins per field.** For a model present in both sources the live value is authoritative. The catalog only fills fields the live result left empty, nil, or a known placeholder (a `display_name` equal to the `model_id`, or `"[]"` modalities). A stale catalog can therefore never mask fresh live data - at worst it supplies slightly outdated gap-fill.
 3. **Capabilities are OR-merged.** A capability flag is enabled in the result if either source reports it.
 
 models.dev enrichment runs *after* the merge and fills anything still empty, so the final precedence per field is **live → catalog → models.dev → zero value**. If the live fetch fails entirely (network, auth, 403/429 quota), the discoverer falls back to the pure catalog so discovery never goes dark.
 
-Providers on the merge (union): **Z.AI**, **xAI**, **DeepSeek**, **OpenCode Go**, **OpenCode Zen**. **OpenAI** uses the same live-first model but **backfill-only** (no union) via `backfillLiveFromCatalog`, because discoverOpenAI is the fallback for unknown/custom hosts and must not attach catalog-only gpt-5.x models to them. Providers with a *pricing-only* catalog — **Anthropic**, **Google AI Studio**, **Cohere** — keep their own discoverers: the live API is already the rich model-list source and the catalog only backfills pricing, so there is nothing to union. Pure-live providers (NanoGPT, OpenRouter, Ollama, LM Studio, KoboldCPP, NeuralWatt) have no catalog.
+Providers on the merge (union): **Z.AI**, **xAI**, **DeepSeek**, **OpenCode Go**, **OpenCode Zen**. **OpenAI** uses the same live-first model but **backfill-only** (no union) via `backfillLiveFromCatalog`, because discoverOpenAI is the fallback for unknown/custom hosts and must not attach catalog-only gpt-5.x models to them. Providers with a *pricing-only* catalog - **Anthropic**, **Google AI Studio**, **Cohere** - keep their own discoverers: the live API is already the rich model-list source and the catalog only backfills pricing, so there is nothing to union. Pure-live providers (NanoGPT, OpenRouter, Ollama, LM Studio, KoboldCPP, NeuralWatt) have no catalog.
 
 ### Provider Type Detection
 
@@ -149,7 +149,7 @@ The `DetectProviderType` function in `internal/provider/discovery.go` uses exact
 
 **Source files:** `discovery_openai.go`, `openai_catalog.go`, `catalog_merge.go`
 
-**Method:** Calls `GET /v1/models`, converts the listing to clean stubs (id + owner), and **backfills** matching models from the built-in `openaiCatalog` (the gpt-5.x family) via `backfillLiveFromCatalog` — *not* a union. discoverOpenAI is also the fallback for unknown/custom hosts, so the catalog must never add catalog-only models (that would attach phantom gpt-5.x models to a custom OpenAI-compatible provider); for real OpenAI the catalog is a subset of the live listing anyway. The ~110 uncatalogued models (gpt-4o, the o-series, etc.) are enriched by models.dev instead of the old fabricated empty entry.
+**Method:** Calls `GET /v1/models`, converts the listing to clean stubs (id + owner), and **backfills** matching models from the built-in `openaiCatalog` (the gpt-5.x family) via `backfillLiveFromCatalog` - *not* a union. discoverOpenAI is also the fallback for unknown/custom hosts, so the catalog must never add catalog-only models (that would attach phantom gpt-5.x models to a custom OpenAI-compatible provider); for real OpenAI the catalog is a subset of the live listing anyway. The ~110 uncatalogued models (gpt-4o, the o-series, etc.) are enriched by models.dev instead of the old fabricated empty entry.
 
 - Models covered by the catalog receive full metadata: display name, description, context length, max output tokens, modality, input/output modalities, streaming/reasoning/tool-calling/structured-output/vision flags, pricing (including cache-hit pricing).
 - Models **not** in the catalog pass through as clean stubs (`Streaming: true`, empty modalities) for models.dev to fill.
@@ -236,7 +236,7 @@ The `DetectProviderType` function in `internal/provider/discovery.go` uses exact
 
 **Source files:** `discovery_deepseek.go`, `deepseek_catalog.go`, `catalog_merge.go`
 
-**Method:** Calls `GET /models` (OpenAI-compatible list endpoint), converts the listing to clean stubs, and merges them with the built-in `deepseekCatalog` via [`mergeLiveAndCatalog`](#live--catalog-merge). The catalog backfills context length, max output, reasoning flag, and pricing (cache-miss maps to the standard input price; cache-hit is carried separately). The former hardcoded 128k/8k default for uncatalogued models was dropped — an unknown model is now a clean stub filled by models.dev (DeepSeek models are 1M/384K, so the old default was stale).
+**Method:** Calls `GET /models` (OpenAI-compatible list endpoint), converts the listing to clean stubs, and merges them with the built-in `deepseekCatalog` via [`mergeLiveAndCatalog`](#live--catalog-merge). The catalog backfills context length, max output, reasoning flag, and pricing (cache-miss maps to the standard input price; cache-hit is carried separately). The former hardcoded 128k/8k default for uncatalogued models was dropped - an unknown model is now a clean stub filled by models.dev (DeepSeek models are 1M/384K, so the old default was stale).
 
 **Catalog provides:**
 
@@ -341,7 +341,7 @@ The `DetectProviderType` function in `internal/provider/discovery.go` uses exact
 
 **Source files:** `discovery_opencode_go.go`, `opencode_go_catalog.go`, `opencode_catalog_types.go`, `catalog_merge.go`
 
-**Method:** Calls `GET /models` (OpenAI-compatible list endpoint), converts the listing to clean stubs, and merges them with the built-in catalog via [`mergeLiveAndCatalog`](#live--catalog-merge) — catalog backfills the metadata below, and newer models the catalog doesn't cover yet surface from live + models.dev. A `404` (endpoint gone / over-quota historically) falls back to the full catalog; other non-200s abort the scan so a transient outage can't disable live-only models. (Quota overrun does not gate the listing — it still returns `200`.)
+**Method:** Calls `GET /models` (OpenAI-compatible list endpoint), converts the listing to clean stubs, and merges them with the built-in catalog via [`mergeLiveAndCatalog`](#live--catalog-merge) - catalog backfills the metadata below, and newer models the catalog doesn't cover yet surface from live + models.dev. A `404` (endpoint gone / over-quota historically) falls back to the full catalog; other non-200s abort the scan so a transient outage can't disable live-only models. (Quota overrun does not gate the listing - it still returns `200`.)
 
 **Catalog provides (full `OpenCodeModelSpec`):**
 
@@ -365,7 +365,7 @@ The `DetectProviderType` function in `internal/provider/discovery.go` uses exact
 
 **Source files:** `discovery_opencode_zen.go`, `opencode_zen_catalog.go`, `opencode_catalog_types.go`, `catalog_merge.go`
 
-**Method:** For **keyed** providers, same as OpenCode Go — `GET /models` merged with the catalog via [`mergeLiveAndCatalog`](#live--catalog-merge). For **keyless** providers (no API key), the merge is bypassed: only free (zero-priced) catalog models the live listing includes are returned, with no union, since a keyless caller must not be shown models it cannot reach.
+**Method:** For **keyed** providers, same as OpenCode Go - `GET /models` merged with the catalog via [`mergeLiveAndCatalog`](#live--catalog-merge). For **keyless** providers (no API key), the merge is bypassed: only free (zero-priced) catalog models the live listing includes are returned, with no union, since a keyless caller must not be shown models it cannot reach.
 
 The catalog and model conversion logic is shared with OpenCode Go via `OpenCodeModelSpec` and `OpenCodeCatalogToModel`. (OpenCode Zen rotates free models aggressively; stale delisted free/preview entries are pruned from the catalog rather than unioned in as dead models.)
 
@@ -375,11 +375,11 @@ The catalog and model conversion logic is shared with OpenCode Go via `OpenCodeM
 
 **Method:** Live-plus-catalog merge via [`mergeLiveAndCatalog`](#live--catalog-merge). The live model list is obtained with a tiered strategy, then merged with the catalog:
 
-1. **Funded accounts**: Calls `GET /language-models` — a proprietary endpoint that returns rich data including pricing (cents per 100M tokens, converted to USD/1M) and input/output modalities. These live fields are kept as-is.
+1. **Funded accounts**: Calls `GET /language-models` - a proprietary endpoint that returns rich data including pricing (cents per 100M tokens, converted to USD/1M) and input/output modalities. These live fields are kept as-is.
 2. **No-access accounts (403/429)**: xAI returns 403 for unauthorized keys and 429 for accounts that have exhausted credits or reached spending limits. Discovery falls back to the pure static catalog in both cases.
 3. **Other failures / empty list**: Falls back to `GET /v1/models` (minimal OpenAI-compatible: id + owner).
 
-The live result is then merged with the catalog. The catalog **backfills** the fields xAI's API does not report (context window, max output, reasoning flag, friendly display name) and **unions in** catalog grok models the listing endpoints don't advertise but that remain callable (verified: all catalog grok ids return 200). Live values always win — unlike the previous implementation, the catalog no longer overrides live data, and no placeholder description (`"xAI language model (vX)"`) or hardcoded `"text"` modality is fabricated, so a real catalog description/modality is never masked.
+The live result is then merged with the catalog. The catalog **backfills** the fields xAI's API does not report (context window, max output, reasoning flag, friendly display name) and **unions in** catalog grok models the listing endpoints don't advertise but that remain callable (verified: all catalog grok ids return 200). Live values always win - unlike the previous implementation, the catalog no longer overrides live data, and no placeholder description (`"xAI language model (vX)"`) or hardcoded `"text"` modality is fabricated, so a real catalog description/modality is never masked.
 
 **Live API provides (from `/language-models`):**
 
@@ -387,9 +387,9 @@ The live result is then merged with the catalog. The catalog **backfills** the f
 |-------|--------|
 | Input modalities | API (`input_modalities`) |
 | Output modalities | API (`output_modalities`) |
-| Input price | API (`prompt_text_token_price`) — converted from cents/100M to USD/1M, set only when > 0 |
-| Cache-hit price | API (`cached_prompt_text_token_price`) — converted |
-| Output price | API (`completion_text_token_price`) — converted, set only when > 0 |
+| Input price | API (`prompt_text_token_price`) - converted from cents/100M to USD/1M, set only when > 0 |
+| Cache-hit price | API (`cached_prompt_text_token_price`) - converted |
+| Output price | API (`completion_text_token_price`) - converted, set only when > 0 |
 | Owned by | API (`owned_by`) |
 | Streaming / Tool calling / Structured output | Hardcoded `true` |
 | Vision | Derived from API input modalities (image present) |

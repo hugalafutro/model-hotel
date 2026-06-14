@@ -7,9 +7,9 @@ full rollout are in `plans/logging-and-errors-overhaul.md`.
 Two audiences, two channels:
 
 - **Machine-readable** classification (`request_logs.error_kind`, the slog level
-  and attrs) — for the dashboard, log collectors, and metrics. Never inferred
+  and attrs) - for the dashboard, log collectors, and metrics. Never inferred
   from prose.
-- **Human-readable** sentences (`error_message`, the slog message) — rendered
+- **Human-readable** sentences (`error_message`, the slog message) - rendered
   *from* the classification, worded for people.
 
 ## 1. Error kinds (`internal/proxy/reqerror.go`)
@@ -38,7 +38,7 @@ Rules:
 - A client hangup is **never** a provider failure: 499, and it must not record a
   circuit-breaker failure or count against provider stats.
 - The real provider/transport error is preserved (`reqError.Underlying`) even
-  when a higher-level cause (disconnect, timeout) is the terminal one — wrap,
+  when a higher-level cause (disconnect, timeout) is the terminal one - wrap,
   don't replace.
 - Attempt numbers are **1-based** in every human-facing string.
 
@@ -55,12 +55,12 @@ Style:
    e.g. `invalid model format: expected "provider/model" or "hotel/group"`.
 3. Name the model/provider when known and safe.
 4. **Never** echo prompt/request/response content or key material. Provider
-   error bodies may contain prompt echoes — extract only the provider error
+   error bodies may contain prompt echoes - extract only the provider error
    `message` field and truncate (`reqError.Underlying` caps at 500 chars).
 5. No internal jargon, no raw Go error prefixes (`context canceled`), no 0-based
    indices reaching users. ("param-strip retry" → "retry without unsupported
    parameters".)
-6. One message per failure mode — no near-duplicates.
+6. One message per failure mode - no near-duplicates.
 
 ## 3. Debug logging (`internal/debuglog`)
 
@@ -76,24 +76,24 @@ this prefix (`extractSource`) to tag the entry's source. Canonical sources:
 `webauthn`, `stats`, `system`, `db`, `admin`, `applogs`, `events`, `ratelimit`,
 `keycache`, `docker`, `auth`, `model`, `virtual-keys`, `version`, `api`.
 
-(The list is extensible — e.g. a future `frontdesk` binary adds its own source.)
+(The list is extensible - e.g. a future `frontdesk` binary adds its own source.)
 
 ### Levels
 
-- **Debug** — per-request mechanics; only emitted when `DEBUG_LOG` is set (all
+- **Debug** - per-request mechanics; only emitted when `DEBUG_LOG` is set (all
   scopes) or when the message's scope is listed in `DEBUG_LOG_SCOPES`.
-- **Info** — lifecycle events and *normal* client behavior. **Client
-  disconnects are Info**, not Warn — they are not our failure.
-- **Warn** — degraded but self-healing: transient retry, breaker opening,
+- **Info** - lifecycle events and *normal* client behavior. **Client
+  disconnects are Info**, not Warn - they are not our failure.
+- **Warn** - degraded but self-healing: transient retry, breaker opening,
   stripped params, slow provider.
-- **Error** — action needed or data lost: all candidates exhausted, DB write
+- **Error** - action needed or data lost: all candidates exhausted, DB write
   failed, decryption failed.
 
 ### Scoped debug (`DEBUG_LOG_SCOPES`)
 
 `DEBUG_LOG` turns Debug on for *everything*, which floods stdout at any real RPS.
 `DEBUG_LOG_SCOPES` instead enables Debug for **only** the listed source prefixes
-— the same `source:` prefixes from §3, e.g. `DEBUG_LOG_SCOPES=failover,ratelimit`.
+- the same `source:` prefixes from §3, e.g. `DEBUG_LOG_SCOPES=failover,ratelimit`.
 It is comma-separated, trimmed, and matched case-insensitively against the prefix
 before the first `:` in each message. It is ignored when `DEBUG_LOG` is on (Debug
 is already global). The parsed scope set is logged once at startup
@@ -103,7 +103,7 @@ Mechanism (`internal/debuglog`): the handler's level gate is lowered to Debug
 whenever *any* Debug output is possible (global or scoped), and a
 `scopeFilterHandler` wrapper then drops Debug records whose scope isn't enabled.
 Filtering lives in the handler, not in `Debug()`, so `debuglog.Debug` always
-reaches whatever handler is installed — callers that install their own slog
+reaches whatever handler is installed - callers that install their own slog
 handler (e.g. tests, the app-log buffer) keep working unchanged. Non-Debug
 records always pass through regardless of scope.
 
@@ -116,7 +116,7 @@ Use the canonical key, never a synonym: `model`, `provider`, `provider_id`,
 ### Pairing rule
 
 Any failure that records a request-log error should also emit one debuglog line
-at the matching level carrying the full structured detail — including the
+at the matching level carrying the full structured detail - including the
 underlying provider error that the user-facing message may truncate.
 
 ## 4. Output format: `LOG_FORMAT`
@@ -125,7 +125,7 @@ underlying provider error that the user-facing message may truncate.
 page (ring buffer + DB + SSE) is unaffected.
 
 - unset / `text` (default): human-readable `TIME level=LEVEL source: message k=v …`.
-- `json`: one JSON object per line — `time`, `level`, `source`, `msg`, plus each
+- `json`: one JSON object per line - `time`, `level`, `source`, `msg`, plus each
   slog attr as its own field. For Fluent Bit / Vector / Promtail / Datadog and
   friends; no extra endpoint or dependency. Safe to ship off-box because the
   no-content rule guarantees no prompt data in any log line.
@@ -138,7 +138,7 @@ stderr filter's level gate and source suppression are JSON-aware
 ## 5. No content, ever
 
 Absolute: no prompt, request, or response content in any log line or error
-message — only routing/metering/diagnostic metadata. This is what makes logs
+message - only routing/metering/diagnostic metadata. This is what makes logs
 safe to export to a collector.
 
 ## 6. Audit status
