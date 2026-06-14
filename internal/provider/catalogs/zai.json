@@ -1,7 +1,7 @@
 [
   {
     "model_id": "glm-5.2",
-    "context_length": 200000,
+    "context_length": 1000000,
     "max_output_tokens": 131072,
     "modality": "text",
     "reasoning": true,
