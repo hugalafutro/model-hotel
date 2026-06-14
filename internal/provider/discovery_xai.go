@@ -190,8 +190,11 @@ func (d *DiscoveryService) discoverXAIMinimalModels(ctx context.Context, provide
 			DisplayName:  m.ID,
 			Capabilities: string(capJSON),
 			Params:       "{}",
-			OwnedBy:      m.OwnedBy,
-			Enabled:      true,
+			// JSONB columns must hold valid JSON even before catalog backfill.
+			InputModalities:  "[]",
+			OutputModalities: "[]",
+			OwnedBy:          m.OwnedBy,
+			Enabled:          true,
 		})
 	}
 

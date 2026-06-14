@@ -18,6 +18,26 @@ func capsJSON(c model.Capability) string {
 	return string(b)
 }
 
+// TestLiveModelStub_ValidJSONBFields guards against the regression where a stub
+// left JSONB columns (capabilities, params, modalities) as "" — invalid JSON
+// that fails the DB upsert when neither the catalog nor models.dev backfill them.
+func TestLiveModelStub_ValidJSONBFields(t *testing.T) {
+	m := liveModelStub("whisper-1", "openai", uuid.New())
+	for name, field := range map[string]string{
+		"capabilities":      m.Capabilities,
+		"params":            m.Params,
+		"input_modalities":  m.InputModalities,
+		"output_modalities": m.OutputModalities,
+	} {
+		if !json.Valid([]byte(field)) {
+			t.Errorf("%s = %q is not valid JSON (would break JSONB upsert)", name, field)
+		}
+	}
+	if m.InputModalities != "[]" || m.OutputModalities != "[]" {
+		t.Errorf("modalities should default to empty arrays, got in=%q out=%q", m.InputModalities, m.OutputModalities)
+	}
+}
+
 func TestMergeLiveAndCatalog_LiveWinsCatalogBackfills(t *testing.T) {
 	pid := uuid.New()
 	live := []*model.Model{{

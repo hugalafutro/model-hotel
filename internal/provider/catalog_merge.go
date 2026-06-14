@@ -23,8 +23,13 @@ func liveModelStub(modelID, ownedBy string, providerID uuid.UUID) *model.Model {
 		DisplayName:  modelID,
 		Capabilities: string(capJSON),
 		Params:       "{}",
-		OwnedBy:      ownedBy,
-		Enabled:      true,
+		// Modalities are JSONB columns: emit valid empty arrays (not "") so the
+		// upsert succeeds even when neither the catalog nor models.dev fill them.
+		// "[]" is still treated as empty/fillable by backfill and models.dev.
+		InputModalities:  "[]",
+		OutputModalities: "[]",
+		OwnedBy:          ownedBy,
+		Enabled:          true,
 	}
 }
 

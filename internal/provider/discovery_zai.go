@@ -78,8 +78,11 @@ func zaiCodingLiveModel(id, ownedBy string, providerID uuid.UUID) *model.Model {
 		DisplayName:  id,
 		Capabilities: "{}",
 		Params:       "{}",
-		OwnedBy:      owner,
-		Enabled:      true,
+		// JSONB columns must hold valid JSON even before catalog/models.dev fill.
+		InputModalities:  "[]",
+		OutputModalities: "[]",
+		OwnedBy:          owner,
+		Enabled:          true,
 	}
 }
 
