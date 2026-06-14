@@ -1021,8 +1021,6 @@
 			"form": {
 				"name": "Name",
 				"namePlaceholder": "z. B. Meine App",
-				"rateLimitRps": "RPS Preisbegrenzung (Anfragen/Sekunden)",
-				"rateLimitBurst": "Rate Limit Burst (max gleichzeitig)",
 				"placeholderGlobal": "Globale Einstellung verwenden",
 				"providerAccess": "Anbieterzugriff",
 				"providerInstructions": "Klicken Sie auf einen Anbieter, um den Zugriff zu beschränken. Alle sind standardmäßig zugänglich.",
@@ -1031,7 +1029,9 @@
 				"stripReasoning": "Grund für den Strip",
 				"stripReasoningDescription": "Wenn aktiviert, werden Argumentationen/Denkende Token von Streaming-Antworten für Clients entfernt, die sie nicht verarbeiten können.",
 				"enableStripReasoning": "Strip-Argumentation aktivieren",
-				"disableStripReasoning": "Strip-Argumentation deaktivieren"
+				"disableStripReasoning": "Strip-Argumentation deaktivieren",
+				"rateLimitBurst": "Burst (max. gleichzeitig)",
+				"rateLimitRps": "RPS (Anfragen/Sek.)"
 			},
 			"detailTitle": "Details der virtuellen Taste",
 			"sections": {

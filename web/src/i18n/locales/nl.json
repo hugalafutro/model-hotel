@@ -1021,8 +1021,6 @@
 			"form": {
 				"name": "naam",
 				"namePlaceholder": "b.v. Mijn App",
-				"rateLimitRps": "Tarieerlimiet RPS (aanvragen/sec)",
-				"rateLimitBurst": "Rate Limit Burst (max concurrent)",
 				"placeholderGlobal": "Gebruik globale instelling",
 				"providerAccess": "Toegang tot aanbieder",
 				"providerInstructions": "Klik op een provider om de toegang te beperken. Alles is standaard toegankelijk.",
@@ -1031,7 +1029,9 @@
 				"stripReasoning": "Reden van Strip",
 				"stripReasoningDescription": "Wanneer ingeschakeld, reding/gedachten tokens worden verwijderd van streamingreacties voor cliënten die ze niet kunnen verwerken.",
 				"enableStripReasoning": "Schakel strip redenering in",
-				"disableStripReasoning": "Uitschakelen strip redenering"
+				"disableStripReasoning": "Uitschakelen strip redenering",
+				"rateLimitBurst": "Burst (max. gelijktijdig)",
+				"rateLimitRps": "RPS (verzoeken/sec)"
 			},
 			"detailTitle": "Details van virtuele sleutel",
 			"sections": {

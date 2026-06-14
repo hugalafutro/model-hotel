@@ -1021,8 +1021,6 @@
 			"form": {
 				"name": "Naam",
 				"namePlaceholder": "bv., My App",
-				"rateLimitRps": "Beperk die tempo van RPS (aansoeke/sek)",
-				"rateLimitBurst": "Deursetbeperkingsstoot (maksimum gelyktydig)",
 				"placeholderGlobal": "Gebruik wêreldwye instelling",
 				"providerAccess": "Verskaffertoegang",
 				"providerInstructions": "Klik op 'n verskaffer om toegang te beperk. Almal is standaard toeganklik.",
@@ -1031,7 +1029,9 @@
 				"stripReasoning": "Redenering in strepe",
 				"stripReasoningDescription": "Wanneer dit geaktiveer is, word redenerings-/denktokens verwyder uit gestreamde antwoorde vir kliënte wat dit nie kan hanteer nie.",
 				"enableStripReasoning": "Aktiveer streepredenering",
-				"disableStripReasoning": "Skakel bandredenering uit"
+				"disableStripReasoning": "Skakel bandredenering uit",
+				"rateLimitBurst": "Stoot (maksimum gelyktydig)",
+				"rateLimitRps": "RPS (versoeke/sek)"
 			},
 			"detailTitle": "Virtuele Sleutelbesonderhede",
 			"sections": {

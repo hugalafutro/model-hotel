@@ -1021,8 +1021,6 @@
 			"form": {
 				"name": "Jméno",
 				"namePlaceholder": "např. Moje aplikace",
-				"rateLimitRps": "Limit počtu požadavků (RPS)",
-				"rateLimitBurst": "Překročení limitu požadavků (maximální počet souběžných požadavků)",
 				"placeholderGlobal": "Použít globální nastavení",
 				"providerAccess": "Přístup pro poskytovatele",
 				"providerInstructions": "Kliknutím na poskytovatele omezíte přístup. Ve výchozím nastavení jsou všichni dostupní.",
@@ -1031,7 +1029,9 @@
 				"stripReasoning": "Logické úvahy",
 				"stripReasoningDescription": "Je-li tato funkce zapnutá, jsou tokeny pro uvažování a logiku odstraněny z průběžných odpovědí pro klienty, kteří je nedokážou zpracovat.",
 				"enableStripReasoning": "Povolit logické odvozování",
-				"disableStripReasoning": "Zakázat logiku strip"
+				"disableStripReasoning": "Zakázat logiku strip",
+				"rateLimitBurst": "Burst (max. počet souběžných procesů)",
+				"rateLimitRps": "RPS (počet požadavků za sekundu)"
 			},
 			"detailTitle": "Podrobnosti o virtuálním klíči",
 			"sections": {

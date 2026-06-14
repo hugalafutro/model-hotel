@@ -596,17 +596,17 @@ describe("VirtualKeys", () => {
 			});
 			await user.click(editButton);
 
-			// Update RPS
-			const rateLimitRpsInput = within(dialog).getByLabelText(
-				"Rate Limit RPS (requests/sec)",
-			);
+			// Update RPS (select by stable id, not translated label text)
+			const rateLimitRpsInput =
+				dialog.querySelector<HTMLInputElement>("#vk-detail-rps");
+			if (!rateLimitRpsInput) throw new Error("rps input not found");
 			await user.clear(rateLimitRpsInput);
 			await user.type(rateLimitRpsInput, "100");
 
 			// Update BURST
-			const rateLimitBurstInput = within(dialog).getByLabelText(
-				"Rate Limit Burst (max concurrent)",
-			);
+			const rateLimitBurstInput =
+				dialog.querySelector<HTMLInputElement>("#vk-detail-burst");
+			if (!rateLimitBurstInput) throw new Error("burst input not found");
 			await user.clear(rateLimitBurstInput);
 			await user.type(rateLimitBurstInput, "200");
 

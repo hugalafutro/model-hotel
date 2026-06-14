@@ -1021,8 +1021,8 @@
 			"form": {
 				"name": "Name",
 				"namePlaceholder": "e.g., My App",
-				"rateLimitRps": "Rate Limit RPS (requests/sec)",
-				"rateLimitBurst": "Rate Limit Burst (max concurrent)",
+				"rateLimitRps": "RPS (requests/sec)",
+				"rateLimitBurst": "Burst (max concurrent)",
 				"placeholderGlobal": "Use global setting",
 				"providerAccess": "Provider Access",
 				"providerInstructions": "Click a provider to restrict access. All are accessible by default.",

@@ -1021,8 +1021,6 @@
 			"form": {
 				"name": "שם",
 				"namePlaceholder": "למשל, האפליקציה שלי",
-				"rateLimitRps": "מגבלת קצב RPS (בקשות בשנייה)",
-				"rateLimitBurst": "חריגה ממגבלת הקצב (מספר מקסימלי של פעולות בו-זמנית)",
 				"placeholderGlobal": "השתמש בהגדרה כללית",
 				"providerAccess": "גישה לספקים",
 				"providerInstructions": "לחץ על ספק כדי להגביל את הגישה. כברירת מחדל, הגישה פתוחה לכולם.",
@@ -1031,7 +1029,9 @@
 				"stripReasoning": "הנמקה של רצועות",
 				"stripReasoningDescription": "כאשר אפשרות זו מופעלת, אסימוני ההיגיון/החשיבה מוסרים מתגובות הזרם עבור לקוחות שאינם מסוגלים לטפל בהם.",
 				"enableStripReasoning": "הפעל חשיבה רציפה",
-				"disableStripReasoning": "השבת את חישוב הרצועות"
+				"disableStripReasoning": "השבת את חישוב הרצועות",
+				"rateLimitBurst": "Burst (מקסימום בו-זמנית)",
+				"rateLimitRps": "RPS (בקשות בשנייה)"
 			},
 			"detailTitle": "פרטי המפתח הווירטואלי",
 			"sections": {

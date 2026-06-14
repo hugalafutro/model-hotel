@@ -1021,8 +1021,6 @@
 			"form": {
 				"name": "Namn",
 				"namePlaceholder": "t.ex., Min app",
-				"rateLimitRps": "Betygsgräns RPS (förfrågningar/sek)",
-				"rateLimitBurst": "Betygsgräns Burst (max samtidigt)",
 				"placeholderGlobal": "Använd global inställning",
 				"providerAccess": "Tillgång till leverantör",
 				"providerInstructions": "Klicka på en leverantör för att begränsa åtkomst. Alla är tillgängliga som standard.",
@@ -1031,7 +1029,9 @@
 				"stripReasoning": "Ta bort förnuft",
 				"stripReasoningDescription": "När aktiverad, resonemang/tänkande polletter tas bort från strömmande svar för klienter som inte kan hantera dem.",
 				"enableStripReasoning": "Aktivera remsresonemang",
-				"disableStripReasoning": "Inaktivera remsans resonemang"
+				"disableStripReasoning": "Inaktivera remsans resonemang",
+				"rateLimitBurst": "Burst (max samtidiga)",
+				"rateLimitRps": "RPS (förfrågningar/sek)"
 			},
 			"detailTitle": "Information om virtuell nyckel",
 			"sections": {

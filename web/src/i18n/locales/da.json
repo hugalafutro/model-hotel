@@ -1021,8 +1021,6 @@
 			"form": {
 				"name": "Navn",
 				"namePlaceholder": "fx, Min App",
-				"rateLimitRps": "Rate Limit RPS (anmodninger/sek)",
-				"rateLimitBurst": "Rate Limit Burst (max concurrent)",
 				"placeholderGlobal": "Brug global indstilling",
 				"providerAccess": "Udbyder Adgang",
 				"providerInstructions": "Klik på en udbyder for at begrænse adgang. Alle er tilgængelige som standard.",
@@ -1031,7 +1029,9 @@
 				"stripReasoning": "Fjern Begrundelse",
 				"stripReasoningDescription": "Når aktiveret, ræsonnement/tænkning tokens fjernes fra streaming svar for kunder, der ikke kan håndtere dem.",
 				"enableStripReasoning": "Aktiver strip ræsonnement",
-				"disableStripReasoning": "Deaktiver strimmel ræsonnement"
+				"disableStripReasoning": "Deaktiver strimmel ræsonnement",
+				"rateLimitBurst": "Burst (maks. samtidige)",
+				"rateLimitRps": "RPS (anmodninger/sek.)"
 			},
 			"detailTitle": "Virtuel Nøgle Detaljer",
 			"sections": {

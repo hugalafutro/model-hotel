@@ -1021,8 +1021,6 @@
 			"form": {
 				"name": "Nome:",
 				"namePlaceholder": "ex.: Meu Aplicativo",
-				"rateLimitRps": "Taxa limite de RPS (requests/seg)",
-				"rateLimitBurst": "Rajada de Limite de Taxa (max simultâneo)",
 				"placeholderGlobal": "Usar configuração global",
 				"providerAccess": "Acesso ao provedor",
 				"providerInstructions": "Clique em um provedor para restringir o acesso. Todos são acessíveis por padrão.",
@@ -1031,7 +1029,9 @@
 				"stripReasoning": "Justificativa do Tirar",
 				"stripReasoningDescription": "Quando habilitado, o raciocínio/pensamento tokens são removidos das respostas de streaming para clientes que não podem lidar com eles.",
 				"enableStripReasoning": "Ativar raciocínio da faixa",
-				"disableStripReasoning": "Desabilitar raciocínio da faixa"
+				"disableStripReasoning": "Desabilitar raciocínio da faixa",
+				"rateLimitBurst": "Burst (máximo simultâneo)",
+				"rateLimitRps": "RPS (solicitações/segundo)"
 			},
 			"detailTitle": "Detalhes da Chave Virtual",
 			"sections": {

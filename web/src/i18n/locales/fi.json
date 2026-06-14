@@ -1021,8 +1021,6 @@
 			"form": {
 				"name": "Nimi",
 				"namePlaceholder": "esim., Oma sovellus",
-				"rateLimitRps": "Arvostele RPS (pyynnöt/Sek)",
-				"rateLimitBurst": "Arvostele rajoitus Burst (maksimi samanaikainen)",
 				"placeholderGlobal": "Käytä globaalia asetusta",
 				"providerAccess": "Palveluntarjoajan Pääsy",
 				"providerInstructions": "Napsauta tarjoajaa rajoittaaksesi pääsyä. Kaikki ovat oletusarvoisesti käytettävissä.",
@@ -1031,7 +1029,9 @@
 				"stripReasoning": "Poista Perustelu",
 				"stripReasoningDescription": "Kun käytössä, päättely/ajattelu poletteja poistetaan streaming vastaukset asiakkaille, jotka eivät pysty käsittelemään niitä.",
 				"enableStripReasoning": "Ota kaistan päättely käyttöön",
-				"disableStripReasoning": "Poista strip päättely käytöstä"
+				"disableStripReasoning": "Poista strip päättely käytöstä",
+				"rateLimitBurst": "Burst (maks. samanaikaiset)",
+				"rateLimitRps": "RPS (pyynnöt/sekunti)"
 			},
 			"detailTitle": "Virtuaalisen Avaimen Yksityiskohdat",
 			"sections": {

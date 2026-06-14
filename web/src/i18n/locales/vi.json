@@ -1021,8 +1021,6 @@
 			"form": {
 				"name": "Tên",
 				"namePlaceholder": "Ví dụ: Ứng dụng của tôi",
-				"rateLimitRps": "Giới hạn tốc độ RPS (yêu cầu/giây)",
-				"rateLimitBurst": "Số lượng yêu cầu tối đa trong một lần (số lượng đồng thời tối đa)",
 				"placeholderGlobal": "Sử dụng cài đặt chung",
 				"providerAccess": "Quyền truy cập của nhà cung cấp",
 				"providerInstructions": "Nhấp vào một nhà cung cấp để hạn chế quyền truy cập. Theo mặc định, tất cả đều có thể truy cập được.",
@@ -1031,7 +1029,9 @@
 				"stripReasoning": "Lý luận theo từng bước",
 				"stripReasoningDescription": "Khi tính năng này được bật, các mã thông báo suy luận/suy nghĩ sẽ bị loại bỏ khỏi các phản hồi truyền trực tiếp dành cho những khách hàng không thể xử lý chúng.",
 				"enableStripReasoning": "Bật tính năng suy luận theo dải",
-				"disableStripReasoning": "Tắt tính năng suy luận theo dải"
+				"disableStripReasoning": "Tắt tính năng suy luận theo dải",
+				"rateLimitBurst": "Burst (tối đa đồng thời)",
+				"rateLimitRps": "RPS (yêu cầu/giây)"
 			},
 			"detailTitle": "Chi tiết về Khóa ảo",
 			"sections": {

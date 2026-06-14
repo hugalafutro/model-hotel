@@ -1021,8 +1021,6 @@
 			"form": {
 				"name": "Nume",
 				"namePlaceholder": "de exemplu aplicația mea",
-				"rateLimitRps": "Evaluează Limita RPS (cereri/sec)",
-				"rateLimitBurst": "Rata limită rafală (curentul maxim)",
 				"placeholderGlobal": "Utilizează setarea globală",
 				"providerAccess": "Acces furnizor",
 				"providerInstructions": "Faceți clic pe un furnizor pentru a restricționa accesul. Toate sunt accesibile în mod implicit.",
@@ -1031,7 +1029,9 @@
 				"stripReasoning": "Randare bandă",
 				"stripReasoningDescription": "Când este activată, jetoanele de gândire/gândire sunt eliminate din streamaming pentru clienții care nu le pot gestiona.",
 				"enableStripReasoning": "Activează raționamentul benzii",
-				"disableStripReasoning": "Dezactivează raționamentul benzii"
+				"disableStripReasoning": "Dezactivează raționamentul benzii",
+				"rateLimitBurst": "Burst (maxim simultan)",
+				"rateLimitRps": "RPS (solicitări/secundă)"
 			},
 			"detailTitle": "Detalii cheie virtuală",
 			"sections": {
