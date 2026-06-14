@@ -100,6 +100,86 @@ func TestDiscoverZAICoding_VisionModelCapabilities(t *testing.T) {
 	}
 }
 
+// TestDiscoverZAICoding_LiveFailureFallsBackToCatalog verifies that when the
+// live /models endpoint errors, discovery returns the full embedded catalog
+// (including the catalog-only glm-5.2) rather than failing.
+func TestDiscoverZAICoding_LiveFailureFallsBackToCatalog(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "boom", http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	svc := &DiscoveryService{httpClient: &http.Client{Transport: &testTransport{url: server.URL}}}
+	provider := &Provider{
+		ID:      uuid.New(),
+		Name:    "test-zai",
+		BaseURL: "https://api.z.ai/api/coding/paas/v4",
+	}
+
+	models, err := svc.discoverZAICoding(context.Background(), provider, "test-key")
+	if err != nil {
+		t.Fatalf("discoverZAICoding should not error on live failure, got: %v", err)
+	}
+	if len(models) == 0 {
+		t.Fatal("expected catalog fallback to return models")
+	}
+	for _, m := range models {
+		if m.OwnedBy != "zhipu" {
+			t.Errorf("catalog model OwnedBy = %q, want zhipu", m.OwnedBy)
+		}
+		if m.ProviderID != provider.ID {
+			t.Errorf("ProviderID = %v, want %v", m.ProviderID, provider.ID)
+		}
+	}
+	var found52 bool
+	for _, m := range models {
+		if m.ModelID == "glm-5.2" {
+			found52 = true
+		}
+	}
+	if !found52 {
+		t.Error("expected glm-5.2 present in catalog fallback")
+	}
+}
+
+// TestDiscoverZAICoding_LiveOnlyModelPassesThrough verifies a model the live
+// API lists but the catalog does not know about still surfaces.
+func TestDiscoverZAICoding_LiveOnlyModelPassesThrough(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/models") {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"object":"list","data":[{"id":"glm-future-unlisted","object":"model","owned_by":"z-ai"}]}`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	svc := &DiscoveryService{httpClient: &http.Client{Transport: &testTransport{url: server.URL}}}
+	provider := &Provider{
+		ID:      uuid.New(),
+		Name:    "test-zai",
+		BaseURL: "https://api.z.ai/api/coding/paas/v4",
+	}
+
+	models, err := svc.discoverZAICoding(context.Background(), provider, "test-key")
+	if err != nil {
+		t.Fatalf("discoverZAICoding failed: %v", err)
+	}
+	var foundLiveOnly bool
+	for _, m := range models {
+		if m.ModelID == "glm-future-unlisted" {
+			foundLiveOnly = true
+			if m.OwnedBy != "zhipu" {
+				t.Errorf("live-only OwnedBy = %q, want zhipu", m.OwnedBy)
+			}
+		}
+	}
+	if !foundLiveOnly {
+		t.Error("expected live-only model to pass through discovery")
+	}
+}
+
 // ---------------------------------------------------------------------------
 // GetZAICodingQuota — additional error paths not covered in discovery_http_test.go
 // ---------------------------------------------------------------------------

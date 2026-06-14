@@ -1,5 +1,14 @@
 [
   {
+    "model_id": "glm-5.2",
+    "context_length": 200000,
+    "max_output_tokens": 131072,
+    "modality": "text",
+    "reasoning": true,
+    "tool_calling": true,
+    "structured_output": true
+  },
+  {
     "model_id": "glm-5.1",
     "context_length": 200000,
     "max_output_tokens": 131072,
