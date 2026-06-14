@@ -100,7 +100,8 @@
 			"logs": "Записи",
 			"requests": "Захтеви",
 			"appLogs": "Записи",
-			"settings": "Подешавања"
+			"settings": "Подешавања",
+			"failoverBadgeExplain": "Фејловер провајдери по стању циркуитобрејкера — {{closed}} здрав / {{halfOpen}} опоравља се / {{open}} активиран"
 		},
 		"status": {
 			"apiStatus": "Статус API",

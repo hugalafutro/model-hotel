@@ -100,7 +100,8 @@
 			"logs": "Lokit",
 			"requests": "Pyynnöt",
 			"appLogs": "Lokit",
-			"settings": "Asetukset"
+			"settings": "Asetukset",
+			"failoverBadgeExplain": "Vikasietopalveluntarjoajat katkaisijan tilan mukaan — {{closed}} toimintakunnossa / {{halfOpen}} palautumassa / {{open}} laukeamassa"
 		},
 		"status": {
 			"apiStatus": "API:n tila",

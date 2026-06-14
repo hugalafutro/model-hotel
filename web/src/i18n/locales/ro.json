@@ -100,7 +100,8 @@
 			"logs": "Jurnale",
 			"requests": "Cereri",
 			"appLogs": "Jurnale",
-			"settings": "Setări"
+			"settings": "Setări",
+			"failoverBadgeExplain": "Furnizori de failover în funcție de starea întrerupătorului de circuit — {{closed}} funcțional / {{halfOpen}} în recuperare / {{open}} declanșat"
 		},
 		"status": {
 			"apiStatus": "Stare API",

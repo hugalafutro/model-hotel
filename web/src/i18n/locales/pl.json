@@ -100,7 +100,8 @@
 			"logs": "Logi",
 			"requests": "Żądania",
 			"appLogs": "Logi",
-			"settings": "Ustawienia"
+			"settings": "Ustawienia",
+			"failoverBadgeExplain": "Dostawcy awaryjni według stanu wyłącznika — {{closed}} sprawny / {{halfOpen}} w trakcie przywracania / {{open}} wyłączony"
 		},
 		"status": {
 			"apiStatus": "Status API",

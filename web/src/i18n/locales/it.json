@@ -100,7 +100,8 @@
 			"logs": "Log",
 			"requests": "Richieste",
 			"appLogs": "Log",
-			"settings": "Impostazioni"
+			"settings": "Impostazioni",
+			"failoverBadgeExplain": "Failover dei provider in base allo stato dell'interruttore automatico — {{closed}} funzionante / {{halfOpen}} in ripristino / {{open}} scattato"
 		},
 		"status": {
 			"apiStatus": "Stato API",

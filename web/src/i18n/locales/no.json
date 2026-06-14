@@ -100,7 +100,8 @@
 			"logs": "Logger",
 			"requests": "Forespørsler",
 			"appLogs": "Logger",
-			"settings": "Innstillinger"
+			"settings": "Innstillinger",
+			"failoverBadgeExplain": "Failover-leverandører etter status på strømbryter — {{closed}} i orden / {{halfOpen}} gjenoppretter / {{open}} utløst"
 		},
 		"status": {
 			"apiStatus": "API-status",

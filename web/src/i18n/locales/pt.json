@@ -100,7 +100,8 @@
 			"logs": "Registos",
 			"requests": "Pedidos",
 			"appLogs": "Registos",
-			"settings": "Definições"
+			"settings": "Definições",
+			"failoverBadgeExplain": "Provedores de failover por estado do disjuntor — {{closed}} em bom estado / {{halfOpen}} em recuperação / {{open}} desarmado"
 		},
 		"status": {
 			"apiStatus": "Estado da API",

@@ -100,7 +100,8 @@
 			"logs": "Loggar",
 			"requests": "Förfrågningar",
 			"appLogs": "Loggar",
-			"settings": "Inställningar"
+			"settings": "Inställningar",
+			"failoverBadgeExplain": "Failover-leverantörer efter circuit-breaker-status — {{closed}} fungerar / {{halfOpen}} återställs / {{open}} utlöst"
 		},
 		"status": {
 			"apiStatus": "API-status",

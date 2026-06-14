@@ -100,7 +100,8 @@
 			"logs": "로그",
 			"requests": "요청",
 			"appLogs": "로그",
-			"settings": "설정"
+			"settings": "설정",
+			"failoverBadgeExplain": "서킷 브레이커 상태에 따른 페일오버 제공업체 — {{closed}} 정상 / {{halfOpen}} 복구 중 / {{open}} 트립됨"
 		},
 		"status": {
 			"apiStatus": "API 상태",

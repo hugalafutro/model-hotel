@@ -100,7 +100,8 @@
 			"logs": "Logfiler",
 			"requests": "Anmodninger",
 			"appLogs": "Logfiler",
-			"settings": "Indstillinger"
+			"settings": "Indstillinger",
+			"failoverBadgeExplain": "Failover-udbydere efter afbryderstatus — {{closed}} fungerer / {{halfOpen}} genopretter / {{open}} udløst"
 		},
 		"status": {
 			"apiStatus": "API-status",

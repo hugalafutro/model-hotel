@@ -100,7 +100,8 @@
 			"logs": "Záznamy",
 			"requests": "Požiadavky",
 			"appLogs": "Záznamy",
-			"settings": "Nastavenia"
+			"settings": "Nastavenia",
+			"failoverBadgeExplain": "Poskytovatelia failoveru podľa stavu ističa — {{closed}} v poriadku / {{halfOpen}} sa obnovuje / {{open}} vypnutý"
 		},
 		"status": {
 			"apiStatus": "Stav API",

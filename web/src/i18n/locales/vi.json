@@ -100,7 +100,8 @@
 			"logs": "Nhật ký",
 			"requests": "Yêu cầu",
 			"appLogs": "Nhật ký",
-			"settings": "Cài đặt"
+			"settings": "Cài đặt",
+			"failoverBadgeExplain": "Các nhà cung cấp dự phòng theo trạng thái ngắt mạch — {{closed}} hoạt động bình thường / {{halfOpen}} đang phục hồi / {{open}} bị ngắt"
 		},
 		"status": {
 			"apiStatus": "Trạng thái API",

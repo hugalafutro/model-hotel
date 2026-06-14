@@ -100,7 +100,8 @@
 			"logs": "日志",
 			"requests": "请求",
 			"appLogs": "日志",
-			"settings": "设置"
+			"settings": "设置",
+			"failoverBadgeExplain": "按断路器状态切换提供商 — {{closed}} 正常 / {{halfOpen}} 恢复中 / {{open}} 已跳闸"
 		},
 		"status": {
 			"apiStatus": "API 状态",
