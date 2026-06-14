@@ -1021,8 +1021,6 @@
 			"form": {
 				"name": "Nom",
 				"namePlaceholder": "ex: Mon application",
-				"rateLimitRps": "Limite de débit RPS (requêtes/sec)",
-				"rateLimitBurst": "Rafale de limite de taux (max concurrent)",
 				"placeholderGlobal": "Utiliser les paramètres globaux",
 				"providerAccess": "Accès Fournisseur",
 				"providerInstructions": "Cliquez sur un fournisseur pour restreindre l'accès. Tous sont accessibles par défaut.",
@@ -1031,7 +1029,9 @@
 				"stripReasoning": "Raison de la suppression",
 				"stripReasoningDescription": "Lorsqu'il est activé, les jetons de raison/pensée sont supprimés des réponses de streaming pour les clients qui ne peuvent pas les gérer.",
 				"enableStripReasoning": "Activer le raisonnement de la bande",
-				"disableStripReasoning": "Désactiver le raisonnement de la bande"
+				"disableStripReasoning": "Désactiver le raisonnement de la bande",
+				"rateLimitBurst": "Burst (nombre maximal de connexions simultanées)",
+				"rateLimitRps": "RPS (requêtes/seconde)"
 			},
 			"detailTitle": "Détails de la clé virtuelle",
 			"sections": {

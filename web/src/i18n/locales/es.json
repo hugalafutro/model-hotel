@@ -1021,8 +1021,6 @@
 			"form": {
 				"name": "Nombre",
 				"namePlaceholder": "por ejemplo, Mi aplicación",
-				"rateLimitRps": "Límite RPS (solicitudes/seg)",
-				"rateLimitBurst": "Límite de explosión (máximo concurrente)",
 				"placeholderGlobal": "Usar configuración global",
 				"providerAccess": "Acceso al proveedor",
 				"providerInstructions": "Haga clic en un proveedor para restringir el acceso. Todos son accesibles por defecto.",
@@ -1031,7 +1029,9 @@
 				"stripReasoning": "Razonamiento del clip",
 				"stripReasoningDescription": "Cuando está activado, los tokens de razonamiento/pensamiento se eliminan de las respuestas de streaming para los clientes que no pueden manejarlos.",
 				"enableStripReasoning": "Activar razonamiento del clip",
-				"disableStripReasoning": "Desactivar razonamiento del clip"
+				"disableStripReasoning": "Desactivar razonamiento del clip",
+				"rateLimitBurst": "Ráfaga (máximo simultáneo)",
+				"rateLimitRps": "RPS (solicitudes/segundo)"
 			},
 			"detailTitle": "Detalles de Clave Virtual",
 			"sections": {

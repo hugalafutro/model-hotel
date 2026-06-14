@@ -1021,8 +1021,6 @@
 			"form": {
 				"name": "Nazwisko",
 				"namePlaceholder": "np. Moja aplikacja",
-				"rateLimitRps": "Limit stawek RPS (żądania/sek)",
-				"rateLimitBurst": "Oceń Limit Rozerwania (max równoczesne)",
 				"placeholderGlobal": "Użyj ustawień globalnych",
 				"providerAccess": "Dostęp dostawcy",
 				"providerInstructions": "Kliknij dostawcę, aby ograniczyć dostęp. Wszystko jest domyślnie dostępne.",
@@ -1031,7 +1029,9 @@
 				"stripReasoning": "Uzasadnienie paska",
 				"stripReasoningDescription": "Gdy włączone, tokeny ponownego myślenia są usuwane z odpowiedzi strumieniowej dla klientów, którzy nie mogą ich obsługiwać.",
 				"enableStripReasoning": "Włącz rozumowanie paska",
-				"disableStripReasoning": "Wyłącz rozumowanie paska"
+				"disableStripReasoning": "Wyłącz rozumowanie paska",
+				"rateLimitBurst": "Burst (maksymalna liczba jednoczesnych połączeń)",
+				"rateLimitRps": "RPS (żądania/sek.)"
 			},
 			"detailTitle": "Szczegóły klucza wirtualnego",
 			"sections": {

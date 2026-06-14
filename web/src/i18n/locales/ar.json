@@ -1021,8 +1021,6 @@
 			"form": {
 				"name": "الاسم",
 				"namePlaceholder": "على سبيل المثال تطبيقي",
-				"rateLimitRps": "معدل حد RPS (الطلبات/ثانية)",
-				"rateLimitBurst": "الحد الاقصى لمعدل الانفجار (الحد الاقصى)",
 				"placeholderGlobal": "استخدام الإعدادات العالمية",
 				"providerAccess": "وصول المزود",
 				"providerInstructions": "انقر فوق موفر لتقييد الوصول. يمكن الوصول إلى الجميع بشكل افتراضي.",
@@ -1031,7 +1029,9 @@
 				"stripReasoning": "إزالة أسباب",
 				"stripReasoningDescription": "عند التمكين، يتم إزالة رموز التعليل/التفكير من استجابات البث للعملاء الذين لا يستطيعون التعامل معهم.",
 				"enableStripReasoning": "تمكين تحليل الشريط",
-				"disableStripReasoning": "تعطيل تعليل الشريط"
+				"disableStripReasoning": "تعطيل تعليل الشريط",
+				"rateLimitBurst": "الاندفاع (الحد الأقصى للتزامن)",
+				"rateLimitRps": "RPS (طلبات/ثانية)"
 			},
 			"detailTitle": "تفاصيل المفتاح الافتراضي",
 			"sections": {

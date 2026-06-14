@@ -259,6 +259,7 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 	}) {
 		return
 	}
+	stampFailoverSynced(provCtx, h.settingsRepo)
 
 	now := time.Now()
 	updateQuery := `UPDATE providers SET last_discovered_at = $1 WHERE id = $2`
@@ -537,6 +538,12 @@ func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 
 		provCancel()
 		results = append(results, result)
+	}
+
+	// Reflect the discovery in the failover "Last Sync" label whenever at least
+	// one provider's groups were actually (re)synced.
+	if succeeded > 0 {
+		stampFailoverSynced(context.WithoutCancel(r.Context()), h.settingsRepo)
 	}
 
 	writeJSON(w, map[string]interface{}{

@@ -1021,8 +1021,6 @@
 			"form": {
 				"name": "Nom",
 				"namePlaceholder": "p. ex., La meva aplicació",
-				"rateLimitRps": "Límit de velocitat RPS (sol·licituds/seg)",
-				"rateLimitBurst": "Rate Limit Burst (màxim concurrent)",
 				"placeholderGlobal": "Utilitzeu l'ajust global",
 				"providerAccess": "Accés al proveïdor",
 				"providerInstructions": "Feu clic en un proveïdor per restringir l'accés. Tots són accessibles per defecte.",
@@ -1031,7 +1029,9 @@
 				"stripReasoning": "Raonament per eliminació",
 				"stripReasoningDescription": "Quan està habilitat, els tokens de raonament/pensament s'eliminen de les respostes en streaming per als clients que no els poden gestionar.",
 				"enableStripReasoning": "Activa el raonament per franges",
-				"disableStripReasoning": "Desactiva el raonament per franges"
+				"disableStripReasoning": "Desactiva el raonament per franges",
+				"rateLimitBurst": "Rafegat (màxim simultani)",
+				"rateLimitRps": "RPS (sol·licituds/s)"
 			},
 			"detailTitle": "Detalls de la clau virtual",
 			"sections": {

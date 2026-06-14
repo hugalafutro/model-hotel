@@ -335,15 +335,14 @@ describe("VirtualKeys edge cases", () => {
 		});
 		await user.click(editButton);
 
-		const rateLimitRpsInput = within(dialog).getByLabelText(
-			"Rate Limit RPS (requests/sec)",
-		);
+		// Select by stable id, not the (themeable/translatable) label text.
+		const rateLimitRpsInput =
+			dialog.querySelector<HTMLInputElement>("#vk-detail-rps");
 		// For number inputs with empty value, use attribute check
 		expect(rateLimitRpsInput).toHaveAttribute("value", "");
 
-		const rateLimitBurstInput = within(dialog).getByLabelText(
-			"Rate Limit Burst (max concurrent)",
-		);
+		const rateLimitBurstInput =
+			dialog.querySelector<HTMLInputElement>("#vk-detail-burst");
 		expect(rateLimitBurstInput).toHaveAttribute("value", "");
 	});
 

@@ -411,7 +411,7 @@ export function DatabaseBackupSettings({
 					<h4 className="text-xs font-semibold uppercase tracking-wider text-(--accent)">
 						{t("settings.backup.restoreRequirements")}
 					</h4>
-					<ul className="text-xs text-(--text-secondary) space-y-1 list-disc list-inside">
+					<ul className="text-xs text-(--text-secondary) space-y-1 list-disc list-outside ps-5">
 						<li>
 							<strong className="text-(--text-primary)">
 								{t("settings.backup.restoreRequirements.masterKey")}

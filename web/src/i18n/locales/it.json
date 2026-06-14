@@ -1021,8 +1021,6 @@
 			"form": {
 				"name": "Nome",
 				"namePlaceholder": "Ad esempio, La Mia App",
-				"rateLimitRps": "Valuta RPS Limite (richieste/sec)",
-				"rateLimitBurst": "Tasso Limite di scoppio (max concorrente)",
 				"placeholderGlobal": "Usa impostazione globale",
 				"providerAccess": "Accesso Provider",
 				"providerInstructions": "Fare clic su un provider per limitare l'accesso. Tutti sono accessibili per impostazione predefinita.",
@@ -1031,7 +1029,9 @@
 				"stripReasoning": "Ragionamento Striscia",
 				"stripReasoningDescription": "Se abilitato, i token ragionamento/pensiero vengono rimossi dalle risposte di streaming per i client che non possono gestirli.",
 				"enableStripReasoning": "Abilita ragionamento striscia",
-				"disableStripReasoning": "Disabilita ragionamento striscia"
+				"disableStripReasoning": "Disabilita ragionamento striscia",
+				"rateLimitBurst": "Burst (massimo simultaneo)",
+				"rateLimitRps": "RPS (richieste/sec)"
 			},
 			"detailTitle": "Dettagli Chiave Virtuale",
 			"sections": {

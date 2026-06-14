@@ -1021,8 +1021,6 @@
 			"form": {
 				"name": "Meno",
 				"namePlaceholder": "napr. Moja aplikácia",
-				"rateLimitRps": "Limit počtu požiadaviek (RPS)",
-				"rateLimitBurst": "Prekročenie limitu požiadaviek (max. počet súbežných požiadaviek)",
 				"placeholderGlobal": "Použiť globálne nastavenie",
 				"providerAccess": "Prístup poskytovateľov",
 				"providerInstructions": "Kliknutím na poskytovateľa obmedzíte prístup. Všetci sú štandardne dostupní.",
@@ -1031,7 +1029,9 @@
 				"stripReasoning": "Logické úvahy",
 				"stripReasoningDescription": "Ak je táto funkcia zapnutá, znaky označujúce úvahy/myšlienky sa odstránia z prúdu odpovedí pre klientov, ktorí ich nedokážu spracovať.",
 				"enableStripReasoning": "Povoliť logické usudzovanie",
-				"disableStripReasoning": "Zakázať logiku pásov"
+				"disableStripReasoning": "Zakázať logiku pásov",
+				"rateLimitBurst": "Burst (max. súbežných)",
+				"rateLimitRps": "RPS (požiadavky/sekunda)"
 			},
 			"detailTitle": "Podrobnosti o virtuálnom kľúči",
 			"sections": {

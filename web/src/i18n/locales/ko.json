@@ -1021,8 +1021,6 @@
 			"form": {
 				"name": "이름",
 				"namePlaceholder": "예: 내 앱",
-				"rateLimitRps": "요청 제한 RPS (초당 요청 수)",
-				"rateLimitBurst": "요청 제한 초과 (최대 동시 처리량)",
 				"placeholderGlobal": "전역 설정 사용",
 				"providerAccess": "서비스 제공자 접속",
 				"providerInstructions": "제공자를 클릭하여 액세스를 제한하세요. 기본적으로 모두 액세스할 수 있습니다.",
@@ -1031,7 +1029,9 @@
 				"stripReasoning": "스트립 추론",
 				"stripReasoningDescription": "이 기능이 활성화되면, 해당 토큰을 처리할 수 없는 클라이언트에 대한 스트리밍 응답에서 추론/사고 토큰이 제거됩니다.",
 				"enableStripReasoning": "스트립 추론 활성화",
-				"disableStripReasoning": "스트립 추론 비활성화"
+				"disableStripReasoning": "스트립 추론 비활성화",
+				"rateLimitBurst": "버스트(최대 동시 처리량)",
+				"rateLimitRps": "RPS (초당 요청 수)"
 			},
 			"detailTitle": "가상 키 세부 정보",
 			"sections": {

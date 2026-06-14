@@ -1021,8 +1021,6 @@
 			"form": {
 				"name": "Név",
 				"namePlaceholder": "pl. Az én alkalmazásom",
-				"rateLimitRps": "Kéréskorlát (RPS – kérések/másodperc)",
-				"rateLimitBurst": "Kérési korlát túllépése (maximális egyidejű kérések száma)",
 				"placeholderGlobal": "Globális beállítás használata",
 				"providerAccess": "Szolgáltatói hozzáférés",
 				"providerInstructions": "Kattintson egy szolgáltatóra a hozzáférés korlátozásához. Alapértelmezés szerint mindegyik elérhető.",
@@ -1031,7 +1029,9 @@
 				"stripReasoning": "Sorozatérvelés",
 				"stripReasoningDescription": "Ha ez az opció engedélyezve van, a következtető/gondolkodó tokenek eltávolításra kerülnek a folyamatos válaszokból azoknál az ügyfeleknél, amelyek nem tudják azokat feldolgozni.",
 				"enableStripReasoning": "Csíkos érvelés engedélyezése",
-				"disableStripReasoning": "A sávos érvelés letiltása"
+				"disableStripReasoning": "A sávos érvelés letiltása",
+				"rateLimitBurst": "Burst (maximális egyidejű)",
+				"rateLimitRps": "RPS (kérések/másodperc)"
 			},
 			"detailTitle": "A virtuális kulcs adatai",
 			"sections": {

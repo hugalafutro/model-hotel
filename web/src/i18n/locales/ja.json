@@ -1021,8 +1021,6 @@
 			"form": {
 				"name": "名前",
 				"namePlaceholder": "例えば、私のアプリ",
-				"rateLimitRps": "レート制限 RPS (リクエスト/秒)",
-				"rateLimitBurst": "レート制限バースト（最大同時）",
 				"placeholderGlobal": "グローバル設定を使用",
 				"providerAccess": "プロバイダーへのアクセス",
 				"providerInstructions": "プロバイダをクリックしてアクセスを制限します。すべてがデフォルトでアクセス可能です。",
@@ -1031,7 +1029,9 @@
 				"stripReasoning": "削除の理由",
 				"stripReasoningDescription": "有効な場合、推論/思考トークンは、それらを処理できないクライアントのストリーミング応答から削除されます。",
 				"enableStripReasoning": "ストリップの推論を有効にする",
-				"disableStripReasoning": "ストリップの推論を無効にする"
+				"disableStripReasoning": "ストリップの推論を無効にする",
+				"rateLimitBurst": "バースト（最大同時接続数）",
+				"rateLimitRps": "RPS（リクエスト/秒）"
 			},
 			"detailTitle": "仮想キーの詳細",
 			"sections": {

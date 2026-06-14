@@ -1021,8 +1021,6 @@
 			"form": {
 				"name": "名称",
 				"namePlaceholder": "例如，我的应用程序",
-				"rateLimitRps": "率限制 RPS (请求/秒)",
-				"rateLimitBurst": "速率上限(最大并存)",
 				"placeholderGlobal": "使用全局设置",
 				"providerAccess": "提供者访问权限",
 				"providerInstructions": "点击提供商限制访问。默认情况下所有都可以访问。",
@@ -1031,7 +1029,9 @@
 				"stripReasoning": "去除原因",
 				"stripReasoningDescription": "启用时，无法处理的客户端的串流响应中会删除推理/思考令牌。",
 				"enableStripReasoning": "启用脱衣原理",
-				"disableStripReasoning": "禁用脱衣原理"
+				"disableStripReasoning": "禁用脱衣原理",
+				"rateLimitBurst": "突发（最大并发数）",
+				"rateLimitRps": "RPS（每秒请求数）"
 			},
 			"detailTitle": "虚拟密钥详细信息",
 			"sections": {

@@ -110,7 +110,9 @@ html[data-ui-style="cyber-terminal"] {
 	--text-primary: #111318;
 	--text-secondary: #4a4f5c;
 	--text-tertiary: #7a7e8c;
-	--text-muted: #a5a9b4;
+	/* Muted (setting descriptions, sidebar sublabels): nudged a touch darker
+	   in light mode for legibility — mirror of the dark-mode lift below. */
+	--text-muted: #999da8;
 	--error-bg: rgb(254 242 242);
 	--error-bg-strong: rgb(254 226 226);
 	--error-border: rgb(239 68 68 / 30%);
@@ -131,7 +133,9 @@ html[data-ui-style="clean-saas"].dark {
 	--text-primary: #f0f0f5;
 	--text-secondary: #b0b3c0;
 	--text-tertiary: #7a7e8c;
-	--text-muted: #4a4f5c;
+	/* Nudged slightly lighter so setting descriptions / sidebar sublabels read
+	   a touch more clearly without losing the muted hierarchy. */
+	--text-muted: #565b68;
 	--error-bg: rgb(127 29 29 / 20%);
 	--error-bg-strong: rgb(127 29 29 / 30%);
 	--error-border: rgb(239 68 68 / 30%);
@@ -208,7 +212,8 @@ html[data-ui-style="cyber-terminal"].dark {
 	--text-primary: #e0e0e5;
 	--text-secondary: #a0a5b5;
 	--text-tertiary: #5a6075;
-	--text-muted: #3a4050;
+	/* Lifted slightly for description/sublabel legibility (see clean-saas). */
+	--text-muted: #464c5c;
 	--error-bg: rgb(127 29 29 / 20%);
 	--error-bg-strong: rgb(127 29 29 / 30%);
 	--error-border: rgb(239 68 68 / 30%);
@@ -287,7 +292,8 @@ html[data-ui-style="glassmorphism-lite"].dark {
 	--text-primary: #f0f1f7;
 	--text-secondary: #b8bcd0;
 	--text-tertiary: #7a80a0;
-	--text-muted: #4a5070;
+	/* Lifted slightly for description/sublabel legibility (see clean-saas). */
+	--text-muted: #565c7c;
 	--error-bg: rgb(127 29 29 / 20%);
 	--error-bg-strong: rgb(127 29 29 / 30%);
 	--error-border: rgb(239 68 68 / 30%);
@@ -2813,6 +2819,29 @@ html.light .terminal-titlebar-win11 .win11-icon {
 
 .animate-pulse-subtle {
 	animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+/* Sidebar API-status dot. Online: one slow pulse each time the system-stats
+   query refetches (the span is remounted via a dataUpdatedAt key). Offline:
+   the same pulse, slower and looping, to keep signalling the stalled link.
+   Pulse brightness only — never scale — so the dot keeps a constant footprint
+   and stays vertically centred next to the status label. */
+@keyframes status-dot-pulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.3;
+	}
+}
+
+.status-dot-online {
+	animation: status-dot-pulse 1.2s ease-in-out;
+}
+
+.status-dot-offline {
+	animation: status-dot-pulse 1.6s ease-in-out infinite;
 }
 
 /* Waffle Pulse: staggered bounce pop */

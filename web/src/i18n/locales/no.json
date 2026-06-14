@@ -1021,8 +1021,6 @@
 			"form": {
 				"name": "Navn",
 				"namePlaceholder": "f.eks min App",
-				"rateLimitRps": "Frekvensgrense RPS (forespørsler/sek)",
-				"rateLimitBurst": "Grensegrensesnitt (maks samtidige verdier)",
 				"placeholderGlobal": "Bruk global innstilling",
 				"providerAccess": "Tilgang til leverandør",
 				"providerInstructions": "Klikk på en leverandør for å begrense tilgang. Alle er tilgjengelige som standard.",
@@ -1031,7 +1029,9 @@
 				"stripReasoning": "Fjern grunnmur",
 				"stripReasoningDescription": "Når aktivert fjernes begrunning/tenkingstokens fra strømmesvar for klienter som ikke kan håndtere dem.",
 				"enableStripReasoning": "Aktiver stripe resonnering",
-				"disableStripReasoning": "Deaktiver stripe resonnering"
+				"disableStripReasoning": "Deaktiver stripe resonnering",
+				"rateLimitBurst": "Burst (maks. samtidig)",
+				"rateLimitRps": "RPS (forespørsler/sek)"
 			},
 			"detailTitle": "Virtuell nøkkel detaljer",
 			"sections": {

@@ -145,7 +145,11 @@ function formatBytesPerSec(bytesPerSec: number) {
 
 function SystemStatus() {
 	const { t } = useTranslation();
-	const { data: stats, isError } = useQuery({
+	const {
+		data: stats,
+		isError,
+		dataUpdatedAt,
+	} = useQuery({
 		queryKey: ["system"],
 		queryFn: () => api.system.get(),
 		refetchInterval: 10000,
@@ -221,7 +225,11 @@ function SystemStatus() {
 						className={`flex items-center ${isError ? "text-red-400" : "text-green-400"}`}
 					>
 						<span
-							className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isError ? "bg-red-400" : "bg-green-400"}`}
+							// Remount on each successful refetch so the online dot
+							// replays its one-shot pulse; offline keeps a constant key
+							// so its looping pulse runs uninterrupted.
+							key={isError ? "offline" : dataUpdatedAt}
+							className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isError ? "bg-red-400 status-dot-offline" : "bg-green-400 status-dot-online"}`}
 						/>
 						{isError ? t("layout.status.error") : t("layout.status.online")}
 					</span>
@@ -769,42 +777,47 @@ function LanguageSelector() {
 				<Languages size={14} strokeWidth={2} />
 			</button>
 			{open && (
-				<div
-					ref={scrollRef}
-					className="ui-popover absolute bottom-full left-1/2 -translate-x-1/2 mb-1 py-1 min-w-[120px] max-h-[50vh] overflow-y-auto overscroll-contain bg-gray-800 border border-gray-700 rounded-(--radius-card) shadow-lg z-50"
-					role="listbox"
-				>
-					{SUPPORTED_LANGUAGES.map((lang) => (
-						<button
-							key={lang.code}
-							type="button"
-							role="option"
-							aria-selected={
-								(i18n.resolvedLanguage ?? i18n.language) === lang.code
-							}
-							data-testid={`language-option-${lang.code}`}
-							id={`language-option-${lang.code}`}
-							onClick={() => {
-								i18next.changeLanguage(lang.code);
-								// Persist every deliberate choice — including English —
-								// so the effective priority is strictly
-								// user choice > system locale > English. The browser
-								// locale is never auto-cached (caches: [] in
-								// i18n/index.ts), so an explicit pick always wins on
-								// the next visit until the user changes it again.
-								localStorage.setItem(LANGUAGE_STORAGE_KEY, lang.code);
-								setOpen(false);
-							}}
-							className={`w-full text-left px-3 py-1.5 text-xs transition-colors flex items-center gap-1.5 ${
-								(i18n.resolvedLanguage ?? i18n.language) === lang.code
-									? "text-white bg-white/10"
-									: "text-gray-400 hover:text-white hover:bg-white/5"
-							}`}
-						>
-							<CountryFlag code={lang.code} />
-							{lang.label}
-						</button>
-					))}
+				// Outer wrapper owns the rounding + border and clips its overflow so
+				// the inner scrollbar stays inside the rounded corners instead of
+				// painting over them. The scroll lives on the inner element.
+				<div className="ui-popover absolute bottom-full left-1/2 -translate-x-1/2 mb-1 min-w-[120px] bg-gray-800 border border-gray-700 rounded-(--radius-card) shadow-lg z-50 overflow-hidden">
+					<div
+						ref={scrollRef}
+						className="py-1 max-h-[50vh] overflow-y-auto overscroll-contain"
+						role="listbox"
+					>
+						{SUPPORTED_LANGUAGES.map((lang) => (
+							<button
+								key={lang.code}
+								type="button"
+								role="option"
+								aria-selected={
+									(i18n.resolvedLanguage ?? i18n.language) === lang.code
+								}
+								data-testid={`language-option-${lang.code}`}
+								id={`language-option-${lang.code}`}
+								onClick={() => {
+									i18next.changeLanguage(lang.code);
+									// Persist every deliberate choice — including English —
+									// so the effective priority is strictly
+									// user choice > system locale > English. The browser
+									// locale is never auto-cached (caches: [] in
+									// i18n/index.ts), so an explicit pick always wins on
+									// the next visit until the user changes it again.
+									localStorage.setItem(LANGUAGE_STORAGE_KEY, lang.code);
+									setOpen(false);
+								}}
+								className={`w-full text-left px-3 py-1.5 text-xs transition-colors flex items-center gap-1.5 ${
+									(i18n.resolvedLanguage ?? i18n.language) === lang.code
+										? "text-white bg-white/10"
+										: "text-gray-400 hover:text-white hover:bg-white/5"
+								}`}
+							>
+								<CountryFlag code={lang.code} />
+								{lang.label}
+							</button>
+						))}
+					</div>
 				</div>
 			)}
 		</div>
@@ -1095,7 +1108,7 @@ export function Layout({ children }: LayoutProps) {
 							<span
 								className={
 									updateAvailable
-										? "text-amber-400 outline-solid outline-1 outline-amber-400/60 rounded px-0.5"
+										? "text-amber-400 [text-shadow:var(--glow-amber)]"
 										: ""
 								}
 							>

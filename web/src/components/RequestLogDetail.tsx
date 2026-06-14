@@ -5,7 +5,6 @@ import {
 	Clock,
 	Gauge,
 	Hash,
-	Info,
 	Key,
 	Layers,
 	Server,
@@ -16,6 +15,7 @@ import { useTranslation } from "react-i18next";
 import type { LogEntry } from "../api/types";
 import { formatMs } from "../pages/Logs/utils";
 import { CopyablePill } from "./CopyablePill";
+import { InfoHint } from "./InfoHint";
 import { DetailItem } from "./LogDetailItem";
 import { StatusBadge } from "./LogDetailStatusBadge";
 import { formatDateTime, splitDuration } from "./logDetailUtils";
@@ -88,12 +88,9 @@ export function RequestLogDetail({
 					</div>
 					<div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-(--text-tertiary)">
 						{t("components.requestLogDetail.duration")}
-						<span
-							title={t("components.requestLogDetail.totalWallClockTime")}
-							className="ui-icon-btn cursor-help"
-						>
-							<Info size={12} />
-						</span>
+						<InfoHint
+							tooltip={t("components.requestLogDetail.totalWallClockTime")}
+						/>
 					</div>
 				</div>
 				<div className="p-3 rounded-(--radius-box) bg-(--surface-bg) border border-(--border-subtle) text-center">
@@ -113,12 +110,9 @@ export function RequestLogDetail({
 					</div>
 					<div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-(--text-tertiary)">
 						{t("components.requestLogDetail.headers")}
-						<span
-							title={t("components.requestLogDetail.timeToReceiveHeaders")}
-							className="ui-icon-btn cursor-help"
-						>
-							<Info size={12} />
-						</span>
+						<InfoHint
+							tooltip={t("components.requestLogDetail.timeToReceiveHeaders")}
+						/>
 					</div>
 				</div>
 				<div className="p-3 rounded-(--radius-box) bg-(--surface-bg) border border-(--border-subtle) text-center">
@@ -138,12 +132,9 @@ export function RequestLogDetail({
 					</div>
 					<div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-(--text-tertiary)">
 						{t("components.requestLogDetail.ttft")}
-						<span
-							title={t("components.requestLogDetail.timeToFirstToken")}
-							className="ui-icon-btn cursor-help"
-						>
-							<Info size={12} />
-						</span>
+						<InfoHint
+							tooltip={t("components.requestLogDetail.timeToFirstToken")}
+						/>
 					</div>
 				</div>
 				<div className="p-3 rounded-(--radius-box) bg-(--surface-bg) border border-(--border-subtle) text-center">
@@ -162,12 +153,9 @@ export function RequestLogDetail({
 					</div>
 					<div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-(--text-tertiary)">
 						{t("components.requestLogDetail.tokensPerSecond")}
-						<span
-							title={t("components.requestLogDetail.outputTokensPerSecond")}
-							className="ui-icon-btn cursor-help"
-						>
-							<Info size={12} />
-						</span>
+						<InfoHint
+							tooltip={t("components.requestLogDetail.outputTokensPerSecond")}
+						/>
 					</div>
 				</div>
 				<div className="p-3 rounded-(--radius-box) bg-(--surface-bg) border border-(--border-subtle) text-center">
@@ -177,12 +165,7 @@ export function RequestLogDetail({
 					</div>
 					<div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-(--text-tertiary)">
 						{t("components.requestLogDetail.totalTokens")}
-						<span
-							title={t("components.requestLogDetail.sumOfTokens")}
-							className="ui-icon-btn cursor-help"
-						>
-							<Info size={12} />
-						</span>
+						<InfoHint tooltip={t("components.requestLogDetail.sumOfTokens")} />
 					</div>
 				</div>
 			</div>
@@ -361,18 +344,15 @@ export function RequestLogDetail({
 									<div key={label} className="flex justify-between text-sm">
 										<span className="flex items-center gap-1 text-(--text-secondary)">
 											{label}
-											<span
-												title={
+											<InfoHint
+												tooltip={
 													cacheHit === null
 														? tooltip
 														: cacheHit
 															? `${tooltip} ${t("components.requestLogDetail.overheadCacheHit")}`
 															: `${tooltip} ${t("components.requestLogDetail.overheadCacheMiss")}`
 												}
-												className="ui-icon-btn cursor-help"
-											>
-												<Info size={12} />
-											</span>
+											/>
 										</span>
 										<span
 											className={`font-mono ${

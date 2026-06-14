@@ -1021,8 +1021,6 @@
 			"form": {
 				"name": "Ad",
 				"namePlaceholder": "Örneğin, Uygulamam",
-				"rateLimitRps": "İstek Sınırı RPS (istek/saniye)",
-				"rateLimitBurst": "İstek Sınırı Aşımı (maksimum eşzamanlı)",
 				"placeholderGlobal": "Genel ayarı kullan",
 				"providerAccess": "Sağlayıcı Erişimi",
 				"providerInstructions": "Erişimi kısıtlamak için bir sağlayıcıya tıklayın. Varsayılan olarak hepsine erişim açıktır.",
@@ -1031,7 +1029,9 @@
 				"stripReasoning": "Sıralama Mantığı",
 				"stripReasoningDescription": "Etkinleştirildiğinde, akış yanıtlarından, bunları işleyemeyen istemciler için akıl yürütme/düşünme belirteçleri kaldırılır.",
 				"enableStripReasoning": "Çizgi mantığını etkinleştir",
-				"disableStripReasoning": "Çizgi mantığını devre dışı bırak"
+				"disableStripReasoning": "Çizgi mantığını devre dışı bırak",
+				"rateLimitBurst": "Burst (maks. eşzamanlı)",
+				"rateLimitRps": "RPS (istek/saniye)"
 			},
 			"detailTitle": "Sanal Anahtar Bilgileri",
 			"sections": {
