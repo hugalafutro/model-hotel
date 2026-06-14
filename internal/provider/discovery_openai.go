@@ -39,7 +39,13 @@ func (d *DiscoveryService) discoverOpenAI(ctx context.Context, provider *Provide
 		live = append(live, liveModelStub(m.ID, m.OwnedBy, provider.ID))
 	}
 
-	merged := mergeLiveAndCatalog(live, openaiCatalogModels(provider.ID))
-	debuglog.Info("discovery: openai discovered models", "provider", provider.Name, "provider_id", provider.ID, "live", len(live), "catalog", len(GetOpenAIModels()), "merged", len(merged))
-	return merged, nil
+	// Backfill-only (no union): discoverOpenAI is the fallback for unknown/custom
+	// hosts, so the gpt-5.x catalog must enrich matching models without adding
+	// phantom OpenAI models to a custom provider. For real OpenAI the catalog is
+	// a subset of the live listing, so there is nothing to union regardless.
+	// models.dev still enriches the rest. An empty listing stays empty, so
+	// DisableMissingModels is a no-op.
+	backfilled := backfillLiveFromCatalog(live, openaiCatalogModels(provider.ID))
+	debuglog.Info("discovery: openai discovered models", "provider", provider.Name, "provider_id", provider.ID, "live", len(live), "catalog", len(GetOpenAIModels()))
+	return backfilled, nil
 }

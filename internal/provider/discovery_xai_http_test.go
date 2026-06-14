@@ -1033,9 +1033,12 @@ func TestDiscoverXAI_LanguageModelsEmpty_MinimalModelsEmpty(t *testing.T) {
 
 	models, err := svc.discoverXAI(context.Background(), provider, "test-api-key")
 	if err != nil {
-		t.Fatalf("expected no error with empty live + catalog, got: %v", err)
+		t.Fatalf("expected no error with empty live, got: %v", err)
 	}
-	if len(models) != len(GetXAICatalog()) {
-		t.Errorf("expected catalog models when live is empty, got %d", len(models))
+	// Empty-but-successful endpoints return empty (not the catalog) so
+	// DisableMissingModels stays a no-op; the no-access 403/429 path still
+	// returns the catalog (covered by TestDiscoverXAI_RateLimitFallback).
+	if len(models) != 0 {
+		t.Errorf("expected 0 models when live is empty, got %d", len(models))
 	}
 }

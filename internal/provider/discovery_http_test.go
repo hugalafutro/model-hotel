@@ -270,9 +270,10 @@ func TestDiscoverOpenCodeGo_EmptyResponse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("discoverOpenCodeGo failed: %v", err)
 	}
-	// Empty live list unions with the catalog, so the catalog is returned.
-	if len(models) != len(GetOpenCodeGoCatalog()) {
-		t.Errorf("expected catalog models for empty live response, got %d", len(models))
+	// Empty-but-successful listing returns empty (no catalog union), so the
+	// discovered set stays empty and DisableMissingModels is a no-op.
+	if len(models) != 0 {
+		t.Errorf("expected 0 models for empty live response, got %d", len(models))
 	}
 }
 

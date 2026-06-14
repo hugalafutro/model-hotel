@@ -61,6 +61,12 @@ func (d *DiscoveryService) discoverOpenCodeGo(ctx context.Context, provider *Pro
 	for _, m := range openAIResp.Data {
 		live = append(live, liveModelStub(m.ID, m.OwnedBy, provider.ID))
 	}
+	// Empty-but-successful listing: return empty rather than the catalog so
+	// DisableMissingModels stays a no-op instead of disabling live-only models.
+	if len(live) == 0 {
+		debuglog.Warn("discovery: opencode-go /models returned no models, skipping", "provider", provider.Name, "provider_id", provider.ID)
+		return live, nil
+	}
 
 	merged := mergeLiveAndCatalog(live, catalog)
 	debuglog.Info("discovery: opencode-go discovered models", "provider", provider.Name, "provider_id", provider.ID, "live", len(live), "catalog", len(catalog), "merged", len(merged))

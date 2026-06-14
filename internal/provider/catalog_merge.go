@@ -75,6 +75,30 @@ func mergeLiveAndCatalog(live, catalog []*model.Model) []*model.Model {
 	return out
 }
 
+// backfillLiveFromCatalog enriches live models in place from matching catalog
+// entries (case-insensitive model_id) WITHOUT unioning catalog-only models.
+//
+// Use this instead of mergeLiveAndCatalog when the catalog must never introduce
+// a model the live API did not return — in particular the OpenAI discoverer,
+// which is also the fallback for unknown/custom hosts where adding the gpt-5.x
+// catalog as phantom models would be wrong. (For real OpenAI the catalog is a
+// subset of the live listing, so there is nothing to union anyway.)
+func backfillLiveFromCatalog(live, catalog []*model.Model) []*model.Model {
+	if len(catalog) == 0 {
+		return live
+	}
+	byID := make(map[string]*model.Model, len(catalog))
+	for _, c := range catalog {
+		byID[strings.ToLower(c.ModelID)] = c
+	}
+	for _, m := range live {
+		if c, ok := byID[strings.ToLower(m.ModelID)]; ok {
+			backfillFromCatalog(m, c)
+		}
+	}
+	return live
+}
+
 // backfillFromCatalog fills fields of the live model dst that are empty, nil, or
 // a known low-quality placeholder using the catalog model src. It never
 // overwrites a meaningful value the live API already provided.

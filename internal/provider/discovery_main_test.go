@@ -750,16 +750,22 @@ func TestDiscoverModels_ZAICodingDispatch(t *testing.T) {
 	ctx := context.Background()
 	masterKey := "test-master-key-1234567890123456"
 
-	// ZAI Coding uses static catalog, no HTTP needed
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"object":"list","data":[{"id":"glm-5.1","object":"model","owned_by":"z-ai"}]}`))
+	}))
+	defer server.Close()
+
 	provider := &Provider{
 		ID:      uuid.New(),
-		BaseURL: "https://api.z.ai",
+		BaseURL: "https://api.z.ai/api/coding/paas/v4",
 	}
 
-	svc := NewDiscoveryService(nil, nil)
+	svc := &DiscoveryService{httpClient: &http.Client{Transport: &testTransport{url: server.URL}}}
 	models, err := svc.DiscoverModels(ctx, provider, masterKey)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, models)
+	// Live glm-5.1 (owned_by "z-ai") is first and normalized to "zhipu".
 	assert.Equal(t, "zhipu", models[0].OwnedBy)
 }
 

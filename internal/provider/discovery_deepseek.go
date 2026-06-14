@@ -39,6 +39,12 @@ func (d *DiscoveryService) discoverDeepSeek(ctx context.Context, provider *Provi
 	for _, m := range openAIResp.Data {
 		live = append(live, liveModelStub(m.ID, m.OwnedBy, provider.ID))
 	}
+	// Empty-but-successful listing: return empty rather than the catalog so
+	// DisableMissingModels stays a no-op instead of disabling live-only models.
+	if len(live) == 0 {
+		debuglog.Warn("discovery: deepseek /models returned no models, skipping", "provider", provider.Name, "provider_id", provider.ID)
+		return live, nil
+	}
 
 	merged := mergeLiveAndCatalog(live, deepseekCatalogModels(provider.ID))
 	debuglog.Info("discovery: deepseek discovered models", "provider", provider.Name, "provider_id", provider.ID, "live", len(live), "catalog", len(GetDeepSeekModels()), "merged", len(merged))

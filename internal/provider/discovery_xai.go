@@ -46,6 +46,15 @@ func (d *DiscoveryService) discoverXAI(ctx context.Context, provider *Provider, 
 		}
 	}
 
+	// Both endpoints succeeded but listed no models (distinct from the no-access
+	// 403/429 path above, which intentionally returns the catalog). Return empty
+	// rather than unioning the catalog, so DisableMissingModels stays a no-op
+	// instead of disabling every live-only model.
+	if len(live) == 0 {
+		debuglog.Warn("discovery: xai endpoints returned no models, skipping", "provider", provider.Name, "provider_id", provider.ID)
+		return live, nil
+	}
+
 	// Union live with the catalog: live wins per field, catalog backfills the
 	// gaps (xAI's API omits context length, max output, reasoning) and unions in
 	// any catalog model the listing endpoints do not advertise (xAI keeps older

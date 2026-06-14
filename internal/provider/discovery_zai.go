@@ -20,11 +20,19 @@ func (d *DiscoveryService) discoverZAICoding(ctx context.Context, provider *Prov
 
 	live, err := d.discoverZAICodingLive(ctx, provider, apiKey)
 	if err != nil {
-		// The Z.ai coding plan exposes a standard OpenAI-compatible /models
-		// endpoint, but if it is unreachable (network, auth, quota) we fall back
-		// to the embedded catalog so discovery still yields the known models.
-		debuglog.Warn("discovery: zai-coding live /models failed, falling back to catalog", "provider", provider.Name, "provider_id", provider.ID, "error", err)
-		return catalog, nil
+		// Abort the scan rather than falling back to the catalog: a transient
+		// failure must not let DisableMissingModels disable models that are only
+		// in the live listing (the Z.ai catalog is a subset). Aborting preserves
+		// the existing models; the catalog union still runs on a successful fetch.
+		debuglog.Error("discovery: zai-coding live /models failed, aborting scan", "provider", provider.Name, "provider_id", provider.ID, "error", err)
+		return nil, err
+	}
+	if len(live) == 0 {
+		// Successful fetch but empty list: return empty (not the catalog) so the
+		// discovered set stays empty and DisableMissingModels is a no-op,
+		// instead of disabling every live-only model.
+		debuglog.Warn("discovery: zai-coding live /models returned no models, skipping", "provider", provider.Name, "provider_id", provider.ID)
+		return live, nil
 	}
 
 	merged := mergeLiveAndCatalog(live, catalog)
