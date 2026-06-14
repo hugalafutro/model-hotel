@@ -1474,18 +1474,26 @@ html[data-ui-style="cyber-terminal"] .ui-btn-danger:hover:not(:disabled) {
 	filter: none;
 }
 
+/* Frosted, low-glare primary. The old solid accent gradient was too "shiny":
+   white label text vibrated on a bright block and was hard to read. A
+   translucent accent over the page (blurred where no frosted ancestor blocks
+   it) reads far calmer, so the label stays legible. Even where backdrop-filter
+   is dropped (e.g. nested inside a frosted dialog in Firefox) the semi-
+   transparent fill keeps it muted, not shiny - so readability never regresses. */
 html[data-ui-style="glassmorphism-lite"] .ui-btn-primary {
-	background: linear-gradient(
-		135deg,
-		var(--accent) 0%,
-		var(--accent-hover) 100%
-	);
+	background: color-mix(in srgb, var(--accent) 55%, transparent);
+	backdrop-filter: blur(12px) saturate(1.3);
 	color: #fff;
-	border: 1px solid var(--accent);
+	border: 1px solid color-mix(in srgb, var(--accent) 70%, transparent);
+}
+html[data-ui-style="glassmorphism-lite"] .ui-btn-primary:hover:not(:disabled) {
+	background: color-mix(in srgb, var(--accent) 68%, transparent);
+	filter: none;
 }
 
 html[data-ui-style="glassmorphism-lite"] .ui-btn-secondary {
 	background-color: rgba(255, 255, 255, 0.05);
+	backdrop-filter: blur(12px) saturate(1.2);
 	border: 1px solid rgba(255, 255, 255, 0.1);
 	color: var(--text-primary);
 }
@@ -1498,10 +1506,15 @@ html[data-ui-style="glassmorphism-lite"]
 	filter: none;
 }
 html[data-ui-style="glassmorphism-lite"].light .ui-btn-primary {
-	border: 1px solid rgba(0, 0, 0, 0.25);
+	/* Light mode sits on a pale page, so a heavily translucent accent would wash
+	   out under white text. Keep the accent mostly opaque for contrast, but still
+	   drop the gradient for a flatter, calmer (less shiny) fill. */
+	background: color-mix(in srgb, var(--accent) 85%, transparent);
+	border: 1px solid color-mix(in srgb, var(--accent) 92%, transparent);
 }
 html[data-ui-style="glassmorphism-lite"].light .ui-btn-secondary {
 	background-color: rgba(0, 0, 0, 0.06);
+	backdrop-filter: blur(12px) saturate(1.2);
 	border: 1px solid rgba(0, 0, 0, 0.12);
 	color: var(--text-primary);
 }
