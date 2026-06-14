@@ -1,5 +1,5 @@
-import { Trophy } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { Trophy } from "@/lib/icons";
 import { Modal } from "../../components/Modal";
 import type { WinnerSummaryModalProps } from "./types";
 

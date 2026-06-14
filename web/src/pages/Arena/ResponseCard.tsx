@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
 	AlertCircle,
 	ArrowLeftRight,
@@ -6,9 +8,7 @@ import {
 	RefreshCw,
 	Trophy,
 	X,
-} from "lucide-react";
-import { useState } from "react";
-import { useTranslation } from "react-i18next";
+} from "@/lib/icons";
 import type { Model } from "../../api/types";
 import { CopyButton } from "../../components/CopyButton";
 import { ModelReplyCard } from "../../components/ModelReplyCard";

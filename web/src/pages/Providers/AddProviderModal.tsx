@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Eye, EyeOff } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Eye, EyeOff } from "@/lib/icons";
 import { api } from "../../api/client";
 import type { Provider } from "../../api/types";
 import { Modal } from "../../components/Modal";

@@ -1,3 +1,5 @@
+import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
 	Bot,
 	ChevronDown,
@@ -9,9 +11,7 @@ import {
 	Swords,
 	Trash2,
 	Trophy,
-} from "lucide-react";
-import { useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
+} from "@/lib/icons";
 import { PaginationBar } from "../components/DataTable";
 import { Modal } from "../components/Modal";
 import { ARENA_PROMPTS, CHAT_PERSONAS } from "../data/presets";

@@ -1,7 +1,7 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Users } from "lucide-react";
 import { describe, expect, it, vi } from "vitest";
+import { Users } from "@/lib/icons";
 import { renderWithProviders } from "../../../test/utils";
 import { formatTokens } from "../../../utils/format";
 import type { Range, UsageEntry } from "../types";

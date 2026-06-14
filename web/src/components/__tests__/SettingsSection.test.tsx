@@ -1,7 +1,7 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Settings } from "lucide-react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Settings } from "@/lib/icons";
 import { renderWithProviders } from "../../test/utils";
 import { SettingsSection } from "../SettingsSection";
 
@@ -37,8 +37,8 @@ describe("SettingsSection", () => {
 				<div>Child content</div>
 			</SettingsSection>,
 		);
-		// Icon renders as an SVG with class containing "lucide-settings"
-		const icon = document.querySelector(".lucide-settings");
+		// Icon renders as an SVG with class containing "icon-settings"
+		const icon = document.querySelector(".icon-settings");
 		expect(icon).toBeInTheDocument();
 	});
 

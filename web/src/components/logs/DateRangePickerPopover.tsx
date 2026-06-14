@@ -1,7 +1,7 @@
-import { X } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
+import { X } from "@/lib/icons";
 import { AccentCalendar } from "../AccentCalendar";
 import { formatDateRangeShort } from "../AccentCalendar.utils";
 

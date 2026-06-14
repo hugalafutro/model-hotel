@@ -1,5 +1,5 @@
-import { Timer } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { Timer } from "@/lib/icons";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
 import { goDurationToSeconds, secondsToGoDuration } from "../../utils/duration";

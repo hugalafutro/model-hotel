@@ -1,5 +1,5 @@
-import type { LucideIcon } from "lucide-react";
-import { Braces, Image, Mic, Volume2 } from "lucide-react";
+import type { LucideIcon } from "@/lib/icons";
+import { Braces, Image, Mic, Volume2 } from "@/lib/icons";
 
 // Single source of truth for the endpoint families and their i18n label
 // keys on the frontend; the badge and the Logs filter dropdown both derive

@@ -9,7 +9,7 @@ describe("VoteThumb", () => {
 			<VoteThumb size={24} isWinner={true} animating={false} />,
 		);
 		// ThumbsUp should be present (check by svg element with thumbs-up class)
-		const svg = container.querySelector(".lucide-thumbs-up");
+		const svg = container.querySelector(".icon-thumbs-up");
 		expect(svg).toBeInTheDocument();
 	});
 
@@ -17,7 +17,7 @@ describe("VoteThumb", () => {
 		const { container } = renderWithProviders(
 			<VoteThumb size={24} isWinner={false} animating={false} />,
 		);
-		const svg = container.querySelector(".lucide-thumbs-down");
+		const svg = container.querySelector(".icon-thumbs-down");
 		expect(svg).toBeInTheDocument();
 	});
 

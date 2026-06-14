@@ -1,4 +1,4 @@
-import { Monitor, Sparkles, Terminal } from "lucide-react";
+import { Monitor, Sparkles, Terminal } from "@/lib/icons";
 
 export const UI_STYLES = [
 	{

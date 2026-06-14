@@ -128,7 +128,7 @@ describe("ResponseCard", () => {
 			render(<ResponseCard {...defaultProps} />, { wrapper: AllProviders });
 
 			// Settings icon should be present for params
-			const settingsIcon = document.querySelector(".lucide-settings");
+			const settingsIcon = document.querySelector(".icon-settings");
 			expect(settingsIcon).toBeInTheDocument();
 		});
 	});
@@ -157,7 +157,7 @@ describe("ResponseCard", () => {
 			});
 
 			// RefreshCw icon for retry
-			const retryButtons = container.querySelectorAll(".lucide-refresh-cw");
+			const retryButtons = container.querySelectorAll(".icon-refresh-cw");
 			expect(retryButtons.length).toBeGreaterThan(0);
 		});
 
@@ -167,9 +167,7 @@ describe("ResponseCard", () => {
 			});
 
 			// ArrowLeftRight icon for swap
-			const swapButtons = container.querySelectorAll(
-				".lucide-arrow-left-right",
-			);
+			const swapButtons = container.querySelectorAll(".icon-arrow-left-right");
 			expect(swapButtons.length).toBeGreaterThan(0);
 		});
 
@@ -233,7 +231,7 @@ describe("ResponseCard", () => {
 			const voteButtons = screen.getAllByRole("button");
 			const voteButton = voteButtons.find(
 				(btn) =>
-					btn.querySelector(".lucide-thumbs-up") ||
+					btn.querySelector(".icon-thumbs-up") ||
 					btn.textContent?.includes("👍"),
 			);
 			expect(voteButton).toBeInTheDocument();
@@ -271,7 +269,7 @@ describe("ResponseCard", () => {
 			);
 
 			// RefreshCw icon for retry
-			const retryButtons = container.querySelectorAll(".lucide-refresh-cw");
+			const retryButtons = container.querySelectorAll(".icon-refresh-cw");
 			expect(retryButtons.length).toBeGreaterThan(0);
 		});
 
@@ -282,7 +280,7 @@ describe("ResponseCard", () => {
 			);
 
 			// X icon for swap (different from completed state)
-			const swapButtons = container.querySelectorAll(".lucide-x");
+			const swapButtons = container.querySelectorAll(".icon-x");
 			expect(swapButtons.length).toBeGreaterThan(0);
 		});
 
@@ -346,7 +344,7 @@ describe("ResponseCard", () => {
 			);
 
 			// CircleStop icon for cancel
-			const cancelButtons = container.querySelectorAll(".lucide-circle-stop");
+			const cancelButtons = container.querySelectorAll(".icon-circle-stop");
 			expect(cancelButtons.length).toBeGreaterThan(0);
 		});
 
@@ -357,7 +355,7 @@ describe("ResponseCard", () => {
 			);
 
 			// No RefreshCw icon for streaming
-			const retryButtons = container.querySelectorAll(".lucide-refresh-cw");
+			const retryButtons = container.querySelectorAll(".icon-refresh-cw");
 			expect(retryButtons.length).toBe(0);
 		});
 
@@ -368,9 +366,7 @@ describe("ResponseCard", () => {
 			);
 
 			// No ArrowLeftRight icon for streaming
-			const swapButtons = container.querySelectorAll(
-				".lucide-arrow-left-right",
-			);
+			const swapButtons = container.querySelectorAll(".icon-arrow-left-right");
 			expect(swapButtons.length).toBe(0);
 		});
 
@@ -445,7 +441,7 @@ describe("ResponseCard", () => {
 			});
 
 			// Trophy icon should be present for winner
-			const trophyIcon = document.querySelector(".lucide-trophy");
+			const trophyIcon = document.querySelector(".icon-trophy");
 			expect(trophyIcon).toBeInTheDocument();
 		});
 
@@ -454,7 +450,7 @@ describe("ResponseCard", () => {
 				wrapper: AllProviders,
 			});
 
-			expect(document.querySelector(".lucide-trophy")).not.toBeInTheDocument();
+			expect(document.querySelector(".icon-trophy")).not.toBeInTheDocument();
 		});
 
 		it("applies winner styling to vote thumb when isWinner", () => {
@@ -467,7 +463,7 @@ describe("ResponseCard", () => {
 			const voteButtons = screen.getAllByRole("button");
 			const voteButton = voteButtons.find(
 				(btn) =>
-					btn.querySelector(".lucide-thumbs-up") ||
+					btn.querySelector(".icon-thumbs-up") ||
 					btn.textContent?.includes("👍"),
 			);
 			expect(voteButton).toBeInTheDocument();
@@ -576,7 +572,7 @@ describe("ResponseCard", () => {
 			});
 
 			// Winner should have trophy icon
-			const trophyIcon = document.querySelector(".lucide-trophy");
+			const trophyIcon = document.querySelector(".icon-trophy");
 			expect(trophyIcon).toBeInTheDocument();
 		});
 
@@ -586,7 +582,7 @@ describe("ResponseCard", () => {
 			});
 
 			// Loser should not have trophy icon
-			expect(document.querySelector(".lucide-trophy")).not.toBeInTheDocument();
+			expect(document.querySelector(".icon-trophy")).not.toBeInTheDocument();
 		});
 	});
 

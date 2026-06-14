@@ -1,3 +1,5 @@
+import { memo, type ReactNode, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
 	Bot,
 	Clock,
@@ -6,9 +8,7 @@ import {
 	PowerOff,
 	Settings,
 	Zap,
-} from "lucide-react";
-import { memo, type ReactNode, useEffect, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
+} from "@/lib/icons";
 import type { GenerationParams } from "../api/types";
 import { formatDuration, formatNumber } from "../utils/format";
 import { is5xxError } from "../utils/model";

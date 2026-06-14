@@ -1,6 +1,6 @@
-import { AlertTriangle } from "lucide-react";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { AlertTriangle } from "@/lib/icons";
 import { Modal } from "./Modal";
 
 interface RestoreConfirmModalProps {

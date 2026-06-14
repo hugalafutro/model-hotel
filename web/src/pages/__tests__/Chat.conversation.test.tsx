@@ -1,6 +1,6 @@
 import { screen, waitFor } from "@testing-library/react";
-import type { LucideIcon } from "lucide-react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { LucideIcon } from "@/lib/icons";
 import { mockAllDefaults } from "../../test/helpers";
 import { mockModel } from "../../test/mocks/data";
 import { server } from "../../test/mocks/server";

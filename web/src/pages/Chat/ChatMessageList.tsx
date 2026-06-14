@@ -1,5 +1,5 @@
-import { CircleStop, Mic, RefreshCw, Settings, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { CircleStop, Mic, RefreshCw, Settings, Trash2 } from "@/lib/icons";
 import type { ChatMessage, Model } from "../../api/types";
 import { CopyButton } from "../../components/CopyButton";
 import { MarkdownContent } from "../../components/MarkdownContent";

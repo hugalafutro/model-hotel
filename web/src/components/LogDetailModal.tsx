@@ -1,5 +1,5 @@
-import { Activity, Calendar, FileText, Tag } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { Activity, Calendar, FileText, Tag } from "@/lib/icons";
 import type { AppLogEntry, LogEntry } from "../api/types";
 import { CopyablePill } from "./CopyablePill";
 import { DetailItem } from "./LogDetailItem";

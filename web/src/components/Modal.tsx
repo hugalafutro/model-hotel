@@ -1,4 +1,3 @@
-import { X } from "lucide-react";
 import {
 	forwardRef,
 	type ReactNode,
@@ -12,6 +11,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
+import { X } from "@/lib/icons";
 
 export interface ModalHandle {
 	close: () => void;

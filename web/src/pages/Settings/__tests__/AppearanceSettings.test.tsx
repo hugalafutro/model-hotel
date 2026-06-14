@@ -167,7 +167,7 @@ describe("AppearanceSettings", () => {
 			<AppearanceSettings collapsed={false} onToggle={onToggle} />,
 		);
 		// Palette icon renders as SVG with lucide class
-		const icon = document.querySelector(".lucide-palette");
+		const icon = document.querySelector(".icon-palette");
 		expect(icon).toBeInTheDocument();
 	});
 

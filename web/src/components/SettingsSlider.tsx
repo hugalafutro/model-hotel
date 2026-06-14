@@ -1,5 +1,5 @@
-import { ChevronDown, ChevronUp } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ChevronDown, ChevronUp } from "@/lib/icons";
 import { ResetButton } from "./ResetButton";
 
 export interface SettingsSliderProps {

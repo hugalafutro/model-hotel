@@ -1,5 +1,5 @@
-import type { LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import type { LucideIcon } from "@/lib/icons";
 import { CollapsibleToggle } from "./CollapsibleToggle";
 import { ResetButton } from "./ResetButton";
 

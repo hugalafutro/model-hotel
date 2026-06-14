@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { FilterInput } from "../FilterInput";
 
 // Stub Lucide icons
-vi.mock("lucide-react", () => ({
+vi.mock("@/lib/icons", () => ({
 	X: ({ className }: { className?: string }) => (
 		<svg className={className} data-testid="x-icon" />
 	),

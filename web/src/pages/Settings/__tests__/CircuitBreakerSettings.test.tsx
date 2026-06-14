@@ -22,7 +22,7 @@ describe("CircuitBreakerSettings", () => {
 			<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
 		);
 		expect(screen.getByText("Circuit Breaker & Failover")).toBeInTheDocument();
-		const icon = document.querySelector(".lucide-shield");
+		const icon = document.querySelector(".icon-shield");
 		expect(icon).toBeInTheDocument();
 	});
 

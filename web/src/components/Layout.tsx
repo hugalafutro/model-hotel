@@ -1,4 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
 	AlertTriangle,
 	BookOpen,
@@ -22,10 +25,7 @@ import {
 	Sun,
 	Swords,
 	X,
-} from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+} from "@/lib/icons";
 import { api } from "../api/client";
 import type { AppLogEntry, LogEntry } from "../api/types";
 import { useSidebarMode } from "../context/SidebarModeContext";

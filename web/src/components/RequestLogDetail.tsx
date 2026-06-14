@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
 	AlertTriangle,
 	Box,
@@ -10,8 +11,7 @@ import {
 	Server,
 	Timer,
 	Zap,
-} from "lucide-react";
-import { useTranslation } from "react-i18next";
+} from "@/lib/icons";
 import type { LogEntry } from "../api/types";
 import { formatMs } from "../pages/Logs/utils";
 import { CopyablePill } from "./CopyablePill";

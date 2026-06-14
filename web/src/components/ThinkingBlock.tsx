@@ -1,6 +1,6 @@
-import { Brain, ChevronDown, ChevronRight } from "lucide-react";
 import { memo, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Brain, ChevronDown, ChevronRight } from "@/lib/icons";
 
 export const ThinkingBlock = memo(function ThinkingBlock({
 	thinking,

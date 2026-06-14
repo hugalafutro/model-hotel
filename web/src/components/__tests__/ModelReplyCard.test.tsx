@@ -65,7 +65,7 @@ describe("ModelReplyCard", () => {
 
 		it("renders bot icon", () => {
 			renderWithProviders(<ModelReplyCard {...defaultProps} />);
-			const botIcon = document.querySelector("svg.lucide-bot");
+			const botIcon = document.querySelector("svg.icon-bot");
 			expect(botIcon).toBeInTheDocument();
 		});
 

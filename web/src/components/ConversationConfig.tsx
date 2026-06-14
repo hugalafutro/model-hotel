@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
 	ChevronsDownUp,
 	ChevronsUpDown,
@@ -8,8 +9,7 @@ import {
 	SlidersHorizontal,
 	Square,
 	Timer,
-} from "lucide-react";
-import { useTranslation } from "react-i18next";
+} from "@/lib/icons";
 
 interface ConversationConfigProps {
 	maxTurns: number;

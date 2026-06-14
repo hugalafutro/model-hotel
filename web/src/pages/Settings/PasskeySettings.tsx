@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Fingerprint, Key, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Check, Fingerprint, Pencil, Plus, Trash2, X } from "@/lib/icons";
 import { api } from "../../api/client";
 import type { WebAuthnCredential } from "../../api/types";
 import { SettingsSection } from "../../components/SettingsSection";
@@ -187,7 +187,7 @@ function CredentialRow({
 	return (
 		<div className="flex items-center justify-between p-3 bg-(--surface-elevated) rounded-[var(--radius-card,0.375rem)] border border-(--border-default)">
 			<div className="flex items-center gap-3 min-w-0 flex-1">
-				<Key size={16} className="text-(--accent) shrink-0" />
+				<Fingerprint size={16} className="text-(--accent) shrink-0" />
 				<div className="min-w-0">
 					{editing ? (
 						<div className="flex items-center gap-1">

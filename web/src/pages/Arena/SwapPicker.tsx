@@ -1,6 +1,6 @@
-import { ChevronDown, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ChevronDown, ChevronsDownUp, ChevronsUpDown } from "@/lib/icons";
 import { FilterInput } from "../../components/FilterInput";
 import { proxyModelID } from "../../utils/model";
 import type { SwapPickerProps } from "./types";

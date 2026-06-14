@@ -1,4 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import {
 	AlertTriangle,
 	Download,
@@ -6,9 +8,7 @@ import {
 	Plus,
 	Trash2,
 	Upload,
-} from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { Trans, useTranslation } from "react-i18next";
+} from "@/lib/icons";
 import { api, getAuthHeaders } from "../../api/client";
 import type { BackupClassification } from "../../api/types";
 import { LoadingSpinner } from "../../components/LoadingSpinner";

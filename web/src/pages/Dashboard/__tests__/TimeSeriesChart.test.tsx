@@ -1,7 +1,7 @@
 import { fireEvent, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { TrendingUp } from "lucide-react";
 import { describe, expect, it, vi } from "vitest";
+import { TrendingUp } from "@/lib/icons";
 import { renderWithProviders } from "../../../test/utils";
 import { TimeSeriesChart } from "../TimeSeriesChart";
 import type { Range, TimeSeriesDataPoint } from "../types";

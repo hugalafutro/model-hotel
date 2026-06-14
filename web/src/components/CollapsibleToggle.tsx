@@ -1,13 +1,13 @@
 /* eslint-disable react-refresh/only-export-components */
 
+import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
 	ChevronDown,
 	ChevronsDownUp,
 	ChevronsUpDown,
 	ChevronUp,
-} from "lucide-react";
-import { useCallback, useState } from "react";
-import { useTranslation } from "react-i18next";
+} from "@/lib/icons";
 
 interface CollapsibleToggleProps {
 	collapsed: boolean;

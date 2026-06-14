@@ -1,4 +1,4 @@
-import type { LucideIcon } from "lucide-react";
+import type { LucideIcon } from "@/lib/icons";
 
 export interface PageHeaderProps {
 	icon: LucideIcon;

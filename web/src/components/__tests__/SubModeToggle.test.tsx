@@ -1,8 +1,8 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { LucideProps } from "lucide-react";
 import { forwardRef } from "react";
 import { describe, expect, it, vi } from "vitest";
+import type { LucideProps } from "@/lib/icons";
 import { renderWithProviders } from "../../test/utils";
 import { SubModeToggle } from "../SubModeToggle";
 

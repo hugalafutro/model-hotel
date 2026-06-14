@@ -1,12 +1,12 @@
+import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
 	ChevronDown,
 	ChevronsDownUp,
 	ChevronsUpDown,
 	Dices,
 	Settings,
-} from "lucide-react";
-import { useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
+} from "@/lib/icons";
 import type { GenerationParams } from "../api/types";
 import { parseCapabilities } from "../utils/model";
 import type { CapKey } from "./capMeta";

@@ -22,8 +22,8 @@ describe("RateLimitSettings", () => {
 		await waitFor(() => {
 			expect(screen.getByText("Rate Limiting")).toBeInTheDocument();
 		});
-		// Gauge icon renders as SVG element with lucide-gauge class
-		const gaugeIcon = document.querySelector(".lucide-gauge");
+		// Gauge icon renders as SVG element with icon-gauge class
+		const gaugeIcon = document.querySelector(".icon-gauge");
 		expect(gaugeIcon).toBeInTheDocument();
 	});
 

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
 	Activity,
 	AlertTriangle,
@@ -12,8 +13,7 @@ import {
 	ShieldAlert,
 	Target,
 	Timer,
-} from "lucide-react";
-import { useTranslation } from "react-i18next";
+} from "@/lib/icons";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { PageHeader } from "../components/PageHeader";
 import { formatCompact, formatTokens, formatWithCommas } from "../utils/format";

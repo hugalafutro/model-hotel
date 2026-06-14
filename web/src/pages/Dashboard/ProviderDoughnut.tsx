@@ -1,6 +1,6 @@
-import { TrendingUp } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { TrendingUp } from "@/lib/icons";
 import type { ProviderDistributionItem } from "../../api/types";
 import { Spinner } from "../../components/Spinner";
 import { formatCompact, formatPercent } from "../../utils/format";

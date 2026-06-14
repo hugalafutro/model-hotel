@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { DeleteConfirmModal } from "../DeleteConfirmModal";
 
 // Stub Lucide icons
-vi.mock("lucide-react", () => ({
+vi.mock("@/lib/icons", () => ({
 	X: ({ className }: { className?: string }) => (
 		<svg className={className} data-testid="close-icon" />
 	),

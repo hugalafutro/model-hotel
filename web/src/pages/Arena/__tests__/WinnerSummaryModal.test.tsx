@@ -58,7 +58,7 @@ describe("WinnerSummaryModal", () => {
 	it("renders Trophy icon", () => {
 		renderWithProviders(<WinnerSummaryModal {...defaultProps} />);
 
-		const trophyIcons = document.querySelectorAll(".lucide-trophy");
+		const trophyIcons = document.querySelectorAll(".icon-trophy");
 		expect(trophyIcons.length).toBeGreaterThanOrEqual(1);
 	});
 

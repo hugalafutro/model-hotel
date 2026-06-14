@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Settings as SettingsIcon } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Settings as SettingsIcon } from "@/lib/icons";
 import { api } from "../api/client";
 import { useCollapsible } from "../components/CollapsibleToggle";
 import { ConfirmDialog } from "../components/ConfirmDialog";

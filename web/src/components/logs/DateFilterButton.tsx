@@ -1,5 +1,5 @@
-import { CalendarDays, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { CalendarDays, X } from "@/lib/icons";
 import { formatDateRangeShort } from "../AccentCalendar.utils";
 
 interface DateFilterButtonProps {

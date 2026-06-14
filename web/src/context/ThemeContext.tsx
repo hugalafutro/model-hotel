@@ -2,7 +2,7 @@ import { createContext, type ReactNode, useContext, useEffect } from "react";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 
 type Theme = "dark" | "light";
-type UIStyle = "clean-saas" | "cyber-terminal" | "glassmorphism-lite";
+export type UIStyle = "clean-saas" | "cyber-terminal" | "glassmorphism-lite";
 
 interface AccentPreset {
 	name: string;

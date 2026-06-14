@@ -1,6 +1,6 @@
-import { Settings, ThumbsDown, ThumbsUp } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Settings, ThumbsDown, ThumbsUp } from "@/lib/icons";
 import type { GenerationParams } from "../../api/types";
 
 export function VoteThumb({

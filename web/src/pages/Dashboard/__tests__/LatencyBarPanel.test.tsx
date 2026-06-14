@@ -1,7 +1,7 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Activity } from "lucide-react";
 import { describe, expect, it, vi } from "vitest";
+import { Activity } from "@/lib/icons";
 import { renderWithProviders } from "../../../test/utils";
 import type { LatencyEntry } from "../LatencyBarPanel";
 import { LatencyBarPanel } from "../LatencyBarPanel";

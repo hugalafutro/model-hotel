@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { FileText, ScrollText } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { FileText, ScrollText } from "@/lib/icons";
 import { api } from "../api/client";
 import type { AppLogEntry } from "../api/types";
 import { Badge } from "../components/Badge";

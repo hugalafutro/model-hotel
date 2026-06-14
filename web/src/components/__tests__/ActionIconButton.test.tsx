@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Settings } from "lucide-react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Settings } from "@/lib/icons";
 import { ActionIconButton } from "../ActionIconButton";
 
 describe("ActionIconButton", () => {

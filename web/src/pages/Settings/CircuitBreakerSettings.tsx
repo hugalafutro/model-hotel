@@ -1,5 +1,5 @@
-import { Shield } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { Shield } from "@/lib/icons";
 import { ResetButton } from "../../components/ResetButton";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
