@@ -48,10 +48,12 @@ export function FuseOutline({
 	} = useResizeObserver<SVGSVGElement>();
 	const rectRef = useRef<SVGRectElement>(null);
 
-	// Measure the parent element's actual corner radius so the fuse traces the
-	// real toast/entry shape per theme. An explicit rx prop still overrides this.
+	// Measure the parent element's actual corner radius once on mount so the
+	// fuse traces the real toast/entry shape per theme. border-radius does not
+	// change on resize, so this deliberately does not depend on width/height
+	// (avoids a forced getComputedStyle reflow every resize). An explicit rx
+	// prop still overrides this.
 	const [measuredRx, setMeasuredRx] = useState<number | null>(null);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: sizeRef is a stable ref; width/height are intentional re-measure triggers so the parent radius is re-read once the box has been laid out / resized.
 	useLayoutEffect(() => {
 		const parent = sizeRef.current?.parentElement;
 		if (!parent) return;
@@ -59,7 +61,7 @@ export function FuseOutline({
 			getComputedStyle(parent).borderTopLeftRadius,
 		);
 		if (!Number.isNaN(parsed)) setMeasuredRx(parsed);
-	}, [sizeRef, width, height]);
+	}, [sizeRef]);
 
 	// Track the last animation string we set imperatively so we only
 	// re-set it when durationMs actually changes (which is rare — backed by
