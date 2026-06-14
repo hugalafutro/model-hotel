@@ -147,14 +147,13 @@ describe("VirtualKeys", () => {
 			const nameInput = within(dialog).getByLabelText("Name");
 			expect(nameInput).toHaveValue("Test API Key");
 
-			const rateLimitRpsInput = within(dialog).getByLabelText(
-				"Rate Limit RPS (requests/sec)",
-			);
+			// Select by stable id, not the (themeable/translatable) label text.
+			const rateLimitRpsInput =
+				dialog.querySelector<HTMLInputElement>("#vk-detail-rps");
 			expect(rateLimitRpsInput).toHaveValue(30);
 
-			const rateLimitBurstInput = within(dialog).getByLabelText(
-				"Rate Limit Burst (max concurrent)",
-			);
+			const rateLimitBurstInput =
+				dialog.querySelector<HTMLInputElement>("#vk-detail-burst");
 			expect(rateLimitBurstInput).toHaveValue(60);
 		});
 	});
