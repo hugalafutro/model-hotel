@@ -1,0 +1,151 @@
+name: Prune Docker Hub Tags
+
+# Keeps the Docker Hub repository tidy after a release. Retains the newest
+# KEEP version tags (vX.Y.Z) plus every protected moving tag (latest, X.Y),
+# and deletes older releases. Each release pushes a vX.Y.Z tag *and* a sha-
+# tag at the same image digest, so a sha- tag is pruned only when no retained
+# tag still points at its digest — this drops a release's sha- tag together
+# with the release, without parsing commit SHAs.
+#
+# Runs automatically after "Publish Docker Image" succeeds. The manual
+# (workflow_dispatch) trigger defaults to dry_run=true: it lists what *would*
+# be deleted without touching anything. Set dry_run=false to actually prune.
+
+on:
+  workflow_run:
+    workflows: ["Publish Docker Image"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      keep:
+        description: 'Number of most-recent version tags to keep'
+        required: false
+        default: '20'
+        type: string
+      dry_run:
+        description: 'List deletions without performing them'
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+env:
+  DOCKERHUB_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/model-hotel
+  KEEP: ${{ github.event.inputs.keep || '20' }}
+  # workflow_run carries no inputs -> default to a real prune on release.
+  DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+
+jobs:
+  prune:
+    name: Prune old tags
+    runs-on: ubuntu-latest
+    # On the automatic trigger, only run when the publish actually succeeded.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Prune Docker Hub tags
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          NS="${DOCKERHUB_USERNAME}"
+          REPO="model-hotel"
+          KEEP="${KEEP}"
+          DRY_RUN="${DRY_RUN}"
+
+          echo "Repository: ${NS}/${REPO}"
+          echo "Keep newest ${KEEP} version tags; dry_run=${DRY_RUN}"
+
+          # --- authenticate (PAT used as password) -----------------------------
+          login_payload=$(jq -n --arg u "$NS" --arg p "$DOCKERHUB_TOKEN" \
+            '{username:$u,password:$p}')
+          TOKEN=$(curl -fsSL -H "Content-Type: application/json" \
+            -d "$login_payload" \
+            https://hub.docker.com/v2/users/login | jq -r '.token')
+          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+            echo "::error::Docker Hub login failed"
+            exit 1
+          fi
+
+          # --- collect every tag (name, last_updated, digest) ------------------
+          tags=$(mktemp)
+          : > "$tags"
+          url="https://hub.docker.com/v2/namespaces/${NS}/repositories/${REPO}/tags?page_size=100"
+          while [ -n "$url" ] && [ "$url" != "null" ]; do
+            resp=$(curl -fsSL -H "Authorization: JWT ${TOKEN}" "$url")
+            echo "$resp" | jq -c '.results[]' >> "$tags"
+            url=$(echo "$resp" | jq -r '.next')
+          done
+          echo "Found $(wc -l < "$tags") tags total."
+
+          # --- decide what to delete -------------------------------------------
+          # Protected:  latest, and moving X.Y tags.
+          # Retained:   protected tags + newest KEEP version tags (by last_updated).
+          # Delete:     version tags beyond KEEP, and sha- tags whose digest is
+          #             not shared by any retained tag. Unknown tags are left alone.
+          to_delete=$(jq -rs --argjson keep "$KEEP" '
+            def isVersion: test("^v[0-9]+\\.[0-9]+\\.[0-9]+$");
+            def isProtected: (. == "latest") or test("^[0-9]+\\.[0-9]+$");
+            def isSha: startswith("sha-");
+
+            # every digest a tag references (top-level + per-image), nulls dropped.
+            def digests: [ .digest, (.images[]?.digest) ] | map(select(. != null));
+
+            ( [ .[] | select(.name | isVersion) ]
+              | sort_by(.last_updated) | reverse ) as $versions
+            | ( $versions[0:$keep] ) as $keepVersions
+            | ( [ .[] | select(.name | isProtected) ] ) as $protectedTags
+            | ( [ $keepVersions[].name ] ) as $keepNames
+            | ( [ ($keepVersions + $protectedTags)[] | digests[] ] | unique ) as $keepDigests
+            | [ .[]
+                | . as $t
+                | ( $t | digests ) as $tDigests
+                | select(
+                    ( ($t.name | isVersion) and (($keepNames | index($t.name)) | not) )
+                    or
+                    # a sha- tag is prunable only when it shares no digest with a
+                    # retained tag (and has at least one digest to compare).
+                    ( ($t.name | isSha)
+                      and ($tDigests | length > 0)
+                      and ( [ $tDigests[] | select(. as $d | $keepDigests | index($d)) ] | length == 0 ) )
+                  )
+                | $t.name
+              ]
+            | unique[]
+          ' "$tags")
+
+          if [ -z "$to_delete" ]; then
+            echo "Nothing to prune." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          count=$(printf '%s\n' "$to_delete" | grep -c .)
+          {
+            echo "### Docker Hub prune (${NS}/${REPO})"
+            echo ""
+            echo "dry_run=\`${DRY_RUN}\` — ${count} tag(s) targeted:"
+            echo ""
+            printf '%s\n' "$to_delete" | sed 's/^/- `/; s/$/`/'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # --- delete -----------------------------------------------------------
+          printf '%s\n' "$to_delete" | while IFS= read -r name; do
+            [ -n "$name" ] || continue
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "[dry-run] would delete: $name"
+              continue
+            fi
+            echo "Deleting: $name"
+            code=$(curl -sS -o /dev/null -w '%{http_code}' -X DELETE \
+              -H "Authorization: JWT ${TOKEN}" \
+              "https://hub.docker.com/v2/repositories/${NS}/${REPO}/tags/${name}/")
+            if [ "$code" != "204" ] && [ "$code" != "202" ] && [ "$code" != "404" ]; then
+              echo "::error::Failed to delete ${name} (HTTP ${code})"
+              exit 1
+            fi
+          done
+
+          echo "Prune complete."
