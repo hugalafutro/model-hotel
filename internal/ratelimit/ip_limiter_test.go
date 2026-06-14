@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"golang.org/x/time/rate"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 // stubIPSettings is a minimal SettingsReader for IP limiter tests.
@@ -1195,3 +1197,38 @@ func TestIPLimiter_CleanupLoop_TickerPathRemovesStaleEntries(t *testing.T) {
 // TestIPLimiter_CleanupRemovesStale and TestIPLimiter_CleanupLoop_TickerPathRemovesStaleEntries.
 // Only the select routing (ticker.C path) is untested; the actual cleanup
 // logic is fully covered. This is a structural limitation.
+
+// TestIPEntry_ThrottleEdgeLogging mirrors TestKeyEntry_ThrottleEdgeLogging for
+// the per-IP limiter: one "started" per episode (not per rejection), one
+// "ended" on recovery, and a fresh rejection opens a new episode.
+func TestIPEntry_ThrottleEdgeLogging(t *testing.T) {
+	h := &msgCaptureHandler{}
+	debuglog.SetHandler(h)
+	t.Cleanup(func() { debuglog.Init(false) })
+
+	const started = "ratelimit-ip: throttling started"
+	const ended = "ratelimit-ip: throttling ended"
+
+	e := &ipEntry{limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1}
+
+	e.noteRejected("1.2.3.4")
+	e.noteRejected("1.2.3.4")
+	e.noteRejected("1.2.3.4")
+	if got := h.count(started); got != 1 {
+		t.Errorf("started count = %d, want 1", got)
+	}
+	if got := e.rejectedN.Load(); got != 3 {
+		t.Errorf("rejectedN = %d, want 3", got)
+	}
+
+	e.noteAllowed("1.2.3.4")
+	e.noteAllowed("1.2.3.4")
+	if got := h.count(ended); got != 1 {
+		t.Errorf("ended count = %d, want 1", got)
+	}
+
+	e.noteRejected("1.2.3.4")
+	if got := h.count(started); got != 2 {
+		t.Errorf("started count after new episode = %d, want 2", got)
+	}
+}

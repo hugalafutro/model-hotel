@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/time/rate"
@@ -29,6 +30,44 @@ type ipEntry struct {
 	rps      float64
 	burst    int
 	lastUsed time.Time
+
+	// Edge-triggered throttle state — see keyEntry for the rationale. Logs one
+	// line when an IP starts being throttled and one when it recovers, instead
+	// of one per rejected request.
+	throttled   atomic.Bool
+	throttledAt atomic.Int64 // unix-nano of the current episode's first rejection
+	rejectedN   atomic.Int64 // requests rejected during the current episode
+}
+
+// noteRejected logs "throttling started" on the first rejection of an episode
+// (false→true edge); later rejections only bump the counter.
+func (e *ipEntry) noteRejected(ip string) {
+	if e.throttled.CompareAndSwap(false, true) {
+		e.throttledAt.Store(time.Now().UnixNano())
+		e.rejectedN.Store(1)
+		debuglog.Warn("ratelimit-ip: throttling started",
+			"ip", ip, "rps", e.rps, "burst", e.burst)
+	} else {
+		e.rejectedN.Add(1)
+	}
+}
+
+// noteAllowed logs "throttling ended" when a throttled IP is served again with
+// no delay (true→false edge).
+func (e *ipEntry) noteAllowed(ip string) {
+	if e.throttled.CompareAndSwap(true, false) {
+		e.logThrottlingEnded(ip, time.Now(), "recovered")
+	}
+}
+
+// logThrottlingEnded emits the episode summary (duration + rejected count).
+func (e *ipEntry) logThrottlingEnded(ip string, end time.Time, reason string) {
+	since := time.Unix(0, e.throttledAt.Load())
+	debuglog.Info("ratelimit-ip: throttling ended",
+		"ip", ip,
+		"reason", reason,
+		"duration", end.Sub(since).Round(time.Millisecond).String(),
+		"rejected_requests", e.rejectedN.Load())
 }
 
 // settings keys for IP rate limiter (stored in DB)
@@ -102,8 +141,8 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 
 		reservation := entry.limiter.Reserve()
 		if !reservation.OK() {
+			entry.noteRejected(ip)
 			l.writeHeaders(w, entry.limiter, 0)
-			debuglog.Warn("ratelimit-ip: rate limit exceeded", "ip", ip)
 			util.WriteOpenAIError(w, "rate limit exceeded", http.StatusTooManyRequests)
 			return
 		}
@@ -111,7 +150,9 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 		delay := reservation.Delay()
 		if delay > 0 {
 			// Graceful backpressure: if the wait is within the configured max_wait,
-			// sleep and proceed instead of rejecting immediately.
+			// sleep and proceed instead of rejecting immediately. The IP is still
+			// under pressure, so an open throttle episode stays open (only a
+			// no-delay serve below closes it).
 			maxWait := time.Duration(defaultMaxWaitMs) * time.Millisecond
 			if l.settings != nil {
 				maxWait = time.Duration(l.settings.GetInt(r.Context(), settingsKeyIPMaxWaitMs, defaultMaxWaitMs)) * time.Millisecond
@@ -124,12 +165,15 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 			}
 			// Wait exceeds max_wait - cancel the reservation and reject.
 			reservation.Cancel()
+			entry.noteRejected(ip)
 			l.writeHeaders(w, entry.limiter, delay)
-			debuglog.Warn("ratelimit-ip: rate limit exceeded", "ip", ip)
 			util.WriteOpenAIError(w, "rate limit exceeded", http.StatusTooManyRequests)
 			return
 		}
 
+		// Served with no delay — the bucket has recovered, so close any open
+		// throttle episode for this IP.
+		entry.noteAllowed(ip)
 		l.writeHeaders(w, entry.limiter, 0)
 		next.ServeHTTP(w, r)
 	})
@@ -198,6 +242,11 @@ func (l *IPLimiter) cleanup() {
 	cutoff := time.Now().Add(-10 * time.Minute)
 	for ip, entry := range l.limiters {
 		if entry.lastUsed.Before(cutoff) {
+			// Close any still-open throttle episode (traffic stopped while the
+			// IP was rate-limited). Use the IP's last activity as the end.
+			if entry.throttled.Load() {
+				entry.logThrottlingEnded(ip, entry.lastUsed, "idle")
+			}
 			delete(l.limiters, ip)
 		}
 	}
