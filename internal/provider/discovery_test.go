@@ -856,8 +856,9 @@ func TestDiscoverModels_KeylessProviderWithEmptyKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DiscoverModels for keyless provider should succeed, got error: %v", err)
 	}
-	if len(models) != 1 {
-		t.Fatalf("expected 1 model, got %d", len(models))
+	// Live "test-model" (not in catalog) is first, unioned with the catalog.
+	if len(models) != len(GetOpenAIModels())+1 {
+		t.Fatalf("expected catalog+1 merged models, got %d", len(models))
 	}
 	if models[0].ModelID != "test-model" {
 		t.Errorf("expected model ID 'test-model', got '%s'", models[0].ModelID)
@@ -899,8 +900,9 @@ func TestDiscoverModels_UnknownProviderType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DiscoverModels with unknown provider type should fall back to OpenAI, got error: %v", err)
 	}
-	if len(models) != 1 {
-		t.Fatalf("expected 1 model, got %d", len(models))
+	// Single live model unioned with the OpenAI catalog.
+	if len(models) != len(GetOpenAIModels())+1 {
+		t.Fatalf("expected catalog+1 merged models, got %d", len(models))
 	}
 }
 
@@ -1292,8 +1294,9 @@ func TestDiscoverModels_UnsupportedProviderTypeFallsBackToOpenAI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DiscoverModels should fall back to OpenAI, got error: %v", err)
 	}
-	if len(models) != 1 {
-		t.Fatalf("expected 1 model from fallback, got %d", len(models))
+	// Live "fallback-model" (not in catalog) is first, unioned with the catalog.
+	if len(models) != len(GetOpenAIModels())+1 {
+		t.Fatalf("expected catalog+1 merged models, got %d", len(models))
 	}
 	if models[0].ModelID != "fallback-model" {
 		t.Errorf("expected model ID 'fallback-model', got '%s'", models[0].ModelID)
@@ -1353,8 +1356,9 @@ func TestDiscoverModels_OpenAIProviderType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DiscoverModels for OpenAI should succeed, got error: %v", err)
 	}
-	if len(models) != 1 {
-		t.Fatalf("expected 1 model, got %d", len(models))
+	// Live "gpt-4-test" (not in catalog) is first, unioned with the catalog.
+	if len(models) != len(GetOpenAIModels())+1 {
+		t.Fatalf("expected catalog+1 merged models, got %d", len(models))
 	}
 	if models[0].ModelID != "gpt-4-test" {
 		t.Errorf("expected model ID 'gpt-4-test', got '%s'", models[0].ModelID)

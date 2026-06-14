@@ -155,8 +155,10 @@ func TestOpenAIDiscoveryWithMockServer(t *testing.T) {
 		t.Fatalf("discoverOpenAI failed: %v", err)
 	}
 
-	if len(models) != 2 {
-		t.Fatalf("expected 2 models, got %d", len(models))
+	// Live [gpt-5.5 (catalog), unknown-model-xyz] unions with the catalog;
+	// live order is preserved first, so models[0]/[1] are the two live models.
+	if len(models) != len(GetOpenAIModels())+1 {
+		t.Fatalf("expected catalog+1 merged models, got %d", len(models))
 	}
 
 	// First model should be catalog-matched

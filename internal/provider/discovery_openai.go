@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/google/uuid"
-
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -32,72 +30,16 @@ func (d *DiscoveryService) discoverOpenAI(ctx context.Context, provider *Provide
 		return nil, fmt.Errorf("openai: failed to decode response for provider %s: %w", provider.Name, err)
 	}
 
-	catalog := GetOpenAIModels()
-
-	models := make([]*model.Model, 0, len(openAIResp.Data))
+	// Live /models only carries id + owner; merge unions it with the catalog
+	// (live wins, catalog backfills the gpt-5.x specs the listing omits, and
+	// the ~110 uncatalogued models are enriched by models.dev instead of the
+	// old fabricated "text"/"[]" minimal entry).
+	live := make([]*model.Model, 0, len(openAIResp.Data))
 	for _, m := range openAIResp.Data {
-		spec := LookupOpenAICatalog(catalog, m.ID)
-		if spec != nil {
-			caps := model.Capability{
-				Streaming:        spec.Streaming,
-				Reasoning:        spec.Reasoning,
-				ToolCalling:      spec.ToolCalling,
-				StructuredOutput: spec.StructuredOutput,
-				Vision:           spec.Vision,
-			}
-			capJSON, _ := json.Marshal(caps)
-
-			contextLen := spec.ContextLength
-			maxOutput := spec.MaxOutputTokens
-			inPrice := spec.InputPricePerMillion
-			outPrice := spec.OutputPricePerMillion
-
-			modelEntry := &model.Model{
-				ID:                    uuid.New(),
-				ProviderID:            provider.ID,
-				ModelID:               m.ID,
-				Name:                  m.ID,
-				DisplayName:           spec.DisplayName,
-				Description:           spec.Description,
-				Capabilities:          string(capJSON),
-				Params:                "{}",
-				Modality:              spec.Modality,
-				InputModalities:       spec.InputModalities,
-				OutputModalities:      spec.OutputModalities,
-				ContextLength:         &contextLen,
-				MaxOutputTokens:       &maxOutput,
-				InputPricePerMillion:  &inPrice,
-				OutputPricePerMillion: &outPrice,
-				OwnedBy:               m.OwnedBy,
-				Enabled:               true,
-			}
-
-			if spec.InputPricePerMillionCacheHit > 0 {
-				cacheHitPrice := spec.InputPricePerMillionCacheHit
-				modelEntry.InputPricePerMillionCacheHit = &cacheHitPrice
-			}
-
-			models = append(models, modelEntry)
-		} else {
-			debuglog.Warn("discovery: openai model not in catalog", "model", m.ID)
-			capJSON, _ := json.Marshal(model.Capability{Streaming: true})
-			models = append(models, &model.Model{
-				ID:               uuid.New(),
-				ProviderID:       provider.ID,
-				ModelID:          m.ID,
-				Name:             m.ID,
-				DisplayName:      m.ID,
-				Capabilities:     string(capJSON),
-				Params:           "{}",
-				Modality:         "text",
-				InputModalities:  "[]",
-				OutputModalities: "[]",
-				OwnedBy:          m.OwnedBy,
-				Enabled:          true,
-			})
-		}
+		live = append(live, liveModelStub(m.ID, m.OwnedBy, provider.ID))
 	}
 
-	debuglog.Info("discovery: openai discovered models", "models", len(models), "provider", provider.Name, "provider_id", provider.ID)
-	return models, nil
+	merged := mergeLiveAndCatalog(live, openaiCatalogModels(provider.ID))
+	debuglog.Info("discovery: openai discovered models", "provider", provider.Name, "provider_id", provider.ID, "live", len(live), "catalog", len(GetOpenAIModels()), "merged", len(merged))
+	return merged, nil
 }

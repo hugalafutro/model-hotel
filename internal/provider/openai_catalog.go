@@ -1,5 +1,13 @@
 package provider
 
+import (
+	"encoding/json"
+
+	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/model"
+)
+
 // OpenAIModelSpec defines pricing and capabilities for an OpenAI model.
 type OpenAIModelSpec struct {
 	ModelID                      string  `json:"model_id"`
@@ -35,4 +43,57 @@ func LookupOpenAICatalog(catalog []OpenAIModelSpec, modelID string) *OpenAIModel
 		}
 	}
 	return nil
+}
+
+// openaiSpecToModel converts an OpenAIModelSpec into a model.Model.
+func openaiSpecToModel(spec *OpenAIModelSpec, providerID uuid.UUID) *model.Model {
+	caps := model.Capability{
+		Streaming:        spec.Streaming,
+		Reasoning:        spec.Reasoning,
+		ToolCalling:      spec.ToolCalling,
+		StructuredOutput: spec.StructuredOutput,
+		Vision:           spec.Vision,
+	}
+	capJSON, _ := json.Marshal(caps)
+
+	contextLen := spec.ContextLength
+	maxOutput := spec.MaxOutputTokens
+	inPrice := spec.InputPricePerMillion
+	outPrice := spec.OutputPricePerMillion
+
+	m := &model.Model{
+		ID:                    uuid.New(),
+		ProviderID:            providerID,
+		ModelID:               spec.ModelID,
+		Name:                  spec.ModelID,
+		DisplayName:           spec.DisplayName,
+		Description:           spec.Description,
+		Capabilities:          string(capJSON),
+		Params:                "{}",
+		Modality:              spec.Modality,
+		InputModalities:       spec.InputModalities,
+		OutputModalities:      spec.OutputModalities,
+		ContextLength:         &contextLen,
+		MaxOutputTokens:       &maxOutput,
+		InputPricePerMillion:  &inPrice,
+		OutputPricePerMillion: &outPrice,
+		OwnedBy:               "openai",
+		Enabled:               true,
+	}
+	if spec.InputPricePerMillionCacheHit > 0 {
+		cacheHitPrice := spec.InputPricePerMillionCacheHit
+		m.InputPricePerMillionCacheHit = &cacheHitPrice
+	}
+	return m
+}
+
+// openaiCatalogModels converts the whole OpenAI catalog into models, ready to
+// union with a live /models listing via mergeLiveAndCatalog.
+func openaiCatalogModels(providerID uuid.UUID) []*model.Model {
+	specs := GetOpenAIModels()
+	models := make([]*model.Model, 0, len(specs))
+	for i := range specs {
+		models = append(models, openaiSpecToModel(&specs[i], providerID))
+	}
+	return models
 }
