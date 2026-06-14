@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
-import type { LucideProps } from "lucide-react";
 import { forwardRef } from "react";
 import { describe, expect, it } from "vitest";
+import type { LucideProps } from "@/lib/icons";
 import { PageHeader } from "../PageHeader";
 
 const StubIcon = forwardRef<SVGSVGElement, LucideProps>(

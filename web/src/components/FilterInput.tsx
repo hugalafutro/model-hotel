@@ -1,6 +1,6 @@
-import { X } from "lucide-react";
 import { memo } from "react";
 import { useTranslation } from "react-i18next";
+import { X } from "@/lib/icons";
 
 interface FilterInputProps {
 	value: string;

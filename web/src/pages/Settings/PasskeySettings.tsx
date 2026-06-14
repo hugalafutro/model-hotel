@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Fingerprint, Key, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Check, Fingerprint, Key, Pencil, Plus, Trash2, X } from "@/lib/icons";
 import { api } from "../../api/client";
 import type { WebAuthnCredential } from "../../api/types";
 import { SettingsSection } from "../../components/SettingsSection";

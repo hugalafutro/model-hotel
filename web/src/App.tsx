@@ -1,10 +1,11 @@
-import { Eye, EyeOff, Fingerprint } from "lucide-react";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, Route, Routes } from "react-router-dom";
+import { Eye, EyeOff, Fingerprint } from "@/lib/icons";
 import { setAdminToken } from "./api/client";
 import { Layout } from "./components/Layout";
 import { Logo } from "./components/Logo";
+import { ThemedIconProvider } from "./components/ThemedIconProvider";
 import { EventProvider } from "./context/EventContext";
 import { QuotaModalProvider } from "./context/QuotaModalContext";
 import { SidebarModeProvider } from "./context/SidebarModeContext";
@@ -298,17 +299,19 @@ function AppContent() {
 function App() {
 	return (
 		<ThemeProvider>
-			<StorageProvider>
-				<SidebarModeProvider>
-					<ToastProvider>
-						<EventProvider>
-							<QuotaModalProvider>
-								<AppContent />
-							</QuotaModalProvider>
-						</EventProvider>
-					</ToastProvider>
-				</SidebarModeProvider>
-			</StorageProvider>
+			<ThemedIconProvider>
+				<StorageProvider>
+					<SidebarModeProvider>
+						<ToastProvider>
+							<EventProvider>
+								<QuotaModalProvider>
+									<AppContent />
+								</QuotaModalProvider>
+							</EventProvider>
+						</ToastProvider>
+					</SidebarModeProvider>
+				</StorageProvider>
+			</ThemedIconProvider>
 		</ThemeProvider>
 	);
 }

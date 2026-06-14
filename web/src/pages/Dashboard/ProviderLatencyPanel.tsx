@@ -1,6 +1,6 @@
-import { ChevronDown, ChevronUp } from "lucide-react";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { ChevronDown, ChevronUp } from "@/lib/icons";
 import { Spinner } from "../../components/Spinner";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { formatLatency } from "../../utils/format";

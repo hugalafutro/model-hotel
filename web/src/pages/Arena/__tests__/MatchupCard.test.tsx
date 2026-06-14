@@ -39,8 +39,8 @@ describe("MatchupCard", () => {
 		it("renders Bot icon", () => {
 			render(<MatchupCard {...defaultProps} />, { wrapper: AllProviders });
 
-			// Bot icon is rendered as SVG with class lucide-bot
-			const botIcon = document.querySelector(".lucide-bot");
+			// Bot icon is rendered as SVG with class icon-bot
+			const botIcon = document.querySelector(".icon-bot");
 			expect(botIcon).toBeInTheDocument();
 		});
 
@@ -48,7 +48,7 @@ describe("MatchupCard", () => {
 			render(<MatchupCard {...defaultProps} />, { wrapper: AllProviders });
 
 			// Settings icon for params tooltip has title attribute
-			const settingsIcon = document.querySelector(".lucide-settings");
+			const settingsIcon = document.querySelector(".icon-settings");
 			expect(settingsIcon).toBeInTheDocument();
 		});
 
@@ -63,7 +63,7 @@ describe("MatchupCard", () => {
 				wrapper: AllProviders,
 			});
 
-			expect(screen.queryByTestId("lucide-settings")).not.toBeInTheDocument();
+			expect(screen.queryByTestId("icon-settings")).not.toBeInTheDocument();
 		});
 
 		it("renders TBD when slot is null", () => {
@@ -304,9 +304,7 @@ describe("MatchupCard", () => {
 				{ wrapper: AllProviders },
 			);
 
-			expect(
-				screen.queryByTestId("lucide-alert-circle"),
-			).not.toBeInTheDocument();
+			expect(screen.queryByTestId("icon-alert-circle")).not.toBeInTheDocument();
 		});
 	});
 
@@ -371,7 +369,7 @@ describe("MatchupCard", () => {
 			);
 
 			// Trophy icon for winner
-			const trophyIcon = document.querySelector(".lucide-trophy");
+			const trophyIcon = document.querySelector(".icon-trophy");
 			expect(trophyIcon).toBeInTheDocument();
 		});
 
@@ -395,7 +393,7 @@ describe("MatchupCard", () => {
 				{ wrapper: AllProviders },
 			);
 
-			expect(document.querySelector(".lucide-trophy")).not.toBeInTheDocument();
+			expect(document.querySelector(".icon-trophy")).not.toBeInTheDocument();
 		});
 	});
 

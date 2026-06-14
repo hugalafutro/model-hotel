@@ -3,7 +3,7 @@ import { renderWithProviders } from "../../test/utils";
 import { CopyablePill } from "../CopyablePill";
 
 // Stub Lucide icons
-vi.mock("lucide-react", () => ({
+vi.mock("@/lib/icons", () => ({
 	Briefcase: ({ className }: { className?: string }) => (
 		<svg className={className} data-testid="stub-icon" />
 	),

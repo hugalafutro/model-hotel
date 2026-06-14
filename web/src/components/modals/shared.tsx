@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { ArrowLeftRight, RefreshCw } from "lucide-react";
+import { ArrowLeftRight, RefreshCw } from "@/lib/icons";
 import { useTheme } from "../../context/ThemeContext";
 import { Spinner } from "../Spinner";
 

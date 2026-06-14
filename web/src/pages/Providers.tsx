@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDownAZ, ArrowUpZA, PlugZap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ArrowDownAZ, ArrowUpZA, PlugZap } from "@/lib/icons";
 import { api } from "../api/client";
 import type { Model, Provider } from "../api/types";
 import { DeleteConfirmModal } from "../components/DeleteConfirmModal";

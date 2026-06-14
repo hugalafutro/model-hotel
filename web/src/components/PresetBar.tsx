@@ -1,5 +1,5 @@
-import { Dices } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { Dices } from "@/lib/icons";
 
 interface PresetItem {
 	id: string;

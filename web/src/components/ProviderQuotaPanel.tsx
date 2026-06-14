@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { RefreshCw } from "@/lib/icons";
 import { api } from "../api/client";
 import { useQuotaModal } from "../context/QuotaModalContext";
 import { useToast } from "../context/ToastContext";

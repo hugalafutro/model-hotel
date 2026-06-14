@@ -7,7 +7,7 @@ import { renderWithProviders } from "../../../test/utils";
 import { SwapPicker } from "../SwapPicker";
 
 // Stub Lucide icons
-vi.mock("lucide-react", () => ({
+vi.mock("@/lib/icons", () => ({
 	ChevronDown: ({ className }: { className?: string }) => (
 		<svg className={className} data-testid="chevron-down" />
 	),

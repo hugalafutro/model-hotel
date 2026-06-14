@@ -34,8 +34,8 @@ describe("LoginScreen", () => {
 
 		expect(screen.getByLabelText("Admin Token")).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Sign In" })).toBeInTheDocument();
-		// Logo renders as SVG with lucide class
-		const logo = document.querySelector(".lucide");
+		// Login screen renders icons (logo + password-toggle eye) as SVGs
+		const logo = document.querySelector("svg");
 		expect(logo).toBeInTheDocument();
 	});
 

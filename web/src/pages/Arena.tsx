@@ -1,3 +1,5 @@
+import { type ReactNode, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import {
 	Columns3,
 	Eraser,
@@ -6,9 +8,7 @@ import {
 	RotateCcw,
 	Swords,
 	X,
-} from "lucide-react";
-import { type ReactNode, useEffect, useMemo } from "react";
-import { useTranslation } from "react-i18next";
+} from "@/lib/icons";
 import { ActionIconButton } from "../components/ActionIconButton";
 import { ArenaHistoryModal } from "../components/ArenaHistoryModal";
 import { CollapsibleToggle } from "../components/CollapsibleToggle";

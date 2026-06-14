@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
 	ArrowDownToLine,
 	ArrowUpFromLine,
@@ -8,9 +10,7 @@ import {
 	Layers,
 	Server,
 	Tag,
-} from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
+} from "@/lib/icons";
 import type { Model } from "../../api/types";
 import { CapBadge } from "../../components/CapBadge";
 import { ConfirmDialog } from "../../components/ConfirmDialog";

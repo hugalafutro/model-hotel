@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Database } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Database } from "@/lib/icons";
 import { api } from "../../api/client";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";

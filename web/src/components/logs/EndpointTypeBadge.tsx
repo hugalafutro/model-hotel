@@ -1,5 +1,5 @@
-import { Braces } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { Braces } from "@/lib/icons";
 import { ENDPOINT_ICONS, ENDPOINT_LABEL_KEYS } from "./endpointTypes";
 
 /**

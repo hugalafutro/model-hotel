@@ -1,6 +1,6 @@
-import type { LucideIcon } from "lucide-react";
-import { Activity, AlertTriangle } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import type { LucideIcon } from "@/lib/icons";
+import { Activity, AlertTriangle } from "@/lib/icons";
 
 interface StatusBadgeProps {
 	code: number;

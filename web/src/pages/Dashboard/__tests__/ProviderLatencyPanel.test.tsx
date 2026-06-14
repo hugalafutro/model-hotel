@@ -1,7 +1,7 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Timer } from "lucide-react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { Timer } from "@/lib/icons";
 import { renderWithProviders } from "../../../test/utils";
 import type { ProviderLatencyEntry } from "../ProviderLatencyPanel";
 import { ProviderLatencyPanel } from "../ProviderLatencyPanel";

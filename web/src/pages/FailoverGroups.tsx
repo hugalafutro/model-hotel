@@ -1,13 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
 	CheckSquare,
 	ChevronRight,
 	ShieldOff,
 	Shuffle,
 	Square,
-} from "lucide-react";
-import { useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
+} from "@/lib/icons";
 import { api } from "../api/client";
 import type { CircuitBreakerProviderStatus, FailoverGroup } from "../api/types";
 import { DeleteConfirmModal } from "../components/DeleteConfirmModal";

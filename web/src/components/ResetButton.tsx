@@ -1,4 +1,4 @@
-import { RotateCcw } from "lucide-react";
+import { RotateCcw } from "@/lib/icons";
 
 interface ResetButtonProps {
 	/** Tooltip text (already i18n'd) */

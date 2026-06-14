@@ -1,5 +1,5 @@
-import { Copy } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { Copy } from "@/lib/icons";
 import { useToast } from "../context/ToastContext";
 
 interface CopyButtonProps {

@@ -1,6 +1,6 @@
-import { AlertCircle, Bot, Trophy } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { AlertCircle, Bot, Trophy } from "@/lib/icons";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { PresetBar } from "../../components/PresetBar";
 import { CHAT_PERSONAS } from "../../data/presets";

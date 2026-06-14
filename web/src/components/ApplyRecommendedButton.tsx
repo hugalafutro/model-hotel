@@ -1,5 +1,5 @@
-import { Loader2, Sparkles } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { Loader2, Sparkles } from "@/lib/icons";
 import type { GenerationParams } from "../api/types";
 import { useRecommendedSettings } from "../hooks/useRecommendedSettings";
 

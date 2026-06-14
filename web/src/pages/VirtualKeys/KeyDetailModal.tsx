@@ -1,4 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
 	Brain,
 	CalendarPlus,
@@ -10,9 +12,7 @@ import {
 	ShieldCheck,
 	Tag,
 	Zap,
-} from "lucide-react";
-import { useState } from "react";
-import { useTranslation } from "react-i18next";
+} from "@/lib/icons";
 import { api } from "../../api/client";
 import type { VirtualKey } from "../../api/types";
 import { ConfirmDeleteButton } from "../../components/ConfirmDeleteButton";

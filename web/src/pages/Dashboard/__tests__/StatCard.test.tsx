@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
-import { TrendingUp } from "lucide-react";
 import { describe, expect, it, vi } from "vitest";
+import { TrendingUp } from "@/lib/icons";
 import { StatCard } from "../StatCard";
 
 // Mock AnimatedValue to render the value directly (bypass animation)

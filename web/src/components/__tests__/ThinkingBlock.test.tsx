@@ -3,7 +3,7 @@ import { renderWithProviders } from "../../test/utils";
 import { ThinkingBlock } from "../ThinkingBlock";
 
 // Stub Lucide icons
-vi.mock("lucide-react", () => ({
+vi.mock("@/lib/icons", () => ({
 	Brain: ({ className }: { className?: string }) => (
 		<svg className={className} data-testid="brain-icon" />
 	),

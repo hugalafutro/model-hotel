@@ -1,7 +1,7 @@
 import i18next from "i18next";
 import { produce } from "immer";
-import { GitCompare, Swords } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import { GitCompare, Swords } from "@/lib/icons";
 import {
 	getArenaHistoryEnabled,
 	saveCompetitionToHistory,

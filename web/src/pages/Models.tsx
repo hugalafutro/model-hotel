@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bot } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Bot } from "@/lib/icons";
 import { api } from "../api/client";
 import type { Model } from "../api/types";
 import { LoadingSpinner } from "../components/LoadingSpinner";

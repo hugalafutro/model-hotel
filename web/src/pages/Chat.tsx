@@ -1,4 +1,6 @@
 /* eslint-disable react-hooks/refs */
+
+import { useTranslation } from "react-i18next";
 import {
 	Bot,
 	CircleStop,
@@ -12,8 +14,7 @@ import {
 	Timer,
 	Users,
 	X,
-} from "lucide-react";
-import { useTranslation } from "react-i18next";
+} from "@/lib/icons";
 import { ActionIconButton } from "../components/ActionIconButton";
 import { CollapsibleToggle } from "../components/CollapsibleToggle";
 import { ConfirmDialog } from "../components/ConfirmDialog";

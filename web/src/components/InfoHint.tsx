@@ -1,4 +1,4 @@
-import { Info } from "lucide-react";
+import { Info } from "@/lib/icons";
 
 interface InfoHintProps {
 	/** Tooltip text shown on hover (native title attribute). */

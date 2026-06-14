@@ -1,12 +1,12 @@
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
 	ChevronsDownUp,
 	ChevronsUpDown,
 	RotateCcw,
 	Settings,
 	X,
-} from "lucide-react";
-import { useState } from "react";
-import { useTranslation } from "react-i18next";
+} from "@/lib/icons";
 import type { GenerationParams, Model } from "../api/types";
 import { formatPrice, parseCapabilities, proxyModelID } from "../utils/model";
 import {

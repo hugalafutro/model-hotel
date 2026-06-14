@@ -1,6 +1,6 @@
-import { MessageSquare, MessagesSquare } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { MessageSquare, MessagesSquare } from "@/lib/icons";
 import type {
 	ChatMessage,
 	GenerationParams,

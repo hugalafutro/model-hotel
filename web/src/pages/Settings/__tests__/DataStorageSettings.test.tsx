@@ -53,7 +53,7 @@ describe("DataStorageSettings", () => {
 			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
 		);
 
-		const icon = document.querySelector(".lucide-database");
+		const icon = document.querySelector(".icon-database");
 		expect(icon).toBeInTheDocument();
 	});
 
