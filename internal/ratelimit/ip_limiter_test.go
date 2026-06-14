@@ -1217,7 +1217,7 @@ func TestIPEntry_ThrottleEdgeLogging(t *testing.T) {
 	if got := h.count(started); got != 1 {
 		t.Errorf("started count = %d, want 1", got)
 	}
-	if got := e.rejectedN; got != 3 {
+	if got := e.throttle.rejectedN; got != 3 {
 		t.Errorf("rejectedN = %d, want 3", got)
 	}
 
@@ -1252,8 +1252,8 @@ func TestIPEntry_ConcurrentRejectionsExactCount(t *testing.T) {
 	}
 	wg.Wait()
 
-	if e.rejectedN != n {
-		t.Errorf("rejectedN = %d, want %d (count must be exact under concurrency)", e.rejectedN, n)
+	if e.throttle.rejectedN != n {
+		t.Errorf("rejectedN = %d, want %d (count must be exact under concurrency)", e.throttle.rejectedN, n)
 	}
 	if got := h.count("ratelimit-ip: throttling started"); got != 1 {
 		t.Errorf("started count = %d, want exactly 1", got)
@@ -1271,7 +1271,7 @@ func TestIPEntry_IdleEvictionLogsEnded(t *testing.T) {
 	defer lim.Stop()
 	e := &ipEntry{limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1}
 	e.noteRejected("9.9.9.9") // open an episode
-	e.throttledAt = time.Now().Add(-25 * time.Minute)
+	e.throttle.throttledAt = time.Now().Add(-25 * time.Minute)
 	e.lastUsed = time.Now().Add(-20 * time.Minute) // idle, past the 10-min cutoff
 	lim.limiters["9.9.9.9"] = e
 
