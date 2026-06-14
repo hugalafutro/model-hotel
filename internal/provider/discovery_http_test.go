@@ -270,8 +270,9 @@ func TestDiscoverOpenCodeGo_EmptyResponse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("discoverOpenCodeGo failed: %v", err)
 	}
-	if len(models) != 0 {
-		t.Errorf("expected 0 models for empty response, got %d", len(models))
+	// Empty live list unions with the catalog, so the catalog is returned.
+	if len(models) != len(GetOpenCodeGoCatalog()) {
+		t.Errorf("expected catalog models for empty live response, got %d", len(models))
 	}
 }
 
@@ -310,13 +311,19 @@ func TestDiscoverOpenCodeGo(t *testing.T) {
 		t.Fatalf("discoverOpenCodeGo failed: %v", err)
 	}
 
-	if len(models) != 1 {
-		t.Fatalf("expected 1 model, got %d", len(models))
+	// Live "gpt-4" (not in catalog) unions with the catalog.
+	if len(models) != len(GetOpenCodeGoCatalog())+1 {
+		t.Fatalf("expected catalog+1 merged models, got %d", len(models))
 	}
 
-	m := models[0]
-	if m.ModelID != "gpt-4" {
-		t.Errorf("expected model ID 'gpt-4', got '%s'", m.ModelID)
+	var m *model.Model
+	for _, mm := range models {
+		if mm.ModelID == "gpt-4" {
+			m = mm
+		}
+	}
+	if m == nil {
+		t.Fatal("expected live 'gpt-4' present in merged results")
 	}
 	if m.OwnedBy != "test" {
 		t.Errorf("expected OwnedBy 'test', got '%s'", m.OwnedBy)
@@ -359,13 +366,19 @@ func TestDiscoverOpenCodeGo_UnknownModelNotInCatalog(t *testing.T) {
 		t.Fatalf("discoverOpenCodeGo failed: %v", err)
 	}
 
-	if len(models) != 1 {
-		t.Fatalf("expected 1 model for unknown model (minimal entry), got %d", len(models))
+	// Unknown live model unions with the catalog.
+	if len(models) != len(GetOpenCodeGoCatalog())+1 {
+		t.Fatalf("expected catalog+1 merged models, got %d", len(models))
 	}
 
-	m := models[0]
-	if m.ModelID != "totally-unknown-model-not-in-catalog" {
-		t.Errorf("expected model ID 'totally-unknown-model-not-in-catalog', got '%s'", m.ModelID)
+	var m *model.Model
+	for _, mm := range models {
+		if mm.ModelID == "totally-unknown-model-not-in-catalog" {
+			m = mm
+		}
+	}
+	if m == nil {
+		t.Fatal("expected unknown live model present in merged results")
 	}
 	if m.OwnedBy != "unknown-vendor" {
 		t.Errorf("expected OwnedBy 'unknown-vendor', got '%s'", m.OwnedBy)
@@ -411,12 +424,22 @@ func TestDiscoverOpenCodeGo_MixedCatalogAndUnknown(t *testing.T) {
 		t.Fatalf("discoverOpenCodeGo failed: %v", err)
 	}
 
-	if len(models) != 1 {
-		t.Fatalf("expected 1 model, got %d", len(models))
+	// Unknown live model unions with the catalog.
+	if len(models) != len(GetOpenCodeGoCatalog())+1 {
+		t.Fatalf("expected catalog+1 merged models, got %d", len(models))
+	}
+	var unknown *model.Model
+	for _, mm := range models {
+		if mm.ModelID == "totally-unknown-model-xyz" {
+			unknown = mm
+		}
+	}
+	if unknown == nil {
+		t.Fatal("expected unknown live model present in merged results")
 	}
 	// Unknown model should get a minimal entry with streaming capability
 	var caps model.Capability
-	if err := json.Unmarshal([]byte(models[0].Capabilities), &caps); err != nil {
+	if err := json.Unmarshal([]byte(unknown.Capabilities), &caps); err != nil {
 		t.Fatalf("Failed to unmarshal capabilities: %v", err)
 	}
 	if !caps.Streaming {

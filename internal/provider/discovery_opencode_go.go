@@ -7,8 +7,6 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/google/uuid"
-
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -31,16 +29,14 @@ func (d *DiscoveryService) discoverOpenCodeGo(ctx context.Context, provider *Pro
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	// If /models endpoint is not available, fall back to full catalog.
-	// This handles the case where the endpoint may be removed or rate-limited.
+	catalog := opencodeCatalogModels(GetOpenCodeGoCatalog(), provider.ID, "opencode")
+
+	// If the /models endpoint is gone (404), fall back to the full catalog.
+	// Other non-200s return an error so a transient outage aborts the scan
+	// instead of disabling live-only models that the catalog doesn't list.
 	if resp.StatusCode == http.StatusNotFound {
 		debuglog.Warn("discovery: opencode-go /models returned 404, falling back to catalog", "provider", provider.Name, "provider_id", provider.ID)
-		catalog := GetOpenCodeGoCatalog()
-		models := make([]*model.Model, 0, len(catalog))
-		for i := range catalog {
-			models = append(models, OpenCodeCatalogToModel(&catalog[i], provider.ID, "opencode"))
-		}
-		return models, nil
+		return catalog, nil
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
@@ -59,35 +55,14 @@ func (d *DiscoveryService) discoverOpenCodeGo(ctx context.Context, provider *Pro
 		return nil, fmt.Errorf("opencode-go: failed to decode response for provider %s: %w", provider.Name, err)
 	}
 
-	catalog := GetOpenCodeGoCatalog()
-
-	models := make([]*model.Model, 0, len(openAIResp.Data))
+	// Live listing only carries id + owner; merge unions it with the catalog
+	// (live wins, catalog backfills metadata and adds models the listing omits).
+	live := make([]*model.Model, 0, len(openAIResp.Data))
 	for _, m := range openAIResp.Data {
-		spec := LookupOpenCodeCatalog(catalog, m.ID)
-		if spec == nil {
-			debuglog.Warn("discovery: opencode-go model not in catalog", "provider", provider.Name, "provider_id", provider.ID, "model", m.ID)
-			// Model exists in API but not in our catalog — create minimal entry
-			// (preserves forward compatibility when new models are added)
-			capJSON, _ := json.Marshal(model.Capability{Streaming: true})
-			models = append(models, &model.Model{
-				ID:               uuid.New(),
-				ProviderID:       provider.ID,
-				ModelID:          m.ID,
-				Name:             m.ID,
-				DisplayName:      m.ID,
-				Capabilities:     string(capJSON),
-				Params:           "{}",
-				Modality:         "text",
-				InputModalities:  "[]",
-				OutputModalities: "[]",
-				OwnedBy:          m.OwnedBy,
-				Enabled:          true,
-			})
-			continue
-		}
-		models = append(models, OpenCodeCatalogToModel(spec, provider.ID, "opencode"))
+		live = append(live, liveModelStub(m.ID, m.OwnedBy, provider.ID))
 	}
 
-	debuglog.Info("discovery: opencode-go discovered models", "provider", provider.Name, "provider_id", provider.ID, "models", len(models))
-	return models, nil
+	merged := mergeLiveAndCatalog(live, catalog)
+	debuglog.Info("discovery: opencode-go discovered models", "provider", provider.Name, "provider_id", provider.ID, "live", len(live), "catalog", len(catalog), "merged", len(merged))
+	return merged, nil
 }

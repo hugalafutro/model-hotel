@@ -4,8 +4,29 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/google/uuid"
+
 	"github.com/hugalafutro/model-hotel/internal/model"
 )
+
+// liveModelStub builds a minimal model from a live listing entry (id + owner).
+// Only the id, name, owner and a streaming capability are set; every richer
+// field is left empty so mergeLiveAndCatalog (and then models.dev) can backfill
+// it without a fabricated placeholder masking the catalog value.
+func liveModelStub(modelID, ownedBy string, providerID uuid.UUID) *model.Model {
+	capJSON, _ := json.Marshal(model.Capability{Streaming: true})
+	return &model.Model{
+		ID:           uuid.New(),
+		ProviderID:   providerID,
+		ModelID:      modelID,
+		Name:         modelID,
+		DisplayName:  modelID,
+		Capabilities: string(capJSON),
+		Params:       "{}",
+		OwnedBy:      ownedBy,
+		Enabled:      true,
+	}
+}
 
 // mergeLiveAndCatalog unions live-discovered models with catalog models.
 //

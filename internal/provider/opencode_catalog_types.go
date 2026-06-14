@@ -29,6 +29,16 @@ type OpenCodeModelSpec struct {
 	OutputPricePerMillion        float64 `json:"output_price_per_million"`
 }
 
+// opencodeCatalogModels converts a whole OpenCode-style catalog into models,
+// ready to union with a live listing via mergeLiveAndCatalog.
+func opencodeCatalogModels(catalog []OpenCodeModelSpec, providerID uuid.UUID, ownedBy string) []*model.Model {
+	models := make([]*model.Model, 0, len(catalog))
+	for i := range catalog {
+		models = append(models, OpenCodeCatalogToModel(&catalog[i], providerID, ownedBy))
+	}
+	return models
+}
+
 // LookupOpenCodeCatalog finds a spec by model ID in a catalog slice.
 // Returns nil if not found.
 func LookupOpenCodeCatalog(catalog []OpenCodeModelSpec, modelID string) *OpenCodeModelSpec {

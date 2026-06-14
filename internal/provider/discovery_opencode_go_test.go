@@ -105,13 +105,19 @@ func TestDiscoverOpenCodeGo_UnknownModel_MinimalEntry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("discoverOpenCodeGo failed: %v", err)
 	}
-	if len(models) != 1 {
-		t.Fatalf("Expected 1 model, got %d", len(models))
+	// The unknown live model is unioned with the catalog.
+	if len(models) != len(GetOpenCodeGoCatalog())+1 {
+		t.Fatalf("Expected catalog+1 merged models, got %d", len(models))
 	}
 
-	m := models[0]
-	if m.ModelID != "future-unknown-model-xyz" {
-		t.Errorf("Expected ModelID 'future-unknown-model-xyz', got %q", m.ModelID)
+	var m *model.Model
+	for _, mm := range models {
+		if mm.ModelID == "future-unknown-model-xyz" {
+			m = mm
+		}
+	}
+	if m == nil {
+		t.Fatal("expected unknown live model present in merged results")
 	}
 	if m.OwnedBy != "opencode" {
 		t.Errorf("Expected OwnedBy 'opencode', got %q", m.OwnedBy)
@@ -161,16 +167,24 @@ func TestDiscoverOpenCodeGo_CatalogModelPopulated(t *testing.T) {
 	if err != nil {
 		t.Fatalf("discoverOpenCodeGo failed: %v", err)
 	}
-	if len(models) != 1 {
-		t.Fatalf("Expected 1 model, got %d", len(models))
+	// The live catalog model merges with its catalog entry (no new union member).
+	if len(models) != len(GetOpenCodeGoCatalog()) {
+		t.Fatalf("Expected catalog-count merged models, got %d", len(models))
 	}
 
-	m := models[0]
-	// Catalog model should have ContextLength set
+	var m *model.Model
+	for _, mm := range models {
+		if mm.ModelID == firstCatalogModel {
+			m = mm
+		}
+	}
+	if m == nil {
+		t.Fatalf("expected %q present in merged results", firstCatalogModel)
+	}
+	// Catalog model should have ContextLength + MaxOutputTokens backfilled.
 	if m.ContextLength == nil {
 		t.Error("Expected ContextLength to be set from catalog")
 	}
-	// Catalog model should have MaxOutputTokens set
 	if m.MaxOutputTokens == nil {
 		t.Error("Expected MaxOutputTokens to be set from catalog")
 	}
