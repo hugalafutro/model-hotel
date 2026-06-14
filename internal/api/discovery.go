@@ -2,12 +2,14 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -173,7 +175,11 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 
 	prov, err := h.providerRepo.Get(r.Context(), providerID)
 	if err != nil {
-		http.Error(w, "provider not found", http.StatusNotFound)
+		if errors.Is(err, pgx.ErrNoRows) {
+			http.Error(w, "provider not found", http.StatusNotFound)
+		} else {
+			respondError(w, "failed to load provider", err, http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -286,7 +292,11 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 
 	prov, err := h.providerRepo.Get(r.Context(), providerID)
 	if err != nil {
-		http.Error(w, "provider not found", http.StatusNotFound)
+		if errors.Is(err, pgx.ErrNoRows) {
+			http.Error(w, "provider not found", http.StatusNotFound)
+		} else {
+			respondError(w, "failed to load provider", err, http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -351,7 +361,11 @@ func (h *Handler) GetProviderBalance(w http.ResponseWriter, r *http.Request) {
 
 	prov, err := h.providerRepo.Get(r.Context(), providerID)
 	if err != nil {
-		http.Error(w, "provider not found", http.StatusNotFound)
+		if errors.Is(err, pgx.ErrNoRows) {
+			http.Error(w, "provider not found", http.StatusNotFound)
+		} else {
+			respondError(w, "failed to load provider", err, http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -385,7 +399,11 @@ func (h *Handler) GetOllamaCloudAccount(w http.ResponseWriter, r *http.Request) 
 
 	prov, err := h.providerRepo.Get(r.Context(), providerID)
 	if err != nil {
-		http.Error(w, "provider not found", http.StatusNotFound)
+		if errors.Is(err, pgx.ErrNoRows) {
+			http.Error(w, "provider not found", http.StatusNotFound)
+		} else {
+			respondError(w, "failed to load provider", err, http.StatusInternalServerError)
+		}
 		return
 	}
 

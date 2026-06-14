@@ -189,7 +189,11 @@ func (h *FailoverHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	g, err := h.failoverRepo.GetByID(r.Context(), id)
 	if err != nil {
-		http.Error(w, "failover group not found", http.StatusNotFound)
+		if errors.Is(err, pgx.ErrNoRows) {
+			http.Error(w, "failover group not found", http.StatusNotFound)
+		} else {
+			respondError(w, "failed to load failover group", err, http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -311,7 +315,11 @@ func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	existing, err := h.failoverRepo.GetByID(r.Context(), id)
 	if err != nil {
-		http.Error(w, "failover group not found", http.StatusNotFound)
+		if errors.Is(err, pgx.ErrNoRows) {
+			http.Error(w, "failover group not found", http.StatusNotFound)
+		} else {
+			respondError(w, "failed to load failover group", err, http.StatusInternalServerError)
+		}
 		return
 	}
 
