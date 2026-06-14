@@ -1629,7 +1629,9 @@
 			"testNotification": "Notificação de teste - você verá toasts aqui",
 			"autoDismiss": "Auto-dispensar",
 			"autoDismissDescription": "Quanto tempo os toasts permanecem visíveis antes de sair",
-			"seconds": "{{seconds}}s"
+			"seconds": "{{seconds}}s",
+			"fuseEffect": "Efeito Toast Fuse",
+			"fuseEffectDescription": "Contorno animado de um pavio aceso acompanhando a notificação enquanto ela faz a contagem regressiva"
 		},
 		"dashboard": {
 			"title": "Atualização do Painel",

@@ -1629,7 +1629,9 @@
 			"testNotification": "إختبار الإشعار - سترى النتوءات هنا",
 			"autoDismiss": "الإلغاء التلقائي",
 			"autoDismissDescription": "كم من الوقت تبقى مظهرة قبل أن تتلاشى",
-			"seconds": "{{seconds}}ثانية"
+			"seconds": "{{seconds}}ثانية",
+			"fuseEffect": "تأثير Toast Fuse",
+			"fuseEffectDescription": "مخطط متحرك لفتيل مشتعل يتتبع الإشعار أثناء العد التنازلي"
 		},
 		"dashboard": {
 			"title": "تحديث لوحة التحكم",

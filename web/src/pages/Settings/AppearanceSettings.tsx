@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ResetButton } from "../../components/ResetButton";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
+import { Toggle } from "../../components/Toggle";
 import { THEME_DEFAULT_ACCENT, useTheme } from "../../context/ThemeContext";
 import { useToast } from "../../context/ToastContext";
 import { ColorPickerModal } from "./ColorPickerModal";
@@ -41,6 +42,8 @@ export function AppearanceSettings({
 		setPosition,
 		timeout: toastTimeout,
 		setTimeout: setToastTimeout,
+		fuse: toastFuse,
+		setFuse: setToastFuse,
 	} = useToast();
 
 	const [pickerOpen, setPickerOpen] = useState(false);
@@ -223,6 +226,22 @@ export function AppearanceSettings({
 							unit="s"
 							onChange={(v) => setToastTimeout(v * 1000)}
 						/>
+
+						<div className="flex items-center justify-between gap-4 mt-4">
+							<div>
+								<p className="text-sm font-medium text-gray-300">
+									{t("settings.toast.fuseEffect")}
+								</p>
+								<p className="text-xs text-gray-500">
+									{t("settings.toast.fuseEffectDescription")}
+								</p>
+							</div>
+							<Toggle
+								checked={toastFuse}
+								onChange={setToastFuse}
+								ariaLabel={t("settings.toast.fuseEffect")}
+							/>
+						</div>
 					</div>
 				</div>
 

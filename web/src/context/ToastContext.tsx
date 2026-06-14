@@ -33,6 +33,8 @@ interface ToastContextType {
 	setPosition: (position: ToastPosition) => void;
 	timeout: number;
 	setTimeout: (timeout: number) => void;
+	fuse: boolean;
+	setFuse: (fuse: boolean) => void;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -42,6 +44,8 @@ export const ToastContext = createContext<ToastContextType>({
 	setPosition: () => {},
 	timeout: 4000,
 	setTimeout: () => {},
+	fuse: true,
+	setFuse: () => {},
 });
 
 let nextId = 0;
@@ -98,6 +102,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 		},
 	);
 
+	const [fuse, setFuse] = useLocalStorage<boolean>("toastFuse", true, {
+		serialize: (v) => (v ? "true" : "false"),
+		deserialize: (v) => v !== "false",
+	});
+
 	const addToast = useCallback(
 		(message: string, type: ToastType = "success") => {
 			const id = nextId++;
@@ -124,6 +133,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 				setPosition,
 				timeout,
 				setTimeout: setTimeoutValue,
+				fuse,
+				setFuse,
 			}}
 		>
 			{children}
@@ -135,6 +146,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 						key={t.id}
 						toast={t}
 						timeout={timeout}
+						fuse={fuse}
 						onDone={() => removeToast(t.id)}
 					/>
 				))}
@@ -146,10 +158,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 function ToastItem({
 	toast,
 	timeout,
+	fuse,
 	onDone,
 }: {
 	toast: Toast;
 	timeout: number;
+	fuse: boolean;
 	onDone: () => void;
 }) {
 	const [paused, setPaused] = useState(false);
@@ -246,11 +260,13 @@ function ToastItem({
 			}
 		>
 			{toast.message}
-			<FuseOutline
-				color={strokeColors[toast.type]}
-				durationMs={timeout}
-				paused={paused}
-			/>
+			{fuse && (
+				<FuseOutline
+					color={strokeColors[toast.type]}
+					durationMs={timeout}
+					paused={paused}
+				/>
+			)}
 		</button>
 	);
 }

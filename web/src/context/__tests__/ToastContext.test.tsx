@@ -275,6 +275,23 @@ describe("ToastItem", () => {
 		expect(animationStyle).toContain("fuse");
 	});
 
+	it("omits the fuse overlay when toastFuse is disabled", () => {
+		localStorage.setItem("toastFuse", "false");
+
+		const wrapper = ({ children }: { children: ReactNode }) => (
+			<ToastProvider>{children}</ToastProvider>
+		);
+
+		const { result } = renderHook(() => useToast(), { wrapper });
+		expect(result.current.fuse).toBe(false);
+
+		act(() => {
+			result.current.toast("No-fuse toast");
+		});
+
+		expect(document.querySelector("svg[aria-hidden='true']")).toBeNull();
+	});
+
 	it("pauses timeout on mouseenter and resumes on mouseleave", () => {
 		vi.useFakeTimers();
 

@@ -1629,7 +1629,9 @@
 			"testNotification": "Testmeddelande - du ser toasts här",
 			"autoDismiss": "Avfärda automatiskt",
 			"autoDismissDescription": "Hur länge rostarna är synliga innan de bleknar ut",
-			"seconds": "{{seconds}}s"
+			"seconds": "{{seconds}}s",
+			"fuseEffect": "Toast Fuse-effekt",
+			"fuseEffectDescription": "Animerad kontur av en brinnande tändsats som följer toastmeddelandet medan det räknar ner"
 		},
 		"dashboard": {
 			"title": "Uppdatera infopanel",

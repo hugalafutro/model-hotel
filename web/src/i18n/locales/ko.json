@@ -1629,7 +1629,9 @@
 			"testNotification": "테스트 알림 - 여기에서 토스트 알림이 표시됩니다",
 			"autoDismiss": "자동 해제",
 			"autoDismissDescription": "토스트 알림이 사라지기 전까지 얼마나 오래 표시되나요?",
-			"seconds": "{{seconds}}s"
+			"seconds": "{{seconds}}s",
+			"fuseEffect": "Toast Fuse 효과",
+			"fuseEffectDescription": "카운트다운이 진행되는 동안 토스트를 따라가는 불타는 퓨즈 애니메이션 윤곽선"
 		},
 		"dashboard": {
 			"title": "대시보드 새로 고침",
