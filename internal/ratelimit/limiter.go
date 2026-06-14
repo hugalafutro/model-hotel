@@ -56,6 +56,49 @@ type keyEntry struct {
 	rps      float64
 	burst    int
 	lastUsed time.Time
+
+	// Edge-triggered throttle state: we log one line when a key starts being
+	// rate-limited and one when it recovers, rather than one line per rejected
+	// request (a burst could otherwise spam thousands). Mutated concurrently
+	// by requests sharing the same key, hence atomics.
+	throttled   atomic.Bool
+	throttledAt atomic.Int64 // unix-nano of the current episode's first rejection
+	rejectedN   atomic.Int64 // requests rejected during the current episode
+}
+
+// noteRejected records a 429 for the key and logs "throttling started" on the
+// first rejection of an episode (the false→true edge). Subsequent rejections
+// only bump the counter, so a sustained burst stays quiet in the log.
+func (e *keyEntry) noteRejected(keyHash string) {
+	if e.throttled.CompareAndSwap(false, true) {
+		e.throttledAt.Store(time.Now().UnixNano())
+		e.rejectedN.Store(1)
+		debuglog.Warn("ratelimit: throttling started",
+			"key", keyHash, "rps", e.rps, "burst", e.burst)
+	} else {
+		e.rejectedN.Add(1)
+	}
+}
+
+// noteAllowed logs "throttling ended" when a key that was being throttled is
+// served again with no delay (the true→false edge) — i.e. its bucket has fully
+// recovered.
+func (e *keyEntry) noteAllowed(keyHash string) {
+	if e.throttled.CompareAndSwap(true, false) {
+		e.logThrottlingEnded(keyHash, time.Now(), "recovered")
+	}
+}
+
+// logThrottlingEnded emits the episode summary: how long it lasted and how many
+// requests were rejected. end is when the episode closed (now on recovery, or
+// the key's last activity when evicted while still throttled).
+func (e *keyEntry) logThrottlingEnded(keyHash string, end time.Time, reason string) {
+	since := time.Unix(0, e.throttledAt.Load())
+	debuglog.Info("ratelimit: throttling ended",
+		"key", keyHash,
+		"reason", reason,
+		"duration", end.Sub(since).Round(time.Millisecond).String(),
+		"rejected_requests", e.rejectedN.Load())
 }
 
 // NewLimiter creates a Limiter that reads configuration from the provided
@@ -149,8 +192,8 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 
 			reservation := entry.limiter.Reserve()
 			if !reservation.OK() {
+				entry.noteRejected(keyHash)
 				l.writeRateLimitHeaders(w, entry.limiter, 0)
-				debuglog.Warn("ratelimit: rate limit exceeded", "key", keyHash)
 				util.WriteOpenAIError(w, "rate limit exceeded", http.StatusTooManyRequests)
 				return
 			}
@@ -158,7 +201,9 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 			delay := reservation.Delay()
 			if delay > 0 {
 				// Graceful backpressure: if the wait is within the configured max_wait,
-				// sleep and proceed instead of rejecting immediately.
+				// sleep and proceed instead of rejecting immediately. The key is still
+				// under pressure, so an open throttle episode is left open (only a
+				// no-delay serve below closes it).
 				if delay <= maxWait {
 					time.Sleep(delay)
 					l.writeRateLimitHeaders(w, entry.limiter, 0)
@@ -167,12 +212,15 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 				}
 				// Wait exceeds max_wait — cancel the reservation and reject.
 				reservation.Cancel()
+				entry.noteRejected(keyHash)
 				l.writeRateLimitHeaders(w, entry.limiter, delay)
-				debuglog.Warn("ratelimit: rate limit exceeded", "key", keyHash)
 				util.WriteOpenAIError(w, "rate limit exceeded", http.StatusTooManyRequests)
 				return
 			}
 
+			// Served with no delay — the bucket has recovered, so close any open
+			// throttle episode for this key.
+			entry.noteAllowed(keyHash)
 			l.writeRateLimitHeaders(w, entry.limiter, 0)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
@@ -268,6 +316,12 @@ func (l *Limiter) cleanup() {
 	cutoff := time.Now().Add(-10 * time.Minute)
 	for key, entry := range l.limiters {
 		if entry.lastUsed.Before(cutoff) {
+			// Close any still-open throttle episode (traffic stopped while the
+			// key was rate-limited, so no later request closed it). Use the
+			// key's last activity as the episode end.
+			if entry.throttled.Load() {
+				entry.logThrottlingEnded(key, entry.lastUsed, "idle")
+			}
 			delete(l.limiters, key)
 		}
 	}

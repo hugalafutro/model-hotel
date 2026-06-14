@@ -2,6 +2,7 @@ package ratelimit
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 // ---------------------------------------------------------------------------
@@ -1127,3 +1129,80 @@ func TestCleanupLoop_ConcurrentStopAndTick(t *testing.T) {
 // and TestCleanupLoop_Integration. Only the select case routing itself
 // (ticker.C vs stopCh) is untested; the actual cleanup logic is fully covered.
 // This is a structural limitation, not a gap in test intent.
+
+// ---------------------------------------------------------------------------
+// Edge-triggered throttle logging
+// ---------------------------------------------------------------------------
+
+// msgCaptureHandler is a minimal slog.Handler that records log messages so a
+// test can assert on which debuglog lines were emitted.
+type msgCaptureHandler struct {
+	mu   sync.Mutex
+	msgs []string
+}
+
+func (c *msgCaptureHandler) Enabled(context.Context, slog.Level) bool { return true }
+
+func (c *msgCaptureHandler) Handle(_ context.Context, r slog.Record) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.msgs = append(c.msgs, r.Message)
+	return nil
+}
+
+func (c *msgCaptureHandler) WithAttrs([]slog.Attr) slog.Handler { return c }
+func (c *msgCaptureHandler) WithGroup(string) slog.Handler      { return c }
+
+func (c *msgCaptureHandler) count(msg string) int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	n := 0
+	for _, m := range c.msgs {
+		if m == msg {
+			n++
+		}
+	}
+	return n
+}
+
+// TestKeyEntry_ThrottleEdgeLogging verifies the rate limiter logs once when a
+// key starts being throttled and once when it recovers — not once per rejected
+// request — and that a fresh rejection after recovery opens a new episode.
+func TestKeyEntry_ThrottleEdgeLogging(t *testing.T) {
+	h := &msgCaptureHandler{}
+	debuglog.SetHandler(h)
+	t.Cleanup(func() { debuglog.Init(false) })
+
+	const started = "ratelimit: throttling started"
+	const ended = "ratelimit: throttling ended"
+
+	e := &keyEntry{limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1}
+
+	// A burst of rejections must produce exactly one "started" line.
+	e.noteRejected("keyhash")
+	e.noteRejected("keyhash")
+	e.noteRejected("keyhash")
+	if got := h.count(started); got != 1 {
+		t.Errorf("started count = %d, want 1", got)
+	}
+	if got := e.rejectedN.Load(); got != 3 {
+		t.Errorf("rejectedN = %d, want 3", got)
+	}
+
+	// Recovery (a no-delay serve) closes the episode exactly once; a second
+	// allow without an intervening rejection must not re-log.
+	e.noteAllowed("keyhash")
+	e.noteAllowed("keyhash")
+	if got := h.count(ended); got != 1 {
+		t.Errorf("ended count = %d, want 1", got)
+	}
+
+	// A rejection after recovery opens a new episode.
+	e.noteRejected("keyhash")
+	if got := h.count(started); got != 2 {
+		t.Errorf("started count after new episode = %d, want 2", got)
+	}
+	if got := e.rejectedN.Load(); got != 1 {
+		t.Errorf("rejectedN after new episode = %d, want 1", got)
+	}
+}
