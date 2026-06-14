@@ -1910,8 +1910,7 @@
 			"deleteDisabledMessage_other": "Dit zal {{count}} uitgeschakelde modellen permanent verwijderen. Als autodiscovery is ingeschakeld bij hun provider, worden ze opnieuw ontdekt bij de volgende cyclus. Schakel autodiscovery uit bij de provider om dit te voorkomen.",
 			"clickToCopyId": "Klik om model-ID te kopiëren",
 			"deleteDisabledLabel_one": "{{count}} uitgeschakeld model",
-			"deleteDisabledLabel_other": "{{count}} uitgeschakelde modellen",
-			"clickToCopyName": "Klik om de modelnaam te kopiëren"
+			"deleteDisabledLabel_other": "{{count}} uitgeschakelde modellen"
 		},
 		"virtualModelTable": {
 			"searchModels": "Zoek modellen…",

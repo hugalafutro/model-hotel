@@ -1910,8 +1910,7 @@
 			"deleteDisabledMessage_other": "Це остаточно видалить {{count}} вимкнених моделей. Якщо автовідкриття увімкнено на своєму провайдері, вони будуть повторно виявлені на наступному циклі. Вимкніть автоматичне відкриття на провайдера для запобігання цьому.",
 			"clickToCopyId": "Натисніть, щоб скопіювати ID моделі",
 			"deleteDisabledLabel_one": "{{count}} дезактивував модель",
-			"deleteDisabledLabel_other": "Відключений {{count}} моделей",
-			"clickToCopyName": "Натисніть, щоб скопіювати назву моделі"
+			"deleteDisabledLabel_other": "Відключений {{count}} моделей"
 		},
 		"virtualModelTable": {
 			"searchModels": "Пошук моделей…",

@@ -1910,8 +1910,7 @@
 			"deleteDisabledMessage_other": "Týmto sa trvalo odstránia deaktivované modely na adrese {{count}} . Ak je u ich poskytovateľa povolené automatické vyhľadávanie, budú pri nasledujúcom cykle opäť vyhľadané. Ak tomu chcete zabrániť, deaktivujte automatické vyhľadávanie u poskytovateľa.",
 			"clickToCopyId": "Kliknite na tlačidlo pre skopírovanie ID modelu",
 			"deleteDisabledLabel_one": "{{count}} nefunkčný model",
-			"deleteDisabledLabel_other": "{{count}} modely s obmedzenou schopnosťou pohybu",
-			"clickToCopyName": "Kliknutím skopírujte názov modelu"
+			"deleteDisabledLabel_other": "{{count}} modely s obmedzenou schopnosťou pohybu"
 		},
 		"virtualModelTable": {
 			"searchModels": "Vyhľadávať modely…",

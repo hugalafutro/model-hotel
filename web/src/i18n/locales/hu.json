@@ -1910,8 +1910,7 @@
 			"deleteDisabledMessage_other": "Ezzel véglegesen törli a {{count}} oldalon található letiltott modelleket. Ha a szolgáltatónál engedélyezve van az automatikus felismerés, a modellek a következő ciklusban újra felismerésre kerülnek. Ennek elkerüléséhez tiltsa le az automatikus felismerést a szolgáltatón.",
 			"clickToCopyId": "Kattintson a modellazonosító másolásához",
 			"deleteDisabledLabel_one": "{{count}} meghibásodott modell",
-			"deleteDisabledLabel_other": "{{count}} mozgássérült modellek",
-			"clickToCopyName": "Kattintson a modellnév másolásához"
+			"deleteDisabledLabel_other": "{{count}} mozgássérült modellek"
 		},
 		"virtualModelTable": {
 			"searchModels": "Modellek keresése:…",

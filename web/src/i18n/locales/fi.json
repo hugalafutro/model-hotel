@@ -1910,8 +1910,7 @@
 			"deleteDisabledMessage_other": "Tämä poistaa pysyvästi {{count}} käytöstä poistetut mallit. Jos autodiskointi on käytössä palveluntarjoajassa, ne löydetään uudelleen seuraavan syklin aikana. Ota automaattinen diskointi pois käytöstä estääksesi tämän.",
 			"clickToCopyId": "Klikkaa kopioidaksesi mallin ID",
 			"deleteDisabledLabel_one": "{{count}} poistettu käytöstä",
-			"deleteDisabledLabel_other": "{{count}} käytöstä poistetut mallit",
-			"clickToCopyName": "Klikkaa kopioidaksesi mallin nimen"
+			"deleteDisabledLabel_other": "{{count}} käytöstä poistetut mallit"
 		},
 		"virtualModelTable": {
 			"searchModels": "Etsi malleja…",

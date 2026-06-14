@@ -1910,8 +1910,7 @@
 			"deleteDisabledMessage_other": "Detta kommer att ta bort {{count}} inaktiverade modeller. Om autodiscovery är aktiverat på deras leverantör, kommer de att återupptäckas på nästa cykel. Inaktivera autodiscovery på leverantören för att förhindra detta.",
 			"clickToCopyId": "Klicka för att kopiera modell-ID",
 			"deleteDisabledLabel_one": "{{count}} inaktiverad modell",
-			"deleteDisabledLabel_other": "{{count}} inaktiverade modeller",
-			"clickToCopyName": "Klicka för att kopiera modellnamn"
+			"deleteDisabledLabel_other": "{{count}} inaktiverade modeller"
 		},
 		"virtualModelTable": {
 			"searchModels": "Sök modeller…",

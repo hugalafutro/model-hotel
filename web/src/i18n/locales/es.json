@@ -1910,8 +1910,7 @@
 			"deleteDisabledMessage_other": "Esto eliminará permanentemente los modelos deshabilitados {{count}} . Si el autodescubrimiento está activado en su proveedor, serán redescubiertos en el siguiente ciclo. Deshabilita el autodescubrimiento en el proveedor para evitarlo.",
 			"clickToCopyId": "Haga clic para copiar el ID del modelo",
 			"deleteDisabledLabel_one": "modelo {{count}} deshabilitado",
-			"deleteDisabledLabel_other": "{{count}} modelos deshabilitados",
-			"clickToCopyName": "Haga clic para copiar el nombre del modelo"
+			"deleteDisabledLabel_other": "{{count}} modelos deshabilitados"
 		},
 		"virtualModelTable": {
 			"searchModels": "Buscar modelos…",

@@ -1910,8 +1910,7 @@
 			"deleteDisabledMessage_other": "Tím dojde k trvalému odstranění modelů s označením {{count}}. Pokud je u jejich poskytovatele povoleno automatické vyhledávání, budou v příštím cyklu znovu nalezeny. Chcete-li tomu zabránit, deaktivujte u poskytovatele automatické vyhledávání.",
 			"clickToCopyId": "Kliknutím zkopírujete ID modelu",
 			"deleteDisabledLabel_one": "Model {{count}} s deaktivovanou funkcí",
-			"deleteDisabledLabel_other": "Modely s deaktivovanou funkcí {{count}}",
-			"clickToCopyName": "Kliknutím zkopírujte název modelu"
+			"deleteDisabledLabel_other": "Modely s deaktivovanou funkcí {{count}}"
 		},
 		"virtualModelTable": {
 			"searchModels": "Vyhledat modely…",

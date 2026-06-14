@@ -1910,8 +1910,7 @@
 			"deleteDisabledMessage_other": "Questo eliminerà definitivamente i modelli {{count}} disabilitati. Se la ricerca automatica è abilitata sul loro provider, saranno riscoperti nel prossimo ciclo. Disabilita la scoperta automatica sul provider per evitare che ciò accada.",
 			"clickToCopyId": "Clicca per copiare l'ID modello",
 			"deleteDisabledLabel_one": "{{count}} modello disabilitato",
-			"deleteDisabledLabel_other": "{{count}} disabilitato i modelli",
-			"clickToCopyName": "Clicca per copiare il nome del modello"
+			"deleteDisabledLabel_other": "{{count}} disabilitato i modelli"
 		},
 		"virtualModelTable": {
 			"searchModels": "Cerca modelli…",

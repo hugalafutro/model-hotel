@@ -1910,8 +1910,7 @@
 			"deleteDisabledMessage_other": "Això suprimirà permanentment els models desactivats de {{count}} . Si l'autodetecció està habilitada al seu proveïdor, es tornaran a descobrir en el següent cicle. Desactiva l'autodetecció al proveïdor per evitar-ho.",
 			"clickToCopyId": "Feu clic per copiar l'ID del model",
 			"deleteDisabledLabel_one": "{{count}} model·la amb discapacitat",
-			"deleteDisabledLabel_other": "{{count}} models discapacitats",
-			"clickToCopyName": "Feu clic per copiar el nom del model"
+			"deleteDisabledLabel_other": "{{count}} models discapacitats"
 		},
 		"virtualModelTable": {
 			"searchModels": "Cerca de models…",

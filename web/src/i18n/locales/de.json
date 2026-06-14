@@ -1910,8 +1910,7 @@
 			"deleteDisabledMessage_other": "Dies löscht {{count}} deaktivierte Modelle. Wenn die Autoentdeckung auf ihrem Provider aktiviert ist, werden sie im nächsten Zyklus wiederentdeckt. Deaktivieren Sie die Autoentdeckung auf dem Provider, um dies zu verhindern.",
 			"clickToCopyId": "Hier klicken, um Model-ID zu kopieren",
 			"deleteDisabledLabel_one": "{{count}} deaktiviertes Modell",
-			"deleteDisabledLabel_other": "{{count}} deaktivierte Modelle",
-			"clickToCopyName": "Zum Kopieren des Modellnamens hier klicken"
+			"deleteDisabledLabel_other": "{{count}} deaktivierte Modelle"
 		},
 		"virtualModelTable": {
 			"searchModels": "Modelle… suchen",

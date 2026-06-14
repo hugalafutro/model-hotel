@@ -1910,8 +1910,7 @@
 			"deleteDisabledMessage_other": "Bu işlem, {{count}} adresindeki devre dışı bırakılmış modelleri kalıcı olarak siler. Sağlayıcıda otomatik keşif özelliği etkinse, bu modeller bir sonraki döngüde yeniden keşfedilecektir. Bunu önlemek için sağlayıcıda otomatik keşif özelliğini devre dışı bırakın.",
 			"clickToCopyId": "Model kimliğini kopyalamak için tıklayın",
 			"deleteDisabledLabel_one": "{{count}} devre dışı bırakılmış model",
-			"deleteDisabledLabel_other": "{{count}} engelli modeller",
-			"clickToCopyName": "Model adını kopyalamak için tıklayın"
+			"deleteDisabledLabel_other": "{{count}} engelli modeller"
 		},
 		"virtualModelTable": {
 			"searchModels": "… modellerini ara",

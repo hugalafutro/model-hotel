@@ -1910,8 +1910,7 @@
 			"deleteDisabledMessage_other": "Acest lucru va șterge permanent modelele dezactivate {{count}} . Dacă autodescoperirea este activată pe furnizor, vor fi redescoperite pe următorul ciclu. Dezactivați autodescoperirea pe furnizor pentru a preveni acest lucru.",
 			"clickToCopyId": "Faceți clic pentru a copia ID-ul modelului",
 			"deleteDisabledLabel_one": "{{count}} model dezactivat",
-			"deleteDisabledLabel_other": "{{count}} modele dezactivate",
-			"clickToCopyName": "Faceți clic pentru a copia numele modelului"
+			"deleteDisabledLabel_other": "{{count}} modele dezactivate"
 		},
 		"virtualModelTable": {
 			"searchModels": "Căutare modele…",

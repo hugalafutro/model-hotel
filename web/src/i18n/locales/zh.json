@@ -1910,8 +1910,7 @@
 			"deleteDisabledMessage_other": "这将永久删除 {{count}} 中的已禁用模型。如果其提供商启用了自动发现功能，这些模型将在下一个周期中被重新发现。若要防止这种情况发生，请在提供商端禁用自动发现功能。",
 			"clickToCopyId": "点击复制模型ID",
 			"deleteDisabledLabel_one": "{{count}} 残障模特",
-			"deleteDisabledLabel_other": "{{count}} 残障模特",
-			"clickToCopyName": "点击复制模型名称"
+			"deleteDisabledLabel_other": "{{count}} 残障模特"
 		},
 		"virtualModelTable": {
 			"searchModels": "搜索模型…",

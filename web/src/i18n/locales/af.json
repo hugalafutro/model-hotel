@@ -1910,8 +1910,7 @@
 			"deleteDisabledMessage_other": "Dit sal die gedeaktiveerde modelle van {{count}} permanent uitvee. As outo-ontdekking op hul verskaffer geaktiveer is, sal hulle in die volgende siklus weer ontdek word. Skakel outo-ontdekking op die verskaffer uit om dit te voorkom.",
 			"clickToCopyId": "Klik om model-ID te kopieer",
 			"deleteDisabledLabel_one": "{{count}} gestremde model",
-			"deleteDisabledLabel_other": "{{count}} gestremde modelle",
-			"clickToCopyName": "Klik om modelnaam te kopieer"
+			"deleteDisabledLabel_other": "{{count}} gestremde modelle"
 		},
 		"virtualModelTable": {
 			"searchModels": "Soek modelle…",
