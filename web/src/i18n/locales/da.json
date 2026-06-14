@@ -142,7 +142,7 @@
 			"signingIn": "Logger på…",
 			"signInWithPasskey": "Log ind med Passkey",
 			"orDivider": "eller",
-			"emptyToken": "Please enter an admin token (Automatic Copy)",
+			"emptyToken": "Indtast venligst en admin-token",
 			"invalidToken": "Ugyldigt administratortoken",
 			"connectionFailed": "Kunne ikke forbinde til serveren",
 			"passkeyFailed": "Passkey godkendelse mislykkedes",

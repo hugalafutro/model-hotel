@@ -17,7 +17,7 @@
 		"never": "Aldri",
 		"justNow": "Nå nettopp",
 		"loading": "Laster",
-		"loadingDots": "Loading…",
+		"loadingDots": "Laster…",
 		"off": "av",
 		"prev": "Forrige",
 		"next": "Neste",
@@ -2221,7 +2221,7 @@
 			"zeroEntries": "0 enheter"
 		},
 		"applyRecommendedButton": {
-			"loading": "Loading…",
+			"loading": "Laster…",
 			"applyRecommended": "Bruk Anbefalte",
 			"params": "({{count}} params)",
 			"modelsDevMatched": "modell.dev samsvarer med: {{model}}",
