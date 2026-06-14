@@ -790,8 +790,8 @@
 		"page_description": "Виявлені моделі від ваших провайдерів",
 		"badge_enabled": "{{count}} увімкнено",
 		"badge_disabled": "{{count}} вимкнено",
-		"view_mode_pages": "Сторінки",
-		"view_mode_scroll": "Прокрутка",
+		"view_mode_pages": "⬡ Сторінки",
+		"view_mode_scroll": "⇊ Прокрутка",
 		"switch_to_pagination": "Переключитися в режим нумерації сторінок",
 		"switch_to_scroll": "Переключити в режим прокрутки",
 		"toast_updated": "Моделі оновлено",
@@ -1158,7 +1158,7 @@
 			"label": "записів"
 		},
 		"loading": {
-			"newer": "We've Load newer…",
+			"newer": "↻ We've Load newer…",
 			"older": "↻ Завантаження старіших версій…"
 		}
 	},
@@ -1196,7 +1196,7 @@
 			"label": "записів"
 		},
 		"loading": {
-			"newer": "We've Load newer…",
+			"newer": "↻ We've Load newer…",
 			"older": "↻ Завантаження старіших версій…"
 		}
 	},
@@ -1799,8 +1799,8 @@
 			"viewModeToggle": {
 				"switchToScroll": "Переключити в режим прокрутки",
 				"switchToPagination": "Переключитися в режим нумерації сторінок",
-				"scroll": "Прокрутка",
-				"pages": "Сторінки"
+				"scroll": "⇊ Прокрутка",
+				"pages": "⬡ Сторінки"
 			},
 			"dateFilterButton": {
 				"filterByDateRange": "Фільтрувати за діапазоном дат",
@@ -2231,8 +2231,8 @@
 		"viewModeToggle": {
 			"switchToScroll": "Переключити в режим прокрутки",
 			"switchToPagination": "Переключитися в режим нумерації сторінок",
-			"scroll": "Прокрутка",
-			"pages": "Сторінки"
+			"scroll": "⇊ Прокрутка",
+			"pages": "⬡ Сторінки"
 		},
 		"liveToggleButton": {
 			"live": "Наживо",

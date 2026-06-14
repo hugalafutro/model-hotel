@@ -790,8 +790,8 @@
 		"page_description": "Opdagede modeller fra dine udbydere",
 		"badge_enabled": "{{count}} aktiveret",
 		"badge_disabled": "{{count}} deaktiveret",
-		"view_mode_pages": "● Sider",
-		"view_mode_scroll": "ŽRul",
+		"view_mode_pages": "⬡ Sider",
+		"view_mode_scroll": "⇊ ŽRul",
 		"switch_to_pagination": "Skift til pagineringstilstand",
 		"switch_to_scroll": "Skift til rulletilstand",
 		"toast_updated": "Model opdateret",
@@ -845,7 +845,7 @@
 			"placeholder": {
 				"price": "0.00"
 			},
-			"testSuccess": "Succes - Svar: {{content}}{{ttftPart}} - Varighed: {{duration}}s",
+			"testSuccess": "Succes | Svar: {{content}}{{ttftPart}} | Varighed: {{duration}}s",
 			"testFailed": "Test mislykkedes: {{error}}",
 			"testSuccessNoResponse": "Succes{{ttftPart}} | Varighed: {{duration}}s"
 		},
@@ -1158,8 +1158,8 @@
 			"label": "poster"
 		},
 		"loading": {
-			"newer": "● Indlæser nyere…",
-			"older": "● Indlæser ældre…"
+			"newer": "↻ Indlæser nyere…",
+			"older": "↻ Indlæser ældre…"
 		}
 	},
 	"applogs": {
@@ -1196,8 +1196,8 @@
 			"label": "poster"
 		},
 		"loading": {
-			"newer": "● Indlæser nyere…",
-			"older": "● Indlæser ældre…"
+			"newer": "↻ Indlæser nyere…",
+			"older": "↻ Indlæser ældre…"
 		}
 	},
 	"format": {
@@ -1799,8 +1799,8 @@
 			"viewModeToggle": {
 				"switchToScroll": "Skift til rulletilstand",
 				"switchToPagination": "Skift til pagineringstilstand",
-				"scroll": "ŽRul",
-				"pages": "● Sider"
+				"scroll": "⇊ ŽRul",
+				"pages": "⬡ Sider"
 			},
 			"dateFilterButton": {
 				"filterByDateRange": "Filtrer efter datointerval",
@@ -2231,8 +2231,8 @@
 		"viewModeToggle": {
 			"switchToScroll": "Skift til rulletilstand",
 			"switchToPagination": "Skift til pagineringstilstand",
-			"scroll": "ŽRul",
-			"pages": "● Sider"
+			"scroll": "⇊ ŽRul",
+			"pages": "⬡ Sider"
 		},
 		"liveToggleButton": {
 			"live": "Levende",

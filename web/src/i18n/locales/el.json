@@ -790,8 +790,8 @@
 		"page_description": "Ανακαλύφθηκαν μοντέλα από τους παρόχους σας",
 		"badge_enabled": "{{count}} ενεργοποιημένο",
 		"badge_disabled": "{{count}} με αναπηρία",
-		"view_mode_pages": "\"Σελίδες",
-		"view_mode_scroll": "\"Κύλιση",
+		"view_mode_pages": "⬡ \"Σελίδες",
+		"view_mode_scroll": "⇊ \"Κύλιση",
 		"switch_to_pagination": "Εναλλαγή σε λειτουργία σελιδοποίησης",
 		"switch_to_scroll": "Εναλλαγή σε λειτουργία κύλισης",
 		"toast_updated": "Το μοντέλο ενημερώθηκε",
@@ -1158,7 +1158,7 @@
 			"label": "καταχωρήσεις"
 		},
 		"loading": {
-			"newer": "«Φόρτωση νεώτερου…",
+			"newer": "↻ «Φόρτωση νεώτερου…",
 			"older": "↻ Φόρτωση παλαιότερων…"
 		}
 	},
@@ -1196,7 +1196,7 @@
 			"label": "καταχωρήσεις"
 		},
 		"loading": {
-			"newer": "«Φόρτωση νεώτερου…",
+			"newer": "↻ «Φόρτωση νεώτερου…",
 			"older": "↻ Φόρτωση παλαιότερων…"
 		}
 	},
@@ -1799,8 +1799,8 @@
 			"viewModeToggle": {
 				"switchToScroll": "Εναλλαγή σε λειτουργία κύλισης",
 				"switchToPagination": "Εναλλαγή σε λειτουργία σελιδοποίησης",
-				"scroll": "\"Κύλιση",
-				"pages": "\"Σελίδες"
+				"scroll": "⇊ \"Κύλιση",
+				"pages": "⬡ \"Σελίδες"
 			},
 			"dateFilterButton": {
 				"filterByDateRange": "Φιλτράρισμα κατά εύρος ημερομηνιών",
@@ -2231,8 +2231,8 @@
 		"viewModeToggle": {
 			"switchToScroll": "Εναλλαγή σε λειτουργία κύλισης",
 			"switchToPagination": "Εναλλαγή σε λειτουργία σελιδοποίησης",
-			"scroll": "\"Κύλιση",
-			"pages": "\"Σελίδες"
+			"scroll": "⇊ \"Κύλιση",
+			"pages": "⬡ \"Σελίδες"
 		},
 		"liveToggleButton": {
 			"live": "Ζωντανά",

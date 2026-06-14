@@ -790,8 +790,8 @@
 		"page_description": "Modelos descobertos de seus provedores",
 		"badge_enabled": "{{count}} habilitado",
 		"badge_disabled": "{{count}} desativado",
-		"view_mode_pages": "Páginas",
-		"view_mode_scroll": "Scroll",
+		"view_mode_pages": "⬡ Páginas",
+		"view_mode_scroll": "⇊ Scroll",
 		"switch_to_pagination": "Alternar para modo de paginação",
 		"switch_to_scroll": "Alternar para o modo de rolagem",
 		"toast_updated": "Modelo atualizado",
@@ -845,7 +845,7 @@
 			"placeholder": {
 				"price": "0.00"
 			},
-			"testSuccess": "Resposta com sucesso: {{content}}{{ttftPart}} ├Duração: {{duration}}s",
+			"testSuccess": "Sucesso | Resposta: {{content}}{{ttftPart}} | Duração: {{duration}}s",
 			"testFailed": "Teste falhou: {{error}}",
 			"testSuccessNoResponse": "Sucesso{{ttftPart}} | Duração: {{duration}}s"
 		},
@@ -1158,7 +1158,7 @@
 			"label": "referências"
 		},
 		"loading": {
-			"newer": "Loading new…",
+			"newer": "↻ Loading new…",
 			"older": "↻ Carregando versões mais antigas do…"
 		}
 	},
@@ -1196,7 +1196,7 @@
 			"label": "referências"
 		},
 		"loading": {
-			"newer": "Loading new…",
+			"newer": "↻ Loading new…",
 			"older": "↻ Carregando versões mais antigas do…"
 		}
 	},
@@ -1799,8 +1799,8 @@
 			"viewModeToggle": {
 				"switchToScroll": "Alternar para o modo de rolagem",
 				"switchToPagination": "Alternar para modo de paginação",
-				"scroll": "Scroll",
-				"pages": "Páginas"
+				"scroll": "⇊ Scroll",
+				"pages": "⬡ Páginas"
 			},
 			"dateFilterButton": {
 				"filterByDateRange": "Filtrar por intervalo de datas",
@@ -2231,8 +2231,8 @@
 		"viewModeToggle": {
 			"switchToScroll": "Alternar para o modo de rolagem",
 			"switchToPagination": "Alternar para modo de paginação",
-			"scroll": "Scroll",
-			"pages": "Páginas"
+			"scroll": "⇊ Scroll",
+			"pages": "⬡ Páginas"
 		},
 		"liveToggleButton": {
 			"live": "Publicado",

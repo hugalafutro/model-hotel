@@ -790,8 +790,8 @@
 		"page_description": "Ontdekte modellen van jouw aanbieders",
 		"badge_enabled": "{{count}} ingeschakeld",
 		"badge_disabled": "{{count}} uitgeschakeld",
-		"view_mode_pages": "%% Pagina's",
-		"view_mode_scroll": "≥ Scroll",
+		"view_mode_pages": "⬡ Pagina's",
+		"view_mode_scroll": "⇊ Scroll",
 		"switch_to_pagination": "Schakel naar pagineringsmodus",
 		"switch_to_scroll": "Overschakelen naar scrollmodus",
 		"toast_updated": "Model bijgewerkt",
@@ -845,7 +845,7 @@
 			"placeholder": {
 				"price": "0.00"
 			},
-			"testSuccess": "Succes ½ Reactie: {{content}}{{ttftPart}} {{ttftPart}} s Duur: {{duration}}s",
+			"testSuccess": "Succes | Reactie: {{content}}{{ttftPart}} | Duur: {{duration}}s",
 			"testFailed": "Test mislukt: {{error}}",
 			"testSuccessNoResponse": "Succes{{ttftPart}} | Duur: {{duration}}s"
 		},
@@ -1158,8 +1158,8 @@
 			"label": "invoergegevens"
 		},
 		"loading": {
-			"newer": "Cerberus Laden nieuwer…",
-			"older": "Cerberus Laden ouder…"
+			"newer": "↻ Cerberus Laden nieuwer…",
+			"older": "↻ Cerberus Laden ouder…"
 		}
 	},
 	"applogs": {
@@ -1196,8 +1196,8 @@
 			"label": "invoergegevens"
 		},
 		"loading": {
-			"newer": "Cerberus Laden nieuwer…",
-			"older": "Cerberus Laden ouder…"
+			"newer": "↻ Cerberus Laden nieuwer…",
+			"older": "↻ Cerberus Laden ouder…"
 		}
 	},
 	"format": {
@@ -1799,8 +1799,8 @@
 			"viewModeToggle": {
 				"switchToScroll": "Overschakelen naar scrollmodus",
 				"switchToPagination": "Schakel naar pagineringsmodus",
-				"scroll": "≥ Scroll",
-				"pages": "%% Pagina's"
+				"scroll": "⇊ Scroll",
+				"pages": "⬡ Pagina's"
 			},
 			"dateFilterButton": {
 				"filterByDateRange": "Op datumbereik filteren",
@@ -2231,8 +2231,8 @@
 		"viewModeToggle": {
 			"switchToScroll": "Overschakelen naar scrollmodus",
 			"switchToPagination": "Schakel naar pagineringsmodus",
-			"scroll": "≥ Scroll",
-			"pages": "%% Pagina's"
+			"scroll": "⇊ Scroll",
+			"pages": "⬡ Pagina's"
 		},
 		"liveToggleButton": {
 			"live": "Zichtbaar",

@@ -790,7 +790,7 @@
 		"page_description": "Des modèles découverts de vos fournisseurs",
 		"badge_enabled": "{{count}} activé",
 		"badge_disabled": "{{count}} désactivé",
-		"view_mode_pages": "Pages",
+		"view_mode_pages": "⬡ Pages",
 		"view_mode_scroll": "⇊ Défilement",
 		"switch_to_pagination": "Passer en mode pagination",
 		"switch_to_scroll": "Passer en mode défilement",
@@ -1800,7 +1800,7 @@
 				"switchToScroll": "Passer en mode défilement",
 				"switchToPagination": "Passer en mode pagination",
 				"scroll": "⇊ Défilement",
-				"pages": "Pages"
+				"pages": "⬡ Pages"
 			},
 			"dateFilterButton": {
 				"filterByDateRange": "Filtrer par plage de dates",
@@ -2232,7 +2232,7 @@
 			"switchToScroll": "Passer en mode défilement",
 			"switchToPagination": "Passer en mode pagination",
 			"scroll": "⇊ Défilement",
-			"pages": "Pages"
+			"pages": "⬡ Pages"
 		},
 		"liveToggleButton": {
 			"live": "En direct",

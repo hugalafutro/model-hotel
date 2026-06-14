@@ -791,7 +791,7 @@
 		"badge_enabled": "{{count}} Activat",
 		"badge_disabled": "{{count}} discapacitat",
 		"view_mode_pages": "⬡ Pàgines",
-		"view_mode_scroll": "Desplaça't cap avall",
+		"view_mode_scroll": "⇊ Desplaça't cap avall",
 		"switch_to_pagination": "Canvia al mode de pàgina",
 		"switch_to_scroll": "Canvia al mode de desplaçament",
 		"toast_updated": "Model actualitzat",
@@ -1799,7 +1799,7 @@
 			"viewModeToggle": {
 				"switchToScroll": "Canvia al mode de desplaçament",
 				"switchToPagination": "Canvia al mode de pàgina",
-				"scroll": "Desplaça't cap avall",
+				"scroll": "⇊ Desplaça't cap avall",
 				"pages": "⬡ Pàgines"
 			},
 			"dateFilterButton": {
@@ -2231,7 +2231,7 @@
 		"viewModeToggle": {
 			"switchToScroll": "Canvia al mode de desplaçament",
 			"switchToPagination": "Canvia al mode de pàgina",
-			"scroll": "Desplaça't cap avall",
+			"scroll": "⇊ Desplaça't cap avall",
 			"pages": "⬡ Pàgines"
 		},
 		"liveToggleButton": {

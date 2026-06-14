@@ -790,8 +790,8 @@
 		"page_description": "Oppdaget modeller av dine leverandører",
 		"badge_enabled": "{{count}} er aktivert",
 		"badge_disabled": "{{count}} er deaktivert",
-		"view_mode_pages": "TILVIRKESPROTER sider",
-		"view_mode_scroll": "element-rulle",
+		"view_mode_pages": "⬡ TILVIRKESPROTER sider",
+		"view_mode_scroll": "⇊ element-rulle",
 		"switch_to_pagination": "Bytt til paginasjonsmodus",
 		"switch_to_scroll": "Bytt til rullemodus",
 		"toast_updated": "Modell oppdatert",
@@ -845,7 +845,7 @@
 			"placeholder": {
 				"price": "0.00"
 			},
-			"testSuccess": "Suksess- respons: {{content}}{{ttftPart}} ° Varighet: {{duration}}s",
+			"testSuccess": "Suksess | Respons: {{content}}{{ttftPart}} | Varighet: {{duration}}s",
 			"testFailed": "Test feilet: {{error}}",
 			"testSuccessNoResponse": "Suksess{{ttftPart}} | Varighet: {{duration}}s"
 		},
@@ -1158,8 +1158,8 @@
 			"label": "oppføringer"
 		},
 		"loading": {
-			"newer": "sion) laster inn nyere…",
-			"older": "◊ laster eldre…"
+			"newer": "↻ sion) laster inn nyere…",
+			"older": "↻ laster eldre…"
 		}
 	},
 	"applogs": {
@@ -1196,8 +1196,8 @@
 			"label": "oppføringer"
 		},
 		"loading": {
-			"newer": "sion) laster inn nyere…",
-			"older": "◊ laster eldre…"
+			"newer": "↻ sion) laster inn nyere…",
+			"older": "↻ laster eldre…"
 		}
 	},
 	"format": {
@@ -1799,8 +1799,8 @@
 			"viewModeToggle": {
 				"switchToScroll": "Bytt til rullemodus",
 				"switchToPagination": "Bytt til paginasjonsmodus",
-				"scroll": "element-rulle",
-				"pages": "TILVIRKESPROTER sider"
+				"scroll": "⇊ element-rulle",
+				"pages": "⬡ TILVIRKESPROTER sider"
 			},
 			"dateFilterButton": {
 				"filterByDateRange": "Filtrer etter datointervall",
@@ -2231,8 +2231,8 @@
 		"viewModeToggle": {
 			"switchToScroll": "Bytt til rullemodus",
 			"switchToPagination": "Bytt til paginasjonsmodus",
-			"scroll": "element-rulle",
-			"pages": "TILVIRKESPROTER sider"
+			"scroll": "⇊ element-rulle",
+			"pages": "⬡ TILVIRKESPROTER sider"
 		},
 		"liveToggleButton": {
 			"live": "Direkte",
@@ -2275,7 +2275,7 @@
 			"nanoWeeklyTokenQuota": "NanoGPT ukentlig token kvote - klikk for detaljer",
 			"openRouterKeyBalance": "OpenRouter nøkkelsaldo - klikk for detaljer",
 			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} plan (slutter {{endDate}}) {{refreshed}} - klikk for å oppdatere",
-			"updated": "– oppdatert {{time}}",
+			"updated": "- oppdatert {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} kWh gjenstår {{refreshed}}",
 			"neuralwattBalanceUnavailable": "NeuralWatts balanse utilgjengelig"
 		},

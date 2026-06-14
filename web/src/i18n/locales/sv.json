@@ -791,7 +791,7 @@
 		"badge_enabled": "{{count}} aktiverat",
 		"badge_disabled": "{{count}} inaktiverad",
 		"view_mode_pages": "⬡ sidor",
-		"view_mode_scroll": "Skrolla",
+		"view_mode_scroll": "⇊ Skrolla",
 		"switch_to_pagination": "Växla till sidnumreringsläge",
 		"switch_to_scroll": "Växla till rullningsläge",
 		"toast_updated": "Modell uppdaterad",
@@ -1799,7 +1799,7 @@
 			"viewModeToggle": {
 				"switchToScroll": "Växla till rullningsläge",
 				"switchToPagination": "Växla till sidnumreringsläge",
-				"scroll": "Skrolla",
+				"scroll": "⇊ Skrolla",
 				"pages": "⬡ sidor"
 			},
 			"dateFilterButton": {
@@ -2231,7 +2231,7 @@
 		"viewModeToggle": {
 			"switchToScroll": "Växla till rullningsläge",
 			"switchToPagination": "Växla till sidnumreringsläge",
-			"scroll": "Skrolla",
+			"scroll": "⇊ Skrolla",
 			"pages": "⬡ sidor"
 		},
 		"liveToggleButton": {

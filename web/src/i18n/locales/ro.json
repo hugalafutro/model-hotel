@@ -790,8 +790,8 @@
 		"page_description": "Descoperă modele de la furnizorii tăi",
 		"badge_enabled": "{{count}} activat",
 		"badge_disabled": "{{count}} dezactivat",
-		"view_mode_pages": "Pagini",
-		"view_mode_scroll": "Asteptare",
+		"view_mode_pages": "⬡ Pagini",
+		"view_mode_scroll": "⇊ Asteptare",
 		"switch_to_pagination": "Comutați la modul paginare",
 		"switch_to_scroll": "Comutați la modul derulare",
 		"toast_updated": "Model actualizat",
@@ -1158,8 +1158,8 @@
 			"label": "intrări"
 		},
 		"loading": {
-			"newer": "● Se încarcă mai nou…",
-			"older": "> Încărcare mai veche…"
+			"newer": "↻ Se încarcă mai nou…",
+			"older": "↻ Încărcare mai veche…"
 		}
 	},
 	"applogs": {
@@ -1196,8 +1196,8 @@
 			"label": "intrări"
 		},
 		"loading": {
-			"newer": "● Se încarcă mai nou…",
-			"older": "> Încărcare mai veche…"
+			"newer": "↻ Se încarcă mai nou…",
+			"older": "↻ Încărcare mai veche…"
 		}
 	},
 	"format": {
@@ -1799,8 +1799,8 @@
 			"viewModeToggle": {
 				"switchToScroll": "Comutați la modul derulare",
 				"switchToPagination": "Comutați la modul paginare",
-				"scroll": "Asteptare",
-				"pages": "Pagini"
+				"scroll": "⇊ Asteptare",
+				"pages": "⬡ Pagini"
 			},
 			"dateFilterButton": {
 				"filterByDateRange": "Filtrează după intervalul de date",
@@ -2231,8 +2231,8 @@
 		"viewModeToggle": {
 			"switchToScroll": "Comutați la modul derulare",
 			"switchToPagination": "Comutați la modul paginare",
-			"scroll": "Asteptare",
-			"pages": "Pagini"
+			"scroll": "⇊ Asteptare",
+			"pages": "⬡ Pagini"
 		},
 		"liveToggleButton": {
 			"live": "Live",

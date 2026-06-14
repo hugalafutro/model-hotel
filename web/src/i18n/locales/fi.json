@@ -790,8 +790,8 @@
 		"page_description": "Löydetty malleja palveluntarjoajilta",
 		"badge_enabled": "{{count}} käytössä",
 		"badge_disabled": "{{count}} pois käytöstä",
-		"view_mode_pages": "¶ Sivut",
-		"view_mode_scroll": "¶ Vieritä",
+		"view_mode_pages": "⬡ Sivut",
+		"view_mode_scroll": "⇊ Vieritä",
 		"switch_to_pagination": "Vaihda sivutustilaan",
 		"switch_to_scroll": "Vaihda vieritystilaan",
 		"toast_updated": "Malli päivitetty",
@@ -845,7 +845,7 @@
 			"placeholder": {
 				"price": "0.00"
 			},
-			"testSuccess": "Onnistui: {{content}}{{ttftPart}} ¶ Kesto: {{duration}}s",
+			"testSuccess": "Onnistui | Vastaus: {{content}}{{ttftPart}} | Kesto: {{duration}}s",
 			"testFailed": "Testi epäonnistui: {{error}}",
 			"testSuccessNoResponse": "Onnistui{{ttftPart}} | Kesto: {{duration}}s"
 		},
@@ -1158,8 +1158,8 @@
 			"label": "merkinnät"
 		},
 		"loading": {
-			"newer": "- Ladataan uudempaa…",
-			"older": "- Ladataan vanhempaa…"
+			"newer": "↻ Ladataan uudempaa…",
+			"older": "↻ Ladataan vanhempaa…"
 		}
 	},
 	"applogs": {
@@ -1196,8 +1196,8 @@
 			"label": "merkinnät"
 		},
 		"loading": {
-			"newer": "- Ladataan uudempaa…",
-			"older": "- Ladataan vanhempaa…"
+			"newer": "↻ Ladataan uudempaa…",
+			"older": "↻ Ladataan vanhempaa…"
 		}
 	},
 	"format": {
@@ -1799,8 +1799,8 @@
 			"viewModeToggle": {
 				"switchToScroll": "Vaihda vieritystilaan",
 				"switchToPagination": "Vaihda sivutustilaan",
-				"scroll": "¶ Vieritä",
-				"pages": "¶ Sivut"
+				"scroll": "⇊ Vieritä",
+				"pages": "⬡ Sivut"
 			},
 			"dateFilterButton": {
 				"filterByDateRange": "Suodata päivämäärän mukaan",
@@ -2231,8 +2231,8 @@
 		"viewModeToggle": {
 			"switchToScroll": "Vaihda vieritystilaan",
 			"switchToPagination": "Vaihda sivutustilaan",
-			"scroll": "¶ Vieritä",
-			"pages": "¶ Sivut"
+			"scroll": "⇊ Vieritä",
+			"pages": "⬡ Sivut"
 		},
 		"liveToggleButton": {
 			"live": "Suora",
