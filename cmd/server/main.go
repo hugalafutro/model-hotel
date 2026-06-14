@@ -97,17 +97,17 @@ func main() {
 	// data directory and env token, no database dependency.
 	adminMgr, isNew, err := admin.New(cfg.DataDir, cfg.AdminToken)
 	if err != nil {
-		log.Fatalf("Failed to initialize admin manager: %v", err)
+		debuglog.Fatal("startup: failed to initialize admin manager", "error", err)
 	}
 
 	database, err := db.New(ctx, cfg.DatabaseURL, cfg.DBMaxConns, cfg.DBMinConns)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		debuglog.Fatal("startup: failed to connect to database", "error", err)
 	}
 	defer database.Close()
 
 	if err := database.WaitForReady(ctx, 30); err != nil {
-		log.Fatalf("Database not ready: %v", err)
+		debuglog.Fatal("startup: database not ready", "error", err)
 	}
 
 	api.InitAppLogBuffer(database.Pool())
@@ -283,7 +283,7 @@ func main() {
 		}
 		rp, err := webauthn.NewRelyingParty(cfg.WebAuthnRPID, cfg.WebAuthnRPDisplayName, rpOrigins)
 		if err != nil {
-			log.Fatalf("Failed to initialize WebAuthn relying party: %v", err)
+			debuglog.Fatal("startup: failed to initialize WebAuthn relying party", "error", err)
 		}
 		sessionMgr := webauthn.NewSessionManager(webauthnRepo)
 		apiHandler.SetWebAuthnSessionManager(sessionMgr)
@@ -761,7 +761,7 @@ func main() {
 
 		debuglog.Info("server: listening", "port", cfg.Port)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Server failed to start: %v", err)
+			debuglog.Fatal("server: failed to start", "error", err)
 		}
 	}()
 

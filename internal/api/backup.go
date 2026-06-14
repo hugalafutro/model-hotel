@@ -591,6 +591,9 @@ func (h *BackupHandler) saveUploadedDump(w http.ResponseWriter, r *http.Request)
 	// Validate admin token from form field
 	adminToken := r.FormValue("admin_token")
 	if adminToken == "" || !h.adminMgr.Validate(adminToken) {
+		// respondError stays silent for a 401 with no err, so log the failed
+		// restore attempt here (remote address only, never the token).
+		debuglog.Warn("auth: backup restore with invalid admin token", "remote_addr", r.RemoteAddr)
 		respondError(w, "invalid admin token", nil, http.StatusUnauthorized)
 		return "", false
 	}
