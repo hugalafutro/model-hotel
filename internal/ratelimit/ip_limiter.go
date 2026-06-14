@@ -31,43 +31,59 @@ type ipEntry struct {
 	burst    int
 	lastUsed time.Time
 
-	// Edge-triggered throttle state — see keyEntry for the rationale. Logs one
-	// line when an IP starts being throttled and one when it recovers, instead
-	// of one per rejected request.
+	// Edge-triggered throttle state — see keyEntry for the rationale and the
+	// hot-path/lock split. `throttled` stays atomic for noteAllowed's lock-free
+	// fast path; throttledAt/rejectedN are guarded by throttleMu so the
+	// per-episode count is exact under concurrency.
+	throttleMu  sync.Mutex
 	throttled   atomic.Bool
-	throttledAt atomic.Int64 // unix-nano of the current episode's first rejection
-	rejectedN   atomic.Int64 // requests rejected during the current episode
+	throttledAt time.Time
+	rejectedN   int64
 }
 
-// noteRejected logs "throttling started" on the first rejection of an episode
-// (false→true edge); later rejections only bump the counter.
+// noteRejected logs "throttling started" on the first rejection of an episode;
+// later rejections only bump the (exact) counter.
 func (e *ipEntry) noteRejected(ip string) {
-	if e.throttled.CompareAndSwap(false, true) {
-		e.throttledAt.Store(time.Now().UnixNano())
-		e.rejectedN.Store(1)
+	e.throttleMu.Lock()
+	if !e.throttled.Load() {
+		e.throttled.Store(true)
+		e.throttledAt = time.Now()
+		e.rejectedN = 1
+		e.throttleMu.Unlock()
 		debuglog.Warn("ratelimit-ip: throttling started",
 			"ip", ip, "rps", e.rps, "burst", e.burst)
-	} else {
-		e.rejectedN.Add(1)
+		return
 	}
+	e.rejectedN++
+	e.throttleMu.Unlock()
 }
 
 // noteAllowed logs "throttling ended" when a throttled IP is served again with
-// no delay (true→false edge).
+// no delay. The common not-throttled case is a lock-free atomic read.
 func (e *ipEntry) noteAllowed(ip string) {
-	if e.throttled.CompareAndSwap(true, false) {
-		e.logThrottlingEnded(ip, time.Now(), "recovered")
+	if !e.throttled.Load() {
+		return
 	}
+	e.throttleMu.Lock()
+	if !e.throttled.Load() {
+		e.throttleMu.Unlock()
+		return
+	}
+	e.throttled.Store(false)
+	dur := time.Since(e.throttledAt)
+	n := e.rejectedN
+	e.throttleMu.Unlock()
+	e.logThrottlingEnded(ip, "recovered", dur, n)
 }
 
-// logThrottlingEnded emits the episode summary (duration + rejected count).
-func (e *ipEntry) logThrottlingEnded(ip string, end time.Time, reason string) {
-	since := time.Unix(0, e.throttledAt.Load())
+// logThrottlingEnded emits the episode summary (duration + rejected count),
+// computed by the caller under throttleMu.
+func (*ipEntry) logThrottlingEnded(ip, reason string, dur time.Duration, rejected int64) {
 	debuglog.Info("ratelimit-ip: throttling ended",
 		"ip", ip,
 		"reason", reason,
-		"duration", end.Sub(since).Round(time.Millisecond).String(),
-		"rejected_requests", e.rejectedN.Load())
+		"duration", dur.Round(time.Millisecond).String(),
+		"rejected_requests", rejected)
 }
 
 // settings keys for IP rate limiter (stored in DB)
@@ -245,7 +261,11 @@ func (l *IPLimiter) cleanup() {
 			// Close any still-open throttle episode (traffic stopped while the
 			// IP was rate-limited). Use the IP's last activity as the end.
 			if entry.throttled.Load() {
-				entry.logThrottlingEnded(ip, entry.lastUsed, "idle")
+				entry.throttleMu.Lock()
+				dur := entry.lastUsed.Sub(entry.throttledAt)
+				n := entry.rejectedN
+				entry.throttleMu.Unlock()
+				entry.logThrottlingEnded(ip, "idle", dur, n)
 			}
 			delete(l.limiters, ip)
 		}

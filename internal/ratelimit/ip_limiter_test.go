@@ -1217,7 +1217,7 @@ func TestIPEntry_ThrottleEdgeLogging(t *testing.T) {
 	if got := h.count(started); got != 1 {
 		t.Errorf("started count = %d, want 1", got)
 	}
-	if got := e.rejectedN.Load(); got != 3 {
+	if got := e.rejectedN; got != 3 {
 		t.Errorf("rejectedN = %d, want 3", got)
 	}
 
@@ -1230,5 +1230,57 @@ func TestIPEntry_ThrottleEdgeLogging(t *testing.T) {
 	e.noteRejected("1.2.3.4")
 	if got := h.count(started); got != 2 {
 		t.Errorf("started count after new episode = %d, want 2", got)
+	}
+}
+
+// TestIPEntry_ConcurrentRejectionsExactCount mirrors the key-limiter test:
+// N concurrent rejections produce one "started" line and an exact rejectedN.
+func TestIPEntry_ConcurrentRejectionsExactCount(t *testing.T) {
+	h := &msgCaptureHandler{}
+	debuglog.SetHandler(h)
+	t.Cleanup(func() { debuglog.Init(false) })
+
+	e := &ipEntry{limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1}
+	const n = 200
+	var wg sync.WaitGroup
+	wg.Add(n)
+	for range n {
+		go func() {
+			defer wg.Done()
+			e.noteRejected("1.2.3.4")
+		}()
+	}
+	wg.Wait()
+
+	if e.rejectedN != n {
+		t.Errorf("rejectedN = %d, want %d (count must be exact under concurrency)", e.rejectedN, n)
+	}
+	if got := h.count("ratelimit-ip: throttling started"); got != 1 {
+		t.Errorf("started count = %d, want exactly 1", got)
+	}
+}
+
+// TestIPEntry_IdleEvictionLogsEnded covers the cleanup path that closes a
+// throttle episode when a still-throttled IP goes idle and is evicted.
+func TestIPEntry_IdleEvictionLogsEnded(t *testing.T) {
+	h := &msgCaptureHandler{}
+	debuglog.SetHandler(h)
+	t.Cleanup(func() { debuglog.Init(false) })
+
+	lim := NewIPLimiter(1, 1, nil, nil)
+	defer lim.Stop()
+	e := &ipEntry{limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1}
+	e.noteRejected("9.9.9.9") // open an episode
+	e.throttledAt = time.Now().Add(-25 * time.Minute)
+	e.lastUsed = time.Now().Add(-20 * time.Minute) // idle, past the 10-min cutoff
+	lim.limiters["9.9.9.9"] = e
+
+	lim.cleanup()
+
+	if got := h.count("ratelimit-ip: throttling ended"); got != 1 {
+		t.Errorf("expected one 'throttling ended' on idle eviction, got %d", got)
+	}
+	if _, ok := lim.limiters["9.9.9.9"]; ok {
+		t.Error("idle entry should have been evicted")
 	}
 }

@@ -57,48 +57,63 @@ type keyEntry struct {
 	burst    int
 	lastUsed time.Time
 
-	// Edge-triggered throttle state: we log one line when a key starts being
-	// rate-limited and one when it recovers, rather than one line per rejected
-	// request (a burst could otherwise spam thousands). Mutated concurrently
-	// by requests sharing the same key, hence atomics.
+	// Edge-triggered throttle state: one log line when a key starts being
+	// rate-limited and one when it recovers, rather than one per rejected
+	// request. `throttled` is atomic so noteAllowed's hot path (the common
+	// not-throttled serve) needs no lock; throttledAt/rejectedN are guarded by
+	// throttleMu, taken only on the exceptional rejection/transition paths, so
+	// the per-episode count is exact under concurrency.
+	throttleMu  sync.Mutex
 	throttled   atomic.Bool
-	throttledAt atomic.Int64 // unix-nano of the current episode's first rejection
-	rejectedN   atomic.Int64 // requests rejected during the current episode
+	throttledAt time.Time
+	rejectedN   int64
 }
 
 // noteRejected records a 429 for the key and logs "throttling started" on the
-// first rejection of an episode (the false→true edge). Subsequent rejections
-// only bump the counter, so a sustained burst stays quiet in the log.
+// first rejection of an episode. Subsequent rejections only bump the counter,
+// so a sustained burst stays quiet in the log.
 func (e *keyEntry) noteRejected(keyHash string) {
-	if e.throttled.CompareAndSwap(false, true) {
-		e.throttledAt.Store(time.Now().UnixNano())
-		e.rejectedN.Store(1)
+	e.throttleMu.Lock()
+	if !e.throttled.Load() {
+		e.throttled.Store(true)
+		e.throttledAt = time.Now()
+		e.rejectedN = 1
+		e.throttleMu.Unlock()
 		debuglog.Warn("ratelimit: throttling started",
 			"key", keyHash, "rps", e.rps, "burst", e.burst)
-	} else {
-		e.rejectedN.Add(1)
+		return
 	}
+	e.rejectedN++
+	e.throttleMu.Unlock()
 }
 
 // noteAllowed logs "throttling ended" when a key that was being throttled is
-// served again with no delay (the true→false edge) — i.e. its bucket has fully
-// recovered.
+// served again with no delay (its bucket has fully recovered). The common
+// not-throttled case is a lock-free atomic read.
 func (e *keyEntry) noteAllowed(keyHash string) {
-	if e.throttled.CompareAndSwap(true, false) {
-		e.logThrottlingEnded(keyHash, time.Now(), "recovered")
+	if !e.throttled.Load() {
+		return
 	}
+	e.throttleMu.Lock()
+	if !e.throttled.Load() {
+		e.throttleMu.Unlock()
+		return
+	}
+	e.throttled.Store(false)
+	dur := time.Since(e.throttledAt)
+	n := e.rejectedN
+	e.throttleMu.Unlock()
+	e.logThrottlingEnded(keyHash, "recovered", dur, n)
 }
 
 // logThrottlingEnded emits the episode summary: how long it lasted and how many
-// requests were rejected. end is when the episode closed (now on recovery, or
-// the key's last activity when evicted while still throttled).
-func (e *keyEntry) logThrottlingEnded(keyHash string, end time.Time, reason string) {
-	since := time.Unix(0, e.throttledAt.Load())
+// requests were rejected, computed by the caller under throttleMu.
+func (*keyEntry) logThrottlingEnded(keyHash, reason string, dur time.Duration, rejected int64) {
 	debuglog.Info("ratelimit: throttling ended",
 		"key", keyHash,
 		"reason", reason,
-		"duration", end.Sub(since).Round(time.Millisecond).String(),
-		"rejected_requests", e.rejectedN.Load())
+		"duration", dur.Round(time.Millisecond).String(),
+		"rejected_requests", rejected)
 }
 
 // NewLimiter creates a Limiter that reads configuration from the provided
@@ -323,7 +338,11 @@ func (l *Limiter) cleanup() {
 			// key was rate-limited, so no later request closed it). Use the
 			// key's last activity as the episode end.
 			if entry.throttled.Load() {
-				entry.logThrottlingEnded(key, entry.lastUsed, "idle")
+				entry.throttleMu.Lock()
+				dur := entry.lastUsed.Sub(entry.throttledAt)
+				n := entry.rejectedN
+				entry.throttleMu.Unlock()
+				entry.logThrottlingEnded(key, "idle", dur, n)
 			}
 			delete(l.limiters, key)
 		}
