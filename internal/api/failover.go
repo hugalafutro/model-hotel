@@ -439,6 +439,16 @@ func (h *FailoverHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// stampFailoverSynced records the moment failover groups were last
+// (re)synchronized, surfaced as "Last Sync" on the failover page. Both the
+// manual Sync button and the discovery scans call it so the label reflects any
+// failover rebuild, not just a manual sync.
+func stampFailoverSynced(ctx context.Context, settingsRepo SettingsStore) {
+	if err := settingsRepo.Set(ctx, "failover_last_synced_at", time.Now().UTC().Format(time.RFC3339)); err != nil {
+		debuglog.Debug("failover: failed to persist last_synced_at", "error", err)
+	}
+}
+
 // Sync synchronizes failover groups with model database.
 func (h *FailoverHandler) Sync(w http.ResponseWriter, r *http.Request) {
 	result, err := h.failoverRepo.SyncAllModels(r.Context())
@@ -447,9 +457,7 @@ func (h *FailoverHandler) Sync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.settingsRepo.Set(r.Context(), "failover_last_synced_at", time.Now().UTC().Format(time.RFC3339)); err != nil {
-		debuglog.Debug("failover: failed to persist last_synced_at", "error", err)
-	}
+	stampFailoverSynced(r.Context(), h.settingsRepo)
 
 	writeJSON(w, result)
 }
