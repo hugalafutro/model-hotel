@@ -48,6 +48,8 @@ vi.mock("../../../context/ToastContext", () => ({
 		setPosition: vi.fn(),
 		timeout: 3000,
 		setTimeout: vi.fn(),
+		fuse: true,
+		setFuse: vi.fn(),
 	})),
 }));
 
