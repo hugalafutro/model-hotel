@@ -360,7 +360,9 @@ scrape_configs:
 
 For logs, set `LOG_FORMAT=json` to emit one structured JSON object per line on stdout for
 Fluent Bit / Vector / Promtail / Datadog and friends — no extra endpoint, and (like everything
-here) never any prompt content.
+here) never any prompt content. Need verbose debug output without the flood? `DEBUG_LOG=true`
+turns on Debug for everything; `DEBUG_LOG_SCOPES=failover,ratelimit` turns it on for just those
+areas. See the [Configuration wiki](https://github.com/hugalafutro/model-hotel/wiki/Configuration).
 
 ### Full Documentation
 - [Configuration](https://github.com/hugalafutro/model-hotel/wiki/Configuration): Environment variables, runtime settings, Docker Compose

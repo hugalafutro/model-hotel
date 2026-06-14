@@ -80,13 +80,32 @@ this prefix (`extractSource`) to tag the entry's source. Canonical sources:
 
 ### Levels
 
-- **Debug** — per-request mechanics; only emitted when `DEBUG_LOG` is set.
+- **Debug** — per-request mechanics; only emitted when `DEBUG_LOG` is set (all
+  scopes) or when the message's scope is listed in `DEBUG_LOG_SCOPES`.
 - **Info** — lifecycle events and *normal* client behavior. **Client
   disconnects are Info**, not Warn — they are not our failure.
 - **Warn** — degraded but self-healing: transient retry, breaker opening,
   stripped params, slow provider.
 - **Error** — action needed or data lost: all candidates exhausted, DB write
   failed, decryption failed.
+
+### Scoped debug (`DEBUG_LOG_SCOPES`)
+
+`DEBUG_LOG` turns Debug on for *everything*, which floods stdout at any real RPS.
+`DEBUG_LOG_SCOPES` instead enables Debug for **only** the listed source prefixes
+— the same `source:` prefixes from §3, e.g. `DEBUG_LOG_SCOPES=failover,ratelimit`.
+It is comma-separated, trimmed, and matched case-insensitively against the prefix
+before the first `:` in each message. It is ignored when `DEBUG_LOG` is on (Debug
+is already global). The parsed scope set is logged once at startup
+(`debuglog: per-scope debug enabled`) so an operator can confirm it took effect.
+
+Mechanism (`internal/debuglog`): the handler's level gate is lowered to Debug
+whenever *any* Debug output is possible (global or scoped), and a
+`scopeFilterHandler` wrapper then drops Debug records whose scope isn't enabled.
+Filtering lives in the handler, not in `Debug()`, so `debuglog.Debug` always
+reaches whatever handler is installed — callers that install their own slog
+handler (e.g. tests, the app-log buffer) keep working unchanged. Non-Debug
+records always pass through regardless of scope.
 
 ### Field names
 
