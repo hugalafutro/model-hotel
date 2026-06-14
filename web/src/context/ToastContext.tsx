@@ -7,6 +7,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { FuseOutline } from "../components/FuseOutline";
 import { useLocalStorage } from "../hooks/useLocalStorage";
@@ -33,6 +34,8 @@ interface ToastContextType {
 	setPosition: (position: ToastPosition) => void;
 	timeout: number;
 	setTimeout: (timeout: number) => void;
+	fuse: boolean;
+	setFuse: (fuse: boolean) => void;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -42,6 +45,8 @@ export const ToastContext = createContext<ToastContextType>({
 	setPosition: () => {},
 	timeout: 4000,
 	setTimeout: () => {},
+	fuse: true,
+	setFuse: () => {},
 });
 
 let nextId = 0;
@@ -98,6 +103,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 		},
 	);
 
+	const [fuse, setFuse] = useLocalStorage<boolean>("toastFuse", true, {
+		serialize: (v) => (v ? "true" : "false"),
+		deserialize: (v) => v !== "false",
+	});
+
 	const addToast = useCallback(
 		(message: string, type: ToastType = "success") => {
 			const id = nextId++;
@@ -124,21 +134,32 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 				setPosition,
 				timeout,
 				setTimeout: setTimeoutValue,
+				fuse,
+				setFuse,
 			}}
 		>
 			{children}
-			<div
-				className={`${containerClass} z-50 flex flex-col ${alignClass} gap-2`}
-			>
-				{toasts.map((t) => (
-					<ToastItem
-						key={t.id}
-						toast={t}
-						timeout={timeout}
-						onDone={() => removeToast(t.id)}
-					/>
-				))}
-			</div>
+			{/* Portal to <body> at a z-index above modals (z-50/z-60). Toasts open
+			    from pages and modals whose glassmorphism backdrop-filter would
+			    otherwise sample and blur the toast (it would render behind the
+			    modal card as a colored blob), and a filtered ancestor would also
+			    trap the fixed-position container. Same fix Modal uses. */}
+			{createPortal(
+				<div
+					className={`${containerClass} z-[70] flex flex-col ${alignClass} gap-2`}
+				>
+					{toasts.map((t) => (
+						<ToastItem
+							key={t.id}
+							toast={t}
+							timeout={timeout}
+							fuse={fuse}
+							onDone={() => removeToast(t.id)}
+						/>
+					))}
+				</div>,
+				document.body,
+			)}
 		</ToastContext.Provider>
 	);
 }
@@ -146,10 +167,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 function ToastItem({
 	toast,
 	timeout,
+	fuse,
 	onDone,
 }: {
 	toast: Toast;
 	timeout: number;
+	fuse: boolean;
 	onDone: () => void;
 }) {
 	const [paused, setPaused] = useState(false);
@@ -232,7 +255,7 @@ function ToastItem({
 			{...(toast.type === "error"
 				? { title: t("context.toast.clickToCopyDismiss") }
 				: {})}
-			className={`relative px-4 py-2 rounded-(--radius-card) shadow-lg text-sm font-medium hover:brightness-125 whitespace-pre-line text-left border-0 ${bgColors[toast.type]} ${fading ? "opacity-0" : "opacity-100"}`}
+			className={`relative px-4 py-2 rounded-(--radius-card) shadow-lg text-sm font-medium hover:brightness-125 whitespace-pre-line break-words max-w-[min(28rem,90vw)] text-left border-0 ${bgColors[toast.type]} ${fading ? "opacity-0" : "opacity-100"}`}
 			style={{
 				overflow: "hidden",
 				transition: "opacity 300ms ease",
@@ -246,11 +269,13 @@ function ToastItem({
 			}
 		>
 			{toast.message}
-			<FuseOutline
-				color={strokeColors[toast.type]}
-				durationMs={timeout}
-				paused={paused}
-			/>
+			{fuse && (
+				<FuseOutline
+					color={strokeColors[toast.type]}
+					durationMs={timeout}
+					paused={paused}
+				/>
+			)}
 		</button>
 	);
 }

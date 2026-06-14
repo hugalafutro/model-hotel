@@ -1629,7 +1629,9 @@
 			"testNotification": "테스트 알림 - 여기에서 토스트 알림이 표시됩니다",
 			"autoDismiss": "자동 해제",
 			"autoDismissDescription": "토스트 알림이 사라지기 전까지 얼마나 오래 표시되나요?",
-			"seconds": "{{seconds}}s"
+			"seconds": "{{seconds}}s",
+			"fuseEffect": "Toast Fuse 효과",
+			"fuseEffectDescription": "카운트다운이 진행되는 동안 토스트를 따라가는 불타는 퓨즈 애니메이션 윤곽선"
 		},
 		"dashboard": {
 			"title": "대시보드 새로 고침",
@@ -1908,7 +1910,8 @@
 			"deleteDisabledMessage_other": "이렇게 하면 {{count}} 에 있는 비활성화된 모델이 영구적으로 삭제됩니다. 해당 공급자에서 자동 검색이 활성화된 경우, 다음 주기에서 다시 검색됩니다. 이를 방지하려면 공급자에서 자동 검색을 비활성화하십시오.",
 			"clickToCopyId": "클릭하여 모델 ID 복사",
 			"deleteDisabledLabel_one": "{{count}} 비활성화된 모델",
-			"deleteDisabledLabel_other": "{{count}} 비활성화된 모델"
+			"deleteDisabledLabel_other": "{{count}} 비활성화된 모델",
+			"clickToCopyName": "클릭하여 모델 이름 복사"
 		},
 		"virtualModelTable": {
 			"searchModels": "모델 검색…",

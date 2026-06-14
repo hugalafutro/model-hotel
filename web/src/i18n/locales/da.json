@@ -1629,7 +1629,9 @@
 			"testNotification": "Test notifikation - du kan se posteringer her",
 			"autoDismiss": "Auto-afvis",
 			"autoDismissDescription": "Hvor længe toasterne forbliver synlige før fading ud",
-			"seconds": "{{seconds}}s"
+			"seconds": "{{seconds}}s",
+			"fuseEffect": "Toast Fuse-effekt",
+			"fuseEffectDescription": "Animeret kontur af en brændende lunte, der følger toast-meddelelsen, mens den tæller ned"
 		},
 		"dashboard": {
 			"title": "Opfrisk Kontrolpanel",
@@ -1908,7 +1910,8 @@
 			"deleteDisabledMessage_other": "Dette vil permanent slette {{count}} deaktiverede modeller. Hvis autodiscovery er aktiveret på deres udbyder, vil de blive genopdaget på den næste cyklus. Deaktivér autodiscovery på udbyderen for at forhindre dette.",
 			"clickToCopyId": "Klik for at kopiere model ID",
 			"deleteDisabledLabel_one": "{{count}} deaktiveret model",
-			"deleteDisabledLabel_other": "{{count}} deaktiverede modeller"
+			"deleteDisabledLabel_other": "{{count}} deaktiverede modeller",
+			"clickToCopyName": "Klik for at kopiere modelnavn"
 		},
 		"virtualModelTable": {
 			"searchModels": "Søg i modeller…",

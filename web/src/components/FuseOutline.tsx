@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useResizeObserver } from "../hooks/useResizeObserver";
 
 interface FuseOutlineProps {
@@ -10,7 +10,9 @@ interface FuseOutlineProps {
 	paused?: boolean;
 	/** Stroke width (default 1.5) */
 	strokeWidth?: number;
-	/** Corner radius (default 5) */
+	/** Corner radius. When omitted, the outline measures the parent element's
+	 *  computed border-radius so it traces the real shape (themes vary the card
+	 *  radius from ~2px to 20px); falls back to 5 if it can't be measured. */
 	rx?: number;
 	/** CSS class for the wrapping SVG. Default positions the SVG as an absolute
 	 *  inset-0 overlay that fills its parent — the ResizeObserver measures the
@@ -36,7 +38,7 @@ export function FuseOutline({
 	durationMs,
 	paused = false,
 	strokeWidth = 1,
-	rx = 5,
+	rx,
 	className = "absolute inset-0 w-full h-full pointer-events-none",
 }: FuseOutlineProps) {
 	const {
@@ -45,6 +47,21 @@ export function FuseOutline({
 		height = 0,
 	} = useResizeObserver<SVGSVGElement>();
 	const rectRef = useRef<SVGRectElement>(null);
+
+	// Measure the parent element's actual corner radius once on mount so the
+	// fuse traces the real toast/entry shape per theme. border-radius does not
+	// change on resize, so this deliberately does not depend on width/height
+	// (avoids a forced getComputedStyle reflow every resize). An explicit rx
+	// prop still overrides this.
+	const [measuredRx, setMeasuredRx] = useState<number | null>(null);
+	useLayoutEffect(() => {
+		const parent = sizeRef.current?.parentElement;
+		if (!parent) return;
+		const parsed = Number.parseFloat(
+			getComputedStyle(parent).borderTopLeftRadius,
+		);
+		if (!Number.isNaN(parsed)) setMeasuredRx(parsed);
+	}, [sizeRef]);
 
 	// Track the last animation string we set imperatively so we only
 	// re-set it when durationMs actually changes (which is rare — backed by
@@ -62,11 +79,21 @@ export function FuseOutline({
 	const pausedAtRef = useRef<number | null>(null);
 	const pausedTotalRef = useRef(0);
 
-	// Compute perimeter of the rounded rect
+	// Compute perimeter of the rounded rect. Effective radius is the explicit
+	// prop, else the measured parent radius, else 5 — clamped so it never
+	// exceeds half the box (which would make the perimeter math go negative).
 	const w = Math.max(0, width - 2);
 	const h = Math.max(0, height - 2);
+	const effectiveRx = Math.max(
+		0,
+		Math.min(rx ?? measuredRx ?? 5, w / 2, h / 2),
+	);
 	const perimeter =
-		w > 0 && h > 0 ? 2 * (w - 2 * rx) + 2 * (h - 2 * rx) + 2 * Math.PI * rx : 0;
+		w > 0 && h > 0
+			? 2 * (w - 2 * effectiveRx) +
+				2 * (h - 2 * effectiveRx) +
+				2 * Math.PI * effectiveRx
+			: 0;
 
 	const showRect = perimeter > 0;
 
@@ -130,7 +157,7 @@ export function FuseOutline({
 					y={1}
 					width={width - 2}
 					height={height - 2}
-					rx={rx}
+					rx={effectiveRx}
 					fill="none"
 					stroke={color}
 					strokeWidth={strokeWidth}

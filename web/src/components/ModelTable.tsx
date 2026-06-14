@@ -375,10 +375,14 @@ export function ModelTable({
 											<div
 												className={`flex flex-col ${model.enabled ? "" : "opacity-50"}`}
 											>
-												<span className="text-left text-sm font-medium text-white">
-													{model.name ||
-														proxyModelID(model.provider_name, model.model_id)}
-												</span>
+												<CopyablePill
+													text={
+														model.name ||
+														proxyModelID(model.provider_name, model.model_id)
+													}
+													textClassName="text-left text-sm font-medium text-white"
+													tooltip={t("components.modelTable.clickToCopyName")}
+												/>
 												<CopyablePill
 													text={proxyModelID(
 														model.provider_name,

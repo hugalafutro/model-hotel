@@ -1629,7 +1629,9 @@
 			"testNotification": "Testbenachrichtigung - hier siehst du Toasts",
 			"autoDismiss": "Automatisch verwerfen",
 			"autoDismissDescription": "Wie lange die Toasts sichtbar bleiben, bevor sie ausgeblendet werden",
-			"seconds": "{{seconds}}s"
+			"seconds": "{{seconds}}s",
+			"fuseEffect": "Toast-Fuse-Effekt",
+			"fuseEffectDescription": "Animierte Umrisse einer brennenden Zündschnur, die dem Toast während des Countdowns folgen"
 		},
 		"dashboard": {
 			"title": "Dashboard aktualisieren",
@@ -1908,7 +1910,8 @@
 			"deleteDisabledMessage_other": "Dies löscht {{count}} deaktivierte Modelle. Wenn die Autoentdeckung auf ihrem Provider aktiviert ist, werden sie im nächsten Zyklus wiederentdeckt. Deaktivieren Sie die Autoentdeckung auf dem Provider, um dies zu verhindern.",
 			"clickToCopyId": "Hier klicken, um Model-ID zu kopieren",
 			"deleteDisabledLabel_one": "{{count}} deaktiviertes Modell",
-			"deleteDisabledLabel_other": "{{count}} deaktivierte Modelle"
+			"deleteDisabledLabel_other": "{{count}} deaktivierte Modelle",
+			"clickToCopyName": "Zum Kopieren des Modellnamens hier klicken"
 		},
 		"virtualModelTable": {
 			"searchModels": "Modelle… suchen",

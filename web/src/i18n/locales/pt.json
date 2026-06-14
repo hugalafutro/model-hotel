@@ -1629,7 +1629,9 @@
 			"testNotification": "Notificação de teste - você verá toasts aqui",
 			"autoDismiss": "Auto-dispensar",
 			"autoDismissDescription": "Quanto tempo os toasts permanecem visíveis antes de sair",
-			"seconds": "{{seconds}}s"
+			"seconds": "{{seconds}}s",
+			"fuseEffect": "Efeito Toast Fuse",
+			"fuseEffectDescription": "Contorno animado de um pavio aceso acompanhando a notificação enquanto ela faz a contagem regressiva"
 		},
 		"dashboard": {
 			"title": "Atualização do Painel",
@@ -1908,7 +1910,8 @@
 			"deleteDisabledMessage_other": "Isto irá apagar permanentemente modelos desativados {{count}} . Se a descoberta automática estiver ativada em seu provedor, ele será redescoberto no próximo ciclo. Desative a descoberta automática no provedor para impedir isso.",
 			"clickToCopyId": "Clique para copiar a ID do modelo",
 			"deleteDisabledLabel_one": "{{count}} modelo desativado",
-			"deleteDisabledLabel_other": "Modelos {{count}} desativados"
+			"deleteDisabledLabel_other": "Modelos {{count}} desativados",
+			"clickToCopyName": "Clique para copiar o nome do modelo"
 		},
 		"virtualModelTable": {
 			"searchModels": "Procurar modelos…",

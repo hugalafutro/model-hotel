@@ -1629,7 +1629,9 @@
 			"testNotification": "הודעת בדיקה – כאן תופיענה הודעות קופצות",
 			"autoDismiss": "ביטול אוטומטי",
 			"autoDismissDescription": "כמה זמן נראים הטוסטים לפני שהם נעלמים",
-			"seconds": "{{seconds}}s"
+			"seconds": "{{seconds}}s",
+			"fuseEffect": "אפקט Toast Fuse",
+			"fuseEffectDescription": "מתאר מונפש של נתיך בוער העוקב אחר ההודעה בזמן הספירה לאחור"
 		},
 		"dashboard": {
 			"title": "רענון לוח המחוונים",
@@ -1908,7 +1910,8 @@
 			"deleteDisabledMessage_other": "פעולה זו תמחק לצמיתות את הדגמים המושבתים ב- {{count}} . אם זיהוי אוטומטי מופעל אצל הספק שלהם, הם יזוהו מחדש במחזור הבא. יש להשבית את הזיהוי האוטומטי אצל הספק כדי למנוע זאת.",
 			"clickToCopyId": "לחץ כדי להעתיק את מזהה הדגם",
 			"deleteDisabledLabel_one": "{{count}} דגם מושבת",
-			"deleteDisabledLabel_other": "{{count}} דוגמניות עם מוגבלות"
+			"deleteDisabledLabel_other": "{{count}} דוגמניות עם מוגבלות",
+			"clickToCopyName": "לחץ כדי להעתיק את שם המודל"
 		},
 		"virtualModelTable": {
 			"searchModels": "חפש דגמים…",

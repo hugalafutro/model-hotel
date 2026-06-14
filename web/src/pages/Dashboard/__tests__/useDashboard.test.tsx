@@ -143,6 +143,8 @@ describe("useDashboard", () => {
 							setPosition: vi.fn(),
 							timeout: 4000,
 							setTimeout: vi.fn(),
+							fuse: true,
+							setFuse: vi.fn(),
 						},
 					},
 					children,

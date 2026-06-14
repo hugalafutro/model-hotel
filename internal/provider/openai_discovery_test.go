@@ -155,6 +155,8 @@ func TestOpenAIDiscoveryWithMockServer(t *testing.T) {
 		t.Fatalf("discoverOpenAI failed: %v", err)
 	}
 
+	// Backfill-only (no union): the two live models are returned, gpt-5.5
+	// enriched from the catalog and unknown-model-xyz left as a minimal stub.
 	if len(models) != 2 {
 		t.Fatalf("expected 2 models, got %d", len(models))
 	}

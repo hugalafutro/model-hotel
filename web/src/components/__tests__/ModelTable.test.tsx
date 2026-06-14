@@ -755,9 +755,10 @@ describe("ModelTable", () => {
 				<ModelTable {...defaultProps} onModelClick={onModelClick} />,
 			);
 
-			// Click on model row
-			const modelRow = screen.getByText("Test Model");
-			await user.click(modelRow);
+			// Click the row itself: the model name is now a copy pill that stops
+			// propagation, so clicking the name copies rather than opening.
+			const modelRow = screen.getByText("Test Model").closest("tr");
+			await user.click(modelRow as HTMLElement);
 
 			expect(onModelClick).toHaveBeenCalledWith(mockModel);
 		});
@@ -1003,10 +1004,10 @@ describe("ModelTable", () => {
 				<ModelTable models={[modelWithoutName]} providers={[mockProvider]} />,
 			);
 
-			// Verify it displays the proxyModelID format in the name span specifically
-			// (not the CopyablePill below it, which also shows proxyModelID)
+			// Verify it displays the proxyModelID format in the name pill specifically
+			// (font-medium; the id CopyablePill below uses font-mono / model-id-text)
 			const table = screen.getByRole("table");
-			const nameSpan = table.querySelector("tbody td div > span.font-medium");
+			const nameSpan = table.querySelector("tbody span.font-medium");
 			expect(nameSpan?.textContent).toBe("Test-Provider/test-model-v1");
 		});
 	});

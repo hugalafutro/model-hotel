@@ -1629,7 +1629,9 @@
 			"testNotification": "Test melding - je ziet meldingen hier",
 			"autoDismiss": "Auto-afwijzen",
 			"autoDismissDescription": "Hoe lang toast zichtbaar blijft voor het vervagen",
-			"seconds": "{{seconds}}s"
+			"seconds": "{{seconds}}s",
+			"fuseEffect": "Toast Fuse-effect",
+			"fuseEffectDescription": "Geanimeerde omtrek van een brandende lont die de toast volgt terwijl deze aftelt"
 		},
 		"dashboard": {
 			"title": "Dashboard vernieuwen",
@@ -1908,7 +1910,8 @@
 			"deleteDisabledMessage_other": "Dit zal {{count}} uitgeschakelde modellen permanent verwijderen. Als autodiscovery is ingeschakeld bij hun provider, worden ze opnieuw ontdekt bij de volgende cyclus. Schakel autodiscovery uit bij de provider om dit te voorkomen.",
 			"clickToCopyId": "Klik om model-ID te kopiëren",
 			"deleteDisabledLabel_one": "{{count}} uitgeschakeld model",
-			"deleteDisabledLabel_other": "{{count}} uitgeschakelde modellen"
+			"deleteDisabledLabel_other": "{{count}} uitgeschakelde modellen",
+			"clickToCopyName": "Klik om de modelnaam te kopiëren"
 		},
 		"virtualModelTable": {
 			"searchModels": "Zoek modellen…",

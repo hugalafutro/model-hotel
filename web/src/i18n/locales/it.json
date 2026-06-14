@@ -1629,7 +1629,9 @@
 			"testNotification": "Notifica di prova - vedrai i toast qui",
 			"autoDismiss": "Auto-eliminazione",
 			"autoDismissDescription": "Per quanto tempo i brindisi rimangono visibili prima di svanire",
-			"seconds": "{{seconds}}"
+			"seconds": "{{seconds}}",
+			"fuseEffect": "Effetto Toast Fuse",
+			"fuseEffectDescription": "Contorno animato di una miccia che brucia, che traccia il toast durante il conto alla rovescia"
 		},
 		"dashboard": {
 			"title": "Aggiornamento Dashboard",
@@ -1908,7 +1910,8 @@
 			"deleteDisabledMessage_other": "Questo eliminerà definitivamente i modelli {{count}} disabilitati. Se la ricerca automatica è abilitata sul loro provider, saranno riscoperti nel prossimo ciclo. Disabilita la scoperta automatica sul provider per evitare che ciò accada.",
 			"clickToCopyId": "Clicca per copiare l'ID modello",
 			"deleteDisabledLabel_one": "{{count}} modello disabilitato",
-			"deleteDisabledLabel_other": "{{count}} disabilitato i modelli"
+			"deleteDisabledLabel_other": "{{count}} disabilitato i modelli",
+			"clickToCopyName": "Clicca per copiare il nome del modello"
 		},
 		"virtualModelTable": {
 			"searchModels": "Cerca modelli…",

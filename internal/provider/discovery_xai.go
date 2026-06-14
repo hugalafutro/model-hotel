@@ -18,33 +18,55 @@ import (
 
 func (d *DiscoveryService) discoverXAI(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
 	baseURL := util.SanitizeBaseURL(provider.BaseURL)
+	catalog := d.discoverXAIFromCatalog(provider)
 
-	// Step 1: Try the rich /language-models endpoint
-	langModels, err := d.discoverXAILanguageModels(ctx, provider, apiKey, baseURL)
-	if err == nil && len(langModels) > 0 {
-		return langModels, nil
+	// Step 1: Try the rich /language-models endpoint.
+	live, err := d.discoverXAILanguageModels(ctx, provider, apiKey, baseURL)
+	if err != nil {
+		// Step 2: 403/429 (zero-balance or rate-limited account) -> catalog only.
+		if isNoAccessError(err) {
+			debuglog.Warn("discovery: xai /language-models returned no-access, using catalog", "status", errorStatusCode(err), "provider", provider.Name, "provider_id", provider.ID)
+			return catalog, nil
+		}
+		// Step 3: Other failure -> try the minimal /models endpoint.
+		live, err = d.discoverXAIMinimalModels(ctx, provider, apiKey, baseURL)
+		if err != nil {
+			// Step 4: /models also no-access -> catalog only.
+			if isNoAccessError(err) {
+				debuglog.Warn("discovery: xai /models also returned no-access, using catalog", "status", errorStatusCode(err), "provider", provider.Name, "provider_id", provider.ID)
+				return catalog, nil
+			}
+			return nil, fmt.Errorf("xAI: failed to discover models for provider %s: both endpoints returned errors", provider.Name)
+		}
+	} else if len(live) == 0 {
+		// Rich endpoint succeeded but listed nothing; try the minimal endpoint.
+		minimal, mErr := d.discoverXAIMinimalModels(ctx, provider, apiKey, baseURL)
+		if mErr != nil {
+			// Don't swallow a real error: log it so an outage isn't hidden behind
+			// the "no models" warning below (we still don't propagate it — empty
+			// live is handled safely by returning an empty set).
+			debuglog.Warn("discovery: xai /language-models listed nothing and /models also failed", "provider", provider.Name, "provider_id", provider.ID, "error", mErr)
+		} else if len(minimal) > 0 {
+			live = minimal
+		}
 	}
 
-	// Step 2: If we got a 403/429 (zero-balance or rate-limited account), fall back to catalog
-	if isNoAccessError(err) {
-		debuglog.Warn("discovery: xai /language-models returned no-access, falling back to catalog", "status", errorStatusCode(err), "provider", provider.Name, "provider_id", provider.ID)
-		return d.discoverXAIFromCatalog(provider), nil
+	// Both endpoints succeeded but listed no models (distinct from the no-access
+	// 403/429 path above, which intentionally returns the catalog). Return empty
+	// rather than unioning the catalog, so DisableMissingModels stays a no-op
+	// instead of disabling every live-only model.
+	if len(live) == 0 {
+		debuglog.Warn("discovery: xai endpoints returned no models, skipping", "provider", provider.Name, "provider_id", provider.ID)
+		return live, nil
 	}
 
-	// Step 3: If rich endpoint failed for other reasons, try minimal /models
-	minimalModels, err2 := d.discoverXAIMinimalModels(ctx, provider, apiKey, baseURL)
-	if err2 == nil && len(minimalModels) > 0 {
-		return minimalModels, nil
-	}
-
-	// Step 4: If /models also returned 403/429, fall back to catalog
-	if isNoAccessError(err2) {
-		debuglog.Warn("discovery: xai /models also returned no-access, falling back to catalog", "status", errorStatusCode(err2), "provider", provider.Name, "provider_id", provider.ID)
-		return d.discoverXAIFromCatalog(provider), nil
-	}
-
-	// Both failed with real errors
-	return nil, fmt.Errorf("xAI: failed to discover models for provider %s: both endpoints returned errors", provider.Name)
+	// Union live with the catalog: live wins per field, catalog backfills the
+	// gaps (xAI's API omits context length, max output, reasoning) and unions in
+	// any catalog model the listing endpoints do not advertise (xAI keeps older
+	// grok models callable without listing them).
+	merged := mergeLiveAndCatalog(live, catalog)
+	debuglog.Info("discovery: xai merged live + catalog", "provider", provider.Name, "provider_id", provider.ID, "live", len(live), "catalog", len(catalog), "merged", len(merged))
+	return merged, nil
 }
 
 func (d *DiscoveryService) discoverXAILanguageModels(ctx context.Context, provider *Provider, apiKey, baseURL string) ([]*model.Model, error) {
@@ -79,33 +101,22 @@ func (d *DiscoveryService) discoverXAILanguageModels(ctx context.Context, provid
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	catalog := GetXAICatalog()
 	models := make([]*model.Model, 0, len(langResp.Models))
 
 	for _, lm := range langResp.Models {
-		spec := LookupOpenCodeCatalog(catalog, lm.ID)
-
-		// Convert xAI pricing: cents per 100M tokens -> dollars per 1M tokens
+		// Convert xAI pricing: cents per 100M tokens -> dollars per 1M tokens.
 		inputPrice := float64(lm.PromptTextTokenPrice) / 100.0
 		cachePrice := float64(lm.CachedPromptTextTokenPrice) / 100.0
 		outputPrice := float64(lm.CompletionTextTokenPrice) / 100.0
 
-		// Build capabilities from API data
+		// Capabilities the xAI API guarantees for language models. Reasoning is
+		// left to the catalog (the API does not report it); mergeLiveAndCatalog
+		// OR-merges it in.
 		hasVision := slices.Contains(lm.InputModalities, "image")
-		streaming := true        // xAI supports streaming on all models
-		reasoning := false       // Default; override from catalog if available
-		toolCalling := true      // xAI supports tool calling on language models
-		structuredOutput := true // xAI supports structured output
-
-		if spec != nil {
-			reasoning = spec.Reasoning
-		}
-
 		caps := model.Capability{
-			Streaming:        streaming,
-			Reasoning:        reasoning,
-			ToolCalling:      toolCalling,
-			StructuredOutput: structuredOutput,
+			Streaming:        true,
+			ToolCalling:      true,
+			StructuredOutput: true,
 			Vision:           hasVision,
 		}
 		capJSON, _ := json.Marshal(caps)
@@ -113,49 +124,31 @@ func (d *DiscoveryService) discoverXAILanguageModels(ctx context.Context, provid
 		inputMods, _ := json.Marshal(lm.InputModalities)
 		outputMods, _ := json.Marshal(lm.OutputModalities)
 
+		// Only fields the live API actually provides are set here. Modality,
+		// Description, ContextLength and MaxOutputTokens are intentionally left
+		// empty/nil so the catalog (and then models.dev) backfill them without a
+		// fabricated placeholder masking the richer catalog value.
 		m := &model.Model{
-			ID:                    uuid.New(),
-			ProviderID:            provider.ID,
-			ModelID:               lm.ID,
-			Name:                  lm.ID,
-			DisplayName:           lm.ID,
-			Description:           fmt.Sprintf("xAI language model (v%s)", lm.Version),
-			Capabilities:          string(capJSON),
-			Params:                "{}",
-			Modality:              "text",
-			InputModalities:       string(inputMods),
-			OutputModalities:      string(outputMods),
-			ContextLength:         nil, // Not provided by xAI API
-			MaxOutputTokens:       nil, // Not provided by xAI API
-			InputPricePerMillion:  &inputPrice,
-			OutputPricePerMillion: &outputPrice,
-			OwnedBy:               lm.OwnedBy,
-			Enabled:               true,
+			ID:               uuid.New(),
+			ProviderID:       provider.ID,
+			ModelID:          lm.ID,
+			Name:             lm.ID,
+			DisplayName:      lm.ID, // placeholder == model_id; catalog name wins
+			Capabilities:     string(capJSON),
+			Params:           "{}",
+			InputModalities:  string(inputMods),
+			OutputModalities: string(outputMods),
+			OwnedBy:          lm.OwnedBy,
+			Enabled:          true,
 		}
-
+		if inputPrice > 0 {
+			m.InputPricePerMillion = &inputPrice
+		}
+		if outputPrice > 0 {
+			m.OutputPricePerMillion = &outputPrice
+		}
 		if cachePrice > 0 {
 			m.InputPricePerMillionCacheHit = &cachePrice
-		}
-
-		// Override context/capabilities from catalog if available
-		if spec != nil {
-			if spec.ContextLength > 0 {
-				m.ContextLength = &spec.ContextLength
-			}
-			if spec.MaxOutputTokens > 0 {
-				m.MaxOutputTokens = &spec.MaxOutputTokens
-			}
-			m.DisplayName = spec.DisplayName
-			m.Description = spec.Description
-			if spec.Modality != "" {
-				m.Modality = spec.Modality
-			}
-			if spec.InputModalities != "" {
-				m.InputModalities = spec.InputModalities
-			}
-			if spec.OutputModalities != "" {
-				m.OutputModalities = spec.OutputModalities
-			}
 		}
 
 		models = append(models, m)
@@ -197,26 +190,21 @@ func (d *DiscoveryService) discoverXAIMinimalModels(ctx context.Context, provide
 		return nil, fmt.Errorf("xAI: failed to decode minimal models response for provider %s: %w", provider.Name, err)
 	}
 
-	catalog := GetXAICatalog()
 	models := make([]*model.Model, 0, len(openAIResp.Data))
 
+	// The minimal /models endpoint only carries id + owner. Emit those and let
+	// mergeLiveAndCatalog backfill the rest from the catalog and models.dev.
 	for _, m := range openAIResp.Data {
-		spec := LookupOpenCodeCatalog(catalog, m.ID)
-		if spec != nil {
-			models = append(models, OpenCodeCatalogToModel(spec, provider.ID, "xai"))
-			continue
-		}
-		// Unknown model — create minimal entry
 		capJSON, _ := json.Marshal(model.Capability{Streaming: true})
 		models = append(models, &model.Model{
-			ID:               uuid.New(),
-			ProviderID:       provider.ID,
-			ModelID:          m.ID,
-			Name:             m.ID,
-			DisplayName:      m.ID,
-			Capabilities:     string(capJSON),
-			Params:           "{}",
-			Modality:         "text",
+			ID:           uuid.New(),
+			ProviderID:   provider.ID,
+			ModelID:      m.ID,
+			Name:         m.ID,
+			DisplayName:  m.ID,
+			Capabilities: string(capJSON),
+			Params:       "{}",
+			// JSONB columns must hold valid JSON even before catalog backfill.
 			InputModalities:  "[]",
 			OutputModalities: "[]",
 			OwnedBy:          m.OwnedBy,

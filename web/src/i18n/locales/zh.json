@@ -1629,7 +1629,9 @@
 			"testNotification": "测试通知 - 您会在这里看到Toasts",
 			"autoDismiss": "自动关闭",
 			"autoDismissDescription": "淡出前保持多长时间可见提示",
-			"seconds": "{{seconds}}s"
+			"seconds": "{{seconds}}s",
+			"fuseEffect": "Toast Fuse 效果",
+			"fuseEffectDescription": "动画效果：倒计时提示框内显示一条燃烧的引信轮廓"
 		},
 		"dashboard": {
 			"title": "仪表板刷新",
@@ -1908,7 +1910,8 @@
 			"deleteDisabledMessage_other": "这将永久删除 {{count}} 中的已禁用模型。如果其提供商启用了自动发现功能，这些模型将在下一个周期中被重新发现。若要防止这种情况发生，请在提供商端禁用自动发现功能。",
 			"clickToCopyId": "点击复制模型ID",
 			"deleteDisabledLabel_one": "{{count}} 残障模特",
-			"deleteDisabledLabel_other": "{{count}} 残障模特"
+			"deleteDisabledLabel_other": "{{count}} 残障模特",
+			"clickToCopyName": "点击复制模型名称"
 		},
 		"virtualModelTable": {
 			"searchModels": "搜索模型…",

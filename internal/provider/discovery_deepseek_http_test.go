@@ -68,9 +68,10 @@ func TestDiscoverDeepSeek(t *testing.T) {
 		t.Fatalf("discoverDeepSeek failed: %v", err)
 	}
 
-	// Verify results
-	if len(models) != 2 {
-		t.Errorf("Expected 2 models, got %d", len(models))
+	// Verify results: the 2 live models (not in catalog) are first, then the
+	// catalog is unioned in.
+	if len(models) != len(GetDeepSeekModels())+2 {
+		t.Errorf("Expected catalog+2 merged models, got %d", len(models))
 	}
 
 	// Check first model
@@ -161,13 +162,15 @@ func TestDiscoverDeepSeek_EmptyResponse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("discoverDeepSeek failed: %v", err)
 	}
+	// Empty-but-successful listing returns empty (no catalog union), so the
+	// discovered set stays empty and DisableMissingModels is a no-op.
 	if len(models) != 0 {
-		t.Errorf("Expected 0 models for empty response, got %d", len(models))
+		t.Errorf("Expected 0 models for empty live response, got %d", len(models))
 	}
 }
 
 func TestDiscoverDeepSeek_CatalogOverride(t *testing.T) {
-	// Test that a known catalog model (deepseek-chat) gets catalog pricing/limits
+	// Test that a known catalog model (deepseek-v4-flash) gets catalog pricing/limits
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/models" || r.Method != "GET" {
 			http.NotFound(w, r)
@@ -177,7 +180,7 @@ func TestDiscoverDeepSeek_CatalogOverride(t *testing.T) {
 			Object: "list",
 			Data: []OpenAIModel{
 				{
-					ID:      "deepseek-chat",
+					ID:      "deepseek-v4-flash",
 					Object:  "model",
 					Created: 1234567890,
 					OwnedBy: "deepseek",
@@ -202,11 +205,20 @@ func TestDiscoverDeepSeek_CatalogOverride(t *testing.T) {
 	if err != nil {
 		t.Fatalf("discoverDeepSeek failed: %v", err)
 	}
-	if len(models) != 1 {
-		t.Fatalf("Expected 1 model, got %d", len(models))
+	// Live v4-flash merges with its catalog entry; v4-pro unions in.
+	if len(models) != len(GetDeepSeekModels()) {
+		t.Fatalf("Expected catalog-count merged models, got %d", len(models))
 	}
-	// deepseek-chat should have catalog values for context length and pricing
-	m := models[0]
+	var m *model.Model
+	for _, mm := range models {
+		if mm.ModelID == "deepseek-v4-flash" {
+			m = mm
+		}
+	}
+	if m == nil {
+		t.Fatal("expected deepseek-v4-flash in merged results")
+	}
+	// deepseek-v4-flash should have catalog values for context length and pricing
 	if m.ContextLength == nil {
 		t.Error("Expected ContextLength to be set from catalog for deepseek-chat")
 	}
@@ -225,8 +237,10 @@ func TestDiscoverDeepSeek_CatalogOverride(t *testing.T) {
 	}
 }
 
-func TestDiscoverDeepSeek_UnknownModel_DefaultValues(t *testing.T) {
-	// Test that a model NOT in the catalog gets safe defaults
+func TestDiscoverDeepSeek_UnknownModel_NoHardcodedDefault(t *testing.T) {
+	// A model NOT in the catalog no longer gets a hardcoded 128k/8k default; it
+	// becomes a clean stub (context/max-output nil) that models.dev fills in
+	// production. In this unit test (no models.dev) the fields stay nil.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		response := OpenAIModelsResponse{
 			Object: "list",
@@ -257,16 +271,25 @@ func TestDiscoverDeepSeek_UnknownModel_DefaultValues(t *testing.T) {
 	if err != nil {
 		t.Fatalf("discoverDeepSeek failed: %v", err)
 	}
-	if len(models) != 1 {
-		t.Fatalf("Expected 1 model, got %d", len(models))
+	// Unknown live model unioned with the catalog.
+	if len(models) != len(GetDeepSeekModels())+1 {
+		t.Fatalf("Expected catalog+1 merged models, got %d", len(models))
 	}
-	// Unknown model should get default values
-	m := models[0]
-	if m.ContextLength == nil || *m.ContextLength != 128000 {
-		t.Errorf("Expected default ContextLength 128000, got %v", m.ContextLength)
+	var m *model.Model
+	for _, mm := range models {
+		if mm.ModelID == "deepseek-unknown-future-model" {
+			m = mm
+		}
 	}
-	if m.MaxOutputTokens == nil || *m.MaxOutputTokens != 8192 {
-		t.Errorf("Expected default MaxOutputTokens 8192, got %v", m.MaxOutputTokens)
+	if m == nil {
+		t.Fatal("expected unknown live model in merged results")
+	}
+	// No hardcoded default: stub leaves context/max-output nil for models.dev.
+	if m.ContextLength != nil {
+		t.Errorf("expected nil ContextLength (no hardcoded default), got %v", *m.ContextLength)
+	}
+	if m.MaxOutputTokens != nil {
+		t.Errorf("expected nil MaxOutputTokens (no hardcoded default), got %v", *m.MaxOutputTokens)
 	}
 }
 
@@ -316,7 +339,7 @@ func TestDiscoverDeepSeek_CapabilitiesSet(t *testing.T) {
 			Object: "list",
 			Data: []OpenAIModel{
 				{
-					ID:      "deepseek-chat",
+					ID:      "deepseek-v4-flash",
 					Object:  "model",
 					Created: 1234567890,
 					OwnedBy: "deepseek",
@@ -341,12 +364,20 @@ func TestDiscoverDeepSeek_CapabilitiesSet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("discoverDeepSeek failed: %v", err)
 	}
-	if len(models) != 1 {
-		t.Fatalf("Expected 1 model, got %d", len(models))
+	// Streaming + ToolCalling come from the catalog backfill (OR-merged into the
+	// live stub), so use a catalog model id.
+	var m *model.Model
+	for _, mm := range models {
+		if mm.ModelID == "deepseek-v4-flash" {
+			m = mm
+		}
+	}
+	if m == nil {
+		t.Fatal("expected deepseek-v4-flash in merged results")
 	}
 
 	var caps model.Capability
-	if err := json.Unmarshal([]byte(models[0].Capabilities), &caps); err != nil {
+	if err := json.Unmarshal([]byte(m.Capabilities), &caps); err != nil {
 		t.Fatalf("Failed to unmarshal capabilities: %v", err)
 	}
 	if !caps.Streaming {
@@ -388,12 +419,22 @@ func TestDiscoverDeepSeek_CatalogReasoning(t *testing.T) {
 	if err != nil {
 		t.Fatalf("discoverDeepSeek failed: %v", err)
 	}
-	if len(models) != 1 {
-		t.Fatalf("Expected 1 model, got %d", len(models))
+	// Live v4-pro (first) merges with its catalog entry; v4-flash unions in.
+	if len(models) != len(GetDeepSeekModels()) {
+		t.Fatalf("Expected catalog-count merged models, got %d", len(models))
+	}
+	var m *model.Model
+	for _, mm := range models {
+		if mm.ModelID == "deepseek-v4-pro" {
+			m = mm
+		}
+	}
+	if m == nil {
+		t.Fatal("expected deepseek-v4-pro in merged results")
 	}
 
 	var caps model.Capability
-	if err := json.Unmarshal([]byte(models[0].Capabilities), &caps); err != nil {
+	if err := json.Unmarshal([]byte(m.Capabilities), &caps); err != nil {
 		t.Fatalf("Failed to unmarshal capabilities: %v", err)
 	}
 	if !caps.Reasoning {

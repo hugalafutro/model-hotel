@@ -1629,7 +1629,9 @@
 			"testNotification": "Notificació de prova: veuràs toasts aquí",
 			"autoDismiss": "Tancar automàticament",
 			"autoDismissDescription": "Quant de temps es mantenen visibles els toasts abans de desvanir-se?",
-			"seconds": "{{seconds}}s"
+			"seconds": "{{seconds}}s",
+			"fuseEffect": "Efectes Toast Fuse",
+			"fuseEffectDescription": "Contorn animat d'una metxa encesa que traça el pa torrat mentre compta a la baixa"
 		},
 		"dashboard": {
 			"title": "Actualització del tauler de control",
@@ -1908,7 +1910,8 @@
 			"deleteDisabledMessage_other": "Això suprimirà permanentment els models desactivats de {{count}} . Si l'autodetecció està habilitada al seu proveïdor, es tornaran a descobrir en el següent cicle. Desactiva l'autodetecció al proveïdor per evitar-ho.",
 			"clickToCopyId": "Feu clic per copiar l'ID del model",
 			"deleteDisabledLabel_one": "{{count}} model·la amb discapacitat",
-			"deleteDisabledLabel_other": "{{count}} models discapacitats"
+			"deleteDisabledLabel_other": "{{count}} models discapacitats",
+			"clickToCopyName": "Feu clic per copiar el nom del model"
 		},
 		"virtualModelTable": {
 			"searchModels": "Cerca de models…",

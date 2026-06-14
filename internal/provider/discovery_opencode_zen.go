@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/google/uuid"
-
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -33,41 +31,40 @@ func (d *DiscoveryService) discoverOpenCodeZen(ctx context.Context, provider *Pr
 	}
 
 	catalog := GetOpenCodeZenCatalog()
-	keyless := len(provider.EncryptedKey) == 0
 
-	models := make([]*model.Model, 0, len(openAIResp.Data))
-	for _, m := range openAIResp.Data {
-		spec := LookupOpenCodeCatalog(catalog, m.ID)
-
-		if keyless {
+	// Keyless providers can only reach free models, identified by a zero-priced
+	// catalog entry. Emit exactly those (with catalog metadata) and do NOT union
+	// the rest of the catalog, preserving the original keyless behavior — a
+	// keyless caller must not be shown models it cannot use.
+	if len(provider.EncryptedKey) == 0 {
+		models := make([]*model.Model, 0, len(openAIResp.Data))
+		for _, m := range openAIResp.Data {
+			spec := LookupOpenCodeCatalog(catalog, m.ID)
 			if spec == nil || spec.InputPricePerMillion > 0 || spec.OutputPricePerMillion > 0 {
-				debuglog.Info("discovery: opencode-zen skipping paid model", "model", m.ID, "provider", provider.Name, "provider_id", provider.ID)
+				debuglog.Info("discovery: opencode-zen skipping paid/unknown model (keyless)", "model", m.ID, "provider", provider.Name, "provider_id", provider.ID)
 				continue
 			}
+			models = append(models, OpenCodeCatalogToModel(spec, provider.ID, "opencode"))
 		}
-
-		if spec == nil {
-			debuglog.Warn("discovery: opencode-zen model not in catalog", "model", m.ID)
-			capJSON, _ := json.Marshal(model.Capability{Streaming: true})
-			models = append(models, &model.Model{
-				ID:               uuid.New(),
-				ProviderID:       provider.ID,
-				ModelID:          m.ID,
-				Name:             m.ID,
-				DisplayName:      m.ID,
-				Capabilities:     string(capJSON),
-				Params:           "{}",
-				Modality:         "text",
-				InputModalities:  "[]",
-				OutputModalities: "[]",
-				OwnedBy:          m.OwnedBy,
-				Enabled:          true,
-			})
-			continue
-		}
-		models = append(models, OpenCodeCatalogToModel(spec, provider.ID, "opencode"))
+		debuglog.Info("discovery: opencode-zen discovered free models (keyless)", "models", len(models), "provider", provider.Name, "provider_id", provider.ID)
+		return models, nil
 	}
 
-	debuglog.Info("discovery: opencode-zen discovered models", "models", len(models), "provider", provider.Name, "provider_id", provider.ID)
-	return models, nil
+	// Keyed providers: union the live listing with the full catalog (live wins,
+	// catalog backfills metadata and adds models the listing omits).
+	catalogModels := opencodeCatalogModels(catalog, provider.ID, "opencode")
+	live := make([]*model.Model, 0, len(openAIResp.Data))
+	for _, m := range openAIResp.Data {
+		live = append(live, liveModelStub(m.ID, m.OwnedBy, provider.ID))
+	}
+	// Empty-but-successful listing: return empty rather than the catalog so
+	// DisableMissingModels stays a no-op instead of disabling live-only models.
+	if len(live) == 0 {
+		debuglog.Warn("discovery: opencode-zen /models returned no models, skipping", "provider", provider.Name, "provider_id", provider.ID)
+		return live, nil
+	}
+
+	merged := mergeLiveAndCatalog(live, catalogModels)
+	debuglog.Info("discovery: opencode-zen discovered models", "models", len(merged), "provider", provider.Name, "provider_id", provider.ID, "live", len(live), "catalog", len(catalogModels))
+	return merged, nil
 }

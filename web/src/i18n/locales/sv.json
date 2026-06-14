@@ -1629,7 +1629,9 @@
 			"testNotification": "Testmeddelande - du ser toasts här",
 			"autoDismiss": "Avfärda automatiskt",
 			"autoDismissDescription": "Hur länge rostarna är synliga innan de bleknar ut",
-			"seconds": "{{seconds}}s"
+			"seconds": "{{seconds}}s",
+			"fuseEffect": "Toast Fuse-effekt",
+			"fuseEffectDescription": "Animerad kontur av en brinnande tändsats som följer toastmeddelandet medan det räknar ner"
 		},
 		"dashboard": {
 			"title": "Uppdatera infopanel",
@@ -1908,7 +1910,8 @@
 			"deleteDisabledMessage_other": "Detta kommer att ta bort {{count}} inaktiverade modeller. Om autodiscovery är aktiverat på deras leverantör, kommer de att återupptäckas på nästa cykel. Inaktivera autodiscovery på leverantören för att förhindra detta.",
 			"clickToCopyId": "Klicka för att kopiera modell-ID",
 			"deleteDisabledLabel_one": "{{count}} inaktiverad modell",
-			"deleteDisabledLabel_other": "{{count}} inaktiverade modeller"
+			"deleteDisabledLabel_other": "{{count}} inaktiverade modeller",
+			"clickToCopyName": "Klicka för att kopiera modellnamn"
 		},
 		"virtualModelTable": {
 			"searchModels": "Sök modeller…",

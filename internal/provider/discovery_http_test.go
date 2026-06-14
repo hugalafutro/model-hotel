@@ -270,8 +270,10 @@ func TestDiscoverOpenCodeGo_EmptyResponse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("discoverOpenCodeGo failed: %v", err)
 	}
+	// Empty-but-successful listing returns empty (no catalog union), so the
+	// discovered set stays empty and DisableMissingModels is a no-op.
 	if len(models) != 0 {
-		t.Errorf("expected 0 models for empty response, got %d", len(models))
+		t.Errorf("expected 0 models for empty live response, got %d", len(models))
 	}
 }
 
@@ -310,13 +312,19 @@ func TestDiscoverOpenCodeGo(t *testing.T) {
 		t.Fatalf("discoverOpenCodeGo failed: %v", err)
 	}
 
-	if len(models) != 1 {
-		t.Fatalf("expected 1 model, got %d", len(models))
+	// Live "gpt-4" (not in catalog) unions with the catalog.
+	if len(models) != len(GetOpenCodeGoCatalog())+1 {
+		t.Fatalf("expected catalog+1 merged models, got %d", len(models))
 	}
 
-	m := models[0]
-	if m.ModelID != "gpt-4" {
-		t.Errorf("expected model ID 'gpt-4', got '%s'", m.ModelID)
+	var m *model.Model
+	for _, mm := range models {
+		if mm.ModelID == "gpt-4" {
+			m = mm
+		}
+	}
+	if m == nil {
+		t.Fatal("expected live 'gpt-4' present in merged results")
 	}
 	if m.OwnedBy != "test" {
 		t.Errorf("expected OwnedBy 'test', got '%s'", m.OwnedBy)
@@ -359,13 +367,19 @@ func TestDiscoverOpenCodeGo_UnknownModelNotInCatalog(t *testing.T) {
 		t.Fatalf("discoverOpenCodeGo failed: %v", err)
 	}
 
-	if len(models) != 1 {
-		t.Fatalf("expected 1 model for unknown model (minimal entry), got %d", len(models))
+	// Unknown live model unions with the catalog.
+	if len(models) != len(GetOpenCodeGoCatalog())+1 {
+		t.Fatalf("expected catalog+1 merged models, got %d", len(models))
 	}
 
-	m := models[0]
-	if m.ModelID != "totally-unknown-model-not-in-catalog" {
-		t.Errorf("expected model ID 'totally-unknown-model-not-in-catalog', got '%s'", m.ModelID)
+	var m *model.Model
+	for _, mm := range models {
+		if mm.ModelID == "totally-unknown-model-not-in-catalog" {
+			m = mm
+		}
+	}
+	if m == nil {
+		t.Fatal("expected unknown live model present in merged results")
 	}
 	if m.OwnedBy != "unknown-vendor" {
 		t.Errorf("expected OwnedBy 'unknown-vendor', got '%s'", m.OwnedBy)
@@ -411,12 +425,22 @@ func TestDiscoverOpenCodeGo_MixedCatalogAndUnknown(t *testing.T) {
 		t.Fatalf("discoverOpenCodeGo failed: %v", err)
 	}
 
-	if len(models) != 1 {
-		t.Fatalf("expected 1 model, got %d", len(models))
+	// Unknown live model unions with the catalog.
+	if len(models) != len(GetOpenCodeGoCatalog())+1 {
+		t.Fatalf("expected catalog+1 merged models, got %d", len(models))
+	}
+	var unknown *model.Model
+	for _, mm := range models {
+		if mm.ModelID == "totally-unknown-model-xyz" {
+			unknown = mm
+		}
+	}
+	if unknown == nil {
+		t.Fatal("expected unknown live model present in merged results")
 	}
 	// Unknown model should get a minimal entry with streaming capability
 	var caps model.Capability
-	if err := json.Unmarshal([]byte(models[0].Capabilities), &caps); err != nil {
+	if err := json.Unmarshal([]byte(unknown.Capabilities), &caps); err != nil {
 		t.Fatalf("Failed to unmarshal capabilities: %v", err)
 	}
 	if !caps.Streaming {
@@ -621,12 +645,23 @@ func TestDiscoverOpenCodeZen(t *testing.T) {
 	}
 }
 
-// Test discoverZAICoding (uses static catalog, no HTTP needed)
+// Test discoverZAICoding against a mock live /models endpoint: live models are
+// merged with the embedded catalog (live wins, catalog backfills + unions).
 func TestDiscoverZAICoding(t *testing.T) {
-	svc := &DiscoveryService{httpClient: http.DefaultClient}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/models") {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"object":"list","data":[{"id":"glm-5.1","object":"model","owned_by":"z-ai"}]}`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	svc := &DiscoveryService{httpClient: &http.Client{Transport: &testTransport{url: server.URL}}}
 	provider := &Provider{
 		ID:      uuid.New(),
-		BaseURL: "https://api.z.ai",
+		BaseURL: "https://api.z.ai/api/coding/paas/v4",
 	}
 
 	ctx := context.Background()
@@ -636,22 +671,40 @@ func TestDiscoverZAICoding(t *testing.T) {
 	}
 
 	if len(models) == 0 {
-		t.Fatal("expected at least one model from ZAI catalog")
+		t.Fatal("expected at least one model from ZAI discovery")
 	}
 
-	// Check first model has required fields
-	m := models[0]
-	if m.ModelID == "" {
-		t.Error("expected ModelID to be set")
+	// Find the live-listed glm-5.1 and verify catalog backfill + owner mapping.
+	var live51 *model.Model
+	for _, m := range models {
+		if m.ModelID == "glm-5.1" {
+			live51 = m
+		}
 	}
-	if m.OwnedBy != "zhipu" {
-		t.Errorf("expected OwnedBy 'zhipu', got '%s'", m.OwnedBy)
+	if live51 == nil {
+		t.Fatal("expected glm-5.1 from live listing")
 	}
-
+	if live51.OwnedBy != "zhipu" {
+		t.Errorf("expected OwnedBy 'zhipu' (z-ai normalized), got '%s'", live51.OwnedBy)
+	}
+	if live51.ContextLength == nil || *live51.ContextLength <= 0 {
+		t.Error("expected ContextLength backfilled from catalog")
+	}
 	var caps model.Capability
-	json.Unmarshal([]byte(m.Capabilities), &caps)
+	json.Unmarshal([]byte(live51.Capabilities), &caps)
 	if !caps.Streaming {
-		t.Error("expected Streaming=true")
+		t.Error("expected Streaming=true after catalog backfill")
+	}
+
+	// glm-5.2 is catalog-only (not in the live list) and must be unioned in.
+	var found52 bool
+	for _, m := range models {
+		if m.ModelID == "glm-5.2" {
+			found52 = true
+		}
+	}
+	if !found52 {
+		t.Error("expected catalog-only glm-5.2 to be unioned into discovery results")
 	}
 }
 

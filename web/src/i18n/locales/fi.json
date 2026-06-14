@@ -1629,7 +1629,9 @@
 			"testNotification": "Testi-ilmoitus - näet paahdetut täältä",
 			"autoDismiss": "Hylkää automaattisesti",
 			"autoDismissDescription": "Kuinka kauan paahtoleivät pysyvät näkyvissä ennen haalistumista",
-			"seconds": "{{seconds}}s"
+			"seconds": "{{seconds}}s",
+			"fuseEffect": "Toast Fuse -efekti",
+			"fuseEffectDescription": "Animoitu palava sytytyslanka, joka seuraa ilmoitusta sen laskiessa"
 		},
 		"dashboard": {
 			"title": "Kojelaudan Päivitys",
@@ -1908,7 +1910,8 @@
 			"deleteDisabledMessage_other": "Tämä poistaa pysyvästi {{count}} käytöstä poistetut mallit. Jos autodiskointi on käytössä palveluntarjoajassa, ne löydetään uudelleen seuraavan syklin aikana. Ota automaattinen diskointi pois käytöstä estääksesi tämän.",
 			"clickToCopyId": "Klikkaa kopioidaksesi mallin ID",
 			"deleteDisabledLabel_one": "{{count}} poistettu käytöstä",
-			"deleteDisabledLabel_other": "{{count}} käytöstä poistetut mallit"
+			"deleteDisabledLabel_other": "{{count}} käytöstä poistetut mallit",
+			"clickToCopyName": "Klikkaa kopioidaksesi mallin nimen"
 		},
 		"virtualModelTable": {
 			"searchModels": "Etsi malleja…",

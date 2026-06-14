@@ -19,14 +19,30 @@ import (
 // discoverZAICoding — catalog-based discovery (no HTTP needed)
 // ---------------------------------------------------------------------------
 
+func zaiMockServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/models") {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"object":"list","data":[{"id":"glm-5.1","object":"model","owned_by":"z-ai"}]}`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+}
+
 func TestDiscoverZAICoding_ReturnsModels(t *testing.T) {
+	server := zaiMockServer(t)
+	defer server.Close()
+
 	service := &DiscoveryService{
-		httpClient: http.DefaultClient,
+		httpClient: &http.Client{Transport: &testTransport{url: server.URL}},
 	}
 
 	provider := &Provider{
-		ID:   uuid.New(),
-		Name: "test-zai",
+		ID:      uuid.New(),
+		Name:    "test-zai",
+		BaseURL: "https://api.z.ai/api/coding/paas/v4",
 	}
 
 	models, err := service.discoverZAICoding(context.Background(), provider, "test-api-key")
@@ -34,7 +50,7 @@ func TestDiscoverZAICoding_ReturnsModels(t *testing.T) {
 		t.Fatalf("discoverZAICoding failed: %v", err)
 	}
 	if len(models) == 0 {
-		t.Error("Expected at least one model from zai-coding catalog")
+		t.Error("Expected at least one model from zai-coding discovery")
 	}
 
 	for _, m := range models {
@@ -60,13 +76,17 @@ func TestDiscoverZAICoding_ReturnsModels(t *testing.T) {
 }
 
 func TestDiscoverZAICoding_VisionModelCapabilities(t *testing.T) {
+	server := zaiMockServer(t)
+	defer server.Close()
+
 	service := &DiscoveryService{
-		httpClient: http.DefaultClient,
+		httpClient: &http.Client{Transport: &testTransport{url: server.URL}},
 	}
 
 	provider := &Provider{
-		ID:   uuid.New(),
-		Name: "test-zai",
+		ID:      uuid.New(),
+		Name:    "test-zai",
+		BaseURL: "https://api.z.ai/api/coding/paas/v4",
 	}
 
 	models, err := service.discoverZAICoding(context.Background(), provider, "test-api-key")
@@ -97,6 +117,70 @@ func TestDiscoverZAICoding_VisionModelCapabilities(t *testing.T) {
 	}
 	if !found {
 		t.Skip("No vision model in zai-coding catalog - skipping vision capability test")
+	}
+}
+
+// TestDiscoverZAICoding_LiveFailureAborts verifies that when the live /models
+// endpoint errors, discovery aborts (returns an error) rather than falling back
+// to the catalog — so DisableMissingModels never runs and existing models are
+// preserved instead of having live-only models disabled.
+func TestDiscoverZAICoding_LiveFailureAborts(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "boom", http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	svc := &DiscoveryService{httpClient: &http.Client{Transport: &testTransport{url: server.URL}}}
+	provider := &Provider{
+		ID:      uuid.New(),
+		Name:    "test-zai",
+		BaseURL: "https://api.z.ai/api/coding/paas/v4",
+	}
+
+	models, err := svc.discoverZAICoding(context.Background(), provider, "test-key")
+	if err == nil {
+		t.Fatal("expected an error when live /models fails (abort, no catalog fallback)")
+	}
+	if models != nil {
+		t.Errorf("expected nil models on abort, got %d", len(models))
+	}
+}
+
+// TestDiscoverZAICoding_LiveOnlyModelPassesThrough verifies a model the live
+// API lists but the catalog does not know about still surfaces.
+func TestDiscoverZAICoding_LiveOnlyModelPassesThrough(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/models") {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"object":"list","data":[{"id":"glm-future-unlisted","object":"model","owned_by":"z-ai"}]}`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	svc := &DiscoveryService{httpClient: &http.Client{Transport: &testTransport{url: server.URL}}}
+	provider := &Provider{
+		ID:      uuid.New(),
+		Name:    "test-zai",
+		BaseURL: "https://api.z.ai/api/coding/paas/v4",
+	}
+
+	models, err := svc.discoverZAICoding(context.Background(), provider, "test-key")
+	if err != nil {
+		t.Fatalf("discoverZAICoding failed: %v", err)
+	}
+	var foundLiveOnly bool
+	for _, m := range models {
+		if m.ModelID == "glm-future-unlisted" {
+			foundLiveOnly = true
+			if m.OwnedBy != "zhipu" {
+				t.Errorf("live-only OwnedBy = %q, want zhipu", m.OwnedBy)
+			}
+		}
+	}
+	if !foundLiveOnly {
+		t.Error("expected live-only model to pass through discovery")
 	}
 }
 
