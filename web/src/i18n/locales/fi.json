@@ -846,7 +846,8 @@
 				"price": "0.00"
 			},
 			"testSuccess": "Onnistui: {{content}}{{ttftPart}} ¶ Kesto: {{duration}}s",
-			"testFailed": "Testi epäonnistui: {{error}}"
+			"testFailed": "Testi epäonnistui: {{error}}",
+			"testSuccessNoResponse": "Success{{ttftPart}} | Kesto: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Järjestä mallin nimen mukaan",
@@ -1908,9 +1909,7 @@
 			"deleteDisabledAria_other": "Poista {{count}} käytöstä poistetut mallit",
 			"deleteDisabledMessage_one": "Tämä poistaa pysyvästi {{count}} käytöstä poistetun mallin. Jos autodiskointi on käytössä palveluntarjoajassa, ne löydetään uudelleen seuraavassa syklissä. Poista automaattinen etsintä käytöstä palveluntarjoajalta estääksesi tämän.",
 			"deleteDisabledMessage_other": "Tämä poistaa pysyvästi {{count}} käytöstä poistetut mallit. Jos autodiskointi on käytössä palveluntarjoajassa, ne löydetään uudelleen seuraavan syklin aikana. Ota automaattinen diskointi pois käytöstä estääksesi tämän.",
-			"clickToCopyId": "Klikkaa kopioidaksesi mallin ID",
-			"deleteDisabledLabel_one": "{{count}} poistettu käytöstä",
-			"deleteDisabledLabel_other": "{{count}} käytöstä poistetut mallit"
+			"clickToCopyId": "Klikkaa kopioidaksesi mallin ID"
 		},
 		"virtualModelTable": {
 			"searchModels": "Etsi malleja…",
@@ -1920,9 +1919,7 @@
 			"deleteDisabledAria_one": "Poista {{count}} pois käytöstä -malli",
 			"deleteDisabledAria_other": "Poista {{count}} käytöstä poistetut mallit",
 			"deleteDisabledMessage_one": "Tämä poistaa pysyvästi {{count}} käytöstä poistetun mallin. Jos autodiskointi on käytössä palveluntarjoajassa, ne löydetään uudelleen seuraavassa syklissä. Poista automaattinen etsintä käytöstä palveluntarjoajalta estääksesi tämän.",
-			"deleteDisabledMessage_other": "Tämä poistaa pysyvästi {{count}} käytöstä poistetut mallit. Jos autodiskointi on käytössä palveluntarjoajassa, ne löydetään uudelleen seuraavan syklin aikana. Ota automaattinen diskointi pois käytöstä estääksesi tämän.",
-			"disabledModels_one": "1 estetty malli",
-			"disabledModels_other": "{{count}} käytöstä poistetut mallit"
+			"deleteDisabledMessage_other": "Tämä poistaa pysyvästi {{count}} käytöstä poistetut mallit. Jos autodiskointi on käytössä palveluntarjoajassa, ne löydetään uudelleen seuraavan syklin aikana. Ota automaattinen diskointi pois käytöstä estääksesi tämän."
 		},
 		"modelReplyCard": {
 			"modelDetails": "Mallin tiedot",

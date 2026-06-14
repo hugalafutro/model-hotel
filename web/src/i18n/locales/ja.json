@@ -846,7 +846,8 @@
 				"price": "0.00"
 			},
 			"testSuccess": "成功 | レスポンス: {{content}}{{ttftPart}} | 期間: {{duration}}s",
-			"testFailed": "テストに失敗しました: {{error}}"
+			"testFailed": "テストに失敗しました: {{error}}",
+			"testSuccessNoResponse": "Success{{ttftPart}} | 所要時間: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "モデル名でソート",
@@ -1908,9 +1909,7 @@
 			"deleteDisabledAria_other": "無効化されたモデル {{count}} を削除",
 			"deleteDisabledMessage_one": "{{count}} を無効にしたモデルは永久に削除されます。プロバイダで自動検出が有効になっている場合、次のサイクルで再発見されます。 プロバイダの自動検出を無効にしてこれを防止します。",
 			"deleteDisabledMessage_other": "無効化された {{count}} モデルは完全に削除されます。 プロバイダーで自動検出が有効になっている場合、次のサイクルで再発見されます。プロバイダーの自動検出を無効にしてこれを防止します。",
-			"clickToCopyId": "クリックしてモデル ID をコピー",
-			"deleteDisabledLabel_one": "{{count}} はモデルを無効にしました",
-			"deleteDisabledLabel_other": "{{count}} はモデルを無効にしました"
+			"clickToCopyId": "クリックしてモデル ID をコピー"
 		},
 		"virtualModelTable": {
 			"searchModels": "モデルを検索…",
@@ -1920,9 +1919,7 @@
 			"deleteDisabledAria_one": "{{count}} 無効化されたモデルを削除",
 			"deleteDisabledAria_other": "無効化されたモデル {{count}} を削除",
 			"deleteDisabledMessage_one": "{{count}} を無効にしたモデルは永久に削除されます。プロバイダで自動検出が有効になっている場合、次のサイクルで再発見されます。 プロバイダの自動検出を無効にしてこれを防止します。",
-			"deleteDisabledMessage_other": "無効化された {{count}} モデルは完全に削除されます。 プロバイダーで自動検出が有効になっている場合、次のサイクルで再発見されます。プロバイダーの自動検出を無効にしてこれを防止します。",
-			"disabledModels_one": "1つの無効化されたモデル",
-			"disabledModels_other": "{{count}} はモデルを無効にしました"
+			"deleteDisabledMessage_other": "無効化された {{count}} モデルは完全に削除されます。 プロバイダーで自動検出が有効になっている場合、次のサイクルで再発見されます。プロバイダーの自動検出を無効にしてこれを防止します。"
 		},
 		"modelReplyCard": {
 			"modelDetails": "モデルの詳細",

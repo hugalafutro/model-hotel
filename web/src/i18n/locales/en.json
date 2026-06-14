@@ -846,6 +846,7 @@
 				"price": "0.00"
 			},
 			"testSuccess": "Success | Response: {{content}}{{ttftPart}} | Duration: {{duration}}s",
+			"testSuccessNoResponse": "Success{{ttftPart}} | Duration: {{duration}}s",
 			"testFailed": "Test failed: {{error}}"
 		},
 		"table": {
@@ -1908,9 +1909,7 @@
 			"deleteDisabledAria_other": "Delete {{count}} disabled models",
 			"deleteDisabledMessage_one": "This will permanently delete {{count}} disabled model. If autodiscovery is enabled on their provider, they will be re-discovered on the next cycle. Disable autodiscovery on the provider to prevent this.",
 			"deleteDisabledMessage_other": "This will permanently delete {{count}} disabled models. If autodiscovery is enabled on their provider, they will be re-discovered on the next cycle. Disable autodiscovery on the provider to prevent this.",
-			"clickToCopyId": "Click to copy model ID",
-			"deleteDisabledLabel_one": "{{count}} disabled model",
-			"deleteDisabledLabel_other": "{{count}} disabled models"
+			"clickToCopyId": "Click to copy model ID"
 		},
 		"virtualModelTable": {
 			"searchModels": "Search models…",
@@ -1920,9 +1919,7 @@
 			"deleteDisabledAria_one": "Delete {{count}} disabled model",
 			"deleteDisabledAria_other": "Delete {{count}} disabled models",
 			"deleteDisabledMessage_one": "This will permanently delete {{count}} disabled model. If autodiscovery is enabled on their provider, they will be re-discovered on the next cycle. Disable autodiscovery on the provider to prevent this.",
-			"deleteDisabledMessage_other": "This will permanently delete {{count}} disabled models. If autodiscovery is enabled on their provider, they will be re-discovered on the next cycle. Disable autodiscovery on the provider to prevent this.",
-			"disabledModels_one": "1 disabled model",
-			"disabledModels_other": "{{count}} disabled models"
+			"deleteDisabledMessage_other": "This will permanently delete {{count}} disabled models. If autodiscovery is enabled on their provider, they will be re-discovered on the next cycle. Disable autodiscovery on the provider to prevent this."
 		},
 		"modelReplyCard": {
 			"modelDetails": "Model details",

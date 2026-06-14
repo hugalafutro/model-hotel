@@ -846,7 +846,8 @@
 				"price": "0.00"
 			},
 			"testSuccess": "Succes - Svar: {{content}}{{ttftPart}} - Varighed: {{duration}}s",
-			"testFailed": "Test mislykkedes: {{error}}"
+			"testFailed": "Test mislykkedes: {{error}}",
+			"testSuccessNoResponse": "Success{{ttftPart}} | Varighed: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Sorter efter modelnavn",
@@ -1908,9 +1909,7 @@
 			"deleteDisabledAria_other": "Slet {{count}} deaktiverede modeller",
 			"deleteDisabledMessage_one": "Dette vil permanent slette {{count}} deaktiveret model. Hvis autodiscovery er aktiveret på deres udbyder, vil de blive genopdaget den næste cyklus. Deaktivér autodiscovery på udbyderen for at forhindre dette.",
 			"deleteDisabledMessage_other": "Dette vil permanent slette {{count}} deaktiverede modeller. Hvis autodiscovery er aktiveret på deres udbyder, vil de blive genopdaget på den næste cyklus. Deaktivér autodiscovery på udbyderen for at forhindre dette.",
-			"clickToCopyId": "Klik for at kopiere model ID",
-			"deleteDisabledLabel_one": "{{count}} deaktiveret model",
-			"deleteDisabledLabel_other": "{{count}} deaktiverede modeller"
+			"clickToCopyId": "Klik for at kopiere model ID"
 		},
 		"virtualModelTable": {
 			"searchModels": "Søg i modeller…",
@@ -1920,9 +1919,7 @@
 			"deleteDisabledAria_one": "Slet {{count}} deaktiveret model",
 			"deleteDisabledAria_other": "Slet {{count}} deaktiverede modeller",
 			"deleteDisabledMessage_one": "Dette vil permanent slette {{count}} deaktiveret model. Hvis autodiscovery er aktiveret på deres udbyder, vil de blive genopdaget den næste cyklus. Deaktivér autodiscovery på udbyderen for at forhindre dette.",
-			"deleteDisabledMessage_other": "Dette vil permanent slette {{count}} deaktiverede modeller. Hvis autodiscovery er aktiveret på deres udbyder, vil de blive genopdaget på den næste cyklus. Deaktivér autodiscovery på udbyderen for at forhindre dette.",
-			"disabledModels_one": "1 deaktiveret model",
-			"disabledModels_other": "{{count}} deaktiverede modeller"
+			"deleteDisabledMessage_other": "Dette vil permanent slette {{count}} deaktiverede modeller. Hvis autodiscovery er aktiveret på deres udbyder, vil de blive genopdaget på den næste cyklus. Deaktivér autodiscovery på udbyderen for at forhindre dette."
 		},
 		"modelReplyCard": {
 			"modelDetails": "Model detaljer",

@@ -373,8 +373,13 @@ func (h *Handler) decryptTestModelKey(w http.ResponseWriter, prov *provider.Prov
 }
 
 // buildTestModelRequest constructs the upstream chat-completions probe request
-// (a one-token "Respond only with `Hi`" prompt) with provider-appropriate auth
+// (a short "Respond only with `Hi`" prompt) with provider-appropriate auth
 // headers, and returns it alongside a fresh random request hash for logging.
+//
+// max_tokens is kept small: the test only confirms the model responds. A
+// reasoning model may spend the whole budget on reasoning and return empty
+// content — that still counts as success, and the UI omits the response text
+// when it's empty rather than paying for a full reasoning generation.
 func buildTestModelRequest(ctx context.Context, m *model.Model, prov *provider.Provider, apiKey string) (*http.Request, string) {
 	body := map[string]interface{}{
 		"model": m.ModelID,

@@ -846,7 +846,8 @@
 				"price": "0.00"
 			},
 			"testSuccess": "Suksess- respons: {{content}}{{ttftPart}} ° Varighet: {{duration}}s",
-			"testFailed": "Test feilet: {{error}}"
+			"testFailed": "Test feilet: {{error}}",
+			"testSuccessNoResponse": "Success{{ttftPart}} | Varighet: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Sorter etter modellnavn",
@@ -1908,9 +1909,7 @@
 			"deleteDisabledAria_other": "Slett modeller for {{count}} deaktivert",
 			"deleteDisabledMessage_one": "Dette vil slette {{count}} deaktivert modell. Hvis autodiscovery er aktivert på deres leverandør, vil de bli oppdaget på nytt i neste syklus. Deaktiver autodiscovery på leverandøren for å forhindre dette.",
 			"deleteDisabledMessage_other": "Dette vil slette {{count}} deaktiverte modeller. Hvis autodiscovery er aktivert på leverandøren deres, vil de bli oppdaget på nytt neste syklus. Deaktiver autodiscovery på leverandøren for å forhindre dette.",
-			"clickToCopyId": "Klikk for å kopiere modell-ID",
-			"deleteDisabledLabel_one": "{{count}} deaktivert modell",
-			"deleteDisabledLabel_other": "{{count}} deaktiverte modeller"
+			"clickToCopyId": "Klikk for å kopiere modell-ID"
 		},
 		"virtualModelTable": {
 			"searchModels": "Søk modeller…",
@@ -1920,9 +1919,7 @@
 			"deleteDisabledAria_one": "Slett den deaktiverte {{count}} modellen",
 			"deleteDisabledAria_other": "Slett modeller for {{count}} deaktivert",
 			"deleteDisabledMessage_one": "Dette vil slette {{count}} deaktivert modell. Hvis autodiscovery er aktivert på deres leverandør, vil de bli oppdaget på nytt i neste syklus. Deaktiver autodiscovery på leverandøren for å forhindre dette.",
-			"deleteDisabledMessage_other": "Dette vil slette {{count}} deaktiverte modeller. Hvis autodiscovery er aktivert på leverandøren deres, vil de bli oppdaget på nytt neste syklus. Deaktiver autodiscovery på leverandøren for å forhindre dette.",
-			"disabledModels_one": "1 deaktivert modell",
-			"disabledModels_other": "{{count}} deaktiverte modeller"
+			"deleteDisabledMessage_other": "Dette vil slette {{count}} deaktiverte modeller. Hvis autodiscovery er aktivert på leverandøren deres, vil de bli oppdaget på nytt neste syklus. Deaktiver autodiscovery på leverandøren for å forhindre dette."
 		},
 		"modelReplyCard": {
 			"modelDetails": "Modell detaljer",

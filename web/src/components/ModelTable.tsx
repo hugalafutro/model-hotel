@@ -162,9 +162,13 @@ export function ModelTable({
 		};
 	}, [models, searchQuery, sort, capFilter, providerFilter]);
 
-	const disabledModelIds = useMemo(
-		() => sortedAndFiltered.filter((m) => !m.enabled).map((m) => m.id),
+	const disabledModels = useMemo(
+		() => sortedAndFiltered.filter((m) => !m.enabled),
 		[sortedAndFiltered],
+	);
+	const disabledModelIds = useMemo(
+		() => disabledModels.map((m) => m.id),
+		[disabledModels],
 	);
 	const disabledCount = disabledModelIds.length;
 
@@ -456,11 +460,9 @@ export function ModelTable({
 					message={t("components.modelTable.deleteDisabledMessage", {
 						count: disabledCount,
 					})}
-					fields={[
-						t("components.modelTable.deleteDisabledLabel", {
-							count: disabledCount,
-						}),
-					]}
+					fields={disabledModels.map((m) =>
+						proxyModelID(m.provider_name, m.model_id),
+					)}
 					confirmLabel={t("common.delete")}
 					onConfirm={() => {
 						onDeleteDisabled?.(disabledModelIds);

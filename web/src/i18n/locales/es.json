@@ -846,7 +846,8 @@
 				"price": "0.00"
 			},
 			"testSuccess": "Éxito | Respuesta: {{content}}{{ttftPart}} | Duración: {{duration}}s",
-			"testFailed": "Prueba fallida: {{error}}"
+			"testFailed": "Prueba fallida: {{error}}",
+			"testSuccessNoResponse": "Success{{ttftPart}} | Duración: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Ordenar por nombre del modelo",
@@ -1908,9 +1909,7 @@
 			"deleteDisabledAria_other": "Eliminar modelos deshabilitados {{count}}",
 			"deleteDisabledMessage_one": "Esto eliminará permanentemente el modelo {{count}} desactivado. Si el autodescubrimiento está activado en su proveedor, será re-descubierto en el siguiente ciclo. Desactivar el autodescubrimiento en el proveedor para evitar esto.",
 			"deleteDisabledMessage_other": "Esto eliminará permanentemente los modelos deshabilitados {{count}} . Si el autodescubrimiento está activado en su proveedor, serán redescubiertos en el siguiente ciclo. Deshabilita el autodescubrimiento en el proveedor para evitarlo.",
-			"clickToCopyId": "Haga clic para copiar el ID del modelo",
-			"deleteDisabledLabel_one": "modelo {{count}} deshabilitado",
-			"deleteDisabledLabel_other": "{{count}} modelos deshabilitados"
+			"clickToCopyId": "Haga clic para copiar el ID del modelo"
 		},
 		"virtualModelTable": {
 			"searchModels": "Buscar modelos…",
@@ -1920,9 +1919,7 @@
 			"deleteDisabledAria_one": "Eliminar modelo deshabilitado {{count}}",
 			"deleteDisabledAria_other": "Eliminar modelos deshabilitados {{count}}",
 			"deleteDisabledMessage_one": "Esto eliminará permanentemente el modelo {{count}} desactivado. Si el autodescubrimiento está activado en su proveedor, será re-descubierto en el siguiente ciclo. Desactivar el autodescubrimiento en el proveedor para evitar esto.",
-			"deleteDisabledMessage_other": "Esto eliminará permanentemente los modelos deshabilitados {{count}} . Si el autodescubrimiento está activado en su proveedor, serán redescubiertos en el siguiente ciclo. Deshabilita el autodescubrimiento en el proveedor para evitarlo.",
-			"disabledModels_one": "1 modelo desactivado",
-			"disabledModels_other": "{{count}} modelos deshabilitados"
+			"deleteDisabledMessage_other": "Esto eliminará permanentemente los modelos deshabilitados {{count}} . Si el autodescubrimiento está activado en su proveedor, serán redescubiertos en el siguiente ciclo. Deshabilita el autodescubrimiento en el proveedor para evitarlo."
 		},
 		"modelReplyCard": {
 			"modelDetails": "Detalles del modelo",

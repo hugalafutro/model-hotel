@@ -846,7 +846,8 @@
 				"price": "0,00"
 			},
 			"testSuccess": "Siker | Válasz: {{content}}{{ttftPart}} | Időtartam: {{duration}}másodperc",
-			"testFailed": "A teszt sikertelen: {{error}}"
+			"testFailed": "A teszt sikertelen: {{error}}",
+			"testSuccessNoResponse": "Success{{ttftPart}} | Időtartam: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Rendezés modellnév szerint",
@@ -1908,9 +1909,7 @@
 			"deleteDisabledAria_other": "Törlés {{count}} letiltott modellek",
 			"deleteDisabledMessage_one": "Ezzel véglegesen törlődik a {{count}} letiltott modell. Ha a szolgáltatónál engedélyezve van az automatikus felismerés, a következő ciklusban a rendszer újra felismeri őket. Ennek megakadályozásához tiltsa le az automatikus felismerést a szolgáltatón.",
 			"deleteDisabledMessage_other": "Ezzel véglegesen törli a {{count}} oldalon található letiltott modelleket. Ha a szolgáltatónál engedélyezve van az automatikus felismerés, a modellek a következő ciklusban újra felismerésre kerülnek. Ennek elkerüléséhez tiltsa le az automatikus felismerést a szolgáltatón.",
-			"clickToCopyId": "Kattintson a modellazonosító másolásához",
-			"deleteDisabledLabel_one": "{{count}} meghibásodott modell",
-			"deleteDisabledLabel_other": "{{count}} mozgássérült modellek"
+			"clickToCopyId": "Kattintson a modellazonosító másolásához"
 		},
 		"virtualModelTable": {
 			"searchModels": "Modellek keresése:…",
@@ -1920,9 +1919,7 @@
 			"deleteDisabledAria_one": "Törlés {{count}} letiltott modell",
 			"deleteDisabledAria_other": "Törlés {{count}} letiltott modellek",
 			"deleteDisabledMessage_one": "Ezzel véglegesen törlődik a {{count}} letiltott modell. Ha a szolgáltatónál engedélyezve van az automatikus felismerés, a következő ciklusban a rendszer újra felismeri őket. Ennek megakadályozásához tiltsa le az automatikus felismerést a szolgáltatónál.",
-			"deleteDisabledMessage_other": "Ezzel véglegesen törlődnek a {{count}} oldalon letiltott modellek. Ha a szolgáltatónál engedélyezve van az automatikus felismerés, a következő ciklusban újra felismerésre kerülnek. Ennek megakadályozásához tiltsa le az automatikus felismerést a szolgáltatónál.",
-			"disabledModels_one": "1 mozgássérült modell",
-			"disabledModels_other": "{{count}} mozgássérült modellek"
+			"deleteDisabledMessage_other": "Ezzel véglegesen törlődnek a {{count}} oldalon letiltott modellek. Ha a szolgáltatónál engedélyezve van az automatikus felismerés, a következő ciklusban újra felismerésre kerülnek. Ennek megakadályozásához tiltsa le az automatikus felismerést a szolgáltatónál."
 		},
 		"modelReplyCard": {
 			"modelDetails": "A modell részletei",

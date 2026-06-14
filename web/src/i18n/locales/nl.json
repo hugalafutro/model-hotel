@@ -846,7 +846,8 @@
 				"price": "0.00"
 			},
 			"testSuccess": "Succes ½ Reactie: {{content}}{{ttftPart}} {{ttftPart}} s Duur: {{duration}}s",
-			"testFailed": "Test mislukt: {{error}}"
+			"testFailed": "Test mislukt: {{error}}",
+			"testSuccessNoResponse": "Success{{ttftPart}} | Duur: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Sorteren op modelnaam",
@@ -1908,9 +1909,7 @@
 			"deleteDisabledAria_other": "Verwijder {{count}} uitgeschakelde modellen",
 			"deleteDisabledMessage_one": "Dit zal {{count}} uitgeschakeld model permanent verwijderen. Als autodiscovery is ingeschakeld bij hun provider, worden ze opnieuw ontdekt bij de volgende cyclus. Schakel autodiscovery uit bij de provider om dit te voorkomen.",
 			"deleteDisabledMessage_other": "Dit zal {{count}} uitgeschakelde modellen permanent verwijderen. Als autodiscovery is ingeschakeld bij hun provider, worden ze opnieuw ontdekt bij de volgende cyclus. Schakel autodiscovery uit bij de provider om dit te voorkomen.",
-			"clickToCopyId": "Klik om model-ID te kopiëren",
-			"deleteDisabledLabel_one": "{{count}} uitgeschakeld model",
-			"deleteDisabledLabel_other": "{{count}} uitgeschakelde modellen"
+			"clickToCopyId": "Klik om model-ID te kopiëren"
 		},
 		"virtualModelTable": {
 			"searchModels": "Zoek modellen…",
@@ -1920,9 +1919,7 @@
 			"deleteDisabledAria_one": "{{count}} uitgeschakelde model verwijderen",
 			"deleteDisabledAria_other": "Verwijder {{count}} uitgeschakelde modellen",
 			"deleteDisabledMessage_one": "Dit zal {{count}} uitgeschakeld model permanent verwijderen. Als autodiscovery is ingeschakeld bij hun provider, worden ze opnieuw ontdekt bij de volgende cyclus. Schakel autodiscovery uit bij de provider om dit te voorkomen.",
-			"deleteDisabledMessage_other": "Dit zal {{count}} uitgeschakelde modellen permanent verwijderen. Als autodiscovery is ingeschakeld bij hun provider, worden ze opnieuw ontdekt bij de volgende cyclus. Schakel autodiscovery uit bij de provider om dit te voorkomen.",
-			"disabledModels_one": "1 uitgeschakeld model",
-			"disabledModels_other": "{{count}} uitgeschakelde modellen"
+			"deleteDisabledMessage_other": "Dit zal {{count}} uitgeschakelde modellen permanent verwijderen. Als autodiscovery is ingeschakeld bij hun provider, worden ze opnieuw ontdekt bij de volgende cyclus. Schakel autodiscovery uit bij de provider om dit te voorkomen."
 		},
 		"modelReplyCard": {
 			"modelDetails": "Model details",

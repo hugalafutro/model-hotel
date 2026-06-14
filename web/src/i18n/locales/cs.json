@@ -846,7 +846,8 @@
 				"price": "0.00"
 			},
 			"testSuccess": "Úspěch | Odpověď: {{content}}{{ttftPart}} | Trvání: {{duration}}s",
-			"testFailed": "Test selhal: {{error}}"
+			"testFailed": "Test selhal: {{error}}",
+			"testSuccessNoResponse": "Success{{ttftPart}} | Trvání: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Seřadit podle názvu modelu",
@@ -1908,9 +1909,7 @@
 			"deleteDisabledAria_other": "Odstranit modely s deaktivovaným {{count}}",
 			"deleteDisabledMessage_one": "Tím dojde k trvalému odstranění deaktivovaného modelu {{count}}. Pokud je u daného poskytovatele povoleno automatické vyhledávání, bude tento model při příštím cyklu znovu nalezen. Chcete-li tomu zabránit, deaktivujte u poskytovatele automatické vyhledávání.",
 			"deleteDisabledMessage_other": "Tím dojde k trvalému odstranění modelů s označením {{count}}. Pokud je u jejich poskytovatele povoleno automatické vyhledávání, budou v příštím cyklu znovu nalezeny. Chcete-li tomu zabránit, deaktivujte u poskytovatele automatické vyhledávání.",
-			"clickToCopyId": "Kliknutím zkopírujete ID modelu",
-			"deleteDisabledLabel_one": "Model {{count}} s deaktivovanou funkcí",
-			"deleteDisabledLabel_other": "Modely s deaktivovanou funkcí {{count}}"
+			"clickToCopyId": "Kliknutím zkopírujete ID modelu"
 		},
 		"virtualModelTable": {
 			"searchModels": "Vyhledat modely…",
@@ -1920,9 +1919,7 @@
 			"deleteDisabledAria_one": "Odstranit deaktivovaný model {{count}}",
 			"deleteDisabledAria_other": "Odstranit modely s deaktivovaným {{count}}",
 			"deleteDisabledMessage_one": "Tím dojde k trvalému odstranění deaktivovaného modelu {{count}}. Pokud je u daného poskytovatele povoleno automatické vyhledávání, bude tento model při příštím cyklu znovu nalezen. Chcete-li tomu zabránit, deaktivujte u poskytovatele automatické vyhledávání.",
-			"deleteDisabledMessage_other": "Tímto krokem dojde k trvalému odstranění modelů s označením {{count}}. Pokud je u jejich poskytovatele povoleno automatické vyhledávání, budou tyto modely při příštím cyklu znovu nalezeny. Chcete-li tomu zabránit, deaktivujte u poskytovatele automatické vyhledávání.",
-			"disabledModels_one": "1 model s postižením",
-			"disabledModels_other": "Modely s deaktivovanou funkcí {{count}}"
+			"deleteDisabledMessage_other": "Tímto krokem dojde k trvalému odstranění modelů s označením {{count}}. Pokud je u jejich poskytovatele povoleno automatické vyhledávání, budou tyto modely při příštím cyklu znovu nalezeny. Chcete-li tomu zabránit, deaktivujte u poskytovatele automatické vyhledávání."
 		},
 		"modelReplyCard": {
 			"modelDetails": "Podrobnosti o modelu",

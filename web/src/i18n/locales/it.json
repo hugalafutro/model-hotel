@@ -846,7 +846,8 @@
 				"price": "0.00"
 			},
 			"testSuccess": "Successo | Risposta: {{content}}{{ttftPart}} | Durata: {{duration}}s",
-			"testFailed": "Test fallito: {{error}}"
+			"testFailed": "Test fallito: {{error}}",
+			"testSuccessNoResponse": "Success{{ttftPart}} | Durata: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Ordina per nome modello",
@@ -1908,9 +1909,7 @@
 			"deleteDisabledAria_other": "Elimina i modelli {{count}} disabilitati",
 			"deleteDisabledMessage_one": "Questo eliminerà definitivamente il modello {{count}} disabilitato. Se la ricerca automatica è abilitata sul loro provider, saranno riscoperti nel prossimo ciclo. Disabilita la ricerca automatica sul provider per evitare che ciò accada.",
 			"deleteDisabledMessage_other": "Questo eliminerà definitivamente i modelli {{count}} disabilitati. Se la ricerca automatica è abilitata sul loro provider, saranno riscoperti nel prossimo ciclo. Disabilita la scoperta automatica sul provider per evitare che ciò accada.",
-			"clickToCopyId": "Clicca per copiare l'ID modello",
-			"deleteDisabledLabel_one": "{{count}} modello disabilitato",
-			"deleteDisabledLabel_other": "{{count}} disabilitato i modelli"
+			"clickToCopyId": "Clicca per copiare l'ID modello"
 		},
 		"virtualModelTable": {
 			"searchModels": "Cerca modelli…",
@@ -1920,9 +1919,7 @@
 			"deleteDisabledAria_one": "Elimina {{count}} modello disabilitato",
 			"deleteDisabledAria_other": "Elimina i modelli {{count}} disabilitati",
 			"deleteDisabledMessage_one": "Questo eliminerà definitivamente il modello {{count}} disabilitato. Se la ricerca automatica è abilitata sul loro provider, saranno riscoperti nel prossimo ciclo. Disabilita la ricerca automatica sul provider per evitare che ciò accada.",
-			"deleteDisabledMessage_other": "Questo eliminerà definitivamente i modelli {{count}} disabilitati. Se la ricerca automatica è abilitata sul loro provider, saranno riscoperti nel prossimo ciclo. Disabilita la scoperta automatica sul provider per evitare che ciò accada.",
-			"disabledModels_one": "1 modello disabilitato",
-			"disabledModels_other": "{{count}} disabilitato i modelli"
+			"deleteDisabledMessage_other": "Questo eliminerà definitivamente i modelli {{count}} disabilitati. Se la ricerca automatica è abilitata sul loro provider, saranno riscoperti nel prossimo ciclo. Disabilita la scoperta automatica sul provider per evitare che ciò accada."
 		},
 		"modelReplyCard": {
 			"modelDetails": "Dettagli del modello",

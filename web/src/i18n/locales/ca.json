@@ -846,7 +846,8 @@
 				"price": "0,00"
 			},
 			"testSuccess": "Èxit | Resposta: {{content}}{{ttftPart}} | Durada: {{duration}}s",
-			"testFailed": "La prova ha fallat: {{error}}"
+			"testFailed": "La prova ha fallat: {{error}}",
+			"testSuccessNoResponse": "Success{{ttftPart}} | Durada: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Ordena per nom del model",
@@ -1908,9 +1909,7 @@
 			"deleteDisabledAria_other": "Suprimeix {{count}} models desactivats",
 			"deleteDisabledMessage_one": "Això suprimirà permanentment el model desactivat {{count}} . Si l'autodetecció està habilitada al seu proveïdor, es tornaran a descobrir en el següent cicle. Desactiva l'autodetecció al proveïdor per evitar-ho.",
 			"deleteDisabledMessage_other": "Això suprimirà permanentment els models desactivats de {{count}} . Si l'autodetecció està habilitada al seu proveïdor, es tornaran a descobrir en el següent cicle. Desactiva l'autodetecció al proveïdor per evitar-ho.",
-			"clickToCopyId": "Feu clic per copiar l'ID del model",
-			"deleteDisabledLabel_one": "{{count}} model·la amb discapacitat",
-			"deleteDisabledLabel_other": "{{count}} models discapacitats"
+			"clickToCopyId": "Feu clic per copiar l'ID del model"
 		},
 		"virtualModelTable": {
 			"searchModels": "Cerca de models…",
@@ -1920,9 +1919,7 @@
 			"deleteDisabledAria_one": "Suprimeix {{count}} model desactivat",
 			"deleteDisabledAria_other": "Suprimeix {{count}} models desactivats",
 			"deleteDisabledMessage_one": "Això suprimirà permanentment el model desactivat {{count}} . Si l'autodetecció està habilitada al seu proveïdor, es tornaran a descobrir en el següent cicle. Desactiva l'autodetecció al proveïdor per evitar-ho.",
-			"deleteDisabledMessage_other": "Això suprimirà permanentment els models desactivats de {{count}} . Si l'autodetecció està habilitada al seu proveïdor, es tornaran a descobrir en el següent cicle. Desactiva l'autodetecció al proveïdor per evitar-ho.",
-			"disabledModels_one": "1 model amb discapacitat",
-			"disabledModels_other": "{{count}} models discapacitats"
+			"deleteDisabledMessage_other": "Això suprimirà permanentment els models desactivats de {{count}} . Si l'autodetecció està habilitada al seu proveïdor, es tornaran a descobrir en el següent cicle. Desactiva l'autodetecció al proveïdor per evitar-ho."
 		},
 		"modelReplyCard": {
 			"modelDetails": "Detalls del model",

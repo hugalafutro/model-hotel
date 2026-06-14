@@ -218,9 +218,13 @@ export function VirtualModelTable({
 		return caps;
 	}, [entries]);
 
-	const disabledModelIds = useMemo(
-		() => entries.filter((m) => !m.enabled).map((m) => m.id),
+	const disabledModels = useMemo(
+		() => entries.filter((m) => !m.enabled),
 		[entries],
+	);
+	const disabledModelIds = useMemo(
+		() => disabledModels.map((m) => m.id),
+		[disabledModels],
 	);
 	const disabledCount = disabledModelIds.length;
 
@@ -692,11 +696,9 @@ export function VirtualModelTable({
 					message={t("components.virtualModelTable.deleteDisabledMessage", {
 						count: disabledCount,
 					})}
-					fields={[
-						t("components.virtualModelTable.disabledModels", {
-							count: disabledCount,
-						}),
-					]}
+					fields={disabledModels.map((m) =>
+						proxyModelID(m.provider_name, m.model_id),
+					)}
 					confirmLabel={t("common.delete")}
 					onConfirm={() => {
 						onDeleteDisabled?.(disabledModelIds);

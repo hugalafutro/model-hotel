@@ -846,7 +846,8 @@
 				"price": "0.00"
 			},
 			"testSuccess": "Succes | Răspuns: {{content}}{{ttftPart}} | Durată: {{duration}}s",
-			"testFailed": "Test eșuat: {{error}}"
+			"testFailed": "Test eșuat: {{error}}",
+			"testSuccessNoResponse": "Success{{ttftPart}} | Durată: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Sortează după numele modelului",
@@ -1908,9 +1909,7 @@
 			"deleteDisabledAria_other": "Șterge {{count}} modele dezactivate",
 			"deleteDisabledMessage_one": "Acest lucru va șterge permanent modelul dezactivat {{count}} . Dacă autodescoperirea este activată pe furnizorul lor, acestea vor fi redescoperite în următorul ciclu. Dezactivați autodescoperirea pe furnizor pentru a preveni acest lucru.",
 			"deleteDisabledMessage_other": "Acest lucru va șterge permanent modelele dezactivate {{count}} . Dacă autodescoperirea este activată pe furnizor, vor fi redescoperite pe următorul ciclu. Dezactivați autodescoperirea pe furnizor pentru a preveni acest lucru.",
-			"clickToCopyId": "Faceți clic pentru a copia ID-ul modelului",
-			"deleteDisabledLabel_one": "{{count}} model dezactivat",
-			"deleteDisabledLabel_other": "{{count}} modele dezactivate"
+			"clickToCopyId": "Faceți clic pentru a copia ID-ul modelului"
 		},
 		"virtualModelTable": {
 			"searchModels": "Căutare modele…",
@@ -1920,9 +1919,7 @@
 			"deleteDisabledAria_one": "Ștergere model dezactivat {{count}}",
 			"deleteDisabledAria_other": "Șterge {{count}} modele dezactivate",
 			"deleteDisabledMessage_one": "Acest lucru va șterge permanent modelul dezactivat {{count}} . Dacă autodescoperirea este activată pe furnizorul lor, acestea vor fi redescoperite în următorul ciclu. Dezactivați autodescoperirea pe furnizor pentru a preveni acest lucru.",
-			"deleteDisabledMessage_other": "Acest lucru va șterge permanent modelele dezactivate {{count}} . Dacă autodescoperirea este activată pe furnizor, vor fi redescoperite pe următorul ciclu. Dezactivați autodescoperirea pe furnizor pentru a preveni acest lucru.",
-			"disabledModels_one": "1 model dezactivat",
-			"disabledModels_other": "{{count}} modele dezactivate"
+			"deleteDisabledMessage_other": "Acest lucru va șterge permanent modelele dezactivate {{count}} . Dacă autodescoperirea este activată pe furnizor, vor fi redescoperite pe următorul ciclu. Dezactivați autodescoperirea pe furnizor pentru a preveni acest lucru."
 		},
 		"modelReplyCard": {
 			"modelDetails": "Detalii model",
