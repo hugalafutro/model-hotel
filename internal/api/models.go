@@ -339,11 +339,7 @@ func (h *Handler) resolveTestModelTarget(w http.ResponseWriter, r *http.Request)
 	modelRepo := model.NewRepository(h.dbPool.Pool())
 	m, err := modelRepo.Get(r.Context(), id)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			http.Error(w, "model not found", http.StatusNotFound)
-		} else {
-			respondError(w, "failed to load model", err, http.StatusInternalServerError)
-		}
+		respondLookupError(w, err, pgx.ErrNoRows, "model not found", "failed to load model")
 		return nil, nil, false
 	}
 

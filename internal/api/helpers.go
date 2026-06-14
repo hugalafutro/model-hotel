@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -20,6 +21,18 @@ func respondError(w http.ResponseWriter, message string, err error, code int) {
 		debuglog.Error("api: " + message)
 	}
 	http.Error(w, message, code)
+}
+
+// respondLookupError maps a repository lookup error to an HTTP response: a
+// genuine miss (err matching the notFound sentinel) becomes a 404 with
+// notFoundMsg; any other error becomes a logged 500 with loadMsg. This keeps a
+// database outage from being silently reported to the client as "not found".
+func respondLookupError(w http.ResponseWriter, err, notFound error, notFoundMsg, loadMsg string) {
+	if errors.Is(err, notFound) {
+		http.Error(w, notFoundMsg, http.StatusNotFound)
+		return
+	}
+	respondError(w, loadMsg, err, http.StatusInternalServerError)
 }
 
 // respondBadRequest sends a 400 response with a sanitized message.

@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -175,11 +174,7 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 
 	prov, err := h.providerRepo.Get(r.Context(), providerID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			http.Error(w, "provider not found", http.StatusNotFound)
-		} else {
-			respondError(w, "failed to load provider", err, http.StatusInternalServerError)
-		}
+		respondLookupError(w, err, pgx.ErrNoRows, "provider not found", "failed to load provider")
 		return
 	}
 
@@ -292,11 +287,7 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 
 	prov, err := h.providerRepo.Get(r.Context(), providerID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			http.Error(w, "provider not found", http.StatusNotFound)
-		} else {
-			respondError(w, "failed to load provider", err, http.StatusInternalServerError)
-		}
+		respondLookupError(w, err, pgx.ErrNoRows, "provider not found", "failed to load provider")
 		return
 	}
 
@@ -361,11 +352,7 @@ func (h *Handler) GetProviderBalance(w http.ResponseWriter, r *http.Request) {
 
 	prov, err := h.providerRepo.Get(r.Context(), providerID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			http.Error(w, "provider not found", http.StatusNotFound)
-		} else {
-			respondError(w, "failed to load provider", err, http.StatusInternalServerError)
-		}
+		respondLookupError(w, err, pgx.ErrNoRows, "provider not found", "failed to load provider")
 		return
 	}
 
@@ -399,11 +386,7 @@ func (h *Handler) GetOllamaCloudAccount(w http.ResponseWriter, r *http.Request) 
 
 	prov, err := h.providerRepo.Get(r.Context(), providerID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			http.Error(w, "provider not found", http.StatusNotFound)
-		} else {
-			respondError(w, "failed to load provider", err, http.StatusInternalServerError)
-		}
+		respondLookupError(w, err, pgx.ErrNoRows, "provider not found", "failed to load provider")
 		return
 	}
 
