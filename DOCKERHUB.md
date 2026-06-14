@@ -94,6 +94,10 @@ Test any model from the Models page with a single click. The test sends a minima
 
 For providers that expose it, click a provider's quota badge (on its card or in the sidebar panel) to open a live usage breakdown without leaving the dashboard. OpenRouter shows credit balance and per-key spend; Z.ai Coding Plan shows its 5-hour, weekly, and MCP token quotas; NanoGPT shows weekly token and daily image quotas with subscription details; NeuralWatt shows energy-based quota with subscription and lifetime usage. Each modal toggles between quota used and quota remaining, and refreshes on demand. Some providers surface usage without a dedicated modal - DeepSeek shows account balance and Ollama Cloud shows plan status on their cards and sidebar badges.
 
+## Themeable UI
+
+Make the dashboard your own from the Appearance settings: pick one of three UI styles - Clean SaaS (refined and minimal, the default), Cyber Terminal (high-contrast, developer-centric), or Glassmorphism (slick translucent surfaces) - toggle dark / light mode, and choose an accent color (each style ships a tasteful default, or pick your own). Everything persists locally in the browser.
+
 ## Interactive Chat & Arena
 
 The dashboard includes a built-in **Chat** interface for testing models interactively, with support for system personas (presets or custom prompts), generation parameters (temperature, top_p, max_tokens, min_p, top_k, frequency/presence penalties), and streaming responses with collapsible thinking-block rendering. Vision-capable models show an image upload button: attach a photo for the model to describe or analyze. Audio-capable models show an audio upload button for sending audio input. Attachments are sent as OpenAI-compatible multimodal content parts. Switch to **Conversation** mode to watch two models talk to each other: enter a starter prompt, set the number of rounds and optional delay between turns, and observe the back-and-forth with per-message metrics.
