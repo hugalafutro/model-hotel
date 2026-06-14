@@ -84,17 +84,17 @@ const maxSettingValueLen = 500
 func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	var req map[string]string
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		respondBadRequest(w, "invalid request body", err)
 		return
 	}
 
 	if len(req) == 0 {
-		http.Error(w, "no settings provided", http.StatusBadRequest)
+		respondBadRequest(w, "no settings provided", nil)
 		return
 	}
 
 	if len(req) > 50 {
-		http.Error(w, "too many settings in one request", http.StatusBadRequest)
+		respondBadRequest(w, "too many settings in one request", nil)
 		return
 	}
 
@@ -102,12 +102,12 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	for key, value := range req {
 		rule, ok := allowedSettings[key]
 		if !ok {
-			http.Error(w, fmt.Sprintf("unknown setting: %s", key), http.StatusBadRequest)
+			respondBadRequest(w, fmt.Sprintf("unknown setting: %s", key), nil)
 			return
 		}
 
 		if len(value) > maxSettingValueLen {
-			http.Error(w, fmt.Sprintf("value for %s too long (max %d characters)", key, maxSettingValueLen), http.StatusBadRequest)
+			respondBadRequest(w, fmt.Sprintf("value for %s too long (max %d characters)", key, maxSettingValueLen), nil)
 			return
 		}
 
@@ -115,21 +115,21 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 		case "int":
 			v, err := strconv.Atoi(value)
 			if err != nil {
-				http.Error(w, fmt.Sprintf("%s must be a number", key), http.StatusBadRequest)
+				respondBadRequest(w, fmt.Sprintf("%s must be a number", key), err)
 				return
 			}
 			if float64(v) < rule.min || float64(v) > rule.max {
-				http.Error(w, fmt.Sprintf("%s must be between %d and %d", key, int(rule.min), int(rule.max)), http.StatusBadRequest)
+				respondBadRequest(w, fmt.Sprintf("%s must be between %d and %d", key, int(rule.min), int(rule.max)), nil)
 				return
 			}
 		case "float":
 			v, err := strconv.ParseFloat(value, 64)
 			if err != nil {
-				http.Error(w, fmt.Sprintf("%s must be a number", key), http.StatusBadRequest)
+				respondBadRequest(w, fmt.Sprintf("%s must be a number", key), err)
 				return
 			}
 			if v < rule.min || v > rule.max {
-				http.Error(w, fmt.Sprintf("%s must be between %g and %g", key, rule.min, rule.max), http.StatusBadRequest)
+				respondBadRequest(w, fmt.Sprintf("%s must be between %g and %g", key, rule.min, rule.max), nil)
 				return
 			}
 		}
@@ -190,7 +190,7 @@ func (h *Handler) ResetSettings(w http.ResponseWriter, r *http.Request) {
 		Keys []string `json:"keys"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		respondBadRequest(w, "invalid request body", err)
 		return
 	}
 
@@ -203,14 +203,14 @@ func (h *Handler) ResetSettings(w http.ResponseWriter, r *http.Request) {
 	} else if len(keys) > 50 {
 		// Guard only user-supplied lists against unbounded input.
 		// The internally-expanded "reset all" list is bounded by allowedSettings.
-		http.Error(w, "too many keys in one request", http.StatusBadRequest)
+		respondBadRequest(w, "too many keys in one request", nil)
 		return
 	}
 
 	// Validate all keys before deleting.
 	for _, key := range keys {
 		if _, ok := allowedSettings[key]; !ok {
-			http.Error(w, fmt.Sprintf("unknown setting: %s", key), http.StatusBadRequest)
+			respondBadRequest(w, fmt.Sprintf("unknown setting: %s", key), nil)
 			return
 		}
 	}

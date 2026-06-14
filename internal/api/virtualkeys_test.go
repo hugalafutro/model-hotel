@@ -132,6 +132,43 @@ func TestGetVirtualKey_InvalidUUID(t *testing.T) {
 	}
 }
 
+func TestGetVirtualKey_NotFound(t *testing.T) {
+	mockVK := &mockVirtualKeyStore{
+		getFn: func(_ context.Context, _ uuid.UUID) (*virtualkey.VirtualKey, error) {
+			return nil, virtualkey.ErrNotFound
+		},
+	}
+	h := testHandler(nil, mockVK, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	id := uuid.New()
+	req, w := newChiRequest(http.MethodGet, "/virtual-keys/"+id.String(), nil)
+	req = setChiURLParam(req, "id", id.String())
+
+	h.GetVirtualKey(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected status %d, got %d", http.StatusNotFound, w.Code)
+	}
+}
+
+func TestGetVirtualKey_DBError(t *testing.T) {
+	mockVK := &mockVirtualKeyStore{
+		getFn: func(_ context.Context, _ uuid.UUID) (*virtualkey.VirtualKey, error) {
+			return nil, errors.New("db connection lost")
+		},
+	}
+	h := testHandler(nil, mockVK, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	id := uuid.New()
+	req, w := newChiRequest(http.MethodGet, "/virtual-keys/"+id.String(), nil)
+	req = setChiURLParam(req, "id", id.String())
+
+	h.GetVirtualKey(w, req)
+
+	// A non-ErrNotFound error must surface as 500, not be masked as 404.
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d", http.StatusInternalServerError, w.Code)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // DeleteVirtualKey additional tests
 // ---------------------------------------------------------------------------

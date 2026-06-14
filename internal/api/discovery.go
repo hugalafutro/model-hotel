@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -173,7 +174,7 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 
 	prov, err := h.providerRepo.Get(r.Context(), providerID)
 	if err != nil {
-		http.Error(w, "provider not found", http.StatusNotFound)
+		respondLookupError(w, err, pgx.ErrNoRows, "provider not found", "failed to load provider")
 		return
 	}
 
@@ -286,7 +287,7 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 
 	prov, err := h.providerRepo.Get(r.Context(), providerID)
 	if err != nil {
-		http.Error(w, "provider not found", http.StatusNotFound)
+		respondLookupError(w, err, pgx.ErrNoRows, "provider not found", "failed to load provider")
 		return
 	}
 
@@ -351,7 +352,7 @@ func (h *Handler) GetProviderBalance(w http.ResponseWriter, r *http.Request) {
 
 	prov, err := h.providerRepo.Get(r.Context(), providerID)
 	if err != nil {
-		http.Error(w, "provider not found", http.StatusNotFound)
+		respondLookupError(w, err, pgx.ErrNoRows, "provider not found", "failed to load provider")
 		return
 	}
 
@@ -385,7 +386,7 @@ func (h *Handler) GetOllamaCloudAccount(w http.ResponseWriter, r *http.Request) 
 
 	prov, err := h.providerRepo.Get(r.Context(), providerID)
 	if err != nil {
-		http.Error(w, "provider not found", http.StatusNotFound)
+		respondLookupError(w, err, pgx.ErrNoRows, "provider not found", "failed to load provider")
 		return
 	}
 

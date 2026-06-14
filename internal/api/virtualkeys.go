@@ -175,7 +175,7 @@ func (h *Handler) GetVirtualKey(w http.ResponseWriter, r *http.Request) {
 
 	vk, err := h.virtualKeyRepo.Get(r.Context(), id)
 	if err != nil {
-		http.Error(w, "virtual key not found", http.StatusNotFound)
+		respondLookupError(w, err, virtualkey.ErrNotFound, "virtual key not found", "failed to load virtual key")
 		return
 	}
 
