@@ -61,7 +61,9 @@ func TestDiscoverOpenCodeZen_ModelNotInCatalog(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, models)
-	assert.Len(t, models, 2)
+	// Keyed provider: the two live models union with the catalog. big-pickle is
+	// already a catalog entry; unknown-custom-model is a new union member.
+	assert.Len(t, models, len(GetOpenCodeZenCatalog())+1)
 
 	// Find the unknown model
 	var unknownModel *model.Model
