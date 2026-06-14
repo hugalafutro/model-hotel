@@ -484,7 +484,12 @@ export function Providers() {
 				<ProviderModelsModal
 					provider={modelsProvider}
 					models={models}
-					onClose={() => setModelsProvider(null)}
+					onClose={() => {
+						// Tear down the stacked detail modal together with its parent
+						// so it can't be left floating without context.
+						setModelsProvider(null);
+						setDetailModel(null);
+					}}
 					onDeleteDisabled={handleDeleteDisabledModels}
 					onModelClick={setDetailModel}
 				/>

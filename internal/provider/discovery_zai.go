@@ -70,7 +70,10 @@ func (d *DiscoveryService) discoverZAICodingLive(ctx context.Context, provider *
 
 // zaiCodingLiveModel builds a minimal model from a live /models entry. Only the
 // id and owner are authoritative from the live listing; everything else is left
-// empty so the catalog and models.dev backfill it.
+// for the catalog and models.dev to backfill. It reuses liveModelStub so the
+// base capabilities (streaming) and empty JSONB modalities match every other
+// provider's live stub — a Z.ai model with no catalog/models.dev coverage must
+// still be marked streaming-capable.
 func zaiCodingLiveModel(id, ownedBy string, providerID uuid.UUID) *model.Model {
 	owner := ownedBy
 	// The Z.ai listing reports owned_by "z-ai"; normalize to the catalog's
@@ -78,20 +81,7 @@ func zaiCodingLiveModel(id, ownedBy string, providerID uuid.UUID) *model.Model {
 	if owner == "" || owner == "z-ai" {
 		owner = "zhipu"
 	}
-	return &model.Model{
-		ID:           uuid.New(),
-		ProviderID:   providerID,
-		ModelID:      id,
-		Name:         id,
-		DisplayName:  id,
-		Capabilities: "{}",
-		Params:       "{}",
-		// JSONB columns must hold valid JSON even before catalog/models.dev fill.
-		InputModalities:  "[]",
-		OutputModalities: "[]",
-		OwnedBy:          owner,
-		Enabled:          true,
-	}
+	return liveModelStub(id, owner, providerID)
 }
 
 // zaiCodingCatalogModels converts the embedded Z.ai catalog into models.

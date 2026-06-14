@@ -39,9 +39,14 @@ func (d *DiscoveryService) discoverXAI(ctx context.Context, provider *Provider, 
 			return nil, fmt.Errorf("xAI: failed to discover models for provider %s: both endpoints returned errors", provider.Name)
 		}
 	} else if len(live) == 0 {
-		// Rich endpoint succeeded but listed nothing; try the minimal endpoint
-		// before relying on the catalog alone.
-		if minimal, mErr := d.discoverXAIMinimalModels(ctx, provider, apiKey, baseURL); mErr == nil && len(minimal) > 0 {
+		// Rich endpoint succeeded but listed nothing; try the minimal endpoint.
+		minimal, mErr := d.discoverXAIMinimalModels(ctx, provider, apiKey, baseURL)
+		if mErr != nil {
+			// Don't swallow a real error: log it so an outage isn't hidden behind
+			// the "no models" warning below (we still don't propagate it — empty
+			// live is handled safely by returning an empty set).
+			debuglog.Warn("discovery: xai /language-models listed nothing and /models also failed", "provider", provider.Name, "provider_id", provider.ID, "error", mErr)
+		} else if len(minimal) > 0 {
 			live = minimal
 		}
 	}
