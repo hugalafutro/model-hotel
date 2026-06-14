@@ -790,8 +790,8 @@
 		"page_description": "Oppdaget modeller av dine leverandører",
 		"badge_enabled": "{{count}} er aktivert",
 		"badge_disabled": "{{count}} er deaktivert",
-		"view_mode_pages": "⬡ TILVIRKESPROTER sider",
-		"view_mode_scroll": "⇊ element-rulle",
+		"view_mode_pages": "⬡ Sider",
+		"view_mode_scroll": "⇊ Rull",
 		"switch_to_pagination": "Bytt til paginasjonsmodus",
 		"switch_to_scroll": "Bytt til rullemodus",
 		"toast_updated": "Modell oppdatert",
@@ -1158,7 +1158,7 @@
 			"label": "oppføringer"
 		},
 		"loading": {
-			"newer": "↻ sion) laster inn nyere…",
+			"newer": "↻ Laster inn nyere…",
 			"older": "↻ laster eldre…"
 		}
 	},
@@ -1196,7 +1196,7 @@
 			"label": "oppføringer"
 		},
 		"loading": {
-			"newer": "↻ sion) laster inn nyere…",
+			"newer": "↻ Laster inn nyere…",
 			"older": "↻ laster eldre…"
 		}
 	},
@@ -1799,8 +1799,8 @@
 			"viewModeToggle": {
 				"switchToScroll": "Bytt til rullemodus",
 				"switchToPagination": "Bytt til paginasjonsmodus",
-				"scroll": "⇊ element-rulle",
-				"pages": "⬡ TILVIRKESPROTER sider"
+				"scroll": "⇊ Rull",
+				"pages": "⬡ Sider"
 			},
 			"dateFilterButton": {
 				"filterByDateRange": "Filtrer etter datointervall",
@@ -2231,8 +2231,8 @@
 		"viewModeToggle": {
 			"switchToScroll": "Bytt til rullemodus",
 			"switchToPagination": "Bytt til paginasjonsmodus",
-			"scroll": "⇊ element-rulle",
-			"pages": "⬡ TILVIRKESPROTER sider"
+			"scroll": "⇊ Rull",
+			"pages": "⬡ Sider"
 		},
 		"liveToggleButton": {
 			"live": "Direkte",

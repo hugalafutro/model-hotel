@@ -790,7 +790,7 @@
 		"page_description": "النماذج المكتشفة من مزودك",
 		"badge_enabled": "{{count}} ممكّن",
 		"badge_disabled": "{{count}} معطل",
-		"view_mode_pages": "⬡ الحواشي",
+		"view_mode_pages": "⬡ الصفحات",
 		"view_mode_scroll": "⇊ التمرير",
 		"switch_to_pagination": "التبديل إلى وضع تحديد الصفحات",
 		"switch_to_scroll": "التبديل إلى وضع التمرير",
@@ -1800,7 +1800,7 @@
 				"switchToScroll": "التبديل إلى وضع التمرير",
 				"switchToPagination": "التبديل إلى وضع تحديد الصفحات",
 				"scroll": "⇊ التمرير",
-				"pages": "⬡ الحواشي"
+				"pages": "⬡ الصفحات"
 			},
 			"dateFilterButton": {
 				"filterByDateRange": "تصفية حسب نطاق التاريخ",
@@ -2232,7 +2232,7 @@
 			"switchToScroll": "التبديل إلى وضع التمرير",
 			"switchToPagination": "التبديل إلى وضع تحديد الصفحات",
 			"scroll": "⇊ التمرير",
-			"pages": "⬡ الحواشي"
+			"pages": "⬡ الصفحات"
 		},
 		"liveToggleButton": {
 			"live": "مباشر",

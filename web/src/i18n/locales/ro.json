@@ -791,7 +791,7 @@
 		"badge_enabled": "{{count}} activat",
 		"badge_disabled": "{{count}} dezactivat",
 		"view_mode_pages": "⬡ Pagini",
-		"view_mode_scroll": "⇊ Asteptare",
+		"view_mode_scroll": "⇊ Derulare",
 		"switch_to_pagination": "Comutați la modul paginare",
 		"switch_to_scroll": "Comutați la modul derulare",
 		"toast_updated": "Model actualizat",
@@ -1799,7 +1799,7 @@
 			"viewModeToggle": {
 				"switchToScroll": "Comutați la modul derulare",
 				"switchToPagination": "Comutați la modul paginare",
-				"scroll": "⇊ Asteptare",
+				"scroll": "⇊ Derulare",
 				"pages": "⬡ Pagini"
 			},
 			"dateFilterButton": {
@@ -2231,7 +2231,7 @@
 		"viewModeToggle": {
 			"switchToScroll": "Comutați la modul derulare",
 			"switchToPagination": "Comutați la modul paginare",
-			"scroll": "⇊ Asteptare",
+			"scroll": "⇊ Derulare",
 			"pages": "⬡ Pagini"
 		},
 		"liveToggleButton": {

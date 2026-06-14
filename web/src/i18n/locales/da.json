@@ -791,7 +791,7 @@
 		"badge_enabled": "{{count}} aktiveret",
 		"badge_disabled": "{{count}} deaktiveret",
 		"view_mode_pages": "⬡ Sider",
-		"view_mode_scroll": "⇊ ŽRul",
+		"view_mode_scroll": "⇊ Rul",
 		"switch_to_pagination": "Skift til pagineringstilstand",
 		"switch_to_scroll": "Skift til rulletilstand",
 		"toast_updated": "Model opdateret",
@@ -1799,7 +1799,7 @@
 			"viewModeToggle": {
 				"switchToScroll": "Skift til rulletilstand",
 				"switchToPagination": "Skift til pagineringstilstand",
-				"scroll": "⇊ ŽRul",
+				"scroll": "⇊ Rul",
 				"pages": "⬡ Sider"
 			},
 			"dateFilterButton": {
@@ -2231,7 +2231,7 @@
 		"viewModeToggle": {
 			"switchToScroll": "Skift til rulletilstand",
 			"switchToPagination": "Skift til pagineringstilstand",
-			"scroll": "⇊ ŽRul",
+			"scroll": "⇊ Rul",
 			"pages": "⬡ Sider"
 		},
 		"liveToggleButton": {

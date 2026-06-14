@@ -1158,8 +1158,8 @@
 			"label": "entradas"
 		},
 		"loading": {
-			"newer": "↻ mañana: Cargando nuevo…",
-			"older": "↻ Cargando antigua…"
+			"newer": "↻ Cargando más recientes…",
+			"older": "↻ Cargando más antiguas…"
 		}
 	},
 	"applogs": {
@@ -1196,8 +1196,8 @@
 			"label": "entradas"
 		},
 		"loading": {
-			"newer": "↻ mañana: Cargando nuevo…",
-			"older": "↻ Cargando antigua…"
+			"newer": "↻ Cargando más recientes…",
+			"older": "↻ Cargando más antiguas…"
 		}
 	},
 	"format": {

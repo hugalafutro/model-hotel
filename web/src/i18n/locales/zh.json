@@ -790,8 +790,8 @@
 		"page_description": "从您的提供商发现模型",
 		"badge_enabled": "{{count}} 已启用",
 		"badge_disabled": "{{count}} 已禁用",
-		"view_mode_pages": "⬡ 配置页面",
-		"view_mode_scroll": "⇊ 二次滚动",
+		"view_mode_pages": "⬡ 页面",
+		"view_mode_scroll": "⇊ 滚动",
 		"switch_to_pagination": "切换到分页模式",
 		"switch_to_scroll": "切换到滚动模式",
 		"toast_updated": "模型已更新",
@@ -1799,8 +1799,8 @@
 			"viewModeToggle": {
 				"switchToScroll": "切换到滚动模式",
 				"switchToPagination": "切换到分页模式",
-				"scroll": "⇊ 二次滚动",
-				"pages": "⬡ 配置页面"
+				"scroll": "⇊ 滚动",
+				"pages": "⬡ 页面"
 			},
 			"dateFilterButton": {
 				"filterByDateRange": "按日期范围过滤",
@@ -2231,8 +2231,8 @@
 		"viewModeToggle": {
 			"switchToScroll": "切换到滚动模式",
 			"switchToPagination": "切换到分页模式",
-			"scroll": "⇊ 二次滚动",
-			"pages": "⬡ 配置页面"
+			"scroll": "⇊ 滚动",
+			"pages": "⬡ 页面"
 		},
 		"liveToggleButton": {
 			"live": "实时模式",

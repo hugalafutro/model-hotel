@@ -1158,7 +1158,7 @@
 			"label": "referências"
 		},
 		"loading": {
-			"newer": "↻ Loading new…",
+			"newer": "↻ Carregando mais recentes…",
 			"older": "↻ Carregando versões mais antigas do…"
 		}
 	},
@@ -1196,7 +1196,7 @@
 			"label": "referências"
 		},
 		"loading": {
-			"newer": "↻ Loading new…",
+			"newer": "↻ Carregando mais recentes…",
 			"older": "↻ Carregando versões mais antigas do…"
 		}
 	},

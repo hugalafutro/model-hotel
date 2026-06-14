@@ -791,7 +791,7 @@
 		"badge_enabled": "{{count}} bevoeg",
 		"badge_disabled": "{{count}} gestremd",
 		"view_mode_pages": "⬡ Bladsye",
-		"view_mode_scroll": "⇊ Skakel af",
+		"view_mode_scroll": "⇊ Rol",
 		"switch_to_pagination": "Skakel oor na bladsyverdelingsmodus",
 		"switch_to_scroll": "Skakel na blaaimodus",
 		"toast_updated": "Model opgedateer",
@@ -1799,7 +1799,7 @@
 			"viewModeToggle": {
 				"switchToScroll": "Skakel na blaaimodus",
 				"switchToPagination": "Skakel oor na bladsyverdelingsmodus",
-				"scroll": "⇊ Skakel af",
+				"scroll": "⇊ Rol",
 				"pages": "⬡ Bladsye"
 			},
 			"dateFilterButton": {
@@ -2231,7 +2231,7 @@
 		"viewModeToggle": {
 			"switchToScroll": "Skakel na blaaimodus",
 			"switchToPagination": "Skakel oor na bladsyverdelingsmodus",
-			"scroll": "⇊ Skakel af",
+			"scroll": "⇊ Rol",
 			"pages": "⬡ Bladsye"
 		},
 		"liveToggleButton": {

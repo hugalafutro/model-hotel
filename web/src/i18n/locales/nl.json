@@ -1158,8 +1158,8 @@
 			"label": "invoergegevens"
 		},
 		"loading": {
-			"newer": "↻ Cerberus Laden nieuwer…",
-			"older": "↻ Cerberus Laden ouder…"
+			"newer": "↻ Nieuwere laden…",
+			"older": "↻ Oudere laden…"
 		}
 	},
 	"applogs": {
@@ -1196,8 +1196,8 @@
 			"label": "invoergegevens"
 		},
 		"loading": {
-			"newer": "↻ Cerberus Laden nieuwer…",
-			"older": "↻ Cerberus Laden ouder…"
+			"newer": "↻ Nieuwere laden…",
+			"older": "↻ Oudere laden…"
 		}
 	},
 	"format": {
