@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 900" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
+    </marker>
+    <marker id="arr-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#f87171"/>
+    </marker>
+    <marker id="arr-grn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#4ade80"/>
+    </marker>
+    <marker id="arr-yel" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#eab308"/>
+    </marker>
+    <filter id="shadow" x="-2%" y="-2%" width="104%" height="104%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- Title -->
+  <rect x="230" y="10" width="500" height="36" rx="18" fill="#1e293b" stroke="#64748b" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="480" y="34" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="700">Circuit Breaker State Transitions</text>
+
+  <!-- CLOSED state -->
+  <rect x="60" y="80" width="280" height="140" rx="12" fill="#1e293b" stroke="#10b981" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="60" y="80" width="280" height="36" rx="12" fill="#10b981" opacity="0.15"/>
+  <text x="200" y="103" text-anchor="middle" fill="#34d399" font-size="16" font-weight="700">CLOSED</text>
+  <text x="200" y="135" text-anchor="middle" fill="#94a3b8" font-size="10">consecutiveFails &lt; threshold</text>
+  <text x="200" y="155" text-anchor="middle" fill="#94a3b8" font-size="10">All requests pass through</text>
+  <text x="200" y="175" text-anchor="middle" fill="#64748b" font-size="9">SSE: circuit_breaker.closed</text>
+  <text x="200" y="200" text-anchor="middle" fill="#4ade80" font-size="9">Reset on RecordSuccess()</text>
+
+  <!-- OPEN state -->
+  <rect x="340" y="340" width="280" height="180" rx="12" fill="#1e293b" stroke="#f43f5e" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="340" y="340" width="280" height="36" rx="12" fill="#f43f5e" opacity="0.15"/>
+  <text x="480" y="363" text-anchor="middle" fill="#fb7185" font-size="16" font-weight="700">OPEN</text>
+  <text x="480" y="395" text-anchor="middle" fill="#94a3b8" font-size="10">consecutiveFails ≥ threshold (default 5)</text>
+  <text x="480" y="415" text-anchor="middle" fill="#94a3b8" font-size="10">All requests skip this provider</text>
+  <text x="480" y="435" text-anchor="middle" fill="#94a3b8" font-size="10">openedAt: now()</text>
+  <text x="480" y="455" text-anchor="middle" fill="#64748b" font-size="9">SSE: circuit_breaker.open</text>
+  <text x="480" y="480" text-anchor="middle" fill="#f87171" font-size="9">Cooldown: 60s (configurable)</text>
+  <text x="480" y="500" text-anchor="middle" fill="#f59e0b" font-size="9">After cooldown → transition to Half-Open</text>
+
+  <!-- HALF-OPEN state -->
+  <rect x="60" y="640" width="280" height="160" rx="12" fill="#1e293b" stroke="#eab308" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="60" y="640" width="280" height="36" rx="12" fill="#eab308" opacity="0.15"/>
+  <text x="200" y="663" text-anchor="middle" fill="#fbbf24" font-size="16" font-weight="700">HALF-OPEN</text>
+  <text x="200" y="695" text-anchor="middle" fill="#94a3b8" font-size="10">Allow limited probe requests</text>
+  <text x="200" y="715" text-anchor="middle" fill="#94a3b8" font-size="10">halfOpenProbes &lt; HalfOpenMaxProbes</text>
+  <text x="200" y="735" text-anchor="middle" fill="#64748b" font-size="9">SSE: circuit_breaker.half-open</text>
+  <text x="80" y="760" fill="#4ade80" font-size="9">✓ Probe succeeds → Closed</text>
+  <text x="80" y="780" fill="#f87171" font-size="9">✗ Probe fails → Open (reset cooldown)</text>
+
+  <!-- CLOSED → OPEN arrow (5 consecutive failures) -->
+  <path d="M 340 180 L 480 180 L 480 330" fill="none" stroke="#f87171" stroke-width="2" marker-end="url(#arr-red)"/>
+  <rect x="455" y="230" width="180" height="26" rx="4" fill="#1e293b" stroke="#f43f5e" stroke-width="0.5"/>
+  <text x="545" y="248" text-anchor="middle" fill="#f87171" font-size="9" font-weight="600">5 consecutive failures</text>
+
+  <!-- OPEN → HALF-OPEN arrow (60s cooldown) -->
+  <path d="M 340 430 L 200 430 L 200 630" fill="none" stroke="#eab308" stroke-width="2" marker-end="url(#arr-yel)"/>
+  <rect x="130" y="398" width="180" height="26" rx="4" fill="#1e293b" stroke="#eab308" stroke-width="0.5"/>
+  <text x="220" y="416" text-anchor="middle" fill="#fbbf24" font-size="9" font-weight="600">60s cooldown elapsed</text>
+
+  <!-- HALF-OPEN → CLOSED arrow (probe succeeds) -->
+  <path d="M 60 760 L 15 760 L 15 150 L 50 150" fill="none" stroke="#4ade80" stroke-width="2" marker-end="url(#arr-grn)"/>
+  <rect x="2" y="560" width="160" height="26" rx="4" fill="#1e293b" stroke="#10b981" stroke-width="0.5"/>
+  <text x="82" y="578" text-anchor="middle" fill="#4ade80" font-size="9" font-weight="600">Probe succeeds (200)</text>
+
+  <!-- HALF-OPEN → OPEN arrow (probe fails) -->
+  <path d="M 340 760 L 680 760 L 680 430 L 640 430" fill="none" stroke="#f87171" stroke-width="2" marker-end="url(#arr-red)"/>
+  <rect x="615" y="560" width="160" height="26" rx="4" fill="#1e293b" stroke="#f43f5e" stroke-width="0.5"/>
+  <text x="695" y="578" text-anchor="middle" fill="#f87171" font-size="9" font-weight="600">Probe fails (502)</text>
+
+</svg>
