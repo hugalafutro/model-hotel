@@ -203,6 +203,10 @@ func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token, ok := util.ParseBearerToken(r)
 		if !ok {
+			// Warn (not Error) with the remote address — never the token — so
+			// repeated admin-auth failures are visible for abuse detection
+			// without polluting the operator-actionable Error stream.
+			debuglog.Warn("auth: admin request missing bearer token", "remote_addr", r.RemoteAddr, "path", r.URL.Path)
 			http.Error(w, "Authorization header required (Bearer token)", http.StatusUnauthorized)
 			return
 		}
@@ -219,6 +223,7 @@ func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		debuglog.Warn("auth: admin request with invalid token", "remote_addr", r.RemoteAddr, "path", r.URL.Path)
 		http.Error(w, "Invalid admin token", http.StatusUnauthorized)
 	})
 }

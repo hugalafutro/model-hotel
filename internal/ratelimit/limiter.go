@@ -56,64 +56,20 @@ type keyEntry struct {
 	rps      float64
 	burst    int
 	lastUsed time.Time
-
-	// Edge-triggered throttle state: one log line when a key starts being
-	// rate-limited and one when it recovers, rather than one per rejected
-	// request. `throttled` is atomic so noteAllowed's hot path (the common
-	// not-throttled serve) needs no lock; throttledAt/rejectedN are guarded by
-	// throttleMu, taken only on the exceptional rejection/transition paths, so
-	// the per-episode count is exact under concurrency.
-	throttleMu  sync.Mutex
-	throttled   atomic.Bool
-	throttledAt time.Time
-	rejectedN   int64
+	throttle throttleState // edge-triggered throttle logging (see throttle.go)
 }
 
-// noteRejected records a 429 for the key and logs "throttling started" on the
-// first rejection of an episode. Subsequent rejections only bump the counter,
-// so a sustained burst stays quiet in the log.
+// throttleCtx builds the per-key logging context for the shared throttleState.
+func (e *keyEntry) throttleCtx(keyHash string) throttleLogCtx {
+	return throttleLogCtx{prefix: "ratelimit", label: "key", id: keyHash, rps: e.rps, burst: e.burst}
+}
+
 func (e *keyEntry) noteRejected(keyHash string) {
-	e.throttleMu.Lock()
-	if !e.throttled.Load() {
-		e.throttled.Store(true)
-		e.throttledAt = time.Now()
-		e.rejectedN = 1
-		e.throttleMu.Unlock()
-		debuglog.Warn("ratelimit: throttling started",
-			"key", keyHash, "rps", e.rps, "burst", e.burst)
-		return
-	}
-	e.rejectedN++
-	e.throttleMu.Unlock()
+	e.throttle.noteRejected(e.throttleCtx(keyHash))
 }
 
-// noteAllowed logs "throttling ended" when a key that was being throttled is
-// served again with no delay (its bucket has fully recovered). The common
-// not-throttled case is a lock-free atomic read.
 func (e *keyEntry) noteAllowed(keyHash string) {
-	if !e.throttled.Load() {
-		return
-	}
-	e.throttleMu.Lock()
-	if !e.throttled.Load() {
-		e.throttleMu.Unlock()
-		return
-	}
-	e.throttled.Store(false)
-	dur := time.Since(e.throttledAt)
-	n := e.rejectedN
-	e.throttleMu.Unlock()
-	e.logThrottlingEnded(keyHash, "recovered", dur, n)
-}
-
-// logThrottlingEnded emits the episode summary: how long it lasted and how many
-// requests were rejected, computed by the caller under throttleMu.
-func (*keyEntry) logThrottlingEnded(keyHash, reason string, dur time.Duration, rejected int64) {
-	debuglog.Info("ratelimit: throttling ended",
-		"key", keyHash,
-		"reason", reason,
-		"duration", dur.Round(time.Millisecond).String(),
-		"rejected_requests", rejected)
+	e.throttle.noteAllowed(e.throttleCtx(keyHash))
 }
 
 // NewLimiter creates a Limiter that reads configuration from the provided
@@ -335,15 +291,8 @@ func (l *Limiter) cleanup() {
 	for key, entry := range l.limiters {
 		if entry.lastUsed.Before(cutoff) {
 			// Close any still-open throttle episode (traffic stopped while the
-			// key was rate-limited, so no later request closed it). Use the
-			// key's last activity as the episode end.
-			if entry.throttled.Load() {
-				entry.throttleMu.Lock()
-				dur := entry.lastUsed.Sub(entry.throttledAt)
-				n := entry.rejectedN
-				entry.throttleMu.Unlock()
-				entry.logThrottlingEnded(key, "idle", dur, n)
-			}
+			// key was rate-limited, so no later request closed it).
+			entry.throttle.endIfThrottled(entry.throttleCtx(key), entry.lastUsed, "idle")
 			delete(l.limiters, key)
 		}
 	}

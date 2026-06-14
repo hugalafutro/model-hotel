@@ -3,6 +3,7 @@ package debuglog
 import (
 	"context"
 	"log/slog"
+	"os"
 	"testing"
 )
 
@@ -189,5 +190,54 @@ func TestError(t *testing.T) {
 	}
 	if rec.Message != "error message" {
 		t.Errorf("Error: message = %q, want %q", rec.Message, "error message")
+	}
+}
+
+func TestScopeOf(t *testing.T) {
+	cases := map[string]string{
+		"failover: skipping row": "failover",
+		"discovery: opened":      "discovery",
+		"no colon here":          "",
+		":leading colon":         "",
+		"ratelimit-ip: throttle": "ratelimit-ip",
+	}
+	for msg, want := range cases {
+		if got := scopeOf(msg); got != want {
+			t.Errorf("scopeOf(%q) = %q, want %q", msg, got, want)
+		}
+	}
+}
+
+// TestDebug_ScopeFiltering verifies DEBUG_LOG_SCOPES enables Debug for only the
+// named scopes while global Debug stays off: matching-scope messages emit,
+// others are dropped.
+func TestDebug_ScopeFiltering(t *testing.T) {
+	t.Setenv("DEBUG_LOG_SCOPES", "failover, discovery")
+	Init(false) // global debug off; scopes = {failover, discovery}
+	t.Cleanup(func() {
+		os.Unsetenv("DEBUG_LOG_SCOPES")
+		Init(false)
+	})
+
+	// Handler must accept Debug; Init set the level to Debug because scopes are
+	// configured, but our capture handler carries its own level.
+	if Level() != slog.LevelDebug {
+		t.Fatalf("Level() = %v, want Debug when scopes configured", Level())
+	}
+	h := newCaptureHandler(slog.LevelDebug)
+	SetHandler(h)
+
+	Debug("failover: should emit")
+	Debug("discovery: should emit")
+	Debug("proxy: should be dropped")
+	Debug("no-scope message dropped")
+
+	if len(h.records) != 2 {
+		t.Fatalf("expected 2 scoped debug records, got %d", len(h.records))
+	}
+	for _, r := range h.records {
+		if s := scopeOf(r.Message); s != "failover" && s != "discovery" {
+			t.Errorf("unexpected scoped record emitted: %q (scope %q)", r.Message, s)
+		}
 	}
 }
