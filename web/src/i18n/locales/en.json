@@ -1909,6 +1909,7 @@
 			"deleteDisabledMessage_one": "This will permanently delete {{count}} disabled model. If autodiscovery is enabled on their provider, they will be re-discovered on the next cycle. Disable autodiscovery on the provider to prevent this.",
 			"deleteDisabledMessage_other": "This will permanently delete {{count}} disabled models. If autodiscovery is enabled on their provider, they will be re-discovered on the next cycle. Disable autodiscovery on the provider to prevent this.",
 			"clickToCopyId": "Click to copy model ID",
+			"clickToCopyName": "Click to copy model name",
 			"deleteDisabledLabel_one": "{{count}} disabled model",
 			"deleteDisabledLabel_other": "{{count}} disabled models"
 		},

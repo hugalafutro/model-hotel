@@ -1910,7 +1910,8 @@
 			"deleteDisabledMessage_other": "無効化された {{count}} モデルは完全に削除されます。 プロバイダーで自動検出が有効になっている場合、次のサイクルで再発見されます。プロバイダーの自動検出を無効にしてこれを防止します。",
 			"clickToCopyId": "クリックしてモデル ID をコピー",
 			"deleteDisabledLabel_one": "{{count}} はモデルを無効にしました",
-			"deleteDisabledLabel_other": "{{count}} はモデルを無効にしました"
+			"deleteDisabledLabel_other": "{{count}} はモデルを無効にしました",
+			"clickToCopyName": "クリックしてモデル名をコピー"
 		},
 		"virtualModelTable": {
 			"searchModels": "モデルを検索…",

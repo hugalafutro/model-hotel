@@ -1910,7 +1910,8 @@
 			"deleteDisabledMessage_other": "Это навсегда удалит отключенные {{count}} . Если автообнаружение включено на их поставщике, они будут повторно обнаружены в следующем цикле. Отключите автообнаружение на провайдере для предотвращения этого.",
 			"clickToCopyId": "Нажмите, чтобы скопировать ID модели",
 			"deleteDisabledLabel_one": "Модель отключена {{count}}",
-			"deleteDisabledLabel_other": "Модели отключены {{count}}"
+			"deleteDisabledLabel_other": "Модели отключены {{count}}",
+			"clickToCopyName": "Нажмите, чтобы скопировать название модели"
 		},
 		"virtualModelTable": {
 			"searchModels": "Поиск моделей…",

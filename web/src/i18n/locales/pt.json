@@ -1910,7 +1910,8 @@
 			"deleteDisabledMessage_other": "Isto irá apagar permanentemente modelos desativados {{count}} . Se a descoberta automática estiver ativada em seu provedor, ele será redescoberto no próximo ciclo. Desative a descoberta automática no provedor para impedir isso.",
 			"clickToCopyId": "Clique para copiar a ID do modelo",
 			"deleteDisabledLabel_one": "{{count}} modelo desativado",
-			"deleteDisabledLabel_other": "Modelos {{count}} desativados"
+			"deleteDisabledLabel_other": "Modelos {{count}} desativados",
+			"clickToCopyName": "Clique para copiar o nome do modelo"
 		},
 		"virtualModelTable": {
 			"searchModels": "Procurar modelos…",

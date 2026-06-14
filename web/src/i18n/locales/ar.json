@@ -1910,7 +1910,8 @@
 			"deleteDisabledMessage_other": "سيؤدي هذا إلى حذف النماذج {{count}} المعطلة بشكل دائم. إذا تم تمكين الاكتشاف التلقائي على المزود الخاص بهم، سيتم إعادة اكتشافهم في الدورة التالية. قم بتعطيل الاكتشاف التلقائي على المزود لمنع هذا.",
 			"clickToCopyId": "انقر لنسخ معرف النموذج",
 			"deleteDisabledLabel_one": "تم تعطيل نموذج {{count}}",
-			"deleteDisabledLabel_other": "{{count}} النماذج المعطلة"
+			"deleteDisabledLabel_other": "{{count}} النماذج المعطلة",
+			"clickToCopyName": "انقر لنسخ اسم النموذج"
 		},
 		"virtualModelTable": {
 			"searchModels": "البحث عن نماذج…",

@@ -1910,7 +1910,8 @@
 			"deleteDisabledMessage_other": "Dette vil slette {{count}} deaktiverte modeller. Hvis autodiscovery er aktivert på leverandøren deres, vil de bli oppdaget på nytt neste syklus. Deaktiver autodiscovery på leverandøren for å forhindre dette.",
 			"clickToCopyId": "Klikk for å kopiere modell-ID",
 			"deleteDisabledLabel_one": "{{count}} deaktivert modell",
-			"deleteDisabledLabel_other": "{{count}} deaktiverte modeller"
+			"deleteDisabledLabel_other": "{{count}} deaktiverte modeller",
+			"clickToCopyName": "Klikk for å kopiere modellnavn"
 		},
 		"virtualModelTable": {
 			"searchModels": "Søk modeller…",

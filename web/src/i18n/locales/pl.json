@@ -1910,7 +1910,8 @@
 			"deleteDisabledMessage_other": "Spowoduje to trwałe usunięcie modeli {{count}} . Jeśli autodiscovery jest włączone w ich dostawcy, zostaną one ponownie odkryte w następnym cyklu. Wyłącz autodiscovery u dostawcy, aby temu zapobiec.",
 			"clickToCopyId": "Kliknij, aby skopiować identyfikator modelu",
 			"deleteDisabledLabel_one": "{{count}} wyłączony model",
-			"deleteDisabledLabel_other": "{{count}} wyłączono modele"
+			"deleteDisabledLabel_other": "{{count}} wyłączono modele",
+			"clickToCopyName": "Kliknij, aby skopiować nazwę modelu"
 		},
 		"virtualModelTable": {
 			"searchModels": "Szukaj modeli…",

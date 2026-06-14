@@ -1910,7 +1910,8 @@
 			"deleteDisabledMessage_other": "Ceci supprimera définitivement les modèles {{count}} désactivés. Si la découverte automatique est activée sur leur fournisseur, ils seront redécouverts lors du prochain cycle. Désactivez la découverte automatique sur le fournisseur pour éviter cela.",
 			"clickToCopyId": "Cliquer pour copier l'ID du modèle",
 			"deleteDisabledLabel_one": "{{count}} a désactivé le modèle",
-			"deleteDisabledLabel_other": "Modèles {{count}} désactivés"
+			"deleteDisabledLabel_other": "Modèles {{count}} désactivés",
+			"clickToCopyName": "Cliquez pour copier le nom du modèle"
 		},
 		"virtualModelTable": {
 			"searchModels": "Rechercher les modèles…",
