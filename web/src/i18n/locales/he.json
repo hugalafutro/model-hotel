@@ -100,7 +100,8 @@
 			"logs": "יומנים",
 			"requests": "בקשות",
 			"appLogs": "יומנים",
-			"settings": "הגדרות"
+			"settings": "הגדרות",
+			"failoverBadgeExplain": "ספקי מעבר לגיבוי לפי מצב מפסק זרם — {{closed}} תקין / {{halfOpen}} מתאושש / {{open}} הופעל"
 		},
 		"status": {
 			"apiStatus": "סטטוס API",

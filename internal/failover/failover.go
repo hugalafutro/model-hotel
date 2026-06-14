@@ -667,6 +667,7 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 		var id, providerID uuid.UUID
 		var modelID, providerName string
 		if err := rows.Scan(&id, &modelID, &providerID, &providerName); err != nil {
+			debuglog.Warn("failover: skipping unscannable model row during sync", "error", err)
 			continue
 		}
 		base := normalizeBaseModel(modelID)
@@ -773,6 +774,7 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) (*SyncRes
 	for rows.Next() {
 		var id, providerID uuid.UUID
 		if err := rows.Scan(&id, &providerID); err != nil {
+			debuglog.Warn("failover: skipping unscannable group-member row", "error", err)
 			continue
 		}
 		currentIDs = append(currentIDs, id)

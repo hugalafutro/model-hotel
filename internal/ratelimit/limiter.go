@@ -56,6 +56,64 @@ type keyEntry struct {
 	rps      float64
 	burst    int
 	lastUsed time.Time
+
+	// Edge-triggered throttle state: one log line when a key starts being
+	// rate-limited and one when it recovers, rather than one per rejected
+	// request. `throttled` is atomic so noteAllowed's hot path (the common
+	// not-throttled serve) needs no lock; throttledAt/rejectedN are guarded by
+	// throttleMu, taken only on the exceptional rejection/transition paths, so
+	// the per-episode count is exact under concurrency.
+	throttleMu  sync.Mutex
+	throttled   atomic.Bool
+	throttledAt time.Time
+	rejectedN   int64
+}
+
+// noteRejected records a 429 for the key and logs "throttling started" on the
+// first rejection of an episode. Subsequent rejections only bump the counter,
+// so a sustained burst stays quiet in the log.
+func (e *keyEntry) noteRejected(keyHash string) {
+	e.throttleMu.Lock()
+	if !e.throttled.Load() {
+		e.throttled.Store(true)
+		e.throttledAt = time.Now()
+		e.rejectedN = 1
+		e.throttleMu.Unlock()
+		debuglog.Warn("ratelimit: throttling started",
+			"key", keyHash, "rps", e.rps, "burst", e.burst)
+		return
+	}
+	e.rejectedN++
+	e.throttleMu.Unlock()
+}
+
+// noteAllowed logs "throttling ended" when a key that was being throttled is
+// served again with no delay (its bucket has fully recovered). The common
+// not-throttled case is a lock-free atomic read.
+func (e *keyEntry) noteAllowed(keyHash string) {
+	if !e.throttled.Load() {
+		return
+	}
+	e.throttleMu.Lock()
+	if !e.throttled.Load() {
+		e.throttleMu.Unlock()
+		return
+	}
+	e.throttled.Store(false)
+	dur := time.Since(e.throttledAt)
+	n := e.rejectedN
+	e.throttleMu.Unlock()
+	e.logThrottlingEnded(keyHash, "recovered", dur, n)
+}
+
+// logThrottlingEnded emits the episode summary: how long it lasted and how many
+// requests were rejected, computed by the caller under throttleMu.
+func (*keyEntry) logThrottlingEnded(keyHash, reason string, dur time.Duration, rejected int64) {
+	debuglog.Info("ratelimit: throttling ended",
+		"key", keyHash,
+		"reason", reason,
+		"duration", dur.Round(time.Millisecond).String(),
+		"rejected_requests", rejected)
 }
 
 // NewLimiter creates a Limiter that reads configuration from the provided
@@ -89,11 +147,14 @@ func (l *Limiter) Stop() {
 // On limit violation the middleware responds with HTTP 429 and sets
 // Retry-After and X-RateLimit-* headers.
 func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
+	// Log the env kill-switch once at wiring time instead of on every request.
+	if !enabled {
+		debuglog.Info("ratelimit: per-key rate limiting disabled via env (RATE_LIMIT_ENABLED=false)")
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Hard kill-switch from env var
 			if !enabled {
-				debuglog.Info("ratelimit: rate limiting disabled via env")
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -149,8 +210,8 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 
 			reservation := entry.limiter.Reserve()
 			if !reservation.OK() {
+				entry.noteRejected(keyHash)
 				l.writeRateLimitHeaders(w, entry.limiter, 0)
-				debuglog.Warn("ratelimit: rate limit exceeded", "key", keyHash)
 				util.WriteOpenAIError(w, "rate limit exceeded", http.StatusTooManyRequests)
 				return
 			}
@@ -158,7 +219,9 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 			delay := reservation.Delay()
 			if delay > 0 {
 				// Graceful backpressure: if the wait is within the configured max_wait,
-				// sleep and proceed instead of rejecting immediately.
+				// sleep and proceed instead of rejecting immediately. The key is still
+				// under pressure, so an open throttle episode is left open (only a
+				// no-delay serve below closes it).
 				if delay <= maxWait {
 					time.Sleep(delay)
 					l.writeRateLimitHeaders(w, entry.limiter, 0)
@@ -167,12 +230,15 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 				}
 				// Wait exceeds max_wait — cancel the reservation and reject.
 				reservation.Cancel()
+				entry.noteRejected(keyHash)
 				l.writeRateLimitHeaders(w, entry.limiter, delay)
-				debuglog.Warn("ratelimit: rate limit exceeded", "key", keyHash)
 				util.WriteOpenAIError(w, "rate limit exceeded", http.StatusTooManyRequests)
 				return
 			}
 
+			// Served with no delay — the bucket has recovered, so close any open
+			// throttle episode for this key.
+			entry.noteAllowed(keyHash)
 			l.writeRateLimitHeaders(w, entry.limiter, 0)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
@@ -268,6 +334,16 @@ func (l *Limiter) cleanup() {
 	cutoff := time.Now().Add(-10 * time.Minute)
 	for key, entry := range l.limiters {
 		if entry.lastUsed.Before(cutoff) {
+			// Close any still-open throttle episode (traffic stopped while the
+			// key was rate-limited, so no later request closed it). Use the
+			// key's last activity as the episode end.
+			if entry.throttled.Load() {
+				entry.throttleMu.Lock()
+				dur := entry.lastUsed.Sub(entry.throttledAt)
+				n := entry.rejectedN
+				entry.throttleMu.Unlock()
+				entry.logThrottlingEnded(key, "idle", dur, n)
+			}
 			delete(l.limiters, key)
 		}
 	}

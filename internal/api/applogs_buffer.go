@@ -175,7 +175,15 @@ func (w *dbLogWriter) flush(entries []AppLogEntry) {
 }
 
 func (w *dbLogWriter) write(entry AppLogEntry) {
-	defer func() { recover() }()
+	defer func() {
+		if r := recover(); r != nil {
+			// The only expected panic is "send on closed channel" during
+			// shutdown (StopAppLogWriter closes w.ch). Surface anything else to
+			// stderr directly — never via debuglog, which routes back into this
+			// writer and would recurse.
+			fmt.Fprintf(os.Stderr, "applog: entry dropped, write panicked: %v\n", r)
+		}
+	}()
 	timer := time.NewTimer(dbLogSendTimeout)
 	defer timer.Stop()
 	select {

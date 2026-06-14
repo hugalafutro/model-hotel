@@ -100,7 +100,8 @@
 			"logs": "Günlükler",
 			"requests": "İstekler",
 			"appLogs": "Günlükler",
-			"settings": "Ayarlar"
+			"settings": "Ayarlar",
+			"failoverBadgeExplain": "Devre kesici durumuna göre yedekleme sağlayıcıları — {{closed}} sağlıklı / {{halfOpen}} kurtarma aşamasında / {{open}} devre dışı"
 		},
 		"status": {
 			"apiStatus": "API Durumu",

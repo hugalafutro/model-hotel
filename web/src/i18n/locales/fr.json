@@ -100,7 +100,8 @@
 			"logs": "Journaux",
 			"requests": "Requêtes",
 			"appLogs": "Journaux",
-			"settings": "Paramètres"
+			"settings": "Paramètres",
+			"failoverBadgeExplain": "Fournisseurs de basculement par état du disjoncteur — {{closed}} en bon état / {{halfOpen}} en cours de récupération / {{open}} déclenché"
 		},
 		"status": {
 			"apiStatus": "État de l'API",

@@ -100,7 +100,8 @@
 			"logs": "السجلات",
 			"requests": "الطلبات",
 			"appLogs": "السجلات",
-			"settings": "الإعدادات"
+			"settings": "الإعدادات",
+			"failoverBadgeExplain": "مزودي التحويل التلقائي حسب حالة قاطع الدائرة — {{closed}} سليم / {{halfOpen}} قيد الاستعادة / {{open}} تعطل"
 		},
 		"status": {
 			"apiStatus": "حالة API",

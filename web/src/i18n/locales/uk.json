@@ -100,7 +100,8 @@
 			"logs": "Логи",
 			"requests": "Запити",
 			"appLogs": "Логи",
-			"settings": "Налаштування"
+			"settings": "Налаштування",
+			"failoverBadgeExplain": "Провайдери відмовостійкості за станом автоматичного вимикача — {{closed}} справний / {{halfOpen}} відновлюється / {{open}} спрацював"
 		},
 		"status": {
 			"apiStatus": "Статус API",

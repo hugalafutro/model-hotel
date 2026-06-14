@@ -100,7 +100,8 @@
 			"logs": "Registres",
 			"requests": "Sol·licituds",
 			"appLogs": "Registres",
-			"settings": "Configuració"
+			"settings": "Configuració",
+			"failoverBadgeExplain": "Proveïdors de fallada per estat del circuit breaker — {{closed}} saludable / {{halfOpen}} en recuperació / {{open}} disparat"
 		},
 		"status": {
 			"apiStatus": "Estat de l'API",

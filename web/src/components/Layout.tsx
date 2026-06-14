@@ -1021,18 +1021,31 @@ export function Layout({ children }: LayoutProps) {
 												<span
 													className="inline-flex items-center gap-[2px] leading-[1.6] translate-y-[1px] ui-badge ui-badge-neutral"
 													title={(() => {
-														if (!cbStatus.providers) return undefined;
-														const unhealthy = cbStatus.providers.filter(
+														// Always explain what the counts mean (they track
+														// providers, not groups — a common mix-up).
+														const explain = t(
+															"layout.nav.failoverBadgeExplain",
+															{
+																closed: cbStatus.closed,
+																halfOpen: cbStatus.half_open,
+																open: cbStatus.open,
+															},
+														);
+														const unhealthy = cbStatus.providers?.filter(
 															(p) =>
 																p.state === "open" || p.state === "half-open",
 														);
-														if (unhealthy.length === 0) return undefined;
-														return t("layout.nav.failoverBadgeTooltip", {
-															count: unhealthy.length,
-															providers: unhealthy
-																.map((p) => p.provider_name || p.provider_id)
-																.join(", "),
-														});
+														if (!unhealthy || unhealthy.length === 0)
+															return explain;
+														return `${explain}\n${t(
+															"layout.nav.failoverBadgeTooltip",
+															{
+																count: unhealthy.length,
+																providers: unhealthy
+																	.map((p) => p.provider_name || p.provider_id)
+																	.join(", "),
+															},
+														)}`;
 													})()}
 												>
 													<span className="text-emerald-400 badge-text">

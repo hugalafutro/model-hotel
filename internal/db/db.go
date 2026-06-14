@@ -239,5 +239,6 @@ func (db *DB) WaitForReady(ctx context.Context, maxAttempts int) error {
 		}
 	}
 
+	debuglog.Error("db: database not ready, giving up", "attempts", maxAttempts)
 	return fmt.Errorf("database not ready after %d attempts", maxAttempts)
 }

@@ -283,7 +283,13 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Application-level duplicate name check
-	existing, _ := h.providerRepo.GetByName(r.Context(), req.Name)
+	existing, err := h.providerRepo.GetByName(r.Context(), req.Name)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		// A DB error here silently looks like "no duplicate", so the app-level
+		// guard is bypassed (the DB unique constraint is the backstop). Surface
+		// it so a flaky DB doesn't quietly admit dupes.
+		debuglog.Warn("provider create: duplicate-name check failed, relying on DB constraint", "name", req.Name, "error", err)
+	}
 	if existing != nil {
 		http.Error(w, "a provider with this name already exists", http.StatusConflict)
 		return

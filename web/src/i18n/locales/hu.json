@@ -100,7 +100,8 @@
 			"logs": "Naplók",
 			"requests": "Kérések",
 			"appLogs": "Naplók",
-			"settings": "Beállítások"
+			"settings": "Beállítások",
+			"failoverBadgeExplain": "Failover szolgáltatók áramkör-megszakító állapot szerint — {{closed}} működőképes / {{halfOpen}} helyreállítási fázisban / {{open}} kioldott"
 		},
 		"status": {
 			"apiStatus": "API-állapot",

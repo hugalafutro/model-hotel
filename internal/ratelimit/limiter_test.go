@@ -2,6 +2,7 @@ package ratelimit
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 // ---------------------------------------------------------------------------
@@ -1127,3 +1129,137 @@ func TestCleanupLoop_ConcurrentStopAndTick(t *testing.T) {
 // and TestCleanupLoop_Integration. Only the select case routing itself
 // (ticker.C vs stopCh) is untested; the actual cleanup logic is fully covered.
 // This is a structural limitation, not a gap in test intent.
+
+// ---------------------------------------------------------------------------
+// Edge-triggered throttle logging
+// ---------------------------------------------------------------------------
+
+// msgCaptureHandler is a minimal slog.Handler that records log messages so a
+// test can assert on which debuglog lines were emitted.
+type msgCaptureHandler struct {
+	mu   sync.Mutex
+	msgs []string
+}
+
+func (c *msgCaptureHandler) Enabled(context.Context, slog.Level) bool { return true }
+
+func (c *msgCaptureHandler) Handle(_ context.Context, r slog.Record) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.msgs = append(c.msgs, r.Message)
+	return nil
+}
+
+func (c *msgCaptureHandler) WithAttrs([]slog.Attr) slog.Handler { return c }
+func (c *msgCaptureHandler) WithGroup(string) slog.Handler      { return c }
+
+func (c *msgCaptureHandler) count(msg string) int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	n := 0
+	for _, m := range c.msgs {
+		if m == msg {
+			n++
+		}
+	}
+	return n
+}
+
+// TestKeyEntry_ThrottleEdgeLogging verifies the rate limiter logs once when a
+// key starts being throttled and once when it recovers — not once per rejected
+// request — and that a fresh rejection after recovery opens a new episode.
+func TestKeyEntry_ThrottleEdgeLogging(t *testing.T) {
+	h := &msgCaptureHandler{}
+	debuglog.SetHandler(h)
+	t.Cleanup(func() { debuglog.Init(false) })
+
+	const started = "ratelimit: throttling started"
+	const ended = "ratelimit: throttling ended"
+
+	e := &keyEntry{limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1}
+
+	// A burst of rejections must produce exactly one "started" line.
+	e.noteRejected("keyhash")
+	e.noteRejected("keyhash")
+	e.noteRejected("keyhash")
+	if got := h.count(started); got != 1 {
+		t.Errorf("started count = %d, want 1", got)
+	}
+	if got := e.rejectedN; got != 3 {
+		t.Errorf("rejectedN = %d, want 3", got)
+	}
+
+	// Recovery (a no-delay serve) closes the episode exactly once; a second
+	// allow without an intervening rejection must not re-log.
+	e.noteAllowed("keyhash")
+	e.noteAllowed("keyhash")
+	if got := h.count(ended); got != 1 {
+		t.Errorf("ended count = %d, want 1", got)
+	}
+
+	// A rejection after recovery opens a new episode.
+	e.noteRejected("keyhash")
+	if got := h.count(started); got != 2 {
+		t.Errorf("started count after new episode = %d, want 2", got)
+	}
+	if got := e.rejectedN; got != 1 {
+		t.Errorf("rejectedN after new episode = %d, want 1", got)
+	}
+}
+
+// TestKeyEntry_ConcurrentRejectionsExactCount proves the episode counter is
+// exact under concurrency: N goroutines hitting the limit at once produce
+// exactly one "started" line and rejectedN == N (the previous atomic
+// Store(1)/Add(1) design could drop concurrent rejections from the count).
+func TestKeyEntry_ConcurrentRejectionsExactCount(t *testing.T) {
+	h := &msgCaptureHandler{}
+	debuglog.SetHandler(h)
+	t.Cleanup(func() { debuglog.Init(false) })
+
+	e := &keyEntry{limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1}
+	const n = 200
+	var wg sync.WaitGroup
+	wg.Add(n)
+	for range n {
+		go func() {
+			defer wg.Done()
+			e.noteRejected("k")
+		}()
+	}
+	wg.Wait()
+
+	if e.rejectedN != n {
+		t.Errorf("rejectedN = %d, want %d (count must be exact under concurrency)", e.rejectedN, n)
+	}
+	if got := h.count("ratelimit: throttling started"); got != 1 {
+		t.Errorf("started count = %d, want exactly 1", got)
+	}
+}
+
+// TestKeyEntry_IdleEvictionLogsEnded covers the cleanup path that closes a
+// throttle episode when a still-throttled key goes idle and is evicted.
+func TestKeyEntry_IdleEvictionLogsEnded(t *testing.T) {
+	h := &msgCaptureHandler{}
+	debuglog.SetHandler(h)
+	t.Cleanup(func() { debuglog.Init(false) })
+
+	lim := &Limiter{
+		limiters: make(map[string]*keyEntry),
+		settings: newStubSettings(),
+		stopCh:   make(chan struct{}),
+	}
+	e := &keyEntry{limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1}
+	e.noteRejected("idlekey") // open an episode
+	e.throttledAt = time.Now().Add(-25 * time.Minute)
+	e.lastUsed = time.Now().Add(-20 * time.Minute) // idle, past the 10-min cutoff
+	lim.limiters["idlekey"] = e
+
+	lim.cleanup()
+
+	if got := h.count("ratelimit: throttling ended"); got != 1 {
+		t.Errorf("expected one 'throttling ended' on idle eviction, got %d", got)
+	}
+	if _, ok := lim.limiters["idlekey"]; ok {
+		t.Error("idle entry should have been evicted")
+	}
+}

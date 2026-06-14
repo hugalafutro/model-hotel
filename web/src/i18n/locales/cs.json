@@ -100,7 +100,8 @@
 			"logs": "Logy",
 			"requests": "Požadavky",
 			"appLogs": "Logy appky",
-			"settings": "Nastavení"
+			"settings": "Nastavení",
+			"failoverBadgeExplain": "Poskytovatelé failoveru podle stavu jističe — {{closed}} v pořádku / {{halfOpen}} se zotavuje / {{open}} vypnutý"
 		},
 		"status": {
 			"apiStatus": "Stav API",

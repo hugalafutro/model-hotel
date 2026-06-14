@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/time/rate"
@@ -29,6 +30,60 @@ type ipEntry struct {
 	rps      float64
 	burst    int
 	lastUsed time.Time
+
+	// Edge-triggered throttle state — see keyEntry for the rationale and the
+	// hot-path/lock split. `throttled` stays atomic for noteAllowed's lock-free
+	// fast path; throttledAt/rejectedN are guarded by throttleMu so the
+	// per-episode count is exact under concurrency.
+	throttleMu  sync.Mutex
+	throttled   atomic.Bool
+	throttledAt time.Time
+	rejectedN   int64
+}
+
+// noteRejected logs "throttling started" on the first rejection of an episode;
+// later rejections only bump the (exact) counter.
+func (e *ipEntry) noteRejected(ip string) {
+	e.throttleMu.Lock()
+	if !e.throttled.Load() {
+		e.throttled.Store(true)
+		e.throttledAt = time.Now()
+		e.rejectedN = 1
+		e.throttleMu.Unlock()
+		debuglog.Warn("ratelimit-ip: throttling started",
+			"ip", ip, "rps", e.rps, "burst", e.burst)
+		return
+	}
+	e.rejectedN++
+	e.throttleMu.Unlock()
+}
+
+// noteAllowed logs "throttling ended" when a throttled IP is served again with
+// no delay. The common not-throttled case is a lock-free atomic read.
+func (e *ipEntry) noteAllowed(ip string) {
+	if !e.throttled.Load() {
+		return
+	}
+	e.throttleMu.Lock()
+	if !e.throttled.Load() {
+		e.throttleMu.Unlock()
+		return
+	}
+	e.throttled.Store(false)
+	dur := time.Since(e.throttledAt)
+	n := e.rejectedN
+	e.throttleMu.Unlock()
+	e.logThrottlingEnded(ip, "recovered", dur, n)
+}
+
+// logThrottlingEnded emits the episode summary (duration + rejected count),
+// computed by the caller under throttleMu.
+func (*ipEntry) logThrottlingEnded(ip, reason string, dur time.Duration, rejected int64) {
+	debuglog.Info("ratelimit-ip: throttling ended",
+		"ip", ip,
+		"reason", reason,
+		"duration", dur.Round(time.Millisecond).String(),
+		"rejected_requests", rejected)
 }
 
 // settings keys for IP rate limiter (stored in DB)
@@ -102,8 +157,8 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 
 		reservation := entry.limiter.Reserve()
 		if !reservation.OK() {
+			entry.noteRejected(ip)
 			l.writeHeaders(w, entry.limiter, 0)
-			debuglog.Warn("ratelimit-ip: rate limit exceeded", "ip", ip)
 			util.WriteOpenAIError(w, "rate limit exceeded", http.StatusTooManyRequests)
 			return
 		}
@@ -111,7 +166,9 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 		delay := reservation.Delay()
 		if delay > 0 {
 			// Graceful backpressure: if the wait is within the configured max_wait,
-			// sleep and proceed instead of rejecting immediately.
+			// sleep and proceed instead of rejecting immediately. The IP is still
+			// under pressure, so an open throttle episode stays open (only a
+			// no-delay serve below closes it).
 			maxWait := time.Duration(defaultMaxWaitMs) * time.Millisecond
 			if l.settings != nil {
 				maxWait = time.Duration(l.settings.GetInt(r.Context(), settingsKeyIPMaxWaitMs, defaultMaxWaitMs)) * time.Millisecond
@@ -124,12 +181,15 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 			}
 			// Wait exceeds max_wait - cancel the reservation and reject.
 			reservation.Cancel()
+			entry.noteRejected(ip)
 			l.writeHeaders(w, entry.limiter, delay)
-			debuglog.Warn("ratelimit-ip: rate limit exceeded", "ip", ip)
 			util.WriteOpenAIError(w, "rate limit exceeded", http.StatusTooManyRequests)
 			return
 		}
 
+		// Served with no delay — the bucket has recovered, so close any open
+		// throttle episode for this IP.
+		entry.noteAllowed(ip)
 		l.writeHeaders(w, entry.limiter, 0)
 		next.ServeHTTP(w, r)
 	})
@@ -198,6 +258,15 @@ func (l *IPLimiter) cleanup() {
 	cutoff := time.Now().Add(-10 * time.Minute)
 	for ip, entry := range l.limiters {
 		if entry.lastUsed.Before(cutoff) {
+			// Close any still-open throttle episode (traffic stopped while the
+			// IP was rate-limited). Use the IP's last activity as the end.
+			if entry.throttled.Load() {
+				entry.throttleMu.Lock()
+				dur := entry.lastUsed.Sub(entry.throttledAt)
+				n := entry.rejectedN
+				entry.throttleMu.Unlock()
+				entry.logThrottlingEnded(ip, "idle", dur, n)
+			}
 			delete(l.limiters, ip)
 		}
 	}

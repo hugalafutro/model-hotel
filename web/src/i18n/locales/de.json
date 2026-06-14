@@ -100,7 +100,8 @@
 			"logs": "Protokolle",
 			"requests": "Anfragen",
 			"appLogs": "Protokolle",
-			"settings": "Einstellungen"
+			"settings": "Einstellungen",
+			"failoverBadgeExplain": "Failover-Anbieter nach Circuit-Breaker-Status – {{closed}} intakt / {{halfOpen}} in Wiederherstellung / {{open}} ausgelöst"
 		},
 		"status": {
 			"apiStatus": "API-Status",

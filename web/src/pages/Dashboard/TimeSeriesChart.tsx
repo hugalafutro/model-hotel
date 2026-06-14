@@ -11,6 +11,7 @@ import {
 	YAxis,
 } from "recharts";
 import { Spinner } from "../../components/Spinner";
+import { formatAxisTick } from "./axisFormat";
 import { RangeToggle } from "./ToggleGroup";
 import type { GaugeDataKey, Range, TimeSeriesDataPoint } from "./types";
 
@@ -284,9 +285,7 @@ export function TimeSeriesChart({
 							tickFormatter={(v: number) => {
 								const raw = Number(v) * scale;
 								const val = allowDecimals ? raw : Math.round(raw);
-								return val.toLocaleString(undefined, {
-									maximumFractionDigits: allowDecimals ? 2 : 0,
-								});
+								return formatAxisTick(val, allowDecimals);
 							}}
 						/>
 						<Tooltip

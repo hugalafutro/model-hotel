@@ -100,7 +100,8 @@
 			"logs": "Registros",
 			"requests": "Solicitudes",
 			"appLogs": "Registros",
-			"settings": "Ajustes"
+			"settings": "Ajustes",
+			"failoverBadgeExplain": "Proveedores de conmutación por error según el estado del disyuntor: {{closed}} en buen estado / {{halfOpen}} en recuperación / {{open}} disparado"
 		},
 		"status": {
 			"apiStatus": "Estado de la API",

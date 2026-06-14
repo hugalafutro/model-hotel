@@ -100,7 +100,8 @@
 			"logs": "Logboeken",
 			"requests": "Verzoeken",
 			"appLogs": "Logboeken",
-			"settings": "Instellingen"
+			"settings": "Instellingen",
+			"failoverBadgeExplain": "Failover-providers op basis van circuit-breaker-status — {{closed}} gezond / {{halfOpen}} herstellend / {{open}} geactiveerd"
 		},
 		"status": {
 			"apiStatus": "API-status",

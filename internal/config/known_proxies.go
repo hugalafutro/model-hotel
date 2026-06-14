@@ -1,7 +1,6 @@
 package config
 
 import (
-	"fmt"
 	"net"
 	"os"
 	"strings"
@@ -27,7 +26,8 @@ func LoadKnownProxies() []*net.IPNet {
 		}
 		_, cidr, err := net.ParseCIDR(p)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "KNOWN_PROXIES: skipping invalid CIDR %q: %v\n", p, err)
+			// debuglog.Error already reaches both stderr and the app-log ring
+			// buffer; a separate os.Stderr write would just duplicate it.
 			debuglog.Error("KNOWN_PROXIES: skipping invalid CIDR", "cidr", p, "error", err)
 			continue
 		}
