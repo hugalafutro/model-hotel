@@ -847,7 +847,7 @@
 			},
 			"testSuccess": "Siker | Válasz: {{content}}{{ttftPart}} | Időtartam: {{duration}}másodperc",
 			"testFailed": "A teszt sikertelen: {{error}}",
-			"testSuccessNoResponse": "Success{{ttftPart}} | Időtartam: {{duration}}s"
+			"testSuccessNoResponse": "Siker{{ttftPart}} | Időtartam: {{duration}}másodperc"
 		},
 		"table": {
 			"sortByModelName": "Rendezés modellnév szerint",

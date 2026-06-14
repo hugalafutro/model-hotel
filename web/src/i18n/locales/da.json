@@ -847,7 +847,7 @@
 			},
 			"testSuccess": "Succes - Svar: {{content}}{{ttftPart}} - Varighed: {{duration}}s",
 			"testFailed": "Test mislykkedes: {{error}}",
-			"testSuccessNoResponse": "Success{{ttftPart}} | Varighed: {{duration}}s"
+			"testSuccessNoResponse": "Succes{{ttftPart}} | Varighed: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Sorter efter modelnavn",

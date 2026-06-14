@@ -847,7 +847,7 @@
 			},
 			"testSuccess": "Successo | Risposta: {{content}}{{ttftPart}} | Durata: {{duration}}s",
 			"testFailed": "Test fallito: {{error}}",
-			"testSuccessNoResponse": "Success{{ttftPart}} | Durata: {{duration}}s"
+			"testSuccessNoResponse": "Successo{{ttftPart}} | Durata: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Ordina per nome modello",

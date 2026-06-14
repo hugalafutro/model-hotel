@@ -847,7 +847,7 @@
 			},
 			"testSuccess": "Úspěch | Odpověď: {{content}}{{ttftPart}} | Trvání: {{duration}}s",
 			"testFailed": "Test selhal: {{error}}",
-			"testSuccessNoResponse": "Success{{ttftPart}} | Trvání: {{duration}}s"
+			"testSuccessNoResponse": "Úspěch{{ttftPart}} | Trvání: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Seřadit podle názvu modelu",

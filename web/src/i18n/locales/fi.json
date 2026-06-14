@@ -847,7 +847,7 @@
 			},
 			"testSuccess": "Onnistui: {{content}}{{ttftPart}} ¶ Kesto: {{duration}}s",
 			"testFailed": "Testi epäonnistui: {{error}}",
-			"testSuccessNoResponse": "Success{{ttftPart}} | Kesto: {{duration}}s"
+			"testSuccessNoResponse": "Onnistui{{ttftPart}} | Kesto: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Järjestä mallin nimen mukaan",

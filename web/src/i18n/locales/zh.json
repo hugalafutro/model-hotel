@@ -847,7 +847,7 @@
 			},
 			"testSuccess": "成功 | 响应： {{content}}{{ttftPart}} | 时长： {{duration}}秒",
 			"testFailed": "测试失败： {{error}}",
-			"testSuccessNoResponse": "Success{{ttftPart}} | 时长：{{duration}}s"
+			"testSuccessNoResponse": "成功{{ttftPart}} | 时长： {{duration}}秒"
 		},
 		"table": {
 			"sortByModelName": "按模型名称排序",

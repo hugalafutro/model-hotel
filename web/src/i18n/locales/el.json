@@ -847,7 +847,7 @@
 			},
 			"testSuccess": "Επιτυχία | Απάντηση: {{content}}{{ttftPart}} | Διάρκεια: {{duration}}δευτερόλεπτα",
 			"testFailed": "Η δοκιμή απέτυχε: {{error}}",
-			"testSuccessNoResponse": "Success{{ttftPart}} | Διάρκεια: {{duration}}s"
+			"testSuccessNoResponse": "Επιτυχία{{ttftPart}} | Διάρκεια: {{duration}}δευτερόλεπτα"
 		},
 		"table": {
 			"sortByModelName": "Ταξινόμηση κατά όνομα μοντέλου",

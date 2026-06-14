@@ -847,7 +847,7 @@
 			},
 			"testSuccess": "Başarı | Yanıt: {{content}}{{ttftPart}} | Süre: {{duration}}saniye",
 			"testFailed": "Test başarısız: {{error}}",
-			"testSuccessNoResponse": "Success{{ttftPart}} | Süre: {{duration}}s"
+			"testSuccessNoResponse": "Başarı{{ttftPart}} | Süre: {{duration}}saniye"
 		},
 		"table": {
 			"sortByModelName": "Model adına göre sırala",

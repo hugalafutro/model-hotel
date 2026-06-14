@@ -847,7 +847,7 @@
 			},
 			"testSuccess": "成功 | レスポンス: {{content}}{{ttftPart}} | 期間: {{duration}}s",
 			"testFailed": "テストに失敗しました: {{error}}",
-			"testSuccessNoResponse": "Success{{ttftPart}} | 所要時間: {{duration}}s"
+			"testSuccessNoResponse": "成功{{ttftPart}} | 期間: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "モデル名でソート",

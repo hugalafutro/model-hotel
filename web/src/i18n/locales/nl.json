@@ -847,7 +847,7 @@
 			},
 			"testSuccess": "Succes ½ Reactie: {{content}}{{ttftPart}} {{ttftPart}} s Duur: {{duration}}s",
 			"testFailed": "Test mislukt: {{error}}",
-			"testSuccessNoResponse": "Success{{ttftPart}} | Duur: {{duration}}s"
+			"testSuccessNoResponse": "Succes{{ttftPart}} | Duur: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Sorteren op modelnaam",

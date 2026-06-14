@@ -847,7 +847,7 @@
 			},
 			"testSuccess": "Úspech | Odkaz: {{content}}{{ttftPart}} | Trvanie: {{duration}}s",
 			"testFailed": "Test sa nepodaril: {{error}}",
-			"testSuccessNoResponse": "Success{{ttftPart}} | Trvanie: {{duration}}s"
+			"testSuccessNoResponse": "Úspech{{ttftPart}} | Trvanie: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Zoradiť podľa názvu modelu",

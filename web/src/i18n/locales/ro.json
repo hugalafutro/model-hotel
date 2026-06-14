@@ -847,7 +847,7 @@
 			},
 			"testSuccess": "Succes | Răspuns: {{content}}{{ttftPart}} | Durată: {{duration}}s",
 			"testFailed": "Test eșuat: {{error}}",
-			"testSuccessNoResponse": "Success{{ttftPart}} | Durată: {{duration}}s"
+			"testSuccessNoResponse": "Succes{{ttftPart}} | Durată: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Sortează după numele modelului",

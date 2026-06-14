@@ -847,7 +847,7 @@
 			},
 			"testSuccess": "Успіх | Відповідь: {{content}}{{ttftPart}} | Тривалість: {{duration}}с",
 			"testFailed": "Тест не пройшов: {{error}}",
-			"testSuccessNoResponse": "Success{{ttftPart}} | Тривалість: {{duration}}s"
+			"testSuccessNoResponse": "Успіх{{ttftPart}} | Тривалість: {{duration}}с"
 		},
 		"table": {
 			"sortByModelName": "Сортувати за назвою моделі",

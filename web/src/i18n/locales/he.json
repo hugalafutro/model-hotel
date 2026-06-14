@@ -847,7 +847,7 @@
 			},
 			"testSuccess": "הצלחה | תגובה: {{content}}{{ttftPart}} | משך: {{duration}}שניות",
 			"testFailed": "הבדיקה נכשלה: {{error}}",
-			"testSuccessNoResponse": "Success{{ttftPart}} | משך: {{duration}}s"
+			"testSuccessNoResponse": "הצלחה{{ttftPart}} | משך: {{duration}}שניות"
 		},
 		"table": {
 			"sortByModelName": "מיין לפי שם הדגם",

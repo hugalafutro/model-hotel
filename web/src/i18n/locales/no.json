@@ -847,7 +847,7 @@
 			},
 			"testSuccess": "Suksess- respons: {{content}}{{ttftPart}} ° Varighet: {{duration}}s",
 			"testFailed": "Test feilet: {{error}}",
-			"testSuccessNoResponse": "Success{{ttftPart}} | Varighet: {{duration}}s"
+			"testSuccessNoResponse": "Suksess{{ttftPart}} | Varighet: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Sorter etter modellnavn",

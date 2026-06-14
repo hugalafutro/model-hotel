@@ -847,7 +847,7 @@
 			},
 			"testSuccess": "Thành công | Liên hệ: {{content}}{{ttftPart}} | Thời lượng: {{duration}}giây",
 			"testFailed": "Thử nghiệm không thành công: {{error}}",
-			"testSuccessNoResponse": "Success{{ttftPart}} | Thời lượng: {{duration}}s"
+			"testSuccessNoResponse": "Thành công{{ttftPart}} | Thời lượng: {{duration}}giây"
 		},
 		"table": {
 			"sortByModelName": "Sắp xếp theo tên mẫu",

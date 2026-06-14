@@ -847,7 +847,7 @@
 			},
 			"testSuccess": "Успех | Одговор: {{content}}{{ttftPart}} | Трајање: {{duration}}",
 			"testFailed": "Тест је пропао: {{error}}",
-			"testSuccessNoResponse": "Success{{ttftPart}} | Трајање: {{duration}}s"
+			"testSuccessNoResponse": "Успех{{ttftPart}} | Трајање: {{duration}}"
 		},
 		"table": {
 			"sortByModelName": "Сортирај по називу модела",

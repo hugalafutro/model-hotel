@@ -847,7 +847,7 @@
 			},
 			"testSuccess": "النجاح | الاستجابة: {{content}}{{ttftPart}} | المدة: {{duration}}s",
 			"testFailed": "فشل الاختبار: {{error}}",
-			"testSuccessNoResponse": "Success{{ttftPart}} | المدة: {{duration}}s"
+			"testSuccessNoResponse": "النجاح{{ttftPart}} | المدة: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "الترتيب حسب اسم النموذج",
