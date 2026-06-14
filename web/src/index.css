@@ -1512,6 +1512,14 @@ html[data-ui-style="glassmorphism-lite"].light .ui-btn-primary {
 	background: color-mix(in srgb, var(--accent) 85%, transparent);
 	border: 1px solid color-mix(in srgb, var(--accent) 92%, transparent);
 }
+html[data-ui-style="glassmorphism-lite"].light
+	.ui-btn-primary:hover:not(:disabled) {
+	/* Without this, the dark-mode :hover rule (which lacks .light) wins on
+	   specificity and would dim the light primary to 68% on hover. Raise opacity
+	   so hover brightens (95%) instead of fading it below the 85% rest state. */
+	background: color-mix(in srgb, var(--accent) 95%, transparent);
+	filter: none;
+}
 html[data-ui-style="glassmorphism-lite"].light .ui-btn-secondary {
 	background-color: rgba(0, 0, 0, 0.06);
 	backdrop-filter: blur(12px) saturate(1.2);
