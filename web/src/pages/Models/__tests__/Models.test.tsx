@@ -274,7 +274,9 @@ describe("Models", () => {
 			});
 
 			// Click on the model row
-			await user.click(screen.getByText("Test Model"));
+			await user.click(
+				screen.getByText("Test Model").closest("tr") as HTMLElement,
+			);
 
 			// Modal should open
 			await waitFor(() => {
@@ -304,7 +306,9 @@ describe("Models", () => {
 			});
 
 			// Open detail modal
-			await user.click(screen.getByText("Test Model"));
+			await user.click(
+				screen.getByText("Test Model").closest("tr") as HTMLElement,
+			);
 
 			await waitFor(() => {
 				expect(
@@ -351,7 +355,9 @@ describe("Models", () => {
 			});
 
 			// Open detail modal
-			await user.click(screen.getByText("Test Model"));
+			await user.click(
+				screen.getByText("Test Model").closest("tr") as HTMLElement,
+			);
 
 			await waitFor(() => {
 				expect(
@@ -395,7 +401,9 @@ describe("Models", () => {
 			});
 
 			// Open detail modal
-			await user.click(screen.getByText("Test Model"));
+			await user.click(
+				screen.getByText("Test Model").closest("tr") as HTMLElement,
+			);
 
 			await waitFor(() => {
 				expect(
@@ -448,7 +456,9 @@ describe("Models", () => {
 			});
 
 			// Open detail modal
-			await user.click(screen.getByText("Test Model"));
+			await user.click(
+				screen.getByText("Test Model").closest("tr") as HTMLElement,
+			);
 
 			await waitFor(() => {
 				expect(
@@ -495,7 +505,9 @@ describe("Models", () => {
 			});
 
 			// Open detail modal
-			await user.click(screen.getByText("Test Model"));
+			await user.click(
+				screen.getByText("Test Model").closest("tr") as HTMLElement,
+			);
 
 			await waitFor(() => {
 				expect(
@@ -541,7 +553,9 @@ describe("Models", () => {
 			});
 
 			// Open detail modal
-			await user.click(screen.getByText("Test Model"));
+			await user.click(
+				screen.getByText("Test Model").closest("tr") as HTMLElement,
+			);
 
 			await waitFor(() => {
 				expect(
@@ -586,7 +600,9 @@ describe("Models", () => {
 			});
 
 			// Open detail modal
-			await user.click(screen.getByText("Test Model"));
+			await user.click(
+				screen.getByText("Test Model").closest("tr") as HTMLElement,
+			);
 
 			await waitFor(() => {
 				expect(
@@ -622,7 +638,9 @@ describe("Models", () => {
 			});
 
 			// Open detail modal
-			await user.click(screen.getByText("Test Model"));
+			await user.click(
+				screen.getByText("Test Model").closest("tr") as HTMLElement,
+			);
 
 			await waitFor(() => {
 				expect(
@@ -659,7 +677,9 @@ describe("Models", () => {
 			});
 
 			// Open detail modal
-			await user.click(screen.getByText("Test Model"));
+			await user.click(
+				screen.getByText("Test Model").closest("tr") as HTMLElement,
+			);
 
 			await waitFor(() => {
 				expect(
@@ -698,7 +718,9 @@ describe("Models", () => {
 			});
 
 			// Open detail modal
-			await user.click(screen.getByText("Test Model"));
+			await user.click(
+				screen.getByText("Test Model").closest("tr") as HTMLElement,
+			);
 
 			await waitFor(() => {
 				expect(
@@ -738,7 +760,9 @@ describe("Models", () => {
 			});
 
 			// Open detail modal
-			await user.click(screen.getByText("Test Model"));
+			await user.click(
+				screen.getByText("Test Model").closest("tr") as HTMLElement,
+			);
 
 			await waitFor(() => {
 				expect(
@@ -786,7 +810,9 @@ describe("Models", () => {
 			});
 
 			// Open detail modal
-			await user.click(screen.getByText("Test Model"));
+			await user.click(
+				screen.getByText("Test Model").closest("tr") as HTMLElement,
+			);
 
 			await waitFor(() => {
 				expect(
