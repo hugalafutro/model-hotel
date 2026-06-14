@@ -1018,7 +1018,6 @@
 			"createdTitle": "Virtueller Schlüssel erstellt",
 			"warningTitle": "Dieser Schlüssel kann nicht wiederhergestellt werden, nachdem Sie diesen Modus geschlossen haben.",
 			"warningText": "Virtuelle Schlüssel werden vor dem Speichern gehasht. Kopieren Sie sie jetzt oder sie ist für immer verschwunden.",
-			"useAs": "Benutze als:",
 			"form": {
 				"name": "Name",
 				"namePlaceholder": "z. B. Meine App",

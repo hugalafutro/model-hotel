@@ -1018,7 +1018,6 @@
 			"createdTitle": "Chave Virtual Criada",
 			"warningTitle": "Esta chave não pode ser recuperada depois que você fechar este modal.",
 			"warningText": "Chaves virtuais são hashed antes de armazenar. Copie-a agora ou acabe para sempre.",
-			"useAs": "Usar como:",
 			"form": {
 				"name": "Nome:",
 				"namePlaceholder": "ex.: Meu Aplicativo",

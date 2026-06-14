@@ -1018,7 +1018,6 @@
 			"createdTitle": "Virtuele sleutel aangemaakt",
 			"warningTitle": "Deze sleutel kan niet worden hersteld nadat u deze modal sluit.",
 			"warningText": "Virtuele sleutels worden opgehangen voor het opslaan. Kopieer het nu of het is voor altijd.",
-			"useAs": "Gebruiken als:",
 			"form": {
 				"name": "naam",
 				"namePlaceholder": "b.v. Mijn App",

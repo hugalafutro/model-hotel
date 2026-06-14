@@ -1018,7 +1018,6 @@
 			"createdTitle": "Virtuel Nøgle Oprettet",
 			"warningTitle": "Denne nøgle kan ikke genoprettes, når du lukker denne modal.",
 			"warningText": "Virtuelle nøgler hashes før lagring. Kopier det nu, eller det er væk for evigt.",
-			"useAs": "Brug som:",
 			"form": {
 				"name": "Navn",
 				"namePlaceholder": "fx, Min App",

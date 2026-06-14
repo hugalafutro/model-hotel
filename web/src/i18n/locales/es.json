@@ -1018,7 +1018,6 @@
 			"createdTitle": "Clave virtual creada",
 			"warningTitle": "Esta clave no se puede recuperar después de cerrar esta modal.",
 			"warningText": "Las claves virtuales se cifran antes del almacenamiento. Copítalas ahora o se ha ido para siempre.",
-			"useAs": "Usar como:",
 			"form": {
 				"name": "Nombre",
 				"namePlaceholder": "por ejemplo, Mi aplicación",
