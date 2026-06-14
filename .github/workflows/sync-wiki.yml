@@ -1,0 +1,74 @@
+name: Sync wiki
+
+# Publishes the wiki to the GitHub wiki repo (model-hotel.wiki.git) on every
+# merge to master, so nobody has to push the wiki by hand. Source of truth:
+#   wiki/                -> wiki root  (page markdown, _Sidebar.md, root SVGs)
+#   docs/screenshots/    -> screenshots/  (PNG shots + diagram SVGs, shared with README)
+# A generated _Footer.md stamps every page with the last-synced date and source commit.
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'wiki/**'
+      - 'docs/screenshots/**'
+      - '.github/workflows/sync-wiki.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-wiki
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - name: Publish wiki/ and docs/screenshots/ to the GitHub wiki
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          git clone --depth 1 \
+            "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.wiki.git" wiki-remote
+
+          # Pages, _Sidebar.md and the root diagram SVGs. Keep screenshots/ and
+          # .git intact (screenshots are synced separately below); --delete prunes
+          # pages that were removed from source.
+          rsync -a --delete \
+            --exclude='.git/' \
+            --exclude='screenshots/' \
+            --exclude='_Footer.md' \
+            wiki/ wiki-remote/
+
+          # Shared image set: README and the wiki both read from docs/screenshots/.
+          mkdir -p wiki-remote/screenshots
+          rsync -a --delete docs/screenshots/ wiki-remote/screenshots/
+
+          # Stamp every page (GitHub renders _Footer.md at the bottom of all pages).
+          SHORT="${SHA:0:7}"
+          STAMP="$(date -u +'%Y-%m-%d %H:%M UTC')"
+          # shellcheck disable=SC2016  # backticks are literal markdown in the printf format, not command substitution
+          {
+            echo '---'
+            printf '_Last synced from [`%s@%s`](https://github.com/%s/commit/%s) on %s. Edit these pages under [`wiki/`](https://github.com/%s/tree/master/wiki) (and images under `docs/screenshots/`) in the main repo, not here._\n' \
+              "$REPO" "$SHORT" "$REPO" "$SHA" "$STAMP" "$REPO"
+          } > wiki-remote/_Footer.md
+
+          cd wiki-remote
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Wiki already up to date; nothing to publish."
+            exit 0
+          fi
+          git commit -m "Sync wiki from ${REPO}@${SHORT}"
+          git push

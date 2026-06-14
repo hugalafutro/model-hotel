@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 750" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
+    </marker>
+    <marker id="arr-grn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#4ade80"/>
+    </marker>
+    <marker id="arr-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#f87171"/>
+    </marker>
+    <filter id="shadow" x="-2%" y="-2%" width="104%" height="104%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- Title -->
+  <rect x="280" y="15" width="340" height="36" rx="18" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="450" y="39" text-anchor="middle" fill="#93c5fd" font-size="14" font-weight="700">Key Creation</text>
+
+  <line x1="450" y1="51" x2="450" y2="75" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Admin Dashboard -->
+  <rect x="275" y="80" width="350" height="50" rx="8" fill="#1e293b" stroke="#3b82f6" stroke-width="1" filter="url(#shadow)"/>
+  <text x="450" y="102" text-anchor="middle" fill="#93c5fd" font-size="12" font-weight="700">Admin Dashboard / API</text>
+  <text x="450" y="118" text-anchor="middle" fill="#64748b" font-size="9">POST /api/virtual-keys</text>
+
+  <line x1="450" y1="130" x2="450" y2="155" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Generate -->
+  <rect x="225" y="160" width="450" height="56" rx="6" fill="#1e293b" stroke="#a78bfa" stroke-width="1" filter="url(#shadow)"/>
+  <rect x="225" y="160" width="450" height="24" rx="6" fill="#a78bfa" opacity="0.15"/>
+  <text x="450" y="178" text-anchor="middle" fill="#c4b5fd" font-size="12" font-weight="700">virtualkey.Generate()</text>
+  <text x="450" y="202" text-anchor="middle" fill="#a78bfa" font-size="11" font-family="monospace">"sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"</text>
+
+  <line x1="450" y1="216" x2="450" y2="240" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Hash -->
+  <rect x="225" y="245" width="450" height="56" rx="6" fill="#1e293b" stroke="#f59e0b" stroke-width="1" filter="url(#shadow)"/>
+  <rect x="225" y="245" width="450" height="24" rx="6" fill="#f59e0b" opacity="0.15"/>
+  <text x="450" y="263" text-anchor="middle" fill="#fbbf24" font-size="12" font-weight="700">virtualkey.Hash()</text>
+  <text x="450" y="287" text-anchor="middle" fill="#94a3b8" font-size="11">SHA-256 → 64 hex characters</text>
+
+  <line x1="450" y1="301" x2="450" y2="325" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- DB Insert -->
+  <rect x="225" y="330" width="450" height="56" rx="6" fill="#1e293b" stroke="#10b981" stroke-width="1" filter="url(#shadow)"/>
+  <rect x="225" y="330" width="450" height="24" rx="6" fill="#10b981" opacity="0.15"/>
+  <text x="450" y="348" text-anchor="middle" fill="#34d399" font-size="12" font-weight="700">INSERT INTO virtual_keys</text>
+  <text x="450" y="372" text-anchor="middle" fill="#94a3b8" font-size="10">name, key_hash, key_preview, tokens_used, last_used_at</text>
+
+  <line x1="450" y1="386" x2="450" y2="410" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Return key -->
+  <rect x="225" y="415" width="450" height="56" rx="6" fill="#1e293b" stroke="#f43f5e" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="225" y="415" width="450" height="24" rx="6" fill="#f43f5e" opacity="0.15"/>
+  <text x="450" y="433" text-anchor="middle" fill="#fb7185" font-size="12" font-weight="700">Return plaintext key ONCE</text>
+  <text x="450" y="457" text-anchor="middle" fill="#f87171" font-size="10" font-weight="600">The raw key is never stored or shown again</text>
+
+</svg>

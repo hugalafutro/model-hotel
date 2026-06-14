@@ -1018,7 +1018,6 @@
 			"createdTitle": "Virtuális kulcs létrehozva",
 			"warningTitle": "A modális ablak bezárása után ez a kulcs már nem állítható vissza.",
 			"warningText": "A virtuális kulcsokat tárolás előtt hash-elésnek vetik alá. Másold le most, vagy örökre elveszíted!",
-			"useAs": "Használata:",
 			"form": {
 				"name": "Név",
 				"namePlaceholder": "pl. Az én alkalmazásom",

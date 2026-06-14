@@ -133,7 +133,7 @@ export function CreateKeyModal({
 		>
 			{createdKey ? (
 				<>
-					<div className="bg-red-500/10 border-2 border-red-500/40 rounded-lg p-3 mb-4">
+					<div className="bg-red-500/10 border-2 border-red-500/40 rounded-[var(--radius-box)] p-3 mb-4">
 						<p className="text-red-400 font-semibold text-sm">
 							{t("virtualkeys.modal.warningTitle")}
 						</p>
@@ -141,7 +141,7 @@ export function CreateKeyModal({
 							{t("virtualkeys.modal.warningText")}
 						</p>
 					</div>
-					<div className="bg-gray-950 rounded-lg p-3 mb-4">
+					<div className="bg-gray-950 rounded-[var(--radius-box)] p-3 mb-4">
 						{createdKey.key && (
 							<CopyablePill
 								text={createdKey.key}
@@ -151,11 +151,6 @@ export function CreateKeyModal({
 							/>
 						)}
 					</div>
-					<p className="text-sm text-gray-500 mb-4">
-						{t("virtualkeys.modal.useAs")}:{" "}
-						<code className="text-gray-400">Bearer {createdKey.key}</code> at{" "}
-						<code className="text-gray-400">{window.location.origin}/v1</code>
-					</p>
 					<div className="flex justify-end">
 						<button
 							type="button"

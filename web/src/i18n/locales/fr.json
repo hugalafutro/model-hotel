@@ -1018,7 +1018,6 @@
 			"createdTitle": "Clé virtuelle créée",
 			"warningTitle": "Cette clé ne peut pas être récupérée après la fermeture de ce modal.",
 			"warningText": "Les clés virtuelles sont hachées avant le stockage. Copiez-les maintenant ou elles disparaissent pour toujours.",
-			"useAs": "Utiliser comme:",
 			"form": {
 				"name": "Nom",
 				"namePlaceholder": "ex: Mon application",

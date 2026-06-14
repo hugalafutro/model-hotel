@@ -1018,7 +1018,6 @@
 			"createdTitle": "Chiave Virtuale Creata",
 			"warningTitle": "Questa chiave non può essere recuperata dopo aver chiuso questa modalità.",
 			"warningText": "Le chiavi virtuali vengono hash prima dell'archiviazione. Copiarle ora o sono andate per sempre.",
-			"useAs": "Usa come:",
 			"form": {
 				"name": "Nome",
 				"namePlaceholder": "Ad esempio, La Mia App",

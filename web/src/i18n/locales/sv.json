@@ -1018,7 +1018,6 @@
 			"createdTitle": "Virtuell nyckel skapad",
 			"warningTitle": "Denna nyckel kan inte återställas när du stänger denna modal.",
 			"warningText": "Virtuella nycklar hashas innan lagring. Kopiera det nu eller det är borta för evigt.",
-			"useAs": "Använd som:",
 			"form": {
 				"name": "Namn",
 				"namePlaceholder": "t.ex., Min app",

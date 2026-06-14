@@ -1018,7 +1018,6 @@
 			"createdTitle": "Đã tạo khóa ảo",
 			"warningTitle": "Khóa này sẽ không thể khôi phục lại sau khi bạn đóng cửa sổ bật lên này.",
 			"warningText": "Các khóa ảo sẽ được mã hóa băm trước khi lưu trữ. Hãy sao chép ngay bây giờ, nếu không nó sẽ biến mất vĩnh viễn.",
-			"useAs": "Cách sử dụng:",
 			"form": {
 				"name": "Tên",
 				"namePlaceholder": "Ví dụ: Ứng dụng của tôi",

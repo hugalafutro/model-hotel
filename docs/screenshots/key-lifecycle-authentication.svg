@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 470" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
+    </marker>
+    <marker id="arr-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#f87171"/>
+    </marker>
+    <marker id="arr-grn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#4ade80"/>
+    </marker>
+    <filter id="shadow" x="-2%" y="-2%" width="104%" height="104%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- Title -->
+  <rect x="250" y="15" width="400" height="36" rx="18" fill="#1e293b" stroke="#10b981" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="450" y="39" text-anchor="middle" fill="#34d399" font-size="14" font-weight="700">Key Authentication (Every Request)</text>
+
+  <line x1="450" y1="51" x2="450" y2="80" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- HTTP Request -->
+  <rect x="225" y="85" width="450" height="50" rx="8" fill="#1e293b" stroke="#3b82f6" stroke-width="1" filter="url(#shadow)"/>
+  <text x="450" y="107" text-anchor="middle" fill="#93c5fd" font-size="12" font-weight="700">HTTP Request with Bearer token</text>
+  <text x="450" y="123" text-anchor="middle" fill="#64748b" font-size="9">Authorization: Bearer sk-xxxx...</text>
+
+  <line x1="450" y1="135" x2="450" y2="160" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Extract token -->
+  <rect x="275" y="165" width="350" height="42" rx="6" fill="#1e293b" stroke="#3b82f6" stroke-width="1" filter="url(#shadow)"/>
+  <text x="450" y="191" text-anchor="middle" fill="#60a5fa" font-size="12" font-weight="600">Extract token from Authorization header</text>
+
+  <line x1="450" y1="207" x2="450" y2="232" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Hash -->
+  <rect x="275" y="237" width="350" height="42" rx="6" fill="#1e293b" stroke="#f59e0b" stroke-width="1" filter="url(#shadow)"/>
+  <text x="450" y="263" text-anchor="middle" fill="#fbbf24" font-size="12" font-weight="600">Compute SHA-256 hash</text>
+
+  <line x1="450" y1="279" x2="450" y2="304" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- DB Lookup -->
+  <rect x="225" y="309" width="450" height="50" rx="6" fill="#1e293b" stroke="#a78bfa" stroke-width="1" filter="url(#shadow)"/>
+  <text x="450" y="330" text-anchor="middle" fill="#c4b5fd" font-size="12" font-weight="700">SELECT * FROM virtual_keys WHERE key_hash = $1</text>
+  <text x="450" y="348" text-anchor="middle" fill="#94a3b8" font-size="9">Database lookup by SHA-256 hash</text>
+
+  <!-- Branch -->
+  <line x1="450" y1="359" x2="280" y2="390" stroke="#f87171" stroke-width="1.5" marker-end="url(#arr-red)"/>
+  <line x1="450" y1="359" x2="620" y2="390" stroke="#4ade80" stroke-width="1.5" marker-end="url(#arr-grn)"/>
+
+  <!-- NOT FOUND -->
+  <rect x="120" y="395" width="220" height="60" rx="8" fill="#1e293b" stroke="#f43f5e" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="120" y="395" width="220" height="24" rx="8" fill="#f43f5e" opacity="0.15"/>
+  <text x="230" y="413" text-anchor="middle" fill="#fb7185" font-size="12" font-weight="700">NOT FOUND</text>
+  <text x="230" y="440" text-anchor="middle" fill="#f87171" font-size="12" font-weight="700">401 Unauthorized</text>
+
+  <!-- FOUND -->
+  <rect x="560" y="395" width="220" height="60" rx="8" fill="#1e293b" stroke="#10b981" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="560" y="395" width="220" height="24" rx="8" fill="#10b981" opacity="0.15"/>
+  <text x="670" y="413" text-anchor="middle" fill="#34d399" font-size="12" font-weight="700">FOUND</text>
+  <text x="670" y="440" text-anchor="middle" fill="#4ade80" font-size="11">Set context, continue →</text>
+
+</svg>

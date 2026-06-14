@@ -1018,7 +1018,6 @@
 			"createdTitle": "가상 키 생성됨",
 			"warningTitle": "이 모달을 닫으면 이 키를 복구할 수 없습니다.",
 			"warningText": "가상 키는 저장되기 전에 해시 처리됩니다. 지금 복사하지 않으면 영원히 사라집니다.",
-			"useAs": "사용 방법:",
 			"form": {
 				"name": "이름",
 				"namePlaceholder": "예: 내 앱",

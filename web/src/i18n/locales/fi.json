@@ -1018,7 +1018,6 @@
 			"createdTitle": "Virtuaalinen Avain Luotu",
 			"warningTitle": "Tätä avainta ei voi palauttaa tämän liikennemuodon sulkemisen jälkeen.",
 			"warningText": "Virtuaaliset avaimet on hiottu ennen tallennustilaa. Kopioi se nyt tai se on mennyt ikuisesti.",
-			"useAs": "Käytä nimellä:",
 			"form": {
 				"name": "Nimi",
 				"namePlaceholder": "esim., Oma sovellus",

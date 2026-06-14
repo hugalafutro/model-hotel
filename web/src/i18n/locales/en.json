@@ -1018,7 +1018,6 @@
 			"createdTitle": "Virtual Key Created",
 			"warningTitle": "This key cannot be recovered after you close this modal.",
 			"warningText": "Virtual keys are hashed before storage. Copy it now or it is gone forever.",
-			"useAs": "Use as:",
 			"form": {
 				"name": "Name",
 				"namePlaceholder": "e.g., My App",

@@ -1018,7 +1018,6 @@
 			"createdTitle": "Clau virtual creada",
 			"warningTitle": "Aquesta clau no es pot recuperar un cop tanquis aquest modal.",
 			"warningText": "Les claus virtuals es xifren abans de l'emmagatzematge. Copia-la ara o desapareixerà per sempre.",
-			"useAs": "Utilitzar com a:",
 			"form": {
 				"name": "Nom",
 				"namePlaceholder": "p. ex., La meva aplicació",
