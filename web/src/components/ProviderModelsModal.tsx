@@ -9,6 +9,9 @@ interface ProviderModelsModalProps {
 	onClose: () => void;
 	/** When provided, shows a "Delete disabled" button for this provider's disabled models. */
 	onDeleteDisabled?: (ids: string[]) => void;
+	/** When provided, clicking a table row opens that model (e.g. a stacked
+	 *  model-details modal owned by the page). */
+	onModelClick?: (model: Model) => void;
 }
 
 export function ProviderModelsModal({
@@ -16,6 +19,7 @@ export function ProviderModelsModal({
 	models,
 	onClose,
 	onDeleteDisabled,
+	onModelClick,
 }: ProviderModelsModalProps) {
 	const { t } = useTranslation();
 	// Filter models to only those belonging to this provider
@@ -40,7 +44,11 @@ export function ProviderModelsModal({
 				</div>
 			}
 		>
-			<ModelTable models={providerModels} onDeleteDisabled={onDeleteDisabled} />
+			<ModelTable
+				models={providerModels}
+				onDeleteDisabled={onDeleteDisabled}
+				onModelClick={onModelClick}
+			/>
 		</Modal>
 	);
 }

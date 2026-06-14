@@ -3,7 +3,7 @@ import { ArrowDownAZ, ArrowUpZA, PlugZap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
-import type { Provider } from "../api/types";
+import type { Model, Provider } from "../api/types";
 import { DeleteConfirmModal } from "../components/DeleteConfirmModal";
 import { EmptyState } from "../components/EmptyState";
 import { FilterDropdown } from "../components/FilterDropdown";
@@ -22,6 +22,7 @@ import { useQuotaModal } from "../context/QuotaModalContext";
 import { useToast } from "../context/ToastContext";
 import { useQuotaData } from "../hooks/useQuotaData";
 import { countLabel } from "../utils/format";
+import { ModelDetailModal } from "./Models/ModelDetailModal";
 import { AddProviderModal } from "./Providers/AddProviderModal";
 import {
 	getProviderType,
@@ -46,6 +47,7 @@ export function Providers() {
 		string | null
 	>(null);
 	const [modelsProvider, setModelsProvider] = useState<Provider | null>(null);
+	const [detailModel, setDetailModel] = useState<Model | null>(null);
 	// Post-scan summary for manually triggered discovery runs only; scheduled
 	// or background discovery must never pop modals (SSE events cover those).
 	const [discoverySummary, setDiscoverySummary] = useState<
@@ -484,6 +486,15 @@ export function Providers() {
 					models={models}
 					onClose={() => setModelsProvider(null)}
 					onDeleteDisabled={handleDeleteDisabledModels}
+					onModelClick={setDetailModel}
+				/>
+			)}
+
+			{detailModel && (
+				<ModelDetailModal
+					model={detailModel}
+					onClose={() => setDetailModel(null)}
+					zIndex="z-60"
 				/>
 			)}
 
