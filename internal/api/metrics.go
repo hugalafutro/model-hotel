@@ -55,12 +55,16 @@ func breakerStateCode(state string) int {
 func (h *Handler) metricsAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if h.cfg != nil && h.cfg.MetricsToken != "" {
-			tok, _ := util.ParseBearerToken(r)
+			tok, ok := util.ParseBearerToken(r)
 			if subtle.ConstantTimeCompare([]byte(tok), []byte(h.cfg.MetricsToken)) == 1 {
 				next.ServeHTTP(w, r)
 				return
 			}
-			debuglog.Warn("auth: metrics scrape with invalid token", "remote_addr", r.RemoteAddr)
+			if !ok || tok == "" {
+				debuglog.Warn("auth: metrics scrape missing bearer token", "remote_addr", r.RemoteAddr)
+			} else {
+				debuglog.Warn("auth: metrics scrape with invalid token", "remote_addr", r.RemoteAddr)
+			}
 			http.Error(w, "invalid metrics token", http.StatusUnauthorized)
 			return
 		}

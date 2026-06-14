@@ -14,8 +14,10 @@
 package debuglog
 
 import (
+	"context"
 	"log/slog"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -66,12 +68,57 @@ func Init(debug bool) {
 	} else {
 		handler = slog.NewTextHandler(os.Stdout, opts)
 	}
-	slog.SetDefault(slog.New(handler))
+	slog.SetDefault(slog.New(maybeScopeFilter(handler)))
 
-	// Confirm scoped debug at startup so the operator sees it took effect.
+	// Confirm scoped debug at startup so the operator sees it took effect. Log
+	// the parsed/normalized scopes (not the raw env string) so a tainted value
+	// can't forge log lines.
 	if !globalDebug && len(enabledScopes) > 0 {
-		slog.Info("debuglog: per-scope debug enabled", "scopes", os.Getenv("DEBUG_LOG_SCOPES"))
+		scopeList := make([]string, 0, len(enabledScopes))
+		for s := range enabledScopes {
+			scopeList = append(scopeList, s)
+		}
+		sort.Strings(scopeList)
+		slog.Info("debuglog: per-scope debug enabled", "scopes", scopeList)
 	}
+}
+
+// maybeScopeFilter wraps h with per-scope Debug filtering, but only when
+// DEBUG_LOG_SCOPES is active and global Debug is off (the one case where some
+// Debug records must be dropped). Otherwise h is returned unchanged, so the
+// common paths — debug fully off, or fully on — keep slog's behaviour exactly.
+func maybeScopeFilter(h slog.Handler) slog.Handler {
+	if globalDebug || len(enabledScopes) == 0 {
+		return h
+	}
+	return scopeFilterHandler{inner: h}
+}
+
+// scopeFilterHandler drops Debug records whose scope — the prefix before the
+// first ':' in the message, matched case-insensitively against DEBUG_LOG_SCOPES
+// — is not enabled. Non-Debug records always pass through. Filtering in the
+// handler (rather than in Debug()) keeps "debuglog.Debug always reaches the
+// installed handler" true, which callers that install their own slog handler
+// rely on.
+type scopeFilterHandler struct{ inner slog.Handler }
+
+func (h scopeFilterHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	return h.inner.Enabled(ctx, level)
+}
+
+func (h scopeFilterHandler) Handle(ctx context.Context, r slog.Record) error {
+	if r.Level == slog.LevelDebug && !enabledScopes[strings.ToLower(scopeOf(r.Message))] {
+		return nil
+	}
+	return h.inner.Handle(ctx, r)
+}
+
+func (h scopeFilterHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return scopeFilterHandler{inner: h.inner.WithAttrs(attrs)}
+}
+
+func (h scopeFilterHandler) WithGroup(name string) slog.Handler {
+	return scopeFilterHandler{inner: h.inner.WithGroup(name)}
 }
 
 // parseScopes splits a comma-separated DEBUG_LOG_SCOPES value into a set of
@@ -119,7 +166,7 @@ func Level() slog.Level {
 // output through a custom handler (e.g. one that writes to the app log
 // ring buffer and database). Call after api.InitAppLogBuffer.
 func SetHandler(h slog.Handler) {
-	slog.SetDefault(slog.New(h))
+	slog.SetDefault(slog.New(maybeScopeFilter(h)))
 }
 
 // isDebugLogEnv returns true if the DEBUG_LOG env var is set to a truthy value.
@@ -128,14 +175,12 @@ func isDebugLogEnv() bool {
 	return v == "true" || v == "1" || v == "yes"
 }
 
-// Debug logs at Debug level. Discarded unless global Debug (DEBUG_LOG) is on or
-// the message's scope is enabled via DEBUG_LOG_SCOPES. When neither is set the
-// check short-circuits without inspecting the message, preserving the cheap
-// discard on the hot path.
+// Debug logs at Debug level. Discarded with zero allocation unless Debug output
+// is enabled (DEBUG_LOG, or DEBUG_LOG_SCOPES for the message's scope). The level
+// gate lives in the installed handler; per-scope filtering is applied there too
+// (see scopeFilterHandler), so this stays a plain pass-through.
 func Debug(msg string, args ...any) {
-	if globalDebug || (len(enabledScopes) > 0 && enabledScopes[scopeOf(msg)]) {
-		slog.Debug(msg, args...)
-	}
+	slog.Debug(msg, args...)
 }
 
 // Info logs at Info level.
