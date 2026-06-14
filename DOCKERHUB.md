@@ -92,7 +92,7 @@ Test any model from the Models page with a single click. The test sends a minima
 
 ## Provider Quotas & Usage
 
-For providers that expose it, click a provider's quota badge (on its card or in the sidebar panel) to open a live usage breakdown without leaving the dashboard. OpenRouter shows credit balance and per-key spend; Z.ai Coding Plan shows its 5-hour, weekly, and MCP token quotas; NeuralWatt shows energy-based quota with subscription and lifetime usage. Each modal toggles between quota used and quota remaining, and refreshes on demand. Some providers surface usage without a dedicated modal — DeepSeek shows account balance and Ollama Cloud shows plan status on their cards and sidebar badges.
+For providers that expose it, click a provider's quota badge (on its card or in the sidebar panel) to open a live usage breakdown without leaving the dashboard. OpenRouter shows credit balance and per-key spend; Z.ai Coding Plan shows its 5-hour, weekly, and MCP token quotas; NanoGPT shows weekly token and daily image quotas with subscription details; NeuralWatt shows energy-based quota with subscription and lifetime usage. Each modal toggles between quota used and quota remaining, and refreshes on demand. Some providers surface usage without a dedicated modal — DeepSeek shows account balance and Ollama Cloud shows plan status on their cards and sidebar badges.
 
 ## Interactive Chat & Arena
 

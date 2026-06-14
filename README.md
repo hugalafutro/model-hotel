@@ -128,14 +128,16 @@ Models that aren't covered by any built-in catalog are automatically enriched fr
 Test any model from the Models page with a single click. The test sends a minimal chat completion directly to the provider and reports total duration and the actual model response, so you know the provider is alive and responsive. DeepSeek providers show live account balance; NanoGPT and Z.AI providers show token quota and usage data; NeuralWatt providers show energy quota and credit balance (Standard plan or higher). All fetched from their respective APIs and displayed on both the provider cards and the sidebar quota panel.
 
 ### [<img src="docs/icons/health.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Provider Quotas & Usage](#-provider-quotas--usage)
-For providers that expose it, click a provider's quota badge (on its card or in the sidebar panel) to open a live usage breakdown — no need to leave the dashboard for the provider's billing page. **OpenRouter** shows credit balance and per-key spend; **Z.ai Coding Plan** shows its 5-hour, weekly, and MCP token quotas; **NeuralWatt** shows energy-based quota with subscription and lifetime usage. Each modal toggles between **quota used** and **quota remaining**, and refreshes on demand. Some providers surface usage without a dedicated modal — **DeepSeek** shows account balance and **Ollama Cloud** shows plan status on their cards and sidebar badges.
+For providers that expose it, click a provider's quota badge (on its card or in the sidebar panel) to open a live usage breakdown — no need to leave the dashboard for the provider's billing page. **OpenRouter** shows credit balance and per-key spend; **Z.ai Coding Plan** shows its 5-hour, weekly, and MCP token quotas; **NanoGPT** shows weekly token and daily image quotas with subscription details; **NeuralWatt** shows energy-based quota with subscription and lifetime usage. Each modal toggles between **quota used** and **quota remaining**, and refreshes on demand. Some providers surface usage without a dedicated modal — **DeepSeek** shows account balance and **Ollama Cloud** shows plan status on their cards and sidebar badges.
 
 <p align="center">
-  <a href="docs/screenshots/quota_openrouter.png"><img src="docs/screenshots/quota_openrouter.png" height="240" alt="OpenRouter credits & usage"></a>
+  <a href="docs/screenshots/quota_openrouter.png"><img src="docs/screenshots/quota_openrouter.png" height="200" alt="OpenRouter credits & usage"></a>
   &nbsp;&nbsp;
-  <a href="docs/screenshots/quota_zaicoding.png"><img src="docs/screenshots/quota_zaicoding.png" height="240" alt="Z.ai Coding Plan quota"></a>
+  <a href="docs/screenshots/quota_zaicoding.png"><img src="docs/screenshots/quota_zaicoding.png" height="200" alt="Z.ai Coding Plan quota"></a>
   &nbsp;&nbsp;
-  <a href="docs/screenshots/quota_neuralwatt.png"><img src="docs/screenshots/quota_neuralwatt_thumb.png" height="240" alt="NeuralWatt energy quota — click for full"></a>
+  <a href="docs/screenshots/quota_nanogpt.png"><img src="docs/screenshots/quota_nanogpt.png" height="200" alt="NanoGPT weekly token & image quotas"></a>
+  &nbsp;&nbsp;
+  <a href="docs/screenshots/quota_neuralwatt.png"><img src="docs/screenshots/quota_neuralwatt_thumb.png" height="200" alt="NeuralWatt energy quota — click for full"></a>
 </p>
 
 ### [<img src="docs/icons/api.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Interactive Chat & Arena](#-interactive-chat--arena)
