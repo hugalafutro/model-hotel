@@ -65,6 +65,16 @@ func (d *DiscoveryService) discoverOllama(ctx context.Context, provider *Provide
 		wg.Add(1)
 		go func(idx int, modelName string) {
 			defer wg.Done()
+			// Without this, a panic in the show-model fetch would crash the whole
+			// server instead of just skipping the one model. Record it as a
+			// per-model error so the row is dropped gracefully (see r.err below).
+			defer func() {
+				if rec := recover(); rec != nil {
+					debuglog.Error("discovery: ollama show-model goroutine panicked",
+						"provider", provider.Name, "provider_id", provider.ID, "model", modelName, "panic", rec)
+					results[idx] = showResult{index: idx, modelID: modelName, err: fmt.Errorf("panic: %v", rec)}
+				}
+			}()
 			sem <- struct{}{}
 			defer func() { <-sem }()
 

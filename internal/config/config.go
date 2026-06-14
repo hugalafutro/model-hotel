@@ -357,12 +357,17 @@ func getEnvWithDefault(key, defaultValue string) string {
 }
 
 func getBoolEnvWithDefault(key string, defaultValue bool) bool {
-	value := strings.ToLower(os.Getenv(key))
+	raw := os.Getenv(key)
+	value := strings.ToLower(raw)
 	if value == "true" || value == "1" || value == "yes" {
 		return true
 	}
 	if value == "false" || value == "0" || value == "no" {
 		return false
+	}
+	if raw != "" {
+		debuglog.Warn("config: ignoring unrecognized boolean env value, using default",
+			"key", key, "value", raw, "default", defaultValue)
 	}
 	return defaultValue
 }
@@ -375,6 +380,8 @@ func getIntEnvWithDefault(key string, defaultValue int64) int64 {
 
 	result, err := strconv.ParseInt(value, 10, 64)
 	if err != nil {
+		debuglog.Warn("config: ignoring invalid integer env value, using default",
+			"key", key, "value", value, "default", defaultValue)
 		return defaultValue
 	}
 	return result
@@ -387,6 +394,8 @@ func getFloatEnvWithDefault(key string, defaultValue float64) float64 {
 	}
 	result, err := strconv.ParseFloat(value, 64)
 	if err != nil {
+		debuglog.Warn("config: ignoring invalid float env value, using default",
+			"key", key, "value", value, "default", defaultValue)
 		return defaultValue
 	}
 	return result
@@ -460,6 +469,8 @@ func getIntEnvAsInt(key string, defaultValue int) int {
 	}
 	result, err := strconv.Atoi(value)
 	if err != nil {
+		debuglog.Warn("config: ignoring invalid integer env value, using default",
+			"key", key, "value", value, "default", defaultValue)
 		return defaultValue
 	}
 	return result
@@ -472,6 +483,8 @@ func getIntEnvAsInt32(key string, defaultValue int32) int32 {
 	}
 	result, err := strconv.ParseInt(value, 10, 32)
 	if err != nil {
+		debuglog.Warn("config: ignoring invalid integer env value, using default",
+			"key", key, "value", value, "default", defaultValue)
 		return defaultValue
 	}
 	return int32(result)

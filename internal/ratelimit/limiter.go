@@ -132,11 +132,14 @@ func (l *Limiter) Stop() {
 // On limit violation the middleware responds with HTTP 429 and sets
 // Retry-After and X-RateLimit-* headers.
 func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
+	// Log the env kill-switch once at wiring time instead of on every request.
+	if !enabled {
+		debuglog.Info("ratelimit: per-key rate limiting disabled via env (RATE_LIMIT_ENABLED=false)")
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Hard kill-switch from env var
 			if !enabled {
-				debuglog.Info("ratelimit: rate limiting disabled via env")
 				next.ServeHTTP(w, r)
 				return
 			}
