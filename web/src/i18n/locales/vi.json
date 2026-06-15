@@ -983,7 +983,8 @@
 			"created": "Được tạo",
 			"tokens": "Token",
 			"lastUsed": "Lần sử dụng gần nhất",
-			"keys": "phím"
+			"keys": "phím",
+			"tpm": "TPM"
 		},
 		"tooltip": {
 			"proxyUrl": "Nhấp vào đây để sao chép URL proxy",
@@ -996,7 +997,9 @@
 			"lastUsed": "Lần cuối cùng khóa được sử dụng cho một yêu cầu",
 			"providerRestricted": "Khóa bị giới hạn bởi nhà cung cấp",
 			"reasoningStripped": "Loại bỏ phần lập luận",
-			"keyHashed": "Khóa đã được băm và không thể khôi phục lại"
+			"keyHashed": "Khóa đã được băm và không thể khôi phục lại",
+			"tpm": "Giới hạn số token mỗi phút; các yêu cầu sẽ bị từ chối với mã trạng thái 429 khi ngân sách phút đã hết.",
+			"id": "Nhấp để sao chép ID khóa"
 		},
 		"emptyState": "Chưa có khóa ảo nào. Hãy tạo một khóa để bắt đầu sử dụng proxy.",
 		"steps": {
@@ -1031,7 +1034,8 @@
 				"enableStripReasoning": "Bật tính năng suy luận theo dải",
 				"disableStripReasoning": "Tắt tính năng suy luận theo dải",
 				"rateLimitBurst": "Burst (tối đa đồng thời)",
-				"rateLimitRps": "RPS (yêu cầu/giây)"
+				"rateLimitRps": "RPS (yêu cầu/giây)",
+				"rateLimitTpm": "TPM (token/phút)"
 			},
 			"detailTitle": "Chi tiết về Khóa ảo",
 			"sections": {
@@ -1045,7 +1049,8 @@
 				"key": "Chìa khóa",
 				"tokensConsumed": "Số lượng token đã sử dụng",
 				"lastUsed": "Lần sử dụng gần nhất",
-				"created": "Được tạo"
+				"created": "Được tạo",
+				"id": "ID"
 			},
 			"noProvidersConfigured": "Chưa có nhà cung cấp nào được cấu hình.",
 			"discardChanges": "Bạn có muốn hủy bỏ các thay đổi chưa được lưu không?",
@@ -1059,7 +1064,8 @@
 			"keyCreatedFailed": "Không thành công: {{message}}",
 			"keyUpdated": "Khóa ảo đã được cập nhật",
 			"keyUpdateFailed": "Không thành công: {{message}}",
-			"usageExamples": "Ví dụ sử dụng"
+			"usageExamples": "Ví dụ sử dụng",
+			"rateLimitTpmLabel": "Giới hạn tốc độ TPM (token/phút)"
 		}
 	},
 	"logs": {
@@ -2361,7 +2367,8 @@
 		},
 		"detail": {
 			"rps": "RPS",
-			"burst": "Đợt bùng phát"
+			"burst": "Đợt bùng phát",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {

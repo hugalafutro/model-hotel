@@ -983,7 +983,8 @@
 			"created": "Erstellt",
 			"tokens": "Token",
 			"lastUsed": "Zuletzt verwendet",
-			"keys": "tasten"
+			"keys": "tasten",
+			"tpm": "TPM"
 		},
 		"tooltip": {
 			"proxyUrl": "Klicken, um Proxy-URL zu kopieren",
@@ -996,7 +997,9 @@
 			"lastUsed": "Wenn der Schlüssel zuletzt für eine Anfrage verwendet wurde",
 			"providerRestricted": "Anbieterbeschränkter Schlüssel",
 			"reasoningStripped": "Begründung entfernt",
-			"keyHashed": "Schlüssel ist gehashed und kann nicht wiederhergestellt werden"
+			"keyHashed": "Schlüssel ist gehashed und kann nicht wiederhergestellt werden",
+			"tpm": "Obergrenze für Tokens pro Minute; Anfragen werden mit dem Status 429 abgelehnt, sobald das Minutenbudget aufgebraucht ist",
+			"id": "Zum Kopieren der Schlüssel-ID hier klicken"
 		},
 		"emptyState": "Keine virtuellen Schlüssel. Erstellen Sie einen, um den Proxy zu verwenden.",
 		"steps": {
@@ -1031,7 +1034,8 @@
 				"enableStripReasoning": "Strip-Argumentation aktivieren",
 				"disableStripReasoning": "Strip-Argumentation deaktivieren",
 				"rateLimitBurst": "Burst (max. gleichzeitig)",
-				"rateLimitRps": "RPS (Anfragen/Sek.)"
+				"rateLimitRps": "RPS (Anfragen/Sek.)",
+				"rateLimitTpm": "TPM (Token/Min.)"
 			},
 			"detailTitle": "Details der virtuellen Taste",
 			"sections": {
@@ -1045,7 +1049,8 @@
 				"key": "Schlüssel",
 				"tokensConsumed": "Konsumierte Token",
 				"lastUsed": "Zuletzt verwendet",
-				"created": "Erstellt"
+				"created": "Erstellt",
+				"id": "ID"
 			},
 			"noProvidersConfigured": "Keine Anbieter konfiguriert.",
 			"discardChanges": "Nicht gespeicherte Änderungen verwerfen?",
@@ -1059,7 +1064,8 @@
 			"keyCreatedFailed": "Fehler: {{message}}",
 			"keyUpdated": "Virtueller Schlüssel aktualisiert",
 			"keyUpdateFailed": "Fehler: {{message}}",
-			"usageExamples": "Anwendungsbeispiele"
+			"usageExamples": "Anwendungsbeispiele",
+			"rateLimitTpmLabel": "Ratenbegrenzung TPM (Token/Min.)"
 		}
 	},
 	"logs": {
@@ -2361,7 +2367,8 @@
 		},
 		"detail": {
 			"rps": "RPS",
-			"burst": "Burst"
+			"burst": "Burst",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {

@@ -983,7 +983,8 @@
 			"created": "Vytvořeno",
 			"tokens": "Tokeny",
 			"lastUsed": "Naposledy použito",
-			"keys": "klíče"
+			"keys": "klíče",
+			"tpm": "TPM"
 		},
 		"tooltip": {
 			"proxyUrl": "Kliknutím zkopírujete adresu proxy",
@@ -996,7 +997,9 @@
 			"lastUsed": "Kdy byl klíč naposledy použit pro odeslání požadavku",
 			"providerRestricted": "Klíč s omezením poskytovatele",
 			"reasoningStripped": "Odůvodnění vynecháno",
-			"keyHashed": "Klíč je zašifrován a nelze jej obnovit"
+			"keyHashed": "Klíč je zašifrován a nelze jej obnovit",
+			"tpm": "Limit tokenů za minutu; jakmile je minutový limit vyčerpán, jsou požadavky odmítnuty s kódem 429.",
+			"id": "Kliknutím zkopírujte ID klíče"
 		},
 		"emptyState": "Žádné virtuální klíče. Vytvořte si jeden, abyste mohli začít používat proxy.",
 		"steps": {
@@ -1031,7 +1034,8 @@
 				"enableStripReasoning": "Povolit logické odvozování",
 				"disableStripReasoning": "Zakázat logiku strip",
 				"rateLimitBurst": "Burst (max. počet souběžných procesů)",
-				"rateLimitRps": "RPS (počet požadavků za sekundu)"
+				"rateLimitRps": "RPS (počet požadavků za sekundu)",
+				"rateLimitTpm": "TPM (tokeny/min)"
 			},
 			"detailTitle": "Podrobnosti o virtuálním klíči",
 			"sections": {
@@ -1045,7 +1049,8 @@
 				"key": "Klíč",
 				"tokensConsumed": "Spotřebované tokeny",
 				"lastUsed": "Naposledy použito",
-				"created": "Vytvořeno"
+				"created": "Vytvořeno",
+				"id": "ID"
 			},
 			"noProvidersConfigured": "Není nakonfigurován žádný poskytovatel.",
 			"discardChanges": "Zrušit neuložené změny?",
@@ -1059,7 +1064,8 @@
 			"keyCreatedFailed": "Selhalo: {{message}}",
 			"keyUpdated": "Virtuální klíč byl aktualizován",
 			"keyUpdateFailed": "Selhalo: {{message}}",
-			"usageExamples": "Příklady použití"
+			"usageExamples": "Příklady použití",
+			"rateLimitTpmLabel": "Limit rychlosti TPM (tokeny/min)"
 		}
 	},
 	"logs": {
@@ -2361,7 +2367,8 @@
 		},
 		"detail": {
 			"rps": "RVP",
-			"burst": "Série"
+			"burst": "Série",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {

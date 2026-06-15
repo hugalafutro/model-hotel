@@ -983,7 +983,8 @@
 			"created": "Utworzono",
 			"tokens": "Tokeny",
 			"lastUsed": "Ostatnio używane",
-			"keys": "klucze"
+			"keys": "klucze",
+			"tpm": "TPM"
 		},
 		"tooltip": {
 			"proxyUrl": "Kliknij aby skopiować adres URL proxy",
@@ -996,7 +997,9 @@
 			"lastUsed": "Kiedy klucz był ostatnio używany do żądania",
 			"providerRestricted": "Klucz ograniczony przez dostawcę",
 			"reasoningStripped": "Uzasadnienie usunięte",
-			"keyHashed": "Klucz jest haszowany i nie można go odzyskać"
+			"keyHashed": "Klucz jest haszowany i nie można go odzyskać",
+			"tpm": "Limit tokenów na minutę; żądania są odrzucane z kodem 429 po wyczerpaniu limitu minutowego",
+			"id": "Kliknij, aby skopiować identyfikator klucza"
 		},
 		"emptyState": "Brak kluczy wirtualnych. Utwórz jeden, aby rozpocząć korzystanie z proxy.",
 		"steps": {
@@ -1031,7 +1034,8 @@
 				"enableStripReasoning": "Włącz rozumowanie paska",
 				"disableStripReasoning": "Wyłącz rozumowanie paska",
 				"rateLimitBurst": "Burst (maksymalna liczba jednoczesnych połączeń)",
-				"rateLimitRps": "RPS (żądania/sek.)"
+				"rateLimitRps": "RPS (żądania/sek.)",
+				"rateLimitTpm": "TPM (tokeny/min)"
 			},
 			"detailTitle": "Szczegóły klucza wirtualnego",
 			"sections": {
@@ -1045,7 +1049,8 @@
 				"key": "Klucz",
 				"tokensConsumed": "Zużyte tokeny",
 				"lastUsed": "Ostatnio używane",
-				"created": "Utworzono"
+				"created": "Utworzono",
+				"id": "ID"
 			},
 			"noProvidersConfigured": "Brak skonfigurowanych dostawców.",
 			"discardChanges": "Odrzucić niezapisane zmiany?",
@@ -1059,7 +1064,8 @@
 			"keyCreatedFailed": "Niepowodzenie: {{message}}",
 			"keyUpdated": "Klucz wirtualny zaktualizowany",
 			"keyUpdateFailed": "Niepowodzenie: {{message}}",
-			"usageExamples": "Przykłady użycia"
+			"usageExamples": "Przykłady użycia",
+			"rateLimitTpmLabel": "Limit szybkości TPM (tokeny/min)"
 		}
 	},
 	"logs": {
@@ -2361,7 +2367,8 @@
 		},
 		"detail": {
 			"rps": "RPS",
-			"burst": "Rozerwanie"
+			"burst": "Rozerwanie",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {

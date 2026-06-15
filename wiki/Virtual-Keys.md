@@ -154,6 +154,7 @@ After successful authentication, the following values are available in request c
 | `virtual_key_hash` | `string` | SHA-256 hash (64 hex chars) |
 | `virtual_key_rate_limit_rps` | `*float64` | Per-key RPS override (nil = use global) |
 | `virtual_key_rate_limit_burst` | `*int` | Per-key burst override (nil = use global) |
+| `virtual_key_rate_limit_tpm` | `*int` | Per-key tokens-per-minute cap (nil = no cap / global default) |
 | `virtual_key_allowed_providers` | `*[]string` | Provider access restriction (nil = all providers) |
 | `virtual_key_strip_reasoning` | `bool` | Whether to strip reasoning fields from streaming output |
 
@@ -172,6 +173,7 @@ CREATE TABLE IF NOT EXISTS virtual_keys (
     created_at      TIMESTAMPTZ DEFAULT now(),
     rate_limit_rps  DOUBLE PRECISION DEFAULT NULL,
     rate_limit_burst INTEGER DEFAULT NULL,
+    rate_limit_tpm  INTEGER DEFAULT NULL,
     allowed_providers TEXT[] DEFAULT NULL,
     strip_reasoning BOOLEAN NOT NULL DEFAULT false
 );
@@ -192,6 +194,7 @@ CREATE INDEX IF NOT EXISTS idx_virtual_keys_key_hash ON virtual_keys(key_hash);
 | `created_at` | `TIMESTAMPTZ` | DEFAULT `now()` | Creation timestamp |
 | `rate_limit_rps` | `DOUBLE PRECISION` | NULLABLE | Per-key RPS override (null = global default) |
 | `rate_limit_burst` | `INTEGER` | NULLABLE | Per-key burst override (null = global default) |
+| `rate_limit_tpm` | `INTEGER` | NULLABLE | Per-key tokens-per-minute cap (null = no cap / global default) |
 | `allowed_providers` | `TEXT[]` | NULLABLE | Provider IDs this key may use (null = all providers accessible) |
 | `strip_reasoning` | `BOOLEAN` | NOT NULL, DEFAULT false | Strip `reasoning`/`reasoning_content` fields from streaming output for this key |
 
@@ -205,6 +208,7 @@ CREATE INDEX IF NOT EXISTS idx_virtual_keys_key_hash ON virtual_keys(key_hash);
 | `029` | `internal/db/migrations/029_virtual_key_rate_limits.sql` | Added per-key rate limit columns |
 | `037` | `internal/db/migrations/037_virtual_key_allowed_providers.sql` | Added `allowed_providers` (per-key provider access restriction) |
 | `038` | `internal/db/migrations/038_virtual_key_strip_reasoning.sql` | Added `strip_reasoning` flag |
+| `046` | `internal/db/migrations/046_virtual_key_rate_limit_tpm.sql` | Added `rate_limit_tpm` (per-key tokens-per-minute cap) |
 
 ## API Reference
 
@@ -220,6 +224,7 @@ All virtual key endpoints require `Authorization: Bearer $ADMIN_TOKEN` header.
   "name": "production-app",
   "rate_limit_rps": 5.0,
   "rate_limit_burst": 10,
+  "rate_limit_tpm": 50000,
   "allowed_providers": ["provider-uuid-1"],
   "strip_reasoning": false
 }
@@ -230,6 +235,7 @@ All virtual key endpoints require `Authorization: Bearer $ADMIN_TOKEN` header.
 | `name` | `string` | Yes | 1-100 chars, printable Unicode, not reserved |
 | `rate_limit_rps` | `number` | No | Must be ≥ 0 (null = use global default) |
 | `rate_limit_burst` | `integer` | No | Must be ≥ 1 (null = use global default) |
+| `rate_limit_tpm` | `integer` | No | Tokens-per-minute cap, must be ≥ 1 (null = no cap / global default) |
 | `allowed_providers` | `array of UUID strings` | No | Restrict the key to the listed provider IDs (null/omitted = all providers; empty array rejected) |
 | `strip_reasoning` | `boolean` | No | Strip `reasoning`/`reasoning_content` from streaming output (default false) |
 
@@ -253,6 +259,7 @@ These are reserved because they conflict with built-in URL paths.
   "created_at": "2025-01-15T10:30:00Z",
   "rate_limit_rps": 5.0,
   "rate_limit_burst": 10,
+  "rate_limit_tpm": 50000,
   "allowed_providers": ["provider-uuid-1"],
   "strip_reasoning": false
 }
@@ -276,7 +283,8 @@ These are reserved because they conflict with built-in URL paths.
     "last_used_at": "2025-01-15T14:22:00Z",
     "created_at": "2025-01-15T10:30:00Z",
     "rate_limit_rps": 5.0,
-    "rate_limit_burst": 10
+    "rate_limit_burst": 10,
+    "rate_limit_tpm": 50000
   },
   {
     "id": "660e8400-e29b-41d4-a716-446655440001",
@@ -287,7 +295,8 @@ These are reserved because they conflict with built-in URL paths.
     "last_used_at": null,
     "created_at": "2025-01-14T08:15:00Z",
     "rate_limit_rps": null,
-    "rate_limit_burst": null
+    "rate_limit_burst": null,
+    "rate_limit_tpm": null
   }
 ]
 ```
@@ -309,7 +318,8 @@ Note: `key` is always empty string in list/get responses. `rate_limit_*` fields 
   "last_used_at": "2025-01-15T14:22:00Z",
   "created_at": "2025-01-15T10:30:00Z",
   "rate_limit_rps": 5.0,
-  "rate_limit_burst": 10
+  "rate_limit_burst": 10,
+  "rate_limit_tpm": 50000
 }
 ```
 
@@ -322,7 +332,8 @@ Note: `key` is always empty string in list/get responses. `rate_limit_*` fields 
 {
   "name": "production-app-v2",
   "rate_limit_rps": 10.0,
-  "rate_limit_burst": 20
+  "rate_limit_burst": 20,
+  "rate_limit_tpm": 30000
 }
 ```
 
@@ -337,7 +348,8 @@ Note: `key` is always empty string in list/get responses. `rate_limit_*` fields 
   "last_used_at": "2025-01-15T14:22:00Z",
   "created_at": "2025-01-15T10:30:00Z",
   "rate_limit_rps": 10.0,
-  "rate_limit_burst": 20
+  "rate_limit_burst": 20,
+  "rate_limit_tpm": 30000
 }
 ```
 
@@ -364,6 +376,7 @@ Each virtual key has an independent token bucket rate limiter.
 | `rate_limit_enabled` | `true` | Runtime toggle (DB setting) |
 | `rate_limit_rps` | `10` | Requests per second (global default) |
 | `rate_limit_burst` | `20` | Maximum burst size (global default) |
+| `rate_limit_tpm` | `0` | Tokens-per-minute cap (global default; `0` = no cap; API-only, no Settings-UI control) |
 
 ### Per-Key Overrides
 
@@ -372,6 +385,29 @@ Virtual keys can override global rate limits via `rate_limit_rps` and `rate_limi
 - **`null`**: Use global settings from `settings` table
 - **`0` for RPS**: Unlimited requests (no rate limiting for this key)
 - **`0` for burst**: Invalid - rejected on creation/update (must be ≥ 1)
+
+### Token Rate Limiting (TPM)
+
+In addition to the request-rate limiter above, each key can cap its **tokens
+per minute** via `rate_limit_tpm` (a separate token-budget bucket, refilled at
+`tpm / 60` per second with a full minute's budget available at once):
+
+- **`null`**: No per-key override — falls back to the global `rate_limit_tpm`
+  setting (default `0` = no cap). That global default is API-only; there is no
+  Settings-UI control for it (per-VK is the primary surface).
+- **`≥ 1`**: Cap the key's combined prompt + completion + reasoning tokens per
+  minute. `0` is rejected on create/update (use `null` for no cap).
+
+Because a request's token cost is unknown until it finishes, enforcement is
+**admit-on-past-consumption, debit-on-completion**: admission only checks
+whether the budget is already drained, and the actual token total is subtracted
+afterward. Consequently a key can overshoot by roughly one in-flight request's
+worth of tokens, and a single response larger than the whole minute budget still
+completes — it just blocks the *next* request until the budget refills. This is
+a **consumer-side** control: the rejected request never reaches the upstream
+provider, which is never throttled. Like the RPS limiter, the budget is
+in-process and not shared across replicas (effective limit is ~N× with N
+instances behind a load balancer).
 
 ### Rate Limit Response
 
@@ -553,13 +589,15 @@ console.log(response.choices[0].message.content);
 
 ### Rate Limited (429)
 
-**Symptoms**: `Rate limit exceeded` with `Retry-After` header
+**Symptoms**: `Rate limit exceeded` (request rate) or `token rate limit
+exceeded` (TPM), both with a `Retry-After` header
 
 **Resolution**:
 1. Check per-key limits: `GET /api/virtual-keys/{id}`
 2. Increase `rate_limit_rps` or set to `0` for unlimited
 3. Increase `rate_limit_burst` for traffic spikes
-4. Wait for `Retry-After` seconds before retrying
+4. For `token rate limit exceeded`, raise or clear (`null`) `rate_limit_tpm`
+5. Wait for `Retry-After` seconds before retrying
 
 ### Key Lost After Creation
 

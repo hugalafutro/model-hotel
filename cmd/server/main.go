@@ -175,6 +175,9 @@ func main() {
 	rateLimiter := ratelimit.NewLimiter(settingsRepo)
 	defer rateLimiter.Stop()
 
+	tpmLimiter := ratelimit.NewTPMLimiter(settingsRepo)
+	defer tpmLimiter.Stop()
+
 	ipLimiter := ratelimit.NewIPLimiter(cfg.RateLimitIPRPS, cfg.RateLimitIPBurst, cfg.TrustedProxies, settingsRepo)
 	defer ipLimiter.Stop()
 
@@ -277,7 +280,7 @@ func main() {
 		IdleConnTimeout:       30 * time.Second,
 	}
 	apiHandler := api.NewHandler(cfg, providerRepo, database, adminMgr, virtualKeyRepo, settingsRepo, version, testModelTransport, sd.CheckRedirect, sd.DialContext, sd.CheckRedirect)
-	proxyHandler := proxy.NewHandler(cfg, providerRepo, modelRepo, database.Pool(), virtualKeyRepo, failoverRepo, settingsRepo, rateLimiter, ipLimiter, sd)
+	proxyHandler := proxy.NewHandler(cfg, providerRepo, modelRepo, database.Pool(), virtualKeyRepo, failoverRepo, settingsRepo, rateLimiter, tpmLimiter, ipLimiter, sd)
 	apiHandler.SetCircuitBreaker(proxyHandler.CircuitBreaker())
 	apiHandler.StartBackupScheduler(context.Background())
 

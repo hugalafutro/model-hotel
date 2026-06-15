@@ -45,6 +45,7 @@ describe("VirtualKeys", () => {
 				name: "Virtual Key Details",
 			});
 			expect(within(dialog).getByText("Test API Key")).toBeInTheDocument();
+			expect(within(dialog).getByText(mockVirtualKey.id)).toBeInTheDocument();
 			expect(
 				within(dialog).getByText(mockVirtualKey.key_preview),
 			).toBeInTheDocument();
@@ -619,6 +620,55 @@ describe("VirtualKeys", () => {
 			await waitFor(() => {
 				expect(screen.getByText("Virtual key updated")).toBeInTheDocument();
 			});
+		});
+
+		it("edits and sends rate_limit_tpm on save", async () => {
+			let updateBody: unknown;
+			server.use(
+				http.get("/api/virtual-keys", () =>
+					HttpResponse.json([mockVirtualKey]),
+				),
+				http.put("/api/virtual-keys/vk-001", async ({ request }) => {
+					updateBody = await request.json();
+					return HttpResponse.json({
+						...mockVirtualKey,
+						rate_limit_tpm: (updateBody as { rate_limit_tpm: number | null })
+							.rate_limit_tpm,
+					});
+				}),
+			);
+
+			const { user } = renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Test API Key")).toBeInTheDocument();
+			});
+
+			await user.click(screen.getByText("Test API Key"));
+
+			const dialog = await screen.findByRole("dialog", {
+				name: "Virtual Key Details",
+			});
+
+			await user.click(within(dialog).getByRole("button", { name: "Edit" }));
+
+			const tpmInput = dialog.querySelector<HTMLInputElement>("#vk-detail-tpm");
+			if (!tpmInput) throw new Error("tpm input not found");
+			await user.clear(tpmInput);
+			await user.type(tpmInput, "30000");
+
+			await user.click(
+				within(dialog).getByRole("button", { name: "Save Changes" }),
+			);
+
+			await waitFor(() => {
+				expect(screen.getByText("Virtual key updated")).toBeInTheDocument();
+			});
+
+			expect(updateBody).toBeDefined();
+			expect(
+				(updateBody as { rate_limit_tpm?: number | null }).rate_limit_tpm,
+			).toBe(30000);
 		});
 
 		it("cancels edit and reverts to view mode", async () => {

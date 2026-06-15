@@ -119,6 +119,7 @@ These settings are stored in the `settings` table and can be changed at runtime 
 | `rate_limit_ip_burst` | int | `60` | Per-IP burst size for token bucket. | 1–10000 |
 | `rate_limit_rps` | float | `10` | Per-virtual-key requests per second. Set to `0` to disable per-key rate limiting (makes every bucket unlimited). | 0–10000 |
 | `rate_limit_burst` | int | `20` | Maximum burst bucket size per virtual key. | 1–10000 |
+| `rate_limit_tpm` | int | `0` | Global default tokens-per-minute cap for keys without a per-key `rate_limit_tpm`. `0` = no cap. No Settings-UI control (API-only). | 0–100000000 |
 | `rate_limit_max_wait_ms` | int | `200` | Maximum wait time (ms) in the rate-limiter queue before rejecting with 429. Shared by both per-IP and per-key limiters. | 0–10000 |
 | `key_cache_ttl` | duration string | `10m` | Provider key decryption cache TTL. Controls how long decrypted provider API keys are held in memory before re-derivation. | (varies) |
 | `ttft_timeout` | duration string | `1m0s` | Time-to-first-token probe timeout for streaming requests. After the upstream responds 200, the proxy reads ahead to confirm the first token arrives before committing the stream to the client. If the provider fails to produce a token within this timeout, the request fails over to the next provider. Set to `0s` to disable (immediate stream commit). | `0s`, `30s`, `1m0s`, etc. |
@@ -154,6 +155,7 @@ Reset works by deleting the row from the `settings` table. The Go code then fall
 | `rate_limit_ip_enabled` | `true` |
 | `rate_limit_rps` | `10` |
 | `rate_limit_burst` | `20` |
+| `rate_limit_tpm` | `0` |
 | `rate_limit_ip_rps` | `30` |
 | `rate_limit_ip_burst` | `60` |
 | `rate_limit_max_wait_ms` | `200` |
@@ -185,6 +187,11 @@ The rate limiting system has two layers, both using token buckets (backed by `go
 - `rate_limit_rps` controls the refill rate (tokens per second, default 10)
 - `rate_limit_burst` controls the maximum bucket size (default 20)
 - Setting `rate_limit_rps=0` makes every bucket unlimited (no per-key rate limiting)
+- A separate optional **token rate limit** caps tokens/minute and rejects
+  over-budget requests with `429`. It has a global default setting
+  (`rate_limit_tpm`, `0` = no cap, API-only — no Settings-UI control) plus a
+  per-key override on the virtual_keys row; a key's `null` falls back to the
+  global default. See [Virtual Keys](Virtual-Keys.md#token-rate-limiting-tpm).
 
 **Shared settings:**
 - `rate_limit_max_wait_ms` (default 200) - maximum time a request waits in the rate-limiter queue before being rejected with 429. Applies to both per-IP and per-key limiters.
@@ -279,7 +286,7 @@ When enabling periodic backup for the first time, a confirmation dialog shows wh
 A background scheduler (started about a minute after the server boots) drives periodic backups - there is no external cron job. While `backup_enabled` is `true`, each cycle it creates one backup with `pg_dump`, then immediately applies the son/father/grandfather rotation above (pruning any backup outside the retention tiers), and sleeps for `backup_interval` (default 24h, floored at 5 minutes) before repeating. `backup_enabled`, `backup_interval`, and the retention counts are re-read every cycle, so changes take effect without a restart. Each scheduled backup publishes a `backup.created` event, which surfaces as a success toast in the dashboard (when a session is connected) and as an App Logs entry. The manual **Download** / **Restore** buttons are separate, on-demand actions.
 
 #### Rate Limiting
-Backend settings: `rate_limit_enabled`, `rate_limit_rps`, `rate_limit_burst`, `rate_limit_ip_enabled`, `rate_limit_ip_rps`, `rate_limit_ip_burst`, `rate_limit_max_wait_ms`
+Backend settings: `rate_limit_enabled`, `rate_limit_rps`, `rate_limit_burst`, `rate_limit_tpm`, `rate_limit_ip_enabled`, `rate_limit_ip_rps`, `rate_limit_ip_burst`, `rate_limit_max_wait_ms`
 
 #### Circuit Breaker & Failover
 Backend settings: `circuit_breaker_enabled`, `circuit_breaker_threshold`, `circuit_breaker_cooldown`, `failover_on_rate_limit`

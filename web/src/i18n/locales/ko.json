@@ -983,7 +983,8 @@
 			"created": "작성됨",
 			"tokens": "토큰",
 			"lastUsed": "마지막 사용일",
-			"keys": "키"
+			"keys": "키",
+			"tpm": "TPM"
 		},
 		"tooltip": {
 			"proxyUrl": "클릭하여 프록시 URL 복사",
@@ -996,7 +997,9 @@
 			"lastUsed": "해당 키가 마지막으로 요청에 사용된 시점",
 			"providerRestricted": "제공자 전용 키",
 			"reasoningStripped": "추론 생략",
-			"keyHashed": "키가 해시 처리되어 복구할 수 없습니다"
+			"keyHashed": "키가 해시 처리되어 복구할 수 없습니다",
+			"tpm": "분당 토큰 제한; 분당 할당량이 소진되면 요청은 429 오류로 거부됩니다",
+			"id": "키 ID 복사"
 		},
 		"emptyState": "가상 키가 없습니다. 프록시를 사용하려면 키를 생성하세요.",
 		"steps": {
@@ -1031,7 +1034,8 @@
 				"enableStripReasoning": "스트립 추론 활성화",
 				"disableStripReasoning": "스트립 추론 비활성화",
 				"rateLimitBurst": "버스트(최대 동시 처리량)",
-				"rateLimitRps": "RPS (초당 요청 수)"
+				"rateLimitRps": "RPS (초당 요청 수)",
+				"rateLimitTpm": "TPM (토큰/분)"
 			},
 			"detailTitle": "가상 키 세부 정보",
 			"sections": {
@@ -1045,7 +1049,8 @@
 				"key": "키",
 				"tokensConsumed": "소모된 토큰",
 				"lastUsed": "마지막 사용일",
-				"created": "작성됨"
+				"created": "작성됨",
+				"id": "ID"
 			},
 			"noProvidersConfigured": "설정된 공급자가 없습니다.",
 			"discardChanges": "저장되지 않은 변경 사항을 버릴까요?",
@@ -1059,7 +1064,8 @@
 			"keyCreatedFailed": "실패: {{message}}",
 			"keyUpdated": "가상 키가 업데이트되었습니다",
 			"keyUpdateFailed": "실패: {{message}}",
-			"usageExamples": "사용 예시"
+			"usageExamples": "사용 예시",
+			"rateLimitTpmLabel": "요율 제한 TPM (토큰/분)"
 		}
 	},
 	"logs": {
@@ -2361,7 +2367,8 @@
 		},
 		"detail": {
 			"rps": "RPS",
-			"burst": "연사"
+			"burst": "연사",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {

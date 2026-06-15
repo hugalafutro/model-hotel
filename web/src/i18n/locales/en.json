@@ -980,6 +980,7 @@
 			"key": "Key",
 			"rps": "RPS",
 			"burst": "Burst",
+			"tpm": "TPM",
 			"created": "Created",
 			"tokens": "Tokens",
 			"lastUsed": "Last Used",
@@ -987,10 +988,12 @@
 		},
 		"tooltip": {
 			"proxyUrl": "Click to copy proxy URL",
+			"id": "Click to copy key ID",
 			"name": "Display name for the virtual key",
 			"key": "Preview of the API key (full key only shown once on creation)",
 			"rps": "Requests per second rate limit",
 			"burst": "Burst capacity for rate limiting",
+			"tpm": "Tokens-per-minute cap; requests are rejected with 429 once the minute budget is spent",
 			"created": "When the key was created",
 			"tokens": "Total tokens consumed using this key",
 			"lastUsed": "When the key was last used for a request",
@@ -1024,6 +1027,7 @@
 				"namePlaceholder": "e.g., My App",
 				"rateLimitRps": "RPS (requests/sec)",
 				"rateLimitBurst": "Burst (max concurrent)",
+				"rateLimitTpm": "TPM (tokens/min)",
 				"placeholderGlobal": "Use global setting",
 				"providerAccess": "Provider Access",
 				"providerInstructions": "Click a provider to restrict access. All are accessible by default.",
@@ -1043,6 +1047,7 @@
 				"stripReasoning": "Strip Reasoning"
 			},
 			"labels": {
+				"id": "ID",
 				"key": "Key",
 				"tokensConsumed": "Tokens Consumed",
 				"lastUsed": "Last Used",
@@ -1056,6 +1061,7 @@
 			"nameLabel": "Name",
 			"rateLimitRpsLabel": "Rate Limit RPS (requests/sec)",
 			"rateLimitBurstLabel": "Rate Limit Burst (max concurrent)",
+			"rateLimitTpmLabel": "Rate Limit TPM (tokens/min)",
 			"keyCreated": "Virtual key created",
 			"keyCreatedFailed": "Failed: {{message}}",
 			"keyUpdated": "Virtual key updated",
@@ -2361,7 +2367,8 @@
 		},
 		"detail": {
 			"rps": "RPS",
-			"burst": "Burst"
+			"burst": "Burst",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {

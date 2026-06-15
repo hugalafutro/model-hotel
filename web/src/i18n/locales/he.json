@@ -983,7 +983,8 @@
 			"created": "נוצר",
 			"tokens": "אסימונים",
 			"lastUsed": "השימוש האחרון",
-			"keys": "מפתחות"
+			"keys": "מפתחות",
+			"tpm": "TPM"
 		},
 		"tooltip": {
 			"proxyUrl": "לחץ כדי להעתיק את כתובת ה-proxy",
@@ -996,7 +997,9 @@
 			"lastUsed": "מתי נעשה שימוש אחרון במפתח לצורך בקשה",
 			"providerRestricted": "מפתח המוגבל לספק",
 			"reasoningStripped": "ההיגיון הושמט",
-			"keyHashed": "המפתח עבר תהליך של חשישה ואינו ניתן לשחזור"
+			"keyHashed": "המפתח עבר תהליך של חשישה ואינו ניתן לשחזור",
+			"tpm": "מגבלת אסימונים לדקה; בקשות נדחות עם קוד 429 ברגע שהתקציב הדקתי נוצל",
+			"id": "לחץ כדי להעתיק את מזהה המפתח"
 		},
 		"emptyState": "אין מפתחות וירטואליים. צור מפתח כדי להתחיל להשתמש בפרוקסי.",
 		"steps": {
@@ -1031,7 +1034,8 @@
 				"enableStripReasoning": "הפעל חשיבה רציפה",
 				"disableStripReasoning": "השבת את חישוב הרצועות",
 				"rateLimitBurst": "Burst (מקסימום בו-זמנית)",
-				"rateLimitRps": "RPS (בקשות בשנייה)"
+				"rateLimitRps": "RPS (בקשות בשנייה)",
+				"rateLimitTpm": "TPM (אסימונים/דקה)"
 			},
 			"detailTitle": "פרטי המפתח הווירטואלי",
 			"sections": {
@@ -1045,7 +1049,8 @@
 				"key": "מפתח",
 				"tokensConsumed": "אסימונים שנצרכו",
 				"lastUsed": "השימוש האחרון",
-				"created": "נוצר"
+				"created": "נוצר",
+				"id": "ID"
 			},
 			"noProvidersConfigured": "לא הוגדרו ספקים.",
 			"discardChanges": "האם למחוק שינויים שלא נשמרו?",
@@ -1059,7 +1064,8 @@
 			"keyCreatedFailed": "נכשל: {{message}}",
 			"keyUpdated": "המפתח הווירטואלי עודכן",
 			"keyUpdateFailed": "נכשל: {{message}}",
-			"usageExamples": "דוגמאות לשימוש"
+			"usageExamples": "דוגמאות לשימוש",
+			"rateLimitTpmLabel": "מגבלת קצב TPM (אסימונים/דקה)"
 		}
 	},
 	"logs": {
@@ -2361,7 +2367,8 @@
 		},
 		"detail": {
 			"rps": "RPS",
-			"burst": "התפרצות"
+			"burst": "התפרצות",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {

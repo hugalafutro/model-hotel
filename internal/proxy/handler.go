@@ -33,6 +33,7 @@ type Handler struct {
 	failoverRepo   *failover.Repository
 	settingsRepo   *settings.Repository
 	rateLimiter    *ratelimit.Limiter
+	tpmLimiter     *ratelimit.TPMLimiter
 	ipLimiter      *ratelimit.IPLimiter
 	circuitBreaker *failover.CircuitBreaker
 	// upstreamTransport is a shared Transport for all outbound proxy
@@ -84,13 +85,14 @@ func (a *virtualKeyRepoAdapter) FindByKeyHash(ctx context.Context, keyHash strin
 		TokensUsed:       vk.TokensUsed,
 		RateLimitRPS:     vk.RateLimitRPS,
 		RateLimitBurst:   vk.RateLimitBurst,
+		RateLimitTPM:     vk.RateLimitTPM,
 		AllowedProviders: vk.AllowedProviders,
 		StripReasoning:   vk.StripReasoning,
 	}, nil
 }
 
-func (a *virtualKeyRepoAdapter) Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*VirtualKeyInfo, error) {
-	vk, err := a.repo.Create(ctx, name, keyHash, keyPreview, rps, burst, allowedProviders, stripReasoning)
+func (a *virtualKeyRepoAdapter) Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*VirtualKeyInfo, error) {
+	vk, err := a.repo.Create(ctx, name, keyHash, keyPreview, rps, burst, tpm, allowedProviders, stripReasoning)
 	if err != nil {
 		return nil, err
 	}
@@ -102,6 +104,7 @@ func (a *virtualKeyRepoAdapter) Create(ctx context.Context, name, keyHash, keyPr
 		TokensUsed:       vk.TokensUsed,
 		RateLimitRPS:     vk.RateLimitRPS,
 		RateLimitBurst:   vk.RateLimitBurst,
+		RateLimitTPM:     vk.RateLimitTPM,
 		AllowedProviders: vk.AllowedProviders,
 		StripReasoning:   vk.StripReasoning,
 	}, nil
@@ -125,6 +128,7 @@ func NewHandler(
 	failoverRepo *failover.Repository,
 	settingsRepo *settings.Repository,
 	rateLimiter *ratelimit.Limiter,
+	tpmLimiter *ratelimit.TPMLimiter,
 	ipLimiter *ratelimit.IPLimiter,
 	sd *SafeDialer,
 ) *Handler {
@@ -137,6 +141,7 @@ func NewHandler(
 		failoverRepo:   failoverRepo,
 		settingsRepo:   settingsRepo,
 		rateLimiter:    rateLimiter,
+		tpmLimiter:     tpmLimiter,
 		ipLimiter:      ipLimiter,
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		upstreamTransport: &http.Transport{
@@ -174,6 +179,10 @@ func (h *Handler) Register(r chi.Router) {
 	r.Use(h.ipLimiter.Middleware)
 	r.Use(h.ProxyKeyMiddleware)
 	r.Use(h.rateLimiter.Middleware(h.cfg.RateLimitEnabled))
+	// TPM admission runs after RPS: a key must pass the request-rate gate before
+	// its token budget is checked. Only the public proxy enforces TPM; admin
+	// chat (RegisterAdminChat) has no real virtual key, so it is exempt.
+	r.Use(h.tpmLimiter.Middleware(h.cfg.RateLimitEnabled))
 
 	r.Get("/models", h.ListModels)
 	r.Post("/chat/completions", h.ChatCompletions)
@@ -239,6 +248,7 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 		ctx = context.WithValue(ctx, VirtualKeyHashKey, keyHash)
 		ctx = context.WithValue(ctx, ctxkeys.VirtualKeyRateLimitRPSKey, vk.RateLimitRPS)
 		ctx = context.WithValue(ctx, ctxkeys.VirtualKeyRateLimitBurstKey, vk.RateLimitBurst)
+		ctx = context.WithValue(ctx, ctxkeys.VirtualKeyRateLimitTPMKey, vk.RateLimitTPM)
 		ctx = context.WithValue(ctx, ctxkeys.VirtualKeyAllowedProvidersKey, vk.AllowedProviders)
 		ctx = context.WithValue(ctx, ctxkeys.VirtualKeyStripReasoningKey, vk.StripReasoning)
 		debuglog.Debug("proxy: virtual key auth", "key", vk.Name, "strip_reasoning", vk.StripReasoning)

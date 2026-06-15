@@ -654,6 +654,7 @@ export const api = {
 			name: string,
 			rate_limit_rps?: number | null,
 			rate_limit_burst?: number | null,
+			rate_limit_tpm?: number | null,
 			allowed_providers?: string[] | null,
 			strip_reasoning?: boolean,
 		): Promise<VirtualKey> => {
@@ -666,6 +667,7 @@ export const api = {
 						name,
 						rate_limit_rps,
 						rate_limit_burst,
+						rate_limit_tpm,
 						allowed_providers,
 						strip_reasoning,
 					}),
@@ -688,6 +690,7 @@ export const api = {
 				name: string;
 				rate_limit_rps?: number | null;
 				rate_limit_burst?: number | null;
+				rate_limit_tpm?: number | null;
 				allowed_providers?: string[] | null;
 				strip_reasoning?: boolean;
 			},

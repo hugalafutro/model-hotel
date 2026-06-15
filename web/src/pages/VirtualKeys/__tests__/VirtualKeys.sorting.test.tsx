@@ -93,6 +93,47 @@ describe("VirtualKeys", () => {
 				expect(rows[0].querySelector("td")?.textContent).toBe("Low Burst Key");
 			});
 		});
+
+		it("should sort by TPM when clicking TPM header", async () => {
+			const keys = [
+				{
+					...mockVirtualKey,
+					id: "vk-high",
+					name: "High TPM Key",
+					rate_limit_tpm: 90000,
+				},
+				{
+					...mockVirtualKey,
+					id: "vk-low",
+					name: "Low TPM Key",
+					rate_limit_tpm: 1000,
+				},
+				{
+					...mockVirtualKey,
+					id: "vk-mid",
+					name: "Mid TPM Key",
+					rate_limit_tpm: 30000,
+				},
+			];
+			server.use(http.get("/api/virtual-keys", () => HttpResponse.json(keys)));
+
+			const { user } = renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("High TPM Key")).toBeInTheDocument();
+			});
+
+			const tpmHeader = screen.getByRole("button", {
+				name: "Sort by TPM",
+			});
+			await user.click(tpmHeader);
+
+			await waitFor(() => {
+				const table = screen.getByRole("table");
+				const rows = table.querySelectorAll("tbody tr");
+				expect(rows[0].querySelector("td")?.textContent).toBe("Low TPM Key");
+			});
+		});
 	});
 
 	describe("Restriction badges", () => {

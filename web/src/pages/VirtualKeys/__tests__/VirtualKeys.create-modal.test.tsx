@@ -176,6 +176,56 @@ describe("VirtualKeys", () => {
 			});
 		});
 
+		it("sends rate_limit_tpm in create request", async () => {
+			let createBody: unknown;
+			server.use(
+				http.get("/api/virtual-keys", () =>
+					HttpResponse.json([mockVirtualKey]),
+				),
+				http.post("/api/virtual-keys", async ({ request }) => {
+					createBody = await request.json();
+					return HttpResponse.json({
+						...mockVirtualKey,
+						id: "vk-tpm",
+						name: (createBody as { name: string }).name,
+						rate_limit_tpm: (createBody as { rate_limit_tpm: number })
+							.rate_limit_tpm,
+					});
+				}),
+			);
+
+			const { user } = renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Virtual Keys")).toBeInTheDocument();
+			});
+
+			await user.click(screen.getByRole("button", { name: "Create Key" }));
+
+			const dialog = await screen.findByRole("dialog", {
+				name: "Create Virtual Key",
+			});
+
+			await user.type(within(dialog).getByLabelText("Name"), "TPM Key");
+			await user.type(
+				within(dialog).getByLabelText("Rate Limit TPM (tokens/min)"),
+				"50000",
+			);
+
+			await user.click(
+				within(dialog).getByRole("button", { name: "Create Key" }),
+			);
+
+			await waitFor(() => {
+				expect(screen.getByText("Virtual Key Created")).toBeInTheDocument();
+			});
+
+			expect(createBody).toBeDefined();
+			expect((createBody as { rate_limit_tpm?: number }).rate_limit_tpm).toBe(
+				50000,
+			);
+		});
+
 		it("shows key only once after creation with copy functionality", async () => {
 			server.use(
 				http.get("/api/virtual-keys", () =>

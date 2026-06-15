@@ -37,6 +37,7 @@ var AllowedSettings = map[string]bool{
 	"rate_limit_ip_burst":          true,
 	"rate_limit_rps":               true,
 	"rate_limit_burst":             true,
+	"rate_limit_tpm":               true,
 	"rate_limit_max_wait_ms":       true,
 	"key_cache_ttl":                true,
 	"ttft_timeout":                 true,

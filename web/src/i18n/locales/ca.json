@@ -983,7 +983,8 @@
 			"created": "Creat",
 			"tokens": "Fitxes",
 			"lastUsed": "Últim ús",
-			"keys": "claus"
+			"keys": "claus",
+			"tpm": "TPM"
 		},
 		"tooltip": {
 			"proxyUrl": "Feu clic per copiar l'URL del proxy",
@@ -996,7 +997,9 @@
 			"lastUsed": "Quan la clau es va utilitzar per última vegada per a una sol·licitud",
 			"providerRestricted": "Clau restringida pel proveïdor",
 			"reasoningStripped": "Racionalitat despullada",
-			"keyHashed": "La clau s'ha xifrat i no es pot recuperar."
+			"keyHashed": "La clau s'ha xifrat i no es pot recuperar.",
+			"tpm": "Límit de tokens per minut; les sol·licituds es rebutgen amb un 429 un cop s'ha esgotat el pressupost per minut",
+			"id": "Feu clic per copiar l'ID de la clau"
 		},
 		"emptyState": "No hi ha claus virtuals. Crea'n una per començar a utilitzar el proxy.",
 		"steps": {
@@ -1031,7 +1034,8 @@
 				"enableStripReasoning": "Activa el raonament per franges",
 				"disableStripReasoning": "Desactiva el raonament per franges",
 				"rateLimitBurst": "Rafegat (màxim simultani)",
-				"rateLimitRps": "RPS (sol·licituds/s)"
+				"rateLimitRps": "RPS (sol·licituds/s)",
+				"rateLimitTpm": "TPM (tokens/min)"
 			},
 			"detailTitle": "Detalls de la clau virtual",
 			"sections": {
@@ -1045,7 +1049,8 @@
 				"key": "Clau",
 				"tokensConsumed": "Tòkens consumits",
 				"lastUsed": "Últim ús",
-				"created": "Creat"
+				"created": "Creat",
+				"id": "ID"
 			},
 			"noProvidersConfigured": "No s'ha configurat cap proveïdor.",
 			"discardChanges": "Descartar els canvis no desats?",
@@ -1059,7 +1064,8 @@
 			"keyCreatedFailed": "Fallat: {{message}}",
 			"keyUpdated": "Clau virtual actualitzada",
 			"keyUpdateFailed": "Fallat: {{message}}",
-			"usageExamples": "Exemples d'ús"
+			"usageExamples": "Exemples d'ús",
+			"rateLimitTpmLabel": "Límit de velocitat TPM (tokens/min)"
 		}
 	},
 	"logs": {
@@ -2361,7 +2367,8 @@
 		},
 		"detail": {
 			"rps": "RPS",
-			"burst": "Esclat"
+			"burst": "Esclat",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {

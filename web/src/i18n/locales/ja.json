@@ -983,7 +983,8 @@
 			"created": "作成済み",
 			"tokens": "トークン",
 			"lastUsed": "最後に使用したもの",
-			"keys": "キー"
+			"keys": "キー",
+			"tpm": "TPM"
 		},
 		"tooltip": {
 			"proxyUrl": "クリックしてプロキシ URL をコピー",
@@ -996,7 +997,9 @@
 			"lastUsed": "キーが最後にリクエストに使用されたとき",
 			"providerRestricted": "プロバイダー制限キー",
 			"reasoningStripped": "削除された理由",
-			"keyHashed": "キーがハッシュされているため、復元できません"
+			"keyHashed": "キーがハッシュされているため、復元できません",
+			"tpm": "1分あたりのトークン上限。1分間の割り当てを使い切ると、リクエストは429エラーで拒否されます",
+			"id": "クリックしてキーIDをコピー"
 		},
 		"emptyState": "仮想キーはありません。プロキシを使用するには、仮想キーを作成してください。",
 		"steps": {
@@ -1031,7 +1034,8 @@
 				"enableStripReasoning": "ストリップの推論を有効にする",
 				"disableStripReasoning": "ストリップの推論を無効にする",
 				"rateLimitBurst": "バースト（最大同時接続数）",
-				"rateLimitRps": "RPS（リクエスト/秒）"
+				"rateLimitRps": "RPS（リクエスト/秒）",
+				"rateLimitTpm": "TPM（トークン/分）"
 			},
 			"detailTitle": "仮想キーの詳細",
 			"sections": {
@@ -1045,7 +1049,8 @@
 				"key": "キー",
 				"tokensConsumed": "消費トークン",
 				"lastUsed": "最後に使用したもの",
-				"created": "作成済み"
+				"created": "作成済み",
+				"id": "ID"
 			},
 			"noProvidersConfigured": "No providers configured.",
 			"discardChanges": "未保存の変更を破棄しますか？",
@@ -1059,7 +1064,8 @@
 			"keyCreatedFailed": "失敗: {{message}}",
 			"keyUpdated": "仮想キーが更新されました",
 			"keyUpdateFailed": "失敗: {{message}}",
-			"usageExamples": "使用例"
+			"usageExamples": "使用例",
+			"rateLimitTpmLabel": "レート制限 TPM（トークン/分）"
 		}
 	},
 	"logs": {
@@ -2361,7 +2367,8 @@
 		},
 		"detail": {
 			"rps": "RPS",
-			"burst": "Burst"
+			"burst": "Burst",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {

@@ -983,7 +983,8 @@
 			"created": "Geskep",
 			"tokens": "Tokens",
 			"lastUsed": "Laaste gebruik",
-			"keys": "sleutels"
+			"keys": "sleutels",
+			"tpm": "TPM"
 		},
 		"tooltip": {
 			"proxyUrl": "Klik om die proxy-URL te kopieer",
@@ -996,7 +997,9 @@
 			"lastUsed": "Toe die sleutel laas vir 'n versoek gebruik is",
 			"providerRestricted": "Verskafferbeperkte sleutel",
 			"reasoningStripped": "Redenering verwyder",
-			"keyHashed": "Die sleutel word gehas en kan nie herstel word nie."
+			"keyHashed": "Die sleutel word gehas en kan nie herstel word nie.",
+			"tpm": "Tokens-per-minuut-limiet; versoeke word met 429 verwerp sodra die minutebegroting opgebrui is",
+			"id": "Klik om die sleutel-ID te kopieer"
 		},
 		"emptyState": "Geen virtuele sleutels nie. Skep een om met die proxy te begin gebruik.",
 		"steps": {
@@ -1031,7 +1034,8 @@
 				"enableStripReasoning": "Aktiveer streepredenering",
 				"disableStripReasoning": "Skakel bandredenering uit",
 				"rateLimitBurst": "Stoot (maksimum gelyktydig)",
-				"rateLimitRps": "RPS (versoeke/sek)"
+				"rateLimitRps": "RPS (versoeke/sek)",
+				"rateLimitTpm": "TPM (tokens/min)"
 			},
 			"detailTitle": "Virtuele Sleutelbesonderhede",
 			"sections": {
@@ -1045,7 +1049,8 @@
 				"key": "Sleutel",
 				"tokensConsumed": "Gebruikte tokens",
 				"lastUsed": "Laaste gebruik",
-				"created": "Geskep"
+				"created": "Geskep",
+				"id": "ID"
 			},
 			"noProvidersConfigured": "Geen verskaffers gekonfigureer nie.",
 			"discardChanges": "Verwerp ongespaarde veranderinge?",
@@ -1059,7 +1064,8 @@
 			"keyCreatedFailed": "Misluk: {{message}}",
 			"keyUpdated": "Virtuele sleutel opgedateer",
 			"keyUpdateFailed": "Misluk: {{message}}",
-			"usageExamples": "Gebruiksvoorbeelde"
+			"usageExamples": "Gebruiksvoorbeelde",
+			"rateLimitTpmLabel": "Koersbeperking TPM (tokens/min)"
 		}
 	},
 	"logs": {
@@ -2361,7 +2367,8 @@
 		},
 		"detail": {
 			"rps": "RPS",
-			"burst": "Barst"
+			"burst": "Barst",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {

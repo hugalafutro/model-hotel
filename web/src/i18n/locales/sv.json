@@ -983,7 +983,8 @@
 			"created": "Skapad",
 			"tokens": "Tokens",
 			"lastUsed": "Senast använd",
-			"keys": "nycklar"
+			"keys": "nycklar",
+			"tpm": "TPM"
 		},
 		"tooltip": {
 			"proxyUrl": "Klicka för att kopiera proxy URL",
@@ -996,7 +997,9 @@
 			"lastUsed": "När nyckeln senast användes för en förfrågan",
 			"providerRestricted": "Leverantörsbegränsad nyckel",
 			"reasoningStripped": "Resonemang borttaget",
-			"keyHashed": "Nyckeln är hashad och kan inte återställas"
+			"keyHashed": "Nyckeln är hashad och kan inte återställas",
+			"tpm": "Tak för tokens per minut; förfrågningar avvisas med 429 när minutbudgeten är förbrukad",
+			"id": "Klicka för att kopiera nyckel-ID"
 		},
 		"emptyState": "Inga virtuella nycklar. Skapa en för att börja använda proxy.",
 		"steps": {
@@ -1031,7 +1034,8 @@
 				"enableStripReasoning": "Aktivera remsresonemang",
 				"disableStripReasoning": "Inaktivera remsans resonemang",
 				"rateLimitBurst": "Burst (max samtidiga)",
-				"rateLimitRps": "RPS (förfrågningar/sek)"
+				"rateLimitRps": "RPS (förfrågningar/sek)",
+				"rateLimitTpm": "TPM (tokens/min)"
 			},
 			"detailTitle": "Information om virtuell nyckel",
 			"sections": {
@@ -1045,7 +1049,8 @@
 				"key": "Nyckel",
 				"tokensConsumed": "Tokens förbrukade",
 				"lastUsed": "Senast använd",
-				"created": "Skapad"
+				"created": "Skapad",
+				"id": "ID"
 			},
 			"noProvidersConfigured": "Inga leverantörer konfigurerade.",
 			"discardChanges": "Ignorera osparade ändringar?",
@@ -1059,7 +1064,8 @@
 			"keyCreatedFailed": "Misslyckades: {{message}}",
 			"keyUpdated": "Virtuell nyckel uppdaterad",
 			"keyUpdateFailed": "Misslyckades: {{message}}",
-			"usageExamples": "Användningsexempel"
+			"usageExamples": "Användningsexempel",
+			"rateLimitTpmLabel": "Rate Limit TPM (tokens/min)"
 		}
 	},
 	"logs": {
@@ -2361,7 +2367,8 @@
 		},
 		"detail": {
 			"rps": "RPS",
-			"burst": "Sprängning"
+			"burst": "Sprängning",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {

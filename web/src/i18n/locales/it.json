@@ -983,7 +983,8 @@
 			"created": "Creato",
 			"tokens": "Token",
 			"lastUsed": "Ultimo Utilizzato",
-			"keys": "chiavi"
+			"keys": "chiavi",
+			"tpm": "TPM"
 		},
 		"tooltip": {
 			"proxyUrl": "Clicca per copiare l'URL del proxy",
@@ -996,7 +997,9 @@
 			"lastUsed": "Quando la chiave è stata usata per l'ultima volta per una richiesta",
 			"providerRestricted": "Chiave provider-restricted",
 			"reasoningStripped": "Ragionamento spogliato",
-			"keyHashed": "La chiave è hashed e non può essere recuperata"
+			"keyHashed": "La chiave è hashed e non può essere recuperata",
+			"tpm": "Limite di token al minuto; le richieste vengono respinte con codice 429 una volta esaurito il budget del minuto",
+			"id": "Clicca per copiare l'ID chiave"
 		},
 		"emptyState": "Nessuna chiave virtuale. Creane una per iniziare a usare il proxy.",
 		"steps": {
@@ -1031,7 +1034,8 @@
 				"enableStripReasoning": "Abilita ragionamento striscia",
 				"disableStripReasoning": "Disabilita ragionamento striscia",
 				"rateLimitBurst": "Burst (massimo simultaneo)",
-				"rateLimitRps": "RPS (richieste/sec)"
+				"rateLimitRps": "RPS (richieste/sec)",
+				"rateLimitTpm": "TPM (token/min)"
 			},
 			"detailTitle": "Dettagli Chiave Virtuale",
 			"sections": {
@@ -1045,7 +1049,8 @@
 				"key": "Chiave",
 				"tokensConsumed": "Token Consumati",
 				"lastUsed": "Ultimo Utilizzato",
-				"created": "Creato"
+				"created": "Creato",
+				"id": "ID"
 			},
 			"noProvidersConfigured": "Nessun provider configurato.",
 			"discardChanges": "Scartare le modifiche non salvate?",
@@ -1059,7 +1064,8 @@
 			"keyCreatedFailed": "Fallito: {{message}}",
 			"keyUpdated": "Chiave virtuale aggiornata",
 			"keyUpdateFailed": "Fallito: {{message}}",
-			"usageExamples": "Esempi di utilizzo"
+			"usageExamples": "Esempi di utilizzo",
+			"rateLimitTpmLabel": "Limite di velocità TPM (token/min)"
 		}
 	},
 	"logs": {
@@ -2361,7 +2367,8 @@
 		},
 		"detail": {
 			"rps": "RPS",
-			"burst": "Esplosione"
+			"burst": "Esplosione",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {

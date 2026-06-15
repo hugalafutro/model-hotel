@@ -25,6 +25,7 @@ type VKSortField =
 	| "name"
 	| "rps"
 	| "burst"
+	| "tpm"
 	| "created"
 	| "tokens"
 	| "last_used";
@@ -88,6 +89,11 @@ export function VirtualKeys() {
 					const aB = a.rate_limit_burst ?? 0;
 					const bB = b.rate_limit_burst ?? 0;
 					return dir * (aB - bB);
+				}
+				case "tpm": {
+					const aT = a.rate_limit_tpm ?? 0;
+					const bT = b.rate_limit_tpm ?? 0;
+					return dir * (aT - bT);
 				}
 				default:
 					return 0;
@@ -155,12 +161,13 @@ export function VirtualKeys() {
 				<div className="ui-card overflow-hidden">
 					<table className="w-full table-fixed ui-table">
 						<colgroup>
-							<col className="w-[22%]" />
-							<col className="w-[16%]" />
+							<col className="w-[20%]" />
+							<col className="w-[14%]" />
 							<col className="w-[8%]" />
 							<col className="w-[8%]" />
-							<col className="w-[18%]" />
+							<col className="w-[8%]" />
 							<col className="w-[16%]" />
+							<col className="w-[14%]" />
 							<col className="w-[12%]" />
 						</colgroup>
 						<thead>
@@ -188,6 +195,13 @@ export function VirtualKeys() {
 									sort={sort}
 									onSort={handleSort}
 									tooltip={t("virtualkeys.tooltip.burst")}
+								/>
+								<SortableHeader
+									label={t("virtualkeys.table.tpm")}
+									field="tpm"
+									sort={sort}
+									onSort={handleSort}
+									tooltip={t("virtualkeys.tooltip.tpm")}
 								/>
 								<SortableHeader
 									label={t("virtualkeys.table.created")}
@@ -276,6 +290,15 @@ export function VirtualKeys() {
 											<span className="text-gray-200">
 												{vk.rate_limit_burst}
 											</span>
+										) : (
+											<span className="text-gray-500">
+												{t("virtualKeys.global")}
+											</span>
+										)}
+									</td>
+									<td className="px-4 py-3 text-sm font-mono">
+										{vk.rate_limit_tpm != null ? (
+											<span className="text-gray-200">{vk.rate_limit_tpm}</span>
 										) : (
 											<span className="text-gray-500">
 												{t("virtualKeys.global")}

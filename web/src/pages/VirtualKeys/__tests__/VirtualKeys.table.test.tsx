@@ -29,11 +29,10 @@ describe("VirtualKeys", () => {
 			expect(screen.getByText("50,000")).toBeInTheDocument();
 		});
 
-		it("renders RPS and Burst columns with values", async () => {
+		it("renders RPS, Burst and TPM columns with values", async () => {
+			const keyWithLimits = { ...mockVirtualKey, rate_limit_tpm: 1500 };
 			server.use(
-				http.get("/api/virtual-keys", () =>
-					HttpResponse.json([mockVirtualKey]),
-				),
+				http.get("/api/virtual-keys", () => HttpResponse.json([keyWithLimits])),
 			);
 
 			renderWithProviders(<VirtualKeys />);
@@ -45,15 +44,18 @@ describe("VirtualKeys", () => {
 			expect(screen.getByText("30")).toBeInTheDocument();
 			// Burst column shows value when set
 			expect(screen.getByText("60")).toBeInTheDocument();
+			// TPM column shows value when set
+			expect(screen.getByText("1500")).toBeInTheDocument();
 		});
 
-		it("shows Global for RPS and Burst when null", async () => {
+		it("shows Global for RPS, Burst and TPM when null", async () => {
 			const keyWithNullLimits = {
 				...mockVirtualKey,
 				id: "vk-null-limits",
 				name: "No Limits Key",
 				rate_limit_rps: null,
 				rate_limit_burst: null,
+				rate_limit_tpm: null,
 			};
 			server.use(
 				http.get("/api/virtual-keys", () =>
@@ -66,8 +68,8 @@ describe("VirtualKeys", () => {
 			await waitFor(() => {
 				expect(screen.getByText("No Limits Key")).toBeInTheDocument();
 			});
-			// RPS column shows "Global" when null
-			expect(screen.getAllByText("Global")).toHaveLength(2);
+			// RPS, Burst and TPM columns show "Global" when null
+			expect(screen.getAllByText("Global")).toHaveLength(3);
 		});
 
 		it("clicking row opens detail modal", async () => {

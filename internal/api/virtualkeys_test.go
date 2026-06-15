@@ -47,7 +47,7 @@ func TestCreateVirtualKey_InvalidJSON(t *testing.T) {
 
 func TestCreateVirtualKey_DBError(t *testing.T) {
 	mockVK := &mockVirtualKeyStore{
-		createFn: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
+		createFn: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
 			return nil, errors.New("db connection lost")
 		},
 	}
@@ -308,7 +308,7 @@ func TestCond_EmptyStringTrue(t *testing.T) {
 
 func TestValidateRateLimits_NilBoth(t *testing.T) {
 	w := httptest.NewRecorder()
-	err := validateRateLimits(nil, nil, w)
+	err := validateRateLimits(nil, nil, nil, w)
 	if err != nil {
 		t.Errorf("nil rps and nil burst should return nil, got %v", err)
 	}
@@ -317,7 +317,7 @@ func TestValidateRateLimits_NilBoth(t *testing.T) {
 func TestValidateRateLimits_NegativeRPS(t *testing.T) {
 	w := httptest.NewRecorder()
 	rps := -1.0
-	err := validateRateLimits(&rps, nil, w)
+	err := validateRateLimits(&rps, nil, nil, w)
 	if err == nil {
 		t.Error("negative rps should return error")
 	}
@@ -329,7 +329,7 @@ func TestValidateRateLimits_NegativeRPS(t *testing.T) {
 func TestValidateRateLimits_NegativeBurst(t *testing.T) {
 	w := httptest.NewRecorder()
 	burst := -1
-	err := validateRateLimits(nil, &burst, w)
+	err := validateRateLimits(nil, &burst, nil, w)
 	if err == nil {
 		t.Error("negative burst should return error")
 	}
@@ -341,7 +341,7 @@ func TestValidateRateLimits_NegativeBurst(t *testing.T) {
 func TestValidateRateLimits_ZeroBurst(t *testing.T) {
 	w := httptest.NewRecorder()
 	burst := 0
-	err := validateRateLimits(nil, &burst, w)
+	err := validateRateLimits(nil, &burst, nil, w)
 	if err == nil {
 		t.Error("burst=0 should return error")
 	}
@@ -354,7 +354,7 @@ func TestValidateRateLimits_ValidRPSAndBurst(t *testing.T) {
 	w := httptest.NewRecorder()
 	rps := 10.0
 	burst := 20
-	err := validateRateLimits(&rps, &burst, w)
+	err := validateRateLimits(&rps, &burst, nil, w)
 	if err != nil {
 		t.Errorf("valid rps and burst should return nil, got %v", err)
 	}
@@ -367,7 +367,7 @@ func TestValidateRateLimits_ZeroRPS_ValidBurst(t *testing.T) {
 	w := httptest.NewRecorder()
 	rps := 0.0
 	burst := 1
-	err := validateRateLimits(&rps, &burst, w)
+	err := validateRateLimits(&rps, &burst, nil, w)
 	if err != nil {
 		t.Errorf("rps=0 with burst>=1 should return nil, got %v", err)
 	}
@@ -376,7 +376,7 @@ func TestValidateRateLimits_ZeroRPS_ValidBurst(t *testing.T) {
 func TestValidateRateLimits_NilRPS_ValidBurst(t *testing.T) {
 	w := httptest.NewRecorder()
 	burst := 5
-	err := validateRateLimits(nil, &burst, w)
+	err := validateRateLimits(nil, &burst, nil, w)
 	if err != nil {
 		t.Errorf("nil rps with valid burst should return nil, got %v", err)
 	}
@@ -385,9 +385,42 @@ func TestValidateRateLimits_NilRPS_ValidBurst(t *testing.T) {
 func TestValidateRateLimits_ValidRPS_NilBurst(t *testing.T) {
 	w := httptest.NewRecorder()
 	rps := 5.0
-	err := validateRateLimits(&rps, nil, w)
+	err := validateRateLimits(&rps, nil, nil, w)
 	if err != nil {
 		t.Errorf("valid rps with nil burst should return nil, got %v", err)
+	}
+}
+
+func TestValidateRateLimits_NegativeTPM(t *testing.T) {
+	w := httptest.NewRecorder()
+	tpm := -1
+	err := validateRateLimits(nil, nil, &tpm, w)
+	if err == nil {
+		t.Error("negative tpm should return error")
+	}
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+}
+
+func TestValidateRateLimits_ZeroTPM(t *testing.T) {
+	w := httptest.NewRecorder()
+	tpm := 0
+	err := validateRateLimits(nil, nil, &tpm, w)
+	if err == nil {
+		t.Error("tpm=0 should return error (use null for no cap)")
+	}
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+}
+
+func TestValidateRateLimits_ValidTPM(t *testing.T) {
+	w := httptest.NewRecorder()
+	tpm := 10000
+	err := validateRateLimits(nil, nil, &tpm, w)
+	if err != nil {
+		t.Errorf("valid tpm should return nil, got %v", err)
 	}
 }
 
@@ -403,7 +436,7 @@ func TestCond_EmptyStringFalse(t *testing.T) {
 // The unique constraint violation surfaces as a 500 (repo error).
 func TestCreateVirtualKey_DuplicateName(t *testing.T) {
 	mockVK := &mockVirtualKeyStore{
-		createFn: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
+		createFn: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
 			return nil, &pgconn.PgError{Code: "23505"}
 		},
 	}
@@ -485,7 +518,7 @@ func TestUpdateVirtualKey_MalformedJSON(t *testing.T) {
 // when the database is unavailable.
 func TestUpdateVirtualKey_DBError(t *testing.T) {
 	mockVK := &mockVirtualKeyStore{
-		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
+		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
 			return nil, errors.New("db connection lost")
 		},
 	}
@@ -514,7 +547,7 @@ func TestUpdateVirtualKey_WithAllowedProviders(t *testing.T) {
 	mockVK := &mockVirtualKeyStore{
 		getFn: func(ctx context.Context, vid uuid.UUID) (*virtualkey.VirtualKey, error) {
 			return &virtualkey.VirtualKey{ID: vid, Name: "updated-key", KeyHash: "hash123", KeyPreview: "sk-...up", StripReasoning: false}, nil
-		}, updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
+		}, updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
 			if vid != id {
 				return nil, errors.New("unexpected ID")
 			}
@@ -566,7 +599,7 @@ func TestUpdateVirtualKey_ToClearAllowedProviders(t *testing.T) {
 		getFn: func(ctx context.Context, vid uuid.UUID) (*virtualkey.VirtualKey, error) {
 			return &virtualkey.VirtualKey{ID: vid, Name: "cleared-key", KeyHash: "hash123", KeyPreview: "sk-...cl", StripReasoning: false}, nil
 		},
-		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
+		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
 			if vid != id {
 				return nil, errors.New("unexpected ID")
 			}
@@ -624,7 +657,7 @@ func TestUpdateVirtualKey_OmitAllowedProvidersPreservesExisting(t *testing.T) {
 				AllowedProviders: &existingProviders,
 			}, nil
 		},
-		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
+		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
 			if vid != id {
 				return nil, errors.New("unexpected ID")
 			}
@@ -663,7 +696,7 @@ func TestUpdateVirtualKey_OmitAllowedProvidersPreservesExisting(t *testing.T) {
 // correctly handles the allowed_providers field.
 func TestCreateVirtualKey_WithAllowedProviders(t *testing.T) {
 	mockVK := &mockVirtualKeyStore{
-		createFn: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
+		createFn: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
 			if name != "test-key-ap" {
 				return nil, errors.New("unexpected name")
 			}
@@ -711,7 +744,7 @@ func TestCreateVirtualKey_WithAllowedProviders(t *testing.T) {
 // rejects an empty allowed_providers array (non-nil but len==0).
 func TestCreateVirtualKey_EmptyAllowedProvidersArray(t *testing.T) {
 	mockVK := &mockVirtualKeyStore{
-		createFn: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
+		createFn: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
 			t.Error("create should not be called when allowed_providers is empty array")
 			return nil, nil
 		},
@@ -838,7 +871,7 @@ func TestUpdateVirtualKeyRequest_UnmarshalJSON_OnlyStripReasoningPresent(t *test
 // the key does not exist in the database.
 func TestUpdateVirtualKey_NotFound(t *testing.T) {
 	mockVK := &mockVirtualKeyStore{
-		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
+		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
 			return nil, virtualkey.ErrNotFound
 		},
 	}
@@ -875,7 +908,7 @@ func TestUpdateVirtualKey_PartialUpdate_NameOnly(t *testing.T) {
 				StripReasoning:   true,
 			}, nil
 		},
-		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
+		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
 			if name != "new-name" {
 				t.Errorf("expected name 'new-name', got %q", name)
 			}
@@ -983,7 +1016,7 @@ func TestUpdateVirtualKey_GetKeyError(t *testing.T) {
 func TestUpdateVirtualKey_EmptyAllowedProvidersArray(t *testing.T) {
 	id := uuid.New()
 	mockVK := &mockVirtualKeyStore{
-		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
+		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
 			t.Error("update should not be called when allowed_providers is empty array")
 			return nil, nil
 		},

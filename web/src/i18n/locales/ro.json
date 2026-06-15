@@ -983,7 +983,8 @@
 			"created": "Creat",
 			"tokens": "Token-uri",
 			"lastUsed": "Ultima utilizare",
-			"keys": "chei"
+			"keys": "chei",
+			"tpm": "TPM"
 		},
 		"tooltip": {
 			"proxyUrl": "Faceți clic pentru a copia URL-ul proxy",
@@ -996,7 +997,9 @@
 			"lastUsed": "Când a fost folosită ultima cheie pentru o cerere",
 			"providerRestricted": "Cheie restricționată de furnizor",
 			"reasoningStripped": "Dungi de motivare",
-			"keyHashed": "Cheia este hash-uită și nu poate fi recuperată"
+			"keyHashed": "Cheia este hash-uită și nu poate fi recuperată",
+			"tpm": "Limită de tokenuri pe minut; cererile sunt respinse cu codul 429 odată ce bugetul pe minut este epuizat",
+			"id": "Faceți clic pentru a copia ID-ul cheii"
 		},
 		"emptyState": "Nu există chei virtuale. Creează una pentru a începe să folosești proxy.",
 		"steps": {
@@ -1031,7 +1034,8 @@
 				"enableStripReasoning": "Activează raționamentul benzii",
 				"disableStripReasoning": "Dezactivează raționamentul benzii",
 				"rateLimitBurst": "Burst (maxim simultan)",
-				"rateLimitRps": "RPS (solicitări/secundă)"
+				"rateLimitRps": "RPS (solicitări/secundă)",
+				"rateLimitTpm": "TPM (tokeni/min)"
 			},
 			"detailTitle": "Detalii cheie virtuală",
 			"sections": {
@@ -1045,7 +1049,8 @@
 				"key": "Cheie",
 				"tokensConsumed": "Tokene consumate",
 				"lastUsed": "Ultima utilizare",
-				"created": "Creat"
+				"created": "Creat",
+				"id": "ID"
 			},
 			"noProvidersConfigured": "Niciun furnizor configurat.",
 			"discardChanges": "Renunțați la modificările nesalvate?",
@@ -1059,7 +1064,8 @@
 			"keyCreatedFailed": "Eșec: {{message}}",
 			"keyUpdated": "Cheie virtuală actualizată",
 			"keyUpdateFailed": "Eșec: {{message}}",
-			"usageExamples": "Exemple de utilizare"
+			"usageExamples": "Exemple de utilizare",
+			"rateLimitTpmLabel": "Limită de rată TPM (tokeni/min)"
 		}
 	},
 	"logs": {
@@ -2361,7 +2367,8 @@
 		},
 		"detail": {
 			"rps": "SPR",
-			"burst": "Rafală"
+			"burst": "Rafală",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {

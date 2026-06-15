@@ -983,7 +983,8 @@
 			"created": "已创建",
 			"tokens": "令牌",
 			"lastUsed": "上次使用",
-			"keys": "密钥"
+			"keys": "密钥",
+			"tpm": "TPM"
 		},
 		"tooltip": {
 			"proxyUrl": "点击复制代理 URL",
@@ -996,7 +997,9 @@
 			"lastUsed": "当该密钥最后一次用于请求时",
 			"providerRestricted": "供货商受限密钥",
 			"reasoningStripped": "原因已删除",
-			"keyHashed": "密钥已哈希，无法恢复"
+			"keyHashed": "密钥已哈希，无法恢复",
+			"tpm": "每分钟请求配额上限；当分钟配额用尽时，请求将被返回 429 状态码",
+			"id": "点击复制密钥 ID"
 		},
 		"emptyState": "没有虚拟密钥。创建一个要开始使用代理的密钥。",
 		"steps": {
@@ -1031,7 +1034,8 @@
 				"enableStripReasoning": "启用脱衣原理",
 				"disableStripReasoning": "禁用脱衣原理",
 				"rateLimitBurst": "突发（最大并发数）",
-				"rateLimitRps": "RPS（每秒请求数）"
+				"rateLimitRps": "RPS（每秒请求数）",
+				"rateLimitTpm": "TPM（每分钟令牌数）"
 			},
 			"detailTitle": "虚拟密钥详细信息",
 			"sections": {
@@ -1045,7 +1049,8 @@
 				"key": "关键字",
 				"tokensConsumed": "已消耗令牌",
 				"lastUsed": "上次使用",
-				"created": "已创建"
+				"created": "已创建",
+				"id": "ID"
 			},
 			"noProvidersConfigured": "没有配置提供者。",
 			"discardChanges": "放弃未保存的更改？",
@@ -1059,7 +1064,8 @@
 			"keyCreatedFailed": "失败： {{message}}",
 			"keyUpdated": "虚拟键已更新",
 			"keyUpdateFailed": "失败： {{message}}",
-			"usageExamples": "使用示例"
+			"usageExamples": "使用示例",
+			"rateLimitTpmLabel": "速率限制 TPM（令牌/分钟）"
 		}
 	},
 	"logs": {
@@ -2361,7 +2367,8 @@
 		},
 		"detail": {
 			"rps": "RPS",
-			"burst": "连线"
+			"burst": "连线",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {

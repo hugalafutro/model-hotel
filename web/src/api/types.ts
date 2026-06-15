@@ -229,6 +229,7 @@ export interface VirtualKey {
 	created_at: string;
 	rate_limit_rps?: number | null;
 	rate_limit_burst?: number | null;
+	rate_limit_tpm?: number | null;
 	allowed_providers?: string[] | null;
 	strip_reasoning: boolean;
 }

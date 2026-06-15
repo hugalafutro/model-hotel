@@ -983,7 +983,8 @@
 			"created": "Oluşturuldu",
 			"tokens": "Jetonlar",
 			"lastUsed": "En Son Kullanım Tarihi",
-			"keys": "tuşlar"
+			"keys": "tuşlar",
+			"tpm": "TPM"
 		},
 		"tooltip": {
 			"proxyUrl": "Proxy URL'sini kopyalamak için tıklayın",
@@ -996,7 +997,9 @@
 			"lastUsed": "Anahtar en son ne zaman bir istek için kullanıldı",
 			"providerRestricted": "Sağlayıcıya özel anahtar",
 			"reasoningStripped": "Mantık kısmı çıkarılmış",
-			"keyHashed": "Anahtar karma işleme tabi tutulmuştur ve geri getirilemez"
+			"keyHashed": "Anahtar karma işleme tabi tutulmuştur ve geri getirilemez",
+			"tpm": "Dakika başına token sınırı; dakika bütçesi tükendiğinde istekler 429 ile reddedilir",
+			"id": "Anahtar kimliğini kopyalamak için tıklayın"
 		},
 		"emptyState": "Sanal anahtar yok. Proxy'yi kullanmaya başlamak için bir tane oluşturun.",
 		"steps": {
@@ -1031,7 +1034,8 @@
 				"enableStripReasoning": "Çizgi mantığını etkinleştir",
 				"disableStripReasoning": "Çizgi mantığını devre dışı bırak",
 				"rateLimitBurst": "Burst (maks. eşzamanlı)",
-				"rateLimitRps": "RPS (istek/saniye)"
+				"rateLimitRps": "RPS (istek/saniye)",
+				"rateLimitTpm": "TPM (token/dk)"
 			},
 			"detailTitle": "Sanal Anahtar Bilgileri",
 			"sections": {
@@ -1045,7 +1049,8 @@
 				"key": "Anahtar",
 				"tokensConsumed": "Kullanılan Jetonlar",
 				"lastUsed": "En Son Kullanım Tarihi",
-				"created": "Oluşturuldu"
+				"created": "Oluşturuldu",
+				"id": "ID"
 			},
 			"noProvidersConfigured": "Yapılandırılmış sağlayıcı yok.",
 			"discardChanges": "Kaydedilmemiş değişiklikleri silmek istiyor musunuz?",
@@ -1059,7 +1064,8 @@
 			"keyCreatedFailed": "Başarısız: {{message}}",
 			"keyUpdated": "Sanal anahtar güncellendi",
 			"keyUpdateFailed": "Başarısız: {{message}}",
-			"usageExamples": "Kullanım örnekleri"
+			"usageExamples": "Kullanım örnekleri",
+			"rateLimitTpmLabel": "Hız Sınırı TPM (token/dk)"
 		}
 	},
 	"logs": {
@@ -2361,7 +2367,8 @@
 		},
 		"detail": {
 			"rps": "RPS",
-			"burst": "Patlama"
+			"burst": "Patlama",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {

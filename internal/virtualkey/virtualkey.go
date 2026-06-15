@@ -25,6 +25,7 @@ type VirtualKey struct {
 	CreatedAt        time.Time  `json:"created_at"`
 	RateLimitRPS     *float64   `json:"rate_limit_rps"`
 	RateLimitBurst   *int       `json:"rate_limit_burst"`
+	RateLimitTPM     *int       `json:"rate_limit_tpm"`
 	AllowedProviders *[]string  `json:"allowed_providers"`
 	StripReasoning   bool       `json:"strip_reasoning"`
 }
@@ -34,6 +35,7 @@ type CreateVirtualKeyRequest struct {
 	Name             string    `json:"name"`
 	RateLimitRPS     *float64  `json:"rate_limit_rps,omitempty"`
 	RateLimitBurst   *int      `json:"rate_limit_burst,omitempty"`
+	RateLimitTPM     *int      `json:"rate_limit_tpm,omitempty"`
 	AllowedProviders *[]string `json:"allowed_providers,omitempty"`
 	StripReasoning   *bool     `json:"strip_reasoning,omitempty"`
 }
@@ -51,6 +53,7 @@ type VirtualKeyResponse struct {
 	CreatedAt        string    `json:"created_at"`
 	RateLimitRPS     *float64  `json:"rate_limit_rps"`
 	RateLimitBurst   *int      `json:"rate_limit_burst"`
+	RateLimitTPM     *int      `json:"rate_limit_tpm"`
 	AllowedProviders *[]string `json:"allowed_providers"`
 	StripReasoning   bool      `json:"strip_reasoning"`
 }
@@ -59,12 +62,12 @@ type VirtualKeyResponse struct {
 type scanner interface{ Scan(dest ...any) error }
 
 // vkColumns is the column list for SELECT queries on virtual_keys.
-const vkColumns = `id, name, key_hash, key_preview, tokens_used, last_used_at, created_at, rate_limit_rps, rate_limit_burst, allowed_providers, strip_reasoning`
+const vkColumns = `id, name, key_hash, key_preview, tokens_used, last_used_at, created_at, rate_limit_rps, rate_limit_burst, rate_limit_tpm, allowed_providers, strip_reasoning`
 
 // scanVirtualKey scans a single row into a VirtualKey using the vkColumns order.
 func scanVirtualKey(row scanner) (*VirtualKey, error) {
 	var vk VirtualKey
-	err := row.Scan(&vk.ID, &vk.Name, &vk.KeyHash, &vk.KeyPreview, &vk.TokensUsed, &vk.LastUsedAt, &vk.CreatedAt, &vk.RateLimitRPS, &vk.RateLimitBurst, &vk.AllowedProviders, &vk.StripReasoning)
+	err := row.Scan(&vk.ID, &vk.Name, &vk.KeyHash, &vk.KeyPreview, &vk.TokensUsed, &vk.LastUsedAt, &vk.CreatedAt, &vk.RateLimitRPS, &vk.RateLimitBurst, &vk.RateLimitTPM, &vk.AllowedProviders, &vk.StripReasoning)
 	if err != nil {
 		return nil, err
 	}
@@ -82,10 +85,10 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 }
 
 // Create inserts a new virtual key.
-func (r *Repository) Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*VirtualKey, error) {
+func (r *Repository) Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*VirtualKey, error) {
 	vk, err := scanVirtualKey(r.pool.QueryRow(ctx,
-		`INSERT INTO virtual_keys (name, key_hash, key_preview, rate_limit_rps, rate_limit_burst, allowed_providers, strip_reasoning) VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, false)) RETURNING `+vkColumns,
-		name, keyHash, keyPreview, rps, burst, allowedProviders, stripReasoning))
+		`INSERT INTO virtual_keys (name, key_hash, key_preview, rate_limit_rps, rate_limit_burst, rate_limit_tpm, allowed_providers, strip_reasoning) VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8, false)) RETURNING `+vkColumns,
+		name, keyHash, keyPreview, rps, burst, tpm, allowedProviders, stripReasoning))
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +160,7 @@ func (r *Repository) TouchLastUsed(ctx context.Context, keyHash string) error {
 }
 
 // Update modifies virtual key fields.
-func (r *Repository) Update(ctx context.Context, id uuid.UUID, name string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*VirtualKey, error) {
+func (r *Repository) Update(ctx context.Context, id uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*VirtualKey, error) {
 	// Always include all updatable fields in SET clause so nil/null
 	// values are correctly persisted as NULL (cleared) rather than
 	// silently ignored. The UI sends null when a user clears a field.
@@ -170,6 +173,9 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, name string, rps 
 	argIdx++
 	setClauses = append(setClauses, "rate_limit_burst = $"+fmt.Sprintf("%d", argIdx))
 	args = append(args, burst)
+	argIdx++
+	setClauses = append(setClauses, "rate_limit_tpm = $"+fmt.Sprintf("%d", argIdx))
+	args = append(args, tpm)
 	argIdx++
 	// allowed_providers and strip_reasoning also always in SET clause.
 	setClauses = append(setClauses, "allowed_providers = $"+fmt.Sprintf("%d", argIdx))

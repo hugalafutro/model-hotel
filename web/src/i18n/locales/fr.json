@@ -983,7 +983,8 @@
 			"created": "Créé",
 			"tokens": "Jetons",
 			"lastUsed": "Dernière utilisation",
-			"keys": "clés"
+			"keys": "clés",
+			"tpm": "TPM"
 		},
 		"tooltip": {
 			"proxyUrl": "Cliquer pour copier l'URL du proxy",
@@ -996,7 +997,9 @@
 			"lastUsed": "Quand la dernière clé a été utilisée pour une requête",
 			"providerRestricted": "Clé restreinte du fournisseur",
 			"reasoningStripped": "Raison dépouillée",
-			"keyHashed": "La clé est hachée et ne peut pas être récupérée"
+			"keyHashed": "La clé est hachée et ne peut pas être récupérée",
+			"tpm": "Limite de jetons par minute ; les requêtes sont rejetées avec un code 429 une fois le budget de la minute épuisé",
+			"id": "Cliquez pour copier l'ID de clé"
 		},
 		"emptyState": "Aucune clé virtuelle. Créez-en une pour commencer à utiliser le proxy.",
 		"steps": {
@@ -1031,7 +1034,8 @@
 				"enableStripReasoning": "Activer le raisonnement de la bande",
 				"disableStripReasoning": "Désactiver le raisonnement de la bande",
 				"rateLimitBurst": "Burst (nombre maximal de connexions simultanées)",
-				"rateLimitRps": "RPS (requêtes/seconde)"
+				"rateLimitRps": "RPS (requêtes/seconde)",
+				"rateLimitTpm": "TPM (jetons/min)"
 			},
 			"detailTitle": "Détails de la clé virtuelle",
 			"sections": {
@@ -1045,7 +1049,8 @@
 				"key": "Clés",
 				"tokensConsumed": "Jetons Consommés",
 				"lastUsed": "Dernière utilisation",
-				"created": "Créé"
+				"created": "Créé",
+				"id": "ID"
 			},
 			"noProvidersConfigured": "Aucun fournisseur configuré.",
 			"discardChanges": "Ignorer les modifications non enregistrées ?",
@@ -1059,7 +1064,8 @@
 			"keyCreatedFailed": "Échec: {{message}}",
 			"keyUpdated": "Clé virtuelle mise à jour",
 			"keyUpdateFailed": "Échec: {{message}}",
-			"usageExamples": "Exemples d'utilisation"
+			"usageExamples": "Exemples d'utilisation",
+			"rateLimitTpmLabel": "Limite de débit TPM (jetons/min)"
 		}
 	},
 	"logs": {
@@ -2361,7 +2367,8 @@
 		},
 		"detail": {
 			"rps": "RPS",
-			"burst": "Rafale"
+			"burst": "Rafale",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {
