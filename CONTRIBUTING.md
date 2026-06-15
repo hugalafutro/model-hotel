@@ -30,14 +30,41 @@ By submitting a pull request or otherwise contributing code, documentation, or o
 
 - Open an issue to discuss large changes before investing time in a PR.
 - Keep commits focused and write clear commit messages.
-- Run `make test` before submitting.
+- Run the checks below before submitting — CI enforces all of them, so running
+  them locally first saves a round-trip.
 - Be excellent to each other.
 
-## Running Tests
+## Building & Testing
 
-`make test` runs the full suite. Some tests in `internal/util` expect a
-running Docker daemon (the project is designed for Docker-first deployment).
-These tests pass regardless of whether Docker is available, but they only
-contribute full coverage when the Docker socket is reachable.
+The backend tests need a Postgres instance, so start the dev stack first:
+
+```bash
+make docker-up        # start Postgres (+ the dev stack)
+make test             # backend tests: go test ./...
+make lint             # golangci-lint
+```
+
+The frontend (in `web/`) has its own suite, linter, and type-check:
+
+```bash
+cd web
+pnpm install
+pnpm vitest run --coverage   # tests + coverage
+pnpm run lint                # eslint
+pnpm exec tsc -b             # type-check (stricter than the editor; run it)
+```
+
+CI additionally enforces an **80% coverage threshold** (backend and frontend)
+and **locale parity** via `make i18n-check`. If you add a user-facing string,
+run `make i18n-fill` to populate the other locales (or add intentional English
+to the allowlist) so the check passes.
+
+The repo ships git hooks under `scripts/` (enabled via `core.hooksPath`); on
+push they run go vet, the linters, and `tsc -b` as a fast pre-flight, but the
+authoritative gate is the full CI run on GitHub.
+
+Some tests in `internal/util` expect a running Docker daemon (the project is
+designed for Docker-first deployment). They pass whether or not Docker is
+available, but only contribute full coverage when the Docker socket is reachable.
 
 That's it. Thanks for helping make Model Hotel better!
