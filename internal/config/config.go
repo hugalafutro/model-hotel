@@ -160,6 +160,24 @@ func (c *Config) String() string {
 		adminTokenDisplay = "(auto-generated)"
 	}
 
+	// Log-export status, shown as booleans only — never the METRICS_TOKEN value
+	// (mirrors how Admin Token is masked and Master Key is omitted). The env
+	// checks must stay in sync with debuglog.JSONFormat() and
+	// otelexport.LogsEnabled(); config reads env directly rather than importing
+	// those packages so foundational config stays free of the OTel SDK.
+	logFormat := "text"
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("LOG_FORMAT")), "json") {
+		logFormat = "json"
+	}
+	otlpLogs := "disabled"
+	if os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") != "" || os.Getenv("OTEL_EXPORTER_OTLP_LOGS_ENDPOINT") != "" {
+		otlpLogs = "enabled"
+	}
+	metrics := "disabled"
+	if c.MetricsToken != "" {
+		metrics = "enabled"
+	}
+
 	// Build label-value rows.
 	// Database URL and Master Key are omitted: a technical user can find
 	// them in .env or docker-compose.yml, a layman user does not need them.
@@ -172,6 +190,9 @@ func (c *Config) String() string {
 		{"Rate Limiting", fmt.Sprintf("%t", c.RateLimitEnabled)},
 		{"Max Request Size", formatBytes(c.MaxRequestSize)},
 		{"Debug Log", fmt.Sprintf("%t", c.DebugLog)},
+		{"Log Format", logFormat},
+		{"Metrics", metrics},
+		{"OTLP Logs", otlpLogs},
 	}
 
 	// Calculate label column width (include "CORS Origins" to avoid

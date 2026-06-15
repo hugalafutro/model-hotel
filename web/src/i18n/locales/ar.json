@@ -1730,6 +1730,19 @@
 			"cancelNameAriaLabel": "إلغاء إعادة التسمية",
 			"renameAriaLabel": "إعادة تسمية مفتاح المرور",
 			"failedToRename": "فشل في إعادة تسمية مفتاح المرور: {{message}}"
+		},
+		"observability": {
+			"description": "يمكن لـ Model Hotel تصدير سجلاتها ومقاييسها المنظمة إلى أنظمة خارجية. يتم تمكين كل تكامل بواسطة متغير بيئة، لذا فإن أزرار التبديل أدناه هي للقراءة فقط وتعكس الحالة الحالية. لا يتم تصدير أي محتوى للطلبات أو الاستجابات أبدًا — فقط بيانات التوجيه والقياس.",
+			"json.description": "أصدر سجلات منظمة ككائن JSON واحد لكل سطر، لمجمعات سجلات stdout مثل Fluent Bit أو Vector أو Promtail.",
+			"json.instructions": "اضبط متغير البيئة هذا وأعد تشغيل الحاوية لإصدار سجلات بتنسيق JSON:",
+			"json.name": "سجلات JSON (stdout)",
+			"metrics.description": "اعرض مقاييس الطلب والرمز والكمون وقاطع الدائرة في /metrics ليقوم Prometheus باستخراجها.",
+			"metrics.instructions": "قم بتعيين رمز استخراج مخصص لتوفير مقاييس Prometheus. يمكن الوصول إلى /metrics بالفعل باستخدام رمز الإدارة.",
+			"metrics.name": "مقاييس Prometheus",
+			"otel.description": "قم بدفع نفس السجلات المنظمة إلى مجمع OpenTelemetry عبر OTLP (السجلات فقط — بدون تتبع أو مقاييس).",
+			"otel.instructions": "وجه هذا إلى نقطة نهاية مجمع OTLP الخاص بك وأعد تشغيل الحاوية لدفع السجلات عبر OpenTelemetry:",
+			"otel.name": "سجلات OpenTelemetry (OTLP)",
+			"title": "القابلية للمراقبة وتصدير السجلات"
 		}
 	},
 	"components": {

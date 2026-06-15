@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/otelexport"
 )
 
 // RegisterSettings mounts settings API routes.
@@ -21,6 +22,27 @@ func (h *Handler) RegisterSettings(r chi.Router) {
 	})
 }
 
+// injectReadOnlyStatus adds server-derived, read-only fields to a settings map
+// before it is returned to the client. These keys are deliberately excluded
+// from allowedSettings so they cannot be written via PUT /api/settings:
+//   - app_version: the running build (set via ldflags).
+//   - log_export_json/metrics/otel: which log-export integrations are active,
+//     derived from process environment (LOG_FORMAT, METRICS_TOKEN, OTLP endpoint),
+//     for the Observability settings section to reflect.
+//
+// All three response handlers call this so a mutation response can't drop the
+// status keys from the client's settings cache. Returns a non-nil map.
+func (h *Handler) injectReadOnlyStatus(all map[string]string) map[string]string {
+	if all == nil {
+		all = make(map[string]string)
+	}
+	all["app_version"] = h.appVersion
+	all["log_export_json"] = strconv.FormatBool(debuglog.JSONFormat())
+	all["log_export_metrics"] = strconv.FormatBool(h.cfg != nil && h.cfg.MetricsToken != "")
+	all["log_export_otel"] = strconv.FormatBool(otelexport.LogsEnabled())
+	return all
+}
+
 // GetSettings returns all settings as a key-value map.
 func (h *Handler) GetSettings(w http.ResponseWriter, r *http.Request) {
 	all, err := h.settingsRepo.GetAll(r.Context())
@@ -29,13 +51,7 @@ func (h *Handler) GetSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Inject running app version (set via ldflags at build time).
-	// Read-only: intentionally excluded from allowedSettings so it
-	// cannot be overwritten via PUT /api/settings.
-	if all == nil {
-		all = make(map[string]string)
-	}
-	all["app_version"] = h.appVersion
+	all = h.injectReadOnlyStatus(all)
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(all); err != nil {
@@ -169,12 +185,7 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	debuglog.Info("settings: updated", "keys", keys)
 
 	all, _ := h.settingsRepo.GetAll(r.Context())
-
-	// Inject read-only app_version (same as GetSettings).
-	if all == nil {
-		all = make(map[string]string)
-	}
-	all["app_version"] = h.appVersion
+	all = h.injectReadOnlyStatus(all)
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(all); err != nil {
@@ -246,10 +257,7 @@ func (h *Handler) ResetSettings(w http.ResponseWriter, r *http.Request) {
 	debuglog.Info("settings: reset to defaults", "keys", keys)
 
 	all, _ := h.settingsRepo.GetAll(r.Context())
-	if all == nil {
-		all = make(map[string]string)
-	}
-	all["app_version"] = h.appVersion
+	all = h.injectReadOnlyStatus(all)
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(all); err != nil {

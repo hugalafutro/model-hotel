@@ -1730,6 +1730,19 @@
 			"cancelNameAriaLabel": "Cancelar renombrado",
 			"renameAriaLabel": "Renombrar clave",
 			"failedToRename": "Error al renombrar la contraseña: {{message}}"
+		},
+		"observability": {
+			"description": "Model Hotel puede exportar sus registros y métricas estructurados a sistemas externos. Cada integración se habilita mediante una variable de entorno, por lo que los controles de abajo son de solo lectura y reflejan el estado actual. Nunca se exporta el contenido de las solicitudes ni de las respuestas, solo metadatos de enrutamiento y medición.",
+			"json.description": "Genera registros estructurados como un objeto JSON por línea, para recopiladores de registros de salida estándar como Fluent Bit, Vector o Promtail.",
+			"json.instructions": "Configure esta variable de entorno y reinicie el contenedor para generar registros en formato JSON:",
+			"json.name": "Registros JSON (stdout)",
+			"metrics.description": "Exponer las métricas de solicitud, token, latencia y disyuntor en /metrics para que Prometheus las recopile.",
+			"metrics.instructions": "Configure un token de rastreo específico para aprovisionar métricas de Prometheus. Ya se puede acceder a /metrics utilizando el token de administrador.",
+			"metrics.name": "Métricas de Prometheus",
+			"otel.description": "Envía los mismos registros estructurados a un colector de OpenTelemetry a través de OTLP (solo registros, sin rastreos ni métricas).",
+			"otel.instructions": "Dirige esto a tu punto final del colector OTLP y reinicia el contenedor para enviar los registros a través de OpenTelemetry:",
+			"otel.name": "Registros de OpenTelemetry (OTLP)",
+			"title": "Observabilidad y exportación de registros"
 		}
 	},
 	"components": {

@@ -20,6 +20,7 @@ import {
 	SETTING_LABELS,
 	type SettingKey,
 } from "./Settings/defaults";
+import { ObservabilitySettings } from "./Settings/ObservabilitySettings";
 import { PasskeySettings } from "./Settings/PasskeySettings";
 import { ProxySettings } from "./Settings/ProxySettings";
 import { RateLimitSettings } from "./Settings/RateLimitSettings";
@@ -48,6 +49,8 @@ export function Settings() {
 	const { collapsed: passkeyCollapsed, toggle: togglePasskey } = useCollapsible(
 		"settings_passkeyCollapsed",
 	);
+	const { collapsed: observabilityCollapsed, toggle: toggleObservability } =
+		useCollapsible("settings_observabilityCollapsed");
 
 	const { isLoading } = useQuery({
 		queryKey: ["settings"],
@@ -138,6 +141,11 @@ export function Settings() {
 					collapsed={dataStorageCollapsed}
 					onToggle={toggleDataStorage}
 					onResetSection={() => setResetSection("dataStorage")}
+				/>
+
+				<ObservabilitySettings
+					collapsed={observabilityCollapsed}
+					onToggle={toggleObservability}
 				/>
 
 				<DatabaseBackupSettings

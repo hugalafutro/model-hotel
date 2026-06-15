@@ -1730,6 +1730,19 @@
 			"cancelNameAriaLabel": "Peruuta nimeäminen uudelleen",
 			"renameAriaLabel": "Nimeä salasana uudelleen",
 			"failedToRename": "Salasanan nimeämistä ei voitu suorittaa: {{message}}"
+		},
+		"observability": {
+			"description": "Model Hotel voi viedä jäsennellyt lokit ja mittarit ulkoisiin järjestelmiin. Jokainen integraatio otetaan käyttöön ympäristömuuttujalla, joten alla olevat kytkimet ovat vain luku -tilassa ja heijastavat nykyistä tilaa. Pyynnön tai vastauksen sisältöä ei koskaan viedä — vain reititys- ja mittausmetatiedot.",
+			"json.description": "Lähetä jäsenneltyjä lokitietoja yhtenä JSON-objektina riviä kohden stdout-lokikerääjille, kuten Fluent Bit, Vector tai Promtail.",
+			"json.instructions": "Aseta tämä ympäristömuuttuja ja käynnistä kontti uudelleen, jotta se tuottaa JSON-muotoisia lokitietoja:",
+			"json.name": "JSON-lokit (stdout)",
+			"metrics.description": "Julkaise pyyntö-, tunnus-, viive- ja katkaisijamittarit osoitteessa /metrics, jotta Prometheus voi kerätä ne.",
+			"metrics.instructions": "Määritä erillinen scrape-tunnus Prometheus-metriikoiden käyttöönottoa varten. /metrics on jo käytettävissä hallintatunnuksella.",
+			"metrics.name": "Prometheus-mittarit",
+			"otel.description": "Lähetä samat jäsennellyt lokit OpenTelemetry-kerääjään OTLP:n kautta (vain lokit – ei jäljitystä tai mittareita).",
+			"otel.instructions": "Osoita tämä OTLP-keräilijän päätepisteeseen ja käynnistä kontti uudelleen, jotta lokit lähetetään OpenTelemetryn kautta:",
+			"otel.name": "OpenTelemetry-lokit (OTLP)",
+			"title": "Havainnoitavuus ja lokien vienti"
 		}
 	},
 	"components": {

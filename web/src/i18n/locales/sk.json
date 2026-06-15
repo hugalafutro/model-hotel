@@ -1730,6 +1730,19 @@
 			"cancelNameAriaLabel": "Zrušiť premenovanie",
 			"renameAriaLabel": "Premenovať prístupový kód",
 			"failedToRename": "Premenovanie prístupového kľúča sa nepodarilo: {{message}}"
+		},
+		"observability": {
+			"description": "Model Hotel môže exportovať svoje štruktúrované protokoly a metriky do externých systémov. Každá integrácia je aktivovaná prostredníctvom premennej prostredia, takže nižšie uvedené prepínače sú len na čítanie a odrážajú aktuálny stav. Nikdy sa neexportuje obsah žiadostí ani odpovedí – iba metadáta smerovania a merania.",
+			"json.description": "Vysielajte štruktúrované protokoly ako jeden objekt JSON na riadok pre zberače protokolov stdout, ako sú Fluent Bit, Vector alebo Promtail.",
+			"json.instructions": "Nastavte túto premennú prostredia a reštartujte kontajner, aby sa generovali protokoly vo formáte JSON:",
+			"json.name": "Protokoly JSON (stdout)",
+			"metrics.description": "Zverejnite metriky požiadaviek, tokenov, latencie a ističov na adrese /metrics, aby ich mohol Prometheus zozbierať.",
+			"metrics.instructions": "Nastavte špeciálny token na zber údajov na poskytovanie metrík Prometheus. /metrics je už dostupný pomocou administrátorského tokenu.",
+			"metrics.name": "Metriky Prometheus",
+			"otel.description": "Odosielajte rovnaké štruktúrované protokoly do zberateľa OpenTelemetry cez OTLP (len protokoly – bez sledovania alebo metrík).",
+			"otel.instructions": "Nasmerujte to na koncový bod vášho zberača OTLP a reštartujte kontajner, aby sa protokoly odosielali cez OpenTelemetry:",
+			"otel.name": "Protokoly OpenTelemetry (OTLP)",
+			"title": "Pozorovateľnosť a export protokolov"
 		}
 	},
 	"components": {

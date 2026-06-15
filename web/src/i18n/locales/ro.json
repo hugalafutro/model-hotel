@@ -1730,6 +1730,19 @@
 			"cancelNameAriaLabel": "Anulează redenumirea",
 			"renameAriaLabel": "Redenumire parolă",
 			"failedToRename": "Nu s-a putut redenumi parola: {{message}}"
+		},
+		"observability": {
+			"description": "Model Hotel poate exporta jurnalele și metricile sale structurate către sisteme externe. Fiecare integrare este activată cu o variabilă de mediu, astfel încât comutatoarele de mai jos sunt doar pentru citire și reflectă starea actuală. Niciun conținut al cererii sau al răspunsului nu este exportat vreodată — doar metadatele de rutare și măsurare.",
+			"json.description": "Generați jurnale structurate ca un singur obiect JSON pe linie, pentru colectoare de jurnale stdout precum Fluent Bit, Vector sau Promtail.",
+			"json.instructions": "Setați această variabilă de mediu și reporniți containerul pentru a genera jurnale în format JSON:",
+			"json.name": "Jurnale JSON (stdout)",
+			"metrics.description": "Expuneți metricile de solicitare, token, latență și întrerupător de circuit la /metrics pentru ca Prometheus să le poată extrage.",
+			"metrics.instructions": "Setați un token de scrape dedicat pentru a furniza metricile Prometheus. /metrics este deja accesibil folosind tokenul de administrator.",
+			"metrics.name": "Metrici Prometheus",
+			"otel.description": "Trimiteți aceleași jurnale structurate către un colector OpenTelemetry prin OTLP (numai jurnale — fără urmărire sau metrici).",
+			"otel.instructions": "Direcționați acest lucru către punctul final al colectorului OTLP și reporniți containerul pentru a transmite jurnalele prin OpenTelemetry:",
+			"otel.name": "Jurnale OpenTelemetry (OTLP)",
+			"title": "Observabilitate și export de jurnale"
 		}
 	},
 	"components": {

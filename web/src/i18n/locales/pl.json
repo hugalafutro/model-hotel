@@ -1730,6 +1730,19 @@
 			"cancelNameAriaLabel": "Anuluj zmianę nazwy",
 			"renameAriaLabel": "Zmień nazwę hasła",
 			"failedToRename": "Nie udało się zmienić nazwy hasła: {{message}}"
+		},
+		"observability": {
+			"description": "Model Hotel może eksportować swoje ustrukturyzowane logi i metryki do systemów zewnętrznych. Każda integracja jest włączana za pomocą zmiennej środowiskowej, więc poniższe przełączniki są tylko do odczytu i odzwierciedlają aktualny stan. Żadna treść żądania ani odpowiedzi nie jest nigdy eksportowana — tylko metadane dotyczące routingu i pomiarów.",
+			"json.description": "Generuj ustrukturyzowane logi jako jeden obiekt JSON na linię dla kolektorów logów stdout, takich jak Fluent Bit, Vector lub Promtail.",
+			"json.instructions": "Ustaw tę zmienną środowiskową i uruchom ponownie kontener, aby generować logi w formacie JSON:",
+			"json.name": "Logi JSON (stdout)",
+			"metrics.description": "Udostępnij metryki dotyczące żądań, tokenów, opóźnień i wyłączników awaryjnych w /metrics, aby Prometheus mógł je zebrać.",
+			"metrics.instructions": "Ustaw dedykowany token scrape, aby udostępnić metryki Prometheus. Dostęp do /metrics jest już możliwy przy użyciu tokenu administratora.",
+			"metrics.name": "Metryki Prometheusa",
+			"otel.description": "Przesyłaj te same ustrukturyzowane logi do kolektora OpenTelemetry przez OTLP (tylko logi — bez śledzenia ani metryk).",
+			"otel.instructions": "Skieruj to na swój punkt końcowy kolektora OTLP i uruchom ponownie kontener, aby przesłać logi przez OpenTelemetry:",
+			"otel.name": "Logi OpenTelemetry (OTLP)",
+			"title": "Obserwowalność i eksport logów"
 		}
 	},
 	"components": {

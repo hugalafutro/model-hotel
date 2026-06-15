@@ -1730,6 +1730,19 @@
 			"cancelNameAriaLabel": "Avbryt navnendring",
 			"renameAriaLabel": "Endre tilgangsnøkkel",
 			"failedToRename": "Kunne ikke endre navn på tilgangsnøkkel: {{message}}"
+		},
+		"observability": {
+			"description": "Model Hotel kan eksportere sine strukturerte logger og målinger til eksterne systemer. Hver integrasjon aktiveres med en miljøvariabel, så bryterne nedenfor er skrivebeskyttet og gjenspeiler den aktuelle tilstanden. Ingen forespørsler eller svar eksporteres noensinne – kun metadata om rutering og måling.",
+			"json.description": "Send strukturerte logger som ett JSON-objekt per linje, for stdout-loggsamlere som Fluent Bit, Vector eller Promtail.",
+			"json.instructions": "Sett denne miljøvariabelen og start containeren på nytt for å generere logger i JSON-format:",
+			"json.name": "JSON-logger (stdout)",
+			"metrics.description": "Vis målinger for forespørsel, token, ventetid og kretsbryter på /metrics slik at Prometheus kan hente dem.",
+			"metrics.instructions": "Angi et dedikert scrape-token for å tilveiebringe Prometheus-metrikker. /metrics er allerede tilgjengelig ved hjelp av admin-tokenet.",
+			"metrics.name": "Prometheus-metrikker",
+			"otel.description": "Send de samme strukturerte loggene til en OpenTelemetry-samler via OTLP (kun logger – ingen sporing eller målinger).",
+			"otel.instructions": "Pek dette mot OTLP-samlerens endepunkt og start containeren på nytt for å overføre logger via OpenTelemetry:",
+			"otel.name": "OpenTelemetry-logger (OTLP)",
+			"title": "Observabilitet og loggeksport"
 		}
 	},
 	"components": {
