@@ -1058,7 +1058,8 @@
 			"keyCreated": "Sanal anahtar oluşturuldu",
 			"keyCreatedFailed": "Başarısız: {{message}}",
 			"keyUpdated": "Sanal anahtar güncellendi",
-			"keyUpdateFailed": "Başarısız: {{message}}"
+			"keyUpdateFailed": "Başarısız: {{message}}",
+			"usageExamples": "Kullanım örnekleri"
 		}
 	},
 	"logs": {

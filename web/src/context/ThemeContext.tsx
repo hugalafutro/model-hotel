@@ -1,5 +1,6 @@
 import { createContext, type ReactNode, useContext, useEffect } from "react";
 import { useLocalStorage } from "../hooks/useLocalStorage";
+import { applyFavicon } from "../utils/favicon";
 
 type Theme = "dark" | "light";
 export type UIStyle = "clean-saas" | "cyber-terminal" | "glassmorphism-lite";
@@ -176,6 +177,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 		document.documentElement.classList.add(theme);
 		document.documentElement.setAttribute("data-ui-style", uiStyle);
 		applyAccentColor(accentColor, theme);
+		applyFavicon(accentColor, uiStyle);
 	}, [theme, uiStyle, accentColor]);
 
 	return (

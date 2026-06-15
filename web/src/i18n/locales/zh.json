@@ -1058,7 +1058,8 @@
 			"keyCreated": "虚拟密钥已创建",
 			"keyCreatedFailed": "失败： {{message}}",
 			"keyUpdated": "虚拟键已更新",
-			"keyUpdateFailed": "失败： {{message}}"
+			"keyUpdateFailed": "失败： {{message}}",
+			"usageExamples": "使用示例"
 		}
 	},
 	"logs": {

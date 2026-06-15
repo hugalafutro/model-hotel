@@ -1058,7 +1058,8 @@
 			"keyCreated": "Đã tạo khóa ảo",
 			"keyCreatedFailed": "Không thành công: {{message}}",
 			"keyUpdated": "Khóa ảo đã được cập nhật",
-			"keyUpdateFailed": "Không thành công: {{message}}"
+			"keyUpdateFailed": "Không thành công: {{message}}",
+			"usageExamples": "Ví dụ sử dụng"
 		}
 	},
 	"logs": {

@@ -1058,7 +1058,8 @@
 			"keyCreated": "Clau virtual creada",
 			"keyCreatedFailed": "Fallat: {{message}}",
 			"keyUpdated": "Clau virtual actualitzada",
-			"keyUpdateFailed": "Fallat: {{message}}"
+			"keyUpdateFailed": "Fallat: {{message}}",
+			"usageExamples": "Exemples d'ús"
 		}
 	},
 	"logs": {

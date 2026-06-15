@@ -1058,7 +1058,8 @@
 			"keyCreated": "Virtuel nøgle oprettet",
 			"keyCreatedFailed": "Mislykkedes: {{message}}",
 			"keyUpdated": "Virtuel nøgle opdateret",
-			"keyUpdateFailed": "Mislykkedes: {{message}}"
+			"keyUpdateFailed": "Mislykkedes: {{message}}",
+			"usageExamples": "Eksempler på brug"
 		}
 	},
 	"logs": {

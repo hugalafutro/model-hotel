@@ -1058,7 +1058,8 @@
 			"keyCreated": "Virtueller Schlüssel erstellt",
 			"keyCreatedFailed": "Fehler: {{message}}",
 			"keyUpdated": "Virtueller Schlüssel aktualisiert",
-			"keyUpdateFailed": "Fehler: {{message}}"
+			"keyUpdateFailed": "Fehler: {{message}}",
+			"usageExamples": "Anwendungsbeispiele"
 		}
 	},
 	"logs": {

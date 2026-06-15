@@ -1058,7 +1058,8 @@
 			"keyCreated": "تم إنشاء المفتاح الافتراضي",
 			"keyCreatedFailed": "فشل: {{message}}",
 			"keyUpdated": "تم تحديث المفتاح الافتراضي",
-			"keyUpdateFailed": "فشل: {{message}}"
+			"keyUpdateFailed": "فشل: {{message}}",
+			"usageExamples": "أمثلة على الاستخدام"
 		}
 	},
 	"logs": {

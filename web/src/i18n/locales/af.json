@@ -1058,7 +1058,8 @@
 			"keyCreated": "Virtuele sleutel geskep",
 			"keyCreatedFailed": "Misluk: {{message}}",
 			"keyUpdated": "Virtuele sleutel opgedateer",
-			"keyUpdateFailed": "Misluk: {{message}}"
+			"keyUpdateFailed": "Misluk: {{message}}",
+			"usageExamples": "Gebruiksvoorbeelde"
 		}
 	},
 	"logs": {

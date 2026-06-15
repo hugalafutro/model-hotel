@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Brain, RotateCcw } from "@/lib/icons";
+import { Brain, ChevronRight, RotateCcw } from "@/lib/icons";
 import { api } from "../../api/client";
 import type { VirtualKey } from "../../api/types";
 import { CopyablePill } from "../../components/CopyablePill";
 import { Modal } from "../../components/Modal";
 import { Toggle } from "../../components/Toggle";
+import { UsageSnippets } from "./UsageSnippets";
 
 function BrainSlashIcon({
 	size = 14,
@@ -43,6 +44,7 @@ export function CreateKeyModal({
 	const [excludedProviders, setExcludedProviders] = useState<string[]>([]);
 	const [stripReasoning, setStripReasoning] = useState(false);
 	const [createdKey, setCreatedKey] = useState<VirtualKey | null>(null);
+	const [showExamples, setShowExamples] = useState(false);
 	const [providerError, setProviderError] = useState("");
 
 	const { data: providers } = useQuery({
@@ -130,6 +132,8 @@ export function CreateKeyModal({
 			}
 			closeOnBackdrop={!createdKey}
 			onClose={onClose}
+			maxWidth={createdKey ? "max-w-2xl" : "max-w-md"}
+			scrollable={!!createdKey}
 		>
 			{createdKey ? (
 				<>
@@ -151,6 +155,29 @@ export function CreateKeyModal({
 							/>
 						)}
 					</div>
+					{createdKey.key && (
+						<div className="mb-4">
+							<button
+								type="button"
+								onClick={() => setShowExamples((v) => !v)}
+								aria-expanded={showExamples}
+								className="ui-link-accent inline-flex items-center gap-1.5 text-sm font-medium"
+							>
+								<ChevronRight
+									size={14}
+									className={`transition-transform ${
+										showExamples ? "rotate-90" : ""
+									}`}
+								/>
+								{t("virtualkeys.modal.usageExamples")}
+							</button>
+							{showExamples && (
+								<div className="mt-3">
+									<UsageSnippets apiKey={createdKey.key} />
+								</div>
+							)}
+						</div>
+					)}
 					<div className="flex justify-end">
 						<button
 							type="button"

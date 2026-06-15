@@ -1058,7 +1058,8 @@
 			"keyCreated": "仮想キーが作成されました",
 			"keyCreatedFailed": "失敗: {{message}}",
 			"keyUpdated": "仮想キーが更新されました",
-			"keyUpdateFailed": "失敗: {{message}}"
+			"keyUpdateFailed": "失敗: {{message}}",
+			"usageExamples": "使用例"
 		}
 	},
 	"logs": {

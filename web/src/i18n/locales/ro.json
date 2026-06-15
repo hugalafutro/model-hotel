@@ -1058,7 +1058,8 @@
 			"keyCreated": "Cheie virtuală creată",
 			"keyCreatedFailed": "Eșec: {{message}}",
 			"keyUpdated": "Cheie virtuală actualizată",
-			"keyUpdateFailed": "Eșec: {{message}}"
+			"keyUpdateFailed": "Eșec: {{message}}",
+			"usageExamples": "Exemple de utilizare"
 		}
 	},
 	"logs": {

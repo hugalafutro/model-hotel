@@ -1058,7 +1058,8 @@
 			"keyCreated": "Виртуелни кључ креиран",
 			"keyCreatedFailed": "Неуспело: {{message}}",
 			"keyUpdated": "Виртуелни кључ ажуриран",
-			"keyUpdateFailed": "Неуспело: {{message}}"
+			"keyUpdateFailed": "Неуспело: {{message}}",
+			"usageExamples": "Примери употребе"
 		}
 	},
 	"logs": {

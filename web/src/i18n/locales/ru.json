@@ -1058,7 +1058,8 @@
 			"keyCreated": "Виртуальный ключ создан",
 			"keyCreatedFailed": "Ошибка: {{message}}",
 			"keyUpdated": "Виртуальный ключ обновлен",
-			"keyUpdateFailed": "Ошибка: {{message}}"
+			"keyUpdateFailed": "Ошибка: {{message}}",
+			"usageExamples": "Примеры использования"
 		}
 	},
 	"logs": {

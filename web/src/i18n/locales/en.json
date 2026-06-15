@@ -1016,6 +1016,7 @@
 		"modal": {
 			"createTitle": "Create Virtual Key",
 			"createdTitle": "Virtual Key Created",
+			"usageExamples": "Usage examples",
 			"warningTitle": "This key cannot be recovered after you close this modal.",
 			"warningText": "Virtual keys are hashed before storage. Copy it now or it is gone forever.",
 			"form": {

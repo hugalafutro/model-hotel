@@ -1058,7 +1058,8 @@
 			"keyCreated": "Virtuális kulcs létrehozva",
 			"keyCreatedFailed": "Hiba: {{message}}",
 			"keyUpdated": "A virtuális kulcs frissítve",
-			"keyUpdateFailed": "Hiba: {{message}}"
+			"keyUpdateFailed": "Hiba: {{message}}",
+			"usageExamples": "Használati példák"
 		}
 	},
 	"logs": {

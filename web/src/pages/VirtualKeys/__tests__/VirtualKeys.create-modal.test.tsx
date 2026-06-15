@@ -900,5 +900,70 @@ describe("VirtualKeys", () => {
 				).toBeInTheDocument();
 			});
 		});
+
+		it("reveals usage examples prefilled with the real key after creation", async () => {
+			const createdKeyValue = "sk_test_newly_created_key_12345";
+			server.use(
+				http.get("/api/virtual-keys", () =>
+					HttpResponse.json([mockVirtualKey]),
+				),
+				http.post("/api/virtual-keys", async ({ request }) => {
+					const body = await request.json();
+					return HttpResponse.json({
+						...mockVirtualKey,
+						id: "vk-examples",
+						name: (body as { name: string }).name,
+						key: createdKeyValue,
+						key_preview: "sk_test_new••••",
+					});
+				}),
+			);
+
+			const { user } = renderWithProviders(<VirtualKeys />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Virtual Keys")).toBeInTheDocument();
+			});
+
+			await user.click(screen.getByRole("button", { name: "Create Key" }));
+
+			const dialog = await screen.findByRole("dialog", {
+				name: "Create Virtual Key",
+			});
+			await user.type(within(dialog).getByLabelText("Name"), "Examples Key");
+			await user.click(
+				within(dialog).getByRole("button", { name: "Create Key" }),
+			);
+
+			await waitFor(() => {
+				expect(screen.getByText("Virtual Key Created")).toBeInTheDocument();
+			});
+
+			// Examples are collapsed by default: no snippet copy button yet.
+			expect(
+				within(dialog).queryByRole("button", { name: /Copy cURL snippet/i }),
+			).not.toBeInTheDocument();
+
+			// Expand the disclosure.
+			await user.click(
+				within(dialog).getByRole("button", { name: "Usage examples" }),
+			);
+
+			// Snippet windows now render, prefilled with the real key and with no
+			// leftover YOUR_API_KEY placeholder.
+			expect(
+				within(dialog).getByRole("button", { name: /Copy cURL snippet/i }),
+			).toBeInTheDocument();
+			expect(
+				within(dialog).getAllByText((content) =>
+					content.includes(createdKeyValue),
+				).length,
+			).toBeGreaterThan(1);
+			expect(
+				within(dialog).queryByText((content) =>
+					content.includes("YOUR_API_KEY"),
+				),
+			).not.toBeInTheDocument();
+		});
 	});
 });
