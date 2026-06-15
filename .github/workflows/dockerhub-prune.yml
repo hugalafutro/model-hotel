@@ -10,6 +10,11 @@ name: Prune Docker Hub Tags
 # Runs automatically after "Publish Docker Image" succeeds. The manual
 # (workflow_dispatch) trigger defaults to dry_run=true: it lists what *would*
 # be deleted without touching anything. Set dry_run=false to actually prune.
+#
+# Note: a .version commit that doesn't bump the version makes Publish conclude
+# `success` without pushing anything (skip_existing), so this prune still runs.
+# That is harmless — the pass is idempotent: with no new tag the retained set is
+# unchanged and there is nothing extra to delete.
 
 on:
   workflow_run:
@@ -32,7 +37,6 @@ permissions:
   contents: read
 
 env:
-  DOCKERHUB_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/model-hotel
   KEEP: ${{ github.event.inputs.keep || '20' }}
   # workflow_run carries no inputs -> default to a real prune on release.
   DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
@@ -53,6 +57,13 @@ jobs:
 
           NS="${DOCKERHUB_USERNAME}"
           REPO="model-hotel"
+
+          # Guard against keep=0 (or non-numeric), which would leave every
+          # version tag unprotected and eligible for deletion.
+          if ! [ "$KEEP" -ge 1 ] 2>/dev/null; then
+            echo "::error::keep must be an integer >= 1 (got '${KEEP}')"
+            exit 1
+          fi
 
           echo "Repository: ${NS}/${REPO}"
           echo "Keep newest ${KEEP} version tags; dry_run=${DRY_RUN}"
