@@ -51,6 +51,7 @@ func TestScanVirtualKey_Success(t *testing.T) {
 	now := time.Now().Truncate(time.Millisecond).UTC()
 	rps := 10.5
 	burst := 20
+	tpm := 5000
 	providers := []string{"provider-1", "provider-2"}
 
 	row := &mockVKScanner{
@@ -64,6 +65,7 @@ func TestScanVirtualKey_Success(t *testing.T) {
 			now,               // CreatedAt
 			&rps,              // RateLimitRPS
 			&burst,            // RateLimitBurst
+			&tpm,              // RateLimitTPM
 			&providers,        // AllowedProviders
 			true,              // StripReasoning
 		},
@@ -100,6 +102,9 @@ func TestScanVirtualKey_Success(t *testing.T) {
 	}
 	if vk.RateLimitBurst == nil || *vk.RateLimitBurst != 20 {
 		t.Errorf("RateLimitBurst = %v, want 20", vk.RateLimitBurst)
+	}
+	if vk.RateLimitTPM == nil || *vk.RateLimitTPM != 5000 {
+		t.Errorf("RateLimitTPM = %v, want 5000", vk.RateLimitTPM)
 	}
 	if vk.AllowedProviders == nil || len(*vk.AllowedProviders) != 2 {
 		t.Errorf("AllowedProviders = %v, want [provider-1, provider-2]", vk.AllowedProviders)
@@ -140,6 +145,7 @@ func TestScanVirtualKey_NilOptionalFields(t *testing.T) {
 			now,               // CreatedAt
 			(*float64)(nil),   // RateLimitRPS
 			(*int)(nil),       // RateLimitBurst
+			(*int)(nil),       // RateLimitTPM
 			(*[]string)(nil),  // AllowedProviders
 			false,             // StripReasoning
 		},
@@ -155,6 +161,9 @@ func TestScanVirtualKey_NilOptionalFields(t *testing.T) {
 	}
 	if vk.RateLimitBurst != nil {
 		t.Errorf("RateLimitBurst should be nil, got %v", *vk.RateLimitBurst)
+	}
+	if vk.RateLimitTPM != nil {
+		t.Errorf("RateLimitTPM should be nil, got %v", *vk.RateLimitTPM)
 	}
 	if vk.AllowedProviders != nil {
 		t.Errorf("AllowedProviders should be nil, got %v", *vk.AllowedProviders)

@@ -996,7 +996,8 @@
 			"lastUsed": "Quando a chave foi usada pela última vez para um pedido",
 			"providerRestricted": "Chave restrita do provedor",
 			"reasoningStripped": "Justificativa removida",
-			"keyHashed": "A chave é hashed e não pode ser recuperada"
+			"keyHashed": "A chave é hashed e não pode ser recuperada",
+			"tpm": "Limite de tokens por minuto; as solicitações são rejeitadas com o código 429 assim que o limite de tokens por minuto for esgotado"
 		},
 		"emptyState": "Não há chaves virtuais. Crie uma para começar a usar o proxy.",
 		"steps": {
@@ -1031,7 +1032,9 @@
 				"enableStripReasoning": "Ativar raciocínio da faixa",
 				"disableStripReasoning": "Desabilitar raciocínio da faixa",
 				"rateLimitBurst": "Burst (máximo simultâneo)",
-				"rateLimitRps": "RPS (solicitações/segundo)"
+				"rateLimitRps": "RPS (solicitações/segundo)",
+				"rateLimitTpm": "TPM (tokens/min)",
+				"placeholderTpm": "Sem limite"
 			},
 			"detailTitle": "Detalhes da Chave Virtual",
 			"sections": {
@@ -1059,7 +1062,9 @@
 			"keyCreatedFailed": "Falhou: {{message}}",
 			"keyUpdated": "Chave virtual atualizada",
 			"keyUpdateFailed": "Falhou: {{message}}",
-			"usageExamples": "Exemplos de uso"
+			"usageExamples": "Exemplos de uso",
+			"rateLimitTpmLabel": "Limite de taxa TPM (tokens/min)",
+			"noCap": "Sem limite"
 		}
 	},
 	"logs": {
@@ -2361,7 +2366,8 @@
 		},
 		"detail": {
 			"rps": "Socorros",
-			"burst": "Rajada"
+			"burst": "Rajada",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {

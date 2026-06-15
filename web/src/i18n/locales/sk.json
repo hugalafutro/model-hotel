@@ -996,7 +996,8 @@
 			"lastUsed": "Kedy bol kľúč naposledy použitý pri požiadavke",
 			"providerRestricted": "Kľúč s obmedzením poskytovateľa",
 			"reasoningStripped": "Odôvodnenie vynechané",
-			"keyHashed": "Kľúč je zašifrovaný a nie je možné ho obnoviť"
+			"keyHashed": "Kľúč je zašifrovaný a nie je možné ho obnoviť",
+			"tpm": "Limit tokenov za minútu; po vyčerpaní minútového limitu sú požiadavky odmietnuté s kódom 429."
 		},
 		"emptyState": "Žiadne virtuálne kľúče. Vytvorte si jeden, aby ste mohli začať používať proxy.",
 		"steps": {
@@ -1031,7 +1032,9 @@
 				"enableStripReasoning": "Povoliť logické usudzovanie",
 				"disableStripReasoning": "Zakázať logiku pásov",
 				"rateLimitBurst": "Burst (max. súbežných)",
-				"rateLimitRps": "RPS (požiadavky/sekunda)"
+				"rateLimitRps": "RPS (požiadavky/sekunda)",
+				"rateLimitTpm": "TPM (tokeny/min)",
+				"placeholderTpm": "Bez obmedzenia"
 			},
 			"detailTitle": "Podrobnosti o virtuálnom kľúči",
 			"sections": {
@@ -1059,7 +1062,9 @@
 			"keyCreatedFailed": "Neúspešné: {{message}}",
 			"keyUpdated": "Virtuálny kľúč bol aktualizovaný",
 			"keyUpdateFailed": "Neúspešné: {{message}}",
-			"usageExamples": "Príklady použitia"
+			"usageExamples": "Príklady použitia",
+			"rateLimitTpmLabel": "Limit rýchlosti TPM (tokeny/min)",
+			"noCap": "Bez obmedzenia"
 		}
 	},
 	"logs": {
@@ -2361,7 +2366,8 @@
 		},
 		"detail": {
 			"rps": "RPS",
-			"burst": "Séria"
+			"burst": "Séria",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {

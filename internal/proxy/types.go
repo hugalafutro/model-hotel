@@ -32,7 +32,7 @@ type VirtualKeyRepository interface {
 	AddTokens(ctx context.Context, keyHash string, tokens int) error
 	TouchLastUsed(ctx context.Context, keyHash string) error
 	FindByKeyHash(ctx context.Context, keyHash string) (*VirtualKeyInfo, error)
-	Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst *int, allowedProviders *[]string, stripReasoning *bool) (*VirtualKeyInfo, error)
+	Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*VirtualKeyInfo, error)
 	Delete(ctx context.Context, id string) error
 }
 
@@ -45,6 +45,7 @@ type VirtualKeyInfo struct {
 	TokensUsed       int64
 	RateLimitRPS     *float64
 	RateLimitBurst   *int
+	RateLimitTPM     *int
 	AllowedProviders *[]string
 	StripReasoning   bool
 }

@@ -58,7 +58,7 @@ func newMultimodalEnv(t *testing.T, upstreamHandler http.Handler) *multimodalTes
 
 	virtualKeyName := "mm-key-" + uuid.New().String()[:8]
 	keyHash := virtualkey.Hash(virtualKeyName)
-	if _, err := virtualKeyRepo.Create(context.Background(), virtualKeyName, keyHash, "mm-"+keyHash[:8], nil, nil, nil, nil); err != nil {
+	if _, err := virtualKeyRepo.Create(context.Background(), virtualKeyName, keyHash, "mm-"+keyHash[:8], nil, nil, nil, nil, nil); err != nil {
 		t.Fatalf("failed to create virtual key: %v", err)
 	}
 

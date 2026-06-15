@@ -996,7 +996,8 @@
 			"lastUsed": "Wanneer de sleutel voor het laatst werd gebruikt voor een verzoek",
 			"providerRestricted": "Provider-beperkte sleutel",
 			"reasoningStripped": "Redenen ontdaan",
-			"keyHashed": "Sleutel is gehasht en kan niet hersteld worden"
+			"keyHashed": "Sleutel is gehasht en kan niet hersteld worden",
+			"tpm": "Limiet op tokens per minuut; verzoeken worden afgewezen met 429 zodra het budget voor die minuut is opgebruikt"
 		},
 		"emptyState": "Geen virtuele sleutels. Maak er een aan om de proxy te gebruiken.",
 		"steps": {
@@ -1031,7 +1032,9 @@
 				"enableStripReasoning": "Schakel strip redenering in",
 				"disableStripReasoning": "Uitschakelen strip redenering",
 				"rateLimitBurst": "Burst (max. gelijktijdig)",
-				"rateLimitRps": "RPS (verzoeken/sec)"
+				"rateLimitRps": "RPS (verzoeken/sec)",
+				"rateLimitTpm": "TPM (tokens/min)",
+				"placeholderTpm": "Geen limiet"
 			},
 			"detailTitle": "Details van virtuele sleutel",
 			"sections": {
@@ -1059,7 +1062,9 @@
 			"keyCreatedFailed": "Mislukt: {{message}}",
 			"keyUpdated": "Virtuele sleutel bijgewerkt",
 			"keyUpdateFailed": "Mislukt: {{message}}",
-			"usageExamples": "Gebruiksvoorbeelden"
+			"usageExamples": "Gebruiksvoorbeelden",
+			"rateLimitTpmLabel": "Rate Limit TPM (tokens/min)",
+			"noCap": "Geen limiet"
 		}
 	},
 	"logs": {
@@ -2361,7 +2366,8 @@
 		},
 		"detail": {
 			"rps": "RPS",
-			"burst": "Uitbarsting"
+			"burst": "Uitbarsting",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {

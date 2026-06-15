@@ -41,6 +41,7 @@ export function CreateKeyModal({
 	const [name, setName] = useState("");
 	const [rateLimitRps, setRateLimitRps] = useState<string>("");
 	const [rateLimitBurst, setRateLimitBurst] = useState<string>("");
+	const [rateLimitTpm, setRateLimitTpm] = useState<string>("");
 	const [excludedProviders, setExcludedProviders] = useState<string[]>([]);
 	const [stripReasoning, setStripReasoning] = useState(false);
 	const [createdKey, setCreatedKey] = useState<VirtualKey | null>(null);
@@ -71,12 +72,14 @@ export function CreateKeyModal({
 			name,
 			rate_limit_rps,
 			rate_limit_burst,
+			rate_limit_tpm,
 			allowed_providers,
 			strip_reasoning,
 		}: {
 			name: string;
 			rate_limit_rps?: number | null;
 			rate_limit_burst?: number | null;
+			rate_limit_tpm?: number | null;
 			allowed_providers?: string[] | null;
 			strip_reasoning?: boolean;
 		}) =>
@@ -84,6 +87,7 @@ export function CreateKeyModal({
 				name,
 				rate_limit_rps,
 				rate_limit_burst,
+				rate_limit_tpm,
 				allowed_providers,
 				strip_reasoning,
 			),
@@ -118,6 +122,7 @@ export function CreateKeyModal({
 			rate_limit_rps: rateLimitRps !== "" ? parseFloat(rateLimitRps) : null,
 			rate_limit_burst:
 				rateLimitBurst !== "" ? parseInt(rateLimitBurst, 10) : null,
+			rate_limit_tpm: rateLimitTpm !== "" ? parseInt(rateLimitTpm, 10) : null,
 			allowed_providers: allowedProviders,
 			strip_reasoning: stripReasoning,
 		});
@@ -240,6 +245,23 @@ export function CreateKeyModal({
 							onChange={(e) => setRateLimitBurst(e.target.value)}
 							className="ui-input"
 							placeholder={t("virtualkeys.modal.form.placeholderGlobal")}
+						/>
+					</div>
+					<div>
+						<label
+							htmlFor="vk-rate-limit-tpm"
+							className="block text-sm font-medium text-gray-300 mb-1"
+						>
+							{t("virtualkeys.modal.rateLimitTpmLabel")}
+						</label>
+						<input
+							id="vk-rate-limit-tpm"
+							type="number"
+							min="0"
+							value={rateLimitTpm}
+							onChange={(e) => setRateLimitTpm(e.target.value)}
+							className="ui-input"
+							placeholder={t("virtualkeys.modal.form.placeholderTpm")}
 						/>
 					</div>
 					<div>

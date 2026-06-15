@@ -996,7 +996,8 @@
 			"lastUsed": "Mikor használták utoljára a kulcsot egy kéréshez",
 			"providerRestricted": "Szolgáltató által korlátozott kulcs",
 			"reasoningStripped": "Az érvelés kihagyva",
-			"keyHashed": "A kulcs hash-elt, és nem állítható vissza"
+			"keyHashed": "A kulcs hash-elt, és nem állítható vissza",
+			"tpm": "Percekénti tokenkorlát; a kéréseket 429-es kóddal utasítják el, ha a perces keret kimerült"
 		},
 		"emptyState": "Nincs virtuális kulcs. Hozzon létre egyet a proxy használatához.",
 		"steps": {
@@ -1031,7 +1032,9 @@
 				"enableStripReasoning": "Csíkos érvelés engedélyezése",
 				"disableStripReasoning": "A sávos érvelés letiltása",
 				"rateLimitBurst": "Burst (maximális egyidejű)",
-				"rateLimitRps": "RPS (kérések/másodperc)"
+				"rateLimitRps": "RPS (kérések/másodperc)",
+				"rateLimitTpm": "TPM (token/perc)",
+				"placeholderTpm": "Nincs korlátozás"
 			},
 			"detailTitle": "A virtuális kulcs adatai",
 			"sections": {
@@ -1059,7 +1062,9 @@
 			"keyCreatedFailed": "Hiba: {{message}}",
 			"keyUpdated": "A virtuális kulcs frissítve",
 			"keyUpdateFailed": "Hiba: {{message}}",
-			"usageExamples": "Használati példák"
+			"usageExamples": "Használati példák",
+			"rateLimitTpmLabel": "Rate Limit TPM (tokens/min)",
+			"noCap": "Nincs korlátozás"
 		}
 	},
 	"logs": {
@@ -2361,7 +2366,8 @@
 		},
 		"detail": {
 			"rps": "RPS",
-			"burst": "Sorozat"
+			"burst": "Sorozat",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {

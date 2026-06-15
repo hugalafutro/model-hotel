@@ -226,6 +226,12 @@ func generateRequestHash() string {
 // handleNonStreamingResponse.
 func (h *Handler) recordTokenUsage(vkHash string, promptTokens, completionTokens, reasoningTokens int, virtualKeyName string) {
 	totalTokens := promptTokens + completionTokens + reasoningTokens
+	// Debit the per-minute token budget (no-op when the key has no TPM cap or
+	// the request had no virtual key, e.g. admin chat). This is the completion
+	// half of admit-on-past-consumption / debit-on-completion.
+	if h.tpmLimiter != nil && vkHash != "" {
+		h.tpmLimiter.Debit(vkHash, totalTokens)
+	}
 	tokCtx, tokCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer tokCancel()
 	if err := h.virtualKeyRepo.AddTokens(tokCtx, vkHash, totalTokens); err != nil {

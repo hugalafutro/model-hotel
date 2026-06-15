@@ -996,7 +996,8 @@
 			"lastUsed": "Når nøglen sidst blev brugt til en forespørgsel",
 			"providerRestricted": "Provider-begrænset nøgle",
 			"reasoningStripped": "Reasoning strippet",
-			"keyHashed": "Nøglen hashes og kan ikke inddrives"
+			"keyHashed": "Nøglen hashes og kan ikke inddrives",
+			"tpm": "Begrænsning på tokens pr. minut; anmodninger afvises med 429, når minutsbudgettet er opbrugt"
 		},
 		"emptyState": "Ingen virtuelle nøgler. Opret en for at begynde at bruge proxy.",
 		"steps": {
@@ -1031,7 +1032,9 @@
 				"enableStripReasoning": "Aktiver strip ræsonnement",
 				"disableStripReasoning": "Deaktiver strimmel ræsonnement",
 				"rateLimitBurst": "Burst (maks. samtidige)",
-				"rateLimitRps": "RPS (anmodninger/sek.)"
+				"rateLimitRps": "RPS (anmodninger/sek.)",
+				"rateLimitTpm": "TPM (tokens/min)",
+				"placeholderTpm": "Ingen begrænsning"
 			},
 			"detailTitle": "Virtuel Nøgle Detaljer",
 			"sections": {
@@ -1059,7 +1062,9 @@
 			"keyCreatedFailed": "Mislykkedes: {{message}}",
 			"keyUpdated": "Virtuel nøgle opdateret",
 			"keyUpdateFailed": "Mislykkedes: {{message}}",
-			"usageExamples": "Eksempler på brug"
+			"usageExamples": "Eksempler på brug",
+			"rateLimitTpmLabel": "Rate Limit TPM (tokens/min)",
+			"noCap": "Ingen begrænsning"
 		}
 	},
 	"logs": {
@@ -2361,7 +2366,8 @@
 		},
 		"detail": {
 			"rps": "RPS",
-			"burst": "Brænde"
+			"burst": "Brænde",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {

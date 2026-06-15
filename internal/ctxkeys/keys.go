@@ -60,6 +60,12 @@ const VirtualKeyRateLimitRPSKey contextKey = "virtual_key_rate_limit_rps"
 // VirtualKeyRateLimitRPSKey.
 const VirtualKeyRateLimitBurstKey contextKey = "virtual_key_rate_limit_burst"
 
+// VirtualKeyRateLimitTPMKey is the context key under which the proxy's
+// ProxyKeyMiddleware stores the per-key tokens-per-minute cap (int pointer,
+// nil when unset). The TPM admission middleware reads this to enforce the
+// per-key minute token budget; nil falls back to the global default.
+const VirtualKeyRateLimitTPMKey contextKey = "virtual_key_rate_limit_tpm"
+
 // VirtualKeyAllowedProvidersKey is the context key under which the proxy's
 // ProxyKeyMiddleware stores the per-key allowed provider list (*[]string,
 // nil when all providers are allowed). The proxy handler reads this to

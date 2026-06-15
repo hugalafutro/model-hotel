@@ -996,7 +996,8 @@
 			"lastUsed": "Når nøkkelen ble sist brukt til en forespørsel",
 			"providerRestricted": "Leverandørbegrenset nøkkel",
 			"reasoningStripped": "Betalt avbrutt.",
-			"keyHashed": "Nøkkelen er kastet og kan ikke gjenopprettes"
+			"keyHashed": "Nøkkelen er kastet og kan ikke gjenopprettes",
+			"tpm": "Tak på antall tokens per minutt; forespørsler avvises med 429 når minuttbudsjettet er brukt opp"
 		},
 		"emptyState": "Ingen virtuelle nøkler. Opprett en for å begynne å bruke proxyen.",
 		"steps": {
@@ -1031,7 +1032,9 @@
 				"enableStripReasoning": "Aktiver stripe resonnering",
 				"disableStripReasoning": "Deaktiver stripe resonnering",
 				"rateLimitBurst": "Burst (maks. samtidig)",
-				"rateLimitRps": "RPS (forespørsler/sek)"
+				"rateLimitRps": "RPS (forespørsler/sek)",
+				"rateLimitTpm": "TPM (tokens/min)",
+				"placeholderTpm": "Ingen begrensning"
 			},
 			"detailTitle": "Virtuell nøkkel detaljer",
 			"sections": {
@@ -1059,7 +1062,9 @@
 			"keyCreatedFailed": "Mislyktes: {{message}}",
 			"keyUpdated": "Virtuell nøkkel oppdatert",
 			"keyUpdateFailed": "Mislyktes: {{message}}",
-			"usageExamples": "Eksempler på bruk"
+			"usageExamples": "Eksempler på bruk",
+			"rateLimitTpmLabel": "Rate Limit TPM (tokens/min)",
+			"noCap": "Ingen begrensning"
 		}
 	},
 	"logs": {
@@ -2361,7 +2366,8 @@
 		},
 		"detail": {
 			"rps": "RPS",
-			"burst": "Sprekk"
+			"burst": "Sprekk",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {

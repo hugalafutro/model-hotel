@@ -996,7 +996,8 @@
 			"lastUsed": "מתי נעשה שימוש אחרון במפתח לצורך בקשה",
 			"providerRestricted": "מפתח המוגבל לספק",
 			"reasoningStripped": "ההיגיון הושמט",
-			"keyHashed": "המפתח עבר תהליך של חשישה ואינו ניתן לשחזור"
+			"keyHashed": "המפתח עבר תהליך של חשישה ואינו ניתן לשחזור",
+			"tpm": "מגבלת אסימונים לדקה; בקשות נדחות עם קוד 429 ברגע שהתקציב הדקתי נוצל"
 		},
 		"emptyState": "אין מפתחות וירטואליים. צור מפתח כדי להתחיל להשתמש בפרוקסי.",
 		"steps": {
@@ -1031,7 +1032,9 @@
 				"enableStripReasoning": "הפעל חשיבה רציפה",
 				"disableStripReasoning": "השבת את חישוב הרצועות",
 				"rateLimitBurst": "Burst (מקסימום בו-זמנית)",
-				"rateLimitRps": "RPS (בקשות בשנייה)"
+				"rateLimitRps": "RPS (בקשות בשנייה)",
+				"rateLimitTpm": "TPM (אסימונים/דקה)",
+				"placeholderTpm": "אין הגבלה"
 			},
 			"detailTitle": "פרטי המפתח הווירטואלי",
 			"sections": {
@@ -1059,7 +1062,9 @@
 			"keyCreatedFailed": "נכשל: {{message}}",
 			"keyUpdated": "המפתח הווירטואלי עודכן",
 			"keyUpdateFailed": "נכשל: {{message}}",
-			"usageExamples": "דוגמאות לשימוש"
+			"usageExamples": "דוגמאות לשימוש",
+			"rateLimitTpmLabel": "מגבלת קצב TPM (אסימונים/דקה)",
+			"noCap": "אין הגבלה"
 		}
 	},
 	"logs": {
@@ -2361,7 +2366,8 @@
 		},
 		"detail": {
 			"rps": "RPS",
-			"burst": "התפרצות"
+			"burst": "התפרצות",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {

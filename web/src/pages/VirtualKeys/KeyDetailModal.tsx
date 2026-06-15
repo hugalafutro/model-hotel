@@ -80,6 +80,7 @@ export function KeyDetailModal({
 	const [editBurst, setEditBurst] = useState(
 		vk.rate_limit_burst?.toString() ?? "",
 	);
+	const [editTpm, setEditTpm] = useState(vk.rate_limit_tpm?.toString() ?? "");
 	const [excludedProviders, setExcludedProviders] = useState<string[]>([]);
 	const [originalExcluded, setOriginalExcluded] = useState<string[]>([]);
 	const [providerError, setProviderError] = useState("");
@@ -123,12 +124,14 @@ export function KeyDetailModal({
 			name,
 			rate_limit_rps,
 			rate_limit_burst,
+			rate_limit_tpm,
 			allowed_providers,
 			strip_reasoning,
 		}: {
 			name: string;
 			rate_limit_rps?: number | null;
 			rate_limit_burst?: number | null;
+			rate_limit_tpm?: number | null;
 			allowed_providers?: string[] | null;
 			strip_reasoning?: boolean;
 		}) =>
@@ -136,6 +139,7 @@ export function KeyDetailModal({
 				name,
 				rate_limit_rps,
 				rate_limit_burst,
+				rate_limit_tpm,
 				allowed_providers,
 				strip_reasoning,
 			}),
@@ -176,6 +180,7 @@ export function KeyDetailModal({
 			name: editName.trim(),
 			rate_limit_rps: editRps !== "" ? parseFloat(editRps) : null,
 			rate_limit_burst: editBurst !== "" ? parseInt(editBurst, 10) : null,
+			rate_limit_tpm: editTpm !== "" ? parseInt(editTpm, 10) : null,
 			allowed_providers: allowedProviders,
 			strip_reasoning: editStripReasoning,
 		});
@@ -185,6 +190,7 @@ export function KeyDetailModal({
 		setEditName(vk.name);
 		setEditRps(vk.rate_limit_rps?.toString() ?? "");
 		setEditBurst(vk.rate_limit_burst?.toString() ?? "");
+		setEditTpm(vk.rate_limit_tpm?.toString() ?? "");
 		setExcludedProviders([]);
 		setOriginalExcluded([]);
 		setEditStripReasoning(vk.strip_reasoning);
@@ -195,6 +201,7 @@ export function KeyDetailModal({
 		setEditName(vk.name);
 		setEditRps(vk.rate_limit_rps?.toString() ?? "");
 		setEditBurst(vk.rate_limit_burst?.toString() ?? "");
+		setEditTpm(vk.rate_limit_tpm?.toString() ?? "");
 		setEditStripReasoning(vk.strip_reasoning);
 		setProviderError("");
 		// Compute excluded providers from the VK's allowed_providers.
@@ -225,6 +232,7 @@ export function KeyDetailModal({
 		editName !== vk.name ||
 		editRps !== (vk.rate_limit_rps?.toString() ?? "") ||
 		editBurst !== (vk.rate_limit_burst?.toString() ?? "") ||
+		editTpm !== (vk.rate_limit_tpm?.toString() ?? "") ||
 		providersChanged ||
 		editStripReasoning !== vk.strip_reasoning;
 
@@ -306,6 +314,23 @@ export function KeyDetailModal({
 									placeholder={t("virtualkeys.modal.form.placeholderGlobal")}
 								/>
 							</div>
+						</div>
+						<div>
+							<label
+								htmlFor="vk-detail-tpm"
+								className="block text-sm font-medium text-gray-300 mb-1"
+							>
+								{t("virtualkeys.modal.form.rateLimitTpm")}
+							</label>
+							<input
+								id="vk-detail-tpm"
+								type="number"
+								min="0"
+								value={editTpm}
+								onChange={(e) => setEditTpm(e.target.value)}
+								className="ui-input"
+								placeholder={t("virtualkeys.modal.form.placeholderTpm")}
+							/>
 						</div>
 						<div>
 							<div className="flex items-center justify-between mb-1">
@@ -417,6 +442,17 @@ export function KeyDetailModal({
 								vk.rate_limit_burst != null
 									? String(vk.rate_limit_burst)
 									: t("common.global")
+							}
+							mono
+						/>
+						<DetailItem
+							icon={Gauge}
+							label={t("virtualKeys.detail.tpm")}
+							labelExtra={<InfoHint tooltip={t("virtualkeys.tooltip.tpm")} />}
+							value={
+								vk.rate_limit_tpm != null
+									? String(vk.rate_limit_tpm)
+									: t("virtualkeys.modal.noCap")
 							}
 							mono
 						/>

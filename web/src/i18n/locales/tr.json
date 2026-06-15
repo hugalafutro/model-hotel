@@ -996,7 +996,8 @@
 			"lastUsed": "Anahtar en son ne zaman bir istek için kullanıldı",
 			"providerRestricted": "Sağlayıcıya özel anahtar",
 			"reasoningStripped": "Mantık kısmı çıkarılmış",
-			"keyHashed": "Anahtar karma işleme tabi tutulmuştur ve geri getirilemez"
+			"keyHashed": "Anahtar karma işleme tabi tutulmuştur ve geri getirilemez",
+			"tpm": "Dakika başına token sınırı; dakika bütçesi tükendiğinde istekler 429 ile reddedilir"
 		},
 		"emptyState": "Sanal anahtar yok. Proxy'yi kullanmaya başlamak için bir tane oluşturun.",
 		"steps": {
@@ -1031,7 +1032,9 @@
 				"enableStripReasoning": "Çizgi mantığını etkinleştir",
 				"disableStripReasoning": "Çizgi mantığını devre dışı bırak",
 				"rateLimitBurst": "Burst (maks. eşzamanlı)",
-				"rateLimitRps": "RPS (istek/saniye)"
+				"rateLimitRps": "RPS (istek/saniye)",
+				"rateLimitTpm": "TPM (token/dk)",
+				"placeholderTpm": "Sınır yok"
 			},
 			"detailTitle": "Sanal Anahtar Bilgileri",
 			"sections": {
@@ -1059,7 +1062,9 @@
 			"keyCreatedFailed": "Başarısız: {{message}}",
 			"keyUpdated": "Sanal anahtar güncellendi",
 			"keyUpdateFailed": "Başarısız: {{message}}",
-			"usageExamples": "Kullanım örnekleri"
+			"usageExamples": "Kullanım örnekleri",
+			"rateLimitTpmLabel": "Hız Sınırı TPM (token/dk)",
+			"noCap": "Sınır yok"
 		}
 	},
 	"logs": {
@@ -2361,7 +2366,8 @@
 		},
 		"detail": {
 			"rps": "RPS",
-			"burst": "Patlama"
+			"burst": "Patlama",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {

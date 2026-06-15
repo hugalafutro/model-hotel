@@ -996,7 +996,8 @@
 			"lastUsed": "Quan la clau es va utilitzar per última vegada per a una sol·licitud",
 			"providerRestricted": "Clau restringida pel proveïdor",
 			"reasoningStripped": "Racionalitat despullada",
-			"keyHashed": "La clau s'ha xifrat i no es pot recuperar."
+			"keyHashed": "La clau s'ha xifrat i no es pot recuperar.",
+			"tpm": "Límit de tokens per minut; les sol·licituds es rebutgen amb un 429 un cop s'ha esgotat el pressupost per minut"
 		},
 		"emptyState": "No hi ha claus virtuals. Crea'n una per començar a utilitzar el proxy.",
 		"steps": {
@@ -1031,7 +1032,9 @@
 				"enableStripReasoning": "Activa el raonament per franges",
 				"disableStripReasoning": "Desactiva el raonament per franges",
 				"rateLimitBurst": "Rafegat (màxim simultani)",
-				"rateLimitRps": "RPS (sol·licituds/s)"
+				"rateLimitRps": "RPS (sol·licituds/s)",
+				"rateLimitTpm": "TPM (tokens/min)",
+				"placeholderTpm": "Sense límit"
 			},
 			"detailTitle": "Detalls de la clau virtual",
 			"sections": {
@@ -1059,7 +1062,9 @@
 			"keyCreatedFailed": "Fallat: {{message}}",
 			"keyUpdated": "Clau virtual actualitzada",
 			"keyUpdateFailed": "Fallat: {{message}}",
-			"usageExamples": "Exemples d'ús"
+			"usageExamples": "Exemples d'ús",
+			"rateLimitTpmLabel": "Límit de velocitat TPM (tokens/min)",
+			"noCap": "Sense límit"
 		}
 	},
 	"logs": {
@@ -2361,7 +2366,8 @@
 		},
 		"detail": {
 			"rps": "RPS",
-			"burst": "Esclat"
+			"burst": "Esclat",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {

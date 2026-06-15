@@ -996,7 +996,8 @@
 			"lastUsed": "Kdy byl klíč naposledy použit pro odeslání požadavku",
 			"providerRestricted": "Klíč s omezením poskytovatele",
 			"reasoningStripped": "Odůvodnění vynecháno",
-			"keyHashed": "Klíč je zašifrován a nelze jej obnovit"
+			"keyHashed": "Klíč je zašifrován a nelze jej obnovit",
+			"tpm": "Limit tokenů za minutu; jakmile je minutový limit vyčerpán, jsou požadavky odmítnuty s kódem 429."
 		},
 		"emptyState": "Žádné virtuální klíče. Vytvořte si jeden, abyste mohli začít používat proxy.",
 		"steps": {
@@ -1031,7 +1032,9 @@
 				"enableStripReasoning": "Povolit logické odvozování",
 				"disableStripReasoning": "Zakázat logiku strip",
 				"rateLimitBurst": "Burst (max. počet souběžných procesů)",
-				"rateLimitRps": "RPS (počet požadavků za sekundu)"
+				"rateLimitRps": "RPS (počet požadavků za sekundu)",
+				"rateLimitTpm": "TPM (tokeny/min)",
+				"placeholderTpm": "Bez omezení"
 			},
 			"detailTitle": "Podrobnosti o virtuálním klíči",
 			"sections": {
@@ -1059,7 +1062,9 @@
 			"keyCreatedFailed": "Selhalo: {{message}}",
 			"keyUpdated": "Virtuální klíč byl aktualizován",
 			"keyUpdateFailed": "Selhalo: {{message}}",
-			"usageExamples": "Příklady použití"
+			"usageExamples": "Příklady použití",
+			"rateLimitTpmLabel": "Limit rychlosti TPM (tokeny/min)",
+			"noCap": "Bez omezení"
 		}
 	},
 	"logs": {
@@ -2361,7 +2366,8 @@
 		},
 		"detail": {
 			"rps": "RVP",
-			"burst": "Série"
+			"burst": "Série",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {

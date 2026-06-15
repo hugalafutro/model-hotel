@@ -996,7 +996,8 @@
 			"lastUsed": "Când a fost folosită ultima cheie pentru o cerere",
 			"providerRestricted": "Cheie restricționată de furnizor",
 			"reasoningStripped": "Dungi de motivare",
-			"keyHashed": "Cheia este hash-uită și nu poate fi recuperată"
+			"keyHashed": "Cheia este hash-uită și nu poate fi recuperată",
+			"tpm": "Limită de tokenuri pe minut; cererile sunt respinse cu codul 429 odată ce bugetul pe minut este epuizat"
 		},
 		"emptyState": "Nu există chei virtuale. Creează una pentru a începe să folosești proxy.",
 		"steps": {
@@ -1031,7 +1032,9 @@
 				"enableStripReasoning": "Activează raționamentul benzii",
 				"disableStripReasoning": "Dezactivează raționamentul benzii",
 				"rateLimitBurst": "Burst (maxim simultan)",
-				"rateLimitRps": "RPS (solicitări/secundă)"
+				"rateLimitRps": "RPS (solicitări/secundă)",
+				"rateLimitTpm": "TPM (tokeni/min)",
+				"placeholderTpm": "Fără limită"
 			},
 			"detailTitle": "Detalii cheie virtuală",
 			"sections": {
@@ -1059,7 +1062,9 @@
 			"keyCreatedFailed": "Eșec: {{message}}",
 			"keyUpdated": "Cheie virtuală actualizată",
 			"keyUpdateFailed": "Eșec: {{message}}",
-			"usageExamples": "Exemple de utilizare"
+			"usageExamples": "Exemple de utilizare",
+			"rateLimitTpmLabel": "Limită de rată TPM (tokeni/min)",
+			"noCap": "Fără limită"
 		}
 	},
 	"logs": {
@@ -2361,7 +2366,8 @@
 		},
 		"detail": {
 			"rps": "SPR",
-			"burst": "Rafală"
+			"burst": "Rafală",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {

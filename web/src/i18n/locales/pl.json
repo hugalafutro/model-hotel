@@ -996,7 +996,8 @@
 			"lastUsed": "Kiedy klucz był ostatnio używany do żądania",
 			"providerRestricted": "Klucz ograniczony przez dostawcę",
 			"reasoningStripped": "Uzasadnienie usunięte",
-			"keyHashed": "Klucz jest haszowany i nie można go odzyskać"
+			"keyHashed": "Klucz jest haszowany i nie można go odzyskać",
+			"tpm": "Limit tokenów na minutę; żądania są odrzucane z kodem 429 po wyczerpaniu limitu minutowego"
 		},
 		"emptyState": "Brak kluczy wirtualnych. Utwórz jeden, aby rozpocząć korzystanie z proxy.",
 		"steps": {
@@ -1031,7 +1032,9 @@
 				"enableStripReasoning": "Włącz rozumowanie paska",
 				"disableStripReasoning": "Wyłącz rozumowanie paska",
 				"rateLimitBurst": "Burst (maksymalna liczba jednoczesnych połączeń)",
-				"rateLimitRps": "RPS (żądania/sek.)"
+				"rateLimitRps": "RPS (żądania/sek.)",
+				"rateLimitTpm": "TPM (tokeny/min)",
+				"placeholderTpm": "Brak ograniczeń"
 			},
 			"detailTitle": "Szczegóły klucza wirtualnego",
 			"sections": {
@@ -1059,7 +1062,9 @@
 			"keyCreatedFailed": "Niepowodzenie: {{message}}",
 			"keyUpdated": "Klucz wirtualny zaktualizowany",
 			"keyUpdateFailed": "Niepowodzenie: {{message}}",
-			"usageExamples": "Przykłady użycia"
+			"usageExamples": "Przykłady użycia",
+			"rateLimitTpmLabel": "Limit szybkości TPM (tokeny/min)",
+			"noCap": "Brak ograniczeń"
 		}
 	},
 	"logs": {
@@ -2361,7 +2366,8 @@
 		},
 		"detail": {
 			"rps": "RPS",
-			"burst": "Rozerwanie"
+			"burst": "Rozerwanie",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {

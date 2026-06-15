@@ -996,7 +996,8 @@
 			"lastUsed": "Wenn der Schlüssel zuletzt für eine Anfrage verwendet wurde",
 			"providerRestricted": "Anbieterbeschränkter Schlüssel",
 			"reasoningStripped": "Begründung entfernt",
-			"keyHashed": "Schlüssel ist gehashed und kann nicht wiederhergestellt werden"
+			"keyHashed": "Schlüssel ist gehashed und kann nicht wiederhergestellt werden",
+			"tpm": "Obergrenze für Tokens pro Minute; Anfragen werden mit dem Status 429 abgelehnt, sobald das Minutenbudget aufgebraucht ist"
 		},
 		"emptyState": "Keine virtuellen Schlüssel. Erstellen Sie einen, um den Proxy zu verwenden.",
 		"steps": {
@@ -1031,7 +1032,9 @@
 				"enableStripReasoning": "Strip-Argumentation aktivieren",
 				"disableStripReasoning": "Strip-Argumentation deaktivieren",
 				"rateLimitBurst": "Burst (max. gleichzeitig)",
-				"rateLimitRps": "RPS (Anfragen/Sek.)"
+				"rateLimitRps": "RPS (Anfragen/Sek.)",
+				"rateLimitTpm": "TPM (Token/Min.)",
+				"placeholderTpm": "Keine Begrenzung"
 			},
 			"detailTitle": "Details der virtuellen Taste",
 			"sections": {
@@ -1059,7 +1062,9 @@
 			"keyCreatedFailed": "Fehler: {{message}}",
 			"keyUpdated": "Virtueller Schlüssel aktualisiert",
 			"keyUpdateFailed": "Fehler: {{message}}",
-			"usageExamples": "Anwendungsbeispiele"
+			"usageExamples": "Anwendungsbeispiele",
+			"rateLimitTpmLabel": "Ratenbegrenzung TPM (Token/Min.)",
+			"noCap": "Keine Begrenzung"
 		}
 	},
 	"logs": {
@@ -2361,7 +2366,8 @@
 		},
 		"detail": {
 			"rps": "RPS",
-			"burst": "Burst"
+			"burst": "Burst",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {

@@ -996,7 +996,8 @@
 			"lastUsed": "Када је кључ последњи пут коришћен за захтев",
 			"providerRestricted": "Кључ ограничен добављачем",
 			"reasoningStripped": "Разумношћу одузето",
-			"keyHashed": "Кључ је хашован и не може се повратити"
+			"keyHashed": "Кључ је хашован и не може се повратити",
+			"tpm": "Ограничење токена по минути; захтеви се одбијају кодом 429 када се потроши дневни буџет по минути"
 		},
 		"emptyState": "Нема виртуелних кључева. Креирајте један да бисте почели да користите прокси.",
 		"steps": {
@@ -1031,7 +1032,9 @@
 				"enableStripReasoning": "Омогући закључивање у тракама",
 				"disableStripReasoning": "Онемогућите стрип резоновање",
 				"rateLimitBurst": "Налет (макс. истовремено)",
-				"rateLimitRps": "RPS (захтеви/с)"
+				"rateLimitRps": "RPS (захтеви/с)",
+				"rateLimitTpm": "TPM (токени/мин)",
+				"placeholderTpm": "Без ограничења"
 			},
 			"detailTitle": "Детаљи виртуелног кључа",
 			"sections": {
@@ -1059,7 +1062,9 @@
 			"keyCreatedFailed": "Неуспело: {{message}}",
 			"keyUpdated": "Виртуелни кључ ажуриран",
 			"keyUpdateFailed": "Неуспело: {{message}}",
-			"usageExamples": "Примери употребе"
+			"usageExamples": "Примери употребе",
+			"rateLimitTpmLabel": "Ограничење брзине TPM (токени/мин)",
+			"noCap": "Без ограничења"
 		}
 	},
 	"logs": {
@@ -2361,7 +2366,8 @@
 		},
 		"detail": {
 			"rps": "RPS",
-			"burst": "Прснуће"
+			"burst": "Прснуће",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {

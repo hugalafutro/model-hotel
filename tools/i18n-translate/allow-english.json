@@ -6126,6 +6126,17 @@
 		"da",
 		"nl"
 	],
+	"virtualkeys.modal.form.rateLimitTpm": [
+		"af",
+		"ca",
+		"da",
+		"el",
+		"es",
+		"nl",
+		"no",
+		"pt",
+		"sv"
+	],
 	"virtualkeys.modal.nameLabel": [
 		"de"
 	],
@@ -6135,6 +6146,13 @@
 	"virtualkeys.modal.rateLimitBurstLabel": [
 		"da",
 		"nl"
+	],
+	"virtualkeys.modal.rateLimitTpmLabel": [
+		"da",
+		"hu",
+		"nl",
+		"no",
+		"sv"
 	],
 	"virtualkeys.modal.sections.identity": [
 		"ja"

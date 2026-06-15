@@ -19,6 +19,7 @@ type CreateVirtualKeyRequest struct {
 	Name             string    `json:"name"`
 	RateLimitRPS     *float64  `json:"rate_limit_rps,omitempty"`
 	RateLimitBurst   *int      `json:"rate_limit_burst,omitempty"`
+	RateLimitTPM     *int      `json:"rate_limit_tpm,omitempty"`
 	AllowedProviders *[]string `json:"allowed_providers,omitempty"`
 	StripReasoning   *bool     `json:"strip_reasoning,omitempty"`
 }
@@ -28,6 +29,7 @@ type UpdateVirtualKeyRequest struct {
 	Name             string    `json:"name"`
 	RateLimitRPS     *float64  `json:"rate_limit_rps"`
 	RateLimitBurst   *int      `json:"rate_limit_burst"`
+	RateLimitTPM     *int      `json:"rate_limit_tpm"`
 	AllowedProviders *[]string `json:"allowed_providers,omitempty"`
 	StripReasoning   *bool     `json:"strip_reasoning,omitempty"`
 	// allowedProvidersPresent tracks whether allowed_providers was in the JSON.
@@ -83,6 +85,7 @@ func virtualKeyToResponse(vk *virtualkey.VirtualKey, includeKey bool, rawKey str
 		CreatedAt:        vk.CreatedAt.Format(time.RFC3339),
 		RateLimitRPS:     vk.RateLimitRPS,
 		RateLimitBurst:   vk.RateLimitBurst,
+		RateLimitTPM:     vk.RateLimitTPM,
 		AllowedProviders: vk.AllowedProviders,
 		StripReasoning:   vk.StripReasoning,
 	}
@@ -124,7 +127,7 @@ func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := validateRateLimits(req.RateLimitRPS, req.RateLimitBurst, w); err != nil {
+	if err := validateRateLimits(req.RateLimitRPS, req.RateLimitBurst, req.RateLimitTPM, w); err != nil {
 		return
 	}
 
@@ -138,7 +141,7 @@ func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	keyHash := virtualkey.Hash(rawKey)
 	keyPreview := rawKey[:3] + "..." + rawKey[len(rawKey)-2:]
 
-	vk, err := h.virtualKeyRepo.Create(r.Context(), req.Name, keyHash, keyPreview, req.RateLimitRPS, req.RateLimitBurst, req.AllowedProviders, req.StripReasoning)
+	vk, err := h.virtualKeyRepo.Create(r.Context(), req.Name, keyHash, keyPreview, req.RateLimitRPS, req.RateLimitBurst, req.RateLimitTPM, req.AllowedProviders, req.StripReasoning)
 	if err != nil {
 		debuglog.Error("virtual-keys: failed to create key", "name", req.Name, "error", err)
 		respondError(w, fmt.Sprintf("failed to create virtual key %q", req.Name), err, http.StatusInternalServerError)
@@ -241,11 +244,11 @@ func (h *Handler) UpdateVirtualKey(w http.ResponseWriter, r *http.Request) {
 		req.StripReasoning = &existingVK.StripReasoning
 	}
 
-	if err := validateRateLimits(req.RateLimitRPS, req.RateLimitBurst, w); err != nil {
+	if err := validateRateLimits(req.RateLimitRPS, req.RateLimitBurst, req.RateLimitTPM, w); err != nil {
 		return
 	}
 
-	vk, err := h.virtualKeyRepo.Update(r.Context(), id, req.Name, req.RateLimitRPS, req.RateLimitBurst, req.AllowedProviders, req.StripReasoning)
+	vk, err := h.virtualKeyRepo.Update(r.Context(), id, req.Name, req.RateLimitRPS, req.RateLimitBurst, req.RateLimitTPM, req.AllowedProviders, req.StripReasoning)
 	if err != nil {
 		if errors.Is(err, virtualkey.ErrNotFound) {
 			http.Error(w, "virtual key not found", http.StatusNotFound)
@@ -284,7 +287,7 @@ func (h *Handler) DeleteVirtualKey(w http.ResponseWriter, r *http.Request) {
 // and that burst is at least 1 (burst=0 rejects all requests). Use null to fall
 // back to global settings.
 // Returns a non-nil error (already written to w) if validation fails.
-func validateRateLimits(rps *float64, burst *int, w http.ResponseWriter) error {
+func validateRateLimits(rps *float64, burst, tpm *int, w http.ResponseWriter) error {
 	if rps != nil && *rps < 0 {
 		respondBadRequest(w, "rate_limit_rps must be >= 0", fmt.Errorf("got %f", *rps))
 		return fmt.Errorf("invalid rate_limit_rps")
@@ -297,6 +300,16 @@ func validateRateLimits(rps *float64, burst *int, w http.ResponseWriter) error {
 		if *burst == 0 {
 			respondBadRequest(w, "rate_limit_burst must be >= 1 (use null to fall back to global settings)", fmt.Errorf("got 0"))
 			return fmt.Errorf("invalid rate_limit_burst")
+		}
+	}
+	if tpm != nil {
+		if *tpm < 0 {
+			respondBadRequest(w, "rate_limit_tpm must be >= 0", fmt.Errorf("got %d", *tpm))
+			return fmt.Errorf("invalid rate_limit_tpm")
+		}
+		if *tpm == 0 {
+			respondBadRequest(w, "rate_limit_tpm must be >= 1 (use null for no cap / global default)", fmt.Errorf("got 0"))
+			return fmt.Errorf("invalid rate_limit_tpm")
 		}
 	}
 	return nil

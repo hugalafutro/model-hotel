@@ -29,7 +29,7 @@ func TestTokenUsage_RecordedOnClientDisconnect(t *testing.T) {
 	vkRepo := virtualkey.NewRepository(pool)
 	ctx := context.Background()
 	keyHash := fmt.Sprintf("%x", sha256.Sum256([]byte("test-disconnect-key")))
-	vk, err := vkRepo.Create(ctx, "disconnect-test-key", keyHash, "disco...key", nil, nil, nil, nil)
+	vk, err := vkRepo.Create(ctx, "disconnect-test-key", keyHash, "disco...key", nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to create virtual key: %v", err)
 	}
@@ -144,7 +144,7 @@ func TestTokenUsage_RecordedOnNonStreamingSuccess(t *testing.T) {
 	vkRepo := virtualkey.NewRepository(pool)
 	ctx := context.Background()
 	keyHash := fmt.Sprintf("%x", sha256.Sum256([]byte("test-nonstream-key")))
-	vk, err := vkRepo.Create(ctx, "nonstream-test-key", keyHash, "nonst...key", nil, nil, nil, nil)
+	vk, err := vkRepo.Create(ctx, "nonstream-test-key", keyHash, "nonst...key", nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to create virtual key: %v", err)
 	}

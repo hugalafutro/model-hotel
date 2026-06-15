@@ -996,7 +996,8 @@
 			"lastUsed": "Kun avainta on viimeksi käytetty pyyntöön",
 			"providerRestricted": "Tarjoajan rajoitettu avain",
 			"reasoningStripped": "Perustelu poistettu",
-			"keyHashed": "Avain on tiivistetty eikä sitä voi palauttaa"
+			"keyHashed": "Avain on tiivistetty eikä sitä voi palauttaa",
+			"tpm": "Tunnusmerkkien enimmäismäärä minuutissa; pyynnöt hylätään koodilla 429, kun minuuttikiintiö on käytetty loppuun"
 		},
 		"emptyState": "Ei virtuaalisia avaimia. Luo sellainen, jotta voit aloittaa välityspalvelimen käytön.",
 		"steps": {
@@ -1031,7 +1032,9 @@
 				"enableStripReasoning": "Ota kaistan päättely käyttöön",
 				"disableStripReasoning": "Poista strip päättely käytöstä",
 				"rateLimitBurst": "Burst (maks. samanaikaiset)",
-				"rateLimitRps": "RPS (pyynnöt/sekunti)"
+				"rateLimitRps": "RPS (pyynnöt/sekunti)",
+				"rateLimitTpm": "TPM (tokenia/min)",
+				"placeholderTpm": "Ei rajoituksia"
 			},
 			"detailTitle": "Virtuaalisen Avaimen Yksityiskohdat",
 			"sections": {
@@ -1059,7 +1062,9 @@
 			"keyCreatedFailed": "Epäonnistui: {{message}}",
 			"keyUpdated": "Virtuaalinen avain päivitetty",
 			"keyUpdateFailed": "Epäonnistui: {{message}}",
-			"usageExamples": "Käyttöesimerkkejä"
+			"usageExamples": "Käyttöesimerkkejä",
+			"rateLimitTpmLabel": "Rajoitus TPM (tunnukset/min)",
+			"noCap": "Ei rajoituksia"
 		}
 	},
 	"logs": {
@@ -2361,7 +2366,8 @@
 		},
 		"detail": {
 			"rps": "RPS",
-			"burst": "Burst"
+			"burst": "Burst",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {

@@ -996,7 +996,8 @@
 			"lastUsed": "Lần cuối cùng khóa được sử dụng cho một yêu cầu",
 			"providerRestricted": "Khóa bị giới hạn bởi nhà cung cấp",
 			"reasoningStripped": "Loại bỏ phần lập luận",
-			"keyHashed": "Khóa đã được băm và không thể khôi phục lại"
+			"keyHashed": "Khóa đã được băm và không thể khôi phục lại",
+			"tpm": "Giới hạn số token mỗi phút; các yêu cầu sẽ bị từ chối với mã trạng thái 429 khi ngân sách phút đã hết."
 		},
 		"emptyState": "Chưa có khóa ảo nào. Hãy tạo một khóa để bắt đầu sử dụng proxy.",
 		"steps": {
@@ -1031,7 +1032,9 @@
 				"enableStripReasoning": "Bật tính năng suy luận theo dải",
 				"disableStripReasoning": "Tắt tính năng suy luận theo dải",
 				"rateLimitBurst": "Burst (tối đa đồng thời)",
-				"rateLimitRps": "RPS (yêu cầu/giây)"
+				"rateLimitRps": "RPS (yêu cầu/giây)",
+				"rateLimitTpm": "TPM (token/phút)",
+				"placeholderTpm": "Không có giới hạn"
 			},
 			"detailTitle": "Chi tiết về Khóa ảo",
 			"sections": {
@@ -1059,7 +1062,9 @@
 			"keyCreatedFailed": "Không thành công: {{message}}",
 			"keyUpdated": "Khóa ảo đã được cập nhật",
 			"keyUpdateFailed": "Không thành công: {{message}}",
-			"usageExamples": "Ví dụ sử dụng"
+			"usageExamples": "Ví dụ sử dụng",
+			"rateLimitTpmLabel": "Giới hạn tốc độ TPM (token/phút)",
+			"noCap": "Không có giới hạn"
 		}
 	},
 	"logs": {
@@ -2361,7 +2366,8 @@
 		},
 		"detail": {
 			"rps": "RPS",
-			"burst": "Đợt bùng phát"
+			"burst": "Đợt bùng phát",
+			"tpm": "TPM"
 		}
 	},
 	"hooks": {
