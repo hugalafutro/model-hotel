@@ -85,8 +85,9 @@ describe("SortableHeader", () => {
 				</thead>
 			</table>,
 		);
-		// When not active, the span contains only a space (no arrow)
-		const span = container.querySelector("button span");
+		// When not active, the arrow span (last child) contains only a space.
+		// The first span now holds the (truncatable) label, so target the last.
+		const span = container.querySelector("button span:last-child");
 		expect(span).toBeInTheDocument();
 		expect(span?.textContent).toBe(" ");
 	});
@@ -775,5 +776,75 @@ describe("PaginationBar", () => {
 		const page3Button = screen.getByRole("button", { name: "3" });
 		await user.click(page3Button);
 		expect(onPageChange).toHaveBeenCalledWith(3);
+	});
+});
+
+describe("header title (truncation tooltip)", () => {
+	function headerCell() {
+		// The <th> is the column header; getByRole('columnheader') returns it.
+		return screen.getByRole("columnheader");
+	}
+
+	it("SortableHeader falls back to the label as its title", () => {
+		render(
+			<table>
+				<thead>
+					<tr>
+						<SortableHeader
+							label="Duration"
+							field="duration"
+							sort={{ field: "name", dir: "asc" }}
+							onSort={vi.fn()}
+						/>
+					</tr>
+				</thead>
+			</table>,
+		);
+		expect(headerCell()).toHaveAttribute("title", "Duration");
+	});
+
+	it("SortableHeader prefers an explicit tooltip over the label", () => {
+		render(
+			<table>
+				<thead>
+					<tr>
+						<SortableHeader
+							label="Dur."
+							field="duration"
+							sort={{ field: "name", dir: "asc" }}
+							onSort={vi.fn()}
+							tooltip="Total request duration"
+						/>
+					</tr>
+				</thead>
+			</table>,
+		);
+		expect(headerCell()).toHaveAttribute("title", "Total request duration");
+	});
+
+	it("StaticHeader falls back to string children as its title", () => {
+		render(
+			<table>
+				<thead>
+					<tr>
+						<StaticHeader>Overhead</StaticHeader>
+					</tr>
+				</thead>
+			</table>,
+		);
+		expect(headerCell()).toHaveAttribute("title", "Overhead");
+	});
+
+	it("StaticHeaderNoArrow falls back to string children as its title", () => {
+		render(
+			<table>
+				<thead>
+					<tr>
+						<StaticHeaderNoArrow>Provider</StaticHeaderNoArrow>
+					</tr>
+				</thead>
+			</table>,
+		);
+		expect(headerCell()).toHaveAttribute("title", "Provider");
 	});
 });

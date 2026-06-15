@@ -32,15 +32,20 @@ export function SortableHeader<F extends string>({
 	return (
 		<th
 			className={`${HEADER_BASE} select-none hover:text-gray-200 ${className ?? ""}`}
-			title={tooltip}
+			title={tooltip ?? label}
 		>
 			<button
 				type="button"
 				onClick={() => onSort(field)}
 				aria-label={t("components.dataTable.sortBy", { label })}
+				className="flex items-center gap-1 max-w-full"
 			>
-				{label}{" "}
-				<span className="inline-block w-3 text-center">
+				{/* Label truncates with a real ellipsis (min-w-0 lets the flex item
+				    shrink); the sort arrow never shrinks, so it stays visible. A bare
+				    text node inside the button would only hard-clip under the th's
+				    overflow:hidden, never showing the ellipsis. */}
+				<span className="truncate min-w-0">{label}</span>
+				<span className="inline-block w-3 text-center shrink-0">
 					{active ? (sort.dir === "asc" ? "↑" : "↓") : " "}
 				</span>
 			</button>
@@ -58,7 +63,10 @@ export function StaticHeader({
 	tooltip?: string;
 }) {
 	return (
-		<th className={`${HEADER_BASE} ${className}`} title={tooltip}>
+		<th
+			className={`${HEADER_BASE} ${className}`}
+			title={tooltip ?? (typeof children === "string" ? children : undefined)}
+		>
 			{children}
 			<span className="inline-block w-3" />
 		</th>
@@ -75,7 +83,10 @@ export function StaticHeaderNoArrow({
 	tooltip?: string;
 }) {
 	return (
-		<th className={`${HEADER_BASE} ${className}`} title={tooltip}>
+		<th
+			className={`${HEADER_BASE} ${className}`}
+			title={tooltip ?? (typeof children === "string" ? children : undefined)}
+		>
 			{children}
 		</th>
 	);

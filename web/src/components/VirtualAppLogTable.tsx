@@ -206,17 +206,27 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 							<th
 								className={`${HEADER_BASE} cursor-pointer`}
 								onClick={onSortToggle}
+								title={t("components.virtualAppLogTable.timeDate")}
 							>
 								{t("components.virtualAppLogTable.timeDate")}{" "}
 								{sortDir === "desc" ? "↓" : "↑"}
 							</th>
-							<th className={HEADER_BASE}>
+							<th
+								className={HEADER_BASE}
+								title={t("components.virtualAppLogTable.level")}
+							>
 								{t("components.virtualAppLogTable.level")}
 							</th>
-							<th className={HEADER_BASE}>
+							<th
+								className={HEADER_BASE}
+								title={t("components.virtualAppLogTable.source")}
+							>
 								{t("components.virtualAppLogTable.source")}
 							</th>
-							<th className={HEADER_BASE}>
+							<th
+								className={HEADER_BASE}
+								title={t("components.virtualAppLogTable.message")}
+							>
 								{t("components.virtualAppLogTable.message")}
 							</th>
 						</tr>
