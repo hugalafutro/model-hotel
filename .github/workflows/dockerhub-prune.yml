@@ -53,8 +53,6 @@ jobs:
 
           NS="${DOCKERHUB_USERNAME}"
           REPO="model-hotel"
-          KEEP="${KEEP}"
-          DRY_RUN="${DRY_RUN}"
 
           echo "Repository: ${NS}/${REPO}"
           echo "Keep newest ${KEEP} version tags; dry_run=${DRY_RUN}"
@@ -128,7 +126,9 @@ jobs:
             echo ""
             echo "dry_run=\`${DRY_RUN}\` — ${count} tag(s) targeted:"
             echo ""
-            printf '%s\n' "$to_delete" | sed 's/^/- `/; s/$/`/'
+            printf '%s\n' "$to_delete" | while IFS= read -r t; do
+              [ -n "$t" ] && printf -- "- \`%s\`\n" "$t"
+            done
           } >> "$GITHUB_STEP_SUMMARY"
 
           # --- delete -----------------------------------------------------------
