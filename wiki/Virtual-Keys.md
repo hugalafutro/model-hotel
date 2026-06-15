@@ -376,6 +376,7 @@ Each virtual key has an independent token bucket rate limiter.
 | `rate_limit_enabled` | `true` | Runtime toggle (DB setting) |
 | `rate_limit_rps` | `10` | Requests per second (global default) |
 | `rate_limit_burst` | `20` | Maximum burst size (global default) |
+| `rate_limit_tpm` | `0` | Tokens-per-minute cap (global default; `0` = no cap; API-only, no Settings-UI control) |
 
 ### Per-Key Overrides
 
@@ -391,9 +392,9 @@ In addition to the request-rate limiter above, each key can cap its **tokens
 per minute** via `rate_limit_tpm` (a separate token-budget bucket, refilled at
 `tpm / 60` per second with a full minute's budget available at once):
 
-- **`null`**: No per-key cap (falls back to a global `rate_limit_tpm` default if
-  one is configured; there is no Settings-UI knob for it, so in practice null
-  means "no cap").
+- **`null`**: No per-key override — falls back to the global `rate_limit_tpm`
+  setting (default `0` = no cap). That global default is API-only; there is no
+  Settings-UI control for it (per-VK is the primary surface).
 - **`≥ 1`**: Cap the key's combined prompt + completion + reasoning tokens per
   minute. `0` is rejected on create/update (use `null` for no cap).
 

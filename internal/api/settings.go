@@ -74,9 +74,10 @@ var allowedSettings = map[string]struct {
 	"rate_limit_max_wait_ms":       {typeName: "int", min: 0, max: 10000},
 	"rate_limit_rps":               {typeName: "float", min: 0, max: 10000},
 	"rate_limit_burst":             {typeName: "int", min: 1, max: 10000},
-	"request_timeout":              {typeName: "string"}, // duration (e.g. "1m0s")
-	"failover_on_rate_limit":       {typeName: "string"}, // bool as string
-	"circuit_breaker_enabled":      {typeName: "string"}, // bool as string
+	"rate_limit_tpm":               {typeName: "int", min: 0, max: 100000000}, // global per-key tokens/min default; 0 = no cap
+	"request_timeout":              {typeName: "string"},                      // duration (e.g. "1m0s")
+	"failover_on_rate_limit":       {typeName: "string"},                      // bool as string
+	"circuit_breaker_enabled":      {typeName: "string"},                      // bool as string
 	"circuit_breaker_threshold":    {typeName: "int", min: 1, max: 100},
 	"circuit_breaker_cooldown":     {typeName: "string"}, // duration (e.g. "1m0s")
 	"discovery_interval":           {typeName: "string"}, // predefined option

@@ -981,6 +981,7 @@ Execute the son/father/grandfather rotation, deleting backups that fall outside 
 | `rate_limit_max_wait_ms` | int | 0-10000 |
 | `rate_limit_rps` | float | 0-10000 |
 | `rate_limit_burst` | int | 1-10000 |
+| `rate_limit_tpm` | int | 0-100000000 |
 | `request_timeout` | string | Duration (e.g. `"1m0s"`) |
 | `failover_on_rate_limit` | string | `"true"` or `"false"` |
 | `circuit_breaker_enabled` | string | `"true"` or `"false"` |

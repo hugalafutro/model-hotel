@@ -193,7 +193,8 @@ Applied after authentication:
 - Unlimited mode: set `rate_limit_rps=0` to disable limiting for specific keys
 - Optional per-key **token rate limit** (`rate_limit_tpm`): caps tokens/minute
   (prompt + completion + reasoning); over-budget keys get `429` until the
-  minute budget refills. Null = no cap.
+  minute budget refills. Null falls back to the global `rate_limit_tpm` setting
+  (`0` = no cap).
 
 ### Shared Configuration
 
