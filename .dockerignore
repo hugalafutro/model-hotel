@@ -2,6 +2,12 @@
 .data
 *.env
 
+# Build output + VCS metadata — not needed in the build context. Shrinks the
+# context transfer and stops `bin/` churn (e.g. `make build`) from busting the
+# `COPY . .` layer and forcing a full Go rebuild.
+.git/
+bin/
+
 # Prevent host node_modules from copying into Docker (causes conflicts with pnpm install)
 web/node_modules/
 web/dist/

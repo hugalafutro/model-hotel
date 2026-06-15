@@ -20,14 +20,16 @@ if ! golangci-lint run ./cmd/... ./internal/...; then
 	exit 1
 fi
 
+# tsc -b runs here (not in the Docker image build) so type errors are caught
+# locally before push. It is incremental (tsbuildinfo), so it is cheap to repeat.
 if [ -d "$REPO_ROOT/web/node_modules" ]; then
-	echo "pre-push: pnpm lint (local)..."
-	if ! (cd "$REPO_ROOT/web" && pnpm run lint); then
-		echo "pre-push: FAILED - pnpm lint" >&2
+	echo "pre-push: pnpm lint + tsc -b (local)..."
+	if ! (cd "$REPO_ROOT/web" && pnpm run lint && pnpm exec tsc -b); then
+		echo "pre-push: FAILED - pnpm lint / tsc -b" >&2
 		exit 1
 	fi
 else
-	echo "pre-push: pnpm lint (Docker)..."
+	echo "pre-push: pnpm lint + tsc -b (Docker)..."
 	if ! docker run --rm \
 		-v "$REPO_ROOT/web":/app \
 		-v model-hotel-pnpm-store:/pnpm/store \
@@ -35,8 +37,8 @@ else
 		-e PNPM_HOME=/root/.local/share/pnpm \
 		-w /app \
 		node:22-alpine \
-		sh -c "npm install -g pnpm@10 >/dev/null 2>&1 && pnpm config set store-dir /pnpm/store >/dev/null && pnpm install --frozen-lockfile >/dev/null 2>&1 && pnpm run lint" 2>&1; then
-		echo "pre-push: FAILED - pnpm lint" >&2
+		sh -c "npm install -g pnpm@10 >/dev/null 2>&1 && pnpm config set store-dir /pnpm/store >/dev/null && pnpm install --frozen-lockfile >/dev/null 2>&1 && pnpm run lint && pnpm exec tsc -b" 2>&1; then
+		echo "pre-push: FAILED - pnpm lint / tsc -b" >&2
 		exit 1
 	fi
 fi

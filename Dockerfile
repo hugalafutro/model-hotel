@@ -6,10 +6,13 @@ RUN npm install -g pnpm@10
 WORKDIR /app/web
 
 COPY web/package.json web/pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,target=/pnpm-store \
+    pnpm install --frozen-lockfile --store-dir=/pnpm-store
 
 COPY web/ ./
-RUN pnpm run build
+# build:docker skips `tsc -b` — type-checking is gated by the pre-push hook and
+# CI's full `pnpm run build`, so the image build stays off the typecheck path.
+RUN pnpm run build:docker
 
 # Stage 2: Build Go binary with embedded frontend + migrations
 FROM golang:1.26-alpine AS backend-builder
@@ -17,7 +20,8 @@ FROM golang:1.26-alpine AS backend-builder
 WORKDIR /app
 
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 
 COPY . .
 
@@ -25,7 +29,9 @@ COPY . .
 COPY --from=frontend-builder /app/web/dist ./cmd/server/static/
 
 ARG VERSION=dev
-RUN go build -ldflags "-X main.version=$VERSION" -o server ./cmd/server/
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go build -ldflags "-X main.version=$VERSION" -o server ./cmd/server/
 
 # Stage 3: Minimal runtime image
 FROM alpine:3.23
