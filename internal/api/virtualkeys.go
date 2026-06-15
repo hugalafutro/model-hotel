@@ -292,25 +292,13 @@ func validateRateLimits(rps *float64, burst, tpm *int, w http.ResponseWriter) er
 		respondBadRequest(w, "rate_limit_rps must be >= 0", fmt.Errorf("got %f", *rps))
 		return fmt.Errorf("invalid rate_limit_rps")
 	}
-	if burst != nil {
-		if *burst < 0 {
-			respondBadRequest(w, "rate_limit_burst must be >= 0", fmt.Errorf("got %d", *burst))
-			return fmt.Errorf("invalid rate_limit_burst")
-		}
-		if *burst == 0 {
-			respondBadRequest(w, "rate_limit_burst must be >= 1 (use null to fall back to global settings)", fmt.Errorf("got 0"))
-			return fmt.Errorf("invalid rate_limit_burst")
-		}
+	if burst != nil && *burst < 1 {
+		respondBadRequest(w, "rate_limit_burst must be >= 1 (use null to fall back to global settings)", fmt.Errorf("got %d", *burst))
+		return fmt.Errorf("invalid rate_limit_burst")
 	}
-	if tpm != nil {
-		if *tpm < 0 {
-			respondBadRequest(w, "rate_limit_tpm must be >= 0", fmt.Errorf("got %d", *tpm))
-			return fmt.Errorf("invalid rate_limit_tpm")
-		}
-		if *tpm == 0 {
-			respondBadRequest(w, "rate_limit_tpm must be >= 1 (use null for no cap / global default)", fmt.Errorf("got 0"))
-			return fmt.Errorf("invalid rate_limit_tpm")
-		}
+	if tpm != nil && *tpm < 1 {
+		respondBadRequest(w, "rate_limit_tpm must be >= 1 (use null for no cap / global default)", fmt.Errorf("got %d", *tpm))
+		return fmt.Errorf("invalid rate_limit_tpm")
 	}
 	return nil
 }

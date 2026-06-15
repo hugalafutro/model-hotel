@@ -309,7 +309,7 @@ export function KeyDetailModal({
 								<input
 									id="vk-detail-burst"
 									type="number"
-									min="0"
+									min="1"
 									value={editBurst}
 									onChange={(e) => setEditBurst(e.target.value)}
 									className="ui-input"
@@ -327,7 +327,7 @@ export function KeyDetailModal({
 							<input
 								id="vk-detail-tpm"
 								type="number"
-								min="0"
+								min="1"
 								value={editTpm}
 								onChange={(e) => setEditTpm(e.target.value)}
 								className="ui-input"

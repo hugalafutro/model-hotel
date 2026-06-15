@@ -240,7 +240,7 @@ export function CreateKeyModal({
 						<input
 							id="vk-rate-limit-burst"
 							type="number"
-							min="0"
+							min="1"
 							value={rateLimitBurst}
 							onChange={(e) => setRateLimitBurst(e.target.value)}
 							className="ui-input"
@@ -257,7 +257,7 @@ export function CreateKeyModal({
 						<input
 							id="vk-rate-limit-tpm"
 							type="number"
-							min="0"
+							min="1"
 							value={rateLimitTpm}
 							onChange={(e) => setRateLimitTpm(e.target.value)}
 							className="ui-input"
