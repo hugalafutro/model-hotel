@@ -94,6 +94,7 @@ web/
 
 ### Virtual Keys (`/virtual-keys`)
 - Create per-client API keys
+- Set per-key rate limits (RPS/burst) and a token-per-minute (TPM) cap
 - View usage statistics
 - Revoke keys instantly
 

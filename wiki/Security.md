@@ -191,6 +191,9 @@ Applied after authentication:
   - `rate_limit_burst` (default: 20)
 - Per-key overrides supported (set when creating virtual key)
 - Unlimited mode: set `rate_limit_rps=0` to disable limiting for specific keys
+- Optional per-key **token rate limit** (`rate_limit_tpm`): caps tokens/minute
+  (prompt + completion + reasoning); over-budget keys get `429` until the
+  minute budget refills. Null = no cap.
 
 ### Shared Configuration
 

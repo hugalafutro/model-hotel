@@ -64,7 +64,7 @@ Prefix a model with `hotel/` to use its failover group. `hotel/gpt-4o` resolves 
 Provider health is tracked with a **circuit breaker**. Each provider is tracked individually: after a configurable number of consecutive failures (default 5) the circuit moves to **Open** and all requests skip that provider. After a cooldown period (default 60s), a single **HalfOpen** probe is allowed; if it succeeds the circuit closes, if it fails the cooldown resets. State transitions are broadcast as SSE events. The breaker can be disabled entirely in Settings. See [Failover and Hotel Routing](https://github.com/hugalafutro/model-hotel/wiki/Failover-and-Hotel-Routing) for the full breakdown.
 
 ### [<img src="docs/icons/virtualkeys.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Per-Client Virtual Keys](#-per-client-virtual-keys)
-Issue separate API keys for different users or services. Each key is SHA-256 hashed before storage, so raw keys are never persisted. Track token usage per key, delete a key to immediately cut off access, and never expose your real provider credentials. Keys can be created and deleted from the dashboard or the admin API.
+Issue separate API keys for different users or services. Each key is SHA-256 hashed before storage, so raw keys are never persisted. Track token usage per key, set per-key rate limits (requests/sec and burst) plus an optional tokens-per-minute (TPM) cap, restrict which providers a key may reach, delete a key to immediately cut off access, and never expose your real provider credentials. Keys can be created and deleted from the dashboard or the admin API.
 
 <div align="center">
 <br><img src="docs/screenshots/virtual_keys.png" alt="Virtual Keys" width="720"><br>

@@ -630,6 +630,7 @@ Returns available models that can be added to failover groups.
     "created_at": "2024-01-01T00:00:00Z",
     "rate_limit_rps": null,
     "rate_limit_burst": null,
+    "rate_limit_tpm": null,
     "allowed_providers": null,
     "strip_reasoning": false
   }
@@ -646,6 +647,7 @@ Returns available models that can be added to failover groups.
   "name": "Production Key",
   "rate_limit_rps": 10.0,
   "rate_limit_burst": 20,
+  "rate_limit_tpm": 50000,
   "allowed_providers": ["provider-uuid-1", "provider-uuid-2"],
   "strip_reasoning": false
 }
@@ -656,6 +658,7 @@ Returns available models that can be added to failover groups.
 | `name` | string | Yes | 1-100 characters, cannot be reserved names (`chat`, `arena`, `completions`, `admin`) |
 | `rate_limit_rps` | number | No | Requests per second (null = use global default) |
 | `rate_limit_burst` | integer | No | Burst capacity (null = use global default, must be >= 1 if set) |
+| `rate_limit_tpm` | integer | No | Tokens-per-minute cap (null = no cap / global default, must be >= 1 if set). Counts prompt + completion + reasoning; over-budget keys get `429 token rate limit exceeded` with `Retry-After` |
 | `allowed_providers` | array of UUID strings | No | Restrict this key to the listed provider IDs (null = all providers accessible; an empty array is rejected) |
 | `strip_reasoning` | boolean | No | Strip `reasoning`/`reasoning_content` fields from streaming output for this key |
 
@@ -670,7 +673,8 @@ Returns available models that can be added to failover groups.
   "last_used_at": null,
   "created_at": "2024-01-01T00:00:00Z",
   "rate_limit_rps": 10.0,
-  "rate_limit_burst": 20
+  "rate_limit_burst": 20,
+  "rate_limit_tpm": 50000
 }
 ```
 

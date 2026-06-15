@@ -185,6 +185,10 @@ The rate limiting system has two layers, both using token buckets (backed by `go
 - `rate_limit_rps` controls the refill rate (tokens per second, default 10)
 - `rate_limit_burst` controls the maximum bucket size (default 20)
 - Setting `rate_limit_rps=0` makes every bucket unlimited (no per-key rate limiting)
+- A separate optional **token rate limit** (`rate_limit_tpm`) is set *per key*
+  (on the virtual_keys row, not via global settings): it caps tokens/minute and
+  rejects over-budget requests with `429`. Null = no cap. See
+  [Virtual Keys](Virtual-Keys.md#token-rate-limiting-tpm).
 
 **Shared settings:**
 - `rate_limit_max_wait_ms` (default 200) - maximum time a request waits in the rate-limiter queue before being rejected with 429. Applies to both per-IP and per-key limiters.
