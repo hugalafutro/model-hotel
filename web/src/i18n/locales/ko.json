@@ -1058,7 +1058,8 @@
 			"keyCreated": "가상 키 생성됨",
 			"keyCreatedFailed": "실패: {{message}}",
 			"keyUpdated": "가상 키가 업데이트되었습니다",
-			"keyUpdateFailed": "실패: {{message}}"
+			"keyUpdateFailed": "실패: {{message}}",
+			"usageExamples": "사용 예시"
 		}
 	},
 	"logs": {

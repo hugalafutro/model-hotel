@@ -1058,7 +1058,8 @@
 			"keyCreated": "Vytvořen virtuální klíč",
 			"keyCreatedFailed": "Selhalo: {{message}}",
 			"keyUpdated": "Virtuální klíč byl aktualizován",
-			"keyUpdateFailed": "Selhalo: {{message}}"
+			"keyUpdateFailed": "Selhalo: {{message}}",
+			"usageExamples": "Příklady použití"
 		}
 	},
 	"logs": {

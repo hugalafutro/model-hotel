@@ -1058,7 +1058,8 @@
 			"keyCreated": "Virtuaalinen avain luotu",
 			"keyCreatedFailed": "Epäonnistui: {{message}}",
 			"keyUpdated": "Virtuaalinen avain päivitetty",
-			"keyUpdateFailed": "Epäonnistui: {{message}}"
+			"keyUpdateFailed": "Epäonnistui: {{message}}",
+			"usageExamples": "Käyttöesimerkkejä"
 		}
 	},
 	"logs": {

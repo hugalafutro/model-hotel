@@ -1058,7 +1058,8 @@
 			"keyCreated": "Το εικονικό κλειδί δημιουργήθηκε",
 			"keyCreatedFailed": "Αποτυχία: {{message}}",
 			"keyUpdated": "Το εικονικό κλειδί ενημερώθηκε",
-			"keyUpdateFailed": "Αποτυχία: {{message}}"
+			"keyUpdateFailed": "Αποτυχία: {{message}}",
+			"usageExamples": "Παραδείγματα χρήσης"
 		}
 	},
 	"logs": {

@@ -1058,7 +1058,8 @@
 			"keyCreated": "נוצר מפתח וירטואלי",
 			"keyCreatedFailed": "נכשל: {{message}}",
 			"keyUpdated": "המפתח הווירטואלי עודכן",
-			"keyUpdateFailed": "נכשל: {{message}}"
+			"keyUpdateFailed": "נכשל: {{message}}",
+			"usageExamples": "דוגמאות לשימוש"
 		}
 	},
 	"logs": {

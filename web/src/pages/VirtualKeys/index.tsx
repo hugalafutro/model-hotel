@@ -15,24 +15,11 @@ import {
 import { EmptyState } from "../../components/EmptyState";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { PageHeader } from "../../components/PageHeader";
-import { ShikiCode } from "../../components/ShikiCode";
-import { TerminalPreview } from "../../components/TerminalPreview";
 import { useToast } from "../../context/ToastContext";
 import { formatNumber, formatRelativeTime } from "../../utils/format";
-import {
-	snippetBashText,
-	snippetClaudeCodeText,
-	snippetHermesText,
-	snippetJSText,
-	snippetLibreChatText,
-	snippetOpenClawText,
-	snippetOpencodeVKText,
-	snippetPowershellText,
-	snippetPythonText,
-	snippetZedVKText,
-} from "../../utils/snippets";
 import { CreateKeyModal } from "./CreateKeyModal";
 import { KeyDetailModal } from "./KeyDetailModal";
+import { UsageSnippets } from "./UsageSnippets";
 
 type VKSortField =
 	| "name"
@@ -71,23 +58,6 @@ export function VirtualKeys() {
 		typeof window !== "undefined"
 			? window.location.origin
 			: "http://localhost:8080";
-
-	// Plain-text snippets are the single source of truth: the same string is
-	// copied to the clipboard and syntax-highlighted by ShikiCode, with the
-	// user-replaceable parts emphasized.
-	const snippetHighlights = [proxyOrigin, "YOUR_API_KEY", "model_name"];
-	const snippets = {
-		bash: snippetBashText({ origin: proxyOrigin }),
-		powershell: snippetPowershellText({ origin: proxyOrigin }),
-		python: snippetPythonText({ origin: proxyOrigin }),
-		openclaw: snippetOpenClawText({ origin: proxyOrigin }),
-		javascript: snippetJSText({ origin: proxyOrigin }),
-		librechat: snippetLibreChatText({ origin: proxyOrigin }),
-		claudeCode: snippetClaudeCodeText({ origin: proxyOrigin }),
-		zed: snippetZedVKText({ origin: proxyOrigin }),
-		hermes: snippetHermesText({ origin: proxyOrigin }),
-		opencode: snippetOpencodeVKText({ origin: proxyOrigin }),
-	};
 
 	const sortedKeys = useMemo(() => {
 		if (!keys) return [];
@@ -374,141 +344,7 @@ export function VirtualKeys() {
 						</div>
 					</div>
 
-					<div className="space-y-4">
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<TerminalPreview
-								variant="code"
-								title={t("virtualKeys.snippet.curl")}
-								icon="curl"
-								copyText={snippets.bash}
-							>
-								<ShikiCode
-									code={snippets.bash}
-									lang="bash"
-									highlights={snippetHighlights}
-								/>
-							</TerminalPreview>
-
-							<TerminalPreview
-								variant="code"
-								title={t("virtualKeys.snippet.powershell")}
-								icon="powershell"
-								copyText={snippets.powershell}
-							>
-								<ShikiCode
-									code={snippets.powershell}
-									lang="powershell"
-									highlights={snippetHighlights}
-								/>
-							</TerminalPreview>
-						</div>
-
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<TerminalPreview
-								variant="code"
-								title={t("virtualKeys.snippet.python")}
-								icon="python"
-								copyText={snippets.python}
-							>
-								<ShikiCode
-									code={snippets.python}
-									lang="python"
-									highlights={snippetHighlights}
-								/>
-							</TerminalPreview>
-
-							<TerminalPreview
-								variant="code"
-								title={t("virtualKeys.snippet.openclaw")}
-								icon="openclaw"
-								copyText={snippets.openclaw}
-							>
-								<ShikiCode
-									code={snippets.openclaw}
-									lang="bash"
-									highlights={snippetHighlights}
-								/>
-							</TerminalPreview>
-
-							<TerminalPreview
-								variant="code"
-								title={t("virtualKeys.snippet.javascript")}
-								icon="javascript"
-								copyText={snippets.javascript}
-							>
-								<ShikiCode
-									code={snippets.javascript}
-									lang="javascript"
-									highlights={snippetHighlights}
-								/>
-							</TerminalPreview>
-
-							<TerminalPreview
-								variant="code"
-								title={t("virtualKeys.snippet.librechat")}
-								icon="librechat"
-								copyText={snippets.librechat}
-							>
-								<ShikiCode
-									code={snippets.librechat}
-									lang="yaml"
-									highlights={snippetHighlights}
-								/>
-							</TerminalPreview>
-
-							<TerminalPreview
-								variant="code"
-								title={t("virtualKeys.snippet.claudeCode")}
-								icon="claude"
-								copyText={snippets.claudeCode}
-							>
-								<ShikiCode
-									code={snippets.claudeCode}
-									lang="bash"
-									highlights={snippetHighlights}
-								/>
-							</TerminalPreview>
-
-							<TerminalPreview
-								variant="code"
-								title={t("virtualKeys.snippet.zed")}
-								icon="zed"
-								copyText={snippets.zed}
-							>
-								<ShikiCode
-									code={snippets.zed}
-									lang="json"
-									highlights={snippetHighlights}
-								/>
-							</TerminalPreview>
-
-							<TerminalPreview
-								variant="code"
-								title={t("virtualKeys.snippet.hermes")}
-								icon="hermes"
-								copyText={snippets.hermes}
-							>
-								<ShikiCode
-									code={snippets.hermes}
-									lang="bash"
-									highlights={snippetHighlights}
-								/>
-							</TerminalPreview>
-
-							<TerminalPreview
-								variant="code"
-								title={t("virtualKeys.snippet.opencode")}
-								icon="opencode"
-								copyText={snippets.opencode}
-							>
-								<ShikiCode
-									code={snippets.opencode}
-									lang="json"
-									highlights={snippetHighlights}
-								/>
-							</TerminalPreview>
-						</div>
-					</div>
+					<UsageSnippets />
 
 					<div className="ui-note-pill flex items-start gap-3 p-4 rounded-lg bg-(--accent-light) border border-(--accent-lighter)">
 						<div className="w-1.5 h-1.5 rounded-(--radius-pill) bg-(--accent) mt-1.5 shrink-0" />

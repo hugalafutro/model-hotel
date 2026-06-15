@@ -401,6 +401,7 @@ export function VirtualModelTable({
 							<th
 								className={`${HEADER_BASE} cursor-pointer select-none hover:text-gray-200`}
 								onClick={() => handleSort("name")}
+								title={t("models.table.model")}
 							>
 								<button
 									type="button"
@@ -417,11 +418,17 @@ export function VirtualModelTable({
 									</span>
 								</button>
 							</th>
-							<th className={HEADER_BASE}>{t("models.table.capabilities")}</th>
+							<th
+								className={HEADER_BASE}
+								title={t("models.table.capabilities")}
+							>
+								{t("models.table.capabilities")}
+							</th>
 							{showProviderCol && (
 								<th
 									className={`${HEADER_BASE} cursor-pointer select-none hover:text-gray-200`}
 									onClick={() => handleSort("provider")}
+									title={t("models.table.provider")}
 								>
 									<button
 										type="button"
@@ -442,6 +449,7 @@ export function VirtualModelTable({
 							<th
 								className={`${HEADER_BASE} cursor-pointer select-none hover:text-gray-200`}
 								onClick={() => handleSort("discovered")}
+								title={t("models.table.discovered")}
 							>
 								<button
 									type="button"
@@ -462,6 +470,7 @@ export function VirtualModelTable({
 							<th
 								className={`${HEADER_BASE} cursor-pointer select-none hover:text-gray-200`}
 								onClick={() => handleSort("context")}
+								title={t("models.table.ctx")}
 							>
 								<button
 									type="button"
@@ -482,6 +491,7 @@ export function VirtualModelTable({
 							<th
 								className={`${HEADER_BASE} cursor-pointer select-none hover:text-gray-200`}
 								onClick={() => handleSort("output")}
+								title={t("models.table.maxOut")}
 							>
 								<button
 									type="button"
@@ -502,6 +512,7 @@ export function VirtualModelTable({
 							<th
 								className={`${HEADER_BASE} cursor-pointer select-none hover:text-gray-200`}
 								onClick={() => handleSort("status")}
+								title={t("models.table.status")}
 							>
 								<button
 									type="button"

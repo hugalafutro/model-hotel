@@ -1058,7 +1058,8 @@
 			"keyCreated": "Clé virtuelle créée",
 			"keyCreatedFailed": "Échec: {{message}}",
 			"keyUpdated": "Clé virtuelle mise à jour",
-			"keyUpdateFailed": "Échec: {{message}}"
+			"keyUpdateFailed": "Échec: {{message}}",
+			"usageExamples": "Exemples d'utilisation"
 		}
 	},
 	"logs": {

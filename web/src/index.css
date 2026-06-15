@@ -1849,7 +1849,10 @@ html[data-ui-style="glassmorphism-lite"].light select.ui-input option:hover {
 [data-ui-style] .ui-table th {
 	padding: 0.375rem 0.5rem;
 	text-align: left;
-	font-size: 0.65rem;
+	/* Single source of truth for header size across all themes. 0.65rem read
+	   cramped/fuzzy on subpixel; 0.75rem felt heavy on the dense Requests
+	   table, so 0.65625rem (10.5px) sits just under the data cells' 0.75rem. */
+	font-size: 0.65625rem;
 	font-weight: 600;
 	text-transform: uppercase;
 	letter-spacing: 0.08em;
@@ -1904,7 +1907,10 @@ html.light [data-ui-style] .ui-table-virtual tbody tr.ui-row-even {
 }
 
 html[data-ui-style="cyber-terminal"] .ui-table th {
-	font-size: 9px;
+	/* No font-size here: inherit the shared .ui-table th size so headers match
+	   every other theme. This rule used to pin Terminal headers to 9px — a
+	   leftover from the glass-frost header era — which made them smaller than
+	   their own data rows. Keep only the wider mono tracking. */
 	letter-spacing: 0.15em;
 }
 
@@ -2014,6 +2020,12 @@ html[data-ui-style="cyber-terminal"] .ui-table-row-filter {
 
 .ui-table-header-text {
 	color: var(--text-muted);
+	/* Headers never wrap (whitespace-nowrap is in the shared HEADER_BASE); when
+	   a label is longer than its fixed column — common across locales for the
+	   dense Requests columns — truncate with an ellipsis instead of overflowing
+	   into the neighbouring header. The full label is exposed via title=. */
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 /* Light mode: table header text needs stronger contrast */
@@ -2027,7 +2039,9 @@ html[data-ui-style="light"] .ui-table-header-text {
 
 html[data-ui-style="cyber-terminal"] .ui-table-header-text {
 	font-family: var(--font-mono);
-	font-size: 9px;
+	/* Inherit the shared .ui-table th size so headers are consistent across
+	   themes; the mono face + wide tracking give Terminal its character
+	   without making the labels smaller than every other theme. */
 	letter-spacing: 0.15em;
 	text-transform: uppercase;
 }

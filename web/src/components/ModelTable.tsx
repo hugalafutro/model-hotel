@@ -281,7 +281,10 @@ export function ModelTable({
 								onSort={handleSort}
 								tooltip={t("components.modelTable.modelNameAndId")}
 							/>
-							<th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap ui-table-header-text">
+							<th
+								className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap ui-table-header-text"
+								title={t("components.modelDetailPanel.capabilities")}
+							>
 								{t("components.modelDetailPanel.capabilities")}
 							</th>
 							{showProviderCol && (

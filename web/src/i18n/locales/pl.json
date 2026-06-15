@@ -1058,7 +1058,8 @@
 			"keyCreated": "Klucz wirtualny został utworzony",
 			"keyCreatedFailed": "Niepowodzenie: {{message}}",
 			"keyUpdated": "Klucz wirtualny zaktualizowany",
-			"keyUpdateFailed": "Niepowodzenie: {{message}}"
+			"keyUpdateFailed": "Niepowodzenie: {{message}}",
+			"usageExamples": "Przykłady użycia"
 		}
 	},
 	"logs": {

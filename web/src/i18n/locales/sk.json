@@ -1058,7 +1058,8 @@
 			"keyCreated": "Vytvorený virtuálny kľúč",
 			"keyCreatedFailed": "Neúspešné: {{message}}",
 			"keyUpdated": "Virtuálny kľúč bol aktualizovaný",
-			"keyUpdateFailed": "Neúspešné: {{message}}"
+			"keyUpdateFailed": "Neúspešné: {{message}}",
+			"usageExamples": "Príklady použitia"
 		}
 	},
 	"logs": {

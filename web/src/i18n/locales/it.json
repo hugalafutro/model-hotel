@@ -1058,7 +1058,8 @@
 			"keyCreated": "Chiave virtuale creata",
 			"keyCreatedFailed": "Fallito: {{message}}",
 			"keyUpdated": "Chiave virtuale aggiornata",
-			"keyUpdateFailed": "Fallito: {{message}}"
+			"keyUpdateFailed": "Fallito: {{message}}",
+			"usageExamples": "Esempi di utilizzo"
 		}
 	},
 	"logs": {

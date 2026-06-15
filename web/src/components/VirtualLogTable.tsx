@@ -214,38 +214,69 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 							<th
 								className={`${HEADER_BASE} cursor-pointer`}
 								onClick={onSortToggle}
+								title={t("components.virtualLogTable.timeDate")}
 							>
 								{t("components.virtualLogTable.timeDate")}{" "}
 								{sortDir === "desc" ? "↓" : "↑"}
 							</th>
-							<th className={HEADER_BASE}>
+							<th
+								className={HEADER_BASE}
+								title={t("components.virtualLogTable.model")}
+							>
 								{t("components.virtualLogTable.model")}
 							</th>
-							<th className={HEADER_BASE}>
+							<th
+								className={HEADER_BASE}
+								title={t("components.virtualLogTable.provider")}
+							>
 								{t("components.virtualLogTable.provider")}
 							</th>
-							<th className={HEADER_BASE}>
+							<th
+								className={HEADER_BASE}
+								title={t("components.virtualLogTable.status")}
+							>
 								{t("components.virtualLogTable.status")}
 							</th>
-							<th className={HEADER_BASE}>
+							<th
+								className={HEADER_BASE}
+								title={t("components.virtualLogTable.tokens")}
+							>
 								{t("components.virtualLogTable.tokens")}
 							</th>
-							<th className={HEADER_BASE}>
+							<th
+								className={HEADER_BASE}
+								title={t("components.virtualLogTable.tps")}
+							>
 								{t("components.virtualLogTable.tps")}
 							</th>
-							<th className={HEADER_BASE}>
+							<th
+								className={HEADER_BASE}
+								title={t("components.virtualLogTable.headers")}
+							>
 								{t("components.virtualLogTable.headers")}
 							</th>
-							<th className={HEADER_BASE}>
+							<th
+								className={HEADER_BASE}
+								title={t("components.virtualLogTable.ttft")}
+							>
 								{t("components.virtualLogTable.ttft")}
 							</th>
-							<th className={HEADER_BASE}>
+							<th
+								className={HEADER_BASE}
+								title={t("components.virtualLogTable.duration")}
+							>
 								{t("components.virtualLogTable.duration")}
 							</th>
-							<th className={HEADER_BASE}>
+							<th
+								className={HEADER_BASE}
+								title={t("components.virtualLogTable.overhead")}
+							>
 								{t("components.virtualLogTable.overhead")}
 							</th>
-							<th className={HEADER_BASE}>
+							<th
+								className={HEADER_BASE}
+								title={t("components.virtualLogTable.key")}
+							>
 								{t("components.virtualLogTable.key")}
 							</th>
 						</tr>
