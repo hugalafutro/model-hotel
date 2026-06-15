@@ -983,7 +983,8 @@
 			"created": "Vytvořeno",
 			"tokens": "Tokeny",
 			"lastUsed": "Naposledy použito",
-			"keys": "klíče"
+			"keys": "klíče",
+			"tpm": "TPM"
 		},
 		"tooltip": {
 			"proxyUrl": "Kliknutím zkopírujete adresu proxy",

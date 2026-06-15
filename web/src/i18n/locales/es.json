@@ -983,7 +983,8 @@
 			"created": "Creado",
 			"tokens": "Tokens",
 			"lastUsed": "Último uso",
-			"keys": "llaves"
+			"keys": "llaves",
+			"tpm": "TPM"
 		},
 		"tooltip": {
 			"proxyUrl": "Haga clic para copiar la URL del proxy",

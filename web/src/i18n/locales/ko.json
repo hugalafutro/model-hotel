@@ -983,7 +983,8 @@
 			"created": "작성됨",
 			"tokens": "토큰",
 			"lastUsed": "마지막 사용일",
-			"keys": "키"
+			"keys": "키",
+			"tpm": "TPM"
 		},
 		"tooltip": {
 			"proxyUrl": "클릭하여 프록시 URL 복사",

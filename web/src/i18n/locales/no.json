@@ -983,7 +983,8 @@
 			"created": "Opprettet",
 			"tokens": "Symboler",
 			"lastUsed": "Sist brukt",
-			"keys": "nøkler"
+			"keys": "nøkler",
+			"tpm": "TPM"
 		},
 		"tooltip": {
 			"proxyUrl": "Klikk for å kopiere proxy-URL",

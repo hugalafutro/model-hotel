@@ -983,7 +983,8 @@
 			"created": "נוצר",
 			"tokens": "אסימונים",
 			"lastUsed": "השימוש האחרון",
-			"keys": "מפתחות"
+			"keys": "מפתחות",
+			"tpm": "TPM"
 		},
 		"tooltip": {
 			"proxyUrl": "לחץ כדי להעתיק את כתובת ה-proxy",

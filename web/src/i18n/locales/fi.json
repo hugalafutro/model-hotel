@@ -983,7 +983,8 @@
 			"created": "Luotu",
 			"tokens": "Tokenit",
 			"lastUsed": "Viimeksi Käytetty",
-			"keys": "avaimet"
+			"keys": "avaimet",
+			"tpm": "TPM"
 		},
 		"tooltip": {
 			"proxyUrl": "Klikkaa kopioidaksesi välityspalvelimen URL-osoite",

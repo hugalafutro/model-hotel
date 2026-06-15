@@ -299,6 +299,7 @@ describe("VirtualKeys edge cases", () => {
 			name: "No Limits Key",
 			rate_limit_rps: null,
 			rate_limit_burst: null,
+			rate_limit_tpm: null,
 		};
 		server.use(
 			http.get("/api/virtual-keys", () =>
@@ -326,8 +327,8 @@ describe("VirtualKeys edge cases", () => {
 			name: "Virtual Key Details",
 		});
 
-		// Verify view mode shows "Global" for null limits (RPS and Burst)
-		expect(within(dialog).getAllByText("Global")).toHaveLength(2);
+		// Verify view mode shows "Global" for null limits (RPS, Burst and TPM)
+		expect(within(dialog).getAllByText("Global")).toHaveLength(3);
 
 		// Click Edit button to enter edit mode
 		const editButton = within(dialog).getByRole("button", {

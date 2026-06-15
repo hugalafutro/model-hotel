@@ -983,7 +983,8 @@
 			"created": "Skapad",
 			"tokens": "Tokens",
 			"lastUsed": "Senast använd",
-			"keys": "nycklar"
+			"keys": "nycklar",
+			"tpm": "TPM"
 		},
 		"tooltip": {
 			"proxyUrl": "Klicka för att kopiera proxy URL",

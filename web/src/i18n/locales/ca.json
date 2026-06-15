@@ -983,7 +983,8 @@
 			"created": "Creat",
 			"tokens": "Fitxes",
 			"lastUsed": "Últim ús",
-			"keys": "claus"
+			"keys": "claus",
+			"tpm": "TPM"
 		},
 		"tooltip": {
 			"proxyUrl": "Feu clic per copiar l'URL del proxy",

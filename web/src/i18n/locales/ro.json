@@ -983,7 +983,8 @@
 			"created": "Creat",
 			"tokens": "Token-uri",
 			"lastUsed": "Ultima utilizare",
-			"keys": "chei"
+			"keys": "chei",
+			"tpm": "TPM"
 		},
 		"tooltip": {
 			"proxyUrl": "Faceți clic pentru a copia URL-ul proxy",

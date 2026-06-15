@@ -14,6 +14,7 @@ describe("Rate Limit RPS = 0", () => {
 			name: "Zero RPS Key",
 			rate_limit_rps: 0,
 			rate_limit_burst: 0,
+			rate_limit_tpm: 0,
 		};
 		server.use(
 			http.get("/api/virtual-keys", () => HttpResponse.json([keyWithZeroRps])),
@@ -25,10 +26,10 @@ describe("Rate Limit RPS = 0", () => {
 			expect(screen.getByText("Zero RPS Key")).toBeInTheDocument();
 		});
 
-		// Table should show "0" for RPS and Burst, not "Global"
+		// Table should show "0" for RPS, Burst and TPM, not "Global"
 		const table = screen.getByRole("table");
-		// Both RPS and Burst are 0
-		expect(within(table).getAllByText("0")).toHaveLength(2);
+		// RPS, Burst and TPM are all 0
+		expect(within(table).getAllByText("0")).toHaveLength(3);
 		// "Global" should not appear (null → "Global", but 0 → "0")
 		expect(within(table).queryByText("Global")).not.toBeInTheDocument();
 	});

@@ -983,7 +983,8 @@
 			"created": "Được tạo",
 			"tokens": "Token",
 			"lastUsed": "Lần sử dụng gần nhất",
-			"keys": "phím"
+			"keys": "phím",
+			"tpm": "TPM"
 		},
 		"tooltip": {
 			"proxyUrl": "Nhấp vào đây để sao chép URL proxy",

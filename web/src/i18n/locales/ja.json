@@ -983,7 +983,8 @@
 			"created": "作成済み",
 			"tokens": "トークン",
 			"lastUsed": "最後に使用したもの",
-			"keys": "キー"
+			"keys": "キー",
+			"tpm": "TPM"
 		},
 		"tooltip": {
 			"proxyUrl": "クリックしてプロキシ URL をコピー",

@@ -983,7 +983,8 @@
 			"created": "已创建",
 			"tokens": "令牌",
 			"lastUsed": "上次使用",
-			"keys": "密钥"
+			"keys": "密钥",
+			"tpm": "TPM"
 		},
 		"tooltip": {
 			"proxyUrl": "点击复制代理 URL",

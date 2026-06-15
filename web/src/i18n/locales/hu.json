@@ -983,7 +983,8 @@
 			"created": "Létrehozva",
 			"tokens": "Zsetonok",
 			"lastUsed": "Utoljára használt",
-			"keys": "gombok"
+			"keys": "gombok",
+			"tpm": "TPM"
 		},
 		"tooltip": {
 			"proxyUrl": "Kattintson a proxy URL másolásához",

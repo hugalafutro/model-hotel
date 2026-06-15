@@ -980,6 +980,7 @@
 			"key": "Key",
 			"rps": "RPS",
 			"burst": "Burst",
+			"tpm": "TPM",
 			"created": "Created",
 			"tokens": "Tokens",
 			"lastUsed": "Last Used",

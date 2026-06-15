@@ -983,7 +983,8 @@
 			"created": "Oluşturuldu",
 			"tokens": "Jetonlar",
 			"lastUsed": "En Son Kullanım Tarihi",
-			"keys": "tuşlar"
+			"keys": "tuşlar",
+			"tpm": "TPM"
 		},
 		"tooltip": {
 			"proxyUrl": "Proxy URL'sini kopyalamak için tıklayın",
