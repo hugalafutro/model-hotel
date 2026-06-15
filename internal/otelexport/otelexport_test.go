@@ -145,4 +145,52 @@ func TestServiceResource(t *testing.T) {
 			t.Error("serviceResource(\"\") returned nil")
 		}
 	})
+
+	// Regression: a substring check would treat the standard service.namespace
+	// attribute as "service.name is set" and skip our default. Merge wins, so a
+	// correct parse still yields model-hotel here.
+	t.Run("service.namespace does not suppress the default service name", func(t *testing.T) {
+		t.Setenv("OTEL_SERVICE_NAME", "")
+		t.Setenv(
+			"OTEL_RESOURCE_ATTRIBUTES",
+			"service.namespace=prod,deployment.environment=staging",
+		)
+		if got := serviceNameOf(serviceResource("model-hotel")); got != "model-hotel" {
+			t.Errorf(
+				"service.name = %q, want model-hotel (service.namespace must not be read as service.name)",
+				got,
+			)
+		}
+	})
+
+	t.Run("explicit service.name in OTEL_RESOURCE_ATTRIBUTES is not overridden", func(t *testing.T) {
+		t.Setenv("OTEL_SERVICE_NAME", "")
+		t.Setenv("OTEL_RESOURCE_ATTRIBUTES", "service.name=from-attrs")
+		if got := serviceNameOf(serviceResource("model-hotel")); got == "model-hotel" {
+			t.Error("an explicit service.name in OTEL_RESOURCE_ATTRIBUTES must not be overridden by the default")
+		}
+	})
+}
+
+func TestResourceAttrsHaveServiceName(t *testing.T) {
+	cases := []struct {
+		name  string
+		attrs string
+		want  bool
+	}{
+		{"empty", "", false},
+		{"exact key", "service.name=foo", true},
+		{"exact key among others", "deployment.environment=prod,service.name=foo", true},
+		{"namespace only (substring trap)", "service.namespace=prod", false},
+		{"spaced key", " service.name = foo ", true},
+		{"unrelated", "deployment.environment=prod", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("OTEL_RESOURCE_ATTRIBUTES", tc.attrs)
+			if got := resourceAttrsHaveServiceName(); got != tc.want {
+				t.Errorf("resourceAttrsHaveServiceName(%q) = %v, want %v", tc.attrs, got, tc.want)
+			}
+		})
+	}
 }

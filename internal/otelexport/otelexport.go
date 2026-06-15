@@ -82,7 +82,7 @@ func serviceResource(serviceName string) *resource.Resource {
 	res := resource.Default()
 	if serviceName == "" ||
 		os.Getenv("OTEL_SERVICE_NAME") != "" ||
-		strings.Contains(os.Getenv("OTEL_RESOURCE_ATTRIBUTES"), "service.name") {
+		resourceAttrsHaveServiceName() {
 		return res
 	}
 	merged, err := resource.Merge(res,
@@ -91,6 +91,19 @@ func serviceResource(serviceName string) *resource.Resource {
 		return res
 	}
 	return merged
+}
+
+// resourceAttrsHaveServiceName reports whether OTEL_RESOURCE_ATTRIBUTES sets the
+// service.name key. It parses the standard "key=value,key=value" form and matches
+// the key exactly, so a different key that merely contains the text — notably the
+// standard service.namespace — does not false-positive and suppress our default.
+func resourceAttrsHaveServiceName() bool {
+	for _, kv := range strings.Split(os.Getenv("OTEL_RESOURCE_ATTRIBUTES"), ",") {
+		if key, _, ok := strings.Cut(kv, "="); ok && strings.TrimSpace(key) == "service.name" {
+			return true
+		}
+	}
+	return false
 }
 
 // newExporter builds the OTLP log exporter for the configured transport. Both
