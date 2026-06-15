@@ -4,6 +4,28 @@ import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { AddProviderModal } from "../AddProviderModal";
 
+// The provider-type control is a themed FilterDropdown (custom button + popup),
+// not a native <select>, so it's driven by clicking the trigger then the option
+// (matched by data-value, never by translated label text).
+function typeTrigger(): HTMLElement {
+	return screen.getByRole("button", { name: /^Type/ });
+}
+async function selectType(
+	user: { click: (el: Element) => Promise<void> },
+	value: string,
+): Promise<void> {
+	await user.click(typeTrigger());
+	const opt = document.querySelector(`[data-value="${value}"]`);
+	if (!opt) throw new Error(`provider type option not found: ${value}`);
+	await user.click(opt);
+}
+function selectTypeSync(value: string): void {
+	fireEvent.click(typeTrigger());
+	const opt = document.querySelector(`[data-value="${value}"]`);
+	if (!opt) throw new Error(`provider type option not found: ${value}`);
+	fireEvent.click(opt);
+}
+
 describe("AddProviderModal", () => {
 	const onClose = vi.fn();
 	const onToast = vi.fn();
@@ -32,7 +54,7 @@ describe("AddProviderModal", () => {
 
 		it("renders type select field", () => {
 			renderWithProviders(<AddProviderModal {...defaultProps} />);
-			expect(screen.getByLabelText("Type")).toBeInTheDocument();
+			expect(typeTrigger()).toBeInTheDocument();
 		});
 
 		it("renders name input field", () => {
@@ -74,7 +96,7 @@ describe("AddProviderModal", () => {
 
 		it("renders form with all required fields", () => {
 			renderWithProviders(<AddProviderModal {...defaultProps} />);
-			expect(screen.getByLabelText("Type")).toBeInTheDocument();
+			expect(typeTrigger()).toBeInTheDocument();
 			expect(screen.getByLabelText("Name")).toBeInTheDocument();
 			expect(screen.getByLabelText("Base URL")).toBeInTheDocument();
 			expect(screen.getByLabelText("API Key")).toBeInTheDocument();
@@ -104,19 +126,23 @@ describe("AddProviderModal", () => {
 	});
 
 	describe("provider type selection", () => {
-		it("shows custom as default type", () => {
-			renderWithProviders(<AddProviderModal {...defaultProps} />);
-			const typeSelect = screen.getByLabelText("Type");
-			expect(typeSelect).toHaveValue("custom");
+		it("shows custom as default type", async () => {
+			const { user } = renderWithProviders(
+				<AddProviderModal {...defaultProps} />,
+			);
+			await user.click(typeTrigger());
+			expect(document.querySelector('[data-value="custom"]')).toHaveAttribute(
+				"data-selected",
+				"true",
+			);
 		});
 
 		it("updates base URL when selecting a preset provider type", async () => {
 			const { user } = renderWithProviders(
 				<AddProviderModal {...defaultProps} />,
 			);
-			const typeSelect = screen.getByLabelText("Type");
 			// Select a preset type (not custom)
-			await user.selectOptions(typeSelect, "openai");
+			await selectType(user, "openai");
 			// Base URL should be updated to preset value
 			const baseUrlInput = screen.getByLabelText("Base URL");
 			expect(baseUrlInput).toHaveValue("https://api.openai.com/v1");
@@ -126,8 +152,7 @@ describe("AddProviderModal", () => {
 			const { user } = renderWithProviders(
 				<AddProviderModal {...defaultProps} />,
 			);
-			const typeSelect = screen.getByLabelText("Type");
-			await user.selectOptions(typeSelect, "openai");
+			await selectType(user, "openai");
 			const nameInput = screen.getByLabelText("Name");
 			expect(nameInput).toHaveValue("OpenAI");
 		});
@@ -145,8 +170,7 @@ describe("AddProviderModal", () => {
 			const { user } = renderWithProviders(
 				<AddProviderModal {...defaultProps} />,
 			);
-			const typeSelect = screen.getByLabelText("Type");
-			await user.selectOptions(typeSelect, "openai");
+			await selectType(user, "openai");
 			const baseUrlInput = screen.getByLabelText("Base URL");
 			expect(baseUrlInput).toHaveAttribute("readonly");
 		});
@@ -155,8 +179,7 @@ describe("AddProviderModal", () => {
 			const { user } = renderWithProviders(
 				<AddProviderModal {...defaultProps} />,
 			);
-			const typeSelect = screen.getByLabelText("Type");
-			await user.selectOptions(typeSelect, "openai");
+			await selectType(user, "openai");
 			expect(
 				screen.getByText("Base URL is preset for this provider type"),
 			).toBeInTheDocument();
@@ -212,8 +235,7 @@ describe("AddProviderModal", () => {
 			const { user } = renderWithProviders(
 				<AddProviderModal {...defaultProps} />,
 			);
-			const typeSelect = screen.getByLabelText("Type");
-			await user.selectOptions(typeSelect, "ollama");
+			await selectType(user, "ollama");
 			const apiKeyInput = screen.getByLabelText("API Key");
 			expect(apiKeyInput).toHaveAttribute("placeholder", "API key");
 		});
@@ -872,10 +894,9 @@ describe("AddProviderModal", () => {
 	describe("generateProviderName", () => {
 		it("returns base display name when no providers exist", () => {
 			renderWithProviders(<AddProviderModal {...defaultProps} />);
-			const typeSelect = screen.getByLabelText("Type");
 			const nameInput = screen.getByLabelText("Name");
 			// Select OpenAI type - should set name to "OpenAI"
-			fireEvent.change(typeSelect, { target: { value: "openai" } });
+			selectTypeSync("openai");
 			expect(nameInput).toHaveValue("OpenAI");
 		});
 
@@ -899,9 +920,8 @@ describe("AddProviderModal", () => {
 			renderWithProviders(
 				<AddProviderModal {...defaultProps} providers={existingProviders} />,
 			);
-			const typeSelect = screen.getByLabelText("Type");
 			const nameInput = screen.getByLabelText("Name");
-			fireEvent.change(typeSelect, { target: { value: "openai" } });
+			selectTypeSync("openai");
 			expect(nameInput).toHaveValue("OpenAI 2");
 		});
 
@@ -939,9 +959,8 @@ describe("AddProviderModal", () => {
 			renderWithProviders(
 				<AddProviderModal {...defaultProps} providers={existingProviders} />,
 			);
-			const typeSelect = screen.getByLabelText("Type");
 			const nameInput = screen.getByLabelText("Name");
-			fireEvent.change(typeSelect, { target: { value: "openai" } });
+			selectTypeSync("openai");
 			expect(nameInput).toHaveValue("OpenAI 3");
 		});
 	});
@@ -951,12 +970,11 @@ describe("AddProviderModal", () => {
 			const { user } = renderWithProviders(
 				<AddProviderModal {...defaultProps} />,
 			);
-			const typeSelect = screen.getByLabelText("Type");
 			const nameInput = screen.getByLabelText("Name");
 			const baseUrlInput = screen.getByLabelText("Base URL");
 
 			// First select a preset type
-			await user.selectOptions(typeSelect, "openai");
+			await selectType(user, "openai");
 			expect(nameInput).toHaveValue("OpenAI");
 			expect(baseUrlInput).toHaveValue("https://api.openai.com/v1");
 
@@ -965,7 +983,7 @@ describe("AddProviderModal", () => {
 			await user.type(nameInput, "My Custom OpenAI");
 			// Base URL is readonly for preset types, so we need to switch to custom first
 			// Actually, let's just test that switching to custom preserves the name
-			await user.selectOptions(typeSelect, "custom");
+			await selectType(user, "custom");
 
 			// Name should be preserved (not overwritten)
 			expect(nameInput).toHaveValue("My Custom OpenAI");
@@ -979,8 +997,7 @@ describe("AddProviderModal", () => {
 			const { user } = renderWithProviders(
 				<AddProviderModal {...defaultProps} />,
 			);
-			const typeSelect = screen.getByLabelText("Type");
-			await user.selectOptions(typeSelect, "ollama");
+			await selectType(user, "ollama");
 			const baseUrlInput = screen.getByLabelText("Base URL");
 			// Should have default value
 			expect(baseUrlInput).toHaveValue("http://localhost:11434");
@@ -996,8 +1013,7 @@ describe("AddProviderModal", () => {
 			const { user } = renderWithProviders(
 				<AddProviderModal {...defaultProps} />,
 			);
-			const typeSelect = screen.getByLabelText("Type");
-			await user.selectOptions(typeSelect, "lmstudio");
+			await selectType(user, "lmstudio");
 			const baseUrlInput = screen.getByLabelText("Base URL");
 			expect(baseUrlInput).toHaveValue("http://localhost:1234/v1");
 			expect(baseUrlInput).not.toHaveAttribute("readonly");
@@ -1007,8 +1023,7 @@ describe("AddProviderModal", () => {
 			const { user } = renderWithProviders(
 				<AddProviderModal {...defaultProps} />,
 			);
-			const typeSelect = screen.getByLabelText("Type");
-			await user.selectOptions(typeSelect, "koboldcpp");
+			await selectType(user, "koboldcpp");
 			const baseUrlInput = screen.getByLabelText("Base URL");
 			expect(baseUrlInput).toHaveValue("http://localhost:5001/v1");
 			expect(baseUrlInput).not.toHaveAttribute("readonly");
@@ -1020,8 +1035,7 @@ describe("AddProviderModal", () => {
 			const { user } = renderWithProviders(
 				<AddProviderModal {...defaultProps} />,
 			);
-			const typeSelect = screen.getByLabelText("Type");
-			await user.selectOptions(typeSelect, "opencode-zen");
+			await selectType(user, "opencode-zen");
 			const apiKeyInput = screen.getByLabelText("API Key");
 			expect(apiKeyInput).toHaveAttribute(
 				"placeholder",
@@ -1033,8 +1047,7 @@ describe("AddProviderModal", () => {
 			const { user } = renderWithProviders(
 				<AddProviderModal {...defaultProps} />,
 			);
-			const typeSelect = screen.getByLabelText("Type");
-			await user.selectOptions(typeSelect, "opencode-zen");
+			await selectType(user, "opencode-zen");
 			const apiKeyInput = screen.getByLabelText("API Key");
 			expect(apiKeyInput).not.toHaveAttribute("required");
 		});
@@ -1045,8 +1058,7 @@ describe("AddProviderModal", () => {
 			const { user } = renderWithProviders(
 				<AddProviderModal {...defaultProps} />,
 			);
-			const typeSelect = screen.getByLabelText("Type");
-			await user.selectOptions(typeSelect, "ollama");
+			await selectType(user, "ollama");
 			const apiKeyInput = screen.getByLabelText("API Key");
 			expect(apiKeyInput).not.toHaveAttribute("required");
 		});
@@ -1055,8 +1067,7 @@ describe("AddProviderModal", () => {
 			const { user } = renderWithProviders(
 				<AddProviderModal {...defaultProps} />,
 			);
-			const typeSelect = screen.getByLabelText("Type");
-			await user.selectOptions(typeSelect, "koboldcpp");
+			await selectType(user, "koboldcpp");
 			const apiKeyInput = screen.getByLabelText("API Key");
 			expect(apiKeyInput).not.toHaveAttribute("required");
 		});
@@ -1065,8 +1076,7 @@ describe("AddProviderModal", () => {
 			const { user } = renderWithProviders(
 				<AddProviderModal {...defaultProps} />,
 			);
-			const typeSelect = screen.getByLabelText("Type");
-			await user.selectOptions(typeSelect, "lmstudio");
+			await selectType(user, "lmstudio");
 			const apiKeyInput = screen.getByLabelText("API Key");
 			expect(apiKeyInput).not.toHaveAttribute("required");
 		});

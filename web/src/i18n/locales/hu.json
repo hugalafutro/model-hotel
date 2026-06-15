@@ -1732,7 +1732,6 @@
 			"failedToRename": "A jelszó átnevezése nem sikerült: {{message}}"
 		},
 		"observability": {
-			"description": "A Model Hotel strukturált naplóit és mutatóit külső rendszerekbe exportálhatja. Minden integrációt egy környezeti változóval lehet engedélyezni, így az alábbi kapcsolók csak olvasásra szolgálnak, és a jelenlegi állapotot tükrözik. Soha nem kerül exportálásra kérés- vagy válasz tartalom – csak az útválasztási és mérési metaadatok.",
 			"json.description": "Strukturált naplókat adjon ki egy JSON-objektumként soronként, olyan stdout naplógyűjtők számára, mint a Fluent Bit, a Vector vagy a Promtail.",
 			"json.instructions": "Állítsa be ezt a környezeti változót, és indítsa újra a konténert a JSON formátumú naplófájlok kibocsátásához:",
 			"json.name": "JSON-naplók (stdout)",
@@ -1742,7 +1741,8 @@
 			"otel.description": "Ugyanazokat a strukturált naplókat küldje el egy OpenTelemetry gyűjtőnek OTLP-n keresztül (csak naplók – nyomkövetés és mutatók nélkül).",
 			"otel.instructions": "Irányítsa ezt az OTLP-gyűjtő végpontjára, és indítsa újra a konténert a naplófájlok OpenTelemetry-n keresztüli továbbításához:",
 			"otel.name": "OpenTelemetry naplófájlok (OTLP)",
-			"title": "Megfigyelhetőség és naplóexport"
+			"title": "Megfigyelhetőség és naplóexport",
+			"description": "A Model Hotel strukturált naplóit és mutatóit külső rendszerekbe exportálhatja. Minden integrációt egy környezeti változóval lehet engedélyezni; az alábbi állapotjelzők a jelenlegi állapotot tükrözik. Soha nem kerül exportálásra semmilyen kérés vagy válasz tartalma — csak az útválasztási és mérési metaadatok."
 		}
 	},
 	"components": {

@@ -312,6 +312,9 @@ The three UI styles applied to the dashboard (dark mode, each style's default ac
 
 *Left to right: Clean SaaS (default), Cyber Terminal, Glassmorphism.*
 
+![Settings Observability](screenshots/settings_observability.png)
+*Settings page - Observability & Log Export section: read-only status of the three log-export integrations. JSON logs enabled here; Prometheus and OTLP disabled, each showing its copyable enable instruction.*
+
 ![Settings Rate Limiting](screenshots/settings_ratelimit_failover.png)
 *Settings page - Rate Limiting section expanded, showing the enable toggle, RPS selector, and Burst selector.*
 

@@ -1732,7 +1732,6 @@
 			"failedToRename": "Falha ao renomear a senha: {{message}}"
 		},
 		"observability": {
-			"description": "O Model Hotel pode exportar seus logs e métricas estruturados para sistemas externos. Cada integração é habilitada por uma variável de ambiente, portanto, os botões abaixo são somente de leitura e refletem o estado atual. Nenhum conteúdo de solicitação ou resposta é exportado — apenas metadados de roteamento e medição.",
 			"json.description": "Emita logs estruturados como um objeto JSON por linha, para coletores de logs stdout, como Fluent Bit, Vector ou Promtail.",
 			"json.instructions": "Defina esta variável de ambiente e reinicie o contêiner para emitir logs no formato JSON:",
 			"json.name": "Logs JSON (stdout)",
@@ -1742,7 +1741,8 @@
 			"otel.description": "Envie os mesmos logs estruturados para um coletor OpenTelemetry via OTLP (apenas logs — sem rastreamento ou métricas).",
 			"otel.instructions": "Aponte isso para o seu endpoint do coletor OTLP e reinicie o contêiner para enviar logs via OpenTelemetry:",
 			"otel.name": "Logs do OpenTelemetry (OTLP)",
-			"title": "Observabilidade e exportação de logs"
+			"title": "Observabilidade e exportação de logs",
+			"description": "O Model Hotel pode exportar seus logs e métricas estruturados para sistemas externos. Cada integração é ativada por uma variável de ambiente; os ícones de status abaixo refletem o estado atual. Nenhum conteúdo de solicitação ou resposta é exportado — apenas metadados de roteamento e medição."
 		}
 	},
 	"components": {

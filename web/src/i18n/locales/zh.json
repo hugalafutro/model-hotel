@@ -1732,7 +1732,6 @@
 			"failedToRename": "重命名密钥失败： {{message}}"
 		},
 		"observability": {
-			"description": "Model Hotel 可将其结构化日志和指标导出至外部系统。每项集成均通过环境变量启用，因此下方的开关仅为只读状态，仅反映当前状态。绝不会导出任何请求或响应内容——仅导出路由和计量元数据。",
 			"json.description": "为 Fluent Bit、Vector 或 Promtail 等标准输出日志收集器生成结构化日志，每行输出一个 JSON 对象。",
 			"json.instructions": "设置此环境变量并重启容器，以输出 JSON 格式的日志：",
 			"json.name": "JSON日志（标准输出）",
@@ -1742,7 +1741,8 @@
 			"otel.description": "通过 OTLP 将相同结构的日志推送到 OpenTelemetry 收集器（仅限日志——不包含追踪或指标）。",
 			"otel.instructions": "将此配置指向您的 OTLP 收集器端点，并重启容器以通过 OpenTelemetry 推送日志：",
 			"otel.name": "OpenTelemetry 日志 (OTLP)",
-			"title": "可观测性与日志导出"
+			"title": "可观测性与日志导出",
+			"description": "Model Hotel 可将其结构化日志和指标导出至外部系统。每项集成均通过环境变量启用；下方的状态图标反映当前状态。绝不导出任何请求或响应内容——仅导出路由和计量元数据。"
 		}
 	},
 	"components": {

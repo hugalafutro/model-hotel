@@ -1732,7 +1732,6 @@
 			"failedToRename": "Det gick inte att byta namn på lösenord: {{message}}"
 		},
 		"observability": {
-			"description": "Model Hotel kan exportera sina strukturerade loggar och mätvärden till externa system. Varje integration aktiveras med en miljövariabel, så knapparna nedan är skrivskyddade och återspeglar det aktuella läget. Inget innehåll från förfrågningar eller svar exporteras någonsin – endast metadata om routning och mätning.",
 			"json.description": "Skicka strukturerade loggar som ett JSON-objekt per rad, för stdout-loggsamlare som Fluent Bit, Vector eller Promtail.",
 			"json.instructions": "Ställ in denna miljövariabel och starta om containern för att skicka loggar i JSON-format:",
 			"json.name": "JSON-loggar (stdout)",
@@ -1742,7 +1741,8 @@
 			"otel.description": "Skicka samma strukturerade loggar till en OpenTelemetry-samlare via OTLP (endast loggar – ingen spårning eller mätvärden).",
 			"otel.instructions": "Peka detta mot din OTLP-samlarändpunkt och starta om containern för att skicka loggar via OpenTelemetry:",
 			"otel.name": "OpenTelemetry-loggar (OTLP)",
-			"title": "Observabilitet och loggexport"
+			"title": "Observabilitet och loggexport",
+			"description": "Model Hotel kan exportera sina strukturerade loggar och mätvärden till externa system. Varje integration aktiveras med en miljövariabel; statusmarkeringarna nedan återspeglar det aktuella läget. Inget innehåll från förfrågningar eller svar exporteras någonsin – endast metadata om routning och mätning."
 		}
 	},
 	"components": {

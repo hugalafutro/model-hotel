@@ -1732,7 +1732,6 @@
 			"failedToRename": "Impossible de renommer le mot de passe : {{message}}"
 		},
 		"observability": {
-			"description": "Model Hotel peut exporter ses journaux et métriques structurés vers des systèmes externes. Chaque intégration est activée via une variable d'environnement ; les boutons ci-dessous sont donc en lecture seule et reflètent l'état actuel. Aucun contenu de requête ou de réponse n'est jamais exporté — seules les métadonnées de routage et de mesure le sont.",
 			"json.description": "Générez des journaux structurés sous la forme d'un objet JSON par ligne, pour les collecteurs de journaux stdout tels que Fluent Bit, Vector ou Promtail.",
 			"json.instructions": "Définissez cette variable d'environnement et redémarrez le conteneur pour générer des journaux au format JSON :",
 			"json.name": "Journaux JSON (stdout)",
@@ -1742,7 +1741,8 @@
 			"otel.description": "Envoyez les mêmes journaux structurés vers un collecteur OpenTelemetry via OTLP (journaux uniquement — pas de traçage ni de métriques).",
 			"otel.instructions": "Pointez ceci vers votre point de terminaison de collecteur OTLP et redémarrez le conteneur pour envoyer les journaux via OpenTelemetry :",
 			"otel.name": "Journaux OpenTelemetry (OTLP)",
-			"title": "Observabilité et exportation des journaux"
+			"title": "Observabilité et exportation des journaux",
+			"description": "Model Hotel peut exporter ses journaux et métriques structurés vers des systèmes externes. Chaque intégration est activée par une variable d'environnement ; les badges d'état ci-dessous reflètent l'état actuel. Aucun contenu de requête ou de réponse n'est jamais exporté — seules les métadonnées de routage et de mesure le sont."
 		}
 	},
 	"components": {

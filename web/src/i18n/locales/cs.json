@@ -1732,7 +1732,6 @@
 			"failedToRename": "Přejmenování přístupového klíče selhalo: {{message}}"
 		},
 		"observability": {
-			"description": "Model Hotel může exportovat své strukturované protokoly a metriky do externích systémů. Každá integrace je povolena pomocí proměnné prostředí, takže níže uvedené přepínače jsou pouze pro čtení a odrážejí aktuální stav. Obsah žádostí ani odpovědí se nikdy neexportuje – pouze metadata směrování a měření.",
 			"json.description": "Vydávejte strukturované protokoly jako jeden objekt JSON na řádek pro sběrače protokolů stdout, jako jsou Fluent Bit, Vector nebo Promtail.",
 			"json.instructions": "Nastavte tuto proměnnou prostředí a restartujte kontejner, aby se generovaly protokoly ve formátu JSON:",
 			"json.name": "JSON protokoly (stdout)",
@@ -1742,7 +1741,8 @@
 			"otel.description": "Odesílejte stejné strukturované protokoly do sběrače OpenTelemetry přes OTLP (pouze protokoly – žádné trasování ani metriky).",
 			"otel.instructions": "Nasměrujte to na koncový bod sběrače OTLP a restartujte kontejner, aby se protokoly odesílaly přes OpenTelemetry:",
 			"otel.name": "Protokoly OpenTelemetry (OTLP)",
-			"title": "Sledovatelnost a export protokolů"
+			"title": "Sledovatelnost a export protokolů",
+			"description": "Model Hotel může exportovat své strukturované protokoly a metriky do externích systémů. Každá integrace se aktivuje pomocí proměnné prostředí; níže uvedené stavové ikony odrážejí aktuální stav. Nikdy se neexportuje obsah žádostí ani odpovědí — pouze metadata o směrování a měření."
 		}
 	},
 	"components": {

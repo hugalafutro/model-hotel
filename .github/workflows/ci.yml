@@ -147,8 +147,77 @@ jobs:
       - name: actionlint
         run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 -color
 
-  frontend:
+  frontend-checks:
     name: Frontend Lint & Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6
+        with:
+          version: 10
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Build
+        run: pnpm run build
+
+  # The 5k-test vitest suite was the sole CI wall-clock bottleneck (~7-8 min),
+  # so it is split into parallel shards. Each shard writes a blob report (with
+  # embedded coverage); frontend-coverage merges them for the gate + Codecov.
+  frontend-test:
+    name: Frontend Test (shard ${{ matrix.shard }}/3)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6
+        with:
+          version: 10
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Test (shard ${{ matrix.shard }}/3)
+        run: pnpm exec vitest run --coverage --reporter=blob --outputFile=.vitest-reports/blob-${{ matrix.shard }}.json --shard=${{ matrix.shard }}/3
+
+      - name: Upload blob report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: vitest-blob-${{ matrix.shard }}
+          path: web/.vitest-reports/*
+          include-hidden-files: true
+          retention-days: 1
+
+  frontend-coverage:
+    name: Frontend Coverage Gate
+    needs: frontend-test
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -158,28 +227,36 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24
-
       - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6
         with:
           version: 10
 
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint
-        run: pnpm run lint
+      - name: Download blob reports
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: vitest-blob-*
+          path: web/.vitest-reports
+          merge-multiple: true
 
-      - name: Test
-        run: pnpm vitest run --coverage
+      - name: Merge shard reports + coverage
+        run: pnpm exec vitest --mergeReports --coverage
 
       - name: Check frontend coverage (80% threshold)
         run: |
+          # The merge step above always writes this; a missing file means the
+          # shard merge failed, so fail loudly rather than skip the gate.
           if [ ! -f coverage/coverage-summary.json ]; then
-            echo "WARNING: no coverage-summary.json, skipping gate"
-            exit 0
+            echo "FAIL: no coverage-summary.json — shard merge produced no coverage"
+            exit 1
           fi
           pct=$(python3 -c "
           import json,sys
@@ -194,7 +271,7 @@ jobs:
             echo "FAIL: frontend coverage ${pct}% is below 80% threshold"
             exit 1
           fi
- 
+
       - name: Upload frontend coverage to Codecov
         if: always()
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
@@ -203,9 +280,6 @@ jobs:
           flags: frontend
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
-
-      - name: Build
-        run: pnpm run build
 
   docker-build:
     name: Docker Build

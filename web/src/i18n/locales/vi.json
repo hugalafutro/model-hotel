@@ -1732,7 +1732,6 @@
 			"failedToRename": "Không thể đổi tên khóa truy cập: {{message}}"
 		},
 		"observability": {
-			"description": "Model Hotel có thể xuất nhật ký và số liệu có cấu trúc của mình sang các hệ thống bên ngoài. Mỗi tích hợp được kích hoạt bằng một biến môi trường, do đó các nút chuyển đổi bên dưới chỉ có thể đọc và phản ánh trạng thái hiện tại. Không có nội dung yêu cầu hoặc phản hồi nào được xuất — chỉ có siêu dữ liệu định tuyến và đo lường.",
 			"json.description": "Phát ra nhật ký có cấu trúc dưới dạng một đối tượng JSON trên mỗi dòng, dành cho các công cụ thu thập nhật ký stdout như Fluent Bit, Vector hoặc Promtail.",
 			"json.instructions": "Đặt biến môi trường này và khởi động lại container để phát ra nhật ký định dạng JSON:",
 			"json.name": "Nhật ký JSON (stdout)",
@@ -1742,7 +1741,8 @@
 			"otel.description": "Gửi các bản ghi có cấu trúc tương tự đến bộ thu thập OpenTelemetry qua OTLP (chỉ bản ghi — không có theo dõi hoặc số liệu).",
 			"otel.instructions": "Hướng điều này đến điểm cuối thu thập OTLP của bạn và khởi động lại container để đẩy nhật ký qua OpenTelemetry:",
 			"otel.name": "Nhật ký OpenTelemetry (OTLP)",
-			"title": "Khả năng quan sát & Xuất nhật ký"
+			"title": "Khả năng quan sát & Xuất nhật ký",
+			"description": "Model Hotel có thể xuất nhật ký và số liệu có cấu trúc của mình sang các hệ thống bên ngoài. Mỗi tích hợp được kích hoạt bằng một biến môi trường; các biểu tượng trạng thái bên dưới phản ánh trạng thái hiện tại. Không có nội dung yêu cầu hoặc phản hồi nào được xuất — chỉ có siêu dữ liệu định tuyến và đo lường."
 		}
 	},
 	"components": {
