@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Eye, EyeOff } from "@/lib/icons";
 import { api } from "../../api/client";
 import type { Provider } from "../../api/types";
+import { FilterDropdown } from "../../components/FilterDropdown";
 import { Modal } from "../../components/Modal";
 import {
 	baseUrls,
@@ -224,32 +225,28 @@ export function AddProviderModal({
 
 			<form onSubmit={handleSubmit} className="space-y-4">
 				<div>
-					<label
-						htmlFor="provider-type"
-						className="block text-sm font-medium text-gray-300 mb-1"
-					>
+					<span className="block text-sm font-medium text-gray-300 mb-1">
 						{t("providers.form_type_label")}
-					</label>
-					<select
-						id="provider-type"
+					</span>
+					<FilterDropdown
+						allowClear={false}
+						className="w-full"
+						placeholder={t("providers.form_type_label")}
 						value={formData.provider_type}
-						onChange={(e) => handleProviderTypeChange(e.target.value)}
-						className="ui-input"
-					>
-						{Object.entries(providerTypeTranslationKeys)
-							.sort(([aKey], [bKey]) => {
+						onChange={handleProviderTypeChange}
+						options={Object.keys(providerTypeTranslationKeys)
+							.sort((aKey, bKey) => {
 								if (aKey === "custom") return -1;
 								if (bKey === "custom") return 1;
 								return t(
 									providerTypeTranslationKeys[aKey] || aKey,
 								).localeCompare(t(providerTypeTranslationKeys[bKey] || bKey));
 							})
-							.map(([key]) => (
-								<option key={key} value={key}>
-									{t(providerTypeTranslationKeys[key] || key)}
-								</option>
-							))}
-					</select>
+							.map((key) => ({
+								value: key,
+								label: t(providerTypeTranslationKeys[key] || key),
+							}))}
+					/>
 				</div>
 
 				<div>

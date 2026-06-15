@@ -9,6 +9,12 @@ interface FilterDropdownProps {
 	placeholder?: string;
 	allLabel?: string;
 	className?: string;
+	/**
+	 * When true (default) the dropdown is a filter: it shows an "All" option and
+	 * a clear (X) button that reset the value to "". Set false to use it as a
+	 * required selector (e.g. a form field) where every choice is a real value.
+	 */
+	allowClear?: boolean;
 }
 
 export function FilterDropdown({
@@ -18,6 +24,7 @@ export function FilterDropdown({
 	placeholder,
 	allLabel,
 	className = "",
+	allowClear = true,
 }: FilterDropdownProps) {
 	const { t } = useTranslation();
 	const effectivePlaceholder =
@@ -63,7 +70,7 @@ export function FilterDropdown({
 					{displayLabel}
 				</span>
 				<span className="flex items-center gap-1 shrink-0">
-					{value !== "" && (
+					{allowClear && value !== "" && (
 						// biome-ignore lint/a11y/useSemanticElements: cannot use <button> inside <button>
 						<span
 							role="button"
@@ -100,22 +107,24 @@ export function FilterDropdown({
 					}}
 				>
 					<div className="max-h-48 overflow-y-auto px-1">
-						{/* All option */}
-						<button
-							type="button"
-							onClick={() => {
-								onChange("");
-								setOpen(false);
-							}}
-							className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-(--radius-button) text-xs text-left transition-colors ${value === "" ? "bg-(--accent-light) text-(--accent)" : "text-(--text-secondary) hover:bg-(--surface-hover)"}`}
-						>
-							<span
-								className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded border transition-colors shrink-0 ${value === "" ? "bg-(--accent) border-(--accent)" : "border-(--border-input) bg-(--surface-input)"}`}
+						{/* All option (filter mode only) */}
+						{allowClear && (
+							<button
+								type="button"
+								onClick={() => {
+									onChange("");
+									setOpen(false);
+								}}
+								className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-(--radius-button) text-xs text-left transition-colors ${value === "" ? "bg-(--accent-light) text-(--accent)" : "text-(--text-secondary) hover:bg-(--surface-hover)"}`}
 							>
-								{value === "" && <Check size={10} className="text-white" />}
-							</span>
-							<span className="truncate">{effectiveAllLabel}</span>
-						</button>
+								<span
+									className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded border transition-colors shrink-0 ${value === "" ? "bg-(--accent) border-(--accent)" : "border-(--border-input) bg-(--surface-input)"}`}
+								>
+									{value === "" && <Check size={10} className="text-white" />}
+								</span>
+								<span className="truncate">{effectiveAllLabel}</span>
+							</button>
+						)}
 
 						{options.map((option) => {
 							const isSelected = value === option.value;
@@ -123,6 +132,8 @@ export function FilterDropdown({
 								<button
 									key={option.value}
 									type="button"
+									data-value={option.value}
+									data-selected={isSelected}
 									onClick={() => {
 										onChange(option.value);
 										setOpen(false);
