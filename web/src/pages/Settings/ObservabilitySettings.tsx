@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Activity, Braces, Gauge, type LucideIcon } from "@/lib/icons";
+import { CopyablePill } from "../../components/CopyablePill";
 import { SettingsSection } from "../../components/SettingsSection";
-import { Toggle } from "../../components/Toggle";
 import { useSettingsMutations } from "./useSettingsMutations";
 
 interface ObservabilitySettingsProps {
@@ -15,7 +15,7 @@ interface Exporter {
 	enabled: boolean;
 	name: string;
 	description: string;
-	/** Environment variable shown in the enable instructions when disabled. */
+	/** Environment variable shown (copyable) in the enable instructions when off. */
 	envVar: string;
 	instructions: string;
 }
@@ -23,10 +23,10 @@ interface Exporter {
 /**
  * ObservabilitySettings is a read-only status panel for the three log-export
  * integrations (JSON stdout, Prometheus /metrics, OTLP logs). Each is enabled
- * via its own environment variable and resolved server-side; the toggles here
- * only REFLECT that state (they are disabled), and show enable instructions
- * when an exporter is off. There is nothing to persist, so this section has no
- * reset affordance (mirrors PasskeySettings/AppearanceSettings).
+ * via its own environment variable and resolved server-side; this section only
+ * REFLECTS that state — a green/red status badge (not a toggle, since nothing
+ * here is changeable at runtime) plus copyable enable instructions when off.
+ * No resettable settings, so no reset affordance (mirrors PasskeySettings).
  */
 export function ObservabilitySettings({
 	collapsed,
@@ -77,14 +77,14 @@ export function ObservabilitySettings({
 					{t("settings.observability.description")}
 				</p>
 
-				<div className="space-y-4">
+				<div className="space-y-6">
 					{exporters.map((exp) => {
 						const Icon = exp.icon;
 						return (
 							<div
 								key={exp.id}
 								data-testid={`observability-card-${exp.id}`}
-								className="rounded-lg border border-gray-700/60 p-4"
+								className="space-y-2"
 							>
 								<div className="flex items-center justify-between gap-3">
 									<div className="flex items-start gap-3">
@@ -102,24 +102,27 @@ export function ObservabilitySettings({
 											</p>
 										</div>
 									</div>
-									<Toggle
-										checked={exp.enabled}
-										disabled
-										size="sm"
-										onChange={() => {}}
-										ariaLabel={exp.name}
-									/>
+									<span
+										data-testid={`observability-status-${exp.id}`}
+										data-enabled={exp.enabled}
+										className={`ui-badge ${exp.enabled ? "ui-badge-success" : "ui-badge-error"} shrink-0 inline-flex items-center px-2 py-0.5 text-xs font-medium`}
+									>
+										{exp.enabled
+											? t("settings.common.enabled")
+											: t("settings.common.disabled")}
+									</span>
 								</div>
 
 								{!exp.enabled && (
 									<div
 										data-testid={`observability-instructions-${exp.id}`}
-										className="mt-3 border-t border-gray-700/60 pt-3"
+										className="ml-7 space-y-1.5"
 									>
 										<p className="text-gray-400 text-xs">{exp.instructions}</p>
-										<code className="mt-2 inline-block rounded bg-gray-800 px-2 py-1 font-mono text-xs text-(--accent)">
-											{exp.envVar}
-										</code>
+										<CopyablePill
+											text={exp.envVar}
+											textClassName="font-mono text-xs text-(--accent)"
+										/>
 									</div>
 								)}
 							</div>

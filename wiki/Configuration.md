@@ -225,7 +225,7 @@ User preferences are stored in `localStorage` (client-side only, never sent to t
 
 ### Settings Page Sections
 
-The Settings page has 8 collapsible sections (in page order):
+The Settings page has 9 collapsible sections (in page order):
 
 #### Model Discovery
 Backend settings: `discovery_interval`, `discovery_on_startup`, `discovery_on_provider_create`
@@ -295,7 +295,7 @@ Backend settings: `ttft_timeout`, `stream_stall_timeout`
 ### Screenshots
 
 ![Settings UI](screenshots/settings.png)
-*Settings page - showing the 8 collapsible sections: Model Discovery, Passkeys, Appearance, Data Storage & Logging, Database Backup, Rate Limiting, Circuit Breaker & Failover, and Proxy.*
+*The Settings page header and its collapsible sections. Each section's controls are shown expanded in the screenshots that follow.*
 
 ![Settings Appearance](screenshots/settings_appearance.png)
 *Settings page - Appearance section expanded, showing the UI Style cards (Clean SaaS, Cyber Terminal, Glassmorphism), Theme toggle, and Accent Color picker.*

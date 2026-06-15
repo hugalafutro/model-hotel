@@ -13,10 +13,9 @@ function seedSettings(status: Record<string, string>) {
 	);
 }
 
-function cardSwitch(id: string): HTMLElement {
-	const card = screen.getByTestId(`observability-card-${id}`);
-	const toggle = within(card).getByRole("switch");
-	return toggle as HTMLElement;
+// The status is a read-only badge (not a toggle); data-enabled carries the state.
+function cardStatus(id: string): HTMLElement {
+	return screen.getByTestId(`observability-status-${id}`);
 }
 
 describe("ObservabilitySettings", () => {
@@ -45,7 +44,7 @@ describe("ObservabilitySettings", () => {
 		expect(screen.getByTestId("observability-card-otel")).toBeInTheDocument();
 	});
 
-	it("reflects enabled state and hides instructions when an exporter is on", async () => {
+	it("shows an enabled status and hides instructions when an exporter is on", async () => {
 		seedSettings({
 			log_export_json: "true",
 			log_export_metrics: "true",
@@ -56,19 +55,17 @@ describe("ObservabilitySettings", () => {
 		);
 
 		await waitFor(() => {
-			expect(cardSwitch("json")).toHaveAttribute("aria-checked", "true");
+			expect(cardStatus("json")).toHaveAttribute("data-enabled", "true");
 		});
 		for (const id of ["json", "metrics", "otel"]) {
-			expect(cardSwitch(id)).toHaveAttribute("aria-checked", "true");
-			// The toggle is a read-only reflector, never interactive.
-			expect(cardSwitch(id)).toBeDisabled();
+			expect(cardStatus(id)).toHaveAttribute("data-enabled", "true");
 			expect(
 				screen.queryByTestId(`observability-instructions-${id}`),
 			).not.toBeInTheDocument();
 		}
 	});
 
-	it("shows enable instructions only for disabled exporters", async () => {
+	it("shows enable instructions with a copyable env var only for disabled exporters", async () => {
 		seedSettings({
 			log_export_json: "true",
 			log_export_metrics: "false",
@@ -79,7 +76,7 @@ describe("ObservabilitySettings", () => {
 		);
 
 		await waitFor(() => {
-			expect(cardSwitch("json")).toHaveAttribute("aria-checked", "true");
+			expect(cardStatus("json")).toHaveAttribute("data-enabled", "true");
 		});
 
 		// Enabled: no instructions.
@@ -87,7 +84,7 @@ describe("ObservabilitySettings", () => {
 			screen.queryByTestId("observability-instructions-json"),
 		).not.toBeInTheDocument();
 
-		// Disabled: instructions present with the env var to set.
+		// Disabled: instructions present with the copyable env var to set.
 		const metricsHint = screen.getByTestId(
 			"observability-instructions-metrics",
 		);
@@ -98,8 +95,8 @@ describe("ObservabilitySettings", () => {
 			within(otelHint).getByText(/OTEL_EXPORTER_OTLP_ENDPOINT=/),
 		).toBeInTheDocument();
 
-		expect(cardSwitch("metrics")).toHaveAttribute("aria-checked", "false");
-		expect(cardSwitch("otel")).toHaveAttribute("aria-checked", "false");
+		expect(cardStatus("metrics")).toHaveAttribute("data-enabled", "false");
+		expect(cardStatus("otel")).toHaveAttribute("data-enabled", "false");
 	});
 
 	it("treats missing status keys (e.g. while loading) as disabled", async () => {
@@ -118,7 +115,7 @@ describe("ObservabilitySettings", () => {
 			expect(screen.getByTestId("observability-card-json")).toBeInTheDocument();
 		});
 		for (const id of ["json", "metrics", "otel"]) {
-			expect(cardSwitch(id)).toHaveAttribute("aria-checked", "false");
+			expect(cardStatus(id)).toHaveAttribute("data-enabled", "false");
 			expect(
 				screen.getByTestId(`observability-instructions-${id}`),
 			).toBeInTheDocument();
