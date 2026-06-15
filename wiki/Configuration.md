@@ -250,6 +250,14 @@ Backend settings: `log_retention`, `stale_request_timeout`. Everything else is l
 - **Dashboard Refresh:** Interval 10s/30s/1m/2m/5m/10m/Disabled (`dashboardRefreshSec`)
 - **Logging:** Retention and stale-request timeout, plus purge actions for request logs and app logs
 
+#### Observability & Log Export
+Read-only status panel — no backend settings to persist. Reflects which of the three log-export
+integrations are active (each enabled via its own environment variable) and shows enable
+instructions for those that are off:
+- **JSON logs (stdout):** active when `LOG_FORMAT=json`
+- **Prometheus metrics:** active when a dedicated `METRICS_TOKEN` is set (`/metrics` also works with the admin token regardless)
+- **OpenTelemetry logs (OTLP):** active when `OTEL_EXPORTER_OTLP_ENDPOINT` is set — pushes the same structured logs to an OTel collector (logs only; standard `OTEL_EXPORTER_OTLP_*` vars apply, http/protobuf by default or `OTEL_EXPORTER_OTLP_PROTOCOL=grpc`)
+
 #### Database Backup
 Backend settings: `backup_enabled`, `backup_interval`, `backup_son_retention`, `backup_father_retention`, `backup_grandfather_retention`
 - **Backup:** Download a PostgreSQL dump of the database

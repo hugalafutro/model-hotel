@@ -1730,6 +1730,19 @@
 			"cancelNameAriaLabel": "בטל שינוי השם",
 			"renameAriaLabel": "שינוי שם מפתח הגישה",
 			"failedToRename": "לא ניתן לשנות את שם מפתח הגישה: {{message}}"
+		},
+		"observability": {
+			"description": "Model Hotel יכול לייצא את היומנים והמדדים המובנים שלו למערכות חיצוניות. כל אינטגרציה מופעלת באמצעות משתנה סביבה, ולכן המתגים שלהלן הם לקריאה בלבד ומשקפים את המצב הנוכחי. תוכן הבקשות או התגובות אינו מיוצא לעולם — רק מטא-נתונים של ניתוב ומדידה.",
+			"json.description": "הפק יומנים מובנים כאובייקט JSON אחד בכל שורה, עבור אספני יומני stdout כגון Fluent Bit, Vector או Promtail.",
+			"json.instructions": "הגדר את משתנה הסביבה הזה והפעל מחדש את הקונטיינר כדי להפיק יומנים בפורמט JSON:",
+			"json.name": "יומני JSON (stdout)",
+			"metrics.description": "חשוף מדדי בקשה, אסימון, חביון ומפסק זרם ב-/metrics כדי ש-Prometheus יוכל לגרד אותם.",
+			"metrics.instructions": "הגדר אסימון גרידה ייעודי כדי לספק מדדי Prometheus. ניתן להגיע ל-/metrics כבר באמצעות אסימון הניהול.",
+			"metrics.name": "מדדי Prometheus",
+			"otel.description": "שלח את אותם יומנים מובנים לאספן OpenTelemetry באמצעות OTLP (יומנים בלבד — ללא מעקב או מדדים).",
+			"otel.instructions": "כוונו זאת לנקודת הקצה של אספן ה-OTLP שלכם והפעילו מחדש את המכולה כדי לדחוף יומנים דרך OpenTelemetry:",
+			"otel.name": "יומני OpenTelemetry (OTLP)",
+			"title": "נראות וייצוא יומנים"
 		}
 	},
 	"components": {

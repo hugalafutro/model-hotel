@@ -1730,6 +1730,19 @@
 			"cancelNameAriaLabel": "Cancelar renomeação",
 			"renameAriaLabel": "Renomear senha",
 			"failedToRename": "Falha ao renomear a senha: {{message}}"
+		},
+		"observability": {
+			"description": "O Model Hotel pode exportar seus logs e métricas estruturados para sistemas externos. Cada integração é habilitada por uma variável de ambiente, portanto, os botões abaixo são somente de leitura e refletem o estado atual. Nenhum conteúdo de solicitação ou resposta é exportado — apenas metadados de roteamento e medição.",
+			"json.description": "Emita logs estruturados como um objeto JSON por linha, para coletores de logs stdout, como Fluent Bit, Vector ou Promtail.",
+			"json.instructions": "Defina esta variável de ambiente e reinicie o contêiner para emitir logs no formato JSON:",
+			"json.name": "Logs JSON (stdout)",
+			"metrics.description": "Exponha métricas de solicitação, token, latência e disjuntor em /metrics para que o Prometheus as colete.",
+			"metrics.instructions": "Defina um token de scraping dedicado para provisionar métricas do Prometheus. /metrics já está acessível usando o token de administrador.",
+			"metrics.name": "Métricas do Prometheus",
+			"otel.description": "Envie os mesmos logs estruturados para um coletor OpenTelemetry via OTLP (apenas logs — sem rastreamento ou métricas).",
+			"otel.instructions": "Aponte isso para o seu endpoint do coletor OTLP e reinicie o contêiner para enviar logs via OpenTelemetry:",
+			"otel.name": "Logs do OpenTelemetry (OTLP)",
+			"title": "Observabilidade e exportação de logs"
 		}
 	},
 	"components": {

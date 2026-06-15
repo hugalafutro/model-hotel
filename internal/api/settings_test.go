@@ -86,6 +86,53 @@ func TestGetSettings_AppVersion(t *testing.T) {
 	}
 }
 
+// TestGetSettings_LogExportStatus verifies the read-only log-export status keys
+// are injected and reflect process state: metrics tracks METRICS_TOKEN, and the
+// JSON/OTEL keys reflect their env vars. These keys must never be writable.
+func TestGetSettings_LogExportStatus(t *testing.T) {
+	t.Setenv("LOG_FORMAT", "json")
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+	t.Setenv("OTEL_EXPORTER_OTLP_LOGS_ENDPOINT", "")
+
+	mockSets := &mockSettingsStore{
+		getAllFn: func(ctx context.Context) (map[string]string, error) {
+			return map[string]string{"key1": "val1"}, nil
+		},
+	}
+	h := testHandler(nil, nil, mockSets, nil, nil)
+	h.cfg.MetricsToken = "secret-scrape-token" // test-only fixture, not a real credential
+
+	req := httptest.NewRequest(http.MethodGet, "/settings", http.NoBody)
+	rr := httptest.NewRecorder()
+	h.GetSettings(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rr.Code)
+	}
+	var result map[string]string
+	if err := json.NewDecoder(rr.Body).Decode(&result); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	checks := map[string]string{
+		"log_export_json":    "true",  // json log format requested
+		"log_export_metrics": "true",  // metrics token configured
+		"log_export_otel":    "false", // no otlp endpoint configured
+	}
+	for key, want := range checks {
+		if result[key] != want {
+			t.Errorf("expected %s=%q, got %q", key, want, result[key])
+		}
+	}
+
+	// The status keys must not be writable via PUT.
+	for key := range checks {
+		if _, ok := allowedSettings[key]; ok {
+			t.Errorf("%s must not be in allowedSettings (read-only)", key)
+		}
+	}
+}
+
 // trackingFailingWriter is a failingResponseWriter that tracks the status code.
 type trackingFailingWriter struct {
 	header     http.Header

@@ -1706,6 +1706,19 @@
 			"cancel": "Cancel",
 			"apply": "Apply"
 		},
+		"observability": {
+			"title": "Observability & Log Export",
+			"description": "Model Hotel can export its structured logs and metrics to external systems. Each integration is enabled with an environment variable, so the toggles below are read-only and reflect the current state. No request or response content is ever exported — only routing and metering metadata.",
+			"json.name": "JSON logs (stdout)",
+			"json.description": "Emit structured logs as one JSON object per line, for stdout log collectors such as Fluent Bit, Vector, or Promtail.",
+			"json.instructions": "Set this environment variable and restart the container to emit JSON-formatted logs:",
+			"metrics.name": "Prometheus metrics",
+			"metrics.description": "Expose request, token, latency, and circuit-breaker metrics at /metrics for Prometheus to scrape.",
+			"metrics.instructions": "Set a dedicated scrape token to provision Prometheus metrics. /metrics is already reachable using the admin token.",
+			"otel.name": "OpenTelemetry logs (OTLP)",
+			"otel.description": "Push the same structured logs to an OpenTelemetry collector over OTLP (logs only — no tracing or metrics).",
+			"otel.instructions": "Point this at your OTLP collector endpoint and restart the container to push logs over OpenTelemetry:"
+		},
 		"passkeys": {
 			"title": "Passkeys",
 			"description": "Register a passkey to sign in with your fingerprint, face, or security key instead of typing the admin token.",

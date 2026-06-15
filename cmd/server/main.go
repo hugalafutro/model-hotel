@@ -30,6 +30,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
+	"github.com/hugalafutro/model-hotel/internal/otelexport"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/proxy"
 	"github.com/hugalafutro/model-hotel/internal/ratelimit"
@@ -112,9 +113,23 @@ func main() {
 
 	api.InitAppLogBuffer(database.Pool())
 
-	// Route slog output through the app log pipeline so debuglog calls
-	// reach the ring buffer and database (not just os.Stdout).
-	debuglog.SetHandler(api.NewAppSlogHandler(debuglog.Level()))
+	// Route slog output through the app log pipeline so debuglog calls reach the
+	// ring buffer and database (not just os.Stdout). When OTLP log export is
+	// enabled (OTEL_EXPORTER_OTLP_ENDPOINT), fan out to it too so the same
+	// structured records are pushed to an OpenTelemetry collector.
+	appLogHandler := api.NewAppSlogHandler(debuglog.Level())
+	var otelLogShutdown func(context.Context) error
+	if otelexport.LogsEnabled() {
+		otelHandler, shutdown, oerr := otelexport.NewSlogHandler(ctx, "model-hotel", debuglog.Level())
+		if oerr != nil {
+			debuglog.Error("otel: OTLP log export init failed; continuing without it", "error", oerr)
+		} else {
+			appLogHandler = debuglog.NewFanout(appLogHandler, otelHandler)
+			otelLogShutdown = shutdown
+			debuglog.Info("otel: OTLP log export enabled")
+		}
+	}
+	debuglog.SetHandler(appLogHandler)
 
 	debuglog.Info("db: Database connected and migrations applied successfully")
 	debuglog.Info("startup: admin token", "source", func() string {
@@ -775,6 +790,16 @@ func main() {
 	proxyHandler.Close()
 	apiHandler.StopBackupScheduler()
 	util.CloseDockerClient()
+
+	// Flush and close the OTLP log exporter (if enabled) so batched records are
+	// not lost on shutdown.
+	if otelLogShutdown != nil {
+		flushCtx, flushCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		if err := otelLogShutdown(flushCtx); err != nil {
+			debuglog.Error("otel: OTLP log exporter shutdown failed", "error", err)
+		}
+		flushCancel()
+	}
 
 	// Flush pending app log DB writes before closing the database.
 	api.StopAppLogWriter()

@@ -1730,6 +1730,19 @@
 			"cancelNameAriaLabel": "名前の変更をキャンセルする",
 			"renameAriaLabel": "パスキーの名前を変更",
 			"failedToRename": "パスキーの名前を変更できませんでした: {{message}}"
+		},
+		"observability": {
+			"description": "Model Hotelは、構造化されたログとメトリクスを外部システムにエクスポートできます。各統合機能は環境変数によって有効化されるため、以下のトグルは読み取り専用であり、現在の状態を反映しています。リクエストやレスポンスの内容は一切エクスポートされず、ルーティングおよび計測に関するメタデータのみがエクスポートされます。",
+			"json.description": "Fluent Bit、Vector、Promtailなどのstdoutログコレクター向けに、1行につき1つのJSONオブジェクトとして構造化されたログを出力してください。",
+			"json.instructions": "JSON形式のログを出力するには、この環境変数を設定し、コンテナを再起動してください：",
+			"json.name": "JSONログ（stdout）",
+			"metrics.description": "Prometheusがスクレイピングできるよう、/metrics パスでリクエスト、トークン、レイテンシ、サーキットブレーカーのメトリクスを公開してください。",
+			"metrics.instructions": "Prometheusメトリクスをプロビジョニングするために、専用のスクレイプトークンを設定してください。/metricsには、管理トークンを使用して既にアクセス可能です。",
+			"metrics.name": "Prometheusメトリクス",
+			"otel.description": "OTLP経由で、同じ構造化ログをOpenTelemetryコレクターに送信してください（ログのみ。トレースやメトリクスは含めないでください）。",
+			"otel.instructions": "これをOTLPコレクターのエンドポイントに向け、コンテナを再起動してOpenTelemetry経由でログを送信してください：",
+			"otel.name": "OpenTelemetryログ（OTLP）",
+			"title": "可観測性およびログのエクスポート"
 		}
 	},
 	"components": {

@@ -74,7 +74,7 @@ this prefix (`extractSource`) to tag the entry's source. Canonical sources:
 
 `proxy`, `resolve`, `discovery`, `failover`, `provider`, `settings`, `backup`,
 `webauthn`, `stats`, `system`, `db`, `admin`, `applogs`, `events`, `ratelimit`,
-`keycache`, `docker`, `auth`, `model`, `virtual-keys`, `version`, `api`.
+`keycache`, `docker`, `auth`, `model`, `virtual-keys`, `version`, `api`, `otel`.
 
 (The list is extensible - e.g. a future `frontdesk` binary adds its own source.)
 
@@ -135,13 +135,48 @@ The switch lives in `debuglog.JSONFormat()` (read by `debuglog.Init` and
 stderr filter's level gate and source suppression are JSON-aware
 (`parseJSONLogLine`), so behavior is identical in both formats.
 
-## 5. No content, ever
+## 5. OTLP log export (`OTEL_EXPORTER_OTLP_*`)
+
+In addition to the stdout surface (§4), the same structured records can be
+**pushed** to an OpenTelemetry collector over OTLP. This is **logs only** — no
+request tracing (spans) and no OTLP metrics; Prometheus (`/metrics`) remains the
+metrics path.
+
+- Enabled purely by environment, like `LOG_FORMAT`: set
+  `OTEL_EXPORTER_OTLP_ENDPOINT` (or the logs-specific
+  `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT`). When unset, nothing is wired up and there
+  is zero overhead. See `otelexport.LogsEnabled()`.
+- All standard `OTEL_EXPORTER_OTLP_*` variables apply (endpoint, headers, TLS,
+  timeout). Transport defaults to **http/protobuf**; set
+  `OTEL_EXPORTER_OTLP_PROTOCOL=grpc` (or the `_LOGS_` variant) to switch.
+  `OTEL_SERVICE_NAME` defaults to `model-hotel` when not provided.
+- Wiring (`cmd/server/main.go`): `otelexport.NewSlogHandler` builds an SDK
+  `LoggerProvider` + batch processor + OTLP exporter and returns an `otelslog`
+  bridge handler, which is fanned out alongside the app-log handler via
+  `debuglog.NewFanout`. The batch processor is flushed on graceful shutdown.
+- Level/scope parity: the bridge is wrapped in a level gate set to the app's log
+  level, and `DEBUG_LOG_SCOPES` filtering is applied by `debuglog.SetHandler`
+  around the whole fan-out — so OTLP receives exactly the same records as stdout.
+  (The level gate is required: the OTel log SDK reports every level as enabled,
+  so without it the fan-out would export DEBUG records even with `DEBUG_LOG` off.)
+- Failure behavior: export errors (e.g. an unreachable collector) are reported by
+  the OTel SDK's default error handler to **stderr**; the batch processor's queue
+  is bounded and **drops** records on overflow rather than blocking the caller, so
+  a down collector never stalls the log hot-path.
+- Dependency note: the OTLP **log** SDK/exporters (`otel/sdk/log`, `otlplog*`,
+  `otelslog`) are pre-1.0 (`v0.x`) — the newest OTel signal — so an OTel SDK
+  upgrade may need code adjustment. The feature is opt-in, so this only matters
+  when the env vars are set.
+- Safe to export off-box for the same reason as §4: the no-content rule (§6)
+  guarantees no prompt data in any record.
+
+## 6. No content, ever
 
 Absolute: no prompt, request, or response content in any log line or error
 message - only routing/metering/diagnostic metadata. This is what makes logs
 safe to export to a collector.
 
-## 6. Audit status
+## 7. Audit status
 
 The `debuglog.*` call sites were audited against §3 (2026-06-13). The codebase
 was already largely consistent; the only field-key fixes needed were

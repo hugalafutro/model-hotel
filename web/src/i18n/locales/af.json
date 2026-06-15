@@ -1730,6 +1730,19 @@
 			"cancelNameAriaLabel": "Annuleer hernoeming",
 			"renameAriaLabel": "Herbenoem pasleutel",
 			"failedToRename": "Het misluk om die paswoord te hernoem: {{message}}"
+		},
+		"observability": {
+			"description": "Model Hotel kan sy gestruktureerde loglêers en metrieks na eksterne stelsels uitvoer. Elke integrasie word met 'n omgewingsveranderlike geaktiveer, dus is die skakelaars hieronder slegs-lees en weerspieël die huidige toestand. Geen versoek- of reaksie-inhoud word ooit uitgevoer nie — slegs roetering- en meetmetagegewens.",
+			"json.description": "Gestruktureerde loglêings as een JSON-voorwerp per reël, vir stdout-logversamelaars soos Fluent Bit, Vector of Promtail.",
+			"json.instructions": "Stel hierdie omgewingsveranderlike in en herbegin die houer om JSON-geformateerde loglêers uit te gee:",
+			"json.name": "JSON-logs (stdout)",
+			"metrics.description": "Beskikbaar stel versoek-, token-, latensie- en circuit-breaker-metrieks by /metrics sodat Prometheus dit kan uitkrap.",
+			"metrics.instructions": "Stel 'n toegewyde scrape-token in om Prometheus-metrieks te voorsien. /metrics is reeds bereikbaar met die admin-token.",
+			"metrics.name": "Prometheus-metrieks",
+			"otel.description": "Stuur dieselfde gestruktureerde logboeke na 'n OpenTelemetry-versamelaar oor OTLP (slegs logboeke — geen nasporing of metrieks nie).",
+			"otel.instructions": "Rig dit op jou OTLP-versamelaar-eindpunt en herbegin die houer om logs via OpenTelemetry oor te stuur:",
+			"otel.name": "OpenTelemetry-logs (OTLP)",
+			"title": "Observabiliteit & Log-uitvoer"
 		}
 	},
 	"components": {

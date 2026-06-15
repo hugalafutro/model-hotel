@@ -270,6 +270,7 @@ ADMIN_TOKEN=
                 - DEBUG_LOG=false
                 - LOG_FORMAT=text          # "json" for log collectors (Fluent Bit, Vector, Promtail, …)
                 - METRICS_TOKEN=${METRICS_TOKEN:-}   # optional dedicated token for the /metrics scrape
+                - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}   # optional OTLP collector URL → push logs over OpenTelemetry
                 - CORS_ORIGINS=http://localhost:5173,http://localhost:${HOST_PORT:-8081}
                 - WEBAUTHN_RP_ID=${WEBAUTHN_RP_ID:-}
                 - WEBAUTHN_RP_ORIGINS=${WEBAUTHN_RP_ORIGINS:-}
@@ -371,9 +372,13 @@ scrape_configs:
 
 For logs, set `LOG_FORMAT=json` to emit one structured JSON object per line on stdout for
 Fluent Bit / Vector / Promtail / Datadog and friends - no extra endpoint, and (like everything
-here) never any prompt content. Need verbose debug output without the flood? `DEBUG_LOG=true`
+here) never any prompt content. To **push** those same structured logs to an OpenTelemetry
+collector, set `OTEL_EXPORTER_OTLP_ENDPOINT` (standard `OTEL_EXPORTER_OTLP_*` vars apply;
+http/protobuf by default, `OTEL_EXPORTER_OTLP_PROTOCOL=grpc` to switch) - logs only, no tracing.
+Need verbose debug output without the flood? `DEBUG_LOG=true`
 turns on Debug for everything; `DEBUG_LOG_SCOPES=failover,ratelimit` turns it on for just those
-areas. See the [Configuration wiki](https://github.com/hugalafutro/model-hotel/wiki/Configuration).
+areas. The **Settings → Observability** section shows which of these three exporters are active
+and how to enable the rest. See the [Configuration wiki](https://github.com/hugalafutro/model-hotel/wiki/Configuration).
 
 ### Full Documentation
 - [Configuration](https://github.com/hugalafutro/model-hotel/wiki/Configuration): Environment variables, runtime settings, Docker Compose

@@ -1730,6 +1730,19 @@
 			"cancelNameAriaLabel": "Cancel·la el canvi de nom",
 			"renameAriaLabel": "Renombrar la clau d'accés",
 			"failedToRename": "S'ha fallat el canvi de nom de la clau d'accés: {{message}}"
+		},
+		"observability": {
+			"description": "Model Hotel pot exportar els seus registres i mètriques estructurats a sistemes externs. Cada integració s'activa amb una variable d'entorn, de manera que els commutadors següents són només de lectura i reflecteixen l'estat actual. El contingut de cap sol·licitud ni resposta s'exporta mai, només les metadades de ruteig i mesurament.",
+			"json.description": "Emet registres estructurats com un sol objecte JSON per línia, per a recollidors de registres stdout com ara Fluent Bit, Vector o Promtail.",
+			"json.instructions": "Establiu aquesta variable d'entorn i reinicieu el contenidor per emetre registres en format JSON:",
+			"json.name": "Registres JSON (stdout)",
+			"metrics.description": "Exposar les mètriques de sol·licitud, token, latència i circuit-breaker a /metrics perquè Prometheus les pugui recollir.",
+			"metrics.instructions": "Establiu un token de scrape dedicat per proveir mètriques de Prometheus. /metrics ja és accessible amb el token d'administrador.",
+			"metrics.name": "Mètriques Prometheus",
+			"otel.description": "Envia els mateixos registres estructurats a un col·lector OpenTelemetry a través d'OTLP (només registres — sense rastreig ni mètriques).",
+			"otel.instructions": "Apunteu això al vostre punt final de recollida OTLP i reinicieu el contenidor per enviar registres a través d'OpenTelemetry:",
+			"otel.name": "Registres d'OpenTelemetry (OTLP)",
+			"title": "Observabilitat i exportació de registres"
 		}
 	},
 	"components": {
