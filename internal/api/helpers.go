@@ -1,9 +1,12 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"net"
 	"net/http"
+	"syscall"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -64,7 +67,7 @@ func parseUUIDParam(w http.ResponseWriter, r *http.Request, key string, label ..
 func writeJSON(w http.ResponseWriter, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(v); err != nil {
-		debuglog.Error("api: failed to encode JSON response", "error", err)
+		logEncodeError(err)
 	}
 }
 
@@ -73,6 +76,28 @@ func writeJSONCreated(w http.ResponseWriter, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(v); err != nil {
-		debuglog.Error("api: failed to encode JSON response", "error", err)
+		logEncodeError(err)
 	}
+}
+
+// logEncodeError logs a failure to encode a JSON response. A client that hangs
+// up before the body is written (broken pipe, connection reset, canceled
+// request context) is not a server fault, so it is logged at debug level to
+// keep production logs clean; any other failure (e.g. an unmarshalable value)
+// stays at error level so genuine bugs remain visible even with debug disabled.
+func logEncodeError(err error) {
+	if isClientDisconnect(err) {
+		debuglog.Debug("api: client disconnected before JSON response completed", "error", err)
+		return
+	}
+	debuglog.Error("api: failed to encode JSON response", "error", err)
+}
+
+// isClientDisconnect reports whether err indicates the client closed the
+// connection before the response could be fully written.
+func isClientDisconnect(err error) bool {
+	return errors.Is(err, syscall.EPIPE) ||
+		errors.Is(err, syscall.ECONNRESET) ||
+		errors.Is(err, net.ErrClosed) ||
+		errors.Is(err, context.Canceled)
 }
