@@ -25,10 +25,11 @@ const SHIKI_LAZY = [
 export default defineConfig({
 	plugins: [
 		react(),
-		// Uploads bundle-size stats to Codecov. Gated on CODECOV_TOKEN so it only
-		// runs in CI (where the secret exists); local + Docker builds stay silent.
+		// Uploads bundle-size stats to Codecov. Gated on a non-empty CODECOV_TOKEN
+		// so it only runs in CI with the real secret; local + Docker builds and
+		// fork PRs (where the secret is an empty string) stay silent.
 		codecovVitePlugin({
-			enableBundleAnalysis: process.env.CODECOV_TOKEN !== undefined,
+			enableBundleAnalysis: !!process.env.CODECOV_TOKEN,
 			bundleName: "model-hotel-web",
 			uploadToken: process.env.CODECOV_TOKEN,
 		}),
