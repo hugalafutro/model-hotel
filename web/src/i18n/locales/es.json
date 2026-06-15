@@ -1033,8 +1033,7 @@
 				"disableStripReasoning": "Desactivar razonamiento del clip",
 				"rateLimitBurst": "Ráfaga (máximo simultáneo)",
 				"rateLimitRps": "RPS (solicitudes/segundo)",
-				"rateLimitTpm": "TPM (tokens/min)",
-				"placeholderTpm": "Sin límite"
+				"rateLimitTpm": "TPM (tokens/min)"
 			},
 			"detailTitle": "Detalles de Clave Virtual",
 			"sections": {
@@ -1063,8 +1062,7 @@
 			"keyUpdated": "Clave virtual actualizada",
 			"keyUpdateFailed": "Error: {{message}}",
 			"usageExamples": "Ejemplos de uso",
-			"rateLimitTpmLabel": "Límite de tasa TPM (tokens/min)",
-			"noCap": "Sin límite"
+			"rateLimitTpmLabel": "Límite de tasa TPM (tokens/min)"
 		}
 	},
 	"logs": {

@@ -1033,8 +1033,7 @@
 				"disableStripReasoning": "Désactiver le raisonnement de la bande",
 				"rateLimitBurst": "Burst (nombre maximal de connexions simultanées)",
 				"rateLimitRps": "RPS (requêtes/seconde)",
-				"rateLimitTpm": "TPM (jetons/min)",
-				"placeholderTpm": "Pas de limite"
+				"rateLimitTpm": "TPM (jetons/min)"
 			},
 			"detailTitle": "Détails de la clé virtuelle",
 			"sections": {
@@ -1063,8 +1062,7 @@
 			"keyUpdated": "Clé virtuelle mise à jour",
 			"keyUpdateFailed": "Échec: {{message}}",
 			"usageExamples": "Exemples d'utilisation",
-			"rateLimitTpmLabel": "Limite de débit TPM (jetons/min)",
-			"noCap": "Pas de limite"
+			"rateLimitTpmLabel": "Limite de débit TPM (jetons/min)"
 		}
 	},
 	"logs": {

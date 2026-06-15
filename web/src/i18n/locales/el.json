@@ -1033,8 +1033,7 @@
 				"disableStripReasoning": "Απενεργοποίηση συλλογισμού λωρίδα",
 				"rateLimitBurst": "Burst (μέγιστος αριθμός ταυτόχρονων συνδέσεων)",
 				"rateLimitRps": "RPS (αιτήματα/δευτ.)",
-				"rateLimitTpm": "TPM (tokens/min)",
-				"placeholderTpm": "Χωρίς περιορισμό"
+				"rateLimitTpm": "TPM (tokens/min)"
 			},
 			"detailTitle": "Λεπτομέρειες Εικονικού Κλειδιού",
 			"sections": {
@@ -1063,8 +1062,7 @@
 			"keyUpdated": "Το εικονικό κλειδί ενημερώθηκε",
 			"keyUpdateFailed": "Αποτυχία: {{message}}",
 			"usageExamples": "Παραδείγματα χρήσης",
-			"rateLimitTpmLabel": "Όριο ρυθμού TPM (tokens/min)",
-			"noCap": "Χωρίς περιορισμό"
+			"rateLimitTpmLabel": "Όριο ρυθμού TPM (tokens/min)"
 		}
 	},
 	"logs": {

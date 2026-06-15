@@ -1033,8 +1033,7 @@
 				"disableStripReasoning": "Strip-Argumentation deaktivieren",
 				"rateLimitBurst": "Burst (max. gleichzeitig)",
 				"rateLimitRps": "RPS (Anfragen/Sek.)",
-				"rateLimitTpm": "TPM (Token/Min.)",
-				"placeholderTpm": "Keine Begrenzung"
+				"rateLimitTpm": "TPM (Token/Min.)"
 			},
 			"detailTitle": "Details der virtuellen Taste",
 			"sections": {
@@ -1063,8 +1062,7 @@
 			"keyUpdated": "Virtueller Schlüssel aktualisiert",
 			"keyUpdateFailed": "Fehler: {{message}}",
 			"usageExamples": "Anwendungsbeispiele",
-			"rateLimitTpmLabel": "Ratenbegrenzung TPM (Token/Min.)",
-			"noCap": "Keine Begrenzung"
+			"rateLimitTpmLabel": "Ratenbegrenzung TPM (Token/Min.)"
 		}
 	},
 	"logs": {

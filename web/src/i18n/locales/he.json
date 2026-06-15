@@ -1033,8 +1033,7 @@
 				"disableStripReasoning": "השבת את חישוב הרצועות",
 				"rateLimitBurst": "Burst (מקסימום בו-זמנית)",
 				"rateLimitRps": "RPS (בקשות בשנייה)",
-				"rateLimitTpm": "TPM (אסימונים/דקה)",
-				"placeholderTpm": "אין הגבלה"
+				"rateLimitTpm": "TPM (אסימונים/דקה)"
 			},
 			"detailTitle": "פרטי המפתח הווירטואלי",
 			"sections": {
@@ -1063,8 +1062,7 @@
 			"keyUpdated": "המפתח הווירטואלי עודכן",
 			"keyUpdateFailed": "נכשל: {{message}}",
 			"usageExamples": "דוגמאות לשימוש",
-			"rateLimitTpmLabel": "מגבלת קצב TPM (אסימונים/דקה)",
-			"noCap": "אין הגבלה"
+			"rateLimitTpmLabel": "מגבלת קצב TPM (אסימונים/דקה)"
 		}
 	},
 	"logs": {

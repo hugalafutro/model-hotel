@@ -1033,8 +1033,7 @@
 				"disableStripReasoning": "Deaktiver stripe resonnering",
 				"rateLimitBurst": "Burst (maks. samtidig)",
 				"rateLimitRps": "RPS (forespørsler/sek)",
-				"rateLimitTpm": "TPM (tokens/min)",
-				"placeholderTpm": "Ingen begrensning"
+				"rateLimitTpm": "TPM (tokens/min)"
 			},
 			"detailTitle": "Virtuell nøkkel detaljer",
 			"sections": {
@@ -1063,8 +1062,7 @@
 			"keyUpdated": "Virtuell nøkkel oppdatert",
 			"keyUpdateFailed": "Mislyktes: {{message}}",
 			"usageExamples": "Eksempler på bruk",
-			"rateLimitTpmLabel": "Rate Limit TPM (tokens/min)",
-			"noCap": "Ingen begrensning"
+			"rateLimitTpmLabel": "Rate Limit TPM (tokens/min)"
 		}
 	},
 	"logs": {

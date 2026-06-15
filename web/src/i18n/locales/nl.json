@@ -1033,8 +1033,7 @@
 				"disableStripReasoning": "Uitschakelen strip redenering",
 				"rateLimitBurst": "Burst (max. gelijktijdig)",
 				"rateLimitRps": "RPS (verzoeken/sec)",
-				"rateLimitTpm": "TPM (tokens/min)",
-				"placeholderTpm": "Geen limiet"
+				"rateLimitTpm": "TPM (tokens/min)"
 			},
 			"detailTitle": "Details van virtuele sleutel",
 			"sections": {
@@ -1063,8 +1062,7 @@
 			"keyUpdated": "Virtuele sleutel bijgewerkt",
 			"keyUpdateFailed": "Mislukt: {{message}}",
 			"usageExamples": "Gebruiksvoorbeelden",
-			"rateLimitTpmLabel": "Rate Limit TPM (tokens/min)",
-			"noCap": "Geen limiet"
+			"rateLimitTpmLabel": "Rate Limit TPM (tokens/min)"
 		}
 	},
 	"logs": {

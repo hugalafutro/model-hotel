@@ -1033,8 +1033,7 @@
 				"disableStripReasoning": "Skakel bandredenering uit",
 				"rateLimitBurst": "Stoot (maksimum gelyktydig)",
 				"rateLimitRps": "RPS (versoeke/sek)",
-				"rateLimitTpm": "TPM (tokens/min)",
-				"placeholderTpm": "Geen limiet"
+				"rateLimitTpm": "TPM (tokens/min)"
 			},
 			"detailTitle": "Virtuele Sleutelbesonderhede",
 			"sections": {
@@ -1063,8 +1062,7 @@
 			"keyUpdated": "Virtuele sleutel opgedateer",
 			"keyUpdateFailed": "Misluk: {{message}}",
 			"usageExamples": "Gebruiksvoorbeelde",
-			"rateLimitTpmLabel": "Koersbeperking TPM (tokens/min)",
-			"noCap": "Geen limiet"
+			"rateLimitTpmLabel": "Koersbeperking TPM (tokens/min)"
 		}
 	},
 	"logs": {

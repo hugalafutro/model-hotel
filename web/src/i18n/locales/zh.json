@@ -1033,8 +1033,7 @@
 				"disableStripReasoning": "禁用脱衣原理",
 				"rateLimitBurst": "突发（最大并发数）",
 				"rateLimitRps": "RPS（每秒请求数）",
-				"rateLimitTpm": "TPM（每分钟令牌数）",
-				"placeholderTpm": "无限制"
+				"rateLimitTpm": "TPM（每分钟令牌数）"
 			},
 			"detailTitle": "虚拟密钥详细信息",
 			"sections": {
@@ -1063,8 +1062,7 @@
 			"keyUpdated": "虚拟键已更新",
 			"keyUpdateFailed": "失败： {{message}}",
 			"usageExamples": "使用示例",
-			"rateLimitTpmLabel": "速率限制 TPM（令牌/分钟）",
-			"noCap": "无限制"
+			"rateLimitTpmLabel": "速率限制 TPM（令牌/分钟）"
 		}
 	},
 	"logs": {

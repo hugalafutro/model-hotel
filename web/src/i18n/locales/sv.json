@@ -1033,8 +1033,7 @@
 				"disableStripReasoning": "Inaktivera remsans resonemang",
 				"rateLimitBurst": "Burst (max samtidiga)",
 				"rateLimitRps": "RPS (förfrågningar/sek)",
-				"rateLimitTpm": "TPM (tokens/min)",
-				"placeholderTpm": "Ingen begränsning"
+				"rateLimitTpm": "TPM (tokens/min)"
 			},
 			"detailTitle": "Information om virtuell nyckel",
 			"sections": {
@@ -1063,8 +1062,7 @@
 			"keyUpdated": "Virtuell nyckel uppdaterad",
 			"keyUpdateFailed": "Misslyckades: {{message}}",
 			"usageExamples": "Användningsexempel",
-			"rateLimitTpmLabel": "Rate Limit TPM (tokens/min)",
-			"noCap": "Ingen begränsning"
+			"rateLimitTpmLabel": "Rate Limit TPM (tokens/min)"
 		}
 	},
 	"logs": {

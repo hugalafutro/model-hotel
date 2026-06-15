@@ -1033,8 +1033,7 @@
 				"disableStripReasoning": "Dezactivează raționamentul benzii",
 				"rateLimitBurst": "Burst (maxim simultan)",
 				"rateLimitRps": "RPS (solicitări/secundă)",
-				"rateLimitTpm": "TPM (tokeni/min)",
-				"placeholderTpm": "Fără limită"
+				"rateLimitTpm": "TPM (tokeni/min)"
 			},
 			"detailTitle": "Detalii cheie virtuală",
 			"sections": {
@@ -1063,8 +1062,7 @@
 			"keyUpdated": "Cheie virtuală actualizată",
 			"keyUpdateFailed": "Eșec: {{message}}",
 			"usageExamples": "Exemple de utilizare",
-			"rateLimitTpmLabel": "Limită de rată TPM (tokeni/min)",
-			"noCap": "Fără limită"
+			"rateLimitTpmLabel": "Limită de rată TPM (tokeni/min)"
 		}
 	},
 	"logs": {

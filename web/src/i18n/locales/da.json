@@ -1033,8 +1033,7 @@
 				"disableStripReasoning": "Deaktiver strimmel ræsonnement",
 				"rateLimitBurst": "Burst (maks. samtidige)",
 				"rateLimitRps": "RPS (anmodninger/sek.)",
-				"rateLimitTpm": "TPM (tokens/min)",
-				"placeholderTpm": "Ingen begrænsning"
+				"rateLimitTpm": "TPM (tokens/min)"
 			},
 			"detailTitle": "Virtuel Nøgle Detaljer",
 			"sections": {
@@ -1063,8 +1062,7 @@
 			"keyUpdated": "Virtuel nøgle opdateret",
 			"keyUpdateFailed": "Mislykkedes: {{message}}",
 			"usageExamples": "Eksempler på brug",
-			"rateLimitTpmLabel": "Rate Limit TPM (tokens/min)",
-			"noCap": "Ingen begrænsning"
+			"rateLimitTpmLabel": "Rate Limit TPM (tokens/min)"
 		}
 	},
 	"logs": {

@@ -1033,8 +1033,7 @@
 				"disableStripReasoning": "Вимкнути приціл",
 				"rateLimitBurst": "Пік (максимальна кількість одночасних)",
 				"rateLimitRps": "RPS (запити/сек)",
-				"rateLimitTpm": "TPM (токенів/хв)",
-				"placeholderTpm": "Без обмежень"
+				"rateLimitTpm": "TPM (токенів/хв)"
 			},
 			"detailTitle": "Віртуальний ключ Деталі",
 			"sections": {
@@ -1063,8 +1062,7 @@
 			"keyUpdated": "Віртуальний ключ оновлено",
 			"keyUpdateFailed": "Помилка: {{message}}",
 			"usageExamples": "Приклади використання",
-			"rateLimitTpmLabel": "Обмеження швидкості TPM (токенів/хв)",
-			"noCap": "Без обмежень"
+			"rateLimitTpmLabel": "Обмеження швидкості TPM (токенів/хв)"
 		}
 	},
 	"logs": {

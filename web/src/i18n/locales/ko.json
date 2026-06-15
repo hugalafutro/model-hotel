@@ -1033,8 +1033,7 @@
 				"disableStripReasoning": "스트립 추론 비활성화",
 				"rateLimitBurst": "버스트(최대 동시 처리량)",
 				"rateLimitRps": "RPS (초당 요청 수)",
-				"rateLimitTpm": "TPM (토큰/분)",
-				"placeholderTpm": "제한 없음"
+				"rateLimitTpm": "TPM (토큰/분)"
 			},
 			"detailTitle": "가상 키 세부 정보",
 			"sections": {
@@ -1063,8 +1062,7 @@
 			"keyUpdated": "가상 키가 업데이트되었습니다",
 			"keyUpdateFailed": "실패: {{message}}",
 			"usageExamples": "사용 예시",
-			"rateLimitTpmLabel": "요율 제한 TPM (토큰/분)",
-			"noCap": "제한 없음"
+			"rateLimitTpmLabel": "요율 제한 TPM (토큰/분)"
 		}
 	},
 	"logs": {

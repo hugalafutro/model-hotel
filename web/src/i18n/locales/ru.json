@@ -1033,8 +1033,7 @@
 				"disableStripReasoning": "Отключить рассуждение полосы",
 				"rateLimitBurst": "Пик нагрузки (максимальное количество одновременных подключений)",
 				"rateLimitRps": "RPS (запросы/сек)",
-				"rateLimitTpm": "TPM (токены/мин)",
-				"placeholderTpm": "Без ограничений"
+				"rateLimitTpm": "TPM (токены/мин)"
 			},
 			"detailTitle": "Детали Виртуального Ключа",
 			"sections": {
@@ -1063,8 +1062,7 @@
 			"keyUpdated": "Виртуальный ключ обновлен",
 			"keyUpdateFailed": "Ошибка: {{message}}",
 			"usageExamples": "Примеры использования",
-			"rateLimitTpmLabel": "Ограничение скорости TPM (токены/мин)",
-			"noCap": "Без ограничений"
+			"rateLimitTpmLabel": "Ограничение скорости TPM (токены/мин)"
 		}
 	},
 	"logs": {

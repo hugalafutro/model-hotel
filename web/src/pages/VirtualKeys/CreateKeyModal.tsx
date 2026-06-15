@@ -261,7 +261,7 @@ export function CreateKeyModal({
 							value={rateLimitTpm}
 							onChange={(e) => setRateLimitTpm(e.target.value)}
 							className="ui-input"
-							placeholder={t("virtualkeys.modal.form.placeholderTpm")}
+							placeholder={t("virtualkeys.modal.form.placeholderGlobal")}
 						/>
 					</div>
 					<div>

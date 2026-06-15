@@ -1033,8 +1033,7 @@
 				"disableStripReasoning": "تعطيل تعليل الشريط",
 				"rateLimitBurst": "الاندفاع (الحد الأقصى للتزامن)",
 				"rateLimitRps": "RPS (طلبات/ثانية)",
-				"rateLimitTpm": "TPM (الرموز/الدقيقة)",
-				"placeholderTpm": "لا يوجد حد"
+				"rateLimitTpm": "TPM (الرموز/الدقيقة)"
 			},
 			"detailTitle": "تفاصيل المفتاح الافتراضي",
 			"sections": {
@@ -1063,8 +1062,7 @@
 			"keyUpdated": "تم تحديث المفتاح الافتراضي",
 			"keyUpdateFailed": "فشل: {{message}}",
 			"usageExamples": "أمثلة على الاستخدام",
-			"rateLimitTpmLabel": "حد معدل TPM (رموز/دقيقة)",
-			"noCap": "لا يوجد حد"
+			"rateLimitTpmLabel": "حد معدل TPM (رموز/دقيقة)"
 		}
 	},
 	"logs": {

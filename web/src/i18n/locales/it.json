@@ -1033,8 +1033,7 @@
 				"disableStripReasoning": "Disabilita ragionamento striscia",
 				"rateLimitBurst": "Burst (massimo simultaneo)",
 				"rateLimitRps": "RPS (richieste/sec)",
-				"rateLimitTpm": "TPM (token/min)",
-				"placeholderTpm": "Nessun limite"
+				"rateLimitTpm": "TPM (token/min)"
 			},
 			"detailTitle": "Dettagli Chiave Virtuale",
 			"sections": {
@@ -1063,8 +1062,7 @@
 			"keyUpdated": "Chiave virtuale aggiornata",
 			"keyUpdateFailed": "Fallito: {{message}}",
 			"usageExamples": "Esempi di utilizzo",
-			"rateLimitTpmLabel": "Limite di velocità TPM (token/min)",
-			"noCap": "Nessun limite"
+			"rateLimitTpmLabel": "Limite di velocità TPM (token/min)"
 		}
 	},
 	"logs": {

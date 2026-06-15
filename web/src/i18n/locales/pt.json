@@ -1033,8 +1033,7 @@
 				"disableStripReasoning": "Desabilitar raciocínio da faixa",
 				"rateLimitBurst": "Burst (máximo simultâneo)",
 				"rateLimitRps": "RPS (solicitações/segundo)",
-				"rateLimitTpm": "TPM (tokens/min)",
-				"placeholderTpm": "Sem limite"
+				"rateLimitTpm": "TPM (tokens/min)"
 			},
 			"detailTitle": "Detalhes da Chave Virtual",
 			"sections": {
@@ -1063,8 +1062,7 @@
 			"keyUpdated": "Chave virtual atualizada",
 			"keyUpdateFailed": "Falhou: {{message}}",
 			"usageExamples": "Exemplos de uso",
-			"rateLimitTpmLabel": "Limite de taxa TPM (tokens/min)",
-			"noCap": "Sem limite"
+			"rateLimitTpmLabel": "Limite de taxa TPM (tokens/min)"
 		}
 	},
 	"logs": {

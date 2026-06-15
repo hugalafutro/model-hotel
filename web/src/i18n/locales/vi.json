@@ -1033,8 +1033,7 @@
 				"disableStripReasoning": "Tắt tính năng suy luận theo dải",
 				"rateLimitBurst": "Burst (tối đa đồng thời)",
 				"rateLimitRps": "RPS (yêu cầu/giây)",
-				"rateLimitTpm": "TPM (token/phút)",
-				"placeholderTpm": "Không có giới hạn"
+				"rateLimitTpm": "TPM (token/phút)"
 			},
 			"detailTitle": "Chi tiết về Khóa ảo",
 			"sections": {
@@ -1063,8 +1062,7 @@
 			"keyUpdated": "Khóa ảo đã được cập nhật",
 			"keyUpdateFailed": "Không thành công: {{message}}",
 			"usageExamples": "Ví dụ sử dụng",
-			"rateLimitTpmLabel": "Giới hạn tốc độ TPM (token/phút)",
-			"noCap": "Không có giới hạn"
+			"rateLimitTpmLabel": "Giới hạn tốc độ TPM (token/phút)"
 		}
 	},
 	"logs": {

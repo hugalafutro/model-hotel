@@ -1033,8 +1033,7 @@
 				"disableStripReasoning": "ストリップの推論を無効にする",
 				"rateLimitBurst": "バースト（最大同時接続数）",
 				"rateLimitRps": "RPS（リクエスト/秒）",
-				"rateLimitTpm": "TPM（トークン/分）",
-				"placeholderTpm": "制限なし"
+				"rateLimitTpm": "TPM（トークン/分）"
 			},
 			"detailTitle": "仮想キーの詳細",
 			"sections": {
@@ -1063,8 +1062,7 @@
 			"keyUpdated": "仮想キーが更新されました",
 			"keyUpdateFailed": "失敗: {{message}}",
 			"usageExamples": "使用例",
-			"rateLimitTpmLabel": "レート制限 TPM（トークン/分）",
-			"noCap": "制限なし"
+			"rateLimitTpmLabel": "レート制限 TPM（トークン/分）"
 		}
 	},
 	"logs": {

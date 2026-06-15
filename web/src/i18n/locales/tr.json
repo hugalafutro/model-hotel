@@ -1033,8 +1033,7 @@
 				"disableStripReasoning": "Çizgi mantığını devre dışı bırak",
 				"rateLimitBurst": "Burst (maks. eşzamanlı)",
 				"rateLimitRps": "RPS (istek/saniye)",
-				"rateLimitTpm": "TPM (token/dk)",
-				"placeholderTpm": "Sınır yok"
+				"rateLimitTpm": "TPM (token/dk)"
 			},
 			"detailTitle": "Sanal Anahtar Bilgileri",
 			"sections": {
@@ -1063,8 +1062,7 @@
 			"keyUpdated": "Sanal anahtar güncellendi",
 			"keyUpdateFailed": "Başarısız: {{message}}",
 			"usageExamples": "Kullanım örnekleri",
-			"rateLimitTpmLabel": "Hız Sınırı TPM (token/dk)",
-			"noCap": "Sınır yok"
+			"rateLimitTpmLabel": "Hız Sınırı TPM (token/dk)"
 		}
 	},
 	"logs": {

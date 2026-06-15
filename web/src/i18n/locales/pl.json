@@ -1033,8 +1033,7 @@
 				"disableStripReasoning": "Wyłącz rozumowanie paska",
 				"rateLimitBurst": "Burst (maksymalna liczba jednoczesnych połączeń)",
 				"rateLimitRps": "RPS (żądania/sek.)",
-				"rateLimitTpm": "TPM (tokeny/min)",
-				"placeholderTpm": "Brak ograniczeń"
+				"rateLimitTpm": "TPM (tokeny/min)"
 			},
 			"detailTitle": "Szczegóły klucza wirtualnego",
 			"sections": {
@@ -1063,8 +1062,7 @@
 			"keyUpdated": "Klucz wirtualny zaktualizowany",
 			"keyUpdateFailed": "Niepowodzenie: {{message}}",
 			"usageExamples": "Przykłady użycia",
-			"rateLimitTpmLabel": "Limit szybkości TPM (tokeny/min)",
-			"noCap": "Brak ograniczeń"
+			"rateLimitTpmLabel": "Limit szybkości TPM (tokeny/min)"
 		}
 	},
 	"logs": {

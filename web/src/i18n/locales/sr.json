@@ -1033,8 +1033,7 @@
 				"disableStripReasoning": "Онемогућите стрип резоновање",
 				"rateLimitBurst": "Налет (макс. истовремено)",
 				"rateLimitRps": "RPS (захтеви/с)",
-				"rateLimitTpm": "TPM (токени/мин)",
-				"placeholderTpm": "Без ограничења"
+				"rateLimitTpm": "TPM (токени/мин)"
 			},
 			"detailTitle": "Детаљи виртуелног кључа",
 			"sections": {
@@ -1063,8 +1062,7 @@
 			"keyUpdated": "Виртуелни кључ ажуриран",
 			"keyUpdateFailed": "Неуспело: {{message}}",
 			"usageExamples": "Примери употребе",
-			"rateLimitTpmLabel": "Ограничење брзине TPM (токени/мин)",
-			"noCap": "Без ограничења"
+			"rateLimitTpmLabel": "Ограничење брзине TPM (токени/мин)"
 		}
 	},
 	"logs": {

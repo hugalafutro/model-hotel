@@ -1033,8 +1033,7 @@
 				"disableStripReasoning": "A sávos érvelés letiltása",
 				"rateLimitBurst": "Burst (maximális egyidejű)",
 				"rateLimitRps": "RPS (kérések/másodperc)",
-				"rateLimitTpm": "TPM (token/perc)",
-				"placeholderTpm": "Nincs korlátozás"
+				"rateLimitTpm": "TPM (token/perc)"
 			},
 			"detailTitle": "A virtuális kulcs adatai",
 			"sections": {
@@ -1063,8 +1062,7 @@
 			"keyUpdated": "A virtuális kulcs frissítve",
 			"keyUpdateFailed": "Hiba: {{message}}",
 			"usageExamples": "Használati példák",
-			"rateLimitTpmLabel": "Rate Limit TPM (tokens/min)",
-			"noCap": "Nincs korlátozás"
+			"rateLimitTpmLabel": "Rate Limit TPM (tokens/min)"
 		}
 	},
 	"logs": {

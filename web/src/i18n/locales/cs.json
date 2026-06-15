@@ -1033,8 +1033,7 @@
 				"disableStripReasoning": "Zakázat logiku strip",
 				"rateLimitBurst": "Burst (max. počet souběžných procesů)",
 				"rateLimitRps": "RPS (počet požadavků za sekundu)",
-				"rateLimitTpm": "TPM (tokeny/min)",
-				"placeholderTpm": "Bez omezení"
+				"rateLimitTpm": "TPM (tokeny/min)"
 			},
 			"detailTitle": "Podrobnosti o virtuálním klíči",
 			"sections": {
@@ -1063,8 +1062,7 @@
 			"keyUpdated": "Virtuální klíč byl aktualizován",
 			"keyUpdateFailed": "Selhalo: {{message}}",
 			"usageExamples": "Příklady použití",
-			"rateLimitTpmLabel": "Limit rychlosti TPM (tokeny/min)",
-			"noCap": "Bez omezení"
+			"rateLimitTpmLabel": "Limit rychlosti TPM (tokeny/min)"
 		}
 	},
 	"logs": {

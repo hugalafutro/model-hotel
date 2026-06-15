@@ -1033,8 +1033,7 @@
 				"disableStripReasoning": "Poista strip päättely käytöstä",
 				"rateLimitBurst": "Burst (maks. samanaikaiset)",
 				"rateLimitRps": "RPS (pyynnöt/sekunti)",
-				"rateLimitTpm": "TPM (tokenia/min)",
-				"placeholderTpm": "Ei rajoituksia"
+				"rateLimitTpm": "TPM (tokenia/min)"
 			},
 			"detailTitle": "Virtuaalisen Avaimen Yksityiskohdat",
 			"sections": {
@@ -1063,8 +1062,7 @@
 			"keyUpdated": "Virtuaalinen avain päivitetty",
 			"keyUpdateFailed": "Epäonnistui: {{message}}",
 			"usageExamples": "Käyttöesimerkkejä",
-			"rateLimitTpmLabel": "Rajoitus TPM (tunnukset/min)",
-			"noCap": "Ei rajoituksia"
+			"rateLimitTpmLabel": "Rajoitus TPM (tunnukset/min)"
 		}
 	},
 	"logs": {

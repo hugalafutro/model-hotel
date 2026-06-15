@@ -329,7 +329,7 @@ export function KeyDetailModal({
 								value={editTpm}
 								onChange={(e) => setEditTpm(e.target.value)}
 								className="ui-input"
-								placeholder={t("virtualkeys.modal.form.placeholderTpm")}
+								placeholder={t("virtualkeys.modal.form.placeholderGlobal")}
 							/>
 						</div>
 						<div>
@@ -452,7 +452,7 @@ export function KeyDetailModal({
 							value={
 								vk.rate_limit_tpm != null
 									? String(vk.rate_limit_tpm)
-									: t("virtualkeys.modal.noCap")
+									: t("common.global")
 							}
 							mono
 						/>

@@ -1033,8 +1033,7 @@
 				"disableStripReasoning": "Desactiva el raonament per franges",
 				"rateLimitBurst": "Rafegat (màxim simultani)",
 				"rateLimitRps": "RPS (sol·licituds/s)",
-				"rateLimitTpm": "TPM (tokens/min)",
-				"placeholderTpm": "Sense límit"
+				"rateLimitTpm": "TPM (tokens/min)"
 			},
 			"detailTitle": "Detalls de la clau virtual",
 			"sections": {
@@ -1063,8 +1062,7 @@
 			"keyUpdated": "Clau virtual actualitzada",
 			"keyUpdateFailed": "Fallat: {{message}}",
 			"usageExamples": "Exemples d'ús",
-			"rateLimitTpmLabel": "Límit de velocitat TPM (tokens/min)",
-			"noCap": "Sense límit"
+			"rateLimitTpmLabel": "Límit de velocitat TPM (tokens/min)"
 		}
 	},
 	"logs": {
