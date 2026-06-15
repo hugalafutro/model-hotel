@@ -998,7 +998,8 @@
 			"providerRestricted": "Szolgáltató által korlátozott kulcs",
 			"reasoningStripped": "Az érvelés kihagyva",
 			"keyHashed": "A kulcs hash-elt, és nem állítható vissza",
-			"tpm": "Percekénti tokenkorlát; a kéréseket 429-es kóddal utasítják el, ha a perces keret kimerült"
+			"tpm": "Percekénti tokenkorlát; a kéréseket 429-es kóddal utasítják el, ha a perces keret kimerült",
+			"id": "Kattintson a kulcsazonosító másolásához"
 		},
 		"emptyState": "Nincs virtuális kulcs. Hozzon létre egyet a proxy használatához.",
 		"steps": {

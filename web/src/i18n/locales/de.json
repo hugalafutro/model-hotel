@@ -998,7 +998,8 @@
 			"providerRestricted": "Anbieterbeschränkter Schlüssel",
 			"reasoningStripped": "Begründung entfernt",
 			"keyHashed": "Schlüssel ist gehashed und kann nicht wiederhergestellt werden",
-			"tpm": "Obergrenze für Tokens pro Minute; Anfragen werden mit dem Status 429 abgelehnt, sobald das Minutenbudget aufgebraucht ist"
+			"tpm": "Obergrenze für Tokens pro Minute; Anfragen werden mit dem Status 429 abgelehnt, sobald das Minutenbudget aufgebraucht ist",
+			"id": "Zum Kopieren der Schlüssel-ID hier klicken"
 		},
 		"emptyState": "Keine virtuellen Schlüssel. Erstellen Sie einen, um den Proxy zu verwenden.",
 		"steps": {

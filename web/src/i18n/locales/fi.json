@@ -998,7 +998,8 @@
 			"providerRestricted": "Tarjoajan rajoitettu avain",
 			"reasoningStripped": "Perustelu poistettu",
 			"keyHashed": "Avain on tiivistetty eikä sitä voi palauttaa",
-			"tpm": "Tunnusmerkkien enimmäismäärä minuutissa; pyynnöt hylätään koodilla 429, kun minuuttikiintiö on käytetty loppuun"
+			"tpm": "Tunnusmerkkien enimmäismäärä minuutissa; pyynnöt hylätään koodilla 429, kun minuuttikiintiö on käytetty loppuun",
+			"id": "Klikkaa kopioidaksesi avaimen tunnuksen"
 		},
 		"emptyState": "Ei virtuaalisia avaimia. Luo sellainen, jotta voit aloittaa välityspalvelimen käytön.",
 		"steps": {

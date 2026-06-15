@@ -998,7 +998,8 @@
 			"providerRestricted": "Clau restringida pel proveïdor",
 			"reasoningStripped": "Racionalitat despullada",
 			"keyHashed": "La clau s'ha xifrat i no es pot recuperar.",
-			"tpm": "Límit de tokens per minut; les sol·licituds es rebutgen amb un 429 un cop s'ha esgotat el pressupost per minut"
+			"tpm": "Límit de tokens per minut; les sol·licituds es rebutgen amb un 429 un cop s'ha esgotat el pressupost per minut",
+			"id": "Feu clic per copiar l'ID de la clau"
 		},
 		"emptyState": "No hi ha claus virtuals. Crea'n una per començar a utilitzar el proxy.",
 		"steps": {

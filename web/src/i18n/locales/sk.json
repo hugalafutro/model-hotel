@@ -998,7 +998,8 @@
 			"providerRestricted": "Kľúč s obmedzením poskytovateľa",
 			"reasoningStripped": "Odôvodnenie vynechané",
 			"keyHashed": "Kľúč je zašifrovaný a nie je možné ho obnoviť",
-			"tpm": "Limit tokenov za minútu; po vyčerpaní minútového limitu sú požiadavky odmietnuté s kódom 429."
+			"tpm": "Limit tokenov za minútu; po vyčerpaní minútového limitu sú požiadavky odmietnuté s kódom 429.",
+			"id": "Kliknutím skopírujte ID kľúča"
 		},
 		"emptyState": "Žiadne virtuálne kľúče. Vytvorte si jeden, aby ste mohli začať používať proxy.",
 		"steps": {

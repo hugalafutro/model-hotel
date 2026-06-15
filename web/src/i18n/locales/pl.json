@@ -998,7 +998,8 @@
 			"providerRestricted": "Klucz ograniczony przez dostawcę",
 			"reasoningStripped": "Uzasadnienie usunięte",
 			"keyHashed": "Klucz jest haszowany i nie można go odzyskać",
-			"tpm": "Limit tokenów na minutę; żądania są odrzucane z kodem 429 po wyczerpaniu limitu minutowego"
+			"tpm": "Limit tokenów na minutę; żądania są odrzucane z kodem 429 po wyczerpaniu limitu minutowego",
+			"id": "Kliknij, aby skopiować identyfikator klucza"
 		},
 		"emptyState": "Brak kluczy wirtualnych. Utwórz jeden, aby rozpocząć korzystanie z proxy.",
 		"steps": {

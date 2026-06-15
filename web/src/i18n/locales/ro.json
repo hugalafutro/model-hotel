@@ -998,7 +998,8 @@
 			"providerRestricted": "Cheie restricționată de furnizor",
 			"reasoningStripped": "Dungi de motivare",
 			"keyHashed": "Cheia este hash-uită și nu poate fi recuperată",
-			"tpm": "Limită de tokenuri pe minut; cererile sunt respinse cu codul 429 odată ce bugetul pe minut este epuizat"
+			"tpm": "Limită de tokenuri pe minut; cererile sunt respinse cu codul 429 odată ce bugetul pe minut este epuizat",
+			"id": "Faceți clic pentru a copia ID-ul cheii"
 		},
 		"emptyState": "Nu există chei virtuale. Creează una pentru a începe să folosești proxy.",
 		"steps": {

@@ -17,6 +17,7 @@ import {
 import { api } from "../../api/client";
 import type { VirtualKey } from "../../api/types";
 import { ConfirmDeleteButton } from "../../components/ConfirmDeleteButton";
+import { CopyablePill } from "../../components/CopyablePill";
 import { InfoHint } from "../../components/InfoHint";
 import { DetailItem } from "../../components/LogDetailItem";
 import { Modal } from "../../components/Modal";
@@ -415,12 +416,11 @@ export function KeyDetailModal({
 							icon={Fingerprint}
 							label={t("virtualkeys.modal.labels.id")}
 						>
-							<div
-								className="text-sm font-mono text-(--text-primary) truncate"
-								title={vk.id}
-							>
-								{vk.id}
-							</div>
+							<CopyablePill
+								text={vk.id}
+								textClassName="text-sm font-mono text-(--text-primary)"
+								tooltip={t("virtualkeys.tooltip.id")}
+							/>
 						</DetailItem>
 						<DetailItem
 							icon={Tag}

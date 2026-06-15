@@ -998,7 +998,8 @@
 			"providerRestricted": "Sağlayıcıya özel anahtar",
 			"reasoningStripped": "Mantık kısmı çıkarılmış",
 			"keyHashed": "Anahtar karma işleme tabi tutulmuştur ve geri getirilemez",
-			"tpm": "Dakika başına token sınırı; dakika bütçesi tükendiğinde istekler 429 ile reddedilir"
+			"tpm": "Dakika başına token sınırı; dakika bütçesi tükendiğinde istekler 429 ile reddedilir",
+			"id": "Anahtar kimliğini kopyalamak için tıklayın"
 		},
 		"emptyState": "Sanal anahtar yok. Proxy'yi kullanmaya başlamak için bir tane oluşturun.",
 		"steps": {

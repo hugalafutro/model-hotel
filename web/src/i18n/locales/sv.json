@@ -998,7 +998,8 @@
 			"providerRestricted": "Leverantörsbegränsad nyckel",
 			"reasoningStripped": "Resonemang borttaget",
 			"keyHashed": "Nyckeln är hashad och kan inte återställas",
-			"tpm": "Tak för tokens per minut; förfrågningar avvisas med 429 när minutbudgeten är förbrukad"
+			"tpm": "Tak för tokens per minut; förfrågningar avvisas med 429 när minutbudgeten är förbrukad",
+			"id": "Klicka för att kopiera nyckel-ID"
 		},
 		"emptyState": "Inga virtuella nycklar. Skapa en för att börja använda proxy.",
 		"steps": {

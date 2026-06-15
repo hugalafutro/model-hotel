@@ -998,7 +998,8 @@
 			"providerRestricted": "Leverandørbegrenset nøkkel",
 			"reasoningStripped": "Betalt avbrutt.",
 			"keyHashed": "Nøkkelen er kastet og kan ikke gjenopprettes",
-			"tpm": "Tak på antall tokens per minutt; forespørsler avvises med 429 når minuttbudsjettet er brukt opp"
+			"tpm": "Tak på antall tokens per minutt; forespørsler avvises med 429 når minuttbudsjettet er brukt opp",
+			"id": "Klikk for å kopiere nøkkel-ID"
 		},
 		"emptyState": "Ingen virtuelle nøkler. Opprett en for å begynne å bruke proxyen.",
 		"steps": {

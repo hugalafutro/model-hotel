@@ -998,7 +998,8 @@
 			"providerRestricted": "Verskafferbeperkte sleutel",
 			"reasoningStripped": "Redenering verwyder",
 			"keyHashed": "Die sleutel word gehas en kan nie herstel word nie.",
-			"tpm": "Tokens-per-minuut-limiet; versoeke word met 429 verwerp sodra die minutebegroting opgebrui is"
+			"tpm": "Tokens-per-minuut-limiet; versoeke word met 429 verwerp sodra die minutebegroting opgebrui is",
+			"id": "Klik om die sleutel-ID te kopieer"
 		},
 		"emptyState": "Geen virtuele sleutels nie. Skep een om met die proxy te begin gebruik.",
 		"steps": {

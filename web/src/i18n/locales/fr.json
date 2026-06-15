@@ -998,7 +998,8 @@
 			"providerRestricted": "Clé restreinte du fournisseur",
 			"reasoningStripped": "Raison dépouillée",
 			"keyHashed": "La clé est hachée et ne peut pas être récupérée",
-			"tpm": "Limite de jetons par minute ; les requêtes sont rejetées avec un code 429 une fois le budget de la minute épuisé"
+			"tpm": "Limite de jetons par minute ; les requêtes sont rejetées avec un code 429 une fois le budget de la minute épuisé",
+			"id": "Cliquez pour copier l'ID de clé"
 		},
 		"emptyState": "Aucune clé virtuelle. Créez-en une pour commencer à utiliser le proxy.",
 		"steps": {

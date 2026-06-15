@@ -998,7 +998,8 @@
 			"providerRestricted": "Provider-beperkte sleutel",
 			"reasoningStripped": "Redenen ontdaan",
 			"keyHashed": "Sleutel is gehasht en kan niet hersteld worden",
-			"tpm": "Limiet op tokens per minuut; verzoeken worden afgewezen met 429 zodra het budget voor die minuut is opgebruikt"
+			"tpm": "Limiet op tokens per minuut; verzoeken worden afgewezen met 429 zodra het budget voor die minuut is opgebruikt",
+			"id": "Klik om de sleutel-ID te kopiëren"
 		},
 		"emptyState": "Geen virtuele sleutels. Maak er een aan om de proxy te gebruiken.",
 		"steps": {

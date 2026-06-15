@@ -998,7 +998,8 @@
 			"providerRestricted": "Clave restringida por proveedor",
 			"reasoningStripped": "Razonamiento despojado",
 			"keyHashed": "La clave está apresurada y no puede ser recuperada",
-			"tpm": "Límite de tokens por minuto; las solicitudes se rechazan con un 429 una vez agotado el presupuesto por minuto"
+			"tpm": "Límite de tokens por minuto; las solicitudes se rechazan con un 429 una vez agotado el presupuesto por minuto",
+			"id": "Haga clic para copiar el ID de clave"
 		},
 		"emptyState": "No hay claves virtuales. Crea una para empezar a usar el proxy.",
 		"steps": {

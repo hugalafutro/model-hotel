@@ -998,7 +998,8 @@
 			"providerRestricted": "Chiave provider-restricted",
 			"reasoningStripped": "Ragionamento spogliato",
 			"keyHashed": "La chiave è hashed e non può essere recuperata",
-			"tpm": "Limite di token al minuto; le richieste vengono respinte con codice 429 una volta esaurito il budget del minuto"
+			"tpm": "Limite di token al minuto; le richieste vengono respinte con codice 429 una volta esaurito il budget del minuto",
+			"id": "Clicca per copiare l'ID chiave"
 		},
 		"emptyState": "Nessuna chiave virtuale. Creane una per iniziare a usare il proxy.",
 		"steps": {

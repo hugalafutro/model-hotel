@@ -998,7 +998,8 @@
 			"providerRestricted": "Chave restrita do provedor",
 			"reasoningStripped": "Justificativa removida",
 			"keyHashed": "A chave é hashed e não pode ser recuperada",
-			"tpm": "Limite de tokens por minuto; as solicitações são rejeitadas com o código 429 assim que o limite de tokens por minuto for esgotado"
+			"tpm": "Limite de tokens por minuto; as solicitações são rejeitadas com o código 429 assim que o limite de tokens por minuto for esgotado",
+			"id": "Clique para copiar o ID da chave"
 		},
 		"emptyState": "Não há chaves virtuais. Crie uma para começar a usar o proxy.",
 		"steps": {

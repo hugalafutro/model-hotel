@@ -988,6 +988,7 @@
 		},
 		"tooltip": {
 			"proxyUrl": "Click to copy proxy URL",
+			"id": "Click to copy key ID",
 			"name": "Display name for the virtual key",
 			"key": "Preview of the API key (full key only shown once on creation)",
 			"rps": "Requests per second rate limit",
