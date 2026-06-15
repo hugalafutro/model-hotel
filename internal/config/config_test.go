@@ -434,6 +434,43 @@ func TestConfig_String_OmitsSensitiveURLs(t *testing.T) {
 	}
 }
 
+func TestConfig_String_LogExportStatus(t *testing.T) {
+	t.Setenv("LOG_FORMAT", "json")
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector:4318")
+	t.Setenv("OTEL_EXPORTER_OTLP_LOGS_ENDPOINT", "")
+	cfg := &Config{
+		Port:         ":8080",
+		MasterKey:    "k",
+		MetricsToken: "super-secret-scrape-token",
+	}
+	s := cfg.String()
+
+	// Status rows are present and reflect env state.
+	for _, want := range []string{"Log Format", "json", "Metrics", "enabled", "OTLP Logs"} {
+		if !contains(s, want) {
+			t.Errorf("Config.String() should contain %q", want)
+		}
+	}
+	// The token itself must never be printed — only its enabled/disabled status.
+	if contains(s, "super-secret-scrape-token") {
+		t.Error("Config.String() must not leak the METRICS_TOKEN value")
+	}
+}
+
+func TestConfig_String_MetricsDisabledWithoutToken(t *testing.T) {
+	t.Setenv("LOG_FORMAT", "")
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+	t.Setenv("OTEL_EXPORTER_OTLP_LOGS_ENDPOINT", "")
+	cfg := &Config{Port: ":8080", MasterKey: "k"}
+	s := cfg.String()
+	if !contains(s, "text") {
+		t.Error("Config.String() should show Log Format 'text' by default")
+	}
+	if !contains(s, "disabled") {
+		t.Error("Config.String() should show Metrics/OTLP 'disabled' when unconfigured")
+	}
+}
+
 func TestConfig_String_ShortMasterKey(t *testing.T) {
 	cfg := &Config{
 		MasterKey: "abc",
