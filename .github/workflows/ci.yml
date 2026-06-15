@@ -252,9 +252,11 @@ jobs:
 
       - name: Check frontend coverage (80% threshold)
         run: |
+          # The merge step above always writes this; a missing file means the
+          # shard merge failed, so fail loudly rather than skip the gate.
           if [ ! -f coverage/coverage-summary.json ]; then
-            echo "WARNING: no coverage-summary.json, skipping gate"
-            exit 0
+            echo "FAIL: no coverage-summary.json — shard merge produced no coverage"
+            exit 1
           fi
           pct=$(python3 -c "
           import json,sys
