@@ -334,6 +334,12 @@ func main() {
 			apiHandler.RegisterEvents(r)
 		})
 
+		// Public, unauthenticated feature flags (e.g. read-only demo mode) so
+		// the SPA can render correctly even on the login screen.
+		r.Group(func(r chi.Router) {
+			apiHandler.RegisterPublicConfig(r)
+		})
+
 		if webauthnHandler != nil {
 			r.Group(func(r chi.Router) {
 				webauthnHandler.Register(r)

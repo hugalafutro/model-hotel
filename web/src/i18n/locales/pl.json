@@ -181,7 +181,10 @@
 			"dbConnections": "Aktywne połączenia z bazą danych",
 			"dbTxPerSec": "Transakcje w bazie danych na sekundę"
 		},
-		"githubRepo": "Repozytorium GitHub"
+		"githubRepo": "Repozytorium GitHub",
+		"readOnly": {
+			"banner": "Wersja demonstracyjna tylko do odczytu — tworzenie, edycja i usuwanie są wyłączone."
+		}
 	},
 	"dashboard": {
 		"title": "Panel",

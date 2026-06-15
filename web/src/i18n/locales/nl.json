@@ -181,7 +181,10 @@
 			"dbConnections": "Actieve database verbindingen",
 			"dbTxPerSec": "Database transacties per seconde"
 		},
-		"githubRepo": "GitHub-repository"
+		"githubRepo": "GitHub-repository",
+		"readOnly": {
+			"banner": "Alleen-lezen demo — aanmaken, bewerken en verwijderen zijn uitgeschakeld."
+		}
 	},
 	"dashboard": {
 		"title": "Dashboard",

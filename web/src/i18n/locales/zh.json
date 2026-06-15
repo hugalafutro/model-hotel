@@ -181,7 +181,10 @@
 			"dbConnections": "活跃的数据库连接",
 			"dbTxPerSec": "每秒数据库交易数"
 		},
-		"githubRepo": "GitHub 仓库"
+		"githubRepo": "GitHub 仓库",
+		"readOnly": {
+			"banner": "只读演示版——创建、编辑和删除功能已禁用。"
+		}
 	},
 	"dashboard": {
 		"title": "仪表板",

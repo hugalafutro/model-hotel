@@ -639,6 +639,11 @@ export const handlers: RequestHandler[] = [
 		return HttpResponse.json({ tag_name: "v0.0.0" });
 	}),
 
+	// ── Public config (unauthenticated) ──────────────────────────────────
+	http.get("/api/public-config", () => {
+		return HttpResponse.json({ read_only: false });
+	}),
+
 	// ── SSE Events ────────────────────────────────────────────────────────
 	http.get("/api/events", () => {
 		// SSE endpoint - return empty response to suppress unhandled request warnings

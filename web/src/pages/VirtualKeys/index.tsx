@@ -16,6 +16,7 @@ import { EmptyState } from "../../components/EmptyState";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { PageHeader } from "../../components/PageHeader";
 import { useToast } from "../../context/ToastContext";
+import { useReadOnly } from "../../hooks/useReadOnly";
 import { formatNumber, formatRelativeTime } from "../../utils/format";
 import { CreateKeyModal } from "./CreateKeyModal";
 import { KeyDetailModal } from "./KeyDetailModal";
@@ -33,6 +34,7 @@ type VKSortField =
 export function VirtualKeys() {
 	const { t } = useTranslation();
 	const { toast } = useToast();
+	const readOnly = useReadOnly();
 	const [showCreate, setShowCreate] = useState(false);
 	const [selectedKey, setSelectedKey] = useState<VirtualKey | null>(null);
 	const [sort, setSort] = useState<SortState<VKSortField>>({
@@ -130,13 +132,15 @@ export function VirtualKeys() {
 					</span>
 				}
 				actions={
-					<button
-						type="button"
-						onClick={() => setShowCreate(true)}
-						className="ui-btn ui-btn-primary"
-					>
-						{t("virtualkeys.createButton")}
-					</button>
+					!readOnly && (
+						<button
+							type="button"
+							onClick={() => setShowCreate(true)}
+							className="ui-btn ui-btn-primary"
+						>
+							{t("virtualkeys.createButton")}
+						</button>
+					)
 				}
 			/>
 

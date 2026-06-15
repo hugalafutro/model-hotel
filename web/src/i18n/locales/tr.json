@@ -181,7 +181,10 @@
 			"dbConnections": "Etkin veritabanı bağlantıları",
 			"dbTxPerSec": "Saniye başına veritabanı işlemleri"
 		},
-		"githubRepo": "GitHub deposu"
+		"githubRepo": "GitHub deposu",
+		"readOnly": {
+			"banner": "Salt okunur demo — oluşturma, düzenleme ve silme işlemleri devre dışıdır."
+		}
 	},
 	"dashboard": {
 		"title": "Kontrol paneli",

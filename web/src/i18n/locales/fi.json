@@ -181,7 +181,10 @@
 			"dbConnections": "Aktiiviset tietokantayhteydet",
 			"dbTxPerSec": "Tietokannan tapahtumat sekunnissa"
 		},
-		"githubRepo": "GitHub-repositorio"
+		"githubRepo": "GitHub-repositorio",
+		"readOnly": {
+			"banner": "Vain luku -demo — luominen, muokkaaminen ja poistaminen on estetty."
+		}
 	},
 	"dashboard": {
 		"title": "Koontinäyttö",

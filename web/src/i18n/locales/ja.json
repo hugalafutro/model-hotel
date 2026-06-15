@@ -181,7 +181,10 @@
 			"dbConnections": "アクティブなデータベース接続",
 			"dbTxPerSec": "データベーストランザクション/秒"
 		},
-		"githubRepo": "GitHubリポジトリ"
+		"githubRepo": "GitHubリポジトリ",
+		"readOnly": {
+			"banner": "読み取り専用デモ — 作成、編集、削除は無効化されています。"
+		}
 	},
 	"dashboard": {
 		"title": "ダッシュボード",

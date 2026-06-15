@@ -181,7 +181,10 @@
 			"dbConnections": "Conexiuni active la baza de date",
 			"dbTxPerSec": "Baza de date tranzacţii pe secundă"
 		},
-		"githubRepo": "Depozit GitHub"
+		"githubRepo": "Depozit GitHub",
+		"readOnly": {
+			"banner": "Demo numai pentru citire — funcțiile de creare, editare și ștergere sunt dezactivate."
+		}
 	},
 	"dashboard": {
 		"title": "Tablou de bord",
