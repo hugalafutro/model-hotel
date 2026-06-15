@@ -175,8 +175,10 @@ jobs:
       - name: Build
         # CODECOV_TOKEN enables the bundle-analysis plugin's upload (gated on the
         # var being set, so only CI uploads — local/Docker builds stay silent).
+        # Bundle analysis needs the repo-scoped bundle token; the coverage
+        # CODECOV_TOKEN is a different value the bundle endpoint rejects (404).
         env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          CODECOV_TOKEN: ${{ secrets.CODECOV_BUNDLE_TOKEN }}
         run: pnpm run build
 
   # The 5k-test vitest suite was the sole CI wall-clock bottleneck (~7-8 min),
