@@ -5,7 +5,18 @@ import (
 	"io"
 	"log/slog"
 	"testing"
+
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/sdk/resource"
 )
+
+// serviceNameOf extracts the service.name attribute from a resource, or "".
+func serviceNameOf(res *resource.Resource) string {
+	if v, ok := res.Set().Value(attribute.Key("service.name")); ok {
+		return v.AsString()
+	}
+	return ""
+}
 
 func TestLogsEnabled(t *testing.T) {
 	cases := []struct {
@@ -87,4 +98,51 @@ func TestLevelHandler_GatesBelowLevel(t *testing.T) {
 	if nilLvl.Enabled(context.Background(), slog.LevelDebug) {
 		t.Error("nil level should default to Info and gate Debug")
 	}
+}
+
+// TestNewSlogHandler_GRPC covers the grpc transport branch of newExporter. Like
+// the http exporter, otlploggrpc.New does not dial at construction, so this does
+// not require a live collector.
+func TestNewSlogHandler_GRPC(t *testing.T) {
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4317")
+	t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "grpc")
+	t.Setenv("OTEL_SERVICE_NAME", "test-svc")
+
+	handler, shutdown, err := NewSlogHandler(context.Background(), "model-hotel", slog.LevelInfo)
+	if err != nil {
+		t.Fatalf("NewSlogHandler(grpc) returned error: %v", err)
+	}
+	if handler == nil || shutdown == nil {
+		t.Fatal("NewSlogHandler(grpc) returned nil handler or shutdown")
+	}
+	if err := shutdown(context.Background()); err != nil {
+		t.Errorf("grpc shutdown returned error: %v", err)
+	}
+}
+
+func TestServiceResource(t *testing.T) {
+	t.Run("defaults service.name when env unset", func(t *testing.T) {
+		t.Setenv("OTEL_SERVICE_NAME", "")
+		t.Setenv("OTEL_RESOURCE_ATTRIBUTES", "")
+		// Merge(default, ours) lets our attribute win, so the assertion holds
+		// regardless of resource.Default()'s process-level caching.
+		if got := serviceNameOf(serviceResource("model-hotel")); got != "model-hotel" {
+			t.Errorf("service.name = %q, want model-hotel", got)
+		}
+	})
+
+	t.Run("honours operator-provided OTEL_SERVICE_NAME (no merge)", func(t *testing.T) {
+		t.Setenv("OTEL_SERVICE_NAME", "operator-set")
+		// Env set → the default branch returns the base resource without forcing
+		// our default; we only assert it doesn't override to "model-hotel".
+		if got := serviceNameOf(serviceResource("model-hotel")); got == "model-hotel" {
+			t.Error("operator-provided service name must not be overridden by the default")
+		}
+	})
+
+	t.Run("empty service name returns a usable resource", func(t *testing.T) {
+		if serviceResource("") == nil {
+			t.Error("serviceResource(\"\") returned nil")
+		}
+	})
 }

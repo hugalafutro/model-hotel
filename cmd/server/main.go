@@ -126,10 +126,14 @@ func main() {
 		} else {
 			appLogHandler = debuglog.NewFanout(appLogHandler, otelHandler)
 			otelLogShutdown = shutdown
-			debuglog.Info("otel: OTLP log export enabled")
 		}
 	}
 	debuglog.SetHandler(appLogHandler)
+	// Logged after SetHandler installs the fan-out, so the confirmation itself
+	// is also exported to the OTLP collector.
+	if otelLogShutdown != nil {
+		debuglog.Info("otel: OTLP log export enabled")
+	}
 
 	debuglog.Info("db: Database connected and migrations applied successfully")
 	debuglog.Info("startup: admin token", "source", func() string {
@@ -795,10 +799,10 @@ func main() {
 	// not lost on shutdown.
 	if otelLogShutdown != nil {
 		flushCtx, flushCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer flushCancel()
 		if err := otelLogShutdown(flushCtx); err != nil {
 			debuglog.Error("otel: OTLP log exporter shutdown failed", "error", err)
 		}
-		flushCancel()
 	}
 
 	// Flush pending app log DB writes before closing the database.
