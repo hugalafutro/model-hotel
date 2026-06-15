@@ -6,6 +6,7 @@ import {
 	CalendarPlus,
 	Clock,
 	Coins,
+	Fingerprint,
 	Gauge,
 	Key,
 	RotateCcw,
@@ -410,6 +411,17 @@ export function KeyDetailModal({
 					</>
 				) : (
 					<div className="grid grid-cols-2 gap-2">
+						<DetailItem
+							icon={Fingerprint}
+							label={t("virtualkeys.modal.labels.id")}
+						>
+							<div
+								className="text-sm font-mono text-(--text-primary) truncate"
+								title={vk.id}
+							>
+								{vk.id}
+							</div>
+						</DetailItem>
 						<DetailItem
 							icon={Tag}
 							label={t("virtualkeys.modal.form.name")}

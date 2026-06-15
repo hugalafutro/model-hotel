@@ -1048,7 +1048,8 @@
 				"key": "Kľúč",
 				"tokensConsumed": "Spotrebované žetóny",
 				"lastUsed": "Naposledy použité",
-				"created": "Vytvorené"
+				"created": "Vytvorené",
+				"id": "ID"
 			},
 			"noProvidersConfigured": "Nie sú nakonfigurovaní žiadni poskytovatelia.",
 			"discardChanges": "Zrušiť neuložené zmeny?",

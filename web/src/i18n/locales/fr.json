@@ -1048,7 +1048,8 @@
 				"key": "Clés",
 				"tokensConsumed": "Jetons Consommés",
 				"lastUsed": "Dernière utilisation",
-				"created": "Créé"
+				"created": "Créé",
+				"id": "ID"
 			},
 			"noProvidersConfigured": "Aucun fournisseur configuré.",
 			"discardChanges": "Ignorer les modifications non enregistrées ?",

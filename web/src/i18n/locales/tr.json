@@ -1048,7 +1048,8 @@
 				"key": "Anahtar",
 				"tokensConsumed": "Kullanılan Jetonlar",
 				"lastUsed": "En Son Kullanım Tarihi",
-				"created": "Oluşturuldu"
+				"created": "Oluşturuldu",
+				"id": "ID"
 			},
 			"noProvidersConfigured": "Yapılandırılmış sağlayıcı yok.",
 			"discardChanges": "Kaydedilmemiş değişiklikleri silmek istiyor musunuz?",

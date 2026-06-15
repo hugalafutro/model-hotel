@@ -1048,7 +1048,8 @@
 				"key": "关键字",
 				"tokensConsumed": "已消耗令牌",
 				"lastUsed": "上次使用",
-				"created": "已创建"
+				"created": "已创建",
+				"id": "ID"
 			},
 			"noProvidersConfigured": "没有配置提供者。",
 			"discardChanges": "放弃未保存的更改？",

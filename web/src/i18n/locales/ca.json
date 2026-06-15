@@ -1048,7 +1048,8 @@
 				"key": "Clau",
 				"tokensConsumed": "Tòkens consumits",
 				"lastUsed": "Últim ús",
-				"created": "Creat"
+				"created": "Creat",
+				"id": "ID"
 			},
 			"noProvidersConfigured": "No s'ha configurat cap proveïdor.",
 			"discardChanges": "Descartar els canvis no desats?",

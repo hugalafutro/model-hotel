@@ -1048,7 +1048,8 @@
 				"key": "Sleutel",
 				"tokensConsumed": "Tokens Verbruikt",
 				"lastUsed": "Laatst gebruikt",
-				"created": "Aangemaakt"
+				"created": "Aangemaakt",
+				"id": "ID"
 			},
 			"noProvidersConfigured": "Geen providers geconfigureerd.",
 			"discardChanges": "Wijzigingen niet opslaan?",

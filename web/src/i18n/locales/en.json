@@ -1046,6 +1046,7 @@
 				"stripReasoning": "Strip Reasoning"
 			},
 			"labels": {
+				"id": "ID",
 				"key": "Key",
 				"tokensConsumed": "Tokens Consumed",
 				"lastUsed": "Last Used",

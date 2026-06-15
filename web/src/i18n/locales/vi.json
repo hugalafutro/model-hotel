@@ -1048,7 +1048,8 @@
 				"key": "Chìa khóa",
 				"tokensConsumed": "Số lượng token đã sử dụng",
 				"lastUsed": "Lần sử dụng gần nhất",
-				"created": "Được tạo"
+				"created": "Được tạo",
+				"id": "ID"
 			},
 			"noProvidersConfigured": "Chưa có nhà cung cấp nào được cấu hình.",
 			"discardChanges": "Bạn có muốn hủy bỏ các thay đổi chưa được lưu không?",

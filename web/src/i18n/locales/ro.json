@@ -1048,7 +1048,8 @@
 				"key": "Cheie",
 				"tokensConsumed": "Tokene consumate",
 				"lastUsed": "Ultima utilizare",
-				"created": "Creat"
+				"created": "Creat",
+				"id": "ID"
 			},
 			"noProvidersConfigured": "Niciun furnizor configurat.",
 			"discardChanges": "Renunțați la modificările nesalvate?",

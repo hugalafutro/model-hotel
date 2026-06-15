@@ -1048,7 +1048,8 @@
 				"key": "키",
 				"tokensConsumed": "소모된 토큰",
 				"lastUsed": "마지막 사용일",
-				"created": "작성됨"
+				"created": "작성됨",
+				"id": "ID"
 			},
 			"noProvidersConfigured": "설정된 공급자가 없습니다.",
 			"discardChanges": "저장되지 않은 변경 사항을 버릴까요?",

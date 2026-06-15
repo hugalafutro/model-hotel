@@ -1048,7 +1048,8 @@
 				"key": "Avain",
 				"tokensConsumed": "Tokenit Kuluvat",
 				"lastUsed": "Viimeksi Käytetty",
-				"created": "Luotu"
+				"created": "Luotu",
+				"id": "ID"
 			},
 			"noProvidersConfigured": "Yhtään tarjoajaa ei ole määritetty.",
 			"discardChanges": "Hylätäänkö tallentamattomat muutokset?",

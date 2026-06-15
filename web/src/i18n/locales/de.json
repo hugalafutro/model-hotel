@@ -1048,7 +1048,8 @@
 				"key": "Schlüssel",
 				"tokensConsumed": "Konsumierte Token",
 				"lastUsed": "Zuletzt verwendet",
-				"created": "Erstellt"
+				"created": "Erstellt",
+				"id": "ID"
 			},
 			"noProvidersConfigured": "Keine Anbieter konfiguriert.",
 			"discardChanges": "Nicht gespeicherte Änderungen verwerfen?",

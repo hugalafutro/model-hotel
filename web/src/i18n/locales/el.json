@@ -1048,7 +1048,8 @@
 				"key": "Κλειδί",
 				"tokensConsumed": "Tokens Που Καταναλώνονται",
 				"lastUsed": "Τελευταία Χρήση",
-				"created": "Δημιουργήθηκε"
+				"created": "Δημιουργήθηκε",
+				"id": "ID"
 			},
 			"noProvidersConfigured": "Δεν έχουν ρυθμιστεί πάροχοι",
 			"discardChanges": "Απόρριψη μη αποθηκευμένων αλλαγών?",

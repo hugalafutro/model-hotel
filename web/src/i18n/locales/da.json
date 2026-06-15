@@ -1048,7 +1048,8 @@
 				"key": "Nøgle",
 				"tokensConsumed": "Tokens Indtaget",
 				"lastUsed": "Sidst Brugt",
-				"created": "Oprettet"
+				"created": "Oprettet",
+				"id": "ID"
 			},
 			"noProvidersConfigured": "Ingen udbydere konfigureret.",
 			"discardChanges": "Kassér ikke-gemte ændringer?",

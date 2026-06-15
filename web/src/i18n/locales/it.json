@@ -1048,7 +1048,8 @@
 				"key": "Chiave",
 				"tokensConsumed": "Token Consumati",
 				"lastUsed": "Ultimo Utilizzato",
-				"created": "Creato"
+				"created": "Creato",
+				"id": "ID"
 			},
 			"noProvidersConfigured": "Nessun provider configurato.",
 			"discardChanges": "Scartare le modifiche non salvate?",

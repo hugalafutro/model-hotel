@@ -1048,7 +1048,8 @@
 				"key": "מפתח",
 				"tokensConsumed": "אסימונים שנצרכו",
 				"lastUsed": "השימוש האחרון",
-				"created": "נוצר"
+				"created": "נוצר",
+				"id": "ID"
 			},
 			"noProvidersConfigured": "לא הוגדרו ספקים.",
 			"discardChanges": "האם למחוק שינויים שלא נשמרו?",

@@ -1048,7 +1048,8 @@
 				"key": "Kulcs",
 				"tokensConsumed": "Felhasznált tokenek",
 				"lastUsed": "Utoljára használt",
-				"created": "Létrehozva"
+				"created": "Létrehozva",
+				"id": "ID"
 			},
 			"noProvidersConfigured": "Nincs beállított szolgáltató.",
 			"discardChanges": "El akarja vetni a mentetlen módosításokat?",

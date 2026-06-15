@@ -45,6 +45,7 @@ describe("VirtualKeys", () => {
 				name: "Virtual Key Details",
 			});
 			expect(within(dialog).getByText("Test API Key")).toBeInTheDocument();
+			expect(within(dialog).getByText(mockVirtualKey.id)).toBeInTheDocument();
 			expect(
 				within(dialog).getByText(mockVirtualKey.key_preview),
 			).toBeInTheDocument();
