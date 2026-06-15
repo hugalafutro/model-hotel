@@ -1386,6 +1386,38 @@ func TestLoad_ALLOW_HTTP_PROVIDERS(t *testing.T) {
 	}
 }
 
+// TestLoad_DEMO_READONLY tests that DEMO_READONLY=true sets DemoReadOnly,
+// defaults to false when unset, and that the startup banner surfaces the flag
+// only when it is enabled.
+func TestLoad_DEMO_READONLY(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://user:pass@localhost/test")
+	t.Setenv("MASTER_KEY", "test-master-key")
+	t.Setenv("DEMO_READONLY", "true")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() failed: %v", err)
+	}
+	if !cfg.DemoReadOnly {
+		t.Error("Expected DemoReadOnly=true when DEMO_READONLY=true")
+	}
+	if !strings.Contains(cfg.String(), "Read-Only Mode") {
+		t.Error("Expected startup banner to include the Read-Only Mode row when enabled")
+	}
+
+	t.Setenv("DEMO_READONLY", "")
+	cfg2, err := Load()
+	if err != nil {
+		t.Fatalf("Load() failed: %v", err)
+	}
+	if cfg2.DemoReadOnly {
+		t.Error("Expected DemoReadOnly=false when DEMO_READONLY is unset")
+	}
+	if strings.Contains(cfg2.String(), "Read-Only Mode") {
+		t.Error("Expected startup banner to omit the Read-Only Mode row when disabled")
+	}
+}
+
 // TestLoad_CORS_ORIGINS tests that CORS_ORIGINS is parsed correctly with multiple entries.
 func TestLoad_CORS_ORIGINS(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://user:pass@localhost/test")
