@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"net"
@@ -81,10 +80,10 @@ func writeJSONCreated(w http.ResponseWriter, v interface{}) {
 }
 
 // logEncodeError logs a failure to encode a JSON response. A client that hangs
-// up before the body is written (broken pipe, connection reset, canceled
-// request context) is not a server fault, so it is logged at debug level to
-// keep production logs clean; any other failure (e.g. an unmarshalable value)
-// stays at error level so genuine bugs remain visible even with debug disabled.
+// up before the body is written (broken pipe, connection reset, closed conn) is
+// not a server fault, so it is logged at debug level to keep production logs
+// clean; any other failure (e.g. an unmarshalable value) stays at error level
+// so genuine bugs remain visible even with debug disabled.
 func logEncodeError(err error) {
 	if isClientDisconnect(err) {
 		debuglog.Debug("api: client disconnected before JSON response completed", "error", err)
@@ -94,10 +93,13 @@ func logEncodeError(err error) {
 }
 
 // isClientDisconnect reports whether err indicates the client closed the
-// connection before the response could be fully written.
+// connection before the response could be fully written. These are the
+// OS-level write errors that unambiguously signal a dead client TCP connection;
+// context cancellation is deliberately excluded because it crosses a different
+// boundary (a server-side cancel must not be silently downgraded), and the
+// response-encode path produces these write errors, not context.Canceled.
 func isClientDisconnect(err error) bool {
 	return errors.Is(err, syscall.EPIPE) ||
 		errors.Is(err, syscall.ECONNRESET) ||
-		errors.Is(err, net.ErrClosed) ||
-		errors.Is(err, context.Canceled)
+		errors.Is(err, net.ErrClosed)
 }

@@ -52,7 +52,7 @@ func TestIsClientDisconnect(t *testing.T) {
 		{"broken pipe", syscall.EPIPE, true},
 		{"connection reset", syscall.ECONNRESET, true},
 		{"closed conn", net.ErrClosed, true},
-		{"context canceled", context.Canceled, true},
+		{"context canceled is not a disconnect", context.Canceled, false},
 		{"wrapped broken pipe", fmt.Errorf("write tcp: %w", syscall.EPIPE), true},
 		{"unmarshalable value", errors.New("json: unsupported type: chan int"), false},
 		{"nil", nil, false},
@@ -78,6 +78,11 @@ func (h *levelCaptureHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
 func (h *levelCaptureHandler) WithGroup(string) slog.Handler      { return h }
 
 func TestLogEncodeError_Level(t *testing.T) {
+	// SetHandler swaps the process-wide slog default; restore it afterwards so
+	// later tests in this package aren't silently swallowed by the capture handler.
+	prev := slog.Default().Handler()
+	t.Cleanup(func() { debuglog.SetHandler(prev) })
+
 	capt := &levelCaptureHandler{}
 	debuglog.SetHandler(capt)
 
