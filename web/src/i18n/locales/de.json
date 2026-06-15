@@ -1732,7 +1732,6 @@
 			"failedToRename": "Fehler beim Umbenennen des Passworts: {{message}}"
 		},
 		"observability": {
-			"description": "Model Hotel kann seine strukturierten Protokolle und Metriken in externe Systeme exportieren. Jede Integration wird über eine Umgebungsvariable aktiviert, daher sind die unten stehenden Schalter schreibgeschützt und spiegeln den aktuellen Status wider. Es werden niemals Request- oder Response-Inhalte exportiert – lediglich Routing- und Messmetadaten.",
 			"json.description": "Strukturierte Protokolle als ein JSON-Objekt pro Zeile ausgeben, für stdout-Protokollsammler wie Fluent Bit, Vector oder Promtail.",
 			"json.instructions": "Setzen Sie diese Umgebungsvariable und starten Sie den Container neu, um JSON-formatierte Protokolle auszugeben:",
 			"json.name": "JSON-Protokolle (stdout)",
@@ -1742,7 +1741,8 @@
 			"otel.description": "Senden Sie die gleichen strukturierten Protokolle über OTLP an einen OpenTelemetry-Collector (nur Protokolle – keine Tracing-Daten oder Metriken).",
 			"otel.instructions": "Richten Sie dies auf Ihren OTLP-Collector-Endpunkt aus und starten Sie den Container neu, um Logs über OpenTelemetry zu übertragen:",
 			"otel.name": "OpenTelemetry-Protokolle (OTLP)",
-			"title": "Observability & Log-Export"
+			"title": "Observability & Log-Export",
+			"description": "Model Hotel kann seine strukturierten Protokolle und Metriken in externe Systeme exportieren. Jede Integration wird über eine Umgebungsvariable aktiviert; die Status-Badges unten zeigen den aktuellen Status an. Es werden niemals Anfrage- oder Antwortinhalte exportiert – nur Routing- und Messmetadaten."
 		}
 	},
 	"components": {

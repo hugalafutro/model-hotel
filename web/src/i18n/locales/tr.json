@@ -1732,7 +1732,6 @@
 			"failedToRename": "Şifreyi yeniden adlandırma işlemi başarısız oldu: {{message}}"
 		},
 		"observability": {
-			"description": "Model Hotel, yapılandırılmış günlüklerini ve metriklerini harici sistemlere aktarabilir. Her entegrasyon bir ortam değişkeni ile etkinleştirilir, bu nedenle aşağıdaki anahtarlar salt okunurdur ve mevcut durumu yansıtır. Hiçbir istek veya yanıt içeriği aktarılmaz — yalnızca yönlendirme ve ölçüm meta verileri aktarılır.",
 			"json.description": "Fluent Bit, Vector veya Promtail gibi stdout günlük toplayıcıları için, yapılandırılmış günlükleri satır başına tek bir JSON nesnesi olarak gönderin.",
 			"json.instructions": "JSON biçiminde günlükler oluşturmak için bu ortam değişkenini ayarlayın ve konteyneri yeniden başlatın:",
 			"json.name": "JSON günlükleri (stdout)",
@@ -1742,7 +1741,8 @@
 			"otel.description": "Aynı yapılandırılmış günlükleri OTLP üzerinden bir OpenTelemetry toplayıcısına gönderin (sadece günlükler — izleme veya metrikler hariç).",
 			"otel.instructions": "Bunu OTLP toplayıcı uç noktanıza yönlendirin ve OpenTelemetry üzerinden günlükleri aktarmak için konteyneri yeniden başlatın:",
 			"otel.name": "OpenTelemetry günlükleri (OTLP)",
-			"title": "Gözlemlenebilirlik ve Günlük Dışa Aktarma"
+			"title": "Gözlemlenebilirlik ve Günlük Dışa Aktarma",
+			"description": "Model Hotel, yapılandırılmış günlüklerini ve metriklerini harici sistemlere aktarabilir. Her entegrasyon bir ortam değişkeni ile etkinleştirilir; aşağıdaki durum rozetleri mevcut durumu yansıtır. Hiçbir istek veya yanıt içeriği aktarılmaz — yalnızca yönlendirme ve ölçüm meta verileri aktarılır."
 		}
 	},
 	"components": {

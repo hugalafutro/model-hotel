@@ -1732,7 +1732,6 @@
 			"failedToRename": "암호명 변경에 실패했습니다: {{message}}"
 		},
 		"observability": {
-			"description": "Model Hotel은 구조화된 로그와 메트릭을 외부 시스템으로 내보낼 수 있습니다. 각 통합 기능은 환경 변수를 통해 활성화되므로, 아래의 토글은 읽기 전용이며 현재 상태를 반영합니다. 요청이나 응답 콘텐츠는 절대 내보내지지 않으며, 라우팅 및 계량 메타데이터만 내보내집니다.",
 			"json.description": "Fluent Bit, Vector, Promtail과 같은 stdout 로그 수집기를 위해, 구조화된 로그를 한 줄에 하나의 JSON 객체 형태로 출력하십시오.",
 			"json.instructions": "JSON 형식의 로그를 출력하려면 이 환경 변수를 설정하고 컨테이너를 재시작하십시오:",
 			"json.name": "JSON 로그(stdout)",
@@ -1742,7 +1741,8 @@
 			"otel.description": "OTLP를 통해 동일한 구조화된 로그를 OpenTelemetry 수집기로 전송하십시오(로그만 전송 — 추적 또는 메트릭은 제외).",
 			"otel.instructions": "이 설정을 OTLP 수집기 엔드포인트로 지정하고 컨테이너를 재시작하여 OpenTelemetry를 통해 로그를 전송하십시오:",
 			"otel.name": "OpenTelemetry 로그(OTLP)",
-			"title": "가시성 및 로그 내보내기"
+			"title": "가시성 및 로그 내보내기",
+			"description": "Model Hotel은 구조화된 로그와 메트릭을 외부 시스템으로 내보낼 수 있습니다. 각 통합 기능은 환경 변수를 통해 활성화되며, 하단의 상태 배지는 현재 상태를 나타냅니다. 요청이나 응답 콘텐츠는 절대 내보내지지 않으며, 라우팅 및 계량 메타데이터만 내보내집니다."
 		}
 	},
 	"components": {

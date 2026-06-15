@@ -1732,7 +1732,6 @@
 			"failedToRename": "Wachtwoord hernoemen mislukt: {{message}}"
 		},
 		"observability": {
-			"description": "Model Hotel kan zijn gestructureerde logboeken en statistieken exporteren naar externe systemen. Elke integratie wordt ingeschakeld met een omgevingsvariabele, dus de onderstaande schakelaars zijn alleen-lezen en geven de huidige status weer. Er wordt nooit verzoek- of responsinhoud geëxporteerd — alleen metadata over routering en metingen.",
 			"json.description": "Geef gestructureerde logs weer als één JSON-object per regel, voor stdout-logcollectors zoals Fluent Bit, Vector of Promtail.",
 			"json.instructions": "Stel deze omgevingsvariabele in en start de container opnieuw op om logbestanden in JSON-formaat te genereren:",
 			"json.name": "JSON-logs (stdout)",
@@ -1742,7 +1741,8 @@
 			"otel.description": "Stuur dezelfde gestructureerde logs via OTLP naar een OpenTelemetry-collector (alleen logs — geen tracing of metrics).",
 			"otel.instructions": "Richt dit op uw OTLP-collector-eindpunt en start de container opnieuw op om logs via OpenTelemetry te pushen:",
 			"otel.name": "OpenTelemetry-logs (OTLP)",
-			"title": "Observability & logexport"
+			"title": "Observability & logexport",
+			"description": "Model Hotel kan zijn gestructureerde logboeken en statistieken exporteren naar externe systemen. Elke integratie wordt ingeschakeld met een omgevingsvariabele; de statusbadges hieronder geven de huidige status weer. Er wordt nooit verzoek- of responsinhoud geëxporteerd — alleen metadata over routering en metingen."
 		}
 	},
 	"components": {

@@ -1708,7 +1708,7 @@
 		},
 		"observability": {
 			"title": "Observability & Log Export",
-			"description": "Model Hotel can export its structured logs and metrics to external systems. Each integration is enabled with an environment variable, so the toggles below are read-only and reflect the current state. No request or response content is ever exported — only routing and metering metadata.",
+			"description": "Model Hotel can export its structured logs and metrics to external systems. Each integration is enabled with an environment variable; the status badges below reflect the current state. No request or response content is ever exported — only routing and metering metadata.",
 			"json.name": "JSON logs (stdout)",
 			"json.description": "Emit structured logs as one JSON object per line, for stdout log collectors such as Fluent Bit, Vector, or Promtail.",
 			"json.instructions": "Set this environment variable and restart the container to emit JSON-formatted logs:",
