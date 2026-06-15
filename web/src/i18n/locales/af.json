@@ -181,7 +181,10 @@
 			"dbConnections": "Aktiewe databasisverbindinge",
 			"dbTxPerSec": "Databasis-transaksies per sekonde"
 		},
-		"githubRepo": "GitHub-bewaarplek"
+		"githubRepo": "GitHub-bewaarplek",
+		"readOnly": {
+			"banner": "Slegs-lees-demo — skep, wysig en verwyder is gedeaktiveer."
+		}
 	},
 	"dashboard": {
 		"title": "Paneelbord",

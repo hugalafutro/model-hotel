@@ -181,7 +181,10 @@
 			"dbConnections": "Aktiva databasanslutningar",
 			"dbTxPerSec": "Databastransaktioner per sekund"
 		},
-		"githubRepo": "GitHub-repo"
+		"githubRepo": "GitHub-repo",
+		"readOnly": {
+			"banner": "Skrivskyddad demo – skapande, redigering och radering är inaktiverade."
+		}
 	},
 	"dashboard": {
 		"title": "Instrumentpanel",

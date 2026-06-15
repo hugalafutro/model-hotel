@@ -181,7 +181,10 @@
 			"dbConnections": "활성 데이터베이스 연결",
 			"dbTxPerSec": "초당 데이터베이스 트랜잭션 수"
 		},
-		"githubRepo": "GitHub 저장소"
+		"githubRepo": "GitHub 저장소",
+		"readOnly": {
+			"banner": "읽기 전용 데모 — 생성, 편집 및 삭제 기능이 비활성화되어 있습니다."
+		}
 	},
 	"dashboard": {
 		"title": "대시보드",

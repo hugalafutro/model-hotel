@@ -181,7 +181,10 @@
 			"dbConnections": "חיבורי מסד נתונים פעילים",
 			"dbTxPerSec": "מספר העסקאות בשנייה בבסיס הנתונים"
 		},
-		"githubRepo": "מאגר GitHub"
+		"githubRepo": "מאגר GitHub",
+		"readOnly": {
+			"banner": "הדגמה לקריאה בלבד — פעולות יצירה, עריכה ומחיקה מושבתות."
+		}
 	},
 	"dashboard": {
 		"title": "לוח בקרה",

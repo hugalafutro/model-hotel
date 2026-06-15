@@ -623,3 +623,9 @@ export interface WebAuthnCredential {
 	aaguid: string;
 	sign_count: number;
 }
+
+// PublicConfig is the unauthenticated subset of server config the SPA reads to
+// render correctly (e.g. hide mutation controls in a read-only demo).
+export interface PublicConfig {
+	read_only: boolean;
+}

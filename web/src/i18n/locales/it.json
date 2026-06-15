@@ -181,7 +181,10 @@
 			"dbConnections": "Connessioni attive del database",
 			"dbTxPerSec": "Transazioni del database al secondo"
 		},
-		"githubRepo": "Repository GitHub"
+		"githubRepo": "Repository GitHub",
+		"readOnly": {
+			"banner": "Demo in sola lettura: le funzioni di creazione, modifica ed eliminazione sono disabilitate."
+		}
 	},
 	"dashboard": {
 		"title": "Dashboard",

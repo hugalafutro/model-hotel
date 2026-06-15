@@ -40,6 +40,7 @@ type Config struct {
 	DBMaxConns           int32
 	DBMinConns           int32
 	ModelsDevEnabled     bool
+	DemoReadOnly         bool
 	DebugLog             bool
 	TrustedProxies       []*net.IPNet
 	KnownProxies         []*net.IPNet
@@ -109,6 +110,7 @@ func Load() (*Config, error) {
 		DBMaxConns:           clampInt32(getIntEnvAsInt32("DATABASE_MAX_CONNS", 25), 1, 1000),
 		DBMinConns:           clampInt32(getIntEnvAsInt32("DATABASE_MIN_CONNS", 5), 1, 1000),
 		ModelsDevEnabled:     getBoolEnvWithDefault("MODELSDEV_ENABLED", true),
+		DemoReadOnly:         getBoolEnvWithDefault("DEMO_READONLY", false),
 		DebugLog:             getBoolEnvWithDefault("DEBUG_LOG", false),
 		TrustedProxies:       LoadTrustedProxies(),
 		KnownProxies:         LoadKnownProxies(),
@@ -193,6 +195,12 @@ func (c *Config) String() string {
 		{"Log Format", logFormat},
 		{"Metrics", metrics},
 		{"OTLP Logs", otlpLogs},
+	}
+
+	// Only surfaced when enabled — it is a niche demo-hardening flag, so a
+	// permanent "Read-Only Mode: false" row would be noise for normal deploys.
+	if c.DemoReadOnly {
+		rows = append(rows, configRow{"Read-Only Mode", "true"})
 	}
 
 	// Calculate label column width (include "CORS Origins" to avoid

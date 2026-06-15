@@ -181,7 +181,10 @@
 			"dbConnections": "Aktív adatbázis-kapcsolatok",
 			"dbTxPerSec": "Adatbázis-tranzakciók száma másodpercenként"
 		},
-		"githubRepo": "GitHub-tároló"
+		"githubRepo": "GitHub-tároló",
+		"readOnly": {
+			"banner": "Csak olvasható demo – a létrehozás, szerkesztés és törlés funkciók le vannak tiltva."
+		}
 	},
 	"dashboard": {
 		"title": "Irányítópult",

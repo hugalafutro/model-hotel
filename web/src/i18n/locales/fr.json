@@ -181,7 +181,10 @@
 			"dbConnections": "Connexions de base de données actives",
 			"dbTxPerSec": "Transactions de la base de données par seconde"
 		},
-		"githubRepo": "Dépôt GitHub"
+		"githubRepo": "Dépôt GitHub",
+		"readOnly": {
+			"banner": "Démonstration en lecture seule — les fonctions de création, de modification et de suppression sont désactivées."
+		}
 	},
 	"dashboard": {
 		"title": "Tableau de bord",

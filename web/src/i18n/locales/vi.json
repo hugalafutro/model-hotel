@@ -181,7 +181,10 @@
 			"dbConnections": "Các kết nối cơ sở dữ liệu đang hoạt động",
 			"dbTxPerSec": "Số giao dịch cơ sở dữ liệu mỗi giây"
 		},
-		"githubRepo": "Kho lưu trữ GitHub"
+		"githubRepo": "Kho lưu trữ GitHub",
+		"readOnly": {
+			"banner": "Bản demo chỉ đọc — các chức năng tạo, chỉnh sửa và xóa bị vô hiệu hóa."
+		}
 	},
 	"dashboard": {
 		"title": "Bảng điều khiển",

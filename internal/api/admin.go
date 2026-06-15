@@ -167,6 +167,13 @@ func (h *Handler) StopBackupScheduler() {
 func (h *Handler) Register(r chi.Router) {
 	r.Use(h.AuthMiddleware)
 
+	// Demo hardening: in read-only mode every mutating request to the admin
+	// CRUD surface is refused (see readOnlyGuard). Mounted here only, so the
+	// admin chat and public proxy stay usable against the seeded providers.
+	if h.cfg.DemoReadOnly {
+		r.Use(readOnlyGuard)
+	}
+
 	r.Route("/providers", func(r chi.Router) {
 		r.Post("/", h.CreateProvider)
 		r.Get("/", h.ListProviders)

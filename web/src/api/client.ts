@@ -22,6 +22,7 @@ import type {
 	OpenRouterBalance,
 	Provider,
 	ProviderDistributionStats,
+	PublicConfig,
 	Stats,
 	SyncResult,
 	SystemStats,
@@ -117,6 +118,17 @@ export function getAuthHeaders(): Record<string, string> {
 }
 
 export const api = {
+	// Unauthenticated: read before login and inside the dashboard. No auth
+	// headers so it works on the login screen too.
+	publicConfig: {
+		get: async (): Promise<PublicConfig> => {
+			return fetchJSON<PublicConfig>(
+				`${API_BASE}/api/public-config`,
+				undefined,
+				"Failed to fetch public config",
+			);
+		},
+	},
 	providers: {
 		list: async (): Promise<Provider[]> => {
 			return fetchJSON<Provider[]>(

@@ -21,6 +21,7 @@ import { Spinner } from "../components/Spinner";
 import { useQuotaModal } from "../context/QuotaModalContext";
 import { useToast } from "../context/ToastContext";
 import { useQuotaData } from "../hooks/useQuotaData";
+import { useReadOnly } from "../hooks/useReadOnly";
 import { countLabel } from "../utils/format";
 import { ModelDetailModal } from "./Models/ModelDetailModal";
 import { AddProviderModal } from "./Providers/AddProviderModal";
@@ -39,6 +40,7 @@ export function Providers() {
 	const queryClient = useQueryClient();
 	const { toast } = useToast();
 	const { t } = useTranslation();
+	const readOnly = useReadOnly();
 	const [editProvider, setEditProvider] = useState<Provider | null>(null);
 	const [deleteProvider, setDeleteProvider] = useState<Provider | null>(null);
 	const [showModal, setShowModal] = useState(false);
@@ -333,13 +335,15 @@ export function Providers() {
 								t("providers.btn_refresh_quotas")
 							)}
 						</button>
-						<button
-							type="button"
-							onClick={() => setShowModal(true)}
-							className="ui-btn ui-btn-primary"
-						>
-							+ {t("providers.btn_add_provider")}
-						</button>
+						{!readOnly && (
+							<button
+								type="button"
+								onClick={() => setShowModal(true)}
+								className="ui-btn ui-btn-primary"
+							>
+								+ {t("providers.btn_add_provider")}
+							</button>
+						)}
 					</>
 				}
 			/>

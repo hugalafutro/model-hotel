@@ -17,6 +17,7 @@ import { FilterInput } from "../components/FilterInput";
 import { PageHeader } from "../components/PageHeader";
 import { Spinner } from "../components/Spinner";
 import { useToast } from "../context/ToastContext";
+import { useReadOnly } from "../hooks/useReadOnly";
 import { countLabel, formatTimestamp } from "../utils/format";
 import { CreateGroupModal } from "./FailoverGroups/CreateGroupModal";
 import { FailoverGroupCard } from "./FailoverGroups/FailoverGroupCard";
@@ -25,6 +26,7 @@ import { ProviderDisableModal } from "./FailoverGroups/ProviderDisableModal";
 export function FailoverGroups() {
 	const { toast } = useToast();
 	const { t } = useTranslation();
+	const readOnly = useReadOnly();
 	const queryClient = useQueryClient();
 
 	const [showCreateModal, setShowCreateModal] = useState(false);
@@ -542,21 +544,25 @@ export function FailoverGroups() {
 								t("failover.btn_sync")
 							)}
 						</button>
-						<button
-							type="button"
-							onClick={() => setShowCreateModal(true)}
-							className="ui-btn ui-btn-primary"
-						>
-							{t("failover.btn_new_group")}
-						</button>
-						<button
-							type="button"
-							onClick={() => setShowProviderModal(true)}
-							className="ui-btn ui-btn-secondary text-sm px-3 py-1.5 flex items-center gap-1.5"
-						>
-							<ShieldOff className="h-4 w-4" />
-							{t("failover.btn_manage_providers")}
-						</button>
+						{!readOnly && (
+							<>
+								<button
+									type="button"
+									onClick={() => setShowCreateModal(true)}
+									className="ui-btn ui-btn-primary"
+								>
+									{t("failover.btn_new_group")}
+								</button>
+								<button
+									type="button"
+									onClick={() => setShowProviderModal(true)}
+									className="ui-btn ui-btn-secondary text-sm px-3 py-1.5 flex items-center gap-1.5"
+								>
+									<ShieldOff className="h-4 w-4" />
+									{t("failover.btn_manage_providers")}
+								</button>
+							</>
+						)}
 					</>
 				}
 			/>

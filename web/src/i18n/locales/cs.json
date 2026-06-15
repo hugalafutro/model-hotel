@@ -181,7 +181,10 @@
 			"dbConnections": "Aktivní připojení k databázi",
 			"dbTxPerSec": "Počet databázových transakcí za sekundu"
 		},
-		"githubRepo": "repozitář GitHub"
+		"githubRepo": "repozitář GitHub",
+		"readOnly": {
+			"banner": "Demo pouze pro čtení – vytváření, úpravy a mazání jsou zakázány."
+		}
 	},
 	"dashboard": {
 		"title": "Přehled",

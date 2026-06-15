@@ -181,7 +181,10 @@
 			"dbConnections": "Aktive databasetilkoblinger",
 			"dbTxPerSec": "Databasetransaksjoner per sekund"
 		},
-		"githubRepo": "GitHub-repositorium"
+		"githubRepo": "GitHub-repositorium",
+		"readOnly": {
+			"banner": "Skrivebeskyttet demo – oppretting, redigering og sletting er deaktivert."
+		}
 	},
 	"dashboard": {
 		"title": "Dashbord",

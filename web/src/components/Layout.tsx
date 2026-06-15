@@ -32,6 +32,7 @@ import { useSidebarMode } from "../context/SidebarModeContext";
 import { useTheme } from "../context/ThemeContext";
 import { useToast } from "../context/ToastContext";
 import { useGitHubVersion } from "../hooks/useGitHubVersion";
+import { useReadOnly } from "../hooks/useReadOnly";
 import i18next, { LANGUAGE_STORAGE_KEY } from "../i18n";
 import { formatRelativeTime, formatTimestamp } from "../utils/format";
 import { truncateWithEllipsis } from "../utils/truncate";
@@ -824,6 +825,24 @@ function LanguageSelector() {
 	);
 }
 
+// ReadOnlyBanner is shown on every page when the server runs in read-only
+// (demo) mode, explaining why mutation controls are hidden / requests 403.
+function ReadOnlyBanner() {
+	const { t } = useTranslation();
+	const readOnly = useReadOnly();
+	if (!readOnly) return null;
+	return (
+		<div
+			role="status"
+			data-testid="read-only-banner"
+			className="mb-2 flex items-center gap-2 rounded-md border border-[var(--error-border)] bg-[var(--error-bg)] px-3 py-1.5 text-xs text-[var(--error-text)]"
+		>
+			<AlertTriangle size={14} className="shrink-0 text-[var(--error-icon)]" />
+			<span>{t("layout.readOnly.banner")}</span>
+		</div>
+	);
+}
+
 export function Layout({ children }: LayoutProps) {
 	const { t } = useTranslation();
 	const location = useLocation();
@@ -1153,7 +1172,10 @@ export function Layout({ children }: LayoutProps) {
 			</aside>
 
 			<main className="flex-1 ui-main overflow-auto">
-				<div className="p-2 max-w-7xl mx-auto h-full">{children}</div>
+				<div className="p-2 max-w-7xl mx-auto h-full">
+					<ReadOnlyBanner />
+					{children}
+				</div>
 			</main>
 		</div>
 	);

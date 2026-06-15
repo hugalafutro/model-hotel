@@ -181,7 +181,10 @@
 			"dbConnections": "Connexions actives a la base de dades",
 			"dbTxPerSec": "Transaccions de base de dades per segon"
 		},
-		"githubRepo": "Dipòsit de GitHub"
+		"githubRepo": "Dipòsit de GitHub",
+		"readOnly": {
+			"banner": "Demo només de lectura — la creació, l'edició i l'eliminació estan desactivades."
+		}
 	},
 	"dashboard": {
 		"title": "Tauler",
