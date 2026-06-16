@@ -5,7 +5,10 @@ RUN npm install -g pnpm@10
 
 WORKDIR /app/web
 
-COPY web/package.json web/pnpm-lock.yaml ./
+# pnpm-workspace.yaml carries the dependency `overrides` (pnpm 10 reads them here,
+# not from package.json), so it must be present for --frozen-lockfile to match the
+# lockfile's recorded overrides — otherwise ERR_PNPM_LOCKFILE_CONFIG_MISMATCH.
+COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
 RUN --mount=type=cache,target=/pnpm-store \
     pnpm install --frozen-lockfile --store-dir=/pnpm-store
 
