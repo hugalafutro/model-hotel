@@ -130,8 +130,8 @@
 		},
 		"toast": {
 			"copiedToClipboard": "Copiat al porta-retalls",
-			"appErrorAcknowledged": "Reconegut l'error de l'aplicació",
-			"requestErrorAcknowledged": "S'ha rebut la sol·licitud d'error"
+			"errorAcknowledged": "Error descartat",
+			"errorsCleared": "Tots els errors s'han esborrat"
 		},
 		"auth": {
 			"logout": "Tanca la sessió",
@@ -158,15 +158,6 @@
 		"language": {
 			"label": "Llengua"
 		},
-		"errorPill": {
-			"appError": "Error de l'aplicació",
-			"requestError": "Req Err",
-			"error": " Error",
-			"copyError": "Error de còpia",
-			"viewDetails": "Veure detalls",
-			"acknowledge": "Reconèixer (descartar)",
-			"request": "Sol·licitud"
-		},
 		"running": "Corrent {{running}}",
 		"runningLatest": "Corrent l'última versió ({{running}})",
 		"updateAvailable": "Actualització disponible: {{running}} → {{latest}}",
@@ -184,6 +175,16 @@
 		"githubRepo": "Dipòsit de GitHub",
 		"readOnly": {
 			"banner": "Demo només de lectura — la creació, l'edició i l'eliminació estan desactivades."
+		},
+		"errorShelf": {
+			"acknowledge": "Descartar",
+			"appKind": "App",
+			"clearAll": "Esborrar tot",
+			"copyError": "Còpia d'error",
+			"requestKind": "Req",
+			"title": "Errors",
+			"viewDetails": "Veure detalls",
+			"clearAllConfirm": "Feu clic de nou per confirmar"
 		}
 	},
 	"dashboard": {

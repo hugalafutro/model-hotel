@@ -617,8 +617,9 @@ describe("Cache & Resets section", () => {
 		expect(screen.getByRole("button", { name: "Reset" })).toBeInTheDocument();
 	});
 
-	it("clears dismissed error keys and dispatches event on Reset click", async () => {
+	it("clears acknowledged error keys and dispatches event on Reset click", async () => {
 		const user = userEvent.setup();
+		localStorage.setItem("ackedErrorKeys", JSON.stringify(["request:x:y"]));
 		const dispatchEventSpy = vi.spyOn(window, "dispatchEvent");
 
 		renderWithProviders(
@@ -628,8 +629,7 @@ describe("Cache & Resets section", () => {
 		const resetButton = screen.getByRole("button", { name: "Reset" });
 		await user.click(resetButton);
 
-		expect(localStorage.getItem("dismissedAppErrorKey")).toBeNull();
-		expect(localStorage.getItem("dismissedReqErrorKey")).toBeNull();
+		expect(localStorage.getItem("ackedErrorKeys")).toBeNull();
 		expect(dispatchEventSpy).toHaveBeenCalledWith(
 			expect.objectContaining({ type: "dismissedErrorsReset" }),
 		);

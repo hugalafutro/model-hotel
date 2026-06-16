@@ -130,8 +130,8 @@
 		},
 		"toast": {
 			"copiedToClipboard": "Skopírované do schránky",
-			"appErrorAcknowledged": "Chyba aplikácie bola zaznamenaná",
-			"requestErrorAcknowledged": "Chyba požiadavky bola zaznamenaná"
+			"errorAcknowledged": "Chyba zamietnutá",
+			"errorsCleared": "Všetky chyby boli odstránené"
 		},
 		"auth": {
 			"logout": "Odhlásiť",
@@ -158,15 +158,6 @@
 		"language": {
 			"label": "Jazyk"
 		},
-		"errorPill": {
-			"appError": "Chyba aplikácie",
-			"requestError": "Požiadavka Chyba",
-			"error": " Chyba",
-			"copyError": "Chyba pri kopírovaní",
-			"viewDetails": "Zobraziť podrobnosti",
-			"acknowledge": "Potvrdiť (zamietnuť)",
-			"request": "Žiadosť"
-		},
 		"running": "Beh {{running}}",
 		"runningLatest": "Používam najnovšiu verziu ({{running}})",
 		"updateAvailable": "K dispozícii je aktualizácia: {{running}} → {{latest}}",
@@ -184,6 +175,16 @@
 		"githubRepo": "Repozitár GitHub",
 		"readOnly": {
 			"banner": "Demo len na čítanie — vytváranie, úpravy a mazanie sú deaktivované."
+		},
+		"errorShelf": {
+			"acknowledge": "Zatvoriť",
+			"appKind": "App",
+			"clearAll": "Vymazať všetko",
+			"copyError": "Chyba kopírovania",
+			"requestKind": "Req",
+			"title": "Chyby",
+			"viewDetails": "Zobraziť podrobnosti",
+			"clearAllConfirm": "Kliknite znovu na potvrdenie"
 		}
 	},
 	"dashboard": {

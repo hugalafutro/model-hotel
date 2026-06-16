@@ -130,8 +130,8 @@
 		},
 		"toast": {
 			"copiedToClipboard": "הועתק ללוח",
-			"appErrorAcknowledged": "שגיאת האפליקציה נרשמה",
-			"requestErrorAcknowledged": "שגיאת הבקשה התקבלה"
+			"errorAcknowledged": "שגיאה נדחתה",
+			"errorsCleared": "כל השגיאות נמחקו"
 		},
 		"auth": {
 			"logout": "התנתקות",
@@ -158,15 +158,6 @@
 		"language": {
 			"label": "שפה"
 		},
-		"errorPill": {
-			"appError": "שגיאה באפליקציה",
-			"requestError": "שגיאה בבקשה",
-			"error": " שגיאה",
-			"copyError": "שגיאה בהעתקה",
-			"viewDetails": "הצג פרטים",
-			"acknowledge": "לאשר (לדחות)",
-			"request": "בקשה"
-		},
 		"running": "ריצה {{running}}",
 		"runningLatest": "משתמש בגרסה האחרונה ({{running}})",
 		"updateAvailable": "קיים עדכון: {{running}} → {{latest}}",
@@ -184,6 +175,16 @@
 		"githubRepo": "מאגר GitHub",
 		"readOnly": {
 			"banner": "הדגמה לקריאה בלבד — פעולות יצירה, עריכה ומחיקה מושבתות."
+		},
+		"errorShelf": {
+			"acknowledge": "בטל",
+			"appKind": "App",
+			"clearAll": "נקה הכל",
+			"copyError": "שגיאת העתקה",
+			"requestKind": "Req",
+			"title": "שגיאות",
+			"viewDetails": "הצג פרטים",
+			"clearAllConfirm": "לחץ שוב כדי לאשר"
 		}
 	},
 	"dashboard": {

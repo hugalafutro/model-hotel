@@ -130,8 +130,8 @@
 		},
 		"toast": {
 			"copiedToClipboard": "Copied to clipboard",
-			"appErrorAcknowledged": "App error acknowledged",
-			"requestErrorAcknowledged": "Request error acknowledged"
+			"errorAcknowledged": "Error dismissed",
+			"errorsCleared": "All errors cleared"
 		},
 		"auth": {
 			"logout": "Logout",
@@ -158,14 +158,15 @@
 		"language": {
 			"label": "Language"
 		},
-		"errorPill": {
-			"appError": "App Err",
-			"requestError": "Req Err",
-			"error": " Error",
+		"errorShelf": {
+			"title": "Errors",
+			"clearAll": "Clear all",
+			"clearAllConfirm": "Click again to confirm",
+			"requestKind": "Req",
+			"appKind": "App",
 			"copyError": "Copy error",
 			"viewDetails": "View details",
-			"acknowledge": "Acknowledge (dismiss)",
-			"request": "Request"
+			"acknowledge": "Dismiss"
 		},
 		"running": "Running {{running}}",
 		"runningLatest": "Running latest ({{running}})",

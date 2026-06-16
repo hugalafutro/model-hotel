@@ -130,8 +130,8 @@
 		},
 		"toast": {
 			"copiedToClipboard": "클립보드에 복사됨",
-			"appErrorAcknowledged": "앱 오류 확인됨",
-			"requestErrorAcknowledged": "요청 오류 확인됨"
+			"errorAcknowledged": "오류 무시됨",
+			"errorsCleared": "모든 오류 해결됨"
 		},
 		"auth": {
 			"logout": "로그아웃",
@@ -158,15 +158,6 @@
 		"language": {
 			"label": "언어"
 		},
-		"errorPill": {
-			"appError": "앱 오류",
-			"requestError": "요청 오류",
-			"error": " 오류",
-			"copyError": "복사 오류",
-			"viewDetails": "자세히 보기",
-			"acknowledge": "확인(취소)",
-			"request": "요청"
-		},
 		"running": "달리기 {{running}}",
 		"runningLatest": "최신 버전 실행 ({{running}})",
 		"updateAvailable": "업데이트가 있습니다: {{running}} → {{latest}}",
@@ -184,6 +175,16 @@
 		"githubRepo": "GitHub 저장소",
 		"readOnly": {
 			"banner": "읽기 전용 데모 — 생성, 편집 및 삭제 기능이 비활성화되어 있습니다."
+		},
+		"errorShelf": {
+			"acknowledge": "닫기",
+			"appKind": "App",
+			"clearAll": "모두 지우기",
+			"copyError": "복사 오류",
+			"requestKind": "Req",
+			"title": "오류",
+			"viewDetails": "상세 정보 보기",
+			"clearAllConfirm": "확인을 위해 다시 클릭하세요"
 		}
 	},
 	"dashboard": {

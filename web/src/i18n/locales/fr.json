@@ -130,8 +130,8 @@
 		},
 		"toast": {
 			"copiedToClipboard": "Copié dans le presse-papiers",
-			"appErrorAcknowledged": "Erreur de reconnaissance de l'application",
-			"requestErrorAcknowledged": "Erreur de requête reconnue"
+			"errorAcknowledged": "Erreur ignorée",
+			"errorsCleared": "Toutes les erreurs ont été corrigées"
 		},
 		"auth": {
 			"logout": "Déconnexion",
@@ -158,15 +158,6 @@
 		"language": {
 			"label": "Langue"
 		},
-		"errorPill": {
-			"appError": "Erreur de l'application",
-			"requestError": "Erreur Req",
-			"error": " Erreur",
-			"copyError": "Erreur de copie",
-			"viewDetails": "Voir les détails",
-			"acknowledge": "Reconnaître (rejetés)",
-			"request": "Demander"
-		},
 		"running": "Exécuter {{running}}",
 		"runningLatest": "Dernière exécution ({{running}})",
 		"updateAvailable": "Mise à jour disponible : {{running}} → {{latest}}",
@@ -184,6 +175,16 @@
 		"githubRepo": "Dépôt GitHub",
 		"readOnly": {
 			"banner": "Démonstration en lecture seule — les fonctions de création, de modification et de suppression sont désactivées."
+		},
+		"errorShelf": {
+			"acknowledge": "Ignorer",
+			"appKind": "App",
+			"clearAll": "Tout effacer",
+			"copyError": "Copier l'erreur",
+			"requestKind": "Req",
+			"title": "Erreurs",
+			"viewDetails": "Afficher les détails",
+			"clearAllConfirm": "Cliquez à nouveau pour confirmer"
 		}
 	},
 	"dashboard": {

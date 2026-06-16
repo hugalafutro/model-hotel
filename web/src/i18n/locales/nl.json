@@ -130,8 +130,8 @@
 		},
 		"toast": {
 			"copiedToClipboard": "Gekopieerd naar klembord",
-			"appErrorAcknowledged": "App-fout erkend",
-			"requestErrorAcknowledged": "Aanvraag fout erkend"
+			"errorAcknowledged": "Fout genegeerd",
+			"errorsCleared": "Alle fouten gewist"
 		},
 		"auth": {
 			"logout": "Afmelden",
@@ -158,15 +158,6 @@
 		"language": {
 			"label": "Taal"
 		},
-		"errorPill": {
-			"appError": "App Fout",
-			"requestError": "Req Err",
-			"error": " Foutmelding",
-			"copyError": "Fout bij kopiëren",
-			"viewDetails": "Details bekijken",
-			"acknowledge": "Erkennen (ontslag)",
-			"request": "Aanvragen"
-		},
 		"running": "Lopende {{running}}",
 		"runningLatest": "Hardloop laatste ({{running}})",
 		"updateAvailable": "Update beschikbaar: {{running}} → {{latest}}",
@@ -184,6 +175,16 @@
 		"githubRepo": "GitHub-repository",
 		"readOnly": {
 			"banner": "Alleen-lezen demo — aanmaken, bewerken en verwijderen zijn uitgeschakeld."
+		},
+		"errorShelf": {
+			"acknowledge": "Sluiten",
+			"appKind": "App",
+			"clearAll": "Alles wissen",
+			"copyError": "Kopieerfout",
+			"requestKind": "Req",
+			"title": "Fouten",
+			"viewDetails": "Bekijk details",
+			"clearAllConfirm": "Klik nogmaals om te bevestigen"
 		}
 	},
 	"dashboard": {

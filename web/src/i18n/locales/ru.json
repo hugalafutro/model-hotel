@@ -130,8 +130,8 @@
 		},
 		"toast": {
 			"copiedToClipboard": "Скопировано в буфер обмена",
-			"appErrorAcknowledged": "Ошибка приложения признана",
-			"requestErrorAcknowledged": "Ошибка запроса подтверждена"
+			"errorAcknowledged": "Ошибка устранена",
+			"errorsCleared": "Все ошибки устранены"
 		},
 		"auth": {
 			"logout": "Выйти",
@@ -158,15 +158,6 @@
 		"language": {
 			"label": "Язык"
 		},
-		"errorPill": {
-			"appError": "Удаление приложения",
-			"requestError": "Рек Эрр",
-			"error": " Ошибка",
-			"copyError": "Ошибка копирования",
-			"viewDetails": "Детали",
-			"acknowledge": "Подтвердить (уволить)",
-			"request": "Запросить"
-		},
 		"running": "Запущено {{running}}",
 		"runningLatest": "Запуск последних ({{running}})",
 		"updateAvailable": "Доступно обновление: {{running}} → {{latest}}",
@@ -184,6 +175,16 @@
 		"githubRepo": "Репозиторий GitHub",
 		"readOnly": {
 			"banner": "Демо-версия только для чтения — функции создания, редактирования и удаления отключены."
+		},
+		"errorShelf": {
+			"acknowledge": "Отклонить",
+			"appKind": "App",
+			"clearAll": "Очистить все",
+			"copyError": "Ошибка копирования",
+			"requestKind": "Req",
+			"title": "Ошибки",
+			"viewDetails": "Просмотреть подробности",
+			"clearAllConfirm": "Нажмите еще раз для подтверждения"
 		}
 	},
 	"dashboard": {
