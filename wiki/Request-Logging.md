@@ -19,8 +19,9 @@ All fields are written to the `request_logs` PostgreSQL table.
 | `provider_id` | UUID | Which provider handled the request (NULL until resolved, NULL if provider deleted) |
 | `virtual_key_id` | UUID | Foreign key to `virtual_keys` table (NULL for anonymous requests) |
 | `virtual_key_name` | TEXT | Which virtual key was used. Retained even after key deletion for audit purposes. |
-| `status_code` | INT | HTTP status returned to the client (`0` while in-progress, `0` or NULL for never-responded) |
+| `status_code` | INT | HTTP status returned to the client (`0` while in-progress, `0` or NULL for never-responded). On terminal failure the proxy records a *truthful* gateway code rather than echoing the upstream's: a client hangup is **499**, an exceeded failover/retry timeout is **504**, and a provider/transport failure is **502**. See [Error classification](#error-classification-and-terminal-status-codes). |
 | `error_message` | TEXT | Error text on failure. Populated for upstream provider errors and proxy-internal errors (invalid model format, provider not found, etc.). Empty on success. |
+| `error_kind` | TEXT | Machine-readable failure classification (added in migration `045`), set alongside `error_message`. One of `client_disconnect`, `provider_error`, `provider_timeout`, `failover_timeout`, `retry_timeout`, `internal`, `validation`, `auth`. NULL on success and for historical rows (no backfill). The dashboard's "Interrupted" badge and the Prometheus metrics read this **instead of** substring-matching the English message. |
 | `streaming` | BOOLEAN | Whether the request used SSE streaming |
 | `failover_attempt` | INT | Which attempt this was - `0` for the first try, incrementing with each failover |
 | `resolved_model_id` | TEXT | The actual upstream model ID used for the request (e.g. `openai/gpt-4o`). For hotel-routed requests, this differs from `model_id` which contains the requested `hotel/` name (e.g. `hotel/gpt-4o`). NULL for non-failover requests where the requested and resolved model are the same. |
@@ -427,19 +428,29 @@ DeepSeek providers may report `prompt_cache_hit_tokens` and `prompt_cache_miss_t
 
 ## Error Logging for Failed Requests
 
-### Error Categories
+### Error classification and terminal status codes
 
-| Category | HTTP Status | `error_message` Content |
-|----------|-------------|-------------------------|
-| Invalid request body | 400 | `"invalid request body"`, `"model is required"` |
-| Model not found | 404 | `"model 'xxx' not found"`, `"no enabled providers for model"` |
-| Provider not found | 404 | `"provider not found"` |
-| Upstream 4xx | 4xx | Upstream error message (truncated to 200 chars) |
-| Upstream 5xx | 5xx | Upstream error message (truncated to 200 chars) |
-| Client disconnect | 0 | `"stream interrupted: client disconnected"` |
-| Too many empty lines | 0 | `"stream interrupted: too many empty lines"` |
+Every failed request is tagged with a machine-readable [`error_kind`](#request-log-schema) and a *truthful* terminal HTTP status — the gateway records what actually happened, not the upstream's code. The classification is defined in `internal/proxy/reqerror.go`:
+
+| `error_kind` | Terminal status | When | Example `error_message` |
+|--------------|-----------------|------|--------------------------|
+| `validation` | 400 / 404 | Malformed body, missing model, invalid model format (400); unknown model / no enabled providers (404) | `"invalid request body"`, `"model 'xxx' not found"` |
+| `auth` | 403 | Virtual key lacks access to any provider for the model | `"virtual key does not have access to any provider for this model"` |
+| `provider_error` | 502 | Upstream returned a non-2xx or the transport failed (all candidates exhausted) | `"all 3 providers failed; last error: provider \"X\" returned HTTP 500 on attempt 2"` |
+| `provider_timeout` | 502 | TTFT probe or stall watchdog fired — provider connected but produced no output in time | `"provider \"X\" did not return a response in time on attempt 1"` |
+| `failover_timeout` | 504 | The overall failover deadline expired | `"request timed out while waiting on provider \"X\""` |
+| `retry_timeout` | 504 | The param-strip retry's deadline expired | `"retry without unsupported parameters timed out on provider \"X\""` |
+| `client_disconnect` | 499 | The calling client hung up before we responded | `"client disconnected during attempt 1 to provider \"X\""` |
+| `internal` | 502 | Gateway-internal failure (e.g. could not build the upstream request) | `"internal error on attempt 1: …"` |
+
+Two background states are written by the stale-log sweep (not a live request) and keep `status_code` `0` with a NULL `error_kind`:
+
+| Category | `status_code` | `error_message` |
+|----------|---------------|------------------|
 | Stale timeout | 0 | `"request interrupted (stale)"` |
 | Server restart | 0 | `"request interrupted (server restart)"` |
+
+> Historical rows predating migration `045` have a NULL `error_kind`; the dashboard falls back to substring-matching their `error_message` to render the "Interrupted" badge.
 
 ### Error Message Truncation
 
@@ -494,6 +505,7 @@ The `request_logs` table has evolved through these migrations:
 | `036_resolved_model_id.sql` | Added: `resolved_model_id` (actual model that served a `hotel/` request) |
 | `042_cache_hits.sql` | Added: `cache_hits` JSONB (per-component cache hit/miss flags) |
 | `043_endpoint_type.sql` | Added: `endpoint_type` with default `'chat'` (multimodal proxy endpoints: embeddings, image, tts, stt) |
+| `045_error_kind.sql` | Added: `error_kind` (nullable machine-readable failure classification; no backfill) |
 
 ## Implementation Details
 
