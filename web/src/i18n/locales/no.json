@@ -1606,7 +1606,6 @@
 			"title": "Utseende",
 			"uiStyle": "UI stil",
 			"theme": "Tema",
-			"themeDescription": "Bytt mellom mørk og lys modus",
 			"dark": "Mørk",
 			"light": "Lys",
 			"accentColor": "Inngående farge",
@@ -1625,7 +1624,8 @@
 				"glassmorphismDescription": "Klipp, gjennomskinnelig flater"
 			},
 			"resetAccent": "Tilbakestill til standardtema",
-			"followSystem": "Følg systemet"
+			"followSystem": "Følg systemet",
+			"themeDescription": "Bytt mellom mørk, lys og systemmodus"
 		},
 		"toast": {
 			"title": "Populære varslinger",

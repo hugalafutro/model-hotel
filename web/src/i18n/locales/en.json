@@ -1606,7 +1606,7 @@
 			"title": "Appearance",
 			"uiStyle": "UI Style",
 			"theme": "Theme",
-			"themeDescription": "Switch between dark and light mode",
+			"themeDescription": "Switch between dark, light, and system mode",
 			"dark": "Dark",
 			"light": "Light",
 			"followSystem": "Follow System",

@@ -1606,7 +1606,6 @@
 			"title": "Apariencia",
 			"uiStyle": "Estilo de IU",
 			"theme": "Tema",
-			"themeDescription": "Cambiar entre modo oscuro y claro",
 			"dark": "Oscuro",
 			"light": "Claro",
 			"accentColor": "Color de acento",
@@ -1625,7 +1624,8 @@
 				"glassmorphismDescription": "Superficies traslúcidas y cortadas"
 			},
 			"resetAccent": "Restablecer a la configuración predeterminada del tema",
-			"followSystem": "Seguir el sistema"
+			"followSystem": "Seguir el sistema",
+			"themeDescription": "Cambiar entre los modos oscuro, claro y del sistema"
 		},
 		"toast": {
 			"title": "Notificaciones Toast",

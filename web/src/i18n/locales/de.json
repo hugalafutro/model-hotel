@@ -1606,7 +1606,6 @@
 			"title": "Erscheinung",
 			"uiStyle": "UI-Stil",
 			"theme": "Thema",
-			"themeDescription": "Zwischen Dunkel- und Lichtmodus wechseln",
 			"dark": "Dunkel",
 			"light": "Hell",
 			"accentColor": "Akzentfarbe",
@@ -1625,7 +1624,8 @@
 				"glassmorphismDescription": "Slick, transparente Oberflächen"
 			},
 			"resetAccent": "Auf Standard-Theme zurücksetzen",
-			"followSystem": "System folgen"
+			"followSystem": "System folgen",
+			"themeDescription": "Wechseln Sie zwischen Dunkel-, Hell- und Systemmodus"
 		},
 		"toast": {
 			"title": "Toast Benachrichtigungen",

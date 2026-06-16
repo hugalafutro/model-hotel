@@ -1606,7 +1606,6 @@
 			"title": "Hình thức",
 			"uiStyle": "Phong cách giao diện người dùng",
 			"theme": "Chủ đề",
-			"themeDescription": "Chuyển đổi giữa chế độ tối và chế độ sáng",
 			"dark": "Tối",
 			"light": "Ánh sáng",
 			"accentColor": "Màu nhấn",
@@ -1625,7 +1624,8 @@
 				"glassmorphismDescription": "Bề mặt bóng loáng, trong suốt"
 			},
 			"resetAccent": "Đặt lại về mặc định của chủ đề",
-			"followSystem": "Theo hệ thống"
+			"followSystem": "Theo hệ thống",
+			"themeDescription": "Chuyển đổi giữa chế độ tối, sáng và chế độ hệ thống"
 		},
 		"toast": {
 			"title": "Thông báo trên màn hình khóa",

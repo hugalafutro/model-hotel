@@ -1606,7 +1606,6 @@
 			"title": "מראה",
 			"uiStyle": "סגנון ממשק המשתמש",
 			"theme": "נושא",
-			"themeDescription": "החלף בין מצב כהה למצב בהיר",
 			"dark": "אפל",
 			"light": "אור",
 			"accentColor": "צבע הדגשה",
@@ -1625,7 +1624,8 @@
 				"glassmorphismDescription": "משטחים חלקים ושקופים"
 			},
 			"resetAccent": "אפס להגדרות ברירת המחדל של העיצוב",
-			"followSystem": "עקבו אחר המערכת"
+			"followSystem": "עקבו אחר המערכת",
+			"themeDescription": "החלף בין מצב כהה, בהיר ומצב מערכת"
 		},
 		"toast": {
 			"title": "התראות Toast",

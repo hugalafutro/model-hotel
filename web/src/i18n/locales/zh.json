@@ -1606,7 +1606,6 @@
 			"title": "外观",
 			"uiStyle": "界面样式",
 			"theme": "主题",
-			"themeDescription": "在暗色和亮色模式之间切换",
 			"dark": "深色",
 			"light": "亮色的",
 			"accentColor": "亮度颜色",
@@ -1625,7 +1624,8 @@
 				"glassmorphismDescription": "切片半透明面"
 			},
 			"resetAccent": "重置为主题默认值",
-			"followSystem": "跟随系统"
+			"followSystem": "跟随系统",
+			"themeDescription": "在深色、浅色和系统模式之间切换"
 		},
 		"toast": {
 			"title": "Toast 通知",

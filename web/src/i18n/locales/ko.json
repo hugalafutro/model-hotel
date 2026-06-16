@@ -1606,7 +1606,6 @@
 			"title": "외관",
 			"uiStyle": "UI 스타일",
 			"theme": "주제",
-			"themeDescription": "다크 모드와 라이트 모드 전환",
 			"dark": "어둠",
 			"light": "빛",
 			"accentColor": "포인트 컬러",
@@ -1625,7 +1624,8 @@
 				"glassmorphismDescription": "매끄럽고 반투명한 표면"
 			},
 			"resetAccent": "테마 기본값으로 재설정",
-			"followSystem": "시스템 설정 따름"
+			"followSystem": "시스템 설정 따름",
+			"themeDescription": "다크 모드, 라이트 모드, 시스템 모드 간 전환"
 		},
 		"toast": {
 			"title": "토스트 알림",
