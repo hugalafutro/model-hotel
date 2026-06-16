@@ -214,6 +214,23 @@ describe("ErrorShelf", () => {
 		expect(await screen.findByText("Failed to copy")).toBeInTheDocument();
 	});
 
+	it("toasts an error when the Clipboard API is unavailable", async () => {
+		seedRequestError("copy me", "2024-02-01T10:00:00Z");
+		const { user } = renderWithProviders(<ErrorShelf />);
+
+		await screen.findByTestId("error-shelf-count");
+		await expand();
+		const row = await screen.findByTestId("error-shelf-row");
+		// A missing Clipboard API throws synchronously on access; the handler
+		// must still route that to the failure toast.
+		vi.spyOn(navigator.clipboard, "writeText").mockImplementationOnce(() => {
+			throw new TypeError("clipboard unavailable");
+		});
+		await user.click(within(row).getByTitle("Copy error"));
+
+		expect(await screen.findByText("Failed to copy")).toBeInTheDocument();
+	});
+
 	it("stays hidden for an already-acknowledged error", async () => {
 		const ts = "2024-02-01T10:00:00Z";
 		const msg = "already seen";
