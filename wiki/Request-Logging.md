@@ -436,7 +436,7 @@ Most failed requests are tagged with a machine-readable [`error_kind`](#request-
 |--------------|-------------|------|--------------------------|
 | `validation` | 400 / 404 | Malformed body, missing model, invalid model format (400); unknown model / no enabled providers (404) | `"invalid request body"`, `"model 'xxx' not found"` |
 | `auth` | 403 | Virtual key lacks access to any provider for the model | `"virtual key does not have access to any provider for this model"` |
-| `provider_error` | 502 | Upstream returned a non-2xx or the transport failed (all candidates exhausted) | `"all 3 providers failed; last error: provider \"X\" returned HTTP 500 on attempt 2"` |
+| `provider_error` | upstream status, else 502 | A terminal upstream non-2xx is logged with **that** status (e.g. `500`, `429`, `401`); a transport failure or all-candidates-exhausted with no forwardable response is `502` | `"all 3 providers failed; last error: provider \"X\" returned HTTP 500 on attempt 2"` |
 | `provider_timeout` | 502 | TTFT probe or stall watchdog fired — provider connected but produced no output in time | `"provider \"X\" did not return a response in time on attempt 1"` |
 | `failover_timeout` | 504 | The overall failover deadline expired | `"request timed out while waiting on provider \"X\""` |
 | `retry_timeout` | 504 | The param-strip retry's deadline expired | `"retry without unsupported parameters timed out on provider \"X\""` |
