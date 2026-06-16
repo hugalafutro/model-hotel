@@ -16,6 +16,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -26,8 +27,19 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"time"
 )
+
+// output runs cmd and returns its stdout, wrapping any failure with the
+// command's stderr so a broken `make notices` is actionable.
+func output(cmd *exec.Cmd) ([]byte, error) {
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w: %s", strings.Join(cmd.Args, " "), err, strings.TrimSpace(stderr.String()))
+	}
+	return out, nil
+}
 
 // dep is one distributed third-party component.
 type dep struct {
@@ -76,7 +88,7 @@ func repoRoot() (string, error) {
 func collectGo(root string) ([]dep, error) {
 	cmd := exec.Command("go", "list", "-deps", "-json", "./cmd/server/")
 	cmd.Dir = root
-	out, err := cmd.Output()
+	out, err := output(cmd)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +145,7 @@ type pnpmPkg struct {
 func collectNPM(root string) ([]dep, error) {
 	cmd := exec.Command("pnpm", "licenses", "list", "--prod", "--json")
 	cmd.Dir = filepath.Join(root, "web")
-	out, err := cmd.Output()
+	out, err := output(cmd)
 	if err != nil {
 		return nil, err
 	}
@@ -146,25 +158,35 @@ func collectNPM(root string) ([]dep, error) {
 	seen := map[string]dep{}
 	for spdx, pkgs := range byLicense {
 		for _, p := range pkgs {
-			version := ""
-			if len(p.Versions) > 0 {
-				version = p.Versions[len(p.Versions)-1]
+			// pnpm reports parallel Versions/Paths arrays — one entry per
+			// installed instance. Emit each so a package present at two
+			// versions is fully attributed (and paired with its own path),
+			// rather than collapsed onto a single version/path.
+			n := len(p.Versions)
+			if len(p.Paths) > n {
+				n = len(p.Paths)
 			}
-			key := p.Name + "@" + version
-			if _, ok := seen[key]; ok {
-				continue
-			}
-			text := ""
-			if len(p.Paths) > 0 {
-				text = readLicenseFile(p.Paths[0])
-			}
-			seen[key] = dep{
-				Name:     p.Name,
-				Version:  version,
-				Ecosys:   "npm",
-				License:  spdx,
-				Homepage: p.Homepage,
-				Text:     text,
+			for i := 0; i < n; i++ {
+				version := ""
+				if i < len(p.Versions) {
+					version = p.Versions[i]
+				}
+				text := ""
+				if i < len(p.Paths) {
+					text = readLicenseFile(p.Paths[i])
+				}
+				key := p.Name + "@" + version
+				if _, ok := seen[key]; ok {
+					continue
+				}
+				seen[key] = dep{
+					Name:     p.Name,
+					Version:  version,
+					Ecosys:   "npm",
+					License:  spdx,
+					Homepage: p.Homepage,
+					Text:     text,
+				}
 			}
 		}
 	}
@@ -178,64 +200,72 @@ func sortedDeps(m map[string]dep) []dep {
 		deps = append(deps, d)
 	}
 	sort.Slice(deps, func(i, j int) bool {
-		return strings.ToLower(deps[i].Name) < strings.ToLower(deps[j].Name)
+		if ni, nj := strings.ToLower(deps[i].Name), strings.ToLower(deps[j].Name); ni != nj {
+			return ni < nj
+		}
+		return deps[i].Version < deps[j].Version
 	})
 	return deps
 }
 
-// licenseFileNames lists the filenames we treat as license/notice text, in
-// preference order.
-var licenseFileNames = []string{
-	"LICENSE", "LICENSE.md", "LICENSE.txt", "LICENSE-MIT", "LICENSE-APACHE",
-	"LICENCE", "LICENCE.md", "LICENCE.txt", "COPYING", "COPYING.md",
-	"UNLICENSE", "NOTICE",
+// isLicenseFile reports whether an uppercased filename looks like a license or
+// copying file (NOTICE is handled separately).
+func isLicenseFile(upper string) bool {
+	return strings.HasPrefix(upper, "LICENSE") ||
+		strings.HasPrefix(upper, "LICENCE") ||
+		strings.HasPrefix(upper, "COPYING") ||
+		upper == "UNLICENSE"
 }
 
-// readLicenseFile returns the text of the most likely license file in dir, or
-// "" if none is found. It also appends any NOTICE file (required by Apache-2.0).
+// readLicenseFile returns the combined text of every license/copying file in
+// dir (e.g. a dual-licensed package shipping both LICENSE-MIT and
+// LICENSE-APACHE), deduplicated and in deterministic filename order, with any
+// NOTICE file appended (required by Apache-2.0). Returns "" when none is found.
 func readLicenseFile(dir string) string {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return ""
 	}
-	// Index files case-insensitively.
-	present := map[string]string{} // upper(name) -> actual name
+	names := make([]string, 0, len(entries))
 	for _, e := range entries {
 		if !e.IsDir() {
-			present[strings.ToUpper(e.Name())] = e.Name()
+			names = append(names, e.Name())
 		}
+	}
+	sort.Strings(names) // deterministic across filesystems
+
+	var texts []string
+	seen := map[string]bool{} // dedup identical files (e.g. LICENSE == LICENSE.md)
+	var notice string
+	for _, name := range names {
+		upper := strings.ToUpper(name)
+		isNotice := upper == "NOTICE" || strings.HasPrefix(upper, "NOTICE.")
+		if !isLicenseFile(upper) && !isNotice {
+			continue
+		}
+		b, err := os.ReadFile(filepath.Join(dir, name)) //nolint:gosec // reads license files from resolved dependency directories
+		if err != nil {
+			continue
+		}
+		body := strings.TrimSpace(string(b))
+		if body == "" {
+			continue
+		}
+		if isNotice {
+			notice = body
+			continue
+		}
+		sum := sha256.Sum256([]byte(body))
+		key := hex.EncodeToString(sum[:])
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		texts = append(texts, body)
 	}
 
-	var primary, notice string
-	for _, want := range licenseFileNames {
-		if actual, ok := present[strings.ToUpper(want)]; ok {
-			b, err := os.ReadFile(filepath.Join(dir, actual)) //nolint:gosec // reads license files from resolved dependency directories
-			if err != nil {
-				continue
-			}
-			if strings.EqualFold(want, "NOTICE") {
-				notice = string(b)
-				continue
-			}
-			if primary == "" {
-				primary = string(b)
-			}
-		}
-	}
-	// Fallback: any file that looks like a license (e.g. LICENSE-BSD).
-	if primary == "" {
-		for upper, actual := range present {
-			if strings.HasPrefix(upper, "LICENSE") || strings.HasPrefix(upper, "LICENCE") {
-				if b, err := os.ReadFile(filepath.Join(dir, actual)); err == nil { //nolint:gosec // reads license files from resolved dependency directories
-					primary = string(b)
-					break
-				}
-			}
-		}
-	}
-
-	text := strings.TrimSpace(primary)
-	if notice = strings.TrimSpace(notice); notice != "" {
+	text := strings.Join(texts, "\n\n----- ----- -----\n\n")
+	if notice != "" {
 		if text != "" {
 			text += "\n\n----- NOTICE -----\n\n"
 		}
@@ -290,8 +320,8 @@ func render(goDeps, npmDeps []dep) string {
 	b.WriteString("Model Hotel is distributed under the MIT License (see [LICENSE](./LICENSE)).\n")
 	b.WriteString("It bundles the third-party open-source components listed below; each is the\n")
 	b.WriteString("property of its respective authors and is used under the terms reproduced here.\n\n")
-	fmt.Fprintf(&b, "_Generated %s — %d Go modules, %d npm packages._\n\n",
-		time.Now().UTC().Format("2006-01-02"), len(goDeps), len(npmDeps))
+	fmt.Fprintf(&b, "_%d Go modules, %d npm packages (regenerate with `make notices`)._\n\n",
+		len(goDeps), len(npmDeps))
 
 	b.WriteString("## Fonts\n\n")
 	b.WriteString("The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, ")
