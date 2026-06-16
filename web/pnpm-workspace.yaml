@@ -2,3 +2,10 @@
 # directory tree looking for a workspace and can adopt one outside the repo
 # (e.g. a stray ~/pnpm-workspace.yaml), linking node_modules to it.
 packages: []
+
+# Force the transitive @babel/core (pulled in by eslint-plugin-react-hooks,
+# build/lint-time only) to a patched release. Fixes Dependabot advisory
+# GHSA-4x5r-pxfx-6jf8; 7.29.0 is the vulnerable pin. Remove once a direct
+# dependency requires >=7.29.6 on its own.
+overrides:
+  "@babel/core": "^7.29.6"
