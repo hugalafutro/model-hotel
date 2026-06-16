@@ -100,6 +100,58 @@ describe("ThemeContext", () => {
 		expect(result.current.accentColor).toBe("#b8860b");
 	});
 
+	it("system preference resolves the theme from prefers-color-scheme (light)", () => {
+		localStorage.setItem("theme", "system");
+		try {
+			const { result } = renderHook(() => useTheme(), {
+				wrapper: ThemeProvider,
+			});
+			expect(result.current.themePreference).toBe("system");
+			// setup.ts matchMedia mock returns matches:false → light scheme
+			expect(result.current.theme).toBe("light");
+			expect(document.documentElement.classList.contains("light")).toBe(true);
+		} finally {
+			localStorage.removeItem("theme");
+		}
+	});
+
+	it("system preference follows a dark OS scheme and reacts to live changes", () => {
+		const listeners = new Set<(e: MediaQueryListEvent) => void>();
+		let matches = true;
+		const mql = {
+			get matches() {
+				return matches;
+			},
+			media: "(prefers-color-scheme: dark)",
+			addEventListener: (_: string, cb: (e: MediaQueryListEvent) => void) =>
+				listeners.add(cb),
+			removeEventListener: (_: string, cb: (e: MediaQueryListEvent) => void) =>
+				listeners.delete(cb),
+		};
+		const original = window.matchMedia;
+		window.matchMedia = (() => mql) as unknown as typeof window.matchMedia;
+		localStorage.setItem("theme", "system");
+		try {
+			const { result } = renderHook(() => useTheme(), {
+				wrapper: ThemeProvider,
+			});
+			expect(result.current.theme).toBe("dark");
+
+			// OS flips to light: the resolved theme tracks it without a re-pick.
+			act(() => {
+				matches = false;
+				listeners.forEach((cb) => {
+					cb({ matches: false } as MediaQueryListEvent);
+				});
+			});
+			expect(result.current.theme).toBe("light");
+			expect(result.current.themePreference).toBe("system");
+		} finally {
+			window.matchMedia = original;
+			localStorage.removeItem("theme");
+		}
+	});
+
 	it("accentPresets is an array with expected values", () => {
 		const { result } = renderHook(() => useTheme(), {
 			wrapper: ThemeProvider,

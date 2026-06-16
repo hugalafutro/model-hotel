@@ -1624,7 +1624,8 @@
 				"glassmorphism": "Glassmorphismi",
 				"glassmorphismDescription": "Läpikuultavat pinnat"
 			},
-			"resetAccent": "Palauta teeman oletusasetukset"
+			"resetAccent": "Palauta teeman oletusasetukset",
+			"followSystem": "Seuraa järjestelmää"
 		},
 		"toast": {
 			"title": "Toast Ilmoitukset",

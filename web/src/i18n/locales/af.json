@@ -1624,7 +1624,8 @@
 				"glassmorphism": "Glasmorfeïsme",
 				"glassmorphismDescription": "Gladde, deurskynende oppervlaktes"
 			},
-			"resetAccent": "Stel terug na tema-standaard"
+			"resetAccent": "Stel terug na tema-standaard",
+			"followSystem": "Volg stelsel"
 		},
 		"toast": {
 			"title": "Toast-kennisgewings",

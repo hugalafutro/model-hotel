@@ -1624,7 +1624,8 @@
 				"glassmorphism": "孤立无援的",
 				"glassmorphismDescription": "切片半透明面"
 			},
-			"resetAccent": "重置为主题默认值"
+			"resetAccent": "重置为主题默认值",
+			"followSystem": "跟随系统"
 		},
 		"toast": {
 			"title": "Toast 通知",

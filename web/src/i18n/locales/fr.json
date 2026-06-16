@@ -1624,7 +1624,8 @@
 				"glassmorphism": "Glassmorphisme",
 				"glassmorphismDescription": "Surfaces scintillantes et translucides"
 			},
-			"resetAccent": "Réinitialiser aux paramètres par défaut du thème"
+			"resetAccent": "Réinitialiser aux paramètres par défaut du thème",
+			"followSystem": "Suivre le système"
 		},
 		"toast": {
 			"title": "Notifications Toast",

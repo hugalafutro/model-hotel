@@ -1624,7 +1624,8 @@
 				"glassmorphism": "Vetmorfismo",
 				"glassmorphismDescription": "Superfici leccate, traslucide"
 			},
-			"resetAccent": "Ripristina impostazioni predefinite del tema"
+			"resetAccent": "Ripristina impostazioni predefinite del tema",
+			"followSystem": "Segui il sistema"
 		},
 		"toast": {
 			"title": "Notifiche Toast",

@@ -1624,7 +1624,8 @@
 				"glassmorphism": "Glassmorfizmus",
 				"glassmorphismDescription": "Hladké, priehľadné povrchy"
 			},
-			"resetAccent": "Obnoviť predvolené nastavenia témy"
+			"resetAccent": "Obnoviť predvolené nastavenia témy",
+			"followSystem": "Podľa systému"
 		},
 		"toast": {
 			"title": "Oznámenia v lište",

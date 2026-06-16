@@ -1624,7 +1624,8 @@
 				"glassmorphism": "ガラスモーフィズム",
 				"glassmorphismDescription": "滑らかな、半透明な面"
 			},
-			"resetAccent": "テーマのデフォルト設定に戻す"
+			"resetAccent": "テーマのデフォルト設定に戻す",
+			"followSystem": "システムに従う"
 		},
 		"toast": {
 			"title": "トースト通知",

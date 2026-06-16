@@ -1624,7 +1624,8 @@
 				"glassmorphism": "Gassmorfismo",
 				"glassmorphismDescription": "Superficies traslúcidas y cortadas"
 			},
-			"resetAccent": "Restablecer a la configuración predeterminada del tema"
+			"resetAccent": "Restablecer a la configuración predeterminada del tema",
+			"followSystem": "Seguir el sistema"
 		},
 		"toast": {
 			"title": "Notificaciones Toast",

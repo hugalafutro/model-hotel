@@ -1624,7 +1624,8 @@
 				"glassmorphism": "Glasmorphismus",
 				"glassmorphismDescription": "Slick, transparente Oberflächen"
 			},
-			"resetAccent": "Auf Standard-Theme zurücksetzen"
+			"resetAccent": "Auf Standard-Theme zurücksetzen",
+			"followSystem": "System folgen"
 		},
 		"toast": {
 			"title": "Toast Benachrichtigungen",

@@ -1624,7 +1624,8 @@
 				"glassmorphism": "Cam morfizmi",
 				"glassmorphismDescription": "Pürüzsüz, yarı saydam yüzeyler"
 			},
-			"resetAccent": "Tema varsayılanına sıfırla"
+			"resetAccent": "Tema varsayılanına sıfırla",
+			"followSystem": "Sistemi takip et"
 		},
 		"toast": {
 			"title": "Bildirimler",

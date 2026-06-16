@@ -1624,7 +1624,8 @@
 				"glassmorphism": "Glazmorfismul",
 				"glassmorphismDescription": "Suprafețe netede, translucide"
 			},
-			"resetAccent": "Resetați la setările implicite ale temei"
+			"resetAccent": "Resetați la setările implicite ale temei",
+			"followSystem": "Urmați sistemul"
 		},
 		"toast": {
 			"title": "Notificări toast",

@@ -1,14 +1,30 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Palette } from "@/lib/icons";
+import {
+	AppleLogo,
+	LinuxLogo,
+	Monitor,
+	Palette,
+	WindowsLogo,
+} from "@/lib/icons";
 import { ResetButton } from "../../components/ResetButton";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
 import { Toggle } from "../../components/Toggle";
 import { THEME_DEFAULT_ACCENT, useTheme } from "../../context/ThemeContext";
 import { useToast } from "../../context/ToastContext";
+import { detectOS } from "../../utils/os";
 import { ColorPickerModal } from "./ColorPickerModal";
 import { UI_STYLES } from "./constants";
+
+// Icon for the "Follow System" button reflects the detected OS, falling back
+// to a generic monitor.
+const OS_ICONS = {
+	macos: AppleLogo,
+	windows: WindowsLogo,
+	linux: LinuxLogo,
+	unknown: Monitor,
+} as const;
 
 interface AppearanceSettingsProps {
 	collapsed: boolean;
@@ -21,7 +37,7 @@ export function AppearanceSettings({
 }: AppearanceSettingsProps) {
 	const { t } = useTranslation();
 	const {
-		theme,
+		themePreference,
 		setTheme,
 		uiStyle,
 		setUIStyle,
@@ -48,6 +64,9 @@ export function AppearanceSettings({
 
 	const [pickerOpen, setPickerOpen] = useState(false);
 	const [pickerColor, setPickerColor] = useState(accentColor);
+
+	// Reflect the browser-detected OS in the "Follow System" button icon.
+	const SystemIcon = useMemo(() => OS_ICONS[detectOS()], []);
 
 	const openPicker = useCallback(() => {
 		setPickerColor(accentColor);
@@ -319,7 +338,7 @@ export function AppearanceSettings({
 								type="button"
 								onClick={() => setTheme("dark")}
 								className={`ui-btn px-4 py-2 text-sm font-medium transition-colors ${
-									theme === "dark"
+									themePreference === "dark"
 										? "ui-btn-primary"
 										: "bg-gray-700 text-gray-400 hover:bg-gray-600"
 								}`}
@@ -328,9 +347,22 @@ export function AppearanceSettings({
 							</button>
 							<button
 								type="button"
+								onClick={() => setTheme("system")}
+								aria-label={t("settings.appearance.followSystem")}
+								title={t("settings.appearance.followSystem")}
+								className={`ui-btn px-3 py-2 text-sm font-medium transition-colors ${
+									themePreference === "system"
+										? "ui-btn-primary"
+										: "bg-gray-700 text-gray-400 hover:bg-gray-600"
+								}`}
+							>
+								<SystemIcon size={16} />
+							</button>
+							<button
+								type="button"
 								onClick={() => setTheme("light")}
 								className={`ui-btn px-4 py-2 text-sm font-medium transition-colors ${
-									theme === "light"
+									themePreference === "light"
 										? "ui-btn-primary"
 										: "bg-gray-700 text-gray-400 hover:bg-gray-600"
 								}`}

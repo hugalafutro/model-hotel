@@ -1609,6 +1609,7 @@
 			"themeDescription": "Switch between dark and light mode",
 			"dark": "Dark",
 			"light": "Light",
+			"followSystem": "Follow System",
 			"accentColor": "Accent Color",
 			"customColor": "Custom color",
 			"resetAccent": "Reset to theme default",

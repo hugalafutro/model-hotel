@@ -1624,7 +1624,8 @@
 				"glassmorphism": "זכוכית-מורפיזם",
 				"glassmorphismDescription": "משטחים חלקים ושקופים"
 			},
-			"resetAccent": "אפס להגדרות ברירת המחדל של העיצוב"
+			"resetAccent": "אפס להגדרות ברירת המחדל של העיצוב",
+			"followSystem": "עקבו אחר המערכת"
 		},
 		"toast": {
 			"title": "התראות Toast",

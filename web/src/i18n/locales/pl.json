@@ -1624,7 +1624,8 @@
 				"glassmorphism": "Glassmorfizm",
 				"glassmorphismDescription": "Przesuń, półprzezroczyste powierzchnie"
 			},
-			"resetAccent": "Przywróć domyślny motyw"
+			"resetAccent": "Przywróć domyślny motyw",
+			"followSystem": "Zgodnie z systemem"
 		},
 		"toast": {
 			"title": "Powiadomienia w dymku",

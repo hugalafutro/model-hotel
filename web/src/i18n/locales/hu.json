@@ -1624,7 +1624,8 @@
 				"glassmorphism": "Üvegmorfizmus",
 				"glassmorphismDescription": "Sima, áttetsző felületek"
 			},
-			"resetAccent": "Visszaállítás a téma alapértelmezett beállításaira"
+			"resetAccent": "Visszaállítás a téma alapértelmezett beállításaira",
+			"followSystem": "Rendszer követése"
 		},
 		"toast": {
 			"title": "Toast értesítések",

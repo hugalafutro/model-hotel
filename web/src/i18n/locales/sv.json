@@ -1624,7 +1624,8 @@
 				"glassmorphism": "Glasmorfism",
 				"glassmorphismDescription": "Slick, genomskinliga ytor"
 			},
-			"resetAccent": "Återställ till temastandard"
+			"resetAccent": "Återställ till temastandard",
+			"followSystem": "Följ systemet"
 		},
 		"toast": {
 			"title": "Toast aviseringar",

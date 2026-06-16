@@ -1624,7 +1624,8 @@
 				"glassmorphism": "Glassmorfisme",
 				"glassmorphismDescription": "Superfícies llises i translúcides"
 			},
-			"resetAccent": "Restablir al tema per defecte"
+			"resetAccent": "Restablir al tema per defecte",
+			"followSystem": "Segueix el sistema"
 		},
 		"toast": {
 			"title": "Notificacions de torrada",

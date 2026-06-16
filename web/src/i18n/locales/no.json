@@ -1624,7 +1624,8 @@
 				"glassmorphism": "Glassmorfisme",
 				"glassmorphismDescription": "Klipp, gjennomskinnelig flater"
 			},
-			"resetAccent": "Tilbakestill til standardtema"
+			"resetAccent": "Tilbakestill til standardtema",
+			"followSystem": "Følg systemet"
 		},
 		"toast": {
 			"title": "Populære varslinger",

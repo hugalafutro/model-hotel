@@ -1624,7 +1624,8 @@
 				"glassmorphism": "글래스모피즘",
 				"glassmorphismDescription": "매끄럽고 반투명한 표면"
 			},
-			"resetAccent": "테마 기본값으로 재설정"
+			"resetAccent": "테마 기본값으로 재설정",
+			"followSystem": "시스템 설정 따름"
 		},
 		"toast": {
 			"title": "토스트 알림",

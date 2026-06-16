@@ -1624,7 +1624,8 @@
 				"glassmorphism": "Glasmorfisme",
 				"glassmorphismDescription": "Plak, doorschijnend oppervlak"
 			},
-			"resetAccent": "Terugzetten naar standaardthema"
+			"resetAccent": "Terugzetten naar standaardthema",
+			"followSystem": "Volg het systeem"
 		},
 		"toast": {
 			"title": "Toast meldingen",

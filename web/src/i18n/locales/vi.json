@@ -1624,7 +1624,8 @@
 				"glassmorphism": "Hiện tượng biến dạng thủy tinh",
 				"glassmorphismDescription": "Bề mặt bóng loáng, trong suốt"
 			},
-			"resetAccent": "Đặt lại về mặc định của chủ đề"
+			"resetAccent": "Đặt lại về mặc định của chủ đề",
+			"followSystem": "Theo hệ thống"
 		},
 		"toast": {
 			"title": "Thông báo trên màn hình khóa",
