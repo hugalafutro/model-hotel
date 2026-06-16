@@ -1,6 +1,9 @@
 package api
 
-import "net/http"
+import (
+	"net/http"
+	"strings"
+)
 
 // readOnlyGuard rejects state-changing requests when the instance runs in
 // read-only mode (DEMO_READONLY=true). Safe methods (GET/HEAD/OPTIONS) pass
@@ -11,15 +14,34 @@ import "net/http"
 // chat (/api/chat) and the public proxy (/v1) are deliberately unaffected: a
 // demo visitor can still chat against the seeded providers and use a seeded
 // virtual key, they just cannot add, edit, or delete anything.
+//
+// One exception: acknowledging background-discovery notifications. That POST
+// only flips a per-row "seen" flag on the discovery_changes table — it does not
+// touch the model catalog — so it is allowed even in read-only mode. Without
+// this, a demo instance can show the Models nav badge but never clear it, and it
+// reappears on every poll/reload.
 func readOnlyGuard(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet, http.MethodHead, http.MethodOptions:
 			next.ServeHTTP(w, r)
+		case http.MethodPost:
+			if isReadOnlyExemptPost(r.URL.Path) {
+				next.ServeHTTP(w, r)
+				return
+			}
+			fallthrough
 		default:
 			// nil err + a 4xx code: respondError does not log this (it is a
 			// client-facing policy rejection, not a server fault).
 			respondError(w, "this is a read-only demo — creating, editing, and deleting are disabled", nil, http.StatusForbidden)
 		}
 	})
+}
+
+// isReadOnlyExemptPost reports whether a POST path is a notification-state
+// acknowledgement that stays allowed in read-only mode (it mutates no catalog
+// data). Matched by suffix so it is independent of the router's mount prefix.
+func isReadOnlyExemptPost(path string) bool {
+	return strings.HasSuffix(path, "/discovery/changes/ack")
 }
