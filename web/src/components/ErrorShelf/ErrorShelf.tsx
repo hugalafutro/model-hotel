@@ -62,8 +62,14 @@ export function ErrorShelf() {
 
 	const handleCopy = useCallback(
 		(message: string) => {
-			navigator.clipboard.writeText(message);
-			toast(t("common.copiedToClipboard"), "info");
+			// Run the write inside a promise chain so a missing Clipboard API
+			// (navigator.clipboard is undefined in non-secure/HTTP contexts)
+			// surfaces as a rejection and hits the failure toast, rather than
+			// throwing synchronously and bypassing it.
+			Promise.resolve()
+				.then(() => navigator.clipboard.writeText(message))
+				.then(() => toast(t("common.copiedToClipboard"), "info"))
+				.catch(() => toast(t("common.failedToCopy"), "error"));
 		},
 		[toast, t],
 	);

@@ -430,6 +430,49 @@ describe("FailoverGroupCard", () => {
 			});
 		});
 
+		it("toasts an error when the clipboard write fails", async () => {
+			const group = {
+				...mockFailoverGroup,
+				display_model: "test-model",
+			};
+
+			const { user } = renderWithProviders(
+				<FailoverGroupCard {...defaultProps} group={group} />,
+			);
+
+			// Reject on the live clipboard impl (userEvent.setup installs its own).
+			vi.spyOn(navigator.clipboard, "writeText").mockRejectedValueOnce(
+				new Error("denied"),
+			);
+			await user.click(screen.getByText("hotel/test-model"));
+
+			await waitFor(() => {
+				expect(screen.getByText("Failed to copy")).toBeInTheDocument();
+			});
+		});
+
+		it("toasts an error when the Clipboard API is unavailable", async () => {
+			const group = {
+				...mockFailoverGroup,
+				display_model: "test-model",
+			};
+
+			const { user } = renderWithProviders(
+				<FailoverGroupCard {...defaultProps} group={group} />,
+			);
+
+			// A missing Clipboard API throws synchronously on access; the handler
+			// must still route that to the failure toast.
+			vi.spyOn(navigator.clipboard, "writeText").mockImplementationOnce(() => {
+				throw new TypeError("clipboard unavailable");
+			});
+			await user.click(screen.getByText("hotel/test-model"));
+
+			await waitFor(() => {
+				expect(screen.getByText("Failed to copy")).toBeInTheDocument();
+			});
+		});
+
 		it("calls onToggleEntry when entry toggle is clicked", async () => {
 			const onToggleEntry = vi.fn();
 			const group = {

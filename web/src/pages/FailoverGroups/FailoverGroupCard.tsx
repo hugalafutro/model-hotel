@@ -99,8 +99,14 @@ export function FailoverGroupCard({
 
 	const handleCopyModel = () => {
 		const modelRef = `hotel/${group.display_model}`;
-		navigator.clipboard.writeText(modelRef);
-		toast(t("failover.copied_model", { model: modelRef }), "success");
+		// Promise-wrap so a missing Clipboard API (undefined in non-secure/HTTP
+		// contexts) rejects into the failure toast instead of throwing synchronously.
+		Promise.resolve()
+			.then(() => navigator.clipboard.writeText(modelRef))
+			.then(() =>
+				toast(t("failover.copied_model", { model: modelRef }), "success"),
+			)
+			.catch(() => toast(t("common.failedToCopy"), "error"));
 	};
 
 	return (
