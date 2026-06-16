@@ -19,9 +19,9 @@ All fields are written to the `request_logs` PostgreSQL table.
 | `provider_id` | UUID | Which provider handled the request (NULL until resolved, NULL if provider deleted) |
 | `virtual_key_id` | UUID | Foreign key to `virtual_keys` table (NULL for anonymous requests) |
 | `virtual_key_name` | TEXT | Which virtual key was used. Retained even after key deletion for audit purposes. |
-| `status_code` | INT | HTTP status returned to the client (`0` while in-progress, `0` or NULL for never-responded). On terminal failure the proxy records a *truthful* gateway code rather than echoing the upstream's: a client hangup is **499**, an exceeded failover/retry timeout is **504**, and a provider/transport failure is **502**. See [Error classification](#error-classification-and-terminal-status-codes). |
+| `status_code` | INT | HTTP status for the request, updated across its lifecycle (nullable, no default). The initial insert omits it (`NULL`); once upstream headers arrive the row is updated with the upstream status — e.g. `200` — and moves to `state='streaming'`, so a long-lived stream reads `200` *while still in flight*. A **mid-stream failure** is then rewritten to `0` (its classification, when one is assigned, lives in `error_kind`). On a *non-streaming* failure the final value is path-dependent: a **terminal upstream non-2xx** keeps the **upstream's own** status (e.g. `500`, `429`, `401`); only when **all candidates are exhausted** without a forwardable response does the proxy synthesise a *truthful* gateway code — **499** (client hangup), **504** (failover/retry timeout), or **502** (provider/transport failure). A request that never received upstream headers stays `NULL`. See [Error classification](#error-classification-and-status-codes). |
 | `error_message` | TEXT | Error text on failure. Populated for upstream provider errors and proxy-internal errors (invalid model format, provider not found, etc.). Empty on success. |
-| `error_kind` | TEXT | Machine-readable failure classification (added in migration `045`), set alongside `error_message`. One of `client_disconnect`, `provider_error`, `provider_timeout`, `failover_timeout`, `retry_timeout`, `internal`, `validation`, `auth`. NULL on success and for historical rows (no backfill). The dashboard's "Interrupted" badge and the Prometheus metrics read this **instead of** substring-matching the English message. |
+| `error_kind` | TEXT | Machine-readable failure classification (added in migration `045`), set alongside `error_message`. One of `client_disconnect`, `provider_error`, `provider_timeout`, `failover_timeout`, `retry_timeout`, `internal`, `validation`, `auth`. NULL on success, for rows predating migration `045` (no backfill), and for a few edge paths that record only an `error_message` (e.g. a stream truncated before the `[DONE]` sentinel). The dashboard's "Interrupted" badge reads this, falling back to substring-matching the English `error_message` only when it is NULL. The Prometheus `error_kind` label carries the raw value verbatim and is **empty** (`""`) when unset — it does **not** fall back, so legacy/truncated rows with no kind appear unclassified in metrics. |
 | `streaming` | BOOLEAN | Whether the request used SSE streaming |
 | `failover_attempt` | INT | Which attempt this was - `0` for the first try, incrementing with each failover |
 | `resolved_model_id` | TEXT | The actual upstream model ID used for the request (e.g. `openai/gpt-4o`). For hotel-routed requests, this differs from `model_id` which contains the requested `hotel/` name (e.g. `hotel/gpt-4o`). NULL for non-failover requests where the requested and resolved model are the same. |
@@ -428,27 +428,31 @@ DeepSeek providers may report `prompt_cache_hit_tokens` and `prompt_cache_miss_t
 
 ## Error Logging for Failed Requests
 
-### Error classification and terminal status codes
+### Error classification and status codes
 
-Every failed request is tagged with a machine-readable [`error_kind`](#request-log-schema) and a *truthful* terminal HTTP status — the gateway records what actually happened, not the upstream's code. The classification is defined in `internal/proxy/reqerror.go`:
+Most failed requests are tagged with a machine-readable [`error_kind`](#request-log-schema), defined in `internal/proxy/reqerror.go`. The persisted `status_code` is **not** a fixed function of `error_kind` — it depends on *where* the request failed (see the [`status_code`](#request-log-schema) column and the notes below the table):
 
-| `error_kind` | Terminal status | When | Example `error_message` |
-|--------------|-----------------|------|--------------------------|
+| `error_kind` | Status code | When | Example `error_message` |
+|--------------|-------------|------|--------------------------|
 | `validation` | 400 / 404 | Malformed body, missing model, invalid model format (400); unknown model / no enabled providers (404) | `"invalid request body"`, `"model 'xxx' not found"` |
 | `auth` | 403 | Virtual key lacks access to any provider for the model | `"virtual key does not have access to any provider for this model"` |
-| `provider_error` | 502 | Upstream returned a non-2xx or the transport failed (all candidates exhausted) | `"all 3 providers failed; last error: provider \"X\" returned HTTP 500 on attempt 2"` |
+| `provider_error` | upstream status, else 502 | A terminal upstream non-2xx is logged with **that** status (e.g. `500`, `429`, `401`); a transport failure or all-candidates-exhausted with no forwardable response is `502` | `"all 3 providers failed; last error: provider \"X\" returned HTTP 500 on attempt 2"` |
 | `provider_timeout` | 502 | TTFT probe or stall watchdog fired — provider connected but produced no output in time | `"provider \"X\" did not return a response in time on attempt 1"` |
 | `failover_timeout` | 504 | The overall failover deadline expired | `"request timed out while waiting on provider \"X\""` |
 | `retry_timeout` | 504 | The param-strip retry's deadline expired | `"retry without unsupported parameters timed out on provider \"X\""` |
 | `client_disconnect` | 499 | The calling client hung up before we responded | `"client disconnected during attempt 1 to provider \"X\""` |
 | `internal` | 502 | Gateway-internal failure (e.g. could not build the upstream request) | `"internal error on attempt 1: …"` |
 
-Two background states are written by the stale-log sweep (not a live request) and keep `status_code` `0` with a NULL `error_kind`:
+> **The `Status code` column is the code written for non-streaming failures.** `validation` and `auth` rows always carry the code shown (they are rejected before any upstream attempt), as does the all-candidates-exhausted path. Two cases diverge:
+> - A **terminal upstream non-2xx** (non-streaming) is logged with the **upstream's own** status (e.g. `500`, `429`, `401`), not `502` — the gateway only synthesises `502`/`504`/`499` once *every* candidate is exhausted without a forwardable response.
+> - **Any mid-stream failure** is logged with `status_code = 0` regardless of `error_kind`. Find these by `state = 'failed'` (and `error_kind`), not by status.
 
-| Category | `status_code` | `error_message` |
-|----------|---------------|------------------|
-| Stale timeout | 0 | `"request interrupted (stale)"` |
-| Server restart | 0 | `"request interrupted (server restart)"` |
+Two background states are written by the stale-log sweep in `cmd/server/main.go` (not a live request). The sweep updates only `state`, `error_kind`, and `error_message` — it **does not touch `status_code`**, so a still-pending row keeps its `NULL`/`0`, while a row already in the `streaming` state retains its interim status (typically `200`):
+
+| Category | `status_code` | `error_kind` | `error_message` |
+|----------|---------------|--------------|------------------|
+| Stale timeout | unchanged (NULL/0, or 200 if streaming) | `internal` | `"request interrupted (stale)"` |
+| Server restart | unchanged (NULL/0, or 200 if streaming) | `internal` | `"request interrupted (server restart)"` |
 
 > Historical rows predating migration `045` have a NULL `error_kind`; the dashboard falls back to substring-matching their `error_message` to render the "Interrupted" badge.
 
