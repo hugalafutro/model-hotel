@@ -34,7 +34,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     go build -ldflags "-X main.version=$VERSION" -o server ./cmd/server/
 
 # Stage 3: Minimal runtime image
-FROM alpine:3.23
+FROM alpine:3.24
 
 # Upgrade base packages so security patches in the 3.23 line (e.g. OpenSSL)
 # land even when the alpine:3.23 tag itself lags behind.
