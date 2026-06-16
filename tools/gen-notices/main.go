@@ -234,9 +234,8 @@ func readLicenseFile(dir string) string {
 	}
 	sort.Strings(names) // deterministic across filesystems
 
-	var texts []string
-	seen := map[string]bool{} // dedup identical files (e.g. LICENSE == LICENSE.md)
-	var notice string
+	var texts, notices []string
+	seen := map[string]bool{} // dedup identical files across both groups
 	for _, name := range names {
 		upper := strings.ToUpper(name)
 		isNotice := upper == "NOTICE" || strings.HasPrefix(upper, "NOTICE.")
@@ -251,25 +250,28 @@ func readLicenseFile(dir string) string {
 		if body == "" {
 			continue
 		}
-		if isNotice {
-			notice = body
-			continue
-		}
 		sum := sha256.Sum256([]byte(body))
 		key := hex.EncodeToString(sum[:])
 		if seen[key] {
 			continue
 		}
 		seen[key] = true
+		// A package may ship several NOTICE files (NOTICE, NOTICE.md, ...);
+		// collect them all, mirroring the license-file handling, so required
+		// attribution is never dropped by a later filename overwriting it.
+		if isNotice {
+			notices = append(notices, body)
+			continue
+		}
 		texts = append(texts, body)
 	}
 
 	text := strings.Join(texts, "\n\n----- ----- -----\n\n")
-	if notice != "" {
+	if len(notices) > 0 {
 		if text != "" {
 			text += "\n\n----- NOTICE -----\n\n"
 		}
-		text += notice
+		text += strings.Join(notices, "\n\n----- NOTICE -----\n\n")
 	}
 	return text
 }
