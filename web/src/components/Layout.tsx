@@ -661,6 +661,11 @@ export function Layout({ children }: LayoutProps) {
 	const [discoveryChangeEntries, setDiscoveryChangeEntries] = useState<
 		DiscoverySummaryEntry[]
 	>([]);
+	// Guards against a re-entrant open (rapid double-click / repeated Enter) while
+	// the ack is in flight: the first ack returns and clears the rows, a second
+	// would return an empty list and blank the modal. A ref (not state) so the
+	// re-entrant call sees the flag synchronously, before any await yields.
+	const ackInFlight = useRef(false);
 
 	useEffect(() => {
 		const handler = (e: Event) => {
@@ -679,6 +684,8 @@ export function Layout({ children }: LayoutProps) {
 	// instead of silently buried. Fall back to the cached entries if ack fails (the
 	// badge then stays until a later successful ack).
 	const openDiscoveryChanges = async () => {
+		if (ackInFlight.current) return;
+		ackInFlight.current = true;
 		const failoverLabel = t("providers.discoverySummary.failover");
 		let entries = discoveryChanges?.entries ?? [];
 		try {
@@ -686,6 +693,7 @@ export function Layout({ children }: LayoutProps) {
 		} catch {
 			// Keep the cached snapshot; the badge persists for a later retry.
 		} finally {
+			ackInFlight.current = false;
 			queryClient.invalidateQueries({ queryKey: ["discovery-changes"] });
 		}
 		setDiscoveryChangeEntries(

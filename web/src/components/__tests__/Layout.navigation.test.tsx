@@ -1,4 +1,4 @@
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -755,6 +755,42 @@ describe("Layout", () => {
 				"deepseek-chat",
 			);
 			await waitFor(() => expect(ackCalled).toBe(true));
+		});
+
+		it("ignores a re-entrant click while the ack is in flight", async () => {
+			// Mirror the atomic server: the first ack clears and returns the rows;
+			// any concurrent second ack finds nothing unseen and returns []. Without
+			// the in-flight guard a double-click's empty response would blank the
+			// modal. The guard must keep ack to a single call and the modal populated.
+			let ackCount = 0;
+			server.use(
+				http.get("/api/discovery/changes", () =>
+					HttpResponse.json(changesResponse),
+				),
+				http.post("/api/discovery/changes/ack", () => {
+					ackCount++;
+					return HttpResponse.json(
+						ackCount === 1
+							? { entries: changesResponse.entries, count: 0 }
+							: { entries: [], count: 0 },
+					);
+				}),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			const badge = await screen.findByTestId("discovery-changes-badge");
+			// Two synchronous clicks: the second re-enters before the first ack's
+			// await yields, so the guard must drop it.
+			fireEvent.click(badge);
+			fireEvent.click(badge);
+
+			expect(
+				await screen.findByTestId("discovery-summary"),
+			).toBeInTheDocument();
+			expect(screen.getByTestId("discovery-summary-updated")).toHaveTextContent(
+				"deepseek-chat",
+			);
+			await waitFor(() => expect(ackCount).toBe(1));
 		});
 
 		it("invalidates the changes query on a discovery.changes_pending SSE event", async () => {
