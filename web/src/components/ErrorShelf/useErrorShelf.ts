@@ -150,7 +150,12 @@ export function useErrorShelf(): UseErrorShelf {
 			});
 		}
 
-		merged.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+		// Timestamps are fixed-width ISO 8601 UTC strings, so a direct
+		// lexicographic compare is correct, deterministic, and faster than
+		// the locale-sensitive localeCompare.
+		merged.sort((a, b) =>
+			b.timestamp < a.timestamp ? -1 : b.timestamp > a.timestamp ? 1 : 0,
+		);
 		return merged.slice(0, ERROR_SHELF_LIMIT);
 	}, [ready, reqLogData, appLogData]);
 

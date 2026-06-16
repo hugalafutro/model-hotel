@@ -199,6 +199,21 @@ describe("ErrorShelf", () => {
 		expect(writeSpy).toHaveBeenCalledWith("copy me");
 	});
 
+	it("toasts an error when the clipboard write fails", async () => {
+		seedRequestError("copy me", "2024-02-01T10:00:00Z");
+		const { user } = renderWithProviders(<ErrorShelf />);
+
+		await screen.findByTestId("error-shelf-count");
+		await expand();
+		const row = await screen.findByTestId("error-shelf-row");
+		vi.spyOn(navigator.clipboard, "writeText").mockRejectedValueOnce(
+			new Error("denied"),
+		);
+		await user.click(within(row).getByTitle("Copy error"));
+
+		expect(await screen.findByText("Failed to copy")).toBeInTheDocument();
+	});
+
 	it("stays hidden for an already-acknowledged error", async () => {
 		const ts = "2024-02-01T10:00:00Z";
 		const msg = "already seen";

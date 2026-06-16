@@ -99,8 +99,12 @@ export function FailoverGroupCard({
 
 	const handleCopyModel = () => {
 		const modelRef = `hotel/${group.display_model}`;
-		navigator.clipboard.writeText(modelRef);
-		toast(t("failover.copied_model", { model: modelRef }), "success");
+		navigator.clipboard
+			.writeText(modelRef)
+			.then(() =>
+				toast(t("failover.copied_model", { model: modelRef }), "success"),
+			)
+			.catch(() => toast(t("common.failedToCopy"), "error"));
 	};
 
 	return (

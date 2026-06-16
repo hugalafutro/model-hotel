@@ -62,8 +62,10 @@ export function ErrorShelf() {
 
 	const handleCopy = useCallback(
 		(message: string) => {
-			navigator.clipboard.writeText(message);
-			toast(t("common.copiedToClipboard"), "info");
+			navigator.clipboard
+				.writeText(message)
+				.then(() => toast(t("common.copiedToClipboard"), "info"))
+				.catch(() => toast(t("common.failedToCopy"), "error"));
 		},
 		[toast, t],
 	);
