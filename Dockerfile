@@ -34,12 +34,12 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     go build -ldflags "-X main.version=$VERSION" -o server ./cmd/server/
 
 # Stage 3: Minimal runtime image
-FROM alpine:3.23
+FROM alpine:3.24
 
-# Upgrade base packages so security patches in the 3.23 line (e.g. OpenSSL)
-# land even when the alpine:3.23 tag itself lags behind.
+# Upgrade base packages so security patches in the 3.24 line (e.g. OpenSSL)
+# land even when the alpine:3.24 tag itself lags behind.
 # Deliberate trade-off: builds are not reproducible across time (each build picks
-# up the current v3.23 patch level). Preferred over pinning package versions,
+# up the current v3.24 patch level). Preferred over pinning package versions,
 # which Alpine purges from its repos once superseded, breaking the build.
 RUN apk upgrade --no-cache && \
     apk add --no-cache ca-certificates postgresql16-client su-exec
