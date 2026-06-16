@@ -53,14 +53,10 @@ func (d *DiscoveryService) discoverOpenRouter(ctx context.Context, provider *Pro
 		// Parse pricing: per-token string → $/1M
 		inPrice, outPrice := parseOpenRouterPricing(orm.Pricing)
 
-		// Parse cache pricing if available
-		var cachePrice *float64
-		if orm.Pricing.InputCacheRead != "" && orm.Pricing.InputCacheRead != "0" {
-			if v, err := strconv.ParseFloat(orm.Pricing.InputCacheRead, 64); err == nil {
-				perMil := v * 1_000_000
-				cachePrice = &perMil
-			}
-		}
+		// Parse cache pricing: same nil-on-unknown rule as prompt/completion. A
+		// real "0" (free cache reads) parses to &0 and propagates, so a price
+		// dropping to free isn't masked by a stale stored value on /v1/models.
+		cachePrice := parseOpenRouterPrice(orm.Pricing.InputCacheRead)
 
 		// Build capabilities from supported_parameters
 		caps := openRouterParamsToCapabilities(orm.SupportedParameters)

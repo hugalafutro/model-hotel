@@ -63,16 +63,11 @@ func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provid
 		}
 		paramsJSON, _ := json.Marshal(paramsMap)
 
-		var inPricePerMill *float64
-		var outPricePerMill *float64
-		{
-			v := m.Pricing.Prompt
-			inPricePerMill = &v
-		}
-		{
-			v := m.Pricing.Completion
-			outPricePerMill = &v
-		}
+		// Pricing fields are optional: a nil (omitted) price stays nil so it is not
+		// marked live and can't overwrite a stored value with 0 on a partial
+		// response; a present value (including a real 0) is taken as authoritative.
+		inPricePerMill := m.Pricing.Prompt
+		outPricePerMill := m.Pricing.Completion
 
 		models = append(models, &model.Model{
 			ID:                    uuid.New(),

@@ -91,12 +91,15 @@ type NanoGPTCapabilities struct {
 	PDFUpload         bool `json:"pdf_upload"`
 }
 
-// NanoGPTPricing contains pricing information for a NanoGPT model.
+// NanoGPTPricing contains pricing information for a NanoGPT model. Prompt and
+// Completion are pointers so an omitted price decodes as nil ("unknown") rather
+// than a synthetic 0: a nil price is left unmarked-live and can't overwrite a
+// stored value on upsert, while a present value (including a real 0) is kept.
 type NanoGPTPricing struct {
-	Prompt     float64 `json:"prompt"`
-	Completion float64 `json:"completion"`
-	Currency   string  `json:"currency"`
-	Unit       string  `json:"unit"`
+	Prompt     *float64 `json:"prompt"`
+	Completion *float64 `json:"completion"`
+	Currency   string   `json:"currency"`
+	Unit       string   `json:"unit"`
 }
 
 // NanoGPTSubscription describes subscription details for a NanoGPT model.

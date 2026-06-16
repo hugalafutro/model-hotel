@@ -163,7 +163,9 @@ func (d *DiscoveryService) buildOllamaModel(provider *Provider, modelID string, 
 	var contextLength *int
 	for k, v := range show.ModelInfo {
 		if strings.HasSuffix(k, ".context_length") {
-			if f, ok := v.(float64); ok {
+			// Guard on > 0 so a zero/absent value stays nil and isn't marked live
+			// (which would let it overwrite a stored context length with 0).
+			if f, ok := v.(float64); ok && f > 0 {
 				cl := int(f)
 				contextLength = &cl
 				break
