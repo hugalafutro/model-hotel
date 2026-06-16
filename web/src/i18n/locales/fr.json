@@ -1606,7 +1606,6 @@
 			"title": "Apparence",
 			"uiStyle": "Style de l'interface",
 			"theme": "Thème",
-			"themeDescription": "Basculer entre le mode sombre et le mode clair",
 			"dark": "Sombre",
 			"light": "Lumière",
 			"accentColor": "Couleur d'accentuation",
@@ -1624,7 +1623,9 @@
 				"glassmorphism": "Glassmorphisme",
 				"glassmorphismDescription": "Surfaces scintillantes et translucides"
 			},
-			"resetAccent": "Réinitialiser aux paramètres par défaut du thème"
+			"resetAccent": "Réinitialiser aux paramètres par défaut du thème",
+			"followSystem": "Suivre le système",
+			"themeDescription": "Basculer entre les modes sombre, clair et système"
 		},
 		"toast": {
 			"title": "Notifications Toast",

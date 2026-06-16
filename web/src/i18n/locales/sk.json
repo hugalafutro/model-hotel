@@ -1606,7 +1606,6 @@
 			"title": "Vzhľad",
 			"uiStyle": "Štýl používateľského rozhrania",
 			"theme": "Téma",
-			"themeDescription": "Prepínanie medzi tmavým a svetlým režimom",
 			"dark": "Tmavý",
 			"light": "Svetlo",
 			"accentColor": "Doplnková farba",
@@ -1624,7 +1623,9 @@
 				"glassmorphism": "Glassmorfizmus",
 				"glassmorphismDescription": "Hladké, priehľadné povrchy"
 			},
-			"resetAccent": "Obnoviť predvolené nastavenia témy"
+			"resetAccent": "Obnoviť predvolené nastavenia témy",
+			"followSystem": "Podľa systému",
+			"themeDescription": "Prepínanie medzi tmavým, svetlým a systémovým režimom"
 		},
 		"toast": {
 			"title": "Oznámenia v lište",

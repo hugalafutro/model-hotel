@@ -1606,7 +1606,6 @@
 			"title": "Vzhled",
 			"uiStyle": "Styl uživatelského rozhraní",
 			"theme": "Téma",
-			"themeDescription": "Přepínání mezi tmavým a světlým režimem",
 			"dark": "Temný",
 			"light": "Světlo",
 			"accentColor": "Doplňková barva",
@@ -1624,7 +1623,9 @@
 				"glassmorphism": "Glassmorfismus",
 				"glassmorphismDescription": "Průsvitné povrchy"
 			},
-			"resetAccent": "Obnovit výchozí nastavení motivu"
+			"resetAccent": "Obnovit výchozí nastavení motivu",
+			"followSystem": "Podle systému",
+			"themeDescription": "Přepínání mezi tmavým, světlým a systémovým režimem"
 		},
 		"toast": {
 			"title": "Oznámení v oznamovací liště",

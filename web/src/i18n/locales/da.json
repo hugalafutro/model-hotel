@@ -1606,7 +1606,6 @@
 			"title": "Udseende",
 			"uiStyle": "Ui Stil",
 			"theme": "Tema",
-			"themeDescription": "Skift mellem mørk og lys tilstand",
 			"dark": "Mørk",
 			"light": "Lys",
 			"accentColor": "Accent Farve",
@@ -1624,7 +1623,9 @@
 				"glassmorphism": "Glassmorfisme",
 				"glassmorphismDescription": "Slik, gennemskinnelige overflader"
 			},
-			"resetAccent": "Nulstil til temastandard"
+			"resetAccent": "Nulstil til temastandard",
+			"followSystem": "Følg systemet",
+			"themeDescription": "Skift mellem mørk, lys og systemtilstand"
 		},
 		"toast": {
 			"title": "Toast Notifikationer",

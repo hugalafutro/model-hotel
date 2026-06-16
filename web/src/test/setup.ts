@@ -129,6 +129,22 @@ if (typeof globalThis.ResizeObserver === "undefined") {
 	} as unknown as typeof globalThis.ResizeObserver;
 }
 
+// Mock matchMedia (jsdom doesn't implement it). Defaults to "no match" so
+// prefers-color-scheme: dark reads as light; tests that need a specific scheme
+// can override window.matchMedia.
+if (typeof window !== "undefined" && !window.matchMedia) {
+	window.matchMedia = ((query: string) => ({
+		matches: false,
+		media: query,
+		onchange: null,
+		addEventListener: () => {},
+		removeEventListener: () => {},
+		addListener: () => {},
+		removeListener: () => {},
+		dispatchEvent: () => false,
+	})) as unknown as typeof window.matchMedia;
+}
+
 // Mock Element.setPointerCapture (jsdom doesn't implement it)
 if (typeof Element !== "undefined" && !Element.prototype.setPointerCapture) {
 	Element.prototype.setPointerCapture = () => {};

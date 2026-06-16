@@ -1,9 +1,27 @@
-import { createContext, type ReactNode, useContext, useEffect } from "react";
+import {
+	createContext,
+	type ReactNode,
+	useContext,
+	useEffect,
+	useState,
+} from "react";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { applyFavicon } from "../utils/favicon";
 
 type Theme = "dark" | "light";
+/** What the user picked. "system" follows the OS via prefers-color-scheme;
+ * the two literal modes pin the theme regardless of the OS. */
+export type ThemePreference = Theme | "system";
 export type UIStyle = "clean-saas" | "cyber-terminal" | "glassmorphism-lite";
+
+const DARK_SCHEME_QUERY = "(prefers-color-scheme: dark)";
+
+/** Current OS color scheme, defaulting to dark when matchMedia is unavailable
+ * (jsdom/SSR) so behavior matches the app's dark-first default. */
+function getSystemTheme(): Theme {
+	if (typeof window === "undefined" || !window.matchMedia) return "dark";
+	return window.matchMedia(DARK_SCHEME_QUERY).matches ? "dark" : "light";
+}
 
 interface AccentPreset {
 	name: string;
@@ -39,8 +57,13 @@ export const THEME_DEFAULT_ACCENT: Record<UIStyle, string> = {
 };
 
 interface ThemeContextType {
+	/** Resolved theme actually applied to the DOM ("system" collapses to the
+	 * OS scheme). Consumers that render dark/light variants want this. */
 	theme: Theme;
-	setTheme: (theme: Theme) => void;
+	/** The user's raw choice, including "system". The appearance toggle uses
+	 * this to highlight the active button. */
+	themePreference: ThemePreference;
+	setTheme: (theme: ThemePreference) => void;
 	uiStyle: UIStyle;
 	setUIStyle: (style: UIStyle) => void;
 	accentColor: string;
@@ -53,6 +76,7 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType>({
 	theme: "dark",
+	themePreference: "dark",
 	setTheme: () => {},
 	uiStyle: "clean-saas",
 	setUIStyle: () => {},
@@ -146,9 +170,32 @@ function applyAccentColor(color: string, theme: Theme) {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-	const [theme, setTheme] = useLocalStorage<Theme>("theme", "dark", {
-		deserialize: (v) => (v === "light" ? "light" : "dark"),
-	});
+	const [themePreference, setTheme] = useLocalStorage<ThemePreference>(
+		"theme",
+		"dark",
+		{
+			deserialize: (v) =>
+				v === "light" ? "light" : v === "system" ? "system" : "dark",
+		},
+	);
+
+	// Track the OS scheme so "system" can resolve and react to live changes.
+	const [systemTheme, setSystemTheme] = useState<Theme>(getSystemTheme);
+
+	useEffect(() => {
+		if (typeof window === "undefined" || !window.matchMedia) return;
+		const mq = window.matchMedia(DARK_SCHEME_QUERY);
+		// Re-sync now in case the scheme changed between the initial state read
+		// and effect mount.
+		setSystemTheme(mq.matches ? "dark" : "light");
+		const onChange = (e: MediaQueryListEvent) =>
+			setSystemTheme(e.matches ? "dark" : "light");
+		mq.addEventListener("change", onChange);
+		return () => mq.removeEventListener("change", onChange);
+	}, []);
+
+	const theme: Theme =
+		themePreference === "system" ? systemTheme : themePreference;
 
 	const [uiStyle, setUIStyle] = useLocalStorage<UIStyle>(
 		"uiStyle",
@@ -184,6 +231,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 		<ThemeContext.Provider
 			value={{
 				theme,
+				themePreference,
 				setTheme,
 				uiStyle,
 				setUIStyle,

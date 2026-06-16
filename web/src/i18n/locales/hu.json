@@ -1606,7 +1606,6 @@
 			"title": "Megjelenés",
 			"uiStyle": "Felhasználói felület stílusa",
 			"theme": "Téma",
-			"themeDescription": "Váltás sötét és világos mód között",
 			"dark": "Sötét",
 			"light": "Fény",
 			"accentColor": "Kiemelő szín",
@@ -1624,7 +1623,9 @@
 				"glassmorphism": "Üvegmorfizmus",
 				"glassmorphismDescription": "Sima, áttetsző felületek"
 			},
-			"resetAccent": "Visszaállítás a téma alapértelmezett beállításaira"
+			"resetAccent": "Visszaállítás a téma alapértelmezett beállításaira",
+			"followSystem": "Rendszer követése",
+			"themeDescription": "Váltás sötét, világos és rendszer mód között"
 		},
 		"toast": {
 			"title": "Toast értesítések",

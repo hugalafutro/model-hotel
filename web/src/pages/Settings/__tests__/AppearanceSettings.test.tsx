@@ -31,6 +31,29 @@ describe("AppearanceSettings", () => {
 		expect(screen.getByText("Light")).toBeInTheDocument();
 	});
 
+	it("renders the Follow System theme button between Dark and Light", () => {
+		renderWithProviders(
+			<AppearanceSettings collapsed={false} onToggle={onToggle} />,
+		);
+		const followSystem = screen.getByRole("button", { name: "Follow System" });
+		expect(followSystem).toBeInTheDocument();
+		expect(followSystem).toHaveAttribute("title", "Follow System");
+	});
+
+	it("activates the system theme preference when Follow System is clicked", async () => {
+		const user = userEvent.setup();
+		localStorage.removeItem("theme");
+		renderWithProviders(
+			<AppearanceSettings collapsed={false} onToggle={onToggle} />,
+		);
+		const followSystem = screen.getByRole("button", { name: "Follow System" });
+		expect(followSystem.className).not.toContain("ui-btn-primary");
+		await user.click(followSystem);
+		expect(localStorage.getItem("theme")).toBe("system");
+		expect(followSystem.className).toContain("ui-btn-primary");
+		localStorage.removeItem("theme");
+	});
+
 	it("renders Accent Color section", () => {
 		renderWithProviders(
 			<AppearanceSettings collapsed={false} onToggle={onToggle} />,

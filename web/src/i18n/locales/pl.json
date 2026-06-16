@@ -1606,7 +1606,6 @@
 			"title": "Wygląd",
 			"uiStyle": "Styl interfejsu użytkownika",
 			"theme": "Motyw",
-			"themeDescription": "Przełącz pomiędzy trybem ciemnym i jasnym",
 			"dark": "Ciemny",
 			"light": "Światło",
 			"accentColor": "Kolor akcentu",
@@ -1624,7 +1623,9 @@
 				"glassmorphism": "Glassmorfizm",
 				"glassmorphismDescription": "Przesuń, półprzezroczyste powierzchnie"
 			},
-			"resetAccent": "Przywróć domyślny motyw"
+			"resetAccent": "Przywróć domyślny motyw",
+			"followSystem": "Zgodnie z systemem",
+			"themeDescription": "Przełączaj między trybem ciemnym, jasnym i systemowym"
 		},
 		"toast": {
 			"title": "Powiadomienia w dymku",

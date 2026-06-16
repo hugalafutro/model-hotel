@@ -1606,7 +1606,6 @@
 			"title": "Aparença",
 			"uiStyle": "Estil d'interfície d'usuari",
 			"theme": "Tema",
-			"themeDescription": "Canvia entre el mode fosc i el mode clar",
 			"dark": "Fosc",
 			"light": "Lleuger",
 			"accentColor": "Color d'accent",
@@ -1624,7 +1623,9 @@
 				"glassmorphism": "Glassmorfisme",
 				"glassmorphismDescription": "Superfícies llises i translúcides"
 			},
-			"resetAccent": "Restablir al tema per defecte"
+			"resetAccent": "Restablir al tema per defecte",
+			"followSystem": "Segueix el sistema",
+			"themeDescription": "Canvia entre el mode fosc, el mode clar i el mode del sistema"
 		},
 		"toast": {
 			"title": "Notificacions de torrada",

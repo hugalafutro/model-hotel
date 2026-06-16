@@ -1606,7 +1606,6 @@
 			"title": "外観",
 			"uiStyle": "UIスタイル",
 			"theme": "テーマ",
-			"themeDescription": "ダークモードとライトモードを切り替える",
 			"dark": "ダーク",
 			"light": "ライト",
 			"accentColor": "アクセントカラー",
@@ -1624,7 +1623,9 @@
 				"glassmorphism": "ガラスモーフィズム",
 				"glassmorphismDescription": "滑らかな、半透明な面"
 			},
-			"resetAccent": "テーマのデフォルト設定に戻す"
+			"resetAccent": "テーマのデフォルト設定に戻す",
+			"followSystem": "システムに従う",
+			"themeDescription": "ダークモード、ライトモード、システムモードを切り替える"
 		},
 		"toast": {
 			"title": "トースト通知",

@@ -1606,7 +1606,6 @@
 			"title": "Ulkoasu",
 			"uiStyle": "Käyttöliittymän Tyyli",
 			"theme": "Teema",
-			"themeDescription": "Vaihda tumman ja valon tilan välillä",
 			"dark": "Tumma",
 			"light": "Vaalea",
 			"accentColor": "Korostettu Väri",
@@ -1624,7 +1623,9 @@
 				"glassmorphism": "Glassmorphismi",
 				"glassmorphismDescription": "Läpikuultavat pinnat"
 			},
-			"resetAccent": "Palauta teeman oletusasetukset"
+			"resetAccent": "Palauta teeman oletusasetukset",
+			"followSystem": "Seuraa järjestelmää",
+			"themeDescription": "Vaihda tumman, vaalean ja järjestelmätilan välillä"
 		},
 		"toast": {
 			"title": "Toast Ilmoitukset",

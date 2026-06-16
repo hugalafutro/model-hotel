@@ -1606,7 +1606,6 @@
 			"title": "Görünüm",
 			"uiStyle": "Kullanıcı Arayüzü Stili",
 			"theme": "Tema",
-			"themeDescription": "Koyu ve açık mod arasında geçiş yap",
 			"dark": "Karanlık",
 			"light": "Işık",
 			"accentColor": "Vurgu Rengi",
@@ -1624,7 +1623,9 @@
 				"glassmorphism": "Cam morfizmi",
 				"glassmorphismDescription": "Pürüzsüz, yarı saydam yüzeyler"
 			},
-			"resetAccent": "Tema varsayılanına sıfırla"
+			"resetAccent": "Tema varsayılanına sıfırla",
+			"followSystem": "Sistemi takip et",
+			"themeDescription": "Koyu, açık ve sistem modu arasında geçiş yapın"
 		},
 		"toast": {
 			"title": "Bildirimler",

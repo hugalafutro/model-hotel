@@ -1606,7 +1606,6 @@
 			"title": "Uiterlijk",
 			"uiStyle": "UI stijl",
 			"theme": "Thema",
-			"themeDescription": "Schakelen tussen donkere en lichte modus",
 			"dark": "Donker",
 			"light": "Licht",
 			"accentColor": "Accent kleur",
@@ -1624,7 +1623,9 @@
 				"glassmorphism": "Glasmorfisme",
 				"glassmorphismDescription": "Plak, doorschijnend oppervlak"
 			},
-			"resetAccent": "Terugzetten naar standaardthema"
+			"resetAccent": "Terugzetten naar standaardthema",
+			"followSystem": "Volg het systeem",
+			"themeDescription": "Schakel tussen donkere, lichte en systeemmodus"
 		},
 		"toast": {
 			"title": "Toast meldingen",

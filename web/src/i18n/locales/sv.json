@@ -1606,7 +1606,6 @@
 			"title": "Utseende",
 			"uiStyle": "UI stil",
 			"theme": "Tema",
-			"themeDescription": "Växla mellan mörk och ljus läge",
 			"dark": "Mörk",
 			"light": "Ljus",
 			"accentColor": "Accentfärg",
@@ -1624,7 +1623,9 @@
 				"glassmorphism": "Glasmorfism",
 				"glassmorphismDescription": "Slick, genomskinliga ytor"
 			},
-			"resetAccent": "Återställ till temastandard"
+			"resetAccent": "Återställ till temastandard",
+			"followSystem": "Följ systemet",
+			"themeDescription": "Växla mellan mörkt, ljust och systemläge"
 		},
 		"toast": {
 			"title": "Toast aviseringar",

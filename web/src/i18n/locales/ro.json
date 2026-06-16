@@ -1606,7 +1606,6 @@
 			"title": "Aspectul",
 			"uiStyle": "Stil UI",
 			"theme": "Tema",
-			"themeDescription": "Comutați între modul întuneric și cel luminos",
 			"dark": "Întunecat",
 			"light": "Lumină",
 			"accentColor": "Culoare accent",
@@ -1624,7 +1623,9 @@
 				"glassmorphism": "Glazmorfismul",
 				"glassmorphismDescription": "Suprafețe netede, translucide"
 			},
-			"resetAccent": "Resetați la setările implicite ale temei"
+			"resetAccent": "Resetați la setările implicite ale temei",
+			"followSystem": "Urmați sistemul",
+			"themeDescription": "Comutați între modul întunecat, luminos și de sistem"
 		},
 		"toast": {
 			"title": "Notificări toast",

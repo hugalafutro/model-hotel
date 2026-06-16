@@ -2912,8 +2912,8 @@ html[data-ui-style="cyber-terminal"] .ui-waffle-cell {
 }
 
 /* Disabled failover entry pill - CSS-only styles */
-/* Dark/Light selector: two separate buttons in most themes; Terminal
-   joins them into one outlined segmented toggle. */
+/* Dark/System/Light selector: three separate buttons in most themes;
+   Terminal joins them into one outlined segmented toggle. */
 .theme-mode-toggle {
 	display: flex;
 	gap: 0.5rem;

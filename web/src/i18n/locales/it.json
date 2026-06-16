@@ -1606,7 +1606,6 @@
 			"title": "Aspetto",
 			"uiStyle": "Stile UI",
 			"theme": "Tema",
-			"themeDescription": "Passa tra la modalità scura e la luce",
 			"dark": "Scuro",
 			"light": "Chiaro",
 			"accentColor": "Colore Accento",
@@ -1624,7 +1623,9 @@
 				"glassmorphism": "Vetmorfismo",
 				"glassmorphismDescription": "Superfici leccate, traslucide"
 			},
-			"resetAccent": "Ripristina impostazioni predefinite del tema"
+			"resetAccent": "Ripristina impostazioni predefinite del tema",
+			"followSystem": "Segui il sistema",
+			"themeDescription": "Passare dalla modalità scura a quella chiara e alla modalità di sistema"
 		},
 		"toast": {
 			"title": "Notifiche Toast",

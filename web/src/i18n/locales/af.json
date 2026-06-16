@@ -1606,7 +1606,6 @@
 			"title": "Uiterlike voorkoms",
 			"uiStyle": "UI-styl",
 			"theme": "Tema",
-			"themeDescription": "Skakel tussen donker- en ligmodus",
 			"dark": "Donker",
 			"light": "Lig",
 			"accentColor": "Klemkleur",
@@ -1624,7 +1623,9 @@
 				"glassmorphism": "Glasmorfeïsme",
 				"glassmorphismDescription": "Gladde, deurskynende oppervlaktes"
 			},
-			"resetAccent": "Stel terug na tema-standaard"
+			"resetAccent": "Stel terug na tema-standaard",
+			"followSystem": "Volg stelsel",
+			"themeDescription": "Skakel tussen donker, lig en stelselmodus"
 		},
 		"toast": {
 			"title": "Toast-kennisgewings",
