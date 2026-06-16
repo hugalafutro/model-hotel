@@ -469,3 +469,63 @@ func TestDiscoverOpenRouter_ContextLengthFallback(t *testing.T) {
 		t.Errorf("Expected ContextLength 32768 from TopProvider fallback, got %v", models[0].ContextLength)
 	}
 }
+
+// When OpenRouter omits context_length on both the model and top_provider, and
+// the pricing strings are missing/unparseable, those fields must stay nil and
+// unmarked-live — otherwise markLiveMeta would flag a non-nil zero as
+// provider-reported and Upsert would overwrite a stored real value with 0,
+// reporting a bogus metadata change.
+func TestDiscoverOpenRouter_MissingMetadataStaysNil(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		response := OpenRouterModelsResponse{
+			Data: []OpenRouterModel{
+				{
+					ID:            "test/no-meta",
+					Name:          "No Metadata Model",
+					ContextLength: 0, // absent on the model
+					Architecture: OpenRouterArchitecture{
+						Modality:         "chat",
+						InputModalities:  []string{"text"},
+						OutputModalities: []string{"text"},
+					},
+					Pricing: OpenRouterPricing{
+						Prompt:     "",    // missing
+						Completion: "n/a", // unparseable
+					},
+					TopProvider: OpenRouterTopProvider{
+						ContextLength: 0, // absent here too
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{ID: uuid.New(), BaseURL: server.URL}
+
+	models, err := service.discoverOpenRouter(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverOpenRouter failed: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("Expected 1 model, got %d", len(models))
+	}
+	m := models[0]
+	if m.ContextLength != nil {
+		t.Errorf("ContextLength: expected nil for absent value, got %v", *m.ContextLength)
+	}
+	if m.InputPricePerMillion != nil {
+		t.Errorf("InputPricePerMillion: expected nil for missing price, got %v", *m.InputPricePerMillion)
+	}
+	if m.OutputPricePerMillion != nil {
+		t.Errorf("OutputPricePerMillion: expected nil for unparseable price, got %v", *m.OutputPricePerMillion)
+	}
+	// Nil fields must not be marked live, so a later scan can't be tricked into
+	// overwriting a stored value with zero.
+	if m.LiveMeta.ContextLength || m.LiveMeta.InputPrice || m.LiveMeta.OutputPrice {
+		t.Errorf("absent fields must not be marked live: %+v", m.LiveMeta)
+	}
+}
