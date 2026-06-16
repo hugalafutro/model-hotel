@@ -280,6 +280,10 @@ func TestDiscoverKoboldCPP_Success(t *testing.T) {
 	if models[0].ContextLength == nil || *models[0].ContextLength != 4096 {
 		t.Errorf("expected ContextLength 4096, got %v", models[0].ContextLength)
 	}
+	// Context length is a live /api/extra/perf probe, so it must be marked live.
+	if !models[0].LiveMeta.ContextLength {
+		t.Error("expected LiveMeta.ContextLength=true for the live perf-probe context length")
+	}
 
 	// verify capabilities
 	var caps model.Capability

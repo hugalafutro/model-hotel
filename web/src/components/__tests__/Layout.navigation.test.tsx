@@ -689,6 +689,93 @@ describe("Layout", () => {
 		});
 	});
 
+	describe("Discovery Changes Badge", () => {
+		const changesResponse = {
+			count: 2,
+			entries: [
+				{
+					provider_name: "DeepSeek",
+					source: "scheduled",
+					detected_at: "2026-06-16T00:00:00Z",
+					diff: {
+						updated: [
+							{
+								model_id: "deepseek-chat",
+								changes: [{ field: "input_price", old: 1, new: 2 }],
+							},
+						],
+					},
+				},
+			],
+		};
+
+		it("does not show the badge when count is zero", async () => {
+			server.use(
+				http.get("/api/discovery/changes", () =>
+					HttpResponse.json({ entries: [], count: 0 }),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			expect(
+				screen.queryByTestId("discovery-changes-badge"),
+			).not.toBeInTheDocument();
+		});
+
+		it("shows the badge with count and opens the modal on click, acking changes", async () => {
+			const user = userEvent.setup();
+			let ackCalled = false;
+			server.use(
+				http.get("/api/discovery/changes", () =>
+					HttpResponse.json(changesResponse),
+				),
+				http.post("/api/discovery/changes/ack", () => {
+					ackCalled = true;
+					return HttpResponse.json({ entries: [], count: 0 });
+				}),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			const badge = await screen.findByTestId("discovery-changes-badge");
+			expect(badge).toHaveTextContent("2");
+
+			await user.click(badge);
+
+			// Modal opens, populated from the store entries
+			expect(
+				await screen.findByTestId("discovery-summary"),
+			).toBeInTheDocument();
+			expect(screen.getByTestId("discovery-summary-updated")).toHaveTextContent(
+				"deepseek-chat",
+			);
+			await waitFor(() => expect(ackCalled).toBe(true));
+		});
+
+		it("invalidates the changes query on a discovery.changes_pending SSE event", async () => {
+			let fetchCount = 0;
+			server.use(
+				http.get("/api/discovery/changes", () => {
+					fetchCount++;
+					return HttpResponse.json({ entries: [], count: 0 });
+				}),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await waitFor(() => expect(fetchCount).toBeGreaterThanOrEqual(1));
+			const initial = fetchCount;
+
+			await act(async () => {
+				window.dispatchEvent(
+					new CustomEvent("server-event", {
+						detail: { type: "discovery.changes_pending" },
+					}),
+				);
+			});
+
+			await waitFor(() => expect(fetchCount).toBeGreaterThan(initial));
+		});
+	});
+
 	describe("SSE Event Handling", () => {
 		it("invalidates circuit breaker query on circuit_breaker SSE event", async () => {
 			let fetchCount = 0;

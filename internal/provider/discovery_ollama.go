@@ -103,6 +103,11 @@ func (d *DiscoveryService) discoverOllama(ctx context.Context, provider *Provide
 		debuglog.Info("discovery: ollama discovered models", "provider", provider.Name, "provider_id", provider.ID, "models", len(models))
 	}
 
+	// Context length comes from the live /api/show probe, so mark it live: a
+	// model that gains a larger context window propagates and is reported
+	// (prices are nil for Ollama, so MarkLiveMetaFromCurrent leaves them fill-only).
+	markLiveMeta(models)
+
 	return models, nil
 }
 

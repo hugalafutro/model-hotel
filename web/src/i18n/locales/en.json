@@ -101,7 +101,9 @@
 			"logs": "Logs",
 			"requests": "Requests",
 			"appLogs": "Logs",
-			"settings": "Settings"
+			"settings": "Settings",
+			"discoveryChangesBadge_one": "{{count}} model change from background discovery — click to review",
+			"discoveryChangesBadge_other": "{{count}} model changes from background discovery — click to review"
 		},
 		"status": {
 			"apiStatus": "API Status",
@@ -773,14 +775,24 @@
 			"added": "Added",
 			"reenabled": "Re-enabled",
 			"disabled": "Disabled",
+			"updated": "Metadata updated",
+			"unchanged": "Unchanged",
 			"failoverDeleted": "Failover groups deleted",
 			"failoverUpdated": "Failover groups updated",
+			"failover": "Failover groups",
+			"unset": "—",
 			"removedCount": "Removed: {{count}}",
 			"addedCount": "Added: {{count}}",
 			"reason": {
 				"new_model": "New model",
 				"reappeared": "Listed again by the provider",
 				"not_listed": "No longer listed by the provider"
+			},
+			"field": {
+				"input_price": "Input price",
+				"output_price": "Output price",
+				"input_price_cache": "Cached input price",
+				"context_length": "Context length"
 			},
 			"failoverReason": {
 				"noProviders": "No enabled providers remain",

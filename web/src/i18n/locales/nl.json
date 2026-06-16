@@ -101,7 +101,9 @@
 			"requests": "Verzoeken",
 			"appLogs": "Logboeken",
 			"settings": "Instellingen",
-			"failoverBadgeExplain": "Failover-providers op basis van circuit-breaker-status — {{closed}} gezond / {{halfOpen}} herstellend / {{open}} geactiveerd"
+			"failoverBadgeExplain": "Failover-providers op basis van circuit-breaker-status — {{closed}} gezond / {{halfOpen}} herstellend / {{open}} geactiveerd",
+			"discoveryChangesBadge_one": "{{count}}-modelwijziging vanuit achtergronddetectie — klik om te bekijken",
+			"discoveryChangesBadge_other": "{{count}}-modelwijzigingen door achtergronddetectie — klik om te bekijken"
 		},
 		"status": {
 			"apiStatus": "API-status",
@@ -786,7 +788,17 @@
 				"noProviders": "Er zijn geen geactiveerde providers meer",
 				"onlyOne": "Er is nog maar één ingeschakelde provider over (voor failover zijn er minstens twee nodig)"
 			},
-			"error": "Fout"
+			"error": "Fout",
+			"failover": "Failover-groepen",
+			"field": {
+				"context_length": "Lengte van de context",
+				"input_price": "Invoerprijs",
+				"input_price_cache": "Ingeslagen invoerprijs",
+				"output_price": "Uitvoerprijs"
+			},
+			"unset": "—",
+			"updated": "Metadata bijgewerkt",
+			"unchanged": "Ongewijzigd"
 		}
 	},
 	"models": {

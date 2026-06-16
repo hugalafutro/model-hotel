@@ -101,7 +101,9 @@
 			"requests": "Anfragen",
 			"appLogs": "Protokolle",
 			"settings": "Einstellungen",
-			"failoverBadgeExplain": "Failover-Anbieter nach Circuit-Breaker-Status – {{closed}} intakt / {{halfOpen}} in Wiederherstellung / {{open}} ausgelöst"
+			"failoverBadgeExplain": "Failover-Anbieter nach Circuit-Breaker-Status – {{closed}} intakt / {{halfOpen}} in Wiederherstellung / {{open}} ausgelöst",
+			"discoveryChangesBadge_one": "{{count}} Modelländerung aus der Hintergrunderkennung – zum Überprüfen anklicken",
+			"discoveryChangesBadge_other": "{{count}} Modelländerungen aus der Hintergrunderkennung – zum Überprüfen anklicken"
 		},
 		"status": {
 			"apiStatus": "API-Status",
@@ -786,7 +788,17 @@
 				"noProviders": "Es sind keine aktivierten Anbieter mehr vorhanden",
 				"onlyOne": "Es ist nur noch ein aktivierter Anbieter vorhanden (für Failover sind mindestens zwei erforderlich)"
 			},
-			"error": "Fehler"
+			"error": "Fehler",
+			"failover": "Failover-Gruppen",
+			"field": {
+				"context_length": "Kontextlänge",
+				"input_price": "Eingabepreis",
+				"input_price_cache": "Zwischengespeicherter Eingabepreis",
+				"output_price": "Ausgabepreis"
+			},
+			"unset": "—",
+			"updated": "Metadaten aktualisiert",
+			"unchanged": "Unverändert"
 		}
 	},
 	"models": {

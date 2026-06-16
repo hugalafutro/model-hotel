@@ -331,6 +331,12 @@ func TestDiscoverNanoGPT_Success(t *testing.T) {
 	if models[0].OutputPricePerMillion == nil || *models[0].OutputPricePerMillion != 10.0 {
 		t.Errorf("Expected OutputPricePerMillion 10.0, got %v", models[0].OutputPricePerMillion)
 	}
+	// NanoGPT reports pricing/context over the wire, so these must be marked
+	// live (a genuine provider change overwrites on upsert and is reported).
+	if !models[0].LiveMeta.InputPrice || !models[0].LiveMeta.OutputPrice ||
+		!models[0].LiveMeta.ContextLength || !models[0].LiveMeta.MaxOutputTokens {
+		t.Errorf("Expected wire-sourced fields to be live, got %+v", models[0].LiveMeta)
+	}
 }
 
 func TestDiscoverNanoGPT_EmptyNameUsesID(t *testing.T) {

@@ -101,7 +101,9 @@
 			"requests": "Forespørsler",
 			"appLogs": "Logger",
 			"settings": "Innstillinger",
-			"failoverBadgeExplain": "Failover-leverandører etter status på strømbryter — {{closed}} i orden / {{halfOpen}} gjenoppretter / {{open}} utløst"
+			"failoverBadgeExplain": "Failover-leverandører etter status på strømbryter — {{closed}} i orden / {{halfOpen}} gjenoppretter / {{open}} utløst",
+			"discoveryChangesBadge_one": "{{count}}-modellendring fra bakgrunnsoppdagelse – klikk for å se gjennom",
+			"discoveryChangesBadge_other": "{{count}}-modellendringer fra bakgrunnsoppdagelse – klikk for å se gjennom"
 		},
 		"status": {
 			"apiStatus": "API-status",
@@ -786,7 +788,17 @@
 				"noProviders": "Ingen aktiverte leverandører gjenstår",
 				"onlyOne": "Det er bare én aktivert leverandør igjen (failover krever minst to)"
 			},
-			"error": "Feil"
+			"error": "Feil",
+			"failover": "Failover-grupper",
+			"field": {
+				"context_length": "Kontekstlengde",
+				"input_price": "Inngangspris",
+				"input_price_cache": "Cachelagret inngangspris",
+				"output_price": "Utgangspris"
+			},
+			"unset": "—",
+			"updated": "Metadata oppdatert",
+			"unchanged": "Uendret"
 		}
 	},
 	"models": {

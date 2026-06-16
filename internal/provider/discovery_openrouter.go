@@ -105,6 +105,12 @@ func (d *DiscoveryService) discoverOpenRouter(ctx context.Context, provider *Pro
 		models = append(models, modelEntry)
 	}
 
+	// OpenRouter reports pricing, context length and max-output over the wire per
+	// model, so flag them live-sourced: a genuine OpenRouter price/limit change
+	// then overwrites on upsert, while the value can't be flipped by a catalog or
+	// models.dev fallback on a later scan.
+	markLiveMeta(models)
+
 	debuglog.Info("discovery: openrouter discovered models", "models", len(models), "provider", provider.Name, "provider_id", provider.ID, "total", len(orResp.Data))
 	return models, nil
 }

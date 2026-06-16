@@ -29,6 +29,10 @@ import { useTheme } from "../context/ThemeContext";
 import { useGitHubVersion } from "../hooks/useGitHubVersion";
 import { useReadOnly } from "../hooks/useReadOnly";
 import i18next, { LANGUAGE_STORAGE_KEY } from "../i18n";
+import {
+	type DiscoverySummaryEntry,
+	DiscoverySummaryModal,
+} from "../pages/Providers/DiscoverySummaryModal";
 import { isWebAuthnAvailable } from "../utils/webauthn";
 import { CollapsibleToggle, useCollapsible } from "./CollapsibleToggle";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -645,6 +649,49 @@ export function Layout({ children }: LayoutProps) {
 		return () => window.removeEventListener("server-event", handler);
 	}, [queryClient]);
 
+	// Unseen changes recorded by background discovery → Models nav badge.
+	const { data: discoveryChanges } = useQuery({
+		queryKey: ["discovery-changes"],
+		queryFn: () => api.discovery.changes(),
+		refetchInterval: 60_000,
+		placeholderData: (prev) => prev,
+	});
+	const discoveryChangeCount = discoveryChanges?.count ?? 0;
+	const [showDiscoveryChanges, setShowDiscoveryChanges] = useState(false);
+	const [discoveryChangeEntries, setDiscoveryChangeEntries] = useState<
+		DiscoverySummaryEntry[]
+	>([]);
+
+	useEffect(() => {
+		const handler = (e: Event) => {
+			const detail = (e as CustomEvent).detail;
+			if (detail?.type === "discovery.changes_pending") {
+				queryClient.invalidateQueries({ queryKey: ["discovery-changes"] });
+			}
+		};
+		window.addEventListener("server-event", handler);
+		return () => window.removeEventListener("server-event", handler);
+	}, [queryClient]);
+
+	// Snapshot the entries before acknowledging (ack clears the server list, so
+	// the open modal reads from this local copy), then mark seen to drop the badge.
+	const openDiscoveryChanges = async () => {
+		const failoverLabel = t("providers.discoverySummary.failover");
+		setDiscoveryChangeEntries(
+			(discoveryChanges?.entries ?? []).map((entry, i) => ({
+				providerName: entry.provider_name || failoverLabel,
+				diff: entry.diff,
+				entryKey: `${entry.provider_name}-${entry.detected_at}-${i}`,
+			})),
+		);
+		setShowDiscoveryChanges(true);
+		try {
+			await api.discovery.ackChanges();
+		} finally {
+			queryClient.invalidateQueries({ queryKey: ["discovery-changes"] });
+		}
+	};
+
 	const navigation = [
 		{
 			name: t("layout.nav.dashboard"),
@@ -845,6 +892,39 @@ export function Layout({ children }: LayoutProps) {
 													</span>
 												</span>
 											</span>
+										) : item.href === "/models" &&
+											discoveryChangeCount > 0 &&
+											!showDiscoveryChanges ? (
+											<span className="flex items-center gap-1.5">
+												<span>{item.name}</span>
+												{/* biome-ignore lint/a11y/useSemanticElements: a real <button> can't nest inside the nav <a>; role+keydown make this span an accessible control */}
+												<span
+													role="button"
+													tabIndex={0}
+													data-testid="discovery-changes-badge"
+													onClick={(e) => {
+														e.preventDefault();
+														e.stopPropagation();
+														void openDiscoveryChanges();
+													}}
+													onKeyDown={(e) => {
+														if (e.key === "Enter" || e.key === " ") {
+															e.preventDefault();
+															e.stopPropagation();
+															void openDiscoveryChanges();
+														}
+													}}
+													className="inline-flex items-center leading-[1.6] translate-y-[1px] ui-badge ui-badge-accent cursor-pointer"
+													aria-label={t("layout.nav.discoveryChangesBadge", {
+														count: discoveryChangeCount,
+													})}
+													title={t("layout.nav.discoveryChangesBadge", {
+														count: discoveryChangeCount,
+													})}
+												>
+													{discoveryChangeCount}
+												</span>
+											</span>
 										) : (
 											item.name
 										)}
@@ -942,6 +1022,13 @@ export function Layout({ children }: LayoutProps) {
 					{children}
 				</div>
 			</main>
+
+			{showDiscoveryChanges && (
+				<DiscoverySummaryModal
+					results={discoveryChangeEntries}
+					onClose={() => setShowDiscoveryChanges(false)}
+				/>
+			)}
 		</div>
 	);
 }

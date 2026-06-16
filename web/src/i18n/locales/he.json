@@ -101,7 +101,9 @@
 			"requests": "בקשות",
 			"appLogs": "יומנים",
 			"settings": "הגדרות",
-			"failoverBadgeExplain": "ספקי מעבר לגיבוי לפי מצב מפסק זרם — {{closed}} תקין / {{halfOpen}} מתאושש / {{open}} הופעל"
+			"failoverBadgeExplain": "ספקי מעבר לגיבוי לפי מצב מפסק זרם — {{closed}} תקין / {{halfOpen}} מתאושש / {{open}} הופעל",
+			"discoveryChangesBadge_one": "שינוי במודל {{count}} מגילוי ברקע — לחץ כדי לעיין",
+			"discoveryChangesBadge_other": "שינויים במודל {{count}} מהגילוי ברקע — לחץ כדי לעיין"
 		},
 		"status": {
 			"apiStatus": "סטטוס API",
@@ -786,7 +788,17 @@
 				"noProviders": "לא נותרו ספקים מופעלים",
 				"onlyOne": "נותר ספק מופעל אחד בלבד (למעבר לגיבוי דרושים לפחות שניים)"
 			},
-			"error": "שגיאה"
+			"error": "שגיאה",
+			"failover": "קבוצות מעבר לגיבוי",
+			"field": {
+				"context_length": "אורך ההקשר",
+				"input_price": "מחיר קלט",
+				"input_price_cache": "מחיר קלט במטמון",
+				"output_price": "מחיר פלט"
+			},
+			"unset": "—",
+			"updated": "מטא-נתונים עודכנו",
+			"unchanged": "ללא שינוי"
 		}
 	},
 	"models": {

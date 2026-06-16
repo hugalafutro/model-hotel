@@ -462,12 +462,40 @@ export interface ModelChange {
 	reason: string;
 }
 
+export interface FieldChange {
+	/** Machine-readable code: input_price | output_price | input_price_cache | context_length | max_output_tokens */
+	field: string;
+	/** Previous value as a number; null/undefined means it was unset. */
+	old?: number | null;
+	/** New value as a number; null/undefined means it is now unset. */
+	new?: number | null;
+}
+
+export interface ModelUpdate {
+	model_id: string;
+	changes: FieldChange[];
+}
+
 export interface DiscoveryDiff {
 	added?: ModelChange[];
 	reenabled?: ModelChange[];
 	disabled?: ModelChange[];
+	updated?: ModelUpdate[];
 	failover_deleted_groups?: DeletedGroupInfo[];
 	failover_updated_groups?: UpdatedGroupInfo[];
+}
+
+/** One provider's recorded background-discovery diff (GET /api/discovery/changes). */
+export interface DiscoveryChangeEntry {
+	provider_name: string;
+	source: string;
+	detected_at: string;
+	diff: DiscoveryDiff;
+}
+
+export interface DiscoveryChangesResponse {
+	entries: DiscoveryChangeEntry[];
+	count: number;
 }
 
 export interface DiscoverAllResult {

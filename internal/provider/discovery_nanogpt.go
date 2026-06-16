@@ -95,6 +95,11 @@ func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provid
 		})
 	}
 
+	// NanoGPT reports pricing and context straight from its live /models
+	// payload, so mark those fields live: genuine provider changes overwrite on
+	// upsert and surface in the discovery diff (id-only providers stay fill-only).
+	markLiveMeta(models)
+
 	debuglog.Info("discovery: nanogpt discovered models", "models", len(models), "provider", provider.Name, "provider_id", provider.ID)
 	return models, nil
 }

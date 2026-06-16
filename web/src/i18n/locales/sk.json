@@ -101,7 +101,9 @@
 			"requests": "Požiadavky",
 			"appLogs": "Záznamy",
 			"settings": "Nastavenia",
-			"failoverBadgeExplain": "Poskytovatelia failoveru podľa stavu ističa — {{closed}} v poriadku / {{halfOpen}} sa obnovuje / {{open}} vypnutý"
+			"failoverBadgeExplain": "Poskytovatelia failoveru podľa stavu ističa — {{closed}} v poriadku / {{halfOpen}} sa obnovuje / {{open}} vypnutý",
+			"discoveryChangesBadge_one": "Zmena modelu {{count}} z vyhľadávania na pozadí – kliknite na prehliadnutie",
+			"discoveryChangesBadge_other": "Zmeny modelu {{count}} z vyhľadávania na pozadí – kliknite na prehliadnutie"
 		},
 		"status": {
 			"apiStatus": "Stav API",
@@ -786,7 +788,17 @@
 				"noProviders": "Nezostali žiadni aktivovaní poskytovatelia",
 				"onlyOne": "Zostáva len jeden povolený poskytovateľ (pre failover sú potrební aspoň dvaja)"
 			},
-			"error": "Chyba"
+			"error": "Chyba",
+			"failover": "Skupiny prechodu na záložný systém",
+			"field": {
+				"context_length": "Dĺžka kontextu",
+				"input_price": "Vstupná cena",
+				"input_price_cache": "Cena vstupu v cache",
+				"output_price": "Výstupná cena"
+			},
+			"unset": "—",
+			"updated": "Aktualizované metadáta",
+			"unchanged": "Bez zmien"
 		}
 	},
 	"models": {

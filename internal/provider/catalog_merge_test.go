@@ -147,6 +147,58 @@ func TestMergeLiveAndCatalog_CaseInsensitiveMatch(t *testing.T) {
 	}
 }
 
+// TestMergeLiveAndCatalog_LiveMetaProvenance verifies the per-field source
+// flags: a value the provider payload supplied is marked live (it overwrites on
+// upsert), while a value the catalog backfilled is left non-live (fill-only, so
+// a degraded later scan can't flip it).
+func TestMergeLiveAndCatalog_LiveMetaProvenance(t *testing.T) {
+	pid := uuid.New()
+	live := []*model.Model{{
+		ProviderID:           pid,
+		ModelID:              "glm-5.1",
+		Name:                 "glm-5.1",
+		Capabilities:         "{}",
+		InputModalities:      "[]",
+		InputPricePerMillion: floatPtr(1.5), // provider-reported -> live
+		ContextLength:        nil,           // catalog will backfill -> NOT live
+	}}
+	catalog := []*model.Model{{
+		ProviderID:           pid,
+		ModelID:              "glm-5.1",
+		ContextLength:        intPtr(200000),
+		InputPricePerMillion: floatPtr(99),
+	}}
+
+	out := mergeLiveAndCatalog(live, catalog)
+	m := out[0]
+	if !m.LiveMeta.InputPrice {
+		t.Error("InputPrice came from the provider payload; want LiveMeta.InputPrice=true")
+	}
+	if m.LiveMeta.ContextLength {
+		t.Error("ContextLength was catalog-backfilled; want LiveMeta.ContextLength=false")
+	}
+}
+
+// TestMergeLiveAndCatalog_CatalogOnlyIsNotLive verifies a catalog-only model
+// (no live match) carries no live flags, so its curated pricing/context stays
+// fill-only rather than masquerading as provider-reported.
+func TestMergeLiveAndCatalog_CatalogOnlyIsNotLive(t *testing.T) {
+	pid := uuid.New()
+	live := []*model.Model{{ProviderID: pid, ModelID: "glm-5.1", Name: "glm-5.1"}}
+	catalog := []*model.Model{
+		{ProviderID: pid, ModelID: "glm-5.1", Name: "glm-5.1"},
+		{ProviderID: pid, ModelID: "glm-5.2", Name: "glm-5.2",
+			ContextLength: intPtr(200000), InputPricePerMillion: floatPtr(2)},
+	}
+
+	out := mergeLiveAndCatalog(live, catalog)
+	for _, m := range out {
+		if m.ModelID == "glm-5.2" && (m.LiveMeta.ContextLength || m.LiveMeta.InputPrice) {
+			t.Errorf("catalog-only model must stay non-live, got %+v", m.LiveMeta)
+		}
+	}
+}
+
 func TestMergeLiveAndCatalog_DedupesLive(t *testing.T) {
 	pid := uuid.New()
 	live := []*model.Model{

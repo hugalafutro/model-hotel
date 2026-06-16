@@ -101,7 +101,9 @@
 			"requests": "Förfrågningar",
 			"appLogs": "Loggar",
 			"settings": "Inställningar",
-			"failoverBadgeExplain": "Failover-leverantörer efter circuit-breaker-status — {{closed}} fungerar / {{halfOpen}} återställs / {{open}} utlöst"
+			"failoverBadgeExplain": "Failover-leverantörer efter circuit-breaker-status — {{closed}} fungerar / {{halfOpen}} återställs / {{open}} utlöst",
+			"discoveryChangesBadge_one": "{{count}}-modelländring från bakgrundsupptäckt – klicka för att granska",
+			"discoveryChangesBadge_other": "{{count}}-modelländringar från bakgrundsupptäckt – klicka för att granska"
 		},
 		"status": {
 			"apiStatus": "API-status",
@@ -786,7 +788,17 @@
 				"noProviders": "Inga aktiverade leverantörer kvar",
 				"onlyOne": "Endast en aktiverad leverantör återstår (failover kräver minst två)"
 			},
-			"error": "Fel"
+			"error": "Fel",
+			"failover": "Failover-grupper",
+			"field": {
+				"context_length": "Kontextlängd",
+				"input_price": "Inmatningspris",
+				"input_price_cache": "Cachad ingångspris",
+				"output_price": "Utgångspris"
+			},
+			"unset": "—",
+			"updated": "Metadata uppdaterad",
+			"unchanged": "Oförändrat"
 		}
 	},
 	"models": {

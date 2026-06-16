@@ -101,7 +101,9 @@
 			"requests": "Sol·licituds",
 			"appLogs": "Registres",
 			"settings": "Configuració",
-			"failoverBadgeExplain": "Proveïdors de fallada per estat del circuit breaker — {{closed}} saludable / {{halfOpen}} en recuperació / {{open}} disparat"
+			"failoverBadgeExplain": "Proveïdors de fallada per estat del circuit breaker — {{closed}} saludable / {{halfOpen}} en recuperació / {{open}} disparat",
+			"discoveryChangesBadge_one": "Canvi de model {{count}} des del descobriment en segon pla — fes clic per revisar",
+			"discoveryChangesBadge_other": "El model {{count}} canvia de descobriment en segon pla — feu clic per revisar"
 		},
 		"status": {
 			"apiStatus": "Estat de l'API",
@@ -786,7 +788,17 @@
 				"noProviders": "No queden proveïdors habilitats",
 				"onlyOne": "Només queda un proveïdor habilitat (el failover necessita com a mínim dos)"
 			},
-			"error": "Error"
+			"error": "Error",
+			"failover": "Grups de fallada",
+			"field": {
+				"context_length": "Llargada del context",
+				"input_price": "Preu d'entrada",
+				"input_price_cache": "Preu d'entrada emmagatzemat",
+				"output_price": "Preu de sortida"
+			},
+			"unset": "—",
+			"updated": "Metadades actualitzades",
+			"unchanged": "Sense canvis"
 		}
 	},
 	"models": {

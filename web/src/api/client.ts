@@ -8,6 +8,7 @@ import type {
 	CreateProviderRequest,
 	DeepSeekBalance,
 	DiscoverAllResult,
+	DiscoveryChangesResponse,
 	DiscoveryDiff,
 	FailoverGroup,
 	FailoverListResponse,
@@ -282,6 +283,28 @@ export const api = {
 					headers: getAuthHeaders(),
 				},
 				"Failed to fetch Ollama Cloud account",
+			);
+		},
+	},
+
+	discovery: {
+		// Unseen changes recorded by background (scheduled/startup) discovery,
+		// powering the Models nav badge and its review modal.
+		changes: async (): Promise<DiscoveryChangesResponse> => {
+			return fetchJSON<DiscoveryChangesResponse>(
+				`${API_BASE}/api/discovery/changes`,
+				{ headers: getAuthHeaders() },
+				"Failed to load discovery changes",
+			);
+		},
+		ackChanges: async (): Promise<DiscoveryChangesResponse> => {
+			return fetchJSON<DiscoveryChangesResponse>(
+				`${API_BASE}/api/discovery/changes/ack`,
+				{
+					method: "POST",
+					headers: getAuthHeaders(),
+				},
+				"Failed to acknowledge discovery changes",
 			);
 		},
 	},

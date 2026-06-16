@@ -101,7 +101,9 @@
 			"requests": "Yêu cầu",
 			"appLogs": "Nhật ký",
 			"settings": "Cài đặt",
-			"failoverBadgeExplain": "Các nhà cung cấp dự phòng theo trạng thái ngắt mạch — {{closed}} hoạt động bình thường / {{halfOpen}} đang phục hồi / {{open}} bị ngắt"
+			"failoverBadgeExplain": "Các nhà cung cấp dự phòng theo trạng thái ngắt mạch — {{closed}} hoạt động bình thường / {{halfOpen}} đang phục hồi / {{open}} bị ngắt",
+			"discoveryChangesBadge_one": "Thay đổi mô hình {{count}} từ quá trình phát hiện nền — nhấp để xem lại",
+			"discoveryChangesBadge_other": "Mô hình {{count}} thay đổi từ quá trình phát hiện nền — nhấp để xem lại"
 		},
 		"status": {
 			"apiStatus": "Trạng thái API",
@@ -786,7 +788,17 @@
 				"noProviders": "Không còn nhà cung cấp nào được kích hoạt",
 				"onlyOne": "Chỉ còn lại một nhà cung cấp được kích hoạt (chế độ dự phòng cần ít nhất hai nhà cung cấp)"
 			},
-			"error": "Lỗi"
+			"error": "Lỗi",
+			"failover": "Nhóm dự phòng",
+			"field": {
+				"context_length": "Độ dài bối cảnh",
+				"input_price": "Giá đầu vào",
+				"input_price_cache": "Giá đầu vào được lưu trong bộ nhớ đệm",
+				"output_price": "Giá đầu ra"
+			},
+			"unset": "—",
+			"updated": "Siêu dữ liệu được cập nhật",
+			"unchanged": "Không thay đổi"
 		}
 	},
 	"models": {

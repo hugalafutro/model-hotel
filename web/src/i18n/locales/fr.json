@@ -101,7 +101,9 @@
 			"requests": "Requêtes",
 			"appLogs": "Journaux",
 			"settings": "Paramètres",
-			"failoverBadgeExplain": "Fournisseurs de basculement par état du disjoncteur — {{closed}} en bon état / {{halfOpen}} en cours de récupération / {{open}} déclenché"
+			"failoverBadgeExplain": "Fournisseurs de basculement par état du disjoncteur — {{closed}} en bon état / {{halfOpen}} en cours de récupération / {{open}} déclenché",
+			"discoveryChangesBadge_one": "Modification du modèle {{count}} à partir de la découverte en arrière-plan — cliquez pour consulter",
+			"discoveryChangesBadge_other": "Modifications du modèle {{count}} issues de la découverte en arrière-plan — cliquez pour consulter"
 		},
 		"status": {
 			"apiStatus": "État de l'API",
@@ -786,7 +788,17 @@
 				"noProviders": "Il ne reste aucun fournisseur activé",
 				"onlyOne": "Il ne reste qu'un seul fournisseur activé (le basculement nécessite au moins deux)."
 			},
-			"error": "Erreur"
+			"error": "Erreur",
+			"failover": "Groupes de basculement",
+			"field": {
+				"context_length": "Longueur du contexte",
+				"input_price": "Prix d'entrée",
+				"input_price_cache": "Prix d'entrée mis en cache",
+				"output_price": "Prix de sortie"
+			},
+			"unset": "—",
+			"updated": "Métadonnées mises à jour",
+			"unchanged": "Inchangé"
 		}
 	},
 	"models": {

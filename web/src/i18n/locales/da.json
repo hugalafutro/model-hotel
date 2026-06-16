@@ -101,7 +101,9 @@
 			"requests": "Anmodninger",
 			"appLogs": "Logfiler",
 			"settings": "Indstillinger",
-			"failoverBadgeExplain": "Failover-udbydere efter afbryderstatus — {{closed}} fungerer / {{halfOpen}} genopretter / {{open}} udløst"
+			"failoverBadgeExplain": "Failover-udbydere efter afbryderstatus — {{closed}} fungerer / {{halfOpen}} genopretter / {{open}} udløst",
+			"discoveryChangesBadge_one": "{{count}}-modelændring fra baggrundsopdagelse — klik for at gennemgå",
+			"discoveryChangesBadge_other": "{{count}}-modelændringer fra baggrundsopdagelse — klik for at gennemgå"
 		},
 		"status": {
 			"apiStatus": "API-status",
@@ -786,7 +788,17 @@
 				"noProviders": "Der er ingen aktive udbydere tilbage",
 				"onlyOne": "Der er kun én aktiveret udbyder tilbage (failover kræver mindst to)"
 			},
-			"error": "Fejl"
+			"error": "Fejl",
+			"failover": "Failover-grupper",
+			"field": {
+				"context_length": "Kontekstlængde",
+				"input_price": "Indtast pris",
+				"input_price_cache": "Cachelagret indgangspris",
+				"output_price": "Output-pris"
+			},
+			"unset": "—",
+			"updated": "Metadata opdateret",
+			"unchanged": "Uændret"
 		}
 	},
 	"models": {
