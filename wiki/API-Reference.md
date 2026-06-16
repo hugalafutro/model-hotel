@@ -753,6 +753,7 @@ Returns available models that can be added to failover groups.
       "virtual_key_deleted": false,
       "virtual_key_id": "uuid",
       "error_message": "",
+      "error_kind": "",
       "failover_attempt": 0,
       "state": "completed",
       "endpoint_type": "chat",
