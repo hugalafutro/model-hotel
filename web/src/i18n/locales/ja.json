@@ -130,8 +130,8 @@
 		},
 		"toast": {
 			"copiedToClipboard": "クリップボードにコピーしました",
-			"appErrorAcknowledged": "アプリのエラーが認められました",
-			"requestErrorAcknowledged": "リクエストエラーが認められました"
+			"errorAcknowledged": "エラーを無視",
+			"errorsCleared": "すべてのエラーが解消されました"
 		},
 		"auth": {
 			"logout": "ログアウト",
@@ -158,15 +158,6 @@
 		"language": {
 			"label": "言語"
 		},
-		"errorPill": {
-			"appError": "アプリエラー",
-			"requestError": "Req Err",
-			"error": " エラー",
-			"copyError": "コピーエラー",
-			"viewDetails": "詳細を表示",
-			"acknowledge": "承認（却下）",
-			"request": "リクエスト"
-		},
 		"running": "実行中 {{running}}",
 		"runningLatest": "最新の実行中 ({{running}})",
 		"updateAvailable": "利用可能な更新: {{running}} → {{latest}}",
@@ -184,6 +175,16 @@
 		"githubRepo": "GitHubリポジトリ",
 		"readOnly": {
 			"banner": "読み取り専用デモ — 作成、編集、削除は無効化されています。"
+		},
+		"errorShelf": {
+			"acknowledge": "閉じる",
+			"appKind": "App",
+			"clearAll": "すべてクリア",
+			"copyError": "コピーエラー",
+			"requestKind": "Req",
+			"title": "エラー",
+			"viewDetails": "詳細を表示",
+			"clearAllConfirm": "再度クリックして確認してください"
 		}
 	},
 	"dashboard": {

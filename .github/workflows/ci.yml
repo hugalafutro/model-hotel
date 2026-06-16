@@ -48,7 +48,13 @@ jobs:
       - name: Run tests
         env:
           TEST_DATABASE_URL: postgres://modelhotel:${{ env.POSTGRES_PASSWORD }}@localhost:5433/testdb?sslmode=disable
-        run: go test -timeout 5m -coverprofile=coverage.out -covermode=atomic ./...
+        # gotestsum wraps `go test` to emit a JUnit report for Codecov Test
+        # Analytics while still writing coverage.out for the gate below.
+        run: >-
+          go run gotest.tools/gotestsum@v1.13.0
+          --junitfile=go-test-report.junit.xml
+          --
+          -timeout 5m -coverprofile=coverage.out -covermode=atomic ./...
 
       - name: Check coverage (80% threshold)
         run: |
@@ -72,6 +78,17 @@ jobs:
           flags: backend
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
+
+      # Upload even on test failure — capturing failed tests is the point of
+      # Test Analytics. Uses CODECOV_TOKEN (the coverage token), which the
+      # test-results endpoint accepts.
+      - name: Upload Go test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1.2.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: go-test-report.junit.xml
+          flags: backend
 
   go-lint:
     name: Go Lint
@@ -210,8 +227,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # blob feeds the coverage merge in frontend-coverage; junit feeds Codecov
+      # Test Analytics (one report per shard, aggregated by commit on Codecov).
       - name: Test (shard ${{ matrix.shard }}/3)
-        run: pnpm exec vitest run --coverage --reporter=blob --outputFile=.vitest-reports/blob-${{ matrix.shard }}.json --shard=${{ matrix.shard }}/3
+        run: >-
+          pnpm exec vitest run --coverage
+          --reporter=blob --outputFile.blob=.vitest-reports/blob-${{ matrix.shard }}.json
+          --reporter=junit --outputFile.junit=vitest-${{ matrix.shard }}.junit.xml
+          --shard=${{ matrix.shard }}/3
 
       - name: Upload blob report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -220,6 +243,14 @@ jobs:
           path: web/.vitest-reports/*
           include-hidden-files: true
           retention-days: 1
+
+      - name: Upload frontend test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1.2.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: web/vitest-${{ matrix.shard }}.junit.xml
+          flags: frontend
 
   frontend-coverage:
     name: Frontend Coverage Gate

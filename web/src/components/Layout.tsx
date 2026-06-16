@@ -1,13 +1,11 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
 	AlertTriangle,
 	BookOpen,
 	Bot,
-	Copy,
-	ExternalLink,
 	FileText,
 	GitBranch,
 	GitCompare,
@@ -24,23 +22,18 @@ import {
 	Shuffle,
 	Sun,
 	Swords,
-	X,
 } from "@/lib/icons";
 import { api } from "../api/client";
-import type { AppLogEntry, LogEntry } from "../api/types";
 import { useSidebarMode } from "../context/SidebarModeContext";
 import { useTheme } from "../context/ThemeContext";
-import { useToast } from "../context/ToastContext";
 import { useGitHubVersion } from "../hooks/useGitHubVersion";
 import { useReadOnly } from "../hooks/useReadOnly";
 import i18next, { LANGUAGE_STORAGE_KEY } from "../i18n";
-import { formatRelativeTime, formatTimestamp } from "../utils/format";
-import { truncateWithEllipsis } from "../utils/truncate";
 import { isWebAuthnAvailable } from "../utils/webauthn";
 import { CollapsibleToggle, useCollapsible } from "./CollapsibleToggle";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CountryFlag } from "./CountryFlag";
-import { LogDetailModal } from "./LogDetailModal";
+import { ErrorShelf } from "./ErrorShelf";
 import { Logo } from "./Logo";
 import { ProviderQuotaPanel } from "./ProviderQuotaPanel";
 
@@ -464,234 +457,6 @@ interface LayoutProps {
 	children: React.ReactNode;
 }
 
-function LastErrorPills() {
-	const { t } = useTranslation();
-	const navigate = useNavigate();
-	const { setLogsSubMode } = useSidebarMode();
-	const { toast } = useToast();
-	const [detailEntry, setDetailEntry] = useState<{
-		log: LogEntry | AppLogEntry;
-		type: "request" | "app";
-	} | null>(null);
-	const [dismissedAppKey, setDismissedAppKey] = useState<string | null>(() => {
-		try {
-			return localStorage.getItem("dismissedAppErrorKey");
-		} catch {
-			return null;
-		}
-	});
-	const [dismissedReqKey, setDismissedReqKey] = useState<string | null>(() => {
-		try {
-			return localStorage.getItem("dismissedReqErrorKey");
-		} catch {
-			return null;
-		}
-	});
-
-	useEffect(() => {
-		const handler = () => {
-			setDismissedAppKey(null);
-			setDismissedReqKey(null);
-		};
-		window.addEventListener("dismissedErrorsReset", handler);
-		return () => window.removeEventListener("dismissedErrorsReset", handler);
-	}, []);
-
-	const { data: appLogData } = useQuery({
-		queryKey: ["appLogHistory", "lastError"],
-		queryFn: () =>
-			api.appLogs.history({
-				page: 1,
-				per_page: 1,
-				level: "error",
-				sort_by: "time",
-				sort_dir: "desc",
-			}),
-		refetchInterval: 15000,
-		staleTime: 10000,
-	});
-
-	const { data: reqLogData } = useQuery({
-		queryKey: ["logs", "lastError"],
-		queryFn: () =>
-			api.logs.list({
-				page: 1,
-				per_page: 1,
-				status_code: "5xx",
-				sort_by: "time",
-				sort_dir: "desc",
-			}),
-		refetchInterval: 15000,
-		staleTime: 10000,
-	});
-
-	const lastAppEntry = appLogData?.entries?.[0];
-	const lastAppError = lastAppEntry?.message;
-	const lastAppTimestamp = lastAppEntry?.timestamp;
-	const lastReqEntry = reqLogData?.entries?.[0];
-	const lastReqError = lastReqEntry?.error_message;
-	const lastReqTimestamp = lastReqEntry?.created_at;
-
-	const appErrorKey =
-		lastAppError && lastAppTimestamp
-			? `${lastAppTimestamp}:${lastAppError.slice(0, 50)}`
-			: null;
-	const reqErrorKey =
-		lastReqError && lastReqTimestamp
-			? `${lastReqTimestamp}:${lastReqError.slice(0, 50)}`
-			: null;
-
-	// Show the pill if there's an error and it hasn't been dismissed.
-	// If the error key changes (new error), dismissedAppKey no longer matches,
-	// so the pill auto-reappears - no useEffect needed.
-	const showAppError = lastAppError && appErrorKey !== dismissedAppKey;
-	const showReqError = lastReqError && reqErrorKey !== dismissedReqKey;
-
-	const dismissAppError = useCallback((key: string) => {
-		setDismissedAppKey(key);
-		try {
-			localStorage.setItem("dismissedAppErrorKey", key);
-		} catch {
-			/* ignore */
-		}
-	}, []);
-	const dismissReqError = useCallback((key: string) => {
-		setDismissedReqKey(key);
-		try {
-			localStorage.setItem("dismissedReqErrorKey", key);
-		} catch {
-			/* ignore */
-		}
-	}, []);
-
-	if (!showAppError && !showReqError) return null;
-
-	const pill = (
-		label: string,
-		msg: string,
-		subMode: "request" | "app",
-		onAcknowledge: () => void,
-		timestamp: string | null,
-		entry?: LogEntry | AppLogEntry,
-	) => (
-		<div className="ui-error-pill group relative rounded-md border border-[var(--error-border)] bg-[var(--error-bg)] overflow-hidden">
-			{/* Header row with icon, label, and action buttons */}
-			<div className="flex items-center justify-between px-2 py-px bg-[var(--error-bg-strong)]">
-				<div className="flex items-center gap-1.5">
-					<AlertTriangle
-						size={10}
-						className="shrink-0 text-[var(--error-icon)]"
-					/>
-					<span
-						className="text-[10px] font-semibold text-[var(--error-text)] uppercase tracking-wider"
-						title={timestamp ? formatTimestamp(timestamp) : undefined}
-					>
-						{timestamp
-							? `${label === "App" ? t("layout.errorPill.appError") : t("layout.errorPill.requestError")} ${formatRelativeTime(timestamp)}`
-							: `${label}${t("layout.errorPill.error")}`}
-					</span>
-				</div>
-				<div className="flex gap-0.5">
-					<button
-						type="button"
-						onClick={(e) => {
-							e.stopPropagation();
-							navigator.clipboard.writeText(msg);
-							toast(t("common.copiedToClipboard"), "info");
-						}}
-						className="p-0.5 rounded text-[var(--error-text-muted)] hover:text-[var(--error-text)] hover:bg-[var(--error-bg-strong)] transition-colors"
-						title={t("layout.errorPill.copyError")}
-					>
-						<Copy size={10} />
-					</button>
-					<button
-						type="button"
-						onClick={(e) => {
-							e.stopPropagation();
-							if (entry) {
-								setDetailEntry({ log: entry, type: subMode });
-							} else {
-								setLogsSubMode(subMode);
-								navigate("/logs");
-							}
-						}}
-						className="p-0.5 rounded text-[var(--error-text-muted)] hover:text-[var(--error-text)] hover:bg-[var(--error-bg-strong)] transition-colors"
-						title={t("layout.errorPill.viewDetails")}
-					>
-						<ExternalLink size={10} />
-					</button>
-					<button
-						type="button"
-						onClick={(e) => {
-							e.stopPropagation();
-							onAcknowledge();
-							toast(
-								label === "App"
-									? t("layout.toast.appErrorAcknowledged")
-									: t("layout.toast.requestErrorAcknowledged"),
-								"info",
-							);
-						}}
-						className="p-0.5 rounded text-[var(--error-text-muted)] hover:text-[var(--error-text)] hover:bg-[var(--error-bg-strong)] transition-colors"
-						title={t("layout.errorPill.acknowledge")}
-					>
-						<X size={10} />
-					</button>
-				</div>
-			</div>
-			{/* Error message body */}
-			<div className="px-2 py-1">
-				<div
-					className="font-mono text-[9.5px] text-[var(--error-text-muted)] break-words leading-relaxed line-clamp-3"
-					title={msg}
-				>
-					{msg.length > 200 ? truncateWithEllipsis(msg, 200) : msg}
-				</div>
-			</div>
-		</div>
-	);
-
-	return (
-		<>
-			{detailEntry && (
-				<LogDetailModal
-					log={detailEntry.log}
-					type={detailEntry.type}
-					onClose={() => setDetailEntry(null)}
-				/>
-			)}
-			<div className="flex flex-col gap-1 mb-2">
-				{showAppError &&
-					appErrorKey &&
-					pill(
-						"App",
-						lastAppError,
-						"app",
-						() => {
-							dismissAppError(appErrorKey);
-							toast(t("layout.toast.appErrorAcknowledged"), "info");
-						},
-						lastAppTimestamp ?? null,
-						lastAppEntry,
-					)}
-				{showReqError &&
-					reqErrorKey &&
-					pill(
-						"Request",
-						lastReqError,
-						"request",
-						() => {
-							dismissReqError(reqErrorKey);
-							toast(t("layout.toast.requestErrorAcknowledged"), "info");
-						},
-						lastReqTimestamp ?? null,
-						lastReqEntry,
-					)}
-			</div>
-		</>
-	);
-}
-
 // Language names are autonyms (each language in its own script), shown
 // identically in every UI locale — the industry standard for language pickers,
 // so a user stranded in the wrong language can still recognize their own.
@@ -1091,7 +856,7 @@ export function Layout({ children }: LayoutProps) {
 					<ProviderQuotaPanel />
 				</nav>
 				<div className="px-4 pb-0.5 shrink-0">
-					<LastErrorPills />
+					<ErrorShelf />
 					<div className="flex justify-between items-center mb-2 gap-1">
 						<a
 							href="https://github.com/hugalafutro/model-hotel/wiki"

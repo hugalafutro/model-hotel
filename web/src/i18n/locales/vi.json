@@ -130,8 +130,8 @@
 		},
 		"toast": {
 			"copiedToClipboard": "Đã sao chép vào khay nhớ tạm",
-			"appErrorAcknowledged": "Đã ghi nhận lỗi ứng dụng",
-			"requestErrorAcknowledged": "Đã xác nhận lỗi yêu cầu"
+			"errorAcknowledged": "Lỗi đã được loại bỏ",
+			"errorsCleared": "Tất cả các lỗi đã được xóa"
 		},
 		"auth": {
 			"logout": "Đăng xuất",
@@ -158,15 +158,6 @@
 		"language": {
 			"label": "Ngôn ngữ"
 		},
-		"errorPill": {
-			"appError": "Lỗi ứng dụng",
-			"requestError": "Lỗi yêu cầu",
-			"error": " Lỗi",
-			"copyError": "Lỗi sao chép",
-			"viewDetails": "Xem chi tiết",
-			"acknowledge": "Xác nhận (bỏ qua)",
-			"request": "Yêu cầu"
-		},
 		"running": "Chạy bộ {{running}}",
 		"runningLatest": "Đang chạy phiên bản mới nhất ({{running}})",
 		"updateAvailable": "Có bản cập nhật: {{running}} → {{latest}}",
@@ -184,6 +175,16 @@
 		"githubRepo": "Kho lưu trữ GitHub",
 		"readOnly": {
 			"banner": "Bản demo chỉ đọc — các chức năng tạo, chỉnh sửa và xóa bị vô hiệu hóa."
+		},
+		"errorShelf": {
+			"acknowledge": "Bỏ qua",
+			"appKind": "App",
+			"clearAll": "Xóa tất cả",
+			"copyError": "Lỗi sao chép",
+			"requestKind": "Req",
+			"title": "Lỗi",
+			"viewDetails": "Xem chi tiết",
+			"clearAllConfirm": "Nhấp lại để xác nhận"
 		}
 	},
 	"dashboard": {

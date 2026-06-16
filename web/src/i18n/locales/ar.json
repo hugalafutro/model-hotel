@@ -130,8 +130,8 @@
 		},
 		"toast": {
 			"copiedToClipboard": "نسخ إلى الحافظة",
-			"appErrorAcknowledged": "تم إقرار خطأ في التطبيق",
-			"requestErrorAcknowledged": "تم إقرار خطأ في الطلب"
+			"errorAcknowledged": "تم تجاهل الخطأ",
+			"errorsCleared": "تم مسح جميع الأخطاء"
 		},
 		"auth": {
 			"logout": "تسجيل الخروج",
@@ -158,15 +158,6 @@
 		"language": {
 			"label": "اللغة"
 		},
-		"errorPill": {
-			"appError": "خطأ في التطبيق",
-			"requestError": "خطأ ريك",
-			"error": " خطأ",
-			"copyError": "خطأ في النسخ",
-			"viewDetails": "عرض التفاصيل",
-			"acknowledge": "الاعتراف (الرفض)",
-			"request": "طلب"
-		},
 		"running": "قيد التشغيل {{running}}",
 		"runningLatest": "آخر تشغيل ({{running}})",
 		"updateAvailable": "تحديث متوفر: {{running}} → {{latest}}",
@@ -184,6 +175,16 @@
 		"githubRepo": "مستودع GitHub",
 		"readOnly": {
 			"banner": "عرض توضيحي للقراءة فقط — تم تعطيل عمليات الإنشاء والتحرير والحذف."
+		},
+		"errorShelf": {
+			"acknowledge": "تجاهل",
+			"appKind": "App",
+			"clearAll": "مسح الكل",
+			"copyError": "نسخ الخطأ",
+			"requestKind": "Req",
+			"title": "الأخطاء",
+			"viewDetails": "عرض التفاصيل",
+			"clearAllConfirm": "انقر مرة أخرى للتأكيد"
 		}
 	},
 	"dashboard": {

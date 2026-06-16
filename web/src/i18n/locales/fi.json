@@ -130,8 +130,8 @@
 		},
 		"toast": {
 			"copiedToClipboard": "Kopioitu leikepöydälle",
-			"appErrorAcknowledged": "Sovellusvirhe tunnistettu",
-			"requestErrorAcknowledged": "Pyyntövirhe vahvistettu"
+			"errorAcknowledged": "Virhe hylätty",
+			"errorsCleared": "Kaikki virheet korjattu"
 		},
 		"auth": {
 			"logout": "Kirjaudu ulos",
@@ -158,15 +158,6 @@
 		"language": {
 			"label": "Kieli"
 		},
-		"errorPill": {
-			"appError": "Sovelluksen Err",
-			"requestError": "Req Err",
-			"error": " Virhe",
-			"copyError": "Virhe kopioidessa",
-			"viewDetails": "Näytä tiedot",
-			"acknowledge": "Kuittaus (irtisanomiset)",
-			"request": "Pyyntö"
-		},
 		"running": "Käynnissä {{running}}",
 		"runningLatest": "Käynnissä viimeisin ({{running}})",
 		"updateAvailable": "Päivitys saatavilla: {{running}} → {{latest}}",
@@ -184,6 +175,16 @@
 		"githubRepo": "GitHub-repositorio",
 		"readOnly": {
 			"banner": "Vain luku -demo — luominen, muokkaaminen ja poistaminen on estetty."
+		},
+		"errorShelf": {
+			"acknowledge": "Hylkää",
+			"appKind": "App",
+			"clearAll": "Tyhjennä kaikki",
+			"copyError": "Kopioi virhe",
+			"requestKind": "Req",
+			"title": "Virheet",
+			"viewDetails": "Näytä tiedot",
+			"clearAllConfirm": "Napsauta uudelleen vahvistaaksesi"
 		}
 	},
 	"dashboard": {

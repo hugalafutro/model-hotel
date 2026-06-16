@@ -130,8 +130,8 @@
 		},
 		"toast": {
 			"copiedToClipboard": "Copiat în clipboard",
-			"appErrorAcknowledged": "Eroare aplicație acceptată",
-			"requestErrorAcknowledged": "Eroare de solicitare confirmată"
+			"errorAcknowledged": "Eroare ignorată",
+			"errorsCleared": "Toate erorile au fost eliminate"
 		},
 		"auth": {
 			"logout": "Deconectare",
@@ -158,15 +158,6 @@
 		"language": {
 			"label": "Limba"
 		},
-		"errorPill": {
-			"appError": "Err App",
-			"requestError": "Răspuns Err",
-			"error": " Eroare",
-			"copyError": "Eroare la copiere",
-			"viewDetails": "Vezi detaliile",
-			"acknowledge": "Acumulare (revocări)",
-			"request": "Solicitare"
-		},
 		"running": "Rulând {{running}}",
 		"runningLatest": "Rulează ultima dată ({{running}})",
 		"updateAvailable": "Actualizare disponibilă: {{running}} → {{latest}}",
@@ -184,6 +175,16 @@
 		"githubRepo": "Depozit GitHub",
 		"readOnly": {
 			"banner": "Demo numai pentru citire — funcțiile de creare, editare și ștergere sunt dezactivate."
+		},
+		"errorShelf": {
+			"acknowledge": "Ignorați",
+			"appKind": "App",
+			"clearAll": "Ștergeți tot",
+			"copyError": "Eroare de copiere",
+			"requestKind": "Req",
+			"title": "Erori",
+			"viewDetails": "Vizualizați detaliile",
+			"clearAllConfirm": "Faceți clic din nou pentru a confirma"
 		}
 	},
 	"dashboard": {

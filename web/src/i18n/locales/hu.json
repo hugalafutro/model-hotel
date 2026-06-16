@@ -130,8 +130,8 @@
 		},
 		"toast": {
 			"copiedToClipboard": "A vágólapra másolva",
-			"appErrorAcknowledged": "Az alkalmazás hibáját rögzítettük",
-			"requestErrorAcknowledged": "A kéréssel kapcsolatos hiba nyilvántartásba vétele"
+			"errorAcknowledged": "Hiba elutasítva",
+			"errorsCleared": "Minden hiba kijavítva"
 		},
 		"auth": {
 			"logout": "Kijelentkezés",
@@ -158,15 +158,6 @@
 		"language": {
 			"label": "Nyelv"
 		},
-		"errorPill": {
-			"appError": "Alkalmazáshiba",
-			"requestError": "Hiba",
-			"error": " Hiba",
-			"copyError": "Másolási hiba",
-			"viewDetails": "Részletek megtekintése",
-			"acknowledge": "Elfogad (elutasít)",
-			"request": "Kérés"
-		},
 		"running": "Futás {{running}}",
 		"runningLatest": "A legújabb verzió fut ({{running}})",
 		"updateAvailable": "Frissítés elérhető: {{running}} → {{latest}}",
@@ -184,6 +175,16 @@
 		"githubRepo": "GitHub-tároló",
 		"readOnly": {
 			"banner": "Csak olvasható demo – a létrehozás, szerkesztés és törlés funkciók le vannak tiltva."
+		},
+		"errorShelf": {
+			"acknowledge": "Elutasítás",
+			"appKind": "App",
+			"clearAll": "Összes törlése",
+			"copyError": "Másolási hiba",
+			"requestKind": "Req",
+			"title": "Hibák",
+			"viewDetails": "Részletek megtekintése",
+			"clearAllConfirm": "Kattintson újra a megerősítéshez"
 		}
 	},
 	"dashboard": {

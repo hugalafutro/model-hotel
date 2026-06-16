@@ -352,8 +352,7 @@ export function DataStorageSettings({
 								<button
 									type="button"
 									onClick={() => {
-										localStorage.removeItem("dismissedAppErrorKey");
-										localStorage.removeItem("dismissedReqErrorKey");
+										localStorage.removeItem("ackedErrorKeys");
 										window.dispatchEvent(
 											new CustomEvent("dismissedErrorsReset"),
 										);

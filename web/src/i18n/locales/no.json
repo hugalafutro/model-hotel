@@ -130,8 +130,8 @@
 		},
 		"toast": {
 			"copiedToClipboard": "Kopiert til utklippstavle",
-			"appErrorAcknowledged": "App-feil bekreftet",
-			"requestErrorAcknowledged": "Forespørsel feil bekreftet"
+			"errorAcknowledged": "Feil avvist",
+			"errorsCleared": "Alle feil er fjernet"
 		},
 		"auth": {
 			"logout": "Logg ut",
@@ -158,15 +158,6 @@
 		"language": {
 			"label": "Språk"
 		},
-		"errorPill": {
-			"appError": "App Err",
-			"requestError": "Req Err",
-			"error": " Feil",
-			"copyError": "Kopier feil",
-			"viewDetails": "Se detaljer",
-			"acknowledge": "Erkjem (avslag)",
-			"request": "Forespørsel"
-		},
 		"running": "Kjører {{running}}",
 		"runningLatest": "Kjører siste ({{running}})",
 		"updateAvailable": "Oppdatering tilgjengelig: {{running}} → {{latest}}",
@@ -184,6 +175,16 @@
 		"githubRepo": "GitHub-repositorium",
 		"readOnly": {
 			"banner": "Skrivebeskyttet demo – oppretting, redigering og sletting er deaktivert."
+		},
+		"errorShelf": {
+			"acknowledge": "Avvis",
+			"appKind": "App",
+			"clearAll": "Fjern alt",
+			"copyError": "Kopieringsfeil",
+			"requestKind": "Req",
+			"title": "Feil",
+			"viewDetails": "Vis detaljer",
+			"clearAllConfirm": "Klikk igjen for å bekrefte"
 		}
 	},
 	"dashboard": {

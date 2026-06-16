@@ -130,8 +130,8 @@
 		},
 		"toast": {
 			"copiedToClipboard": "Skopiowano do schowka",
-			"appErrorAcknowledged": "Błąd aplikacji potwierdzony",
-			"requestErrorAcknowledged": "Błąd żądania potwierdzony"
+			"errorAcknowledged": "Błąd zignorowany",
+			"errorsCleared": "Wszystkie błędy usunięte"
 		},
 		"auth": {
 			"logout": "Wyloguj",
@@ -158,15 +158,6 @@
 		"language": {
 			"label": "Język"
 		},
-		"errorPill": {
-			"appError": "Błąd aplikacji",
-			"requestError": "Req Err",
-			"error": " Błąd",
-			"copyError": "Błąd kopiowania",
-			"viewDetails": "Zobacz szczegóły",
-			"acknowledge": "Potwierdzenie (zwolnienia)",
-			"request": "Żądanie"
-		},
 		"running": "Uruchamianie {{running}}",
 		"runningLatest": "Uruchomiono najnowsze ({{running}})",
 		"updateAvailable": "Dostępna aktualizacja: {{running}} → {{latest}}",
@@ -184,6 +175,16 @@
 		"githubRepo": "Repozytorium GitHub",
 		"readOnly": {
 			"banner": "Wersja demonstracyjna tylko do odczytu — tworzenie, edycja i usuwanie są wyłączone."
+		},
+		"errorShelf": {
+			"acknowledge": "Odrzuć",
+			"appKind": "App",
+			"clearAll": "Wyczyść wszystko",
+			"copyError": "Błąd kopiowania",
+			"requestKind": "Req",
+			"title": "Błędy",
+			"viewDetails": "Zobacz szczegóły",
+			"clearAllConfirm": "Kliknij ponownie, aby potwierdzić"
 		}
 	},
 	"dashboard": {

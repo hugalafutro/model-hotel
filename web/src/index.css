@@ -1012,11 +1012,181 @@ html[data-ui-style="cyber-terminal"] .sidebar-quota-pill {
 	letter-spacing: 0.05em;
 }
 
-/* Sidebar last-error pills: square the container to match the rest of the
-   terminal UI (the pill uses raw Tailwind rounding with no theme hook of its
-   own). overflow-hidden on the pill already clips the header corners square. */
-html[data-ui-style="cyber-terminal"] .ui-error-pill {
+/* ── Sidebar error shelf ────────────────────────────────────────────────────
+   Collapsible feed of recent request/app errors. Built entirely on the shared
+   --error-* tokens so it reads native in every theme; only structural rhythm
+   (chips, badge, reveal) lives here. */
+.ui-error-shelf-toggle {
+	cursor: pointer;
+	transition: filter 0.15s ease;
+}
+.ui-error-shelf-toggle:hover {
+	filter: brightness(1.08);
+}
+.ui-error-shelf-toggle:focus-visible {
+	outline: 2px solid var(--error-icon);
+	outline-offset: -2px;
+	border-radius: 0.25rem;
+}
+
+/* Unacked count: a small pill sitting tight to the title. */
+.ui-error-shelf-badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 1.1rem;
+	height: 1.1rem;
+	padding: 0 0.3rem;
+	border-radius: 9999px;
+	color: var(--error-text);
+	background: color-mix(in srgb, var(--error-icon) 22%, transparent);
+	border: 1px solid color-mix(in srgb, var(--error-icon) 45%, transparent);
+	line-height: 1;
+}
+
+/* Warning glyph draws a slow pulse while errors are unacked — a gentle "look
+   here" without the nagging of a toast. */
+.ui-error-shelf-spark {
+	animation: error-shelf-pulse 2.4s ease-in-out infinite;
+	transform-origin: center;
+}
+@keyframes error-shelf-pulse {
+	0%,
+	100% {
+		opacity: 0.85;
+		transform: scale(1);
+	}
+	50% {
+		opacity: 1;
+		transform: scale(1.18);
+	}
+}
+
+/* Clear-all affordance, only visible while expanded. */
+.ui-error-shelf-action {
+	cursor: pointer;
+	transition:
+		background 0.15s ease,
+		color 0.15s ease;
+}
+.ui-error-shelf-action:hover {
+	background: color-mix(in srgb, var(--error-icon) 16%, transparent);
+}
+
+/* Armed (first click): loud error fill so the second click is clearly the
+   committing one. */
+.ui-error-shelf-action--armed {
+	color: var(--error-text);
+	background: color-mix(in srgb, var(--error-icon) 28%, transparent);
+	box-shadow: inset 0 0 0 1px
+		color-mix(in srgb, var(--error-icon) 55%, transparent);
+}
+
+/* The confirm hint slides in beside the armed button. */
+.ui-error-shelf-confirm {
+	animation: error-shelf-confirm-in 0.18s ease both;
+}
+@keyframes error-shelf-confirm-in {
+	from {
+		opacity: 0;
+		transform: translateX(4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.ui-error-shelf-confirm {
+		animation: none;
+	}
+}
+
+/* Kind chip — REQ vs APP, given distinct hues so the two error sources read
+   apart at a glance: request (upstream 5xx) stays error-red, app (internal)
+   shifts to the warning amber. Both tokens are theme-aware. */
+.ui-error-shelf-chip {
+	display: inline-flex;
+	align-items: center;
+	padding: 0 0.3rem;
+	height: 0.95rem;
+	border: 1px solid transparent;
+	border-radius: 0.25rem;
+	font-size: 8.5px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+.ui-error-shelf-chip--request {
+	color: var(--error-text);
+	background: color-mix(in srgb, var(--error-icon) 24%, transparent);
+	border-color: color-mix(in srgb, var(--error-icon) 48%, transparent);
+}
+.ui-error-shelf-chip--app {
+	color: var(--warning-text);
+	background: color-mix(in srgb, var(--warning-text) 20%, transparent);
+	border-color: color-mix(in srgb, var(--warning-text) 48%, transparent);
+}
+
+/* Per-row action buttons reuse the muted→strong error text ramp. */
+.ui-error-shelf-rowbtn {
+	padding: 0.125rem;
+	border-radius: 0.25rem;
+	color: var(--error-text-muted);
+	transition:
+		color 0.15s ease,
+		background 0.15s ease;
+}
+.ui-error-shelf-rowbtn:hover {
+	color: var(--error-text);
+	background: var(--error-bg-strong);
+}
+
+/* Rows fan in newest-first on expand (delay set inline per index), and carry a
+   left accent in their kind's hue to reinforce the chip color while scanning. */
+.ui-error-shelf-row {
+	animation: error-shelf-row-in 0.26s ease both;
+	border-left: 2px solid transparent;
+}
+.ui-error-shelf-row--request {
+	border-left-color: color-mix(in srgb, var(--error-icon) 70%, transparent);
+}
+.ui-error-shelf-row--app {
+	border-left-color: color-mix(in srgb, var(--warning-text) 70%, transparent);
+}
+@keyframes error-shelf-row-in {
+	from {
+		opacity: 0;
+		transform: translateY(-3px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* Clamp the mono message to two lines; full text lives in the title tooltip. */
+.ui-error-shelf-msg {
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+/* Terminal squares every corner; chips and badge follow suit. */
+html[data-ui-style="cyber-terminal"] .ui-error-shelf,
+html[data-ui-style="cyber-terminal"] .ui-error-shelf-chip,
+html[data-ui-style="cyber-terminal"] .ui-error-shelf-badge {
 	border-radius: 0;
+}
+
+/* Respect reduced-motion: kill the pulse and the reveal. */
+@media (prefers-reduced-motion: reduce) {
+	.ui-error-shelf-spark,
+	.ui-error-shelf-row {
+		animation: none;
+	}
 }
 
 html[data-ui-style="glassmorphism-lite"] .sidebar-quota-pill {

@@ -130,8 +130,8 @@
 		},
 		"toast": {
 			"copiedToClipboard": "复制到剪贴板",
-			"appErrorAcknowledged": "应用程序错误已确认",
-			"requestErrorAcknowledged": "请求错误已确认"
+			"errorAcknowledged": "错误已关闭",
+			"errorsCleared": "所有错误已清除"
 		},
 		"auth": {
 			"logout": "退出登录",
@@ -158,15 +158,6 @@
 		"language": {
 			"label": "语言"
 		},
-		"errorPill": {
-			"appError": "应用错误",
-			"requestError": "Req Err",
-			"error": " 错误",
-			"copyError": "复制错误",
-			"viewDetails": "查看详细信息",
-			"acknowledge": "确认(拒绝)",
-			"request": "请求"
-		},
 		"running": "跑步 {{running}}",
 		"runningLatest": "运行最新版本 ({{running}})",
 		"updateAvailable": "有更新可用： {{running}} → {{latest}}",
@@ -184,6 +175,16 @@
 		"githubRepo": "GitHub 仓库",
 		"readOnly": {
 			"banner": "只读演示版——创建、编辑和删除功能已禁用。"
+		},
+		"errorShelf": {
+			"acknowledge": "关闭",
+			"appKind": "App",
+			"clearAll": "清除所有",
+			"copyError": "复制错误",
+			"requestKind": "Req",
+			"title": "错误",
+			"viewDetails": "查看详情",
+			"clearAllConfirm": "再次点击以确认"
 		}
 	},
 	"dashboard": {

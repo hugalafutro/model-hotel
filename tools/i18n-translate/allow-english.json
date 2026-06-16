@@ -2360,6 +2360,15 @@
 		"sv",
 		"zh"
 	],
+	"layout.errorShelf.appKind": [
+		"*"
+	],
+	"layout.errorShelf.requestKind": [
+		"*"
+	],
+	"layout.errorShelf.title": [
+		"ca"
+	],
 	"layout.nav.arena": [
 		"af",
 		"ca",
