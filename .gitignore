@@ -63,6 +63,7 @@ Thumbs.db
 # Tool / editor metadata (i18n tooling is tracked - CI runs it)
 /tools/*
 !/tools/i18n-translate/
+!/tools/gen-notices/
 /vendor/
 .vscode/
 /web/.coverage-result.json

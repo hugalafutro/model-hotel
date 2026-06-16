@@ -287,6 +287,47 @@ jobs:
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
 
+  # Guards against THIRD-PARTY-NOTICES.md drifting from the actual dependency
+  # set: regenerate it and fail if the committed copy differs. The generator is
+  # deterministic, so any diff means someone changed deps without running
+  # `make notices`.
+  notices:
+    name: Third-Party Notices
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 10
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      # make notices shells out to `pnpm licenses list`, which needs the
+      # production graph installed from the committed lockfile.
+      - name: Install frontend dependencies
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Regenerate notices
+        run: make notices
+
+      - name: Verify THIRD-PARTY-NOTICES.md is up to date
+        run: |
+          if ! git diff --exit-code THIRD-PARTY-NOTICES.md; then
+            echo "THIRD-PARTY-NOTICES.md is stale — run 'make notices' and commit the result." >&2
+            exit 1
+          fi
+
   docker-build:
     name: Docker Build
     runs-on: ubuntu-latest

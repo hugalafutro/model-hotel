@@ -1,4 +1,4 @@
-.PHONY: build run clean test lint fmt deps docker-up docker-build docker-down docker-logs test-db-up test-db-down setup
+.PHONY: build run clean test lint fmt deps docker-up docker-build docker-down docker-logs test-db-up test-db-down setup notices
 
 VERSION := $(shell cat .version 2>/dev/null || git describe --tags --always --dirty 2>/dev/null || echo dev)
 
@@ -53,6 +53,11 @@ i18n-check:
 
 i18n-fill:
 	python3 tools/i18n-translate/translate.py fill
+
+# -- Third-party license notices (see tools/gen-notices) --
+
+notices:
+	go run ./tools/gen-notices
 
 # -- One-time setup after cloning --
 
