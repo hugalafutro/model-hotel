@@ -101,7 +101,9 @@
 			"requests": "Richieste",
 			"appLogs": "Log",
 			"settings": "Impostazioni",
-			"failoverBadgeExplain": "Failover dei provider in base allo stato dell'interruttore automatico — {{closed}} funzionante / {{halfOpen}} in ripristino / {{open}} scattato"
+			"failoverBadgeExplain": "Failover dei provider in base allo stato dell'interruttore automatico — {{closed}} funzionante / {{halfOpen}} in ripristino / {{open}} scattato",
+			"discoveryChangesBadge_one": "Modifica {{count}} derivante dal rilevamento in background — clicca per rivedere",
+			"discoveryChangesBadge_other": "Modifiche {{count}} derivanti dal rilevamento in background — clicca per rivedere"
 		},
 		"status": {
 			"apiStatus": "Stato API",
@@ -786,7 +788,17 @@
 				"noProviders": "Non ci sono più provider abilitati",
 				"onlyOne": "Rimane un solo provider abilitato (il failover ne richiede almeno due)"
 			},
-			"error": "Errore"
+			"error": "Errore",
+			"failover": "Gruppi di failover",
+			"field": {
+				"context_length": "Lunghezza del contesto",
+				"input_price": "Inserire il prezzo",
+				"input_price_cache": "Prezzo di input memorizzato nella cache",
+				"output_price": "Prezzo di output"
+			},
+			"unset": "—",
+			"updated": "Metadati aggiornati",
+			"unchanged": "Invariato"
 		}
 	},
 	"models": {

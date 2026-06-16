@@ -564,6 +564,21 @@ export const handlers: RequestHandler[] = [
 		return HttpResponse.json({ closed: 0, half_open: 0, open: 0 });
 	}),
 
+	// ── Discovery changes (Models nav badge) ──────────────────────────────
+	http.get("/api/discovery/changes", ({ request }) => {
+		if (!hasValidAuth(request)) {
+			return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+		}
+		return HttpResponse.json({ entries: [], count: 0 });
+	}),
+
+	http.post("/api/discovery/changes/ack", ({ request }) => {
+		if (!hasValidAuth(request)) {
+			return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+		}
+		return HttpResponse.json({ entries: [], count: 0 });
+	}),
+
 	// ── Backups ───────────────────────────────────────────────────────────
 	http.get("/api/backups", ({ request }) => {
 		if (!hasValidAuth(request)) {

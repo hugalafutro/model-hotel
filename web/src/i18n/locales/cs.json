@@ -101,7 +101,9 @@
 			"requests": "Požadavky",
 			"appLogs": "Logy appky",
 			"settings": "Nastavení",
-			"failoverBadgeExplain": "Poskytovatelé failoveru podle stavu jističe — {{closed}} v pořádku / {{halfOpen}} se zotavuje / {{open}} vypnutý"
+			"failoverBadgeExplain": "Poskytovatelé failoveru podle stavu jističe — {{closed}} v pořádku / {{halfOpen}} se zotavuje / {{open}} vypnutý",
+			"discoveryChangesBadge_one": "Změna {{count}} z automatického vyhledávání na pozadí — klikněte pro kontrolu",
+			"discoveryChangesBadge_other": "Změny {{count}} z automatického vyhledávání na pozadí — kliknutím zobrazíte přehled"
 		},
 		"status": {
 			"apiStatus": "Stav API",
@@ -786,7 +788,17 @@
 				"noProviders": "Nezbývají žádní povolené poskytovatelé",
 				"onlyOne": "Zbývá pouze jeden povolený poskytovatel (pro failover jsou potřeba alespoň dva)"
 			},
-			"error": "Chyba"
+			"error": "Chyba",
+			"failover": "Skupiny pro převzetí služeb při výpadku",
+			"field": {
+				"context_length": "Délka kontextu",
+				"input_price": "Vstupní cena",
+				"input_price_cache": "Cena vstupu v mezipaměti",
+				"output_price": "Výstupní cena"
+			},
+			"unset": "—",
+			"updated": "Aktualizovaná metadata",
+			"unchanged": "Beze změn"
 		}
 	},
 	"models": {

@@ -101,7 +101,9 @@
 			"requests": "요청",
 			"appLogs": "로그",
 			"settings": "설정",
-			"failoverBadgeExplain": "서킷 브레이커 상태에 따른 페일오버 제공업체 — {{closed}} 정상 / {{halfOpen}} 복구 중 / {{open}} 트립됨"
+			"failoverBadgeExplain": "서킷 브레이커 상태에 따른 페일오버 제공업체 — {{closed}} 정상 / {{halfOpen}} 복구 중 / {{open}} 트립됨",
+			"discoveryChangesBadge_one": "{{count}}: 백그라운드 검색에서 변경됨 — 클릭하여 검토",
+			"discoveryChangesBadge_other": "{{count}}는 백그라운드 검색에서 변경된 사항입니다 — 클릭하여 검토하세요"
 		},
 		"status": {
 			"apiStatus": "API 상태",
@@ -786,7 +788,17 @@
 				"noProviders": "활성화된 제공자가 남아 있지 않습니다",
 				"onlyOne": "활성화된 제공업체가 하나만 남아 있습니다(페일오버에는 최소 두 개가 필요합니다)."
 			},
-			"error": "오류"
+			"error": "오류",
+			"failover": "페일오버 그룹",
+			"field": {
+				"context_length": "문맥 길이",
+				"input_price": "입력 가격",
+				"input_price_cache": "캐시된 입력 가격",
+				"output_price": "출력 가격"
+			},
+			"unset": "—",
+			"updated": "메타데이터 업데이트됨",
+			"unchanged": "변경 없음"
 		}
 	},
 	"models": {

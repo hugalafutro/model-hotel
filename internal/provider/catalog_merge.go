@@ -50,6 +50,11 @@ func liveModelStub(modelID, ownedBy string, providerID uuid.UUID) *model.Model {
 // Matching is by case-insensitive model_id. Returned order is live models
 // first (in their original order), then catalog-only models in catalog order.
 func mergeLiveAndCatalog(live, catalog []*model.Model) []*model.Model {
+	// Flag the fields the live API actually populated BEFORE the catalog backfills
+	// the gaps, so only provider-reported values are marked live-sourced. Catalog
+	// backfill and models.dev enrichment run afterward and stay fill-only.
+	markLiveMeta(live)
+
 	byID := make(map[string]*model.Model, len(live)+len(catalog))
 	out := make([]*model.Model, 0, len(live)+len(catalog))
 
@@ -84,6 +89,10 @@ func mergeLiveAndCatalog(live, catalog []*model.Model) []*model.Model {
 // catalog as phantom models would be wrong. (For real OpenAI the catalog is a
 // subset of the live listing, so there is nothing to union anyway.)
 func backfillLiveFromCatalog(live, catalog []*model.Model) []*model.Model {
+	// Mark live-sourced fields before backfilling (see mergeLiveAndCatalog). For
+	// id-only stub providers this flags nothing, leaving every metadata field
+	// fill-only — exactly what keeps their catalog/models.dev values stable.
+	markLiveMeta(live)
 	if len(catalog) == 0 {
 		return live
 	}
@@ -97,6 +106,28 @@ func backfillLiveFromCatalog(live, catalog []*model.Model) []*model.Model {
 		}
 	}
 	return live
+}
+
+// markLiveMeta flags each model's currently-set pricing/context fields as
+// live-sourced, recording that the provider's own API reported them this scan.
+//
+// Call it on the provider-built live slice at the boundary between fetching the
+// provider payload and backfilling from the catalog / models.dev, so only
+// provider-reported values are flagged. NEVER call it on a catalog slice or a
+// catalog-only fallback return (e.g. xAI on a 403/429): catalog values must
+// stay non-live so a degraded scan can't overwrite a stored live value.
+//
+// Marked fields overwrite on upsert (a genuine provider change propagates);
+// everything else is fill-only and stays stable. Discoverers whose pricing is a
+// hardcoded table rather than wire data (anthropic/google/cohere) deliberately
+// leave their values unmarked — fill-only freezes them to the constant table
+// value, which is what we want.
+func markLiveMeta(models []*model.Model) {
+	for _, m := range models {
+		if m != nil {
+			m.MarkLiveMetaFromCurrent()
+		}
+	}
 }
 
 // backfillFromCatalog fills fields of the live model dst that are empty, nil, or

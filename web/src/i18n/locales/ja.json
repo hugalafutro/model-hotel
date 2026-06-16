@@ -101,7 +101,9 @@
 			"requests": "リクエスト",
 			"appLogs": "ログ",
 			"settings": "設定",
-			"failoverBadgeExplain": "サーキットブレーカーの状態によるフェイルオーバープロバイダー — {{closed}} 正常 / {{halfOpen}} 復旧中 / {{open}} トリップ"
+			"failoverBadgeExplain": "サーキットブレーカーの状態によるフェイルオーバープロバイダー — {{closed}} 正常 / {{halfOpen}} 復旧中 / {{open}} トリップ",
+			"discoveryChangesBadge_one": "{{count}}：バックグラウンド検出からの変更 — クリックして確認",
+			"discoveryChangesBadge_other": "{{count}}はバックグラウンド検出による変更です — クリックして確認してください"
 		},
 		"status": {
 			"apiStatus": "APIステータス",
@@ -786,7 +788,17 @@
 				"noProviders": "有効なプロバイダーは残っていません",
 				"onlyOne": "有効なプロバイダーが1つしか残っていません（フェイルオーバーには少なくとも2つ必要です）"
 			},
-			"error": "エラー"
+			"error": "エラー",
+			"failover": "フェイルオーバーグループ",
+			"field": {
+				"context_length": "コンテキストの長さ",
+				"input_price": "入力価格",
+				"input_price_cache": "キャッシュされた入力価格",
+				"output_price": "出力価格"
+			},
+			"unset": "—",
+			"updated": "メタデータが更新されました",
+			"unchanged": "変更なし"
 		}
 	},
 	"models": {

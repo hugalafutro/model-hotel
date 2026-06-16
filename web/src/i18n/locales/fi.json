@@ -101,7 +101,9 @@
 			"requests": "Pyynnöt",
 			"appLogs": "Lokit",
 			"settings": "Asetukset",
-			"failoverBadgeExplain": "Vikasietopalveluntarjoajat katkaisijan tilan mukaan — {{closed}} toimintakunnossa / {{halfOpen}} palautumassa / {{open}} laukeamassa"
+			"failoverBadgeExplain": "Vikasietopalveluntarjoajat katkaisijan tilan mukaan — {{closed}} toimintakunnossa / {{halfOpen}} palautumassa / {{open}} laukeamassa",
+			"discoveryChangesBadge_one": "{{count}} muutos taustahakutoiminnosta — napsauta tarkistaaksesi",
+			"discoveryChangesBadge_other": "{{count}} muutokset taustahakutoiminnosta — napsauta tarkistaaksesi"
 		},
 		"status": {
 			"apiStatus": "API:n tila",
@@ -786,7 +788,17 @@
 				"noProviders": "Käytössä olevia palveluntarjoajia ei ole jäljellä",
 				"onlyOne": "Vain yksi käytössä oleva palveluntarjoaja on jäljellä (failover vaatii vähintään kaksi)"
 			},
-			"error": "Virhe"
+			"error": "Virhe",
+			"failover": "Vikasietoryhmät",
+			"field": {
+				"context_length": "Kontekstin pituus",
+				"input_price": "Syötä hinta",
+				"input_price_cache": "Välimuistissa oleva syöttöhinta",
+				"output_price": "Lähtöhinta"
+			},
+			"unset": "—",
+			"updated": "Metatiedot päivitetty",
+			"unchanged": "Muuttumaton"
 		}
 	},
 	"models": {

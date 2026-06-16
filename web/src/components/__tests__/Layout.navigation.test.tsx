@@ -1,4 +1,4 @@
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -686,6 +686,135 @@ describe("Layout", () => {
 				expect(tooltip).toContain("Also Down");
 				expect(tooltip).not.toContain("Healthy Provider");
 			});
+		});
+	});
+
+	describe("Discovery Changes Badge", () => {
+		const changesResponse = {
+			count: 2,
+			entries: [
+				{
+					provider_name: "DeepSeek",
+					source: "scheduled",
+					detected_at: "2026-06-16T00:00:00Z",
+					diff: {
+						updated: [
+							{
+								model_id: "deepseek-chat",
+								changes: [{ field: "input_price", old: 1, new: 2 }],
+							},
+						],
+					},
+				},
+			],
+		};
+
+		it("does not show the badge when count is zero", async () => {
+			server.use(
+				http.get("/api/discovery/changes", () =>
+					HttpResponse.json({ entries: [], count: 0 }),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			expect(
+				screen.queryByTestId("discovery-changes-badge"),
+			).not.toBeInTheDocument();
+		});
+
+		it("shows the badge with count and opens the modal on click, acking changes", async () => {
+			const user = userEvent.setup();
+			let ackCalled = false;
+			server.use(
+				http.get("/api/discovery/changes", () =>
+					HttpResponse.json(changesResponse),
+				),
+				// Ack atomically clears and returns the rows it marked seen; the
+				// modal snapshots from this response (not the poll cache), so it must
+				// echo the acked entries with a now-empty badge count.
+				http.post("/api/discovery/changes/ack", () => {
+					ackCalled = true;
+					return HttpResponse.json({
+						entries: changesResponse.entries,
+						count: 0,
+					});
+				}),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			const badge = await screen.findByTestId("discovery-changes-badge");
+			expect(badge).toHaveTextContent("2");
+
+			await user.click(badge);
+
+			// Modal opens, populated from the store entries
+			expect(
+				await screen.findByTestId("discovery-summary"),
+			).toBeInTheDocument();
+			expect(screen.getByTestId("discovery-summary-updated")).toHaveTextContent(
+				"deepseek-chat",
+			);
+			await waitFor(() => expect(ackCalled).toBe(true));
+		});
+
+		it("ignores a re-entrant click while the ack is in flight", async () => {
+			// Mirror the atomic server: the first ack clears and returns the rows;
+			// any concurrent second ack finds nothing unseen and returns []. Without
+			// the in-flight guard a double-click's empty response would blank the
+			// modal. The guard must keep ack to a single call and the modal populated.
+			let ackCount = 0;
+			server.use(
+				http.get("/api/discovery/changes", () =>
+					HttpResponse.json(changesResponse),
+				),
+				http.post("/api/discovery/changes/ack", () => {
+					ackCount++;
+					return HttpResponse.json(
+						ackCount === 1
+							? { entries: changesResponse.entries, count: 0 }
+							: { entries: [], count: 0 },
+					);
+				}),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			const badge = await screen.findByTestId("discovery-changes-badge");
+			// Two synchronous clicks: the second re-enters before the first ack's
+			// await yields, so the guard must drop it.
+			fireEvent.click(badge);
+			fireEvent.click(badge);
+
+			expect(
+				await screen.findByTestId("discovery-summary"),
+			).toBeInTheDocument();
+			expect(screen.getByTestId("discovery-summary-updated")).toHaveTextContent(
+				"deepseek-chat",
+			);
+			await waitFor(() => expect(ackCount).toBe(1));
+		});
+
+		it("invalidates the changes query on a discovery.changes_pending SSE event", async () => {
+			let fetchCount = 0;
+			server.use(
+				http.get("/api/discovery/changes", () => {
+					fetchCount++;
+					return HttpResponse.json({ entries: [], count: 0 });
+				}),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await waitFor(() => expect(fetchCount).toBeGreaterThanOrEqual(1));
+			const initial = fetchCount;
+
+			await act(async () => {
+				window.dispatchEvent(
+					new CustomEvent("server-event", {
+						detail: { type: "discovery.changes_pending" },
+					}),
+				);
+			});
+
+			await waitFor(() => expect(fetchCount).toBeGreaterThan(initial));
 		});
 	});
 

@@ -63,16 +63,11 @@ func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provid
 		}
 		paramsJSON, _ := json.Marshal(paramsMap)
 
-		var inPricePerMill *float64
-		var outPricePerMill *float64
-		{
-			v := m.Pricing.Prompt
-			inPricePerMill = &v
-		}
-		{
-			v := m.Pricing.Completion
-			outPricePerMill = &v
-		}
+		// Pricing fields are optional: a nil (omitted) price stays nil so it is not
+		// marked live and can't overwrite a stored value with 0 on a partial
+		// response; a present value (including a real 0) is taken as authoritative.
+		inPricePerMill := m.Pricing.Prompt
+		outPricePerMill := m.Pricing.Completion
 
 		models = append(models, &model.Model{
 			ID:                    uuid.New(),
@@ -94,6 +89,11 @@ func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provid
 			Enabled:               true,
 		})
 	}
+
+	// NanoGPT reports pricing and context straight from its live /models
+	// payload, so mark those fields live: genuine provider changes overwrite on
+	// upsert and surface in the discovery diff (id-only providers stay fill-only).
+	markLiveMeta(models)
 
 	debuglog.Info("discovery: nanogpt discovered models", "models", len(models), "provider", provider.Name, "provider_id", provider.ID)
 	return models, nil

@@ -101,7 +101,9 @@
 			"requests": "İstekler",
 			"appLogs": "Günlükler",
 			"settings": "Ayarlar",
-			"failoverBadgeExplain": "Devre kesici durumuna göre yedekleme sağlayıcıları — {{closed}} sağlıklı / {{halfOpen}} kurtarma aşamasında / {{open}} devre dışı"
+			"failoverBadgeExplain": "Devre kesici durumuna göre yedekleme sağlayıcıları — {{closed}} sağlıklı / {{halfOpen}} kurtarma aşamasında / {{open}} devre dışı",
+			"discoveryChangesBadge_one": "{{count}} arka plan keşfinden yapılan değişiklik — gözden geçirmek için tıklayın",
+			"discoveryChangesBadge_other": "{{count}}, arka plan keşif sürecinden kaynaklanan değişiklikler — gözden geçirmek için tıklayın"
 		},
 		"status": {
 			"apiStatus": "API Durumu",
@@ -786,7 +788,17 @@
 				"noProviders": "Etkin sağlayıcı kalmadı",
 				"onlyOne": "Yalnızca bir etkin sağlayıcı kalmıştır (yedekleme için en az iki sağlayıcı gerekir)"
 			},
-			"error": "Hata"
+			"error": "Hata",
+			"failover": "Yedekleme grupları",
+			"field": {
+				"context_length": "Bağlam uzunluğu",
+				"input_price": "Giriş fiyatı",
+				"input_price_cache": "Önbelleğe alınmış giriş fiyatı",
+				"output_price": "Çıktı fiyatı"
+			},
+			"unset": "—",
+			"updated": "Metadata güncellendi",
+			"unchanged": "Değiştirilmedi"
 		}
 	},
 	"models": {

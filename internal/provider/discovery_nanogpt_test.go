@@ -279,8 +279,8 @@ func TestDiscoverNanoGPT_Success(t *testing.T) {
 						StructuredOutput: true,
 					},
 					Pricing: NanoGPTPricing{
-						Prompt:     2.5,
-						Completion: 10.0,
+						Prompt:     floatPtr(2.5),
+						Completion: floatPtr(10.0),
 					},
 				},
 			},
@@ -330,6 +330,88 @@ func TestDiscoverNanoGPT_Success(t *testing.T) {
 	}
 	if models[0].OutputPricePerMillion == nil || *models[0].OutputPricePerMillion != 10.0 {
 		t.Errorf("Expected OutputPricePerMillion 10.0, got %v", models[0].OutputPricePerMillion)
+	}
+	// NanoGPT reports pricing/context over the wire, so these must be marked
+	// live (a genuine provider change overwrites on upsert and is reported).
+	if !models[0].LiveMeta.InputPrice || !models[0].LiveMeta.OutputPrice ||
+		!models[0].LiveMeta.ContextLength || !models[0].LiveMeta.MaxOutputTokens {
+		t.Errorf("Expected wire-sourced fields to be live, got %+v", models[0].LiveMeta)
+	}
+}
+
+// A model whose pricing is omitted must leave the price fields nil and
+// unmarked-live, so a partial NanoGPT response can't overwrite a stored nonzero
+// price with a synthetic 0. A model that explicitly prices at 0 (free) keeps the
+// real &0 and stays live.
+func TestDiscoverNanoGPT_OmittedPricingStaysNil(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		response := NanoGPTDetailedResponse{
+			Object: "list",
+			Data: []NanoGPTModel{
+				{
+					ID:      "no-pricing",
+					Name:    "No Pricing",
+					OwnedBy: "test",
+					Architecture: NanoGPTArchitecture{
+						Modality:         "text",
+						InputModalities:  []string{"text"},
+						OutputModalities: []string{"text"},
+					},
+					ContextLength: intPtr(128000),
+					Pricing:       NanoGPTPricing{}, // prompt/completion omitted -> nil
+				},
+				{
+					ID:      "free-model",
+					Name:    "Free Model",
+					OwnedBy: "test",
+					Architecture: NanoGPTArchitecture{
+						Modality:         "text",
+						InputModalities:  []string{"text"},
+						OutputModalities: []string{"text"},
+					},
+					ContextLength: intPtr(128000),
+					Pricing: NanoGPTPricing{
+						Prompt:     floatPtr(0), // explicit free price -> kept as &0
+						Completion: floatPtr(0),
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{ID: uuid.New(), Name: "nanogpt-test", BaseURL: server.URL}
+
+	models, err := service.discoverNanoGPT(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverNanoGPT failed: %v", err)
+	}
+	if len(models) != 2 {
+		t.Fatalf("Expected 2 models, got %d", len(models))
+	}
+
+	// Omitted pricing -> nil, not marked live.
+	noPricing := models[0]
+	if noPricing.InputPricePerMillion != nil || noPricing.OutputPricePerMillion != nil {
+		t.Errorf("omitted pricing must be nil, got in=%v out=%v",
+			noPricing.InputPricePerMillion, noPricing.OutputPricePerMillion)
+	}
+	if noPricing.LiveMeta.InputPrice || noPricing.LiveMeta.OutputPrice {
+		t.Errorf("omitted pricing must not be marked live, got %+v", noPricing.LiveMeta)
+	}
+
+	// Explicit 0 -> kept as a real value and marked live.
+	free := models[1]
+	if free.InputPricePerMillion == nil || *free.InputPricePerMillion != 0 ||
+		free.OutputPricePerMillion == nil || *free.OutputPricePerMillion != 0 {
+		t.Errorf("explicit free pricing must be &0, got in=%v out=%v",
+			free.InputPricePerMillion, free.OutputPricePerMillion)
+	}
+	if !free.LiveMeta.InputPrice || !free.LiveMeta.OutputPrice {
+		t.Errorf("explicit free pricing must be marked live, got %+v", free.LiveMeta)
 	}
 }
 

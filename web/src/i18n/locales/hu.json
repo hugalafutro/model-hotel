@@ -101,7 +101,9 @@
 			"requests": "Kérések",
 			"appLogs": "Naplók",
 			"settings": "Beállítások",
-			"failoverBadgeExplain": "Failover szolgáltatók áramkör-megszakító állapot szerint — {{closed}} működőképes / {{halfOpen}} helyreállítási fázisban / {{open}} kioldott"
+			"failoverBadgeExplain": "Failover szolgáltatók áramkör-megszakító állapot szerint — {{closed}} működőképes / {{halfOpen}} helyreállítási fázisban / {{open}} kioldott",
+			"discoveryChangesBadge_one": "{{count}} módosítás a háttérbeli felderítésből – kattintson a felülvizsgálathoz",
+			"discoveryChangesBadge_other": "Az {{count}} változások a háttérbeli felderítésből származnak – kattintson a felülvizsgálathoz"
 		},
 		"status": {
 			"apiStatus": "API-állapot",
@@ -786,7 +788,17 @@
 				"noProviders": "Nincs engedélyezett szolgáltató",
 				"onlyOne": "Csak egy engedélyezett szolgáltató maradt (a failoverhez legalább kettőre van szükség)"
 			},
-			"error": "Hiba"
+			"error": "Hiba",
+			"failover": "Failover csoportok",
+			"field": {
+				"context_length": "A kontextus hossza",
+				"input_price": "Bemeneti ár",
+				"input_price_cache": "Cache-elt bemeneti ár",
+				"output_price": "Kimeneti ár"
+			},
+			"unset": "—",
+			"updated": "Frissített metaadatok",
+			"unchanged": "Változatlan"
 		}
 	},
 	"models": {

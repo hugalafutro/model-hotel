@@ -101,7 +101,9 @@
 			"requests": "Solicitudes",
 			"appLogs": "Registros",
 			"settings": "Ajustes",
-			"failoverBadgeExplain": "Proveedores de conmutación por error según el estado del disyuntor: {{closed}} en buen estado / {{halfOpen}} en recuperación / {{open}} disparado"
+			"failoverBadgeExplain": "Proveedores de conmutación por error según el estado del disyuntor: {{closed}} en buen estado / {{halfOpen}} en recuperación / {{open}} disparado",
+			"discoveryChangesBadge_one": "Cambio {{count}} procedente de la detección en segundo plano: haz clic para revisarlo",
+			"discoveryChangesBadge_other": "Cambios en {{count}} derivados del análisis en segundo plano: haz clic para revisarlos"
 		},
 		"status": {
 			"apiStatus": "Estado de la API",
@@ -786,7 +788,17 @@
 				"noProviders": "No queda ningún proveedor habilitado",
 				"onlyOne": "Solo queda un proveedor habilitado (la conmutación por error necesita al menos dos)."
 			},
-			"error": "Error"
+			"error": "Error",
+			"failover": "Grupos de conmutación por error",
+			"field": {
+				"context_length": "Longitud del contexto",
+				"input_price": "Precio de entrada",
+				"input_price_cache": "Precio de entrada almacenado en caché",
+				"output_price": "Precio de salida"
+			},
+			"unset": "—",
+			"updated": "Metadatos actualizados",
+			"unchanged": "Sin cambios"
 		}
 	},
 	"models": {

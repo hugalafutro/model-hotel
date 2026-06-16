@@ -103,6 +103,11 @@ func (d *DiscoveryService) discoverOllama(ctx context.Context, provider *Provide
 		debuglog.Info("discovery: ollama discovered models", "provider", provider.Name, "provider_id", provider.ID, "models", len(models))
 	}
 
+	// Context length comes from the live /api/show probe, so mark it live: a
+	// model that gains a larger context window propagates and is reported
+	// (prices are nil for Ollama, so MarkLiveMetaFromCurrent leaves them fill-only).
+	markLiveMeta(models)
+
 	return models, nil
 }
 
@@ -158,7 +163,9 @@ func (d *DiscoveryService) buildOllamaModel(provider *Provider, modelID string, 
 	var contextLength *int
 	for k, v := range show.ModelInfo {
 		if strings.HasSuffix(k, ".context_length") {
-			if f, ok := v.(float64); ok {
+			// Guard on > 0 so a zero/absent value stays nil and isn't marked live
+			// (which would let it overwrite a stored context length with 0).
+			if f, ok := v.(float64); ok && f > 0 {
 				cl := int(f)
 				contextLength = &cl
 				break

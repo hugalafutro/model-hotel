@@ -376,8 +376,11 @@ func main() {
 	r.Get("/*", spaHandler.ServeHTTP)
 
 	// Startup: run initial discovery for all enabled providers (if enabled)
-	runDiscovery := func() DiscoveryResult {
+	runDiscovery := func(source string) DiscoveryResult {
 		result := DiscoveryResult{}
+		// Set when any background-discovery change row is recorded, so we can
+		// publish a single live-update event for the Models nav badge.
+		changesRecorded := false
 		ctx := context.Background()
 		providers, err := providerRepo.List(ctx)
 		if err != nil {
@@ -414,12 +417,23 @@ func main() {
 				}
 			}
 			result.ModelsDiscovered += len(models)
+
+			// Snapshot pre-scan state so background metadata/membership changes
+			// can be recorded for the Models nav badge. A snapshot failure only
+			// disables the diff for this provider; the scan itself proceeds.
+			snapshot, snapErr := api.SnapshotProviderModels(ctx, modelRepo, p.ID)
+			if snapErr != nil {
+				debuglog.Debug("discovery: failed to snapshot models", "provider", p.Name, "error", snapErr)
+			}
+
 			existingModelIDs := make([]string, 0, len(models))
+			upsertedModels := make([]*model.Model, 0, len(models))
 			for _, m := range models {
 				if err := modelRepo.Upsert(ctx, m); err != nil {
 					debuglog.Error("discovery: failed to upsert model", "model_id", m.ModelID, "error", err)
 				} else {
 					existingModelIDs = append(existingModelIDs, m.ModelID)
+					upsertedModels = append(upsertedModels, m)
 				}
 			}
 			disabledRefs, err := modelRepo.DisableMissingModels(ctx, p.ID, p.Name, existingModelIDs)
@@ -434,6 +448,19 @@ func main() {
 					Metadata: map[string]interface{}{"provider": p.Name, "count": len(disabledRefs)},
 				})
 			}
+
+			// Record this provider's model-level diff (added/reenabled/disabled/
+			// metadata-updated) for later review. Failover group churn is folded
+			// in once after the global failover sync below.
+			if snapErr == nil {
+				diff := api.BuildDiscoveryDiff(snapshot, upsertedModels, disabledRefs)
+				if wrote, err := api.AppendDiscoveryChange(ctx, database.Pool(), source, &p.ID, p.Name, diff); err != nil {
+					debuglog.Error("discovery: failed to record changes", "provider", p.Name, "error", err)
+				} else if wrote {
+					changesRecorded = true
+				}
+			}
+
 			now := time.Now()
 			if _, err := database.Pool().Exec(ctx, `UPDATE providers SET last_discovered_at = $1 WHERE id = $2`, now, p.ID); err != nil {
 				debuglog.Error("discovery: failed to update last_discovered_at", "provider", p.Name, "error", err)
@@ -451,8 +478,10 @@ func main() {
 				seenModelIDs[m.ModelID] = true
 			}
 		}
+		failoverDiff := &api.DiscoveryDiff{}
 		for modelID := range seenModelIDs {
-			if _, err := failoverRepo.SyncForModel(ctx, modelID); err != nil {
+			syncRes, err := failoverRepo.SyncForModel(ctx, modelID)
+			if err != nil {
 				debuglog.Error("discovery: failed to sync failover", "model_id", modelID, "error", err)
 				result.FailoverSyncErrs++
 				events.Publish(events.Event{
@@ -461,7 +490,32 @@ func main() {
 					Message:  fmt.Sprintf("Failover sync failed for model '%s'", modelID),
 					Metadata: map[string]interface{}{"error": err.Error(), "model_id": modelID},
 				})
+				continue
 			}
+			if syncRes != nil {
+				failoverDiff.FailoverDeletedGroups = append(failoverDiff.FailoverDeletedGroups, syncRes.DeletedGroups...)
+				failoverDiff.FailoverUpdatedGroups = append(failoverDiff.FailoverUpdatedGroups, syncRes.UpdatedGroups...)
+			}
+		}
+		// Record failover group churn as one aggregate entry (the global sync is
+		// not per-provider). An empty provider_name flags this to the frontend as
+		// the run-wide failover entry, which it labels accordingly.
+		if wrote, err := api.AppendDiscoveryChange(ctx, database.Pool(), source, nil, "", failoverDiff); err != nil {
+			debuglog.Error("discovery: failed to record failover changes", "error", err)
+		} else if wrote {
+			changesRecorded = true
+		}
+
+		// One live-update nudge so the Models nav badge refreshes without a
+		// reload; the badge query re-fetches the authoritative count.
+		if changesRecorded {
+			events.Publish(events.Event{
+				Type:     "discovery.changes_pending",
+				Severity: "info",
+				Source:   "discovery",
+				Message:  "Background discovery recorded model changes",
+				Metadata: map[string]interface{}{"source": source},
+			})
 		}
 		return result
 	}
@@ -492,7 +546,7 @@ func main() {
 			debuglog.Info("discovery: skipping startup — last discovery within 5 minutes")
 		} else {
 			go func() {
-				result := runDiscovery()
+				result := runDiscovery("startup")
 				publishDiscoveryEvent("Startup", result)
 			}()
 		}
@@ -647,7 +701,7 @@ func main() {
 
 			select {
 			case <-timerC:
-				result := runDiscovery()
+				result := runDiscovery("scheduled")
 				publishDiscoveryEvent("Scheduled", result)
 				// Re-read interval in case it changed since the last
 				// subscription event was processed.

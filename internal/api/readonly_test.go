@@ -42,6 +42,18 @@ func TestReadOnlyGuard(t *testing.T) {
 			t.Errorf("%s: expected 403, got %d", m, rec.Code)
 		}
 	}
+
+	// Acknowledging background-discovery notifications is exempt: it only flips a
+	// per-row "seen" flag, so it must pass through even in read-only mode.
+	called = false
+	rec := httptest.NewRecorder()
+	guard.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/discovery/changes/ack", http.NoBody))
+	if !called {
+		t.Error("POST /discovery/changes/ack: expected exemption to reach next handler")
+	}
+	if rec.Code != http.StatusOK {
+		t.Errorf("POST /discovery/changes/ack: expected 200, got %d", rec.Code)
+	}
 }
 
 // TestHandlerRegister_ReadOnly verifies the wiring in Register: when
@@ -70,6 +82,16 @@ func TestHandlerRegister_ReadOnly(t *testing.T) {
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("read-only GET /providers: expected 200, got %d", rec.Code)
+	}
+
+	// The discovery-changes ack is exempt from the guard so the Models badge can
+	// be cleared on a demo instance: it must not be refused with a 403.
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/discovery/changes/ack", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+	if rec.Code == http.StatusForbidden {
+		t.Fatalf("read-only POST /discovery/changes/ack: must be exempt, got 403")
 	}
 }
 

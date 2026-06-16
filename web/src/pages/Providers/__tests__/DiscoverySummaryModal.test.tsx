@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { DiscoveryDiff } from "../../../api/types";
 import { renderWithProviders } from "../../../test/utils";
@@ -8,6 +8,16 @@ const fullDiff: DiscoveryDiff = {
 	added: [{ model_id: "model-new", reason: "new_model" }],
 	reenabled: [{ model_id: "model-back", reason: "reappeared" }],
 	disabled: [{ model_id: "model-gone", reason: "not_listed" }],
+	updated: [
+		{
+			model_id: "model-priced",
+			changes: [
+				{ field: "input_price", old: 1, new: 2 },
+				// old omitted (matches the wire — Go marshals nil *float64 away via omitempty)
+				{ field: "context_length", new: 8192 },
+			],
+		},
+	],
 	failover_deleted_groups: [
 		{
 			display_model: "deleted-group",
@@ -47,6 +57,22 @@ describe("DiscoverySummaryModal", () => {
 
 		const deleted = screen.getByTestId("discovery-summary-failover-deleted");
 		expect(deleted).toHaveTextContent("deleted-group");
+
+		const metadata = screen.getByTestId("discovery-summary-updated");
+		expect(metadata).toHaveTextContent("model-priced");
+		// changed price: $1 → $2
+		expect(metadata).toHaveTextContent("$1");
+		expect(metadata).toHaveTextContent("$2");
+		// nil → value: the old side renders the (allow-listed) unset placeholder
+		// and the new side the formatted value. Assert structurally via testid
+		// rather than the translated unset symbol.
+		expect(
+			within(metadata).getByTestId("discovery-field-old-context_length"),
+		).toBeInTheDocument();
+		// context_length 8192 via formatTokens (compact) → "8.2K"
+		expect(
+			within(metadata).getByTestId("discovery-field-new-context_length"),
+		).toHaveTextContent("8.2K");
 
 		const updated = screen.getByTestId("discovery-summary-failover-updated");
 		expect(updated).toHaveTextContent("updated-group");
@@ -105,6 +131,32 @@ describe("DiscoverySummaryModal", () => {
 		expect(screen.getByText("Broken Provider")).toBeInTheDocument();
 		expect(screen.getByText("Working Provider")).toBeInTheDocument();
 		expect(screen.getByTestId("discovery-summary-added")).toBeInTheDocument();
+	});
+
+	it("collapses unchanged providers into one list in a multi-provider summary", () => {
+		renderWithProviders(
+			<DiscoverySummaryModal
+				results={[
+					{ providerName: "Changed Provider", diff: fullDiff },
+					{ providerName: "Quiet One", diff: {} },
+					{ providerName: "Quiet Two" },
+				]}
+				onClose={vi.fn()}
+			/>,
+		);
+
+		// The changed provider still renders its full sections.
+		expect(screen.getByTestId("discovery-summary-added")).toBeInTheDocument();
+
+		// The two unchanged providers collapse into a single section listing
+		// both names — the "no changes" sentence is not repeated per provider.
+		const unchanged = screen.getByTestId("discovery-summary-unchanged");
+		expect(unchanged).toHaveTextContent("Quiet One");
+		expect(unchanged).toHaveTextContent("Quiet Two");
+		expect(unchanged).toHaveTextContent("2");
+		expect(
+			screen.queryByTestId("discovery-summary-no-changes"),
+		).not.toBeInTheDocument();
 	});
 
 	it("hides the provider header for a single-provider summary", () => {

@@ -101,7 +101,9 @@
 			"requests": "Pedidos",
 			"appLogs": "Registos",
 			"settings": "Definições",
-			"failoverBadgeExplain": "Provedores de failover por estado do disjuntor — {{closed}} em bom estado / {{halfOpen}} em recuperação / {{open}} desarmado"
+			"failoverBadgeExplain": "Provedores de failover por estado do disjuntor — {{closed}} em bom estado / {{halfOpen}} em recuperação / {{open}} desarmado",
+			"discoveryChangesBadge_one": "Alteração {{count}} proveniente da descoberta em segundo plano — clique para revisar",
+			"discoveryChangesBadge_other": "Alterações no {{count}} decorrentes da descoberta em segundo plano — clique para revisar"
 		},
 		"status": {
 			"apiStatus": "Estado da API",
@@ -786,7 +788,17 @@
 				"noProviders": "Não há mais provedores habilitados",
 				"onlyOne": "Resta apenas um provedor habilitado (o failover requer pelo menos dois)"
 			},
-			"error": "Erro"
+			"error": "Erro",
+			"failover": "Grupos de failover",
+			"field": {
+				"context_length": "Comprimento do contexto",
+				"input_price": "Preço de entrada",
+				"input_price_cache": "Preço de entrada armazenado em cache",
+				"output_price": "Preço de saída"
+			},
+			"unset": "—",
+			"updated": "Metadados atualizados",
+			"unchanged": "Sem alterações"
 		}
 	},
 	"models": {

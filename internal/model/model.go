@@ -39,6 +39,40 @@ type Model struct {
 	LastSeenAt                   time.Time `json:"last_seen_at"`
 	ProviderName                 string    `json:"provider_name"`
 	ProviderEnabled              bool      `json:"provider_enabled"`
+
+	// LiveMeta marks which pricing/context fields on THIS in-memory model were
+	// populated directly from the provider's live API during the current scan
+	// (as opposed to the hardcoded catalog or models.dev enrichment). It is
+	// transient: never read from or written to the database, and excluded from
+	// JSON (clients never see it). Upsert uses it to merge per field — live
+	// fields overwrite the stored value, so a genuine provider price/context
+	// change propagates, while everything else is fill-only and stays stable so
+	// a flaky probe or a models.dev re-fetch can't flip a stored value. The zero
+	// value (all false) is the safe default for stub-, catalog- and
+	// models.dev-sourced models.
+	LiveMeta LiveMetaFields `json:"-"`
+}
+
+// LiveMetaFields records, per pricing/context field, whether the value came
+// from the provider's own live API this scan. See Model.LiveMeta.
+type LiveMetaFields struct {
+	InputPrice      bool
+	InputPriceCache bool
+	OutputPrice     bool
+	ContextLength   bool
+	MaxOutputTokens bool
+}
+
+// MarkLiveMetaFromCurrent flags every pricing/context field that is currently
+// set (non-nil) as live-sourced. Discoverers call this on a model right after
+// populating it from the provider's live payload and before any catalog or
+// models.dev fill runs, so only provider-reported fields are flagged.
+func (m *Model) MarkLiveMetaFromCurrent() {
+	m.LiveMeta.InputPrice = m.InputPricePerMillion != nil
+	m.LiveMeta.InputPriceCache = m.InputPricePerMillionCacheHit != nil
+	m.LiveMeta.OutputPrice = m.OutputPricePerMillion != nil
+	m.LiveMeta.ContextLength = m.ContextLength != nil
+	m.LiveMeta.MaxOutputTokens = m.MaxOutputTokens != nil
 }
 
 // Capability represents the feature capabilities of a model.
@@ -83,11 +117,22 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 			modality = EXCLUDED.modality,
 			input_modalities = EXCLUDED.input_modalities,
 			output_modalities = EXCLUDED.output_modalities,
-			context_length = EXCLUDED.context_length,
-			max_output_tokens = EXCLUDED.max_output_tokens,
-			input_price_per_million = EXCLUDED.input_price_per_million,
-			input_price_per_million_cache_hit = EXCLUDED.input_price_per_million_cache_hit,
-			output_price_per_million = EXCLUDED.output_price_per_million,
+			-- Pricing/context come from variable sources (the provider's live API,
+			-- our hardcoded catalog, models.dev) that disagree and flip across
+			-- restarts (a flaky probe drops out, a fresh models.dev snapshot
+			-- differs). To keep stored metadata stable AND still honour a genuine
+			-- provider change, each field is merged by source: when the value came
+			-- from the provider's live API this scan (the $live_* flag, derived
+			-- from m.LiveMeta) it WINS and overwrites; otherwise it is fill-only —
+			-- the stored value is kept and the incoming value only fills a gap.
+			-- This makes the provider the source of truth while a catalog/models.dev
+			-- value can never flip a stored live value, so discovery is idempotent
+			-- across restarts and the served /v1/models prices stop drifting.
+			context_length = CASE WHEN $19 THEN COALESCE(EXCLUDED.context_length, models.context_length) ELSE COALESCE(models.context_length, EXCLUDED.context_length) END,
+			max_output_tokens = CASE WHEN $20 THEN COALESCE(EXCLUDED.max_output_tokens, models.max_output_tokens) ELSE COALESCE(models.max_output_tokens, EXCLUDED.max_output_tokens) END,
+			input_price_per_million = CASE WHEN $21 THEN COALESCE(EXCLUDED.input_price_per_million, models.input_price_per_million) ELSE COALESCE(models.input_price_per_million, EXCLUDED.input_price_per_million) END,
+			input_price_per_million_cache_hit = CASE WHEN $22 THEN COALESCE(EXCLUDED.input_price_per_million_cache_hit, models.input_price_per_million_cache_hit) ELSE COALESCE(models.input_price_per_million_cache_hit, EXCLUDED.input_price_per_million_cache_hit) END,
+			output_price_per_million = CASE WHEN $23 THEN COALESCE(EXCLUDED.output_price_per_million, models.output_price_per_million) ELSE COALESCE(models.output_price_per_million, EXCLUDED.output_price_per_million) END,
 			owned_by = EXCLUDED.owned_by,
 			enabled = CASE WHEN models.disabled_manually = false THEN true ELSE models.enabled END,
 			last_seen_at = now()
@@ -97,6 +142,10 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 		m.ID, m.ProviderID, m.ModelID, m.Name, m.Description, m.DisplayName, m.Capabilities, m.Params,
 		m.Modality, m.InputModalities, m.OutputModalities,
 		m.ContextLength, m.MaxOutputTokens, m.InputPricePerMillion, m.InputPricePerMillionCacheHit, m.OutputPricePerMillion, m.OwnedBy, m.Enabled,
+		// $19-$23: per-field "this value came from the provider's live API" flags
+		// (same column order as the CASE clauses above) that pick overwrite vs
+		// fill-only. Zero value (all false) => fully fill-only, the safe default.
+		m.LiveMeta.ContextLength, m.LiveMeta.MaxOutputTokens, m.LiveMeta.InputPrice, m.LiveMeta.InputPriceCache, m.LiveMeta.OutputPrice,
 	).Scan(
 		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
 		&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,

@@ -101,7 +101,9 @@
 			"requests": "الطلبات",
 			"appLogs": "السجلات",
 			"settings": "الإعدادات",
-			"failoverBadgeExplain": "مزودي التحويل التلقائي حسب حالة قاطع الدائرة — {{closed}} سليم / {{halfOpen}} قيد الاستعادة / {{open}} تعطل"
+			"failoverBadgeExplain": "مزودي التحويل التلقائي حسب حالة قاطع الدائرة — {{closed}} سليم / {{halfOpen}} قيد الاستعادة / {{open}} تعطل",
+			"discoveryChangesBadge_one": "تغيير {{count}} من الاكتشاف في الخلفية — انقر للمراجعة",
+			"discoveryChangesBadge_other": "تغييرات {{count}} من عملية الاكتشاف في الخلفية — انقر للمراجعة"
 		},
 		"status": {
 			"apiStatus": "حالة API",
@@ -786,7 +788,17 @@
 				"noProviders": "لا يوجد مزودون ممكّنون متبقون",
 				"onlyOne": "لم يتبق سوى مزود واحد ممكّن (يحتاج التحويل التلقائي إلى اثنين على الأقل)"
 			},
-			"error": "خطأ"
+			"error": "خطأ",
+			"failover": "مجموعات التحويل التلقائي",
+			"field": {
+				"context_length": "طول السياق",
+				"input_price": "سعر الإدخال",
+				"input_price_cache": "سعر الإدخال المخزن مؤقتًا",
+				"output_price": "سعر المخرجات"
+			},
+			"unset": "—",
+			"updated": "تم تحديث البيانات الوصفية",
+			"unchanged": "لم يتغير"
 		}
 	},
 	"models": {

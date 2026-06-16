@@ -53,23 +53,23 @@ func (d *DiscoveryService) discoverOpenRouter(ctx context.Context, provider *Pro
 		// Parse pricing: per-token string → $/1M
 		inPrice, outPrice := parseOpenRouterPricing(orm.Pricing)
 
-		// Parse cache pricing if available
-		var cachePrice *float64
-		if orm.Pricing.InputCacheRead != "" && orm.Pricing.InputCacheRead != "0" {
-			if v, err := strconv.ParseFloat(orm.Pricing.InputCacheRead, 64); err == nil {
-				perMil := v * 1_000_000
-				cachePrice = &perMil
-			}
-		}
+		// Parse cache pricing: same nil-on-unknown rule as prompt/completion. A
+		// real "0" (free cache reads) parses to &0 and propagates, so a price
+		// dropping to free isn't masked by a stale stored value on /v1/models.
+		cachePrice := parseOpenRouterPrice(orm.Pricing.InputCacheRead)
 
 		// Build capabilities from supported_parameters
 		caps := openRouterParamsToCapabilities(orm.SupportedParameters)
 		capJSON, _ := json.Marshal(caps)
 
-		// Use context_length from model, fall back to top_provider
-		contextLen := orm.ContextLength
-		if contextLen == 0 && orm.TopProvider.ContextLength > 0 {
-			contextLen = orm.TopProvider.ContextLength
+		// Use context_length from model, fall back to top_provider. Leave nil when
+		// neither source reports a positive value, so an absent context length is
+		// not marked live and can't overwrite a stored value with 0.
+		var contextLen *int
+		if cl := orm.ContextLength; cl > 0 {
+			contextLen = &cl
+		} else if cl := orm.TopProvider.ContextLength; cl > 0 {
+			contextLen = &cl
 		}
 
 		// Build modalities from architecture
@@ -88,9 +88,9 @@ func (d *DiscoveryService) discoverOpenRouter(ctx context.Context, provider *Pro
 			Modality:                     orm.Architecture.Modality,
 			InputModalities:              string(inputMods),
 			OutputModalities:             string(outputMods),
-			ContextLength:                &contextLen,
-			InputPricePerMillion:         &inPrice,
-			OutputPricePerMillion:        &outPrice,
+			ContextLength:                contextLen,
+			InputPricePerMillion:         inPrice,
+			OutputPricePerMillion:        outPrice,
 			InputPricePerMillionCacheHit: cachePrice,
 			OwnedBy:                      strings.SplitN(orm.ID, "/", 2)[0], // "openai" from "openai/gpt-4.1"
 			Enabled:                      true,
@@ -104,6 +104,12 @@ func (d *DiscoveryService) discoverOpenRouter(ctx context.Context, provider *Pro
 
 		models = append(models, modelEntry)
 	}
+
+	// OpenRouter reports pricing, context length and max-output over the wire per
+	// model, so flag them live-sourced: a genuine OpenRouter price/limit change
+	// then overwrites on upsert, while the value can't be flipped by a catalog or
+	// models.dev fallback on a later scan.
+	markLiveMeta(models)
 
 	debuglog.Info("discovery: openrouter discovered models", "models", len(models), "provider", provider.Name, "provider_id", provider.ID, "total", len(orResp.Data))
 	return models, nil
@@ -121,11 +127,24 @@ func isOpenRouterChatModel(orm OpenRouterModel) bool {
 	return strings.Contains(m, "->text") || strings.Contains(m, "->code")
 }
 
-// parseOpenRouterPricing converts per-token string pricing to $/1M floats.
-func parseOpenRouterPricing(pricing OpenRouterPricing) (float64, float64) {
-	inPrice, _ := strconv.ParseFloat(pricing.Prompt, 64)
-	outPrice, _ := strconv.ParseFloat(pricing.Completion, 64)
-	return inPrice * 1_000_000, outPrice * 1_000_000
+// parseOpenRouterPricing converts per-token string pricing to $/1M. A missing or
+// unparseable field yields nil ("unknown") rather than 0, so it is never marked
+// live and can't overwrite a stored price with a bogus zero on a flaky response;
+// a real "0" (free model) parses to &0 and is treated as a genuine value.
+func parseOpenRouterPricing(pricing OpenRouterPricing) (*float64, *float64) {
+	return parseOpenRouterPrice(pricing.Prompt), parseOpenRouterPrice(pricing.Completion)
+}
+
+func parseOpenRouterPrice(s string) *float64 {
+	if s == "" {
+		return nil
+	}
+	v, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return nil
+	}
+	perMil := v * 1_000_000
+	return &perMil
 }
 
 // GetOpenRouterBalance retrieves credits and usage info from OpenRouter.

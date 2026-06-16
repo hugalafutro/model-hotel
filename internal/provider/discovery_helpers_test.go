@@ -8,40 +8,53 @@ import (
 
 // Test parseOpenRouterPricing
 func TestParseOpenRouterPricing(t *testing.T) {
+	f := func(v float64) *float64 { return &v }
 	tests := []struct {
 		name    string
 		pricing OpenRouterPricing
-		wantIn  float64
-		wantOut float64
+		wantIn  *float64
+		wantOut *float64
 	}{
 		{
-			name:    "zero pricing",
+			name:    "zero pricing is a real free-model value, not unknown",
 			pricing: OpenRouterPricing{Prompt: "0", Completion: "0"},
-			wantIn:  0,
-			wantOut: 0,
+			wantIn:  f(0),
+			wantOut: f(0),
 		},
 		{
 			name:    "decimal pricing",
 			pricing: OpenRouterPricing{Prompt: "0.000001", Completion: "0.000002"},
-			wantIn:  1.0,
-			wantOut: 2.0,
+			wantIn:  f(1.0),
+			wantOut: f(2.0),
 		},
 		{
-			name:    "empty strings",
+			name:    "empty strings are unknown (nil), not zero",
 			pricing: OpenRouterPricing{Prompt: "", Completion: ""},
-			wantIn:  0,
-			wantOut: 0,
+			wantIn:  nil,
+			wantOut: nil,
+		},
+		{
+			name:    "unparseable strings are unknown (nil), not zero",
+			pricing: OpenRouterPricing{Prompt: "n/a", Completion: "free"},
+			wantIn:  nil,
+			wantOut: nil,
 		},
 	}
 
+	eq := func(got, want *float64) bool {
+		if got == nil || want == nil {
+			return got == want
+		}
+		return *got == *want
+	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			inPrice, outPrice := parseOpenRouterPricing(tt.pricing)
-			if inPrice != tt.wantIn {
-				t.Errorf("inPrice = %f, want %f", inPrice, tt.wantIn)
+			if !eq(inPrice, tt.wantIn) {
+				t.Errorf("inPrice = %v, want %v", inPrice, tt.wantIn)
 			}
-			if outPrice != tt.wantOut {
-				t.Errorf("outPrice = %f, want %f", outPrice, tt.wantOut)
+			if !eq(outPrice, tt.wantOut) {
+				t.Errorf("outPrice = %v, want %v", outPrice, tt.wantOut)
 			}
 		})
 	}

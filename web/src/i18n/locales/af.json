@@ -101,7 +101,9 @@
 			"requests": "Versoeke",
 			"appLogs": "Logboeke",
 			"settings": "Instellings",
-			"failoverBadgeExplain": "Failover-verskaffers volgens circuitbreker-toestand — {{closed}} gesond / {{halfOpen}} besig om te herstel / {{open}} uitgeskakel"
+			"failoverBadgeExplain": "Failover-verskaffers volgens circuitbreker-toestand — {{closed}} gesond / {{halfOpen}} besig om te herstel / {{open}} uitgeskakel",
+			"discoveryChangesBadge_one": "{{count}} verandering vanaf agtergrondontdekking — klik om te hersien",
+			"discoveryChangesBadge_other": "{{count}} veranderings vanaf agtergrondontdekking — klik om te hersien"
 		},
 		"status": {
 			"apiStatus": "API-status",
@@ -786,7 +788,17 @@
 				"noProviders": "Daar is geen geaktiveerde verskaffers oor nie",
 				"onlyOne": "Slegs een geaktiveerde verskaffer bly oor (failover benodig ten minste twee)"
 			},
-			"error": "Fout"
+			"error": "Fout",
+			"failover": "Oorgangsgroepe",
+			"field": {
+				"context_length": "Kontekslengte",
+				"input_price": "Invoerprys",
+				"input_price_cache": "Gekacheerde insetprys",
+				"output_price": "Uitgangsprys"
+			},
+			"unset": "—",
+			"updated": "Metagegewens bygewerk",
+			"unchanged": "Onveranderd"
 		}
 	},
 	"models": {

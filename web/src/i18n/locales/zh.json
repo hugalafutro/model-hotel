@@ -101,7 +101,9 @@
 			"requests": "请求",
 			"appLogs": "日志",
 			"settings": "设置",
-			"failoverBadgeExplain": "按断路器状态切换提供商 — {{closed}} 正常 / {{halfOpen}} 恢复中 / {{open}} 已跳闸"
+			"failoverBadgeExplain": "按断路器状态切换提供商 — {{closed}} 正常 / {{halfOpen}} 恢复中 / {{open}} 已跳闸",
+			"discoveryChangesBadge_one": "{{count}} 来自后台发现的变更 — 点击查看",
+			"discoveryChangesBadge_other": "{{count}} 来自后台发现的变更 — 点击查看"
 		},
 		"status": {
 			"apiStatus": "API 状态",
@@ -786,7 +788,17 @@
 				"noProviders": "已无启用的提供商",
 				"onlyOne": "当前仅剩一个已启用的提供商（故障转移至少需要两个）"
 			},
-			"error": "错误"
+			"error": "错误",
+			"failover": "故障转移组",
+			"field": {
+				"context_length": "上下文长度",
+				"input_price": "输入价格",
+				"input_price_cache": "缓存的输入价格",
+				"output_price": "输出价格"
+			},
+			"unset": "—",
+			"updated": "元数据已更新",
+			"unchanged": "保持不变"
 		}
 	},
 	"models": {

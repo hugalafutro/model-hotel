@@ -94,8 +94,13 @@ func (d *DiscoveryService) discoverKoboldCPP(ctx context.Context, provider *Prov
 		Enabled:          true,
 	}
 
+	// Context length comes from the live /api/extra/perf probe, so mark it live:
+	// a reload with a different context size propagates and is reported.
+	models := []*model.Model{m}
+	markLiveMeta(models)
+
 	debuglog.Info("discovery: koboldcpp discovered model", "model", modelID, "provider", provider.Name, "provider_id", provider.ID)
-	return []*model.Model{m}, nil
+	return models, nil
 }
 
 func (d *DiscoveryService) koboldcppVersion(ctx context.Context, apiBase string) (string, error) {

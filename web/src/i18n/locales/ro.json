@@ -101,7 +101,9 @@
 			"requests": "Cereri",
 			"appLogs": "Jurnale",
 			"settings": "Setări",
-			"failoverBadgeExplain": "Furnizori de failover în funcție de starea întrerupătorului de circuit — {{closed}} funcțional / {{halfOpen}} în recuperare / {{open}} declanșat"
+			"failoverBadgeExplain": "Furnizori de failover în funcție de starea întrerupătorului de circuit — {{closed}} funcțional / {{halfOpen}} în recuperare / {{open}} declanșat",
+			"discoveryChangesBadge_one": "Modificare {{count}} din descoperirea în fundal — faceți clic pentru a revizui",
+			"discoveryChangesBadge_other": "Modificările {{count}} din procesul de descoperire în fundal — faceți clic pentru a le revizui"
 		},
 		"status": {
 			"apiStatus": "Stare API",
@@ -786,7 +788,17 @@
 				"noProviders": "Nu mai există furnizori activați",
 				"onlyOne": "Rămâne un singur furnizor activat (failover-ul necesită cel puțin doi)"
 			},
-			"error": "Eroare"
+			"error": "Eroare",
+			"failover": "Grupuri de failover",
+			"field": {
+				"context_length": "Lungimea contextului",
+				"input_price": "Preț de intrare",
+				"input_price_cache": "Preț de intrare stocat în cache",
+				"output_price": "Preț de ieșire"
+			},
+			"unset": "—",
+			"updated": "Metadate actualizate",
+			"unchanged": "Neschimbat"
 		}
 	},
 	"models": {

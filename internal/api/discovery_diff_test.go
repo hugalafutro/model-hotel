@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -20,44 +21,44 @@ import (
 func TestBuildDiscoveryDiff(t *testing.T) {
 	tests := []struct {
 		name          string
-		snapshot      map[string]modelSnapshot
-		upsertedIDs   []string
+		snapshot      map[string]ModelSnapshot
+		upserted      []*model.Model
 		disabledRefs  []model.DisabledModelRef
 		wantAdded     []string
 		wantReenabled []string
 		wantDisabled  []string
 	}{
 		{
-			name:        "new model",
-			snapshot:    map[string]modelSnapshot{},
-			upsertedIDs: []string{"model-new"},
-			wantAdded:   []string{"model-new"},
+			name:      "new model",
+			snapshot:  map[string]ModelSnapshot{},
+			upserted:  models("model-new"),
+			wantAdded: []string{"model-new"},
 		},
 		{
 			name: "reappeared model (discovery-disabled before)",
-			snapshot: map[string]modelSnapshot{
+			snapshot: map[string]ModelSnapshot{
 				"model-back": {enabled: false, disabledManually: false},
 			},
-			upsertedIDs:   []string{"model-back"},
+			upserted:      models("model-back"),
 			wantReenabled: []string{"model-back"},
 		},
 		{
 			name: "manually disabled model stays excluded",
-			snapshot: map[string]modelSnapshot{
+			snapshot: map[string]ModelSnapshot{
 				"model-manual": {enabled: false, disabledManually: true},
 			},
-			upsertedIDs: []string{"model-manual"},
+			upserted: models("model-manual"),
 		},
 		{
 			name: "already enabled model is no change",
-			snapshot: map[string]modelSnapshot{
+			snapshot: map[string]ModelSnapshot{
 				"model-same": {enabled: true},
 			},
-			upsertedIDs: []string{"model-same"},
+			upserted: models("model-same"),
 		},
 		{
 			name:     "not listed model",
-			snapshot: map[string]modelSnapshot{"model-gone": {enabled: true}},
+			snapshot: map[string]ModelSnapshot{"model-gone": {enabled: true}},
 			disabledRefs: []model.DisabledModelRef{
 				{ID: uuid.New(), ModelID: "model-gone"},
 			},
@@ -65,12 +66,12 @@ func TestBuildDiscoveryDiff(t *testing.T) {
 		},
 		{
 			name: "mixed scan",
-			snapshot: map[string]modelSnapshot{
+			snapshot: map[string]ModelSnapshot{
 				"model-kept": {enabled: true},
 				"model-back": {enabled: false, disabledManually: false},
 				"model-gone": {enabled: true},
 			},
-			upsertedIDs: []string{"model-kept", "model-back", "model-new"},
+			upserted: models("model-kept", "model-back", "model-new"),
 			disabledRefs: []model.DisabledModelRef{
 				{ID: uuid.New(), ModelID: "model-gone"},
 			},
@@ -82,7 +83,7 @@ func TestBuildDiscoveryDiff(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			diff := buildDiscoveryDiff(tt.snapshot, tt.upsertedIDs, tt.disabledRefs)
+			diff := BuildDiscoveryDiff(tt.snapshot, tt.upserted, tt.disabledRefs)
 
 			assertChanges := func(field string, got []ModelChange, wantIDs []string, wantReason string) {
 				t.Helper()
@@ -102,6 +103,210 @@ func TestBuildDiscoveryDiff(t *testing.T) {
 			assertChanges("reenabled", diff.Reenabled, tt.wantReenabled, changeReasonReappeared)
 			assertChanges("disabled", diff.Disabled, tt.wantDisabled, changeReasonNotListed)
 		})
+	}
+}
+
+// models builds bare *model.Model values carrying only a ModelID, for the
+// membership-classification cases (no pricing/context fields, so no metadata
+// updates are detected).
+func models(ids ...string) []*model.Model {
+	out := make([]*model.Model, len(ids))
+	for i, id := range ids {
+		out[i] = &model.Model{ModelID: id}
+	}
+	return out
+}
+
+func fptr(v float64) *float64 { return &v }
+func iptr(v int) *int         { return &v }
+
+func TestBuildDiscoveryDiff_MetadataChanges(t *testing.T) {
+	// An existing, still-enabled model whose pricing/context fields shift is
+	// reported as an Updated entry — not Added or Reenabled.
+	tests := []struct {
+		name        string
+		prev        ModelSnapshot
+		model       *model.Model
+		wantChanges []FieldChange
+	}{
+		{
+			// A live (provider-reported) price change overwrites on upsert, so it
+			// is reported.
+			name: "live input price changed",
+			prev: ModelSnapshot{enabled: true, inputPrice: fptr(1)},
+			model: &model.Model{
+				ModelID: "m", InputPricePerMillion: fptr(2),
+				LiveMeta: model.LiveMetaFields{InputPrice: true},
+			},
+			wantChanges: []FieldChange{
+				{Field: changeFieldInputPrice, Old: fptr(1), New: fptr(2)},
+			},
+		},
+		{
+			// THE noise killer: a non-live (catalog/models.dev) value change is
+			// fill-only at upsert — the stored value is kept — so it must not be
+			// reported. This is the cross-restart source oscillation that used to
+			// flood the modal with phantom price flips.
+			name:        "non-live value change is not reported",
+			prev:        ModelSnapshot{enabled: true, inputPrice: fptr(1)},
+			model:       &model.Model{ModelID: "m", InputPricePerMillion: fptr(2)},
+			wantChanges: nil,
+		},
+		{
+			// Filling a previously-unset value is reported even when non-live:
+			// Upsert fills the gap, so it is a genuine new value.
+			name:  "context length set from unset (non-live fill)",
+			prev:  ModelSnapshot{enabled: true},
+			model: &model.Model{ModelID: "m", ContextLength: iptr(8192)},
+			wantChanges: []FieldChange{
+				{Field: changeFieldContextLength, Old: nil, New: fptr(8192)},
+			},
+		},
+		{
+			// A scan that omits a value must NOT report "value → unset": Upsert
+			// preserves the stored value, so the diff stays quiet.
+			name:        "scan omits a value — preserved, not reported",
+			prev:        ModelSnapshot{enabled: true, outputPrice: fptr(5)},
+			model:       &model.Model{ModelID: "m"},
+			wantChanges: nil,
+		},
+		{
+			name:  "value gained from unset",
+			prev:  ModelSnapshot{enabled: true},
+			model: &model.Model{ModelID: "m", OutputPricePerMillion: fptr(3)},
+			wantChanges: []FieldChange{
+				{Field: changeFieldOutputPrice, Old: nil, New: fptr(3)},
+			},
+		},
+		{
+			name: "multiple live fields change at once",
+			prev: ModelSnapshot{
+				enabled:         true,
+				inputPriceCache: fptr(0.5),
+				contextLength:   iptr(131072),
+			},
+			model: &model.Model{
+				ModelID:                      "m",
+				InputPricePerMillionCacheHit: fptr(0.25),
+				ContextLength:                iptr(262144),
+				LiveMeta:                     model.LiveMetaFields{InputPriceCache: true, ContextLength: true},
+			},
+			wantChanges: []FieldChange{
+				{Field: changeFieldInputPriceCache, Old: fptr(0.5), New: fptr(0.25)},
+				{Field: changeFieldContextLength, Old: fptr(131072), New: fptr(262144)},
+			},
+		},
+		{
+			// max_output_tokens is intentionally not tracked, so a change to it
+			// alone produces no update.
+			name: "max output tokens change is ignored",
+			prev: ModelSnapshot{enabled: true},
+			model: &model.Model{ModelID: "m", MaxOutputTokens: iptr(8192),
+				LiveMeta: model.LiveMetaFields{MaxOutputTokens: true}},
+			wantChanges: nil,
+		},
+		{
+			// Binary-vs-decimal unit noise (262144 vs 262000) is within tolerance,
+			// even for a live field.
+			name: "context length unit difference is ignored",
+			prev: ModelSnapshot{enabled: true, contextLength: iptr(262144)},
+			model: &model.Model{ModelID: "m", ContextLength: iptr(262000),
+				LiveMeta: model.LiveMetaFields{ContextLength: true}},
+			wantChanges: nil,
+		},
+		{
+			// A real context-window jump (200K → 256K) on a live field is well
+			// past tolerance.
+			name: "real live context length jump is reported",
+			prev: ModelSnapshot{enabled: true, contextLength: iptr(200000)},
+			model: &model.Model{ModelID: "m", ContextLength: iptr(256000),
+				LiveMeta: model.LiveMetaFields{ContextLength: true}},
+			wantChanges: []FieldChange{
+				{Field: changeFieldContextLength, Old: fptr(200000), New: fptr(256000)},
+			},
+		},
+		{
+			// Float32 storage jitter on a live price must not register.
+			name: "price float32 jitter is ignored",
+			prev: ModelSnapshot{enabled: true, inputPrice: fptr(float64(float32(0.28)))},
+			model: &model.Model{ModelID: "m", InputPricePerMillion: fptr(0.28),
+				LiveMeta: model.LiveMetaFields{InputPrice: true}},
+			wantChanges: nil,
+		},
+		{
+			name: "unchanged live values produce no update",
+			prev: ModelSnapshot{enabled: true, inputPrice: fptr(1), contextLength: iptr(8192)},
+			model: &model.Model{ModelID: "m", InputPricePerMillion: fptr(1), ContextLength: iptr(8192),
+				LiveMeta: model.LiveMetaFields{InputPrice: true, ContextLength: true}},
+			wantChanges: nil,
+		},
+		{
+			name:        "both unset is not a change",
+			prev:        ModelSnapshot{enabled: true},
+			model:       &model.Model{ModelID: "m"},
+			wantChanges: nil,
+		},
+		{
+			// A model the user has manually disabled is skipped entirely: even a
+			// genuine live price change on a hidden model must not raise the badge.
+			name: "manually disabled model is not reported",
+			prev: ModelSnapshot{enabled: false, disabledManually: true, inputPrice: fptr(1)},
+			model: &model.Model{
+				ModelID: "m", InputPricePerMillion: fptr(2),
+				LiveMeta: model.LiveMetaFields{InputPrice: true},
+			},
+			wantChanges: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			snapshot := map[string]ModelSnapshot{"m": tt.prev}
+			diff := BuildDiscoveryDiff(snapshot, []*model.Model{tt.model}, nil)
+
+			if len(diff.Added) != 0 || len(diff.Reenabled) != 0 {
+				t.Fatalf("expected no add/reenable, got added=%v reenabled=%v", diff.Added, diff.Reenabled)
+			}
+			if len(tt.wantChanges) == 0 {
+				if len(diff.Updated) != 0 {
+					t.Fatalf("expected no updates, got %+v", diff.Updated)
+				}
+				return
+			}
+			if len(diff.Updated) != 1 {
+				t.Fatalf("expected 1 updated model, got %+v", diff.Updated)
+			}
+			got := diff.Updated[0]
+			if got.ModelID != "m" {
+				t.Errorf("model id = %q, want m", got.ModelID)
+			}
+			if !reflect.DeepEqual(got.Changes, tt.wantChanges) {
+				t.Errorf("changes mismatch:\n got %+v\nwant %+v", got.Changes, tt.wantChanges)
+			}
+		})
+	}
+}
+
+func TestBuildDiscoveryDiff_NewAndReenabledSkipMetadata(t *testing.T) {
+	// A brand-new or reappearing model is classified by membership only; its
+	// field values are not also diffed (no snapshot baseline to compare).
+	snapshot := map[string]ModelSnapshot{
+		"back": {enabled: false, disabledManually: false, inputPrice: fptr(1)},
+	}
+	upserted := []*model.Model{
+		{ModelID: "new", InputPricePerMillion: fptr(9)},
+		{ModelID: "back", InputPricePerMillion: fptr(2)},
+	}
+	diff := BuildDiscoveryDiff(snapshot, upserted, nil)
+
+	if len(diff.Added) != 1 || diff.Added[0].ModelID != "new" {
+		t.Errorf("expected added=[new], got %+v", diff.Added)
+	}
+	if len(diff.Reenabled) != 1 || diff.Reenabled[0].ModelID != "back" {
+		t.Errorf("expected reenabled=[back], got %+v", diff.Reenabled)
+	}
+	if len(diff.Updated) != 0 {
+		t.Errorf("expected no metadata updates, got %+v", diff.Updated)
 	}
 }
 
