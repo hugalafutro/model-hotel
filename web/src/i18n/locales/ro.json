@@ -102,8 +102,8 @@
 			"appLogs": "Jurnale",
 			"settings": "Setări",
 			"failoverBadgeExplain": "Furnizori de failover în funcție de starea întrerupătorului de circuit — {{closed}} funcțional / {{halfOpen}} în recuperare / {{open}} declanșat",
-			"discoveryChangesBadge_one": "Modificarea modelului {{count}} din descoperirea în fundal — faceți clic pentru a revizui",
-			"discoveryChangesBadge_other": "Modificările modelului {{count}} din descoperirea în fundal — faceți clic pentru a revizui"
+			"discoveryChangesBadge_one": "Modificare {{count}} din descoperirea în fundal — faceți clic pentru a revizui",
+			"discoveryChangesBadge_other": "Modificările {{count}} din procesul de descoperire în fundal — faceți clic pentru a le revizui"
 		},
 		"status": {
 			"apiStatus": "Stare API",

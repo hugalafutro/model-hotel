@@ -102,8 +102,8 @@
 			"appLogs": "Log",
 			"settings": "Impostazioni",
 			"failoverBadgeExplain": "Failover dei provider in base allo stato dell'interruttore automatico — {{closed}} funzionante / {{halfOpen}} in ripristino / {{open}} scattato",
-			"discoveryChangesBadge_one": "Modifica del modello {{count}} dal rilevamento in background — clicca per rivedere",
-			"discoveryChangesBadge_other": "Modifiche al modello {{count}} dal rilevamento in background — clicca per rivedere"
+			"discoveryChangesBadge_one": "Modifica {{count}} derivante dal rilevamento in background — clicca per rivedere",
+			"discoveryChangesBadge_other": "Modifiche {{count}} derivanti dal rilevamento in background — clicca per rivedere"
 		},
 		"status": {
 			"apiStatus": "Stato API",

@@ -102,8 +102,8 @@
 			"appLogs": "Registres",
 			"settings": "Configuració",
 			"failoverBadgeExplain": "Proveïdors de fallada per estat del circuit breaker — {{closed}} saludable / {{halfOpen}} en recuperació / {{open}} disparat",
-			"discoveryChangesBadge_one": "Canvi de model {{count}} des del descobriment en segon pla — fes clic per revisar",
-			"discoveryChangesBadge_other": "El model {{count}} canvia de descobriment en segon pla — feu clic per revisar"
+			"discoveryChangesBadge_one": "Canvi de {{count}} des del descobriment de fons — fes clic per revisar",
+			"discoveryChangesBadge_other": "Canvis de {{count}} des del descobriment de fons — feu clic per revisar"
 		},
 		"status": {
 			"apiStatus": "Estat de l'API",

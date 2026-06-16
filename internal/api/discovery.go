@@ -323,14 +323,20 @@ func (h *Handler) GetDiscoveryChanges(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, DiscoveryChangesResponse{Entries: entries, Count: count})
 }
 
-// AckDiscoveryChanges marks all unseen background-discovery diffs as seen,
-// clearing the badge once the user has reviewed them.
+// AckDiscoveryChanges atomically marks all unseen background-discovery diffs as
+// seen and returns exactly the rows it cleared, so the client can populate the
+// review modal from this response instead of a possibly-stale poll. Count is 0:
+// the badge is now empty (Entries carries the just-acked rows for display only).
 func (h *Handler) AckDiscoveryChanges(w http.ResponseWriter, r *http.Request) {
-	if err := markDiscoveryChangesSeen(r.Context(), h.dbPool.Pool()); err != nil {
+	entries, err := markDiscoveryChangesSeen(r.Context(), h.dbPool.Pool())
+	if err != nil {
 		respondError(w, "failed to acknowledge discovery changes", err, http.StatusInternalServerError)
 		return
 	}
-	writeJSON(w, DiscoveryChangesResponse{Entries: []DiscoveryChangeEntry{}, Count: 0})
+	if entries == nil {
+		entries = []DiscoveryChangeEntry{}
+	}
+	writeJSON(w, DiscoveryChangesResponse{Entries: entries, Count: 0})
 }
 
 // DiscoverProviderModels discovers and imports models from a specific provider.

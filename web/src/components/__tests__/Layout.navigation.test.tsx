@@ -729,9 +729,15 @@ describe("Layout", () => {
 				http.get("/api/discovery/changes", () =>
 					HttpResponse.json(changesResponse),
 				),
+				// Ack atomically clears and returns the rows it marked seen; the
+				// modal snapshots from this response (not the poll cache), so it must
+				// echo the acked entries with a now-empty badge count.
 				http.post("/api/discovery/changes/ack", () => {
 					ackCalled = true;
-					return HttpResponse.json({ entries: [], count: 0 });
+					return HttpResponse.json({
+						entries: changesResponse.entries,
+						count: 0,
+					});
 				}),
 			);
 			renderWithProviders(<Layout>{mockChildren}</Layout>);

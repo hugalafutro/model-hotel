@@ -102,8 +102,8 @@
 			"appLogs": "Journaux",
 			"settings": "Paramètres",
 			"failoverBadgeExplain": "Fournisseurs de basculement par état du disjoncteur — {{closed}} en bon état / {{halfOpen}} en cours de récupération / {{open}} déclenché",
-			"discoveryChangesBadge_one": "Modification du modèle {{count}} à partir de la découverte en arrière-plan — cliquez pour consulter",
-			"discoveryChangesBadge_other": "Modifications du modèle {{count}} issues de la découverte en arrière-plan — cliquez pour consulter"
+			"discoveryChangesBadge_one": "Modification {{count}} issue de la découverte en arrière-plan — cliquer pour consulter",
+			"discoveryChangesBadge_other": "Modifications {{count}} issues de la découverte en arrière-plan — cliquez pour les consulter"
 		},
 		"status": {
 			"apiStatus": "État de l'API",

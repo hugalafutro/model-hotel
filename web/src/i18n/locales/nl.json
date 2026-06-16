@@ -102,8 +102,8 @@
 			"appLogs": "Logboeken",
 			"settings": "Instellingen",
 			"failoverBadgeExplain": "Failover-providers op basis van circuit-breaker-status — {{closed}} gezond / {{halfOpen}} herstellend / {{open}} geactiveerd",
-			"discoveryChangesBadge_one": "{{count}}-modelwijziging vanuit achtergronddetectie — klik om te bekijken",
-			"discoveryChangesBadge_other": "{{count}}-modelwijzigingen door achtergronddetectie — klik om te bekijken"
+			"discoveryChangesBadge_one": "{{count}} wijziging vanuit achtergronddetectie — klik om te bekijken",
+			"discoveryChangesBadge_other": "{{count}} wijzigingen als gevolg van achtergronddetectie — klik om te bekijken"
 		},
 		"status": {
 			"apiStatus": "API-status",

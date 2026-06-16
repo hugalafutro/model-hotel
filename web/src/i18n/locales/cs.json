@@ -102,8 +102,8 @@
 			"appLogs": "Logy appky",
 			"settings": "Nastavení",
 			"failoverBadgeExplain": "Poskytovatelé failoveru podle stavu jističe — {{closed}} v pořádku / {{halfOpen}} se zotavuje / {{open}} vypnutý",
-			"discoveryChangesBadge_one": "Změna modelu {{count}} z pozadí – klikněte pro kontrolu",
-			"discoveryChangesBadge_other": "Změny modelu {{count}} z detekce na pozadí – klikněte pro kontrolu"
+			"discoveryChangesBadge_one": "Změna {{count}} z automatického vyhledávání na pozadí — klikněte pro kontrolu",
+			"discoveryChangesBadge_other": "Změny {{count}} z automatického vyhledávání na pozadí — kliknutím zobrazíte přehled"
 		},
 		"status": {
 			"apiStatus": "Stav API",

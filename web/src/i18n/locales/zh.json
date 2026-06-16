@@ -102,8 +102,8 @@
 			"appLogs": "日志",
 			"settings": "设置",
 			"failoverBadgeExplain": "按断路器状态切换提供商 — {{closed}} 正常 / {{halfOpen}} 恢复中 / {{open}} 已跳闸",
-			"discoveryChangesBadge_one": "{{count}} 模型变更源自后台自动发现——点击查看详情",
-			"discoveryChangesBadge_other": "{{count}} 模型因后台自动发现而发生变更——点击查看详情"
+			"discoveryChangesBadge_one": "{{count}} 来自后台发现的变更 — 点击查看",
+			"discoveryChangesBadge_other": "{{count}} 来自后台发现的变更 — 点击查看"
 		},
 		"status": {
 			"apiStatus": "API 状态",

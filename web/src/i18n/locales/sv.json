@@ -102,8 +102,8 @@
 			"appLogs": "Loggar",
 			"settings": "Inställningar",
 			"failoverBadgeExplain": "Failover-leverantörer efter circuit-breaker-status — {{closed}} fungerar / {{halfOpen}} återställs / {{open}} utlöst",
-			"discoveryChangesBadge_one": "{{count}}-modelländring från bakgrundsupptäckt – klicka för att granska",
-			"discoveryChangesBadge_other": "{{count}}-modelländringar från bakgrundsupptäckt – klicka för att granska"
+			"discoveryChangesBadge_one": "{{count}} ändring från bakgrundsupptäckt – klicka för att granska",
+			"discoveryChangesBadge_other": "{{count}} ändringar från bakgrundsdetektering – klicka för att granska"
 		},
 		"status": {
 			"apiStatus": "API-status",

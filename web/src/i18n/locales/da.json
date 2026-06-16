@@ -102,8 +102,8 @@
 			"appLogs": "Logfiler",
 			"settings": "Indstillinger",
 			"failoverBadgeExplain": "Failover-udbydere efter afbryderstatus — {{closed}} fungerer / {{halfOpen}} genopretter / {{open}} udløst",
-			"discoveryChangesBadge_one": "{{count}}-modelændring fra baggrundsopdagelse — klik for at gennemgå",
-			"discoveryChangesBadge_other": "{{count}}-modelændringer fra baggrundsopdagelse — klik for at gennemgå"
+			"discoveryChangesBadge_one": "{{count}} ændring fra baggrundsdetektering — klik for at gennemgå",
+			"discoveryChangesBadge_other": "{{count}} ændringer fra baggrundsdetektering — klik for at gennemgå"
 		},
 		"status": {
 			"apiStatus": "API-status",

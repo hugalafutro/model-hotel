@@ -102,8 +102,8 @@
 			"appLogs": "ログ",
 			"settings": "設定",
 			"failoverBadgeExplain": "サーキットブレーカーの状態によるフェイルオーバープロバイダー — {{closed}} 正常 / {{halfOpen}} 復旧中 / {{open}} トリップ",
-			"discoveryChangesBadge_one": "{{count}}モデルの変更（バックグラウンド検出による） — クリックして確認",
-			"discoveryChangesBadge_other": "{{count}}モデルの変更（バックグラウンド検出による） — クリックして確認"
+			"discoveryChangesBadge_one": "{{count}}：バックグラウンド検出からの変更 — クリックして確認",
+			"discoveryChangesBadge_other": "{{count}}はバックグラウンド検出による変更です — クリックして確認してください"
 		},
 		"status": {
 			"apiStatus": "APIステータス",

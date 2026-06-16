@@ -102,8 +102,8 @@
 			"appLogs": "Naplók",
 			"settings": "Beállítások",
 			"failoverBadgeExplain": "Failover szolgáltatók áramkör-megszakító állapot szerint — {{closed}} működőképes / {{halfOpen}} helyreállítási fázisban / {{open}} kioldott",
-			"discoveryChangesBadge_one": "{{count}} modellváltozás a háttérbeli felderítésből – kattintson a felülvizsgálathoz",
-			"discoveryChangesBadge_other": "Az {{count}} modell változásai a háttérbeli felderítésből – kattintson a felülvizsgálathoz"
+			"discoveryChangesBadge_one": "{{count}} módosítás a háttérbeli felderítésből – kattintson a felülvizsgálathoz",
+			"discoveryChangesBadge_other": "Az {{count}} változások a háttérbeli felderítésből származnak – kattintson a felülvizsgálathoz"
 		},
 		"status": {
 			"apiStatus": "API-állapot",

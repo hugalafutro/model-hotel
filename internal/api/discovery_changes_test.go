@@ -59,8 +59,14 @@ func TestDiscoveryChangesStore_RoundTrip(t *testing.T) {
 		t.Errorf("countAffected = %d, want 2", countAffected(got.Diff))
 	}
 
-	if err := markDiscoveryChangesSeen(ctx, pool); err != nil {
+	acked, err := markDiscoveryChangesSeen(ctx, pool)
+	if err != nil {
 		t.Fatalf("mark seen: %v", err)
+	}
+	// Ack returns exactly the rows it just cleared, so the client can render the
+	// modal from this snapshot without a follow-up read that could race.
+	if len(acked) != 1 || acked[0].ProviderName != "DeepSeek" {
+		t.Fatalf("expected ack to return the cleared entry, got %+v", acked)
 	}
 	entries, err = listPendingDiscoveryChanges(ctx, pool)
 	if err != nil {

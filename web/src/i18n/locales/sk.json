@@ -102,8 +102,8 @@
 			"appLogs": "Záznamy",
 			"settings": "Nastavenia",
 			"failoverBadgeExplain": "Poskytovatelia failoveru podľa stavu ističa — {{closed}} v poriadku / {{halfOpen}} sa obnovuje / {{open}} vypnutý",
-			"discoveryChangesBadge_one": "Zmena modelu {{count}} z vyhľadávania na pozadí – kliknite na prehliadnutie",
-			"discoveryChangesBadge_other": "Zmeny modelu {{count}} z vyhľadávania na pozadí – kliknite na prehliadnutie"
+			"discoveryChangesBadge_one": "Zmena {{count}} z automatického vyhľadávania na pozadí — kliknite na prehliadnutie",
+			"discoveryChangesBadge_other": "Zmeny {{count}} vyplývajúce z automatického vyhľadávania – kliknite na tlačidlo na prehliadnutie"
 		},
 		"status": {
 			"apiStatus": "Stav API",

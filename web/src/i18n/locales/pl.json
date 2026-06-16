@@ -102,8 +102,8 @@
 			"appLogs": "Logi",
 			"settings": "Ustawienia",
 			"failoverBadgeExplain": "Dostawcy awaryjni według stanu wyłącznika — {{closed}} sprawny / {{halfOpen}} w trakcie przywracania / {{open}} wyłączony",
-			"discoveryChangesBadge_one": "Zmiana modelu {{count}} z wykrywania w tle — kliknij, aby przejrzeć",
-			"discoveryChangesBadge_other": "Zmiany w modelu {{count}} wynikające z wykrywania w tle — kliknij, aby przejrzeć"
+			"discoveryChangesBadge_one": "Zmiana {{count}} wynikająca z analizy tła — kliknij, aby przejrzeć",
+			"discoveryChangesBadge_other": "Zmiany {{count}} wynikające z analizy tła — kliknij, aby przejrzeć"
 		},
 		"status": {
 			"apiStatus": "Status API",

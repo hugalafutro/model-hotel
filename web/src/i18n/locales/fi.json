@@ -102,8 +102,8 @@
 			"appLogs": "Lokit",
 			"settings": "Asetukset",
 			"failoverBadgeExplain": "Vikasietopalveluntarjoajat katkaisijan tilan mukaan — {{closed}} toimintakunnossa / {{halfOpen}} palautumassa / {{open}} laukeamassa",
-			"discoveryChangesBadge_one": "{{count}}-mallin muutos taustatunnistuksesta — napsauta tarkistaaksesi",
-			"discoveryChangesBadge_other": "{{count}}-mallin muutokset taustatunnistuksesta — napsauta tarkistaaksesi"
+			"discoveryChangesBadge_one": "{{count}} muutos taustahakutoiminnosta — napsauta tarkistaaksesi",
+			"discoveryChangesBadge_other": "{{count}} muutokset taustahakutoiminnosta — napsauta tarkistaaksesi"
 		},
 		"status": {
 			"apiStatus": "API:n tila",

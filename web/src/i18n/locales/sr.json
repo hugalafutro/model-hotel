@@ -102,8 +102,8 @@
 			"appLogs": "Записи",
 			"settings": "Подешавања",
 			"failoverBadgeExplain": "Фејловер провајдери по стању циркуитобрејкера — {{closed}} здрав / {{halfOpen}} опоравља се / {{open}} активиран",
-			"discoveryChangesBadge_one": "Промена модела {{count}} из позадинског откривања — кликните да прегледате",
-			"discoveryChangesBadge_other": "Модел {{count}} се мења из позадинског откривања — кликните да прегледате"
+			"discoveryChangesBadge_one": "{{count}} промена из позадинског откривања — кликните да бисте прегледали",
+			"discoveryChangesBadge_other": "{{count}} промене из позадинског откривања — кликните да бисте прегледали"
 		},
 		"status": {
 			"apiStatus": "Статус API",

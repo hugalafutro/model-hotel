@@ -102,8 +102,8 @@
 			"appLogs": "Registos",
 			"settings": "Definições",
 			"failoverBadgeExplain": "Provedores de failover por estado do disjuntor — {{closed}} em bom estado / {{halfOpen}} em recuperação / {{open}} desarmado",
-			"discoveryChangesBadge_one": "Alteração do modelo {{count}} a partir da descoberta em segundo plano — clique para revisar",
-			"discoveryChangesBadge_other": "Alterações no modelo {{count}} a partir da descoberta em segundo plano — clique para revisar"
+			"discoveryChangesBadge_one": "Alteração {{count}} proveniente da descoberta em segundo plano — clique para revisar",
+			"discoveryChangesBadge_other": "Alterações no {{count}} decorrentes da descoberta em segundo plano — clique para revisar"
 		},
 		"status": {
 			"apiStatus": "Estado da API",

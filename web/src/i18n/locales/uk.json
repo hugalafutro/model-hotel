@@ -102,8 +102,8 @@
 			"appLogs": "Логи",
 			"settings": "Налаштування",
 			"failoverBadgeExplain": "Провайдери відмовостійкості за станом автоматичного вимикача — {{closed}} справний / {{halfOpen}} відновлюється / {{open}} спрацював",
-			"discoveryChangesBadge_one": "Зміна моделі {{count}} з фонового виявлення — натисніть, щоб переглянути",
-			"discoveryChangesBadge_other": "Зміни моделі {{count}} на основі фонового виявлення — натисніть, щоб переглянути"
+			"discoveryChangesBadge_one": "Зміна {{count}} з фонового виявлення — натисніть, щоб переглянути",
+			"discoveryChangesBadge_other": "Зміни {{count}}, виявлені під час фонового сканування — натисніть, щоб переглянути"
 		},
 		"status": {
 			"apiStatus": "Статус API",

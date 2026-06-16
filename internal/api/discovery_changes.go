@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -73,18 +74,10 @@ func AppendDiscoveryChange(ctx context.Context, pool *pgxpool.Pool, source strin
 	return true, nil
 }
 
-// listPendingDiscoveryChanges returns the unseen recorded diffs, newest-first.
-func listPendingDiscoveryChanges(ctx context.Context, pool *pgxpool.Pool) ([]DiscoveryChangeEntry, error) {
-	rows, err := pool.Query(ctx,
-		`SELECT provider_name, source, detected_at, diff
-		   FROM discovery_changes
-		  WHERE NOT seen
-		  ORDER BY detected_at DESC`)
-	if err != nil {
-		return nil, err
-	}
+// scanDiscoveryChangeRows decodes (provider_name, source, detected_at, diff)
+// rows into entries, shared by the list and ack queries.
+func scanDiscoveryChangeRows(rows pgx.Rows) ([]DiscoveryChangeEntry, error) {
 	defer rows.Close()
-
 	var entries []DiscoveryChangeEntry
 	for rows.Next() {
 		var (
@@ -104,8 +97,36 @@ func listPendingDiscoveryChanges(ctx context.Context, pool *pgxpool.Pool) ([]Dis
 	return entries, rows.Err()
 }
 
-// markDiscoveryChangesSeen flips every unseen row to seen, clearing the badge.
-func markDiscoveryChangesSeen(ctx context.Context, pool *pgxpool.Pool) error {
-	_, err := pool.Exec(ctx, `UPDATE discovery_changes SET seen = true WHERE NOT seen`)
-	return err
+// listPendingDiscoveryChanges returns the unseen recorded diffs, newest-first.
+func listPendingDiscoveryChanges(ctx context.Context, pool *pgxpool.Pool) ([]DiscoveryChangeEntry, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT provider_name, source, detected_at, diff
+		   FROM discovery_changes
+		  WHERE NOT seen
+		  ORDER BY detected_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	return scanDiscoveryChangeRows(rows)
+}
+
+// markDiscoveryChangesSeen flips every unseen row to seen and returns exactly the
+// rows it marked (newest-first). Marking and reading in one UPDATE … RETURNING is
+// atomic, so a row recorded between a separate SELECT and UPDATE can't be acked
+// without ever being handed back for review — the caller snapshots the modal from
+// this return value rather than a possibly-stale cache.
+func markDiscoveryChangesSeen(ctx context.Context, pool *pgxpool.Pool) ([]DiscoveryChangeEntry, error) {
+	rows, err := pool.Query(ctx,
+		`WITH updated AS (
+			UPDATE discovery_changes SET seen = true
+			 WHERE NOT seen
+			 RETURNING provider_name, source, detected_at, diff
+		)
+		SELECT provider_name, source, detected_at, diff
+		  FROM updated
+		 ORDER BY detected_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	return scanDiscoveryChangeRows(rows)
 }

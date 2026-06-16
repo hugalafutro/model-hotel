@@ -673,23 +673,29 @@ export function Layout({ children }: LayoutProps) {
 		return () => window.removeEventListener("server-event", handler);
 	}, [queryClient]);
 
-	// Snapshot the entries before acknowledging (ack clears the server list, so
-	// the open modal reads from this local copy), then mark seen to drop the badge.
+	// Ack atomically marks the unseen rows seen and returns exactly those rows, so
+	// the modal snapshots from the ack response rather than the possibly-stale
+	// query cache — a change recorded between the last poll and this click is shown
+	// instead of silently buried. Fall back to the cached entries if ack fails (the
+	// badge then stays until a later successful ack).
 	const openDiscoveryChanges = async () => {
 		const failoverLabel = t("providers.discoverySummary.failover");
+		let entries = discoveryChanges?.entries ?? [];
+		try {
+			entries = (await api.discovery.ackChanges()).entries;
+		} catch {
+			// Keep the cached snapshot; the badge persists for a later retry.
+		} finally {
+			queryClient.invalidateQueries({ queryKey: ["discovery-changes"] });
+		}
 		setDiscoveryChangeEntries(
-			(discoveryChanges?.entries ?? []).map((entry, i) => ({
+			entries.map((entry, i) => ({
 				providerName: entry.provider_name || failoverLabel,
 				diff: entry.diff,
 				entryKey: `${entry.provider_name}-${entry.detected_at}-${i}`,
 			})),
 		);
 		setShowDiscoveryChanges(true);
-		try {
-			await api.discovery.ackChanges();
-		} finally {
-			queryClient.invalidateQueries({ queryKey: ["discovery-changes"] });
-		}
 	};
 
 	const navigation = [

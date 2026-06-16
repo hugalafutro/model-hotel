@@ -102,8 +102,8 @@
 			"appLogs": "Protokolle",
 			"settings": "Einstellungen",
 			"failoverBadgeExplain": "Failover-Anbieter nach Circuit-Breaker-Status – {{closed}} intakt / {{halfOpen}} in Wiederherstellung / {{open}} ausgelöst",
-			"discoveryChangesBadge_one": "{{count}} Modelländerung aus der Hintergrunderkennung – zum Überprüfen anklicken",
-			"discoveryChangesBadge_other": "{{count}} Modelländerungen aus der Hintergrunderkennung – zum Überprüfen anklicken"
+			"discoveryChangesBadge_one": "{{count}} Änderung aus der Hintergrunderkennung – zum Überprüfen anklicken",
+			"discoveryChangesBadge_other": "{{count}} Änderungen aus der Hintergrunderkennung – zum Überprüfen anklicken"
 		},
 		"status": {
 			"apiStatus": "API-Status",

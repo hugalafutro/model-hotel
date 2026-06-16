@@ -102,8 +102,8 @@
 			"appLogs": "Logger",
 			"settings": "Innstillinger",
 			"failoverBadgeExplain": "Failover-leverandører etter status på strømbryter — {{closed}} i orden / {{halfOpen}} gjenoppretter / {{open}} utløst",
-			"discoveryChangesBadge_one": "{{count}}-modellendring fra bakgrunnsoppdagelse – klikk for å se gjennom",
-			"discoveryChangesBadge_other": "{{count}}-modellendringer fra bakgrunnsoppdagelse – klikk for å se gjennom"
+			"discoveryChangesBadge_one": "{{count}} endring fra bakgrunnsoppdagelse — klikk for å se gjennom",
+			"discoveryChangesBadge_other": "{{count}} endringer fra bakgrunnsoppdagelse – klikk for å se gjennom"
 		},
 		"status": {
 			"apiStatus": "API-status",

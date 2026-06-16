@@ -102,8 +102,8 @@
 			"appLogs": "Günlükler",
 			"settings": "Ayarlar",
 			"failoverBadgeExplain": "Devre kesici durumuna göre yedekleme sağlayıcıları — {{closed}} sağlıklı / {{halfOpen}} kurtarma aşamasında / {{open}} devre dışı",
-			"discoveryChangesBadge_one": "{{count}} model değişikliği arka plan keşfinden — gözden geçirmek için tıklayın",
-			"discoveryChangesBadge_other": "{{count}} modeli arka plan keşfinden kaynaklanan değişiklikler — gözden geçirmek için tıklayın"
+			"discoveryChangesBadge_one": "{{count}} arka plan keşfinden yapılan değişiklik — gözden geçirmek için tıklayın",
+			"discoveryChangesBadge_other": "{{count}}, arka plan keşif sürecinden kaynaklanan değişiklikler — gözden geçirmek için tıklayın"
 		},
 		"status": {
 			"apiStatus": "API Durumu",

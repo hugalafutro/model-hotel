@@ -102,8 +102,8 @@
 			"appLogs": "السجلات",
 			"settings": "الإعدادات",
 			"failoverBadgeExplain": "مزودي التحويل التلقائي حسب حالة قاطع الدائرة — {{closed}} سليم / {{halfOpen}} قيد الاستعادة / {{open}} تعطل",
-			"discoveryChangesBadge_one": "تغيير نموذج {{count}} من الاكتشاف في الخلفية — انقر للمراجعة",
-			"discoveryChangesBadge_other": "تغييرات نموذج {{count}} من الاكتشاف في الخلفية — انقر للمراجعة"
+			"discoveryChangesBadge_one": "تغيير {{count}} من الاكتشاف في الخلفية — انقر للمراجعة",
+			"discoveryChangesBadge_other": "تغييرات {{count}} من عملية الاكتشاف في الخلفية — انقر للمراجعة"
 		},
 		"status": {
 			"apiStatus": "حالة API",

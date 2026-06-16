@@ -102,8 +102,8 @@
 			"appLogs": "Registros",
 			"settings": "Ajustes",
 			"failoverBadgeExplain": "Proveedores de conmutación por error según el estado del disyuntor: {{closed}} en buen estado / {{halfOpen}} en recuperación / {{open}} disparado",
-			"discoveryChangesBadge_one": "Cambio de modelo {{count}} desde el descubrimiento en segundo plano: haz clic para revisar",
-			"discoveryChangesBadge_other": "Cambios en el modelo {{count}} a partir del descubrimiento en segundo plano: haz clic para revisar"
+			"discoveryChangesBadge_one": "Cambio {{count}} procedente de la detección en segundo plano: haz clic para revisarlo",
+			"discoveryChangesBadge_other": "Cambios en {{count}} derivados del análisis en segundo plano: haz clic para revisarlos"
 		},
 		"status": {
 			"apiStatus": "Estado de la API",

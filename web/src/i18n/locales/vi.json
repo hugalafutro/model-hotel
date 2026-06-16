@@ -102,8 +102,8 @@
 			"appLogs": "Nhật ký",
 			"settings": "Cài đặt",
 			"failoverBadgeExplain": "Các nhà cung cấp dự phòng theo trạng thái ngắt mạch — {{closed}} hoạt động bình thường / {{halfOpen}} đang phục hồi / {{open}} bị ngắt",
-			"discoveryChangesBadge_one": "Thay đổi mô hình {{count}} từ quá trình phát hiện nền — nhấp để xem lại",
-			"discoveryChangesBadge_other": "Mô hình {{count}} thay đổi từ quá trình phát hiện nền — nhấp để xem lại"
+			"discoveryChangesBadge_one": "Thay đổi {{count}} từ quá trình phát hiện nền — nhấp để xem lại",
+			"discoveryChangesBadge_other": "{{count}} thay đổi từ tính năng phát hiện nền — nhấp để xem lại"
 		},
 		"status": {
 			"apiStatus": "Trạng thái API",

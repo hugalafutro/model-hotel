@@ -102,8 +102,8 @@
 			"appLogs": "יומנים",
 			"settings": "הגדרות",
 			"failoverBadgeExplain": "ספקי מעבר לגיבוי לפי מצב מפסק זרם — {{closed}} תקין / {{halfOpen}} מתאושש / {{open}} הופעל",
-			"discoveryChangesBadge_one": "שינוי במודל {{count}} מגילוי ברקע — לחץ כדי לעיין",
-			"discoveryChangesBadge_other": "שינויים במודל {{count}} מהגילוי ברקע — לחץ כדי לעיין"
+			"discoveryChangesBadge_one": "שינוי {{count}} מגילוי ברקע — לחצו כדי לעיין",
+			"discoveryChangesBadge_other": "שינויים ב-{{count}} כתוצאה מגילוי ברקע — לחצו כדי לעיין"
 		},
 		"status": {
 			"apiStatus": "סטטוס API",
