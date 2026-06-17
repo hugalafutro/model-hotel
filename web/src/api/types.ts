@@ -657,3 +657,13 @@ export interface WebAuthnCredential {
 export interface PublicConfig {
 	read_only: boolean;
 }
+
+// AlertEventDef describes one operator-subscribable alert event, served by
+// GET /api/alert/events. The Alerts settings picker is rendered from this list,
+// so a new backend event surfaces in the UI without a frontend change.
+export interface AlertEventDef {
+	type: string;
+	category: string;
+	severity: "success" | "info" | "warning" | "error";
+	defaultOn: boolean;
+}

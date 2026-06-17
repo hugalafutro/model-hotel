@@ -1767,6 +1767,41 @@
 			"otel.name": "Logi OpenTelemetry (OTLP)",
 			"title": "Obserwowalność i eksport logów",
 			"description": "Model Hotel może eksportować swoje ustrukturyzowane logi i metryki do systemów zewnętrznych. Każda integracja jest włączana za pomocą zmiennej środowiskowej; poniższe znaczniki statusu odzwierciedlają aktualny stan. Nigdy nie są eksportowane treści żądań ani odpowiedzi — tylko metadane dotyczące routingu i pomiarów."
+		},
+		"alerts": {
+			"apiUrl": "Adres URL interfejsu API Apprise",
+			"apiUrlDescription": "Podstawowy adres URL kontenera apprise-api, który uruchamiasz (na przykład http://apprise:8000).",
+			"clear": "Wyczyść",
+			"description": "Powiadomienia push o istotnych zdarzeniach (awaria dostawcy, zadziałanie wyłącznika awaryjnego) do Telegramu, poczty e-mail, Discorda i innych kanałów za pośrednictwem uruchomionego przez użytkownika bezstanowego kontenera Apprise. Nigdy nie są wysyłane treści żądań — jedynie podsumowanie zdarzenia.",
+			"enable": "Włącz powiadomienia",
+			"enableDescription": "Przekazuj wybrane zdarzenia do swojego punktu końcowego Apprise.",
+			"event": {
+				"circuit_breaker_closed": "Dostawca przywrócił działanie (wyłącznik obwodu zamknięty)",
+				"circuit_breaker_half_open": "Dostawca jest sprawdzany (wyłącznik automatyczny częściowo otwarty)",
+				"circuit_breaker_open": "Awaria dostawcy (wyłączony wyłącznik automatyczny)",
+				"discovery_provider_failed": "Wystąpił błąd dostawcy podczas wykrywania",
+				"failover_sync_error": "Nie udało się zsynchronizować grupy awaryjnej"
+			},
+			"events": {
+				"all": "Zaznacz wszystko",
+				"none": "Nie wybieraj żadnej opcji",
+				"reset": "Przywróć ustawienia domyślne",
+				"title": "Zdarzenia, o których należy powiadamiać"
+			},
+			"eventsLabel": "Zdarzenia alertowe",
+			"snippets": {
+				"browseAll": "Przeglądaj wszystkie ponad 80 usług",
+				"description": "Przykładowe formaty adresów URL serwisu Apprise dla popularnych usług — skopiuj jeden z nich, uzupełnij swoje dane i wklej go powyżej."
+			},
+			"target": "Odbiorca powiadomienia",
+			"targetConfigured": "Skonfigurowane — wpisz tekst zastępczy",
+			"targetDescription": "Twój adres URL Apprise, np. tgram://<bot_token>/<chat_id>. Jest on przechowywany w postaci zaszyfrowanej i nigdy więcej nie jest wyświetlany. Wiele celów należy oddzielać znakiem „;”.",
+			"testButton": "Wyślij powiadomienie testowe",
+			"testFailed": "Powiadomienie o niepowodzeniu testu: {{message}}",
+			"testHint": "Włącz powiadomienia i ustaw zarówno adres URL interfejsu API Apprise, jak i adres docelowy, aby wysłać test.",
+			"testSending": "Wysyłanie…",
+			"testSent": "Wysłano powiadomienie testowe.",
+			"title": "Powiadomienia"
 		}
 	},
 	"components": {

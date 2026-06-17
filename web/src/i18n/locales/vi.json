@@ -1767,6 +1767,41 @@
 			"otel.name": "Nhật ký OpenTelemetry (OTLP)",
 			"title": "Khả năng quan sát & Xuất nhật ký",
 			"description": "Model Hotel có thể xuất nhật ký và số liệu có cấu trúc của mình sang các hệ thống bên ngoài. Mỗi tích hợp được kích hoạt bằng một biến môi trường; các biểu tượng trạng thái bên dưới phản ánh trạng thái hiện tại. Không có nội dung yêu cầu hoặc phản hồi nào được xuất — chỉ có siêu dữ liệu định tuyến và đo lường."
+		},
+		"alerts": {
+			"apiUrl": "URL API Apprise",
+			"apiUrlDescription": "URL cơ sở của container apprise-api mà bạn đang chạy (ví dụ: http://apprise:8000).",
+			"clear": "Xóa",
+			"description": "Gửi thông báo đẩy cho các sự kiện đáng chú ý (nhà cung cấp ngừng hoạt động, bộ ngắt mạch kích hoạt) đến Telegram, email, Discord và các nền tảng khác thông qua container Apprise không trạng thái mà bạn đang chạy. Không bao giờ gửi nội dung yêu cầu — chỉ gửi tóm tắt sự kiện.",
+			"enable": "Kích hoạt tính năng cảnh báo",
+			"enableDescription": "Chuyển tiếp các sự kiện đã chọn đến điểm cuối Apprise của bạn.",
+			"event": {
+				"circuit_breaker_closed": "Nhà cung cấp đã khôi phục (cơ chế ngắt mạch đã đóng)",
+				"circuit_breaker_half_open": "Nhà cung cấp đang được kiểm tra (cơ chế ngắt mạch ở trạng thái nửa mở)",
+				"circuit_breaker_open": "Nhà cung cấp ngừng hoạt động (cầu dao ngắt mạch đã mở)",
+				"discovery_provider_failed": "Nhà cung cấp gặp sự cố trong quá trình phát hiện",
+				"failover_sync_error": "Đồng bộ hóa nhóm dự phòng không thành công"
+			},
+			"events": {
+				"all": "Chọn tất cả",
+				"none": "Không chọn",
+				"reset": "Đặt lại về mặc định",
+				"title": "Các sự kiện cần thông báo"
+			},
+			"eventsLabel": "Sự kiện cảnh báo",
+			"snippets": {
+				"browseAll": "Xem tất cả hơn 80 dịch vụ",
+				"description": "Ví dụ về định dạng URL Apprise cho các dịch vụ phổ biến — sao chép một định dạng, điền thông tin của bạn vào và dán vào phần trên."
+			},
+			"target": "Đối tượng nhận thông báo",
+			"targetConfigured": "Đã cấu hình — nhập nội dung để thay thế",
+			"targetDescription": "URL Apprise của bạn, ví dụ: tgram://<bot_token>/<chat_id>. Được lưu trữ dưới dạng mã hóa và không bao giờ được hiển thị lại. Dùng dấu ';' để phân tách các mục tiêu.",
+			"testButton": "Gửi thông báo thử nghiệm",
+			"testFailed": "Thông báo thử nghiệm không thành công: {{message}}",
+			"testHint": "Kích hoạt tính năng cảnh báo và thiết lập cả URL API Apprise lẫn đích đến để gửi yêu cầu thử nghiệm.",
+			"testSending": "Đang gửi…",
+			"testSent": "Đã gửi thông báo thử nghiệm.",
+			"title": "Cảnh báo"
 		}
 	},
 	"components": {

@@ -1767,6 +1767,41 @@
 			"otel.name": "OpenTelemetry günlükleri (OTLP)",
 			"title": "Gözlemlenebilirlik ve Günlük Dışa Aktarma",
 			"description": "Model Hotel, yapılandırılmış günlüklerini ve metriklerini harici sistemlere aktarabilir. Her entegrasyon bir ortam değişkeni ile etkinleştirilir; aşağıdaki durum rozetleri mevcut durumu yansıtır. Hiçbir istek veya yanıt içeriği aktarılmaz — yalnızca yönlendirme ve ölçüm meta verileri aktarılır."
+		},
+		"alerts": {
+			"apiUrl": "Apprise API URL'si",
+			"apiUrlDescription": "Çalıştırdığınız apprise-api konteynerinin temel URL'si (örneğin http://apprise:8000).",
+			"clear": "Temizle",
+			"description": "Önemli olaylar (bir sağlayıcının hizmetinin kesilmesi, bir devre kesicinin devreye girmesi) için, çalıştırdığınız durum bilgisi içermeyen bir Apprise konteyneri aracılığıyla Telegram, e-posta, Discord ve diğer platformlara push bildirimleri gönderin. Hiçbir istek içeriği gönderilmez — yalnızca olay özeti gönderilir.",
+			"enable": "Uyarı özelliğini etkinleştirin",
+			"enableDescription": "Seçilen olayları Apprise uç noktanıza iletin.",
+			"event": {
+				"circuit_breaker_closed": "Sağlayıcı kurtarıldı (devre kesici kapandı)",
+				"circuit_breaker_half_open": "Sağlayıcı kontrol ediliyor (devre kesici yarı açık)",
+				"circuit_breaker_open": "Sağlayıcı devre dışı (devre kesici açıldı)",
+				"discovery_provider_failed": "Sağlayıcı, keşif sırasında hata verdi",
+				"failover_sync_error": "Yedekleme grubu senkronizasyonu başarısız oldu"
+			},
+			"events": {
+				"all": "Tümünü seç",
+				"none": "Hiçbiri seçilmedi",
+				"reset": "Varsayılanlara sıfırla",
+				"title": "Bildirilecek olaylar"
+			},
+			"eventsLabel": "Uyarı olayları",
+			"snippets": {
+				"browseAll": "80'den fazla hizmetin tümünü inceleyin",
+				"description": "Popüler hizmetler için örnek Apprise URL biçimleri — bunlardan birini kopyalayın, bilgilerinizi girin ve yukarıya yapıştırın."
+			},
+			"target": "Bildirim hedefi",
+			"targetConfigured": "Yapılandırılmış — değiştirilecek metin",
+			"targetDescription": "Apprise URL'niz, örneğin tgram://<bot_token>/<chat_id>. Şifrelenmiş olarak saklanır ve bir daha asla gösterilmez. Birden fazla hedefi ';' ile ayırın.",
+			"testButton": "Test bildirimi gönder",
+			"testFailed": "Bildirim testi başarısız: {{message}}",
+			"testHint": "Uyarı özelliğini etkinleştirin ve bir test göndermek için hem bir Apprise API URL'si hem de bir hedef belirleyin.",
+			"testSending": "Gönderiliyor…",
+			"testSent": "Test bildirimi gönderildi.",
+			"title": "Uyarılar"
 		}
 	},
 	"components": {

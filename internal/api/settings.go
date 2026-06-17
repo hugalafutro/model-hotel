@@ -9,9 +9,53 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/otelexport"
 )
+
+// secretSettingKeys are settings whose values carry a credential (e.g. an
+// Apprise URL containing a bot token). They are encrypted at rest via
+// auth.EncryptString and never returned in plaintext to the dashboard.
+var secretSettingKeys = map[string]bool{
+	"alert_apprise_targets": true,
+}
+
+// secretMaskValue is returned to clients in place of a configured secret, and
+// recognised on write to mean "leave the stored ciphertext unchanged".
+const secretMaskValue = "********"
+
+// encryptSecretSettings rewrites secret keys in req in place: a masked
+// (unchanged) value is removed so the existing stored ciphertext is preserved;
+// a non-empty value is encrypted at rest; an empty value is left as-is to clear
+// the secret. Requires MASTER_KEY when a new secret value is supplied.
+func (h *Handler) encryptSecretSettings(req map[string]string) error {
+	masterKey := ""
+	if h.cfg != nil {
+		masterKey = h.cfg.MasterKey
+	}
+	for key, value := range req {
+		if !secretSettingKeys[key] {
+			continue
+		}
+		switch value {
+		case secretMaskValue:
+			delete(req, key) // unchanged — keep stored ciphertext
+		case "":
+			// explicit clear — leave empty
+		default:
+			if masterKey == "" {
+				return fmt.Errorf("MASTER_KEY not configured")
+			}
+			enc, err := auth.EncryptString(value, masterKey)
+			if err != nil {
+				return err
+			}
+			req[key] = enc
+		}
+	}
+	return nil
+}
 
 // RegisterSettings mounts settings API routes.
 func (h *Handler) RegisterSettings(r chi.Router) {
@@ -40,6 +84,15 @@ func (h *Handler) injectReadOnlyStatus(all map[string]string) map[string]string 
 	all["log_export_json"] = strconv.FormatBool(debuglog.JSONFormat())
 	all["log_export_metrics"] = strconv.FormatBool(h.cfg != nil && h.cfg.MetricsToken != "")
 	all["log_export_otel"] = strconv.FormatBool(otelexport.LogsEnabled())
+	// Mask secret values so neither the stored ciphertext nor any plaintext
+	// reaches the client. Every response path funnels through here, so no
+	// handler can accidentally leak a secret. A configured secret becomes a
+	// fixed placeholder; an unset one stays empty.
+	for key := range secretSettingKeys {
+		if all[key] != "" {
+			all[key] = secretMaskValue
+		}
+	}
 	return all
 }
 
@@ -93,6 +146,10 @@ var allowedSettings = map[string]struct {
 	"backup_son_retention":         {typeName: "int", min: 1, max: 365},
 	"backup_father_retention":      {typeName: "int", min: 0, max: 52},
 	"backup_grandfather_retention": {typeName: "int", min: 0, max: 120},
+	"alert_enabled":                {typeName: "string"}, // bool as string
+	"alert_apprise_api_url":        {typeName: "string"}, // base URL of the apprise-api container
+	"alert_apprise_targets":        {typeName: "string"}, // secret: encrypted at rest, masked on read
+	"alert_events":                 {typeName: "string"}, // CSV of enabled event Types (the picker)
 }
 
 const maxSettingValueLen = 500
@@ -150,6 +207,13 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+	}
+
+	// Encrypt secret values at rest. A masked (unchanged) submission is dropped
+	// so the stored ciphertext is preserved; an empty value clears the secret.
+	if err := h.encryptSecretSettings(req); err != nil {
+		respondError(w, "failed to secure secret setting", err, http.StatusInternalServerError)
+		return
 	}
 
 	tx, err := h.dbPool.Begin(r.Context())

@@ -1767,6 +1767,41 @@
 			"otel.name": "Journaux OpenTelemetry (OTLP)",
 			"title": "Observabilité et exportation des journaux",
 			"description": "Model Hotel peut exporter ses journaux et métriques structurés vers des systèmes externes. Chaque intégration est activée par une variable d'environnement ; les badges d'état ci-dessous reflètent l'état actuel. Aucun contenu de requête ou de réponse n'est jamais exporté — seules les métadonnées de routage et de mesure le sont."
+		},
+		"alerts": {
+			"apiUrl": "URL de l’API Apprise",
+			"apiUrlDescription": "URL de base du conteneur apprise-api que vous exécutez (par exemple http://apprise:8000).",
+			"clear": "Effacer",
+			"description": "Envoyez des notifications push pour les événements importants (indisponibilité d’un fournisseur, déclenchement d’un disjoncteur) vers Telegram, par e-mail, sur Discord et plus encore via un conteneur Apprise sans état que vous exécutez. Aucun contenu de requête n’est jamais envoyé — seul le résumé de l’événement est transmis.",
+			"enable": "Activer les alertes",
+			"enableDescription": "Transférez les événements sélectionnés vers votre point de terminaison Apprise.",
+			"event": {
+				"circuit_breaker_closed": "Fournisseur rétabli (disjoncteur fermé)",
+				"circuit_breaker_half_open": "Fournisseur en cours de test (disjoncteur à demi ouvert)",
+				"circuit_breaker_open": "Fournisseur hors service (disjoncteur ouvert)",
+				"discovery_provider_failed": "Échec de la détection du fournisseur",
+				"failover_sync_error": "Échec de la synchronisation du groupe de basculement"
+			},
+			"events": {
+				"all": "Tout sélectionner",
+				"none": "Ne rien sélectionner",
+				"reset": "Rétablir les valeurs par défaut",
+				"title": "Événements à signaler"
+			},
+			"eventsLabel": "Événements d’alerte",
+			"snippets": {
+				"browseAll": "Parcourir l'ensemble des plus de 80 services",
+				"description": "Exemples de formats d’URL Apprise pour des services courants : copiez-en un, complétez-le avec vos informations, puis collez-le ci-dessus."
+			},
+			"target": "Cible de notification",
+			"targetConfigured": "Configuré — saisir le texte de remplacement",
+			"targetDescription": "Votre URL Apprise, par exemple tgram://<bot_token>/<chat_id>. Stockée sous forme chiffrée et ne sera plus jamais affichée. Séparez les cibles multiples par « ; ».",
+			"testButton": "Envoyer une notification de test",
+			"testFailed": "Échec de la notification de test : {{message}}",
+			"testHint": "Activez les alertes et configurez à la fois une URL API Apprise et une cible pour envoyer un test.",
+			"testSending": "Envoi en cours…",
+			"testSent": "Notification de test envoyée.",
+			"title": "Alertes"
 		}
 	},
 	"components": {

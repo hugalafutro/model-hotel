@@ -27,6 +27,7 @@ describe("SETTING_DEFAULTS", () => {
 			"rateLimit",
 			"circuitBreaker",
 			"dataStorage",
+			"alerts",
 		]);
 	});
 

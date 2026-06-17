@@ -1767,6 +1767,41 @@
 			"otel.name": "Protokoly OpenTelemetry (OTLP)",
 			"title": "Pozorovateľnosť a export protokolov",
 			"description": "Model Hotel môže exportovať svoje štruktúrované protokoly a metriky do externých systémov. Každá integrácia je aktivovaná prostredníctvom premennej prostredia; nižšie uvedené ikony stavu odrážajú aktuálny stav. Nikdy sa neexportuje obsah žiadostí ani odpovedí – iba metadáta smerovania a merania."
+		},
+		"alerts": {
+			"apiUrl": "URL rozhrania Apprise API",
+			"apiUrlDescription": "Základná URL adresa kontajnera apprise-api, ktorý spúšťate (napríklad http://apprise:8000).",
+			"clear": "Vymazať",
+			"description": "Push notifikácie o dôležitých udalostiach (výpadok poskytovateľa, aktivácia ochranného vypínača) odosielajte do aplikácií Telegram, e-mailu, Discord a ďalších prostredníctvom bezstavového kontajnera Apprise, ktorý prevádzkujete. Nikdy sa neodosiela obsah požiadavky – iba súhrn udalosti.",
+			"enable": "Aktivujte upozornenia",
+			"enableDescription": "Vybrané udalosti presmerujte na váš koncový bod Apprise.",
+			"event": {
+				"circuit_breaker_closed": "Poskytovateľ sa zotavil (istič sa uzavrel)",
+				"circuit_breaker_half_open": "Poskytovateľ sa testuje (istič je polootvorený)",
+				"circuit_breaker_open": "Poskytovateľ mimo prevádzky (otvorený istič)",
+				"discovery_provider_failed": "Poskytovateľ zlyhal počas vyhľadávania",
+				"failover_sync_error": "Synchronizácia skupiny pre prevzatie pri výpadku zlyhala"
+			},
+			"events": {
+				"all": "Vybrať všetko",
+				"none": "Nevyberajte nič",
+				"reset": "Obnoviť predvolené nastavenia",
+				"title": "Udalosti, o ktorých sa má zasielať upozornenie"
+			},
+			"eventsLabel": "Upozorňovacie udalosti",
+			"snippets": {
+				"browseAll": "Prezrite si všetkých viac ako 80 služieb",
+				"description": "Príklady formátov URL adresy Apprise pre populárne služby – skopírujte jeden z nich, vyplňte svoje údaje a vložte ho vyššie."
+			},
+			"target": "Cieľ oznámenia",
+			"targetConfigured": "Konfigurované — text na nahradenie",
+			"targetDescription": "Vaša URL adresa Apprise, napr. tgram://<bot_token>/<chat_id>. Ukladá sa v šifrovanej podobe a už sa nikdy nezobrazí. Viac cieľov oddeľte znakom „;“.",
+			"testButton": "Odoslať testovacie oznámenie",
+			"testFailed": "Testovanie oznámenia zlyhalo: {{message}}",
+			"testHint": "Aktivujte upozornenia a nastavte URL rozhrania Apprise API aj cieľ na odoslanie testu.",
+			"testSending": "Odosielanie…",
+			"testSent": "Oznámenie o teste bolo odoslané.",
+			"title": "Upozornenia"
 		}
 	},
 	"components": {

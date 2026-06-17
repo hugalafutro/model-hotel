@@ -1767,6 +1767,41 @@
 			"otel.name": "Registres d'OpenTelemetry (OTLP)",
 			"title": "Observabilitat i exportació de registres",
 			"description": "Model Hotel pot exportar els seus registres i mètriques estructurats a sistemes externs. Cada integració s'activa amb una variable d'entorn; les insígnies d'estat de sota reflecteixen l'estat actual. El contingut de cap sol·licitud ni resposta s'exporta mai, només les metadades de rutes i mesurament."
+		},
+		"alerts": {
+			"apiUrl": "URL de l'API Apprise",
+			"apiUrlDescription": "URL base del contenidor apprise-api que executeu (per exemple http://apprise:8000).",
+			"clear": "Clar",
+			"description": "Notificacions push d'esdeveniments destacats (un proveïdor que cau, un circuit de protecció que salta) a Telegram, correu electrònic, Discord i més, mitjançant un contenidor Apprise sense estat que executeu. No s'envia mai cap contingut de la sol·licitud, només el resum de l'esdeveniment.",
+			"enable": "Activa les alertes",
+			"enableDescription": "Envia els esdeveniments seleccionats al teu punt final d'Apprise.",
+			"event": {
+				"circuit_breaker_closed": "Proveïdor recuperat (interruptor de circuit tancat)",
+				"circuit_breaker_half_open": "Proveïdor en proves (desactivador de circuit mig obert)",
+				"circuit_breaker_open": "Proveïdor fora de servei (disjuntor obert)",
+				"discovery_provider_failed": "El proveïdor ha fallat durant el descobriment",
+				"failover_sync_error": "La sincronització del grup de fallada ha fallat"
+			},
+			"events": {
+				"all": "Selecciona-ho tot",
+				"none": "Seleccionar cap",
+				"reset": "Restablir als valors per defecte",
+				"title": "Esdeveniments per notificar"
+			},
+			"eventsLabel": "Esdeveniments d'alerta",
+			"snippets": {
+				"browseAll": "Navega pels més de 80 serveis",
+				"description": "Formats d'URL d'exemple per a serveis populars — copia'n un, omple les teves dades i enganxa'l a dalt."
+			},
+			"target": "Destinació de notificació",
+			"targetConfigured": "Configurat — tipus per substituir",
+			"targetDescription": "La teva URL d'Apprise, p. ex. tgram://<bot_token>/<chat_id>. S'emmagatzema xifrada i no es mostra mai més. Separa diversos destinataris amb ';'.",
+			"testButton": "Envia notificació de prova",
+			"testFailed": "La prova de notificació ha fallat: {{message}}",
+			"testHint": "Activa les alertes i configura tant una URL de l'API Apprise com un destinatari per enviar una prova.",
+			"testSending": "Enviant…",
+			"testSent": "Notificació de prova enviada.",
+			"title": "Alertes"
 		}
 	},
 	"components": {

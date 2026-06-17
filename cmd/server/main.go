@@ -21,6 +21,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/hugalafutro/model-hotel/internal/admin"
+	"github.com/hugalafutro/model-hotel/internal/alert"
 	"github.com/hugalafutro/model-hotel/internal/api"
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/config"
@@ -283,6 +284,13 @@ func main() {
 	proxyHandler := proxy.NewHandler(cfg, providerRepo, modelRepo, database.Pool(), virtualKeyRepo, failoverRepo, settingsRepo, rateLimiter, tpmLimiter, ipLimiter, sd)
 	apiHandler.SetCircuitBreaker(proxyHandler.CircuitBreaker())
 	apiHandler.StartBackupScheduler(context.Background())
+
+	// Outbound alerting: a single consumer of the events bus that forwards
+	// operator-selected events to a stateless apprise-api container. Best-effort
+	// — a missing/failing apprise-api never affects request serving. Runs for the
+	// app lifetime (ctx), reading config live so toggles apply without a restart.
+	alertDispatcher := alert.New(alert.NewSettingsConfigProvider(settingsRepo, cfg.MasterKey), nil)
+	go alertDispatcher.Run(ctx)
 
 	// Prometheus metrics at the conventional /metrics path (root, no IP rate
 	// limiter so scrapers aren't throttled). Authenticated via METRICS_TOKEN or

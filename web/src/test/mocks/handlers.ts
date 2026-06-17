@@ -391,6 +391,40 @@ export const handlers: RequestHandler[] = [
 		return HttpResponse.json(body as Record<string, string>);
 	}),
 
+	// ── Alerts ────────────────────────────────────────────────────────────
+	http.get("/api/alert/events", ({ request }) => {
+		if (!hasValidAuth(request)) {
+			return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+		}
+		return HttpResponse.json([
+			{
+				type: "circuit_breaker.open",
+				category: "Failover",
+				severity: "warning",
+				defaultOn: true,
+			},
+			{
+				type: "circuit_breaker.closed",
+				category: "Failover",
+				severity: "success",
+				defaultOn: true,
+			},
+			{
+				type: "discovery.provider_failed",
+				category: "Discovery",
+				severity: "error",
+				defaultOn: false,
+			},
+		]);
+	}),
+
+	http.post("/api/alert/test", ({ request }) => {
+		if (!hasValidAuth(request)) {
+			return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+		}
+		return HttpResponse.json({ ok: true });
+	}),
+
 	// ── System ────────────────────────────────────────────────────────────
 	http.get("/api/system", ({ request }) => {
 		if (!hasValidAuth(request)) {

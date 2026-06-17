@@ -38,6 +38,14 @@ export const SETTING_DEFAULTS: Record<SettingKey, string> = {
 	// Data storage & logging
 	log_retention: "0",
 	stale_request_timeout: "30m0s",
+
+	// Alerting (Apprise). alert_events MUST match Go's alert.DefaultEnabledCSV()
+	// (internal/alert/catalog.go) — the comma-joined default-on event types.
+	alert_enabled: "false",
+	alert_apprise_api_url: "",
+	alert_apprise_targets: "",
+	alert_events:
+		"circuit_breaker.open,circuit_breaker.closed,failover.sync_error",
 };
 
 export type SectionName =
@@ -45,7 +53,8 @@ export type SectionName =
 	| "proxy"
 	| "rateLimit"
 	| "circuitBreaker"
-	| "dataStorage";
+	| "dataStorage"
+	| "alerts";
 
 /**
  * Mapping of section names to their contained setting keys.
@@ -79,6 +88,12 @@ export const SECTION_SETTINGS: Record<SectionName, string[]> = {
 		"failover_on_rate_limit",
 	],
 	dataStorage: ["log_retention", "stale_request_timeout"],
+	alerts: [
+		"alert_enabled",
+		"alert_apprise_api_url",
+		"alert_apprise_targets",
+		"alert_events",
+	],
 };
 
 export type SettingKey =
@@ -101,7 +116,11 @@ export type SettingKey =
 	| "circuit_breaker_cooldown"
 	| "failover_on_rate_limit"
 	| "log_retention"
-	| "stale_request_timeout";
+	| "stale_request_timeout"
+	| "alert_enabled"
+	| "alert_apprise_api_url"
+	| "alert_apprise_targets"
+	| "alert_events";
 
 /**
  * Mapping from DB setting keys to their human-readable i18n keys.
@@ -128,4 +147,8 @@ export const SETTING_LABELS: Record<SettingKey, string> = {
 	failover_on_rate_limit: "settings.circuitBreaker.failoverOnRateLimit",
 	log_retention: "settings.logging.logRetention",
 	stale_request_timeout: "settings.logging.staleRequestTimeout",
+	alert_enabled: "settings.alerts.enable",
+	alert_apprise_api_url: "settings.alerts.apiUrl",
+	alert_apprise_targets: "settings.alerts.target",
+	alert_events: "settings.alerts.eventsLabel",
 };

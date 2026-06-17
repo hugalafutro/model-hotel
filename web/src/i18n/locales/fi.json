@@ -1767,6 +1767,41 @@
 			"otel.name": "OpenTelemetry-lokit (OTLP)",
 			"title": "Havainnoitavuus ja lokien vienti",
 			"description": "Model Hotel voi viedä jäsennellyt lokit ja mittarit ulkoisiin järjestelmiin. Jokainen integraatio otetaan käyttöön ympäristömuuttujalla; alla olevat tilamerkit kuvaavat nykyistä tilaa. Pyynnön tai vastauksen sisältöä ei koskaan viedä — vain reititys- ja mittausmetatiedot."
+		},
+		"alerts": {
+			"apiUrl": "Apprise-API:n URL-osoite",
+			"apiUrlDescription": "Käynnistämäsi apprise-api-kontin perus-URL (esimerkiksi http://apprise:8000).",
+			"clear": "Selkeä",
+			"description": "Lähetä merkittävistä tapahtumista (palveluntarjoajan katkeaminen, katkaisijan laukeaminen) push-ilmoitukset Telegramiin, sähköpostiin, Discordiin ja muihin kanaviin käyttämällä itse ylläpitämääsi tilatonta Apprise-konttia. Pyynnön sisältöä ei koskaan lähetetä – vain tapahtuman yhteenveto.",
+			"enable": "Ota hälytykset käyttöön",
+			"enableDescription": "Välitä valitut tapahtumat Apprise-päätelaitteeseesi.",
+			"event": {
+				"circuit_breaker_closed": "Palveluntarjoaja palautunut (katkaisija suljettu)",
+				"circuit_breaker_half_open": "Palveluntarjoajaa testataan (katkaisija puoliksi auki)",
+				"circuit_breaker_open": "Palveluntarjoaja poissa käytöstä (katkaisija auki)",
+				"discovery_provider_failed": "Palveluntarjoaja epäonnistui tunnistuksen aikana",
+				"failover_sync_error": "Failover-ryhmän synkronointi epäonnistui"
+			},
+			"events": {
+				"all": "Valitse kaikki",
+				"none": "Älä valitse mitään",
+				"reset": "Palauta oletusasetukset",
+				"title": "Ilmoitettavat tapahtumat"
+			},
+			"eventsLabel": "Hälytystapahtumat",
+			"snippets": {
+				"browseAll": "Selaa kaikkia yli 80 palvelua",
+				"description": "Esimerkkejä Apprise-URL-muodoista suosituille palveluille — kopioi yksi, täytä omat tietosi ja liitä se yllä olevaan kenttään."
+			},
+			"target": "Ilmoituksen kohde",
+			"targetConfigured": "Määritetty — kirjoita korvaava teksti",
+			"targetDescription": "Apprise-URL-osoitteesi, esim. tgram://<bot_token>/<chat_id>. Tallennetaan salattuna eikä sitä näytetä enää koskaan. Erota useat kohteet toisistaan ';'-merkillä.",
+			"testButton": "Lähetä testilmoitus",
+			"testFailed": "Ilmoituksen testaus epäonnistui: {{message}}",
+			"testHint": "Ota hälytykset käyttöön ja määritä sekä Apprise-API-URL että kohde testiviestin lähettämistä varten.",
+			"testSending": "Lähetetään…",
+			"testSent": "Testiviesti lähetetty.",
+			"title": "Hälytykset"
 		}
 	},
 	"components": {
