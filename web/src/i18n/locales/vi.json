@@ -804,7 +804,7 @@
 	"models": {
 		"page_title_one": "Mô hình",
 		"page_title_other": "Mô hình",
-		"page_description": "Các mẫu được phát hiện từ các nhà cung cấp của bạn",
+		"page_description": "Các mô hình được phát hiện từ các nhà cung cấp của bạn",
 		"badge_enabled": "{{count}} đã bật",
 		"badge_disabled": "{{count}} bị khuyết tật",
 		"view_mode_pages": "⬡ Trang",
