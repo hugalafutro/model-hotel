@@ -44,3 +44,59 @@ export const isCancelled = (
 	if (log.error_kind) return CANCELLED_KINDS.has(log.error_kind);
 	return isCancelledMessage(log.error_message);
 };
+
+export type StatusBadgeVariant =
+	| "error"
+	| "warning"
+	| "success"
+	| "orange"
+	| "muted";
+
+/**
+ * Maps a request's status code (plus error context) to a Badge variant.
+ * Shared by both the paginated and virtualized log tables so the two views
+ * never drift apart.
+ */
+export const getStatusBadgeVariant = (
+	statusCode: number,
+	log?: { error_kind?: string; error_message?: string },
+): StatusBadgeVariant => {
+	if (isCancelled(log)) return "warning";
+	if (statusCode === 0) return "error";
+	if (statusCode >= 200 && statusCode < 300) return "success";
+	if (statusCode >= 400 && statusCode < 500) return "orange";
+	if (statusCode >= 500) return "error";
+	return "muted";
+};
+
+type InProgressLike = { state?: string; created_at: string };
+
+/**
+ * A request still in pending/streaming state but older than the configured
+ * timeout is almost certainly dead (server crash, unhandled error, etc.) -
+ * treat it as stale rather than showing a permanently pulsing row.
+ *
+ * `nowMs` is the caller's ticking "now" (so rows re-evaluate on an interval)
+ * and `staleThresholdMs` the configured stale-request timeout.
+ */
+export const isStale = (
+	log: InProgressLike,
+	nowMs: number,
+	staleThresholdMs: number,
+): boolean => {
+	if (log.state !== "pending" && log.state !== "streaming") return false;
+	const age = nowMs - new Date(log.created_at).getTime();
+	return age > staleThresholdMs;
+};
+
+/**
+ * A request that is actively pending/streaming and not yet stale. These rows
+ * render the blue "…"/"Live" in-progress indicator instead of a status code.
+ */
+export const isInProgress = (
+	log: InProgressLike,
+	nowMs: number,
+	staleThresholdMs: number,
+): boolean =>
+	!isStale(log, nowMs, staleThresholdMs) &&
+	(log.state === "pending" || log.state === "streaming");

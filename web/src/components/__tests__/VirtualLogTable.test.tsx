@@ -77,6 +77,8 @@ const defaultProps = {
 	onFetchNewer: vi.fn(),
 	onFetchOlder: vi.fn(),
 	onRowClick: vi.fn(),
+	nowMs: Date.now(),
+	staleThresholdMs: 30 * 60 * 1000,
 	sortDir: "desc" as const,
 	onSortToggle: vi.fn(),
 };
@@ -343,6 +345,86 @@ describe("VirtualLogTable", () => {
 
 			const badge = screen.getByText("100").closest("[data-test-variant]");
 			expect(badge).toHaveClass("ui-badge-neutral");
+		});
+
+		// Regression: a pending/streaming row must surface the in-progress
+		// indicator (… / Live) instead of the literal status_code (0). The bug
+		// was that VirtualLogTable rendered {log.status_code} unconditionally,
+		// so a fresh pending request showed a red "0" in scroll mode while the
+		// detail modal correctly showed blue "Pending".
+		it('renders "…" (not "0") for a pending in-progress row', () => {
+			const entries = [
+				createLogEntry({
+					state: "pending",
+					status_code: 0,
+					created_at: new Date().toISOString(),
+				}),
+			];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable
+					{...defaultProps}
+					entries={entries}
+					nowMs={Date.now()}
+				/>,
+			);
+
+			expect(screen.getByText("…")).toBeInTheDocument();
+			expect(screen.queryByText("0")).not.toBeInTheDocument();
+		});
+
+		it('renders "Live" for a streaming in-progress row', () => {
+			const entries = [
+				createLogEntry({
+					state: "streaming",
+					status_code: 0,
+					created_at: new Date().toISOString(),
+				}),
+			];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable
+					{...defaultProps}
+					entries={entries}
+					nowMs={Date.now()}
+				/>,
+			);
+
+			expect(screen.getByText("Live")).toBeInTheDocument();
+			expect(screen.queryByText("0")).not.toBeInTheDocument();
+		});
+
+		it('renders stale "⚠" for a pending row older than the stale threshold', () => {
+			const entries = [
+				createLogEntry({
+					state: "pending",
+					status_code: 0,
+					created_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+				}),
+			];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable
+					{...defaultProps}
+					entries={entries}
+					nowMs={Date.now()}
+					staleThresholdMs={30 * 60 * 1000}
+				/>,
+			);
+
+			expect(screen.getByText("⚠")).toBeInTheDocument();
 		});
 
 		it('renders "Interrupted" for cancelled error messages in tokens column', () => {

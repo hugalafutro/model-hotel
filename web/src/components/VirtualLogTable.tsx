@@ -4,7 +4,12 @@ import { useTranslation } from "react-i18next";
 import type { LogEntry } from "../api/types";
 import { formatMs, formatTPS } from "../pages/Logs/utils";
 import { formatNumber } from "../utils/format";
-import { isCancelled } from "../utils/logHelpers";
+import {
+	getStatusBadgeVariant,
+	isCancelled,
+	isInProgress,
+	isStale,
+} from "../utils/logHelpers";
 import { Badge } from "./Badge";
 import { EndpointTypeBadge } from "./logs";
 import { LOG_COL_WIDTHS } from "./logTableWidths";
@@ -19,21 +24,13 @@ interface VirtualLogTableProps {
 	onFetchNewer: () => void;
 	onFetchOlder: () => void;
 	onRowClick: (entry: LogEntry) => void;
+	/** Ticking "now" used to evaluate in-progress/stale state (60s interval). */
+	nowMs: number;
+	/** Configured stale-request timeout in ms. */
+	staleThresholdMs: number;
 	sortDir: string;
 	onSortToggle: () => void;
 }
-
-const getStatusBadgeVariant = (
-	statusCode: number,
-	log?: { error_kind?: string; error_message?: string },
-): "error" | "warning" | "success" | "orange" | "muted" => {
-	if (isCancelled(log)) return "warning";
-	if (statusCode === 0) return "error";
-	if (statusCode >= 200 && statusCode < 300) return "success";
-	if (statusCode >= 400 && statusCode < 500) return "orange";
-	if (statusCode >= 500) return "error";
-	return "muted";
-};
 
 const HEADER_BASE =
 	"px-2 py-2 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap ui-table-header-text";
@@ -54,6 +51,8 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 		onFetchNewer,
 		onFetchOlder,
 		onRowClick,
+		nowMs,
+		staleThresholdMs,
 		sortDir,
 		onSortToggle,
 	} = props;
@@ -284,12 +283,14 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 					<tbody>
 						{virtualItems.map((vItem) => {
 							const log = entries[vItem.index];
+							const inProgress = isInProgress(log, nowMs, staleThresholdMs);
+							const stale = isStale(log, nowMs, staleThresholdMs);
 							return (
 								<tr
 									key={vItem.key}
 									data-index={vItem.index}
 									ref={virtualizer.measureElement}
-									className={`hover:bg-(--surface-hover) ${vItem.index % 2 === 1 ? "ui-row-even" : ""} cursor-pointer`}
+									className={`hover:bg-(--surface-hover) ${vItem.index % 2 === 1 ? "ui-row-even" : ""} ${inProgress ? "animate-pulse-subtle" : ""} cursor-pointer`}
 									onClick={() => onRowClick(log)}
 								>
 									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
@@ -340,6 +341,10 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 											>
 												{t("components.virtualLogTable.deleted")}
 											</span>
+										) : inProgress && !log.provider_name ? (
+											<span className="text-blue-400/60 italic">
+												{t("logs.table.resolving")}
+											</span>
 										) : (
 											log.provider_name || "-"
 										)}
@@ -349,7 +354,17 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 											variant={getStatusBadgeVariant(log.status_code, log)}
 											className="gap-1 whitespace-nowrap"
 										>
-											{log.status_code}
+											{stale ? (
+												<span className="text-yellow-500/70">⚠</span>
+											) : inProgress ? (
+												<span className="text-blue-400">
+													{log.state === "streaming"
+														? t("logs.table.live")
+														: "…"}
+												</span>
+											) : (
+												log.status_code
+											)}
 										</Badge>
 									</td>
 									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
@@ -400,11 +415,17 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 												: "-"}
 									</td>
 									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
-										{log.duration_ms > 0
-											? log.duration_ms >= 1000
-												? `${(log.duration_ms / 1000).toFixed(1)}s`
-												: `${log.duration_ms.toFixed(0)}ms`
-											: "-"}
+										{inProgress && log.duration_ms === 0 ? (
+											<span className="inline-block text-blue-400">-</span>
+										) : log.duration_ms > 0 ? (
+											log.duration_ms >= 1000 ? (
+												`${(log.duration_ms / 1000).toFixed(1)}s`
+											) : (
+												`${log.duration_ms.toFixed(0)}ms`
+											)
+										) : (
+											"-"
+										)}
 									</td>
 									<td className="px-2 py-1 whitespace-nowrap text-xs font-mono">
 										{log.proxy_overhead_ms != null &&
