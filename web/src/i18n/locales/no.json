@@ -1795,7 +1795,7 @@
 			},
 			"target": "Mottaker av varsel",
 			"targetConfigured": "Konfigurert — skriv inn for å erstatte",
-			"targetDescription": "Din Apprise-URL, f.eks. tgram://<bot_token>/<chat_id>. Lagrer kryptert og vises aldri igjen. Skille flere mål med «;».",
+			"targetDescription": "Din Apprise-URL — lagres kryptert og vises aldri igjen. Skille flere mål med <code>;</code>.",
 			"testButton": "Send testvarsel",
 			"testFailed": "Testvarsel mislyktes: {{message}}",
 			"testHint": "Aktiver varsling og angi både en Apprise API-URL og et mål for å sende en test.",

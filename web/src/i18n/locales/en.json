@@ -1442,7 +1442,7 @@
 			"apiUrl": "Apprise API URL",
 			"apiUrlDescription": "Base URL of the apprise-api container you run (for example http://apprise:8000).",
 			"target": "Notification target",
-			"targetDescription": "Your Apprise URL, e.g. tgram://<bot_token>/<chat_id>. Stored encrypted and never shown again. Separate multiple targets with ';'.",
+			"targetDescription": "Your Apprise URL — stored encrypted and never shown again. Separate multiple targets with <code>;</code>.",
 			"targetConfigured": "Configured — type to replace",
 			"clear": "Clear",
 			"eventsLabel": "Alert events",

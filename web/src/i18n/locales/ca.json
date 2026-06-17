@@ -1795,7 +1795,7 @@
 			},
 			"target": "Destinació de notificació",
 			"targetConfigured": "Configurat — tipus per substituir",
-			"targetDescription": "La teva URL d'Apprise, p. ex. tgram://<bot_token>/<chat_id>. S'emmagatzema xifrada i no es mostra mai més. Separa diversos destinataris amb ';'.",
+			"targetDescription": "La teva URL d'Apprise — emmagatzemada xifrada i que no es mostrarà mai més. Separa diversos objectius amb <code>;</code>.",
 			"testButton": "Envia notificació de prova",
 			"testFailed": "La prova de notificació ha fallat: {{message}}",
 			"testHint": "Activa les alertes i configura tant una URL de l'API Apprise com un destinatari per enviar una prova.",

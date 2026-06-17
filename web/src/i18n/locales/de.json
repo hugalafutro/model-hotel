@@ -1795,7 +1795,7 @@
 			},
 			"target": "Benachrichtigungsziel",
 			"targetConfigured": "Konfiguriert – Text zum Ersetzen",
-			"targetDescription": "Ihre Apprise-URL, z. B. tgram://<bot_token>/<chat_id>. Diese wird verschlüsselt gespeichert und nie wieder angezeigt. Trennen Sie mehrere Ziele durch „;“.",
+			"targetDescription": "Ihre Apprise-URL – wird verschlüsselt gespeichert und nie wieder angezeigt. Trennen Sie mehrere Ziele durch <code>;</code>.",
 			"testButton": "Testbenachrichtigung senden",
 			"testFailed": "Testbenachrichtigung fehlgeschlagen: {{message}}",
 			"testHint": "Aktivieren Sie die Benachrichtigungsfunktion und legen Sie sowohl eine Apprise-API-URL als auch ein Ziel fest, um einen Test zu senden.",

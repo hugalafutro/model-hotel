@@ -258,8 +258,12 @@ describe("AlertsSettings", () => {
 
 		await user.click(await screen.findByTestId("alert-picker-toggle"));
 		await screen.findByTestId("alert-event-picker");
-		// Failover group starts all-on (open+closed default on) => button says "Select none".
-		await user.click(screen.getByText("Select none"));
+		// Failover group starts all-on (open+closed default on); its select-all
+		// icon toggles them all off. The single-event Discovery group has no toggle.
+		expect(
+			screen.queryByTestId("alert-group-toggle-Discovery"),
+		).not.toBeInTheDocument();
+		await user.click(screen.getByTestId("alert-group-toggle-Failover"));
 		await waitFor(() => expect(put.body).not.toBeNull());
 		// Every Failover event removed; discovery.provider_failed was already off.
 		expect(put.body?.alert_events).toBe("");

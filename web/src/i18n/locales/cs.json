@@ -1795,7 +1795,7 @@
 			},
 			"target": "Cíl oznámení",
 			"targetConfigured": "Nakonfigurováno — zadejte náhradu",
-			"targetDescription": "Vaše URL Apprise, např. tgram://<bot_token>/<chat_id>. Ukládá se v zašifrované podobě a již se nikdy nezobrazuje. Více cílů oddělte znakem „;“.",
+			"targetDescription": "Vaše URL adresa Apprise — je uložena v zašifrované podobě a již se nikdy nezobrazí. Více cílů oddělte pomocí <code>;</code>.",
 			"testButton": "Odeslat testovací oznámení",
 			"testFailed": "Testování oznámení selhalo: {{message}}",
 			"testHint": "Aktivujte zasílání upozornění a nastavte jak URL rozhraní Apprise API, tak cíl pro odeslání testu.",

@@ -1795,7 +1795,7 @@
 			},
 			"target": "Destino da notificação",
 			"targetConfigured": "Configurado — digite para substituir",
-			"targetDescription": "Sua URL do Apprise, por exemplo, tgram://<bot_token>/<chat_id>. Armazenada de forma criptografada e nunca mais exibida. Separe vários destinos com “;”.",
+			"targetDescription": "Sua URL do Apprise — armazenada criptografada e nunca mais exibida. Separe vários destinos com <code>;</code>.",
 			"testButton": "Enviar notificação de teste",
 			"testFailed": "Falha na notificação de teste: {{message}}",
 			"testHint": "Habilite os alertas e defina tanto uma URL da API do Apprise quanto um destino para enviar um teste.",

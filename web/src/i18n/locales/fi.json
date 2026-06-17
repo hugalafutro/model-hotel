@@ -1795,7 +1795,7 @@
 			},
 			"target": "Ilmoituksen kohde",
 			"targetConfigured": "Määritetty — kirjoita korvaava teksti",
-			"targetDescription": "Apprise-URL-osoitteesi, esim. tgram://<bot_token>/<chat_id>. Tallennetaan salattuna eikä sitä näytetä enää koskaan. Erota useat kohteet toisistaan ';'-merkillä.",
+			"targetDescription": "Apprise-URL-osoitteesi — tallennetaan salattuna eikä sitä näytetä enää koskaan. Erota useat kohteet toisistaan merkinnällä <code>;</code>.",
 			"testButton": "Lähetä testilmoitus",
 			"testFailed": "Ilmoituksen testaus epäonnistui: {{message}}",
 			"testHint": "Ota hälytykset käyttöön ja määritä sekä Apprise-API-URL että kohde testiviestin lähettämistä varten.",

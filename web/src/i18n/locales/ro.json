@@ -1795,7 +1795,7 @@
 			},
 			"target": "Destinatarul notificării",
 			"targetConfigured": "Configurat — introduceți textul de înlocuire",
-			"targetDescription": "URL-ul dvs. Apprise, de exemplu tgram://<bot_token>/<chat_id>. Este stocat criptat și nu va mai fi afișat niciodată. Separați țintele multiple cu „;”.",
+			"targetDescription": "URL-ul dvs. Apprise — stocat criptat și care nu va mai fi afișat niciodată. Separați țintele multiple cu <code>;</code>.",
 			"testButton": "Trimiteți o notificare de testare",
 			"testFailed": "Notificarea de testare a eșuat: {{message}}",
 			"testHint": "Activați alertele și configurați atât o adresă URL a API-ului Apprise, cât și o destinație pentru a trimite un test.",

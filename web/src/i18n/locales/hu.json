@@ -1795,7 +1795,7 @@
 			},
 			"target": "Értesítési cél",
 			"targetConfigured": "Configured — beírandó szöveg",
-			"targetDescription": "Az Apprise URL-je, pl. tgram://<bot_token>/<chat_id>. Titkosítva tárolódik, és soha többé nem jelenik meg. Több célt „;” jelölővel válasszon el egymástól.",
+			"targetDescription": "Az Apprise URL-je — titkosítva tárolódik, és soha többé nem jelenik meg. Több célt <code>;</code> formában válasszon el egymástól.",
 			"testButton": "Tesztértesítés küldése",
 			"testFailed": "A tesztértesítés sikertelen: {{message}}",
 			"testHint": "Engedélyezze a riasztásokat, és állítsa be mind az Apprise API URL-jét, mind a tesztküldés célját.",

@@ -1795,7 +1795,7 @@
 			},
 			"target": "Bildirim hedefi",
 			"targetConfigured": "Yapılandırılmış — değiştirilecek metin",
-			"targetDescription": "Apprise URL'niz, örneğin tgram://<bot_token>/<chat_id>. Şifrelenmiş olarak saklanır ve bir daha asla gösterilmez. Birden fazla hedefi ';' ile ayırın.",
+			"targetDescription": "Apprise URL'niz — şifrelenmiş olarak saklanır ve bir daha asla gösterilmez. Birden fazla hedefi <code>;</code> şeklinde ayırın.",
 			"testButton": "Test bildirimi gönder",
 			"testFailed": "Bildirim testi başarısız: {{message}}",
 			"testHint": "Uyarı özelliğini etkinleştirin ve bir test göndermek için hem bir Apprise API URL'si hem de bir hedef belirleyin.",

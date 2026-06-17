@@ -1795,7 +1795,7 @@
 			},
 			"target": "通知先",
 			"targetConfigured": "設定済み — 置換する文字列",
-			"targetDescription": "AppriseのURL（例：tgram://<bot_token>/<chat_id>）。暗号化されて保存され、二度と表示されることはありません。複数のターゲットは「;」で区切ってください。",
+			"targetDescription": "AppriseのURL — 暗号化されて保存され、二度と表示されることはありません。複数のターゲットは「<code>;</code>」のように区切ってください。",
 			"testButton": "テスト通知を送信",
 			"testFailed": "通知のテストに失敗しました: {{message}}",
 			"testHint": "アラート機能を有効にし、Apprise API URL と送信先の両方を設定してテスト送信を行ってください。",

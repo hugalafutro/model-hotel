@@ -1795,7 +1795,7 @@
 			},
 			"target": "Destinatario de la notificación",
 			"targetConfigured": "Configurado — escribe para sustituir",
-			"targetDescription": "Tu URL de Apprise, p. ej., tgram://<bot_token>/<chat_id>. Se almacena cifrada y no se vuelve a mostrar nunca. Separa los distintos destinos con «;».",
+			"targetDescription": "Tu URL de Apprise: se almacena cifrada y no se muestra nunca más. Separa los distintos destinos con <code>;</code>.",
 			"testButton": "Enviar notificación de prueba",
 			"testFailed": "Error en la notificación de prueba: {{message}}",
 			"testHint": "Activa las alertas y configura tanto una URL de la API de Apprise como un destino para enviar una prueba.",

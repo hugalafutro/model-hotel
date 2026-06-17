@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { Bell, ChevronDown, ChevronRight, RefreshCw } from "@/lib/icons";
 import { api } from "../../api/client";
 import { ResetButton } from "../../components/ResetButton";
@@ -228,7 +228,14 @@ export function AlertsSettings({
 								)}
 							</div>
 							<p className="text-gray-500 text-xs">
-								{t("settings.alerts.targetDescription")}
+								{/* The ';' separator is rendered as a code token (same effect as
+								    pg_dump in DB settings) so it doesn't read as ' ; ' literal. */}
+								<Trans
+									i18nKey="settings.alerts.targetDescription"
+									components={{
+										code: <code className="font-mono text-(--text-primary)" />,
+									}}
+								/>
 							</p>
 						</div>
 

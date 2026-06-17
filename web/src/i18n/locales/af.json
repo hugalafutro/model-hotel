@@ -1795,7 +1795,7 @@
 			},
 			"target": "Kennisgewingsdoelwit",
 			"targetConfigured": "Gekonfigureer — tipe om te vervang",
-			"targetDescription": "Jou Apprise-URL, bv. tgram://<bot_token>/<chat_id>. Word versleuteld gestoor en nooit weer gewys nie. Schei verskeie teikens met ';'.",
+			"targetDescription": "Jou Apprise-URL — gestoor en versleuteld en nooit weer gewys nie. Schei verskeie teikens met <code>;</code>.",
 			"testButton": "Stuur toetskennisgewing",
 			"testFailed": "Toetskennisgewing misluk: {{message}}",
 			"testHint": "Aktiveer kennisgewing en stel beide 'n Apprise API-URL en 'n teiken in om 'n toets te stuur.",

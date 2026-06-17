@@ -1795,7 +1795,7 @@
 			},
 			"target": "Đối tượng nhận thông báo",
 			"targetConfigured": "Đã cấu hình — nhập nội dung để thay thế",
-			"targetDescription": "URL Apprise của bạn, ví dụ: tgram://<bot_token>/<chat_id>. Được lưu trữ dưới dạng mã hóa và không bao giờ được hiển thị lại. Dùng dấu ';' để phân tách các mục tiêu.",
+			"targetDescription": "URL Apprise của bạn — được lưu trữ dưới dạng mã hóa và sẽ không bao giờ được hiển thị lại. Dùng <code>;</code> để phân tách các mục tiêu.",
 			"testButton": "Gửi thông báo thử nghiệm",
 			"testFailed": "Thông báo thử nghiệm không thành công: {{message}}",
 			"testHint": "Kích hoạt tính năng cảnh báo và thiết lập cả URL API Apprise lẫn đích đến để gửi yêu cầu thử nghiệm.",

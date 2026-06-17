@@ -1795,7 +1795,7 @@
 			},
 			"target": "Cible de notification",
 			"targetConfigured": "Configuré — saisir le texte de remplacement",
-			"targetDescription": "Votre URL Apprise, par exemple tgram://<bot_token>/<chat_id>. Stockée sous forme chiffrée et ne sera plus jamais affichée. Séparez les cibles multiples par « ; ».",
+			"targetDescription": "Votre URL Apprise — stockée sous forme chiffrée et qui n’est plus jamais affichée. Séparez les cibles multiples par <code>;</code>.",
 			"testButton": "Envoyer une notification de test",
 			"testFailed": "Échec de la notification de test : {{message}}",
 			"testHint": "Activez les alertes et configurez à la fois une URL API Apprise et une cible pour envoyer un test.",

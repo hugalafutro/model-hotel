@@ -1795,7 +1795,7 @@
 			},
 			"target": "通知目标",
 			"targetConfigured": "已配置 — 输入内容以替换",
-			"targetDescription": "您的 Apprise URL，例如 tgram://<bot_token>/<chat_id>。该 URL 将以加密形式存储，且不会再次显示。多个目标之间请用“;”分隔。",
+			"targetDescription": "您的 Apprise URL —— 该 URL 已加密存储，且不会再次显示。若有多个目标，请使用 <code>;</code> 进行分隔。",
 			"testButton": "发送测试通知",
 			"testFailed": "测试通知失败：{{message}}",
 			"testHint": "启用警报功能，并同时设置 Apprise API URL 和目标地址以发送测试消息。",
