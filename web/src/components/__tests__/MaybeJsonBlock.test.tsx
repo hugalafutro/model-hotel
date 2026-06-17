@@ -29,6 +29,18 @@ describe("MaybeJsonBlock", () => {
 		);
 	});
 
+	it("formats JSON behind a bracketed log-label prefix", () => {
+		// App-log (slog) messages can carry a bracketed level/label before the
+		// body; the earlier "[" must not abort the parse — the real JSON opener
+		// comes later, so the scan skips past the failing label bracket.
+		const { container } = render(
+			<MaybeJsonBlock text={'[ERROR] {"error":{"message":"boom"}}'} />,
+		);
+		expect(container.textContent).toBe(
+			'[ERROR]\n{\n  "error": {\n    "message": "boom"\n  }\n}',
+		);
+	});
+
 	it("stays plain when JSON is followed by trailing junk", () => {
 		// We parse the first brace to end-of-string as a whole; trailing text
 		// after the JSON means it is not a clean body, so leave it untouched.

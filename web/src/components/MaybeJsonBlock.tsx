@@ -25,7 +25,11 @@ export function MaybeJsonBlock({ text, className }: MaybeJsonBlockProps) {
 			) : (
 				<>
 					{parsed.prefix && `${parsed.prefix}\n`}
-					<ShikiCode code={parsed.json} lang="json" />
+					{/* Key by content: ShikiCode caches highlighted tokens in local
+					    state and does not clear them when `code` changes, so a new
+					    JSON body must remount it rather than briefly show the
+					    previous log's stale (or failed-to-update) highlighting. */}
+					<ShikiCode key={parsed.json} code={parsed.json} lang="json" />
 				</>
 			)}
 		</pre>
@@ -41,25 +45,31 @@ interface ExtractedJson {
 
 /**
  * Pulls a JSON object/array out of `text`, tolerating a leading prefix such as
- * "HTTP 401: " that the proxy prepends to upstream error bodies. The substring
- * from the first `{`/`[` to end-of-string must parse as a whole, so a partial
- * or trailing-junk body falls back to plain text rather than being mangled.
- * Bare scalars ("123", "true") have no brace and so stay plain too.
+ * "HTTP 401: " that the proxy prepends to upstream error bodies, or a bracketed
+ * log label like "[ERROR] " / "WARN [proxy] ". Each `{`/`[` is tried in order as
+ * a body opener; the first whose substring-to-end parses as a whole object or
+ * array wins, and the text before it becomes the prefix. Requiring the parse to
+ * reach end-of-string means a partial or trailing-junk body falls back to plain
+ * text rather than being mangled; bare scalars ("123", "true") have no opener
+ * and so stay plain too.
+ *
+ * The scan returns on the first successful opener, so a well-formed body (the
+ * common case) parses once; only pure-prose fallbacks with stray brackets retry.
  */
 function extractJson(text: string): ExtractedJson | null {
-	const brace = text.indexOf("{");
-	const bracket = text.indexOf("[");
-	const offsets = [brace, bracket].filter((i) => i >= 0);
-	if (offsets.length === 0) return null;
-	const start = Math.min(...offsets);
-	try {
-		const parsed: unknown = JSON.parse(text.slice(start));
-		if (parsed === null || typeof parsed !== "object") return null;
-		return {
-			prefix: text.slice(0, start).trim(),
-			json: JSON.stringify(parsed, null, 2),
-		};
-	} catch {
-		return null;
+	for (let start = 0; start < text.length; start++) {
+		const ch = text[start];
+		if (ch !== "{" && ch !== "[") continue;
+		try {
+			const parsed: unknown = JSON.parse(text.slice(start));
+			if (parsed === null || typeof parsed !== "object") continue;
+			return {
+				prefix: text.slice(0, start).trim(),
+				json: JSON.stringify(parsed, null, 2),
+			};
+		} catch {
+			// Not a clean body at this opener; try the next bracket.
+		}
 	}
+	return null;
 }
