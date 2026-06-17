@@ -41,6 +41,16 @@ describe("MaybeJsonBlock", () => {
 		);
 	});
 
+	it("stays plain when the JSON body starts past the prefix scan window", () => {
+		// A real label/prefix is short; bounding the opener scan keeps a
+		// bracket-heavy non-JSON log from re-parsing a suffix at every bracket.
+		// A body opener beyond the window is treated as plain text.
+		const longPrefix = `${"x".repeat(300)} `;
+		const msg = `${longPrefix}{"a":1}`;
+		const { container } = render(<MaybeJsonBlock text={msg} />);
+		expect(container.textContent).toBe(msg);
+	});
+
 	it("stays plain when JSON is followed by trailing junk", () => {
 		// We parse the first brace to end-of-string as a whole; trailing text
 		// after the JSON means it is not a clean body, so leave it untouched.
