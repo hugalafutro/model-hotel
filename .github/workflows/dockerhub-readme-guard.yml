@@ -13,6 +13,7 @@ on:
     types: [opened, synchronize, reopened, labeled, unlabeled]
     paths:
       - README.md
+      - DOCKERHUB.md
 
 permissions:
   contents: read
@@ -44,3 +45,26 @@ jobs:
           fi
           echo "::error file=README.md::README.md changed but DOCKERHUB.md did not. Update DOCKERHUB.md (the Docker Hub copy, uploaded on release) or add the 'dockerhub-readme-not-needed' label if the change doesn't apply to Docker Hub."
           exit 1
+
+  length:
+    name: DOCKERHUB.md length
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - name: Fail if DOCKERHUB.md exceeds Docker Hub's description limit
+        run: |
+          # Docker Hub truncates a repository's full description at 25,000
+          # characters; a longer file is sliced mid-content (often mid-link),
+          # silently breaking the rendered page. We never see it locally because
+          # docker-publish.yml uploads the file verbatim only on release. Guard
+          # on both character count (Docker Hub's unit) and byte count, so neither
+          # interpretation can sneak a truncated readme into a release.
+          LIMIT=25000
+          chars=$(python3 -c "import io; print(len(io.open('DOCKERHUB.md', encoding='utf-8').read()))")
+          bytes=$(wc -c < DOCKERHUB.md)
+          echo "DOCKERHUB.md: ${chars} characters, ${bytes} bytes (Docker Hub limit: ${LIMIT})."
+          if [ "$chars" -gt "$LIMIT" ] || [ "$bytes" -gt "$LIMIT" ]; then
+            echo "::error file=DOCKERHUB.md::DOCKERHUB.md is ${chars} chars / ${bytes} bytes, over Docker Hub's ${LIMIT}-character limit. Docker Hub will truncate it (often mid-link). Trim it below ${LIMIT}."
+            exit 1
+          fi
