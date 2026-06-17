@@ -77,6 +77,8 @@ const defaultProps = {
 	onFetchNewer: vi.fn(),
 	onFetchOlder: vi.fn(),
 	onRowClick: vi.fn(),
+	nowMs: Date.now(),
+	staleThresholdMs: 30 * 60 * 1000,
 	sortDir: "desc" as const,
 	onSortToggle: vi.fn(),
 };
@@ -343,6 +345,130 @@ describe("VirtualLogTable", () => {
 
 			const badge = screen.getByText("100").closest("[data-test-variant]");
 			expect(badge).toHaveClass("ui-badge-neutral");
+		});
+
+		// Regression: a pending/streaming row must surface the in-progress
+		// indicator (… / Live) instead of the literal status_code (0). The bug
+		// was that VirtualLogTable rendered {log.status_code} unconditionally,
+		// so a fresh pending request showed a red "0" in scroll mode while the
+		// detail modal correctly showed blue "Pending".
+		it('renders "…" (not "0") for a pending in-progress row', () => {
+			const entries = [
+				createLogEntry({
+					state: "pending",
+					status_code: 0,
+					created_at: new Date().toISOString(),
+				}),
+			];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable
+					{...defaultProps}
+					entries={entries}
+					nowMs={Date.now()}
+				/>,
+			);
+
+			expect(screen.getByText("…")).toBeInTheDocument();
+			expect(screen.queryByText("0")).not.toBeInTheDocument();
+			// Pill colour must track the in-progress state, not status_code 0 -
+			// it must NOT stay red (ui-badge-error).
+			const badge = screen.getByText("…").closest("[data-test-variant]");
+			expect(badge).toHaveClass("ui-badge-info");
+			expect(badge).not.toHaveClass("ui-badge-error");
+		});
+
+		it('renders "Live" for a streaming in-progress row', () => {
+			const entries = [
+				createLogEntry({
+					state: "streaming",
+					status_code: 0,
+					created_at: new Date().toISOString(),
+				}),
+			];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable
+					{...defaultProps}
+					entries={entries}
+					nowMs={Date.now()}
+				/>,
+			);
+
+			expect(screen.getByText("Live")).toBeInTheDocument();
+			expect(screen.queryByText("0")).not.toBeInTheDocument();
+			const badge = screen.getByText("Live").closest("[data-test-variant]");
+			expect(badge).toHaveClass("ui-badge-info");
+			expect(badge).not.toHaveClass("ui-badge-error");
+		});
+
+		it('renders stale "⚠" for a pending row older than the stale threshold', () => {
+			const entries = [
+				createLogEntry({
+					state: "pending",
+					status_code: 0,
+					created_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+				}),
+			];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable
+					{...defaultProps}
+					entries={entries}
+					nowMs={Date.now()}
+					staleThresholdMs={30 * 60 * 1000}
+				/>,
+			);
+
+			expect(screen.getByText("⚠")).toBeInTheDocument();
+			const badge = screen.getByText("⚠").closest("[data-test-variant]");
+			expect(badge).toHaveClass("ui-badge-warning");
+		});
+
+		// Cancellation is terminal and must win over a leftover pending/streaming
+		// shape: a cancelled row must never render the blue "…"/"Live" indicator.
+		it('renders cancelled (not "Live") for a cancelled row still shaped as pending', () => {
+			const entries = [
+				createLogEntry({
+					state: "pending",
+					status_code: 0,
+					error_kind: "client_disconnect",
+					created_at: new Date().toISOString(),
+				}),
+			];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable
+					{...defaultProps}
+					entries={entries}
+					nowMs={Date.now()}
+				/>,
+			);
+
+			expect(screen.queryByText("…")).not.toBeInTheDocument();
+			expect(screen.queryByText("Live")).not.toBeInTheDocument();
+			// Tokens column confirms the row is recognised as interrupted...
+			expect(screen.getByText("Interrupted")).toBeInTheDocument();
+			// ...and the status pill is warning (cancelled), not info (in-progress).
+			const badge = screen.getByText("0").closest("[data-test-variant]");
+			expect(badge).toHaveClass("ui-badge-warning");
+			expect(badge).not.toHaveClass("ui-badge-info");
 		});
 
 		it('renders "Interrupted" for cancelled error messages in tokens column', () => {

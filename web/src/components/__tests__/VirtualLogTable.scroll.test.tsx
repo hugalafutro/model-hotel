@@ -68,6 +68,8 @@ const defaultProps = {
 	onFetchNewer: vi.fn(),
 	onFetchOlder: vi.fn(),
 	onRowClick: vi.fn(),
+	nowMs: Date.now(),
+	staleThresholdMs: 30 * 60 * 1000,
 	sortDir: "desc" as const,
 	onSortToggle: vi.fn(),
 };

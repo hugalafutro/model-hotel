@@ -38,7 +38,12 @@ import { useDateRangePicker } from "../hooks/useDateRangePicker";
 import { useDebounce } from "../hooks/useDebounce";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { encodeCursor, formatNumber } from "../utils/format";
-import { isCancelled } from "../utils/logHelpers";
+import {
+	getRowStatusVariant,
+	isCancelled,
+	isInProgress as isInProgressShared,
+	isStale as isStaleShared,
+} from "../utils/logHelpers";
 import { AppLogs } from "./AppLogs";
 import { formatMs, formatTPS } from "./Logs/utils";
 
@@ -296,18 +301,6 @@ function RequestLogs() {
 	const displayEntries = logsData?.entries ?? [];
 	const displayTotal = logsData?.total ?? 0;
 
-	const getStatusBadgeVariant = (
-		statusCode: number,
-		log?: { error_kind?: string; error_message?: string },
-	): "error" | "warning" | "success" | "orange" | "muted" => {
-		if (isCancelled(log)) return "warning";
-		if (statusCode === 0) return "error";
-		if (statusCode >= 200 && statusCode < 300) return "success";
-		if (statusCode >= 400 && statusCode < 500) return "orange";
-		if (statusCode >= 500) return "error";
-		return "muted";
-	};
-
 	// A request stuck in pending/streaming longer than the configured timeout
 	// is almost certainly dead (server crash, unhandled error, etc.) - treat it
 	// as stale rather than showing a permanently pulsing "Resolving…" / "Live" row.
@@ -333,14 +326,11 @@ function RequestLogs() {
 		return () => clearInterval(id);
 	}, []);
 
-	const isStale = (log: LogEntry) => {
-		if (log.state !== "pending" && log.state !== "streaming") return false;
-		const age = nowMs - new Date(log.created_at).getTime();
-		return age > STALE_THRESHOLD_MS;
-	};
+	const isStale = (log: LogEntry) =>
+		isStaleShared(log, nowMs, STALE_THRESHOLD_MS);
 
 	const isInProgress = (log: LogEntry) =>
-		!isStale(log) && (log.state === "pending" || log.state === "streaming");
+		isInProgressShared(log, nowMs, STALE_THRESHOLD_MS);
 
 	return (
 		<>
@@ -665,9 +655,10 @@ function RequestLogs() {
 												</td>
 												<td className="px-2 py-1 whitespace-nowrap">
 													<Badge
-														variant={getStatusBadgeVariant(
-															log.status_code,
+														variant={getRowStatusVariant(
 															log,
+															nowMs,
+															STALE_THRESHOLD_MS,
 														)}
 														className="gap-1 whitespace-nowrap"
 													>
@@ -817,6 +808,8 @@ function RequestLogs() {
 								onFetchNewer={scrollFetchNewer}
 								onFetchOlder={scrollFetchOlder}
 								onRowClick={(entry) => setSelectedLog(entry)}
+								nowMs={nowMs}
+								staleThresholdMs={STALE_THRESHOLD_MS}
 								sortDir={scrollSortDir}
 								onSortToggle={() =>
 									setSort((prev) => ({
