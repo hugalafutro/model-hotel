@@ -1199,7 +1199,7 @@
 			"all": "Tất cả ({{count}})",
 			"search": "Lọc nhật ký…",
 			"allLevels": "Tất cả các cấp độ",
-			"allKeys": "Tất cả các khóa"
+			"allSources": "Tất cả các nguồn"
 		},
 		"table": {
 			"timeDate": "Thời gian/Ngày",

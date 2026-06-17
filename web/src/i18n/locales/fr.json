@@ -1199,7 +1199,7 @@
 			"all": "Tout ({{count}})",
 			"search": "Filtrer les logs…",
 			"allLevels": "Tous les niveaux",
-			"allKeys": "Toutes les clés"
+			"allSources": "Toutes les sources"
 		},
 		"table": {
 			"timeDate": "Heure/Date",

@@ -1198,7 +1198,7 @@
 			"source": "Source",
 			"all": "All ({{count}})",
 			"allLevels": "All Levels",
-			"allKeys": "All Keys",
+			"allSources": "All Sources",
 			"search": "Filter logs…"
 		},
 		"table": {

@@ -1199,7 +1199,7 @@
 			"all": "Alles ({{count}})",
 			"search": "Filtreer logboeke…",
 			"allLevels": "Alle vlakke",
-			"allKeys": "Alle Sleutels"
+			"allSources": "Alle bronne"
 		},
 		"table": {
 			"timeDate": "Tyd/Datum",

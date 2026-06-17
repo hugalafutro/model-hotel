@@ -1199,7 +1199,7 @@
 			"all": "Toate ({{count}})",
 			"search": "Filtrează jurnalele…",
 			"allLevels": "Toate nivelurile",
-			"allKeys": "Toate cheile"
+			"allSources": "Toate sursele"
 		},
 		"table": {
 			"timeDate": "Ora/Dată",

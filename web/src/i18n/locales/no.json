@@ -1199,7 +1199,7 @@
 			"all": "Alle ({{count}})",
 			"search": "Filtrer logger…",
 			"allLevels": "Alle nivåer",
-			"allKeys": "Alle nøkler"
+			"allSources": "Alle kilder"
 		},
 		"table": {
 			"timeDate": "Tid/dato",

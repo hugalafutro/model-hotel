@@ -1199,7 +1199,7 @@
 			"all": "전체 ({{count}})",
 			"search": "로그 필터링…",
 			"allLevels": "모든 레벨",
-			"allKeys": "모든 키"
+			"allSources": "모든 출처"
 		},
 		"table": {
 			"timeDate": "시간/날짜",

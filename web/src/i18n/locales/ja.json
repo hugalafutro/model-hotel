@@ -1199,7 +1199,7 @@
 			"all": "すべて ({{count}})",
 			"search": "ログのフィルタリング…",
 			"allLevels": "全レベル",
-			"allKeys": "すべてのキー"
+			"allSources": "すべてのソース"
 		},
 		"table": {
 			"timeDate": "時刻/日付",

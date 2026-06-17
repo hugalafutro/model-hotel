@@ -1199,7 +1199,7 @@
 			"all": "Todos ({{count}})",
 			"search": "Filtrar registros…",
 			"allLevels": "Todos los niveles",
-			"allKeys": "Todas las claves"
+			"allSources": "Todas las fuentes"
 		},
 		"table": {
 			"timeDate": "Hora/Fecha",

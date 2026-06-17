@@ -1199,7 +1199,7 @@
 			"all": "Összes ({{count}})",
 			"search": "Naplók szűrése:…",
 			"allLevels": "Minden szint",
-			"allKeys": "Minden kulcs"
+			"allSources": "Minden forrás"
 		},
 		"table": {
 			"timeDate": "Idő/Dátum",

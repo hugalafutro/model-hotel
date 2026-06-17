@@ -1199,7 +1199,7 @@
 			"all": "Kaikki ({{count}})",
 			"search": "Suodata lokit…",
 			"allLevels": "Kaikki tasot",
-			"allKeys": "Kaikki avaimet"
+			"allSources": "Kaikki lähteet"
 		},
 		"table": {
 			"timeDate": "Aika/Päivämäärä",

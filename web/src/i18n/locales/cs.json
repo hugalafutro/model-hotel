@@ -1199,7 +1199,7 @@
 			"all": "Vše ({{count}})",
 			"search": "Filtrovat logy…",
 			"allLevels": "Všechny úrovně",
-			"allKeys": "Všechny klíče"
+			"allSources": "Všechny zdroje"
 		},
 		"table": {
 			"timeDate": "Čas/Datum",

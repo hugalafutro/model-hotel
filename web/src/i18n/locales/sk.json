@@ -1199,7 +1199,7 @@
 			"all": "Všetko ({{count}})",
 			"search": "Filtrovať protokoly…",
 			"allLevels": "Všetky úrovne",
-			"allKeys": "Všetky kľúče"
+			"allSources": "Všetky zdroje"
 		},
 		"table": {
 			"timeDate": "Čas/Dátum",

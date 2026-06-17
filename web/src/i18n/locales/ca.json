@@ -1199,7 +1199,7 @@
 			"all": "Tots ({{count}})",
 			"search": "Filtreu els registres…",
 			"allLevels": "Tots els nivells",
-			"allKeys": "Totes les claus"
+			"allSources": "Totes les fonts"
 		},
 		"table": {
 			"timeDate": "Hora/Data",

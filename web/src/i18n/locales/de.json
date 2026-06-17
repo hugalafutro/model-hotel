@@ -1199,7 +1199,7 @@
 			"all": "Alle ({{count}})",
 			"search": "Protokolle… filtern",
 			"allLevels": "Alle Ebenen",
-			"allKeys": "Alle Schlüssel"
+			"allSources": "Alle Quellen"
 		},
 		"table": {
 			"timeDate": "Zeit/Datum",

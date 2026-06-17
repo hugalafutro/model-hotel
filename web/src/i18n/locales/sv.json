@@ -1199,7 +1199,7 @@
 			"all": "Alla ({{count}})",
 			"search": "Filtrera loggar…",
 			"allLevels": "Alla nivåer",
-			"allKeys": "Alla nycklar"
+			"allSources": "Alla källor"
 		},
 		"table": {
 			"timeDate": "Tid/datum",

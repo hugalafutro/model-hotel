@@ -1199,7 +1199,7 @@
 			"all": "Alle ({{count}})",
 			"search": "Logbestanden filteren…",
 			"allLevels": "Alle niveaus",
-			"allKeys": "Alle sleutels"
+			"allSources": "Alle bronnen"
 		},
 		"table": {
 			"timeDate": "Tijd/Datum",

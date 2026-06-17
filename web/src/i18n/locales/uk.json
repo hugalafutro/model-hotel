@@ -1199,7 +1199,7 @@
 			"all": "Всі ({{count}})",
 			"search": "Фільтрувати журнали…",
 			"allLevels": "Усі рівні",
-			"allKeys": "Усі ключі"
+			"allSources": "Усі джерела"
 		},
 		"table": {
 			"timeDate": "Час/Дата",

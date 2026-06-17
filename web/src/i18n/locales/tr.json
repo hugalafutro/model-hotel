@@ -1199,7 +1199,7 @@
 			"all": "Tümü ({{count}})",
 			"search": "… 'daki günlükleri filtrele",
 			"allLevels": "Tüm Seviyeler",
-			"allKeys": "Tüm Anahtarlar"
+			"allSources": "Tüm Kaynaklar"
 		},
 		"table": {
 			"timeDate": "Saat/Tarih",

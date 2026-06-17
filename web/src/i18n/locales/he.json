@@ -1199,7 +1199,7 @@
 			"all": "הכל ({{count}})",
 			"search": "סינון יומנים…",
 			"allLevels": "כל הרמות",
-			"allKeys": "כל המפתחות"
+			"allSources": "כל המקורות"
 		},
 		"table": {
 			"timeDate": "שעה/תאריך",

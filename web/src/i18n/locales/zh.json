@@ -1199,7 +1199,7 @@
 			"all": "全部 ({{count}})",
 			"search": "过滤日志…",
 			"allLevels": "所有级别",
-			"allKeys": "所有键"
+			"allSources": "所有来源"
 		},
 		"table": {
 			"timeDate": "时间/日期",
