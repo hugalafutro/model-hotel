@@ -57,7 +57,7 @@ describe("AlertsSettings", () => {
 		const target = await screen.findByTestId("alert-target-input");
 		expect(target).toHaveAttribute(
 			"placeholder",
-			"Configured — type to replace",
+			"Configured (type to replace)",
 		);
 		expect(screen.getByTestId("alert-api-url-input")).toHaveValue(
 			"http://apprise:8000",

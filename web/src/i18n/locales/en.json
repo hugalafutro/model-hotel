@@ -1436,14 +1436,14 @@
 		},
 		"alerts": {
 			"title": "Alerts",
-			"description": "Push notifications for noteworthy events (a provider going down, a circuit breaker tripping) to Telegram, email, Discord, and more via a stateless Apprise container you run. No request content is ever sent — only the event summary.",
+			"description": "Push notifications for noteworthy events (a provider going down, a circuit breaker tripping) to Telegram, email, Discord, and more via a stateless Apprise container you run. No request content is ever sent, only the event summary.",
 			"enable": "Enable alerting",
 			"enableDescription": "Forward selected events to your Apprise endpoint.",
 			"apiUrl": "Apprise API URL",
 			"apiUrlDescription": "Base URL of the apprise-api container you run (for example http://apprise:8000).",
 			"target": "Notification target",
-			"targetDescription": "Your Apprise URL — stored encrypted and never shown again. Separate multiple targets with <code>;</code>.",
-			"targetConfigured": "Configured — type to replace",
+			"targetDescription": "Your Apprise URL. Stored encrypted and never shown again. Separate multiple targets with <code>;</code>.",
+			"targetConfigured": "Configured (type to replace)",
 			"clear": "Clear",
 			"eventsLabel": "Alert events",
 			"events": {
@@ -1465,14 +1465,14 @@
 			"testFailed": "Test notification failed: {{message}}",
 			"testHint": "Enable alerting and set both an Apprise API URL and a target to send a test.",
 			"snippets": {
-				"description": "Example Apprise URL formats for popular services — copy one, fill in your details, and paste it above.",
+				"description": "Example Apprise URL formats for popular services. Copy one, fill in your details, and paste it above.",
 				"browseAll": "Browse all 80+ services"
 			},
 			"status": {
 				"checking": "Checking apprise-api…",
 				"reachable": "apprise-api reachable",
 				"issues": "apprise-api reachable but reporting issues",
-				"unreachable": "apprise-api unreachable — check the URL and that the container is running",
+				"unreachable": "apprise-api unreachable: check the URL and that the container is running",
 				"recheck": "Re-check"
 			}
 		},
@@ -1774,7 +1774,7 @@
 		},
 		"observability": {
 			"title": "Observability & Log Export",
-			"description": "Model Hotel can export its structured logs and metrics to external systems. Each integration is enabled with an environment variable; the status badges below reflect the current state. No request or response content is ever exported — only routing and metering metadata.",
+			"description": "Model Hotel can export its structured logs and metrics to external systems. Each integration is enabled with an environment variable; the status badges below reflect the current state. No request or response content is ever exported, only routing and metering metadata.",
 			"json.name": "JSON logs (stdout)",
 			"json.description": "Emit structured logs as one JSON object per line, for stdout log collectors such as Fluent Bit, Vector, or Promtail.",
 			"json.instructions": "Set this environment variable and restart the container to emit JSON-formatted logs:",
