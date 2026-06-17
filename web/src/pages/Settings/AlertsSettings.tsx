@@ -275,11 +275,11 @@ export function AlertsSettings({
 							)}
 						</div>
 
-						{/* Test button */}
-						<div>
+						{/* Test button + inline hint (beside, not below, to save a row) */}
+						<div className="flex items-center gap-3">
 							<button
 								type="button"
-								className="ui-btn ui-btn-secondary text-sm"
+								className="ui-btn ui-btn-secondary text-sm shrink-0 disabled:opacity-50"
 								disabled={!canTest || testMutation.isPending}
 								onClick={() => testMutation.mutate()}
 								data-testid="alert-test-button"
@@ -289,7 +289,7 @@ export function AlertsSettings({
 									: t("settings.alerts.testButton")}
 							</button>
 							{!canTest && (
-								<p className="text-gray-500 text-xs mt-1">
+								<p className="text-gray-500 text-xs">
 									{t("settings.alerts.testHint")}
 								</p>
 							)}
