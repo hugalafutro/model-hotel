@@ -5551,6 +5551,12 @@
 		"vi",
 		"zh"
 	],
+	"settings.alerts.apiUrl": [
+		"hu",
+		"ja",
+		"ko",
+		"zh"
+	],
 	"settings.appearance.uiStyles.cyberTerminal": [
 		"da",
 		"fr",

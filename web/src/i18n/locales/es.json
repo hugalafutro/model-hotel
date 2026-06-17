@@ -1767,6 +1767,41 @@
 			"otel.name": "Registros de OpenTelemetry (OTLP)",
 			"title": "Observabilidad y exportación de registros",
 			"description": "Model Hotel puede exportar sus registros y métricas estructurados a sistemas externos. Cada integración se habilita mediante una variable de entorno; los indicadores de estado que se muestran a continuación reflejan el estado actual. Nunca se exporta el contenido de las solicitudes ni de las respuestas, solo los metadatos de enrutamiento y medición."
+		},
+		"alerts": {
+			"apiUrl": "URL de la API de Apprise",
+			"apiUrlDescription": "URL base del contenedor apprise-api que ejecutas (por ejemplo, http://apprise:8000).",
+			"clear": "Borrar",
+			"description": "Envía notificaciones push de eventos destacados (una interrupción del servicio del proveedor, la activación de un cortacircuitos) a Telegram, correo electrónico, Discord y otras plataformas a través de un contenedor Apprise sin estado que tú mismo ejecutas. Nunca se envía el contenido de la solicitud, solo el resumen del evento.",
+			"enable": "Habilitar las alertas",
+			"enableDescription": "Reenvía los eventos seleccionados a tu punto final de Apprise.",
+			"event": {
+				"circuit_breaker_closed": "Proveedor recuperado (disyuntor cerrado)",
+				"circuit_breaker_half_open": "Se está comprobando el proveedor (disyuntor medio abierto)",
+				"circuit_breaker_open": "Proveedor inactivo (disyuntor abierto)",
+				"discovery_provider_failed": "El proveedor ha fallado durante la detección",
+				"failover_sync_error": "Error en la sincronización del grupo de conmutación por error"
+			},
+			"events": {
+				"all": "Seleccionar todo",
+				"none": "No seleccionar nada",
+				"reset": "Restablecer los valores predeterminados",
+				"title": "Eventos sobre los que se debe notificar"
+			},
+			"eventsLabel": "Eventos de alerta",
+			"snippets": {
+				"browseAll": "Explora los más de 80 servicios",
+				"description": "Ejemplos de formatos de URL de Apprise para servicios populares: copia uno, rellena tus datos y pégalo más arriba."
+			},
+			"target": "Destinatario de la notificación",
+			"targetConfigured": "Configurado — escribe para sustituir",
+			"targetDescription": "Tu URL de Apprise, p. ej., tgram://<bot_token>/<chat_id>. Se almacena cifrada y no se vuelve a mostrar nunca. Separa los distintos destinos con «;».",
+			"testButton": "Enviar notificación de prueba",
+			"testFailed": "Error en la notificación de prueba: {{message}}",
+			"testHint": "Activa las alertas y configura tanto una URL de la API de Apprise como un destino para enviar una prueba.",
+			"testSending": "Enviando…",
+			"testSent": "Se ha enviado una notificación de prueba.",
+			"title": "Alertas"
 		}
 	},
 	"components": {

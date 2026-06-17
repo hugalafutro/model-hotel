@@ -1,4 +1,5 @@
 import type {
+	AlertEventDef,
 	AppLogsCursorResponse,
 	BackupClassification,
 	BackupEntry,
@@ -661,6 +662,23 @@ export const api = {
 					body: JSON.stringify({ keys }),
 				},
 				"Failed to reset settings",
+			);
+		},
+	},
+
+	alert: {
+		getEvents: async (): Promise<AlertEventDef[]> => {
+			return fetchJSON<AlertEventDef[]>(
+				`${API_BASE}/api/alert/events`,
+				{ headers: getAuthHeaders() },
+				"Failed to fetch alert events",
+			);
+		},
+		test: async (): Promise<{ ok: boolean }> => {
+			return fetchJSON<{ ok: boolean }>(
+				`${API_BASE}/api/alert/test`,
+				{ method: "POST", headers: getAuthHeaders() },
+				"Test notification failed",
 			);
 		},
 	},

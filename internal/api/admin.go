@@ -187,6 +187,7 @@ func (h *Handler) Register(r chi.Router) {
 	h.RegisterLogs(r)
 	h.RegisterAppLogs(r)
 	h.RegisterSettings(r)
+	h.RegisterAlerts(r)
 	h.RegisterVirtualKeys(r)
 	h.RegisterVersion(r)
 

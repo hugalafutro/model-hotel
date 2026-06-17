@@ -1767,6 +1767,41 @@
 			"otel.name": "OpenTelemetry-loggar (OTLP)",
 			"title": "Observabilitet och loggexport",
 			"description": "Model Hotel kan exportera sina strukturerade loggar och mätvärden till externa system. Varje integration aktiveras med en miljövariabel; statusmarkeringarna nedan återspeglar det aktuella läget. Inget innehåll från förfrågningar eller svar exporteras någonsin – endast metadata om routning och mätning."
+		},
+		"alerts": {
+			"apiUrl": "Apprise API-URL",
+			"apiUrlDescription": "Bas-URL för den apprise-api-container du kör (till exempel http://apprise:8000).",
+			"clear": "Rensa",
+			"description": "Skicka push-meddelanden om viktiga händelser (en leverantör som går ner, en säkerhetsbrytare som löser ut) till Telegram, e-post, Discord och mer via en stateless Apprise-container som du kör. Inget innehåll från förfrågningar skickas någonsin – endast händelsesammanfattningen.",
+			"enable": "Aktivera varningar",
+			"enableDescription": "Vidarebefordra valda händelser till din Apprise-ändpunkt.",
+			"event": {
+				"circuit_breaker_closed": "Leverantören har återhämtat sig (strömavbrytaren stängd)",
+				"circuit_breaker_half_open": "Leverantör som testas (kretsbrytare halvöppen)",
+				"circuit_breaker_open": "Leverantören är nere (strömavbrytaren har löst ut)",
+				"discovery_provider_failed": "Leverantören misslyckades under upptäckten",
+				"failover_sync_error": "Synkroniseringen av failover-gruppen misslyckades"
+			},
+			"events": {
+				"all": "Markera allt",
+				"none": "Välj ingen",
+				"reset": "Återställ till standardinställningar",
+				"title": "Händelser som ska meddelas"
+			},
+			"eventsLabel": "Varningshändelser",
+			"snippets": {
+				"browseAll": "Bläddra bland alla över 80 tjänster",
+				"description": "Exempel på Apprise-URL-format för populära tjänster – kopiera ett, fyll i dina uppgifter och klistra in det ovan."
+			},
+			"target": "Mottagare av aviseringar",
+			"targetConfigured": "Konfigurerad — skriv in ersättningstext",
+			"targetDescription": "Din Apprise-URL, t.ex. tgram://<bot_token>/<chat_id>. Lagras krypterat och visas aldrig igen. Separera flera mål med ”;”.",
+			"testButton": "Skicka testmeddelande",
+			"testFailed": "Testmeddelandet misslyckades: {{message}}",
+			"testHint": "Aktivera aviseringar och ange både en Apprise API-URL och ett mål för att skicka ett test.",
+			"testSending": "Skickar…",
+			"testSent": "Testmeddelande skickat.",
+			"title": "Varningar"
 		}
 	},
 	"components": {

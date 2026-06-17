@@ -1434,6 +1434,41 @@
 			"maxWait": "Max Wait (ms)",
 			"maxWait.description": "Maximum time to wait before rejecting a rate-limited request. If a token becomes available within this window, the request proceeds; otherwise 429 is returned."
 		},
+		"alerts": {
+			"title": "Alerts",
+			"description": "Push notifications for noteworthy events (a provider going down, a circuit breaker tripping) to Telegram, email, Discord, and more via a stateless Apprise container you run. No request content is ever sent — only the event summary.",
+			"enable": "Enable alerting",
+			"enableDescription": "Forward selected events to your Apprise endpoint.",
+			"apiUrl": "Apprise API URL",
+			"apiUrlDescription": "Base URL of the apprise-api container you run (for example http://apprise:8000).",
+			"target": "Notification target",
+			"targetDescription": "Your Apprise URL, e.g. tgram://<bot_token>/<chat_id>. Stored encrypted and never shown again. Separate multiple targets with ';'.",
+			"targetConfigured": "Configured — type to replace",
+			"clear": "Clear",
+			"eventsLabel": "Alert events",
+			"events": {
+				"title": "Events to notify on",
+				"reset": "Reset to defaults",
+				"all": "Select all",
+				"none": "Select none"
+			},
+			"event": {
+				"circuit_breaker_open": "Provider down (circuit breaker opened)",
+				"circuit_breaker_closed": "Provider recovered (circuit breaker closed)",
+				"circuit_breaker_half_open": "Provider being probed (circuit breaker half-open)",
+				"failover_sync_error": "Failover group sync failed",
+				"discovery_provider_failed": "Provider failed during discovery"
+			},
+			"testButton": "Send test notification",
+			"testSending": "Sending…",
+			"testSent": "Test notification sent.",
+			"testFailed": "Test notification failed: {{message}}",
+			"testHint": "Enable alerting and set both an Apprise API URL and a target to send a test.",
+			"snippets": {
+				"description": "Example Apprise URL formats for popular services — copy one, fill in your details, and paste it above.",
+				"browseAll": "Browse all 80+ services"
+			}
+		},
 		"circuitBreaker": {
 			"title": "Circuit Breaker & Failover",
 			"description": "Configure how the proxy handles provider failures and rate-limited requests.",

@@ -161,71 +161,7 @@ ADMIN_TOKEN=
 # WEBAUTHN_RP_ORIGINS=https://your-domain.com
 ```
 
-**2.** Create `docker-compose.yml` with your preferred image source:
-
-<details>
-<summary>docker-compose.yml (click to expand, then copy)</summary>
-
-```yaml
-name: model-hotel
-services:
-    app:
-        # Prebuilt images (choose one):
-        image: hugalafutro/model-hotel:latest
-        # image: ghcr.io/hugalafutro/model-hotel:latest
-        labels:
-            app.group: model-hotel
-        ports:
-            - "${HOST_PORT:-8081}:8080"
-        environment:
-            - MASTER_KEY=${MASTER_KEY:?MASTER_KEY must be set in .env}
-            - POSTGRES_USER=${POSTGRES_USER:-modelhotel}
-            - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
-            - POSTGRES_HOST=db
-            - POSTGRES_DB=${POSTGRES_DB:-modelhotel}
-            - ADMIN_TOKEN=${ADMIN_TOKEN:-}
-            - ALLOW_HTTP_PROVIDERS=false
-            - DATA_DIR=/data
-            - RATE_LIMIT_ENABLED=true
-            - DEBUG_LOG=false
-            - LOG_FORMAT=text          # "json" for log collectors (Fluent Bit, Vector, Promtail, …)
-            - METRICS_TOKEN=${METRICS_TOKEN:-}   # optional dedicated token for the /metrics scrape
-            - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}   # optional OTLP collector URL → push logs over OpenTelemetry
-            - CORS_ORIGINS=http://localhost:5173,http://localhost:${HOST_PORT:-8081}
-            - WEBAUTHN_RP_ID=${WEBAUTHN_RP_ID:-}
-            - WEBAUTHN_RP_ORIGINS=${WEBAUTHN_RP_ORIGINS:-}
-            - ALLOWED_PROVIDER_HOSTS=
-            - TRUSTED_PROXIES=
-            - KNOWN_PROXIES=
-        volumes:
-            - ./.data:/data
-            # Docker socket (disabled by default). Enable for container-level sidebar stats;
-            # ⚠️ this grants control of the Docker daemon - only in trusted environments.
-            # - /var/run/docker.sock:/var/run/docker.sock:ro
-        restart: unless-stopped
-        depends_on:
-            db:
-                condition: service_healthy
-
-    db:
-        image: postgres:16-alpine
-        labels:
-            app.group: model-hotel
-        command: ["postgres", "-c", "log_min_error_statement=panic", "-c", "log_min_messages=error", "-c", "log_checkpoints=off"]
-        environment:
-            - POSTGRES_USER=${POSTGRES_USER:-modelhotel}
-            - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
-            - POSTGRES_DB=${POSTGRES_DB:-modelhotel}
-        volumes:
-            - ./.data/pgdata:/var/lib/postgresql/data
-        healthcheck:
-            test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-modelhotel}"]
-            interval: 5s
-            timeout: 5s
-            retries: 5
-```
-
-</details>
+**2.** Create a `docker-compose.yml`. Copy the ready-to-use file (app + PostgreSQL + all environment variables) from the [**Deploy without Git** quick start on GitHub »](https://github.com/hugalafutro/model-hotel#-deploy-without-git).
 
 **3.** Deploy:
 

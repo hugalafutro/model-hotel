@@ -1767,6 +1767,41 @@
 			"otel.name": "Jurnale OpenTelemetry (OTLP)",
 			"title": "Observabilitate și export de jurnale",
 			"description": "Model Hotel poate exporta jurnalele și metricile sale structurate către sisteme externe. Fiecare integrare este activată cu o variabilă de mediu; insignele de stare de mai jos reflectă starea actuală. Nu se exportă niciodată conținutul cererilor sau al răspunsurilor — doar metadatele de rutare și măsurare."
+		},
+		"alerts": {
+			"apiUrl": "URL-ul API-ului Apprise",
+			"apiUrlDescription": "URL-ul de bază al containerului apprise-api pe care îl rulați (de exemplu, http://apprise:8000).",
+			"clear": "Ștergeți",
+			"description": "Trimiteți notificări push pentru evenimente importante (o întrerupere a serviciului unui furnizor, declanșarea unui circuit breaker) către Telegram, e-mail, Discord și altele prin intermediul unui container Apprise fără stare pe care îl rulați. Nu se trimite niciodată conținutul cererii — doar rezumatul evenimentului.",
+			"enable": "Activați alertele",
+			"enableDescription": "Redirecționați evenimentele selectate către punctul de terminare Apprise.",
+			"event": {
+				"circuit_breaker_closed": "Furnizorul și-a revenit (disjunctorul s-a închis)",
+				"circuit_breaker_half_open": "Furnizorul este testat (disjunctorul este pe jumătate deschis)",
+				"circuit_breaker_open": "Furnizor inactiv (disjunctor deschis)",
+				"discovery_provider_failed": "Furnizorul a eșuat în timpul procesului de descoperire",
+				"failover_sync_error": "Sincronizarea grupului de failover a eșuat"
+			},
+			"events": {
+				"all": "Selectați tot",
+				"none": "Nu selectați nimic",
+				"reset": "Resezare la valorile implicite",
+				"title": "Evenimente care trebuie notificate"
+			},
+			"eventsLabel": "Evenimente de alertă",
+			"snippets": {
+				"browseAll": "Răsfoiți toate cele peste 80 de servicii",
+				"description": "Exemple de formate de URL Apprise pentru servicii populare — copiați unul, completați detaliile dvs. și lipiți-l mai sus."
+			},
+			"target": "Destinatarul notificării",
+			"targetConfigured": "Configurat — introduceți textul de înlocuire",
+			"targetDescription": "URL-ul dvs. Apprise, de exemplu tgram://<bot_token>/<chat_id>. Este stocat criptat și nu va mai fi afișat niciodată. Separați țintele multiple cu „;”.",
+			"testButton": "Trimiteți o notificare de testare",
+			"testFailed": "Notificarea de testare a eșuat: {{message}}",
+			"testHint": "Activați alertele și configurați atât o adresă URL a API-ului Apprise, cât și o destinație pentru a trimite un test.",
+			"testSending": "Se trimite…",
+			"testSent": "Notificare de testare trimisă.",
+			"title": "Alerte"
 		}
 	},
 	"components": {

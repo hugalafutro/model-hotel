@@ -1767,6 +1767,41 @@
 			"otel.name": "OpenTelemetryログ（OTLP）",
 			"title": "可観測性およびログのエクスポート",
 			"description": "Model Hotelは、構造化されたログとメトリクスを外部システムにエクスポートできます。各統合機能は環境変数によって有効化され、以下のステータスバッジは現在の状態を示しています。リクエストやレスポンスの内容は一切エクスポートされず、ルーティングおよび計測に関するメタデータのみがエクスポートされます。"
+		},
+		"alerts": {
+			"apiUrl": "Apprise API URL",
+			"apiUrlDescription": "実行する apprise-api コンテナのベース URL（例：http://apprise:8000）。",
+			"clear": "クリア",
+			"description": "注目すべきイベント（プロバイダーのダウン、サーキットブレーカーの作動など）に関するプッシュ通知を、ユーザーが実行するステートレスな Apprise コンテナを介して、Telegram、メール、Discord などに送信します。リクエストの内容は一切送信されず、イベントの概要のみが送信されます。",
+			"enable": "アラート機能を有効にする",
+			"enableDescription": "選択したイベントをAppriseエンドポイントに転送してください。",
+			"event": {
+				"circuit_breaker_closed": "プロバイダーが復旧しました（サーキットブレーカーが閉じました）",
+				"circuit_breaker_half_open": "プロバイダーの検知中（サーキットブレーカーが半開状態）",
+				"circuit_breaker_open": "プロバイダーダウン（サーキットブレーカーが作動）",
+				"discovery_provider_failed": "プロバイダーの検出中にエラーが発生しました",
+				"failover_sync_error": "フェイルオーバーグループの同期に失敗しました"
+			},
+			"events": {
+				"all": "すべて選択",
+				"none": "すべて選択解除",
+				"reset": "デフォルト設定にリセット",
+				"title": "通知対象のイベント"
+			},
+			"eventsLabel": "アラートイベント",
+			"snippets": {
+				"browseAll": "80以上のサービスをすべて閲覧する",
+				"description": "一般的なサービスにおけるAppriseのURL形式の例 — いずれかをコピーし、詳細情報を入力して、上記に貼り付けてください。"
+			},
+			"target": "通知先",
+			"targetConfigured": "設定済み — 置換する文字列",
+			"targetDescription": "AppriseのURL（例：tgram://<bot_token>/<chat_id>）。暗号化されて保存され、二度と表示されることはありません。複数のターゲットは「;」で区切ってください。",
+			"testButton": "テスト通知を送信",
+			"testFailed": "通知のテストに失敗しました: {{message}}",
+			"testHint": "アラート機能を有効にし、Apprise API URL と送信先の両方を設定してテスト送信を行ってください。",
+			"testSending": "送信中…",
+			"testSent": "テスト通知が送信されました。",
+			"title": "アラート"
 		}
 	},
 	"components": {

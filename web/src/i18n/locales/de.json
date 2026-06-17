@@ -1767,6 +1767,41 @@
 			"otel.name": "OpenTelemetry-Protokolle (OTLP)",
 			"title": "Observability & Log-Export",
 			"description": "Model Hotel kann seine strukturierten Protokolle und Metriken in externe Systeme exportieren. Jede Integration wird über eine Umgebungsvariable aktiviert; die Status-Badges unten zeigen den aktuellen Status an. Es werden niemals Anfrage- oder Antwortinhalte exportiert – nur Routing- und Messmetadaten."
+		},
+		"alerts": {
+			"apiUrl": "Apprise-API-URL",
+			"apiUrlDescription": "Basis-URL des von Ihnen ausgeführten apprise-api-Containers (zum Beispiel http://apprise:8000).",
+			"clear": "Löschen",
+			"description": "Push-Benachrichtigungen zu wichtigen Ereignissen (Ausfall eines Anbieters, Auslösen eines Circuit Breakers) an Telegram, E-Mail, Discord und weitere Kanäle über einen von Ihnen betriebenen zustandslosen Apprise-Container. Es werden niemals Request-Inhalte gesendet – lediglich die Zusammenfassung des Ereignisses.",
+			"enable": "Benachrichtigungen aktivieren",
+			"enableDescription": "Leiten Sie ausgewählte Ereignisse an Ihren Apprise-Endpunkt weiter.",
+			"event": {
+				"circuit_breaker_closed": "Anbieter wiederhergestellt (Circuit Breaker geschlossen)",
+				"circuit_breaker_half_open": "Anbieter wird geprüft (Circuit Breaker halb geöffnet)",
+				"circuit_breaker_open": "Anbieter ausgefallen (Circuit Breaker ausgelöst)",
+				"discovery_provider_failed": "Anbieter ist bei der Erkennung fehlgeschlagen",
+				"failover_sync_error": "Synchronisierung der Failover-Gruppe fehlgeschlagen"
+			},
+			"events": {
+				"all": "Alles auswählen",
+				"none": "Keine auswählen",
+				"reset": "Auf Standardwerte zurücksetzen",
+				"title": "Ereignisse, über die benachrichtigt werden soll"
+			},
+			"eventsLabel": "Alarmereignisse",
+			"snippets": {
+				"browseAll": "Alle über 80 Dienste durchsuchen",
+				"description": "Beispiele für Apprise-URL-Formate gängiger Dienste – kopieren Sie eines davon, geben Sie Ihre Daten ein und fügen Sie es oben ein."
+			},
+			"target": "Benachrichtigungsziel",
+			"targetConfigured": "Konfiguriert – Text zum Ersetzen",
+			"targetDescription": "Ihre Apprise-URL, z. B. tgram://<bot_token>/<chat_id>. Diese wird verschlüsselt gespeichert und nie wieder angezeigt. Trennen Sie mehrere Ziele durch „;“.",
+			"testButton": "Testbenachrichtigung senden",
+			"testFailed": "Testbenachrichtigung fehlgeschlagen: {{message}}",
+			"testHint": "Aktivieren Sie die Benachrichtigungsfunktion und legen Sie sowohl eine Apprise-API-URL als auch ein Ziel fest, um einen Test zu senden.",
+			"testSending": "Senden…",
+			"testSent": "Testbenachrichtigung gesendet.",
+			"title": "Warnmeldungen"
 		}
 	},
 	"components": {

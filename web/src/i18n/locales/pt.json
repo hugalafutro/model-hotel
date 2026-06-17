@@ -1767,6 +1767,41 @@
 			"otel.name": "Logs do OpenTelemetry (OTLP)",
 			"title": "Observabilidade e exportação de logs",
 			"description": "O Model Hotel pode exportar seus logs e métricas estruturados para sistemas externos. Cada integração é ativada por uma variável de ambiente; os ícones de status abaixo refletem o estado atual. Nenhum conteúdo de solicitação ou resposta é exportado — apenas metadados de roteamento e medição."
+		},
+		"alerts": {
+			"apiUrl": "URL da API do Apprise",
+			"apiUrlDescription": "URL base do contêiner apprise-api que você executa (por exemplo, http://apprise:8000).",
+			"clear": "Limpar",
+			"description": "Envie notificações push para eventos importantes (falha de um provedor, acionamento de um disjuntor) para o Telegram, e-mail, Discord e outros canais por meio de um contêiner Apprise sem estado executado por você. Nenhum conteúdo da solicitação é enviado — apenas o resumo do evento.",
+			"enable": "Ativar alertas",
+			"enableDescription": "Encaminhe os eventos selecionados para o seu endpoint do Apprise.",
+			"event": {
+				"circuit_breaker_closed": "Provedor recuperado (disjuntor fechado)",
+				"circuit_breaker_half_open": "Provedor sendo testado (disjuntor semiaberto)",
+				"circuit_breaker_open": "Provedor inoperante (disjuntor aberto)",
+				"discovery_provider_failed": "Falha do provedor durante a descoberta",
+				"failover_sync_error": "Falha na sincronização do grupo de failover"
+			},
+			"events": {
+				"all": "Selecionar tudo",
+				"none": "Não selecionar nada",
+				"reset": "Redefinir para os padrões",
+				"title": "Eventos a serem notificados"
+			},
+			"eventsLabel": "Eventos de alerta",
+			"snippets": {
+				"browseAll": "Navegue por todos os mais de 80 serviços",
+				"description": "Exemplos de formatos de URL do Apprise para serviços populares — copie um, preencha seus dados e cole-o acima."
+			},
+			"target": "Destino da notificação",
+			"targetConfigured": "Configurado — digite para substituir",
+			"targetDescription": "Sua URL do Apprise, por exemplo, tgram://<bot_token>/<chat_id>. Armazenada de forma criptografada e nunca mais exibida. Separe vários destinos com “;”.",
+			"testButton": "Enviar notificação de teste",
+			"testFailed": "Falha na notificação de teste: {{message}}",
+			"testHint": "Habilite os alertas e defina tanto uma URL da API do Apprise quanto um destino para enviar um teste.",
+			"testSending": "Enviando…",
+			"testSent": "Notificação de teste enviada.",
+			"title": "Alertas"
 		}
 	},
 	"components": {

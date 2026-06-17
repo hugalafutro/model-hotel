@@ -1767,6 +1767,41 @@
 			"otel.name": "OpenTelemetry-logfiler (OTLP)",
 			"title": "Observabilitet og logeksport",
 			"description": "Model Hotel kan eksportere sine strukturerede logfiler og målinger til eksterne systemer. Hver integration aktiveres med en miljøvariabel; statusbadges nedenfor afspejler den aktuelle tilstand. Der eksporteres aldrig indhold fra anmodninger eller svar — kun metadata om routing og måling."
+		},
+		"alerts": {
+			"apiUrl": "Apprise API-URL",
+			"apiUrlDescription": "Base-URL for den apprise-api-container, du kører (f.eks. http://apprise:8000).",
+			"clear": "Ryd",
+			"description": "Send push-notifikationer om vigtige hændelser (f.eks. at en udbyder går ned eller en afbryder udløses) til Telegram, e-mail, Discord og mere via en stateless Apprise-container, som du kører. Der sendes aldrig noget anmodningsindhold — kun en oversigt over hændelsen.",
+			"enable": "Aktivér alarmer",
+			"enableDescription": "Videresend udvalgte begivenheder til dit Apprise-endpoint.",
+			"event": {
+				"circuit_breaker_closed": "Udbyder genoprettet (afbryder lukket)",
+				"circuit_breaker_half_open": "Udbyder under test (afbryder halvåben)",
+				"circuit_breaker_open": "Udbyder nede (afbryder udløst)",
+				"discovery_provider_failed": "Udbyderen fejlede under opdagelsen",
+				"failover_sync_error": "Synkronisering af failover-gruppe mislykkedes"
+			},
+			"events": {
+				"all": "Vælg alt",
+				"none": "Vælg ingen",
+				"reset": "Nulstil til standardindstillinger",
+				"title": "Begivenheder, der skal meddeles"
+			},
+			"eventsLabel": "Advarselshændelser",
+			"snippets": {
+				"browseAll": "Gennemse alle de over 80 tjenester",
+				"description": "Eksempler på Apprise-URL-formater for populære tjenester — kopier et af dem, udfyld dine oplysninger og indsæt det ovenfor."
+			},
+			"target": "Mål for notifikation",
+			"targetConfigured": "Konfigureret — skriv for at erstatte",
+			"targetDescription": "Din Apprise-URL, f.eks. tgram://<bot_token>/<chat_id>. Gemmes krypteret og vises aldrig igen. Adskil flere mål med ';'.",
+			"testButton": "Send testmeddelelse",
+			"testFailed": "Testmeddelelse mislykkedes: {{message}}",
+			"testHint": "Aktivér alarmering, og angiv både en Apprise API-URL og en modtager for at sende en test.",
+			"testSending": "Sender…",
+			"testSent": "Testmeddelelse sendt.",
+			"title": "Advarsler"
 		}
 	},
 	"components": {

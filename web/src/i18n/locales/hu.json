@@ -1767,6 +1767,41 @@
 			"otel.name": "OpenTelemetry naplófájlok (OTLP)",
 			"title": "Megfigyelhetőség és naplóexport",
 			"description": "A Model Hotel strukturált naplóit és mutatóit külső rendszerekbe exportálhatja. Minden integrációt egy környezeti változóval lehet engedélyezni; az alábbi állapotjelzők a jelenlegi állapotot tükrözik. Soha nem kerül exportálásra semmilyen kérés vagy válasz tartalma — csak az útválasztási és mérési metaadatok."
+		},
+		"alerts": {
+			"apiUrl": "Apprise API URL",
+			"apiUrlDescription": "Az Ön által futtatott apprise-api konténer alap-URL-je (például http://apprise:8000).",
+			"clear": "Törlés",
+			"description": "Küldjön push-értesítéseket figyelemre méltó eseményekről (szolgáltató leállása, áramkör-megszakító kioldása) a Telegramra, e-mailre, Discordra és más platformokra egy Ön által futtatott, állapotmentes Apprise-konténeren keresztül. Soha nem kerül elküldésre kérés tartalma — csupán az esemény összefoglalása.",
+			"enable": "Riasztások engedélyezése",
+			"enableDescription": "A kiválasztott eseményeket továbbítsa az Apprise végpontjára.",
+			"event": {
+				"circuit_breaker_closed": "A szolgáltató helyreállt (a túlterhelés-védő kapcsoló zárva)",
+				"circuit_breaker_half_open": "A szolgáltató ellenőrzése folyamatban (áramkör-megszakító félig nyitott)",
+				"circuit_breaker_open": "Szolgáltató leállt (áramkör-megszakító nyitva)",
+				"discovery_provider_failed": "A szolgáltató azonosítása során hiba történt",
+				"failover_sync_error": "A failover-csoport szinkronizálása sikertelen"
+			},
+			"events": {
+				"all": "Összes kijelölése",
+				"none": "Ne válasszon semmit",
+				"reset": "Alapértelmezett értékek visszaállítása",
+				"title": "Értesítendő események"
+			},
+			"eventsLabel": "Riasztási események",
+			"snippets": {
+				"browseAll": "Több mint 80 szolgáltatás böngészése",
+				"description": "Példák népszerű szolgáltatások Apprise URL-formátumaira – másoljon le egyet, töltse ki az adataival, majd illessze be a fenti helyre."
+			},
+			"target": "Értesítési cél",
+			"targetConfigured": "Configured — beírandó szöveg",
+			"targetDescription": "Az Apprise URL-je, pl. tgram://<bot_token>/<chat_id>. Titkosítva tárolódik, és soha többé nem jelenik meg. Több célt „;” jelölővel válasszon el egymástól.",
+			"testButton": "Tesztértesítés küldése",
+			"testFailed": "A tesztértesítés sikertelen: {{message}}",
+			"testHint": "Engedélyezze a riasztásokat, és állítsa be mind az Apprise API URL-jét, mind a tesztküldés célját.",
+			"testSending": "Küldés…",
+			"testSent": "Tesztértesítés elküldve.",
+			"title": "Riasztások"
 		}
 	},
 	"components": {

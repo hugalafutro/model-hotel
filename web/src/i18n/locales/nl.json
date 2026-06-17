@@ -1767,6 +1767,41 @@
 			"otel.name": "OpenTelemetry-logs (OTLP)",
 			"title": "Observability & logexport",
 			"description": "Model Hotel kan zijn gestructureerde logboeken en statistieken exporteren naar externe systemen. Elke integratie wordt ingeschakeld met een omgevingsvariabele; de statusbadges hieronder geven de huidige status weer. Er wordt nooit verzoek- of responsinhoud geëxporteerd — alleen metadata over routering en metingen."
+		},
+		"alerts": {
+			"apiUrl": "Apprise API-URL",
+			"apiUrlDescription": "Basis-URL van de apprise-api-container die u draait (bijvoorbeeld http://apprise:8000).",
+			"clear": "Wissen",
+			"description": "Stuur pushmeldingen voor opmerkelijke gebeurtenissen (een provider die uitvalt, een circuitbreaker die afgaat) naar Telegram, e-mail, Discord en meer via een stateless Apprise-container die u draait. Er wordt nooit verzoekinhoud verzonden — alleen de samenvatting van de gebeurtenis.",
+			"enable": "Schakel waarschuwingen in",
+			"enableDescription": "Stuur geselecteerde gebeurtenissen door naar uw Apprise-eindpunt.",
+			"event": {
+				"circuit_breaker_closed": "Provider hersteld (circuitbreaker gesloten)",
+				"circuit_breaker_half_open": "Provider wordt getest (circuitbreaker halfopen)",
+				"circuit_breaker_open": "Provider offline (circuitbreaker geopend)",
+				"discovery_provider_failed": "De provider is mislukt tijdens het opsporen",
+				"failover_sync_error": "Synchronisatie van de failovergroep is mislukt"
+			},
+			"events": {
+				"all": "Alles selecteren",
+				"none": "Selecteer geen",
+				"reset": "Terugzetten naar standaardinstellingen",
+				"title": "Gebeurtenissen waarover moet worden gemeld"
+			},
+			"eventsLabel": "Waarschuwingsgebeurtenissen",
+			"snippets": {
+				"browseAll": "Bekijk alle meer dan 80 diensten",
+				"description": "Voorbeelden van Apprise-URL-formaten voor populaire diensten — kopieer er een, vul je gegevens in en plak deze hierboven."
+			},
+			"target": "Ontvanger van de melding",
+			"targetConfigured": "Geconfigureerd — typ om te vervangen",
+			"targetDescription": "Uw Apprise-URL, bijvoorbeeld tgram://<bot_token>/<chat_id>. Wordt versleuteld opgeslagen en nooit meer weergegeven. Scheid meerdere doelen met ';'.",
+			"testButton": "Testmelding verzenden",
+			"testFailed": "Testmelding mislukt: {{message}}",
+			"testHint": "Schakel waarschuwingen in en stel zowel een Apprise API-URL als een doel in om een test te verzenden.",
+			"testSending": "Bezig met verzenden…",
+			"testSent": "Testmelding verzonden.",
+			"title": "Waarschuwingen"
 		}
 	},
 	"components": {

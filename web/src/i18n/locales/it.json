@@ -1767,6 +1767,41 @@
 			"otel.name": "Log OpenTelemetry (OTLP)",
 			"title": "Osservabilità ed esportazione dei log",
 			"description": "Model Hotel può esportare i propri log e metriche strutturati verso sistemi esterni. Ogni integrazione è abilitata tramite una variabile d'ambiente; i badge di stato riportati di seguito riflettono lo stato attuale. Non viene mai esportato alcun contenuto di richiesta o risposta, ma solo metadati di instradamento e misurazione."
+		},
+		"alerts": {
+			"apiUrl": "URL dell’API Apprise",
+			"apiUrlDescription": "URL di base del container apprise-api in esecuzione (ad esempio http://apprise:8000).",
+			"clear": "Cancella",
+			"description": "Invia notifiche push per eventi rilevanti (interruzione del servizio di un provider, attivazione di un circuit breaker) su Telegram, e-mail, Discord e altre piattaforme tramite un container Apprise stateless da te gestito. Non viene mai inviato alcun contenuto della richiesta, ma solo il riepilogo dell’evento.",
+			"enable": "Abilitare gli avvisi",
+			"enableDescription": "Inoltra gli eventi selezionati al tuo endpoint Apprise.",
+			"event": {
+				"circuit_breaker_closed": "Provider ripristinato (interruttore di sicurezza chiuso)",
+				"circuit_breaker_half_open": "Provider in fase di verifica (interruttore automatico semiaperto)",
+				"circuit_breaker_open": "Provider inattivo (interruttore di sicurezza aperto)",
+				"discovery_provider_failed": "Errore del provider durante la fase di individuazione",
+				"failover_sync_error": "Sincronizzazione del gruppo di failover non riuscita"
+			},
+			"events": {
+				"all": "Seleziona tutto",
+				"none": "Non selezionare nulla",
+				"reset": "Ripristina impostazioni predefinite",
+				"title": "Eventi da segnalare"
+			},
+			"eventsLabel": "Eventi di avviso",
+			"snippets": {
+				"browseAll": "Sfoglia tutti gli oltre 80 servizi",
+				"description": "Esempi di formati URL Apprise per servizi diffusi: copiarne uno, inserire i propri dati e incollarlo sopra."
+			},
+			"target": "Destinatario della notifica",
+			"targetConfigured": "Configurato — digitare per sostituire",
+			"targetDescription": "L’URL di Apprise, ad esempio tgram://<bot_token>/<chat_id>. Viene memorizzato in forma crittografata e non viene mai più visualizzato. Separare più destinazioni con «;».",
+			"testButton": "Invia notifica di prova",
+			"testFailed": "Notifica di test fallita: {{message}}",
+			"testHint": "Abilitare gli avvisi e impostare sia un URL API di Apprise sia una destinazione per l’invio di un test.",
+			"testSending": "Invio in corso…",
+			"testSent": "Notifica di test inviata.",
+			"title": "Avvisi"
 		}
 	},
 	"components": {

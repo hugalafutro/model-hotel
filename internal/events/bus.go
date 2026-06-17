@@ -96,3 +96,13 @@ func (b *Bus) Unsubscribe(ch chan Event) {
 func Publish(event Event) {
 	DefaultBus.Publish(event)
 }
+
+// Subscribe is a convenience function that subscribes to the DefaultBus.
+func Subscribe() chan Event {
+	return DefaultBus.Subscribe()
+}
+
+// Unsubscribe is a convenience function that unsubscribes from the DefaultBus.
+func Unsubscribe(ch chan Event) {
+	DefaultBus.Unsubscribe(ch)
+}

@@ -47,6 +47,10 @@ var AllowedSettings = map[string]bool{
 	"backup_son_retention":         true,
 	"backup_father_retention":      true,
 	"backup_grandfather_retention": true,
+	"alert_enabled":                true,
+	"alert_apprise_api_url":        true,
+	"alert_apprise_targets":        true,
+	"alert_events":                 true,
 }
 
 type cacheEntry struct {

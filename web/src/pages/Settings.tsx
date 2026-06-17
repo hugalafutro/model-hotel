@@ -10,6 +10,7 @@ import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { ResetButton } from "../components/ResetButton";
 import { useToast } from "../context/ToastContext";
+import { AlertsSettings } from "./Settings/AlertsSettings";
 import { AppearanceSettings } from "./Settings/AppearanceSettings";
 import { CircuitBreakerSettings } from "./Settings/CircuitBreakerSettings";
 import { DatabaseBackupSettings } from "./Settings/DatabaseBackupSettings";
@@ -51,6 +52,9 @@ export function Settings() {
 	);
 	const { collapsed: observabilityCollapsed, toggle: toggleObservability } =
 		useCollapsible("settings_observabilityCollapsed");
+	const { collapsed: alertsCollapsed, toggle: toggleAlerts } = useCollapsible(
+		"settings_alertsCollapsed",
+	);
 
 	const { isLoading } = useQuery({
 		queryKey: ["settings"],
@@ -146,6 +150,12 @@ export function Settings() {
 				<ObservabilitySettings
 					collapsed={observabilityCollapsed}
 					onToggle={toggleObservability}
+				/>
+
+				<AlertsSettings
+					collapsed={alertsCollapsed}
+					onToggle={toggleAlerts}
+					onResetSection={() => setResetSection("alerts")}
 				/>
 
 				<DatabaseBackupSettings

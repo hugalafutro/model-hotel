@@ -1,3 +1,4 @@
+import * as Ph from "@phosphor-icons/react";
 import i18next from "i18next";
 import claudeLogo from "@/assets/logos/claude.png";
 import hermesDark from "@/assets/logos/hermes-dark.png";
@@ -21,7 +22,15 @@ export type LangIconKey =
 	| "curl"
 	| "powershell"
 	| "zed"
-	| "opencode";
+	| "opencode"
+	// Apprise notification services — single Phosphor family, no mixing.
+	| "telegram"
+	| "discord"
+	| "slack"
+	| "msteams"
+	| "matrix"
+	| "webhook"
+	| "email";
 
 interface LangIconProps {
 	name: LangIconKey;
@@ -36,6 +45,23 @@ export function LangIcon({ name, size = 14, ...rest }: LangIconProps) {
 	const isDark = theme === "dark";
 
 	switch (name) {
+		// Apprise services. All from the Phosphor family for a consistent look —
+		// brand logos where Phosphor has them, a canonical glyph otherwise. No
+		// emoji/UTF-8/hand-drawn SVG mixing.
+		case "telegram":
+			return <Ph.TelegramLogo size={size} {...rest} />;
+		case "discord":
+			return <Ph.DiscordLogo size={size} {...rest} />;
+		case "slack":
+			return <Ph.SlackLogo size={size} {...rest} />;
+		case "msteams":
+			return <Ph.MicrosoftTeamsLogo size={size} {...rest} />;
+		case "matrix":
+			return <Ph.MatrixLogo size={size} {...rest} />;
+		case "webhook":
+			return <Ph.WebhooksLogo size={size} {...rest} />;
+		case "email":
+			return <Ph.EnvelopeSimple size={size} {...rest} />;
 		case "curl":
 			return (
 				<svg

@@ -1767,6 +1767,41 @@
 			"otel.name": "OpenTelemetry-logger (OTLP)",
 			"title": "Observabilitet og loggeksport",
 			"description": "Model Hotel kan eksportere sine strukturerte logger og målinger til eksterne systemer. Hver integrasjon aktiveres med en miljøvariabel; statusmerkene nedenfor gjenspeiler den aktuelle tilstanden. Ingen forespørsler eller svarinnhold eksporteres noensinne — kun metadata for ruting og måling."
+		},
+		"alerts": {
+			"apiUrl": "Apprise API-URL",
+			"apiUrlDescription": "Base-URL for apprise-api-containeren du kjører (for eksempel http://apprise:8000).",
+			"clear": "Fjern",
+			"description": "Send push-varsler om viktige hendelser (at en leverandør går ned, at en sikkerhetsbryter utløses) til Telegram, e-post, Discord og mer via en stateless Apprise-container som du kjører. Det sendes aldri noe forespørselsinnhold – kun en oppsummering av hendelsen.",
+			"enable": "Aktiver varsling",
+			"enableDescription": "Videresend valgte hendelser til Apprise-endepunktet ditt.",
+			"event": {
+				"circuit_breaker_closed": "Leverandøren er gjenopprettet (strømbryter lukket)",
+				"circuit_breaker_half_open": "Leverandør blir testet (strømbryter halvåpen)",
+				"circuit_breaker_open": "Leverandør nede (strømbryter åpnet)",
+				"discovery_provider_failed": "Leverandøren mislyktes under oppdagelsen",
+				"failover_sync_error": "Synkronisering av failover-gruppe mislyktes"
+			},
+			"events": {
+				"all": "Velg alt",
+				"none": "Velg ingen",
+				"reset": "Tilbakestill til standardinnstillinger",
+				"title": "Hendelser som skal varsles om"
+			},
+			"eventsLabel": "Varslingshendelser",
+			"snippets": {
+				"browseAll": "Se alle de over 80 tjenestene",
+				"description": "Eksempler på Apprise-URL-formater for populære tjenester – kopier en, fyll inn dine opplysninger og lim den inn ovenfor."
+			},
+			"target": "Mottaker av varsel",
+			"targetConfigured": "Konfigurert — skriv inn for å erstatte",
+			"targetDescription": "Din Apprise-URL, f.eks. tgram://<bot_token>/<chat_id>. Lagrer kryptert og vises aldri igjen. Skille flere mål med «;».",
+			"testButton": "Send testvarsel",
+			"testFailed": "Testvarsel mislyktes: {{message}}",
+			"testHint": "Aktiver varsling og angi både en Apprise API-URL og et mål for å sende en test.",
+			"testSending": "Sender…",
+			"testSent": "Testvarsel sendt.",
+			"title": "Varsler"
 		}
 	},
 	"components": {

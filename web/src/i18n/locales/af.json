@@ -1767,6 +1767,41 @@
 			"otel.name": "OpenTelemetry-logs (OTLP)",
 			"title": "Observabiliteit & Log-uitvoer",
 			"description": "Model Hotel kan sy gestruktureerde loglêers en metrieks na eksterne stelsels uitvoer. Elke integrasie word met 'n omgewingsveranderlike geaktiveer; die statuskentekens hieronder weerspieël die huidige toestand. Geen versoek- of reaksie-inhoud word ooit uitgevoer nie — slegs roetering- en meetmetagegewens."
+		},
+		"alerts": {
+			"apiUrl": "Apprise API-URL",
+			"apiUrlDescription": "Basislink van die apprise-api-houer wat jy gebruik (byvoorbeeld http://apprise:8000).",
+			"clear": "Duidelik",
+			"description": "Stootkennisgewings vir noemenswaardige gebeure ('n verskaffer wat uitval, 'n stroombreker wat afskakel) na Telegram, e-pos, Discord en meer via 'n statelose Apprise-houer wat jy laat loop. Geen versoekinhoud word ooit gestuur nie — net die gebeurtenissamevatting.",
+			"enable": "Aktiveer kennisgewing",
+			"enableDescription": "Stuur geselekteerde gebeure na jou Apprise-eindpunt.",
+			"event": {
+				"circuit_breaker_closed": "Verskaffer herstel (kringbreker gesluit)",
+				"circuit_breaker_half_open": "Verskaffer word ondersoek (kringbreker half-oop)",
+				"circuit_breaker_open": "Verskaffer onbeskikbaar (kringbreker oopgemaak)",
+				"discovery_provider_failed": "Verskaffer het tydens ontdekking misluk",
+				"failover_sync_error": "Failover-groep-sinkronisering het misluk"
+			},
+			"events": {
+				"all": "Kies alles",
+				"none": "Kies geen",
+				"reset": "Stel terug na verstekwaardes",
+				"title": "Geleenthede om op in kennis te stel"
+			},
+			"eventsLabel": "Waarskuwingsgebeurtenisse",
+			"snippets": {
+				"browseAll": "Blaai deur al die 80+ dienste",
+				"description": "Voorbeeld Apprise-URL-formate vir gewilde dienste — kopieer een, vul jou besonderhede in en plak dit hierbo."
+			},
+			"target": "Kennisgewingsdoelwit",
+			"targetConfigured": "Gekonfigureer — tipe om te vervang",
+			"targetDescription": "Jou Apprise-URL, bv. tgram://<bot_token>/<chat_id>. Word versleuteld gestoor en nooit weer gewys nie. Schei verskeie teikens met ';'.",
+			"testButton": "Stuur toetskennisgewing",
+			"testFailed": "Toetskennisgewing misluk: {{message}}",
+			"testHint": "Aktiveer kennisgewing en stel beide 'n Apprise API-URL en 'n teiken in om 'n toets te stuur.",
+			"testSending": "Stuur…",
+			"testSent": "Toetskennisgewing gestuur.",
+			"title": "Waarskuwings"
 		}
 	},
 	"components": {

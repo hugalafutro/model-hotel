@@ -1767,6 +1767,41 @@
 			"otel.name": "OpenTelemetry 日志 (OTLP)",
 			"title": "可观测性与日志导出",
 			"description": "Model Hotel 可将其结构化日志和指标导出至外部系统。每项集成均通过环境变量启用；下方的状态图标反映当前状态。绝不导出任何请求或响应内容——仅导出路由和计量元数据。"
+		},
+		"alerts": {
+			"apiUrl": "Apprise API URL",
+			"apiUrlDescription": "您运行的 apprise-api 容器的基础 URL（例如 http://apprise:8000）。",
+			"clear": "清除",
+			"description": "通过您运行的无状态 Apprise 容器，将重要事件（如提供商服务中断、断路器触发）的推送通知发送至 Telegram、电子邮件、Discord 等平台。绝不发送任何请求内容——仅发送事件摘要。",
+			"enable": "启用警报功能",
+			"enableDescription": "将选定的事件转发至您的 Apprise 端点。",
+			"event": {
+				"circuit_breaker_closed": "提供商已恢复（断路器已闭合）",
+				"circuit_breaker_half_open": "正在检测服务提供商（断路器处于半开启状态）",
+				"circuit_breaker_open": "提供商故障（断路器已打开）",
+				"discovery_provider_failed": "提供商在发现过程中失败",
+				"failover_sync_error": "故障转移组同步失败"
+			},
+			"events": {
+				"all": "全选",
+				"none": "不选择任何选项",
+				"reset": "重置为默认值",
+				"title": "需通知的事件"
+			},
+			"eventsLabel": "警报事件",
+			"snippets": {
+				"browseAll": "浏览所有 80 多项服务",
+				"description": "常用服务的 Apprise URL 格式示例——复制其中一个，填写您的详细信息，然后将其粘贴到上方。"
+			},
+			"target": "通知目标",
+			"targetConfigured": "已配置 — 输入内容以替换",
+			"targetDescription": "您的 Apprise URL，例如 tgram://<bot_token>/<chat_id>。该 URL 将以加密形式存储，且不会再次显示。多个目标之间请用“;”分隔。",
+			"testButton": "发送测试通知",
+			"testFailed": "测试通知失败：{{message}}",
+			"testHint": "启用警报功能，并同时设置 Apprise API URL 和目标地址以发送测试消息。",
+			"testSending": "正在发送……",
+			"testSent": "已发送测试通知。",
+			"title": "警报"
 		}
 	},
 	"components": {

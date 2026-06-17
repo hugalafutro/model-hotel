@@ -43,6 +43,7 @@ export const ExternalLink = withId(Ph.ArrowSquareOut, "ExternalLink");
 export const RefreshCw = withId(Ph.ArrowsClockwise, "RefreshCw");
 export const Maximize2 = withId(Ph.ArrowsOut, "Maximize2");
 export const ArrowUpRight = withId(Ph.ArrowUpRight, "ArrowUpRight");
+export const Bell = withId(Ph.Bell, "Bell");
 export const BookOpen = withId(Ph.BookOpen, "BookOpen");
 export const Braces = withId(Ph.BracketsCurly, "Braces");
 export const Brain = withId(Ph.Brain, "Brain");
