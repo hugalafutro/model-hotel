@@ -44,6 +44,57 @@ func TestGetAlertEvents(t *testing.T) {
 	}
 }
 
+func TestGetAlertStatusUnconfigured(t *testing.T) {
+	h := &Handler{
+		cfg:          &config.Config{MasterKey: secretTestMasterKey},
+		settingsRepo: &mockSettingsStore{}, // no apprise-api URL
+	}
+	rec := httptest.NewRecorder()
+	h.GetAlertStatus(
+		rec,
+		httptest.NewRequest(http.MethodGet, "/alert/status", http.NoBody),
+	)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	var st alert.Status
+	if err := json.Unmarshal(rec.Body.Bytes(), &st); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if st.Configured {
+		t.Errorf("expected not configured, got %+v", st)
+	}
+}
+
+func TestGetAlertStatusReachable(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {}))
+	defer srv.Close()
+
+	h := &Handler{
+		cfg: &config.Config{MasterKey: secretTestMasterKey},
+		settingsRepo: &mockSettingsStore{
+			getWithDefaultFn: func(_ context.Context, key, def string) string {
+				if key == "alert_apprise_api_url" {
+					return srv.URL
+				}
+				return def
+			},
+		},
+	}
+	rec := httptest.NewRecorder()
+	h.GetAlertStatus(
+		rec,
+		httptest.NewRequest(http.MethodGet, "/alert/status", http.NoBody),
+	)
+	var st alert.Status
+	if err := json.Unmarshal(rec.Body.Bytes(), &st); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if !st.Configured || !st.Reachable || !st.Healthy {
+		t.Errorf("expected reachable+healthy, got %+v", st)
+	}
+}
+
 func TestSendAlertTestUnconfigured(t *testing.T) {
 	h := &Handler{
 		cfg:          &config.Config{MasterKey: secretTestMasterKey},

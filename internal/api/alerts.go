@@ -1,8 +1,10 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -16,8 +18,33 @@ import (
 func (h *Handler) RegisterAlerts(r chi.Router) {
 	r.Route("/alert", func(r chi.Router) {
 		r.Get("/events", h.GetAlertEvents)
+		r.Get("/status", h.GetAlertStatus)
 		r.Post("/test", h.SendAlertTest)
 	})
+}
+
+// GetAlertStatus reports whether the configured apprise-api container is
+// reachable, so an unset/wrong URL or a stopped container is visible in the UI
+// rather than failing silently when an event later fires.
+func (h *Handler) GetAlertStatus(w http.ResponseWriter, r *http.Request) {
+	masterKey := ""
+	if h.cfg != nil {
+		masterKey = h.cfg.MasterKey
+	}
+	// Bound the probe so a hung apprise-api can't stall the dashboard request.
+	ctx, cancel := context.WithTimeout(r.Context(), 4*time.Second)
+	defer cancel()
+
+	dispatcher := alert.New(alert.NewSettingsConfigProvider(h.settingsRepo, masterKey), nil)
+	status, err := dispatcher.Probe(ctx)
+	if err != nil {
+		respondError(w, "failed to probe alert status", err, http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(status); err != nil {
+		respondError(w, "failed to encode response", err, http.StatusInternalServerError)
+	}
 }
 
 // GetAlertEvents returns the static catalog of operator-subscribable events.

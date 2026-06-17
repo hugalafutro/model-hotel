@@ -1199,7 +1199,7 @@
 			"all": "Všetko ({{count}})",
 			"search": "Filtrovať protokoly…",
 			"allLevels": "Všetky úrovne",
-			"allKeys": "Všetky kľúče"
+			"allSources": "Všetky zdroje"
 		},
 		"table": {
 			"timeDate": "Čas/Dátum",
@@ -1795,13 +1795,21 @@
 			},
 			"target": "Cieľ oznámenia",
 			"targetConfigured": "Konfigurované — text na nahradenie",
-			"targetDescription": "Vaša URL adresa Apprise, napr. tgram://<bot_token>/<chat_id>. Ukladá sa v šifrovanej podobe a už sa nikdy nezobrazí. Viac cieľov oddeľte znakom „;“.",
+			"targetDescription": "Vaša URL adresa Apprise — je uložená v šifrovanej podobe a už sa nikdy nezobrazí. Viac cieľov oddeľte pomocou <code>;</code>.",
 			"testButton": "Odoslať testovacie oznámenie",
 			"testFailed": "Testovanie oznámenia zlyhalo: {{message}}",
 			"testHint": "Aktivujte upozornenia a nastavte URL rozhrania Apprise API aj cieľ na odoslanie testu.",
 			"testSending": "Odosielanie…",
 			"testSent": "Oznámenie o teste bolo odoslané.",
-			"title": "Upozornenia"
+			"title": "Upozornenia",
+			"status": {
+				"checking": "Kontrola apprise-api…",
+				"issues": "apprise-api je dostupné, ale hlási problémy",
+				"reachable": "apprise-api je dostupné",
+				"recheck": "Znovu skontrolujte",
+				"unreachable": "apprise-api nedostupné — skontrolujte URL a či kontajner beží",
+				"checkFailed": "Kontrola stavu zlyhala"
+			}
 		}
 	},
 	"components": {

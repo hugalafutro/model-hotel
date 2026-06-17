@@ -21,6 +21,10 @@ type fakeCfg struct {
 
 func (f fakeCfg) AlertConfig(_ context.Context) (Config, error) { return f.cfg, f.err }
 
+func (f fakeCfg) APIBaseURL(_ context.Context) (string, error) {
+	return f.cfg.APIBaseURL, f.err
+}
+
 // recordingServer captures the notify payloads apprise-api would receive.
 type recordingServer struct {
 	*httptest.Server

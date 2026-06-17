@@ -1199,7 +1199,7 @@
 			"all": "すべて ({{count}})",
 			"search": "ログのフィルタリング…",
 			"allLevels": "全レベル",
-			"allKeys": "すべてのキー"
+			"allSources": "すべてのソース"
 		},
 		"table": {
 			"timeDate": "時刻/日付",
@@ -1795,13 +1795,21 @@
 			},
 			"target": "通知先",
 			"targetConfigured": "設定済み — 置換する文字列",
-			"targetDescription": "AppriseのURL（例：tgram://<bot_token>/<chat_id>）。暗号化されて保存され、二度と表示されることはありません。複数のターゲットは「;」で区切ってください。",
+			"targetDescription": "AppriseのURL — 暗号化されて保存され、二度と表示されることはありません。複数のターゲットは「<code>;</code>」のように区切ってください。",
 			"testButton": "テスト通知を送信",
 			"testFailed": "通知のテストに失敗しました: {{message}}",
 			"testHint": "アラート機能を有効にし、Apprise API URL と送信先の両方を設定してテスト送信を行ってください。",
 			"testSending": "送信中…",
 			"testSent": "テスト通知が送信されました。",
-			"title": "アラート"
+			"title": "アラート",
+			"status": {
+				"checking": "apprise-apiの確認中…",
+				"issues": "apprise-apiには接続できるが、問題が報告されている",
+				"reachable": "apprise-api にアクセス可能",
+				"recheck": "再確認",
+				"unreachable": "apprise-api に接続できません — URL を確認し、コンテナが実行中であることを確認してください",
+				"checkFailed": "ステータスチェックに失敗しました"
+			}
 		}
 	},
 	"components": {

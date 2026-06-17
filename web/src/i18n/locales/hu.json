@@ -1199,7 +1199,7 @@
 			"all": "Összes ({{count}})",
 			"search": "Naplók szűrése:…",
 			"allLevels": "Minden szint",
-			"allKeys": "Minden kulcs"
+			"allSources": "Minden forrás"
 		},
 		"table": {
 			"timeDate": "Idő/Dátum",
@@ -1795,13 +1795,21 @@
 			},
 			"target": "Értesítési cél",
 			"targetConfigured": "Configured — beírandó szöveg",
-			"targetDescription": "Az Apprise URL-je, pl. tgram://<bot_token>/<chat_id>. Titkosítva tárolódik, és soha többé nem jelenik meg. Több célt „;” jelölővel válasszon el egymástól.",
+			"targetDescription": "Az Apprise URL-je — titkosítva tárolódik, és soha többé nem jelenik meg. Több célt <code>;</code> formában válasszon el egymástól.",
 			"testButton": "Tesztértesítés küldése",
 			"testFailed": "A tesztértesítés sikertelen: {{message}}",
 			"testHint": "Engedélyezze a riasztásokat, és állítsa be mind az Apprise API URL-jét, mind a tesztküldés célját.",
 			"testSending": "Küldés…",
 			"testSent": "Tesztértesítés elküldve.",
-			"title": "Riasztások"
+			"title": "Riasztások",
+			"status": {
+				"checking": "Az apprise-api ellenőrzése…",
+				"issues": "Az apprise-api elérhető, de problémákat jelent",
+				"reachable": "apprise-api elérhető",
+				"recheck": "Ellenőrizze újra",
+				"unreachable": "Az apprise-api nem érhető el — ellenőrizze az URL-t, és hogy a konténer fut-e",
+				"checkFailed": "Az állapotellenőrzés sikertelen volt"
+			}
 		}
 	},
 	"components": {

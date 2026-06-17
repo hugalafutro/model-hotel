@@ -1199,7 +1199,7 @@
 			"all": "Kaikki ({{count}})",
 			"search": "Suodata lokit…",
 			"allLevels": "Kaikki tasot",
-			"allKeys": "Kaikki avaimet"
+			"allSources": "Kaikki lähteet"
 		},
 		"table": {
 			"timeDate": "Aika/Päivämäärä",
@@ -1795,13 +1795,21 @@
 			},
 			"target": "Ilmoituksen kohde",
 			"targetConfigured": "Määritetty — kirjoita korvaava teksti",
-			"targetDescription": "Apprise-URL-osoitteesi, esim. tgram://<bot_token>/<chat_id>. Tallennetaan salattuna eikä sitä näytetä enää koskaan. Erota useat kohteet toisistaan ';'-merkillä.",
+			"targetDescription": "Apprise-URL-osoitteesi — tallennetaan salattuna eikä sitä näytetä enää koskaan. Erota useat kohteet toisistaan merkinnällä <code>;</code>.",
 			"testButton": "Lähetä testilmoitus",
 			"testFailed": "Ilmoituksen testaus epäonnistui: {{message}}",
 			"testHint": "Ota hälytykset käyttöön ja määritä sekä Apprise-API-URL että kohde testiviestin lähettämistä varten.",
 			"testSending": "Lähetetään…",
 			"testSent": "Testiviesti lähetetty.",
-			"title": "Hälytykset"
+			"title": "Hälytykset",
+			"status": {
+				"checking": "Tarkistetaan apprise-api…",
+				"issues": "apprise-api on käytettävissä, mutta siinä on raportoitavia ongelmia",
+				"reachable": "apprise-api tavoitettavissa",
+				"recheck": "Tarkista uudelleen",
+				"unreachable": "apprise-api ei tavoitettavissa — tarkista URL-osoite ja varmista, että kontti on käynnissä",
+				"checkFailed": "Tilan tarkistus epäonnistui"
+			}
 		}
 	},
 	"components": {

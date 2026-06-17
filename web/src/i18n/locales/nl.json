@@ -1199,7 +1199,7 @@
 			"all": "Alle ({{count}})",
 			"search": "Logbestanden filteren…",
 			"allLevels": "Alle niveaus",
-			"allKeys": "Alle sleutels"
+			"allSources": "Alle bronnen"
 		},
 		"table": {
 			"timeDate": "Tijd/Datum",
@@ -1795,13 +1795,21 @@
 			},
 			"target": "Ontvanger van de melding",
 			"targetConfigured": "Geconfigureerd — typ om te vervangen",
-			"targetDescription": "Uw Apprise-URL, bijvoorbeeld tgram://<bot_token>/<chat_id>. Wordt versleuteld opgeslagen en nooit meer weergegeven. Scheid meerdere doelen met ';'.",
+			"targetDescription": "Uw Apprise-URL — wordt versleuteld opgeslagen en nooit meer weergegeven. Scheid meerdere doelen met <code>;</code>.",
 			"testButton": "Testmelding verzenden",
 			"testFailed": "Testmelding mislukt: {{message}}",
 			"testHint": "Schakel waarschuwingen in en stel zowel een Apprise API-URL als een doel in om een test te verzenden.",
 			"testSending": "Bezig met verzenden…",
 			"testSent": "Testmelding verzonden.",
-			"title": "Waarschuwingen"
+			"title": "Waarschuwingen",
+			"status": {
+				"checking": "Apprise-API wordt gecontroleerd…",
+				"issues": "apprise-api is bereikbaar, maar er worden problemen gemeld",
+				"reachable": "apprise-api bereikbaar",
+				"recheck": "Controleer nogmaals",
+				"unreachable": "apprise-api niet bereikbaar — controleer de URL en of de container actief is",
+				"checkFailed": "Statuscontrole mislukt"
+			}
 		}
 	},
 	"components": {

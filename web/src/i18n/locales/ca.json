@@ -1199,7 +1199,7 @@
 			"all": "Tots ({{count}})",
 			"search": "Filtreu els registres…",
 			"allLevels": "Tots els nivells",
-			"allKeys": "Totes les claus"
+			"allSources": "Totes les fonts"
 		},
 		"table": {
 			"timeDate": "Hora/Data",
@@ -1795,13 +1795,21 @@
 			},
 			"target": "Destinació de notificació",
 			"targetConfigured": "Configurat — tipus per substituir",
-			"targetDescription": "La teva URL d'Apprise, p. ex. tgram://<bot_token>/<chat_id>. S'emmagatzema xifrada i no es mostra mai més. Separa diversos destinataris amb ';'.",
+			"targetDescription": "La teva URL d'Apprise — emmagatzemada xifrada i que no es mostrarà mai més. Separa diversos objectius amb <code>;</code>.",
 			"testButton": "Envia notificació de prova",
 			"testFailed": "La prova de notificació ha fallat: {{message}}",
 			"testHint": "Activa les alertes i configura tant una URL de l'API Apprise com un destinatari per enviar una prova.",
 			"testSending": "Enviant…",
 			"testSent": "Notificació de prova enviada.",
-			"title": "Alertes"
+			"title": "Alertes",
+			"status": {
+				"checking": "Comprovant apprise-api…",
+				"issues": "apprise-api accessible però amb problemes de resposta",
+				"reachable": "apprise-api accessible",
+				"recheck": "Recomprova",
+				"unreachable": "apprise-api inaccessible — comproveu l'URL i que el contenidor s'està executant",
+				"checkFailed": "Comprovació d'estat fallida"
+			}
 		}
 	},
 	"components": {

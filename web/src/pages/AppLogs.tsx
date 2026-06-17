@@ -329,7 +329,7 @@ export function AppLogs() {
 										setPage(1);
 									}}
 									placeholder={t("applogs.filters.source")}
-									allLabel={t("applogs.filters.allKeys")}
+									allLabel={t("applogs.filters.allSources")}
 									options={sources.map((src) => ({
 										value: src,
 										label: src,

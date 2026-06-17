@@ -1199,7 +1199,7 @@
 			"all": "Tất cả ({{count}})",
 			"search": "Lọc nhật ký…",
 			"allLevels": "Tất cả các cấp độ",
-			"allKeys": "Tất cả các khóa"
+			"allSources": "Tất cả các nguồn"
 		},
 		"table": {
 			"timeDate": "Thời gian/Ngày",
@@ -1795,13 +1795,21 @@
 			},
 			"target": "Đối tượng nhận thông báo",
 			"targetConfigured": "Đã cấu hình — nhập nội dung để thay thế",
-			"targetDescription": "URL Apprise của bạn, ví dụ: tgram://<bot_token>/<chat_id>. Được lưu trữ dưới dạng mã hóa và không bao giờ được hiển thị lại. Dùng dấu ';' để phân tách các mục tiêu.",
+			"targetDescription": "URL Apprise của bạn — được lưu trữ dưới dạng mã hóa và sẽ không bao giờ được hiển thị lại. Dùng <code>;</code> để phân tách các mục tiêu.",
 			"testButton": "Gửi thông báo thử nghiệm",
 			"testFailed": "Thông báo thử nghiệm không thành công: {{message}}",
 			"testHint": "Kích hoạt tính năng cảnh báo và thiết lập cả URL API Apprise lẫn đích đến để gửi yêu cầu thử nghiệm.",
 			"testSending": "Đang gửi…",
 			"testSent": "Đã gửi thông báo thử nghiệm.",
-			"title": "Cảnh báo"
+			"title": "Cảnh báo",
+			"status": {
+				"checking": "Đang kiểm tra apprise-api…",
+				"issues": "apprise-api có thể truy cập được nhưng đang báo cáo sự cố",
+				"reachable": "apprise-api có thể truy cập được",
+				"recheck": "Kiểm tra lại",
+				"unreachable": "Không thể truy cập apprise-api — kiểm tra URL và đảm bảo rằng container đang chạy",
+				"checkFailed": "Kiểm tra trạng thái không thành công"
+			}
 		}
 	},
 	"components": {

@@ -1199,7 +1199,7 @@
 			"all": "Todos ({{count}})",
 			"search": "Filtrar logs…",
 			"allLevels": "Todos os níveis",
-			"allKeys": "Todas as chaves"
+			"allSources": "Todas as fontes"
 		},
 		"table": {
 			"timeDate": "Hora/Data",
@@ -1795,13 +1795,21 @@
 			},
 			"target": "Destino da notificação",
 			"targetConfigured": "Configurado — digite para substituir",
-			"targetDescription": "Sua URL do Apprise, por exemplo, tgram://<bot_token>/<chat_id>. Armazenada de forma criptografada e nunca mais exibida. Separe vários destinos com “;”.",
+			"targetDescription": "Sua URL do Apprise — armazenada criptografada e nunca mais exibida. Separe vários destinos com <code>;</code>.",
 			"testButton": "Enviar notificação de teste",
 			"testFailed": "Falha na notificação de teste: {{message}}",
 			"testHint": "Habilite os alertas e defina tanto uma URL da API do Apprise quanto um destino para enviar um teste.",
 			"testSending": "Enviando…",
 			"testSent": "Notificação de teste enviada.",
-			"title": "Alertas"
+			"title": "Alertas",
+			"status": {
+				"checking": "Verificando a API apprise…",
+				"issues": "apprise-api está acessível, mas está relatando problemas",
+				"reachable": "apprise-api acessível",
+				"recheck": "Verifique novamente",
+				"unreachable": "apprise-api inacessível — verifique a URL e se o contêiner está em execução",
+				"checkFailed": "Falha na verificação de status"
+			}
 		}
 	},
 	"components": {

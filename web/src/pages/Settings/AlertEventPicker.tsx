@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { CheckSquare, Square } from "@/lib/icons";
 import { api } from "../../api/client";
 import type { AlertEventDef } from "../../api/types";
 
@@ -98,16 +99,29 @@ export function AlertEventPicker({
 							<span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
 								{category}
 							</span>
-							<button
-								type="button"
-								className="ui-link-accent text-xs"
-								disabled={disabled}
-								onClick={() => toggleGroup(category, !allOn)}
-							>
-								{allOn
-									? t("settings.alerts.events.none")
-									: t("settings.alerts.events.all")}
-							</button>
+							{/* Select-all/none — same icon affordance as the Failover page.
+							    Hidden for single-event categories where it is redundant. */}
+							{items.length > 1 && (
+								<button
+									type="button"
+									className="ui-icon-btn"
+									disabled={disabled}
+									onClick={() => toggleGroup(category, !allOn)}
+									aria-label={
+										allOn
+											? t("settings.alerts.events.none")
+											: t("settings.alerts.events.all")
+									}
+									title={
+										allOn
+											? t("settings.alerts.events.none")
+											: t("settings.alerts.events.all")
+									}
+									data-testid={`alert-group-toggle-${category}`}
+								>
+									{allOn ? <CheckSquare size={16} /> : <Square size={16} />}
+								</button>
+							)}
 						</div>
 						{items.map((e) => {
 							const label = t(

@@ -34,6 +34,12 @@ func NewSettingsConfigProvider(settings settingsReader, masterKey string) *Setti
 	return &SettingsConfigProvider{settings: settings, masterKey: masterKey}
 }
 
+// APIBaseURL implements ConfigProvider: returns the apprise-api base URL
+// straight from settings, without touching (decrypting) the target secret.
+func (p *SettingsConfigProvider) APIBaseURL(ctx context.Context) (string, error) {
+	return p.settings.GetWithDefault(ctx, keyAPIBaseURL, ""), nil
+}
+
 // AlertConfig implements ConfigProvider, reading live settings on each call so
 // operator changes (toggles, picker edits) take effect without a restart.
 func (p *SettingsConfigProvider) AlertConfig(ctx context.Context) (Config, error) {

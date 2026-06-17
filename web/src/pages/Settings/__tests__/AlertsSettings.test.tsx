@@ -57,7 +57,7 @@ describe("AlertsSettings", () => {
 		const target = await screen.findByTestId("alert-target-input");
 		expect(target).toHaveAttribute(
 			"placeholder",
-			"Configured — type to replace",
+			"Configured (type to replace)",
 		);
 		expect(screen.getByTestId("alert-api-url-input")).toHaveValue(
 			"http://apprise:8000",
@@ -258,10 +258,93 @@ describe("AlertsSettings", () => {
 
 		await user.click(await screen.findByTestId("alert-picker-toggle"));
 		await screen.findByTestId("alert-event-picker");
-		// Failover group starts all-on (open+closed default on) => button says "Select none".
-		await user.click(screen.getByText("Select none"));
+		// Failover group starts all-on (open+closed default on); its select-all
+		// icon toggles them all off. The single-event Discovery group has no toggle.
+		expect(
+			screen.queryByTestId("alert-group-toggle-Discovery"),
+		).not.toBeInTheDocument();
+		await user.click(screen.getByTestId("alert-group-toggle-Failover"));
 		await waitFor(() => expect(put.body).not.toBeNull());
 		// Every Failover event removed; discovery.provider_failed was already off.
 		expect(put.body?.alert_events).toBe("");
+	});
+
+	it("shows the apprise-api reachable status", async () => {
+		mockSettings({
+			alert_enabled: "true",
+			alert_apprise_api_url: "http://apprise:8000",
+		});
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+		await waitFor(() =>
+			expect(screen.getByText("apprise-api reachable")).toBeInTheDocument(),
+		);
+	});
+
+	it("shows a reachable-but-unhealthy status", async () => {
+		mockSettings({
+			alert_enabled: "true",
+			alert_apprise_api_url: "http://apprise:8000",
+		});
+		server.use(
+			http.get("/api/alert/status", () =>
+				HttpResponse.json({
+					configured: true,
+					reachable: true,
+					healthy: false,
+					detail: "apprise-api returned status 417",
+				}),
+			),
+		);
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+		await waitFor(() =>
+			expect(
+				screen.getByText(/reachable but reporting issues/i),
+			).toBeInTheDocument(),
+		);
+	});
+
+	it("shows an unreachable status when the probe fails", async () => {
+		mockSettings({
+			alert_enabled: "true",
+			alert_apprise_api_url: "http://apprise:8000",
+		});
+		server.use(
+			http.get("/api/alert/status", () =>
+				HttpResponse.json({
+					configured: true,
+					reachable: false,
+					healthy: false,
+					detail: "unreachable",
+				}),
+			),
+		);
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+		await waitFor(() =>
+			expect(screen.getByText(/apprise-api unreachable/i)).toBeInTheDocument(),
+		);
+	});
+
+	it("surfaces a failed status check instead of hiding it", async () => {
+		mockSettings({
+			alert_enabled: "true",
+			alert_apprise_api_url: "http://apprise:8000",
+		});
+		server.use(
+			http.get("/api/alert/status", () =>
+				HttpResponse.json({ error: "boom" }, { status: 500 }),
+			),
+		);
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+		await waitFor(() =>
+			expect(screen.getByText("Status check failed")).toBeInTheDocument(),
+		);
 	});
 });

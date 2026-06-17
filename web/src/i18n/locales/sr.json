@@ -1199,7 +1199,7 @@
 			"all": "Све ({{count}})",
 			"search": "Филтрирај логове…",
 			"allLevels": "Сви нивои",
-			"allKeys": "Сви кључеви"
+			"allSources": "Сви извори"
 		},
 		"table": {
 			"timeDate": "Време/Датум",
@@ -1795,13 +1795,21 @@
 			},
 			"target": "Циљ обавештења",
 			"targetConfigured": "Конфигурисано — тип за замену",
-			"targetDescription": "Ваш Apprise URL, нпр. tgram://<bot_token>/<chat_id>. Чуван је шифрованом и више се никада не приказује. Раздвајајте више циљева знаком ';'.",
+			"targetDescription": "Ваш Apprise URL — сачуван шифрованим и никада више неће бити приказан. Одвојите више циљева помоћу <code>;</code>.",
 			"testButton": "Пошаљи тест обавештење",
 			"testFailed": "Тест обавештења није успео: {{message}}",
 			"testHint": "Омогућите слање упозорења и подесите и Apprise API URL и циљ за слање теста.",
 			"testSending": "Слање…",
 			"testSent": "Порука за тестирање послата.",
-			"title": "Обавештења"
+			"title": "Обавештења",
+			"status": {
+				"checking": "Провера apprise-api…",
+				"issues": "apprise-api доступан, али пријављује проблеме",
+				"reachable": "apprise-api доступан",
+				"recheck": "Поново проверите",
+				"unreachable": "apprise-api недостижан — проверите URL и да контејнер ради",
+				"checkFailed": "Проверка статуса није успела"
+			}
 		}
 	},
 	"components": {

@@ -1199,7 +1199,7 @@
 			"all": "הכל ({{count}})",
 			"search": "סינון יומנים…",
 			"allLevels": "כל הרמות",
-			"allKeys": "כל המפתחות"
+			"allSources": "כל המקורות"
 		},
 		"table": {
 			"timeDate": "שעה/תאריך",
@@ -1795,13 +1795,21 @@
 			},
 			"target": "יעד ההתראה",
 			"targetConfigured": "מוגדר — הקלידו כדי להחליף",
-			"targetDescription": "כתובת ה-URL של Apprise שלכם, לדוגמה: tgram://<bot_token>/<chat_id>. הכתובת מאוחסנת בצורה מוצפנת ואינה מוצגת שוב לעולם. יש להפריד בין יעדים מרובים באמצעות ';'.",
+			"targetDescription": "כתובת ה-URL של Apprise שלכם — מאוחסנת בצורה מוצפנת ולא מוצגת שוב לעולם. יש להפריד בין יעדים מרובים באמצעות <code>;</code>.",
 			"testButton": "שלח הודעת בדיקה",
 			"testFailed": "הודעת בדיקה נכשלה: {{message}}",
 			"testHint": "הפעילו את ההתראות והגדירו הן את כתובת ה-API של Apprise והן את היעד לשליחת בדיקה.",
 			"testSending": "שולח...",
 			"testSent": "הודעת בדיקה נשלחה.",
-			"title": "התראות"
+			"title": "התראות",
+			"status": {
+				"checking": "בודקים את apprise-api…",
+				"issues": "apprise-api נגיש אך מדווח על בעיות",
+				"reachable": "apprise-api נגיש",
+				"recheck": "בדקו שוב",
+				"unreachable": "apprise-api אינו נגיש — בדקו את כתובת ה-URL וודאו שהמכולה פועלת",
+				"checkFailed": "בדיקת הסטטוס נכשלה"
+			}
 		}
 	},
 	"components": {

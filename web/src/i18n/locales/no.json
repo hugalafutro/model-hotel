@@ -1199,7 +1199,7 @@
 			"all": "Alle ({{count}})",
 			"search": "Filtrer logger…",
 			"allLevels": "Alle nivåer",
-			"allKeys": "Alle nøkler"
+			"allSources": "Alle kilder"
 		},
 		"table": {
 			"timeDate": "Tid/dato",
@@ -1795,13 +1795,21 @@
 			},
 			"target": "Mottaker av varsel",
 			"targetConfigured": "Konfigurert — skriv inn for å erstatte",
-			"targetDescription": "Din Apprise-URL, f.eks. tgram://<bot_token>/<chat_id>. Lagrer kryptert og vises aldri igjen. Skille flere mål med «;».",
+			"targetDescription": "Din Apprise-URL — lagres kryptert og vises aldri igjen. Skille flere mål med <code>;</code>.",
 			"testButton": "Send testvarsel",
 			"testFailed": "Testvarsel mislyktes: {{message}}",
 			"testHint": "Aktiver varsling og angi både en Apprise API-URL og et mål for å sende en test.",
 			"testSending": "Sender…",
 			"testSent": "Testvarsel sendt.",
-			"title": "Varsler"
+			"title": "Varsler",
+			"status": {
+				"checking": "Sjekker apprise-api…",
+				"issues": "apprise-api er tilgjengelig, men det rapporteres om problemer",
+				"reachable": "apprise-api tilgjengelig",
+				"recheck": "Kontroller på nytt",
+				"unreachable": "apprise-api utilgjengelig — sjekk URL-en og at containeren kjører",
+				"checkFailed": "Statuskontrollen mislyktes"
+			}
 		}
 	},
 	"components": {

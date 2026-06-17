@@ -1199,7 +1199,7 @@
 			"all": "Alla ({{count}})",
 			"search": "Filtrera loggar…",
 			"allLevels": "Alla nivåer",
-			"allKeys": "Alla nycklar"
+			"allSources": "Alla källor"
 		},
 		"table": {
 			"timeDate": "Tid/datum",
@@ -1795,13 +1795,21 @@
 			},
 			"target": "Mottagare av aviseringar",
 			"targetConfigured": "Konfigurerad — skriv in ersättningstext",
-			"targetDescription": "Din Apprise-URL, t.ex. tgram://<bot_token>/<chat_id>. Lagras krypterat och visas aldrig igen. Separera flera mål med ”;”.",
+			"targetDescription": "Din Apprise-URL – lagras krypterad och visas aldrig igen. Separera flera mål med <code>;</code>.",
 			"testButton": "Skicka testmeddelande",
 			"testFailed": "Testmeddelandet misslyckades: {{message}}",
 			"testHint": "Aktivera aviseringar och ange både en Apprise API-URL och ett mål för att skicka ett test.",
 			"testSending": "Skickar…",
 			"testSent": "Testmeddelande skickat.",
-			"title": "Varningar"
+			"title": "Varningar",
+			"status": {
+				"checking": "Kontrollerar apprise-api…",
+				"issues": "apprise-api är tillgängligt men rapporterar problem",
+				"reachable": "apprise-api nåbar",
+				"recheck": "Kontrollera igen",
+				"unreachable": "apprise-api kan inte nås — kontrollera URL:en och att containern körs",
+				"checkFailed": "Statuskontrollen misslyckades"
+			}
 		}
 	},
 	"components": {

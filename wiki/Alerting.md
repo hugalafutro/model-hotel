@@ -1,8 +1,8 @@
 # 🔔 Alerting
 
-Model Hotel can push outbound notifications for noteworthy operational events — a provider going down, a circuit breaker tripping, a failover group failing to sync — to wherever you want them: Telegram, email, Discord, Slack, Matrix, a raw webhook, and ~80 other destinations.
+Model Hotel can push outbound notifications for noteworthy operational events (a provider going down, a circuit breaker tripping, a failover group failing to sync) to wherever you want them: Telegram, email, Discord, Slack, Matrix, a raw webhook, and ~80 other destinations.
 
-It does this through [Apprise](https://github.com/caronc/apprise): you run a small, stateless `apprise-api` container, Model Hotel POSTs a short event summary to it, and Apprise fans the notification out to your chosen service. Model Hotel writes no per-service integration code, ships no Python in its image, and — consistent with its [[Privacy]] stance — **never sends request or response content**, only the event summary (e.g. "Provider openai circuit breaker: open").
+It does this through [Apprise](https://github.com/caronc/apprise): you run a small, stateless `apprise-api` container, Model Hotel POSTs a short event summary to it, and Apprise fans the notification out to your chosen service. Model Hotel writes no per-service integration code, ships no Python in its image, and (consistent with its [[Privacy]] stance) **never sends request or response content**, only the event summary (e.g. "Provider openai circuit breaker: open").
 
 ---
 
@@ -25,11 +25,11 @@ It does this through [Apprise](https://github.com/caronc/apprise): you run a sma
   failover, discovery)  debounce, single POST)
 ```
 
-The dispatcher is a single consumer of Model Hotel's internal event bus. For each event it checks: is this event in the catalog, is alerting enabled and configured, did you select this event, and has an identical alert not just fired (debounce). If all pass, it sends one `POST` to `{apprise_api_url}/notify` with a title, body, and severity. Everything else — the 80+ service integrations — lives in the Apprise container, maintained upstream.
+The dispatcher is a single consumer of Model Hotel's internal event bus. For each event it checks: is this event in the catalog, is alerting enabled and configured, did you select this event, and has an identical alert not just fired (debounce). If all pass, it sends one `POST` to `{apprise_api_url}/notify` with a title, body, and severity. Everything else (the 80+ service integrations) lives in the Apprise container, maintained upstream.
 
 ## Setup
 
-1. **Run an `apprise-api` container.** The bundled `docker-compose.yml` ships a commented `apprise` service — uncomment it:
+1. **Run an `apprise-api` container.** The bundled `docker-compose.yml` ships a commented `apprise` service; uncomment it:
 
    ```yaml
    apprise:
@@ -44,8 +44,10 @@ The dispatcher is a single consumer of Model Hotel's internal event bus. For eac
 2. **Configure it in the dashboard.** Open **Settings → Alerts**:
    - Toggle **Enable alerting** on.
    - Set **Apprise API URL** to `http://apprise:8000` (the service name from compose).
-   - Paste your **Notification target** — your Apprise URL, e.g. `tgram://<bot_token>/<chat_id>`. Stored encrypted (see [Security](#security)).
+   - Paste your **Notification target**: your Apprise URL, e.g. `tgram://<bot_token>/<chat_id>`. Stored encrypted (see [Security](#security)).
    - Click **Send test notification** to verify the whole chain end to end.
+
+A live **reachability indicator** next to the URL shows whether Model Hotel can reach the apprise-api container: green (reachable), amber (reachable but the container reports an issue), or red (unreachable, e.g. wrong URL or the container isn't running), so a misconfiguration is visible immediately rather than only when an event later fails to send. Use **Re-check** to re-probe.
 
 ## Choosing which events fire
 
@@ -65,7 +67,7 @@ On first run the default-on events are pre-selected. Deselecting everything mean
 
 ## Notification targets
 
-The target is any [Apprise URL](https://github.com/caronc/apprise/wiki#notification-services). The Alerts section shows copyable examples for popular services; a few:
+The target is any [Apprise URL](https://AppriseIt.com/services/). The Alerts section shows copyable examples for popular services; a few:
 
 | Service | URL shape |
 |---|---|
@@ -79,11 +81,11 @@ Send to multiple destinations at once by separating Apprise URLs with `;`.
 
 ## Security
 
-The notification target typically contains a credential (a bot token, an SMTP password). Model Hotel **encrypts it at rest** with the same `MASTER_KEY`-derived scheme used for provider API keys, and the dashboard only ever shows a masked placeholder — the stored value is never returned to the browser. To change it, type a new value; to keep it, leave the field untouched.
+The notification target typically contains a credential (a bot token, an SMTP password). Model Hotel **encrypts it at rest** with the same `MASTER_KEY`-derived scheme used for provider API keys, and the dashboard only ever shows a masked placeholder; the stored value is never returned to the browser. To change it, type a new value; to keep it, leave the field untouched.
 
 ## Reliability
 
-Alerting is strictly **best-effort and non-blocking**. A missing, misconfigured, or failing `apprise-api` never affects request serving and never fails a proxied request — failures are logged and dropped. A per-event, per-provider debounce window suppresses repeat alerts so a flapping circuit breaker cannot spam you; recovery ("all clear") notifications are always delivered.
+Alerting is strictly **best-effort and non-blocking**. A missing, misconfigured, or failing `apprise-api` never affects request serving and never fails a proxied request; failures are logged and dropped. A per-event, per-provider debounce window suppresses repeat alerts so a flapping circuit breaker cannot spam you; recovery ("all clear") notifications are always delivered.
 
 ---
 

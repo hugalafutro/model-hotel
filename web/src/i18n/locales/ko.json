@@ -1199,7 +1199,7 @@
 			"all": "전체 ({{count}})",
 			"search": "로그 필터링…",
 			"allLevels": "모든 레벨",
-			"allKeys": "모든 키"
+			"allSources": "모든 출처"
 		},
 		"table": {
 			"timeDate": "시간/날짜",
@@ -1795,13 +1795,21 @@
 			},
 			"target": "알림 대상",
 			"targetConfigured": "구성됨 — 대체할 유형",
-			"targetDescription": "Apprise URL(예: tgram://<bot_token>/<chat_id>). 암호화된 형태로 저장되며 다시는 표시되지 않습니다. 여러 대상은 ';'로 구분하십시오.",
+			"targetDescription": "Apprise URL — 암호화되어 저장되며 다시는 표시되지 않습니다. 여러 대상은 <code>;</code> 형식으로 구분하십시오.",
 			"testButton": "테스트 알림 보내기",
 			"testFailed": "알림 테스트 실패: {{message}}",
 			"testHint": "알림 기능을 활성화하고, 테스트를 전송할 Apprise API URL과 대상을 모두 설정하십시오.",
 			"testSending": "전송 중…",
 			"testSent": "테스트 알림이 전송되었습니다.",
-			"title": "알림"
+			"title": "알림",
+			"status": {
+				"checking": "apprise-api 확인 중…",
+				"issues": "apprise-api에 접속은 가능하지만 문제가 보고되고 있습니다",
+				"reachable": "apprise-api 접속 가능",
+				"recheck": "재확인",
+				"unreachable": "apprise-api에 연결할 수 없음 — URL을 확인하고 컨테이너가 실행 중인지 확인하십시오",
+				"checkFailed": "상태 확인 실패"
+			}
 		}
 	},
 	"components": {

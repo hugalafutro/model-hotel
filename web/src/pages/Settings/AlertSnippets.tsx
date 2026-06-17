@@ -26,11 +26,6 @@ const SERVICES: ReadonlyArray<{
 	},
 	{ id: "slack", title: "Slack", url: "slack://{tokenA}/{tokenB}/{tokenC}" },
 	{
-		id: "msteams",
-		title: "Microsoft Teams",
-		url: "msteams://{tokenA}/{tokenB}/{tokenC}",
-	},
-	{
 		id: "matrix",
 		title: "Matrix",
 		url: "matrix://{user}:{password}@{host}/{room_id}",
@@ -39,8 +34,7 @@ const SERVICES: ReadonlyArray<{
 	{ id: "email", title: "Email", url: "mailto://{user}:{password}@gmail.com" },
 ];
 
-const APPRISE_WIKI_URL =
-	"https://github.com/caronc/apprise/wiki#notification-services";
+const APPRISE_SERVICES_URL = "https://AppriseIt.com/services/";
 
 /** Copyable example Apprise URLs for popular services. */
 export function AlertSnippets() {
@@ -81,7 +75,7 @@ export function AlertSnippets() {
 				))}
 			</div>
 			<a
-				href={APPRISE_WIKI_URL}
+				href={APPRISE_SERVICES_URL}
 				target="_blank"
 				rel="noreferrer"
 				className="ui-link-accent inline-flex items-center gap-1 text-sm"

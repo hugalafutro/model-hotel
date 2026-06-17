@@ -1938,7 +1938,9 @@ html[data-ui-style="glassmorphism-lite"] .ui-input {
 	background: var(--surface-input);
 }
 html[data-ui-style="glassmorphism-lite"].dark .ui-input::placeholder {
-	color: var(--text-secondary);
+	/* Dim hint text to match the other themes — --text-secondary was bright
+	   enough to read like a pre-filled value rather than a placeholder. */
+	color: var(--text-muted);
 }
 
 /* textareas need less rounding so resize handle and text don't escape corners */

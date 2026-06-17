@@ -667,3 +667,13 @@ export interface AlertEventDef {
 	severity: "success" | "info" | "warning" | "error";
 	defaultOn: boolean;
 }
+
+// AlertStatus reports whether the configured apprise-api container is reachable,
+// served by GET /api/alert/status. `configured` is false when no URL is set;
+// `reachable` means the host answered; `healthy` means GET /status returned 2xx.
+export interface AlertStatus {
+	configured: boolean;
+	reachable: boolean;
+	healthy: boolean;
+	detail?: string;
+}

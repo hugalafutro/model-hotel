@@ -1199,7 +1199,7 @@
 			"all": "Alle ({{count}})",
 			"search": "Protokolle… filtern",
 			"allLevels": "Alle Ebenen",
-			"allKeys": "Alle Schlüssel"
+			"allSources": "Alle Quellen"
 		},
 		"table": {
 			"timeDate": "Zeit/Datum",
@@ -1795,13 +1795,21 @@
 			},
 			"target": "Benachrichtigungsziel",
 			"targetConfigured": "Konfiguriert – Text zum Ersetzen",
-			"targetDescription": "Ihre Apprise-URL, z. B. tgram://<bot_token>/<chat_id>. Diese wird verschlüsselt gespeichert und nie wieder angezeigt. Trennen Sie mehrere Ziele durch „;“.",
+			"targetDescription": "Ihre Apprise-URL – wird verschlüsselt gespeichert und nie wieder angezeigt. Trennen Sie mehrere Ziele durch <code>;</code>.",
 			"testButton": "Testbenachrichtigung senden",
 			"testFailed": "Testbenachrichtigung fehlgeschlagen: {{message}}",
 			"testHint": "Aktivieren Sie die Benachrichtigungsfunktion und legen Sie sowohl eine Apprise-API-URL als auch ein Ziel fest, um einen Test zu senden.",
 			"testSending": "Senden…",
 			"testSent": "Testbenachrichtigung gesendet.",
-			"title": "Warnmeldungen"
+			"title": "Warnmeldungen",
+			"status": {
+				"checking": "Überprüfung von apprise-api…",
+				"issues": "apprise-api ist erreichbar, meldet jedoch Probleme",
+				"reachable": "apprise-api erreichbar",
+				"recheck": "Nochmals überprüfen",
+				"unreachable": "apprise-api nicht erreichbar – Überprüfen Sie die URL und stellen Sie sicher, dass der Container läuft",
+				"checkFailed": "Statusprüfung fehlgeschlagen"
+			}
 		}
 	},
 	"components": {

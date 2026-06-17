@@ -1199,7 +1199,7 @@
 			"all": "Wszystkie ({{count}})",
 			"search": "Filtruj logi…",
 			"allLevels": "Wszystkie poziomy",
-			"allKeys": "Wszystkie klucze"
+			"allSources": "Wszystkie źródła"
 		},
 		"table": {
 			"timeDate": "Czas/Data",
@@ -1795,13 +1795,21 @@
 			},
 			"target": "Odbiorca powiadomienia",
 			"targetConfigured": "Skonfigurowane — wpisz tekst zastępczy",
-			"targetDescription": "Twój adres URL Apprise, np. tgram://<bot_token>/<chat_id>. Jest on przechowywany w postaci zaszyfrowanej i nigdy więcej nie jest wyświetlany. Wiele celów należy oddzielać znakiem „;”.",
+			"targetDescription": "Twój adres URL Apprise — przechowywany w postaci zaszyfrowanej i nigdy więcej nie wyświetlany. Wiele adresów docelowych należy oddzielać za pomocą <code>;</code>.",
 			"testButton": "Wyślij powiadomienie testowe",
 			"testFailed": "Powiadomienie o niepowodzeniu testu: {{message}}",
 			"testHint": "Włącz powiadomienia i ustaw zarówno adres URL interfejsu API Apprise, jak i adres docelowy, aby wysłać test.",
 			"testSending": "Wysyłanie…",
 			"testSent": "Wysłano powiadomienie testowe.",
-			"title": "Powiadomienia"
+			"title": "Powiadomienia",
+			"status": {
+				"checking": "Sprawdzanie apprise-api…",
+				"issues": "apprise-api jest dostępne, ale zgłasza problemy",
+				"reachable": "apprise-api dostępny",
+				"recheck": "Sprawdź ponownie",
+				"unreachable": "apprise-api niedostępne — sprawdź adres URL i upewnij się, że kontener działa",
+				"checkFailed": "Sprawdzenie stanu nie powiodło się"
+			}
 		}
 	},
 	"components": {

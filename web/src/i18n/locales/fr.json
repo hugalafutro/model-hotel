@@ -1199,7 +1199,7 @@
 			"all": "Tout ({{count}})",
 			"search": "Filtrer les logs…",
 			"allLevels": "Tous les niveaux",
-			"allKeys": "Toutes les clés"
+			"allSources": "Toutes les sources"
 		},
 		"table": {
 			"timeDate": "Heure/Date",
@@ -1795,13 +1795,21 @@
 			},
 			"target": "Cible de notification",
 			"targetConfigured": "Configuré — saisir le texte de remplacement",
-			"targetDescription": "Votre URL Apprise, par exemple tgram://<bot_token>/<chat_id>. Stockée sous forme chiffrée et ne sera plus jamais affichée. Séparez les cibles multiples par « ; ».",
+			"targetDescription": "Votre URL Apprise — stockée sous forme chiffrée et qui n’est plus jamais affichée. Séparez les cibles multiples par <code>;</code>.",
 			"testButton": "Envoyer une notification de test",
 			"testFailed": "Échec de la notification de test : {{message}}",
 			"testHint": "Activez les alertes et configurez à la fois une URL API Apprise et une cible pour envoyer un test.",
 			"testSending": "Envoi en cours…",
 			"testSent": "Notification de test envoyée.",
-			"title": "Alertes"
+			"title": "Alertes",
+			"status": {
+				"checking": "Vérification de l’API « apprise-api »…",
+				"issues": "apprise-api est accessible mais signale des problèmes",
+				"reachable": "apprise-api accessible",
+				"recheck": "Vérifier à nouveau",
+				"unreachable": "apprise-api inaccessible — vérifiez l’URL et assurez-vous que le conteneur est en cours d’exécution",
+				"checkFailed": "Échec de la vérification de l'état"
+			}
 		}
 	},
 	"components": {
