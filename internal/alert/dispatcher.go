@@ -202,9 +202,28 @@ func appriseType(severity string) string {
 	}
 }
 
+// normalizeTargets converts the operator-facing ";"-separated target list into
+// the whitespace-separated form apprise-api parses. ";" is the documented
+// separator because — unlike commas — it does not collide with commas used
+// inside a single Apprise URL (e.g. a multi-recipient mailto://). But apprise-api
+// splits the `urls` field on whitespace/commas, not semicolons, so a raw
+// ";"-joined string would be treated as one malformed URL and only the first
+// destination (if any) would fire. Splitting on ";" and rejoining with spaces
+// preserves both single targets and intra-URL commas.
+func normalizeTargets(s string) string {
+	parts := strings.Split(s, ";")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return strings.Join(out, " ")
+}
+
 // post sends a single notification to apprise-api's /notify endpoint.
 func (d *Dispatcher) post(ctx context.Context, cfg Config, p notifyPayload) error {
-	p.URLs = cfg.Targets
+	p.URLs = normalizeTargets(cfg.Targets)
 	body, err := json.Marshal(p)
 	if err != nil {
 		return fmt.Errorf("marshal payload: %w", err)

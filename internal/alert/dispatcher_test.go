@@ -100,6 +100,38 @@ func TestPayloadForUsesMessageElseType(t *testing.T) {
 	}
 }
 
+func TestNormalizeTargets(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{"tgram://tok/chat", "tgram://tok/chat"},
+		{"tgram://a/b;discord://c/d", "tgram://a/b discord://c/d"},
+		{" tgram://a/b ; discord://c/d ", "tgram://a/b discord://c/d"},
+		// a comma inside a single URL (e.g. multi-recipient mailto) is preserved
+		{"mailto://u:p@x?to=a@x,b@y;nfy:t", "mailto://u:p@x?to=a@x,b@y nfy:t"},
+		{"", ""},
+		{";;", ""},
+	}
+	for _, c := range cases {
+		if got := normalizeTargets(c.in); got != c.want {
+			t.Errorf("normalizeTargets(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+func TestPostNormalizesMultipleTargets(t *testing.T) {
+	rs := newRecordingServer()
+	defer rs.Close()
+	d := New(fakeCfg{cfg: enabledConfig(rs.URL, "tgram://a/b;discord://c/d", "circuit_breaker.open")}, rs.Client())
+
+	if !d.handle(context.Background(), events.Event{Type: "circuit_breaker.open", Severity: "warning"}) {
+		t.Fatal("expected dispatch")
+	}
+	waitForCount(t, rs, 1)
+	// apprise-api parses whitespace/commas, not semicolons.
+	if got := rs.last().URLs; got != "tgram://a/b discord://c/d" {
+		t.Errorf("urls = %q, want space-separated", got)
+	}
+}
+
 // waitForCount blocks until the recording server has seen exactly n POSTs (the
 // dispatch is asynchronous) or fails after a short deadline.
 func waitForCount(t *testing.T, rs *recordingServer, n int) {
