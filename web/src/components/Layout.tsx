@@ -616,7 +616,11 @@ export function Layout({ children }: LayoutProps) {
 	const { t } = useTranslation();
 	const location = useLocation();
 	const navigate = useNavigate();
-	const { theme, setTheme } = useTheme();
+	const { theme, setTheme, uiStyle } = useTheme();
+	// Separator between paired labels/counts in the sidebar. The terminal theme
+	// keeps a literal "/" (fits its monospace aesthetic); other themes use a
+	// middle dot, which reads as two independent values rather than a fraction.
+	const navSep = uiStyle === "cyber-terminal" ? "/" : "·";
 
 	const {
 		chatSubMode,
@@ -850,7 +854,7 @@ export function Layout({ children }: LayoutProps) {
 													{currentSubLabel}
 												</span>
 												<span className="text-(--text-muted) text-[10px] opacity-60">
-													/
+													{navSep}
 												</span>
 												<span className="text-[11px] text-(--text-tertiary)">
 													{otherSub?.label}
@@ -858,9 +862,7 @@ export function Layout({ children }: LayoutProps) {
 											</span>
 										) : item.href === "/failover" &&
 											cbStatus &&
-											(cbStatus.closed > 0 ||
-												cbStatus.half_open > 0 ||
-												cbStatus.open > 0) ? (
+											(cbStatus.half_open > 0 || cbStatus.open > 0) ? (
 											<span className="flex items-center gap-1.5">
 												<span>{item.name}</span>
 												<span
@@ -893,14 +895,12 @@ export function Layout({ children }: LayoutProps) {
 														)}`;
 													})()}
 												>
-													<span className="text-emerald-400 badge-text">
-														{cbStatus.closed}
-													</span>
-													<span className="text-(--text-secondary)">/</span>
 													<span className="text-amber-400 badge-text">
 														{cbStatus.half_open}
 													</span>
-													<span className="text-(--text-secondary)">/</span>
+													<span className="text-(--text-secondary)">
+														{navSep}
+													</span>
 													<span className="text-red-400 badge-text">
 														{cbStatus.open}
 													</span>

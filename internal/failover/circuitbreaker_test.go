@@ -177,6 +177,40 @@ func TestCircuitBreaker_Status(t *testing.T) {
 	}
 }
 
+// TestCircuitBreaker_Status_ReportsLogicalHalfOpen verifies that Status mirrors
+// GetState's logical cooldown transition: an open circuit whose cooldown has
+// elapsed (and is therefore ready to be probed) is reported as "half-open"
+// without an in-flight probe request. The internal state only flips to
+// StateHalfOpen for the duration of a probe, so without this the half-open
+// bucket would be unobservable from the status API.
+func TestCircuitBreaker_Status_ReportsLogicalHalfOpen(t *testing.T) {
+	cb := newTestCB(1, 50*time.Millisecond)
+	pid := uuid.New()
+
+	cb.RecordFailure(pid, "test-provider") // opens
+
+	// Before cooldown elapses, it reports as open.
+	if statuses := cb.Status(); statuses[0].State != "open" {
+		t.Fatalf("expected 'open' before cooldown, got %q", statuses[0].State)
+	}
+
+	// After cooldown elapses, it should report as half-open even though no
+	// probe request has flipped the internal state.
+	time.Sleep(60 * time.Millisecond)
+	statuses := cb.Status()
+	if len(statuses) != 1 {
+		t.Fatalf("expected 1 status, got %d", len(statuses))
+	}
+	if statuses[0].State != "half-open" {
+		t.Errorf("expected 'half-open' after cooldown, got %q", statuses[0].State)
+	}
+	// A logically-half-open circuit is ready to probe now, so it must not
+	// carry the open-only next-retry hint.
+	if statuses[0].NextRetryAt != "" {
+		t.Errorf("expected empty NextRetryAt for half-open, got %q", statuses[0].NextRetryAt)
+	}
+}
+
 func TestCircuitBreaker_Concurrent(t *testing.T) {
 	cb := newTestCB(100, 30*time.Second)
 	pid := uuid.New()
