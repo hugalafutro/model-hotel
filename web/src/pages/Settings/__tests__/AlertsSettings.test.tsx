@@ -97,4 +97,171 @@ describe("AlertsSettings", () => {
 		const btn = await screen.findByTestId("alert-test-button");
 		expect(btn).toBeDisabled();
 	});
+
+	// capturePut records the body of the next PUT /api/settings and returns a
+	// getter for it.
+	function capturePut() {
+		const captured: { body: Record<string, string> | null } = { body: null };
+		server.use(
+			http.put("/api/settings", async ({ request }) => {
+				captured.body = (await request.json()) as Record<string, string>;
+				return HttpResponse.json(captured.body);
+			}),
+		);
+		return captured;
+	}
+
+	it("saves the apprise-api URL on blur", async () => {
+		mockSettings({ alert_enabled: "true" });
+		const put = capturePut();
+		const user = userEvent.setup();
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		const input = await screen.findByTestId("alert-api-url-input");
+		await user.clear(input);
+		await user.type(input, "http://apprise:8000");
+		await user.tab(); // blur commits
+
+		await waitFor(() =>
+			expect(put.body).toEqual({
+				alert_apprise_api_url: "http://apprise:8000",
+			}),
+		);
+	});
+
+	it("encrypts a new target on blur", async () => {
+		mockSettings({ alert_enabled: "true" });
+		const put = capturePut();
+		const user = userEvent.setup();
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		const input = await screen.findByTestId("alert-target-input");
+		await user.type(input, "tgram://tok/chat");
+		await user.tab();
+
+		await waitFor(() =>
+			expect(put.body).toEqual({ alert_apprise_targets: "tgram://tok/chat" }),
+		);
+	});
+
+	it("clears a configured target", async () => {
+		mockSettings({
+			alert_enabled: "true",
+			alert_apprise_api_url: "http://apprise:8000",
+			alert_apprise_targets: "********",
+		});
+		const put = capturePut();
+		const user = userEvent.setup();
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await user.click(await screen.findByTestId("alert-target-clear"));
+		await waitFor(() =>
+			expect(put.body).toEqual({ alert_apprise_targets: "" }),
+		);
+	});
+
+	it("sends a test notification and toasts success", async () => {
+		mockSettings({
+			alert_enabled: "true",
+			alert_apprise_api_url: "http://apprise:8000",
+			alert_apprise_targets: "********",
+		});
+		const user = userEvent.setup();
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await user.click(await screen.findByTestId("alert-test-button"));
+		await waitFor(() =>
+			expect(screen.getByText("Test notification sent.")).toBeInTheDocument(),
+		);
+	});
+
+	it("writes the picker selection when an event is toggled off", async () => {
+		mockSettings({ alert_enabled: "true" }); // unset alert_events => catalog defaults
+		const put = capturePut();
+		const user = userEvent.setup();
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await user.click(await screen.findByTestId("alert-picker-toggle"));
+		const row = await screen.findByTestId("alert-event-circuit_breaker.open");
+		await user.click(row.querySelector("input") as HTMLElement);
+
+		// Default-on set is {open, closed}; turning open off leaves just closed.
+		await waitFor(() =>
+			expect(put.body).toEqual({ alert_events: "circuit_breaker.closed" }),
+		);
+	});
+
+	it("reflects a stored event selection in the picker", async () => {
+		// value-defined branch: only circuit_breaker.open selected.
+		mockSettings({
+			alert_enabled: "true",
+			alert_events: "circuit_breaker.open",
+		});
+		const user = userEvent.setup();
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await user.click(await screen.findByTestId("alert-picker-toggle"));
+		const open = (
+			await screen.findByTestId("alert-event-circuit_breaker.open")
+		).querySelector("input") as HTMLInputElement;
+		const closed = screen
+			.getByTestId("alert-event-circuit_breaker.closed")
+			.querySelector("input") as HTMLInputElement;
+		expect(open.checked).toBe(true);
+		expect(closed.checked).toBe(false);
+	});
+
+	it("toasts an error when the test notification fails", async () => {
+		mockSettings({
+			alert_enabled: "true",
+			alert_apprise_api_url: "http://apprise:8000",
+			alert_apprise_targets: "********",
+		});
+		server.use(
+			http.post("/api/alert/test", () =>
+				HttpResponse.json(
+					{ error: "apprise-api unreachable" },
+					{ status: 502 },
+				),
+			),
+		);
+		const user = userEvent.setup();
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await user.click(await screen.findByTestId("alert-test-button"));
+		await waitFor(() =>
+			expect(screen.getByText(/Test notification failed/i)).toBeInTheDocument(),
+		);
+	});
+
+	it("toggles a whole category with select-all/none", async () => {
+		mockSettings({ alert_enabled: "true" });
+		const put = capturePut();
+		const user = userEvent.setup();
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await user.click(await screen.findByTestId("alert-picker-toggle"));
+		await screen.findByTestId("alert-event-picker");
+		// Failover group starts all-on (open+closed default on) => button says "Select none".
+		await user.click(screen.getByText("Select none"));
+		await waitFor(() => expect(put.body).not.toBeNull());
+		// Every Failover event removed; discovery.provider_failed was already off.
+		expect(put.body?.alert_events).toBe("");
+	});
 });

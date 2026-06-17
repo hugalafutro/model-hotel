@@ -226,3 +226,30 @@ func TestPublishConvenience(t *testing.T) {
 		t.Error("timeout waiting for convenience Publish")
 	}
 }
+
+// TestSubscribeUnsubscribeConvenience exercises the package-level Subscribe and
+// Unsubscribe helpers (the symmetric counterparts to Publish).
+func TestSubscribeUnsubscribeConvenience(t *testing.T) {
+	ch := Subscribe()
+	Publish(Event{Type: "via-convenience"})
+	select {
+	case recv := <-ch:
+		if recv.Type != "via-convenience" {
+			t.Errorf("expected 'via-convenience', got %q", recv.Type)
+		}
+	case <-time.After(time.Second):
+		t.Error("timeout waiting for event on convenience Subscribe")
+	}
+
+	// After Unsubscribe, a subsequent publish must not reach the channel.
+	Unsubscribe(ch)
+	Publish(Event{Type: "after-unsub"})
+	select {
+	case recv, ok := <-ch:
+		if ok && recv.Type == "after-unsub" {
+			t.Error("received event after Unsubscribe")
+		}
+	case <-time.After(50 * time.Millisecond):
+		// expected: nothing delivered
+	}
+}

@@ -42,8 +42,16 @@ func TestDecryptStringMalformed(t *testing.T) {
 	if _, err := DecryptString(secretStringPrefix+"only:two", testMasterKey); err == nil {
 		t.Error("expected error for wrong segment count")
 	}
-	if _, err := DecryptString(secretStringPrefix+"!!!:@@@:###", testMasterKey); err == nil {
-		t.Error("expected error for invalid base64")
+	// Invalid base64 in each of the three segments must error (ciphertext, nonce, salt).
+	cases := []string{
+		"!!!:QUJD:QUJD", // bad ciphertext
+		"QUJD:!!!:QUJD", // bad nonce
+		"QUJD:QUJD:!!!", // bad salt
+	}
+	for _, c := range cases {
+		if _, err := DecryptString(secretStringPrefix+c, testMasterKey); err == nil {
+			t.Errorf("expected error for malformed segment %q", c)
+		}
 	}
 }
 
