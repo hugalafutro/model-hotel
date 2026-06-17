@@ -70,12 +70,21 @@ export const getStatusBadgeVariant = (
 	return "muted";
 };
 
-type InProgressLike = { state?: string; created_at: string };
+type InProgressLike = {
+	state?: string;
+	created_at: string;
+	error_kind?: string;
+	error_message?: string;
+};
 
 /**
  * A request still in pending/streaming state but older than the configured
  * timeout is almost certainly dead (server crash, unhandled error, etc.) -
  * treat it as stale rather than showing a permanently pulsing row.
+ *
+ * A cancelled row (client disconnect, gateway/retry timeout) is never stale:
+ * cancellation is a terminal outcome and takes precedence over the
+ * pending/streaming shape, which a cancelled record may still carry.
  *
  * `nowMs` is the caller's ticking "now" (so rows re-evaluate on an interval)
  * and `staleThresholdMs` the configured stale-request timeout.
@@ -85,6 +94,7 @@ export const isStale = (
 	nowMs: number,
 	staleThresholdMs: number,
 ): boolean => {
+	if (isCancelled(log)) return false;
 	if (log.state !== "pending" && log.state !== "streaming") return false;
 	const age = nowMs - new Date(log.created_at).getTime();
 	return age > staleThresholdMs;
@@ -93,12 +103,16 @@ export const isStale = (
 /**
  * A request that is actively pending/streaming and not yet stale. These rows
  * render the blue "…"/"Live" in-progress indicator instead of a status code.
+ *
+ * Cancellation is a terminal outcome and takes precedence: a cancelled record
+ * that still carries a pending/streaming shape is not in progress.
  */
 export const isInProgress = (
 	log: InProgressLike,
 	nowMs: number,
 	staleThresholdMs: number,
 ): boolean =>
+	!isCancelled(log) &&
 	!isStale(log, nowMs, staleThresholdMs) &&
 	(log.state === "pending" || log.state === "streaming");
 

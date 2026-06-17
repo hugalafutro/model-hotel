@@ -437,6 +437,40 @@ describe("VirtualLogTable", () => {
 			expect(badge).toHaveClass("ui-badge-warning");
 		});
 
+		// Cancellation is terminal and must win over a leftover pending/streaming
+		// shape: a cancelled row must never render the blue "…"/"Live" indicator.
+		it('renders cancelled (not "Live") for a cancelled row still shaped as pending', () => {
+			const entries = [
+				createLogEntry({
+					state: "pending",
+					status_code: 0,
+					error_kind: "client_disconnect",
+					created_at: new Date().toISOString(),
+				}),
+			];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: entries[0].id, start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable
+					{...defaultProps}
+					entries={entries}
+					nowMs={Date.now()}
+				/>,
+			);
+
+			expect(screen.queryByText("…")).not.toBeInTheDocument();
+			expect(screen.queryByText("Live")).not.toBeInTheDocument();
+			// Tokens column confirms the row is recognised as interrupted...
+			expect(screen.getByText("Interrupted")).toBeInTheDocument();
+			// ...and the status pill is warning (cancelled), not info (in-progress).
+			const badge = screen.getByText("0").closest("[data-test-variant]");
+			expect(badge).toHaveClass("ui-badge-warning");
+			expect(badge).not.toHaveClass("ui-badge-info");
+		});
+
 		it('renders "Interrupted" for cancelled error messages in tokens column', () => {
 			const entries = [
 				createLogEntry({ error_message: "Request cancelled by user" }),
