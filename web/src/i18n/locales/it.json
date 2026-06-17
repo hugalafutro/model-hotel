@@ -893,8 +893,8 @@
 		}
 	},
 	"failover": {
-		"page_title_one": "Gruppo Di Fallimento",
-		"page_title_other": "Gruppi Di Fallimento",
+		"page_title_one": "Gruppo di Failover",
+		"page_title_other": "Gruppi di Failover",
 		"page_description_lead": "Richiesta di percorso tramite più fornitori in ordine di priorità tramite",
 		"page_description_code": "hotel/modello",
 		"btn_sync": "Sincronizza",

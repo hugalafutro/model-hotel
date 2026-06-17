@@ -14,7 +14,7 @@
 		"collapse": "تصغير",
 		"enabled": "تمكين",
 		"disabled": "معطل",
-		"never": "لا",
+		"never": "أبداً",
 		"justNow": "للتو الآن",
 		"loading": "جاري التحميل",
 		"loadingDots": "جاري التحميل…",
@@ -641,7 +641,7 @@
 		"page_title_other": "مقدمو الخدمات",
 		"page_description": "إدارة إعدادات موفر الخدمة الخاص بك",
 		"btn_discover_all": "اكتشف جميع النماذج",
-		"btn_refresh_quotas": "تحديث عروض الأسعار",
+		"btn_refresh_quotas": "تحديث الحصص/الأرصدة",
 		"btn_add_provider": "إضافة موفر",
 		"btn_discovering": "اكتشف...",
 		"btn_refreshing": "تحديث...",
@@ -893,8 +893,8 @@
 		}
 	},
 	"failover": {
-		"page_title_one": "مجموعة الفشل",
-		"page_title_other": "المجموعات الفاشلة",
+		"page_title_one": "مجموعة Failover",
+		"page_title_other": "مجموعات Failover",
 		"page_description_lead": "توجيه الطلبات من خلال موفري متعددين مرتبة حسب الأولوية",
 		"page_description_code": "فندق/نموذج",
 		"btn_sync": "مزامنة",

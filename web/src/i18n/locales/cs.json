@@ -358,7 +358,7 @@
 	"chat": {
 		"chat": "Chat",
 		"conversation": "Konversace",
-		"testModels": "Modely s povoleným testováním v dočasném chatu",
+		"testModels": "Otestovat povolené modely v dočasném chatu",
 		"watchConversation": "Podívejte se, jak spolu dvě modely konverzují",
 		"validation": {
 			"selectModelA": "Vyberte model A",
@@ -802,7 +802,7 @@
 		}
 	},
 	"models": {
-		"page_title_one": "Vzor",
+		"page_title_one": "Model",
 		"page_title_other": "Modely",
 		"page_description": "Modely vyhledané od vašich poskytovatelů",
 		"badge_enabled": "{{count}} je zapnutý",

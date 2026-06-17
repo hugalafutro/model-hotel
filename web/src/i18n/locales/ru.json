@@ -52,7 +52,7 @@
 		"loadingOlder": "Загрузка старой…",
 		"model": "модель",
 		"models": "модели",
-		"tokens": "Жетоны",
+		"tokens": "Токены",
 		"yes": "Да",
 		"no": "Нет",
 		"random": "Случайный",
@@ -401,11 +401,11 @@
 		},
 		"chatCleared": "Чат очищен",
 		"conversationCleared": "Разговор очищен",
-		"modelA": "Образец A",
-		"modelB": "Образец B",
+		"modelA": "Модель A",
+		"modelB": "Модель B",
 		"personaA": "Persona A",
 		"personaB": "Persona B",
-		"turn": "Повернуть",
+		"turn": "Ход",
 		"totalDuration": "Продолжительность",
 		"totalTokens": "жетоны",
 		"modelGenerating": "Модель генерирует…",
@@ -445,7 +445,7 @@
 		"cancel": "Отмена",
 		"messageInput": "Ввод сообщений в чат",
 		"copy": "Копировать",
-		"regenerate": "Восстановить",
+		"regenerate": "Перегенерировать",
 		"deleteMessage": "Удалить сообщение",
 		"settings": "Настройки",
 		"placeholder": {
@@ -482,7 +482,7 @@
 			"descriptionConversation": "Смотрите две модели конвертируются друг с другом",
 			"selectModelToStart": "Выберите модель для начала чата",
 			"keyboardHint": "Нажмите Enter для отправки, Shift+Enter для новой строки",
-			"turnCount": "Поворот {{current}} / {{max}}",
+			"turnCount": "Ход {{current}} / {{max}}",
 			"tokens": "жетоны",
 			"modelGenerating": "Модель генерирует…",
 			"waitingNextTurn": "Ожидание следующего хода…",
@@ -501,7 +501,7 @@
 			"compare": "Сравнить"
 		},
 		"description": {
-			"arena": "Турнир по браслетам - модели конкурируют с головой",
+			"arena": "Турнир на выбывание — модели соревнуются друг с другом",
 			"compare": "С каждой стороны - сравнение выходов модели в одной и той же строке"
 		},
 		"controls": {
@@ -579,7 +579,7 @@
 			"title": "Выполнено"
 		},
 		"reroll": {
-			"title": "Повторно выключить"
+			"title": "Перезапустить"
 		},
 		"error": {
 			"title": "Ошибка"
@@ -641,7 +641,7 @@
 		"page_title_other": "Поставщики",
 		"page_description": "Управление конфигурациями провайдера",
 		"btn_discover_all": "Откройте для себя все модели",
-		"btn_refresh_quotas": "Обновить кавычки / Балансы",
+		"btn_refresh_quotas": "Обновить квоты/балансы",
 		"btn_add_provider": "Добавить поставщика",
 		"btn_discovering": "Обнаружение...",
 		"btn_refreshing": "Обновление...",
@@ -893,8 +893,8 @@
 		}
 	},
 	"failover": {
-		"page_title_one": "Группа резервирования",
-		"page_title_other": "Группы отказов",
+		"page_title_one": "Группа Failover",
+		"page_title_other": "Группы Failover",
 		"page_description_lead": "Маршрутизация запросов через нескольких провайдеров в порядке приоритета через",
 		"page_description_code": "гостиница/модель",
 		"btn_sync": "Синхр.",
@@ -993,9 +993,9 @@
 		"deleteFailed": "Не удалось удалить: {{message}}",
 		"table": {
 			"name": "Наименование",
-			"key": "Спецификация",
+			"key": "Ключ",
 			"rps": "RPS",
-			"burst": "Взрыв",
+			"burst": "Пиковая нагрузка",
 			"created": "Создано",
 			"tokens": "Жетоны",
 			"lastUsed": "Последнее Использовано",
@@ -1415,15 +1415,15 @@
 			}
 		},
 		"rateLimit": {
-			"title": "Ограничение тарифа",
+			"title": "Ограничение скорости",
 			"description": "Проведение контроля запросов по виртуальным ключам для предотвращения злоупотреблений и обеспечения честного использования.",
-			"enable": "Включить ограничение тарифа",
+			"enable": "Включить ограничение скорости",
 			"enableDescription": "Перенос запросов прокси-сервера по виртуальным ключам",
 			"requestsPerSecond": "Запросов в секунду",
 			"requestsPerSecond.description": "Допускается постоянная скорость запроса на виртуальный ключ (0 = неограниченно)",
 			"burstSize": "Размер взрыва",
 			"burstSize.description": "Максимальное количество одновременных запросов перед киками дросселя в",
-			"ipRateLimiting": "Ограничение IP тарифа",
+			"ipRateLimiting": "Ограничение IP скорости",
 			"ipRateLimitingDescription": "Ограничение скорости по IP (защита DoS, запуск перед автором)",
 			"ipRequestsPerSecond": "IP запросов в секунду",
 			"ipRequestsPerSecond.description": "Постоянная скорость запроса на IP адрес (0 = неограниченно)",
@@ -1524,7 +1524,7 @@
 			"persistConversationConfirm": "Это очистит все сохраненные данные диалога. Продолжить?",
 			"persistConversationEnabled": "Устойчивость разговора включена",
 			"persistConversationDisabled": "Данные разговора очищены",
-			"arenaHistory": "Arena History",
+			"arenaHistory": "История арены",
 			"saveMatchHistory": "Сохранить историю матчей",
 			"saveMatchHistoryDescription": "Автоматически сохранять завершенную арену и сравнивать сеансы",
 			"saveMatchHistoryEnabled": "История арены включена",

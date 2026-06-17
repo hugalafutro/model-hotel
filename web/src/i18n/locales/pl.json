@@ -42,7 +42,7 @@
 		"done": "Gotowe",
 		"creating": "Tworzenie...",
 		"resolving": "Rozwiązywanie…",
-		"live": "Żywe",
+		"live": "Na żywo",
 		"deleted": "Usunięto",
 		"internal": "wewnętrzna",
 		"noLogsFound": "Nie znaleziono logów",
@@ -802,7 +802,7 @@
 		}
 	},
 	"models": {
-		"page_title_one": "Wzór",
+		"page_title_one": "Model",
 		"page_title_other": "Modele",
 		"page_description": "Odkryte modele od Twoich dostawców",
 		"badge_enabled": "{{count}} włączony",
@@ -893,8 +893,8 @@
 		}
 	},
 	"failover": {
-		"page_title_one": "Grupa niepowodzeń",
-		"page_title_other": "Grupy niepowodzeń",
+		"page_title_one": "Grupa Failover",
+		"page_title_other": "Grupy Failover",
 		"page_description_lead": "Żądania trasy przez wielu dostawców w kolejności priorytetowej przez",
 		"page_description_code": "hotelu/model",
 		"btn_sync": "Synchronizacja",

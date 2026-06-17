@@ -54,7 +54,7 @@
 		"models": "modele",
 		"tokens": "Token-uri",
 		"yes": "Da",
-		"no": "Nr",
+		"no": "Nu",
 		"random": "Aleator",
 		"unknownError": "Eroare necunoscută",
 		"thisWeek": "Săptămâna aceasta",
@@ -324,7 +324,7 @@
 			"cacheHit": "Atașare cache",
 			"promptTooltip": "Ofertă: {{pct}}% ({{count}} tokens)",
 			"completionTooltip": "Completare: {{pct}}% ({{count}} tokens)",
-			"cacheHitTooltip": "Salvare cutie: {{pct}}% ({{count}} tokens)",
+			"cacheHitTooltip": "Cache accesat: {{pct}}% ({{count}} tokenuri)",
 			"mixAriaLabel": "Combinare token: {{promptPct}}% prompt, {{completionPct}}% completare",
 			"promptTileTitle": "Prompt",
 			"completionTileTitle": "Finalizare"
@@ -893,8 +893,8 @@
 		}
 	},
 	"failover": {
-		"page_title_one": "Grup eșec",
-		"page_title_other": "Grupuri eșuate",
+		"page_title_one": "Grup de Failover",
+		"page_title_other": "Grupuri de Failover",
 		"page_description_lead": "Rutează cererile prin mai mulți furnizori în ordinea prioritară prin",
 		"page_description_code": "hotel/model",
 		"btn_sync": "Sincronizare",
@@ -985,7 +985,7 @@
 	"virtualkeys": {
 		"title": {
 			"singular": "Cheie virtuală",
-			"plural": "Taste virtuale"
+			"plural": "Chei virtuale"
 		},
 		"description": "Chei de probleme pentru clienți pentru a accesa proxy la",
 		"createButton": "Crează cheie",
@@ -1524,7 +1524,7 @@
 			"persistConversationConfirm": "Acest lucru va șterge toate datele de conversație salvate. Continuați?",
 			"persistConversationEnabled": "Persistența conversației activată",
 			"persistConversationDisabled": "Date conversație șterse",
-			"arenaHistory": "Arena History",
+			"arenaHistory": "Istoric arenă",
 			"saveMatchHistory": "Salvează Istoricul meciurilor",
 			"saveMatchHistoryDescription": "Salvează automat arena finalizată și compară sesiunile",
 			"saveMatchHistoryEnabled": "Istoricul Arenei activat",

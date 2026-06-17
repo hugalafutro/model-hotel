@@ -42,7 +42,7 @@
 		"done": "Udført",
 		"creating": "Opretter...",
 		"resolving": "Løser…",
-		"live": "Levende",
+		"live": "Live",
 		"deleted": "Slettet",
 		"internal": "intern",
 		"noLogsFound": "Ingen logs fundet",
@@ -893,8 +893,8 @@
 		}
 	},
 	"failover": {
-		"page_title_one": "Mislykkedes Gruppe",
-		"page_title_other": "Mislykket Grupper",
+		"page_title_one": "Failovergruppe",
+		"page_title_other": "Failovergrupper",
 		"page_description_lead": "Rute anmodninger via flere udbydere i prioriteret rækkefølge via",
 		"page_description_code": "hotel/model",
 		"btn_sync": "Synkroniser",
