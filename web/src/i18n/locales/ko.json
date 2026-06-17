@@ -1801,7 +1801,14 @@
 			"testHint": "알림 기능을 활성화하고, 테스트를 전송할 Apprise API URL과 대상을 모두 설정하십시오.",
 			"testSending": "전송 중…",
 			"testSent": "테스트 알림이 전송되었습니다.",
-			"title": "알림"
+			"title": "알림",
+			"status": {
+				"checking": "apprise-api 확인 중…",
+				"issues": "apprise-api에 접속은 가능하지만 문제가 보고되고 있습니다",
+				"reachable": "apprise-api 접속 가능",
+				"recheck": "재확인",
+				"unreachable": "apprise-api에 연결할 수 없음 — URL을 확인하고 컨테이너가 실행 중인지 확인하십시오"
+			}
 		}
 	},
 	"components": {

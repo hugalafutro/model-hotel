@@ -1801,7 +1801,14 @@
 			"testHint": "Abilitare gli avvisi e impostare sia un URL API di Apprise sia una destinazione per l’invio di un test.",
 			"testSending": "Invio in corso…",
 			"testSent": "Notifica di test inviata.",
-			"title": "Avvisi"
+			"title": "Avvisi",
+			"status": {
+				"checking": "Verifica di apprise-api…",
+				"issues": "apprise-api è raggiungibile ma segnala dei problemi",
+				"reachable": "apprise-api raggiungibile",
+				"recheck": "Ricontrollare",
+				"unreachable": "apprise-api irraggiungibile — controllare l’URL e verificare che il container sia in esecuzione"
+			}
 		}
 	},
 	"components": {

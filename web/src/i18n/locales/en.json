@@ -1467,6 +1467,13 @@
 			"snippets": {
 				"description": "Example Apprise URL formats for popular services — copy one, fill in your details, and paste it above.",
 				"browseAll": "Browse all 80+ services"
+			},
+			"status": {
+				"checking": "Checking apprise-api…",
+				"reachable": "apprise-api reachable",
+				"issues": "apprise-api reachable but reporting issues",
+				"unreachable": "apprise-api unreachable — check the URL and that the container is running",
+				"recheck": "Re-check"
 			}
 		},
 		"circuitBreaker": {

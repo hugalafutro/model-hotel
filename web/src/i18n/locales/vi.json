@@ -1801,7 +1801,14 @@
 			"testHint": "Kích hoạt tính năng cảnh báo và thiết lập cả URL API Apprise lẫn đích đến để gửi yêu cầu thử nghiệm.",
 			"testSending": "Đang gửi…",
 			"testSent": "Đã gửi thông báo thử nghiệm.",
-			"title": "Cảnh báo"
+			"title": "Cảnh báo",
+			"status": {
+				"checking": "Đang kiểm tra apprise-api…",
+				"issues": "apprise-api có thể truy cập được nhưng đang báo cáo sự cố",
+				"reachable": "apprise-api có thể truy cập được",
+				"recheck": "Kiểm tra lại",
+				"unreachable": "Không thể truy cập apprise-api — kiểm tra URL và đảm bảo rằng container đang chạy"
+			}
 		}
 	},
 	"components": {

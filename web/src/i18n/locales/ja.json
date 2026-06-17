@@ -1801,7 +1801,14 @@
 			"testHint": "アラート機能を有効にし、Apprise API URL と送信先の両方を設定してテスト送信を行ってください。",
 			"testSending": "送信中…",
 			"testSent": "テスト通知が送信されました。",
-			"title": "アラート"
+			"title": "アラート",
+			"status": {
+				"checking": "apprise-apiの確認中…",
+				"issues": "apprise-apiには接続できるが、問題が報告されている",
+				"reachable": "apprise-api にアクセス可能",
+				"recheck": "再確認",
+				"unreachable": "apprise-api に接続できません — URL を確認し、コンテナが実行中であることを確認してください"
+			}
 		}
 	},
 	"components": {

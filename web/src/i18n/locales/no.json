@@ -1801,7 +1801,14 @@
 			"testHint": "Aktiver varsling og angi både en Apprise API-URL og et mål for å sende en test.",
 			"testSending": "Sender…",
 			"testSent": "Testvarsel sendt.",
-			"title": "Varsler"
+			"title": "Varsler",
+			"status": {
+				"checking": "Sjekker apprise-api…",
+				"issues": "apprise-api er tilgjengelig, men det rapporteres om problemer",
+				"reachable": "apprise-api tilgjengelig",
+				"recheck": "Kontroller på nytt",
+				"unreachable": "apprise-api utilgjengelig — sjekk URL-en og at containeren kjører"
+			}
 		}
 	},
 	"components": {

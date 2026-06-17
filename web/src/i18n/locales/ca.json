@@ -1801,7 +1801,14 @@
 			"testHint": "Activa les alertes i configura tant una URL de l'API Apprise com un destinatari per enviar una prova.",
 			"testSending": "Enviant…",
 			"testSent": "Notificació de prova enviada.",
-			"title": "Alertes"
+			"title": "Alertes",
+			"status": {
+				"checking": "Comprovant apprise-api…",
+				"issues": "apprise-api accessible però amb problemes de resposta",
+				"reachable": "apprise-api accessible",
+				"recheck": "Recomprova",
+				"unreachable": "apprise-api inaccessible — comproveu l'URL i que el contenidor s'està executant"
+			}
 		}
 	},
 	"components": {

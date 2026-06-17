@@ -1,5 +1,6 @@
 import type {
 	AlertEventDef,
+	AlertStatus,
 	AppLogsCursorResponse,
 	BackupClassification,
 	BackupEntry,
@@ -679,6 +680,13 @@ export const api = {
 				`${API_BASE}/api/alert/test`,
 				{ method: "POST", headers: getAuthHeaders() },
 				"Test notification failed",
+			);
+		},
+		status: async (): Promise<AlertStatus> => {
+			return fetchJSON<AlertStatus>(
+				`${API_BASE}/api/alert/status`,
+				{ headers: getAuthHeaders() },
+				"Failed to fetch alert status",
 			);
 		},
 	},

@@ -425,6 +425,18 @@ export const handlers: RequestHandler[] = [
 		return HttpResponse.json({ ok: true });
 	}),
 
+	http.get("/api/alert/status", ({ request }) => {
+		if (!hasValidAuth(request)) {
+			return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+		}
+		return HttpResponse.json({
+			configured: true,
+			reachable: true,
+			healthy: true,
+			detail: "ok",
+		});
+	}),
+
 	// ── System ────────────────────────────────────────────────────────────
 	http.get("/api/system", ({ request }) => {
 		if (!hasValidAuth(request)) {

@@ -1801,7 +1801,14 @@
 			"testHint": "Uyarı özelliğini etkinleştirin ve bir test göndermek için hem bir Apprise API URL'si hem de bir hedef belirleyin.",
 			"testSending": "Gönderiliyor…",
 			"testSent": "Test bildirimi gönderildi.",
-			"title": "Uyarılar"
+			"title": "Uyarılar",
+			"status": {
+				"checking": "Apprise-api kontrol ediliyor…",
+				"issues": "apprise-api erişilebilir ancak sorunlar bildiriliyor",
+				"reachable": "apprise-api erişilebilir",
+				"recheck": "Tekrar kontrol edin",
+				"unreachable": "apprise-api erişilemiyor — URL'yi kontrol edin ve konteynerin çalışır durumda olup olmadığını kontrol edin"
+			}
 		}
 	},
 	"components": {

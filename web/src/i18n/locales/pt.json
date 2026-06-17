@@ -1801,7 +1801,14 @@
 			"testHint": "Habilite os alertas e defina tanto uma URL da API do Apprise quanto um destino para enviar um teste.",
 			"testSending": "Enviando…",
 			"testSent": "Notificação de teste enviada.",
-			"title": "Alertas"
+			"title": "Alertas",
+			"status": {
+				"checking": "Verificando a API apprise…",
+				"issues": "apprise-api está acessível, mas está relatando problemas",
+				"reachable": "apprise-api acessível",
+				"recheck": "Verifique novamente",
+				"unreachable": "apprise-api inacessível — verifique a URL e se o contêiner está em execução"
+			}
 		}
 	},
 	"components": {

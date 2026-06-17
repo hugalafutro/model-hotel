@@ -1801,7 +1801,14 @@
 			"testHint": "Aktivera aviseringar och ange både en Apprise API-URL och ett mål för att skicka ett test.",
 			"testSending": "Skickar…",
 			"testSent": "Testmeddelande skickat.",
-			"title": "Varningar"
+			"title": "Varningar",
+			"status": {
+				"checking": "Kontrollerar apprise-api…",
+				"issues": "apprise-api är tillgängligt men rapporterar problem",
+				"reachable": "apprise-api nåbar",
+				"recheck": "Kontrollera igen",
+				"unreachable": "apprise-api kan inte nås — kontrollera URL:en och att containern körs"
+			}
 		}
 	},
 	"components": {

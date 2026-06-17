@@ -1801,7 +1801,14 @@
 			"testHint": "Aktivieren Sie die Benachrichtigungsfunktion und legen Sie sowohl eine Apprise-API-URL als auch ein Ziel fest, um einen Test zu senden.",
 			"testSending": "Senden…",
 			"testSent": "Testbenachrichtigung gesendet.",
-			"title": "Warnmeldungen"
+			"title": "Warnmeldungen",
+			"status": {
+				"checking": "Überprüfung von apprise-api…",
+				"issues": "apprise-api ist erreichbar, meldet jedoch Probleme",
+				"reachable": "apprise-api erreichbar",
+				"recheck": "Nochmals überprüfen",
+				"unreachable": "apprise-api nicht erreichbar – Überprüfen Sie die URL und stellen Sie sicher, dass der Container läuft"
+			}
 		}
 	},
 	"components": {

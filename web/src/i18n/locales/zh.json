@@ -1801,7 +1801,14 @@
 			"testHint": "启用警报功能，并同时设置 Apprise API URL 和目标地址以发送测试消息。",
 			"testSending": "正在发送……",
 			"testSent": "已发送测试通知。",
-			"title": "警报"
+			"title": "警报",
+			"status": {
+				"checking": "正在检查 apprise-api…",
+				"issues": "apprise-api 可访问但报告存在问题",
+				"reachable": "apprise-api 可访问",
+				"recheck": "请重新检查",
+				"unreachable": "apprise-api 无法访问 — 请检查 URL 并确认容器是否正在运行"
+			}
 		}
 	},
 	"components": {

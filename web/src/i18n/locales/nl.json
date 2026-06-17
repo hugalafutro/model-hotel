@@ -1801,7 +1801,14 @@
 			"testHint": "Schakel waarschuwingen in en stel zowel een Apprise API-URL als een doel in om een test te verzenden.",
 			"testSending": "Bezig met verzenden…",
 			"testSent": "Testmelding verzonden.",
-			"title": "Waarschuwingen"
+			"title": "Waarschuwingen",
+			"status": {
+				"checking": "Apprise-API wordt gecontroleerd…",
+				"issues": "apprise-api is bereikbaar, maar er worden problemen gemeld",
+				"reachable": "apprise-api bereikbaar",
+				"recheck": "Controleer nogmaals",
+				"unreachable": "apprise-api niet bereikbaar — controleer de URL en of de container actief is"
+			}
 		}
 	},
 	"components": {

@@ -1801,7 +1801,14 @@
 			"testHint": "Activați alertele și configurați atât o adresă URL a API-ului Apprise, cât și o destinație pentru a trimite un test.",
 			"testSending": "Se trimite…",
 			"testSent": "Notificare de testare trimisă.",
-			"title": "Alerte"
+			"title": "Alerte",
+			"status": {
+				"checking": "Verificarea apprise-api…",
+				"issues": "apprise-api este accesibil, dar raportează probleme",
+				"reachable": "apprise-api accesibil",
+				"recheck": "Verificați din nou",
+				"unreachable": "apprise-api inaccesibil — verificați adresa URL și asigurați-vă că containerul rulează"
+			}
 		}
 	},
 	"components": {

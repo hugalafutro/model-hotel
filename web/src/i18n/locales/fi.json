@@ -1801,7 +1801,14 @@
 			"testHint": "Ota hälytykset käyttöön ja määritä sekä Apprise-API-URL että kohde testiviestin lähettämistä varten.",
 			"testSending": "Lähetetään…",
 			"testSent": "Testiviesti lähetetty.",
-			"title": "Hälytykset"
+			"title": "Hälytykset",
+			"status": {
+				"checking": "Tarkistetaan apprise-api…",
+				"issues": "apprise-api on käytettävissä, mutta siinä on raportoitavia ongelmia",
+				"reachable": "apprise-api tavoitettavissa",
+				"recheck": "Tarkista uudelleen",
+				"unreachable": "apprise-api ei tavoitettavissa — tarkista URL-osoite ja varmista, että kontti on käynnissä"
+			}
 		}
 	},
 	"components": {

@@ -1801,7 +1801,14 @@
 			"testHint": "Aktiveer kennisgewing en stel beide 'n Apprise API-URL en 'n teiken in om 'n toets te stuur.",
 			"testSending": "Stuur…",
 			"testSent": "Toetskennisgewing gestuur.",
-			"title": "Waarskuwings"
+			"title": "Waarskuwings",
+			"status": {
+				"checking": "Kontroleer apprise-api…",
+				"issues": "apprise-api bereikbaar, maar meld probleme",
+				"reachable": "apprise-api bereikbaar",
+				"recheck": "Hersien",
+				"unreachable": "apprise-api onbereikbaar — kontroleer die URL en dat die houer aan die gang is"
+			}
 		}
 	},
 	"components": {

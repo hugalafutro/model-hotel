@@ -1,7 +1,7 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Bell, ChevronDown, ChevronRight } from "@/lib/icons";
+import { Bell, ChevronDown, ChevronRight, RefreshCw } from "@/lib/icons";
 import { api } from "../../api/client";
 import { ResetButton } from "../../components/ResetButton";
 import { SettingsSection } from "../../components/SettingsSection";
@@ -42,6 +42,15 @@ export function AlertsSettings({
 			toast(t("settings.alerts.testFailed", { message: err.message }), "error"),
 	});
 
+	// Probe apprise-api reachability. Keyed on the saved URL so it re-runs when
+	// the operator changes it; disabled until alerting is on and a URL is set.
+	const statusQuery = useQuery({
+		queryKey: ["alert-status", apiUrl],
+		queryFn: () => api.alert.status(),
+		enabled: enabled && apiUrl !== "",
+		refetchOnWindowFocus: false,
+	});
+
 	const commitApiUrl = () => {
 		if (apiUrlDraft !== null && apiUrlDraft !== apiUrl) {
 			updateMutation.mutate({ alert_apprise_api_url: apiUrlDraft });
@@ -63,6 +72,20 @@ export function AlertsSettings({
 	};
 
 	const canTest = enabled && apiUrl !== "" && targetConfigured;
+
+	const status = statusQuery.data;
+	const statusDot =
+		status && status.reachable && status.healthy
+			? "bg-green-500"
+			: status?.reachable
+				? "bg-amber-500"
+				: "bg-red-500";
+	const statusText =
+		status && status.reachable && status.healthy
+			? t("settings.alerts.status.reachable")
+			: status?.reachable
+				? t("settings.alerts.status.issues")
+				: t("settings.alerts.status.unreachable");
 
 	return (
 		<SettingsSection
@@ -133,6 +156,36 @@ export function AlertsSettings({
 							<p className="text-gray-500 text-xs">
 								{t("settings.alerts.apiUrlDescription")}
 							</p>
+							{apiUrl !== "" && (
+								<div
+									className="flex items-center gap-2 text-xs"
+									data-testid="alert-status"
+								>
+									{statusQuery.isFetching ? (
+										<span className="inline-flex items-center gap-1.5 text-gray-400">
+											<RefreshCw size={12} className="animate-spin" />
+											{t("settings.alerts.status.checking")}
+										</span>
+									) : status ? (
+										<span className="inline-flex items-center gap-1.5 text-gray-300">
+											<span
+												className={`inline-block w-2 h-2 rounded-full ${statusDot}`}
+												aria-hidden="true"
+											/>
+											{statusText}
+										</span>
+									) : null}
+									<button
+										type="button"
+										className="ui-link-accent inline-flex items-center gap-1"
+										onClick={() => statusQuery.refetch()}
+										data-testid="alert-status-recheck"
+									>
+										<RefreshCw size={11} />
+										{t("settings.alerts.status.recheck")}
+									</button>
+								</div>
+							)}
 						</div>
 
 						{/* Apprise target (encrypted secret) */}

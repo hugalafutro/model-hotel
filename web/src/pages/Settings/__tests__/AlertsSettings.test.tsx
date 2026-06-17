@@ -264,4 +264,65 @@ describe("AlertsSettings", () => {
 		// Every Failover event removed; discovery.provider_failed was already off.
 		expect(put.body?.alert_events).toBe("");
 	});
+
+	it("shows the apprise-api reachable status", async () => {
+		mockSettings({
+			alert_enabled: "true",
+			alert_apprise_api_url: "http://apprise:8000",
+		});
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+		await waitFor(() =>
+			expect(screen.getByText("apprise-api reachable")).toBeInTheDocument(),
+		);
+	});
+
+	it("shows a reachable-but-unhealthy status", async () => {
+		mockSettings({
+			alert_enabled: "true",
+			alert_apprise_api_url: "http://apprise:8000",
+		});
+		server.use(
+			http.get("/api/alert/status", () =>
+				HttpResponse.json({
+					configured: true,
+					reachable: true,
+					healthy: false,
+					detail: "apprise-api returned status 417",
+				}),
+			),
+		);
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+		await waitFor(() =>
+			expect(
+				screen.getByText(/reachable but reporting issues/i),
+			).toBeInTheDocument(),
+		);
+	});
+
+	it("shows an unreachable status when the probe fails", async () => {
+		mockSettings({
+			alert_enabled: "true",
+			alert_apprise_api_url: "http://apprise:8000",
+		});
+		server.use(
+			http.get("/api/alert/status", () =>
+				HttpResponse.json({
+					configured: true,
+					reachable: false,
+					healthy: false,
+					detail: "unreachable",
+				}),
+			),
+		);
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+		await waitFor(() =>
+			expect(screen.getByText(/apprise-api unreachable/i)).toBeInTheDocument(),
+		);
+	});
 });

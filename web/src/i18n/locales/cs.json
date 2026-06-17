@@ -1801,7 +1801,14 @@
 			"testHint": "Aktivujte zasílání upozornění a nastavte jak URL rozhraní Apprise API, tak cíl pro odeslání testu.",
 			"testSending": "Odesílání…",
 			"testSent": "Oznámení o testu odesláno.",
-			"title": "Upozornění"
+			"title": "Upozornění",
+			"status": {
+				"checking": "Kontrola apprise-api…",
+				"issues": "apprise-api je dostupné, ale hlásí problémy",
+				"reachable": "apprise-api je dostupné",
+				"recheck": "Zkontrolujte znovu",
+				"unreachable": "apprise-api je nedostupné — zkontrolujte URL a zda kontejner běží"
+			}
 		}
 	},
 	"components": {
