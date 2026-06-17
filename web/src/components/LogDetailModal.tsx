@@ -4,6 +4,7 @@ import type { AppLogEntry, LogEntry } from "../api/types";
 import { CopyablePill } from "./CopyablePill";
 import { DetailItem } from "./LogDetailItem";
 import { formatDateTime } from "./logDetailUtils";
+import { MaybeJsonBlock } from "./MaybeJsonBlock";
 import { Modal } from "./Modal";
 import { RequestLogDetail } from "./RequestLogDetail";
 
@@ -74,9 +75,10 @@ function AppLogDetail({
 						/>
 					}
 				>
-					<pre className="text-sm text-(--text-primary) font-mono whitespace-pre-wrap break-words bg-(--surface-elevated) p-3 rounded-(--radius-box) border border-(--border-subtle) max-h-60 overflow-y-auto">
-						{log.message}
-					</pre>
+					<MaybeJsonBlock
+						className="text-sm text-(--text-primary) font-mono whitespace-pre-wrap break-words bg-(--surface-elevated) p-3 rounded-(--radius-box) border border-(--border-subtle) max-h-60 overflow-y-auto"
+						text={log.message}
+					/>
 				</DetailItem>
 			</div>
 		</Modal>
