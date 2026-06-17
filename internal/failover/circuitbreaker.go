@@ -279,18 +279,28 @@ func (cb *CircuitBreaker) Status() []ProviderStatus {
 	cooldown := cb.effectiveCooldown()
 	statuses := make([]ProviderStatus, 0, len(cb.circuits))
 	for id, c := range cb.circuits {
+		// Apply the same logical cooldown transition as GetState: an open
+		// circuit whose cooldown has elapsed is "ready to probe" and is
+		// reported as half-open, even though the internal state only flips to
+		// StateHalfOpen for the brief duration of an in-flight probe request.
+		// Without this the half-open bucket is effectively unobservable from
+		// the status API (and the sidebar badge's middle count never moves).
+		state := c.state
+		if state == StateOpen && !c.openedAt.IsZero() && time.Since(c.openedAt) >= cooldown {
+			state = StateHalfOpen
+		}
 		s := ProviderStatus{
 			ProviderID:       id,
-			State:            c.state.String(),
+			State:            state.String(),
 			ConsecutiveFails: c.consecutiveFails,
 		}
-		if c.state == StateOpen && !c.openedAt.IsZero() {
+		if state == StateOpen && !c.openedAt.IsZero() {
 			s.OpenedAt = c.openedAt.Format(time.RFC3339)
 			s.CooldownMs = cooldown.Milliseconds()
 			nextRetry := c.openedAt.Add(cooldown)
 			s.NextRetryAt = nextRetry.Format(time.RFC3339)
 		}
-		if c.state == StateHalfOpen && !c.openedAt.IsZero() {
+		if state == StateHalfOpen && !c.openedAt.IsZero() {
 			s.OpenedAt = c.openedAt.Format(time.RFC3339)
 		}
 		statuses = append(statuses, s)

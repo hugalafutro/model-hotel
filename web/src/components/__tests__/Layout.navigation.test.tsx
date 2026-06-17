@@ -596,7 +596,7 @@ describe("Layout", () => {
 			expect(countElements?.length).toBe(0);
 		});
 
-		it("shows CB badge with colored counts when breakers are active", async () => {
+		it("shows CB badge with half-open/open counts when breakers are active", async () => {
 			server.use(
 				http.get("/api/failover-groups/circuit-breaker-status", () =>
 					HttpResponse.json({ closed: 3, half_open: 1, open: 2 }),
@@ -605,9 +605,6 @@ describe("Layout", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
 			await waitFor(() => {
-				// Green closed count - use getAllByText since Badge wraps text in inner span
-				const closedCounts = screen.getAllByText("3");
-				expect(closedCounts.length).toBeGreaterThan(0);
 				// Amber half-open count
 				const halfOpenCounts = screen.getAllByText("1");
 				expect(halfOpenCounts.length).toBeGreaterThan(0);
@@ -615,9 +612,14 @@ describe("Layout", () => {
 				const openCounts = screen.getAllByText("2");
 				expect(openCounts.length).toBeGreaterThan(0);
 			});
+
+			// The healthy (closed) count is no longer surfaced in the badge —
+			// it was almost always just the provider count and confused users.
+			const failoverLink = screen.getByText("Failover").closest("a");
+			expect(failoverLink?.textContent).not.toContain("3");
 		});
 
-		it("shows only non-zero counts in badge", async () => {
+		it("does not show the badge when only healthy (closed) providers exist", async () => {
 			server.use(
 				http.get("/api/failover-groups/circuit-breaker-status", () =>
 					HttpResponse.json({ closed: 5, half_open: 0, open: 0 }),
@@ -625,14 +627,13 @@ describe("Layout", () => {
 			);
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
+			// The badge only appears when something is recovering or tripped, so a
+			// fully-healthy fleet shows no badge and never surfaces the count "5".
+			const failoverLink = screen.getByText("Failover").closest("a");
 			await waitFor(() => {
-				const closedCounts = screen.getAllByText("5");
-				expect(closedCounts.length).toBeGreaterThan(0);
-				// 0 counts are still rendered in the badge structure
-				// Check that 0 is present (it may appear twice due to inner span)
-				const zeroCounts = screen.getAllByText("0");
-				expect(zeroCounts.length).toBeGreaterThan(0);
+				expect(failoverLink?.querySelectorAll("[title]").length).toBe(0);
 			});
+			expect(failoverLink?.textContent).not.toContain("5");
 		});
 
 		it("shows tooltip with open/half-open provider names", async () => {
