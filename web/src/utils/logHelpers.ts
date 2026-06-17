@@ -48,6 +48,7 @@ export const isCancelled = (
 export type StatusBadgeVariant =
 	| "error"
 	| "warning"
+	| "info"
 	| "success"
 	| "orange"
 	| "muted";
@@ -100,3 +101,24 @@ export const isInProgress = (
 ): boolean =>
 	!isStale(log, nowMs, staleThresholdMs) &&
 	(log.state === "pending" || log.state === "streaming");
+
+/**
+ * Badge variant for a request-log row's status pill, accounting for
+ * in-progress and stale states. An in-progress request carries status_code 0,
+ * so the raw getStatusBadgeVariant would paint the pill red (error) even though
+ * the cell now reads "…"/"Live" - return an "info" (blue) pill for in-progress
+ * and a "warning" (amber) pill for stale so the pill colour matches its text.
+ */
+export const getRowStatusVariant = (
+	log: InProgressLike & {
+		status_code: number;
+		error_kind?: string;
+		error_message?: string;
+	},
+	nowMs: number,
+	staleThresholdMs: number,
+): StatusBadgeVariant => {
+	if (isStale(log, nowMs, staleThresholdMs)) return "warning";
+	if (isInProgress(log, nowMs, staleThresholdMs)) return "info";
+	return getStatusBadgeVariant(log.status_code, log);
+};

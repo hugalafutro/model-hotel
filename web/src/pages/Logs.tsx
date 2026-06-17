@@ -39,7 +39,7 @@ import { useDebounce } from "../hooks/useDebounce";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { encodeCursor, formatNumber } from "../utils/format";
 import {
-	getStatusBadgeVariant,
+	getRowStatusVariant,
 	isCancelled,
 	isInProgress as isInProgressShared,
 	isStale as isStaleShared,
@@ -655,9 +655,10 @@ function RequestLogs() {
 												</td>
 												<td className="px-2 py-1 whitespace-nowrap">
 													<Badge
-														variant={getStatusBadgeVariant(
-															log.status_code,
+														variant={getRowStatusVariant(
 															log,
+															nowMs,
+															STALE_THRESHOLD_MS,
 														)}
 														className="gap-1 whitespace-nowrap"
 													>

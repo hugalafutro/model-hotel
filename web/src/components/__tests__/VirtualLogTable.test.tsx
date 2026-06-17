@@ -375,6 +375,11 @@ describe("VirtualLogTable", () => {
 
 			expect(screen.getByText("…")).toBeInTheDocument();
 			expect(screen.queryByText("0")).not.toBeInTheDocument();
+			// Pill colour must track the in-progress state, not status_code 0 -
+			// it must NOT stay red (ui-badge-error).
+			const badge = screen.getByText("…").closest("[data-test-variant]");
+			expect(badge).toHaveClass("ui-badge-info");
+			expect(badge).not.toHaveClass("ui-badge-error");
 		});
 
 		it('renders "Live" for a streaming in-progress row', () => {
@@ -400,6 +405,9 @@ describe("VirtualLogTable", () => {
 
 			expect(screen.getByText("Live")).toBeInTheDocument();
 			expect(screen.queryByText("0")).not.toBeInTheDocument();
+			const badge = screen.getByText("Live").closest("[data-test-variant]");
+			expect(badge).toHaveClass("ui-badge-info");
+			expect(badge).not.toHaveClass("ui-badge-error");
 		});
 
 		it('renders stale "⚠" for a pending row older than the stale threshold', () => {
@@ -425,6 +433,8 @@ describe("VirtualLogTable", () => {
 			);
 
 			expect(screen.getByText("⚠")).toBeInTheDocument();
+			const badge = screen.getByText("⚠").closest("[data-test-variant]");
+			expect(badge).toHaveClass("ui-badge-warning");
 		});
 
 		it('renders "Interrupted" for cancelled error messages in tokens column', () => {

@@ -5,7 +5,7 @@ import type { LogEntry } from "../api/types";
 import { formatMs, formatTPS } from "../pages/Logs/utils";
 import { formatNumber } from "../utils/format";
 import {
-	getStatusBadgeVariant,
+	getRowStatusVariant,
 	isCancelled,
 	isInProgress,
 	isStale,
@@ -351,7 +351,11 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 									</td>
 									<td className="px-2 py-1 whitespace-nowrap">
 										<Badge
-											variant={getStatusBadgeVariant(log.status_code, log)}
+											variant={getRowStatusVariant(
+												log,
+												nowMs,
+												staleThresholdMs,
+											)}
 											className="gap-1 whitespace-nowrap"
 										>
 											{stale ? (
