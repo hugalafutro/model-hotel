@@ -26,11 +26,6 @@ const SERVICES: ReadonlyArray<{
 	},
 	{ id: "slack", title: "Slack", url: "slack://{tokenA}/{tokenB}/{tokenC}" },
 	{
-		id: "msteams",
-		title: "Microsoft Teams",
-		url: "msteams://{tokenA}/{tokenB}/{tokenC}",
-	},
-	{
 		id: "matrix",
 		title: "Matrix",
 		url: "matrix://{user}:{password}@{host}/{room_id}",
