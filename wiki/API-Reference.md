@@ -192,6 +192,8 @@ The admin token is generated on first startup and saved to `.data/admin-token`. 
 | `/api/providers/{id}/account` | GET | Get account info (Ollama Cloud) |
 | `/api/providers/discover-all` | POST | Trigger discovery for all enabled providers |
 | `/api/providers/refresh-quotas` | POST | Refresh quota/balance data for all supported providers |
+| `/api/discovery/changes` | GET | List unseen model changes recorded by background (scheduled/startup) discovery |
+| `/api/discovery/changes/ack` | POST | Mark recorded background changes as seen (clears the Models nav badge); returns the acked entries |
 
 #### GET `/api/providers`
 
@@ -1202,6 +1204,7 @@ data: {"type":"discovery.complete","severity":"success","message":"Discovery com
 | `discovery.provider_failed` | `error` | Discovery failed for a provider |
 | `discovery.enriched` | `info` | Models enriched from models.dev catalogue |
 | `discovery.models_disabled` | `warning` | Models were disabled during discovery |
+| `discovery.changes_pending` | `info` | Background discovery recorded model changes (badged on the Models nav) |
 | `failover.sync_error` | `warning` | Error during failover group synchronization |
 | `circuit_breaker.open` | `warning` | Provider circuit breaker opened |
 | `circuit_breaker.half-open` | `info` | Circuit breaker probing |

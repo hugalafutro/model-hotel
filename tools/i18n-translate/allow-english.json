@@ -507,8 +507,10 @@
 		"ro"
 	],
 	"common.live": [
+		"da",
 		"de",
 		"it",
+		"nl",
 		"ro",
 		"sv"
 	],
@@ -531,6 +533,7 @@
 	],
 	"common.no": [
 		"ca",
+		"es",
 		"it"
 	],
 	"common.optional": [
@@ -782,9 +785,12 @@
 	],
 	"common.tokens": [
 		"af",
+		"ca",
 		"da",
+		"el",
 		"es",
 		"nl",
+		"no",
 		"pt",
 		"sv"
 	],
@@ -2194,6 +2200,7 @@
 	"failover.filter_origin_auto": [
 		"de",
 		"es",
+		"hu",
 		"pl",
 		"sk"
 	],
@@ -3111,8 +3118,10 @@
 	"models.page_title_one": [
 		"af",
 		"ca",
+		"cs",
 		"da",
 		"nl",
+		"pl",
 		"ro",
 		"sk",
 		"tr"

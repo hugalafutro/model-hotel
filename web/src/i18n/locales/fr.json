@@ -17,7 +17,7 @@
 		"never": "Jamais",
 		"justNow": "Juste maintenant",
 		"loading": "En cours de chargement",
-		"loadingDots": "Chargement de…",
+		"loadingDots": "Chargement…",
 		"off": "désactivée",
 		"prev": "Précédent",
 		"next": "Suivant",
@@ -31,7 +31,7 @@
 		"save": "Enregistrer",
 		"saveChanges": "Enregistrer les modifications",
 		"confirm": "Valider",
-		"syncing": "Synchronisation de…",
+		"syncing": "Synchronisation…",
 		"refresh": "Rafraîchir",
 		"refreshing": "Rafraîchissement de…",
 		"discovering": "Découverte...",
@@ -802,7 +802,7 @@
 		}
 	},
 	"models": {
-		"page_title_one": "Modélisation",
+		"page_title_one": "Modèle",
 		"page_title_other": "Modèles",
 		"page_description": "Des modèles découverts de vos fournisseurs",
 		"badge_enabled": "{{count}} activé",

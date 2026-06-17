@@ -893,8 +893,8 @@
 		}
 	},
 	"failover": {
-		"page_title_one": "Epäonnistumisryhmä",
-		"page_title_other": "Epäonnistuneen Tilin Ryhmät",
+		"page_title_one": "Failover-ryhmä",
+		"page_title_other": "Failover-ryhmät",
 		"page_description_lead": "Reititä pyynnöt useiden palveluntarjoajien kautta ensisijaisessa järjestyksessä kautta",
 		"page_description_code": "hotelli/malli",
 		"btn_sync": "Synkronointi",
@@ -1447,7 +1447,7 @@
 			"failoverOnRateLimitDescription": "Reitti seuraavaan epäonnistuneen ryhmän jäseneen, kun palveluntarjoaja palauttaa 429"
 		},
 		"logging": {
-			"title": "Kirjautuminen",
+			"title": "Lokitus",
 			"logRetention": "Lokin Säilyttäminen",
 			"logRetention.description": "Poista automaattisesti tämän ajanjakson vanhat lokit. 0 poistaaksesi käytöstä.",
 			"staleRequestTimeout": "Pyyntö Aikakatkaistiin",

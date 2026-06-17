@@ -52,7 +52,7 @@
 		"loadingOlder": "Laster eldre…",
 		"model": "modell",
 		"models": "modeller",
-		"tokens": "Symboler",
+		"tokens": "Tokens",
 		"yes": "Ja",
 		"no": "Nei",
 		"random": "Tilfeldig",
@@ -639,10 +639,10 @@
 	"providers": {
 		"page_title_one": "Leverandør",
 		"page_title_other": "Leverandører",
-		"page_description": "Administrer søkeleverandørens konfigurasjoner",
+		"page_description": "Administrer leverandørenes konfigurasjoner",
 		"btn_discover_all": "Oppdag alle modeller",
-		"btn_refresh_quotas": "Oppdater sitat/saldoer",
-		"btn_add_provider": "Legg til operatør",
+		"btn_refresh_quotas": "Oppdater kvoter/saldoer",
+		"btn_add_provider": "Legg til leverandør",
 		"btn_discovering": "Oppdager...",
 		"btn_refreshing": "Oppdaterer...",
 		"filter_placeholder": "Filtrer leverandører…",
@@ -893,8 +893,8 @@
 		}
 	},
 	"failover": {
-		"page_title_one": "Feilet i gruppen",
-		"page_title_other": "Feil over grupper",
+		"page_title_one": "Failovergruppe",
+		"page_title_other": "Failovergrupper",
 		"page_description_lead": "Ruteforespørsler gjennom flere leverandører i prioritert rekkefølge via",
 		"page_description_code": "hotell/modell",
 		"btn_sync": "Synkronisering",

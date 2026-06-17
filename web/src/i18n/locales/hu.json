@@ -13,15 +13,15 @@
 		"expand": "Bontás",
 		"collapse": "Összecsukás",
 		"enabled": "Engedélyezve",
-		"disabled": "Fogyatékkal élők",
+		"disabled": "Letiltva",
 		"never": "Soha",
 		"justNow": "Épp most",
 		"loading": "Betöltés",
-		"loadingDots": "… betöltése",
+		"loadingDots": "Betöltés…",
 		"off": "ki",
 		"prev": "Előző",
 		"next": "Következő",
-		"apply": "Jelentkezés",
+		"apply": "Alkalmaz",
 		"clear": "Törlés",
 		"interrupted": "Megszakítva",
 		"selectAll": "Összes kijelölése",
@@ -31,7 +31,7 @@
 		"save": "Mentés",
 		"saveChanges": "Módosítások mentése",
 		"confirm": "Megerősítés",
-		"syncing": "… szinkronizálása",
+		"syncing": "Szinkronizálás…",
 		"refresh": "Frissítés",
 		"refreshing": "Frissítő…",
 		"discovering": "Felfedezés...",
@@ -52,7 +52,7 @@
 		"loadingOlder": "Régebbi bejegyzések betöltése…",
 		"model": "modell",
 		"models": "modellek",
-		"tokens": "Zsetonok",
+		"tokens": "Tokenek",
 		"yes": "Igen",
 		"no": "Nem",
 		"random": "Véletlenszerű",
@@ -907,7 +907,7 @@
 		"filter_origins": "Minden ({{count}}) származás",
 		"filter_state_enabled": "Engedélyezve",
 		"filter_state_disabled": "Fogyatékkal élők",
-		"filter_origin_auto": "Autó",
+		"filter_origin_auto": "Auto",
 		"filter_origin_manual": "Egyéni",
 		"select_all": "Összes kijelölése",
 		"deselect_all": "Minden kijelölésének megszüntetése",
@@ -985,7 +985,7 @@
 	"virtualkeys": {
 		"title": {
 			"singular": "Virtuális kulcs",
-			"plural": "Virtuális gombok"
+			"plural": "Virtuális kulcsok"
 		},
 		"description": "Adjon ki hozzáférési kulcsokat az ügyfeleknek, hogy hozzáférhessenek a proxyhoz a",
 		"createButton": "Kulcs létrehozása",
@@ -1447,7 +1447,7 @@
 			"failoverOnRateLimitDescription": "A következő failover-csoport tagjához való átirányítás, ha a szolgáltató 429-es hibakódot ad vissza"
 		},
 		"logging": {
-			"title": "Fakitermelés",
+			"title": "Naplózás",
 			"logRetention": "Naplófájlok megőrzése",
 			"logRetention.description": "A megadott időtartamnál régebbi naplófájlokat automatikusan törölje. 0 értékkel kikapcsolható.",
 			"staleRequestTimeout": "A lejárt kérelem időtúllépése",

@@ -85,7 +85,9 @@ Two manual discovery endpoints are available:
 
 Both endpoints upsert discovered models and call `DisableMissingModels` to disable any models that were previously known but are no longer returned by the provider API. The failover groups of newly disabled models are re-synced in the same scan, so a model that leaves a provider's listing is also pruned from its group instead of lingering as a stale entry (the same cleanup a manual failover sync performs).
 
-Both endpoints also return a `diff` describing what the scan changed - models added, re-enabled, or disabled (with machine-readable reason codes `new_model`, `reappeared`, `not_listed`) plus any failover groups updated or deleted as a result. The dashboard renders this diff as a post-scan summary modal after manual Discover / Discover All runs; an all-empty diff still confirms "scanned, nothing changed". Scheduled background discovery does not pop the modal (SSE events cover it).
+Both endpoints also return a `diff` describing what the scan changed - models added, re-enabled, or disabled (with machine-readable reason codes `new_model`, `reappeared`, `not_listed`) plus any failover groups updated or deleted as a result. It also reports `updated` models whose live pricing or context-length metadata moved since the previous scan: each entry carries per-field `changes` (codes `input_price`, `output_price`, `input_price_cache`, `context_length`, each with `old`/`new` numbers). Only fields the provider's own live API supplied this scan are compared (tracked via transient per-field live provenance), so catalog/models.dev backfills, flaky probes, and manual price edits never surface as spurious changes. The dashboard renders this diff as a post-scan summary modal after manual Discover / Discover All runs; an all-empty diff still confirms "scanned, nothing changed".
+
+Scheduled/startup background discovery does not pop the modal (SSE events cover it). Instead, any changes it records are persisted to a `discovery_changes` store (migration `047`) and surfaced as a count badge on the **Models** sidebar item; clicking the badge opens a summary modal of the recorded changes and acks the unseen rows server-side (clearing the badge). A `discovery.changes_pending` SSE event fires when a background scan records changes. See the [API Reference](https://github.com/hugalafutro/model-hotel/wiki/API-Reference) for the `GET /api/discovery/changes` and `POST /api/discovery/changes/ack` endpoints.
 
 ```json
 {
@@ -94,6 +96,9 @@ Both endpoints also return a `diff` describing what the scan changed - models ad
   "diff": {
     "added": [{"model_id": "gpt-4o-2024-11", "reason": "new_model"}],
     "disabled": [{"model_id": "gpt-4o-2024-05", "reason": "not_listed"}],
+    "updated": [
+      {"model_id": "gpt-4o", "changes": [{"field": "input_price", "old": 2.5, "new": 2.0}]}
+    ],
     "failover_updated_groups": [
       {"display_model": "gpt-4o", "removed_model_ids": ["uuid-old"]}
     ]

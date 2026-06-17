@@ -22,7 +22,7 @@
 		"prev": "Anterior",
 		"next": "Siguiente",
 		"apply": "Aplicar",
-		"clear": "Claro",
+		"clear": "Borrar",
 		"interrupted": "Interrumpido",
 		"selectAll": "Seleccionar todo",
 		"saving": "Guardando...",
@@ -54,7 +54,7 @@
 		"models": "modelos",
 		"tokens": "Tokens",
 		"yes": "Sí",
-		"no": "Nu",
+		"no": "No",
 		"random": "Aleatorio",
 		"unknownError": "Error desconocido",
 		"thisWeek": "Esta semana",
@@ -893,8 +893,8 @@
 		}
 	},
 	"failover": {
-		"page_title_one": "Grupo de fallo",
-		"page_title_other": "Grupos de Error",
+		"page_title_one": "Grupo de Failover",
+		"page_title_other": "Grupos de Failover",
 		"page_description_lead": "Solicitudes de ruta a través de múltiples proveedores en orden prioritario a través",
 		"page_description_code": "hotel/modelo",
 		"btn_sync": "Sincronizar",
@@ -1447,7 +1447,7 @@
 			"failoverOnRateLimitDescription": "Ruta al siguiente miembro del grupo de tolerancia contra fallos cuando un proveedor devuelve 429"
 		},
 		"logging": {
-			"title": "Loggando",
+			"title": "Registro",
 			"logRetention": "Retención de Log",
 			"logRetention.description": "Borrar automáticamente los registros anteriores a este período. 0 para desactivar.",
 			"staleRequestTimeout": "Tiempo de espera de solicitud obsoleta",

@@ -641,7 +641,7 @@
 		"page_title_other": "Leverantörer",
 		"page_description": "Hantera dina leverantörskonfigurationer",
 		"btn_discover_all": "Upptäck alla modeller",
-		"btn_refresh_quotas": "Uppdatera offerter/saldon",
+		"btn_refresh_quotas": "Uppdatera kvoter/saldon",
 		"btn_add_provider": "Lägg till leverantör",
 		"btn_discovering": "Upptäcker...",
 		"btn_refreshing": "Uppdaterar...",
@@ -893,8 +893,8 @@
 		}
 	},
 	"failover": {
-		"page_title_one": "Misslyckad grupp",
-		"page_title_other": "Misslyckade grupper",
+		"page_title_one": "Failovergrupp",
+		"page_title_other": "Failovergrupper",
 		"page_description_lead": "Rutt förfrågningar via flera leverantörer i prioritetsordning via",
 		"page_description_code": "hotell/modell",
 		"btn_sync": "Synk",
