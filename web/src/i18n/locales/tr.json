@@ -1807,7 +1807,8 @@
 				"issues": "apprise-api erişilebilir ancak sorunlar bildiriliyor",
 				"reachable": "apprise-api erişilebilir",
 				"recheck": "Tekrar kontrol edin",
-				"unreachable": "apprise-api erişilemiyor — URL'yi kontrol edin ve konteynerin çalışır durumda olup olmadığını kontrol edin"
+				"unreachable": "apprise-api erişilemiyor — URL'yi kontrol edin ve konteynerin çalışır durumda olup olmadığını kontrol edin",
+				"checkFailed": "Durum kontrolü başarısız"
 			}
 		}
 	},

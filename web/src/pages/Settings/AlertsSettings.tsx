@@ -166,6 +166,14 @@ export function AlertsSettings({
 											<RefreshCw size={12} className="animate-spin" />
 											{t("settings.alerts.status.checking")}
 										</span>
+									) : statusQuery.isError ? (
+										<span className="inline-flex items-center gap-1.5 text-gray-300">
+											<span
+												className="inline-block w-2 h-2 rounded-full bg-red-500"
+												aria-hidden="true"
+											/>
+											{t("settings.alerts.status.checkFailed")}
+										</span>
 									) : status ? (
 										<span className="inline-flex items-center gap-1.5 text-gray-300">
 											<span

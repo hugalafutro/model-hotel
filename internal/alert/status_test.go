@@ -72,3 +72,25 @@ func TestProbeConfigError(t *testing.T) {
 		t.Error("expected config-load error to propagate")
 	}
 }
+
+// TestProbeIgnoresCorruptTarget guards against regressing to AlertConfig (which
+// decrypts the target): a target that can't be decrypted must not fail a
+// reachability probe when the URL is valid and reachable.
+func TestProbeIgnoresCorruptTarget(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {}))
+	defer srv.Close()
+
+	p := NewSettingsConfigProvider(fakeSettings{vals: map[string]string{
+		"alert_apprise_api_url": srv.URL,
+		"alert_apprise_targets": "enc:v1:!!!:@@@:###", // undecryptable
+	}}, "any-master-key-at-least-32-bytes-long!!!")
+	d := New(p, srv.Client())
+
+	st, err := d.Probe(context.Background())
+	if err != nil {
+		t.Fatalf("Probe must not error on a corrupt target: %v", err)
+	}
+	if !st.Configured || !st.Reachable || !st.Healthy {
+		t.Errorf("expected reachable despite corrupt target, got %+v", st)
+	}
+}

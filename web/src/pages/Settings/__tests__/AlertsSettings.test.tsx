@@ -329,4 +329,22 @@ describe("AlertsSettings", () => {
 			expect(screen.getByText(/apprise-api unreachable/i)).toBeInTheDocument(),
 		);
 	});
+
+	it("surfaces a failed status check instead of hiding it", async () => {
+		mockSettings({
+			alert_enabled: "true",
+			alert_apprise_api_url: "http://apprise:8000",
+		});
+		server.use(
+			http.get("/api/alert/status", () =>
+				HttpResponse.json({ error: "boom" }, { status: 500 }),
+			),
+		);
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+		await waitFor(() =>
+			expect(screen.getByText("Status check failed")).toBeInTheDocument(),
+		);
+	});
 });

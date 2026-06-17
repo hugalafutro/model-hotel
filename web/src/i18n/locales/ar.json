@@ -1807,7 +1807,8 @@
 				"issues": "apprise-api يمكن الوصول إليه ولكن هناك مشكلات في الإبلاغ",
 				"reachable": "apprise-api reachable",
 				"recheck": "أعد التحقق",
-				"unreachable": "apprise-api غير قابل للوصول — تحقق من عنوان URL وتأكد من أن الحاوية قيد التشغيل"
+				"unreachable": "apprise-api غير قابل للوصول — تحقق من عنوان URL وتأكد من أن الحاوية قيد التشغيل",
+				"checkFailed": "فشل فحص الحالة"
 			}
 		}
 	},

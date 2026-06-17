@@ -1807,7 +1807,8 @@
 				"issues": "apprise-api is bereikbaar, maar er worden problemen gemeld",
 				"reachable": "apprise-api bereikbaar",
 				"recheck": "Controleer nogmaals",
-				"unreachable": "apprise-api niet bereikbaar — controleer de URL en of de container actief is"
+				"unreachable": "apprise-api niet bereikbaar — controleer de URL en of de container actief is",
+				"checkFailed": "Statuscontrole mislukt"
 			}
 		}
 	},

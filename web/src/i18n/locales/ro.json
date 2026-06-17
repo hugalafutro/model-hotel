@@ -1807,7 +1807,8 @@
 				"issues": "apprise-api este accesibil, dar raportează probleme",
 				"reachable": "apprise-api accesibil",
 				"recheck": "Verificați din nou",
-				"unreachable": "apprise-api inaccesibil — verificați adresa URL și asigurați-vă că containerul rulează"
+				"unreachable": "apprise-api inaccesibil — verificați adresa URL și asigurați-vă că containerul rulează",
+				"checkFailed": "Verificarea stării a eșuat"
 			}
 		}
 	},

@@ -1807,7 +1807,8 @@
 				"issues": "apprise-api está accesible, pero se notifican problemas",
 				"reachable": "apprise-api accesible",
 				"recheck": "Vuelve a comprobarlo",
-				"unreachable": "apprise-api inaccesible: comprueba la URL y que el contenedor se esté ejecutando"
+				"unreachable": "apprise-api inaccesible: comprueba la URL y que el contenedor se esté ejecutando",
+				"checkFailed": "Comprobación de estado fallida"
 			}
 		}
 	},

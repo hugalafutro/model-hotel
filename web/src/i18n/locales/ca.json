@@ -1807,7 +1807,8 @@
 				"issues": "apprise-api accessible però amb problemes de resposta",
 				"reachable": "apprise-api accessible",
 				"recheck": "Recomprova",
-				"unreachable": "apprise-api inaccessible — comproveu l'URL i que el contenidor s'està executant"
+				"unreachable": "apprise-api inaccessible — comproveu l'URL i que el contenidor s'està executant",
+				"checkFailed": "Comprovació d'estat fallida"
 			}
 		}
 	},

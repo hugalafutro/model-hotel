@@ -1807,7 +1807,8 @@
 				"issues": "apprise-api 可访问但报告存在问题",
 				"reachable": "apprise-api 可访问",
 				"recheck": "请重新检查",
-				"unreachable": "apprise-api 无法访问 — 请检查 URL 并确认容器是否正在运行"
+				"unreachable": "apprise-api 无法访问 — 请检查 URL 并确认容器是否正在运行",
+				"checkFailed": "状态检查失败"
 			}
 		}
 	},

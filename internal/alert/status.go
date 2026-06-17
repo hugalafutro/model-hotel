@@ -22,11 +22,13 @@ type Status struct {
 // container". It never returns a transport error as a Go error (a down host is
 // a normal, reportable state); err is non-nil only when the config can't load.
 func (d *Dispatcher) Probe(ctx context.Context) (Status, error) {
-	cfg, err := d.cfg.AlertConfig(ctx)
+	// Read only the base URL — never the encrypted target — so a corrupt target
+	// secret or rotated MASTER_KEY cannot fail a reachability check.
+	rawBase, err := d.cfg.APIBaseURL(ctx)
 	if err != nil {
 		return Status{}, err
 	}
-	base := strings.TrimSpace(cfg.APIBaseURL)
+	base := strings.TrimSpace(rawBase)
 	if base == "" {
 		return Status{Configured: false}, nil
 	}

@@ -30,11 +30,15 @@ type Config struct {
 	Events     map[string]bool // enabled event Types (the operator's picker)
 }
 
-// ConfigProvider resolves the live alerting config — it reads settings and
+// ConfigProvider resolves the live alerting config: it reads settings and
 // decrypts the target. Abstracted behind an interface so the dispatcher core is
 // testable without a database or the master key.
 type ConfigProvider interface {
 	AlertConfig(ctx context.Context) (Config, error)
+	// APIBaseURL returns just the apprise-api base URL without decrypting the
+	// target secret. Probing reachability must not fail on a corrupt target or
+	// a rotated MASTER_KEY when the URL itself is valid.
+	APIBaseURL(ctx context.Context) (string, error)
 }
 
 // Dispatcher consumes the events bus and forwards selected events to a

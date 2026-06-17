@@ -1473,6 +1473,7 @@
 				"reachable": "apprise-api reachable",
 				"issues": "apprise-api reachable but reporting issues",
 				"unreachable": "apprise-api unreachable: check the URL and that the container is running",
+				"checkFailed": "Status check failed",
 				"recheck": "Re-check"
 			}
 		},

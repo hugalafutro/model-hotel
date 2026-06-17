@@ -1807,7 +1807,8 @@
 				"issues": "apprise-api je dostupné, ale hlásí problémy",
 				"reachable": "apprise-api je dostupné",
 				"recheck": "Zkontrolujte znovu",
-				"unreachable": "apprise-api je nedostupné — zkontrolujte URL a zda kontejner běží"
+				"unreachable": "apprise-api je nedostupné — zkontrolujte URL a zda kontejner běží",
+				"checkFailed": "Kontrola stavu selhala"
 			}
 		}
 	},

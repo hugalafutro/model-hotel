@@ -1807,7 +1807,8 @@
 				"issues": "apprise-api är tillgängligt men rapporterar problem",
 				"reachable": "apprise-api nåbar",
 				"recheck": "Kontrollera igen",
-				"unreachable": "apprise-api kan inte nås — kontrollera URL:en och att containern körs"
+				"unreachable": "apprise-api kan inte nås — kontrollera URL:en och att containern körs",
+				"checkFailed": "Statuskontrollen misslyckades"
 			}
 		}
 	},

@@ -1807,7 +1807,8 @@
 				"issues": "apprise-api bereikbaar, maar meld probleme",
 				"reachable": "apprise-api bereikbaar",
 				"recheck": "Hersien",
-				"unreachable": "apprise-api onbereikbaar — kontroleer die URL en dat die houer aan die gang is"
+				"unreachable": "apprise-api onbereikbaar — kontroleer die URL en dat die houer aan die gang is",
+				"checkFailed": "Statuskontrole misluk"
 			}
 		}
 	},

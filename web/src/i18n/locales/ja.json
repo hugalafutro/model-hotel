@@ -1807,7 +1807,8 @@
 				"issues": "apprise-apiには接続できるが、問題が報告されている",
 				"reachable": "apprise-api にアクセス可能",
 				"recheck": "再確認",
-				"unreachable": "apprise-api に接続できません — URL を確認し、コンテナが実行中であることを確認してください"
+				"unreachable": "apprise-api に接続できません — URL を確認し、コンテナが実行中であることを確認してください",
+				"checkFailed": "ステータスチェックに失敗しました"
 			}
 		}
 	},

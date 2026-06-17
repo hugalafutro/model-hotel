@@ -1807,7 +1807,8 @@
 				"issues": "apprise-api è raggiungibile ma segnala dei problemi",
 				"reachable": "apprise-api raggiungibile",
 				"recheck": "Ricontrollare",
-				"unreachable": "apprise-api irraggiungibile — controllare l’URL e verificare che il container sia in esecuzione"
+				"unreachable": "apprise-api irraggiungibile — controllare l’URL e verificare che il container sia in esecuzione",
+				"checkFailed": "Verifica dello stato non riuscita"
 			}
 		}
 	},

@@ -1807,7 +1807,8 @@
 				"issues": "apprise-api có thể truy cập được nhưng đang báo cáo sự cố",
 				"reachable": "apprise-api có thể truy cập được",
 				"recheck": "Kiểm tra lại",
-				"unreachable": "Không thể truy cập apprise-api — kiểm tra URL và đảm bảo rằng container đang chạy"
+				"unreachable": "Không thể truy cập apprise-api — kiểm tra URL và đảm bảo rằng container đang chạy",
+				"checkFailed": "Kiểm tra trạng thái không thành công"
 			}
 		}
 	},

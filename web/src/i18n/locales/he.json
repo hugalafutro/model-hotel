@@ -1807,7 +1807,8 @@
 				"issues": "apprise-api נגיש אך מדווח על בעיות",
 				"reachable": "apprise-api נגיש",
 				"recheck": "בדקו שוב",
-				"unreachable": "apprise-api אינו נגיש — בדקו את כתובת ה-URL וודאו שהמכולה פועלת"
+				"unreachable": "apprise-api אינו נגיש — בדקו את כתובת ה-URL וודאו שהמכולה פועלת",
+				"checkFailed": "בדיקת הסטטוס נכשלה"
 			}
 		}
 	},

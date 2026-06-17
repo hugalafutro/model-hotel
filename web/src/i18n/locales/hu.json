@@ -1807,7 +1807,8 @@
 				"issues": "Az apprise-api elérhető, de problémákat jelent",
 				"reachable": "apprise-api elérhető",
 				"recheck": "Ellenőrizze újra",
-				"unreachable": "Az apprise-api nem érhető el — ellenőrizze az URL-t, és hogy a konténer fut-e"
+				"unreachable": "Az apprise-api nem érhető el — ellenőrizze az URL-t, és hogy a konténer fut-e",
+				"checkFailed": "Az állapotellenőrzés sikertelen volt"
 			}
 		}
 	},
