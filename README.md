@@ -267,9 +267,6 @@ ADMIN_TOKEN=
                 - DATA_DIR=/data
                 - RATE_LIMIT_ENABLED=true
                 - DEBUG_LOG=false
-                - LOG_FORMAT=text          # "json" for log collectors (Fluent Bit, Vector, Promtail, …)
-                - METRICS_TOKEN=${METRICS_TOKEN:-}   # optional dedicated token for the /metrics scrape
-                - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}   # optional OTLP collector URL → push logs over OpenTelemetry
                 - CORS_ORIGINS=http://localhost:5173,http://localhost:${HOST_PORT:-8081}
                 - WEBAUTHN_RP_ID=${WEBAUTHN_RP_ID:-}
                 - WEBAUTHN_RP_ORIGINS=${WEBAUTHN_RP_ORIGINS:-}
@@ -305,6 +302,20 @@ ADMIN_TOKEN=
                 interval: 5s
                 timeout: 5s
                 retries: 5
+    
+        # Optional: outbound alerting via Apprise. Uncomment to run a stateless
+        # apprise-api container, then in Settings → Alerts set the Apprise API URL to
+        # http://apprise:8000 and paste your notification target (e.g.
+        # tgram://<bot_token>/<chat_id>). Model Hotel POSTs event summaries here and
+        # Apprise fans them out to your service. No request content is ever sent.
+        # apprise:
+        #     image: caronc/apprise:latest
+        #     labels:
+        #         app.group: model-hotel
+        #     restart: unless-stopped
+        #     # Not exposed to the host: only Model Hotel needs to reach it.
+        #     expose:
+        #         - "8000"
 ```
 
 </details>
