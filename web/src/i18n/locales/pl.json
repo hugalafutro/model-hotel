@@ -153,7 +153,7 @@
 			"showToken": "Pokaż token",
 			"getTokenHint": "Pobierz token administratora z dzienników serwera",
 			"demoTokenHint": "Instancja demonstracyjna. Zaloguj się przy użyciu tego tokenu administratora:",
-			"useDemoToken": "Zaloguj się do wersji demonstracyjnej"
+			"copyToken": "Skopiuj token"
 		},
 		"theme": {
 			"switchToLight": "Przełącz na tryb jasny",

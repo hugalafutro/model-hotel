@@ -153,7 +153,7 @@
 			"showToken": "Mostra token",
 			"getTokenHint": "Ottieni il tuo token amministratore dai log del server",
 			"demoTokenHint": "Istanza demo. Accedi con questo token di amministratore:",
-			"useDemoToken": "Accedi alla demo"
+			"copyToken": "Copia token"
 		},
 		"theme": {
 			"switchToLight": "Passa alla modalità chiara",

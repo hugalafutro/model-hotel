@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { Eye, EyeOff, Fingerprint } from "@/lib/icons";
 import { api, setAdminToken } from "./api/client";
+import { CopyablePill } from "./components/CopyablePill";
 import { Layout } from "./components/Layout";
 import { Logo } from "./components/Logo";
 import { ThemedIconProvider } from "./components/ThemedIconProvider";
@@ -69,8 +70,8 @@ function LoginScreen() {
 		isWebAuthnAvailable().then(setPasskeyAvailable);
 	}, []);
 
-	const handleLogin = async (overrideToken?: string) => {
-		const value = (overrideToken ?? token).trim();
+	const handleLogin = async () => {
+		const value = token.trim();
 		if (!value) {
 			setError(t("layout.auth.emptyToken"));
 			return;
@@ -203,17 +204,16 @@ function LoginScreen() {
 							<p className="text-sm text-gray-400">
 								{t("layout.auth.demoTokenHint")}
 							</p>
-							<code className="block text-sm font-mono break-all select-all text-gray-200">
-								{demoToken}
-							</code>
-							<button
-								type="button"
-								onClick={() => handleLogin(demoToken)}
-								disabled={loading}
-								className="ui-btn ui-btn-secondary w-full disabled:opacity-50 disabled:cursor-not-allowed"
-							>
-								{t("layout.auth.useDemoToken")}
-							</button>
+							{/* select-all keeps the token manually selectable as a
+							    fallback when the Clipboard API is blocked or
+							    unavailable (e.g. a non-secure context). */}
+							<CopyablePill
+								text={demoToken}
+								tooltip={t("layout.auth.copyToken")}
+								className="justify-center"
+								textClassName="font-mono text-sm break-all text-gray-200 select-all"
+								lines={2}
+							/>
 						</div>
 					) : (
 						<p className="text-sm text-gray-500 text-center">

@@ -153,7 +153,7 @@
 			"showToken": "Mostrar token",
 			"getTokenHint": "Obtenha seu token de administrador dos logs do servidor",
 			"demoTokenHint": "Instância de demonstração. Faça login com este token de administrador:",
-			"useDemoToken": "Faça login na demonstração"
+			"copyToken": "Copiar token"
 		},
 		"theme": {
 			"switchToLight": "Mudar para modo claro",

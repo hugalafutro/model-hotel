@@ -153,7 +153,7 @@
 			"showToken": "הצג אסימון",
 			"getTokenHint": "השג את אסימון הניהול שלך מיומני השרת",
 			"demoTokenHint": "מופע הדגמה. התחברו באמצעות אסימון הניהול הזה:",
-			"useDemoToken": "התחברו לדמו"
+			"copyToken": "העתק אסימון"
 		},
 		"theme": {
 			"switchToLight": "מעבר למצב בהיר",

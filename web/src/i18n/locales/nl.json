@@ -153,7 +153,7 @@
 			"showToken": "Toon token",
 			"getTokenHint": "Haal je admin token op uit de server logboeken",
 			"demoTokenHint": "Demo-instantie. Log in met dit beheerders-token:",
-			"useDemoToken": "Log in op de demo"
+			"copyToken": "Token kopiëren"
 		},
 		"theme": {
 			"switchToLight": "Schakel naar lichte modus",

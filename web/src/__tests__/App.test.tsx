@@ -109,26 +109,18 @@ describe("LoginScreen", () => {
 		reloadSpy.mockRestore();
 	});
 
-	it("shows the demo token box and logs in with one click when a demo token is present", async () => {
-		const user = userEvent.setup();
+	it("shows the demo token as a copyable pill, not a second login button", async () => {
 		vi.mocked(api.demoLogin.get).mockResolvedValue({ token: "demo-secret" });
 
-		const reloadSpy = vi.spyOn(window, "location", "get");
 		renderWithProviders(<App />);
 
 		const box = await screen.findByTestId("demo-login-box");
+		// Token is shown for copying.
 		expect(box).toHaveTextContent("demo-secret");
-
-		// The box has exactly one button; query by role to avoid asserting on
-		// translated copy.
-		await user.click(within(box).getByRole("button"));
-
-		await waitFor(() => {
-			expect(setAdminToken).toHaveBeenCalledWith("demo-secret");
-			expect(localStorage.getItem("adminToken")).toBe("demo-secret");
-		});
-
-		reloadSpy.mockRestore();
+		// The old one-click "log in to the demo" button is gone (the pill copies),
+		// and nothing logs in just by rendering the box.
+		expect(within(box).queryByRole("button", { name: /log in/i })).toBeNull();
+		expect(setAdminToken).not.toHaveBeenCalled();
 	});
 
 	it("does not show the demo token box when no demo token is present", async () => {

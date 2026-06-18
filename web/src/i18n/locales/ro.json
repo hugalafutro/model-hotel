@@ -153,7 +153,7 @@
 			"showToken": "Afișare simbol",
 			"getTokenHint": "Obține token-ul de administrare din jurnalele serverelor",
 			"demoTokenHint": "Instanță demo. Autentificați-vă cu acest token de administrator:",
-			"useDemoToken": "Conectați-vă la versiunea demo"
+			"copyToken": "Copiază tokenul"
 		},
 		"theme": {
 			"switchToLight": "Comută la modul luminos",
