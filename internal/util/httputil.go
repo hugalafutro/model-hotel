@@ -116,10 +116,15 @@ func BuildProviderTargetURL(baseURL, providerType, endpoint string) string {
 		// configured base URL omits it (e.g. a bare http://host:11434, which
 		// discovery accepts but proxying would otherwise 404), and avoid a double
 		// /v1 when the user already included it.
-		if strings.HasSuffix(sanitized, "/v1") {
-			return sanitized + endpoint
+		//
+		// SanitizeBaseURL only strips a single trailing slash, so normalize any
+		// remaining ones here before the suffix check; otherwise an input like
+		// http://host/v1// would slip past the guard and get a second /v1.
+		versioned := strings.TrimRight(sanitized, "/")
+		if strings.HasSuffix(versioned, "/v1") {
+			return versioned + endpoint
 		}
-		return sanitized + "/v1" + endpoint
+		return versioned + "/v1" + endpoint
 	default:
 		// Pass the user's base URL as-is. The user is responsible for
 		// including the correct path prefix (e.g. /v1) in the base URL.

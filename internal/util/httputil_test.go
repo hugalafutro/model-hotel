@@ -876,6 +876,18 @@ func TestBuildProviderTargetURL(t *testing.T) {
 			providerType: "ollama-cloud",
 			expected:     "https://ollama.com/v1/chat/completions",
 		},
+		{
+			name:         "Ollama (self-hosted) repeated trailing slashes after /v1 not doubled",
+			baseURL:      "http://ollama-a1:11434/v1//",
+			providerType: "ollama",
+			expected:     "http://ollama-a1:11434/v1/chat/completions",
+		},
+		{
+			name:         "Ollama (self-hosted) repeated trailing slashes bare host gets single /v1",
+			baseURL:      "http://ollama-a1:11434//",
+			providerType: "ollama",
+			expected:     "http://ollama-a1:11434/v1/chat/completions",
+		},
 	}
 
 	for _, tc := range tests {
