@@ -151,7 +151,9 @@
 			"passkeyFailed": "Autenticación de Passkey fallida",
 			"hideToken": "Ocultar token",
 			"showToken": "Mostrar token",
-			"getTokenHint": "Obtén tu token de administración de los registros del servidor"
+			"getTokenHint": "Obtén tu token de administración de los registros del servidor",
+			"demoTokenHint": "Instancia de demostración. Inicia sesión con este token de administrador:",
+			"useDemoToken": "Inicia sesión en la demo"
 		},
 		"theme": {
 			"switchToLight": "Cambiar a modo claro",

@@ -151,7 +151,9 @@
 			"passkeyFailed": "Toegangssleutel authenticatie mislukt",
 			"hideToken": "Token verbergen",
 			"showToken": "Toon token",
-			"getTokenHint": "Haal je admin token op uit de server logboeken"
+			"getTokenHint": "Haal je admin token op uit de server logboeken",
+			"demoTokenHint": "Demo-instantie. Log in met dit beheerders-token:",
+			"useDemoToken": "Log in op de demo"
 		},
 		"theme": {
 			"switchToLight": "Schakel naar lichte modus",

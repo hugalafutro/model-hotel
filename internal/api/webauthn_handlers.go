@@ -27,6 +27,7 @@ type WebAuthnHandler struct {
 	sessionMgr   *webauthn.SessionManager
 	adminMgr     AdminAuthenticator
 	ipLimiter    IPLimiterMiddleware
+	demoReadOnly bool
 }
 
 // IPLimiterMiddleware is the interface for IP rate limiting middleware.
@@ -41,6 +42,7 @@ func NewWebAuthnHandler(
 	sessionMgr *webauthn.SessionManager,
 	adminMgr AdminAuthenticator,
 	ipLimiter IPLimiterMiddleware,
+	demoReadOnly bool,
 ) *WebAuthnHandler {
 	return &WebAuthnHandler{
 		webauthnRepo: webauthnRepo,
@@ -48,6 +50,7 @@ func NewWebAuthnHandler(
 		sessionMgr:   sessionMgr,
 		adminMgr:     adminMgr,
 		ipLimiter:    ipLimiter,
+		demoReadOnly: demoReadOnly,
 	}
 }
 
@@ -63,6 +66,15 @@ func (h *WebAuthnHandler) Register(r chi.Router) {
 	r.Route("/webauthn", func(r chi.Router) {
 		r.Get("/available", h.Available)
 		r.Group(func(r chi.Router) {
+			// In read-only (demo) mode, passkey management is an admin mutation
+			// and must be refused like the rest of the admin CRUD surface —
+			// otherwise a visitor holding the (published) admin token could
+			// register, rename, or delete passkeys. Logout is exempt (see
+			// isReadOnlyExemptPost) and the unauthenticated login flow lives in
+			// the separate group below, so neither is blocked.
+			if h.demoReadOnly {
+				r.Use(readOnlyGuard)
+			}
 			r.Use(h.adminOrSessionAuth)
 			r.Post("/register/start", h.RegisterStart)
 			r.Post("/register/finish", h.RegisterFinish)

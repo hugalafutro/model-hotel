@@ -41,6 +41,7 @@ type Config struct {
 	DBMinConns           int32
 	ModelsDevEnabled     bool
 	DemoReadOnly         bool
+	DemoShowToken        bool
 	DebugLog             bool
 	TrustedProxies       []*net.IPNet
 	KnownProxies         []*net.IPNet
@@ -111,6 +112,7 @@ func Load() (*Config, error) {
 		DBMinConns:           clampInt32(getIntEnvAsInt32("DATABASE_MIN_CONNS", 5), 1, 1000),
 		ModelsDevEnabled:     getBoolEnvWithDefault("MODELSDEV_ENABLED", true),
 		DemoReadOnly:         getBoolEnvWithDefault("DEMO_READONLY", false),
+		DemoShowToken:        getBoolEnvWithDefault("DEMO_SHOW_TOKEN", false),
 		DebugLog:             getBoolEnvWithDefault("DEBUG_LOG", false),
 		TrustedProxies:       LoadTrustedProxies(),
 		KnownProxies:         LoadKnownProxies(),
@@ -147,6 +149,14 @@ func Load() (*Config, error) {
 	if len(cfg.MasterKey) < recommendedMasterKeyLength {
 		debuglog.Warn("config: MASTER_KEY is shorter than recommended — a low-entropy key weakens at-rest encryption of provider credentials; generate a strong one with `openssl rand -base64 32`",
 			"length", len(cfg.MasterKey), "recommended_min", recommendedMasterKeyLength)
+	}
+
+	// DEMO_SHOW_TOKEN publishes the admin token on the login screen, which is
+	// only acceptable when every admin mutation is already blocked. Refuse to
+	// expose it unless DEMO_READONLY is also on; warn so the operator knows the
+	// flag is inert rather than silently ignored.
+	if cfg.DemoShowToken && !cfg.DemoReadOnly {
+		debuglog.Warn("config: DEMO_SHOW_TOKEN is set but DEMO_READONLY is not — the admin token will NOT be shown on the login screen; enable DEMO_READONLY to use this demo feature")
 	}
 
 	return cfg, nil

@@ -151,7 +151,9 @@
 			"passkeyFailed": "Passkey-verifikasie het misluk",
 			"hideToken": "Verberg token",
 			"showToken": "Wys token",
-			"getTokenHint": "Kry jou admin-token uit die bedienerlogboeke."
+			"getTokenHint": "Kry jou admin-token uit die bedienerlogboeke.",
+			"demoTokenHint": "Demovoorgang. Meld aan met hierdie admin-token:",
+			"useDemoToken": "Teken aan by die demo"
 		},
 		"theme": {
 			"switchToLight": "Skakel na ligte modus",

@@ -151,7 +151,9 @@
 			"passkeyFailed": "Salasanan todennus epäonnistui",
 			"hideToken": "Piilota tunnus",
 			"showToken": "Näytä tunnus",
-			"getTokenHint": "Hanki järjestelmänvalvojan tunnus palvelimen lokeista"
+			"getTokenHint": "Hanki järjestelmänvalvojan tunnus palvelimen lokeista",
+			"demoTokenHint": "Esittelyinstanssi. Kirjaudu sisään tällä hallintatunnuksella:",
+			"useDemoToken": "Kirjaudu sisään esittelyversioon"
 		},
 		"theme": {
 			"switchToLight": "Vaihda vaaleaan tilaan",

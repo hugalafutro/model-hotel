@@ -317,7 +317,7 @@ func main() {
 		}
 		sessionMgr := webauthn.NewSessionManager(webauthnRepo)
 		apiHandler.SetWebAuthnSessionManager(sessionMgr)
-		webauthnHandler = api.NewWebAuthnHandler(webauthnRepo, rp, sessionMgr, adminMgr, ipLimiter)
+		webauthnHandler = api.NewWebAuthnHandler(webauthnRepo, rp, sessionMgr, adminMgr, ipLimiter, cfg.DemoReadOnly)
 
 		go func() {
 			ticker := time.NewTicker(1 * time.Hour)
@@ -346,6 +346,7 @@ func main() {
 		// the SPA can render correctly even on the login screen.
 		r.Group(func(r chi.Router) {
 			apiHandler.RegisterPublicConfig(r)
+			apiHandler.RegisterDemoLogin(r)
 		})
 
 		if webauthnHandler != nil {

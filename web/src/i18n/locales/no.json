@@ -151,7 +151,9 @@
 			"passkeyFailed": "Tilgangsnøkkel autentisering feilet",
 			"hideToken": "Skjul token",
 			"showToken": "Vis token",
-			"getTokenHint": "Få admin-token fra server loggene"
+			"getTokenHint": "Få admin-token fra server loggene",
+			"demoTokenHint": "Demoinstans. Logg inn med dette administratortokenet:",
+			"useDemoToken": "Logg inn på demoen"
 		},
 		"theme": {
 			"switchToLight": "Bytt til lys modus",

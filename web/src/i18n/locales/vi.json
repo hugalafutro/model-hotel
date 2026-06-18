@@ -151,7 +151,9 @@
 			"passkeyFailed": "Xác thực bằng mật khẩu đã thất bại",
 			"hideToken": "Ẩn mã thông báo",
 			"showToken": "Hiển thị mã xác thực",
-			"getTokenHint": "Lấy mã thông báo quản trị từ nhật ký máy chủ"
+			"getTokenHint": "Lấy mã thông báo quản trị từ nhật ký máy chủ",
+			"demoTokenHint": "Phiên bản demo. Đăng nhập bằng mã thông báo quản trị này:",
+			"useDemoToken": "Đăng nhập vào bản demo"
 		},
 		"theme": {
 			"switchToLight": "Chuyển sang chế độ sáng",

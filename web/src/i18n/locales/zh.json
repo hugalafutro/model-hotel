@@ -151,7 +151,9 @@
 			"passkeyFailed": "密码验证失败",
 			"hideToken": "隐藏令牌",
 			"showToken": "显示令牌",
-			"getTokenHint": "从服务器日志获取您的管理员令牌"
+			"getTokenHint": "从服务器日志获取您的管理员令牌",
+			"demoTokenHint": "演示实例。请使用此管理员令牌登录：",
+			"useDemoToken": "登录演示版"
 		},
 		"theme": {
 			"switchToLight": "切换到浅色模式",

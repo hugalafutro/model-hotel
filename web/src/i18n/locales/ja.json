@@ -151,7 +151,9 @@
 			"passkeyFailed": "パスワード認証に失敗しました",
 			"hideToken": "トークンを隠す",
 			"showToken": "トークンを表示",
-			"getTokenHint": "サーバーログから管理者トークンを取得する"
+			"getTokenHint": "サーバーログから管理者トークンを取得する",
+			"demoTokenHint": "デモインスタンス。以下の管理用トークンでログインしてください：",
+			"useDemoToken": "デモにログインする"
 		},
 		"theme": {
 			"switchToLight": "ライトモードに切り替え",

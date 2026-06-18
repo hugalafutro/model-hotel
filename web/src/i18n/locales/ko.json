@@ -151,7 +151,9 @@
 			"passkeyFailed": "패스키 인증에 실패했습니다",
 			"hideToken": "토큰 숨기기",
 			"showToken": "토큰 표시",
-			"getTokenHint": "서버 로그에서 관리자 토큰을 확인하세요"
+			"getTokenHint": "서버 로그에서 관리자 토큰을 확인하세요",
+			"demoTokenHint": "데모 인스턴스입니다. 다음 관리자 토큰으로 로그인하십시오:",
+			"useDemoToken": "데모에 로그인하세요"
 		},
 		"theme": {
 			"switchToLight": "라이트 모드로 전환",

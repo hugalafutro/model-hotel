@@ -151,7 +151,9 @@
 			"passkeyFailed": "A jelszóval történő hitelesítés sikertelen",
 			"hideToken": "Token elrejtése",
 			"showToken": "Token megjelenítése",
-			"getTokenHint": "Szerezd be az adminisztrátori tokent a szerver naplóiból"
+			"getTokenHint": "Szerezd be az adminisztrátori tokent a szerver naplóiból",
+			"demoTokenHint": "Bemutató példa. Jelentkezzen be ezzel az adminisztrátori tokennel:",
+			"useDemoToken": "Jelentkezzen be a demóba"
 		},
 		"theme": {
 			"switchToLight": "Váltás világos módra",

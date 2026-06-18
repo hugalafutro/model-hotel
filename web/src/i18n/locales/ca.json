@@ -151,7 +151,9 @@
 			"passkeyFailed": "L'autenticació amb Passkey ha fallat",
 			"hideToken": "Amaga el token",
 			"showToken": "Mostra el token",
-			"getTokenHint": "Obtén el teu token d'administrador dels registres del servidor."
+			"getTokenHint": "Obtén el teu token d'administrador dels registres del servidor.",
+			"demoTokenHint": "Instance de demostració. Inicieu la sessió amb aquest token d'administrador:",
+			"useDemoToken": "Inicieu la sessió a la demostració"
 		},
 		"theme": {
 			"switchToLight": "Canvia al mode clar",

@@ -151,7 +151,9 @@
 			"passkeyFailed": "Échec de l'authentification par mot de passe",
 			"hideToken": "Cacher le jeton",
 			"showToken": "Afficher le jeton",
-			"getTokenHint": "Récupérer votre jeton admin depuis les logs du serveur"
+			"getTokenHint": "Récupérer votre jeton admin depuis les logs du serveur",
+			"demoTokenHint": "Instance de démonstration. Connectez-vous avec ce jeton d'administration :",
+			"useDemoToken": "Connectez-vous à la démo"
 		},
 		"theme": {
 			"switchToLight": "Passer en mode clair",

@@ -151,7 +151,9 @@
 			"passkeyFailed": "Passkey godkendelse mislykkedes",
 			"hideToken": "Skjul token",
 			"showToken": "Vis token",
-			"getTokenHint": "Få din admin token fra serverlogs"
+			"getTokenHint": "Få din admin token fra serverlogs",
+			"demoTokenHint": "Demoinstans. Log ind med dette administrator-token:",
+			"useDemoToken": "Log ind på demoen"
 		},
 		"theme": {
 			"switchToLight": "Skift til lys tilstand",

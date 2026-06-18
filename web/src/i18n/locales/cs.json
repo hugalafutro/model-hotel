@@ -151,7 +151,9 @@
 			"passkeyFailed": "Ověření pomocí přístupového klíče selhalo",
 			"hideToken": "Skrýt token",
 			"showToken": "Zobrazit token",
-			"getTokenHint": "Admin token najdete v logu serveru"
+			"getTokenHint": "Admin token najdete v logu serveru",
+			"demoTokenHint": "Demo instance. Přihlaste se pomocí tohoto administrátorského tokenu:",
+			"useDemoToken": "Přihlaste se do demo verze"
 		},
 		"theme": {
 			"switchToLight": "Přepnout do světlého režimu",
