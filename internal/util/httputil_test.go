@@ -833,6 +833,49 @@ func TestBuildProviderTargetURL(t *testing.T) {
 			providerType: "",
 			expected:     "https://api.example.com/v1/chat/completions",
 		},
+		{
+			name:         "Ollama (self-hosted) bare host gets /v1",
+			baseURL:      "http://ollama-a1:11434",
+			providerType: "ollama",
+			expected:     "http://ollama-a1:11434/v1/chat/completions",
+		},
+		{
+			name:         "Ollama (self-hosted) with /v1 not doubled",
+			baseURL:      "http://ollama-a1:11434/v1",
+			providerType: "ollama",
+			expected:     "http://ollama-a1:11434/v1/chat/completions",
+		},
+		{
+			name:         "Ollama (self-hosted) trailing slash bare host gets /v1",
+			baseURL:      "http://ollama-a1:11434/",
+			providerType: "ollama",
+			expected:     "http://ollama-a1:11434/v1/chat/completions",
+		},
+		{
+			name:         "LM Studio bare host gets /v1",
+			baseURL:      "http://localhost:1234",
+			providerType: "lmstudio",
+			endpoint:     "/embeddings",
+			expected:     "http://localhost:1234/v1/embeddings",
+		},
+		{
+			name:         "LM Studio with /v1 not doubled",
+			baseURL:      "http://localhost:1234/v1",
+			providerType: "lmstudio",
+			expected:     "http://localhost:1234/v1/chat/completions",
+		},
+		{
+			name:         "KoboldCPP bare host gets /v1",
+			baseURL:      "http://localhost:5001",
+			providerType: "koboldcpp",
+			expected:     "http://localhost:5001/v1/chat/completions",
+		},
+		{
+			name:         "Ollama Cloud stays on default branch (already has /v1)",
+			baseURL:      "https://ollama.com/v1",
+			providerType: "ollama-cloud",
+			expected:     "https://ollama.com/v1/chat/completions",
+		},
 	}
 
 	for _, tc := range tests {
