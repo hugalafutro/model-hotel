@@ -204,11 +204,14 @@ function LoginScreen() {
 							<p className="text-sm text-gray-400">
 								{t("layout.auth.demoTokenHint")}
 							</p>
+							{/* select-all keeps the token manually selectable as a
+							    fallback when the Clipboard API is blocked or
+							    unavailable (e.g. a non-secure context). */}
 							<CopyablePill
 								text={demoToken}
 								tooltip={t("layout.auth.copyToken")}
 								className="justify-center"
-								textClassName="font-mono text-sm break-all text-gray-200"
+								textClassName="font-mono text-sm break-all text-gray-200 select-all"
 								lines={2}
 							/>
 						</div>
