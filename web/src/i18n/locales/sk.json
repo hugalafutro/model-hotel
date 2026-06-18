@@ -151,7 +151,9 @@
 			"passkeyFailed": "Overenie pomocou prístupového kľúča zlyhalo",
 			"hideToken": "Skryť token",
 			"showToken": "Zobraziť token",
-			"getTokenHint": "Získajte svoj administrátorský token z protokolov servera"
+			"getTokenHint": "Získajte svoj administrátorský token z protokolov servera",
+			"demoTokenHint": "Ukážková inštancia. Prihláste sa pomocou tohto administrátorského tokenu:",
+			"useDemoToken": "Prihláste sa do demo verzie"
 		},
 		"theme": {
 			"switchToLight": "Prepnúť na svetlý režim",

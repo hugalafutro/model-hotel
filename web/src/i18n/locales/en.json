@@ -151,7 +151,9 @@
 			"passkeyFailed": "Passkey authentication failed",
 			"hideToken": "Hide token",
 			"showToken": "Show token",
-			"getTokenHint": "Get your admin token from the server logs"
+			"getTokenHint": "Get your admin token from the server logs",
+			"demoTokenHint": "Demo instance. Log in with this admin token:",
+			"useDemoToken": "Log in to the demo"
 		},
 		"theme": {
 			"switchToLight": "Switch to light mode",

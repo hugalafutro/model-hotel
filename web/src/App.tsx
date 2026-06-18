@@ -1,8 +1,9 @@
+import { useQuery } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { Eye, EyeOff, Fingerprint } from "@/lib/icons";
-import { setAdminToken } from "./api/client";
+import { api, setAdminToken } from "./api/client";
 import { Layout } from "./components/Layout";
 import { Logo } from "./components/Logo";
 import { ThemedIconProvider } from "./components/ThemedIconProvider";
@@ -53,12 +54,24 @@ function LoginScreen() {
 	const [passkeyLoading, setPasskeyLoading] = useState(false);
 	const [passkeyAvailable, setPasskeyAvailable] = useState(false);
 
+	// Demo instances may publish the admin token on the login screen so the
+	// operator shares only the URL. Empty unless DEMO_SHOW_TOKEN + DEMO_READONLY
+	// are set server-side. Cached app-wide; config does not change at runtime.
+	const { data: demoLogin } = useQuery({
+		queryKey: ["demo-login"],
+		queryFn: () => api.demoLogin.get(),
+		staleTime: Number.POSITIVE_INFINITY,
+		retry: 1,
+	});
+	const demoToken = demoLogin?.token ?? "";
+
 	useEffect(() => {
 		isWebAuthnAvailable().then(setPasskeyAvailable);
 	}, []);
 
-	const handleLogin = async () => {
-		if (!token.trim()) {
+	const handleLogin = async (overrideToken?: string) => {
+		const value = (overrideToken ?? token).trim();
+		if (!value) {
 			setError(t("layout.auth.emptyToken"));
 			return;
 		}
@@ -66,14 +79,14 @@ function LoginScreen() {
 		setError(null);
 		try {
 			const res = await fetch("/api/system", {
-				headers: { Authorization: `Bearer ${token.trim()}` },
+				headers: { Authorization: `Bearer ${value}` },
 			});
 			if (!res.ok) {
 				setError(t("layout.auth.invalidToken"));
 				return;
 			}
-			localStorage.setItem("adminToken", token.trim());
-			setAdminToken(token.trim());
+			localStorage.setItem("adminToken", value);
+			setAdminToken(value);
 			window.location.reload();
 		} catch {
 			setError(t("layout.auth.connectionFailed"));
@@ -176,15 +189,37 @@ function LoginScreen() {
 					</div>
 					<button
 						type="button"
-						onClick={handleLogin}
+						onClick={() => handleLogin()}
 						disabled={loading}
 						className="ui-btn ui-btn-primary ui-btn-lg w-full disabled:opacity-50 disabled:cursor-not-allowed"
 					>
 						{loading ? t("layout.auth.signingIn") : t("layout.auth.signIn")}
 					</button>
-					<p className="text-sm text-gray-500 text-center">
-						{t("layout.auth.getTokenHint")}
-					</p>
+					{demoToken ? (
+						<div
+							data-testid="demo-login-box"
+							className="ui-surface rounded-lg p-3 text-center space-y-2"
+						>
+							<p className="text-sm text-gray-400">
+								{t("layout.auth.demoTokenHint")}
+							</p>
+							<code className="block text-sm font-mono break-all select-all text-gray-200">
+								{demoToken}
+							</code>
+							<button
+								type="button"
+								onClick={() => handleLogin(demoToken)}
+								disabled={loading}
+								className="ui-btn ui-btn-secondary w-full disabled:opacity-50 disabled:cursor-not-allowed"
+							>
+								{t("layout.auth.useDemoToken")}
+							</button>
+						</div>
+					) : (
+						<p className="text-sm text-gray-500 text-center">
+							{t("layout.auth.getTokenHint")}
+						</p>
+					)}
 				</div>
 			</div>
 		</div>

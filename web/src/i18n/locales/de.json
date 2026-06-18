@@ -151,7 +151,9 @@
 			"passkeyFailed": "Passwort-Authentifizierung fehlgeschlagen",
 			"hideToken": "Token ausblenden",
 			"showToken": "Token anzeigen",
-			"getTokenHint": "Erhalte deinen Admin-Token von den Serverprotokollen"
+			"getTokenHint": "Erhalte deinen Admin-Token von den Serverprotokollen",
+			"demoTokenHint": "Demo-Instanz. Melden Sie sich mit diesem Admin-Token an:",
+			"useDemoToken": "Melden Sie sich bei der Demo an"
 		},
 		"theme": {
 			"switchToLight": "Zum hellen Modus wechseln",

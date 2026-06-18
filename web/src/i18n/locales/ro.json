@@ -151,7 +151,9 @@
 			"passkeyFailed": "Autentificarea cu parolă eșuată",
 			"hideToken": "Ascunde jetonul",
 			"showToken": "Afișare simbol",
-			"getTokenHint": "Obține token-ul de administrare din jurnalele serverelor"
+			"getTokenHint": "Obține token-ul de administrare din jurnalele serverelor",
+			"demoTokenHint": "Instanță demo. Autentificați-vă cu acest token de administrator:",
+			"useDemoToken": "Conectați-vă la versiunea demo"
 		},
 		"theme": {
 			"switchToLight": "Comută la modul luminos",

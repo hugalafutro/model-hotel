@@ -151,7 +151,9 @@
 			"passkeyFailed": "Passkey autentisering misslyckades",
 			"hideToken": "Dölj token",
 			"showToken": "Visa token",
-			"getTokenHint": "Få din administratörspost från serverloggarna"
+			"getTokenHint": "Få din administratörspost från serverloggarna",
+			"demoTokenHint": "Demoversion. Logga in med detta administratörstoken:",
+			"useDemoToken": "Logga in på demoversionen"
 		},
 		"theme": {
 			"switchToLight": "Byt till ljust läge",

@@ -346,6 +346,7 @@ func main() {
 		// the SPA can render correctly even on the login screen.
 		r.Group(func(r chi.Router) {
 			apiHandler.RegisterPublicConfig(r)
+			apiHandler.RegisterDemoLogin(r)
 		})
 
 		if webauthnHandler != nil {

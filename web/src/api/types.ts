@@ -658,6 +658,13 @@ export interface PublicConfig {
 	read_only: boolean;
 }
 
+// DemoLogin carries the admin token to display on a demo instance's login
+// screen (empty unless the server has the demo token feature enabled), so an
+// operator can share only the URL. Served by GET /api/demo-login.
+export interface DemoLogin {
+	token: string;
+}
+
 // AlertEventDef describes one operator-subscribable alert event, served by
 // GET /api/alert/events. The Alerts settings picker is rendered from this list,
 // so a new backend event surfaces in the UI without a frontend change.

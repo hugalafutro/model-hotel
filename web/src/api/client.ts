@@ -9,6 +9,7 @@ import type {
 	CreateFailoverGroupRequest,
 	CreateProviderRequest,
 	DeepSeekBalance,
+	DemoLogin,
 	DiscoverAllResult,
 	DiscoveryChangesResponse,
 	DiscoveryDiff,
@@ -129,6 +130,17 @@ export const api = {
 				`${API_BASE}/api/public-config`,
 				undefined,
 				"Failed to fetch public config",
+			);
+		},
+	},
+	// Unauthenticated: read on the login screen. Returns an empty token unless
+	// the server runs as a demo with the token-display feature enabled.
+	demoLogin: {
+		get: async (): Promise<DemoLogin> => {
+			return fetchJSON<DemoLogin>(
+				`${API_BASE}/api/demo-login`,
+				undefined,
+				"Failed to fetch demo login",
 			);
 		},
 	},

@@ -1,10 +1,10 @@
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { lazy, Suspense } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../App";
-import { setAdminToken } from "../api/client";
+import { api, setAdminToken } from "../api/client";
 import { mockAllDefaults } from "../test/helpers";
 import { server } from "../test/mocks/server";
 import { renderWithProviders } from "../test/utils";
@@ -19,6 +19,12 @@ vi.mock("../api/client", () => ({
 		},
 		version: {
 			getLatest: vi.fn().mockResolvedValue({ tag_name: "v0.0.0-test" }),
+		},
+		publicConfig: {
+			get: vi.fn().mockResolvedValue({ read_only: false }),
+		},
+		demoLogin: {
+			get: vi.fn().mockResolvedValue({ token: "" }),
 		},
 	},
 }));
@@ -101,6 +107,39 @@ describe("LoginScreen", () => {
 		});
 
 		reloadSpy.mockRestore();
+	});
+
+	it("shows the demo token box and logs in with one click when a demo token is present", async () => {
+		const user = userEvent.setup();
+		vi.mocked(api.demoLogin.get).mockResolvedValue({ token: "demo-secret" });
+
+		const reloadSpy = vi.spyOn(window, "location", "get");
+		renderWithProviders(<App />);
+
+		const box = await screen.findByTestId("demo-login-box");
+		expect(box).toHaveTextContent("demo-secret");
+
+		// The box has exactly one button; query by role to avoid asserting on
+		// translated copy.
+		await user.click(within(box).getByRole("button"));
+
+		await waitFor(() => {
+			expect(setAdminToken).toHaveBeenCalledWith("demo-secret");
+			expect(localStorage.getItem("adminToken")).toBe("demo-secret");
+		});
+
+		reloadSpy.mockRestore();
+	});
+
+	it("does not show the demo token box when no demo token is present", async () => {
+		vi.mocked(api.demoLogin.get).mockResolvedValue({ token: "" });
+		renderWithProviders(<App />);
+
+		// The sign-in form renders, but the demo box does not.
+		expect(
+			await screen.findByRole("button", { name: "Sign In" }),
+		).toBeInTheDocument();
+		expect(screen.queryByTestId("demo-login-box")).not.toBeInTheDocument();
 	});
 
 	it("submits on Enter key press", async () => {

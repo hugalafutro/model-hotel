@@ -151,7 +151,9 @@
 			"passkeyFailed": "Şifreli kimlik doğrulama başarısız oldu",
 			"hideToken": "Jetonu gizle",
 			"showToken": "Jetonu göster",
-			"getTokenHint": "Yönetici jetonunu sunucu günlüklerinden al"
+			"getTokenHint": "Yönetici jetonunu sunucu günlüklerinden al",
+			"demoTokenHint": "Demo örneği. Bu yönetici jetonuyla oturum açın:",
+			"useDemoToken": "Demo'ya giriş yapın"
 		},
 		"theme": {
 			"switchToLight": "Açık moda geç",
