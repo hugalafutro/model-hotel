@@ -12,8 +12,10 @@ import (
 )
 
 // TestGetDemoLogin verifies the token is exposed only when DEMO_SHOW_TOKEN and
-// DEMO_READONLY are both set and an admin token is configured; every other
-// combination must yield an empty token (and never a non-200).
+// DEMO_READONLY are both set, ADMIN_TOKEN is configured, and the admin manager
+// actually accepts it (active=true). Every other combination must yield an empty
+// token (and never a non-200). The active flag models the persisted-volume
+// restart / rotation case: the env token only counts when Validate confirms it.
 func TestGetDemoLogin(t *testing.T) {
 	const adminToken = "demo-abc123"
 
@@ -22,13 +24,15 @@ func TestGetDemoLogin(t *testing.T) {
 		showToken bool
 		readOnly  bool
 		admin     string
+		active    bool
 		want      string
 	}{
-		{"both on with token", true, true, adminToken, adminToken},
-		{"read-only off", true, false, adminToken, ""},
-		{"show-token off", false, true, adminToken, ""},
-		{"both off", false, false, adminToken, ""},
-		{"both on but no admin token", true, true, "", ""},
+		{"both on with active token", true, true, adminToken, true, adminToken},
+		{"read-only off", true, false, adminToken, true, ""},
+		{"show-token off", false, true, adminToken, true, ""},
+		{"both off", false, false, adminToken, true, ""},
+		{"both on but no admin token", true, true, "", true, ""},
+		{"both on but token not active (restart/rotation)", true, true, adminToken, false, ""},
 	}
 
 	for _, tc := range cases {
@@ -37,8 +41,11 @@ func TestGetDemoLogin(t *testing.T) {
 				cfg: &config.Config{
 					DemoShowToken: tc.showToken,
 					DemoReadOnly:  tc.readOnly,
+					AdminToken:    tc.admin,
 				},
-				adminMgr: &mockAdminAuth{tokenVal: tc.admin},
+				adminMgr: &mockAdminAuth{validateFn: func(tok string) bool {
+					return tc.active && tok == tc.admin && tok != ""
+				}},
 			}
 
 			rec := httptest.NewRecorder()
@@ -68,8 +75,9 @@ func TestRegisterDemoLogin(t *testing.T) {
 		cfg: &config.Config{
 			DemoShowToken: true,
 			DemoReadOnly:  true,
+			AdminToken:    "demo-xyz",
 		},
-		adminMgr: &mockAdminAuth{tokenVal: "demo-xyz"},
+		adminMgr: &mockAdminAuth{validateFn: func(tok string) bool { return tok == "demo-xyz" }},
 	}
 	r := chi.NewRouter()
 	h.RegisterDemoLogin(r)

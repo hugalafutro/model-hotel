@@ -188,7 +188,6 @@ func (m *mockSettingsStore) GetInt(ctx context.Context, key string, defaultValue
 
 type mockAdminAuth struct {
 	validateFn func(token string) bool
-	tokenVal   string
 }
 
 func (m *mockAdminAuth) Validate(token string) bool {
@@ -196,10 +195,6 @@ func (m *mockAdminAuth) Validate(token string) bool {
 		return m.validateFn(token)
 	}
 	return false
-}
-
-func (m *mockAdminAuth) Token() string {
-	return m.tokenVal
 }
 
 // testHandler creates a Handler with mock dependencies.

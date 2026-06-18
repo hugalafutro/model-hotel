@@ -71,10 +71,6 @@ type BackupScheduler interface {
 // AdminAuthenticator defines admin token validation.
 type AdminAuthenticator interface {
 	Validate(token string) bool
-	// Token returns the currently active admin token (the one Validate accepts).
-	// This is the persisted/generated token, which may differ from the
-	// ADMIN_TOKEN env var when the data/admin-token file predates an env change.
-	Token() string
 }
 
 // WebAuthnSessionManager defines webAuthn session token validation.

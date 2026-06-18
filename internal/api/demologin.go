@@ -28,14 +28,19 @@ func (h *Handler) RegisterDemoLogin(r chi.Router) {
 // The response is always 200 with an empty token when disabled, keeping the
 // frontend gate trivial.
 //
-// The token comes from the admin manager (the actually-active token), not the
-// ADMIN_TOKEN env var, so a rotated or auto-generated token is reported
-// correctly. Responses are marked no-store so a proxy or browser never retains
-// the credential after it is rotated or the feature is turned off.
+// It publishes the configured ADMIN_TOKEN only when the admin manager actually
+// accepts it. Validate works whether the token is held in plaintext or only as
+// a stored hash (the normal case after a restart from a persisted volume, where
+// the manager no longer has the plaintext), and returns false when ADMIN_TOKEN
+// is unset or was changed without clearing the token file, so we never advertise
+// a token that would fail to log in. Responses are marked no-store so a proxy or
+// browser never retains the credential after rotation or after the feature is
+// turned off.
 func (h *Handler) GetDemoLogin(w http.ResponseWriter, _ *http.Request) {
 	var token string
-	if h.cfg.DemoShowToken && h.cfg.DemoReadOnly {
-		token = h.adminMgr.Token()
+	if h.cfg.DemoShowToken && h.cfg.DemoReadOnly && h.cfg.AdminToken != "" &&
+		h.adminMgr.Validate(h.cfg.AdminToken) {
+		token = h.cfg.AdminToken
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Pragma", "no-cache")
