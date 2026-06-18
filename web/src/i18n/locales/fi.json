@@ -153,7 +153,7 @@
 			"showToken": "Näytä tunnus",
 			"getTokenHint": "Hanki järjestelmänvalvojan tunnus palvelimen lokeista",
 			"demoTokenHint": "Esittelyinstanssi. Kirjaudu sisään tällä hallintatunnuksella:",
-			"useDemoToken": "Kirjaudu sisään esittelyversioon"
+			"copyToken": "Kopioi tunnus"
 		},
 		"theme": {
 			"switchToLight": "Vaihda vaaleaan tilaan",

@@ -153,7 +153,7 @@
 			"showToken": "トークンを表示",
 			"getTokenHint": "サーバーログから管理者トークンを取得する",
 			"demoTokenHint": "デモインスタンス。以下の管理用トークンでログインしてください：",
-			"useDemoToken": "デモにログインする"
+			"copyToken": "トークンをコピー"
 		},
 		"theme": {
 			"switchToLight": "ライトモードに切り替え",

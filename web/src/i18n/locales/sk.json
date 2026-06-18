@@ -153,7 +153,7 @@
 			"showToken": "Zobraziť token",
 			"getTokenHint": "Získajte svoj administrátorský token z protokolov servera",
 			"demoTokenHint": "Ukážková inštancia. Prihláste sa pomocou tohto administrátorského tokenu:",
-			"useDemoToken": "Prihláste sa do demo verzie"
+			"copyToken": "Kopírovať token"
 		},
 		"theme": {
 			"switchToLight": "Prepnúť na svetlý režim",
