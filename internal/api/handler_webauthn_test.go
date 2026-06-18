@@ -1273,7 +1273,7 @@ func TestWebAuthnHandler_RegisterFinish_EmptySessionID(t *testing.T) {
 
 // TestWebAuthnHandler_NewWebAuthnHandler_NilParams tests the constructor with nil params
 func TestWebAuthnHandler_NewWebAuthnHandler_NilParams(t *testing.T) {
-	h := NewWebAuthnHandler(nil, nil, nil, nil, nil)
+	h := NewWebAuthnHandler(nil, nil, nil, nil, nil, false)
 	if h == nil {
 		t.Fatal("expected non-nil handler")
 	}
@@ -1298,7 +1298,7 @@ func TestWebAuthnHandler_NewWebAuthnHandler_NilParams(t *testing.T) {
 func TestWebAuthnHandler_NewWebAuthnHandler_NonNilParams(t *testing.T) {
 	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
 	limiter := mockIPLimiter{}
-	h := NewWebAuthnHandler(nil, nil, nil, adminMgr, limiter)
+	h := NewWebAuthnHandler(nil, nil, nil, adminMgr, limiter, false)
 	if h == nil {
 		t.Fatal("expected non-nil handler")
 	}
@@ -1399,6 +1399,58 @@ func TestWebAuthnHandler_Register_PublicRoutesAccessible(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Errorf("expected status %d for GET /webauthn/available, got %d; body: %s",
 			http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+// TestWebAuthnHandler_Register_ReadOnlyBlocksMutations verifies that in
+// read-only (demo) mode passkey-management mutations are refused with 403,
+// while logout, reads, and the public route are not blocked by the read-only
+// guard. The guard runs before auth, so blocked routes return 403 without a
+// token; allowed-but-protected routes fall through to a 401, hence the
+// assertion is "blocked == 403, allowed != 403".
+func TestWebAuthnHandler_Register_ReadOnlyBlocksMutations(t *testing.T) {
+	adminMgr := &mockAdminAuth{validateFn: func(string) bool { return false }}
+	sessionMgr := webauthn.NewSessionManager(nil)
+	h := newTestWebAuthnHandler(nil, nil, sessionMgr, adminMgr)
+	h.demoReadOnly = true
+
+	r := chi.NewRouter()
+	h.Register(r)
+
+	blocked := []struct{ method, path string }{
+		{http.MethodPost, "/webauthn/register/start"},
+		{http.MethodPost, "/webauthn/register/finish"},
+		{http.MethodDelete, "/webauthn/credentials/test"},
+		{http.MethodPatch, "/webauthn/credentials/test"},
+	}
+	for _, tc := range blocked {
+		t.Run("blocked "+tc.method+" "+tc.path, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.path, http.NoBody)
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+			if w.Code != http.StatusForbidden {
+				t.Errorf("expected 403, got %d; body: %s", w.Code, w.Body.String())
+			}
+		})
+	}
+
+	// Logout (session revoke, exempt), reads, and the public route must not be
+	// blocked by the read-only guard.
+	allowed := []struct{ method, path string }{
+		{http.MethodPost, "/webauthn/logout"},
+		{http.MethodGet, "/webauthn/credentials"},
+		{http.MethodGet, "/webauthn/available"},
+	}
+	for _, tc := range allowed {
+		t.Run("allowed "+tc.method+" "+tc.path, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.path, http.NoBody)
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+			if w.Code == http.StatusForbidden {
+				t.Errorf("did not expect 403 for %s %s; body: %s",
+					tc.method, tc.path, w.Body.String())
+			}
+		})
 	}
 }
 

@@ -39,9 +39,13 @@ func readOnlyGuard(next http.Handler) http.Handler {
 	})
 }
 
-// isReadOnlyExemptPost reports whether a POST path is a notification-state
-// acknowledgement that stays allowed in read-only mode (it mutates no catalog
-// data). Matched by suffix so it is independent of the router's mount prefix.
+// isReadOnlyExemptPost reports whether a POST path stays allowed in read-only
+// mode. These mutate no catalog or credential data. Matched by suffix so they
+// are independent of the router's mount prefix:
+//   - discovery-change acknowledgement (flips a per-row "seen" flag), and
+//   - WebAuthn logout (revokes the current session only; it is not admin
+//     credential management like registering or deleting a passkey).
 func isReadOnlyExemptPost(path string) bool {
-	return strings.HasSuffix(path, "/discovery/changes/ack")
+	return strings.HasSuffix(path, "/discovery/changes/ack") ||
+		strings.HasSuffix(path, "/webauthn/logout")
 }

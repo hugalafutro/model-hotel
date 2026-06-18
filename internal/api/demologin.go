@@ -24,13 +24,20 @@ func (h *Handler) RegisterDemoLogin(r chi.Router) {
 // GetDemoLogin returns the admin token for the login screen of a demo instance,
 // or an empty token when the feature is disabled. The token is exposed only when
 // DEMO_SHOW_TOKEN and DEMO_READONLY are both set (publishing the admin
-// credential is acceptable only when every admin mutation is already refused)
-// and an explicit ADMIN_TOKEN is configured. The response is always 200 with an
-// empty token when disabled, keeping the frontend gate trivial.
+// credential is acceptable only when every admin mutation is already refused).
+// The response is always 200 with an empty token when disabled, keeping the
+// frontend gate trivial.
+//
+// The token comes from the admin manager (the actually-active token), not the
+// ADMIN_TOKEN env var, so a rotated or auto-generated token is reported
+// correctly. Responses are marked no-store so a proxy or browser never retains
+// the credential after it is rotated or the feature is turned off.
 func (h *Handler) GetDemoLogin(w http.ResponseWriter, _ *http.Request) {
 	var token string
 	if h.cfg.DemoShowToken && h.cfg.DemoReadOnly {
-		token = h.cfg.AdminToken
+		token = h.adminMgr.Token()
 	}
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Pragma", "no-cache")
 	writeJSON(w, DemoLoginResponse{Token: token})
 }

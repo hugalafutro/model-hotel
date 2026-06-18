@@ -317,7 +317,7 @@ func main() {
 		}
 		sessionMgr := webauthn.NewSessionManager(webauthnRepo)
 		apiHandler.SetWebAuthnSessionManager(sessionMgr)
-		webauthnHandler = api.NewWebAuthnHandler(webauthnRepo, rp, sessionMgr, adminMgr, ipLimiter)
+		webauthnHandler = api.NewWebAuthnHandler(webauthnRepo, rp, sessionMgr, adminMgr, ipLimiter, cfg.DemoReadOnly)
 
 		go func() {
 			ticker := time.NewTicker(1 * time.Hour)

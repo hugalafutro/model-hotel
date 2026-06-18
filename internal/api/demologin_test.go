@@ -33,17 +33,22 @@ func TestGetDemoLogin(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			h := &Handler{cfg: &config.Config{
-				DemoShowToken: tc.showToken,
-				DemoReadOnly:  tc.readOnly,
-				AdminToken:    tc.admin,
-			}}
+			h := &Handler{
+				cfg: &config.Config{
+					DemoShowToken: tc.showToken,
+					DemoReadOnly:  tc.readOnly,
+				},
+				adminMgr: &mockAdminAuth{tokenVal: tc.admin},
+			}
 
 			rec := httptest.NewRecorder()
 			h.GetDemoLogin(rec, httptest.NewRequest(http.MethodGet, "/demo-login", http.NoBody))
 
 			if rec.Code != http.StatusOK {
 				t.Fatalf("expected 200, got %d", rec.Code)
+			}
+			if cc := rec.Header().Get("Cache-Control"); cc != "no-store" {
+				t.Errorf("Cache-Control = %q, want %q", cc, "no-store")
 			}
 			var got DemoLoginResponse
 			if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
@@ -59,11 +64,13 @@ func TestGetDemoLogin(t *testing.T) {
 // TestRegisterDemoLogin verifies the route is mounted and reachable end to end
 // through a router.
 func TestRegisterDemoLogin(t *testing.T) {
-	h := &Handler{cfg: &config.Config{
-		DemoShowToken: true,
-		DemoReadOnly:  true,
-		AdminToken:    "demo-xyz",
-	}}
+	h := &Handler{
+		cfg: &config.Config{
+			DemoShowToken: true,
+			DemoReadOnly:  true,
+		},
+		adminMgr: &mockAdminAuth{tokenVal: "demo-xyz"},
+	}
 	r := chi.NewRouter()
 	h.RegisterDemoLogin(r)
 
