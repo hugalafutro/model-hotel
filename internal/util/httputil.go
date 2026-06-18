@@ -109,12 +109,22 @@ func WriteOpenAIError(w http.ResponseWriter, message string, statusCode int) {
 func BuildProviderTargetURL(baseURL, providerType, endpoint string) string {
 	sanitized := SanitizeBaseURL(baseURL)
 	switch providerType {
-	case "anthropic":
-		// Avoid double /v1 if the user configured https://api.anthropic.com/v1
-		if strings.HasSuffix(sanitized, "/v1") {
-			return sanitized + endpoint
+	case "anthropic", "ollama", "lmstudio", "koboldcpp":
+		// These providers expose their OpenAI-compatible API under /v1: Ollama,
+		// LM Studio and KoboldCPP all serve /v1/chat/completions, and Anthropic's
+		// compatibility layer lives under /v1. Auto-add the prefix when the
+		// configured base URL omits it (e.g. a bare http://host:11434, which
+		// discovery accepts but proxying would otherwise 404), and avoid a double
+		// /v1 when the user already included it.
+		//
+		// SanitizeBaseURL only strips a single trailing slash, so normalize any
+		// remaining ones here before the suffix check; otherwise an input like
+		// http://host/v1// would slip past the guard and get a second /v1.
+		versioned := strings.TrimRight(sanitized, "/")
+		if strings.HasSuffix(versioned, "/v1") {
+			return versioned + endpoint
 		}
-		return sanitized + "/v1" + endpoint
+		return versioned + "/v1" + endpoint
 	default:
 		// Pass the user's base URL as-is. The user is responsible for
 		// including the correct path prefix (e.g. /v1) in the base URL.
