@@ -104,16 +104,21 @@ func (h *TotpHandler) Status(w http.ResponseWriter, _ *http.Request) {
 
 // EnrollStart generates a new TOTP secret and returns the otpauth URI + secret.
 func (h *TotpHandler) EnrollStart(w http.ResponseWriter, r *http.Request) {
+	// Refuse re-enrollment while TOTP is active: rotating the secret requires
+	// disabling first (the UI only offers Enable when disabled). Allowing it
+	// here would flip the enforcement gate off while the new secret is staged --
+	// a window where the raw admin token bypasses the second factor on every
+	// protected endpoint -- and could also strand the admin if abandoned. Enroll
+	// therefore only ever runs from the disabled state, so the gate never moves.
+	if h.totpEnabled != nil && h.totpEnabled() {
+		respondError(w, "disable TOTP before re-enrolling", nil, http.StatusConflict)
+		return
+	}
 	uri, secret, err := h.totpRepo.Enroll(r.Context())
 	if err != nil {
 		respondError(w, "totp: enroll failed", err, http.StatusInternalServerError)
 		return
 	}
-	// Enroll reset enabled=FALSE in the DB (a fresh provisional secret). Refresh
-	// the cache so the gate matches: re-enrolling while TOTP was active must not
-	// leave the in-memory gate stuck on true, which would lock the admin out if
-	// the re-enroll is abandoned and the session token later expires.
-	h.refreshTotpEnabled(r.Context())
 	writeJSON(w, map[string]string{"uri": uri, "secret": secret})
 }
 

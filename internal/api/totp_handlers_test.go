@@ -668,24 +668,26 @@ func TestTotpLogin_RecoveryNotBurnedOnBadToken(t *testing.T) {
 // TestTotpEnrollStart_RefreshesEnabledCache asserts that re-enrolling while TOTP
 // is active refreshes the in-memory gate to match the DB (enabled=false),
 // preventing a lockout if the re-enroll is abandoned.
-func TestTotpEnrollStart_RefreshesEnabledCache(t *testing.T) {
+func TestTotpEnrollStart_RefusedWhenEnabled(t *testing.T) {
 	h, th := newTotpTestHandler(t)
 	secret, _ := doEnrollVerify(t, th)
 	if !h.TotpEnabled() {
 		t.Fatal("precondition: TOTP should be enabled after enroll/verify")
 	}
 	// With TOTP enabled the raw admin token is rejected, so re-enroll uses a
-	// session token (as the real UI does after /totp/login).
+	// session token (as the real UI would after /totp/login).
 	sessionTok := sessionTokenAfterEnroll(t, th, secret)
 	req := httptest.NewRequest(http.MethodPost, "/totp/enroll/start", http.NoBody)
 	req.Header.Set("Authorization", "Bearer "+sessionTok)
 	w := httptest.NewRecorder()
 	serveTotpRouter(th).ServeHTTP(w, req)
-	if w.Code != http.StatusOK {
-		t.Fatalf("enroll/start: expected 200, got %d: %s", w.Code, w.Body.String())
+	// Re-enroll while enabled is refused (disable first) so the enforcement gate
+	// never flips off -- no raw-token bypass window.
+	if w.Code != http.StatusConflict {
+		t.Fatalf("re-enroll while enabled: expected 409, got %d: %s", w.Code, w.Body.String())
 	}
-	if h.TotpEnabled() {
-		t.Error("EnrollStart reset enabled=false in the DB but the cache still reports enabled")
+	if !h.TotpEnabled() {
+		t.Error("TOTP must stay enabled when a re-enroll is refused (no bypass window)")
 	}
 }
 
