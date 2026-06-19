@@ -48,6 +48,11 @@ type reqError struct {
 	Provider   string
 	Underlying string
 	Detail     string
+	// Hint is an optional, actionable diagnosis appended to the rendered
+	// message (e.g. a reverse-proxy idle-timeout hint when a zero-token stall's
+	// connection was closed downstream before our own TTFT timer fired). It is
+	// human-facing guidance, not a machine contract.
+	Hint string
 }
 
 // cancelOriginToKind maps an internal cancel-origin identifier (the value
@@ -96,7 +101,11 @@ func (e reqError) render() string {
 		}
 		return fmt.Sprintf("client disconnected during attempt %d to %s", n, e.providerLabel())
 	case KindProviderTimeout:
-		return e.withUnderlying(fmt.Sprintf("%s did not return a response in time on attempt %d", e.providerLabel(), n))
+		base := fmt.Sprintf("%s did not return a response in time on attempt %d", e.providerLabel(), n)
+		if e.Hint != "" {
+			base += "; " + e.Hint
+		}
+		return e.withUnderlying(base)
 	case KindFailoverTimeout:
 		return e.withUnderlying(fmt.Sprintf("request timed out while waiting on %s (attempt %d)", e.providerLabel(), n))
 	case KindRetryTimeout:
