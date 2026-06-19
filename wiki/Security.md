@@ -144,6 +144,30 @@ Login endpoints are IP rate-limited to prevent brute-force probing of passkeys. 
 ![Passkey Credentials](screenshots/webauthn_credentials.png)
 *Settings page - Passkey credential management, showing registered credentials with rename and delete options.*
 
+### TOTP / Authenticator-App Two-Factor (2FA)
+
+Time-based one-time passwords (RFC 6238) add a second factor to admin login, independent of passkeys. TOTP needs no environment variable: it is opt-in at runtime from the **Settings** page (scan the QR code with any authenticator app, enter the 6-digit code, and save the one-time recovery codes shown). The TOTP secret is encrypted at rest with AES-256-GCM under `MASTER_KEY`, the same as provider keys, and is never logged.
+
+**Enforcement (first-factor downgrade):** When TOTP is enabled, the raw admin token stops being a standalone bearer. It becomes a first factor that, combined with a valid 6-digit code, is exchanged on the login screen for a session token (the same DB-backed session infrastructure passkeys use). Only the session token then authorizes `/api/*` calls, which closes the static-token replay a bare bearer would otherwise allow. The same gate covers passkey management and backup restore.
+
+**Single-use codes:** Each accepted 30-second step is recorded (`admin_totp.last_used_step`, migration 049), so a code cannot be replayed within the validation skew window (enforced by an atomic conditional UPDATE). Verification uses constant-time comparison.
+
+**Recovery codes:** 10 single-use codes are shown once at enable time and stored only as SHA-256 hashes. A recovery code signs you in once so you can disable or re-enroll. Disable is gated on a current TOTP code or an unused recovery code, and the authorize-plus-delete runs in a single transaction so a recovery code is never spent without the disable completing.
+
+**Lost authenticator and all recovery codes:** an operator can remove 2FA directly against the database with `make totp-disable` (or `DELETE FROM admin_totp;` via psql against the stack's Postgres), then log in with the admin token alone and re-enroll.
+
+**TOTP routes:**
+
+| Route | Method | Auth | Description |
+|-------|--------|------|-------------|
+| `/api/totp/status` | GET | None (public) | Report whether TOTP is enabled (login UI gating) |
+| `/api/totp/login` | POST | IP rate-limited | Exchange admin token + 6-digit code (or a recovery code) for a session token |
+| `/api/totp/enroll/start` | POST | Admin/session token | Begin enrollment; returns the otpauth URI + base32 secret |
+| `/api/totp/enroll/verify` | POST | Admin/session token | Verify the first code, enable TOTP, return recovery codes + a session token |
+| `/api/totp/disable` | POST | Admin/session token | Disable TOTP (gated on a current code or recovery code) |
+
+The login endpoint is IP rate-limited to throttle brute-force probing of codes. Enroll and disable require admin or session token auth; once TOTP is enabled the raw admin token alone no longer satisfies that gate, so the second factor cannot be bypassed.
+
 ### Proxy API Authentication (Virtual Keys)
 
 The proxy API requires a virtual key in the `Authorization` header:
@@ -326,6 +350,7 @@ While `ValidateProviderURL` blocks dangerous URLs at configuration time, the **S
 - [ ] Set `TRUSTED_PROXIES` if running behind a load balancer or reverse proxy
 - [ ] Set `KNOWN_PROXIES` if using self-hosted LLM servers on private networks
 - [ ] Set `WEBAUTHN_RP_ID` to enable passkey authentication (leave empty to disable)
+- [ ] Consider enabling TOTP 2FA from Settings for an additional admin-login factor (no environment variable required)
 - [ ] Keep `RATE_LIMIT_ENABLED=true` in production
 - [ ] Monitor rate limit 429 responses for potential attacks
 - [ ] Use HTTPS for all provider URLs in production
