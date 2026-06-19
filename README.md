@@ -175,6 +175,13 @@ Log into the admin dashboard using a FIDO2/WebAuthn passkey (Touch ID, Windows H
 
 Passkey login is disabled by default. Enable it by setting `WEBAUTHN_RP_ID` (your domain) in the environment; `WEBAUTHN_RP_ORIGINS` (your origin URLs) falls back to `CORS_ORIGINS`, then to `http://localhost:<port>`. Session tokens are SHA-256 hashed, never stored in plaintext, and expire after 30 days.
 
+### [<img src="docs/icons/security.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Authenticator App (TOTP)](#-authenticator-app-totp)
+Add a time-based one-time password (TOTP, RFC 6238) from an authenticator app (Google Authenticator, Authy, 1Password, etc.) as a true second factor on the admin login. Enable it from the Settings page: scan the QR code with your app, enter the 6-digit code it shows, then save the one-time recovery codes you are shown.
+
+When TOTP is enabled the raw admin token no longer authenticates API requests on its own. It becomes a first factor that, combined with a valid 6-digit code, is exchanged for a session token on the login screen (the same session infrastructure passkeys use). Only that session token authorizes subsequent API calls, which closes the static-token replay that a bare bearer would otherwise allow. Disable is gated on a current TOTP or recovery code.
+
+If you lose your authenticator, a recovery code signs you in once so you can disable or re-enroll TOTP. Recovery codes are single-use, stored as SHA-256 hashes, and displayed only at enable time (the TOTP secret itself is AES-256-GCM encrypted at rest with `MASTER_KEY`, like provider keys). If you lose both the authenticator and every recovery code, an operator can remove 2FA directly from the database: run `make totp-disable`, or `DELETE FROM admin_totp;` via psql against the stack's Postgres. TOTP is independent of passkeys and needs no environment variable, it is opt-in at runtime from Settings.
+
 ### [<img src="docs/icons/quickstart.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Quick Start](#-quick-start)
 ```bash
 git clone <repository-url>

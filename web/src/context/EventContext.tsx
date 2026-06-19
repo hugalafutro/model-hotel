@@ -19,11 +19,15 @@ export function EventProvider({ children }: { children: ReactNode }) {
 	const connectingRef = useRef(false);
 
 	useEffect(() => {
-		const token = getAdminToken();
-		if (!token) return;
+		if (!getAdminToken()) return;
 
 		const connect = () => {
 			if (connectingRef.current) return;
+			// Re-read the token on every (re)connect so a token rotated mid-session
+			// (e.g. enabling TOTP 2FA swaps the raw admin token for a session token)
+			// is used instead of the stale one captured when the effect mounted.
+			const token = getAdminToken();
+			if (!token) return;
 			connectingRef.current = true;
 			const ac = new AbortController();
 			abortRef.current = ac;

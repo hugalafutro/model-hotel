@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -28,6 +29,12 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 	"github.com/hugalafutro/model-hotel/internal/virtualkey"
 )
+
+// TotpStatus reports whether TOTP 2FA is active, used by AuthMiddleware gating.
+// Implemented by *totp.Repository.
+type TotpStatus interface {
+	IsEnabled(ctx context.Context) (bool, error)
+}
 
 // ProviderStore defines the provider repository methods used by the API.
 type ProviderStore interface {
@@ -99,6 +106,8 @@ type Handler struct {
 	discoveryDialCtx       func(ctx context.Context, network, addr string) (net.Conn, error)
 	discoveryCheckRedirect func(req *http.Request, via []*http.Request) error
 	circuitBreaker         CircuitBreakerReader
+	totpStatus             TotpStatus  // nil when TOTP feature not wired -> TotpEnabled() returns false (today's behavior)
+	totpEnabled            atomic.Bool // cached IsEnabled result; refreshed by enroll-verify/disable handlers after DB mutations
 }
 
 // NewHandler creates a new admin API handler with the given dependencies.
@@ -135,6 +144,49 @@ func (h *Handler) Pool() *db.DB {
 // token-based authentication fallback in AuthMiddleware.
 func (h *Handler) SetWebAuthnSessionManager(mgr WebAuthnSessionManager) {
 	h.webauthnSessionMgr = mgr
+}
+
+// SetTotpStatus wires the TOTP status source and best-effort seeds the cache.
+// On seed error it fails closed (treats as enabled) so a DB blip at startup
+// cannot silently disable 2FA if it was previously enabled.
+func (h *Handler) SetTotpStatus(src TotpStatus) {
+	h.totpStatus = src
+	// Seed synchronously, before the server accepts requests, so there is no
+	// window where TotpEnabled() returns the false zero-value while 2FA is on.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	enabled, err := src.IsEnabled(ctx)
+	if err != nil {
+		debuglog.Error("totp: failed to seed enabled cache, failing closed", "error", err)
+		h.totpEnabled.Store(true)
+		return
+	}
+	h.totpEnabled.Store(enabled)
+}
+
+// TotpEnabled reports the cached TOTP-enabled state. Per-request hot path: no DB
+// hit. Returns false when the feature is not wired (nil source).
+func (h *Handler) TotpEnabled() bool {
+	if h.totpStatus == nil {
+		return false
+	}
+	return h.totpEnabled.Load()
+}
+
+// RefreshTotpEnabled re-reads IsEnabled from the DB and updates the cache. Called
+// by the TOTP enroll-verify and disable handlers AFTER their DB mutations
+// succeed. On DB error it fails closed (sets true).
+func (h *Handler) RefreshTotpEnabled(ctx context.Context) {
+	if h.totpStatus == nil {
+		return
+	}
+	enabled, err := h.totpStatus.IsEnabled(ctx)
+	if err != nil {
+		debuglog.Error("totp: failed to refresh enabled cache, failing closed", "error", err)
+		h.totpEnabled.Store(true)
+		return
+	}
+	h.totpEnabled.Store(enabled)
 }
 
 // SetDockerStatsCollector overrides the system Docker stats collector (for testing).
@@ -200,6 +252,7 @@ func (h *Handler) Register(r chi.Router) {
 	sh.Register(r)
 	h.systemHandler = sh
 	bh := NewBackupHandler(h.cfg.DatabaseURL, filepath.Join(h.cfg.DataDir, "backups"), h.adminMgr, h.settingsRepo)
+	bh.SetSessionAuth(h.webauthnSessionMgr, h.TotpEnabled)
 	bh.Register(r)
 	h.backupScheduler = bh
 }
@@ -219,13 +272,17 @@ func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// Fast path: admin token (in-memory hash comparison).
-		if h.adminMgr.Validate(token) {
+		// Fast path: admin token (in-memory hash comparison) -- only when TOTP
+		// 2FA is disabled. With TOTP enabled, the raw admin token is a first
+		// factor only and must be exchanged for a session token via POST
+		// /api/totp/login; a bare admin token bearer is rejected so the second
+		// factor cannot be bypassed.
+		if !h.TotpEnabled() && h.adminMgr.Validate(token) {
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		// Fallback: webAuthn session token (DB-backed SHA-256 hash lookup).
+		// Fallback: session token (DB-backed SHA-256 hash lookup) -- unchanged.
 		if h.webauthnSessionMgr != nil && h.webauthnSessionMgr.Validate(r.Context(), token) {
 			next.ServeHTTP(w, r)
 			return

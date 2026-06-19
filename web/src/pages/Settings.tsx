@@ -25,6 +25,7 @@ import { ObservabilitySettings } from "./Settings/ObservabilitySettings";
 import { PasskeySettings } from "./Settings/PasskeySettings";
 import { ProxySettings } from "./Settings/ProxySettings";
 import { RateLimitSettings } from "./Settings/RateLimitSettings";
+import { TotpSettings } from "./Settings/TotpSettings";
 
 export function Settings() {
 	const { t } = useTranslation();
@@ -49,6 +50,9 @@ export function Settings() {
 	);
 	const { collapsed: passkeyCollapsed, toggle: togglePasskey } = useCollapsible(
 		"settings_passkeyCollapsed",
+	);
+	const { collapsed: totpCollapsed, toggle: toggleTotp } = useCollapsible(
+		"settings_totpCollapsed",
 	);
 	const { collapsed: observabilityCollapsed, toggle: toggleObservability } =
 		useCollapsible("settings_observabilityCollapsed");
@@ -135,6 +139,8 @@ export function Settings() {
 					collapsed={passkeyCollapsed}
 					onToggle={togglePasskey}
 				/>
+
+				<TotpSettings collapsed={totpCollapsed} onToggle={toggleTotp} />
 
 				<AppearanceSettings
 					collapsed={appearanceCollapsed}

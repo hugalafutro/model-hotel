@@ -34,6 +34,7 @@ func newTestWebAuthnHandler(
 		sessionMgr:   sessionMgr,
 		adminMgr:     adminMgr,
 		ipLimiter:    mockIPLimiter{},
+		totpEnabled:  func() bool { return false },
 	}
 }
 
@@ -42,6 +43,10 @@ type mockIPLimiter struct{}
 
 func (m mockIPLimiter) Middleware(next http.Handler) http.Handler {
 	return next
+}
+
+func (m mockIPLimiter) ClientIP(r *http.Request) string {
+	return r.RemoteAddr
 }
 
 // TestAvailable_WithNilRP tests that Available returns enabled=false when RP is nil
@@ -1273,7 +1278,7 @@ func TestWebAuthnHandler_RegisterFinish_EmptySessionID(t *testing.T) {
 
 // TestWebAuthnHandler_NewWebAuthnHandler_NilParams tests the constructor with nil params
 func TestWebAuthnHandler_NewWebAuthnHandler_NilParams(t *testing.T) {
-	h := NewWebAuthnHandler(nil, nil, nil, nil, nil, false)
+	h := NewWebAuthnHandler(nil, nil, nil, nil, nil, false, nil)
 	if h == nil {
 		t.Fatal("expected non-nil handler")
 	}
@@ -1298,7 +1303,7 @@ func TestWebAuthnHandler_NewWebAuthnHandler_NilParams(t *testing.T) {
 func TestWebAuthnHandler_NewWebAuthnHandler_NonNilParams(t *testing.T) {
 	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
 	limiter := mockIPLimiter{}
-	h := NewWebAuthnHandler(nil, nil, nil, adminMgr, limiter, false)
+	h := NewWebAuthnHandler(nil, nil, nil, adminMgr, limiter, false, nil)
 	if h == nil {
 		t.Fatal("expected non-nil handler")
 	}
@@ -2944,3 +2949,48 @@ func TestWebAuthnHandler_RegisterFinish_ListCredentialsErrorAfterSession(t *test
 // 7. generateToken: base64 encoding failure. b64.Encode can only fail if
 //    the writer returns an error, and bytes.Buffer.Write never returns an error.
 //    (internal/admin/token.go)
+
+// --- TOTP gate tests for adminOrSessionAuth (B1) ---
+
+// TestWebAuthnAdminOrSessionAuth_TotpOn_RejectsRawToken verifies that with
+// TOTP enabled, a raw admin token is rejected by adminOrSessionAuth (so the
+// second factor cannot be bypassed to manage passkeys).
+func TestWebAuthnAdminOrSessionAuth_TotpOn_RejectsRawToken(t *testing.T) {
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return token == "admin-token" }}
+	h := newTestWebAuthnHandler(nil, nil, nil, adminMgr)
+	h.totpEnabled = func() bool { return true }
+
+	wrapped := h.adminOrSessionAuth(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Error("handler should NOT be called: raw token must be rejected under TOTP")
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
+	req.Header.Set("Authorization", "Bearer admin-token")
+	w := httptest.NewRecorder()
+	wrapped.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 (raw token rejected under TOTP), got %d; body: %s", w.Code, w.Body.String())
+	}
+}
+
+// TestWebAuthnAdminOrSessionAuth_TotpOff_AcceptsRawToken verifies that with
+// TOTP disabled, the raw admin token passes adminOrSessionAuth (unchanged behavior).
+func TestWebAuthnAdminOrSessionAuth_TotpOff_AcceptsRawToken(t *testing.T) {
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return token == "admin-token" }}
+	h := newTestWebAuthnHandler(nil, nil, nil, adminMgr)
+	// newTestWebAuthnHandler already defaults totpEnabled to false.
+
+	wrapped := h.adminOrSessionAuth(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
+	req.Header.Set("Authorization", "Bearer admin-token")
+	w := httptest.NewRecorder()
+	wrapped.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 (raw token accepted under TOTP off), got %d", w.Code)
+	}
+}

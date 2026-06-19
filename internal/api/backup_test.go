@@ -18,8 +18,10 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/db"
+	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
 
 //nolint:gosec,revive // test-only: error not critical, unnamedResult is test helper
@@ -5671,4 +5673,104 @@ func TestRunScheduledBackup_MutexAlreadyLocked(t *testing.T) {
 
 	// runScheduledBackup should return immediately without panic
 	bh.runScheduledBackup(context.Background())
+}
+
+// --- B2: TOTP gate for backup restore form-field auth ---
+
+// backupTOTPRouter builds a BackupHandler with the given totp flag + session
+// manager, mounts it on a chi router, and returns the router.
+func backupTOTPRouter(t *testing.T, totpOn bool, sessionMgr WebAuthnSessionManager) chi.Router {
+	t.Helper()
+	dir := t.TempDir()
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return token == "valid-raw-token" }}
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, adminMgr, nil)
+	h.SetSessionAuth(sessionMgr, func() bool { return totpOn })
+	r := chi.NewRouter()
+	h.Register(r)
+	return r
+}
+
+// TestBackupRestore_TotpOn_RejectsRawTokenInForm verifies that with TOTP on,
+// a multipart restore with admin_token = raw admin token is rejected.
+func TestBackupRestore_TotpOn_RejectsRawTokenInForm(t *testing.T) {
+	r := backupTOTPRouter(t, true, nil) // nil sessionMgr: only raw-token path is possible
+
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	writer.WriteField("admin_token", "valid-raw-token")
+	writer.Close()
+
+	req := httptest.NewRequest(http.MethodPost, "/backups/restore", &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 (raw token rejected under TOTP), got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// TestBackupRestore_TotpOn_AcceptsSessionTokenInForm verifies that with TOTP
+// on, a multipart restore with admin_token = a session token is accepted.
+func TestBackupRestore_TotpOn_AcceptsSessionTokenInForm(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
+	if err != nil {
+		t.Skipf("skipping: test database not available: %v", err)
+	}
+	t.Cleanup(pool.Close)
+	repo := webauthn.NewRepository(pool)
+	sessionMgr := webauthn.NewSessionManager(repo)
+	token, err := sessionMgr.CreateAuthToken(context.Background(), []byte("admin"), nil)
+	if err != nil {
+		t.Fatalf("CreateAuthToken: %v", err)
+	}
+	t.Cleanup(func() { sessionMgr.RevokeAuthToken(context.Background(), token) })
+
+	r := backupTOTPRouter(t, true, sessionMgr)
+
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	writer.WriteField("admin_token", token)
+	// No dump file -> the auth check should pass, then it'll 400 on missing dump.
+	writer.Close()
+
+	req := httptest.NewRequest(http.MethodPost, "/backups/restore", &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	// Auth passed -> expect 400 "missing dump file", NOT 401 "invalid admin token".
+	if w.Code == http.StatusUnauthorized {
+		t.Errorf("expected session token to pass auth (401 not expected), got 401: %s", w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "dump") {
+		t.Errorf("expected a dump-related error (auth passed), got: %s", w.Body.String())
+	}
+}
+
+// TestBackupRestore_TotpOff_AcceptsRawTokenInForm verifies unchanged behavior:
+// TOTP off, raw admin token in form is accepted.
+func TestBackupRestore_TotpOff_AcceptsRawTokenInForm(t *testing.T) {
+	r := backupTOTPRouter(t, false, nil)
+
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	writer.WriteField("admin_token", "valid-raw-token")
+	writer.Close()
+
+	req := httptest.NewRequest(http.MethodPost, "/backups/restore", &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	// Auth passed (raw token) -> 400 "missing dump file", NOT 401.
+	if w.Code == http.StatusUnauthorized {
+		t.Errorf("expected raw token to pass auth under TOTP off, got 401: %s", w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "dump") {
+		t.Errorf("expected a dump-related error (auth passed), got: %s", w.Body.String())
+	}
 }

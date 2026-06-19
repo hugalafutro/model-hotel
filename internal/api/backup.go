@@ -33,6 +33,8 @@ type BackupHandler struct {
 	backupMu          sync.Mutex
 	adminMgr          AdminAuthenticator
 	settingsRepo      SettingsStore
+	sessionMgr        WebAuthnSessionManager // set via SetSessionAuth; nil when WebAuthn not wired (raw admin token still accepted when TOTP off)
+	totpEnabled       func() bool            // set via SetSessionAuth; nil -> treated as false (TOTP off) so raw admin token is accepted
 	schedulerCancelMu sync.Mutex
 	schedulerCancel   context.CancelFunc
 }
@@ -50,6 +52,16 @@ func NewBackupHandler(databaseURL, backupDir string, adminMgr AdminAuthenticator
 		adminMgr:     adminMgr,
 		settingsRepo: settingsRepo,
 	}
+}
+
+// SetSessionAuth wires the WebAuthn session manager and TOTP-enabled flag so
+// restore (a destructive, second independent auth gate via multipart form
+// field) honors 2FA: when TOTP is enabled, a raw admin token in the form field
+// is rejected and a session token from /totp/login is required instead. Mirrors
+// Handler.AuthMiddleware's gate. Called after NewBackupHandler in Handler.Register.
+func (h *BackupHandler) SetSessionAuth(sessionMgr WebAuthnSessionManager, totpEnabled func() bool) {
+	h.sessionMgr = sessionMgr
+	h.totpEnabled = totpEnabled
 }
 
 // Register registers backup routes on the given router.
@@ -588,9 +600,24 @@ func (h *BackupHandler) saveUploadedDump(w http.ResponseWriter, r *http.Request)
 		return "", false
 	}
 
-	// Validate admin token from form field
+	// Validate admin token from form field. When TOTP 2FA is enabled, the raw
+	// admin token is a first factor only and must not unlock this destructive
+	// op; a session token from /totp/login is required. Mirrors AuthMiddleware's
+	// gate so the form-field guard cannot be used to bypass 2FA.
 	adminToken := r.FormValue("admin_token")
-	if adminToken == "" || !h.adminMgr.Validate(adminToken) {
+	if adminToken == "" {
+		debuglog.Warn("auth: backup restore with missing admin token", "remote_addr", r.RemoteAddr)
+		respondError(w, "invalid admin token", nil, http.StatusUnauthorized)
+		return "", false
+	}
+	authed := false
+	totpOn := h.totpEnabled != nil && h.totpEnabled()
+	if !totpOn && h.adminMgr.Validate(adminToken) {
+		authed = true
+	} else if h.sessionMgr != nil && h.sessionMgr.Validate(r.Context(), adminToken) {
+		authed = true
+	}
+	if !authed {
 		// respondError stays silent for a 401 with no err, so log the failed
 		// restore attempt here (remote address only, never the token).
 		debuglog.Warn("auth: backup restore with invalid admin token", "remote_addr", r.RemoteAddr)

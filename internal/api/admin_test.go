@@ -24,7 +24,9 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/settings"
+	totpsvc "github.com/hugalafutro/model-hotel/internal/totp"
 	"github.com/hugalafutro/model-hotel/internal/virtualkey"
+	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
 
 // --- Mock types ---
@@ -825,7 +827,201 @@ func TestAuthMiddleware_WebAuthnSessionFallbackFails(t *testing.T) {
 	}
 }
 
-// --- Pure function tests ---
+// --- TOTP/AuthMiddleware enforcement tests ---
+
+// TestAuthMiddleware_TotpEnabled_RejectsRawToken verifies that with TOTP
+// enabled (via a stub TotpStatus), a bare admin token is rejected so the
+// second factor cannot be bypassed.
+func TestAuthMiddleware_TotpEnabled_RejectsRawToken(t *testing.T) {
+	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return token == "valid-token" }}
+	h := testHandler(nil, nil, nil, mockAuth, nil)
+	h.SetTotpStatus(&stubTotpStatus{enabled: true})
+	// Wait for the async seed goroutine in SetTotpStatus; in a pinch just set
+	// the cache synchronously.
+	h.totpEnabled.Store(true)
+
+	handler := h.AuthMiddleware(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		w := httptest.NewRecorder()
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	req.Header.Set("Authorization", "Bearer valid-token")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 with TOTP on, got %d", rec.Code)
+	}
+}
+
+// TestAuthMiddleware_TotpEnabled_SessionTokenWorks verifies that a session
+// token passes AuthMiddleware when TOTP is enabled.
+func TestAuthMiddleware_TotpEnabled_SessionTokenWorks(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+	mockAuth := &mockAdminAuth{validateFn: func(string) bool { return false }}
+	h := testHandler(nil, nil, nil, mockAuth, nil)
+	h.SetTotpStatus(&stubTotpStatus{enabled: true})
+	h.totpEnabled.Store(true)
+
+	// Build a real session manager to mint a token the AuthMiddleware will accept.
+	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
+	if err != nil {
+		t.Skipf("skipping: test database not available: %v", err)
+	}
+	t.Cleanup(pool.Close)
+	repo := webauthn.NewRepository(pool)
+	sessionMgr := webauthn.NewSessionManager(repo)
+	h.SetWebAuthnSessionManager(sessionMgr)
+
+	token, err := sessionMgr.CreateAuthToken(context.Background(), []byte("admin"), nil)
+	if err != nil {
+		t.Fatalf("CreateAuthToken: %v", err)
+	}
+	t.Cleanup(func() {
+		sessionMgr.RevokeAuthToken(context.Background(), token)
+	})
+
+	protected := h.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	protected.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200 for session token with TOTP on, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestAuthMiddleware_TotpDisabled_RawTokenWorks verifies that TOTP off (stub
+// returns false) allows the raw admin token.
+func TestAuthMiddleware_TotpDisabled_RawTokenWorks(t *testing.T) {
+	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return token == "valid-token" }}
+	h := testHandler(nil, nil, nil, mockAuth, nil)
+	h.SetTotpStatus(&stubTotpStatus{enabled: false})
+	h.totpEnabled.Store(false)
+
+	protected := h.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	req.Header.Set("Authorization", "Bearer valid-token")
+	rec := httptest.NewRecorder()
+	protected.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200 with TOTP off, got %d", rec.Code)
+	}
+}
+
+// TestAuthMiddleware_TotpDbError_FailsClosed verifies that when RefreshTotpEnabled
+// hits a DB error, it fails closed (cache becomes true) so a DB blip does not
+// silently disable 2FA.
+func TestAuthMiddleware_TotpDbError_FailsClosed(t *testing.T) {
+	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return token == "valid-token" }}
+	h := testHandler(nil, nil, nil, mockAuth, nil)
+	h.SetTotpStatus(&stubTotpStatus{enabled: false, err: errors.New("db down")})
+	// Force a refresh; the DB error path should set the cache to true.
+	h.RefreshTotpEnabled(context.Background())
+
+	if !h.TotpEnabled() {
+		t.Fatal("expected fail-closed: TOTP cache should be true after DB error")
+	}
+
+	protected := h.AuthMiddleware(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	req.Header.Set("Authorization", "Bearer valid-token")
+	rec := httptest.NewRecorder()
+	protected.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 (fail closed) on DB error, got %d", rec.Code)
+	}
+}
+
+// TestAuthMiddleware_TotpNilStatus_RawTokenWorks verifies that a Handler
+// with no TOTP wired (nil source) behaves like today: raw admin token passes.
+func TestAuthMiddleware_TotpNilStatus_RawTokenWorks(t *testing.T) {
+	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return token == "valid-token" }}
+	h := testHandler(nil, nil, nil, mockAuth, nil)
+	// No SetTotpStatus call; h.totpStatus is nil.
+
+	protected := h.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	req.Header.Set("Authorization", "Bearer valid-token")
+	rec := httptest.NewRecorder()
+	protected.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200 (nil TOTP -> treated as off), got %d", rec.Code)
+	}
+}
+
+// TestAuthMiddleware_DisableRevertsToRawToken drives through a real
+// enroll+enable (cache true, raw token 401) then disable (cache false, raw
+// token 200 again), verifying the full lifecycle.
+func TestAuthMiddleware_DisableRevertsToRawToken(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Skip("skipping: test database not available")
+	}
+	truncateTOTPTables(t)
+	t.Cleanup(func() { truncateTOTPTables(t) })
+
+	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return token == "valid-token" }}
+	h := testHandler(nil, nil, nil, mockAuth, nil)
+	pool := apiTestDB.Pool()
+	totpRepo := totpsvc.NewRepository(pool, testMasterKey)
+	h.SetTotpStatus(totpRepo)
+	h.totpEnabled.Store(false)
+
+	// Enroll only (we don't need a valid code for the repo-level Disable).
+	_, _, err := totpRepo.Enroll(context.Background())
+	if err != nil {
+		t.Fatalf("Enroll: %v", err)
+	}
+	if err := totpRepo.Enable(context.Background()); err != nil {
+		t.Fatalf("Enable: %v", err)
+	}
+	h.RefreshTotpEnabled(context.Background())
+	if !h.TotpEnabled() {
+		t.Fatal("expected TOTP enabled after Enable")
+	}
+
+	// Raw admin token should now be 401.
+	protected := h.AuthMiddleware(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	req.Header.Set("Authorization", "Bearer valid-token")
+	rec := httptest.NewRecorder()
+	protected.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 with TOTP on, got %d", rec.Code)
+	}
+
+	// Disable. The repo Disable does not itself check a code (the handler does);
+	// here we only exercise the cache-refresh lifecycle.
+	_ = totpRepo.Disable(context.Background())
+	h.RefreshTotpEnabled(context.Background())
+	if h.TotpEnabled() {
+		t.Fatal("expected TOTP disabled after Disable")
+	}
+	// Raw admin token should now be 200.
+	protected2 := h.AuthMiddleware(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	req2 := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	req2.Header.Set("Authorization", "Bearer valid-token")
+	rec2 := httptest.NewRecorder()
+	protected2.ServeHTTP(rec2, req2)
+	if rec2.Code != http.StatusOK {
+		t.Errorf("expected 200 after Disable (raw token enabled again), got %d", rec2.Code)
+	}
+}
 
 func TestIsUniqueViolation(t *testing.T) {
 	t.Parallel()

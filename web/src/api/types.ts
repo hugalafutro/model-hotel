@@ -652,6 +652,27 @@ export interface WebAuthnCredential {
 	sign_count: number;
 }
 
+export interface TotpStatus {
+	enabled: boolean;
+}
+
+export interface TotpEnrollStart {
+	uri: string;
+	secret: string;
+}
+
+export interface TotpEnrollVerify {
+	recovery_codes: string[];
+	// Session token minted on enable so the admin stays logged in (the raw
+	// admin token is no longer a valid bearer once 2FA is on). Absent only if
+	// the server could not mint one, in which case the user must re-login.
+	token?: string;
+}
+
+export interface TotpLoginResponse {
+	token: string;
+}
+
 // PublicConfig is the unauthenticated subset of server config the SPA reads to
 // render correctly (e.g. hide mutation controls in a read-only demo).
 export interface PublicConfig {

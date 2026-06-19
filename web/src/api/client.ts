@@ -31,6 +31,10 @@ import type {
 	SyncResult,
 	SystemStats,
 	TimeSeriesStats,
+	TotpEnrollStart,
+	TotpEnrollVerify,
+	TotpLoginResponse,
+	TotpStatus,
 	UpdateFailoverGroupRequest,
 	UpdateProviderRequest,
 	VirtualKey,
@@ -48,6 +52,18 @@ export const API_BASE = "";
 
 // ── Internal helpers ────────────────────────────────────────────────
 
+// ApiError carries the HTTP status so callers can branch on it (e.g. a 429
+// throttle vs a 401 on the login screen). instanceof Error stays true and the
+// message is unchanged, so existing catch blocks keep working.
+export class ApiError extends Error {
+	readonly status: number;
+	constructor(message: string, status: number) {
+		super(message);
+		this.name = "ApiError";
+		this.status = status;
+	}
+}
+
 async function fetchOK(
 	url: string,
 	options?: RequestInit,
@@ -56,7 +72,10 @@ async function fetchOK(
 	const response = await fetch(url, options);
 	if (!response.ok) {
 		const text = await response.text();
-		throw new Error(`${errorPrefix}: ${response.status} ${text}`);
+		throw new ApiError(
+			`${errorPrefix}: ${response.status} ${text}`,
+			response.status,
+		);
 	}
 	return response;
 }
@@ -1142,5 +1161,46 @@ export const api = {
 				"Failed to logout",
 			);
 		},
+	},
+	totp: {
+		status: async (): Promise<TotpStatus> =>
+			fetchJSON<TotpStatus>(`${API_BASE}/api/totp/status`),
+		enrollStart: async (): Promise<TotpEnrollStart> =>
+			fetchJSON<TotpEnrollStart>(
+				`${API_BASE}/api/totp/enroll/start`,
+				{ method: "POST", headers: getAuthHeaders() },
+				"TOTP enrollment failed",
+			),
+		enrollVerify: async (code: string): Promise<TotpEnrollVerify> =>
+			fetchJSON<TotpEnrollVerify>(
+				`${API_BASE}/api/totp/enroll/verify`,
+				{
+					method: "POST",
+					headers: getAuthHeaders(),
+					body: JSON.stringify({ code }),
+				},
+				"TOTP verification failed",
+			),
+		disable: async (code: string): Promise<void> => {
+			await fetchOK(
+				`${API_BASE}/api/totp/disable`,
+				{
+					method: "POST",
+					headers: getAuthHeaders(),
+					body: JSON.stringify({ code }),
+				},
+				"TOTP disable failed",
+			);
+		},
+		login: async (token: string, code: string): Promise<TotpLoginResponse> =>
+			fetchJSON<TotpLoginResponse>(
+				`${API_BASE}/api/totp/login`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ token, code }),
+				},
+				"TOTP login failed",
+			),
 	},
 };

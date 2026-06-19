@@ -45,7 +45,7 @@ model-hotel/
 │   │   ├── components/            # Reusable UI components
 │   │   ├── context/               # React contexts (Theme, Toast, Event)
 │   │   ├── hooks/                 # Custom React hooks
-│   │   ├── i18n/                  # i18next setup + locale files (DeepL-translated, repo is source of truth)
+│   │   ├── i18n/                  # i18next setup + locale files (repo is source of truth; translated by hand)
 │   │   ├── pages/                 # Dashboard, Providers, Models, etc.
 │   │   └── utils/                 # Formatting, SSE, model utils
 │   ├── public/                    # Static assets (favicon, icons)
@@ -433,12 +433,11 @@ Before committing changes:
 
 Locale files in `web/src/i18n/locales/` are the single source of truth (the project previously synced with Crowdin; that integration was removed). The workflow when adding user-facing strings:
 
-1. Add the key to `en.json` (and ideally to all locales with the English value so the UI never breaks).
-2. Run `make i18n-fill` with `DEEPL_API_KEY` set - it DeepL-translates exactly the keys that are missing or still English (minus the allowlist) into all 28 locales.
-3. **Review the diff** - machine translation gets word order around `{{placeholders}}` wrong and renders temporal "since" causally in some languages; check failover/provider terminology against the locale's existing strings.
-4. Intentionally-English values (brand names, loanwords like "Failover") belong in `tools/i18n-translate/allow-english.json`.
+1. Add the key to `en.json` AND to all 28 other locales.
+2. **Translate the new keys by hand** into each locale, keeping `{{placeholders}}`, `<tags>`, acronyms, and brand names verbatim. `make i18n-fill` / `bootstrap` (DeepL, needs `DEEPL_API_KEY`) are **legacy and currently non-functional**: the free DeepL quota is exhausted and will not refresh until ~May 2027 (HTTP 456), so do not rely on them. The quickest correct way is a one-off script that reuses `tools/i18n-translate/translate.py`'s `load_locale`/`set_path`/`save_locale` helpers (preserves nesting + formatting).
+3. Intentionally-English values (brand names, loanwords like "Failover", or a word genuinely identical in some language) belong in `tools/i18n-translate/allow-english.json`.
 
-`make i18n-check` runs the same validation as CI. `python3 tools/i18n-translate/translate.py bootstrap <code>` machine-translates the entire `en.json` for adding a brand-new language. Translation corrections are welcome as plain PRs against the locale files.
+`make i18n-check` is the CI gate: it runs **offline** (no network, no DeepL) and fails on missing keys, broken `{{placeholder}}` parity, or non-allowlisted English values. Translation corrections are welcome as plain PRs against the locale files.
 
 ## Development Workflow
 
