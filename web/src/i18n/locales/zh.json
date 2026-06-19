@@ -1855,7 +1855,8 @@
 			"verifyAriaLabel": "验证 TOTP 代码并启用",
 			"verifying": "正在验证...",
 			"downloadCodes": "下载为 .txt",
-			"downloadCodesAriaLabel": "将恢复码下载为文本文件"
+			"downloadCodesAriaLabel": "将恢复码下载为文本文件",
+			"failedToStart": "无法开始注册：{{message}}"
 		}
 	},
 	"components": {

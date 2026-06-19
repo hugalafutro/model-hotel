@@ -1855,7 +1855,8 @@
 			"verifyAriaLabel": "Xác minh mã TOTP và bật",
 			"verifying": "Đang xác minh...",
 			"downloadCodes": "Tải xuống dạng .txt",
-			"downloadCodesAriaLabel": "Tải mã khôi phục xuống dưới dạng tệp văn bản"
+			"downloadCodesAriaLabel": "Tải mã khôi phục xuống dưới dạng tệp văn bản",
+			"failedToStart": "Không thể bắt đầu đăng ký: {{message}}"
 		}
 	},
 	"components": {

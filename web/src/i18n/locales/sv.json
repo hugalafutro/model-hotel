@@ -1855,7 +1855,8 @@
 			"verifyAriaLabel": "Verifiera TOTP-kod och aktivera",
 			"verifying": "Verifierar...",
 			"downloadCodes": "Ladda ner som .txt",
-			"downloadCodesAriaLabel": "Ladda ner återställningskoder som en textfil"
+			"downloadCodesAriaLabel": "Ladda ner återställningskoder som en textfil",
+			"failedToStart": "Det gick inte att starta registreringen: {{message}}"
 		}
 	},
 	"components": {

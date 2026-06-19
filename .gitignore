@@ -81,3 +81,7 @@ web/.pnpm-store/
 # Local-only agent tooling (omo-slim / opencode implementation harness)
 .slim/
 /.ignore
+
+# Python bytecode cache (i18n tooling under tools/)
+__pycache__/
+*.pyc

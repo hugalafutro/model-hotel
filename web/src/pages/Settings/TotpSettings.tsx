@@ -62,7 +62,7 @@ export function TotpSettings({ collapsed, onToggle }: TotpSettingsProps) {
 		},
 		onError: (err: Error) => {
 			toast(
-				t("settings.totp.failedToVerify", { message: err.message }),
+				t("settings.totp.failedToStart", { message: err.message }),
 				"error",
 			);
 		},

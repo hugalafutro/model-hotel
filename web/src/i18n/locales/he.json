@@ -1855,7 +1855,8 @@
 			"verifyAriaLabel": "אמת את קוד ה-TOTP והפעל",
 			"verifying": "בודקים...",
 			"downloadCodes": "הורד כקובץ ‎.txt",
-			"downloadCodesAriaLabel": "הורד את קודי השחזור כקובץ טקסט"
+			"downloadCodesAriaLabel": "הורד את קודי השחזור כקובץ טקסט",
+			"failedToStart": "לא ניתן להתחיל את הרישום: {{message}}"
 		}
 	},
 	"components": {

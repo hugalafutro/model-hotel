@@ -1855,7 +1855,8 @@
 			"verifyAriaLabel": "Vahvista TOTP-koodi ja ota käyttöön",
 			"verifying": "Tarkistetaan...",
 			"downloadCodes": "Lataa .txt-tiedostona",
-			"downloadCodesAriaLabel": "Lataa palautuskoodit tekstitiedostona"
+			"downloadCodesAriaLabel": "Lataa palautuskoodit tekstitiedostona",
+			"failedToStart": "Rekisteröinnin aloittaminen epäonnistui: {{message}}"
 		}
 	},
 	"components": {

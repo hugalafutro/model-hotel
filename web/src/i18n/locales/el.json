@@ -1855,7 +1855,8 @@
 			"verifyAriaLabel": "Επαληθεύστε τον κωδικό TOTP και ενεργοποιήστε",
 			"verifying": "Επαλήθευση...",
 			"downloadCodes": "Λήψη ως .txt",
-			"downloadCodesAriaLabel": "Λήψη κωδικών ανάκτησης ως αρχείο κειμένου"
+			"downloadCodesAriaLabel": "Λήψη κωδικών ανάκτησης ως αρχείο κειμένου",
+			"failedToStart": "Δεν ήταν δυνατή η έναρξη της εγγραφής: {{message}}"
 		}
 	},
 	"components": {

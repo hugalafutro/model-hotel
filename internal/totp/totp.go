@@ -354,13 +354,14 @@ func generateRecoveryCode() (string, error) {
 
 // normalizeRecoveryCode canonicalizes user-entered codes so a valid code still
 // matches when typed lowercase, with spaces, or without the grouping dashes.
-// It uppercases, drops every non-alphanumeric rune, and regroups exactly 16
-// characters as XXXX-XXXX-XXXX-XXXX (the stored format). Non-16-length input is
-// returned cleaned-but-ungrouped, which simply will not match any stored hash.
+// It uppercases, keeps only RFC 4648 base32 characters (A-Z, 2-7) to match the
+// generated codes, and regroups exactly 16 characters as XXXX-XXXX-XXXX-XXXX
+// (the stored format). Non-16-length input is returned cleaned-but-ungrouped,
+// which simply will not match any stored hash.
 func normalizeRecoveryCode(code string) string {
 	var b strings.Builder
 	for _, c := range strings.ToUpper(code) {
-		if (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') {
+		if (c >= 'A' && c <= 'Z') || (c >= '2' && c <= '7') {
 			b.WriteRune(c)
 		}
 	}

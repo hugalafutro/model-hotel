@@ -1855,7 +1855,8 @@
 			"verifyAriaLabel": "Підтвердити код TOTP та ввімкнути",
 			"verifying": "Перевірка...",
 			"downloadCodes": "Завантажити як .txt",
-			"downloadCodesAriaLabel": "Завантажити коди відновлення як текстовий файл"
+			"downloadCodesAriaLabel": "Завантажити коди відновлення як текстовий файл",
+			"failedToStart": "Не вдалося почати реєстрацію: {{message}}"
 		}
 	},
 	"components": {

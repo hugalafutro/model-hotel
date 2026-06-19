@@ -1855,7 +1855,8 @@
 			"verifyAriaLabel": "Controleer de TOTP-code en schakel deze in",
 			"verifying": "Wordt gecontroleerd...",
 			"downloadCodes": "Downloaden als .txt",
-			"downloadCodesAriaLabel": "Herstelcodes downloaden als tekstbestand"
+			"downloadCodesAriaLabel": "Herstelcodes downloaden als tekstbestand",
+			"failedToStart": "Kan inschrijving niet starten: {{message}}"
 		}
 	},
 	"components": {

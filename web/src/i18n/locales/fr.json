@@ -1855,7 +1855,8 @@
 			"verifyAriaLabel": "Vérifier le code TOTP et l'activer",
 			"verifying": "Vérification en cours...",
 			"downloadCodes": "Télécharger en .txt",
-			"downloadCodesAriaLabel": "Télécharger les codes de récupération dans un fichier texte"
+			"downloadCodesAriaLabel": "Télécharger les codes de récupération dans un fichier texte",
+			"failedToStart": "Impossible de démarrer l'enregistrement : {{message}}"
 		}
 	},
 	"components": {

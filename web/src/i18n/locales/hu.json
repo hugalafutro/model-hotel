@@ -1855,7 +1855,8 @@
 			"verifyAriaLabel": "Ellenőrizze a TOTP-kódot, és engedélyezze",
 			"verifying": "Ellenőrzés folyamatban...",
 			"downloadCodes": "Letöltés .txt-ként",
-			"downloadCodesAriaLabel": "Helyreállítási kódok letöltése szövegfájlként"
+			"downloadCodesAriaLabel": "Helyreállítási kódok letöltése szövegfájlként",
+			"failedToStart": "Nem sikerült elindítani a regisztrációt: {{message}}"
 		}
 	},
 	"components": {

@@ -1855,7 +1855,8 @@
 			"verifyAriaLabel": "تحقق من رمز TOTP وقم بتمكينه",
 			"verifying": "جاري التحقق...",
 			"downloadCodes": "تنزيل بصيغة ‎.txt",
-			"downloadCodesAriaLabel": "تنزيل رموز الاسترداد كملف نصي"
+			"downloadCodesAriaLabel": "تنزيل رموز الاسترداد كملف نصي",
+			"failedToStart": "تعذّر بدء التسجيل: {{message}}"
 		}
 	},
 	"components": {

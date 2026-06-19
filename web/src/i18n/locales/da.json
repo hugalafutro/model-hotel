@@ -1855,7 +1855,8 @@
 			"verifyAriaLabel": "Bekræft TOTP-koden og aktiver",
 			"verifying": "Bekræfter...",
 			"downloadCodes": "Download som .txt",
-			"downloadCodesAriaLabel": "Download gendannelseskoder som en tekstfil"
+			"downloadCodesAriaLabel": "Download gendannelseskoder som en tekstfil",
+			"failedToStart": "Kunne ikke starte tilmelding: {{message}}"
 		}
 	},
 	"components": {

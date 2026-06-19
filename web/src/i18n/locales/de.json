@@ -1855,7 +1855,8 @@
 			"verifyAriaLabel": "TOTP-Code überprüfen und aktivieren",
 			"verifying": "Wird überprüft...",
 			"downloadCodes": "Als .txt herunterladen",
-			"downloadCodesAriaLabel": "Wiederherstellungscodes als Textdatei herunterladen"
+			"downloadCodesAriaLabel": "Wiederherstellungscodes als Textdatei herunterladen",
+			"failedToStart": "Einrichtung konnte nicht gestartet werden: {{message}}"
 		}
 	},
 	"components": {

@@ -1855,7 +1855,8 @@
 			"verifyAriaLabel": "Потврди TOTP код и омогући",
 			"verifying": "Верификација...",
 			"downloadCodes": "Преузми као .txt",
-			"downloadCodesAriaLabel": "Преузми кодове за опоравак као текстуалну датотеку"
+			"downloadCodesAriaLabel": "Преузми кодове за опоравак као текстуалну датотеку",
+			"failedToStart": "Није могуће започети регистрацију: {{message}}"
 		}
 	},
 	"components": {
