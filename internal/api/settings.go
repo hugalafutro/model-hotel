@@ -141,6 +141,8 @@ var allowedSettings = map[string]struct {
 	"key_cache_ttl":                {typeName: "string"}, // duration (e.g. "10m0s")
 	"ttft_timeout":                 {typeName: "string"}, // duration (e.g. "1m0s", "0s" = disabled)
 	"stream_stall_timeout":         {typeName: "string"}, // duration (e.g. "30s", "0s" = disabled)
+	"hedging_enabled":              {typeName: "string"}, // bool as string
+	"hedge_delay":                  {typeName: "string"}, // duration (e.g. "4s") before racing a backup provider
 	"backup_enabled":               {typeName: "string"}, // bool as string
 	"backup_interval":              {typeName: "string"}, // duration (e.g. "24h")
 	"backup_son_retention":         {typeName: "int", min: 1, max: 365},

@@ -1452,7 +1452,12 @@
 			"cooldownPeriod": "Nedkølingsperiode",
 			"cooldownPeriod.description": "Tid til at vente, før du prøver en udbyder igen med et åbent kredsløb",
 			"failoverOnRateLimit": "Mislykket på satsgrænse",
-			"failoverOnRateLimitDescription": "Rute til næste failover gruppemedlem, når en udbyder returnerer 429"
+			"failoverOnRateLimitDescription": "Rute til næste failover gruppemedlem, når en udbyder returnerer 429",
+			"hedging": "Afdæk langsomme streams",
+			"hedgingDescription": "Kør en backup-udbyder parallelt, når den første er langsom til at sende sit første token (kun streamende failover-grupper)",
+			"hedgeDelay": "Afdækningsforsinkelse",
+			"hedgeDelay.description": "Hvor længe der ventes på den første udbyders første token, før en backup-udbyder også startes",
+			"hedgingNotice": "Afdækning starter en anden udbyder parallelt, når den første er langsom i gang, og beholder den, der svarer først. Ved langsom start fordobler det anmodningen opstrøms, så udbyderens hastighedsgrænser og kapacitet bruges hurtigere, og en backup, der ignorerer annullering, kan blive ved med at generere i baggrunden. Slå det kun til, hvis langsomme første tokens skader mere end den ekstra belastning."
 		},
 		"logging": {
 			"title": "Logning",

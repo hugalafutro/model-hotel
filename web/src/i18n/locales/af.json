@@ -1452,7 +1452,12 @@
 			"cooldownPeriod": "Afkoelingsperiode",
 			"cooldownPeriod.description": "Wagtyd voordat 'n verskaffer met 'n oop kring weer probeer word",
 			"failoverOnRateLimit": "Oorloop by koersbeperking",
-			"failoverOnRateLimitDescription": "Route na die volgende failover-groep-lid wanneer 'n verskaffer 429 teruggee"
+			"failoverOnRateLimitDescription": "Route na die volgende failover-groep-lid wanneer 'n verskaffer 429 teruggee",
+			"hedging": "Stadige strome verskans",
+			"hedgingDescription": "Wedywer 'n rugsteunverskaffer parallel wanneer die eerste stadig is om sy eerste teken te stuur (slegs stroom-oorvleuelgroepe)",
+			"hedgeDelay": "Verskansingsvertraging",
+			"hedgeDelay.description": "Hoe lank om op die eerste verskaffer se eerste teken te wag voordat ook 'n rugsteunverskaffer afgevuur word",
+			"hedgingNotice": "Verskansing vuur 'n tweede verskaffer parallel af wanneer die eerste stadig begin en hou dié wat eerste antwoord. Met stadige begin verdubbel dit die stroomop-versoek, so verskaffer-tempolimiete en kapasiteit raak vinniger op, en 'n rugsteun wat kansellasie ignoreer kan in die agtergrond aanhou genereer. Skakel dit net aan as stadige eerste tekens meer skade doen as die ekstra las."
 		},
 		"logging": {
 			"title": "Aantekeningvoering",

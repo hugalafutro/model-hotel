@@ -293,6 +293,16 @@ func (h *Handler) loadFailoverConfig(r *http.Request, st *requestState) {
 	st.circuitBreakerEnabled = h.settingsRepo.GetBool(r.Context(), "circuit_breaker_enabled", true)
 	ctxkeys.AddSettingsReadMs(r.Context(), cbStart2)
 
+	// Request hedging config (streaming only; applied at the failover gate).
+	// Read once here so every attempt in the request sees a consistent value.
+	hedgeStart := time.Now()
+	st.hedgingEnabled = h.settingsRepo.GetBool(r.Context(), "hedging_enabled", false)
+	st.hedgeDelay = h.settingsRepo.GetDuration(r.Context(), "hedge_delay", 4*time.Second)
+	if st.hedgeDelay < minHedgeDelay {
+		st.hedgeDelay = minHedgeDelay
+	}
+	ctxkeys.AddSettingsReadMs(r.Context(), hedgeStart)
+
 	// Overall request deadline: caps total time across all failover candidates
 	// to prevent resource pinning from silent clients. Without this, N candidates
 	// with per-candidate failoverTimeout could hold a goroutine for N×failoverTimeout.

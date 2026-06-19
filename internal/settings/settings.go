@@ -42,6 +42,8 @@ var AllowedSettings = map[string]bool{
 	"key_cache_ttl":                true,
 	"ttft_timeout":                 true,
 	"stream_stall_timeout":         true,
+	"hedging_enabled":              true,
+	"hedge_delay":                  true,
 	"backup_enabled":               true,
 	"backup_interval":              true,
 	"backup_son_retention":         true,

@@ -1452,7 +1452,12 @@
 			"cooldownPeriod": "Nedkjøling periode",
 			"cooldownPeriod.description": "Tid å vente før en leverandør prøver på nytt med en åpen krets",
 			"failoverOnRateLimit": "Feil ved hastighetsgrense",
-			"failoverOnRateLimitDescription": "Rute til neste mislykkede gruppemedlem når en leverandør returnerer 429"
+			"failoverOnRateLimitDescription": "Rute til neste mislykkede gruppemedlem når en leverandør returnerer 429",
+			"hedging": "Sikre trege strømmer",
+			"hedgingDescription": "Kjører en reserveleverandør parallelt når den første er treg med å sende sitt første token (kun strømmende failover-grupper)",
+			"hedgeDelay": "Sikringsforsinkelse",
+			"hedgeDelay.description": "Hvor lenge det ventes på den første leverandørens første token før en reserveleverandør også startes",
+			"hedgingNotice": "Sikring starter en annen leverandør parallelt når den første er treg i gang, og beholder den som svarer først. Ved treg start dobler dette oppstrømsforespørselen, så leverandørens hastighetsgrenser og kapasitet brukes opp raskere, og en reserve som ignorerer avbrudd kan fortsette å generere i bakgrunnen. Slå det på bare hvis trege første tokens skader mer enn den ekstra belastningen."
 		},
 		"logging": {
 			"title": "Logger",

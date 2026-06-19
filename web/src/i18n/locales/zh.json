@@ -1452,7 +1452,12 @@
 			"cooldownPeriod": "冷却期",
 			"cooldownPeriod.description": "在重试打开电路的提供商之前等待时间",
 			"failoverOnRateLimit": "费率限制失败",
-			"failoverOnRateLimitDescription": "当一个提供商返回 429 时到下一个失败组成员的路由"
+			"failoverOnRateLimitDescription": "当一个提供商返回 429 时到下一个失败组成员的路由",
+			"hedging": "对慢速流进行对冲",
+			"hedgingDescription": "当第一个提供商发送首个令牌较慢时，并行启动一个备用提供商（仅限流式故障转移组）",
+			"hedgeDelay": "对冲延迟",
+			"hedgeDelay.description": "在同时启动备用提供商之前，等待第一个提供商首个令牌的时长",
+			"hedgingNotice": "对冲会在第一个提供商启动较慢时并行启动第二个，并采用最先响应的一个。启动较慢时这会使上游请求翻倍，因此提供商的速率限制和容量会更快耗尽，而忽略取消的备用请求可能仍在后台继续生成。仅当首个令牌过慢造成的影响大于额外负载时才开启。"
 		},
 		"logging": {
 			"title": "日志记录",

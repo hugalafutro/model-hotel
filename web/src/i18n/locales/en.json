@@ -1495,7 +1495,12 @@
 			"cooldownPeriod": "Cooldown Period",
 			"cooldownPeriod.description": "Time to wait before retrying a provider with an open circuit",
 			"failoverOnRateLimit": "Failover on Rate Limit",
-			"failoverOnRateLimitDescription": "Route to next failover group member when a provider returns 429"
+			"failoverOnRateLimitDescription": "Route to next failover group member when a provider returns 429",
+			"hedging": "Hedge Slow Streams",
+			"hedgingDescription": "Race a backup provider in parallel when the first is slow to send its first token (streaming failover groups only)",
+			"hedgeDelay": "Hedge Delay",
+			"hedgeDelay.description": "How long to wait for the first provider's first token before also firing a backup provider",
+			"hedgingNotice": "Hedging fires a second provider in parallel when the first is slow to start and keeps whichever answers first. On slow starts this doubles the upstream request, so provider rate limits and capacity are used up faster, and a backup that ignores cancellation can keep generating in the background. Turn it on only if slow first tokens hurt more than the extra load."
 		},
 		"logging": {
 			"title": "Logging",

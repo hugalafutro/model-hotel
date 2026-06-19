@@ -254,6 +254,34 @@ func TestUpdateSettings_TimeoutDurations(t *testing.T) {
 	}
 }
 
+// Test that hedging_enabled and hedge_delay round-trip through the settings API
+// (AGENTS.md: one save/retrieve test per allowedSettings key).
+func TestUpdateSettings_Hedging(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	body := `{"hedging_enabled": "true", "hedge_delay": "4s"}`
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/settings", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response map[string]string
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+	if response["hedging_enabled"] != "true" {
+		t.Errorf("Expected hedging_enabled='true', got %q", response["hedging_enabled"])
+	}
+	if response["hedge_delay"] != "4s" {
+		t.Errorf("Expected hedge_delay='4s', got %q", response["hedge_delay"])
+	}
+}
+
 // Test for failover.go - SyncFailoverGroups
 
 func TestUpdateSettings_TooManySettings_Integration(t *testing.T) {

@@ -1452,7 +1452,12 @@
 			"cooldownPeriod": "Doba ochlazení",
 			"cooldownPeriod.description": "Doba, po kterou je třeba počkat, než se pokusíte znovu připojit k poskytovateli s přerušeným spojem",
 			"failoverOnRateLimit": "Failover při rate limit",
-			"failoverOnRateLimitDescription": "Přesměrovat na dalšího člena failover skupiny, pokud poskytovatel vrátí kód 429"
+			"failoverOnRateLimitDescription": "Přesměrovat na dalšího člena failover skupiny, pokud poskytovatel vrátí kód 429",
+			"hedging": "Zajištění pomalých streamů",
+			"hedgingDescription": "Souběžně spustí záložního poskytovatele, když první pomalu odesílá první token (jen u streamovacích skupin převzetí služeb)",
+			"hedgeDelay": "Prodleva zajištění",
+			"hedgeDelay.description": "Jak dlouho čekat na první token prvního poskytovatele, než se spustí i záložní poskytovatel",
+			"hedgingNotice": "Zajištění souběžně spustí druhého poskytovatele, když první pomalu začíná, a ponechá toho, kdo odpoví dřív. Při pomalém startu to zdvojnásobí požadavek nahoru, takže limity a kapacita poskytovatele se vyčerpávají rychleji a záloha, která ignoruje zrušení, může dál generovat na pozadí. Zapněte jen tehdy, když pomalé první tokeny škodí víc než zátěž navíc."
 		},
 		"logging": {
 			"title": "Logování",

@@ -937,6 +937,108 @@ func TestChatCompletions_FailoverWithBackoff(t *testing.T) {
 	}
 }
 
+// TestChatCompletions_HedgingRacesBackup exercises the full settings-gated
+// ChatCompletions -> runHedgedStreaming path: with hedging enabled and a streaming
+// failover group whose first member is slow to its first token, the backup member
+// is raced after hedge_delay and serves the stream before the slow member responds.
+func TestChatCompletions_HedgingRacesBackup(t *testing.T) {
+	pool := testDB.Pool()
+	settingsRepo := settings.NewRepository(pool)
+	failoverRepo := failover.NewRepository(pool)
+	modelRepo := model.NewRepository(pool)
+	providerRepo := provider.NewRepository(pool)
+	virtualKeyRepo := virtualkey.NewRepository(pool)
+	limiter := ratelimit.NewLimiter(settingsRepo)
+	ipLimiter := ratelimit.NewIPLimiter(30, 60, nil, nil)
+
+	ctx := context.Background()
+	if err := settingsRepo.Set(ctx, "hedging_enabled", "true"); err != nil {
+		t.Fatalf("set hedging_enabled: %v", err)
+	}
+	if err := settingsRepo.Set(ctx, "hedge_delay", "150ms"); err != nil {
+		t.Fatalf("set hedge_delay: %v", err)
+	}
+	defer func() {
+		_ = settingsRepo.Set(ctx, "hedging_enabled", "false")
+		_ = settingsRepo.Set(ctx, "hedge_delay", "4s")
+	}()
+
+	// First member: streaming 200 but slow to its first token (loses the race).
+	slow := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+		time.Sleep(600 * time.Millisecond)
+		fmt.Fprint(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"SLOW\"}}]}\n\ndata: [DONE]\n\n")
+	}))
+	defer slow.Close()
+	// Second member: fast first token (wins the race).
+	fast := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+		fmt.Fprint(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"FAST\"}}]}\n\ndata: [DONE]\n\n")
+	}))
+	defer fast.Close()
+
+	keyPairSlow, _ := auth.Encrypt("key1", "test-master-key-for-integration")
+	keyPairFast, _ := auth.Encrypt("key2", "test-master-key-for-integration")
+	slowName := "hedge-slow-" + uuid.New().String()[:8]
+	slowProvider, _ := providerRepo.Create(ctx, provider.CreateProviderRequest{Name: slowName, BaseURL: slow.URL, APIKey: "key1"}, keyPairSlow.Ciphertext, keyPairSlow.Nonce, keyPairSlow.Salt)
+	fastName := "hedge-fast-" + uuid.New().String()[:8]
+	fastProvider, _ := providerRepo.Create(ctx, provider.CreateProviderRequest{Name: fastName, BaseURL: fast.URL, APIKey: "key2"}, keyPairFast.Ciphertext, keyPairFast.Nonce, keyPairFast.Salt)
+
+	mkModel := func(pid uuid.UUID, pname string) *model.Model {
+		return &model.Model{
+			ID: uuid.New(), ProviderID: pid, ModelID: "shared-model", Name: "Shared",
+			Capabilities: "{}", Params: "{}", Modality: "chat",
+			InputModalities: "[\"text\"]", OutputModalities: "[\"text\"]",
+			Enabled: true, ProviderName: pname, ProviderEnabled: true,
+		}
+	}
+	slowModel := mkModel(slowProvider.ID, slowName)
+	fastModel := mkModel(fastProvider.ID, fastName)
+	_ = modelRepo.Upsert(ctx, slowModel)
+	_ = modelRepo.Upsert(ctx, fastModel)
+
+	groupName := "hedge-group-" + uuid.New().String()[:8]
+	if _, err := failoverRepo.UpsertWithConfig(ctx, groupName, []uuid.UUID{slowModel.ID, fastModel.ID}, map[string]bool{slowModel.ID.String(): true, fastModel.ID.String(): true}, nil, nil, nil, nil); err != nil {
+		t.Fatalf("failed to create failover group: %v", err)
+	}
+
+	virtualKey, _ := virtualKeyRepo.Create(ctx, "test-key", virtualkey.Hash("test-vk-hedge"), "sk-tes...", nil, nil, nil, nil, nil)
+	defer func() { _ = virtualKeyRepo.Delete(ctx, virtualKey.ID) }()
+
+	handler := newCanonicalHandler(t, "test-master-key-for-integration", pool, settingsRepo, failoverRepo, modelRepo, providerRepo, virtualKeyRepo, limiter, ipLimiter)
+
+	body := `{"model": "hotel/` + groupName + `", "messages": [{"role": "user", "content": "hello"}], "stream": true}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	reqCtx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
+	reqCtx = context.WithValue(reqCtx, virtualKeyIDKey, virtualKey.ID.String())
+	reqCtx = context.WithValue(reqCtx, VirtualKeyHashKey, virtualkey.Hash("test-vk-hedge"))
+	req = req.WithContext(reqCtx)
+
+	w := httptest.NewRecorder()
+	start := time.Now()
+	handler.ChatCompletions(w, req)
+	elapsed := time.Since(start)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 from hedged backup, got %d: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "FAST") {
+		t.Errorf("expected the fast backup to win the race; body: %s", w.Body.String())
+	}
+	// The fast member wins well before the slow member's 600ms first token.
+	if elapsed > 500*time.Millisecond {
+		t.Errorf("hedging did not race the backup: took %s (slow member is 600ms)", elapsed)
+	}
+}
+
 // TestChatCompletions_ClientDisconnectDuringBackoff tests that client disconnect
 // during failover backoff returns 408.
 func TestChatCompletions_ClientDisconnectDuringBackoff(t *testing.T) {
