@@ -1452,7 +1452,12 @@
 			"cooldownPeriod": "Periodo Di Raffreddamento",
 			"cooldownPeriod.description": "Tempo di attesa prima di riprovare un provider con un circuito aperto",
 			"failoverOnRateLimit": "Failover on Rate Limit",
-			"failoverOnRateLimitDescription": "Percorso al prossimo membro del gruppo failover quando un provider restituisce 429"
+			"failoverOnRateLimitDescription": "Percorso al prossimo membro del gruppo failover quando un provider restituisce 429",
+			"hedging": "Copri gli stream lenti",
+			"hedgingDescription": "Avvia un provider di riserva in parallelo quando il primo è lento a inviare il primo token (solo gruppi di failover in streaming)",
+			"hedgeDelay": "Ritardo di copertura",
+			"hedgeDelay.description": "Quanto attendere il primo token del primo provider prima di avviare anche un provider di riserva",
+			"hedgingNotice": "La copertura avvia un secondo provider in parallelo quando il primo è lento a partire e mantiene quello che risponde per primo. Negli avvii lenti questo raddoppia la richiesta a monte, quindi i limiti di frequenza e la capacità del provider si esauriscono più in fretta, e una riserva che ignora l'annullamento può continuare a generare in background. Attivala solo se i primi token lenti danneggiano più del carico extra."
 		},
 		"logging": {
 			"title": "Registrazione",

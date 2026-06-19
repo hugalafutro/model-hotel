@@ -1452,7 +1452,12 @@
 			"cooldownPeriod": "Periodo de Enfriamiento",
 			"cooldownPeriod.description": "Tiempo de espera antes de reintentar un proveedor con un circuito abierto",
 			"failoverOnRateLimit": "Fallo en el límite de tasa",
-			"failoverOnRateLimitDescription": "Ruta al siguiente miembro del grupo de tolerancia contra fallos cuando un proveedor devuelve 429"
+			"failoverOnRateLimitDescription": "Ruta al siguiente miembro del grupo de tolerancia contra fallos cuando un proveedor devuelve 429",
+			"hedging": "Cobertura de flujos lentos",
+			"hedgingDescription": "Lanza un proveedor de respaldo en paralelo cuando el primero tarda en enviar su primer token (solo grupos de conmutación en streaming)",
+			"hedgeDelay": "Retardo de cobertura",
+			"hedgeDelay.description": "Cuánto esperar el primer token del primer proveedor antes de lanzar también un proveedor de respaldo",
+			"hedgingNotice": "La cobertura lanza un segundo proveedor en paralelo cuando el primero tarda en arrancar y conserva el que responde primero. En arranques lentos esto duplica la petición ascendente, por lo que los límites de frecuencia y la capacidad del proveedor se agotan más rápido, y un respaldo que ignora la cancelación puede seguir generando en segundo plano. Actívalo solo si los primeros tokens lentos perjudican más que la carga extra."
 		},
 		"logging": {
 			"title": "Registro",

@@ -1452,7 +1452,12 @@
 			"cooldownPeriod": "Visszavonási határidő",
 			"cooldownPeriod.description": "A nyitott áramkörű szolgáltató újbóli megkísérlése előtt várni kell",
 			"failoverOnRateLimit": "Failover a sebességkorlátozás esetén",
-			"failoverOnRateLimitDescription": "A következő failover-csoport tagjához való átirányítás, ha a szolgáltató 429-es hibakódot ad vissza"
+			"failoverOnRateLimitDescription": "A következő failover-csoport tagjához való átirányítás, ha a szolgáltató 429-es hibakódot ad vissza",
+			"hedging": "Lassú streamek fedezése",
+			"hedgingDescription": "Párhuzamosan elindít egy tartalék szolgáltatót, ha az első lassan küldi az első tokent (csak streamelő feladatátvételi csoportoknál)",
+			"hedgeDelay": "Fedezési késleltetés",
+			"hedgeDelay.description": "Mennyi ideig várjon az első szolgáltató első tokenjére, mielőtt egy tartalék szolgáltatót is elindít",
+			"hedgingNotice": "A fedezés párhuzamosan elindít egy második szolgáltatót, ha az első lassan indul, és azt tartja meg, amelyik előbb válaszol. Lassú indulásnál ez megkétszerezi a felfelé irányuló kérést, így a szolgáltató sebességkorlátai és kapacitása gyorsabban elfogynak, és egy lemondást figyelmen kívül hagyó tartalék a háttérben tovább generálhat. Csak akkor kapcsold be, ha a lassú első tokenek többet ártanak, mint a többletterhelés."
 		},
 		"logging": {
 			"title": "Naplózás",

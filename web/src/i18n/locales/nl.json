@@ -1452,7 +1452,12 @@
 			"cooldownPeriod": "Afkoeltijd Periode",
 			"cooldownPeriod.description": "Wachttijd voor het opnieuw proberen van een provider met een open circuit",
 			"failoverOnRateLimit": "Fout bij tarieflimiet",
-			"failoverOnRateLimitDescription": "Route naar volgende 'failover' groepslid wanneer een provider 429 teruggeeft"
+			"failoverOnRateLimitDescription": "Route naar volgende 'failover' groepslid wanneer een provider 429 teruggeeft",
+			"hedging": "Trage streams afdekken",
+			"hedgingDescription": "Start parallel een back-upprovider wanneer de eerste traag is met het eerste token (alleen streamende failovergroepen)",
+			"hedgeDelay": "Afdekvertraging",
+			"hedgeDelay.description": "Hoe lang op het eerste token van de eerste provider wordt gewacht voordat ook een back-upprovider wordt gestart",
+			"hedgingNotice": "Afdekken start een tweede provider parallel wanneer de eerste traag opstart en houdt degene die het eerst antwoordt. Bij trage starts verdubbelt dit de upstream-aanvraag, dus snelheidslimieten en capaciteit van de provider raken sneller op, en een back-up die annulering negeert kan op de achtergrond blijven genereren. Zet dit alleen aan als trage eerste tokens meer schaden dan de extra belasting."
 		},
 		"logging": {
 			"title": "Logboekregistratie",

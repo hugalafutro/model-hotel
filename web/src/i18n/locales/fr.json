@@ -1452,7 +1452,12 @@
 			"cooldownPeriod": "Période de récupération",
 			"cooldownPeriod.description": "Temps d'attente avant de réessayer un fournisseur avec un circuit ouvert",
 			"failoverOnRateLimit": "Failover sur limite de taux",
-			"failoverOnRateLimitDescription": "Route vers le membre du groupe de basculement suivant lorsqu'un fournisseur renvoie 429"
+			"failoverOnRateLimitDescription": "Route vers le membre du groupe de basculement suivant lorsqu'un fournisseur renvoie 429",
+			"hedging": "Couvrir les flux lents",
+			"hedgingDescription": "Lance un fournisseur de secours en parallèle quand le premier tarde à envoyer son premier jeton (groupes de bascule en streaming uniquement)",
+			"hedgeDelay": "Délai de couverture",
+			"hedgeDelay.description": "Combien de temps attendre le premier jeton du premier fournisseur avant de lancer aussi un fournisseur de secours",
+			"hedgingNotice": "La couverture lance un second fournisseur en parallèle quand le premier démarre lentement et garde celui qui répond en premier. Lors des démarrages lents, cela double la requête en amont : les limites de débit et la capacité du fournisseur s'épuisent plus vite, et un secours qui ignore l'annulation peut continuer à générer en arrière-plan. Ne l'activez que si les premiers jetons lents nuisent plus que la charge supplémentaire."
 		},
 		"logging": {
 			"title": "Journalisation",

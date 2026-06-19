@@ -1452,7 +1452,12 @@
 			"cooldownPeriod": "Perioadă de răcire",
 			"cooldownPeriod.description": "Timpul de așteptare înainte de a reîncerca un furnizor cu un circuit deschis",
 			"failoverOnRateLimit": "Eșuare la limita ratei",
-			"failoverOnRateLimitDescription": "Ruta către următorul membru al grupului eșuat atunci când un furnizor returnează 429"
+			"failoverOnRateLimitDescription": "Ruta către următorul membru al grupului eșuat atunci când un furnizor returnează 429",
+			"hedging": "Acoperă fluxurile lente",
+			"hedgingDescription": "Pornește în paralel un furnizor de rezervă când primul trimite lent primul token (doar grupuri de failover în streaming)",
+			"hedgeDelay": "Întârziere de acoperire",
+			"hedgeDelay.description": "Cât să aștepte primul token al primului furnizor înainte de a porni și un furnizor de rezervă",
+			"hedgingNotice": "Acoperirea pornește în paralel un al doilea furnizor când primul demarează lent și îl păstrează pe cel care răspunde primul. La porniri lente acest lucru dublează cererea în amonte, deci limitele de rată și capacitatea furnizorului se consumă mai repede, iar o rezervă care ignoră anularea poate continua să genereze în fundal. Activează doar dacă primele token-uri lente dăunează mai mult decât sarcina suplimentară."
 		},
 		"logging": {
 			"title": "Logare",

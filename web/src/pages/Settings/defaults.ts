@@ -34,6 +34,8 @@ export const SETTING_DEFAULTS: Record<SettingKey, string> = {
 	circuit_breaker_threshold: "5",
 	circuit_breaker_cooldown: "1m0s",
 	failover_on_rate_limit: "true",
+	hedging_enabled: "false",
+	hedge_delay: "4s",
 
 	// Data storage & logging
 	log_retention: "0",
@@ -86,6 +88,8 @@ export const SECTION_SETTINGS: Record<SectionName, string[]> = {
 		"circuit_breaker_threshold",
 		"circuit_breaker_cooldown",
 		"failover_on_rate_limit",
+		"hedging_enabled",
+		"hedge_delay",
 	],
 	dataStorage: ["log_retention", "stale_request_timeout"],
 	alerts: [
@@ -115,6 +119,8 @@ export type SettingKey =
 	| "circuit_breaker_threshold"
 	| "circuit_breaker_cooldown"
 	| "failover_on_rate_limit"
+	| "hedging_enabled"
+	| "hedge_delay"
 	| "log_retention"
 	| "stale_request_timeout"
 	| "alert_enabled"
@@ -145,6 +151,8 @@ export const SETTING_LABELS: Record<SettingKey, string> = {
 	circuit_breaker_threshold: "settings.circuitBreaker.failureThreshold",
 	circuit_breaker_cooldown: "settings.circuitBreaker.cooldownPeriod",
 	failover_on_rate_limit: "settings.circuitBreaker.failoverOnRateLimit",
+	hedging_enabled: "settings.circuitBreaker.hedging",
+	hedge_delay: "settings.circuitBreaker.hedgeDelay",
 	log_retention: "settings.logging.logRetention",
 	stale_request_timeout: "settings.logging.staleRequestTimeout",
 	alert_enabled: "settings.alerts.enable",

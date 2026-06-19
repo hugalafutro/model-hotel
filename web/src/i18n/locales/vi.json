@@ -1452,7 +1452,12 @@
 			"cooldownPeriod": "Thời gian chờ",
 			"cooldownPeriod.description": "Thời gian chờ trước khi thử lại với nhà cung cấp có sự cố đứt mạch",
 			"failoverOnRateLimit": "Chuyển đổi dự phòng khi vượt giới hạn tốc độ",
-			"failoverOnRateLimitDescription": "Chuyển hướng đến thành viên tiếp theo trong nhóm dự phòng khi nhà cung cấp trả về mã trạng thái 429"
+			"failoverOnRateLimitDescription": "Chuyển hướng đến thành viên tiếp theo trong nhóm dự phòng khi nhà cung cấp trả về mã trạng thái 429",
+			"hedging": "Phòng vệ luồng chậm",
+			"hedgingDescription": "Chạy song song một nhà cung cấp dự phòng khi nhà cung cấp đầu tiên gửi token đầu tiên chậm (chỉ với nhóm chuyển đổi dự phòng dạng phát trực tuyến)",
+			"hedgeDelay": "Độ trễ phòng vệ",
+			"hedgeDelay.description": "Thời gian chờ token đầu tiên của nhà cung cấp đầu tiên trước khi cũng khởi chạy nhà cung cấp dự phòng",
+			"hedgingNotice": "Phòng vệ chạy song song nhà cung cấp thứ hai khi nhà cung cấp đầu tiên khởi động chậm và giữ lại bên trả lời trước. Khi khởi động chậm, điều này nhân đôi yêu cầu lên thượng nguồn, nên giới hạn tốc độ và dung lượng của nhà cung cấp bị dùng hết nhanh hơn, và một bản dự phòng bỏ qua việc hủy có thể tiếp tục tạo ở chế độ nền. Chỉ bật nếu token đầu tiên chậm gây hại nhiều hơn tải phụ thêm."
 		},
 		"logging": {
 			"title": "Ghi nhật ký",

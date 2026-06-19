@@ -1452,7 +1452,12 @@
 			"cooldownPeriod": "Período de Resfriamento",
 			"cooldownPeriod.description": "Tempo de espera antes de tentar um provedor novamente com um circuito aberto",
 			"failoverOnRateLimit": "Falhar com o Limite de Taxa",
-			"failoverOnRateLimitDescription": "Rota para o próximo membro do grupo quando um provedor retorna 429"
+			"failoverOnRateLimitDescription": "Rota para o próximo membro do grupo quando um provedor retorna 429",
+			"hedging": "Cobrir fluxos lentos",
+			"hedgingDescription": "Executa um provedor de reserva em paralelo quando o primeiro demora a enviar o primeiro token (apenas grupos de failover em streaming)",
+			"hedgeDelay": "Atraso de cobertura",
+			"hedgeDelay.description": "Quanto tempo esperar pelo primeiro token do primeiro provedor antes de também iniciar um provedor de reserva",
+			"hedgingNotice": "A cobertura inicia um segundo provedor em paralelo quando o primeiro demora a começar e mantém o que responder primeiro. Em inícios lentos isso duplica a solicitação a montante, então os limites de taxa e a capacidade do provedor se esgotam mais rápido, e uma reserva que ignora o cancelamento pode continuar gerando em segundo plano. Ative apenas se os primeiros tokens lentos prejudicarem mais do que a carga extra."
 		},
 		"logging": {
 			"title": "Registro",

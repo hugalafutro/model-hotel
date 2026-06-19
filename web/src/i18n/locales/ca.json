@@ -1452,7 +1452,12 @@
 			"cooldownPeriod": "Període de refredament",
 			"cooldownPeriod.description": "Temps d'espera abans de tornar a provar un proveïdor amb un circuit obert",
 			"failoverOnRateLimit": "Fallada en el límit de velocitat",
-			"failoverOnRateLimitDescription": "Ruta cap al següent membre del grup de fallada quan un proveïdor retorna 429"
+			"failoverOnRateLimitDescription": "Ruta cap al següent membre del grup de fallada quan un proveïdor retorna 429",
+			"hedging": "Cobertura de fluxos lents",
+			"hedgingDescription": "Competeix amb un proveïdor de reserva en paral·lel quan el primer triga a enviar el primer testimoni (només grups de commutació en streaming)",
+			"hedgeDelay": "Retard de cobertura",
+			"hedgeDelay.description": "Quant de temps esperar el primer testimoni del primer proveïdor abans de llançar també un proveïdor de reserva",
+			"hedgingNotice": "La cobertura llança un segon proveïdor en paral·lel quan el primer triga a començar i conserva el que respon primer. En inicis lents això duplica la petició cap amunt, de manera que els límits de freqüència i la capacitat del proveïdor s'esgoten més de pressa, i una reserva que ignora la cancel·lació pot continuar generant en segon pla. Activa-ho només si els primers testimonis lents fan més mal que la càrrega addicional."
 		},
 		"logging": {
 			"title": "Registre",

@@ -1452,7 +1452,12 @@
 			"cooldownPeriod": "Bekleme Süresi",
 			"cooldownPeriod.description": "Devre açıkken sağlayıcıyı yeniden denemeden önce bekleme süresi",
 			"failoverOnRateLimit": "Hız Sınırında Yedekleme",
-			"failoverOnRateLimitDescription": "Bir sağlayıcı 429 hatası döndürdüğünde bir sonraki yedekleme grubu üyesine yönlendirme"
+			"failoverOnRateLimitDescription": "Bir sağlayıcı 429 hatası döndürdüğünde bir sonraki yedekleme grubu üyesine yönlendirme",
+			"hedging": "Yavaş akışları hedge'le",
+			"hedgingDescription": "İlk sağlayıcı ilk belirtecini yavaş gönderdiğinde paralel olarak bir yedek sağlayıcı çalıştırır (yalnızca akışlı yük devretme grupları)",
+			"hedgeDelay": "Hedge gecikmesi",
+			"hedgeDelay.description": "Yedek sağlayıcı da başlatılmadan önce ilk sağlayıcının ilk belirteci ne kadar beklenir",
+			"hedgingNotice": "Hedge, ilk sağlayıcı yavaş başladığında ikinci bir sağlayıcıyı paralel çalıştırır ve önce yanıt vereni tutar. Yavaş başlangıçlarda bu, üst akış isteğini ikiye katlar; böylece sağlayıcının hız sınırları ve kapasitesi daha hızlı tükenir ve iptali yok sayan bir yedek arka planda üretmeye devam edebilir. Yalnızca yavaş ilk belirteçler ek yükten daha çok zarar veriyorsa açın."
 		},
 		"logging": {
 			"title": "Günlük kaydı",

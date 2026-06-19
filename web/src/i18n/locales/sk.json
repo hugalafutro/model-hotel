@@ -1452,7 +1452,12 @@
 			"cooldownPeriod": "Lehota na rozmyslenie",
 			"cooldownPeriod.description": "Čas, ktorý je potrebné počkať pred opätovným pokusom o pripojenie k poskytovateľovi s prerušeným spojom",
 			"failoverOnRateLimit": "Prepnutie pri prekročení limitu",
-			"failoverOnRateLimitDescription": "Presmerovať na ďalšieho člena skupiny pre prevzatie pri výpadku, ak poskytovateľ vráti kód 429"
+			"failoverOnRateLimitDescription": "Presmerovať na ďalšieho člena skupiny pre prevzatie pri výpadku, ak poskytovateľ vráti kód 429",
+			"hedging": "Zaistiť pomalé streamy",
+			"hedgingDescription": "Paralelne spustí záložného poskytovateľa, keď prvý pomaly odošle prvý token (len streamovacie skupiny prevzatia služieb)",
+			"hedgeDelay": "Oneskorenie zaistenia",
+			"hedgeDelay.description": "Ako dlho čakať na prvý token prvého poskytovateľa, než sa spustí aj záložný poskytovateľ",
+			"hedgingNotice": "Zaistenie paralelne spustí druhého poskytovateľa, keď prvý pomaly štartuje, a ponechá toho, kto odpovie skôr. Pri pomalom štarte to zdvojnásobí požiadavku nahor, takže limity a kapacita poskytovateľa sa míňajú rýchlejšie a záloha, ktorá ignoruje zrušenie, môže ďalej generovať na pozadí. Zapnite len vtedy, ak pomalé prvé tokeny škodia viac než záťaž navyše."
 		},
 		"logging": {
 			"title": "Vytváranie protokolov",

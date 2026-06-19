@@ -152,6 +152,11 @@ type requestState struct {
 	failoverTimeout       time.Duration
 	overallDeadline       time.Time
 	circuitBreakerEnabled bool
+	// Request hedging (streaming only): when hedgingEnabled, a streaming
+	// failover group races a backup provider hedgeDelay after the first stays
+	// silent, keeping whichever returns its first token first.
+	hedgingEnabled bool
+	hedgeDelay     time.Duration
 
 	// Accumulated across failover attempts (phase D / E). lastReqErr is the
 	// structured cause of the most recent attempt's failure; lastErr is its

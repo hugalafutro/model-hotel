@@ -560,6 +560,14 @@ func (h *Handler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 	debuglog.Debug("proxy: model resolved (pre-loop)", "model", st.logData.modelID, "provider", st.logData.providerName, "candidates", len(candidates), "overhead_ms", st.proxyOverhead)
 
+	// Request hedging (opt-in, streaming failover groups only): race a backup
+	// provider's first-token probe instead of trying members strictly in
+	// sequence. Everything else keeps the sequential failover loop unchanged.
+	if st.hedgingEnabled && st.isStreaming && len(candidates) > 1 {
+		h.runHedgedStreaming(w, r, st, candidates, h.probeStreamingCandidate)
+		return
+	}
+
 	h.runFailoverLoop(w, r, st, candidates, h.attemptCandidate)
 }
 

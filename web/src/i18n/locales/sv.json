@@ -1452,7 +1452,12 @@
 			"cooldownPeriod": "Nedkylningsperiod",
 			"cooldownPeriod.description": "Dags att vänta innan du försöker om en leverantör med öppen krets",
 			"failoverOnRateLimit": "Failover on Rate Limit (Automatic Copy)",
-			"failoverOnRateLimitDescription": "Väg till nästa medlem i gruppen misslyckas när en leverantör returnerar 429"
+			"failoverOnRateLimitDescription": "Väg till nästa medlem i gruppen misslyckas när en leverantör returnerar 429",
+			"hedging": "Säkra långsamma strömmar",
+			"hedgingDescription": "Kör en reservleverantör parallellt när den första är långsam med sitt första token (endast strömmande failover-grupper)",
+			"hedgeDelay": "Säkringsfördröjning",
+			"hedgeDelay.description": "Hur länge den första leverantörens första token inväntas innan en reservleverantör också startas",
+			"hedgingNotice": "Säkring startar en andra leverantör parallellt när den första är långsam i gång och behåller den som svarar först. Vid långsamma starter fördubblar detta uppströmsbegäran, så leverantörens hastighetsgränser och kapacitet förbrukas snabbare, och en reserv som ignorerar avbrytning kan fortsätta generera i bakgrunden. Slå bara på det om långsamma första tokens skadar mer än den extra belastningen."
 		},
 		"logging": {
 			"title": "Loggar",

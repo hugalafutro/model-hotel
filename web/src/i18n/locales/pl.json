@@ -1452,7 +1452,12 @@
 			"cooldownPeriod": "Okres odnowienia",
 			"cooldownPeriod.description": "Czas oczekiwania przed ponownym wypróbowaniem dostawcy z otwartym obwodem",
 			"failoverOnRateLimit": "Niepowodzenie podczas limitu szybkości",
-			"failoverOnRateLimitDescription": "Trasa do następnego członka grupy awarii, gdy dostawca zwraca 429"
+			"failoverOnRateLimitDescription": "Trasa do następnego członka grupy awarii, gdy dostawca zwraca 429",
+			"hedging": "Zabezpiecz wolne strumienie",
+			"hedgingDescription": "Uruchamia równolegle zapasowego dostawcę, gdy pierwszy powoli wysyła pierwszy token (tylko strumieniowe grupy przełączania awaryjnego)",
+			"hedgeDelay": "Opóźnienie zabezpieczenia",
+			"hedgeDelay.description": "Jak długo czekać na pierwszy token pierwszego dostawcy, zanim zostanie uruchomiony także dostawca zapasowy",
+			"hedgingNotice": "Zabezpieczenie uruchamia drugiego dostawcę równolegle, gdy pierwszy wolno startuje, i zachowuje tego, który odpowie pierwszy. Przy wolnych startach podwaja to żądanie w górę strumienia, więc limity szybkości i przepustowość dostawcy wyczerpują się szybciej, a zapas ignorujący anulowanie może dalej generować w tle. Włącz tylko wtedy, gdy wolne pierwsze tokeny szkodzą bardziej niż dodatkowe obciążenie."
 		},
 		"logging": {
 			"title": "Rejestrowanie",

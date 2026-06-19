@@ -1452,7 +1452,12 @@
 			"cooldownPeriod": "Jäähdytysaika",
 			"cooldownPeriod.description": "Aika odottaa ennen kuin avoimen piirin tarjoajaa yritetään uudelleen",
 			"failoverOnRateLimit": "Epäonnistuminen hinnanalennuksen rajoissa",
-			"failoverOnRateLimitDescription": "Reitti seuraavaan epäonnistuneen ryhmän jäseneen, kun palveluntarjoaja palauttaa 429"
+			"failoverOnRateLimitDescription": "Reitti seuraavaan epäonnistuneen ryhmän jäseneen, kun palveluntarjoaja palauttaa 429",
+			"hedging": "Suojaa hitaat virrat",
+			"hedgingDescription": "Käynnistää varantarjoajan rinnakkain, kun ensimmäinen lähettää ensimmäisen tokenin hitaasti (vain suoratoiston vikasietoryhmät)",
+			"hedgeDelay": "Suojausviive",
+			"hedgeDelay.description": "Kuinka kauan odotetaan ensimmäisen tarjoajan ensimmäistä tokenia ennen kuin myös varantarjoaja käynnistetään",
+			"hedgingNotice": "Suojaus käynnistää toisen tarjoajan rinnakkain, kun ensimmäinen on hidas alkuun, ja pitää sen, joka vastaa ensin. Hitaissa aloituksissa tämä kaksinkertaistaa ylävirran pyynnön, joten tarjoajan nopeusrajat ja kapasiteetti kuluvat nopeammin, ja peruutuksen ohittava varatarjoaja voi jatkaa tuottamista taustalla. Ota käyttöön vain, jos hitaat ensimmäiset tokenit haittaavat enemmän kuin lisäkuorma."
 		},
 		"logging": {
 			"title": "Lokitus",

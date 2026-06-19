@@ -538,6 +538,118 @@ describe("CircuitBreakerSettings", () => {
 		});
 	});
 
+	describe("hedging", () => {
+		it("hedging toggle is OFF by default and hides the delay slider and notice", async () => {
+			server.use(...mockSettings({ body: {} }));
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(
+					screen.getByRole("switch", { name: /hedge slow streams/i }),
+				).toHaveAttribute("aria-checked", "false");
+			});
+			expect(screen.queryByLabelText("Hedge Delay")).not.toBeInTheDocument();
+			expect(
+				screen.queryByText(/Hedging fires a second/i),
+			).not.toBeInTheDocument();
+		});
+
+		it("shows the delay slider and cost notice when hedging is enabled", async () => {
+			server.use(
+				...mockSettings({
+					body: { hedging_enabled: "true", hedge_delay: "4s" },
+				}),
+			);
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				const input = screen.getByLabelText("Hedge Delay") as HTMLInputElement;
+				expect(input.value).toBe("4");
+				expect(input.min).toBe("1");
+				expect(input.max).toBe("15");
+			});
+			expect(screen.getByText(/Hedging fires a second/i)).toBeInTheDocument();
+		});
+
+		it("toggles hedging on and calls mutation", async () => {
+			const user = userEvent.setup();
+			let capturedPayload: Record<string, string> | undefined;
+
+			server.use(
+				...mockSettings({ body: {} }),
+				http.put("/api/settings", async ({ request }) => {
+					if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+						return HttpResponse.json(
+							{ error: "Unauthorized" },
+							{ status: 401 },
+						);
+					}
+					capturedPayload = (await request.json()) as Record<string, string>;
+					return HttpResponse.json({ ok: true });
+				}),
+			);
+
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+
+			const toggle = screen.getByRole("switch", {
+				name: /hedge slow streams/i,
+			});
+			await user.click(toggle);
+
+			await waitFor(() => {
+				expect(capturedPayload).toEqual({ hedging_enabled: "true" });
+				expect(screen.getByText("Settings saved")).toBeInTheDocument();
+			});
+		});
+
+		it("calls mutation when the hedge delay slider changes", async () => {
+			let mutationCalled = false;
+
+			server.use(
+				...mockSettings({
+					body: { hedging_enabled: "true", hedge_delay: "4s" },
+				}),
+				http.put("/api/settings", async ({ request }) => {
+					if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+						return HttpResponse.json(
+							{ error: "Unauthorized" },
+							{ status: 401 },
+						);
+					}
+					const body = await request.json();
+					if (
+						typeof body === "object" &&
+						body !== null &&
+						"hedge_delay" in body
+					) {
+						mutationCalled = true;
+					}
+					return HttpResponse.json({ ok: true });
+				}),
+			);
+
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+
+			await waitFor(() => {
+				expect(screen.getByLabelText("Hedge Delay")).toBeInTheDocument();
+			});
+
+			const input = screen.getByLabelText("Hedge Delay") as HTMLInputElement;
+			fireEvent.change(input, { target: { value: "8" } });
+			fireEvent.pointerUp(input);
+
+			await waitFor(() => {
+				expect(mutationCalled).toBe(true);
+			});
+		});
+	});
+
 	describe("per-setting reset", () => {
 		it("calls api.settings.reset when reset button is clicked", async () => {
 			const resetSpy = vi.spyOn(api.settings, "reset");
