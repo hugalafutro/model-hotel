@@ -593,6 +593,20 @@ func (h *Handler) runFailoverLoop(w http.ResponseWriter, r *http.Request, st *re
 			select {
 			case <-time.After(backoff):
 			case <-r.Context().Done():
+				// If the prior attempt was a zero-token provider stall, the
+				// silent connection was most likely dropped by an intermediary
+				// (reverse proxy / LB / CDN) idle-read timeout rather than the
+				// client. Preserve the provider stall as the terminal cause
+				// instead of overwriting it with a client disconnect.
+				if st.lastReqErr.Kind == KindProviderTimeout {
+					status := st.lastReqErr.terminalStatus()
+					logMsg := st.lastReqErr.terminalLogMessage(st.isFailover, len(candidates))
+					clientMsg := st.lastReqErr.terminalClientMessage(st.reqModel, st.isFailover)
+					debuglog.Info("proxy: connection closed during failover backoff after provider stall", "model", st.logData.modelID, "provider", st.logData.providerName, "attempt", attempt+1, "kind", string(st.lastReqErr.Kind), "status", status)
+					h.failRequest(st.logData, status, st.lastReqErr.Kind, logMsg, attempt-1, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
+					writeOpenAIError(w, clientMsg, status)
+					return
+				}
 				debuglog.Info("proxy: client disconnected during failover backoff", "model", st.logData.modelID, "provider", st.logData.providerName, "attempt", attempt+1)
 				// Carry the prior attempt's provider error (if any) so the log
 				// shows what was failing when the client gave up. 499 (client

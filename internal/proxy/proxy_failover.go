@@ -158,11 +158,35 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	return outcomeServed
 }
 
+// classifyProbeFailure decides how a zero-token TTFT probe failure is recorded.
+// Reaching a probe failure means the provider produced no "data:" token within
+// the window. The provider is at fault — provider_timeout, recorded against the
+// breaker and eligible for failover — when either our own TTFT timer fired
+// (clientGone == false) or the downstream connection was closed only after the
+// provider had already stayed silent past the stall timeout. A faster downstream
+// close with zero tokens is treated as a genuine client disconnect and is not
+// charged to the provider. When the connection was closed downstream while the
+// provider was stalling, the error carries a hint that an upstream reverse proxy,
+// load balancer, or CDN idle-read timeout is the likely cause (Model Hotel sends
+// nothing downstream during the probe, so a silent connection looks idle).
+func classifyProbeFailure(providerName, underlying string, clientGone bool, elapsed, stallTimeout, ttftTimeout time.Duration, attempt int) (re reqError, recordFailure bool) {
+	if clientGone && elapsed < stallTimeout {
+		// Fast downstream close with zero tokens: a genuine client cancel.
+		return reqError{Kind: KindClientDisconnect, Attempt: attempt, Provider: providerName, Underlying: underlying}, false
+	}
+	re = reqError{Kind: KindProviderTimeout, Attempt: attempt, Provider: providerName, Underlying: underlying}
+	if clientGone {
+		re.Hint = fmt.Sprintf("%s produced no first token before the connection was closed after %.0fs, under the %s first-token timeout; if the caller did not cancel, an upstream reverse proxy, load balancer, or CDN likely closed the idle connection: raise its read timeout above %s or set ttft_timeout below it", providerName, elapsed.Seconds(), ttftTimeout, ttftTimeout)
+	}
+	return re, true
+}
+
 // dispatchStreaming serves a streaming 200 response (phase H): read the TTFT and
 // stall timeouts, build the streamOptions, run the TTFT probe (on success commit
-// the breaker and stash the pre-read buffer; on failure close the body, record a
-// breaker failure unless the client disconnected, and fail over), then hand off
-// to handleStreamingResponse. Returns outcomeServed on a served stream or
+// the breaker and stash the pre-read buffer; on failure close the body, classify
+// the zero-token stall via classifyProbeFailure, record a breaker failure unless
+// it was a fast client cancel, and fail over), then hand off to
+// handleStreamingResponse. Returns outcomeServed on a served stream or
 // outcomeFailover when the probe fails.
 func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, resp *http.Response, attempt int, responseHeaderMs float64, streamCancelOrigin string) candidateOutcome {
 	logData := st.logData
@@ -196,23 +220,20 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 			// or may not have closed the body (only on DeadlineExceeded);
 			// close it unconditionally to release the connection.
 			_ = resp.Body.Close()
-			// Skip circuit-breaker recording when the client disconnected:
-			// the probe failed because r.Context() was cancelled, not because
-			// the provider was unhealthy.
+			// Reaching here means zero "data:" tokens arrived from the provider.
+			// classifyProbeFailure decides whether that is a provider stall
+			// (recorded against the breaker, failover-eligible) or a genuinely
+			// fast client cancel that must not penalize the provider.
 			clientGone := r.Context().Err() != nil
-			if st.circuitBreakerEnabled && !clientGone {
+			elapsed := time.Since(st.startTime)
+			re, recordFailure := classifyProbeFailure(candidate.provider.Name, errString(probeErr), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
+			if recordFailure && st.circuitBreakerEnabled {
 				h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name)
 			}
-			// Distinguish a client disconnect (don't blame the provider) from a
-			// genuine TTFT timeout (the provider was too slow to first token).
-			probeKind := KindProviderTimeout
-			if clientGone {
-				probeKind = KindClientDisconnect
-			}
-			st.setReqErr(reqError{Kind: probeKind, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(probeErr)})
+			st.setReqErr(re)
 			logData.failoverAttempt = attempt
 			logData.responseHeaderMs = responseHeaderMs
-			debuglog.Warn("proxy: TTFT probe failed", "attempt", attempt+1, "provider", candidate.provider.Name, "error", probeErr)
+			debuglog.Warn("proxy: TTFT probe failed", "attempt", attempt+1, "provider", candidate.provider.Name, "client_gone", clientGone, "elapsed", elapsed, "provider_stalled", recordFailure, "error", probeErr)
 			return outcomeFailover
 		}
 		// First token confirmed (or [DONE] received).

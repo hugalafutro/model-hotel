@@ -131,6 +131,17 @@ These settings are stored in the `settings` table and can be changed at runtime 
 | `backup_father_retention` | int | `4` | Number of weekly backups to keep (father tier). Keeps the most recent backup from each of the last N weeks, excluding sons. | 0–52 |
 | `backup_grandfather_retention` | int | `3` | Number of monthly backups to keep (grandfather tier). Keeps the most recent backup from each of the last N months, excluding sons and fathers. | 0–120 |
 
+### Streaming behind a reverse proxy
+
+The TTFT probe holds the client connection open without sending any bytes until the upstream produces its first token (up to `ttft_timeout`). If Model Hotel runs behind a reverse proxy, load balancer, or CDN, that intermediary's idle-read timeout can close the silent connection before the first token arrives, and Model Hotel only sees its inbound connection drop.
+
+To avoid this, either:
+
+- raise the proxy's read timeout above `ttft_timeout` (nginx: `proxy_read_timeout 600s;`) and disable response buffering for streaming (nginx: `proxy_buffering off;`), or
+- set `ttft_timeout` below the proxy's read timeout, so Model Hotel's own probe fires first and fails over to the next provider while the connection is still alive.
+
+A request cut off this way is logged as a `provider_timeout` (502) whose message names the likely reverse-proxy cause, and the stalling provider's circuit breaker records the failure, so repeated stalls open the breaker and subsequent requests skip that provider.
+
 ### Reset to Defaults
 
 All database settings can be reset to their Go-side defaults via the **Reset to Defaults** feature in the Settings UI:
