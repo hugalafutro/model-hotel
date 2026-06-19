@@ -600,7 +600,12 @@ func (h *Handler) runFailoverLoop(w http.ResponseWriter, r *http.Request, st *re
 				// instead of overwriting it with a client disconnect.
 				if st.lastReqErr.Kind == KindProviderTimeout {
 					status := st.lastReqErr.terminalStatus()
-					logMsg := st.lastReqErr.terminalLogMessage(st.isFailover, len(candidates))
+					// Only `attempt` providers were actually contacted before the
+					// connection dropped during this backoff; the remaining
+					// candidates were never tried. Pass the attempted count (not
+					// len(candidates)) so the log does not claim "all N providers
+					// failed" when only the first stalled.
+					logMsg := st.lastReqErr.terminalLogMessage(st.isFailover, attempt)
 					clientMsg := st.lastReqErr.terminalClientMessage(st.reqModel, st.isFailover)
 					debuglog.Info("proxy: connection closed during failover backoff after provider stall", "model", st.logData.modelID, "provider", st.logData.providerName, "attempt", attempt+1, "kind", string(st.lastReqErr.Kind), "status", status)
 					h.failRequest(st.logData, status, st.lastReqErr.Kind, logMsg, attempt-1, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)

@@ -100,8 +100,8 @@ func TestReqErrorRender_ProviderTimeoutHint(t *testing.T) {
 // runBackoffLoopWithPriorError drives runFailoverLoop with a pre-cancelled
 // request context so the second candidate hits the backoff disconnect branch,
 // after a fake first attempt recorded priorKind. It returns the HTTP status the
-// loop wrote and the terminal reqError kind.
-func runBackoffLoopWithPriorError(t *testing.T, priorKind ErrorKind) (int, ErrorKind) {
+// loop wrote, the terminal reqError kind, and the message persisted to the log.
+func runBackoffLoopWithPriorError(t *testing.T, priorKind ErrorKind) (int, ErrorKind, string) {
 	t.Helper()
 	h := newIntegrationHandler()
 	defer stopUnitHandler(h)
@@ -116,7 +116,9 @@ func runBackoffLoopWithPriorError(t *testing.T, priorKind ErrorKind) (int, Error
 		state:          "streaming",
 	}
 	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
+	// Deterministic barrier on the async INSERT instead of a fixed sleep, which
+	// could flake on a loaded CI runner.
+	h.WaitForInsert(logData)
 
 	st := &requestState{
 		startTime:             time.Now(),
@@ -144,7 +146,7 @@ func runBackoffLoopWithPriorError(t *testing.T, priorKind ErrorKind) (int, Error
 	}
 
 	h.runFailoverLoop(w, req, st, candidates, fakeAttempt)
-	return w.Code, st.lastReqErr.Kind
+	return w.Code, st.lastReqErr.Kind, logData.errorMessage
 }
 
 // TestRunFailoverLoop_BackoffPreservesProviderStall verifies that when the prior
@@ -152,12 +154,21 @@ func runBackoffLoopWithPriorError(t *testing.T, priorKind ErrorKind) (int, Error
 // backoff is reported as provider_timeout/502, NOT mislabeled client_disconnect.
 // This is the exact site where the user's 499 was previously stamped.
 func TestRunFailoverLoop_BackoffPreservesProviderStall(t *testing.T) {
-	status, kind := runBackoffLoopWithPriorError(t, KindProviderTimeout)
+	status, kind, logMsg := runBackoffLoopWithPriorError(t, KindProviderTimeout)
 	if status != http.StatusBadGateway {
 		t.Errorf("expected 502 (provider stall preserved), got %d", status)
 	}
 	if kind != KindProviderTimeout {
 		t.Errorf("expected lastReqErr to remain provider_timeout, got %s", kind)
+	}
+	// Only the first provider was contacted before the backoff disconnect, so
+	// the log must not claim "all N providers failed" with the full candidate
+	// count; it carries the single provider_timeout message.
+	if strings.Contains(logMsg, "providers failed") {
+		t.Errorf("log should not claim multiple providers failed when only one was tried: %q", logMsg)
+	}
+	if !strings.Contains(logMsg, "did not return a response in time") {
+		t.Errorf("log should carry the provider_timeout message, got %q", logMsg)
 	}
 }
 
@@ -165,7 +176,7 @@ func TestRunFailoverLoop_BackoffPreservesProviderStall(t *testing.T) {
 // behavior is unchanged when the prior cause was NOT a provider stall: a context
 // cancellation during backoff is still a genuine client disconnect (499).
 func TestRunFailoverLoop_BackoffClientDisconnectForNonStall(t *testing.T) {
-	status, kind := runBackoffLoopWithPriorError(t, KindProviderError)
+	status, kind, _ := runBackoffLoopWithPriorError(t, KindProviderError)
 	if status != statusClientClosedRequest {
 		t.Errorf("expected 499 (genuine client disconnect), got %d", status)
 	}
