@@ -312,3 +312,66 @@ func TestNormalizeRecoveryCode(t *testing.T) {
 		}
 	}
 }
+
+func TestDisableWithCode(t *testing.T) {
+	repo := newTestRepo(t, "test-master-key-very-long-32b+")
+	ctx := context.Background()
+
+	// 1) A valid TOTP code authorizes the disable.
+	_, secret, err := repo.Enroll(ctx)
+	require.NoError(t, err)
+	require.NoError(t, repo.Enable(ctx))
+	code, err := totp.GenerateCode(secret, time.Now())
+	require.NoError(t, err)
+	ok, err := repo.DisableWithCode(ctx, code)
+	require.NoError(t, err)
+	assert.True(t, ok, "valid TOTP code must authorize disable")
+	en, err := repo.IsEnabled(ctx)
+	require.NoError(t, err)
+	assert.False(t, en, "TOTP must be disabled after a valid code")
+
+	// 2) A valid (unused) recovery code authorizes the disable.
+	_, _, err = repo.Enroll(ctx)
+	require.NoError(t, err)
+	require.NoError(t, repo.Enable(ctx))
+	codes, err := repo.GenerateRecoveryCodes(ctx)
+	require.NoError(t, err)
+	ok, err = repo.DisableWithCode(ctx, codes[0])
+	require.NoError(t, err)
+	assert.True(t, ok, "valid recovery code must authorize disable")
+
+	// 3) An invalid code changes nothing (TOTP stays enabled).
+	_, _, err = repo.Enroll(ctx)
+	require.NoError(t, err)
+	require.NoError(t, repo.Enable(ctx))
+	ok, err = repo.DisableWithCode(ctx, "000000")
+	require.NoError(t, err)
+	assert.False(t, ok, "invalid code must not authorize disable")
+	en, err = repo.IsEnabled(ctx)
+	require.NoError(t, err)
+	assert.True(t, en, "TOTP must remain enabled after a failed disable")
+}
+
+func TestDisableWithCode_NotEnrolled(t *testing.T) {
+	repo := newTestRepo(t, "test-master-key-very-long-32b+")
+	ok, err := repo.DisableWithCode(context.Background(), "123456")
+	require.NoError(t, err)
+	assert.False(t, ok, "disable on a non-enrolled instance is a no-op")
+}
+
+func TestDisableWithCode_RecoveryWorksWithoutDecryptableSecret(t *testing.T) {
+	ctx := context.Background()
+	repo := newTestRepo(t, "test-master-key-very-long-32b+")
+	_, _, err := repo.Enroll(ctx)
+	require.NoError(t, err)
+	require.NoError(t, repo.Enable(ctx))
+	codes, err := repo.GenerateRecoveryCodes(ctx)
+	require.NoError(t, err)
+
+	// A repo with the WRONG master key cannot decrypt the secret, so the TOTP
+	// auth path is skipped -- but a valid recovery code must still disable.
+	repo2 := NewRepository(testDB.Pool(), "wrong-master-key-also-longish!")
+	ok, err := repo2.DisableWithCode(ctx, codes[0])
+	require.NoError(t, err)
+	assert.True(t, ok, "recovery code disables even when the secret cannot be decrypted")
+}

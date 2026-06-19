@@ -177,18 +177,16 @@ func (h *TotpHandler) Disable(w http.ResponseWriter, r *http.Request) {
 		respondBadRequest(w, "invalid request body", err)
 		return
 	}
-	ok, _ := h.totpRepo.Verify(r.Context(), req.Code)
-	if !ok {
-		if consumed, _ := h.totpRepo.ConsumeRecoveryCode(r.Context(), req.Code); consumed {
-			ok = true
-		}
+	// Authorize and disable atomically: the code is only spent if the whole
+	// disable commits, so a transient DB error cannot consume a recovery code
+	// (or burn a TOTP step) while leaving TOTP enabled.
+	ok, err := h.totpRepo.DisableWithCode(r.Context(), req.Code)
+	if err != nil {
+		respondError(w, "totp: disable failed", err, http.StatusInternalServerError)
+		return
 	}
 	if !ok {
 		http.Error(w, "invalid TOTP or recovery code", http.StatusUnauthorized)
-		return
-	}
-	if err := h.totpRepo.Disable(r.Context()); err != nil {
-		respondError(w, "totp: disable failed", err, http.StatusInternalServerError)
 		return
 	}
 	h.refreshTotpEnabled(r.Context())

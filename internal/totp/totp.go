@@ -184,6 +184,71 @@ func (r *Repository) Disable(ctx context.Context) error {
 	return nil
 }
 
+// DisableWithCode authorizes with a current TOTP code or an unused recovery
+// code and disables TOTP in a single transaction: either the whole operation
+// commits (config + recovery codes deleted) or nothing changes. Because disable
+// wipes the entire config, the code only needs to be CHECKED, not consumed --
+// this avoids spending a recovery code or burning a TOTP step when the delete
+// itself fails. Returns (false, nil) for an invalid or used code (nothing
+// changed) or when TOTP is not enrolled.
+func (r *Repository) DisableWithCode(ctx context.Context, code string) (bool, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return false, fmt.Errorf("totp: disable (begin): %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var cipher, nonce, salt []byte
+	err = tx.QueryRow(ctx,
+		`SELECT secret_cipher, secret_nonce, secret_salt FROM admin_totp WHERE id = 1`,
+	).Scan(&cipher, &nonce, &salt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
+		}
+		return false, fmt.Errorf("totp: disable (load secret): %w", err)
+	}
+
+	// Authorize with a current TOTP code (within the skew window) or an unused
+	// recovery code. Neither is consumed -- the whole config is about to go.
+	authorized := false
+	if secret, derr := auth.Decrypt(cipher, nonce, salt, r.masterKey); derr == nil {
+		nowStep := time.Now().Unix() / totpPeriodSeconds
+		for _, step := range []int64{nowStep - 1, nowStep, nowStep + 1} {
+			cand, gerr := totp.GenerateCode(secret, time.Unix(step*totpPeriodSeconds, 0))
+			if gerr == nil && subtle.ConstantTimeCompare([]byte(cand), []byte(code)) == 1 {
+				authorized = true
+				break
+			}
+		}
+	}
+	if !authorized {
+		var n int
+		if err := tx.QueryRow(ctx,
+			`SELECT COUNT(*) FROM admin_totp_recovery WHERE code_hash = $1 AND used_at IS NULL`,
+			sha256hex(normalizeRecoveryCode(code)),
+		).Scan(&n); err != nil {
+			return false, fmt.Errorf("totp: disable (check recovery): %w", err)
+		}
+		authorized = n == 1
+	}
+	if !authorized {
+		return false, nil
+	}
+
+	if _, err := tx.Exec(ctx, `DELETE FROM admin_totp WHERE id = 1`); err != nil {
+		return false, fmt.Errorf("totp: disable (delete config): %w", err)
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM admin_totp_recovery`); err != nil {
+		return false, fmt.Errorf("totp: disable (delete recovery): %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return false, fmt.Errorf("totp: disable (commit): %w", err)
+	}
+	debuglog.Info("totp: disabled")
+	return true, nil
+}
+
 // IsEnabled reports whether TOTP 2FA is currently active. Returns (false, nil)
 // when no enrollment exists.
 func (r *Repository) IsEnabled(ctx context.Context) (bool, error) {
