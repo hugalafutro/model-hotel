@@ -114,6 +114,12 @@ Log into the admin dashboard using a FIDO2/WebAuthn passkey (Touch ID, Windows H
 
 Passkey login is disabled by default. Enable it with `WEBAUTHN_RP_ID` (your domain); `WEBAUTHN_RP_ORIGINS` (your origin URLs) falls back to `CORS_ORIGINS`, then `http://localhost:<port>`. Session tokens are SHA-256 hashed, never stored in plaintext, and expire after 30 days.
 
+## Authenticator App (TOTP)
+
+Add a time-based one-time code (TOTP, RFC 6238) from an authenticator app (Google Authenticator, Authy, 1Password, etc.) as a true second factor. Enable it from the Settings page: scan the QR code (or copy the secret), enter the 6-digit code, and save the one-time recovery codes.
+
+When TOTP is on, the raw admin token no longer authenticates API requests by itself; it becomes a first factor that, combined with a valid code, is exchanged for a session token on the login screen (the same session infrastructure passkeys use). Recovery codes are single-use and stored as SHA-256 hashes; the TOTP secret is AES-256-GCM encrypted at rest with `MASTER_KEY`.
+
 ## Quick Start
 
 ```bash

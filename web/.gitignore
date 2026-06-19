@@ -13,6 +13,8 @@ dist-ssr
 
 # Test coverage output
 coverage
+# Vitest blob reports (sharded coverage merge artifacts, CI-generated)
+.vitest-reports/
 
 # MSW service worker (generated, not source)
 public/mockServiceWorker.js

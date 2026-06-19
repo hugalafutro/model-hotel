@@ -54,6 +54,8 @@ function LoginScreen() {
 	const [loading, setLoading] = useState(false);
 	const [passkeyLoading, setPasskeyLoading] = useState(false);
 	const [passkeyAvailable, setPasskeyAvailable] = useState(false);
+	const [totpEnabled, setTotpEnabled] = useState(false);
+	const [totpCode, setTotpCode] = useState("");
 
 	// Demo instances may publish the admin token on the login screen so the
 	// operator shares only the URL. Empty unless DEMO_SHOW_TOKEN + DEMO_READONLY
@@ -70,6 +72,16 @@ function LoginScreen() {
 		isWebAuthnAvailable().then(setPasskeyAvailable);
 	}, []);
 
+	useEffect(() => {
+		// Defensive: api.totp is always present in production, but test mocks
+		// may omit it. A failed probe defaults to TOTP disabled.
+		if (!api.totp) return;
+		api.totp
+			.status()
+			.then((s) => setTotpEnabled(s.enabled))
+			.catch(() => setTotpEnabled(false));
+	}, []);
+
 	const handleLogin = async () => {
 		const value = token.trim();
 		if (!value) {
@@ -79,6 +91,19 @@ function LoginScreen() {
 		setLoading(true);
 		setError(null);
 		try {
+			if (totpEnabled) {
+				const code = totpCode.trim();
+				if (!code) {
+					setError(t("layout.auth.totpCodeRequired"));
+					setLoading(false);
+					return;
+				}
+				const res = await api.totp.login(value, code);
+				localStorage.setItem("adminToken", res.token);
+				setAdminToken(res.token);
+				window.location.reload();
+				return;
+			}
 			const res = await fetch("/api/system", {
 				headers: { Authorization: `Bearer ${value}` },
 			});
@@ -89,8 +114,22 @@ function LoginScreen() {
 			localStorage.setItem("adminToken", value);
 			setAdminToken(value);
 			window.location.reload();
-		} catch {
-			setError(t("layout.auth.connectionFailed"));
+		} catch (err) {
+			// Duck-type the status (ApiError carries it) so this is robust to the
+			// error class identity differing across module/bundler/mock boundaries.
+			const status =
+				err && typeof err === "object" && "status" in err
+					? (err as { status?: number }).status
+					: undefined;
+			if (totpEnabled && status === 429) {
+				setError(t("layout.auth.totpThrottled"));
+			} else {
+				setError(
+					totpEnabled
+						? t("layout.auth.totpFailed")
+						: t("layout.auth.connectionFailed"),
+				);
+			}
 		} finally {
 			setLoading(false);
 		}
@@ -188,6 +227,31 @@ function LoginScreen() {
 							</button>
 						</div>
 					</div>
+					{totpEnabled && (
+						<div>
+							<label
+								htmlFor="totp-code"
+								className="block text-sm font-medium text-gray-300 mb-2"
+							>
+								{t("layout.auth.totpStep")}
+							</label>
+							<input
+								id="totp-code"
+								type="text"
+								value={totpCode}
+								onChange={(e) => setTotpCode(e.target.value)}
+								onKeyDown={(e) =>
+									e.key === "Enter" && !loading && handleLogin()
+								}
+								inputMode="text"
+								maxLength={19}
+								autoComplete="one-time-code"
+								placeholder={t("layout.auth.totpCodePlaceholder")}
+								className="ui-input"
+								aria-label={t("layout.auth.totpCodeLabel")}
+							/>
+						</div>
+					)}
 					<button
 						type="button"
 						onClick={() => handleLogin()}

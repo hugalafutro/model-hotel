@@ -97,6 +97,13 @@ func (l *IPLimiter) Stop() {
 	close(l.stopCh)
 }
 
+// ClientIP returns the request's client IP using the same trusted-proxy aware
+// extraction as the rate limiter, so failure-backoff keys line up with
+// rate-limit keys (real client IP behind a trusted proxy, RemoteAddr otherwise).
+func (l *IPLimiter) ClientIP(r *http.Request) string {
+	return extractClientIP(r, l.trustedProxies)
+}
+
 // Middleware returns an HTTP middleware that rate-limits requests per
 // client IP. On limit violation the middleware responds with HTTP 429
 // and sets Retry-After and X-RateLimit-* headers.

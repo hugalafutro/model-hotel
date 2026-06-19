@@ -1284,3 +1284,13 @@ func TestIPEntry_IdleEvictionLogsEnded(t *testing.T) {
 		t.Error("idle entry should have been evicted")
 	}
 }
+
+func TestIPLimiter_ClientIP(t *testing.T) {
+	lim := NewIPLimiter(10, 5, nil, nil)
+	defer lim.Stop()
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	req.RemoteAddr = "203.0.113.7:54321"
+	if got := lim.ClientIP(req); got != "203.0.113.7" {
+		t.Errorf("ClientIP = %q, want 203.0.113.7", got)
+	}
+}

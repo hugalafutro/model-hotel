@@ -36,6 +36,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/proxy"
 	"github.com/hugalafutro/model-hotel/internal/ratelimit"
 	"github.com/hugalafutro/model-hotel/internal/settings"
+	"github.com/hugalafutro/model-hotel/internal/totp"
 	"github.com/hugalafutro/model-hotel/internal/util"
 	"github.com/hugalafutro/model-hotel/internal/virtualkey"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
@@ -298,10 +299,34 @@ func main() {
 	r.Handle("/metrics", apiHandler.MetricsHandler())
 
 	// WebAuthn/FIDO2 passkey authentication (enabled when WEBAUTHN_RP_ID is set).
+	// The session manager is hoisted out of the WebAuthnRPID block so it is
+	// always available -- TOTP /totp/login reuses CreateAuthToken to mint session
+	// tokens once 2FA is enabled, even when passkeys (RP) are not configured.
 	var webauthnHandler *api.WebAuthnHandler
+	webauthnRepo := webauthn.NewRepository(database.Pool())
+	sessionMgr := webauthn.NewSessionManager(webauthnRepo)
+	apiHandler.SetWebAuthnSessionManager(sessionMgr)
+
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			if n, err := webauthnRepo.CleanupExpiredSessions(context.Background()); err != nil {
+				debuglog.Error("webauthn: session cleanup failed", "error", err)
+			} else if n > 0 {
+				debuglog.Info("webauthn: cleaned up expired sessions", "count", n)
+			}
+		}
+	}()
+
+	// TOTP (RFC 6238) second-factor. Always constructed so the public status
+	// and login endpoints are mounted; enforcement is driven by the cached
+	// IsEnabled state wired into the Handler (AuthMiddleware gate).
+	totpRepo := totp.NewRepository(database.Pool(), cfg.MasterKey)
+	apiHandler.SetTotpStatus(totpRepo)
+	totpHandler := api.NewTotpHandler(totpRepo, adminMgr, sessionMgr, ipLimiter, cfg.DemoReadOnly, apiHandler.TotpEnabled, apiHandler.RefreshTotpEnabled)
 
 	if cfg.WebAuthnRPID != "" {
-		webauthnRepo := webauthn.NewRepository(database.Pool())
 		rpOrigins := make([]string, len(cfg.WebAuthnRPOrigins))
 		copy(rpOrigins, cfg.WebAuthnRPOrigins)
 		if len(rpOrigins) == 0 {
@@ -315,21 +340,7 @@ func main() {
 		if err != nil {
 			debuglog.Fatal("startup: failed to initialize WebAuthn relying party", "error", err)
 		}
-		sessionMgr := webauthn.NewSessionManager(webauthnRepo)
-		apiHandler.SetWebAuthnSessionManager(sessionMgr)
-		webauthnHandler = api.NewWebAuthnHandler(webauthnRepo, rp, sessionMgr, adminMgr, ipLimiter, cfg.DemoReadOnly)
-
-		go func() {
-			ticker := time.NewTicker(1 * time.Hour)
-			defer ticker.Stop()
-			for range ticker.C {
-				if n, err := webauthnRepo.CleanupExpiredSessions(context.Background()); err != nil {
-					debuglog.Error("webauthn: session cleanup failed", "error", err)
-				} else if n > 0 {
-					debuglog.Info("webauthn: cleaned up expired sessions", "count", n)
-				}
-			}
-		}()
+		webauthnHandler = api.NewWebAuthnHandler(webauthnRepo, rp, sessionMgr, adminMgr, ipLimiter, cfg.DemoReadOnly, apiHandler.TotpEnabled)
 
 		debuglog.Info("webauthn: passkey authentication enabled", "rp_id", cfg.WebAuthnRPID)
 	}
@@ -354,6 +365,14 @@ func main() {
 				webauthnHandler.Register(r)
 			})
 		}
+
+		// TOTP (RFC 6238) second-factor. Mounted unconditionally (not gated
+		// on WebAuthnRPID): the public status/login + admin/session-gated
+		// enroll/verify/disable endpoints work even without passkeys because
+		// the session manager is always wired above.
+		r.Group(func(r chi.Router) {
+			totpHandler.Register(r)
+		})
 
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Timeout(60 * time.Second))

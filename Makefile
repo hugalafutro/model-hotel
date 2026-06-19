@@ -1,4 +1,4 @@
-.PHONY: build run clean test lint fmt deps docker-up docker-build docker-down docker-logs test-db-up test-db-down setup notices
+.PHONY: build run clean test lint fmt deps docker-up docker-build docker-down docker-logs totp-disable test-db-up test-db-down setup notices
 
 VERSION := $(shell cat .version 2>/dev/null || git describe --tags --always --dirty 2>/dev/null || echo dev)
 
@@ -38,6 +38,11 @@ docker-down:
 docker-logs:
 	docker compose -f docker-compose.yml -f compose.dev.yml logs -f
 
+# -- TOTP 2FA emergency escape hatch (operator; deletes the admin_totp row) --
+
+totp-disable:
+	@docker compose -f docker-compose.yml -f compose.dev.yml exec -T db psql -U "$${POSTGRES_USER:-modelhotel}" -d "$${POSTGRES_DB:-modelhotel}" -c "DELETE FROM admin_totp;"
+
 # -- Test database (ephemeral, no persistent volume) --
 
 test-db-up:
@@ -46,7 +51,11 @@ test-db-up:
 test-db-down:
 	docker compose -f docker-compose.test.yml down -v
 
-# -- i18n (DeepL-based; see tools/i18n-translate/translate.py) --
+# -- i18n (see tools/i18n-translate/translate.py) --
+# i18n-check is the CI gate: OFFLINE locale-parity validation, no network/DeepL.
+# i18n-fill/bootstrap call DeepL (DEEPL_API_KEY) and are LEGACY/optional: the
+# free DeepL quota is exhausted (HTTP 456 until ~2027), so translate new keys by
+# hand into all locales instead (see AGENTS.md "i18n"). check still passes offline.
 
 i18n-check:
 	python3 tools/i18n-translate/translate.py check

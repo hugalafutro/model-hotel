@@ -28,11 +28,15 @@ type WebAuthnHandler struct {
 	adminMgr     AdminAuthenticator
 	ipLimiter    IPLimiterMiddleware
 	demoReadOnly bool
+	totpEnabled  func() bool
 }
 
 // IPLimiterMiddleware is the interface for IP rate limiting middleware.
 type IPLimiterMiddleware interface {
 	Middleware(next http.Handler) http.Handler
+	// ClientIP extracts the trusted-proxy-aware client IP, used to key
+	// per-IP failure backoff (see TotpHandler login throttling).
+	ClientIP(r *http.Request) string
 }
 
 // NewWebAuthnHandler creates a new WebAuthn handler with the given dependencies.
@@ -43,6 +47,7 @@ func NewWebAuthnHandler(
 	adminMgr AdminAuthenticator,
 	ipLimiter IPLimiterMiddleware,
 	demoReadOnly bool,
+	totpEnabled func() bool,
 ) *WebAuthnHandler {
 	return &WebAuthnHandler{
 		webauthnRepo: webauthnRepo,
@@ -51,6 +56,7 @@ func NewWebAuthnHandler(
 		adminMgr:     adminMgr,
 		ipLimiter:    ipLimiter,
 		demoReadOnly: demoReadOnly,
+		totpEnabled:  totpEnabled,
 	}
 }
 
@@ -102,12 +108,16 @@ func (h *WebAuthnHandler) adminOrSessionAuth(next http.Handler) http.Handler {
 			return
 		}
 
-		if h.adminMgr.Validate(token) {
+		// Raw admin token only when TOTP disabled (mirrors Handler.AuthMiddleware).
+		// With TOTP on, the raw admin token is a first factor only and must not
+		// unlock passkey management (register/rename/delete credentials), or a
+		// bare admin token bearer could bypass the second factor.
+		if (h.totpEnabled == nil || !h.totpEnabled()) && h.adminMgr.Validate(token) {
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		if h.sessionMgr.Validate(r.Context(), token) {
+		if h.sessionMgr != nil && h.sessionMgr.Validate(r.Context(), token) {
 			next.ServeHTTP(w, r)
 			return
 		}

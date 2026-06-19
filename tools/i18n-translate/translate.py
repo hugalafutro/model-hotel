@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 """
-i18n locale maintenance via DeepL (stdlib only, no dependencies).
+i18n locale maintenance (stdlib only, no dependencies).
+
+NOTE (2026-06): the free DeepL quota is exhausted (1M-char Developer allotment,
+no refresh until ~May 2027), so `fill` and `bootstrap` will fail with HTTP 456.
+Translate new keys BY HAND into all locales instead; the quickest correct way is
+a one-off script that reuses load_locale/set_path/save_locale below (preserves
+nesting + tab/ensure_ascii formatting). `check` is unaffected: it is fully
+offline and remains the CI gate.
 
 Subcommands:
     check        CI gate: fail when any locale is missing keys, has extra
@@ -332,8 +339,9 @@ def cmd_check() -> int:
             print(f"  {code}: {key}")
     print(
         f"\ni18n check FAILED ({total} problems)."
-        "\nFix: run `make i18n-fill` (needs DEEPL_API_KEY), review the diff for"
-        "\nDeepL mistakes (word order, temporal vs causal 'since'), and commit."
+        "\nFix: translate the listed keys into the listed locales BY HAND and commit."
+        "\n(`make i18n-fill` uses DeepL and is legacy/quota-exhausted - do not rely on it;"
+        "\nreuse this script's load_locale/set_path/save_locale from a one-off script.)"
         "\nIntentionally-English values go into tools/i18n-translate/allow-english.json."
     )
     if problems["malformed"]:

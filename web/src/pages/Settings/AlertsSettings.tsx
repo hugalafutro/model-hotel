@@ -75,13 +75,13 @@ export function AlertsSettings({
 
 	const status = statusQuery.data;
 	const statusDot =
-		status && status.reachable && status.healthy
+		status?.reachable && status.healthy
 			? "bg-green-500"
 			: status?.reachable
 				? "bg-amber-500"
 				: "bg-red-500";
 	const statusText =
-		status && status.reachable && status.healthy
+		status?.reachable && status.healthy
 			? t("settings.alerts.status.reachable")
 			: status?.reachable
 				? t("settings.alerts.status.issues")
