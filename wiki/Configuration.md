@@ -241,6 +241,9 @@ Backend settings: `discovery_interval`, `discovery_on_startup`, `discovery_on_pr
 #### Passkeys
 WebAuthn/FIDO2 credential management: register new passkeys, rename and delete existing ones. Registration is available only when `WEBAUTHN_RP_ID` is configured (see [Security](Security)).
 
+#### Two-Factor Authentication (TOTP)
+Authenticator-app 2FA (RFC 6238) for admin login. Enabled at runtime from Settings (scan a QR code, confirm a 6-digit code, save the one-time recovery codes); no environment variable is required. When enabled, the raw admin token alone no longer authenticates and must be combined with a code on the login screen (see [Security](Security)). If you lose the authenticator and all recovery codes, an operator can clear it with `make totp-disable`.
+
 #### Appearance (localStorage only)
 - **UI Style:** `clean-saas` (default), `cyber-terminal`, `glassmorphism-lite` - stored in localStorage `uiStyle`
 - **Theme:** `dark` / `light` - stored in localStorage `theme`
