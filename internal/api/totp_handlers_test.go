@@ -593,3 +593,30 @@ func TestTotpAdminOrSessionAuth_TotpOn_RejectsRawToken(t *testing.T) {
 		t.Errorf("session token should pass adminOrSessionAuth (TOTP on), got 401: %s", w2.Body.String())
 	}
 }
+
+// TestTotpLogin_Throttled drives repeated failed logins from one IP and asserts
+// the per-IP backoff kicks in with a 429 + Retry-After once the threshold is
+// exceeded (covers the throttle branch in Login).
+func TestTotpLogin_Throttled(t *testing.T) {
+	_, th := newTotpTestHandler(t)
+	doEnrollVerify(t, th) // enables TOTP so /totp/login is active
+
+	got429 := false
+	for i := 0; i < 8; i++ {
+		req := httptest.NewRequest(http.MethodPost, "/totp/login",
+			bytes.NewReader([]byte(`{"token":"wrong","code":"000000"}`)))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		serveTotpRouter(th).ServeHTTP(w, req)
+		if w.Code == http.StatusTooManyRequests {
+			got429 = true
+			if w.Header().Get("Retry-After") == "" {
+				t.Error("429 response missing Retry-After header")
+			}
+			break
+		}
+	}
+	if !got429 {
+		t.Error("expected a 429 after repeated failed logins")
+	}
+}

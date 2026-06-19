@@ -74,3 +74,19 @@ func TestThrottle_KeysAreIndependent(t *testing.T) {
 		t.Fatal("admin key must not be affected by attacker's failures")
 	}
 }
+
+func TestThrottle_SweepEvictsStale(t *testing.T) {
+	th := NewThrottle(0, time.Millisecond, 10*time.Millisecond)
+	now := time.Now()
+	// Unlocked and last seen well beyond maxDelay -> swept.
+	th.entries["stale"] = &throttleEntry{lockedUntil: now.Add(-time.Hour), lastSeen: now.Add(-time.Hour)}
+	// Still locked -> kept.
+	th.entries["locked"] = &throttleEntry{lockedUntil: now.Add(time.Hour), lastSeen: now}
+	th.sweepLocked(now)
+	if _, ok := th.entries["stale"]; ok {
+		t.Error("expected stale entry to be swept")
+	}
+	if _, ok := th.entries["locked"]; !ok {
+		t.Error("expected locked entry to be kept")
+	}
+}

@@ -163,6 +163,44 @@ describe("TotpSettings", () => {
 		vi.unstubAllGlobals();
 	});
 
+	it("installs the session token from enroll/verify to stay logged in", async () => {
+		mockStatus(false);
+		server.use(
+			http.post("/api/totp/enroll/start", () =>
+				HttpResponse.json({ uri: ENROLL_URI, secret: ENROLL_SECRET }),
+			),
+			http.post("/api/totp/enroll/verify", () =>
+				HttpResponse.json({
+					recovery_codes: RECOVERY_CODES,
+					token: "sess-tok-123",
+				}),
+			),
+		);
+
+		const { user } = renderWithProviders(
+			<TotpSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await user.click(
+			await screen.findByRole("button", { name: /Enable TOTP/i }),
+		);
+		await user.type(
+			await screen.findByLabelText(/TOTP verification code/i),
+			"123456",
+		);
+		await user.click(
+			await screen.findByRole("button", {
+				name: /Verify TOTP code and enable/i,
+			}),
+		);
+
+		await waitFor(() => {
+			expect(screen.getByText(RECOVERY_CODES[0])).toBeInTheDocument();
+		});
+		// The minted session token is installed so the dashboard stays authed.
+		expect(localStorage.getItem("adminToken")).toBe("sess-tok-123");
+	});
+
 	it("clears recovery codes after I have saved them", async () => {
 		mockStatus(false);
 		server.use(
