@@ -354,9 +354,9 @@ export function TotpSettings({ collapsed, onToggle }: TotpSettingsProps) {
 								onKeyDown={(e) => {
 									if (e.key === "Enter") handleDisable();
 								}}
-								inputMode="numeric"
+								inputMode="text"
 								autoComplete="one-time-code"
-								pattern="[0-9]*"
+								maxLength={19}
 								placeholder={t("settings.totp.codePlaceholder")}
 								className="ui-input"
 								aria-label={t("settings.totp.disableCodeAriaLabel")}

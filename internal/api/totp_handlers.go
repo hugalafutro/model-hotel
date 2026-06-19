@@ -219,23 +219,24 @@ func (h *TotpHandler) Login(w http.ResponseWriter, r *http.Request) {
 		respondBadRequest(w, "invalid request body", err)
 		return
 	}
-	// Evaluate both factors before deciding so a failed login does not reveal,
-	// by short-circuit, which factor was wrong. The one deliberate exception:
-	// a recovery code is only consumed when the token is valid (below), so a
-	// leaked code cannot be burned without the admin-token first factor.
+	// Check the admin-token first factor, then the second factor ONLY when the
+	// token is valid: a wrong token must not consume a single-use TOTP step
+	// (RFC 6238 §5.2) or burn a recovery code. Verify atomically consumes the
+	// matched TOTP step; a recovery code is the fallback. This is deliberately
+	// not constant-time w.r.t. which factor failed -- protecting the single-use
+	// factors from a no-auth attacker matters more than token-vs-code timing.
 	tokenValid := h.adminMgr.Validate(req.Token)
 	codeValid := false
-	if ok, err := h.totpRepo.Verify(r.Context(), req.Code); err == nil && ok {
-		codeValid = true
-	} else if err != nil {
-		debuglog.Error("totp: login verify failed", "error", err, "remote_addr", r.RemoteAddr)
-	}
-	// Only consume (burn) a recovery code once the admin token first factor is
-	// valid. Otherwise a leaked recovery code plus a garbage token could mark
-	// the whole set used without ever authenticating (recovery-code DoS).
-	if tokenValid && !codeValid {
-		if ok, _ := h.totpRepo.ConsumeRecoveryCode(r.Context(), req.Code); ok {
+	if tokenValid {
+		if ok, err := h.totpRepo.Verify(r.Context(), req.Code); err == nil && ok {
 			codeValid = true
+		} else {
+			if err != nil {
+				debuglog.Error("totp: login verify failed", "error", err, "remote_addr", r.RemoteAddr)
+			}
+			if ok, _ := h.totpRepo.ConsumeRecoveryCode(r.Context(), req.Code); ok {
+				codeValid = true
+			}
 		}
 	}
 	if !tokenValid || !codeValid {

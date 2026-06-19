@@ -97,6 +97,19 @@ func validCode(t *testing.T, secret string) string {
 	return ""
 }
 
+// codeForStep returns a TOTP code offset by `steps` 30-second windows from now.
+// Single-use enforcement (one accepted code per step) means a test that chains
+// enroll + login + disable must use distinct, increasing steps within the
+// skew=1 window: enroll -1, login 0 (validCode), disable +1.
+func codeForStep(t *testing.T, secret string, steps int) string {
+	t.Helper()
+	c, err := otptotp.GenerateCode(secret, time.Now().Add(time.Duration(steps)*30*time.Second))
+	if err != nil {
+		t.Fatalf("GenerateCode(step %d): %v", steps, err)
+	}
+	return c
+}
+
 // --- Helper: HTTP-driver through a router ---
 
 func serveTotpRouter(th *TotpHandler) chi.Router {
@@ -296,7 +309,9 @@ func doEnrollVerify(t *testing.T, th *TotpHandler) (string, []string) {
 	}
 	secret := startResp["secret"]
 
-	code := validCode(t, secret)
+	// enroll uses step -1 so a follow-up login (step 0) / disable (step +1) in
+	// the same test get distinct, increasing single-use steps.
+	code := codeForStep(t, secret, -1)
 	vreq := httptest.NewRequest(http.MethodPost, "/totp/enroll/verify",
 		bytes.NewReader([]byte(`{"code":"`+code+`"}`)))
 	vreq.Header.Set("Authorization", "Bearer admin-token")
@@ -343,7 +358,8 @@ func TestTotpDisable_WithTotpCode(t *testing.T) {
 	// session token via /totp/login.
 	sessionToken := sessionTokenAfterEnroll(t, th, secret)
 
-	code := validCode(t, secret)
+	// step +1: enroll used -1 and the login above used 0 (single-use steps).
+	code := codeForStep(t, secret, 1)
 	dreq := httptest.NewRequest(http.MethodPost, "/totp/disable",
 		bytes.NewReader([]byte(`{"code":"`+code+`"}`)))
 	dreq.Header.Set("Authorization", "Bearer "+sessionToken)

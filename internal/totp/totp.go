@@ -14,11 +14,13 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base32"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -73,7 +75,8 @@ func (r *Repository) Enroll(ctx context.Context) (uri, secret string, err error)
 		   secret_nonce  = EXCLUDED.secret_nonce,
 		   secret_salt   = EXCLUDED.secret_salt,
 		   enabled       = FALSE,
-		   confirmed_at  = NULL`,
+		   confirmed_at  = NULL,
+		   last_used_step = NULL`,
 		kp.Ciphertext, kp.Nonce, kp.Salt,
 	)
 	if err != nil {
@@ -84,10 +87,14 @@ func (r *Repository) Enroll(ctx context.Context) (uri, secret string, err error)
 	return key.URL(), secret, nil
 }
 
-// Verify checks a 6-digit code against the stored secret. Returns
-// (false, nil) when no enrollment exists and (false, err) on decrypt failure.
-// totp.Validate uses the standard TOTP defaults (period 30, skew 1 step, 6
-// digits, SHA-1) and performs a constant-time comparison internally.
+// totpPeriodSeconds is the TOTP step size (RFC 6238 default).
+const totpPeriodSeconds = 30
+
+// Verify checks a 6-digit code against the stored secret using the standard
+// TOTP defaults (period 30, skew 1 step, 6 digits, SHA-1) with constant-time
+// comparison, and enforces single use (RFC 6238 §5.2): a code is accepted only
+// once per 30s step. Returns (false, nil) for an invalid or replayed code, or
+// when no enrollment exists, and (false, err) on decrypt/DB failure.
 func (r *Repository) Verify(ctx context.Context, code string) (bool, error) {
 	var cipher, nonce, salt []byte
 	err := r.db.QueryRow(ctx,
@@ -105,7 +112,35 @@ func (r *Repository) Verify(ctx context.Context, code string) (bool, error) {
 		return false, fmt.Errorf("totp: decrypt secret: %w", err)
 	}
 
-	return totp.Validate(code, secret), nil
+	// Find which 30s step the code belongs to within the skew=1 window
+	// (previous / current / next), using constant-time comparison. This mirrors
+	// totp.Validate's acceptance set; a no-match means an invalid code.
+	nowStep := time.Now().Unix() / totpPeriodSeconds
+	matched := int64(-1)
+	for _, step := range []int64{nowStep - 1, nowStep, nowStep + 1} {
+		cand, gerr := totp.GenerateCode(secret, time.Unix(step*totpPeriodSeconds, 0))
+		if gerr == nil && subtle.ConstantTimeCompare([]byte(cand), []byte(code)) == 1 {
+			matched = step
+			break
+		}
+	}
+	if matched < 0 {
+		return false, nil
+	}
+
+	// Single-use (RFC 6238 §5.2): accept only if this step is newer than the
+	// last accepted one. The atomic UPDATE makes a concurrent replay of the
+	// same step impossible -- exactly one caller gets RowsAffected()==1; a
+	// replayed or older step gets 0 and is rejected.
+	tag, err := r.db.Exec(ctx,
+		`UPDATE admin_totp SET last_used_step = $1
+		 WHERE id = 1 AND (last_used_step IS NULL OR last_used_step < $1)`,
+		matched,
+	)
+	if err != nil {
+		return false, fmt.Errorf("totp: record used step: %w", err)
+	}
+	return tag.RowsAffected() == 1, nil
 }
 
 // Enable flips the single admin_totp row to enabled=true and stamps confirmed_at.

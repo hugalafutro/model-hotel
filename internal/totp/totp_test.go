@@ -276,3 +276,23 @@ func TestReEnrollResets(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, ok, "old secret must not validate after re-enroll")
 }
+
+func TestVerifyRejectsReplay(t *testing.T) {
+	repo := newTestRepo(t, "test-master-key-very-long-32b+")
+	ctx := context.Background()
+
+	_, secret, err := repo.Enroll(ctx)
+	require.NoError(t, err)
+
+	code, err := totp.GenerateCode(secret, time.Now())
+	require.NoError(t, err)
+
+	ok, err := repo.Verify(ctx, code)
+	require.NoError(t, err)
+	assert.True(t, ok, "first use of a valid code must verify")
+
+	// RFC 6238 §5.2: the same code (same step) must not be accepted twice.
+	ok, err = repo.Verify(ctx, code)
+	require.NoError(t, err)
+	assert.False(t, ok, "replay of an already-used code must be rejected")
+}
