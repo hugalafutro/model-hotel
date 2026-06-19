@@ -154,4 +154,20 @@ describe("LoginScreen TOTP step", () => {
 		expect(localStorage.getItem("adminToken")).toBeNull();
 		expect(setAdminToken).not.toHaveBeenCalled();
 	});
+
+	it("accepts a full recovery code in the TOTP field (not capped at 6)", async () => {
+		const { api } = await import("../api/client");
+		vi.mocked(api.totp.status).mockResolvedValue({ enabled: true });
+
+		const user = userEvent.setup();
+		renderWithProviders(<App />);
+
+		const codeInput = (await screen.findByLabelText(
+			"TOTP code",
+		)) as HTMLInputElement;
+		const recovery = "ABCD-EFGH-IJKL-MNOP"; // 19-char recovery code
+		await user.type(codeInput, recovery);
+		// maxLength must allow a recovery code, not truncate to 6 TOTP digits.
+		expect(codeInput.value).toBe(recovery);
+	});
 });

@@ -243,10 +243,9 @@ function LoginScreen() {
 								onKeyDown={(e) =>
 									e.key === "Enter" && !loading && handleLogin()
 								}
-								inputMode="numeric"
-								maxLength={6}
+								inputMode="text"
+								maxLength={19}
 								autoComplete="one-time-code"
-								pattern="[0-9]*"
 								placeholder={t("layout.auth.totpCodePlaceholder")}
 								className="ui-input"
 								aria-label={t("layout.auth.totpCodeLabel")}

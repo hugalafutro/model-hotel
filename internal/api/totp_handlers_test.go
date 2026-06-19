@@ -620,3 +620,55 @@ func TestTotpLogin_Throttled(t *testing.T) {
 		t.Error("expected a 429 after repeated failed logins")
 	}
 }
+
+// TestTotpLogin_RecoveryNotBurnedOnBadToken asserts a recovery code is NOT
+// consumed when the admin token is invalid (recovery-code DoS guard): a code
+// rejected with a bad token must still work with a valid token afterwards.
+func TestTotpLogin_RecoveryNotBurnedOnBadToken(t *testing.T) {
+	_, th := newTotpTestHandler(t)
+	_, codes := doEnrollVerify(t, th)
+	recovery := codes[0]
+
+	login := func(token, code string) int {
+		body := `{"token":"` + token + `","code":"` + code + `"}`
+		req := httptest.NewRequest(http.MethodPost, "/totp/login",
+			bytes.NewReader([]byte(body)))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		serveTotpRouter(th).ServeHTTP(w, req)
+		return w.Code
+	}
+
+	// Bad token + valid recovery code: must fail and must NOT burn the code.
+	if got := login("wrong-token", recovery); got != http.StatusUnauthorized {
+		t.Fatalf("bad-token login: expected 401, got %d", got)
+	}
+	// Same recovery code with the real token must still succeed (not burned).
+	if got := login("admin-token", recovery); got != http.StatusOK {
+		t.Errorf("recovery code was burned by the bad-token attempt: expected 200, got %d", got)
+	}
+}
+
+// TestTotpEnrollStart_RefreshesEnabledCache asserts that re-enrolling while TOTP
+// is active refreshes the in-memory gate to match the DB (enabled=false),
+// preventing a lockout if the re-enroll is abandoned.
+func TestTotpEnrollStart_RefreshesEnabledCache(t *testing.T) {
+	h, th := newTotpTestHandler(t)
+	secret, _ := doEnrollVerify(t, th)
+	if !h.TotpEnabled() {
+		t.Fatal("precondition: TOTP should be enabled after enroll/verify")
+	}
+	// With TOTP enabled the raw admin token is rejected, so re-enroll uses a
+	// session token (as the real UI does after /totp/login).
+	sessionTok := sessionTokenAfterEnroll(t, th, secret)
+	req := httptest.NewRequest(http.MethodPost, "/totp/enroll/start", http.NoBody)
+	req.Header.Set("Authorization", "Bearer "+sessionTok)
+	w := httptest.NewRecorder()
+	serveTotpRouter(th).ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("enroll/start: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if h.TotpEnabled() {
+		t.Error("EnrollStart reset enabled=false in the DB but the cache still reports enabled")
+	}
+}

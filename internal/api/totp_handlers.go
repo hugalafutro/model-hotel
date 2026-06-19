@@ -109,6 +109,11 @@ func (h *TotpHandler) EnrollStart(w http.ResponseWriter, r *http.Request) {
 		respondError(w, "totp: enroll failed", err, http.StatusInternalServerError)
 		return
 	}
+	// Enroll reset enabled=FALSE in the DB (a fresh provisional secret). Refresh
+	// the cache so the gate matches: re-enrolling while TOTP was active must not
+	// leave the in-memory gate stuck on true, which would lock the admin out if
+	// the re-enroll is abandoned and the session token later expires.
+	h.refreshTotpEnabled(r.Context())
 	writeJSON(w, map[string]string{"uri": uri, "secret": secret})
 }
 
@@ -214,9 +219,10 @@ func (h *TotpHandler) Login(w http.ResponseWriter, r *http.Request) {
 		respondBadRequest(w, "invalid request body", err)
 		return
 	}
-	// Evaluate BOTH factors fully every time (no short-circuit) so every failed
-	// login performs the same work and the 401 response is indistinguishable
-	// by timing (no token-vs-code enumeration).
+	// Evaluate both factors before deciding so a failed login does not reveal,
+	// by short-circuit, which factor was wrong. The one deliberate exception:
+	// a recovery code is only consumed when the token is valid (below), so a
+	// leaked code cannot be burned without the admin-token first factor.
 	tokenValid := h.adminMgr.Validate(req.Token)
 	codeValid := false
 	if ok, err := h.totpRepo.Verify(r.Context(), req.Code); err == nil && ok {
@@ -224,7 +230,10 @@ func (h *TotpHandler) Login(w http.ResponseWriter, r *http.Request) {
 	} else if err != nil {
 		debuglog.Error("totp: login verify failed", "error", err, "remote_addr", r.RemoteAddr)
 	}
-	if !codeValid {
+	// Only consume (burn) a recovery code once the admin token first factor is
+	// valid. Otherwise a leaked recovery code plus a garbage token could mark
+	// the whole set used without ever authenticating (recovery-code DoS).
+	if tokenValid && !codeValid {
 		if ok, _ := h.totpRepo.ConsumeRecoveryCode(r.Context(), req.Code); ok {
 			codeValid = true
 		}
