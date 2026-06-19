@@ -230,11 +230,15 @@ jobs:
 
       # blob feeds the coverage merge in frontend-coverage; junit feeds Codecov
       # Test Analytics (one report per shard, aggregated by commit on Codecov).
+      # github-actions surfaces failures as inline log annotations so a flaky or
+      # failing test is named directly in the Actions log (blob and junit write
+      # only to files, leaving the console silent on failure).
       - name: Test (shard ${{ matrix.shard }}/3)
         run: >-
           pnpm exec vitest run --coverage
           --reporter=blob --outputFile.blob=.vitest-reports/blob-${{ matrix.shard }}.json
           --reporter=junit --outputFile.junit=vitest-${{ matrix.shard }}.junit.xml
+          --reporter=github-actions
           --shard=${{ matrix.shard }}/3
 
       - name: Upload blob report
