@@ -1855,7 +1855,8 @@
 			"verifyAriaLabel": "Ověřte kód TOTP a povolte",
 			"verifying": "Ověřování...",
 			"downloadCodes": "Stáhnout jako .txt",
-			"downloadCodesAriaLabel": "Stáhnout kódy pro obnovení jako textový soubor"
+			"downloadCodesAriaLabel": "Stáhnout kódy pro obnovení jako textový soubor",
+			"failedToStart": "Nepodařilo se zahájit registraci: {{message}}"
 		}
 	},
 	"components": {

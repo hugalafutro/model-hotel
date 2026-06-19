@@ -300,11 +300,13 @@ func TestVerifyRejectsReplay(t *testing.T) {
 func TestNormalizeRecoveryCode(t *testing.T) {
 	const canonical = "ABCD-EFGH-IJKL-MNOP"
 	cases := []struct{ in, want string }{
-		{"abcd-efgh-ijkl-mnop", canonical},     // lowercase
-		{"ABCDEFGHIJKLMNOP", canonical},        // missing dashes
-		{"abcd efgh ijkl mnop", canonical},     // spaces instead of dashes
-		{"  ABCD-EFGH-IJKL-MNOP  ", canonical}, // surrounding whitespace
-		{"ABCD-EFGH", "ABCDEFGH"},              // wrong length -> cleaned, ungrouped
+		{"abcd-efgh-ijkl-mnop", canonical},             // lowercase
+		{"ABCDEFGHIJKLMNOP", canonical},                // missing dashes
+		{"abcd efgh ijkl mnop", canonical},             // spaces instead of dashes
+		{"  ABCD-EFGH-IJKL-MNOP  ", canonical},         // surrounding whitespace
+		{"ABCD-EFGH", "ABCDEFGH"},                      // wrong length -> cleaned, ungrouped
+		{"2345-6723-4567-2345", "2345-6723-4567-2345"}, // base32 digits 2-7 kept
+		{"AB01-89CD", "ABCD"},                          // non-base32 digits 0/1/8/9 dropped
 	}
 	for _, c := range cases {
 		if got := normalizeRecoveryCode(c.in); got != c.want {

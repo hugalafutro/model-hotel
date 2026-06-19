@@ -1855,7 +1855,8 @@
 			"verifyAriaLabel": "TOTP kodunu doğrula ve etkinleştir",
 			"verifying": "Doğrulanıyor...",
 			"downloadCodes": ".txt olarak indir",
-			"downloadCodesAriaLabel": "Kurtarma kodlarını metin dosyası olarak indir"
+			"downloadCodesAriaLabel": "Kurtarma kodlarını metin dosyası olarak indir",
+			"failedToStart": "Kayıt başlatılamadı: {{message}}"
 		}
 	},
 	"components": {

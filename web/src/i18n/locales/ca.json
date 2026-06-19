@@ -1855,7 +1855,8 @@
 			"verifyAriaLabel": "Verifica el codi TOTP i activa",
 			"verifying": "Verificant...",
 			"downloadCodes": "Baixa com a .txt",
-			"downloadCodesAriaLabel": "Baixa els codis de recuperació com a fitxer de text"
+			"downloadCodesAriaLabel": "Baixa els codis de recuperació com a fitxer de text",
+			"failedToStart": "No s'ha pogut iniciar la inscripció: {{message}}"
 		}
 	},
 	"components": {

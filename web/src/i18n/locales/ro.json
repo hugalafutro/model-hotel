@@ -1855,7 +1855,8 @@
 			"verifyAriaLabel": "Verificați codul TOTP și activați",
 			"verifying": "Se verifică...",
 			"downloadCodes": "Descarcă ca .txt",
-			"downloadCodesAriaLabel": "Descarcă codurile de recuperare ca fișier text"
+			"downloadCodesAriaLabel": "Descarcă codurile de recuperare ca fișier text",
+			"failedToStart": "Nu s-a putut începe înregistrarea: {{message}}"
 		}
 	},
 	"components": {

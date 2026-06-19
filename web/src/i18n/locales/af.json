@@ -1855,7 +1855,8 @@
 			"verifyAriaLabel": "Verifieer TOTP-kode en aktiveer",
 			"verifying": "Verifikasie...",
 			"downloadCodes": "Laai af as .txt",
-			"downloadCodesAriaLabel": "Laai herstelkodes af as 'n tekslêer"
+			"downloadCodesAriaLabel": "Laai herstelkodes af as 'n tekslêer",
+			"failedToStart": "Kon nie inskrywing begin nie: {{message}}"
 		}
 	},
 	"components": {

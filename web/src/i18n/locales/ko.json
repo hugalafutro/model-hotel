@@ -1855,7 +1855,8 @@
 			"verifyAriaLabel": "TOTP 코드 확인 및 활성화",
 			"verifying": "확인 중...",
 			"downloadCodes": ".txt로 다운로드",
-			"downloadCodesAriaLabel": "복구 코드를 텍스트 파일로 다운로드"
+			"downloadCodesAriaLabel": "복구 코드를 텍스트 파일로 다운로드",
+			"failedToStart": "등록을 시작할 수 없습니다: {{message}}"
 		}
 	},
 	"components": {

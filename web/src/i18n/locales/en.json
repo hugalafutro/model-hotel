@@ -1855,7 +1855,8 @@
 			"disableCodeAriaLabel": "TOTP or recovery code to disable",
 			"cancelEnrollAriaLabel": "Cancel TOTP enrollment",
 			"downloadCodes": "Download as .txt",
-			"downloadCodesAriaLabel": "Download recovery codes as a text file"
+			"downloadCodesAriaLabel": "Download recovery codes as a text file",
+			"failedToStart": "Could not start enrollment: {{message}}"
 		}
 	},
 	"components": {
