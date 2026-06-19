@@ -1235,6 +1235,20 @@ Available only when `WEBAUTHN_RP_ID` is configured (see [Security](Security) for
 | `/api/webauthn/credentials/{id}` | DELETE | Admin/session token | Delete a credential |
 | `/api/webauthn/logout` | POST | Admin/session token | Revoke the current session token |
 
+### TOTP / Authenticator-App 2FA
+
+Time-based one-time passwords (RFC 6238) as an admin-login second factor, independent of passkeys. Opt-in at runtime from Settings; no environment variable required (see [Security](Security) for the full authentication flow and enforcement model).
+
+| Route | Method | Auth | Description |
+|-------|--------|------|-------------|
+| `/api/totp/status` | GET | None (public) | Report whether TOTP is enabled (`{"enabled": true/false}`) |
+| `/api/totp/login` | POST | IP rate-limited | Exchange admin token + 6-digit code (or a recovery code) for a session token |
+| `/api/totp/enroll/start` | POST | Admin/session token | Begin enrollment; returns the otpauth URI + base32 secret |
+| `/api/totp/enroll/verify` | POST | Admin/session token | Verify the first code, enable TOTP, return recovery codes + a session token |
+| `/api/totp/disable` | POST | Admin/session token | Disable TOTP (gated on a current code or recovery code) |
+
+When TOTP is enabled, the raw admin token alone no longer authorizes `/api/*`: it is a first factor that must be exchanged via `/api/totp/login` for a session token.
+
 ---
 
 ### Version
@@ -1355,10 +1369,12 @@ This endpoint is intended for load balancer health checks and monitoring. No aut
 | Route Group | Auth Method | Token Format |
 |-------------|-------------|--------------|
 | `/v1/*` | Virtual Key | `Bearer sk-...` |
-| `/api/*` | Admin Token (or WebAuthn session) | `Bearer <admin-token>` |
-| `/api/events` | Admin Token | `Bearer <admin-token>` |
-| `/api/chat/*` | Admin Token | `Bearer <admin-token>` |
+| `/api/*` | Admin Token (or WebAuthn/TOTP session) | `Bearer <admin-token>` |
+| `/api/events` | Admin Token (or WebAuthn/TOTP session) | `Bearer <admin-token>` |
+| `/api/chat/*` | Admin Token (or WebAuthn/TOTP session) | `Bearer <admin-token>` |
 | `/api/webauthn/available`, `/api/webauthn/login/*` | None (IP rate-limited) | - |
+| `/api/totp/status` | None (public) | - |
+| `/api/totp/login` | None (IP rate-limited) | - |
 | `/health` | None | - |
 
 ---
