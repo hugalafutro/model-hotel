@@ -375,3 +375,28 @@ func TestDisableWithCode_RecoveryWorksWithoutDecryptableSecret(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, ok, "recovery code disables even when the secret cannot be decrypted")
 }
+
+func TestDisableWithCode_RejectsReusedTotpStep(t *testing.T) {
+	repo := newTestRepo(t, "test-master-key-very-long-32b+")
+	ctx := context.Background()
+
+	_, secret, err := repo.Enroll(ctx)
+	require.NoError(t, err)
+	require.NoError(t, repo.Enable(ctx))
+	code, err := totp.GenerateCode(secret, time.Now())
+	require.NoError(t, err)
+
+	// Consume the code's step via Verify (as a login would).
+	ok, err := repo.Verify(ctx, code)
+	require.NoError(t, err)
+	require.True(t, ok)
+
+	// The same code must NOT authorize disable: a used step is single-use even
+	// for the disable confirmation.
+	ok, err = repo.DisableWithCode(ctx, code)
+	require.NoError(t, err)
+	assert.False(t, ok, "a TOTP code already used for login must not authorize disable")
+	en, err := repo.IsEnabled(ctx)
+	require.NoError(t, err)
+	assert.True(t, en, "TOTP must stay enabled when the replayed code is rejected")
+}

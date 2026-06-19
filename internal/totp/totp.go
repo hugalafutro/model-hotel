@@ -199,9 +199,10 @@ func (r *Repository) DisableWithCode(ctx context.Context, code string) (bool, er
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	var cipher, nonce, salt []byte
+	var lastUsedStep *int64
 	err = tx.QueryRow(ctx,
-		`SELECT secret_cipher, secret_nonce, secret_salt FROM admin_totp WHERE id = 1`,
-	).Scan(&cipher, &nonce, &salt)
+		`SELECT secret_cipher, secret_nonce, secret_salt, last_used_step FROM admin_totp WHERE id = 1`,
+	).Scan(&cipher, &nonce, &salt, &lastUsedStep)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return false, nil
@@ -210,14 +211,18 @@ func (r *Repository) DisableWithCode(ctx context.Context, code string) (bool, er
 	}
 
 	// Authorize with a current TOTP code (within the skew window) or an unused
-	// recovery code. Neither is consumed -- the whole config is about to go.
+	// recovery code. The code is only checked, not consumed -- the whole config
+	// is about to be deleted -- but a TOTP step already accepted (e.g. by a
+	// prior login) is rejected so a used code cannot be replayed to disable.
 	authorized := false
 	if secret, derr := auth.Decrypt(cipher, nonce, salt, r.masterKey); derr == nil {
 		nowStep := time.Now().Unix() / totpPeriodSeconds
 		for _, step := range []int64{nowStep - 1, nowStep, nowStep + 1} {
 			cand, gerr := totp.GenerateCode(secret, time.Unix(step*totpPeriodSeconds, 0))
 			if gerr == nil && subtle.ConstantTimeCompare([]byte(cand), []byte(code)) == 1 {
-				authorized = true
+				if lastUsedStep == nil || step > *lastUsedStep {
+					authorized = true
+				}
 				break
 			}
 		}
