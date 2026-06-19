@@ -154,7 +154,7 @@ Time-based one-time passwords (RFC 6238) add a second factor to admin login, ind
 
 **Recovery codes:** 10 single-use codes are shown once at enable time and stored only as SHA-256 hashes. A recovery code signs you in once so you can disable or re-enroll. Disable is gated on a current TOTP code or an unused recovery code, and the authorize-plus-delete runs in a single transaction so a recovery code is never spent without the disable completing.
 
-**Lost authenticator and all recovery codes:** an operator can remove 2FA directly against the database with `make totp-disable` (or `DELETE FROM admin_totp;` via psql against the stack's Postgres), then log in with the admin token alone and re-enroll.
+**Lost authenticator and all recovery codes:** an operator can remove 2FA directly against the database with `make totp-disable` (or `DELETE FROM admin_totp_recovery; DELETE FROM admin_totp;` via psql against the stack's Postgres), then log in with the admin token alone and re-enroll. Like the in-app disable, the escape hatch clears both the config and the recovery-code hashes so no orphaned rows are left behind.
 
 **TOTP routes:**
 

@@ -41,7 +41,7 @@ docker-logs:
 # -- TOTP 2FA emergency escape hatch (operator; deletes the admin_totp row) --
 
 totp-disable:
-	@docker compose -f docker-compose.yml -f compose.dev.yml exec -T db psql -U "$${POSTGRES_USER:-modelhotel}" -d "$${POSTGRES_DB:-modelhotel}" -c "DELETE FROM admin_totp;"
+	@docker compose -f docker-compose.yml -f compose.dev.yml exec -T db psql -U "$${POSTGRES_USER:-modelhotel}" -d "$${POSTGRES_DB:-modelhotel}" -c "DELETE FROM admin_totp_recovery; DELETE FROM admin_totp;"
 
 # -- Test database (ephemeral, no persistent volume) --
 

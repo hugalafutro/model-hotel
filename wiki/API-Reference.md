@@ -1370,8 +1370,8 @@ This endpoint is intended for load balancer health checks and monitoring. No aut
 |-------------|-------------|--------------|
 | `/v1/*` | Virtual Key | `Bearer sk-...` |
 | `/api/*` | Admin Token (or WebAuthn/TOTP session) | `Bearer <admin-token>` |
-| `/api/events` | Admin Token | `Bearer <admin-token>` |
-| `/api/chat/*` | Admin Token | `Bearer <admin-token>` |
+| `/api/events` | Admin Token (or WebAuthn/TOTP session) | `Bearer <admin-token>` |
+| `/api/chat/*` | Admin Token (or WebAuthn/TOTP session) | `Bearer <admin-token>` |
 | `/api/webauthn/available`, `/api/webauthn/login/*` | None (IP rate-limited) | - |
 | `/api/totp/status` | None (public) | - |
 | `/api/totp/login` | None (IP rate-limited) | - |
