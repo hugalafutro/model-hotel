@@ -296,3 +296,19 @@ func TestVerifyRejectsReplay(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, ok, "replay of an already-used code must be rejected")
 }
+
+func TestNormalizeRecoveryCode(t *testing.T) {
+	const canonical = "ABCD-EFGH-IJKL-MNOP"
+	cases := []struct{ in, want string }{
+		{"abcd-efgh-ijkl-mnop", canonical},     // lowercase
+		{"ABCDEFGHIJKLMNOP", canonical},        // missing dashes
+		{"abcd efgh ijkl mnop", canonical},     // spaces instead of dashes
+		{"  ABCD-EFGH-IJKL-MNOP  ", canonical}, // surrounding whitespace
+		{"ABCD-EFGH", "ABCDEFGH"},              // wrong length -> cleaned, ungrouped
+	}
+	for _, c := range cases {
+		if got := normalizeRecoveryCode(c.in); got != c.want {
+			t.Errorf("normalizeRecoveryCode(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}

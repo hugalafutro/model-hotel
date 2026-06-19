@@ -126,10 +126,11 @@ describe("TotpSettings", () => {
 		// jsdom implements neither URL.createObjectURL nor anchor downloads.
 		const createObjectURL = vi.fn(() => "blob:mock");
 		const revokeObjectURL = vi.fn();
-		vi.stubGlobal(
-			"URL",
-			Object.assign(URL, { createObjectURL, revokeObjectURL }),
-		);
+		// Assign the static methods directly. Do NOT vi.stubGlobal here: it would
+		// be reverted by vi.unstubAllGlobals and clobber the navigator clipboard
+		// stub from test/setup.ts for later tests in this file.
+		URL.createObjectURL = createObjectURL;
+		URL.revokeObjectURL = revokeObjectURL;
 		const clickSpy = vi
 			.spyOn(HTMLAnchorElement.prototype, "click")
 			.mockImplementation(() => {});
@@ -160,7 +161,6 @@ describe("TotpSettings", () => {
 		expect(clickSpy).toHaveBeenCalledTimes(1);
 
 		clickSpy.mockRestore();
-		vi.unstubAllGlobals();
 	});
 
 	it("installs the session token from enroll/verify to stay logged in", async () => {
@@ -364,5 +364,58 @@ describe("TotpSettings", () => {
 		expect(
 			screen.queryByText(/Save these recovery codes now/i),
 		).not.toBeInTheDocument();
+	});
+
+	it("copies the secret and recovery codes, and cancels enrollment", async () => {
+		mockStatus(false);
+		server.use(
+			http.post("/api/totp/enroll/start", () =>
+				HttpResponse.json({ uri: ENROLL_URI, secret: ENROLL_SECRET }),
+			),
+			http.post("/api/totp/enroll/verify", () =>
+				HttpResponse.json({ recovery_codes: RECOVERY_CODES }),
+			),
+		);
+		const writeText = vi.fn().mockResolvedValue(undefined);
+		Object.defineProperty(navigator, "clipboard", {
+			value: { writeText },
+			configurable: true,
+		});
+		const { user } = renderWithProviders(
+			<TotpSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await user.click(
+			await screen.findByRole("button", { name: /Enable TOTP/i }),
+		);
+		// Copy the secret from the enrolling view.
+		await user.click(
+			await screen.findByRole("button", { name: /Copy TOTP secret/i }),
+		);
+		expect(await screen.findByText(/Secret copied/i)).toBeInTheDocument();
+
+		// Cancel enrollment returns to the disabled view.
+		await user.click(
+			screen.getByRole("button", { name: /Cancel TOTP enrollment/i }),
+		);
+		expect(
+			await screen.findByRole("button", { name: /Enable TOTP/i }),
+		).toBeInTheDocument();
+
+		// Re-enroll, verify, then copy all recovery codes from the reveal view.
+		await user.click(screen.getByRole("button", { name: /Enable TOTP/i }));
+		await user.type(
+			await screen.findByLabelText(/TOTP verification code/i),
+			"123456",
+		);
+		await user.click(
+			await screen.findByRole("button", {
+				name: /Verify TOTP code and enable/i,
+			}),
+		);
+		await user.click(
+			await screen.findByRole("button", { name: /Copy all recovery codes/i }),
+		);
+		expect(await screen.findByText(/Copied to clipboard/i)).toBeInTheDocument();
 	});
 });

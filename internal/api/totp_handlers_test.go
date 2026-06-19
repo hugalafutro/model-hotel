@@ -688,3 +688,46 @@ func TestTotpEnrollStart_RefreshesEnabledCache(t *testing.T) {
 		t.Error("EnrollStart reset enabled=false in the DB but the cache still reports enabled")
 	}
 }
+
+// doTotpPost POSTs a body to a TOTP route through the full router (auth gate
+// included) and returns the recorder. Empty auth omits the Authorization header.
+func doTotpPost(th *TotpHandler, path, auth, body string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(http.MethodPost, path, bytes.NewReader([]byte(body)))
+	if auth != "" {
+		req.Header.Set("Authorization", "Bearer "+auth)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	serveTotpRouter(th).ServeHTTP(w, req)
+	return w
+}
+
+func TestTotpEnrollStart_NoAuthRejected(t *testing.T) {
+	_, th := newTotpTestHandler(t)
+	req := httptest.NewRequest(http.MethodPost, "/totp/enroll/start", http.NoBody)
+	w := httptest.NewRecorder()
+	serveTotpRouter(th).ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("enroll/start without auth: expected 401, got %d", w.Code)
+	}
+}
+
+func TestTotpHandlers_BadJSONBody(t *testing.T) {
+	// TOTP disabled: the raw admin token passes the gate, so a malformed body
+	// reaches the 400 path on the admin/session-gated mutation handlers.
+	_, th := newTotpTestHandler(t)
+	if w := doTotpPost(th, "/totp/enroll/verify", "admin-token", "{not json"); w.Code != http.StatusBadRequest {
+		t.Errorf("enroll/verify bad body: expected 400, got %d", w.Code)
+	}
+	if w := doTotpPost(th, "/totp/disable", "admin-token", "{not json"); w.Code != http.StatusBadRequest {
+		t.Errorf("disable bad body: expected 400, got %d", w.Code)
+	}
+}
+
+func TestTotpLogin_BadJSONBody(t *testing.T) {
+	_, th := newTotpTestHandler(t)
+	doEnrollVerify(t, th) // login requires TOTP enabled
+	if w := doTotpPost(th, "/totp/login", "", "{not json"); w.Code != http.StatusBadRequest {
+		t.Errorf("login bad body: expected 400, got %d", w.Code)
+	}
+}
