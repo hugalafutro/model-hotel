@@ -14,6 +14,8 @@
 
 A single OpenAI-compatible endpoint that sits in front of all your LLM providers. Models are auto-discovered the moment you add a provider and optionally on schedule; failover groups form automatically around shared model names and retry transparently when a provider goes down; no prompt data is ever stored.
 
+> **Live demo:** poke around a real instance at [mh.site19.ddns.net](https://mh.site19.ddns.net) - rebuilds fresh every 30 minutes.
+
 ---
 
 ## One Endpoint, Many Providers
