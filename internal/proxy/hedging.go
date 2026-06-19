@@ -81,6 +81,14 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 		// goroutine would be a data race on the multi-field reqError. Each attempt
 		// gets its own private copy that nothing else touches.
 		snap := *st
+		// logData is a pointer, so the struct copy still aliases it. The probe path
+		// (buildCandidateRequest/doUpstream) only reads providerName/modelID for
+		// debug logs, while serveHedgeWinner writes the winner's identity onto the
+		// real st.logData; alias them and those reads race those writes. Give each
+		// probe a private throwaway logData so they never overlap. (A plain
+		// *st.logData copy is impossible: requestLogData embeds a sync.WaitGroup.
+		// The orchestrator keeps using the real st for all terminal logging.)
+		snap.logData = &requestLogData{modelID: st.logData.modelID, providerName: candidates[idx].provider.Name}
 		go func() {
 			results <- probeOne(ctx, &snap, candidates[idx], idx, ttftTimeout, stallTimeout)
 		}()
