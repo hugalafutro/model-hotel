@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Sukses | Reaksie: {{content}}{{ttftPart}} | Duur: {{duration}}",
 			"testFailed": "Toets misluk: {{error}}",
-			"testSuccessNoResponse": "Sukses{{ttftPart}} | Duur: {{duration}}"
+			"testSuccessNoResponse": "Sukses{{ttftPart}} | Duur: {{duration}}",
+			"copyRawValue": "Kopieer rou waarde"
 		},
 		"table": {
 			"sortByModelName": "Sorteer volgens modelnaam",
@@ -960,7 +961,6 @@
 		"toast_delete_success": "Groep verwyder",
 		"toast_delete_failed": "Het misluk om te verwyder: {{message}}",
 		"toast_bulk_delete_warning": "Verwyder {{succeeded}} van {{total}} -groepe ({{failed}} het misluk)",
-		"toast_entry_min_one": "Ten minste een verskaffer moet aktief bly.",
 		"toast_min_entries": "Ten minste 2 inskrywings word vereis.",
 		"toast_display_model_required": "Die vertoonmodelnaam is verpligtend.",
 		"badge_enabled_one": "{{count}} bevoeg",
@@ -993,7 +993,8 @@
 		"provider_modal_description": "Deur 'n verskaffer te deaktiveer, word al sy modelle in elke failover-groep gedeaktiveer.",
 		"toast_provider_toggle_no_groups": "Geen failover-groepe gebruik verskaffer {{provider}}",
 		"last_sync_label": "Laaste sinchronisasie:",
-		"toast_sync_disabled": "hotel/{{group}} gedeaktiveer: {{count}} roeteerbare lid(lede) oor"
+		"toast_sync_disabled": "hotel/{{group}} gedeaktiveer: {{count}} roeteerbare lid(lede) oor",
+		"toast_entry_min_two": "Ten minste 2 lede moet aktief bly."
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Onbewaarde veranderinge"
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Maak filter skoon",
 			"paramsLocked": "Parameters gesluit terwyl dit loop",
 			"editParams": "Bewerk generasieparameters",
-			"addParams": "Voeg generasieparameters by"
+			"addParams": "Voeg generasieparameters by",
+			"viewDetails": "Bekyk modelbesonderhede"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Stel parameters terug",
@@ -2461,14 +2463,19 @@
 			"enableProvider": "Aktiveer verskaffer",
 			"circuitBreakerOpen": "Kringskakelaar oop - wag vir afkoeling",
 			"circuitBreakerHalfOpen": "Sekering half-oop - herstelondersoek",
-			"modelDisabled": "Gedeaktiveer",
-			"providerDisabled": "Verskaffer gedeaktiveer",
 			"naBadge": "N/A",
-			"modelDisabledHelp": "Model is gedeaktiveer en kan nie gebruik word nie. Die groep bly af totdat dit 2+ lewende lede het.",
-			"providerDisabledHelp": "Verskaffer is gedeaktiveer, dus kan hierdie model nie gebruik word nie. Die groep bly af totdat dit 2+ lewende lede het."
-		},
-		"modal": {
-			"unavailable": "onbeskikbaar"
+			"reasonProviderOff": "Gedeaktiveer: sy verskaffer is afgeskakel.",
+			"reasonManuallyDisabled": "Handmatig gedeaktiveer.",
+			"reasonRemovedByDiscovery": "Nie meer deur die verskaffer aangebied nie; tydens die laaste ontdekking laat val.",
+			"retryNa": "Probeer N/A weer",
+			"retryNaRunning": "Probeer tans weer...",
+			"retryNaHelp": "Herkontroleer onbeskikbare lede en heraktiveer dié wat reageer.",
+			"retryNaProviderOff": "Heraktiveer die verskaffer op die Verskaffers-bladsy om hierdie lede te herstel.",
+			"deleteNa": "Skrap N/A",
+			"deleteNaHelp": "Verwyder die onbeskikbare lede uit hierdie groep.",
+			"deleteNaConfirmTitle": "Skrap hierdie groep?",
+			"deleteNaConfirmMessage": "Om die onbeskikbare lede te verwyder, sal minder as 2 roeteerbare lede oorlaat, dus die hele groep sal geskrap word.",
+			"deleteNaConfirmLabel": "Skrap groep"
 		}
 	},
 	"virtualKeys": {

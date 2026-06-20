@@ -111,6 +111,8 @@ describe("FailoverGroups", () => {
 
 	describe("Toggle Entry", () => {
 		it("Toggling entry enabled calls update mutation", async () => {
+			// Three active members, so toggling one off still leaves the 2-member
+			// floor satisfied and the update is allowed through.
 			const groupWithEntries = {
 				...mockFailoverGroup,
 				entries: [
@@ -118,13 +120,25 @@ describe("FailoverGroups", () => {
 						provider_name: "OpenAI",
 						model_id: "gpt-4",
 						enabled: true,
+						model_enabled: true,
+						provider_enabled: true,
 						model_uuid: "uuid-1",
 					},
 					{
 						provider_name: "Anthropic",
 						model_id: "claude-3",
 						enabled: true,
+						model_enabled: true,
+						provider_enabled: true,
 						model_uuid: "uuid-2",
+					},
+					{
+						provider_name: "Mistral",
+						model_id: "mistral-large",
+						enabled: true,
+						model_enabled: true,
+						provider_enabled: true,
+						model_uuid: "uuid-3",
 					},
 				],
 			};
@@ -174,15 +188,27 @@ describe("FailoverGroups", () => {
 			});
 		});
 
-		it("Toggling last enabled entry shows error toast", async () => {
-			const groupWithOneEntry = {
+		it("Toggling an entry that would drop the group below 2 active shows error toast", async () => {
+			// Exactly two active members: turning either off would leave one, below
+			// the 2-member floor a failover group needs, so the toggle is rejected.
+			const groupAtFloor = {
 				...mockFailoverGroup,
 				entries: [
 					{
 						provider_name: "OpenAI",
 						model_id: "gpt-4",
 						enabled: true,
-						model_uuid: "uuid-only",
+						model_enabled: true,
+						provider_enabled: true,
+						model_uuid: "uuid-1",
+					},
+					{
+						provider_name: "Anthropic",
+						model_id: "claude-3",
+						enabled: true,
+						model_enabled: true,
+						provider_enabled: true,
+						model_uuid: "uuid-2",
 					},
 				],
 			};
@@ -192,7 +218,7 @@ describe("FailoverGroups", () => {
 			server.use(
 				http.get("/api/failover-groups", () =>
 					HttpResponse.json({
-						groups: [groupWithOneEntry],
+						groups: [groupAtFloor],
 						last_synced_at: null,
 					}),
 				),
@@ -220,7 +246,7 @@ describe("FailoverGroups", () => {
 			// Should show error toast
 			await waitFor(() => {
 				expect(
-					screen.getByText("At least one provider must remain active"),
+					screen.getByText("At least 2 members must stay active."),
 				).toBeInTheDocument();
 			});
 
@@ -301,7 +327,17 @@ describe("FailoverGroups", () => {
 							provider_name: "OpenAI",
 							model_id: "gpt-4",
 							enabled: false,
+							model_enabled: true,
+							provider_enabled: true,
 							model_uuid: "uuid-1",
+						},
+						{
+							provider_name: "Anthropic",
+							model_id: "claude-3",
+							enabled: false,
+							model_enabled: true,
+							provider_enabled: true,
+							model_uuid: "uuid-1b",
 						},
 					],
 				},
@@ -311,10 +347,20 @@ describe("FailoverGroups", () => {
 					display_model: "beta-model",
 					entries: [
 						{
+							provider_name: "OpenAI",
+							model_id: "gpt-4",
+							enabled: false,
+							model_enabled: true,
+							provider_enabled: true,
+							model_uuid: "uuid-2",
+						},
+						{
 							provider_name: "Anthropic",
 							model_id: "claude-3",
 							enabled: false,
-							model_uuid: "uuid-2",
+							model_enabled: true,
+							provider_enabled: true,
+							model_uuid: "uuid-2b",
 						},
 					],
 				},
@@ -354,8 +400,13 @@ describe("FailoverGroups", () => {
 
 			await waitFor(() => {
 				expect(putCalls.length).toBe(2);
-				expect(putCalls[0].data).toEqual({ entry_enabled: { "uuid-1": true } });
-				expect(putCalls[1].data).toEqual({ entry_enabled: { "uuid-2": true } });
+				// Both members enable; each group stays at 2 routable, so no group flip.
+				expect(putCalls[0].data).toEqual({
+					entry_enabled: { "uuid-1": true, "uuid-1b": true },
+				});
+				expect(putCalls[1].data).toEqual({
+					entry_enabled: { "uuid-2": true, "uuid-2b": true },
+				});
 			});
 		});
 
@@ -625,12 +676,16 @@ describe("FailoverGroups", () => {
 							provider_name: "OpenAI",
 							model_id: "gpt-4",
 							enabled: false,
+							model_enabled: true,
+							provider_enabled: true,
 							model_uuid: "uuid-1",
 						},
 						{
 							provider_name: "Anthropic",
 							model_id: "claude-3",
 							enabled: true,
+							model_enabled: true,
+							provider_enabled: true,
 							model_uuid: "uuid-2",
 						},
 					],
@@ -668,6 +723,7 @@ describe("FailoverGroups", () => {
 				screen.getByRole("button", { name: "Enable all OpenAI" }),
 			);
 
+			// Both members stay routable (2), so the group's enabled state is left as is.
 			await waitFor(() => {
 				expect(putCalls.length).toBe(1);
 				expect(putCalls[0].data).toEqual({
@@ -677,6 +733,8 @@ describe("FailoverGroups", () => {
 		});
 
 		it("Disable all provider entries preserves other providers' enabled state", async () => {
+			// Three routable members, so disabling one provider still leaves 2 and
+			// the group stays enabled, keeping this test focused on entry state.
 			const groups = [
 				{
 					...mockFailoverGroup,
@@ -686,13 +744,25 @@ describe("FailoverGroups", () => {
 							provider_name: "OpenAI",
 							model_id: "gpt-4",
 							enabled: true,
+							model_enabled: true,
+							provider_enabled: true,
 							model_uuid: "uuid-1",
 						},
 						{
 							provider_name: "Anthropic",
 							model_id: "claude-3",
 							enabled: true,
+							model_enabled: true,
+							provider_enabled: true,
 							model_uuid: "uuid-2",
+						},
+						{
+							provider_name: "Mistral",
+							model_id: "mistral-large",
+							enabled: true,
+							model_enabled: true,
+							provider_enabled: true,
+							model_uuid: "uuid-3",
 						},
 					],
 				},
@@ -721,7 +791,7 @@ describe("FailoverGroups", () => {
 			});
 
 			await user.click(
-				screen.getByRole("button", { name: "All (2) Providers" }),
+				screen.getByRole("button", { name: "All (3) Providers" }),
 			);
 			await user.click(screen.getByRole("button", { name: "OpenAI" }));
 
@@ -732,7 +802,7 @@ describe("FailoverGroups", () => {
 			await waitFor(() => {
 				expect(putCalls.length).toBe(1);
 				expect(putCalls[0].data).toEqual({
-					entry_enabled: { "uuid-1": false, "uuid-2": true },
+					entry_enabled: { "uuid-1": false, "uuid-2": true, "uuid-3": true },
 				});
 			});
 		});
@@ -987,12 +1057,16 @@ describe("FailoverGroups", () => {
 							provider_name: "OpenAI",
 							model_id: "gpt-4",
 							enabled: true,
+							model_enabled: true,
+							provider_enabled: true,
 							model_uuid: "uuid-1",
 						},
 						{
 							provider_name: "Anthropic",
 							model_id: "claude-3",
 							enabled: true,
+							model_enabled: true,
+							provider_enabled: true,
 							model_uuid: "uuid-2",
 						},
 					],
@@ -1045,9 +1119,11 @@ describe("FailoverGroups", () => {
 				expect(putCalls.length).toBe(1);
 			});
 
-			// OpenAI entry should be disabled, Anthropic should remain enabled
+			// OpenAI entry is disabled; that drops the group to a single routable
+			// member, so the group is disabled in the same write (the 2-member floor).
 			expect(putCalls[0].data).toEqual({
 				entry_enabled: { "uuid-1": false, "uuid-2": true },
+				group_enabled: false,
 			});
 		});
 
@@ -1062,12 +1138,16 @@ describe("FailoverGroups", () => {
 							provider_name: "OpenAI",
 							model_id: "gpt-4",
 							enabled: false,
+							model_enabled: true,
+							provider_enabled: true,
 							model_uuid: "uuid-1",
 						},
 						{
 							provider_name: "Anthropic",
 							model_id: "claude-3",
-							enabled: false,
+							enabled: true,
+							model_enabled: true,
+							provider_enabled: true,
 							model_uuid: "uuid-2",
 						},
 					],
@@ -1120,10 +1200,10 @@ describe("FailoverGroups", () => {
 				expect(putCalls.length).toBe(1);
 			});
 
-			// OpenAI entry should be enabled, Anthropic stays disabled.
-			// Group should be re-enabled because there's now at least one enabled entry.
+			// Enabling OpenAI alongside the already-enabled Anthropic brings the group
+			// back to 2 routable members, so it is re-enabled in the same write.
 			expect(putCalls[0].data).toEqual({
-				entry_enabled: { "uuid-1": true, "uuid-2": false },
+				entry_enabled: { "uuid-1": true, "uuid-2": true },
 				group_enabled: true,
 			});
 		});

@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Èxit | Resposta: {{content}}{{ttftPart}} | Durada: {{duration}}s",
 			"testFailed": "La prova ha fallat: {{error}}",
-			"testSuccessNoResponse": "Èxit{{ttftPart}} | Durada: {{duration}}s"
+			"testSuccessNoResponse": "Èxit{{ttftPart}} | Durada: {{duration}}s",
+			"copyRawValue": "Copia el valor sense format"
 		},
 		"table": {
 			"sortByModelName": "Ordena per nom del model",
@@ -960,7 +961,6 @@
 		"toast_delete_success": "Grup eliminat",
 		"toast_delete_failed": "No s'ha pogut suprimir: {{message}}",
 		"toast_bulk_delete_warning": "Suprimit {{succeeded}} dels grups {{total}} ({{failed}} ha fallat)",
-		"toast_entry_min_one": "Almenys un proveïdor ha de romandre actiu.",
 		"toast_min_entries": "Es requereixen com a mínim 2 entrades",
 		"toast_display_model_required": "Cal especificar el nom del model.",
 		"badge_enabled_one": "{{count}} Activat",
@@ -993,7 +993,8 @@
 		"provider_modal_description": "Desactivar un proveïdor desactivarà tots els seus models en cada grup de conmutació per error.",
 		"toast_provider_toggle_no_groups": "Cap grup de fallada utilitza proveïdor. {{provider}}",
 		"last_sync_label": "Darrera sincronització:",
-		"toast_sync_disabled": "hotel/{{group}} desactivat: queden {{count}} membre(s) encaminable(s)"
+		"toast_sync_disabled": "hotel/{{group}} desactivat: queden {{count}} membre(s) encaminable(s)",
+		"toast_entry_min_two": "Almenys 2 membres han de romandre actius."
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Canvis no desats"
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Neteja el filtre",
 			"paramsLocked": "Paràmetres bloquejats durant l'execució",
 			"editParams": "Edita els paràmetres de generació",
-			"addParams": "Afegir paràmetres de generació"
+			"addParams": "Afegir paràmetres de generació",
+			"viewDetails": "Mostra els detalls del model"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Restablir paràmetres",
@@ -2461,14 +2463,19 @@
 			"enableProvider": "Activa el proveïdor",
 			"circuitBreakerOpen": "Interruptor automàtic obert - esperant el refredament",
 			"circuitBreakerHalfOpen": "Interruptor automàtic mig obert - prova de recuperació",
-			"modelDisabled": "Desactivat",
-			"providerDisabled": "Proveïdor desactivat",
 			"naBadge": "N/A",
-			"modelDisabledHelp": "El model està desactivat i no es pot usar. El grup roman desactivat fins que tingui 2+ membres actius.",
-			"providerDisabledHelp": "El proveïdor està desactivat, així que aquest model no es pot usar. El grup roman desactivat fins que tingui 2+ membres actius."
-		},
-		"modal": {
-			"unavailable": "no disponible"
+			"reasonProviderOff": "Desactivat: el seu proveïdor està apagat.",
+			"reasonManuallyDisabled": "Desactivat manualment.",
+			"reasonRemovedByDiscovery": "El proveïdor ja no l'ofereix; eliminat en l'última descoberta.",
+			"retryNa": "Reintenta N/A",
+			"retryNaRunning": "S'està reintentant...",
+			"retryNaHelp": "Torna a comprovar els membres no disponibles i reactiva els que responguin.",
+			"retryNaProviderOff": "Reactiva el proveïdor a la pàgina de Proveïdors per recuperar aquests membres.",
+			"deleteNa": "Elimina N/A",
+			"deleteNaHelp": "Treu els membres no disponibles d'aquest grup.",
+			"deleteNaConfirmTitle": "Voleu eliminar aquest grup?",
+			"deleteNaConfirmMessage": "Si traieu els membres no disponibles, quedaran menys de 2 membres encaminables, de manera que s'eliminarà tot el grup.",
+			"deleteNaConfirmLabel": "Elimina el grup"
 		}
 	},
 	"virtualKeys": {

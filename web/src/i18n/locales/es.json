@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Éxito | Respuesta: {{content}}{{ttftPart}} | Duración: {{duration}}s",
 			"testFailed": "Prueba fallida: {{error}}",
-			"testSuccessNoResponse": "Éxito{{ttftPart}} | Duración: {{duration}}s"
+			"testSuccessNoResponse": "Éxito{{ttftPart}} | Duración: {{duration}}s",
+			"copyRawValue": "Copiar valor sin formato"
 		},
 		"table": {
 			"sortByModelName": "Ordenar por nombre del modelo",
@@ -960,7 +961,6 @@
 		"toast_delete_success": "Grupo eliminado",
 		"toast_delete_failed": "Error al eliminar: {{message}}",
 		"toast_bulk_delete_warning": "Eliminado {{succeeded}} de grupos {{total}} ({{failed}} falló)",
-		"toast_entry_min_one": "Al menos un proveedor debe permanecer activo",
 		"toast_min_entries": "Se requieren al menos 2 entradas",
 		"toast_display_model_required": "Nombre del modelo de visualización es requerido",
 		"badge_enabled_one": "{{count}} habilitado",
@@ -993,7 +993,8 @@
 		"provider_modal_description": "Deshabilitar un proveedor desactivará todos sus modelos en cada grupo de tolerancia contra fallos",
 		"toast_provider_toggle_no_groups": "Ningún grupo de tolerancia contra fallos utiliza el proveedor {{provider}}",
 		"last_sync_label": "Última sincronización:",
-		"toast_sync_disabled": "hotel/{{group}} desactivado: quedan {{count}} miembro(s) enrutable(s)"
+		"toast_sync_disabled": "hotel/{{group}} desactivado: quedan {{count}} miembro(s) enrutable(s)",
+		"toast_entry_min_two": "Al menos 2 miembros deben permanecer activos."
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Cambios sin guardar"
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Limpiar filtro",
 			"paramsLocked": "Parámetros bloqueados mientras se ejecuta",
 			"editParams": "Editar parámetros de generación",
-			"addParams": "Añadir parámetros de generación"
+			"addParams": "Añadir parámetros de generación",
+			"viewDetails": "Ver detalles del modelo"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Restablecer parámetros",
@@ -2461,14 +2463,19 @@
 			"enableProvider": "Habilitar proveedor",
 			"circuitBreakerOpen": "Interruptor de circuito abierto - esperando enfriamiento",
 			"circuitBreakerHalfOpen": "Rompeador de circuitos medio abierto - recuperación de sondeo",
-			"modelDisabled": "Desactivado",
-			"providerDisabled": "Proveedor desactivado",
 			"naBadge": "N/A",
-			"modelDisabledHelp": "El modelo está desactivado y no se puede usar. El grupo permanece apagado hasta que tenga 2+ miembros activos.",
-			"providerDisabledHelp": "El proveedor está desactivado, por lo que este modelo no se puede usar. El grupo permanece apagado hasta que tenga 2+ miembros activos."
-		},
-		"modal": {
-			"unavailable": "no disponible"
+			"reasonProviderOff": "Desactivado: su proveedor está apagado.",
+			"reasonManuallyDisabled": "Desactivado manualmente.",
+			"reasonRemovedByDiscovery": "El proveedor ya no lo ofrece; eliminado en el último descubrimiento.",
+			"retryNa": "Reintentar N/A",
+			"retryNaRunning": "Reintentando...",
+			"retryNaHelp": "Vuelve a comprobar los miembros no disponibles y reactiva los que respondan.",
+			"retryNaProviderOff": "Reactiva el proveedor en la página de Proveedores para recuperar estos miembros.",
+			"deleteNa": "Eliminar N/A",
+			"deleteNaHelp": "Elimina los miembros no disponibles de este grupo.",
+			"deleteNaConfirmTitle": "¿Eliminar este grupo?",
+			"deleteNaConfirmMessage": "Quitar los miembros no disponibles dejaría menos de 2 miembros enrutables, por lo que se eliminará todo el grupo.",
+			"deleteNaConfirmLabel": "Eliminar grupo"
 		}
 	},
 	"virtualKeys": {

@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Succes | Răspuns: {{content}}{{ttftPart}} | Durată: {{duration}}s",
 			"testFailed": "Test eșuat: {{error}}",
-			"testSuccessNoResponse": "Succes{{ttftPart}} | Durată: {{duration}}s"
+			"testSuccessNoResponse": "Succes{{ttftPart}} | Durată: {{duration}}s",
+			"copyRawValue": "Copiază valoarea brută"
 		},
 		"table": {
 			"sortByModelName": "Sortează după numele modelului",
@@ -960,7 +961,6 @@
 		"toast_delete_success": "Grup șters",
 		"toast_delete_failed": "Ștergerea nu a reușit: {{message}}",
 		"toast_bulk_delete_warning": "S-a șters {{succeeded}} de {{total}} grupuri ({{failed}} eșuat)",
-		"toast_entry_min_one": "Cel puțin un furnizor trebuie să rămână activ",
 		"toast_min_entries": "Cel puţin 2 intrări necesare",
 		"toast_display_model_required": "Numele modelului de afișare este necesar",
 		"badge_enabled_one": "{{count}} activat",
@@ -993,7 +993,8 @@
 		"provider_modal_description": "Dezactivarea unui furnizor va dezactiva toate modelele sale în fiecare grup de eșec",
 		"toast_provider_toggle_no_groups": "Niciun grup eșuat utilizați furnizorul {{provider}}",
 		"last_sync_label": "Ultima sincronizare:",
-		"toast_sync_disabled": "hotel/{{group}} dezactivat: au rămas {{count}} membri rutabili"
+		"toast_sync_disabled": "hotel/{{group}} dezactivat: au rămas {{count}} membri rutabili",
+		"toast_entry_min_two": "Cel puțin 2 membri trebuie să rămână activi."
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Modificări nesalvate"
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Curăță filtrul",
 			"paramsLocked": "Parametri blocați în timpul rulării",
 			"editParams": "Editează parametrii de generare",
-			"addParams": "Adaugă parametri de generare"
+			"addParams": "Adaugă parametri de generare",
+			"viewDetails": "Vezi detaliile modelului"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Resetare parametri",
@@ -2461,14 +2463,19 @@
 			"enableProvider": "Activare furnizor",
 			"circuitBreakerOpen": "Rupator de circuit deschis - aşteptare pentru răcire",
 			"circuitBreakerHalfOpen": "Circuit breaker semi-deschis - recuperare probabilă",
-			"modelDisabled": "Dezactivat",
-			"providerDisabled": "Furnizor dezactivat",
 			"naBadge": "N/A",
-			"modelDisabledHelp": "Modelul este dezactivat și nu poate fi folosit. Grupul rămâne oprit până când are 2+ membri activi.",
-			"providerDisabledHelp": "Furnizorul este dezactivat, deci acest model nu poate fi folosit. Grupul rămâne oprit până când are 2+ membri activi."
-		},
-		"modal": {
-			"unavailable": "indisponibil"
+			"reasonProviderOff": "Dezactivat: furnizorul său este oprit.",
+			"reasonManuallyDisabled": "Dezactivat manual.",
+			"reasonRemovedByDiscovery": "Furnizorul nu îl mai oferă; eliminat la ultima descoperire.",
+			"retryNa": "Reîncearcă N/A",
+			"retryNaRunning": "Se reîncearcă...",
+			"retryNaHelp": "Reverifică membrii indisponibili și reactivează pe cei care răspund.",
+			"retryNaProviderOff": "Reactivează furnizorul pe pagina Furnizori pentru a recupera acești membri.",
+			"deleteNa": "Șterge N/A",
+			"deleteNaHelp": "Elimină membrii indisponibili din acest grup.",
+			"deleteNaConfirmTitle": "Ștergeți acest grup?",
+			"deleteNaConfirmMessage": "Eliminarea membrilor indisponibili ar lăsa mai puțin de 2 membri rutabili, așa că întregul grup va fi șters.",
+			"deleteNaConfirmLabel": "Șterge grupul"
 		}
 	},
 	"virtualKeys": {

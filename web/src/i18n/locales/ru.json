@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Успех | Ответ: {{content}}{{ttftPart}} | Продолжительность: {{duration}}с",
 			"testFailed": "Тест не пройден: {{error}}",
-			"testSuccessNoResponse": "Успех{{ttftPart}} | Продолжительность: {{duration}}с"
+			"testSuccessNoResponse": "Успех{{ttftPart}} | Продолжительность: {{duration}}с",
+			"copyRawValue": "Копировать необработанное значение"
 		},
 		"table": {
 			"sortByModelName": "Сортировать по названию модели",
@@ -960,7 +961,6 @@
 		"toast_delete_success": "Группа удалена",
 		"toast_delete_failed": "Не удалось удалить: {{message}}",
 		"toast_bulk_delete_warning": "Удалить {{succeeded}} групп {{total}} ({{failed}} не удалось)",
-		"toast_entry_min_one": "По крайней мере один провайдер должен оставаться активным",
 		"toast_min_entries": "Требуется как минимум 2 записи",
 		"toast_display_model_required": "Требуется указать название модели",
 		"badge_enabled_one": "{{count}} включен",
@@ -993,7 +993,8 @@
 		"provider_modal_description": "Отключение провайдера отключит все его модели в каждой группе отказов",
 		"toast_provider_toggle_no_groups": "Нет групп отказов использовать провайдера {{provider}}",
 		"last_sync_label": "Последняя синхронизация:",
-		"toast_sync_disabled": "гостиница/{{group}} отключено: осталось {{count}} маршрутизируемых участников"
+		"toast_sync_disabled": "гостиница/{{group}} отключено: осталось {{count}} маршрутизируемых участников",
+		"toast_entry_min_two": "Как минимум 2 участника должны оставаться активными."
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Несохраненные изменения"
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Очистить фильтр",
 			"paramsLocked": "Параметры заблокированы во время работы",
 			"editParams": "Изменить параметры генерации",
-			"addParams": "Добавить параметры генерации"
+			"addParams": "Добавить параметры генерации",
+			"viewDetails": "Показать сведения о модели"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Сбросить параметры",
@@ -2461,14 +2463,19 @@
 			"enableProvider": "Включить провайдер",
 			"circuitBreakerOpen": "Выключатель отключен - ожидается перезарядка",
 			"circuitBreakerHalfOpen": "Полуоткрытый выключатель - выздоровление",
-			"modelDisabled": "Отключено",
-			"providerDisabled": "Провайдер отключен",
 			"naBadge": "N/A",
-			"modelDisabledHelp": "Модель отключена и не может быть использована. Группа остаётся выключенной, пока в ней не будет 2+ активных участников.",
-			"providerDisabledHelp": "Провайдер отключён, поэтому эту модель нельзя использовать. Группа остаётся выключенной, пока в ней не будет 2+ активных участников."
-		},
-		"modal": {
-			"unavailable": "недоступно"
+			"reasonProviderOff": "Отключено: его провайдер выключен.",
+			"reasonManuallyDisabled": "Отключено вручную.",
+			"reasonRemovedByDiscovery": "Провайдер больше не предлагает его; удалено при последнем обнаружении.",
+			"retryNa": "Повторить N/A",
+			"retryNaRunning": "Повтор...",
+			"retryNaHelp": "Повторно проверяет недоступных участников и снова включает ответивших.",
+			"retryNaProviderOff": "Снова включите провайдера на странице «Провайдеры», чтобы восстановить этих участников.",
+			"deleteNa": "Удалить N/A",
+			"deleteNaHelp": "Удаляет недоступных участников из этой группы.",
+			"deleteNaConfirmTitle": "Удалить эту группу?",
+			"deleteNaConfirmMessage": "Удаление недоступных участников оставит менее 2 маршрутизируемых участников, поэтому вся группа будет удалена.",
+			"deleteNaConfirmLabel": "Удалить группу"
 		}
 	},
 	"virtualKeys": {

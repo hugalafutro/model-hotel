@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "성공 | 응답: {{content}}{{ttftPart}} | 소요 시간: {{duration}}초",
 			"testFailed": "테스트 실패: {{error}}",
-			"testSuccessNoResponse": "성공{{ttftPart}} | 소요 시간: {{duration}}초"
+			"testSuccessNoResponse": "성공{{ttftPart}} | 소요 시간: {{duration}}초",
+			"copyRawValue": "원시 값 복사"
 		},
 		"table": {
 			"sortByModelName": "모델명 순으로 정렬",
@@ -960,7 +961,6 @@
 		"toast_delete_success": "그룹이 삭제되었습니다",
 		"toast_delete_failed": "삭제에 실패했습니다: {{message}}",
 		"toast_bulk_delete_warning": "{{total}} 그룹의 {{succeeded}} 를 삭제했습니다 ({{failed}} 실패).",
-		"toast_entry_min_one": "최소 한 곳의 제공자는 계속 운영되어야 합니다",
 		"toast_min_entries": "최소 2개 이상의 항목을 입력해야 합니다",
 		"toast_display_model_required": "모델명을 입력해야 합니다",
 		"badge_enabled_one": "{{count}} 활성화됨",
@@ -993,7 +993,8 @@
 		"provider_modal_description": "프로바이더를 비활성화하면 모든 페일오버 그룹에서 해당 프로바이더의 모든 모델이 비활성화됩니다.",
 		"toast_provider_toggle_no_groups": "이 공급자를 사용하는 장애 조치 그룹이 없습니다 {{provider}}",
 		"last_sync_label": "마지막 동기화:",
-		"toast_sync_disabled": "호텔/{{group}} 비활성화됨: 라우팅 가능한 멤버 {{count}}개 남음"
+		"toast_sync_disabled": "호텔/{{group}} 비활성화됨: 라우팅 가능한 멤버 {{count}}개 남음",
+		"toast_entry_min_two": "최소 2개의 구성원이 활성 상태를 유지해야 합니다."
 	},
 	"delete_confirm": {
 		"unsaved_changes": "저장되지 않은 변경 사항"
@@ -1999,7 +2000,8 @@
 			"clearFilter": "필터 지우기",
 			"paramsLocked": "실행 중에는 매개변수를 잠글 수 없습니다",
 			"editParams": "생성 매개변수 편집",
-			"addParams": "생성 매개변수 추가"
+			"addParams": "생성 매개변수 추가",
+			"viewDetails": "모델 세부 정보 보기"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "매개변수 재설정",
@@ -2461,14 +2463,19 @@
 			"enableProvider": "제공자 활성화",
 			"circuitBreakerOpen": "회로 차단기 개방 - 쿨타임 대기 중",
 			"circuitBreakerHalfOpen": "회로 차단기 반개 상태 - 복구 확인",
-			"modelDisabled": "비활성화됨",
-			"providerDisabled": "제공업체 비활성화",
 			"naBadge": "N/A",
-			"modelDisabledHelp": "모델이 비활성화되어 사용할 수 없습니다. 그룹은 활성 멤버가 2개 이상이 될 때까지 꺼진 상태로 유지됩니다.",
-			"providerDisabledHelp": "공급자가 비활성화되어 이 모델을 사용할 수 없습니다. 그룹은 활성 멤버가 2개 이상이 될 때까지 꺼진 상태로 유지됩니다."
-		},
-		"modal": {
-			"unavailable": "사용 불가"
+			"reasonProviderOff": "비활성화됨: 해당 제공자가 꺼져 있습니다.",
+			"reasonManuallyDisabled": "수동으로 비활성화되었습니다.",
+			"reasonRemovedByDiscovery": "제공자가 더 이상 제공하지 않습니다. 마지막 검색에서 제거되었습니다.",
+			"retryNa": "N/A 재시도",
+			"retryNaRunning": "재시도 중...",
+			"retryNaHelp": "사용할 수 없는 구성원을 다시 확인하고 응답하는 항목을 다시 활성화합니다.",
+			"retryNaProviderOff": "이 구성원을 복구하려면 제공자 페이지에서 제공자를 다시 활성화하세요.",
+			"deleteNa": "N/A 삭제",
+			"deleteNaHelp": "이 그룹에서 사용할 수 없는 구성원을 제거합니다.",
+			"deleteNaConfirmTitle": "이 그룹을 삭제하시겠습니까?",
+			"deleteNaConfirmMessage": "사용할 수 없는 구성원을 제거하면 라우팅 가능한 구성원이 2명 미만이 되므로 전체 그룹이 삭제됩니다.",
+			"deleteNaConfirmLabel": "그룹 삭제"
 		}
 	},
 	"virtualKeys": {

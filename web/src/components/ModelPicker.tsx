@@ -5,9 +5,12 @@ import {
 	ChevronsDownUp,
 	ChevronsUpDown,
 	Dices,
+	Info,
 	Settings,
 } from "@/lib/icons";
-import type { GenerationParams } from "../api/types";
+import type { GenerationParams, Model } from "../api/types";
+import { useModels } from "../hooks/useModels";
+import { ModelDetailModal } from "../pages/Models/ModelDetailModal";
 import { parseCapabilities } from "../utils/model";
 import type { CapKey } from "./capMeta";
 import { CAP_META, hasCap, matchesAllCaps } from "./capMeta";
@@ -19,6 +22,11 @@ export interface ModelItem {
 	model_id: string;
 	display_name?: string;
 	capabilities?: string;
+	/** When true, the model is not currently routable (its model or provider is
+	 * disabled). Rendered with an N/A badge instead of a text suffix. */
+	unavailable?: boolean;
+	/** Human-readable cause for the N/A badge tooltip (e.g. "disabled by hand"). */
+	unavailableReason?: string;
 }
 
 interface SingleProps {
@@ -41,6 +49,9 @@ interface SingleProps {
 	disabled?: boolean;
 	/** Called when random button is clicked */
 	onRandom?: () => void;
+	/** Order provider groups alphabetically instead of selected-first. Used by
+	 * the failover group editor so the provider list stays stable while picking. */
+	sortProvidersAlpha?: boolean;
 }
 
 interface MultiProps {
@@ -63,6 +74,9 @@ interface MultiProps {
 	disabled?: boolean;
 	/** Called when random button is clicked */
 	onRandom?: () => void;
+	/** Order provider groups alphabetically instead of selected-first. Used by
+	 * the failover group editor so the provider list stays stable while picking. */
+	sortProvidersAlpha?: boolean;
 }
 
 type ModelPickerProps = SingleProps | MultiProps;
@@ -86,6 +100,7 @@ export function ModelPicker({
 	paramsReadonly = false,
 	disabled = false,
 	onRandom,
+	sortProvidersAlpha = false,
 }: ModelPickerProps) {
 	const { t } = useTranslation();
 	const [search, setSearch] = useState("");
@@ -94,6 +109,22 @@ export function ModelPicker({
 	const [collapsedProviders, setCollapsedProviders] = useState<Set<string>>(
 		new Set(),
 	);
+	// Model whose read-only detail modal is open (from a pill's info button).
+	const [infoModel, setInfoModel] = useState<Model | null>(null);
+
+	// Full model records keyed by proxy ID, so a pill's info button can open the
+	// detail modal without the caller having to thread full Model objects through
+	// (the failover editor, for one, only has minimal candidate data). Cached and
+	// shared via the ["models"] query, so this adds no extra request where the
+	// list is already loaded.
+	const { data: allModels } = useModels();
+	const modelDetailLookup = useMemo(() => {
+		const map = new Map<string, Model>();
+		for (const m of allModels ?? []) {
+			map.set(proxyModelID(m.provider_name, m.model_id), m);
+		}
+		return map;
+	}, [allModels]);
 
 	const selectedSet = useMemo(() => {
 		if (multi) return new Set(selected as string[]);
@@ -186,8 +217,15 @@ export function ModelPicker({
 				groups.set(m.provider_name, [m]);
 			}
 		}
+		// Insertion order follows filteredModels (selected-first), which floats
+		// providers owning selected models to the top. The failover editor opts
+		// into a stable alphabetical order so the provider list doesn't reshuffle
+		// as members are picked.
+		if (sortProvidersAlpha) {
+			return new Map([...groups].sort(([a], [b]) => a.localeCompare(b)));
+		}
 		return groups;
-	}, [filteredModels]);
+	}, [filteredModels, sortProvidersAlpha]);
 
 	const toggleCollapse = (provider: string) => {
 		setCollapsedProviders((prev) => {
@@ -356,6 +394,7 @@ export function ModelPicker({
 										{providerModels.map((m) => {
 											const val = proxyModelID(m.provider_name, m.model_id);
 											const isSelected = selectedSet.has(val);
+											const detailModel = modelDetailLookup.get(val);
 											const hasParams = !!(
 												slotParams?.[val] &&
 												Object.values(slotParams[val]).some(
@@ -370,7 +409,11 @@ export function ModelPicker({
 															? "bg-(--accent)/15 border-(--accent)/40 text-(--accent)"
 															: "bg-(--surface-hover) border-(--border-subtle) text-(--text-secondary) hover:text-(--text-primary)"
 													}`}
-													title={`${m.provider_name}/${m.display_name || m.model_id}`}
+													title={
+														m.unavailable && m.unavailableReason
+															? m.unavailableReason
+															: `${m.provider_name}/${m.display_name || m.model_id}`
+													}
 												>
 													<button
 														type="button"
@@ -380,6 +423,28 @@ export function ModelPicker({
 													>
 														{m.display_name || m.model_id}
 													</button>
+													{m.unavailable && (
+														<span className="ui-badge ui-badge-warning shrink-0 text-[9px] leading-none px-1 py-px">
+															{t("failoverGroups.entry.naBadge")}
+														</span>
+													)}
+													{detailModel && (
+														<button
+															type="button"
+															onClick={(e) => {
+																e.stopPropagation();
+																setInfoModel(detailModel);
+															}}
+															className="ui-icon-btn shrink-0 flex items-center"
+															title={t("components.modelPicker.viewDetails")}
+															aria-label={t(
+																"components.modelPicker.viewDetails",
+															)}
+														>
+															<Info size={11} />
+														</button>
+													)}
+
 													{isSelected && onConfigureParams && (
 														<button
 															type="button"
@@ -420,6 +485,13 @@ export function ModelPicker({
 					)}
 				</div>
 			</div>
+			{infoModel && (
+				<ModelDetailModal
+					model={infoModel}
+					onClose={() => setInfoModel(null)}
+					zIndex="z-60"
+				/>
+			)}
 		</div>
 	);
 }

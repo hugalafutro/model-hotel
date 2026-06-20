@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Успех | Одговор: {{content}}{{ttftPart}} | Трајање: {{duration}}",
 			"testFailed": "Тест је пропао: {{error}}",
-			"testSuccessNoResponse": "Успех{{ttftPart}} | Трајање: {{duration}}"
+			"testSuccessNoResponse": "Успех{{ttftPart}} | Трајање: {{duration}}",
+			"copyRawValue": "Копирај сирову вредност"
 		},
 		"table": {
 			"sortByModelName": "Сортирај по називу модела",
@@ -960,7 +961,6 @@
 		"toast_delete_success": "Група је избрисана",
 		"toast_delete_failed": "Није успело да се обрише: {{message}}",
 		"toast_bulk_delete_warning": "Избрисано {{succeeded}} из група {{total}} ({{failed}} није успео)",
-		"toast_entry_min_one": "Најмање један провајдер мора остати активан.",
 		"toast_min_entries": "Потребно је најмање 2 уноса.",
 		"toast_display_model_required": "Потребно је навести назив модела",
 		"badge_enabled_one": "{{count}} омогућено",
@@ -993,7 +993,8 @@
 		"provider_modal_description": "Онемогућавање провајдера онемогућиће све његове моделе у свакој групи за преузимање.",
 		"toast_provider_toggle_no_groups": "Ниједна група за преузимање не користи провајдера {{provider}}",
 		"last_sync_label": "Последња синхронизација:",
-		"toast_sync_disabled": "хотел/{{group}} онемогућено: преостало {{count}} чланова који се могу рутирати"
+		"toast_sync_disabled": "хотел/{{group}} онемогућено: преостало {{count}} чланова који се могу рутирати",
+		"toast_entry_min_two": "Најмање 2 члана морају остати активна."
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Несачуване измене"
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Очисти филтер",
 			"paramsLocked": "Параметри су закључани током извршавања",
 			"editParams": "Уредити параметре генерације",
-			"addParams": "Додајте параметре генерације"
+			"addParams": "Додајте параметре генерације",
+			"viewDetails": "Прикажи детаље модела"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Ресетовање параметара",
@@ -2461,14 +2463,19 @@
 			"enableProvider": "Омогући провајдера",
 			"circuitBreakerOpen": "Прекидач је отворен - чека се хлађење",
 			"circuitBreakerHalfOpen": "Прекидач у полуотвореном положају - испитивање опоравка",
-			"modelDisabled": "Онемогућено",
-			"providerDisabled": "Провајдер онемогућен",
 			"naBadge": "N/A",
-			"modelDisabledHelp": "Модел је онемогућен и не може се користити. Група остаје искључена док не буде имала 2+ активних чланова.",
-			"providerDisabledHelp": "Добављач је онемогућен, па се овај модел не може користити. Група остаје искључена док не буде имала 2+ активних чланова."
-		},
-		"modal": {
-			"unavailable": "није доступан"
+			"reasonProviderOff": "Онемогућено: његов добављач је искључен.",
+			"reasonManuallyDisabled": "Ручно онемогућено.",
+			"reasonRemovedByDiscovery": "Добављач га више не нуди; уклоњено при последњем откривању.",
+			"retryNa": "Покушај поново N/A",
+			"retryNaRunning": "Покушавам поново...",
+			"retryNaHelp": "Поново проверава недоступне чланове и поново омогућава оне који одговоре.",
+			"retryNaProviderOff": "Поново омогућите добављача на страници Добављачи да бисте вратили ове чланове.",
+			"deleteNa": "Обриши N/A",
+			"deleteNaHelp": "Уклања недоступне чланове из ове групе.",
+			"deleteNaConfirmTitle": "Обрисати ову групу?",
+			"deleteNaConfirmMessage": "Уклањање недоступних чланова оставило би мање од 2 члана који се могу рутирати, па ће цела група бити обрисана.",
+			"deleteNaConfirmLabel": "Обриши групу"
 		}
 	},
 	"virtualKeys": {

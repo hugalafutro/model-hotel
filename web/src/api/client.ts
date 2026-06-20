@@ -403,6 +403,9 @@ export const api = {
 		},
 		test: async (
 			id: string,
+			// allowDisabled lets the failover "Retry N/A" action probe a disabled
+			// model; the Models page test button omits it (enabled models only).
+			allowDisabled = false,
 		): Promise<{
 			success: boolean;
 			streaming: boolean;
@@ -419,7 +422,7 @@ export const api = {
 				response: string;
 				error?: string;
 			}>(
-				`${API_BASE}/api/models/${id}/test`,
+				`${API_BASE}/api/models/${id}/test${allowDisabled ? "?allow_disabled=true" : ""}`,
 				{
 					method: "POST",
 					headers: getAuthHeaders(),

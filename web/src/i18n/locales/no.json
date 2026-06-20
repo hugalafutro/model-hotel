@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Suksess | Respons: {{content}}{{ttftPart}} | Varighet: {{duration}}s",
 			"testFailed": "Test feilet: {{error}}",
-			"testSuccessNoResponse": "Suksess{{ttftPart}} | Varighet: {{duration}}s"
+			"testSuccessNoResponse": "Suksess{{ttftPart}} | Varighet: {{duration}}s",
+			"copyRawValue": "Kopier råverdi"
 		},
 		"table": {
 			"sortByModelName": "Sorter etter modellnavn",
@@ -960,7 +961,6 @@
 		"toast_delete_success": "Gruppe slettet",
 		"toast_delete_failed": "Kan ikke slette: {{message}}",
 		"toast_bulk_delete_warning": "Slettet {{succeeded}} av {{total}} grupper ({{failed}} mislyktes)",
-		"toast_entry_min_one": "Minst én leverandør må forbli aktiv",
 		"toast_min_entries": "Minst to oppføringer kreves",
 		"toast_display_model_required": "Visnings modelnavn er påkrevd",
 		"badge_enabled_one": "{{count}} er aktivert",
@@ -993,7 +993,8 @@
 		"provider_modal_description": "Deaktivering av en leverandør vil deaktivere alle modellene i hver feilovergruppe",
 		"toast_provider_toggle_no_groups": "Ingen mislykket gruppe bruk {{provider}}",
 		"last_sync_label": "Sist synkronisert:",
-		"toast_sync_disabled": "hotell/{{group}} deaktivert: {{count}} rutbare medlem(mer) igjen"
+		"toast_sync_disabled": "hotell/{{group}} deaktivert: {{count}} rutbare medlem(mer) igjen",
+		"toast_entry_min_two": "Minst 2 medlemmer må forbli aktive."
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Ulagrede endringer"
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Fjern filter",
 			"paramsLocked": "Parametere låst mens de kjører",
 			"editParams": "Rediger generasjonsparametere",
-			"addParams": "Legg til genereringsparametere"
+			"addParams": "Legg til genereringsparametere",
+			"viewDetails": "Vis modelldetaljer"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Tilbakestill parametere",
@@ -2461,14 +2463,19 @@
 			"enableProvider": "Aktiver leverandør",
 			"circuitBreakerOpen": "Krets breaker åpen - venter på cooldown",
 			"circuitBreakerHalfOpen": "Krets pauseåpning – ettersyns gjenoppretting",
-			"modelDisabled": "Deaktivert",
-			"providerDisabled": "Leverandør deaktivert",
 			"naBadge": "N/A",
-			"modelDisabledHelp": "Modellen er deaktivert og kan ikke brukes. Gruppen forblir av til den har 2+ aktive medlemmer.",
-			"providerDisabledHelp": "Leverandøren er deaktivert, så denne modellen kan ikke brukes. Gruppen forblir av til den har 2+ aktive medlemmer."
-		},
-		"modal": {
-			"unavailable": "utilgjengelig"
+			"reasonProviderOff": "Deaktivert: leverandøren er slått av.",
+			"reasonManuallyDisabled": "Deaktivert manuelt.",
+			"reasonRemovedByDiscovery": "Tilbys ikke lenger av leverandøren; fjernet ved siste oppdagelse.",
+			"retryNa": "Prøv N/A igjen",
+			"retryNaRunning": "Prøver igjen...",
+			"retryNaHelp": "Sjekk utilgjengelige medlemmer på nytt, og aktiver dem som svarer.",
+			"retryNaProviderOff": "Aktiver leverandøren på Leverandører-siden for å gjenopprette disse medlemmene.",
+			"deleteNa": "Slett N/A",
+			"deleteNaHelp": "Fjerner de utilgjengelige medlemmene fra denne gruppen.",
+			"deleteNaConfirmTitle": "Slette denne gruppen?",
+			"deleteNaConfirmMessage": "Hvis du fjerner de utilgjengelige medlemmene, blir det færre enn 2 rutbare medlemmer igjen, så hele gruppen slettes.",
+			"deleteNaConfirmLabel": "Slett gruppe"
 		}
 	},
 	"virtualKeys": {

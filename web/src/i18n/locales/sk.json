@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Úspech | Odkaz: {{content}}{{ttftPart}} | Trvanie: {{duration}}s",
 			"testFailed": "Test sa nepodaril: {{error}}",
-			"testSuccessNoResponse": "Úspech{{ttftPart}} | Trvanie: {{duration}}s"
+			"testSuccessNoResponse": "Úspech{{ttftPart}} | Trvanie: {{duration}}s",
+			"copyRawValue": "Kopírovať nespracovanú hodnotu"
 		},
 		"table": {
 			"sortByModelName": "Zoradiť podľa názvu modelu",
@@ -960,7 +961,6 @@
 		"toast_delete_success": "Skupina bola odstránená",
 		"toast_delete_failed": "Odstránenie sa nepodarilo: {{message}}",
 		"toast_bulk_delete_warning": "Odstránené {{succeeded}} zo  skupín {{total}} ({{failed}} sa nepodarilo)",
-		"toast_entry_min_one": "Aspoň jeden poskytovateľ musí zostať aktívny",
 		"toast_min_entries": "Je potrebné vyplniť aspoň 2 polia",
 		"toast_display_model_required": "Je potrebné zadať názov modelu",
 		"badge_enabled_one": "{{count}} zapnuté",
@@ -993,7 +993,8 @@
 		"provider_modal_description": "Deaktiváciou poskytovateľa sa deaktivujú všetky jeho modely vo všetkých skupinách pre prevzatie pri výpadku",
 		"toast_provider_toggle_no_groups": "Žiadna skupina pre prechod na záložný systém nepoužíva poskytovateľa {{provider}}",
 		"last_sync_label": "Posledná synchronizácia:",
-		"toast_sync_disabled": "hotel/{{group}} deaktivované: zostáva {{count}} smerovateľných členov"
+		"toast_sync_disabled": "hotel/{{group}} deaktivované: zostáva {{count}} smerovateľných členov",
+		"toast_entry_min_two": "Aktívni musia zostať aspoň 2 členovia."
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Neuložené zmeny"
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Vymazať filter",
 			"paramsLocked": "Parametre sú počas behu uzamknuté",
 			"editParams": "Upraviť parametre generovania",
-			"addParams": "Pridať parametre generovania"
+			"addParams": "Pridať parametre generovania",
+			"viewDetails": "Zobraziť podrobnosti modelu"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Obnoviť nastavenia",
@@ -2461,14 +2463,19 @@
 			"enableProvider": "Aktivovať poskytovateľa",
 			"circuitBreakerOpen": "Istič je otvorený – čaká sa na ochladenie",
 			"circuitBreakerHalfOpen": "Istič je čiastočne otvorený – testovanie obnovy",
-			"modelDisabled": "Deaktivované",
-			"providerDisabled": "Poskytovateľ deaktivovaný",
 			"naBadge": "N/A",
-			"modelDisabledHelp": "Model je deaktivovaný a nedá sa použiť. Skupina zostáva vypnutá, kým nebude mať 2+ aktívnych členov.",
-			"providerDisabledHelp": "Poskytovateľ je deaktivovaný, takže tento model sa nedá použiť. Skupina zostáva vypnutá, kým nebude mať 2+ aktívnych členov."
-		},
-		"modal": {
-			"unavailable": "nedostupné"
+			"reasonProviderOff": "Zakázané: jeho poskytovateľ je vypnutý.",
+			"reasonManuallyDisabled": "Ručne zakázané.",
+			"reasonRemovedByDiscovery": "Poskytovateľ ho už neponúka; odstránené pri poslednom zisťovaní.",
+			"retryNa": "Skúsiť N/A znova",
+			"retryNaRunning": "Opakuje sa...",
+			"retryNaHelp": "Znova skontroluje nedostupných členov a znova povolí tých, ktorí odpovedia.",
+			"retryNaProviderOff": "Znova povoľte poskytovateľa na stránke Poskytovatelia, aby ste obnovili týchto členov.",
+			"deleteNa": "Odstrániť N/A",
+			"deleteNaHelp": "Odstráni nedostupných členov z tejto skupiny.",
+			"deleteNaConfirmTitle": "Odstrániť túto skupinu?",
+			"deleteNaConfirmMessage": "Odstránením nedostupných členov by zostali menej ako 2 smerovateľní členovia, takže sa odstráni celá skupina.",
+			"deleteNaConfirmLabel": "Odstrániť skupinu"
 		}
 	},
 	"virtualKeys": {

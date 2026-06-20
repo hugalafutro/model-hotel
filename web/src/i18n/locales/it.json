@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Successo | Risposta: {{content}}{{ttftPart}} | Durata: {{duration}}s",
 			"testFailed": "Test fallito: {{error}}",
-			"testSuccessNoResponse": "Successo{{ttftPart}} | Durata: {{duration}}s"
+			"testSuccessNoResponse": "Successo{{ttftPart}} | Durata: {{duration}}s",
+			"copyRawValue": "Copia valore grezzo"
 		},
 		"table": {
 			"sortByModelName": "Ordina per nome modello",
@@ -960,7 +961,6 @@
 		"toast_delete_success": "Gruppo eliminato",
 		"toast_delete_failed": "Impossibile eliminare: {{message}}",
 		"toast_bulk_delete_warning": "Eliminato {{succeeded}} dei gruppi {{total}} ({{failed}} fallito)",
-		"toast_entry_min_one": "Almeno un fornitore deve rimanere attivo",
 		"toast_min_entries": "Almeno 2 voci richieste",
 		"toast_display_model_required": "Il nome del modello visualizzato è obbligatorio",
 		"badge_enabled_one": "{{count}} abilitato",
@@ -993,7 +993,8 @@
 		"provider_modal_description": "Disabilitare un provider disabiliterà tutti i suoi modelli in ogni gruppo di failover",
 		"toast_provider_toggle_no_groups": "Nessun gruppo di failover usa il provider {{provider}}",
 		"last_sync_label": "Ultima sincronizzazione:",
-		"toast_sync_disabled": "hotel/{{group}} disabilitato: {{count}} membro/i instradabile/i rimasto/i"
+		"toast_sync_disabled": "hotel/{{group}} disabilitato: {{count}} membro/i instradabile/i rimasto/i",
+		"toast_entry_min_two": "Almeno 2 membri devono rimanere attivi."
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Modifiche Non Salvate"
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Cancella filtro",
 			"paramsLocked": "Parametri bloccati durante l'esecuzione",
 			"editParams": "Modifica parametri di generazione",
-			"addParams": "Aggiungi parametri di generazione"
+			"addParams": "Aggiungi parametri di generazione",
+			"viewDetails": "Mostra dettagli del modello"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Reimposta parametri",
@@ -2461,14 +2463,19 @@
 			"enableProvider": "Abilita provider",
 			"circuitBreakerOpen": "Interruttore aperto - in attesa di raffreddamento",
 			"circuitBreakerHalfOpen": "Interruttore semi-aperto - recupero sondaggio",
-			"modelDisabled": "Disabilitato",
-			"providerDisabled": "Fornitore disabilitato",
 			"naBadge": "N/A",
-			"modelDisabledHelp": "Il modello è disabilitato e non può essere usato. Il gruppo resta spento finché non ha 2+ membri attivi.",
-			"providerDisabledHelp": "Il provider è disabilitato, quindi questo modello non può essere usato. Il gruppo resta spento finché non ha 2+ membri attivi."
-		},
-		"modal": {
-			"unavailable": "non disponibile"
+			"reasonProviderOff": "Disattivato: il suo provider è spento.",
+			"reasonManuallyDisabled": "Disattivato manualmente.",
+			"reasonRemovedByDiscovery": "Il provider non lo offre più; rimosso nell'ultima rilevazione.",
+			"retryNa": "Riprova N/A",
+			"retryNaRunning": "Nuovo tentativo...",
+			"retryNaHelp": "Ricontrolla i membri non disponibili e riattiva quelli che rispondono.",
+			"retryNaProviderOff": "Riattiva il provider nella pagina Provider per recuperare questi membri.",
+			"deleteNa": "Elimina N/A",
+			"deleteNaHelp": "Rimuove i membri non disponibili da questo gruppo.",
+			"deleteNaConfirmTitle": "Eliminare questo gruppo?",
+			"deleteNaConfirmMessage": "La rimozione dei membri non disponibili lascerebbe meno di 2 membri instradabili, quindi l'intero gruppo verrà eliminato.",
+			"deleteNaConfirmLabel": "Elimina gruppo"
 		}
 	},
 	"virtualKeys": {

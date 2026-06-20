@@ -30,6 +30,7 @@ const mockEntry: FailoverGroup["entries"][0] = {
 	enabled: true,
 	model_enabled: true,
 	provider_enabled: true,
+	disabled_manually: false,
 	context_length: 8192,
 	owned_by: "test-provider",
 };
@@ -159,6 +160,7 @@ describe("SortableEntry", () => {
 			enabled: false,
 			model_enabled: true,
 			provider_enabled: true,
+			disabled_manually: false,
 			context_length: 16384,
 			owned_by: "different-provider",
 		};
@@ -254,24 +256,51 @@ describe("SortableEntry", () => {
 		expect(screen.getByRole("switch")).toBeDisabled();
 	});
 
-	it("shows a short N/A badge whose tooltip explains the reason (model vs provider)", () => {
-		const modelBadgeEntry = { ...mockEntry, model_enabled: false };
+	it("shows a short N/A badge whose tooltip explains the cause (discovery vs manual vs provider)", () => {
+		// A model auto-disabled by discovery (not by hand) reads as dropped.
+		const discoveryEntry = {
+			...mockEntry,
+			model_enabled: false,
+			disabled_manually: false,
+		};
 		const { unmount } = renderWithProviders(
 			<SortableEntry
-				entry={modelBadgeEntry}
+				entry={discoveryEntry}
 				groupEnabled={true}
 				onToggle={vi.fn()}
 			/>,
 		);
-		const modelBadge = screen.getByTestId("failover-entry-effective-disabled");
-		// Badge text is the same short token in both cases...
-		expect(modelBadge.textContent).toBe("N/A");
-		// ...but it carries a resolved explanatory tooltip (real copy, not the
-		// bare i18n key) so the meaning is discoverable.
-		const modelTitle = modelBadge.getAttribute("title");
-		expect(modelTitle).toContain("Model is disabled");
+		const discoveryBadge = screen.getByTestId(
+			"failover-entry-effective-disabled",
+		);
+		// Badge text is the same short token in every case...
+		expect(discoveryBadge.textContent).toBe("N/A");
+		// ...but the tooltip names the actual cause (resolved copy, not the key).
+		const discoveryTitle = discoveryBadge.getAttribute("title");
+		expect(discoveryTitle).toContain("No longer offered by the provider");
 		unmount();
 
+		// A hand-disabled model says so instead.
+		const manualEntry = {
+			...mockEntry,
+			model_enabled: false,
+			disabled_manually: true,
+		};
+		const { unmount: unmount2 } = renderWithProviders(
+			<SortableEntry
+				entry={manualEntry}
+				groupEnabled={true}
+				onToggle={vi.fn()}
+			/>,
+		);
+		const manualTitle = screen
+			.getByTestId("failover-entry-effective-disabled")
+			.getAttribute("title");
+		expect(manualTitle).toContain("Disabled by hand");
+		expect(manualTitle).not.toBe(discoveryTitle);
+		unmount2();
+
+		// A disabled provider points at the provider, not the model.
 		const providerBadgeEntry = { ...mockEntry, provider_enabled: false };
 		renderWithProviders(
 			<SortableEntry
@@ -285,10 +314,9 @@ describe("SortableEntry", () => {
 		);
 		expect(providerBadge).toHaveClass("ui-badge-warning");
 		expect(providerBadge.textContent).toBe("N/A");
-		// The reason differs between model-disabled and provider-disabled via the tooltip.
 		expect(providerBadge.getAttribute("title")).toContain(
-			"Provider is disabled",
+			"its provider is turned off",
 		);
-		expect(providerBadge.getAttribute("title")).not.toBe(modelTitle);
+		expect(providerBadge.getAttribute("title")).not.toBe(discoveryTitle);
 	});
 });

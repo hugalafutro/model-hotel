@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Erfolg | Antwort: {{content}}{{ttftPart}} | Dauer: {{duration}}s",
 			"testFailed": "Test fehlgeschlagen: {{error}}",
-			"testSuccessNoResponse": "Erfolg{{ttftPart}} | Dauer: {{duration}}s"
+			"testSuccessNoResponse": "Erfolg{{ttftPart}} | Dauer: {{duration}}s",
+			"copyRawValue": "Rohwert kopieren"
 		},
 		"table": {
 			"sortByModelName": "Nach Modellnamen sortieren",
@@ -960,7 +961,6 @@
 		"toast_delete_success": "Gruppe gelöscht",
 		"toast_delete_failed": "Fehler beim Löschen: {{message}}",
 		"toast_bulk_delete_warning": "Löschte {{succeeded}} von {{total}} Gruppen ({{failed}} fehlgeschlagen)",
-		"toast_entry_min_one": "Mindestens ein Anbieter muss aktiv bleiben",
 		"toast_min_entries": "Mindestens 2 Einträge erforderlich",
 		"toast_display_model_required": "Anzeigemodellname ist erforderlich",
 		"badge_enabled_one": "{{count}} aktiviert",
@@ -993,7 +993,8 @@
 		"provider_modal_description": "Das Deaktivieren eines Anbieters wird alle seine Modelle in jeder Failover-Gruppe deaktivieren",
 		"toast_provider_toggle_no_groups": "Keine Failover-Gruppen verwenden den Anbieter {{provider}}",
 		"last_sync_label": "Letzter Sync:",
-		"toast_sync_disabled": "hotel/{{group}} deaktiviert: {{count}} routbare(s) Mitglied(er) übrig"
+		"toast_sync_disabled": "hotel/{{group}} deaktiviert: {{count}} routbare(s) Mitglied(er) übrig",
+		"toast_entry_min_two": "Mindestens 2 Mitglieder müssen aktiv bleiben."
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Ungespeicherte Änderungen"
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Filter löschen",
 			"paramsLocked": "Parameter während der Ausführung gesperrt",
 			"editParams": "Generierungsparameter bearbeiten",
-			"addParams": "Generierungsparameter hinzufügen"
+			"addParams": "Generierungsparameter hinzufügen",
+			"viewDetails": "Modelldetails anzeigen"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Parameter zurücksetzen",
@@ -2461,14 +2463,19 @@
 			"enableProvider": "Anbieter aktivieren",
 			"circuitBreakerOpen": "Strombrecher offen - Warten auf Abklingzeit",
 			"circuitBreakerHalfOpen": "Schaltkreisbrecher halb offen - Abtastung",
-			"modelDisabled": "Deaktiviert",
-			"providerDisabled": "Anbieter deaktiviert",
 			"naBadge": "N/A",
-			"modelDisabledHelp": "Das Modell ist deaktiviert und kann nicht verwendet werden. Die Gruppe bleibt aus, bis sie 2+ aktive Mitglieder hat.",
-			"providerDisabledHelp": "Der Anbieter ist deaktiviert, daher kann dieses Modell nicht verwendet werden. Die Gruppe bleibt aus, bis sie 2+ aktive Mitglieder hat."
-		},
-		"modal": {
-			"unavailable": "nicht verfügbar"
+			"reasonProviderOff": "Deaktiviert: Der Anbieter ist ausgeschaltet.",
+			"reasonManuallyDisabled": "Manuell deaktiviert.",
+			"reasonRemovedByDiscovery": "Wird vom Anbieter nicht mehr angeboten; bei der letzten Erkennung entfernt.",
+			"retryNa": "N/A erneut versuchen",
+			"retryNaRunning": "Wird wiederholt...",
+			"retryNaHelp": "Nicht verfügbare Mitglieder erneut prüfen und antwortende wieder aktivieren.",
+			"retryNaProviderOff": "Aktivieren Sie den Anbieter auf der Seite „Anbieter“ wieder, um diese Mitglieder wiederherzustellen.",
+			"deleteNa": "N/A löschen",
+			"deleteNaHelp": "Entfernt die nicht verfügbaren Mitglieder aus dieser Gruppe.",
+			"deleteNaConfirmTitle": "Diese Gruppe löschen?",
+			"deleteNaConfirmMessage": "Durch das Entfernen der nicht verfügbaren Mitglieder blieben weniger als 2 routingfähige Mitglieder übrig, daher wird die gesamte Gruppe gelöscht.",
+			"deleteNaConfirmLabel": "Gruppe löschen"
 		}
 	},
 	"virtualKeys": {

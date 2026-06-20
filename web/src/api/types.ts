@@ -367,6 +367,9 @@ export interface FailoverEntry {
 	enabled: boolean;
 	model_enabled: boolean;
 	provider_enabled: boolean;
+	/** True when a user disabled the model; false when discovery auto-disabled it
+	 * (model no longer offered by the provider). Drives the N/A reason tooltip. */
+	disabled_manually: boolean;
 	context_length: number | null;
 	owned_by: string;
 }

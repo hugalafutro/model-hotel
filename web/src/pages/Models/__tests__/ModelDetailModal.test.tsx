@@ -53,6 +53,29 @@ describe("ModelDetailModal", () => {
 		).toBeInTheDocument();
 	});
 
+	it("copies the raw context length and max output as plain numbers", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(<ModelDetailModal {...defaultProps} />);
+
+		// Displayed value is human-readable ("8,192 tokens")...
+		expect(screen.getByText("8,192 tokens")).toBeInTheDocument();
+
+		// ...but the copy button next to the label yields the plain number.
+		await user.click(
+			within(screen.getByText("Context Length")).getByRole("button", {
+				name: "Copy raw value",
+			}),
+		);
+		expect(writeTextMock).toHaveBeenLastCalledWith("8192");
+
+		await user.click(
+			within(screen.getByText("Max Output")).getByRole("button", {
+				name: "Copy raw value",
+			}),
+		);
+		expect(writeTextMock).toHaveBeenLastCalledWith("4096");
+	});
+
 	it("displays provider information", () => {
 		renderWithProviders(<ModelDetailModal {...defaultProps} />);
 

@@ -15,6 +15,7 @@ import type { Model } from "../../api/types";
 import { CapBadge } from "../../components/CapBadge";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { CopyablePill } from "../../components/CopyablePill";
+import { CopyButton } from "../../components/CopyButton";
 import { CAP_META, hasCap } from "../../components/capMeta";
 import { DetailItem } from "../../components/LogDetailItem";
 import { LangIcon, type LangIconKey } from "../../components/langIcons";
@@ -407,6 +408,14 @@ export function ModelDetailModal({
 					label={t("models.detail.contextLength")}
 					value={`${formatNumber(model.context_length)} ${t("models.detail.tokens")}`}
 					mono
+					labelExtra={
+						model.context_length != null ? (
+							<CopyButton
+								text={String(model.context_length)}
+								title={t("models.detail.copyRawValue")}
+							/>
+						) : undefined
+					}
 				>
 					{editing ? (
 						<div className="flex items-center gap-1">
@@ -436,6 +445,14 @@ export function ModelDetailModal({
 					label={t("models.detail.maxOutput")}
 					value={`${formatNumber(model.max_output_tokens)} ${t("models.detail.tokens")}`}
 					mono
+					labelExtra={
+						model.max_output_tokens != null ? (
+							<CopyButton
+								text={String(model.max_output_tokens)}
+								title={t("models.detail.copyRawValue")}
+							/>
+						) : undefined
+					}
 				>
 					{editing ? (
 						<div className="flex items-center gap-1">

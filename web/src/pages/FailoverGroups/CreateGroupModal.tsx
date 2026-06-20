@@ -3,11 +3,17 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { CandidateModel, FailoverGroup } from "../../api/types";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { Modal } from "../../components/Modal";
 import type { ModelItem } from "../../components/ModelPicker";
 import { ModelPicker } from "../../components/ModelPicker";
 import { useToast } from "../../context/ToastContext";
+import { isNaEntry, naReasonKey } from "../../utils/failoverEntry";
 import { proxyModelID } from "../../utils/model";
+import {
+	type DiscoverySummaryEntry,
+	DiscoverySummaryModal,
+} from "../Providers/DiscoverySummaryModal";
 
 export function CreateGroupModal({
 	candidates,
@@ -54,12 +60,15 @@ export function CreateGroupModal({
 				if (!seen.has(pid)) {
 					seen.add(pid);
 					// Entries absent from candidates have a disabled model or
-					// provider; suffix the label so same-named pills stay
-					// distinguishable from their available counterparts.
+					// provider; flag them N/A so the picker shows a badge with the
+					// reason, matching the card's N/A badge.
+					const reasonKey = naReasonKey(e);
 					items.push({
 						provider_name: e.provider_name,
 						model_id: e.model_id,
-						display_name: `${e.display_name || e.model_id} (${t("failoverGroups.modal.unavailable")})`,
+						display_name: e.display_name || undefined,
+						unavailable: true,
+						unavailableReason: reasonKey ? t(reasonKey) : undefined,
 					});
 				}
 			}
@@ -148,6 +157,138 @@ export function CreateGroupModal({
 			}
 		},
 	});
+
+	// N/A members of the group being edited (model or provider disabled).
+	const naEntries = useMemo(
+		() => (group ? group.entries.filter(isNaEntry) : []),
+		[group],
+	);
+	// Only model-disabled members on a live provider can be re-probed; a
+	// provider-off member needs the provider re-enabled first, so Retry skips it.
+	const retryableEntries = useMemo(
+		() => naEntries.filter((e) => e.provider_enabled && !e.model_enabled),
+		[naEntries],
+	);
+
+	const [retrying, setRetrying] = useState(false);
+	// Set after a Retry N/A run to feed the reused discovery diff modal.
+	const [retryResult, setRetryResult] = useState<
+		DiscoverySummaryEntry[] | null
+	>(null);
+	const [confirmDeleteGroup, setConfirmDeleteGroup] = useState(false);
+
+	const deleteGroupMutation = useMutation({
+		mutationFn: (id: string) => api.failoverGroups.delete(id),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
+			toast(t("failover.toast_delete_success"), "success");
+			onUpdated?.();
+		},
+		onError: (err: Error) => {
+			toast(
+				t("failover.toast_delete_failed", { message: err.message }),
+				"error",
+			);
+		},
+	});
+
+	// Re-check every retryable N/A member and re-enable the ones that answer, then
+	// surface the outcome through the discovery diff modal. A member counts as
+	// healed only once its re-enable write succeeds: a model that probes healthy
+	// but fails to persist is still disabled in the backend, so it stays in the
+	// failed column (the modal must not claim "Re-enabled" for something the card
+	// will immediately show as N/A again). Probes run concurrently so a group with
+	// many stale members isn't gated by the sum of every round-trip.
+	const handleRetryNa = async () => {
+		if (!group || retryableEntries.length === 0 || retrying) return;
+		setRetrying(true);
+
+		const outcomes = await Promise.all(
+			retryableEntries.map(async (e) => {
+				// The diff modal renders ModelChange.model_id as a mono chip, so use
+				// the raw model id (matching discovery), not the display name.
+				const result = { entry: e, healed: false, writeError: "" };
+				let probedOk: boolean;
+				try {
+					probedOk = (await api.models.test(e.model_uuid, true)).success;
+				} catch {
+					probedOk = false;
+				}
+				if (!probedOk) return result;
+				// Answered, so it is healthy; persist the re-enable. Only a successful
+				// write makes it genuinely re-enabled.
+				try {
+					await api.models.update(e.model_uuid, { enabled: true });
+					result.healed = true;
+				} catch (err) {
+					result.writeError = (err as Error).message;
+				}
+				return result;
+			}),
+		);
+
+		setRetrying(false);
+
+		const writeErrors = outcomes.filter((o) => o.writeError);
+		if (writeErrors.length > 0) {
+			// Surface the (rare) save failures explicitly; they read as "failed" in
+			// the diff but for a different reason than a model that never answered.
+			toast(
+				t("failover.toast_update_failed", {
+					message: writeErrors[0].writeError,
+				}),
+				"error",
+			);
+		}
+
+		queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
+		queryClient.invalidateQueries({ queryKey: ["failover-candidates"] });
+		queryClient.invalidateQueries({ queryKey: ["models"] });
+
+		const byProvider = new Map<
+			string,
+			{ healed: string[]; failed: string[] }
+		>();
+		for (const o of outcomes) {
+			const bucket = byProvider.get(o.entry.provider_name) ?? {
+				healed: [],
+				failed: [],
+			};
+			(o.healed ? bucket.healed : bucket.failed).push(o.entry.model_id);
+			byProvider.set(o.entry.provider_name, bucket);
+		}
+		setRetryResult(
+			[...byProvider].map(([providerName, b]) => ({
+				providerName,
+				diff: {
+					reenabled: b.healed.map((id) => ({
+						model_id: id,
+						reason: "reappeared",
+					})),
+					disabled: b.failed.map((id) => ({
+						model_id: id,
+						reason: "not_listed",
+					})),
+				},
+			})),
+		);
+	};
+
+	// Drop the N/A members from the group. A failover group needs 2+ members, so
+	// if removing them would leave fewer than two, the whole group goes instead:
+	// confirm that first, since it is destructive.
+	const handleDeleteNa = () => {
+		if (!group) return;
+		const remaining = group.entries.filter((e) => !isNaEntry(e));
+		if (remaining.length < 2) {
+			setConfirmDeleteGroup(true);
+			return;
+		}
+		updateMutation.mutate({
+			id: group.id,
+			body: { priority_order: remaining.map((e) => e.model_uuid) },
+		});
+	};
 
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
@@ -271,6 +412,7 @@ export function CreateGroupModal({
 						multi={true}
 						label={t("failoverGroups.create.modelEntries")}
 						align="left"
+						sortProvidersAlpha
 					/>
 					<p className="text-gray-500 text-xs mt-1">
 						{t("failoverGroups.create.selectedCount", {
@@ -279,29 +421,80 @@ export function CreateGroupModal({
 					</p>
 				</div>
 
-				<div className="flex justify-end gap-3 pt-4">
-					<button
-						type="button"
-						onClick={onClose}
-						className="ui-btn ui-btn-secondary"
-					>
-						{t("common.cancel")}
-					</button>
-					<button
-						type="submit"
-						disabled={isPending}
-						className="ui-btn ui-btn-primary"
-					>
-						{isPending
-							? isEdit
-								? t("failoverGroups.create.saving")
-								: t("failoverGroups.create.creating")
-							: isEdit
-								? t("common.saveChanges")
-								: t("failoverGroups.create.createGroup")}
-					</button>
+				<div className="flex justify-between gap-3 pt-4">
+					<div className="flex gap-2">
+						{isEdit && naEntries.length > 0 && (
+							<>
+								<button
+									type="button"
+									onClick={handleRetryNa}
+									disabled={retrying || retryableEntries.length === 0}
+									className="ui-btn ui-btn-secondary"
+									title={
+										retryableEntries.length === 0
+											? t("failoverGroups.entry.retryNaProviderOff")
+											: t("failoverGroups.entry.retryNaHelp")
+									}
+								>
+									{retrying
+										? t("failoverGroups.entry.retryNaRunning")
+										: t("failoverGroups.entry.retryNa")}
+								</button>
+								<button
+									type="button"
+									onClick={handleDeleteNa}
+									disabled={isPending}
+									className="ui-btn ui-btn-secondary text-(--text-muted) hover:text-red-400"
+									title={t("failoverGroups.entry.deleteNaHelp")}
+								>
+									{t("failoverGroups.entry.deleteNa")}
+								</button>
+							</>
+						)}
+					</div>
+					<div className="flex gap-3">
+						<button
+							type="button"
+							onClick={onClose}
+							className="ui-btn ui-btn-secondary"
+						>
+							{t("common.cancel")}
+						</button>
+						<button
+							type="submit"
+							disabled={isPending}
+							className="ui-btn ui-btn-primary"
+						>
+							{isPending
+								? isEdit
+									? t("failoverGroups.create.saving")
+									: t("failoverGroups.create.creating")
+								: isEdit
+									? t("common.saveChanges")
+									: t("failoverGroups.create.createGroup")}
+						</button>
+					</div>
 				</div>
 			</form>
+			{retryResult && (
+				<DiscoverySummaryModal
+					results={retryResult}
+					onClose={() => setRetryResult(null)}
+				/>
+			)}
+			{confirmDeleteGroup && group && (
+				<ConfirmDialog
+					title={t("failoverGroups.entry.deleteNaConfirmTitle")}
+					message={t("failoverGroups.entry.deleteNaConfirmMessage")}
+					fields={[group.display_model]}
+					confirmLabel={t("failoverGroups.entry.deleteNaConfirmLabel")}
+					onConfirm={() => {
+						setConfirmDeleteGroup(false);
+						deleteGroupMutation.mutate(group.id);
+					}}
+					onCancel={() => setConfirmDeleteGroup(false)}
+				/>
+			)}
 		</Modal>
 	);
 }

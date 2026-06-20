@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Úspěch | Odpověď: {{content}}{{ttftPart}} | Trvání: {{duration}}s",
 			"testFailed": "Test selhal: {{error}}",
-			"testSuccessNoResponse": "Úspěch{{ttftPart}} | Trvání: {{duration}}s"
+			"testSuccessNoResponse": "Úspěch{{ttftPart}} | Trvání: {{duration}}s",
+			"copyRawValue": "Kopírovat nezformátovanou hodnotu"
 		},
 		"table": {
 			"sortByModelName": "Seřadit podle názvu modelu",
@@ -960,7 +961,6 @@
 		"toast_delete_success": "Skupina byla odstraněna",
 		"toast_delete_failed": "Odstranění selhalo: {{message}}",
 		"toast_bulk_delete_warning": "Odstraněny skupiny {{succeeded}} a {{total}} ({{failed}} selhalo)",
-		"toast_entry_min_one": "Alespoň jeden poskytovatel musí zůstat aktivní",
 		"toast_min_entries": "Je třeba vyplnit alespoň 2 položky",
 		"toast_display_model_required": "Je nutné zadat název modelu",
 		"badge_enabled_one": "{{count}} je zapnutý",
@@ -993,7 +993,8 @@
 		"provider_modal_description": "Zakázáním poskytovatele dojde k vypnutí všech modelů v každé skupině selhání",
 		"toast_provider_toggle_no_groups": "Není použito poskytovatele {{provider}}",
 		"last_sync_label": "Poslední synchronizace:",
-		"toast_sync_disabled": "hotel/{{group}} deaktivováno: zbývá {{count}} směrovatelných členů"
+		"toast_sync_disabled": "hotel/{{group}} deaktivováno: zbývá {{count}} směrovatelných členů",
+		"toast_entry_min_two": "Aktivní musí zůstat alespoň 2 členové."
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Neuložené změny"
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Vymazat filtr",
 			"paramsLocked": "Parametry jsou během běhu uzamčeny",
 			"editParams": "Upravit parametry generování",
-			"addParams": "Přidat parametry generování"
+			"addParams": "Přidat parametry generování",
+			"viewDetails": "Zobrazit podrobnosti modelu"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Obnovit nastavení",
@@ -2461,14 +2463,19 @@
 			"enableProvider": "Povolit poskytovatele",
 			"circuitBreakerOpen": "Jistič je rozpojený – čeká na ochlazení",
 			"circuitBreakerHalfOpen": "Jistič je v poloze částečně otevřené – testování obnovy",
-			"modelDisabled": "Deaktivováno",
-			"providerDisabled": "Poskytovatel deaktivován",
 			"naBadge": "N/A",
-			"modelDisabledHelp": "Model je deaktivován a nelze jej použít. Skupina zůstane vypnutá, dokud nebude mít 2+ živé členy.",
-			"providerDisabledHelp": "Poskytovatel je deaktivován, takže tento model nelze použít. Skupina zůstane vypnutá, dokud nebude mít 2+ živé členy."
-		},
-		"modal": {
-			"unavailable": "nedostupné"
+			"reasonProviderOff": "Zakázáno: jeho poskytovatel je vypnutý.",
+			"reasonManuallyDisabled": "Ručně zakázáno.",
+			"reasonRemovedByDiscovery": "Poskytovatel jej už nenabízí; odebráno při poslední detekci.",
+			"retryNa": "Zkusit N/A znovu",
+			"retryNaRunning": "Opakuji...",
+			"retryNaHelp": "Znovu zkontroluje nedostupné členy a znovu povolí ty, kteří odpoví.",
+			"retryNaProviderOff": "Znovu povolte poskytovatele na stránce Poskytovatelé, abyste obnovili tyto členy.",
+			"deleteNa": "Smazat N/A",
+			"deleteNaHelp": "Odebere nedostupné členy z této skupiny.",
+			"deleteNaConfirmTitle": "Smazat tuto skupinu?",
+			"deleteNaConfirmMessage": "Odebráním nedostupných členů by zůstali méně než 2 směrovatelní členové, takže se smaže celá skupina.",
+			"deleteNaConfirmLabel": "Smazat skupinu"
 		}
 	},
 	"virtualKeys": {

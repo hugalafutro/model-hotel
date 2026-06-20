@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "成功 | レスポンス: {{content}}{{ttftPart}} | 期間: {{duration}}s",
 			"testFailed": "テストに失敗しました: {{error}}",
-			"testSuccessNoResponse": "成功{{ttftPart}} | 期間: {{duration}}s"
+			"testSuccessNoResponse": "成功{{ttftPart}} | 期間: {{duration}}s",
+			"copyRawValue": "生の値をコピー"
 		},
 		"table": {
 			"sortByModelName": "モデル名でソート",
@@ -960,7 +961,6 @@
 		"toast_delete_success": "グループが削除されました",
 		"toast_delete_failed": "{{message}} の削除に失敗しました",
 		"toast_bulk_delete_warning": "{{succeeded}} グループの {{total}} を削除しました ({{failed}} 失敗)",
-		"toast_entry_min_one": "少なくとも1つのプロバイダがアクティブである必要があります",
 		"toast_min_entries": "少なくとも 2 つのエントリが必要です",
 		"toast_display_model_required": "表示モデル名が必要です",
 		"badge_enabled_one": "{{count}} は有効です",
@@ -993,7 +993,8 @@
 		"provider_modal_description": "プロバイダを無効にすると、フェイルオーバーグループのすべてのモデルが無効になります",
 		"toast_provider_toggle_no_groups": "フェイルオーバーグループでプロバイダ {{provider}}を使用しません",
 		"last_sync_label": "前回の同期:",
-		"toast_sync_disabled": "hotel/{{group}} を無効化しました: ルーティング可能なメンバーが {{count}} 個"
+		"toast_sync_disabled": "hotel/{{group}} を無効化しました: ルーティング可能なメンバーが {{count}} 個",
+		"toast_entry_min_two": "少なくとも2つのメンバーをアクティブのままにする必要があります。"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "保存されていない変更"
@@ -1999,7 +2000,8 @@
 			"clearFilter": "フィルターをクリア",
 			"paramsLocked": "実行中にパラメータがロックされています",
 			"editParams": "生成パラメータを編集",
-			"addParams": "生成パラメータを追加"
+			"addParams": "生成パラメータを追加",
+			"viewDetails": "モデルの詳細を表示"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "パラメータをリセット",
@@ -2461,14 +2463,19 @@
 			"enableProvider": "プロバイダを有効にする",
 			"circuitBreakerOpen": "Circuit breaker open - waiting for resfriend",
 			"circuitBreakerHalfOpen": "サーキットブレーカーハーフオープン - プローブ回復",
-			"modelDisabled": "無効",
-			"providerDisabled": "プロバイダーが無効化されています",
 			"naBadge": "N/A",
-			"modelDisabledHelp": "モデルが無効化されているため使用できません。グループは稼働中のメンバーが2つ以上になるまでオフのままです。",
-			"providerDisabledHelp": "プロバイダーが無効化されているため、このモデルは使用できません。グループは稼働中のメンバーが2つ以上になるまでオフのままです。"
-		},
-		"modal": {
-			"unavailable": "利用不可"
+			"reasonProviderOff": "無効: プロバイダーがオフになっています。",
+			"reasonManuallyDisabled": "手動で無効化されました。",
+			"reasonRemovedByDiscovery": "プロバイダーが提供しなくなりました。前回の検出で削除されました。",
+			"retryNa": "N/A を再試行",
+			"retryNaRunning": "再試行中...",
+			"retryNaHelp": "利用できないメンバーを再確認し、応答するものを再度有効化します。",
+			"retryNaProviderOff": "これらのメンバーを回復するには、プロバイダーページでプロバイダーを再度有効にしてください。",
+			"deleteNa": "N/A を削除",
+			"deleteNaHelp": "利用できないメンバーをこのグループから削除します。",
+			"deleteNaConfirmTitle": "このグループを削除しますか？",
+			"deleteNaConfirmMessage": "利用できないメンバーを削除すると、ルーティング可能なメンバーが2未満になるため、グループ全体が削除されます。",
+			"deleteNaConfirmLabel": "グループを削除"
 		}
 	},
 	"virtualKeys": {

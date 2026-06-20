@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "成功 | 响应： {{content}}{{ttftPart}} | 时长： {{duration}}秒",
 			"testFailed": "测试失败： {{error}}",
-			"testSuccessNoResponse": "成功{{ttftPart}} | 时长： {{duration}}秒"
+			"testSuccessNoResponse": "成功{{ttftPart}} | 时长： {{duration}}秒",
+			"copyRawValue": "复制原始值"
 		},
 		"table": {
 			"sortByModelName": "按模型名称排序",
@@ -960,7 +961,6 @@
 		"toast_delete_success": "群组已删除",
 		"toast_delete_failed": "删除失败： {{message}}",
 		"toast_bulk_delete_warning": "已从 {{total}} 组中删除 {{succeeded}} （{{failed}} 操作失败）",
-		"toast_entry_min_one": "至少有一个提供商必须保持活动状态",
 		"toast_min_entries": "至少需要2个条目",
 		"toast_display_model_required": "显示模型名称是必需的",
 		"badge_enabled_one": "{{count}} 已启用",
@@ -993,7 +993,8 @@
 		"provider_modal_description": "禁用一个提供商将在每个失败组禁用其所有模型",
 		"toast_provider_toggle_no_groups": "没有故障转移组使用该提供程序 {{provider}}",
 		"last_sync_label": "最后同步时间：",
-		"toast_sync_disabled": "酒店/{{group}} 已停用：剩余 {{count}} 个可路由成员"
+		"toast_sync_disabled": "酒店/{{group}} 已停用：剩余 {{count}} 个可路由成员",
+		"toast_entry_min_two": "至少 2 个成员必须保持活动状态。"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "未保存的更改"
@@ -1999,7 +2000,8 @@
 			"clearFilter": "清除过滤器",
 			"paramsLocked": "参数在运行时锁定",
 			"editParams": "编辑生成参数",
-			"addParams": "添加生成参数"
+			"addParams": "添加生成参数",
+			"viewDetails": "查看模型详情"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "重置参数",
@@ -2461,14 +2463,19 @@
 			"enableProvider": "启用提供商",
 			"circuitBreakerOpen": "线路断路器打开 - 等待冷却时间",
 			"circuitBreakerHalfOpen": "断路器半开启-探测恢复",
-			"modelDisabled": "已停用",
-			"providerDisabled": "提供商已禁用",
 			"naBadge": "N/A",
-			"modelDisabledHelp": "模型已停用，无法使用。该组将保持关闭，直到拥有 2 个以上有效成员。",
-			"providerDisabledHelp": "提供商已停用，因此无法使用此模型。该组将保持关闭，直到拥有 2 个以上有效成员。"
-		},
-		"modal": {
-			"unavailable": "不可用"
+			"reasonProviderOff": "已禁用：其提供商已关闭。",
+			"reasonManuallyDisabled": "已手动禁用。",
+			"reasonRemovedByDiscovery": "提供商不再提供；已在上次发现时移除。",
+			"retryNa": "重试 N/A",
+			"retryNaRunning": "正在重试...",
+			"retryNaHelp": "重新检查不可用的成员，并重新启用有响应的成员。",
+			"retryNaProviderOff": "在“提供商”页面重新启用该提供商以恢复这些成员。",
+			"deleteNa": "删除 N/A",
+			"deleteNaHelp": "从该组中移除不可用的成员。",
+			"deleteNaConfirmTitle": "删除该组？",
+			"deleteNaConfirmMessage": "移除不可用的成员后可路由成员将少于 2 个，因此整个组将被删除。",
+			"deleteNaConfirmLabel": "删除组"
 		}
 	},
 	"virtualKeys": {

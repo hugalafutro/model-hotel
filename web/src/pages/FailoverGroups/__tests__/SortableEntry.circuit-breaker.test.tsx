@@ -38,6 +38,7 @@ const baseEntry: FailoverGroup["entries"][0] = {
 	enabled: true,
 	model_enabled: true,
 	provider_enabled: true,
+	disabled_manually: false,
 	context_length: 8192,
 	owned_by: "openai",
 };

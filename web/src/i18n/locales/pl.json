@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Sukces | Odpowiedź: {{content}}{{ttftPart}} | Czas trwania: {{duration}}s",
 			"testFailed": "Test nie powiódł się: {{error}}",
-			"testSuccessNoResponse": "Sukces{{ttftPart}} | Czas trwania: {{duration}}s"
+			"testSuccessNoResponse": "Sukces{{ttftPart}} | Czas trwania: {{duration}}s",
+			"copyRawValue": "Kopiuj surową wartość"
 		},
 		"table": {
 			"sortByModelName": "Sortuj według nazwy modelu",
@@ -960,7 +961,6 @@
 		"toast_delete_success": "Grupa usunięta",
 		"toast_delete_failed": "Nie udało się usunąć: {{message}}",
 		"toast_bulk_delete_warning": "Usunięto {{succeeded}} z grup {{total}} ({{failed}} nie powiodło się)",
-		"toast_entry_min_one": "Co najmniej jeden dostawca musi pozostać aktywny",
 		"toast_min_entries": "Wymagane co najmniej 2 wpisy",
 		"toast_display_model_required": "Wyświetlana nazwa modelu jest wymagana",
 		"badge_enabled_one": "{{count}} włączony",
@@ -993,7 +993,8 @@
 		"provider_modal_description": "Wyłączenie dostawcy wyłączy wszystkie jego modele w każdej grupie awaryjnej",
 		"toast_provider_toggle_no_groups": "Żadne grupy awaryjne nie używają dostawcy {{provider}}",
 		"last_sync_label": "Ostatnia synchronizacja:",
-		"toast_sync_disabled": "hotel/{{group}} wyłączono: pozostało {{count}} członków z routingiem"
+		"toast_sync_disabled": "hotel/{{group}} wyłączono: pozostało {{count}} członków z routingiem",
+		"toast_entry_min_two": "Co najmniej 2 członków musi pozostać aktywnych."
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Niezapisane zmiany"
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Wyczyść filtr",
 			"paramsLocked": "Parametry zablokowane podczas pracy",
 			"editParams": "Edytuj parametry generowania",
-			"addParams": "Dodaj parametry generowania"
+			"addParams": "Dodaj parametry generowania",
+			"viewDetails": "Pokaż szczegóły modelu"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Resetuj parametry",
@@ -2461,14 +2463,19 @@
 			"enableProvider": "Włącz dostawcę",
 			"circuitBreakerOpen": "Wyłącznik obwodu otwarty - oczekiwanie na czas odnowienia",
 			"circuitBreakerHalfOpen": "Wyłącznik wyłącznika w połowie otwarty - odzysk sondy",
-			"modelDisabled": "Wyłączony",
-			"providerDisabled": "Dostawca wyłączony",
 			"naBadge": "N/A",
-			"modelDisabledHelp": "Model jest wyłączony i nie można go użyć. Grupa pozostaje wyłączona, dopóki nie będzie mieć 2+ aktywnych członków.",
-			"providerDisabledHelp": "Dostawca jest wyłączony, więc tego modelu nie można użyć. Grupa pozostaje wyłączona, dopóki nie będzie mieć 2+ aktywnych członków."
-		},
-		"modal": {
-			"unavailable": "niedostępne"
+			"reasonProviderOff": "Wyłączone: jego dostawca jest wyłączony.",
+			"reasonManuallyDisabled": "Wyłączone ręcznie.",
+			"reasonRemovedByDiscovery": "Dostawca już go nie oferuje; usunięto przy ostatnim wykrywaniu.",
+			"retryNa": "Ponów N/A",
+			"retryNaRunning": "Ponawianie...",
+			"retryNaHelp": "Ponownie sprawdza niedostępnych członków i włącza tych, którzy odpowiedzą.",
+			"retryNaProviderOff": "Ponownie włącz dostawcę na stronie Dostawcy, aby odzyskać tych członków.",
+			"deleteNa": "Usuń N/A",
+			"deleteNaHelp": "Usuwa niedostępnych członków z tej grupy.",
+			"deleteNaConfirmTitle": "Usunąć tę grupę?",
+			"deleteNaConfirmMessage": "Usunięcie niedostępnych członków pozostawiłoby mniej niż 2 członków możliwych do routowania, więc cała grupa zostanie usunięta.",
+			"deleteNaConfirmLabel": "Usuń grupę"
 		}
 	},
 	"virtualKeys": {

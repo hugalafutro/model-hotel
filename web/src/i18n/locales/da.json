@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Succes | Svar: {{content}}{{ttftPart}} | Varighed: {{duration}}s",
 			"testFailed": "Test mislykkedes: {{error}}",
-			"testSuccessNoResponse": "Succes{{ttftPart}} | Varighed: {{duration}}s"
+			"testSuccessNoResponse": "Succes{{ttftPart}} | Varighed: {{duration}}s",
+			"copyRawValue": "Kopiér rå værdi"
 		},
 		"table": {
 			"sortByModelName": "Sorter efter modelnavn",
@@ -960,7 +961,6 @@
 		"toast_delete_success": "Gruppe slettet",
 		"toast_delete_failed": "Mislykkedes at slette: {{message}}",
 		"toast_bulk_delete_warning": "Slettede {{succeeded}} af {{total}} grupper ({{failed}} mislykkedes)",
-		"toast_entry_min_one": "Mindst én udbyder skal forblive aktiv",
 		"toast_min_entries": "Mindst 2 poster kræves",
 		"toast_display_model_required": "Navn på visningsmodel er påkrævet",
 		"badge_enabled_one": "{{count}} aktiveret",
@@ -993,7 +993,8 @@
 		"provider_modal_description": "Deaktivering af en udbyder vil deaktivere alle sine modeller i hver failover gruppe",
 		"toast_provider_toggle_no_groups": "Ingen mislykkede grupper bruger udbyder {{provider}}",
 		"last_sync_label": "Seneste synkronisering:",
-		"toast_sync_disabled": "hotel/{{group}} deaktiveret: {{count}} rutebare medlem(mer) tilbage"
+		"toast_sync_disabled": "hotel/{{group}} deaktiveret: {{count}} rutebare medlem(mer) tilbage",
+		"toast_entry_min_two": "Mindst 2 medlemmer skal forblive aktive."
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Ikke-Gemte Ændringer"
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Ryd filter",
 			"paramsLocked": "Parametre låst under kørsel",
 			"editParams": "Rediger generering parametre",
-			"addParams": "Tilføj generationsparametre"
+			"addParams": "Tilføj generationsparametre",
+			"viewDetails": "Vis modeldetaljer"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Nulstil parametre",
@@ -2461,14 +2463,19 @@
 			"enableProvider": "Aktiver udbyder",
 			"circuitBreakerOpen": "Circuit breaker åben - venter på nedkøling",
 			"circuitBreakerHalfOpen": "Circuit breaker halvt åben - probing recovery",
-			"modelDisabled": "Deaktiveret",
-			"providerDisabled": "Udbyder deaktiveret",
 			"naBadge": "N/A",
-			"modelDisabledHelp": "Modellen er deaktiveret og kan ikke bruges. Gruppen forbliver slået fra, indtil den har 2+ aktive medlemmer.",
-			"providerDisabledHelp": "Udbyderen er deaktiveret, så denne model kan ikke bruges. Gruppen forbliver slået fra, indtil den har 2+ aktive medlemmer."
-		},
-		"modal": {
-			"unavailable": "ikke tilgængelig"
+			"reasonProviderOff": "Deaktiveret: dens udbyder er slået fra.",
+			"reasonManuallyDisabled": "Deaktiveret manuelt.",
+			"reasonRemovedByDiscovery": "Tilbydes ikke længere af udbyderen; fjernet ved sidste registrering.",
+			"retryNa": "Prøv N/A igen",
+			"retryNaRunning": "Prøver igen...",
+			"retryNaHelp": "Tjek utilgængelige medlemmer igen, og genaktivér dem, der svarer.",
+			"retryNaProviderOff": "Genaktivér udbyderen på siden Udbydere for at gendanne disse medlemmer.",
+			"deleteNa": "Slet N/A",
+			"deleteNaHelp": "Fjern de utilgængelige medlemmer fra denne gruppe.",
+			"deleteNaConfirmTitle": "Slet denne gruppe?",
+			"deleteNaConfirmMessage": "Hvis du fjerner de utilgængelige medlemmer, vil der være færre end 2 medlemmer, der kan rutes, så hele gruppen slettes.",
+			"deleteNaConfirmLabel": "Slet gruppe"
 		}
 	},
 	"virtualKeys": {

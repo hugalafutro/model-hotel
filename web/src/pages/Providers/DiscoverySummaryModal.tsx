@@ -451,7 +451,7 @@ export function DiscoverySummaryModal({
 											data-testid="discovery-summary-toggle"
 										>
 											<span className="truncate">{r.providerName}</span>
-											<span className="h-px flex-1 bg-(--border-default)" />
+											<span className="h-px flex-1 bg-(--accent)/50" />
 											{collapsed.has(entryKeyOf(r)) ? (
 												<ChevronRight size={14} className="shrink-0" />
 											) : (

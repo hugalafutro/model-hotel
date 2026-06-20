@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Success | Response: {{content}}{{ttftPart}} | Duration: {{duration}}s",
 			"testSuccessNoResponse": "Success{{ttftPart}} | Duration: {{duration}}s",
-			"testFailed": "Test failed: {{error}}"
+			"testFailed": "Test failed: {{error}}",
+			"copyRawValue": "Copy raw value"
 		},
 		"table": {
 			"sortByModelName": "Sort by model name",
@@ -961,7 +962,6 @@
 		"toast_delete_success": "Group deleted",
 		"toast_delete_failed": "Failed to delete: {{message}}",
 		"toast_bulk_delete_warning": "Deleted {{succeeded}} of {{total}} groups ({{failed}} failed)",
-		"toast_entry_min_one": "At least one provider must remain active",
 		"toast_min_entries": "At least 2 entries required",
 		"toast_display_model_required": "Display model name is required",
 		"badge_enabled_one": "{{count}} enabled",
@@ -993,7 +993,8 @@
 		"provider_modal_title": "Manage Provider Status",
 		"provider_modal_description": "Disabling a provider will disable all its models in every failover group",
 		"toast_provider_toggle_no_groups": "No failover groups use provider {{provider}}",
-		"toast_sync_disabled": "hotel/{{group}} disabled: {{count}} routable member(s) left"
+		"toast_sync_disabled": "hotel/{{group}} disabled: {{count}} routable member(s) left",
+		"toast_entry_min_two": "At least 2 members must stay active."
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Unsaved Changes"
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Clear filter",
 			"paramsLocked": "Parameters locked while running",
 			"editParams": "Edit generation parameters",
-			"addParams": "Add generation parameters"
+			"addParams": "Add generation parameters",
+			"viewDetails": "View model details"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Reset parameters",
@@ -2461,14 +2463,19 @@
 			"enableProvider": "Enable provider",
 			"circuitBreakerOpen": "Circuit breaker open - waiting for cooldown",
 			"circuitBreakerHalfOpen": "Circuit breaker half-open - probing recovery",
-			"modelDisabled": "Disabled",
-			"providerDisabled": "Provider disabled",
 			"naBadge": "N/A",
-			"modelDisabledHelp": "Model is disabled, so it can't be used. The group stays off until it has 2+ live members.",
-			"providerDisabledHelp": "Provider is disabled, so this model can't be used. The group stays off until it has 2+ live members."
-		},
-		"modal": {
-			"unavailable": "unavailable"
+			"reasonProviderOff": "Disabled: its provider is turned off.",
+			"reasonManuallyDisabled": "Disabled by hand.",
+			"reasonRemovedByDiscovery": "No longer offered by the provider, dropped on the last discovery.",
+			"retryNa": "Retry N/A",
+			"retryNaRunning": "Retrying...",
+			"retryNaHelp": "Re-check unavailable members and re-enable any that respond.",
+			"retryNaProviderOff": "Re-enable the provider on the Providers page to recover these members.",
+			"deleteNa": "Delete N/A",
+			"deleteNaHelp": "Remove the unavailable members from this group.",
+			"deleteNaConfirmTitle": "Delete this group?",
+			"deleteNaConfirmMessage": "Removing the unavailable members would leave fewer than 2 routable members, so the whole group will be deleted.",
+			"deleteNaConfirmLabel": "Delete group"
 		}
 	},
 	"virtualKeys": {

@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Siker | Válasz: {{content}}{{ttftPart}} | Időtartam: {{duration}}másodperc",
 			"testFailed": "A teszt sikertelen: {{error}}",
-			"testSuccessNoResponse": "Siker{{ttftPart}} | Időtartam: {{duration}}másodperc"
+			"testSuccessNoResponse": "Siker{{ttftPart}} | Időtartam: {{duration}}másodperc",
+			"copyRawValue": "Nyers érték másolása"
 		},
 		"table": {
 			"sortByModelName": "Rendezés modellnév szerint",
@@ -960,7 +961,6 @@
 		"toast_delete_success": "Csoport törölve",
 		"toast_delete_failed": "A törlés nem sikerült: {{message}}",
 		"toast_bulk_delete_warning": "Törölve: {{succeeded}} a {{total}} csoportból (a{{failed}} nem sikerült)",
-		"toast_entry_min_one": "Legalább egy szolgáltatónak aktívnak kell maradnia",
 		"toast_min_entries": "Legalább 2 bejegyzés szükséges",
 		"toast_display_model_required": "A modellnév megadása kötelező",
 		"badge_enabled_one": "{{count}} engedélyezve",
@@ -993,7 +993,8 @@
 		"provider_modal_description": "Egy szolgáltató letiltása minden failover-csoportban letiltja az összes modelljét",
 		"toast_provider_toggle_no_groups": "Egyetlen átállási csoport sem használja a szolgáltatót {{provider}}",
 		"last_sync_label": "Utolsó szinkronizálás:",
-		"toast_sync_disabled": "szálloda/{{group}} letiltva: {{count}} útválasztható tag maradt"
+		"toast_sync_disabled": "szálloda/{{group}} letiltva: {{count}} útválasztható tag maradt",
+		"toast_entry_min_two": "Legalább 2 tagnak aktívnak kell maradnia."
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Még nem mentett módosítások"
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Szűrő törlése",
 			"paramsLocked": "A paraméterek futás közben zárolva vannak",
 			"editParams": "A generálási paraméterek szerkesztése",
-			"addParams": "Generálási paraméterek hozzáadása"
+			"addParams": "Generálási paraméterek hozzáadása",
+			"viewDetails": "Modell részleteinek megtekintése"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Paraméterek visszaállítása",
@@ -2461,14 +2463,19 @@
 			"enableProvider": "Szolgáltató engedélyezése",
 			"circuitBreakerOpen": "A megszakító nyitott – a lehűlési idő lejártát várja",
 			"circuitBreakerHalfOpen": "A megszakító félig nyitott – helyreállítási vizsgálat",
-			"modelDisabled": "Letiltva",
-			"providerDisabled": "Szolgáltató letiltva",
 			"naBadge": "N/A",
-			"modelDisabledHelp": "A modell le van tiltva, így nem használható. A csoport kikapcsolva marad, amíg nincs 2+ aktív tagja.",
-			"providerDisabledHelp": "A szolgáltató le van tiltva, így ez a modell nem használható. A csoport kikapcsolva marad, amíg nincs 2+ aktív tagja."
-		},
-		"modal": {
-			"unavailable": "nem elérhető"
+			"reasonProviderOff": "Letiltva: a szolgáltatója ki van kapcsolva.",
+			"reasonManuallyDisabled": "Kézzel letiltva.",
+			"reasonRemovedByDiscovery": "A szolgáltató már nem kínálja; az utolsó felderítéskor eltávolítva.",
+			"retryNa": "N/A újrapróbálása",
+			"retryNaRunning": "Újrapróbálkozás...",
+			"retryNaHelp": "Újraellenőrzi a nem elérhető tagokat, és újra engedélyezi a válaszolókat.",
+			"retryNaProviderOff": "A tagok visszaállításához engedélyezze újra a szolgáltatót a Szolgáltatók oldalon.",
+			"deleteNa": "N/A törlése",
+			"deleteNaHelp": "Eltávolítja a nem elérhető tagokat ebből a csoportból.",
+			"deleteNaConfirmTitle": "Törli ezt a csoportot?",
+			"deleteNaConfirmMessage": "A nem elérhető tagok eltávolításával 2-nél kevesebb irányítható tag maradna, ezért a teljes csoport törlődik.",
+			"deleteNaConfirmLabel": "Csoport törlése"
 		}
 	},
 	"virtualKeys": {
