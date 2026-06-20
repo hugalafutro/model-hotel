@@ -2462,7 +2462,10 @@
 			"circuitBreakerOpen": "Jistič je rozpojený – čeká na ochlazení",
 			"circuitBreakerHalfOpen": "Jistič je v poloze částečně otevřené – testování obnovy",
 			"modelDisabled": "Deaktivováno",
-			"providerDisabled": "Poskytovatel deaktivován"
+			"providerDisabled": "Poskytovatel deaktivován",
+			"naBadge": "N/A",
+			"modelDisabledHelp": "Model je deaktivován a nelze jej použít. Skupina zůstane vypnutá, dokud nebude mít 2+ živé členy.",
+			"providerDisabledHelp": "Poskytovatel je deaktivován, takže tento model nelze použít. Skupina zůstane vypnutá, dokud nebude mít 2+ živé členy."
 		},
 		"modal": {
 			"unavailable": "nedostupné"

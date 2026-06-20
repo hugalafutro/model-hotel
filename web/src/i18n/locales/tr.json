@@ -2462,7 +2462,10 @@
 			"circuitBreakerOpen": "Devre kesici açık - soğuma süresinin bitmesini bekliyor",
 			"circuitBreakerHalfOpen": "Devre kesici yarı açık - geri kazanım testi",
 			"modelDisabled": "Devre dışı",
-			"providerDisabled": "Sağlayıcı devre dışı"
+			"providerDisabled": "Sağlayıcı devre dışı",
+			"naBadge": "N/A",
+			"modelDisabledHelp": "Model devre dışı olduğu için kullanılamıyor. Grup, 2+ etkin üyesi olana kadar kapalı kalır.",
+			"providerDisabledHelp": "Sağlayıcı devre dışı olduğu için bu model kullanılamıyor. Grup, 2+ etkin üyesi olana kadar kapalı kalır."
 		},
 		"modal": {
 			"unavailable": "kullanılamıyor"

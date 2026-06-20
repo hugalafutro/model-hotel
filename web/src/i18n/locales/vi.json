@@ -2462,7 +2462,10 @@
 			"circuitBreakerOpen": "Công tắc ngắt mạch đang mở - đang chờ hết thời gian chờ",
 			"circuitBreakerHalfOpen": "Cầu dao ở trạng thái nửa mở - kiểm tra khả năng phục hồi",
 			"modelDisabled": "Vô hiệu hóa",
-			"providerDisabled": "Nhà cung cấp bị vô hiệu hóa"
+			"providerDisabled": "Nhà cung cấp bị vô hiệu hóa",
+			"naBadge": "N/A",
+			"modelDisabledHelp": "Mô hình đã bị vô hiệu hóa nên không thể sử dụng. Nhóm vẫn tắt cho đến khi có 2+ thành viên hoạt động.",
+			"providerDisabledHelp": "Nhà cung cấp đã bị vô hiệu hóa nên không thể sử dụng mô hình này. Nhóm vẫn tắt cho đến khi có 2+ thành viên hoạt động."
 		},
 		"modal": {
 			"unavailable": "không có sẵn"

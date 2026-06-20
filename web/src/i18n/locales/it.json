@@ -2462,7 +2462,10 @@
 			"circuitBreakerOpen": "Interruttore aperto - in attesa di raffreddamento",
 			"circuitBreakerHalfOpen": "Interruttore semi-aperto - recupero sondaggio",
 			"modelDisabled": "Disabilitato",
-			"providerDisabled": "Fornitore disabilitato"
+			"providerDisabled": "Fornitore disabilitato",
+			"naBadge": "N/A",
+			"modelDisabledHelp": "Il modello è disabilitato e non può essere usato. Il gruppo resta spento finché non ha 2+ membri attivi.",
+			"providerDisabledHelp": "Il provider è disabilitato, quindi questo modello non può essere usato. Il gruppo resta spento finché non ha 2+ membri attivi."
 		},
 		"modal": {
 			"unavailable": "non disponibile"

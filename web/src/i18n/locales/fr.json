@@ -2462,7 +2462,10 @@
 			"circuitBreakerOpen": "Disjoncteur ouvert - en attente de rechargement",
 			"circuitBreakerHalfOpen": "Disjoncteur à moitié ouvert - Récupération de la sonde",
 			"modelDisabled": "Désactivé",
-			"providerDisabled": "Fournisseur désactivé"
+			"providerDisabled": "Fournisseur désactivé",
+			"naBadge": "N/A",
+			"modelDisabledHelp": "Le modèle est désactivé et ne peut pas être utilisé. Le groupe reste désactivé jusqu'à ce qu'il ait 2+ membres actifs.",
+			"providerDisabledHelp": "Le fournisseur est désactivé, donc ce modèle ne peut pas être utilisé. Le groupe reste désactivé jusqu'à ce qu'il ait 2+ membres actifs."
 		},
 		"modal": {
 			"unavailable": "indisponible"

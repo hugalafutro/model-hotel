@@ -2462,7 +2462,10 @@
 			"circuitBreakerOpen": "Rupator de circuit deschis - aşteptare pentru răcire",
 			"circuitBreakerHalfOpen": "Circuit breaker semi-deschis - recuperare probabilă",
 			"modelDisabled": "Dezactivat",
-			"providerDisabled": "Furnizor dezactivat"
+			"providerDisabled": "Furnizor dezactivat",
+			"naBadge": "N/A",
+			"modelDisabledHelp": "Modelul este dezactivat și nu poate fi folosit. Grupul rămâne oprit până când are 2+ membri activi.",
+			"providerDisabledHelp": "Furnizorul este dezactivat, deci acest model nu poate fi folosit. Grupul rămâne oprit până când are 2+ membri activi."
 		},
 		"modal": {
 			"unavailable": "indisponibil"

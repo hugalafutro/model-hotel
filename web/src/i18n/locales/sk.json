@@ -2462,7 +2462,10 @@
 			"circuitBreakerOpen": "Istič je otvorený – čaká sa na ochladenie",
 			"circuitBreakerHalfOpen": "Istič je čiastočne otvorený – testovanie obnovy",
 			"modelDisabled": "Deaktivované",
-			"providerDisabled": "Poskytovateľ deaktivovaný"
+			"providerDisabled": "Poskytovateľ deaktivovaný",
+			"naBadge": "N/A",
+			"modelDisabledHelp": "Model je deaktivovaný a nedá sa použiť. Skupina zostáva vypnutá, kým nebude mať 2+ aktívnych členov.",
+			"providerDisabledHelp": "Poskytovateľ je deaktivovaný, takže tento model sa nedá použiť. Skupina zostáva vypnutá, kým nebude mať 2+ aktívnych členov."
 		},
 		"modal": {
 			"unavailable": "nedostupné"

@@ -525,6 +525,16 @@ func main() {
 				failoverDiff.FailoverUpdatedGroups = append(failoverDiff.FailoverUpdatedGroups, syncRes.UpdatedGroups...)
 			}
 		}
+		// SyncForModel only rebuilds auto-groups; custom groups whose member was
+		// just disabled (not deleted) keep their stale size. Revalidate once per
+		// cycle so background discovery auto-disables any custom group left with
+		// fewer than two routable members — the headless path the manual Sync and
+		// interactive discover already cover.
+		if revRes, err := failoverRepo.RevalidateCustomGroups(ctx); err != nil {
+			debuglog.Error("discovery: failed to revalidate custom failover groups", "error", err)
+		} else if revRes != nil {
+			failoverDiff.FailoverDisabledGroups = append(failoverDiff.FailoverDisabledGroups, revRes.DisabledGroups...)
+		}
 		// Record failover group churn as one aggregate entry (the global sync is
 		// not per-provider). An empty provider_name flags this to the frontend as
 		// the run-wide failover entry, which it labels accordingly.

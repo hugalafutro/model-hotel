@@ -2462,7 +2462,10 @@
 			"circuitBreakerOpen": "Wyłącznik obwodu otwarty - oczekiwanie na czas odnowienia",
 			"circuitBreakerHalfOpen": "Wyłącznik wyłącznika w połowie otwarty - odzysk sondy",
 			"modelDisabled": "Wyłączony",
-			"providerDisabled": "Dostawca wyłączony"
+			"providerDisabled": "Dostawca wyłączony",
+			"naBadge": "N/A",
+			"modelDisabledHelp": "Model jest wyłączony i nie można go użyć. Grupa pozostaje wyłączona, dopóki nie będzie mieć 2+ aktywnych członków.",
+			"providerDisabledHelp": "Dostawca jest wyłączony, więc tego modelu nie można użyć. Grupa pozostaje wyłączona, dopóki nie będzie mieć 2+ aktywnych członków."
 		},
 		"modal": {
 			"unavailable": "niedostępne"

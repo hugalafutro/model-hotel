@@ -213,8 +213,8 @@ export function CircuitBreakerSettings({
 				</div>
 
 				{hedgingEnabled && (
-					<div className="p-3 bg-amber-900/30 border border-amber-600 rounded-lg">
-						<p className="text-sm text-amber-300">
+					<div className="p-3 bg-amber-900/30 border border-amber-600 rounded-(--radius-box)">
+						<p className="text-sm text-amber-300 text-justify">
 							{t("settings.circuitBreaker.hedgingNotice")}
 						</p>
 					</div>

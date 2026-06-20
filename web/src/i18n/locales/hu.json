@@ -2462,7 +2462,10 @@
 			"circuitBreakerOpen": "A megszakító nyitott – a lehűlési idő lejártát várja",
 			"circuitBreakerHalfOpen": "A megszakító félig nyitott – helyreállítási vizsgálat",
 			"modelDisabled": "Letiltva",
-			"providerDisabled": "Szolgáltató letiltva"
+			"providerDisabled": "Szolgáltató letiltva",
+			"naBadge": "N/A",
+			"modelDisabledHelp": "A modell le van tiltva, így nem használható. A csoport kikapcsolva marad, amíg nincs 2+ aktív tagja.",
+			"providerDisabledHelp": "A szolgáltató le van tiltva, így ez a modell nem használható. A csoport kikapcsolva marad, amíg nincs 2+ aktív tagja."
 		},
 		"modal": {
 			"unavailable": "nem elérhető"

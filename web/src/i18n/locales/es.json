@@ -2462,7 +2462,10 @@
 			"circuitBreakerOpen": "Interruptor de circuito abierto - esperando enfriamiento",
 			"circuitBreakerHalfOpen": "Rompeador de circuitos medio abierto - recuperación de sondeo",
 			"modelDisabled": "Desactivado",
-			"providerDisabled": "Proveedor desactivado"
+			"providerDisabled": "Proveedor desactivado",
+			"naBadge": "N/A",
+			"modelDisabledHelp": "El modelo está desactivado y no se puede usar. El grupo permanece apagado hasta que tenga 2+ miembros activos.",
+			"providerDisabledHelp": "El proveedor está desactivado, por lo que este modelo no se puede usar. El grupo permanece apagado hasta que tenga 2+ miembros activos."
 		},
 		"modal": {
 			"unavailable": "no disponible"

@@ -2462,7 +2462,10 @@
 			"circuitBreakerOpen": "Kretsbrytare öppen - väntar på cooldown",
 			"circuitBreakerHalfOpen": "Circuit breaker halv-öppen - sondering återhämtning",
 			"modelDisabled": "Inaktiverad",
-			"providerDisabled": "Leverantör inaktiverad"
+			"providerDisabled": "Leverantör inaktiverad",
+			"naBadge": "N/A",
+			"modelDisabledHelp": "Modellen är inaktiverad och kan inte användas. Gruppen förblir avstängd tills den har 2+ aktiva medlemmar.",
+			"providerDisabledHelp": "Leverantören är inaktiverad, så den här modellen kan inte användas. Gruppen förblir avstängd tills den har 2+ aktiva medlemmar."
 		},
 		"modal": {
 			"unavailable": "otillgänglig"

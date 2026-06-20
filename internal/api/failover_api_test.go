@@ -534,6 +534,75 @@ func TestFailoverHandler_Update_EnableAllowedWhenTwoRoutable(t *testing.T) {
 	}
 }
 
+// Listing groups self-heals: an enabled custom group left with fewer than two
+// routable members (a member's model disabled outside a sync) is auto-disabled
+// and returned as group_enabled=false, so the dashboard never shows an invalid
+// enabled group.
+func TestFailoverHandler_List_SelfHealsUndersizedGroup(t *testing.T) {
+	h := newIntegrationFailoverHandler()
+	ctx := context.Background()
+	pool := apiTestDB.Pool()
+	displayModel := "test-selfheal-" + uuid.New().String()[:8]
+
+	providerID := uuid.New()
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO providers (id, name, base_url, enabled, created_at, updated_at)
+		 VALUES ($1, $2, 'https://sh.example.com', true, now(), now())`,
+		providerID, "sh-prov-"+uuid.New().String()[:8]); err != nil {
+		t.Fatalf("insert provider: %v", err)
+	}
+	t.Cleanup(func() { _, _ = pool.Exec(ctx, "DELETE FROM providers WHERE id = $1", providerID) })
+
+	m1, m2 := uuid.New(), uuid.New()
+	for _, m := range []struct {
+		id      uuid.UUID
+		enabled bool
+	}{{m1, true}, {m2, false}} { // m2's model disabled -> only one routable member
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO models (id, provider_id, model_id, name, enabled, created_at, last_seen_at)
+			 VALUES ($1, $2, $3, $3, $4, now(), now())`,
+			m.id, providerID, "sh-model-"+m.id.String()[:8], m.enabled); err != nil {
+			t.Fatalf("insert model: %v", err)
+		}
+		t.Cleanup(func(id uuid.UUID) func() {
+			return func() { _, _ = pool.Exec(ctx, "DELETE FROM models WHERE id = $1", id) }
+		}(m.id))
+	}
+	model.InvalidateModelCache()
+
+	// Create an ENABLED custom group with the now-undersized membership.
+	groupEnabled := true
+	autoCreated := false
+	entryEnabled := map[string]bool{m1.String(): true, m2.String(): true}
+	if _, err := h.failoverRepo.UpsertWithConfig(ctx, displayModel, []uuid.UUID{m1, m2}, entryEnabled, &groupEnabled, nil, nil, &autoCreated); err != nil {
+		t.Fatalf("create custom group: %v", err)
+	}
+	t.Cleanup(func() { _ = h.failoverRepo.Delete(ctx, displayModel) })
+
+	req, w := newChiRequest(http.MethodGet, "/failover-groups", nil)
+	h.List(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("List: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp FailoverListResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode list response: %v", err)
+	}
+	found := false
+	for _, g := range resp.Groups {
+		if g.DisplayModel == displayModel {
+			found = true
+			if g.GroupEnabled {
+				t.Errorf("expected group %q to be self-healed to disabled, got group_enabled=true", displayModel)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("group %q not present in list response", displayModel)
+	}
+}
+
 func TestFailoverHandler_Update_DisableGroup(t *testing.T) {
 	h := newIntegrationFailoverHandler()
 

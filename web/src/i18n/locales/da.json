@@ -2462,7 +2462,10 @@
 			"circuitBreakerOpen": "Circuit breaker åben - venter på nedkøling",
 			"circuitBreakerHalfOpen": "Circuit breaker halvt åben - probing recovery",
 			"modelDisabled": "Deaktiveret",
-			"providerDisabled": "Udbyder deaktiveret"
+			"providerDisabled": "Udbyder deaktiveret",
+			"naBadge": "N/A",
+			"modelDisabledHelp": "Modellen er deaktiveret og kan ikke bruges. Gruppen forbliver slået fra, indtil den har 2+ aktive medlemmer.",
+			"providerDisabledHelp": "Udbyderen er deaktiveret, så denne model kan ikke bruges. Gruppen forbliver slået fra, indtil den har 2+ aktive medlemmer."
 		},
 		"modal": {
 			"unavailable": "ikke tilgængelig"

@@ -2462,7 +2462,10 @@
 			"circuitBreakerOpen": "Krets breaker åpen - venter på cooldown",
 			"circuitBreakerHalfOpen": "Krets pauseåpning – ettersyns gjenoppretting",
 			"modelDisabled": "Deaktivert",
-			"providerDisabled": "Leverandør deaktivert"
+			"providerDisabled": "Leverandør deaktivert",
+			"naBadge": "N/A",
+			"modelDisabledHelp": "Modellen er deaktivert og kan ikke brukes. Gruppen forblir av til den har 2+ aktive medlemmer.",
+			"providerDisabledHelp": "Leverandøren er deaktivert, så denne modellen kan ikke brukes. Gruppen forblir av til den har 2+ aktive medlemmer."
 		},
 		"modal": {
 			"unavailable": "utilgjengelig"

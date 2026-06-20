@@ -2462,7 +2462,10 @@
 			"circuitBreakerOpen": "Circuit breaker open - waiting for resfriend",
 			"circuitBreakerHalfOpen": "サーキットブレーカーハーフオープン - プローブ回復",
 			"modelDisabled": "無効",
-			"providerDisabled": "プロバイダーが無効化されています"
+			"providerDisabled": "プロバイダーが無効化されています",
+			"naBadge": "N/A",
+			"modelDisabledHelp": "モデルが無効化されているため使用できません。グループは稼働中のメンバーが2つ以上になるまでオフのままです。",
+			"providerDisabledHelp": "プロバイダーが無効化されているため、このモデルは使用できません。グループは稼働中のメンバーが2つ以上になるまでオフのままです。"
 		},
 		"modal": {
 			"unavailable": "利用不可"

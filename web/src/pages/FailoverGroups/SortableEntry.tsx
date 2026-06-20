@@ -137,12 +137,15 @@ export function SortableEntry({
 				</div>
 				{effectivelyDisabled && (
 					<span
-						className="ui-badge ui-badge-warning shrink-0"
+						className="ui-badge ui-badge-warning shrink-0 cursor-help"
 						data-testid="failover-entry-effective-disabled"
+						title={
+							entry.provider_enabled
+								? t("failoverGroups.entry.modelDisabledHelp")
+								: t("failoverGroups.entry.providerDisabledHelp")
+						}
 					>
-						{entry.provider_enabled
-							? t("failoverGroups.entry.modelDisabled")
-							: t("failoverGroups.entry.providerDisabled")}
+						{t("failoverGroups.entry.naBadge")}
 					</span>
 				)}
 			</div>
@@ -158,8 +161,8 @@ export function SortableEntry({
 				title={
 					effectivelyDisabled
 						? entry.provider_enabled
-							? t("failoverGroups.entry.modelDisabled")
-							: t("failoverGroups.entry.providerDisabled")
+							? t("failoverGroups.entry.modelDisabledHelp")
+							: t("failoverGroups.entry.providerDisabledHelp")
 						: undefined
 				}
 				ariaLabel={
