@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Успех | Ответ: {{content}}{{ttftPart}} | Продолжительность: {{duration}}с",
 			"testFailed": "Тест не пройден: {{error}}",
-			"testSuccessNoResponse": "Успех{{ttftPart}} | Продолжительность: {{duration}}с"
+			"testSuccessNoResponse": "Успех{{ttftPart}} | Продолжительность: {{duration}}с",
+			"copyRawValue": "Копировать необработанное значение"
 		},
 		"table": {
 			"sortByModelName": "Сортировать по названию модели",
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Очистить фильтр",
 			"paramsLocked": "Параметры заблокированы во время работы",
 			"editParams": "Изменить параметры генерации",
-			"addParams": "Добавить параметры генерации"
+			"addParams": "Добавить параметры генерации",
+			"viewDetails": "Показать сведения о модели"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Сбросить параметры",

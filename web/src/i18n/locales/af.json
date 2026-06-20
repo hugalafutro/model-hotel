@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Sukses | Reaksie: {{content}}{{ttftPart}} | Duur: {{duration}}",
 			"testFailed": "Toets misluk: {{error}}",
-			"testSuccessNoResponse": "Sukses{{ttftPart}} | Duur: {{duration}}"
+			"testSuccessNoResponse": "Sukses{{ttftPart}} | Duur: {{duration}}",
+			"copyRawValue": "Kopieer rou waarde"
 		},
 		"table": {
 			"sortByModelName": "Sorteer volgens modelnaam",
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Maak filter skoon",
 			"paramsLocked": "Parameters gesluit terwyl dit loop",
 			"editParams": "Bewerk generasieparameters",
-			"addParams": "Voeg generasieparameters by"
+			"addParams": "Voeg generasieparameters by",
+			"viewDetails": "Bekyk modelbesonderhede"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Stel parameters terug",

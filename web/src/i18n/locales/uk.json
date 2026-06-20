@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Успіх | Відповідь: {{content}}{{ttftPart}} | Тривалість: {{duration}}с",
 			"testFailed": "Тест не пройшов: {{error}}",
-			"testSuccessNoResponse": "Успіх{{ttftPart}} | Тривалість: {{duration}}с"
+			"testSuccessNoResponse": "Успіх{{ttftPart}} | Тривалість: {{duration}}с",
+			"copyRawValue": "Копіювати необроблене значення"
 		},
 		"table": {
 			"sortByModelName": "Сортувати за назвою моделі",
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Очистити фільтр",
 			"paramsLocked": "Параметри заблоковані під час запуску",
 			"editParams": "Редагувати параметри генерації",
-			"addParams": "Додати параметри генерації"
+			"addParams": "Додати параметри генерації",
+			"viewDetails": "Показати деталі моделі"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Скинути параметри",

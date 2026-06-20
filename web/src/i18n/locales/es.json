@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Éxito | Respuesta: {{content}}{{ttftPart}} | Duración: {{duration}}s",
 			"testFailed": "Prueba fallida: {{error}}",
-			"testSuccessNoResponse": "Éxito{{ttftPart}} | Duración: {{duration}}s"
+			"testSuccessNoResponse": "Éxito{{ttftPart}} | Duración: {{duration}}s",
+			"copyRawValue": "Copiar valor sin formato"
 		},
 		"table": {
 			"sortByModelName": "Ordenar por nombre del modelo",
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Limpiar filtro",
 			"paramsLocked": "Parámetros bloqueados mientras se ejecuta",
 			"editParams": "Editar parámetros de generación",
-			"addParams": "Añadir parámetros de generación"
+			"addParams": "Añadir parámetros de generación",
+			"viewDetails": "Ver detalles del modelo"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Restablecer parámetros",

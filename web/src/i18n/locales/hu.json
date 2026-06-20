@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Siker | Válasz: {{content}}{{ttftPart}} | Időtartam: {{duration}}másodperc",
 			"testFailed": "A teszt sikertelen: {{error}}",
-			"testSuccessNoResponse": "Siker{{ttftPart}} | Időtartam: {{duration}}másodperc"
+			"testSuccessNoResponse": "Siker{{ttftPart}} | Időtartam: {{duration}}másodperc",
+			"copyRawValue": "Nyers érték másolása"
 		},
 		"table": {
 			"sortByModelName": "Rendezés modellnév szerint",
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Szűrő törlése",
 			"paramsLocked": "A paraméterek futás közben zárolva vannak",
 			"editParams": "A generálási paraméterek szerkesztése",
-			"addParams": "Generálási paraméterek hozzáadása"
+			"addParams": "Generálási paraméterek hozzáadása",
+			"viewDetails": "Modell részleteinek megtekintése"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Paraméterek visszaállítása",

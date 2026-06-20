@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Úspech | Odkaz: {{content}}{{ttftPart}} | Trvanie: {{duration}}s",
 			"testFailed": "Test sa nepodaril: {{error}}",
-			"testSuccessNoResponse": "Úspech{{ttftPart}} | Trvanie: {{duration}}s"
+			"testSuccessNoResponse": "Úspech{{ttftPart}} | Trvanie: {{duration}}s",
+			"copyRawValue": "Kopírovať nespracovanú hodnotu"
 		},
 		"table": {
 			"sortByModelName": "Zoradiť podľa názvu modelu",
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Vymazať filter",
 			"paramsLocked": "Parametre sú počas behu uzamknuté",
 			"editParams": "Upraviť parametre generovania",
-			"addParams": "Pridať parametre generovania"
+			"addParams": "Pridať parametre generovania",
+			"viewDetails": "Zobraziť podrobnosti modelu"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Obnoviť nastavenia",

@@ -1,5 +1,7 @@
 import { fireEvent, screen, within } from "@testing-library/react";
+import { HttpResponse, http } from "msw";
 import type { Model } from "../../api/types";
+import { server } from "../../test/mocks/server";
 import { renderWithProviders } from "../../test/utils";
 import { ModelPicker } from "../ModelPicker";
 
@@ -391,6 +393,41 @@ describe("ModelPicker", () => {
 			// Llama 3 should appear first in its provider group
 			const llamaChip = screen.getByText("Llama 3").closest("div");
 			expect(llamaChip).toHaveClass("bg-(--accent)/15");
+		});
+
+		it("shows an info button per resolved model and opens the read-only detail modal", async () => {
+			// The picker resolves full model records from the ["models"] query so a
+			// pill's (i) can open the detail modal without the caller threading them.
+			server.use(http.get("/api/models", () => HttpResponse.json(mockModels)));
+			const { user } = renderWithProviders(<ModelPicker {...defaultProps} />);
+
+			const infoButtons = await screen.findAllByRole("button", {
+				name: "View model details",
+			});
+			expect(infoButtons).toHaveLength(3);
+
+			const gptPill = screen.getByText("GPT-4").closest("div");
+			await user.click(
+				within(gptPill as HTMLElement).getByRole("button", {
+					name: "View model details",
+				}),
+			);
+
+			// The detail modal shows fields the picker pills never do (e.g. the
+			// Context Length tile), confirming it opened for the chosen model.
+			expect(await screen.findByText("Context Length")).toBeInTheDocument();
+			expect(screen.getAllByText("OpenAI/gpt-4").length).toBeGreaterThanOrEqual(
+				1,
+			);
+		});
+
+		it("shows no info buttons when models cannot be resolved", () => {
+			// Default mock store has no models matching these pills.
+			server.use(http.get("/api/models", () => HttpResponse.json([])));
+			renderWithProviders(<ModelPicker {...defaultProps} />);
+			expect(
+				screen.queryByRole("button", { name: "View model details" }),
+			).not.toBeInTheDocument();
 		});
 
 		it("orders provider groups alphabetically when sortProvidersAlpha is set", () => {

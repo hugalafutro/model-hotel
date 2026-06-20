@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Succès | Réponse: {{content}}{{ttftPart}} | Durée: {{duration}}s",
 			"testFailed": "Échec du test : {{error}}",
-			"testSuccessNoResponse": "Succès{{ttftPart}} | Durée: {{duration}}s"
+			"testSuccessNoResponse": "Succès{{ttftPart}} | Durée: {{duration}}s",
+			"copyRawValue": "Copier la valeur brute"
 		},
 		"table": {
 			"sortByModelName": "Trier par nom de modèle",
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Effacer le filtre",
 			"paramsLocked": "Paramètres verrouillés en cours d'exécution",
 			"editParams": "Modifier les paramètres de génération",
-			"addParams": "Ajouter des paramètres de génération"
+			"addParams": "Ajouter des paramètres de génération",
+			"viewDetails": "Voir les détails du modèle"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Réinitialiser les paramètres",

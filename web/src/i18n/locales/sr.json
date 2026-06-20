@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Успех | Одговор: {{content}}{{ttftPart}} | Трајање: {{duration}}",
 			"testFailed": "Тест је пропао: {{error}}",
-			"testSuccessNoResponse": "Успех{{ttftPart}} | Трајање: {{duration}}"
+			"testSuccessNoResponse": "Успех{{ttftPart}} | Трајање: {{duration}}",
+			"copyRawValue": "Копирај сирову вредност"
 		},
 		"table": {
 			"sortByModelName": "Сортирај по називу модела",
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Очисти филтер",
 			"paramsLocked": "Параметри су закључани током извршавања",
 			"editParams": "Уредити параметре генерације",
-			"addParams": "Додајте параметре генерације"
+			"addParams": "Додајте параметре генерације",
+			"viewDetails": "Прикажи детаље модела"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Ресетовање параметара",

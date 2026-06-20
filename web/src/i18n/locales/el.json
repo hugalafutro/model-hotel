@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Επιτυχία | Απάντηση: {{content}}{{ttftPart}} | Διάρκεια: {{duration}}δευτερόλεπτα",
 			"testFailed": "Η δοκιμή απέτυχε: {{error}}",
-			"testSuccessNoResponse": "Επιτυχία{{ttftPart}} | Διάρκεια: {{duration}}δευτερόλεπτα"
+			"testSuccessNoResponse": "Επιτυχία{{ttftPart}} | Διάρκεια: {{duration}}δευτερόλεπτα",
+			"copyRawValue": "Αντιγραφή ακατέργαστης τιμής"
 		},
 		"table": {
 			"sortByModelName": "Ταξινόμηση κατά όνομα μοντέλου",
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Καθαρισμός φίλτρου",
 			"paramsLocked": "Οι παράμετροι κλειδώθηκαν κατά την εκτέλεση",
 			"editParams": "Επεξεργασία παραμέτρων παραγωγής",
-			"addParams": "Προσθήκη παραμέτρων γενιάς"
+			"addParams": "Προσθήκη παραμέτρων γενιάς",
+			"viewDetails": "Προβολή λεπτομερειών μοντέλου"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Επαναφορά παραμέτρων",

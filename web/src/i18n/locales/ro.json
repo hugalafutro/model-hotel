@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Succes | Răspuns: {{content}}{{ttftPart}} | Durată: {{duration}}s",
 			"testFailed": "Test eșuat: {{error}}",
-			"testSuccessNoResponse": "Succes{{ttftPart}} | Durată: {{duration}}s"
+			"testSuccessNoResponse": "Succes{{ttftPart}} | Durată: {{duration}}s",
+			"copyRawValue": "Copiază valoarea brută"
 		},
 		"table": {
 			"sortByModelName": "Sortează după numele modelului",
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Curăță filtrul",
 			"paramsLocked": "Parametri blocați în timpul rulării",
 			"editParams": "Editează parametrii de generare",
-			"addParams": "Adaugă parametri de generare"
+			"addParams": "Adaugă parametri de generare",
+			"viewDetails": "Vezi detaliile modelului"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Resetare parametri",

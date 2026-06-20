@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "النجاح | الاستجابة: {{content}}{{ttftPart}} | المدة: {{duration}}s",
 			"testFailed": "فشل الاختبار: {{error}}",
-			"testSuccessNoResponse": "النجاح{{ttftPart}} | المدة: {{duration}}s"
+			"testSuccessNoResponse": "النجاح{{ttftPart}} | المدة: {{duration}}s",
+			"copyRawValue": "نسخ القيمة الخام"
 		},
 		"table": {
 			"sortByModelName": "الترتيب حسب اسم النموذج",
@@ -1999,7 +2000,8 @@
 			"clearFilter": "مسح الفلتر",
 			"paramsLocked": "المعلمات مقفلة أثناء التشغيل",
 			"editParams": "تحرير معلمات الإنشاء",
-			"addParams": "إضافة معلمات توليد"
+			"addParams": "إضافة معلمات توليد",
+			"viewDetails": "عرض تفاصيل النموذج"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "إعادة تعيين المعلمات",

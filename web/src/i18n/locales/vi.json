@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Thành công | Liên hệ: {{content}}{{ttftPart}} | Thời lượng: {{duration}}giây",
 			"testFailed": "Thử nghiệm không thành công: {{error}}",
-			"testSuccessNoResponse": "Thành công{{ttftPart}} | Thời lượng: {{duration}}giây"
+			"testSuccessNoResponse": "Thành công{{ttftPart}} | Thời lượng: {{duration}}giây",
+			"copyRawValue": "Sao chép giá trị thô"
 		},
 		"table": {
 			"sortByModelName": "Sắp xếp theo tên mẫu",
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Xóa bộ lọc",
 			"paramsLocked": "Các tham số bị khóa trong khi chạy",
 			"editParams": "Chỉnh sửa các thông số tạo",
-			"addParams": "Thêm các tham số tạo"
+			"addParams": "Thêm các tham số tạo",
+			"viewDetails": "Xem chi tiết mô hình"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Đặt lại các thông số",

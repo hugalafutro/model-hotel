@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "성공 | 응답: {{content}}{{ttftPart}} | 소요 시간: {{duration}}초",
 			"testFailed": "테스트 실패: {{error}}",
-			"testSuccessNoResponse": "성공{{ttftPart}} | 소요 시간: {{duration}}초"
+			"testSuccessNoResponse": "성공{{ttftPart}} | 소요 시간: {{duration}}초",
+			"copyRawValue": "원시 값 복사"
 		},
 		"table": {
 			"sortByModelName": "모델명 순으로 정렬",
@@ -1999,7 +2000,8 @@
 			"clearFilter": "필터 지우기",
 			"paramsLocked": "실행 중에는 매개변수를 잠글 수 없습니다",
 			"editParams": "생성 매개변수 편집",
-			"addParams": "생성 매개변수 추가"
+			"addParams": "생성 매개변수 추가",
+			"viewDetails": "모델 세부 정보 보기"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "매개변수 재설정",

@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Başarı | Yanıt: {{content}}{{ttftPart}} | Süre: {{duration}}saniye",
 			"testFailed": "Test başarısız: {{error}}",
-			"testSuccessNoResponse": "Başarı{{ttftPart}} | Süre: {{duration}}saniye"
+			"testSuccessNoResponse": "Başarı{{ttftPart}} | Süre: {{duration}}saniye",
+			"copyRawValue": "Ham değeri kopyala"
 		},
 		"table": {
 			"sortByModelName": "Model adına göre sırala",
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Filtreyi temizle",
 			"paramsLocked": "Çalışma sırasında parametreler kilitlendi",
 			"editParams": "Oluşturma parametrelerini düzenle",
-			"addParams": "Oluşturma parametrelerini ekle"
+			"addParams": "Oluşturma parametrelerini ekle",
+			"viewDetails": "Model ayrıntılarını görüntüle"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Parametreleri sıfırla",

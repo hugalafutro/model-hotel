@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Onnistui | Vastaus: {{content}}{{ttftPart}} | Kesto: {{duration}}s",
 			"testFailed": "Testi epäonnistui: {{error}}",
-			"testSuccessNoResponse": "Onnistui{{ttftPart}} | Kesto: {{duration}}s"
+			"testSuccessNoResponse": "Onnistui{{ttftPart}} | Kesto: {{duration}}s",
+			"copyRawValue": "Kopioi raaka-arvo"
 		},
 		"table": {
 			"sortByModelName": "Järjestä mallin nimen mukaan",
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Tyhjennä suodatin",
 			"paramsLocked": "Parametrit lukittu käynnissä",
 			"editParams": "Muokkaa generoinnin parametreja",
-			"addParams": "Lisää generointiparametrit"
+			"addParams": "Lisää generointiparametrit",
+			"viewDetails": "Näytä mallin tiedot"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Nollaa parametrit",

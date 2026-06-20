@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Succes | Svar: {{content}}{{ttftPart}} | Varighed: {{duration}}s",
 			"testFailed": "Test mislykkedes: {{error}}",
-			"testSuccessNoResponse": "Succes{{ttftPart}} | Varighed: {{duration}}s"
+			"testSuccessNoResponse": "Succes{{ttftPart}} | Varighed: {{duration}}s",
+			"copyRawValue": "Kopiér rå værdi"
 		},
 		"table": {
 			"sortByModelName": "Sorter efter modelnavn",
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Ryd filter",
 			"paramsLocked": "Parametre låst under kørsel",
 			"editParams": "Rediger generering parametre",
-			"addParams": "Tilføj generationsparametre"
+			"addParams": "Tilføj generationsparametre",
+			"viewDetails": "Vis modeldetaljer"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Nulstil parametre",

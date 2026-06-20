@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Success | Response: {{content}}{{ttftPart}} | Duration: {{duration}}s",
 			"testSuccessNoResponse": "Success{{ttftPart}} | Duration: {{duration}}s",
-			"testFailed": "Test failed: {{error}}"
+			"testFailed": "Test failed: {{error}}",
+			"copyRawValue": "Copy raw value"
 		},
 		"table": {
 			"sortByModelName": "Sort by model name",
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Clear filter",
 			"paramsLocked": "Parameters locked while running",
 			"editParams": "Edit generation parameters",
-			"addParams": "Add generation parameters"
+			"addParams": "Add generation parameters",
+			"viewDetails": "View model details"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Reset parameters",

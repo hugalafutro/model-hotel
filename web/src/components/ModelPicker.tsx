@@ -5,9 +5,12 @@ import {
 	ChevronsDownUp,
 	ChevronsUpDown,
 	Dices,
+	Info,
 	Settings,
 } from "@/lib/icons";
-import type { GenerationParams } from "../api/types";
+import type { GenerationParams, Model } from "../api/types";
+import { useModels } from "../hooks/useModels";
+import { ModelDetailModal } from "../pages/Models/ModelDetailModal";
 import { parseCapabilities } from "../utils/model";
 import type { CapKey } from "./capMeta";
 import { CAP_META, hasCap, matchesAllCaps } from "./capMeta";
@@ -106,6 +109,22 @@ export function ModelPicker({
 	const [collapsedProviders, setCollapsedProviders] = useState<Set<string>>(
 		new Set(),
 	);
+	// Model whose read-only detail modal is open (from a pill's info button).
+	const [infoModel, setInfoModel] = useState<Model | null>(null);
+
+	// Full model records keyed by proxy ID, so a pill's info button can open the
+	// detail modal without the caller having to thread full Model objects through
+	// (the failover editor, for one, only has minimal candidate data). Cached and
+	// shared via the ["models"] query, so this adds no extra request where the
+	// list is already loaded.
+	const { data: allModels } = useModels();
+	const modelDetailLookup = useMemo(() => {
+		const map = new Map<string, Model>();
+		for (const m of allModels ?? []) {
+			map.set(proxyModelID(m.provider_name, m.model_id), m);
+		}
+		return map;
+	}, [allModels]);
 
 	const selectedSet = useMemo(() => {
 		if (multi) return new Set(selected as string[]);
@@ -375,6 +394,7 @@ export function ModelPicker({
 										{providerModels.map((m) => {
 											const val = proxyModelID(m.provider_name, m.model_id);
 											const isSelected = selectedSet.has(val);
+											const detailModel = modelDetailLookup.get(val);
 											const hasParams = !!(
 												slotParams?.[val] &&
 												Object.values(slotParams[val]).some(
@@ -408,6 +428,23 @@ export function ModelPicker({
 															{t("failoverGroups.entry.naBadge")}
 														</span>
 													)}
+													{detailModel && (
+														<button
+															type="button"
+															onClick={(e) => {
+																e.stopPropagation();
+																setInfoModel(detailModel);
+															}}
+															className="ui-icon-btn shrink-0 flex items-center"
+															title={t("components.modelPicker.viewDetails")}
+															aria-label={t(
+																"components.modelPicker.viewDetails",
+															)}
+														>
+															<Info size={11} />
+														</button>
+													)}
+
 													{isSelected && onConfigureParams && (
 														<button
 															type="button"
@@ -448,6 +485,13 @@ export function ModelPicker({
 					)}
 				</div>
 			</div>
+			{infoModel && (
+				<ModelDetailModal
+					model={infoModel}
+					onClose={() => setInfoModel(null)}
+					zIndex="z-60"
+				/>
+			)}
 		</div>
 	);
 }

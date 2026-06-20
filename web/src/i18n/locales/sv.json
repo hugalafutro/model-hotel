@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Lyckad | Svar: {{content}}{{ttftPart}} | Varaktighet: {{duration}}s",
 			"testFailed": "Test misslyckades: {{error}}",
-			"testSuccessNoResponse": "Lyckad{{ttftPart}} | Varaktighet: {{duration}}s"
+			"testSuccessNoResponse": "Lyckad{{ttftPart}} | Varaktighet: {{duration}}s",
+			"copyRawValue": "Kopiera råvärde"
 		},
 		"table": {
 			"sortByModelName": "Sortera efter modellnamn",
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Rensa filter",
 			"paramsLocked": "Parametrar låsta under körning",
 			"editParams": "Redigera genereringsparametrar",
-			"addParams": "Lägg till genereringsparametrar"
+			"addParams": "Lägg till genereringsparametrar",
+			"viewDetails": "Visa modelldetaljer"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Återställ parametrar",

@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "Èxit | Resposta: {{content}}{{ttftPart}} | Durada: {{duration}}s",
 			"testFailed": "La prova ha fallat: {{error}}",
-			"testSuccessNoResponse": "Èxit{{ttftPart}} | Durada: {{duration}}s"
+			"testSuccessNoResponse": "Èxit{{ttftPart}} | Durada: {{duration}}s",
+			"copyRawValue": "Copia el valor sense format"
 		},
 		"table": {
 			"sortByModelName": "Ordena per nom del model",
@@ -1999,7 +2000,8 @@
 			"clearFilter": "Neteja el filtre",
 			"paramsLocked": "Paràmetres bloquejats durant l'execució",
 			"editParams": "Edita els paràmetres de generació",
-			"addParams": "Afegir paràmetres de generació"
+			"addParams": "Afegir paràmetres de generació",
+			"viewDetails": "Mostra els detalls del model"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "Restablir paràmetres",

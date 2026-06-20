@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "הצלחה | תגובה: {{content}}{{ttftPart}} | משך: {{duration}}שניות",
 			"testFailed": "הבדיקה נכשלה: {{error}}",
-			"testSuccessNoResponse": "הצלחה{{ttftPart}} | משך: {{duration}}שניות"
+			"testSuccessNoResponse": "הצלחה{{ttftPart}} | משך: {{duration}}שניות",
+			"copyRawValue": "העתק ערך גולמי"
 		},
 		"table": {
 			"sortByModelName": "מיין לפי שם הדגם",
@@ -1999,7 +2000,8 @@
 			"clearFilter": "נקה את המסנן",
 			"paramsLocked": "הפרמטרים נעולים בזמן הפעלה",
 			"editParams": "ערוך את פרמטרי היצירה",
-			"addParams": "הוסף פרמטרים של הדור"
+			"addParams": "הוסף פרמטרים של הדור",
+			"viewDetails": "הצג פרטי מודל"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "איפוס הפרמטרים",

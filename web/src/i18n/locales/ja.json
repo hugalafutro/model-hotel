@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "成功 | レスポンス: {{content}}{{ttftPart}} | 期間: {{duration}}s",
 			"testFailed": "テストに失敗しました: {{error}}",
-			"testSuccessNoResponse": "成功{{ttftPart}} | 期間: {{duration}}s"
+			"testSuccessNoResponse": "成功{{ttftPart}} | 期間: {{duration}}s",
+			"copyRawValue": "生の値をコピー"
 		},
 		"table": {
 			"sortByModelName": "モデル名でソート",
@@ -1999,7 +2000,8 @@
 			"clearFilter": "フィルターをクリア",
 			"paramsLocked": "実行中にパラメータがロックされています",
 			"editParams": "生成パラメータを編集",
-			"addParams": "生成パラメータを追加"
+			"addParams": "生成パラメータを追加",
+			"viewDetails": "モデルの詳細を表示"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "パラメータをリセット",

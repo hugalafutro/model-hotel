@@ -879,7 +879,8 @@
 			},
 			"testSuccess": "成功 | 响应： {{content}}{{ttftPart}} | 时长： {{duration}}秒",
 			"testFailed": "测试失败： {{error}}",
-			"testSuccessNoResponse": "成功{{ttftPart}} | 时长： {{duration}}秒"
+			"testSuccessNoResponse": "成功{{ttftPart}} | 时长： {{duration}}秒",
+			"copyRawValue": "复制原始值"
 		},
 		"table": {
 			"sortByModelName": "按模型名称排序",
@@ -1999,7 +2000,8 @@
 			"clearFilter": "清除过滤器",
 			"paramsLocked": "参数在运行时锁定",
 			"editParams": "编辑生成参数",
-			"addParams": "添加生成参数"
+			"addParams": "添加生成参数",
+			"viewDetails": "查看模型详情"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "重置参数",
