@@ -2463,8 +2463,6 @@
 			"enableProvider": "제공자 활성화",
 			"circuitBreakerOpen": "회로 차단기 개방 - 쿨타임 대기 중",
 			"circuitBreakerHalfOpen": "회로 차단기 반개 상태 - 복구 확인",
-			"modelDisabled": "비활성화됨",
-			"providerDisabled": "제공업체 비활성화",
 			"naBadge": "N/A",
 			"reasonProviderOff": "비활성화됨: 해당 제공자가 꺼져 있습니다.",
 			"reasonManuallyDisabled": "수동으로 비활성화되었습니다.",

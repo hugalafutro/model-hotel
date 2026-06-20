@@ -2463,8 +2463,6 @@
 			"enableProvider": "Activa el proveïdor",
 			"circuitBreakerOpen": "Interruptor automàtic obert - esperant el refredament",
 			"circuitBreakerHalfOpen": "Interruptor automàtic mig obert - prova de recuperació",
-			"modelDisabled": "Desactivat",
-			"providerDisabled": "Proveïdor desactivat",
 			"naBadge": "N/A",
 			"reasonProviderOff": "Desactivat: el seu proveïdor està apagat.",
 			"reasonManuallyDisabled": "Desactivat manualment.",

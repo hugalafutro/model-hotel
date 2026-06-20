@@ -2463,8 +2463,6 @@
 			"enableProvider": "Увімкнути провайдера",
 			"circuitBreakerOpen": "Мережевий вимикач відкритий - чекає завершення роботи",
 			"circuitBreakerHalfOpen": "Мережевий вимикач напіввідкритий - зондування відновлення",
-			"modelDisabled": "Вимкнено",
-			"providerDisabled": "Провайдер вимкнено",
 			"naBadge": "N/A",
 			"reasonProviderOff": "Вимкнено: його провайдера вимкнено.",
 			"reasonManuallyDisabled": "Вимкнено вручну.",

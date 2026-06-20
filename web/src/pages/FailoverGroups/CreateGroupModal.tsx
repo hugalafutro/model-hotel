@@ -208,17 +208,34 @@ export function CreateGroupModal({
 				healed: [],
 				failed: [],
 			};
-			const label = e.display_name || e.model_id;
+			// The diff modal renders ModelChange.model_id as a mono chip, so use the
+			// raw model id (matching the real discovery flow), not the display name.
+			const id = e.model_id;
+			let probedOk: boolean;
 			try {
-				const res = await api.models.test(e.model_uuid, true);
-				if (res.success) {
-					await api.models.update(e.model_uuid, { enabled: true });
-					bucket.healed.push(label);
-				} else {
-					bucket.failed.push(label);
-				}
+				probedOk = (await api.models.test(e.model_uuid, true)).success;
 			} catch {
-				bucket.failed.push(label);
+				probedOk = false;
+			}
+			if (!probedOk) {
+				// Still didn't answer: genuinely unavailable.
+				bucket.failed.push(id);
+				byProvider.set(e.provider_name, bucket);
+				continue;
+			}
+			// It answered, so it is healthy. Re-enable it; a failed write is a save
+			// error, not a "still unavailable" signal, so keep it among the healed
+			// and surface the write failure separately.
+			bucket.healed.push(id);
+			try {
+				await api.models.update(e.model_uuid, { enabled: true });
+			} catch (err) {
+				toast(
+					t("failover.toast_update_failed", {
+						message: (err as Error).message,
+					}),
+					"error",
+				);
 			}
 			byProvider.set(e.provider_name, bucket);
 		}

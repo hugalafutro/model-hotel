@@ -2463,8 +2463,6 @@
 			"enableProvider": "Szolgáltató engedélyezése",
 			"circuitBreakerOpen": "A megszakító nyitott – a lehűlési idő lejártát várja",
 			"circuitBreakerHalfOpen": "A megszakító félig nyitott – helyreállítási vizsgálat",
-			"modelDisabled": "Letiltva",
-			"providerDisabled": "Szolgáltató letiltva",
 			"naBadge": "N/A",
 			"reasonProviderOff": "Letiltva: a szolgáltatója ki van kapcsolva.",
 			"reasonManuallyDisabled": "Kézzel letiltva.",

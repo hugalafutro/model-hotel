@@ -2463,8 +2463,6 @@
 			"enableProvider": "Aktiver leverandør",
 			"circuitBreakerOpen": "Krets breaker åpen - venter på cooldown",
 			"circuitBreakerHalfOpen": "Krets pauseåpning – ettersyns gjenoppretting",
-			"modelDisabled": "Deaktivert",
-			"providerDisabled": "Leverandør deaktivert",
 			"naBadge": "N/A",
 			"reasonProviderOff": "Deaktivert: leverandøren er slått av.",
 			"reasonManuallyDisabled": "Deaktivert manuelt.",

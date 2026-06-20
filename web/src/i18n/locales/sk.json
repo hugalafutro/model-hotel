@@ -2463,8 +2463,6 @@
 			"enableProvider": "Aktivovať poskytovateľa",
 			"circuitBreakerOpen": "Istič je otvorený – čaká sa na ochladenie",
 			"circuitBreakerHalfOpen": "Istič je čiastočne otvorený – testovanie obnovy",
-			"modelDisabled": "Deaktivované",
-			"providerDisabled": "Poskytovateľ deaktivovaný",
 			"naBadge": "N/A",
 			"reasonProviderOff": "Zakázané: jeho poskytovateľ je vypnutý.",
 			"reasonManuallyDisabled": "Ručne zakázané.",

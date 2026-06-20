@@ -2463,8 +2463,6 @@
 			"enableProvider": "Ativar provedor",
 			"circuitBreakerOpen": "Disjuntor aberto - esperando por recarga",
 			"circuitBreakerHalfOpen": "Disjuntor meio-aberto - recuperação de sondagem",
-			"modelDisabled": "Desativado",
-			"providerDisabled": "Provedor desativado",
 			"naBadge": "N/A",
 			"reasonProviderOff": "Desativado: o seu fornecedor está desligado.",
 			"reasonManuallyDisabled": "Desativado manualmente.",

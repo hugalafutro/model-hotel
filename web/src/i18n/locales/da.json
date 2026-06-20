@@ -2463,8 +2463,6 @@
 			"enableProvider": "Aktiver udbyder",
 			"circuitBreakerOpen": "Circuit breaker åben - venter på nedkøling",
 			"circuitBreakerHalfOpen": "Circuit breaker halvt åben - probing recovery",
-			"modelDisabled": "Deaktiveret",
-			"providerDisabled": "Udbyder deaktiveret",
 			"naBadge": "N/A",
 			"reasonProviderOff": "Deaktiveret: dens udbyder er slået fra.",
 			"reasonManuallyDisabled": "Deaktiveret manuelt.",

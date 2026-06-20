@@ -163,6 +163,20 @@ export function FailoverGroups() {
 		});
 	};
 
+	// A failover group needs 2+ routable members (enabled flag + live model + live
+	// provider). Mirror the backend's floor in the bulk/provider toggles: count how
+	// many members would remain routable after the toggle, so we disable a group
+	// the moment it drops under two instead of leaving an invalid, still-enabled
+	// group for the next List to silently self-heal.
+	const routableAfterToggle = (
+		group: FailoverGroup,
+		entryEnabledMap: Record<string, boolean>,
+	) =>
+		group.entries.filter(
+			(e) =>
+				entryEnabledMap[e.model_uuid] && e.model_enabled && e.provider_enabled,
+		).length;
+
 	const handleBulkModelToggle = async (enabled: boolean) => {
 		if (!allGroups) return;
 		const targets = allGroups.filter((g) => selectedGroupIds.has(g.id));
@@ -173,10 +187,12 @@ export function FailoverGroups() {
 			group.entries.forEach((e) => {
 				entryEnabledMap[e.model_uuid] = enabled;
 			});
-			// Auto-disable a group that just lost its last enabled entry, and
-			// symmetrically auto-re-enable a group that regains one.
-			const alsoDisableGroup = !enabled && group.group_enabled;
-			const alsoEnableGroup = enabled && !group.group_enabled;
+			// Disable a group that would drop below the 2-routable-member floor, and
+			// symmetrically re-enable one that regains it, so the group state matches
+			// the backend's rule immediately instead of after the next List heal.
+			const routable = routableAfterToggle(group, entryEnabledMap);
+			const alsoDisableGroup = routable < 2 && group.group_enabled;
+			const alsoEnableGroup = routable >= 2 && !group.group_enabled;
 			return api.failoverGroups.update(group.id, {
 				entry_enabled: entryEnabledMap,
 				...(alsoDisableGroup ? { group_enabled: false } : {}),
@@ -221,14 +237,12 @@ export function FailoverGroups() {
 					? enabled
 					: e.enabled;
 			});
-			// Auto-disable a group that just lost its last enabled entry, and
-			// symmetrically auto-re-enable a group that regains one.
-			const remainingEnabled =
-				Object.values(entryEnabledMap).filter(Boolean).length;
-			const alsoDisableGroup =
-				!enabled && remainingEnabled === 0 && group.group_enabled;
-			const alsoEnableGroup =
-				enabled && remainingEnabled > 0 && !group.group_enabled;
+			// Disable a group that would drop below the 2-routable-member floor, and
+			// symmetrically re-enable one that regains it, matching the backend rule
+			// immediately instead of waiting for the next List heal.
+			const routable = routableAfterToggle(group, entryEnabledMap);
+			const alsoDisableGroup = routable < 2 && group.group_enabled;
+			const alsoEnableGroup = routable >= 2 && !group.group_enabled;
 			return api.failoverGroups.update(group.id, {
 				entry_enabled: entryEnabledMap,
 				...(alsoDisableGroup ? { group_enabled: false } : {}),
@@ -279,14 +293,12 @@ export function FailoverGroups() {
 				entryEnabledMap[e.model_uuid] =
 					e.provider_name === providerName ? enabled : e.enabled;
 			});
-			// Auto-disable a group that just lost its last enabled entry, and
-			// symmetrically auto-re-enable a group that regains one.
-			const remainingEnabled =
-				Object.values(entryEnabledMap).filter(Boolean).length;
-			const alsoDisableGroup =
-				!enabled && remainingEnabled === 0 && group.group_enabled;
-			const alsoEnableGroup =
-				enabled && remainingEnabled > 0 && !group.group_enabled;
+			// Disable a group that would drop below the 2-routable-member floor, and
+			// symmetrically re-enable one that regains it, matching the backend rule
+			// immediately instead of waiting for the next List heal.
+			const routable = routableAfterToggle(group, entryEnabledMap);
+			const alsoDisableGroup = routable < 2 && group.group_enabled;
+			const alsoEnableGroup = routable >= 2 && !group.group_enabled;
 			return api.failoverGroups.update(group.id, {
 				entry_enabled: entryEnabledMap,
 				...(alsoDisableGroup ? { group_enabled: false } : {}),
@@ -428,12 +440,19 @@ export function FailoverGroups() {
 		// matching the card's "active" tally. Counting the raw enabled flag let an
 		// already-N/A member (enabled flag true, model/provider dead) pad the total,
 		// so the user could toggle the last live members off and reach a 0/X group.
-		// A group needs 2+ routable members, so block any toggle that would drop
-		// the effective count below 2.
+		// A group needs 2+ routable members. Only block when this toggle actually
+		// removes an active member: switching off an N/A member (already not active)
+		// can't drop the count, so it must stay allowed.
+		const toggled = group.entries.find((e) => e.model_uuid === uuid);
+		const togglingOffActiveMember =
+			!enabled &&
+			!!toggled?.enabled &&
+			toggled.model_enabled &&
+			toggled.provider_enabled;
 		const activeCount = group.entries.filter(
 			(e) => e.enabled && e.model_enabled && e.provider_enabled,
 		).length;
-		if (!enabled && activeCount <= 2) {
+		if (togglingOffActiveMember && activeCount <= 2) {
 			toast(t("failover.toast_entry_min_two"), "error");
 			return;
 		}

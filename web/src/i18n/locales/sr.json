@@ -2463,8 +2463,6 @@
 			"enableProvider": "Омогући провајдера",
 			"circuitBreakerOpen": "Прекидач је отворен - чека се хлађење",
 			"circuitBreakerHalfOpen": "Прекидач у полуотвореном положају - испитивање опоравка",
-			"modelDisabled": "Онемогућено",
-			"providerDisabled": "Провајдер онемогућен",
 			"naBadge": "N/A",
 			"reasonProviderOff": "Онемогућено: његов добављач је искључен.",
 			"reasonManuallyDisabled": "Ручно онемогућено.",

@@ -164,9 +164,7 @@ export function SortableEntry({
 				title={effectivelyDisabled ? naReasonText : undefined}
 				ariaLabel={
 					effectivelyDisabled
-						? entry.provider_enabled
-							? t("failoverGroups.entry.modelDisabled")
-							: t("failoverGroups.entry.providerDisabled")
+						? naReasonText
 						: entry.enabled
 							? t("failoverGroups.entry.disableProvider")
 							: t("failoverGroups.entry.enableProvider")

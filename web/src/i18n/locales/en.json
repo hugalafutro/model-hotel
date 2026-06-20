@@ -2463,8 +2463,6 @@
 			"enableProvider": "Enable provider",
 			"circuitBreakerOpen": "Circuit breaker open - waiting for cooldown",
 			"circuitBreakerHalfOpen": "Circuit breaker half-open - probing recovery",
-			"modelDisabled": "Disabled",
-			"providerDisabled": "Provider disabled",
 			"naBadge": "N/A",
 			"reasonProviderOff": "Disabled: its provider is turned off.",
 			"reasonManuallyDisabled": "Disabled by hand.",

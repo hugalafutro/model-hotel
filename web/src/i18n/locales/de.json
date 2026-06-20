@@ -2463,8 +2463,6 @@
 			"enableProvider": "Anbieter aktivieren",
 			"circuitBreakerOpen": "Strombrecher offen - Warten auf Abklingzeit",
 			"circuitBreakerHalfOpen": "Schaltkreisbrecher halb offen - Abtastung",
-			"modelDisabled": "Deaktiviert",
-			"providerDisabled": "Anbieter deaktiviert",
 			"naBadge": "N/A",
 			"reasonProviderOff": "Deaktiviert: Der Anbieter ist ausgeschaltet.",
 			"reasonManuallyDisabled": "Manuell deaktiviert.",

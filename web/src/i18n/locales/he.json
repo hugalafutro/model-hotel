@@ -2463,8 +2463,6 @@
 			"enableProvider": "הפעל ספק",
 			"circuitBreakerOpen": "מפסק זרם פתוח - ממתינים לסיום זמן ההמתנה",
 			"circuitBreakerHalfOpen": "מפסק חצי פתוח – בדיקת התאוששות",
-			"modelDisabled": "מושבת",
-			"providerDisabled": "ספק מושבת",
 			"naBadge": "N/A",
 			"reasonProviderOff": "מושבת: הספק שלו כבוי.",
 			"reasonManuallyDisabled": "הושבת ידנית.",

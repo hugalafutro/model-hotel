@@ -2463,8 +2463,6 @@
 			"enableProvider": "Activer le fournisseur",
 			"circuitBreakerOpen": "Disjoncteur ouvert - en attente de rechargement",
 			"circuitBreakerHalfOpen": "Disjoncteur à moitié ouvert - Récupération de la sonde",
-			"modelDisabled": "Désactivé",
-			"providerDisabled": "Fournisseur désactivé",
 			"naBadge": "N/A",
 			"reasonProviderOff": "Désactivé : son fournisseur est éteint.",
 			"reasonManuallyDisabled": "Désactivé manuellement.",

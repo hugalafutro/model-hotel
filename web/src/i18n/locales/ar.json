@@ -2463,8 +2463,6 @@
 			"enableProvider": "تمكين المزود",
 			"circuitBreakerOpen": "فتح كسر الدائرة - في انتظار التبريد",
 			"circuitBreakerHalfOpen": "كسر الدائرة نصف مفتوح - اختبار الاسترداد",
-			"modelDisabled": "معطل",
-			"providerDisabled": "المزود معطل",
 			"naBadge": "N/A",
 			"reasonProviderOff": "معطّل: تم إيقاف مزوّده.",
 			"reasonManuallyDisabled": "معطّل يدويًا.",

@@ -2463,8 +2463,6 @@
 			"enableProvider": "Włącz dostawcę",
 			"circuitBreakerOpen": "Wyłącznik obwodu otwarty - oczekiwanie na czas odnowienia",
 			"circuitBreakerHalfOpen": "Wyłącznik wyłącznika w połowie otwarty - odzysk sondy",
-			"modelDisabled": "Wyłączony",
-			"providerDisabled": "Dostawca wyłączony",
 			"naBadge": "N/A",
 			"reasonProviderOff": "Wyłączone: jego dostawca jest wyłączony.",
 			"reasonManuallyDisabled": "Wyłączone ręcznie.",

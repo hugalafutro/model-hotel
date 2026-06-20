@@ -2463,8 +2463,6 @@
 			"enableProvider": "プロバイダを有効にする",
 			"circuitBreakerOpen": "Circuit breaker open - waiting for resfriend",
 			"circuitBreakerHalfOpen": "サーキットブレーカーハーフオープン - プローブ回復",
-			"modelDisabled": "無効",
-			"providerDisabled": "プロバイダーが無効化されています",
 			"naBadge": "N/A",
 			"reasonProviderOff": "無効: プロバイダーがオフになっています。",
 			"reasonManuallyDisabled": "手動で無効化されました。",

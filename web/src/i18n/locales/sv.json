@@ -2463,8 +2463,6 @@
 			"enableProvider": "Aktivera leverantör",
 			"circuitBreakerOpen": "Kretsbrytare öppen - väntar på cooldown",
 			"circuitBreakerHalfOpen": "Circuit breaker halv-öppen - sondering återhämtning",
-			"modelDisabled": "Inaktiverad",
-			"providerDisabled": "Leverantör inaktiverad",
 			"naBadge": "N/A",
 			"reasonProviderOff": "Inaktiverad: dess leverantör är avstängd.",
 			"reasonManuallyDisabled": "Inaktiverad manuellt.",

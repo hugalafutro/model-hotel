@@ -2463,8 +2463,6 @@
 			"enableProvider": "Provider inschakelen",
 			"circuitBreakerOpen": "Schakelaar open - wacht op afkoeling",
 			"circuitBreakerHalfOpen": "Circuit breaker half-open - proeftijd herstel",
-			"modelDisabled": "Uitgeschakeld",
-			"providerDisabled": "Provider uitgeschakeld",
 			"naBadge": "N/A",
 			"reasonProviderOff": "Uitgeschakeld: de provider staat uit.",
 			"reasonManuallyDisabled": "Handmatig uitgeschakeld.",

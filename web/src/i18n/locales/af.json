@@ -2463,8 +2463,6 @@
 			"enableProvider": "Aktiveer verskaffer",
 			"circuitBreakerOpen": "Kringskakelaar oop - wag vir afkoeling",
 			"circuitBreakerHalfOpen": "Sekering half-oop - herstelondersoek",
-			"modelDisabled": "Gedeaktiveer",
-			"providerDisabled": "Verskaffer gedeaktiveer",
 			"naBadge": "N/A",
 			"reasonProviderOff": "Gedeaktiveer: sy verskaffer is afgeskakel.",
 			"reasonManuallyDisabled": "Handmatig gedeaktiveer.",

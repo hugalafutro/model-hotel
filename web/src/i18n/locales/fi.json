@@ -2463,8 +2463,6 @@
 			"enableProvider": "Ota palveluntarjoaja käyttöön",
 			"circuitBreakerOpen": "Katkaisin auki - odottaa jäähtymistä",
 			"circuitBreakerHalfOpen": "Circuit katkaisija puoli-avoin - anturi elpyminen",
-			"modelDisabled": "Poistettu käytöstä",
-			"providerDisabled": "Palveluntarjoaja poistettu käytöstä",
 			"naBadge": "N/A",
 			"reasonProviderOff": "Poistettu käytöstä: sen tarjoaja on pois päältä.",
 			"reasonManuallyDisabled": "Poistettu käytöstä käsin.",

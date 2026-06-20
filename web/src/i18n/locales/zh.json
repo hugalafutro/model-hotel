@@ -2463,8 +2463,6 @@
 			"enableProvider": "启用提供商",
 			"circuitBreakerOpen": "线路断路器打开 - 等待冷却时间",
 			"circuitBreakerHalfOpen": "断路器半开启-探测恢复",
-			"modelDisabled": "已停用",
-			"providerDisabled": "提供商已禁用",
 			"naBadge": "N/A",
 			"reasonProviderOff": "已禁用：其提供商已关闭。",
 			"reasonManuallyDisabled": "已手动禁用。",

@@ -2463,8 +2463,6 @@
 			"enableProvider": "Bật nhà cung cấp",
 			"circuitBreakerOpen": "Công tắc ngắt mạch đang mở - đang chờ hết thời gian chờ",
 			"circuitBreakerHalfOpen": "Cầu dao ở trạng thái nửa mở - kiểm tra khả năng phục hồi",
-			"modelDisabled": "Vô hiệu hóa",
-			"providerDisabled": "Nhà cung cấp bị vô hiệu hóa",
 			"naBadge": "N/A",
 			"reasonProviderOff": "Đã tắt: nhà cung cấp của nó đang tắt.",
 			"reasonManuallyDisabled": "Đã tắt thủ công.",

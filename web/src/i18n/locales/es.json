@@ -2463,8 +2463,6 @@
 			"enableProvider": "Habilitar proveedor",
 			"circuitBreakerOpen": "Interruptor de circuito abierto - esperando enfriamiento",
 			"circuitBreakerHalfOpen": "Rompeador de circuitos medio abierto - recuperación de sondeo",
-			"modelDisabled": "Desactivado",
-			"providerDisabled": "Proveedor desactivado",
 			"naBadge": "N/A",
 			"reasonProviderOff": "Desactivado: su proveedor está apagado.",
 			"reasonManuallyDisabled": "Desactivado manualmente.",

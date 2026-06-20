@@ -2463,8 +2463,6 @@
 			"enableProvider": "Povolit poskytovatele",
 			"circuitBreakerOpen": "Jistič je rozpojený – čeká na ochlazení",
 			"circuitBreakerHalfOpen": "Jistič je v poloze částečně otevřené – testování obnovy",
-			"modelDisabled": "Deaktivováno",
-			"providerDisabled": "Poskytovatel deaktivován",
 			"naBadge": "N/A",
 			"reasonProviderOff": "Zakázáno: jeho poskytovatel je vypnutý.",
 			"reasonManuallyDisabled": "Ručně zakázáno.",

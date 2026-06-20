@@ -2463,8 +2463,6 @@
 			"enableProvider": "Abilita provider",
 			"circuitBreakerOpen": "Interruttore aperto - in attesa di raffreddamento",
 			"circuitBreakerHalfOpen": "Interruttore semi-aperto - recupero sondaggio",
-			"modelDisabled": "Disabilitato",
-			"providerDisabled": "Fornitore disabilitato",
 			"naBadge": "N/A",
 			"reasonProviderOff": "Disattivato: il suo provider è spento.",
 			"reasonManuallyDisabled": "Disattivato manualmente.",

@@ -2463,8 +2463,6 @@
 			"enableProvider": "Activare furnizor",
 			"circuitBreakerOpen": "Rupator de circuit deschis - aşteptare pentru răcire",
 			"circuitBreakerHalfOpen": "Circuit breaker semi-deschis - recuperare probabilă",
-			"modelDisabled": "Dezactivat",
-			"providerDisabled": "Furnizor dezactivat",
 			"naBadge": "N/A",
 			"reasonProviderOff": "Dezactivat: furnizorul său este oprit.",
 			"reasonManuallyDisabled": "Dezactivat manual.",

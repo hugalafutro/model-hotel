@@ -2463,8 +2463,6 @@
 			"enableProvider": "Включить провайдер",
 			"circuitBreakerOpen": "Выключатель отключен - ожидается перезарядка",
 			"circuitBreakerHalfOpen": "Полуоткрытый выключатель - выздоровление",
-			"modelDisabled": "Отключено",
-			"providerDisabled": "Провайдер отключен",
 			"naBadge": "N/A",
 			"reasonProviderOff": "Отключено: его провайдер выключен.",
 			"reasonManuallyDisabled": "Отключено вручную.",

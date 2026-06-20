@@ -2463,8 +2463,6 @@
 			"enableProvider": "Sağlayıcıyı etkinleştir",
 			"circuitBreakerOpen": "Devre kesici açık - soğuma süresinin bitmesini bekliyor",
 			"circuitBreakerHalfOpen": "Devre kesici yarı açık - geri kazanım testi",
-			"modelDisabled": "Devre dışı",
-			"providerDisabled": "Sağlayıcı devre dışı",
 			"naBadge": "N/A",
 			"reasonProviderOff": "Devre dışı: sağlayıcısı kapalı.",
 			"reasonManuallyDisabled": "Elle devre dışı bırakıldı.",
