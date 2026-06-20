@@ -163,9 +163,13 @@ export function SortableEntry({
 						: undefined
 				}
 				ariaLabel={
-					entry.enabled && !effectivelyDisabled
-						? t("failoverGroups.entry.disableProvider")
-						: t("failoverGroups.entry.enableProvider")
+					effectivelyDisabled
+						? entry.provider_enabled
+							? t("failoverGroups.entry.modelDisabled")
+							: t("failoverGroups.entry.providerDisabled")
+						: entry.enabled
+							? t("failoverGroups.entry.disableProvider")
+							: t("failoverGroups.entry.enableProvider")
 				}
 			/>
 		</div>
