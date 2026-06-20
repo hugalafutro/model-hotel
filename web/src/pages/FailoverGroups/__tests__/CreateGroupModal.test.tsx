@@ -1308,6 +1308,43 @@ describe("CreateGroupModal", () => {
 			expect(patched).toBe("uuid-na");
 		});
 
+		it("Retry N/A keeps a member out of Re-enabled when the write fails", async () => {
+			// The model answers the probe but the re-enable write fails, so it is
+			// still disabled in the backend: the diff must not claim "Re-enabled".
+			server.use(
+				http.post("/api/models/:id/test", () =>
+					HttpResponse.json({
+						success: true,
+						streaming: false,
+						ttft_ms: 1,
+						duration_ms: 1,
+						response: "hi",
+					}),
+				),
+				http.patch("/api/models/:id", () =>
+					HttpResponse.json({ error: "boom" }, { status: 500 }),
+				),
+			);
+
+			const { user } = renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					group={groupWithNa}
+					onClose={mockOnClose}
+					onUpdated={mockOnUpdated}
+				/>,
+			);
+
+			await user.click(screen.getByRole("button", { name: "Retry N/A" }));
+
+			await waitFor(() => {
+				expect(screen.getByText("Discovery summary")).toBeInTheDocument();
+			});
+			// Reported as still-disabled, never as Re-enabled.
+			expect(screen.getByText("Disabled")).toBeInTheDocument();
+			expect(screen.queryByText("Re-enabled")).not.toBeInTheDocument();
+		});
+
 		it("Delete N/A drops the member when 2+ would remain", async () => {
 			let putBody: { priority_order?: string[] } | null = null;
 			server.use(

@@ -193,56 +193,70 @@ export function CreateGroupModal({
 	});
 
 	// Re-check every retryable N/A member and re-enable the ones that answer, then
-	// surface the outcome through the discovery diff modal (healed members show as
-	// re-enabled, the rest stay listed as disabled). Members still N/A are left
-	// untouched so the group is unchanged when nothing recovered.
+	// surface the outcome through the discovery diff modal. A member counts as
+	// healed only once its re-enable write succeeds: a model that probes healthy
+	// but fails to persist is still disabled in the backend, so it stays in the
+	// failed column (the modal must not claim "Re-enabled" for something the card
+	// will immediately show as N/A again). Probes run concurrently so a group with
+	// many stale members isn't gated by the sum of every round-trip.
 	const handleRetryNa = async () => {
 		if (!group || retryableEntries.length === 0 || retrying) return;
 		setRetrying(true);
+
+		const outcomes = await Promise.all(
+			retryableEntries.map(async (e) => {
+				// The diff modal renders ModelChange.model_id as a mono chip, so use
+				// the raw model id (matching discovery), not the display name.
+				const result = { entry: e, healed: false, writeError: "" };
+				let probedOk: boolean;
+				try {
+					probedOk = (await api.models.test(e.model_uuid, true)).success;
+				} catch {
+					probedOk = false;
+				}
+				if (!probedOk) return result;
+				// Answered, so it is healthy; persist the re-enable. Only a successful
+				// write makes it genuinely re-enabled.
+				try {
+					await api.models.update(e.model_uuid, { enabled: true });
+					result.healed = true;
+				} catch (err) {
+					result.writeError = (err as Error).message;
+				}
+				return result;
+			}),
+		);
+
+		setRetrying(false);
+
+		const writeErrors = outcomes.filter((o) => o.writeError);
+		if (writeErrors.length > 0) {
+			// Surface the (rare) save failures explicitly; they read as "failed" in
+			// the diff but for a different reason than a model that never answered.
+			toast(
+				t("failover.toast_update_failed", {
+					message: writeErrors[0].writeError,
+				}),
+				"error",
+			);
+		}
+
+		queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
+		queryClient.invalidateQueries({ queryKey: ["failover-candidates"] });
+		queryClient.invalidateQueries({ queryKey: ["models"] });
+
 		const byProvider = new Map<
 			string,
 			{ healed: string[]; failed: string[] }
 		>();
-		for (const e of retryableEntries) {
-			const bucket = byProvider.get(e.provider_name) ?? {
+		for (const o of outcomes) {
+			const bucket = byProvider.get(o.entry.provider_name) ?? {
 				healed: [],
 				failed: [],
 			};
-			// The diff modal renders ModelChange.model_id as a mono chip, so use the
-			// raw model id (matching the real discovery flow), not the display name.
-			const id = e.model_id;
-			let probedOk: boolean;
-			try {
-				probedOk = (await api.models.test(e.model_uuid, true)).success;
-			} catch {
-				probedOk = false;
-			}
-			if (!probedOk) {
-				// Still didn't answer: genuinely unavailable.
-				bucket.failed.push(id);
-				byProvider.set(e.provider_name, bucket);
-				continue;
-			}
-			// It answered, so it is healthy. Re-enable it; a failed write is a save
-			// error, not a "still unavailable" signal, so keep it among the healed
-			// and surface the write failure separately.
-			bucket.healed.push(id);
-			try {
-				await api.models.update(e.model_uuid, { enabled: true });
-			} catch (err) {
-				toast(
-					t("failover.toast_update_failed", {
-						message: (err as Error).message,
-					}),
-					"error",
-				);
-			}
-			byProvider.set(e.provider_name, bucket);
+			(o.healed ? bucket.healed : bucket.failed).push(o.entry.model_id);
+			byProvider.set(o.entry.provider_name, bucket);
 		}
-		setRetrying(false);
-		queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
-		queryClient.invalidateQueries({ queryKey: ["failover-candidates"] });
-		queryClient.invalidateQueries({ queryKey: ["models"] });
 		setRetryResult(
 			[...byProvider].map(([providerName, b]) => ({
 				providerName,
