@@ -33,9 +33,13 @@ type TotpHandler struct {
 	// confirmed_at cache for /totp/status. The stamp is set once at enrollment
 	// and never changes until disable/re-enroll, so a polled status endpoint can
 	// serve it from memory instead of reading the DB on every call. Read lock-free
-	// off the hot path; populated lazily on the first enabled read and cleared on
-	// enable/disable, both serialized by enabledAtMu.
+	// off the hot path; populated lazily on the first enabled read. enabledAtGen
+	// bumps on every enable/disable so a read whose DB fetch raced an invalidation
+	// declines to publish its now-stale value (see publishEnabledAt). The DB fetch
+	// itself runs without enabledAtMu, so a slow status read never blocks a
+	// concurrent enroll/disable.
 	enabledAtCache atomic.Pointer[time.Time]
+	enabledAtGen   atomic.Uint64
 	enabledAtMu    sync.Mutex
 }
 
@@ -136,26 +140,35 @@ func (h *TotpHandler) cachedEnabledAt(ctx context.Context) string {
 	if h.totpRepo == nil {
 		return ""
 	}
-	// Hold the lock across the read+store so a since-replaced enrollment can't be
-	// published after an invalidation: invalidateEnabledAt takes the same lock, so
-	// a racing enable/disable runs either fully before this read (we then read the
-	// fresh value) or fully after the store (it clears our value). The miss path
-	// runs at most once per enable, so the lock is effectively uncontended.
-	h.enabledAtMu.Lock()
-	defer h.enabledAtMu.Unlock()
+	// Snapshot the generation before the read. The DB fetch runs without the lock
+	// (so it can't block a concurrent enroll/disable); publishEnabledAt then stores
+	// the result only if no enable/disable bumped the generation meanwhile.
+	gen := h.enabledAtGen.Load()
 	at, ok, err := h.totpRepo.EnabledAt(ctx)
 	if err != nil || !ok {
 		return ""
 	}
-	h.enabledAtCache.Store(&at)
+	h.publishEnabledAt(gen, at)
 	return at.UTC().Format(time.RFC3339)
 }
 
-// invalidateEnabledAt drops the cached confirmed_at under the same lock
-// cachedEnabledAt holds while populating, so an in-flight miss reading a
-// since-replaced enrollment can never republish its stale stamp afterward.
+// publishEnabledAt caches at only if no enable/disable happened since gen was
+// sampled, so an in-flight read of a since-replaced enrollment cannot overwrite a
+// newer invalidation. The lock makes the generation check and the store atomic
+// against invalidateEnabledAt.
+func (h *TotpHandler) publishEnabledAt(gen uint64, at time.Time) {
+	h.enabledAtMu.Lock()
+	if h.enabledAtGen.Load() == gen {
+		h.enabledAtCache.Store(&at)
+	}
+	h.enabledAtMu.Unlock()
+}
+
+// invalidateEnabledAt clears the cached confirmed_at and advances the generation
+// so any read already in flight declines to publish its now-stale value.
 func (h *TotpHandler) invalidateEnabledAt() {
 	h.enabledAtMu.Lock()
+	h.enabledAtGen.Add(1)
 	h.enabledAtCache.Store(nil)
 	h.enabledAtMu.Unlock()
 }

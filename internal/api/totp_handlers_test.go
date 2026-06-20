@@ -246,6 +246,29 @@ func TestTotpCachedEnabledAt_ReturnsEmptyWhenUnknown(t *testing.T) {
 	}
 }
 
+// TestTotpPublishEnabledAt_GenerationGuard verifies that a publish carrying a
+// stale generation (one an enable/disable advanced after it was sampled) does not
+// resurrect the old confirmed_at: the race a slow lazy read could otherwise lose.
+func TestTotpPublishEnabledAt_GenerationGuard(t *testing.T) {
+	_, th := newTotpTestHandler(t)
+	now := time.Now().UTC()
+
+	// Same generation: the value is published.
+	gen := th.enabledAtGen.Load()
+	th.publishEnabledAt(gen, now)
+	if got := th.enabledAtCache.Load(); got == nil || !got.Equal(now) {
+		t.Fatalf("expected cached %v, got %v", now, got)
+	}
+
+	// An invalidation bumps the generation and clears the cache; a publish still
+	// carrying the old generation must be dropped rather than overwrite it.
+	th.invalidateEnabledAt()
+	th.publishEnabledAt(gen, now.Add(-time.Hour))
+	if got := th.enabledAtCache.Load(); got != nil {
+		t.Errorf("stale-generation publish should be dropped, got %v", got)
+	}
+}
+
 // --- EnrollStart tests ---
 
 func TestTotpEnrollStart_AdminAuth(t *testing.T) {
