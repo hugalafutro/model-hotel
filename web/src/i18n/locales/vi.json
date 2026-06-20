@@ -811,7 +811,9 @@
 			"retesting": "Đang kiểm tra lại…",
 			"retestTooltip": "Chạy lại quá trình khám phá cho nhà cung cấp này để kiểm tra lại các mô hình đã bị tắt.",
 			"retestDone": "Đã kiểm tra lại {{provider}}",
-			"toggleSection": "Bật/tắt phần {{provider}}"
+			"toggleSection": "Bật/tắt phần {{provider}}",
+			"failoverDisabled": "Các nhóm dự phòng đã bị vô hiệu hóa",
+			"failoverDisabledReason": "còn {{count}} thành viên có thể định tuyến, cần 2+"
 		}
 	},
 	"models": {
@@ -990,7 +992,8 @@
 		"provider_modal_title": "Quản lý trạng thái nhà cung cấp",
 		"provider_modal_description": "Việc vô hiệu hóa một nhà cung cấp sẽ vô hiệu hóa tất cả các mô hình của nhà cung cấp đó trong mọi nhóm chuyển đổi dự phòng",
 		"toast_provider_toggle_no_groups": "Không có nhóm chuyển đổi dự phòng nào sử dụng nhà cung cấp {{provider}}",
-		"last_sync_label": "Lần đồng bộ hóa gần nhất:"
+		"last_sync_label": "Lần đồng bộ hóa gần nhất:",
+		"toast_sync_disabled": "khách sạn/{{group}} đã bị vô hiệu hóa: còn {{count}} thành viên có thể định tuyến"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Các thay đổi chưa được lưu"
@@ -2458,7 +2461,7 @@
 			"enableProvider": "Bật nhà cung cấp",
 			"circuitBreakerOpen": "Công tắc ngắt mạch đang mở - đang chờ hết thời gian chờ",
 			"circuitBreakerHalfOpen": "Cầu dao ở trạng thái nửa mở - kiểm tra khả năng phục hồi",
-			"modelDisabled": "Mô hình bị vô hiệu hóa",
+			"modelDisabled": "Vô hiệu hóa",
 			"providerDisabled": "Nhà cung cấp bị vô hiệu hóa"
 		},
 		"modal": {

@@ -811,7 +811,9 @@
 			"retesting": "Nuovo test…",
 			"retestTooltip": "Riesegui il rilevamento per questo provider per riprovare i modelli disattivati.",
 			"retestDone": "{{provider}} ritestato",
-			"toggleSection": "Mostra o nascondi la sezione {{provider}}"
+			"toggleSection": "Mostra o nascondi la sezione {{provider}}",
+			"failoverDisabled": "Gruppi di failover disabilitati",
+			"failoverDisabledReason": "{{count}} membro/i instradabile/i rimasto/i, ne servono 2+"
 		}
 	},
 	"models": {
@@ -990,7 +992,8 @@
 		"provider_modal_title": "Gestisci Stato Provider",
 		"provider_modal_description": "Disabilitare un provider disabiliterà tutti i suoi modelli in ogni gruppo di failover",
 		"toast_provider_toggle_no_groups": "Nessun gruppo di failover usa il provider {{provider}}",
-		"last_sync_label": "Ultima sincronizzazione:"
+		"last_sync_label": "Ultima sincronizzazione:",
+		"toast_sync_disabled": "hotel/{{group}} disabilitato: {{count}} membro/i instradabile/i rimasto/i"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Modifiche Non Salvate"
@@ -2458,7 +2461,7 @@
 			"enableProvider": "Abilita provider",
 			"circuitBreakerOpen": "Interruttore aperto - in attesa di raffreddamento",
 			"circuitBreakerHalfOpen": "Interruttore semi-aperto - recupero sondaggio",
-			"modelDisabled": "Modello disabilitato",
+			"modelDisabled": "Disabilitato",
 			"providerDisabled": "Fornitore disabilitato"
 		},
 		"modal": {

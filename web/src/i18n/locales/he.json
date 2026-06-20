@@ -811,7 +811,9 @@
 			"retesting": "מבצע בדיקה חוזרת…",
 			"retestTooltip": "הרץ שוב את הגילוי עבור ספק זה כדי לבדוק מחדש מודלים שהושבתו.",
 			"retestDone": "{{provider}} נבדק מחדש",
-			"toggleSection": "החלף את מקטע {{provider}}"
+			"toggleSection": "החלף את מקטע {{provider}}",
+			"failoverDisabled": "קבוצות מעבר למקרה כשל הושבתו",
+			"failoverDisabledReason": "נותרו {{count}} חברים הניתנים לניתוב, נדרשים 2+"
 		}
 	},
 	"models": {
@@ -990,7 +992,8 @@
 		"provider_modal_title": "ניהול מצב הספק",
 		"provider_modal_description": "השבתת ספק תשבית את כל הדגמים שלו בכל קבוצת מעבר לגיבוי",
 		"toast_provider_toggle_no_groups": "אף קבוצת מעבר לגיבוי אינה משתמשת בספק {{provider}}",
-		"last_sync_label": "הסנכרון האחרון:"
+		"last_sync_label": "הסנכרון האחרון:",
+		"toast_sync_disabled": "מלון/{{group}} מושבת: נותרו {{count}} חברים הניתנים לניתוב"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "שינויים שלא נשמרו"
@@ -2458,7 +2461,7 @@
 			"enableProvider": "הפעל ספק",
 			"circuitBreakerOpen": "מפסק זרם פתוח - ממתינים לסיום זמן ההמתנה",
 			"circuitBreakerHalfOpen": "מפסק חצי פתוח – בדיקת התאוששות",
-			"modelDisabled": "המודל מושבת",
+			"modelDisabled": "מושבת",
 			"providerDisabled": "ספק מושבת"
 		},
 		"modal": {

@@ -453,6 +453,87 @@ func TestFailoverHandler_Update_InvalidatesCache(t *testing.T) {
 	}
 }
 
+// enableGuardSeed inserts an enabled provider plus two models (each enabled per
+// the flags) and a disabled custom failover group containing both, returning the
+// group ID. Registers cleanup.
+func enableGuardSeed(t *testing.T, h *FailoverHandler, m1Enabled, m2Enabled bool) (groupID uuid.UUID, displayModel string) {
+	t.Helper()
+	ctx := context.Background()
+	pool := apiTestDB.Pool()
+	displayModel = "test-enable-guard-" + uuid.New().String()[:8]
+
+	providerID := uuid.New()
+	_, err := pool.Exec(ctx,
+		`INSERT INTO providers (id, name, base_url, enabled, created_at, updated_at)
+		 VALUES ($1, $2, 'https://eg.example.com', true, now(), now())`,
+		providerID, "eg-prov-"+uuid.New().String()[:8])
+	if err != nil {
+		t.Fatalf("insert provider: %v", err)
+	}
+	t.Cleanup(func() { _, _ = pool.Exec(ctx, "DELETE FROM providers WHERE id = $1", providerID) })
+
+	m1, m2 := uuid.New(), uuid.New()
+	for _, m := range []struct {
+		id      uuid.UUID
+		enabled bool
+	}{{m1, m1Enabled}, {m2, m2Enabled}} {
+		_, err = pool.Exec(ctx,
+			`INSERT INTO models (id, provider_id, model_id, name, enabled, created_at, last_seen_at)
+			 VALUES ($1, $2, $3, $3, $4, now(), now())`,
+			m.id, providerID, "eg-model-"+m.id.String()[:8], m.enabled)
+		if err != nil {
+			t.Fatalf("insert model: %v", err)
+		}
+		t.Cleanup(func(id uuid.UUID) func() {
+			return func() { _, _ = pool.Exec(ctx, "DELETE FROM models WHERE id = $1", id) }
+		}(m.id))
+	}
+	model.InvalidateModelCache()
+
+	groupEnabled := false
+	autoCreated := false
+	entryEnabled := map[string]bool{m1.String(): true, m2.String(): true}
+	fg, err := h.failoverRepo.UpsertWithConfig(ctx, displayModel, []uuid.UUID{m1, m2}, entryEnabled, &groupEnabled, nil, nil, &autoCreated)
+	if err != nil {
+		t.Fatalf("create custom group: %v", err)
+	}
+	t.Cleanup(func() { _ = h.failoverRepo.Delete(ctx, displayModel) })
+	return fg.ID, displayModel
+}
+
+// Re-enabling a disabled group that discovery left with a single routable member
+// must be rejected at the API boundary, not just auto-disabled on the next scan.
+func TestFailoverHandler_Update_EnableRejectedWhenUndersized(t *testing.T) {
+	h := newIntegrationFailoverHandler()
+	groupID, _ := enableGuardSeed(t, h, true, false) // only one routable member
+
+	body := `{"group_enabled":true}`
+	req, w := newChiRequest(http.MethodPut, "/failover-groups/"+groupID.String(), strings.NewReader(body))
+	req = setChiURLParam(req, "id", groupID.String())
+
+	h.Update(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 when enabling an undersized group, got %d; body: %s", w.Code, w.Body.String())
+	}
+}
+
+// Enabling a disabled group that has two routable members is allowed.
+func TestFailoverHandler_Update_EnableAllowedWhenTwoRoutable(t *testing.T) {
+	h := newIntegrationFailoverHandler()
+	groupID, _ := enableGuardSeed(t, h, true, true) // two routable members
+
+	body := `{"group_enabled":true}`
+	req, w := newChiRequest(http.MethodPut, "/failover-groups/"+groupID.String(), strings.NewReader(body))
+	req = setChiURLParam(req, "id", groupID.String())
+
+	h.Update(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 when enabling a group with 2 routable members, got %d; body: %s", w.Code, w.Body.String())
+	}
+}
+
 func TestFailoverHandler_Update_DisableGroup(t *testing.T) {
 	h := newIntegrationFailoverHandler()
 

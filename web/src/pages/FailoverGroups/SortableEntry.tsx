@@ -44,8 +44,11 @@ export function SortableEntry({
 	const dragProps = groupEnabled ? { ...attributes, ...listeners } : {};
 
 	// The router skips entries whose model or provider is disabled regardless
-	// of the per-entry toggle; reflect that effective state in the UI.
-	const effectivelyDisabled = !entry.model_enabled || !entry.provider_enabled;
+	// of the per-entry toggle; reflect that effective state in the UI. Only an
+	// explicit false counts as disabled (the backend always sends real
+	// booleans) so missing/partial data never mislabels an entry as dead.
+	const effectivelyDisabled =
+		entry.model_enabled === false || entry.provider_enabled === false;
 
 	// Determine if fuse should show (circuit breaker open/half-open).
 	// We trust the circuit breaker's own state — the backend already enforces
@@ -91,7 +94,7 @@ export function SortableEntry({
 		<div
 			ref={setNodeRef}
 			style={{ ...style, overflow: showFuse ? "hidden" : undefined }}
-			className={`failover-entry relative flex items-center justify-between px-2 py-1 group text-sm ${
+			className={`failover-entry relative flex items-center justify-between gap-2 px-2 py-1 group text-sm ${
 				entry.enabled && !effectivelyDisabled
 					? "bg-gray-700"
 					: "failover-entry-disabled"
@@ -145,13 +148,28 @@ export function SortableEntry({
 			</div>
 			<Toggle
 				size="sm"
-				checked={entry.enabled}
-				disabled={!groupEnabled}
+				// Reflect effective state: an entry whose model/provider is disabled
+				// is not routable, so show the toggle off and lock it. Flipping the
+				// per-entry flag would do nothing while the underlying model is dead,
+				// which is the confusing "toggle says on but it's disabled" case.
+				checked={entry.enabled && !effectivelyDisabled}
+				disabled={!groupEnabled || effectivelyDisabled}
 				onChange={(v) => onToggle(entry.model_uuid, v)}
+				title={
+					effectivelyDisabled
+						? entry.provider_enabled
+							? t("failoverGroups.entry.modelDisabled")
+							: t("failoverGroups.entry.providerDisabled")
+						: undefined
+				}
 				ariaLabel={
-					entry.enabled
-						? t("failoverGroups.entry.disableProvider")
-						: t("failoverGroups.entry.enableProvider")
+					effectivelyDisabled
+						? entry.provider_enabled
+							? t("failoverGroups.entry.modelDisabled")
+							: t("failoverGroups.entry.providerDisabled")
+						: entry.enabled
+							? t("failoverGroups.entry.disableProvider")
+							: t("failoverGroups.entry.enableProvider")
 				}
 			/>
 		</div>

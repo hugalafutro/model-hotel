@@ -811,7 +811,9 @@
 			"retesting": "Retesting…",
 			"retestTooltip": "Re-run discovery for this provider to re-probe models that were disabled.",
 			"retestDone": "Retested {{provider}}",
-			"toggleSection": "Toggle {{provider}} section"
+			"toggleSection": "Toggle {{provider}} section",
+			"failoverDisabled": "Failover groups disabled",
+			"failoverDisabledReason": "{{count}} routable member(s) left, need 2+"
 		}
 	},
 	"models": {
@@ -990,7 +992,8 @@
 		"btn_manage_providers": "Manage Providers",
 		"provider_modal_title": "Manage Provider Status",
 		"provider_modal_description": "Disabling a provider will disable all its models in every failover group",
-		"toast_provider_toggle_no_groups": "No failover groups use provider {{provider}}"
+		"toast_provider_toggle_no_groups": "No failover groups use provider {{provider}}",
+		"toast_sync_disabled": "hotel/{{group}} disabled: {{count}} routable member(s) left"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Unsaved Changes"
@@ -2458,7 +2461,7 @@
 			"enableProvider": "Enable provider",
 			"circuitBreakerOpen": "Circuit breaker open - waiting for cooldown",
 			"circuitBreakerHalfOpen": "Circuit breaker half-open - probing recovery",
-			"modelDisabled": "Model disabled",
+			"modelDisabled": "Disabled",
 			"providerDisabled": "Provider disabled"
 		},
 		"modal": {

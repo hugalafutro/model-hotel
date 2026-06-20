@@ -811,7 +811,9 @@
 			"retesting": "Probíhá nový test…",
 			"retestTooltip": "Spusťte zjišťování pro tohoto poskytovatele znovu a otestujte zakázané modely.",
 			"retestDone": "{{provider}} otestováno znovu",
-			"toggleSection": "Přepnout sekci {{provider}}"
+			"toggleSection": "Přepnout sekci {{provider}}",
+			"failoverDisabled": "Failover skupiny deaktivovány",
+			"failoverDisabledReason": "zbývá {{count}} směrovatelných členů, potřeba 2+"
 		}
 	},
 	"models": {
@@ -990,7 +992,8 @@
 		"provider_modal_title": "Správa stavu poskytovatele",
 		"provider_modal_description": "Zakázáním poskytovatele dojde k vypnutí všech modelů v každé skupině selhání",
 		"toast_provider_toggle_no_groups": "Není použito poskytovatele {{provider}}",
-		"last_sync_label": "Poslední synchronizace:"
+		"last_sync_label": "Poslední synchronizace:",
+		"toast_sync_disabled": "hotel/{{group}} deaktivováno: zbývá {{count}} směrovatelných členů"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Neuložené změny"
@@ -2458,7 +2461,7 @@
 			"enableProvider": "Povolit poskytovatele",
 			"circuitBreakerOpen": "Jistič je rozpojený – čeká na ochlazení",
 			"circuitBreakerHalfOpen": "Jistič je v poloze částečně otevřené – testování obnovy",
-			"modelDisabled": "Model deaktivován",
+			"modelDisabled": "Deaktivováno",
 			"providerDisabled": "Poskytovatel deaktivován"
 		},
 		"modal": {

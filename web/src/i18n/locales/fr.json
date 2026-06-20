@@ -811,7 +811,9 @@
 			"retesting": "Nouveau test…",
 			"retestTooltip": "Relancez la découverte pour ce fournisseur afin de retester les modèles désactivés.",
 			"retestDone": "{{provider}} retesté",
-			"toggleSection": "Afficher ou masquer la section {{provider}}"
+			"toggleSection": "Afficher ou masquer la section {{provider}}",
+			"failoverDisabled": "Groupes de basculement désactivés",
+			"failoverDisabledReason": "{{count}} membre(s) routable(s) restant(s), 2+ requis"
 		}
 	},
 	"models": {
@@ -990,7 +992,8 @@
 		"provider_modal_title": "Gérer le statut du fournisseur",
 		"provider_modal_description": "Désactiver un fournisseur désactivera tous ses modèles dans chaque groupe de basculement",
 		"toast_provider_toggle_no_groups": "Aucun groupe de basculement n'utilise le fournisseur {{provider}}",
-		"last_sync_label": "Dernière synchronisation :"
+		"last_sync_label": "Dernière synchronisation :",
+		"toast_sync_disabled": "hôtel/{{group}} désactivé : {{count}} membre(s) routable(s) restant(s)"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Modifications non enregistrées"
@@ -2458,7 +2461,7 @@
 			"enableProvider": "Activer le fournisseur",
 			"circuitBreakerOpen": "Disjoncteur ouvert - en attente de rechargement",
 			"circuitBreakerHalfOpen": "Disjoncteur à moitié ouvert - Récupération de la sonde",
-			"modelDisabled": "Modèle désactivé",
+			"modelDisabled": "Désactivé",
 			"providerDisabled": "Fournisseur désactivé"
 		},
 		"modal": {

@@ -811,7 +811,9 @@
 			"retesting": "Wird erneut getestet…",
 			"retestTooltip": "Erkennung für diesen Anbieter erneut ausführen, um deaktivierte Modelle neu zu prüfen.",
 			"retestDone": "{{provider}} erneut getestet",
-			"toggleSection": "Abschnitt {{provider}} umschalten"
+			"toggleSection": "Abschnitt {{provider}} umschalten",
+			"failoverDisabled": "Failover-Gruppen deaktiviert",
+			"failoverDisabledReason": "{{count}} routbare(s) Mitglied(er) übrig, 2+ erforderlich"
 		}
 	},
 	"models": {
@@ -990,7 +992,8 @@
 		"provider_modal_title": "Anbieter-Status verwalten",
 		"provider_modal_description": "Das Deaktivieren eines Anbieters wird alle seine Modelle in jeder Failover-Gruppe deaktivieren",
 		"toast_provider_toggle_no_groups": "Keine Failover-Gruppen verwenden den Anbieter {{provider}}",
-		"last_sync_label": "Letzter Sync:"
+		"last_sync_label": "Letzter Sync:",
+		"toast_sync_disabled": "hotel/{{group}} deaktiviert: {{count}} routbare(s) Mitglied(er) übrig"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Ungespeicherte Änderungen"
@@ -2458,7 +2461,7 @@
 			"enableProvider": "Anbieter aktivieren",
 			"circuitBreakerOpen": "Strombrecher offen - Warten auf Abklingzeit",
 			"circuitBreakerHalfOpen": "Schaltkreisbrecher halb offen - Abtastung",
-			"modelDisabled": "Modell deaktiviert",
+			"modelDisabled": "Deaktiviert",
 			"providerDisabled": "Anbieter deaktiviert"
 		},
 		"modal": {

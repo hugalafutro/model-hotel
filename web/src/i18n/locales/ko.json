@@ -811,7 +811,9 @@
 			"retesting": "다시 테스트 중…",
 			"retestTooltip": "이 공급자에 대한 검색을 다시 실행하여 비활성화된 모델을 다시 확인합니다.",
 			"retestDone": "{{provider}} 다시 테스트함",
-			"toggleSection": "{{provider}} 섹션 전환"
+			"toggleSection": "{{provider}} 섹션 전환",
+			"failoverDisabled": "페일오버 그룹 비활성화됨",
+			"failoverDisabledReason": "라우팅 가능한 멤버 {{count}}개 남음, 2개 이상 필요"
 		}
 	},
 	"models": {
@@ -990,7 +992,8 @@
 		"provider_modal_title": "공급자 상태 관리",
 		"provider_modal_description": "프로바이더를 비활성화하면 모든 페일오버 그룹에서 해당 프로바이더의 모든 모델이 비활성화됩니다.",
 		"toast_provider_toggle_no_groups": "이 공급자를 사용하는 장애 조치 그룹이 없습니다 {{provider}}",
-		"last_sync_label": "마지막 동기화:"
+		"last_sync_label": "마지막 동기화:",
+		"toast_sync_disabled": "호텔/{{group}} 비활성화됨: 라우팅 가능한 멤버 {{count}}개 남음"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "저장되지 않은 변경 사항"
@@ -2458,7 +2461,7 @@
 			"enableProvider": "제공자 활성화",
 			"circuitBreakerOpen": "회로 차단기 개방 - 쿨타임 대기 중",
 			"circuitBreakerHalfOpen": "회로 차단기 반개 상태 - 복구 확인",
-			"modelDisabled": "모델 비활성화",
+			"modelDisabled": "비활성화됨",
 			"providerDisabled": "제공업체 비활성화"
 		},
 		"modal": {

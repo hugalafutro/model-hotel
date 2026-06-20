@@ -811,7 +811,9 @@
 			"retesting": "Opnieuw testen…",
 			"retestTooltip": "Voer detectie voor deze provider opnieuw uit om uitgeschakelde modellen opnieuw te testen.",
 			"retestDone": "{{provider}} opnieuw getest",
-			"toggleSection": "Sectie {{provider}} in-/uitklappen"
+			"toggleSection": "Sectie {{provider}} in-/uitklappen",
+			"failoverDisabled": "Failover-groepen uitgeschakeld",
+			"failoverDisabledReason": "{{count}} routeerbaar lid/leden over, 2+ vereist"
 		}
 	},
 	"models": {
@@ -990,7 +992,8 @@
 		"provider_modal_title": "Provider Status beheren",
 		"provider_modal_description": "Het uitschakelen van een provider zal al zijn modellen in elke mislukte groep uitschakelen",
 		"toast_provider_toggle_no_groups": "Geen failover groepen gebruiken provider {{provider}}",
-		"last_sync_label": "Laatste synchronisatie:"
+		"last_sync_label": "Laatste synchronisatie:",
+		"toast_sync_disabled": "hotel/{{group}} uitgeschakeld: {{count}} routeerbaar lid/leden over"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Niet-opgeslagen wijzigingen"
@@ -2458,7 +2461,7 @@
 			"enableProvider": "Provider inschakelen",
 			"circuitBreakerOpen": "Schakelaar open - wacht op afkoeling",
 			"circuitBreakerHalfOpen": "Circuit breaker half-open - proeftijd herstel",
-			"modelDisabled": "Model uitgeschakeld",
+			"modelDisabled": "Uitgeschakeld",
 			"providerDisabled": "Provider uitgeschakeld"
 		},
 		"modal": {

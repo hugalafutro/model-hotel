@@ -811,7 +811,9 @@
 			"retesting": "Prebieha nový test…",
 			"retestTooltip": "Znova spustite zisťovanie pre tohto poskytovateľa a otestujte zakázané modely.",
 			"retestDone": "{{provider}} znova otestované",
-			"toggleSection": "Prepnúť sekciu {{provider}}"
+			"toggleSection": "Prepnúť sekciu {{provider}}",
+			"failoverDisabled": "Skupiny pre prevzatie pri výpadku deaktivované",
+			"failoverDisabledReason": "zostáva {{count}} smerovateľných členov, potrebné 2+"
 		}
 	},
 	"models": {
@@ -990,7 +992,8 @@
 		"provider_modal_title": "Správa stavu poskytovateľa",
 		"provider_modal_description": "Deaktiváciou poskytovateľa sa deaktivujú všetky jeho modely vo všetkých skupinách pre prevzatie pri výpadku",
 		"toast_provider_toggle_no_groups": "Žiadna skupina pre prechod na záložný systém nepoužíva poskytovateľa {{provider}}",
-		"last_sync_label": "Posledná synchronizácia:"
+		"last_sync_label": "Posledná synchronizácia:",
+		"toast_sync_disabled": "hotel/{{group}} deaktivované: zostáva {{count}} smerovateľných členov"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Neuložené zmeny"
@@ -2458,7 +2461,7 @@
 			"enableProvider": "Aktivovať poskytovateľa",
 			"circuitBreakerOpen": "Istič je otvorený – čaká sa na ochladenie",
 			"circuitBreakerHalfOpen": "Istič je čiastočne otvorený – testovanie obnovy",
-			"modelDisabled": "Model je deaktivovaný",
+			"modelDisabled": "Deaktivované",
 			"providerDisabled": "Poskytovateľ deaktivovaný"
 		},
 		"modal": {

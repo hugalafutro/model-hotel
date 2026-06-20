@@ -811,7 +811,9 @@
 			"retesting": "Tester igen…",
 			"retestTooltip": "Kør registrering for denne udbyder igen for at teste deaktiverede modeller på ny.",
 			"retestDone": "{{provider}} testet igen",
-			"toggleSection": "Skift {{provider}}-sektion"
+			"toggleSection": "Skift {{provider}}-sektion",
+			"failoverDisabled": "Failover-grupper deaktiveret",
+			"failoverDisabledReason": "{{count}} rutebare medlem(mer) tilbage, kræver 2+"
 		}
 	},
 	"models": {
@@ -990,7 +992,8 @@
 		"provider_modal_title": "Administrer Udbyderstatus",
 		"provider_modal_description": "Deaktivering af en udbyder vil deaktivere alle sine modeller i hver failover gruppe",
 		"toast_provider_toggle_no_groups": "Ingen mislykkede grupper bruger udbyder {{provider}}",
-		"last_sync_label": "Seneste synkronisering:"
+		"last_sync_label": "Seneste synkronisering:",
+		"toast_sync_disabled": "hotel/{{group}} deaktiveret: {{count}} rutebare medlem(mer) tilbage"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Ikke-Gemte Ændringer"
@@ -2458,7 +2461,7 @@
 			"enableProvider": "Aktiver udbyder",
 			"circuitBreakerOpen": "Circuit breaker åben - venter på nedkøling",
 			"circuitBreakerHalfOpen": "Circuit breaker halvt åben - probing recovery",
-			"modelDisabled": "Model deaktiveret",
+			"modelDisabled": "Deaktiveret",
 			"providerDisabled": "Udbyder deaktiveret"
 		},
 		"modal": {

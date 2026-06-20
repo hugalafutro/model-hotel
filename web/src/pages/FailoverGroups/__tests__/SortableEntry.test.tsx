@@ -248,9 +248,10 @@ describe("SortableEntry", () => {
 		const entryDiv = screen.getByRole("switch").closest("div");
 		expect(entryDiv).toHaveClass("failover-entry-disabled");
 
-		// ...and the toggle stays functional so the user can keep their intent.
-		expect(screen.getByRole("switch")).toBeChecked();
-		expect(screen.getByRole("switch")).not.toBeDisabled();
+		// ...and the toggle reflects the effective (unroutable) state: it reads
+		// off and is locked, so the user can't pointlessly flip a dead member.
+		expect(screen.getByRole("switch")).not.toBeChecked();
+		expect(screen.getByRole("switch")).toBeDisabled();
 	});
 
 	it("badges entry when provider is disabled", () => {

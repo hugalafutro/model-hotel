@@ -811,7 +811,9 @@
 			"retesting": "S'està reprovant…",
 			"retestTooltip": "Torna a executar el descobriment d'aquest proveïdor per tornar a provar els models desactivats.",
 			"retestDone": "S'ha reprovat {{provider}}",
-			"toggleSection": "Mostra o amaga la secció {{provider}}"
+			"toggleSection": "Mostra o amaga la secció {{provider}}",
+			"failoverDisabled": "Grups de fallada desactivats",
+			"failoverDisabledReason": "queden {{count}} membre(s) encaminable(s), calen 2+"
 		}
 	},
 	"models": {
@@ -990,7 +992,8 @@
 		"provider_modal_title": "Gestiona l'estat del proveïdor",
 		"provider_modal_description": "Desactivar un proveïdor desactivarà tots els seus models en cada grup de conmutació per error.",
 		"toast_provider_toggle_no_groups": "Cap grup de fallada utilitza proveïdor. {{provider}}",
-		"last_sync_label": "Darrera sincronització:"
+		"last_sync_label": "Darrera sincronització:",
+		"toast_sync_disabled": "hotel/{{group}} desactivat: queden {{count}} membre(s) encaminable(s)"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Canvis no desats"
@@ -2458,7 +2461,7 @@
 			"enableProvider": "Activa el proveïdor",
 			"circuitBreakerOpen": "Interruptor automàtic obert - esperant el refredament",
 			"circuitBreakerHalfOpen": "Interruptor automàtic mig obert - prova de recuperació",
-			"modelDisabled": "Model desactivat",
+			"modelDisabled": "Desactivat",
 			"providerDisabled": "Proveïdor desactivat"
 		},
 		"modal": {

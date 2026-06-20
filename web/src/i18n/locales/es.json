@@ -811,7 +811,9 @@
 			"retesting": "Volviendo a probar…",
 			"retestTooltip": "Vuelve a ejecutar el descubrimiento de este proveedor para volver a comprobar los modelos desactivados.",
 			"retestDone": "Se ha vuelto a probar {{provider}}",
-			"toggleSection": "Mostrar u ocultar la sección {{provider}}"
+			"toggleSection": "Mostrar u ocultar la sección {{provider}}",
+			"failoverDisabled": "Grupos de conmutación por error desactivados",
+			"failoverDisabledReason": "quedan {{count}} miembro(s) enrutable(s), se necesitan 2+"
 		}
 	},
 	"models": {
@@ -990,7 +992,8 @@
 		"provider_modal_title": "Administrar estado del proveedor",
 		"provider_modal_description": "Deshabilitar un proveedor desactivará todos sus modelos en cada grupo de tolerancia contra fallos",
 		"toast_provider_toggle_no_groups": "Ningún grupo de tolerancia contra fallos utiliza el proveedor {{provider}}",
-		"last_sync_label": "Última sincronización:"
+		"last_sync_label": "Última sincronización:",
+		"toast_sync_disabled": "hotel/{{group}} desactivado: quedan {{count}} miembro(s) enrutable(s)"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Cambios sin guardar"
@@ -2458,7 +2461,7 @@
 			"enableProvider": "Habilitar proveedor",
 			"circuitBreakerOpen": "Interruptor de circuito abierto - esperando enfriamiento",
 			"circuitBreakerHalfOpen": "Rompeador de circuitos medio abierto - recuperación de sondeo",
-			"modelDisabled": "Modelo desactivado",
+			"modelDisabled": "Desactivado",
 			"providerDisabled": "Proveedor desactivado"
 		},
 		"modal": {

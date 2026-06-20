@@ -811,7 +811,9 @@
 			"retesting": "Повторна перевірка…",
 			"retestTooltip": "Запустіть виявлення для цього постачальника повторно, щоб перевірити вимкнені моделі.",
 			"retestDone": "{{provider}} повторно перевірено",
-			"toggleSection": "Перемкнути розділ {{provider}}"
+			"toggleSection": "Перемкнути розділ {{provider}}",
+			"failoverDisabled": "Групи відмовостійкості вимкнено",
+			"failoverDisabledReason": "залишилося {{count}} маршрутизованих учасників, потрібно 2+"
 		}
 	},
 	"models": {
@@ -990,7 +992,8 @@
 		"provider_modal_title": "Управління статусом постачальника",
 		"provider_modal_description": "Вимкнення постачальника вимкне всі її моделі у кожній її групі з відмовою",
 		"toast_provider_toggle_no_groups": "Немає групи відмови використовувати провайдера {{provider}}",
-		"last_sync_label": "Остання синхронізація:"
+		"last_sync_label": "Остання синхронізація:",
+		"toast_sync_disabled": "hotel/{{group}} вимкнено: залишилося {{count}} маршрутизованих учасників"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Незбережені зміни"
@@ -2458,7 +2461,7 @@
 			"enableProvider": "Увімкнути провайдера",
 			"circuitBreakerOpen": "Мережевий вимикач відкритий - чекає завершення роботи",
 			"circuitBreakerHalfOpen": "Мережевий вимикач напіввідкритий - зондування відновлення",
-			"modelDisabled": "Модель вимкнена",
+			"modelDisabled": "Вимкнено",
 			"providerDisabled": "Провайдер вимкнено"
 		},
 		"modal": {

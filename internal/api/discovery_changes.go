@@ -40,7 +40,8 @@ func diffIsEmpty(d *DiscoveryDiff) bool {
 		len(d.Disabled) == 0 &&
 		len(d.Updated) == 0 &&
 		len(d.FailoverDeletedGroups) == 0 &&
-		len(d.FailoverUpdatedGroups) == 0
+		len(d.FailoverUpdatedGroups) == 0 &&
+		len(d.FailoverDisabledGroups) == 0
 }
 
 // countAffected sums the entities a diff touched — the badge number.
@@ -53,7 +54,8 @@ func countAffected(d *DiscoveryDiff) int {
 		len(d.Disabled) +
 		len(d.Updated) +
 		len(d.FailoverDeletedGroups) +
-		len(d.FailoverUpdatedGroups)
+		len(d.FailoverUpdatedGroups) +
+		len(d.FailoverDisabledGroups)
 }
 
 // AppendDiscoveryChange records one provider's background-discovery diff for

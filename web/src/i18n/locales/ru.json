@@ -811,7 +811,9 @@
 			"retesting": "Повторная проверка…",
 			"retestTooltip": "Запустите обнаружение для этого провайдера повторно, чтобы перепроверить отключённые модели.",
 			"retestDone": "{{provider}} повторно проверен",
-			"toggleSection": "Переключить раздел {{provider}}"
+			"toggleSection": "Переключить раздел {{provider}}",
+			"failoverDisabled": "Группы отказоустойчивости отключены",
+			"failoverDisabledReason": "осталось {{count}} маршрутизируемых участников, нужно 2+"
 		}
 	},
 	"models": {
@@ -990,7 +992,8 @@
 		"provider_modal_title": "Управление статусом провайдера",
 		"provider_modal_description": "Отключение провайдера отключит все его модели в каждой группе отказов",
 		"toast_provider_toggle_no_groups": "Нет групп отказов использовать провайдера {{provider}}",
-		"last_sync_label": "Последняя синхронизация:"
+		"last_sync_label": "Последняя синхронизация:",
+		"toast_sync_disabled": "гостиница/{{group}} отключено: осталось {{count}} маршрутизируемых участников"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Несохраненные изменения"
@@ -2458,7 +2461,7 @@
 			"enableProvider": "Включить провайдер",
 			"circuitBreakerOpen": "Выключатель отключен - ожидается перезарядка",
 			"circuitBreakerHalfOpen": "Полуоткрытый выключатель - выздоровление",
-			"modelDisabled": "Модель отключена",
+			"modelDisabled": "Отключено",
 			"providerDisabled": "Провайдер отключен"
 		},
 		"modal": {

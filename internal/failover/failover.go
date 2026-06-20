@@ -161,6 +161,124 @@ func (r *Repository) pruneStaleEntries(ctx context.Context, groups []*FailoverGr
 	}
 }
 
+// routableMemberIDs returns the subset of ids whose model is enabled and whose
+// provider is enabled — i.e. the members the proxy would actually route to. A
+// disabled-but-still-present model is excluded here even though it survives the
+// existence check in pruneStaleEntries.
+func (r *Repository) routableMemberIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]struct{}, error) {
+	routable := make(map[uuid.UUID]struct{})
+	if len(ids) == 0 {
+		return routable, nil
+	}
+	rows, err := r.pool.Query(ctx, `
+		SELECT m.id
+		FROM models m
+		JOIN providers p ON m.provider_id = p.id
+		WHERE m.id = ANY($1) AND m.enabled = true AND p.enabled = true
+	`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			// Don't swallow a scan error: a dropped row would make a live
+			// member look unroutable and could auto-disable a healthy group.
+			return nil, err
+		}
+		routable[id] = struct{}{}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return routable, nil
+}
+
+// revalidateCustomGroups auto-disables every enabled custom failover group that
+// no longer has at least two routable members. A member counts as routable when
+// its model and its provider are both enabled; the per-entry toggle is
+// deliberately ignored, because that is a reversible user choice the router
+// already honors, whereas this guard targets the structural case where there are
+// simply too few live members to fail over. This closes the gap that lets
+// discovery (which disables, never deletes, a vanished model) silently leave a
+// custom group with one live member: pruneStaleEntries only removes members
+// whose model row is gone, so a disabled-but-present member keeps the group at
+// its old size.
+//
+// Auto-created groups are intentionally skipped: SyncAllModels/SyncForModel
+// rebuild or delete those from enabled membership on every sync. Disabling
+// (rather than deleting) preserves the user's hand-built membership so the group
+// can be re-enabled once a member returns.
+func (r *Repository) revalidateCustomGroups(ctx context.Context, groups []*FailoverGroup, result *SyncResult) {
+	memberSet := make(map[uuid.UUID]struct{})
+	var candidates []*FailoverGroup
+	for _, g := range groups {
+		if g.AutoCreated || !g.GroupEnabled {
+			continue
+		}
+		candidates = append(candidates, g)
+		for _, id := range g.PriorityOrder {
+			memberSet[id] = struct{}{}
+		}
+	}
+	if len(candidates) == 0 {
+		return
+	}
+
+	memberIDs := make([]uuid.UUID, 0, len(memberSet))
+	for id := range memberSet {
+		memberIDs = append(memberIDs, id)
+	}
+	routable, err := r.routableMemberIDs(ctx, memberIDs)
+	if err != nil {
+		debuglog.Error("failover: failed to query routable members for revalidation", "error", err)
+		return
+	}
+
+	for _, g := range candidates {
+		count := 0
+		for _, id := range g.PriorityOrder {
+			if _, ok := routable[id]; ok {
+				count++
+			}
+		}
+		if count >= 2 {
+			continue
+		}
+		if _, err := r.pool.Exec(ctx,
+			`UPDATE model_failover_groups SET group_enabled = false, updated_at = now() WHERE id = $1`,
+			g.ID); err != nil {
+			debuglog.Error("failover: failed to auto-disable undersized custom group", "display_model", g.DisplayModel, "error", err)
+			continue
+		}
+		// Invalidate this group's cache key precisely rather than flushing the
+		// whole failover cache for every disabled group.
+		InvalidateFailoverCacheKey(g.DisplayModel)
+		result.DisabledGroups = append(result.DisabledGroups, DisabledGroupInfo{
+			DisplayModel:   g.DisplayModel,
+			EffectiveCount: count,
+			Reason:         "fewer than 2 routable members (need 2+ for failover)",
+		})
+		debuglog.Info("failover: auto-disabled custom group with too few routable members",
+			"display_model", g.DisplayModel, "routable", count)
+	}
+}
+
+// RevalidateCustomGroups auto-disables enabled custom failover groups that have
+// dropped below two routable members. It lists the current groups and applies
+// revalidateCustomGroups, returning the resulting DisabledGroups so callers (the
+// discovery scan) can fold them into their change report.
+func (r *Repository) RevalidateCustomGroups(ctx context.Context) (*SyncResult, error) {
+	groups, err := r.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result := &SyncResult{}
+	r.revalidateCustomGroups(ctx, groups, result)
+	return result, nil
+}
+
 // GetByModel retrieves a failover group by its display model name.
 func (r *Repository) GetByModel(ctx context.Context, modelID string) (*FailoverGroup, error) {
 	if fg, ok := GetCachedFailoverByModel(modelID); ok {
@@ -492,12 +610,24 @@ type UpdatedGroupInfo struct {
 	AddedModelIDs   []string `json:"added_model_ids,omitempty"`   // model UUIDs added
 }
 
+// DisabledGroupInfo describes a custom failover group that sync auto-disabled
+// because it no longer has the two routable members a failover group needs (a
+// member's model or provider was disabled, e.g. by discovery dropping a model
+// the provider stopped listing). The group's membership is kept intact so the
+// user can re-enable it once a member returns.
+type DisabledGroupInfo struct {
+	DisplayModel   string `json:"display_model"`
+	EffectiveCount int    `json:"effective_count"`
+	Reason         string `json:"reason"`
+}
+
 // SyncResult describes the outcome of a failover group sync operation.
 type SyncResult struct {
-	DeletedGroups []DeletedGroupInfo `json:"deleted_groups"`
-	UpdatedGroups []UpdatedGroupInfo `json:"updated_groups,omitempty"`
-	PurgedEntries []PrunedEntryInfo  `json:"purged_entries,omitempty"`
-	SyncErrors    []string           `json:"sync_errors,omitempty"`
+	DeletedGroups  []DeletedGroupInfo  `json:"deleted_groups"`
+	UpdatedGroups  []UpdatedGroupInfo  `json:"updated_groups,omitempty"`
+	PurgedEntries  []PrunedEntryInfo   `json:"purged_entries,omitempty"`
+	DisabledGroups []DisabledGroupInfo `json:"disabled_groups,omitempty"`
+	SyncErrors     []string            `json:"sync_errors,omitempty"`
 }
 
 // mergePriorityOrder preserves the user's existing priority order while
@@ -741,6 +871,15 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 		}
 	}
 	r.pruneStaleEntries(ctx, groupsForPrune, result)
+
+	// Auto-disable custom groups that dropped below two routable members (a
+	// member's model or provider was disabled, not deleted, so prune left it in
+	// place). Re-list so the revalidation sees the post-prune state.
+	if afterPrune, err := r.List(ctx); err == nil {
+		r.revalidateCustomGroups(ctx, afterPrune, result)
+	} else {
+		debuglog.Error("failover: failed to re-list groups for custom-group revalidation", "error", err)
+	}
 
 	debuglog.Info("failover: synced groups", "synced", len(syncedBases), "deleted", len(result.DeletedGroups))
 

@@ -355,9 +355,21 @@ export function FailoverGroups() {
 					);
 				}
 			}
+			if (data.disabled_groups && data.disabled_groups.length > 0) {
+				for (const g of data.disabled_groups) {
+					toast(
+						t("failover.toast_sync_disabled", {
+							group: g.display_model,
+							count: g.effective_count,
+						}),
+						"warning",
+					);
+				}
+			}
 			if (
 				(!data.deleted_groups || data.deleted_groups.length === 0) &&
-				(!data.purged_entries || data.purged_entries.length === 0)
+				(!data.purged_entries || data.purged_entries.length === 0) &&
+				(!data.disabled_groups || data.disabled_groups.length === 0)
 			) {
 				toast(t("failover.toast_sync_success"), "success");
 			}

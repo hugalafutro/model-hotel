@@ -450,9 +450,16 @@ export interface UpdatedGroupInfo {
 	added_model_ids?: string[];
 }
 
+export interface DisabledGroupInfo {
+	display_model: string;
+	effective_count: number;
+	reason: string;
+}
+
 export interface SyncResult {
 	deleted_groups: DeletedGroupInfo[];
 	updated_groups?: UpdatedGroupInfo[];
+	disabled_groups?: DisabledGroupInfo[];
 	purged_entries?: PrunedEntryInfo[];
 }
 
@@ -483,6 +490,7 @@ export interface DiscoveryDiff {
 	updated?: ModelUpdate[];
 	failover_deleted_groups?: DeletedGroupInfo[];
 	failover_updated_groups?: UpdatedGroupInfo[];
+	failover_disabled_groups?: DisabledGroupInfo[];
 }
 
 /** One provider's recorded background-discovery diff (GET /api/discovery/changes). */
