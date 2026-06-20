@@ -9,3 +9,18 @@ packages: []
 # dependency requires >=7.29.6 on its own.
 overrides:
   "@babel/core": "^7.29.6"
+  # Force transitive undici to patched releases (both lines are test/build-time
+  # only: 6.x via @actions/http-client, 7.x via jsdom). Fixes Dependabot
+  # advisories for Set-Cookie SameSite downgrade, Set-Cookie header injection,
+  # SOCKS5 cross-origin routing, and keep-alive response-queue poisoning.
+  # Remove each line once a direct dependency requires the patched range itself.
+  "undici@6": "^6.27.0"
+  "undici@7": "^7.28.0"
+
+# @codecov/vite-plugin still declares a stale peer range (vite 4-6) even on its
+# latest release, but it runs fine on vite 8 (the Bundle Report comments on PRs
+# confirm it works). Tell pnpm vite 8 is vetted so the peer warning stops.
+# Drop this once the plugin publishes a version whose peer range includes vite 8.
+peerDependencyRules:
+  allowedVersions:
+    "@codecov/vite-plugin>vite": "8"
