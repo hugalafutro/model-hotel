@@ -451,11 +451,15 @@ export function DiscoverySummaryModal({
 								) : (
 									renderDiffBody(r)
 								)}
-								{!showHeaders && renderRetestButton(r) && (
-									<div className="flex justify-end">
-										{renderRetestButton(r)}
-									</div>
-								)}
+								{!showHeaders &&
+									(() => {
+										// Build the button once; the truthiness check and the
+										// rendered node must not be two separate calls.
+										const retest = renderRetestButton(r);
+										return retest ? (
+											<div className="flex justify-end">{retest}</div>
+										) : null;
+									})()}
 							</div>
 						))}
 						{unchanged.length > 0 && (

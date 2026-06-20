@@ -28,8 +28,15 @@ export function useDiscoveryRetest(
 	);
 
 	const mutation = useMutation({
-		mutationFn: (entry: DiscoverySummaryEntry) =>
-			api.providers.discover(entry.providerId as string),
+		mutationFn: (entry: DiscoverySummaryEntry) => {
+			// Retest is only ever wired up for entries with a providerId (the modal
+			// hides the button otherwise), but guard here instead of casting so a
+			// missing id fails loudly rather than hitting /providers/undefined/discover.
+			if (!entry.providerId) {
+				return Promise.reject(new Error("retest requires a providerId"));
+			}
+			return api.providers.discover(entry.providerId);
+		},
 		onMutate: (entry) => {
 			setRetestingKey(keyOf(entry));
 		},
