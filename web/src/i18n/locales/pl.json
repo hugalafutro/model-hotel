@@ -806,7 +806,12 @@
 			},
 			"unset": "—",
 			"updated": "Zaktualizowane metadane",
-			"unchanged": "Bez zmian"
+			"unchanged": "Bez zmian",
+			"retest": "Przetestuj ponownie",
+			"retesting": "Ponowne testowanie…",
+			"retestTooltip": "Uruchom ponownie wykrywanie dla tego dostawcy, aby ponownie sprawdzić wyłączone modele.",
+			"retestDone": "Ponownie przetestowano {{provider}}",
+			"toggleSection": "Przełącz sekcję {{provider}}"
 		}
 	},
 	"models": {
@@ -1861,7 +1866,8 @@
 			"verifying": "W trakcie weryfikacji...",
 			"downloadCodes": "Pobierz jako .txt",
 			"downloadCodesAriaLabel": "Pobierz kody odzyskiwania jako plik tekstowy",
-			"failedToStart": "Nie można rozpocząć rejestracji: {{message}}"
+			"failedToStart": "Nie można rozpocząć rejestracji: {{message}}",
+			"enabledOn": "Włączono {{date}}"
 		}
 	},
 	"components": {
@@ -2298,7 +2304,8 @@
 			"reused": "ponownie wykorzystane",
 			"totalOverhead": "Łącznie",
 			"error": "Błąd",
-			"copyErrorMessage": "Kopiuj komunikat o błędzie"
+			"copyErrorMessage": "Kopiuj komunikat o błędzie",
+			"expandForBreakdown": "Rozwiń, aby zobaczyć podział na kroki"
 		},
 		"statusBadge": {
 			"streaming": "Strumieniowanie",

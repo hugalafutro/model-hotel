@@ -1,7 +1,8 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { DiscoveryDiff } from "../../api/types";
 import { Modal } from "../../components/Modal";
+import { ChevronDown, ChevronRight, RefreshCw } from "../../lib/icons";
 import { formatTokens } from "../../utils/format";
 import { formatPrice } from "../../utils/model";
 
@@ -33,6 +34,10 @@ export interface DiscoverySummaryEntry {
 	 * (e.g. several background runs recorded before review). Falls back to
 	 * providerName, which is unique for a single discovery response. */
 	entryKey?: string;
+	/** Provider ID, when known. Enables the per-provider "Retest" action that
+	 * re-runs discovery to re-probe models disabled during the original run.
+	 * Background entries that only carry a provider name leave this unset. */
+	providerId?: string;
 }
 
 // The backend stores failover deletion reasons as pre-existing English
@@ -105,7 +110,7 @@ function CategoryGroup({
 function Chip({ label, mono }: { label: string; mono?: boolean }) {
 	return (
 		<span
-			className={`inline-flex max-w-full items-center truncate rounded-md border border-(--border-default) bg-(--surface-elevated) px-1.5 py-0.5 text-[11px] text-(--text-secondary) ${
+			className={`inline-flex max-w-full items-center truncate rounded-(--radius-box) border border-(--border-default) bg-(--surface-elevated) px-1.5 py-0.5 text-[11px] text-(--text-secondary) ${
 				mono ? "font-mono" : ""
 			}`}
 			title={label}
@@ -141,11 +146,52 @@ function DetailRow({
 export function DiscoverySummaryModal({
 	results,
 	onClose,
+	onRetest,
+	retestingKey,
 }: {
 	results: DiscoverySummaryEntry[];
 	onClose: () => void;
+	/** Re-run discovery for one provider (re-probes models disabled during the
+	 * original run). Omit to hide the per-provider Retest action. */
+	onRetest?: (entry: DiscoverySummaryEntry) => void;
+	/** entryKey of the provider whose retest is currently in flight, if any. */
+	retestingKey?: string;
 }) {
 	const { t } = useTranslation();
+
+	// Provider sections start expanded; users collapse the ones they have already
+	// reviewed. Keyed by entryKey so duplicate provider names stay independent.
+	const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+	const toggleCollapsed = (key: string) =>
+		setCollapsed((prev) => {
+			const next = new Set(prev);
+			if (next.has(key)) next.delete(key);
+			else next.add(key);
+			return next;
+		});
+
+	// A small Retest button for providers that had a model disabled this run.
+	// Re-running discovery re-probes those models so a transient provider hiccup
+	// can be cleared without disabling/re-enabling by hand.
+	const renderRetestButton = (r: DiscoverySummaryEntry) => {
+		if (!onRetest || !r.providerId || !r.diff?.disabled?.length) return null;
+		const isRetesting = retestingKey === entryKeyOf(r);
+		return (
+			<button
+				type="button"
+				onClick={() => onRetest(r)}
+				disabled={isRetesting}
+				title={t("providers.discoverySummary.retestTooltip")}
+				className="ui-btn ui-btn-secondary ui-btn-compact inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50"
+				data-testid="discovery-summary-retest"
+			>
+				<RefreshCw size={13} className={isRetesting ? "animate-spin" : ""} />
+				{isRetesting
+					? t("providers.discoverySummary.retesting")
+					: t("providers.discoverySummary.retest")}
+			</button>
+		);
+	};
 
 	// Membership categories share the chip-cloud body; only the sign/color/label
 	// differ. The reason is implied by the category, so it is not repeated per row.
@@ -177,7 +223,7 @@ export function DiscoverySummaryModal({
 		if (r.error) {
 			return (
 				<div
-					className="flex items-start gap-2 rounded-md border border-(--border-default) bg-(--surface-elevated) px-2.5 py-2 text-sm"
+					className="flex items-start gap-2 rounded-(--radius-box) border border-(--border-default) bg-(--surface-elevated) px-2.5 py-2 text-sm"
 					data-testid="discovery-summary-error"
 				>
 					<span className="ui-badge ui-badge-error shrink-0">
@@ -223,7 +269,7 @@ export function DiscoverySummaryModal({
 							{diff.updated.map((u) => (
 								<div
 									key={u.model_id}
-									className="rounded-md border border-(--border-default) bg-(--surface-elevated) px-2.5 py-2"
+									className="rounded-(--radius-box) border border-(--border-default) bg-(--surface-elevated) px-2.5 py-2"
 								>
 									<div
 										className="truncate font-mono text-xs text-(--text-primary)"
@@ -287,7 +333,7 @@ export function DiscoverySummaryModal({
 						label={t("providers.discoverySummary.failoverDeleted")}
 						testId="discovery-summary-failover-deleted"
 					>
-						<div className="space-y-1 rounded-md border border-(--border-default) bg-(--surface-elevated) px-2.5 py-2">
+						<div className="space-y-1 rounded-(--radius-box) border border-(--border-default) bg-(--surface-elevated) px-2.5 py-2">
 							{diff.failover_deleted_groups.map((g) => (
 								<DetailRow
 									key={g.display_model}
@@ -310,7 +356,7 @@ export function DiscoverySummaryModal({
 						label={t("providers.discoverySummary.failoverUpdated")}
 						testId="discovery-summary-failover-updated"
 					>
-						<div className="space-y-1 rounded-md border border-(--border-default) bg-(--surface-elevated) px-2.5 py-2">
+						<div className="space-y-1 rounded-(--radius-box) border border-(--border-default) bg-(--surface-elevated) px-2.5 py-2">
 							{diff.failover_updated_groups.map((g) => (
 								<DetailRow
 									key={g.display_model}
@@ -368,15 +414,52 @@ export function DiscoverySummaryModal({
 					<>
 						{visible.map((r) => (
 							<div key={entryKeyOf(r)} className="space-y-3">
-								{showHeaders && (
+								{showHeaders ? (
 									<div className="flex items-center gap-2">
-										<span className="text-sm font-semibold text-(--text-primary)">
-											{r.providerName}
-										</span>
-										<span className="h-px flex-1 bg-(--border-default)" />
+										<button
+											type="button"
+											onClick={() => toggleCollapsed(entryKeyOf(r))}
+											aria-expanded={!collapsed.has(entryKeyOf(r))}
+											aria-label={t(
+												"providers.discoverySummary.toggleSection",
+												{ provider: r.providerName },
+											)}
+											className="flex min-w-0 flex-1 items-center gap-2 text-sm font-semibold text-(--text-primary)"
+											data-testid="discovery-summary-toggle"
+										>
+											<span className="truncate">{r.providerName}</span>
+											<span className="h-px flex-1 bg-(--border-default)" />
+											{collapsed.has(entryKeyOf(r)) ? (
+												<ChevronRight size={14} className="shrink-0" />
+											) : (
+												<ChevronDown size={14} className="shrink-0" />
+											)}
+										</button>
+										{renderRetestButton(r)}
 									</div>
+								) : null}
+								{showHeaders ? (
+									<div
+										className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
+											collapsed.has(entryKeyOf(r))
+												? "grid-rows-[0fr]"
+												: "grid-rows-[1fr]"
+										}`}
+									>
+										<div className="overflow-hidden">{renderDiffBody(r)}</div>
+									</div>
+								) : (
+									renderDiffBody(r)
 								)}
-								{renderDiffBody(r)}
+								{!showHeaders &&
+									(() => {
+										// Build the button once; the truthiness check and the
+										// rendered node must not be two separate calls.
+										const retest = renderRetestButton(r);
+										return retest ? (
+											<div className="flex justify-end">{retest}</div>
+										) : null;
+									})()}
 							</div>
 						))}
 						{unchanged.length > 0 && (

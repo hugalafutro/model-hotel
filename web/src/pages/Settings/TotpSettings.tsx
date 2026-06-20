@@ -6,6 +6,7 @@ import { Check, Copy, Download, ShieldCheck, X } from "@/lib/icons";
 import { api, setAdminToken } from "../../api/client";
 import { SettingsSection } from "../../components/SettingsSection";
 import { useToast } from "../../context/ToastContext";
+import { formatDate } from "../../utils/format";
 
 interface TotpSettingsProps {
 	collapsed: boolean;
@@ -342,6 +343,13 @@ export function TotpSettings({ collapsed, onToggle }: TotpSettingsProps) {
 							{t("settings.totp.disable")}
 						</button>
 					</div>
+					{status?.enabled_at && (
+						<p className="text-(--text-tertiary) text-sm">
+							{t("settings.totp.enabledOn", {
+								date: formatDate(status.enabled_at),
+							})}
+						</p>
+					)}
 					{disabling && (
 						<div className="space-y-3">
 							<p className="text-(--text-secondary) text-sm">

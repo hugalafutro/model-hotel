@@ -10,6 +10,9 @@ name: model-hotel-test
 services:
     test-db:
         image: postgres:16-alpine
+        # Survive host reboots so the local test DB is always up (it still has no
+        # persistent volume, so data stays ephemeral; only the container restarts).
+        restart: unless-stopped
         environment:
             POSTGRES_USER: modelhotel
             POSTGRES_PASSWORD: changeme

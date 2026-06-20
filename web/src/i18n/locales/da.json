@@ -806,7 +806,12 @@
 			},
 			"unset": "—",
 			"updated": "Metadata opdateret",
-			"unchanged": "Uændret"
+			"unchanged": "Uændret",
+			"retest": "Test igen",
+			"retesting": "Tester igen…",
+			"retestTooltip": "Kør registrering for denne udbyder igen for at teste deaktiverede modeller på ny.",
+			"retestDone": "{{provider}} testet igen",
+			"toggleSection": "Skift {{provider}}-sektion"
 		}
 	},
 	"models": {
@@ -1861,7 +1866,8 @@
 			"verifying": "Bekræfter...",
 			"downloadCodes": "Download som .txt",
 			"downloadCodesAriaLabel": "Download gendannelseskoder som en tekstfil",
-			"failedToStart": "Kunne ikke starte tilmelding: {{message}}"
+			"failedToStart": "Kunne ikke starte tilmelding: {{message}}",
+			"enabledOn": "Aktiveret den {{date}}"
 		}
 	},
 	"components": {
@@ -2298,7 +2304,8 @@
 			"reused": "genbrugt",
 			"totalOverhead": "Samlet Overhead",
 			"error": "Fejl",
-			"copyErrorMessage": "Kopiér fejlmeddelelse"
+			"copyErrorMessage": "Kopiér fejlmeddelelse",
+			"expandForBreakdown": "Udvid for at se opdelingen pr. trin"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

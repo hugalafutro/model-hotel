@@ -806,7 +806,12 @@
 				"noProviders": "No enabled providers remain",
 				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
 			},
-			"error": "Error"
+			"error": "Error",
+			"retest": "Retest",
+			"retesting": "Retesting…",
+			"retestTooltip": "Re-run discovery for this provider to re-probe models that were disabled.",
+			"retestDone": "Retested {{provider}}",
+			"toggleSection": "Toggle {{provider}} section"
 		}
 	},
 	"models": {
@@ -1861,7 +1866,8 @@
 			"cancelEnrollAriaLabel": "Cancel TOTP enrollment",
 			"downloadCodes": "Download as .txt",
 			"downloadCodesAriaLabel": "Download recovery codes as a text file",
-			"failedToStart": "Could not start enrollment: {{message}}"
+			"failedToStart": "Could not start enrollment: {{message}}",
+			"enabledOn": "Enabled on {{date}}"
 		}
 	},
 	"components": {
@@ -2298,7 +2304,8 @@
 			"reused": "reused",
 			"totalOverhead": "Total Overhead",
 			"error": "Error",
-			"copyErrorMessage": "Copy error message"
+			"copyErrorMessage": "Copy error message",
+			"expandForBreakdown": "Expand for the per-step breakdown"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

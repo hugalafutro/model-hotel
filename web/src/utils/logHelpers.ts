@@ -45,6 +45,25 @@ export const isCancelled = (
 	return isCancelledMessage(log.error_message);
 };
 
+/**
+ * Live elapsed time (ms) for an in-progress request: the gap between its
+ * created_at and the caller's ticking "now". Clamped to >= 0 so a slightly
+ * lagging clock never renders a negative duration. Used to show a running
+ * duration on pending/streaming rows whose final duration_ms is not set yet.
+ */
+export const liveDurationMs = (createdAt: string, nowMs: number): number =>
+	// `|| 0` swallows NaN from an unparseable created_at so we never render "NaNms".
+	Math.max(0, nowMs - new Date(createdAt).getTime() || 0);
+
+/**
+ * Formats a request duration for the compact log-table duration cell: seconds
+ * with one decimal at >= 1s, whole milliseconds below that. Shared by both the
+ * paginated and virtualized tables (and live in-progress rows) so they format
+ * identically.
+ */
+export const formatDurationCell = (ms: number): string =>
+	ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms.toFixed(0)}ms`;
+
 export type StatusBadgeVariant =
 	| "error"
 	| "warning"

@@ -52,16 +52,12 @@ test-db-down:
 	docker compose -f docker-compose.test.yml down -v
 
 # -- i18n (see tools/i18n-translate/translate.py) --
-# i18n-check is the CI gate: OFFLINE locale-parity validation, no network/DeepL.
-# i18n-fill/bootstrap call DeepL (DEEPL_API_KEY) and are LEGACY/optional: the
-# free DeepL quota is exhausted (HTTP 456 until ~2027), so translate new keys by
-# hand into all locales instead (see AGENTS.md "i18n"). check still passes offline.
+# i18n-check is the CI gate: OFFLINE locale-parity validation, no network. New
+# user-facing strings are added to en.json and translated into every other
+# locale by hand (see AGENTS.md "i18n").
 
 i18n-check:
 	python3 tools/i18n-translate/translate.py check
-
-i18n-fill:
-	python3 tools/i18n-translate/translate.py fill
 
 # -- Third-party license notices (see tools/gen-notices) --
 

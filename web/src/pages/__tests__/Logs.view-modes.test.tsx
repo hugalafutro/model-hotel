@@ -470,7 +470,7 @@ describe("Logs", () => {
 	});
 
 	describe("In-Progress Duration", () => {
-		it("displays blue dash for in-progress requests with zero duration", async () => {
+		it("displays a live blue duration for in-progress requests with zero duration", async () => {
 			server.use(
 				http.get("/api/logs", () =>
 					HttpResponse.json(
@@ -493,18 +493,18 @@ describe("Logs", () => {
 				expect(screen.getByText("inprogress-001")).toBeInTheDocument();
 			});
 
-			// Find the duration cell - should have blue dash
+			// In-progress rows show a live-ticking elapsed duration (blue), computed
+			// from created_at, rather than the old dash placeholder.
 			const row = screen.getByText("inprogress-001").closest("tr");
 			if (row) {
 				const cells = within(row).getAllByRole("cell");
-				// Find cell with dash that has blue styling
-				const dashCell = cells.find(
+				const liveCell = cells.find(
 					(cell) =>
-						cell.textContent === "-" &&
+						/^(\d+ms|\d+\.\d+s)$/.test(cell.textContent?.trim() ?? "") &&
 						(cell.className?.includes("blue") ||
 							cell.querySelector("[class*='blue']")),
 				);
-				expect(dashCell).toBeInTheDocument();
+				expect(liveCell).toBeInTheDocument();
 			}
 		});
 	});

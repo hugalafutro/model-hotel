@@ -806,7 +806,12 @@
 			},
 			"unset": "—",
 			"updated": "Metadados atualizados",
-			"unchanged": "Sem alterações"
+			"unchanged": "Sem alterações",
+			"retest": "Testar novamente",
+			"retesting": "Testando novamente…",
+			"retestTooltip": "Execute novamente a descoberta deste provedor para testar de novo os modelos desativados.",
+			"retestDone": "{{provider}} testado novamente",
+			"toggleSection": "Alternar a seção {{provider}}"
 		}
 	},
 	"models": {
@@ -1861,7 +1866,8 @@
 			"verifying": "Verificando...",
 			"downloadCodes": "Baixar como .txt",
 			"downloadCodesAriaLabel": "Baixar os códigos de recuperação como arquivo de texto",
-			"failedToStart": "Não foi possível iniciar o registo: {{message}}"
+			"failedToStart": "Não foi possível iniciar o registo: {{message}}",
+			"enabledOn": "Ativado em {{date}}"
 		}
 	},
 	"components": {
@@ -2298,7 +2304,8 @@
 			"reused": "reutilizado",
 			"totalOverhead": "Sobrecarga total",
 			"error": "ERRO",
-			"copyErrorMessage": "Copiar mensagem de erro"
+			"copyErrorMessage": "Copiar mensagem de erro",
+			"expandForBreakdown": "Expanda para ver o detalhamento por etapa"
 		},
 		"statusBadge": {
 			"streaming": "Transmitindo",

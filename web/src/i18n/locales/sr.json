@@ -806,7 +806,12 @@
 			},
 			"unset": "—",
 			"updated": "Метаподаци ажурирани",
-			"unchanged": "Непромењено"
+			"unchanged": "Непромењено",
+			"retest": "Поново тестирај",
+			"retesting": "Поновно тестирање…",
+			"retestTooltip": "Поново покрените откривање за овог добављача да бисте поново проверили онемогућене моделе.",
+			"retestDone": "{{provider}} поново тестиран",
+			"toggleSection": "Прикажи/сакриј одељак {{provider}}"
 		}
 	},
 	"models": {
@@ -1861,7 +1866,8 @@
 			"verifying": "Верификација...",
 			"downloadCodes": "Преузми као .txt",
 			"downloadCodesAriaLabel": "Преузми кодове за опоравак као текстуалну датотеку",
-			"failedToStart": "Није могуће започети регистрацију: {{message}}"
+			"failedToStart": "Није могуће започети регистрацију: {{message}}",
+			"enabledOn": "Омогућено {{date}}"
 		}
 	},
 	"components": {
@@ -2298,7 +2304,8 @@
 			"reused": "поново искоришћено",
 			"totalOverhead": "Укупни режијски трошкови",
 			"error": "Грешка",
-			"copyErrorMessage": "Копирајте поруку о грешци"
+			"copyErrorMessage": "Копирајте поруку о грешци",
+			"expandForBreakdown": "Прошири за рашчлањавање по корацима"
 		},
 		"statusBadge": {
 			"streaming": "Стриминг",

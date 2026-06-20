@@ -806,7 +806,12 @@
 			},
 			"unset": "—",
 			"updated": "Aktualizovaná metadata",
-			"unchanged": "Beze změn"
+			"unchanged": "Beze změn",
+			"retest": "Otestovat znovu",
+			"retesting": "Probíhá nový test…",
+			"retestTooltip": "Spusťte zjišťování pro tohoto poskytovatele znovu a otestujte zakázané modely.",
+			"retestDone": "{{provider}} otestováno znovu",
+			"toggleSection": "Přepnout sekci {{provider}}"
 		}
 	},
 	"models": {
@@ -1861,7 +1866,8 @@
 			"verifying": "Ověřování...",
 			"downloadCodes": "Stáhnout jako .txt",
 			"downloadCodesAriaLabel": "Stáhnout kódy pro obnovení jako textový soubor",
-			"failedToStart": "Nepodařilo se zahájit registraci: {{message}}"
+			"failedToStart": "Nepodařilo se zahájit registraci: {{message}}",
+			"enabledOn": "Aktivováno {{date}}"
 		}
 	},
 	"components": {
@@ -2298,7 +2304,8 @@
 			"reused": "znovu použité",
 			"totalOverhead": "Celkový overhead",
 			"error": "Chyba",
-			"copyErrorMessage": "Zkopírujte chybovou zprávu"
+			"copyErrorMessage": "Zkopírujte chybovou zprávu",
+			"expandForBreakdown": "Rozbalte pro podrobné rozdělení podle kroků"
 		},
 		"statusBadge": {
 			"streaming": "Streamování",

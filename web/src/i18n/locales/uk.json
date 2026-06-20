@@ -806,7 +806,12 @@
 			},
 			"unset": "—",
 			"updated": "Оновлено метадані",
-			"unchanged": "Без змін"
+			"unchanged": "Без змін",
+			"retest": "Повторити перевірку",
+			"retesting": "Повторна перевірка…",
+			"retestTooltip": "Запустіть виявлення для цього постачальника повторно, щоб перевірити вимкнені моделі.",
+			"retestDone": "{{provider}} повторно перевірено",
+			"toggleSection": "Перемкнути розділ {{provider}}"
 		}
 	},
 	"models": {
@@ -1861,7 +1866,8 @@
 			"verifying": "Перевірка...",
 			"downloadCodes": "Завантажити як .txt",
 			"downloadCodesAriaLabel": "Завантажити коди відновлення як текстовий файл",
-			"failedToStart": "Не вдалося почати реєстрацію: {{message}}"
+			"failedToStart": "Не вдалося почати реєстрацію: {{message}}",
+			"enabledOn": "Увімкнено {{date}}"
 		}
 	},
 	"components": {
@@ -2298,7 +2304,8 @@
 			"reused": "повторно використовується",
 			"totalOverhead": "Всього накладних витрат",
 			"error": "Помилка",
-			"copyErrorMessage": "Скопіювати повідомлення про помилку"
+			"copyErrorMessage": "Скопіювати повідомлення про помилку",
+			"expandForBreakdown": "Розгорніть для покрокового розподілу"
 		},
 		"statusBadge": {
 			"streaming": "Трансляція",

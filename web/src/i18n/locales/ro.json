@@ -806,7 +806,12 @@
 			},
 			"unset": "—",
 			"updated": "Metadate actualizate",
-			"unchanged": "Neschimbat"
+			"unchanged": "Neschimbat",
+			"retest": "Retestează",
+			"retesting": "Se retestează…",
+			"retestTooltip": "Rulează din nou descoperirea pentru acest furnizor pentru a retesta modelele dezactivate.",
+			"retestDone": "{{provider}} a fost retestat",
+			"toggleSection": "Comută secțiunea {{provider}}"
 		}
 	},
 	"models": {
@@ -1861,7 +1866,8 @@
 			"verifying": "Se verifică...",
 			"downloadCodes": "Descarcă ca .txt",
 			"downloadCodesAriaLabel": "Descarcă codurile de recuperare ca fișier text",
-			"failedToStart": "Nu s-a putut începe înregistrarea: {{message}}"
+			"failedToStart": "Nu s-a putut începe înregistrarea: {{message}}",
+			"enabledOn": "Activat la {{date}}"
 		}
 	},
 	"components": {
@@ -2298,7 +2304,8 @@
 			"reused": "reutilizat",
 			"totalOverhead": "Total cheltuieli",
 			"error": "Eroare",
-			"copyErrorMessage": "Copiază mesajul de eroare"
+			"copyErrorMessage": "Copiază mesajul de eroare",
+			"expandForBreakdown": "Extinde pentru defalcarea pe pași"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

@@ -806,7 +806,12 @@
 			},
 			"unset": "—",
 			"updated": "Siêu dữ liệu được cập nhật",
-			"unchanged": "Không thay đổi"
+			"unchanged": "Không thay đổi",
+			"retest": "Kiểm tra lại",
+			"retesting": "Đang kiểm tra lại…",
+			"retestTooltip": "Chạy lại quá trình khám phá cho nhà cung cấp này để kiểm tra lại các mô hình đã bị tắt.",
+			"retestDone": "Đã kiểm tra lại {{provider}}",
+			"toggleSection": "Bật/tắt phần {{provider}}"
 		}
 	},
 	"models": {
@@ -1861,7 +1866,8 @@
 			"verifying": "Đang xác minh...",
 			"downloadCodes": "Tải xuống dạng .txt",
 			"downloadCodesAriaLabel": "Tải mã khôi phục xuống dưới dạng tệp văn bản",
-			"failedToStart": "Không thể bắt đầu đăng ký: {{message}}"
+			"failedToStart": "Không thể bắt đầu đăng ký: {{message}}",
+			"enabledOn": "Đã bật vào {{date}}"
 		}
 	},
 	"components": {
@@ -2298,7 +2304,8 @@
 			"reused": "đã được tái sử dụng",
 			"totalOverhead": "Tổng chi phí quản lý",
 			"error": "Lỗi",
-			"copyErrorMessage": "Sao chép thông báo lỗi"
+			"copyErrorMessage": "Sao chép thông báo lỗi",
+			"expandForBreakdown": "Mở rộng để xem chi tiết theo từng bước"
 		},
 		"statusBadge": {
 			"streaming": "Phát trực tuyến",

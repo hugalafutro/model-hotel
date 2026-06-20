@@ -806,7 +806,12 @@
 			},
 			"unset": "—",
 			"updated": "Metagegewens bygewerk",
-			"unchanged": "Onveranderd"
+			"unchanged": "Onveranderd",
+			"retest": "Hertoets",
+			"retesting": "Hertoets tans…",
+			"retestTooltip": "Voer ontdekking vir hierdie verskaffer weer uit om gedeaktiveerde modelle weer te toets.",
+			"retestDone": "{{provider}} hertoets",
+			"toggleSection": "Wissel {{provider}}-afdeling"
 		}
 	},
 	"models": {
@@ -1861,7 +1866,8 @@
 			"verifying": "Verifikasie...",
 			"downloadCodes": "Laai af as .txt",
 			"downloadCodesAriaLabel": "Laai herstelkodes af as 'n tekslêer",
-			"failedToStart": "Kon nie inskrywing begin nie: {{message}}"
+			"failedToStart": "Kon nie inskrywing begin nie: {{message}}",
+			"enabledOn": "Geaktiveer op {{date}}"
 		}
 	},
 	"components": {
@@ -2298,7 +2304,8 @@
 			"reused": "hergebruik",
 			"totalOverhead": "Totaal oorhoofse koste",
 			"error": "Fout",
-			"copyErrorMessage": "Kopieer foutboodskap"
+			"copyErrorMessage": "Kopieer foutboodskap",
+			"expandForBreakdown": "Brei uit vir die stap-vir-stap-uiteensetting"
 		},
 		"statusBadge": {
 			"streaming": "Stroom",

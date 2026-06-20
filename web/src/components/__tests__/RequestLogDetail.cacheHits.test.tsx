@@ -1,4 +1,4 @@
-import { waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { LogEntry } from "../../api/types";
 import { renderWithProviders } from "../../test/utils";
@@ -57,6 +57,7 @@ describe("RequestLogDetail cache hit coloring", () => {
 		renderWithProviders(
 			<RequestLogDetail requestLog={log} onClose={onClose} />,
 		);
+		fireEvent.click(screen.getByTestId("proxy-overhead-toggle"));
 
 		await waitFor(() => {
 			const emeraldElements = document.querySelectorAll(".text-emerald-400");
@@ -78,6 +79,7 @@ describe("RequestLogDetail cache hit coloring", () => {
 		renderWithProviders(
 			<RequestLogDetail requestLog={log} onClose={onClose} />,
 		);
+		fireEvent.click(screen.getByTestId("proxy-overhead-toggle"));
 
 		await waitFor(() => {
 			const amberElements = document.querySelectorAll(".text-amber-400");
@@ -89,6 +91,7 @@ describe("RequestLogDetail cache hit coloring", () => {
 		renderWithProviders(
 			<RequestLogDetail requestLog={baseLog} onClose={onClose} />,
 		);
+		fireEvent.click(screen.getByTestId("proxy-overhead-toggle"));
 
 		await waitFor(() => {
 			expect(document.querySelectorAll(".text-emerald-400").length).toBe(0);
@@ -104,6 +107,7 @@ describe("RequestLogDetail cache hit coloring", () => {
 		renderWithProviders(
 			<RequestLogDetail requestLog={log} onClose={onClose} />,
 		);
+		fireEvent.click(screen.getByTestId("proxy-overhead-toggle"));
 
 		await waitFor(() => {
 			const hitTitles = Array.from(document.querySelectorAll("[title]"))
@@ -121,6 +125,7 @@ describe("RequestLogDetail cache hit coloring", () => {
 		renderWithProviders(
 			<RequestLogDetail requestLog={log} onClose={onClose} />,
 		);
+		fireEvent.click(screen.getByTestId("proxy-overhead-toggle"));
 
 		await waitFor(() => {
 			const missTitles = Array.from(document.querySelectorAll("[title]"))

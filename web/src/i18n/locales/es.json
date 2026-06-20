@@ -806,7 +806,12 @@
 			},
 			"unset": "—",
 			"updated": "Metadatos actualizados",
-			"unchanged": "Sin cambios"
+			"unchanged": "Sin cambios",
+			"retest": "Volver a probar",
+			"retesting": "Volviendo a probar…",
+			"retestTooltip": "Vuelve a ejecutar el descubrimiento de este proveedor para volver a comprobar los modelos desactivados.",
+			"retestDone": "Se ha vuelto a probar {{provider}}",
+			"toggleSection": "Mostrar u ocultar la sección {{provider}}"
 		}
 	},
 	"models": {
@@ -1861,7 +1866,8 @@
 			"verifying": "Comprobando...",
 			"downloadCodes": "Descargar como .txt",
 			"downloadCodesAriaLabel": "Descargar los códigos de recuperación como archivo de texto",
-			"failedToStart": "No se pudo iniciar el registro: {{message}}"
+			"failedToStart": "No se pudo iniciar el registro: {{message}}",
+			"enabledOn": "Activado el {{date}}"
 		}
 	},
 	"components": {
@@ -2298,7 +2304,8 @@
 			"reused": "reutilizado",
 			"totalOverhead": "Total general",
 			"error": "Error",
-			"copyErrorMessage": "Copiar mensaje de error"
+			"copyErrorMessage": "Copiar mensaje de error",
+			"expandForBreakdown": "Expande para ver el desglose por pasos"
 		},
 		"statusBadge": {
 			"streaming": "Transmisión",

@@ -55,11 +55,10 @@ pnpm exec tsc -b             # type-check (stricter than the editor; run it)
 ```
 
 CI additionally enforces an **80% coverage threshold** (backend and frontend)
-and **locale parity** via `make i18n-check` (offline, no DeepL). If you add a
+and **locale parity** via `make i18n-check` (fully offline). If you add a
 user-facing string, add it to `en.json` and translate it into the other locales
 by hand (or add intentional English to `tools/i18n-translate/allow-english.json`)
-so the check passes. `make i18n-fill` (DeepL) is legacy and currently
-non-functional - the free quota is exhausted - so translate manually.
+so the check passes.
 
 The repo ships git hooks under `scripts/` (enabled via `core.hooksPath`); on
 push they run go vet, the linters, and `tsc -b` as a fast pre-flight, but the

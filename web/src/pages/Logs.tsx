@@ -39,10 +39,12 @@ import { useDebounce } from "../hooks/useDebounce";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { encodeCursor, formatNumber } from "../utils/format";
 import {
+	formatDurationCell,
 	getRowStatusVariant,
 	isCancelled,
 	isInProgress as isInProgressShared,
 	isStale as isStaleShared,
+	liveDurationMs,
 } from "../utils/logHelpers";
 import { AppLogs } from "./AppLogs";
 import { formatMs, formatTPS } from "./Logs/utils";
@@ -319,12 +321,21 @@ function RequestLogs() {
 	const staleMs = parseGoDuration(settings?.stale_request_timeout || "30m0s");
 	const STALE_THRESHOLD_MS = staleMs > 0 ? staleMs : 30 * 60 * 1000;
 	const [nowMs, setNowMs] = useState(() => Date.now());
+	// In-progress rows show a live-ticking duration, so when any are present we
+	// tick every second; otherwise a coarse 60s tick is enough to age rows into
+	// the "stale" state without re-rendering the table needlessly.
+	const hasLiveEntries = displayEntries.some(
+		(log) => log.state === "pending" || log.state === "streaming",
+	);
 	useEffect(() => {
-		const id = setInterval(() => {
-			setNowMs(Date.now());
-		}, 60_000);
+		const id = setInterval(
+			() => {
+				setNowMs(Date.now());
+			},
+			hasLiveEntries ? 1_000 : 60_000,
+		);
 		return () => clearInterval(id);
-	}, []);
+	}, [hasLiveEntries]);
 
 	const isStale = (log: LogEntry) =>
 		isStaleShared(log, nowMs, STALE_THRESHOLD_MS);
@@ -719,14 +730,12 @@ function RequestLogs() {
 												<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
 													{isInProgress(log) && log.duration_ms === 0 ? (
 														<span className="inline-block text-blue-400">
-															-
+															{formatDurationCell(
+																liveDurationMs(log.created_at, nowMs),
+															)}
 														</span>
 													) : log.duration_ms > 0 ? (
-														log.duration_ms >= 1000 ? (
-															`${(log.duration_ms / 1000).toFixed(1)}s`
-														) : (
-															`${log.duration_ms.toFixed(0)}ms`
-														)
+														formatDurationCell(log.duration_ms)
 													) : (
 														"-"
 													)}

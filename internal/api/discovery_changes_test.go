@@ -52,6 +52,9 @@ func TestDiscoveryChangesStore_RoundTrip(t *testing.T) {
 	if got.ProviderName != "DeepSeek" || got.Source != "scheduled" {
 		t.Errorf("entry metadata = %q/%q, want DeepSeek/scheduled", got.ProviderName, got.Source)
 	}
+	if got.ProviderID != providerID.String() {
+		t.Errorf("ProviderID = %q, want %q", got.ProviderID, providerID.String())
+	}
 	if got.Diff == nil || len(got.Diff.Added) != 1 || len(got.Diff.Updated) != 1 {
 		t.Fatalf("decoded diff mismatch: %+v", got.Diff)
 	}
@@ -130,5 +133,9 @@ func TestAppendDiscoveryChange_NilProviderID(t *testing.T) {
 	}
 	if len(entries) != 1 || entries[0].ProviderName != "" {
 		t.Fatalf("expected 1 entry with empty provider name, got %+v", entries)
+	}
+	// A nil provider_id round-trips as an empty string, not a zero UUID.
+	if entries[0].ProviderID != "" {
+		t.Errorf("ProviderID = %q, want empty for a nil provider_id", entries[0].ProviderID)
 	}
 }

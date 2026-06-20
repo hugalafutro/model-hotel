@@ -35,6 +35,7 @@ import {
 } from "./Providers/DiscoverySummaryModal";
 import { EditProviderModal } from "./Providers/EditProviderModal";
 import { ProviderCard } from "./Providers/ProviderCard";
+import { useDiscoveryRetest } from "./Providers/useDiscoveryRetest";
 
 export function Providers() {
 	const queryClient = useQueryClient();
@@ -135,6 +136,9 @@ export function Providers() {
 						providerName: r.provider_name,
 						diff: r.diff,
 						error: r.error,
+						// discover-all results carry only a name; resolve the ID from the
+						// loaded providers list so the Retest action can re-probe by ID.
+						providerId: providers?.find((p) => p.name === r.provider_name)?.id,
 					})),
 				);
 			}
@@ -189,7 +193,7 @@ export function Providers() {
 			queryClient.invalidateQueries({ queryKey: ["providers"] });
 			queryClient.invalidateQueries({ queryKey: ["models"] });
 			const providerName = providers?.find((p) => p.id === id)?.name ?? id;
-			setDiscoverySummary([{ providerName, diff: data.diff }]);
+			setDiscoverySummary([{ providerName, diff: data.diff, providerId: id }]);
 		},
 		onError: (err: Error) => {
 			toast(
@@ -201,6 +205,21 @@ export function Providers() {
 			setDiscoveringId(null);
 		},
 	});
+
+	// Retest re-runs discovery for a single provider straight from the summary
+	// modal and patches just that provider's entry with the fresh diff, leaving
+	// the rest of the summary intact.
+	const { onRetest, retestingKey } = useDiscoveryRetest((key, diff) =>
+		setDiscoverySummary((prev) =>
+			prev
+				? prev.map((e) =>
+						(e.entryKey ?? e.providerName) === key
+							? { ...e, diff, error: undefined }
+							: e,
+					)
+				: prev,
+		),
+	);
 
 	const deleteMutation = useMutation({
 		mutationFn: (id: string) => api.providers.delete(id),
@@ -429,6 +448,8 @@ export function Providers() {
 				<DiscoverySummaryModal
 					results={discoverySummary}
 					onClose={() => setDiscoverySummary(null)}
+					onRetest={onRetest}
+					retestingKey={retestingKey}
 				/>
 			)}
 

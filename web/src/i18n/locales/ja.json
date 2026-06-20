@@ -806,7 +806,12 @@
 			},
 			"unset": "—",
 			"updated": "メタデータが更新されました",
-			"unchanged": "変更なし"
+			"unchanged": "変更なし",
+			"retest": "再テスト",
+			"retesting": "再テスト中…",
+			"retestTooltip": "このプロバイダーの探索を再実行して、無効化されたモデルを再確認します。",
+			"retestDone": "{{provider}} を再テストしました",
+			"toggleSection": "{{provider}} セクションの表示切り替え"
 		}
 	},
 	"models": {
@@ -1861,7 +1866,8 @@
 			"verifying": "確認中...",
 			"downloadCodes": ".txt でダウンロード",
 			"downloadCodesAriaLabel": "リカバリーコードをテキストファイルとしてダウンロード",
-			"failedToStart": "登録を開始できませんでした: {{message}}"
+			"failedToStart": "登録を開始できませんでした: {{message}}",
+			"enabledOn": "{{date}} に有効化"
 		}
 	},
 	"components": {
@@ -2298,7 +2304,8 @@
 			"reused": "再利用しました",
 			"totalOverhead": "総オーバーヘッド数",
 			"error": "エラー",
-			"copyErrorMessage": "エラーメッセージをコピー"
+			"copyErrorMessage": "エラーメッセージをコピー",
+			"expandForBreakdown": "ステップごとの内訳を表示するには展開してください"
 		},
 		"statusBadge": {
 			"streaming": "ストリーミング",

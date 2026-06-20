@@ -95,11 +95,26 @@ func (h *TotpHandler) adminOrSessionAuth(next http.Handler) http.Handler {
 	})
 }
 
-// Status reports the cached TOTP-enabled state. Uses the shared cached value so
-// the login UI's view matches what AuthMiddleware enforces. No DB hit.
-func (h *TotpHandler) Status(w http.ResponseWriter, _ *http.Request) {
+// statusResponse is the GET /api/totp/status payload. EnabledAt is the RFC3339
+// confirmation time, omitted when TOTP is disabled.
+type statusResponse struct {
+	Enabled   bool   `json:"enabled"`
+	EnabledAt string `json:"enabled_at,omitempty"`
+}
+
+// Status reports the TOTP-enabled state. The enabled flag comes from the shared
+// cached value so the login UI's view matches what AuthMiddleware enforces; when
+// enabled it also surfaces confirmed_at (one indexed single-row read) so the
+// settings panel can show when 2FA was turned on.
+func (h *TotpHandler) Status(w http.ResponseWriter, r *http.Request) {
 	enabled := h.totpEnabled != nil && h.totpEnabled()
-	writeJSON(w, map[string]bool{"enabled": enabled})
+	resp := statusResponse{Enabled: enabled}
+	if enabled && h.totpRepo != nil {
+		if at, ok, err := h.totpRepo.EnabledAt(r.Context()); err == nil && ok {
+			resp.EnabledAt = at.UTC().Format(time.RFC3339)
+		}
+	}
+	writeJSON(w, resp)
 }
 
 // EnrollStart generates a new TOTP secret and returns the otpauth URI + secret.

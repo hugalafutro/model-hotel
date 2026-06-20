@@ -217,6 +217,33 @@ func TestEnableDisableLifecycle(t *testing.T) {
 	assert.False(t, enabled)
 }
 
+func TestEnabledAt(t *testing.T) {
+	repo := newTestRepo(t, "test-master-key-very-long-32b+")
+	ctx := context.Background()
+
+	// No row -> not enabled, zero time, no error.
+	at, ok, err := repo.EnabledAt(ctx)
+	require.NoError(t, err)
+	assert.False(t, ok)
+	assert.True(t, at.IsZero())
+
+	_, _, err = repo.Enroll(ctx)
+	require.NoError(t, err)
+
+	// Provisional enrollment (confirmed_at NULL) -> still reports not enabled.
+	_, ok, err = repo.EnabledAt(ctx)
+	require.NoError(t, err)
+	assert.False(t, ok)
+
+	before := time.Now().Add(-time.Second)
+	require.NoError(t, repo.Enable(ctx))
+	at, ok, err = repo.EnabledAt(ctx)
+	require.NoError(t, err)
+	assert.True(t, ok)
+	assert.False(t, at.IsZero())
+	assert.False(t, at.Before(before), "confirmed_at should be ~now, got %v", at)
+}
+
 func TestEnableWithoutEnroll(t *testing.T) {
 	repo := newTestRepo(t, "test-master-key-very-long-32b+")
 	ctx := context.Background()

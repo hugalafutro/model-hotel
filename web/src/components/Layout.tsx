@@ -33,6 +33,7 @@ import {
 	type DiscoverySummaryEntry,
 	DiscoverySummaryModal,
 } from "../pages/Providers/DiscoverySummaryModal";
+import { useDiscoveryRetest } from "../pages/Providers/useDiscoveryRetest";
 import { isWebAuthnAvailable } from "../utils/webauthn";
 import { CollapsibleToggle, useCollapsible } from "./CollapsibleToggle";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -665,6 +666,14 @@ export function Layout({ children }: LayoutProps) {
 	const [discoveryChangeEntries, setDiscoveryChangeEntries] = useState<
 		DiscoverySummaryEntry[]
 	>([]);
+	const { onRetest: onRetestDiscovery, retestingKey: discoveryRetestingKey } =
+		useDiscoveryRetest((key, diff) =>
+			setDiscoveryChangeEntries((prev) =>
+				prev.map((e) =>
+					(e.entryKey ?? e.providerName) === key ? { ...e, diff } : e,
+				),
+			),
+		);
 	// Guards against a re-entrant open (rapid double-click / repeated Enter) while
 	// the ack is in flight: the first ack returns and clears the rows, a second
 	// would return an empty list and blank the modal. A ref (not state) so the
@@ -705,6 +714,7 @@ export function Layout({ children }: LayoutProps) {
 				providerName: entry.provider_name || failoverLabel,
 				diff: entry.diff,
 				entryKey: `${entry.provider_name}-${entry.detected_at}-${i}`,
+				providerId: entry.provider_id,
 			})),
 		);
 		setShowDiscoveryChanges(true);
@@ -936,6 +946,9 @@ export function Layout({ children }: LayoutProps) {
 														count: discoveryChangeCount,
 													})}
 												>
+													<span aria-hidden="true" className="opacity-70 mr-px">
+														±
+													</span>
 													{discoveryChangeCount}
 												</span>
 											</span>
@@ -1041,6 +1054,8 @@ export function Layout({ children }: LayoutProps) {
 				<DiscoverySummaryModal
 					results={discoveryChangeEntries}
 					onClose={() => setShowDiscoveryChanges(false)}
+					onRetest={onRetestDiscovery}
+					retestingKey={discoveryRetestingKey}
 				/>
 			)}
 		</div>

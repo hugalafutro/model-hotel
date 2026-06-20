@@ -143,10 +143,9 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
       # Fails when any locale is missing keys, breaks {{placeholder}} parity,
-      # or ships a new English-only string. This check is OFFLINE (no DeepL).
-      # Fix locally by translating the new keys into all locales by hand
-      # (`make i18n-fill`/DeepL is legacy and quota-exhausted); intentional
-      # English goes into tools/i18n-translate/allow-english.json.
+      # or ships a new English-only string. This check is fully OFFLINE.
+      # Fix locally by translating the new keys into all locales by hand;
+      # intentional English goes into tools/i18n-translate/allow-english.json.
       - name: locale sync check
         run: make i18n-check
 

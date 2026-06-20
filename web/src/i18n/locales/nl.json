@@ -806,7 +806,12 @@
 			},
 			"unset": "—",
 			"updated": "Metadata bijgewerkt",
-			"unchanged": "Ongewijzigd"
+			"unchanged": "Ongewijzigd",
+			"retest": "Opnieuw testen",
+			"retesting": "Opnieuw testen…",
+			"retestTooltip": "Voer detectie voor deze provider opnieuw uit om uitgeschakelde modellen opnieuw te testen.",
+			"retestDone": "{{provider}} opnieuw getest",
+			"toggleSection": "Sectie {{provider}} in-/uitklappen"
 		}
 	},
 	"models": {
@@ -1861,7 +1866,8 @@
 			"verifying": "Wordt gecontroleerd...",
 			"downloadCodes": "Downloaden als .txt",
 			"downloadCodesAriaLabel": "Herstelcodes downloaden als tekstbestand",
-			"failedToStart": "Kan inschrijving niet starten: {{message}}"
+			"failedToStart": "Kan inschrijving niet starten: {{message}}",
+			"enabledOn": "Ingeschakeld op {{date}}"
 		}
 	},
 	"components": {
@@ -2298,7 +2304,8 @@
 			"reused": "hergebruikt",
 			"totalOverhead": "Totale overschrijving",
 			"error": "Foutmelding",
-			"copyErrorMessage": "Foutmelding kopiëren"
+			"copyErrorMessage": "Foutmelding kopiëren",
+			"expandForBreakdown": "Vouw uit voor de uitsplitsing per stap"
 		},
 		"statusBadge": {
 			"streaming": "Streamen",
