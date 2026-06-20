@@ -8,6 +8,32 @@ set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
+# README/DOCKERHUB.md sync guard - mirrors .github/workflows/dockerhub-readme-guard.yml
+# so the "you touched README.md, touch DOCKERHUB.md too" decision happens here
+# instead of after a wasted CI cycle. DOCKERHUB.md is the Hub-tailored copy uploaded
+# on release. Diff this branch against its merge-base with the default branch (same
+# base..head model the CI uses). Set DOCKERHUB_README_NOT_NEEDED=1 to acknowledge a
+# README change that genuinely doesn't apply to Docker Hub (local stand-in for the
+# 'dockerhub-readme-not-needed' PR label).
+DEFAULT_BRANCH="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##')"
+DEFAULT_BRANCH="${DEFAULT_BRANCH:-master}"
+SYNC_BASE="$(git merge-base "origin/${DEFAULT_BRANCH}" HEAD 2>/dev/null || true)"
+if [ -n "$SYNC_BASE" ]; then
+	CHANGED="$(git diff --name-only "$SYNC_BASE" HEAD)"
+	if printf '%s\n' "$CHANGED" | grep -qx "README.md" &&
+		! printf '%s\n' "$CHANGED" | grep -qx "DOCKERHUB.md"; then
+		if [ "${DOCKERHUB_README_NOT_NEEDED:-}" = "1" ]; then
+			echo "pre-push: README.md changed without DOCKERHUB.md - acknowledged (DOCKERHUB_README_NOT_NEEDED=1)"
+		else
+			echo "pre-push: FAILED - README.md changed but DOCKERHUB.md did not." >&2
+			echo "  Mirror the change into DOCKERHUB.md (the Docker Hub copy), or re-run as" >&2
+			echo "  DOCKERHUB_README_NOT_NEEDED=1 git push  if it doesn't apply to Docker Hub" >&2
+			echo "  (then add the 'dockerhub-readme-not-needed' label to the PR)." >&2
+			exit 1
+		fi
+	fi
+fi
+
 echo "pre-push: go vet ./..."
 if ! go vet ./cmd/... ./internal/...; then
 	echo "pre-push: FAILED - go vet" >&2
