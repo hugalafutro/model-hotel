@@ -587,6 +587,75 @@ func TestDiscoverProviderModels_DisabledSyncError(t *testing.T) {
 	}
 }
 
+// TestDiscoverProviderModels_RevalidationErrorIsBestEffort verifies that a
+// custom-group revalidation failure during a scan that disabled a model is
+// logged but does NOT abort the scan (unlike a per-model sync error).
+func TestDiscoverProviderModels_RevalidationErrorIsBestEffort(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	var listingMu sync.Mutex
+	listing := []string{"rev-model-a", "rev-model-b"}
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.URL.Path != "/v1/models" {
+			return
+		}
+		listingMu.Lock()
+		defer listingMu.Unlock()
+		data := make([]map[string]interface{}, 0, len(listing))
+		for _, id := range listing {
+			data = append(data, map[string]interface{}{"id": id, "owned_by": "test", "object": "model"})
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{"data": data})
+	}))
+	defer mockServer.Close()
+
+	providerData := fmt.Sprintf(`{"name":"revalidation-error-test","base_url":"%s/v1","api_key":"sk-test"}`, mockServer.URL)
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create provider: expected 201, got %d: %s", w.Code, w.Body.String())
+	}
+	var created struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode created provider: %v", err)
+	}
+
+	discover := func() *httptest.ResponseRecorder {
+		t.Helper()
+		req := httptest.NewRequest(http.MethodPost, "/providers/"+created.ID+"/discover", http.NoBody)
+		req.Header.Set("Authorization", "Bearer test-admin-token")
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		return w
+	}
+
+	if w := discover(); w.Code != http.StatusOK {
+		t.Fatalf("first discover: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Force revalidation to error; dropping a model makes disabledRefs non-empty
+	// so the revalidation branch runs.
+	origRevalidate := failoverRepoRevalidateCustomGroups
+	defer func() { failoverRepoRevalidateCustomGroups = origRevalidate }()
+	failoverRepoRevalidateCustomGroups = func(repo *failover.Repository, ctx context.Context) (*failover.SyncResult, error) {
+		return nil, errors.New("revalidation boom")
+	}
+
+	listingMu.Lock()
+	listing = []string{"rev-model-a"}
+	listingMu.Unlock()
+
+	if w := discover(); w.Code != http.StatusOK {
+		t.Errorf("expected scan to survive a revalidation error (200), got %d: %s", w.Code, w.Body.String())
+	}
+}
+
 // TestDiscoverAllModels_DisabledSyncError verifies that in discover-all a
 // failover sync failure for a newly disabled model is logged and skipped
 // without failing the scan, and the rest of the diff is still reported.

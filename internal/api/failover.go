@@ -399,6 +399,30 @@ func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Enforce the failover invariant at the API boundary: turning a group on
+	// requires at least two routable members (model and provider both enabled).
+	// This complements the auto-disable on sync/discovery so a user cannot
+	// re-enable a group that discovery left with a single live member. Scoped to
+	// the off->on transition so reorders/renames of an already-enabled group are
+	// untouched.
+	if effectiveGroupEnabled && !existing.GroupEnabled {
+		models, mErr := h.modelRepo.GetByIDs(r.Context(), priorityOrder)
+		if mErr != nil {
+			respondError(w, "failed to validate failover members", mErr, http.StatusInternalServerError)
+			return
+		}
+		routable := 0
+		for _, mid := range priorityOrder {
+			if m, ok := models[mid]; ok && m.Enabled && m.ProviderEnabled {
+				routable++
+			}
+		}
+		if routable < 2 {
+			http.Error(w, "a failover group needs at least 2 enabled members (model and provider enabled) to be active", http.StatusBadRequest)
+			return
+		}
+	}
+
 	// Always invalidate cache so priority reorders and entry changes take
 	// effect on the next request instead of waiting for the 5-minute TTL.
 	failover.InvalidateFailoverCacheKey(existing.DisplayModel)

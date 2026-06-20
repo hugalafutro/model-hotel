@@ -183,7 +183,9 @@ func (r *Repository) routableMemberIDs(ctx context.Context, ids []uuid.UUID) (ma
 	for rows.Next() {
 		var id uuid.UUID
 		if err := rows.Scan(&id); err != nil {
-			continue
+			// Don't swallow a scan error: a dropped row would make a live
+			// member look unroutable and could auto-disable a healthy group.
+			return nil, err
 		}
 		routable[id] = struct{}{}
 	}
@@ -194,20 +196,22 @@ func (r *Repository) routableMemberIDs(ctx context.Context, ids []uuid.UUID) (ma
 }
 
 // revalidateCustomGroups auto-disables every enabled custom failover group that
-// no longer has at least two routable members. A member is routable when its
-// per-entry toggle is on AND its model and provider are both enabled. This
-// closes the gap that lets discovery (which disables, never deletes, a vanished
-// model) silently leave a custom group with one live member: pruneStaleEntries
-// only removes members whose model row is gone, so a disabled-but-present member
-// keeps the group at its old size.
+// no longer has at least two routable members. A member counts as routable when
+// its model and its provider are both enabled; the per-entry toggle is
+// deliberately ignored, because that is a reversible user choice the router
+// already honors, whereas this guard targets the structural case where there are
+// simply too few live members to fail over. This closes the gap that lets
+// discovery (which disables, never deletes, a vanished model) silently leave a
+// custom group with one live member: pruneStaleEntries only removes members
+// whose model row is gone, so a disabled-but-present member keeps the group at
+// its old size.
 //
 // Auto-created groups are intentionally skipped: SyncAllModels/SyncForModel
 // rebuild or delete those from enabled membership on every sync. Disabling
 // (rather than deleting) preserves the user's hand-built membership so the group
 // can be re-enabled once a member returns.
 func (r *Repository) revalidateCustomGroups(ctx context.Context, groups []*FailoverGroup, result *SyncResult) {
-	var memberIDs []uuid.UUID
-	seen := make(map[uuid.UUID]struct{})
+	memberSet := make(map[uuid.UUID]struct{})
 	var candidates []*FailoverGroup
 	for _, g := range groups {
 		if g.AutoCreated || !g.GroupEnabled {
@@ -215,34 +219,26 @@ func (r *Repository) revalidateCustomGroups(ctx context.Context, groups []*Failo
 		}
 		candidates = append(candidates, g)
 		for _, id := range g.PriorityOrder {
-			if _, ok := seen[id]; ok {
-				continue
-			}
-			seen[id] = struct{}{}
-			memberIDs = append(memberIDs, id)
+			memberSet[id] = struct{}{}
 		}
 	}
 	if len(candidates) == 0 {
 		return
 	}
 
+	memberIDs := make([]uuid.UUID, 0, len(memberSet))
+	for id := range memberSet {
+		memberIDs = append(memberIDs, id)
+	}
 	routable, err := r.routableMemberIDs(ctx, memberIDs)
 	if err != nil {
 		debuglog.Error("failover: failed to query routable members for revalidation", "error", err)
 		return
 	}
 
-	disabledAny := false
 	for _, g := range candidates {
 		count := 0
 		for _, id := range g.PriorityOrder {
-			entryEnabled := true
-			if v, ok := g.EntryEnabled[id.String()]; ok {
-				entryEnabled = v
-			}
-			if !entryEnabled {
-				continue
-			}
 			if _, ok := routable[id]; ok {
 				count++
 			}
@@ -256,7 +252,9 @@ func (r *Repository) revalidateCustomGroups(ctx context.Context, groups []*Failo
 			debuglog.Error("failover: failed to auto-disable undersized custom group", "display_model", g.DisplayModel, "error", err)
 			continue
 		}
-		disabledAny = true
+		// Invalidate this group's cache key precisely rather than flushing the
+		// whole failover cache for every disabled group.
+		InvalidateFailoverCacheKey(g.DisplayModel)
 		result.DisabledGroups = append(result.DisabledGroups, DisabledGroupInfo{
 			DisplayModel:   g.DisplayModel,
 			EffectiveCount: count,
@@ -264,9 +262,6 @@ func (r *Repository) revalidateCustomGroups(ctx context.Context, groups []*Failo
 		})
 		debuglog.Info("failover: auto-disabled custom group with too few routable members",
 			"display_model", g.DisplayModel, "routable", count)
-	}
-	if disabledAny {
-		InvalidateFailoverCache()
 	}
 }
 

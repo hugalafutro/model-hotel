@@ -291,12 +291,17 @@ func syncFailoverForScan(ctx context.Context, repo *failover.Repository, upserte
 
 	// SyncForModel only rebuilds auto-groups; a custom group whose member was
 	// just disabled (not deleted) keeps its stale size. Revalidate custom groups
-	// once so any that dropped below two routable members get auto-disabled and
-	// reported. Best-effort: a failure here must not abort the scan.
-	if revRes, err := failoverRepoRevalidateCustomGroups(repo, ctx); err != nil {
-		debuglog.Error("discovery: custom-group revalidation failed", "error", err)
-	} else {
-		diff.mergeSyncResult(revRes)
+	// so any that dropped below two routable members get auto-disabled and
+	// reported. Only worth doing when this scan actually disabled a model: new or
+	// reappeared models never shrink a group, so we skip the extra List+query
+	// (and avoid re-running it for every provider in a discover-all sweep).
+	// Best-effort: a failure here must not abort the scan.
+	if len(disabledRefs) > 0 {
+		if revRes, err := failoverRepoRevalidateCustomGroups(repo, ctx); err != nil {
+			debuglog.Error("discovery: custom-group revalidation failed", "error", err)
+		} else {
+			diff.mergeSyncResult(revRes)
+		}
 	}
 	return true
 }
