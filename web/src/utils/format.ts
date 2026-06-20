@@ -48,6 +48,13 @@ export function formatTimestamp(ts: number | string): string {
 	});
 }
 
+// Defer the singular/plural choice to ICU plural rules (Intl.PluralRules) for the
+// active runtime locale instead of a hardcoded n === 1 check. Kept dependency-free
+// like formatDate below (default locale). Callers pass the two grammatical forms;
+// languages with richer plural systems should use i18next count keys (key_one /
+// key_other) at the call site, as FailoverGroups does, and pass the resolved forms.
+const pluralRules = new Intl.PluralRules();
+
 /**
  * Returns a count-prefixed label with proper singular/plural using ICU plural rules.
  * 0 → just the plural noun (e.g. "Models")
@@ -61,8 +68,9 @@ export function countLabel(
 ): string {
 	const n = count ?? 0;
 	if (n === 0) return plural;
-	if (n === 1) return `1 ${singular}`;
-	return `${n} ${plural}`;
+	return pluralRules.select(n) === "one"
+		? `${n} ${singular}`
+		: `${n} ${plural}`;
 }
 
 export function formatDate(ts: number | string): string {

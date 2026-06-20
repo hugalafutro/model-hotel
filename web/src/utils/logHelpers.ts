@@ -52,7 +52,8 @@ export const isCancelled = (
  * duration on pending/streaming rows whose final duration_ms is not set yet.
  */
 export const liveDurationMs = (createdAt: string, nowMs: number): number =>
-	Math.max(0, nowMs - new Date(createdAt).getTime());
+	// `|| 0` swallows NaN from an unparseable created_at so we never render "NaNms".
+	Math.max(0, nowMs - new Date(createdAt).getTime() || 0);
 
 /**
  * Formats a request duration for the compact log-table duration cell: seconds

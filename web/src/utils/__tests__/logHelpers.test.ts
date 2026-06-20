@@ -13,6 +13,11 @@ describe("liveDurationMs", () => {
 		const now = new Date("2026-06-20T12:00:00.000Z").getTime();
 		expect(liveDurationMs(created, now)).toBe(0);
 	});
+
+	it("returns 0 (never NaN) for an unparseable created_at", () => {
+		expect(liveDurationMs("", Date.now())).toBe(0);
+		expect(liveDurationMs("not-a-date", Date.now())).toBe(0);
+	});
 });
 
 describe("formatDurationCell", () => {

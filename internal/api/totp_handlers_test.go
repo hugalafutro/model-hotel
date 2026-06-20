@@ -132,12 +132,19 @@ func TestTotpStatus_Disabled(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
 	}
-	var resp map[string]bool
+	var resp struct {
+		Enabled   bool   `json:"enabled"`
+		EnabledAt string `json:"enabled_at"`
+	}
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if resp["enabled"] != false {
-		t.Errorf("expected enabled=false, got %v", resp["enabled"])
+	if resp.Enabled != false {
+		t.Errorf("expected enabled=false, got %v", resp.Enabled)
+	}
+	// The disabled response must not leak an enabled_at timestamp.
+	if resp.EnabledAt != "" {
+		t.Errorf("expected empty enabled_at when disabled, got %q", resp.EnabledAt)
 	}
 }
 
