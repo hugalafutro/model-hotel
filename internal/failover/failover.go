@@ -252,6 +252,9 @@ func (r *Repository) revalidateCustomGroups(ctx context.Context, groups []*Failo
 			debuglog.Error("failover: failed to auto-disable undersized custom group", "display_model", g.DisplayModel, "error", err)
 			continue
 		}
+		// Reflect the disable on the in-memory struct so callers that already hold
+		// this slice (e.g. the list handler) don't need to re-query.
+		g.GroupEnabled = false
 		// Invalidate this group's cache key precisely rather than flushing the
 		// whole failover cache for every disabled group.
 		InvalidateFailoverCacheKey(g.DisplayModel)
@@ -277,6 +280,16 @@ func (r *Repository) RevalidateCustomGroups(ctx context.Context) (*SyncResult, e
 	result := &SyncResult{}
 	r.revalidateCustomGroups(ctx, groups, result)
 	return result, nil
+}
+
+// RevalidateCustomGroupsIn revalidates a caller-supplied groups slice instead of
+// querying for it, auto-disabling undersized custom groups and flipping their
+// GroupEnabled flag in place. The list handler uses this to revalidate the same
+// slice it already fetched, avoiding a second List round-trip per request.
+func (r *Repository) RevalidateCustomGroupsIn(ctx context.Context, groups []*FailoverGroup) *SyncResult {
+	result := &SyncResult{}
+	r.revalidateCustomGroups(ctx, groups, result)
+	return result
 }
 
 // GetByModel retrieves a failover group by its display model name.

@@ -121,21 +121,19 @@ func (h *FailoverHandler) Register(r chi.Router) {
 
 // List returns all failover groups.
 func (h *FailoverHandler) List(w http.ResponseWriter, r *http.Request) {
-	// Self-heal on read: a custom group can be left enabled with fewer than two
-	// routable members by any path that doesn't run a sync (e.g. a model disabled
-	// on the Models page, or a group already broken before this guard shipped).
-	// Revalidating here guarantees the dashboard never shows an enabled-but-
-	// invalid group. Idempotent and best-effort: a failure must not block the
-	// list, and an already-disabled group is skipped.
-	if _, err := h.failoverRepo.RevalidateCustomGroups(r.Context()); err != nil {
-		debuglog.Error("failover: revalidation on list failed", "error", err)
-	}
-
 	groups, err := h.failoverRepo.List(r.Context())
 	if err != nil {
 		respondError(w, "failed to list failover groups", err, http.StatusInternalServerError)
 		return
 	}
+
+	// Self-heal on read: a custom group can be left enabled with fewer than two
+	// routable members by any path that doesn't run a sync (e.g. a model disabled
+	// on the Models page, or a group already broken before this guard shipped).
+	// Revalidating the slice we just fetched (in place) guarantees the dashboard
+	// never shows an enabled-but-invalid group, without a second List round-trip.
+	// Idempotent and best-effort; an already-disabled group is skipped.
+	h.failoverRepo.RevalidateCustomGroupsIn(r.Context(), groups)
 
 	tokenCounts, err := h.getTokenCounts(r.Context())
 	if err != nil {
