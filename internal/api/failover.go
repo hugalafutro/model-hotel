@@ -127,6 +127,14 @@ func (h *FailoverHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Self-heal on read: a custom group can be left enabled with fewer than two
+	// routable members by any path that doesn't run a sync (e.g. a model disabled
+	// on the Models page, or a group already broken before this guard shipped).
+	// Revalidating the slice we just fetched (in place) guarantees the dashboard
+	// never shows an enabled-but-invalid group, without a second List round-trip.
+	// Idempotent and best-effort; an already-disabled group is skipped.
+	h.failoverRepo.RevalidateCustomGroupsIn(r.Context(), groups)
+
 	tokenCounts, err := h.getTokenCounts(r.Context())
 	if err != nil {
 		tokenCounts = make(map[string]int)

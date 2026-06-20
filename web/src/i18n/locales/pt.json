@@ -2462,7 +2462,10 @@
 			"circuitBreakerOpen": "Disjuntor aberto - esperando por recarga",
 			"circuitBreakerHalfOpen": "Disjuntor meio-aberto - recuperação de sondagem",
 			"modelDisabled": "Desativado",
-			"providerDisabled": "Provedor desativado"
+			"providerDisabled": "Provedor desativado",
+			"naBadge": "N/A",
+			"modelDisabledHelp": "O modelo está desativado e não pode ser usado. O grupo permanece desligado até ter 2+ membros ativos.",
+			"providerDisabledHelp": "O provedor está desativado, então este modelo não pode ser usado. O grupo permanece desligado até ter 2+ membros ativos."
 		},
 		"modal": {
 			"unavailable": "indisponível"

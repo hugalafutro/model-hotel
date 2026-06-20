@@ -225,3 +225,61 @@ func TestRepository_SyncAllModels_AutoDisablesUndersizedCustomGroup(t *testing.T
 		t.Error("expected group to be auto-disabled after SyncAllModels")
 	}
 }
+
+// RevalidateCustomGroupsIn revalidates a caller-supplied slice in place: it
+// disables an undersized custom group both in the DB and on the passed struct,
+// so the list handler can reuse the slice it already fetched without re-querying.
+func TestRepository_RevalidateCustomGroupsIn_DisablesInPlace(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	base := "rv-" + uuid.New().String()[:8]
+
+	_, m1 := seedProviderModel(ctx, t, base, true, true)
+	_, m2 := seedProviderModel(ctx, t, base, true, false) // model disabled -> 1 routable
+	g0 := newCustomGroup(ctx, t, repo, base, []uuid.UUID{m1, m2})
+
+	groups, err := repo.List(ctx)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	var g *FailoverGroup
+	for _, x := range groups {
+		if x.ID == g0.ID {
+			g = x
+			break
+		}
+	}
+	if g == nil {
+		t.Fatalf("group %s not present in list", g0.ID)
+	}
+	if !g.GroupEnabled {
+		t.Fatal("precondition: group should start enabled")
+	}
+
+	res := repo.RevalidateCustomGroupsIn(ctx, groups)
+
+	found := false
+	for _, dg := range res.DisabledGroups {
+		if dg.DisplayModel == base {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected %q reported in DisabledGroups, got %+v", base, res.DisabledGroups)
+	}
+	// Mutated in place so the caller's slice reflects the disable without re-query.
+	if g.GroupEnabled {
+		t.Error("expected GroupEnabled flipped to false on the passed struct")
+	}
+
+	// And persisted.
+	InvalidateFailoverCache()
+	got, err := repo.GetByID(ctx, g0.ID)
+	if err != nil {
+		t.Fatalf("get group: %v", err)
+	}
+	if got.GroupEnabled {
+		t.Error("expected group persisted as disabled")
+	}
+}

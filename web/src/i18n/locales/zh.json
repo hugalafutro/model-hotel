@@ -2462,7 +2462,10 @@
 			"circuitBreakerOpen": "线路断路器打开 - 等待冷却时间",
 			"circuitBreakerHalfOpen": "断路器半开启-探测恢复",
 			"modelDisabled": "已停用",
-			"providerDisabled": "提供商已禁用"
+			"providerDisabled": "提供商已禁用",
+			"naBadge": "N/A",
+			"modelDisabledHelp": "模型已停用，无法使用。该组将保持关闭，直到拥有 2 个以上有效成员。",
+			"providerDisabledHelp": "提供商已停用，因此无法使用此模型。该组将保持关闭，直到拥有 2 个以上有效成员。"
 		},
 		"modal": {
 			"unavailable": "不可用"

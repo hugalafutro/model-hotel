@@ -2462,7 +2462,10 @@
 			"circuitBreakerOpen": "회로 차단기 개방 - 쿨타임 대기 중",
 			"circuitBreakerHalfOpen": "회로 차단기 반개 상태 - 복구 확인",
 			"modelDisabled": "비활성화됨",
-			"providerDisabled": "제공업체 비활성화"
+			"providerDisabled": "제공업체 비활성화",
+			"naBadge": "N/A",
+			"modelDisabledHelp": "모델이 비활성화되어 사용할 수 없습니다. 그룹은 활성 멤버가 2개 이상이 될 때까지 꺼진 상태로 유지됩니다.",
+			"providerDisabledHelp": "공급자가 비활성화되어 이 모델을 사용할 수 없습니다. 그룹은 활성 멤버가 2개 이상이 될 때까지 꺼진 상태로 유지됩니다."
 		},
 		"modal": {
 			"unavailable": "사용 불가"

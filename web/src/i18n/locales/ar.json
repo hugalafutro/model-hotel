@@ -2462,7 +2462,10 @@
 			"circuitBreakerOpen": "فتح كسر الدائرة - في انتظار التبريد",
 			"circuitBreakerHalfOpen": "كسر الدائرة نصف مفتوح - اختبار الاسترداد",
 			"modelDisabled": "معطل",
-			"providerDisabled": "المزود معطل"
+			"providerDisabled": "المزود معطل",
+			"naBadge": "N/A",
+			"modelDisabledHelp": "النموذج معطل ولا يمكن استخدامه. تبقى المجموعة متوقفة حتى يصبح لديها عضوان مباشران أو أكثر.",
+			"providerDisabledHelp": "المزود معطل، لذا لا يمكن استخدام هذا النموذج. تبقى المجموعة متوقفة حتى يصبح لديها عضوان مباشران أو أكثر."
 		},
 		"modal": {
 			"unavailable": "غير متوفر"

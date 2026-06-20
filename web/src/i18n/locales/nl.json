@@ -2462,7 +2462,10 @@
 			"circuitBreakerOpen": "Schakelaar open - wacht op afkoeling",
 			"circuitBreakerHalfOpen": "Circuit breaker half-open - proeftijd herstel",
 			"modelDisabled": "Uitgeschakeld",
-			"providerDisabled": "Provider uitgeschakeld"
+			"providerDisabled": "Provider uitgeschakeld",
+			"naBadge": "N/A",
+			"modelDisabledHelp": "Het model is uitgeschakeld en kan niet worden gebruikt. De groep blijft uit totdat deze 2+ actieve leden heeft.",
+			"providerDisabledHelp": "De provider is uitgeschakeld, dus dit model kan niet worden gebruikt. De groep blijft uit totdat deze 2+ actieve leden heeft."
 		},
 		"modal": {
 			"unavailable": "niet beschikbaar"

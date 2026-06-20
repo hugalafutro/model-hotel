@@ -254,7 +254,7 @@ describe("SortableEntry", () => {
 		expect(screen.getByRole("switch")).toBeDisabled();
 	});
 
-	it("badges entry when provider is disabled", () => {
+	it("shows a short N/A badge whose tooltip explains the reason (model vs provider)", () => {
 		const modelBadgeEntry = { ...mockEntry, model_enabled: false };
 		const { unmount } = renderWithProviders(
 			<SortableEntry
@@ -263,9 +263,13 @@ describe("SortableEntry", () => {
 				onToggle={vi.fn()}
 			/>,
 		);
-		const modelBadgeText = screen.getByTestId(
-			"failover-entry-effective-disabled",
-		).textContent;
+		const modelBadge = screen.getByTestId("failover-entry-effective-disabled");
+		// Badge text is the same short token in both cases...
+		expect(modelBadge.textContent).toBe("N/A");
+		// ...but it carries a resolved explanatory tooltip (real copy, not the
+		// bare i18n key) so the meaning is discoverable.
+		const modelTitle = modelBadge.getAttribute("title");
+		expect(modelTitle).toContain("Model is disabled");
 		unmount();
 
 		const providerBadgeEntry = { ...mockEntry, provider_enabled: false };
@@ -280,7 +284,11 @@ describe("SortableEntry", () => {
 			"failover-entry-effective-disabled",
 		);
 		expect(providerBadge).toHaveClass("ui-badge-warning");
-		// Provider-disabled wording differs from model-disabled wording.
-		expect(providerBadge.textContent).not.toBe(modelBadgeText);
+		expect(providerBadge.textContent).toBe("N/A");
+		// The reason differs between model-disabled and provider-disabled via the tooltip.
+		expect(providerBadge.getAttribute("title")).toContain(
+			"Provider is disabled",
+		);
+		expect(providerBadge.getAttribute("title")).not.toBe(modelTitle);
 	});
 });

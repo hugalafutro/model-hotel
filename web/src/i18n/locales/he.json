@@ -2462,7 +2462,10 @@
 			"circuitBreakerOpen": "מפסק זרם פתוח - ממתינים לסיום זמן ההמתנה",
 			"circuitBreakerHalfOpen": "מפסק חצי פתוח – בדיקת התאוששות",
 			"modelDisabled": "מושבת",
-			"providerDisabled": "ספק מושבת"
+			"providerDisabled": "ספק מושבת",
+			"naBadge": "N/A",
+			"modelDisabledHelp": "המודל מושבת ולא ניתן להשתמש בו. הקבוצה נשארת כבויה עד שיהיו לה 2+ חברים פעילים.",
+			"providerDisabledHelp": "הספק מושבת, ולכן לא ניתן להשתמש במודל הזה. הקבוצה נשארת כבויה עד שיהיו לה 2+ חברים פעילים."
 		},
 		"modal": {
 			"unavailable": "לא זמין"

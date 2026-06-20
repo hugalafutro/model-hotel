@@ -2462,7 +2462,10 @@
 			"circuitBreakerOpen": "Strombrecher offen - Warten auf Abklingzeit",
 			"circuitBreakerHalfOpen": "Schaltkreisbrecher halb offen - Abtastung",
 			"modelDisabled": "Deaktiviert",
-			"providerDisabled": "Anbieter deaktiviert"
+			"providerDisabled": "Anbieter deaktiviert",
+			"naBadge": "N/A",
+			"modelDisabledHelp": "Das Modell ist deaktiviert und kann nicht verwendet werden. Die Gruppe bleibt aus, bis sie 2+ aktive Mitglieder hat.",
+			"providerDisabledHelp": "Der Anbieter ist deaktiviert, daher kann dieses Modell nicht verwendet werden. Die Gruppe bleibt aus, bis sie 2+ aktive Mitglieder hat."
 		},
 		"modal": {
 			"unavailable": "nicht verfügbar"

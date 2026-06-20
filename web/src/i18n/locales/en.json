@@ -2462,7 +2462,10 @@
 			"circuitBreakerOpen": "Circuit breaker open - waiting for cooldown",
 			"circuitBreakerHalfOpen": "Circuit breaker half-open - probing recovery",
 			"modelDisabled": "Disabled",
-			"providerDisabled": "Provider disabled"
+			"providerDisabled": "Provider disabled",
+			"naBadge": "N/A",
+			"modelDisabledHelp": "Model is disabled, so it can't be used. The group stays off until it has 2+ live members.",
+			"providerDisabledHelp": "Provider is disabled, so this model can't be used. The group stays off until it has 2+ live members."
 		},
 		"modal": {
 			"unavailable": "unavailable"

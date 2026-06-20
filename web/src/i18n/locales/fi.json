@@ -2462,7 +2462,10 @@
 			"circuitBreakerOpen": "Katkaisin auki - odottaa jäähtymistä",
 			"circuitBreakerHalfOpen": "Circuit katkaisija puoli-avoin - anturi elpyminen",
 			"modelDisabled": "Poistettu käytöstä",
-			"providerDisabled": "Palveluntarjoaja poistettu käytöstä"
+			"providerDisabled": "Palveluntarjoaja poistettu käytöstä",
+			"naBadge": "N/A",
+			"modelDisabledHelp": "Malli on poistettu käytöstä eikä sitä voi käyttää. Ryhmä pysyy pois päältä, kunnes siinä on 2+ aktiivista jäsentä.",
+			"providerDisabledHelp": "Palveluntarjoaja on poistettu käytöstä, joten tätä mallia ei voi käyttää. Ryhmä pysyy pois päältä, kunnes siinä on 2+ aktiivista jäsentä."
 		},
 		"modal": {
 			"unavailable": "ei saatavilla"

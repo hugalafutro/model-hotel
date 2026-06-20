@@ -2462,7 +2462,10 @@
 			"circuitBreakerOpen": "Interruptor automàtic obert - esperant el refredament",
 			"circuitBreakerHalfOpen": "Interruptor automàtic mig obert - prova de recuperació",
 			"modelDisabled": "Desactivat",
-			"providerDisabled": "Proveïdor desactivat"
+			"providerDisabled": "Proveïdor desactivat",
+			"naBadge": "N/A",
+			"modelDisabledHelp": "El model està desactivat i no es pot usar. El grup roman desactivat fins que tingui 2+ membres actius.",
+			"providerDisabledHelp": "El proveïdor està desactivat, així que aquest model no es pot usar. El grup roman desactivat fins que tingui 2+ membres actius."
 		},
 		"modal": {
 			"unavailable": "no disponible"
