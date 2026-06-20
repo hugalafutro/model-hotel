@@ -181,6 +181,94 @@ func TestTotpStatus_Enabled(t *testing.T) {
 	}
 }
 
+// TestTotpStatus_EnabledAtCached checks that a second status poll serves the
+// same confirmed_at as the first, exercising both the cache-populate and the
+// cache-hit branches of cachedEnabledAt so the per-poll DB read stays memoized.
+func TestTotpStatus_EnabledAtCached(t *testing.T) {
+	h, th := newTotpTestHandler(t)
+	enrollAndEnable(t, th.totpRepo)
+	h.RefreshTotpEnabled(context.Background())
+
+	r := serveTotpRouter(th)
+	read := func() string {
+		req := httptest.NewRequest(http.MethodGet, "/totp/status", http.NoBody)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+		}
+		var resp struct {
+			Enabled   bool   `json:"enabled"`
+			EnabledAt string `json:"enabled_at"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		if !resp.Enabled || resp.EnabledAt == "" {
+			t.Fatalf("expected enabled with enabled_at, got %+v", resp)
+		}
+		return resp.EnabledAt
+	}
+
+	// Before any read the cache is cold.
+	if th.enabledAtCache.Load() != nil {
+		t.Fatal("expected enabledAtCache to start empty")
+	}
+	first := read()
+	// First read populated the cache; a second poll must serve the same stamp.
+	if th.enabledAtCache.Load() == nil {
+		t.Error("expected enabledAtCache to be populated after a status read")
+	}
+	if second := read(); second != first {
+		t.Errorf("cached enabled_at drifted: first %q, second %q", first, second)
+	}
+}
+
+// TestTotpCachedEnabledAt_ReturnsEmptyWhenUnknown covers the two "unknown"
+// branches of cachedEnabledAt: no repository wired, and a repository that reports
+// TOTP as not enabled. Both must return "" without caching, so the field is
+// omitted and a later call retries.
+func TestTotpCachedEnabledAt_ReturnsEmptyWhenUnknown(t *testing.T) {
+	// No repository: returns empty without touching the DB or panicking.
+	bare := &TotpHandler{}
+	if got := bare.cachedEnabledAt(context.Background()); got != "" {
+		t.Errorf("expected empty for nil repo, got %q", got)
+	}
+
+	// Repo present but TOTP not enabled: EnabledAt reports ok=false, so the
+	// helper returns empty and caches nothing (next call retries).
+	_, th := newTotpTestHandler(t)
+	if got := th.cachedEnabledAt(context.Background()); got != "" {
+		t.Errorf("expected empty when not enabled, got %q", got)
+	}
+	if th.enabledAtCache.Load() != nil {
+		t.Error("expected no cache entry after an unknown read")
+	}
+}
+
+// TestTotpPublishEnabledAt_GenerationGuard verifies that a publish carrying a
+// stale generation (one an enable/disable advanced after it was sampled) does not
+// resurrect the old confirmed_at: the race a slow lazy read could otherwise lose.
+func TestTotpPublishEnabledAt_GenerationGuard(t *testing.T) {
+	_, th := newTotpTestHandler(t)
+	now := time.Now().UTC()
+
+	// Same generation: the value is published.
+	gen := th.enabledAtGen.Load()
+	th.publishEnabledAt(gen, now)
+	if got := th.enabledAtCache.Load(); got == nil || !got.Equal(now) {
+		t.Fatalf("expected cached %v, got %v", now, got)
+	}
+
+	// An invalidation bumps the generation and clears the cache; a publish still
+	// carrying the old generation must be dropped rather than overwrite it.
+	th.invalidateEnabledAt()
+	th.publishEnabledAt(gen, now.Add(-time.Hour))
+	if got := th.enabledAtCache.Load(); got != nil {
+		t.Errorf("stale-generation publish should be dropped, got %v", got)
+	}
+}
+
 // --- EnrollStart tests ---
 
 func TestTotpEnrollStart_AdminAuth(t *testing.T) {
