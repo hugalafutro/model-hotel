@@ -806,7 +806,12 @@
 			},
 			"unset": "—",
 			"updated": "Metadata oppdatert",
-			"unchanged": "Uendret"
+			"unchanged": "Uendret",
+			"retest": "Test på nytt",
+			"retesting": "Tester på nytt…",
+			"retestTooltip": "Kjør oppdagelse for denne leverandøren på nytt for å teste deaktiverte modeller igjen.",
+			"retestDone": "{{provider}} testet på nytt",
+			"toggleSection": "Veksle {{provider}}-seksjon"
 		}
 	},
 	"models": {
@@ -1861,7 +1866,8 @@
 			"verifying": "Bekrefter...",
 			"downloadCodes": "Last ned som .txt",
 			"downloadCodesAriaLabel": "Last ned gjenopprettingskoder som en tekstfil",
-			"failedToStart": "Kunne ikke starte registrering: {{message}}"
+			"failedToStart": "Kunne ikke starte registrering: {{message}}",
+			"enabledOn": "Aktivert {{date}}"
 		}
 	},
 	"components": {
@@ -2298,7 +2304,8 @@
 			"reused": "gjenbrukt",
 			"totalOverhead": "Totalt overhode",
 			"error": "Feil",
-			"copyErrorMessage": "Kopier feilmelding"
+			"copyErrorMessage": "Kopier feilmelding",
+			"expandForBreakdown": "Utvid for fordelingen per trinn"
 		},
 		"statusBadge": {
 			"streaming": "Strømming",

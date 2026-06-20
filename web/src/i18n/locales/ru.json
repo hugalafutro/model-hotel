@@ -806,7 +806,12 @@
 			},
 			"unset": "—",
 			"updated": "Метаданные обновлены",
-			"unchanged": "Без изменений"
+			"unchanged": "Без изменений",
+			"retest": "Повторить проверку",
+			"retesting": "Повторная проверка…",
+			"retestTooltip": "Запустите обнаружение для этого провайдера повторно, чтобы перепроверить отключённые модели.",
+			"retestDone": "{{provider}} повторно проверен",
+			"toggleSection": "Переключить раздел {{provider}}"
 		}
 	},
 	"models": {
@@ -1861,7 +1866,8 @@
 			"verifying": "Проверка...",
 			"downloadCodes": "Скачать как .txt",
 			"downloadCodesAriaLabel": "Скачать коды восстановления в виде текстового файла",
-			"failedToStart": "Не удалось начать регистрацию: {{message}}"
+			"failedToStart": "Не удалось начать регистрацию: {{message}}",
+			"enabledOn": "Включено {{date}}"
 		}
 	},
 	"components": {
@@ -2298,7 +2304,8 @@
 			"reused": "повторно использовано",
 			"totalOverhead": "Всего накладных",
 			"error": "Ошибка",
-			"copyErrorMessage": "Копировать сообщение об ошибке"
+			"copyErrorMessage": "Копировать сообщение об ошибке",
+			"expandForBreakdown": "Разверните для пошаговой разбивки"
 		},
 		"statusBadge": {
 			"streaming": "Вещание",

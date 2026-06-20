@@ -14,10 +14,14 @@ const RECOVERY_CODES = [
 	"1111-2222-3333-4444",
 ];
 
-/** Register a status handler returning {enabled}. First-match-wins. */
-function mockStatus(enabled: boolean) {
+/** Register a status handler returning {enabled, enabled_at?}. First-match-wins. */
+function mockStatus(enabled: boolean, enabledAt?: string) {
 	server.use(
-		http.get("/api/totp/status", () => HttpResponse.json({ enabled })),
+		http.get("/api/totp/status", () =>
+			HttpResponse.json(
+				enabledAt ? { enabled, enabled_at: enabledAt } : { enabled },
+			),
+		),
 	);
 }
 
@@ -267,6 +271,18 @@ describe("TotpSettings", () => {
 		).toBeInTheDocument();
 		// Enabled badge present
 		expect(screen.getByText("Enabled")).toBeInTheDocument();
+	});
+
+	it("shows when 2FA was enabled, formatted, when enabled_at is present", async () => {
+		mockStatus(true, "2026-04-21T09:30:00Z");
+
+		renderWithProviders(<TotpSettings collapsed={false} onToggle={() => {}} />);
+
+		// "Enabled on {{date}}"; formatDate renders day/short-month/year, whose
+		// component order is locale-dependent, so assert on stable parts.
+		const line = await screen.findByText(/Enabled on/);
+		expect(line.textContent).toMatch(/Apr/);
+		expect(line.textContent).toMatch(/2026/);
 	});
 
 	it("disable flow submits the code", async () => {

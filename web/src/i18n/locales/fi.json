@@ -806,7 +806,12 @@
 			},
 			"unset": "—",
 			"updated": "Metatiedot päivitetty",
-			"unchanged": "Muuttumaton"
+			"unchanged": "Muuttumaton",
+			"retest": "Testaa uudelleen",
+			"retesting": "Testataan uudelleen…",
+			"retestTooltip": "Suorita tämän palveluntarjoajan tunnistus uudelleen ja testaa käytöstä poistetut mallit.",
+			"retestDone": "{{provider}} testattu uudelleen",
+			"toggleSection": "Näytä tai piilota osio {{provider}}"
 		}
 	},
 	"models": {
@@ -1861,7 +1866,8 @@
 			"verifying": "Tarkistetaan...",
 			"downloadCodes": "Lataa .txt-tiedostona",
 			"downloadCodesAriaLabel": "Lataa palautuskoodit tekstitiedostona",
-			"failedToStart": "Rekisteröinnin aloittaminen epäonnistui: {{message}}"
+			"failedToStart": "Rekisteröinnin aloittaminen epäonnistui: {{message}}",
+			"enabledOn": "Otettu käyttöön {{date}}"
 		}
 	},
 	"components": {
@@ -2298,7 +2304,8 @@
 			"reused": "uudelleenkäytetty",
 			"totalOverhead": "Ilmapiiri Yhteensä",
 			"error": "Virhe",
-			"copyErrorMessage": "Kopioi virheviesti"
+			"copyErrorMessage": "Kopioi virheviesti",
+			"expandForBreakdown": "Laajenna nähdäksesi vaihekohtaisen erittelyn"
 		},
 		"statusBadge": {
 			"streaming": "Suoratoistaminen",

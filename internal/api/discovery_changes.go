@@ -13,6 +13,10 @@ import (
 
 // DiscoveryChangeEntry is one provider's recorded background-discovery diff.
 type DiscoveryChangeEntry struct {
+	// ProviderID is empty when the provider was deleted after the row was
+	// recorded (the column is nullable). The dashboard uses it to offer a
+	// per-provider Retest action from the changes modal.
+	ProviderID   string         `json:"provider_id,omitempty"`
 	ProviderName string         `json:"provider_name"`
 	Source       string         `json:"source"`
 	DetectedAt   time.Time      `json:"detected_at"`
@@ -74,18 +78,22 @@ func AppendDiscoveryChange(ctx context.Context, pool *pgxpool.Pool, source strin
 	return true, nil
 }
 
-// scanDiscoveryChangeRows decodes (provider_name, source, detected_at, diff)
-// rows into entries, shared by the list and ack queries.
+// scanDiscoveryChangeRows decodes (provider_id, provider_name, source,
+// detected_at, diff) rows into entries, shared by the list and ack queries.
 func scanDiscoveryChangeRows(rows pgx.Rows) ([]DiscoveryChangeEntry, error) {
 	defer rows.Close()
 	var entries []DiscoveryChangeEntry
 	for rows.Next() {
 		var (
-			entry    DiscoveryChangeEntry
-			diffJSON []byte
+			entry      DiscoveryChangeEntry
+			diffJSON   []byte
+			providerID *string // nullable provider_id::text
 		)
-		if err := rows.Scan(&entry.ProviderName, &entry.Source, &entry.DetectedAt, &diffJSON); err != nil {
+		if err := rows.Scan(&providerID, &entry.ProviderName, &entry.Source, &entry.DetectedAt, &diffJSON); err != nil {
 			return nil, err
+		}
+		if providerID != nil {
+			entry.ProviderID = *providerID
 		}
 		var diff DiscoveryDiff
 		if err := json.Unmarshal(diffJSON, &diff); err != nil {
@@ -100,7 +108,7 @@ func scanDiscoveryChangeRows(rows pgx.Rows) ([]DiscoveryChangeEntry, error) {
 // listPendingDiscoveryChanges returns the unseen recorded diffs, newest-first.
 func listPendingDiscoveryChanges(ctx context.Context, pool *pgxpool.Pool) ([]DiscoveryChangeEntry, error) {
 	rows, err := pool.Query(ctx,
-		`SELECT provider_name, source, detected_at, diff
+		`SELECT provider_id::text, provider_name, source, detected_at, diff
 		   FROM discovery_changes
 		  WHERE NOT seen
 		  ORDER BY detected_at DESC`)
@@ -120,9 +128,9 @@ func markDiscoveryChangesSeen(ctx context.Context, pool *pgxpool.Pool) ([]Discov
 		`WITH updated AS (
 			UPDATE discovery_changes SET seen = true
 			 WHERE NOT seen
-			 RETURNING provider_name, source, detected_at, diff
+			 RETURNING provider_id::text, provider_name, source, detected_at, diff
 		)
-		SELECT provider_name, source, detected_at, diff
+		SELECT provider_id::text, provider_name, source, detected_at, diff
 		  FROM updated
 		 ORDER BY detected_at DESC`)
 	if err != nil {

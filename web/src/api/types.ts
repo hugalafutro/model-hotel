@@ -487,6 +487,8 @@ export interface DiscoveryDiff {
 
 /** One provider's recorded background-discovery diff (GET /api/discovery/changes). */
 export interface DiscoveryChangeEntry {
+	/** Empty when the provider was deleted after the change was recorded. */
+	provider_id?: string;
 	provider_name: string;
 	source: string;
 	detected_at: string;
@@ -654,6 +656,8 @@ export interface WebAuthnCredential {
 
 export interface TotpStatus {
 	enabled: boolean;
+	/** RFC3339 confirmation time; absent when TOTP is disabled. */
+	enabled_at?: string;
 }
 
 export interface TotpEnrollStart {

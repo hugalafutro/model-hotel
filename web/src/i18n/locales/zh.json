@@ -806,7 +806,12 @@
 			},
 			"unset": "—",
 			"updated": "元数据已更新",
-			"unchanged": "保持不变"
+			"unchanged": "保持不变",
+			"retest": "重新测试",
+			"retesting": "正在重新测试…",
+			"retestTooltip": "重新运行此提供商的发现，以重新探测被禁用的模型。",
+			"retestDone": "已重新测试 {{provider}}",
+			"toggleSection": "切换 {{provider}} 部分"
 		}
 	},
 	"models": {
@@ -1861,7 +1866,8 @@
 			"verifying": "正在验证...",
 			"downloadCodes": "下载为 .txt",
 			"downloadCodesAriaLabel": "将恢复码下载为文本文件",
-			"failedToStart": "无法开始注册：{{message}}"
+			"failedToStart": "无法开始注册：{{message}}",
+			"enabledOn": "于 {{date}} 启用"
 		}
 	},
 	"components": {
@@ -2298,7 +2304,8 @@
 			"reused": "已重新使用",
 			"totalOverhead": "总管理费",
 			"error": "错误",
-			"copyErrorMessage": "复制错误消息"
+			"copyErrorMessage": "复制错误消息",
+			"expandForBreakdown": "展开以查看分步明细"
 		},
 		"statusBadge": {
 			"streaming": "流流",

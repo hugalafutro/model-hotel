@@ -23,7 +23,7 @@
 
 <div align="center">
   
-<sub>Localised with [DeepL](https://www.deepl.com) - _expect mistakes_ - translation fixes welcome as PRs against [`web/src/i18n/locales/`](https://github.com/hugalafutro/model-hotel/tree/master/web/src/i18n/locales)!<br>Made with [OpenCode](https://opencode.ai) + [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim) & [Claude Code](https://claude.com/claude-code)</sub>
+<sub>Localised by AI - _expect mistakes_ - translation fixes welcome as PRs against [`web/src/i18n/locales/`](https://github.com/hugalafutro/model-hotel/tree/master/web/src/i18n/locales)!<br>Made with [OpenCode](https://opencode.ai) + [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim) & [Claude Code](https://claude.com/claude-code)</sub>
 <br>
 
  <a href="https://mh.site19.ddns.net"><img src="https://img.shields.io/badge/%F0%9F%8F%A8%20Live%20Demo-Try%20it%20now-D97757?style=for-the-badge" alt="Live Demo"></a><br>

@@ -5,10 +5,12 @@ import type { LogEntry } from "../api/types";
 import { formatMs, formatTPS } from "../pages/Logs/utils";
 import { formatNumber } from "../utils/format";
 import {
+	formatDurationCell,
 	getRowStatusVariant,
 	isCancelled,
 	isInProgress,
 	isStale,
+	liveDurationMs,
 } from "../utils/logHelpers";
 import { Badge } from "./Badge";
 import { EndpointTypeBadge } from "./logs";
@@ -420,13 +422,13 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 									</td>
 									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
 										{inProgress && log.duration_ms === 0 ? (
-											<span className="inline-block text-blue-400">-</span>
+											<span className="inline-block text-blue-400">
+												{formatDurationCell(
+													liveDurationMs(log.created_at, nowMs),
+												)}
+											</span>
 										) : log.duration_ms > 0 ? (
-											log.duration_ms >= 1000 ? (
-												`${(log.duration_ms / 1000).toFixed(1)}s`
-											) : (
-												`${log.duration_ms.toFixed(0)}ms`
-											)
+											formatDurationCell(log.duration_ms)
 										) : (
 											"-"
 										)}

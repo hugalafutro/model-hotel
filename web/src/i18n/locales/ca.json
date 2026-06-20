@@ -806,7 +806,12 @@
 			},
 			"unset": "—",
 			"updated": "Metadades actualitzades",
-			"unchanged": "Sense canvis"
+			"unchanged": "Sense canvis",
+			"retest": "Reprova",
+			"retesting": "S'està reprovant…",
+			"retestTooltip": "Torna a executar el descobriment d'aquest proveïdor per tornar a provar els models desactivats.",
+			"retestDone": "S'ha reprovat {{provider}}",
+			"toggleSection": "Mostra o amaga la secció {{provider}}"
 		}
 	},
 	"models": {
@@ -1861,7 +1866,8 @@
 			"verifying": "Verificant...",
 			"downloadCodes": "Baixa com a .txt",
 			"downloadCodesAriaLabel": "Baixa els codis de recuperació com a fitxer de text",
-			"failedToStart": "No s'ha pogut iniciar la inscripció: {{message}}"
+			"failedToStart": "No s'ha pogut iniciar la inscripció: {{message}}",
+			"enabledOn": "Activat el {{date}}"
 		}
 	},
 	"components": {
@@ -2298,7 +2304,8 @@
 			"reused": "reutilitzat",
 			"totalOverhead": "Despeses generals totals",
 			"error": "Error",
-			"copyErrorMessage": "Copiar missatge d'error"
+			"copyErrorMessage": "Copiar missatge d'error",
+			"expandForBreakdown": "Desplega per veure el desglossament per passos"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

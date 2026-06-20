@@ -186,4 +186,80 @@ describe("DiscoverySummaryModal", () => {
 			expect(onClose).toHaveBeenCalled();
 		});
 	});
+
+	it("collapses a provider section when its header toggle is clicked", async () => {
+		const { user } = renderWithProviders(
+			<DiscoverySummaryModal
+				results={[
+					{ providerName: "Provider A", diff: fullDiff },
+					{ providerName: "Provider B", diff: fullDiff },
+				]}
+				onClose={vi.fn()}
+			/>,
+		);
+
+		// Both providers expanded by default. The body animates via the
+		// grid-rows trick, so it stays mounted while collapsed; assert the
+		// accessible expanded state rather than DOM presence.
+		const toggles = screen.getAllByTestId("discovery-summary-toggle");
+		expect(toggles[0]).toHaveAttribute("aria-expanded", "true");
+
+		// Collapse the first provider's section.
+		await user.click(toggles[0]);
+
+		expect(toggles[0]).toHaveAttribute("aria-expanded", "false");
+		// The second provider stays expanded.
+		expect(toggles[1]).toHaveAttribute("aria-expanded", "true");
+	});
+
+	it("shows a Retest button for a provider with disabled models and fires onRetest", async () => {
+		const onRetest = vi.fn();
+		const { user } = renderWithProviders(
+			<DiscoverySummaryModal
+				results={[
+					{ providerName: "Flaky Provider", providerId: "p1", diff: fullDiff },
+				]}
+				onClose={vi.fn()}
+				onRetest={onRetest}
+			/>,
+		);
+
+		const retest = screen.getByTestId("discovery-summary-retest");
+		await user.click(retest);
+		expect(onRetest).toHaveBeenCalledWith(
+			expect.objectContaining({ providerId: "p1" }),
+		);
+	});
+
+	it("hides the Retest button without a providerId or when the diff has no disabled models", () => {
+		const noDisabled: DiscoveryDiff = {
+			added: [{ model_id: "model-new", reason: "new_model" }],
+		};
+		const { rerender } = renderWithProviders(
+			<DiscoverySummaryModal
+				results={[
+					{ providerName: "No ID", diff: fullDiff }, // disabled but no providerId
+				]}
+				onClose={vi.fn()}
+				onRetest={vi.fn()}
+			/>,
+		);
+		expect(
+			screen.queryByTestId("discovery-summary-retest"),
+		).not.toBeInTheDocument();
+
+		// providerId present but nothing disabled → still hidden.
+		rerender(
+			<DiscoverySummaryModal
+				results={[
+					{ providerName: "No Disabled", providerId: "p2", diff: noDisabled },
+				]}
+				onClose={vi.fn()}
+				onRetest={vi.fn()}
+			/>,
+		);
+		expect(
+			screen.queryByTestId("discovery-summary-retest"),
+		).not.toBeInTheDocument();
+	});
 });

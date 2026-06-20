@@ -806,7 +806,12 @@
 			},
 			"unset": "—",
 			"updated": "Metadata uppdaterad",
-			"unchanged": "Oförändrat"
+			"unchanged": "Oförändrat",
+			"retest": "Testa igen",
+			"retesting": "Testar igen…",
+			"retestTooltip": "Kör identifiering för den här leverantören igen för att testa inaktiverade modeller på nytt.",
+			"retestDone": "{{provider}} testad igen",
+			"toggleSection": "Växla {{provider}}-sektion"
 		}
 	},
 	"models": {
@@ -1861,7 +1866,8 @@
 			"verifying": "Verifierar...",
 			"downloadCodes": "Ladda ner som .txt",
 			"downloadCodesAriaLabel": "Ladda ner återställningskoder som en textfil",
-			"failedToStart": "Det gick inte att starta registreringen: {{message}}"
+			"failedToStart": "Det gick inte att starta registreringen: {{message}}",
+			"enabledOn": "Aktiverat {{date}}"
 		}
 	},
 	"components": {
@@ -2298,7 +2304,8 @@
 			"reused": "återanvänd",
 			"totalOverhead": "Totalt Overhead",
 			"error": "Fel",
-			"copyErrorMessage": "Kopiera felmeddelande"
+			"copyErrorMessage": "Kopiera felmeddelande",
+			"expandForBreakdown": "Expandera för uppdelningen per steg"
 		},
 		"statusBadge": {
 			"streaming": "Strömning",

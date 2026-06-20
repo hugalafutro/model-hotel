@@ -270,6 +270,26 @@ func (r *Repository) IsEnabled(ctx context.Context) (bool, error) {
 	return enabled, nil
 }
 
+// EnabledAt returns when TOTP was last confirmed (the confirmed_at stamp set by
+// Enable). The bool is false when no enrollment exists or it is not yet
+// confirmed, so callers can omit the timestamp from a disabled-state response.
+func (r *Repository) EnabledAt(ctx context.Context) (time.Time, bool, error) {
+	var confirmedAt *time.Time
+	err := r.db.QueryRow(ctx,
+		`SELECT confirmed_at FROM admin_totp WHERE id = 1 AND enabled`,
+	).Scan(&confirmedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return time.Time{}, false, nil
+		}
+		return time.Time{}, false, fmt.Errorf("totp: enabled_at: %w", err)
+	}
+	if confirmedAt == nil {
+		return time.Time{}, false, nil
+	}
+	return *confirmedAt, true, nil
+}
+
 // GenerateRecoveryCodes generates 10 single-use recovery codes, stores their
 // SHA-256 hashes (replacing any existing set), and returns the plaintext codes
 // in order for one-time display. The codes are never logged.

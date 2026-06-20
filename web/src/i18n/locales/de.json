@@ -806,7 +806,12 @@
 			},
 			"unset": "—",
 			"updated": "Metadaten aktualisiert",
-			"unchanged": "Unverändert"
+			"unchanged": "Unverändert",
+			"retest": "Erneut testen",
+			"retesting": "Wird erneut getestet…",
+			"retestTooltip": "Erkennung für diesen Anbieter erneut ausführen, um deaktivierte Modelle neu zu prüfen.",
+			"retestDone": "{{provider}} erneut getestet",
+			"toggleSection": "Abschnitt {{provider}} umschalten"
 		}
 	},
 	"models": {
@@ -1861,7 +1866,8 @@
 			"verifying": "Wird überprüft...",
 			"downloadCodes": "Als .txt herunterladen",
 			"downloadCodesAriaLabel": "Wiederherstellungscodes als Textdatei herunterladen",
-			"failedToStart": "Einrichtung konnte nicht gestartet werden: {{message}}"
+			"failedToStart": "Einrichtung konnte nicht gestartet werden: {{message}}",
+			"enabledOn": "Aktiviert am {{date}}"
 		}
 	},
 	"components": {
@@ -2298,7 +2304,8 @@
 			"reused": "wiederverwendet",
 			"totalOverhead": "Gesamt Overhead",
 			"error": "Fehler",
-			"copyErrorMessage": "Fehlermeldung kopieren"
+			"copyErrorMessage": "Fehlermeldung kopieren",
+			"expandForBreakdown": "Für die Aufschlüsselung pro Schritt ausklappen"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

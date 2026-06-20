@@ -806,7 +806,12 @@
 			},
 			"unset": "—",
 			"updated": "메타데이터 업데이트됨",
-			"unchanged": "변경 없음"
+			"unchanged": "변경 없음",
+			"retest": "다시 테스트",
+			"retesting": "다시 테스트 중…",
+			"retestTooltip": "이 공급자에 대한 검색을 다시 실행하여 비활성화된 모델을 다시 확인합니다.",
+			"retestDone": "{{provider}} 다시 테스트함",
+			"toggleSection": "{{provider}} 섹션 전환"
 		}
 	},
 	"models": {
@@ -1861,7 +1866,8 @@
 			"verifying": "확인 중...",
 			"downloadCodes": ".txt로 다운로드",
 			"downloadCodesAriaLabel": "복구 코드를 텍스트 파일로 다운로드",
-			"failedToStart": "등록을 시작할 수 없습니다: {{message}}"
+			"failedToStart": "등록을 시작할 수 없습니다: {{message}}",
+			"enabledOn": "{{date}}에 활성화됨"
 		}
 	},
 	"components": {
@@ -2298,7 +2304,8 @@
 			"reused": "재사용된",
 			"totalOverhead": "총 간접비",
 			"error": "오류",
-			"copyErrorMessage": "오류 메시지 복사"
+			"copyErrorMessage": "오류 메시지 복사",
+			"expandForBreakdown": "단계별 분석을 보려면 펼치세요"
 		},
 		"statusBadge": {
 			"streaming": "스트리밍",

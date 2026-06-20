@@ -1,5 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { isCancelled } from "../logHelpers";
+import { formatDurationCell, isCancelled, liveDurationMs } from "../logHelpers";
+
+describe("liveDurationMs", () => {
+	it("returns the gap between created_at and now", () => {
+		const created = "2026-06-20T12:00:00.000Z";
+		const now = new Date("2026-06-20T12:00:03.500Z").getTime();
+		expect(liveDurationMs(created, now)).toBe(3500);
+	});
+
+	it("clamps to 0 when now precedes created_at (clock skew)", () => {
+		const created = "2026-06-20T12:00:05.000Z";
+		const now = new Date("2026-06-20T12:00:00.000Z").getTime();
+		expect(liveDurationMs(created, now)).toBe(0);
+	});
+});
+
+describe("formatDurationCell", () => {
+	it("formats sub-second durations as whole milliseconds", () => {
+		expect(formatDurationCell(0)).toBe("0ms");
+		expect(formatDurationCell(742)).toBe("742ms");
+		expect(formatDurationCell(999)).toBe("999ms");
+	});
+
+	it("formats >= 1s durations as seconds with one decimal", () => {
+		expect(formatDurationCell(1000)).toBe("1.0s");
+		expect(formatDurationCell(3500)).toBe("3.5s");
+	});
+});
 
 describe("isCancelled", () => {
 	it("returns false for undefined", () => {

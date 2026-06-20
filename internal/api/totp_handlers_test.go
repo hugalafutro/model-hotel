@@ -155,12 +155,22 @@ func TestTotpStatus_Enabled(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
 	}
-	var resp map[string]bool
+	var resp struct {
+		Enabled   bool   `json:"enabled"`
+		EnabledAt string `json:"enabled_at"`
+	}
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if resp["enabled"] != true {
-		t.Errorf("expected enabled=true, got %v", resp["enabled"])
+	if !resp.Enabled {
+		t.Errorf("expected enabled=true, got %v", resp.Enabled)
+	}
+	// Enabling stamps confirmed_at, so status surfaces a parseable RFC3339 time.
+	if resp.EnabledAt == "" {
+		t.Fatal("expected enabled_at to be set when TOTP is enabled")
+	}
+	if _, err := time.Parse(time.RFC3339, resp.EnabledAt); err != nil {
+		t.Errorf("enabled_at %q is not RFC3339: %v", resp.EnabledAt, err)
 	}
 }
 

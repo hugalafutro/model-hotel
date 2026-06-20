@@ -806,7 +806,12 @@
 			},
 			"unset": "—",
 			"updated": "تم تحديث البيانات الوصفية",
-			"unchanged": "لم يتغير"
+			"unchanged": "لم يتغير",
+			"retest": "إعادة الاختبار",
+			"retesting": "جارٍ إعادة الاختبار…",
+			"retestTooltip": "أعد تشغيل الاكتشاف لهذا المزوّد لإعادة فحص النماذج التي تم تعطيلها.",
+			"retestDone": "تمت إعادة اختبار {{provider}}",
+			"toggleSection": "تبديل قسم {{provider}}"
 		}
 	},
 	"models": {
@@ -1861,7 +1866,8 @@
 			"verifying": "جاري التحقق...",
 			"downloadCodes": "تنزيل بصيغة ‎.txt",
 			"downloadCodesAriaLabel": "تنزيل رموز الاسترداد كملف نصي",
-			"failedToStart": "تعذّر بدء التسجيل: {{message}}"
+			"failedToStart": "تعذّر بدء التسجيل: {{message}}",
+			"enabledOn": "تم التفعيل في {{date}}"
 		}
 	},
 	"components": {
@@ -2298,7 +2304,8 @@
 			"reused": "إعادة الاستخدام",
 			"totalOverhead": "إجمالي النفقات العامة",
 			"error": "خطأ",
-			"copyErrorMessage": "نسخ رسالة الخطأ"
+			"copyErrorMessage": "نسخ رسالة الخطأ",
+			"expandForBreakdown": "وسّع لعرض التفصيل لكل خطوة"
 		},
 		"statusBadge": {
 			"streaming": "البث",

@@ -806,7 +806,12 @@
 			},
 			"unset": "—",
 			"updated": "Ενημερωμένα μεταδεδομένα",
-			"unchanged": "Χωρίς αλλαγές"
+			"unchanged": "Χωρίς αλλαγές",
+			"retest": "Επανέλεγχος",
+			"retesting": "Επανέλεγχος…",
+			"retestTooltip": "Εκτελέστε ξανά την ανίχνευση για αυτόν τον πάροχο ώστε να επανελεγχθούν τα απενεργοποιημένα μοντέλα.",
+			"retestDone": "Έγινε επανέλεγχος του {{provider}}",
+			"toggleSection": "Εναλλαγή ενότητας {{provider}}"
 		}
 	},
 	"models": {
@@ -1861,7 +1866,8 @@
 			"verifying": "Επαλήθευση...",
 			"downloadCodes": "Λήψη ως .txt",
 			"downloadCodesAriaLabel": "Λήψη κωδικών ανάκτησης ως αρχείο κειμένου",
-			"failedToStart": "Δεν ήταν δυνατή η έναρξη της εγγραφής: {{message}}"
+			"failedToStart": "Δεν ήταν δυνατή η έναρξη της εγγραφής: {{message}}",
+			"enabledOn": "Ενεργοποιήθηκε στις {{date}}"
 		}
 	},
 	"components": {
@@ -2298,7 +2304,8 @@
 			"reused": "επαναχρησιμοποίηση",
 			"totalOverhead": "Σύνολο Υπερβάσεων",
 			"error": "Σφάλμα",
-			"copyErrorMessage": "Αντιγραφή μηνύματος σφάλματος"
+			"copyErrorMessage": "Αντιγραφή μηνύματος σφάλματος",
+			"expandForBreakdown": "Αναπτύξτε για την ανάλυση ανά βήμα"
 		},
 		"statusBadge": {
 			"streaming": "Ροή",

@@ -806,7 +806,12 @@
 			},
 			"unset": "—",
 			"updated": "מטא-נתונים עודכנו",
-			"unchanged": "ללא שינוי"
+			"unchanged": "ללא שינוי",
+			"retest": "בדיקה חוזרת",
+			"retesting": "מבצע בדיקה חוזרת…",
+			"retestTooltip": "הרץ שוב את הגילוי עבור ספק זה כדי לבדוק מחדש מודלים שהושבתו.",
+			"retestDone": "{{provider}} נבדק מחדש",
+			"toggleSection": "החלף את מקטע {{provider}}"
 		}
 	},
 	"models": {
@@ -1861,7 +1866,8 @@
 			"verifying": "בודקים...",
 			"downloadCodes": "הורד כקובץ ‎.txt",
 			"downloadCodesAriaLabel": "הורד את קודי השחזור כקובץ טקסט",
-			"failedToStart": "לא ניתן להתחיל את הרישום: {{message}}"
+			"failedToStart": "לא ניתן להתחיל את הרישום: {{message}}",
+			"enabledOn": "הופעל בתאריך {{date}}"
 		}
 	},
 	"components": {
@@ -2298,7 +2304,8 @@
 			"reused": "בשימוש חוזר",
 			"totalOverhead": "הוצאות כלליות",
 			"error": "שגיאה",
-			"copyErrorMessage": "העתק את הודעת השגיאה"
+			"copyErrorMessage": "העתק את הודעת השגיאה",
+			"expandForBreakdown": "הרחב לפירוט לפי שלבים"
 		},
 		"statusBadge": {
 			"streaming": "סטרימינג",

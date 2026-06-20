@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	AlertTriangle,
 	Box,
 	Calendar,
+	ChevronDown,
+	ChevronRight,
 	Clock,
 	Gauge,
 	Hash,
@@ -31,6 +34,17 @@ export function RequestLogDetail({
 	onClose: () => void;
 }) {
 	const { t } = useTranslation();
+	// Proxy overhead breakdown starts collapsed: the header shows the total, and
+	// expanding reveals the per-step split.
+	const [overheadOpen, setOverheadOpen] = useState(false);
+	const totalOverheadMs =
+		(requestLog.parse_ms || 0) +
+		(requestLog.failover_lookup_ms || 0) +
+		(requestLog.model_lookup_ms || 0) +
+		(requestLog.provider_lookup_ms || 0) +
+		(requestLog.key_decrypt_ms || 0) +
+		(requestLog.dial_ms || 0) +
+		(requestLog.settings_read_ms || 0);
 	const totalTokens =
 		requestLog.tokens_prompt +
 		requestLog.tokens_completion +
@@ -289,106 +303,135 @@ export function RequestLogDetail({
 			{/* Overhead Breakdown */}
 			{requestLog.proxy_overhead_ms > 0 && (
 				<div className="mb-6 p-4 rounded-(--radius-box) bg-(--surface-bg) border border-(--border-subtle)">
-					<h4 className="text-sm font-semibold text-(--text-primary) mb-3 flex items-center gap-2">
+					<button
+						type="button"
+						onClick={() => setOverheadOpen((o) => !o)}
+						aria-expanded={overheadOpen}
+						data-testid="proxy-overhead-toggle"
+						className="flex w-full items-center gap-2 text-sm font-semibold text-(--text-primary)"
+					>
 						<Gauge size={14} className="text-(--accent)" />
 						{t("components.requestLogDetail.proxyOverheadBreakdown")}
-					</h4>
-					<div className="space-y-2">
-						{[
-							{
-								label: t("components.requestLogDetail.requestParsing"),
-								value: requestLog.parse_ms,
-								tooltip: t("components.requestLogDetail.timeToParseRequest"),
-								cacheHit: null as boolean | null,
-							},
-							{
-								label: t("components.requestLogDetail.failoverGroupLookup"),
-								value: requestLog.failover_lookup_ms,
-								tooltip: t("components.requestLogDetail.timeToResolveFailover"),
-								cacheHit: requestLog.cache_hits?.failover ?? null,
-							},
-							{
-								label: t("components.requestLogDetail.modelLookup"),
-								value: requestLog.model_lookup_ms,
-								tooltip: t("components.requestLogDetail.timeToLookupModel"),
-								cacheHit: requestLog.cache_hits?.model ?? null,
-							},
-							{
-								label: t("components.requestLogDetail.providerLookup"),
-								value: requestLog.provider_lookup_ms,
-								tooltip: t("components.requestLogDetail.timeToLookupProvider"),
-								cacheHit: requestLog.cache_hits?.provider ?? null,
-							},
-							{
-								label: t("components.requestLogDetail.keyDecryption"),
-								value: requestLog.key_decrypt_ms,
-								tooltip: t("components.requestLogDetail.timeToDecryptKey"),
-								cacheHit: requestLog.cache_hits?.key ?? null,
-							},
-							{
-								label: t("components.requestLogDetail.dialDnsTcp"),
-								value: requestLog.dial_ms,
-								tooltip: t("components.requestLogDetail.timeToEstablishTcp"),
-								cacheHit: null as boolean | null,
-							},
-							{
-								label: t("components.requestLogDetail.settingsReads"),
-								value: requestLog.settings_read_ms,
-								tooltip: t("components.requestLogDetail.timeToReadSettings"),
-								cacheHit: requestLog.cache_hits?.settings ?? null,
-							},
-						].map(
-							({ label, value, tooltip, cacheHit }) =>
-								(value > 0 ||
-									(label === t("components.requestLogDetail.dialDnsTcp") &&
-										value === 0)) && (
-									<div key={label} className="flex justify-between text-sm">
-										<span className="flex items-center gap-1 text-(--text-secondary)">
-											{label}
-											<InfoHint
-												tooltip={
-													cacheHit === null
-														? tooltip
-														: cacheHit
-															? `${tooltip} ${t("components.requestLogDetail.overheadCacheHit")}`
-															: `${tooltip} ${t("components.requestLogDetail.overheadCacheMiss")}`
-												}
-											/>
-										</span>
-										<span
-											className={`font-mono ${
-												cacheHit === true
-													? "text-emerald-400"
-													: cacheHit === false
-														? "text-amber-400"
-														: "text-(--text-primary)"
-											}`}
-										>
-											{label === t("components.requestLogDetail.dialDnsTcp") &&
-											value === 0
-												? t("components.requestLogDetail.reused")
-												: formatMs(value, 3)}
-										</span>
-									</div>
-								),
+						{!overheadOpen && (
+							<InfoHint
+								tooltip={t("components.requestLogDetail.expandForBreakdown")}
+							/>
 						)}
-						<div className="border-t border-(--border-default) my-2" />
-						<div className="flex justify-between text-sm font-semibold">
-							<span className="text-(--text-primary)">
-								{t("components.requestLogDetail.totalOverhead")}
-							</span>
-							<span className="font-mono text-(--accent)">
-								{formatMs(
-									(requestLog.parse_ms || 0) +
-										(requestLog.failover_lookup_ms || 0) +
-										(requestLog.model_lookup_ms || 0) +
-										(requestLog.provider_lookup_ms || 0) +
-										(requestLog.key_decrypt_ms || 0) +
-										(requestLog.dial_ms || 0) +
-										(requestLog.settings_read_ms || 0),
-									3,
+						<span className="ml-auto font-mono text-(--accent)">
+							{formatMs(totalOverheadMs, 3)}
+						</span>
+						{overheadOpen ? (
+							<ChevronDown size={14} className="text-(--accent)" />
+						) : (
+							<ChevronRight size={14} className="text-(--accent)" />
+						)}
+					</button>
+					<div
+						className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
+							overheadOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+						}`}
+					>
+						<div className="overflow-hidden">
+							<div className="space-y-2 mt-3">
+								{[
+									{
+										label: t("components.requestLogDetail.requestParsing"),
+										value: requestLog.parse_ms,
+										tooltip: t(
+											"components.requestLogDetail.timeToParseRequest",
+										),
+										cacheHit: null as boolean | null,
+									},
+									{
+										label: t("components.requestLogDetail.failoverGroupLookup"),
+										value: requestLog.failover_lookup_ms,
+										tooltip: t(
+											"components.requestLogDetail.timeToResolveFailover",
+										),
+										cacheHit: requestLog.cache_hits?.failover ?? null,
+									},
+									{
+										label: t("components.requestLogDetail.modelLookup"),
+										value: requestLog.model_lookup_ms,
+										tooltip: t("components.requestLogDetail.timeToLookupModel"),
+										cacheHit: requestLog.cache_hits?.model ?? null,
+									},
+									{
+										label: t("components.requestLogDetail.providerLookup"),
+										value: requestLog.provider_lookup_ms,
+										tooltip: t(
+											"components.requestLogDetail.timeToLookupProvider",
+										),
+										cacheHit: requestLog.cache_hits?.provider ?? null,
+									},
+									{
+										label: t("components.requestLogDetail.keyDecryption"),
+										value: requestLog.key_decrypt_ms,
+										tooltip: t("components.requestLogDetail.timeToDecryptKey"),
+										cacheHit: requestLog.cache_hits?.key ?? null,
+									},
+									{
+										label: t("components.requestLogDetail.dialDnsTcp"),
+										value: requestLog.dial_ms,
+										tooltip: t(
+											"components.requestLogDetail.timeToEstablishTcp",
+										),
+										cacheHit: null as boolean | null,
+									},
+									{
+										label: t("components.requestLogDetail.settingsReads"),
+										value: requestLog.settings_read_ms,
+										tooltip: t(
+											"components.requestLogDetail.timeToReadSettings",
+										),
+										cacheHit: requestLog.cache_hits?.settings ?? null,
+									},
+								].map(
+									({ label, value, tooltip, cacheHit }) =>
+										(value > 0 ||
+											(label === t("components.requestLogDetail.dialDnsTcp") &&
+												value === 0)) && (
+											<div key={label} className="flex justify-between text-sm">
+												<span className="flex items-center gap-1 text-(--text-secondary)">
+													{label}
+													<InfoHint
+														tooltip={
+															cacheHit === null
+																? tooltip
+																: cacheHit
+																	? `${tooltip} ${t("components.requestLogDetail.overheadCacheHit")}`
+																	: `${tooltip} ${t("components.requestLogDetail.overheadCacheMiss")}`
+														}
+													/>
+												</span>
+												<span
+													className={`font-mono ${
+														cacheHit === true
+															? "text-emerald-400"
+															: cacheHit === false
+																? "text-amber-400"
+																: "text-(--text-primary)"
+													}`}
+												>
+													{label ===
+														t("components.requestLogDetail.dialDnsTcp") &&
+													value === 0
+														? t("components.requestLogDetail.reused")
+														: formatMs(value, 3)}
+												</span>
+											</div>
+										),
 								)}
-							</span>
+								<div className="border-t border-(--border-default) my-2" />
+								<div className="flex justify-between text-sm font-semibold">
+									<span className="text-(--text-primary)">
+										{t("components.requestLogDetail.totalOverhead")}
+									</span>
+									<span className="font-mono text-(--accent)">
+										{formatMs(totalOverheadMs, 3)}
+									</span>
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>

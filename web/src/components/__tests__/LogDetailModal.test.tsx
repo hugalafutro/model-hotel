@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppLogEntry, LogEntry } from "../../api/types";
@@ -379,7 +379,16 @@ describe("LogDetailModal", () => {
 				/>,
 			);
 
+			// The breakdown header is always visible; the per-step rows live in a
+			// collapsed-by-default region that animates open (grid-rows trick keeps
+			// it mounted), so assert the accessible expanded state, not DOM presence.
 			expect(screen.getByText("Proxy Overhead Breakdown")).toBeInTheDocument();
+			const overheadToggle = screen.getByTestId("proxy-overhead-toggle");
+			expect(overheadToggle).toHaveAttribute("aria-expanded", "false");
+
+			fireEvent.click(overheadToggle);
+
+			expect(overheadToggle).toHaveAttribute("aria-expanded", "true");
 			expect(screen.getByText("Request Parsing")).toBeInTheDocument();
 			expect(screen.getByText("Failover Group Lookup")).toBeInTheDocument();
 			expect(screen.getByText("Model Lookup")).toBeInTheDocument();
@@ -853,6 +862,7 @@ describe("LogDetailModal", () => {
 			renderWithProviders(
 				<LogDetailModal log={overheadLog} type="request" onClose={onClose} />,
 			);
+			fireEvent.click(screen.getByTestId("proxy-overhead-toggle"));
 
 			const tooltip = screen.getByTitle(
 				"Time to parse and validate the incoming request body",
@@ -865,6 +875,7 @@ describe("LogDetailModal", () => {
 			renderWithProviders(
 				<LogDetailModal log={overheadLog} type="request" onClose={onClose} />,
 			);
+			fireEvent.click(screen.getByTestId("proxy-overhead-toggle"));
 
 			const tooltip = screen.getByTitle(
 				"Time to resolve the failover group to a specific model and provider",
@@ -877,6 +888,7 @@ describe("LogDetailModal", () => {
 			renderWithProviders(
 				<LogDetailModal log={overheadLog} type="request" onClose={onClose} />,
 			);
+			fireEvent.click(screen.getByTestId("proxy-overhead-toggle"));
 
 			const tooltip = screen.getByTitle(
 				"Time to look up the model configuration in the database",
@@ -889,6 +901,7 @@ describe("LogDetailModal", () => {
 			renderWithProviders(
 				<LogDetailModal log={overheadLog} type="request" onClose={onClose} />,
 			);
+			fireEvent.click(screen.getByTestId("proxy-overhead-toggle"));
 
 			const tooltip = screen.getByTitle(
 				"Time to look up the provider details in the database",
@@ -901,6 +914,7 @@ describe("LogDetailModal", () => {
 			renderWithProviders(
 				<LogDetailModal log={overheadLog} type="request" onClose={onClose} />,
 			);
+			fireEvent.click(screen.getByTestId("proxy-overhead-toggle"));
 
 			const tooltip = screen.getByTitle("Time to decrypt the provider API key");
 			expect(tooltip).toBeInTheDocument();
@@ -911,6 +925,7 @@ describe("LogDetailModal", () => {
 			renderWithProviders(
 				<LogDetailModal log={overheadLog} type="request" onClose={onClose} />,
 			);
+			fireEvent.click(screen.getByTestId("proxy-overhead-toggle"));
 
 			const tooltip = screen.getByTitle(
 				"Time to establish the TCP connection to the upstream provider",
@@ -923,6 +938,7 @@ describe("LogDetailModal", () => {
 			renderWithProviders(
 				<LogDetailModal log={overheadLog} type="request" onClose={onClose} />,
 			);
+			fireEvent.click(screen.getByTestId("proxy-overhead-toggle"));
 
 			// Translated: "Time to read settings from the database" (without "proxy")
 			const tooltip = screen.getByTitle(
@@ -936,6 +952,7 @@ describe("LogDetailModal", () => {
 			renderWithProviders(
 				<LogDetailModal log={overheadLog} type="request" onClose={onClose} />,
 			);
+			fireEvent.click(screen.getByTestId("proxy-overhead-toggle"));
 
 			// Find the Total Overhead label
 			const totalLabel = screen.getByText("Total Overhead");
@@ -1065,6 +1082,7 @@ describe("LogDetailModal", () => {
 			renderWithProviders(
 				<LogDetailModal log={dialReusedLog} type="request" onClose={onClose} />,
 			);
+			fireEvent.click(screen.getByTestId("proxy-overhead-toggle"));
 
 			expect(screen.getByText("Dial (DNS+TCP)")).toBeInTheDocument();
 			expect(screen.getByText("reused")).toBeInTheDocument();
@@ -1095,6 +1113,7 @@ describe("LogDetailModal", () => {
 					onClose={onClose}
 				/>,
 			);
+			fireEvent.click(screen.getByTestId("proxy-overhead-toggle"));
 
 			// Total = 5 (parse) + 0 (others) = 5 → shown as accent-colored value
 			const totalLabel = screen.getByText("Total Overhead");
@@ -1120,6 +1139,7 @@ describe("LogDetailModal", () => {
 			renderWithProviders(
 				<LogDetailModal log={nullFieldsLog} type="request" onClose={onClose} />,
 			);
+			fireEvent.click(screen.getByTestId("proxy-overhead-toggle"));
 
 			expect(screen.getByText("Proxy Overhead Breakdown")).toBeInTheDocument();
 			const totalLabel = screen.getByText("Total Overhead");

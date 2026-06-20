@@ -193,6 +193,29 @@ describe("VirtualLogTable", () => {
 			expect(screen.getByText("500")).toBeInTheDocument();
 		});
 
+		it("shows a live ticking duration for in-progress rows instead of a dash", () => {
+			const now = new Date("2026-05-23T10:00:05.000Z").getTime();
+			const entries = [
+				createLogEntry({
+					id: "live-1",
+					state: "streaming",
+					duration_ms: 0,
+					created_at: "2026-05-23T10:00:02.000Z", // 3s before now
+				}),
+			];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: "live-1", start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			renderWithProviders(
+				<VirtualLogTable {...defaultProps} entries={entries} nowMs={now} />,
+			);
+
+			// 3s elapsed since created_at → live "3.0s", not the "-" placeholder.
+			expect(screen.getByText("3.0s")).toBeInTheDocument();
+		});
+
 		it("calls onRowClick with correct entry when row is clicked", async () => {
 			const onRowClick = vi.fn();
 			const entries = [createLogEntry({ id: "log-123" })];

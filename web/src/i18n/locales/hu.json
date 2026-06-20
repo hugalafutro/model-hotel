@@ -806,7 +806,12 @@
 			},
 			"unset": "—",
 			"updated": "Frissített metaadatok",
-			"unchanged": "Változatlan"
+			"unchanged": "Változatlan",
+			"retest": "Újratesztelés",
+			"retesting": "Újratesztelés…",
+			"retestTooltip": "Futtassa újra a felfedezést ehhez a szolgáltatóhoz a letiltott modellek újbóli ellenőrzéséhez.",
+			"retestDone": "{{provider}} újratesztelve",
+			"toggleSection": "{{provider}} szakasz be- és kikapcsolása"
 		}
 	},
 	"models": {
@@ -1861,7 +1866,8 @@
 			"verifying": "Ellenőrzés folyamatban...",
 			"downloadCodes": "Letöltés .txt-ként",
 			"downloadCodesAriaLabel": "Helyreállítási kódok letöltése szövegfájlként",
-			"failedToStart": "Nem sikerült elindítani a regisztrációt: {{message}}"
+			"failedToStart": "Nem sikerült elindítani a regisztrációt: {{message}}",
+			"enabledOn": "Engedélyezve: {{date}}"
 		}
 	},
 	"components": {
@@ -2298,7 +2304,8 @@
 			"reused": "újrahasznosított",
 			"totalOverhead": "Teljes általános költség",
 			"error": "Hiba",
-			"copyErrorMessage": "Hibaüzenet másolása"
+			"copyErrorMessage": "Hibaüzenet másolása",
+			"expandForBreakdown": "Bontsa ki a lépésenkénti bontáshoz"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",
