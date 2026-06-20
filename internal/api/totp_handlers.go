@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -28,6 +29,11 @@ type TotpHandler struct {
 	totpEnabled        func() bool           // shared cached state (Handler.TotpEnabled)
 	refreshTotpEnabled func(context.Context) // refresh cache after mutations (Handler.RefreshTotpEnabled)
 	loginThrottle      *totp.Throttle        // per-IP exponential backoff on failed /totp/login
+	// confirmed_at cache for /totp/status. The stamp is set once at enrollment
+	// and never changes until disable/re-enroll, so a polled status endpoint can
+	// serve it from memory instead of reading the DB on every call. Populated
+	// lazily on the first enabled read; cleared on enable and disable.
+	enabledAtCache atomic.Pointer[time.Time]
 }
 
 // NewTotpHandler constructs a TotpHandler wired to the shared TOTP-enabled cache.
@@ -104,17 +110,35 @@ type statusResponse struct {
 
 // Status reports the TOTP-enabled state. The enabled flag comes from the shared
 // cached value so the login UI's view matches what AuthMiddleware enforces; when
-// enabled it also surfaces confirmed_at (one indexed single-row read) so the
-// settings panel can show when 2FA was turned on.
+// enabled it also surfaces confirmed_at (served from the in-memory cache, so a
+// polled status endpoint stays DB-free on the hot path) for the settings panel.
 func (h *TotpHandler) Status(w http.ResponseWriter, r *http.Request) {
 	enabled := h.totpEnabled != nil && h.totpEnabled()
 	resp := statusResponse{Enabled: enabled}
-	if enabled && h.totpRepo != nil {
-		if at, ok, err := h.totpRepo.EnabledAt(r.Context()); err == nil && ok {
-			resp.EnabledAt = at.UTC().Format(time.RFC3339)
-		}
+	if enabled {
+		resp.EnabledAt = h.cachedEnabledAt(r.Context())
 	}
 	writeJSON(w, resp)
+}
+
+// cachedEnabledAt returns the RFC3339 confirmation time, reading the DB at most
+// once per enable: the value never changes while TOTP stays enabled, so it is
+// memoized and cleared on enable/disable. Returns "" when unknown (no repo, or a
+// transient read error), in which case the field is omitted and the next call
+// retries rather than caching the miss.
+func (h *TotpHandler) cachedEnabledAt(ctx context.Context) string {
+	if cached := h.enabledAtCache.Load(); cached != nil {
+		return cached.UTC().Format(time.RFC3339)
+	}
+	if h.totpRepo == nil {
+		return ""
+	}
+	at, ok, err := h.totpRepo.EnabledAt(ctx)
+	if err != nil || !ok {
+		return ""
+	}
+	h.enabledAtCache.Store(&at)
+	return at.UTC().Format(time.RFC3339)
 }
 
 // EnrollStart generates a new TOTP secret and returns the otpauth URI + secret.
@@ -169,6 +193,9 @@ func (h *TotpHandler) EnrollVerify(w http.ResponseWriter, r *http.Request) {
 	// Refresh cache AFTER Enable so the hot path starts rejecting raw admin
 	// tokens immediately.
 	h.refreshTotpEnabled(r.Context())
+	// Drop the stale confirmed_at so the next status read picks up this
+	// enrollment's fresh stamp.
+	h.enabledAtCache.Store(nil)
 	// Mint a session token so the admin who just enabled 2FA stays logged in.
 	// Enabling invalidates the raw admin token their browser was using, so
 	// without this the dashboard's next calls 401 and it looks like the app
@@ -210,6 +237,8 @@ func (h *TotpHandler) Disable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.refreshTotpEnabled(r.Context())
+	// Clear the cached stamp so a later re-enrollment doesn't serve this one.
+	h.enabledAtCache.Store(nil)
 	writeJSON(w, map[string]bool{"disabled": true})
 }
 

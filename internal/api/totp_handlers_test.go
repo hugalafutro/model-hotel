@@ -181,6 +181,49 @@ func TestTotpStatus_Enabled(t *testing.T) {
 	}
 }
 
+// TestTotpStatus_EnabledAtCached checks that a second status poll serves the
+// same confirmed_at as the first, exercising both the cache-populate and the
+// cache-hit branches of cachedEnabledAt so the per-poll DB read stays memoized.
+func TestTotpStatus_EnabledAtCached(t *testing.T) {
+	h, th := newTotpTestHandler(t)
+	enrollAndEnable(t, th.totpRepo)
+	h.RefreshTotpEnabled(context.Background())
+
+	r := serveTotpRouter(th)
+	read := func() string {
+		req := httptest.NewRequest(http.MethodGet, "/totp/status", http.NoBody)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+		}
+		var resp struct {
+			Enabled   bool   `json:"enabled"`
+			EnabledAt string `json:"enabled_at"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		if !resp.Enabled || resp.EnabledAt == "" {
+			t.Fatalf("expected enabled with enabled_at, got %+v", resp)
+		}
+		return resp.EnabledAt
+	}
+
+	// Before any read the cache is cold.
+	if th.enabledAtCache.Load() != nil {
+		t.Fatal("expected enabledAtCache to start empty")
+	}
+	first := read()
+	// First read populated the cache; a second poll must serve the same stamp.
+	if th.enabledAtCache.Load() == nil {
+		t.Error("expected enabledAtCache to be populated after a status read")
+	}
+	if second := read(); second != first {
+		t.Errorf("cached enabled_at drifted: first %q, second %q", first, second)
+	}
+}
+
 // --- EnrollStart tests ---
 
 func TestTotpEnrollStart_AdminAuth(t *testing.T) {
