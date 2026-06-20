@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import type { FailoverGroup } from "../../api/types";
 import { FuseOutline } from "../../components/FuseOutline";
 import { Toggle } from "../../components/Toggle";
+import { naReasonKey } from "../../utils/failoverEntry";
 
 export interface SortableEntryProps {
 	entry: FailoverGroup["entries"][0];
@@ -49,6 +50,12 @@ export function SortableEntry({
 	// booleans) so missing/partial data never mislabels an entry as dead.
 	const effectivelyDisabled =
 		entry.model_enabled === false || entry.provider_enabled === false;
+
+	// Why the member is N/A, shown on the badge and the locked toggle. The
+	// operator wants the cause (provider off / disabled by hand / dropped by
+	// discovery), not a restatement that it is unavailable.
+	const naReason = naReasonKey(entry);
+	const naReasonText = naReason ? t(naReason) : undefined;
 
 	// Determine if fuse should show (circuit breaker open/half-open).
 	// We trust the circuit breaker's own state — the backend already enforces
@@ -139,11 +146,7 @@ export function SortableEntry({
 					<span
 						className="ui-badge ui-badge-warning shrink-0 cursor-help"
 						data-testid="failover-entry-effective-disabled"
-						title={
-							entry.provider_enabled
-								? t("failoverGroups.entry.modelDisabledHelp")
-								: t("failoverGroups.entry.providerDisabledHelp")
-						}
+						title={naReasonText}
 					>
 						{t("failoverGroups.entry.naBadge")}
 					</span>
@@ -158,13 +161,7 @@ export function SortableEntry({
 				checked={entry.enabled && !effectivelyDisabled}
 				disabled={!groupEnabled || effectivelyDisabled}
 				onChange={(v) => onToggle(entry.model_uuid, v)}
-				title={
-					effectivelyDisabled
-						? entry.provider_enabled
-							? t("failoverGroups.entry.modelDisabledHelp")
-							: t("failoverGroups.entry.providerDisabledHelp")
-						: undefined
-				}
+				title={effectivelyDisabled ? naReasonText : undefined}
 				ariaLabel={
 					effectivelyDisabled
 						? entry.provider_enabled

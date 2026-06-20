@@ -960,7 +960,6 @@
 		"toast_delete_success": "Grupo excluído",
 		"toast_delete_failed": "Falha ao excluir: {{message}}",
 		"toast_bulk_delete_warning": "{{succeeded}} de grupos {{total}} excluídos ({{failed}} falhou)",
-		"toast_entry_min_one": "Pelo menos um provedor deve permanecer ativo",
 		"toast_min_entries": "Pelo menos 2 entradas são necessárias",
 		"toast_display_model_required": "Nome do modelo de exibição é obrigatório",
 		"badge_enabled_one": "{{count}} habilitado",
@@ -993,7 +992,8 @@
 		"provider_modal_description": "Desabilitar um provedor desativará todos os seus modelos em cada grupo de falhas",
 		"toast_provider_toggle_no_groups": "Nenhum grupo de falha usa o provedor {{provider}}",
 		"last_sync_label": "Última sincronização:",
-		"toast_sync_disabled": "hotel/{{group}} desativado: {{count}} membro(s) roteável(is) restante(s)"
+		"toast_sync_disabled": "hotel/{{group}} desativado: {{count}} membro(s) roteável(is) restante(s)",
+		"toast_entry_min_two": "Pelo menos 2 membros têm de permanecer ativos."
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Alterações Não Salvas"
@@ -2464,11 +2464,18 @@
 			"modelDisabled": "Desativado",
 			"providerDisabled": "Provedor desativado",
 			"naBadge": "N/A",
-			"modelDisabledHelp": "O modelo está desativado e não pode ser usado. O grupo permanece desligado até ter 2+ membros ativos.",
-			"providerDisabledHelp": "O provedor está desativado, então este modelo não pode ser usado. O grupo permanece desligado até ter 2+ membros ativos."
-		},
-		"modal": {
-			"unavailable": "indisponível"
+			"reasonProviderOff": "Desativado: o seu fornecedor está desligado.",
+			"reasonManuallyDisabled": "Desativado manualmente.",
+			"reasonRemovedByDiscovery": "O fornecedor já não o oferece; removido na última descoberta.",
+			"retryNa": "Tentar N/A de novo",
+			"retryNaRunning": "A tentar de novo...",
+			"retryNaHelp": "Verifica de novo os membros indisponíveis e reativa os que responderem.",
+			"retryNaProviderOff": "Reative o fornecedor na página de Fornecedores para recuperar estes membros.",
+			"deleteNa": "Eliminar N/A",
+			"deleteNaHelp": "Remove os membros indisponíveis deste grupo.",
+			"deleteNaConfirmTitle": "Eliminar este grupo?",
+			"deleteNaConfirmMessage": "Remover os membros indisponíveis deixaria menos de 2 membros encaminháveis, por isso todo o grupo será eliminado.",
+			"deleteNaConfirmLabel": "Eliminar grupo"
 		}
 	},
 	"virtualKeys": {

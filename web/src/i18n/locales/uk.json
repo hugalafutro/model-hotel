@@ -960,7 +960,6 @@
 		"toast_delete_success": "Група видалена",
 		"toast_delete_failed": "Не вдалося видалити: {{message}}",
 		"toast_bulk_delete_warning": "Видалено {{succeeded}} з груп {{total}} ({{failed}} не вдалося)",
-		"toast_entry_min_one": "Принаймні один постачальник повинен залишатися активним",
 		"toast_min_entries": "Не менше 2 записів",
 		"toast_display_model_required": "Необхідно вказати назву моделі",
 		"badge_enabled_one": "{{count}} увімкнено",
@@ -993,7 +992,8 @@
 		"provider_modal_description": "Вимкнення постачальника вимкне всі її моделі у кожній її групі з відмовою",
 		"toast_provider_toggle_no_groups": "Немає групи відмови використовувати провайдера {{provider}}",
 		"last_sync_label": "Остання синхронізація:",
-		"toast_sync_disabled": "hotel/{{group}} вимкнено: залишилося {{count}} маршрутизованих учасників"
+		"toast_sync_disabled": "hotel/{{group}} вимкнено: залишилося {{count}} маршрутизованих учасників",
+		"toast_entry_min_two": "Щонайменше 2 учасники мають залишатися активними."
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Незбережені зміни"
@@ -2464,11 +2464,18 @@
 			"modelDisabled": "Вимкнено",
 			"providerDisabled": "Провайдер вимкнено",
 			"naBadge": "N/A",
-			"modelDisabledHelp": "Модель вимкнена й не може бути використана. Група лишається вимкненою, доки не матиме 2+ активних учасників.",
-			"providerDisabledHelp": "Постачальник вимкнений, тому цю модель не можна використати. Група лишається вимкненою, доки не матиме 2+ активних учасників."
-		},
-		"modal": {
-			"unavailable": "недоступно"
+			"reasonProviderOff": "Вимкнено: його провайдера вимкнено.",
+			"reasonManuallyDisabled": "Вимкнено вручну.",
+			"reasonRemovedByDiscovery": "Провайдер більше не пропонує його; вилучено під час останнього виявлення.",
+			"retryNa": "Повторити N/A",
+			"retryNaRunning": "Повторення...",
+			"retryNaHelp": "Повторно перевіряє недоступних учасників і знову вмикає тих, хто відповідає.",
+			"retryNaProviderOff": "Знову ввімкніть провайдера на сторінці «Провайдери», щоб відновити цих учасників.",
+			"deleteNa": "Видалити N/A",
+			"deleteNaHelp": "Вилучає недоступних учасників із цієї групи.",
+			"deleteNaConfirmTitle": "Видалити цю групу?",
+			"deleteNaConfirmMessage": "Вилучення недоступних учасників залишить менше ніж 2 маршрутизованих учасників, тож усю групу буде видалено.",
+			"deleteNaConfirmLabel": "Видалити групу"
 		}
 	},
 	"virtualKeys": {

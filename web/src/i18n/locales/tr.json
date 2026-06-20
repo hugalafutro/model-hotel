@@ -960,7 +960,6 @@
 		"toast_delete_success": "Grup silindi",
 		"toast_delete_failed": "Silme işlemi başarısız: {{message}}",
 		"toast_bulk_delete_warning": "{{succeeded}} grubu, {{total}} grubundan silindi ({{failed}} işlemi başarısız oldu)",
-		"toast_entry_min_one": "En az bir sağlayıcı aktif durumda olmalıdır",
 		"toast_min_entries": "En az 2 giriş gereklidir",
 		"toast_display_model_required": "Model adının girilmesi zorunludur",
 		"badge_enabled_one": "{{count}} etkinleştirildi",
@@ -993,7 +992,8 @@
 		"provider_modal_description": "Bir sağlayıcının devre dışı bırakılması, tüm yedekleme gruplarındaki tüm modellerini devre dışı bırakır",
 		"toast_provider_toggle_no_groups": "Hiçbir yük devretme grubu bu sağlayıcıyı kullanmıyor {{provider}}",
 		"last_sync_label": "Son senkronizasyon:",
-		"toast_sync_disabled": "otel/{{group}} devre dışı: {{count}} yönlendirilebilir üye kaldı"
+		"toast_sync_disabled": "otel/{{group}} devre dışı: {{count}} yönlendirilebilir üye kaldı",
+		"toast_entry_min_two": "En az 2 üye etkin kalmalıdır."
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Kaydedilmemiş Değişiklikler"
@@ -2464,11 +2464,18 @@
 			"modelDisabled": "Devre dışı",
 			"providerDisabled": "Sağlayıcı devre dışı",
 			"naBadge": "N/A",
-			"modelDisabledHelp": "Model devre dışı olduğu için kullanılamıyor. Grup, 2+ etkin üyesi olana kadar kapalı kalır.",
-			"providerDisabledHelp": "Sağlayıcı devre dışı olduğu için bu model kullanılamıyor. Grup, 2+ etkin üyesi olana kadar kapalı kalır."
-		},
-		"modal": {
-			"unavailable": "kullanılamıyor"
+			"reasonProviderOff": "Devre dışı: sağlayıcısı kapalı.",
+			"reasonManuallyDisabled": "Elle devre dışı bırakıldı.",
+			"reasonRemovedByDiscovery": "Sağlayıcı artık sunmuyor; son keşifte kaldırıldı.",
+			"retryNa": "N/A yeniden dene",
+			"retryNaRunning": "Yeniden deneniyor...",
+			"retryNaHelp": "Kullanılamayan üyeleri yeniden denetler ve yanıt verenleri yeniden etkinleştirir.",
+			"retryNaProviderOff": "Bu üyeleri kurtarmak için Sağlayıcılar sayfasından sağlayıcıyı yeniden etkinleştirin.",
+			"deleteNa": "N/A sil",
+			"deleteNaHelp": "Kullanılamayan üyeleri bu gruptan kaldırır.",
+			"deleteNaConfirmTitle": "Bu grup silinsin mi?",
+			"deleteNaConfirmMessage": "Kullanılamayan üyeleri kaldırmak, 2'den az yönlendirilebilir üye bırakacağından grubun tamamı silinecek.",
+			"deleteNaConfirmLabel": "Grubu sil"
 		}
 	},
 	"virtualKeys": {

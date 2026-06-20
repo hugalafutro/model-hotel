@@ -960,7 +960,6 @@
 		"toast_delete_success": "Groep verwijderd",
 		"toast_delete_failed": "Verwijderen mislukt: {{message}}",
 		"toast_bulk_delete_warning": "{{succeeded}} van {{total}} groepen verwijderd ({{failed}} mislukt)",
-		"toast_entry_min_one": "Ten minste één aanbieder moet actief blijven",
 		"toast_min_entries": "Ten minste 2 invoergegevens zijn vereist",
 		"toast_display_model_required": "Weergavenaam model is vereist",
 		"badge_enabled_one": "{{count}} ingeschakeld",
@@ -993,7 +992,8 @@
 		"provider_modal_description": "Het uitschakelen van een provider zal al zijn modellen in elke mislukte groep uitschakelen",
 		"toast_provider_toggle_no_groups": "Geen failover groepen gebruiken provider {{provider}}",
 		"last_sync_label": "Laatste synchronisatie:",
-		"toast_sync_disabled": "hotel/{{group}} uitgeschakeld: {{count}} routeerbaar lid/leden over"
+		"toast_sync_disabled": "hotel/{{group}} uitgeschakeld: {{count}} routeerbaar lid/leden over",
+		"toast_entry_min_two": "Er moeten minstens 2 leden actief blijven."
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Niet-opgeslagen wijzigingen"
@@ -2464,11 +2464,18 @@
 			"modelDisabled": "Uitgeschakeld",
 			"providerDisabled": "Provider uitgeschakeld",
 			"naBadge": "N/A",
-			"modelDisabledHelp": "Het model is uitgeschakeld en kan niet worden gebruikt. De groep blijft uit totdat deze 2+ actieve leden heeft.",
-			"providerDisabledHelp": "De provider is uitgeschakeld, dus dit model kan niet worden gebruikt. De groep blijft uit totdat deze 2+ actieve leden heeft."
-		},
-		"modal": {
-			"unavailable": "niet beschikbaar"
+			"reasonProviderOff": "Uitgeschakeld: de provider staat uit.",
+			"reasonManuallyDisabled": "Handmatig uitgeschakeld.",
+			"reasonRemovedByDiscovery": "Wordt niet meer aangeboden door de provider; verwijderd bij de laatste detectie.",
+			"retryNa": "N/A opnieuw proberen",
+			"retryNaRunning": "Opnieuw proberen...",
+			"retryNaHelp": "Controleer niet-beschikbare leden opnieuw en schakel de leden die reageren weer in.",
+			"retryNaProviderOff": "Schakel de provider weer in op de pagina Providers om deze leden te herstellen.",
+			"deleteNa": "N/A verwijderen",
+			"deleteNaHelp": "Verwijdert de niet-beschikbare leden uit deze groep.",
+			"deleteNaConfirmTitle": "Deze groep verwijderen?",
+			"deleteNaConfirmMessage": "Als u de niet-beschikbare leden verwijdert, blijven er minder dan 2 routeerbare leden over, dus de hele groep wordt verwijderd.",
+			"deleteNaConfirmLabel": "Groep verwijderen"
 		}
 	},
 	"virtualKeys": {

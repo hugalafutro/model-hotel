@@ -698,6 +698,78 @@ func TestTestModel_DisabledModel(t *testing.T) {
 	}
 }
 
+// TestTestModel_DisabledModel_AllowDisabled verifies that a disabled model can
+// still be probed when the caller opts in via ?allow_disabled=true. This backs
+// the failover "Retry N/A" action, which re-checks members that went N/A.
+func TestTestModel_DisabledModel_AllowDisabled(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+
+	// Mock upstream that answers the chat-completions probe.
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/chat/completions" && r.Method == http.MethodPost {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"Hi"}}],"usage":{"prompt_tokens":5,"completion_tokens":1}}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer mockServer.Close()
+
+	providerData := fmt.Sprintf(`{"name": "test-provider-%s", "base_url": "%s", "api_key": "test-key"}`, uuid.New().String()[:8], mockServer.URL)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+	var providerResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
+		t.Fatalf("Failed to parse provider response: %v", err)
+	}
+
+	// Insert a DISABLED model.
+	modelID := uuid.New().String()
+	pool := h.Pool().Pool()
+	_, err := pool.Exec(context.Background(),
+		`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
+		modelID, providerResp.ID, "gpt-4o", "GPT-4o", false)
+	if err != nil {
+		t.Fatalf("Failed to insert model: %v", err)
+	}
+
+	// Without the opt-in it is rejected.
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/models/"+modelID+"/test", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("Expected 400 without allow_disabled, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// With ?allow_disabled=true the probe runs and succeeds.
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/models/"+modelID+"/test?allow_disabled=true", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200 with allow_disabled, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var testResp struct {
+		Success bool `json:"success"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &testResp); err != nil {
+		t.Fatalf("Failed to parse test response: %v", err)
+	}
+	if !testResp.Success {
+		t.Errorf("Expected probe to succeed, got: %s", rec.Body.String())
+	}
+}
+
 // TestTestModel_MockProviderSuccess tests that TestModel successfully processes
 // a 200 response from a mock provider.
 func TestTestModel_MockProviderSuccess(t *testing.T) {

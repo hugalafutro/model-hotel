@@ -960,7 +960,6 @@
 		"toast_delete_success": "تم حذف المجموعة",
 		"toast_delete_failed": "فشل الحذف: {{message}}",
 		"toast_bulk_delete_warning": "حذف {{succeeded}} من مجموعات {{total}} ( فشل{{failed}})",
-		"toast_entry_min_one": "مزود واحد على الأقل يجب أن يبقى نشط",
 		"toast_min_entries": "مطلوب إدخالين على الأقل",
 		"toast_display_model_required": "عرض اسم الموديل مطلوب",
 		"badge_enabled_one": "{{count}} ممكّن",
@@ -993,7 +992,8 @@
 		"provider_modal_description": "تعطيل موفر سيعطل جميع نماذجه في كل مجموعة فشل",
 		"toast_provider_toggle_no_groups": "لا يوجد فشل في المجموعات التي تستخدم موفر {{provider}}",
 		"last_sync_label": "آخر مزامنة:",
-		"toast_sync_disabled": "فندق/{{group}} معطل: {{count}} عضو قابل للتوجيه متبقٍ"
+		"toast_sync_disabled": "فندق/{{group}} معطل: {{count}} عضو قابل للتوجيه متبقٍ",
+		"toast_entry_min_two": "يجب أن يبقى عضوان على الأقل نشطين."
 	},
 	"delete_confirm": {
 		"unsaved_changes": "التغييرات غير المحفوظة"
@@ -2464,11 +2464,18 @@
 			"modelDisabled": "معطل",
 			"providerDisabled": "المزود معطل",
 			"naBadge": "N/A",
-			"modelDisabledHelp": "النموذج معطل ولا يمكن استخدامه. تبقى المجموعة متوقفة حتى يصبح لديها عضوان مباشران أو أكثر.",
-			"providerDisabledHelp": "المزود معطل، لذا لا يمكن استخدام هذا النموذج. تبقى المجموعة متوقفة حتى يصبح لديها عضوان مباشران أو أكثر."
-		},
-		"modal": {
-			"unavailable": "غير متوفر"
+			"reasonProviderOff": "معطّل: تم إيقاف مزوّده.",
+			"reasonManuallyDisabled": "معطّل يدويًا.",
+			"reasonRemovedByDiscovery": "لم يعد المزوّد يقدّمه؛ أُسقط في آخر عملية اكتشاف.",
+			"retryNa": "إعادة محاولة N/A",
+			"retryNaRunning": "جارٍ إعادة المحاولة...",
+			"retryNaHelp": "أعد فحص الأعضاء غير المتاحين وأعد تمكين كل من يستجيب.",
+			"retryNaProviderOff": "أعد تمكين المزوّد من صفحة المزوّدين لاستعادة هؤلاء الأعضاء.",
+			"deleteNa": "حذف N/A",
+			"deleteNaHelp": "أزل الأعضاء غير المتاحين من هذه المجموعة.",
+			"deleteNaConfirmTitle": "حذف هذه المجموعة؟",
+			"deleteNaConfirmMessage": "إزالة الأعضاء غير المتاحين ستترك أقل من عضوين قابلين للتوجيه، لذلك سيتم حذف المجموعة بأكملها.",
+			"deleteNaConfirmLabel": "حذف المجموعة"
 		}
 	},
 	"virtualKeys": {

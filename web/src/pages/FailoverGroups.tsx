@@ -424,9 +424,17 @@ export function FailoverGroups() {
 		uuid: string,
 		enabled: boolean,
 	) => {
-		const enabledCount = group.entries.filter((e) => e.enabled).length;
-		if (!enabled && enabledCount <= 1) {
-			toast(t("failover.toast_entry_min_one"), "error");
+		// Count *effective* members (the toggle plus a live model and provider),
+		// matching the card's "active" tally. Counting the raw enabled flag let an
+		// already-N/A member (enabled flag true, model/provider dead) pad the total,
+		// so the user could toggle the last live members off and reach a 0/X group.
+		// A group needs 2+ routable members, so block any toggle that would drop
+		// the effective count below 2.
+		const activeCount = group.entries.filter(
+			(e) => e.enabled && e.model_enabled && e.provider_enabled,
+		).length;
+		if (!enabled && activeCount <= 2) {
+			toast(t("failover.toast_entry_min_two"), "error");
 			return;
 		}
 		const entryEnabledMap: Record<string, boolean> = {};

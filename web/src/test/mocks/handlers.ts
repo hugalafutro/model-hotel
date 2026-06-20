@@ -553,6 +553,7 @@ export const handlers: RequestHandler[] = [
 					enabled: true,
 					model_enabled: true,
 					provider_enabled: true,
+					disabled_manually: false,
 					context_length: null,
 					owned_by: "unknown",
 				};

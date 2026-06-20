@@ -960,7 +960,6 @@
 		"toast_delete_success": "Grupp borttagen",
 		"toast_delete_failed": "Misslyckades att radera: {{message}}",
 		"toast_bulk_delete_warning": "Borttagna {{succeeded}} av {{total}} grupper ({{failed}} misslyckades)",
-		"toast_entry_min_one": "Minst en leverantör måste förbli aktiv",
 		"toast_min_entries": "Minst 2 poster krävs",
 		"toast_display_model_required": "Visa modellnamn krävs",
 		"badge_enabled_one": "{{count}} aktiverat",
@@ -993,7 +992,8 @@
 		"provider_modal_description": "Inaktivera en leverantör kommer att inaktivera alla dess modeller i varje felöversättningsgrupp",
 		"toast_provider_toggle_no_groups": "Inga övergångsgrupper använder leverantören {{provider}}",
 		"last_sync_label": "Senaste synkronisering:",
-		"toast_sync_disabled": "hotel/{{group}} inaktiverad: {{count}} dirigerbar(a) medlem(mar) kvar"
+		"toast_sync_disabled": "hotel/{{group}} inaktiverad: {{count}} dirigerbar(a) medlem(mar) kvar",
+		"toast_entry_min_two": "Minst 2 medlemmar måste förbli aktiva."
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Osparade ändringar"
@@ -2464,11 +2464,18 @@
 			"modelDisabled": "Inaktiverad",
 			"providerDisabled": "Leverantör inaktiverad",
 			"naBadge": "N/A",
-			"modelDisabledHelp": "Modellen är inaktiverad och kan inte användas. Gruppen förblir avstängd tills den har 2+ aktiva medlemmar.",
-			"providerDisabledHelp": "Leverantören är inaktiverad, så den här modellen kan inte användas. Gruppen förblir avstängd tills den har 2+ aktiva medlemmar."
-		},
-		"modal": {
-			"unavailable": "otillgänglig"
+			"reasonProviderOff": "Inaktiverad: dess leverantör är avstängd.",
+			"reasonManuallyDisabled": "Inaktiverad manuellt.",
+			"reasonRemovedByDiscovery": "Erbjuds inte längre av leverantören; togs bort vid den senaste identifieringen.",
+			"retryNa": "Försök N/A igen",
+			"retryNaRunning": "Försöker igen...",
+			"retryNaHelp": "Kontrollerar otillgängliga medlemmar igen och återaktiverar de som svarar.",
+			"retryNaProviderOff": "Återaktivera leverantören på sidan Leverantörer för att återställa dessa medlemmar.",
+			"deleteNa": "Ta bort N/A",
+			"deleteNaHelp": "Tar bort de otillgängliga medlemmarna från den här gruppen.",
+			"deleteNaConfirmTitle": "Ta bort den här gruppen?",
+			"deleteNaConfirmMessage": "Om du tar bort de otillgängliga medlemmarna blir det färre än 2 dirigerbara medlemmar kvar, så hela gruppen tas bort.",
+			"deleteNaConfirmLabel": "Ta bort grupp"
 		}
 	},
 	"virtualKeys": {

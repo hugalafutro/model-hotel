@@ -343,7 +343,12 @@ func (h *Handler) resolveTestModelTarget(w http.ResponseWriter, r *http.Request)
 		return nil, nil, false
 	}
 
-	if !m.Enabled {
+	// A disabled model can still be probed when the caller opts in via
+	// ?allow_disabled=true. The failover "Retry N/A" action uses this to
+	// re-check members that went N/A (disabled) and re-enable the ones that
+	// answer. The Models page test button never sets it, so its contract
+	// (only enabled models are testable) is unchanged.
+	if !m.Enabled && r.URL.Query().Get("allow_disabled") != "true" {
 		http.Error(w, "model is disabled", http.StatusBadRequest)
 		return nil, nil, false
 	}

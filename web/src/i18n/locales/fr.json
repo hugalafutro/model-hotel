@@ -960,7 +960,6 @@
 		"toast_delete_success": "Groupe supprimé",
 		"toast_delete_failed": "Échec de la suppression : {{message}}",
 		"toast_bulk_delete_warning": "Suppression de {{succeeded}} des groupes {{total}} ({{failed}} a échoué)",
-		"toast_entry_min_one": "Au moins un fournisseur doit rester actif",
 		"toast_min_entries": "Au moins 2 entrées sont requises",
 		"toast_display_model_required": "Le nom du modèle d'affichage est requis",
 		"badge_enabled_one": "{{count}} activé",
@@ -993,7 +992,8 @@
 		"provider_modal_description": "Désactiver un fournisseur désactivera tous ses modèles dans chaque groupe de basculement",
 		"toast_provider_toggle_no_groups": "Aucun groupe de basculement n'utilise le fournisseur {{provider}}",
 		"last_sync_label": "Dernière synchronisation :",
-		"toast_sync_disabled": "hôtel/{{group}} désactivé : {{count}} membre(s) routable(s) restant(s)"
+		"toast_sync_disabled": "hôtel/{{group}} désactivé : {{count}} membre(s) routable(s) restant(s)",
+		"toast_entry_min_two": "Au moins 2 membres doivent rester actifs."
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Modifications non enregistrées"
@@ -2464,11 +2464,18 @@
 			"modelDisabled": "Désactivé",
 			"providerDisabled": "Fournisseur désactivé",
 			"naBadge": "N/A",
-			"modelDisabledHelp": "Le modèle est désactivé et ne peut pas être utilisé. Le groupe reste désactivé jusqu'à ce qu'il ait 2+ membres actifs.",
-			"providerDisabledHelp": "Le fournisseur est désactivé, donc ce modèle ne peut pas être utilisé. Le groupe reste désactivé jusqu'à ce qu'il ait 2+ membres actifs."
-		},
-		"modal": {
-			"unavailable": "indisponible"
+			"reasonProviderOff": "Désactivé : son fournisseur est éteint.",
+			"reasonManuallyDisabled": "Désactivé manuellement.",
+			"reasonRemovedByDiscovery": "Le fournisseur ne le propose plus ; retiré lors de la dernière découverte.",
+			"retryNa": "Réessayer N/A",
+			"retryNaRunning": "Nouvelle tentative...",
+			"retryNaHelp": "Revérifie les membres indisponibles et réactive ceux qui répondent.",
+			"retryNaProviderOff": "Réactivez le fournisseur sur la page Fournisseurs pour récupérer ces membres.",
+			"deleteNa": "Supprimer N/A",
+			"deleteNaHelp": "Retire les membres indisponibles de ce groupe.",
+			"deleteNaConfirmTitle": "Supprimer ce groupe ?",
+			"deleteNaConfirmMessage": "Retirer les membres indisponibles laisserait moins de 2 membres routables, donc tout le groupe sera supprimé.",
+			"deleteNaConfirmLabel": "Supprimer le groupe"
 		}
 	},
 	"virtualKeys": {

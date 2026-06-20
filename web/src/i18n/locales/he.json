@@ -960,7 +960,6 @@
 		"toast_delete_success": "הקבוצה נמחקה",
 		"toast_delete_failed": "לא הצליח למחוק: {{message}}",
 		"toast_bulk_delete_warning": "נמחק {{succeeded}} מהקבוצה {{total}} ({{failed}} נכשל)",
-		"toast_entry_min_one": "לפחות ספק אחד חייב להישאר פעיל",
 		"toast_min_entries": "יש להזין לפחות 2 ערכים",
 		"toast_display_model_required": "יש להזין את שם הדגם",
 		"badge_enabled_one": "{{count}} מופעל",
@@ -993,7 +992,8 @@
 		"provider_modal_description": "השבתת ספק תשבית את כל הדגמים שלו בכל קבוצת מעבר לגיבוי",
 		"toast_provider_toggle_no_groups": "אף קבוצת מעבר לגיבוי אינה משתמשת בספק {{provider}}",
 		"last_sync_label": "הסנכרון האחרון:",
-		"toast_sync_disabled": "מלון/{{group}} מושבת: נותרו {{count}} חברים הניתנים לניתוב"
+		"toast_sync_disabled": "מלון/{{group}} מושבת: נותרו {{count}} חברים הניתנים לניתוב",
+		"toast_entry_min_two": "לפחות 2 חברים חייבים להישאר פעילים."
 	},
 	"delete_confirm": {
 		"unsaved_changes": "שינויים שלא נשמרו"
@@ -2464,11 +2464,18 @@
 			"modelDisabled": "מושבת",
 			"providerDisabled": "ספק מושבת",
 			"naBadge": "N/A",
-			"modelDisabledHelp": "המודל מושבת ולא ניתן להשתמש בו. הקבוצה נשארת כבויה עד שיהיו לה 2+ חברים פעילים.",
-			"providerDisabledHelp": "הספק מושבת, ולכן לא ניתן להשתמש במודל הזה. הקבוצה נשארת כבויה עד שיהיו לה 2+ חברים פעילים."
-		},
-		"modal": {
-			"unavailable": "לא זמין"
+			"reasonProviderOff": "מושבת: הספק שלו כבוי.",
+			"reasonManuallyDisabled": "הושבת ידנית.",
+			"reasonRemovedByDiscovery": "הספק כבר אינו מציע אותו; הוסר בגילוי האחרון.",
+			"retryNa": "נסה שוב N/A",
+			"retryNaRunning": "מנסה שוב...",
+			"retryNaHelp": "בדוק שוב חברים לא זמינים והפעל מחדש את אלה שמגיבים.",
+			"retryNaProviderOff": "הפעל מחדש את הספק בעמוד הספקים כדי לשחזר את החברים האלה.",
+			"deleteNa": "מחק N/A",
+			"deleteNaHelp": "מסיר את החברים הלא זמינים מהקבוצה הזו.",
+			"deleteNaConfirmTitle": "למחוק את הקבוצה הזו?",
+			"deleteNaConfirmMessage": "הסרת החברים הלא זמינים תשאיר פחות מ-2 חברים הניתנים לניתוב, ולכן הקבוצה כולה תימחק.",
+			"deleteNaConfirmLabel": "מחק קבוצה"
 		}
 	},
 	"virtualKeys": {

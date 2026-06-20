@@ -19,6 +19,11 @@ export interface ModelItem {
 	model_id: string;
 	display_name?: string;
 	capabilities?: string;
+	/** When true, the model is not currently routable (its model or provider is
+	 * disabled). Rendered with an N/A badge instead of a text suffix. */
+	unavailable?: boolean;
+	/** Human-readable cause for the N/A badge tooltip (e.g. "disabled by hand"). */
+	unavailableReason?: string;
 }
 
 interface SingleProps {
@@ -41,6 +46,9 @@ interface SingleProps {
 	disabled?: boolean;
 	/** Called when random button is clicked */
 	onRandom?: () => void;
+	/** Order provider groups alphabetically instead of selected-first. Used by
+	 * the failover group editor so the provider list stays stable while picking. */
+	sortProvidersAlpha?: boolean;
 }
 
 interface MultiProps {
@@ -63,6 +71,9 @@ interface MultiProps {
 	disabled?: boolean;
 	/** Called when random button is clicked */
 	onRandom?: () => void;
+	/** Order provider groups alphabetically instead of selected-first. Used by
+	 * the failover group editor so the provider list stays stable while picking. */
+	sortProvidersAlpha?: boolean;
 }
 
 type ModelPickerProps = SingleProps | MultiProps;
@@ -86,6 +97,7 @@ export function ModelPicker({
 	paramsReadonly = false,
 	disabled = false,
 	onRandom,
+	sortProvidersAlpha = false,
 }: ModelPickerProps) {
 	const { t } = useTranslation();
 	const [search, setSearch] = useState("");
@@ -186,8 +198,15 @@ export function ModelPicker({
 				groups.set(m.provider_name, [m]);
 			}
 		}
+		// Insertion order follows filteredModels (selected-first), which floats
+		// providers owning selected models to the top. The failover editor opts
+		// into a stable alphabetical order so the provider list doesn't reshuffle
+		// as members are picked.
+		if (sortProvidersAlpha) {
+			return new Map([...groups].sort(([a], [b]) => a.localeCompare(b)));
+		}
 		return groups;
-	}, [filteredModels]);
+	}, [filteredModels, sortProvidersAlpha]);
 
 	const toggleCollapse = (provider: string) => {
 		setCollapsedProviders((prev) => {
@@ -370,7 +389,11 @@ export function ModelPicker({
 															? "bg-(--accent)/15 border-(--accent)/40 text-(--accent)"
 															: "bg-(--surface-hover) border-(--border-subtle) text-(--text-secondary) hover:text-(--text-primary)"
 													}`}
-													title={`${m.provider_name}/${m.display_name || m.model_id}`}
+													title={
+														m.unavailable && m.unavailableReason
+															? m.unavailableReason
+															: `${m.provider_name}/${m.display_name || m.model_id}`
+													}
 												>
 													<button
 														type="button"
@@ -380,6 +403,11 @@ export function ModelPicker({
 													>
 														{m.display_name || m.model_id}
 													</button>
+													{m.unavailable && (
+														<span className="ui-badge ui-badge-warning shrink-0 text-[9px] leading-none px-1 py-px">
+															{t("failoverGroups.entry.naBadge")}
+														</span>
+													)}
 													{isSelected && onConfigureParams && (
 														<button
 															type="button"

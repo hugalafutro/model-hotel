@@ -392,6 +392,30 @@ describe("ModelPicker", () => {
 			const llamaChip = screen.getByText("Llama 3").closest("div");
 			expect(llamaChip).toHaveClass("bg-(--accent)/15");
 		});
+
+		it("orders provider groups alphabetically when sortProvidersAlpha is set", () => {
+			// Selecting a Meta model would normally float Meta's group to the top;
+			// the alpha override keeps Anthropic < Meta < OpenAI regardless.
+			renderWithProviders(
+				<ModelPicker
+					{...defaultProps}
+					multi={true}
+					selected={["Meta/llama-3"]}
+					sortProvidersAlpha
+				/>,
+			);
+			const anthropic = screen.getByRole("button", { name: /^Anthropic/ });
+			const meta = screen.getByRole("button", { name: /^Meta/ });
+			const openai = screen.getByRole("button", { name: /^OpenAI/ });
+			// Earlier in document order == listed first.
+			expect(
+				anthropic.compareDocumentPosition(meta) &
+					Node.DOCUMENT_POSITION_FOLLOWING,
+			).toBeTruthy();
+			expect(
+				meta.compareDocumentPosition(openai) & Node.DOCUMENT_POSITION_FOLLOWING,
+			).toBeTruthy();
+		});
 	});
 
 	describe("multi-select mode", () => {

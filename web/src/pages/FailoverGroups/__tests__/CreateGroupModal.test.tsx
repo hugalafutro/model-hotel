@@ -62,6 +62,7 @@ const mockEditGroup: FailoverGroup = {
 			enabled: true,
 			model_enabled: true,
 			provider_enabled: true,
+			disabled_manually: false,
 			context_length: 8192,
 			owned_by: "google",
 		},
@@ -74,6 +75,7 @@ const mockEditGroup: FailoverGroup = {
 			enabled: true,
 			model_enabled: true,
 			provider_enabled: true,
+			disabled_manually: false,
 			context_length: 8192,
 			owned_by: "google",
 		},
@@ -1010,6 +1012,7 @@ describe("CreateGroupModal", () => {
 						enabled: true,
 						model_enabled: true,
 						provider_enabled: true,
+						disabled_manually: false,
 						context_length: 4096,
 						owned_by: "old",
 					},
@@ -1028,15 +1031,16 @@ describe("CreateGroupModal", () => {
 			// All 3 entries should show as selected (2 from candidates + 1 unavailable)
 			expect(screen.getByText("3 selected")).toBeInTheDocument();
 
-			// The unavailable entry's pill is suffixed so it stays
-			// distinguishable from a same-named available candidate
-			expect(screen.getByText("Old Model (unavailable)")).toBeInTheDocument();
+			// The preserved entry keeps its plain label and carries an N/A badge so
+			// it stays distinguishable from a same-named available candidate.
+			expect(screen.getByText("Old Model")).toBeInTheDocument();
+			expect(screen.getByText("N/A")).toBeInTheDocument();
 		});
 
 		it("keeps same-named stale and available pills distinguishable", () => {
 			// The group references an old model whose display name collides with
 			// an available candidate (the rename scenario): only the stale one
-			// gets the unavailable suffix.
+			// gets the N/A badge.
 			const groupWithRenamedEntry: FailoverGroup = {
 				...mockEditGroup,
 				entries: [
@@ -1050,6 +1054,7 @@ describe("CreateGroupModal", () => {
 						enabled: true,
 						model_enabled: false,
 						provider_enabled: true,
+						disabled_manually: false,
 						context_length: 8192,
 						owned_by: "google",
 					},
@@ -1065,9 +1070,10 @@ describe("CreateGroupModal", () => {
 				/>,
 			);
 
-			// Available candidate keeps its plain label; stale entry is suffixed.
-			expect(screen.getByText("Gemma 3 4B")).toBeInTheDocument();
-			expect(screen.getByText("Gemma 3 4B (unavailable)")).toBeInTheDocument();
+			// Available candidate and stale entry share the label; both pills
+			// render, and the stale one is marked with an N/A badge.
+			expect(screen.getAllByText("Gemma 3 4B")).toHaveLength(2);
+			expect(screen.getByText("N/A")).toBeInTheDocument();
 		});
 
 		it("sends empty description when cleared in edit mode", async () => {
@@ -1129,6 +1135,7 @@ describe("CreateGroupModal", () => {
 						enabled: true,
 						model_enabled: true,
 						provider_enabled: true,
+						disabled_manually: false,
 						context_length: 4096,
 						owned_by: "old",
 					},
@@ -1141,6 +1148,7 @@ describe("CreateGroupModal", () => {
 						enabled: true,
 						model_enabled: true,
 						provider_enabled: true,
+						disabled_manually: false,
 						context_length: 8192,
 						owned_by: "google",
 					},
@@ -1156,11 +1164,10 @@ describe("CreateGroupModal", () => {
 				/>,
 			);
 
-			// The unavailable entry with empty display_name should show model_id
-			// (with the unavailable suffix, since it is absent from candidates)
-			expect(
-				screen.getByText("old-model-no-display (unavailable)"),
-			).toBeInTheDocument();
+			// The unavailable entry with empty display_name should fall back to its
+			// model_id, carrying an N/A badge since it is absent from candidates.
+			expect(screen.getByText("old-model-no-display")).toBeInTheDocument();
+			expect(screen.getByText("N/A")).toBeInTheDocument();
 		});
 
 		it("updates display_model when changed in edit mode", async () => {
@@ -1184,6 +1191,181 @@ describe("CreateGroupModal", () => {
 			await waitFor(() => {
 				expect(mockOnUpdated).toHaveBeenCalled();
 			});
+		});
+	});
+
+	describe("N/A members (Retry / Delete)", () => {
+		// A member whose model was auto-disabled but whose provider is still live,
+		// so it can be re-probed by Retry N/A.
+		const naMember = {
+			model_uuid: "uuid-na",
+			model_id: "old-model",
+			provider_id: "provider-009",
+			provider_name: "Old Provider",
+			display_name: "Old Model",
+			enabled: true,
+			model_enabled: false,
+			provider_enabled: true,
+			disabled_manually: false,
+			context_length: 8192,
+			owned_by: "x",
+		};
+		// mockEditGroup has 2 healthy members; adding the N/A member makes 3.
+		const groupWithNa: FailoverGroup = {
+			...mockEditGroup,
+			entries: [...mockEditGroup.entries, naMember],
+		};
+		// One healthy + one N/A: dropping the N/A leaves a single member, below
+		// the 2-member floor, so Delete N/A must offer to delete the whole group.
+		const groupOneHealthyPlusNa: FailoverGroup = {
+			...mockEditGroup,
+			entries: [mockEditGroup.entries[0], naMember],
+		};
+
+		it("hides the N/A actions in create mode and for groups without N/A members", () => {
+			const { unmount } = renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					onClose={mockOnClose}
+					onCreated={mockOnCreated}
+				/>,
+			);
+			expect(
+				screen.queryByRole("button", { name: "Retry N/A" }),
+			).not.toBeInTheDocument();
+			expect(
+				screen.queryByRole("button", { name: "Delete N/A" }),
+			).not.toBeInTheDocument();
+			unmount();
+
+			renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					group={mockEditGroup}
+					onClose={mockOnClose}
+					onUpdated={mockOnUpdated}
+				/>,
+			);
+			expect(
+				screen.queryByRole("button", { name: "Retry N/A" }),
+			).not.toBeInTheDocument();
+		});
+
+		it("shows the N/A actions when editing a group with an N/A member", () => {
+			renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					group={groupWithNa}
+					onClose={mockOnClose}
+					onUpdated={mockOnUpdated}
+				/>,
+			);
+			expect(
+				screen.getByRole("button", { name: "Retry N/A" }),
+			).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: "Delete N/A" }),
+			).toBeInTheDocument();
+		});
+
+		it("Retry N/A probes the member, re-enables it, and shows the diff modal", async () => {
+			let tested: string | null = null;
+			let patched: string | null = null;
+			server.use(
+				http.post("/api/models/:id/test", ({ params }) => {
+					tested = params.id as string;
+					return HttpResponse.json({
+						success: true,
+						streaming: false,
+						ttft_ms: 1,
+						duration_ms: 1,
+						response: "hi",
+					});
+				}),
+				http.patch("/api/models/:id", ({ params }) => {
+					patched = params.id as string;
+					return HttpResponse.json({});
+				}),
+			);
+
+			const { user } = renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					group={groupWithNa}
+					onClose={mockOnClose}
+					onUpdated={mockOnUpdated}
+				/>,
+			);
+
+			await user.click(screen.getByRole("button", { name: "Retry N/A" }));
+
+			await waitFor(() => {
+				expect(screen.getByText("Discovery summary")).toBeInTheDocument();
+			});
+			// The healed member is listed under Re-enabled.
+			expect(screen.getByText("Re-enabled")).toBeInTheDocument();
+			expect(tested).toBe("uuid-na");
+			expect(patched).toBe("uuid-na");
+		});
+
+		it("Delete N/A drops the member when 2+ would remain", async () => {
+			let putBody: { priority_order?: string[] } | null = null;
+			server.use(
+				http.put("/api/failover-groups/:id", async ({ request }) => {
+					putBody = (await request.json()) as { priority_order?: string[] };
+					return HttpResponse.json({});
+				}),
+			);
+
+			const { user } = renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					group={groupWithNa}
+					onClose={mockOnClose}
+					onUpdated={mockOnUpdated}
+				/>,
+			);
+
+			await user.click(screen.getByRole("button", { name: "Delete N/A" }));
+
+			await waitFor(() => {
+				expect(mockOnUpdated).toHaveBeenCalled();
+			});
+			// The two healthy members are kept; the N/A member is gone.
+			const body = putBody as { priority_order?: string[] } | null;
+			expect(body?.priority_order).toEqual(["uuid-1", "uuid-2"]);
+		});
+
+		it("Delete N/A confirms group deletion when fewer than 2 would remain", async () => {
+			let deletedId: string | null = null;
+			server.use(
+				http.delete("/api/failover-groups/:id", ({ params }) => {
+					deletedId = params.id as string;
+					return HttpResponse.json({});
+				}),
+			);
+
+			const { user } = renderWithProviders(
+				<CreateGroupModal
+					candidates={mockCandidates}
+					group={groupOneHealthyPlusNa}
+					onClose={mockOnClose}
+					onUpdated={mockOnUpdated}
+				/>,
+			);
+
+			await user.click(screen.getByRole("button", { name: "Delete N/A" }));
+
+			// A confirm dialog warns the whole group will be deleted.
+			await waitFor(() => {
+				expect(screen.getByText("Delete this group?")).toBeInTheDocument();
+			});
+			await user.click(screen.getByRole("button", { name: "Delete group" }));
+
+			await waitFor(() => {
+				expect(deletedId).toBe("fg-001");
+			});
+			expect(mockOnUpdated).toHaveBeenCalled();
 		});
 	});
 

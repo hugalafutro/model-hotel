@@ -111,6 +111,8 @@ describe("FailoverGroups", () => {
 
 	describe("Toggle Entry", () => {
 		it("Toggling entry enabled calls update mutation", async () => {
+			// Three active members, so toggling one off still leaves the 2-member
+			// floor satisfied and the update is allowed through.
 			const groupWithEntries = {
 				...mockFailoverGroup,
 				entries: [
@@ -118,13 +120,25 @@ describe("FailoverGroups", () => {
 						provider_name: "OpenAI",
 						model_id: "gpt-4",
 						enabled: true,
+						model_enabled: true,
+						provider_enabled: true,
 						model_uuid: "uuid-1",
 					},
 					{
 						provider_name: "Anthropic",
 						model_id: "claude-3",
 						enabled: true,
+						model_enabled: true,
+						provider_enabled: true,
 						model_uuid: "uuid-2",
+					},
+					{
+						provider_name: "Mistral",
+						model_id: "mistral-large",
+						enabled: true,
+						model_enabled: true,
+						provider_enabled: true,
+						model_uuid: "uuid-3",
 					},
 				],
 			};
@@ -174,15 +188,27 @@ describe("FailoverGroups", () => {
 			});
 		});
 
-		it("Toggling last enabled entry shows error toast", async () => {
-			const groupWithOneEntry = {
+		it("Toggling an entry that would drop the group below 2 active shows error toast", async () => {
+			// Exactly two active members: turning either off would leave one, below
+			// the 2-member floor a failover group needs, so the toggle is rejected.
+			const groupAtFloor = {
 				...mockFailoverGroup,
 				entries: [
 					{
 						provider_name: "OpenAI",
 						model_id: "gpt-4",
 						enabled: true,
-						model_uuid: "uuid-only",
+						model_enabled: true,
+						provider_enabled: true,
+						model_uuid: "uuid-1",
+					},
+					{
+						provider_name: "Anthropic",
+						model_id: "claude-3",
+						enabled: true,
+						model_enabled: true,
+						provider_enabled: true,
+						model_uuid: "uuid-2",
 					},
 				],
 			};
@@ -192,7 +218,7 @@ describe("FailoverGroups", () => {
 			server.use(
 				http.get("/api/failover-groups", () =>
 					HttpResponse.json({
-						groups: [groupWithOneEntry],
+						groups: [groupAtFloor],
 						last_synced_at: null,
 					}),
 				),
@@ -220,7 +246,7 @@ describe("FailoverGroups", () => {
 			// Should show error toast
 			await waitFor(() => {
 				expect(
-					screen.getByText("At least one provider must remain active"),
+					screen.getByText("At least 2 members must stay active."),
 				).toBeInTheDocument();
 			});
 

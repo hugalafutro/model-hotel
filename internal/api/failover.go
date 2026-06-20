@@ -72,8 +72,12 @@ type FailoverEntryResponse struct {
 	Enabled         bool   `json:"enabled"`
 	ModelEnabled    bool   `json:"model_enabled"`
 	ProviderEnabled bool   `json:"provider_enabled"`
-	ContextLength   *int   `json:"context_length"`
-	OwnedBy         string `json:"owned_by"`
+	// DisabledManually distinguishes a user-disabled model from one auto-disabled
+	// by discovery (model no longer offered by the provider), so the UI can tell
+	// the operator *why* a member shows N/A instead of just that it is.
+	DisabledManually bool   `json:"disabled_manually"`
+	ContextLength    *int   `json:"context_length"`
+	OwnedBy          string `json:"owned_by"`
 }
 
 // FailoverGroupResponse represents a failover group in API responses.
@@ -722,16 +726,17 @@ func (h *FailoverHandler) buildGroupResponse(ctx context.Context, g *failover.Fa
 		}
 
 		entries = append(entries, FailoverEntryResponse{
-			ModelUUID:       modelUUID.String(),
-			ModelID:         m.ModelID,
-			ProviderID:      m.ProviderID.String(),
-			ProviderName:    m.ProviderName,
-			DisplayName:     m.DisplayName,
-			Enabled:         enabled,
-			ModelEnabled:    m.Enabled,
-			ProviderEnabled: m.ProviderEnabled,
-			ContextLength:   m.ContextLength,
-			OwnedBy:         m.OwnedBy,
+			ModelUUID:        modelUUID.String(),
+			ModelID:          m.ModelID,
+			ProviderID:       m.ProviderID.String(),
+			ProviderName:     m.ProviderName,
+			DisplayName:      m.DisplayName,
+			Enabled:          enabled,
+			ModelEnabled:     m.Enabled,
+			ProviderEnabled:  m.ProviderEnabled,
+			DisabledManually: m.DisabledManually,
+			ContextLength:    m.ContextLength,
+			OwnedBy:          m.OwnedBy,
 		})
 	}
 
