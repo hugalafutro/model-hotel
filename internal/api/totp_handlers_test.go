@@ -224,6 +224,28 @@ func TestTotpStatus_EnabledAtCached(t *testing.T) {
 	}
 }
 
+// TestTotpCachedEnabledAt_ReturnsEmptyWhenUnknown covers the two "unknown"
+// branches of cachedEnabledAt: no repository wired, and a repository that reports
+// TOTP as not enabled. Both must return "" without caching, so the field is
+// omitted and a later call retries.
+func TestTotpCachedEnabledAt_ReturnsEmptyWhenUnknown(t *testing.T) {
+	// No repository: returns empty without touching the DB or panicking.
+	bare := &TotpHandler{}
+	if got := bare.cachedEnabledAt(context.Background()); got != "" {
+		t.Errorf("expected empty for nil repo, got %q", got)
+	}
+
+	// Repo present but TOTP not enabled: EnabledAt reports ok=false, so the
+	// helper returns empty and caches nothing (next call retries).
+	_, th := newTotpTestHandler(t)
+	if got := th.cachedEnabledAt(context.Background()); got != "" {
+		t.Errorf("expected empty when not enabled, got %q", got)
+	}
+	if th.enabledAtCache.Load() != nil {
+		t.Error("expected no cache entry after an unknown read")
+	}
+}
+
 // --- EnrollStart tests ---
 
 func TestTotpEnrollStart_AdminAuth(t *testing.T) {
