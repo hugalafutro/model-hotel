@@ -811,7 +811,9 @@
 			"retesting": "جارٍ إعادة الاختبار…",
 			"retestTooltip": "أعد تشغيل الاكتشاف لهذا المزوّد لإعادة فحص النماذج التي تم تعطيلها.",
 			"retestDone": "تمت إعادة اختبار {{provider}}",
-			"toggleSection": "تبديل قسم {{provider}}"
+			"toggleSection": "تبديل قسم {{provider}}",
+			"failoverDisabled": "تم تعطيل مجموعات التحويل التلقائي",
+			"failoverDisabledReason": "{{count}} عضو قابل للتوجيه متبقٍ، يلزم 2+"
 		}
 	},
 	"models": {
@@ -990,7 +992,8 @@
 		"provider_modal_title": "إدارة حالة المزود",
 		"provider_modal_description": "تعطيل موفر سيعطل جميع نماذجه في كل مجموعة فشل",
 		"toast_provider_toggle_no_groups": "لا يوجد فشل في المجموعات التي تستخدم موفر {{provider}}",
-		"last_sync_label": "آخر مزامنة:"
+		"last_sync_label": "آخر مزامنة:",
+		"toast_sync_disabled": "فندق/{{group}} معطل: {{count}} عضو قابل للتوجيه متبقٍ"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "التغييرات غير المحفوظة"
@@ -2458,7 +2461,7 @@
 			"enableProvider": "تمكين المزود",
 			"circuitBreakerOpen": "فتح كسر الدائرة - في انتظار التبريد",
 			"circuitBreakerHalfOpen": "كسر الدائرة نصف مفتوح - اختبار الاسترداد",
-			"modelDisabled": "النموذج معطل",
+			"modelDisabled": "معطل",
 			"providerDisabled": "المزود معطل"
 		},
 		"modal": {

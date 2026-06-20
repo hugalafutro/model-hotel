@@ -811,7 +811,9 @@
 			"retesting": "Testando novamente…",
 			"retestTooltip": "Execute novamente a descoberta deste provedor para testar de novo os modelos desativados.",
 			"retestDone": "{{provider}} testado novamente",
-			"toggleSection": "Alternar a seção {{provider}}"
+			"toggleSection": "Alternar a seção {{provider}}",
+			"failoverDisabled": "Grupos de failover desativados",
+			"failoverDisabledReason": "{{count}} membro(s) roteável(is) restante(s), são necessários 2+"
 		}
 	},
 	"models": {
@@ -990,7 +992,8 @@
 		"provider_modal_title": "Gerenciar Status do Provedor",
 		"provider_modal_description": "Desabilitar um provedor desativará todos os seus modelos em cada grupo de falhas",
 		"toast_provider_toggle_no_groups": "Nenhum grupo de falha usa o provedor {{provider}}",
-		"last_sync_label": "Última sincronização:"
+		"last_sync_label": "Última sincronização:",
+		"toast_sync_disabled": "hotel/{{group}} desativado: {{count}} membro(s) roteável(is) restante(s)"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Alterações Não Salvas"
@@ -2458,7 +2461,7 @@
 			"enableProvider": "Ativar provedor",
 			"circuitBreakerOpen": "Disjuntor aberto - esperando por recarga",
 			"circuitBreakerHalfOpen": "Disjuntor meio-aberto - recuperação de sondagem",
-			"modelDisabled": "Modelo desativado",
+			"modelDisabled": "Desativado",
 			"providerDisabled": "Provedor desativado"
 		},
 		"modal": {

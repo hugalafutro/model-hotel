@@ -811,7 +811,9 @@
 			"retesting": "正在重新测试…",
 			"retestTooltip": "重新运行此提供商的发现，以重新探测被禁用的模型。",
 			"retestDone": "已重新测试 {{provider}}",
-			"toggleSection": "切换 {{provider}} 部分"
+			"toggleSection": "切换 {{provider}} 部分",
+			"failoverDisabled": "故障转移组已停用",
+			"failoverDisabledReason": "剩余 {{count}} 个可路由成员，需要 2 个以上"
 		}
 	},
 	"models": {
@@ -990,7 +992,8 @@
 		"provider_modal_title": "管理提供商状态",
 		"provider_modal_description": "禁用一个提供商将在每个失败组禁用其所有模型",
 		"toast_provider_toggle_no_groups": "没有故障转移组使用该提供程序 {{provider}}",
-		"last_sync_label": "最后同步时间："
+		"last_sync_label": "最后同步时间：",
+		"toast_sync_disabled": "酒店/{{group}} 已停用：剩余 {{count}} 个可路由成员"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "未保存的更改"
@@ -2458,7 +2461,7 @@
 			"enableProvider": "启用提供商",
 			"circuitBreakerOpen": "线路断路器打开 - 等待冷却时间",
 			"circuitBreakerHalfOpen": "断路器半开启-探测恢复",
-			"modelDisabled": "模型已停用",
+			"modelDisabled": "已停用",
 			"providerDisabled": "提供商已禁用"
 		},
 		"modal": {

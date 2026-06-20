@@ -811,7 +811,9 @@
 			"retesting": "Επανέλεγχος…",
 			"retestTooltip": "Εκτελέστε ξανά την ανίχνευση για αυτόν τον πάροχο ώστε να επανελεγχθούν τα απενεργοποιημένα μοντέλα.",
 			"retestDone": "Έγινε επανέλεγχος του {{provider}}",
-			"toggleSection": "Εναλλαγή ενότητας {{provider}}"
+			"toggleSection": "Εναλλαγή ενότητας {{provider}}",
+			"failoverDisabled": "Ομάδες ανακατεύθυνσης απενεργοποιημένες",
+			"failoverDisabledReason": "απομένουν {{count}} δρομολογήσιμα μέλη, απαιτούνται 2+"
 		}
 	},
 	"models": {
@@ -990,7 +992,8 @@
 		"provider_modal_title": "Διαχείριση Κατάστασης Παρόχου",
 		"provider_modal_description": "Η απενεργοποίηση ενός παρόχου θα απενεργοποιήσει όλα τα μοντέλα του σε κάθε ομάδα αποτυχίας",
 		"toast_provider_toggle_no_groups": "Δεν υπάρχουν ομάδες αποτυχίας χρήσης παρόχου {{provider}}",
-		"last_sync_label": "Τελευταίος συγχρονισμός:"
+		"last_sync_label": "Τελευταίος συγχρονισμός:",
+		"toast_sync_disabled": "hotel/{{group}} απενεργοποιήθηκε: απομένουν {{count}} δρομολογήσιμα μέλη"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Μη Αποθηκευμένες Αλλαγές"
@@ -2458,7 +2461,7 @@
 			"enableProvider": "Ενεργοποίηση παρόχου",
 			"circuitBreakerOpen": "Ανοίξτε τον διακόπτη κυκλώματος - αναμονή για επαναφόρτιση",
 			"circuitBreakerHalfOpen": "Ημιανοικτός διακόπτης κυκλώματος - ανίχνευση αποκατάστασης",
-			"modelDisabled": "Μοντέλο απενεργοποιημένο",
+			"modelDisabled": "Απενεργοποιημένο",
 			"providerDisabled": "Ο πάροχος έχει απενεργοποιηθεί"
 		},
 		"modal": {

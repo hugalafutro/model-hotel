@@ -40,6 +40,9 @@ var (
 	failoverRepoSyncForModel = func(repo *failover.Repository, ctx context.Context, modelID string) (*failover.SyncResult, error) {
 		return repo.SyncForModel(ctx, modelID)
 	}
+	failoverRepoRevalidateCustomGroups = func(repo *failover.Repository, ctx context.Context) (*failover.SyncResult, error) {
+		return repo.RevalidateCustomGroups(ctx)
+	}
 )
 
 // ModelChange describes one model affected by a discovery scan.
@@ -91,12 +94,13 @@ type ModelUpdate struct {
 
 // DiscoveryDiff summarizes the state changes one provider scan caused.
 type DiscoveryDiff struct {
-	Added                 []ModelChange               `json:"added,omitempty"`
-	Reenabled             []ModelChange               `json:"reenabled,omitempty"`
-	Disabled              []ModelChange               `json:"disabled,omitempty"`
-	Updated               []ModelUpdate               `json:"updated,omitempty"`
-	FailoverDeletedGroups []failover.DeletedGroupInfo `json:"failover_deleted_groups,omitempty"`
-	FailoverUpdatedGroups []failover.UpdatedGroupInfo `json:"failover_updated_groups,omitempty"`
+	Added                  []ModelChange                `json:"added,omitempty"`
+	Reenabled              []ModelChange                `json:"reenabled,omitempty"`
+	Disabled               []ModelChange                `json:"disabled,omitempty"`
+	Updated                []ModelUpdate                `json:"updated,omitempty"`
+	FailoverDeletedGroups  []failover.DeletedGroupInfo  `json:"failover_deleted_groups,omitempty"`
+	FailoverUpdatedGroups  []failover.UpdatedGroupInfo  `json:"failover_updated_groups,omitempty"`
+	FailoverDisabledGroups []failover.DisabledGroupInfo `json:"failover_disabled_groups,omitempty"`
 }
 
 // ModelSnapshot captures a model's pre-scan state — enabled flags plus the
@@ -251,6 +255,7 @@ func (d *DiscoveryDiff) mergeSyncResult(res *failover.SyncResult) {
 	}
 	d.FailoverDeletedGroups = append(d.FailoverDeletedGroups, res.DeletedGroups...)
 	d.FailoverUpdatedGroups = append(d.FailoverUpdatedGroups, res.UpdatedGroups...)
+	d.FailoverDisabledGroups = append(d.FailoverDisabledGroups, res.DisabledGroups...)
 }
 
 // syncFailoverForScan syncs failover groups for every model a scan touched:
@@ -282,6 +287,16 @@ func syncFailoverForScan(ctx context.Context, repo *failover.Repository, upserte
 			continue
 		}
 		diff.mergeSyncResult(syncRes)
+	}
+
+	// SyncForModel only rebuilds auto-groups; a custom group whose member was
+	// just disabled (not deleted) keeps its stale size. Revalidate custom groups
+	// once so any that dropped below two routable members get auto-disabled and
+	// reported. Best-effort: a failure here must not abort the scan.
+	if revRes, err := failoverRepoRevalidateCustomGroups(repo, ctx); err != nil {
+		debuglog.Error("discovery: custom-group revalidation failed", "error", err)
+	} else {
+		diff.mergeSyncResult(revRes)
 	}
 	return true
 }

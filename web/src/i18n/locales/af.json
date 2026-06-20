@@ -811,7 +811,9 @@
 			"retesting": "Hertoets tans…",
 			"retestTooltip": "Voer ontdekking vir hierdie verskaffer weer uit om gedeaktiveerde modelle weer te toets.",
 			"retestDone": "{{provider}} hertoets",
-			"toggleSection": "Wissel {{provider}}-afdeling"
+			"toggleSection": "Wissel {{provider}}-afdeling",
+			"failoverDisabled": "Failover-groepe gedeaktiveer",
+			"failoverDisabledReason": "{{count}} roeteerbare lid(lede) oor, benodig 2+"
 		}
 	},
 	"models": {
@@ -990,7 +992,8 @@
 		"provider_modal_title": "Bestuur verskafferstatus",
 		"provider_modal_description": "Deur 'n verskaffer te deaktiveer, word al sy modelle in elke failover-groep gedeaktiveer.",
 		"toast_provider_toggle_no_groups": "Geen failover-groepe gebruik verskaffer {{provider}}",
-		"last_sync_label": "Laaste sinchronisasie:"
+		"last_sync_label": "Laaste sinchronisasie:",
+		"toast_sync_disabled": "hotel/{{group}} gedeaktiveer: {{count}} roeteerbare lid(lede) oor"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Onbewaarde veranderinge"
@@ -2458,7 +2461,7 @@
 			"enableProvider": "Aktiveer verskaffer",
 			"circuitBreakerOpen": "Kringskakelaar oop - wag vir afkoeling",
 			"circuitBreakerHalfOpen": "Sekering half-oop - herstelondersoek",
-			"modelDisabled": "Model gedeaktiveer",
+			"modelDisabled": "Gedeaktiveer",
 			"providerDisabled": "Verskaffer gedeaktiveer"
 		},
 		"modal": {

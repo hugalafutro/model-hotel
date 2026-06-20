@@ -811,7 +811,9 @@
 			"retesting": "Se retestează…",
 			"retestTooltip": "Rulează din nou descoperirea pentru acest furnizor pentru a retesta modelele dezactivate.",
 			"retestDone": "{{provider}} a fost retestat",
-			"toggleSection": "Comută secțiunea {{provider}}"
+			"toggleSection": "Comută secțiunea {{provider}}",
+			"failoverDisabled": "Grupuri de failover dezactivate",
+			"failoverDisabledReason": "au rămas {{count}} membri rutabili, sunt necesari 2+"
 		}
 	},
 	"models": {
@@ -990,7 +992,8 @@
 		"provider_modal_title": "Gestionează starea furnizorului",
 		"provider_modal_description": "Dezactivarea unui furnizor va dezactiva toate modelele sale în fiecare grup de eșec",
 		"toast_provider_toggle_no_groups": "Niciun grup eșuat utilizați furnizorul {{provider}}",
-		"last_sync_label": "Ultima sincronizare:"
+		"last_sync_label": "Ultima sincronizare:",
+		"toast_sync_disabled": "hotel/{{group}} dezactivat: au rămas {{count}} membri rutabili"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Modificări nesalvate"
@@ -2458,7 +2461,7 @@
 			"enableProvider": "Activare furnizor",
 			"circuitBreakerOpen": "Rupator de circuit deschis - aşteptare pentru răcire",
 			"circuitBreakerHalfOpen": "Circuit breaker semi-deschis - recuperare probabilă",
-			"modelDisabled": "Model dezactivat",
+			"modelDisabled": "Dezactivat",
 			"providerDisabled": "Furnizor dezactivat"
 		},
 		"modal": {

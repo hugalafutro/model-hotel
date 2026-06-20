@@ -56,7 +56,8 @@ function diffIsEmpty(diff: DiscoveryDiff): boolean {
 		!diff.disabled?.length &&
 		!diff.updated?.length &&
 		!diff.failover_deleted_groups?.length &&
-		!diff.failover_updated_groups?.length
+		!diff.failover_updated_groups?.length &&
+		!diff.failover_disabled_groups?.length
 	);
 }
 
@@ -378,6 +379,28 @@ export function DiscoverySummaryModal({
 												: null}
 										</>
 									}
+								/>
+							))}
+						</div>
+					</CategoryGroup>
+				) : null}
+				{diff.failover_disabled_groups?.length ? (
+					<CategoryGroup
+						sign="⊘"
+						count={diff.failover_disabled_groups.length}
+						badgeVariant="ui-badge-orange"
+						label={t("providers.discoverySummary.failoverDisabled")}
+						testId="discovery-summary-failover-disabled"
+					>
+						<div className="space-y-1 rounded-(--radius-box) border border-(--border-default) bg-(--surface-elevated) px-2.5 py-2">
+							{diff.failover_disabled_groups.map((g) => (
+								<DetailRow
+									key={g.display_model}
+									primary={g.display_model}
+									secondary={t(
+										"providers.discoverySummary.failoverDisabledReason",
+										{ count: g.effective_count },
+									)}
 								/>
 							))}
 						</div>

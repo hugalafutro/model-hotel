@@ -811,7 +811,9 @@
 			"retesting": "Yeniden test ediliyor…",
 			"retestTooltip": "Devre dışı bırakılan modelleri yeniden denemek için bu sağlayıcı için keşfi yeniden çalıştırın.",
 			"retestDone": "{{provider}} yeniden test edildi",
-			"toggleSection": "{{provider}} bölümünü aç/kapat"
+			"toggleSection": "{{provider}} bölümünü aç/kapat",
+			"failoverDisabled": "Yedekleme grupları devre dışı bırakıldı",
+			"failoverDisabledReason": "{{count}} yönlendirilebilir üye kaldı, 2+ gerekli"
 		}
 	},
 	"models": {
@@ -990,7 +992,8 @@
 		"provider_modal_title": "Sağlayıcı Durumunu Yönet",
 		"provider_modal_description": "Bir sağlayıcının devre dışı bırakılması, tüm yedekleme gruplarındaki tüm modellerini devre dışı bırakır",
 		"toast_provider_toggle_no_groups": "Hiçbir yük devretme grubu bu sağlayıcıyı kullanmıyor {{provider}}",
-		"last_sync_label": "Son senkronizasyon:"
+		"last_sync_label": "Son senkronizasyon:",
+		"toast_sync_disabled": "otel/{{group}} devre dışı: {{count}} yönlendirilebilir üye kaldı"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Kaydedilmemiş Değişiklikler"
@@ -2458,7 +2461,7 @@
 			"enableProvider": "Sağlayıcıyı etkinleştir",
 			"circuitBreakerOpen": "Devre kesici açık - soğuma süresinin bitmesini bekliyor",
 			"circuitBreakerHalfOpen": "Devre kesici yarı açık - geri kazanım testi",
-			"modelDisabled": "Model devre dışı",
+			"modelDisabled": "Devre dışı",
 			"providerDisabled": "Sağlayıcı devre dışı"
 		},
 		"modal": {

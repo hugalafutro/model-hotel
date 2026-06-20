@@ -33,6 +33,13 @@ const fullDiff: DiscoveryDiff = {
 			added_model_ids: ["uuid-added-1", "uuid-added-2"],
 		},
 	],
+	failover_disabled_groups: [
+		{
+			display_model: "undersized-group",
+			effective_count: 1,
+			reason: "fewer than 2 routable members (need 2+ for failover)",
+		},
+	],
 };
 
 describe("DiscoverySummaryModal", () => {
@@ -78,6 +85,11 @@ describe("DiscoverySummaryModal", () => {
 		expect(updated).toHaveTextContent("updated-group");
 		expect(updated).toHaveTextContent("1");
 		expect(updated).toHaveTextContent("2");
+
+		const disabledGroups = screen.getByTestId(
+			"discovery-summary-failover-disabled",
+		);
+		expect(disabledGroups).toHaveTextContent("undersized-group");
 
 		expect(
 			screen.queryByTestId("discovery-summary-no-changes"),

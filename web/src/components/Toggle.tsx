@@ -5,6 +5,8 @@ export interface ToggleProps {
 	size?: "default" | "sm";
 	showFocusRing?: boolean;
 	ariaLabel?: string;
+	/** Native tooltip, e.g. to explain why a disabled toggle is locked. */
+	title?: string;
 	className?: string;
 }
 
@@ -15,6 +17,7 @@ export function Toggle({
 	size = "default",
 	showFocusRing = false,
 	ariaLabel,
+	title,
 	className,
 }: ToggleProps) {
 	const sizeClasses = size === "sm" ? "h-4 w-7" : "h-6 w-11";
@@ -35,6 +38,7 @@ export function Toggle({
 			role="switch"
 			aria-checked={checked}
 			aria-label={ariaLabel}
+			title={title}
 			disabled={disabled}
 			onClick={() => onChange(!checked)}
 			className={`ui-toggle relative inline-flex shrink-0 ${sizeClasses} items-center rounded-full transition-colors translate-z-0 ${focusClasses} ${disabled ? "opacity-50 cursor-not-allowed" : ""} ${

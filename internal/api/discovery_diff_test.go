@@ -312,8 +312,9 @@ func TestBuildDiscoveryDiff_NewAndReenabledSkipMetadata(t *testing.T) {
 
 func TestDiscoveryDiff_MergeSyncResult(t *testing.T) {
 	res := &failover.SyncResult{
-		DeletedGroups: []failover.DeletedGroupInfo{{DisplayModel: "gone-group"}},
-		UpdatedGroups: []failover.UpdatedGroupInfo{{DisplayModel: "changed-group"}},
+		DeletedGroups:  []failover.DeletedGroupInfo{{DisplayModel: "gone-group"}},
+		UpdatedGroups:  []failover.UpdatedGroupInfo{{DisplayModel: "changed-group"}},
+		DisabledGroups: []failover.DisabledGroupInfo{{DisplayModel: "undersized-group", EffectiveCount: 1}},
 	}
 
 	// A nil diff (discover-all without a snapshot) must not panic.
@@ -322,7 +323,7 @@ func TestDiscoveryDiff_MergeSyncResult(t *testing.T) {
 
 	diff := &DiscoveryDiff{}
 	diff.mergeSyncResult(nil)
-	if len(diff.FailoverDeletedGroups) != 0 || len(diff.FailoverUpdatedGroups) != 0 {
+	if len(diff.FailoverDeletedGroups) != 0 || len(diff.FailoverUpdatedGroups) != 0 || len(diff.FailoverDisabledGroups) != 0 {
 		t.Errorf("expected no failover changes after nil merge, got %+v", diff)
 	}
 
@@ -333,6 +334,9 @@ func TestDiscoveryDiff_MergeSyncResult(t *testing.T) {
 	}
 	if len(diff.FailoverUpdatedGroups) != 1 || diff.FailoverUpdatedGroups[0].DisplayModel != "changed-group" {
 		t.Errorf("expected merged updated group, got %+v", diff.FailoverUpdatedGroups)
+	}
+	if len(diff.FailoverDisabledGroups) != 1 || diff.FailoverDisabledGroups[0].DisplayModel != "undersized-group" {
+		t.Errorf("expected merged disabled group, got %+v", diff.FailoverDisabledGroups)
 	}
 }
 

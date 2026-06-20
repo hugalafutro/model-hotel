@@ -3139,10 +3139,6 @@ html[data-ui-style="cyber-terminal"] .failover-entry {
 	border: 1px dashed var(--text-muted);
 }
 
-.failover-entry-disabled .failover-entry-text {
-	text-decoration: line-through;
-}
-
 /* Transparent border on enabled pills so disabled pills don't grow */
 .ui-card .bg-gray-700 {
 	border: 1px solid transparent;

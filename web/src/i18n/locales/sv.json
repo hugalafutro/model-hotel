@@ -811,7 +811,9 @@
 			"retesting": "Testar igen…",
 			"retestTooltip": "Kör identifiering för den här leverantören igen för att testa inaktiverade modeller på nytt.",
 			"retestDone": "{{provider}} testad igen",
-			"toggleSection": "Växla {{provider}}-sektion"
+			"toggleSection": "Växla {{provider}}-sektion",
+			"failoverDisabled": "Failover-grupper inaktiverade",
+			"failoverDisabledReason": "{{count}} dirigerbar(a) medlem(mar) kvar, behöver 2+"
 		}
 	},
 	"models": {
@@ -990,7 +992,8 @@
 		"provider_modal_title": "Hantera leverantörsstatus",
 		"provider_modal_description": "Inaktivera en leverantör kommer att inaktivera alla dess modeller i varje felöversättningsgrupp",
 		"toast_provider_toggle_no_groups": "Inga övergångsgrupper använder leverantören {{provider}}",
-		"last_sync_label": "Senaste synkronisering:"
+		"last_sync_label": "Senaste synkronisering:",
+		"toast_sync_disabled": "hotel/{{group}} inaktiverad: {{count}} dirigerbar(a) medlem(mar) kvar"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Osparade ändringar"
@@ -2458,7 +2461,7 @@
 			"enableProvider": "Aktivera leverantör",
 			"circuitBreakerOpen": "Kretsbrytare öppen - väntar på cooldown",
 			"circuitBreakerHalfOpen": "Circuit breaker halv-öppen - sondering återhämtning",
-			"modelDisabled": "Modell inaktiverad",
+			"modelDisabled": "Inaktiverad",
 			"providerDisabled": "Leverantör inaktiverad"
 		},
 		"modal": {

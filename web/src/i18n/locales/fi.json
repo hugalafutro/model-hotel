@@ -811,7 +811,9 @@
 			"retesting": "Testataan uudelleen…",
 			"retestTooltip": "Suorita tämän palveluntarjoajan tunnistus uudelleen ja testaa käytöstä poistetut mallit.",
 			"retestDone": "{{provider}} testattu uudelleen",
-			"toggleSection": "Näytä tai piilota osio {{provider}}"
+			"toggleSection": "Näytä tai piilota osio {{provider}}",
+			"failoverDisabled": "Vikasietoryhmät poistettu käytöstä",
+			"failoverDisabledReason": "{{count}} reititettävää jäsentä jäljellä, tarvitaan 2+"
 		}
 	},
 	"models": {
@@ -990,7 +992,8 @@
 		"provider_modal_title": "Hallinnoi Tarjoajan Tilaa",
 		"provider_modal_description": "Tarjoajan poistaminen käytöstä poistaa kaikki sen mallit käytöstä jokaisessa epäonnistumisryhmässä",
 		"toast_provider_toggle_no_groups": "Ei epäonnistumisryhmiä käytä tarjoajaa {{provider}}",
-		"last_sync_label": "Viimeisin synkronointi:"
+		"last_sync_label": "Viimeisin synkronointi:",
+		"toast_sync_disabled": "hotelli/{{group}} poistettu käytöstä: {{count}} reititettävää jäsentä jäljellä"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Tallentamattomat Muutokset"
@@ -2458,7 +2461,7 @@
 			"enableProvider": "Ota palveluntarjoaja käyttöön",
 			"circuitBreakerOpen": "Katkaisin auki - odottaa jäähtymistä",
 			"circuitBreakerHalfOpen": "Circuit katkaisija puoli-avoin - anturi elpyminen",
-			"modelDisabled": "Malli poistettu käytöstä",
+			"modelDisabled": "Poistettu käytöstä",
 			"providerDisabled": "Palveluntarjoaja poistettu käytöstä"
 		},
 		"modal": {

@@ -811,7 +811,9 @@
 			"retesting": "Tester på nytt…",
 			"retestTooltip": "Kjør oppdagelse for denne leverandøren på nytt for å teste deaktiverte modeller igjen.",
 			"retestDone": "{{provider}} testet på nytt",
-			"toggleSection": "Veksle {{provider}}-seksjon"
+			"toggleSection": "Veksle {{provider}}-seksjon",
+			"failoverDisabled": "Failover-grupper deaktivert",
+			"failoverDisabledReason": "{{count}} rutbare medlem(mer) igjen, krever 2+"
 		}
 	},
 	"models": {
@@ -990,7 +992,8 @@
 		"provider_modal_title": "Administrere søkeleverandørstatus",
 		"provider_modal_description": "Deaktivering av en leverandør vil deaktivere alle modellene i hver feilovergruppe",
 		"toast_provider_toggle_no_groups": "Ingen mislykket gruppe bruk {{provider}}",
-		"last_sync_label": "Sist synkronisert:"
+		"last_sync_label": "Sist synkronisert:",
+		"toast_sync_disabled": "hotell/{{group}} deaktivert: {{count}} rutbare medlem(mer) igjen"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Ulagrede endringer"
@@ -2458,7 +2461,7 @@
 			"enableProvider": "Aktiver leverandør",
 			"circuitBreakerOpen": "Krets breaker åpen - venter på cooldown",
 			"circuitBreakerHalfOpen": "Krets pauseåpning – ettersyns gjenoppretting",
-			"modelDisabled": "Modell deaktivert",
+			"modelDisabled": "Deaktivert",
 			"providerDisabled": "Leverandør deaktivert"
 		},
 		"modal": {

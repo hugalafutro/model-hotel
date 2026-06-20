@@ -811,7 +811,9 @@
 			"retesting": "Ponowne testowanie…",
 			"retestTooltip": "Uruchom ponownie wykrywanie dla tego dostawcy, aby ponownie sprawdzić wyłączone modele.",
 			"retestDone": "Ponownie przetestowano {{provider}}",
-			"toggleSection": "Przełącz sekcję {{provider}}"
+			"toggleSection": "Przełącz sekcję {{provider}}",
+			"failoverDisabled": "Grupy przełączania awaryjnego wyłączone",
+			"failoverDisabledReason": "pozostało {{count}} członków z routingiem, potrzeba 2+"
 		}
 	},
 	"models": {
@@ -990,7 +992,8 @@
 		"provider_modal_title": "Zarządzaj statusem dostawcy",
 		"provider_modal_description": "Wyłączenie dostawcy wyłączy wszystkie jego modele w każdej grupie awaryjnej",
 		"toast_provider_toggle_no_groups": "Żadne grupy awaryjne nie używają dostawcy {{provider}}",
-		"last_sync_label": "Ostatnia synchronizacja:"
+		"last_sync_label": "Ostatnia synchronizacja:",
+		"toast_sync_disabled": "hotel/{{group}} wyłączono: pozostało {{count}} członków z routingiem"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Niezapisane zmiany"
@@ -2458,7 +2461,7 @@
 			"enableProvider": "Włącz dostawcę",
 			"circuitBreakerOpen": "Wyłącznik obwodu otwarty - oczekiwanie na czas odnowienia",
 			"circuitBreakerHalfOpen": "Wyłącznik wyłącznika w połowie otwarty - odzysk sondy",
-			"modelDisabled": "Model wyłączony",
+			"modelDisabled": "Wyłączony",
 			"providerDisabled": "Dostawca wyłączony"
 		},
 		"modal": {

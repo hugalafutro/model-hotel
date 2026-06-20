@@ -811,7 +811,9 @@
 			"retesting": "Újratesztelés…",
 			"retestTooltip": "Futtassa újra a felfedezést ehhez a szolgáltatóhoz a letiltott modellek újbóli ellenőrzéséhez.",
 			"retestDone": "{{provider}} újratesztelve",
-			"toggleSection": "{{provider}} szakasz be- és kikapcsolása"
+			"toggleSection": "{{provider}} szakasz be- és kikapcsolása",
+			"failoverDisabled": "Letiltott failover csoportok",
+			"failoverDisabledReason": "{{count}} útválasztható tag maradt, 2+ szükséges"
 		}
 	},
 	"models": {
@@ -990,7 +992,8 @@
 		"provider_modal_title": "Szolgáltatói státusz kezelése",
 		"provider_modal_description": "Egy szolgáltató letiltása minden failover-csoportban letiltja az összes modelljét",
 		"toast_provider_toggle_no_groups": "Egyetlen átállási csoport sem használja a szolgáltatót {{provider}}",
-		"last_sync_label": "Utolsó szinkronizálás:"
+		"last_sync_label": "Utolsó szinkronizálás:",
+		"toast_sync_disabled": "szálloda/{{group}} letiltva: {{count}} útválasztható tag maradt"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Még nem mentett módosítások"
@@ -2458,7 +2461,7 @@
 			"enableProvider": "Szolgáltató engedélyezése",
 			"circuitBreakerOpen": "A megszakító nyitott – a lehűlési idő lejártát várja",
 			"circuitBreakerHalfOpen": "A megszakító félig nyitott – helyreállítási vizsgálat",
-			"modelDisabled": "Modell letiltva",
+			"modelDisabled": "Letiltva",
 			"providerDisabled": "Szolgáltató letiltva"
 		},
 		"modal": {

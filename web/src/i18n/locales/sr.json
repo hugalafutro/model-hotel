@@ -811,7 +811,9 @@
 			"retesting": "Поновно тестирање…",
 			"retestTooltip": "Поново покрените откривање за овог добављача да бисте поново проверили онемогућене моделе.",
 			"retestDone": "{{provider}} поново тестиран",
-			"toggleSection": "Прикажи/сакриј одељак {{provider}}"
+			"toggleSection": "Прикажи/сакриј одељак {{provider}}",
+			"failoverDisabled": "Фејловер групе су онемогућене",
+			"failoverDisabledReason": "преостало {{count}} чланова који се могу рутирати, потребно 2+"
 		}
 	},
 	"models": {
@@ -990,7 +992,8 @@
 		"provider_modal_title": "Управљање статусом провајдера",
 		"provider_modal_description": "Онемогућавање провајдера онемогућиће све његове моделе у свакој групи за преузимање.",
 		"toast_provider_toggle_no_groups": "Ниједна група за преузимање не користи провајдера {{provider}}",
-		"last_sync_label": "Последња синхронизација:"
+		"last_sync_label": "Последња синхронизација:",
+		"toast_sync_disabled": "хотел/{{group}} онемогућено: преостало {{count}} чланова који се могу рутирати"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Несачуване измене"
@@ -2458,7 +2461,7 @@
 			"enableProvider": "Омогући провајдера",
 			"circuitBreakerOpen": "Прекидач је отворен - чека се хлађење",
 			"circuitBreakerHalfOpen": "Прекидач у полуотвореном положају - испитивање опоравка",
-			"modelDisabled": "Модел онемогућен",
+			"modelDisabled": "Онемогућено",
 			"providerDisabled": "Провајдер онемогућен"
 		},
 		"modal": {

@@ -293,6 +293,50 @@ describe("FailoverGroups", () => {
 			});
 		});
 
+		it("Sync that auto-disables an undersized group shows warning toast", async () => {
+			server.use(
+				http.get("/api/failover-groups", () =>
+					HttpResponse.json({
+						groups: [mockFailoverGroup],
+						last_synced_at: null,
+					}),
+				),
+				http.get("/api/failover-groups/candidates", () =>
+					HttpResponse.json([]),
+				),
+				http.post("/api/failover-groups/sync", () =>
+					HttpResponse.json({
+						deleted_groups: [],
+						disabled_groups: [
+							{
+								display_model: "claude-3",
+								effective_count: 1,
+								reason: "fewer than 2 routable members (need 2+ for failover)",
+							},
+						],
+					}),
+				),
+			);
+
+			const { user } = renderWithProviders(<FailoverGroups />);
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", { name: "Sync" }),
+				).toBeInTheDocument();
+			});
+
+			await user.click(screen.getByRole("button", { name: "Sync" }));
+
+			await waitFor(() => {
+				expect(
+					screen.getByText(
+						"hotel/claude-3 disabled: 1 routable member(s) left",
+					),
+				).toBeInTheDocument();
+			});
+		});
+
 		it("Sync error shows error toast", async () => {
 			server.use(
 				http.get("/api/failover-groups", () =>

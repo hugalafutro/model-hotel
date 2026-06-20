@@ -811,7 +811,9 @@
 			"retesting": "再テスト中…",
 			"retestTooltip": "このプロバイダーの探索を再実行して、無効化されたモデルを再確認します。",
 			"retestDone": "{{provider}} を再テストしました",
-			"toggleSection": "{{provider}} セクションの表示切り替え"
+			"toggleSection": "{{provider}} セクションの表示切り替え",
+			"failoverDisabled": "フェイルオーバーグループが無効化されました",
+			"failoverDisabledReason": "ルーティング可能なメンバーが {{count}} 個、2個以上必要"
 		}
 	},
 	"models": {
@@ -990,7 +992,8 @@
 		"provider_modal_title": "プロバイダーの状態を管理",
 		"provider_modal_description": "プロバイダを無効にすると、フェイルオーバーグループのすべてのモデルが無効になります",
 		"toast_provider_toggle_no_groups": "フェイルオーバーグループでプロバイダ {{provider}}を使用しません",
-		"last_sync_label": "前回の同期:"
+		"last_sync_label": "前回の同期:",
+		"toast_sync_disabled": "hotel/{{group}} を無効化しました: ルーティング可能なメンバーが {{count}} 個"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "保存されていない変更"
@@ -2458,7 +2461,7 @@
 			"enableProvider": "プロバイダを有効にする",
 			"circuitBreakerOpen": "Circuit breaker open - waiting for resfriend",
 			"circuitBreakerHalfOpen": "サーキットブレーカーハーフオープン - プローブ回復",
-			"modelDisabled": "モデルが無効化されています",
+			"modelDisabled": "無効",
 			"providerDisabled": "プロバイダーが無効化されています"
 		},
 		"modal": {
