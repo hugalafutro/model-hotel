@@ -334,22 +334,10 @@ describe("AddProviderModal", () => {
 	});
 
 	describe("submit functionality", () => {
-		it("calls create mutation on form submit", async () => {
-			const { user } = renderWithProviders(
-				<AddProviderModal {...defaultProps} />,
-			);
-			const nameInput = screen.getByLabelText("Name");
-			const baseUrlInput = screen.getByLabelText("Base URL");
-			const apiKeyInput = screen.getByLabelText("API Key");
-			await user.type(nameInput, "Test Provider");
-			await user.type(baseUrlInput, "https://api.test.com/v1");
-			await user.type(apiKeyInput, "sk-test-key");
-			const submitButton = screen.getByRole("button", {
-				name: "Add Provider",
-			});
-			await user.click(submitButton);
-			// Form should submit
-		});
+		// Removed a no-assertion "calls create mutation on form submit" test: the
+		// submit -> create-mutation path is covered with real assertions by
+		// "calls onToast with success message on successful creation" and
+		// "calls onClose after successful creation" below.
 
 		it("calls onToast with success message on successful creation", async () => {
 			server.use(
@@ -625,29 +613,12 @@ describe("AddProviderModal", () => {
 			expect(onClose).toHaveBeenCalledTimes(1);
 		});
 
-		it("resets form data after cancel", async () => {
-			const { user } = renderWithProviders(
-				<AddProviderModal {...defaultProps} />,
-			);
-			const nameInput = screen.getByLabelText("Name");
-			await user.type(nameInput, "Test");
-			const cancelButton = screen.getByRole("button", { name: "Cancel" });
-			await user.click(cancelButton);
-			// Form should be reset
-		});
-
-		it("hides API key visibility state on cancel", async () => {
-			const { user } = renderWithProviders(
-				<AddProviderModal {...defaultProps} />,
-			);
-			const toggleButton = screen.getByRole("button", {
-				name: "Show API key",
-			});
-			await user.click(toggleButton);
-			const cancelButton = screen.getByRole("button", { name: "Cancel" });
-			await user.click(cancelButton);
-			// Visibility state should be reset
-		});
+		// Removed two no-assertion cancel tests ("resets form data after cancel",
+		// "hides API key visibility state on cancel"): the reset runs inside the
+		// same closeAndReset handler exercised by "calls onClose when cancel button
+		// is clicked" above, and the internal state is not observable after the
+		// modal closes, so the tests asserted nothing. The API-key toggle itself is
+		// covered by the Show/Hide visibility tests.
 
 		it("clears error on cancel", async () => {
 			server.use(
