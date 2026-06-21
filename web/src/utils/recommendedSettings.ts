@@ -184,6 +184,9 @@ function findModelsDevMatch(
 	const alias = PROVIDER_ALIASES[normProvider];
 	const mappedProvider = alias === false ? null : (alias ?? normProvider);
 	const normModel = normalizeForMatch(modelId);
+	// Leading segment of the RAW searched id (e.g. "llama" from "llama-3"), used
+	// for the family bonus below. Computed once: it does not vary across models.
+	const searchFamilyToken = normalizeForMatch(modelId.split(/[\s._-]/)[0]);
 
 	let best: ModelsDevMatch | null = null;
 
@@ -219,10 +222,12 @@ function findModelsDevMatch(
 			// Bonus for matching provider
 			if (providerMatch) score += 20;
 
-			// Bonus for family match
+			// Bonus for family match against the searched id's leading segment.
+			// (normModel is separator-stripped, so the previous normModel.split("-")
+			// never yielded a family token and this bonus could never fire.)
 			if (
 				model.family &&
-				normalizeForMatch(model.family) === normModel.split("-")[0]
+				normalizeForMatch(model.family) === searchFamilyToken
 			) {
 				score += 5;
 			}
@@ -312,13 +317,8 @@ export async function fetchRecommendedSettings(
 		return result;
 	}
 
-	// No curated match but we have models.dev data - at least set max_tokens (capped)
-	if (modelsDevMaxTokens !== undefined) {
-		result.params = { max_tokens: modelsDevMaxTokens };
-		result.maxTokensSource = "models.dev";
-		result.matchedProviderId = matchedProviderId;
-		result.matchedModelId = matchedModelId;
-	}
-
+	// No curated match and no models.dev limit: the first branch already handles
+	// the models.dev-only case (curatedParams null -> params starts as {} and
+	// max_tokens is filled in there), so nothing is left to set here.
 	return result;
 }

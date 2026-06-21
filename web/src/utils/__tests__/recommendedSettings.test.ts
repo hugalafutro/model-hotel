@@ -764,13 +764,20 @@ describe("findModelsDevMatch scoring logic", () => {
 		expect(result.matchedModelId).toBe("llama-3");
 	});
 
-	it("family bonus +5 adds to score", async () => {
+	it("family bonus +5 breaks a tie in favor of the family-matching model", async () => {
+		// Two models score identically on id + provider match; only the family
+		// bonus separates them. The non-family model is listed first, so a strict
+		// `score > best.score` keeps it on a tie. The family model winning proves
+		// the +5 bonus actually fires (it previously could not: normModel was
+		// already separator-stripped, so the old split never yielded a family
+		// token).
 		const mockApi = {
 			meta: {
 				id: "meta",
 				name: "Meta",
 				models: {
-					"llama-3-70b": { id: "llama-3-70b", family: "llama" },
+					"llama-3-8b": { id: "llama-3-8b" }, // no family -> no bonus
+					"llama-3-70b": { id: "llama-3-70b", family: "llama" }, // +5
 				},
 			},
 		};
