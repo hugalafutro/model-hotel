@@ -286,3 +286,38 @@ func TestNormalizeMessageReasoning_ThinkingTagsInContent(t *testing.T) {
 		t.Errorf("content = %v, want 'Visible answer'", msg["content"])
 	}
 }
+
+// TestExtractThinking_FenceAndUnclosedTag covers the streaming edge where a
+// fence block is followed by an open thinking tag that has not closed yet: the
+// fence reasoning and the partial tag body are concatenated and the content is
+// emptied until the close arrives.
+func TestExtractThinking_FenceAndUnclosedTag(t *testing.T) {
+	input := "<<\nFence part\n>>\n<thinking>still streaming"
+	gotThink, gotCont := ExtractThinking(input)
+	if gotThink != "Fence part\nstill streaming" {
+		t.Errorf("thinking = %q, want combined fence + unclosed tag body", gotThink)
+	}
+	if gotCont != "" {
+		t.Errorf("content = %q, want empty while the tag is still open", gotCont)
+	}
+}
+
+// TestExtractThinking_PartialTagAtEnd covers the trailing-partial-tag cleanup:
+// content ending mid-tag (e.g. "<thinki") during streaming has the partial tag
+// stripped so it never leaks into the visible answer.
+func TestExtractThinking_PartialTagAtEnd(t *testing.T) {
+	gotThink, gotCont := ExtractThinking("Hello <thinki")
+	if gotThink != "" {
+		t.Errorf("thinking = %q, want empty (no complete tag present)", gotThink)
+	}
+	if gotCont != "Hello " {
+		t.Errorf("content = %q, want %q with the partial tag stripped", gotCont, "Hello ")
+	}
+
+	// A trailing partial that cannot be a thinking tag (e.g. "<abc") must be left
+	// untouched: only partials that could grow into a real thinking tag are cut.
+	_, keep := ExtractThinking("see <abc")
+	if keep != "see <abc" {
+		t.Errorf("content = %q, want the non-thinking partial preserved", keep)
+	}
+}
