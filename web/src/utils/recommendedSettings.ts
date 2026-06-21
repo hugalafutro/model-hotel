@@ -144,16 +144,19 @@ function normalizeForMatch(s: string): string {
 
 /**
  * Drop the provider prefix from a proxy model id, returning the bare model id.
- * proxyModelID is "<provider>/<model_id>" (provider name with spaces as dashes,
- * never containing "/"), so the model id is everything after the FIRST slash.
- * The model id may itself carry an inner vendor segment on aggregators (e.g.
- * "openai/gpt-4o" or "deepseek-ai/DeepSeek-R1"), which is PRESERVED so an exact
- * models.dev catalog entry for that full id can still match. No slash -> input
- * unchanged.
+ * proxyModelID builds "<providerName-with-spaces-as-dashes>/<model_id>", so the
+ * prefix to remove is exactly that provider segment, and ONLY when present:
+ * fetchRecommendedSettings is exported and callers may pass a bare model id
+ * directly, including slashful models.dev-style ids like "deepseek-ai/DeepSeek-R1".
+ * Stripping every leading slash would mangle those into "DeepSeek-R1" and make
+ * the exact catalog entry unreachable. So strip only when modelId actually starts
+ * with "<provider>/" (case-insensitively); otherwise leave the id untouched.
  */
-function stripProviderPrefix(modelId: string): string {
-	const slash = modelId.indexOf("/");
-	return slash === -1 ? modelId : modelId.slice(slash + 1);
+function stripProviderPrefix(modelId: string, providerName: string): string {
+	const prefix = `${providerName.replace(/ /g, "-")}/`;
+	return modelId.toLowerCase().startsWith(prefix.toLowerCase())
+		? modelId.slice(prefix.length)
+		: modelId;
 }
 
 /**
@@ -310,7 +313,7 @@ export async function fetchRecommendedSettings(
 	// still matches. Curated patterns are written against the family name, which
 	// is the final segment, so match those against it: "OpenRouter/openai/gpt-4o"
 	// -> "gpt-4o" keeps its curated GPT-4o defaults.
-	const bareModelId = stripProviderPrefix(modelId);
+	const bareModelId = stripProviderPrefix(modelId, providerName);
 
 	// 1. Match curated settings by model family (final segment of the id)
 	const normFamily = normalizeForMatch(modelFamilySegment(bareModelId));

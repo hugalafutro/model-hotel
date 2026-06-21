@@ -883,6 +883,41 @@ describe("findModelsDevMatch scoring logic", () => {
 		expect(result.params?.max_tokens).toBe(222);
 	});
 
+	it("preserves a bare slashful model id when it is not the provider prefix", async () => {
+		// fetchRecommendedSettings is exported: a caller can pass the bare
+		// slashful models.dev id "deepseek-ai/DeepSeek-R1" with provider "DeepSeek"
+		// separately (no "DeepSeek/" prefix). The leading "deepseek-ai/" is part of
+		// the model id, not a provider prefix, so it must NOT be stripped, or the
+		// exact entry (222) becomes unreachable and the sibling "DeepSeek-R1" (111)
+		// is selected instead.
+		const mockApi = {
+			deepseek: {
+				id: "deepseek",
+				name: "DeepSeek",
+				models: {
+					"DeepSeek-R1": { id: "DeepSeek-R1", limit: { output: 111 } },
+					"deepseek-ai/DeepSeek-R1": {
+						id: "deepseek-ai/DeepSeek-R1",
+						limit: { output: 222 },
+					},
+				},
+			},
+		};
+
+		globalThis.fetch = vi.fn().mockResolvedValueOnce({
+			ok: true,
+			json: vi.fn().mockResolvedValueOnce(mockApi),
+		} as unknown as Response);
+
+		const result = await fetchRecommendedSettings(
+			"deepseek-ai/DeepSeek-R1",
+			"DeepSeek",
+		);
+
+		expect(result.matchedModelId).toBe("deepseek-ai/DeepSeek-R1");
+		expect(result.params?.max_tokens).toBe(222);
+	});
+
 	it("below threshold returns no match", async () => {
 		const mockApi = {
 			openai: {
