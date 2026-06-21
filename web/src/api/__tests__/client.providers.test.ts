@@ -367,4 +367,45 @@ describe("api.providers", () => {
 			);
 		});
 	});
+
+	describe("getNeuralWattQuota", () => {
+		it("fetches the quota from the provider usage endpoint", async () => {
+			const quota = { snapshot_at: "2026-06-21T00:00:00Z", balance: {} };
+			vi.spyOn(globalThis, "fetch").mockResolvedValue(
+				new Response(JSON.stringify(quota), { status: 200 }),
+			);
+
+			const result = await api.providers.getNeuralWattQuota("123");
+
+			expect(result).toEqual(quota);
+			expect(globalThis.fetch).toHaveBeenCalledWith(
+				"/api/providers/123/usage",
+				expect.objectContaining({
+					headers: expect.objectContaining({
+						Authorization: "Bearer test-token",
+					}),
+				}),
+			);
+		});
+
+		it("returns null on a 204 No Content response", async () => {
+			// The backend answers 204 when the provider has no quota snapshot yet;
+			// the client maps that to null rather than trying to parse an empty body.
+			vi.spyOn(globalThis, "fetch").mockResolvedValue(
+				new Response(null, { status: 204 }),
+			);
+
+			const result = await api.providers.getNeuralWattQuota("123");
+			expect(result).toBeNull();
+		});
+
+		it("throws on error response", async () => {
+			vi.spyOn(globalThis, "fetch").mockResolvedValue(
+				new Response("boom", { status: 500 }),
+			);
+			await expect(api.providers.getNeuralWattQuota("123")).rejects.toThrow(
+				"Failed to fetch NeuralWatt quota: 500 boom",
+			);
+		});
+	});
 });

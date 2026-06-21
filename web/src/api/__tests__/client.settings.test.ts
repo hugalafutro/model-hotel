@@ -71,4 +71,57 @@ describe("api.settings", () => {
 			);
 		});
 	});
+
+	describe("reset", () => {
+		it("sends a DELETE with the keys to reset and returns the new values", async () => {
+			const reset = { log_retention: "0", stale_request_timeout: "30m0s" };
+			vi.spyOn(globalThis, "fetch").mockResolvedValue(
+				new Response(JSON.stringify(reset), { status: 200 }),
+			);
+
+			const result = await api.settings.reset([
+				"log_retention",
+				"stale_request_timeout",
+			]);
+
+			expect(result).toEqual(reset);
+			expect(globalThis.fetch).toHaveBeenCalledWith(
+				"/api/settings",
+				expect.objectContaining({
+					method: "DELETE",
+					body: JSON.stringify({
+						keys: ["log_retention", "stale_request_timeout"],
+					}),
+					headers: expect.objectContaining({
+						Authorization: "Bearer test-token",
+					}),
+				}),
+			);
+		});
+
+		it("defaults to an empty keys list when called with no arguments", async () => {
+			vi.spyOn(globalThis, "fetch").mockResolvedValue(
+				new Response(JSON.stringify({}), { status: 200 }),
+			);
+
+			await api.settings.reset();
+
+			expect(globalThis.fetch).toHaveBeenCalledWith(
+				"/api/settings",
+				expect.objectContaining({
+					method: "DELETE",
+					body: JSON.stringify({ keys: [] }),
+				}),
+			);
+		});
+
+		it("throws on error response", async () => {
+			vi.spyOn(globalThis, "fetch").mockResolvedValue(
+				new Response("nope", { status: 500 }),
+			);
+			await expect(api.settings.reset(["x"])).rejects.toThrow(
+				"Failed to reset settings: 500 nope",
+			);
+		});
+	});
 });
