@@ -165,4 +165,102 @@ describe("Settings", () => {
 			);
 		});
 	});
+
+	describe("Reset flows", () => {
+		it("reset-all requires typing RESET, then resets every key (empty keys)", async () => {
+			let resetBody: unknown;
+			server.use(
+				http.get("/api/settings", () => HttpResponse.json({})),
+				http.delete("/api/settings", async ({ request }) => {
+					resetBody = await request.json();
+					return HttpResponse.json({});
+				}),
+			);
+			const { user } = renderWithProviders(<Settings />);
+			await screen.findByText("Settings");
+
+			await user.click(
+				screen.getByRole("button", {
+					name: "Reset all settings to their defaults",
+				}),
+			);
+
+			// The confirm button is gated on the exact "RESET" confirmation text.
+			const confirm = screen.getByRole("button", { name: "Reset to Defaults" });
+			expect(confirm).toBeDisabled();
+			await user.type(
+				screen.getByPlaceholderText("Type RESET to confirm"),
+				"RESET",
+			);
+			expect(confirm).toBeEnabled();
+
+			await user.click(confirm);
+			// Reset-all sends an empty key list, which the backend treats as
+			// "reset everything". Asserting the literal payload independently
+			// verifies the behavior (not just that some request fired).
+			await waitFor(() => expect(resetBody).toEqual({ keys: [] }));
+		});
+
+		it("reset-all cancel closes the modal without calling the API", async () => {
+			let resetCalled = false;
+			server.use(
+				http.get("/api/settings", () => HttpResponse.json({})),
+				http.delete("/api/settings", () => {
+					resetCalled = true;
+					return HttpResponse.json({});
+				}),
+			);
+			const { user } = renderWithProviders(<Settings />);
+			await screen.findByText("Settings");
+
+			await user.click(
+				screen.getByRole("button", {
+					name: "Reset all settings to their defaults",
+				}),
+			);
+			expect(screen.getByText("Reset All Settings")).toBeInTheDocument();
+			await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+			await waitFor(() =>
+				expect(
+					screen.queryByText("Reset All Settings"),
+				).not.toBeInTheDocument(),
+			);
+			expect(resetCalled).toBe(false);
+		});
+
+		it("section reset confirms and calls the reset API with that section's keys", async () => {
+			let capturedKeys: string[] | undefined;
+			server.use(
+				http.get("/api/settings", () => HttpResponse.json({})),
+				http.delete("/api/settings", async ({ request }) => {
+					capturedKeys = ((await request.json()) as { keys: string[] }).keys;
+					return HttpResponse.json({});
+				}),
+			);
+			const { user } = renderWithProviders(<Settings />);
+			await screen.findByText("Settings");
+
+			// The first resettable section is Discovery (JSX order). Assert the
+			// exact discovery keys as a literal list (NOT via SECTION_SETTINGS,
+			// which the production code also reads -- that would be circular and
+			// pass even if a key were dropped from both sides). This independently
+			// verifies the payload and pins down which section the button belongs to.
+			const sectionResetButtons = screen.getAllByRole("button", {
+				name: "Reset all settings in this section",
+			});
+			await user.click(sectionResetButtons[0]);
+			await user.click(
+				screen.getByRole("button", { name: "Reset to Defaults" }),
+			);
+
+			await waitFor(() =>
+				expect(capturedKeys).toEqual([
+					"discovery_interval",
+					"discovery_on_startup",
+					"discovery_on_provider_create",
+				]),
+			);
+		});
+	});
 });
