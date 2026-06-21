@@ -120,6 +120,7 @@ function RequestLogs() {
 			const event = (e as CustomEvent).detail;
 			if (
 				event.type === "request.started" ||
+				event.type === "request.streaming" ||
 				event.type === "request.completed"
 			) {
 				if (viewMode === "paginate") {
@@ -287,6 +288,23 @@ function RequestLogs() {
 				// the race where the pending row hasn't been added to
 				// the list yet (request.started fetch still in-flight).
 				// fetchNewer is guarded against concurrent calls.
+				scrollFetchNewer();
+			} else if (event.type === "request.streaming") {
+				// The provider just committed mid-stream: fetch the row by
+				// ID and merge so it swaps "Resolving" for the real
+				// provider/model (and the "Streaming" state) without waiting
+				// for request.completed. mergeEntries only updates rows that
+				// are already in the list, so the trailing fetchNewer covers
+				// the race where the pending row hasn't landed yet.
+				const requestId: string | undefined = event.metadata?.request_id;
+				if (requestId) {
+					try {
+						const entry = await api.logs.get(requestId);
+						scrollMergeEntries([entry]);
+					} catch {
+						scrollFetchNewer();
+					}
+				}
 				scrollFetchNewer();
 			} else if (event.type === "request.started") {
 				scrollFetchNewer();

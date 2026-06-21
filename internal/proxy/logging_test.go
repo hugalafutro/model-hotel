@@ -8,8 +8,54 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
+	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
+
+// TestPublishRequestStreamingEvent verifies the mid-stream "request.streaming"
+// event carries the request id plus the now-committed provider/model so a live
+// dashboard row can replace its "Resolving" placeholder before completion.
+func TestPublishRequestStreamingEvent(t *testing.T) {
+	ch := events.Subscribe()
+	defer events.Unsubscribe(ch)
+
+	logData := &requestLogData{
+		id:              "req-stream-123",
+		modelID:         "hotel/gpt-4",
+		providerName:    "OpenAI",
+		resolvedModelID: "gpt-4o",
+		state:           "streaming",
+	}
+	publishRequestStreamingEvent(logData)
+
+	// The default bus fans every event out to all subscribers, so other tests
+	// publishing concurrently may interleave; filter to our request id.
+	deadline := time.After(2 * time.Second)
+	for {
+		select {
+		case ev := <-ch:
+			if ev.Type != "request.streaming" ||
+				ev.Metadata["request_id"] != "req-stream-123" {
+				continue
+			}
+			if ev.Metadata["provider_name"] != "OpenAI" {
+				t.Errorf("provider_name = %v, want OpenAI", ev.Metadata["provider_name"])
+			}
+			if ev.Metadata["resolved_model_id"] != "gpt-4o" {
+				t.Errorf("resolved_model_id = %v, want gpt-4o", ev.Metadata["resolved_model_id"])
+			}
+			if ev.Metadata["model_id"] != "hotel/gpt-4" {
+				t.Errorf("model_id = %v, want hotel/gpt-4", ev.Metadata["model_id"])
+			}
+			if ev.Metadata["state"] != "streaming" {
+				t.Errorf("state = %v, want streaming", ev.Metadata["state"])
+			}
+			return
+		case <-deadline:
+			t.Fatal("timeout waiting for request.streaming event")
+		}
+	}
+}
 
 // ---------------------------------------------------------------------------
 // insertRequestLogAsync integration tests (requires PostgreSQL)

@@ -165,6 +165,58 @@ describe("Logs", () => {
 			);
 		});
 
+		it("fetches the row by ID and merges on request.streaming event", async () => {
+			localStorage.setItem("requestLogsViewMode", "scroll");
+
+			let singleLogCallCount = 0;
+			server.use(
+				http.get("/api/logs/log-1", () => {
+					singleLogCallCount++;
+					// The committed provider/model the live row will swap in for
+					// its "Resolving" placeholder once the stream starts.
+					return HttpResponse.json(
+						createMockLogEntry({
+							id: "log-1",
+							request_hash: "stream1",
+							state: "streaming",
+							status_code: 0,
+							provider_name: "TestProvider",
+						}),
+					);
+				}),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByTestId("virtual-log-table")).toBeInTheDocument();
+			});
+
+			await act(async () => {
+				window.dispatchEvent(
+					new CustomEvent("server-event", {
+						detail: {
+							type: "request.streaming",
+							metadata: {
+								request_id: "log-1",
+								model_id: "test-model",
+								provider_name: "TestProvider",
+							},
+						},
+					}),
+				);
+			});
+
+			// request.streaming must fetch the row by id and merge it so the
+			// provider/model can replace "Resolving" before completion.
+			await waitFor(
+				() => {
+					expect(singleLogCallCount).toBeGreaterThan(0);
+				},
+				{ timeout: 3000 },
+			);
+		});
+
 		it("falls back to fetchNewer on request.completed without request_id", async () => {
 			localStorage.setItem("requestLogsViewMode", "scroll");
 

@@ -108,6 +108,30 @@ func publishRequestStartedEvent(logEntry *requestLogData) {
 	})
 }
 
+// publishRequestStreamingEvent emits the SSE "request.streaming" event once the
+// proxy has committed to a provider and started forwarding the upstream stream
+// (including reasoning/thinking tokens). Until this point a live dashboard row
+// only knows the requested model and shows "Resolving" for the provider; this
+// event lets it swap in the real provider and resolved model mid-stream instead
+// of waiting for the terminal request.completed event. Carries provider_name
+// and resolved_model_id so the row can update even before the interim DB write
+// is visible.
+func publishRequestStreamingEvent(logEntry *requestLogData) {
+	events.Publish(events.Event{
+		Type:     "request.streaming",
+		Severity: "info",
+		Source:   "proxy",
+		Message:  fmt.Sprintf("Request streaming: %s", logEntry.modelID),
+		Metadata: map[string]interface{}{
+			"request_id":        logEntry.id,
+			"model_id":          logEntry.modelID,
+			"provider_name":     logEntry.providerName,
+			"resolved_model_id": logEntry.resolvedModelID,
+			"state":             logEntry.state,
+		},
+	})
+}
+
 // WaitForInsert blocks until the async INSERT goroutine has completed (or
 // timed out). Callers should invoke this before
 // updateRequestLog to guarantee the row exists in the database.
