@@ -220,19 +220,20 @@ describe("ModelReplyCard", () => {
 		});
 
 		it("calls onDisableModel when disable button is clicked", async () => {
+			const onDisableModel = vi.fn();
 			const { user } = renderWithProviders(
 				<ModelReplyCard
 					{...defaultProps}
 					error="502 Bad Gateway"
 					content=""
-					onDisableModel={vi.fn()}
+					onDisableModel={onDisableModel}
 				/>,
 			);
 			const disableButton = screen.getByRole("button", {
 				name: "Disable model",
 			});
 			await user.click(disableButton);
-			// onDisableModel should be called
+			expect(onDisableModel).toHaveBeenCalledTimes(1);
 		});
 
 		it("does not show disable button for non-5xx errors", () => {
@@ -347,8 +348,17 @@ describe("ModelReplyCard", () => {
 			});
 			await user.click(maximizeButton);
 			const copyButton = screen.getByRole("button", { name: "Copy" });
-			await user.click(copyButton);
-			// Clipboard copy is tested separately
+			const writeText = vi
+				.spyOn(navigator.clipboard, "writeText")
+				.mockResolvedValue(undefined);
+			try {
+				await user.click(copyButton);
+				expect(writeText).toHaveBeenCalledWith(defaultProps.content);
+			} finally {
+				// Restore in finally so a failed click/assertion can't leak the spy
+				// onto navigator.clipboard for the next test.
+				writeText.mockRestore();
+			}
 		});
 	});
 
@@ -434,16 +444,20 @@ describe("ModelReplyCard", () => {
 		});
 
 		it("calls onModelNameClick when model name is clicked", async () => {
+			const onModelNameClick = vi.fn();
 			const { user } = renderWithProviders(
-				<ModelReplyCard {...defaultProps} onModelNameClick={vi.fn()} />,
+				<ModelReplyCard
+					{...defaultProps}
+					onModelNameClick={onModelNameClick}
+				/>,
 			);
 			const modelNameButton = screen
 				.getByText("gemma3:4b")
 				.closest("[role='button']");
-			if (modelNameButton) {
-				await user.click(modelNameButton);
-				// onModelNameClick should be called
-			}
+			// The clickable model-name button must exist (no silent skip).
+			expect(modelNameButton).not.toBeNull();
+			await user.click(modelNameButton as HTMLElement);
+			expect(onModelNameClick).toHaveBeenCalledTimes(1);
 		});
 
 		it("shows info icon when showInfoIcon is true", () => {

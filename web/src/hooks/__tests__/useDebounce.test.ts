@@ -104,19 +104,20 @@ describe("useDebounce", () => {
 		expect(result.current).toEqual(updated);
 	});
 
-	it("cleans up timer on unmount", () => {
+	it("clears the pending debounce timer on unmount", () => {
 		const { unmount, rerender } = renderHook(
 			({ value, delay }) => useDebounce(value, delay),
 			{ initialProps: { value: "a", delay: 300 } },
 		);
 
+		// Changing the value schedules a pending debounce timer.
 		rerender({ value: "b", delay: 300 });
-		unmount();
+		expect(vi.getTimerCount()).toBe(1);
 
-		// No error should be thrown by the timer callback after unmount
-		act(() => {
-			vi.advanceTimersByTime(500);
-		});
+		// Unmount must run the effect cleanup, clearing that timer so it can never
+		// fire setState on an unmounted component.
+		unmount();
+		expect(vi.getTimerCount()).toBe(0);
 	});
 
 	it("respects changing delay", () => {
