@@ -76,6 +76,59 @@ const (
 // jump between standard sizes (≥25%), well clear of this band.
 const contextLengthRelTolerance = 0.07
 
+// priceRelTolerance bounds how far a freshly discovered price may drift from the
+// stored value before discovery treats it as a real change. OpenRouter reports
+// per-model pricing for whichever upstream it currently fronts, and that selection
+// wiggles between scans; without a band, sub-percent rounding wiggles would
+// overwrite the stored price and surface as metadata churn. Genuine repricings and
+// real upstream switches move far more than this and pass through untouched.
+const priceRelTolerance = 0.07
+
+// DampenOpenRouterPriceJitter neutralizes sub-tolerance price wiggles from
+// OpenRouter's volatile per-upstream pricing. For OpenRouter providers only, it
+// clears the live-meta flag on any price field whose freshly discovered value sits
+// within priceRelTolerance of the stored (pre-scan) value, demoting that field to
+// fill-only: Upsert then keeps the stored price and diffModelFields reports no
+// change. Large, genuine price moves exceed the band and stay live. No-op for
+// every other provider type, for models with no snapshot, and for nil endpoints.
+//
+// Call it after snapshotting and before upserting, at every discovery path.
+func DampenOpenRouterPriceJitter(baseURL string, snapshot map[string]ModelSnapshot, models []*model.Model) {
+	if provider.DetectProviderType(baseURL) != "openrouter" {
+		return
+	}
+	for _, m := range models {
+		prev, ok := snapshot[m.ModelID]
+		if !ok {
+			continue
+		}
+		if m.LiveMeta.InputPrice && withinPriceTolerance(prev.inputPrice, m.InputPricePerMillion) {
+			m.LiveMeta.InputPrice = false
+		}
+		if m.LiveMeta.OutputPrice && withinPriceTolerance(prev.outputPrice, m.OutputPricePerMillion) {
+			m.LiveMeta.OutputPrice = false
+		}
+		if m.LiveMeta.InputPriceCache && withinPriceTolerance(prev.inputPriceCache, m.InputPricePerMillionCacheHit) {
+			m.LiveMeta.InputPriceCache = false
+		}
+	}
+}
+
+// withinPriceTolerance reports whether newVal sits within priceRelTolerance of
+// oldVal. Both must be set: a nil on either side is a fill or clear, a genuine
+// change the caller must keep.
+func withinPriceTolerance(oldVal, newVal *float64) bool {
+	if oldVal == nil || newVal == nil {
+		return false
+	}
+	o, n := *oldVal, *newVal
+	denom := math.Max(math.Abs(o), math.Abs(n))
+	if denom == 0 {
+		return true
+	}
+	return math.Abs(o-n)/denom <= priceRelTolerance
+}
+
 // FieldChange describes one pricing/context metadata field whose value changed
 // for an existing model between scans. Old/New ride as nullable JSON numbers
 // (context ints and prices alike); a nil pointer means the field was unset. The
@@ -336,6 +389,9 @@ func (h *Handler) GetDiscoveryChanges(w http.ResponseWriter, r *http.Request) {
 		respondError(w, "failed to load discovery changes", err, http.StatusInternalServerError)
 		return
 	}
+	// Fold net-zero metadata round-trips so a value that swung out and back across
+	// several background runs stops inflating the badge and cluttering the modal.
+	entries = collapseRoundTrips(entries)
 	count := 0
 	for i := range entries {
 		count += countAffected(entries[i].Diff)
@@ -356,6 +412,9 @@ func (h *Handler) AckDiscoveryChanges(w http.ResponseWriter, r *http.Request) {
 	if entries == nil {
 		entries = []DiscoveryChangeEntry{}
 	}
+	// Collapse round-trips here too so the modal populated from this ack response
+	// matches the (already collapsed) badge the user clicked.
+	entries = collapseRoundTrips(entries)
 	writeJSON(w, DiscoveryChangesResponse{Entries: entries, Count: 0})
 }
 
@@ -425,6 +484,7 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 		respondError(w, fmt.Sprintf("failed to snapshot models for provider %s", prov.Name), err, http.StatusInternalServerError)
 		return
 	}
+	DampenOpenRouterPriceJitter(prov.BaseURL, snapshot, models)
 
 	existingModelIDs := make([]string, 0, len(models))
 	upsertedModels := make([]*model.Model, 0, len(models))
@@ -695,6 +755,7 @@ func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 		if snapErr != nil {
 			debuglog.Debug("discovery: failed to snapshot models", "provider", prov.Name, "error", snapErr)
 		}
+		DampenOpenRouterPriceJitter(prov.BaseURL, snapshot, models)
 
 		existingModelIDs := make([]string, 0, len(models))
 		upsertedModels := make([]*model.Model, 0, len(models))

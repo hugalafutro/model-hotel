@@ -453,6 +453,7 @@ func main() {
 			if snapErr != nil {
 				debuglog.Debug("discovery: failed to snapshot models", "provider", p.Name, "error", snapErr)
 			}
+			api.DampenOpenRouterPriceJitter(p.BaseURL, snapshot, models)
 
 			existingModelIDs := make([]string, 0, len(models))
 			upsertedModels := make([]*model.Model, 0, len(models))
