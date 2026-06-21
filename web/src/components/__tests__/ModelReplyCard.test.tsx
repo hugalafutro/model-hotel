@@ -351,9 +351,14 @@ describe("ModelReplyCard", () => {
 			const writeText = vi
 				.spyOn(navigator.clipboard, "writeText")
 				.mockResolvedValue(undefined);
-			await user.click(copyButton);
-			expect(writeText).toHaveBeenCalledWith(defaultProps.content);
-			writeText.mockRestore();
+			try {
+				await user.click(copyButton);
+				expect(writeText).toHaveBeenCalledWith(defaultProps.content);
+			} finally {
+				// Restore in finally so a failed click/assertion can't leak the spy
+				// onto navigator.clipboard for the next test.
+				writeText.mockRestore();
+			}
 		});
 	});
 
