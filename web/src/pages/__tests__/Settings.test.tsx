@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { server } from "../../test/mocks/server";
 import { renderWithProviders } from "../../test/utils";
 import { Settings } from "../Settings";
-import { SECTION_SETTINGS } from "../Settings/defaults";
 
 describe("Settings", () => {
 	beforeEach(() => {
@@ -168,12 +167,12 @@ describe("Settings", () => {
 	});
 
 	describe("Reset flows", () => {
-		it("reset-all requires typing RESET, then calls the reset API", async () => {
-			let resetCalled = false;
+		it("reset-all requires typing RESET, then resets every key (empty keys)", async () => {
+			let resetBody: unknown;
 			server.use(
 				http.get("/api/settings", () => HttpResponse.json({})),
-				http.delete("/api/settings", () => {
-					resetCalled = true;
+				http.delete("/api/settings", async ({ request }) => {
+					resetBody = await request.json();
 					return HttpResponse.json({});
 				}),
 			);
@@ -196,7 +195,10 @@ describe("Settings", () => {
 			expect(confirm).toBeEnabled();
 
 			await user.click(confirm);
-			await waitFor(() => expect(resetCalled).toBe(true));
+			// Reset-all sends an empty key list, which the backend treats as
+			// "reset everything". Asserting the literal payload independently
+			// verifies the behavior (not just that some request fired).
+			await waitFor(() => expect(resetBody).toEqual({ keys: [] }));
 		});
 
 		it("reset-all cancel closes the modal without calling the API", async () => {
@@ -239,10 +241,11 @@ describe("Settings", () => {
 			const { user } = renderWithProviders(<Settings />);
 			await screen.findByText("Settings");
 
-			// The first resettable section is Discovery (JSX order). Confirming its
-			// reset must send exactly that section's keys, which both verifies the
-			// payload and pins down which section the first button belongs to (a
-			// wrong button would send different keys and fail this assertion).
+			// The first resettable section is Discovery (JSX order). Assert the
+			// exact discovery keys as a literal list (NOT via SECTION_SETTINGS,
+			// which the production code also reads -- that would be circular and
+			// pass even if a key were dropped from both sides). This independently
+			// verifies the payload and pins down which section the button belongs to.
 			const sectionResetButtons = screen.getAllByRole("button", {
 				name: "Reset all settings in this section",
 			});
@@ -252,7 +255,11 @@ describe("Settings", () => {
 			);
 
 			await waitFor(() =>
-				expect(capturedKeys).toEqual(SECTION_SETTINGS.discovery),
+				expect(capturedKeys).toEqual([
+					"discovery_interval",
+					"discovery_on_startup",
+					"discovery_on_provider_create",
+				]),
 			);
 		});
 	});
