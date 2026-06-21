@@ -1,4 +1,4 @@
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockSettings, mockVersionLatest } from "../../test/helpers";
 import { server } from "../../test/mocks/server";
@@ -69,11 +69,15 @@ describe("useGitHubVersion", () => {
 
 		server.use(...mockVersionLatest({ body: { tag_name: "v0.2" } }));
 
-		renderHook(() => useGitHubVersion());
+		const { result } = renderHook(() => useGitHubVersion());
+		// Starts from the stale cached tag...
+		expect(result.current.latest).toBe("v0.1.1");
 
-		await act(async () => {
-			await new Promise((r) => setTimeout(r, 0));
-		});
+		// ...then the stale cache triggers a refetch that updates to the new tag
+		// and rewrites the cache.
+		await waitFor(() => expect(result.current.latest).toBe("v0.2"));
+		const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}");
+		expect(stored.tag).toBe("v0.2");
 	});
 
 	it("updates latest from API response", async () => {

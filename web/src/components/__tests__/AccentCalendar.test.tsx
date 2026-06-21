@@ -152,14 +152,26 @@ describe("AccentCalendar", () => {
 		expect(day20Button).toHaveClass("bg-(--accent)");
 	});
 
-	it("applies today styling for current day", () => {
-		// todayISO is mocked to return "2024-03-15"
+	it("applies today border styling when today is outside the selected range", () => {
+		// todayISO is mocked to 2024-03-15. The in-range fill outranks the today
+		// border, so pick a range that excludes the 15th to see the today styling.
+		renderWithProviders(
+			<AccentCalendar {...defaultProps} from="2024-03-01" to="2024-03-10" />,
+		);
+		const todayCell = screen.getByText("15").closest("button");
+		expect(todayCell?.className).toContain("border-(--accent)/50");
+		// A non-today, out-of-range day keeps plain styling, not the today border.
+		const otherCell = screen.getByText("25").closest("button");
+		expect(otherCell?.className).not.toContain("border-(--accent)/50");
+	});
+
+	it("in-range fill overrides today border when today is within the range", () => {
+		// Default range 10-20 includes the mocked today (15), so it gets the
+		// in-range fill instead of the today border.
 		renderWithProviders(<AccentCalendar {...defaultProps} />);
-		screen.getByText("15").closest("button");
-		// Today has border and accent color, but is overridden by isSelected if it's start/end
-		// Day 15 is in range but not start/end, so should show today styling if not in range
-		// Since day 15 is in range, the inRange styling takes precedence
-		// Let's test a day that's today but not in range
+		const todayCell = screen.getByText("15").closest("button");
+		expect(todayCell?.className).toContain("bg-(--accent)/20");
+		expect(todayCell?.className).not.toContain("border-(--accent)/50");
 	});
 
 	it("applies default styling for dates outside range", () => {

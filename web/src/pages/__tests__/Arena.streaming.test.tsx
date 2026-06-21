@@ -93,6 +93,11 @@ describe("Arena", () => {
 			await waitForArenaLoad();
 
 			await setupAndRunArena(user, { mode: "compare" });
+
+			// While streaming is in flight the run control becomes a Stop button.
+			expect(
+				await screen.findByRole("button", { name: "Stop All" }),
+			).toBeInTheDocument();
 		});
 
 		it("shows generating message during running phase", async () => {
@@ -229,6 +234,11 @@ describe("Arena", () => {
 			await waitForArenaLoad();
 
 			await setupAndRunArena(user);
+
+			// While streaming is in flight the run control becomes a Stop button.
+			expect(
+				await screen.findByRole("button", { name: "Stop All" }),
+			).toBeInTheDocument();
 		});
 
 		it("phase transitions to voting after streaming completes in competition mode", {
