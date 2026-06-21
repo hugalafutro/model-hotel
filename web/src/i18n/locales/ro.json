@@ -1784,7 +1784,7 @@
 			"metrics.description": "Expuneți metricile de solicitare, token, latență și întrerupător de circuit la /metrics pentru ca Prometheus să le poată extrage.",
 			"metrics.instructions": "Setați un token de scrape dedicat pentru a furniza metricile Prometheus. /metrics este deja accesibil folosind tokenul de administrator.",
 			"metrics.name": "Metrici Prometheus",
-			"otel.description": "Trimiteți aceleași jurnale structurate către un colector OpenTelemetry prin OTLP (numai jurnale — fără urmărire sau metrici).",
+			"otel.description": "Trimiteți aceleași jurnale structurate către un colector OpenTelemetry prin OTLP (numai jurnale, fără urmărire sau metrici).",
 			"otel.instructions": "Direcționați acest lucru către punctul final al colectorului OTLP și reporniți containerul pentru a transmite jurnalele prin OpenTelemetry:",
 			"otel.name": "Jurnale OpenTelemetry (OTLP)",
 			"title": "Observabilitate și export de jurnale",

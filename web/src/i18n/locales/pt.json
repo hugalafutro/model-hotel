@@ -1784,7 +1784,7 @@
 			"metrics.description": "Exponha métricas de solicitação, token, latência e disjuntor em /metrics para que o Prometheus as colete.",
 			"metrics.instructions": "Defina um token de scraping dedicado para provisionar métricas do Prometheus. /metrics já está acessível usando o token de administrador.",
 			"metrics.name": "Métricas do Prometheus",
-			"otel.description": "Envie os mesmos logs estruturados para um coletor OpenTelemetry via OTLP (apenas logs — sem rastreamento ou métricas).",
+			"otel.description": "Envie os mesmos logs estruturados para um coletor OpenTelemetry via OTLP (apenas logs, sem rastreamento ou métricas).",
 			"otel.instructions": "Aponte isso para o seu endpoint do coletor OTLP e reinicie o contêiner para enviar logs via OpenTelemetry:",
 			"otel.name": "Logs do OpenTelemetry (OTLP)",
 			"title": "Observabilidade e exportação de logs",

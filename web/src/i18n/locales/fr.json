@@ -1784,7 +1784,7 @@
 			"metrics.description": "Exposez les métriques relatives aux requêtes, aux jetons, à la latence et aux disjoncteurs à l'adresse /metrics afin que Prometheus puisse les collecter.",
 			"metrics.instructions": "Définissez un jeton de scraping dédié pour provisionner les métriques Prometheus. /metrics est déjà accessible à l'aide du jeton d'administration.",
 			"metrics.name": "Métriques Prometheus",
-			"otel.description": "Envoyez les mêmes journaux structurés vers un collecteur OpenTelemetry via OTLP (journaux uniquement — pas de traçage ni de métriques).",
+			"otel.description": "Envoyez les mêmes journaux structurés vers un collecteur OpenTelemetry via OTLP (journaux uniquement, pas de traçage ni de métriques).",
 			"otel.instructions": "Pointez ceci vers votre point de terminaison de collecteur OTLP et redémarrez le conteneur pour envoyer les journaux via OpenTelemetry :",
 			"otel.name": "Journaux OpenTelemetry (OTLP)",
 			"title": "Observabilité et exportation des journaux",

@@ -1784,7 +1784,7 @@
 			"metrics.description": "Exposar les mètriques de sol·licitud, token, latència i circuit-breaker a /metrics perquè Prometheus les pugui recollir.",
 			"metrics.instructions": "Establiu un token de scrape dedicat per proveir mètriques de Prometheus. /metrics ja és accessible amb el token d'administrador.",
 			"metrics.name": "Mètriques Prometheus",
-			"otel.description": "Envia els mateixos registres estructurats a un col·lector OpenTelemetry a través d'OTLP (només registres — sense rastreig ni mètriques).",
+			"otel.description": "Envia els mateixos registres estructurats a un col·lector OpenTelemetry a través d'OTLP (només registres, sense rastreig ni mètriques).",
 			"otel.instructions": "Apunteu això al vostre punt final de recollida OTLP i reinicieu el contenidor per enviar registres a través d'OpenTelemetry:",
 			"otel.name": "Registres d'OpenTelemetry (OTLP)",
 			"title": "Observabilitat i exportació de registres",
