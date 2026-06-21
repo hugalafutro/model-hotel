@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { server } from "../../test/mocks/server";
 import { renderWithProviders } from "../../test/utils";
 import { Settings } from "../Settings";
+import { SECTION_SETTINGS } from "../Settings/defaults";
 
 describe("Settings", () => {
 	beforeEach(() => {
@@ -238,7 +239,10 @@ describe("Settings", () => {
 			const { user } = renderWithProviders(<Settings />);
 			await screen.findByText("Settings");
 
-			// Open the first section's reset confirmation, then confirm it.
+			// The first resettable section is Discovery (JSX order). Confirming its
+			// reset must send exactly that section's keys, which both verifies the
+			// payload and pins down which section the first button belongs to (a
+			// wrong button would send different keys and fail this assertion).
 			const sectionResetButtons = screen.getAllByRole("button", {
 				name: "Reset all settings in this section",
 			});
@@ -247,8 +251,9 @@ describe("Settings", () => {
 				screen.getByRole("button", { name: "Reset to Defaults" }),
 			);
 
-			await waitFor(() => expect(capturedKeys).toBeDefined());
-			expect(capturedKeys?.length).toBeGreaterThan(0);
+			await waitFor(() =>
+				expect(capturedKeys).toEqual(SECTION_SETTINGS.discovery),
+			);
 		});
 	});
 });
