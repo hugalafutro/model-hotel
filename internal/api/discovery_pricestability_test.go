@@ -260,7 +260,9 @@ func TestWithinPriceTolerance(t *testing.T) {
 	}{
 		{"equal", fptr(1.0), fptr(1.0), true},
 		{"within band", fptr(1.0), fptr(1.05), true},
-		{"on the edge", fptr(1.0), fptr(1.07), true},
+		// denom is the larger value, so exactly 7% is 0.93 -> 1.0 (0.07/1.0).
+		{"exactly on the 7% edge", fptr(0.93), fptr(1.0), true},
+		{"just past the edge", fptr(0.92), fptr(1.0), false},
 		{"beyond band", fptr(1.0), fptr(1.5), false},
 		{"old nil", nil, fptr(1.0), false},
 		{"new nil", fptr(1.0), nil, false},
