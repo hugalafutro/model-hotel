@@ -2144,12 +2144,8 @@
 			"neuralwattUsage": "Kullanım",
 			"neuralwattSubscription": "Abonelik",
 			"neuralwattPlan": "Plan",
-			"neuralwattStatus": "Durum",
 			"neuralwattBillingPeriod": "Fatura Dönemi",
 			"neuralwattAutoRenew": "Otomatik Yenileme",
-			"neuralwattKwhIncluded": "kWh dahil",
-			"neuralwattKwhUsed": "Kullanılan kWh",
-			"neuralwattKwhRemaining": "Kalan kWh",
 			"neuralwattCurrentMonth": "Bu Ay",
 			"neuralwattCost": "Maliyet",
 			"neuralwattRequests": "İstekler",
@@ -2163,7 +2159,6 @@
 			"neuralwattLifetime": "Ömür boyu",
 			"neuralwattKeyInfo": "Önemli Bilgiler",
 			"neuralwattEnergyQuota": "Enerji Kotası",
-			"neuralwattEnergyAllocation": "Enerji Dağılımı",
 			"neuralwattBillingInterval": "Fatura Dönemi",
 			"neuralwattAccountingMethod": "Muhasebe Yöntemi",
 			"limits": "Sınırlar",
@@ -2272,7 +2267,6 @@
 			"timeToFirstToken": "İlk Jetonun Alınma Süresi: İsteğin başlaması ile yanıt gövdesindeki ilk jeton (akış) veya tam yanıt (akış dışı) arasındaki gecikme süresi",
 			"tokensPerSecond": "Token/saniye",
 			"outputTokensPerSecond": "Oluşturma aşamasında saniye başına üretilen token sayısı (ilk tokenin üretilme süresi hariç). Oluşturma süresi önemsiz düzeyde olduğunda '-' olarak gösterilir.",
-			"totalTokens": "Toplam Jeton",
 			"sumOfTokens": "Komut istemi + tamamlama + gerekçe belirteçlerinin toplamı",
 			"requestHash": "İstek Hash'i",
 			"model": "Model",
@@ -2310,7 +2304,8 @@
 			"totalOverhead": "Toplam ek yük",
 			"error": "Hata",
 			"copyErrorMessage": "Hata mesajını kopyala",
-			"expandForBreakdown": "Adım adım dökümü görmek için genişletin"
+			"expandForBreakdown": "Adım adım dökümü görmek için genişletin",
+			"performance": "Performans"
 		},
 		"statusBadge": {
 			"streaming": "Canlı yayın",

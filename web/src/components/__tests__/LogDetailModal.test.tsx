@@ -222,7 +222,7 @@ describe("LogDetailModal", () => {
 			const headersLabel = screen.getByText("Headers");
 			// The label div is inside the card div, so closest gets us the card
 			const headersCard = headersLabel.closest(
-				'[class*="rounded-(--radius-box)"]',
+				'[class*="ui-stat-tile"], [class*="ui-detail-tile"]',
 			);
 			expect(headersCard).toBeInTheDocument();
 			// The card contains "Headers" label and the dash value
@@ -257,7 +257,7 @@ describe("LogDetailModal", () => {
 			);
 
 			expect(screen.getByText("450")).toBeInTheDocument();
-			expect(screen.getByText("Total Tokens")).toBeInTheDocument();
+			expect(screen.getByText("Tokens")).toBeInTheDocument();
 		});
 
 		it("displays timestamp with formatted date", () => {
@@ -748,7 +748,9 @@ describe("LogDetailModal", () => {
 
 			// The Tokens/s timing card contains both the label and the value
 			const tpsLabel = screen.getByText("Tokens/s");
-			const tpsCard = tpsLabel.closest('[class*="rounded-(--radius-box)"]');
+			const tpsCard = tpsLabel.closest(
+				'[class*="ui-stat-tile"], [class*="ui-detail-tile"]',
+			);
 			expect(tpsCard).toBeInTheDocument();
 			expect(tpsCard?.textContent).toContain("-");
 		});
@@ -764,7 +766,9 @@ describe("LogDetailModal", () => {
 
 			// The Tokens/s timing card contains both the label and the value
 			const tpsLabel = screen.getByText("Tokens/s");
-			const tpsCard = tpsLabel.closest('[class*="rounded-(--radius-box)"]');
+			const tpsCard = tpsLabel.closest(
+				'[class*="ui-stat-tile"], [class*="ui-detail-tile"]',
+			);
 			expect(tpsCard).toBeInTheDocument();
 			expect(tpsCard?.textContent).toContain("-");
 		});
@@ -835,7 +839,7 @@ describe("LogDetailModal", () => {
 			expect(tooltip.querySelector("svg")).toBeInTheDocument();
 		});
 
-		it("renders Info icon with tooltip for Total Tokens card", () => {
+		it("renders Info icon with tooltip for Tokens card", () => {
 			renderWithProviders(
 				<LogDetailModal
 					log={mockRequestLog}
@@ -990,7 +994,9 @@ describe("LogDetailModal", () => {
 
 			// DetailItem renders the value in a div after the label
 			const vkLabel = screen.getByText("Virtual Key");
-			const vkItem = vkLabel.closest('[class*="rounded-(--radius-box)"]');
+			const vkItem = vkLabel.closest(
+				'[class*="ui-stat-tile"], [class*="ui-detail-tile"]',
+			);
 			expect(vkItem).toBeInTheDocument();
 			expect(vkItem?.textContent).toContain("-");
 		});

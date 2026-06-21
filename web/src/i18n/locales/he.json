@@ -2144,12 +2144,8 @@
 			"neuralwattUsage": "שימוש",
 			"neuralwattSubscription": "מנוי",
 			"neuralwattPlan": "תוכנית",
-			"neuralwattStatus": "סטטוס",
 			"neuralwattBillingPeriod": "תקופת החיוב",
 			"neuralwattAutoRenew": "חידוש אוטומטי",
-			"neuralwattKwhIncluded": "כולל קוט\"ש",
-			"neuralwattKwhUsed": "צריכת חשמל (קוט\"ש)",
-			"neuralwattKwhRemaining": "קוט\"ש שנותרו",
 			"neuralwattCurrentMonth": "החודש הנוכחי",
 			"neuralwattCost": "עלות",
 			"neuralwattRequests": "בקשות",
@@ -2163,7 +2159,6 @@
 			"neuralwattLifetime": "לכל החיים",
 			"neuralwattKeyInfo": "מידע עיקרי",
 			"neuralwattEnergyQuota": "מכסת אנרגיה",
-			"neuralwattEnergyAllocation": "הקצאת אנרגיה",
 			"neuralwattBillingInterval": "תדירות החיוב",
 			"neuralwattAccountingMethod": "שיטת חשבונאות",
 			"limits": "גבולות",
@@ -2272,7 +2267,6 @@
 			"timeToFirstToken": "זמן עד לאסימון הראשון: העיכוב בין תחילת הבקשה לאסימון הראשון בגוף התגובה (בשידור רציף) או בתגובה המלאה (בשידור לא רציף)",
 			"tokensPerSecond": "אסימונים לשנייה",
 			"outputTokensPerSecond": "מספר האסימונים המופקים בשנייה במהלך שלב הייצור (לא כולל את הזמן עד לאסימון הראשון). מוצג כ'-' כאשר זמן הייצור זניח.",
-			"totalTokens": "סה\"כ אסימונים",
 			"sumOfTokens": "סך כל אסימוני ההנחיה + ההשלמה + ההנמקה",
 			"requestHash": "בקשת Hash",
 			"model": "דגם",
@@ -2310,7 +2304,8 @@
 			"totalOverhead": "הוצאות כלליות",
 			"error": "שגיאה",
 			"copyErrorMessage": "העתק את הודעת השגיאה",
-			"expandForBreakdown": "הרחב לפירוט לפי שלבים"
+			"expandForBreakdown": "הרחב לפירוט לפי שלבים",
+			"performance": "ביצועים"
 		},
 		"statusBadge": {
 			"streaming": "סטרימינג",

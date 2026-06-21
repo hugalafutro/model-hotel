@@ -2144,12 +2144,8 @@
 			"neuralwattUsage": "사용법",
 			"neuralwattSubscription": "구독",
 			"neuralwattPlan": "계획",
-			"neuralwattStatus": "상태",
 			"neuralwattBillingPeriod": "청구 기간",
 			"neuralwattAutoRenew": "자동 갱신",
-			"neuralwattKwhIncluded": "kWh 포함",
-			"neuralwattKwhUsed": "사용량 (kWh)",
-			"neuralwattKwhRemaining": "남은 kWh",
 			"neuralwattCurrentMonth": "이번 달",
 			"neuralwattCost": "비용",
 			"neuralwattRequests": "요청",
@@ -2163,7 +2159,6 @@
 			"neuralwattLifetime": "평생",
 			"neuralwattKeyInfo": "주요 정보",
 			"neuralwattEnergyQuota": "에너지 할당량",
-			"neuralwattEnergyAllocation": "에너지 배분",
 			"neuralwattBillingInterval": "청구 주기",
 			"neuralwattAccountingMethod": "회계 처리 방법",
 			"limits": "한계",
@@ -2272,7 +2267,6 @@
 			"timeToFirstToken": "첫 토큰 수신까지 걸리는 시간: 요청 시작 시점부터 응답 본문의 첫 토큰(스트리밍) 또는 전체 응답(비스트리밍)이 수신되기까지의 지연 시간",
 			"tokensPerSecond": "토큰/초",
 			"outputTokensPerSecond": "생성 단계 동안 초당 출력되는 토큰 수(첫 번째 토큰이 생성되기까지의 시간은 제외). 생성 시간이 미미한 경우 '-'로 표시됩니다.",
-			"totalTokens": "토큰 총량",
 			"sumOfTokens": "프롬프트 + 완성 + 추론 토큰의 합계",
 			"requestHash": "해시 요청",
 			"model": "모델",
@@ -2310,7 +2304,8 @@
 			"totalOverhead": "총 간접비",
 			"error": "오류",
 			"copyErrorMessage": "오류 메시지 복사",
-			"expandForBreakdown": "단계별 분석을 보려면 펼치세요"
+			"expandForBreakdown": "단계별 분석을 보려면 펼치세요",
+			"performance": "성능"
 		},
 		"statusBadge": {
 			"streaming": "스트리밍",

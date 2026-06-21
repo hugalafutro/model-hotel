@@ -2144,12 +2144,8 @@
 			"neuralwattUsage": "Usage",
 			"neuralwattSubscription": "Abonnement",
 			"neuralwattPlan": "Forfait",
-			"neuralwattStatus": "Statut",
 			"neuralwattBillingPeriod": "Période de facturation",
 			"neuralwattAutoRenew": "Renouvellement automatique",
-			"neuralwattKwhIncluded": "kWh inclus",
-			"neuralwattKwhUsed": "kWh utilisé",
-			"neuralwattKwhRemaining": "kWh restants",
 			"neuralwattCurrentMonth": "Mois en cours",
 			"neuralwattCost": "Coûts",
 			"neuralwattRequests": "Requêtes",
@@ -2163,7 +2159,6 @@
 			"neuralwattLifetime": "Durée de vie",
 			"neuralwattKeyInfo": "Informations sur la clé",
 			"neuralwattEnergyQuota": "Quota d'énergie",
-			"neuralwattEnergyAllocation": "Allocation d'énergie",
 			"neuralwattBillingInterval": "Intervalle de facturation",
 			"neuralwattAccountingMethod": "Méthode comptable",
 			"limits": "Limites",
@@ -2272,7 +2267,6 @@
 			"timeToFirstToken": "Temps avant premier jeton : délai entre le début de la requête et le premier jeton du corps de la réponse (streaming) ou la réponse complète (non-streaming)",
 			"tokensPerSecond": "Tokens/s",
 			"outputTokensPerSecond": "Jetons de sortie par seconde durant la phase de génération (exclut le temps de création du premier jeton). Affichés comme '-' lorsque le temps de génération est négligeable.",
-			"totalTokens": "Tokens totaux",
 			"sumOfTokens": "Somme des prompt + achèvement + jetons de raisonnement",
 			"requestHash": "Demander un hachage",
 			"model": "Modélisation",
@@ -2310,7 +2304,8 @@
 			"totalOverhead": "Total au dessus",
 			"error": "Erreur",
 			"copyErrorMessage": "Copier le message d'erreur",
-			"expandForBreakdown": "Développez pour voir le détail par étape"
+			"expandForBreakdown": "Développez pour voir le détail par étape",
+			"performance": "Performances"
 		},
 		"statusBadge": {
 			"streaming": "Streaming en cours",

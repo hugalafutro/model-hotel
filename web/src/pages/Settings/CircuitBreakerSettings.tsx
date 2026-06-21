@@ -43,7 +43,7 @@ export function CircuitBreakerSettings({
 				</p>
 				<div className="grid grid-cols-2 gap-x-8 gap-y-5 [align-items:start]">
 					<div className="space-y-5">
-						<div className="flex items-center justify-between gap-3">
+						<div className="flex items-center justify-between gap-3 p-3 ui-detail-tile">
 							<div className="min-w-0">
 								<div className="flex items-center gap-1">
 									<p className="text-sm font-medium text-gray-300">
@@ -74,7 +74,7 @@ export function CircuitBreakerSettings({
 							/>
 						</div>
 
-						<div className="flex items-center justify-between gap-3">
+						<div className="flex items-center justify-between gap-3 p-3 ui-detail-tile">
 							<div className="min-w-0">
 								<div className="flex items-center gap-1">
 									<p className="text-sm font-medium text-gray-300">
@@ -105,7 +105,7 @@ export function CircuitBreakerSettings({
 							/>
 						</div>
 
-						<div className="flex items-center justify-between gap-3">
+						<div className="flex items-center justify-between gap-3 p-3 ui-detail-tile">
 							<div className="min-w-0">
 								<div className="flex items-center gap-1">
 									<p className="text-sm font-medium text-gray-300">

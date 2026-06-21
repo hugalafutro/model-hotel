@@ -737,9 +737,7 @@ describe("ZAICodingQuotaModal", () => {
 			const { baseElement } = renderWithProviders(
 				<ZAICodingQuotaModal {...defaultProps} usage={usageWithLowQuota} />,
 			);
-			const progressBar = baseElement.querySelector(
-				".bg-red-500.h-3.rounded-full",
-			);
+			const progressBar = baseElement.querySelector(".bg-red-500.h-3.ui-bar");
 			expect(progressBar).toBeInTheDocument();
 		});
 
@@ -765,9 +763,7 @@ describe("ZAICodingQuotaModal", () => {
 			const { baseElement } = renderWithProviders(
 				<ZAICodingQuotaModal {...defaultProps} usage={usageWithMediumQuota} />,
 			);
-			const progressBar = baseElement.querySelector(
-				".bg-amber-500.h-3.rounded-full",
-			);
+			const progressBar = baseElement.querySelector(".bg-amber-500.h-3.ui-bar");
 			expect(progressBar).toBeInTheDocument();
 		});
 
@@ -794,7 +790,7 @@ describe("ZAICodingQuotaModal", () => {
 				<ZAICodingQuotaModal {...defaultProps} usage={usageWithHighQuota} />,
 			);
 			const progressBar = baseElement.querySelector(
-				".bg-\\[\\#6366F1\\].h-3.rounded-full",
+				".bg-\\[\\#6366F1\\].h-3.ui-bar",
 			);
 			expect(progressBar).toBeInTheDocument();
 		});
@@ -931,7 +927,7 @@ describe("ZAICodingQuotaModal", () => {
 			);
 			// 5h quota: 50% remaining (100 - 50% used) → >60% remaining → indigo
 			const progressBar = baseElement.querySelector(
-				".bg-\\[\\#6366F1\\].h-3.rounded-full",
+				".bg-\\[\\#6366F1\\].h-3.ui-bar",
 			);
 			expect(progressBar).toBeInTheDocument();
 		});
@@ -946,7 +942,7 @@ describe("ZAICodingQuotaModal", () => {
 			await user.click(toggleButton);
 			// In used mode with 50% used: usedPct >= 50 && < 80 → orange
 			const progressBar = baseElement.querySelector(
-				".bg-orange-500.h-3.rounded-full",
+				".bg-orange-500.h-3.ui-bar",
 			);
 			expect(progressBar).toBeInTheDocument();
 		});
@@ -961,20 +957,18 @@ describe("ZAICodingQuotaModal", () => {
 
 			// Initial state: remaining mode (indigo for 50% remaining)
 			let progressBar = baseElement.querySelector(
-				".bg-\\[\\#6366F1\\].h-3.rounded-full",
+				".bg-\\[\\#6366F1\\].h-3.ui-bar",
 			);
 			expect(progressBar).toBeInTheDocument();
 
 			// Toggle to used mode
 			await user.click(toggleButton);
-			progressBar = baseElement.querySelector(".bg-amber-500.h-3.rounded-full");
+			progressBar = baseElement.querySelector(".bg-amber-500.h-3.ui-bar");
 			expect(progressBar).toBeInTheDocument();
 
 			// Toggle back to remaining mode
 			await user.click(toggleButton);
-			progressBar = baseElement.querySelector(
-				".bg-\\[\\#6366F1\\].h-3.rounded-full",
-			);
+			progressBar = baseElement.querySelector(".bg-\\[\\#6366F1\\].h-3.ui-bar");
 			expect(progressBar).toBeInTheDocument();
 		});
 	});
@@ -1223,9 +1217,7 @@ describe("OpenRouterQuotaModal", () => {
 					balance={balanceWithLowRemaining}
 				/>,
 			);
-			const progressBar = baseElement.querySelector(
-				".bg-red-500.h-3.rounded-full",
-			);
+			const progressBar = baseElement.querySelector(".bg-red-500.h-3.ui-bar");
 			expect(progressBar).toBeInTheDocument();
 		});
 
@@ -1241,9 +1233,7 @@ describe("OpenRouterQuotaModal", () => {
 					balance={balanceWithMediumRemaining}
 				/>,
 			);
-			const progressBar = baseElement.querySelector(
-				".bg-amber-500.h-3.rounded-full",
-			);
+			const progressBar = baseElement.querySelector(".bg-amber-500.h-3.ui-bar");
 			expect(progressBar).toBeInTheDocument();
 		});
 
@@ -1260,7 +1250,7 @@ describe("OpenRouterQuotaModal", () => {
 				/>,
 			);
 			const progressBar = baseElement.querySelector(
-				".bg-\\[\\#6366F1\\].h-3.rounded-full",
+				".bg-\\[\\#6366F1\\].h-3.ui-bar",
 			);
 			expect(progressBar).toBeInTheDocument();
 		});
@@ -1278,9 +1268,7 @@ describe("OpenRouterQuotaModal", () => {
 				/>,
 			);
 			// When limit is 0, the bar should use amber fallback color
-			const progressBar = baseElement.querySelector(
-				".bg-amber-500.h-3.rounded-full",
-			);
+			const progressBar = baseElement.querySelector(".bg-amber-500.h-3.ui-bar");
 			expect(progressBar).toBeInTheDocument();
 			// Width should be 0% (not -Infinity or NaN)
 			expect(progressBar?.getAttribute("style")).toContain("width: 0%");
@@ -1298,9 +1286,7 @@ describe("OpenRouterQuotaModal", () => {
 					balance={balanceWithNegativeLimit}
 				/>,
 			);
-			const progressBar = baseElement.querySelector(
-				".bg-amber-500.h-3.rounded-full",
-			);
+			const progressBar = baseElement.querySelector(".bg-amber-500.h-3.ui-bar");
 			expect(progressBar).toBeInTheDocument();
 			expect(progressBar?.getAttribute("style")).toContain("width: 0%");
 		});
@@ -1350,7 +1336,7 @@ describe("OpenRouterQuotaModal", () => {
 			);
 			// Find the progress bar div in the Account Balance section
 			const progressBar = baseElement.querySelector(
-				".bg-\\[\\#6366F1\\].h-3.rounded-full",
+				".bg-\\[\\#6366F1\\].h-3.ui-bar",
 			);
 			expect(progressBar).toBeInTheDocument();
 		});
@@ -1418,7 +1404,7 @@ describe("OpenRouterQuotaModal", () => {
 			);
 			// Find the progress bar div with bg-red-500 class in the Account Balance section
 			const accountBalanceSection = baseElement.querySelector(
-				".bg-red-500.h-3.rounded-full",
+				".bg-red-500.h-3.ui-bar",
 			);
 			expect(accountBalanceSection).toBeInTheDocument();
 		});
@@ -1436,7 +1422,7 @@ describe("OpenRouterQuotaModal", () => {
 				/>,
 			);
 			const accountBalanceSection = baseElement.querySelector(
-				".bg-amber-500.h-3.rounded-full",
+				".bg-amber-500.h-3.ui-bar",
 			);
 			expect(accountBalanceSection).toBeInTheDocument();
 		});
@@ -1454,7 +1440,7 @@ describe("OpenRouterQuotaModal", () => {
 				/>,
 			);
 			const accountBalanceSection = baseElement.querySelector(
-				".bg-\\[\\#6366F1\\].h-3.rounded-full",
+				".bg-\\[\\#6366F1\\].h-3.ui-bar",
 			);
 			expect(accountBalanceSection).toBeInTheDocument();
 		});
@@ -1536,7 +1522,7 @@ describe("OpenRouterQuotaModal", () => {
 			);
 			// credits_remaining: 900000 / credits_total: 1000000 = 90% remaining → >60% → indigo
 			const progressBar = baseElement.querySelector(
-				".bg-\\[\\#6366F1\\].h-3.rounded-full",
+				".bg-\\[\\#6366F1\\].h-3.ui-bar",
 			);
 			expect(progressBar).toBeInTheDocument();
 		});
@@ -1550,9 +1536,7 @@ describe("OpenRouterQuotaModal", () => {
 			});
 			await user.click(toggleButton);
 			// In used mode with 10% used (100 - 90% remaining), bar should be amber (usedPct < 50)
-			const progressBar = baseElement.querySelector(
-				".bg-amber-500.h-3.rounded-full",
-			);
+			const progressBar = baseElement.querySelector(".bg-amber-500.h-3.ui-bar");
 			expect(progressBar).toBeInTheDocument();
 		});
 
@@ -1566,20 +1550,18 @@ describe("OpenRouterQuotaModal", () => {
 
 			// Initial state: remaining mode (indigo for 90% remaining)
 			let progressBar = baseElement.querySelector(
-				".bg-\\[\\#6366F1\\].h-3.rounded-full",
+				".bg-\\[\\#6366F1\\].h-3.ui-bar",
 			);
 			expect(progressBar).toBeInTheDocument();
 
 			// Toggle to used mode
 			await user.click(toggleButton);
-			progressBar = baseElement.querySelector(".bg-amber-500.h-3.rounded-full");
+			progressBar = baseElement.querySelector(".bg-amber-500.h-3.ui-bar");
 			expect(progressBar).toBeInTheDocument();
 
 			// Toggle back to remaining mode
 			await user.click(toggleButton);
-			progressBar = baseElement.querySelector(
-				".bg-\\[\\#6366F1\\].h-3.rounded-full",
-			);
+			progressBar = baseElement.querySelector(".bg-\\[\\#6366F1\\].h-3.ui-bar");
 			expect(progressBar).toBeInTheDocument();
 		});
 	});
@@ -1654,11 +1636,11 @@ describe("NeuralWattQuotaModal", () => {
 			expect(screen.getByText("starter")).toBeInTheDocument();
 		});
 
-		it("renders energy allocation with kWh values", () => {
+		it("renders energy usage in the kWh bar", () => {
 			renderWithProviders(<NeuralWattQuotaModal {...defaultProps} />);
-			expect(screen.getByText("16 kWh")).toBeInTheDocument();
-			expect(screen.getByText("2.23 kWh")).toBeInTheDocument();
-			expect(screen.getByText("13.77 kWh")).toBeInTheDocument();
+			// Used / included show in the bar's right label; remaining in the caption.
+			expect(screen.getByText(/2\.23 \/ 16 kWh/)).toBeInTheDocument();
+			expect(screen.getByText(/13\.77 kWh remaining/)).toBeInTheDocument();
 		});
 
 		it("renders balance info", () => {

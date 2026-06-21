@@ -2144,12 +2144,8 @@
 			"neuralwattUsage": "Použití",
 			"neuralwattSubscription": "Předplatné",
 			"neuralwattPlan": "Plán",
-			"neuralwattStatus": "Stav",
 			"neuralwattBillingPeriod": "Fakturační období",
 			"neuralwattAutoRenew": "Automatické prodloužení",
-			"neuralwattKwhIncluded": "včetně kWh",
-			"neuralwattKwhUsed": "Spotřeba v kWh",
-			"neuralwattKwhRemaining": "Zbývající kWh",
 			"neuralwattCurrentMonth": "Aktuální měsíc",
 			"neuralwattCost": "Cena",
 			"neuralwattRequests": "Požadavky",
@@ -2163,7 +2159,6 @@
 			"neuralwattLifetime": "Celková životnost",
 			"neuralwattKeyInfo": "Základní informace",
 			"neuralwattEnergyQuota": "Energetická kvóta",
-			"neuralwattEnergyAllocation": "Rozdělení energie",
 			"neuralwattBillingInterval": "Fakturační interval",
 			"neuralwattAccountingMethod": "Účetní metoda",
 			"limits": "Limity",
@@ -2272,7 +2267,6 @@
 			"timeToFirstToken": "Doba do přijetí prvního tokenu odpovědi od poskytovatele",
 			"tokensPerSecond": "tokenů za sekundu",
 			"outputTokensPerSecond": "Počet vygenerovaných tokenů za sekundu během fáze generování (nezahrnuje dobu do vygenerování prvního tokenu). Pokud je doba generování zanedbatelná, zobrazí se jako „-“.",
-			"totalTokens": "Celkový počet tokenů",
 			"sumOfTokens": "Součet tokenů pro zadání, dokončení a odůvodnění",
 			"requestHash": "Hash požadavku",
 			"model": "Vzor",
@@ -2310,7 +2304,8 @@
 			"totalOverhead": "Celkový overhead",
 			"error": "Chyba",
 			"copyErrorMessage": "Zkopírujte chybovou zprávu",
-			"expandForBreakdown": "Rozbalte pro podrobné rozdělení podle kroků"
+			"expandForBreakdown": "Rozbalte pro podrobné rozdělení podle kroků",
+			"performance": "Výkon"
 		},
 		"statusBadge": {
 			"streaming": "Streamování",

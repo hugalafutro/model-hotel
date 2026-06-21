@@ -2144,12 +2144,8 @@
 			"neuralwattUsage": "使用法",
 			"neuralwattSubscription": "サブスクリプション",
 			"neuralwattPlan": "プラン",
-			"neuralwattStatus": "ステータス",
 			"neuralwattBillingPeriod": "請求期間",
 			"neuralwattAutoRenew": "自動更新",
-			"neuralwattKwhIncluded": "kWh含まれています",
-			"neuralwattKwhUsed": "kWh使用",
-			"neuralwattKwhRemaining": "残りkWh時間",
 			"neuralwattCurrentMonth": "現在の月",
 			"neuralwattCost": "コスト",
 			"neuralwattRequests": "リクエスト",
@@ -2163,7 +2159,6 @@
 			"neuralwattLifetime": "有効期間",
 			"neuralwattKeyInfo": "キー情報",
 			"neuralwattEnergyQuota": "Energyクォータ",
-			"neuralwattEnergyAllocation": "エネルギー割り当て",
 			"neuralwattBillingInterval": "請求間隔",
 			"neuralwattAccountingMethod": "会計方法",
 			"limits": "制限",
@@ -2272,7 +2267,6 @@
 			"timeToFirstToken": "最初のトークンまでの時間: リクエストの開始とレスポンス本文の最初のトークン間の遅延 (ストリーミング) または完全な応答 (非ストリーミング)",
 			"tokensPerSecond": "Tokens/s",
 			"outputTokensPerSecond": "生成フェーズ中の毎秒の出力トークン（最初のトークンまでの時間を除く）。生成時間が無視できない場合は「-」として表示されます。",
-			"totalTokens": "合計トークン",
 			"sumOfTokens": "プロンプト+補完+推論トークンの合計",
 			"requestHash": "要求ハッシュ",
 			"model": "モデル",
@@ -2310,7 +2304,8 @@
 			"totalOverhead": "総オーバーヘッド数",
 			"error": "エラー",
 			"copyErrorMessage": "エラーメッセージをコピー",
-			"expandForBreakdown": "ステップごとの内訳を表示するには展開してください"
+			"expandForBreakdown": "ステップごとの内訳を表示するには展開してください",
+			"performance": "パフォーマンス"
 		},
 		"statusBadge": {
 			"streaming": "ストリーミング",

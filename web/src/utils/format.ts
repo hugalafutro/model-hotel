@@ -151,34 +151,42 @@ export function formatTimeUntil(ts: number): string {
 	const days = Math.floor(hours / 24);
 	const remainingHours = hours % 24;
 
+	// Glue each value to its unit word with a non-breaking space so a line wrap
+	// can't strand the number at the end of one line and "days"/"hours" at the
+	// start of the next. Breaks are still allowed at the comma between units.
+	// Locale-agnostic: only matches a digit directly followed by a space + word,
+	// which is exactly the "<number> <unit>" shape (no-op for CJK with no space).
+	const t = (key: string, opts: Record<string, number>): string =>
+		i18next.t(key, opts).replace(/(\d)\s+(\S)/g, "$1\u00a0$2");
+
 	if (days > 0) {
 		if (days === 1 && remainingHours === 1) {
-			return i18next.t("format.inDaysHours_one_day_one_hour", {
+			return t("format.inDaysHours_one_day_one_hour", {
 				days,
 				hours: remainingHours,
 			});
 		}
 		if (days === 1) {
-			return i18next.t("format.inDaysHours_one_day_other_hours", {
+			return t("format.inDaysHours_one_day_other_hours", {
 				days,
 				hours: remainingHours,
 			});
 		}
 		if (remainingHours === 1) {
-			return i18next.t("format.inDaysHours_other_days_one_hour", {
+			return t("format.inDaysHours_other_days_one_hour", {
 				days,
 				hours: remainingHours,
 			});
 		}
-		return i18next.t("format.inDaysHours_other_days_other_hours", {
+		return t("format.inDaysHours_other_days_other_hours", {
 			days,
 			hours: remainingHours,
 		});
 	}
 	if (hours === 1) {
-		return i18next.t("format.inHours_only_one", { hours });
+		return t("format.inHours_only_one", { hours });
 	}
-	return i18next.t("format.inHours_only_other", { hours });
+	return t("format.inHours_only_other", { hours });
 }
 
 /**

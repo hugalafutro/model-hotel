@@ -66,7 +66,7 @@ export function DiscoverySettings({
 				</p>
 				<div className="grid grid-cols-2 gap-x-8 gap-y-5 [align-items:start]">
 					<div className="space-y-5">
-						<div className="flex items-center justify-between">
+						<div className="flex items-center justify-between p-3 ui-detail-tile">
 							<div>
 								<div className="flex items-center gap-1">
 									<p className="text-sm font-medium text-gray-300">
@@ -98,7 +98,7 @@ export function DiscoverySettings({
 							/>
 						</div>
 
-						<div className="flex items-center justify-between">
+						<div className="flex items-center justify-between p-3 ui-detail-tile">
 							<div>
 								<div className="flex items-center gap-1">
 									<p className="text-sm font-medium text-gray-300">

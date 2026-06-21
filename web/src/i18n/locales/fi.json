@@ -2144,12 +2144,8 @@
 			"neuralwattUsage": "Käyttö",
 			"neuralwattSubscription": "Tilaus",
 			"neuralwattPlan": "Suunnitelma",
-			"neuralwattStatus": "Tila",
 			"neuralwattBillingPeriod": "Laskutusaika",
 			"neuralwattAutoRenew": "Automaattinen Uusiminen",
-			"neuralwattKwhIncluded": "kWh Mukana",
-			"neuralwattKwhUsed": "kWh Käytetty",
-			"neuralwattKwhRemaining": "kWh Jäljellä",
 			"neuralwattCurrentMonth": "Nykyinen Kuukausi",
 			"neuralwattCost": "Kustannukset",
 			"neuralwattRequests": "Pyynnöt",
@@ -2163,7 +2159,6 @@
 			"neuralwattLifetime": "Elinikä",
 			"neuralwattKeyInfo": "Avaimen Tiedot",
 			"neuralwattEnergyQuota": "Energiakiintiö",
-			"neuralwattEnergyAllocation": "Energian Jakaminen",
 			"neuralwattBillingInterval": "Laskutuksen Aikaväli",
 			"neuralwattAccountingMethod": "Kirjanpitotapa",
 			"limits": "Raja-arvot",
@@ -2272,7 +2267,6 @@
 			"timeToFirstToken": "Aika ensimmäiseen tokeniin: viive pyynnön alkamisesta vastauslaitoksen ensimmäiseen tokeniin (streaming) tai täyteen vasteeseen (non-streaming)",
 			"tokensPerSecond": "Tunnukset/s",
 			"outputTokensPerSecond": "Tuotantokuponkeja sekunnissa sukupolvessa (lukuun ottamatta aika-ensimmäiseen tokeniin). Näytetään ’-’ silloin, kun sukupolvi on vähäinen.",
-			"totalTokens": "Tokeneita Yhteensä",
 			"sumOfTokens": "Summa kehotteesta + valmistuminen + päättelypolut",
 			"requestHash": "Pyydä Hash",
 			"model": "Malli",
@@ -2310,7 +2304,8 @@
 			"totalOverhead": "Ilmapiiri Yhteensä",
 			"error": "Virhe",
 			"copyErrorMessage": "Kopioi virheviesti",
-			"expandForBreakdown": "Laajenna nähdäksesi vaihekohtaisen erittelyn"
+			"expandForBreakdown": "Laajenna nähdäksesi vaihekohtaisen erittelyn",
+			"performance": "Suorituskyky"
 		},
 		"statusBadge": {
 			"streaming": "Suoratoistaminen",

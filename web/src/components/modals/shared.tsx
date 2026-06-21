@@ -55,7 +55,7 @@ export function QuotaBar({
 }: QuotaBarProps) {
 	return (
 		<div>
-			<div className="flex justify-between items-center mb-2">
+			<div className="flex justify-between items-center mb-1">
 				<span className="text-sm font-medium text-(--text-secondary)">
 					{label}
 				</span>
@@ -63,18 +63,20 @@ export function QuotaBar({
 			</div>
 			<div
 				{...(dataTestId ? { "data-testid": dataTestId } : {})}
-				className="w-full bg-(--surface-input) rounded-full h-3"
+				className="w-full bg-(--surface-input) ui-bar h-3"
 			>
 				<div
 					{...(fillTestId ? { "data-testid": fillTestId } : {})}
-					className={`${barMode === "used" ? usedBarColor(percentage) : remainingBarColor(100 - percentage)} h-3 rounded-full transition-all`}
+					className={`${barMode === "used" ? usedBarColor(percentage) : remainingBarColor(100 - percentage)} h-3 ui-bar transition-all`}
 					style={{
 						width: `${barMode === "used" ? Math.min(percentage, 100) : Math.min(100 - percentage, 100)}%`,
 					}}
 				/>
 			</div>
 			{children && (
-				<p className="text-xs text-(--text-muted) mt-1">{children}</p>
+				<p className="text-xs text-(--text-muted) mt-1 whitespace-pre-line">
+					{children}
+				</p>
 			)}
 			{footer}
 		</div>

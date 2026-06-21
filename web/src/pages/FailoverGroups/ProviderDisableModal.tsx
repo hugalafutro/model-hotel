@@ -23,6 +23,8 @@ export function ProviderDisableModal({
 
 	if (!open) return null;
 
+	const sorted = [...providers].sort((a, b) => a.name.localeCompare(b.name));
+
 	return (
 		<Modal
 			onClose={onClose}
@@ -32,30 +34,31 @@ export function ProviderDisableModal({
 			<p className="text-sm text-(--text-secondary) mb-4">
 				{t("failover.provider_modal_description")}
 			</p>
-			<div className="max-h-96 overflow-y-auto space-y-2">
-				{providers.map((provider) => (
-					<div
-						key={provider.id}
-						className="flex items-center justify-between rounded px-3 py-2 hover:bg-(--surface-hover)"
-					>
-						<span className="font-mono text-sm">{provider.name}</span>
-						<Toggle
-							checked={!disabledProviders.has(provider.name)}
-							onChange={(enabled) => onToggleProvider(provider.name, enabled)}
-							disabled={isProcessing}
-							ariaLabel={provider.name}
-						/>
-					</div>
-				))}
-			</div>
-			<div className="mt-6 flex justify-end">
-				<button
-					type="button"
-					onClick={onClose}
-					className="ui-btn ui-btn-secondary text-sm px-4 py-2"
-				>
-					{t("common.close")}
-				</button>
+			<div className="max-h-96 overflow-y-auto space-y-2 pr-1">
+				{sorted.map((provider) => {
+					const enabled = !disabledProviders.has(provider.name);
+					return (
+						<div
+							key={provider.id}
+							className="flex items-center justify-between gap-3 px-3 py-2.5 ui-detail-tile"
+						>
+							<span className="flex items-center gap-2 min-w-0">
+								<span
+									className={`size-1.5 shrink-0 rounded-full ${enabled ? "bg-emerald-500" : "bg-(--text-tertiary)"}`}
+								/>
+								<span className="font-mono text-sm text-(--text-primary) truncate">
+									{provider.name}
+								</span>
+							</span>
+							<Toggle
+								checked={enabled}
+								onChange={(next) => onToggleProvider(provider.name, next)}
+								disabled={isProcessing}
+								ariaLabel={provider.name}
+							/>
+						</div>
+					);
+				})}
 			</div>
 		</Modal>
 	);

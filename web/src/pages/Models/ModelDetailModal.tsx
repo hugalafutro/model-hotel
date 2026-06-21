@@ -8,7 +8,9 @@ import {
 	DollarSign,
 	Hash,
 	Layers,
+	RefreshCw,
 	Server,
+	Sparkles,
 	Tag,
 } from "@/lib/icons";
 import type { Model } from "../../api/types";
@@ -17,6 +19,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { CopyablePill } from "../../components/CopyablePill";
 import { CopyButton } from "../../components/CopyButton";
 import { CAP_META, hasCap } from "../../components/capMeta";
+import { DetailSectionHeader } from "../../components/DetailSectionHeader";
 import { DetailItem } from "../../components/LogDetailItem";
 import { LangIcon, type LangIconKey } from "../../components/langIcons";
 import { Modal } from "../../components/Modal";
@@ -340,7 +343,7 @@ export function ModelDetailModal({
 			header={
 				<div>
 					<div className="flex justify-between items-start mb-0">
-						<div>
+						<div className="min-w-0">
 							<h2 className="text-xl font-bold text-white">
 								{model.display_name || model.name || pMid}
 							</h2>
@@ -377,13 +380,15 @@ export function ModelDetailModal({
 					label={t("models.detail.lastDiscovered")}
 					value={formatRelativeTime(model.last_seen_at)}
 				/>
-				<DetailItem
-					icon={Tag}
-					label={t("models.detail.displayName")}
-					value={model.display_name || model.name || "-"}
-					className="col-span-2"
-				>
-					{editing ? (
+				{/* Display name is shown in big letters in the modal header, so the
+				    view-mode pill would be redundant; only surface it as an editable
+				    field when editing. */}
+				{editing && (
+					<DetailItem
+						icon={Tag}
+						label={t("models.detail.displayName")}
+						className="col-span-2"
+					>
 						<div className="flex items-center gap-1">
 							<input
 								type="text"
@@ -401,9 +406,10 @@ export function ModelDetailModal({
 								<RevertButton onClick={() => revertField("display_name")} />
 							)}
 						</div>
-					) : undefined}
-				</DetailItem>
+					</DetailItem>
+				)}
 				<DetailItem
+					emphasis="stat"
 					icon={Layers}
 					label={t("models.detail.contextLength")}
 					value={`${formatNumber(model.context_length)} ${t("models.detail.tokens")}`}
@@ -441,6 +447,7 @@ export function ModelDetailModal({
 					) : undefined}
 				</DetailItem>
 				<DetailItem
+					emphasis="stat"
 					icon={Hash}
 					label={t("models.detail.maxOutput")}
 					value={`${formatNumber(model.max_output_tokens)} ${t("models.detail.tokens")}`}
@@ -480,6 +487,7 @@ export function ModelDetailModal({
 					) : undefined}
 				</DetailItem>
 				<DetailItem
+					emphasis="stat"
 					icon={DollarSign}
 					label={t("models.detail.inputPrice")}
 					value={
@@ -524,6 +532,7 @@ export function ModelDetailModal({
 					) : undefined}
 				</DetailItem>
 				<DetailItem
+					emphasis="stat"
 					icon={Coins}
 					label={t("models.detail.outputPrice")}
 					value={
@@ -581,9 +590,9 @@ export function ModelDetailModal({
 
 			{caps && (
 				<div className="mb-4">
-					<h3 className="text-sm font-medium text-gray-400 mb-2">
+					<DetailSectionHeader icon={Sparkles}>
 						{t("models.detail.capabilities")}
-					</h3>
+					</DetailSectionHeader>
 					<div className="flex flex-wrap gap-1">
 						{CAP_META.map((m) => (
 							<CapBadge key={m.key} caps={caps} capKey={m.key} />
@@ -599,9 +608,9 @@ export function ModelDetailModal({
 
 			{params && params.subscription_included !== undefined && (
 				<div className="mb-4">
-					<h3 className="text-sm font-medium text-gray-400 mb-2">
+					<DetailSectionHeader icon={RefreshCw}>
 						{t("models.detail.subscription")}
-					</h3>
+					</DetailSectionHeader>
 					<div className="flex items-center gap-2">
 						<span
 							className={`ui-badge inline-flex items-center px-2 py-px leading-[1.6] text-xs font-medium ${

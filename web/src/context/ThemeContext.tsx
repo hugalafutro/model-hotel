@@ -3,7 +3,7 @@ import {
 	type ReactNode,
 	useContext,
 	useEffect,
-	useState,
+	useSyncExternalStore,
 } from "react";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { applyFavicon } from "../utils/favicon";
@@ -21,6 +21,15 @@ const DARK_SCHEME_QUERY = "(prefers-color-scheme: dark)";
 function getSystemTheme(): Theme {
 	if (typeof window === "undefined" || !window.matchMedia) return "dark";
 	return window.matchMedia(DARK_SCHEME_QUERY).matches ? "dark" : "light";
+}
+
+/** Subscribe to OS color-scheme changes for useSyncExternalStore. No-ops when
+ * matchMedia is unavailable (jsdom/SSR). */
+function subscribeSystemTheme(callback: () => void): () => void {
+	if (typeof window === "undefined" || !window.matchMedia) return () => {};
+	const mq = window.matchMedia(DARK_SCHEME_QUERY);
+	mq.addEventListener("change", callback);
+	return () => mq.removeEventListener("change", callback);
 }
 
 interface AccentPreset {
@@ -180,19 +189,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 	);
 
 	// Track the OS scheme so "system" can resolve and react to live changes.
-	const [systemTheme, setSystemTheme] = useState<Theme>(getSystemTheme);
-
-	useEffect(() => {
-		if (typeof window === "undefined" || !window.matchMedia) return;
-		const mq = window.matchMedia(DARK_SCHEME_QUERY);
-		// Re-sync now in case the scheme changed between the initial state read
-		// and effect mount.
-		setSystemTheme(mq.matches ? "dark" : "light");
-		const onChange = (e: MediaQueryListEvent) =>
-			setSystemTheme(e.matches ? "dark" : "light");
-		mq.addEventListener("change", onChange);
-		return () => mq.removeEventListener("change", onChange);
-	}, []);
+	// useSyncExternalStore reads matchMedia consistently and subscribes without
+	// a setState-in-effect re-sync (no mount-time double render, no read/mount
+	// race).
+	const systemTheme = useSyncExternalStore(
+		subscribeSystemTheme,
+		getSystemTheme,
+		getSystemTheme,
+	);
 
 	const theme: Theme =
 		themePreference === "system" ? systemTheme : themePreference;

@@ -2144,12 +2144,8 @@
 			"neuralwattUsage": "Χρήση",
 			"neuralwattSubscription": "Συνδρομή",
 			"neuralwattPlan": "Σχέδιο",
-			"neuralwattStatus": "Κατάσταση",
 			"neuralwattBillingPeriod": "Περίοδος Χρέωσης",
 			"neuralwattAutoRenew": "Αυτόματη Ανανέωση",
-			"neuralwattKwhIncluded": "Συμπεριλαμβάνεται kWh",
-			"neuralwattKwhUsed": "Χρήση kWh",
-			"neuralwattKwhRemaining": "kWh που απομένει",
 			"neuralwattCurrentMonth": "Τρέχων Μήνας",
 			"neuralwattCost": "Κόστος",
 			"neuralwattRequests": "Αιτήματα",
@@ -2163,7 +2159,6 @@
 			"neuralwattLifetime": "Διάρκεια Ζωής",
 			"neuralwattKeyInfo": "Πληροφορίες Κλειδιού",
 			"neuralwattEnergyQuota": "Ποσόστωση Ενέργειας",
-			"neuralwattEnergyAllocation": "Κατανομή Ενέργειας",
 			"neuralwattBillingInterval": "Διάστημα Χρέωσης",
 			"neuralwattAccountingMethod": "Λογιστική Μέθοδος",
 			"limits": "Όρια",
@@ -2272,7 +2267,6 @@
 			"timeToFirstToken": "Χρόνος ως το πρώτο σημείο: καθυστέρηση μεταξύ της έναρξης αιτήματος και του πρώτου διακριτικού του σώματος απόκρισης (streaming) ή της πλήρους απόκρισης (non-streaming)",
 			"tokensPerSecond": "Tokens/s",
 			"outputTokensPerSecond": "Νόμισμα εξόδου ανά δευτερόλεπτο κατά τη διάρκεια της φάσης παραγωγής (εξαιρεί το χρόνο με το πρώτο token). Εμφανίζεται ως '-' όταν ο χρόνος παραγωγής είναι αμελητέος.",
-			"totalTokens": "Σύνολο Tokens",
 			"sumOfTokens": "Άθροισμα προτροπής + ολοκλήρωση + συλλογιστική tokens",
 			"requestHash": "Αίτηση Hash",
 			"model": "Μοντέλο",
@@ -2310,7 +2304,8 @@
 			"totalOverhead": "Σύνολο Υπερβάσεων",
 			"error": "Σφάλμα",
 			"copyErrorMessage": "Αντιγραφή μηνύματος σφάλματος",
-			"expandForBreakdown": "Αναπτύξτε για την ανάλυση ανά βήμα"
+			"expandForBreakdown": "Αναπτύξτε για την ανάλυση ανά βήμα",
+			"performance": "Επιδόσεις"
 		},
 		"statusBadge": {
 			"streaming": "Ροή",

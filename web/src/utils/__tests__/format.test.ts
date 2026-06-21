@@ -325,36 +325,42 @@ describe("formatTimeUntil", () => {
 		expect(formatTimeUntil(Date.now())).toBe("now");
 	});
 
+	// Each number is glued to its unit word with a non-breaking space ( )
+	// so a line wrap can't strand the digit from "day(s)"/"hour(s)".
 	it("returns hours for timestamps less than a day away", () => {
 		const oneHour = Date.now() + 1000 * 60 * 60;
-		expect(formatTimeUntil(oneHour)).toBe("in 1 hour");
+		expect(formatTimeUntil(oneHour)).toBe("in 1\u00a0hour");
 
 		const threeHours = Date.now() + 3 * 1000 * 60 * 60;
-		expect(formatTimeUntil(threeHours)).toBe("in 3 hours");
+		expect(formatTimeUntil(threeHours)).toBe("in 3\u00a0hours");
 
 		const twentyThreeHours = Date.now() + 23 * 1000 * 60 * 60;
-		expect(formatTimeUntil(twentyThreeHours)).toBe("in 23 hours");
+		expect(formatTimeUntil(twentyThreeHours)).toBe("in 23\u00a0hours");
 	});
 
 	it("returns days and hours for timestamps more than a day away", () => {
 		const oneDay = Date.now() + 24 * 1000 * 60 * 60;
-		expect(formatTimeUntil(oneDay)).toBe("in 1 day, 0 hours");
+		expect(formatTimeUntil(oneDay)).toBe("in 1\u00a0day, 0\u00a0hours");
 
 		const oneDayOneHour = Date.now() + 25 * 1000 * 60 * 60;
-		expect(formatTimeUntil(oneDayOneHour)).toBe("in 1 day, 1 hour");
+		expect(formatTimeUntil(oneDayOneHour)).toBe("in 1\u00a0day, 1\u00a0hour");
 
 		const twoDaysThreeHours = Date.now() + (2 * 24 + 3) * 1000 * 60 * 60;
-		expect(formatTimeUntil(twoDaysThreeHours)).toBe("in 2 days, 3 hours");
+		expect(formatTimeUntil(twoDaysThreeHours)).toBe(
+			"in 2\u00a0days, 3\u00a0hours",
+		);
 	});
 
 	it("handles singular/plural correctly for days and hours", () => {
 		const oneDayZeroHours = Date.now() + 24 * 1000 * 60 * 60;
-		expect(formatTimeUntil(oneDayZeroHours)).toBe("in 1 day, 0 hours");
+		expect(formatTimeUntil(oneDayZeroHours)).toBe(
+			"in 1\u00a0day, 0\u00a0hours",
+		);
 
 		const oneDayOneHour = Date.now() + 25 * 1000 * 60 * 60;
-		expect(formatTimeUntil(oneDayOneHour)).toBe("in 1 day, 1 hour");
+		expect(formatTimeUntil(oneDayOneHour)).toBe("in 1\u00a0day, 1\u00a0hour");
 
 		const twoDaysOneHour = Date.now() + (2 * 24 + 1) * 1000 * 60 * 60;
-		expect(formatTimeUntil(twoDaysOneHour)).toBe("in 2 days, 1 hour");
+		expect(formatTimeUntil(twoDaysOneHour)).toBe("in 2\u00a0days, 1\u00a0hour");
 	});
 });
