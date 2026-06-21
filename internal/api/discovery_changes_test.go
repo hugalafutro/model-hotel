@@ -2,6 +2,9 @@ package api
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/google/uuid"
@@ -77,6 +80,72 @@ func TestDiscoveryChangesStore_RoundTrip(t *testing.T) {
 	}
 	if len(entries) != 0 {
 		t.Fatalf("expected no pending entries after ack, got %d", len(entries))
+	}
+}
+
+// TestDiscoveryChangesHandlers_HTTP exercises the GET /discovery/changes and
+// POST /discovery/changes/ack endpoints over the full router: the badge GET
+// reports the affected-model count, and ack clears the pending rows while
+// returning the just-cleared snapshot for the review modal.
+func TestDiscoveryChangesHandlers_HTTP(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.dbPool.Pool()
+	if _, err := pool.Exec(context.Background(), `TRUNCATE discovery_changes`); err != nil {
+		t.Fatalf("truncate discovery_changes: %v", err)
+	}
+
+	ctx := context.Background()
+	providerID := uuid.New()
+	diff := &DiscoveryDiff{
+		Added: []ModelChange{{ModelID: "fresh-model", Reason: changeReasonNewModel}},
+		Updated: []ModelUpdate{{
+			ModelID: "repriced",
+			Changes: []FieldChange{{Field: changeFieldInputPrice, Old: fptr(1), New: fptr(2)}},
+		}},
+	}
+	if _, err := AppendDiscoveryChange(ctx, pool, "scheduled", &providerID, "DeepSeek", diff); err != nil {
+		t.Fatalf("seed discovery change: %v", err)
+	}
+
+	doReq := func(method, path string) DiscoveryChangesResponse {
+		t.Helper()
+		req := httptest.NewRequest(method, path, http.NoBody)
+		req.Header.Set("Authorization", "Bearer test-admin-token")
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s %s = %d, want 200; body: %s", method, path, rec.Code, rec.Body.String())
+		}
+		var resp DiscoveryChangesResponse
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("decode %s response: %v", path, err)
+		}
+		return resp
+	}
+
+	// GET surfaces the pending entry and its affected-model count (2: one added,
+	// one updated).
+	got := doReq("GET", "/discovery/changes")
+	if got.Count != 2 {
+		t.Errorf("GET count = %d, want 2", got.Count)
+	}
+	if len(got.Entries) != 1 || got.Entries[0].ProviderName != "DeepSeek" {
+		t.Fatalf("GET entries = %+v, want one DeepSeek entry", got.Entries)
+	}
+
+	// Ack clears the badge (Count 0) but echoes the cleared rows for the modal.
+	acked := doReq("POST", "/discovery/changes/ack")
+	if acked.Count != 0 {
+		t.Errorf("ack count = %d, want 0", acked.Count)
+	}
+	if len(acked.Entries) != 1 {
+		t.Fatalf("ack entries = %+v, want the one cleared row", acked.Entries)
+	}
+
+	// A second GET now sees nothing pending and reports an empty (non-nil) list.
+	after := doReq("GET", "/discovery/changes")
+	if after.Count != 0 || len(after.Entries) != 0 {
+		t.Errorf("post-ack GET = %+v, want empty", after)
 	}
 }
 

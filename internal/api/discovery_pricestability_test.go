@@ -250,6 +250,64 @@ func TestDampenOpenRouterPriceJitter(t *testing.T) {
 			t.Fatal("filling an unset field is a genuine change, not jitter")
 		}
 	})
+
+	t.Run("input and output price jitter are damped independently", func(t *testing.T) {
+		// A model whose input price wiggled under tolerance but whose output price
+		// genuinely jumped: only the input flag should be demoted.
+		snap := map[string]ModelSnapshot{"m": {
+			inputPrice:  fptr(2.00),
+			outputPrice: fptr(6.00),
+		}}
+		m := &model.Model{
+			ModelID:               "m",
+			InputPricePerMillion:  fptr(1.96), // 2% drift -> jitter
+			OutputPricePerMillion: fptr(3.00), // 50% drop -> real move
+		}
+		m.LiveMeta.InputPrice = true
+		m.LiveMeta.OutputPrice = true
+
+		DampenOpenRouterPriceJitter(orURL, snap, []*model.Model{m})
+
+		if m.LiveMeta.InputPrice {
+			t.Error("sub-tolerance input price wiggle should be demoted to fill-only")
+		}
+		if !m.LiveMeta.OutputPrice {
+			t.Error("a real output price move must stay live")
+		}
+	})
+
+	t.Run("both input and output sub-tolerance wiggles are damped", func(t *testing.T) {
+		snap := map[string]ModelSnapshot{"m": {
+			inputPrice:  fptr(2.00),
+			outputPrice: fptr(6.00),
+		}}
+		m := &model.Model{
+			ModelID:               "m",
+			InputPricePerMillion:  fptr(2.02),
+			OutputPricePerMillion: fptr(5.90),
+		}
+		m.LiveMeta.InputPrice = true
+		m.LiveMeta.OutputPrice = true
+
+		DampenOpenRouterPriceJitter(orURL, snap, []*model.Model{m})
+
+		if m.LiveMeta.InputPrice || m.LiveMeta.OutputPrice {
+			t.Errorf("both jittered prices should be demoted, got input=%v output=%v",
+				m.LiveMeta.InputPrice, m.LiveMeta.OutputPrice)
+		}
+	})
+}
+
+// TestFloatPtrVal covers the price-logging sentinel: a real price dereferences,
+// and a nil pointer reports -1 (no real price is negative, so it reads
+// unambiguously as "unset" in the damping debug log).
+func TestFloatPtrVal(t *testing.T) {
+	if got := floatPtrVal(fptr(0.5)); got != 0.5 {
+		t.Errorf("floatPtrVal(0.5) = %v, want 0.5", got)
+	}
+	if got := floatPtrVal(nil); got != -1 {
+		t.Errorf("floatPtrVal(nil) = %v, want -1 sentinel", got)
+	}
 }
 
 func TestWithinPriceTolerance(t *testing.T) {
