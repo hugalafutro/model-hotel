@@ -68,6 +68,34 @@ describe("DataStorageSettings", () => {
 			),
 		).toBeInTheDocument();
 	});
+
+	it("falls back to defaults when reading its localStorage keys throws", () => {
+		// Privacy/locked-down browsers can make localStorage access throw. The
+		// quota/refresh useState initializers must swallow that and use defaults
+		// rather than crashing the settings page. Throw only for this component's
+		// own keys so the surrounding providers keep working.
+		const blockedKeys = new Set([
+			"sidebarQuotaDisabled",
+			"sidebarQuotaRefreshMin",
+			"dashboardRefreshSec",
+		]);
+		const realGetItem = Storage.prototype.getItem;
+		const getItemSpy = vi
+			.spyOn(Storage.prototype, "getItem")
+			.mockImplementation(function (this: Storage, key: string) {
+				if (blockedKeys.has(key)) throw new Error("localStorage blocked");
+				return realGetItem.call(this, key);
+			});
+
+		try {
+			renderWithProviders(
+				<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+			);
+			expect(screen.getByText("Data Storage and Logging")).toBeInTheDocument();
+		} finally {
+			getItemSpy.mockRestore();
+		}
+	});
 });
 
 describe("Session Persistence toggles", () => {
