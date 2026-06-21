@@ -8,6 +8,12 @@ interface DetailItemProps {
 	children?: React.ReactNode;
 	/** Extra classes on the tile wrapper (e.g. col-span-2) */
 	className?: string;
+	/**
+	 * Elevation role. "flat" (default) = recessed metadata tile; "stat" =
+	 * raised hero-metric tile. Each maps to a themed depth class so the same
+	 * markup gains hierarchy without per-theme branching here.
+	 */
+	emphasis?: "flat" | "stat";
 }
 
 export function DetailItem({
@@ -18,14 +24,14 @@ export function DetailItem({
 	labelExtra,
 	children,
 	className = "",
+	emphasis = "flat",
 }: DetailItemProps) {
 	const displayValue =
 		value === null || value === undefined || value === "" ? "-" : value;
+	const tileClass = emphasis === "stat" ? "ui-stat-tile" : "ui-detail-tile";
 
 	return (
-		<div
-			className={`flex items-start gap-3 p-3 rounded-(--radius-box) bg-(--surface-bg) border border-(--border-subtle) ${className}`}
-		>
+		<div className={`flex items-start gap-3 p-3 ${tileClass} ${className}`}>
 			{Icon && (
 				<div className="shrink-0 mt-0.5">
 					<Icon size={16} className="text-(--accent)" />

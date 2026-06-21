@@ -2144,12 +2144,8 @@
 			"neuralwattUsage": "Utilizare",
 			"neuralwattSubscription": "Abonament",
 			"neuralwattPlan": "Plan",
-			"neuralwattStatus": "Status",
 			"neuralwattBillingPeriod": "Perioada de facturare",
 			"neuralwattAutoRenew": "Reînnoire automată",
-			"neuralwattKwhIncluded": "KWh inclusiv",
-			"neuralwattKwhUsed": "kWh folosit",
-			"neuralwattKwhRemaining": "KWh rămas",
 			"neuralwattCurrentMonth": "Luna curentă",
 			"neuralwattCost": "Cost",
 			"neuralwattRequests": "Cereri",
@@ -2163,7 +2159,6 @@
 			"neuralwattLifetime": "Viață",
 			"neuralwattKeyInfo": "Informații cheie",
 			"neuralwattEnergyQuota": "Cota de energie",
-			"neuralwattEnergyAllocation": "Alocarea energiei",
 			"neuralwattBillingInterval": "Interval facturare",
 			"neuralwattAccountingMethod": "Metoda de contabilitate",
 			"limits": "Limite",
@@ -2272,7 +2267,6 @@
 			"timeToFirstToken": "Timpul până la primul Token: întârzierea între începerea solicitării și primul token al corpului de răspuns (streaming) sau răspuns complet (non-streaming)",
 			"tokensPerSecond": "Token/s",
 			"outputTokensPerSecond": "Tokeni de ieșire pe secundă în timpul fazei de generare (exclude timpul până la primul token). Afișați ca \"-\" atunci când timpul de generare este neglijabil.",
-			"totalTokens": "Total jetoane",
 			"sumOfTokens": "Suma promptitudinii + completare + jetoane de raționament",
 			"requestHash": "Solicită Hash",
 			"model": "Model",
@@ -2310,7 +2304,8 @@
 			"totalOverhead": "Total cheltuieli",
 			"error": "Eroare",
 			"copyErrorMessage": "Copiază mesajul de eroare",
-			"expandForBreakdown": "Extinde pentru defalcarea pe pași"
+			"expandForBreakdown": "Extinde pentru defalcarea pe pași",
+			"performance": "Performanță"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

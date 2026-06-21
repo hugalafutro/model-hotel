@@ -2144,12 +2144,8 @@
 			"neuralwattUsage": "Cách sử dụng",
 			"neuralwattSubscription": "Đăng ký",
 			"neuralwattPlan": "Kế hoạch",
-			"neuralwattStatus": "Trạng thái",
 			"neuralwattBillingPeriod": "Kỳ thanh toán",
 			"neuralwattAutoRenew": "Tự động gia hạn",
-			"neuralwattKwhIncluded": "Đã bao gồm kWh",
-			"neuralwattKwhUsed": "Lượng điện tiêu thụ (kWh)",
-			"neuralwattKwhRemaining": "Số kWh còn lại",
 			"neuralwattCurrentMonth": "Tháng hiện tại",
 			"neuralwattCost": "Chi phí",
 			"neuralwattRequests": "Yêu cầu",
@@ -2163,7 +2159,6 @@
 			"neuralwattLifetime": "Suốt đời",
 			"neuralwattKeyInfo": "Thông tin chính",
 			"neuralwattEnergyQuota": "Hạn ngạch năng lượng",
-			"neuralwattEnergyAllocation": "Phân bổ năng lượng",
 			"neuralwattBillingInterval": "Khoảng thời gian thanh toán",
 			"neuralwattAccountingMethod": "Phương pháp kế toán",
 			"limits": "Giới hạn",
@@ -2272,7 +2267,6 @@
 			"timeToFirstToken": "Thời gian đến token đầu tiên: khoảng thời gian trễ giữa thời điểm bắt đầu yêu cầu và token đầu tiên trong phần nội dung phản hồi (truyền dữ liệu theo luồng) hoặc toàn bộ phản hồi (không truyền dữ liệu theo luồng)",
 			"tokensPerSecond": "Token/giây",
 			"outputTokensPerSecond": "Số token được tạo ra mỗi giây trong giai đoạn tạo (không tính thời gian để tạo ra token đầu tiên). Được hiển thị dưới dạng '-' khi thời gian tạo là không đáng kể.",
-			"totalTokens": "Tổng số token",
 			"sumOfTokens": "Tổng số token của phần gợi ý + phần hoàn thiện + phần lập luận",
 			"requestHash": "Băm yêu cầu",
 			"model": "Mẫu",
@@ -2310,7 +2304,8 @@
 			"totalOverhead": "Tổng chi phí quản lý",
 			"error": "Lỗi",
 			"copyErrorMessage": "Sao chép thông báo lỗi",
-			"expandForBreakdown": "Mở rộng để xem chi tiết theo từng bước"
+			"expandForBreakdown": "Mở rộng để xem chi tiết theo từng bước",
+			"performance": "Hiệu suất"
 		},
 		"statusBadge": {
 			"streaming": "Phát trực tuyến",

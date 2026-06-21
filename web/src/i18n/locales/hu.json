@@ -2144,12 +2144,8 @@
 			"neuralwattUsage": "Használat",
 			"neuralwattSubscription": "Előfizetés",
 			"neuralwattPlan": "Terv",
-			"neuralwattStatus": "Állapot",
 			"neuralwattBillingPeriod": "Számlázási időszak",
 			"neuralwattAutoRenew": "Automatikus megújítás",
-			"neuralwattKwhIncluded": "kWh-ban kifejezve",
-			"neuralwattKwhUsed": "Fogyasztott kWh",
-			"neuralwattKwhRemaining": "Maradt kWh",
 			"neuralwattCurrentMonth": "Jelenlegi hónap",
 			"neuralwattCost": "Költség",
 			"neuralwattRequests": "Kérelmek",
@@ -2163,7 +2159,6 @@
 			"neuralwattLifetime": "Élettartam",
 			"neuralwattKeyInfo": "Fontos tudnivalók",
 			"neuralwattEnergyQuota": "Energia-kvóta",
-			"neuralwattEnergyAllocation": "Energiaelosztás",
 			"neuralwattBillingInterval": "Számlázási időszak",
 			"neuralwattAccountingMethod": "Számviteli módszer",
 			"limits": "Határok",
@@ -2272,7 +2267,6 @@
 			"timeToFirstToken": "Az első token megjelenéséig eltelt idő: a kérés kezdete és a válasz testének első tokenje (streaming esetén) vagy a teljes válasz (nem streaming esetén) közötti késleltetés",
 			"tokensPerSecond": "jelek/másodperc",
 			"outputTokensPerSecond": "A generálási fázisban másodpercenként kibocsátott tokenek száma (az első token megjelenéséig eltelt időt nem számítva). Ha a generálási idő elhanyagolható, akkor „-” jelzés jelenik meg.",
-			"totalTokens": "Összes token",
 			"sumOfTokens": "A prompt, a kiegészítés és az érvelés tokenjeinek összege",
 			"requestHash": "Kérés hash-értéke",
 			"model": "Modell",
@@ -2310,7 +2304,8 @@
 			"totalOverhead": "Teljes általános költség",
 			"error": "Hiba",
 			"copyErrorMessage": "Hibaüzenet másolása",
-			"expandForBreakdown": "Bontsa ki a lépésenkénti bontáshoz"
+			"expandForBreakdown": "Bontsa ki a lépésenkénti bontáshoz",
+			"performance": "Teljesítmény"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

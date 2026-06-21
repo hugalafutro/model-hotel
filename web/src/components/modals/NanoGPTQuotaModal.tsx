@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { RefreshCw } from "@/lib/icons";
 import type { NanoGPTUsage } from "../../api/types";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import {
@@ -8,6 +9,7 @@ import {
 	formatTimeUntil,
 	formatTokens,
 } from "../../utils/format";
+import { DetailSectionHeader } from "../DetailSectionHeader";
 import { DetailItem } from "../LogDetailItem";
 import { Modal } from "../Modal";
 import {
@@ -114,7 +116,7 @@ export function NanoGPTQuotaModal({
 						? `${(100 - weeklyRemaining).toFixed(1)}% ${t("components.providerModals.used")}`
 						: t("components.providerModals.noLimitSet")}
 					{usage.weeklyInputTokens?.resetAt
-						? `. ${t("components.providerModals.resets")} ${formatTimestamp(usage.weeklyInputTokens.resetAt)} - ${formatTimeUntil(usage.weeklyInputTokens.resetAt)}`
+						? `. ${t("components.providerModals.resets")} ${formatTimestamp(usage.weeklyInputTokens.resetAt)}\n${formatTimeUntil(usage.weeklyInputTokens.resetAt)}`
 						: ""}
 				</QuotaBar>
 
@@ -128,20 +130,20 @@ export function NanoGPTQuotaModal({
 								{usage.dailyImages.used} / {usage.limits.dailyImages ?? "∞"}
 							</span>
 						</div>
-						<div className="w-full bg-(--surface-input) rounded-full h-3">
+						<div className="w-full bg-(--surface-input) ui-bar h-3">
 							<div
-								className={`${barMode === "used" ? usedBarColor(usage.dailyImages.percentUsed * 100) : remainingBarColor(100 - usage.dailyImages.percentUsed * 100)} h-3 rounded-full transition-all`}
+								className={`${barMode === "used" ? usedBarColor(usage.dailyImages.percentUsed * 100) : remainingBarColor(100 - usage.dailyImages.percentUsed * 100)} h-3 ui-bar transition-all`}
 								style={{
 									width: `${barMode === "used" ? Math.min(usage.dailyImages.percentUsed * 100, 100) : Math.min(100 - usage.dailyImages.percentUsed * 100, 100)}%`,
 								}}
 							/>
 						</div>
-						<p className="text-xs text-(--text-muted) mt-1">
+						<p className="text-xs text-(--text-muted) mt-1 whitespace-pre-line">
 							{usage.dailyImages.percentUsed.toFixed(1)}%{" "}
 							{t("components.providerModals.used")}.{" "}
 							{t("components.providerModals.resets")}{" "}
 							{usage.dailyImages.resetAt
-								? `${formatTimestamp(usage.dailyImages.resetAt)} - ${formatTimeUntil(usage.dailyImages.resetAt)}`
+								? `${formatTimestamp(usage.dailyImages.resetAt)}\n${formatTimeUntil(usage.dailyImages.resetAt)}`
 								: "N/A"}
 						</p>
 					</div>
@@ -160,29 +162,29 @@ export function NanoGPTQuotaModal({
 									: "∞"}
 							</span>
 						</div>
-						<div className="w-full bg-(--surface-input) rounded-full h-3">
+						<div className="w-full bg-(--surface-input) ui-bar h-3">
 							<div
-								className={`${barMode === "used" ? usedBarColor(usage.dailyInputTokens.percentUsed * 100) : remainingBarColor(100 - usage.dailyInputTokens.percentUsed * 100)} h-3 rounded-full transition-all`}
+								className={`${barMode === "used" ? usedBarColor(usage.dailyInputTokens.percentUsed * 100) : remainingBarColor(100 - usage.dailyInputTokens.percentUsed * 100)} h-3 ui-bar transition-all`}
 								style={{
 									width: `${barMode === "used" ? Math.min(usage.dailyInputTokens.percentUsed * 100, 100) : Math.min(100 - usage.dailyInputTokens.percentUsed * 100, 100)}%`,
 								}}
 							/>
 						</div>
-						<p className="text-xs text-(--text-muted) mt-1">
+						<p className="text-xs text-(--text-muted) mt-1 whitespace-pre-line">
 							{usage.dailyInputTokens.percentUsed.toFixed(1)}%{" "}
 							{t("components.providerModals.used")}.{" "}
 							{t("components.providerModals.resets")}{" "}
 							{usage.dailyInputTokens.resetAt
-								? `${formatTimestamp(usage.dailyInputTokens.resetAt)} - ${formatTimeUntil(usage.dailyInputTokens.resetAt)}`
+								? `${formatTimestamp(usage.dailyInputTokens.resetAt)}\n${formatTimeUntil(usage.dailyInputTokens.resetAt)}`
 								: "N/A"}
 						</p>
 					</div>
 				)}
 
 				<div>
-					<h3 className="text-sm font-medium text-(--text-secondary) mb-3">
+					<DetailSectionHeader icon={RefreshCw}>
 						{t("components.providerModals.subscriptionDetails")}
-					</h3>
+					</DetailSectionHeader>
 					<div className="grid grid-cols-2 gap-2">
 						<DetailItem label={t("components.providerModals.provider")}>
 							<div className="text-sm text-(--text-primary) capitalize">

@@ -2144,12 +2144,8 @@
 			"neuralwattUsage": "Použitie",
 			"neuralwattSubscription": "Predplatné",
 			"neuralwattPlan": "Plán",
-			"neuralwattStatus": "Stav",
 			"neuralwattBillingPeriod": "Fakturačné obdobie",
 			"neuralwattAutoRenew": "Automatické obnovenie",
-			"neuralwattKwhIncluded": "V cene je zahrnutá spotreba v kWh",
-			"neuralwattKwhUsed": "Spotreba v kWh",
-			"neuralwattKwhRemaining": "Zostávajúce kWh",
 			"neuralwattCurrentMonth": "Aktuálny mesiac",
 			"neuralwattCost": "Cena",
 			"neuralwattRequests": "Žiadosti",
@@ -2163,7 +2159,6 @@
 			"neuralwattLifetime": "Celková životnosť",
 			"neuralwattKeyInfo": "Základné informácie",
 			"neuralwattEnergyQuota": "Energetická kvóta",
-			"neuralwattEnergyAllocation": "Rozdelenie energie",
 			"neuralwattBillingInterval": "Fakturačný interval",
 			"neuralwattAccountingMethod": "Účtovná metóda",
 			"limits": "Limity",
@@ -2272,7 +2267,6 @@
 			"timeToFirstToken": "Čas do prvého tokenu: oneskorenie medzi začiatkom požiadavky a prvým tokenom tela odpovede (prúdové prenosy) alebo úplnej odpovede (neprúdové prenosy)",
 			"tokensPerSecond": "Tokenov za sekundu",
 			"outputTokensPerSecond": "Počet vygenerovaných tokenov za sekundu počas fázy generovania (nezahŕňa čas potrebný na vygenerovanie prvého tokenu). Ak je čas generovania zanedbateľný, zobrazuje sa ako „-“.",
-			"totalTokens": "Celkový počet žetónov",
 			"sumOfTokens": "Súčet tokenov výzvy + dokončenia + odôvodnenia",
 			"requestHash": "Hash požiadavky",
 			"model": "Model",
@@ -2310,7 +2304,8 @@
 			"totalOverhead": "Celkové režijné náklady",
 			"error": "Chyba",
 			"copyErrorMessage": "Skopírujte chybovú správu",
-			"expandForBreakdown": "Rozbaľte pre podrobné rozdelenie podľa krokov"
+			"expandForBreakdown": "Rozbaľte pre podrobné rozdelenie podľa krokov",
+			"performance": "Výkon"
 		},
 		"statusBadge": {
 			"streaming": "Streamovanie",

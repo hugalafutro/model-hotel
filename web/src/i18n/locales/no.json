@@ -2144,12 +2144,8 @@
 			"neuralwattUsage": "Bruk",
 			"neuralwattSubscription": "Abonnement",
 			"neuralwattPlan": "Abonnement",
-			"neuralwattStatus": "Status:",
 			"neuralwattBillingPeriod": "Faktureringsperiode",
 			"neuralwattAutoRenew": "Automatisk fornyelse",
-			"neuralwattKwhIncluded": "kWh inkludert",
-			"neuralwattKwhUsed": "kWh brukt",
-			"neuralwattKwhRemaining": "kWh igjen",
 			"neuralwattCurrentMonth": "Denne måneden",
 			"neuralwattCost": "Kostnad",
 			"neuralwattRequests": "Forespørsler",
@@ -2163,7 +2159,6 @@
 			"neuralwattLifetime": "Livstid",
 			"neuralwattKeyInfo": "Nøkkel informasjon",
 			"neuralwattEnergyQuota": "Kvote for energi",
-			"neuralwattEnergyAllocation": "Energy allokering",
 			"neuralwattBillingInterval": "Faktureringsintervall",
 			"neuralwattAccountingMethod": "Regnskapsmetode",
 			"limits": "Grenser",
@@ -2272,7 +2267,6 @@
 			"timeToFirstToken": "Tid til første Token: forsinkelse mellom oppstart av forespørsel og første tegn på respons (streaming) eller full respons (frastrømming)",
 			"tokensPerSecond": "Tokens/s",
 			"outputTokensPerSecond": "Utgangstokaler per sekund i generasjonsfasen (ekskluderer tid til første token). Vises som '-' når generasjonstiden er ubetydelig.",
-			"totalTokens": "Total symboler",
 			"sumOfTokens": "Sum av ledetekst + ferdigstillelse + resetegn",
 			"requestHash": "Forespør hash",
 			"model": "Modell",
@@ -2310,7 +2304,8 @@
 			"totalOverhead": "Totalt overhode",
 			"error": "Feil",
 			"copyErrorMessage": "Kopier feilmelding",
-			"expandForBreakdown": "Utvid for fordelingen per trinn"
+			"expandForBreakdown": "Utvid for fordelingen per trinn",
+			"performance": "Ytelse"
 		},
 		"statusBadge": {
 			"streaming": "Strømming",

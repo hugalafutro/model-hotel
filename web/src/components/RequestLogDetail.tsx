@@ -18,6 +18,7 @@ import {
 import type { LogEntry } from "../api/types";
 import { formatMs } from "../pages/Logs/utils";
 import { CopyablePill } from "./CopyablePill";
+import { DetailSectionHeader } from "./DetailSectionHeader";
 import { InfoHint } from "./InfoHint";
 import { DetailItem } from "./LogDetailItem";
 import { StatusBadge } from "./LogDetailStatusBadge";
@@ -87,8 +88,11 @@ export function RequestLogDetail({
 			scrollable
 		>
 			{/* Timing Overview */}
+			<DetailSectionHeader icon={Clock}>
+				{t("components.requestLogDetail.performance")}
+			</DetailSectionHeader>
 			<div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
-				<div className="p-3 rounded-(--radius-box) bg-(--surface-bg) border border-(--border-subtle) text-center">
+				<div className="p-3 ui-stat-tile text-center">
 					<Clock size={16} className="mx-auto mb-1 text-(--accent)" />
 					<div className="text-lg font-bold text-(--text-primary)">
 						{(() => {
@@ -108,7 +112,7 @@ export function RequestLogDetail({
 						/>
 					</div>
 				</div>
-				<div className="p-3 rounded-(--radius-box) bg-(--surface-bg) border border-(--border-subtle) text-center">
+				<div className="p-3 ui-stat-tile text-center">
 					<Timer size={16} className="mx-auto mb-1 text-(--accent)" />
 					<div className="text-lg font-bold text-(--text-primary)">
 						{requestLog.response_header_ms > 0
@@ -130,7 +134,7 @@ export function RequestLogDetail({
 						/>
 					</div>
 				</div>
-				<div className="p-3 rounded-(--radius-box) bg-(--surface-bg) border border-(--border-subtle) text-center">
+				<div className="p-3 ui-stat-tile text-center">
 					<Timer size={16} className="mx-auto mb-1 text-(--accent)" />
 					<div className="text-lg font-bold text-(--text-primary)">
 						{requestLog.ttft_ms > 0
@@ -152,7 +156,7 @@ export function RequestLogDetail({
 						/>
 					</div>
 				</div>
-				<div className="p-3 rounded-(--radius-box) bg-(--surface-bg) border border-(--border-subtle) text-center">
+				<div className="p-3 ui-stat-tile text-center">
 					<Zap size={16} className="mx-auto mb-1 text-(--accent)" />
 					<div
 						className={`text-lg font-bold ${requestLog.tokens_prompt_cache_hit > 0 ? "text-(--text-tertiary)" : "text-(--text-primary)"}`}
@@ -173,19 +177,22 @@ export function RequestLogDetail({
 						/>
 					</div>
 				</div>
-				<div className="p-3 rounded-(--radius-box) bg-(--surface-bg) border border-(--border-subtle) text-center">
+				<div className="p-3 ui-stat-tile text-center">
 					<Gauge size={16} className="mx-auto mb-1 text-(--accent)" />
 					<div className="text-lg font-bold text-(--text-primary)">
 						{totalTokens > 0 ? totalTokens.toLocaleString() : "-"}
 					</div>
 					<div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-(--text-tertiary)">
-						{t("components.requestLogDetail.totalTokens")}
+						{t("common.tokens")}
 						<InfoHint tooltip={t("components.requestLogDetail.sumOfTokens")} />
 					</div>
 				</div>
 			</div>
 
 			{/* Details Grid */}
+			<DetailSectionHeader icon={Box}>
+				{t("components.requestLogDetail.requestDetails")}
+			</DetailSectionHeader>
 			<div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
 				<DetailItem
 					icon={Calendar}
@@ -242,7 +249,7 @@ export function RequestLogDetail({
 
 			{/* Token Breakdown */}
 			{totalTokens > 0 && (
-				<div className="mb-6 p-4 rounded-(--radius-box) bg-(--surface-bg) border border-(--border-subtle)">
+				<div className="mb-6 p-4 ui-detail-section">
 					<h4 className="text-sm font-semibold text-(--text-primary) mb-3 flex items-center gap-2">
 						<Layers size={14} className="text-(--accent)" />
 						{t("components.requestLogDetail.tokenUsage")}
@@ -302,7 +309,7 @@ export function RequestLogDetail({
 
 			{/* Overhead Breakdown */}
 			{requestLog.proxy_overhead_ms > 0 && (
-				<div className="mb-6 p-4 rounded-(--radius-box) bg-(--surface-bg) border border-(--border-subtle)">
+				<div className="mb-6 p-4 ui-detail-section">
 					<button
 						type="button"
 						onClick={() => setOverheadOpen((o) => !o)}

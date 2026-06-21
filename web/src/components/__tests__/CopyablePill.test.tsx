@@ -85,9 +85,11 @@ describe("CopyablePill", () => {
 		// line-clamp style applied
 		expect(span.style.display).toBe("-webkit-box");
 		expect(span.style.webkitLineClamp).toBe("2");
-		// button uses items-start (icon aligns with first text line)
+		// button centers the copy icon regardless of line count, so the icon is
+		// consistently on the text's vertical axis (single- and multi-line pills
+		// look the same instead of top-aligning when lines > 1).
 		const button = span.closest("button") as HTMLButtonElement;
-		expect(button.className).toContain("items-start");
+		expect(button.className).toContain("items-center");
 		expect(button.className).toContain("text-left");
 		// pill does not stretch full width (sizes to content)
 		expect(button.className).not.toContain("w-full");

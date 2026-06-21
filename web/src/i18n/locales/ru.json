@@ -2144,12 +2144,8 @@
 			"neuralwattUsage": "Использование",
 			"neuralwattSubscription": "Подписка",
 			"neuralwattPlan": "План",
-			"neuralwattStatus": "Статус",
 			"neuralwattBillingPeriod": "Период биллинга",
 			"neuralwattAutoRenew": "Автообновление",
-			"neuralwattKwhIncluded": "кВтч включен",
-			"neuralwattKwhUsed": "кВт Использовано",
-			"neuralwattKwhRemaining": "кВтч осталось",
 			"neuralwattCurrentMonth": "Текущий месяц",
 			"neuralwattCost": "Затраты",
 			"neuralwattRequests": "Запросы",
@@ -2163,7 +2159,6 @@
 			"neuralwattLifetime": "Пожизненное время",
 			"neuralwattKeyInfo": "Информация о ключе",
 			"neuralwattEnergyQuota": "Энергетическая квота",
-			"neuralwattEnergyAllocation": "Распределение энергии",
 			"neuralwattBillingInterval": "Интервал выставления счетов",
 			"neuralwattAccountingMethod": "Метод учета",
 			"limits": "Лимиты",
@@ -2272,7 +2267,6 @@
 			"timeToFirstToken": "Время до первого токена: задержка между началом запроса и первым токеном тела ответа (стриминг) или полный ответ (не стриминг)",
 			"tokensPerSecond": "Токен/с",
 			"outputTokensPerSecond": "Маркеры вывода в секунду на этапе генерации (исключая значение времени на первый). Отображаются как '-', когда время генерации ничтожно мало.",
-			"totalTokens": "Всего жетонов",
 			"sumOfTokens": "Сумма быстрого + дополнения + токены рассуждения",
 			"requestHash": "Хэш запроса",
 			"model": "Модель",
@@ -2310,7 +2304,8 @@
 			"totalOverhead": "Всего накладных",
 			"error": "Ошибка",
 			"copyErrorMessage": "Копировать сообщение об ошибке",
-			"expandForBreakdown": "Разверните для пошаговой разбивки"
+			"expandForBreakdown": "Разверните для пошаговой разбивки",
+			"performance": "Производительность"
 		},
 		"statusBadge": {
 			"streaming": "Вещание",

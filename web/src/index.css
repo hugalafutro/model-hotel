@@ -1406,6 +1406,106 @@ html[data-ui-style="glassmorphism-lite"].light .ui-card {
 	box-shadow: none;
 }
 
+/* =============================================
+   DETAIL DEPTH PRIMITIVES
+   Tiles and panels for the data-dense detail modals (request log, model,
+   quota, virtual key). Three elevation roles on the modal floor
+   (--surface-elevated) so a wall of identical boxes resolves into a legible
+   hierarchy:
+     .ui-stat-tile      raised hero metric   — pops UP off the floor
+     .ui-detail-tile    flat metadata        — sits at / just below the floor
+     .ui-detail-section grouped panel        — recessed container with a header
+   Each theme re-expresses these in its own idiom (saas: soft shadow lift,
+   no hard ring; terminal: accent ring + inset glow, square; glass: frosted
+   opacity step + inset top-highlight), so the same markup gains depth without
+   losing personality. No backdrop-filter on tiles: the modal already frosts,
+   and Firefox kills blur nested under an active backdrop-filter ancestor. */
+[data-ui-style] .ui-stat-tile {
+	background-color: var(--surface-input);
+	border: 1px solid var(--border-default);
+	border-radius: var(--radius-box);
+	box-shadow: var(--shadow-sm);
+	transition:
+		box-shadow 0.15s ease,
+		border-color 0.15s ease;
+}
+[data-ui-style] .ui-detail-tile {
+	background-color: var(--surface-bg);
+	border: 1px solid var(--border-default);
+	border-radius: var(--radius-box);
+	transition:
+		background-color 0.15s ease,
+		border-color 0.15s ease;
+}
+[data-ui-style] .ui-detail-section {
+	background-color: var(--surface-bg);
+	border: 1px solid var(--border-subtle);
+	border-radius: var(--radius-box);
+}
+
+/* clean-saas — borderless; depth = surface step + soft shadow, no hard ring */
+html[data-ui-style="clean-saas"] .ui-stat-tile {
+	border-color: transparent;
+	box-shadow: var(--shadow-sm);
+}
+html[data-ui-style="clean-saas"] .ui-detail-tile {
+	border-color: transparent;
+}
+html[data-ui-style="clean-saas"] .ui-detail-section {
+	border-color: transparent;
+}
+
+/* cyber-terminal — depth = accent-ring brightness + inset glow, square */
+html[data-ui-style="cyber-terminal"] .ui-stat-tile {
+	background-color: var(--surface-elevated);
+	border-color: var(--border-input);
+	box-shadow:
+		inset 0 0 16px rgba(var(--accent-rgb), 0.05),
+		0 0 0 1px rgba(var(--accent-rgb), 0.12);
+}
+html[data-ui-style="cyber-terminal"] .ui-detail-tile {
+	border-color: rgba(var(--accent-rgb), 0.12);
+}
+html[data-ui-style="cyber-terminal"] .ui-detail-section {
+	border-color: var(--border-default);
+	box-shadow: inset 0 0 24px rgba(var(--accent-rgb), 0.03);
+}
+
+/* glassmorphism-lite — depth = opacity step + inset top highlight */
+html[data-ui-style="glassmorphism-lite"] .ui-stat-tile {
+	background-color: var(--surface-elevated-hover);
+	border-color: var(--border-default);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+html[data-ui-style="glassmorphism-lite"] .ui-detail-tile {
+	background-color: rgba(255, 255, 255, 0.03);
+	border-color: var(--border-subtle);
+}
+html[data-ui-style="glassmorphism-lite"] .ui-detail-section {
+	background-color: rgba(255, 255, 255, 0.04);
+	border-color: var(--border-subtle);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+html[data-ui-style="glassmorphism-lite"].light .ui-stat-tile {
+	background-color: rgba(255, 255, 255, 0.65);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+html[data-ui-style="glassmorphism-lite"].light .ui-detail-tile {
+	background-color: rgba(100, 110, 180, 0.07);
+}
+html[data-ui-style="glassmorphism-lite"].light .ui-detail-section {
+	background-color: rgba(255, 255, 255, 0.4);
+}
+
+/* Progress / quota bars: pill by default, square in the terminal theme so they
+   match its zero-radius personality (cards, tiles, inputs are all square). */
+.ui-bar {
+	border-radius: 9999px;
+}
+html[data-ui-style="cyber-terminal"] .ui-bar {
+	border-radius: 0;
+}
+
 /* Clip card content to the rounded corners (zebra rows, full-bleed
    children). Cards with tables are excluded because clip-path breaks
    position:sticky in Chromium; cards with dropdowns are excluded so the
@@ -2253,6 +2353,20 @@ html[data-ui-style="cyber-terminal"] .ui-badge {
 	font-size: 0.625rem;
 	letter-spacing: 0.05em;
 	text-transform: uppercase;
+}
+
+/* Badge depth: lift the status chips off their surface in each theme's idiom
+   (saas: soft shadow; glass + terminal: an inset top highlight) so they read
+   as raised pills instead of flat color fills. Kept subtle since badges also
+   appear inline in dense tables and the sidebar. */
+html[data-ui-style="clean-saas"] .ui-badge {
+	box-shadow: var(--shadow-sm);
+}
+html[data-ui-style="glassmorphism-lite"] .ui-badge {
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+html[data-ui-style="cyber-terminal"] .ui-badge {
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 /* Compact toggle-tab buttons (1h/1d/1w, Tok/Req) */

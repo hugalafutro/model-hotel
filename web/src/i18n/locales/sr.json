@@ -2144,12 +2144,8 @@
 			"neuralwattUsage": "Употреба",
 			"neuralwattSubscription": "Претплата",
 			"neuralwattPlan": "План",
-			"neuralwattStatus": "Статус",
 			"neuralwattBillingPeriod": "Период наплате",
 			"neuralwattAutoRenew": "Аутоматско обнављање",
-			"neuralwattKwhIncluded": "Укључено kWh",
-			"neuralwattKwhUsed": "Искоришћено kWh",
-			"neuralwattKwhRemaining": "Преосталих kWh",
 			"neuralwattCurrentMonth": "Текући месец",
 			"neuralwattCost": "Трошак",
 			"neuralwattRequests": "Захтеви",
@@ -2163,7 +2159,6 @@
 			"neuralwattLifetime": "За цео живот",
 			"neuralwattKeyInfo": "Кључне информације",
 			"neuralwattEnergyQuota": "Енергетска квота",
-			"neuralwattEnergyAllocation": "Расподела енергије",
 			"neuralwattBillingInterval": "Интервал наплате",
 			"neuralwattAccountingMethod": "Метод рачуноводства",
 			"limits": "Ограничења",
@@ -2272,7 +2267,6 @@
 			"timeToFirstToken": "Време до првог токена: кашњење између почетка захтева и првог токена тела одговора (стриминг) или целог одговора (нестриминг)",
 			"tokensPerSecond": "Токени/с",
 			"outputTokensPerSecond": "Токени излажени по секунди током фазе генерисања (не укључује време до првог токена). Приказано као \"-\" када је време генерисања занемариво.",
-			"totalTokens": "Укупно токена",
 			"sumOfTokens": "Збир подстицаја, довршавања и токена за резоновање",
 			"requestHash": "Захтев за хаш",
 			"model": "Модел",
@@ -2310,7 +2304,8 @@
 			"totalOverhead": "Укупни режијски трошкови",
 			"error": "Грешка",
 			"copyErrorMessage": "Копирајте поруку о грешци",
-			"expandForBreakdown": "Прошири за рашчлањавање по корацима"
+			"expandForBreakdown": "Прошири за рашчлањавање по корацима",
+			"performance": "Перформансе"
 		},
 		"statusBadge": {
 			"streaming": "Стриминг",

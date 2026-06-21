@@ -421,7 +421,7 @@ export function CreateGroupModal({
 					</p>
 				</div>
 
-				<div className="flex justify-between gap-3 pt-4">
+				<div className="flex justify-between gap-3 pt-4 mt-2 border-t border-(--border-default)">
 					<div className="flex gap-2">
 						{isEdit && naEntries.length > 0 && (
 							<>

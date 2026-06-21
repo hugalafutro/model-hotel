@@ -2144,12 +2144,8 @@
 			"neuralwattUsage": "Використання",
 			"neuralwattSubscription": "Підписка",
 			"neuralwattPlan": "План",
-			"neuralwattStatus": "Статус",
 			"neuralwattBillingPeriod": "Розрахунковий період",
 			"neuralwattAutoRenew": "Автоматичне поновлення",
-			"neuralwattKwhIncluded": "в каналі kWh",
-			"neuralwattKwhUsed": "кВт Використано",
-			"neuralwattKwhRemaining": "кВт залишилось",
 			"neuralwattCurrentMonth": "Поточний місяць",
 			"neuralwattCost": "Собівартість",
 			"neuralwattRequests": "Запити",
@@ -2163,7 +2159,6 @@
 			"neuralwattLifetime": "За весь час",
 			"neuralwattKeyInfo": "Інформація про ключ",
 			"neuralwattEnergyQuota": "Енергетична квота",
-			"neuralwattEnergyAllocation": "Енергетичний розподіл",
 			"neuralwattBillingInterval": "Інтервал оплати",
 			"neuralwattAccountingMethod": "Метод обліку",
 			"limits": "Ліміти",
@@ -2272,7 +2267,6 @@
 			"timeToFirstToken": "Час до першого токену: затримка між початком запиту і першим знаком тіла відповіді (потокову) або повної відповіді (не широких)",
 			"tokensPerSecond": "Токени",
 			"outputTokensPerSecond": "Токени виводу в секунду під час створення фази (виключає час часу) яка функціонує як '-' коли час покоління незначний.",
-			"totalTokens": "Токени Всього",
 			"sumOfTokens": "Сума підказки + закінчення та міркувань",
 			"requestHash": "Хэш запиту",
 			"model": "Модель",
@@ -2310,7 +2304,8 @@
 			"totalOverhead": "Всього накладних витрат",
 			"error": "Помилка",
 			"copyErrorMessage": "Скопіювати повідомлення про помилку",
-			"expandForBreakdown": "Розгорніть для покрокового розподілу"
+			"expandForBreakdown": "Розгорніть для покрокового розподілу",
+			"performance": "Продуктивність"
 		},
 		"statusBadge": {
 			"streaming": "Трансляція",

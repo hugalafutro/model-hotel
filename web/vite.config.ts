@@ -40,6 +40,14 @@ export default defineConfig({
 		},
 	},
 	build: {
+		// The two chunks over Vite's default 500 kB warning line are both benign:
+		// the per-language Shiki grammars (cpp is the largest at ~640 kB raw but
+		// ~50 kB gzip) are lazy-loaded on demand via SHIKI_LAZY below and never
+		// hit initial load, and vendor-react (~530 kB raw / ~140 kB gzip) is the
+		// framework core, already isolated into its own long-cache chunk. Raise
+		// the limit so the build log stays clean without masking a real future
+		// regression in the eager bundles.
+		chunkSizeWarningLimit: 700,
 		// rolldown-vite ignores rollupOptions.output.manualChunks; vendor
 		// splitting must go through rolldown's codeSplitting groups. Groups
 		// are matched top-down (equal priority → smaller index wins), so the

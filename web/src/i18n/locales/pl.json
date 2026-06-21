@@ -2144,12 +2144,8 @@
 			"neuralwattUsage": "Użycie",
 			"neuralwattSubscription": "Subskrypcja",
 			"neuralwattPlan": "Plan",
-			"neuralwattStatus": "Status",
 			"neuralwattBillingPeriod": "Okres rozliczeniowy",
 			"neuralwattAutoRenew": "Automatyczne odnawianie",
-			"neuralwattKwhIncluded": "W tym kWh",
-			"neuralwattKwhUsed": "Użyte kWh",
-			"neuralwattKwhRemaining": "Pozostało kWh",
 			"neuralwattCurrentMonth": "Bieżący miesiąc",
 			"neuralwattCost": "Koszt",
 			"neuralwattRequests": "Żądania",
@@ -2163,7 +2159,6 @@
 			"neuralwattLifetime": "Dożywotni",
 			"neuralwattKeyInfo": "Informacje o kluczu",
 			"neuralwattEnergyQuota": "Kontyngent energetyczny",
-			"neuralwattEnergyAllocation": "Przydział energii",
 			"neuralwattBillingInterval": "Interwał fakturowania",
 			"neuralwattAccountingMethod": "Metoda księgowa",
 			"limits": "Limity",
@@ -2272,7 +2267,6 @@
 			"timeToFirstToken": "Czas do pierwszego tokena: opóźnienie między początkiem żądania a pierwszym tokenem organu odpowiedzi (streaming) lub pełną odpowiedzią (brak streamingu)",
 			"tokensPerSecond": "Tokeny/s",
 			"outputTokensPerSecond": "Tokeny wyjściowe na sekundę podczas fazy generowania (wyłącza czas do pierwszego tokenu). Pokazane jako '-', gdy czas generowania jest nieistotny.",
-			"totalTokens": "Wszystkie tokeny",
 			"sumOfTokens": "Suma skrótu + uzupełnienia + tokenów rozumowania",
 			"requestHash": "Żądanie hash",
 			"model": "Wzór",
@@ -2310,7 +2304,8 @@
 			"totalOverhead": "Łącznie",
 			"error": "Błąd",
 			"copyErrorMessage": "Kopiuj komunikat o błędzie",
-			"expandForBreakdown": "Rozwiń, aby zobaczyć podział na kroki"
+			"expandForBreakdown": "Rozwiń, aby zobaczyć podział na kroki",
+			"performance": "Wydajność"
 		},
 		"statusBadge": {
 			"streaming": "Strumieniowanie",

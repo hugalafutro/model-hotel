@@ -373,7 +373,7 @@ export function DataStorageSettings({
 							{t("settings.dataStorage.quotaBadges")}
 						</h3>
 						<div className="space-y-5">
-							<div className="flex items-center justify-between">
+							<div className="flex items-center justify-between p-3 ui-detail-tile">
 								<div>
 									<p className="text-sm font-medium text-gray-300">
 										{t("settings.sidebarQuota.showQuotasPill")}
@@ -450,7 +450,7 @@ export function DataStorageSettings({
 						<h3 className="text-xs font-semibold uppercase tracking-wider text-(--accent)">
 							{t("settings.dataStorage.sessionPersistence")}
 						</h3>
-						<div className="flex items-center justify-between">
+						<div className="flex items-center justify-between p-3 ui-detail-tile">
 							<div>
 								<p className="text-sm font-medium text-gray-300">
 									{t("settings.dataStorage.persistChat")}
@@ -480,7 +480,7 @@ export function DataStorageSettings({
 							/>
 						</div>
 
-						<div className="flex items-center justify-between">
+						<div className="flex items-center justify-between p-3 ui-detail-tile">
 							<div>
 								<p className="text-sm font-medium text-gray-300">
 									{t("settings.dataStorage.persistArena")}
@@ -510,7 +510,7 @@ export function DataStorageSettings({
 							/>
 						</div>
 
-						<div className="flex items-center justify-between">
+						<div className="flex items-center justify-between p-3 ui-detail-tile">
 							<div>
 								<p className="text-sm font-medium text-gray-300">
 									{t("settings.dataStorage.persistConversation")}
@@ -545,7 +545,7 @@ export function DataStorageSettings({
 						<h3 className="text-xs font-semibold uppercase tracking-wider text-(--accent)">
 							{t("settings.dataStorage.arenaHistory")}
 						</h3>
-						<div className="flex items-center justify-between">
+						<div className="flex items-center justify-between p-3 ui-detail-tile">
 							<div>
 								<p className="text-sm font-medium text-gray-300">
 									{t("settings.dataStorage.saveMatchHistory")}

@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { Activity, Gauge, RefreshCw } from "@/lib/icons";
 import type { NeuralWattQuotaResponse } from "../../api/types";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import {
@@ -8,6 +9,7 @@ import {
 	formatRelativeTime,
 	formatTokens,
 } from "../../utils/format";
+import { DetailSectionHeader } from "../DetailSectionHeader";
 import { DetailItem } from "../LogDetailItem";
 import { Modal } from "../Modal";
 import {
@@ -90,14 +92,6 @@ export function NeuralWattQuotaModal({
 									</span>
 								)}
 							</span>
-							{quota.balance.accounting_method && (
-								<span className="text-(--text-muted) text-xs ml-2">
-									{t("components.providerModals.neuralwattAccountingMethod")}:{" "}
-									<span className="capitalize">
-										{quota.balance.accounting_method}
-									</span>
-								</span>
-							)}
 						</p>
 					</div>
 					<QuotaModalHeaderActions
@@ -125,7 +119,7 @@ export function NeuralWattQuotaModal({
 			<div className="space-y-6">
 				{/* ── Credit balance bar ── */}
 				<div>
-					<div className="flex justify-between items-center mb-2">
+					<div className="flex justify-between items-center">
 						<span className="text-sm font-medium text-(--text-secondary)">
 							{t("components.providerModals.neuralwattBalance")}
 						</span>
@@ -136,10 +130,10 @@ export function NeuralWattQuotaModal({
 					{quota.balance.total_credits_usd > 0 && (
 						<div
 							data-testid="neuralwatt-credits-bar"
-							className="w-full bg-(--surface-input) rounded-full h-3"
+							className="w-full bg-(--surface-input) ui-bar h-3 mt-2"
 						>
 							<div
-								className={`${barMode === "used" ? usedBarColor(creditsUsed) : remainingBarColor(creditsRemaining)} h-3 rounded-full transition-all`}
+								className={`${barMode === "used" ? usedBarColor(creditsUsed) : remainingBarColor(creditsRemaining)} h-3 ui-bar transition-all`}
 								style={{
 									width: `${barMode === "used" ? Math.min(creditsUsed, 100) : Math.min(creditsRemaining, 100)}%`,
 								}}
@@ -169,10 +163,10 @@ export function NeuralWattQuotaModal({
 						</div>
 						<div
 							data-testid="neuralwatt-kwh-bar"
-							className="w-full bg-(--surface-input) rounded-full h-3"
+							className="w-full bg-(--surface-input) ui-bar h-3"
 						>
 							<div
-								className={`${barMode === "used" ? usedBarColor(kwhUsed) : remainingBarColor(kwhRemaining)} h-3 rounded-full transition-all`}
+								className={`${barMode === "used" ? usedBarColor(kwhUsed) : remainingBarColor(kwhRemaining)} h-3 ui-bar transition-all`}
 								style={{
 									width: `${barMode === "used" ? Math.min(kwhUsed, 100) : Math.min(kwhRemaining, 100)}%`,
 								}}
@@ -185,29 +179,28 @@ export function NeuralWattQuotaModal({
 							{quota.subscription.current_period_end &&
 								` · ${t("components.providerModals.resets")} ${formatDate(quota.subscription.current_period_end)}`}
 						</p>
+						{quota.balance.accounting_method && (
+							<p className="text-xs text-(--text-muted) mt-1">
+								{t("components.providerModals.neuralwattAccountingMethod")}:{" "}
+								<span className="capitalize">
+									{quota.balance.accounting_method}
+								</span>
+							</p>
+						)}
 					</div>
 				)}
 
 				{/* ── Subscription details ── */}
 				<div>
-					<h3 className="text-sm font-medium text-(--text-secondary) mb-3">
+					<DetailSectionHeader icon={RefreshCw}>
 						{t("components.providerModals.neuralwattSubscription")}
-					</h3>
+					</DetailSectionHeader>
 					<div className="grid grid-cols-2 gap-2">
 						<DetailItem label={t("components.providerModals.neuralwattPlan")}>
 							<div className="text-sm text-(--text-primary) capitalize">
 								{quota.subscription.plan}
 							</div>
 						</DetailItem>
-						<DetailItem label={t("components.providerModals.neuralwattStatus")}>
-							<div className="text-sm text-(--text-primary) capitalize">
-								{quota.subscription.status}
-							</div>
-						</DetailItem>
-						<DetailItem
-							label={t("components.providerModals.neuralwattBillingPeriod")}
-							value={`${formatDate(quota.subscription.current_period_start)} - ${formatDate(quota.subscription.current_period_end)}`}
-						/>
 						<DetailItem
 							label={t("components.providerModals.neuralwattBillingInterval")}
 						>
@@ -215,6 +208,11 @@ export function NeuralWattQuotaModal({
 								{quota.subscription.billing_interval}
 							</div>
 						</DetailItem>
+						<DetailItem
+							label={t("components.providerModals.neuralwattBillingPeriod")}
+							value={`${formatDate(quota.subscription.current_period_start)} - ${formatDate(quota.subscription.current_period_end)}`}
+							className="col-span-2"
+						/>
 						<DetailItem
 							label={t("components.providerModals.neuralwattAutoRenew")}
 							value={
@@ -234,40 +232,12 @@ export function NeuralWattQuotaModal({
 					</div>
 				</div>
 
-				{/* ── Energy allocation ── */}
-				<div>
-					<h3 className="text-sm font-medium text-(--text-secondary) mb-3">
-						{t("components.providerModals.neuralwattEnergyAllocation")}
-					</h3>
-					<div className="grid grid-cols-3 gap-2">
-						<DetailItem
-							label={t("components.providerModals.neuralwattKwhIncluded")}
-							value={`${formatKwh(quota.subscription.kwh_included)} kWh`}
-							mono
-						/>
-						<DetailItem
-							label={t("components.providerModals.neuralwattKwhUsed")}
-							value={`${formatKwh(quota.subscription.kwh_used)} kWh`}
-							mono
-						/>
-						<DetailItem
-							label={t("components.providerModals.neuralwattKwhRemaining")}
-						>
-							<div
-								className={`text-sm font-mono truncate ${quota.subscription.kwh_remaining < quota.subscription.kwh_included * 0.2 ? "text-amber-400" : "text-(--text-primary)"}`}
-							>
-								{formatKwh(quota.subscription.kwh_remaining)} kWh
-							</div>
-						</DetailItem>
-					</div>
-				</div>
-
 				{/* ── Usage stats ── */}
 				<div>
-					<h3 className="text-sm font-medium text-(--text-secondary) mb-3">
+					<DetailSectionHeader icon={Activity}>
 						{t("components.providerModals.neuralwattUsage")}
-					</h3>
-					<div className="grid grid-cols-5 gap-2 text-xs p-3 rounded-(--radius-box) bg-(--surface-bg) border border-(--border-subtle)">
+					</DetailSectionHeader>
+					<div className="grid grid-cols-5 gap-2 text-xs p-3 ui-detail-section">
 						<div></div>
 						<div>
 							<span className="text-(--text-muted)">
@@ -324,9 +294,9 @@ export function NeuralWattQuotaModal({
 
 				{/* ── Limits ── */}
 				<div>
-					<h3 className="text-sm font-medium text-(--text-secondary) mb-3">
+					<DetailSectionHeader icon={Gauge}>
 						{t("components.providerModals.limits")}
-					</h3>
+					</DetailSectionHeader>
 					<div className="grid grid-cols-3 gap-2">
 						<DetailItem
 							label={t("components.providerModals.neuralwattOverageLimit")}

@@ -2144,12 +2144,8 @@
 			"neuralwattUsage": "الاستخدام",
 			"neuralwattSubscription": "الاشتراك",
 			"neuralwattPlan": "خطة",
-			"neuralwattStatus": "الحالة",
 			"neuralwattBillingPeriod": "فترة الفاتورة",
 			"neuralwattAutoRenew": "تجديد تلقائي",
-			"neuralwattKwhIncluded": "متضمنة",
-			"neuralwattKwhUsed": "كيلو وات مستخدمة",
-			"neuralwattKwhRemaining": "كيلو وات متبقية",
 			"neuralwattCurrentMonth": "الشهر الحالي",
 			"neuralwattCost": "التكلفة",
 			"neuralwattRequests": "الطلبات",
@@ -2163,7 +2159,6 @@
 			"neuralwattLifetime": "مدى الحياة",
 			"neuralwattKeyInfo": "معلومات المفتاح",
 			"neuralwattEnergyQuota": "حصة الطاقة",
-			"neuralwattEnergyAllocation": "تخصيص الطاقة",
 			"neuralwattBillingInterval": "فاصل الفاتورة",
 			"neuralwattAccountingMethod": "طريقة المحاسبة",
 			"limits": "الحدود",
@@ -2272,7 +2267,6 @@
 			"timeToFirstToken": "الوقت إلى الرمز المميز الأول: التأخير بين بدء الطلب والرمز المميز الأول لجهاز الاستجابة (البث) أو الرد الكامل (عدم البث)",
 			"tokensPerSecond": "رموز/ث",
 			"outputTokensPerSecond": "رموز المخرجات في الثانية خلال مرحلة التوليد (باستثناء الرمز المميز من الوقت إلى الأول من الوقت). يظهر كـ '-' عندما يكون وقت التوليد ضئيلا.",
-			"totalTokens": "إجمالي الرموز",
 			"sumOfTokens": "مجموع العملات المدفوعة + اكتمال + تعليل الرموز",
 			"requestHash": "طلب هاش",
 			"model": "الموديل",
@@ -2310,7 +2304,8 @@
 			"totalOverhead": "إجمالي النفقات العامة",
 			"error": "خطأ",
 			"copyErrorMessage": "نسخ رسالة الخطأ",
-			"expandForBreakdown": "وسّع لعرض التفصيل لكل خطوة"
+			"expandForBreakdown": "وسّع لعرض التفصيل لكل خطوة",
+			"performance": "الأداء"
 		},
 		"statusBadge": {
 			"streaming": "البث",

@@ -97,11 +97,9 @@ export function ZAICodingQuotaModal({
 						percentage={fiveHourLimit.percentage}
 						barMode={barMode}
 					>
-						{fiveHourLimit.percentage.toFixed(0)}%{" "}
-						{t("components.providerModals.used")}.{" "}
 						{t("components.providerModals.resets")}{" "}
 						{fiveHourLimit.nextResetTime
-							? `${formatTimestamp(fiveHourLimit.nextResetTime)} - ${formatTimeUntil(fiveHourLimit.nextResetTime)}`
+							? `${formatTimestamp(fiveHourLimit.nextResetTime)}\n${formatTimeUntil(fiveHourLimit.nextResetTime)}`
 							: "N/A"}
 					</QuotaBar>
 				)}
@@ -117,11 +115,9 @@ export function ZAICodingQuotaModal({
 						percentage={weeklyLimit.percentage}
 						barMode={barMode}
 					>
-						{weeklyLimit.percentage.toFixed(0)}%{" "}
-						{t("components.providerModals.used")}.{" "}
 						{t("components.providerModals.resets")}{" "}
 						{weeklyLimit.nextResetTime
-							? `${formatTimestamp(weeklyLimit.nextResetTime)} - ${formatTimeUntil(weeklyLimit.nextResetTime)}`
+							? `${formatTimestamp(weeklyLimit.nextResetTime)}\n${formatTimeUntil(weeklyLimit.nextResetTime)}`
 							: "N/A"}
 					</QuotaBar>
 				)}
@@ -139,7 +135,7 @@ export function ZAICodingQuotaModal({
 						footer={
 							mcpLimit.usageDetails &&
 							mcpLimit.usageDetails.length > 0 && (
-								<div className="mt-2 space-y-1 p-3 rounded-(--radius-box) bg-(--surface-bg) border border-(--border-subtle)">
+								<div className="mt-2 space-y-1 p-3 ui-detail-section">
 									{mcpLimit.usageDetails.map((detail) => (
 										<div
 											key={detail.modelCode}
@@ -155,11 +151,9 @@ export function ZAICodingQuotaModal({
 							)
 						}
 					>
-						{mcpLimit.percentage.toFixed(0)}%{" "}
-						{t("components.providerModals.used")}.{" "}
 						{t("components.providerModals.resets")}{" "}
 						{mcpLimit.nextResetTime
-							? `${formatTimestamp(mcpLimit.nextResetTime)} - ${formatTimeUntil(mcpLimit.nextResetTime)}`
+							? `${formatTimestamp(mcpLimit.nextResetTime)}\n${formatTimeUntil(mcpLimit.nextResetTime)}`
 							: "N/A"}
 					</QuotaBar>
 				)}

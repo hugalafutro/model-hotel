@@ -2144,12 +2144,8 @@
 			"neuralwattUsage": "Gebruik",
 			"neuralwattSubscription": "Inskrywing",
 			"neuralwattPlan": "Plan",
-			"neuralwattStatus": "Status",
 			"neuralwattBillingPeriod": "Faktureringsperiode",
 			"neuralwattAutoRenew": "Outomatiese hernuwing",
-			"neuralwattKwhIncluded": "kWh ingesluit",
-			"neuralwattKwhUsed": "Gebruikte kWh",
-			"neuralwattKwhRemaining": "Oorblywende kWh",
 			"neuralwattCurrentMonth": "Huidige maand",
 			"neuralwattCost": "Koste",
 			"neuralwattRequests": "Versoeke",
@@ -2163,7 +2159,6 @@
 			"neuralwattLifetime": "Lewe lank",
 			"neuralwattKeyInfo": "Sleutelinligting",
 			"neuralwattEnergyQuota": "Energie-kota",
-			"neuralwattEnergyAllocation": "Energie-toewysing",
 			"neuralwattBillingInterval": "Faktureringsinterval",
 			"neuralwattAccountingMethod": "Rekeningkundige metode",
 			"limits": "Perke",
@@ -2272,7 +2267,6 @@
 			"timeToFirstToken": "Tyd tot eerste token: vertraging tussen die aanvraag se begin en die eerste token van die reaksie-liggaam (strooming) of die volledige reaksie (nie-strooming)",
 			"tokensPerSecond": "Tokens/s",
 			"outputTokensPerSecond": "Uitvoer tokens per sekonde tydens die generasiefase (sluit nie die tyd tot die eerste token in nie). Word as '-' gewys wanneer die generasietyd verwaarloosbaar is.",
-			"totalTokens": "Totaal tokens",
 			"sumOfTokens": "Som van aanmoedigings-, voltooiings- en beredeneringstokens",
 			"requestHash": "Versoek hash",
 			"model": "Model",
@@ -2310,7 +2304,8 @@
 			"totalOverhead": "Totaal oorhoofse koste",
 			"error": "Fout",
 			"copyErrorMessage": "Kopieer foutboodskap",
-			"expandForBreakdown": "Brei uit vir die stap-vir-stap-uiteensetting"
+			"expandForBreakdown": "Brei uit vir die stap-vir-stap-uiteensetting",
+			"performance": "Prestasie"
 		},
 		"statusBadge": {
 			"streaming": "Stroom",

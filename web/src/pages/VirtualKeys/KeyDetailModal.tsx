@@ -436,6 +436,14 @@ export function KeyDetailModal({
 							</div>
 						</DetailItem>
 						<DetailItem
+							icon={BrainSlashIcon}
+							label={t("virtualkeys.modal.form.stripReasoning")}
+							value={
+								vk.strip_reasoning ? t("common.enabled") : t("common.disabled")
+							}
+						/>
+						<DetailItem
+							emphasis="stat"
 							icon={Gauge}
 							label={t("virtualKeys.detail.rps")}
 							labelExtra={<InfoHint tooltip={t("virtualkeys.tooltip.rps")} />}
@@ -447,6 +455,7 @@ export function KeyDetailModal({
 							mono
 						/>
 						<DetailItem
+							emphasis="stat"
 							icon={Zap}
 							label={t("virtualKeys.detail.burst")}
 							labelExtra={<InfoHint tooltip={t("virtualkeys.tooltip.burst")} />}
@@ -458,6 +467,7 @@ export function KeyDetailModal({
 							mono
 						/>
 						<DetailItem
+							emphasis="stat"
 							icon={Gauge}
 							label={t("virtualKeys.detail.tpm")}
 							labelExtra={<InfoHint tooltip={t("virtualkeys.tooltip.tpm")} />}
@@ -469,6 +479,7 @@ export function KeyDetailModal({
 							mono
 						/>
 						<DetailItem
+							emphasis="stat"
 							icon={Coins}
 							label={t("virtualkeys.modal.labels.tokensConsumed")}
 							value={formatNumber(vk.tokens_used)}
@@ -487,13 +498,6 @@ export function KeyDetailModal({
 							icon={CalendarPlus}
 							label={t("virtualkeys.modal.labels.created")}
 							value={new Date(vk.created_at).toLocaleString()}
-						/>
-						<DetailItem
-							icon={BrainSlashIcon}
-							label={t("virtualkeys.modal.form.stripReasoning")}
-							value={
-								vk.strip_reasoning ? t("common.enabled") : t("common.disabled")
-							}
 						/>
 						<DetailItem
 							icon={ShieldCheck}

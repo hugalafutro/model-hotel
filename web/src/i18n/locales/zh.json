@@ -2144,12 +2144,8 @@
 			"neuralwattUsage": "用法",
 			"neuralwattSubscription": "订阅",
 			"neuralwattPlan": "计划",
-			"neuralwattStatus": "状态",
 			"neuralwattBillingPeriod": "计费周期",
 			"neuralwattAutoRenew": "自动更新",
-			"neuralwattKwhIncluded": "千瓦小时包含",
-			"neuralwattKwhUsed": "已使用 kWh",
-			"neuralwattKwhRemaining": "剩余 kWh",
 			"neuralwattCurrentMonth": "当前月",
 			"neuralwattCost": "费用",
 			"neuralwattRequests": "请求",
@@ -2163,7 +2159,6 @@
 			"neuralwattLifetime": "寿命",
 			"neuralwattKeyInfo": "密钥信息",
 			"neuralwattEnergyQuota": "能量限额",
-			"neuralwattEnergyAllocation": "能量分配",
 			"neuralwattBillingInterval": "计费间隔",
 			"neuralwattAccountingMethod": "会计方法",
 			"limits": "限制",
@@ -2272,7 +2267,6 @@
 			"timeToFirstToken": "第一个令牌的时间：请求开始和响应机构的第一个令牌之间的延迟 (串流) 或完整响应(非串流)",
 			"tokensPerSecond": "令牌/秒",
 			"outputTokensPerSecond": "在生成阶段每秒输出代币(不包括时间到第一代币)。当生成时间微不足道时，显示为“-”。",
-			"totalTokens": "总令牌数",
 			"sumOfTokens": "提示+补全+推理令牌",
 			"requestHash": "请求哈希值",
 			"model": "模型",
@@ -2310,7 +2304,8 @@
 			"totalOverhead": "总管理费",
 			"error": "错误",
 			"copyErrorMessage": "复制错误消息",
-			"expandForBreakdown": "展开以查看分步明细"
+			"expandForBreakdown": "展开以查看分步明细",
+			"performance": "性能"
 		},
 		"statusBadge": {
 			"streaming": "流流",

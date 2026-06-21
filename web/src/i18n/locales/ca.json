@@ -2144,12 +2144,8 @@
 			"neuralwattUsage": "Ús",
 			"neuralwattSubscription": "Subscripció",
 			"neuralwattPlan": "Pla",
-			"neuralwattStatus": "Estat",
 			"neuralwattBillingPeriod": "Període de facturació",
 			"neuralwattAutoRenew": "Renovació automàtica",
-			"neuralwattKwhIncluded": "kWh inclòs",
-			"neuralwattKwhUsed": "kWh consumits",
-			"neuralwattKwhRemaining": "kWh restants",
 			"neuralwattCurrentMonth": "Mes actual",
 			"neuralwattCost": "Cost",
 			"neuralwattRequests": "Sol·licituds",
@@ -2163,7 +2159,6 @@
 			"neuralwattLifetime": "Per a tota la vida",
 			"neuralwattKeyInfo": "Informació clau",
 			"neuralwattEnergyQuota": "Cota d'energia",
-			"neuralwattEnergyAllocation": "Assignació d'energia",
 			"neuralwattBillingInterval": "Interval de facturació",
 			"neuralwattAccountingMethod": "Mètode de comptabilitat",
 			"limits": "Límits",
@@ -2272,7 +2267,6 @@
 			"timeToFirstToken": "Temps fins al primer token: retard entre l'inici de la sol·licitud i el primer token del cos de la resposta (streaming) o de la resposta completa (no streaming)",
 			"tokensPerSecond": "Fitxes/s",
 			"outputTokensPerSecond": "Tòkens generats per segon durant la fase de generació (no inclou el temps fins al primer tòken). S'indica com a '-' quan el temps de generació és negligible.",
-			"totalTokens": "Fitxes totals",
 			"sumOfTokens": "Suma de fitxes de prompt + de complement + de raonament",
 			"requestHash": "Sol·licitar hash",
 			"model": "Model",
@@ -2310,7 +2304,8 @@
 			"totalOverhead": "Despeses generals totals",
 			"error": "Error",
 			"copyErrorMessage": "Copiar missatge d'error",
-			"expandForBreakdown": "Desplega per veure el desglossament per passos"
+			"expandForBreakdown": "Desplega per veure el desglossament per passos",
+			"performance": "Rendiment"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

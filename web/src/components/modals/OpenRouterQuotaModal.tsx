@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { DollarSign } from "@/lib/icons";
 import type { OpenRouterBalance } from "../../api/types";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import {
@@ -7,6 +8,7 @@ import {
 	formatTimestamp,
 	formatTimeUntil,
 } from "../../utils/format";
+import { DetailSectionHeader } from "../DetailSectionHeader";
 import { DetailItem } from "../LogDetailItem";
 import { Modal } from "../Modal";
 import {
@@ -105,9 +107,9 @@ export function OpenRouterQuotaModal({
 						</span>
 					</div>
 					{balance.credits_total > 0 && (
-						<div className="w-full bg-(--surface-input) rounded-full h-3">
+						<div className="w-full bg-(--surface-input) ui-bar h-3">
 							<div
-								className={`${barMode === "used" ? usedBarColor(100 - creditsRemaining) : remainingBarColor(creditsRemaining)} h-3 rounded-full transition-all`}
+								className={`${barMode === "used" ? usedBarColor(100 - creditsRemaining) : remainingBarColor(creditsRemaining)} h-3 ui-bar transition-all`}
 								style={{
 									width: `${barMode === "used" ? Math.min(100 - creditsRemaining, 100) : Math.min(creditsRemaining, 100)}%`,
 								}}
@@ -134,9 +136,9 @@ export function OpenRouterQuotaModal({
 								{t("components.providerModals.remaining")}
 							</span>
 						</div>
-						<div className="w-full bg-(--surface-input) rounded-full h-3">
+						<div className="w-full bg-(--surface-input) ui-bar h-3">
 							<div
-								className={`${balance.limit > 0 ? (barMode === "used" ? usedBarColor(100 - ((balance.limit_remaining ?? 0) / balance.limit) * 100) : remainingBarColor(((balance.limit_remaining ?? 0) / balance.limit) * 100)) : "bg-amber-500"} h-3 rounded-full transition-all`}
+								className={`${balance.limit > 0 ? (barMode === "used" ? usedBarColor(100 - ((balance.limit_remaining ?? 0) / balance.limit) * 100) : remainingBarColor(((balance.limit_remaining ?? 0) / balance.limit) * 100)) : "bg-amber-500"} h-3 ui-bar transition-all`}
 								style={{
 									width: `${
 										balance.limit > 0
@@ -157,43 +159,47 @@ export function OpenRouterQuotaModal({
 								}}
 							/>
 						</div>
-						<p className="text-xs text-(--text-muted) mt-1">
+						<p className="text-xs text-(--text-muted) mt-1 whitespace-pre-line">
 							{balance.limit > 0
 								? `${barMode === "used" ? (100 - ((balance.limit_remaining ?? 0) / balance.limit) * 100).toFixed(1) : (((balance.limit_remaining ?? 0) / balance.limit) * 100).toFixed(1)}% ${barMode === "used" ? t("components.providerModals.used") : t("components.providerModals.remaining")}`
 								: balance.limit === 0
 									? `$0 ${t("components.providerModals.limitReset")}`
 									: t("components.providerModals.noLimitSet")}
 							{balance.limit_reset
-								? ` · ${t("components.providerModals.resets")} ${formatTimestamp(balance.limit_reset)} - ${formatTimeUntil(new Date(balance.limit_reset).getTime())}`
+								? ` · ${t("components.providerModals.resets")} ${formatTimestamp(balance.limit_reset)}\n${formatTimeUntil(new Date(balance.limit_reset).getTime())}`
 								: ""}
 						</p>
 					</div>
 				)}
 
 				<div>
-					<h3 className="text-sm font-medium text-(--text-secondary) mb-3">
+					<DetailSectionHeader icon={DollarSign}>
 						{t("components.providerModals.keyUsage")}
-					</h3>
+					</DetailSectionHeader>
 					<p className="text-xs text-(--text-muted) mb-3">
 						{t("components.providerModals.spendingByThisKey")}
 					</p>
 					<div className="grid grid-cols-2 gap-2">
 						<DetailItem
+							emphasis="stat"
 							label={t("common.today")}
 							value={formatDollars(balance.usage_daily)}
 							mono
 						/>
 						<DetailItem
+							emphasis="stat"
 							label={t("common.thisWeek")}
 							value={formatDollars(balance.usage_weekly)}
 							mono
 						/>
 						<DetailItem
+							emphasis="stat"
 							label={t("common.thisMonth")}
 							value={formatDollars(balance.usage_monthly)}
 							mono
 						/>
 						<DetailItem
+							emphasis="stat"
 							label={t("common.allTime")}
 							value={formatDollars(balance.usage)}
 							mono
