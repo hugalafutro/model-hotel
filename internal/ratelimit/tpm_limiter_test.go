@@ -50,11 +50,24 @@ func TestTPMLimiter_DebitNonPositiveIsNoop(t *testing.T) {
 	tpm := 600
 	l.Allow("k", tpm) // create a bucket at full budget
 
+	tokensOf := func() float64 {
+		l.mu.Lock()
+		defer l.mu.Unlock()
+		return l.buckets["k"].limiter.Tokens()
+	}
+	before := tokensOf()
+
 	l.Debit("k", 0)
 	l.Debit("k", -100)
 
+	// A real debit reserves tokens, reducing the count; a non-positive debit must
+	// reserve nothing. The token count only ever rises (refill), so it must not
+	// have dropped — this precisely catches a wrongful debit, unlike a bare Allow.
+	if after := tokensOf(); after < before {
+		t.Fatalf("non-positive Debit reduced the budget: before=%v after=%v", before, after)
+	}
 	if !l.Allow("k", tpm) {
-		t.Fatal("non-positive Debit must leave the budget untouched")
+		t.Fatal("non-positive Debit must leave the budget admitting requests")
 	}
 }
 

@@ -3,7 +3,6 @@ package debuglog
 import (
 	"context"
 	"log/slog"
-	"os"
 	"testing"
 	"time"
 )
@@ -13,12 +12,13 @@ import (
 // still drop Debug records whose scope is not enabled. If either method returned
 // the bare inner handler, scope filtering would silently leak on derived loggers.
 func TestScopeFilterHandler_DerivedHandlersKeepFilter(t *testing.T) {
+	// Register the global-state reset BEFORE t.Setenv so it runs AFTER t.Setenv's
+	// own env restore (t.Cleanup is LIFO): Init then recomputes enabledScopes from
+	// the restored DEBUG_LOG_SCOPES rather than from the unset value. t.Setenv
+	// already restores/unsets the variable itself, so no manual os.Unsetenv.
+	t.Cleanup(func() { Init(false) })
 	t.Setenv("DEBUG_LOG_SCOPES", "failover")
 	Init(false) // global debug off, scopes = {failover} -> wrapping is active
-	t.Cleanup(func() {
-		os.Unsetenv("DEBUG_LOG_SCOPES")
-		Init(false)
-	})
 
 	capH := newCaptureHandler(slog.LevelDebug)
 	wrapped := maybeScopeFilter(capH)
