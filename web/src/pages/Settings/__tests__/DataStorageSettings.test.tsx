@@ -975,6 +975,54 @@ describe("Delete Request Logs", () => {
 		});
 	});
 
+	it.each([
+		["1d", "24h"],
+		["1w", "168h"],
+		["1m", "720h"],
+		["all", "all"],
+	])("maps the %s selection to older_than=%s in the purge request", async (selection, expected) => {
+		let capturedOlderThan: string | undefined;
+		server.use(
+			http.delete("/api/logs/purge", async ({ request }) => {
+				capturedOlderThan = ((await request.json()) as { older_than: string })
+					.older_than;
+				return HttpResponse.json({ deleted: 1 });
+			}),
+		);
+		const user = userEvent.setup();
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		await user.click(screen.getByRole("button", { name: /delete requests/i }));
+		await user.selectOptions(screen.getByRole("combobox"), selection);
+		await user.click(screen.getByRole("button", { name: /confirm delete/i }));
+
+		await waitFor(() => expect(capturedOlderThan).toBe(expected));
+	});
+
+	it("shows an error toast when purging requests fails", async () => {
+		server.use(
+			http.delete("/api/logs/purge", () =>
+				HttpResponse.json({ error: "boom" }, { status: 500 }),
+			),
+		);
+		const user = userEvent.setup();
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		await user.click(screen.getByRole("button", { name: /delete requests/i }));
+		await user.selectOptions(screen.getByRole("combobox"), "1d");
+		await user.click(screen.getByRole("button", { name: /confirm delete/i }));
+
+		await waitFor(() => {
+			expect(screen.getByText(/failed to delete/i)).toBeInTheDocument();
+		});
+		// The confirm UI is dismissed on error.
+		expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+	});
+
 	it("cancels delete when cancel clicked", async () => {
 		const user = userEvent.setup();
 		renderWithProviders(
@@ -1052,6 +1100,25 @@ describe("Delete App Logs", () => {
 		// Verify the confirm button was clicked (mutation called via MSW handler)
 		await waitFor(() => {
 			expect(confirmButton).not.toBeInTheDocument();
+		});
+	});
+
+	it("shows an error toast when purging app logs fails", async () => {
+		server.use(
+			http.delete("/api/logs/app", () =>
+				HttpResponse.json({ error: "boom" }, { status: 500 }),
+			),
+		);
+		const user = userEvent.setup();
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		await user.click(screen.getByRole("button", { name: /delete logs/i }));
+		await user.click(screen.getByRole("button", { name: /^confirm$/i }));
+
+		await waitFor(() => {
+			expect(screen.getByText(/failed to delete/i)).toBeInTheDocument();
 		});
 	});
 

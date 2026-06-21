@@ -1382,6 +1382,60 @@ describe("useChat", () => {
 			expect(userMessages[0].content).toBe("First");
 			expect(userMessages[1].content).toBe("Second");
 		});
+
+		it("shows a toast when regenerate resolves with an error result", async () => {
+			// streamModelResponse resolves (does not throw) with a non-aborted error,
+			// e.g. an upstream provider error surfaced on the stream.
+			mockGetApiMessagesForModel.mockReturnValue([
+				{ role: "user", content: "Second" },
+			]);
+			mockStreamModelResponse.mockResolvedValue({
+				rawContent: "",
+				content: "",
+				thinkingContent: "",
+				tokensPerSecond: 0,
+				durationMs: 0,
+				promptTokens: 0,
+				completionTokens: 0,
+				error: "Upstream provider error",
+				aborted: false,
+			});
+			const { result } = renderHook(() => useChat());
+			act(() => {
+				result.current.setMessages([
+					{ role: "user", content: "Second", timestamp: 1 },
+					{ role: "assistant", content: "Second response", timestamp: 2 },
+				]);
+				result.current.setChatSelectedModel("test/model");
+			});
+			await act(async () => {
+				await result.current.handleRegenerate();
+			});
+			expect(mockToast).toHaveBeenCalledWith(
+				"Upstream provider error",
+				"error",
+			);
+		});
+
+		it("shows a toast when regenerate throws a non-abort error", async () => {
+			mockGetApiMessagesForModel.mockReturnValue([
+				{ role: "user", content: "Second" },
+			]);
+			mockStreamModelResponse.mockRejectedValue(new Error("Network down"));
+			const { result } = renderHook(() => useChat());
+			act(() => {
+				result.current.setMessages([
+					{ role: "user", content: "Second", timestamp: 1 },
+					{ role: "assistant", content: "Second response", timestamp: 2 },
+				]);
+				result.current.setChatSelectedModel("test/model");
+			});
+			await act(async () => {
+				await result.current.handleRegenerate();
+			});
+			expect(mockToast).toHaveBeenCalledWith("Network down", "error");
+			expect(result.current.isStreaming).toBe(false);
+		});
 	});
 
 	describe("messages initializer", () => {
