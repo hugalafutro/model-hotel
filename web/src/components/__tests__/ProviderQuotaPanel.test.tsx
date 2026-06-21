@@ -75,6 +75,31 @@ function setupPanel(overrides?: Partial<QuotaDataResult>) {
 }
 
 describe("ProviderQuotaPanel", () => {
+	it("falls back to defaults when its localStorage reads throw", () => {
+		// Privacy/locked-down browsers can make localStorage access throw. The
+		// disabled/collapsed/refresh init readers must swallow that and use
+		// defaults (enabled, expanded), so the panel still renders its controls.
+		const blocked = new Set([
+			"sidebarQuotaDisabled",
+			"sidebarQuotaCollapsed",
+			"sidebarQuotaRefreshMin",
+		]);
+		const realGetItem = Storage.prototype.getItem;
+		const spy = vi
+			.spyOn(Storage.prototype, "getItem")
+			.mockImplementation(function (this: Storage, key: string) {
+				if (blocked.has(key)) throw new Error("localStorage blocked");
+				return realGetItem.call(this, key);
+			});
+
+		try {
+			setupPanel();
+			expect(screen.getByTitle("Collapse")).toBeInTheDocument();
+		} finally {
+			spy.mockRestore();
+		}
+	});
+
 	const mockNanoUsage: import("../../api/types").NanoGPTUsage = {
 		active: true,
 		provider: "nanogpt",
