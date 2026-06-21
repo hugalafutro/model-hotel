@@ -302,9 +302,21 @@ function RequestLogs() {
 						const entry = await api.logs.get(requestId);
 						scrollMergeEntries([entry]);
 					} catch {
+						// Fall back to fetchNewer on error (e.g. row
+						// was purged between event and fetch)
 						scrollFetchNewer();
+						return;
 					}
+				} else {
+					// Fallback when request_id is missing from the
+					// event payload (e.g. schema change, old server)
+					scrollFetchNewer();
+					return;
 				}
+				// Always fetchNewer after request.streaming to cover
+				// the race where the pending row hasn't been added to
+				// the list yet (request.started fetch still in-flight).
+				// fetchNewer is guarded against concurrent calls.
 				scrollFetchNewer();
 			} else if (event.type === "request.started") {
 				scrollFetchNewer();
