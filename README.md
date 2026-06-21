@@ -133,7 +133,7 @@ For providers that expose it, click a provider's quota badge (on its card or in 
 </p>
 
 ### [<img src="docs/icons/settings.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Themeable UI](#-themeable-ui)
-Make the dashboard your own from the Appearance settings: pick one of three **UI styles** — **Clean SaaS** (refined and minimal, the default), **Cyber Terminal** (high-contrast, developer-centric), or **Glassmorphism** (slick translucent surfaces) — toggle **dark / light** mode, and choose an **accent color** (each style ships a tasteful default, or pick your own). Everything persists locally in the browser. The animated dashboard at the top of this page cycles through all three.
+Make the dashboard your own from the Appearance settings. Pick one of three **UI styles**: **Clean SaaS** (refined and minimal, the default), **Cyber Terminal** (high-contrast, developer-centric), or **Glassmorphism** (slick translucent surfaces). Then toggle **dark / light** mode, and choose an **accent color** (each style ships a tasteful default, or pick your own). Everything persists locally in the browser. The animated dashboard at the top of this page cycles through all three.
 
 <p align="center">
   <img src="docs/screenshots/dashboard_saas.png" width="265" alt="Clean SaaS UI style">
