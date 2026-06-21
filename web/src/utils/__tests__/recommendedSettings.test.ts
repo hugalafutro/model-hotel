@@ -793,20 +793,17 @@ describe("findModelsDevMatch scoring logic", () => {
 		expect(result.matchedModelId).toBe("llama-3-70b");
 	});
 
-	it("family bonus still fires for provider-prefixed model ids", async () => {
-		// UI callers pass proxy ids like "meta/llama-3" (provider + "/" + model).
-		// The family token must come from the part after the slash ("llama"), not
-		// the provider prefix. Both candidates match the search as substrings and
-		// tie on score; only the family bonus (derived from the bare model id)
-		// breaks the tie toward "llama-3". With the prefix left in, the token was
-		// "metallama", the bonus never fired, and the first-listed "llama" won
-		// instead (the exact 111-vs-222 regression the reviewer flagged).
+	it("provider-prefixed model ids resolve to the exact models.dev entry", async () => {
+		// UI callers pass proxy ids like "meta/llama-3" (provider name + "/" +
+		// model id). The "/" prefix must be stripped before matching: otherwise the
+		// normalized form is "metallama3", which can't exactly match "llama-3" and
+		// the first-listed "llama" (output 111) wins over the real "llama-3" (222).
 		const mockApi = {
 			meta: {
 				id: "meta",
 				name: "Meta",
 				models: {
-					llama: { id: "llama", limit: { output: 111 } }, // no family
+					llama: { id: "llama", limit: { output: 111 } },
 					"llama-3": { id: "llama-3", family: "llama", limit: { output: 222 } },
 				},
 			},
@@ -821,6 +818,19 @@ describe("findModelsDevMatch scoring logic", () => {
 
 		expect(result.matchedModelId).toBe("llama-3");
 		expect(result.params?.max_tokens).toBe(222);
+	});
+
+	it("provider-prefixed ids still get curated defaults when models.dev is unavailable", async () => {
+		// Regression: with the provider prefix left in, "OpenAI/gpt-4o" normalized
+		// to "openaigpt4o", which started with no curated pattern, so a proxied
+		// model fell back to null params instead of its curated GPT-4o defaults.
+		globalThis.fetch = vi
+			.fn()
+			.mockRejectedValueOnce(new Error("models.dev unavailable"));
+
+		const result = await fetchRecommendedSettings("OpenAI/gpt-4o", "OpenAI");
+
+		expect(result.params).toEqual({ temperature: 0.7, top_p: 1 });
 	});
 
 	it("below threshold returns no match", async () => {

@@ -142,6 +142,19 @@ function normalizeForMatch(s: string): string {
 	return s.toLowerCase().replace(/[\s._-]+/g, "");
 }
 
+/**
+ * Strip a "<provider>/" prefix from a proxy model id. UI callers pass ids like
+ * "OpenAI/gpt-4o" or "meta/llama-3" (proxyModelID: provider name with spaces as
+ * dashes, then "/", then the model id). The provider name never contains "/",
+ * so the model id is everything after the FIRST slash; later slashes belong to
+ * the model id itself (e.g. HF-style "org/name") and are preserved. Returns the
+ * input unchanged when there is no prefix.
+ */
+function stripProviderPrefix(modelId: string): string {
+	const slash = modelId.indexOf("/");
+	return slash === -1 ? modelId : modelId.slice(slash + 1);
+}
+
 // ---------------------------------------------------------------------------
 // models.dev API fetch (no module-level cache - TanStack Query handles caching)
 // ---------------------------------------------------------------------------
@@ -174,6 +187,10 @@ interface ModelsDevMatch {
 /**
  * Try to find the best matching models.dev entry for a local model.
  * Returns the match and a score (higher = better).
+ *
+ * `modelId` must be the bare model id (no "<provider>/" prefix): the prefix
+ * pollutes the normalized form so exact/substring matches and the family token
+ * all break. Callers strip it via stripProviderPrefix before calling.
  */
 function findModelsDevMatch(
 	api: ModelsDevApi,
@@ -186,10 +203,7 @@ function findModelsDevMatch(
 	const normModel = normalizeForMatch(modelId);
 	// Leading family token of the searched id (e.g. "llama" from "llama-3"), used
 	// for the family bonus below. Computed once: it does not vary across models.
-	// UI callers pass provider-prefixed ids (e.g. "meta/llama-3"), so strip the
-	// provider prefix first; otherwise the leading segment would be the provider.
-	const bareModelId = modelId.slice(modelId.lastIndexOf("/") + 1);
-	const searchFamilyToken = normalizeForMatch(bareModelId.split(/[\s._-]/)[0]);
+	const searchFamilyToken = normalizeForMatch(modelId.split(/[\s._-]/)[0]);
 
 	let best: ModelsDevMatch | null = null;
 
@@ -276,8 +290,14 @@ export async function fetchRecommendedSettings(
 		matchedModelId: null,
 	};
 
+	// Callers pass proxy ids like "OpenAI/gpt-4o"; match against the bare model id
+	// (the provider arrives separately as providerName). Leaving the prefix in
+	// made "openaigpt4o" fail every curated startsWith and skewed models.dev
+	// scoring, so common proxied ids silently lost their curated defaults.
+	const bareModelId = stripProviderPrefix(modelId);
+
 	// 1. Match curated settings by model family
-	const normModel = normalizeForMatch(modelId);
+	const normModel = normalizeForMatch(bareModelId);
 	let curatedParams: GenerationParams | null = null;
 
 	for (const [pattern, params] of RECOMMENDED_SETTINGS) {
@@ -294,7 +314,7 @@ export async function fetchRecommendedSettings(
 	let matchedModelId: string | null = null;
 
 	if (api) {
-		const match = findModelsDevMatch(api, providerName, modelId);
+		const match = findModelsDevMatch(api, providerName, bareModelId);
 		if (match) {
 			matchedProviderId = match.providerId;
 			matchedModelId = match.model.id;
