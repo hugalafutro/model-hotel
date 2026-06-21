@@ -165,6 +165,128 @@ describe("Logs", () => {
 			);
 		});
 
+		it("fetches the row by ID and merges it into the list on request.streaming event", async () => {
+			localStorage.setItem("requestLogsViewMode", "scroll");
+
+			let singleLogCallCount = 0;
+			server.use(
+				// Initial in-progress row, identified in the mock table by its
+				// request_hash. fetchNewer is add-only (filters by existing id),
+				// so it won't revert the merge below.
+				http.get("/api/logs/cursor", () =>
+					HttpResponse.json({
+						entries: [
+							createMockLogEntry({
+								id: "log-1",
+								request_hash: "pending1",
+								state: "pending",
+								status_code: 0,
+							}),
+						],
+						total: 1,
+						has_before: false,
+						has_after: false,
+					}),
+				),
+				// Once streaming commits, the by-id fetch returns the updated row
+				// (distinct request_hash proves the merge actually landed).
+				http.get("/api/logs/log-1", () => {
+					singleLogCallCount++;
+					return HttpResponse.json(
+						createMockLogEntry({
+							id: "log-1",
+							request_hash: "streaming1",
+							state: "streaming",
+							status_code: 0,
+							provider_name: "TestProvider",
+						}),
+					);
+				}),
+			);
+
+			renderWithProviders(<Logs />);
+
+			// The in-progress row is shown before the stream commits.
+			await waitFor(() => {
+				expect(screen.getByText("pending1")).toBeInTheDocument();
+			});
+
+			await act(async () => {
+				window.dispatchEvent(
+					new CustomEvent("server-event", {
+						detail: {
+							type: "request.streaming",
+							metadata: {
+								request_id: "log-1",
+								model_id: "test-model",
+								provider_name: "TestProvider",
+							},
+						},
+					}),
+				);
+			});
+
+			// request.streaming fetches the row by id and merges it, so the row's
+			// data is replaced in place (here the request_hash flips) without
+			// waiting for request.completed.
+			await waitFor(
+				() => {
+					expect(singleLogCallCount).toBeGreaterThan(0);
+					expect(screen.getByText("streaming1")).toBeInTheDocument();
+				},
+				{ timeout: 3000 },
+			);
+			expect(screen.queryByText("pending1")).not.toBeInTheDocument();
+		});
+
+		it("refetches the logs page on request.streaming in paginate mode", async () => {
+			localStorage.setItem("requestLogsViewMode", "paginate");
+
+			let listCallCount = 0;
+			server.use(
+				http.get("/api/logs", () => {
+					listCallCount++;
+					return HttpResponse.json(
+						createMockLogs([
+							createMockLogEntry({
+								id: "log-1",
+								request_hash: "pending1",
+								state: "pending",
+								status_code: 0,
+							}),
+						]),
+					);
+				}),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(listCallCount).toBeGreaterThan(0);
+			});
+			const callsBeforeEvent = listCallCount;
+
+			await act(async () => {
+				window.dispatchEvent(
+					new CustomEvent("server-event", {
+						detail: {
+							type: "request.streaming",
+							metadata: { request_id: "log-1", model_id: "test-model" },
+						},
+					}),
+				);
+			});
+
+			// Paginate mode invalidates the ["logs"] query, so the page refetches
+			// and the in-progress row picks up the committed provider/model.
+			await waitFor(
+				() => {
+					expect(listCallCount).toBeGreaterThan(callsBeforeEvent);
+				},
+				{ timeout: 3000 },
+			);
+		});
+
 		it("falls back to fetchNewer on request.completed without request_id", async () => {
 			localStorage.setItem("requestLogsViewMode", "scroll");
 
@@ -247,6 +369,103 @@ describe("Logs", () => {
 			});
 
 			// Should trigger a fetchNewer (cursor endpoint called again)
+			await waitFor(
+				() => {
+					expect(cursorCallCount).toBeGreaterThan(initialCallCount);
+				},
+				{ timeout: 3000 },
+			);
+		});
+
+		it("falls back to fetchNewer on request.streaming without request_id", async () => {
+			localStorage.setItem("requestLogsViewMode", "scroll");
+
+			let cursorCallCount = 0;
+			server.use(
+				http.get("/api/logs/cursor", () => {
+					cursorCallCount++;
+					return HttpResponse.json({
+						entries: [createMockLogEntry({ id: "log-1", model_id: "abc123" })],
+						total: 1,
+						has_before: false,
+						has_after: false,
+					});
+				}),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByTestId("virtual-log-table")).toBeInTheDocument();
+			});
+
+			const initialCallCount = cursorCallCount;
+
+			// Dispatch request.streaming without request_id
+			await act(async () => {
+				window.dispatchEvent(
+					new CustomEvent("server-event", {
+						detail: {
+							type: "request.streaming",
+							metadata: {}, // no request_id
+						},
+					}),
+				);
+			});
+
+			// Should trigger a fetchNewer (cursor endpoint called again)
+			await waitFor(
+				() => {
+					expect(cursorCallCount).toBeGreaterThan(initialCallCount);
+				},
+				{ timeout: 3000 },
+			);
+		});
+
+		it("falls back to fetchNewer when api.logs.get rejects on request.streaming", async () => {
+			localStorage.setItem("requestLogsViewMode", "scroll");
+
+			let cursorCallCount = 0;
+			server.use(
+				http.get("/api/logs/cursor", () => {
+					cursorCallCount++;
+					return HttpResponse.json({
+						entries: [createMockLogEntry({ id: "log-1", model_id: "abc123" })],
+						total: 1,
+						has_before: false,
+						has_after: false,
+					});
+				}),
+				// Mock single-log endpoint to return 500 error
+				http.get("/api/logs/log-1", () => {
+					return HttpResponse.json(
+						{ error: "internal error" },
+						{ status: 500 },
+					);
+				}),
+			);
+
+			renderWithProviders(<Logs />);
+
+			await waitFor(() => {
+				expect(screen.getByTestId("virtual-log-table")).toBeInTheDocument();
+			});
+
+			const initialCallCount = cursorCallCount;
+
+			// Dispatch request.streaming with request_id, but api.logs.get will fail
+			await act(async () => {
+				window.dispatchEvent(
+					new CustomEvent("server-event", {
+						detail: {
+							type: "request.streaming",
+							metadata: { request_id: "log-1", model_id: "test-model" },
+						},
+					}),
+				);
+			});
+
+			// Should trigger fetchNewer as fallback (cursor endpoint called again)
 			await waitFor(
 				() => {
 					expect(cursorCallCount).toBeGreaterThan(initialCallCount);

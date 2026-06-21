@@ -171,6 +171,11 @@ func (h *Handler) initStreamResponse(w http.ResponseWriter, logData *requestLogD
 	// the first streamed byte. Blocking on WaitForInsert (up to 5s) would
 	// delay the client. The final update (completed/failed) waits properly.
 	h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
+	// The provider is now committed and the row carries it; tell the dashboard
+	// so a live row can swap its "Resolving" placeholder for the real
+	// provider/model while the (possibly reasoning-only) stream is still in
+	// flight, instead of waiting for the terminal request.completed event.
+	publishRequestStreamingEvent(logData)
 }
 
 // emitBlank forwards or swallows a blank SSE separator line. When the preceding
