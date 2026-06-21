@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -1283,5 +1283,57 @@ describe("DatabaseBackupSettings", () => {
 				});
 			});
 		});
+	});
+});
+
+describe("Backup rotation sliders", () => {
+	const onToggle = vi.fn();
+	const baseSettings = {
+		backup_enabled: "true",
+		backup_interval: "24h",
+		backup_son_retention: "7",
+		backup_father_retention: "4",
+		backup_grandfather_retention: "6",
+	};
+
+	beforeEach(() => {
+		onToggle.mockClear();
+		server.resetHandlers();
+		server.use(http.get("/api/backups", () => HttpResponse.json([])));
+	});
+
+	// Each rotation slider commits immediately on change (clampStep is set) and
+	// PUTs just its own key. These onChange handlers were uncovered because no
+	// test moved the sliders.
+	it.each([
+		["Backup Interval", "48", "backup_interval", "48h"],
+		["Daily Retention (Son)", "30", "backup_son_retention", "30"],
+		["Weekly Retention (Father)", "8", "backup_father_retention", "8"],
+		[
+			"Monthly Retention (Grandfather)",
+			"12",
+			"backup_grandfather_retention",
+			"12",
+		],
+	])("updates %s via the slider and PUTs %s", async (label, value, key, expected) => {
+		let captured: Record<string, string> | null = null;
+		server.use(
+			http.get("/api/settings", () => HttpResponse.json(baseSettings)),
+			http.put("/api/settings", async ({ request }) => {
+				captured = (await request.json()) as Record<string, string>;
+				return HttpResponse.json({});
+			}),
+		);
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const slider = await screen.findByLabelText(label);
+		// SettingsSlider commits the value (fires onChange) on pointer release,
+		// not on every drag tick.
+		fireEvent.change(slider, { target: { value } });
+		fireEvent.pointerUp(slider);
+
+		await waitFor(() => expect(captured).toEqual({ [key]: expected }));
 	});
 });
