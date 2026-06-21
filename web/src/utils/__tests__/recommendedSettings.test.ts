@@ -918,6 +918,34 @@ describe("findModelsDevMatch scoring logic", () => {
 		expect(result.params?.max_tokens).toBe(222);
 	});
 
+	it("preserves a bare slashful id whose first segment differs from the provider only by case", async () => {
+		// "openai/gpt-4o" with provider "OpenAI": proxyModelID would have produced
+		// "OpenAI/gpt-4o" (exact case), so this lowercase "openai/" is an inner
+		// vendor, not the proxy prefix. A case-insensitive strip would cut it and
+		// select the less-specific bare "gpt-4o" (111) over the exact
+		// "openai/gpt-4o" (222); the case-sensitive match keeps it intact.
+		const mockApi = {
+			openai: {
+				id: "openai",
+				name: "OpenAI",
+				models: {
+					"gpt-4o": { id: "gpt-4o", limit: { output: 111 } },
+					"openai/gpt-4o": { id: "openai/gpt-4o", limit: { output: 222 } },
+				},
+			},
+		};
+
+		globalThis.fetch = vi.fn().mockResolvedValueOnce({
+			ok: true,
+			json: vi.fn().mockResolvedValueOnce(mockApi),
+		} as unknown as Response);
+
+		const result = await fetchRecommendedSettings("openai/gpt-4o", "OpenAI");
+
+		expect(result.matchedModelId).toBe("openai/gpt-4o");
+		expect(result.params?.max_tokens).toBe(222);
+	});
+
 	it("below threshold returns no match", async () => {
 		const mockApi = {
 			openai: {

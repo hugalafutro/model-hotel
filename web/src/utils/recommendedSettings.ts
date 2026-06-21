@@ -150,13 +150,15 @@ function normalizeForMatch(s: string): string {
  * directly, including slashful models.dev-style ids like "deepseek-ai/DeepSeek-R1".
  * Stripping every leading slash would mangle those into "DeepSeek-R1" and make
  * the exact catalog entry unreachable. So strip only when modelId actually starts
- * with "<provider>/" (case-insensitively); otherwise leave the id untouched.
+ * with "<provider>/". The match is CASE-SENSITIVE on purpose: proxyModelID keeps
+ * the provider name's exact case, so a bare id whose first segment merely differs
+ * from the provider by case (e.g. "openai/gpt-4o" with provider "OpenAI", where
+ * "openai/gpt-4o" is itself an exact catalog entry) is an inner vendor, not the
+ * prefix, and must be preserved.
  */
 function stripProviderPrefix(modelId: string, providerName: string): string {
 	const prefix = `${providerName.replace(/ /g, "-")}/`;
-	return modelId.toLowerCase().startsWith(prefix.toLowerCase())
-		? modelId.slice(prefix.length)
-		: modelId;
+	return modelId.startsWith(prefix) ? modelId.slice(prefix.length) : modelId;
 }
 
 /**
