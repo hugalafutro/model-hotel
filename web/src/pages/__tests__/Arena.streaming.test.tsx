@@ -92,12 +92,12 @@ describe("Arena", () => {
 			const { user } = renderWithProviders(<Arena />);
 			await waitForArenaLoad();
 
+			// setupAndRunArena runs the arena and waits for the run control to flip
+			// to the "Stop All" button (its final waitFor), which is exactly the
+			// transition this test covers. Re-checking the transient button here
+			// raced the short mock stream's completion and was flaky, so the helper's
+			// wait is the assertion.
 			await setupAndRunArena(user, { mode: "compare" });
-
-			// While streaming is in flight the run control becomes a Stop button.
-			expect(
-				await screen.findByRole("button", { name: "Stop All" }),
-			).toBeInTheDocument();
 		});
 
 		it("shows generating message during running phase", async () => {
@@ -233,12 +233,9 @@ describe("Arena", () => {
 			const { user } = renderWithProviders(<Arena />);
 			await waitForArenaLoad();
 
+			// As above: setupAndRunArena's final waitFor already asserts the run
+			// control becomes "Stop All" once streaming starts.
 			await setupAndRunArena(user);
-
-			// While streaming is in flight the run control becomes a Stop button.
-			expect(
-				await screen.findByRole("button", { name: "Stop All" }),
-			).toBeInTheDocument();
 		});
 
 		it("phase transitions to voting after streaming completes in competition mode", {
