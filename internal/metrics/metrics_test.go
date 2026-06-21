@@ -105,3 +105,22 @@ func TestBreakerCollector(t *testing.T) {
 		t.Errorf("missing closed breaker gauge:\n%s", out)
 	}
 }
+
+// TestLabelOrUnknown verifies the empty-label fallback used for the provider and
+// model metric labels: an empty value becomes "unknown" so a series is never
+// emitted with a blank label, while a real value passes through untouched.
+func TestLabelOrUnknown(t *testing.T) {
+	if got := labelOrUnknown(""); got != "unknown" {
+		t.Errorf(`labelOrUnknown("") = %q, want "unknown"`, got)
+	}
+	if got := labelOrUnknown("openai"); got != "openai" {
+		t.Errorf(`labelOrUnknown("openai") = %q, want "openai"`, got)
+	}
+}
+
+// TestRegisterBreakerCollector_NilIsNoop guards the documented nil-collector
+// contract: passing nil must be ignored (no registration, no panic) so callers
+// without a breaker source can pass through unconditionally.
+func TestRegisterBreakerCollector_NilIsNoop(t *testing.T) {
+	RegisterBreakerCollector(nil)
+}

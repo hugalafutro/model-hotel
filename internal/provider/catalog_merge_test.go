@@ -213,3 +213,73 @@ func TestMergeLiveAndCatalog_DedupesLive(t *testing.T) {
 		t.Errorf("first live entry should win, got %q", out[0].Name)
 	}
 }
+
+// TestBackfillFromCatalog_NilSrcIsNoop guards the nil-catalog-match guard: a
+// live model with no catalog counterpart must be returned untouched.
+func TestBackfillFromCatalog_NilSrcIsNoop(t *testing.T) {
+	dst := &model.Model{ModelID: "m", Name: "Live Name"}
+	backfillFromCatalog(dst, nil)
+	if dst.Name != "Live Name" {
+		t.Errorf("nil src must not mutate dst, got Name=%q", dst.Name)
+	}
+}
+
+// TestBackfillFromCatalog_FillsEmptyTextFields verifies the catalog fills the
+// empty Name/Description/OwnedBy of a sparse live model without overwriting the
+// values the live API did provide.
+func TestBackfillFromCatalog_FillsEmptyTextFields(t *testing.T) {
+	dst := &model.Model{
+		ModelID:     "glm-5.2",
+		Name:        "", // empty -> catalog wins
+		Description: "", // empty -> catalog wins
+		OwnedBy:     "zai",
+	}
+	src := &model.Model{
+		ModelID:     "glm-5.2",
+		Name:        "GLM 5.2",
+		Description: "Flagship model",
+		OwnedBy:     "should-not-overwrite",
+	}
+	backfillFromCatalog(dst, src)
+
+	if dst.Name != "GLM 5.2" {
+		t.Errorf("empty Name should be backfilled, got %q", dst.Name)
+	}
+	if dst.Description != "Flagship model" {
+		t.Errorf("empty Description should be backfilled, got %q", dst.Description)
+	}
+	if dst.OwnedBy != "zai" {
+		t.Errorf("non-empty OwnedBy must be preserved, got %q", dst.OwnedBy)
+	}
+}
+
+// TestBackfillLiveFromCatalog_EmptyCatalogReturnsLive covers the early return
+// for an empty catalog: the live slice is handed back unchanged (and its live
+// meta still flagged), with no nil-map dereference.
+func TestBackfillLiveFromCatalog_EmptyCatalogReturnsLive(t *testing.T) {
+	pid := uuid.New()
+	live := []*model.Model{{ProviderID: pid, ModelID: "m1", InputPricePerMillion: floatPtr(3)}}
+
+	got := backfillLiveFromCatalog(live, nil)
+
+	if len(got) != 1 || got[0].ModelID != "m1" {
+		t.Fatalf("empty catalog should return live unchanged, got %+v", got)
+	}
+	// markLiveMeta ran before the early return, so the provider-set price is live.
+	if !got[0].LiveMeta.InputPrice {
+		t.Error("live-set price should be flagged live even with an empty catalog")
+	}
+}
+
+// TestIsEmptyModalities covers both the empty-sentinel set and a real payload,
+// which must report false so a genuine modalities value is never discarded.
+func TestIsEmptyModalities(t *testing.T) {
+	for _, s := range []string{"", " ", "[]", "{}", "null"} {
+		if !isEmptyModalities(s) {
+			t.Errorf("isEmptyModalities(%q) = false, want true", s)
+		}
+	}
+	if isEmptyModalities(`["text","image"]`) {
+		t.Error(`isEmptyModalities(["text","image"]) = true, want false`)
+	}
+}
