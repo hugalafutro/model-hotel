@@ -1784,7 +1784,7 @@
 			"metrics.description": "Beskikbaar stel versoek-, token-, latensie- en circuit-breaker-metrieks by /metrics sodat Prometheus dit kan uitkrap.",
 			"metrics.instructions": "Stel 'n toegewyde scrape-token in om Prometheus-metrieks te voorsien. /metrics is reeds bereikbaar met die admin-token.",
 			"metrics.name": "Prometheus-metrieks",
-			"otel.description": "Stuur dieselfde gestruktureerde logboeke na 'n OpenTelemetry-versamelaar oor OTLP (slegs logboeke — geen nasporing of metrieks nie).",
+			"otel.description": "Stuur dieselfde gestruktureerde logboeke na 'n OpenTelemetry-versamelaar oor OTLP (slegs logboeke, geen nasporing of metrieks nie).",
 			"otel.instructions": "Rig dit op jou OTLP-versamelaar-eindpunt en herbegin die houer om logs via OpenTelemetry oor te stuur:",
 			"otel.name": "OpenTelemetry-logs (OTLP)",
 			"title": "Observabiliteit & Log-uitvoer",

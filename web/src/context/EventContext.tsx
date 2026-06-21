@@ -17,9 +17,14 @@ export function EventProvider({ children }: { children: ReactNode }) {
 	const reconnectDelay = useRef(1000);
 	const abortRef = useRef<AbortController | null>(null);
 	const connectingRef = useRef(false);
+	const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	useEffect(() => {
 		if (!getAdminToken()) return;
+
+		// Set once the effect's cleanup has run so any in-flight fetch that
+		// settles afterwards won't schedule a fresh reconnect.
+		let unmounted = false;
 
 		const connect = () => {
 			if (connectingRef.current) return;
@@ -78,11 +83,11 @@ export function EventProvider({ children }: { children: ReactNode }) {
 				})
 				.finally(() => {
 					connectingRef.current = false;
-					if (!ac.signal.aborted && !authFailed) {
+					if (!ac.signal.aborted && !authFailed && !unmounted) {
 						// Reconnect with exponential backoff (1s → 2s → 4s → ... → 30s max)
 						const delay = reconnectDelay.current;
 						reconnectDelay.current = Math.min(delay * 2, 30000);
-						setTimeout(connect, delay);
+						reconnectTimerRef.current = setTimeout(connect, delay);
 					}
 				});
 		};
@@ -90,8 +95,16 @@ export function EventProvider({ children }: { children: ReactNode }) {
 		connect();
 
 		return () => {
+			unmounted = true;
 			abortRef.current?.abort();
 			connectingRef.current = false;
+			// Clear any reconnect already queued from a prior finally(); aborting
+			// the fetch alone doesn't cancel a pending setTimeout, so without this
+			// the provider keeps reconnecting after unmount.
+			if (reconnectTimerRef.current) {
+				clearTimeout(reconnectTimerRef.current);
+				reconnectTimerRef.current = null;
+			}
 		};
 	}, [toast]);
 

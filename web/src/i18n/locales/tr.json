@@ -1784,7 +1784,7 @@
 			"metrics.description": "Prometheus'un toplayabilmesi için /metrics adresinde istek, token, gecikme ve devre kesici metriklerini gösterin.",
 			"metrics.instructions": "Prometheus metriklerini sağlamak için özel bir kazıma jetonu ayarlayın. /metrics, yönetici jetonu kullanılarak zaten erişilebilir durumdadır.",
 			"metrics.name": "Prometheus metrikleri",
-			"otel.description": "Aynı yapılandırılmış günlükleri OTLP üzerinden bir OpenTelemetry toplayıcısına gönderin (sadece günlükler — izleme veya metrikler hariç).",
+			"otel.description": "Aynı yapılandırılmış günlükleri OTLP üzerinden bir OpenTelemetry toplayıcısına gönderin (sadece günlükler, izleme veya metrikler hariç).",
 			"otel.instructions": "Bunu OTLP toplayıcı uç noktanıza yönlendirin ve OpenTelemetry üzerinden günlükleri aktarmak için konteyneri yeniden başlatın:",
 			"otel.name": "OpenTelemetry günlükleri (OTLP)",
 			"title": "Gözlemlenebilirlik ve Günlük Dışa Aktarma",

@@ -1805,7 +1805,7 @@
 			"metrics.description": "Expose request, token, latency, and circuit-breaker metrics at /metrics for Prometheus to scrape.",
 			"metrics.instructions": "Set a dedicated scrape token to provision Prometheus metrics. /metrics is already reachable using the admin token.",
 			"otel.name": "OpenTelemetry logs (OTLP)",
-			"otel.description": "Push the same structured logs to an OpenTelemetry collector over OTLP (logs only — no tracing or metrics).",
+			"otel.description": "Push the same structured logs to an OpenTelemetry collector over OTLP (logs only, no tracing or metrics).",
 			"otel.instructions": "Point this at your OTLP collector endpoint and restart the container to push logs over OpenTelemetry:"
 		},
 		"passkeys": {

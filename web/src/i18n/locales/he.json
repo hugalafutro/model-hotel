@@ -1784,7 +1784,7 @@
 			"metrics.description": "חשוף מדדי בקשה, אסימון, חביון ומפסק זרם ב-/metrics כדי ש-Prometheus יוכל לגרד אותם.",
 			"metrics.instructions": "הגדר אסימון גרידה ייעודי כדי לספק מדדי Prometheus. ניתן להגיע ל-/metrics כבר באמצעות אסימון הניהול.",
 			"metrics.name": "מדדי Prometheus",
-			"otel.description": "שלח את אותם יומנים מובנים לאספן OpenTelemetry באמצעות OTLP (יומנים בלבד — ללא מעקב או מדדים).",
+			"otel.description": "שלח את אותם יומנים מובנים לאספן OpenTelemetry באמצעות OTLP (יומנים בלבד, ללא מעקב או מדדים).",
 			"otel.instructions": "כוונו זאת לנקודת הקצה של אספן ה-OTLP שלכם והפעילו מחדש את המכולה כדי לדחוף יומנים דרך OpenTelemetry:",
 			"otel.name": "יומני OpenTelemetry (OTLP)",
 			"title": "נראות וייצוא יומנים",

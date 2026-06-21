@@ -1784,7 +1784,7 @@
 			"metrics.description": "在 /metrics 路径下公开请求、令牌、延迟和断路器指标，以便 Prometheus 进行抓取。",
 			"metrics.instructions": "设置一个专用的抓取令牌以配置 Prometheus 指标。使用管理员令牌已可访问 /metrics 路径。",
 			"metrics.name": "Prometheus 指标",
-			"otel.description": "通过 OTLP 将相同结构的日志推送到 OpenTelemetry 收集器（仅限日志——不包含追踪或指标）。",
+			"otel.description": "通过 OTLP 将相同结构的日志推送到 OpenTelemetry 收集器（仅限日志，不包含追踪或指标）。",
 			"otel.instructions": "将此配置指向您的 OTLP 收集器端点，并重启容器以通过 OpenTelemetry 推送日志：",
 			"otel.name": "OpenTelemetry 日志 (OTLP)",
 			"title": "可观测性与日志导出",
