@@ -326,26 +326,36 @@ describe("ModelPicker", () => {
 			expect(screen.getByText("Llama 3")).toBeInTheDocument();
 		});
 
-		it("disables capability pill when no models match", () => {
-			const modelsWithOnlyVision = mockModels.map((m) => ({
-				...m,
-				capabilities: '{"streaming":true,"vision":true,"audio_input":false}',
-			}));
-			renderWithProviders(
-				<ModelPicker {...defaultProps} models={modelsWithOnlyVision} />,
+		it("disables a capability pill when adding it to the active filter yields no models", async () => {
+			// A pill only renders for a capability present in the data, so give the
+			// two models DISJOINT capabilities: one vision-only, one tools-only. Both
+			// pills render and start enabled, but no model has both, so once Vision is
+			// selected, adding Tools would yield nothing and its pill must disable.
+			const disjoint: Model[] = [
+				{
+					...mockModels[0],
+					model_id: "vision-only",
+					capabilities: '{"vision":true,"tool_calling":false}',
+				},
+				{
+					...mockModels[1],
+					model_id: "tools-only",
+					capabilities: '{"vision":false,"tool_calling":true}',
+				},
+			];
+			const { user } = renderWithProviders(
+				<ModelPicker {...defaultProps} models={disjoint} />,
 			);
-			// Audio button exists in CAP_META but should be disabled since no models have audio_input
-			const audioButton = screen.queryByText("Audio");
-			if (audioButton) {
-				expect(audioButton).toBeDisabled();
-			} else {
-				// Audio pill may not render if no models have any audio capability at all
-				// In that case, check that Tools (another capability no model has) is disabled
-				const toolsButton = screen.queryByText("Tools");
-				if (toolsButton) {
-					expect(toolsButton).toBeDisabled();
-				}
-			}
+
+			const toolsPill = screen.getByText("Tools").closest("button");
+			expect(toolsPill).not.toBeNull();
+			expect(toolsPill).toBeEnabled();
+
+			await user.click(
+				screen.getByText("Vision").closest("button") as HTMLElement,
+			);
+
+			expect(screen.getByText("Tools").closest("button")).toBeDisabled();
 		});
 	});
 

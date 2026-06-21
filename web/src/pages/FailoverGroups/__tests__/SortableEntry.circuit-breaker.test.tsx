@@ -175,6 +175,7 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 
 			// Entry should have overflow: hidden
 			const wrapperDiv = getWrapperDiv(container);
+			expect(wrapperDiv).not.toBeNull();
 			if (wrapperDiv) {
 				expect(wrapperDiv).toHaveStyle("overflow: hidden");
 			}
@@ -216,6 +217,7 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 
 			// Entry should have overflow: hidden when showFuse is true
 			const wrapperDiv = getWrapperDiv(container);
+			expect(wrapperDiv).not.toBeNull();
 			if (wrapperDiv) {
 				expect(wrapperDiv).toHaveStyle("overflow: hidden");
 			}
@@ -246,6 +248,7 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 
 			// Entry should NOT have overflow: hidden (disabled entries don't show fuse)
 			const wrapperDiv = getWrapperDiv(container);
+			expect(wrapperDiv).not.toBeNull();
 			if (wrapperDiv) {
 				expect(wrapperDiv).not.toHaveStyle("overflow: hidden");
 			}
@@ -277,6 +280,7 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 
 			// Entry should have overflow: hidden
 			const wrapperDiv = getWrapperDiv(container);
+			expect(wrapperDiv).not.toBeNull();
 			if (wrapperDiv) {
 				expect(wrapperDiv).toHaveStyle("overflow: hidden");
 			}
