@@ -209,8 +209,9 @@ describe("EditProviderModal", () => {
 				/>,
 			);
 			const toggle = screen.getByLabelText("Provider enabled");
+			expect(toggle).toBeChecked();
 			await user.click(toggle);
-			// Toggle should be unchecked after click
+			expect(toggle).not.toBeChecked();
 		});
 
 		it("toggles autodiscovery switch when clicked", async () => {
@@ -274,14 +275,9 @@ describe("EditProviderModal", () => {
 	});
 
 	describe("save functionality", () => {
-		it("calls update mutation on form submit", async () => {
-			const { user } = renderWithProviders(
-				<EditProviderModal {...defaultProps} />,
-			);
-			const saveButton = screen.getByRole("button", { name: "Save Changes" });
-			await user.click(saveButton);
-			// Form should submit
-		});
+		// (The submit -> update-mutation path is covered with real assertions by
+		// "calls onClose after successful update" and the payload-capture tests
+		// below; a no-assertion "form should submit" duplicate was removed.)
 
 		it("calls onToast with success message on successful update", async () => {
 			server.use(
