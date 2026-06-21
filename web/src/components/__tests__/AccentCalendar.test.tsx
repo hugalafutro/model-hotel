@@ -111,10 +111,9 @@ describe("AccentCalendar", () => {
 		const user = userEvent.setup();
 		renderWithProviders(<AccentCalendar {...defaultProps} />);
 		const day15Button = screen.getByText("15").closest("button");
-		if (day15Button) {
-			await user.click(day15Button);
-			expect(mockOnSelect).toHaveBeenCalledWith("2024-03-15");
-		}
+		expect(day15Button).not.toBeNull();
+		await user.click(day15Button as HTMLElement);
+		expect(mockOnSelect).toHaveBeenCalledWith("2024-03-15");
 	});
 
 	it("applies isInRange styling for dates within range", () => {
