@@ -1,14 +1,77 @@
 package otelexport
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
+	"time"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/resource"
 )
+
+// TestLevelHandler_HandleAndDerivedPreserveLevel covers the Handle/WithAttrs/
+// WithGroup methods of levelHandler. Handle must forward records verbatim to the
+// inner handler, and both derivation methods must keep the configured level gate
+// in place (otherwise a DEBUG record could reach OTLP off a derived logger even
+// when the app level is Warn) while still attaching the attrs/group to output.
+func TestLevelHandler_HandleAndDerivedPreserveLevel(t *testing.T) {
+	var buf bytes.Buffer
+	inner := slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})
+	h := &levelHandler{level: slog.LevelWarn, inner: inner}
+	ctx := context.Background()
+
+	// Handle forwards the record to the inner handler.
+	if err := h.Handle(ctx, slog.NewRecord(time.Now(), slog.LevelError, "boom", 0)); err != nil {
+		t.Fatalf("Handle error: %v", err)
+	}
+	if !strings.Contains(buf.String(), "boom") {
+		t.Errorf("Handle did not forward record to inner: %q", buf.String())
+	}
+
+	// WithAttrs preserves the Warn gate and attaches the attribute to output.
+	wa, ok := h.WithAttrs([]slog.Attr{slog.String("svc", "mh")}).(*levelHandler)
+	if !ok {
+		t.Fatal("WithAttrs did not return a *levelHandler")
+	}
+	if wa.level != slog.LevelWarn {
+		t.Errorf("WithAttrs dropped the level gate: got %v", wa.level)
+	}
+	if wa.Enabled(ctx, slog.LevelInfo) {
+		t.Error("derived handler must still gate Info below Warn")
+	}
+	if !wa.Enabled(ctx, slog.LevelWarn) {
+		t.Error("derived handler must allow Warn")
+	}
+	buf.Reset()
+	if err := wa.Handle(ctx, slog.NewRecord(time.Now(), slog.LevelWarn, "warned", 0)); err != nil {
+		t.Fatalf("derived Handle error: %v", err)
+	}
+	if !strings.Contains(buf.String(), `"svc":"mh"`) {
+		t.Errorf("WithAttrs did not attach the attribute to output: %q", buf.String())
+	}
+
+	// WithGroup preserves the gate and nests record attrs under the group name.
+	wg, ok := h.WithGroup("grp").(*levelHandler)
+	if !ok {
+		t.Fatal("WithGroup did not return a *levelHandler")
+	}
+	if wg.level != slog.LevelWarn {
+		t.Errorf("WithGroup dropped the level gate: got %v", wg.level)
+	}
+	buf.Reset()
+	rec := slog.NewRecord(time.Now(), slog.LevelError, "grouped", 0)
+	rec.AddAttrs(slog.String("k", "v"))
+	if err := wg.Handle(ctx, rec); err != nil {
+		t.Fatalf("grouped Handle error: %v", err)
+	}
+	if !strings.Contains(buf.String(), `"grp":{`) {
+		t.Errorf("WithGroup did not nest attrs under the group: %q", buf.String())
+	}
+}
 
 // serviceNameOf extracts the service.name attribute from a resource, or "".
 func serviceNameOf(res *resource.Resource) string {

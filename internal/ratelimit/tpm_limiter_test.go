@@ -7,8 +7,74 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/time/rate"
+
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 )
+
+// TestTPMRetryAfter covers the three return paths of tpmRetryAfter: a budget
+// that already has a token (>=1s), a zero-rate limiter (defensive 1s), and a
+// drained low-rate limiter where the wait rounds up to several seconds.
+func TestTPMRetryAfter(t *testing.T) {
+	t.Run("token available returns 1", func(t *testing.T) {
+		lim := rate.NewLimiter(rate.Limit(10), 600) // fresh: full burst available
+		if got := tpmRetryAfter(lim); got != 1 {
+			t.Errorf("tpmRetryAfter(available) = %d, want 1", got)
+		}
+	})
+
+	t.Run("zero rate and no tokens returns 1", func(t *testing.T) {
+		lim := rate.NewLimiter(0, 0) // no tokens, Limit()==0 -> perSec<=0 guard
+		if got := tpmRetryAfter(lim); got != 1 {
+			t.Errorf("tpmRetryAfter(zero-rate) = %d, want 1", got)
+		}
+	})
+
+	t.Run("drained low-rate limiter rounds up the wait", func(t *testing.T) {
+		// 1 TPM => 1/60 token/sec, burst 60. Draining the full burst leaves ~0
+		// tokens, so the wait to reach one token is ceil(1 / (1/60)) = 60s.
+		lim := rate.NewLimiter(rate.Limit(1.0/60.0), 60)
+		lim.ReserveN(time.Now(), 60)
+		got := tpmRetryAfter(lim)
+		if got < 2 {
+			t.Errorf("tpmRetryAfter(drained) = %d, want a multi-second wait (>=2)", got)
+		}
+	})
+}
+
+// TestTPMLimiter_DebitNonPositiveIsNoop guards the tokens<=0 early return: a
+// zero or negative token total must never touch the budget (a failed upstream
+// call reports 0 tokens and must not be charged).
+func TestTPMLimiter_DebitNonPositiveIsNoop(t *testing.T) {
+	l, _ := newTestTPMLimiter(t)
+	tpm := 600
+	l.Allow("k", tpm) // create a bucket at full budget
+
+	l.Debit("k", 0)
+	l.Debit("k", -100)
+
+	if !l.Allow("k", tpm) {
+		t.Fatal("non-positive Debit must leave the budget untouched")
+	}
+}
+
+// TestTPMMiddleware_EmptyKeyPasses covers the keyHash=="" admission branch: a
+// request with neither a virtual-key hash nor a RemoteAddr cannot be metered
+// per key, so it passes through rather than 429ing.
+func TestTPMMiddleware_EmptyKeyPasses(t *testing.T) {
+	l, s := newTestTPMLimiter(t)
+	s.set(settingsKeyTPM, "600") // a global cap is set, yet the keyless req passes
+
+	h := l.Middleware(true)(okHandler())
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", http.NoBody)
+	req.RemoteAddr = "" // no key context + empty RemoteAddr => extractKey returns ""
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("keyless request should pass through, got %d", rec.Code)
+	}
+}
 
 // newTestTPMLimiter builds a TPMLimiter with a stub settings backend and stops
 // its cleanup goroutine via t.Cleanup.
