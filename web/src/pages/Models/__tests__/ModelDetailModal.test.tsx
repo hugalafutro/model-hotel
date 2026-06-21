@@ -528,6 +528,58 @@ describe("ModelDetailModal", () => {
 		expect(revertBtn).toHaveClass("shrink-0");
 	});
 
+	it("reverts display_name to the discovered value when its revert button is clicked", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(<ModelDetailModal {...defaultProps} />);
+		await user.click(screen.getByText("Edit"));
+
+		// display_name differs from the discovered default, so exactly one revert
+		// button is shown. Clicking it resets editData to the discovered value, so
+		// the button condition becomes false and it disappears.
+		await user.click(screen.getByTitle("Revert to discovered value"));
+		await waitFor(() =>
+			expect(
+				screen.queryByTitle("Revert to discovered value"),
+			).not.toBeInTheDocument(),
+		);
+	});
+
+	it("reverts a changed input price when its revert button is clicked", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(<ModelDetailModal {...defaultProps} />);
+		await user.click(screen.getByText("Edit"));
+
+		const inputPrice = screen.getAllByPlaceholderText("0.00")[0];
+		await user.clear(inputPrice);
+		await user.type(inputPrice, "9.99");
+		const row = inputPrice.closest("div")?.parentElement as HTMLElement;
+		await user.click(within(row).getByTitle("Revert to discovered value"));
+
+		await waitFor(() =>
+			expect(
+				within(row).queryByTitle("Revert to discovered value"),
+			).not.toBeInTheDocument(),
+		);
+	});
+
+	it("reverts a changed output price when its revert button is clicked", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(<ModelDetailModal {...defaultProps} />);
+		await user.click(screen.getByText("Edit"));
+
+		const outputPrice = screen.getAllByPlaceholderText("0.00")[1];
+		await user.clear(outputPrice);
+		await user.type(outputPrice, "12.50");
+		const row = outputPrice.closest("div")?.parentElement as HTMLElement;
+		await user.click(within(row).getByTitle("Revert to discovered value"));
+
+		await waitFor(() =>
+			expect(
+				within(row).queryByTitle("Revert to discovered value"),
+			).not.toBeInTheDocument(),
+		);
+	});
+
 	// parseParams catch branch - invalid JSON
 	it("does not render subscription section when params is invalid JSON", () => {
 		const modelWithInvalidParams = {
