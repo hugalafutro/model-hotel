@@ -337,10 +337,9 @@ describe("ProviderFilter", () => {
 			/>,
 		);
 		const clearBadge = screen.getByText("2").closest("[role='button']");
-		if (clearBadge) {
-			await user.click(clearBadge);
-			expect(mockOnChange).toHaveBeenCalledWith(new Set());
-		}
+		expect(clearBadge).not.toBeNull();
+		await user.click(clearBadge as HTMLElement);
+		expect(mockOnChange).toHaveBeenCalledWith(new Set());
 	});
 
 	it("shows clear badge count when providers are selected", () => {

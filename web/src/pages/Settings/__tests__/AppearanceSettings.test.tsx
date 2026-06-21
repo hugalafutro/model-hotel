@@ -152,10 +152,10 @@ describe("AppearanceSettings", () => {
 		const firstColorButton = colorButtons.find(
 			(btn) => btn.getAttribute("title") !== "Custom color",
 		);
-		if (firstColorButton) {
-			await user.click(firstColorButton);
-			expect(firstColorButton).toBeInTheDocument();
-		}
+		expect(firstColorButton).toBeDefined();
+		// Clicking a preset must not throw; the Theme context applies the accent.
+		await user.click(firstColorButton as HTMLElement);
+		expect(firstColorButton).toBeInTheDocument();
 	});
 
 	it("opens color picker modal when custom color button clicked", async () => {

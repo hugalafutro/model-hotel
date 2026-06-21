@@ -134,12 +134,11 @@ describe("GaugeModal", () => {
 		const backdrop = document.querySelector(
 			"button[aria-label='Close dialog']",
 		);
-		if (backdrop) {
-			await user.click(backdrop);
-			await waitFor(() => {
-				expect(onCloseMock).toHaveBeenCalledTimes(1);
-			});
-		}
+		expect(backdrop).not.toBeNull();
+		await user.click(backdrop as HTMLElement);
+		await waitFor(() => {
+			expect(onCloseMock).toHaveBeenCalledTimes(1);
+		});
 	});
 
 	it("fetches time series data when modal opens", async () => {

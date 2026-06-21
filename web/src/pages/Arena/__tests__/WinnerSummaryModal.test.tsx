@@ -308,12 +308,11 @@ describe("WinnerSummaryModal", () => {
 		const backdrop = document.querySelector(
 			"button[aria-label='Close dialog']",
 		);
-		if (backdrop) {
-			await user.click(backdrop);
-			await waitFor(() => {
-				expect(onCloseMock).toHaveBeenCalledTimes(1);
-			});
-		}
+		expect(backdrop).not.toBeNull();
+		await user.click(backdrop as HTMLElement);
+		await waitFor(() => {
+			expect(onCloseMock).toHaveBeenCalledTimes(1);
+		});
 	});
 
 	it("renders multiple matchups in a round", () => {

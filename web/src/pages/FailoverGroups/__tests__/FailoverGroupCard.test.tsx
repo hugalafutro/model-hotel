@@ -509,14 +509,11 @@ describe("FailoverGroupCard", () => {
 				/>,
 			);
 
-			// Find Provider 1 entry and click its toggle button
-			const providerEntry = screen.getByText("Provider 1");
-			// Toggle button is within the entry
-			const toggleButton = providerEntry.closest("li")?.querySelector("button");
-			if (toggleButton) {
-				await user.click(toggleButton);
-				expect(onToggleEntry).toHaveBeenCalledWith("entry-1", false);
-			}
+			// The entry's enable toggle is the only role="switch" (the group toggle
+			// is a plain badge button). Clicking it flips entry-1 off.
+			const toggleButton = screen.getByRole("switch");
+			await user.click(toggleButton);
+			expect(onToggleEntry).toHaveBeenCalledWith("entry-1", false);
 		});
 
 		it("calls onReorder when drag and drop ends", async () => {

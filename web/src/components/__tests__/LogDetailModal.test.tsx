@@ -435,10 +435,8 @@ describe("LogDetailModal", () => {
 				/>,
 			);
 
-			const errorSection = screen.queryByText("Error");
-			if (errorSection) {
-				expect(errorSection).not.toBeInTheDocument();
-			}
+			// The Error section must not render when the log has no error message.
+			expect(screen.queryByText("Error")).not.toBeInTheDocument();
 		});
 
 		it("calls onClose when close button is clicked", async () => {

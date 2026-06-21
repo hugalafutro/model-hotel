@@ -131,12 +131,11 @@ describe("Logs", () => {
 
 			// Click on the row
 			const row = screen.getByText("test-model").closest("tr");
-			if (row) {
-				await user.click(row);
-				await waitFor(() => {
-					expect(screen.getByTestId("log-detail-modal")).toBeInTheDocument();
-				});
-			}
+			expect(row).not.toBeNull();
+			await user.click(row as HTMLElement);
+			await waitFor(() => {
+				expect(screen.getByTestId("log-detail-modal")).toBeInTheDocument();
+			});
 		});
 
 		it("closes log detail modal when close button is clicked", async () => {
@@ -173,6 +172,7 @@ describe("Logs", () => {
 
 			// Click on the row
 			const row = screen.getByText("test-model").closest("tr");
+			expect(row).not.toBeNull();
 			if (row) {
 				await user.click(row);
 
@@ -204,6 +204,7 @@ describe("Logs", () => {
 
 			// Click live badge
 			const liveBadge = screen.getByText("Live").closest("button");
+			expect(liveBadge).not.toBeNull();
 			if (liveBadge) {
 				await user.click(liveBadge);
 

@@ -496,6 +496,7 @@ describe("Logs", () => {
 			// In-progress rows show a live-ticking elapsed duration (blue), computed
 			// from created_at, rather than the old dash placeholder.
 			const row = screen.getByText("inprogress-001").closest("tr");
+			expect(row).not.toBeNull();
 			if (row) {
 				const cells = within(row).getAllByRole("cell");
 				const liveCell = cells.find(

@@ -319,26 +319,29 @@ describe("FailoverGroups", () => {
 				expect(screen.getByText("hotel/test-one")).toBeInTheDocument();
 			});
 
-			// Find the collapse toggle for "T" section (test starts with T)
-			const allButtons = screen.getAllByRole("button");
-			const tToggle = allButtons.find((btn) => btn.textContent?.trim() === "T");
+			// The "T" letter-section header is a button whose bold letter sits in its
+			// own span (the button also holds a chevron and a group-count span, so its
+			// full text is not just "T"). Target the letter span and walk to it.
+			const tToggle = screen.getByText("T").closest("button");
+			expect(tToggle).not.toBeNull();
 
-			if (tToggle) {
-				// Collapse
-				await user.click(tToggle);
+			// Collapse is CSS-only (the content grid animates to 0fr and stays in the
+			// DOM), so assert the toggle state via the chevron: it carries "rotate-90"
+			// only while the section is expanded.
+			const chevron = tToggle?.querySelector("svg");
+			expect(chevron?.getAttribute("class")).toContain("rotate-90");
 
-				await waitFor(() => {
-					expect(screen.queryByText("hotel/test-one")).not.toBeInTheDocument();
-				});
+			// Collapse.
+			await user.click(tToggle as HTMLElement);
+			await waitFor(() => {
+				expect(chevron?.getAttribute("class")).not.toContain("rotate-90");
+			});
 
-				// Expand again
-				await user.click(tToggle);
-
-				await waitFor(() => {
-					expect(screen.getByText("hotel/test-one")).toBeInTheDocument();
-					expect(screen.getByText("hotel/test-two")).toBeInTheDocument();
-				});
-			}
+			// Expand again.
+			await user.click(tToggle as HTMLElement);
+			await waitFor(() => {
+				expect(chevron?.getAttribute("class")).toContain("rotate-90");
+			});
 		});
 
 		it("custom groups appear in a Custom section above letter sections", async () => {

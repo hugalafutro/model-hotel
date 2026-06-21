@@ -627,11 +627,10 @@ describe("useQuotaData", () => {
 			expect(result.current.nanogptUsage).toBeDefined();
 		});
 
-		// Check that data was cached
+		// The successful fetch must have written the usage to the cache.
 		const cachedData = localStorage.getItem("model-hotel:nanogpt-usage");
-		if (cachedData) {
-			expect(JSON.parse(cachedData)).toBeDefined();
-		}
+		expect(cachedData).not.toBeNull();
+		expect(JSON.parse(cachedData as string)).toBeDefined();
 	});
 
 	it("uses cached data as initialData on first render", async () => {

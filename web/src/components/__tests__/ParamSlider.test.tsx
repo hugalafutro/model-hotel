@@ -137,10 +137,9 @@ describe("ParamSlider", () => {
 			/>,
 		);
 		const container = screen.getByText("Temperature").parentElement;
-		if (container) {
-			await user.hover(container);
-			expect(screen.getByText("Feature not available")).toBeInTheDocument();
-		}
+		expect(container).not.toBeNull();
+		await user.hover(container as HTMLElement);
+		expect(screen.getByText("Feature not available")).toBeInTheDocument();
 	});
 
 	it("renders placeholder when value is undefined", () => {
@@ -224,12 +223,11 @@ describe("ParamSlider", () => {
 			/>,
 		);
 		const container = screen.getByText("Temperature").parentElement;
-		if (container) {
-			await user.hover(container);
-			expect(screen.getByRole("tooltip")).toBeInTheDocument();
-			await user.unhover(container);
-			expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
-		}
+		expect(container).not.toBeNull();
+		await user.hover(container as HTMLElement);
+		expect(screen.getByRole("tooltip")).toBeInTheDocument();
+		await user.unhover(container as HTMLElement);
+		expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
 	});
 
 	it("does not show tooltip when disabled but no disabledReason", async () => {
@@ -246,10 +244,9 @@ describe("ParamSlider", () => {
 			/>,
 		);
 		const container = screen.getByText("Temperature").parentElement;
-		if (container) {
-			await user.hover(container);
-			expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
-		}
+		expect(container).not.toBeNull();
+		await user.hover(container as HTMLElement);
+		expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
 	});
 
 	it("does not call onChange from range slider when disabled", () => {
