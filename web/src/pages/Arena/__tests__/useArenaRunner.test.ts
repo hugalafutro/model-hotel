@@ -171,6 +171,65 @@ describe("useArenaRunner", () => {
 			expect(setRoundsMock).toHaveBeenCalled();
 		});
 
+		it("records the error and marks the response done when the stream fails mid-round", async () => {
+			// Unlike the toast test above (which mocks setRounds away), apply the
+			// produce to real rounds so the error path that stamps done+error+metrics
+			// onto the matchup response is actually exercised.
+			server.use(
+				http.post("/api/chat/arena", () =>
+					HttpResponse.json({ error: "Failed" }, { status: 500 }),
+				),
+			);
+
+			const now = Date.now();
+			const rounds: BracketRound[] = [
+				{
+					matchups: [
+						{
+							slotA: {
+								modelId: "model-a",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							slotB: null,
+							responseA: {
+								model: "model-a",
+								rawContent: "",
+								content: "",
+								thinkingContent: "",
+								startTimeMs: now,
+								done: false,
+								error: null,
+								metrics: null,
+							},
+							responseB: null,
+							vote: null,
+						},
+					],
+				},
+			];
+			const roundsRef = { current: rounds };
+			const deps = createMockDeps({
+				rounds,
+				roundsRef,
+				setRunningModels: vi.fn((fn) => {
+					if (typeof fn === "function") fn(new Set());
+				}),
+			});
+
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			await act(async () => {
+				result.current.streamModel("model-a", "", "prompt", 0, "A", 0);
+			});
+
+			expect(roundsRef.current[0].matchups[0].responseA?.done).toBe(true);
+			expect(roundsRef.current[0].matchups[0].responseA?.error).toBeTruthy();
+		});
+
 		it("streamModel updates response content in rounds", async () => {
 			server.use(
 				http.post("/api/chat/arena", async () => {
@@ -259,6 +318,94 @@ describe("useArenaRunner", () => {
 				"Hello world",
 			);
 			expect(roundsRef.current[0].matchups[0].responseA?.done).toBe(true);
+		});
+
+		it("accumulates reasoning deltas into thinkingContent", async () => {
+			// Reasoning models stream chain-of-thought as delta.reasoning_content (or
+			// the older delta.reasoning), which must accumulate into thinkingContent
+			// separately from the visible answer content.
+			server.use(
+				http.post("/api/chat/arena", async () => {
+					const encoder = new TextEncoder();
+					const stream = new ReadableStream({
+						start(controller) {
+							controller.enqueue(
+								encoder.encode(
+									'data: {"choices":[{"delta":{"reasoning_content":"Let me "}}]}\n\n',
+								),
+							);
+							// Older providers use `reasoning`; exercise the ?? fallback.
+							controller.enqueue(
+								encoder.encode(
+									'data: {"choices":[{"delta":{"reasoning":"think."}}]}\n\n',
+								),
+							);
+							controller.enqueue(
+								encoder.encode(
+									'data: {"choices":[{"delta":{"content":"Answer"}}]}\n\n',
+								),
+							);
+							controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+							controller.close();
+						},
+					});
+					return new Response(stream, {
+						headers: { "Content-Type": "text/event-stream" },
+					});
+				}),
+			);
+
+			const now = Date.now();
+			const rounds: BracketRound[] = [
+				{
+					matchups: [
+						{
+							slotA: {
+								modelId: "model-a",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							slotB: null,
+							responseA: {
+								model: "model-a",
+								rawContent: "",
+								content: "",
+								thinkingContent: "",
+								startTimeMs: now,
+								done: false,
+								error: null,
+								metrics: null,
+							},
+							responseB: null,
+							vote: null,
+						},
+					],
+				},
+			];
+			const roundsRef = { current: rounds };
+			const deps = createMockDeps({
+				rounds,
+				roundsRef,
+				setRunningModels: vi.fn((fn) => {
+					if (typeof fn === "function") fn(new Set());
+				}),
+			});
+
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			await act(async () => {
+				result.current.streamModel("model-a", "", "prompt", 0, "A", 0);
+			});
+
+			expect(roundsRef.current[0].matchups[0].responseA?.thinkingContent).toBe(
+				"Let me think.",
+			);
+			expect(roundsRef.current[0].matchups[0].responseA?.content).toBe(
+				"Answer",
+			);
 		});
 
 		it("streamModel sets truncationError when stream ends without [DONE]", async () => {
@@ -849,6 +996,69 @@ describe("useArenaRunner", () => {
 			expect(setRoundsMock).toHaveBeenCalled();
 		});
 
+		it("initializes the round's matchup responses before streaming", async () => {
+			// With setRounds applied to real rounds (not mocked away), the init
+			// produce that maps initMatchupResponses over the round actually runs,
+			// replacing the null slots with fresh ArenaResponse objects.
+			server.use(
+				http.post("/api/chat/arena", () => {
+					const encoder = new TextEncoder();
+					const stream = new ReadableStream({
+						start(controller) {
+							controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+							controller.close();
+						},
+					});
+					return new Response(stream, {
+						headers: { "Content-Type": "text/event-stream" },
+					});
+				}),
+			);
+
+			const rounds: BracketRound[] = [
+				{
+					matchups: [
+						{
+							slotA: {
+								modelId: "model-a",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							slotB: {
+								modelId: "model-b",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							responseA: null,
+							responseB: null,
+							vote: null,
+						},
+					],
+				},
+			];
+			const roundsRef = { current: rounds };
+			const deps = createMockDeps({
+				rounds,
+				roundsRef,
+				setRunningModels: vi.fn((fn) => {
+					if (typeof fn === "function") fn(new Set());
+				}),
+			});
+
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			await act(async () => {
+				result.current.runRound(0);
+			});
+
+			expect(roundsRef.current[0].matchups[0].responseA).not.toBeNull();
+			expect(roundsRef.current[0].matchups[0].responseB).not.toBeNull();
+		});
+
 		it("does not run if round does not exist", () => {
 			const setRoundsMock = vi.fn();
 			const setPhaseMock = vi.fn();
@@ -1005,7 +1215,12 @@ describe("useArenaRunner", () => {
 								personaPrompt: "",
 								params: {},
 							},
-							slotB: null,
+							slotB: {
+								modelId: "model-b",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
 							responseA: {
 								model: "model-a",
 								rawContent: "partial content",
@@ -1016,7 +1231,16 @@ describe("useArenaRunner", () => {
 								error: null,
 								metrics: null,
 							},
-							responseB: null,
+							responseB: {
+								model: "model-b",
+								rawContent: "partial B",
+								content: "partial B",
+								thinkingContent: "",
+								startTimeMs: 0,
+								done: false,
+								error: null,
+								metrics: null,
+							},
 							vote: null,
 						},
 					],
@@ -1037,8 +1261,10 @@ describe("useArenaRunner", () => {
 				result.current.handleStopAll();
 			});
 
-			// Verify the immer produce() path was exercised - response was marked done
+			// The immer produce() marks BOTH partially-streamed slots done (covering
+			// the responseA and responseB branches), preserving their content.
 			expect(roundsRef.current[0].matchups[0].responseA?.done).toBe(true);
+			expect(roundsRef.current[0].matchups[0].responseB?.done).toBe(true);
 		});
 
 		it("sets phase to voting in competition mode", () => {

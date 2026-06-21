@@ -190,6 +190,22 @@ describe("useArenaState", () => {
 		}
 	});
 
+	it("setActivePromptId routes to the competition prompt id in competition mode", () => {
+		// The test above only exercises whichever mode is default (compare); force
+		// competition here to cover the other dispatch branch deterministically.
+		arenaModeRef.current = "competition";
+		const { result } = renderHook(() => useArenaState(), {
+			wrapper: createWrapper(),
+		});
+
+		act(() => {
+			result.current.setActivePromptId("comp-prompt-id");
+		});
+
+		expect(result.current.competitionActivePromptId).toBe("comp-prompt-id");
+		expect(result.current.compareActivePromptId).not.toBe("comp-prompt-id");
+	});
+
 	it("updates savedPrompt via setter", () => {
 		const { result } = renderHook(() => useArenaState(), {
 			wrapper: createWrapper(),
