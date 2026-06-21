@@ -143,15 +143,16 @@ function normalizeForMatch(s: string): string {
 }
 
 /**
- * Strip a "<provider>/" prefix from a proxy model id. UI callers pass ids like
- * "OpenAI/gpt-4o" or "meta/llama-3" (proxyModelID: provider name with spaces as
- * dashes, then "/", then the model id). The provider name never contains "/",
- * so the model id is everything after the FIRST slash; later slashes belong to
- * the model id itself (e.g. HF-style "org/name") and are preserved. Returns the
- * input unchanged when there is no prefix.
+ * Reduce a proxy model id to the bare model name used for matching. UI callers
+ * pass ids like "OpenAI/gpt-4o", "meta/llama-3", or nested aggregator ids like
+ * "OpenRouter/openai/gpt-4o" (proxyModelID joins the provider name with the
+ * model id, and on aggregators the model id itself carries a vendor prefix). The
+ * matchable family identifier — what the curated patterns and models.dev keys
+ * are written against — is always the final path segment, so take everything
+ * after the LAST "/". Returns the input unchanged when there is no slash.
  */
 function stripProviderPrefix(modelId: string): string {
-	const slash = modelId.indexOf("/");
+	const slash = modelId.lastIndexOf("/");
 	return slash === -1 ? modelId : modelId.slice(slash + 1);
 }
 

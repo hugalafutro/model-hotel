@@ -833,6 +833,23 @@ describe("findModelsDevMatch scoring logic", () => {
 		expect(result.params).toEqual({ temperature: 0.7, top_p: 1 });
 	});
 
+	it("nested aggregator ids (OpenRouter/openai/gpt-4o) still get curated defaults", async () => {
+		// On aggregators the proxy id nests a vendor prefix inside the model id
+		// ("OpenRouter" provider + "openai/gpt-4o" model). Stripping only the first
+		// slash left "openai/gpt-4o" -> "openaigpt4o", which matched no curated
+		// pattern; the family lives in the final segment, so the last slash wins.
+		globalThis.fetch = vi
+			.fn()
+			.mockRejectedValueOnce(new Error("models.dev unavailable"));
+
+		const result = await fetchRecommendedSettings(
+			"OpenRouter/openai/gpt-4o",
+			"OpenRouter",
+		);
+
+		expect(result.params).toEqual({ temperature: 0.7, top_p: 1 });
+	});
+
 	it("below threshold returns no match", async () => {
 		const mockApi = {
 			openai: {
