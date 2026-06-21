@@ -184,9 +184,12 @@ function findModelsDevMatch(
 	const alias = PROVIDER_ALIASES[normProvider];
 	const mappedProvider = alias === false ? null : (alias ?? normProvider);
 	const normModel = normalizeForMatch(modelId);
-	// Leading segment of the RAW searched id (e.g. "llama" from "llama-3"), used
+	// Leading family token of the searched id (e.g. "llama" from "llama-3"), used
 	// for the family bonus below. Computed once: it does not vary across models.
-	const searchFamilyToken = normalizeForMatch(modelId.split(/[\s._-]/)[0]);
+	// UI callers pass provider-prefixed ids (e.g. "meta/llama-3"), so strip the
+	// provider prefix first; otherwise the leading segment would be the provider.
+	const bareModelId = modelId.slice(modelId.lastIndexOf("/") + 1);
+	const searchFamilyToken = normalizeForMatch(bareModelId.split(/[\s._-]/)[0]);
 
 	let best: ModelsDevMatch | null = null;
 

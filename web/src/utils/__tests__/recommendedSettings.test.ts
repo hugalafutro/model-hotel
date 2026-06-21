@@ -793,6 +793,36 @@ describe("findModelsDevMatch scoring logic", () => {
 		expect(result.matchedModelId).toBe("llama-3-70b");
 	});
 
+	it("family bonus still fires for provider-prefixed model ids", async () => {
+		// UI callers pass proxy ids like "meta/llama-3" (provider + "/" + model).
+		// The family token must come from the part after the slash ("llama"), not
+		// the provider prefix. Both candidates match the search as substrings and
+		// tie on score; only the family bonus (derived from the bare model id)
+		// breaks the tie toward "llama-3". With the prefix left in, the token was
+		// "metallama", the bonus never fired, and the first-listed "llama" won
+		// instead (the exact 111-vs-222 regression the reviewer flagged).
+		const mockApi = {
+			meta: {
+				id: "meta",
+				name: "Meta",
+				models: {
+					llama: { id: "llama", limit: { output: 111 } }, // no family
+					"llama-3": { id: "llama-3", family: "llama", limit: { output: 222 } },
+				},
+			},
+		};
+
+		globalThis.fetch = vi.fn().mockResolvedValueOnce({
+			ok: true,
+			json: vi.fn().mockResolvedValueOnce(mockApi),
+		} as unknown as Response);
+
+		const result = await fetchRecommendedSettings("meta/llama-3", "Meta");
+
+		expect(result.matchedModelId).toBe("llama-3");
+		expect(result.params?.max_tokens).toBe(222);
+	});
+
 	it("below threshold returns no match", async () => {
 		const mockApi = {
 			openai: {
