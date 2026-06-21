@@ -165,4 +165,90 @@ describe("Settings", () => {
 			);
 		});
 	});
+
+	describe("Reset flows", () => {
+		it("reset-all requires typing RESET, then calls the reset API", async () => {
+			let resetCalled = false;
+			server.use(
+				http.get("/api/settings", () => HttpResponse.json({})),
+				http.delete("/api/settings", () => {
+					resetCalled = true;
+					return HttpResponse.json({});
+				}),
+			);
+			const { user } = renderWithProviders(<Settings />);
+			await screen.findByText("Settings");
+
+			await user.click(
+				screen.getByRole("button", {
+					name: "Reset all settings to their defaults",
+				}),
+			);
+
+			// The confirm button is gated on the exact "RESET" confirmation text.
+			const confirm = screen.getByRole("button", { name: "Reset to Defaults" });
+			expect(confirm).toBeDisabled();
+			await user.type(
+				screen.getByPlaceholderText("Type RESET to confirm"),
+				"RESET",
+			);
+			expect(confirm).toBeEnabled();
+
+			await user.click(confirm);
+			await waitFor(() => expect(resetCalled).toBe(true));
+		});
+
+		it("reset-all cancel closes the modal without calling the API", async () => {
+			let resetCalled = false;
+			server.use(
+				http.get("/api/settings", () => HttpResponse.json({})),
+				http.delete("/api/settings", () => {
+					resetCalled = true;
+					return HttpResponse.json({});
+				}),
+			);
+			const { user } = renderWithProviders(<Settings />);
+			await screen.findByText("Settings");
+
+			await user.click(
+				screen.getByRole("button", {
+					name: "Reset all settings to their defaults",
+				}),
+			);
+			expect(screen.getByText("Reset All Settings")).toBeInTheDocument();
+			await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+			await waitFor(() =>
+				expect(
+					screen.queryByText("Reset All Settings"),
+				).not.toBeInTheDocument(),
+			);
+			expect(resetCalled).toBe(false);
+		});
+
+		it("section reset confirms and calls the reset API with that section's keys", async () => {
+			let capturedKeys: string[] | undefined;
+			server.use(
+				http.get("/api/settings", () => HttpResponse.json({})),
+				http.delete("/api/settings", async ({ request }) => {
+					capturedKeys = ((await request.json()) as { keys: string[] }).keys;
+					return HttpResponse.json({});
+				}),
+			);
+			const { user } = renderWithProviders(<Settings />);
+			await screen.findByText("Settings");
+
+			// Open the first section's reset confirmation, then confirm it.
+			const sectionResetButtons = screen.getAllByRole("button", {
+				name: "Reset all settings in this section",
+			});
+			await user.click(sectionResetButtons[0]);
+			await user.click(
+				screen.getByRole("button", { name: "Reset to Defaults" }),
+			);
+
+			await waitFor(() => expect(capturedKeys).toBeDefined());
+			expect(capturedKeys?.length).toBeGreaterThan(0);
+		});
+	});
 });
