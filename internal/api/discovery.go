@@ -104,14 +104,36 @@ func DampenOpenRouterPriceJitter(baseURL string, snapshot map[string]ModelSnapsh
 		}
 		if m.LiveMeta.InputPrice && withinPriceTolerance(prev.inputPrice, m.InputPricePerMillion) {
 			m.LiveMeta.InputPrice = false
+			logPriceDamped(m.ModelID, "input_price", prev.inputPrice, m.InputPricePerMillion)
 		}
 		if m.LiveMeta.OutputPrice && withinPriceTolerance(prev.outputPrice, m.OutputPricePerMillion) {
 			m.LiveMeta.OutputPrice = false
+			logPriceDamped(m.ModelID, "output_price", prev.outputPrice, m.OutputPricePerMillion)
 		}
 		if m.LiveMeta.InputPriceCache && withinPriceTolerance(prev.inputPriceCache, m.InputPricePerMillionCacheHit) {
 			m.LiveMeta.InputPriceCache = false
+			logPriceDamped(m.ModelID, "input_price_cache", prev.inputPriceCache, m.InputPricePerMillionCacheHit)
 		}
 	}
+}
+
+// logPriceDamped records (at debug level, so it is silent unless DEBUG_LOG is on)
+// that a sub-tolerance OpenRouter price wiggle was kept fill-only, so an operator
+// can see why a freshly discovered price did not overwrite the stored one.
+func logPriceDamped(modelID, field string, stored, fresh *float64) {
+	debuglog.Debug("discovery: openrouter price within tolerance, kept stored value",
+		"model_id", modelID, "field", field,
+		"stored", floatPtrVal(stored), "discovered", floatPtrVal(fresh),
+		"tolerance", priceRelTolerance)
+}
+
+// floatPtrVal dereferences a price pointer for logging, reporting nil as -1 (no
+// real price is negative, so it is unambiguous as a sentinel).
+func floatPtrVal(p *float64) float64 {
+	if p == nil {
+		return -1
+	}
+	return *p
 }
 
 // withinPriceTolerance reports whether newVal sits within priceRelTolerance of

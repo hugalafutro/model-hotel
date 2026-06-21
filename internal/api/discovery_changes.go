@@ -109,7 +109,6 @@ func collapseRoundTrips(entries []DiscoveryChangeEntry) []DiscoveryChangeEntry {
 		first   *float64
 		lastAt  time.Time
 		last    *float64
-		seen    bool
 	}
 	chains := make(map[roundTripKey]*endpoints)
 	for _, e := range entries {
@@ -122,7 +121,7 @@ func collapseRoundTrips(entries []DiscoveryChangeEntry) []DiscoveryChangeEntry {
 				k := roundTripKey{provider: pk, modelID: u.ModelID, field: c.Field}
 				ep := chains[k]
 				if ep == nil {
-					ep = &endpoints{firstAt: e.DetectedAt, first: c.Old, lastAt: e.DetectedAt, last: c.New, seen: true}
+					ep = &endpoints{firstAt: e.DetectedAt, first: c.Old, lastAt: e.DetectedAt, last: c.New}
 					chains[k] = ep
 					continue
 				}
@@ -139,7 +138,7 @@ func collapseRoundTrips(entries []DiscoveryChangeEntry) []DiscoveryChangeEntry {
 	// A field round-tripped when its earliest "from" equals its latest "to".
 	drop := make(map[roundTripKey]bool)
 	for k, ep := range chains {
-		if ep.seen && floatPtrEq(ep.first, ep.last) {
+		if floatPtrEq(ep.first, ep.last) {
 			drop[k] = true
 		}
 	}

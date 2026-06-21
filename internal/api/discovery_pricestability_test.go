@@ -123,6 +123,79 @@ func TestCollapseRoundTrips(t *testing.T) {
 			t.Fatalf("round-trip on a name-keyed provider should collapse, got %d", len(got))
 		}
 	})
+
+	t.Run("entry with a round-trip and a membership change keeps only the membership", func(t *testing.T) {
+		entries := []DiscoveryChangeEntry{
+			{
+				ProviderID: "p1", ProviderName: "OR", DetectedAt: t1,
+				Diff: &DiscoveryDiff{
+					Updated:  []ModelUpdate{{ModelID: "m", Changes: []FieldChange{fc("input_price", fptr(0.182), fptr(0.49))}}},
+					Disabled: []ModelChange{{ModelID: "x", Reason: "not_listed"}},
+				},
+			},
+			updEntry("p1", "OR", t0, "m", fc("input_price", fptr(0.49), fptr(0.182))),
+		}
+		got := collapseRoundTrips(entries)
+		if len(got) != 1 {
+			t.Fatalf("expected 1 surviving entry (the one with the membership change), got %d", len(got))
+		}
+		if len(got[0].Diff.Updated) != 0 {
+			t.Fatalf("round-tripped field should be gone, got Updated=%+v", got[0].Diff.Updated)
+		}
+		if len(got[0].Diff.Disabled) != 1 || got[0].Diff.Disabled[0].ModelID != "x" {
+			t.Fatalf("membership change must survive, got Disabled=%+v", got[0].Diff.Disabled)
+		}
+	})
+
+	t.Run("equal DetectedAt ties still collapse a net-zero swing", func(t *testing.T) {
+		// Same timestamp on both runs: first/last resolve by slice order, and the
+		// earliest "from" ($0.49) still equals the latest "to" ($0.49).
+		entries := []DiscoveryChangeEntry{
+			updEntry("p1", "OR", t0, "m", fc("input_price", fptr(0.49), fptr(0.182))),
+			updEntry("p1", "OR", t0, "m", fc("input_price", fptr(0.182), fptr(0.49))),
+		}
+		got := collapseRoundTrips(entries)
+		if len(got) != 0 {
+			t.Fatalf("net-zero swing with tied timestamps should collapse, got %d", len(got))
+		}
+	})
+
+	t.Run("same provider under id then name-only does not chain", func(t *testing.T) {
+		// A provider deleted mid-review: one entry carries its ID, a later one only
+		// the name. Different keys, so the two opposite moves must NOT cancel.
+		entries := []DiscoveryChangeEntry{
+			updEntry("", "OR", t1, "m", fc("input_price", fptr(0.182), fptr(0.49))),
+			updEntry("p1", "OR", t0, "m", fc("input_price", fptr(0.49), fptr(0.182))),
+		}
+		got := collapseRoundTrips(entries)
+		if len(got) != 2 {
+			t.Fatalf("id-keyed and name-keyed entries must not chain, got %d", len(got))
+		}
+	})
+}
+
+func TestCollapseRoundTrips_DoesNotMutateInput(t *testing.T) {
+	t0 := time.Date(2026, 6, 21, 10, 0, 0, 0, time.UTC)
+	t1 := t0.Add(time.Hour)
+	entries := []DiscoveryChangeEntry{
+		updEntry("p1", "OR", t1, "m", fc("input_price", fptr(0.182), fptr(0.49))),
+		updEntry("p1", "OR", t0, "m", fc("input_price", fptr(0.49), fptr(0.182))),
+	}
+	origDiff0 := entries[0].Diff
+	origUpdatedLen := len(entries[0].Diff.Updated)
+	origChangesLen := len(entries[0].Diff.Updated[0].Changes)
+
+	_ = collapseRoundTrips(entries)
+
+	if entries[0].Diff != origDiff0 {
+		t.Fatal("collapseRoundTrips must not swap the caller's Diff pointer")
+	}
+	if len(entries[0].Diff.Updated) != origUpdatedLen {
+		t.Fatalf("caller's Updated slice was mutated: len %d != %d", len(entries[0].Diff.Updated), origUpdatedLen)
+	}
+	if len(entries[0].Diff.Updated[0].Changes) != origChangesLen {
+		t.Fatalf("caller's Changes slice was mutated: len %d != %d", len(entries[0].Diff.Updated[0].Changes), origChangesLen)
+	}
 }
 
 func TestDampenOpenRouterPriceJitter(t *testing.T) {
