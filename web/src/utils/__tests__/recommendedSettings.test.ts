@@ -850,6 +850,39 @@ describe("findModelsDevMatch scoring logic", () => {
 		expect(result.params).toEqual({ temperature: 0.7, top_p: 1 });
 	});
 
+	it("nested vendor ids match the exact inner-vendor models.dev entry", async () => {
+		// "Provider/deepseek-ai/DeepSeek-R1": the model id is "deepseek-ai/DeepSeek-R1".
+		// models.dev matching must keep that inner vendor so the precise
+		// "deepseek-ai/DeepSeek-R1" entry (222) wins its exact match over the bare
+		// "DeepSeek-R1" entry (111). Stripping to the last segment lost that.
+		const mockApi = {
+			someprovider: {
+				id: "someprovider",
+				name: "Some Provider",
+				models: {
+					"DeepSeek-R1": { id: "DeepSeek-R1", limit: { output: 111 } },
+					"deepseek-ai/DeepSeek-R1": {
+						id: "deepseek-ai/DeepSeek-R1",
+						limit: { output: 222 },
+					},
+				},
+			},
+		};
+
+		globalThis.fetch = vi.fn().mockResolvedValueOnce({
+			ok: true,
+			json: vi.fn().mockResolvedValueOnce(mockApi),
+		} as unknown as Response);
+
+		const result = await fetchRecommendedSettings(
+			"Provider/deepseek-ai/DeepSeek-R1",
+			"Provider",
+		);
+
+		expect(result.matchedModelId).toBe("deepseek-ai/DeepSeek-R1");
+		expect(result.params?.max_tokens).toBe(222);
+	});
+
 	it("below threshold returns no match", async () => {
 		const mockApi = {
 			openai: {
