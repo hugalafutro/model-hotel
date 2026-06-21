@@ -883,6 +883,69 @@ describe("findModelsDevMatch scoring logic", () => {
 		expect(result.params?.max_tokens).toBe(222);
 	});
 
+	it("preserves a bare slashful model id when it is not the provider prefix", async () => {
+		// fetchRecommendedSettings is exported: a caller can pass the bare
+		// slashful models.dev id "deepseek-ai/DeepSeek-R1" with provider "DeepSeek"
+		// separately (no "DeepSeek/" prefix). The leading "deepseek-ai/" is part of
+		// the model id, not a provider prefix, so it must NOT be stripped, or the
+		// exact entry (222) becomes unreachable and the sibling "DeepSeek-R1" (111)
+		// is selected instead.
+		const mockApi = {
+			deepseek: {
+				id: "deepseek",
+				name: "DeepSeek",
+				models: {
+					"DeepSeek-R1": { id: "DeepSeek-R1", limit: { output: 111 } },
+					"deepseek-ai/DeepSeek-R1": {
+						id: "deepseek-ai/DeepSeek-R1",
+						limit: { output: 222 },
+					},
+				},
+			},
+		};
+
+		globalThis.fetch = vi.fn().mockResolvedValueOnce({
+			ok: true,
+			json: vi.fn().mockResolvedValueOnce(mockApi),
+		} as unknown as Response);
+
+		const result = await fetchRecommendedSettings(
+			"deepseek-ai/DeepSeek-R1",
+			"DeepSeek",
+		);
+
+		expect(result.matchedModelId).toBe("deepseek-ai/DeepSeek-R1");
+		expect(result.params?.max_tokens).toBe(222);
+	});
+
+	it("preserves a bare slashful id whose first segment differs from the provider only by case", async () => {
+		// "openai/gpt-4o" with provider "OpenAI": proxyModelID would have produced
+		// "OpenAI/gpt-4o" (exact case), so this lowercase "openai/" is an inner
+		// vendor, not the proxy prefix. A case-insensitive strip would cut it and
+		// select the less-specific bare "gpt-4o" (111) over the exact
+		// "openai/gpt-4o" (222); the case-sensitive match keeps it intact.
+		const mockApi = {
+			openai: {
+				id: "openai",
+				name: "OpenAI",
+				models: {
+					"gpt-4o": { id: "gpt-4o", limit: { output: 111 } },
+					"openai/gpt-4o": { id: "openai/gpt-4o", limit: { output: 222 } },
+				},
+			},
+		};
+
+		globalThis.fetch = vi.fn().mockResolvedValueOnce({
+			ok: true,
+			json: vi.fn().mockResolvedValueOnce(mockApi),
+		} as unknown as Response);
+
+		const result = await fetchRecommendedSettings("openai/gpt-4o", "OpenAI");
+
+		expect(result.matchedModelId).toBe("openai/gpt-4o");
+		expect(result.params?.max_tokens).toBe(222);
+	});
+
 	it("below threshold returns no match", async () => {
 		const mockApi = {
 			openai: {
