@@ -58,6 +58,127 @@ func countAffected(d *DiscoveryDiff) int {
 		len(d.FailoverDisabledGroups)
 }
 
+// floatPtrEq reports pointer-aware equality at float32 precision. Prices ride in
+// REAL columns, so comparing at float32 matches what discovery's diffFloatPtr did
+// when it recorded the change. Both nil is equal (field unset on both ends); one
+// nil is not (a fill or clear is a genuine change).
+func floatPtrEq(a, b *float64) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return float32(*a) == float32(*b)
+}
+
+// roundTripKey identifies a single metadata field of one model under one provider
+// across the cumulative entries, so swings of the same field can be chained.
+type roundTripKey struct {
+	provider string
+	modelID  string
+	field    string
+}
+
+// providerKeyOf keys a provider by ID when known (survives a rename) and falls
+// back to the name for rows whose provider was deleted before review.
+func providerKeyOf(e DiscoveryChangeEntry) string {
+	if e.ProviderID != "" {
+		return "id:" + e.ProviderID
+	}
+	return "name:" + e.ProviderName
+}
+
+// collapseRoundTrips folds metadata round-trips out of the cumulative
+// background-discovery entries. When the same provider's model+field swings out
+// and back across several recorded runs (e.g. OpenRouter reports a price from a
+// different upstream and then the original one again), the net change is zero yet
+// each run honestly recorded a real live change, so the review modal stacks a
+// meaningless pair like "$0.49 → $0.182" above "$0.182 → $0.49". This drops any
+// (provider, model, field) whose earliest pre-scan value equals its latest
+// post-scan value from every entry, removes emptied model updates and entries,
+// and preserves the original (newest-first) order. Membership churn
+// (added/reenabled/disabled) and failover changes are left untouched: an add then
+// remove still tells the reviewer the model flapped.
+func collapseRoundTrips(entries []DiscoveryChangeEntry) []DiscoveryChangeEntry {
+	if len(entries) < 2 {
+		return entries
+	}
+
+	// Chain each field's earliest pre-scan value and latest post-scan value by
+	// detection time, independent of the newest-first slice order.
+	type endpoints struct {
+		firstAt time.Time
+		first   *float64
+		lastAt  time.Time
+		last    *float64
+	}
+	chains := make(map[roundTripKey]*endpoints)
+	for _, e := range entries {
+		if e.Diff == nil {
+			continue
+		}
+		pk := providerKeyOf(e)
+		for _, u := range e.Diff.Updated {
+			for _, c := range u.Changes {
+				k := roundTripKey{provider: pk, modelID: u.ModelID, field: c.Field}
+				ep := chains[k]
+				if ep == nil {
+					ep = &endpoints{firstAt: e.DetectedAt, first: c.Old, lastAt: e.DetectedAt, last: c.New}
+					chains[k] = ep
+					continue
+				}
+				if e.DetectedAt.Before(ep.firstAt) {
+					ep.firstAt, ep.first = e.DetectedAt, c.Old
+				}
+				if !e.DetectedAt.Before(ep.lastAt) {
+					ep.lastAt, ep.last = e.DetectedAt, c.New
+				}
+			}
+		}
+	}
+
+	// A field round-tripped when its earliest "from" equals its latest "to".
+	drop := make(map[roundTripKey]bool)
+	for k, ep := range chains {
+		if floatPtrEq(ep.first, ep.last) {
+			drop[k] = true
+		}
+	}
+	if len(drop) == 0 {
+		return entries
+	}
+
+	out := make([]DiscoveryChangeEntry, 0, len(entries))
+	for _, e := range entries {
+		if e.Diff == nil {
+			out = append(out, e)
+			continue
+		}
+		pk := providerKeyOf(e)
+		updated := make([]ModelUpdate, 0, len(e.Diff.Updated))
+		for _, u := range e.Diff.Updated {
+			changes := make([]FieldChange, 0, len(u.Changes))
+			for _, c := range u.Changes {
+				if drop[roundTripKey{provider: pk, modelID: u.ModelID, field: c.Field}] {
+					continue
+				}
+				changes = append(changes, c)
+			}
+			if len(changes) > 0 {
+				updated = append(updated, ModelUpdate{ModelID: u.ModelID, Changes: changes})
+			}
+		}
+		// Copy the diff so the trimmed Updated slice never mutates the caller's
+		// value; everything else passes through unchanged.
+		trimmed := *e.Diff
+		trimmed.Updated = updated
+		if diffIsEmpty(&trimmed) {
+			continue
+		}
+		e.Diff = &trimmed
+		out = append(out, e)
+	}
+	return out
+}
+
 // AppendDiscoveryChange records one provider's background-discovery diff for
 // later review. Empty diffs are skipped. Returns true when a row was written so
 // the caller can decide whether to publish a live-update event. providerID may
