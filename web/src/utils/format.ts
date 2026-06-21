@@ -154,8 +154,12 @@ export function formatTimeUntil(ts: number): string {
 	// Glue each value to its unit word with a non-breaking space so a line wrap
 	// can't strand the number at the end of one line and "days"/"hours" at the
 	// start of the next. Breaks are still allowed at the comma between units.
-	// Locale-agnostic: only matches a digit directly followed by a space + word,
-	// which is exactly the "<number> <unit>" shape (no-op for CJK with no space).
+	// Binds wherever a digit is directly followed by a space + word, i.e. the
+	// "<number> <unit>" order, which holds for LTR and the RTL locales we ship
+	// (ar/he render the numeral before the unit too). It is simply a no-op where
+	// that sequence doesn't occur: CJK has no space, and a hypothetical
+	// unit-before-number ordering would keep the prior wrapping behaviour rather
+	// than regress.
 	const t = (key: string, opts: Record<string, number>): string =>
 		i18next.t(key, opts).replace(/(\d)\s+(\S)/g, "$1\u00a0$2");
 
