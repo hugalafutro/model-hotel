@@ -20,11 +20,10 @@ func TestPublishRequestStreamingEvent(t *testing.T) {
 	defer events.Unsubscribe(ch)
 
 	logData := &requestLogData{
-		id:              "req-stream-123",
-		modelID:         "hotel/gpt-4",
-		providerName:    "OpenAI",
-		resolvedModelID: "gpt-4o",
-		state:           "streaming",
+		id:           "req-stream-123",
+		modelID:      "hotel/gpt-4",
+		providerName: "OpenAI",
+		state:        "streaming",
 	}
 	publishRequestStreamingEvent(logData)
 
@@ -41,8 +40,8 @@ func TestPublishRequestStreamingEvent(t *testing.T) {
 			if ev.Metadata["provider_name"] != "OpenAI" {
 				t.Errorf("provider_name = %v, want OpenAI", ev.Metadata["provider_name"])
 			}
-			if ev.Metadata["resolved_model_id"] != "gpt-4o" {
-				t.Errorf("resolved_model_id = %v, want gpt-4o", ev.Metadata["resolved_model_id"])
+			if _, ok := ev.Metadata["resolved_model_id"]; ok {
+				t.Errorf("resolved_model_id should be omitted (failover-only); got %v", ev.Metadata["resolved_model_id"])
 			}
 			if ev.Metadata["model_id"] != "hotel/gpt-4" {
 				t.Errorf("model_id = %v, want hotel/gpt-4", ev.Metadata["model_id"])
