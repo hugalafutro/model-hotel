@@ -267,10 +267,9 @@ describe("ConversationConfig", () => {
 			const toggleButton = allButtons.find(
 				(btn) => !btn.textContent?.includes("Start"),
 			);
-			if (toggleButton) {
-				await user.click(toggleButton);
-				expect(defaultProps.onToggleCollapsed).toHaveBeenCalledTimes(1);
-			}
+			expect(toggleButton).toBeDefined();
+			await user.click(toggleButton as HTMLElement);
+			expect(defaultProps.onToggleCollapsed).toHaveBeenCalledTimes(1);
 		});
 	});
 
