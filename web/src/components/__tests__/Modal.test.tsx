@@ -1,4 +1,10 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import {
+	act,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { getByDialogName } from "../../test/helpers";
 import { Modal } from "../Modal";
@@ -69,6 +75,70 @@ describe("Modal", () => {
 		await waitFor(() => {
 			expect(onClose).toHaveBeenCalledTimes(1);
 		});
+	});
+
+	it("starts closing when Escape is pressed", async () => {
+		render(<Modal onClose={onClose}>Content</Modal>);
+		const dialog = screen.getByRole("dialog");
+		act(() => {
+			fireEvent.keyDown(dialog, { key: "Escape" });
+		});
+		// Escape begins the fade; onClose lands once the fallback timer elapses.
+		await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+	});
+
+	it("closes on the opacity transition end and cancels the fallback timer", () => {
+		vi.useFakeTimers();
+		try {
+			render(<Modal onClose={onClose}>Content</Modal>);
+			const dialog = screen.getByRole("dialog");
+
+			// Start closing via the close button (sets the internal closing flag and
+			// arms the jsdom fallback timer).
+			act(() => {
+				screen.getByRole("button", { name: "Close" }).click();
+			});
+
+			// A non-opacity transition end on the dialog is ignored.
+			act(() => {
+				fireEvent.transitionEnd(dialog, { propertyName: "transform" });
+			});
+			expect(onClose).not.toHaveBeenCalled();
+
+			// The opacity transition completing fires onClose exactly once.
+			act(() => {
+				fireEvent.transitionEnd(dialog, { propertyName: "opacity" });
+			});
+			expect(onClose).toHaveBeenCalledTimes(1);
+
+			// The fallback timer was cancelled, so it does not fire a second onClose.
+			act(() => {
+				vi.advanceTimersByTime(1000);
+			});
+			expect(onClose).toHaveBeenCalledTimes(1);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("ignores a transition end that did not originate on the dialog itself", () => {
+		render(<Modal onClose={onClose}>Content</Modal>);
+		const dialog = screen.getByRole("dialog");
+		act(() => {
+			screen.getByRole("button", { name: "Close" }).click();
+		});
+		// A bubbled opacity transition from a child element (target != dialog) must
+		// not be treated as the dialog's own fade completing.
+		const content = screen.getByText("Content");
+		act(() => {
+			fireEvent.transitionEnd(content, { propertyName: "opacity" });
+		});
+		expect(onClose).not.toHaveBeenCalled();
+		// The dialog's own transition still closes it.
+		act(() => {
+			fireEvent.transitionEnd(dialog, { propertyName: "opacity" });
+		});
+		expect(onClose).toHaveBeenCalledTimes(1);
 	});
 
 	it("calls onClose when backdrop is clicked and closeOnBackdrop is true", async () => {

@@ -312,28 +312,28 @@ describe("ToastItem", () => {
 			vi.advanceTimersByTime(2000);
 		});
 
-		// Toast still present (not yet expired)
-		expect(screen.getByText("Pause test")).toBeInTheDocument();
+		// Toast still present and not yet fading.
+		expect(toastButton).toHaveClass("opacity-100");
 
-		// Hover to pause
+		// Hover to pause. fireEvent.mouseEnter routes through React's synthetic
+		// onMouseEnter (a raw mouseenter dispatch does not), so this actually
+		// exercises the pause handler rather than silently no-opping.
 		act(() => {
-			toastButton.dispatchEvent(
-				new MouseEvent("mouseenter", { bubbles: true }),
-			);
+			fireEvent.mouseEnter(toastButton);
 		});
 
-		// Advance another 2000ms while paused — should NOT remove toast
+		// Advance past the original 4000ms total while paused: only 2000ms of the
+		// timer elapsed, so the toast must still be present and NOT fading. Without
+		// a working pause it would already be opacity-0.
 		act(() => {
 			vi.advanceTimersByTime(2000);
 		});
 
-		expect(screen.getByText("Pause test")).toBeInTheDocument();
+		expect(screen.getByText("Pause test")).toHaveClass("opacity-100");
 
-		// Unhover to resume
+		// Unhover to resume the remaining time.
 		act(() => {
-			toastButton.dispatchEvent(
-				new MouseEvent("mouseleave", { bubbles: true }),
-			);
+			fireEvent.mouseLeave(toastButton);
 		});
 
 		// Advance past remaining time — should now remove
