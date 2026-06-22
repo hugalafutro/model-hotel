@@ -901,6 +901,23 @@ func classifyBackups(backups []backupEntry, sonRetention, fatherRetention, grand
 		}
 	}
 
+	// Coerce every tier to a non-nil slice so the JSON payload serializes []
+	// rather than null. keepMostRecentPerBucket returns nil for empty tiers and
+	// Prune stays nil when nothing is pruned; the enable-confirm modal reads
+	// prune.length directly and crashes on null.
+	if result.Son == nil {
+		result.Son = []backupEntry{}
+	}
+	if result.Father == nil {
+		result.Father = []backupEntry{}
+	}
+	if result.Grandfather == nil {
+		result.Grandfather = []backupEntry{}
+	}
+	if result.Prune == nil {
+		result.Prune = []backupEntry{}
+	}
+
 	return result
 }
 

@@ -353,15 +353,15 @@ export function DatabaseBackupSettings({
 									{t("settings.backup.rotation.confirmEnableDescription")}
 								</p>
 							</div>
-							{prunePreview && prunePreview.prune.length > 0 ? (
+							{(prunePreview?.prune?.length ?? 0) > 0 ? (
 								<div className="space-y-2">
 									<p className="text-sm text-(--text-primary)">
 										{t("settings.backup.rotation.confirmEnableWouldRemove", {
-											count: prunePreview.prune.length,
+											count: prunePreview?.prune?.length ?? 0,
 										})}
 									</p>
 									<div className="max-h-40 overflow-y-auto rounded bg-(--surface-elevated) border border-(--border-default) p-2">
-										{prunePreview.prune.map((b) => (
+										{(prunePreview?.prune ?? []).map((b) => (
 											<div
 												key={b.filename}
 												className="text-xs font-mono text-(--text-secondary) py-0.5"
@@ -391,7 +391,7 @@ export function DatabaseBackupSettings({
 									type="button"
 									onClick={async () => {
 										try {
-											if (prunePreview && prunePreview.prune.length > 0) {
+											if ((prunePreview?.prune?.length ?? 0) > 0) {
 												await api.backups.prune();
 											}
 											await settingsUpdateMutation.mutateAsync({
@@ -399,7 +399,7 @@ export function DatabaseBackupSettings({
 											});
 											toast(
 												t("settings.backup.rotation.pruneSuccess", {
-													count: prunePreview?.prune.length ?? 0,
+													count: prunePreview?.prune?.length ?? 0,
 												}),
 												"success",
 											);

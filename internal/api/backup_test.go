@@ -2803,6 +2803,17 @@ func TestClassifyBackupsExemptsManual(t *testing.T) {
 	if len(tiers) != 1 {
 		t.Errorf("expected only the 1 scheduled backup classified, got %d: %+v", len(tiers), tiers)
 	}
+
+	// Every tier must be a non-nil slice so the JSON payload carries [] not
+	// null even when filtering leaves nothing to classify; the enable-confirm
+	// modal reads prune.length directly and crashes on null.
+	manualOnly := classifyBackups(scheduledBackups([]backupEntry{
+		{Filename: "backup_20240101_120000_0001_manual.dump"},
+	}), 7, 4, 3, now)
+	if manualOnly.Son == nil || manualOnly.Father == nil ||
+		manualOnly.Grandfather == nil || manualOnly.Prune == nil {
+		t.Errorf("classification tiers must be non-nil, got %+v", manualOnly)
+	}
 }
 
 func TestMostRecentEntry(t *testing.T) {
