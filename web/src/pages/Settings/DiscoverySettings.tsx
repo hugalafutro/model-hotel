@@ -49,7 +49,10 @@ export function DiscoverySettings({
 		const times = (providers ?? [])
 			.map((p) => p.last_discovered_at)
 			.filter((t): t is string => Boolean(t))
-			.sort();
+			// Compare as instants, not strings: a lexicographic sort only matches
+			// chronological order for UTC ("Z") timestamps, and would mis-rank a
+			// value carrying an explicit offset (e.g. "+05:00").
+			.sort((a, b) => Date.parse(a) - Date.parse(b));
 		return times.at(-1) ?? null;
 	}, [providers]);
 

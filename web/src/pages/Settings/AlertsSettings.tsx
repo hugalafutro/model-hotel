@@ -34,6 +34,10 @@ export function AlertsSettings({
 	const [apiUrlDraft, setApiUrlDraft] = useState<string | null>(null);
 	const [targetDraft, setTargetDraft] = useState("");
 	const [pickerOpen, setPickerOpen] = useState(false);
+	// The picker is only "expanded" while alerting is on: when disabled the
+	// panel is not rendered, so aria-expanded and the chevron must follow suit
+	// (otherwise the toggle announces "expanded" with no region in the DOM).
+	const pickerExpanded = pickerOpen && enabled;
 
 	const testMutation = useMutation({
 		mutationFn: () => api.alert.test(),
@@ -141,11 +145,11 @@ export function AlertsSettings({
 								type="button"
 								className="flex items-center gap-1.5 text-sm font-medium text-gray-300"
 								onClick={() => setPickerOpen((o) => !o)}
-								aria-expanded={pickerOpen}
+								aria-expanded={pickerExpanded}
 								disabled={!enabled}
 								data-testid="alert-picker-toggle"
 							>
-								{pickerOpen ? (
+								{pickerExpanded ? (
 									<ChevronDown size={14} />
 								) : (
 									<ChevronRight size={14} />
@@ -159,7 +163,7 @@ export function AlertsSettings({
 								disabled={isResetting || !enabled}
 							/>
 						</div>
-						{pickerOpen && enabled && (
+						{pickerExpanded && (
 							<div className="pl-5">
 								<AlertEventPicker
 									value={settings?.alert_events}
