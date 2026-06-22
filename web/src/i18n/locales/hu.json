@@ -1642,7 +1642,8 @@
 				"pruneFailed": "A biztonsági másolatok törlése nem sikerült",
 				"pruneSuccess": "{{count}} biztonsági másolat(ok) törlése"
 			},
-			"availableBackupsTitle": "Elérhető biztonsági másolatok"
+			"availableBackupsTitle": "Elérhető biztonsági másolatok",
+			"manuallyCreated": "Manuálisan létrehozva"
 		},
 		"appearance": {
 			"title": "Megjelenés",

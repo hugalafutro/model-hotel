@@ -1642,7 +1642,8 @@
 				"pruneFailed": "刷新备份失败",
 				"pruneSuccess": "已删除 {{count}} 备份"
 			},
-			"availableBackupsTitle": "可用备份"
+			"availableBackupsTitle": "可用备份",
+			"manuallyCreated": "手动创建"
 		},
 		"appearance": {
 			"title": "外观",

@@ -1642,7 +1642,8 @@
 				"pruneFailed": "S'ha fallat la poda de còpies de seguretat",
 				"pruneSuccess": "Retallat(s) de còpia de seguretat de {{count}}"
 			},
-			"availableBackupsTitle": "Copies de seguretat disponibles"
+			"availableBackupsTitle": "Copies de seguretat disponibles",
+			"manuallyCreated": "Creat manualment"
 		},
 		"appearance": {
 			"title": "Aparença",

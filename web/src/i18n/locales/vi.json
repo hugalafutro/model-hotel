@@ -1642,7 +1642,8 @@
 				"pruneFailed": "Không thể xóa các bản sao lưu",
 				"pruneSuccess": "Đã xóa bản sao lưu của {{count}}"
 			},
-			"availableBackupsTitle": "Các bản sao lưu hiện có"
+			"availableBackupsTitle": "Các bản sao lưu hiện có",
+			"manuallyCreated": "Tạo thủ công"
 		},
 		"appearance": {
 			"title": "Hình thức",

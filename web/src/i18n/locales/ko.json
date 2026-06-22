@@ -1642,7 +1642,8 @@
 				"pruneFailed": "백업 정리 실패",
 				"pruneSuccess": "{{count}} 백업 파일 삭제"
 			},
-			"availableBackupsTitle": "사용 가능한 백업"
+			"availableBackupsTitle": "사용 가능한 백업",
+			"manuallyCreated": "수동 생성"
 		},
 		"appearance": {
 			"title": "외관",

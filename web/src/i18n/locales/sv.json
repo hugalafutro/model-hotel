@@ -1642,7 +1642,8 @@
 				"pruneFailed": "Det gick inte att beskära säkerhetskopior",
 				"pruneSuccess": "Beskärda {{count}} säkerhetskopior"
 			},
-			"availableBackupsTitle": "Tillgängliga säkerhetskopior"
+			"availableBackupsTitle": "Tillgängliga säkerhetskopior",
+			"manuallyCreated": "Skapad manuellt"
 		},
 		"appearance": {
 			"title": "Utseende",

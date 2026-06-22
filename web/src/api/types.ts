@@ -522,6 +522,9 @@ export interface BackupEntry {
 	filename: string;
 	size_bytes: number;
 	created_at: string;
+	/** "manual" (operator-created) or "scheduled" (GFS rotation). Absent on
+	 *  responses from servers predating origin tracking; treat as scheduled. */
+	origin?: "manual" | "scheduled";
 }
 
 export interface BackupClassification {

@@ -1642,7 +1642,8 @@
 				"pruneFailed": "Neúspešné vyprázdnenie zálohy",
 				"pruneSuccess": "Odstránené zálohy {{count}}"
 			},
-			"availableBackupsTitle": "Dostupné zálohy"
+			"availableBackupsTitle": "Dostupné zálohy",
+			"manuallyCreated": "Vytvorené ručne"
 		},
 		"appearance": {
 			"title": "Vzhľad",

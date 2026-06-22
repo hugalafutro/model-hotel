@@ -1642,7 +1642,8 @@
 				"pruneFailed": "לא הצליחו לנקות את הגיבויים",
 				"pruneSuccess": "גיזום {{count}} גיבוי/גיבויים"
 			},
-			"availableBackupsTitle": "גיבויים זמינים"
+			"availableBackupsTitle": "גיבויים זמינים",
+			"manuallyCreated": "נוצר ידנית"
 		},
 		"appearance": {
 			"title": "מראה",

@@ -82,6 +82,11 @@ type backupEntry struct {
 	Filename  string `json:"filename"`
 	SizeBytes int64  `json:"size_bytes"`
 	CreatedAt string `json:"created_at"`
+	// Origin records who created the backup: "manual" (an operator clicked
+	// "Create backup") or "scheduled" (the GFS rotation scheduler). Derived
+	// from the filename marker; files predating origin tracking read as
+	// "scheduled".
+	Origin string `json:"origin"`
 }
 
 // CreateBackup runs pg_dump and saves the output to a timestamped file.
@@ -105,7 +110,7 @@ func (h *BackupHandler) CreateBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filename := generateBackupFilename()
+	filename := generateBackupFilename("manual")
 	path := filepath.Join(h.backupDir, filename)
 
 	// Use a dedicated 10-minute timeout so large databases don't get killed
@@ -144,6 +149,7 @@ func (h *BackupHandler) CreateBackup(w http.ResponseWriter, r *http.Request) {
 		Filename:  filename,
 		SizeBytes: info.Size(),
 		CreatedAt: info.ModTime().Format(time.RFC3339),
+		Origin:    "manual",
 	})
 }
 
@@ -172,6 +178,7 @@ func (h *BackupHandler) ListBackups(w http.ResponseWriter, r *http.Request) {
 			Filename:  entry.Name(),
 			SizeBytes: info.Size(),
 			CreatedAt: info.ModTime().Format(time.RFC3339),
+			Origin:    backupOrigin(entry.Name()),
 		})
 	}
 
@@ -248,10 +255,27 @@ func (h *BackupHandler) buildDumpCommand(ctx context.Context, pgDumpPath, filePa
 	return cmd
 }
 
-// generateBackupFilename creates a timestamped backup filename.
-func generateBackupFilename() string {
+// generateBackupFilename creates a timestamped backup filename carrying its
+// origin ("manual" or "auto") as a trailing segment. parseBackupTimestamp only
+// reads the date/time segments, so the extra suffix does not affect parsing.
+func generateBackupFilename(origin string) string {
 	now := time.Now()
-	return fmt.Sprintf("backup_%s_%04d.dump", now.Format("20060102_150405"), now.Nanosecond()/100000)
+	return fmt.Sprintf(
+		"backup_%s_%04d_%s.dump",
+		now.Format("20060102_150405"),
+		now.Nanosecond()/100000,
+		origin,
+	)
+}
+
+// backupOrigin reports who created a backup. Only files written with the
+// "_manual" marker are reported as manual; scheduler files (and any predating
+// origin tracking) read as "scheduled".
+func backupOrigin(filename string) string {
+	if strings.HasSuffix(strings.TrimSuffix(filename, ".dump"), "_manual") {
+		return "manual"
+	}
+	return "scheduled"
 }
 
 // DeleteBackup removes a backup file.
@@ -1022,6 +1046,7 @@ func (h *BackupHandler) listBackupFiles() ([]backupEntry, error) {
 			Filename:  entry.Name(),
 			SizeBytes: info.Size(),
 			CreatedAt: info.ModTime().Format(time.RFC3339),
+			Origin:    backupOrigin(entry.Name()),
 		})
 	}
 
@@ -1136,7 +1161,7 @@ func (h *BackupHandler) runScheduledBackup(ctx context.Context) {
 		return
 	}
 
-	filename := generateBackupFilename()
+	filename := generateBackupFilename("auto")
 	path := filepath.Join(h.backupDir, filename)
 
 	dumpCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)

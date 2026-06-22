@@ -1642,7 +1642,8 @@
 				"pruneFailed": "Nie udało się usunąć kopii zapasowych",
 				"pruneSuccess": "Pruned {{count}} backup(s)"
 			},
-			"availableBackupsTitle": "Dostępne kopie zapasowe"
+			"availableBackupsTitle": "Dostępne kopie zapasowe",
+			"manuallyCreated": "Utworzono ręcznie"
 		},
 		"appearance": {
 			"title": "Wygląd",

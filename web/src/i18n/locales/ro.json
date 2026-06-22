@@ -1642,7 +1642,8 @@
 				"pruneFailed": "Nu s-a putut curăța copiile de rezervă",
 				"pruneSuccess": "Curățate {{count}} copii de rezervă"
 			},
-			"availableBackupsTitle": "Backup-uri disponibile"
+			"availableBackupsTitle": "Backup-uri disponibile",
+			"manuallyCreated": "Creat manual"
 		},
 		"appearance": {
 			"title": "Aspectul",

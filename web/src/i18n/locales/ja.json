@@ -1642,7 +1642,8 @@
 				"pruneFailed": "バックアップの削除に失敗しました",
 				"pruneSuccess": "削除された {{count}} バックアップ"
 			},
-			"availableBackupsTitle": "利用可能なバックアップ"
+			"availableBackupsTitle": "利用可能なバックアップ",
+			"manuallyCreated": "手動で作成"
 		},
 		"appearance": {
 			"title": "外観",

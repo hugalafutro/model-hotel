@@ -1642,7 +1642,8 @@
 				"pruneFailed": "Kunne ikke beskære sikkerhedskopier",
 				"pruneSuccess": "Beskadiget {{count}} sikkerhedskopi(er)"
 			},
-			"availableBackupsTitle": "Tilgængelige sikkerhedskopier"
+			"availableBackupsTitle": "Tilgængelige sikkerhedskopier",
+			"manuallyCreated": "Oprettet manuelt"
 		},
 		"appearance": {
 			"title": "Udseende",

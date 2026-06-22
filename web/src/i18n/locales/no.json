@@ -1642,7 +1642,8 @@
 				"pruneFailed": "Klarte ikke å utsette sikkerhetskopier",
 				"pruneSuccess": "Pruned {{count}} backup(s)"
 			},
-			"availableBackupsTitle": "Tilgjengelige sikkerhetskopier"
+			"availableBackupsTitle": "Tilgjengelige sikkerhetskopier",
+			"manuallyCreated": "Opprettet manuelt"
 		},
 		"appearance": {
 			"title": "Utseende",

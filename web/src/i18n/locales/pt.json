@@ -1642,7 +1642,8 @@
 				"pruneFailed": "Falha ao remover backups",
 				"pruneSuccess": "{{count}} backup(s) eliminado(s)"
 			},
-			"availableBackupsTitle": "Backups disponíveis"
+			"availableBackupsTitle": "Backups disponíveis",
+			"manuallyCreated": "Criado manualmente"
 		},
 		"appearance": {
 			"title": "Aparência",

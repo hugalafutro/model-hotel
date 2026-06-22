@@ -1642,7 +1642,8 @@
 				"pruneFailed": "Не удалось очистить резервные копии",
 				"pruneSuccess": "Резервная копия {{count}}"
 			},
-			"availableBackupsTitle": "Доступные резервные копии"
+			"availableBackupsTitle": "Доступные резервные копии",
+			"manuallyCreated": "Создано вручную"
 		},
 		"appearance": {
 			"title": "Внешний вид",

@@ -1642,7 +1642,8 @@
 				"pruneFailed": "Échec de la suppression des sauvegardes",
 				"pruneSuccess": "{{count}} sauvegarde(s) supprimée(s)"
 			},
-			"availableBackupsTitle": "Sauvegardes disponibles"
+			"availableBackupsTitle": "Sauvegardes disponibles",
+			"manuallyCreated": "Créé manuellement"
 		},
 		"appearance": {
 			"title": "Apparence",

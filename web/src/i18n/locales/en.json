@@ -1685,7 +1685,8 @@
 				"pruneFailed": "Failed to prune backups",
 				"pruneSuccess": "Pruned {{count}} backup(s)"
 			},
-			"availableBackupsTitle": "Available backups"
+			"availableBackupsTitle": "Available backups",
+			"manuallyCreated": "Manually created"
 		},
 		"appearance": {
 			"title": "Appearance",

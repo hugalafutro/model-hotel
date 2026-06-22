@@ -1642,7 +1642,8 @@
 				"pruneFailed": "Misgeluk om rugsteun uit te snoei",
 				"pruneSuccess": "Geskreide {{count}} -rugsteun(e)"
 			},
-			"availableBackupsTitle": "Beskikbare rugsteun"
+			"availableBackupsTitle": "Beskikbare rugsteun",
+			"manuallyCreated": "Handmatig geskep"
 		},
 		"appearance": {
 			"title": "Uiterlike voorkoms",

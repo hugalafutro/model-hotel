@@ -1642,7 +1642,8 @@
 				"pruneFailed": "Није успело чишћење резервних копија",
 				"pruneSuccess": "Очишћене резервне копије {{count}}"
 			},
-			"availableBackupsTitle": "Доступне резервне копије"
+			"availableBackupsTitle": "Доступне резервне копије",
+			"manuallyCreated": "Ручно креирано"
 		},
 		"appearance": {
 			"title": "Изглед",

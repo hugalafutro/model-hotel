@@ -1642,7 +1642,8 @@
 				"pruneFailed": "Varmuuskopioinnin lopettaminen epäonnistui",
 				"pruneSuccess": "Karsittu {{count}} varmuuskopio(t)"
 			},
-			"availableBackupsTitle": "Saatavilla Olevat Varmuuskopiot"
+			"availableBackupsTitle": "Saatavilla Olevat Varmuuskopiot",
+			"manuallyCreated": "Luotu manuaalisesti"
 		},
 		"appearance": {
 			"title": "Ulkoasu",

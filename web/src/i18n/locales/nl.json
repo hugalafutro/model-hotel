@@ -1642,7 +1642,8 @@
 				"pruneFailed": "Opschonen van back-ups mislukt",
 				"pruneSuccess": "{{count}} backup(s) verwijderd"
 			},
-			"availableBackupsTitle": "Beschikbare back-ups"
+			"availableBackupsTitle": "Beschikbare back-ups",
+			"manuallyCreated": "Handmatig aangemaakt"
 		},
 		"appearance": {
 			"title": "Uiterlijk",

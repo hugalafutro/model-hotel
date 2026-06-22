@@ -1642,7 +1642,8 @@
 				"pruneFailed": "Yedeklemeler budanamadı",
 				"pruneSuccess": "{{count}} yedeklemesi/yedeklemeleri silindi"
 			},
-			"availableBackupsTitle": "Mevcut Yedeklemeler"
+			"availableBackupsTitle": "Mevcut Yedeklemeler",
+			"manuallyCreated": "Manuel oluşturuldu"
 		},
 		"appearance": {
 			"title": "Görünüm",

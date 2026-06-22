@@ -1642,7 +1642,8 @@
 				"pruneFailed": "Potatura backup non riuscita",
 				"pruneSuccess": "Eliminati {{count}} backup"
 			},
-			"availableBackupsTitle": "Backup Disponibili"
+			"availableBackupsTitle": "Backup Disponibili",
+			"manuallyCreated": "Creato manualmente"
 		},
 		"appearance": {
 			"title": "Aspetto",

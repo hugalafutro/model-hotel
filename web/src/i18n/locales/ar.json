@@ -1642,7 +1642,8 @@
 				"pruneFailed": "فشل في تقريب النسخ الاحتياطي",
 				"pruneSuccess": "النسخ الاحتياطي {{count}} المتقلب"
 			},
-			"availableBackupsTitle": "النسخ الاحتياطي المتوفر"
+			"availableBackupsTitle": "النسخ الاحتياطي المتوفر",
+			"manuallyCreated": "تم الإنشاء يدويًا"
 		},
 		"appearance": {
 			"title": "المظهر",

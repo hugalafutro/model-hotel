@@ -2751,6 +2751,37 @@ func TestParseBackupTimestamp(t *testing.T) {
 	}
 }
 
+func TestBackupOrigin(t *testing.T) {
+	cases := map[string]string{
+		"backup_20240115_120000_0010_manual.dump": "manual",
+		"backup_20240115_120000_0010_auto.dump":   "scheduled",
+		"backup_20240115_120000_0010.dump":        "scheduled", // predates origin tracking
+		"backup_20240115_120000_manual.dump":      "manual",
+	}
+	for name, want := range cases {
+		if got := backupOrigin(name); got != want {
+			t.Errorf("backupOrigin(%q) = %q, want %q", name, got, want)
+		}
+	}
+}
+
+func TestGenerateBackupFilenameOrigin(t *testing.T) {
+	manual := generateBackupFilename("manual")
+	if !strings.HasSuffix(manual, "_manual.dump") {
+		t.Errorf("manual filename %q missing _manual suffix", manual)
+	}
+	if got := backupOrigin(manual); got != "manual" {
+		t.Errorf("backupOrigin(%q) = %q, want manual", manual, got)
+	}
+	if got := backupOrigin(generateBackupFilename("auto")); got != "scheduled" {
+		t.Errorf("auto backup origin = %q, want scheduled", got)
+	}
+	// The origin segment must not break timestamp parsing (GFS classification).
+	if _, err := parseBackupTimestamp(manual); err != nil {
+		t.Errorf("parseBackupTimestamp(%q) failed: %v", manual, err)
+	}
+}
+
 func TestMostRecentEntry(t *testing.T) {
 	t.Run("empty list returns nil", func(t *testing.T) {
 		result := mostRecentEntry(nil, nil)

@@ -1642,7 +1642,8 @@
 				"pruneFailed": "Error al limpiar las copias de seguridad",
 				"pruneSuccess": "Se han eliminado {{count}} copia(s) de seguridad"
 			},
-			"availableBackupsTitle": "Copias de seguridad disponibles"
+			"availableBackupsTitle": "Copias de seguridad disponibles",
+			"manuallyCreated": "Creado manualmente"
 		},
 		"appearance": {
 			"title": "Apariencia",

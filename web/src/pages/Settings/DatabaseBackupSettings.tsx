@@ -562,16 +562,22 @@ export function DatabaseBackupSettings({
 								>
 									<div className="min-w-0 flex-1">
 										<div className="flex items-center gap-2">
-											{gfsLabel.get(backup.filename) && (
-												<span className="shrink-0 inline-flex h-4 w-4 items-center justify-center rounded text-[10px] font-bold bg-(--accent)/15 text-(--accent)">
-													{gfsLabel.get(backup.filename)}
-												</span>
-											)}
+											{backup.origin !== "manual" &&
+												gfsLabel.get(backup.filename) && (
+													<span className="shrink-0 inline-flex h-4 w-4 items-center justify-center rounded text-[10px] font-bold bg-(--accent)/15 text-(--accent)">
+														{gfsLabel.get(backup.filename)}
+													</span>
+												)}
 											<p className="text-sm font-medium text-(--text-primary) truncate">
 												{backup.filename}
 											</p>
 										</div>
 										<p className="text-xs text-(--text-muted)">
+											{backup.origin === "manual" && (
+												<span className="text-(--accent)">
+													{t("settings.backup.manuallyCreated")} ·{" "}
+												</span>
+											)}
 											{formatBytes(backup.size_bytes)} -{" "}
 											{formatDateTimeShort(backup.created_at)}
 										</p>

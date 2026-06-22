@@ -1642,7 +1642,8 @@
 				"pruneFailed": "Fehler beim Beschneiden der Backups",
 				"pruneSuccess": "{{count}} Sicherung(en) bereinigt"
 			},
-			"availableBackupsTitle": "Verfügbare Sicherungen"
+			"availableBackupsTitle": "Verfügbare Sicherungen",
+			"manuallyCreated": "Manuell erstellt"
 		},
 		"appearance": {
 			"title": "Erscheinung",

@@ -1642,7 +1642,8 @@
 				"pruneFailed": "Nepodařilo se vyřezávat zálohy",
 				"pruneSuccess": "Pruned {{count}} zálohování"
 			},
-			"availableBackupsTitle": "Dostupné zálohy"
+			"availableBackupsTitle": "Dostupné zálohy",
+			"manuallyCreated": "Vytvořeno ručně"
 		},
 		"appearance": {
 			"title": "Vzhled",

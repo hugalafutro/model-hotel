@@ -56,6 +56,45 @@ describe("DatabaseBackupSettings", () => {
 		});
 	});
 
+	it("labels manual backups and tags scheduled ones with their GFS bucket", async () => {
+		const manual = {
+			filename: "backup_20260115_103000_0010_manual.dump",
+			size_bytes: 1024,
+			created_at: "2026-01-15T10:30:00Z",
+			origin: "manual",
+		};
+		const scheduled = {
+			filename: "backup_20260116_103000_0010_auto.dump",
+			size_bytes: 2048,
+			created_at: "2026-01-16T10:30:00Z",
+			origin: "scheduled",
+		};
+		server.use(
+			http.get("/api/backups", () => HttpResponse.json([manual, scheduled])),
+			http.post("/api/backups/prune-preview", () =>
+				HttpResponse.json({
+					son: [scheduled],
+					father: [],
+					grandfather: [],
+					prune: [],
+				}),
+			),
+		);
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		// Manual backup carries the accent "Manually created" note...
+		expect(await screen.findByText(/Manually created/)).toBeInTheDocument();
+		// ...and the scheduled one is tagged with its GFS bucket (Son).
+		const scheduledRow = (await screen.findByText(scheduled.filename)).closest(
+			"div",
+		);
+		expect(
+			await within(scheduledRow as HTMLElement).findByText("S"),
+		).toBeInTheDocument();
+	});
+
 	it("shows Create Backup button", async () => {
 		renderWithProviders(
 			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
