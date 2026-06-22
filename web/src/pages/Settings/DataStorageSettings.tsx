@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Database } from "@/lib/icons";
 import { api } from "../../api/client";
+import { SettingsGroup } from "../../components/SettingsGroup";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
 import { Toggle } from "../../components/Toggle";
@@ -165,151 +166,147 @@ export function DataStorageSettings({
 					{t("settings.dataStorage.description")}
 				</p>
 
-				<div className="grid grid-cols-2 gap-x-8">
+				<div className="grid grid-cols-2 gap-x-6">
 					<div className="space-y-5">
-						<h3 className="text-xs font-semibold uppercase tracking-wider text-(--accent)">
-							{t("settings.logging.title")}
-						</h3>
-						<SettingsSlider
-							id="log-retention"
-							label={t("settings.logging.logRetention")}
-							value={logRetentionHours}
-							min={0}
-							max={720}
-							step={24}
-							clampStep={24}
-							infinityValue={0}
-							unit="h"
-							onChange={(v) =>
-								updateMutation.mutate({
-									log_retention: hoursToGoDuration(v),
-								})
-							}
-							description={t("settings.logging.logRetention.description")}
-							onReset={() => resetSettingMutation.mutate(["log_retention"])}
-							resetTooltip={t("settings.common.resetSetting")}
-						/>
+						<SettingsGroup title={t("settings.logging.title")}>
+							<SettingsSlider
+								id="log-retention"
+								label={t("settings.logging.logRetention")}
+								value={logRetentionHours}
+								min={0}
+								max={720}
+								step={24}
+								clampStep={24}
+								infinityValue={0}
+								unit="h"
+								onChange={(v) =>
+									updateMutation.mutate({
+										log_retention: hoursToGoDuration(v),
+									})
+								}
+								description={t("settings.logging.logRetention.description")}
+								onReset={() => resetSettingMutation.mutate(["log_retention"])}
+								resetTooltip={t("settings.common.resetSetting")}
+							/>
 
-						<SettingsSlider
-							id="stale-request-timeout"
-							label={t("settings.logging.staleRequestTimeout")}
-							value={staleTimeoutMinutes}
-							min={0}
-							max={120}
-							step={5}
-							clampStep={5}
-							infinityValue={0}
-							unit="m"
-							onChange={(v) =>
-								updateMutation.mutate({
-									stale_request_timeout: minutesToGoDuration(v),
-								})
-							}
-							description={t(
-								"settings.logging.staleRequestTimeout.description",
-							)}
-							onReset={() =>
-								resetSettingMutation.mutate(["stale_request_timeout"])
-							}
-							resetTooltip={t("settings.common.resetSetting")}
-						/>
+							<SettingsSlider
+								id="stale-request-timeout"
+								label={t("settings.logging.staleRequestTimeout")}
+								value={staleTimeoutMinutes}
+								min={0}
+								max={120}
+								step={5}
+								clampStep={5}
+								infinityValue={0}
+								unit="m"
+								onChange={(v) =>
+									updateMutation.mutate({
+										stale_request_timeout: minutesToGoDuration(v),
+									})
+								}
+								description={t(
+									"settings.logging.staleRequestTimeout.description",
+								)}
+								onReset={() =>
+									resetSettingMutation.mutate(["stale_request_timeout"])
+								}
+								resetTooltip={t("settings.common.resetSetting")}
+							/>
 
-						<div className="flex items-center gap-2 flex-wrap">
-							{!confirmDelete ? (
-								<button
-									type="button"
-									onClick={() => setConfirmDelete(true)}
-									className="ui-btn ui-btn-danger"
-									title={t("settings.logging.deleteRequests.tooltip")}
-								>
-									{t("settings.logging.deleteRequests")}
-								</button>
-							) : (
-								<>
-									<select
-										value={deleteSelection}
-										onChange={(e) => setDeleteSelection(e.target.value)}
-										className="ui-input px-3 py-1.5 text-xs"
-									>
-										<option value="">
-											{t("settings.logging.deleteRequests.selectRange")}
-										</option>
-										<option value="1d">
-											{t("settings.logging.deleteRequests.olderThan1d")}
-										</option>
-										<option value="1w">
-											{t("settings.logging.deleteRequests.olderThan1w")}
-										</option>
-										<option value="1m">
-											{t("settings.logging.deleteRequests.olderThan1m")}
-										</option>
-										<option value="all">
-											{t("settings.logging.deleteRequests.allLogs")}
-										</option>
-									</select>
+							<div className="flex items-center gap-2 flex-wrap">
+								{!confirmDelete ? (
 									<button
 										type="button"
-										disabled={!deleteSelection}
-										onClick={() => {
-											const olderThan = getDeleteOlderThan(deleteSelection);
-											if (olderThan) purgeMutation.mutate(olderThan);
-										}}
-										className="ui-btn ui-btn-danger disabled:opacity-50 disabled:cursor-not-allowed"
+										onClick={() => setConfirmDelete(true)}
+										className="ui-btn ui-btn-danger"
+										title={t("settings.logging.deleteRequests.tooltip")}
 									>
-										{t("settings.logging.deleteRequests.confirm")}
+										{t("settings.logging.deleteRequests")}
 									</button>
-									<button
-										type="button"
-										onClick={() => {
-											setConfirmDelete(false);
-											setDeleteSelection("");
-										}}
-										className="ui-btn ui-btn-secondary"
-									>
-										{t("settings.logging.deleteRequests.cancel")}
-									</button>
-								</>
-							)}
+								) : (
+									<>
+										<select
+											value={deleteSelection}
+											onChange={(e) => setDeleteSelection(e.target.value)}
+											className="ui-input px-3 py-1.5 text-xs"
+										>
+											<option value="">
+												{t("settings.logging.deleteRequests.selectRange")}
+											</option>
+											<option value="1d">
+												{t("settings.logging.deleteRequests.olderThan1d")}
+											</option>
+											<option value="1w">
+												{t("settings.logging.deleteRequests.olderThan1w")}
+											</option>
+											<option value="1m">
+												{t("settings.logging.deleteRequests.olderThan1m")}
+											</option>
+											<option value="all">
+												{t("settings.logging.deleteRequests.allLogs")}
+											</option>
+										</select>
+										<button
+											type="button"
+											disabled={!deleteSelection}
+											onClick={() => {
+												const olderThan = getDeleteOlderThan(deleteSelection);
+												if (olderThan) purgeMutation.mutate(olderThan);
+											}}
+											className="ui-btn ui-btn-danger disabled:opacity-50 disabled:cursor-not-allowed"
+										>
+											{t("settings.logging.deleteRequests.confirm")}
+										</button>
+										<button
+											type="button"
+											onClick={() => {
+												setConfirmDelete(false);
+												setDeleteSelection("");
+											}}
+											className="ui-btn ui-btn-secondary"
+										>
+											{t("settings.logging.deleteRequests.cancel")}
+										</button>
+									</>
+								)}
 
-							{!confirmDeleteAppLogs ? (
-								<button
-									type="button"
-									onClick={() => setConfirmDeleteAppLogs(true)}
-									className="ui-btn ui-btn-danger"
-									title={t("settings.logging.deleteAppLogs.tooltip")}
-								>
-									{t("settings.logging.deleteAppLogs")}
-								</button>
-							) : (
-								<>
-									<span className="text-xs text-red-400">
-										{t("settings.logging.deleteAppLogs.confirmText")}
-									</span>
+								{!confirmDeleteAppLogs ? (
 									<button
 										type="button"
-										onClick={() => purgeAppLogsMutation.mutate()}
-										disabled={purgeAppLogsMutation.isPending}
-										className="ui-btn ui-btn-danger disabled:opacity-50 disabled:cursor-not-allowed"
+										onClick={() => setConfirmDeleteAppLogs(true)}
+										className="ui-btn ui-btn-danger"
+										title={t("settings.logging.deleteAppLogs.tooltip")}
 									>
-										{purgeAppLogsMutation.isPending
-											? t("settings.logging.deleteAppLogs.deleting")
-											: t("settings.logging.deleteAppLogs.confirm")}
+										{t("settings.logging.deleteAppLogs")}
 									</button>
-									<button
-										type="button"
-										onClick={() => setConfirmDeleteAppLogs(false)}
-										className="ui-btn ui-btn-secondary"
-									>
-										{t("settings.logging.deleteAppLogs.cancel")}
-									</button>
-								</>
-							)}
-						</div>
+								) : (
+									<>
+										<span className="text-xs text-red-400">
+											{t("settings.logging.deleteAppLogs.confirmText")}
+										</span>
+										<button
+											type="button"
+											onClick={() => purgeAppLogsMutation.mutate()}
+											disabled={purgeAppLogsMutation.isPending}
+											className="ui-btn ui-btn-danger disabled:opacity-50 disabled:cursor-not-allowed"
+										>
+											{purgeAppLogsMutation.isPending
+												? t("settings.logging.deleteAppLogs.deleting")
+												: t("settings.logging.deleteAppLogs.confirm")}
+										</button>
+										<button
+											type="button"
+											onClick={() => setConfirmDeleteAppLogs(false)}
+											className="ui-btn ui-btn-secondary"
+										>
+											{t("settings.logging.deleteAppLogs.cancel")}
+										</button>
+									</>
+								)}
+							</div>
+						</SettingsGroup>
 
-						<h3 className="text-xs font-semibold uppercase tracking-wider text-(--accent)">
-							{t("settings.dataStorage.cacheAndResets")}
-						</h3>
-						<div className="space-y-5">
+						<SettingsGroup title={t("settings.dataStorage.cacheAndResets")}>
 							<div className="flex items-center justify-between gap-2">
 								<div>
 									<p className="text-sm font-medium text-gray-300">
@@ -367,13 +364,10 @@ export function DataStorageSettings({
 									{t("settings.dataStorage.reset")}
 								</button>
 							</div>
-						</div>
+						</SettingsGroup>
 
-						<h3 className="text-xs font-semibold uppercase tracking-wider text-(--accent)">
-							{t("settings.dataStorage.quotaBadges")}
-						</h3>
-						<div className="space-y-5">
-							<div className="flex items-center justify-between p-3 ui-detail-tile">
+						<SettingsGroup title={t("settings.dataStorage.quotaBadges")}>
+							<div className="flex items-center justify-between gap-2">
 								<div>
 									<p className="text-sm font-medium text-gray-300">
 										{t("settings.sidebarQuota.showQuotasPill")}
@@ -443,202 +437,203 @@ export function DataStorageSettings({
 									"settings.sidebarQuota.refreshInterval.description",
 								)}
 							/>
-						</div>
+						</SettingsGroup>
 					</div>
 
 					<div className="space-y-5">
-						<h3 className="text-xs font-semibold uppercase tracking-wider text-(--accent)">
-							{t("settings.dataStorage.sessionPersistence")}
-						</h3>
-						<div className="flex items-center justify-between p-3 ui-detail-tile">
-							<div>
-								<p className="text-sm font-medium text-gray-300">
-									{t("settings.dataStorage.persistChat")}
-								</p>
-								<p className="text-gray-500 text-xs mt-0.5">
-									{t("settings.dataStorage.persistChatDescription")}
-								</p>
-							</div>
-							<Toggle
-								checked={persistChat}
-								size="sm"
-								onChange={(v) => {
-									const next = v;
-									if (
-										!next &&
-										!confirm(t("settings.dataStorage.persistChatConfirm"))
-									)
-										return;
-									setPersistChat(next);
-									toast(
-										next
-											? t("settings.dataStorage.persistChatEnabled")
-											: t("settings.dataStorage.persistChatDisabled"),
-										next ? "success" : "info",
-									);
-								}}
-							/>
-						</div>
-
-						<div className="flex items-center justify-between p-3 ui-detail-tile">
-							<div>
-								<p className="text-sm font-medium text-gray-300">
-									{t("settings.dataStorage.persistArena")}
-								</p>
-								<p className="text-gray-500 text-xs mt-0.5">
-									{t("settings.dataStorage.persistArenaDescription")}
-								</p>
-							</div>
-							<Toggle
-								checked={persistArena}
-								size="sm"
-								onChange={(v) => {
-									const next = v;
-									if (
-										!next &&
-										!confirm(t("settings.dataStorage.persistArenaConfirm"))
-									)
-										return;
-									setPersistArena(next);
-									toast(
-										next
-											? t("settings.dataStorage.persistArenaEnabled")
-											: t("settings.dataStorage.persistArenaDisabled"),
-										next ? "success" : "info",
-									);
-								}}
-							/>
-						</div>
-
-						<div className="flex items-center justify-between p-3 ui-detail-tile">
-							<div>
-								<p className="text-sm font-medium text-gray-300">
-									{t("settings.dataStorage.persistConversation")}
-								</p>
-								<p className="text-gray-500 text-xs mt-0.5">
-									{t("settings.dataStorage.persistConversationDescription")}
-								</p>
-							</div>
-							<Toggle
-								checked={persistConversation}
-								size="sm"
-								onChange={(v) => {
-									const next = v;
-									if (
-										!next &&
-										!confirm(
-											t("settings.dataStorage.persistConversationConfirm"),
+						<SettingsGroup title={t("settings.dataStorage.sessionPersistence")}>
+							<div className="flex items-center justify-between gap-2">
+								<div>
+									<p className="text-sm font-medium text-gray-300">
+										{t("settings.dataStorage.persistChat")}
+									</p>
+									<p className="text-gray-500 text-xs mt-0.5">
+										{t("settings.dataStorage.persistChatDescription")}
+									</p>
+								</div>
+								<Toggle
+									checked={persistChat}
+									size="sm"
+									onChange={(v) => {
+										const next = v;
+										if (
+											!next &&
+											!confirm(t("settings.dataStorage.persistChatConfirm"))
 										)
-									)
-										return;
-									setPersistConversation(next);
-									toast(
-										next
-											? t("settings.dataStorage.persistConversationEnabled")
-											: t("settings.dataStorage.persistConversationDisabled"),
-										next ? "success" : "info",
-									);
-								}}
-							/>
-						</div>
-
-						<h3 className="text-xs font-semibold uppercase tracking-wider text-(--accent)">
-							{t("settings.dataStorage.arenaHistory")}
-						</h3>
-						<div className="flex items-center justify-between p-3 ui-detail-tile">
-							<div>
-								<p className="text-sm font-medium text-gray-300">
-									{t("settings.dataStorage.saveMatchHistory")}
-								</p>
-								<p className="text-gray-500 text-xs mt-0.5">
-									{t("settings.dataStorage.saveMatchHistoryDescription")}
-								</p>
-							</div>
-							<Toggle
-								checked={arenaHistoryEnabled}
-								size="sm"
-								onChange={(v) => {
-									const next = v;
-									setArenaHistoryEnabled(next);
-									toast(
-										next
-											? t("settings.dataStorage.saveMatchHistoryEnabled")
-											: t("settings.dataStorage.saveMatchHistoryDisabled"),
-										next ? "success" : "info",
-									);
-								}}
-							/>
-						</div>
-
-						<SettingsSlider
-							id="history-limit"
-							label={t("settings.dataStorage.maxSavedMatches")}
-							value={arenaHistoryLimit}
-							min={10}
-							max={100}
-							step={5}
-							clampStep={5}
-							unit="m"
-							hideUnit
-							disabled={!arenaHistoryEnabled}
-							onChange={(v) => {
-								setArenaHistoryLimit(v);
-								toast(
-									t("settings.dataStorage.historyLimitToast", { count: v }),
-									"success",
-								);
-							}}
-							description={t(
-								"settings.dataStorage.maxSavedMatches.description",
-							)}
-						/>
-
-						<div className="flex items-center gap-2">
-							<div>
-								<p className="text-sm font-medium text-gray-300">
-									{t("settings.dataStorage.clearHistory")}
-								</p>
-								<p className="text-gray-500 text-xs mt-0.5">
-									{t("settings.dataStorage.clearHistoryDescription", {
-										count: getArenaHistoryCount(),
-									})}
-								</p>
-							</div>
-							<button
-								type="button"
-								onClick={() => {
-									if (confirm(t("settings.dataStorage.clearHistoryConfirm"))) {
-										clearArenaHistory();
+											return;
+										setPersistChat(next);
 										toast(
-											t("settings.dataStorage.clearHistoryAllCleared"),
-											"info",
+											next
+												? t("settings.dataStorage.persistChatEnabled")
+												: t("settings.dataStorage.persistChatDisabled"),
+											next ? "success" : "info",
 										);
-									}
-								}}
-								className="ui-btn ui-btn-danger text-xs px-3 py-1.5"
-								disabled={getArenaHistoryCount() === 0}
-								title={t("settings.dataStorage.clearHistoryAll.tooltip")}
-							>
-								{t("settings.dataStorage.clearHistoryAll")}
-							</button>
-						</div>
+									}}
+								/>
+							</div>
 
-						<h3 className="text-xs font-semibold uppercase tracking-wider text-(--accent)">
-							{t("settings.dashboard.title")}
-						</h3>
-						<SettingsSlider
-							id="dashboard-refresh-interval"
-							label={t("settings.dashboard.refreshInterval")}
-							value={Number(refreshSec)}
-							min={0}
-							max={600}
-							step={10}
-							clampStep={10}
-							infinityValue={0}
-							unit="s"
-							onChange={handleDashboardRefreshChange}
-							description={t("settings.dashboard.refreshInterval.description")}
-						/>
+							<div className="flex items-center justify-between gap-2">
+								<div>
+									<p className="text-sm font-medium text-gray-300">
+										{t("settings.dataStorage.persistArena")}
+									</p>
+									<p className="text-gray-500 text-xs mt-0.5">
+										{t("settings.dataStorage.persistArenaDescription")}
+									</p>
+								</div>
+								<Toggle
+									checked={persistArena}
+									size="sm"
+									onChange={(v) => {
+										const next = v;
+										if (
+											!next &&
+											!confirm(t("settings.dataStorage.persistArenaConfirm"))
+										)
+											return;
+										setPersistArena(next);
+										toast(
+											next
+												? t("settings.dataStorage.persistArenaEnabled")
+												: t("settings.dataStorage.persistArenaDisabled"),
+											next ? "success" : "info",
+										);
+									}}
+								/>
+							</div>
+
+							<div className="flex items-center justify-between gap-2">
+								<div>
+									<p className="text-sm font-medium text-gray-300">
+										{t("settings.dataStorage.persistConversation")}
+									</p>
+									<p className="text-gray-500 text-xs mt-0.5">
+										{t("settings.dataStorage.persistConversationDescription")}
+									</p>
+								</div>
+								<Toggle
+									checked={persistConversation}
+									size="sm"
+									onChange={(v) => {
+										const next = v;
+										if (
+											!next &&
+											!confirm(
+												t("settings.dataStorage.persistConversationConfirm"),
+											)
+										)
+											return;
+										setPersistConversation(next);
+										toast(
+											next
+												? t("settings.dataStorage.persistConversationEnabled")
+												: t("settings.dataStorage.persistConversationDisabled"),
+											next ? "success" : "info",
+										);
+									}}
+								/>
+							</div>
+						</SettingsGroup>
+
+						<SettingsGroup title={t("settings.dataStorage.arenaHistory")}>
+							<div className="flex items-center justify-between gap-2">
+								<div>
+									<p className="text-sm font-medium text-gray-300">
+										{t("settings.dataStorage.saveMatchHistory")}
+									</p>
+									<p className="text-gray-500 text-xs mt-0.5">
+										{t("settings.dataStorage.saveMatchHistoryDescription")}
+									</p>
+								</div>
+								<Toggle
+									checked={arenaHistoryEnabled}
+									size="sm"
+									onChange={(v) => {
+										const next = v;
+										setArenaHistoryEnabled(next);
+										toast(
+											next
+												? t("settings.dataStorage.saveMatchHistoryEnabled")
+												: t("settings.dataStorage.saveMatchHistoryDisabled"),
+											next ? "success" : "info",
+										);
+									}}
+								/>
+							</div>
+
+							<SettingsSlider
+								id="history-limit"
+								label={t("settings.dataStorage.maxSavedMatches")}
+								value={arenaHistoryLimit}
+								min={10}
+								max={100}
+								step={5}
+								clampStep={5}
+								unit="m"
+								hideUnit
+								disabled={!arenaHistoryEnabled}
+								onChange={(v) => {
+									setArenaHistoryLimit(v);
+									toast(
+										t("settings.dataStorage.historyLimitToast", { count: v }),
+										"success",
+									);
+								}}
+								description={t(
+									"settings.dataStorage.maxSavedMatches.description",
+								)}
+							/>
+
+							<div className="flex items-center gap-2">
+								<div>
+									<p className="text-sm font-medium text-gray-300">
+										{t("settings.dataStorage.clearHistory")}
+									</p>
+									<p className="text-gray-500 text-xs mt-0.5">
+										{t("settings.dataStorage.clearHistoryDescription", {
+											count: getArenaHistoryCount(),
+										})}
+									</p>
+								</div>
+								<button
+									type="button"
+									onClick={() => {
+										if (
+											confirm(t("settings.dataStorage.clearHistoryConfirm"))
+										) {
+											clearArenaHistory();
+											toast(
+												t("settings.dataStorage.clearHistoryAllCleared"),
+												"info",
+											);
+										}
+									}}
+									className="ui-btn ui-btn-danger text-xs px-3 py-1.5"
+									disabled={getArenaHistoryCount() === 0}
+									title={t("settings.dataStorage.clearHistoryAll.tooltip")}
+								>
+									{t("settings.dataStorage.clearHistoryAll")}
+								</button>
+							</div>
+						</SettingsGroup>
+
+						<SettingsGroup title={t("settings.dashboard.title")}>
+							<SettingsSlider
+								id="dashboard-refresh-interval"
+								label={t("settings.dashboard.refreshInterval")}
+								value={Number(refreshSec)}
+								min={0}
+								max={600}
+								step={10}
+								clampStep={10}
+								infinityValue={0}
+								unit="s"
+								onChange={handleDashboardRefreshChange}
+								description={t(
+									"settings.dashboard.refreshInterval.description",
+								)}
+							/>
+						</SettingsGroup>
 					</div>
 				</div>
 			</div>

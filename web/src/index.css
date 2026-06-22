@@ -1497,6 +1497,33 @@ html[data-ui-style="glassmorphism-lite"].light .ui-detail-section {
 	background-color: rgba(255, 255, 255, 0.4);
 }
 
+/* Settings sub-group panel: an accent-headed category band inside a
+   SettingsSection. Recessed below the card floor (--surface-bg vs the card's
+   --surface-elevated) so each category reads as one block and loose controls
+   (sliders, buttons) stop floating. Same per-theme depth language as the
+   detail primitives above, kept subtler so it never competes with the card edge. */
+[data-ui-style] .ui-settings-group {
+	background-color: var(--surface-bg);
+	border: 1px solid var(--border-subtle);
+	border-radius: var(--radius-box);
+	padding: 1rem;
+}
+html[data-ui-style="clean-saas"] .ui-settings-group {
+	border-color: transparent;
+}
+html[data-ui-style="cyber-terminal"] .ui-settings-group {
+	border-color: var(--border-default);
+	box-shadow: inset 0 0 24px rgba(var(--accent-rgb), 0.03);
+}
+html[data-ui-style="glassmorphism-lite"] .ui-settings-group {
+	background-color: rgba(255, 255, 255, 0.04);
+	border-color: var(--border-subtle);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+html[data-ui-style="glassmorphism-lite"].light .ui-settings-group {
+	background-color: rgba(255, 255, 255, 0.4);
+}
+
 /* Progress / quota bars: pill by default, square in the terminal theme so they
    match its zero-radius personality (cards, tiles, inputs are all square). */
 .ui-bar {
