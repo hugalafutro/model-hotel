@@ -90,8 +90,10 @@ describe("api.logs", () => {
 			vi.spyOn(globalThis, "fetch").mockResolvedValue(
 				new Response("database locked", { status: 500 }),
 			);
+			// The message is the bare status + body; the caller's toast supplies
+			// the "Failed to delete requests" prefix.
 			await expect(api.logs.purge("2024-01-01")).rejects.toThrow(
-				"Failed to purge logs: 500 database locked",
+				"500 database locked",
 			);
 		});
 	});

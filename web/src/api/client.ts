@@ -489,7 +489,10 @@ export const api = {
 			});
 			if (!response.ok) {
 				const text = await response.text();
-				throw new Error(`Failed to purge logs: ${response.status} ${text}`);
+				// Bare status + body: the caller's toast already prefixes "Failed to
+				// delete requests", so an extra "Failed to purge logs" would read as
+				// if app logs were involved.
+				throw new Error(`${response.status} ${text}`);
 			}
 		},
 		cursor: async (params: {
@@ -537,12 +540,17 @@ export const api = {
 				"Failed to fetch app logs",
 			);
 		},
-		purge: async (): Promise<{ deleted: number }> => {
+		purge: async (olderThan?: string): Promise<{ deleted: number }> => {
 			return fetchJSON<{ deleted: number }>(
 				`${API_BASE}/api/logs/app`,
 				{
 					method: "DELETE",
 					headers: getAuthHeaders(),
+					// Omit the body for a clear-all request so the backend default
+					// ("all") still applies; send a token to prune a range.
+					...(olderThan
+						? { body: JSON.stringify({ older_than: olderThan }) }
+						: {}),
 				},
 				"Failed to purge app logs",
 			);

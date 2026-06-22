@@ -976,11 +976,11 @@ describe("Delete Request Logs", () => {
 	});
 
 	it.each([
-		["1d", "24h"],
-		["1w", "168h"],
-		["1m", "720h"],
+		["1d", "1d"],
+		["1w", "1w"],
+		["1m", "1m"],
 		["all", "all"],
-	])("maps the %s selection to older_than=%s in the purge request", async (selection, expected) => {
+	])("sends the %s selection as older_than=%s in the purge request", async (selection, expected) => {
 		let capturedOlderThan: string | undefined;
 		server.use(
 			http.delete("/api/logs/purge", async ({ request }) => {
@@ -1073,7 +1073,8 @@ describe("Delete App Logs", () => {
 		});
 		await user.click(deleteButton);
 
-		expect(screen.getByText(/clear all application logs/i)).toBeInTheDocument();
+		// The confirm UI is now a range dropdown plus confirm/cancel.
+		expect(screen.getByRole("combobox")).toBeInTheDocument();
 		expect(
 			screen.getByRole("button", { name: /^confirm$/i }),
 		).toBeInTheDocument();
@@ -1082,7 +1083,18 @@ describe("Delete App Logs", () => {
 		).toBeInTheDocument();
 	});
 
-	it("calls purgeAppLogs when confirmed", async () => {
+	it("calls purgeAppLogs with the selected range when confirmed", async () => {
+		let capturedOlderThan: string | undefined;
+		server.use(
+			http.delete("/api/logs/app", async ({ request }) => {
+				capturedOlderThan = (
+					(await request.json()) as {
+						older_than: string;
+					}
+				).older_than;
+				return HttpResponse.json({ deleted: 1 });
+			}),
+		);
 		const user = userEvent.setup();
 		renderWithProviders(
 			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
@@ -1093,14 +1105,29 @@ describe("Delete App Logs", () => {
 		});
 		await user.click(deleteButton);
 
+		await user.selectOptions(screen.getByRole("combobox"), "1w");
 		const confirmButton = screen.getByRole("button", { name: /^confirm$/i });
-		expect(confirmButton).toBeInTheDocument();
 		await user.click(confirmButton);
 
-		// Verify the confirm button was clicked (mutation called via MSW handler)
+		await waitFor(() => expect(capturedOlderThan).toBe("1w"));
 		await waitFor(() => {
 			expect(confirmButton).not.toBeInTheDocument();
 		});
+	});
+
+	it("disables confirm until an app-logs range is selected", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		await user.click(screen.getByRole("button", { name: /delete logs/i }));
+		expect(screen.getByRole("button", { name: /^confirm$/i })).toBeDisabled();
+
+		await user.selectOptions(screen.getByRole("combobox"), "1d");
+		expect(
+			screen.getByRole("button", { name: /^confirm$/i }),
+		).not.toBeDisabled();
 	});
 
 	it("shows an error toast when purging app logs fails", async () => {
@@ -1115,6 +1142,7 @@ describe("Delete App Logs", () => {
 		);
 
 		await user.click(screen.getByRole("button", { name: /delete logs/i }));
+		await user.selectOptions(screen.getByRole("combobox"), "all");
 		await user.click(screen.getByRole("button", { name: /^confirm$/i }));
 
 		await waitFor(() => {
@@ -1133,14 +1161,12 @@ describe("Delete App Logs", () => {
 		});
 		await user.click(deleteButton);
 
-		expect(screen.getByText(/clear all application logs/i)).toBeInTheDocument();
+		expect(screen.getByRole("combobox")).toBeInTheDocument();
 
 		const cancelButton = screen.getByRole("button", { name: /^cancel$/i });
 		await user.click(cancelButton);
 
-		expect(
-			screen.queryByText(/clear all application logs/i),
-		).not.toBeInTheDocument();
+		expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
 	});
 });
 

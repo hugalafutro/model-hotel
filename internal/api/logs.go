@@ -540,6 +540,31 @@ type PurgeLogsRequest struct {
 	OlderThan string `json:"older_than"`
 }
 
+// purgeOlderThanTokens is the human-readable list of accepted older_than
+// values, reused in the 400 message by every purge endpoint.
+const purgeOlderThanTokens = "1h, 1d, 1w, 1m, all"
+
+// olderThanCutoff maps a purge range token to a cutoff time. all=true signals
+// "delete everything" (cutoff is unused in that case); ok=false means the token
+// was not recognized. Shared by the request-log and app-log purge endpoints so
+// they accept exactly the same vocabulary.
+func olderThanCutoff(olderThan string) (cutoff time.Time, all, ok bool) {
+	switch olderThan {
+	case "1h":
+		return time.Now().Add(-1 * time.Hour), false, true
+	case "1d":
+		return time.Now().Add(-24 * time.Hour), false, true
+	case "1w":
+		return time.Now().Add(-7 * 24 * time.Hour), false, true
+	case "1m":
+		return time.Now().Add(-30 * 24 * time.Hour), false, true
+	case "all":
+		return time.Time{}, true, true
+	default:
+		return time.Time{}, false, false
+	}
+}
+
 // PurgeLogs deletes old request logs based on the specified time range.
 func (h *Handler) PurgeLogs(w http.ResponseWriter, r *http.Request) {
 	var req PurgeLogsRequest
@@ -548,17 +573,13 @@ func (h *Handler) PurgeLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var cutoff time.Time
-	switch req.OlderThan {
-	case "1h":
-		cutoff = time.Now().Add(-1 * time.Hour)
-	case "1d":
-		cutoff = time.Now().Add(-24 * time.Hour)
-	case "1w":
-		cutoff = time.Now().Add(-7 * 24 * time.Hour)
-	case "1m":
-		cutoff = time.Now().Add(-30 * 24 * time.Hour)
-	case "all":
+	cutoff, all, ok := olderThanCutoff(req.OlderThan)
+	if !ok {
+		http.Error(w, "invalid older_than value, use: "+purgeOlderThanTokens, http.StatusBadRequest)
+		return
+	}
+
+	if all {
 		_, err := h.dbPool.Pool().Exec(r.Context(), `DELETE FROM request_logs`)
 		if err != nil {
 			respondError(w, "failed to purge logs", err, http.StatusInternalServerError)
@@ -566,9 +587,6 @@ func (h *Handler) PurgeLogs(w http.ResponseWriter, r *http.Request) {
 		}
 		debuglog.Info("logs: purged all logs")
 		w.WriteHeader(http.StatusNoContent)
-		return
-	default:
-		http.Error(w, "invalid older_than value, use: 1h, 1d, 1w, 1m, all", http.StatusBadRequest)
 		return
 	}
 

@@ -305,3 +305,40 @@ func (rb *ringBuffer) Clear() int {
 	rb.count = 0
 	return n
 }
+
+// ClearOlderThan drops buffered entries whose event timestamp predates cutoff,
+// compacting the survivors back to the front of the buffer. Entries with an
+// unparseable timestamp are kept (we never discard a log we can't date).
+// Returns the number of entries removed.
+func (rb *ringBuffer) ClearOlderThan(cutoff time.Time) int {
+	rb.mu.Lock()
+	defer rb.mu.Unlock()
+	if rb.count == 0 {
+		return 0
+	}
+
+	// Walk oldest -> newest, mirroring GetEntries' start/index math.
+	start := 0
+	if rb.count == appLogBufferSize {
+		start = rb.head
+	}
+	kept := make([]AppLogEntry, 0, rb.count)
+	removed := 0
+	for i := 0; i < rb.count; i++ {
+		e := rb.entries[(start+i)%appLogBufferSize]
+		if ts, err := time.Parse(time.RFC3339Nano, e.Timestamp); err == nil && ts.Before(cutoff) {
+			removed++
+			continue
+		}
+		kept = append(kept, e)
+	}
+
+	// Rebuild the backing array from the survivors, oldest at index 0.
+	for i := range rb.entries {
+		rb.entries[i] = AppLogEntry{}
+	}
+	copy(rb.entries, kept)
+	rb.count = len(kept)
+	rb.head = rb.count % appLogBufferSize
+	return removed
+}
