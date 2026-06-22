@@ -72,6 +72,19 @@ var (
 	appLogCountCacheTTL = 5 * time.Second
 )
 
+// invalidateAppLogCountCache drops the cached level/source counts so the next
+// getAppLogCounts re-queries the DB. Call it after any operation that changes the
+// app_logs row set out of band (e.g. ClearAppLogs): the unfiltered total is
+// derived from these counts, so without this a poll within appLogCountCacheTTL
+// would keep reporting the pre-change (stale) total.
+func invalidateAppLogCountCache() {
+	appLogCountCache.Lock()
+	appLogCountCache.levelCounts = nil
+	appLogCountCache.sourceCounts = nil
+	appLogCountCache.fetchedAt = time.Time{}
+	appLogCountCache.Unlock()
+}
+
 // appLogBuffer is the global ring buffer that captures log output.
 var appLogBuffer *ringBuffer
 

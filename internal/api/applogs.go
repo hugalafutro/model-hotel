@@ -725,6 +725,10 @@ func (h *Handler) ClearAppLogs(w http.ResponseWriter, r *http.Request) {
 		tag, err := h.dbPool.Pool().Exec(r.Context(), `DELETE FROM app_logs`)
 		if err == nil {
 			deleted += int(tag.RowsAffected())
+			// The unfiltered total is derived from the cached level counts, so
+			// drop the cache now that the rows are gone; otherwise a poll within
+			// appLogCountCacheTTL would report a stale, non-zero total.
+			invalidateAppLogCountCache()
 		}
 	}
 	w.Header().Set("Content-Type", "application/json")
