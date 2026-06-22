@@ -1429,7 +1429,9 @@
 				"5m0s": "5 minuter",
 				"10m0s": "10 minuter",
 				"disabled": "Inaktiverad"
-			}
+			},
+			"requestsGroup": "Förfrågningar",
+			"streamingGroup": "Strömning"
 		},
 		"rateLimit": {
 			"title": "Betygsätt Begränsning",
@@ -1449,7 +1451,8 @@
 			"backpressure": "Betygsgräns för baktryck",
 			"backpressureDescription": "Delat väntebeteende för både per-key och IP-hastighetsbegränsare",
 			"maxWait": "Max Vänta (ms)",
-			"maxWait.description": "Maximal tid att vänta innan du avvisar en avgiftsbegränsad begäran. Om en token blir tillgänglig i det här fönstret, fortsätter begäran; annars returneras 429."
+			"maxWait.description": "Maximal tid att vänta innan du avvisar en avgiftsbegränsad begäran. Om en token blir tillgänglig i det här fönstret, fortsätter begäran; annars returneras 429.",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Circuit Breaker & Failover",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "Kör en reservleverantör parallellt när den första är långsam med sitt första token (endast strömmande failover-grupper)",
 			"hedgeDelay": "Säkringsfördröjning",
 			"hedgeDelay.description": "Hur länge den första leverantörens första token inväntas innan en reservleverantör också startas",
-			"hedgingNotice": "Säkring startar en andra leverantör parallellt när den första är långsam i gång och behåller den som svarar först. Vid långsamma starter fördubblar detta uppströmsbegäran, så leverantörens hastighetsgränser och kapacitet förbrukas snabbare, och en reserv som ignorerar avbrytning kan fortsätta generera i bakgrunden. Slå bara på det om långsamma första tokens skadar mer än den extra belastningen."
+			"hedgingNotice": "Säkring startar en andra leverantör parallellt när den första är långsam i gång och behåller den som svarar först. Vid långsamma starter fördubblar detta uppströmsbegäran, så leverantörens hastighetsgränser och kapacitet förbrukas snabbare, och en reserv som ignorerar avbrytning kan fortsätta generera i bakgrunden. Slå bara på det om långsamma första tokens skadar mer än den extra belastningen.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Loggar",
@@ -1525,7 +1530,9 @@
 				"24h": "24 timmar",
 				"48h": "48 timmar",
 				"disabled": "Inaktiverad"
-			}
+			},
+			"automaticGroup": "Automatisk",
+			"manualGroup": "Manuell"
 		},
 		"dataStorage": {
 			"title": "Lagring av data",

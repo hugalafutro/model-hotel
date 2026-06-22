@@ -65,120 +65,120 @@ export function DiscoverySettings({
 				<p className="text-gray-400 text-sm col-span-2">
 					{t("settings.discovery.description")}
 				</p>
-				<SettingsGroup>
-					<div className="grid grid-cols-2 gap-x-6 gap-y-5 [align-items:start]">
-						<div className="space-y-5">
-							<div className="flex items-center justify-between">
-								<div>
-									<div className="flex items-center gap-1">
-										<p className="text-sm font-medium text-gray-300">
-											{t("settings.discovery.discoverOnStartup")}
-										</p>
-										<ResetButton
-											tooltip={t("settings.common.resetSetting")}
-											onClick={() =>
-												resetSettingMutation.mutate(["discovery_on_startup"])
-											}
-											size={12}
-											disabled={isResetting}
-										/>
-									</div>
-									<p className="text-gray-500 text-xs mt-0.5">
-										{t("settings.discovery.discoverOnStartupDescription")}
+				<div className="grid grid-cols-2 gap-x-6 gap-y-5 [align-items:start]">
+					<SettingsGroup title={t("settings.discovery.automaticGroup")}>
+						<div className="flex items-center justify-between">
+							<div>
+								<div className="flex items-center gap-1">
+									<p className="text-sm font-medium text-gray-300">
+										{t("settings.discovery.discoverOnStartup")}
 									</p>
+									<ResetButton
+										tooltip={t("settings.common.resetSetting")}
+										onClick={() =>
+											resetSettingMutation.mutate(["discovery_on_startup"])
+										}
+										size={12}
+										disabled={isResetting}
+									/>
 								</div>
-								<Toggle
-									checked={discoveryOnStartup}
-									size="sm"
-									onChange={(v) =>
-										updateMutation.mutate({
-											discovery_on_startup: v ? "true" : "false",
-										})
-									}
-									disabled={isUpdating}
-									ariaLabel={t("settings.discovery.discoverOnStartup")}
-								/>
+								<p className="text-gray-500 text-xs mt-0.5">
+									{t("settings.discovery.discoverOnStartupDescription")}
+								</p>
 							</div>
-
-							<div className="flex items-center justify-between">
-								<div>
-									<div className="flex items-center gap-1">
-										<p className="text-sm font-medium text-gray-300">
-											{t("settings.discovery.discoverOnProviderCreation")}
-										</p>
-										<ResetButton
-											tooltip={t("settings.common.resetSetting")}
-											onClick={() =>
-												resetSettingMutation.mutate([
-													"discovery_on_provider_create",
-												])
-											}
-											size={12}
-											disabled={isResetting}
-										/>
-									</div>
-									<p className="text-gray-500 text-xs mt-0.5">
-										{t(
-											"settings.discovery.discoverOnProviderCreationDescription",
-										)}
-									</p>
-								</div>
-								<Toggle
-									checked={discoveryOnCreate}
-									size="sm"
-									onChange={(v) =>
-										updateMutation.mutate({
-											discovery_on_provider_create: v ? "true" : "false",
-										})
-									}
-									disabled={isUpdating}
-									ariaLabel={t("settings.discovery.discoverOnProviderCreation")}
-								/>
-							</div>
-						</div>
-						<div className="space-y-5">
-							<SettingsSlider
-								id="discovery-interval"
-								label={t("settings.discovery.discoveryInterval")}
-								value={discoveryIntervalHours}
-								min={0}
-								max={48}
-								step={0.5}
-								clampStep={0.5}
-								infinityValue={0}
-								unit="h"
-								disabled={isUpdating}
+							<Toggle
+								checked={discoveryOnStartup}
+								size="sm"
 								onChange={(v) =>
 									updateMutation.mutate({
-										discovery_interval: hoursToGoDuration(v),
+										discovery_on_startup: v ? "true" : "false",
 									})
 								}
-								description={t(
-									"settings.discovery.discoveryInterval.description",
-								)}
-								onReset={() =>
-									resetSettingMutation.mutate(["discovery_interval"])
-								}
-								resetTooltip={t("settings.common.resetSetting")}
+								disabled={isUpdating}
+								ariaLabel={t("settings.discovery.discoverOnStartup")}
 							/>
-							<div className="flex justify-end">
-								<button
-									type="button"
-									onClick={() => discoverAllMutation.mutate()}
-									disabled={isUpdating}
-									className="ui-btn ui-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-								>
-									{discoverAllMutation.isPending ? (
-										<Spinner />
-									) : (
-										<Play size={12} />
-									)}
-									{t("settings.discovery.discoverAll")}
-								</button>
-							</div>
 						</div>
-					</div>
-				</SettingsGroup>
+
+						<div className="flex items-center justify-between">
+							<div>
+								<div className="flex items-center gap-1">
+									<p className="text-sm font-medium text-gray-300">
+										{t("settings.discovery.discoverOnProviderCreation")}
+									</p>
+									<ResetButton
+										tooltip={t("settings.common.resetSetting")}
+										onClick={() =>
+											resetSettingMutation.mutate([
+												"discovery_on_provider_create",
+											])
+										}
+										size={12}
+										disabled={isResetting}
+									/>
+								</div>
+								<p className="text-gray-500 text-xs mt-0.5">
+									{t(
+										"settings.discovery.discoverOnProviderCreationDescription",
+									)}
+								</p>
+							</div>
+							<Toggle
+								checked={discoveryOnCreate}
+								size="sm"
+								onChange={(v) =>
+									updateMutation.mutate({
+										discovery_on_provider_create: v ? "true" : "false",
+									})
+								}
+								disabled={isUpdating}
+								ariaLabel={t("settings.discovery.discoverOnProviderCreation")}
+							/>
+						</div>
+
+						<SettingsSlider
+							id="discovery-interval"
+							label={t("settings.discovery.discoveryInterval")}
+							value={discoveryIntervalHours}
+							min={0}
+							max={48}
+							step={0.5}
+							clampStep={0.5}
+							infinityValue={0}
+							unit="h"
+							disabled={isUpdating}
+							onChange={(v) =>
+								updateMutation.mutate({
+									discovery_interval: hoursToGoDuration(v),
+								})
+							}
+							description={t(
+								"settings.discovery.discoveryInterval.description",
+							)}
+							onReset={() =>
+								resetSettingMutation.mutate(["discovery_interval"])
+							}
+							resetTooltip={t("settings.common.resetSetting")}
+						/>
+					</SettingsGroup>
+
+					<SettingsGroup title={t("settings.discovery.manualGroup")}>
+						<div className="flex">
+							<button
+								type="button"
+								onClick={() => discoverAllMutation.mutate()}
+								disabled={isUpdating}
+								className="ui-btn ui-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+							>
+								{discoverAllMutation.isPending ? (
+									<Spinner />
+								) : (
+									<Play size={12} />
+								)}
+								{t("settings.discovery.discoverAll")}
+							</button>
+						</div>
+					</SettingsGroup>
+				</div>
 			</div>
 		</SettingsSection>
 	);

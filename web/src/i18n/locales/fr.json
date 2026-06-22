@@ -1429,7 +1429,9 @@
 				"5m0s": "5 minutes",
 				"10m0s": "10 minutes",
 				"disabled": "Désactivé"
-			}
+			},
+			"requestsGroup": "Requêtes",
+			"streamingGroup": "Streaming en cours"
 		},
 		"rateLimit": {
 			"title": "Limitation des taux",
@@ -1449,7 +1451,8 @@
 			"backpressure": "Taux limite de contre-pression",
 			"backpressureDescription": "Comportement d'attente partagé pour les limiteurs de débit par clé et IP",
 			"maxWait": "Attente max (ms)",
-			"maxWait.description": "Temps d'attente maximum avant de rejeter une requête à taux limité. Si un jeton devient disponible dans cette fenêtre, la requête continue ; sinon 429 sera retournée."
+			"maxWait.description": "Temps d'attente maximum avant de rejeter une requête à taux limité. Si un jeton devient disponible dans cette fenêtre, la requête continue ; sinon 429 sera retournée.",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Disjoncteur & Failover",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "Lance un fournisseur de secours en parallèle quand le premier tarde à envoyer son premier jeton (groupes de bascule en streaming uniquement)",
 			"hedgeDelay": "Délai de couverture",
 			"hedgeDelay.description": "Combien de temps attendre le premier jeton du premier fournisseur avant de lancer aussi un fournisseur de secours",
-			"hedgingNotice": "La couverture lance un second fournisseur en parallèle quand le premier démarre lentement et garde celui qui répond en premier. Lors des démarrages lents, cela double la requête en amont : les limites de débit et la capacité du fournisseur s'épuisent plus vite, et un secours qui ignore l'annulation peut continuer à générer en arrière-plan. Ne l'activez que si les premiers jetons lents nuisent plus que la charge supplémentaire."
+			"hedgingNotice": "La couverture lance un second fournisseur en parallèle quand le premier démarre lentement et garde celui qui répond en premier. Lors des démarrages lents, cela double la requête en amont : les limites de débit et la capacité du fournisseur s'épuisent plus vite, et un secours qui ignore l'annulation peut continuer à générer en arrière-plan. Ne l'activez que si les premiers jetons lents nuisent plus que la charge supplémentaire.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Journalisation",
@@ -1525,7 +1530,9 @@
 				"24h": "24 heures",
 				"48h": "48 heures",
 				"disabled": "Désactivé"
-			}
+			},
+			"automaticGroup": "Automatique",
+			"manualGroup": "Manuel"
 		},
 		"dataStorage": {
 			"title": "Stockage des données",

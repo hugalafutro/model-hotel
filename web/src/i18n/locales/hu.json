@@ -1429,7 +1429,9 @@
 				"5m0s": "5 perc",
 				"10m0s": "10 perc",
 				"disabled": "Fogyatékkal élők"
-			}
+			},
+			"requestsGroup": "Kérések",
+			"streamingGroup": "Streaming"
 		},
 		"rateLimit": {
 			"title": "Sávszélesség-korlátozás",
@@ -1449,7 +1451,8 @@
 			"backpressure": "A kérésszám-korlátozás visszanyomása",
 			"backpressureDescription": "A kulcs-alapú és az IP-alapú sebességkorlátozók közös várakozási viselkedése",
 			"maxWait": "Maximális várakozási idő (ms)",
-			"maxWait.description": "A sebességkorlátozott kérés elutasítása előtt megengedett maximális várakozási idő. Ha a token ezen időtartamon belül elérhetővé válik, a kérés feldolgozásra kerül; ellenkező esetben 429-es hibaüzenet kerül visszaadásra."
+			"maxWait.description": "A sebességkorlátozott kérés elutasítása előtt megengedett maximális várakozási idő. Ha a token ezen időtartamon belül elérhetővé válik, a kérés feldolgozásra kerül; ellenkező esetben 429-es hibaüzenet kerül visszaadásra.",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Megszakító és átállás",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "Párhuzamosan elindít egy tartalék szolgáltatót, ha az első lassan küldi az első tokent (csak streamelő feladatátvételi csoportoknál)",
 			"hedgeDelay": "Fedezési késleltetés",
 			"hedgeDelay.description": "Mennyi ideig várjon az első szolgáltató első tokenjére, mielőtt egy tartalék szolgáltatót is elindít",
-			"hedgingNotice": "A fedezés párhuzamosan elindít egy második szolgáltatót, ha az első lassan indul, és azt tartja meg, amelyik előbb válaszol. Lassú indulásnál ez megkétszerezi a felfelé irányuló kérést, így a szolgáltató sebességkorlátai és kapacitása gyorsabban elfogynak, és egy lemondást figyelmen kívül hagyó tartalék a háttérben tovább generálhat. Csak akkor kapcsold be, ha a lassú első tokenek többet ártanak, mint a többletterhelés."
+			"hedgingNotice": "A fedezés párhuzamosan elindít egy második szolgáltatót, ha az első lassan indul, és azt tartja meg, amelyik előbb válaszol. Lassú indulásnál ez megkétszerezi a felfelé irányuló kérést, így a szolgáltató sebességkorlátai és kapacitása gyorsabban elfogynak, és egy lemondást figyelmen kívül hagyó tartalék a háttérben tovább generálhat. Csak akkor kapcsold be, ha a lassú első tokenek többet ártanak, mint a többletterhelés.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Naplózás",
@@ -1525,7 +1530,9 @@
 				"24h": "24 óra",
 				"48h": "48 óra",
 				"disabled": "Fogyatékkal élők"
-			}
+			},
+			"automaticGroup": "Automatikus",
+			"manualGroup": "Kézi"
 		},
 		"dataStorage": {
 			"title": "Adattárolás",

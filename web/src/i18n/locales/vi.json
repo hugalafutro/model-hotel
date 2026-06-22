@@ -1429,7 +1429,9 @@
 				"5m0s": "5 phút",
 				"10m0s": "10 phút",
 				"disabled": "Người khuyết tật"
-			}
+			},
+			"requestsGroup": "Yêu cầu",
+			"streamingGroup": "Phát trực tuyến"
 		},
 		"rateLimit": {
 			"title": "Giới hạn tốc độ",
@@ -1449,7 +1451,8 @@
 			"backpressure": "Áp lực ngược giới hạn tốc độ",
 			"backpressureDescription": "Hành vi chờ chung cho cả bộ giới hạn tốc độ theo khóa và theo IP",
 			"maxWait": "Thời gian chờ tối đa (ms)",
-			"maxWait.description": "Thời gian chờ tối đa trước khi từ chối một yêu cầu bị giới hạn tốc độ. Nếu mã thông báo (token) có sẵn trong khoảng thời gian này, yêu cầu sẽ được xử lý; ngược lại, mã trạng thái 429 sẽ được trả về."
+			"maxWait.description": "Thời gian chờ tối đa trước khi từ chối một yêu cầu bị giới hạn tốc độ. Nếu mã thông báo (token) có sẵn trong khoảng thời gian này, yêu cầu sẽ được xử lý; ngược lại, mã trạng thái 429 sẽ được trả về.",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Bộ ngắt mạch & Chuyển đổi dự phòng",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "Chạy song song một nhà cung cấp dự phòng khi nhà cung cấp đầu tiên gửi token đầu tiên chậm (chỉ với nhóm chuyển đổi dự phòng dạng phát trực tuyến)",
 			"hedgeDelay": "Độ trễ phòng vệ",
 			"hedgeDelay.description": "Thời gian chờ token đầu tiên của nhà cung cấp đầu tiên trước khi cũng khởi chạy nhà cung cấp dự phòng",
-			"hedgingNotice": "Phòng vệ chạy song song nhà cung cấp thứ hai khi nhà cung cấp đầu tiên khởi động chậm và giữ lại bên trả lời trước. Khi khởi động chậm, điều này nhân đôi yêu cầu lên thượng nguồn, nên giới hạn tốc độ và dung lượng của nhà cung cấp bị dùng hết nhanh hơn, và một bản dự phòng bỏ qua việc hủy có thể tiếp tục tạo ở chế độ nền. Chỉ bật nếu token đầu tiên chậm gây hại nhiều hơn tải phụ thêm."
+			"hedgingNotice": "Phòng vệ chạy song song nhà cung cấp thứ hai khi nhà cung cấp đầu tiên khởi động chậm và giữ lại bên trả lời trước. Khi khởi động chậm, điều này nhân đôi yêu cầu lên thượng nguồn, nên giới hạn tốc độ và dung lượng của nhà cung cấp bị dùng hết nhanh hơn, và một bản dự phòng bỏ qua việc hủy có thể tiếp tục tạo ở chế độ nền. Chỉ bật nếu token đầu tiên chậm gây hại nhiều hơn tải phụ thêm.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Ghi nhật ký",
@@ -1525,7 +1530,9 @@
 				"24h": "24 giờ",
 				"48h": "48 giờ",
 				"disabled": "Người khuyết tật"
-			}
+			},
+			"automaticGroup": "Tự động",
+			"manualGroup": "Thủ công"
 		},
 		"dataStorage": {
 			"title": "Lưu trữ dữ liệu",

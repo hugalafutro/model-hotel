@@ -1429,7 +1429,9 @@
 				"5m0s": "5 分钟",
 				"10m0s": "10 分钟",
 				"disabled": "已禁用"
-			}
+			},
+			"requestsGroup": "请求",
+			"streamingGroup": "流流"
 		},
 		"rateLimit": {
 			"title": "评分限制",
@@ -1449,7 +1451,8 @@
 			"backpressure": "评分限制反压力值",
 			"backpressureDescription": "每个密钥和 IP 速率限制的共用等待行为",
 			"maxWait": "最大等候(ms)",
-			"maxWait.description": "在拒绝限速请求之前等待的最大时间。如果在这个窗口内有一个令牌，请求将继续；否则将返回429。"
+			"maxWait.description": "在拒绝限速请求之前等待的最大时间。如果在这个窗口内有一个令牌，请求将继续；否则将返回429。",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "电路断路器和故障者",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "当第一个提供商发送首个令牌较慢时，并行启动一个备用提供商（仅限流式故障转移组）",
 			"hedgeDelay": "对冲延迟",
 			"hedgeDelay.description": "在同时启动备用提供商之前，等待第一个提供商首个令牌的时长",
-			"hedgingNotice": "对冲会在第一个提供商启动较慢时并行启动第二个，并采用最先响应的一个。启动较慢时这会使上游请求翻倍，因此提供商的速率限制和容量会更快耗尽，而忽略取消的备用请求可能仍在后台继续生成。仅当首个令牌过慢造成的影响大于额外负载时才开启。"
+			"hedgingNotice": "对冲会在第一个提供商启动较慢时并行启动第二个，并采用最先响应的一个。启动较慢时这会使上游请求翻倍，因此提供商的速率限制和容量会更快耗尽，而忽略取消的备用请求可能仍在后台继续生成。仅当首个令牌过慢造成的影响大于额外负载时才开启。",
+			"failoverGroup": "故障转移",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "日志记录",
@@ -1525,7 +1530,9 @@
 				"24h": "24 小时",
 				"48h": "48 小时",
 				"disabled": "已禁用"
-			}
+			},
+			"automaticGroup": "自动",
+			"manualGroup": "手动"
 		},
 		"dataStorage": {
 			"title": "数据存储",

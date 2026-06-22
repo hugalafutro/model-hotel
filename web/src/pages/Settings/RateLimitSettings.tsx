@@ -42,101 +42,40 @@ export function RateLimitSettings({
 				<p className="text-gray-400 text-sm">
 					{t("settings.rateLimit.description")}
 				</p>
-				<SettingsGroup>
-					<div className="grid grid-cols-2 gap-x-6 gap-y-5 [align-items:start]">
-						<div className="space-y-5">
-							<div className="flex items-center justify-between gap-3">
-								<div className="min-w-0">
-									<div className="flex items-center gap-1">
-										<p className="text-sm font-medium text-gray-300">
-											{t("settings.rateLimit.enable")}
-										</p>
-										<ResetButton
-											tooltip={t("settings.common.resetSetting")}
-											onClick={() =>
-												resetSettingMutation.mutate(["rate_limit_enabled"])
-											}
-											size={12}
-											disabled={isResetting}
-										/>
-									</div>
-									<p className="text-gray-500 text-xs mt-0.5">
-										{t("settings.rateLimit.enableDescription")}
+				<div className="grid grid-cols-2 gap-x-6 gap-y-5 [align-items:start]">
+					<SettingsGroup title={t("common.global")}>
+						<div className="flex items-center justify-between gap-3">
+							<div className="min-w-0">
+								<div className="flex items-center gap-1">
+									<p className="text-sm font-medium text-gray-300">
+										{t("settings.rateLimit.enable")}
 									</p>
+									<ResetButton
+										tooltip={t("settings.common.resetSetting")}
+										onClick={() =>
+											resetSettingMutation.mutate(["rate_limit_enabled"])
+										}
+										size={12}
+										disabled={isResetting}
+									/>
 								</div>
-								<Toggle
-									checked={rateLimitEnabled}
-									size="sm"
-									onChange={(v) =>
-										updateMutation.mutate({
-											rate_limit_enabled: v ? "true" : "false",
-										})
-									}
-								/>
+								<p className="text-gray-500 text-xs mt-0.5">
+									{t("settings.rateLimit.enableDescription")}
+								</p>
 							</div>
-
-							<div className="flex items-center justify-between gap-3">
-								<div className="min-w-0">
-									<div className="flex items-center gap-1">
-										<p className="text-sm font-medium text-gray-300">
-											{t("settings.rateLimit.ipRateLimiting")}
-										</p>
-										<ResetButton
-											tooltip={t("settings.common.resetSetting")}
-											onClick={() =>
-												resetSettingMutation.mutate(["rate_limit_ip_enabled"])
-											}
-											size={12}
-											disabled={isResetting}
-										/>
-									</div>
-									<p className="text-gray-500 text-xs mt-0.5">
-										{t("settings.rateLimit.ipRateLimitingDescription")}
-									</p>
-								</div>
-								<Toggle
-									checked={rateLimitIpEnabled}
-									size="sm"
-									onChange={(v) =>
-										updateMutation.mutate({
-											rate_limit_ip_enabled: v ? "true" : "false",
-										})
-									}
-								/>
-							</div>
-
-							{(rateLimitEnabled || rateLimitIpEnabled) && (
-								<SettingsSlider
-									id="rate-limit-max-wait"
-									label={t("settings.rateLimit.maxWait")}
-									value={Number(rateLimitMaxWaitMs)}
-									min={0}
-									max={10000}
-									step={100}
-									clampStep={100}
-									unit="ms"
-									onChange={(v) =>
-										updateMutation.mutate({
-											rate_limit_max_wait_ms: String(v),
-										})
-									}
-									description={
-										<>
-											{t("settings.rateLimit.backpressureDescription")}
-											{" — "}
-											{t("settings.rateLimit.maxWait.description")}
-										</>
-									}
-									onReset={() =>
-										resetSettingMutation.mutate(["rate_limit_max_wait_ms"])
-									}
-									resetTooltip={t("settings.common.resetSetting")}
-								/>
-							)}
+							<Toggle
+								checked={rateLimitEnabled}
+								size="sm"
+								onChange={(v) =>
+									updateMutation.mutate({
+										rate_limit_enabled: v ? "true" : "false",
+									})
+								}
+							/>
 						</div>
 
-						<div className="space-y-5">
-							{rateLimitEnabled && (
+						{rateLimitEnabled && (
+							<>
 								<SettingsSlider
 									id="rate-limit-rps"
 									label={t("settings.rateLimit.requestsPerSecond")}
@@ -159,9 +98,94 @@ export function RateLimitSettings({
 									}
 									resetTooltip={t("settings.common.resetSetting")}
 								/>
-							)}
 
-							{rateLimitIpEnabled && (
+								<SettingsSlider
+									id="rate-limit-burst"
+									label={t("settings.rateLimit.burstSize")}
+									value={Number(rateLimitBurst)}
+									min={5}
+									max={500}
+									step={5}
+									clampStep={5}
+									unit="s"
+									hideUnit
+									onChange={(v) =>
+										updateMutation.mutate({
+											rate_limit_burst: String(v),
+										})
+									}
+									description={t("settings.rateLimit.burstSize.description")}
+									onReset={() =>
+										resetSettingMutation.mutate(["rate_limit_burst"])
+									}
+									resetTooltip={t("settings.common.resetSetting")}
+								/>
+							</>
+						)}
+
+						{(rateLimitEnabled || rateLimitIpEnabled) && (
+							<SettingsSlider
+								id="rate-limit-max-wait"
+								label={t("settings.rateLimit.maxWait")}
+								value={Number(rateLimitMaxWaitMs)}
+								min={0}
+								max={10000}
+								step={100}
+								clampStep={100}
+								unit="ms"
+								onChange={(v) =>
+									updateMutation.mutate({
+										rate_limit_max_wait_ms: String(v),
+									})
+								}
+								description={
+									<>
+										{t("settings.rateLimit.backpressureDescription")}
+										{". "}
+										{t("settings.rateLimit.maxWait.description")}
+									</>
+								}
+								onReset={() =>
+									resetSettingMutation.mutate(["rate_limit_max_wait_ms"])
+								}
+								resetTooltip={t("settings.common.resetSetting")}
+							/>
+						)}
+					</SettingsGroup>
+
+					<SettingsGroup title={t("settings.rateLimit.perIpGroup")}>
+						<div className="flex items-center justify-between gap-3">
+							<div className="min-w-0">
+								<div className="flex items-center gap-1">
+									<p className="text-sm font-medium text-gray-300">
+										{t("settings.rateLimit.ipRateLimiting")}
+									</p>
+									<ResetButton
+										tooltip={t("settings.common.resetSetting")}
+										onClick={() =>
+											resetSettingMutation.mutate(["rate_limit_ip_enabled"])
+										}
+										size={12}
+										disabled={isResetting}
+									/>
+								</div>
+								<p className="text-gray-500 text-xs mt-0.5">
+									{t("settings.rateLimit.ipRateLimitingDescription")}
+								</p>
+							</div>
+							<Toggle
+								checked={rateLimitIpEnabled}
+								size="sm"
+								onChange={(v) =>
+									updateMutation.mutate({
+										rate_limit_ip_enabled: v ? "true" : "false",
+									})
+								}
+							/>
+						</div>
+
+						{rateLimitIpEnabled && (
+							<>
 								<SettingsSlider
 									id="rate-limit-ip-rps"
 									label={t("settings.rateLimit.ipRequestsPerSecond")}
@@ -184,33 +208,7 @@ export function RateLimitSettings({
 									}
 									resetTooltip={t("settings.common.resetSetting")}
 								/>
-							)}
 
-							{rateLimitEnabled && (
-								<SettingsSlider
-									id="rate-limit-burst"
-									label={t("settings.rateLimit.burstSize")}
-									value={Number(rateLimitBurst)}
-									min={5}
-									max={500}
-									step={5}
-									clampStep={5}
-									unit="s"
-									hideUnit
-									onChange={(v) =>
-										updateMutation.mutate({
-											rate_limit_burst: String(v),
-										})
-									}
-									description={t("settings.rateLimit.burstSize.description")}
-									onReset={() =>
-										resetSettingMutation.mutate(["rate_limit_burst"])
-									}
-									resetTooltip={t("settings.common.resetSetting")}
-								/>
-							)}
-
-							{rateLimitIpEnabled && (
 								<SettingsSlider
 									id="rate-limit-ip-burst"
 									label={t("settings.rateLimit.ipBurstSize")}
@@ -232,10 +230,10 @@ export function RateLimitSettings({
 									}
 									resetTooltip={t("settings.common.resetSetting")}
 								/>
-							)}
-						</div>
-					</div>
-				</SettingsGroup>
+							</>
+						)}
+					</SettingsGroup>
+				</div>
 			</div>
 		</SettingsSection>
 	);

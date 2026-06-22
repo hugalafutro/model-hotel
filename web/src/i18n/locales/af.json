@@ -1429,7 +1429,9 @@
 				"5m0s": "5 minute",
 				"10m0s": "10 minute",
 				"disabled": "Gestremd"
-			}
+			},
+			"requestsGroup": "Versoeke",
+			"streamingGroup": "Stroom"
 		},
 		"rateLimit": {
 			"title": "Rasbeperking",
@@ -1449,7 +1451,8 @@
 			"backpressure": "Ratelimiet-terugslag",
 			"backpressureDescription": "Gedeelde waggedrag vir beide per-sleutel- en IP-koersbeperkers",
 			"maxWait": "Max wag (ms)",
-			"maxWait.description": "Maximum wagtyd voordat 'n rate-beperkte versoek verwerp word. As 'n token binne hierdie venster beskikbaar raak, gaan die versoek voort; anders word 'n 429 teruggestuur."
+			"maxWait.description": "Maximum wagtyd voordat 'n rate-beperkte versoek verwerp word. As 'n token binne hierdie venster beskikbaar raak, gaan die versoek voort; anders word 'n 429 teruggestuur.",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Stroomonderbreker en oorloop",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "Wedywer 'n rugsteunverskaffer parallel wanneer die eerste stadig is om sy eerste teken te stuur (slegs stroom-oorvleuelgroepe)",
 			"hedgeDelay": "Verskansingsvertraging",
 			"hedgeDelay.description": "Hoe lank om op die eerste verskaffer se eerste teken te wag voordat ook 'n rugsteunverskaffer afgevuur word",
-			"hedgingNotice": "Verskansing vuur 'n tweede verskaffer parallel af wanneer die eerste stadig begin en hou dié wat eerste antwoord. Met stadige begin verdubbel dit die stroomop-versoek, so verskaffer-tempolimiete en kapasiteit raak vinniger op, en 'n rugsteun wat kansellasie ignoreer kan in die agtergrond aanhou genereer. Skakel dit net aan as stadige eerste tekens meer skade doen as die ekstra las."
+			"hedgingNotice": "Verskansing vuur 'n tweede verskaffer parallel af wanneer die eerste stadig begin en hou dié wat eerste antwoord. Met stadige begin verdubbel dit die stroomop-versoek, so verskaffer-tempolimiete en kapasiteit raak vinniger op, en 'n rugsteun wat kansellasie ignoreer kan in die agtergrond aanhou genereer. Skakel dit net aan as stadige eerste tekens meer skade doen as die ekstra las.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Aantekeningvoering",
@@ -1525,7 +1530,9 @@
 				"24h": "24 uur",
 				"48h": "48 uur",
 				"disabled": "Gestremd"
-			}
+			},
+			"automaticGroup": "Outomaties",
+			"manualGroup": "Handmatig"
 		},
 		"dataStorage": {
 			"title": "Datastoring",

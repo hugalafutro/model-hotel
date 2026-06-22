@@ -1429,7 +1429,9 @@
 				"5m0s": "5 minutter",
 				"10m0s": "10 minutter",
 				"disabled": "Deaktivert"
-			}
+			},
+			"requestsGroup": "Forespørsler",
+			"streamingGroup": "Strømming"
 		},
 		"rateLimit": {
 			"title": "Vurder begrensning",
@@ -1449,7 +1451,8 @@
 			"backpressure": "Frekvens grense for baktrykk",
 			"backpressureDescription": "Delt venteoppførsel både for per-key og IP-rate begrensere",
 			"maxWait": "Maks. ventetid (ms)",
-			"maxWait.description": "Maksimal tid til å vente før du avviser frekvensbegrenset forespørsel. Hvis et token blir tilgjengelig i dette vinduet, fortsetter forespørselen; ellers blir 429 returnert."
+			"maxWait.description": "Maksimal tid til å vente før du avviser frekvensbegrenset forespørsel. Hvis et token blir tilgjengelig i dette vinduet, fortsetter forespørselen; ellers blir 429 returnert.",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Krets Breaker & Svikt",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "Kjører en reserveleverandør parallelt når den første er treg med å sende sitt første token (kun strømmende failover-grupper)",
 			"hedgeDelay": "Sikringsforsinkelse",
 			"hedgeDelay.description": "Hvor lenge det ventes på den første leverandørens første token før en reserveleverandør også startes",
-			"hedgingNotice": "Sikring starter en annen leverandør parallelt når den første er treg i gang, og beholder den som svarer først. Ved treg start dobler dette oppstrømsforespørselen, så leverandørens hastighetsgrenser og kapasitet brukes opp raskere, og en reserve som ignorerer avbrudd kan fortsette å generere i bakgrunnen. Slå det på bare hvis trege første tokens skader mer enn den ekstra belastningen."
+			"hedgingNotice": "Sikring starter en annen leverandør parallelt når den første er treg i gang, og beholder den som svarer først. Ved treg start dobler dette oppstrømsforespørselen, så leverandørens hastighetsgrenser og kapasitet brukes opp raskere, og en reserve som ignorerer avbrudd kan fortsette å generere i bakgrunnen. Slå det på bare hvis trege første tokens skader mer enn den ekstra belastningen.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Logger",
@@ -1525,7 +1530,9 @@
 				"24h": "24 timer",
 				"48h": "48 timer",
 				"disabled": "Deaktivert"
-			}
+			},
+			"automaticGroup": "Automatisk",
+			"manualGroup": "Manuell"
 		},
 		"dataStorage": {
 			"title": "Data Lagring",

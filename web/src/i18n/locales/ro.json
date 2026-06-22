@@ -1429,7 +1429,9 @@
 				"5m0s": "5 minute",
 				"10m0s": "10 minute",
 				"disabled": "Dezactivat"
-			}
+			},
+			"requestsGroup": "Cereri",
+			"streamingGroup": "Streaming"
 		},
 		"rateLimit": {
 			"title": "Rata de limitare",
@@ -1449,7 +1451,8 @@
 			"backpressure": "Evaluează Limita De Returnare",
 			"backpressureDescription": "Comportament de așteptare partajat atât pentru fiecare cheie cât și pentru limitele ratei IP",
 			"maxWait": "Max Asteptare (ms)",
-			"maxWait.description": "Timpul maxim de așteptare înainte de a respinge o cerere limitată de rată. Dacă un token devine disponibil în această fereastră, cererea continuă; în caz contrar, 429 este returnată."
+			"maxWait.description": "Timpul maxim de așteptare înainte de a respinge o cerere limitată de rată. Dacă un token devine disponibil în această fereastră, cererea continuă; în caz contrar, 429 este returnată.",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Circuit Breaker & Eșuare",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "Pornește în paralel un furnizor de rezervă când primul trimite lent primul token (doar grupuri de failover în streaming)",
 			"hedgeDelay": "Întârziere de acoperire",
 			"hedgeDelay.description": "Cât să aștepte primul token al primului furnizor înainte de a porni și un furnizor de rezervă",
-			"hedgingNotice": "Acoperirea pornește în paralel un al doilea furnizor când primul demarează lent și îl păstrează pe cel care răspunde primul. La porniri lente acest lucru dublează cererea în amonte, deci limitele de rată și capacitatea furnizorului se consumă mai repede, iar o rezervă care ignoră anularea poate continua să genereze în fundal. Activează doar dacă primele token-uri lente dăunează mai mult decât sarcina suplimentară."
+			"hedgingNotice": "Acoperirea pornește în paralel un al doilea furnizor când primul demarează lent și îl păstrează pe cel care răspunde primul. La porniri lente acest lucru dublează cererea în amonte, deci limitele de rată și capacitatea furnizorului se consumă mai repede, iar o rezervă care ignoră anularea poate continua să genereze în fundal. Activează doar dacă primele token-uri lente dăunează mai mult decât sarcina suplimentară.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Logare",
@@ -1525,7 +1530,9 @@
 				"24h": "24 ore",
 				"48h": "48 de ore",
 				"disabled": "Dezactivat"
-			}
+			},
+			"automaticGroup": "Automat",
+			"manualGroup": "Manual"
 		},
 		"dataStorage": {
 			"title": "Stocare date",

@@ -1429,7 +1429,9 @@
 				"5m0s": "5 minutos",
 				"10m0s": "10 minutos",
 				"disabled": "Deshabilitado"
-			}
+			},
+			"requestsGroup": "Solicitudes",
+			"streamingGroup": "Transmisión"
 		},
 		"rateLimit": {
 			"title": "Limitar tasa",
@@ -1449,7 +1451,8 @@
 			"backpressure": "Puntuar límite de contracción",
 			"backpressureDescription": "Comportamiento compartido de espera para los limitadores tanto por clave como IP",
 			"maxWait": "Espera Máxima (ms)",
-			"maxWait.description": "Tiempo máximo de espera antes de rechazar una solicitud de tasa limitada. Si un token está disponible dentro de esta ventana, la solicitud procede; de lo contrario se devuelve 429."
+			"maxWait.description": "Tiempo máximo de espera antes de rechazar una solicitud de tasa limitada. Si un token está disponible dentro de esta ventana, la solicitud procede; de lo contrario se devuelve 429.",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Rompedor de circuitos y fallo",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "Lanza un proveedor de respaldo en paralelo cuando el primero tarda en enviar su primer token (solo grupos de conmutación en streaming)",
 			"hedgeDelay": "Retardo de cobertura",
 			"hedgeDelay.description": "Cuánto esperar el primer token del primer proveedor antes de lanzar también un proveedor de respaldo",
-			"hedgingNotice": "La cobertura lanza un segundo proveedor en paralelo cuando el primero tarda en arrancar y conserva el que responde primero. En arranques lentos esto duplica la petición ascendente, por lo que los límites de frecuencia y la capacidad del proveedor se agotan más rápido, y un respaldo que ignora la cancelación puede seguir generando en segundo plano. Actívalo solo si los primeros tokens lentos perjudican más que la carga extra."
+			"hedgingNotice": "La cobertura lanza un segundo proveedor en paralelo cuando el primero tarda en arrancar y conserva el que responde primero. En arranques lentos esto duplica la petición ascendente, por lo que los límites de frecuencia y la capacidad del proveedor se agotan más rápido, y un respaldo que ignora la cancelación puede seguir generando en segundo plano. Actívalo solo si los primeros tokens lentos perjudican más que la carga extra.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Registro",
@@ -1525,7 +1530,9 @@
 				"24h": "24 horas",
 				"48h": "48 horas",
 				"disabled": "Deshabilitado"
-			}
+			},
+			"automaticGroup": "Automático",
+			"manualGroup": "Manual"
 		},
 		"dataStorage": {
 			"title": "Almacenamiento de datos",

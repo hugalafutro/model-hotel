@@ -1429,7 +1429,9 @@
 				"5m0s": "5 minuten",
 				"10m0s": "10 minuten",
 				"disabled": "Uitgeschakeld"
-			}
+			},
+			"requestsGroup": "Verzoeken",
+			"streamingGroup": "Streamen"
 		},
 		"rateLimit": {
 			"title": "Tarief Limiet",
@@ -1449,7 +1451,8 @@
 			"backpressure": "Ratio limiet terugdruk",
 			"backpressureDescription": "Gedeelde wachtgedrag voor zowel per-key als IP rate limieten",
 			"maxWait": "Max Wait (ms)",
-			"maxWait.description": "Maximale wachttijd voordat een aanvraag met beperkte tarieven wordt afgewezen. Als er een token beschikbaar wordt binnen dit venster, gaat het verzoek verder; anders wordt 429 teruggegeven."
+			"maxWait.description": "Maximale wachttijd voordat een aanvraag met beperkte tarieven wordt afgewezen. Als er een token beschikbaar wordt binnen dit venster, gaat het verzoek verder; anders wordt 429 teruggegeven.",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Circuit Breker & Mislukking",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "Start parallel een back-upprovider wanneer de eerste traag is met het eerste token (alleen streamende failovergroepen)",
 			"hedgeDelay": "Afdekvertraging",
 			"hedgeDelay.description": "Hoe lang op het eerste token van de eerste provider wordt gewacht voordat ook een back-upprovider wordt gestart",
-			"hedgingNotice": "Afdekken start een tweede provider parallel wanneer de eerste traag opstart en houdt degene die het eerst antwoordt. Bij trage starts verdubbelt dit de upstream-aanvraag, dus snelheidslimieten en capaciteit van de provider raken sneller op, en een back-up die annulering negeert kan op de achtergrond blijven genereren. Zet dit alleen aan als trage eerste tokens meer schaden dan de extra belasting."
+			"hedgingNotice": "Afdekken start een tweede provider parallel wanneer de eerste traag opstart en houdt degene die het eerst antwoordt. Bij trage starts verdubbelt dit de upstream-aanvraag, dus snelheidslimieten en capaciteit van de provider raken sneller op, en een back-up die annulering negeert kan op de achtergrond blijven genereren. Zet dit alleen aan als trage eerste tokens meer schaden dan de extra belasting.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Logboekregistratie",
@@ -1525,7 +1530,9 @@
 				"24h": "24 uur",
 				"48h": "48 uur",
 				"disabled": "Uitgeschakeld"
-			}
+			},
+			"automaticGroup": "Automatisch",
+			"manualGroup": "Handmatig"
 		},
 		"dataStorage": {
 			"title": "Data Opslag",

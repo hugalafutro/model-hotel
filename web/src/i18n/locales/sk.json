@@ -1429,7 +1429,9 @@
 				"5m0s": "5 minút",
 				"10m0s": "10 minút",
 				"disabled": "Znevýhodnení"
-			}
+			},
+			"requestsGroup": "Požiadavky",
+			"streamingGroup": "Streamovanie"
 		},
 		"rateLimit": {
 			"title": "Obmedzenie frekvencie",
@@ -1449,7 +1451,8 @@
 			"backpressure": "Protitlak obmedzenia rýchlosti",
 			"backpressureDescription": "Správanie pri spoločnom čakaní pre obmedzovače rýchlosti na úrovni kľúča aj na úrovni IP",
 			"maxWait": "Maximálna doba čakania (ms)",
-			"maxWait.description": "Maximálna doba čakania pred odmietnutím požiadavky s obmedzením frekvencie. Ak sa v priebehu tohto času uvoľní token, požiadavka sa spracuje; v opačnom prípade sa vráti kód 429."
+			"maxWait.description": "Maximálna doba čakania pred odmietnutím požiadavky s obmedzením frekvencie. Ak sa v priebehu tohto času uvoľní token, požiadavka sa spracuje; v opačnom prípade sa vráti kód 429.",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Istič a prechod na záložný systém",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "Paralelne spustí záložného poskytovateľa, keď prvý pomaly odošle prvý token (len streamovacie skupiny prevzatia služieb)",
 			"hedgeDelay": "Oneskorenie zaistenia",
 			"hedgeDelay.description": "Ako dlho čakať na prvý token prvého poskytovateľa, než sa spustí aj záložný poskytovateľ",
-			"hedgingNotice": "Zaistenie paralelne spustí druhého poskytovateľa, keď prvý pomaly štartuje, a ponechá toho, kto odpovie skôr. Pri pomalom štarte to zdvojnásobí požiadavku nahor, takže limity a kapacita poskytovateľa sa míňajú rýchlejšie a záloha, ktorá ignoruje zrušenie, môže ďalej generovať na pozadí. Zapnite len vtedy, ak pomalé prvé tokeny škodia viac než záťaž navyše."
+			"hedgingNotice": "Zaistenie paralelne spustí druhého poskytovateľa, keď prvý pomaly štartuje, a ponechá toho, kto odpovie skôr. Pri pomalom štarte to zdvojnásobí požiadavku nahor, takže limity a kapacita poskytovateľa sa míňajú rýchlejšie a záloha, ktorá ignoruje zrušenie, môže ďalej generovať na pozadí. Zapnite len vtedy, ak pomalé prvé tokeny škodia viac než záťaž navyše.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Vytváranie protokolov",
@@ -1525,7 +1530,9 @@
 				"24h": "24 hodín",
 				"48h": "48 hodín",
 				"disabled": "Znevýhodnení"
-			}
+			},
+			"automaticGroup": "Automaticky",
+			"manualGroup": "Ručne"
 		},
 		"dataStorage": {
 			"title": "Ukladanie údajov",

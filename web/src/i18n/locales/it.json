@@ -1429,7 +1429,9 @@
 				"5m0s": "5 minuti",
 				"10m0s": "10 minuti",
 				"disabled": "Disabilitato"
-			}
+			},
+			"requestsGroup": "Richieste",
+			"streamingGroup": "Streaming"
 		},
 		"rateLimit": {
 			"title": "Limite Di Tasso",
@@ -1449,7 +1451,8 @@
 			"backpressure": "Tasso Limite Di Contropressione",
 			"backpressureDescription": "Comportamento di attesa condiviso per entrambi i limitatori di velocità per chiave e IP",
 			"maxWait": "Max Attendere (ms)",
-			"maxWait.description": "Tempo massimo di attesa prima di respingere una richiesta limitata. Se un token diventa disponibile all'interno di questa finestra, la richiesta procede; altrimenti 429 viene restituito."
+			"maxWait.description": "Tempo massimo di attesa prima di respingere una richiesta limitata. Se un token diventa disponibile all'interno di questa finestra, la richiesta procede; altrimenti 429 viene restituito.",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Interruttore & Fallimento",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "Avvia un provider di riserva in parallelo quando il primo è lento a inviare il primo token (solo gruppi di failover in streaming)",
 			"hedgeDelay": "Ritardo di copertura",
 			"hedgeDelay.description": "Quanto attendere il primo token del primo provider prima di avviare anche un provider di riserva",
-			"hedgingNotice": "La copertura avvia un secondo provider in parallelo quando il primo è lento a partire e mantiene quello che risponde per primo. Negli avvii lenti questo raddoppia la richiesta a monte, quindi i limiti di frequenza e la capacità del provider si esauriscono più in fretta, e una riserva che ignora l'annullamento può continuare a generare in background. Attivala solo se i primi token lenti danneggiano più del carico extra."
+			"hedgingNotice": "La copertura avvia un secondo provider in parallelo quando il primo è lento a partire e mantiene quello che risponde per primo. Negli avvii lenti questo raddoppia la richiesta a monte, quindi i limiti di frequenza e la capacità del provider si esauriscono più in fretta, e una riserva che ignora l'annullamento può continuare a generare in background. Attivala solo se i primi token lenti danneggiano più del carico extra.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Registrazione",
@@ -1525,7 +1530,9 @@
 				"24h": "24 ore",
 				"48h": "48 ore",
 				"disabled": "Disabilitato"
-			}
+			},
+			"automaticGroup": "Automatico",
+			"manualGroup": "Manuale"
 		},
 		"dataStorage": {
 			"title": "Archiviazione Dati",

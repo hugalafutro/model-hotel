@@ -1429,7 +1429,9 @@
 				"5m0s": "5 minut",
 				"10m0s": "10 minut",
 				"disabled": "Zakázáno"
-			}
+			},
+			"requestsGroup": "Požadavky",
+			"streamingGroup": "Streamování"
 		},
 		"rateLimit": {
 			"title": "Rate limiting",
@@ -1449,7 +1451,8 @@
 			"backpressure": "Backpressure",
 			"backpressureDescription": "Chování při sdíleném čekání u omezovačů rychlosti na úrovni jednotlivých klíčů i na úrovni IP adres",
 			"maxWait": "Maximální čekací doba (ms)",
-			"maxWait.description": "Maximální doba čekání před odmítnutím požadavku s omezením rychlosti. Pokud se v tomto časovém intervalu uvolní token, požadavek se zpracuje; v opačném případě je vrácena chyba 429."
+			"maxWait.description": "Maximální doba čekání před odmítnutím požadavku s omezením rychlosti. Pokud se v tomto časovém intervalu uvolní token, požadavek se zpracuje; v opačném případě je vrácena chyba 429.",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Jistič a Failover",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "Souběžně spustí záložního poskytovatele, když první pomalu odesílá první token (jen u streamovacích skupin převzetí služeb)",
 			"hedgeDelay": "Prodleva zajištění",
 			"hedgeDelay.description": "Jak dlouho čekat na první token prvního poskytovatele, než se spustí i záložní poskytovatel",
-			"hedgingNotice": "Zajištění souběžně spustí druhého poskytovatele, když první pomalu začíná, a ponechá toho, kdo odpoví dřív. Při pomalém startu to zdvojnásobí požadavek nahoru, takže limity a kapacita poskytovatele se vyčerpávají rychleji a záloha, která ignoruje zrušení, může dál generovat na pozadí. Zapněte jen tehdy, když pomalé první tokeny škodí víc než zátěž navíc."
+			"hedgingNotice": "Zajištění souběžně spustí druhého poskytovatele, když první pomalu začíná, a ponechá toho, kdo odpoví dřív. Při pomalém startu to zdvojnásobí požadavek nahoru, takže limity a kapacita poskytovatele se vyčerpávají rychleji a záloha, která ignoruje zrušení, může dál generovat na pozadí. Zapněte jen tehdy, když pomalé první tokeny škodí víc než zátěž navíc.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Logování",
@@ -1525,7 +1530,9 @@
 				"24h": "24 hodin",
 				"48h": "48 hodin",
 				"disabled": "Zakázáno"
-			}
+			},
+			"automaticGroup": "Automaticky",
+			"manualGroup": "Ručně"
 		},
 		"dataStorage": {
 			"title": "Ukládání dat",

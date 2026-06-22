@@ -1429,7 +1429,9 @@
 				"5m0s": "5 Minuten",
 				"10m0s": "10 Minuten",
 				"disabled": "Deaktiviert"
-			}
+			},
+			"requestsGroup": "Anfragen",
+			"streamingGroup": "Streaming"
 		},
 		"rateLimit": {
 			"title": "Bewertungsbegrenzung",
@@ -1449,7 +1451,8 @@
 			"backpressure": "Datenlimit Rückdruck",
 			"backpressureDescription": "Geteiltes Warteverhalten sowohl für pro Taste als auch für IP-Rate Limitierungen",
 			"maxWait": "Max. Wartezeit (ms)",
-			"maxWait.description": "Maximale Wartezeit, bevor eine limitierte Anfrage abgelehnt wird. Wenn ein Token in diesem Fenster verfügbar ist, wird die Anfrage fortgesetzt; ansonsten wird 429 zurückgegeben."
+			"maxWait.description": "Maximale Wartezeit, bevor eine limitierte Anfrage abgelehnt wird. Wenn ein Token in diesem Fenster verfügbar ist, wird die Anfrage fortgesetzt; ansonsten wird 429 zurückgegeben.",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Schaltkreisbrecher & Fehler",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "Startet bei langsamem ersten Token parallel einen Backup-Anbieter (nur bei streamenden Failover-Gruppen)",
 			"hedgeDelay": "Absicherungsverzögerung",
 			"hedgeDelay.description": "Wie lange auf das erste Token des ersten Anbieters gewartet wird, bevor zusätzlich ein Backup-Anbieter gestartet wird",
-			"hedgingNotice": "Bei der Absicherung wird ein zweiter Anbieter parallel gestartet, wenn der erste langsam anläuft, und der zuerst antwortende behalten. Bei langsamem Start verdoppelt das die Upstream-Anfrage, sodass Ratenlimits und Kapazität des Anbieters schneller verbraucht werden und ein Backup, das den Abbruch ignoriert, im Hintergrund weiter generieren kann. Aktivieren Sie es nur, wenn langsame erste Tokens mehr schaden als die zusätzliche Last."
+			"hedgingNotice": "Bei der Absicherung wird ein zweiter Anbieter parallel gestartet, wenn der erste langsam anläuft, und der zuerst antwortende behalten. Bei langsamem Start verdoppelt das die Upstream-Anfrage, sodass Ratenlimits und Kapazität des Anbieters schneller verbraucht werden und ein Backup, das den Abbruch ignoriert, im Hintergrund weiter generieren kann. Aktivieren Sie es nur, wenn langsame erste Tokens mehr schaden als die zusätzliche Last.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Protokollierung",
@@ -1525,7 +1530,9 @@
 				"24h": "24 Stunden",
 				"48h": "48 Stunden",
 				"disabled": "Deaktiviert"
-			}
+			},
+			"automaticGroup": "Automatisch",
+			"manualGroup": "Manuell"
 		},
 		"dataStorage": {
 			"title": "Datenspeicher",

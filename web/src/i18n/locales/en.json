@@ -1429,7 +1429,9 @@
 				"5m0s": "5 minutes",
 				"10m0s": "10 minutes",
 				"disabled": "Disabled"
-			}
+			},
+			"requestsGroup": "Requests",
+			"streamingGroup": "Streaming"
 		},
 		"rateLimit": {
 			"title": "Rate Limiting",
@@ -1449,7 +1451,8 @@
 			"backpressure": "Rate Limit Backpressure",
 			"backpressureDescription": "Shared wait behavior for both per-key and IP rate limiters",
 			"maxWait": "Max Wait (ms)",
-			"maxWait.description": "Maximum time to wait before rejecting a rate-limited request. If a token becomes available within this window, the request proceeds; otherwise 429 is returned."
+			"maxWait.description": "Maximum time to wait before rejecting a rate-limited request. If a token becomes available within this window, the request proceeds; otherwise 429 is returned.",
+			"perIpGroup": "Per-IP"
 		},
 		"alerts": {
 			"title": "Alerts",
@@ -1509,7 +1512,9 @@
 			"hedgingDescription": "Race a backup provider in parallel when the first is slow to send its first token (streaming failover groups only)",
 			"hedgeDelay": "Hedge Delay",
 			"hedgeDelay.description": "How long to wait for the first provider's first token before also firing a backup provider",
-			"hedgingNotice": "Hedging fires a second provider in parallel when the first is slow to start and keeps whichever answers first. On slow starts this doubles the upstream request, so provider rate limits and capacity are used up faster, and a backup that ignores cancellation can keep generating in the background. Turn it on only if slow first tokens hurt more than the extra load."
+			"hedgingNotice": "Hedging fires a second provider in parallel when the first is slow to start and keeps whichever answers first. On slow starts this doubles the upstream request, so provider rate limits and capacity are used up faster, and a backup that ignores cancellation can keep generating in the background. Turn it on only if slow first tokens hurt more than the extra load.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Logging",
@@ -1568,7 +1573,9 @@
 				"24h": "24 hours",
 				"48h": "48 hours",
 				"disabled": "Disabled"
-			}
+			},
+			"automaticGroup": "Automatic",
+			"manualGroup": "Manual"
 		},
 		"dataStorage": {
 			"title": "Data Storage",

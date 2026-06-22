@@ -1429,7 +1429,9 @@
 				"5m0s": "5 minutter",
 				"10m0s": "10 minutter",
 				"disabled": "Deaktiveret"
-			}
+			},
+			"requestsGroup": "Anmodninger",
+			"streamingGroup": "Streaming"
 		},
 		"rateLimit": {
 			"title": "Begrænsning Af Sats",
@@ -1449,7 +1451,8 @@
 			"backpressure": "Tilbagetryk For Sats",
 			"backpressureDescription": "Delt venteadfærd for både per-key og IP rate limiters",
 			"maxWait": "Maks. Vent (ms)",
-			"maxWait.description": "Maksimal tid til at vente, før en anmodning om hastighedsbegrænsning afvises. Hvis en token bliver tilgængelig inden for dette vindue, så fortsættes anmodningen. Ellers returneres 429."
+			"maxWait.description": "Maksimal tid til at vente, før en anmodning om hastighedsbegrænsning afvises. Hvis en token bliver tilgængelig inden for dette vindue, så fortsættes anmodningen. Ellers returneres 429.",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Circuit Breaker & Failover",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "Kør en backup-udbyder parallelt, når den første er langsom til at sende sit første token (kun streamende failover-grupper)",
 			"hedgeDelay": "Afdækningsforsinkelse",
 			"hedgeDelay.description": "Hvor længe der ventes på den første udbyders første token, før en backup-udbyder også startes",
-			"hedgingNotice": "Afdækning starter en anden udbyder parallelt, når den første er langsom i gang, og beholder den, der svarer først. Ved langsom start fordobler det anmodningen opstrøms, så udbyderens hastighedsgrænser og kapacitet bruges hurtigere, og en backup, der ignorerer annullering, kan blive ved med at generere i baggrunden. Slå det kun til, hvis langsomme første tokens skader mere end den ekstra belastning."
+			"hedgingNotice": "Afdækning starter en anden udbyder parallelt, når den første er langsom i gang, og beholder den, der svarer først. Ved langsom start fordobler det anmodningen opstrøms, så udbyderens hastighedsgrænser og kapacitet bruges hurtigere, og en backup, der ignorerer annullering, kan blive ved med at generere i baggrunden. Slå det kun til, hvis langsomme første tokens skader mere end den ekstra belastning.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Logning",
@@ -1525,7 +1530,9 @@
 				"24h": "24 timer",
 				"48h": "48 timer",
 				"disabled": "Deaktiveret"
-			}
+			},
+			"automaticGroup": "Automatisk",
+			"manualGroup": "Manuel"
 		},
 		"dataStorage": {
 			"title": "Lagring Af Data",

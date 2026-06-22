@@ -42,180 +42,176 @@ export function CircuitBreakerSettings({
 				<p className="text-gray-400 text-sm">
 					{t("settings.circuitBreaker.description")}
 				</p>
-				<SettingsGroup>
-					<div className="grid grid-cols-2 gap-x-6 gap-y-5 [align-items:start]">
-						<div className="space-y-5">
-							<div className="flex items-center justify-between gap-3">
-								<div className="min-w-0">
-									<div className="flex items-center gap-1">
-										<p className="text-sm font-medium text-gray-300">
-											{t("settings.circuitBreaker.enable")}
-										</p>
-										<ResetButton
-											tooltip={t("settings.common.resetSetting")}
-											onClick={() =>
-												resetSettingMutation.mutate(["circuit_breaker_enabled"])
-											}
-											size={12}
-											disabled={isResetting}
-										/>
-									</div>
-									<p className="text-gray-500 text-xs mt-0.5">
-										{t("settings.circuitBreaker.enableDescription")}
+				<div className="grid grid-cols-2 gap-x-6 gap-y-5 [align-items:start]">
+					<SettingsGroup title={t("settings.circuitBreaker.failoverGroup")}>
+						<div className="flex items-center justify-between gap-3">
+							<div className="min-w-0">
+								<div className="flex items-center gap-1">
+									<p className="text-sm font-medium text-gray-300">
+										{t("settings.circuitBreaker.enable")}
 									</p>
+									<ResetButton
+										tooltip={t("settings.common.resetSetting")}
+										onClick={() =>
+											resetSettingMutation.mutate(["circuit_breaker_enabled"])
+										}
+										size={12}
+										disabled={isResetting}
+									/>
 								</div>
-								<Toggle
-									checked={circuitBreakerEnabled}
-									size="sm"
-									onChange={(v) =>
-										updateMutation.mutate({
-											circuit_breaker_enabled: v ? "true" : "false",
-										})
-									}
-									ariaLabel={t("settings.circuitBreaker.enable")}
-								/>
+								<p className="text-gray-500 text-xs mt-0.5">
+									{t("settings.circuitBreaker.enableDescription")}
+								</p>
 							</div>
-
-							<div className="flex items-center justify-between gap-3">
-								<div className="min-w-0">
-									<div className="flex items-center gap-1">
-										<p className="text-sm font-medium text-gray-300">
-											{t("settings.circuitBreaker.failoverOnRateLimit")}
-										</p>
-										<ResetButton
-											tooltip={t("settings.common.resetSetting")}
-											onClick={() =>
-												resetSettingMutation.mutate(["failover_on_rate_limit"])
-											}
-											size={12}
-											disabled={isResetting}
-										/>
-									</div>
-									<p className="text-gray-500 text-xs mt-0.5">
-										{t(
-											"settings.circuitBreaker.failoverOnRateLimitDescription",
-										)}
-									</p>
-								</div>
-								<Toggle
-									checked={failoverOnRateLimit}
-									size="sm"
-									onChange={(v) =>
-										updateMutation.mutate({
-											failover_on_rate_limit: v ? "true" : "false",
-										})
-									}
-									ariaLabel={t("settings.circuitBreaker.failoverOnRateLimit")}
-								/>
-							</div>
-
-							<div className="flex items-center justify-between gap-3">
-								<div className="min-w-0">
-									<div className="flex items-center gap-1">
-										<p className="text-sm font-medium text-gray-300">
-											{t("settings.circuitBreaker.hedging")}
-										</p>
-										<ResetButton
-											tooltip={t("settings.common.resetSetting")}
-											onClick={() =>
-												resetSettingMutation.mutate(["hedging_enabled"])
-											}
-											size={12}
-											disabled={isResetting}
-										/>
-									</div>
-									<p className="text-gray-500 text-xs mt-0.5">
-										{t("settings.circuitBreaker.hedgingDescription")}
-									</p>
-								</div>
-								<Toggle
-									checked={hedgingEnabled}
-									size="sm"
-									onChange={(v) =>
-										updateMutation.mutate({
-											hedging_enabled: v ? "true" : "false",
-										})
-									}
-									ariaLabel={t("settings.circuitBreaker.hedging")}
-								/>
-							</div>
+							<Toggle
+								checked={circuitBreakerEnabled}
+								size="sm"
+								onChange={(v) =>
+									updateMutation.mutate({
+										circuit_breaker_enabled: v ? "true" : "false",
+									})
+								}
+								ariaLabel={t("settings.circuitBreaker.enable")}
+							/>
 						</div>
 
-						<div className="space-y-5">
-							{circuitBreakerEnabled && (
-								<>
-									<SettingsSlider
-										id="circuit-breaker-threshold"
-										label={t("settings.circuitBreaker.failureThreshold")}
-										value={Number(circuitBreakerThreshold)}
-										min={1}
-										max={50}
-										step={1}
-										unit="s"
-										hideUnit
-										onChange={(v) =>
-											updateMutation.mutate({
-												circuit_breaker_threshold: String(v),
-											})
+						<div className="flex items-center justify-between gap-3">
+							<div className="min-w-0">
+								<div className="flex items-center gap-1">
+									<p className="text-sm font-medium text-gray-300">
+										{t("settings.circuitBreaker.failoverOnRateLimit")}
+									</p>
+									<ResetButton
+										tooltip={t("settings.common.resetSetting")}
+										onClick={() =>
+											resetSettingMutation.mutate(["failover_on_rate_limit"])
 										}
-										description={t(
-											"settings.circuitBreaker.failureThreshold.description",
-										)}
-										onReset={() =>
-											resetSettingMutation.mutate(["circuit_breaker_threshold"])
-										}
-										resetTooltip={t("settings.common.resetSetting")}
+										size={12}
+										disabled={isResetting}
 									/>
+								</div>
+								<p className="text-gray-500 text-xs mt-0.5">
+									{t("settings.circuitBreaker.failoverOnRateLimitDescription")}
+								</p>
+							</div>
+							<Toggle
+								checked={failoverOnRateLimit}
+								size="sm"
+								onChange={(v) =>
+									updateMutation.mutate({
+										failover_on_rate_limit: v ? "true" : "false",
+									})
+								}
+								ariaLabel={t("settings.circuitBreaker.failoverOnRateLimit")}
+							/>
+						</div>
 
-									<SettingsSlider
-										id="circuit-breaker-cooldown"
-										label={t("settings.circuitBreaker.cooldownPeriod")}
-										value={goDurationToSeconds(circuitBreakerCooldown)}
-										min={30}
-										max={600}
-										step={30}
-										clampStep={30}
-										unit="s"
-										onChange={(v) =>
-											updateMutation.mutate({
-												circuit_breaker_cooldown: secondsToGoDuration(v),
-											})
-										}
-										description={t(
-											"settings.circuitBreaker.cooldownPeriod.description",
-										)}
-										onReset={() =>
-											resetSettingMutation.mutate(["circuit_breaker_cooldown"])
-										}
-										resetTooltip={t("settings.common.resetSetting")}
-									/>
-								</>
-							)}
-
-							{hedgingEnabled && (
+						{circuitBreakerEnabled && (
+							<>
 								<SettingsSlider
-									id="hedge-delay"
-									label={t("settings.circuitBreaker.hedgeDelay")}
-									value={goDurationToSeconds(hedgeDelay)}
+									id="circuit-breaker-threshold"
+									label={t("settings.circuitBreaker.failureThreshold")}
+									value={Number(circuitBreakerThreshold)}
 									min={1}
-									max={15}
+									max={50}
 									step={1}
 									unit="s"
+									hideUnit
 									onChange={(v) =>
 										updateMutation.mutate({
-											hedge_delay: secondsToGoDuration(v),
+											circuit_breaker_threshold: String(v),
 										})
 									}
 									description={t(
-										"settings.circuitBreaker.hedgeDelay.description",
+										"settings.circuitBreaker.failureThreshold.description",
 									)}
-									onReset={() => resetSettingMutation.mutate(["hedge_delay"])}
+									onReset={() =>
+										resetSettingMutation.mutate(["circuit_breaker_threshold"])
+									}
 									resetTooltip={t("settings.common.resetSetting")}
 								/>
-							)}
+
+								<SettingsSlider
+									id="circuit-breaker-cooldown"
+									label={t("settings.circuitBreaker.cooldownPeriod")}
+									value={goDurationToSeconds(circuitBreakerCooldown)}
+									min={30}
+									max={600}
+									step={30}
+									clampStep={30}
+									unit="s"
+									onChange={(v) =>
+										updateMutation.mutate({
+											circuit_breaker_cooldown: secondsToGoDuration(v),
+										})
+									}
+									description={t(
+										"settings.circuitBreaker.cooldownPeriod.description",
+									)}
+									onReset={() =>
+										resetSettingMutation.mutate(["circuit_breaker_cooldown"])
+									}
+									resetTooltip={t("settings.common.resetSetting")}
+								/>
+							</>
+						)}
+					</SettingsGroup>
+
+					<SettingsGroup title={t("settings.circuitBreaker.hedgingGroup")}>
+						<div className="flex items-center justify-between gap-3">
+							<div className="min-w-0">
+								<div className="flex items-center gap-1">
+									<p className="text-sm font-medium text-gray-300">
+										{t("settings.circuitBreaker.hedging")}
+									</p>
+									<ResetButton
+										tooltip={t("settings.common.resetSetting")}
+										onClick={() =>
+											resetSettingMutation.mutate(["hedging_enabled"])
+										}
+										size={12}
+										disabled={isResetting}
+									/>
+								</div>
+								<p className="text-gray-500 text-xs mt-0.5">
+									{t("settings.circuitBreaker.hedgingDescription")}
+								</p>
+							</div>
+							<Toggle
+								checked={hedgingEnabled}
+								size="sm"
+								onChange={(v) =>
+									updateMutation.mutate({
+										hedging_enabled: v ? "true" : "false",
+									})
+								}
+								ariaLabel={t("settings.circuitBreaker.hedging")}
+							/>
 						</div>
-					</div>
-				</SettingsGroup>
+
+						{hedgingEnabled && (
+							<SettingsSlider
+								id="hedge-delay"
+								label={t("settings.circuitBreaker.hedgeDelay")}
+								value={goDurationToSeconds(hedgeDelay)}
+								min={1}
+								max={15}
+								step={1}
+								unit="s"
+								onChange={(v) =>
+									updateMutation.mutate({
+										hedge_delay: secondsToGoDuration(v),
+									})
+								}
+								description={t(
+									"settings.circuitBreaker.hedgeDelay.description",
+								)}
+								onReset={() => resetSettingMutation.mutate(["hedge_delay"])}
+								resetTooltip={t("settings.common.resetSetting")}
+							/>
+						)}
+					</SettingsGroup>
+				</div>
 
 				{hedgingEnabled && (
 					<div className="p-3 bg-amber-900/30 border border-amber-600 rounded-(--radius-box)">

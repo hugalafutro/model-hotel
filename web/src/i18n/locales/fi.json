@@ -1429,7 +1429,9 @@
 				"5m0s": "5 minuuttia",
 				"10m0s": "10 minuuttia",
 				"disabled": "Pois Käytöstä"
-			}
+			},
+			"requestsGroup": "Pyynnöt",
+			"streamingGroup": "Suoratoistaminen"
 		},
 		"rateLimit": {
 			"title": "Arvostele Rajoitus",
@@ -1449,7 +1451,8 @@
 			"backpressure": "Arvostele Raja Backpressure",
 			"backpressureDescription": "Jaettu odotuskäyttäytyminen sekä avaimen että IP-nopeuden rajoittimille",
 			"maxWait": "Maksimi Odotus (ms)",
-			"maxWait.description": "Enimmäisaika odottaa ennen kuin hylkäät hintarajoitetun pyynnön. Jos tunnus tulee saataville tässä ikkunassa, pyyntö jatkuu; muuten 429 palautetaan."
+			"maxWait.description": "Enimmäisaika odottaa ennen kuin hylkäät hintarajoitetun pyynnön. Jos tunnus tulee saataville tässä ikkunassa, pyyntö jatkuu; muuten 429 palautetaan.",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Circuit Breaker & Failover",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "Käynnistää varantarjoajan rinnakkain, kun ensimmäinen lähettää ensimmäisen tokenin hitaasti (vain suoratoiston vikasietoryhmät)",
 			"hedgeDelay": "Suojausviive",
 			"hedgeDelay.description": "Kuinka kauan odotetaan ensimmäisen tarjoajan ensimmäistä tokenia ennen kuin myös varantarjoaja käynnistetään",
-			"hedgingNotice": "Suojaus käynnistää toisen tarjoajan rinnakkain, kun ensimmäinen on hidas alkuun, ja pitää sen, joka vastaa ensin. Hitaissa aloituksissa tämä kaksinkertaistaa ylävirran pyynnön, joten tarjoajan nopeusrajat ja kapasiteetti kuluvat nopeammin, ja peruutuksen ohittava varatarjoaja voi jatkaa tuottamista taustalla. Ota käyttöön vain, jos hitaat ensimmäiset tokenit haittaavat enemmän kuin lisäkuorma."
+			"hedgingNotice": "Suojaus käynnistää toisen tarjoajan rinnakkain, kun ensimmäinen on hidas alkuun, ja pitää sen, joka vastaa ensin. Hitaissa aloituksissa tämä kaksinkertaistaa ylävirran pyynnön, joten tarjoajan nopeusrajat ja kapasiteetti kuluvat nopeammin, ja peruutuksen ohittava varatarjoaja voi jatkaa tuottamista taustalla. Ota käyttöön vain, jos hitaat ensimmäiset tokenit haittaavat enemmän kuin lisäkuorma.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Lokitus",
@@ -1525,7 +1530,9 @@
 				"24h": "24 tuntia",
 				"48h": "48 tuntia",
 				"disabled": "Pois Käytöstä"
-			}
+			},
+			"automaticGroup": "Automaattinen",
+			"manualGroup": "Manuaalinen"
 		},
 		"dataStorage": {
 			"title": "Tietojen Tallennustila",

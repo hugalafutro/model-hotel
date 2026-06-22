@@ -5611,8 +5611,65 @@
 		"no",
 		"pl"
 	],
+	"settings.circuitBreaker.failoverGroup": [
+		"af",
+		"ar",
+		"ca",
+		"cs",
+		"da",
+		"de",
+		"el",
+		"es",
+		"fi",
+		"fr",
+		"he",
+		"hu",
+		"it",
+		"nl",
+		"no",
+		"pl",
+		"pt",
+		"ro",
+		"ru",
+		"sk",
+		"sr",
+		"sv",
+		"tr",
+		"uk",
+		"vi"
+	],
 	"settings.circuitBreaker.failoverOnRateLimit": [
 		"it"
+	],
+	"settings.circuitBreaker.hedgingGroup": [
+		"af",
+		"ar",
+		"ca",
+		"cs",
+		"da",
+		"de",
+		"el",
+		"es",
+		"fi",
+		"fr",
+		"he",
+		"hu",
+		"it",
+		"ja",
+		"ko",
+		"nl",
+		"no",
+		"pl",
+		"pt",
+		"ro",
+		"ru",
+		"sk",
+		"sr",
+		"sv",
+		"tr",
+		"uk",
+		"vi",
+		"zh"
 	],
 	"settings.circuitBreaker.title": [
 		"da",
@@ -5721,6 +5778,12 @@
 	"settings.discovery.intervals.0.5h": [
 		"fr"
 	],
+	"settings.discovery.manualGroup": [
+		"ca",
+		"es",
+		"pt",
+		"ro"
+	],
 	"settings.discovery.title": [
 		"da"
 	],
@@ -5807,6 +5870,14 @@
 		"da",
 		"sv"
 	],
+	"settings.proxy.streamingGroup": [
+		"ca",
+		"da",
+		"de",
+		"hu",
+		"it",
+		"ro"
+	],
 	"settings.proxy.timeout.10m0s": [
 		"fr"
 	],
@@ -5845,6 +5916,36 @@
 	],
 	"settings.rateLimit.maxWait": [
 		"nl"
+	],
+	"settings.rateLimit.perIpGroup": [
+		"af",
+		"ar",
+		"ca",
+		"cs",
+		"da",
+		"de",
+		"el",
+		"es",
+		"fi",
+		"fr",
+		"he",
+		"hu",
+		"it",
+		"ja",
+		"ko",
+		"nl",
+		"no",
+		"pl",
+		"pt",
+		"ro",
+		"ru",
+		"sk",
+		"sr",
+		"sv",
+		"tr",
+		"uk",
+		"vi",
+		"zh"
 	],
 	"settings.sidebarQuota.intervals.1": [
 		"fr"

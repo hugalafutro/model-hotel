@@ -1429,7 +1429,9 @@
 				"5m0s": "5 minuts",
 				"10m0s": "10 minuts",
 				"disabled": "Discapacitat"
-			}
+			},
+			"requestsGroup": "Sol·licituds",
+			"streamingGroup": "Streaming"
 		},
 		"rateLimit": {
 			"title": "Limitació de velocitat",
@@ -1449,7 +1451,8 @@
 			"backpressure": "Retropressió del límit de velocitat",
 			"backpressureDescription": "Comportament d'espera compartit per als limitadors de velocitat per tecla i per IP",
 			"maxWait": "Màxima espera (ms)",
-			"maxWait.description": "Temps màxim d'espera abans de rebutjar una sol·licitud amb limitació de velocitat. Si un token es fa disponible dins d'aquest interval, la sol·licitud continua; si no, es retorna un 429."
+			"maxWait.description": "Temps màxim d'espera abans de rebutjar una sol·licitud amb limitació de velocitat. Si un token es fa disponible dins d'aquest interval, la sol·licitud continua; si no, es retorna un 429.",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Interruptor automàtic i commutació per error",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "Competeix amb un proveïdor de reserva en paral·lel quan el primer triga a enviar el primer testimoni (només grups de commutació en streaming)",
 			"hedgeDelay": "Retard de cobertura",
 			"hedgeDelay.description": "Quant de temps esperar el primer testimoni del primer proveïdor abans de llançar també un proveïdor de reserva",
-			"hedgingNotice": "La cobertura llança un segon proveïdor en paral·lel quan el primer triga a començar i conserva el que respon primer. En inicis lents això duplica la petició cap amunt, de manera que els límits de freqüència i la capacitat del proveïdor s'esgoten més de pressa, i una reserva que ignora la cancel·lació pot continuar generant en segon pla. Activa-ho només si els primers testimonis lents fan més mal que la càrrega addicional."
+			"hedgingNotice": "La cobertura llança un segon proveïdor en paral·lel quan el primer triga a començar i conserva el que respon primer. En inicis lents això duplica la petició cap amunt, de manera que els límits de freqüència i la capacitat del proveïdor s'esgoten més de pressa, i una reserva que ignora la cancel·lació pot continuar generant en segon pla. Activa-ho només si els primers testimonis lents fan més mal que la càrrega addicional.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Registre",
@@ -1525,7 +1530,9 @@
 				"24h": "24 hores",
 				"48h": "48 hores",
 				"disabled": "Discapacitat"
-			}
+			},
+			"automaticGroup": "Automàtic",
+			"manualGroup": "Manual"
 		},
 		"dataStorage": {
 			"title": "Emmagatzematge de dades",

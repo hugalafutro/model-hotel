@@ -1429,7 +1429,9 @@
 				"5m0s": "5 minut",
 				"10m0s": "10 minut",
 				"disabled": "Wyłączone"
-			}
+			},
+			"requestsGroup": "Żądania",
+			"streamingGroup": "Strumieniowanie"
 		},
 		"rateLimit": {
 			"title": "Ograniczenie oceny",
@@ -1449,7 +1451,8 @@
 			"backpressure": "Oceń ograniczenie ciśnienia wstecznego",
 			"backpressureDescription": "Współdzielone zachowanie oczekiwania zarówno dla skrótów klawiszowych jak i IP",
 			"maxWait": "Maks. oczekiwanie (ms)",
-			"maxWait.description": "Maksymalny czas oczekiwania przed odrzuceniem żądania o ograniczonej szybkości. Jeśli token stanie się dostępny w tym oknie, wniosek zostanie wykonany; w przeciwnym razie zostanie zwrócony 429."
+			"maxWait.description": "Maksymalny czas oczekiwania przed odrzuceniem żądania o ograniczonej szybkości. Jeśli token stanie się dostępny w tym oknie, wniosek zostanie wykonany; w przeciwnym razie zostanie zwrócony 429.",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Łamacz obwodu i przelotka",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "Uruchamia równolegle zapasowego dostawcę, gdy pierwszy powoli wysyła pierwszy token (tylko strumieniowe grupy przełączania awaryjnego)",
 			"hedgeDelay": "Opóźnienie zabezpieczenia",
 			"hedgeDelay.description": "Jak długo czekać na pierwszy token pierwszego dostawcy, zanim zostanie uruchomiony także dostawca zapasowy",
-			"hedgingNotice": "Zabezpieczenie uruchamia drugiego dostawcę równolegle, gdy pierwszy wolno startuje, i zachowuje tego, który odpowie pierwszy. Przy wolnych startach podwaja to żądanie w górę strumienia, więc limity szybkości i przepustowość dostawcy wyczerpują się szybciej, a zapas ignorujący anulowanie może dalej generować w tle. Włącz tylko wtedy, gdy wolne pierwsze tokeny szkodzą bardziej niż dodatkowe obciążenie."
+			"hedgingNotice": "Zabezpieczenie uruchamia drugiego dostawcę równolegle, gdy pierwszy wolno startuje, i zachowuje tego, który odpowie pierwszy. Przy wolnych startach podwaja to żądanie w górę strumienia, więc limity szybkości i przepustowość dostawcy wyczerpują się szybciej, a zapas ignorujący anulowanie może dalej generować w tle. Włącz tylko wtedy, gdy wolne pierwsze tokeny szkodzą bardziej niż dodatkowe obciążenie.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Rejestrowanie",
@@ -1525,7 +1530,9 @@
 				"24h": "24 godziny",
 				"48h": "48 godzin",
 				"disabled": "Wyłączone"
-			}
+			},
+			"automaticGroup": "Automatyczne",
+			"manualGroup": "Ręczne"
 		},
 		"dataStorage": {
 			"title": "Przechowywanie danych",
