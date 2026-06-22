@@ -238,7 +238,7 @@ export function DataStorageSettings({
 										</select>
 										<button
 											type="button"
-											disabled={!deleteSelection}
+											disabled={!deleteSelection || purgeMutation.isPending}
 											onClick={() => {
 												const olderThan = getDeleteOlderThan(deleteSelection);
 												if (olderThan) purgeMutation.mutate(olderThan);
