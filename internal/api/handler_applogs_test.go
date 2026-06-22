@@ -55,6 +55,66 @@ func TestClearAppLogsIntegration(t *testing.T) {
 	}
 }
 
+// TestClearAppLogs_InvalidatesCountCache guards the perf change that derives the
+// unfiltered total from the cached level counts: clearing the logs must drop that
+// cache so the next poll reports 0 immediately, not the pre-clear total for up to
+// appLogCountCacheTTL.
+func TestClearAppLogs_InvalidatesCountCache(t *testing.T) {
+	h := newTestHandler(t)
+	r := chi.NewRouter()
+	h.Register(r)
+	pool := h.Pool().Pool()
+	ctx := context.Background()
+
+	// newTestHandler truncates app_logs, so the unfiltered total covers exactly
+	// the rows we insert here.
+	for i := 0; i < 3; i++ {
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO app_logs (id, timestamp, level, source, message, created_at)
+			 VALUES (gen_random_uuid(), NOW(), 'info', 'clearcache', 'msg', NOW())`); err != nil {
+			t.Fatalf("insert row %d: %v", i, err)
+		}
+	}
+
+	unfilteredTotal := func() int {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", "/logs/app?history=true", http.NoBody)
+		req.Header.Set("Authorization", "Bearer test-admin-token")
+		r.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("history GET: status %d: %s", rec.Code, rec.Body.String())
+		}
+		var resp struct {
+			Total int `json:"total"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("decode history: %v", err)
+		}
+		return resp.Total
+	}
+
+	// Warm the count cache: the unfiltered total must see the 3 rows.
+	if got := unfilteredTotal(); got != 3 {
+		t.Fatalf("total before clear = %d, want 3", got)
+	}
+
+	// Clear all logs.
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/logs/app", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("clear: status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// The next poll must report 0 immediately; a stale (non-zero) total here
+	// means ClearAppLogs failed to invalidate the count cache.
+	if got := unfilteredTotal(); got != 0 {
+		t.Fatalf("total after clear = %d, want 0 (count cache not invalidated)", got)
+	}
+}
+
 // GetAppLogs with filters - Additional coverage
 
 func TestGetAppLogs_WithSeverityFilter(t *testing.T) {

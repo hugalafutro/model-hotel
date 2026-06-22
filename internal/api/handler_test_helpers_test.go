@@ -42,6 +42,11 @@ func newTestHandler(t *testing.T) *Handler {
 	// Flush logs cache so prior test results don't leak.
 	globalLogsCache.clear()
 
+	// Reset the app-log count cache: the unfiltered total now derives from these
+	// cached counts, so a stale entry from a prior test must not survive the
+	// truncate above.
+	invalidateAppLogCountCache()
+
 	// Create database instance
 	database, err := db.New(context.Background(), dbURL, 5, 1)
 	if err != nil {

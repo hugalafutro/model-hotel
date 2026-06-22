@@ -602,7 +602,11 @@ func TestGetAppLogs_NilBuffer(t *testing.T) {
 		appLogBuffer = nil
 		dbWriter = nil
 	}()
-	// appLogBuffer is nil by default if InitAppLogBuffer hasn't been called
+	// Establish the nil-buffer precondition explicitly: appLogBuffer is a global
+	// that an earlier test may have initialized, so we cannot rely on it already
+	// being nil (the defer above only restores it afterwards).
+	appLogBuffer = nil
+	dbWriter = nil
 	h := &Handler{dbPool: nil}
 	req := httptest.NewRequest(http.MethodGet, "/api/app-logs", http.NoBody)
 	rr := httptest.NewRecorder()
