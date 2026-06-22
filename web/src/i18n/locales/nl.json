@@ -1532,7 +1532,8 @@
 				"disabled": "Uitgeschakeld"
 			},
 			"automaticGroup": "Automatisch",
-			"manualGroup": "Handmatig"
+			"manualGroup": "Handmatig",
+			"lastRun": "Laatst uitgevoerd"
 		},
 		"dataStorage": {
 			"title": "Data Opslag",
@@ -1881,7 +1882,9 @@
 			"downloadCodes": "Downloaden als .txt",
 			"downloadCodesAriaLabel": "Herstelcodes downloaden als tekstbestand",
 			"failedToStart": "Kan inschrijving niet starten: {{message}}",
-			"enabledOn": "Ingeschakeld op {{date}}"
+			"enabledOn": "Ingeschakeld op {{date}}",
+			"recoveryRemaining": "Herstelcodes",
+			"lastUsed": "Laatst gebruikt"
 		},
 		"authentication": {
 			"title": "Authenticatie"

@@ -1532,7 +1532,8 @@
 				"disabled": "Znevýhodnení"
 			},
 			"automaticGroup": "Automaticky",
-			"manualGroup": "Ručne"
+			"manualGroup": "Ručne",
+			"lastRun": "Naposledy spustené"
 		},
 		"dataStorage": {
 			"title": "Ukladanie údajov",
@@ -1881,7 +1882,9 @@
 			"downloadCodes": "Stiahnuť ako .txt",
 			"downloadCodesAriaLabel": "Stiahnuť obnovovacie kódy ako textový súbor",
 			"failedToStart": "Nepodarilo sa spustiť registráciu: {{message}}",
-			"enabledOn": "Aktivované {{date}}"
+			"enabledOn": "Aktivované {{date}}",
+			"recoveryRemaining": "Obnovovacie kódy",
+			"lastUsed": "Naposledy použité"
 		},
 		"authentication": {
 			"title": "Overenie"

@@ -1532,7 +1532,8 @@
 				"disabled": "Pois Käytöstä"
 			},
 			"automaticGroup": "Automaattinen",
-			"manualGroup": "Manuaalinen"
+			"manualGroup": "Manuaalinen",
+			"lastRun": "Viimeksi suoritettu"
 		},
 		"dataStorage": {
 			"title": "Tietojen Tallennustila",
@@ -1881,7 +1882,9 @@
 			"downloadCodes": "Lataa .txt-tiedostona",
 			"downloadCodesAriaLabel": "Lataa palautuskoodit tekstitiedostona",
 			"failedToStart": "Rekisteröinnin aloittaminen epäonnistui: {{message}}",
-			"enabledOn": "Otettu käyttöön {{date}}"
+			"enabledOn": "Otettu käyttöön {{date}}",
+			"recoveryRemaining": "Palautuskoodit",
+			"lastUsed": "Viimeksi käytetty"
 		},
 		"authentication": {
 			"title": "Todennus"

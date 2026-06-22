@@ -1532,7 +1532,8 @@
 				"disabled": "Fogyatékkal élők"
 			},
 			"automaticGroup": "Automatikus",
-			"manualGroup": "Kézi"
+			"manualGroup": "Kézi",
+			"lastRun": "Utoljára futtatva"
 		},
 		"dataStorage": {
 			"title": "Adattárolás",
@@ -1881,7 +1882,9 @@
 			"downloadCodes": "Letöltés .txt-ként",
 			"downloadCodesAriaLabel": "Helyreállítási kódok letöltése szövegfájlként",
 			"failedToStart": "Nem sikerült elindítani a regisztrációt: {{message}}",
-			"enabledOn": "Engedélyezve: {{date}}"
+			"enabledOn": "Engedélyezve: {{date}}",
+			"recoveryRemaining": "Helyreállítási kódok",
+			"lastUsed": "Utoljára használva"
 		},
 		"authentication": {
 			"title": "Hitelesítés"

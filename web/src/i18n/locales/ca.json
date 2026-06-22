@@ -1532,7 +1532,8 @@
 				"disabled": "Discapacitat"
 			},
 			"automaticGroup": "Automàtic",
-			"manualGroup": "Manual"
+			"manualGroup": "Manual",
+			"lastRun": "Última execució"
 		},
 		"dataStorage": {
 			"title": "Emmagatzematge de dades",
@@ -1881,7 +1882,9 @@
 			"downloadCodes": "Baixa com a .txt",
 			"downloadCodesAriaLabel": "Baixa els codis de recuperació com a fitxer de text",
 			"failedToStart": "No s'ha pogut iniciar la inscripció: {{message}}",
-			"enabledOn": "Activat el {{date}}"
+			"enabledOn": "Activat el {{date}}",
+			"recoveryRemaining": "Codis de recuperació",
+			"lastUsed": "Últim ús"
 		},
 		"authentication": {
 			"title": "Autenticació"

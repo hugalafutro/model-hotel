@@ -1532,7 +1532,8 @@
 				"disabled": "מוגבלים"
 			},
 			"automaticGroup": "אוטומטי",
-			"manualGroup": "ידני"
+			"manualGroup": "ידני",
+			"lastRun": "ריצה אחרונה"
 		},
 		"dataStorage": {
 			"title": "אחסון נתונים",
@@ -1881,7 +1882,9 @@
 			"downloadCodes": "הורד כקובץ ‎.txt",
 			"downloadCodesAriaLabel": "הורד את קודי השחזור כקובץ טקסט",
 			"failedToStart": "לא ניתן להתחיל את הרישום: {{message}}",
-			"enabledOn": "הופעל בתאריך {{date}}"
+			"enabledOn": "הופעל בתאריך {{date}}",
+			"recoveryRemaining": "קודי שחזור",
+			"lastUsed": "שימוש אחרון"
 		},
 		"authentication": {
 			"title": "אימות"

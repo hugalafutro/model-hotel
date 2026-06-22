@@ -1532,7 +1532,8 @@
 				"disabled": "Deaktivert"
 			},
 			"automaticGroup": "Automatisk",
-			"manualGroup": "Manuell"
+			"manualGroup": "Manuell",
+			"lastRun": "Sist kjørt"
 		},
 		"dataStorage": {
 			"title": "Data Lagring",
@@ -1881,7 +1882,9 @@
 			"downloadCodes": "Last ned som .txt",
 			"downloadCodesAriaLabel": "Last ned gjenopprettingskoder som en tekstfil",
 			"failedToStart": "Kunne ikke starte registrering: {{message}}",
-			"enabledOn": "Aktivert {{date}}"
+			"enabledOn": "Aktivert {{date}}",
+			"recoveryRemaining": "Gjenopprettingskoder",
+			"lastUsed": "Sist brukt"
 		},
 		"authentication": {
 			"title": "Autentisering"

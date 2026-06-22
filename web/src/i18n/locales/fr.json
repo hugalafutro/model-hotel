@@ -1532,7 +1532,8 @@
 				"disabled": "Désactivé"
 			},
 			"automaticGroup": "Automatique",
-			"manualGroup": "Manuel"
+			"manualGroup": "Manuel",
+			"lastRun": "Dernière exécution"
 		},
 		"dataStorage": {
 			"title": "Stockage des données",
@@ -1881,7 +1882,9 @@
 			"downloadCodes": "Télécharger en .txt",
 			"downloadCodesAriaLabel": "Télécharger les codes de récupération dans un fichier texte",
 			"failedToStart": "Impossible de démarrer l'enregistrement : {{message}}",
-			"enabledOn": "Activé le {{date}}"
+			"enabledOn": "Activé le {{date}}",
+			"recoveryRemaining": "Codes de récupération",
+			"lastUsed": "Dernière utilisation"
 		},
 		"authentication": {
 			"title": "Authentification"

@@ -1532,7 +1532,8 @@
 				"disabled": "Deaktiveret"
 			},
 			"automaticGroup": "Automatisk",
-			"manualGroup": "Manuel"
+			"manualGroup": "Manuel",
+			"lastRun": "Sidst kørt"
 		},
 		"dataStorage": {
 			"title": "Lagring Af Data",
@@ -1881,7 +1882,9 @@
 			"downloadCodes": "Download som .txt",
 			"downloadCodesAriaLabel": "Download gendannelseskoder som en tekstfil",
 			"failedToStart": "Kunne ikke starte tilmelding: {{message}}",
-			"enabledOn": "Aktiveret den {{date}}"
+			"enabledOn": "Aktiveret den {{date}}",
+			"recoveryRemaining": "Gendannelseskoder",
+			"lastUsed": "Senest brugt"
 		},
 		"authentication": {
 			"title": "Godkendelse"

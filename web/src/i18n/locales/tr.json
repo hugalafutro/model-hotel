@@ -1532,7 +1532,8 @@
 				"disabled": "Engelli"
 			},
 			"automaticGroup": "Otomatik",
-			"manualGroup": "Manuel"
+			"manualGroup": "Manuel",
+			"lastRun": "Son çalıştırma"
 		},
 		"dataStorage": {
 			"title": "Veri Depolama",
@@ -1881,7 +1882,9 @@
 			"downloadCodes": ".txt olarak indir",
 			"downloadCodesAriaLabel": "Kurtarma kodlarını metin dosyası olarak indir",
 			"failedToStart": "Kayıt başlatılamadı: {{message}}",
-			"enabledOn": "{{date}} tarihinde etkinleştirildi"
+			"enabledOn": "{{date}} tarihinde etkinleştirildi",
+			"recoveryRemaining": "Kurtarma kodları",
+			"lastUsed": "Son kullanım"
 		},
 		"authentication": {
 			"title": "Kimlik Doğrulama"

@@ -1532,7 +1532,8 @@
 				"disabled": "無効"
 			},
 			"automaticGroup": "自動",
-			"manualGroup": "手動"
+			"manualGroup": "手動",
+			"lastRun": "最終実行"
 		},
 		"dataStorage": {
 			"title": "データストレージ",
@@ -1881,7 +1882,9 @@
 			"downloadCodes": ".txt でダウンロード",
 			"downloadCodesAriaLabel": "リカバリーコードをテキストファイルとしてダウンロード",
 			"failedToStart": "登録を開始できませんでした: {{message}}",
-			"enabledOn": "{{date}} に有効化"
+			"enabledOn": "{{date}} に有効化",
+			"recoveryRemaining": "リカバリーコード",
+			"lastUsed": "最終使用"
 		},
 		"authentication": {
 			"title": "認証"

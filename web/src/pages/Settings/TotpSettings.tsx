@@ -28,6 +28,14 @@ export function TotpPanel() {
 
 	const enabled = status?.enabled ?? false;
 
+	// Recovery-code usage + last-used, for the enabled view. Lives on the
+	// admin-gated /totp/info (not the polled public /totp/status).
+	const { data: info } = useQuery({
+		queryKey: ["totp", "info"],
+		queryFn: () => api.totp.info(),
+		enabled,
+	});
+
 	useEffect(() => {
 		if (typeof window === "undefined") return;
 		if (!enrollUri) return;
@@ -323,6 +331,24 @@ export function TotpPanel() {
 							date: formatDate(status.enabled_at),
 						})}
 					</p>
+				)}
+				{info && (
+					<dl className="text-(--text-tertiary) text-sm space-y-1">
+						<div className="flex items-center justify-between gap-2">
+							<dt>{t("settings.totp.recoveryRemaining")}</dt>
+							<dd className="text-(--text-secondary) tabular-nums">
+								{info.recovery_remaining} / {info.recovery_total}
+							</dd>
+						</div>
+						{info.last_used_at && (
+							<div className="flex items-center justify-between gap-2">
+								<dt>{t("settings.totp.lastUsed")}</dt>
+								<dd className="text-(--text-secondary)">
+									{formatDate(info.last_used_at)}
+								</dd>
+							</div>
+						)}
+					</dl>
 				)}
 				{disabling && (
 					<div className="space-y-3">

@@ -1532,7 +1532,8 @@
 				"disabled": "已禁用"
 			},
 			"automaticGroup": "自动",
-			"manualGroup": "手动"
+			"manualGroup": "手动",
+			"lastRun": "上次运行"
 		},
 		"dataStorage": {
 			"title": "数据存储",
@@ -1881,7 +1882,9 @@
 			"downloadCodes": "下载为 .txt",
 			"downloadCodesAriaLabel": "将恢复码下载为文本文件",
 			"failedToStart": "无法开始注册：{{message}}",
-			"enabledOn": "于 {{date}} 启用"
+			"enabledOn": "于 {{date}} 启用",
+			"recoveryRemaining": "恢复代码",
+			"lastUsed": "最后使用"
 		},
 		"authentication": {
 			"title": "身份验证"

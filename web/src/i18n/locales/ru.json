@@ -1532,7 +1532,8 @@
 				"disabled": "Отключено"
 			},
 			"automaticGroup": "Автоматически",
-			"manualGroup": "Вручную"
+			"manualGroup": "Вручную",
+			"lastRun": "Последний запуск"
 		},
 		"dataStorage": {
 			"title": "Хранилище данных",
@@ -1881,7 +1882,9 @@
 			"downloadCodes": "Скачать как .txt",
 			"downloadCodesAriaLabel": "Скачать коды восстановления в виде текстового файла",
 			"failedToStart": "Не удалось начать регистрацию: {{message}}",
-			"enabledOn": "Включено {{date}}"
+			"enabledOn": "Включено {{date}}",
+			"recoveryRemaining": "Коды восстановления",
+			"lastUsed": "Последнее использование"
 		},
 		"authentication": {
 			"title": "Аутентификация"

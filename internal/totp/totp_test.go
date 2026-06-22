@@ -324,6 +324,41 @@ func TestVerifyRejectsReplay(t *testing.T) {
 	assert.False(t, ok, "replay of an already-used code must be rejected")
 }
 
+func TestInfo(t *testing.T) {
+	repo := newTestRepo(t, "test-master-key-very-long-32b+")
+	ctx := context.Background()
+
+	// Before enrollment: no recovery codes and no recorded use.
+	info, err := repo.Info(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, info.RecoveryTotal)
+	assert.Equal(t, 0, info.RecoveryRemaining)
+	assert.True(t, info.LastUsed.IsZero(), "LastUsed must be zero before any code is accepted")
+
+	if _, _, err := repo.Enroll(ctx); err != nil {
+		t.Fatalf("enroll: %v", err)
+	}
+	codes, err := repo.GenerateRecoveryCodes(ctx)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, codes)
+
+	info, err = repo.Info(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, len(codes), info.RecoveryTotal)
+	assert.Equal(t, len(codes), info.RecoveryRemaining)
+	assert.True(t, info.LastUsed.IsZero(), "enroll resets last_used_step, so LastUsed stays zero")
+
+	// Consuming a recovery code lowers remaining but not the issued total.
+	ok, err := repo.ConsumeRecoveryCode(ctx, codes[0])
+	assert.NoError(t, err)
+	assert.True(t, ok)
+
+	info, err = repo.Info(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, len(codes), info.RecoveryTotal)
+	assert.Equal(t, len(codes)-1, info.RecoveryRemaining)
+}
+
 func TestNormalizeRecoveryCode(t *testing.T) {
 	const canonical = "ABCD-EFGH-IJKL-MNOP"
 	cases := []struct{ in, want string }{

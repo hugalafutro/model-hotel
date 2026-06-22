@@ -1532,7 +1532,8 @@
 				"disabled": "Wyłączone"
 			},
 			"automaticGroup": "Automatyczne",
-			"manualGroup": "Ręczne"
+			"manualGroup": "Ręczne",
+			"lastRun": "Ostatnie uruchomienie"
 		},
 		"dataStorage": {
 			"title": "Przechowywanie danych",
@@ -1881,7 +1882,9 @@
 			"downloadCodes": "Pobierz jako .txt",
 			"downloadCodesAriaLabel": "Pobierz kody odzyskiwania jako plik tekstowy",
 			"failedToStart": "Nie można rozpocząć rejestracji: {{message}}",
-			"enabledOn": "Włączono {{date}}"
+			"enabledOn": "Włączono {{date}}",
+			"recoveryRemaining": "Kody odzyskiwania",
+			"lastUsed": "Ostatnio użyto"
 		},
 		"authentication": {
 			"title": "Uwierzytelnianie"

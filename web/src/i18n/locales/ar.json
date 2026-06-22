@@ -1532,7 +1532,8 @@
 				"disabled": "معطل"
 			},
 			"automaticGroup": "تلقائي",
-			"manualGroup": "يدوي"
+			"manualGroup": "يدوي",
+			"lastRun": "آخر تشغيل"
 		},
 		"dataStorage": {
 			"title": "تخزين البيانات",
@@ -1881,7 +1882,9 @@
 			"downloadCodes": "تنزيل بصيغة ‎.txt",
 			"downloadCodesAriaLabel": "تنزيل رموز الاسترداد كملف نصي",
 			"failedToStart": "تعذّر بدء التسجيل: {{message}}",
-			"enabledOn": "تم التفعيل في {{date}}"
+			"enabledOn": "تم التفعيل في {{date}}",
+			"recoveryRemaining": "رموز الاسترداد",
+			"lastUsed": "آخر استخدام"
 		},
 		"authentication": {
 			"title": "المصادقة"

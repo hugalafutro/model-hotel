@@ -1532,7 +1532,8 @@
 				"disabled": "Онеспособљен"
 			},
 			"automaticGroup": "Аутоматски",
-			"manualGroup": "Ручно"
+			"manualGroup": "Ручно",
+			"lastRun": "Последње покретање"
 		},
 		"dataStorage": {
 			"title": "Складиштење података",
@@ -1881,7 +1882,9 @@
 			"downloadCodes": "Преузми као .txt",
 			"downloadCodesAriaLabel": "Преузми кодове за опоравак као текстуалну датотеку",
 			"failedToStart": "Није могуће започети регистрацију: {{message}}",
-			"enabledOn": "Омогућено {{date}}"
+			"enabledOn": "Омогућено {{date}}",
+			"recoveryRemaining": "Кодови за опоравак",
+			"lastUsed": "Последње коришћено"
 		},
 		"authentication": {
 			"title": "Аутентификација"

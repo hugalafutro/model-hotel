@@ -1532,7 +1532,8 @@
 				"disabled": "Người khuyết tật"
 			},
 			"automaticGroup": "Tự động",
-			"manualGroup": "Thủ công"
+			"manualGroup": "Thủ công",
+			"lastRun": "Lần chạy cuối"
 		},
 		"dataStorage": {
 			"title": "Lưu trữ dữ liệu",
@@ -1881,7 +1882,9 @@
 			"downloadCodes": "Tải xuống dạng .txt",
 			"downloadCodesAriaLabel": "Tải mã khôi phục xuống dưới dạng tệp văn bản",
 			"failedToStart": "Không thể bắt đầu đăng ký: {{message}}",
-			"enabledOn": "Đã bật vào {{date}}"
+			"enabledOn": "Đã bật vào {{date}}",
+			"recoveryRemaining": "Mã khôi phục",
+			"lastUsed": "Lần dùng cuối"
 		},
 		"authentication": {
 			"title": "Xác thực"

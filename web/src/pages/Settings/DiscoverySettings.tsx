@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Play, Search } from "@/lib/icons";
 import { api } from "../../api/client";
@@ -10,6 +11,7 @@ import { Spinner } from "../../components/Spinner";
 import { Toggle } from "../../components/Toggle";
 import { useToast } from "../../context/ToastContext";
 import { goDurationToHours, hoursToGoDuration } from "../../utils/duration";
+import { formatDateTimeShort } from "../../utils/format";
 import { useSettingsMutations } from "./useSettingsMutations";
 
 interface DiscoverySettingsProps {
@@ -40,6 +42,16 @@ export function DiscoverySettings({
 		queryKey: ["models"],
 		queryFn: () => api.models.list(),
 	});
+
+	// Most recent per-provider discovery time stands in for "last run" (every
+	// discovery path stamps providers.last_discovered_at), so no extra backend.
+	const lastRun = useMemo(() => {
+		const times = (providers ?? [])
+			.map((p) => p.last_discovered_at)
+			.filter((t): t is string => Boolean(t))
+			.sort();
+		return times.at(-1) ?? null;
+	}, [providers]);
 
 	const discoverAllMutation = useMutation({
 		mutationFn: () => api.providers.discoverAll(),
@@ -201,6 +213,14 @@ export function DiscoverySettings({
 									{providers?.length ?? 0}
 								</dd>
 							</div>
+							{lastRun && (
+								<div className="flex justify-between gap-2">
+									<dt>{t("settings.discovery.lastRun")}</dt>
+									<dd className="text-(--text-primary)">
+										{formatDateTimeShort(lastRun)}
+									</dd>
+								</div>
+							)}
 						</dl>
 					</SettingsGroup>
 				</div>

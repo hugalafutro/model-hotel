@@ -1575,7 +1575,8 @@
 				"disabled": "Disabled"
 			},
 			"automaticGroup": "Automatic",
-			"manualGroup": "Manual"
+			"manualGroup": "Manual",
+			"lastRun": "Last run"
 		},
 		"dataStorage": {
 			"title": "Data Storage",
@@ -1881,7 +1882,9 @@
 			"downloadCodes": "Download as .txt",
 			"downloadCodesAriaLabel": "Download recovery codes as a text file",
 			"failedToStart": "Could not start enrollment: {{message}}",
-			"enabledOn": "Enabled on {{date}}"
+			"enabledOn": "Enabled on {{date}}",
+			"recoveryRemaining": "Recovery codes",
+			"lastUsed": "Last used"
 		},
 		"authentication": {
 			"title": "Authentication"

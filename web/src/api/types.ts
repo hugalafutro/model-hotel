@@ -674,6 +674,14 @@ export interface TotpStatus {
 	enabled_at?: string;
 }
 
+/** Admin-gated detail for the settings panel (not the polled public status). */
+export interface TotpInfo {
+	recovery_remaining: number;
+	recovery_total: number;
+	/** RFC3339 time a TOTP code was last accepted; absent if never used. */
+	last_used_at?: string;
+}
+
 export interface TotpEnrollStart {
 	uri: string;
 	secret: string;

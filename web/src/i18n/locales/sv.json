@@ -1532,7 +1532,8 @@
 				"disabled": "Inaktiverad"
 			},
 			"automaticGroup": "Automatisk",
-			"manualGroup": "Manuell"
+			"manualGroup": "Manuell",
+			"lastRun": "Senast körd"
 		},
 		"dataStorage": {
 			"title": "Lagring av data",
@@ -1881,7 +1882,9 @@
 			"downloadCodes": "Ladda ner som .txt",
 			"downloadCodesAriaLabel": "Ladda ner återställningskoder som en textfil",
 			"failedToStart": "Det gick inte att starta registreringen: {{message}}",
-			"enabledOn": "Aktiverat {{date}}"
+			"enabledOn": "Aktiverat {{date}}",
+			"recoveryRemaining": "Återställningskoder",
+			"lastUsed": "Senast använd"
 		},
 		"authentication": {
 			"title": "Autentisering"

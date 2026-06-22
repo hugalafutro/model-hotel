@@ -1532,7 +1532,8 @@
 				"disabled": "Deaktiviert"
 			},
 			"automaticGroup": "Automatisch",
-			"manualGroup": "Manuell"
+			"manualGroup": "Manuell",
+			"lastRun": "Zuletzt ausgeführt"
 		},
 		"dataStorage": {
 			"title": "Datenspeicher",
@@ -1881,7 +1882,9 @@
 			"downloadCodes": "Als .txt herunterladen",
 			"downloadCodesAriaLabel": "Wiederherstellungscodes als Textdatei herunterladen",
 			"failedToStart": "Einrichtung konnte nicht gestartet werden: {{message}}",
-			"enabledOn": "Aktiviert am {{date}}"
+			"enabledOn": "Aktiviert am {{date}}",
+			"recoveryRemaining": "Wiederherstellungscodes",
+			"lastUsed": "Zuletzt verwendet"
 		},
 		"authentication": {
 			"title": "Authentifizierung"

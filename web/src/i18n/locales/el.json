@@ -1532,7 +1532,8 @@
 				"disabled": "Απενεργοποιημένο"
 			},
 			"automaticGroup": "Αυτόματο",
-			"manualGroup": "Χειροκίνητο"
+			"manualGroup": "Χειροκίνητο",
+			"lastRun": "Τελευταία εκτέλεση"
 		},
 		"dataStorage": {
 			"title": "Αποθήκευση Δεδομένων",
@@ -1881,7 +1882,9 @@
 			"downloadCodes": "Λήψη ως .txt",
 			"downloadCodesAriaLabel": "Λήψη κωδικών ανάκτησης ως αρχείο κειμένου",
 			"failedToStart": "Δεν ήταν δυνατή η έναρξη της εγγραφής: {{message}}",
-			"enabledOn": "Ενεργοποιήθηκε στις {{date}}"
+			"enabledOn": "Ενεργοποιήθηκε στις {{date}}",
+			"recoveryRemaining": "Κωδικοί ανάκτησης",
+			"lastUsed": "Τελευταία χρήση"
 		},
 		"authentication": {
 			"title": "Έλεγχος ταυτότητας"

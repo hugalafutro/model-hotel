@@ -77,6 +77,7 @@ func (h *TotpHandler) Register(r chi.Router) {
 				r.Use(readOnlyGuard)
 			}
 			r.Use(h.adminOrSessionAuth)
+			r.Get("/info", h.Info)
 			r.Post("/enroll/start", h.EnrollStart)
 			r.Post("/enroll/verify", h.EnrollVerify)
 			r.Post("/disable", h.Disable)
@@ -124,6 +125,38 @@ func (h *TotpHandler) Status(w http.ResponseWriter, r *http.Request) {
 	resp := statusResponse{Enabled: enabled}
 	if enabled {
 		resp.EnabledAt = h.cachedEnabledAt(r.Context())
+	}
+	writeJSON(w, resp)
+}
+
+// infoResponse is the GET /api/totp/info payload for the settings panel:
+// recovery-code usage and last-used time. Kept separate from the public,
+// polled /totp/status so those per-request DB reads stay off the hot path.
+type infoResponse struct {
+	RecoveryRemaining int    `json:"recovery_remaining"`
+	RecoveryTotal     int    `json:"recovery_total"`
+	LastUsedAt        string `json:"last_used_at,omitempty"`
+}
+
+// Info reports recovery-code usage and the last-used time for the current
+// enrollment. Admin/session gated (unlike Status) since it exposes recovery
+// state; the settings panel reads it once rather than polling it.
+func (h *TotpHandler) Info(w http.ResponseWriter, r *http.Request) {
+	if h.totpRepo == nil {
+		writeJSON(w, infoResponse{})
+		return
+	}
+	si, err := h.totpRepo.Info(r.Context())
+	if err != nil {
+		respondError(w, "failed to read TOTP info", err, http.StatusInternalServerError)
+		return
+	}
+	resp := infoResponse{
+		RecoveryRemaining: si.RecoveryRemaining,
+		RecoveryTotal:     si.RecoveryTotal,
+	}
+	if !si.LastUsed.IsZero() {
+		resp.LastUsedAt = si.LastUsed.UTC().Format(time.RFC3339)
 	}
 	writeJSON(w, resp)
 }

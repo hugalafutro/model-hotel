@@ -1532,7 +1532,8 @@
 				"disabled": "Gestremd"
 			},
 			"automaticGroup": "Outomaties",
-			"manualGroup": "Handmatig"
+			"manualGroup": "Handmatig",
+			"lastRun": "Laas uitgevoer"
 		},
 		"dataStorage": {
 			"title": "Datastoring",
@@ -1881,7 +1882,9 @@
 			"downloadCodes": "Laai af as .txt",
 			"downloadCodesAriaLabel": "Laai herstelkodes af as 'n tekslêer",
 			"failedToStart": "Kon nie inskrywing begin nie: {{message}}",
-			"enabledOn": "Geaktiveer op {{date}}"
+			"enabledOn": "Geaktiveer op {{date}}",
+			"recoveryRemaining": "Herstelkodes",
+			"lastUsed": "Laas gebruik"
 		},
 		"authentication": {
 			"title": "Verifikasie"

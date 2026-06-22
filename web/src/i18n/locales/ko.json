@@ -1532,7 +1532,8 @@
 				"disabled": "비활성화됨"
 			},
 			"automaticGroup": "자동",
-			"manualGroup": "수동"
+			"manualGroup": "수동",
+			"lastRun": "마지막 실행"
 		},
 		"dataStorage": {
 			"title": "데이터 저장",
@@ -1881,7 +1882,9 @@
 			"downloadCodes": ".txt로 다운로드",
 			"downloadCodesAriaLabel": "복구 코드를 텍스트 파일로 다운로드",
 			"failedToStart": "등록을 시작할 수 없습니다: {{message}}",
-			"enabledOn": "{{date}}에 활성화됨"
+			"enabledOn": "{{date}}에 활성화됨",
+			"recoveryRemaining": "복구 코드",
+			"lastUsed": "마지막 사용"
 		},
 		"authentication": {
 			"title": "인증"
