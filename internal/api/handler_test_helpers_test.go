@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -41,6 +42,15 @@ func newTestHandler(t *testing.T) *Handler {
 
 	// Flush logs cache so prior test results don't leak.
 	globalLogsCache.clear()
+
+	// Reset the app-log count cache: the unfiltered total now derives from these
+	// cached counts, so a stale entry from a prior test must not survive the
+	// truncate above.
+	appLogCountCache.Lock()
+	appLogCountCache.levelCounts = nil
+	appLogCountCache.sourceCounts = nil
+	appLogCountCache.fetchedAt = time.Time{}
+	appLogCountCache.Unlock()
 
 	// Create database instance
 	database, err := db.New(context.Background(), dbURL, 5, 1)
