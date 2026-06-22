@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -276,8 +276,10 @@ describe("Settings reset flows", () => {
 			).toBeInTheDocument();
 		});
 
-		// Click confirm.
-		const confirmBtn = screen.getByRole("button", {
+		// Click confirm. Scope to the modal dialog: the Settings page also renders
+		// other "reset to defaults" controls (e.g. the always-present Alerts reset
+		// icon), so the lookup must be confined to the open confirm dialog.
+		const confirmBtn = within(screen.getByRole("dialog")).getByRole("button", {
 			name: /reset to defaults/i,
 		});
 		await user.click(confirmBtn);
@@ -315,7 +317,7 @@ describe("Settings reset flows", () => {
 			).toBeInTheDocument();
 		});
 
-		const confirmBtn = screen.getByRole("button", {
+		const confirmBtn = within(screen.getByRole("dialog")).getByRole("button", {
 			name: /reset to defaults/i,
 		});
 		await user.click(confirmBtn);
