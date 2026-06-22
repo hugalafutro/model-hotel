@@ -418,6 +418,32 @@ func (h *Handler) countAppLogs(ctx context.Context, q url.Values) (int, error) {
 	return total, err
 }
 
+// sumAppLogCounts returns the unfiltered app_logs row count as the sum of the
+// per-level counts.
+func sumAppLogCounts(levelCounts map[string]int) int {
+	total := 0
+	for _, n := range levelCounts {
+		total += n
+	}
+	return total
+}
+
+// appLogTotal returns the row count for the request's filters. When no filter is
+// active it derives the total from the already-cached level counts (their sum),
+// avoiding a full COUNT(*) on every live-tail/history poll. That unfiltered COUNT
+// heap-scans the whole table whenever autovacuum hasn't refreshed the visibility
+// map (e.g. a freshly restarted or restored instance), which tanks the DB cache
+// hit ratio. Only a genuinely filtered request runs a (smaller, index-backed)
+// COUNT, where an exact, fresh total still matters.
+func (h *Handler) appLogTotal(ctx context.Context, q url.Values, levelCounts map[string]int) (int, error) {
+	conditions, _, _ := appendAppLogFilters(nil, nil, 1,
+		q.Get("level"), q.Get("source"), q.Get("search"), q.Get("from"), q.Get("to"))
+	if len(conditions) == 0 {
+		return sumAppLogCounts(levelCounts), nil
+	}
+	return h.countAppLogs(ctx, q)
+}
+
 // appLogCursorParams holds the parsed, validated inputs for GetAppLogsCursor.
 type appLogCursorParams struct {
 	limit     int
@@ -554,7 +580,7 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 	// Retrieve cached level/source counts (refreshed every appLogCountCacheTTL).
 	levelCounts, sourceCounts := h.getAppLogCounts(ctx)
 
-	total, err := h.countAppLogs(ctx, q)
+	total, err := h.appLogTotal(ctx, q, levelCounts)
 	if err != nil {
 		if encErr := json.NewEncoder(w).Encode(map[string]string{"error": "failed to count logs"}); encErr != nil {
 			debuglog.Error("applogs: failed to encode error response", "error", encErr)
@@ -672,7 +698,7 @@ func (h *Handler) GetAppLogsCursor(w http.ResponseWriter, r *http.Request) {
 	entries, hasAfter, hasBefore := paginateCursor(entries, p.direction, p.limit, p.cursorStr != "")
 
 	levelCounts, sourceCounts := h.getAppLogCounts(ctx)
-	total, _ := h.countAppLogs(ctx, q) // best-effort
+	total, _ := h.appLogTotal(ctx, q, levelCounts) // best-effort
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(AppLogsCursorResponse{
@@ -699,6 +725,10 @@ func (h *Handler) ClearAppLogs(w http.ResponseWriter, r *http.Request) {
 		tag, err := h.dbPool.Pool().Exec(r.Context(), `DELETE FROM app_logs`)
 		if err == nil {
 			deleted += int(tag.RowsAffected())
+			// The unfiltered total is derived from the cached level counts, so
+			// drop the cache now that the rows are gone; otherwise a poll within
+			// appLogCountCacheTTL would report a stale, non-zero total.
+			invalidateAppLogCountCache()
 		}
 	}
 	w.Header().Set("Content-Type", "application/json")
