@@ -84,7 +84,7 @@ export function RateLimitSettings({
 							step={5}
 							clampStep={5}
 							infinityValue={0}
-							unit="s"
+							unit="ms"
 							hideUnit
 							onChange={(v) =>
 								updateMutation.mutate({ rate_limit_rps: String(v) })
@@ -105,7 +105,7 @@ export function RateLimitSettings({
 							max={500}
 							step={5}
 							clampStep={5}
-							unit="s"
+							unit="ms"
 							hideUnit
 							onChange={(v) =>
 								updateMutation.mutate({
