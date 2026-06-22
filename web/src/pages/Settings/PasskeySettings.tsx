@@ -126,7 +126,7 @@ export function PasskeyPanel() {
 			</button>
 
 			{credentials.length > 0 && (
-				<div className="space-y-2">
+				<div className="space-y-2 max-h-72 overflow-y-auto pr-1">
 					{credentials.map((cred: WebAuthnCredential) => (
 						<CredentialRow
 							key={cred.id}

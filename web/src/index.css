@@ -1511,6 +1511,11 @@ html[data-ui-style="glassmorphism-lite"].light .ui-detail-section {
 html[data-ui-style="clean-saas"] .ui-settings-group {
 	border-color: transparent;
 }
+/* Lift the recess toward the card so the panel reads as a subtle inset, not a
+   dark well (--surface-bg sits well below the card floor in this theme). */
+html[data-ui-style="clean-saas"].dark .ui-settings-group {
+	background-color: #0f1117;
+}
 html[data-ui-style="cyber-terminal"] .ui-settings-group {
 	border-color: var(--border-default);
 	box-shadow: inset 0 0 24px rgba(var(--accent-rgb), 0.03);
