@@ -1851,7 +1851,6 @@
 			"confirmDisableAriaLabel": "Vahvista TOTP:n poistaminen käytöstä",
 			"copied": "Kopioitu leikepöydälle",
 			"copyAll": "Kopioi kaikki koodit",
-			"copyAllAriaLabel": "Kopioi kaikki palautuskoodit",
 			"copySecretAriaLabel": "Kopioi TOTP-salasana",
 			"description": "Lisää aikaperusteinen kertakäyttöinen salasana toisena tunnistautumistekijänä järjestelmänvalvojan kirjautumiseen.",
 			"disable": "Poista käytöstä",

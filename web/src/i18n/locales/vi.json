@@ -1851,7 +1851,6 @@
 			"confirmDisableAriaLabel": "Xác nhận tắt TOTP",
 			"copied": "Đã sao chép vào bộ nhớ tạm",
 			"copyAll": "Sao chép tất cả mã",
-			"copyAllAriaLabel": "Sao chép tất cả mã khôi phục",
 			"copySecretAriaLabel": "Sao chép khóa bí mật TOTP",
 			"description": "Thêm mật khẩu dùng một lần dựa trên thời gian làm yếu tố thứ hai cho đăng nhập quản trị.",
 			"disable": "Tắt",

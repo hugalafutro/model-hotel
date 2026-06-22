@@ -1851,7 +1851,6 @@
 			"confirmDisableAriaLabel": "TOTP 비활성화 확인",
 			"copied": "클립보드에 복사됨",
 			"copyAll": "모든 코드를 복사하십시오",
-			"copyAllAriaLabel": "모든 복구 코드를 복사하십시오.",
 			"copySecretAriaLabel": "TOTP 비밀번호 복사",
 			"description": "관리자 로그인 시 두 번째 인증 요소로 시간 기반 일회용 비밀번호를 추가하십시오.",
 			"disable": "비활성화",

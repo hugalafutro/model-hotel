@@ -1851,7 +1851,6 @@
 			"confirmDisableAriaLabel": "Confirmar la desactivación de TOTP",
 			"copied": "Copiado al portapapeles",
 			"copyAll": "Copia todos los códigos",
-			"copyAllAriaLabel": "Copia todos los códigos de recuperación",
 			"copySecretAriaLabel": "Copiar el secreto TOTP",
 			"description": "Añade una contraseña de un solo uso basada en el tiempo como segundo factor para el inicio de sesión de administrador.",
 			"disable": "Desactivar",

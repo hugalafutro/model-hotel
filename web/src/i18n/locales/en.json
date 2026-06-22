@@ -1874,7 +1874,6 @@
 			"disableAriaLabel": "Disable TOTP two-factor authentication",
 			"confirmDisableAriaLabel": "Confirm disable TOTP",
 			"copySecretAriaLabel": "Copy TOTP secret",
-			"copyAllAriaLabel": "Copy all recovery codes",
 			"savedAriaLabel": "Confirm recovery codes saved",
 			"codeAriaLabel": "TOTP verification code",
 			"disableCodeAriaLabel": "TOTP or recovery code to disable",

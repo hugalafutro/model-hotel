@@ -1851,7 +1851,6 @@
 			"confirmDisableAriaLabel": "تأكيد تعطيل TOTP",
 			"copied": "تم نسخها إلى الحافظة",
 			"copyAll": "انسخ جميع الأكواد",
-			"copyAllAriaLabel": "انسخ جميع رموز الاسترداد",
 			"copySecretAriaLabel": "انسخ سر TOTP",
 			"description": "أضف كلمة مرور لمرة واحدة تعتمد على الوقت كعامل ثانٍ لتسجيل دخول المسؤول.",
 			"disable": "تعطيل",

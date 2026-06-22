@@ -1851,7 +1851,6 @@
 			"confirmDisableAriaLabel": "Bestätigen Sie die Deaktivierung von TOTP",
 			"copied": "In die Zwischenablage kopiert",
 			"copyAll": "Kopieren Sie den gesamten Code",
-			"copyAllAriaLabel": "Kopieren Sie alle Wiederherstellungscodes",
 			"copySecretAriaLabel": "TOTP-Geheimnis kopieren",
 			"description": "Fügen Sie ein zeitbasiertes Einmalpasswort als zweiten Faktor für die Admin-Anmeldung hinzu.",
 			"disable": "Deaktivieren",

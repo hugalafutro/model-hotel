@@ -1851,7 +1851,6 @@
 			"confirmDisableAriaLabel": "Confirmați dezactivarea TOTP",
 			"copied": "Copiat în clipboard",
 			"copyAll": "Copiați toate codurile",
-			"copyAllAriaLabel": "Copiați toate codurile de recuperare",
 			"copySecretAriaLabel": "Copiați secretul TOTP",
 			"description": "Adăugați o parolă unică bazată pe timp ca al doilea factor de autentificare pentru contul de administrator.",
 			"disable": "Dezactivare",

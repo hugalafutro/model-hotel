@@ -1851,7 +1851,6 @@
 			"confirmDisableAriaLabel": "Bekræft deaktivering af TOTP",
 			"copied": "Kopieret til udklipsholderen",
 			"copyAll": "Kopier alle koder",
-			"copyAllAriaLabel": "Kopier alle gendannelseskoder",
 			"copySecretAriaLabel": "Kopier TOTP-hemmelighed",
 			"description": "Tilføj en tidsbaseret engangskode som en anden faktor til administratorlogin.",
 			"disable": "Deaktiver",

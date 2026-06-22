@@ -1851,7 +1851,6 @@
 			"confirmDisableAriaLabel": "Bekräfta inaktivering av TOTP",
 			"copied": "Kopierat till urklipp",
 			"copyAll": "Kopiera alla koder",
-			"copyAllAriaLabel": "Kopiera alla återställningskoder",
 			"copySecretAriaLabel": "Kopiera TOTP-hemlighet",
 			"description": "Lägg till ett tidsbaserat engångslösenord som en andra faktor för administratörsinloggningen.",
 			"disable": "Inaktivera",
