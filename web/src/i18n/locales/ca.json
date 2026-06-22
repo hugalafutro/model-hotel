@@ -1643,7 +1643,7 @@
 				"pruneSuccess": "Retallat(s) de còpia de seguretat de {{count}}"
 			},
 			"availableBackupsTitle": "Copies de seguretat disponibles",
-			"manuallyCreated": "Creat manualment"
+			"manuallyCreated": "Manual"
 		},
 		"appearance": {
 			"title": "Aparença",

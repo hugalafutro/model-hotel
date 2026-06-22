@@ -1643,7 +1643,7 @@
 				"pruneSuccess": "{{count}} biztonsági másolat(ok) törlése"
 			},
 			"availableBackupsTitle": "Elérhető biztonsági másolatok",
-			"manuallyCreated": "Manuálisan létrehozva"
+			"manuallyCreated": "Kézi"
 		},
 		"appearance": {
 			"title": "Megjelenés",

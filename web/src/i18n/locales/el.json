@@ -1643,7 +1643,7 @@
 				"pruneSuccess": "Καθαρισμένα αντίγραφα ασφαλείας του {{count}}"
 			},
 			"availableBackupsTitle": "Διαθέσιμα Αντίγραφα Ασφαλείας",
-			"manuallyCreated": "Δημιουργήθηκε χειροκίνητα"
+			"manuallyCreated": "Χειροκίνητο"
 		},
 		"appearance": {
 			"title": "Εμφάνιση",

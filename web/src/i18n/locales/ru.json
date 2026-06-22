@@ -1643,7 +1643,7 @@
 				"pruneSuccess": "Резервная копия {{count}}"
 			},
 			"availableBackupsTitle": "Доступные резервные копии",
-			"manuallyCreated": "Создано вручную"
+			"manuallyCreated": "Вручную"
 		},
 		"appearance": {
 			"title": "Внешний вид",

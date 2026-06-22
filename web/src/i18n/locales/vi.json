@@ -1643,7 +1643,7 @@
 				"pruneSuccess": "Đã xóa bản sao lưu của {{count}}"
 			},
 			"availableBackupsTitle": "Các bản sao lưu hiện có",
-			"manuallyCreated": "Tạo thủ công"
+			"manuallyCreated": "Thủ công"
 		},
 		"appearance": {
 			"title": "Hình thức",

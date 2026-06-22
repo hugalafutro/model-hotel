@@ -1643,7 +1643,7 @@
 				"pruneSuccess": "削除された {{count}} バックアップ"
 			},
 			"availableBackupsTitle": "利用可能なバックアップ",
-			"manuallyCreated": "手動で作成"
+			"manuallyCreated": "手動"
 		},
 		"appearance": {
 			"title": "外観",

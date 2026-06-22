@@ -1643,7 +1643,7 @@
 				"pruneSuccess": "Se han eliminado {{count}} copia(s) de seguridad"
 			},
 			"availableBackupsTitle": "Copias de seguridad disponibles",
-			"manuallyCreated": "Creado manualmente"
+			"manuallyCreated": "Manual"
 		},
 		"appearance": {
 			"title": "Apariencia",

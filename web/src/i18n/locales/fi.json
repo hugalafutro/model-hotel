@@ -1643,7 +1643,7 @@
 				"pruneSuccess": "Karsittu {{count}} varmuuskopio(t)"
 			},
 			"availableBackupsTitle": "Saatavilla Olevat Varmuuskopiot",
-			"manuallyCreated": "Luotu manuaalisesti"
+			"manuallyCreated": "Manuaalinen"
 		},
 		"appearance": {
 			"title": "Ulkoasu",

@@ -1643,7 +1643,7 @@
 				"pruneSuccess": "已删除 {{count}} 备份"
 			},
 			"availableBackupsTitle": "可用备份",
-			"manuallyCreated": "手动创建"
+			"manuallyCreated": "手动"
 		},
 		"appearance": {
 			"title": "外观",

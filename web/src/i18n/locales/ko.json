@@ -1643,7 +1643,7 @@
 				"pruneSuccess": "{{count}} 백업 파일 삭제"
 			},
 			"availableBackupsTitle": "사용 가능한 백업",
-			"manuallyCreated": "수동 생성"
+			"manuallyCreated": "수동"
 		},
 		"appearance": {
 			"title": "외관",

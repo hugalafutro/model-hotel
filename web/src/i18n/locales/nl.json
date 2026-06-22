@@ -1643,7 +1643,7 @@
 				"pruneSuccess": "{{count}} backup(s) verwijderd"
 			},
 			"availableBackupsTitle": "Beschikbare back-ups",
-			"manuallyCreated": "Handmatig aangemaakt"
+			"manuallyCreated": "Handmatig"
 		},
 		"appearance": {
 			"title": "Uiterlijk",

@@ -1643,7 +1643,7 @@
 				"pruneSuccess": "Pruned {{count}} backup(s)"
 			},
 			"availableBackupsTitle": "Dostępne kopie zapasowe",
-			"manuallyCreated": "Utworzono ręcznie"
+			"manuallyCreated": "Ręczne"
 		},
 		"appearance": {
 			"title": "Wygląd",

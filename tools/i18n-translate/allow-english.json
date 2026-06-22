@@ -5604,6 +5604,12 @@
 	"settings.backup.download": [
 		"de"
 	],
+	"settings.backup.manuallyCreated": [
+		"ca",
+		"es",
+		"pt",
+		"ro"
+	],
 	"settings.backup.rotation.interval": [
 		"da"
 	],

@@ -1643,7 +1643,7 @@
 				"pruneSuccess": "النسخ الاحتياطي {{count}} المتقلب"
 			},
 			"availableBackupsTitle": "النسخ الاحتياطي المتوفر",
-			"manuallyCreated": "تم الإنشاء يدويًا"
+			"manuallyCreated": "يدوي"
 		},
 		"appearance": {
 			"title": "المظهر",

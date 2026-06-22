@@ -1643,7 +1643,7 @@
 				"pruneSuccess": "Pruned {{count}} backup(s)"
 			},
 			"availableBackupsTitle": "Tilgjengelige sikkerhetskopier",
-			"manuallyCreated": "Opprettet manuelt"
+			"manuallyCreated": "Manuell"
 		},
 		"appearance": {
 			"title": "Utseende",

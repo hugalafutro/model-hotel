@@ -1643,7 +1643,7 @@
 				"pruneSuccess": "Beskadiget {{count}} sikkerhedskopi(er)"
 			},
 			"availableBackupsTitle": "Tilgængelige sikkerhedskopier",
-			"manuallyCreated": "Oprettet manuelt"
+			"manuallyCreated": "Manuel"
 		},
 		"appearance": {
 			"title": "Udseende",

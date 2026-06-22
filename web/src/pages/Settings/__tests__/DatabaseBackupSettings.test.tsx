@@ -84,8 +84,8 @@ describe("DatabaseBackupSettings", () => {
 			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
 		);
 
-		// Manual backup carries the accent "Manually created" note...
-		expect(await screen.findByText(/Manually created/)).toBeInTheDocument();
+		// Manual backup carries the accent "Manual" note...
+		expect(await screen.findByText(/Manual/)).toBeInTheDocument();
 		// ...and the scheduled one is tagged with its GFS bucket (Son).
 		const scheduledRow = (await screen.findByText(scheduled.filename)).closest(
 			"div",

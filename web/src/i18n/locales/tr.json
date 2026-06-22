@@ -1643,7 +1643,7 @@
 				"pruneSuccess": "{{count}} yedeklemesi/yedeklemeleri silindi"
 			},
 			"availableBackupsTitle": "Mevcut Yedeklemeler",
-			"manuallyCreated": "Manuel oluşturuldu"
+			"manuallyCreated": "Manuel"
 		},
 		"appearance": {
 			"title": "Görünüm",

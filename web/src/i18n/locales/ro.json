@@ -1643,7 +1643,7 @@
 				"pruneSuccess": "Curățate {{count}} copii de rezervă"
 			},
 			"availableBackupsTitle": "Backup-uri disponibile",
-			"manuallyCreated": "Creat manual"
+			"manuallyCreated": "Manual"
 		},
 		"appearance": {
 			"title": "Aspectul",

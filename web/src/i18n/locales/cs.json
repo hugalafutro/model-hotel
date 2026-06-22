@@ -1643,7 +1643,7 @@
 				"pruneSuccess": "Pruned {{count}} zálohování"
 			},
 			"availableBackupsTitle": "Dostupné zálohy",
-			"manuallyCreated": "Vytvořeno ručně"
+			"manuallyCreated": "Ručne"
 		},
 		"appearance": {
 			"title": "Vzhled",

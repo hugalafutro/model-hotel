@@ -1643,7 +1643,7 @@
 				"pruneSuccess": "{{count}} Sicherung(en) bereinigt"
 			},
 			"availableBackupsTitle": "Verfügbare Sicherungen",
-			"manuallyCreated": "Manuell erstellt"
+			"manuallyCreated": "Manuell"
 		},
 		"appearance": {
 			"title": "Erscheinung",

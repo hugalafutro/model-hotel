@@ -1643,7 +1643,7 @@
 				"pruneSuccess": "Odstránené zálohy {{count}}"
 			},
 			"availableBackupsTitle": "Dostupné zálohy",
-			"manuallyCreated": "Vytvorené ručne"
+			"manuallyCreated": "Ručne"
 		},
 		"appearance": {
 			"title": "Vzhľad",

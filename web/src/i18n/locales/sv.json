@@ -1643,7 +1643,7 @@
 				"pruneSuccess": "Beskärda {{count}} säkerhetskopior"
 			},
 			"availableBackupsTitle": "Tillgängliga säkerhetskopior",
-			"manuallyCreated": "Skapad manuellt"
+			"manuallyCreated": "Manuell"
 		},
 		"appearance": {
 			"title": "Utseende",

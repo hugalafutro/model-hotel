@@ -1643,7 +1643,7 @@
 				"pruneSuccess": "Geskreide {{count}} -rugsteun(e)"
 			},
 			"availableBackupsTitle": "Beskikbare rugsteun",
-			"manuallyCreated": "Handmatig geskep"
+			"manuallyCreated": "Handmatig"
 		},
 		"appearance": {
 			"title": "Uiterlike voorkoms",

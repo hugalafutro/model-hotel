@@ -1643,7 +1643,7 @@
 				"pruneSuccess": "Очишћене резервне копије {{count}}"
 			},
 			"availableBackupsTitle": "Доступне резервне копије",
-			"manuallyCreated": "Ручно креирано"
+			"manuallyCreated": "Ручно"
 		},
 		"appearance": {
 			"title": "Изглед",

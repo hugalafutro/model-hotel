@@ -1643,7 +1643,7 @@
 				"pruneSuccess": "גיזום {{count}} גיבוי/גיבויים"
 			},
 			"availableBackupsTitle": "גיבויים זמינים",
-			"manuallyCreated": "נוצר ידנית"
+			"manuallyCreated": "ידני"
 		},
 		"appearance": {
 			"title": "מראה",

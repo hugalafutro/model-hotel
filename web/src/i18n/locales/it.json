@@ -1643,7 +1643,7 @@
 				"pruneSuccess": "Eliminati {{count}} backup"
 			},
 			"availableBackupsTitle": "Backup Disponibili",
-			"manuallyCreated": "Creato manualmente"
+			"manuallyCreated": "Manuale"
 		},
 		"appearance": {
 			"title": "Aspetto",
