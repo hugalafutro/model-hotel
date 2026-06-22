@@ -1429,7 +1429,9 @@
 				"5m0s": "5 minuti",
 				"10m0s": "10 minuti",
 				"disabled": "Disabilitato"
-			}
+			},
+			"requestsGroup": "Richieste",
+			"streamingGroup": "Streaming"
 		},
 		"rateLimit": {
 			"title": "Limite Di Tasso",
@@ -1449,7 +1451,8 @@
 			"backpressure": "Tasso Limite Di Contropressione",
 			"backpressureDescription": "Comportamento di attesa condiviso per entrambi i limitatori di velocità per chiave e IP",
 			"maxWait": "Max Attendere (ms)",
-			"maxWait.description": "Tempo massimo di attesa prima di respingere una richiesta limitata. Se un token diventa disponibile all'interno di questa finestra, la richiesta procede; altrimenti 429 viene restituito."
+			"maxWait.description": "Tempo massimo di attesa prima di respingere una richiesta limitata. Se un token diventa disponibile all'interno di questa finestra, la richiesta procede; altrimenti 429 viene restituito.",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Interruttore & Fallimento",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "Avvia un provider di riserva in parallelo quando il primo è lento a inviare il primo token (solo gruppi di failover in streaming)",
 			"hedgeDelay": "Ritardo di copertura",
 			"hedgeDelay.description": "Quanto attendere il primo token del primo provider prima di avviare anche un provider di riserva",
-			"hedgingNotice": "La copertura avvia un secondo provider in parallelo quando il primo è lento a partire e mantiene quello che risponde per primo. Negli avvii lenti questo raddoppia la richiesta a monte, quindi i limiti di frequenza e la capacità del provider si esauriscono più in fretta, e una riserva che ignora l'annullamento può continuare a generare in background. Attivala solo se i primi token lenti danneggiano più del carico extra."
+			"hedgingNotice": "La copertura avvia un secondo provider in parallelo quando il primo è lento a partire e mantiene quello che risponde per primo. Negli avvii lenti questo raddoppia la richiesta a monte, quindi i limiti di frequenza e la capacità del provider si esauriscono più in fretta, e una riserva che ignora l'annullamento può continuare a generare in background. Attivala solo se i primi token lenti danneggiano più del carico extra.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Registrazione",
@@ -1525,7 +1530,10 @@
 				"24h": "24 ore",
 				"48h": "48 ore",
 				"disabled": "Disabilitato"
-			}
+			},
+			"automaticGroup": "Automatico",
+			"manualGroup": "Manuale",
+			"lastRun": "Ultima esecuzione"
 		},
 		"dataStorage": {
 			"title": "Archiviazione Dati",
@@ -1600,7 +1608,6 @@
 			"uploadRestore": "Carica E Ripristino",
 			"restoring": "Ripristino…",
 			"selectBackupFile": "Seleziona il file di backup da ripristinare",
-			"availableBackups": "Backup Disponibili ({{count}})",
 			"noBackups": "Ancora nessun backup.",
 			"download": "Scarica",
 			"delete": "Elimina backup",
@@ -1635,7 +1642,9 @@
 				"prunePreviewFailed": "Impossibile visualizzare l'anteprima della potatura del backup",
 				"pruneFailed": "Potatura backup non riuscita",
 				"pruneSuccess": "Eliminati {{count}} backup"
-			}
+			},
+			"availableBackupsTitle": "Backup Disponibili",
+			"manuallyCreated": "Manuale"
 		},
 		"appearance": {
 			"title": "Aspetto",
@@ -1775,7 +1784,8 @@
 			"saveNameAriaLabel": "Salva nome",
 			"cancelNameAriaLabel": "Annulla rinominazione",
 			"renameAriaLabel": "Rinomina password",
-			"failedToRename": "Impossibile rinominare la passkey: {{message}}"
+			"failedToRename": "Impossibile rinominare la passkey: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "Generare log strutturati come un oggetto JSON per riga, per i collettori di log stdout come Fluent Bit, Vector o Promtail.",
@@ -1788,7 +1798,8 @@
 			"otel.instructions": "Indirizzarlo all'endpoint del collettore OTLP e riavviare il container per inviare i log tramite OpenTelemetry:",
 			"otel.name": "Log OpenTelemetry (OTLP)",
 			"title": "Osservabilità ed esportazione dei log",
-			"description": "Model Hotel può esportare i propri log e metriche strutturati verso sistemi esterni. Ogni integrazione è abilitata tramite una variabile d'ambiente; i badge di stato riportati di seguito riflettono lo stato attuale. Non viene mai esportato alcun contenuto di richiesta o risposta, ma solo metadati di instradamento e misurazione."
+			"description": "Model Hotel può esportare i propri log e metriche strutturati verso sistemi esterni. Ogni integrazione è abilitata tramite una variabile d'ambiente; i badge di stato riportati di seguito riflettono lo stato attuale. Non viene mai esportato alcun contenuto di richiesta o risposta, ma solo metadati di instradamento e misurazione.",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "URL dell’API Apprise",
@@ -1863,7 +1874,7 @@
 			"savedAriaLabel": "Verificare che i codici di ripristino siano stati salvati",
 			"secret": "Segreto",
 			"secretCopied": "Segreto copiato",
-			"title": "App di autenticazione (TOTP)",
+			"title": "2FA · App di autenticazione (TOTP)",
 			"verifiedSuccess": "Autenticazione a due fattori abilitata",
 			"verify": "Verificare e abilitare",
 			"verifyAriaLabel": "Verifica il codice TOTP e abilita",
@@ -1871,7 +1882,12 @@
 			"downloadCodes": "Scarica come .txt",
 			"downloadCodesAriaLabel": "Scarica i codici di recupero come file di testo",
 			"failedToStart": "Impossibile avviare la registrazione: {{message}}",
-			"enabledOn": "Attivato il {{date}}"
+			"enabledOn": "Attivato il {{date}}",
+			"recoveryRemaining": "Codici di recupero",
+			"lastUsed": "Ultimo utilizzo"
+		},
+		"authentication": {
+			"title": "Autenticazione"
 		}
 	},
 	"components": {

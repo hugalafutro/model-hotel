@@ -1429,7 +1429,9 @@
 				"5m0s": "5 minutes",
 				"10m0s": "10 minutes",
 				"disabled": "Disabled"
-			}
+			},
+			"requestsGroup": "Requests",
+			"streamingGroup": "Streaming"
 		},
 		"rateLimit": {
 			"title": "Rate Limiting",
@@ -1449,7 +1451,8 @@
 			"backpressure": "Rate Limit Backpressure",
 			"backpressureDescription": "Shared wait behavior for both per-key and IP rate limiters",
 			"maxWait": "Max Wait (ms)",
-			"maxWait.description": "Maximum time to wait before rejecting a rate-limited request. If a token becomes available within this window, the request proceeds; otherwise 429 is returned."
+			"maxWait.description": "Maximum time to wait before rejecting a rate-limited request. If a token becomes available within this window, the request proceeds; otherwise 429 is returned.",
+			"perIpGroup": "Per-IP"
 		},
 		"alerts": {
 			"title": "Alerts",
@@ -1509,7 +1512,9 @@
 			"hedgingDescription": "Race a backup provider in parallel when the first is slow to send its first token (streaming failover groups only)",
 			"hedgeDelay": "Hedge Delay",
 			"hedgeDelay.description": "How long to wait for the first provider's first token before also firing a backup provider",
-			"hedgingNotice": "Hedging fires a second provider in parallel when the first is slow to start and keeps whichever answers first. On slow starts this doubles the upstream request, so provider rate limits and capacity are used up faster, and a backup that ignores cancellation can keep generating in the background. Turn it on only if slow first tokens hurt more than the extra load."
+			"hedgingNotice": "Hedging fires a second provider in parallel when the first is slow to start and keeps whichever answers first. On slow starts this doubles the upstream request, so provider rate limits and capacity are used up faster, and a backup that ignores cancellation can keep generating in the background. Turn it on only if slow first tokens hurt more than the extra load.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Logging",
@@ -1568,7 +1573,10 @@
 				"24h": "24 hours",
 				"48h": "48 hours",
 				"disabled": "Disabled"
-			}
+			},
+			"automaticGroup": "Automatic",
+			"manualGroup": "Manual",
+			"lastRun": "Last run"
 		},
 		"dataStorage": {
 			"title": "Data Storage",
@@ -1643,7 +1651,6 @@
 			"uploadRestore": "Upload & Restore",
 			"restoring": "Restoring…",
 			"selectBackupFile": "Select backup file to restore",
-			"availableBackups": "Available Backups ({{count}})",
 			"noBackups": "No backups yet.",
 			"download": "Download",
 			"delete": "Delete backup",
@@ -1678,7 +1685,9 @@
 				"prunePreviewFailed": "Failed to preview backup pruning",
 				"pruneFailed": "Failed to prune backups",
 				"pruneSuccess": "Pruned {{count}} backup(s)"
-			}
+			},
+			"availableBackupsTitle": "Available backups",
+			"manuallyCreated": "Manual"
 		},
 		"appearance": {
 			"title": "Appearance",
@@ -1806,7 +1815,8 @@
 			"metrics.instructions": "Set a dedicated scrape token to provision Prometheus metrics. /metrics is already reachable using the admin token.",
 			"otel.name": "OpenTelemetry logs (OTLP)",
 			"otel.description": "Push the same structured logs to an OpenTelemetry collector over OTLP (logs only, no tracing or metrics).",
-			"otel.instructions": "Point this at your OTLP collector endpoint and restart the container to push logs over OpenTelemetry:"
+			"otel.instructions": "Point this at your OTLP collector endpoint and restart the container to push logs over OpenTelemetry:",
+			"targets": "Targets"
 		},
 		"passkeys": {
 			"title": "Passkeys",
@@ -1831,10 +1841,11 @@
 			"saveNameAriaLabel": "Save name",
 			"cancelNameAriaLabel": "Cancel renaming",
 			"renameAriaLabel": "Rename passkey",
-			"failedToRename": "Failed to rename passkey: {{message}}"
+			"failedToRename": "Failed to rename passkey: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"totp": {
-			"title": "Authenticator App (TOTP)",
+			"title": "2FA · Authenticator App (TOTP)",
 			"description": "Add a time-based one-time password as a second factor for the admin login.",
 			"enable": "Enable",
 			"enableDescription": "Scan the QR code with an authenticator app (e.g. Google Authenticator, Authy, 1Password), then enter the 6-digit code it shows.",
@@ -1871,7 +1882,12 @@
 			"downloadCodes": "Download as .txt",
 			"downloadCodesAriaLabel": "Download recovery codes as a text file",
 			"failedToStart": "Could not start enrollment: {{message}}",
-			"enabledOn": "Enabled on {{date}}"
+			"enabledOn": "Enabled on {{date}}",
+			"recoveryRemaining": "Recovery codes",
+			"lastUsed": "Last used"
+		},
+		"authentication": {
+			"title": "Authentication"
 		}
 	},
 	"components": {

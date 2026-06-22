@@ -1429,7 +1429,9 @@
 				"5m0s": "5 minute",
 				"10m0s": "10 minute",
 				"disabled": "Gestremd"
-			}
+			},
+			"requestsGroup": "Versoeke",
+			"streamingGroup": "Stroom"
 		},
 		"rateLimit": {
 			"title": "Rasbeperking",
@@ -1449,7 +1451,8 @@
 			"backpressure": "Ratelimiet-terugslag",
 			"backpressureDescription": "Gedeelde waggedrag vir beide per-sleutel- en IP-koersbeperkers",
 			"maxWait": "Max wag (ms)",
-			"maxWait.description": "Maximum wagtyd voordat 'n rate-beperkte versoek verwerp word. As 'n token binne hierdie venster beskikbaar raak, gaan die versoek voort; anders word 'n 429 teruggestuur."
+			"maxWait.description": "Maximum wagtyd voordat 'n rate-beperkte versoek verwerp word. As 'n token binne hierdie venster beskikbaar raak, gaan die versoek voort; anders word 'n 429 teruggestuur.",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Stroomonderbreker en oorloop",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "Wedywer 'n rugsteunverskaffer parallel wanneer die eerste stadig is om sy eerste teken te stuur (slegs stroom-oorvleuelgroepe)",
 			"hedgeDelay": "Verskansingsvertraging",
 			"hedgeDelay.description": "Hoe lank om op die eerste verskaffer se eerste teken te wag voordat ook 'n rugsteunverskaffer afgevuur word",
-			"hedgingNotice": "Verskansing vuur 'n tweede verskaffer parallel af wanneer die eerste stadig begin en hou dié wat eerste antwoord. Met stadige begin verdubbel dit die stroomop-versoek, so verskaffer-tempolimiete en kapasiteit raak vinniger op, en 'n rugsteun wat kansellasie ignoreer kan in die agtergrond aanhou genereer. Skakel dit net aan as stadige eerste tekens meer skade doen as die ekstra las."
+			"hedgingNotice": "Verskansing vuur 'n tweede verskaffer parallel af wanneer die eerste stadig begin en hou dié wat eerste antwoord. Met stadige begin verdubbel dit die stroomop-versoek, so verskaffer-tempolimiete en kapasiteit raak vinniger op, en 'n rugsteun wat kansellasie ignoreer kan in die agtergrond aanhou genereer. Skakel dit net aan as stadige eerste tekens meer skade doen as die ekstra las.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Aantekeningvoering",
@@ -1525,7 +1530,10 @@
 				"24h": "24 uur",
 				"48h": "48 uur",
 				"disabled": "Gestremd"
-			}
+			},
+			"automaticGroup": "Outomaties",
+			"manualGroup": "Handmatig",
+			"lastRun": "Laas uitgevoer"
 		},
 		"dataStorage": {
 			"title": "Datastoring",
@@ -1600,7 +1608,6 @@
 			"uploadRestore": "Oplaai en herstel",
 			"restoring": "Restour…",
 			"selectBackupFile": "Kies rugsteunlêer om te herstel",
-			"availableBackups": "Beskikbare rugsteun ({{count}})",
 			"noBackups": "Nog geen rugsteun nie.",
 			"download": "Aflaai",
 			"delete": "Verwyder rugsteun",
@@ -1635,7 +1642,9 @@
 				"prunePreviewFailed": "Misluk om rugsteun-snoei te voorskou",
 				"pruneFailed": "Misgeluk om rugsteun uit te snoei",
 				"pruneSuccess": "Geskreide {{count}} -rugsteun(e)"
-			}
+			},
+			"availableBackupsTitle": "Beskikbare rugsteun",
+			"manuallyCreated": "Handmatig"
 		},
 		"appearance": {
 			"title": "Uiterlike voorkoms",
@@ -1775,7 +1784,8 @@
 			"saveNameAriaLabel": "Bewaar naam",
 			"cancelNameAriaLabel": "Annuleer hernoeming",
 			"renameAriaLabel": "Herbenoem pasleutel",
-			"failedToRename": "Het misluk om die paswoord te hernoem: {{message}}"
+			"failedToRename": "Het misluk om die paswoord te hernoem: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "Gestruktureerde loglêings as een JSON-voorwerp per reël, vir stdout-logversamelaars soos Fluent Bit, Vector of Promtail.",
@@ -1788,7 +1798,8 @@
 			"otel.instructions": "Rig dit op jou OTLP-versamelaar-eindpunt en herbegin die houer om logs via OpenTelemetry oor te stuur:",
 			"otel.name": "OpenTelemetry-logs (OTLP)",
 			"title": "Observabiliteit & Log-uitvoer",
-			"description": "Model Hotel kan sy gestruktureerde loglêers en metrieks na eksterne stelsels uitvoer. Elke integrasie word met 'n omgewingsveranderlike geaktiveer; die statuskentekens hieronder weerspieël die huidige toestand. Geen versoek- of reaksie-inhoud word ooit uitgevoer nie — slegs roetering- en meetmetagegewens."
+			"description": "Model Hotel kan sy gestruktureerde loglêers en metrieks na eksterne stelsels uitvoer. Elke integrasie word met 'n omgewingsveranderlike geaktiveer; die statuskentekens hieronder weerspieël die huidige toestand. Geen versoek- of reaksie-inhoud word ooit uitgevoer nie — slegs roetering- en meetmetagegewens.",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "Apprise API-URL",
@@ -1863,7 +1874,7 @@
 			"savedAriaLabel": "Bevestig dat herstelkodes gestoor is",
 			"secret": "Geheime",
 			"secretCopied": "Geheime gekopieer",
-			"title": "Verifikasie-app (TOTP)",
+			"title": "2FA · Verifikasie-app (TOTP)",
 			"verifiedSuccess": "Twee-faktor-verifikasie geaktiveer",
 			"verify": "Verifieer en aktiveer",
 			"verifyAriaLabel": "Verifieer TOTP-kode en aktiveer",
@@ -1871,7 +1882,12 @@
 			"downloadCodes": "Laai af as .txt",
 			"downloadCodesAriaLabel": "Laai herstelkodes af as 'n tekslêer",
 			"failedToStart": "Kon nie inskrywing begin nie: {{message}}",
-			"enabledOn": "Geaktiveer op {{date}}"
+			"enabledOn": "Geaktiveer op {{date}}",
+			"recoveryRemaining": "Herstelkodes",
+			"lastUsed": "Laas gebruik"
+		},
+		"authentication": {
+			"title": "Verifikasie"
 		}
 	},
 	"components": {

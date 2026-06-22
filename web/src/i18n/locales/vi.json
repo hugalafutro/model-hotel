@@ -1429,7 +1429,9 @@
 				"5m0s": "5 phút",
 				"10m0s": "10 phút",
 				"disabled": "Người khuyết tật"
-			}
+			},
+			"requestsGroup": "Yêu cầu",
+			"streamingGroup": "Phát trực tuyến"
 		},
 		"rateLimit": {
 			"title": "Giới hạn tốc độ",
@@ -1449,7 +1451,8 @@
 			"backpressure": "Áp lực ngược giới hạn tốc độ",
 			"backpressureDescription": "Hành vi chờ chung cho cả bộ giới hạn tốc độ theo khóa và theo IP",
 			"maxWait": "Thời gian chờ tối đa (ms)",
-			"maxWait.description": "Thời gian chờ tối đa trước khi từ chối một yêu cầu bị giới hạn tốc độ. Nếu mã thông báo (token) có sẵn trong khoảng thời gian này, yêu cầu sẽ được xử lý; ngược lại, mã trạng thái 429 sẽ được trả về."
+			"maxWait.description": "Thời gian chờ tối đa trước khi từ chối một yêu cầu bị giới hạn tốc độ. Nếu mã thông báo (token) có sẵn trong khoảng thời gian này, yêu cầu sẽ được xử lý; ngược lại, mã trạng thái 429 sẽ được trả về.",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Bộ ngắt mạch & Chuyển đổi dự phòng",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "Chạy song song một nhà cung cấp dự phòng khi nhà cung cấp đầu tiên gửi token đầu tiên chậm (chỉ với nhóm chuyển đổi dự phòng dạng phát trực tuyến)",
 			"hedgeDelay": "Độ trễ phòng vệ",
 			"hedgeDelay.description": "Thời gian chờ token đầu tiên của nhà cung cấp đầu tiên trước khi cũng khởi chạy nhà cung cấp dự phòng",
-			"hedgingNotice": "Phòng vệ chạy song song nhà cung cấp thứ hai khi nhà cung cấp đầu tiên khởi động chậm và giữ lại bên trả lời trước. Khi khởi động chậm, điều này nhân đôi yêu cầu lên thượng nguồn, nên giới hạn tốc độ và dung lượng của nhà cung cấp bị dùng hết nhanh hơn, và một bản dự phòng bỏ qua việc hủy có thể tiếp tục tạo ở chế độ nền. Chỉ bật nếu token đầu tiên chậm gây hại nhiều hơn tải phụ thêm."
+			"hedgingNotice": "Phòng vệ chạy song song nhà cung cấp thứ hai khi nhà cung cấp đầu tiên khởi động chậm và giữ lại bên trả lời trước. Khi khởi động chậm, điều này nhân đôi yêu cầu lên thượng nguồn, nên giới hạn tốc độ và dung lượng của nhà cung cấp bị dùng hết nhanh hơn, và một bản dự phòng bỏ qua việc hủy có thể tiếp tục tạo ở chế độ nền. Chỉ bật nếu token đầu tiên chậm gây hại nhiều hơn tải phụ thêm.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Ghi nhật ký",
@@ -1525,7 +1530,10 @@
 				"24h": "24 giờ",
 				"48h": "48 giờ",
 				"disabled": "Người khuyết tật"
-			}
+			},
+			"automaticGroup": "Tự động",
+			"manualGroup": "Thủ công",
+			"lastRun": "Lần chạy cuối"
 		},
 		"dataStorage": {
 			"title": "Lưu trữ dữ liệu",
@@ -1600,7 +1608,6 @@
 			"uploadRestore": "Tải lên & Khôi phục",
 			"restoring": "Khôi phục trang web…",
 			"selectBackupFile": "Chọn tệp sao lưu để khôi phục",
-			"availableBackups": "Các bản sao lưu hiện có ({{count}})",
 			"noBackups": "Chưa có bản sao lưu nào.",
 			"download": "Tải xuống",
 			"delete": "Xóa bản sao lưu",
@@ -1635,7 +1642,9 @@
 				"prunePreviewFailed": "Không thể xem trước quá trình cắt giảm bản sao lưu",
 				"pruneFailed": "Không thể xóa các bản sao lưu",
 				"pruneSuccess": "Đã xóa bản sao lưu của {{count}}"
-			}
+			},
+			"availableBackupsTitle": "Các bản sao lưu hiện có",
+			"manuallyCreated": "Thủ công"
 		},
 		"appearance": {
 			"title": "Hình thức",
@@ -1775,7 +1784,8 @@
 			"saveNameAriaLabel": "Lưu tên",
 			"cancelNameAriaLabel": "Hủy đổi tên",
 			"renameAriaLabel": "Đổi tên mật khẩu",
-			"failedToRename": "Không thể đổi tên khóa truy cập: {{message}}"
+			"failedToRename": "Không thể đổi tên khóa truy cập: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "Phát ra nhật ký có cấu trúc dưới dạng một đối tượng JSON trên mỗi dòng, dành cho các công cụ thu thập nhật ký stdout như Fluent Bit, Vector hoặc Promtail.",
@@ -1788,7 +1798,8 @@
 			"otel.instructions": "Hướng điều này đến điểm cuối thu thập OTLP của bạn và khởi động lại container để đẩy nhật ký qua OpenTelemetry:",
 			"otel.name": "Nhật ký OpenTelemetry (OTLP)",
 			"title": "Khả năng quan sát & Xuất nhật ký",
-			"description": "Model Hotel có thể xuất nhật ký và số liệu có cấu trúc của mình sang các hệ thống bên ngoài. Mỗi tích hợp được kích hoạt bằng một biến môi trường; các biểu tượng trạng thái bên dưới phản ánh trạng thái hiện tại. Không có nội dung yêu cầu hoặc phản hồi nào được xuất — chỉ có siêu dữ liệu định tuyến và đo lường."
+			"description": "Model Hotel có thể xuất nhật ký và số liệu có cấu trúc của mình sang các hệ thống bên ngoài. Mỗi tích hợp được kích hoạt bằng một biến môi trường; các biểu tượng trạng thái bên dưới phản ánh trạng thái hiện tại. Không có nội dung yêu cầu hoặc phản hồi nào được xuất — chỉ có siêu dữ liệu định tuyến và đo lường.",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "URL API Apprise",
@@ -1863,7 +1874,7 @@
 			"savedAriaLabel": "Xác nhận đã lưu mã khôi phục",
 			"secret": "Khóa bí mật",
 			"secretCopied": "Đã sao chép khóa bí mật",
-			"title": "Ứng dụng xác thực (TOTP)",
+			"title": "2FA · Ứng dụng xác thực (TOTP)",
 			"verifiedSuccess": "Đã bật xác thực hai yếu tố",
 			"verify": "Xác minh và bật",
 			"verifyAriaLabel": "Xác minh mã TOTP và bật",
@@ -1871,7 +1882,12 @@
 			"downloadCodes": "Tải xuống dạng .txt",
 			"downloadCodesAriaLabel": "Tải mã khôi phục xuống dưới dạng tệp văn bản",
 			"failedToStart": "Không thể bắt đầu đăng ký: {{message}}",
-			"enabledOn": "Đã bật vào {{date}}"
+			"enabledOn": "Đã bật vào {{date}}",
+			"recoveryRemaining": "Mã khôi phục",
+			"lastUsed": "Lần dùng cuối"
+		},
+		"authentication": {
+			"title": "Xác thực"
 		}
 	},
 	"components": {

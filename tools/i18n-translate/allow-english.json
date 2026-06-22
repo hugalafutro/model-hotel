@@ -5604,6 +5604,12 @@
 	"settings.backup.download": [
 		"de"
 	],
+	"settings.backup.manuallyCreated": [
+		"ca",
+		"es",
+		"pt",
+		"ro"
+	],
 	"settings.backup.rotation.interval": [
 		"da"
 	],
@@ -5611,8 +5617,65 @@
 		"no",
 		"pl"
 	],
+	"settings.circuitBreaker.failoverGroup": [
+		"af",
+		"ar",
+		"ca",
+		"cs",
+		"da",
+		"de",
+		"el",
+		"es",
+		"fi",
+		"fr",
+		"he",
+		"hu",
+		"it",
+		"nl",
+		"no",
+		"pl",
+		"pt",
+		"ro",
+		"ru",
+		"sk",
+		"sr",
+		"sv",
+		"tr",
+		"uk",
+		"vi"
+	],
 	"settings.circuitBreaker.failoverOnRateLimit": [
 		"it"
+	],
+	"settings.circuitBreaker.hedgingGroup": [
+		"af",
+		"ar",
+		"ca",
+		"cs",
+		"da",
+		"de",
+		"el",
+		"es",
+		"fi",
+		"fr",
+		"he",
+		"hu",
+		"it",
+		"ja",
+		"ko",
+		"nl",
+		"no",
+		"pl",
+		"pt",
+		"ro",
+		"ru",
+		"sk",
+		"sr",
+		"sv",
+		"tr",
+		"uk",
+		"vi",
+		"zh"
 	],
 	"settings.circuitBreaker.title": [
 		"da",
@@ -5721,6 +5784,12 @@
 	"settings.discovery.intervals.0.5h": [
 		"fr"
 	],
+	"settings.discovery.manualGroup": [
+		"ca",
+		"es",
+		"pt",
+		"ro"
+	],
 	"settings.discovery.title": [
 		"da"
 	],
@@ -5736,6 +5805,36 @@
 	],
 	"settings.logging.staleTimeout.5m0s": [
 		"fr"
+	],
+	"settings.observability.targets": [
+		"af",
+		"ar",
+		"ca",
+		"cs",
+		"da",
+		"de",
+		"el",
+		"es",
+		"fi",
+		"fr",
+		"he",
+		"hu",
+		"it",
+		"ja",
+		"ko",
+		"nl",
+		"no",
+		"pl",
+		"pt",
+		"ro",
+		"ru",
+		"sk",
+		"sr",
+		"sv",
+		"tr",
+		"uk",
+		"vi",
+		"zh"
 	],
 	"settings.passkeys.securityKey": [
 		"nl"
@@ -5779,6 +5878,36 @@
 		"nl",
 		"tr"
 	],
+	"settings.passkeys.unavailableDescription": [
+		"af",
+		"ar",
+		"ca",
+		"cs",
+		"da",
+		"de",
+		"el",
+		"es",
+		"fi",
+		"fr",
+		"he",
+		"hu",
+		"it",
+		"ja",
+		"ko",
+		"nl",
+		"no",
+		"pl",
+		"pt",
+		"ro",
+		"ru",
+		"sk",
+		"sr",
+		"sv",
+		"tr",
+		"uk",
+		"vi",
+		"zh"
+	],
 	"settings.proxy.keyCache.1m0s": [
 		"fr"
 	],
@@ -5806,6 +5935,14 @@
 	"settings.proxy.streamStallTimeout": [
 		"da",
 		"sv"
+	],
+	"settings.proxy.streamingGroup": [
+		"ca",
+		"da",
+		"de",
+		"hu",
+		"it",
+		"ro"
 	],
 	"settings.proxy.timeout.10m0s": [
 		"fr"
@@ -5845,6 +5982,36 @@
 	],
 	"settings.rateLimit.maxWait": [
 		"nl"
+	],
+	"settings.rateLimit.perIpGroup": [
+		"af",
+		"ar",
+		"ca",
+		"cs",
+		"da",
+		"de",
+		"el",
+		"es",
+		"fi",
+		"fr",
+		"he",
+		"hu",
+		"it",
+		"ja",
+		"ko",
+		"nl",
+		"no",
+		"pl",
+		"pt",
+		"ro",
+		"ru",
+		"sk",
+		"sr",
+		"sv",
+		"tr",
+		"uk",
+		"vi",
+		"zh"
 	],
 	"settings.sidebarQuota.intervals.1": [
 		"fr"

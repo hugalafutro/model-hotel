@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import {
 	AlertTriangle,
@@ -14,6 +14,7 @@ import type { BackupClassification } from "../../api/types";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { Modal } from "../../components/Modal";
 import { RestoreConfirmModal } from "../../components/RestoreConfirmModal";
+import { SettingsGroup } from "../../components/SettingsGroup";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
 import { Spinner } from "../../components/Spinner";
@@ -54,6 +55,24 @@ export function DatabaseBackupSettings({
 		queryKey: ["backups"],
 		queryFn: () => api.backups.list(),
 	});
+
+	// GFS bucket per backup, so each row can carry a Grandfather/Father/Son tag.
+	// Sourced from the prune-preview classifier (it groups every backup by age
+	// against the configured retention), so the labels track the same rotation
+	// the sliders above configure.
+	const { data: classification } = useQuery({
+		queryKey: ["backups", "classification"],
+		queryFn: () => api.backups.prunePreview(),
+		enabled: (backups?.length ?? 0) > 0,
+	});
+
+	const gfsLabel = useMemo(() => {
+		const m = new Map<string, "G" | "F" | "S">();
+		for (const b of classification?.grandfather ?? []) m.set(b.filename, "G");
+		for (const b of classification?.father ?? []) m.set(b.filename, "F");
+		for (const b of classification?.son ?? []) m.set(b.filename, "S");
+		return m;
+	}, [classification]);
 
 	const createMutation = useMutation({
 		mutationFn: () => api.backups.create(),
@@ -187,15 +206,10 @@ export function DatabaseBackupSettings({
 					/>
 				</p>
 
-				{/* Periodic backup toggle */}
-				<div className="bg-(--surface-elevated) rounded-[var(--radius-card,0.375rem)] p-3 space-y-3">
+				{/* Periodic backup */}
+				<SettingsGroup title={t("settings.backup.rotation.title")}>
 					<div className="flex items-center justify-between">
 						<div>
-							<div className="flex items-center gap-1">
-								<p className="text-sm font-medium text-(--text-primary)">
-									{t("settings.backup.rotation.title")}
-								</p>
-							</div>
 							<p className="text-xs text-(--text-muted) mt-0.5">
 								{t("settings.backup.rotation.enabledDescription")}
 							</p>
@@ -224,101 +238,103 @@ export function DatabaseBackupSettings({
 						/>
 					</div>
 
-					{backupEnabled && (
-						<div className="space-y-3 pt-2">
-							<SettingsSlider
-								id="backup-interval"
-								label={t("settings.backup.rotation.interval")}
-								value={intervalHours}
-								min={0.5}
-								max={168}
-								step={0.5}
-								clampStep={0.5}
-								unit="h"
-								onReset={() =>
-									settingsUpdateMutation.mutate({ backup_interval: "24h" })
-								}
-								resetTooltip={t("settings.common.resetToDefault")}
-								onChange={(v) =>
-									settingsUpdateMutation.mutate({
-										backup_interval: `${v}h`,
-									})
-								}
-								description={t("settings.backup.rotation.intervalDescription")}
-							/>
-							<SettingsSlider
-								id="backup-son-retention"
-								label={t("settings.backup.rotation.sonRetention")}
-								value={sonRetention}
-								min={1}
-								max={365}
-								step={1}
-								clampStep={1}
-								unit="d"
-								onReset={() =>
-									settingsUpdateMutation.mutate({ backup_son_retention: "7" })
-								}
-								resetTooltip={t("settings.common.resetToDefault")}
-								onChange={(v) =>
-									settingsUpdateMutation.mutate({
-										backup_son_retention: String(v),
-									})
-								}
-								description={t(
-									"settings.backup.rotation.sonRetentionDescription",
-								)}
-							/>
-							<SettingsSlider
-								id="backup-father-retention"
-								label={t("settings.backup.rotation.fatherRetention")}
-								value={fatherRetention}
-								min={0}
-								max={52}
-								step={1}
-								clampStep={1}
-								unit="w"
-								onReset={() =>
-									settingsUpdateMutation.mutate({
-										backup_father_retention: "4",
-									})
-								}
-								resetTooltip={t("settings.common.resetToDefault")}
-								onChange={(v) =>
-									settingsUpdateMutation.mutate({
-										backup_father_retention: String(v),
-									})
-								}
-								description={t(
-									"settings.backup.rotation.fatherRetentionDescription",
-								)}
-							/>
-							<SettingsSlider
-								id="backup-grandfather-retention"
-								label={t("settings.backup.rotation.grandfatherRetention")}
-								value={grandfatherRetention}
-								min={0}
-								max={120}
-								step={1}
-								clampStep={1}
-								unit="m"
-								onReset={() =>
-									settingsUpdateMutation.mutate({
-										backup_grandfather_retention: "3",
-									})
-								}
-								resetTooltip={t("settings.common.resetToDefault")}
-								onChange={(v) =>
-									settingsUpdateMutation.mutate({
-										backup_grandfather_retention: String(v),
-									})
-								}
-								description={t(
-									"settings.backup.rotation.grandfatherRetentionDescription",
-								)}
-							/>
-						</div>
-					)}
-				</div>
+					<div className="space-y-3 pt-2">
+						<SettingsSlider
+							id="backup-interval"
+							disabled={!backupEnabled}
+							label={t("settings.backup.rotation.interval")}
+							value={intervalHours}
+							min={0.5}
+							max={168}
+							step={0.5}
+							clampStep={0.5}
+							unit="h"
+							onReset={() =>
+								settingsUpdateMutation.mutate({ backup_interval: "24h" })
+							}
+							resetTooltip={t("settings.common.resetToDefault")}
+							onChange={(v) =>
+								settingsUpdateMutation.mutate({
+									backup_interval: `${v}h`,
+								})
+							}
+							description={t("settings.backup.rotation.intervalDescription")}
+						/>
+						<SettingsSlider
+							id="backup-son-retention"
+							disabled={!backupEnabled}
+							label={t("settings.backup.rotation.sonRetention")}
+							value={sonRetention}
+							min={1}
+							max={365}
+							step={1}
+							clampStep={1}
+							unit="d"
+							onReset={() =>
+								settingsUpdateMutation.mutate({ backup_son_retention: "7" })
+							}
+							resetTooltip={t("settings.common.resetToDefault")}
+							onChange={(v) =>
+								settingsUpdateMutation.mutate({
+									backup_son_retention: String(v),
+								})
+							}
+							description={t(
+								"settings.backup.rotation.sonRetentionDescription",
+							)}
+						/>
+						<SettingsSlider
+							id="backup-father-retention"
+							disabled={!backupEnabled}
+							label={t("settings.backup.rotation.fatherRetention")}
+							value={fatherRetention}
+							min={0}
+							max={52}
+							step={1}
+							clampStep={1}
+							unit="w"
+							onReset={() =>
+								settingsUpdateMutation.mutate({
+									backup_father_retention: "4",
+								})
+							}
+							resetTooltip={t("settings.common.resetToDefault")}
+							onChange={(v) =>
+								settingsUpdateMutation.mutate({
+									backup_father_retention: String(v),
+								})
+							}
+							description={t(
+								"settings.backup.rotation.fatherRetentionDescription",
+							)}
+						/>
+						<SettingsSlider
+							id="backup-grandfather-retention"
+							disabled={!backupEnabled}
+							label={t("settings.backup.rotation.grandfatherRetention")}
+							value={grandfatherRetention}
+							min={0}
+							max={120}
+							step={1}
+							clampStep={1}
+							unit="m"
+							onReset={() =>
+								settingsUpdateMutation.mutate({
+									backup_grandfather_retention: "3",
+								})
+							}
+							resetTooltip={t("settings.common.resetToDefault")}
+							onChange={(v) =>
+								settingsUpdateMutation.mutate({
+									backup_grandfather_retention: String(v),
+								})
+							}
+							description={t(
+								"settings.backup.rotation.grandfatherRetentionDescription",
+							)}
+						/>
+					</div>
+				</SettingsGroup>
 
 				{/* Double-confirm modal for enabling periodic backup */}
 				{showEnableConfirm && (
@@ -337,15 +353,15 @@ export function DatabaseBackupSettings({
 									{t("settings.backup.rotation.confirmEnableDescription")}
 								</p>
 							</div>
-							{prunePreview && prunePreview.prune.length > 0 ? (
+							{(prunePreview?.prune?.length ?? 0) > 0 ? (
 								<div className="space-y-2">
 									<p className="text-sm text-(--text-primary)">
 										{t("settings.backup.rotation.confirmEnableWouldRemove", {
-											count: prunePreview.prune.length,
+											count: prunePreview?.prune?.length ?? 0,
 										})}
 									</p>
 									<div className="max-h-40 overflow-y-auto rounded bg-(--surface-elevated) border border-(--border-default) p-2">
-										{prunePreview.prune.map((b) => (
+										{(prunePreview?.prune ?? []).map((b) => (
 											<div
 												key={b.filename}
 												className="text-xs font-mono text-(--text-secondary) py-0.5"
@@ -375,7 +391,7 @@ export function DatabaseBackupSettings({
 									type="button"
 									onClick={async () => {
 										try {
-											if (prunePreview && prunePreview.prune.length > 0) {
+											if ((prunePreview?.prune?.length ?? 0) > 0) {
 												await api.backups.prune();
 											}
 											await settingsUpdateMutation.mutateAsync({
@@ -383,7 +399,7 @@ export function DatabaseBackupSettings({
 											});
 											toast(
 												t("settings.backup.rotation.pruneSuccess", {
-													count: prunePreview?.prune.length ?? 0,
+													count: prunePreview?.prune?.length ?? 0,
 												}),
 												"success",
 											);
@@ -489,123 +505,136 @@ export function DatabaseBackupSettings({
 					/>
 				)}
 
-				{/* Action buttons row */}
-				<div className="flex items-center justify-between">
-					<button
-						type="button"
-						onClick={() => createMutation.mutate()}
-						disabled={createMutation.isPending}
-						className="ui-btn ui-btn-primary flex items-center gap-2"
-					>
-						{createMutation.isPending ? <Spinner /> : <Plus size={14} />}
-						{createMutation.isPending
-							? t("settings.backup.creatingBackup")
-							: t("settings.backup.createBackup")}
-					</button>
-					<div className="flex items-center gap-2">
-						<input
-							ref={fileInputRef}
-							type="file"
-							accept=".dump"
-							className="hidden"
-							aria-label={t("settings.backup.selectBackupFile")}
-							onChange={(e) => {
-								const file = e.target.files?.[0];
-								if (file) {
-									setRestoreFile(file);
-									setShowRestoreModal(true);
-								}
-								e.target.value = "";
-							}}
-						/>
+				{/* Available backups */}
+				<SettingsGroup title={t("settings.backup.availableBackupsTitle")}>
+					{/* Action buttons row */}
+					<div className="flex items-center justify-between">
 						<button
 							type="button"
-							onClick={() => fileInputRef.current?.click()}
-							disabled={isRestoring}
-							className="ui-btn flex items-center gap-2 border border-dashed border-(--border-default) text-(--text-secondary) hover:text-(--text-primary) hover:border-(--accent) hover:bg-(--surface-elevated) transition-colors"
+							onClick={() => createMutation.mutate()}
+							disabled={createMutation.isPending}
+							className="ui-btn ui-btn-primary flex items-center gap-2"
 						>
-							<Upload size={14} />
-							{isRestoring
-								? t("settings.backup.restoring")
-								: t("settings.backup.uploadRestore")}
+							{createMutation.isPending ? <Spinner /> : <Plus size={14} />}
+							{createMutation.isPending
+								? t("settings.backup.creatingBackup")
+								: t("settings.backup.createBackup")}
 						</button>
-					</div>
-				</div>
-
-				{/* Backup list */}
-				{isLoading ? (
-					<LoadingSpinner />
-				) : backups && backups.length > 0 ? (
-					<div className="space-y-2 max-h-[300px] overflow-y-auto">
-						<h4 className="text-xs font-semibold uppercase tracking-wider text-(--text-muted) py-1">
-							{t("settings.backup.availableBackups", { count: backups.length })}
-						</h4>
-						{backups.map((backup) => (
-							<div
-								key={backup.filename}
-								className="flex items-center justify-between bg-(--surface-elevated) rounded-[var(--radius-card,0.375rem)] border border-(--border-default) p-3"
+						<div className="flex items-center gap-2">
+							<input
+								ref={fileInputRef}
+								type="file"
+								accept=".dump"
+								className="hidden"
+								aria-label={t("settings.backup.selectBackupFile")}
+								onChange={(e) => {
+									const file = e.target.files?.[0];
+									if (file) {
+										setRestoreFile(file);
+										setShowRestoreModal(true);
+									}
+									e.target.value = "";
+								}}
+							/>
+							<button
+								type="button"
+								onClick={() => fileInputRef.current?.click()}
+								disabled={isRestoring}
+								className="ui-btn flex items-center gap-2 border border-dashed border-(--border-default) text-(--text-secondary) hover:text-(--text-primary) hover:border-(--accent) hover:bg-(--surface-elevated) transition-colors"
 							>
-								<div className="min-w-0 flex-1">
-									<p className="text-sm font-medium text-(--text-primary) truncate">
-										{backup.filename}
-									</p>
-									<p className="text-xs text-(--text-muted)">
-										{formatBytes(backup.size_bytes)} -{" "}
-										{formatDateTimeShort(backup.created_at)}
-									</p>
-								</div>
-								<div className="flex items-center gap-2 ml-3 shrink-0">
-									{confirmDelete === backup.filename ? (
-										<>
-											<span className="text-xs text-red-400">
-												{t("settings.backup.deleteConfirm")}
-											</span>
-											<button
-												type="button"
-												onClick={() => deleteMutation.mutate(backup.filename)}
-												disabled={deleteMutation.isPending}
-												className="ui-btn ui-btn-danger text-xs px-2 py-1"
-											>
-												{t("settings.backup.confirm")}
-											</button>
-											<button
-												type="button"
-												onClick={() => setConfirmDelete(null)}
-												className="ui-btn ui-btn-secondary text-xs px-2 py-1"
-											>
-												{t("settings.backup.cancel")}
-											</button>
-										</>
-									) : (
-										<>
-											<button
-												type="button"
-												onClick={() => downloadBackup(backup.filename)}
-												className="ui-btn ui-btn-secondary text-xs px-2 py-1 flex items-center gap-1"
-											>
-												<Download size={12} />
-												{t("settings.backup.download")}
-											</button>
-											<button
-												type="button"
-												onClick={() => setConfirmDelete(backup.filename)}
-												className="ui-btn ui-btn-danger text-xs px-2 py-1"
-												title={t("settings.backup.delete")}
-												aria-label={t("settings.backup.delete")}
-											>
-												<Trash2 size={12} />
-											</button>
-										</>
-									)}
-								</div>
-							</div>
-						))}
+								<Upload size={14} />
+								{isRestoring
+									? t("settings.backup.restoring")
+									: t("settings.backup.uploadRestore")}
+							</button>
+						</div>
 					</div>
-				) : (
-					<p className="text-xs text-(--text-muted)">
-						{t("settings.backup.noBackups")}
-					</p>
-				)}
+
+					{/* Backup list */}
+					{isLoading ? (
+						<LoadingSpinner />
+					) : backups && backups.length > 0 ? (
+						<div className="space-y-2 max-h-[300px] overflow-y-auto">
+							{backups.map((backup) => (
+								<div
+									key={backup.filename}
+									className="flex items-center justify-between bg-(--surface-elevated) rounded-[var(--radius-card,0.375rem)] border border-(--border-default) p-3"
+								>
+									<div className="min-w-0 flex-1">
+										<div className="flex items-center gap-2">
+											{backup.origin === "scheduled" &&
+												gfsLabel.get(backup.filename) && (
+													<span className="shrink-0 inline-flex h-4 w-4 items-center justify-center rounded text-[10px] font-bold bg-(--accent)/15 text-(--accent)">
+														{gfsLabel.get(backup.filename)}
+													</span>
+												)}
+											<p className="text-sm font-medium text-(--text-primary) truncate">
+												{backup.filename}
+											</p>
+										</div>
+										<p className="text-xs text-(--text-muted)">
+											{backup.origin === "manual" && (
+												<span className="text-(--accent)">
+													{t("settings.backup.manuallyCreated")} ·{" "}
+												</span>
+											)}
+											{formatBytes(backup.size_bytes)} -{" "}
+											{formatDateTimeShort(backup.created_at)}
+										</p>
+									</div>
+									<div className="flex items-center gap-2 ml-3 shrink-0">
+										{confirmDelete === backup.filename ? (
+											<>
+												<span className="text-xs text-red-400">
+													{t("settings.backup.deleteConfirm")}
+												</span>
+												<button
+													type="button"
+													onClick={() => deleteMutation.mutate(backup.filename)}
+													disabled={deleteMutation.isPending}
+													className="ui-btn ui-btn-danger text-xs px-2 py-1"
+												>
+													{t("settings.backup.confirm")}
+												</button>
+												<button
+													type="button"
+													onClick={() => setConfirmDelete(null)}
+													className="ui-btn ui-btn-secondary text-xs px-2 py-1"
+												>
+													{t("settings.backup.cancel")}
+												</button>
+											</>
+										) : (
+											<>
+												<button
+													type="button"
+													onClick={() => downloadBackup(backup.filename)}
+													className="ui-btn ui-btn-secondary text-xs px-2 py-1 flex items-center gap-1"
+												>
+													<Download size={12} />
+													{t("settings.backup.download")}
+												</button>
+												<button
+													type="button"
+													onClick={() => setConfirmDelete(backup.filename)}
+													className="ui-btn ui-btn-danger text-xs px-2 py-1"
+													title={t("settings.backup.delete")}
+													aria-label={t("settings.backup.delete")}
+												>
+													<Trash2 size={12} />
+												</button>
+											</>
+										)}
+									</div>
+								</div>
+							))}
+						</div>
+					) : (
+						<p className="text-xs text-(--text-muted)">
+							{t("settings.backup.noBackups")}
+						</p>
+					)}
+				</SettingsGroup>
 			</div>
 		</SettingsSection>
 	);

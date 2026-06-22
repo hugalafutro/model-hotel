@@ -82,6 +82,11 @@ type backupEntry struct {
 	Filename  string `json:"filename"`
 	SizeBytes int64  `json:"size_bytes"`
 	CreatedAt string `json:"created_at"`
+	// Origin records who created the backup: "manual" (an operator clicked
+	// "Create backup") or "scheduled" (the GFS rotation scheduler). Derived
+	// from the filename marker; only "_auto" files read as scheduled, so files
+	// predating origin tracking read as "manual" and are spared from rotation.
+	Origin string `json:"origin"`
 }
 
 // CreateBackup runs pg_dump and saves the output to a timestamped file.
@@ -105,7 +110,7 @@ func (h *BackupHandler) CreateBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filename := generateBackupFilename()
+	filename := generateBackupFilename("manual")
 	path := filepath.Join(h.backupDir, filename)
 
 	// Use a dedicated 10-minute timeout so large databases don't get killed
@@ -144,6 +149,7 @@ func (h *BackupHandler) CreateBackup(w http.ResponseWriter, r *http.Request) {
 		Filename:  filename,
 		SizeBytes: info.Size(),
 		CreatedAt: info.ModTime().Format(time.RFC3339),
+		Origin:    "manual",
 	})
 }
 
@@ -172,6 +178,7 @@ func (h *BackupHandler) ListBackups(w http.ResponseWriter, r *http.Request) {
 			Filename:  entry.Name(),
 			SizeBytes: info.Size(),
 			CreatedAt: info.ModTime().Format(time.RFC3339),
+			Origin:    backupOrigin(entry.Name()),
 		})
 	}
 
@@ -248,10 +255,42 @@ func (h *BackupHandler) buildDumpCommand(ctx context.Context, pgDumpPath, filePa
 	return cmd
 }
 
-// generateBackupFilename creates a timestamped backup filename.
-func generateBackupFilename() string {
+// generateBackupFilename creates a timestamped backup filename carrying its
+// origin ("manual" or "auto") as a trailing segment. parseBackupTimestamp only
+// reads the date/time segments, so the extra suffix does not affect parsing.
+func generateBackupFilename(origin string) string {
 	now := time.Now()
-	return fmt.Sprintf("backup_%s_%04d.dump", now.Format("20060102_150405"), now.Nanosecond()/100000)
+	return fmt.Sprintf(
+		"backup_%s_%04d_%s.dump",
+		now.Format("20060102_150405"),
+		now.Nanosecond()/100000,
+		origin,
+	)
+}
+
+// backupOrigin reports who created a backup. Only files the scheduler wrote
+// carry the "_auto" marker and count as "scheduled"; everything else, manual
+// "_manual" files and any predating origin tracking, reads as "manual". Erring
+// toward manual keeps GFS rotation from pruning backups it cannot prove it
+// created, which is the safe default for legacy files.
+func backupOrigin(filename string) string {
+	if strings.HasSuffix(strings.TrimSuffix(filename, ".dump"), "_auto") {
+		return "scheduled"
+	}
+	return "manual"
+}
+
+// scheduledBackups drops manual (and legacy, which read as manual) backups so
+// GFS rotation only ever classifies and prunes scheduler-written files. Manual
+// backups were created deliberately and must survive rotation untouched.
+func scheduledBackups(backups []backupEntry) []backupEntry {
+	out := make([]backupEntry, 0, len(backups))
+	for _, b := range backups {
+		if backupOrigin(b.Filename) == "scheduled" {
+			out = append(out, b)
+		}
+	}
+	return out
 }
 
 // DeleteBackup removes a backup file.
@@ -862,6 +901,23 @@ func classifyBackups(backups []backupEntry, sonRetention, fatherRetention, grand
 		}
 	}
 
+	// Coerce every tier to a non-nil slice so the JSON payload serializes []
+	// rather than null. keepMostRecentPerBucket returns nil for empty tiers and
+	// Prune stays nil when nothing is pruned; the enable-confirm modal reads
+	// prune.length directly and crashes on null.
+	if result.Son == nil {
+		result.Son = []backupEntry{}
+	}
+	if result.Father == nil {
+		result.Father = []backupEntry{}
+	}
+	if result.Grandfather == nil {
+		result.Grandfather = []backupEntry{}
+	}
+	if result.Prune == nil {
+		result.Prune = []backupEntry{}
+	}
+
 	return result
 }
 
@@ -950,7 +1006,7 @@ func (h *BackupHandler) PrunePreview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	son, father, grandfather := h.getRetentionSettings(r.Context())
-	classification := classifyBackups(backups, son, father, grandfather, time.Now())
+	classification := classifyBackups(scheduledBackups(backups), son, father, grandfather, time.Now())
 	writeJSON(w, classification)
 }
 
@@ -970,7 +1026,7 @@ func (h *BackupHandler) ApplyPrune(w http.ResponseWriter, r *http.Request) {
 	}
 
 	son, father, grandfather := h.getRetentionSettings(r.Context())
-	classification := classifyBackups(backups, son, father, grandfather, time.Now())
+	classification := classifyBackups(scheduledBackups(backups), son, father, grandfather, time.Now())
 
 	var pruned []string
 	for _, b := range classification.Prune {
@@ -1022,6 +1078,7 @@ func (h *BackupHandler) listBackupFiles() ([]backupEntry, error) {
 			Filename:  entry.Name(),
 			SizeBytes: info.Size(),
 			CreatedAt: info.ModTime().Format(time.RFC3339),
+			Origin:    backupOrigin(entry.Name()),
 		})
 	}
 
@@ -1136,7 +1193,7 @@ func (h *BackupHandler) runScheduledBackup(ctx context.Context) {
 		return
 	}
 
-	filename := generateBackupFilename()
+	filename := generateBackupFilename("auto")
 	path := filepath.Join(h.backupDir, filename)
 
 	dumpCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
@@ -1172,7 +1229,7 @@ func (h *BackupHandler) runScheduledBackup(ctx context.Context) {
 		return
 	}
 	son, father, grandfather := h.getRetentionSettings(ctx)
-	classification := classifyBackups(backups, son, father, grandfather, time.Now())
+	classification := classifyBackups(scheduledBackups(backups), son, father, grandfather, time.Now())
 
 	for _, b := range classification.Prune {
 		absPath := h.validateBackupFilename(b.Filename)

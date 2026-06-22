@@ -522,6 +522,10 @@ export interface BackupEntry {
 	filename: string;
 	size_bytes: number;
 	created_at: string;
+	/** "manual" (operator-created) or "scheduled" (GFS rotation). Absent on
+	 *  responses from servers predating origin tracking; treat as manual, matching
+	 *  the backend's default for filenames without an origin marker. */
+	origin?: "manual" | "scheduled";
 }
 
 export interface BackupClassification {
@@ -669,6 +673,14 @@ export interface TotpStatus {
 	enabled: boolean;
 	/** RFC3339 confirmation time; absent when TOTP is disabled. */
 	enabled_at?: string;
+}
+
+/** Admin-gated detail for the settings panel (not the polled public status). */
+export interface TotpInfo {
+	recovery_remaining: number;
+	recovery_total: number;
+	/** RFC3339 time a TOTP code was last accepted; absent if never used. */
+	last_used_at?: string;
 }
 
 export interface TotpEnrollStart {

@@ -290,6 +290,40 @@ func (r *Repository) EnabledAt(ctx context.Context) (time.Time, bool, error) {
 	return *confirmedAt, true, nil
 }
 
+// SecurityInfo summarizes the active TOTP enrollment for the settings panel.
+type SecurityInfo struct {
+	RecoveryRemaining int       // unused recovery codes
+	RecoveryTotal     int       // recovery codes issued in the current set
+	LastUsed          time.Time // last accepted TOTP step, derived to a time; zero if never
+}
+
+// Info returns recovery-code usage plus the last accepted TOTP step converted
+// back to wall-clock time. LastUsed reflects TOTP-code acceptance (enroll or
+// login) and not recovery-code use; it is the zero time when no code has been
+// accepted yet. Read-only and cheap, but it touches the DB, so it lives behind
+// the admin-gated /totp/info rather than the public, polled /totp/status.
+func (r *Repository) Info(ctx context.Context) (SecurityInfo, error) {
+	var info SecurityInfo
+	if err := r.db.QueryRow(ctx,
+		`SELECT COUNT(*) FILTER (WHERE used_at IS NULL), COUNT(*) FROM admin_totp_recovery`,
+	).Scan(&info.RecoveryRemaining, &info.RecoveryTotal); err != nil {
+		return SecurityInfo{}, fmt.Errorf("totp: recovery counts: %w", err)
+	}
+	var step *int64
+	if err := r.db.QueryRow(ctx,
+		`SELECT last_used_step FROM admin_totp WHERE id = 1`,
+	).Scan(&step); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return info, nil
+		}
+		return SecurityInfo{}, fmt.Errorf("totp: last used: %w", err)
+	}
+	if step != nil && *step > 0 {
+		info.LastUsed = time.Unix(*step*int64(totpPeriodSeconds), 0).UTC()
+	}
+	return info, nil
+}
+
 // GenerateRecoveryCodes generates 10 single-use recovery codes, stores their
 // SHA-256 hashes (replacing any existing set), and returns the plaintext codes
 // in order for one-time display. The codes are never logged.

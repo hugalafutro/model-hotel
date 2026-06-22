@@ -1,14 +1,17 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Play, Search } from "@/lib/icons";
 import { api } from "../../api/client";
 import { ResetButton } from "../../components/ResetButton";
+import { SettingsGroup } from "../../components/SettingsGroup";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
 import { Spinner } from "../../components/Spinner";
 import { Toggle } from "../../components/Toggle";
 import { useToast } from "../../context/ToastContext";
 import { goDurationToHours, hoursToGoDuration } from "../../utils/duration";
+import { formatDateTimeShort } from "../../utils/format";
 import { useSettingsMutations } from "./useSettingsMutations";
 
 interface DiscoverySettingsProps {
@@ -28,6 +31,30 @@ export function DiscoverySettings({
 
 	const { settings, updateMutation, resetSettingMutation, isResetting } =
 		useSettingsMutations();
+
+	// Catalog size, so the Manual column shows what "Discover all" acts on
+	// instead of a lone button. Cached query keys shared with the rest of the app.
+	const { data: providers } = useQuery({
+		queryKey: ["providers"],
+		queryFn: () => api.providers.list(),
+	});
+	const { data: models } = useQuery({
+		queryKey: ["models"],
+		queryFn: () => api.models.list(),
+	});
+
+	// Most recent per-provider discovery time stands in for "last run" (every
+	// discovery path stamps providers.last_discovered_at), so no extra backend.
+	const lastRun = useMemo(() => {
+		const times = (providers ?? [])
+			.map((p) => p.last_discovered_at)
+			.filter((t): t is string => Boolean(t))
+			// Compare as instants, not strings: a lexicographic sort only matches
+			// chronological order for UTC ("Z") timestamps, and would mis-rank a
+			// value carrying an explicit offset (e.g. "+05:00").
+			.sort((a, b) => Date.parse(a) - Date.parse(b));
+		return times.at(-1) ?? null;
+	}, [providers]);
 
 	const discoverAllMutation = useMutation({
 		mutationFn: () => api.providers.discoverAll(),
@@ -64,9 +91,9 @@ export function DiscoverySettings({
 				<p className="text-gray-400 text-sm col-span-2">
 					{t("settings.discovery.description")}
 				</p>
-				<div className="grid grid-cols-2 gap-x-8 gap-y-5 [align-items:start]">
-					<div className="space-y-5">
-						<div className="flex items-center justify-between p-3 ui-detail-tile">
+				<div className="grid grid-cols-2 gap-x-6 gap-y-5 [align-items:start]">
+					<SettingsGroup title={t("settings.discovery.automaticGroup")}>
+						<div className="flex items-center justify-between">
 							<div>
 								<div className="flex items-center gap-1">
 									<p className="text-sm font-medium text-gray-300">
@@ -98,7 +125,7 @@ export function DiscoverySettings({
 							/>
 						</div>
 
-						<div className="flex items-center justify-between p-3 ui-detail-tile">
+						<div className="flex items-center justify-between">
 							<div>
 								<div className="flex items-center gap-1">
 									<p className="text-sm font-medium text-gray-300">
@@ -133,8 +160,7 @@ export function DiscoverySettings({
 								ariaLabel={t("settings.discovery.discoverOnProviderCreation")}
 							/>
 						</div>
-					</div>
-					<div className="space-y-5">
+
 						<SettingsSlider
 							id="discovery-interval"
 							label={t("settings.discovery.discoveryInterval")}
@@ -159,7 +185,10 @@ export function DiscoverySettings({
 							}
 							resetTooltip={t("settings.common.resetSetting")}
 						/>
-						<div className="flex justify-end">
+					</SettingsGroup>
+
+					<SettingsGroup title={t("settings.discovery.manualGroup")}>
+						<div className="flex">
 							<button
 								type="button"
 								onClick={() => discoverAllMutation.mutate()}
@@ -174,7 +203,29 @@ export function DiscoverySettings({
 								{t("settings.discovery.discoverAll")}
 							</button>
 						</div>
-					</div>
+						<dl className="text-xs text-gray-500 space-y-0.5">
+							<div className="flex justify-between gap-2">
+								<dt>{t("layout.nav.models")}</dt>
+								<dd className="text-(--text-primary) tabular-nums">
+									{models?.length ?? 0}
+								</dd>
+							</div>
+							<div className="flex justify-between gap-2">
+								<dt>{t("layout.nav.providers")}</dt>
+								<dd className="text-(--text-primary) tabular-nums">
+									{providers?.length ?? 0}
+								</dd>
+							</div>
+							{lastRun && (
+								<div className="flex justify-between gap-2">
+									<dt>{t("settings.discovery.lastRun")}</dt>
+									<dd className="text-(--text-primary)">
+										{formatDateTimeShort(lastRun)}
+									</dd>
+								</div>
+							)}
+						</dl>
+					</SettingsGroup>
 				</div>
 			</div>
 		</SettingsSection>

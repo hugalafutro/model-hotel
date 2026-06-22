@@ -1429,7 +1429,9 @@
 				"5m0s": "5 Minuten",
 				"10m0s": "10 Minuten",
 				"disabled": "Deaktiviert"
-			}
+			},
+			"requestsGroup": "Anfragen",
+			"streamingGroup": "Streaming"
 		},
 		"rateLimit": {
 			"title": "Bewertungsbegrenzung",
@@ -1449,7 +1451,8 @@
 			"backpressure": "Datenlimit Rückdruck",
 			"backpressureDescription": "Geteiltes Warteverhalten sowohl für pro Taste als auch für IP-Rate Limitierungen",
 			"maxWait": "Max. Wartezeit (ms)",
-			"maxWait.description": "Maximale Wartezeit, bevor eine limitierte Anfrage abgelehnt wird. Wenn ein Token in diesem Fenster verfügbar ist, wird die Anfrage fortgesetzt; ansonsten wird 429 zurückgegeben."
+			"maxWait.description": "Maximale Wartezeit, bevor eine limitierte Anfrage abgelehnt wird. Wenn ein Token in diesem Fenster verfügbar ist, wird die Anfrage fortgesetzt; ansonsten wird 429 zurückgegeben.",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Schaltkreisbrecher & Fehler",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "Startet bei langsamem ersten Token parallel einen Backup-Anbieter (nur bei streamenden Failover-Gruppen)",
 			"hedgeDelay": "Absicherungsverzögerung",
 			"hedgeDelay.description": "Wie lange auf das erste Token des ersten Anbieters gewartet wird, bevor zusätzlich ein Backup-Anbieter gestartet wird",
-			"hedgingNotice": "Bei der Absicherung wird ein zweiter Anbieter parallel gestartet, wenn der erste langsam anläuft, und der zuerst antwortende behalten. Bei langsamem Start verdoppelt das die Upstream-Anfrage, sodass Ratenlimits und Kapazität des Anbieters schneller verbraucht werden und ein Backup, das den Abbruch ignoriert, im Hintergrund weiter generieren kann. Aktivieren Sie es nur, wenn langsame erste Tokens mehr schaden als die zusätzliche Last."
+			"hedgingNotice": "Bei der Absicherung wird ein zweiter Anbieter parallel gestartet, wenn der erste langsam anläuft, und der zuerst antwortende behalten. Bei langsamem Start verdoppelt das die Upstream-Anfrage, sodass Ratenlimits und Kapazität des Anbieters schneller verbraucht werden und ein Backup, das den Abbruch ignoriert, im Hintergrund weiter generieren kann. Aktivieren Sie es nur, wenn langsame erste Tokens mehr schaden als die zusätzliche Last.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Protokollierung",
@@ -1525,7 +1530,10 @@
 				"24h": "24 Stunden",
 				"48h": "48 Stunden",
 				"disabled": "Deaktiviert"
-			}
+			},
+			"automaticGroup": "Automatisch",
+			"manualGroup": "Manuell",
+			"lastRun": "Zuletzt ausgeführt"
 		},
 		"dataStorage": {
 			"title": "Datenspeicher",
@@ -1600,7 +1608,6 @@
 			"uploadRestore": "Hochladen & Wiederherstellen",
 			"restoring": "Wiederherstellen…",
 			"selectBackupFile": "Sicherungsdatei zum Wiederherstellen auswählen",
-			"availableBackups": "Verfügbare Sicherungen ({{count}})",
 			"noBackups": "Noch keine Sicherungen.",
 			"download": "Download",
 			"delete": "Backup löschen",
@@ -1635,7 +1642,9 @@
 				"prunePreviewFailed": "Fehler beim Abschneiden der Sicherung",
 				"pruneFailed": "Fehler beim Beschneiden der Backups",
 				"pruneSuccess": "{{count}} Sicherung(en) bereinigt"
-			}
+			},
+			"availableBackupsTitle": "Verfügbare Sicherungen",
+			"manuallyCreated": "Manuell"
 		},
 		"appearance": {
 			"title": "Erscheinung",
@@ -1775,7 +1784,8 @@
 			"saveNameAriaLabel": "Name speichern",
 			"cancelNameAriaLabel": "Umbenennen abbrechen",
 			"renameAriaLabel": "Passwort umbenennen",
-			"failedToRename": "Fehler beim Umbenennen des Passworts: {{message}}"
+			"failedToRename": "Fehler beim Umbenennen des Passworts: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "Strukturierte Protokolle als ein JSON-Objekt pro Zeile ausgeben, für stdout-Protokollsammler wie Fluent Bit, Vector oder Promtail.",
@@ -1788,7 +1798,8 @@
 			"otel.instructions": "Richten Sie dies auf Ihren OTLP-Collector-Endpunkt aus und starten Sie den Container neu, um Logs über OpenTelemetry zu übertragen:",
 			"otel.name": "OpenTelemetry-Protokolle (OTLP)",
 			"title": "Observability & Log-Export",
-			"description": "Model Hotel kann seine strukturierten Protokolle und Metriken in externe Systeme exportieren. Jede Integration wird über eine Umgebungsvariable aktiviert; die Status-Badges unten zeigen den aktuellen Status an. Es werden niemals Anfrage- oder Antwortinhalte exportiert – nur Routing- und Messmetadaten."
+			"description": "Model Hotel kann seine strukturierten Protokolle und Metriken in externe Systeme exportieren. Jede Integration wird über eine Umgebungsvariable aktiviert; die Status-Badges unten zeigen den aktuellen Status an. Es werden niemals Anfrage- oder Antwortinhalte exportiert – nur Routing- und Messmetadaten.",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "Apprise-API-URL",
@@ -1863,7 +1874,7 @@
 			"savedAriaLabel": "Bestätigen Sie, dass die Wiederherstellungscodes gespeichert wurden",
 			"secret": "Geheim",
 			"secretCopied": "Geheimnis kopiert",
-			"title": "Authentifizierungs-App (TOTP)",
+			"title": "2FA · Authentifizierungs-App (TOTP)",
 			"verifiedSuccess": "Zwei-Faktor-Authentifizierung aktiviert",
 			"verify": "Überprüfen und aktivieren",
 			"verifyAriaLabel": "TOTP-Code überprüfen und aktivieren",
@@ -1871,7 +1882,12 @@
 			"downloadCodes": "Als .txt herunterladen",
 			"downloadCodesAriaLabel": "Wiederherstellungscodes als Textdatei herunterladen",
 			"failedToStart": "Einrichtung konnte nicht gestartet werden: {{message}}",
-			"enabledOn": "Aktiviert am {{date}}"
+			"enabledOn": "Aktiviert am {{date}}",
+			"recoveryRemaining": "Wiederherstellungscodes",
+			"lastUsed": "Zuletzt verwendet"
+		},
+		"authentication": {
+			"title": "Authentifizierung"
 		}
 	},
 	"components": {

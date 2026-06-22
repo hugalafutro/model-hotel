@@ -1429,7 +1429,9 @@
 				"5m0s": "5 minút",
 				"10m0s": "10 minút",
 				"disabled": "Znevýhodnení"
-			}
+			},
+			"requestsGroup": "Požiadavky",
+			"streamingGroup": "Streamovanie"
 		},
 		"rateLimit": {
 			"title": "Obmedzenie frekvencie",
@@ -1449,7 +1451,8 @@
 			"backpressure": "Protitlak obmedzenia rýchlosti",
 			"backpressureDescription": "Správanie pri spoločnom čakaní pre obmedzovače rýchlosti na úrovni kľúča aj na úrovni IP",
 			"maxWait": "Maximálna doba čakania (ms)",
-			"maxWait.description": "Maximálna doba čakania pred odmietnutím požiadavky s obmedzením frekvencie. Ak sa v priebehu tohto času uvoľní token, požiadavka sa spracuje; v opačnom prípade sa vráti kód 429."
+			"maxWait.description": "Maximálna doba čakania pred odmietnutím požiadavky s obmedzením frekvencie. Ak sa v priebehu tohto času uvoľní token, požiadavka sa spracuje; v opačnom prípade sa vráti kód 429.",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Istič a prechod na záložný systém",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "Paralelne spustí záložného poskytovateľa, keď prvý pomaly odošle prvý token (len streamovacie skupiny prevzatia služieb)",
 			"hedgeDelay": "Oneskorenie zaistenia",
 			"hedgeDelay.description": "Ako dlho čakať na prvý token prvého poskytovateľa, než sa spustí aj záložný poskytovateľ",
-			"hedgingNotice": "Zaistenie paralelne spustí druhého poskytovateľa, keď prvý pomaly štartuje, a ponechá toho, kto odpovie skôr. Pri pomalom štarte to zdvojnásobí požiadavku nahor, takže limity a kapacita poskytovateľa sa míňajú rýchlejšie a záloha, ktorá ignoruje zrušenie, môže ďalej generovať na pozadí. Zapnite len vtedy, ak pomalé prvé tokeny škodia viac než záťaž navyše."
+			"hedgingNotice": "Zaistenie paralelne spustí druhého poskytovateľa, keď prvý pomaly štartuje, a ponechá toho, kto odpovie skôr. Pri pomalom štarte to zdvojnásobí požiadavku nahor, takže limity a kapacita poskytovateľa sa míňajú rýchlejšie a záloha, ktorá ignoruje zrušenie, môže ďalej generovať na pozadí. Zapnite len vtedy, ak pomalé prvé tokeny škodia viac než záťaž navyše.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Vytváranie protokolov",
@@ -1525,7 +1530,10 @@
 				"24h": "24 hodín",
 				"48h": "48 hodín",
 				"disabled": "Znevýhodnení"
-			}
+			},
+			"automaticGroup": "Automaticky",
+			"manualGroup": "Ručne",
+			"lastRun": "Naposledy spustené"
 		},
 		"dataStorage": {
 			"title": "Ukladanie údajov",
@@ -1600,7 +1608,6 @@
 			"uploadRestore": "Nahrať a obnoviť",
 			"restoring": "Obnovenie stránky…",
 			"selectBackupFile": "Vyberte záložný súbor, ktorý chcete obnoviť",
-			"availableBackups": "Dostupné zálohy ({{count}})",
 			"noBackups": "Zatiaľ nie sú k dispozícii žiadne zálohy.",
 			"download": "Stiahnuť",
 			"delete": "Odstrániť zálohu",
@@ -1635,7 +1642,9 @@
 				"prunePreviewFailed": "Nepodarilo sa zobraziť náhľad na redukciu zálohy",
 				"pruneFailed": "Neúspešné vyprázdnenie zálohy",
 				"pruneSuccess": "Odstránené zálohy {{count}}"
-			}
+			},
+			"availableBackupsTitle": "Dostupné zálohy",
+			"manuallyCreated": "Ručne"
 		},
 		"appearance": {
 			"title": "Vzhľad",
@@ -1775,7 +1784,8 @@
 			"saveNameAriaLabel": "Uložiť názov",
 			"cancelNameAriaLabel": "Zrušiť premenovanie",
 			"renameAriaLabel": "Premenovať prístupový kód",
-			"failedToRename": "Premenovanie prístupového kľúča sa nepodarilo: {{message}}"
+			"failedToRename": "Premenovanie prístupového kľúča sa nepodarilo: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "Vysielajte štruktúrované protokoly ako jeden objekt JSON na riadok pre zberače protokolov stdout, ako sú Fluent Bit, Vector alebo Promtail.",
@@ -1788,7 +1798,8 @@
 			"otel.instructions": "Nasmerujte to na koncový bod vášho zberača OTLP a reštartujte kontajner, aby sa protokoly odosielali cez OpenTelemetry:",
 			"otel.name": "Protokoly OpenTelemetry (OTLP)",
 			"title": "Pozorovateľnosť a export protokolov",
-			"description": "Model Hotel môže exportovať svoje štruktúrované protokoly a metriky do externých systémov. Každá integrácia je aktivovaná prostredníctvom premennej prostredia; nižšie uvedené ikony stavu odrážajú aktuálny stav. Nikdy sa neexportuje obsah žiadostí ani odpovedí – iba metadáta smerovania a merania."
+			"description": "Model Hotel môže exportovať svoje štruktúrované protokoly a metriky do externých systémov. Každá integrácia je aktivovaná prostredníctvom premennej prostredia; nižšie uvedené ikony stavu odrážajú aktuálny stav. Nikdy sa neexportuje obsah žiadostí ani odpovedí – iba metadáta smerovania a merania.",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "URL rozhrania Apprise API",
@@ -1863,7 +1874,7 @@
 			"savedAriaLabel": "Potvrďte uloženie obnovovacích kódov",
 			"secret": "Tajný kľúč",
 			"secretCopied": "Kód tajného kľúča skopírovaný",
-			"title": "Aplikácia na overovanie (TOTP)",
+			"title": "2FA · Aplikácia na overovanie (TOTP)",
 			"verifiedSuccess": "Dvojfaktorová autentifikácia je povolená",
 			"verify": "Overte a aktivujte",
 			"verifyAriaLabel": "Overte kód TOTP a aktivujte",
@@ -1871,7 +1882,12 @@
 			"downloadCodes": "Stiahnuť ako .txt",
 			"downloadCodesAriaLabel": "Stiahnuť obnovovacie kódy ako textový súbor",
 			"failedToStart": "Nepodarilo sa spustiť registráciu: {{message}}",
-			"enabledOn": "Aktivované {{date}}"
+			"enabledOn": "Aktivované {{date}}",
+			"recoveryRemaining": "Obnovovacie kódy",
+			"lastUsed": "Naposledy použité"
+		},
+		"authentication": {
+			"title": "Overenie"
 		}
 	},
 	"components": {

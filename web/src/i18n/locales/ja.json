@@ -1429,7 +1429,9 @@
 				"5m0s": "5分",
 				"10m0s": "10分",
 				"disabled": "無効"
-			}
+			},
+			"requestsGroup": "リクエスト",
+			"streamingGroup": "ストリーミング"
 		},
 		"rateLimit": {
 			"title": "レート制限",
@@ -1449,7 +1451,8 @@
 			"backpressure": "レート制限の背景",
 			"backpressureDescription": "キー毎およびIPレートリミッターの共有待機動作",
 			"maxWait": "最大待機 (ms)",
-			"maxWait.description": "レート制限付きリクエストを拒否する前に待機する最大時間。このウィンドウ内でトークンが利用可能になった場合、リクエストは進行します。そうでなければ429が返されます。"
+			"maxWait.description": "レート制限付きリクエストを拒否する前に待機する最大時間。このウィンドウ内でトークンが利用可能になった場合、リクエストは進行します。そうでなければ429が返されます。",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "サーキットブレーカーとフェイルオーバー",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "最初のプロバイダーの最初のトークン送信が遅い場合に、バックアップを並行して実行します（ストリーミングのフェイルオーバーグループのみ）",
 			"hedgeDelay": "ヘッジ遅延",
 			"hedgeDelay.description": "バックアップも起動するまでに、最初のプロバイダーの最初のトークンをどれだけ待つか",
-			"hedgingNotice": "ヘッジは最初のプロバイダーの開始が遅いときに2つ目を並行して実行し、先に応答した方を採用します。開始が遅い場合は上流へのリクエストが2倍になるため、プロバイダーのレート制限や処理能力の消費が早まり、キャンセルを無視するバックアップはバックグラウンドで生成を続けることがあります。最初のトークンの遅さが追加負荷より問題になる場合のみ有効にしてください。"
+			"hedgingNotice": "ヘッジは最初のプロバイダーの開始が遅いときに2つ目を並行して実行し、先に応答した方を採用します。開始が遅い場合は上流へのリクエストが2倍になるため、プロバイダーのレート制限や処理能力の消費が早まり、キャンセルを無視するバックアップはバックグラウンドで生成を続けることがあります。最初のトークンの遅さが追加負荷より問題になる場合のみ有効にしてください。",
+			"failoverGroup": "フェイルオーバー",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "ログ",
@@ -1525,7 +1530,10 @@
 				"24h": "24時間",
 				"48h": "48 時間",
 				"disabled": "無効"
-			}
+			},
+			"automaticGroup": "自動",
+			"manualGroup": "手動",
+			"lastRun": "最終実行"
 		},
 		"dataStorage": {
 			"title": "データストレージ",
@@ -1600,7 +1608,6 @@
 			"uploadRestore": "アップロードと復元",
 			"restoring": "… の復元",
 			"selectBackupFile": "復元するバックアップファイルを選択",
-			"availableBackups": "利用可能なバックアップ ({{count}})",
 			"noBackups": "まだバックアップはありません。",
 			"download": "ダウンロード",
 			"delete": "バックアップを削除",
@@ -1635,7 +1642,9 @@
 				"prunePreviewFailed": "バックアップ剪定のプレビューに失敗しました",
 				"pruneFailed": "バックアップの削除に失敗しました",
 				"pruneSuccess": "削除された {{count}} バックアップ"
-			}
+			},
+			"availableBackupsTitle": "利用可能なバックアップ",
+			"manuallyCreated": "手動"
 		},
 		"appearance": {
 			"title": "外観",
@@ -1775,7 +1784,8 @@
 			"saveNameAriaLabel": "名前を保存",
 			"cancelNameAriaLabel": "名前の変更をキャンセルする",
 			"renameAriaLabel": "パスキーの名前を変更",
-			"failedToRename": "パスキーの名前を変更できませんでした: {{message}}"
+			"failedToRename": "パスキーの名前を変更できませんでした: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "Fluent Bit、Vector、Promtailなどのstdoutログコレクター向けに、1行につき1つのJSONオブジェクトとして構造化されたログを出力してください。",
@@ -1788,7 +1798,8 @@
 			"otel.instructions": "これをOTLPコレクターのエンドポイントに向け、コンテナを再起動してOpenTelemetry経由でログを送信してください：",
 			"otel.name": "OpenTelemetryログ（OTLP）",
 			"title": "可観測性およびログのエクスポート",
-			"description": "Model Hotelは、構造化されたログとメトリクスを外部システムにエクスポートできます。各統合機能は環境変数によって有効化され、以下のステータスバッジは現在の状態を示しています。リクエストやレスポンスの内容は一切エクスポートされず、ルーティングおよび計測に関するメタデータのみがエクスポートされます。"
+			"description": "Model Hotelは、構造化されたログとメトリクスを外部システムにエクスポートできます。各統合機能は環境変数によって有効化され、以下のステータスバッジは現在の状態を示しています。リクエストやレスポンスの内容は一切エクスポートされず、ルーティングおよび計測に関するメタデータのみがエクスポートされます。",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "Apprise API URL",
@@ -1863,7 +1874,7 @@
 			"savedAriaLabel": "リカバリーコードが保存されていることを確認してください",
 			"secret": "シークレット",
 			"secretCopied": "シークレットをコピーしました",
-			"title": "認証アプリ（TOTP）",
+			"title": "2FA · 認証アプリ（TOTP）",
 			"verifiedSuccess": "二要素認証が有効になっています",
 			"verify": "確認および有効化",
 			"verifyAriaLabel": "TOTPコードを確認し、有効にする",
@@ -1871,7 +1882,12 @@
 			"downloadCodes": ".txt でダウンロード",
 			"downloadCodesAriaLabel": "リカバリーコードをテキストファイルとしてダウンロード",
 			"failedToStart": "登録を開始できませんでした: {{message}}",
-			"enabledOn": "{{date}} に有効化"
+			"enabledOn": "{{date}} に有効化",
+			"recoveryRemaining": "リカバリーコード",
+			"lastUsed": "最終使用"
+		},
+		"authentication": {
+			"title": "認証"
 		}
 	},
 	"components": {

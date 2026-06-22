@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Activity, Braces, Gauge, type LucideIcon } from "@/lib/icons";
 import { CopyablePill } from "../../components/CopyablePill";
+import { SettingsGroup } from "../../components/SettingsGroup";
 import { SettingsSection } from "../../components/SettingsSection";
 import { useSettingsMutations } from "./useSettingsMutations";
 
@@ -77,58 +78,62 @@ export function ObservabilitySettings({
 					{t("settings.observability.description")}
 				</p>
 
-				<div className="space-y-6">
-					{exporters.map((exp) => {
-						const Icon = exp.icon;
-						return (
-							<div
-								key={exp.id}
-								data-testid={`observability-card-${exp.id}`}
-								className="space-y-2"
-							>
-								<div className="flex items-center justify-between gap-3">
-									<div className="flex items-start gap-3">
-										<Icon
-											size={18}
-											className="mt-0.5 shrink-0 text-(--accent)"
-											aria-hidden="true"
-										/>
-										<div>
-											<p className="text-sm font-medium text-gray-300">
-												{exp.name}
-											</p>
-											<p className="text-gray-500 text-xs mt-0.5">
-												{exp.description}
-											</p>
+				<SettingsGroup title={t("settings.observability.targets")}>
+					<div className="space-y-6">
+						{exporters.map((exp) => {
+							const Icon = exp.icon;
+							return (
+								<div
+									key={exp.id}
+									data-testid={`observability-card-${exp.id}`}
+									className="space-y-2"
+								>
+									<div className="flex items-center justify-between gap-3">
+										<div className="flex items-start gap-3">
+											<Icon
+												size={18}
+												className="mt-0.5 shrink-0 text-(--accent)"
+												aria-hidden="true"
+											/>
+											<div>
+												<p className="text-sm font-medium text-gray-300">
+													{exp.name}
+												</p>
+												<p className="text-gray-500 text-xs mt-0.5">
+													{exp.description}
+												</p>
+											</div>
 										</div>
+										<span
+											data-testid={`observability-status-${exp.id}`}
+											data-enabled={exp.enabled}
+											className={`ui-badge ${exp.enabled ? "ui-badge-success" : "ui-badge-error"} shrink-0 inline-flex items-center px-2 py-0.5 text-xs font-medium`}
+										>
+											{exp.enabled
+												? t("settings.common.enabled")
+												: t("settings.common.disabled")}
+										</span>
 									</div>
-									<span
-										data-testid={`observability-status-${exp.id}`}
-										data-enabled={exp.enabled}
-										className={`ui-badge ${exp.enabled ? "ui-badge-success" : "ui-badge-error"} shrink-0 inline-flex items-center px-2 py-0.5 text-xs font-medium`}
-									>
-										{exp.enabled
-											? t("settings.common.enabled")
-											: t("settings.common.disabled")}
-									</span>
-								</div>
 
-								{!exp.enabled && (
-									<div
-										data-testid={`observability-instructions-${exp.id}`}
-										className="ml-7 space-y-1.5"
-									>
-										<p className="text-gray-400 text-xs">{exp.instructions}</p>
-										<CopyablePill
-											text={exp.envVar}
-											textClassName="font-mono text-xs text-(--accent)"
-										/>
-									</div>
-								)}
-							</div>
-						);
-					})}
-				</div>
+									{!exp.enabled && (
+										<div
+											data-testid={`observability-instructions-${exp.id}`}
+											className="ml-7 space-y-1.5"
+										>
+											<p className="text-gray-400 text-xs">
+												{exp.instructions}
+											</p>
+											<CopyablePill
+												text={exp.envVar}
+												textClassName="font-mono text-xs text-(--accent)"
+											/>
+										</div>
+									)}
+								</div>
+							);
+						})}
+					</div>
+				</SettingsGroup>
 			</div>
 		</SettingsSection>
 	);

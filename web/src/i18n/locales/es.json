@@ -1429,7 +1429,9 @@
 				"5m0s": "5 minutos",
 				"10m0s": "10 minutos",
 				"disabled": "Deshabilitado"
-			}
+			},
+			"requestsGroup": "Solicitudes",
+			"streamingGroup": "Transmisión"
 		},
 		"rateLimit": {
 			"title": "Limitar tasa",
@@ -1449,7 +1451,8 @@
 			"backpressure": "Puntuar límite de contracción",
 			"backpressureDescription": "Comportamiento compartido de espera para los limitadores tanto por clave como IP",
 			"maxWait": "Espera Máxima (ms)",
-			"maxWait.description": "Tiempo máximo de espera antes de rechazar una solicitud de tasa limitada. Si un token está disponible dentro de esta ventana, la solicitud procede; de lo contrario se devuelve 429."
+			"maxWait.description": "Tiempo máximo de espera antes de rechazar una solicitud de tasa limitada. Si un token está disponible dentro de esta ventana, la solicitud procede; de lo contrario se devuelve 429.",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Rompedor de circuitos y fallo",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "Lanza un proveedor de respaldo en paralelo cuando el primero tarda en enviar su primer token (solo grupos de conmutación en streaming)",
 			"hedgeDelay": "Retardo de cobertura",
 			"hedgeDelay.description": "Cuánto esperar el primer token del primer proveedor antes de lanzar también un proveedor de respaldo",
-			"hedgingNotice": "La cobertura lanza un segundo proveedor en paralelo cuando el primero tarda en arrancar y conserva el que responde primero. En arranques lentos esto duplica la petición ascendente, por lo que los límites de frecuencia y la capacidad del proveedor se agotan más rápido, y un respaldo que ignora la cancelación puede seguir generando en segundo plano. Actívalo solo si los primeros tokens lentos perjudican más que la carga extra."
+			"hedgingNotice": "La cobertura lanza un segundo proveedor en paralelo cuando el primero tarda en arrancar y conserva el que responde primero. En arranques lentos esto duplica la petición ascendente, por lo que los límites de frecuencia y la capacidad del proveedor se agotan más rápido, y un respaldo que ignora la cancelación puede seguir generando en segundo plano. Actívalo solo si los primeros tokens lentos perjudican más que la carga extra.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Registro",
@@ -1525,7 +1530,10 @@
 				"24h": "24 horas",
 				"48h": "48 horas",
 				"disabled": "Deshabilitado"
-			}
+			},
+			"automaticGroup": "Automático",
+			"manualGroup": "Manual",
+			"lastRun": "Última ejecución"
 		},
 		"dataStorage": {
 			"title": "Almacenamiento de datos",
@@ -1600,7 +1608,6 @@
 			"uploadRestore": "Subir y restaurar",
 			"restoring": "Restaurando…",
 			"selectBackupFile": "Seleccionar copia de seguridad para restaurar",
-			"availableBackups": "Copias de seguridad disponibles ({{count}})",
 			"noBackups": "Aún no hay copias de seguridad.",
 			"download": "Descargar",
 			"delete": "Eliminar respaldo",
@@ -1635,7 +1642,9 @@
 				"prunePreviewFailed": "Error al previsualizar la limpieza de copia de seguridad",
 				"pruneFailed": "Error al limpiar las copias de seguridad",
 				"pruneSuccess": "Se han eliminado {{count}} copia(s) de seguridad"
-			}
+			},
+			"availableBackupsTitle": "Copias de seguridad disponibles",
+			"manuallyCreated": "Manual"
 		},
 		"appearance": {
 			"title": "Apariencia",
@@ -1775,7 +1784,8 @@
 			"saveNameAriaLabel": "Guardar nombre",
 			"cancelNameAriaLabel": "Cancelar renombrado",
 			"renameAriaLabel": "Renombrar clave",
-			"failedToRename": "Error al renombrar la contraseña: {{message}}"
+			"failedToRename": "Error al renombrar la contraseña: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "Genera registros estructurados como un objeto JSON por línea, para recopiladores de registros de salida estándar como Fluent Bit, Vector o Promtail.",
@@ -1788,7 +1798,8 @@
 			"otel.instructions": "Dirige esto a tu punto final del colector OTLP y reinicia el contenedor para enviar los registros a través de OpenTelemetry:",
 			"otel.name": "Registros de OpenTelemetry (OTLP)",
 			"title": "Observabilidad y exportación de registros",
-			"description": "Model Hotel puede exportar sus registros y métricas estructurados a sistemas externos. Cada integración se habilita mediante una variable de entorno; los indicadores de estado que se muestran a continuación reflejan el estado actual. Nunca se exporta el contenido de las solicitudes ni de las respuestas, solo los metadatos de enrutamiento y medición."
+			"description": "Model Hotel puede exportar sus registros y métricas estructurados a sistemas externos. Cada integración se habilita mediante una variable de entorno; los indicadores de estado que se muestran a continuación reflejan el estado actual. Nunca se exporta el contenido de las solicitudes ni de las respuestas, solo los metadatos de enrutamiento y medición.",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "URL de la API de Apprise",
@@ -1863,7 +1874,7 @@
 			"savedAriaLabel": "Confirmar que se han guardado los códigos de recuperación",
 			"secret": "Secreto",
 			"secretCopied": "Secreto copiado",
-			"title": "Aplicación de autenticación (TOTP)",
+			"title": "2FA · Aplicación de autenticación (TOTP)",
 			"verifiedSuccess": "Autenticación de dos factores habilitada",
 			"verify": "Verificar y habilitar",
 			"verifyAriaLabel": "Verificar el código TOTP y habilitar",
@@ -1871,7 +1882,12 @@
 			"downloadCodes": "Descargar como .txt",
 			"downloadCodesAriaLabel": "Descargar los códigos de recuperación como archivo de texto",
 			"failedToStart": "No se pudo iniciar el registro: {{message}}",
-			"enabledOn": "Activado el {{date}}"
+			"enabledOn": "Activado el {{date}}",
+			"recoveryRemaining": "Códigos de recuperación",
+			"lastUsed": "Último uso"
+		},
+		"authentication": {
+			"title": "Autenticación"
 		}
 	},
 	"components": {

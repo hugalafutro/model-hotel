@@ -1429,7 +1429,9 @@
 				"5m0s": "5 分钟",
 				"10m0s": "10 分钟",
 				"disabled": "已禁用"
-			}
+			},
+			"requestsGroup": "请求",
+			"streamingGroup": "流流"
 		},
 		"rateLimit": {
 			"title": "评分限制",
@@ -1449,7 +1451,8 @@
 			"backpressure": "评分限制反压力值",
 			"backpressureDescription": "每个密钥和 IP 速率限制的共用等待行为",
 			"maxWait": "最大等候(ms)",
-			"maxWait.description": "在拒绝限速请求之前等待的最大时间。如果在这个窗口内有一个令牌，请求将继续；否则将返回429。"
+			"maxWait.description": "在拒绝限速请求之前等待的最大时间。如果在这个窗口内有一个令牌，请求将继续；否则将返回429。",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "电路断路器和故障者",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "当第一个提供商发送首个令牌较慢时，并行启动一个备用提供商（仅限流式故障转移组）",
 			"hedgeDelay": "对冲延迟",
 			"hedgeDelay.description": "在同时启动备用提供商之前，等待第一个提供商首个令牌的时长",
-			"hedgingNotice": "对冲会在第一个提供商启动较慢时并行启动第二个，并采用最先响应的一个。启动较慢时这会使上游请求翻倍，因此提供商的速率限制和容量会更快耗尽，而忽略取消的备用请求可能仍在后台继续生成。仅当首个令牌过慢造成的影响大于额外负载时才开启。"
+			"hedgingNotice": "对冲会在第一个提供商启动较慢时并行启动第二个，并采用最先响应的一个。启动较慢时这会使上游请求翻倍，因此提供商的速率限制和容量会更快耗尽，而忽略取消的备用请求可能仍在后台继续生成。仅当首个令牌过慢造成的影响大于额外负载时才开启。",
+			"failoverGroup": "故障转移",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "日志记录",
@@ -1525,7 +1530,10 @@
 				"24h": "24 小时",
 				"48h": "48 小时",
 				"disabled": "已禁用"
-			}
+			},
+			"automaticGroup": "自动",
+			"manualGroup": "手动",
+			"lastRun": "上次运行"
 		},
 		"dataStorage": {
 			"title": "数据存储",
@@ -1600,7 +1608,6 @@
 			"uploadRestore": "上传并恢复",
 			"restoring": "正在恢复…",
 			"selectBackupFile": "选择要还原的备份文件",
-			"availableBackups": "可用备份 ({{count}})",
 			"noBackups": "尚无备份。",
 			"download": "下载",
 			"delete": "删除备份",
@@ -1635,7 +1642,9 @@
 				"prunePreviewFailed": "预览备份打印失败",
 				"pruneFailed": "刷新备份失败",
 				"pruneSuccess": "已删除 {{count}} 备份"
-			}
+			},
+			"availableBackupsTitle": "可用备份",
+			"manuallyCreated": "手动"
 		},
 		"appearance": {
 			"title": "外观",
@@ -1775,7 +1784,8 @@
 			"saveNameAriaLabel": "保存名称",
 			"cancelNameAriaLabel": "取消重命名",
 			"renameAriaLabel": "重命名密码",
-			"failedToRename": "重命名密钥失败： {{message}}"
+			"failedToRename": "重命名密钥失败： {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "为 Fluent Bit、Vector 或 Promtail 等标准输出日志收集器生成结构化日志，每行输出一个 JSON 对象。",
@@ -1788,7 +1798,8 @@
 			"otel.instructions": "将此配置指向您的 OTLP 收集器端点，并重启容器以通过 OpenTelemetry 推送日志：",
 			"otel.name": "OpenTelemetry 日志 (OTLP)",
 			"title": "可观测性与日志导出",
-			"description": "Model Hotel 可将其结构化日志和指标导出至外部系统。每项集成均通过环境变量启用；下方的状态图标反映当前状态。绝不导出任何请求或响应内容——仅导出路由和计量元数据。"
+			"description": "Model Hotel 可将其结构化日志和指标导出至外部系统。每项集成均通过环境变量启用；下方的状态图标反映当前状态。绝不导出任何请求或响应内容——仅导出路由和计量元数据。",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "Apprise API URL",
@@ -1863,7 +1874,7 @@
 			"savedAriaLabel": "确认已保存恢复码",
 			"secret": "密钥",
 			"secretCopied": "密钥已复制",
-			"title": "身份验证器应用 (TOTP)",
+			"title": "2FA · 身份验证器应用 (TOTP)",
 			"verifiedSuccess": "双重身份验证已启用",
 			"verify": "验证并启用",
 			"verifyAriaLabel": "验证 TOTP 代码并启用",
@@ -1871,7 +1882,12 @@
 			"downloadCodes": "下载为 .txt",
 			"downloadCodesAriaLabel": "将恢复码下载为文本文件",
 			"failedToStart": "无法开始注册：{{message}}",
-			"enabledOn": "于 {{date}} 启用"
+			"enabledOn": "于 {{date}} 启用",
+			"recoveryRemaining": "恢复代码",
+			"lastUsed": "最后使用"
+		},
+		"authentication": {
+			"title": "身份验证"
 		}
 	},
 	"components": {

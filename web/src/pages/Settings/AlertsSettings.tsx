@@ -34,6 +34,10 @@ export function AlertsSettings({
 	const [apiUrlDraft, setApiUrlDraft] = useState<string | null>(null);
 	const [targetDraft, setTargetDraft] = useState("");
 	const [pickerOpen, setPickerOpen] = useState(false);
+	// The picker is only "expanded" while alerting is on: when disabled the
+	// panel is not rendered, so aria-expanded and the chevron must follow suit
+	// (otherwise the toggle announces "expanded" with no region in the DOM).
+	const pickerExpanded = pickerOpen && enabled;
 
 	const testMutation = useMutation({
 		mutationFn: () => api.alert.test(),
@@ -100,32 +104,76 @@ export function AlertsSettings({
 					{t("settings.alerts.description")}
 				</p>
 
-				{/* Enable toggle */}
-				<div className="flex items-center justify-between gap-3 p-3 ui-detail-tile">
-					<div className="min-w-0">
-						<div className="flex items-center gap-1">
-							<p className="text-sm font-medium text-gray-300">
-								{t("settings.alerts.enable")}
+				<div className="grid grid-cols-2 gap-x-6 gap-y-5 [align-items:start]">
+					{/* Enable toggle */}
+					<div className="flex items-center justify-between gap-3 ui-settings-group">
+						<div className="min-w-0">
+							<div className="flex items-center gap-1">
+								<p className="text-sm font-medium text-gray-300">
+									{t("settings.alerts.enable")}
+								</p>
+								<ResetButton
+									tooltip={t("settings.common.resetSetting")}
+									onClick={() => resetSettingMutation.mutate(["alert_enabled"])}
+									size={12}
+									disabled={isResetting}
+								/>
+							</div>
+							<p className="text-gray-500 text-xs mt-0.5">
+								{t("settings.alerts.enableDescription")}
 							</p>
+						</div>
+						<Toggle
+							checked={enabled}
+							size="sm"
+							onChange={(v) =>
+								updateMutation.mutate({ alert_enabled: v ? "true" : "false" })
+							}
+							ariaLabel={t("settings.alerts.enable")}
+						/>
+					</div>
+
+					{/* Events to notify on (right column). Kept visible but dimmed and
+					    uninteractible until alerting is enabled, so the column is not
+					    empty when off. */}
+					<div
+						className={`space-y-2${enabled ? "" : " opacity-50"}`}
+						aria-disabled={!enabled}
+					>
+						<div className="flex items-center gap-1.5">
+							<button
+								type="button"
+								className="flex items-center gap-1.5 text-sm font-medium text-gray-300"
+								onClick={() => setPickerOpen((o) => !o)}
+								aria-expanded={pickerExpanded}
+								disabled={!enabled}
+								data-testid="alert-picker-toggle"
+							>
+								{pickerExpanded ? (
+									<ChevronDown size={14} />
+								) : (
+									<ChevronRight size={14} />
+								)}
+								{t("settings.alerts.events.title")}
+							</button>
 							<ResetButton
-								tooltip={t("settings.common.resetSetting")}
-								onClick={() => resetSettingMutation.mutate(["alert_enabled"])}
+								tooltip={t("settings.alerts.events.reset")}
+								onClick={() => resetSettingMutation.mutate(["alert_events"])}
 								size={12}
-								disabled={isResetting}
+								disabled={isResetting || !enabled}
 							/>
 						</div>
-						<p className="text-gray-500 text-xs mt-0.5">
-							{t("settings.alerts.enableDescription")}
-						</p>
+						{pickerExpanded && (
+							<div className="pl-5">
+								<AlertEventPicker
+									value={settings?.alert_events}
+									onChange={(csv) =>
+										updateMutation.mutate({ alert_events: csv })
+									}
+								/>
+							</div>
+						)}
 					</div>
-					<Toggle
-						checked={enabled}
-						size="sm"
-						onChange={(v) =>
-							updateMutation.mutate({ alert_enabled: v ? "true" : "false" })
-						}
-						ariaLabel={t("settings.alerts.enable")}
-					/>
 				</div>
 
 				{enabled && (
@@ -245,42 +293,6 @@ export function AlertsSettings({
 									}}
 								/>
 							</p>
-						</div>
-
-						{/* Event picker — collapsed by default to keep the pill simple */}
-						<div className="space-y-2">
-							<div className="flex items-center gap-1.5">
-								<button
-									type="button"
-									className="flex items-center gap-1.5 text-sm font-medium text-gray-300"
-									onClick={() => setPickerOpen((o) => !o)}
-									aria-expanded={pickerOpen}
-									data-testid="alert-picker-toggle"
-								>
-									{pickerOpen ? (
-										<ChevronDown size={14} />
-									) : (
-										<ChevronRight size={14} />
-									)}
-									{t("settings.alerts.events.title")}
-								</button>
-								<ResetButton
-									tooltip={t("settings.alerts.events.reset")}
-									onClick={() => resetSettingMutation.mutate(["alert_events"])}
-									size={12}
-									disabled={isResetting}
-								/>
-							</div>
-							{pickerOpen && (
-								<div className="pl-5">
-									<AlertEventPicker
-										value={settings?.alert_events}
-										onChange={(csv) =>
-											updateMutation.mutate({ alert_events: csv })
-										}
-									/>
-								</div>
-							)}
 						</div>
 
 						{/* Test button + inline hint (beside, not below, to save a row) */}

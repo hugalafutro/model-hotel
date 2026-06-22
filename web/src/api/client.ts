@@ -33,6 +33,7 @@ import type {
 	TimeSeriesStats,
 	TotpEnrollStart,
 	TotpEnrollVerify,
+	TotpInfo,
 	TotpLoginResponse,
 	TotpStatus,
 	UpdateFailoverGroupRequest,
@@ -1168,6 +1169,10 @@ export const api = {
 	totp: {
 		status: async (): Promise<TotpStatus> =>
 			fetchJSON<TotpStatus>(`${API_BASE}/api/totp/status`),
+		info: async (): Promise<TotpInfo> =>
+			fetchJSON<TotpInfo>(`${API_BASE}/api/totp/info`, {
+				headers: getAuthHeaders(),
+			}),
 		enrollStart: async (): Promise<TotpEnrollStart> =>
 			fetchJSON<TotpEnrollStart>(
 				`${API_BASE}/api/totp/enroll/start`,

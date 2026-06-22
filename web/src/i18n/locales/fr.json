@@ -1429,7 +1429,9 @@
 				"5m0s": "5 minutes",
 				"10m0s": "10 minutes",
 				"disabled": "Désactivé"
-			}
+			},
+			"requestsGroup": "Requêtes",
+			"streamingGroup": "Streaming en cours"
 		},
 		"rateLimit": {
 			"title": "Limitation des taux",
@@ -1449,7 +1451,8 @@
 			"backpressure": "Taux limite de contre-pression",
 			"backpressureDescription": "Comportement d'attente partagé pour les limiteurs de débit par clé et IP",
 			"maxWait": "Attente max (ms)",
-			"maxWait.description": "Temps d'attente maximum avant de rejeter une requête à taux limité. Si un jeton devient disponible dans cette fenêtre, la requête continue ; sinon 429 sera retournée."
+			"maxWait.description": "Temps d'attente maximum avant de rejeter une requête à taux limité. Si un jeton devient disponible dans cette fenêtre, la requête continue ; sinon 429 sera retournée.",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Disjoncteur & Failover",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "Lance un fournisseur de secours en parallèle quand le premier tarde à envoyer son premier jeton (groupes de bascule en streaming uniquement)",
 			"hedgeDelay": "Délai de couverture",
 			"hedgeDelay.description": "Combien de temps attendre le premier jeton du premier fournisseur avant de lancer aussi un fournisseur de secours",
-			"hedgingNotice": "La couverture lance un second fournisseur en parallèle quand le premier démarre lentement et garde celui qui répond en premier. Lors des démarrages lents, cela double la requête en amont : les limites de débit et la capacité du fournisseur s'épuisent plus vite, et un secours qui ignore l'annulation peut continuer à générer en arrière-plan. Ne l'activez que si les premiers jetons lents nuisent plus que la charge supplémentaire."
+			"hedgingNotice": "La couverture lance un second fournisseur en parallèle quand le premier démarre lentement et garde celui qui répond en premier. Lors des démarrages lents, cela double la requête en amont : les limites de débit et la capacité du fournisseur s'épuisent plus vite, et un secours qui ignore l'annulation peut continuer à générer en arrière-plan. Ne l'activez que si les premiers jetons lents nuisent plus que la charge supplémentaire.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Journalisation",
@@ -1525,7 +1530,10 @@
 				"24h": "24 heures",
 				"48h": "48 heures",
 				"disabled": "Désactivé"
-			}
+			},
+			"automaticGroup": "Automatique",
+			"manualGroup": "Manuel",
+			"lastRun": "Dernière exécution"
 		},
 		"dataStorage": {
 			"title": "Stockage des données",
@@ -1600,7 +1608,6 @@
 			"uploadRestore": "Télécharger & Restaurer",
 			"restoring": "Restauration de…",
 			"selectBackupFile": "Sélectionner le fichier de sauvegarde à restaurer",
-			"availableBackups": "Sauvegardes disponibles ({{count}})",
 			"noBackups": "Pas encore de sauvegarde.",
 			"download": "Télécharger",
 			"delete": "Supprimer la sauvegarde",
@@ -1635,7 +1642,9 @@
 				"prunePreviewFailed": "Échec de l'aperçu de la purge des sauvegardes",
 				"pruneFailed": "Échec de la suppression des sauvegardes",
 				"pruneSuccess": "{{count}} sauvegarde(s) supprimée(s)"
-			}
+			},
+			"availableBackupsTitle": "Sauvegardes disponibles",
+			"manuallyCreated": "Manuel"
 		},
 		"appearance": {
 			"title": "Apparence",
@@ -1775,7 +1784,8 @@
 			"saveNameAriaLabel": "Enregistrer le nom",
 			"cancelNameAriaLabel": "Annuler le renommage",
 			"renameAriaLabel": "Renommer le mot de passe",
-			"failedToRename": "Impossible de renommer le mot de passe : {{message}}"
+			"failedToRename": "Impossible de renommer le mot de passe : {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "Générez des journaux structurés sous la forme d'un objet JSON par ligne, pour les collecteurs de journaux stdout tels que Fluent Bit, Vector ou Promtail.",
@@ -1788,7 +1798,8 @@
 			"otel.instructions": "Pointez ceci vers votre point de terminaison de collecteur OTLP et redémarrez le conteneur pour envoyer les journaux via OpenTelemetry :",
 			"otel.name": "Journaux OpenTelemetry (OTLP)",
 			"title": "Observabilité et exportation des journaux",
-			"description": "Model Hotel peut exporter ses journaux et métriques structurés vers des systèmes externes. Chaque intégration est activée par une variable d'environnement ; les badges d'état ci-dessous reflètent l'état actuel. Aucun contenu de requête ou de réponse n'est jamais exporté — seules les métadonnées de routage et de mesure le sont."
+			"description": "Model Hotel peut exporter ses journaux et métriques structurés vers des systèmes externes. Chaque intégration est activée par une variable d'environnement ; les badges d'état ci-dessous reflètent l'état actuel. Aucun contenu de requête ou de réponse n'est jamais exporté — seules les métadonnées de routage et de mesure le sont.",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "URL de l’API Apprise",
@@ -1863,7 +1874,7 @@
 			"savedAriaLabel": "Vérifier que les codes de récupération ont bien été enregistrés",
 			"secret": "Secret",
 			"secretCopied": "Secret copié",
-			"title": "Application d’authentification (TOTP)",
+			"title": "2FA · Application d’authentification (TOTP)",
 			"verifiedSuccess": "Authentification à deux facteurs activée",
 			"verify": "Vérifier et activer",
 			"verifyAriaLabel": "Vérifier le code TOTP et l'activer",
@@ -1871,7 +1882,12 @@
 			"downloadCodes": "Télécharger en .txt",
 			"downloadCodesAriaLabel": "Télécharger les codes de récupération dans un fichier texte",
 			"failedToStart": "Impossible de démarrer l'enregistrement : {{message}}",
-			"enabledOn": "Activé le {{date}}"
+			"enabledOn": "Activé le {{date}}",
+			"recoveryRemaining": "Codes de récupération",
+			"lastUsed": "Dernière utilisation"
+		},
+		"authentication": {
+			"title": "Authentification"
 		}
 	},
 	"components": {

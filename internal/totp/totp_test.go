@@ -324,6 +324,57 @@ func TestVerifyRejectsReplay(t *testing.T) {
 	assert.False(t, ok, "replay of an already-used code must be rejected")
 }
 
+func TestInfo(t *testing.T) {
+	repo := newTestRepo(t, "test-master-key-very-long-32b+")
+	ctx := context.Background()
+
+	// Before enrollment: no recovery codes and no recorded use.
+	info, err := repo.Info(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, info.RecoveryTotal)
+	assert.Equal(t, 0, info.RecoveryRemaining)
+	assert.True(t, info.LastUsed.IsZero(), "LastUsed must be zero before any code is accepted")
+
+	if _, _, err := repo.Enroll(ctx); err != nil {
+		t.Fatalf("enroll: %v", err)
+	}
+	codes, err := repo.GenerateRecoveryCodes(ctx)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, codes)
+
+	info, err = repo.Info(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, len(codes), info.RecoveryTotal)
+	assert.Equal(t, len(codes), info.RecoveryRemaining)
+	assert.True(t, info.LastUsed.IsZero(), "enroll resets last_used_step, so LastUsed stays zero")
+
+	// Consuming a recovery code lowers remaining but not the issued total.
+	ok, err := repo.ConsumeRecoveryCode(ctx, codes[0])
+	assert.NoError(t, err)
+	assert.True(t, ok)
+
+	info, err = repo.Info(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, len(codes), info.RecoveryTotal)
+	assert.Equal(t, len(codes)-1, info.RecoveryRemaining)
+
+	// Accepting a TOTP code stamps last_used_step, which Info converts back to a
+	// wall-clock time near now. Re-enroll to get the secret (the earlier Enroll
+	// discarded it); this resets last_used_step, which the accepted code re-sets.
+	_, secret, err := repo.Enroll(ctx)
+	require.NoError(t, err)
+	code, err := totp.GenerateCode(secret, time.Now())
+	require.NoError(t, err)
+	ok, err = repo.Verify(ctx, code)
+	require.NoError(t, err)
+	require.True(t, ok, "valid code must verify")
+
+	info, err = repo.Info(ctx)
+	assert.NoError(t, err)
+	assert.False(t, info.LastUsed.IsZero(), "LastUsed must be set after a code is accepted")
+	assert.WithinDuration(t, time.Now().UTC(), info.LastUsed, 90*time.Second)
+}
+
 func TestNormalizeRecoveryCode(t *testing.T) {
 	const canonical = "ABCD-EFGH-IJKL-MNOP"
 	cases := []struct{ in, want string }{

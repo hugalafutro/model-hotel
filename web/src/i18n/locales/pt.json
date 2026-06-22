@@ -1429,7 +1429,9 @@
 				"5m0s": "5 minutos",
 				"10m0s": "10 minutos",
 				"disabled": "Desabilitado"
-			}
+			},
+			"requestsGroup": "Pedidos",
+			"streamingGroup": "Transmitindo"
 		},
 		"rateLimit": {
 			"title": "Taxa Limitada",
@@ -1449,7 +1451,8 @@
 			"backpressure": "Limitar pressão de fundo",
 			"backpressureDescription": "Comportamento de espera compartilhado tanto por chave quanto pelos limitadores de taxa de IP",
 			"maxWait": "Espera máx. (ms)",
-			"maxWait.description": "Tempo máximo de espera antes de rejeitar um pedido de tarifa limitada. Se um token estiver disponível dentro desta janela, a solicitação continua; caso contrário, 429 será retornado."
+			"maxWait.description": "Tempo máximo de espera antes de rejeitar um pedido de tarifa limitada. Se um token estiver disponível dentro desta janela, a solicitação continua; caso contrário, 429 será retornado.",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Disjuntor & Falhou",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "Executa um provedor de reserva em paralelo quando o primeiro demora a enviar o primeiro token (apenas grupos de failover em streaming)",
 			"hedgeDelay": "Atraso de cobertura",
 			"hedgeDelay.description": "Quanto tempo esperar pelo primeiro token do primeiro provedor antes de também iniciar um provedor de reserva",
-			"hedgingNotice": "A cobertura inicia um segundo provedor em paralelo quando o primeiro demora a começar e mantém o que responder primeiro. Em inícios lentos isso duplica a solicitação a montante, então os limites de taxa e a capacidade do provedor se esgotam mais rápido, e uma reserva que ignora o cancelamento pode continuar gerando em segundo plano. Ative apenas se os primeiros tokens lentos prejudicarem mais do que a carga extra."
+			"hedgingNotice": "A cobertura inicia um segundo provedor em paralelo quando o primeiro demora a começar e mantém o que responder primeiro. Em inícios lentos isso duplica a solicitação a montante, então os limites de taxa e a capacidade do provedor se esgotam mais rápido, e uma reserva que ignora o cancelamento pode continuar gerando em segundo plano. Ative apenas se os primeiros tokens lentos prejudicarem mais do que a carga extra.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Registro",
@@ -1525,7 +1530,10 @@
 				"24h": "24 horas",
 				"48h": "48 horas",
 				"disabled": "Desabilitado"
-			}
+			},
+			"automaticGroup": "Automático",
+			"manualGroup": "Manual",
+			"lastRun": "Última execução"
 		},
 		"dataStorage": {
 			"title": "Armazenamento de dados",
@@ -1600,7 +1608,6 @@
 			"uploadRestore": "Enviar e Restaurar",
 			"restoring": "Restaurando…",
 			"selectBackupFile": "Selecione o arquivo de backup para restaurar",
-			"availableBackups": "Backups disponíveis ({{count}})",
 			"noBackups": "Nenhum backup ainda.",
 			"download": "BAIXAR",
 			"delete": "Excluir backup",
@@ -1635,7 +1642,9 @@
 				"prunePreviewFailed": "Falha ao pré-visualizar a limpeza de backup",
 				"pruneFailed": "Falha ao remover backups",
 				"pruneSuccess": "{{count}} backup(s) eliminado(s)"
-			}
+			},
+			"availableBackupsTitle": "Backups disponíveis",
+			"manuallyCreated": "Manual"
 		},
 		"appearance": {
 			"title": "Aparência",
@@ -1775,7 +1784,8 @@
 			"saveNameAriaLabel": "Salvar nome",
 			"cancelNameAriaLabel": "Cancelar renomeação",
 			"renameAriaLabel": "Renomear senha",
-			"failedToRename": "Falha ao renomear a senha: {{message}}"
+			"failedToRename": "Falha ao renomear a senha: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "Emita logs estruturados como um objeto JSON por linha, para coletores de logs stdout, como Fluent Bit, Vector ou Promtail.",
@@ -1788,7 +1798,8 @@
 			"otel.instructions": "Aponte isso para o seu endpoint do coletor OTLP e reinicie o contêiner para enviar logs via OpenTelemetry:",
 			"otel.name": "Logs do OpenTelemetry (OTLP)",
 			"title": "Observabilidade e exportação de logs",
-			"description": "O Model Hotel pode exportar seus logs e métricas estruturados para sistemas externos. Cada integração é ativada por uma variável de ambiente; os ícones de status abaixo refletem o estado atual. Nenhum conteúdo de solicitação ou resposta é exportado — apenas metadados de roteamento e medição."
+			"description": "O Model Hotel pode exportar seus logs e métricas estruturados para sistemas externos. Cada integração é ativada por uma variável de ambiente; os ícones de status abaixo refletem o estado atual. Nenhum conteúdo de solicitação ou resposta é exportado — apenas metadados de roteamento e medição.",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "URL da API do Apprise",
@@ -1863,7 +1874,7 @@
 			"savedAriaLabel": "Confirme se os códigos de recuperação foram salvos",
 			"secret": "Segredo",
 			"secretCopied": "Segredo copiado",
-			"title": "Aplicativo autenticador (TOTP)",
+			"title": "2FA · Aplicativo autenticador (TOTP)",
 			"verifiedSuccess": "Autenticação de dois fatores ativada",
 			"verify": "Verifique e habilite",
 			"verifyAriaLabel": "Verifique o código TOTP e habilite",
@@ -1871,7 +1882,12 @@
 			"downloadCodes": "Baixar como .txt",
 			"downloadCodesAriaLabel": "Baixar os códigos de recuperação como arquivo de texto",
 			"failedToStart": "Não foi possível iniciar o registo: {{message}}",
-			"enabledOn": "Ativado em {{date}}"
+			"enabledOn": "Ativado em {{date}}",
+			"recoveryRemaining": "Códigos de recuperação",
+			"lastUsed": "Última utilização"
+		},
+		"authentication": {
+			"title": "Autenticação"
 		}
 	},
 	"components": {

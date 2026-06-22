@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Timer } from "@/lib/icons";
+import { SettingsGroup } from "../../components/SettingsGroup";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
 import { goDurationToSeconds, secondsToGoDuration } from "../../utils/duration";
@@ -37,8 +38,8 @@ export function ProxySettings({
 				<p className="text-gray-400 text-sm">
 					{t("settings.proxy.description")}
 				</p>
-				<div className="grid grid-cols-2 gap-x-8 gap-y-5 [align-items:start]">
-					<div className="space-y-5">
+				<div className="grid grid-cols-2 gap-x-6 gap-y-5 [align-items:start]">
+					<SettingsGroup title={t("settings.proxy.requestsGroup")}>
 						<SettingsSlider
 							id="request-timeout"
 							label={t("settings.proxy.requestTimeout")}
@@ -67,14 +68,16 @@ export function ProxySettings({
 							clampStep={60}
 							unit="s"
 							onChange={(v) =>
-								updateMutation.mutate({ key_cache_ttl: secondsToGoDuration(v) })
+								updateMutation.mutate({
+									key_cache_ttl: secondsToGoDuration(v),
+								})
 							}
 							description={t("settings.proxy.keyCacheTtl.description")}
 							onReset={() => resetSettingMutation.mutate(["key_cache_ttl"])}
 							resetTooltip={t("settings.common.resetSetting")}
 						/>
-					</div>
-					<div className="space-y-5">
+					</SettingsGroup>
+					<SettingsGroup title={t("settings.proxy.streamingGroup")}>
 						<SettingsSlider
 							id="ttft-timeout"
 							label={t("settings.proxy.ttftTimeout")}
@@ -86,7 +89,9 @@ export function ProxySettings({
 							unit="s"
 							infinityValue={0}
 							onChange={(v) =>
-								updateMutation.mutate({ ttft_timeout: secondsToGoDuration(v) })
+								updateMutation.mutate({
+									ttft_timeout: secondsToGoDuration(v),
+								})
 							}
 							description={t("settings.proxy.ttftTimeout.description")}
 							onReset={() => resetSettingMutation.mutate(["ttft_timeout"])}
@@ -113,7 +118,7 @@ export function ProxySettings({
 							}
 							resetTooltip={t("settings.common.resetSetting")}
 						/>
-					</div>
+					</SettingsGroup>
 				</div>
 			</div>
 		</SettingsSection>

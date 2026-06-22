@@ -2751,6 +2751,71 @@ func TestParseBackupTimestamp(t *testing.T) {
 	}
 }
 
+func TestBackupOrigin(t *testing.T) {
+	cases := map[string]string{
+		"backup_20240115_120000_0010_manual.dump": "manual",
+		"backup_20240115_120000_0010_auto.dump":   "scheduled",
+		"backup_20240115_120000_0010.dump":        "manual", // predates origin tracking
+		"backup_20240115_120000_manual.dump":      "manual",
+	}
+	for name, want := range cases {
+		if got := backupOrigin(name); got != want {
+			t.Errorf("backupOrigin(%q) = %q, want %q", name, got, want)
+		}
+	}
+}
+
+func TestGenerateBackupFilenameOrigin(t *testing.T) {
+	manual := generateBackupFilename("manual")
+	if !strings.HasSuffix(manual, "_manual.dump") {
+		t.Errorf("manual filename %q missing _manual suffix", manual)
+	}
+	if got := backupOrigin(manual); got != "manual" {
+		t.Errorf("backupOrigin(%q) = %q, want manual", manual, got)
+	}
+	if got := backupOrigin(generateBackupFilename("auto")); got != "scheduled" {
+		t.Errorf("auto backup origin = %q, want scheduled", got)
+	}
+	// The origin segment must not break timestamp parsing (GFS classification).
+	if _, err := parseBackupTimestamp(manual); err != nil {
+		t.Errorf("parseBackupTimestamp(%q) failed: %v", manual, err)
+	}
+}
+
+func TestClassifyBackupsExemptsManual(t *testing.T) {
+	now := time.Date(2024, 1, 30, 12, 0, 0, 0, time.UTC)
+	// An old manual backup and an old legacy (no-marker) backup would both land
+	// in Prune by age alone; only the scheduled one should ever be classified.
+	backups := []backupEntry{
+		{Filename: "backup_20240101_120000_0001_manual.dump"}, // 29d old, manual
+		{Filename: "backup_20240101_120000_0003.dump"},        // legacy -> manual
+		{Filename: "backup_20240130_110000_0002_auto.dump"},   // recent, scheduled
+	}
+	res := classifyBackups(scheduledBackups(backups), 7, 4, 3, now)
+
+	tiers := append(append(append(append([]backupEntry{}, res.Son...),
+		res.Father...), res.Grandfather...), res.Prune...)
+	for _, b := range tiers {
+		if backupOrigin(b.Filename) == "manual" {
+			t.Errorf("manual/legacy backup %q must be exempt from GFS, found in classification", b.Filename)
+		}
+	}
+	if len(tiers) != 1 {
+		t.Errorf("expected only the 1 scheduled backup classified, got %d: %+v", len(tiers), tiers)
+	}
+
+	// Every tier must be a non-nil slice so the JSON payload carries [] not
+	// null even when filtering leaves nothing to classify; the enable-confirm
+	// modal reads prune.length directly and crashes on null.
+	manualOnly := classifyBackups(scheduledBackups([]backupEntry{
+		{Filename: "backup_20240101_120000_0001_manual.dump"},
+	}), 7, 4, 3, now)
+	if manualOnly.Son == nil || manualOnly.Father == nil ||
+		manualOnly.Grandfather == nil || manualOnly.Prune == nil {
+		t.Errorf("classification tiers must be non-nil, got %+v", manualOnly)
+	}
+}
+
 func TestMostRecentEntry(t *testing.T) {
 	t.Run("empty list returns nil", func(t *testing.T) {
 		result := mostRecentEntry(nil, nil)
@@ -3242,10 +3307,10 @@ func TestPrunePreview(t *testing.T) {
 		// Create backups spanning several days so classification is non-trivial.
 		now := time.Now()
 		names := []string{
-			fmt.Sprintf("backup_%s_001.dump", now.Format("20060102_150405")),
-			fmt.Sprintf("backup_%s_001.dump", now.AddDate(0, 0, -1).Format("20060102_150405")),
-			fmt.Sprintf("backup_%s_001.dump", now.AddDate(0, 0, -30).Format("20060102_150405")),
-			fmt.Sprintf("backup_%s_001.dump", now.AddDate(0, -3, 0).Format("20060102_150405")),
+			fmt.Sprintf("backup_%s_001_auto.dump", now.Format("20060102_150405")),
+			fmt.Sprintf("backup_%s_001_auto.dump", now.AddDate(0, 0, -1).Format("20060102_150405")),
+			fmt.Sprintf("backup_%s_001_auto.dump", now.AddDate(0, 0, -30).Format("20060102_150405")),
+			fmt.Sprintf("backup_%s_001_auto.dump", now.AddDate(0, -3, 0).Format("20060102_150405")),
 		}
 		for _, name := range names {
 			//nolint:gosec // test-only: permissive perms acceptable
@@ -3326,9 +3391,9 @@ func TestApplyPrune(t *testing.T) {
 		t.Parallel()
 		r, dir := setupBackupRouterWithSettings(t, nil)
 
-		// Create an old backup that falls outside retention periods.
+		// Create an old scheduler backup that falls outside retention periods.
 		oldTime := time.Now().AddDate(-2, 0, 0)
-		oldName := fmt.Sprintf("backup_%s_001.dump", oldTime.Format("20060102_150405"))
+		oldName := fmt.Sprintf("backup_%s_001_auto.dump", oldTime.Format("20060102_150405"))
 		//nolint:gosec // test-only: permissive perms acceptable
 		if err := os.WriteFile(filepath.Join(dir, oldName), []byte("old-backup"), 0o644); err != nil {
 			t.Fatal(err)
@@ -3687,9 +3752,9 @@ func TestPrunePreview_WithSettingsRepo(t *testing.T) {
 	dir := t.TempDir()
 	// Create several backup files to classify
 	for _, name := range []string{
-		"backup_20240601_120000_001.dump",
-		"backup_20240608_120000_002.dump",
-		"backup_20240501_120000_003.dump",
+		"backup_20240601_120000_001_auto.dump",
+		"backup_20240608_120000_002_auto.dump",
+		"backup_20240501_120000_003_auto.dump",
 	} {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte("x"), 0o644); err != nil {
 			t.Fatal(err)
@@ -3735,9 +3800,9 @@ func TestApplyPrune_WithSettingsRepo(t *testing.T) {
 	dir := t.TempDir()
 	// Create backup files: some will be pruned with aggressive retention
 	for _, name := range []string{
-		"backup_20240601_120000_001.dump",
-		"backup_20240608_120000_002.dump",
-		"backup_20240501_120000_003.dump",
+		"backup_20240601_120000_001_auto.dump",
+		"backup_20240608_120000_002_auto.dump",
+		"backup_20240501_120000_003_auto.dump",
 	} {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte("x"), 0o644); err != nil {
 			t.Fatal(err)
@@ -4889,8 +4954,9 @@ exit 0
 	}
 	h := NewBackupHandler("postgres://user:pass@localhost/db", backupDir, &mockAdminAuth{}, ss)
 
-	// Create some old backup files that should be pruned by rotation
-	oldName := "backup_20240101_120000_001.dump"
+	// Create some old scheduler backup files that should be pruned by rotation
+	// ("_auto" marks them as scheduler-created; manual backups are never pruned).
+	oldName := "backup_20240101_120000_001_auto.dump"
 	//nolint:gosec // test-only
 	if err := os.WriteFile(filepath.Join(backupDir, oldName), []byte("old backup data"), 0o644); err != nil {
 		t.Fatal(err)
@@ -5171,10 +5237,11 @@ exit 0
 
 	backupDir := t.TempDir()
 
-	// Create several old backup files at different ages
+	// Create several old scheduler backups at different ages (the "_auto" marker
+	// makes them eligible for rotation; manual/legacy backups are never pruned).
 	oldFiles := []string{
-		"backup_20240101_120000_001.dump", // 2 years old - should be pruned
-		"backup_20240115_090000_001.dump", // old enough to be pruned
+		"backup_20240101_120000_001_auto.dump", // 2 years old - should be pruned
+		"backup_20240115_090000_001_auto.dump", // old enough to be pruned
 	}
 	for _, name := range oldFiles {
 		//nolint:gosec // test-only
@@ -5289,8 +5356,8 @@ exit 0
 	}
 	h := NewBackupHandler("postgres://user@localhost/db", backupDir, &mockAdminAuth{}, ss)
 
-	// Create an old backup with a valid filename (will be classified as prune)
-	oldName := "backup_20230101_120000_001.dump"
+	// Create an old scheduler backup with a valid filename (classified as prune)
+	oldName := "backup_20230101_120000_001_auto.dump"
 	//nolint:gosec // test-only
 	if err := os.WriteFile(filepath.Join(backupDir, oldName), []byte("old data"), 0o644); err != nil {
 		t.Fatal(err)

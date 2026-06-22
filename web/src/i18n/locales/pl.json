@@ -1429,7 +1429,9 @@
 				"5m0s": "5 minut",
 				"10m0s": "10 minut",
 				"disabled": "Wyłączone"
-			}
+			},
+			"requestsGroup": "Żądania",
+			"streamingGroup": "Strumieniowanie"
 		},
 		"rateLimit": {
 			"title": "Ograniczenie oceny",
@@ -1449,7 +1451,8 @@
 			"backpressure": "Oceń ograniczenie ciśnienia wstecznego",
 			"backpressureDescription": "Współdzielone zachowanie oczekiwania zarówno dla skrótów klawiszowych jak i IP",
 			"maxWait": "Maks. oczekiwanie (ms)",
-			"maxWait.description": "Maksymalny czas oczekiwania przed odrzuceniem żądania o ograniczonej szybkości. Jeśli token stanie się dostępny w tym oknie, wniosek zostanie wykonany; w przeciwnym razie zostanie zwrócony 429."
+			"maxWait.description": "Maksymalny czas oczekiwania przed odrzuceniem żądania o ograniczonej szybkości. Jeśli token stanie się dostępny w tym oknie, wniosek zostanie wykonany; w przeciwnym razie zostanie zwrócony 429.",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Łamacz obwodu i przelotka",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "Uruchamia równolegle zapasowego dostawcę, gdy pierwszy powoli wysyła pierwszy token (tylko strumieniowe grupy przełączania awaryjnego)",
 			"hedgeDelay": "Opóźnienie zabezpieczenia",
 			"hedgeDelay.description": "Jak długo czekać na pierwszy token pierwszego dostawcy, zanim zostanie uruchomiony także dostawca zapasowy",
-			"hedgingNotice": "Zabezpieczenie uruchamia drugiego dostawcę równolegle, gdy pierwszy wolno startuje, i zachowuje tego, który odpowie pierwszy. Przy wolnych startach podwaja to żądanie w górę strumienia, więc limity szybkości i przepustowość dostawcy wyczerpują się szybciej, a zapas ignorujący anulowanie może dalej generować w tle. Włącz tylko wtedy, gdy wolne pierwsze tokeny szkodzą bardziej niż dodatkowe obciążenie."
+			"hedgingNotice": "Zabezpieczenie uruchamia drugiego dostawcę równolegle, gdy pierwszy wolno startuje, i zachowuje tego, który odpowie pierwszy. Przy wolnych startach podwaja to żądanie w górę strumienia, więc limity szybkości i przepustowość dostawcy wyczerpują się szybciej, a zapas ignorujący anulowanie może dalej generować w tle. Włącz tylko wtedy, gdy wolne pierwsze tokeny szkodzą bardziej niż dodatkowe obciążenie.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Rejestrowanie",
@@ -1525,7 +1530,10 @@
 				"24h": "24 godziny",
 				"48h": "48 godzin",
 				"disabled": "Wyłączone"
-			}
+			},
+			"automaticGroup": "Automatyczne",
+			"manualGroup": "Ręczne",
+			"lastRun": "Ostatnie uruchomienie"
 		},
 		"dataStorage": {
 			"title": "Przechowywanie danych",
@@ -1600,7 +1608,6 @@
 			"uploadRestore": "Prześlij i przywracaj",
 			"restoring": "Przywracanie…",
 			"selectBackupFile": "Wybierz plik kopii zapasowej do przywrócenia",
-			"availableBackups": "Dostępne kopie zapasowe ({{count}})",
 			"noBackups": "Brak kopii zapasowych.",
 			"download": "Pobierz",
 			"delete": "Usuń kopię zapasową",
@@ -1635,7 +1642,9 @@
 				"prunePreviewFailed": "Podgląd kopii zapasowej nie powiódł się",
 				"pruneFailed": "Nie udało się usunąć kopii zapasowych",
 				"pruneSuccess": "Pruned {{count}} backup(s)"
-			}
+			},
+			"availableBackupsTitle": "Dostępne kopie zapasowe",
+			"manuallyCreated": "Ręczne"
 		},
 		"appearance": {
 			"title": "Wygląd",
@@ -1775,7 +1784,8 @@
 			"saveNameAriaLabel": "Zapisz nazwę",
 			"cancelNameAriaLabel": "Anuluj zmianę nazwy",
 			"renameAriaLabel": "Zmień nazwę hasła",
-			"failedToRename": "Nie udało się zmienić nazwy hasła: {{message}}"
+			"failedToRename": "Nie udało się zmienić nazwy hasła: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "Generuj ustrukturyzowane logi jako jeden obiekt JSON na linię dla kolektorów logów stdout, takich jak Fluent Bit, Vector lub Promtail.",
@@ -1788,7 +1798,8 @@
 			"otel.instructions": "Skieruj to na swój punkt końcowy kolektora OTLP i uruchom ponownie kontener, aby przesłać logi przez OpenTelemetry:",
 			"otel.name": "Logi OpenTelemetry (OTLP)",
 			"title": "Obserwowalność i eksport logów",
-			"description": "Model Hotel może eksportować swoje ustrukturyzowane logi i metryki do systemów zewnętrznych. Każda integracja jest włączana za pomocą zmiennej środowiskowej; poniższe znaczniki statusu odzwierciedlają aktualny stan. Nigdy nie są eksportowane treści żądań ani odpowiedzi — tylko metadane dotyczące routingu i pomiarów."
+			"description": "Model Hotel może eksportować swoje ustrukturyzowane logi i metryki do systemów zewnętrznych. Każda integracja jest włączana za pomocą zmiennej środowiskowej; poniższe znaczniki statusu odzwierciedlają aktualny stan. Nigdy nie są eksportowane treści żądań ani odpowiedzi — tylko metadane dotyczące routingu i pomiarów.",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "Adres URL interfejsu API Apprise",
@@ -1863,7 +1874,7 @@
 			"savedAriaLabel": "Potwierdź zapisanie kodów odzyskiwania",
 			"secret": "Sekret",
 			"secretCopied": "Skrót skopiowany",
-			"title": "Aplikacja uwierzytelniająca (TOTP)",
+			"title": "2FA · Aplikacja uwierzytelniająca (TOTP)",
 			"verifiedSuccess": "Włączone uwierzytelnianie dwuskładnikowe",
 			"verify": "Sprawdź i włącz",
 			"verifyAriaLabel": "Zweryfikuj kod TOTP i włącz",
@@ -1871,7 +1882,12 @@
 			"downloadCodes": "Pobierz jako .txt",
 			"downloadCodesAriaLabel": "Pobierz kody odzyskiwania jako plik tekstowy",
 			"failedToStart": "Nie można rozpocząć rejestracji: {{message}}",
-			"enabledOn": "Włączono {{date}}"
+			"enabledOn": "Włączono {{date}}",
+			"recoveryRemaining": "Kody odzyskiwania",
+			"lastUsed": "Ostatnio użyto"
+		},
+		"authentication": {
+			"title": "Uwierzytelnianie"
 		}
 	},
 	"components": {

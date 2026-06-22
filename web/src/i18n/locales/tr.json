@@ -1429,7 +1429,9 @@
 				"5m0s": "5 dakika",
 				"10m0s": "10 dakika",
 				"disabled": "Engelli"
-			}
+			},
+			"requestsGroup": "İstekler",
+			"streamingGroup": "Canlı yayın"
 		},
 		"rateLimit": {
 			"title": "Hız Sınırlaması",
@@ -1449,7 +1451,8 @@
 			"backpressure": "Hız Sınırı Geri Basıncı",
 			"backpressureDescription": "Hem anahtar başına hem de IP hız sınırlayıcıları için ortak bekleme davranışı",
 			"maxWait": "Maksimum Bekleme Süresi (ms)",
-			"maxWait.description": "Hız sınırlamasına tabi bir isteğin reddedilmesinden önce bekleme süresi. Bu süre içinde bir jeton elde edilirse istek işleme alınır; aksi takdirde 429 hatası döndürülür."
+			"maxWait.description": "Hız sınırlamasına tabi bir isteğin reddedilmesinden önce bekleme süresi. Bu süre içinde bir jeton elde edilirse istek işleme alınır; aksi takdirde 429 hatası döndürülür.",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Devre Kesici ve Yedekleme",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "İlk sağlayıcı ilk belirtecini yavaş gönderdiğinde paralel olarak bir yedek sağlayıcı çalıştırır (yalnızca akışlı yük devretme grupları)",
 			"hedgeDelay": "Hedge gecikmesi",
 			"hedgeDelay.description": "Yedek sağlayıcı da başlatılmadan önce ilk sağlayıcının ilk belirteci ne kadar beklenir",
-			"hedgingNotice": "Hedge, ilk sağlayıcı yavaş başladığında ikinci bir sağlayıcıyı paralel çalıştırır ve önce yanıt vereni tutar. Yavaş başlangıçlarda bu, üst akış isteğini ikiye katlar; böylece sağlayıcının hız sınırları ve kapasitesi daha hızlı tükenir ve iptali yok sayan bir yedek arka planda üretmeye devam edebilir. Yalnızca yavaş ilk belirteçler ek yükten daha çok zarar veriyorsa açın."
+			"hedgingNotice": "Hedge, ilk sağlayıcı yavaş başladığında ikinci bir sağlayıcıyı paralel çalıştırır ve önce yanıt vereni tutar. Yavaş başlangıçlarda bu, üst akış isteğini ikiye katlar; böylece sağlayıcının hız sınırları ve kapasitesi daha hızlı tükenir ve iptali yok sayan bir yedek arka planda üretmeye devam edebilir. Yalnızca yavaş ilk belirteçler ek yükten daha çok zarar veriyorsa açın.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Günlük kaydı",
@@ -1525,7 +1530,10 @@
 				"24h": "24 saat",
 				"48h": "48 saat",
 				"disabled": "Engelli"
-			}
+			},
+			"automaticGroup": "Otomatik",
+			"manualGroup": "Manuel",
+			"lastRun": "Son çalıştırma"
 		},
 		"dataStorage": {
 			"title": "Veri Depolama",
@@ -1600,7 +1608,6 @@
 			"uploadRestore": "Yükle ve Geri Yükle",
 			"restoring": "… 'i geri yükleme",
 			"selectBackupFile": "Geri yüklemek istediğiniz yedekleme dosyasını seçin",
-			"availableBackups": "Mevcut Yedeklemeler ({{count}})",
 			"noBackups": "Henüz yedekleme yapılmadı.",
 			"download": "İndir",
 			"delete": "Yedeği sil",
@@ -1635,7 +1642,9 @@
 				"prunePreviewFailed": "Yedekleme budama işleminin önizlemesi yapılamadı",
 				"pruneFailed": "Yedeklemeler budanamadı",
 				"pruneSuccess": "{{count}} yedeklemesi/yedeklemeleri silindi"
-			}
+			},
+			"availableBackupsTitle": "Mevcut Yedeklemeler",
+			"manuallyCreated": "Manuel"
 		},
 		"appearance": {
 			"title": "Görünüm",
@@ -1775,7 +1784,8 @@
 			"saveNameAriaLabel": "Adı kaydet",
 			"cancelNameAriaLabel": "Ad değiştirme işlemini iptal et",
 			"renameAriaLabel": "Şifreyi yeniden adlandır",
-			"failedToRename": "Şifreyi yeniden adlandırma işlemi başarısız oldu: {{message}}"
+			"failedToRename": "Şifreyi yeniden adlandırma işlemi başarısız oldu: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "Fluent Bit, Vector veya Promtail gibi stdout günlük toplayıcıları için, yapılandırılmış günlükleri satır başına tek bir JSON nesnesi olarak gönderin.",
@@ -1788,7 +1798,8 @@
 			"otel.instructions": "Bunu OTLP toplayıcı uç noktanıza yönlendirin ve OpenTelemetry üzerinden günlükleri aktarmak için konteyneri yeniden başlatın:",
 			"otel.name": "OpenTelemetry günlükleri (OTLP)",
 			"title": "Gözlemlenebilirlik ve Günlük Dışa Aktarma",
-			"description": "Model Hotel, yapılandırılmış günlüklerini ve metriklerini harici sistemlere aktarabilir. Her entegrasyon bir ortam değişkeni ile etkinleştirilir; aşağıdaki durum rozetleri mevcut durumu yansıtır. Hiçbir istek veya yanıt içeriği aktarılmaz — yalnızca yönlendirme ve ölçüm meta verileri aktarılır."
+			"description": "Model Hotel, yapılandırılmış günlüklerini ve metriklerini harici sistemlere aktarabilir. Her entegrasyon bir ortam değişkeni ile etkinleştirilir; aşağıdaki durum rozetleri mevcut durumu yansıtır. Hiçbir istek veya yanıt içeriği aktarılmaz — yalnızca yönlendirme ve ölçüm meta verileri aktarılır.",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "Apprise API URL'si",
@@ -1863,7 +1874,7 @@
 			"savedAriaLabel": "Kurtarma kodlarının kaydedildiğini onayla",
 			"secret": "Gizli anahtar",
 			"secretCopied": "Gizli anahtar kopyalandı",
-			"title": "Kimlik Doğrulama Uygulaması (TOTP)",
+			"title": "2FA · Kimlik Doğrulama Uygulaması (TOTP)",
 			"verifiedSuccess": "İki faktörlü kimlik doğrulama etkinleştirildi",
 			"verify": "Doğrula ve etkinleştir",
 			"verifyAriaLabel": "TOTP kodunu doğrula ve etkinleştir",
@@ -1871,7 +1882,12 @@
 			"downloadCodes": ".txt olarak indir",
 			"downloadCodesAriaLabel": "Kurtarma kodlarını metin dosyası olarak indir",
 			"failedToStart": "Kayıt başlatılamadı: {{message}}",
-			"enabledOn": "{{date}} tarihinde etkinleştirildi"
+			"enabledOn": "{{date}} tarihinde etkinleştirildi",
+			"recoveryRemaining": "Kurtarma kodları",
+			"lastUsed": "Son kullanım"
+		},
+		"authentication": {
+			"title": "Kimlik Doğrulama"
 		}
 	},
 	"components": {

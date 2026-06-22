@@ -1429,7 +1429,9 @@
 				"5m0s": "5 minute",
 				"10m0s": "10 minute",
 				"disabled": "Dezactivat"
-			}
+			},
+			"requestsGroup": "Cereri",
+			"streamingGroup": "Streaming"
 		},
 		"rateLimit": {
 			"title": "Rata de limitare",
@@ -1449,7 +1451,8 @@
 			"backpressure": "Evaluează Limita De Returnare",
 			"backpressureDescription": "Comportament de așteptare partajat atât pentru fiecare cheie cât și pentru limitele ratei IP",
 			"maxWait": "Max Asteptare (ms)",
-			"maxWait.description": "Timpul maxim de așteptare înainte de a respinge o cerere limitată de rată. Dacă un token devine disponibil în această fereastră, cererea continuă; în caz contrar, 429 este returnată."
+			"maxWait.description": "Timpul maxim de așteptare înainte de a respinge o cerere limitată de rată. Dacă un token devine disponibil în această fereastră, cererea continuă; în caz contrar, 429 este returnată.",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Circuit Breaker & Eșuare",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "Pornește în paralel un furnizor de rezervă când primul trimite lent primul token (doar grupuri de failover în streaming)",
 			"hedgeDelay": "Întârziere de acoperire",
 			"hedgeDelay.description": "Cât să aștepte primul token al primului furnizor înainte de a porni și un furnizor de rezervă",
-			"hedgingNotice": "Acoperirea pornește în paralel un al doilea furnizor când primul demarează lent și îl păstrează pe cel care răspunde primul. La porniri lente acest lucru dublează cererea în amonte, deci limitele de rată și capacitatea furnizorului se consumă mai repede, iar o rezervă care ignoră anularea poate continua să genereze în fundal. Activează doar dacă primele token-uri lente dăunează mai mult decât sarcina suplimentară."
+			"hedgingNotice": "Acoperirea pornește în paralel un al doilea furnizor când primul demarează lent și îl păstrează pe cel care răspunde primul. La porniri lente acest lucru dublează cererea în amonte, deci limitele de rată și capacitatea furnizorului se consumă mai repede, iar o rezervă care ignoră anularea poate continua să genereze în fundal. Activează doar dacă primele token-uri lente dăunează mai mult decât sarcina suplimentară.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Logare",
@@ -1525,7 +1530,10 @@
 				"24h": "24 ore",
 				"48h": "48 de ore",
 				"disabled": "Dezactivat"
-			}
+			},
+			"automaticGroup": "Automat",
+			"manualGroup": "Manual",
+			"lastRun": "Ultima rulare"
 		},
 		"dataStorage": {
 			"title": "Stocare date",
@@ -1600,7 +1608,6 @@
 			"uploadRestore": "Încarcă și restaurează",
 			"restoring": "Restaurare…",
 			"selectBackupFile": "Selectaţi fişierul copie de rezervă pentru a restabili",
-			"availableBackups": "Backup-uri disponibile ({{count}})",
 			"noBackups": "Nici o copie de rezervă încă.",
 			"download": "Descărcare",
 			"delete": "Ștergere backup",
@@ -1635,7 +1642,9 @@
 				"prunePreviewFailed": "Previzualizarea pruning-ului backup-ului a eșuat",
 				"pruneFailed": "Nu s-a putut curăța copiile de rezervă",
 				"pruneSuccess": "Curățate {{count}} copii de rezervă"
-			}
+			},
+			"availableBackupsTitle": "Backup-uri disponibile",
+			"manuallyCreated": "Manual"
 		},
 		"appearance": {
 			"title": "Aspectul",
@@ -1775,7 +1784,8 @@
 			"saveNameAriaLabel": "Salvează numele",
 			"cancelNameAriaLabel": "Anulează redenumirea",
 			"renameAriaLabel": "Redenumire parolă",
-			"failedToRename": "Nu s-a putut redenumi parola: {{message}}"
+			"failedToRename": "Nu s-a putut redenumi parola: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "Generați jurnale structurate ca un singur obiect JSON pe linie, pentru colectoare de jurnale stdout precum Fluent Bit, Vector sau Promtail.",
@@ -1788,7 +1798,8 @@
 			"otel.instructions": "Direcționați acest lucru către punctul final al colectorului OTLP și reporniți containerul pentru a transmite jurnalele prin OpenTelemetry:",
 			"otel.name": "Jurnale OpenTelemetry (OTLP)",
 			"title": "Observabilitate și export de jurnale",
-			"description": "Model Hotel poate exporta jurnalele și metricile sale structurate către sisteme externe. Fiecare integrare este activată cu o variabilă de mediu; insignele de stare de mai jos reflectă starea actuală. Nu se exportă niciodată conținutul cererilor sau al răspunsurilor — doar metadatele de rutare și măsurare."
+			"description": "Model Hotel poate exporta jurnalele și metricile sale structurate către sisteme externe. Fiecare integrare este activată cu o variabilă de mediu; insignele de stare de mai jos reflectă starea actuală. Nu se exportă niciodată conținutul cererilor sau al răspunsurilor — doar metadatele de rutare și măsurare.",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "URL-ul API-ului Apprise",
@@ -1863,7 +1874,7 @@
 			"savedAriaLabel": "Confirmați salvarea codurilor de recuperare",
 			"secret": "Secret",
 			"secretCopied": "Secret copiat",
-			"title": "Aplicație de autentificare (TOTP)",
+			"title": "2FA · Aplicație de autentificare (TOTP)",
 			"verifiedSuccess": "Autentificarea în doi pași este activată",
 			"verify": "Verificați și activați",
 			"verifyAriaLabel": "Verificați codul TOTP și activați",
@@ -1871,7 +1882,12 @@
 			"downloadCodes": "Descarcă ca .txt",
 			"downloadCodesAriaLabel": "Descarcă codurile de recuperare ca fișier text",
 			"failedToStart": "Nu s-a putut începe înregistrarea: {{message}}",
-			"enabledOn": "Activat la {{date}}"
+			"enabledOn": "Activat la {{date}}",
+			"recoveryRemaining": "Coduri de recuperare",
+			"lastUsed": "Ultima utilizare"
+		},
+		"authentication": {
+			"title": "Autentificare"
 		}
 	},
 	"components": {

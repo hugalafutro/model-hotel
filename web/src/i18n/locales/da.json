@@ -1429,7 +1429,9 @@
 				"5m0s": "5 minutter",
 				"10m0s": "10 minutter",
 				"disabled": "Deaktiveret"
-			}
+			},
+			"requestsGroup": "Anmodninger",
+			"streamingGroup": "Streaming"
 		},
 		"rateLimit": {
 			"title": "Begrænsning Af Sats",
@@ -1449,7 +1451,8 @@
 			"backpressure": "Tilbagetryk For Sats",
 			"backpressureDescription": "Delt venteadfærd for både per-key og IP rate limiters",
 			"maxWait": "Maks. Vent (ms)",
-			"maxWait.description": "Maksimal tid til at vente, før en anmodning om hastighedsbegrænsning afvises. Hvis en token bliver tilgængelig inden for dette vindue, så fortsættes anmodningen. Ellers returneres 429."
+			"maxWait.description": "Maksimal tid til at vente, før en anmodning om hastighedsbegrænsning afvises. Hvis en token bliver tilgængelig inden for dette vindue, så fortsættes anmodningen. Ellers returneres 429.",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Circuit Breaker & Failover",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "Kør en backup-udbyder parallelt, når den første er langsom til at sende sit første token (kun streamende failover-grupper)",
 			"hedgeDelay": "Afdækningsforsinkelse",
 			"hedgeDelay.description": "Hvor længe der ventes på den første udbyders første token, før en backup-udbyder også startes",
-			"hedgingNotice": "Afdækning starter en anden udbyder parallelt, når den første er langsom i gang, og beholder den, der svarer først. Ved langsom start fordobler det anmodningen opstrøms, så udbyderens hastighedsgrænser og kapacitet bruges hurtigere, og en backup, der ignorerer annullering, kan blive ved med at generere i baggrunden. Slå det kun til, hvis langsomme første tokens skader mere end den ekstra belastning."
+			"hedgingNotice": "Afdækning starter en anden udbyder parallelt, når den første er langsom i gang, og beholder den, der svarer først. Ved langsom start fordobler det anmodningen opstrøms, så udbyderens hastighedsgrænser og kapacitet bruges hurtigere, og en backup, der ignorerer annullering, kan blive ved med at generere i baggrunden. Slå det kun til, hvis langsomme første tokens skader mere end den ekstra belastning.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Logning",
@@ -1525,7 +1530,10 @@
 				"24h": "24 timer",
 				"48h": "48 timer",
 				"disabled": "Deaktiveret"
-			}
+			},
+			"automaticGroup": "Automatisk",
+			"manualGroup": "Manuel",
+			"lastRun": "Sidst kørt"
 		},
 		"dataStorage": {
 			"title": "Lagring Af Data",
@@ -1600,7 +1608,6 @@
 			"uploadRestore": "Upload & Gendan",
 			"restoring": "Gendanner…",
 			"selectBackupFile": "Vælg backupfil til gendannelse",
-			"availableBackups": "Tilgængelige sikkerhedskopier ({{count}})",
 			"noBackups": "Ingen sikkerhedskopier endnu.",
 			"download": "Hent",
 			"delete": "Slet backup",
@@ -1635,7 +1642,9 @@
 				"prunePreviewFailed": "Kunne ikke forhåndsvise sikkerhedskopibeskæring",
 				"pruneFailed": "Kunne ikke beskære sikkerhedskopier",
 				"pruneSuccess": "Beskadiget {{count}} sikkerhedskopi(er)"
-			}
+			},
+			"availableBackupsTitle": "Tilgængelige sikkerhedskopier",
+			"manuallyCreated": "Manuel"
 		},
 		"appearance": {
 			"title": "Udseende",
@@ -1775,7 +1784,8 @@
 			"saveNameAriaLabel": "Gem navn",
 			"cancelNameAriaLabel": "Annuller omdøbning",
 			"renameAriaLabel": "Omdøb adgangsnøgle",
-			"failedToRename": "Kunne ikke omdøbe adgangskode: {{message}}"
+			"failedToRename": "Kunne ikke omdøbe adgangskode: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "Udsend strukturerede logfiler som ét JSON-objekt pr. linje til stdout-logindsamlere såsom Fluent Bit, Vector eller Promtail.",
@@ -1788,7 +1798,8 @@
 			"otel.instructions": "Peg dette mod dit OTLP-indsamler-endpoint, og genstart containeren for at sende logfiler via OpenTelemetry:",
 			"otel.name": "OpenTelemetry-logfiler (OTLP)",
 			"title": "Observabilitet og logeksport",
-			"description": "Model Hotel kan eksportere sine strukturerede logfiler og målinger til eksterne systemer. Hver integration aktiveres med en miljøvariabel; statusbadges nedenfor afspejler den aktuelle tilstand. Der eksporteres aldrig indhold fra anmodninger eller svar — kun metadata om routing og måling."
+			"description": "Model Hotel kan eksportere sine strukturerede logfiler og målinger til eksterne systemer. Hver integration aktiveres med en miljøvariabel; statusbadges nedenfor afspejler den aktuelle tilstand. Der eksporteres aldrig indhold fra anmodninger eller svar — kun metadata om routing og måling.",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "Apprise API-URL",
@@ -1863,7 +1874,7 @@
 			"savedAriaLabel": "Bekræft, at gendannelseskoder er gemt",
 			"secret": "Hemmelighed",
 			"secretCopied": "Hemmelighed kopieret",
-			"title": "Autentificeringsapp (TOTP)",
+			"title": "2FA · Autentificeringsapp (TOTP)",
 			"verifiedSuccess": "To-faktor-autentificering er aktiveret",
 			"verify": "Kontroller og aktiver",
 			"verifyAriaLabel": "Bekræft TOTP-koden og aktiver",
@@ -1871,7 +1882,12 @@
 			"downloadCodes": "Download som .txt",
 			"downloadCodesAriaLabel": "Download gendannelseskoder som en tekstfil",
 			"failedToStart": "Kunne ikke starte tilmelding: {{message}}",
-			"enabledOn": "Aktiveret den {{date}}"
+			"enabledOn": "Aktiveret den {{date}}",
+			"recoveryRemaining": "Gendannelseskoder",
+			"lastUsed": "Senest brugt"
+		},
+		"authentication": {
+			"title": "Godkendelse"
 		}
 	},
 	"components": {

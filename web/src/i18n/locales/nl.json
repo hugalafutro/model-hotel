@@ -1429,7 +1429,9 @@
 				"5m0s": "5 minuten",
 				"10m0s": "10 minuten",
 				"disabled": "Uitgeschakeld"
-			}
+			},
+			"requestsGroup": "Verzoeken",
+			"streamingGroup": "Streamen"
 		},
 		"rateLimit": {
 			"title": "Tarief Limiet",
@@ -1449,7 +1451,8 @@
 			"backpressure": "Ratio limiet terugdruk",
 			"backpressureDescription": "Gedeelde wachtgedrag voor zowel per-key als IP rate limieten",
 			"maxWait": "Max Wait (ms)",
-			"maxWait.description": "Maximale wachttijd voordat een aanvraag met beperkte tarieven wordt afgewezen. Als er een token beschikbaar wordt binnen dit venster, gaat het verzoek verder; anders wordt 429 teruggegeven."
+			"maxWait.description": "Maximale wachttijd voordat een aanvraag met beperkte tarieven wordt afgewezen. Als er een token beschikbaar wordt binnen dit venster, gaat het verzoek verder; anders wordt 429 teruggegeven.",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Circuit Breker & Mislukking",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "Start parallel een back-upprovider wanneer de eerste traag is met het eerste token (alleen streamende failovergroepen)",
 			"hedgeDelay": "Afdekvertraging",
 			"hedgeDelay.description": "Hoe lang op het eerste token van de eerste provider wordt gewacht voordat ook een back-upprovider wordt gestart",
-			"hedgingNotice": "Afdekken start een tweede provider parallel wanneer de eerste traag opstart en houdt degene die het eerst antwoordt. Bij trage starts verdubbelt dit de upstream-aanvraag, dus snelheidslimieten en capaciteit van de provider raken sneller op, en een back-up die annulering negeert kan op de achtergrond blijven genereren. Zet dit alleen aan als trage eerste tokens meer schaden dan de extra belasting."
+			"hedgingNotice": "Afdekken start een tweede provider parallel wanneer de eerste traag opstart en houdt degene die het eerst antwoordt. Bij trage starts verdubbelt dit de upstream-aanvraag, dus snelheidslimieten en capaciteit van de provider raken sneller op, en een back-up die annulering negeert kan op de achtergrond blijven genereren. Zet dit alleen aan als trage eerste tokens meer schaden dan de extra belasting.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Logboekregistratie",
@@ -1525,7 +1530,10 @@
 				"24h": "24 uur",
 				"48h": "48 uur",
 				"disabled": "Uitgeschakeld"
-			}
+			},
+			"automaticGroup": "Automatisch",
+			"manualGroup": "Handmatig",
+			"lastRun": "Laatst uitgevoerd"
 		},
 		"dataStorage": {
 			"title": "Data Opslag",
@@ -1600,7 +1608,6 @@
 			"uploadRestore": "Uploaden & herstellen",
 			"restoring": "… herstellen",
 			"selectBackupFile": "Selecteer back-upbestand om te herstellen",
-			"availableBackups": "Beschikbare back-ups ({{count}})",
 			"noBackups": "Nog geen back-ups.",
 			"download": "downloaden",
 			"delete": "Back-up verwijderen",
@@ -1635,7 +1642,9 @@
 				"prunePreviewFailed": "Voorbeeld van reservekopie verwijderen mislukt",
 				"pruneFailed": "Opschonen van back-ups mislukt",
 				"pruneSuccess": "{{count}} backup(s) verwijderd"
-			}
+			},
+			"availableBackupsTitle": "Beschikbare back-ups",
+			"manuallyCreated": "Handmatig"
 		},
 		"appearance": {
 			"title": "Uiterlijk",
@@ -1775,7 +1784,8 @@
 			"saveNameAriaLabel": "Naam opslaan",
 			"cancelNameAriaLabel": "Annuleer hernoemen",
 			"renameAriaLabel": "Toegangssleutel hernoemen",
-			"failedToRename": "Wachtwoord hernoemen mislukt: {{message}}"
+			"failedToRename": "Wachtwoord hernoemen mislukt: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "Geef gestructureerde logs weer als één JSON-object per regel, voor stdout-logcollectors zoals Fluent Bit, Vector of Promtail.",
@@ -1788,7 +1798,8 @@
 			"otel.instructions": "Richt dit op uw OTLP-collector-eindpunt en start de container opnieuw op om logs via OpenTelemetry te pushen:",
 			"otel.name": "OpenTelemetry-logs (OTLP)",
 			"title": "Observability & logexport",
-			"description": "Model Hotel kan zijn gestructureerde logboeken en statistieken exporteren naar externe systemen. Elke integratie wordt ingeschakeld met een omgevingsvariabele; de statusbadges hieronder geven de huidige status weer. Er wordt nooit verzoek- of responsinhoud geëxporteerd — alleen metadata over routering en metingen."
+			"description": "Model Hotel kan zijn gestructureerde logboeken en statistieken exporteren naar externe systemen. Elke integratie wordt ingeschakeld met een omgevingsvariabele; de statusbadges hieronder geven de huidige status weer. Er wordt nooit verzoek- of responsinhoud geëxporteerd — alleen metadata over routering en metingen.",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "Apprise API-URL",
@@ -1863,7 +1874,7 @@
 			"savedAriaLabel": "Controleer of de herstelcodes zijn opgeslagen",
 			"secret": "Geheim",
 			"secretCopied": "Geheim gekopieerd",
-			"title": "Authenticator-app (TOTP)",
+			"title": "2FA · Authenticator-app (TOTP)",
 			"verifiedSuccess": "Tweefactorauthenticatie ingeschakeld",
 			"verify": "Controleer en schakel in",
 			"verifyAriaLabel": "Controleer de TOTP-code en schakel deze in",
@@ -1871,7 +1882,12 @@
 			"downloadCodes": "Downloaden als .txt",
 			"downloadCodesAriaLabel": "Herstelcodes downloaden als tekstbestand",
 			"failedToStart": "Kan inschrijving niet starten: {{message}}",
-			"enabledOn": "Ingeschakeld op {{date}}"
+			"enabledOn": "Ingeschakeld op {{date}}",
+			"recoveryRemaining": "Herstelcodes",
+			"lastUsed": "Laatst gebruikt"
+		},
+		"authentication": {
+			"title": "Authenticatie"
 		}
 	},
 	"components": {

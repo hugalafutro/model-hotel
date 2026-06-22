@@ -1429,7 +1429,9 @@
 				"5m0s": "5 perc",
 				"10m0s": "10 perc",
 				"disabled": "Fogyatékkal élők"
-			}
+			},
+			"requestsGroup": "Kérések",
+			"streamingGroup": "Streaming"
 		},
 		"rateLimit": {
 			"title": "Sávszélesség-korlátozás",
@@ -1449,7 +1451,8 @@
 			"backpressure": "A kérésszám-korlátozás visszanyomása",
 			"backpressureDescription": "A kulcs-alapú és az IP-alapú sebességkorlátozók közös várakozási viselkedése",
 			"maxWait": "Maximális várakozási idő (ms)",
-			"maxWait.description": "A sebességkorlátozott kérés elutasítása előtt megengedett maximális várakozási idő. Ha a token ezen időtartamon belül elérhetővé válik, a kérés feldolgozásra kerül; ellenkező esetben 429-es hibaüzenet kerül visszaadásra."
+			"maxWait.description": "A sebességkorlátozott kérés elutasítása előtt megengedett maximális várakozási idő. Ha a token ezen időtartamon belül elérhetővé válik, a kérés feldolgozásra kerül; ellenkező esetben 429-es hibaüzenet kerül visszaadásra.",
+			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Megszakító és átállás",
@@ -1466,7 +1469,9 @@
 			"hedgingDescription": "Párhuzamosan elindít egy tartalék szolgáltatót, ha az első lassan küldi az első tokent (csak streamelő feladatátvételi csoportoknál)",
 			"hedgeDelay": "Fedezési késleltetés",
 			"hedgeDelay.description": "Mennyi ideig várjon az első szolgáltató első tokenjére, mielőtt egy tartalék szolgáltatót is elindít",
-			"hedgingNotice": "A fedezés párhuzamosan elindít egy második szolgáltatót, ha az első lassan indul, és azt tartja meg, amelyik előbb válaszol. Lassú indulásnál ez megkétszerezi a felfelé irányuló kérést, így a szolgáltató sebességkorlátai és kapacitása gyorsabban elfogynak, és egy lemondást figyelmen kívül hagyó tartalék a háttérben tovább generálhat. Csak akkor kapcsold be, ha a lassú első tokenek többet ártanak, mint a többletterhelés."
+			"hedgingNotice": "A fedezés párhuzamosan elindít egy második szolgáltatót, ha az első lassan indul, és azt tartja meg, amelyik előbb válaszol. Lassú indulásnál ez megkétszerezi a felfelé irányuló kérést, így a szolgáltató sebességkorlátai és kapacitása gyorsabban elfogynak, és egy lemondást figyelmen kívül hagyó tartalék a háttérben tovább generálhat. Csak akkor kapcsold be, ha a lassú első tokenek többet ártanak, mint a többletterhelés.",
+			"failoverGroup": "Failover",
+			"hedgingGroup": "Hedging"
 		},
 		"logging": {
 			"title": "Naplózás",
@@ -1525,7 +1530,10 @@
 				"24h": "24 óra",
 				"48h": "48 óra",
 				"disabled": "Fogyatékkal élők"
-			}
+			},
+			"automaticGroup": "Automatikus",
+			"manualGroup": "Kézi",
+			"lastRun": "Utoljára futtatva"
 		},
 		"dataStorage": {
 			"title": "Adattárolás",
@@ -1600,7 +1608,6 @@
 			"uploadRestore": "Feltöltés és visszaállítás",
 			"restoring": "… visszaállítása",
 			"selectBackupFile": "Válassza ki a visszaállítani kívánt biztonsági másolatot",
-			"availableBackups": "Elérhető biztonsági másolatok ({{count}})",
 			"noBackups": "Még nincs biztonsági másolat.",
 			"download": "Letöltés",
 			"delete": "Biztonsági másolat törlése",
@@ -1635,7 +1642,9 @@
 				"prunePreviewFailed": "A biztonsági mentés tisztításának előnézete nem sikerült",
 				"pruneFailed": "A biztonsági másolatok törlése nem sikerült",
 				"pruneSuccess": "{{count}} biztonsági másolat(ok) törlése"
-			}
+			},
+			"availableBackupsTitle": "Elérhető biztonsági másolatok",
+			"manuallyCreated": "Kézi"
 		},
 		"appearance": {
 			"title": "Megjelenés",
@@ -1775,7 +1784,8 @@
 			"saveNameAriaLabel": "Név mentése",
 			"cancelNameAriaLabel": "Az átnevezés visszavonása",
 			"renameAriaLabel": "A jelszó átnevezése",
-			"failedToRename": "A jelszó átnevezése nem sikerült: {{message}}"
+			"failedToRename": "A jelszó átnevezése nem sikerült: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "Strukturált naplókat adjon ki egy JSON-objektumként soronként, olyan stdout naplógyűjtők számára, mint a Fluent Bit, a Vector vagy a Promtail.",
@@ -1788,7 +1798,8 @@
 			"otel.instructions": "Irányítsa ezt az OTLP-gyűjtő végpontjára, és indítsa újra a konténert a naplófájlok OpenTelemetry-n keresztüli továbbításához:",
 			"otel.name": "OpenTelemetry naplófájlok (OTLP)",
 			"title": "Megfigyelhetőség és naplóexport",
-			"description": "A Model Hotel strukturált naplóit és mutatóit külső rendszerekbe exportálhatja. Minden integrációt egy környezeti változóval lehet engedélyezni; az alábbi állapotjelzők a jelenlegi állapotot tükrözik. Soha nem kerül exportálásra semmilyen kérés vagy válasz tartalma — csak az útválasztási és mérési metaadatok."
+			"description": "A Model Hotel strukturált naplóit és mutatóit külső rendszerekbe exportálhatja. Minden integrációt egy környezeti változóval lehet engedélyezni; az alábbi állapotjelzők a jelenlegi állapotot tükrözik. Soha nem kerül exportálásra semmilyen kérés vagy válasz tartalma — csak az útválasztási és mérési metaadatok.",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "Apprise API URL",
@@ -1863,7 +1874,7 @@
 			"savedAriaLabel": "Ellenőrizze a mentett helyreállítási kódokat",
 			"secret": "Titkos",
 			"secretCopied": "Titkos kulcs másolva",
-			"title": "Hitelesítő alkalmazás (TOTP)",
+			"title": "2FA · Hitelesítő alkalmazás (TOTP)",
 			"verifiedSuccess": "Kétfaktoros hitelesítés engedélyezve",
 			"verify": "Ellenőrizze és engedélyezze",
 			"verifyAriaLabel": "Ellenőrizze a TOTP-kódot, és engedélyezze",
@@ -1871,7 +1882,12 @@
 			"downloadCodes": "Letöltés .txt-ként",
 			"downloadCodesAriaLabel": "Helyreállítási kódok letöltése szövegfájlként",
 			"failedToStart": "Nem sikerült elindítani a regisztrációt: {{message}}",
-			"enabledOn": "Engedélyezve: {{date}}"
+			"enabledOn": "Engedélyezve: {{date}}",
+			"recoveryRemaining": "Helyreállítási kódok",
+			"lastUsed": "Utoljára használva"
+		},
+		"authentication": {
+			"title": "Hitelesítés"
 		}
 	},
 	"components": {
