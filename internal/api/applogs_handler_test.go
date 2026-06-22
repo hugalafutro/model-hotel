@@ -158,6 +158,69 @@ func TestRingBufferClear(t *testing.T) {
 	}
 }
 
+func TestRingBufferClearOlderThan(t *testing.T) {
+	InitAppLogBuffer(nil)
+	defer func() {
+		appLogBuffer = nil
+		dbWriter = nil
+	}()
+
+	now := time.Now().UTC()
+	// Five entries spaced one hour apart, oldest first (4h ago .. 0h ago).
+	for i := 4; i >= 0; i-- {
+		appLogBuffer.writeEntry(AppLogEntry{
+			Timestamp: now.Add(-time.Duration(i) * time.Hour).Format(time.RFC3339Nano),
+			Level:     "info",
+			Source:    "test",
+			Message:   fmt.Sprintf("message %d", i),
+		})
+	}
+
+	// Cutoff 2h30m ago removes the 4h and 3h entries (2 of 5).
+	removed := appLogBuffer.ClearOlderThan(now.Add(-150 * time.Minute))
+	if removed != 2 {
+		t.Fatalf("expected 2 entries removed, got %d", removed)
+	}
+
+	entries := appLogBuffer.GetEntries()
+	if len(entries) != 3 {
+		t.Fatalf("expected 3 survivors, got %d", len(entries))
+	}
+	// Survivors must be the newest three, still oldest-first.
+	for i, e := range entries {
+		ts, err := time.Parse(time.RFC3339Nano, e.Timestamp)
+		if err != nil {
+			t.Fatalf("unparseable survivor timestamp %q: %v", e.Timestamp, err)
+		}
+		if ts.Before(now.Add(-150 * time.Minute)) {
+			t.Errorf("survivor %d is older than the cutoff: %s", i, e.Timestamp)
+		}
+	}
+}
+
+func TestRingBufferClearOlderThan_KeepsUnparseable(t *testing.T) {
+	InitAppLogBuffer(nil)
+	defer func() {
+		appLogBuffer = nil
+		dbWriter = nil
+	}()
+
+	appLogBuffer.writeEntry(AppLogEntry{Timestamp: "not-a-timestamp", Message: "keep me"})
+	appLogBuffer.writeEntry(AppLogEntry{
+		Timestamp: time.Now().UTC().Add(-time.Hour).Format(time.RFC3339Nano),
+		Message:   "drop me",
+	})
+
+	removed := appLogBuffer.ClearOlderThan(time.Now().UTC())
+	if removed != 1 {
+		t.Fatalf("expected 1 removed, got %d", removed)
+	}
+	entries := appLogBuffer.GetEntries()
+	if len(entries) != 1 || entries[0].Message != "keep me" {
+		t.Fatalf("expected only the undateable entry to survive, got %+v", entries)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // dbLogWriter tests
 // ---------------------------------------------------------------------------

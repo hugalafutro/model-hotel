@@ -713,16 +713,39 @@ func (h *Handler) GetAppLogsCursor(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// ClearAppLogs clears the application log ring buffer and DB, returning the count
-// of entries that were removed.
+// ClearAppLogs clears application logs from the ring buffer and DB, returning
+// the count of entries removed. The request body optionally carries an
+// older_than range token (1h/1d/1w/1m/all); an empty or missing body means
+// "all", preserving the original clear-everything behaviour.
 func (h *Handler) ClearAppLogs(w http.ResponseWriter, r *http.Request) {
+	var req PurgeLogsRequest
+	// Body is optional: a clear-all request may send nothing.
+	_ = json.NewDecoder(r.Body).Decode(&req)
+	if req.OlderThan == "" {
+		req.OlderThan = "all"
+	}
+
+	cutoff, all, ok := olderThanCutoff(req.OlderThan)
+	if !ok {
+		http.Error(w, "invalid older_than value, use: "+purgeOlderThanTokens, http.StatusBadRequest)
+		return
+	}
+
 	var deleted int
 	if appLogBuffer != nil {
-		deleted = appLogBuffer.Clear()
+		if all {
+			deleted = appLogBuffer.Clear()
+		} else {
+			deleted = appLogBuffer.ClearOlderThan(cutoff)
+		}
 	}
-	// Also delete from DB
+	// Also delete from DB.
 	if h.dbPool != nil {
-		tag, err := h.dbPool.Pool().Exec(r.Context(), `DELETE FROM app_logs`)
+		query, args := `DELETE FROM app_logs`, []any(nil)
+		if !all {
+			query, args = `DELETE FROM app_logs WHERE created_at < $1`, []any{cutoff}
+		}
+		tag, err := h.dbPool.Pool().Exec(r.Context(), query, args...)
 		if err == nil {
 			deleted += int(tag.RowsAffected())
 			// The unfiltered total is derived from the cached level counts, so

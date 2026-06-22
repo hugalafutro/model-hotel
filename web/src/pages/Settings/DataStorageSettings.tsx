@@ -41,6 +41,7 @@ export function DataStorageSettings({
 	const [confirmDelete, setConfirmDelete] = useState(false);
 	const [deleteSelection, setDeleteSelection] = useState("");
 	const [confirmDeleteAppLogs, setConfirmDeleteAppLogs] = useState(false);
+	const [appLogsDeleteSelection, setAppLogsDeleteSelection] = useState("");
 
 	const [quotaDisabled, setQuotaDisabled] = useState(() => {
 		try {
@@ -115,14 +116,12 @@ export function DataStorageSettings({
 	});
 
 	const purgeAppLogsMutation = useMutation({
-		mutationFn: () => api.appLogs.purge(),
-		onSuccess: (data) => {
+		mutationFn: (olderThan: string) => api.appLogs.purge(olderThan),
+		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["appLogs"] });
-			toast(
-				t("settings.common.entriesDeleted", { count: data.deleted }),
-				"success",
-			);
+			toast(t("settings.common.logsDeleted"), "success");
 			setConfirmDeleteAppLogs(false);
+			setAppLogsDeleteSelection("");
 		},
 		onError: (err: Error) => {
 			toast(
@@ -138,20 +137,11 @@ export function DataStorageSettings({
 	const logRetentionHours = goDurationToHours(logRetention);
 	const staleTimeoutMinutes = goDurationToMinutes(staleRequestTimeout);
 
-	const getDeleteOlderThan = (selection: string): string => {
-		switch (selection) {
-			case "1d":
-				return "24h";
-			case "1w":
-				return "168h";
-			case "1m":
-				return "720h";
-			case "all":
-				return "all";
-			default:
-				return "";
-		}
-	};
+	// The dropdown values (1d/1w/1m/all) are exactly the tokens the backend's
+	// purge endpoints accept, so pass the selection through and only guard the
+	// empty "select a range" placeholder.
+	const getDeleteOlderThan = (selection: string): string =>
+		["1d", "1w", "1m", "all"].includes(selection) ? selection : "";
 
 	return (
 		<SettingsSection
@@ -248,7 +238,7 @@ export function DataStorageSettings({
 										</select>
 										<button
 											type="button"
-											disabled={!deleteSelection}
+											disabled={!deleteSelection || purgeMutation.isPending}
 											onClick={() => {
 												const olderThan = getDeleteOlderThan(deleteSelection);
 												if (olderThan) purgeMutation.mutate(olderThan);
@@ -281,13 +271,41 @@ export function DataStorageSettings({
 									</button>
 								) : (
 									<>
-										<span className="text-xs text-red-400">
-											{t("settings.logging.deleteAppLogs.confirmText")}
-										</span>
+										<select
+											value={appLogsDeleteSelection}
+											onChange={(e) =>
+												setAppLogsDeleteSelection(e.target.value)
+											}
+											className="ui-input px-3 py-1.5 text-xs"
+										>
+											<option value="">
+												{t("settings.logging.deleteAppLogs.selectRange")}
+											</option>
+											<option value="1d">
+												{t("settings.logging.deleteAppLogs.olderThan1d")}
+											</option>
+											<option value="1w">
+												{t("settings.logging.deleteAppLogs.olderThan1w")}
+											</option>
+											<option value="1m">
+												{t("settings.logging.deleteAppLogs.olderThan1m")}
+											</option>
+											<option value="all">
+												{t("settings.logging.deleteAppLogs.allLogs")}
+											</option>
+										</select>
 										<button
 											type="button"
-											onClick={() => purgeAppLogsMutation.mutate()}
-											disabled={purgeAppLogsMutation.isPending}
+											disabled={
+												!appLogsDeleteSelection ||
+												purgeAppLogsMutation.isPending
+											}
+											onClick={() => {
+												const olderThan = getDeleteOlderThan(
+													appLogsDeleteSelection,
+												);
+												if (olderThan) purgeAppLogsMutation.mutate(olderThan);
+											}}
 											className="ui-btn ui-btn-danger disabled:opacity-50 disabled:cursor-not-allowed"
 										>
 											{purgeAppLogsMutation.isPending
@@ -296,7 +314,10 @@ export function DataStorageSettings({
 										</button>
 										<button
 											type="button"
-											onClick={() => setConfirmDeleteAppLogs(false)}
+											onClick={() => {
+												setConfirmDeleteAppLogs(false);
+												setAppLogsDeleteSelection("");
+											}}
 											className="ui-btn ui-btn-secondary"
 										>
 											{t("settings.logging.deleteAppLogs.cancel")}

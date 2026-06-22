@@ -115,6 +115,63 @@ func TestClearAppLogs_InvalidatesCountCache(t *testing.T) {
 	}
 }
 
+// TestClearAppLogs_OlderThanRange checks the ranged purge: a DELETE carrying an
+// older_than token removes only rows older than the cutoff, leaving recent ones.
+func TestClearAppLogs_OlderThanRange(t *testing.T) {
+	h := newTestHandler(t)
+	r := chi.NewRouter()
+	h.Register(r)
+	pool := h.Pool().Pool()
+	ctx := context.Background()
+
+	// Two stale rows (8 days old) and one fresh row (1 hour old).
+	for i := 0; i < 2; i++ {
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO app_logs (id, timestamp, level, source, message, created_at)
+			 VALUES (gen_random_uuid(), NOW() - INTERVAL '8 days', 'info', 'rangetest', 'old', NOW() - INTERVAL '8 days')`); err != nil {
+			t.Fatalf("insert old row %d: %v", i, err)
+		}
+	}
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO app_logs (id, timestamp, level, source, message, created_at)
+		 VALUES (gen_random_uuid(), NOW() - INTERVAL '1 hour', 'info', 'rangetest', 'fresh', NOW() - INTERVAL '1 hour')`); err != nil {
+		t.Fatalf("insert fresh row: %v", err)
+	}
+
+	// Purge logs older than 1 week: the two 8-day rows go, the fresh one stays.
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/logs/app", strings.NewReader(`{"older_than":"1w"}`))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("ranged clear: status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var remaining int
+	if err := pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM app_logs WHERE source = 'rangetest'`).Scan(&remaining); err != nil {
+		t.Fatalf("count remaining: %v", err)
+	}
+	if remaining != 1 {
+		t.Fatalf("expected 1 fresh row to survive, got %d", remaining)
+	}
+}
+
+// TestClearAppLogs_InvalidOlderThan rejects an unrecognized range token with 400.
+func TestClearAppLogs_InvalidOlderThan(t *testing.T) {
+	h := newTestHandler(t)
+	r := chi.NewRouter()
+	h.Register(r)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/logs/app", strings.NewReader(`{"older_than":"banana"}`))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for invalid token, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
 // GetAppLogs with filters - Additional coverage
 
 func TestGetAppLogs_WithSeverityFilter(t *testing.T) {
