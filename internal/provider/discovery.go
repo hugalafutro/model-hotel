@@ -160,6 +160,9 @@ func DetectProviderType(baseURL string) string {
 	if strings.HasSuffix(host, ".anthropic.com") {
 		return "anthropic"
 	}
+	if strings.HasSuffix(host, ".minimaxi.com") {
+			return "anthropic"
+	}
 	if strings.HasSuffix(host, ".x.ai") {
 		return "xai"
 	}
