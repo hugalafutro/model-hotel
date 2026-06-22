@@ -285,7 +285,7 @@ describe("RateLimitSettings", () => {
 		).toBeInTheDocument();
 	});
 
-	it("hides RPS and Burst sliders when rate limiting is disabled", async () => {
+	it("disables RPS and Burst sliders when rate limiting is off", async () => {
 		server.use(
 			http.get("/api/settings", () => {
 				return HttpResponse.json({
@@ -311,14 +311,12 @@ describe("RateLimitSettings", () => {
 			expect(screen.getByText("Enable Rate Limiting")).toBeInTheDocument();
 		});
 		await waitFor(() => {
-			expect(
-				screen.queryByLabelText("Requests per Second"),
-			).not.toBeInTheDocument();
+			expect(screen.getByLabelText("Requests per Second")).toBeDisabled();
 		});
-		expect(screen.queryByLabelText("Burst Size")).not.toBeInTheDocument();
+		expect(screen.getByLabelText("Burst Size")).toBeDisabled();
 	});
 
-	it("hides IP RPS and IP Burst sliders when IP rate limiting is disabled", async () => {
+	it("disables IP RPS and IP Burst sliders when IP rate limiting is off", async () => {
 		server.use(
 			http.get("/api/settings", () => {
 				return HttpResponse.json({
@@ -343,14 +341,12 @@ describe("RateLimitSettings", () => {
 			expect(screen.getByText("IP Rate Limiting")).toBeInTheDocument();
 		});
 		await waitFor(() => {
-			expect(
-				screen.queryByLabelText("IP Requests per Second"),
-			).not.toBeInTheDocument();
+			expect(screen.getByLabelText("IP Requests per Second")).toBeDisabled();
 		});
-		expect(screen.queryByLabelText("IP Burst Size")).not.toBeInTheDocument();
+		expect(screen.getByLabelText("IP Burst Size")).toBeDisabled();
 	});
 
-	it("hides backpressure section when both rate limiters are disabled", async () => {
+	it("disables Max Wait when both rate limiters are off", async () => {
 		server.use(
 			http.get("/api/settings", () => {
 				return HttpResponse.json({
@@ -375,7 +371,7 @@ describe("RateLimitSettings", () => {
 			expect(screen.getByText("Enable Rate Limiting")).toBeInTheDocument();
 		});
 		await waitFor(() => {
-			expect(screen.queryByLabelText("Max Wait (ms)")).not.toBeInTheDocument();
+			expect(screen.getByLabelText("Max Wait (ms)")).toBeDisabled();
 		});
 	});
 

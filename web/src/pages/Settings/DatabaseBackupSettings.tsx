@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import {
 	AlertTriangle,
@@ -55,6 +55,24 @@ export function DatabaseBackupSettings({
 		queryKey: ["backups"],
 		queryFn: () => api.backups.list(),
 	});
+
+	// GFS bucket per backup, so each row can carry a Grandfather/Father/Son tag.
+	// Sourced from the prune-preview classifier (it groups every backup by age
+	// against the configured retention), so the labels track the same rotation
+	// the sliders above configure.
+	const { data: classification } = useQuery({
+		queryKey: ["backups", "classification"],
+		queryFn: () => api.backups.prunePreview(),
+		enabled: (backups?.length ?? 0) > 0,
+	});
+
+	const gfsLabel = useMemo(() => {
+		const m = new Map<string, "G" | "F" | "S">();
+		for (const b of classification?.grandfather ?? []) m.set(b.filename, "G");
+		for (const b of classification?.father ?? []) m.set(b.filename, "F");
+		for (const b of classification?.son ?? []) m.set(b.filename, "S");
+		return m;
+	}, [classification]);
 
 	const createMutation = useMutation({
 		mutationFn: () => api.backups.create(),
@@ -220,100 +238,102 @@ export function DatabaseBackupSettings({
 						/>
 					</div>
 
-					{backupEnabled && (
-						<div className="space-y-3 pt-2">
-							<SettingsSlider
-								id="backup-interval"
-								label={t("settings.backup.rotation.interval")}
-								value={intervalHours}
-								min={0.5}
-								max={168}
-								step={0.5}
-								clampStep={0.5}
-								unit="h"
-								onReset={() =>
-									settingsUpdateMutation.mutate({ backup_interval: "24h" })
-								}
-								resetTooltip={t("settings.common.resetToDefault")}
-								onChange={(v) =>
-									settingsUpdateMutation.mutate({
-										backup_interval: `${v}h`,
-									})
-								}
-								description={t("settings.backup.rotation.intervalDescription")}
-							/>
-							<SettingsSlider
-								id="backup-son-retention"
-								label={t("settings.backup.rotation.sonRetention")}
-								value={sonRetention}
-								min={1}
-								max={365}
-								step={1}
-								clampStep={1}
-								unit="d"
-								onReset={() =>
-									settingsUpdateMutation.mutate({ backup_son_retention: "7" })
-								}
-								resetTooltip={t("settings.common.resetToDefault")}
-								onChange={(v) =>
-									settingsUpdateMutation.mutate({
-										backup_son_retention: String(v),
-									})
-								}
-								description={t(
-									"settings.backup.rotation.sonRetentionDescription",
-								)}
-							/>
-							<SettingsSlider
-								id="backup-father-retention"
-								label={t("settings.backup.rotation.fatherRetention")}
-								value={fatherRetention}
-								min={0}
-								max={52}
-								step={1}
-								clampStep={1}
-								unit="w"
-								onReset={() =>
-									settingsUpdateMutation.mutate({
-										backup_father_retention: "4",
-									})
-								}
-								resetTooltip={t("settings.common.resetToDefault")}
-								onChange={(v) =>
-									settingsUpdateMutation.mutate({
-										backup_father_retention: String(v),
-									})
-								}
-								description={t(
-									"settings.backup.rotation.fatherRetentionDescription",
-								)}
-							/>
-							<SettingsSlider
-								id="backup-grandfather-retention"
-								label={t("settings.backup.rotation.grandfatherRetention")}
-								value={grandfatherRetention}
-								min={0}
-								max={120}
-								step={1}
-								clampStep={1}
-								unit="m"
-								onReset={() =>
-									settingsUpdateMutation.mutate({
-										backup_grandfather_retention: "3",
-									})
-								}
-								resetTooltip={t("settings.common.resetToDefault")}
-								onChange={(v) =>
-									settingsUpdateMutation.mutate({
-										backup_grandfather_retention: String(v),
-									})
-								}
-								description={t(
-									"settings.backup.rotation.grandfatherRetentionDescription",
-								)}
-							/>
-						</div>
-					)}
+					<div className="space-y-3 pt-2">
+						<SettingsSlider
+							id="backup-interval"
+							disabled={!backupEnabled}
+							label={t("settings.backup.rotation.interval")}
+							value={intervalHours}
+							min={0.5}
+							max={168}
+							step={0.5}
+							clampStep={0.5}
+							unit="h"
+							onReset={() =>
+								settingsUpdateMutation.mutate({ backup_interval: "24h" })
+							}
+							resetTooltip={t("settings.common.resetToDefault")}
+							onChange={(v) =>
+								settingsUpdateMutation.mutate({
+									backup_interval: `${v}h`,
+								})
+							}
+							description={t("settings.backup.rotation.intervalDescription")}
+						/>
+						<SettingsSlider
+							id="backup-son-retention"
+							disabled={!backupEnabled}
+							label={t("settings.backup.rotation.sonRetention")}
+							value={sonRetention}
+							min={1}
+							max={365}
+							step={1}
+							clampStep={1}
+							unit="d"
+							onReset={() =>
+								settingsUpdateMutation.mutate({ backup_son_retention: "7" })
+							}
+							resetTooltip={t("settings.common.resetToDefault")}
+							onChange={(v) =>
+								settingsUpdateMutation.mutate({
+									backup_son_retention: String(v),
+								})
+							}
+							description={t(
+								"settings.backup.rotation.sonRetentionDescription",
+							)}
+						/>
+						<SettingsSlider
+							id="backup-father-retention"
+							disabled={!backupEnabled}
+							label={t("settings.backup.rotation.fatherRetention")}
+							value={fatherRetention}
+							min={0}
+							max={52}
+							step={1}
+							clampStep={1}
+							unit="w"
+							onReset={() =>
+								settingsUpdateMutation.mutate({
+									backup_father_retention: "4",
+								})
+							}
+							resetTooltip={t("settings.common.resetToDefault")}
+							onChange={(v) =>
+								settingsUpdateMutation.mutate({
+									backup_father_retention: String(v),
+								})
+							}
+							description={t(
+								"settings.backup.rotation.fatherRetentionDescription",
+							)}
+						/>
+						<SettingsSlider
+							id="backup-grandfather-retention"
+							disabled={!backupEnabled}
+							label={t("settings.backup.rotation.grandfatherRetention")}
+							value={grandfatherRetention}
+							min={0}
+							max={120}
+							step={1}
+							clampStep={1}
+							unit="m"
+							onReset={() =>
+								settingsUpdateMutation.mutate({
+									backup_grandfather_retention: "3",
+								})
+							}
+							resetTooltip={t("settings.common.resetToDefault")}
+							onChange={(v) =>
+								settingsUpdateMutation.mutate({
+									backup_grandfather_retention: String(v),
+								})
+							}
+							description={t(
+								"settings.backup.rotation.grandfatherRetentionDescription",
+							)}
+						/>
+					</div>
 				</SettingsGroup>
 
 				{/* Double-confirm modal for enabling periodic backup */}
@@ -541,9 +561,16 @@ export function DatabaseBackupSettings({
 									className="flex items-center justify-between bg-(--surface-elevated) rounded-[var(--radius-card,0.375rem)] border border-(--border-default) p-3"
 								>
 									<div className="min-w-0 flex-1">
-										<p className="text-sm font-medium text-(--text-primary) truncate">
-											{backup.filename}
-										</p>
+										<div className="flex items-center gap-2">
+											{gfsLabel.get(backup.filename) && (
+												<span className="shrink-0 inline-flex h-4 w-4 items-center justify-center rounded text-[10px] font-bold bg-(--accent)/15 text-(--accent)">
+													{gfsLabel.get(backup.filename)}
+												</span>
+											)}
+											<p className="text-sm font-medium text-(--text-primary) truncate">
+												{backup.filename}
+											</p>
+										</div>
 										<p className="text-xs text-(--text-muted)">
 											{formatBytes(backup.size_bytes)} -{" "}
 											{formatDateTimeShort(backup.created_at)}

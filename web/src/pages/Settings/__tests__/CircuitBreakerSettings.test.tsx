@@ -108,7 +108,7 @@ describe("CircuitBreakerSettings", () => {
 		});
 	});
 
-	it("hides threshold and cooldown when circuit breaker is disabled", async () => {
+	it("disables threshold and cooldown when circuit breaker is off", async () => {
 		server.use(
 			...mockSettings({
 				body: { circuit_breaker_enabled: "false" },
@@ -118,12 +118,8 @@ describe("CircuitBreakerSettings", () => {
 			<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
 		);
 		await waitFor(() => {
-			expect(
-				screen.queryByLabelText("Failure Threshold"),
-			).not.toBeInTheDocument();
-			expect(
-				screen.queryByLabelText("Cooldown Period"),
-			).not.toBeInTheDocument();
+			expect(screen.getByLabelText("Failure Threshold")).toBeDisabled();
+			expect(screen.getByLabelText("Cooldown Period")).toBeDisabled();
 		});
 	});
 
@@ -519,12 +515,8 @@ describe("CircuitBreakerSettings", () => {
 		);
 
 		await waitFor(() => {
-			expect(
-				screen.queryByLabelText("Failure Threshold"),
-			).not.toBeInTheDocument();
-			expect(
-				screen.queryByLabelText("Cooldown Period"),
-			).not.toBeInTheDocument();
+			expect(screen.getByLabelText("Failure Threshold")).toBeDisabled();
+			expect(screen.getByLabelText("Cooldown Period")).toBeDisabled();
 		});
 
 		const toggle = screen.getByRole("switch", {
@@ -549,7 +541,7 @@ describe("CircuitBreakerSettings", () => {
 					screen.getByRole("switch", { name: /hedge slow streams/i }),
 				).toHaveAttribute("aria-checked", "false");
 			});
-			expect(screen.queryByLabelText("Hedge Delay")).not.toBeInTheDocument();
+			expect(screen.getByLabelText("Hedge Delay")).toBeDisabled();
 			expect(
 				screen.queryByText(/Hedging fires a second/i),
 			).not.toBeInTheDocument();
@@ -570,7 +562,9 @@ describe("CircuitBreakerSettings", () => {
 				expect(input.min).toBe("1");
 				expect(input.max).toBe("15");
 			});
-			expect(screen.getByText(/Hedging fires a second/i)).toBeInTheDocument();
+			expect(
+				await screen.findByText(/Hedging fires a second/i),
+			).toBeInTheDocument();
 		});
 
 		it("toggles hedging on and calls mutation", async () => {

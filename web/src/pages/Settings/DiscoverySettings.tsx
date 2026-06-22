@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Play, Search } from "@/lib/icons";
 import { api } from "../../api/client";
@@ -29,6 +29,17 @@ export function DiscoverySettings({
 
 	const { settings, updateMutation, resetSettingMutation, isResetting } =
 		useSettingsMutations();
+
+	// Catalog size, so the Manual column shows what "Discover all" acts on
+	// instead of a lone button. Cached query keys shared with the rest of the app.
+	const { data: providers } = useQuery({
+		queryKey: ["providers"],
+		queryFn: () => api.providers.list(),
+	});
+	const { data: models } = useQuery({
+		queryKey: ["models"],
+		queryFn: () => api.models.list(),
+	});
 
 	const discoverAllMutation = useMutation({
 		mutationFn: () => api.providers.discoverAll(),
@@ -177,6 +188,20 @@ export function DiscoverySettings({
 								{t("settings.discovery.discoverAll")}
 							</button>
 						</div>
+						<dl className="text-xs text-gray-500 space-y-0.5">
+							<div className="flex justify-between gap-2">
+								<dt>{t("layout.nav.models")}</dt>
+								<dd className="text-(--text-primary) tabular-nums">
+									{models?.length ?? 0}
+								</dd>
+							</div>
+							<div className="flex justify-between gap-2">
+								<dt>{t("layout.nav.providers")}</dt>
+								<dd className="text-(--text-primary) tabular-nums">
+									{providers?.length ?? 0}
+								</dd>
+							</div>
+						</dl>
 					</SettingsGroup>
 				</div>
 			</div>

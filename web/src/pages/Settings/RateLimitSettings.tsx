@@ -74,83 +74,76 @@ export function RateLimitSettings({
 							/>
 						</div>
 
-						{rateLimitEnabled && (
-							<>
-								<SettingsSlider
-									id="rate-limit-rps"
-									label={t("settings.rateLimit.requestsPerSecond")}
-									value={Number(rateLimitRPS)}
-									min={0}
-									max={200}
-									step={5}
-									clampStep={5}
-									infinityValue={0}
-									unit="s"
-									hideUnit
-									onChange={(v) =>
-										updateMutation.mutate({ rate_limit_rps: String(v) })
-									}
-									description={t(
-										"settings.rateLimit.requestsPerSecond.description",
-									)}
-									onReset={() =>
-										resetSettingMutation.mutate(["rate_limit_rps"])
-									}
-									resetTooltip={t("settings.common.resetSetting")}
-								/>
+						<SettingsSlider
+							id="rate-limit-rps"
+							disabled={!rateLimitEnabled}
+							label={t("settings.rateLimit.requestsPerSecond")}
+							value={Number(rateLimitRPS)}
+							min={0}
+							max={200}
+							step={5}
+							clampStep={5}
+							infinityValue={0}
+							unit="s"
+							hideUnit
+							onChange={(v) =>
+								updateMutation.mutate({ rate_limit_rps: String(v) })
+							}
+							description={t(
+								"settings.rateLimit.requestsPerSecond.description",
+							)}
+							onReset={() => resetSettingMutation.mutate(["rate_limit_rps"])}
+							resetTooltip={t("settings.common.resetSetting")}
+						/>
 
-								<SettingsSlider
-									id="rate-limit-burst"
-									label={t("settings.rateLimit.burstSize")}
-									value={Number(rateLimitBurst)}
-									min={5}
-									max={500}
-									step={5}
-									clampStep={5}
-									unit="s"
-									hideUnit
-									onChange={(v) =>
-										updateMutation.mutate({
-											rate_limit_burst: String(v),
-										})
-									}
-									description={t("settings.rateLimit.burstSize.description")}
-									onReset={() =>
-										resetSettingMutation.mutate(["rate_limit_burst"])
-									}
-									resetTooltip={t("settings.common.resetSetting")}
-								/>
-							</>
-						)}
+						<SettingsSlider
+							id="rate-limit-burst"
+							disabled={!rateLimitEnabled}
+							label={t("settings.rateLimit.burstSize")}
+							value={Number(rateLimitBurst)}
+							min={5}
+							max={500}
+							step={5}
+							clampStep={5}
+							unit="s"
+							hideUnit
+							onChange={(v) =>
+								updateMutation.mutate({
+									rate_limit_burst: String(v),
+								})
+							}
+							description={t("settings.rateLimit.burstSize.description")}
+							onReset={() => resetSettingMutation.mutate(["rate_limit_burst"])}
+							resetTooltip={t("settings.common.resetSetting")}
+						/>
 
-						{(rateLimitEnabled || rateLimitIpEnabled) && (
-							<SettingsSlider
-								id="rate-limit-max-wait"
-								label={t("settings.rateLimit.maxWait")}
-								value={Number(rateLimitMaxWaitMs)}
-								min={0}
-								max={10000}
-								step={100}
-								clampStep={100}
-								unit="ms"
-								onChange={(v) =>
-									updateMutation.mutate({
-										rate_limit_max_wait_ms: String(v),
-									})
-								}
-								description={
-									<>
-										{t("settings.rateLimit.backpressureDescription")}
-										{". "}
-										{t("settings.rateLimit.maxWait.description")}
-									</>
-								}
-								onReset={() =>
-									resetSettingMutation.mutate(["rate_limit_max_wait_ms"])
-								}
-								resetTooltip={t("settings.common.resetSetting")}
-							/>
-						)}
+						<SettingsSlider
+							id="rate-limit-max-wait"
+							disabled={!(rateLimitEnabled || rateLimitIpEnabled)}
+							label={t("settings.rateLimit.maxWait")}
+							value={Number(rateLimitMaxWaitMs)}
+							min={0}
+							max={10000}
+							step={100}
+							clampStep={100}
+							unit="ms"
+							onChange={(v) =>
+								updateMutation.mutate({
+									rate_limit_max_wait_ms: String(v),
+								})
+							}
+							description={
+								<>
+									{t("settings.rateLimit.backpressureDescription")}
+									{". "}
+									{t("settings.rateLimit.maxWait.description")}
+								</>
+							}
+							onReset={() =>
+								resetSettingMutation.mutate(["rate_limit_max_wait_ms"])
+							}
+							resetTooltip={t("settings.common.resetSetting")}
+						/>
 					</SettingsGroup>
 
 					<SettingsGroup title={t("settings.rateLimit.perIpGroup")}>
@@ -184,54 +177,50 @@ export function RateLimitSettings({
 							/>
 						</div>
 
-						{rateLimitIpEnabled && (
-							<>
-								<SettingsSlider
-									id="rate-limit-ip-rps"
-									label={t("settings.rateLimit.ipRequestsPerSecond")}
-									value={Number(rateLimitIpRPS)}
-									min={0}
-									max={200}
-									step={5}
-									clampStep={5}
-									infinityValue={0}
-									unit="s"
-									hideUnit
-									onChange={(v) =>
-										updateMutation.mutate({ rate_limit_ip_rps: String(v) })
-									}
-									description={t(
-										"settings.rateLimit.ipRequestsPerSecond.description",
-									)}
-									onReset={() =>
-										resetSettingMutation.mutate(["rate_limit_ip_rps"])
-									}
-									resetTooltip={t("settings.common.resetSetting")}
-								/>
+						<SettingsSlider
+							id="rate-limit-ip-rps"
+							disabled={!rateLimitIpEnabled}
+							label={t("settings.rateLimit.ipRequestsPerSecond")}
+							value={Number(rateLimitIpRPS)}
+							min={0}
+							max={200}
+							step={5}
+							clampStep={5}
+							infinityValue={0}
+							unit="s"
+							hideUnit
+							onChange={(v) =>
+								updateMutation.mutate({ rate_limit_ip_rps: String(v) })
+							}
+							description={t(
+								"settings.rateLimit.ipRequestsPerSecond.description",
+							)}
+							onReset={() => resetSettingMutation.mutate(["rate_limit_ip_rps"])}
+							resetTooltip={t("settings.common.resetSetting")}
+						/>
 
-								<SettingsSlider
-									id="rate-limit-ip-burst"
-									label={t("settings.rateLimit.ipBurstSize")}
-									value={Number(rateLimitIpBurst)}
-									min={5}
-									max={500}
-									step={5}
-									clampStep={5}
-									unit="s"
-									hideUnit
-									onChange={(v) =>
-										updateMutation.mutate({
-											rate_limit_ip_burst: String(v),
-										})
-									}
-									description={t("settings.rateLimit.ipBurstSize.description")}
-									onReset={() =>
-										resetSettingMutation.mutate(["rate_limit_ip_burst"])
-									}
-									resetTooltip={t("settings.common.resetSetting")}
-								/>
-							</>
-						)}
+						<SettingsSlider
+							id="rate-limit-ip-burst"
+							disabled={!rateLimitIpEnabled}
+							label={t("settings.rateLimit.ipBurstSize")}
+							value={Number(rateLimitIpBurst)}
+							min={5}
+							max={500}
+							step={5}
+							clampStep={5}
+							unit="s"
+							hideUnit
+							onChange={(v) =>
+								updateMutation.mutate({
+									rate_limit_ip_burst: String(v),
+								})
+							}
+							description={t("settings.rateLimit.ipBurstSize.description")}
+							onReset={() =>
+								resetSettingMutation.mutate(["rate_limit_ip_burst"])
+							}
+							resetTooltip={t("settings.common.resetSetting")}
+						/>
 					</SettingsGroup>
 				</div>
 			</div>

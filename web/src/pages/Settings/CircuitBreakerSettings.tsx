@@ -106,55 +106,53 @@ export function CircuitBreakerSettings({
 							/>
 						</div>
 
-						{circuitBreakerEnabled && (
-							<>
-								<SettingsSlider
-									id="circuit-breaker-threshold"
-									label={t("settings.circuitBreaker.failureThreshold")}
-									value={Number(circuitBreakerThreshold)}
-									min={1}
-									max={50}
-									step={1}
-									unit="s"
-									hideUnit
-									onChange={(v) =>
-										updateMutation.mutate({
-											circuit_breaker_threshold: String(v),
-										})
-									}
-									description={t(
-										"settings.circuitBreaker.failureThreshold.description",
-									)}
-									onReset={() =>
-										resetSettingMutation.mutate(["circuit_breaker_threshold"])
-									}
-									resetTooltip={t("settings.common.resetSetting")}
-								/>
+						<SettingsSlider
+							id="circuit-breaker-threshold"
+							disabled={!circuitBreakerEnabled}
+							label={t("settings.circuitBreaker.failureThreshold")}
+							value={Number(circuitBreakerThreshold)}
+							min={1}
+							max={50}
+							step={1}
+							unit="s"
+							hideUnit
+							onChange={(v) =>
+								updateMutation.mutate({
+									circuit_breaker_threshold: String(v),
+								})
+							}
+							description={t(
+								"settings.circuitBreaker.failureThreshold.description",
+							)}
+							onReset={() =>
+								resetSettingMutation.mutate(["circuit_breaker_threshold"])
+							}
+							resetTooltip={t("settings.common.resetSetting")}
+						/>
 
-								<SettingsSlider
-									id="circuit-breaker-cooldown"
-									label={t("settings.circuitBreaker.cooldownPeriod")}
-									value={goDurationToSeconds(circuitBreakerCooldown)}
-									min={30}
-									max={600}
-									step={30}
-									clampStep={30}
-									unit="s"
-									onChange={(v) =>
-										updateMutation.mutate({
-											circuit_breaker_cooldown: secondsToGoDuration(v),
-										})
-									}
-									description={t(
-										"settings.circuitBreaker.cooldownPeriod.description",
-									)}
-									onReset={() =>
-										resetSettingMutation.mutate(["circuit_breaker_cooldown"])
-									}
-									resetTooltip={t("settings.common.resetSetting")}
-								/>
-							</>
-						)}
+						<SettingsSlider
+							id="circuit-breaker-cooldown"
+							disabled={!circuitBreakerEnabled}
+							label={t("settings.circuitBreaker.cooldownPeriod")}
+							value={goDurationToSeconds(circuitBreakerCooldown)}
+							min={30}
+							max={600}
+							step={30}
+							clampStep={30}
+							unit="s"
+							onChange={(v) =>
+								updateMutation.mutate({
+									circuit_breaker_cooldown: secondsToGoDuration(v),
+								})
+							}
+							description={t(
+								"settings.circuitBreaker.cooldownPeriod.description",
+							)}
+							onReset={() =>
+								resetSettingMutation.mutate(["circuit_breaker_cooldown"])
+							}
+							resetTooltip={t("settings.common.resetSetting")}
+						/>
 					</SettingsGroup>
 
 					<SettingsGroup title={t("settings.circuitBreaker.hedgingGroup")}>
@@ -189,27 +187,24 @@ export function CircuitBreakerSettings({
 							/>
 						</div>
 
-						{hedgingEnabled && (
-							<SettingsSlider
-								id="hedge-delay"
-								label={t("settings.circuitBreaker.hedgeDelay")}
-								value={goDurationToSeconds(hedgeDelay)}
-								min={1}
-								max={15}
-								step={1}
-								unit="s"
-								onChange={(v) =>
-									updateMutation.mutate({
-										hedge_delay: secondsToGoDuration(v),
-									})
-								}
-								description={t(
-									"settings.circuitBreaker.hedgeDelay.description",
-								)}
-								onReset={() => resetSettingMutation.mutate(["hedge_delay"])}
-								resetTooltip={t("settings.common.resetSetting")}
-							/>
-						)}
+						<SettingsSlider
+							id="hedge-delay"
+							disabled={!hedgingEnabled}
+							label={t("settings.circuitBreaker.hedgeDelay")}
+							value={goDurationToSeconds(hedgeDelay)}
+							min={1}
+							max={15}
+							step={1}
+							unit="s"
+							onChange={(v) =>
+								updateMutation.mutate({
+									hedge_delay: secondsToGoDuration(v),
+								})
+							}
+							description={t("settings.circuitBreaker.hedgeDelay.description")}
+							onReset={() => resetSettingMutation.mutate(["hedge_delay"])}
+							resetTooltip={t("settings.common.resetSetting")}
+						/>
 					</SettingsGroup>
 				</div>
 
