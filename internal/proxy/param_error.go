@@ -103,10 +103,6 @@ func getCachedRenames(cache *sync.Map, cacheKey string) map[string]string {
 		if ptr, ok := v.(*map[string]string); ok {
 			return *ptr
 		}
-		// Fallback for legacy map[string]string values (pre-pointer migration)
-		if m, ok := v.(map[string]string); ok {
-			return m
-		}
 	}
 	return nil
 }
@@ -121,8 +117,6 @@ func getCachedRenames(cache *sync.Map, cacheKey string) map[string]string {
 // ("Unsupported parameter: 'max_tokens' is not supported with this model. Use
 // 'max_completion_tokens' instead."). These reach model-hotel directly via the
 // openai provider and indirectly via passthrough gateways (e.g. OpenCode Zen).
-// The replacement token max_completion_tokens has no other meaning in an error
-// message, so its mere presence is a safe, provider-agnostic signal to rename.
 func parseProviderParamRename(body []byte) map[string]string {
 	var errResp struct {
 		Error struct {
@@ -132,11 +126,19 @@ func parseProviderParamRename(body []byte) map[string]string {
 	if json.Unmarshal(body, &errResp) != nil {
 		return nil
 	}
-	msg := errResp.Error.Message
+	msg := strings.ToLower(errResp.Error.Message)
 	renames := make(map[string]string)
 
 	// max_tokens -> max_completion_tokens (OpenAI gpt-5/o-series deprecation).
-	if strings.Contains(msg, "max_completion_tokens") {
+	// Match the full directive, not just the presence of the replacement token:
+	// require the old name, the new name, AND the "use X instead" wording. This
+	// excludes value-validation errors that merely mention max_completion_tokens
+	// (e.g. "max_completion_tokens must not exceed 4096"), which would otherwise
+	// poison the rename cache and force every max_tokens request to be renamed —
+	// breaking a sibling model on the same key that natively accepts max_tokens.
+	if strings.Contains(msg, "max_tokens") &&
+		strings.Contains(msg, "max_completion_tokens") &&
+		strings.Contains(msg, "instead") {
 		renames["max_tokens"] = "max_completion_tokens"
 	}
 

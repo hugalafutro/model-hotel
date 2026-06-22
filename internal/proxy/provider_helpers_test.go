@@ -398,6 +398,23 @@ func TestParseProviderParamRename_NoRenameSignal(t *testing.T) {
 	}
 }
 
+func TestParseProviderParamRename_ValidationErrorNotRename(t *testing.T) {
+	// A value-validation error that merely mentions max_completion_tokens (no
+	// max_tokens, no "instead" directive) must NOT poison the rename cache —
+	// otherwise a sibling model that natively accepts max_tokens would have it
+	// silently renamed on every later request.
+	cases := []string{
+		`{"error":{"message":"Invalid 'max_completion_tokens': must not exceed 4096."}}`,
+		`{"error":{"message":"max_completion_tokens must be a positive integer"}}`,
+		`{"error":{"message":"Only one of max_tokens or max_completion_tokens may be specified."}}`,
+	}
+	for _, body := range cases {
+		if got := parseProviderParamRename([]byte(body)); got != nil {
+			t.Errorf("expected nil (not a rename directive) for %q, got %v", body, got)
+		}
+	}
+}
+
 func TestParseProviderParamRename_Unparseable(t *testing.T) {
 	if got := parseProviderParamRename([]byte("not json")); got != nil {
 		t.Errorf("expected nil for unparseable body, got %v", got)
