@@ -175,6 +175,7 @@ export function TotpPanel() {
 							text={recoveryCodes.join("\n")}
 							size={16}
 							title={t("settings.totp.copyAll")}
+							toastType="success"
 						/>
 					</div>
 					<div className="p-3 bg-(--surface-elevated) rounded-[var(--radius-card,0.375rem)] border border-(--border-default)">
