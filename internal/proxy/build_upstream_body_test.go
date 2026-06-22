@@ -141,6 +141,72 @@ func TestBuildUpstreamBody_ExtraStripOnRetry(t *testing.T) {
 	}
 }
 
+// Issue #281: chat_template_args is injected for OpenCode providers, but strict
+// upstream backends reject it. These tests cover the inject/strip interaction.
+
+func TestBuildUpstreamBody_OpenCodeInjectsChatTemplateArgs(t *testing.T) {
+	t.Parallel()
+
+	// Fresh request, empty cache: a model that accepts the field still gets it.
+	inputBody := `{"model":"glm-5.2","messages":[{"role":"user","content":"hi"}],"stream":false}`
+	cache := &sync.Map{}
+
+	result := buildUpstreamBody([]byte(inputBody), "opencode-go", "glm-5.2", "glm-5.2", false, cache, nil)
+
+	var raw map[string]interface{}
+	if err := json.Unmarshal(result, &raw); err != nil {
+		t.Fatalf("result is not valid JSON: %v", err)
+	}
+	if _, ok := raw["chat_template_args"]; !ok {
+		t.Error("chat_template_args should be injected for opencode-go when not rejected")
+	}
+}
+
+func TestBuildUpstreamBody_LearnedChatTemplateArgsRejectionStays(t *testing.T) {
+	t.Parallel()
+
+	// A model that previously rejected chat_template_args has it cached. Because
+	// injection now runs before the strip phases, the cached rejection must win:
+	// the rebuilt body must NOT re-add the field. This is the core #281 fix —
+	// without the reorder, every fresh request would 400 then retry.
+	inputBody := `{"model":"glm-5.2","messages":[{"role":"user","content":"hi"}],"stream":false}`
+	cache := &sync.Map{}
+	rejected := map[string]bool{"chat_template_args": true}
+	cache.Store("opencode-go:glm-5.2", &rejected)
+
+	result := buildUpstreamBody([]byte(inputBody), "opencode-go", "glm-5.2", "glm-5.2", false, cache, nil)
+
+	var raw map[string]interface{}
+	if err := json.Unmarshal(result, &raw); err != nil {
+		t.Fatalf("result is not valid JSON: %v", err)
+	}
+	if _, ok := raw["chat_template_args"]; ok {
+		t.Error("chat_template_args must stay stripped for a model with a learned rejection")
+	}
+}
+
+func TestBuildUpstreamBody_ExtraStripChatTemplateArgsOnRetry(t *testing.T) {
+	t.Parallel()
+
+	// The immediate 400 auto-retry passes the freshly-learned rejection as
+	// extraStrip; the injected field must be removed before the retry is sent.
+	inputBody := `{"model":"glm-5.2","messages":[{"role":"user","content":"hi"}],"stream":false}`
+	cache := &sync.Map{}
+
+	result := buildUpstreamBody(
+		[]byte(inputBody), "opencode-go", "glm-5.2", "glm-5.2", false, cache,
+		map[string]bool{"chat_template_args": true},
+	)
+
+	var raw map[string]interface{}
+	if err := json.Unmarshal(result, &raw); err != nil {
+		t.Fatalf("result is not valid JSON: %v", err)
+	}
+	if _, ok := raw["chat_template_args"]; ok {
+		t.Error("chat_template_args must be stripped on the auto-retry")
+	}
+}
+
 func TestBuildUpstreamBody_UnparseableInput(t *testing.T) {
 	t.Parallel()
 

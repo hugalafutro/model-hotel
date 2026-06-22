@@ -353,6 +353,27 @@ func TestParseProviderParamError_ReasoningEffortBacktick(t *testing.T) {
 	}
 }
 
+// chat_template_args is matched as a bare substring (issue #281): strict
+// OpenCode upstreams reject the injected field with assorted message formats.
+
+func TestParseProviderParamError_ChatTemplateArgsVLLMSingleQuote(t *testing.T) {
+	// vLLM/pydantic format (e.g. opencode-go/glm-5.2): single-quoted field name.
+	got := parseProviderParamError([]byte(`{"error":{"message":"Error from provider: Extra inputs are not permitted, field: 'chat_template_args'"}}`))
+	expected := map[string]bool{"chat_template_args": true}
+	if !reflect.DeepEqual(got, expected) {
+		t.Errorf("got %v, want %v", got, expected)
+	}
+}
+
+func TestParseProviderParamError_ChatTemplateArgsBare(t *testing.T) {
+	// OpenAI-style passthrough (e.g. opencode-zen/gpt-5-nano): bare field name.
+	got := parseProviderParamError([]byte(`{"error":{"message":"Unrecognized request argument supplied: chat_template_args"}}`))
+	expected := map[string]bool{"chat_template_args": true}
+	if !reflect.DeepEqual(got, expected) {
+		t.Errorf("got %v, want %v", got, expected)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // mapKeys
 // ---------------------------------------------------------------------------
