@@ -129,43 +129,47 @@ export function AlertsSettings({
 						/>
 					</div>
 
-					{/* Events to notify on (right column) */}
-					{enabled && (
-						<div className="space-y-2">
-							<div className="flex items-center gap-1.5">
-								<button
-									type="button"
-									className="flex items-center gap-1.5 text-sm font-medium text-gray-300"
-									onClick={() => setPickerOpen((o) => !o)}
-									aria-expanded={pickerOpen}
-									data-testid="alert-picker-toggle"
-								>
-									{pickerOpen ? (
-										<ChevronDown size={14} />
-									) : (
-										<ChevronRight size={14} />
-									)}
-									{t("settings.alerts.events.title")}
-								</button>
-								<ResetButton
-									tooltip={t("settings.alerts.events.reset")}
-									onClick={() => resetSettingMutation.mutate(["alert_events"])}
-									size={12}
-									disabled={isResetting}
+					{/* Events to notify on (right column). Kept visible but dimmed and
+					    uninteractible until alerting is enabled, so the column is not
+					    empty when off. */}
+					<div
+						className={`space-y-2${enabled ? "" : " opacity-50"}`}
+						aria-disabled={!enabled}
+					>
+						<div className="flex items-center gap-1.5">
+							<button
+								type="button"
+								className="flex items-center gap-1.5 text-sm font-medium text-gray-300"
+								onClick={() => setPickerOpen((o) => !o)}
+								aria-expanded={pickerOpen}
+								disabled={!enabled}
+								data-testid="alert-picker-toggle"
+							>
+								{pickerOpen ? (
+									<ChevronDown size={14} />
+								) : (
+									<ChevronRight size={14} />
+								)}
+								{t("settings.alerts.events.title")}
+							</button>
+							<ResetButton
+								tooltip={t("settings.alerts.events.reset")}
+								onClick={() => resetSettingMutation.mutate(["alert_events"])}
+								size={12}
+								disabled={isResetting || !enabled}
+							/>
+						</div>
+						{pickerOpen && enabled && (
+							<div className="pl-5">
+								<AlertEventPicker
+									value={settings?.alert_events}
+									onChange={(csv) =>
+										updateMutation.mutate({ alert_events: csv })
+									}
 								/>
 							</div>
-							{pickerOpen && (
-								<div className="pl-5">
-									<AlertEventPicker
-										value={settings?.alert_events}
-										onChange={(csv) =>
-											updateMutation.mutate({ alert_events: csv })
-										}
-									/>
-								</div>
-							)}
-						</div>
-					)}
+						)}
+					</div>
 				</div>
 
 				{enabled && (
