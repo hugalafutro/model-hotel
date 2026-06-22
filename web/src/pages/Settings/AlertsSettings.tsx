@@ -102,7 +102,7 @@ export function AlertsSettings({
 
 				<div className="grid grid-cols-2 gap-x-6 gap-y-5 [align-items:start]">
 					{/* Enable toggle */}
-					<div className="flex items-center justify-between gap-3 p-3 ui-detail-tile">
+					<div className="flex items-center justify-between gap-3 ui-settings-group">
 						<div className="min-w-0">
 							<div className="flex items-center gap-1">
 								<p className="text-sm font-medium text-gray-300">

@@ -241,7 +241,7 @@ export function AppearanceSettings({
 							onChange={(v) => setToastTimeout(v * 1000)}
 						/>
 
-						<div className="flex items-center justify-between gap-4 mt-4 p-3 ui-detail-tile">
+						<div className="flex items-center justify-between gap-4 mt-4">
 							<div>
 								<p className="text-sm font-medium text-gray-300">
 									{t("settings.toast.fuseEffect")}
