@@ -375,6 +375,53 @@ func TestParseProviderParamError_ChatTemplateArgsBare(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// parseProviderParamRename
+// ---------------------------------------------------------------------------
+
+func TestParseProviderParamRename_MaxCompletionTokens(t *testing.T) {
+	// OpenAI gpt-5/o-series deprecation (also reaches us via OpenCode Zen
+	// passthrough): max_tokens must be renamed to max_completion_tokens, not
+	// dropped — dropping would silently discard the caller's token budget.
+	got := parseProviderParamRename([]byte(`{"error":{"message":"Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead.","type":"invalid_request_error","param":"max_tokens","code":"unsupported_parameter"}}`))
+	expected := map[string]string{"max_tokens": "max_completion_tokens"}
+	if !reflect.DeepEqual(got, expected) {
+		t.Errorf("got %v, want %v", got, expected)
+	}
+}
+
+func TestParseProviderParamRename_NoRenameSignal(t *testing.T) {
+	// An ordinary rejection that doesn't mention max_completion_tokens must not
+	// trigger a rename.
+	got := parseProviderParamRename([]byte(`{"error":{"message":"Unrecognized request argument supplied: chat_template_args"}}`))
+	if got != nil {
+		t.Errorf("expected nil (no rename), got %v", got)
+	}
+}
+
+func TestParseProviderParamRename_ValidationErrorNotRename(t *testing.T) {
+	// A value-validation error that merely mentions max_completion_tokens (no
+	// max_tokens, no "instead" directive) must NOT poison the rename cache —
+	// otherwise a sibling model that natively accepts max_tokens would have it
+	// silently renamed on every later request.
+	cases := []string{
+		`{"error":{"message":"Invalid 'max_completion_tokens': must not exceed 4096."}}`,
+		`{"error":{"message":"max_completion_tokens must be a positive integer"}}`,
+		`{"error":{"message":"Only one of max_tokens or max_completion_tokens may be specified."}}`,
+	}
+	for _, body := range cases {
+		if got := parseProviderParamRename([]byte(body)); got != nil {
+			t.Errorf("expected nil (not a rename directive) for %q, got %v", body, got)
+		}
+	}
+}
+
+func TestParseProviderParamRename_Unparseable(t *testing.T) {
+	if got := parseProviderParamRename([]byte("not json")); got != nil {
+		t.Errorf("expected nil for unparseable body, got %v", got)
+	}
+}
+
+// ---------------------------------------------------------------------------
 // mapKeys
 // ---------------------------------------------------------------------------
 

@@ -47,6 +47,11 @@ type Handler struct {
 	// deprecationCache caches rejected parameters learned from HTTP 400 responses,
 	// keyed by "providerType:modelID". Value: map[string]bool of rejected param names.
 	deprecationCache sync.Map
+	// paramRenameCache caches param renames learned from HTTP 400 responses (params
+	// the upstream wants renamed rather than dropped, e.g. max_tokens ->
+	// max_completion_tokens for OpenAI gpt-5/o-series), keyed by
+	// "providerType:modelID". Value: map[string]string of old->new param names.
+	paramRenameCache sync.Map
 	// waitInsertTimeout overrides the default 5s WaitForInsert timeout.
 	// Zero means use the default. Set by tests only.
 	waitInsertTimeout time.Duration

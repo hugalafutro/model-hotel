@@ -93,6 +93,61 @@ func getCachedRejectedParams(cache *sync.Map, cacheKey string) map[string]bool {
 	return nil
 }
 
+// getCachedRenames returns param renames known to be required for a
+// provider+model, learned from previous 400 responses (e.g. an OpenAI gpt-5/o
+// model that rejects max_tokens and demands max_completion_tokens).
+// NOTE: Values are stored as *map[string]string in sync.Map to support
+// CompareAndSwap (maps are not comparable, so pointers are required).
+func getCachedRenames(cache *sync.Map, cacheKey string) map[string]string {
+	if v, ok := cache.Load(cacheKey); ok {
+		if ptr, ok := v.(*map[string]string); ok {
+			return *ptr
+		}
+	}
+	return nil
+}
+
+// parseProviderParamRename parses 400 error bodies for params the upstream wants
+// renamed rather than dropped. Unlike a rejected param (which we strip), a
+// renamed param carries a value we must preserve under the new name — stripping
+// it would silently discard the caller's intent (e.g. their token budget).
+//
+// The only case in the wild today: OpenAI's gpt-5 and o-series models reject the
+// classic max_tokens and require max_completion_tokens
+// ("Unsupported parameter: 'max_tokens' is not supported with this model. Use
+// 'max_completion_tokens' instead."). These reach model-hotel directly via the
+// openai provider and indirectly via passthrough gateways (e.g. OpenCode Zen).
+func parseProviderParamRename(body []byte) map[string]string {
+	var errResp struct {
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if json.Unmarshal(body, &errResp) != nil {
+		return nil
+	}
+	msg := strings.ToLower(errResp.Error.Message)
+	renames := make(map[string]string)
+
+	// max_tokens -> max_completion_tokens (OpenAI gpt-5/o-series deprecation).
+	// Match the full directive, not just the presence of the replacement token:
+	// require the old name, the new name, AND the "use X instead" wording. This
+	// excludes value-validation errors that merely mention max_completion_tokens
+	// (e.g. "max_completion_tokens must not exceed 4096"), which would otherwise
+	// poison the rename cache and force every max_tokens request to be renamed —
+	// breaking a sibling model on the same key that natively accepts max_tokens.
+	if strings.Contains(msg, "max_tokens") &&
+		strings.Contains(msg, "max_completion_tokens") &&
+		strings.Contains(msg, "instead") {
+		renames["max_tokens"] = "max_completion_tokens"
+	}
+
+	if len(renames) == 0 {
+		return nil
+	}
+	return renames
+}
+
 // parseProviderParamError parses 400 error bodies for rejected sampling/param names.
 // Any LLM API mentioning these param names in a 400 error can only be referring
 // to the request parameter — there is no other meaning in this context.

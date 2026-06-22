@@ -70,7 +70,7 @@ func TestBuildUpstreamBody(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := buildUpstreamBody([]byte(inputBody), tt.providerType, tt.wantModel, "gpt-4", tt.isStreaming, cache, tt.extraStrip)
+			result := buildUpstreamBody([]byte(inputBody), tt.providerType, tt.wantModel, "gpt-4", tt.isStreaming, cache, &sync.Map{}, tt.extraStrip)
 
 			var raw map[string]interface{}
 			if err := json.Unmarshal(result, &raw); err != nil {
@@ -116,7 +116,7 @@ func TestBuildUpstreamBody_ExtraStripOnRetry(t *testing.T) {
 
 	result := buildUpstreamBody(
 		[]byte(inputBody), "openai", "gpt-4o", "gpt-4",
-		true, cache,
+		true, cache, &sync.Map{},
 		map[string]bool{"min_p": true}, // extra strip from 400 auto-retry
 	)
 
@@ -151,7 +151,7 @@ func TestBuildUpstreamBody_OpenCodeInjectsChatTemplateArgs(t *testing.T) {
 	inputBody := `{"model":"glm-5.2","messages":[{"role":"user","content":"hi"}],"stream":false}`
 	cache := &sync.Map{}
 
-	result := buildUpstreamBody([]byte(inputBody), "opencode-go", "glm-5.2", "glm-5.2", false, cache, nil)
+	result := buildUpstreamBody([]byte(inputBody), "opencode-go", "glm-5.2", "glm-5.2", false, cache, &sync.Map{}, nil)
 
 	var raw map[string]interface{}
 	if err := json.Unmarshal(result, &raw); err != nil {
@@ -174,7 +174,7 @@ func TestBuildUpstreamBody_LearnedChatTemplateArgsRejectionStays(t *testing.T) {
 	rejected := map[string]bool{"chat_template_args": true}
 	cache.Store("opencode-go:glm-5.2", &rejected)
 
-	result := buildUpstreamBody([]byte(inputBody), "opencode-go", "glm-5.2", "glm-5.2", false, cache, nil)
+	result := buildUpstreamBody([]byte(inputBody), "opencode-go", "glm-5.2", "glm-5.2", false, cache, &sync.Map{}, nil)
 
 	var raw map[string]interface{}
 	if err := json.Unmarshal(result, &raw); err != nil {
@@ -194,7 +194,7 @@ func TestBuildUpstreamBody_ExtraStripChatTemplateArgsOnRetry(t *testing.T) {
 	cache := &sync.Map{}
 
 	result := buildUpstreamBody(
-		[]byte(inputBody), "opencode-go", "glm-5.2", "glm-5.2", false, cache,
+		[]byte(inputBody), "opencode-go", "glm-5.2", "glm-5.2", false, cache, &sync.Map{},
 		map[string]bool{"chat_template_args": true},
 	)
 
@@ -207,11 +207,85 @@ func TestBuildUpstreamBody_ExtraStripChatTemplateArgsOnRetry(t *testing.T) {
 	}
 }
 
+// gpt-5/o-series: max_tokens must be renamed to max_completion_tokens, carrying
+// the caller's value, not dropped. These cover the learned-rename phase.
+
+func TestBuildUpstreamBody_LearnedRenameMovesValue(t *testing.T) {
+	t.Parallel()
+
+	// A model with a learned max_tokens→max_completion_tokens rename cached: the
+	// rebuilt body must drop max_tokens and carry its value under the new key.
+	inputBody := `{"model":"gpt-5-nano","messages":[{"role":"user","content":"hi"}],"stream":false,"max_tokens":16}`
+	renameCache := &sync.Map{}
+	renames := map[string]string{"max_tokens": "max_completion_tokens"}
+	renameCache.Store("openai:gpt-5-nano", &renames)
+
+	result := buildUpstreamBody([]byte(inputBody), "openai", "gpt-5-nano", "gpt-5-nano", false, &sync.Map{}, renameCache, nil)
+
+	var raw map[string]interface{}
+	if err := json.Unmarshal(result, &raw); err != nil {
+		t.Fatalf("result is not valid JSON: %v", err)
+	}
+	if _, ok := raw["max_tokens"]; ok {
+		t.Error("max_tokens must be removed after rename")
+	}
+	if v, ok := raw["max_completion_tokens"]; !ok {
+		t.Error("max_completion_tokens must be present after rename")
+	} else if v != float64(16) {
+		t.Errorf("max_completion_tokens = %v, want 16 (the original budget)", v)
+	}
+}
+
+func TestBuildUpstreamBody_RenameDoesNotOverwriteExplicitTarget(t *testing.T) {
+	t.Parallel()
+
+	// If the caller already set max_completion_tokens, the rename must not
+	// clobber it; it only drops the stale max_tokens.
+	inputBody := `{"model":"gpt-5-nano","messages":[{"role":"user","content":"hi"}],"max_tokens":16,"max_completion_tokens":99}`
+	renameCache := &sync.Map{}
+	renames := map[string]string{"max_tokens": "max_completion_tokens"}
+	renameCache.Store("openai:gpt-5-nano", &renames)
+
+	result := buildUpstreamBody([]byte(inputBody), "openai", "gpt-5-nano", "gpt-5-nano", false, &sync.Map{}, renameCache, nil)
+
+	var raw map[string]interface{}
+	if err := json.Unmarshal(result, &raw); err != nil {
+		t.Fatalf("result is not valid JSON: %v", err)
+	}
+	if _, ok := raw["max_tokens"]; ok {
+		t.Error("stale max_tokens must be removed")
+	}
+	if raw["max_completion_tokens"] != float64(99) {
+		t.Errorf("explicit max_completion_tokens must be preserved, got %v", raw["max_completion_tokens"])
+	}
+}
+
+func TestBuildUpstreamBody_NoRenameWhenSourceAbsent(t *testing.T) {
+	t.Parallel()
+
+	// Rename cached but the request never set max_tokens: nothing to move, and
+	// max_completion_tokens must not be conjured.
+	inputBody := `{"model":"gpt-5-nano","messages":[{"role":"user","content":"hi"}]}`
+	renameCache := &sync.Map{}
+	renames := map[string]string{"max_tokens": "max_completion_tokens"}
+	renameCache.Store("openai:gpt-5-nano", &renames)
+
+	result := buildUpstreamBody([]byte(inputBody), "openai", "gpt-5-nano", "gpt-5-nano", false, &sync.Map{}, renameCache, nil)
+
+	var raw map[string]interface{}
+	if err := json.Unmarshal(result, &raw); err != nil {
+		t.Fatalf("result is not valid JSON: %v", err)
+	}
+	if _, ok := raw["max_completion_tokens"]; ok {
+		t.Error("max_completion_tokens must not be added when max_tokens was absent")
+	}
+}
+
 func TestBuildUpstreamBody_UnparseableInput(t *testing.T) {
 	t.Parallel()
 
 	cache := &sync.Map{}
-	result := buildUpstreamBody([]byte("not json"), "openai", "gpt-4o", "gpt-4", true, cache, nil)
+	result := buildUpstreamBody([]byte("not json"), "openai", "gpt-4o", "gpt-4", true, cache, &sync.Map{}, nil)
 	if string(result) != "not json" {
 		t.Errorf("unparseable input should be returned as-is, got %q", string(result))
 	}
