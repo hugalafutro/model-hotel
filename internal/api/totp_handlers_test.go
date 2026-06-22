@@ -269,6 +269,75 @@ func TestTotpPublishEnabledAt_GenerationGuard(t *testing.T) {
 	}
 }
 
+// --- Info tests ---
+
+// TestTotpInfo_NilRepo covers the guard branch: with no repo wired, Info must
+// return an empty payload rather than panic or error.
+func TestTotpInfo_NilRepo(t *testing.T) {
+	th := &TotpHandler{}
+	req := httptest.NewRequest(http.MethodGet, "/totp/info", http.NoBody)
+	w := httptest.NewRecorder()
+	th.Info(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var resp infoResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.RecoveryTotal != 0 || resp.RecoveryRemaining != 0 || resp.LastUsedAt != "" {
+		t.Errorf("expected empty info for nil repo, got %+v", resp)
+	}
+}
+
+// TestTotpInfo_ReportsRecoveryAndLastUsed drives the success path end to end:
+// recovery counts reflect issued/consumed codes, and last_used_at is stamped
+// once a TOTP code is accepted.
+func TestTotpInfo_ReportsRecoveryAndLastUsed(t *testing.T) {
+	_, th := newTotpTestHandler(t)
+	ctx := context.Background()
+	secret := enrollAndEnable(t, th.totpRepo)
+
+	codes, err := th.totpRepo.GenerateRecoveryCodes(ctx)
+	if err != nil {
+		t.Fatalf("GenerateRecoveryCodes: %v", err)
+	}
+	if ok, err := th.totpRepo.ConsumeRecoveryCode(ctx, codes[0]); err != nil || !ok {
+		t.Fatalf("ConsumeRecoveryCode: ok=%v err=%v", ok, err)
+	}
+	// Accept a TOTP code so last_used_step is stamped.
+	if ok, err := th.totpRepo.Verify(ctx, validCode(t, secret)); err != nil || !ok {
+		t.Fatalf("Verify: ok=%v err=%v", ok, err)
+	}
+
+	r := serveTotpRouter(th)
+	req := httptest.NewRequest(http.MethodGet, "/totp/info", http.NoBody)
+	req.Header.Set("Authorization", "Bearer admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var resp infoResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.RecoveryTotal != len(codes) {
+		t.Errorf("recovery_total = %d, want %d", resp.RecoveryTotal, len(codes))
+	}
+	if resp.RecoveryRemaining != len(codes)-1 {
+		t.Errorf("recovery_remaining = %d, want %d", resp.RecoveryRemaining, len(codes)-1)
+	}
+	if resp.LastUsedAt == "" {
+		t.Fatal("expected last_used_at to be set after a code was accepted")
+	}
+	if _, err := time.Parse(time.RFC3339, resp.LastUsedAt); err != nil {
+		t.Errorf("last_used_at %q is not RFC3339: %v", resp.LastUsedAt, err)
+	}
+}
+
 // --- EnrollStart tests ---
 
 func TestTotpEnrollStart_AdminAuth(t *testing.T) {
