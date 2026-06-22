@@ -4,7 +4,7 @@ import { HttpResponse, http } from "msw";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import * as webauthnUtils from "../../../utils/webauthn";
-import { PasskeySettings } from "../PasskeySettings";
+import { PasskeyPanel } from "../PasskeySettings";
 
 vi.mock("@simplewebauthn/browser", () => ({
 	browserSupportsWebAuthn: vi.fn(() => true),
@@ -18,32 +18,28 @@ describe("PasskeySettings", () => {
 		server.resetHandlers();
 	});
 
-	it("renders nothing when WebAuthn is not available", () => {
+	it("shows a disabled state when WebAuthn is not available", async () => {
 		vi.spyOn(webauthnUtils, "isWebAuthnAvailable").mockResolvedValue(false);
 
-		const { container } = renderWithProviders(
-			<PasskeySettings collapsed={false} onToggle={() => {}} />,
-		);
+		renderWithProviders(<PasskeyPanel />);
 
-		expect(container.textContent).not.toMatch(/Passkeys/i);
+		expect(await screen.findByText("Disabled")).toBeInTheDocument();
 	});
 
-	it("renders Passkeys section when WebAuthn is available", async () => {
+	it("renders the passkeys panel when WebAuthn is available", async () => {
 		vi.spyOn(webauthnUtils, "isWebAuthnAvailable").mockResolvedValue(true);
 
-		renderWithProviders(
-			<PasskeySettings collapsed={false} onToggle={() => {}} />,
-		);
+		renderWithProviders(<PasskeyPanel />);
 
-		expect(await screen.findByText("Passkeys")).toBeInTheDocument();
+		expect(
+			await screen.findByText(/Register a passkey to sign in/),
+		).toBeInTheDocument();
 	});
 
 	it("shows Register Passkey button", async () => {
 		vi.spyOn(webauthnUtils, "isWebAuthnAvailable").mockResolvedValue(true);
 
-		renderWithProviders(
-			<PasskeySettings collapsed={false} onToggle={() => {}} />,
-		);
+		renderWithProviders(<PasskeyPanel />);
 
 		expect(
 			await screen.findByRole("button", { name: /Register a new passkey/i }),
@@ -76,9 +72,7 @@ describe("PasskeySettings", () => {
 			),
 		);
 
-		renderWithProviders(
-			<PasskeySettings collapsed={false} onToggle={() => {}} />,
-		);
+		renderWithProviders(<PasskeyPanel />);
 
 		await waitFor(() => {
 			expect(
@@ -107,9 +101,7 @@ describe("PasskeySettings", () => {
 			),
 		);
 
-		renderWithProviders(
-			<PasskeySettings collapsed={false} onToggle={() => {}} />,
-		);
+		renderWithProviders(<PasskeyPanel />);
 
 		await waitFor(() => {
 			// formatDateTimeShort outputs locale-aware "28 <month> 2025, <time>" style
@@ -140,9 +132,7 @@ describe("PasskeySettings", () => {
 			}),
 		);
 
-		renderWithProviders(
-			<PasskeySettings collapsed={false} onToggle={() => {}} />,
-		);
+		renderWithProviders(<PasskeyPanel />);
 
 		await waitFor(() => {
 			expect(screen.getByText("Bluetooth")).toBeInTheDocument();
@@ -182,9 +172,7 @@ describe("PasskeySettings", () => {
 				),
 			);
 
-			renderWithProviders(
-				<PasskeySettings collapsed={false} onToggle={() => {}} />,
-			);
+			renderWithProviders(<PasskeyPanel />);
 
 			await waitFor(() => {
 				expect(screen.getByText("Existing Key")).toBeInTheDocument();
@@ -208,9 +196,7 @@ describe("PasskeySettings", () => {
 				http.get("/api/webauthn/credentials", () => HttpResponse.json([])),
 			);
 
-			renderWithProviders(
-				<PasskeySettings collapsed={false} onToggle={() => {}} />,
-			);
+			renderWithProviders(<PasskeyPanel />);
 
 			const registerButton = await screen.findByRole("button", {
 				name: /Register a new passkey/i,
@@ -234,9 +220,7 @@ describe("PasskeySettings", () => {
 				http.get("/api/webauthn/credentials", () => HttpResponse.json([])),
 			);
 
-			renderWithProviders(
-				<PasskeySettings collapsed={false} onToggle={() => {}} />,
-			);
+			renderWithProviders(<PasskeyPanel />);
 
 			const registerButton = await screen.findByRole("button", {
 				name: /Register a new passkey/i,
@@ -272,9 +256,7 @@ describe("PasskeySettings", () => {
 				),
 			);
 
-			renderWithProviders(
-				<PasskeySettings collapsed={false} onToggle={() => {}} />,
-			);
+			renderWithProviders(<PasskeyPanel />);
 
 			await waitFor(() => {
 				expect(screen.getByText("Old Name")).toBeInTheDocument();
@@ -320,9 +302,7 @@ describe("PasskeySettings", () => {
 				}),
 			);
 
-			renderWithProviders(
-				<PasskeySettings collapsed={false} onToggle={() => {}} />,
-			);
+			renderWithProviders(<PasskeyPanel />);
 
 			await waitFor(() => {
 				expect(screen.getByText("Old Name")).toBeInTheDocument();
@@ -365,9 +345,7 @@ describe("PasskeySettings", () => {
 				),
 			);
 
-			renderWithProviders(
-				<PasskeySettings collapsed={false} onToggle={() => {}} />,
-			);
+			renderWithProviders(<PasskeyPanel />);
 
 			await waitFor(() => {
 				expect(screen.getByText("Old Name")).toBeInTheDocument();
@@ -417,9 +395,7 @@ describe("PasskeySettings", () => {
 				),
 			);
 
-			renderWithProviders(
-				<PasskeySettings collapsed={false} onToggle={() => {}} />,
-			);
+			renderWithProviders(<PasskeyPanel />);
 
 			await waitFor(() => {
 				expect(screen.getByText("My Custom Key")).toBeInTheDocument();
@@ -449,9 +425,7 @@ describe("PasskeySettings", () => {
 				),
 			);
 
-			renderWithProviders(
-				<PasskeySettings collapsed={false} onToggle={() => {}} />,
-			);
+			renderWithProviders(<PasskeyPanel />);
 
 			await waitFor(() => {
 				expect(screen.getByText("NFC, Bluetooth")).toBeInTheDocument();
@@ -481,9 +455,7 @@ describe("PasskeySettings", () => {
 				),
 			);
 
-			renderWithProviders(
-				<PasskeySettings collapsed={false} onToggle={() => {}} />,
-			);
+			renderWithProviders(<PasskeyPanel />);
 
 			await waitFor(() => {
 				expect(screen.getByText("Security Key")).toBeInTheDocument();

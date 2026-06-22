@@ -1607,7 +1607,6 @@
 			"uploadRestore": "アップロードと復元",
 			"restoring": "… の復元",
 			"selectBackupFile": "復元するバックアップファイルを選択",
-			"availableBackups": "利用可能なバックアップ ({{count}})",
 			"noBackups": "まだバックアップはありません。",
 			"download": "ダウンロード",
 			"delete": "バックアップを削除",
@@ -1642,7 +1641,8 @@
 				"prunePreviewFailed": "バックアップ剪定のプレビューに失敗しました",
 				"pruneFailed": "バックアップの削除に失敗しました",
 				"pruneSuccess": "削除された {{count}} バックアップ"
-			}
+			},
+			"availableBackupsTitle": "利用可能なバックアップ"
 		},
 		"appearance": {
 			"title": "外観",
@@ -1782,7 +1782,8 @@
 			"saveNameAriaLabel": "名前を保存",
 			"cancelNameAriaLabel": "名前の変更をキャンセルする",
 			"renameAriaLabel": "パスキーの名前を変更",
-			"failedToRename": "パスキーの名前を変更できませんでした: {{message}}"
+			"failedToRename": "パスキーの名前を変更できませんでした: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "Fluent Bit、Vector、Promtailなどのstdoutログコレクター向けに、1行につき1つのJSONオブジェクトとして構造化されたログを出力してください。",
@@ -1795,7 +1796,8 @@
 			"otel.instructions": "これをOTLPコレクターのエンドポイントに向け、コンテナを再起動してOpenTelemetry経由でログを送信してください：",
 			"otel.name": "OpenTelemetryログ（OTLP）",
 			"title": "可観測性およびログのエクスポート",
-			"description": "Model Hotelは、構造化されたログとメトリクスを外部システムにエクスポートできます。各統合機能は環境変数によって有効化され、以下のステータスバッジは現在の状態を示しています。リクエストやレスポンスの内容は一切エクスポートされず、ルーティングおよび計測に関するメタデータのみがエクスポートされます。"
+			"description": "Model Hotelは、構造化されたログとメトリクスを外部システムにエクスポートできます。各統合機能は環境変数によって有効化され、以下のステータスバッジは現在の状態を示しています。リクエストやレスポンスの内容は一切エクスポートされず、ルーティングおよび計測に関するメタデータのみがエクスポートされます。",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "Apprise API URL",
@@ -1870,7 +1872,7 @@
 			"savedAriaLabel": "リカバリーコードが保存されていることを確認してください",
 			"secret": "シークレット",
 			"secretCopied": "シークレットをコピーしました",
-			"title": "認証アプリ（TOTP）",
+			"title": "2FA · 認証アプリ（TOTP）",
 			"verifiedSuccess": "二要素認証が有効になっています",
 			"verify": "確認および有効化",
 			"verifyAriaLabel": "TOTPコードを確認し、有効にする",
@@ -1879,6 +1881,9 @@
 			"downloadCodesAriaLabel": "リカバリーコードをテキストファイルとしてダウンロード",
 			"failedToStart": "登録を開始できませんでした: {{message}}",
 			"enabledOn": "{{date}} に有効化"
+		},
+		"authentication": {
+			"title": "認証"
 		}
 	},
 	"components": {

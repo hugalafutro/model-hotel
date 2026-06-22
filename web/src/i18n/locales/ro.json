@@ -1607,7 +1607,6 @@
 			"uploadRestore": "Încarcă și restaurează",
 			"restoring": "Restaurare…",
 			"selectBackupFile": "Selectaţi fişierul copie de rezervă pentru a restabili",
-			"availableBackups": "Backup-uri disponibile ({{count}})",
 			"noBackups": "Nici o copie de rezervă încă.",
 			"download": "Descărcare",
 			"delete": "Ștergere backup",
@@ -1642,7 +1641,8 @@
 				"prunePreviewFailed": "Previzualizarea pruning-ului backup-ului a eșuat",
 				"pruneFailed": "Nu s-a putut curăța copiile de rezervă",
 				"pruneSuccess": "Curățate {{count}} copii de rezervă"
-			}
+			},
+			"availableBackupsTitle": "Backup-uri disponibile"
 		},
 		"appearance": {
 			"title": "Aspectul",
@@ -1782,7 +1782,8 @@
 			"saveNameAriaLabel": "Salvează numele",
 			"cancelNameAriaLabel": "Anulează redenumirea",
 			"renameAriaLabel": "Redenumire parolă",
-			"failedToRename": "Nu s-a putut redenumi parola: {{message}}"
+			"failedToRename": "Nu s-a putut redenumi parola: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "Generați jurnale structurate ca un singur obiect JSON pe linie, pentru colectoare de jurnale stdout precum Fluent Bit, Vector sau Promtail.",
@@ -1795,7 +1796,8 @@
 			"otel.instructions": "Direcționați acest lucru către punctul final al colectorului OTLP și reporniți containerul pentru a transmite jurnalele prin OpenTelemetry:",
 			"otel.name": "Jurnale OpenTelemetry (OTLP)",
 			"title": "Observabilitate și export de jurnale",
-			"description": "Model Hotel poate exporta jurnalele și metricile sale structurate către sisteme externe. Fiecare integrare este activată cu o variabilă de mediu; insignele de stare de mai jos reflectă starea actuală. Nu se exportă niciodată conținutul cererilor sau al răspunsurilor — doar metadatele de rutare și măsurare."
+			"description": "Model Hotel poate exporta jurnalele și metricile sale structurate către sisteme externe. Fiecare integrare este activată cu o variabilă de mediu; insignele de stare de mai jos reflectă starea actuală. Nu se exportă niciodată conținutul cererilor sau al răspunsurilor — doar metadatele de rutare și măsurare.",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "URL-ul API-ului Apprise",
@@ -1870,7 +1872,7 @@
 			"savedAriaLabel": "Confirmați salvarea codurilor de recuperare",
 			"secret": "Secret",
 			"secretCopied": "Secret copiat",
-			"title": "Aplicație de autentificare (TOTP)",
+			"title": "2FA · Aplicație de autentificare (TOTP)",
 			"verifiedSuccess": "Autentificarea în doi pași este activată",
 			"verify": "Verificați și activați",
 			"verifyAriaLabel": "Verificați codul TOTP și activați",
@@ -1879,6 +1881,9 @@
 			"downloadCodesAriaLabel": "Descarcă codurile de recuperare ca fișier text",
 			"failedToStart": "Nu s-a putut începe înregistrarea: {{message}}",
 			"enabledOn": "Activat la {{date}}"
+		},
+		"authentication": {
+			"title": "Autentificare"
 		}
 	},
 	"components": {

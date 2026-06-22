@@ -8,6 +8,7 @@ import {
 	WindowsLogo,
 } from "@/lib/icons";
 import { ResetButton } from "../../components/ResetButton";
+import { SettingsGroup } from "../../components/SettingsGroup";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
 import { Toggle } from "../../components/Toggle";
@@ -87,12 +88,9 @@ export function AppearanceSettings({
 		>
 			<div className="space-y-6">
 				{/* UI Style + Toast Notifications (2 columns) */}
-				<div className="grid grid-cols-2 gap-x-8">
+				<div className="grid grid-cols-2 gap-x-6 gap-y-5 [align-items:start]">
 					{/* UI Style */}
-					<div>
-						<p className="text-sm font-medium text-gray-300 mb-3">
-							{t("settings.appearance.uiStyle")}
-						</p>
+					<SettingsGroup title={t("settings.appearance.uiStyle")}>
 						<div className="grid grid-cols-1 gap-3">
 							{UI_STYLES.map((style) => {
 								const Icon = style.icon;
@@ -134,13 +132,10 @@ export function AppearanceSettings({
 								);
 							})}
 						</div>
-					</div>
+					</SettingsGroup>
 
 					{/* Toast Notifications */}
-					<div>
-						<p className="text-sm font-medium text-gray-300 mb-3">
-							{t("settings.toast.title")}
-						</p>
+					<SettingsGroup title={t("settings.toast.title")}>
 						<div className="flex justify-center">
 							<div className="toast-monitor relative w-40 h-26 rounded-lg border-2 border-gray-600 bg-gray-800/50 overflow-visible">
 								{/* top-left */}
@@ -261,7 +256,7 @@ export function AppearanceSettings({
 								ariaLabel={t("settings.toast.fuseEffect")}
 							/>
 						</div>
-					</div>
+					</SettingsGroup>
 				</div>
 
 				{/* Accent Color + Theme */}

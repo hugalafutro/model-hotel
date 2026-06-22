@@ -1607,7 +1607,6 @@
 			"uploadRestore": "העלאה ושחזור",
 			"restoring": "שחזור ה-…",
 			"selectBackupFile": "בחר קובץ גיבוי לשחזור",
-			"availableBackups": "גיבויים זמינים ({{count}})",
 			"noBackups": "עדיין אין גיבויים.",
 			"download": "הורדה",
 			"delete": "מחק גיבוי",
@@ -1642,7 +1641,8 @@
 				"prunePreviewFailed": "לא ניתן להציג תצוגה מקדימה של צמצום הגיבוי",
 				"pruneFailed": "לא הצליחו לנקות את הגיבויים",
 				"pruneSuccess": "גיזום {{count}} גיבוי/גיבויים"
-			}
+			},
+			"availableBackupsTitle": "גיבויים זמינים"
 		},
 		"appearance": {
 			"title": "מראה",
@@ -1782,7 +1782,8 @@
 			"saveNameAriaLabel": "שמור שם",
 			"cancelNameAriaLabel": "בטל שינוי השם",
 			"renameAriaLabel": "שינוי שם מפתח הגישה",
-			"failedToRename": "לא ניתן לשנות את שם מפתח הגישה: {{message}}"
+			"failedToRename": "לא ניתן לשנות את שם מפתח הגישה: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "הפק יומנים מובנים כאובייקט JSON אחד בכל שורה, עבור אספני יומני stdout כגון Fluent Bit, Vector או Promtail.",
@@ -1795,7 +1796,8 @@
 			"otel.instructions": "כוונו זאת לנקודת הקצה של אספן ה-OTLP שלכם והפעילו מחדש את המכולה כדי לדחוף יומנים דרך OpenTelemetry:",
 			"otel.name": "יומני OpenTelemetry (OTLP)",
 			"title": "נראות וייצוא יומנים",
-			"description": "Model Hotel יכול לייצא את היומנים והמדדים המובנים שלו למערכות חיצוניות. כל אינטגרציה מופעלת באמצעות משתנה סביבה; סמלי הסטטוס שלהלן משקפים את המצב הנוכחי. תוכן הבקשות או התגובות אינו מיוצא לעולם — רק מטא-נתונים של ניתוב ומדידה."
+			"description": "Model Hotel יכול לייצא את היומנים והמדדים המובנים שלו למערכות חיצוניות. כל אינטגרציה מופעלת באמצעות משתנה סביבה; סמלי הסטטוס שלהלן משקפים את המצב הנוכחי. תוכן הבקשות או התגובות אינו מיוצא לעולם — רק מטא-נתונים של ניתוב ומדידה.",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "כתובת ה-API של Apprise",
@@ -1870,7 +1872,7 @@
 			"savedAriaLabel": "אשרו את שמירת קודי השחזור",
 			"secret": "סוד",
 			"secretCopied": "הסוד הועתק",
-			"title": "אפליקציית אימות (TOTP)",
+			"title": "2FA · אפליקציית אימות (TOTP)",
 			"verifiedSuccess": "אימות דו-גורמי מופעל",
 			"verify": "אמת והפעל",
 			"verifyAriaLabel": "אמת את קוד ה-TOTP והפעל",
@@ -1879,6 +1881,9 @@
 			"downloadCodesAriaLabel": "הורד את קודי השחזור כקובץ טקסט",
 			"failedToStart": "לא ניתן להתחיל את הרישום: {{message}}",
 			"enabledOn": "הופעל בתאריך {{date}}"
+		},
+		"authentication": {
+			"title": "אימות"
 		}
 	},
 	"components": {

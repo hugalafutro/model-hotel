@@ -1607,7 +1607,6 @@
 			"uploadRestore": "Upload & Gendan",
 			"restoring": "Gendanner…",
 			"selectBackupFile": "Vælg backupfil til gendannelse",
-			"availableBackups": "Tilgængelige sikkerhedskopier ({{count}})",
 			"noBackups": "Ingen sikkerhedskopier endnu.",
 			"download": "Hent",
 			"delete": "Slet backup",
@@ -1642,7 +1641,8 @@
 				"prunePreviewFailed": "Kunne ikke forhåndsvise sikkerhedskopibeskæring",
 				"pruneFailed": "Kunne ikke beskære sikkerhedskopier",
 				"pruneSuccess": "Beskadiget {{count}} sikkerhedskopi(er)"
-			}
+			},
+			"availableBackupsTitle": "Tilgængelige sikkerhedskopier"
 		},
 		"appearance": {
 			"title": "Udseende",
@@ -1782,7 +1782,8 @@
 			"saveNameAriaLabel": "Gem navn",
 			"cancelNameAriaLabel": "Annuller omdøbning",
 			"renameAriaLabel": "Omdøb adgangsnøgle",
-			"failedToRename": "Kunne ikke omdøbe adgangskode: {{message}}"
+			"failedToRename": "Kunne ikke omdøbe adgangskode: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "Udsend strukturerede logfiler som ét JSON-objekt pr. linje til stdout-logindsamlere såsom Fluent Bit, Vector eller Promtail.",
@@ -1795,7 +1796,8 @@
 			"otel.instructions": "Peg dette mod dit OTLP-indsamler-endpoint, og genstart containeren for at sende logfiler via OpenTelemetry:",
 			"otel.name": "OpenTelemetry-logfiler (OTLP)",
 			"title": "Observabilitet og logeksport",
-			"description": "Model Hotel kan eksportere sine strukturerede logfiler og målinger til eksterne systemer. Hver integration aktiveres med en miljøvariabel; statusbadges nedenfor afspejler den aktuelle tilstand. Der eksporteres aldrig indhold fra anmodninger eller svar — kun metadata om routing og måling."
+			"description": "Model Hotel kan eksportere sine strukturerede logfiler og målinger til eksterne systemer. Hver integration aktiveres med en miljøvariabel; statusbadges nedenfor afspejler den aktuelle tilstand. Der eksporteres aldrig indhold fra anmodninger eller svar — kun metadata om routing og måling.",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "Apprise API-URL",
@@ -1870,7 +1872,7 @@
 			"savedAriaLabel": "Bekræft, at gendannelseskoder er gemt",
 			"secret": "Hemmelighed",
 			"secretCopied": "Hemmelighed kopieret",
-			"title": "Autentificeringsapp (TOTP)",
+			"title": "2FA · Autentificeringsapp (TOTP)",
 			"verifiedSuccess": "To-faktor-autentificering er aktiveret",
 			"verify": "Kontroller og aktiver",
 			"verifyAriaLabel": "Bekræft TOTP-koden og aktiver",
@@ -1879,6 +1881,9 @@
 			"downloadCodesAriaLabel": "Download gendannelseskoder som en tekstfil",
 			"failedToStart": "Kunne ikke starte tilmelding: {{message}}",
 			"enabledOn": "Aktiveret den {{date}}"
+		},
+		"authentication": {
+			"title": "Godkendelse"
 		}
 	},
 	"components": {

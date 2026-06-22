@@ -1607,7 +1607,6 @@
 			"uploadRestore": "Tải lên & Khôi phục",
 			"restoring": "Khôi phục trang web…",
 			"selectBackupFile": "Chọn tệp sao lưu để khôi phục",
-			"availableBackups": "Các bản sao lưu hiện có ({{count}})",
 			"noBackups": "Chưa có bản sao lưu nào.",
 			"download": "Tải xuống",
 			"delete": "Xóa bản sao lưu",
@@ -1642,7 +1641,8 @@
 				"prunePreviewFailed": "Không thể xem trước quá trình cắt giảm bản sao lưu",
 				"pruneFailed": "Không thể xóa các bản sao lưu",
 				"pruneSuccess": "Đã xóa bản sao lưu của {{count}}"
-			}
+			},
+			"availableBackupsTitle": "Các bản sao lưu hiện có"
 		},
 		"appearance": {
 			"title": "Hình thức",
@@ -1782,7 +1782,8 @@
 			"saveNameAriaLabel": "Lưu tên",
 			"cancelNameAriaLabel": "Hủy đổi tên",
 			"renameAriaLabel": "Đổi tên mật khẩu",
-			"failedToRename": "Không thể đổi tên khóa truy cập: {{message}}"
+			"failedToRename": "Không thể đổi tên khóa truy cập: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "Phát ra nhật ký có cấu trúc dưới dạng một đối tượng JSON trên mỗi dòng, dành cho các công cụ thu thập nhật ký stdout như Fluent Bit, Vector hoặc Promtail.",
@@ -1795,7 +1796,8 @@
 			"otel.instructions": "Hướng điều này đến điểm cuối thu thập OTLP của bạn và khởi động lại container để đẩy nhật ký qua OpenTelemetry:",
 			"otel.name": "Nhật ký OpenTelemetry (OTLP)",
 			"title": "Khả năng quan sát & Xuất nhật ký",
-			"description": "Model Hotel có thể xuất nhật ký và số liệu có cấu trúc của mình sang các hệ thống bên ngoài. Mỗi tích hợp được kích hoạt bằng một biến môi trường; các biểu tượng trạng thái bên dưới phản ánh trạng thái hiện tại. Không có nội dung yêu cầu hoặc phản hồi nào được xuất — chỉ có siêu dữ liệu định tuyến và đo lường."
+			"description": "Model Hotel có thể xuất nhật ký và số liệu có cấu trúc của mình sang các hệ thống bên ngoài. Mỗi tích hợp được kích hoạt bằng một biến môi trường; các biểu tượng trạng thái bên dưới phản ánh trạng thái hiện tại. Không có nội dung yêu cầu hoặc phản hồi nào được xuất — chỉ có siêu dữ liệu định tuyến và đo lường.",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "URL API Apprise",
@@ -1870,7 +1872,7 @@
 			"savedAriaLabel": "Xác nhận đã lưu mã khôi phục",
 			"secret": "Khóa bí mật",
 			"secretCopied": "Đã sao chép khóa bí mật",
-			"title": "Ứng dụng xác thực (TOTP)",
+			"title": "2FA · Ứng dụng xác thực (TOTP)",
 			"verifiedSuccess": "Đã bật xác thực hai yếu tố",
 			"verify": "Xác minh và bật",
 			"verifyAriaLabel": "Xác minh mã TOTP và bật",
@@ -1879,6 +1881,9 @@
 			"downloadCodesAriaLabel": "Tải mã khôi phục xuống dưới dạng tệp văn bản",
 			"failedToStart": "Không thể bắt đầu đăng ký: {{message}}",
 			"enabledOn": "Đã bật vào {{date}}"
+		},
+		"authentication": {
+			"title": "Xác thực"
 		}
 	},
 	"components": {

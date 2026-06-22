@@ -4,15 +4,9 @@ import { useTranslation } from "react-i18next";
 import { Check, Fingerprint, Pencil, Plus, Trash2, X } from "@/lib/icons";
 import { api } from "../../api/client";
 import type { WebAuthnCredential } from "../../api/types";
-import { SettingsSection } from "../../components/SettingsSection";
 import { useToast } from "../../context/ToastContext";
 import { formatDateTimeShort } from "../../utils/format";
 import { isWebAuthnAvailable, registerPasskey } from "../../utils/webauthn";
-
-interface PasskeySettingsProps {
-	collapsed: boolean;
-	onToggle: () => void;
-}
 
 function transportLabel(t: (key: string) => string, transport: string): string {
 	switch (transport) {
@@ -31,7 +25,7 @@ function transportLabel(t: (key: string) => string, transport: string): string {
 	}
 }
 
-export function PasskeySettings({ collapsed, onToggle }: PasskeySettingsProps) {
+export function PasskeyPanel() {
 	const { t } = useTranslation();
 	const { toast } = useToast();
 	const queryClient = useQueryClient();
@@ -100,49 +94,51 @@ export function PasskeySettings({ collapsed, onToggle }: PasskeySettingsProps) {
 	};
 
 	if (!available) {
-		return null;
+		return (
+			<>
+				<span className="ui-badge ui-badge-error">
+					{t("settings.common.disabled")}
+				</span>
+				<p className="text-(--text-secondary) text-sm">
+					{t("settings.passkeys.unavailableDescription")}
+				</p>
+			</>
+		);
 	}
 
 	return (
-		<SettingsSection
-			icon={Fingerprint}
-			title={t("settings.passkeys.title")}
-			collapsed={collapsed}
-			onToggle={onToggle}
-		>
-			<div className="space-y-4">
-				<p className="text-(--text-secondary) text-sm">
-					{t("settings.passkeys.description")}
-				</p>
+		<>
+			<p className="text-(--text-secondary) text-sm">
+				{t("settings.passkeys.description")}
+			</p>
 
-				<button
-					type="button"
-					onClick={handleRegister}
-					disabled={registering}
-					className="ui-btn ui-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-					aria-label={t("settings.passkeys.registerAriaLabel")}
-				>
-					<Plus size={16} />
-					{registering
-						? t("settings.passkeys.registering")
-						: t("settings.passkeys.registerPasskey")}
-				</button>
+			<button
+				type="button"
+				onClick={handleRegister}
+				disabled={registering}
+				className="ui-btn ui-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+				aria-label={t("settings.passkeys.registerAriaLabel")}
+			>
+				<Plus size={16} />
+				{registering
+					? t("settings.passkeys.registering")
+					: t("settings.passkeys.registerPasskey")}
+			</button>
 
-				{credentials.length > 0 && (
-					<div className="space-y-2">
-						{credentials.map((cred: WebAuthnCredential) => (
-							<CredentialRow
-								key={cred.id}
-								cred={cred}
-								t={t}
-								renameMutation={renameMutation}
-								deleteMutation={deleteMutation}
-							/>
-						))}
-					</div>
-				)}
-			</div>
-		</SettingsSection>
+			{credentials.length > 0 && (
+				<div className="space-y-2">
+					{credentials.map((cred: WebAuthnCredential) => (
+						<CredentialRow
+							key={cred.id}
+							cred={cred}
+							t={t}
+							renameMutation={renameMutation}
+							deleteMutation={deleteMutation}
+						/>
+					))}
+				</div>
+			)}
+		</>
 	);
 }
 

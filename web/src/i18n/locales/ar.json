@@ -1607,7 +1607,6 @@
 			"uploadRestore": "تحميل واستعادة",
 			"restoring": "إستعادة…",
 			"selectBackupFile": "حدد ملف النسخ الاحتياطي للاستعادة",
-			"availableBackups": "النسخ الاحتياطي المتوفر ({{count}})",
 			"noBackups": "لا توجد نسخ احتياطية حتى الآن.",
 			"download": "تنزيل",
 			"delete": "حذف النسخة الاحتياطية",
@@ -1642,7 +1641,8 @@
 				"prunePreviewFailed": "فشل في معاينة التقسيم الاحتياطي",
 				"pruneFailed": "فشل في تقريب النسخ الاحتياطي",
 				"pruneSuccess": "النسخ الاحتياطي {{count}} المتقلب"
-			}
+			},
+			"availableBackupsTitle": "النسخ الاحتياطي المتوفر"
 		},
 		"appearance": {
 			"title": "المظهر",
@@ -1782,7 +1782,8 @@
 			"saveNameAriaLabel": "حفظ الاسم",
 			"cancelNameAriaLabel": "إلغاء إعادة التسمية",
 			"renameAriaLabel": "إعادة تسمية مفتاح المرور",
-			"failedToRename": "فشل في إعادة تسمية مفتاح المرور: {{message}}"
+			"failedToRename": "فشل في إعادة تسمية مفتاح المرور: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "أصدر سجلات منظمة ككائن JSON واحد لكل سطر، لمجمعات سجلات stdout مثل Fluent Bit أو Vector أو Promtail.",
@@ -1795,7 +1796,8 @@
 			"otel.instructions": "وجه هذا إلى نقطة نهاية مجمع OTLP الخاص بك وأعد تشغيل الحاوية لدفع السجلات عبر OpenTelemetry:",
 			"otel.name": "سجلات OpenTelemetry (OTLP)",
 			"title": "القابلية للمراقبة وتصدير السجلات",
-			"description": "يمكن لـ Model Hotel تصدير سجلاتها ومقاييسها المنظمة إلى أنظمة خارجية. يتم تمكين كل تكامل بواسطة متغير بيئة؛ تعكس شارات الحالة أدناه الحالة الحالية. لا يتم تصدير أي محتوى للطلبات أو الاستجابات أبدًا — فقط بيانات التوجيه والقياس."
+			"description": "يمكن لـ Model Hotel تصدير سجلاتها ومقاييسها المنظمة إلى أنظمة خارجية. يتم تمكين كل تكامل بواسطة متغير بيئة؛ تعكس شارات الحالة أدناه الحالة الحالية. لا يتم تصدير أي محتوى للطلبات أو الاستجابات أبدًا — فقط بيانات التوجيه والقياس.",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "عنوان URL لواجهة برمجة تطبيقات Apprise",
@@ -1870,7 +1872,7 @@
 			"savedAriaLabel": "تأكيد حفظ رموز الاسترداد",
 			"secret": "سر",
 			"secretCopied": "تم نسخ السر",
-			"title": "تطبيق المصادقة (TOTP)",
+			"title": "2FA · تطبيق المصادقة (TOTP)",
 			"verifiedSuccess": "تم تمكين المصادقة الثنائية",
 			"verify": "التحقق والتفعيل",
 			"verifyAriaLabel": "تحقق من رمز TOTP وقم بتمكينه",
@@ -1879,6 +1881,9 @@
 			"downloadCodesAriaLabel": "تنزيل رموز الاسترداد كملف نصي",
 			"failedToStart": "تعذّر بدء التسجيل: {{message}}",
 			"enabledOn": "تم التفعيل في {{date}}"
+		},
+		"authentication": {
+			"title": "المصادقة"
 		}
 	},
 	"components": {

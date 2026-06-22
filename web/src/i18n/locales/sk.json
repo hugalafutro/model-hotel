@@ -1607,7 +1607,6 @@
 			"uploadRestore": "Nahrať a obnoviť",
 			"restoring": "Obnovenie stránky…",
 			"selectBackupFile": "Vyberte záložný súbor, ktorý chcete obnoviť",
-			"availableBackups": "Dostupné zálohy ({{count}})",
 			"noBackups": "Zatiaľ nie sú k dispozícii žiadne zálohy.",
 			"download": "Stiahnuť",
 			"delete": "Odstrániť zálohu",
@@ -1642,7 +1641,8 @@
 				"prunePreviewFailed": "Nepodarilo sa zobraziť náhľad na redukciu zálohy",
 				"pruneFailed": "Neúspešné vyprázdnenie zálohy",
 				"pruneSuccess": "Odstránené zálohy {{count}}"
-			}
+			},
+			"availableBackupsTitle": "Dostupné zálohy"
 		},
 		"appearance": {
 			"title": "Vzhľad",
@@ -1782,7 +1782,8 @@
 			"saveNameAriaLabel": "Uložiť názov",
 			"cancelNameAriaLabel": "Zrušiť premenovanie",
 			"renameAriaLabel": "Premenovať prístupový kód",
-			"failedToRename": "Premenovanie prístupového kľúča sa nepodarilo: {{message}}"
+			"failedToRename": "Premenovanie prístupového kľúča sa nepodarilo: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "Vysielajte štruktúrované protokoly ako jeden objekt JSON na riadok pre zberače protokolov stdout, ako sú Fluent Bit, Vector alebo Promtail.",
@@ -1795,7 +1796,8 @@
 			"otel.instructions": "Nasmerujte to na koncový bod vášho zberača OTLP a reštartujte kontajner, aby sa protokoly odosielali cez OpenTelemetry:",
 			"otel.name": "Protokoly OpenTelemetry (OTLP)",
 			"title": "Pozorovateľnosť a export protokolov",
-			"description": "Model Hotel môže exportovať svoje štruktúrované protokoly a metriky do externých systémov. Každá integrácia je aktivovaná prostredníctvom premennej prostredia; nižšie uvedené ikony stavu odrážajú aktuálny stav. Nikdy sa neexportuje obsah žiadostí ani odpovedí – iba metadáta smerovania a merania."
+			"description": "Model Hotel môže exportovať svoje štruktúrované protokoly a metriky do externých systémov. Každá integrácia je aktivovaná prostredníctvom premennej prostredia; nižšie uvedené ikony stavu odrážajú aktuálny stav. Nikdy sa neexportuje obsah žiadostí ani odpovedí – iba metadáta smerovania a merania.",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "URL rozhrania Apprise API",
@@ -1870,7 +1872,7 @@
 			"savedAriaLabel": "Potvrďte uloženie obnovovacích kódov",
 			"secret": "Tajný kľúč",
 			"secretCopied": "Kód tajného kľúča skopírovaný",
-			"title": "Aplikácia na overovanie (TOTP)",
+			"title": "2FA · Aplikácia na overovanie (TOTP)",
 			"verifiedSuccess": "Dvojfaktorová autentifikácia je povolená",
 			"verify": "Overte a aktivujte",
 			"verifyAriaLabel": "Overte kód TOTP a aktivujte",
@@ -1879,6 +1881,9 @@
 			"downloadCodesAriaLabel": "Stiahnuť obnovovacie kódy ako textový súbor",
 			"failedToStart": "Nepodarilo sa spustiť registráciu: {{message}}",
 			"enabledOn": "Aktivované {{date}}"
+		},
+		"authentication": {
+			"title": "Overenie"
 		}
 	},
 	"components": {

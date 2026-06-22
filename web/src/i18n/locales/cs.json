@@ -1607,7 +1607,6 @@
 			"uploadRestore": "Nahrát a obnovit",
 			"restoring": "Obnovuje se…",
 			"selectBackupFile": "Vyberte záložní soubor k obnovení",
-			"availableBackups": "Dostupné zálohy ({{count}})",
 			"noBackups": "Zatím žádné zálohy.",
 			"download": "Stáhnout",
 			"delete": "Odstranit zálohu",
@@ -1642,7 +1641,8 @@
 				"prunePreviewFailed": "Náhled prunování zálohy se nezdařil",
 				"pruneFailed": "Nepodařilo se vyřezávat zálohy",
 				"pruneSuccess": "Pruned {{count}} zálohování"
-			}
+			},
+			"availableBackupsTitle": "Dostupné zálohy"
 		},
 		"appearance": {
 			"title": "Vzhled",
@@ -1782,7 +1782,8 @@
 			"saveNameAriaLabel": "Uložit název",
 			"cancelNameAriaLabel": "Zrušit přejmenování",
 			"renameAriaLabel": "Přejmenovat přístupový kód",
-			"failedToRename": "Přejmenování přístupového klíče selhalo: {{message}}"
+			"failedToRename": "Přejmenování přístupového klíče selhalo: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "Vydávejte strukturované protokoly jako jeden objekt JSON na řádek pro sběrače protokolů stdout, jako jsou Fluent Bit, Vector nebo Promtail.",
@@ -1795,7 +1796,8 @@
 			"otel.instructions": "Nasměrujte to na koncový bod sběrače OTLP a restartujte kontejner, aby se protokoly odesílaly přes OpenTelemetry:",
 			"otel.name": "Protokoly OpenTelemetry (OTLP)",
 			"title": "Sledovatelnost a export protokolů",
-			"description": "Model Hotel může exportovat své strukturované protokoly a metriky do externích systémů. Každá integrace se aktivuje pomocí proměnné prostředí; níže uvedené stavové ikony odrážejí aktuální stav. Nikdy se neexportuje obsah žádostí ani odpovědí — pouze metadata o směrování a měření."
+			"description": "Model Hotel může exportovat své strukturované protokoly a metriky do externích systémů. Každá integrace se aktivuje pomocí proměnné prostředí; níže uvedené stavové ikony odrážejí aktuální stav. Nikdy se neexportuje obsah žádostí ani odpovědí — pouze metadata o směrování a měření.",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "URL rozhraní API Apprise",
@@ -1870,7 +1872,7 @@
 			"savedAriaLabel": "Potvrďte uložení obnovovacích kódů",
 			"secret": "Tajný klíč",
 			"secretCopied": "Kopírováno z tajného souboru",
-			"title": "Aplikace pro ověřování (TOTP)",
+			"title": "2FA · Aplikace pro ověřování (TOTP)",
 			"verifiedSuccess": "Dvoufaktorová autentizace je povolena",
 			"verify": "Ověřte a aktivujte",
 			"verifyAriaLabel": "Ověřte kód TOTP a povolte",
@@ -1879,6 +1881,9 @@
 			"downloadCodesAriaLabel": "Stáhnout kódy pro obnovení jako textový soubor",
 			"failedToStart": "Nepodařilo se zahájit registraci: {{message}}",
 			"enabledOn": "Aktivováno {{date}}"
+		},
+		"authentication": {
+			"title": "Ověření"
 		}
 	},
 	"components": {

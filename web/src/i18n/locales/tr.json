@@ -1607,7 +1607,6 @@
 			"uploadRestore": "Yükle ve Geri Yükle",
 			"restoring": "… 'i geri yükleme",
 			"selectBackupFile": "Geri yüklemek istediğiniz yedekleme dosyasını seçin",
-			"availableBackups": "Mevcut Yedeklemeler ({{count}})",
 			"noBackups": "Henüz yedekleme yapılmadı.",
 			"download": "İndir",
 			"delete": "Yedeği sil",
@@ -1642,7 +1641,8 @@
 				"prunePreviewFailed": "Yedekleme budama işleminin önizlemesi yapılamadı",
 				"pruneFailed": "Yedeklemeler budanamadı",
 				"pruneSuccess": "{{count}} yedeklemesi/yedeklemeleri silindi"
-			}
+			},
+			"availableBackupsTitle": "Mevcut Yedeklemeler"
 		},
 		"appearance": {
 			"title": "Görünüm",
@@ -1782,7 +1782,8 @@
 			"saveNameAriaLabel": "Adı kaydet",
 			"cancelNameAriaLabel": "Ad değiştirme işlemini iptal et",
 			"renameAriaLabel": "Şifreyi yeniden adlandır",
-			"failedToRename": "Şifreyi yeniden adlandırma işlemi başarısız oldu: {{message}}"
+			"failedToRename": "Şifreyi yeniden adlandırma işlemi başarısız oldu: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "Fluent Bit, Vector veya Promtail gibi stdout günlük toplayıcıları için, yapılandırılmış günlükleri satır başına tek bir JSON nesnesi olarak gönderin.",
@@ -1795,7 +1796,8 @@
 			"otel.instructions": "Bunu OTLP toplayıcı uç noktanıza yönlendirin ve OpenTelemetry üzerinden günlükleri aktarmak için konteyneri yeniden başlatın:",
 			"otel.name": "OpenTelemetry günlükleri (OTLP)",
 			"title": "Gözlemlenebilirlik ve Günlük Dışa Aktarma",
-			"description": "Model Hotel, yapılandırılmış günlüklerini ve metriklerini harici sistemlere aktarabilir. Her entegrasyon bir ortam değişkeni ile etkinleştirilir; aşağıdaki durum rozetleri mevcut durumu yansıtır. Hiçbir istek veya yanıt içeriği aktarılmaz — yalnızca yönlendirme ve ölçüm meta verileri aktarılır."
+			"description": "Model Hotel, yapılandırılmış günlüklerini ve metriklerini harici sistemlere aktarabilir. Her entegrasyon bir ortam değişkeni ile etkinleştirilir; aşağıdaki durum rozetleri mevcut durumu yansıtır. Hiçbir istek veya yanıt içeriği aktarılmaz — yalnızca yönlendirme ve ölçüm meta verileri aktarılır.",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "Apprise API URL'si",
@@ -1870,7 +1872,7 @@
 			"savedAriaLabel": "Kurtarma kodlarının kaydedildiğini onayla",
 			"secret": "Gizli anahtar",
 			"secretCopied": "Gizli anahtar kopyalandı",
-			"title": "Kimlik Doğrulama Uygulaması (TOTP)",
+			"title": "2FA · Kimlik Doğrulama Uygulaması (TOTP)",
 			"verifiedSuccess": "İki faktörlü kimlik doğrulama etkinleştirildi",
 			"verify": "Doğrula ve etkinleştir",
 			"verifyAriaLabel": "TOTP kodunu doğrula ve etkinleştir",
@@ -1879,6 +1881,9 @@
 			"downloadCodesAriaLabel": "Kurtarma kodlarını metin dosyası olarak indir",
 			"failedToStart": "Kayıt başlatılamadı: {{message}}",
 			"enabledOn": "{{date}} tarihinde etkinleştirildi"
+		},
+		"authentication": {
+			"title": "Kimlik Doğrulama"
 		}
 	},
 	"components": {

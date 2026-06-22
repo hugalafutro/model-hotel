@@ -3,7 +3,7 @@ import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
-import { TotpSettings } from "../TotpSettings";
+import { TotpPanel } from "../TotpSettings";
 
 const ENROLL_URI =
 	"otpauth://totp/Model%20Hotel:admin?secret=JBSWY3DPEHPK3PXP&issuer=Model+Hotel&algorithm=SHA1&digits=6&period=30";
@@ -37,7 +37,7 @@ describe("TotpSettings", () => {
 	it("renders disabled view with Enable button when status is disabled", async () => {
 		mockStatus(false);
 
-		renderWithProviders(<TotpSettings collapsed={false} onToggle={() => {}} />);
+		renderWithProviders(<TotpPanel />);
 
 		expect(
 			await screen.findByRole("button", { name: /Enable TOTP/i }),
@@ -52,9 +52,7 @@ describe("TotpSettings", () => {
 			),
 		);
 
-		const { user } = renderWithProviders(
-			<TotpSettings collapsed={false} onToggle={() => {}} />,
-		);
+		const { user } = renderWithProviders(<TotpPanel />);
 
 		const enableBtn = await screen.findByRole("button", {
 			name: /Enable TOTP/i,
@@ -84,9 +82,7 @@ describe("TotpSettings", () => {
 			),
 		);
 
-		const { user } = renderWithProviders(
-			<TotpSettings collapsed={false} onToggle={() => {}} />,
-		);
+		const { user } = renderWithProviders(<TotpPanel />);
 
 		const enableBtn = await screen.findByRole("button", {
 			name: /Enable TOTP/i,
@@ -139,9 +135,7 @@ describe("TotpSettings", () => {
 			.spyOn(HTMLAnchorElement.prototype, "click")
 			.mockImplementation(() => {});
 
-		const { user } = renderWithProviders(
-			<TotpSettings collapsed={false} onToggle={() => {}} />,
-		);
+		const { user } = renderWithProviders(<TotpPanel />);
 
 		await user.click(
 			await screen.findByRole("button", { name: /Enable TOTP/i }),
@@ -181,9 +175,7 @@ describe("TotpSettings", () => {
 			),
 		);
 
-		const { user } = renderWithProviders(
-			<TotpSettings collapsed={false} onToggle={() => {}} />,
-		);
+		const { user } = renderWithProviders(<TotpPanel />);
 
 		await user.click(
 			await screen.findByRole("button", { name: /Enable TOTP/i }),
@@ -216,9 +208,7 @@ describe("TotpSettings", () => {
 			),
 		);
 
-		const { user } = renderWithProviders(
-			<TotpSettings collapsed={false} onToggle={() => {}} />,
-		);
+		const { user } = renderWithProviders(<TotpPanel />);
 
 		// Walk through enroll + verify to reach recovery view
 		const enableBtn = await screen.findByRole("button", {
@@ -264,7 +254,7 @@ describe("TotpSettings", () => {
 	it("renders enabled view with Disable button when status is enabled", async () => {
 		mockStatus(true);
 
-		renderWithProviders(<TotpSettings collapsed={false} onToggle={() => {}} />);
+		renderWithProviders(<TotpPanel />);
 
 		expect(
 			await screen.findByRole("button", { name: /Disable TOTP/i }),
@@ -276,7 +266,7 @@ describe("TotpSettings", () => {
 	it("shows when 2FA was enabled, formatted, when enabled_at is present", async () => {
 		mockStatus(true, "2026-04-21T09:30:00Z");
 
-		renderWithProviders(<TotpSettings collapsed={false} onToggle={() => {}} />);
+		renderWithProviders(<TotpPanel />);
 
 		// "Enabled on {{date}}"; formatDate renders day/short-month/year, whose
 		// component order is locale-dependent, so assert on stable parts.
@@ -293,9 +283,7 @@ describe("TotpSettings", () => {
 			),
 		);
 
-		const { user } = renderWithProviders(
-			<TotpSettings collapsed={false} onToggle={() => {}} />,
-		);
+		const { user } = renderWithProviders(<TotpPanel />);
 
 		const disableBtn = await screen.findByRole("button", {
 			name: /Disable TOTP/i,
@@ -338,9 +326,7 @@ describe("TotpSettings", () => {
 			),
 		);
 
-		const { user } = renderWithProviders(
-			<TotpSettings collapsed={false} onToggle={() => {}} />,
-		);
+		const { user } = renderWithProviders(<TotpPanel />);
 
 		const enableBtn = await screen.findByRole("button", {
 			name: /Enable TOTP/i,
@@ -365,7 +351,7 @@ describe("TotpSettings", () => {
 	it("renders nothing sensitive in initial disabled state", async () => {
 		mockStatus(false);
 
-		renderWithProviders(<TotpSettings collapsed={false} onToggle={() => {}} />);
+		renderWithProviders(<TotpPanel />);
 
 		// Wait for the disabled view to settle (Enable button present)
 		await screen.findByRole("button", { name: /Enable TOTP/i });
@@ -397,9 +383,7 @@ describe("TotpSettings", () => {
 			value: { writeText },
 			configurable: true,
 		});
-		const { user } = renderWithProviders(
-			<TotpSettings collapsed={false} onToggle={() => {}} />,
-		);
+		const { user } = renderWithProviders(<TotpPanel />);
 
 		await user.click(
 			await screen.findByRole("button", { name: /Enable TOTP/i }),

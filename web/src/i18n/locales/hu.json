@@ -1607,7 +1607,6 @@
 			"uploadRestore": "Feltöltés és visszaállítás",
 			"restoring": "… visszaállítása",
 			"selectBackupFile": "Válassza ki a visszaállítani kívánt biztonsági másolatot",
-			"availableBackups": "Elérhető biztonsági másolatok ({{count}})",
 			"noBackups": "Még nincs biztonsági másolat.",
 			"download": "Letöltés",
 			"delete": "Biztonsági másolat törlése",
@@ -1642,7 +1641,8 @@
 				"prunePreviewFailed": "A biztonsági mentés tisztításának előnézete nem sikerült",
 				"pruneFailed": "A biztonsági másolatok törlése nem sikerült",
 				"pruneSuccess": "{{count}} biztonsági másolat(ok) törlése"
-			}
+			},
+			"availableBackupsTitle": "Elérhető biztonsági másolatok"
 		},
 		"appearance": {
 			"title": "Megjelenés",
@@ -1782,7 +1782,8 @@
 			"saveNameAriaLabel": "Név mentése",
 			"cancelNameAriaLabel": "Az átnevezés visszavonása",
 			"renameAriaLabel": "A jelszó átnevezése",
-			"failedToRename": "A jelszó átnevezése nem sikerült: {{message}}"
+			"failedToRename": "A jelszó átnevezése nem sikerült: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "Strukturált naplókat adjon ki egy JSON-objektumként soronként, olyan stdout naplógyűjtők számára, mint a Fluent Bit, a Vector vagy a Promtail.",
@@ -1795,7 +1796,8 @@
 			"otel.instructions": "Irányítsa ezt az OTLP-gyűjtő végpontjára, és indítsa újra a konténert a naplófájlok OpenTelemetry-n keresztüli továbbításához:",
 			"otel.name": "OpenTelemetry naplófájlok (OTLP)",
 			"title": "Megfigyelhetőség és naplóexport",
-			"description": "A Model Hotel strukturált naplóit és mutatóit külső rendszerekbe exportálhatja. Minden integrációt egy környezeti változóval lehet engedélyezni; az alábbi állapotjelzők a jelenlegi állapotot tükrözik. Soha nem kerül exportálásra semmilyen kérés vagy válasz tartalma — csak az útválasztási és mérési metaadatok."
+			"description": "A Model Hotel strukturált naplóit és mutatóit külső rendszerekbe exportálhatja. Minden integrációt egy környezeti változóval lehet engedélyezni; az alábbi állapotjelzők a jelenlegi állapotot tükrözik. Soha nem kerül exportálásra semmilyen kérés vagy válasz tartalma — csak az útválasztási és mérési metaadatok.",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "Apprise API URL",
@@ -1870,7 +1872,7 @@
 			"savedAriaLabel": "Ellenőrizze a mentett helyreállítási kódokat",
 			"secret": "Titkos",
 			"secretCopied": "Titkos kulcs másolva",
-			"title": "Hitelesítő alkalmazás (TOTP)",
+			"title": "2FA · Hitelesítő alkalmazás (TOTP)",
 			"verifiedSuccess": "Kétfaktoros hitelesítés engedélyezve",
 			"verify": "Ellenőrizze és engedélyezze",
 			"verifyAriaLabel": "Ellenőrizze a TOTP-kódot, és engedélyezze",
@@ -1879,6 +1881,9 @@
 			"downloadCodesAriaLabel": "Helyreállítási kódok letöltése szövegfájlként",
 			"failedToStart": "Nem sikerült elindítani a regisztrációt: {{message}}",
 			"enabledOn": "Engedélyezve: {{date}}"
+		},
+		"authentication": {
+			"title": "Hitelesítés"
 		}
 	},
 	"components": {

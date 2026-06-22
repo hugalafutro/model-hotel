@@ -1650,7 +1650,6 @@
 			"uploadRestore": "Upload & Restore",
 			"restoring": "Restoring…",
 			"selectBackupFile": "Select backup file to restore",
-			"availableBackups": "Available Backups ({{count}})",
 			"noBackups": "No backups yet.",
 			"download": "Download",
 			"delete": "Delete backup",
@@ -1685,7 +1684,8 @@
 				"prunePreviewFailed": "Failed to preview backup pruning",
 				"pruneFailed": "Failed to prune backups",
 				"pruneSuccess": "Pruned {{count}} backup(s)"
-			}
+			},
+			"availableBackupsTitle": "Available backups"
 		},
 		"appearance": {
 			"title": "Appearance",
@@ -1813,7 +1813,8 @@
 			"metrics.instructions": "Set a dedicated scrape token to provision Prometheus metrics. /metrics is already reachable using the admin token.",
 			"otel.name": "OpenTelemetry logs (OTLP)",
 			"otel.description": "Push the same structured logs to an OpenTelemetry collector over OTLP (logs only, no tracing or metrics).",
-			"otel.instructions": "Point this at your OTLP collector endpoint and restart the container to push logs over OpenTelemetry:"
+			"otel.instructions": "Point this at your OTLP collector endpoint and restart the container to push logs over OpenTelemetry:",
+			"targets": "Targets"
 		},
 		"passkeys": {
 			"title": "Passkeys",
@@ -1838,10 +1839,11 @@
 			"saveNameAriaLabel": "Save name",
 			"cancelNameAriaLabel": "Cancel renaming",
 			"renameAriaLabel": "Rename passkey",
-			"failedToRename": "Failed to rename passkey: {{message}}"
+			"failedToRename": "Failed to rename passkey: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"totp": {
-			"title": "Authenticator App (TOTP)",
+			"title": "2FA · Authenticator App (TOTP)",
 			"description": "Add a time-based one-time password as a second factor for the admin login.",
 			"enable": "Enable",
 			"enableDescription": "Scan the QR code with an authenticator app (e.g. Google Authenticator, Authy, 1Password), then enter the 6-digit code it shows.",
@@ -1879,6 +1881,9 @@
 			"downloadCodesAriaLabel": "Download recovery codes as a text file",
 			"failedToStart": "Could not start enrollment: {{message}}",
 			"enabledOn": "Enabled on {{date}}"
+		},
+		"authentication": {
+			"title": "Authentication"
 		}
 	},
 	"components": {

@@ -14,6 +14,7 @@ import type { BackupClassification } from "../../api/types";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { Modal } from "../../components/Modal";
 import { RestoreConfirmModal } from "../../components/RestoreConfirmModal";
+import { SettingsGroup } from "../../components/SettingsGroup";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
 import { Spinner } from "../../components/Spinner";
@@ -187,15 +188,10 @@ export function DatabaseBackupSettings({
 					/>
 				</p>
 
-				{/* Periodic backup toggle */}
-				<div className="bg-(--surface-elevated) rounded-[var(--radius-card,0.375rem)] p-3 space-y-3">
+				{/* Periodic backup */}
+				<SettingsGroup title={t("settings.backup.rotation.title")}>
 					<div className="flex items-center justify-between">
 						<div>
-							<div className="flex items-center gap-1">
-								<p className="text-sm font-medium text-(--text-primary)">
-									{t("settings.backup.rotation.title")}
-								</p>
-							</div>
 							<p className="text-xs text-(--text-muted) mt-0.5">
 								{t("settings.backup.rotation.enabledDescription")}
 							</p>
@@ -318,7 +314,7 @@ export function DatabaseBackupSettings({
 							/>
 						</div>
 					)}
-				</div>
+				</SettingsGroup>
 
 				{/* Double-confirm modal for enabling periodic backup */}
 				{showEnableConfirm && (
@@ -489,123 +485,123 @@ export function DatabaseBackupSettings({
 					/>
 				)}
 
-				{/* Action buttons row */}
-				<div className="flex items-center justify-between">
-					<button
-						type="button"
-						onClick={() => createMutation.mutate()}
-						disabled={createMutation.isPending}
-						className="ui-btn ui-btn-primary flex items-center gap-2"
-					>
-						{createMutation.isPending ? <Spinner /> : <Plus size={14} />}
-						{createMutation.isPending
-							? t("settings.backup.creatingBackup")
-							: t("settings.backup.createBackup")}
-					</button>
-					<div className="flex items-center gap-2">
-						<input
-							ref={fileInputRef}
-							type="file"
-							accept=".dump"
-							className="hidden"
-							aria-label={t("settings.backup.selectBackupFile")}
-							onChange={(e) => {
-								const file = e.target.files?.[0];
-								if (file) {
-									setRestoreFile(file);
-									setShowRestoreModal(true);
-								}
-								e.target.value = "";
-							}}
-						/>
+				{/* Available backups */}
+				<SettingsGroup title={t("settings.backup.availableBackupsTitle")}>
+					{/* Action buttons row */}
+					<div className="flex items-center justify-between">
 						<button
 							type="button"
-							onClick={() => fileInputRef.current?.click()}
-							disabled={isRestoring}
-							className="ui-btn flex items-center gap-2 border border-dashed border-(--border-default) text-(--text-secondary) hover:text-(--text-primary) hover:border-(--accent) hover:bg-(--surface-elevated) transition-colors"
+							onClick={() => createMutation.mutate()}
+							disabled={createMutation.isPending}
+							className="ui-btn ui-btn-primary flex items-center gap-2"
 						>
-							<Upload size={14} />
-							{isRestoring
-								? t("settings.backup.restoring")
-								: t("settings.backup.uploadRestore")}
+							{createMutation.isPending ? <Spinner /> : <Plus size={14} />}
+							{createMutation.isPending
+								? t("settings.backup.creatingBackup")
+								: t("settings.backup.createBackup")}
 						</button>
-					</div>
-				</div>
-
-				{/* Backup list */}
-				{isLoading ? (
-					<LoadingSpinner />
-				) : backups && backups.length > 0 ? (
-					<div className="space-y-2 max-h-[300px] overflow-y-auto">
-						<h4 className="text-xs font-semibold uppercase tracking-wider text-(--text-muted) py-1">
-							{t("settings.backup.availableBackups", { count: backups.length })}
-						</h4>
-						{backups.map((backup) => (
-							<div
-								key={backup.filename}
-								className="flex items-center justify-between bg-(--surface-elevated) rounded-[var(--radius-card,0.375rem)] border border-(--border-default) p-3"
+						<div className="flex items-center gap-2">
+							<input
+								ref={fileInputRef}
+								type="file"
+								accept=".dump"
+								className="hidden"
+								aria-label={t("settings.backup.selectBackupFile")}
+								onChange={(e) => {
+									const file = e.target.files?.[0];
+									if (file) {
+										setRestoreFile(file);
+										setShowRestoreModal(true);
+									}
+									e.target.value = "";
+								}}
+							/>
+							<button
+								type="button"
+								onClick={() => fileInputRef.current?.click()}
+								disabled={isRestoring}
+								className="ui-btn flex items-center gap-2 border border-dashed border-(--border-default) text-(--text-secondary) hover:text-(--text-primary) hover:border-(--accent) hover:bg-(--surface-elevated) transition-colors"
 							>
-								<div className="min-w-0 flex-1">
-									<p className="text-sm font-medium text-(--text-primary) truncate">
-										{backup.filename}
-									</p>
-									<p className="text-xs text-(--text-muted)">
-										{formatBytes(backup.size_bytes)} -{" "}
-										{formatDateTimeShort(backup.created_at)}
-									</p>
-								</div>
-								<div className="flex items-center gap-2 ml-3 shrink-0">
-									{confirmDelete === backup.filename ? (
-										<>
-											<span className="text-xs text-red-400">
-												{t("settings.backup.deleteConfirm")}
-											</span>
-											<button
-												type="button"
-												onClick={() => deleteMutation.mutate(backup.filename)}
-												disabled={deleteMutation.isPending}
-												className="ui-btn ui-btn-danger text-xs px-2 py-1"
-											>
-												{t("settings.backup.confirm")}
-											</button>
-											<button
-												type="button"
-												onClick={() => setConfirmDelete(null)}
-												className="ui-btn ui-btn-secondary text-xs px-2 py-1"
-											>
-												{t("settings.backup.cancel")}
-											</button>
-										</>
-									) : (
-										<>
-											<button
-												type="button"
-												onClick={() => downloadBackup(backup.filename)}
-												className="ui-btn ui-btn-secondary text-xs px-2 py-1 flex items-center gap-1"
-											>
-												<Download size={12} />
-												{t("settings.backup.download")}
-											</button>
-											<button
-												type="button"
-												onClick={() => setConfirmDelete(backup.filename)}
-												className="ui-btn ui-btn-danger text-xs px-2 py-1"
-												title={t("settings.backup.delete")}
-												aria-label={t("settings.backup.delete")}
-											>
-												<Trash2 size={12} />
-											</button>
-										</>
-									)}
-								</div>
-							</div>
-						))}
+								<Upload size={14} />
+								{isRestoring
+									? t("settings.backup.restoring")
+									: t("settings.backup.uploadRestore")}
+							</button>
+						</div>
 					</div>
-				) : (
-					<p className="text-xs text-(--text-muted)">
-						{t("settings.backup.noBackups")}
-					</p>
-				)}
+
+					{/* Backup list */}
+					{isLoading ? (
+						<LoadingSpinner />
+					) : backups && backups.length > 0 ? (
+						<div className="space-y-2 max-h-[300px] overflow-y-auto">
+							{backups.map((backup) => (
+								<div
+									key={backup.filename}
+									className="flex items-center justify-between bg-(--surface-elevated) rounded-[var(--radius-card,0.375rem)] border border-(--border-default) p-3"
+								>
+									<div className="min-w-0 flex-1">
+										<p className="text-sm font-medium text-(--text-primary) truncate">
+											{backup.filename}
+										</p>
+										<p className="text-xs text-(--text-muted)">
+											{formatBytes(backup.size_bytes)} -{" "}
+											{formatDateTimeShort(backup.created_at)}
+										</p>
+									</div>
+									<div className="flex items-center gap-2 ml-3 shrink-0">
+										{confirmDelete === backup.filename ? (
+											<>
+												<span className="text-xs text-red-400">
+													{t("settings.backup.deleteConfirm")}
+												</span>
+												<button
+													type="button"
+													onClick={() => deleteMutation.mutate(backup.filename)}
+													disabled={deleteMutation.isPending}
+													className="ui-btn ui-btn-danger text-xs px-2 py-1"
+												>
+													{t("settings.backup.confirm")}
+												</button>
+												<button
+													type="button"
+													onClick={() => setConfirmDelete(null)}
+													className="ui-btn ui-btn-secondary text-xs px-2 py-1"
+												>
+													{t("settings.backup.cancel")}
+												</button>
+											</>
+										) : (
+											<>
+												<button
+													type="button"
+													onClick={() => downloadBackup(backup.filename)}
+													className="ui-btn ui-btn-secondary text-xs px-2 py-1 flex items-center gap-1"
+												>
+													<Download size={12} />
+													{t("settings.backup.download")}
+												</button>
+												<button
+													type="button"
+													onClick={() => setConfirmDelete(backup.filename)}
+													className="ui-btn ui-btn-danger text-xs px-2 py-1"
+													title={t("settings.backup.delete")}
+													aria-label={t("settings.backup.delete")}
+												>
+													<Trash2 size={12} />
+												</button>
+											</>
+										)}
+									</div>
+								</div>
+							))}
+						</div>
+					) : (
+						<p className="text-xs text-(--text-muted)">
+							{t("settings.backup.noBackups")}
+						</p>
+					)}
+				</SettingsGroup>
 			</div>
 		</SettingsSection>
 	);

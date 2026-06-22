@@ -1607,7 +1607,6 @@
 			"uploadRestore": "Prześlij i przywracaj",
 			"restoring": "Przywracanie…",
 			"selectBackupFile": "Wybierz plik kopii zapasowej do przywrócenia",
-			"availableBackups": "Dostępne kopie zapasowe ({{count}})",
 			"noBackups": "Brak kopii zapasowych.",
 			"download": "Pobierz",
 			"delete": "Usuń kopię zapasową",
@@ -1642,7 +1641,8 @@
 				"prunePreviewFailed": "Podgląd kopii zapasowej nie powiódł się",
 				"pruneFailed": "Nie udało się usunąć kopii zapasowych",
 				"pruneSuccess": "Pruned {{count}} backup(s)"
-			}
+			},
+			"availableBackupsTitle": "Dostępne kopie zapasowe"
 		},
 		"appearance": {
 			"title": "Wygląd",
@@ -1782,7 +1782,8 @@
 			"saveNameAriaLabel": "Zapisz nazwę",
 			"cancelNameAriaLabel": "Anuluj zmianę nazwy",
 			"renameAriaLabel": "Zmień nazwę hasła",
-			"failedToRename": "Nie udało się zmienić nazwy hasła: {{message}}"
+			"failedToRename": "Nie udało się zmienić nazwy hasła: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "Generuj ustrukturyzowane logi jako jeden obiekt JSON na linię dla kolektorów logów stdout, takich jak Fluent Bit, Vector lub Promtail.",
@@ -1795,7 +1796,8 @@
 			"otel.instructions": "Skieruj to na swój punkt końcowy kolektora OTLP i uruchom ponownie kontener, aby przesłać logi przez OpenTelemetry:",
 			"otel.name": "Logi OpenTelemetry (OTLP)",
 			"title": "Obserwowalność i eksport logów",
-			"description": "Model Hotel może eksportować swoje ustrukturyzowane logi i metryki do systemów zewnętrznych. Każda integracja jest włączana za pomocą zmiennej środowiskowej; poniższe znaczniki statusu odzwierciedlają aktualny stan. Nigdy nie są eksportowane treści żądań ani odpowiedzi — tylko metadane dotyczące routingu i pomiarów."
+			"description": "Model Hotel może eksportować swoje ustrukturyzowane logi i metryki do systemów zewnętrznych. Każda integracja jest włączana za pomocą zmiennej środowiskowej; poniższe znaczniki statusu odzwierciedlają aktualny stan. Nigdy nie są eksportowane treści żądań ani odpowiedzi — tylko metadane dotyczące routingu i pomiarów.",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "Adres URL interfejsu API Apprise",
@@ -1870,7 +1872,7 @@
 			"savedAriaLabel": "Potwierdź zapisanie kodów odzyskiwania",
 			"secret": "Sekret",
 			"secretCopied": "Skrót skopiowany",
-			"title": "Aplikacja uwierzytelniająca (TOTP)",
+			"title": "2FA · Aplikacja uwierzytelniająca (TOTP)",
 			"verifiedSuccess": "Włączone uwierzytelnianie dwuskładnikowe",
 			"verify": "Sprawdź i włącz",
 			"verifyAriaLabel": "Zweryfikuj kod TOTP i włącz",
@@ -1879,6 +1881,9 @@
 			"downloadCodesAriaLabel": "Pobierz kody odzyskiwania jako plik tekstowy",
 			"failedToStart": "Nie można rozpocząć rejestracji: {{message}}",
 			"enabledOn": "Włączono {{date}}"
+		},
+		"authentication": {
+			"title": "Uwierzytelnianie"
 		}
 	},
 	"components": {

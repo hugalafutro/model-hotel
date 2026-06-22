@@ -1607,7 +1607,6 @@
 			"uploadRestore": "Pujar i restaurar",
 			"restoring": "Restabliment d…",
 			"selectBackupFile": "Seleccioneu el fitxer de còpia de seguretat per restaurar",
-			"availableBackups": "Copies de seguretat disponibles ({{count}})",
 			"noBackups": "Encara no hi ha còpies de seguretat.",
 			"download": "Descarrega",
 			"delete": "Suprimeix la còpia de seguretat",
@@ -1642,7 +1641,8 @@
 				"prunePreviewFailed": "S'ha produït un error en previsualitzar la poda de còpies de seguretat.",
 				"pruneFailed": "S'ha fallat la poda de còpies de seguretat",
 				"pruneSuccess": "Retallat(s) de còpia de seguretat de {{count}}"
-			}
+			},
+			"availableBackupsTitle": "Copies de seguretat disponibles"
 		},
 		"appearance": {
 			"title": "Aparença",
@@ -1782,7 +1782,8 @@
 			"saveNameAriaLabel": "Desa nom",
 			"cancelNameAriaLabel": "Cancel·la el canvi de nom",
 			"renameAriaLabel": "Renombrar la clau d'accés",
-			"failedToRename": "S'ha fallat el canvi de nom de la clau d'accés: {{message}}"
+			"failedToRename": "S'ha fallat el canvi de nom de la clau d'accés: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "Emet registres estructurats com un sol objecte JSON per línia, per a recollidors de registres stdout com ara Fluent Bit, Vector o Promtail.",
@@ -1795,7 +1796,8 @@
 			"otel.instructions": "Apunteu això al vostre punt final de recollida OTLP i reinicieu el contenidor per enviar registres a través d'OpenTelemetry:",
 			"otel.name": "Registres d'OpenTelemetry (OTLP)",
 			"title": "Observabilitat i exportació de registres",
-			"description": "Model Hotel pot exportar els seus registres i mètriques estructurats a sistemes externs. Cada integració s'activa amb una variable d'entorn; les insígnies d'estat de sota reflecteixen l'estat actual. El contingut de cap sol·licitud ni resposta s'exporta mai, només les metadades de rutes i mesurament."
+			"description": "Model Hotel pot exportar els seus registres i mètriques estructurats a sistemes externs. Cada integració s'activa amb una variable d'entorn; les insígnies d'estat de sota reflecteixen l'estat actual. El contingut de cap sol·licitud ni resposta s'exporta mai, només les metadades de rutes i mesurament.",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "URL de l'API Apprise",
@@ -1870,7 +1872,7 @@
 			"savedAriaLabel": "Confirmar els codis de recuperació desats",
 			"secret": "Secret",
 			"secretCopied": "Secret copiat",
-			"title": "Aplicació d'autenticació (TOTP)",
+			"title": "2FA · Aplicació d'autenticació (TOTP)",
 			"verifiedSuccess": "Activada l'autenticació de dos factors",
 			"verify": "Verificar i habilitar",
 			"verifyAriaLabel": "Verifica el codi TOTP i activa",
@@ -1879,6 +1881,9 @@
 			"downloadCodesAriaLabel": "Baixa els codis de recuperació com a fitxer de text",
 			"failedToStart": "No s'ha pogut iniciar la inscripció: {{message}}",
 			"enabledOn": "Activat el {{date}}"
+		},
+		"authentication": {
+			"title": "Autenticació"
 		}
 	},
 	"components": {

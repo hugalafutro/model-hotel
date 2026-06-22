@@ -1607,7 +1607,6 @@
 			"uploadRestore": "Oplaai en herstel",
 			"restoring": "Restour…",
 			"selectBackupFile": "Kies rugsteunlêer om te herstel",
-			"availableBackups": "Beskikbare rugsteun ({{count}})",
 			"noBackups": "Nog geen rugsteun nie.",
 			"download": "Aflaai",
 			"delete": "Verwyder rugsteun",
@@ -1642,7 +1641,8 @@
 				"prunePreviewFailed": "Misluk om rugsteun-snoei te voorskou",
 				"pruneFailed": "Misgeluk om rugsteun uit te snoei",
 				"pruneSuccess": "Geskreide {{count}} -rugsteun(e)"
-			}
+			},
+			"availableBackupsTitle": "Beskikbare rugsteun"
 		},
 		"appearance": {
 			"title": "Uiterlike voorkoms",
@@ -1782,7 +1782,8 @@
 			"saveNameAriaLabel": "Bewaar naam",
 			"cancelNameAriaLabel": "Annuleer hernoeming",
 			"renameAriaLabel": "Herbenoem pasleutel",
-			"failedToRename": "Het misluk om die paswoord te hernoem: {{message}}"
+			"failedToRename": "Het misluk om die paswoord te hernoem: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "Gestruktureerde loglêings as een JSON-voorwerp per reël, vir stdout-logversamelaars soos Fluent Bit, Vector of Promtail.",
@@ -1795,7 +1796,8 @@
 			"otel.instructions": "Rig dit op jou OTLP-versamelaar-eindpunt en herbegin die houer om logs via OpenTelemetry oor te stuur:",
 			"otel.name": "OpenTelemetry-logs (OTLP)",
 			"title": "Observabiliteit & Log-uitvoer",
-			"description": "Model Hotel kan sy gestruktureerde loglêers en metrieks na eksterne stelsels uitvoer. Elke integrasie word met 'n omgewingsveranderlike geaktiveer; die statuskentekens hieronder weerspieël die huidige toestand. Geen versoek- of reaksie-inhoud word ooit uitgevoer nie — slegs roetering- en meetmetagegewens."
+			"description": "Model Hotel kan sy gestruktureerde loglêers en metrieks na eksterne stelsels uitvoer. Elke integrasie word met 'n omgewingsveranderlike geaktiveer; die statuskentekens hieronder weerspieël die huidige toestand. Geen versoek- of reaksie-inhoud word ooit uitgevoer nie — slegs roetering- en meetmetagegewens.",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "Apprise API-URL",
@@ -1870,7 +1872,7 @@
 			"savedAriaLabel": "Bevestig dat herstelkodes gestoor is",
 			"secret": "Geheime",
 			"secretCopied": "Geheime gekopieer",
-			"title": "Verifikasie-app (TOTP)",
+			"title": "2FA · Verifikasie-app (TOTP)",
 			"verifiedSuccess": "Twee-faktor-verifikasie geaktiveer",
 			"verify": "Verifieer en aktiveer",
 			"verifyAriaLabel": "Verifieer TOTP-kode en aktiveer",
@@ -1879,6 +1881,9 @@
 			"downloadCodesAriaLabel": "Laai herstelkodes af as 'n tekslêer",
 			"failedToStart": "Kon nie inskrywing begin nie: {{message}}",
 			"enabledOn": "Geaktiveer op {{date}}"
+		},
+		"authentication": {
+			"title": "Verifikasie"
 		}
 	},
 	"components": {

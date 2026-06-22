@@ -1607,7 +1607,6 @@
 			"uploadRestore": "上传并恢复",
 			"restoring": "正在恢复…",
 			"selectBackupFile": "选择要还原的备份文件",
-			"availableBackups": "可用备份 ({{count}})",
 			"noBackups": "尚无备份。",
 			"download": "下载",
 			"delete": "删除备份",
@@ -1642,7 +1641,8 @@
 				"prunePreviewFailed": "预览备份打印失败",
 				"pruneFailed": "刷新备份失败",
 				"pruneSuccess": "已删除 {{count}} 备份"
-			}
+			},
+			"availableBackupsTitle": "可用备份"
 		},
 		"appearance": {
 			"title": "外观",
@@ -1782,7 +1782,8 @@
 			"saveNameAriaLabel": "保存名称",
 			"cancelNameAriaLabel": "取消重命名",
 			"renameAriaLabel": "重命名密码",
-			"failedToRename": "重命名密钥失败： {{message}}"
+			"failedToRename": "重命名密钥失败： {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "为 Fluent Bit、Vector 或 Promtail 等标准输出日志收集器生成结构化日志，每行输出一个 JSON 对象。",
@@ -1795,7 +1796,8 @@
 			"otel.instructions": "将此配置指向您的 OTLP 收集器端点，并重启容器以通过 OpenTelemetry 推送日志：",
 			"otel.name": "OpenTelemetry 日志 (OTLP)",
 			"title": "可观测性与日志导出",
-			"description": "Model Hotel 可将其结构化日志和指标导出至外部系统。每项集成均通过环境变量启用；下方的状态图标反映当前状态。绝不导出任何请求或响应内容——仅导出路由和计量元数据。"
+			"description": "Model Hotel 可将其结构化日志和指标导出至外部系统。每项集成均通过环境变量启用；下方的状态图标反映当前状态。绝不导出任何请求或响应内容——仅导出路由和计量元数据。",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "Apprise API URL",
@@ -1870,7 +1872,7 @@
 			"savedAriaLabel": "确认已保存恢复码",
 			"secret": "密钥",
 			"secretCopied": "密钥已复制",
-			"title": "身份验证器应用 (TOTP)",
+			"title": "2FA · 身份验证器应用 (TOTP)",
 			"verifiedSuccess": "双重身份验证已启用",
 			"verify": "验证并启用",
 			"verifyAriaLabel": "验证 TOTP 代码并启用",
@@ -1879,6 +1881,9 @@
 			"downloadCodesAriaLabel": "将恢复码下载为文本文件",
 			"failedToStart": "无法开始注册：{{message}}",
 			"enabledOn": "于 {{date}} 启用"
+		},
+		"authentication": {
+			"title": "身份验证"
 		}
 	},
 	"components": {

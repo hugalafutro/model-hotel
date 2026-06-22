@@ -1607,7 +1607,6 @@
 			"uploadRestore": "Carica E Ripristino",
 			"restoring": "Ripristino…",
 			"selectBackupFile": "Seleziona il file di backup da ripristinare",
-			"availableBackups": "Backup Disponibili ({{count}})",
 			"noBackups": "Ancora nessun backup.",
 			"download": "Scarica",
 			"delete": "Elimina backup",
@@ -1642,7 +1641,8 @@
 				"prunePreviewFailed": "Impossibile visualizzare l'anteprima della potatura del backup",
 				"pruneFailed": "Potatura backup non riuscita",
 				"pruneSuccess": "Eliminati {{count}} backup"
-			}
+			},
+			"availableBackupsTitle": "Backup Disponibili"
 		},
 		"appearance": {
 			"title": "Aspetto",
@@ -1782,7 +1782,8 @@
 			"saveNameAriaLabel": "Salva nome",
 			"cancelNameAriaLabel": "Annulla rinominazione",
 			"renameAriaLabel": "Rinomina password",
-			"failedToRename": "Impossibile rinominare la passkey: {{message}}"
+			"failedToRename": "Impossibile rinominare la passkey: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "Generare log strutturati come un oggetto JSON per riga, per i collettori di log stdout come Fluent Bit, Vector o Promtail.",
@@ -1795,7 +1796,8 @@
 			"otel.instructions": "Indirizzarlo all'endpoint del collettore OTLP e riavviare il container per inviare i log tramite OpenTelemetry:",
 			"otel.name": "Log OpenTelemetry (OTLP)",
 			"title": "Osservabilità ed esportazione dei log",
-			"description": "Model Hotel può esportare i propri log e metriche strutturati verso sistemi esterni. Ogni integrazione è abilitata tramite una variabile d'ambiente; i badge di stato riportati di seguito riflettono lo stato attuale. Non viene mai esportato alcun contenuto di richiesta o risposta, ma solo metadati di instradamento e misurazione."
+			"description": "Model Hotel può esportare i propri log e metriche strutturati verso sistemi esterni. Ogni integrazione è abilitata tramite una variabile d'ambiente; i badge di stato riportati di seguito riflettono lo stato attuale. Non viene mai esportato alcun contenuto di richiesta o risposta, ma solo metadati di instradamento e misurazione.",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "URL dell’API Apprise",
@@ -1870,7 +1872,7 @@
 			"savedAriaLabel": "Verificare che i codici di ripristino siano stati salvati",
 			"secret": "Segreto",
 			"secretCopied": "Segreto copiato",
-			"title": "App di autenticazione (TOTP)",
+			"title": "2FA · App di autenticazione (TOTP)",
 			"verifiedSuccess": "Autenticazione a due fattori abilitata",
 			"verify": "Verificare e abilitare",
 			"verifyAriaLabel": "Verifica il codice TOTP e abilita",
@@ -1879,6 +1881,9 @@
 			"downloadCodesAriaLabel": "Scarica i codici di recupero come file di testo",
 			"failedToStart": "Impossibile avviare la registrazione: {{message}}",
 			"enabledOn": "Attivato il {{date}}"
+		},
+		"authentication": {
+			"title": "Autenticazione"
 		}
 	},
 	"components": {

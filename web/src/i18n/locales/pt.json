@@ -1607,7 +1607,6 @@
 			"uploadRestore": "Enviar e Restaurar",
 			"restoring": "Restaurando…",
 			"selectBackupFile": "Selecione o arquivo de backup para restaurar",
-			"availableBackups": "Backups disponíveis ({{count}})",
 			"noBackups": "Nenhum backup ainda.",
 			"download": "BAIXAR",
 			"delete": "Excluir backup",
@@ -1642,7 +1641,8 @@
 				"prunePreviewFailed": "Falha ao pré-visualizar a limpeza de backup",
 				"pruneFailed": "Falha ao remover backups",
 				"pruneSuccess": "{{count}} backup(s) eliminado(s)"
-			}
+			},
+			"availableBackupsTitle": "Backups disponíveis"
 		},
 		"appearance": {
 			"title": "Aparência",
@@ -1782,7 +1782,8 @@
 			"saveNameAriaLabel": "Salvar nome",
 			"cancelNameAriaLabel": "Cancelar renomeação",
 			"renameAriaLabel": "Renomear senha",
-			"failedToRename": "Falha ao renomear a senha: {{message}}"
+			"failedToRename": "Falha ao renomear a senha: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "Emita logs estruturados como um objeto JSON por linha, para coletores de logs stdout, como Fluent Bit, Vector ou Promtail.",
@@ -1795,7 +1796,8 @@
 			"otel.instructions": "Aponte isso para o seu endpoint do coletor OTLP e reinicie o contêiner para enviar logs via OpenTelemetry:",
 			"otel.name": "Logs do OpenTelemetry (OTLP)",
 			"title": "Observabilidade e exportação de logs",
-			"description": "O Model Hotel pode exportar seus logs e métricas estruturados para sistemas externos. Cada integração é ativada por uma variável de ambiente; os ícones de status abaixo refletem o estado atual. Nenhum conteúdo de solicitação ou resposta é exportado — apenas metadados de roteamento e medição."
+			"description": "O Model Hotel pode exportar seus logs e métricas estruturados para sistemas externos. Cada integração é ativada por uma variável de ambiente; os ícones de status abaixo refletem o estado atual. Nenhum conteúdo de solicitação ou resposta é exportado — apenas metadados de roteamento e medição.",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "URL da API do Apprise",
@@ -1870,7 +1872,7 @@
 			"savedAriaLabel": "Confirme se os códigos de recuperação foram salvos",
 			"secret": "Segredo",
 			"secretCopied": "Segredo copiado",
-			"title": "Aplicativo autenticador (TOTP)",
+			"title": "2FA · Aplicativo autenticador (TOTP)",
 			"verifiedSuccess": "Autenticação de dois fatores ativada",
 			"verify": "Verifique e habilite",
 			"verifyAriaLabel": "Verifique o código TOTP e habilite",
@@ -1879,6 +1881,9 @@
 			"downloadCodesAriaLabel": "Baixar os códigos de recuperação como arquivo de texto",
 			"failedToStart": "Não foi possível iniciar o registo: {{message}}",
 			"enabledOn": "Ativado em {{date}}"
+		},
+		"authentication": {
+			"title": "Autenticação"
 		}
 	},
 	"components": {

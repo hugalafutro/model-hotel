@@ -1607,7 +1607,6 @@
 			"uploadRestore": "업로드 및 복원",
 			"restoring": "… 복원",
 			"selectBackupFile": "복원할 백업 파일을 선택하세요",
-			"availableBackups": "사용 가능한 백업 ({{count}})",
 			"noBackups": "아직 백업이 없습니다.",
 			"download": "다운로드",
 			"delete": "백업 삭제",
@@ -1642,7 +1641,8 @@
 				"prunePreviewFailed": "백업 정리 미리 보기에 실패했습니다",
 				"pruneFailed": "백업 정리 실패",
 				"pruneSuccess": "{{count}} 백업 파일 삭제"
-			}
+			},
+			"availableBackupsTitle": "사용 가능한 백업"
 		},
 		"appearance": {
 			"title": "외관",
@@ -1782,7 +1782,8 @@
 			"saveNameAriaLabel": "이름 저장",
 			"cancelNameAriaLabel": "이름 변경 취소",
 			"renameAriaLabel": "패스키 이름 변경",
-			"failedToRename": "암호명 변경에 실패했습니다: {{message}}"
+			"failedToRename": "암호명 변경에 실패했습니다: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "Fluent Bit, Vector, Promtail과 같은 stdout 로그 수집기를 위해, 구조화된 로그를 한 줄에 하나의 JSON 객체 형태로 출력하십시오.",
@@ -1795,7 +1796,8 @@
 			"otel.instructions": "이 설정을 OTLP 수집기 엔드포인트로 지정하고 컨테이너를 재시작하여 OpenTelemetry를 통해 로그를 전송하십시오:",
 			"otel.name": "OpenTelemetry 로그(OTLP)",
 			"title": "가시성 및 로그 내보내기",
-			"description": "Model Hotel은 구조화된 로그와 메트릭을 외부 시스템으로 내보낼 수 있습니다. 각 통합 기능은 환경 변수를 통해 활성화되며, 하단의 상태 배지는 현재 상태를 나타냅니다. 요청이나 응답 콘텐츠는 절대 내보내지지 않으며, 라우팅 및 계량 메타데이터만 내보내집니다."
+			"description": "Model Hotel은 구조화된 로그와 메트릭을 외부 시스템으로 내보낼 수 있습니다. 각 통합 기능은 환경 변수를 통해 활성화되며, 하단의 상태 배지는 현재 상태를 나타냅니다. 요청이나 응답 콘텐츠는 절대 내보내지지 않으며, 라우팅 및 계량 메타데이터만 내보내집니다.",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "Apprise API URL",
@@ -1870,7 +1872,7 @@
 			"savedAriaLabel": "복구 코드가 저장되었는지 확인",
 			"secret": "비밀",
 			"secretCopied": "비밀 정보 복사됨",
-			"title": "인증 앱(TOTP)",
+			"title": "2FA · 인증 앱(TOTP)",
 			"verifiedSuccess": "2단계 인증 활성화됨",
 			"verify": "확인 및 활성화",
 			"verifyAriaLabel": "TOTP 코드 확인 및 활성화",
@@ -1879,6 +1881,9 @@
 			"downloadCodesAriaLabel": "복구 코드를 텍스트 파일로 다운로드",
 			"failedToStart": "등록을 시작할 수 없습니다: {{message}}",
 			"enabledOn": "{{date}}에 활성화됨"
+		},
+		"authentication": {
+			"title": "인증"
 		}
 	},
 	"components": {

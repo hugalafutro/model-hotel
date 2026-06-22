@@ -12,6 +12,7 @@ import { ResetButton } from "../components/ResetButton";
 import { useToast } from "../context/ToastContext";
 import { AlertsSettings } from "./Settings/AlertsSettings";
 import { AppearanceSettings } from "./Settings/AppearanceSettings";
+import { AuthenticationSettings } from "./Settings/AuthenticationSettings";
 import { CircuitBreakerSettings } from "./Settings/CircuitBreakerSettings";
 import { DatabaseBackupSettings } from "./Settings/DatabaseBackupSettings";
 import { DataStorageSettings } from "./Settings/DataStorageSettings";
@@ -22,10 +23,8 @@ import {
 	type SettingKey,
 } from "./Settings/defaults";
 import { ObservabilitySettings } from "./Settings/ObservabilitySettings";
-import { PasskeySettings } from "./Settings/PasskeySettings";
 import { ProxySettings } from "./Settings/ProxySettings";
 import { RateLimitSettings } from "./Settings/RateLimitSettings";
-import { TotpSettings } from "./Settings/TotpSettings";
 
 export function Settings() {
 	const { t } = useTranslation();
@@ -48,12 +47,8 @@ export function Settings() {
 	const { collapsed: proxyCollapsed, toggle: toggleProxy } = useCollapsible(
 		"settings_proxyCollapsed",
 	);
-	const { collapsed: passkeyCollapsed, toggle: togglePasskey } = useCollapsible(
-		"settings_passkeyCollapsed",
-	);
-	const { collapsed: totpCollapsed, toggle: toggleTotp } = useCollapsible(
-		"settings_totpCollapsed",
-	);
+	const { collapsed: authenticationCollapsed, toggle: toggleAuthentication } =
+		useCollapsible("settings_authenticationCollapsed");
 	const { collapsed: observabilityCollapsed, toggle: toggleObservability } =
 		useCollapsible("settings_observabilityCollapsed");
 	const { collapsed: alertsCollapsed, toggle: toggleAlerts } = useCollapsible(
@@ -135,12 +130,10 @@ export function Settings() {
 					onResetSection={() => setResetSection("discovery")}
 				/>
 
-				<PasskeySettings
-					collapsed={passkeyCollapsed}
-					onToggle={togglePasskey}
+				<AuthenticationSettings
+					collapsed={authenticationCollapsed}
+					onToggle={toggleAuthentication}
 				/>
-
-				<TotpSettings collapsed={totpCollapsed} onToggle={toggleTotp} />
 
 				<AppearanceSettings
 					collapsed={appearanceCollapsed}

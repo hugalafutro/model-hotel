@@ -1607,7 +1607,6 @@
 			"uploadRestore": "Ladda upp och återställ",
 			"restoring": "Återställer…",
 			"selectBackupFile": "Välj backupfil att återställa",
-			"availableBackups": "Tillgängliga säkerhetskopior ({{count}})",
 			"noBackups": "Inga säkerhetskopior ännu.",
 			"download": "Hämta",
 			"delete": "Ta bort säkerhetskopia",
@@ -1642,7 +1641,8 @@
 				"prunePreviewFailed": "Det gick inte att förhandsgranska säkerhetskopia",
 				"pruneFailed": "Det gick inte att beskära säkerhetskopior",
 				"pruneSuccess": "Beskärda {{count}} säkerhetskopior"
-			}
+			},
+			"availableBackupsTitle": "Tillgängliga säkerhetskopior"
 		},
 		"appearance": {
 			"title": "Utseende",
@@ -1782,7 +1782,8 @@
 			"saveNameAriaLabel": "Spara namn",
 			"cancelNameAriaLabel": "Avbryt namnbyte",
 			"renameAriaLabel": "Döp om lösenordet",
-			"failedToRename": "Det gick inte att byta namn på lösenord: {{message}}"
+			"failedToRename": "Det gick inte att byta namn på lösenord: {{message}}",
+			"unavailableDescription": "Passkeys are not supported by this browser or device."
 		},
 		"observability": {
 			"json.description": "Skicka strukturerade loggar som ett JSON-objekt per rad, för stdout-loggsamlare som Fluent Bit, Vector eller Promtail.",
@@ -1795,7 +1796,8 @@
 			"otel.instructions": "Peka detta mot din OTLP-samlarändpunkt och starta om containern för att skicka loggar via OpenTelemetry:",
 			"otel.name": "OpenTelemetry-loggar (OTLP)",
 			"title": "Observabilitet och loggexport",
-			"description": "Model Hotel kan exportera sina strukturerade loggar och mätvärden till externa system. Varje integration aktiveras med en miljövariabel; statusmarkeringarna nedan återspeglar det aktuella läget. Inget innehåll från förfrågningar eller svar exporteras någonsin – endast metadata om routning och mätning."
+			"description": "Model Hotel kan exportera sina strukturerade loggar och mätvärden till externa system. Varje integration aktiveras med en miljövariabel; statusmarkeringarna nedan återspeglar det aktuella läget. Inget innehåll från förfrågningar eller svar exporteras någonsin – endast metadata om routning och mätning.",
+			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "Apprise API-URL",
@@ -1870,7 +1872,7 @@
 			"savedAriaLabel": "Bekräfta att återställningskoder sparats",
 			"secret": "Hemlighet",
 			"secretCopied": "Hemlighet kopierad",
-			"title": "Autentiseringsapp (TOTP)",
+			"title": "2FA · Autentiseringsapp (TOTP)",
 			"verifiedSuccess": "Tvåfaktorsautentisering aktiverad",
 			"verify": "Verifiera och aktivera",
 			"verifyAriaLabel": "Verifiera TOTP-kod och aktivera",
@@ -1879,6 +1881,9 @@
 			"downloadCodesAriaLabel": "Ladda ner återställningskoder som en textfil",
 			"failedToStart": "Det gick inte att starta registreringen: {{message}}",
 			"enabledOn": "Aktiverat {{date}}"
+		},
+		"authentication": {
+			"title": "Autentisering"
 		}
 	},
 	"components": {
