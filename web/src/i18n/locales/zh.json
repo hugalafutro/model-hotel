@@ -1851,7 +1851,6 @@
 			"confirmDisableAriaLabel": "确认禁用 TOTP",
 			"copied": "已复制到剪贴板",
 			"copyAll": "复制所有代码",
-			"copyAllAriaLabel": "复制所有恢复码",
 			"copySecretAriaLabel": "复制 TOTP 密钥",
 			"description": "为管理员登录添加基于时间的一次性密码作为第二重验证。",
 			"disable": "禁用",

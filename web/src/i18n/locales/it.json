@@ -1851,7 +1851,6 @@
 			"confirmDisableAriaLabel": "Confermare la disattivazione del TOTP",
 			"copied": "Copiato negli appunti",
 			"copyAll": "Copiare tutti i codici",
-			"copyAllAriaLabel": "Copiare tutti i codici di ripristino",
 			"copySecretAriaLabel": "Copia il segreto TOTP",
 			"description": "Aggiungere una password monouso a tempo come secondo fattore di autenticazione per l’accesso amministrativo.",
 			"disable": "Disabilita",

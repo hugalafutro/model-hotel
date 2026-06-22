@@ -414,7 +414,7 @@ describe("TotpSettings", () => {
 			}),
 		);
 		await user.click(
-			await screen.findByRole("button", { name: /Copy all recovery codes/i }),
+			await screen.findByRole("button", { name: /Copy all codes/i }),
 		);
 		expect(await screen.findByText(/Copied to clipboard/i)).toBeInTheDocument();
 	});

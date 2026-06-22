@@ -230,6 +230,7 @@ function CredentialRow({
 							}}
 							className="ui-link-accent flex items-center gap-1.5 text-sm text-white group truncate"
 							aria-label={t("settings.passkeys.renameAriaLabel")}
+							title={t("common.edit")}
 						>
 							<span className="truncate" title={displayName}>
 								{displayName}
@@ -252,6 +253,7 @@ function CredentialRow({
 				disabled={deleteMutation.isPending}
 				className="text-(--text-muted) hover:text-red-400 transition-colors p-1 disabled:opacity-50"
 				aria-label={t("settings.passkeys.deleteAriaLabel")}
+				title={t("common.delete")}
 			>
 				<Trash2 size={16} />
 			</button>

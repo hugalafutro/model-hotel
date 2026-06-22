@@ -393,7 +393,7 @@ Failover does **not** trigger on:
 
 | Condition | Behavior | Reason |
 |-----------|----------|--------|
-| **HTTP 400** (bad request / param rejection) | **Triggers auto-retry on SAME provider with stripped parameters** | Parameter rejection may be due to unsupported/invalid parameters; retry removes rejected params and tries again on the same provider |
+| **HTTP 400** (bad request / param rejection) | **Triggers auto-retry on SAME provider with the offending parameter stripped or renamed** | The provider's 400 names the unsupported parameter; the retry drops it (e.g. an injected `chat_template_args` or `thinking` a strict backend rejects) and tries again on the same provider. The one exception is a param that carries the caller's token budget: when a model demands `max_completion_tokens` instead of `max_tokens` (OpenAI gpt-5 / o-series), the value is renamed rather than dropped, so the response stays capped. The learned rejection is cached per model, so later requests skip the round-trip. |
 | **HTTP 404** (model not found at provider) | Always triggers failover | Stale DB entry, overloaded provider returning not_found |
 | **Other 4xx errors** (422, etc.) | Returned to client as-is | Client errors (validation errors) are not retriable |
 | **Slow responses** | No latency-based failover exists | There is no response-time threshold that triggers failover |

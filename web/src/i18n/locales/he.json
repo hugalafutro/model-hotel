@@ -1851,7 +1851,6 @@
 			"confirmDisableAriaLabel": "אשר השבתת TOTP",
 			"copied": "הועתק ללוח",
 			"copyAll": "העתיקו את כל הקודים",
-			"copyAllAriaLabel": "העתיקו את כל קודי השחזור",
 			"copySecretAriaLabel": "העתק את הסוד של TOTP",
 			"description": "יש להוסיף סיסמה חד-פעמית מבוססת זמן כגורם אימות שני לכניסת מנהל המערכת.",
 			"disable": "השבת",

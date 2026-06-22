@@ -1851,7 +1851,6 @@
 			"confirmDisableAriaLabel": "Confirme a desativação do TOTP",
 			"copied": "Copiado para a área de transferência",
 			"copyAll": "Copie todos os códigos",
-			"copyAllAriaLabel": "Copie todos os códigos de recuperação",
 			"copySecretAriaLabel": "Copie o segredo TOTP",
 			"description": "Adicione uma senha de uso único baseada em tempo como segundo fator de autenticação para o login de administrador.",
 			"disable": "Desativar",

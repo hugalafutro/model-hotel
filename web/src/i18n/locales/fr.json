@@ -1851,7 +1851,6 @@
 			"confirmDisableAriaLabel": "Confirmer la désactivation du TOTP",
 			"copied": "Copié dans le presse-papiers",
 			"copyAll": "Copiez tous les codes",
-			"copyAllAriaLabel": "Copiez tous les codes de récupération",
 			"copySecretAriaLabel": "Copier le secret TOTP",
 			"description": "Ajoutez un mot de passe à usage unique basé sur le temps comme deuxième facteur d’authentification pour la connexion à l’interface d’administration.",
 			"disable": "Désactiver",

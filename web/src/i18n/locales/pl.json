@@ -1851,7 +1851,6 @@
 			"confirmDisableAriaLabel": "Potwierdź wyłączenie TOTP",
 			"copied": "Skopiowano do schowka",
 			"copyAll": "Skopiuj wszystkie kody",
-			"copyAllAriaLabel": "Skopiuj wszystkie kody odzyskiwania",
 			"copySecretAriaLabel": "Skopiuj sekret TOTP",
 			"description": "Należy dodać jednorazowe hasło oparte na czasie jako drugi czynnik uwierzytelniający przy logowaniu administratora.",
 			"disable": "Wyłącz",

@@ -12,7 +12,7 @@ import { useTranslation } from "react-i18next";
 import { FuseOutline } from "../components/FuseOutline";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 
-type ToastType = "success" | "error" | "info" | "warning";
+export type ToastType = "success" | "error" | "info" | "warning";
 
 export type ToastPosition =
 	| "top-left"

@@ -1851,7 +1851,6 @@
 			"confirmDisableAriaLabel": "Potvrďte deaktiváciu TOTP",
 			"copied": "Kopírované do schránky",
 			"copyAll": "Skopírujte všetky kódy",
-			"copyAllAriaLabel": "Skopírujte všetky obnovovacie kódy",
 			"copySecretAriaLabel": "Skopírujte tajný kód TOTP",
 			"description": "Pridajte časovo viazané jednorazové heslo ako druhý faktor pri prihlásení do administrátorského rozhrania.",
 			"disable": "Deaktivovať",

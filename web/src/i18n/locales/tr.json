@@ -1851,7 +1851,6 @@
 			"confirmDisableAriaLabel": "TOTP'yi devre dışı bırakmayı onayla",
 			"copied": "Panoya kopyalandı",
 			"copyAll": "Tüm kodları kopyala",
-			"copyAllAriaLabel": "Tüm kurtarma kodlarını kopyala",
 			"copySecretAriaLabel": "TOTP gizli anahtarını kopyala",
 			"description": "Yönetici girişi için ikinci faktör olarak zaman tabanlı tek kullanımlık parola ekleyin.",
 			"disable": "Devre dışı bırak",

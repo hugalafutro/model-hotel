@@ -1851,7 +1851,6 @@
 			"confirmDisableAriaLabel": "TOTPの無効化を確認してください",
 			"copied": "クリップボードにコピーしました",
 			"copyAll": "すべてのコードをコピーしてください",
-			"copyAllAriaLabel": "すべてのリカバリコードをコピーしてください",
 			"copySecretAriaLabel": "TOTPシークレットをコピーする",
 			"description": "管理者ログインの2要素認証として、時間ベースのワンタイムパスワードを追加してください。",
 			"disable": "無効化",

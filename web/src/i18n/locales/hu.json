@@ -1851,7 +1851,6 @@
 			"confirmDisableAriaLabel": "Erősítse meg a TOTP letiltását",
 			"copied": "Másolva a vágólapra",
 			"copyAll": "Másolja át az összes kódot",
-			"copyAllAriaLabel": "Másolja át az összes helyreállítási kódot",
 			"copySecretAriaLabel": "TOTP-titok másolása",
 			"description": "Adjon hozzá egy időalapú egyszeri jelszót második tényezőként az adminisztrátori bejelentkezéshez.",
 			"disable": "Letiltás",

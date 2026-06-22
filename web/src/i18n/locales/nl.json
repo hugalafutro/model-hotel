@@ -1851,7 +1851,6 @@
 			"confirmDisableAriaLabel": "Bevestig het uitschakelen van TOTP",
 			"copied": "Gekopieerd naar het klembord",
 			"copyAll": "Kopieer alle codes",
-			"copyAllAriaLabel": "Kopieer alle herstelcodes",
 			"copySecretAriaLabel": "Kopieer het TOTP-geheim",
 			"description": "Voeg een op tijd gebaseerd eenmalig wachtwoord toe als tweede authenticatiefactor voor het inloggen als beheerder.",
 			"disable": "Uitschakelen",

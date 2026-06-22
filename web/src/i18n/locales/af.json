@@ -1851,7 +1851,6 @@
 			"confirmDisableAriaLabel": "Bevestig TOTP-afskakeling",
 			"copied": "Na knipbord gekopieer",
 			"copyAll": "Kopieer alle kodes",
-			"copyAllAriaLabel": "Kopieer al die herstelkodes",
 			"copySecretAriaLabel": "Kopieer TOTP-geheim",
 			"description": "Voeg 'n tydgebaseerde eenmalige wagwoord by as 'n tweede faktor vir die admin-aanmelding.",
 			"disable": "Deaktiveer",

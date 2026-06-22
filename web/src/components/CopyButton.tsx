@@ -1,12 +1,14 @@
 import { useTranslation } from "react-i18next";
 import { Copy } from "@/lib/icons";
-import { useToast } from "../context/ToastContext";
+import { type ToastType, useToast } from "../context/ToastContext";
 
 interface CopyButtonProps {
 	text: string;
 	size?: number;
 	className?: string;
 	title?: string;
+	/** Toast severity shown on a successful copy. Defaults to "info". */
+	toastType?: ToastType;
 }
 
 export function CopyButton({
@@ -14,6 +16,7 @@ export function CopyButton({
 	size = 10,
 	className = "ui-icon-btn inline-flex items-center",
 	title,
+	toastType = "info",
 }: CopyButtonProps) {
 	const { t } = useTranslation();
 	const { toast } = useToast();
@@ -24,7 +27,7 @@ export function CopyButton({
 			onClick={() => {
 				navigator.clipboard
 					.writeText(text)
-					.then(() => toast(t("common.copiedToClipboard"), "info"))
+					.then(() => toast(t("common.copiedToClipboard"), toastType))
 					.catch(() => toast(t("common.failedToCopy"), "error"));
 			}}
 			title={title ?? t("common.copy")}

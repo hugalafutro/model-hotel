@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, Copy, Download, X } from "@/lib/icons";
 import { api, setAdminToken } from "../../api/client";
+import { CopyButton } from "../../components/CopyButton";
 import { useToast } from "../../context/ToastContext";
 import { formatDate } from "../../utils/format";
 
@@ -136,15 +137,6 @@ export function TotpPanel() {
 		}
 	};
 
-	const handleCopyAllCodes = async () => {
-		try {
-			await navigator.clipboard.writeText(recoveryCodes.join("\n"));
-			toast(t("settings.totp.copied"), "success");
-		} catch {
-			toast(t("common.failedToCopy"), "error");
-		}
-	};
-
 	const handleDownloadCodes = () => {
 		const blob = new Blob([`${recoveryCodes.join("\n")}\n`], {
 			type: "text/plain",
@@ -169,15 +161,23 @@ export function TotpPanel() {
 	if (showRecovery && recoveryCodes.length > 0) {
 		return (
 			<div className="space-y-4">
-				<div className="p-3 bg-amber-900/30 border border-amber-600 rounded-lg">
+				<div className="p-3 bg-amber-900/30 border border-amber-600 rounded-(--radius-box)">
 					<p className="text-sm text-amber-300 font-medium">
 						{t("settings.totp.recoveryCodesWarning")}
 					</p>
 				</div>
 				<div>
-					<h3 className="text-sm font-medium text-(--text-primary) mb-2">
-						{t("settings.totp.recoveryCodes")}
-					</h3>
+					<div className="flex items-center justify-between mb-2">
+						<h3 className="text-sm font-medium text-(--text-primary)">
+							{t("settings.totp.recoveryCodes")}
+						</h3>
+						<CopyButton
+							text={recoveryCodes.join("\n")}
+							size={16}
+							title={t("settings.totp.copyAll")}
+							toastType="success"
+						/>
+					</div>
 					<div className="p-3 bg-(--surface-elevated) rounded-[var(--radius-card,0.375rem)] border border-(--border-default)">
 						<div className="font-mono text-sm space-y-1">
 							{recoveryCodes.map((code) => (
@@ -188,16 +188,7 @@ export function TotpPanel() {
 						</div>
 					</div>
 				</div>
-				<div className="flex gap-2">
-					<button
-						type="button"
-						onClick={handleCopyAllCodes}
-						className="ui-btn ui-btn-secondary"
-						aria-label={t("settings.totp.copyAllAriaLabel")}
-					>
-						<Copy size={16} />
-						{t("settings.totp.copyAll")}
-					</button>
+				<div className="flex flex-wrap gap-2">
 					<button
 						type="button"
 						onClick={handleDownloadCodes}
