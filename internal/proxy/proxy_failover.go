@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptrace"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -339,7 +340,7 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 		needsRewrite := st.reqModel != candidate.model.ModelID || providerType == "anthropic" || NeedsProviderInjection(providerType) || st.isStreaming
 		debuglog.Debug("proxy: request rewrite check", "needs_rewrite", needsRewrite, "request_model", logData.modelID, "provider", logData.providerName, "resolved_model", candidate.model.ModelID, "provider_type", providerType)
 		if needsRewrite {
-			upstreamBody = buildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, st.isStreaming, &h.deprecationCache, nil)
+			upstreamBody = buildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, st.isStreaming, &h.deprecationCache, &h.paramRenameCache, nil)
 		}
 		// Log the actual model name in the upstream body for debugging rewrite
 		// issues. Chat-only: multipart bodies must never reach debug logs.
@@ -616,47 +617,33 @@ func (h *Handler) retryWithStrippedParams(
 	if readErr != nil {
 		return res
 	}
+	// A 400 can ask us to drop a param (rejected → strip) and/or move a param to
+	// a new name (rename → preserve value). Both feed the same self-heal: learn,
+	// cache for future preemptive application, and retry once.
 	rejected := parseProviderParamError(body)
-	if rejected == nil {
+	renames := parseProviderParamRename(body)
+	if rejected == nil && renames == nil {
 		return res
 	}
 
-	// Cache the learned rejections for future preemptive stripping.
-	// Merge with any existing entries using CompareAndSwap to avoid
+	// Cache the learned rejections and renames for future preemptive application.
+	// Each cache is merged with any existing entries via CompareAndSwap to avoid
 	// data races from concurrent goroutines mutating the same map.
-	// NOTE: Values are stored as *map[string]bool to support CompareAndSwap
-	// (maps are not comparable, so pointers are required).
 	cacheKey := fmt.Sprintf("%s:%s", providerType, candidate.model.ModelID)
-	for {
-		existing, loaded := h.deprecationCache.LoadOrStore(cacheKey, &rejected)
-		if !loaded {
-			// First entry for this key — we just stored 'rejected'.
-			break
-		}
-		// Merge with existing, creating a new map to avoid data races.
-		merged := make(map[string]bool)
-		existingMap, ok := existing.(*map[string]bool)
-		if !ok {
-			debuglog.Error("deprecationCache: unexpected type", "key", cacheKey, "type", fmt.Sprintf("%T", existing))
-			break
-		}
-		for k := range *existingMap {
-			merged[k] = true
-		}
-		for k := range rejected {
-			merged[k] = true
-		}
-		if h.deprecationCache.CompareAndSwap(cacheKey, existing, &merged) {
-			break
-		}
-		// CompareAndSwap failed — another goroutine updated it, retry.
+	if rejected != nil {
+		mergeLearnedParamCache(&h.deprecationCache, cacheKey, rejected)
+	}
+	if renames != nil {
+		mergeLearnedParamCache(&h.paramRenameCache, cacheKey, renames)
 	}
 
-	// Rebuild the request body using the shared rewrite path.
-	// This ensures stream_options injection, universal/learned param
-	// stripping, and InjectProviderParams are all applied on retry,
-	// preventing drift from the initial attempt path.
-	rebuilt := buildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, st.isStreaming, &h.deprecationCache, rejected)
+	// Rebuild the request body using the shared rewrite path. This ensures
+	// stream_options injection, provider injection, universal/learned param
+	// stripping, and learned renaming are all applied on retry, preventing drift
+	// from the initial attempt path. The renames just cached are picked up from
+	// paramRenameCache; the freshly-rejected params are also passed as extraStrip
+	// so the immediate retry strips them even before the cache write is observed.
+	rebuilt := buildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, st.isStreaming, &h.deprecationCache, &h.paramRenameCache, rejected)
 	retryCtx, rc := context.WithTimeout(r.Context(), st.failoverTimeout)
 	retryCtx = context.WithValue(retryCtx, ctxkeys.CancelOriginKey, "retry_timeout")
 	retryCtx = context.WithValue(retryCtx, ctxkeys.DialMsKey, dialMs)
@@ -700,6 +687,47 @@ func (h *Handler) retryWithStrippedParams(
 	res.resp = retryResp
 	res.retryCancel = rc
 	res.retried = true
-	debuglog.Info("proxy: auto-retry succeeded", "model", candidate.model.ModelID, "rejected_params", mapKeys(rejected))
+	debuglog.Info("proxy: auto-retry succeeded", "model", candidate.model.ModelID, "rejected_params", mapKeys(rejected), "renamed_params", renameKeys(renames))
 	return res
+}
+
+// mergeLearnedParamCache merges newly-learned per-model param metadata into a
+// sync.Map cache keyed by "providerType:modelID", race-free under concurrent
+// goroutines via CompareAndSwap. Values are stored as *map[string]V (pointers,
+// because maps are not comparable and CompareAndSwap requires comparable values).
+func mergeLearnedParamCache[V any](cache *sync.Map, key string, learned map[string]V) {
+	for {
+		existing, loaded := cache.LoadOrStore(key, &learned)
+		if !loaded {
+			return // first entry for this key — we just stored 'learned'
+		}
+		existingMap, ok := existing.(*map[string]V)
+		if !ok {
+			debuglog.Error("learned param cache: unexpected type", "key", key, "type", fmt.Sprintf("%T", existing))
+			return
+		}
+		merged := make(map[string]V, len(*existingMap)+len(learned))
+		for k, v := range *existingMap {
+			merged[k] = v
+		}
+		for k, v := range learned {
+			merged[k] = v
+		}
+		if cache.CompareAndSwap(key, existing, &merged) {
+			return
+		}
+		// CompareAndSwap failed — another goroutine updated it, retry.
+	}
+}
+
+// renameKeys returns the old param names from a rename map, for log fields.
+func renameKeys(m map[string]string) []string {
+	if len(m) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }

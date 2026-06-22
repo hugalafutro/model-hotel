@@ -336,15 +336,20 @@ func breakerRecordAction(statusCode int) breakerAction {
 //  1. Model rename (client model → resolved model)
 //  2. stream_options injection (streaming + OpenAI-compatible providers only)
 //  3. Provider-specific param injection (InjectProviderParams)
-//  4. Universal param stripping (providerUnsupportedParams)
-//  5. Learned param stripping (deprecationCache)
-//  6. Extra param stripping (additional rejected params, e.g. from 400 auto-retry)
+//  4. Learned param renaming (paramRenameCache, e.g. max_tokens → max_completion_tokens)
+//  5. Universal param stripping (providerUnsupportedParams)
+//  6. Learned param stripping (deprecationCache)
+//  7. Extra param stripping (additional rejected params, e.g. from 400 auto-retry)
 //
-// Injection (step 3) runs before all stripping (steps 4-6) so that a param a
+// Injection (step 3) runs before all stripping (steps 5-7) so that a param a
 // provider injects but the upstream then rejects (learned into the deprecation
 // cache) is removed and stays removed on subsequent requests. Were injection
 // last, a learned rejection would be re-added on every fresh request, forcing a
 // 400+retry round-trip every time instead of just the first.
+//
+// Renaming (step 4) runs before stripping so the moved value lands under its new
+// key before any strip phase could delete the old key — a rename must preserve
+// the caller's value (e.g. their token budget), unlike a strip which discards it.
 func buildUpstreamBody(
 	proxyReqBody []byte,
 	providerType string,
@@ -352,6 +357,7 @@ func buildUpstreamBody(
 	requestModel string,
 	isStreaming bool,
 	deprecationCache *sync.Map,
+	renameCache *sync.Map,
 	extraStrip map[string]bool,
 ) []byte {
 	var raw map[string]interface{}
@@ -377,22 +383,37 @@ func buildUpstreamBody(
 	// than the param being re-added after the strip phases.
 	InjectProviderParams(raw, providerType, resolvedModelID)
 
-	// 4. Universal param stripping
+	cacheKey := fmt.Sprintf("%s:%s", providerType, resolvedModelID)
+
+	// 4. Learned param renaming (runs before stripping to preserve the value).
+	// Each rename moves old→new only when old is present and new is not already
+	// set, so an explicit caller value under the new key is never overwritten.
+	if renames := getCachedRenames(renameCache, cacheKey); renames != nil {
+		for oldName, newName := range renames {
+			if v, ok := raw[oldName]; ok {
+				if _, exists := raw[newName]; !exists {
+					raw[newName] = v
+				}
+				delete(raw, oldName)
+			}
+		}
+	}
+
+	// 5. Universal param stripping
 	if params, ok := providerUnsupportedParams[providerType]; ok {
 		for _, p := range params {
 			delete(raw, p)
 		}
 	}
 
-	// 5. Learned param stripping
-	cacheKey := fmt.Sprintf("%s:%s", providerType, resolvedModelID)
+	// 6. Learned param stripping
 	if cached := getCachedRejectedParams(deprecationCache, cacheKey); cached != nil {
 		for param := range cached {
 			delete(raw, param)
 		}
 	}
 
-	// 6. Extra param stripping (e.g. newly-learned rejections from 400 auto-retry)
+	// 7. Extra param stripping (e.g. newly-learned rejections from 400 auto-retry)
 	for param := range extraStrip {
 		delete(raw, param)
 	}
