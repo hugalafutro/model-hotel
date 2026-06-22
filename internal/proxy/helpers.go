@@ -335,10 +335,16 @@ func breakerRecordAction(statusCode int) breakerAction {
 // Steps (applied in order):
 //  1. Model rename (client model → resolved model)
 //  2. stream_options injection (streaming + OpenAI-compatible providers only)
-//  3. Universal param stripping (providerUnsupportedParams)
-//  4. Learned param stripping (deprecationCache)
-//  5. Provider-specific param injection (InjectProviderParams)
+//  3. Provider-specific param injection (InjectProviderParams)
+//  4. Universal param stripping (providerUnsupportedParams)
+//  5. Learned param stripping (deprecationCache)
 //  6. Extra param stripping (additional rejected params, e.g. from 400 auto-retry)
+//
+// Injection (step 3) runs before all stripping (steps 4-6) so that a param a
+// provider injects but the upstream then rejects (learned into the deprecation
+// cache) is removed and stays removed on subsequent requests. Were injection
+// last, a learned rejection would be re-added on every fresh request, forcing a
+// 400+retry round-trip every time instead of just the first.
 func buildUpstreamBody(
 	proxyReqBody []byte,
 	providerType string,
@@ -365,23 +371,26 @@ func buildUpstreamBody(
 		}
 	}
 
-	// 3. Universal param stripping
+	// 3. Provider-specific param injection.
+	// Runs before all stripping so a learned/extra rejection of an injected
+	// param (e.g. chat_template_args) removes it and keeps it removed, rather
+	// than the param being re-added after the strip phases.
+	InjectProviderParams(raw, providerType, resolvedModelID)
+
+	// 4. Universal param stripping
 	if params, ok := providerUnsupportedParams[providerType]; ok {
 		for _, p := range params {
 			delete(raw, p)
 		}
 	}
 
-	// 4. Learned param stripping
+	// 5. Learned param stripping
 	cacheKey := fmt.Sprintf("%s:%s", providerType, resolvedModelID)
 	if cached := getCachedRejectedParams(deprecationCache, cacheKey); cached != nil {
 		for param := range cached {
 			delete(raw, param)
 		}
 	}
-
-	// 5. Provider-specific param injection
-	InjectProviderParams(raw, providerType, resolvedModelID)
 
 	// 6. Extra param stripping (e.g. newly-learned rejections from 400 auto-retry)
 	for param := range extraStrip {

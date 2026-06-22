@@ -137,6 +137,17 @@ func parseProviderParamError(body []byte) map[string]bool {
 			rejected[p] = true
 		}
 	}
+	// chat_template_args is a non-standard field model-hotel injects for some
+	// OpenCode providers (see InjectProviderParams). Strict upstream backends
+	// reject it with varying message formats and quote styles, e.g. vLLM's
+	// "Extra inputs are not permitted, field: 'chat_template_args'" (single
+	// quotes) or OpenAI's "Unrecognized request argument: chat_template_args"
+	// (bare). The token is specific enough that a bare substring match is safe —
+	// it has no other meaning in an error message. Stripping it on retry trades
+	// reasoning output for a successful completion on models that reject it.
+	if strings.Contains(msg, "chat_template_args") {
+		rejected["chat_template_args"] = true
+	}
 	// Also catch any top_{single_letter} variant when backtick/quote-wrapped
 	if idx := strings.Index(msg, "`top_"); idx >= 0 && idx+7 <= len(msg) {
 		c := msg[idx+5]
