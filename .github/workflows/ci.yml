@@ -415,9 +415,12 @@ jobs:
       - frontend-coverage
       - notices
       - docker-build
+    # Serialize publishes (never cancel): combined with the HEAD guard below, a
+    # superseded older run skips its push rather than being cancelled mid-push,
+    # so a newer run failing later never discards the last good gated candidate.
     concurrency:
       group: publish-dev-${{ github.ref }}
-      cancel-in-progress: true
+      cancel-in-progress: false
     permissions:
       contents: read
     env:
@@ -451,14 +454,34 @@ jobs:
         if: steps.head.outputs.skip == 'false'
         uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
 
-      - name: Build and push :dev
+      # Build the candidate and load it into the local daemon so the very image
+      # that gets scanned is the image that gets pushed (same digest). Scanning
+      # docker-build's separate artifact would not cover base-image/Alpine drift
+      # between that job and this rebuild.
+      - name: Build :dev candidate (load for scan)
         if: steps.head.outputs.skip == 'false'
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7
         with:
           context: .
-          push: true
-          tags: ${{ env.DOCKERHUB_IMAGE }}:dev
+          load: true
+          tags: model-hotel:dev-candidate
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
           provenance: false
+
+      - name: Scan :dev candidate for fixable HIGH/CRITICAL vulnerabilities
+        if: steps.head.outputs.skip == 'false'
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: model-hotel:dev-candidate
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: 1
+
+      - name: Push the scanned image as :dev
+        if: steps.head.outputs.skip == 'false'
+        run: |
+          docker tag model-hotel:dev-candidate "${DOCKERHUB_IMAGE}:dev"
+          docker push "${DOCKERHUB_IMAGE}:dev"
