@@ -384,3 +384,26 @@ jobs:
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: 1
+
+      # Publish a rolling :dev image to Docker Hub on every master commit, so a
+      # second "staging" instance can track master just by pointing its compose
+      # image: line at <DOCKERHUB_USERNAME>/model-hotel:dev (vs :latest for prod).
+      # Only on direct pushes to master — never PRs, which can't see secrets — and
+      # only after the Trivy gate above passes, so :dev clears the same fixable
+      # HIGH/CRITICAL bar as a release. The image carries no VERSION build-arg, so
+      # it self-reports version "dev". The :dev tag is a moving tag the prune
+      # workflow leaves untouched (it only prunes vX.Y.Z and orphaned sha- tags).
+      - name: Log in to Docker Hub
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Push :dev image to Docker Hub
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        env:
+          DOCKERHUB_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/model-hotel
+        run: |
+          docker tag model-hotel:ci "${DOCKERHUB_IMAGE}:dev"
+          docker push "${DOCKERHUB_IMAGE}:dev"
