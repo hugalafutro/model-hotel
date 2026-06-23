@@ -13,7 +13,6 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/totp"
-	"github.com/hugalafutro/model-hotel/internal/util"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
 
@@ -90,23 +89,7 @@ func (h *TotpHandler) Register(r chi.Router) {
 // enabled, the raw admin token is a first factor only and must not unlock
 // enroll/disable, so the second factor cannot be bypassed.
 func (h *TotpHandler) adminOrSessionAuth(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token, ok := util.ParseBearerToken(r)
-		if !ok {
-			http.Error(w, "Authorization header required (Bearer token)", http.StatusUnauthorized)
-			return
-		}
-		// Raw admin token only when TOTP disabled (mirrors Handler.AuthMiddleware).
-		if (h.totpEnabled == nil || !h.totpEnabled()) && h.adminMgr.Validate(token) {
-			next.ServeHTTP(w, r)
-			return
-		}
-		if h.sessionMgr != nil && h.sessionMgr.Validate(r.Context(), token) {
-			next.ServeHTTP(w, r)
-			return
-		}
-		http.Error(w, "Invalid admin token or session token", http.StatusUnauthorized)
-	})
+	return requireAdminOrSession(h.adminMgr, h.sessionMgr, h.totpEnabled, next)
 }
 
 // statusResponse is the GET /api/totp/status payload. EnabledAt is the RFC3339

@@ -101,29 +101,7 @@ func (h *WebAuthnHandler) Register(r chi.Router) {
 // token for WebAuthn management routes. This allows passkey-authenticated
 // sessions to manage their own credentials.
 func (h *WebAuthnHandler) adminOrSessionAuth(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token, ok := util.ParseBearerToken(r)
-		if !ok {
-			http.Error(w, "Authorization header required (Bearer token)", http.StatusUnauthorized)
-			return
-		}
-
-		// Raw admin token only when TOTP disabled (mirrors Handler.AuthMiddleware).
-		// With TOTP on, the raw admin token is a first factor only and must not
-		// unlock passkey management (register/rename/delete credentials), or a
-		// bare admin token bearer could bypass the second factor.
-		if (h.totpEnabled == nil || !h.totpEnabled()) && h.adminMgr.Validate(token) {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		if h.sessionMgr != nil && h.sessionMgr.Validate(r.Context(), token) {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		http.Error(w, "Invalid admin token or session token", http.StatusUnauthorized)
-	})
+	return requireAdminOrSession(h.adminMgr, h.sessionMgr, h.totpEnabled, next)
 }
 
 // sessionTTL is the time-to-live for WebAuthn registration/login sessions.
