@@ -17,13 +17,19 @@ import (
 // SessionManager handles WebAuthn-based admin session authentication.
 // It validates bearer tokens stored as WebAuthn session records of type "auth_token",
 // following the same hash-then-lookup pattern as admin.Manager (SHA-256 + constant-time compare).
+//
+// It depends on the SessionStore interface (not the concrete *Repository) so the
+// same login logic can run over Postgres in the main server or SQLite in the HA
+// Front Desk control plane.
 type SessionManager struct {
-	repo *Repository
+	store SessionStore
 }
 
-// NewSessionManager creates a new SessionManager backed by the given repository.
-func NewSessionManager(repo *Repository) *SessionManager {
-	return &SessionManager{repo: repo}
+// NewSessionManager creates a new SessionManager backed by the given session
+// store. The main server passes *Repository (Postgres); Front Desk passes its
+// SQLite store. Both satisfy SessionStore.
+func NewSessionManager(store SessionStore) *SessionManager {
+	return &SessionManager{store: store}
 }
 
 // Validate checks whether the given token is a valid, non-expired auth token
@@ -41,7 +47,7 @@ func (m *SessionManager) Validate(ctx context.Context, token string) bool {
 	hash := sha256.Sum256([]byte(token))
 	tokenHash := hex.EncodeToString(hash[:])
 
-	session, err := m.repo.GetSessionByTokenHash(ctx, tokenHash)
+	session, err := m.store.GetSessionByTokenHash(ctx, tokenHash)
 	if err != nil {
 		return false
 	}
@@ -107,7 +113,7 @@ func (m *SessionManager) CreateAuthToken(ctx context.Context, userID, credential
 		ExpiresAt:    time.Now().Add(30 * 24 * time.Hour),
 	}
 
-	if err := m.repo.CreateSession(ctx, session); err != nil {
+	if err := m.store.CreateSession(ctx, session); err != nil {
 		return "", err
 	}
 
@@ -125,12 +131,12 @@ func (m *SessionManager) RevokeAuthToken(ctx context.Context, token string) bool
 	hash := sha256.Sum256([]byte(token))
 	tokenHash := hex.EncodeToString(hash[:])
 
-	session, err := m.repo.GetSessionByTokenHash(ctx, tokenHash)
+	session, err := m.store.GetSessionByTokenHash(ctx, tokenHash)
 	if err != nil {
 		return false
 	}
 
-	if err := m.repo.DeleteSession(ctx, session.ID); err != nil {
+	if err := m.store.DeleteSession(ctx, session.ID); err != nil {
 		debuglog.Error("webauthn: failed to revoke auth token", "error", err)
 		return false
 	}
