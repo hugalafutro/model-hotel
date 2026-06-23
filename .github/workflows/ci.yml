@@ -415,12 +415,11 @@ jobs:
       - frontend-coverage
       - notices
       - docker-build
-    # Serialize publishes (never cancel): combined with the HEAD guard below, a
-    # superseded older run skips its push rather than being cancelled mid-push,
-    # so a newer run failing later never discards the last good gated candidate.
-    concurrency:
-      group: publish-dev-${{ github.ref }}
-      cancel-in-progress: false
+    # No concurrency group on purpose: GitHub keeps only one *pending* job per
+    # group and cancels an older pending one when a newer queues, which could
+    # drop a fully-gated publish candidate. Instead every run builds and the
+    # push step re-checks HEAD, so only the run that is still master HEAD at push
+    # time publishes (newest-wins, never a rollback).
     permissions:
       contents: read
     env:
@@ -428,9 +427,11 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      # Guard against a superseded run overwriting :dev with an older image:
-      # only publish when this commit is still master HEAD.
-      - name: Skip if superseded by a newer master commit
+      # Early bail-out: if this commit is already behind master HEAD, skip the
+      # whole build/scan. This is only an optimization — the authoritative guard
+      # is the re-check in the push step, which closes the window where HEAD
+      # moves while this job is still building.
+      - name: Skip if already superseded by a newer master commit
         id: head
         env:
           COMMIT_SHA: ${{ github.sha }}
@@ -439,7 +440,7 @@ jobs:
           if [ "$remote_head" = "$COMMIT_SHA" ]; then
             echo "skip=false" >> "$GITHUB_OUTPUT"
           else
-            echo "master HEAD is $remote_head, not $COMMIT_SHA; skipping stale :dev push"
+            echo "master HEAD is $remote_head, not $COMMIT_SHA; skipping stale :dev publish"
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
 
@@ -480,8 +481,18 @@ jobs:
           ignore-unfixed: true
           exit-code: 1
 
-      - name: Push the scanned image as :dev
+      # Re-check HEAD immediately before pushing: if a newer master commit landed
+      # while this job was building/scanning, that newer run will publish its own
+      # image, so this (now-stale) run must not overwrite :dev with an older one.
+      - name: Push the scanned image as :dev (only if still HEAD)
         if: steps.head.outputs.skip == 'false'
+        env:
+          COMMIT_SHA: ${{ github.sha }}
         run: |
+          remote_head=$(git ls-remote origin refs/heads/master | cut -f1)
+          if [ "$remote_head" != "$COMMIT_SHA" ]; then
+            echo "master HEAD moved to $remote_head; skipping stale :dev push for $COMMIT_SHA"
+            exit 0
+          fi
           docker tag model-hotel:dev-candidate "${DOCKERHUB_IMAGE}:dev"
           docker push "${DOCKERHUB_IMAGE}:dev"
