@@ -89,7 +89,7 @@ func (h *TotpHandler) Register(r chi.Router) {
 // enabled, the raw admin token is a first factor only and must not unlock
 // enroll/disable, so the second factor cannot be bypassed.
 func (h *TotpHandler) adminOrSessionAuth(next http.Handler) http.Handler {
-	return requireAdminOrSession(h.adminMgr, h.sessionMgr, h.totpEnabled, next)
+	return RequireAdminOrSession(h.adminMgr, h.sessionMgr, h.totpEnabled, next)
 }
 
 // statusResponse is the GET /api/totp/status payload. EnabledAt is the RFC3339

@@ -134,5 +134,5 @@ func (s *totpEnabledShim) RefreshTotpEnabled(ctx context.Context) {
 }
 
 func (s *totpEnabledShim) AuthMiddleware(next http.Handler) http.Handler {
-	return requireAdminOrSession(s.adminMgr, s.sessionMgr, s.TotpEnabled, next)
+	return RequireAdminOrSession(s.adminMgr, s.sessionMgr, s.TotpEnabled, next)
 }

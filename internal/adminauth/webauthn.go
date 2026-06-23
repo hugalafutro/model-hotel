@@ -97,7 +97,7 @@ func (h *WebAuthnHandler) Register(r chi.Router) {
 // token for WebAuthn management routes. This allows passkey-authenticated
 // sessions to manage their own credentials.
 func (h *WebAuthnHandler) adminOrSessionAuth(next http.Handler) http.Handler {
-	return requireAdminOrSession(h.adminMgr, h.sessionMgr, h.totpEnabled, next)
+	return RequireAdminOrSession(h.adminMgr, h.sessionMgr, h.totpEnabled, next)
 }
 
 // sessionTTL is the time-to-live for WebAuthn registration/login sessions.

@@ -7,7 +7,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
 
-// requireAdminOrSession wraps next so the request proceeds only when the bearer
+// RequireAdminOrSession wraps next so the request proceeds only when the bearer
 // token is either the raw admin token or a valid WebAuthn/TOTP session token.
 //
 // The raw admin token is accepted ONLY when TOTP is disabled. With TOTP on, the
@@ -17,7 +17,7 @@ import (
 //
 // Moved verbatim from internal/api/auth_middleware.go so the WebAuthn and TOTP
 // handlers carry their gate with them into the shared package.
-func requireAdminOrSession(
+func RequireAdminOrSession(
 	adminMgr AdminAuthenticator,
 	sessionMgr *webauthn.SessionManager,
 	totpEnabled func() bool,
