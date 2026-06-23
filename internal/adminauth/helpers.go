@@ -12,8 +12,11 @@ package adminauth
 
 import (
 	"encoding/json"
+	"errors"
+	"net"
 	"net/http"
 	"strings"
+	"syscall"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
@@ -36,8 +39,28 @@ type IPLimiterMiddleware interface {
 func writeJSON(w http.ResponseWriter, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(v); err != nil {
-		debuglog.Error("adminauth: failed to encode JSON response", "error", err)
+		logEncodeError(err)
 	}
+}
+
+// logEncodeError downgrades client-disconnect write errors to debug so a client
+// hanging up before the body is written doesn't spam production error logs;
+// genuine encode bugs stay at error level. Copied from internal/api/helpers.go.
+func logEncodeError(err error) {
+	if isClientDisconnect(err) {
+		debuglog.Debug("adminauth: client disconnected before JSON response completed", "error", err)
+		return
+	}
+	debuglog.Error("adminauth: failed to encode JSON response", "error", err)
+}
+
+// isClientDisconnect reports whether err is an OS-level write error signalling
+// the client closed the connection mid-response. Context cancellation is
+// deliberately excluded. Copied from internal/api/helpers.go.
+func isClientDisconnect(err error) bool {
+	return errors.Is(err, syscall.EPIPE) ||
+		errors.Is(err, syscall.ECONNRESET) ||
+		errors.Is(err, net.ErrClosed)
 }
 
 // respondError writes an error response, logging server faults. Copied from

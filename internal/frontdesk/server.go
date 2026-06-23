@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -392,12 +393,19 @@ func (s *Server) sse(w http.ResponseWriter, r *http.Request) {
 // on the hot path)
 // ---------------------------------------------------------------------------
 
+// totpStatusReader is the one method of *totp.Repository the cache depends on.
+// It is an interface so the fail-closed behaviour on a read error is testable
+// without a live database.
+type totpStatusReader interface {
+	IsEnabled(ctx context.Context) (bool, error)
+}
+
 type totpEnabledCache struct {
-	repo *totp.Repository
+	repo totpStatusReader
 	val  atomic.Bool
 }
 
-func newTotpEnabledCache(repo *totp.Repository) *totpEnabledCache {
+func newTotpEnabledCache(repo totpStatusReader) *totpEnabledCache {
 	c := &totpEnabledCache{repo: repo}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -417,7 +425,11 @@ func (c *totpEnabledCache) Enabled() bool { return c.val.Load() }
 func (c *totpEnabledCache) Refresh(ctx context.Context) {
 	enabled, err := c.repo.IsEnabled(ctx)
 	if err != nil {
-		debuglog.Warn("frontdesk: refreshing TOTP-enabled cache failed", "error", err)
+		// Fail closed, matching the main server's RefreshTotpEnabled: a failed
+		// re-read must never leave a stale "disabled" cached, which would let a
+		// raw FRONTDESK_TOKEN through as a full session after TOTP was enabled.
+		debuglog.Error("frontdesk: refreshing TOTP-enabled cache failed, failing closed", "error", err)
+		c.val.Store(true)
 		return
 	}
 	c.val.Store(enabled)
@@ -487,16 +499,21 @@ func atoiDefault(s string, def int) int {
 func spaHandler(ui fs.FS) http.Handler {
 	fileServer := http.FileServer(http.FS(ui))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		path := r.URL.Path
-		if path != "/" {
-			if _, err := fs.Stat(ui, path[1:]); err != nil {
-				// Unknown path: serve index.html so the SPA router can handle it.
-				r2 := r.Clone(r.Context())
-				r2.URL.Path = "/"
-				fileServer.ServeHTTP(w, r2)
+		// fs.ValidPath + the embedded FS are the traversal boundary: "../" or an
+		// absolute name is rejected here and falls through to the SPA index, and
+		// http.FileServer additionally cleans the path it serves. Only serve a
+		// concrete asset when it exists and the name is valid.
+		name := strings.TrimPrefix(r.URL.Path, "/")
+		if name != "" && fs.ValidPath(name) {
+			if _, err := fs.Stat(ui, name); err == nil {
+				fileServer.ServeHTTP(w, r)
 				return
 			}
 		}
-		fileServer.ServeHTTP(w, r)
+		// Root, invalid, or unknown path: serve index.html so the SPA router can
+		// handle the route client-side.
+		r2 := r.Clone(r.Context())
+		r2.URL.Path = "/"
+		fileServer.ServeHTTP(w, r2)
 	})
 }

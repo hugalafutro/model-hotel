@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -658,6 +659,43 @@ func TestNew_MkdirAllFails(t *testing.T) {
 
 // TestLoadOrCreateToken_PlaintextMigrationWriteFails tests the plaintext migration
 // path when WriteFile fails due to permission issues.
+// TestSetHashConcurrent guards P1-4: concurrent SetHash calls must never leave
+// the persisted file out of sync with the in-memory hash. Run with -race, it
+// also catches an unsynchronized write/swap.
+func TestSetHashConcurrent(t *testing.T) {
+	tmpDir := t.TempDir()
+	m, _, err := New(tmpDir, "")
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	hashes := []string{strings.Repeat("a", 64), strings.Repeat("b", 64)}
+	var wg sync.WaitGroup
+	for i := 0; i < 50; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			if err := m.SetHash("sha256:" + hashes[i%2]); err != nil {
+				t.Errorf("SetHash: %v", err)
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	data, err := os.ReadFile(filepath.Join(tmpDir, "admin-token"))
+	if err != nil {
+		t.Fatalf("read token file: %v", err)
+	}
+	onDisk := strings.TrimPrefix(string(data), "sha256:")
+	inMemory := strings.TrimPrefix(m.Hash(), "sha256:")
+	if onDisk != inMemory {
+		t.Fatalf("disk hash %q != in-memory hash %q (write/swap desynced)", onDisk, inMemory)
+	}
+	if onDisk != hashes[0] && onDisk != hashes[1] {
+		t.Fatalf("final hash %q is neither written value", onDisk)
+	}
+}
+
 func TestLoadOrCreateToken_PlaintextMigrationWriteFails(t *testing.T) {
 	tmpDir := t.TempDir()
 	tokenPath := filepath.Join(tmpDir, "admin-token")
@@ -668,13 +706,16 @@ func TestLoadOrCreateToken_PlaintextMigrationWriteFails(t *testing.T) {
 		t.Fatalf("Failed to write plaintext token: %v", err)
 	}
 
-	// Make the file read-only so the migration write fails
-	if err := os.Chmod(tokenPath, 0o400); err != nil {
-		t.Fatalf("Failed to make file read-only: %v", err)
+	// Make the directory read-only so the migration's atomic temp-file write
+	// fails. The write goes to a temp sibling + rename, so a read-only file
+	// alone would simply be overwritten — the directory is the real failure
+	// surface for an atomic write.
+	if err := os.Chmod(tmpDir, 0o500); err != nil {
+		t.Fatalf("Failed to make dir read-only: %v", err)
 	}
 	defer func() {
 		// Restore permissions for cleanup
-		_ = os.Chmod(tokenPath, 0o600)
+		_ = os.Chmod(tmpDir, 0o700)
 	}()
 
 	_, _, err := New(tmpDir, "")

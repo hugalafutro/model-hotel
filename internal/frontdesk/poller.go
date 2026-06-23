@@ -3,6 +3,7 @@ package frontdesk
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -31,6 +32,12 @@ const (
 
 	// httpProbeTimeout bounds a single member or Traefik HTTP probe.
 	httpProbeTimeout = 4 * time.Second
+
+	// versionFetchFailThreshold is the number of consecutive version-fetch
+	// failures for a member before a single visible warning + event is raised.
+	// The member's admin token is sent on every attempt, so a persistently
+	// failing URL must be surfaced, not retried silently forever.
+	versionFetchFailThreshold = 3
 )
 
 // HealthStatus is the Front Desk poller's view of a member's /health endpoint.
@@ -62,6 +69,7 @@ type Poller struct {
 	statuses         map[string]MemberStatus // keyed by member ID
 	lastConfigPollAt time.Time
 	staleNotified    bool
+	versionFailures  map[string]int // consecutive version-fetch failures, keyed by member ID
 }
 
 // NewPoller builds a Poller. traefikAPI is the base URL of the Traefik API
@@ -72,12 +80,13 @@ func NewPoller(store *Store, bus *events.Bus, traefikAPI string) *Poller {
 		bus = events.DefaultBus
 	}
 	return &Poller{
-		store:      store,
-		bus:        bus,
-		client:     &http.Client{Timeout: httpProbeTimeout},
-		traefikAPI: strings.TrimRight(traefikAPI, "/"),
-		now:        time.Now,
-		statuses:   make(map[string]MemberStatus),
+		store:           store,
+		bus:             bus,
+		client:          newProbeClient(httpProbeTimeout),
+		traefikAPI:      strings.TrimRight(traefikAPI, "/"),
+		now:             time.Now,
+		statuses:        make(map[string]MemberStatus),
+		versionFailures: make(map[string]int),
 	}
 }
 
@@ -273,7 +282,8 @@ type traefikServiceInfo struct {
 func parseTraefikServerStatus(body []byte) (map[string]string, error) {
 	var services []traefikServiceInfo
 	if err := json.Unmarshal(body, &services); err != nil {
-		return nil, fmt.Errorf("frontdesk: parse traefik services: %w", err)
+		// Don't wrap the decoder error: it can echo a fragment of the response.
+		return nil, errors.New("frontdesk: parse traefik services response")
 	}
 	for _, svc := range services {
 		// Traefik names HTTP-provider services like "hotel@http".
@@ -301,15 +311,55 @@ func (p *Poller) PollVersionsOnce(ctx context.Context) {
 		}
 		version, err := p.fetchMemberVersion(ctx, m.URL, token)
 		if err != nil {
-			debuglog.Debug("frontdesk: fetch member version", "member", m.Name, "error", err)
+			p.noteVersionFetchFailure(ctx, m, err)
 			continue
 		}
 		p.mu.Lock()
 		cur := p.statuses[m.ID]
 		cur.Version = version
 		p.statuses[m.ID] = cur
+		wasAlerting := p.versionFailures[m.ID] >= versionFetchFailThreshold
+		delete(p.versionFailures, m.ID)
 		p.mu.Unlock()
+		if wasAlerting {
+			p.recordEvent(ctx, Event{
+				Type:     "version.fetch_recovered",
+				Severity: "success",
+				Source:   "frontdesk-poller",
+				Message:  fmt.Sprintf("Recovered version reads from %s", m.Name),
+				MemberID: m.ID,
+			})
+		}
 	}
+}
+
+// noteVersionFetchFailure tracks consecutive version-fetch failures for a member
+// and raises a single visible warning + event when they cross the threshold. The
+// member's admin token is sent on every attempt, so a persistently failing
+// (possibly hostile or misconfigured) URL is surfaced for the operator rather
+// than retried silently at Debug level forever. The fetch error is logged but
+// never put in the event payload (it can embed a fragment of the member's HTTP
+// response).
+func (p *Poller) noteVersionFetchFailure(ctx context.Context, m *Member, fetchErr error) {
+	p.mu.Lock()
+	p.versionFailures[m.ID]++
+	n := p.versionFailures[m.ID]
+	p.mu.Unlock()
+
+	if n == versionFetchFailThreshold {
+		debuglog.Warn("frontdesk: member version fetch failing",
+			"member", m.Name, "consecutive_failures", n, "error", fetchErr)
+		p.recordEvent(ctx, Event{
+			Type:     "version.fetch_failed",
+			Severity: "warning",
+			Source:   "frontdesk-poller",
+			Message:  fmt.Sprintf("Cannot read version from %s after %d attempts; check the member URL", m.Name, n),
+			MemberID: m.ID,
+			Metadata: map[string]any{"consecutive_failures": n},
+		})
+		return
+	}
+	debuglog.Debug("frontdesk: fetch member version", "member", m.Name, "error", fetchErr)
 }
 
 // fetchMemberVersion reads app_version from the member's admin settings API.
@@ -333,7 +383,8 @@ func (p *Poller) fetchMemberVersion(ctx context.Context, baseURL, token string) 
 	}
 	var payload map[string]any
 	if err := json.Unmarshal(body, &payload); err != nil {
-		return "", fmt.Errorf("frontdesk: parse settings: %w", err)
+		// Don't wrap the decoder error: it can echo a fragment of the response.
+		return "", errors.New("frontdesk: parse settings response")
 	}
 	if v, ok := payload["app_version"].(string); ok {
 		return v, nil

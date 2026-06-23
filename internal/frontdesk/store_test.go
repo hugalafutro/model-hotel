@@ -14,7 +14,7 @@ const testMasterKey = "test-master-key-0123456789abcdef"
 func newTestStore(t *testing.T) *Store {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "frontdesk.db")
-	s, err := Open(path, testMasterKey)
+	s, err := Open(path, testMasterKey, true) // allow http: tests use httptest (http://127.0.0.1) members
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -24,7 +24,7 @@ func newTestStore(t *testing.T) *Store {
 
 func TestOpenIsIdempotent(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "frontdesk.db")
-	s1, err := Open(path, testMasterKey)
+	s1, err := Open(path, testMasterKey, true)
 	if err != nil {
 		t.Fatalf("first Open: %v", err)
 	}
@@ -34,7 +34,7 @@ func TestOpenIsIdempotent(t *testing.T) {
 	_ = s1.Close()
 
 	// Re-open the same file: migrations already applied, data preserved.
-	s2, err := Open(path, testMasterKey)
+	s2, err := Open(path, testMasterKey, true)
 	if err != nil {
 		t.Fatalf("second Open: %v", err)
 	}
@@ -127,7 +127,7 @@ func TestMemberTokenRoundTrip(t *testing.T) {
 
 func TestMemberTokenRequiresMasterKey(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "frontdesk.db")
-	s, err := Open(path, "") // no master key
+	s, err := Open(path, "", true) // no master key
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}

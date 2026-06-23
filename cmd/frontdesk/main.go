@@ -41,6 +41,8 @@ func main() {
 	masterKey := os.Getenv("FRONTDESK_MASTER_KEY")
 	publicOrigin := os.Getenv("PUBLIC_ORIGIN")
 	traefikAPI := os.Getenv("TRAEFIK_API_URL")
+	allowHTTPMembers := strings.EqualFold(os.Getenv("FRONTDESK_ALLOW_HTTP_MEMBERS"), "true") ||
+		os.Getenv("FRONTDESK_ALLOW_HTTP_MEMBERS") == "1"
 
 	// HTTPS-only ingress: refuse to start without PUBLIC_ORIGIN so a misconfigured
 	// plain-HTTP deployment fails loudly instead of silently weakening passkeys.
@@ -58,7 +60,7 @@ func main() {
 		debuglog.Fatal("frontdesk: invalid PUBLIC_ORIGIN", "error", err)
 	}
 
-	store, err := frontdesk.Open(filepath.Join(dataDir, "frontdesk.db"), masterKey)
+	store, err := frontdesk.Open(filepath.Join(dataDir, "frontdesk.db"), masterKey, allowHTTPMembers)
 	if err != nil {
 		debuglog.Fatal("frontdesk: failed to open store", "error", err)
 	}

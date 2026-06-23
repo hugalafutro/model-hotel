@@ -1,12 +1,15 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/hugalafutro/model-hotel/internal/admin"
 )
 
 // fakeTokenMgr is an in-memory AdminTokenManager for handler tests (no DB).
@@ -74,7 +77,7 @@ func TestAdminTokenHashPostBadBody(t *testing.T) {
 }
 
 func TestAdminTokenHashPostInvalidHash(t *testing.T) {
-	mgr := &fakeTokenMgr{setErr: errInvalidHash}
+	mgr := &fakeTokenMgr{setErr: admin.ErrInvalidTokenHash}
 	srv := tokenHashRouter(mgr)
 	req := httptest.NewRequest(http.MethodPost, "/admin/token-hash", strings.NewReader(`{"hash":"short"}`))
 	rec := httptest.NewRecorder()
@@ -84,9 +87,75 @@ func TestAdminTokenHashPostInvalidHash(t *testing.T) {
 	}
 }
 
-// errInvalidHash is a stand-in for admin.Manager.SetHash's validation error.
-var errInvalidHash = &stubErr{"invalid hash"}
+// A non-validation SetHash failure (e.g. a file-write error) must be a 500 with
+// a generic body, never echoing the underlying error, which can carry an
+// os.PathError filesystem path.
+func TestAdminTokenHashPostWriteError(t *testing.T) {
+	leaky := errors.New("open /srv/data/admin-token.tmp: permission denied")
+	mgr := &fakeTokenMgr{setErr: leaky}
+	srv := tokenHashRouter(mgr)
+	req := httptest.NewRequest(http.MethodPost, "/admin/token-hash",
+		strings.NewReader(`{"hash":"sha256:`+strings.Repeat("a", 64)+`"}`))
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500", rec.Code)
+	}
+	if strings.Contains(rec.Body.String(), "permission denied") || strings.Contains(rec.Body.String(), "/srv/") {
+		t.Errorf("response leaked the underlying error: %s", rec.Body.String())
+	}
+}
 
-type stubErr struct{ s string }
+// TestAdminTokenHashGatedByAuthMiddleware exercises the full request path: the
+// routes are mounted inside the AuthMiddleware-protected group, so an
+// unauthenticated GET/POST is 401, while the admin token (TOTP off in this
+// harness) is accepted. This is the gate that protects who can overwrite the
+// admin-token hash.
+func TestAdminTokenHashGatedByAuthMiddleware(t *testing.T) {
+	h := newTestHandler(t) // skips if the test DB is unavailable
+	h.SetAdminTokenManager(&fakeTokenMgr{hash: "sha256:" + strings.Repeat("a", 64)})
+	r := chi.NewRouter()
+	r.Use(h.AuthMiddleware)
+	h.Register(r)
 
-func (e *stubErr) Error() string { return e.s }
+	postBody := `{"hash":"sha256:` + strings.Repeat("b", 64) + `"}`
+
+	// Unauthenticated: both verbs blocked by AuthMiddleware.
+	for _, tc := range []struct{ method, body string }{
+		{http.MethodGet, ""},
+		{http.MethodPost, postBody},
+	} {
+		req := httptest.NewRequest(tc.method, "/admin/token-hash", strings.NewReader(tc.body))
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+		if rec.Code != http.StatusUnauthorized {
+			t.Errorf("%s without auth: status=%d, want 401 (body=%s)", tc.method, rec.Code, rec.Body.String())
+		}
+	}
+
+	// Authenticated with the admin token: route is reachable (200), proving the
+	// 401s above are the auth gate, not a missing mount.
+	req := httptest.NewRequest(http.MethodGet, "/admin/token-hash", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("GET with admin token: status=%d, want 200 (body=%s)", rec.Code, rec.Body.String())
+	}
+}
+
+// An oversized body is rejected (MaxBytesReader) before SetHash runs.
+func TestAdminTokenHashPostBodyTooLarge(t *testing.T) {
+	mgr := &fakeTokenMgr{}
+	srv := tokenHashRouter(mgr)
+	big := `{"hash":"` + strings.Repeat("a", 8192) + `"}`
+	req := httptest.NewRequest(http.MethodPost, "/admin/token-hash", strings.NewReader(big))
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400 for oversized body", rec.Code)
+	}
+	if mgr.hash != "" {
+		t.Errorf("oversized body must not set hash, got %q", mgr.hash)
+	}
+}

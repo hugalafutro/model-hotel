@@ -2,10 +2,18 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/hugalafutro/model-hotel/internal/admin"
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
+
+// maxTokenHashBody caps the token-hash request body. The payload is a single
+// sha256:<hex> string (~80 bytes); 4 KiB is generous and bounds a hostile body.
+const maxTokenHashBody = 4 << 10
 
 // AdminTokenManager exposes the admin-token hash for the HA token-hash sync and
 // reset flows (Section 5 of the HA plan). Implemented by *admin.Manager.
@@ -56,13 +64,22 @@ func (h *AdminTokenHandler) Get(w http.ResponseWriter, _ *http.Request) {
 // Post overwrites the admin-token hash and hot-reloads it in place (no restart),
 // then echoes the now-current hash. A malformed body or invalid hash is a 400.
 func (h *AdminTokenHandler) Post(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxTokenHashBody)
 	var req adminTokenHashRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid JSON body", http.StatusBadRequest)
 		return
 	}
 	if err := h.mgr.SetHash(req.Hash); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		// A malformed hash is a client error and safe to describe; any other
+		// failure is a server-side file write whose detail (os.PathError path)
+		// must not leak, so it is logged and reported generically.
+		if errors.Is(err, admin.ErrInvalidTokenHash) {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		debuglog.Error("api: failed to persist admin token hash", "error", err)
+		http.Error(w, "failed to update admin token hash", http.StatusInternalServerError)
 		return
 	}
 	writeJSON(w, adminTokenHashResponse{Hash: h.mgr.Hash()})

@@ -17,6 +17,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net"
 	"net/url"
 	"strings"
 	"time"
@@ -102,24 +103,30 @@ type EventFilter struct {
 // Store is the SQLite-backed persistence for the control plane. The underlying
 // *sql.DB is shared with the webauthn and totp SQLite stores (authstore.go).
 type Store struct {
-	db        *sql.DB
-	masterKey string
+	db               *sql.DB
+	masterKey        string
+	allowHTTPMembers bool
 }
 
 // Open opens (creating if absent) the SQLite database at path and runs the
 // embedded migrations. masterKey encrypts stored member admin tokens at rest;
 // it may be empty, in which case CreateMember/SetMemberToken reject a non-empty
-// token (so a token is never written in the clear).
-func Open(path, masterKey string) (*Store, error) {
+// token (so a token is never written in the clear). allowHTTPMembers permits
+// plain-http member URLs; when false (the default), member URLs must be https so
+// the admin token is never sent in the clear across the network.
+func Open(path, masterKey string, allowHTTPMembers bool) (*Store, error) {
 	// WAL + a generous busy timeout keep the low-traffic control plane free of
 	// "database is locked" under concurrent pollers and request handlers.
-	dsn := "file:" + path + "?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)"
+	// foreign_keys(on) makes any future ON DELETE CASCADE actually enforced on
+	// SQLite (it is off by default), so a dev relying on Postgres parity isn't
+	// silently surprised; today cascades are app-level in both backends.
+	dsn := "file:" + path + "?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(on)"
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("frontdesk: open sqlite: %w", err)
 	}
 
-	s := &Store{db: db, masterKey: masterKey}
+	s := &Store{db: db, masterKey: masterKey, allowHTTPMembers: allowHTTPMembers}
 	if err := s.migrate(context.Background()); err != nil {
 		_ = db.Close()
 		return nil, err
@@ -189,7 +196,7 @@ func (s *Store) CreateMember(ctx context.Context, name, rawURL, token string) (*
 	if name == "" {
 		return nil, fmt.Errorf("%w: name is required", ErrValidation)
 	}
-	normURL, err := normalizeMemberURL(rawURL)
+	normURL, err := normalizeMemberURL(rawURL, s.allowHTTPMembers)
 	if err != nil {
 		return nil, err
 	}
@@ -536,8 +543,10 @@ func scanEvent(sc scanner) (Event, error) {
 	return e, nil
 }
 
-// normalizeMemberURL validates and canonicalizes a member base URL.
-func normalizeMemberURL(raw string) (string, error) {
+// normalizeMemberURL validates and canonicalizes a member base URL. When
+// allowHTTP is false, plain-http URLs are rejected so the member admin token is
+// never transmitted in the clear.
+func normalizeMemberURL(raw string, allowHTTP bool) (string, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return "", fmt.Errorf("%w: url is required", ErrValidation)
@@ -549,8 +558,18 @@ func normalizeMemberURL(raw string) (string, error) {
 	if u.Scheme != "http" && u.Scheme != "https" {
 		return "", fmt.Errorf("%w: url must use http or https", ErrValidation)
 	}
+	if u.Scheme == "http" && !allowHTTP {
+		return "", fmt.Errorf("%w: url must use https; set FRONTDESK_ALLOW_HTTP_MEMBERS=true to allow plain http on a trusted internal network", ErrValidation)
+	}
 	if u.Host == "" {
 		return "", fmt.Errorf("%w: url must include a host", ErrValidation)
+	}
+	// Reject a literal IP that is a known SSRF target (link-local, including the
+	// cloud-metadata endpoint, or the unspecified address) at add time for a
+	// clear error. Hostnames that resolve to such an address are caught later at
+	// dial time by the poller's guarded client (see netguard.go).
+	if ip := net.ParseIP(u.Hostname()); ip != nil && isProbeBlockedIP(ip) {
+		return "", fmt.Errorf("%w: url host %s is not an allowed address", ErrValidation, u.Hostname())
 	}
 	u.Path = strings.TrimRight(u.Path, "/")
 	u.RawQuery = ""
