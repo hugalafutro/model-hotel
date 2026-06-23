@@ -1,4 +1,4 @@
-package api
+package adminauth
 
 import (
 	"net/http"
@@ -10,13 +10,13 @@ import (
 // requireAdminOrSession wraps next so the request proceeds only when the bearer
 // token is either the raw admin token or a valid WebAuthn/TOTP session token.
 //
-// Raw admin token is accepted ONLY when TOTP is disabled (mirrors
-// Handler.AuthMiddleware). With TOTP on, the raw admin token is a first factor
-// only and must not unlock admin-gated endpoints (passkey/TOTP management), or a
-// bare admin-token bearer could bypass the second factor.
+// The raw admin token is accepted ONLY when TOTP is disabled. With TOTP on, the
+// raw admin token is a first factor only and must not unlock admin-gated
+// endpoints (passkey/TOTP management), or a bare admin-token bearer could bypass
+// the second factor.
 //
-// This is the single implementation shared by WebAuthnHandler and TotpHandler,
-// which previously each carried an identical copy.
+// Moved verbatim from internal/api/auth_middleware.go so the WebAuthn and TOTP
+// handlers carry their gate with them into the shared package.
 func requireAdminOrSession(
 	adminMgr AdminAuthenticator,
 	sessionMgr *webauthn.SessionManager,

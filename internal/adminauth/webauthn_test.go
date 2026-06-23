@@ -1,4 +1,4 @@
-package api
+package adminauth
 
 import (
 	"context"
@@ -1626,56 +1626,6 @@ func TestWebAuthnHandler_ListCredentials_NilRepo(t *testing.T) {
 	h.ListCredentials(w, req)
 }
 
-// --- SetWebAuthnSessionManager tests ---
-
-// TestWebAuthnHandler_SetWebAuthnSessionManager_Nil tests that SetWebAuthnSessionManager
-// sets the field even with a nil Handler (via the Handler type, not WebAuthnHandler)
-func TestSetWebAuthnSessionManager_SetsField(t *testing.T) {
-	h := newTestHandler(t)
-
-	// Initially nil
-	if h.webauthnSessionMgr != nil {
-		t.Error("expected nil webauthnSessionMgr before SetWebAuthnSessionManager")
-	}
-
-	// Create a mock WebAuthnSessionManager
-	mockMgr := &mockWebAuthnSessionMgr{
-		validateFn: func(_ context.Context, _ string) bool { return true },
-		revokeFn:   func(_ context.Context, _ string) bool { return true },
-	}
-	h.SetWebAuthnSessionManager(mockMgr)
-
-	if h.webauthnSessionMgr == nil {
-		t.Error("expected non-nil webauthnSessionMgr after SetWebAuthnSessionManager")
-	}
-
-	// Verify it actually works through the interface
-	if !h.webauthnSessionMgr.Validate(context.Background(), "any-token") {
-		t.Error("expected Validate to return true via mock")
-	}
-}
-
-// TestSetWebAuthnSessionManager_NilArg tests that SetWebAuthnSessionManager
-// can be called with a nil argument (clears the field)
-func TestSetWebAuthnSessionManager_NilArg(t *testing.T) {
-	h := newTestHandler(t)
-
-	mockMgr := &mockWebAuthnSessionMgr{
-		validateFn: func(_ context.Context, _ string) bool { return true },
-		revokeFn:   func(_ context.Context, _ string) bool { return true },
-	}
-	h.SetWebAuthnSessionManager(mockMgr)
-	if h.webauthnSessionMgr == nil {
-		t.Fatal("expected non-nil after set")
-	}
-
-	// Clear it
-	h.SetWebAuthnSessionManager(nil)
-	if h.webauthnSessionMgr != nil {
-		t.Error("expected nil webauthnSessionMgr after SetWebAuthnSessionManager(nil)")
-	}
-}
-
 // TestWebAuthnHandler_RegisterStart_RepoListError tests that RegisterStart
 // returns 500 when the repo fails to list credentials.
 func TestWebAuthnHandler_RegisterStart_RepoListError(t *testing.T) {
@@ -1773,26 +1723,6 @@ func TestWebAuthnHandler_RenameCredential_NonExistentCredential(t *testing.T) {
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
 	}
-}
-
-// mockWebAuthnSessionMgr implements WebAuthnSessionManager for testing
-type mockWebAuthnSessionMgr struct {
-	validateFn func(ctx context.Context, token string) bool
-	revokeFn   func(ctx context.Context, token string) bool
-}
-
-func (m *mockWebAuthnSessionMgr) Validate(ctx context.Context, token string) bool {
-	if m.validateFn != nil {
-		return m.validateFn(ctx, token)
-	}
-	return false
-}
-
-func (m *mockWebAuthnSessionMgr) RevokeAuthToken(ctx context.Context, token string) bool {
-	if m.revokeFn != nil {
-		return m.revokeFn(ctx, token)
-	}
-	return false
 }
 
 // --- RegisterStart / LoginStart success path tests (require DB) ---

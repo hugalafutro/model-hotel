@@ -1,4 +1,4 @@
-package api
+package adminauth
 
 import (
 	"bytes"
@@ -21,8 +21,12 @@ import (
 )
 
 // WebAuthnHandler handles WebAuthn/FIDO2 registration and login endpoints.
+//
+// webauthnRepo is the webauthn.Store interface (not the concrete Postgres
+// *Repository) so the same handler backs Postgres on the main server and SQLite
+// in the Front Desk control plane. IPLimiterMiddleware lives in helpers.go.
 type WebAuthnHandler struct {
-	webauthnRepo *webauthn.Repository
+	webauthnRepo webauthn.Store
 	relyingParty *webauthnx.WebAuthn
 	sessionMgr   *webauthn.SessionManager
 	adminMgr     AdminAuthenticator
@@ -31,17 +35,9 @@ type WebAuthnHandler struct {
 	totpEnabled  func() bool
 }
 
-// IPLimiterMiddleware is the interface for IP rate limiting middleware.
-type IPLimiterMiddleware interface {
-	Middleware(next http.Handler) http.Handler
-	// ClientIP extracts the trusted-proxy-aware client IP, used to key
-	// per-IP failure backoff (see TotpHandler login throttling).
-	ClientIP(r *http.Request) string
-}
-
 // NewWebAuthnHandler creates a new WebAuthn handler with the given dependencies.
 func NewWebAuthnHandler(
-	webauthnRepo *webauthn.Repository,
+	webauthnRepo webauthn.Store,
 	relyingParty *webauthnx.WebAuthn,
 	sessionMgr *webauthn.SessionManager,
 	adminMgr AdminAuthenticator,

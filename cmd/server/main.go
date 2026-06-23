@@ -21,6 +21,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/hugalafutro/model-hotel/internal/admin"
+	"github.com/hugalafutro/model-hotel/internal/adminauth"
 	"github.com/hugalafutro/model-hotel/internal/alert"
 	"github.com/hugalafutro/model-hotel/internal/api"
 	"github.com/hugalafutro/model-hotel/internal/auth"
@@ -300,7 +301,7 @@ func main() {
 	// The session manager is hoisted out of the WebAuthnRPID block so it is
 	// always available -- TOTP /totp/login reuses CreateAuthToken to mint session
 	// tokens once 2FA is enabled, even when passkeys (RP) are not configured.
-	var webauthnHandler *api.WebAuthnHandler
+	var webauthnHandler *adminauth.WebAuthnHandler
 	webauthnRepo := webauthn.NewRepository(database.Pool())
 	sessionMgr := webauthn.NewSessionManager(webauthnRepo)
 	apiHandler.SetWebAuthnSessionManager(sessionMgr)
@@ -322,7 +323,7 @@ func main() {
 	// IsEnabled state wired into the Handler (AuthMiddleware gate).
 	totpRepo := totp.NewRepository(database.Pool(), cfg.MasterKey)
 	apiHandler.SetTotpStatus(totpRepo)
-	totpHandler := api.NewTotpHandler(totpRepo, adminMgr, sessionMgr, ipLimiter, cfg.DemoReadOnly, apiHandler.TotpEnabled, apiHandler.RefreshTotpEnabled)
+	totpHandler := adminauth.NewTotpHandler(totpRepo, adminMgr, sessionMgr, ipLimiter, cfg.DemoReadOnly, apiHandler.TotpEnabled, apiHandler.RefreshTotpEnabled)
 
 	if cfg.WebAuthnRPID != "" {
 		rpOrigins := make([]string, len(cfg.WebAuthnRPOrigins))
@@ -338,7 +339,7 @@ func main() {
 		if err != nil {
 			debuglog.Fatal("startup: failed to initialize WebAuthn relying party", "error", err)
 		}
-		webauthnHandler = api.NewWebAuthnHandler(webauthnRepo, rp, sessionMgr, adminMgr, ipLimiter, cfg.DemoReadOnly, apiHandler.TotpEnabled)
+		webauthnHandler = adminauth.NewWebAuthnHandler(webauthnRepo, rp, sessionMgr, adminMgr, ipLimiter, cfg.DemoReadOnly, apiHandler.TotpEnabled)
 
 		debuglog.Info("webauthn: passkey authentication enabled", "rp_id", cfg.WebAuthnRPID)
 	}
