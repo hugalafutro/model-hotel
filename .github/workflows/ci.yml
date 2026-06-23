@@ -385,25 +385,80 @@ jobs:
           ignore-unfixed: true
           exit-code: 1
 
-      # Publish a rolling :dev image to Docker Hub on every master commit, so a
-      # second "staging" instance can track master just by pointing its compose
-      # image: line at <DOCKERHUB_USERNAME>/model-hotel:dev (vs :latest for prod).
-      # Only on direct pushes to master — never PRs, which can't see secrets — and
-      # only after the Trivy gate above passes, so :dev clears the same fixable
-      # HIGH/CRITICAL bar as a release. The image carries no VERSION build-arg, so
-      # it self-reports version "dev". The :dev tag is a moving tag the prune
-      # workflow leaves untouched (it only prunes vX.Y.Z and orphaned sha- tags).
+  # Publish a rolling :dev image to Docker Hub on every master commit, so a
+  # second "staging" instance can track master by pointing its compose image:
+  # line at <DOCKERHUB_USERNAME>/model-hotel:dev (vs :latest for prod).
+  #
+  # This is a dedicated job (not a step in docker-build) so it can `needs:` the
+  # full required gate set: a master commit that fails Go tests, lint, vet,
+  # vulncheck, coverage, i18n, the workflow lint, the frontend gates, or the
+  # Docker build + Trivy scan never becomes a staging image. It runs only on
+  # direct pushes to master (never PRs, which can't see secrets) and skips if
+  # master HEAD has already moved past this commit, so a slow older run can't
+  # overwrite :dev with a stale image after a newer commit already published it.
+  # The image carries no VERSION build-arg, so it self-reports version "dev".
+  # :dev is a moving tag the prune workflow leaves untouched (it only prunes
+  # vX.Y.Z releases and orphaned sha- tags).
+  publish-dev:
+    name: Publish :dev image
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs:
+      - go-test
+      - go-lint
+      - go-vet
+      - govulncheck
+      - i18n-check
+      - workflow-lint
+      - frontend-checks
+      - frontend-test
+      - frontend-coverage
+      - notices
+      - docker-build
+    concurrency:
+      group: publish-dev-${{ github.ref }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+    env:
+      DOCKERHUB_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/model-hotel
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      # Guard against a superseded run overwriting :dev with an older image:
+      # only publish when this commit is still master HEAD.
+      - name: Skip if superseded by a newer master commit
+        id: head
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          remote_head=$(git ls-remote origin refs/heads/master | cut -f1)
+          if [ "$remote_head" = "$COMMIT_SHA" ]; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "master HEAD is $remote_head, not $COMMIT_SHA; skipping stale :dev push"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Log in to Docker Hub
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        if: steps.head.outputs.skip == 'false'
         uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Push :dev image to Docker Hub
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-        env:
-          DOCKERHUB_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/model-hotel
-        run: |
-          docker tag model-hotel:ci "${DOCKERHUB_IMAGE}:dev"
-          docker push "${DOCKERHUB_IMAGE}:dev"
+      - name: Set up Docker Buildx
+        if: steps.head.outputs.skip == 'false'
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
+
+      - name: Build and push :dev
+        if: steps.head.outputs.skip == 'false'
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7
+        with:
+          context: .
+          push: true
+          tags: ${{ env.DOCKERHUB_IMAGE }}:dev
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+          provenance: false
