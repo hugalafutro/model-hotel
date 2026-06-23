@@ -9,3 +9,8 @@
 *.sh text eol=lf
 docker-entrypoint.sh text eol=lf
 Dockerfile text eol=lf
+
+# Git hooks live in scripts/ (core.hooksPath=scripts) and are extensionless
+# bash scripts, so the *.sh rule above misses them. A CRLF checkout would break
+# their shebang and silently disable the hooks on Windows.
+scripts/* text eol=lf
