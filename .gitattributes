@@ -1,0 +1,11 @@
+# Force LF on files that must stay LF inside the Docker image.
+#
+# The container ENTRYPOINT is docker-entrypoint.sh. If a contributor checks the
+# repo out on Windows with core.autocrlf=true (the platform default), the script
+# is rewritten to CRLF on disk, COPYed into the image verbatim, and its shebang
+# becomes "#!/bin/sh\r". The kernel then tries to exec the interpreter "/bin/sh\r",
+# which does not exist, and the container dies at startup. Pinning eol=lf here makes
+# the checkout LF regardless of platform or autocrlf setting, fixing it at the source.
+*.sh text eol=lf
+docker-entrypoint.sh text eol=lf
+Dockerfile text eol=lf
