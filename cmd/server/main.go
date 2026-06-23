@@ -283,6 +283,7 @@ func main() {
 	apiHandler := api.NewHandler(cfg, providerRepo, database, adminMgr, virtualKeyRepo, settingsRepo, version, testModelTransport, sd.CheckRedirect, sd.DialContext, sd.CheckRedirect)
 	proxyHandler := proxy.NewHandler(cfg, providerRepo, modelRepo, database.Pool(), virtualKeyRepo, failoverRepo, settingsRepo, rateLimiter, tpmLimiter, ipLimiter, sd)
 	apiHandler.SetCircuitBreaker(proxyHandler.CircuitBreaker())
+	apiHandler.SetAdminTokenManager(adminMgr)
 	apiHandler.StartBackupScheduler(context.Background())
 
 	// Outbound alerting: a single consumer of the events bus that forwards

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/google/uuid"
 
@@ -19,7 +20,12 @@ const tokenLength = 32
 const sha256Prefix = "sha256:"
 
 // Manager handles admin token authentication and management.
+//
+// tokenHash and plainToken are guarded by mu so the hash can be hot-reloaded at
+// runtime (SetHash) without restarting the process: the HA Front Desk control
+// plane pushes a new admin-token hash and the member applies it live.
 type Manager struct {
+	mu         sync.RWMutex
 	dataDir    string
 	tokenHash  string
 	plainToken string
@@ -65,14 +71,74 @@ func (m *Manager) IsNew() bool {
 
 // Validate checks if the provided token matches the stored admin token hash.
 func (m *Manager) Validate(token string) bool {
-	if token == "" || m.tokenHash == "" {
+	if token == "" {
+		return false
+	}
+	m.mu.RLock()
+	stored := m.tokenHash
+	m.mu.RUnlock()
+	if stored == "" {
 		return false
 	}
 	hash := sha256.Sum256([]byte(token))
 	hashHex := hex.EncodeToString(hash[:])
 
 	// tokenHash is always stored without the sha256: prefix (see loadOrCreateToken)
-	return subtle.ConstantTimeCompare([]byte(hashHex), []byte(m.tokenHash)) == 1
+	return subtle.ConstantTimeCompare([]byte(hashHex), []byte(stored)) == 1
+}
+
+// Hash returns the current admin token hash in sha256:<hex> form, or an empty
+// string when no token is set. Used by the HA token-hash sync endpoint so the
+// Front Desk control plane can compare members before converging them.
+func (m *Manager) Hash() string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.tokenHash == "" {
+		return ""
+	}
+	return sha256Prefix + m.tokenHash
+}
+
+// SetHash overwrites the stored admin token hash and persists it to the
+// admin-token file, taking effect immediately (no restart). It accepts either a
+// sha256:<64-hex> value or a bare 64-char hex hash. The plaintext token (if any
+// from this boot) is cleared, since it no longer matches. The file write
+// happens before the in-memory swap so a failed write leaves the live token
+// unchanged.
+func (m *Manager) SetHash(value string) error {
+	hashHex, err := normalizeTokenHash(value)
+	if err != nil {
+		return err
+	}
+
+	tokenPath := filepath.Join(m.dataDir, "admin-token")
+	//nolint:gosec // tokenPath is constructed from dataDir constant, not user input
+	if err := os.WriteFile(tokenPath, []byte(sha256Prefix+hashHex), 0o600); err != nil {
+		return fmt.Errorf("failed to write token file: %w", err)
+	}
+
+	m.mu.Lock()
+	m.tokenHash = hashHex
+	m.plainToken = ""
+	m.mu.Unlock()
+
+	debuglog.Info("admin: admin token hash updated")
+	return nil
+}
+
+// normalizeTokenHash validates a sha256:<hex> or bare 64-hex value and returns
+// the lowercased bare hex hash.
+func normalizeTokenHash(value string) (string, error) {
+	v := strings.TrimSpace(value)
+	v = strings.TrimPrefix(v, sha256Prefix)
+	v = strings.ToLower(v)
+	if len(v) != 64 {
+		return "", fmt.Errorf("admin: token hash must be a 64-character hex SHA-256 digest")
+	}
+	if _, err := hex.DecodeString(v); err != nil {
+		return "", fmt.Errorf("admin: token hash is not valid hex: %w", err)
+	}
+	return v, nil
 }
 
 func (m *Manager) loadOrCreateToken(initialToken string) (tokenHash, plainToken string, isNew bool, err error) {
