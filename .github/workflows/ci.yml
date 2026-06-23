@@ -436,7 +436,12 @@ jobs:
         env:
           COMMIT_SHA: ${{ github.sha }}
         run: |
+          set -euo pipefail
           remote_head=$(git ls-remote origin refs/heads/master | cut -f1)
+          if [ -z "$remote_head" ]; then
+            echo "::error::could not read master HEAD from origin"
+            exit 1
+          fi
           if [ "$remote_head" = "$COMMIT_SHA" ]; then
             echo "skip=false" >> "$GITHUB_OUTPUT"
           else
@@ -489,7 +494,12 @@ jobs:
         env:
           COMMIT_SHA: ${{ github.sha }}
         run: |
+          set -euo pipefail
           remote_head=$(git ls-remote origin refs/heads/master | cut -f1)
+          if [ -z "$remote_head" ]; then
+            echo "::error::could not read master HEAD from origin"
+            exit 1
+          fi
           if [ "$remote_head" != "$COMMIT_SHA" ]; then
             echo "master HEAD moved to $remote_head; skipping stale :dev push for $COMMIT_SHA"
             exit 0
