@@ -268,11 +268,9 @@ func main() {
 		})
 	})
 
-	// Health check
-	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		_, _ = w.Write([]byte("OK"))
-	})
+	// Health check: reports database reachability (cached) so a load balancer
+	// stops routing to an instance whose Postgres is down.
+	r.Get("/health", api.NewHealthHandler(database.Pool()).ServeHTTP)
 
 	// Handlers shared across route groups
 	sd := proxy.NewSafeDialer(append(cfg.AllowedProviderHosts, config.KnownProviderHosts()...), cfg.KnownProxies)
