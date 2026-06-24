@@ -113,6 +113,8 @@
 		"filterMember": "Member",
 		"filterType": "Type",
 		"filterSeverity": "Severity",
+		"filterTime": "Time range",
+		"rangeAll": "All time",
 		"allMembers": "All members",
 		"allTypes": "All types",
 		"allSeverities": "All severities",

@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/admin"
 	"github.com/hugalafutro/model-hotel/internal/events"
@@ -208,6 +210,41 @@ func TestServerEventsAndStatus(t *testing.T) {
 	// traefik-status returns the (empty) poller snapshot without error.
 	if rec := do(t, srv, http.MethodGet, "/api/traefik-status", "", true); rec.Code != http.StatusOK {
 		t.Errorf("traefik-status = %d, want 200", rec.Code)
+	}
+}
+
+func TestServerEventsTimeFilter(t *testing.T) {
+	srv, _ := newTestServer(t)
+	// Creating a member emits one event "now".
+	_ = do(t, srv, http.MethodPost, "/api/members", `{"name":"h","url":"http://h:8081"}`, true)
+
+	count := func(query string) int {
+		rec := do(t, srv, http.MethodGet, "/api/events?"+query, "", true)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("events = %d", rec.Code)
+		}
+		var resp struct {
+			Total int `json:"total"`
+		}
+		_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+		return resp.Total
+	}
+
+	future := url.QueryEscape(time.Now().Add(time.Hour).UTC().Format(time.RFC3339))
+	past := url.QueryEscape(time.Now().Add(-time.Hour).UTC().Format(time.RFC3339))
+
+	if n := count("since=" + past); n < 1 {
+		t.Errorf("since=past should include the event, got %d", n)
+	}
+	if n := count("since=" + future); n != 0 {
+		t.Errorf("since=future should exclude the event, got %d", n)
+	}
+	if n := count("until=" + past); n != 0 {
+		t.Errorf("until=past should exclude the event, got %d", n)
+	}
+	// A malformed bound is ignored (treated as no bound), not an error.
+	if n := count("since=not-a-time"); n < 1 {
+		t.Errorf("malformed since should be ignored, got %d", n)
 	}
 }
 

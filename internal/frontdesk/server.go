@@ -323,6 +323,8 @@ func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
 		MemberID: q.Get("member_id"),
 		Type:     q.Get("type"),
 		Severity: q.Get("severity"),
+		Since:    parseRFC3339(q.Get("since")),
+		Until:    parseRFC3339(q.Get("until")),
 		Limit:    atoiDefault(q.Get("limit"), 100),
 		Offset:   atoiDefault(q.Get("offset"), 0),
 	}
@@ -492,6 +494,19 @@ func atoiDefault(s string, def int) int {
 		return def
 	}
 	return n
+}
+
+// parseRFC3339 parses an RFC3339 timestamp from a query value, returning the
+// zero time (which EventFilter treats as "no bound") when empty or malformed.
+func parseRFC3339(s string) time.Time {
+	if s == "" {
+		return time.Time{}
+	}
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		return time.Time{}
+	}
+	return t
 }
 
 // spaHandler serves the embedded single-page app, falling back to index.html for
