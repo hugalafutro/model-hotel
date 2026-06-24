@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -47,8 +47,10 @@ describe("EventsPage", () => {
 			),
 		);
 		renderPage();
-		expect(await screen.findByText("boom")).toBeInTheDocument();
-		expect(screen.getByText("error")).toBeInTheDocument();
+		const row = (await screen.findByText("boom")).closest("tr") as HTMLElement;
+		// Severity renders its localized label ("Error"), not the raw key (scoped
+		// to the row so it doesn't match the "Error" severity-filter option).
+		expect(within(row).getByText("Error")).toBeInTheDocument();
 	});
 
 	it("passes the severity filter to the API", async () => {

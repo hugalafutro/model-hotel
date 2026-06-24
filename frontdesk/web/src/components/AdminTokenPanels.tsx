@@ -1,3 +1,4 @@
+import type { TFunction } from "i18next";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
@@ -30,10 +31,16 @@ function DispositionBadge({ disposition }: { disposition: string }) {
 function reportResults(
 	results: SyncResultItem[],
 	toast: (m: string, k: "success" | "error") => void,
+	t: TFunction,
 ) {
 	for (const r of results) {
 		toast(
-			r.ok ? `${r.name}: ✓` : `${r.name}: ${r.error ?? "failed"}`,
+			r.ok
+				? t("settings.memberResultOk", { name: r.name })
+				: t("settings.memberResultFailed", {
+						name: r.name,
+						error: r.error ?? t("settings.memberResultFailedGeneric"),
+					}),
 			r.ok ? "success" : "error",
 		);
 	}
@@ -80,9 +87,13 @@ export function AdminTokenSyncPanel({
 		try {
 			const res = await api.syncRun(primaryId);
 			const ok = res.results.filter((r) => r.ok).length;
-			reportResults(res.results, toast);
+			reportResults(res.results, toast, t);
 			toast(
-				t("settings.syncDone", { ok, total: res.results.length }),
+				t("settings.syncDone", {
+					ok,
+					total: res.results.length,
+					count: res.results.length,
+				}),
 				ok === res.results.length ? "success" : "error",
 			);
 			onChanged();
@@ -135,7 +146,10 @@ export function AdminTokenSyncPanel({
 								<td>
 									{nameOf(it.member_id)}
 									{it.member_id === preview.primary_id && (
-										<span className="fd-faint"> · primary</span>
+										<span className="fd-faint">
+											{" "}
+											· {t("settings.primaryTag")}
+										</span>
 									)}
 								</td>
 								<td style={{ textAlign: "right" }}>
@@ -229,9 +243,13 @@ export function AdminTokenResetPanel({
 		try {
 			const res = await api.resetAdminToken();
 			const ok = res.results.filter((r) => r.ok).length;
-			reportResults(res.results, toast);
+			reportResults(res.results, toast, t);
 			toast(
-				t("settings.resetDone", { ok, total: res.results.length }),
+				t("settings.resetDone", {
+					ok,
+					total: res.results.length,
+					count: res.results.length,
+				}),
 				ok > 0 ? "success" : "error",
 			);
 			setRevealToken(res.token);

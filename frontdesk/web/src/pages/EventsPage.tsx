@@ -216,7 +216,10 @@ export function EventsPage() {
 									</td>
 									<td>
 										<span className={severityBadgeClass(e.severity)}>
-											{e.severity}
+											{t(
+												`events.sev${e.severity.charAt(0).toUpperCase()}${e.severity.slice(1)}`,
+												{ defaultValue: e.severity },
+											)}
 										</span>
 									</td>
 									<td className="fd-mono fd-faint">{e.source}</td>
