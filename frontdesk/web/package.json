@@ -8,6 +8,7 @@
 		"dev": "vite",
 		"build": "tsc -b && vite build",
 		"build:docker": "vite build",
+		"typecheck:tests": "tsc --noEmit -p tsconfig.test.json",
 		"lint": "eslint ${@:-.}",
 		"format": "biome check --write src",
 		"test": "vitest run"
