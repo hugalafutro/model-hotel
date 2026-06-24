@@ -50,7 +50,7 @@ function MemberTrafficCard({ member }: { member: MemberView }) {
 
 			{loading ? (
 				<div className="fd-empty">{t("common.loading")}</div>
-			) : !data || !data.reachable ? (
+			) : !data?.reachable ? (
 				<div className="fd-empty fd-faint">{t("traffic.unreachable")}</div>
 			) : data.total_requests === 0 ? (
 				<div className="fd-empty fd-faint">{t("traffic.noData")}</div>

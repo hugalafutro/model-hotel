@@ -2,7 +2,12 @@ import { type FormEvent, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, api } from "../api/client";
 import type { Settings } from "../api/types";
+import {
+	AdminTokenResetPanel,
+	AdminTokenSyncPanel,
+} from "../components/AdminTokenPanels";
 import { useToast } from "../context/ToastContext";
+import { useMembers } from "../hooks/useMembers";
 
 // NumberField is a labeled integer input bound to a Settings numeric key.
 function NumberField({
@@ -48,6 +53,7 @@ function NumberField({
 export function SettingsPage() {
 	const { t } = useTranslation();
 	const { toast } = useToast();
+	const { members, refetch: refetchMembers } = useMembers();
 	const [settings, setSettings] = useState<Settings | null>(null);
 	const [error, setError] = useState(false);
 	const [saving, setSaving] = useState(false);
@@ -206,6 +212,9 @@ export function SettingsPage() {
 					{t("settings.tokenSectionHint")}
 				</p>
 			</div>
+
+			<AdminTokenSyncPanel members={members} onChanged={refetchMembers} />
+			<AdminTokenResetPanel members={members} onChanged={refetchMembers} />
 		</div>
 	);
 }

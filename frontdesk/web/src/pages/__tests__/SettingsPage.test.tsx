@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { Settings } from "../../api/types";
 import { ToastProvider } from "../../context/ToastContext";
 import { server } from "../../test/server";
+import { sseHandler } from "../../test/sse";
 import { SettingsPage } from "../SettingsPage";
 
 const defaults: Settings = {
@@ -26,6 +27,12 @@ function renderPage() {
 
 beforeEach(() => {
 	localStorage.setItem("fdAuthToken", "tok");
+	// Settings now embeds the admin-token panels, which load the member list
+	// and an SSE stream.
+	server.use(
+		sseHandler(),
+		http.get("/api/members", () => HttpResponse.json([])),
+	);
 });
 
 describe("SettingsPage", () => {
