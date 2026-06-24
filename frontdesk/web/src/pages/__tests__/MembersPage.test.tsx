@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { MemberView } from "../../api/types";
 import { ToastProvider } from "../../context/ToastContext";
 import { server } from "../../test/server";
-import { sseHandler } from "../../test/sse";
+import { sseEmitting, sseHandler } from "../../test/sse";
 import { MembersPage } from "../MembersPage";
 
 function member(
@@ -218,5 +218,94 @@ describe("MembersPage", () => {
 		await waitFor(() =>
 			expect(screen.getByText(/No members yet/i)).toBeInTheDocument(),
 		);
+	});
+
+	it("live-refreshes the list when a membership event arrives", async () => {
+		let calls = 0;
+		server.use(
+			http.get("/api/members", () => {
+				calls += 1;
+				return HttpResponse.json(
+					calls === 1
+						? [member({ id: "1", name: "hotel-1" })]
+						: [
+								member({ id: "1", name: "hotel-1" }),
+								member({ id: "2", name: "hotel-2" }),
+							],
+				);
+			}),
+			// SSE pushes a membership event on connect, which should trigger a refetch.
+			sseEmitting([
+				{
+					id: "e1",
+					type: "member.added",
+					severity: "info",
+					source: "frontdesk",
+					message: "added",
+					created_at: "",
+				},
+			]),
+		);
+		renderPage();
+		await screen.findByText("hotel-1");
+		expect(await screen.findByText("hotel-2")).toBeInTheDocument();
+	});
+
+	it("shows the error state when the list cannot be loaded", async () => {
+		server.use(
+			http.get("/api/members", () => new HttpResponse("boom", { status: 500 })),
+		);
+		renderPage();
+		expect(
+			await screen.findByText(/Could not reach Front Desk/i),
+		).toBeInTheDocument();
+	});
+
+	it("activates a drained member", async () => {
+		let state: "active" | "drained" = "drained";
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([member({ id: "1", name: "hotel-1", state })]),
+			),
+			http.post("/api/members/1/state", async ({ request }) => {
+				state = ((await request.json()) as { state: "active" | "drained" })
+					.state;
+				return HttpResponse.json(member({ id: "1", name: "hotel-1", state }));
+			}),
+		);
+		renderPage();
+		await screen.findByText("hotel-1");
+		await userEvent.click(screen.getByRole("button", { name: /^Activate$/i }));
+		await waitFor(() =>
+			expect(
+				screen.getByRole("button", { name: /^Drain$/i }),
+			).toBeInTheDocument(),
+		);
+	});
+
+	it("shows an unknown health badge when the poller has no reading yet", async () => {
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([
+					member({
+						id: "1",
+						name: "hotel-1",
+						status: {
+							health: {
+								known: false,
+								healthy: false,
+								latency_ms: 0,
+								checked_at: "",
+							},
+						},
+					}),
+				]),
+			),
+		);
+		renderPage();
+		const row = (await screen.findByText("hotel-1")).closest(
+			"tr",
+		) as HTMLElement;
+		expect(within(row).getByText(/Unknown/i)).toBeInTheDocument();
 	});
 });

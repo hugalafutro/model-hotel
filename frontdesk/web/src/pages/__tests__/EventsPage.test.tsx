@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { FdEvent } from "../../api/types";
 import { ToastProvider } from "../../context/ToastContext";
 import { server } from "../../test/server";
-import { sseHandler } from "../../test/sse";
+import { sseEmitting, sseHandler } from "../../test/sse";
 import { EventsPage } from "../EventsPage";
 
 function ev(id: string, over: Partial<FdEvent> = {}): FdEvent {
@@ -102,5 +102,32 @@ describe("EventsPage", () => {
 		expect(screen.getByRole("button", { name: /Previous/i })).toBeDisabled();
 		await userEvent.click(screen.getByRole("button", { name: /Next/i }));
 		await waitFor(() => expect(offsets).toContain(25));
+	});
+
+	it("refetches on the first page when an SSE event arrives", async () => {
+		let calls = 0;
+		server.use(
+			http.get("/api/events", () => {
+				calls += 1;
+				return HttpResponse.json(
+					calls === 1
+						? { events: [], total: 0 }
+						: { events: [ev("1", { message: "fresh event" })], total: 1 },
+				);
+			}),
+			sseEmitting([
+				{
+					id: "e1",
+					type: "member.added",
+					severity: "info",
+					source: "frontdesk",
+					message: "x",
+					created_at: "",
+				},
+			]),
+		);
+		renderPage();
+		// The first page load is empty; only the SSE-triggered refetch surfaces it.
+		expect(await screen.findByText("fresh event")).toBeInTheDocument();
 	});
 });

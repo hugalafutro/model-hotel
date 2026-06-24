@@ -73,3 +73,36 @@ func TestMemberTrafficUnknownMemberIs404(t *testing.T) {
 		t.Errorf("traffic = %d, want 404", rec.Code)
 	}
 }
+
+// A member whose stats API errors or returns junk is reported unreachable (200
+// with reachable=false), so the Traffic tab degrades per member.
+func TestMemberTrafficUnreadableIsUnreachable(t *testing.T) {
+	cases := map[string]http.HandlerFunc{
+		"non-200": func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		},
+		"bad-json": func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write([]byte("not json"))
+		},
+	}
+	for name, handler := range cases {
+		t.Run(name, func(t *testing.T) {
+			srv, store := newTestServer(t)
+			member := httptest.NewServer(handler)
+			defer member.Close()
+			m, err := store.CreateMember(t.Context(), "hotel", member.URL, "tok")
+			if err != nil {
+				t.Fatalf("CreateMember: %v", err)
+			}
+			rec := do(t, srv, http.MethodGet, "/api/members/"+m.ID+"/traffic", "", true)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("traffic = %d", rec.Code)
+			}
+			var resp memberTrafficResponse
+			_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+			if resp.Reachable {
+				t.Errorf("%s: expected reachable=false", name)
+			}
+		})
+	}
+}

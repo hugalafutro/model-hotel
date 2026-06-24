@@ -88,6 +88,76 @@ func TestAdminTokenPreviewClassifies(t *testing.T) {
 	}
 }
 
+// A member whose current hash can't be read is classified "overwrite" (unknown,
+// so the sync will attempt it) rather than silently "matches".
+func TestAdminTokenPreviewFetchFailureIsOverwrite(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubMember(t, "ptoken", "sha256:aaa")
+	// A member whose token-hash GET errors (wrong token here => 401).
+	broken := newStubMember(t, "real-token", "sha256:bbb")
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	bm, _ := store.CreateMember(t.Context(), "broken", broken.srv.URL, "stale-token")
+
+	rec := do(t, srv, http.MethodGet, "/api/admin-token/preview?primary="+pm.ID, "", true)
+	var resp struct {
+		Items []syncPreviewItem `json:"items"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	for _, it := range resp.Items {
+		if it.MemberID == bm.ID && it.Disposition != dispOverwrite {
+			t.Errorf("unreadable member disposition = %q, want overwrite", it.Disposition)
+		}
+	}
+}
+
+// A member already on the primary's hash is left untouched (not in the results).
+func TestAdminTokenSyncSkipsAlreadyMatching(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubMember(t, "ptoken", "sha256:same")
+	matching := newStubMember(t, "mtoken", "sha256:same")
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	mm, _ := store.CreateMember(t.Context(), "matching", matching.srv.URL, "mtoken")
+
+	rec := do(t, srv, http.MethodPost, "/api/admin-token/sync", `{"primary_id":"`+pm.ID+`"}`, true)
+	var resp struct {
+		Results []syncResultItem `json:"results"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	for _, r := range resp.Results {
+		if r.MemberID == mm.ID {
+			t.Errorf("already-matching member should be skipped, got result %+v", r)
+		}
+	}
+	if matching.gotPush != "" {
+		t.Errorf("already-matching member should not be pushed to, got %q", matching.gotPush)
+	}
+}
+
+// When the member rejects the hash push, the result is a failure and Front Desk
+// leaves its stored token unchanged.
+func TestApplyTokenHashPushFailure(t *testing.T) {
+	srv, store := newTestServer(t)
+	stub := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer stub.Close()
+	mem, _ := store.CreateMember(t.Context(), "m", stub.URL, "tok")
+
+	res := srv.applyTokenHash(t.Context(), mem, "tok", "sha256:new", "newplain", "admin_token.synced")
+	if res.OK {
+		t.Error("expected OK=false when the member rejects the push")
+	}
+	if !strings.Contains(res.Error, "could not update") {
+		t.Errorf("error = %q, want it to mention the failed update", res.Error)
+	}
+	// The stored token must be unchanged (push failed before any store write).
+	tok, ok, _ := store.MemberToken(t.Context(), mem.ID)
+	if !ok || tok != "tok" {
+		t.Errorf("stored token = %q (ok=%v), want it unchanged", tok, ok)
+	}
+}
+
 func TestAdminTokenSyncOverwritesAndRestoresStoredToken(t *testing.T) {
 	srv, store := newTestServer(t)
 	primary := newStubMember(t, "ptoken", "sha256:aaa")

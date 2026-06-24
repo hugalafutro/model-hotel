@@ -56,4 +56,31 @@ describe("App auth gating", () => {
 			screen.queryByRole("tab", { name: /members/i }),
 		).not.toBeInTheDocument();
 	});
+
+	it("drops back to login when an authed request later 401s", async () => {
+		// First /api/members call (login validation) succeeds; the next one (the
+		// authed shell's own fetch) 401s, which must bounce back to login.
+		let calls = 0;
+		server.use(
+			sseHandler(),
+			http.get("/api/totp/status", () => HttpResponse.json({ enabled: false })),
+			http.get("/api/webauthn/available", () =>
+				HttpResponse.json({ enabled: false }),
+			),
+			http.get("/api/members", () => {
+				calls += 1;
+				return calls === 1
+					? HttpResponse.json([])
+					: new HttpResponse("expired", { status: 401 });
+			}),
+		);
+		render(<App />);
+		await userEvent.type(screen.getByLabelText(/Front Desk token/i), "good");
+		await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
+		// The shell mounts, its members fetch 401s, and we return to the login form.
+		await waitFor(() =>
+			expect(screen.getByLabelText(/Front Desk token/i)).toBeInTheDocument(),
+		);
+		expect(localStorage.getItem("fdAuthToken")).toBeNull();
+	});
 });
