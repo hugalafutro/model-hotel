@@ -81,6 +81,7 @@ function Shell() {
 						className="fd-tab"
 						onClick={logout}
 						title={t("app.logout")}
+						aria-label={t("app.logout")}
 					>
 						<SignOut size={16} />
 					</button>

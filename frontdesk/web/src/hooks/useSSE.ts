@@ -1,5 +1,10 @@
 import { useEffect, useRef } from "react";
-import { API_BASE, getAuthToken, onUnauthorized } from "../api/client";
+import {
+	API_BASE,
+	getAuthToken,
+	notifyUnauthorized,
+	onUnauthorized,
+} from "../api/client";
 import type { FdEvent } from "../api/types";
 
 // useSSE subscribes to the Front Desk event stream (GET /api/sse) and invokes
@@ -38,6 +43,13 @@ export function useSSE(onEvent: (e: FdEvent) => void, enabled: boolean) {
 				signal: ac.signal,
 			})
 				.then(async (resp) => {
+					// A dead token must drop to login, not reconnect forever. This
+					// fires the same listeners request() does (one of which is the
+					// in-effect onUnauthorized below, which stops the reconnect).
+					if (resp.status === 401) {
+						notifyUnauthorized();
+						return;
+					}
 					if (!resp.ok || !resp.body) return;
 					delay = 1000; // connected: reset backoff
 					const reader = resp.body.getReader();

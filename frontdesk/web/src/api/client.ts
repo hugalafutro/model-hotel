@@ -1,3 +1,4 @@
+import type { PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
 import type {
 	EventsPage,
 	FdEvent,
@@ -60,7 +61,10 @@ export function onUnauthorized(fn: UnauthorizedListener): () => void {
 	unauthorizedListeners.add(fn);
 	return () => unauthorizedListeners.delete(fn);
 }
-function notifyUnauthorized() {
+// Drop the stored token and notify listeners (the app falls back to login).
+// Exported so the SSE stream, which uses raw fetch and bypasses request(), can
+// trigger the same path on a 401 instead of reconnecting with a dead token.
+export function notifyUnauthorized() {
 	clearAuthToken();
 	for (const fn of unauthorizedListeners) fn();
 }
@@ -150,12 +154,12 @@ export const api = {
 	webauthnAvailable: () =>
 		request<{ enabled: boolean }>("/api/webauthn/available"),
 	webauthnLoginStart: () =>
-		request<{ session_id: string; options: Record<string, unknown> }>(
-			"/api/webauthn/login/start",
-			{
-				method: "POST",
-			},
-		),
+		request<{
+			session_id: string;
+			options: PublicKeyCredentialRequestOptionsJSON;
+		}>("/api/webauthn/login/start", {
+			method: "POST",
+		}),
 	webauthnLoginFinish: (sessionId: string, credential: unknown) =>
 		request<{ token: string }>(
 			"/api/webauthn/login/finish",

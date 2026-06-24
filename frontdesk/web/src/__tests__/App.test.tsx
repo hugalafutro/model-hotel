@@ -4,10 +4,13 @@ import { HttpResponse, http } from "msw";
 import { describe, expect, it } from "vitest";
 import App from "../App";
 import { server } from "../test/server";
+import { sseHandler } from "../test/sse";
 
 // Auth-gating handlers: TOTP off, no passkey, members list reflects the token.
+// Includes the SSE stream the authenticated shell opens after login.
 function authHandlers(validToken: string) {
 	return [
+		sseHandler(),
 		http.get("/api/totp/status", () => HttpResponse.json({ enabled: false })),
 		http.get("/api/webauthn/available", () =>
 			HttpResponse.json({ enabled: false }),

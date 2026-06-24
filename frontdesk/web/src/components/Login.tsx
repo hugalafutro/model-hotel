@@ -69,7 +69,7 @@ export function Login({ onAuthenticated }: LoginProps) {
 		try {
 			const start = await api.webauthnLoginStart();
 			const credential = await startAuthentication({
-				optionsJSON: start.options as never,
+				optionsJSON: start.options,
 			});
 			const res = await api.webauthnLoginFinish(start.session_id, credential);
 			setAuthToken(res.token);
