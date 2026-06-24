@@ -142,7 +142,10 @@ export const api = {
 			jsonInit("POST", { primary_id: primaryId }),
 		),
 	resetAdminToken: () =>
-		request<ResetResult>("/api/admin-token/reset", { method: "POST" }),
+		request<ResetResult>(
+			"/api/admin-token/reset",
+			jsonInit("POST", { confirm: true }),
+		),
 
 	// Auth (unauthenticated except where noted).
 	totpStatus: () => request<{ enabled: boolean }>("/api/totp/status"),

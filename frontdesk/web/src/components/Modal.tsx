@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 
 interface ModalProps {
 	title: string;
@@ -7,16 +7,51 @@ interface ModalProps {
 	actions?: ReactNode;
 }
 
+const FOCUSABLE =
+	'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
 // Lightweight modal: backdrop click and Escape close it. The control plane has
-// only a handful of dialogs, so this stays deliberately minimal (no portal,
-// no focus-trap library); it is rendered at the app root.
+// only a handful of dialogs, so this stays deliberately minimal (no portal, no
+// focus-trap library), but it does trap Tab focus within the dialog while open
+// and restores focus to the trigger on close, so keyboard and screen-reader
+// users aren't dropped behind the modal.
 export function Modal({ title, onClose, children, actions }: ModalProps) {
+	const dialogRef = useRef<HTMLDivElement>(null);
+
 	useEffect(() => {
+		const previouslyFocused = document.activeElement as HTMLElement | null;
+		// Focus the first focusable control (or the dialog itself) on open.
+		const dialog = dialogRef.current;
+		const first = dialog?.querySelector<HTMLElement>(FOCUSABLE);
+		(first ?? dialog)?.focus();
+
 		const onKey = (e: KeyboardEvent) => {
-			if (e.key === "Escape") onClose();
+			if (e.key === "Escape") {
+				onClose();
+				return;
+			}
+			if (e.key !== "Tab" || !dialog) return;
+			const items = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE));
+			if (items.length === 0) {
+				e.preventDefault();
+				return;
+			}
+			const firstItem = items[0];
+			const lastItem = items[items.length - 1];
+			const active = document.activeElement;
+			if (e.shiftKey && active === firstItem) {
+				e.preventDefault();
+				lastItem.focus();
+			} else if (!e.shiftKey && active === lastItem) {
+				e.preventDefault();
+				firstItem.focus();
+			}
 		};
 		document.addEventListener("keydown", onKey);
-		return () => document.removeEventListener("keydown", onKey);
+		return () => {
+			document.removeEventListener("keydown", onKey);
+			previouslyFocused?.focus?.();
+		};
 	}, [onClose]);
 
 	return (
@@ -28,10 +63,12 @@ export function Modal({ title, onClose, children, actions }: ModalProps) {
 			}}
 		>
 			<div
+				ref={dialogRef}
 				className="fd-modal"
 				role="dialog"
 				aria-modal="true"
 				aria-label={title}
+				tabIndex={-1}
 			>
 				<h2>{title}</h2>
 				<div>{children}</div>

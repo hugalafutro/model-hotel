@@ -165,6 +165,20 @@ func (s *Server) adminTokenSync(w http.ResponseWriter, r *http.Request) {
 // plaintext exactly once. Members with no stored token are reported as skipped
 // (they keep their old token). The plaintext is never logged.
 func (s *Server) adminTokenReset(w http.ResponseWriter, r *http.Request) {
+	// Defense in depth behind the UI's double-confirm: the most destructive
+	// endpoint requires an explicit confirm flag, so it can't be triggered by a
+	// bare POST (a stray client, a misfired fetch, a curious probe).
+	var req struct {
+		Confirm bool `json:"confirm"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if !req.Confirm {
+		http.Error(w, "reset requires confirm=true", http.StatusBadRequest)
+		return
+	}
+
 	plaintext, hash, err := generateGroupToken()
 	if err != nil {
 		debuglog.Error("frontdesk: generate group token", "error", err)

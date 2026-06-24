@@ -9,7 +9,11 @@ import {
 import { useToast } from "../context/ToastContext";
 import { useMembers } from "../hooks/useMembers";
 
-// NumberField is a labeled integer input bound to a Settings numeric key.
+// NumberField is a labeled integer input bound to a Settings numeric key. It
+// holds a local string draft so the field can be cleared and retyped without
+// the value snapping to a fallback mid-edit; it only commits valid integers to
+// the parent, and coerces an empty/invalid field to the minimum on blur so a
+// NaN can never reach the settings PUT.
 function NumberField({
 	id,
 	label,
@@ -25,6 +29,16 @@ function NumberField({
 	min: number;
 	onChange: (n: number) => void;
 }) {
+	const [draft, setDraft] = useState(String(value));
+	// Re-sync the draft when the committed value changes from outside this field
+	// (e.g. a reset), using the render-time adjustment pattern rather than an
+	// effect so there's no extra render pass.
+	const [lastValue, setLastValue] = useState(value);
+	if (value !== lastValue) {
+		setLastValue(value);
+		setDraft(String(value));
+	}
+
 	return (
 		<div className="ui-field">
 			<label className="ui-label" htmlFor={id}>
@@ -35,8 +49,18 @@ function NumberField({
 				className="ui-input"
 				type="number"
 				min={min}
-				value={value}
-				onChange={(e) => onChange(Number(e.target.value))}
+				value={draft}
+				onChange={(e) => {
+					setDraft(e.target.value);
+					const n = Number.parseInt(e.target.value, 10);
+					if (!Number.isNaN(n)) onChange(n);
+				}}
+				onBlur={() => {
+					const n = Number.parseInt(draft, 10);
+					const safe = Number.isNaN(n) ? min : n;
+					setDraft(String(safe));
+					onChange(safe);
+				}}
 			/>
 			{hint && (
 				<div

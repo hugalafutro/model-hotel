@@ -56,6 +56,26 @@ describe("SettingsPage", () => {
 		await waitFor(() => expect(saved?.traefik_stale_secs).toBe(45));
 	});
 
+	it("coerces a cleared numeric field to its minimum (never NaN) on save", async () => {
+		let saved: Settings | null = null;
+		server.use(
+			http.get("/api/settings", () => HttpResponse.json(defaults)),
+			http.put("/api/settings", async ({ request }) => {
+				saved = (await request.json()) as Settings;
+				return new HttpResponse(null, { status: 204 });
+			}),
+		);
+		renderPage();
+		const stale = (await screen.findByLabelText(
+			/staleness warning/i,
+		)) as HTMLInputElement;
+		await userEvent.clear(stale);
+		await userEvent.tab(); // blur coerces the empty field to its minimum (1)
+		await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+		// The saved value is the minimum (1), not NaN — a cleared field is coerced.
+		await waitFor(() => expect(saved?.traefik_stale_secs).toBe(1));
+	});
+
 	it("toggles sticky sessions", async () => {
 		let saved: Settings | null = null;
 		server.use(

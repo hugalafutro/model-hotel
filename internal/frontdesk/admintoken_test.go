@@ -129,7 +129,7 @@ func TestAdminTokenResetGeneratesAndPushes(t *testing.T) {
 	// A token-less member should be reported skipped, not crash the reset.
 	nm, _ := store.CreateMember(t.Context(), "m3", "http://127.0.0.1:1", "")
 
-	rec := do(t, srv, http.MethodPost, "/api/admin-token/reset", "", true)
+	rec := do(t, srv, http.MethodPost, "/api/admin-token/reset", `{"confirm":true}`, true)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("reset = %d (%s)", rec.Code, rec.Body.String())
 	}
@@ -159,6 +159,17 @@ func TestAdminTokenResetGeneratesAndPushes(t *testing.T) {
 		if r.MemberID == nm.ID && r.OK {
 			t.Error("token-less member should be reported ok=false")
 		}
+	}
+}
+
+func TestAdminTokenResetRequiresConfirm(t *testing.T) {
+	srv, _ := newTestServer(t)
+	// No body and confirm=false must both be refused without minting a token.
+	if rec := do(t, srv, http.MethodPost, "/api/admin-token/reset", "", true); rec.Code != http.StatusBadRequest {
+		t.Errorf("reset with no body = %d, want 400", rec.Code)
+	}
+	if rec := do(t, srv, http.MethodPost, "/api/admin-token/reset", `{"confirm":false}`, true); rec.Code != http.StatusBadRequest {
+		t.Errorf("reset with confirm=false = %d, want 400", rec.Code)
 	}
 }
 
