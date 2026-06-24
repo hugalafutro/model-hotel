@@ -282,6 +282,18 @@ export function AdminTokenResetPanel({
 			>
 				{t("settings.resetIntro")}
 			</p>
+			<div
+				className="ui-badge ui-badge-warn"
+				style={{
+					display: "block",
+					margin: "0 0 1rem",
+					padding: "0.5rem 0.7rem",
+					whiteSpace: "normal",
+					lineHeight: 1.4,
+				}}
+			>
+				{t("settings.resetTokenNotice")}
+			</div>
 			<button
 				type="button"
 				className="ui-btn ui-btn-danger"

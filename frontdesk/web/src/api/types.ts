@@ -105,3 +105,35 @@ export interface ResetResult {
 	token: string;
 	results: SyncResultItem[];
 }
+
+// --- Admin authentication (passkeys + TOTP), Settings → Security ---
+
+export interface WebAuthnCredential {
+	id: string;
+	name: string;
+	transports: string[];
+	created_at: string;
+	aaguid: string;
+	sign_count: number;
+}
+
+/** Admin-gated detail for the Security panel (not the polled public status). */
+export interface TotpInfo {
+	recovery_remaining: number;
+	recovery_total: number;
+	/** RFC3339 time a TOTP code was last accepted; absent if never used. */
+	last_used_at?: string;
+}
+
+export interface TotpEnrollStart {
+	uri: string;
+	secret: string;
+}
+
+export interface TotpEnrollVerify {
+	recovery_codes: string[];
+	// Session token minted on enable so the admin stays logged in (the raw
+	// FRONTDESK_TOKEN stops being a valid bearer once TOTP is on). Absent only if
+	// the server could not mint one, in which case the user must re-login.
+	token?: string;
+}

@@ -6,6 +6,7 @@ import {
 	AdminTokenResetPanel,
 	AdminTokenSyncPanel,
 } from "../components/AdminTokenPanels";
+import { SecurityPanels } from "../components/SecurityPanels";
 import { useToast } from "../context/ToastContext";
 import { useMembers } from "../hooks/useMembers";
 
@@ -227,18 +228,10 @@ export function SettingsPage() {
 				</div>
 			</form>
 
-			<div className="ui-card ui-card-pad">
-				<h2 style={{ fontSize: "1rem" }}>{t("settings.tokenSection")}</h2>
-				<p
-					className="fd-muted"
-					style={{ fontSize: "0.85rem", marginTop: "0.4rem" }}
-				>
-					{t("settings.tokenSectionHint")}
-				</p>
-			</div>
-
 			<AdminTokenSyncPanel members={members} onChanged={refetchMembers} />
 			<AdminTokenResetPanel members={members} onChanged={refetchMembers} />
+
+			<SecurityPanels />
 		</div>
 	);
 }

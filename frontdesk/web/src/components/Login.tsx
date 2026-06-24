@@ -28,7 +28,7 @@ export function Login({ onAuthenticated }: LoginProps) {
 			.catch(() => {});
 		api
 			.webauthnAvailable()
-			.then((a) => setPasskeyEnabled(a.enabled))
+			.then((a) => setPasskeyEnabled(a.enabled && a.has_credentials))
 			.catch(() => {});
 	}, []);
 

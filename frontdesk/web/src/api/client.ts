@@ -1,4 +1,7 @@
-import type { PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
+import type {
+	PublicKeyCredentialCreationOptionsJSON,
+	PublicKeyCredentialRequestOptionsJSON,
+} from "@simplewebauthn/browser";
 import type {
 	EventsPage,
 	FdEvent,
@@ -10,6 +13,10 @@ import type {
 	Settings,
 	SyncPreview,
 	SyncResult,
+	TotpEnrollStart,
+	TotpEnrollVerify,
+	TotpInfo,
+	WebAuthnCredential,
 } from "./types";
 
 // Same-origin: the SPA is embedded in and served by the Front Desk binary.
@@ -148,14 +155,17 @@ export const api = {
 		),
 
 	// Auth (unauthenticated except where noted).
-	totpStatus: () => request<{ enabled: boolean }>("/api/totp/status"),
+	totpStatus: () =>
+		request<{ enabled: boolean; enabled_at?: string }>("/api/totp/status"),
 	totpLogin: (token: string, code: string) =>
 		request<{ token: string }>(
 			"/api/totp/login",
 			jsonInit("POST", { token, code }),
 		),
 	webauthnAvailable: () =>
-		request<{ enabled: boolean }>("/api/webauthn/available"),
+		request<{ enabled: boolean; has_credentials: boolean }>(
+			"/api/webauthn/available",
+		),
 	webauthnLoginStart: () =>
 		request<{
 			session_id: string;
@@ -168,6 +178,41 @@ export const api = {
 			"/api/webauthn/login/finish",
 			jsonInit("POST", { session_id: sessionId, credential }),
 		),
+
+	// Passkey management (admin-gated; bearer attached automatically once logged in).
+	webauthnRegisterStart: () =>
+		request<{
+			session_id: string;
+			options: PublicKeyCredentialCreationOptionsJSON;
+		}>("/api/webauthn/register/start", { method: "POST" }),
+	webauthnRegisterFinish: (sessionId: string, credential: unknown) =>
+		request<{ success: boolean }>(
+			"/api/webauthn/register/finish",
+			jsonInit("POST", { session_id: sessionId, credential }),
+		),
+	webauthnListCredentials: () =>
+		request<WebAuthnCredential[]>("/api/webauthn/credentials"),
+	webauthnRenameCredential: (id: string, name: string) =>
+		request<void>(
+			`/api/webauthn/credentials/${encodeURIComponent(id)}`,
+			jsonInit("PATCH", { name }),
+		),
+	webauthnDeleteCredential: (id: string) =>
+		request<void>(`/api/webauthn/credentials/${encodeURIComponent(id)}`, {
+			method: "DELETE",
+		}),
+
+	// TOTP management (admin-gated).
+	totpInfo: () => request<TotpInfo>("/api/totp/info"),
+	totpEnrollStart: () =>
+		request<TotpEnrollStart>("/api/totp/enroll/start", { method: "POST" }),
+	totpEnrollVerify: (code: string) =>
+		request<TotpEnrollVerify>(
+			"/api/totp/enroll/verify",
+			jsonInit("POST", { code }),
+		),
+	totpDisable: (code: string) =>
+		request<void>("/api/totp/disable", jsonInit("POST", { code })),
 };
 
 // Re-export so consumers importing the client get the event type without a

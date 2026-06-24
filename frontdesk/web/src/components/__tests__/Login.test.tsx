@@ -47,7 +47,7 @@ describe("Login", () => {
 		server.use(
 			http.get("/api/totp/status", () => HttpResponse.json({ enabled: false })),
 			http.get("/api/webauthn/available", () =>
-				HttpResponse.json({ enabled: true }),
+				HttpResponse.json({ enabled: true, has_credentials: true }),
 			),
 			http.post("/api/webauthn/login/start", () =>
 				HttpResponse.json({ session_id: "s1", options: { challenge: "abc" } }),
@@ -84,5 +84,22 @@ describe("Login", () => {
 		await userEvent.type(screen.getByLabelText(/Front Desk token/i), "bad");
 		await userEvent.click(screen.getByRole("button", { name: /Sign in/i }));
 		expect(await screen.findByRole("alert")).toHaveTextContent(/not accepted/i);
+	});
+
+	it("hides the passkey button when configured but no passkey is registered", async () => {
+		server.use(
+			http.get("/api/totp/status", () => HttpResponse.json({ enabled: false })),
+			http.get("/api/webauthn/available", () =>
+				HttpResponse.json({ enabled: true, has_credentials: false }),
+			),
+		);
+		render(<Login onAuthenticated={vi.fn()} />);
+		// The token field renders immediately; the passkey button must never appear.
+		await screen.findByLabelText(/Front Desk token/i);
+		await waitFor(() => {
+			expect(
+				screen.queryByRole("button", { name: /Sign in with a passkey/i }),
+			).toBeNull();
+		});
 	});
 });
