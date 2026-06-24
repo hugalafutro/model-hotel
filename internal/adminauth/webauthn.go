@@ -56,9 +56,27 @@ func NewWebAuthnHandler(
 	}
 }
 
-// Available reports whether WebAuthn is enabled on the server.
-func (h *WebAuthnHandler) Available(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, map[string]bool{"enabled": h.relyingParty != nil})
+// Available reports whether passkey login should be offered to the client.
+//
+// "enabled" means WebAuthn is configured on this server (a relying party exists,
+// derived from PUBLIC_ORIGIN). "has_credentials" means at least one passkey is
+// registered. The login screen offers the passkey button only when both are
+// true, so a freshly provisioned server with no passkeys never advertises a
+// button that cannot work. Credential management (the registration panel) keys
+// off "enabled" alone, so the first passkey can still be enrolled. The endpoint
+// is unauthenticated, so it returns only these two booleans, never any
+// credential detail.
+func (h *WebAuthnHandler) Available(w http.ResponseWriter, r *http.Request) {
+	resp := map[string]bool{"enabled": h.relyingParty != nil, "has_credentials": false}
+	if h.relyingParty != nil {
+		creds, err := h.webauthnRepo.ListCredentials(r.Context())
+		if err != nil {
+			debuglog.Error("webauthn: list credentials for availability", "error", err)
+		} else {
+			resp["has_credentials"] = len(creds) > 0
+		}
+	}
+	writeJSON(w, resp)
 }
 
 // Register mounts WebAuthn routes on the given router.

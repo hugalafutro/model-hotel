@@ -14,7 +14,7 @@ import { SidebarModeProvider } from "./context/SidebarModeContext";
 import { StorageProvider } from "./context/StorageContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { ToastProvider } from "./context/ToastContext";
-import { isWebAuthnAvailable, loginWithPasskey } from "./utils/webauthn";
+import { canUsePasskeyLogin, loginWithPasskey } from "./utils/webauthn";
 
 const Dashboard = lazy(() =>
 	import("./pages/Dashboard").then((m) => ({ default: m.Dashboard })),
@@ -69,7 +69,7 @@ function LoginScreen() {
 	const demoToken = demoLogin?.token ?? "";
 
 	useEffect(() => {
-		isWebAuthnAvailable().then(setPasskeyAvailable);
+		canUsePasskeyLogin().then(setPasskeyAvailable);
 	}, []);
 
 	useEffect(() => {

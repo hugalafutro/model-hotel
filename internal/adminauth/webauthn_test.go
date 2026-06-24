@@ -70,12 +70,29 @@ func TestWebAuthnHandler_Available_WithNilRP(t *testing.T) {
 	}
 }
 
-// TestAvailable_WithNonNilRP tests that Available returns enabled=true when RP is set
+// availStubStore embeds webauthn.Store so it satisfies the interface, and
+// overrides only ListCredentials (the sole method Available calls). Any other
+// method would panic on the nil embedded interface, which is the intended guard:
+// Available must not touch the rest of the store.
+type availStubStore struct {
+	webauthn.Store
+	creds []*webauthn.CredentialRecord
+	err   error
+}
+
+func (s availStubStore) ListCredentials(context.Context) ([]*webauthn.CredentialRecord, error) {
+	return s.creds, s.err
+}
+
+// TestAvailable_WithNonNilRP tests that Available reports enabled=true (RP set)
+// but has_credentials=false when no passkey is registered, so the login screen
+// does not advertise a passkey button that cannot work.
 func TestWebAuthnHandler_Available_WithNonNilRP(t *testing.T) {
 	// We can't easily construct a real webauthnx.WebAuthn, so we use a non-nil placeholder
 	// In practice, this is set when WebAuthn is configured with HTTPS + proper config
 	rp := &webauthnx.WebAuthn{} // non-nil but not fully initialized
 	h := newTestWebAuthnHandler(nil, rp, nil, nil)
+	h.webauthnRepo = availStubStore{} // no credentials registered
 
 	req, w := newChiRequest(http.MethodGet, "/webauthn/available", nil)
 	h.Available(w, req)
@@ -91,6 +108,30 @@ func TestWebAuthnHandler_Available_WithNonNilRP(t *testing.T) {
 
 	if resp["enabled"] != true {
 		t.Errorf("expected enabled=true, got %v", resp["enabled"])
+	}
+	if resp["has_credentials"] != false {
+		t.Errorf("expected has_credentials=false with no passkeys, got %v", resp["has_credentials"])
+	}
+}
+
+// TestAvailable_WithCredentials tests that Available reports has_credentials=true
+// once at least one passkey is registered, which is what unlocks the login
+// screen's passkey button.
+func TestWebAuthnHandler_Available_WithCredentials(t *testing.T) {
+	rp := &webauthnx.WebAuthn{}
+	h := newTestWebAuthnHandler(nil, rp, nil, nil)
+	h.webauthnRepo = availStubStore{creds: []*webauthn.CredentialRecord{{Name: "yubikey"}}}
+
+	req, w := newChiRequest(http.MethodGet, "/webauthn/available", nil)
+	h.Available(w, req)
+
+	var resp map[string]bool
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if resp["enabled"] != true || resp["has_credentials"] != true {
+		t.Errorf("expected enabled=true has_credentials=true, got %v", resp)
 	}
 }
 
