@@ -124,8 +124,10 @@ function PasskeyPanel() {
 					style={{
 						display: "block",
 						padding: "0.5rem 0.7rem",
+						borderRadius: "var(--radius-sm)",
 						whiteSpace: "normal",
-						lineHeight: 1.4,
+						textWrap: "pretty",
+						lineHeight: 1.45,
 					}}
 				>
 					{t("settings.passkeys.notConfigured")}
@@ -411,8 +413,10 @@ function TotpPanel() {
 						display: "block",
 						margin: "0.6rem 0",
 						padding: "0.5rem 0.7rem",
+						borderRadius: "var(--radius-sm)",
 						whiteSpace: "normal",
-						lineHeight: 1.4,
+						textWrap: "pretty",
+						lineHeight: 1.45,
 					}}
 				>
 					{t("settings.totp.recoveryWarning")}

@@ -322,8 +322,10 @@ function AddMemberForm({
 						display: "block",
 						marginBottom: "0.8rem",
 						padding: "0.5rem 0.7rem",
+						borderRadius: "var(--radius-sm)",
 						whiteSpace: "normal",
-						lineHeight: 1.4,
+						textWrap: "pretty",
+						lineHeight: 1.45,
 					}}
 				>
 					{t("members.firstMemberPrimary")}

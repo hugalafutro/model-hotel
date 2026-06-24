@@ -288,8 +288,10 @@ export function AdminTokenResetPanel({
 					display: "block",
 					margin: "0 0 1rem",
 					padding: "0.5rem 0.7rem",
+					borderRadius: "var(--radius-sm)",
 					whiteSpace: "normal",
-					lineHeight: 1.4,
+					textWrap: "pretty",
+					lineHeight: 1.45,
 				}}
 			>
 				{t("settings.resetTokenNotice")}
