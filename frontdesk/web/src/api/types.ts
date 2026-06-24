@@ -59,9 +59,10 @@ export interface EventsPage {
 	total: number;
 }
 
-// Per-member traffic metrics, as proxied by Front Desk from each member.
+// Per-member traffic metrics, as proxied by Front Desk from each member's
+// /api/stats/timeseries (last hour, 5-minute buckets).
 export interface MemberTrafficPoint {
-	minute: string;
+	bucket: string;
 	requests: number;
 	errors: number;
 }
@@ -72,7 +73,6 @@ export interface MemberTraffic {
 	window_minutes: number;
 	total_requests: number;
 	total_errors: number;
-	latency_p50_ms: number;
 	points: MemberTrafficPoint[];
 }
 

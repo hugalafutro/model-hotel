@@ -5,7 +5,7 @@ import {
 	SignOut,
 	UsersThree,
 } from "@phosphor-icons/react";
-import { useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { clearAuthToken, getAuthToken, onUnauthorized } from "./api/client";
 import { Login } from "./components/Login";
@@ -13,7 +13,12 @@ import { ToastProvider } from "./context/ToastContext";
 import { EventsPage } from "./pages/EventsPage";
 import { MembersPage } from "./pages/MembersPage";
 import { SettingsPage } from "./pages/SettingsPage";
-import { TrafficPage } from "./pages/TrafficPage";
+
+// Traffic carries recharts (the one heavy dependency), so it loads lazily to
+// keep the initial bundle small; the other tabs are cheap and stay eager.
+const TrafficPage = lazy(() =>
+	import("./pages/TrafficPage").then((m) => ({ default: m.TrafficPage })),
+);
 
 type Tab = "members" | "traffic" | "events" | "settings";
 
@@ -82,10 +87,14 @@ function Shell() {
 				</div>
 			</header>
 			<main className="fd-main">
-				{tab === "members" && <MembersPage />}
-				{tab === "traffic" && <TrafficPage />}
-				{tab === "events" && <EventsPage />}
-				{tab === "settings" && <SettingsPage />}
+				<Suspense
+					fallback={<div className="fd-empty">{t("common.loading")}</div>}
+				>
+					{tab === "members" && <MembersPage />}
+					{tab === "traffic" && <TrafficPage />}
+					{tab === "events" && <EventsPage />}
+					{tab === "settings" && <SettingsPage />}
+				</Suspense>
 			</main>
 		</div>
 	);

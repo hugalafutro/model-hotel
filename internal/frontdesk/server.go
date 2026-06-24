@@ -56,6 +56,7 @@ type Server struct {
 	sessionMgr *webauthn.SessionManager
 	totpRepo   *totp.Repository
 	totpStatus *totpEnabledCache
+	probe      *http.Client // guarded client for proxying member admin APIs
 	router     http.Handler
 }
 
@@ -76,6 +77,7 @@ func NewServer(cfg ServerConfig) *Server {
 		sessionMgr: sessionMgr,
 		totpRepo:   totpRepo,
 		totpStatus: newTotpEnabledCache(totpRepo),
+		probe:      newProbeClient(httpProbeTimeout),
 	}
 
 	webauthnHandler := adminauth.NewWebAuthnHandler(
@@ -116,6 +118,7 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 			r.Patch("/members/{id}", s.patchMember)
 			r.Delete("/members/{id}", s.deleteMember)
 			r.Post("/members/{id}/state", s.setMemberState)
+			r.Get("/members/{id}/traffic", s.memberTraffic)
 			r.Get("/settings", s.getSettings)
 			r.Put("/settings", s.putSettings)
 			r.Get("/events", s.listEvents)
