@@ -18,6 +18,15 @@ const FOCUSABLE =
 export function Modal({ title, onClose, children, actions }: ModalProps) {
 	const dialogRef = useRef<HTMLDivElement>(null);
 
+	// Hold onClose in a ref so the focus effect can run exactly once (open + trap
+	// + restore-on-close). Callers pass an inline arrow, so depending on onClose
+	// directly would re-run the effect on every parent re-render (e.g. toggling an
+	// in-modal checkbox), tearing focus back to the first control mid-interaction.
+	const onCloseRef = useRef(onClose);
+	useEffect(() => {
+		onCloseRef.current = onClose;
+	}, [onClose]);
+
 	useEffect(() => {
 		const previouslyFocused = document.activeElement as HTMLElement | null;
 		// Focus the first focusable control (or the dialog itself) on open.
@@ -27,7 +36,7 @@ export function Modal({ title, onClose, children, actions }: ModalProps) {
 
 		const onKey = (e: KeyboardEvent) => {
 			if (e.key === "Escape") {
-				onClose();
+				onCloseRef.current();
 				return;
 			}
 			if (e.key !== "Tab" || !dialog) return;
@@ -52,7 +61,7 @@ export function Modal({ title, onClose, children, actions }: ModalProps) {
 			document.removeEventListener("keydown", onKey);
 			previouslyFocused?.focus?.();
 		};
-	}, [onClose]);
+	}, []);
 
 	return (
 		// biome-ignore lint/a11y/noStaticElementInteractions: backdrop click-to-dismiss is a convenience; Escape and the explicit close button are the keyboard-accessible paths.
