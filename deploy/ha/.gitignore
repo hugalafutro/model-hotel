@@ -1,0 +1,3 @@
+# Local HA deployment artifacts (never committed).
+.env
+.data/
