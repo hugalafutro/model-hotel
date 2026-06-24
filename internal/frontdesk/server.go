@@ -331,8 +331,8 @@ func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
 		Severity: q.Get("severity"),
 		Since:    parseRFC3339(q.Get("since")),
 		Until:    parseRFC3339(q.Get("until")),
-		Limit:    atoiDefault(q.Get("limit"), 100),
-		Offset:   atoiDefault(q.Get("offset"), 0),
+		Limit:    clampEventsLimit(atoiDefault(q.Get("limit"), defaultEventsLimit)),
+		Offset:   max(atoiDefault(q.Get("offset"), 0), 0),
 	}
 	evs, total, err := s.store.ListEvents(r.Context(), f)
 	if err != nil {
@@ -498,6 +498,26 @@ func atoiDefault(s string, def int) int {
 	n, err := strconv.Atoi(s)
 	if err != nil {
 		return def
+	}
+	return n
+}
+
+// Event listing page-size bounds. A request with no/blank limit gets the
+// default; a non-positive limit would otherwise disable the store's LIMIT clause
+// (unbounded query), and an over-large one could return the whole table, so both
+// ends are clamped here.
+const (
+	defaultEventsLimit = 100
+	maxEventsLimit     = 500
+)
+
+// clampEventsLimit forces an events page size into [1, maxEventsLimit].
+func clampEventsLimit(n int) int {
+	if n < 1 {
+		return defaultEventsLimit
+	}
+	if n > maxEventsLimit {
+		return maxEventsLimit
 	}
 	return n
 }

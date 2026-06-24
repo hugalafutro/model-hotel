@@ -191,6 +191,9 @@ func (s *Server) adminTokenReset(w http.ResponseWriter, r *http.Request) {
 		}
 		results = append(results, s.applyTokenHash(r.Context(), m, token, hash, plaintext, "admin_token.reset"))
 	}
+	// The body carries the new plaintext token once: keep it out of any
+	// intermediary or browser cache.
+	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusOK, map[string]any{"token": plaintext, "results": results})
 }
 
@@ -210,7 +213,17 @@ func (s *Server) applyTokenHash(ctx context.Context, m *Member, currentToken, ne
 		return res
 	}
 	if err := s.store.SetMemberToken(ctx, m.ID, newPlaintext); err != nil {
+		// The member already accepted the new token, but Front Desk could not
+		// persist it: its stored token is now stale and it can no longer call
+		// that member. This is an operator-visible problem, so report it as a
+		// failure with a clear remedy rather than a silent success.
 		debuglog.Warn("frontdesk: store synced member token failed", "member", m.Name, "error", err)
+		res.Error = "token updated on the member, but Front Desk could not save it; re-enter this member's token on the Members tab"
+		s.emit(ctx, Event{
+			Type: eventType + "_failed", Severity: "warning", Source: "frontdesk",
+			Message: fmt.Sprintf("Admin token changed on %s but Front Desk could not store it", m.Name), MemberID: m.ID,
+		})
+		return res
 	}
 	res.OK = true
 	s.emit(ctx, Event{

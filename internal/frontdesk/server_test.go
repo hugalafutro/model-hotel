@@ -213,6 +213,23 @@ func TestServerEventsAndStatus(t *testing.T) {
 	}
 }
 
+func TestClampEventsLimit(t *testing.T) {
+	cases := []struct{ in, want int }{
+		{-1, defaultEventsLimit},
+		{0, defaultEventsLimit},
+		{1, 1},
+		{100, 100},
+		{maxEventsLimit, maxEventsLimit},
+		{maxEventsLimit + 1, maxEventsLimit},
+		{100000, maxEventsLimit},
+	}
+	for _, c := range cases {
+		if got := clampEventsLimit(c.in); got != c.want {
+			t.Errorf("clampEventsLimit(%d) = %d, want %d", c.in, got, c.want)
+		}
+	}
+}
+
 func TestServerEventsTimeFilter(t *testing.T) {
 	srv, _ := newTestServer(t)
 	// Creating a member emits one event "now".

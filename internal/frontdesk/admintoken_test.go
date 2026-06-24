@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -132,6 +133,10 @@ func TestAdminTokenResetGeneratesAndPushes(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("reset = %d (%s)", rec.Code, rec.Body.String())
 	}
+	// The plaintext-bearing response must not be cacheable.
+	if cc := rec.Header().Get("Cache-Control"); cc != "no-store" {
+		t.Errorf("Cache-Control = %q, want no-store", cc)
+	}
 	var resp struct {
 		Token   string           `json:"token"`
 		Results []syncResultItem `json:"results"`
@@ -154,5 +159,34 @@ func TestAdminTokenResetGeneratesAndPushes(t *testing.T) {
 		if r.MemberID == nm.ID && r.OK {
 			t.Error("token-less member should be reported ok=false")
 		}
+	}
+}
+
+// When the member accepts the new hash but Front Desk fails to persist the new
+// token (here: the member row is gone, so SetMemberToken returns ErrNotFound),
+// the result must report failure with a remedy, not a silent success.
+func TestApplyTokenHashSurfacesStoreFailure(t *testing.T) {
+	srv, store := newTestServer(t)
+	stub := newStubMember(t, "tok", "sha256:old")
+	mem, err := store.CreateMember(t.Context(), "m", stub.srv.URL, "tok")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+	token, _, _ := store.MemberToken(t.Context(), mem.ID)
+	// Remove the row so the post-push SetMemberToken fails.
+	if err := store.DeleteMember(t.Context(), mem.ID); err != nil {
+		t.Fatalf("DeleteMember: %v", err)
+	}
+
+	res := srv.applyTokenHash(t.Context(), mem, token, "sha256:new", "newplain", "admin_token.reset")
+	if res.OK {
+		t.Error("expected OK=false when the token store write fails")
+	}
+	if !strings.Contains(res.Error, "could not save") {
+		t.Errorf("error = %q, want it to mention the store-write failure", res.Error)
+	}
+	// The member did receive the new hash (the push happened before the store write).
+	if stub.gotPush != "sha256:new" {
+		t.Errorf("member got hash %q, want sha256:new", stub.gotPush)
 	}
 }
