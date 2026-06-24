@@ -228,6 +228,7 @@ For logs, set `LOG_FORMAT=json` to emit one structured JSON object per line on s
 - [Request Logging](https://github.com/hugalafutro/model-hotel/wiki/Request-Logging): Log fields, overhead breakdown, retention
 - [Backup & Restore](#backup--restore): Creating backups, restoring, critical requirements
 - [Development](https://github.com/hugalafutro/model-hotel/wiki/Development): Local setup, build commands, contributing
+- [High Availability](https://github.com/hugalafutro/model-hotel/wiki/High-Availability): Front Desk control plane + Traefik for drop-in multi-instance HA
 
 ## Backup & Restore
 
@@ -259,7 +260,7 @@ docker exec -i postgres-container pg_restore --clean --if-exists -U user -d dbna
 
 ## Known Limitations
 
-- **Single-instance only**: Caches and rate limiters are in-memory, not horizontally scalable
+- **Single-instance only**: Caches and rate limiters are in-memory, not horizontally scalable within one instance. To run several instances behind one client endpoint with automatic failover, use the [Front Desk + Traefik HA stack](https://github.com/hugalafutro/model-hotel/wiki/High-Availability).
 
 ## License
 

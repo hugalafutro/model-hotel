@@ -17,6 +17,7 @@
 - 🔍 [[Model Discovery]]
 - 🔀 [[Failover and Hotel Routing]]
 - 🔔 [[Alerting]]
+- 🏨 [[High Availability]]
 
 ### Reference
 
