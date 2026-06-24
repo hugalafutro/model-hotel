@@ -1,0 +1,6 @@
+# Built Front Desk SPA assets land here (copied from frontdesk/web/dist by
+# `make frontdesk-build` / Dockerfile.frontdesk). Only the placeholder is
+# tracked so `//go:embed all:webui` always has something to embed.
+*
+!.gitkeep
+!.gitignore

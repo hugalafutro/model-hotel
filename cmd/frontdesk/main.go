@@ -87,6 +87,7 @@ func main() {
 		MasterKey:    masterKey,
 		RelyingParty: rp,
 		IPLimiter:    ipLimiter,
+		UI:           frontdesk.EmbeddedUI(),
 	})
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
