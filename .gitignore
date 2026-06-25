@@ -90,3 +90,6 @@ web/.pnpm-store/
 # Python bytecode cache (i18n tooling under tools/)
 __pycache__/
 *.pyc
+
+# Catalog drift reporter (local-only for now; unignore + wire into CI once proven)
+/tools/refresh-catalogs/

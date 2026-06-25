@@ -68,10 +68,11 @@ func TestDiscoverDeepSeek(t *testing.T) {
 		t.Fatalf("discoverDeepSeek failed: %v", err)
 	}
 
-	// Verify results: the 2 live models (not in catalog) are first, then the
-	// catalog is unioned in.
-	if len(models) != len(GetDeepSeekModels())+2 {
-		t.Errorf("Expected catalog+2 merged models, got %d", len(models))
+	// Verify results: the live models are first, then the catalog is unioned in.
+	// deepseek-chat is now also in the catalog, so it dedupes; only deepseek-coder
+	// is live-only, adding a single entry on top of the catalog.
+	if len(models) != len(GetDeepSeekModels())+1 {
+		t.Errorf("Expected catalog+1 merged models, got %d", len(models))
 	}
 
 	// Check first model

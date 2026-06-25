@@ -157,9 +157,9 @@
     "tool_calling": true,
     "structured_output": true,
     "vision": false,
-    "input_price_per_million": 1.07,
-    "input_price_per_million_cache_hit": 0.107,
-    "output_price_per_million": 8.5
+    "input_price_per_million": 1.25,
+    "input_price_per_million_cache_hit": 0.125,
+    "output_price_per_million": 10
   },
   {
     "model_id": "gpt-5",
@@ -175,14 +175,14 @@
     "tool_calling": true,
     "structured_output": true,
     "vision": false,
-    "input_price_per_million": 1.07,
-    "input_price_per_million_cache_hit": 0.107,
-    "output_price_per_million": 8.5
+    "input_price_per_million": 1.25,
+    "input_price_per_million_cache_hit": 0.125,
+    "output_price_per_million": 10
   },
   {
     "model_id": "gpt-5-nano",
     "display_name": "GPT 5 Nano",
-    "description": "GPT 5 Nano (free tier).",
+    "description": "GPT 5 Nano.",
     "context_length": 200000,
     "max_output_tokens": 16384,
     "modality": "text",
@@ -193,7 +193,8 @@
     "tool_calling": true,
     "structured_output": true,
     "vision": false,
-    "input_price_per_million": 0,
-    "output_price_per_million": 0
+    "input_price_per_million": 0.05,
+    "input_price_per_million_cache_hit": 0.005,
+    "output_price_per_million": 0.4
   }
 ]
