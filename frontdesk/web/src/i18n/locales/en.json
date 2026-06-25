@@ -148,7 +148,7 @@
 		"syncPreview": "Preview changes",
 		"syncWillOverwrite": "Will be overwritten",
 		"syncAlreadyMatches": "Already matches",
-		"syncBlocked": "Cannot sync — no stored admin token, add one first",
+		"syncBlocked": "Cannot sync: no stored admin token, add one first",
 		"syncButton": "Sync admin token",
 		"syncConfirmTitle_one": "Overwrite admin token on {{count}} member?",
 		"syncConfirmTitle_other": "Overwrite admin token on {{count}} members?",

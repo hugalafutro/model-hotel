@@ -331,7 +331,7 @@ func (h *ConfigSyncHandler) Import(w http.ResponseWriter, r *http.Request) {
 	model.InvalidateModelCache()
 	failover.InvalidateFailoverCache()
 	for k := range env.Config.Settings {
-		if settings.AllowedSettings[k] {
+		if isSyncableSetting(k) {
 			h.settings.InvalidateCache(k)
 		}
 	}
@@ -403,7 +403,7 @@ func (h *ConfigSyncHandler) computeDiff(ctx context.Context, env ConfigEnvelope)
 		return d, err
 	}
 	for k := range env.Config.Settings {
-		if !settings.AllowedSettings[k] {
+		if !isSyncableSetting(k) {
 			continue
 		}
 		if _, ok := curSettings[k]; ok {
@@ -449,7 +449,7 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope) error
 	}
 
 	for k, v := range env.Config.Settings {
-		if !settings.AllowedSettings[k] {
+		if !isSyncableSetting(k) {
 			continue // skip non-syncable / unknown keys silently
 		}
 		if err := h.settings.SetTx(ctx, tx, k, v); err != nil {
@@ -577,14 +577,27 @@ func names[T any](items []T, key func(T) string) []string {
 	return out
 }
 
-// syncableSettingKeys returns the AllowedSettings keys this member exports,
-// minus per-instance alerting secrets (apprise URL/targets), which v1 leaves
-// instance-local.
+// appriseSettingKeys are the alerting destination settings v1 leaves
+// instance-local (the apprise endpoint + encrypted targets), so a member keeps
+// its own alert routing even after a config sync.
+var appriseSettingKeys = map[string]bool{
+	"alert_apprise_api_url": true,
+	"alert_apprise_targets": true,
+}
+
+// isSyncableSetting reports whether a settings key is replicated by config sync:
+// it must be in the shared settings allowlist and not an instance-local apprise
+// secret. Used on both ends (export, diff, apply) so a hand-crafted envelope
+// cannot push a key this member would not itself export.
+func isSyncableSetting(key string) bool {
+	return settings.AllowedSettings[key] && !appriseSettingKeys[key]
+}
+
+// syncableSettingKeys returns the settings keys this member exports.
 func syncableSettingKeys() []string {
-	skip := map[string]bool{"alert_apprise_api_url": true, "alert_apprise_targets": true}
 	out := make([]string, 0, len(settings.AllowedSettings))
 	for k := range settings.AllowedSettings {
-		if !skip[k] {
+		if isSyncableSetting(k) {
 			out = append(out, k)
 		}
 	}
