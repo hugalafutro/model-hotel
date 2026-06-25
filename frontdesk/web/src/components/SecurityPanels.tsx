@@ -16,6 +16,7 @@ import type { TotpInfo, WebAuthnCredential } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { formatAbsolute } from "../utils/time";
 import { registerPasskey } from "../utils/webauthn";
+import { Notice } from "./Notice";
 
 // SecurityPanels holds Front Desk's own admin-auth management: passkeys and
 // authenticator-app TOTP. Both are stored on this Front Desk instance only and
@@ -119,19 +120,7 @@ function PasskeyPanel() {
 			</p>
 
 			{!configured ? (
-				<div
-					className="ui-badge ui-badge-warn"
-					style={{
-						display: "block",
-						padding: "0.5rem 0.7rem",
-						borderRadius: "var(--radius-sm)",
-						whiteSpace: "normal",
-						textWrap: "pretty",
-						lineHeight: 1.45,
-					}}
-				>
-					{t("settings.passkeys.notConfigured")}
-				</div>
+				<Notice>{t("settings.passkeys.notConfigured")}</Notice>
 			) : (
 				<>
 					<button
@@ -407,20 +396,9 @@ function TotpPanel() {
 		return (
 			<div className="ui-card ui-card-pad">
 				{heading}
-				<div
-					className="ui-badge ui-badge-warn"
-					style={{
-						display: "block",
-						margin: "0.6rem 0",
-						padding: "0.5rem 0.7rem",
-						borderRadius: "var(--radius-sm)",
-						whiteSpace: "normal",
-						textWrap: "pretty",
-						lineHeight: 1.45,
-					}}
-				>
+				<Notice style={{ margin: "0.6rem 0" }}>
 					{t("settings.totp.recoveryWarning")}
-				</div>
+				</Notice>
 				<div className="fd-mono" style={{ fontSize: "0.85rem" }}>
 					{recoveryCodes.map((c) => (
 						<div key={c}>{c}</div>

@@ -3,7 +3,8 @@ import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, api } from "../api/client";
 import type { MemberView } from "../api/types";
-import { Modal } from "../components/Modal";
+import { ConfirmModal } from "../components/ConfirmModal";
+import { Notice } from "../components/Notice";
 import { useToast } from "../context/ToastContext";
 import { useMembers } from "../hooks/useMembers";
 import { formatRelative } from "../utils/time";
@@ -108,32 +109,16 @@ export function MembersPage() {
 			/>
 
 			{removing && (
-				<Modal
+				<ConfirmModal
 					title={t("members.removeTitle", { name: removing.name })}
+					confirmLabel={t("common.remove")}
+					onConfirm={confirmRemove}
 					onClose={() => setRemoving(null)}
-					actions={
-						<>
-							<button
-								type="button"
-								className="ui-btn"
-								onClick={() => setRemoving(null)}
-							>
-								{t("common.cancel")}
-							</button>
-							<button
-								type="button"
-								className="ui-btn ui-btn-danger"
-								onClick={confirmRemove}
-							>
-								{t("common.remove")}
-							</button>
-						</>
-					}
 				>
 					<p className="fd-muted">
 						{t("members.removeBody", { name: removing.name })}
 					</p>
-				</Modal>
+				</ConfirmModal>
 			)}
 		</div>
 	);
@@ -316,20 +301,9 @@ function AddMemberForm({
 				{t("members.addTitle")}
 			</h2>
 			{firstMember && (
-				<div
-					className="ui-badge ui-badge-info"
-					style={{
-						display: "block",
-						marginBottom: "0.8rem",
-						padding: "0.5rem 0.7rem",
-						borderRadius: "var(--radius-sm)",
-						whiteSpace: "normal",
-						textWrap: "pretty",
-						lineHeight: 1.45,
-					}}
-				>
+				<Notice variant="info" style={{ marginBottom: "0.8rem" }}>
 					{t("members.firstMemberPrimary")}
-				</div>
+				</Notice>
 			)}
 			<div
 				className="fd-row"

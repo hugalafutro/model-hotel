@@ -123,7 +123,9 @@ describe("TotpPanel", () => {
 		const input = await screen.findByLabelText(/Code or recovery code/i);
 		await userEvent.type(input, "123456");
 		// Two Disable buttons now (header toggle + confirm); the last is confirm.
-		const disableButtons = screen.getAllByRole("button", { name: /^Disable$/i });
+		const disableButtons = screen.getAllByRole("button", {
+			name: /^Disable$/i,
+		});
 		await userEvent.click(disableButtons[disableButtons.length - 1]);
 		await waitFor(() => expect(disabled).toBe(true));
 	});

@@ -4,7 +4,9 @@ import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { MemberView, SyncPreview, SyncResultItem } from "../api/types";
 import { useToast } from "../context/ToastContext";
+import { ConfirmModal } from "./ConfirmModal";
 import { Modal } from "./Modal";
+import { Notice } from "./Notice";
 
 // dispositionBadge maps a preview disposition to a badge.
 function DispositionBadge({ disposition }: { disposition: string }) {
@@ -61,7 +63,6 @@ export function AdminTokenSyncPanel({
 	const [preview, setPreview] = useState<SyncPreview | null>(null);
 	const [previewing, setPreviewing] = useState(false);
 	const [confirmOpen, setConfirmOpen] = useState(false);
-	const [ack, setAck] = useState(false);
 	const [syncing, setSyncing] = useState(false);
 
 	const nameOf = (id: string) => members.find((m) => m.id === id)?.name ?? id;
@@ -103,7 +104,6 @@ export function AdminTokenSyncPanel({
 		} finally {
 			setSyncing(false);
 			setConfirmOpen(false);
-			setAck(false);
 		}
 	};
 
@@ -173,34 +173,13 @@ export function AdminTokenSyncPanel({
 			</div>
 
 			{confirmOpen && (
-				<Modal
+				<ConfirmModal
 					title={t("settings.syncConfirmTitle", { count: overwrites.length })}
-					onClose={() => {
-						setConfirmOpen(false);
-						setAck(false);
-					}}
-					actions={
-						<>
-							<button
-								type="button"
-								className="ui-btn"
-								onClick={() => {
-									setConfirmOpen(false);
-									setAck(false);
-								}}
-							>
-								{t("common.cancel")}
-							</button>
-							<button
-								type="button"
-								className="ui-btn ui-btn-danger"
-								disabled={!ack || syncing}
-								onClick={doSync}
-							>
-								{t("settings.syncDo", { count: overwrites.length })}
-							</button>
-						</>
-					}
+					confirmLabel={t("settings.syncDo", { count: overwrites.length })}
+					confirmDisabled={syncing}
+					ackLabel={t("settings.syncAck")}
+					onConfirm={doSync}
+					onClose={() => setConfirmOpen(false)}
 				>
 					<p className="fd-muted">{t("settings.syncConfirmBody")}</p>
 					<ul style={{ margin: "0.6rem 0" }}>
@@ -208,15 +187,7 @@ export function AdminTokenSyncPanel({
 							<li key={it.member_id}>{nameOf(it.member_id)}</li>
 						))}
 					</ul>
-					<label className="fd-row" style={{ cursor: "pointer" }}>
-						<input
-							type="checkbox"
-							checked={ack}
-							onChange={(e) => setAck(e.target.checked)}
-						/>
-						<span>{t("settings.syncAck")}</span>
-					</label>
-				</Modal>
+				</ConfirmModal>
 			)}
 		</div>
 	);
@@ -233,7 +204,6 @@ export function AdminTokenResetPanel({
 	const { t } = useTranslation();
 	const { toast } = useToast();
 	const [confirmOpen, setConfirmOpen] = useState(false);
-	const [ack, setAck] = useState(false);
 	const [resetting, setResetting] = useState(false);
 	const [revealToken, setRevealToken] = useState<string | null>(null);
 	const [copied, setCopied] = useState(false);
@@ -259,7 +229,6 @@ export function AdminTokenResetPanel({
 		} finally {
 			setResetting(false);
 			setConfirmOpen(false);
-			setAck(false);
 		}
 	};
 
@@ -282,20 +251,9 @@ export function AdminTokenResetPanel({
 			>
 				{t("settings.resetIntro")}
 			</p>
-			<div
-				className="ui-badge ui-badge-warn"
-				style={{
-					display: "block",
-					margin: "0 0 1rem",
-					padding: "0.5rem 0.7rem",
-					borderRadius: "var(--radius-sm)",
-					whiteSpace: "normal",
-					textWrap: "pretty",
-					lineHeight: 1.45,
-				}}
-			>
+			<Notice style={{ margin: "0 0 1rem" }}>
 				{t("settings.resetTokenNotice")}
-			</div>
+			</Notice>
 			<button
 				type="button"
 				className="ui-btn ui-btn-danger"
@@ -305,34 +263,13 @@ export function AdminTokenResetPanel({
 			</button>
 
 			{confirmOpen && (
-				<Modal
+				<ConfirmModal
 					title={t("settings.resetConfirmTitle")}
-					onClose={() => {
-						setConfirmOpen(false);
-						setAck(false);
-					}}
-					actions={
-						<>
-							<button
-								type="button"
-								className="ui-btn"
-								onClick={() => {
-									setConfirmOpen(false);
-									setAck(false);
-								}}
-							>
-								{t("common.cancel")}
-							</button>
-							<button
-								type="button"
-								className="ui-btn ui-btn-danger"
-								disabled={!ack || resetting}
-								onClick={doReset}
-							>
-								{t("settings.resetDo")}
-							</button>
-						</>
-					}
+					confirmLabel={t("settings.resetDo")}
+					confirmDisabled={resetting}
+					ackLabel={t("settings.resetAck")}
+					onConfirm={doReset}
+					onClose={() => setConfirmOpen(false)}
 				>
 					<p className="fd-muted">{t("settings.resetConfirmBody")}</p>
 					<p
@@ -346,15 +283,7 @@ export function AdminTokenResetPanel({
 							<li key={m.id}>{m.name}</li>
 						))}
 					</ul>
-					<label className="fd-row" style={{ cursor: "pointer" }}>
-						<input
-							type="checkbox"
-							checked={ack}
-							onChange={(e) => setAck(e.target.checked)}
-						/>
-						<span>{t("settings.resetAck")}</span>
-					</label>
-				</Modal>
+				</ConfirmModal>
 			)}
 
 			{revealToken && (
