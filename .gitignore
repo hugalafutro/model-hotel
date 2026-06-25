@@ -71,6 +71,11 @@ Thumbs.db
 /web/node_modules/
 /web/.test-result.json
 /web/.vite/
+# Front Desk SPA build/deps (the app's own .gitignore covers these too, but this
+# keeps them out of the git panel on branches that don't track frontdesk/web/)
+/frontdesk/web/node_modules/
+/frontdesk/web/dist/
+/frontdesk/web/coverage/
 # Wiki (published separately as GitHub wiki)
 .windsurfrules
 .omo
