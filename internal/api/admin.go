@@ -269,6 +269,10 @@ func (h *Handler) Register(r chi.Router) {
 	if h.adminTokenMgr != nil {
 		NewAdminTokenHandler(h.adminTokenMgr).Register(r)
 	}
+
+	// HA fleet config-sync endpoints (Phase 5). Always mounted: any member can be
+	// a primary (export) or a replica (import). Inherits this group's admin auth.
+	NewConfigSyncHandler(h.dbPool, h.settingsRepo, h.cfg.MasterKey, h.appVersion).Register(r)
 }
 
 // AuthMiddleware validates admin token or webAuthn session token authentication.

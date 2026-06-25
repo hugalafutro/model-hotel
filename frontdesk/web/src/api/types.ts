@@ -106,6 +106,23 @@ export interface ResetResult {
 	results: SyncResultItem[];
 }
 
+// --- Fleet config sync (providers / virtual keys / settings) ---
+
+export interface ConfigPreviewItem {
+	member_id: string;
+	name: string;
+	disposition: SyncDisposition;
+	added: number;
+	updated: number;
+	removed: number;
+	note?: string;
+}
+
+export interface ConfigPreview {
+	primary_id: string;
+	items: ConfigPreviewItem[];
+}
+
 // --- Admin authentication (passkeys + TOTP), Settings → Security ---
 
 export interface WebAuthnCredential {

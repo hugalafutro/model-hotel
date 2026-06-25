@@ -21,10 +21,11 @@ with the last config it fetched; only membership changes pause until it returns.
 5. [Drop-in Migration Runbook](#drop-in-migration-runbook)
 6. [Three Secrets, Three Jobs](#three-secrets-three-jobs)
 7. [Admin Authentication (Passkeys & TOTP)](#admin-authentication-passkeys--totp)
-8. [TLS Proxy](#tls-proxy)
-9. [Observability](#observability)
-10. [What This Does and Does Not Give You](#what-this-does-and-does-not-give-you)
-11. [Acceptance Checks](#acceptance-checks)
+8. [Replicating Config Across the Fleet](#replicating-config-across-the-fleet)
+9. [TLS Proxy](#tls-proxy)
+10. [Observability](#observability)
+11. [What This Does and Does Not Give You](#what-this-does-and-does-not-give-you)
+12. [Acceptance Checks](#acceptance-checks)
 
 ---
 
@@ -194,6 +195,50 @@ Two things are worth understanding about authentication in an HA deployment:
   Security and the button appears on the next login.
 
 <!-- TODO screenshot: Front Desk Settings → Security (passkeys + TOTP) -->
+
+---
+
+## Replicating Config Across the Fleet
+
+A fresh member starts empty: no providers, no virtual keys. Instead of
+re-entering everything on each instance, replicate one member's configuration to
+the rest from **Front Desk → Settings → Config sync**.
+
+You pick a **primary** (the config source of truth); Front Desk pulls its config
+and pushes it to every other member so the fleet converges. This is a **separate
+action** from admin-token sync, by design: replacing config can remove providers
+or keys on a replica, so it must not ride along with a routine token rotation.
+
+**What replicates, and what does not:**
+
+| Replicated (config) | Stays per-instance |
+|---|---|
+| Providers (including their encrypted keys) | Request logs, metering, events |
+| Virtual keys (matched by hash) | Backups, runtime stats |
+| Syncable settings (discovery, timeouts, circuit breaker, hedging, backups, retention) | Passkeys / TOTP (auth is per-instance) |
+| | Alerting destination (apprise URL/targets) |
+
+Models and failover groups are **not** copied: each member rediscovers models
+from the synced providers and re-forms failover groups automatically. Manual
+model overrides (a custom disable or rename) are a planned follow-up.
+
+Provider keys travel as stored ciphertext and decrypt on each member because the
+fleet shares `MASTER_KEY`. A member whose `MASTER_KEY` differs is flagged
+**blocked** and nothing is written to it. A virtual key's per-key provider
+restriction is carried by provider **name** and re-resolved to each member's own
+provider IDs.
+
+**Runbook:**
+
+1. Configure providers and virtual keys on the primary as usual.
+2. Front Desk → Settings → **Config sync** → choose the primary. The preview
+   shows, per member, what will be added, updated, or removed, and flags blocked
+   members. Anything the primary lacks is **removed** from a replica that has it,
+   so review before confirming.
+3. Confirm. Each member is independent: a failure leaves that member untouched
+   and is reported; re-run to retry. Request logs and metering are never touched.
+
+<!-- TODO screenshot: Front Desk Settings → Config sync (preview with diff) -->
 
 ---
 
