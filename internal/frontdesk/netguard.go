@@ -38,15 +38,29 @@ func newProbeClient(timeout time.Duration) *http.Client {
 		},
 	}
 	return &http.Client{
-		Timeout:   timeout,
-		Transport: &http.Transport{DialContext: dialer.DialContext},
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			if len(via) > 0 && req.URL.Host != via[0].URL.Host {
-				return fmt.Errorf("frontdesk: refusing cross-host redirect to %s", req.URL.Host)
-			}
-			return nil
-		},
+		Timeout:       timeout,
+		Transport:     &http.Transport{DialContext: dialer.DialContext},
+		CheckRedirect: checkProbeRedirect,
 	}
+}
+
+// checkProbeRedirect is the redirect policy for the member probe client. It
+// refuses two ways a redirect could leak the member's admin Bearer token:
+//   - a cross-host redirect, which would replay the token to a different host;
+//   - an https->http downgrade, which would replay the token over plaintext even
+//     to the same host.
+func checkProbeRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) == 0 {
+		return nil
+	}
+	orig := via[0].URL
+	if req.URL.Host != orig.Host {
+		return fmt.Errorf("frontdesk: refusing cross-host redirect to %s", req.URL.Host)
+	}
+	if orig.Scheme == "https" && req.URL.Scheme != "https" {
+		return fmt.Errorf("frontdesk: refusing https->%s redirect (token must not transit plaintext)", req.URL.Scheme)
+	}
+	return nil
 }
 
 // isProbeBlockedIP reports addresses that are never a legitimate member and are
