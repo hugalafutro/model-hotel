@@ -104,6 +104,26 @@ describe("EventsPage", () => {
 		await waitFor(() => expect(offsets).toContain(25));
 	});
 
+	it("resets to the first page when filters are cleared", async () => {
+		const offsets: number[] = [];
+		server.use(
+			http.get("/api/events", ({ request }) => {
+				offsets.push(Number(new URL(request.url).searchParams.get("offset")));
+				return HttpResponse.json({ events: [ev("0")], total: 60 });
+			}),
+		);
+		renderPage();
+		await screen.findByText("event 0");
+		// Activate a filter (this also reveals the Clear Filters button).
+		await userEvent.selectOptions(screen.getByLabelText(/Severity/i), "warning");
+		// Move to page 2 (offset 25).
+		await userEvent.click(screen.getByRole("button", { name: /Next/i }));
+		await waitFor(() => expect(offsets).toContain(25));
+		// Clearing filters must return to the first page (offset 0), not stay at 25.
+		await userEvent.click(screen.getByRole("button", { name: /Clear/i }));
+		await waitFor(() => expect(offsets.at(-1)).toBe(0));
+	});
+
 	it("refetches on the first page when an SSE event arrives", async () => {
 		let calls = 0;
 		server.use(

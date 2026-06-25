@@ -111,6 +111,9 @@ export function EventsPage() {
 		setType("");
 		setSeverity("");
 		setRange("all");
+		// Reset to the first page too: otherwise buildParams keeps the old offset
+		// and queries page N of the now-unfiltered log, which can look empty.
+		setPage(0);
 	};
 
 	const from = total === 0 ? 0 : page * PAGE_SIZE + 1;
