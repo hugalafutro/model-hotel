@@ -1640,12 +1640,11 @@
 				"grandfatherRetention": "Retenção mensal (Avô)",
 				"grandfatherRetentionDescription": "Manter o backup mais recente de cada um dos últimos N meses.",
 				"confirmEnableTitle": "Ativar Backup Periódico?",
-				"confirmEnableDescription": "Habilitar o backup periódico irá limpar os backups existentes que estão fora do esquema de rotação filho/pai/avô.",
-				"confirmEnableWouldRemove": "Isso removeria o(s) seguinte(s) {{count}} backup(s):",
-				"confirmEnableNoRemoval": "Nenhum backup existente seria removido.",
+				"confirmEnableDescription": "Ativar a cópia de segurança periódica elimina as cópias existentes que ficam fora da janela de rotação filho/pai/avô.",
+				"confirmEnableWouldRemove": "Estas {{count}} cópia(s) de segurança ficam fora da janela de rotação e serão eliminadas permanentemente:",
 				"prunePreviewFailed": "Falha ao pré-visualizar a limpeza de backup",
 				"pruneFailed": "Falha ao remover backups",
-				"pruneSuccess": "{{count}} backup(s) eliminado(s)"
+				"pruneSuccess": "Cópia de segurança periódica ativada. Removidas {{count}} cópia(s) antiga(s)."
 			},
 			"availableBackupsTitle": "Backups disponíveis",
 			"manuallyCreated": "Manual"

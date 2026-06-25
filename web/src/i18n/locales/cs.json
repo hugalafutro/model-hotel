@@ -1640,12 +1640,11 @@
 				"grandfatherRetention": "Měsíční zadržování (Grandfather)",
 				"grandfatherRetentionDescription": "Zachovat poslední zálohu z posledních N měsíců.",
 				"confirmEnableTitle": "Povolit periodickou zálohu?",
-				"confirmEnableDescription": "Povolení pravidelné zálohy vyřezává stávající zálohy, které spadají mimo systém rotace sona/father/dědečků/dědečka.",
-				"confirmEnableWouldRemove": "Tímto by byly odstraněny následující zálohy {{count}}:",
-				"confirmEnableNoRemoval": "Nebyly odstraněny žádné existující zálohy.",
+				"confirmEnableDescription": "Povolení pravidelného zálohování odstraní stávající zálohy, které spadají mimo rotační okno syn/otec/děd.",
+				"confirmEnableWouldRemove": "Těchto {{count}} záloh spadá mimo rotační okno a budou trvale odstraněny:",
 				"prunePreviewFailed": "Náhled prunování zálohy se nezdařil",
 				"pruneFailed": "Nepodařilo se vyřezávat zálohy",
-				"pruneSuccess": "Pruned {{count}} zálohování"
+				"pruneSuccess": "Pravidelné zálohování povoleno. Odstraněno {{count}} starých záloh."
 			},
 			"availableBackupsTitle": "Dostupné zálohy",
 			"manuallyCreated": "Ručne"

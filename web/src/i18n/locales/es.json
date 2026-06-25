@@ -1640,12 +1640,11 @@
 				"grandfatherRetention": "Retención mensual (Abuelo)",
 				"grandfatherRetentionDescription": "Mantenga la copia de seguridad más reciente de cada uno de los últimos N meses.",
 				"confirmEnableTitle": "¿Habilitar copia de seguridad periódica?",
-				"confirmEnableDescription": "Habilitar copia de seguridad periódica limpiará las copias de seguridad existentes que quedan fuera del esquema de rotación de hijo/padre/abuelo.",
-				"confirmEnableWouldRemove": "Esto eliminaría las siguientes {{count}} copia(s) de seguridad:",
-				"confirmEnableNoRemoval": "No se eliminarían copias de seguridad existentes.",
+				"confirmEnableDescription": "Al activar la copia de seguridad periódica se eliminan las copias existentes que quedan fuera de la ventana de rotación hijo/padre/abuelo.",
+				"confirmEnableWouldRemove": "Estas {{count}} copia(s) de seguridad quedan fuera de la ventana de rotación y se eliminarán de forma permanente:",
 				"prunePreviewFailed": "Error al previsualizar la limpieza de copia de seguridad",
 				"pruneFailed": "Error al limpiar las copias de seguridad",
-				"pruneSuccess": "Se han eliminado {{count}} copia(s) de seguridad"
+				"pruneSuccess": "Copia de seguridad periódica activada. Se han eliminado {{count}} copia(s) antigua(s)."
 			},
 			"availableBackupsTitle": "Copias de seguridad disponibles",
 			"manuallyCreated": "Manual"

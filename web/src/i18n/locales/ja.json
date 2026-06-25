@@ -1640,12 +1640,11 @@
 				"grandfatherRetention": "毎月の保持（祖父）",
 				"grandfatherRetentionDescription": "過去Nヶ月間それぞれの最新のバックアップを保持します。",
 				"confirmEnableTitle": "定期的なバックアップを有効にしますか？",
-				"confirmEnableDescription": "定期的なバックアップを有効にすると、息子/父/祖父の回転スキーム外の既存のバックアップが削除されます。",
-				"confirmEnableWouldRemove": "次の {{count}} バックアップを削除します：",
-				"confirmEnableNoRemoval": "既存のバックアップは削除されません。",
+				"confirmEnableDescription": "定期バックアップを有効にすると、息子/父/祖父のローテーション期間外にある既存のバックアップが削除されます。",
+				"confirmEnableWouldRemove": "これらの {{count}} 件のバックアップはローテーション期間外にあり、完全に削除されます:",
 				"prunePreviewFailed": "バックアップ剪定のプレビューに失敗しました",
 				"pruneFailed": "バックアップの削除に失敗しました",
-				"pruneSuccess": "削除された {{count}} バックアップ"
+				"pruneSuccess": "定期バックアップを有効にしました。{{count}} 件の古いバックアップを削除しました。"
 			},
 			"availableBackupsTitle": "利用可能なバックアップ",
 			"manuallyCreated": "手動"

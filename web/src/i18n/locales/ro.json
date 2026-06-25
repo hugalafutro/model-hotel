@@ -1640,12 +1640,11 @@
 				"grandfatherRetention": "Retenție lunară (Grandfather)",
 				"grandfatherRetentionDescription": "Păstrați cea mai recentă copie de rezervă din fiecare dintre ultimele N luni.",
 				"confirmEnableTitle": "Activați copia de rezervă periodică?",
-				"confirmEnableDescription": "Activarea backup-ului periodic va curăța copiile de rezervă existente care nu se încadrează în sistemul de rotație al fiului/tatălui / bunicului.",
-				"confirmEnableWouldRemove": "Aceasta ar elimina următoarele copii de rezervă {{count}}:",
-				"confirmEnableNoRemoval": "Nicio copie de rezervă existentă nu ar fi eliminată.",
+				"confirmEnableDescription": "Activarea backupului periodic șterge backupurile existente care se află în afara ferestrei de rotație fiu/tată/bunic.",
+				"confirmEnableWouldRemove": "Aceste {{count}} backupuri se află în afara ferestrei de rotație și vor fi șterse definitiv:",
 				"prunePreviewFailed": "Previzualizarea pruning-ului backup-ului a eșuat",
 				"pruneFailed": "Nu s-a putut curăța copiile de rezervă",
-				"pruneSuccess": "Curățate {{count}} copii de rezervă"
+				"pruneSuccess": "Backup periodic activat. Au fost eliminate {{count}} backupuri vechi."
 			},
 			"availableBackupsTitle": "Backup-uri disponibile",
 			"manuallyCreated": "Manual"

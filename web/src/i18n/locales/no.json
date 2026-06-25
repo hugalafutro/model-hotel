@@ -1640,12 +1640,11 @@
 				"grandfatherRetention": "Månedlig Retention (Bestefar)",
 				"grandfatherRetentionDescription": "Behold den siste sikkerhetskopien fra hver av de siste N månedene.",
 				"confirmEnableTitle": "Aktivere regelmessig sikkerhetskopiering?",
-				"confirmEnableDescription": "Å aktivere periodisk sikkerhetskopiering vil legge eksisterende sikkerhetskopier som faller utenfor sønn/fars-rotasjonsordningen.",
-				"confirmEnableWouldRemove": "Dette vil fjerne følgende {{count}} sikkerhetskopi(er):",
-				"confirmEnableNoRemoval": "Ingen eksisterende sikkerhetskopier ble fjernet.",
+				"confirmEnableDescription": "Aktivering av periodisk sikkerhetskopiering sletter eksisterende sikkerhetskopier som faller utenfor sønn/far/bestefar-rotasjonsvinduet.",
+				"confirmEnableWouldRemove": "Disse {{count}} sikkerhetskopiene faller utenfor rotasjonsvinduet og slettes permanent:",
 				"prunePreviewFailed": "Kunne ikke forhåndsvise sikkerhetskopiering",
 				"pruneFailed": "Klarte ikke å utsette sikkerhetskopier",
-				"pruneSuccess": "Pruned {{count}} backup(s)"
+				"pruneSuccess": "Periodisk sikkerhetskopiering aktivert. Fjernet {{count}} gamle sikkerhetskopier."
 			},
 			"availableBackupsTitle": "Tilgjengelige sikkerhetskopier",
 			"manuallyCreated": "Manuell"

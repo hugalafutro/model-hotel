@@ -1640,12 +1640,11 @@
 				"grandfatherRetention": "Rétention mensuelle (Grand-père)",
 				"grandfatherRetentionDescription": "Garder la sauvegarde la plus récente de chacun des N derniers mois.",
 				"confirmEnableTitle": "Activer la sauvegarde périodique ?",
-				"confirmEnableDescription": "Activer la sauvegarde périodique supprimera les sauvegardes existantes qui sortent du système de rotation fils/père/grand-père.",
-				"confirmEnableWouldRemove": "Cela supprimerait les {{count}} sauvegarde(s) suivante(s) :",
-				"confirmEnableNoRemoval": "Aucune sauvegarde existante ne serait supprimée.",
+				"confirmEnableDescription": "L'activation de la sauvegarde périodique supprime les sauvegardes existantes qui sortent de la fenêtre de rotation fils/père/grand-père.",
+				"confirmEnableWouldRemove": "Ces {{count}} sauvegarde(s) sortent de la fenêtre de rotation et seront supprimées définitivement :",
 				"prunePreviewFailed": "Échec de l'aperçu de la purge des sauvegardes",
 				"pruneFailed": "Échec de la suppression des sauvegardes",
-				"pruneSuccess": "{{count}} sauvegarde(s) supprimée(s)"
+				"pruneSuccess": "Sauvegarde périodique activée. {{count}} ancienne(s) sauvegarde(s) supprimée(s)."
 			},
 			"availableBackupsTitle": "Sauvegardes disponibles",
 			"manuallyCreated": "Manuel"

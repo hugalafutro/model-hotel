@@ -905,14 +905,20 @@ describe("DatabaseBackupSettings", () => {
 		});
 	});
 
-	it("shows confirm modal when enabling periodic backup", async () => {
+	it("shows confirm modal when enabling periodic backup deletes backups", async () => {
 		server.use(
 			http.post("/api/backups/prune-preview", () => {
 				return HttpResponse.json({
 					son: [],
 					father: [],
 					grandfather: [],
-					prune: [],
+					prune: [
+						{
+							filename: "backup-old.dump",
+							size_bytes: 1024,
+							created_at: "2025-01-01T00:00:00Z",
+						},
+					],
 				});
 			}),
 		);
@@ -1003,7 +1009,9 @@ describe("DatabaseBackupSettings", () => {
 			expect(screen.getByText("backup-stale.dump")).toBeInTheDocument();
 		});
 
-		it("toggle ON with no prunable backups shows no-removal message in confirm modal", async () => {
+		it("toggle ON with no prunable backups enables directly without a confirm modal", async () => {
+			let pruneCalled = false;
+			let settingsUpdateData: Record<string, string> | null = null;
 			server.use(
 				http.get("/api/settings", () => {
 					return HttpResponse.json({ backup_enabled: "false" });
@@ -1016,6 +1024,14 @@ describe("DatabaseBackupSettings", () => {
 						prune: [],
 					});
 				}),
+				http.post("/api/backups/prune", () => {
+					pruneCalled = true;
+					return HttpResponse.json({});
+				}),
+				http.put("/api/settings", async ({ request }) => {
+					settingsUpdateData = (await request.json()) as Record<string, string>;
+					return HttpResponse.json({});
+				}),
 			);
 			const user = userEvent.setup();
 			renderWithProviders(
@@ -1026,13 +1042,15 @@ describe("DatabaseBackupSettings", () => {
 			});
 			const toggle = screen.getByRole("switch");
 			await user.click(toggle);
+			// Nothing falls outside the rotation window, so enabling deletes
+			// nothing: it saves directly with no confirmation modal and no prune.
 			await waitFor(() => {
-				expect(screen.getByText("Enable Periodic Backup?")).toBeInTheDocument();
+				expect(settingsUpdateData).toEqual({ backup_enabled: "true" });
 			});
-			// The confirm modal always opens on toggle ON, but should say no backups would be removed
+			expect(pruneCalled).toBe(false);
 			expect(
-				screen.getByText("No existing backups would be removed."),
-			).toBeInTheDocument();
+				screen.queryByText("Enable Periodic Backup?"),
+			).not.toBeInTheDocument();
 		});
 
 		it("confirm prune calls prune API and sets backup_enabled to true", async () => {

@@ -1640,12 +1640,11 @@
 				"grandfatherRetention": "Miesięczne zatrzymanie (randomizowany)",
 				"grandfatherRetentionDescription": "Zachowaj najnowszą kopię zapasową z każdego z ostatnich N miesięcy.",
 				"confirmEnableTitle": "Włączyć okresową kopię zapasową?",
-				"confirmEnableDescription": "Włączenie okresowej kopii zapasowej spowoduje usunięcie istniejących kopii zapasowych, które nie mieszczą się w systemie rotacji syn/ojca/dziadka.",
-				"confirmEnableWouldRemove": "Spowoduje to usunięcie następujących kopii zapasowych {{count}}:",
-				"confirmEnableNoRemoval": "Żadne istniejące kopie zapasowe nie zostałyby usunięte.",
+				"confirmEnableDescription": "Włączenie okresowej kopii zapasowej usuwa istniejące kopie, które wykraczają poza okno rotacji syn/ojciec/dziadek.",
+				"confirmEnableWouldRemove": "Te {{count}} kopie zapasowe wykraczają poza okno rotacji i zostaną trwale usunięte:",
 				"prunePreviewFailed": "Podgląd kopii zapasowej nie powiódł się",
 				"pruneFailed": "Nie udało się usunąć kopii zapasowych",
-				"pruneSuccess": "Pruned {{count}} backup(s)"
+				"pruneSuccess": "Okresowa kopia zapasowa włączona. Usunięto {{count}} starych kopii zapasowych."
 			},
 			"availableBackupsTitle": "Dostępne kopie zapasowe",
 			"manuallyCreated": "Ręczne"

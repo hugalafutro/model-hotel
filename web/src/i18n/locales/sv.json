@@ -1640,12 +1640,11 @@
 				"grandfatherRetention": "Månatligt uppehållande (farfar)",
 				"grandfatherRetentionDescription": "Håll den senaste säkerhetskopian från var och en av de senaste N-månaderna.",
 				"confirmEnableTitle": "Aktivera periodisk säkerhetskopiering?",
-				"confirmEnableDescription": "Aktivering av periodisk säkerhetskopiering kommer att beskära befintliga säkerhetskopior som faller utanför son/fars/fars rotationssystem.",
-				"confirmEnableWouldRemove": "Detta skulle ta bort följande {{count}} backup(er):",
-				"confirmEnableNoRemoval": "Inga befintliga säkerhetskopior skulle tas bort.",
+				"confirmEnableDescription": "När du aktiverar periodisk säkerhetskopiering tas befintliga säkerhetskopior bort som hamnar utanför rotationsfönstret son/far/farfar.",
+				"confirmEnableWouldRemove": "Dessa {{count}} säkerhetskopior hamnar utanför rotationsfönstret och tas bort permanent:",
 				"prunePreviewFailed": "Det gick inte att förhandsgranska säkerhetskopia",
 				"pruneFailed": "Det gick inte att beskära säkerhetskopior",
-				"pruneSuccess": "Beskärda {{count}} säkerhetskopior"
+				"pruneSuccess": "Periodisk säkerhetskopiering aktiverad. Tog bort {{count}} gamla säkerhetskopior."
 			},
 			"availableBackupsTitle": "Tillgängliga säkerhetskopior",
 			"manuallyCreated": "Manuell"

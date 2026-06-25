@@ -1640,12 +1640,11 @@
 				"grandfatherRetention": "Havi megtartási díj (régi rendszer)",
 				"grandfatherRetentionDescription": "Az elmúlt N hónap mindegyikéből őrizze meg a legfrissebb biztonsági másolatot.",
 				"confirmEnableTitle": "Engedélyezni az időszakos biztonsági mentést?",
-				"confirmEnableDescription": "Az időszakos biztonsági mentés engedélyezése esetén a rendszer törli azokat a meglévő biztonsági mentéseket, amelyek már nem felelnek meg a „fiú/apa/nagyapa” rotációs sémának.",
-				"confirmEnableWouldRemove": "Ezzel a következő {{count}} biztonsági másolat(ok) törlésre kerül(nek):",
-				"confirmEnableNoRemoval": "A meglévő biztonsági másolatok nem kerülnek törlésre.",
+				"confirmEnableDescription": "Az időszakos biztonsági mentés engedélyezése törli a meglévő mentéseket, amelyek a fiú/apa/nagyapa rotációs ablakon kívül esnek.",
+				"confirmEnableWouldRemove": "Ez a(z) {{count}} biztonsági mentés a rotációs ablakon kívül esik, és véglegesen törlődik:",
 				"prunePreviewFailed": "A biztonsági mentés tisztításának előnézete nem sikerült",
 				"pruneFailed": "A biztonsági másolatok törlése nem sikerült",
-				"pruneSuccess": "{{count}} biztonsági másolat(ok) törlése"
+				"pruneSuccess": "Időszakos biztonsági mentés engedélyezve. {{count}} régi mentés eltávolítva."
 			},
 			"availableBackupsTitle": "Elérhető biztonsági másolatok",
 			"manuallyCreated": "Kézi"

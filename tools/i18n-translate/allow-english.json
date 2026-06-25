@@ -5613,10 +5613,6 @@
 	"settings.backup.rotation.interval": [
 		"da"
 	],
-	"settings.backup.rotation.pruneSuccess": [
-		"no",
-		"pl"
-	],
 	"settings.circuitBreaker.failoverGroup": [
 		"af",
 		"ar",

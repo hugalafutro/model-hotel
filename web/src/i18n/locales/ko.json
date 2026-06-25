@@ -1640,12 +1640,11 @@
 				"grandfatherRetention": "월별 유지율 (기존 고객)",
 				"grandfatherRetentionDescription": "지난 N개월 동안의 백업 파일 중 가장 최근의 것을 각각 보관하십시오.",
 				"confirmEnableTitle": "주기적 백업을 활성화하시겠습니까?",
-				"confirmEnableDescription": "주기적 백업을 활성화하면 ‘자식/부모/조부모’ 순환 체계에 포함되지 않는 기존 백업이 삭제됩니다.",
-				"confirmEnableWouldRemove": "이렇게 하면 다음 {{count}} 백업이 삭제됩니다:",
-				"confirmEnableNoRemoval": "기존 백업은 삭제되지 않습니다.",
+				"confirmEnableDescription": "정기 백업을 활성화하면 아들/아버지/할아버지 순환 범위를 벗어난 기존 백업이 삭제됩니다.",
+				"confirmEnableWouldRemove": "이 {{count}}개의 백업은 순환 범위를 벗어나므로 영구적으로 삭제됩니다:",
 				"prunePreviewFailed": "백업 정리 미리 보기에 실패했습니다",
 				"pruneFailed": "백업 정리 실패",
-				"pruneSuccess": "{{count}} 백업 파일 삭제"
+				"pruneSuccess": "정기 백업이 활성화되었습니다. 오래된 백업 {{count}}개를 삭제했습니다."
 			},
 			"availableBackupsTitle": "사용 가능한 백업",
 			"manuallyCreated": "수동"
