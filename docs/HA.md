@@ -121,6 +121,49 @@ long as any one member still holds a token you know, make it the primary and syn
 from there: you are never locked out of the whole group at once. The data plane
 (`/v1` traffic) is unaffected by any of this; clients use virtual keys.
 
+## Replicating config across the fleet
+
+A fresh member starts empty: no providers, no virtual keys. Rather than
+re-entering everything on each instance, replicate one member's configuration to
+the rest from Front Desk's **Settings -> Config sync**.
+
+How it works: you pick a **primary** (the config source of truth); Front Desk
+pulls its config and pushes it to every other member so the fleet converges. It
+is a **separate action** from admin-token sync, on purpose: replacing config can
+remove providers or keys on a replica, so it must not ride along with a routine
+token rotation. Pick the primary once for both if you like; they stay two
+buttons.
+
+What replicates, and what does not:
+
+| Replicated (config) | Stays per-instance |
+|---|---|
+| Providers (incl. their encrypted keys) | Request logs, metering, events |
+| Virtual keys (matched by hash) | Backups, runtime stats |
+| Syncable settings (discovery, timeouts, circuit breaker, hedging, backups, retention) | Passkeys / TOTP (auth is per-instance) |
+| | Alerting destination (apprise URL/targets) |
+
+Models and failover groups are **not** copied: each member rediscovers models
+from the synced providers and re-forms failover groups automatically. (Manual
+model overrides such as a custom disable or rename are a planned follow-up.)
+
+Provider keys travel as their stored ciphertext and decrypt on each member
+because the fleet shares `MASTER_KEY`. If a member's `MASTER_KEY` differs, Config
+sync flags it as **blocked** and writes nothing to it (it could not use the keys
+anyway). A virtual key's per-key provider restriction is carried by provider
+**name** and re-resolved to each member's own provider IDs.
+
+Runbook:
+
+1. On the primary, set up providers and virtual keys as usual.
+2. Front Desk -> Settings -> **Config sync** -> choose the primary. The preview
+   lists, per member, what will be added, updated, or removed (and flags any
+   blocked member). Anything the primary does not have is **removed** from a
+   replica that has it, so review the preview before confirming.
+3. Confirm. Each member is independent: a failure leaves that member untouched
+   and is reported; re-run to retry. Request logs and metering are never touched
+   (a removed provider's logs are kept, with the provider link nulled).
+
 ## TLS proxy
 
 Put a real TLS proxy in front of both published ports. Example nginx, two
