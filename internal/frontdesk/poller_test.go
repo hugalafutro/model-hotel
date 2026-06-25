@@ -62,28 +62,50 @@ func TestApplyHealthTransitions(t *testing.T) {
 	ch := bus.Subscribe()
 	defer bus.Unsubscribe(ch)
 
-	// First observation healthy: silent baseline, no event.
+	// nextTransition returns the next event on the bus, skipping the bus-only
+	// "member.status" UI-refresh nudges (which are not persisted and carry no
+	// control-plane meaning) so the assertions can focus on the transition events.
+	nextTransition := func() events.Event {
+		t.Helper()
+		for {
+			select {
+			case ev := <-ch:
+				if ev.Type == "member.status" {
+					continue
+				}
+				return ev
+			case <-time.After(time.Second):
+				t.Fatal("timed out waiting for a transition event")
+			}
+		}
+	}
+
+	// First observation healthy: silent in the event log, but still nudges the UI
+	// so a freshly added healthy member populates without a manual reload.
 	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: true})
 	_, total, _ := store.ListEvents(ctx, EventFilter{})
 	if total != 0 {
-		t.Fatalf("first healthy should be silent, got %d events", total)
+		t.Fatalf("first healthy should be silent in the log, got %d events", total)
+	}
+	if nudge := <-ch; nudge.Type != "member.status" {
+		t.Errorf("first healthy should emit a member.status nudge, got %+v", nudge)
 	}
 
-	// healthy -> down: emits health.down.
+	// healthy -> down: emits health.down (preceded by a member.status nudge).
 	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: false, Error: "boom"})
-	ev := <-ch
+	ev := nextTransition()
 	if ev.Type != "health.down" || ev.Severity != "error" {
 		t.Errorf("down event: %+v", ev)
 	}
 
-	// down -> up: emits health.up.
+	// down -> up: emits health.up (preceded by a member.status nudge).
 	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: true, LatencyMs: 12})
-	ev = <-ch
+	ev = nextTransition()
 	if ev.Type != "health.up" || ev.Severity != "success" {
 		t.Errorf("up event: %+v", ev)
 	}
 
-	// No change: no further event.
+	// No change: no further event of any kind (no transition, no nudge).
 	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: true})
 	select {
 	case ev := <-ch:

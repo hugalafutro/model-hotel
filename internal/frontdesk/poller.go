@@ -209,8 +209,14 @@ func (p *Poller) applyHealth(ctx context.Context, m *Member, hs HealthStatus) {
 	if !changed {
 		return
 	}
+	// The rendered health badge changed (first observation, or an up/down flip),
+	// so nudge connected UIs to refetch even when we keep the event log silent.
+	// Without this a freshly added, healthy member shows no status until an
+	// unrelated event fires or the operator reloads the page.
+	p.publishMemberStatus(m.ID)
+
 	if !had && hs.Healthy {
-		return // silent baseline
+		return // silent baseline (no event-log entry; UI already nudged above)
 	}
 
 	if hs.Healthy {
@@ -243,11 +249,21 @@ func (p *Poller) PollTraefikOnce(ctx context.Context) {
 		return
 	}
 	p.mu.Lock()
-	defer p.mu.Unlock()
+	var changed []string
 	for _, m := range members {
 		cur := p.statuses[m.ID]
-		cur.TraefikStatus = statusByURL[m.URL] // "" when Traefik does not list it
-		p.statuses[m.ID] = cur
+		next := statusByURL[m.URL] // "" when Traefik does not list it
+		if cur.TraefikStatus != next {
+			cur.TraefikStatus = next
+			p.statuses[m.ID] = cur
+			changed = append(changed, m.ID)
+		}
+	}
+	p.mu.Unlock()
+	// Traefik's view caught up to a new/changed member (it needs to re-poll the
+	// config before it lists one), so refresh the UI without a manual reload.
+	for _, id := range changed {
+		p.publishMemberStatus(id)
 	}
 }
 
@@ -316,11 +332,17 @@ func (p *Poller) PollVersionsOnce(ctx context.Context) {
 		}
 		p.mu.Lock()
 		cur := p.statuses[m.ID]
+		versionChanged := cur.Version != version
 		cur.Version = version
 		p.statuses[m.ID] = cur
 		wasAlerting := p.versionFailures[m.ID] >= versionFetchFailThreshold
 		delete(p.versionFailures, m.ID)
 		p.mu.Unlock()
+		if versionChanged {
+			// First successful read (or a version bump) for this member: refresh
+			// the UI so the Version column populates without a manual reload.
+			p.publishMemberStatus(m.ID)
+		}
 		if wasAlerting {
 			p.recordEvent(ctx, Event{
 				Type:     "version.fetch_recovered",
@@ -431,6 +453,22 @@ func (p *Poller) recordEvent(ctx context.Context, e Event) {
 	p.bus.Publish(events.Event{
 		ID: stored.ID, Type: stored.Type, Severity: stored.Severity, Source: stored.Source,
 		Message: stored.Message, Metadata: stored.Metadata, Timestamp: stored.CreatedAt,
+	})
+}
+
+// publishMemberStatus emits a bus-only signal that a member's live status
+// snapshot changed in a way the Members tab renders, so connected UIs refetch
+// promptly instead of waiting for an unrelated event or a manual reload. It is
+// deliberately NOT persisted to the event log: these are frequent UI nudges,
+// not control-plane facts, and would otherwise clutter the Events tab. It only
+// fires on an actual change, so a quiet fleet produces no traffic.
+func (p *Poller) publishMemberStatus(memberID string) {
+	p.bus.Publish(events.Event{
+		Type:      "member.status",
+		Severity:  "info",
+		Source:    "frontdesk-poller",
+		Metadata:  map[string]any{"member_id": memberID},
+		Timestamp: p.now(),
 	})
 }
 
