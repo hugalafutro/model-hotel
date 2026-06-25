@@ -126,6 +126,8 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 			r.Get("/admin-token/preview", s.adminTokenPreview)
 			r.Post("/admin-token/sync", s.adminTokenSync)
 			r.Post("/admin-token/reset", s.adminTokenReset)
+			r.Get("/config/preview", s.configSyncPreview)
+			r.Post("/config/sync", s.configSync)
 			r.Get("/sse", s.sse)
 		})
 	})
