@@ -5,10 +5,12 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/google/uuid"
 
@@ -18,8 +20,18 @@ import (
 const tokenLength = 32
 const sha256Prefix = "sha256:"
 
+// ErrInvalidTokenHash marks a SetHash failure caused by a malformed hash value
+// (client error, safe to surface) as opposed to a file-write failure (server
+// error, whose detail must not leak to the caller).
+var ErrInvalidTokenHash = errors.New("admin: invalid token hash")
+
 // Manager handles admin token authentication and management.
+//
+// tokenHash and plainToken are guarded by mu so the hash can be hot-reloaded at
+// runtime (SetHash) without restarting the process: the HA Front Desk control
+// plane pushes a new admin-token hash and the member applies it live.
 type Manager struct {
+	mu         sync.RWMutex
 	dataDir    string
 	tokenHash  string
 	plainToken string
@@ -55,6 +67,8 @@ func New(dataDir, initialToken string) (*Manager, bool, error) {
 
 // Token returns the plain admin token.
 func (m *Manager) Token() string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	return m.plainToken
 }
 
@@ -65,14 +79,111 @@ func (m *Manager) IsNew() bool {
 
 // Validate checks if the provided token matches the stored admin token hash.
 func (m *Manager) Validate(token string) bool {
-	if token == "" || m.tokenHash == "" {
+	if token == "" {
+		return false
+	}
+	m.mu.RLock()
+	stored := m.tokenHash
+	m.mu.RUnlock()
+	if stored == "" {
 		return false
 	}
 	hash := sha256.Sum256([]byte(token))
 	hashHex := hex.EncodeToString(hash[:])
 
 	// tokenHash is always stored without the sha256: prefix (see loadOrCreateToken)
-	return subtle.ConstantTimeCompare([]byte(hashHex), []byte(m.tokenHash)) == 1
+	return subtle.ConstantTimeCompare([]byte(hashHex), []byte(stored)) == 1
+}
+
+// Hash returns the current admin token hash in sha256:<hex> form, or an empty
+// string when no token is set. Used by the HA token-hash sync endpoint so the
+// Front Desk control plane can compare members before converging them.
+func (m *Manager) Hash() string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.tokenHash == "" {
+		return ""
+	}
+	return sha256Prefix + m.tokenHash
+}
+
+// SetHash overwrites the stored admin token hash and persists it to the
+// admin-token file, taking effect immediately (no restart). It accepts either a
+// sha256:<64-hex> value or a bare 64-char hex hash. The plaintext token (if any
+// from this boot) is cleared, since it no longer matches. The file write
+// happens before the in-memory swap so a failed write leaves the live token
+// unchanged.
+func (m *Manager) SetHash(value string) error {
+	hashHex, err := normalizeTokenHash(value)
+	if err != nil {
+		return err
+	}
+
+	tokenPath := filepath.Join(m.dataDir, "admin-token")
+
+	// Hold the write lock across both the file write and the in-memory swap so
+	// concurrent SetHash calls cannot interleave into a disk/memory mismatch
+	// (disk=hashB, memory=hashA), which a later restart would resolve by
+	// silently reverting the live token. File-before-memory ordering is
+	// preserved within the lock: a failed write returns without touching the
+	// live hash.
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if err := writeTokenFileAtomic(tokenPath, []byte(sha256Prefix+hashHex)); err != nil {
+		return fmt.Errorf("failed to write token file: %w", err)
+	}
+	m.tokenHash = hashHex
+	m.plainToken = ""
+
+	debuglog.Info("admin: admin token hash updated")
+	return nil
+}
+
+// writeTokenFileAtomic writes the admin-token file via a temp file + fsync +
+// rename so a crash mid-write can never leave a truncated or empty file. An
+// empty admin-token file makes loadOrCreateToken regenerate a brand-new token on
+// the next boot, silently rotating the member out of its group.
+func writeTokenFileAtomic(path string, data []byte) error {
+	tmp := path + ".tmp"
+	//nolint:gosec // path is built from dataDir, not user input; 0600 secret file
+	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	if _, err := f.Write(data); err != nil {
+		_ = f.Close()
+		_ = os.Remove(tmp)
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		_ = os.Remove(tmp)
+		return err
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	return nil
+}
+
+// normalizeTokenHash validates a sha256:<hex> or bare 64-hex value and returns
+// the lowercased bare hex hash.
+func normalizeTokenHash(value string) (string, error) {
+	v := strings.TrimSpace(value)
+	v = strings.TrimPrefix(v, sha256Prefix)
+	v = strings.ToLower(v)
+	if len(v) != 64 {
+		return "", fmt.Errorf("%w: must be a 64-character hex SHA-256 digest", ErrInvalidTokenHash)
+	}
+	if _, err := hex.DecodeString(v); err != nil {
+		return "", fmt.Errorf("%w: not valid hex: %w", ErrInvalidTokenHash, err)
+	}
+	return v, nil
 }
 
 func (m *Manager) loadOrCreateToken(initialToken string) (tokenHash, plainToken string, isNew bool, err error) {
@@ -109,8 +220,7 @@ func (m *Manager) loadOrCreateToken(initialToken string) (tokenHash, plainToken 
 	hashHex := hex.EncodeToString(hash[:])
 	prefixed := sha256Prefix + hashHex
 	debuglog.Warn("admin: migrating plaintext token to hashed format")
-	//nolint:gosec // tokenPath is constructed from dataDir constant, not user input
-	if err := os.WriteFile(tokenPath, []byte(prefixed), 0o600); err != nil {
+	if err := writeTokenFileAtomic(tokenPath, []byte(prefixed)); err != nil {
 		return "", "", false, fmt.Errorf("failed to migrate token file: %w", err)
 	}
 
@@ -133,7 +243,7 @@ func (m *Manager) createAndSaveToken(tokenPath, initialToken string) (tokenHash,
 	hashHex := hex.EncodeToString(hash[:])
 	prefixed := sha256Prefix + hashHex
 
-	if err := os.WriteFile(tokenPath, []byte(prefixed), 0o600); err != nil {
+	if err := writeTokenFileAtomic(tokenPath, []byte(prefixed)); err != nil {
 		debuglog.Error("admin: failed to write token file", "path", tokenPath, "error", err)
 		return "", "", false, fmt.Errorf("failed to write token file: %w", err)
 	}

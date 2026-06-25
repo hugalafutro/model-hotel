@@ -1,4 +1,4 @@
-package api
+package adminauth
 
 import (
 	"bytes"
@@ -31,41 +31,28 @@ func truncateTOTPTables(t *testing.T) {
 	}
 }
 
-// mockStubTotpStatus is a stub TotpStatus for the AuthMiddleware tests.
-type stubTotpStatus struct {
-	enabled bool
-	err     error
-}
-
-func (s *stubTotpStatus) IsEnabled(context.Context) (bool, error) {
-	return s.enabled, s.err
-}
-
-// newTotpTestHandler builds a Handler + TOTP handler wired over the test DB.
-// The shared totpEnabled cache is driven through the real refresh path.
-func newTotpTestHandler(t *testing.T) (*Handler, *TotpHandler) {
+// newTotpTestHandler builds a TOTP handler + a totpEnabledShim (the api.Handler
+// stand-in) wired over the test DB. The shared totpEnabled cache is driven
+// through the real refresh path.
+func newTotpTestHandler(t *testing.T) (*totpEnabledShim, *TotpHandler) {
 	t.Helper()
 	truncateTOTPTables(t)
 
-	h := newTestHandler(t)
 	totpRepo := totpsvc.NewRepository(apiTestDB.Pool(), testMasterKey)
-	h.SetTotpStatus(totpRepo)
-	// Force a synchronous seed so tests don't race the goroutine.
-	h.totpEnabled.Store(false)
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return token == "admin-token" }}
+	// A fresh session manager over the test DB so the admin-or-session gate can
+	// validate tokens minted by /totp/login (which uses the TotpHandler.sessionMgr).
+	wrepo := webauthn.NewRepository(apiTestDB.Pool())
+	sessionMgr := webauthn.NewSessionManager(wrepo)
+
+	shim := &totpEnabledShim{repo: totpRepo, adminMgr: adminMgr, sessionMgr: sessionMgr}
+	shim.totpEnabled.Store(false) // synchronous seed so tests don't race a goroutine
 
 	// Clean up TOTP state after the test too.
 	t.Cleanup(func() { truncateTOTPTables(t) })
 
-	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return token == "admin-token" }}
-	// Create a fresh session manager over the test DB and wire it on the
-	// Handler so AuthMiddleware's session-token fallback can validate tokens
-	// minted by /totp/login (which uses the TotpHandler.sessionMgr).
-	wrepo := webauthn.NewRepository(apiTestDB.Pool())
-	sessionMgr := webauthn.NewSessionManager(wrepo)
-	h.SetWebAuthnSessionManager(sessionMgr)
-
-	th := NewTotpHandler(totpRepo, adminMgr, sessionMgr, mockIPLimiter{}, false, h.TotpEnabled, h.RefreshTotpEnabled)
-	return h, th
+	th := NewTotpHandler(totpRepo, adminMgr, sessionMgr, mockIPLimiter{}, false, shim.TotpEnabled, shim.RefreshTotpEnabled)
+	return shim, th
 }
 
 // enrollAndEnable drives an enrollment via the repo (faster than HTTP for

@@ -21,6 +21,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/hugalafutro/model-hotel/internal/admin"
+	"github.com/hugalafutro/model-hotel/internal/adminauth"
 	"github.com/hugalafutro/model-hotel/internal/alert"
 	"github.com/hugalafutro/model-hotel/internal/api"
 	"github.com/hugalafutro/model-hotel/internal/auth"
@@ -268,11 +269,9 @@ func main() {
 		})
 	})
 
-	// Health check
-	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		_, _ = w.Write([]byte("OK"))
-	})
+	// Health check: reports database reachability (cached) so a load balancer
+	// stops routing to an instance whose Postgres is down.
+	r.Get("/health", api.NewHealthHandler(database.Pool()).ServeHTTP)
 
 	// Handlers shared across route groups
 	sd := proxy.NewSafeDialer(append(cfg.AllowedProviderHosts, config.KnownProviderHosts()...), cfg.KnownProxies)
@@ -284,6 +283,7 @@ func main() {
 	apiHandler := api.NewHandler(cfg, providerRepo, database, adminMgr, virtualKeyRepo, settingsRepo, version, testModelTransport, sd.CheckRedirect, sd.DialContext, sd.CheckRedirect)
 	proxyHandler := proxy.NewHandler(cfg, providerRepo, modelRepo, database.Pool(), virtualKeyRepo, failoverRepo, settingsRepo, rateLimiter, tpmLimiter, ipLimiter, sd)
 	apiHandler.SetCircuitBreaker(proxyHandler.CircuitBreaker())
+	apiHandler.SetAdminTokenManager(adminMgr)
 	apiHandler.StartBackupScheduler(context.Background())
 
 	// Outbound alerting: a single consumer of the events bus that forwards
@@ -302,7 +302,7 @@ func main() {
 	// The session manager is hoisted out of the WebAuthnRPID block so it is
 	// always available -- TOTP /totp/login reuses CreateAuthToken to mint session
 	// tokens once 2FA is enabled, even when passkeys (RP) are not configured.
-	var webauthnHandler *api.WebAuthnHandler
+	var webauthnHandler *adminauth.WebAuthnHandler
 	webauthnRepo := webauthn.NewRepository(database.Pool())
 	sessionMgr := webauthn.NewSessionManager(webauthnRepo)
 	apiHandler.SetWebAuthnSessionManager(sessionMgr)
@@ -324,7 +324,7 @@ func main() {
 	// IsEnabled state wired into the Handler (AuthMiddleware gate).
 	totpRepo := totp.NewRepository(database.Pool(), cfg.MasterKey)
 	apiHandler.SetTotpStatus(totpRepo)
-	totpHandler := api.NewTotpHandler(totpRepo, adminMgr, sessionMgr, ipLimiter, cfg.DemoReadOnly, apiHandler.TotpEnabled, apiHandler.RefreshTotpEnabled)
+	totpHandler := adminauth.NewTotpHandler(totpRepo, adminMgr, sessionMgr, ipLimiter, cfg.DemoReadOnly, apiHandler.TotpEnabled, apiHandler.RefreshTotpEnabled)
 
 	if cfg.WebAuthnRPID != "" {
 		rpOrigins := make([]string, len(cfg.WebAuthnRPOrigins))
@@ -340,7 +340,7 @@ func main() {
 		if err != nil {
 			debuglog.Fatal("startup: failed to initialize WebAuthn relying party", "error", err)
 		}
-		webauthnHandler = api.NewWebAuthnHandler(webauthnRepo, rp, sessionMgr, adminMgr, ipLimiter, cfg.DemoReadOnly, apiHandler.TotpEnabled)
+		webauthnHandler = adminauth.NewWebAuthnHandler(webauthnRepo, rp, sessionMgr, adminMgr, ipLimiter, cfg.DemoReadOnly, apiHandler.TotpEnabled)
 
 		debuglog.Info("webauthn: passkey authentication enabled", "rp_id", cfg.WebAuthnRPID)
 	}

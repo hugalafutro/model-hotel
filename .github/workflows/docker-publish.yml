@@ -20,6 +20,7 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
   DOCKERHUB_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/model-hotel
+  DOCKERHUB_FRONTDESK_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/model-hotel-frontdesk
 
 jobs:
   publish:
@@ -103,6 +104,41 @@ jobs:
           platforms: linux/amd64
           provenance: false
 
+      # Front Desk control-plane image (HA stack), published to the same two
+      # registries under the -frontdesk repo. Reuses the Buildx instance and
+      # registry logins above; a distinct gha cache scope keeps it off the
+      # server image's cache so neither build evicts the other's layers.
+      # Dockerfile.frontdesk does not consume a VERSION arg (plain go build), so
+      # none is passed.
+      - name: Extract metadata (Front Desk)
+        if: steps.version.outputs.skip_existing == 'false'
+        id: meta-frontdesk
+        uses: docker/metadata-action@80c7e94dd9b9319bd5eb7a0e0fe9291e23a2a2e9 # v6
+        with:
+          images: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontdesk
+            ${{ env.DOCKERHUB_FRONTDESK_IMAGE }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ steps.version.outputs.tag }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.version.outputs.tag }}
+            type=raw,value=latest
+            type=raw,value=${{ inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
+            type=sha,prefix=sha-
+
+      - name: Build and push Front Desk
+        if: steps.version.outputs.skip_existing == 'false'
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7
+        with:
+          context: .
+          file: Dockerfile.frontdesk
+          push: true
+          tags: ${{ steps.meta-frontdesk.outputs.tags }}
+          labels: ${{ steps.meta-frontdesk.outputs.labels }}
+          cache-from: type=gha,scope=frontdesk
+          cache-to: type=gha,mode=max,scope=frontdesk
+          platforms: linux/amd64
+          provenance: false
+
       # Publish a GitHub Release for the freshly-pushed tag with auto-generated
       # notes (grouped per .github/release.yml). Until now each release got a
       # git tag + image but no human-readable notes; this fills that gap so
@@ -135,3 +171,17 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: ${{ env.DOCKERHUB_IMAGE }}
           readme-filepath: ./DOCKERHUB.md
+
+      # Sync the Front Desk repo's Hub README from DOCKERHUB-frontdesk.md. Not
+      # gated on skip_existing: the Front Desk page is near-static and the sync
+      # is cheap, so we refresh it on every workflow run (including when the
+      # version tag already exists) to keep it current without needing a release.
+      # Non-blocking, same as the main README sync.
+      - name: Sync Docker Hub README (Front Desk)
+        continue-on-error: true
+        uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa # v5.0.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ env.DOCKERHUB_FRONTDESK_IMAGE }}
+          readme-filepath: ./DOCKERHUB-frontdesk.md

@@ -1,4 +1,4 @@
-package api
+package adminauth
 
 import (
 	"context"
@@ -70,12 +70,29 @@ func TestWebAuthnHandler_Available_WithNilRP(t *testing.T) {
 	}
 }
 
-// TestAvailable_WithNonNilRP tests that Available returns enabled=true when RP is set
+// availStubStore embeds webauthn.Store so it satisfies the interface, and
+// overrides only ListCredentials (the sole method Available calls). Any other
+// method would panic on the nil embedded interface, which is the intended guard:
+// Available must not touch the rest of the store.
+type availStubStore struct {
+	webauthn.Store
+	creds []*webauthn.CredentialRecord
+	err   error
+}
+
+func (s availStubStore) ListCredentials(context.Context) ([]*webauthn.CredentialRecord, error) {
+	return s.creds, s.err
+}
+
+// TestAvailable_WithNonNilRP tests that Available reports enabled=true (RP set)
+// but has_credentials=false when no passkey is registered, so the login screen
+// does not advertise a passkey button that cannot work.
 func TestWebAuthnHandler_Available_WithNonNilRP(t *testing.T) {
 	// We can't easily construct a real webauthnx.WebAuthn, so we use a non-nil placeholder
 	// In practice, this is set when WebAuthn is configured with HTTPS + proper config
 	rp := &webauthnx.WebAuthn{} // non-nil but not fully initialized
 	h := newTestWebAuthnHandler(nil, rp, nil, nil)
+	h.webauthnRepo = availStubStore{} // no credentials registered
 
 	req, w := newChiRequest(http.MethodGet, "/webauthn/available", nil)
 	h.Available(w, req)
@@ -91,6 +108,30 @@ func TestWebAuthnHandler_Available_WithNonNilRP(t *testing.T) {
 
 	if resp["enabled"] != true {
 		t.Errorf("expected enabled=true, got %v", resp["enabled"])
+	}
+	if resp["has_credentials"] != false {
+		t.Errorf("expected has_credentials=false with no passkeys, got %v", resp["has_credentials"])
+	}
+}
+
+// TestAvailable_WithCredentials tests that Available reports has_credentials=true
+// once at least one passkey is registered, which is what unlocks the login
+// screen's passkey button.
+func TestWebAuthnHandler_Available_WithCredentials(t *testing.T) {
+	rp := &webauthnx.WebAuthn{}
+	h := newTestWebAuthnHandler(nil, rp, nil, nil)
+	h.webauthnRepo = availStubStore{creds: []*webauthn.CredentialRecord{{Name: "yubikey"}}}
+
+	req, w := newChiRequest(http.MethodGet, "/webauthn/available", nil)
+	h.Available(w, req)
+
+	var resp map[string]bool
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if resp["enabled"] != true || resp["has_credentials"] != true {
+		t.Errorf("expected enabled=true has_credentials=true, got %v", resp)
 	}
 }
 
@@ -1626,56 +1667,6 @@ func TestWebAuthnHandler_ListCredentials_NilRepo(t *testing.T) {
 	h.ListCredentials(w, req)
 }
 
-// --- SetWebAuthnSessionManager tests ---
-
-// TestWebAuthnHandler_SetWebAuthnSessionManager_Nil tests that SetWebAuthnSessionManager
-// sets the field even with a nil Handler (via the Handler type, not WebAuthnHandler)
-func TestSetWebAuthnSessionManager_SetsField(t *testing.T) {
-	h := newTestHandler(t)
-
-	// Initially nil
-	if h.webauthnSessionMgr != nil {
-		t.Error("expected nil webauthnSessionMgr before SetWebAuthnSessionManager")
-	}
-
-	// Create a mock WebAuthnSessionManager
-	mockMgr := &mockWebAuthnSessionMgr{
-		validateFn: func(_ context.Context, _ string) bool { return true },
-		revokeFn:   func(_ context.Context, _ string) bool { return true },
-	}
-	h.SetWebAuthnSessionManager(mockMgr)
-
-	if h.webauthnSessionMgr == nil {
-		t.Error("expected non-nil webauthnSessionMgr after SetWebAuthnSessionManager")
-	}
-
-	// Verify it actually works through the interface
-	if !h.webauthnSessionMgr.Validate(context.Background(), "any-token") {
-		t.Error("expected Validate to return true via mock")
-	}
-}
-
-// TestSetWebAuthnSessionManager_NilArg tests that SetWebAuthnSessionManager
-// can be called with a nil argument (clears the field)
-func TestSetWebAuthnSessionManager_NilArg(t *testing.T) {
-	h := newTestHandler(t)
-
-	mockMgr := &mockWebAuthnSessionMgr{
-		validateFn: func(_ context.Context, _ string) bool { return true },
-		revokeFn:   func(_ context.Context, _ string) bool { return true },
-	}
-	h.SetWebAuthnSessionManager(mockMgr)
-	if h.webauthnSessionMgr == nil {
-		t.Fatal("expected non-nil after set")
-	}
-
-	// Clear it
-	h.SetWebAuthnSessionManager(nil)
-	if h.webauthnSessionMgr != nil {
-		t.Error("expected nil webauthnSessionMgr after SetWebAuthnSessionManager(nil)")
-	}
-}
-
 // TestWebAuthnHandler_RegisterStart_RepoListError tests that RegisterStart
 // returns 500 when the repo fails to list credentials.
 func TestWebAuthnHandler_RegisterStart_RepoListError(t *testing.T) {
@@ -1773,26 +1764,6 @@ func TestWebAuthnHandler_RenameCredential_NonExistentCredential(t *testing.T) {
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
 	}
-}
-
-// mockWebAuthnSessionMgr implements WebAuthnSessionManager for testing
-type mockWebAuthnSessionMgr struct {
-	validateFn func(ctx context.Context, token string) bool
-	revokeFn   func(ctx context.Context, token string) bool
-}
-
-func (m *mockWebAuthnSessionMgr) Validate(ctx context.Context, token string) bool {
-	if m.validateFn != nil {
-		return m.validateFn(ctx, token)
-	}
-	return false
-}
-
-func (m *mockWebAuthnSessionMgr) RevokeAuthToken(ctx context.Context, token string) bool {
-	if m.revokeFn != nil {
-		return m.revokeFn(ctx, token)
-	}
-	return false
 }
 
 // --- RegisterStart / LoginStart success path tests (require DB) ---

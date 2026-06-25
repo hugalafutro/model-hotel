@@ -1,0 +1,259 @@
+package frontdesk
+
+import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/events"
+)
+
+func newTestPoller(t *testing.T, traefikAPI string) (*Poller, *Store, *events.Bus) {
+	t.Helper()
+	s := newTestStore(t)
+	bus := events.NewBus()
+	return NewPoller(s, bus, traefikAPI), s, bus
+}
+
+func TestCheckHealth(t *testing.T) {
+	p, _, _ := newTestPoller(t, "")
+	ctx := context.Background()
+
+	okSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == memberHealthPath {
+			_, _ = w.Write([]byte("OK"))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer okSrv.Close()
+
+	hs := p.checkHealth(ctx, okSrv.URL)
+	if !hs.Healthy || !hs.Known || hs.Error != "" {
+		t.Errorf("healthy server: %+v", hs)
+	}
+	if hs.LatencyMs < 0 {
+		t.Errorf("latency negative: %d", hs.LatencyMs)
+	}
+
+	degraded := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer degraded.Close()
+	hs = p.checkHealth(ctx, degraded.URL)
+	if hs.Healthy || hs.Error == "" {
+		t.Errorf("degraded server should be unhealthy: %+v", hs)
+	}
+
+	// Unreachable host.
+	hs = p.checkHealth(ctx, "http://127.0.0.1:1")
+	if hs.Healthy || hs.Error == "" {
+		t.Errorf("unreachable should be unhealthy: %+v", hs)
+	}
+}
+
+func TestApplyHealthTransitions(t *testing.T) {
+	p, store, bus := newTestPoller(t, "")
+	ctx := context.Background()
+	m, _ := store.CreateMember(ctx, "h", "http://h:8081", "")
+
+	ch := bus.Subscribe()
+	defer bus.Unsubscribe(ch)
+
+	// First observation healthy: silent baseline, no event.
+	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: true})
+	_, total, _ := store.ListEvents(ctx, EventFilter{})
+	if total != 0 {
+		t.Fatalf("first healthy should be silent, got %d events", total)
+	}
+
+	// healthy -> down: emits health.down.
+	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: false, Error: "boom"})
+	ev := <-ch
+	if ev.Type != "health.down" || ev.Severity != "error" {
+		t.Errorf("down event: %+v", ev)
+	}
+
+	// down -> up: emits health.up.
+	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: true, LatencyMs: 12})
+	ev = <-ch
+	if ev.Type != "health.up" || ev.Severity != "success" {
+		t.Errorf("up event: %+v", ev)
+	}
+
+	// No change: no further event.
+	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: true})
+	select {
+	case ev := <-ch:
+		t.Errorf("unchanged state should not emit, got %+v", ev)
+	default:
+	}
+
+	// Two transitions persisted to the event log.
+	_, total, _ = store.ListEvents(ctx, EventFilter{})
+	if total != 2 {
+		t.Errorf("expected 2 persisted transition events, got %d", total)
+	}
+
+	// Snapshot reflects last status.
+	snap := p.Snapshot()
+	if !snap[m.ID].Health.Healthy {
+		t.Errorf("snapshot should show healthy: %+v", snap[m.ID])
+	}
+}
+
+func TestApplyHealthFirstObservationDownEmits(t *testing.T) {
+	p, store, _ := newTestPoller(t, "")
+	ctx := context.Background()
+	m, _ := store.CreateMember(ctx, "h", "http://h:8081", "")
+
+	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: false, Error: "down at start"})
+	evs, total, _ := store.ListEvents(ctx, EventFilter{})
+	if total != 1 || evs[0].Type != "health.down" {
+		t.Errorf("first-observation-down should emit health.down, got %d events", total)
+	}
+}
+
+func TestParseTraefikServerStatus(t *testing.T) {
+	body := []byte(`[
+		{"name":"other@docker","serverStatus":{"http://x":"UP"}},
+		{"name":"hotel@http","serverStatus":{"http://a:8081":"UP","http://b:8081":"DOWN"}}
+	]`)
+	got, err := parseTraefikServerStatus(body)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if got["http://a:8081"] != "UP" || got["http://b:8081"] != "DOWN" {
+		t.Errorf("server status map: %+v", got)
+	}
+
+	// No hotel service -> empty map, no error.
+	got, err = parseTraefikServerStatus([]byte(`[{"name":"other@docker","serverStatus":{}}]`))
+	if err != nil || len(got) != 0 {
+		t.Errorf("missing hotel service: got=%+v err=%v", got, err)
+	}
+
+	if _, err := parseTraefikServerStatus([]byte(`not json`)); err == nil {
+		t.Error("invalid json should error")
+	}
+}
+
+func TestPollTraefikOnceMapsByURL(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == traefikServicesAPI {
+			_, _ = w.Write([]byte(`[{"name":"hotel@http","serverStatus":{"http://a:8081":"UP","http://b:8081":"DOWN"}}]`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	p, store, _ := newTestPoller(t, srv.URL)
+	ctx := context.Background()
+	a, _ := store.CreateMember(ctx, "a", "http://a:8081", "")
+	b, _ := store.CreateMember(ctx, "b", "http://b:8081", "")
+
+	p.PollTraefikOnce(ctx)
+	snap := p.Snapshot()
+	if snap[a.ID].TraefikStatus != "UP" {
+		t.Errorf("a traefik status = %q, want UP", snap[a.ID].TraefikStatus)
+	}
+	if snap[b.ID].TraefikStatus != "DOWN" {
+		t.Errorf("b traefik status = %q, want DOWN", snap[b.ID].TraefikStatus)
+	}
+}
+
+func TestFetchMemberVersion(t *testing.T) {
+	var gotAuth string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		if r.URL.Path == memberSettingsPath {
+			_, _ = w.Write([]byte(`{"app_version":"0.9.80","other":"x"}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	p, _, _ := newTestPoller(t, "")
+	v, err := p.fetchMemberVersion(context.Background(), srv.URL, "tok123")
+	if err != nil {
+		t.Fatalf("fetchMemberVersion: %v", err)
+	}
+	if v != "0.9.80" {
+		t.Errorf("version = %q, want 0.9.80", v)
+	}
+	if gotAuth != "Bearer tok123" {
+		t.Errorf("auth header = %q", gotAuth)
+	}
+}
+
+func TestPollVersionsOnce(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"app_version":"1.2.3"}`))
+	}))
+	defer srv.Close()
+
+	p, store, _ := newTestPoller(t, "")
+	ctx := context.Background()
+	withTok, _ := store.CreateMember(ctx, "wt", srv.URL, "tok")
+	noTok, _ := store.CreateMember(ctx, "nt", "http://nt:8081", "")
+
+	p.PollVersionsOnce(ctx)
+	snap := p.Snapshot()
+	if snap[withTok.ID].Version != "1.2.3" {
+		t.Errorf("tokened member version = %q, want 1.2.3", snap[withTok.ID].Version)
+	}
+	if snap[noTok.ID].Version != "" {
+		t.Errorf("tokenless member should have no version, got %q", snap[noTok.ID].Version)
+	}
+}
+
+func TestConfigStalenessWatchdog(t *testing.T) {
+	p, store, bus := newTestPoller(t, "")
+	ctx := context.Background()
+	_ = store
+
+	// Controllable clock.
+	now := time.Now()
+	p.now = func() time.Time { return now }
+
+	ch := bus.Subscribe()
+	defer bus.Unsubscribe(ch)
+
+	// First call with never-polled: arms baseline, no warning.
+	p.checkConfigStaleness(ctx)
+	select {
+	case ev := <-ch:
+		t.Fatalf("first check should arm silently, got %+v", ev)
+	default:
+	}
+
+	// Advance beyond the stale threshold (default 30s): one warning.
+	now = now.Add(31 * time.Second)
+	p.checkConfigStaleness(ctx)
+	ev := <-ch
+	if ev.Type != "traefik.stale" || ev.Severity != "warning" {
+		t.Errorf("stale event: %+v", ev)
+	}
+
+	// Still stale: no duplicate warning.
+	now = now.Add(31 * time.Second)
+	p.checkConfigStaleness(ctx)
+	select {
+	case ev := <-ch:
+		t.Errorf("should not warn twice, got %+v", ev)
+	default:
+	}
+
+	// Traefik polls again: re-arms.
+	p.RecordConfigPoll()
+	now = now.Add(31 * time.Second)
+	p.checkConfigStaleness(ctx)
+	ev = <-ch
+	if ev.Type != "traefik.stale" {
+		t.Errorf("after re-arm should warn again: %+v", ev)
+	}
+}

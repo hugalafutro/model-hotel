@@ -8,6 +8,10 @@
 //
 // No-content logging rule: secret, otpauth URI, recovery codes, and submitted
 // codes are never logged. Only events are (e.g. "totp: enabled").
+//
+// Persistence lives behind the Store interface (see store.go); this file holds
+// the crypto and policy. The main server uses PostgresStore; the HA Front Desk
+// control plane supplies a SQLite Store and reuses everything here unchanged.
 package totp
 
 import (
@@ -17,12 +21,10 @@ import (
 	"crypto/subtle"
 	"encoding/base32"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pquerna/otp/totp"
 
@@ -30,28 +32,39 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
+// totpPeriodSeconds is the TOTP step size (RFC 6238 default).
+const totpPeriodSeconds = 30
+
 // Repository manages the single admin TOTP config (encrypted secret) and
 // single-use recovery codes. The plaintext secret never persists; it is
 // AES-GCM encrypted with the process MASTER_KEY like provider API keys.
+//
+// It owns the crypto and policy and delegates all persistence to a Store, so
+// the same logic runs over Postgres (main server) or SQLite (Front Desk).
 type Repository struct {
-	db        *pgxpool.Pool
+	store     Store
 	masterKey string
 }
 
-// NewRepository creates a new TOTP repository backed by the given connection
-// pool. The masterKey is used to encrypt/decrypt the TOTP secret at rest.
+// NewRepository creates a TOTP repository backed by the given connection pool
+// (PostgresStore). The masterKey encrypts/decrypts the TOTP secret at rest.
 func NewRepository(pool *pgxpool.Pool, masterKey string) *Repository {
-	return &Repository{db: pool, masterKey: masterKey}
+	return &Repository{store: NewPostgresStore(pool), masterKey: masterKey}
+}
+
+// NewRepositoryWithStore creates a TOTP repository over an arbitrary Store
+// implementation (e.g. a SQLite store in the HA Front Desk control plane).
+func NewRepositoryWithStore(store Store, masterKey string) *Repository {
+	return &Repository{store: store, masterKey: masterKey}
 }
 
 // Enroll generates a new TOTP secret, encrypts it with MASTER_KEY, and stores a
 // provisional row (enabled=false, confirmed_at=NULL). It returns the otpauth
 // URI (for QR rendering) and the base32 secret (for manual entry).
 //
-// Re-enrolling overwrites any prior provisional or enabled secret: the ON
-// CONFLICT clause replaces secret_cipher/nonce/salt and resets enabled to
-// false and confirmed_at to NULL, so a half-finished enrollment cleanly
-// restarts and a live enrollment requires re-verification.
+// Re-enrolling overwrites any prior provisional or enabled secret, so a
+// half-finished enrollment cleanly restarts and a live enrollment requires
+// re-verification (the Store's upsert resets enabled/confirmed_at/last_used_step).
 func (r *Repository) Enroll(ctx context.Context) (uri, secret string, err error) {
 	key, err := totp.Generate(totp.GenerateOpts{
 		Issuer:      "Model Hotel",
@@ -67,28 +80,13 @@ func (r *Repository) Enroll(ctx context.Context) (uri, secret string, err error)
 		return "", "", fmt.Errorf("totp: encrypt secret: %w", err)
 	}
 
-	_, err = r.db.Exec(ctx,
-		`INSERT INTO admin_totp (id, secret_cipher, secret_nonce, secret_salt, enabled, confirmed_at)
-		 VALUES (1, $1, $2, $3, FALSE, NULL)
-		 ON CONFLICT (id) DO UPDATE SET
-		   secret_cipher = EXCLUDED.secret_cipher,
-		   secret_nonce  = EXCLUDED.secret_nonce,
-		   secret_salt   = EXCLUDED.secret_salt,
-		   enabled       = FALSE,
-		   confirmed_at  = NULL,
-		   last_used_step = NULL`,
-		kp.Ciphertext, kp.Nonce, kp.Salt,
-	)
-	if err != nil {
-		return "", "", fmt.Errorf("totp: upsert enrollment: %w", err)
+	if err := r.store.UpsertEnrollment(ctx, kp.Ciphertext, kp.Nonce, kp.Salt); err != nil {
+		return "", "", err
 	}
 
 	debuglog.Info("totp: enrollment started")
 	return key.URL(), secret, nil
 }
-
-// totpPeriodSeconds is the TOTP step size (RFC 6238 default).
-const totpPeriodSeconds = 30
 
 // Verify checks a 6-digit code against the stored secret using the standard
 // TOTP defaults (period 30, skew 1 step, 6 digits, SHA-1) with constant-time
@@ -96,18 +94,15 @@ const totpPeriodSeconds = 30
 // once per 30s step. Returns (false, nil) for an invalid or replayed code, or
 // when no enrollment exists, and (false, err) on decrypt/DB failure.
 func (r *Repository) Verify(ctx context.Context, code string) (bool, error) {
-	var cipher, nonce, salt []byte
-	err := r.db.QueryRow(ctx,
-		`SELECT secret_cipher, secret_nonce, secret_salt FROM admin_totp WHERE id = 1`,
-	).Scan(&cipher, &nonce, &salt)
+	sec, ok, err := r.store.LoadSecret(ctx)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return false, nil
-		}
-		return false, fmt.Errorf("totp: load secret: %w", err)
+		return false, err
+	}
+	if !ok {
+		return false, nil
 	}
 
-	secret, err := auth.Decrypt(cipher, nonce, salt, r.masterKey)
+	secret, err := auth.Decrypt(sec.Cipher, sec.Nonce, sec.Salt, r.masterKey)
 	if err != nil {
 		return false, fmt.Errorf("totp: decrypt secret: %w", err)
 	}
@@ -115,44 +110,25 @@ func (r *Repository) Verify(ctx context.Context, code string) (bool, error) {
 	// Find which 30s step the code belongs to within the skew=1 window
 	// (previous / current / next), using constant-time comparison. This mirrors
 	// totp.Validate's acceptance set; a no-match means an invalid code.
-	nowStep := time.Now().Unix() / totpPeriodSeconds
-	matched := int64(-1)
-	for _, step := range []int64{nowStep - 1, nowStep, nowStep + 1} {
-		cand, gerr := totp.GenerateCode(secret, time.Unix(step*totpPeriodSeconds, 0))
-		if gerr == nil && subtle.ConstantTimeCompare([]byte(cand), []byte(code)) == 1 {
-			matched = step
-			break
-		}
-	}
+	matched := matchStep(secret, code)
 	if matched < 0 {
 		return false, nil
 	}
 
-	// Single-use (RFC 6238 §5.2): accept only if this step is newer than the
-	// last accepted one. The atomic UPDATE makes a concurrent replay of the
-	// same step impossible -- exactly one caller gets RowsAffected()==1; a
-	// replayed or older step gets 0 and is rejected.
-	tag, err := r.db.Exec(ctx,
-		`UPDATE admin_totp SET last_used_step = $1
-		 WHERE id = 1 AND (last_used_step IS NULL OR last_used_step < $1)`,
-		matched,
-	)
-	if err != nil {
-		return false, fmt.Errorf("totp: record used step: %w", err)
-	}
-	return tag.RowsAffected() == 1, nil
+	// Single-use (RFC 6238 §5.2): the Store's atomic conditional update accepts
+	// the step only if it is newer than the last accepted one, so a concurrent
+	// replay of the same step is impossible.
+	return r.store.RecordUsedStep(ctx, matched)
 }
 
 // Enable flips the single admin_totp row to enabled=true and stamps confirmed_at.
-// Returns an error if no provisional enrollment exists (rows affected = 0).
+// Returns an error if no provisional enrollment exists.
 func (r *Repository) Enable(ctx context.Context) error {
-	tag, err := r.db.Exec(ctx,
-		`UPDATE admin_totp SET enabled = TRUE, confirmed_at = NOW() WHERE id = 1`,
-	)
+	enabled, err := r.store.Enable(ctx)
 	if err != nil {
-		return fmt.Errorf("totp: enable: %w", err)
+		return err
 	}
-	if tag.RowsAffected() == 0 {
+	if !enabled {
 		return fmt.Errorf("totp: no provisional enrollment to enable")
 	}
 	debuglog.Info("totp: enabled")
@@ -160,134 +136,63 @@ func (r *Repository) Enable(ctx context.Context) error {
 }
 
 // Disable deletes the TOTP config and all recovery codes, returning the login
-// to single-factor (raw admin token) behavior. Both deletes run in one
-// transaction so a failure cannot leave recovery codes behind with no secret
-// (or vice versa).
+// to single-factor (raw admin token) behavior. The Store performs both deletes
+// in one transaction so a failure cannot leave recovery codes behind with no
+// secret (or vice versa).
 func (r *Repository) Disable(ctx context.Context) error {
-	tx, err := r.db.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("totp: disable (begin): %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	if _, err := tx.Exec(ctx, `DELETE FROM admin_totp WHERE id = 1`); err != nil {
-		return fmt.Errorf("totp: disable (delete config): %w", err)
-	}
-	if _, err := tx.Exec(ctx, `DELETE FROM admin_totp_recovery`); err != nil {
-		return fmt.Errorf("totp: disable (delete recovery): %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("totp: disable (commit): %w", err)
+	if err := r.store.Disable(ctx); err != nil {
+		return err
 	}
 	debuglog.Info("totp: disabled")
 	return nil
 }
 
 // DisableWithCode authorizes with a current TOTP code or an unused recovery
-// code and disables TOTP in a single transaction: either the whole operation
-// commits (config + recovery codes deleted) or nothing changes. Because disable
-// wipes the entire config, the code only needs to be CHECKED, not consumed --
-// this avoids spending a recovery code or burning a TOTP step when the delete
-// itself fails. Returns (false, nil) for an invalid or used code (nothing
-// changed) or when TOTP is not enrolled.
+// code and disables TOTP atomically: either the whole operation commits (config
+// + recovery codes deleted) or nothing changes. Because disable wipes the entire
+// config, the code only needs to be CHECKED, not consumed -- this avoids
+// spending a recovery code or burning a TOTP step when the delete itself fails.
+// Returns (false, nil) for an invalid or used code (nothing changed) or when
+// TOTP is not enrolled.
 func (r *Repository) DisableWithCode(ctx context.Context, code string) (bool, error) {
-	tx, err := r.db.Begin(ctx)
-	if err != nil {
-		return false, fmt.Errorf("totp: disable (begin): %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	var cipher, nonce, salt []byte
-	var lastUsedStep *int64
-	err = tx.QueryRow(ctx,
-		`SELECT secret_cipher, secret_nonce, secret_salt, last_used_step FROM admin_totp WHERE id = 1`,
-	).Scan(&cipher, &nonce, &salt, &lastUsedStep)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return false, nil
-		}
-		return false, fmt.Errorf("totp: disable (load secret): %w", err)
-	}
-
-	// Authorize with a current TOTP code (within the skew window) or an unused
-	// recovery code. The code is only checked, not consumed -- the whole config
-	// is about to be deleted -- but a TOTP step already accepted (e.g. by a
-	// prior login) is rejected so a used code cannot be replayed to disable.
-	authorized := false
-	if secret, derr := auth.Decrypt(cipher, nonce, salt, r.masterKey); derr == nil {
-		nowStep := time.Now().Unix() / totpPeriodSeconds
-		for _, step := range []int64{nowStep - 1, nowStep, nowStep + 1} {
-			cand, gerr := totp.GenerateCode(secret, time.Unix(step*totpPeriodSeconds, 0))
-			if gerr == nil && subtle.ConstantTimeCompare([]byte(cand), []byte(code)) == 1 {
+	ok, err := r.store.DisableIfAuthorized(ctx, func(sec EncryptedSecret, lastUsedStep *int64, recoveryUnused func(string) (bool, error)) (bool, error) {
+		// Authorize with a current TOTP code (within the skew window) or an unused
+		// recovery code. The code is only checked, not consumed -- the whole config
+		// is about to be deleted -- but a TOTP step already accepted (e.g. by a
+		// prior login) is rejected so a used code cannot be replayed to disable.
+		authorized := false
+		if secret, derr := auth.Decrypt(sec.Cipher, sec.Nonce, sec.Salt, r.masterKey); derr == nil {
+			if step := matchStep(secret, code); step >= 0 {
 				if lastUsedStep == nil || step > *lastUsedStep {
 					authorized = true
 				}
-				break
 			}
 		}
-	}
-	if !authorized {
-		var n int
-		if err := tx.QueryRow(ctx,
-			`SELECT COUNT(*) FROM admin_totp_recovery WHERE code_hash = $1 AND used_at IS NULL`,
-			sha256hex(normalizeRecoveryCode(code)),
-		).Scan(&n); err != nil {
-			return false, fmt.Errorf("totp: disable (check recovery): %w", err)
+		if !authorized {
+			return recoveryUnused(sha256hex(normalizeRecoveryCode(code)))
 		}
-		authorized = n == 1
+		return true, nil
+	})
+	if err != nil {
+		return false, err
 	}
-	if !authorized {
-		return false, nil
+	if ok {
+		debuglog.Info("totp: disabled")
 	}
-
-	if _, err := tx.Exec(ctx, `DELETE FROM admin_totp WHERE id = 1`); err != nil {
-		return false, fmt.Errorf("totp: disable (delete config): %w", err)
-	}
-	if _, err := tx.Exec(ctx, `DELETE FROM admin_totp_recovery`); err != nil {
-		return false, fmt.Errorf("totp: disable (delete recovery): %w", err)
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return false, fmt.Errorf("totp: disable (commit): %w", err)
-	}
-	debuglog.Info("totp: disabled")
-	return true, nil
+	return ok, nil
 }
 
 // IsEnabled reports whether TOTP 2FA is currently active. Returns (false, nil)
 // when no enrollment exists.
 func (r *Repository) IsEnabled(ctx context.Context) (bool, error) {
-	var enabled bool
-	err := r.db.QueryRow(ctx,
-		`SELECT enabled FROM admin_totp WHERE id = 1`,
-	).Scan(&enabled)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return false, nil
-		}
-		return false, fmt.Errorf("totp: is_enabled: %w", err)
-	}
-	return enabled, nil
+	return r.store.IsEnabled(ctx)
 }
 
 // EnabledAt returns when TOTP was last confirmed (the confirmed_at stamp set by
 // Enable). The bool is false when no enrollment exists or it is not yet
 // confirmed, so callers can omit the timestamp from a disabled-state response.
 func (r *Repository) EnabledAt(ctx context.Context) (time.Time, bool, error) {
-	var confirmedAt *time.Time
-	err := r.db.QueryRow(ctx,
-		`SELECT confirmed_at FROM admin_totp WHERE id = 1 AND enabled`,
-	).Scan(&confirmedAt)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return time.Time{}, false, nil
-		}
-		return time.Time{}, false, fmt.Errorf("totp: enabled_at: %w", err)
-	}
-	if confirmedAt == nil {
-		return time.Time{}, false, nil
-	}
-	return *confirmedAt, true, nil
+	return r.store.EnabledAt(ctx)
 }
 
 // SecurityInfo summarizes the active TOTP enrollment for the settings panel.
@@ -304,21 +209,19 @@ type SecurityInfo struct {
 // the admin-gated /totp/info rather than the public, polled /totp/status.
 func (r *Repository) Info(ctx context.Context) (SecurityInfo, error) {
 	var info SecurityInfo
-	if err := r.db.QueryRow(ctx,
-		`SELECT COUNT(*) FILTER (WHERE used_at IS NULL), COUNT(*) FROM admin_totp_recovery`,
-	).Scan(&info.RecoveryRemaining, &info.RecoveryTotal); err != nil {
-		return SecurityInfo{}, fmt.Errorf("totp: recovery counts: %w", err)
+
+	remaining, total, err := r.store.RecoveryCounts(ctx)
+	if err != nil {
+		return SecurityInfo{}, err
 	}
-	var step *int64
-	if err := r.db.QueryRow(ctx,
-		`SELECT last_used_step FROM admin_totp WHERE id = 1`,
-	).Scan(&step); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return info, nil
-		}
-		return SecurityInfo{}, fmt.Errorf("totp: last used: %w", err)
+	info.RecoveryRemaining = remaining
+	info.RecoveryTotal = total
+
+	step, ok, err := r.store.LastUsedStep(ctx)
+	if err != nil {
+		return SecurityInfo{}, err
 	}
-	if step != nil && *step > 0 {
+	if ok && step != nil && *step > 0 {
 		info.LastUsed = time.Unix(*step*int64(totpPeriodSeconds), 0).UTC()
 	}
 	return info, nil
@@ -342,48 +245,32 @@ func (r *Repository) GenerateRecoveryCodes(ctx context.Context) ([]string, error
 		hashes = append(hashes, sha256hex(code))
 	}
 
-	tx, err := r.db.Begin(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("totp: recovery codes (begin): %w", err)
+	if err := r.store.ReplaceRecoveryCodes(ctx, hashes); err != nil {
+		return nil, err
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	if _, err := tx.Exec(ctx, `DELETE FROM admin_totp_recovery`); err != nil {
-		return nil, fmt.Errorf("totp: recovery codes (delete): %w", err)
-	}
-
-	// Build a single batched INSERT: VALUES ($1), ($2), ..., ($10).
-	placeholders := make([]string, len(hashes))
-	args := make([]any, len(hashes))
-	for i, h := range hashes {
-		placeholders[i] = fmt.Sprintf("($%d)", i+1)
-		args[i] = h
-	}
-	query := "INSERT INTO admin_totp_recovery (code_hash) VALUES " + strings.Join(placeholders, ", ")
-	if _, err := tx.Exec(ctx, query, args...); err != nil {
-		return nil, fmt.Errorf("totp: recovery codes (insert): %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("totp: recovery codes (commit): %w", err)
-	}
-
 	return codes, nil
 }
 
 // ConsumeRecoveryCode marks a recovery code as used if it is valid and unused.
 // Returns ok=true only when exactly one row matched (valid hash, unused).
-// The atomic UPDATE ... WHERE used_at IS NULL makes double-use impossible.
+// The Store's atomic UPDATE ... WHERE used_at IS NULL makes double-use impossible.
 func (r *Repository) ConsumeRecoveryCode(ctx context.Context, code string) (bool, error) {
-	hash := sha256hex(normalizeRecoveryCode(code))
-	tag, err := r.db.Exec(ctx,
-		`UPDATE admin_totp_recovery SET used_at = NOW() WHERE code_hash = $1 AND used_at IS NULL`,
-		hash,
-	)
-	if err != nil {
-		return false, fmt.Errorf("totp: consume recovery code: %w", err)
+	return r.store.ConsumeRecoveryCode(ctx, sha256hex(normalizeRecoveryCode(code)))
+}
+
+// matchStep returns the TOTP step (previous/current/next within skew=1) whose
+// generated code matches the submitted code via constant-time comparison, or -1
+// when none match. This is the shared acceptance-set check used by Verify and
+// DisableWithCode.
+func matchStep(secret, code string) int64 {
+	nowStep := time.Now().Unix() / totpPeriodSeconds
+	for _, step := range []int64{nowStep - 1, nowStep, nowStep + 1} {
+		cand, gerr := totp.GenerateCode(secret, time.Unix(step*totpPeriodSeconds, 0))
+		if gerr == nil && subtle.ConstantTimeCompare([]byte(cand), []byte(code)) == 1 {
+			return step
+		}
 	}
-	return tag.RowsAffected() == 1, nil
+	return -1
 }
 
 // generateRecoveryCode returns a 16-char base32 code grouped as

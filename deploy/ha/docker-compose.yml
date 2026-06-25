@@ -1,0 +1,80 @@
+# High Availability stack: Traefik data plane + Front Desk control plane.
+#
+# This is the only thing a non-expert deploys for HA. Copy this directory, fill
+# in deploy/ha/.env (see .env.example), and `docker compose up -d` (or `make
+# ha-up` from the repo root). Traefik answers client traffic on :8080; Front
+# Desk serves its admin UI on :8090. Add/drain/remove members in the Front Desk
+# UI; Traefik follows within seconds.
+#
+# HTTPS-ONLY INGRESS: this stack speaks plain HTTP. A TLS-terminating reverse
+# proxy (e.g. nginx with a real cert) MUST sit in front of both published ports
+# so browsers and clients only ever reach the stack over HTTPS. See docs/HA.md.
+#
+# Front Desk is NEVER in the request path: if it dies, Traefik keeps the last
+# config it fetched and keeps serving traffic.
+
+name: model-hotel-ha
+
+services:
+    traefik:
+        # Pinned to the v3 line: only Traefik's HTTP provider applies dynamic
+        # backend changes gracefully (in-flight SSE/streams survive a reload).
+        image: traefik:v3
+        labels:
+            app.group: model-hotel-ha
+        command:
+            # Data-plane entrypoint. The generated config routes onto "web", so
+            # this name must stay in sync with internal/frontdesk/traefik.go.
+            - "--entrypoints.web.address=:8080"
+            # API/dashboard on its own entrypoint, NOT published to the host:
+            # Front Desk polls it over the compose network for serverStatus.
+            - "--entrypoints.traefik.address=:8081"
+            - "--api.insecure=true"
+            # HTTP provider: poll Front Desk for the dynamic config every ~5s.
+            - "--providers.http.endpoint=http://frontdesk:8090/traefik/config"
+            - "--providers.http.pollInterval=5s"
+            # Access log stays off by default (see docs/HA.md "Observability").
+            - "--accesslog=false"
+            - "--log.level=INFO"
+        ports:
+            # Client traffic (the /v1 API + member dashboards via the LB host).
+            # Front the external TLS proxy at this port.
+            - "${LB_PORT:-8080}:8080"
+        restart: unless-stopped
+        depends_on:
+            - frontdesk
+
+    frontdesk:
+        build:
+            context: ../..
+            dockerfile: Dockerfile.frontdesk
+        # Prebuilt image (uncomment to pin a published tag instead of building):
+        # image: ghcr.io/hugalafutro/model-hotel-frontdesk:latest
+        labels:
+            app.group: model-hotel-ha
+        environment:
+            - PORT=:8090
+            - DATA_DIR=/data
+            # The public https:// origin the Front Desk UI is reached at (the
+            # external TLS proxy's hostname). Required; Front Desk refuses to
+            # start without it so a plain-HTTP deploy fails loudly.
+            - PUBLIC_ORIGIN=${FRONTDESK_PUBLIC_ORIGIN:?FRONTDESK_PUBLIC_ORIGIN must be set in .env}
+            # UI login secret. Leave blank to have one generated and printed to
+            # the logs once on first boot.
+            - FRONTDESK_TOKEN=${FRONTDESK_TOKEN:-}
+            # AES-256-GCM key for member admin tokens + the TOTP secret at rest.
+            - FRONTDESK_MASTER_KEY=${FRONTDESK_MASTER_KEY:?FRONTDESK_MASTER_KEY must be set in .env}
+            # Where Front Desk polls Traefik's serverStatus (compose-internal).
+            - TRAEFIK_API_URL=http://traefik:8081
+            # The external reverse proxy's address(es), so X-Forwarded-* is
+            # trusted for real client IPs and HTTPS detection.
+            - TRUSTED_PROXIES=${FRONTDESK_TRUSTED_PROXIES:-}
+            - DEBUG_LOG=${FRONTDESK_DEBUG_LOG:-false}
+        ports:
+            # Front Desk admin UI. Front the external TLS proxy at this port on a
+            # separate hostname. Do NOT expose /traefik/config publicly through
+            # that proxy (see docs/HA.md).
+            - "${FRONTDESK_PORT:-8090}:8090"
+        volumes:
+            - ./.data:/data
+        restart: unless-stopped

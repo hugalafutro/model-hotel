@@ -1,0 +1,442 @@
+package frontdesk
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/events"
+)
+
+// This file holds the background pollers: a per-member /health probe (status +
+// latency, with up/down transition events), a poller for Traefik's own
+// serverStatus view (so the UI can show both "Front Desk sees up/down" and
+// "Traefik sees up/down" for split-brain diagnostics), a member version
+// fetcher, and the "Traefik hasn't polled config for > N seconds" watchdog,
+// which is the one silent failure mode of the HTTP-provider design.
+//
+// All control-plane facts are persisted to the event log AND published on the
+// SSE bus. No request or prompt content is ever read or logged.
+
+const (
+	memberHealthPath   = "/health"
+	memberSettingsPath = "/api/settings"
+	traefikServicesAPI = "/api/http/services"
+
+	// httpProbeTimeout bounds a single member or Traefik HTTP probe.
+	httpProbeTimeout = 4 * time.Second
+
+	// versionFetchFailThreshold is the number of consecutive version-fetch
+	// failures for a member before a single visible warning + event is raised.
+	// The member's admin token is sent on every attempt, so a persistently
+	// failing URL must be surfaced, not retried silently forever.
+	versionFetchFailThreshold = 3
+)
+
+// HealthStatus is the Front Desk poller's view of a member's /health endpoint.
+type HealthStatus struct {
+	Known     bool      `json:"known"`
+	Healthy   bool      `json:"healthy"`
+	LatencyMs int64     `json:"latency_ms"`
+	CheckedAt time.Time `json:"checked_at"`
+	Error     string    `json:"error,omitempty"`
+}
+
+// MemberStatus is the live, in-memory status the Members tab renders. It is not
+// persisted; only transitions are written to the event log.
+type MemberStatus struct {
+	Health        HealthStatus `json:"health"`
+	TraefikStatus string       `json:"traefik_status,omitempty"` // "UP" / "DOWN" / "" (unknown)
+	Version       string       `json:"version,omitempty"`
+}
+
+// Poller probes members and Traefik on intervals taken from settings.
+type Poller struct {
+	store      *Store
+	bus        *events.Bus
+	client     *http.Client
+	traefikAPI string
+	now        func() time.Time
+
+	mu               sync.RWMutex
+	statuses         map[string]MemberStatus // keyed by member ID
+	lastConfigPollAt time.Time
+	staleNotified    bool
+	versionFailures  map[string]int // consecutive version-fetch failures, keyed by member ID
+}
+
+// NewPoller builds a Poller. traefikAPI is the base URL of the Traefik API
+// (e.g. http://traefik:8080) reachable only on the compose-internal network; an
+// empty value disables Traefik status polling.
+func NewPoller(store *Store, bus *events.Bus, traefikAPI string) *Poller {
+	if bus == nil {
+		bus = events.DefaultBus
+	}
+	return &Poller{
+		store:           store,
+		bus:             bus,
+		client:          newProbeClient(httpProbeTimeout),
+		traefikAPI:      strings.TrimRight(traefikAPI, "/"),
+		now:             time.Now,
+		statuses:        make(map[string]MemberStatus),
+		versionFailures: make(map[string]int),
+	}
+}
+
+// RecordConfigPoll marks that Traefik just fetched the dynamic config. The
+// config handler calls this; the watchdog uses it to detect a stalled provider.
+func (p *Poller) RecordConfigPoll() {
+	p.mu.Lock()
+	p.lastConfigPollAt = p.now()
+	p.staleNotified = false
+	p.mu.Unlock()
+}
+
+// Snapshot returns a copy of the current per-member status map.
+func (p *Poller) Snapshot() map[string]MemberStatus {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	out := make(map[string]MemberStatus, len(p.statuses))
+	for k, v := range p.statuses {
+		out[k] = v
+	}
+	return out
+}
+
+// Run starts the poll loops and blocks until ctx is cancelled. Each loop reads
+// the current settings every tick so interval changes take effect live.
+func (p *Poller) Run(ctx context.Context) {
+	var wg sync.WaitGroup
+	loops := []struct {
+		interval func(Settings) time.Duration
+		fn       func(context.Context)
+	}{
+		{func(s Settings) time.Duration { return secs(s.HealthPollSecs, 5) }, p.PollHealthOnce},
+		{func(s Settings) time.Duration { return secs(s.TraefikPollSecs, 5) }, p.PollTraefikOnce},
+		{func(s Settings) time.Duration { return secs(s.HealthPollSecs, 5) }, p.PollVersionsOnce},
+		{func(s Settings) time.Duration { return secs(s.TraefikPollSecs, 5) }, p.checkConfigStaleness},
+	}
+	for _, l := range loops {
+		wg.Add(1)
+		go func(interval func(Settings) time.Duration, fn func(context.Context)) {
+			defer wg.Done()
+			p.tickLoop(ctx, interval, fn)
+		}(l.interval, l.fn)
+	}
+	wg.Wait()
+}
+
+func (p *Poller) tickLoop(ctx context.Context, interval func(Settings) time.Duration, fn func(context.Context)) {
+	for {
+		fn(ctx)
+		d := interval(p.settings(ctx))
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(d):
+		}
+	}
+}
+
+func (p *Poller) settings(ctx context.Context) Settings {
+	set, err := p.store.GetSettings(ctx)
+	if err != nil {
+		debuglog.Warn("frontdesk: poller using default settings", "error", err)
+		return Settings{HealthPollSecs: 5, TraefikPollSecs: 5, TraefikStaleSecs: 30}
+	}
+	return set
+}
+
+// PollHealthOnce probes every member's /health and records up/down transitions.
+func (p *Poller) PollHealthOnce(ctx context.Context) {
+	members, err := p.store.ListMembers(ctx)
+	if err != nil {
+		debuglog.Warn("frontdesk: poll health: list members", "error", err)
+		return
+	}
+	for _, m := range members {
+		hs := p.checkHealth(ctx, m.URL)
+		p.applyHealth(ctx, m, hs)
+	}
+}
+
+// checkHealth performs one /health GET and returns the observed status.
+func (p *Poller) checkHealth(ctx context.Context, baseURL string) HealthStatus {
+	start := p.now()
+	hs := HealthStatus{Known: true, CheckedAt: start}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+memberHealthPath, http.NoBody)
+	if err != nil {
+		hs.Error = err.Error()
+		return hs
+	}
+	resp, err := p.client.Do(req)
+	hs.LatencyMs = p.now().Sub(start).Milliseconds()
+	if err != nil {
+		hs.Error = err.Error()
+		return hs
+	}
+	defer func() { _ = resp.Body.Close() }()
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<10))
+
+	if resp.StatusCode == http.StatusOK {
+		hs.Healthy = true
+	} else {
+		hs.Error = fmt.Sprintf("health returned %d", resp.StatusCode)
+	}
+	return hs
+}
+
+// applyHealth stores the new status and emits a transition event when the
+// up/down state changed. A first observation that is healthy is recorded
+// silently (baseline); a first observation that is down is reported.
+func (p *Poller) applyHealth(ctx context.Context, m *Member, hs HealthStatus) {
+	p.mu.Lock()
+	prev, had := p.statuses[m.ID]
+	cur := prev
+	cur.Health = hs
+	p.statuses[m.ID] = cur
+	p.mu.Unlock()
+
+	changed := !had || prev.Health.Healthy != hs.Healthy
+	if !changed {
+		return
+	}
+	if !had && hs.Healthy {
+		return // silent baseline
+	}
+
+	if hs.Healthy {
+		p.recordEvent(ctx, Event{
+			Type: "health.up", Severity: "success", Source: "frontdesk-poller",
+			Message: fmt.Sprintf("%s is healthy", m.Name), MemberID: m.ID,
+			Metadata: map[string]any{"latency_ms": hs.LatencyMs},
+		})
+	} else {
+		p.recordEvent(ctx, Event{
+			Type: "health.down", Severity: "error", Source: "frontdesk-poller",
+			Message: fmt.Sprintf("%s is unreachable", m.Name), MemberID: m.ID,
+			Metadata: map[string]any{"error": hs.Error},
+		})
+	}
+}
+
+// PollTraefikOnce fetches Traefik's serverStatus and maps it onto members by URL.
+func (p *Poller) PollTraefikOnce(ctx context.Context) {
+	if p.traefikAPI == "" {
+		return
+	}
+	statusByURL, err := p.fetchTraefikServerStatus(ctx)
+	if err != nil {
+		debuglog.Debug("frontdesk: poll traefik status", "error", err)
+		return
+	}
+	members, err := p.store.ListMembers(ctx)
+	if err != nil {
+		return
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for _, m := range members {
+		cur := p.statuses[m.ID]
+		cur.TraefikStatus = statusByURL[m.URL] // "" when Traefik does not list it
+		p.statuses[m.ID] = cur
+	}
+}
+
+func (p *Poller) fetchTraefikServerStatus(ctx context.Context) (map[string]string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.traefikAPI+traefikServicesAPI, http.NoBody)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("traefik api returned %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return nil, err
+	}
+	return parseTraefikServerStatus(body)
+}
+
+// traefikServiceInfo is the subset of a Traefik API service object we read.
+type traefikServiceInfo struct {
+	Name         string            `json:"name"`
+	ServerStatus map[string]string `json:"serverStatus"`
+}
+
+// parseTraefikServerStatus extracts the server-URL -> status map for the hotel
+// service from a Traefik /api/http/services response.
+func parseTraefikServerStatus(body []byte) (map[string]string, error) {
+	var services []traefikServiceInfo
+	if err := json.Unmarshal(body, &services); err != nil {
+		// Don't wrap the decoder error: it can echo a fragment of the response.
+		return nil, errors.New("frontdesk: parse traefik services response")
+	}
+	for _, svc := range services {
+		// Traefik names HTTP-provider services like "hotel@http".
+		if svc.Name == traefikServiceName || strings.HasPrefix(svc.Name, traefikServiceName+"@") {
+			return svc.ServerStatus, nil
+		}
+	}
+	return map[string]string{}, nil
+}
+
+// PollVersionsOnce fetches the running version of each member that has a stored
+// admin token, so the UI can flag version mismatches across the group.
+func (p *Poller) PollVersionsOnce(ctx context.Context) {
+	members, err := p.store.ListMembers(ctx)
+	if err != nil {
+		return
+	}
+	for _, m := range members {
+		if !m.HasToken {
+			continue
+		}
+		token, ok, err := p.store.MemberToken(ctx, m.ID)
+		if err != nil || !ok {
+			continue
+		}
+		version, err := p.fetchMemberVersion(ctx, m.URL, token)
+		if err != nil {
+			p.noteVersionFetchFailure(ctx, m, err)
+			continue
+		}
+		p.mu.Lock()
+		cur := p.statuses[m.ID]
+		cur.Version = version
+		p.statuses[m.ID] = cur
+		wasAlerting := p.versionFailures[m.ID] >= versionFetchFailThreshold
+		delete(p.versionFailures, m.ID)
+		p.mu.Unlock()
+		if wasAlerting {
+			p.recordEvent(ctx, Event{
+				Type:     "version.fetch_recovered",
+				Severity: "success",
+				Source:   "frontdesk-poller",
+				Message:  fmt.Sprintf("Recovered version reads from %s", m.Name),
+				MemberID: m.ID,
+			})
+		}
+	}
+}
+
+// noteVersionFetchFailure tracks consecutive version-fetch failures for a member
+// and raises a single visible warning + event when they cross the threshold. The
+// member's admin token is sent on every attempt, so a persistently failing
+// (possibly hostile or misconfigured) URL is surfaced for the operator rather
+// than retried silently at Debug level forever. The fetch error is logged but
+// never put in the event payload (it can embed a fragment of the member's HTTP
+// response).
+func (p *Poller) noteVersionFetchFailure(ctx context.Context, m *Member, fetchErr error) {
+	p.mu.Lock()
+	p.versionFailures[m.ID]++
+	n := p.versionFailures[m.ID]
+	p.mu.Unlock()
+
+	if n == versionFetchFailThreshold {
+		debuglog.Warn("frontdesk: member version fetch failing",
+			"member", m.Name, "consecutive_failures", n, "error", fetchErr)
+		p.recordEvent(ctx, Event{
+			Type:     "version.fetch_failed",
+			Severity: "warning",
+			Source:   "frontdesk-poller",
+			Message:  fmt.Sprintf("Cannot read version from %s after %d attempts; check the member URL", m.Name, n),
+			MemberID: m.ID,
+			Metadata: map[string]any{"consecutive_failures": n},
+		})
+		return
+	}
+	debuglog.Debug("frontdesk: fetch member version", "member", m.Name, "error", fetchErr)
+}
+
+// fetchMemberVersion reads app_version from the member's admin settings API.
+func (p *Poller) fetchMemberVersion(ctx context.Context, baseURL, token string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+memberSettingsPath, http.NoBody)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("settings api returned %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return "", err
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		// Don't wrap the decoder error: it can echo a fragment of the response.
+		return "", errors.New("frontdesk: parse settings response")
+	}
+	if v, ok := payload["app_version"].(string); ok {
+		return v, nil
+	}
+	return "", nil
+}
+
+// checkConfigStaleness emits a single warning when Traefik has not polled the
+// dynamic config within the configured threshold. It resets on the next poll
+// (RecordConfigPoll), so a recovered provider re-arms the warning.
+func (p *Poller) checkConfigStaleness(ctx context.Context) {
+	threshold := secs(p.settings(ctx).TraefikStaleSecs, 30)
+
+	p.mu.Lock()
+	last := p.lastConfigPollAt
+	notified := p.staleNotified
+	// Never polled yet: arm from "now" so a fresh start does not immediately warn.
+	if last.IsZero() {
+		p.lastConfigPollAt = p.now()
+		p.mu.Unlock()
+		return
+	}
+	stale := p.now().Sub(last) > threshold
+	if stale && !notified {
+		p.staleNotified = true
+	}
+	p.mu.Unlock()
+
+	if stale && !notified {
+		p.recordEvent(ctx, Event{
+			Type: "traefik.stale", Severity: "warning", Source: "frontdesk-poller",
+			Message: fmt.Sprintf("Traefik has not fetched the config for over %s", threshold),
+		})
+	}
+}
+
+// recordEvent persists a control-plane event and publishes it on the SSE bus.
+func (p *Poller) recordEvent(ctx context.Context, e Event) {
+	stored, err := p.store.InsertEvent(ctx, e)
+	if err != nil {
+		debuglog.Warn("frontdesk: persist event", "type", e.Type, "error", err)
+		stored = e
+	}
+	p.bus.Publish(events.Event{
+		ID: stored.ID, Type: stored.Type, Severity: stored.Severity, Source: stored.Source,
+		Message: stored.Message, Metadata: stored.Metadata, Timestamp: stored.CreatedAt,
+	})
+}
+
+func secs(n, fallback int) time.Duration {
+	if n < 1 {
+		n = fallback
+	}
+	return time.Duration(n) * time.Second
+}

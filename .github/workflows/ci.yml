@@ -424,6 +424,7 @@ jobs:
       contents: read
     env:
       DOCKERHUB_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/model-hotel
+      DOCKERHUB_FRONTDESK_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/model-hotel-frontdesk
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
@@ -486,10 +487,37 @@ jobs:
           ignore-unfixed: true
           exit-code: 1
 
+      # Same build/scan for the Front Desk control-plane image, so the :dev
+      # staging fleet gets a matching model-hotel-frontdesk:dev. A distinct gha
+      # cache scope keeps it off the main image's cache; the push below is gated
+      # on the same HEAD re-check so both images publish together or not at all.
+      - name: Build :dev Front Desk candidate (load for scan)
+        if: steps.head.outputs.skip == 'false'
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7
+        with:
+          context: .
+          file: Dockerfile.frontdesk
+          load: true
+          tags: model-hotel-frontdesk:dev-candidate
+          cache-from: type=gha,scope=frontdesk
+          cache-to: type=gha,mode=max,scope=frontdesk
+          platforms: linux/amd64
+          provenance: false
+
+      - name: Scan :dev Front Desk candidate for fixable HIGH/CRITICAL vulnerabilities
+        if: steps.head.outputs.skip == 'false'
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: model-hotel-frontdesk:dev-candidate
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: 1
+
       # Re-check HEAD immediately before pushing: if a newer master commit landed
       # while this job was building/scanning, that newer run will publish its own
       # image, so this (now-stale) run must not overwrite :dev with an older one.
-      - name: Push the scanned image as :dev (only if still HEAD)
+      - name: Push the scanned images as :dev (only if still HEAD)
         if: steps.head.outputs.skip == 'false'
         env:
           COMMIT_SHA: ${{ github.sha }}
@@ -506,3 +534,5 @@ jobs:
           fi
           docker tag model-hotel:dev-candidate "${DOCKERHUB_IMAGE}:dev"
           docker push "${DOCKERHUB_IMAGE}:dev"
+          docker tag model-hotel-frontdesk:dev-candidate "${DOCKERHUB_FRONTDESK_IMAGE}:dev"
+          docker push "${DOCKERHUB_FRONTDESK_IMAGE}:dev"

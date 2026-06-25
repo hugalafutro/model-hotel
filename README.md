@@ -400,6 +400,7 @@ and how to enable the rest. See the [Configuration wiki](https://github.com/huga
 - [Virtual Keys](https://github.com/hugalafutro/model-hotel/wiki/Virtual-Keys): Creating, using, and deleting client keys
 - [Request Logging](https://github.com/hugalafutro/model-hotel/wiki/Request-Logging): Log fields, overhead breakdown, retention
 - [Backup & Restore](#-backup--restore): Creating backups, restoring, critical requirements
+- [High Availability](docs/HA.md): Front Desk control plane + Traefik, drop-in HA across multiple instances
 - [Development](https://github.com/hugalafutro/model-hotel/wiki/Development): Local setup, build commands, contributing
 
 ### [<img src="docs/icons/backup.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Backup & Restore](#-backup--restore)
@@ -427,7 +428,7 @@ docker exec -i postgres-container pg_restore --clean --if-exists -U user -d dbna
 **Not included** (filesystem only): `DATA_DIR/admin-token` (admin token hash), `DATA_DIR/backups/` (the backup files themselves), `MASTER_KEY` (environment variable).
 
 ### Known Limitations
-- **Single-instance only**: Caches and rate limiters are in-memory, not horizontally scalable
+- **Single-instance only**: Caches and rate limiters are in-memory, not horizontally scalable within one instance. To run several instances behind one client endpoint with automatic failover, use the [Front Desk + Traefik HA stack](docs/HA.md).
 
 ### [<img src="docs/icons/license.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> License](#-license)
 

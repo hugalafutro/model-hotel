@@ -1085,7 +1085,10 @@ export const api = {
 		},
 	},
 	webauthn: {
-		available: async (): Promise<{ enabled: boolean }> => {
+		available: async (): Promise<{
+			enabled: boolean;
+			has_credentials: boolean;
+		}> => {
 			return fetchJSON(`${API_BASE}/api/webauthn/available`);
 		},
 		registerStart: async (): Promise<{
