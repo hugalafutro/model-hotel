@@ -1757,7 +1757,8 @@
 			"resetSettingDone": "Indstilling af nulstilling til standard",
 			"resetSectionDone": "Afsnit nulstillet til standardindstillinger",
 			"resetAllDone": "Alle indstillinger nulstilles til standardindstillinger",
-			"resetFailed": "Kunne ikke nulstille indstillinger: {{message}}"
+			"resetFailed": "Kunne ikke nulstille indstillinger: {{message}}",
+			"resetToDefault": "Nulstil til standard"
 		},
 		"colorPicker": {
 			"title": "Vælg en farve",

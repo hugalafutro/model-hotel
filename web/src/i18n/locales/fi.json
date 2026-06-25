@@ -1757,7 +1757,8 @@
 			"resetSettingDone": "Asetetaan palautus oletukseksi",
 			"resetSectionDone": "Osion nollaus oletuksiksi",
 			"resetAllDone": "Kaikki asetukset nollattu oletuksiin",
-			"resetFailed": "Asetusten nollaaminen epäonnistui: {{message}}"
+			"resetFailed": "Asetusten nollaaminen epäonnistui: {{message}}",
+			"resetToDefault": "Palauta oletusarvoon"
 		},
 		"colorPicker": {
 			"title": "Valitse väri",

@@ -1789,6 +1789,7 @@
 			"failedToDeleteRequests": "Failed to delete requests: {{message}}",
 			"failedToDeleteAppLogs": "Failed to delete app logs: {{message}}",
 			"resetToDefaults": "Reset to Defaults",
+			"resetToDefault": "Reset to default",
 			"resetSection": "Reset all settings in this section",
 			"resetSetting": "Reset this setting to default",
 			"resetAllSettings": "Reset all settings to their defaults",

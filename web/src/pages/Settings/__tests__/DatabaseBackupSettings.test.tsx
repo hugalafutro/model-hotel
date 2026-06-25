@@ -1242,6 +1242,85 @@ describe("DatabaseBackupSettings", () => {
 				expect(screen.getByText(/failed to save/i)).toBeInTheDocument();
 			});
 		});
+
+		it("toggle OFF disables directly without a confirm modal", async () => {
+			let settingsUpdateData: Record<string, string> | null = null;
+			server.use(
+				http.get("/api/settings", () => {
+					return HttpResponse.json({ backup_enabled: "true" });
+				}),
+				http.post("/api/backups/prune-preview", () => {
+					return HttpResponse.json({
+						son: [],
+						father: [],
+						grandfather: [],
+						prune: [],
+					});
+				}),
+				http.put("/api/settings", async ({ request }) => {
+					settingsUpdateData = (await request.json()) as Record<string, string>;
+					return HttpResponse.json({});
+				}),
+			);
+			const user = userEvent.setup();
+			renderWithProviders(
+				<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(screen.getByText("Periodic Backup")).toBeInTheDocument();
+			});
+			const toggle = screen.getByRole("switch");
+			// Wait for the loaded settings to mark the toggle ON before clicking,
+			// otherwise the click would read as enabling.
+			await waitFor(() => expect(toggle).toBeChecked());
+			await user.click(toggle);
+			await waitFor(() => {
+				expect(settingsUpdateData).toEqual({ backup_enabled: "false" });
+			});
+			// Disabling saves directly and never opens the confirm modal.
+			expect(
+				screen.queryByText("Enable Periodic Backup?"),
+			).not.toBeInTheDocument();
+		});
+
+		it("toggle ON shows an error toast when prune-preview fails", async () => {
+			let settingsUpdateCalled = false;
+			server.use(
+				http.get("/api/settings", () => {
+					return HttpResponse.json({ backup_enabled: "false" });
+				}),
+				http.post("/api/backups/prune-preview", () => {
+					return HttpResponse.json(
+						{ error: "internal server error" },
+						{ status: 500 },
+					);
+				}),
+				http.put("/api/settings", () => {
+					settingsUpdateCalled = true;
+					return HttpResponse.json({});
+				}),
+			);
+			const user = userEvent.setup();
+			renderWithProviders(
+				<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(screen.getByText("Periodic Backup")).toBeInTheDocument();
+			});
+			const toggle = screen.getByRole("switch");
+			await user.click(toggle);
+			// Preview failure surfaces an error toast and does not enable or
+			// open the confirm modal.
+			await waitFor(() => {
+				expect(
+					screen.getByText("Failed to preview backup pruning"),
+				).toBeInTheDocument();
+			});
+			expect(
+				screen.queryByText("Enable Periodic Backup?"),
+			).not.toBeInTheDocument();
+			expect(settingsUpdateCalled).toBe(false);
+		});
 	});
 
 	describe("Retention Sliders", () => {
@@ -1327,10 +1406,9 @@ describe("DatabaseBackupSettings", () => {
 			const sonInput = container.querySelector("#backup-son-retention");
 			const sonRow = sonInput?.closest("div");
 			expect(sonRow).toBeTruthy();
-			// The reset button uses t("settings.common.resetToDefault") as aria-label
-			// This i18n key doesn't exist in en.json, so i18next returns the key itself
+			// The reset button uses t("settings.common.resetToDefault") as aria-label.
 			const resetBtn = sonRow?.querySelector(
-				'button[aria-label="settings.common.resetToDefault"]',
+				'button[aria-label="Reset to default"]',
 			);
 			expect(resetBtn).toBeTruthy();
 			await user.click(resetBtn as HTMLElement);
@@ -1392,5 +1470,194 @@ describe("Backup rotation sliders", () => {
 		fireEvent.pointerUp(slider);
 
 		await waitFor(() => expect(captured).toEqual({ [key]: expected }));
+	});
+});
+
+describe("DatabaseBackupSettings additional coverage", () => {
+	const onToggle = vi.fn();
+
+	beforeEach(() => {
+		onToggle.mockClear();
+		server.resetHandlers();
+		server.use(http.get("/api/backups", () => HttpResponse.json([])));
+	});
+
+	it("parses an interval stored in seconds into hours", async () => {
+		server.use(
+			http.get("/api/settings", () =>
+				HttpResponse.json({
+					backup_enabled: "true",
+					backup_interval: "1800s",
+				}),
+			),
+		);
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+		const slider = await screen.findByLabelText("Backup Interval");
+		await waitFor(() => expect((slider as HTMLInputElement).value).toBe("0.5"));
+	});
+
+	it("falls back to 24h when the stored interval is unparseable", async () => {
+		server.use(
+			http.get("/api/settings", () =>
+				HttpResponse.json({
+					backup_enabled: "true",
+					backup_interval: "weekly",
+				}),
+			),
+		);
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+		const slider = await screen.findByLabelText("Backup Interval");
+		await waitFor(() => expect((slider as HTMLInputElement).value).toBe("24"));
+	});
+
+	it("tags scheduled backups with their grandfather/father/son bucket", async () => {
+		const backups = [
+			{
+				filename: "backup_20260101_000000_0001_auto.dump",
+				size_bytes: 1,
+				created_at: "2026-01-01T00:00:00Z",
+				origin: "scheduled",
+			},
+			{
+				filename: "backup_20260201_000000_0002_auto.dump",
+				size_bytes: 1,
+				created_at: "2026-02-01T00:00:00Z",
+				origin: "scheduled",
+			},
+			{
+				filename: "backup_20260301_000000_0003_auto.dump",
+				size_bytes: 1,
+				created_at: "2026-03-01T00:00:00Z",
+				origin: "scheduled",
+			},
+		];
+		server.use(
+			http.get("/api/settings", () =>
+				HttpResponse.json({ backup_enabled: "true" }),
+			),
+			http.get("/api/backups", () => HttpResponse.json(backups)),
+			http.post("/api/backups/prune-preview", () =>
+				HttpResponse.json({
+					grandfather: [{ filename: backups[0].filename }],
+					father: [{ filename: backups[1].filename }],
+					son: [{ filename: backups[2].filename }],
+					prune: [],
+				}),
+			),
+		);
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+		await waitFor(() => expect(screen.getByText("G")).toBeInTheDocument());
+		expect(screen.getByText("F")).toBeInTheDocument();
+		expect(screen.getByText("S")).toBeInTheDocument();
+	});
+
+	it("resets the whole section to defaults", async () => {
+		let put: Record<string, string> | null = null;
+		server.use(
+			http.get("/api/settings", () =>
+				HttpResponse.json({ backup_enabled: "true" }),
+			),
+			http.put("/api/settings", async ({ request }) => {
+				put = (await request.json()) as Record<string, string>;
+				return HttpResponse.json({});
+			}),
+		);
+		const user = userEvent.setup();
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+		const resetBtn = await screen.findByLabelText(
+			"Reset all settings in this section",
+		);
+		await user.click(resetBtn);
+		await waitFor(() =>
+			expect(put).toEqual({
+				backup_enabled: "false",
+				backup_interval: "24h",
+				backup_son_retention: "7",
+				backup_father_retention: "4",
+				backup_grandfather_retention: "3",
+			}),
+		);
+	});
+
+	it("resets the interval, father and grandfather sliders to defaults", async () => {
+		const puts: Record<string, string>[] = [];
+		server.use(
+			http.get("/api/settings", () =>
+				HttpResponse.json({
+					backup_enabled: "true",
+					backup_interval: "48h",
+					backup_father_retention: "8",
+					backup_grandfather_retention: "12",
+				}),
+			),
+			http.put("/api/settings", async ({ request }) => {
+				puts.push((await request.json()) as Record<string, string>);
+				return HttpResponse.json({});
+			}),
+		);
+		const user = userEvent.setup();
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+		// One ResetButton per slider, in DOM order: interval, son, father,
+		// grandfather. Each PUTs only its own key back to the default.
+		const resets = await screen.findAllByLabelText("Reset to default");
+		await user.click(resets[0]);
+		await waitFor(() =>
+			expect(puts).toContainEqual({ backup_interval: "24h" }),
+		);
+		await user.click(resets[2]);
+		await waitFor(() =>
+			expect(puts).toContainEqual({ backup_father_retention: "4" }),
+		);
+		await user.click(resets[3]);
+		await waitFor(() =>
+			expect(puts).toContainEqual({ backup_grandfather_retention: "3" }),
+		);
+	});
+
+	it("closes the enable-confirm modal via the backdrop", async () => {
+		server.use(
+			http.get("/api/settings", () =>
+				HttpResponse.json({ backup_enabled: "false" }),
+			),
+			http.post("/api/backups/prune-preview", () =>
+				HttpResponse.json({
+					son: [],
+					father: [],
+					grandfather: [],
+					prune: [
+						{
+							filename: "old.dump",
+							size_bytes: 1,
+							created_at: "2025-01-01T00:00:00Z",
+						},
+					],
+				}),
+			),
+		);
+		const user = userEvent.setup();
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+		const toggle = screen.getByRole("switch");
+		await user.click(toggle);
+		await waitFor(() =>
+			expect(screen.getByText("Enable Periodic Backup?")).toBeInTheDocument(),
+		);
+		await user.click(screen.getByLabelText("Close dialog"));
+		await waitFor(() =>
+			expect(
+				screen.queryByText("Enable Periodic Backup?"),
+			).not.toBeInTheDocument(),
+		);
 	});
 });

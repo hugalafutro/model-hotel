@@ -1757,7 +1757,8 @@
 			"resetSettingDone": "Zurücksetzen auf Standard",
 			"resetSectionDone": "Abschnitt auf Standardwerte zurückgesetzt",
 			"resetAllDone": "Alle Einstellungen auf Standardwerte zurückgesetzt",
-			"resetFailed": "Fehler beim Zurücksetzen der Einstellungen: {{message}}"
+			"resetFailed": "Fehler beim Zurücksetzen der Einstellungen: {{message}}",
+			"resetToDefault": "Auf Standard zurücksetzen"
 		},
 		"colorPicker": {
 			"title": "Wähle eine Farbe",

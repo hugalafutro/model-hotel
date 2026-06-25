@@ -1757,7 +1757,8 @@
 			"resetSettingDone": "Ayarları varsayılana sıfırla",
 			"resetSectionDone": "Bölüm varsayılan ayarlara sıfırlandı",
 			"resetAllDone": "Tüm ayarlar varsayılan değerlere sıfırlandı",
-			"resetFailed": "Ayarlar sıfırlanamadı: {{message}}"
+			"resetFailed": "Ayarlar sıfırlanamadı: {{message}}",
+			"resetToDefault": "Varsayılana sıfırla"
 		},
 		"colorPicker": {
 			"title": "Bir renk seçin",

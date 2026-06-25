@@ -1757,7 +1757,8 @@
 			"resetSettingDone": "Standaardinstellingen herstellen",
 			"resetSectionDone": "Sectie herstellen naar standaardwaarden",
 			"resetAllDone": "Alle instellingen herstellen naar standaardwaarden",
-			"resetFailed": "Instellingen resetten mislukt: {{message}}"
+			"resetFailed": "Instellingen resetten mislukt: {{message}}",
+			"resetToDefault": "Standaardwaarde herstellen"
 		},
 		"colorPicker": {
 			"title": "Kies een kleur",

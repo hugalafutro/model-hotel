@@ -1757,7 +1757,8 @@
 			"resetSettingDone": "Налаштування скинуті до типових",
 			"resetSectionDone": "Розділ скинуто на типові",
 			"resetAllDone": "Усі налаштування скидаються до типових",
-			"resetFailed": "Не вдалося скинути параметри: {{message}}"
+			"resetFailed": "Не вдалося скинути параметри: {{message}}",
+			"resetToDefault": "Скинути до типового"
 		},
 		"colorPicker": {
 			"title": "Вибрати колір",

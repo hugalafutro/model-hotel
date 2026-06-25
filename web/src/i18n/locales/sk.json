@@ -1757,7 +1757,8 @@
 			"resetSettingDone": "Obnovenie predvolených nastavení",
 			"resetSectionDone": "Obnoviť predvolené nastavenia sekcie",
 			"resetAllDone": "Všetky nastavenia sa obnovili na predvolené hodnoty",
-			"resetFailed": "Obnovenie nastavení sa nepodarilo: {{message}}"
+			"resetFailed": "Obnovenie nastavení sa nepodarilo: {{message}}",
+			"resetToDefault": "Obnoviť predvolené"
 		},
 		"colorPicker": {
 			"title": "Vyberte si farbu",

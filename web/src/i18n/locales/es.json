@@ -1757,7 +1757,8 @@
 			"resetSettingDone": "Establecer restablecimiento por defecto",
 			"resetSectionDone": "Restablecer sección a los valores por defecto",
 			"resetAllDone": "Todos los ajustes se restablecen por defecto",
-			"resetFailed": "Error al restablecer la configuración: {{message}}"
+			"resetFailed": "Error al restablecer la configuración: {{message}}",
+			"resetToDefault": "Restablecer al valor predeterminado"
 		},
 		"colorPicker": {
 			"title": "Escoge un color",

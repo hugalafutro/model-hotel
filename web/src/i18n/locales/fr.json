@@ -1757,7 +1757,8 @@
 			"resetSettingDone": "Réglage de réinitialisation par défaut",
 			"resetSectionDone": "Restaurer la section par défaut",
 			"resetAllDone": "Tous les paramètres sont réinitialisés aux valeurs par défaut",
-			"resetFailed": "Impossible de réinitialiser les paramètres: {{message}}"
+			"resetFailed": "Impossible de réinitialiser les paramètres: {{message}}",
+			"resetToDefault": "Réinitialiser par défaut"
 		},
 		"colorPicker": {
 			"title": "Choisir une couleur",

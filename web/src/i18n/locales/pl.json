@@ -1757,7 +1757,8 @@
 			"resetSettingDone": "Ustawienie resetu do wartości domyślnych",
 			"resetSectionDone": "Przywróć domyślne ustawienia sekcji",
 			"resetAllDone": "Wszystkie ustawienia zostały zresetowane do domyślnych",
-			"resetFailed": "Nie można zresetować ustawień: {{message}}"
+			"resetFailed": "Nie można zresetować ustawień: {{message}}",
+			"resetToDefault": "Przywróć domyślne"
 		},
 		"colorPicker": {
 			"title": "Wybierz kolor",

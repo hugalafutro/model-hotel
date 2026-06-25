@@ -1757,7 +1757,8 @@
 			"resetSettingDone": "Impostazione ripristinata al valore predefinito",
 			"resetSectionDone": "Sezione reimpostata ai valori predefiniti",
 			"resetAllDone": "Tutte le impostazioni reimpostate ai valori predefiniti",
-			"resetFailed": "Impossibile reimpostare le impostazioni: {{message}}"
+			"resetFailed": "Impossibile reimpostare le impostazioni: {{message}}",
+			"resetToDefault": "Ripristina predefinito"
 		},
 		"colorPicker": {
 			"title": "Scegli un colore",

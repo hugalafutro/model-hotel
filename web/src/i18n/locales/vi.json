@@ -1757,7 +1757,8 @@
 			"resetSettingDone": "Đặt lại về mặc định",
 			"resetSectionDone": "Đặt lại phần này về cài đặt mặc định",
 			"resetAllDone": "Tất cả cài đặt đã được khôi phục về mặc định",
-			"resetFailed": "Không thể khôi phục cài đặt: {{message}}"
+			"resetFailed": "Không thể khôi phục cài đặt: {{message}}",
+			"resetToDefault": "Đặt lại về mặc định"
 		},
 		"colorPicker": {
 			"title": "Chọn màu",

@@ -1757,7 +1757,8 @@
 			"resetSettingDone": "Alapértelmezett beállítások visszaállítása",
 			"resetSectionDone": "A szakasz alapértelmezett beállításaira állítása",
 			"resetAllDone": "Minden beállítás visszaáll az alapértelmezett értékre",
-			"resetFailed": "A beállítások visszaállítása nem sikerült: {{message}}"
+			"resetFailed": "A beállítások visszaállítása nem sikerült: {{message}}",
+			"resetToDefault": "Visszaállítás alapértelmezettre"
 		},
 		"colorPicker": {
 			"title": "Válassz egy színt",

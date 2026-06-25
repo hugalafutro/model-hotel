@@ -1757,7 +1757,8 @@
 			"resetSettingDone": "Restabliment als valors per defecte",
 			"resetSectionDone": "Secció reiniciada als valors per defecte",
 			"resetAllDone": "Tots els paràmetres es restableixen als valors per defecte.",
-			"resetFailed": "S'ha fallat la reiniciació de la configuració: {{message}}"
+			"resetFailed": "S'ha fallat la reiniciació de la configuració: {{message}}",
+			"resetToDefault": "Restablir al valor predeterminat"
 		},
 		"colorPicker": {
 			"title": "Tria un color",

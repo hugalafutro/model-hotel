@@ -1757,7 +1757,8 @@
 			"resetSettingDone": "Nastavení obnoveno na výchozí",
 			"resetSectionDone": "Obnovit sekci do výchozího nastavení",
 			"resetAllDone": "Všechna nastavení byla obnovena do výchozího nastavení",
-			"resetFailed": "Obnovení nastavení selhalo: {{message}}"
+			"resetFailed": "Obnovení nastavení selhalo: {{message}}",
+			"resetToDefault": "Obnovit výchozí"
 		},
 		"colorPicker": {
 			"title": "Vyberte barvu",

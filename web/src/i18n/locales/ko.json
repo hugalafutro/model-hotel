@@ -1757,7 +1757,8 @@
 			"resetSettingDone": "기본값으로 재설정",
 			"resetSectionDone": "섹션을 기본값으로 초기화",
 			"resetAllDone": "모든 설정이 기본값으로 초기화되었습니다",
-			"resetFailed": "설정 재설정에 실패했습니다: {{message}}"
+			"resetFailed": "설정 재설정에 실패했습니다: {{message}}",
+			"resetToDefault": "기본값으로 재설정"
 		},
 		"colorPicker": {
 			"title": "색상 선택",

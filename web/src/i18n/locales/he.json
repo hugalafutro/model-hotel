@@ -1757,7 +1757,8 @@
 			"resetSettingDone": "איפוס להגדרות ברירת המחדל",
 			"resetSectionDone": "החזרת הסעיף להגדרות ברירת המחדל",
 			"resetAllDone": "כל ההגדרות הוחזרו להגדרות ברירת המחדל",
-			"resetFailed": "לא הצליח לאפס את ההגדרות: {{message}}"
+			"resetFailed": "לא הצליח לאפס את ההגדרות: {{message}}",
+			"resetToDefault": "אפס לברירת המחדל"
 		},
 		"colorPicker": {
 			"title": "בחר צבע",

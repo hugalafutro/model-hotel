@@ -1757,7 +1757,8 @@
 			"resetSettingDone": "Återställning till standard",
 			"resetSectionDone": "Avsnitt återställt till standardvärden",
 			"resetAllDone": "Alla inställningar återställs till standard",
-			"resetFailed": "Det gick inte att återställa inställningar: {{message}}"
+			"resetFailed": "Det gick inte att återställa inställningar: {{message}}",
+			"resetToDefault": "Återställ till standard"
 		},
 		"colorPicker": {
 			"title": "Välj en färg",

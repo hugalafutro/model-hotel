@@ -1757,7 +1757,8 @@
 			"resetSettingDone": "Innstilling satt til standard",
 			"resetSectionDone": "Seksjonen settes tilbake til standard",
 			"resetAllDone": "Alle innstillinger settes til innstillinger",
-			"resetFailed": "Kan ikke tilbakestille innstillingene: {{message}}"
+			"resetFailed": "Kan ikke tilbakestille innstillingene: {{message}}",
+			"resetToDefault": "Tilbakestill til standard"
 		},
 		"colorPicker": {
 			"title": "Velg en farge",

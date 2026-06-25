@@ -1757,7 +1757,8 @@
 			"resetSettingDone": "Configuração redefinida para o padrão",
 			"resetSectionDone": "Seção redefinida para os padrões",
 			"resetAllDone": "Todas as configurações redefinidas para os padrões",
-			"resetFailed": "Falha ao redefinir as configurações: {{message}}"
+			"resetFailed": "Falha ao redefinir as configurações: {{message}}",
+			"resetToDefault": "Repor predefinição"
 		},
 		"colorPicker": {
 			"title": "Escolha uma cor",

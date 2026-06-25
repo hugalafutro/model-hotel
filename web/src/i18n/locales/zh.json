@@ -1757,7 +1757,8 @@
 			"resetSettingDone": "设置重置为默认值",
 			"resetSectionDone": "部分重置为默认值",
 			"resetAllDone": "所有设置重置为默认值",
-			"resetFailed": "重置设置失败： {{message}}"
+			"resetFailed": "重置设置失败： {{message}}",
+			"resetToDefault": "重置为默认值"
 		},
 		"colorPicker": {
 			"title": "选择颜色",

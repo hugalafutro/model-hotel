@@ -1757,7 +1757,8 @@
 			"resetSettingDone": "Установка сброса по умолчанию",
 			"resetSectionDone": "Сброс секции по умолчанию",
 			"resetAllDone": "Все настройки сброшены по умолчанию",
-			"resetFailed": "Не удалось сбросить настройки: {{message}}"
+			"resetFailed": "Не удалось сбросить настройки: {{message}}",
+			"resetToDefault": "Сбросить до значения по умолчанию"
 		},
 		"colorPicker": {
 			"title": "Выбрать цвет",

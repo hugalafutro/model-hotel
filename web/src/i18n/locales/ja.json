@@ -1757,7 +1757,8 @@
 			"resetSettingDone": "リセットをデフォルトに設定",
 			"resetSectionDone": "セクションが既定にリセットされました",
 			"resetAllDone": "すべての設定が既定にリセットされました",
-			"resetFailed": "設定のリセットに失敗しました: {{message}}"
+			"resetFailed": "設定のリセットに失敗しました: {{message}}",
+			"resetToDefault": "デフォルトに戻す"
 		},
 		"colorPicker": {
 			"title": "色を選択",

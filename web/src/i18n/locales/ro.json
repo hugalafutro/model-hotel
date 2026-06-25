@@ -1757,7 +1757,8 @@
 			"resetSettingDone": "Setare resetare la valorile implicite",
 			"resetSectionDone": "Sectiune resetare la valorile implicite",
 			"resetAllDone": "Toate setările se resetează la valorile implicite",
-			"resetFailed": "Resetarea setărilor a eșuat: {{message}}"
+			"resetFailed": "Resetarea setărilor a eșuat: {{message}}",
+			"resetToDefault": "Resetare la valoarea implicită"
 		},
 		"colorPicker": {
 			"title": "Alege o culoare",
