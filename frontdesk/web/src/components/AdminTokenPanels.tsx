@@ -1,5 +1,5 @@
 import type { TFunction } from "i18next";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { MemberView, SyncPreview, SyncResultItem } from "../api/types";
@@ -232,11 +232,24 @@ export function AdminTokenResetPanel({
 		}
 	};
 
+	// Flip the "Copied" label back to "Copy" after a moment so a second copy gives
+	// visible feedback. The panel outlives the reveal modal, so clear any pending
+	// timer on unmount.
+	const copyResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	useEffect(
+		() => () => {
+			if (copyResetTimer.current) clearTimeout(copyResetTimer.current);
+		},
+		[],
+	);
+
 	const copy = async () => {
 		if (!revealToken) return;
 		try {
 			await navigator.clipboard.writeText(revealToken);
 			setCopied(true);
+			if (copyResetTimer.current) clearTimeout(copyResetTimer.current);
+			copyResetTimer.current = setTimeout(() => setCopied(false), 2000);
 		} catch {
 			/* clipboard blocked: the token is selectable in the field */
 		}

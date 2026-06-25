@@ -13,8 +13,8 @@ import { useMembers } from "../hooks/useMembers";
 // NumberField is a labeled integer input bound to a Settings numeric key. It
 // holds a local string draft so the field can be cleared and retyped without
 // the value snapping to a fallback mid-edit; it only commits valid integers to
-// the parent, and coerces an empty/invalid field to the minimum on blur so a
-// NaN can never reach the settings PUT.
+// the parent, and coerces an empty, invalid, or below-minimum field to the
+// minimum on blur so an out-of-range value can never reach the settings PUT.
 function NumberField({
 	id,
 	label,
@@ -58,7 +58,7 @@ function NumberField({
 				}}
 				onBlur={() => {
 					const n = Number.parseInt(draft, 10);
-					const safe = Number.isNaN(n) ? min : n;
+					const safe = Number.isNaN(n) || n < min ? min : n;
 					setDraft(String(safe));
 					onChange(safe);
 				}}

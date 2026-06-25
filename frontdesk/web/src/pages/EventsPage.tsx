@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { FdEvent } from "../api/types";
 import { useMembers } from "../hooks/useMembers";
-import { useSSE } from "../hooks/useSSE";
 import { formatAbsolute } from "../utils/time";
 
 const PAGE_SIZE = 25;
@@ -47,7 +46,6 @@ function severityBadgeClass(sev: string): string {
 
 export function EventsPage() {
 	const { t } = useTranslation();
-	const { members } = useMembers();
 	const [memberId, setMemberId] = useState("");
 	const [type, setType] = useState("");
 	const [severity, setSeverity] = useState("");
@@ -57,11 +55,6 @@ export function EventsPage() {
 	const [total, setTotal] = useState(0);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState(false);
-
-	const memberName = useMemo(() => {
-		const map = new Map(members.map((m) => [m.id, m.name]));
-		return (id?: string) => (id ? (map.get(id) ?? id) : "");
-	}, [members]);
 
 	const buildParams = useCallback(() => {
 		const p = new URLSearchParams();
@@ -88,6 +81,20 @@ export function EventsPage() {
 			.finally(() => setLoading(false));
 	}, [buildParams]);
 
+	// Live updates only while viewing the first, unfiltered-by-page top of the
+	// log. Routed through useMembers' single SSE subscription instead of opening a
+	// second stream to /api/sse (useMembers also gives us the member-name lookup).
+	const { members } = useMembers(
+		useCallback(() => {
+			if (page === 0) refetch();
+		}, [page, refetch]),
+	);
+
+	const memberName = useMemo(() => {
+		const map = new Map(members.map((m) => [m.id, m.name]));
+		return (id?: string) => (id ? (map.get(id) ?? id) : "");
+	}, [members]);
+
 	useEffect(refetch, [refetch]);
 
 	// Changing a filter resets to the first page (done in the handlers, not an
@@ -98,14 +105,6 @@ export function EventsPage() {
 			setter(v);
 			setPage(0);
 		};
-
-	// Live updates only while viewing the first, unfiltered-by-page top of the log.
-	useSSE(
-		useCallback(() => {
-			if (page === 0) refetch();
-		}, [page, refetch]),
-		true,
-	);
 
 	const clearFilters = () => {
 		setMemberId("");

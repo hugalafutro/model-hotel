@@ -2,7 +2,7 @@ import { Fingerprint } from "@phosphor-icons/react";
 import { startAuthentication } from "@simplewebauthn/browser";
 import { type FormEvent, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ApiError, api, setAuthToken } from "../api/client";
+import { ApiError, api, clearAuthToken, setAuthToken } from "../api/client";
 
 interface LoginProps {
 	onAuthenticated: () => void;
@@ -49,11 +49,18 @@ export function Login({ onAuthenticated }: LoginProps) {
 				const res = await api.totpLogin(token, code);
 				setAuthToken(res.token);
 			} else {
-				// No 2FA: the raw token is the bearer. Validate it with one authed
-				// call before committing, so a wrong token shows an error here rather
-				// than a broken authenticated view.
+				// No 2FA: the raw token is the bearer, so it must be installed before
+				// the validating call can authenticate. If validation fails for any
+				// reason (a wrong token OR a plain network error), clear it again so a
+				// bad token can't linger in storage and brief-render the authenticated
+				// view on the next page load.
 				setAuthToken(token);
-				await api.listMembers();
+				try {
+					await api.listMembers();
+				} catch (err) {
+					clearAuthToken();
+					throw err;
+				}
 			}
 			onAuthenticated();
 		} catch (err) {
