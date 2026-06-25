@@ -11,6 +11,9 @@ export interface Member {
 	has_token: boolean;
 	created_at: string;
 	updated_at: string;
+	// Set after add/edit when the admin token was saved but could not be
+	// confirmed (member offline, or an older build). A refused token is a 400.
+	token_warning?: string;
 }
 
 export interface HealthStatus {
@@ -76,20 +79,7 @@ export interface MemberTraffic {
 	points: MemberTrafficPoint[];
 }
 
-// Admin-token sync preview / result types.
-export type SyncDisposition = "overwrite" | "matches" | "blocked";
-
-export interface SyncPreviewItem {
-	member_id: string;
-	name: string;
-	disposition: SyncDisposition;
-}
-
-export interface SyncPreview {
-	primary_id: string;
-	items: SyncPreviewItem[];
-}
-
+// Admin-token sync / reset result types (the POST actions the wizard runs).
 export interface SyncResultItem {
 	member_id: string;
 	name: string;
@@ -106,21 +96,34 @@ export interface ResetResult {
 	results: SyncResultItem[];
 }
 
-// --- Fleet config sync (providers / virtual keys / settings) ---
-
-export interface ConfigPreviewItem {
+// --- Fleet sync wizard status (GET /api/fleet/status) ---
+// One member's convergence state against the chosen primary, mirroring
+// internal/frontdesk/fleetstatus.go. The wizard gates each step on these fields.
+export interface FleetMemberStatus {
 	member_id: string;
 	name: string;
-	disposition: SyncDisposition;
+	reachable: boolean;
+	has_token: boolean;
+	admin_token_matches: boolean;
+	// null = MASTER_KEY not evaluated: a keyless fleet (nothing to verify) or a
+	// member that could not be probed. A non-null false is a real mismatch.
+	master_key_matches: boolean | null;
+	schema_ok: boolean;
 	added: number;
 	updated: number;
 	removed: number;
 	note?: string;
 }
 
-export interface ConfigPreview {
+export interface FleetStatus {
 	primary_id: string;
-	items: ConfigPreviewItem[];
+	primary_reachable: boolean;
+	primary_note?: string;
+	members: FleetMemberStatus[];
+	// Host port the load balancer is published on (LB_PORT in the HA .env). The
+	// wizard's Done step pairs it with the browser host to show where to send
+	// /v1 traffic. Absent only if Front Desk was not told the port.
+	lb_port?: string;
 }
 
 // --- Admin authentication (passkeys + TOTP), Settings → Security ---

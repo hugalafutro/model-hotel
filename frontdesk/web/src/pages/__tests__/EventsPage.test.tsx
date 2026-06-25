@@ -115,7 +115,10 @@ describe("EventsPage", () => {
 		renderPage();
 		await screen.findByText("event 0");
 		// Activate a filter (this also reveals the Clear Filters button).
-		await userEvent.selectOptions(screen.getByLabelText(/Severity/i), "warning");
+		await userEvent.selectOptions(
+			screen.getByLabelText(/Severity/i),
+			"warning",
+		);
 		// Move to page 2 (offset 25).
 		await userEvent.click(screen.getByRole("button", { name: /Next/i }));
 		await waitFor(() => expect(offsets).toContain(25));

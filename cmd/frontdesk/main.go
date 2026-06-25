@@ -43,6 +43,10 @@ func main() {
 	masterKey := os.Getenv("FRONTDESK_MASTER_KEY")
 	publicOrigin := os.Getenv("PUBLIC_ORIGIN")
 	traefikAPI := os.Getenv("TRAEFIK_API_URL")
+	// The host port the load balancer is published on (LB_PORT in the HA .env),
+	// passed in so the wizard's final step can tell the operator exactly where to
+	// point their clients. Informational only; Front Desk does not bind it.
+	lbPort := envOr("FLEET_LB_PORT", "8080")
 	allowHTTPMembers := strings.EqualFold(os.Getenv("FRONTDESK_ALLOW_HTTP_MEMBERS"), "true") ||
 		os.Getenv("FRONTDESK_ALLOW_HTTP_MEMBERS") == "1"
 
@@ -90,6 +94,7 @@ func main() {
 		RelyingParty: rp,
 		IPLimiter:    ipLimiter,
 		UI:           frontdesk.EmbeddedUI(),
+		LBPort:       lbPort,
 	})
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

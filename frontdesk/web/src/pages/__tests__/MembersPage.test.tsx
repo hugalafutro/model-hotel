@@ -159,6 +159,61 @@ describe("MembersPage", () => {
 		);
 	});
 
+	it("warns when a saved member's token could not be confirmed", async () => {
+		server.use(
+			http.get("/api/members", () => HttpResponse.json([])),
+			http.post("/api/members", () =>
+				HttpResponse.json(
+					member({
+						id: "1",
+						name: "hotel-1",
+						token_warning:
+							"Saved, but Front Desk could not reach this member to verify the token yet.",
+					}),
+					{ status: 201 },
+				),
+			),
+		);
+		renderPage();
+		await screen.findByText(/No members yet/i);
+		await userEvent.type(screen.getByLabelText(/Display name/i), "hotel-1");
+		await userEvent.type(
+			screen.getByLabelText(/Base URL/i),
+			"https://hotel-1.example.com",
+		);
+		await userEvent.type(screen.getByLabelText(/Admin token/i), "tok");
+		await userEvent.click(screen.getByRole("button", { name: /^Add$/i }));
+		expect(
+			await screen.findByText(/could not reach this member to verify/i),
+		).toBeInTheDocument();
+	});
+
+	it("shows the backend message when the member refuses the token", async () => {
+		server.use(
+			http.get("/api/members", () => HttpResponse.json([])),
+			http.post(
+				"/api/members",
+				() =>
+					new HttpResponse(
+						"This member rejected the admin token (HTTP 401). Double-check the token and try again.",
+						{ status: 400 },
+					),
+			),
+		);
+		renderPage();
+		await screen.findByText(/No members yet/i);
+		await userEvent.type(screen.getByLabelText(/Display name/i), "h1");
+		await userEvent.type(
+			screen.getByLabelText(/Base URL/i),
+			"https://h1.example.com",
+		);
+		await userEvent.type(screen.getByLabelText(/Admin token/i), "wrong");
+		await userEvent.click(screen.getByRole("button", { name: /^Add$/i }));
+		expect(await screen.findByRole("alert")).toHaveTextContent(
+			/rejected the admin token/i,
+		);
+	});
+
 	it("drains a member after clicking Drain", async () => {
 		let state = "active";
 		server.use(
