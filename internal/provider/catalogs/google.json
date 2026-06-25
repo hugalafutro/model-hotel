@@ -1,5 +1,21 @@
 [
   {
+    "model_id": "models/gemini-3.5-flash",
+    "display_name": "Gemini 3.5 Flash",
+    "input_price_per_million": 1.5,
+    "input_price_per_million_cache_hit": 0.15,
+    "output_price_per_million": 9,
+    "free_tier": true
+  },
+  {
+    "model_id": "models/gemini-3-pro-preview",
+    "display_name": "Gemini 3 Pro Preview",
+    "input_price_per_million": 2,
+    "input_price_per_million_cache_hit": 0.2,
+    "output_price_per_million": 12,
+    "free_tier": false
+  },
+  {
     "model_id": "models/gemini-3.1-pro-preview",
     "display_name": "Gemini 3.1 Pro Preview",
     "input_price_per_million": 2,
@@ -19,7 +35,7 @@
     "model_id": "models/gemini-3.1-flash-image-preview",
     "display_name": "Nano Banana 2",
     "input_price_per_million": 0.5,
-    "output_price_per_million": 3,
+    "output_price_per_million": 60,
     "free_tier": false
   },
   {
@@ -34,7 +50,7 @@
     "model_id": "models/gemini-3-pro-image-preview",
     "display_name": "Nano Banana Pro",
     "input_price_per_million": 2,
-    "output_price_per_million": 12,
+    "output_price_per_million": 120,
     "free_tier": false
   },
   {
@@ -79,7 +95,8 @@
     "model_id": "models/gemini-2.5-flash-image",
     "display_name": "Nano Banana",
     "input_price_per_million": 0.3,
-    "output_price_per_million": 2.5,
+    "input_price_per_million_cache_hit": 0.075,
+    "output_price_per_million": 30,
     "free_tier": false
   },
   {

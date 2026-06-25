@@ -8,6 +8,14 @@
     "output_price_per_million": 10
   },
   {
+    "model_id": "command-a-plus-05-2026",
+    "display_name": "Command A+",
+    "description": "Latest flagship model with stronger reasoning, tool use, and vision.",
+    "max_output_tokens": 16384,
+    "input_price_per_million": 2.5,
+    "output_price_per_million": 10
+  },
+  {
     "model_id": "command-a-reasoning-08-2025",
     "display_name": "Command A Reasoning",
     "description": "Command A with reasoning mode enabled.",
@@ -27,9 +35,9 @@
     "model_id": "command-a-translate-08-2025",
     "display_name": "Command A Translate",
     "description": "Command A specialized for translation tasks.",
-    "max_output_tokens": 4096,
-    "input_price_per_million": 0.04,
-    "output_price_per_million": 0.15
+    "max_output_tokens": 8192,
+    "input_price_per_million": 2.5,
+    "output_price_per_million": 10
   },
   {
     "model_id": "command-r-plus-08-2024",
@@ -52,7 +60,7 @@
     "display_name": "Command R7B",
     "description": "Small efficient model with tool use.",
     "max_output_tokens": 4096,
-    "input_price_per_million": 0.04,
+    "input_price_per_million": 0.0375,
     "output_price_per_million": 0.15
   },
   {
@@ -60,7 +68,7 @@
     "display_name": "Command R7B Arabic",
     "description": "Arabic-focused small model.",
     "max_output_tokens": 4096,
-    "input_price_per_million": 0.04,
+    "input_price_per_million": 0.0375,
     "output_price_per_million": 0.15
   },
   {

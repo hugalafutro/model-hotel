@@ -1,10 +1,10 @@
 [
   {
-    "model_id": "grok-4.20-0309-reasoning",
-    "display_name": "Grok 4.20 Reasoning",
-    "description": "Most truth-seeking large language model. Reasoning mode.",
-    "context_length": 131072,
-    "max_output_tokens": 16384,
+    "model_id": "grok-4.3",
+    "display_name": "Grok 4.3",
+    "description": "Latest truth-seeking flagship model with reasoning and vision.",
+    "context_length": 1000000,
+    "max_output_tokens": 30000,
     "modality": "text",
     "input_modalities": "[\"text\",\"image\"]",
     "output_modalities": "[\"text\"]",
@@ -13,16 +13,34 @@
     "tool_calling": true,
     "structured_output": true,
     "vision": true,
-    "input_price_per_million": 200,
-    "input_price_per_million_cache_hit": 20,
-    "output_price_per_million": 600
+    "input_price_per_million": 1.25,
+    "input_price_per_million_cache_hit": 0.2,
+    "output_price_per_million": 2.5
+  },
+  {
+    "model_id": "grok-4.20-0309-reasoning",
+    "display_name": "Grok 4.20 Reasoning",
+    "description": "Most truth-seeking large language model. Reasoning mode.",
+    "context_length": 1000000,
+    "max_output_tokens": 30000,
+    "modality": "text",
+    "input_modalities": "[\"text\",\"image\"]",
+    "output_modalities": "[\"text\"]",
+    "streaming": true,
+    "reasoning": true,
+    "tool_calling": true,
+    "structured_output": true,
+    "vision": true,
+    "input_price_per_million": 1.25,
+    "input_price_per_million_cache_hit": 0.2,
+    "output_price_per_million": 2.5
   },
   {
     "model_id": "grok-4.20-0309-non-reasoning",
     "display_name": "Grok 4.20 Non-Reasoning",
     "description": "Most truth-seeking large language model. Non-reasoning mode.",
-    "context_length": 131072,
-    "max_output_tokens": 16384,
+    "context_length": 1000000,
+    "max_output_tokens": 30000,
     "modality": "text",
     "input_modalities": "[\"text\",\"image\"]",
     "output_modalities": "[\"text\"]",
@@ -31,16 +49,16 @@
     "tool_calling": true,
     "structured_output": true,
     "vision": true,
-    "input_price_per_million": 200,
-    "input_price_per_million_cache_hit": 20,
-    "output_price_per_million": 600
+    "input_price_per_million": 1.25,
+    "input_price_per_million_cache_hit": 0.2,
+    "output_price_per_million": 2.5
   },
   {
     "model_id": "grok-4.20-multi-agent-0309",
     "display_name": "Grok 4.20 Multi-Agent",
     "description": "Grok 4.20 multi-agent mode for autonomous tool use.",
-    "context_length": 131072,
-    "max_output_tokens": 16384,
+    "context_length": 1000000,
+    "max_output_tokens": 30000,
     "modality": "text",
     "input_modalities": "[\"text\",\"image\"]",
     "output_modalities": "[\"text\"]",
@@ -49,9 +67,27 @@
     "tool_calling": true,
     "structured_output": true,
     "vision": true,
-    "input_price_per_million": 200,
-    "input_price_per_million_cache_hit": 20,
-    "output_price_per_million": 600
+    "input_price_per_million": 1.25,
+    "input_price_per_million_cache_hit": 0.2,
+    "output_price_per_million": 2.5
+  },
+  {
+    "model_id": "grok-build-0.1",
+    "display_name": "Grok Build 0.1",
+    "description": "Grok agentic build model with reasoning and tool use.",
+    "context_length": 256000,
+    "max_output_tokens": 30000,
+    "modality": "text",
+    "input_modalities": "[\"text\",\"image\"]",
+    "output_modalities": "[\"text\"]",
+    "streaming": true,
+    "reasoning": true,
+    "tool_calling": true,
+    "structured_output": true,
+    "vision": true,
+    "input_price_per_million": 1,
+    "input_price_per_million_cache_hit": 0.2,
+    "output_price_per_million": 2
   },
   {
     "model_id": "grok-4-0709",
@@ -67,9 +103,9 @@
     "tool_calling": true,
     "structured_output": true,
     "vision": true,
-    "input_price_per_million": 300,
-    "input_price_per_million_cache_hit": 75,
-    "output_price_per_million": 1500
+    "input_price_per_million": 3,
+    "input_price_per_million_cache_hit": 0.75,
+    "output_price_per_million": 15
   },
   {
     "model_id": "grok-4-fast-reasoning",
@@ -85,9 +121,9 @@
     "tool_calling": true,
     "structured_output": true,
     "vision": true,
-    "input_price_per_million": 20,
-    "input_price_per_million_cache_hit": 5,
-    "output_price_per_million": 50
+    "input_price_per_million": 0.2,
+    "input_price_per_million_cache_hit": 0.05,
+    "output_price_per_million": 0.5
   },
   {
     "model_id": "grok-4-fast-non-reasoning",
@@ -103,9 +139,9 @@
     "tool_calling": true,
     "structured_output": true,
     "vision": true,
-    "input_price_per_million": 20,
-    "input_price_per_million_cache_hit": 5,
-    "output_price_per_million": 50
+    "input_price_per_million": 0.2,
+    "input_price_per_million_cache_hit": 0.05,
+    "output_price_per_million": 0.5
   },
   {
     "model_id": "grok-4-1-fast-reasoning",
@@ -121,9 +157,9 @@
     "tool_calling": true,
     "structured_output": true,
     "vision": true,
-    "input_price_per_million": 20,
-    "input_price_per_million_cache_hit": 5,
-    "output_price_per_million": 50
+    "input_price_per_million": 0.2,
+    "input_price_per_million_cache_hit": 0.05,
+    "output_price_per_million": 0.5
   },
   {
     "model_id": "grok-4-1-fast-non-reasoning",
@@ -139,9 +175,9 @@
     "tool_calling": true,
     "structured_output": true,
     "vision": true,
-    "input_price_per_million": 20,
-    "input_price_per_million_cache_hit": 5,
-    "output_price_per_million": 50
+    "input_price_per_million": 0.2,
+    "input_price_per_million_cache_hit": 0.05,
+    "output_price_per_million": 0.5
   },
   {
     "model_id": "grok-3",
@@ -157,9 +193,9 @@
     "tool_calling": true,
     "structured_output": true,
     "vision": false,
-    "input_price_per_million": 300,
-    "input_price_per_million_cache_hit": 75,
-    "output_price_per_million": 1500
+    "input_price_per_million": 3,
+    "input_price_per_million_cache_hit": 0.75,
+    "output_price_per_million": 15
   },
   {
     "model_id": "grok-3-mini",
@@ -175,9 +211,9 @@
     "tool_calling": true,
     "structured_output": true,
     "vision": false,
-    "input_price_per_million": 30,
-    "input_price_per_million_cache_hit": 7.5,
-    "output_price_per_million": 50
+    "input_price_per_million": 0.3,
+    "input_price_per_million_cache_hit": 0.075,
+    "output_price_per_million": 0.5
   },
   {
     "model_id": "grok-code-fast-1",
@@ -193,8 +229,8 @@
     "tool_calling": true,
     "structured_output": true,
     "vision": false,
-    "input_price_per_million": 20,
-    "input_price_per_million_cache_hit": 2,
-    "output_price_per_million": 150
+    "input_price_per_million": 0.2,
+    "input_price_per_million_cache_hit": 0.02,
+    "output_price_per_million": 1.5
   }
 ]
