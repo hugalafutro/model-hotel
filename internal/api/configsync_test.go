@@ -501,6 +501,50 @@ func TestConfigSync_ImportDBError(t *testing.T) {
 	}
 }
 
+// TestConfigSync_HelperDBErrors exercises the query-error return path of each
+// read helper by calling it with an already-cancelled context, so the error
+// handling is covered without a broken database.
+func TestConfigSync_HelperDBErrors(t *testing.T) {
+	pool := apiTestDB.Pool()
+	h := NewConfigSyncHandler(apiTestDB, settings.NewRepository(pool), configSyncMasterKey, "v-test")
+	cctx := cancelledCtx()
+	env := ConfigEnvelope{
+		SchemaVersion: configSchemaVersion,
+		Config:        ConfigPayload{Providers: []ExportProvider{{Name: "x", BaseURL: "https://x"}}},
+	}
+
+	if _, err := h.providerIDToName(cctx, pool); err == nil {
+		t.Error("providerIDToName should error on cancelled ctx")
+	}
+	if _, err := exportProviders(cctx, pool); err == nil {
+		t.Error("exportProviders should error on cancelled ctx")
+	}
+	if _, err := exportVirtualKeys(cctx, pool, map[string]string{}); err == nil {
+		t.Error("exportVirtualKeys should error on cancelled ctx")
+	}
+	if _, err := exportSettings(cctx, pool); err == nil {
+		t.Error("exportSettings should error on cancelled ctx")
+	}
+	if _, err := providerNameToID(cctx, pool); err == nil {
+		t.Error("providerNameToID should error on cancelled ctx")
+	}
+	if _, err := nameSet(cctx, pool, `SELECT name FROM providers`); err == nil {
+		t.Error("nameSet should error on cancelled ctx")
+	}
+	if _, err := hashToName(cctx, pool, `SELECT key_hash, name FROM virtual_keys`); err == nil {
+		t.Error("hashToName should error on cancelled ctx")
+	}
+	if _, err := h.computeDiff(cctx, env); err == nil {
+		t.Error("computeDiff should error on cancelled ctx")
+	}
+	if _, err := h.syncableSettingsToDelete(cctx, pool, map[string]string{}); err == nil {
+		t.Error("syncableSettingsToDelete should error on cancelled ctx")
+	}
+	if err := h.apply(cctx, env); err == nil {
+		t.Error("apply should error on cancelled ctx (Begin fails)")
+	}
+}
+
 // contains reports whether s is in xs.
 func contains(xs []string, s string) bool {
 	for _, x := range xs {

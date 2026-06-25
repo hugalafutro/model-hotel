@@ -149,41 +149,42 @@ type importResponse struct {
 // Export returns this member's full config envelope so Front Desk can replicate
 // it onto the fleet.
 func (h *ConfigSyncHandler) Export(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	pool := h.db.Pool()
-
-	idToName, err := h.providerIDToName(ctx, pool)
+	env, err := h.buildEnvelope(r.Context())
 	if err != nil {
-		debuglog.Error("configsync: load providers for export", "error", err)
-		http.Error(w, "could not read providers", http.StatusInternalServerError)
+		debuglog.Error("configsync: build export envelope", "error", err)
+		http.Error(w, "could not export config", http.StatusInternalServerError)
 		return
 	}
+	writeJSON(w, env)
+}
 
+// buildEnvelope reads this member's full config (providers with key ciphertext,
+// virtual keys with provider-name-translated allow-lists, syncable settings) into
+// an envelope. Any read failure aborts with the underlying error.
+func (h *ConfigSyncHandler) buildEnvelope(ctx context.Context) (ConfigEnvelope, error) {
+	pool := h.db.Pool()
+	idToName, err := h.providerIDToName(ctx, pool)
+	if err != nil {
+		return ConfigEnvelope{}, err
+	}
 	providers, err := exportProviders(ctx, pool)
 	if err != nil {
-		debuglog.Error("configsync: export providers", "error", err)
-		http.Error(w, "could not export providers", http.StatusInternalServerError)
-		return
+		return ConfigEnvelope{}, err
 	}
 	vks, err := exportVirtualKeys(ctx, pool, idToName)
 	if err != nil {
-		debuglog.Error("configsync: export virtual keys", "error", err)
-		http.Error(w, "could not export virtual keys", http.StatusInternalServerError)
-		return
+		return ConfigEnvelope{}, err
 	}
 	set, err := exportSettings(ctx, pool)
 	if err != nil {
-		debuglog.Error("configsync: export settings", "error", err)
-		http.Error(w, "could not export settings", http.StatusInternalServerError)
-		return
+		return ConfigEnvelope{}, err
 	}
-
-	writeJSON(w, ConfigEnvelope{
+	return ConfigEnvelope{
 		SchemaVersion: configSchemaVersion,
 		AppVersion:    h.appVersion,
 		ExportedAt:    time.Now().UTC(),
 		Config:        ConfigPayload{Providers: providers, VirtualKeys: vks, Settings: set},
-	})
+	}, nil
 }
 
 // providerIDToName maps provider UUID (text) -> name for translating a virtual

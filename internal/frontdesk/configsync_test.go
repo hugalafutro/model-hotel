@@ -179,11 +179,56 @@ func TestConfigSyncReportsFailure(t *testing.T) {
 	}
 }
 
-func TestConfigSyncPreviewUnknownPrimary(t *testing.T) {
+func TestConfigSyncUnknownPrimary(t *testing.T) {
 	srv, _ := newTestServer(t)
-	rec := do(t, srv, http.MethodGet, "/api/config/preview?primary=00000000-0000-0000-0000-000000000000", "", true)
-	if rec.Code < 400 {
-		t.Fatalf("unknown primary should error, got %d", rec.Code)
+	const missing = "00000000-0000-0000-0000-000000000000"
+	if rec := do(t, srv, http.MethodGet, "/api/config/preview?primary="+missing, "", true); rec.Code < 400 {
+		t.Fatalf("preview unknown primary should error, got %d", rec.Code)
+	}
+	if rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+missing+`"}`, true); rec.Code < 400 {
+		t.Fatalf("sync unknown primary should error, got %d", rec.Code)
+	}
+}
+
+func TestConfigSyncPrimaryExportNon200(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubConfigMember(t, "ptoken")
+	// Reachable, but the export endpoint errors (e.g. 500): distinct from the
+	// transport failure in TestConfigSyncPrimaryExportFails.
+	primary.exportBody = ""
+	primary.srv.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer ptoken" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	if rec := do(t, srv, http.MethodGet, "/api/config/preview?primary="+pm.ID, "", true); rec.Code != http.StatusBadGateway {
+		t.Fatalf("preview non-200 export = %d, want 502", rec.Code)
+	}
+}
+
+func TestConfigSyncReplicaBadJSON(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubConfigMember(t, "ptoken")
+	// Replica returns 200 with a non-JSON body: pushMemberImport's parse error
+	// is treated as "could not reach this member".
+	bad := newStubConfigMember(t, "btoken")
+	bad.importBody = "not json"
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	store.CreateMember(t.Context(), "bad-json", bad.srv.URL, "btoken")
+
+	rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("sync = %d", rec.Code)
+	}
+	var resp struct {
+		Results []syncResultItem `json:"results"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if len(resp.Results) != 1 || resp.Results[0].OK || resp.Results[0].Error == "" {
+		t.Fatalf("bad-json replica should be a reported failure: %+v", resp.Results)
 	}
 }
 
