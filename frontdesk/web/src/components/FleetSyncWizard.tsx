@@ -74,9 +74,15 @@ export function FleetSyncWizard({
 		[toast, t],
 	);
 
-	// Re-probe whenever the chosen primary changes.
+	// Re-probe whenever the chosen primary changes. Also clear configDone: it
+	// records that *the previous* primary's config was synced, and letting it
+	// carry over would unlock step 5 for a new primary whose config was never
+	// pushed (canStep5 keys off configDone).
 	useEffect(() => {
-		if (primaryId) void refresh(primaryId);
+		if (primaryId) {
+			setConfigDone(false);
+			void refresh(primaryId);
+		}
 	}, [primaryId, refresh]);
 
 	// Which steps the operator may jump to, derived purely from the latest probe.

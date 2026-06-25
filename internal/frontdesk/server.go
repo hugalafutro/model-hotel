@@ -232,7 +232,13 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 	if req.Token != "" {
 		p := s.probeMemberToken(r.Context(), m.URL, req.Token)
 		if p.rejected() {
-			_ = s.store.DeleteMember(r.Context(), m.ID)
+			if delErr := s.store.DeleteMember(r.Context(), m.ID); delErr != nil {
+				// Rollback failed: the member is stranded with the rejected token, so a
+				// retry would hit the duplicate-URL constraint. Tell the operator to
+				// remove it by hand rather than leaving a silent inconsistency.
+				http.Error(w, fmt.Sprintf("This member rejected the admin token (HTTP %d) and rolling back the add failed (%v). Remove it from the Members list and try again.", p.status, delErr), http.StatusInternalServerError)
+				return
+			}
 			http.Error(w, fmt.Sprintf("This member rejected the admin token (HTTP %d). Double-check the token and try again.", p.status), http.StatusBadRequest)
 			return
 		}

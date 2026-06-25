@@ -128,6 +128,76 @@ describe("FleetSyncWizard", () => {
 		).toBeInTheDocument();
 	});
 
+	it("re-locks the Done step when the primary changes after a config sync", async () => {
+		// Both members are token- and key-converged, but each has one pending config
+		// change, so step 5 is only reachable once config has been synced for the
+		// CURRENT primary. The handler echoes whichever primary is asked about.
+		server.use(
+			http.get("/api/fleet/status", ({ request }) => {
+				const id = new URL(request.url).searchParams.get("primary") ?? "1";
+				const other = id === "1" ? "2" : "1";
+				return HttpResponse.json({
+					primary_id: id,
+					primary_reachable: true,
+					members: [
+						{ ...primaryRow(), member_id: id, name: `hotel-${id}` },
+						{
+							member_id: other,
+							name: `hotel-${other}`,
+							reachable: true,
+							has_token: true,
+							admin_token_matches: true,
+							master_key_matches: true,
+							schema_ok: true,
+							added: 1,
+							updated: 0,
+							removed: 0,
+						},
+					],
+				});
+			}),
+			http.post("/api/config/sync", () =>
+				HttpResponse.json({ results: [{ member_id: "2", ok: true }] }),
+			),
+		);
+		renderWizard();
+		await pickPrimary(); // primary "1"
+
+		// Walk to the config step and sync it, which lands on the Done step.
+		await waitFor(() =>
+			expect(screen.getByRole("button", { name: "Next" })).toBeEnabled(),
+		);
+		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 2
+		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 3
+		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 4
+		await userEvent.click(
+			await screen.findByRole("button", { name: /Sync configuration now/i }),
+		);
+		const dialog = await screen.findByRole("dialog");
+		await userEvent.click(within(dialog).getByRole("checkbox"));
+		await userEvent.click(
+			within(dialog).getByRole("button", {
+				name: /Replace config on 1 member now/i,
+			}),
+		);
+		// configDone is set for primary "1": we land on the Done step.
+		expect(await screen.findByText("Step 5: Done")).toBeInTheDocument();
+
+		// Walk back to step 1 and switch to a primary whose config was never synced.
+		for (let i = 0; i < 4; i++) {
+			await userEvent.click(screen.getByRole("button", { name: "Back" }));
+		}
+		await userEvent.selectOptions(screen.getByLabelText(/Primary/i), "2");
+
+		// configDone must have been reset, so the Done step is gated again: the
+		// step-4 Next button (which advances to step 5) stays disabled until the new
+		// primary's config is synced.
+		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 2
+		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 3
+		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 4
+		expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+	});
+
 	it("walks every step, syncs admin token then config, and reports the summary", async () => {
 		let adminSynced = false;
 		let configSynced = false;

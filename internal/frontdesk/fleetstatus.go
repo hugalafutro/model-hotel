@@ -1,11 +1,12 @@
 package frontdesk
 
 import (
-	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"sync"
 )
 
 // This file implements GET /api/fleet/status, the single probe that powers the
@@ -74,8 +75,19 @@ func (s *Server) fleetStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	primaryHash, herr := s.fetchMemberHash(ctx, primary, primaryToken)
-	export, eerr := s.fetchMemberExport(ctx, primary, primaryToken)
+	// Probe the primary's hash and export concurrently: they are independent
+	// round-trips to the same member, so serial calls double the latency on a slow
+	// link and the wizard polls this on an interval.
+	var (
+		primaryHash string
+		export      []byte
+		herr, eerr  error
+	)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() { defer wg.Done(); primaryHash, herr = s.fetchMemberHash(ctx, primary, primaryToken) }()
+	go func() { defer wg.Done(); export, eerr = s.fetchMemberExport(ctx, primary, primaryToken) }()
+	wg.Wait()
 	if herr != nil || eerr != nil {
 		cause := herr
 		if cause == nil {
@@ -94,9 +106,25 @@ func (s *Server) fleetStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	// A keyless primary has nothing to verify for MASTER_KEY: the member-side
 	// canary trivially passes (see canDecryptSample in internal/api/configsync.go),
-	// so reporting "matches" would mislead. EncryptedKey is JSON-omitempty, so its
-	// key is present exactly when at least one provider carries an encrypted key.
-	keyless := !bytes.Contains(export, []byte(`"encrypted_key"`))
+	// so reporting "matches" would mislead. Parse just enough of the export to count
+	// providers that actually carry an encrypted key, rather than scanning raw bytes
+	// for the literal "encrypted_key" (which would misfire if any string value, such
+	// as a description, ever contained that text).
+	var exportShape struct {
+		Config struct {
+			Providers []struct {
+				EncryptedKey string `json:"encrypted_key"`
+			} `json:"providers"`
+		} `json:"config"`
+	}
+	_ = json.Unmarshal(export, &exportShape)
+	keyless := true
+	for _, p := range exportShape.Config.Providers {
+		if p.EncryptedKey != "" {
+			keyless = false
+			break
+		}
+	}
 
 	members, err := s.store.ListMembers(ctx)
 	if err != nil {
