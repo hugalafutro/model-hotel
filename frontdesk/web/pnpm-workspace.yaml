@@ -1,0 +1,14 @@
+# Marks frontdesk/web/ as its own pnpm workspace root, separate from web/.
+# Without this, pnpm walks up the directory tree looking for a workspace and can
+# adopt one outside the repo (e.g. a stray ~/pnpm-workspace.yaml), linking
+# node_modules to it. The Front Desk UI is intentionally not part of the main
+# web/ workspace (see plans/ha-frontdesk.md).
+packages: []
+
+# Transitive build/lint-time dep pins mirrored from web/pnpm-workspace.yaml so
+# the same Dependabot advisories stay closed here. Remove each once a direct
+# dependency requires the patched range on its own.
+overrides:
+  "@babel/core": "^7.29.6"
+  "undici@6": "^6.27.0"
+  "undici@7": "^7.28.0"

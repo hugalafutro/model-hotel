@@ -1,0 +1,50 @@
+{
+	"name": "frontdesk-web",
+	"private": true,
+	"version": "0.0.0",
+	"type": "module",
+	"packageManager": "pnpm@10.33.0",
+	"scripts": {
+		"dev": "vite",
+		"build": "tsc -b && vite build",
+		"build:docker": "vite build",
+		"typecheck:tests": "tsc --noEmit -p tsconfig.test.json",
+		"lint": "eslint ${@:-.}",
+		"format": "biome check --write src",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"@phosphor-icons/react": "^2.1.10",
+		"@simplewebauthn/browser": "^13.3.0",
+		"i18next": "^26.3.1",
+		"i18next-browser-languagedetector": "^8.2.1",
+		"qrcode": "^1.5.4",
+		"react": "^19.2.7",
+		"react-dom": "^19.2.7",
+		"react-i18next": "^17.0.8",
+		"recharts": "^3.8.1"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.5.0",
+		"@eslint/js": "^10.0.1",
+		"@testing-library/jest-dom": "^6.9.1",
+		"@testing-library/react": "^16.3.2",
+		"@testing-library/user-event": "^14.6.1",
+		"@types/node": "^25.9.3",
+		"@types/qrcode": "^1.5.6",
+		"@types/react": "^19.2.17",
+		"@types/react-dom": "^19.2.3",
+		"@vitejs/plugin-react": "^6.0.2",
+		"@vitest/coverage-v8": "^4.1.9",
+		"eslint": "^10.5.0",
+		"eslint-plugin-react-hooks": "^7.0.1",
+		"eslint-plugin-react-refresh": "^0.5.3",
+		"globals": "^17.4.0",
+		"jsdom": "^29.1.1",
+		"msw": "^2.14.6",
+		"typescript": "~6.0.2",
+		"typescript-eslint": "^8.61.1",
+		"vite": "^8.0.16",
+		"vitest": "^4.1.9"
+	}
+}
