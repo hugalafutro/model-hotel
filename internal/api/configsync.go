@@ -243,7 +243,9 @@ func exportVirtualKeys(ctx context.Context, q querier, idToName map[string]strin
 			return nil, err
 		}
 		// Translate instance-local provider UUIDs to names; drop any that no
-		// longer resolve (a stale restriction is better than a dangling UUID).
+		// longer resolve. A key whose entire allow-list is stale exports an empty
+		// AllowedProviderNames; import refuses to widen it to all-allowed and
+		// skips it instead (see upsertVirtualKeys).
 		for _, id := range allowedIDs {
 			if name, ok := idToName[id]; ok {
 				v.AllowedProviderNames = append(v.AllowedProviderNames, name)
@@ -325,17 +327,6 @@ func (h *ConfigSyncHandler) Import(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// The write bypassed the in-memory caches, so drop them: the proxy must see
-	// the new providers/keys and discovery must re-read providers.
-	provider.InvalidateProviderCache()
-	model.InvalidateModelCache()
-	failover.InvalidateFailoverCache()
-	for k := range env.Config.Settings {
-		if isSyncableSetting(k) {
-			h.settings.InvalidateCache(k)
-		}
-	}
-
 	writeJSON(w, importResponse{SchemaVersionOK: true, MasterKeyOK: true, Applied: true, Diff: diff})
 }
 
@@ -412,6 +403,16 @@ func (h *ConfigSyncHandler) computeDiff(ctx context.Context, env ConfigEnvelope)
 			d.Settings.Added = append(d.Settings.Added, k)
 		}
 	}
+	// A syncable setting present here but not on the primary is removed (the
+	// replica falls back to the built-in default), mirroring providers/VKs.
+	for k := range curSettings {
+		if !isSyncableSetting(k) {
+			continue
+		}
+		if _, ok := env.Config.Settings[k]; !ok {
+			d.Settings.Removed = append(d.Settings.Removed, k)
+		}
+	}
 	return d, nil
 }
 
@@ -456,8 +457,55 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope) error
 			return err
 		}
 	}
+	// Declarative replace for settings too: delete any syncable key this member
+	// has that the primary does not, so the replica falls back to the same
+	// built-in default the primary is using. Non-syncable keys (apprise,
+	// observability, instance-local) are never touched.
+	removedSettings, err := h.syncableSettingsToDelete(ctx, tx, env.Config.Settings)
+	if err != nil {
+		return err
+	}
+	if err := h.settings.DeleteKeysTx(ctx, tx, removedSettings); err != nil {
+		return err
+	}
 
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	// The writes bypassed the in-memory caches, so drop them: the proxy must see
+	// the new providers/keys and discovery must re-read providers.
+	provider.InvalidateProviderCache()
+	model.InvalidateModelCache()
+	failover.InvalidateFailoverCache()
+	for k := range env.Config.Settings {
+		if isSyncableSetting(k) {
+			h.settings.InvalidateCache(k)
+		}
+	}
+	for _, k := range removedSettings {
+		h.settings.InvalidateCache(k)
+		h.settings.NotifyDeleted(k)
+	}
+	return nil
+}
+
+// syncableSettingsToDelete returns the syncable settings keys present on this
+// member but absent from the envelope (the primary is on the built-in default).
+func (h *ConfigSyncHandler) syncableSettingsToDelete(ctx context.Context, q querier, want map[string]string) ([]string, error) {
+	cur, err := nameSet(ctx, q, `SELECT key FROM settings`)
+	if err != nil {
+		return nil, err
+	}
+	var toDelete []string
+	for k := range cur {
+		if isSyncableSetting(k) {
+			if _, ok := want[k]; !ok {
+				toDelete = append(toDelete, k)
+			}
+		}
+	}
+	return toDelete, nil
 }
 
 func upsertProviders(ctx context.Context, tx pgx.Tx, providers []ExportProvider) error {
@@ -489,6 +537,18 @@ func upsertVirtualKeys(ctx context.Context, tx pgx.Tx, vks []ExportVK, nameToID 
 			if id, ok := nameToID[name]; ok {
 				allowed = append(allowed, id)
 			}
+		}
+		// Privilege-safety: if this key was restricted to providers but none of
+		// them resolve on this member, do NOT import it. An empty/nil
+		// allowed_providers means "all providers allowed" (the proxy only filters
+		// on a non-empty list), so writing it would silently turn a restricted key
+		// into an unrestricted one. Skipping leaves the restricted key absent
+		// rather than over-privileged. In the normal flow this never triggers:
+		// providers are upserted in the same transaction before this runs, so
+		// every name resolves.
+		if len(v.AllowedProviderNames) > 0 && len(allowed) == 0 {
+			debuglog.Warn("configsync: skipping virtual key whose allowed_providers do not resolve on this member", "key", v.Name)
+			continue
 		}
 		_, err := tx.Exec(ctx, `
 			INSERT INTO virtual_keys (name, key_hash, key_preview, rate_limit_rps, rate_limit_burst, rate_limit_tpm, allowed_providers, strip_reasoning)

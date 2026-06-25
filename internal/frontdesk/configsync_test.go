@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -175,5 +176,107 @@ func TestConfigSyncReportsFailure(t *testing.T) {
 	}
 	if !sawFail {
 		t.Error("expected a config.sync_failed event")
+	}
+}
+
+func TestConfigSyncPreviewUnknownPrimary(t *testing.T) {
+	srv, _ := newTestServer(t)
+	rec := do(t, srv, http.MethodGet, "/api/config/preview?primary=00000000-0000-0000-0000-000000000000", "", true)
+	if rec.Code < 400 {
+		t.Fatalf("unknown primary should error, got %d", rec.Code)
+	}
+}
+
+func TestConfigSyncPrimaryExportFails(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubConfigMember(t, "ptoken")
+	// The primary cannot serve its export.
+	primary.srv.Close()
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+
+	// Preview and sync both surface a bad-gateway when the primary export fails.
+	rec := do(t, srv, http.MethodGet, "/api/config/preview?primary="+pm.ID, "", true)
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("preview export-fail = %d, want 502", rec.Code)
+	}
+	rec = do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("sync export-fail = %d, want 502", rec.Code)
+	}
+}
+
+func TestConfigSyncPreviewReplicaStates(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubConfigMember(t, "ptoken")
+	// Replica that returns a schema-version mismatch (422). A real member rejects
+	// the schema BEFORE the MASTER_KEY canary, so master_key_ok is an unevaluated
+	// false here; the diagnosis must still be "version", not "MASTER_KEY".
+	badSchema := newStubConfigMember(t, "btoken")
+	badSchema.importCode = http.StatusUnprocessableEntity
+	badSchema.importBody = `{"schema_version_ok":false,"master_key_ok":false}`
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	bm, _ := store.CreateMember(t.Context(), "bad-schema", badSchema.srv.URL, "btoken")
+	// A replica Front Desk cannot reach at all.
+	um, _ := store.CreateMember(t.Context(), "unreachable", "http://127.0.0.1:1", "utoken")
+
+	rec := do(t, srv, http.MethodGet, "/api/config/preview?primary="+pm.ID, "", true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("preview = %d", rec.Code)
+	}
+	var resp struct {
+		Items []configPreviewItem `json:"items"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	byID := map[string]configPreviewItem{}
+	for _, it := range resp.Items {
+		byID[it.MemberID] = it
+	}
+	if d := byID[bm.ID]; d.Disposition != dispBlocked || !strings.Contains(d.Note, "version") {
+		t.Errorf("bad-schema item = %+v (want blocked + version note, not MASTER_KEY)", byID[bm.ID])
+	}
+	if d := byID[um.ID]; d.Disposition != dispBlocked || d.Note == "" {
+		t.Errorf("unreachable item = %+v (want blocked + note)", byID[um.ID])
+	}
+}
+
+func TestConfigSyncApplyVariants(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubConfigMember(t, "ptoken")
+	// applied=false despite a 200 -> "did not apply".
+	notApplied := newStubConfigMember(t, "ntoken")
+	notApplied.importBody = `{"schema_version_ok":true,"master_key_ok":true,"applied":false,"diff":{}}`
+	// 422 schema mismatch -> "version mismatch", NOT a MASTER_KEY message.
+	badSchema := newStubConfigMember(t, "stoken")
+	badSchema.importCode = http.StatusUnprocessableEntity
+	badSchema.importBody = `{"schema_version_ok":false,"master_key_ok":false}`
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	nm, _ := store.CreateMember(t.Context(), "not-applied", notApplied.srv.URL, "ntoken")
+	bm, _ := store.CreateMember(t.Context(), "bad-schema", badSchema.srv.URL, "stoken")
+	store.CreateMember(t.Context(), "unreachable", "http://127.0.0.1:1", "utoken")
+
+	rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("sync = %d", rec.Code)
+	}
+	var resp struct {
+		Results []syncResultItem `json:"results"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if len(resp.Results) != 3 {
+		t.Fatalf("want 3 results, got %+v", resp.Results)
+	}
+	byID := map[string]syncResultItem{}
+	for _, r := range resp.Results {
+		if r.OK || r.Error == "" {
+			t.Errorf("result should be a reported failure: %+v", r)
+		}
+		byID[r.MemberID] = r
+	}
+	if !strings.Contains(byID[bm.ID].Error, "version") {
+		t.Errorf("bad-schema error = %q, want version mismatch", byID[bm.ID].Error)
+	}
+	if !strings.Contains(byID[nm.ID].Error, "did not apply") {
+		t.Errorf("not-applied error = %q", byID[nm.ID].Error)
 	}
 }

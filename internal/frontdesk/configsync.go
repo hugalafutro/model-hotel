@@ -121,14 +121,18 @@ func (s *Server) previewMemberConfig(ctx context.Context, m *Member, primaryID s
 		item.Note = "could not reach this member"
 		return item
 	}
-	if !res.MasterKeyOK {
-		item.Disposition = dispBlocked
-		item.Note = "MASTER_KEY does not match the primary"
-		return item
-	}
+	// Check schema before MASTER_KEY: a member rejects a bad schema_version (422)
+	// before it ever runs the MASTER_KEY canary, so on that path master_key_ok is
+	// an unevaluated false. Testing it first would misreport a version skew as a
+	// key mismatch and send the operator chasing the wrong problem.
 	if !res.SchemaVersionOK {
 		item.Disposition = dispBlocked
 		item.Note = "version mismatch with the primary"
+		return item
+	}
+	if !res.MasterKeyOK {
+		item.Disposition = dispBlocked
+		item.Note = "MASTER_KEY does not match the primary"
 		return item
 	}
 	item.Added, item.Updated, item.Removed = res.Diff.counts()
@@ -189,10 +193,12 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 	switch {
 	case err != nil:
 		res.Error = "could not reach this member"
+	case !out.SchemaVersionOK:
+		// Schema is checked before MASTER_KEY: a 422 short-circuits before the
+		// canary, leaving master_key_ok an unevaluated false (see previewMemberConfig).
+		res.Error = "version mismatch with the primary"
 	case !out.MasterKeyOK:
 		res.Error = "MASTER_KEY does not match the primary"
-	case !out.SchemaVersionOK:
-		res.Error = "version mismatch with the primary"
 	case !out.Applied:
 		res.Error = "this member did not apply the config"
 	default:
