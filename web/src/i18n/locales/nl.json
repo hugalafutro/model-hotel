@@ -1640,12 +1640,11 @@
 				"grandfatherRetention": "Maandelijkse bewaring (Grootvader)",
 				"grandfatherRetentionDescription": "Behoud de meest recente back-up van elk van de laatste N maanden.",
 				"confirmEnableTitle": "Periodieke back-up inschakelen?",
-				"confirmEnableDescription": "Het inschakelen van periodieke back-up zal bestaande back-ups verwijderen die buiten het zoon/vader/grootvader-rotatieschema vallen.",
-				"confirmEnableWouldRemove": "Dit zal de volgende {{count}} backup(s) verwijderen:",
-				"confirmEnableNoRemoval": "Er zouden geen bestaande back-ups worden verwijderd.",
+				"confirmEnableDescription": "Het inschakelen van periodieke back-ups verwijdert bestaande back-ups die buiten het rotatievenster zoon/vader/grootvader vallen.",
+				"confirmEnableWouldRemove": "Deze {{count}} back-up(s) vallen buiten het rotatievenster en worden permanent verwijderd:",
 				"prunePreviewFailed": "Voorbeeld van reservekopie verwijderen mislukt",
 				"pruneFailed": "Opschonen van back-ups mislukt",
-				"pruneSuccess": "{{count}} backup(s) verwijderd"
+				"pruneSuccess": "Periodieke back-up ingeschakeld. {{count}} oude back-up(s) verwijderd."
 			},
 			"availableBackupsTitle": "Beschikbare back-ups",
 			"manuallyCreated": "Handmatig"
@@ -1758,7 +1757,8 @@
 			"resetSettingDone": "Standaardinstellingen herstellen",
 			"resetSectionDone": "Sectie herstellen naar standaardwaarden",
 			"resetAllDone": "Alle instellingen herstellen naar standaardwaarden",
-			"resetFailed": "Instellingen resetten mislukt: {{message}}"
+			"resetFailed": "Instellingen resetten mislukt: {{message}}",
+			"resetToDefault": "Standaardwaarde herstellen"
 		},
 		"colorPicker": {
 			"title": "Kies een kleur",

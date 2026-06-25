@@ -210,10 +210,14 @@ func (h *Handler) SetCircuitBreaker(cb CircuitBreakerReader) {
 }
 
 // StartBackupScheduler starts the periodic backup scheduler if backup_enabled is true.
+// Call this only after Register, which constructs the BackupHandler and assigns it as
+// h.backupScheduler; calling earlier leaves the scheduler nil and no backups ever run.
 func (h *Handler) StartBackupScheduler(ctx context.Context) {
-	if h.backupScheduler != nil {
-		h.backupScheduler.StartScheduler(ctx)
+	if h.backupScheduler == nil {
+		debuglog.Warn("backup: StartBackupScheduler called before the scheduler was wired; no automatic backups will run")
+		return
 	}
+	h.backupScheduler.StartScheduler(ctx)
 }
 
 // StopBackupScheduler stops the periodic backup scheduler.

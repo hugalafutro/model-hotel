@@ -1640,12 +1640,11 @@
 				"grandfatherRetention": "每月保留(随机)",
 				"grandfatherRetentionDescription": "保留过去N个月中每个月的最新备份。",
 				"confirmEnableTitle": "启用定期备份？",
-				"confirmEnableDescription": "启用定期备份将会缩小现有的备份，这些备份不属于儿子/父亲/祖父轮换计划。",
-				"confirmEnableWouldRemove": "这将删除以下备份： {{count}}：",
-				"confirmEnableNoRemoval": "不会删除现有的备份。",
+				"confirmEnableDescription": "启用定期备份会删除超出 子/父/祖 轮换窗口的现有备份。",
+				"confirmEnableWouldRemove": "这 {{count}} 个备份超出轮换窗口，将被永久删除：",
 				"prunePreviewFailed": "预览备份打印失败",
 				"pruneFailed": "刷新备份失败",
-				"pruneSuccess": "已删除 {{count}} 备份"
+				"pruneSuccess": "已启用定期备份。已删除 {{count}} 个旧备份。"
 			},
 			"availableBackupsTitle": "可用备份",
 			"manuallyCreated": "手动"
@@ -1758,7 +1757,8 @@
 			"resetSettingDone": "设置重置为默认值",
 			"resetSectionDone": "部分重置为默认值",
 			"resetAllDone": "所有设置重置为默认值",
-			"resetFailed": "重置设置失败： {{message}}"
+			"resetFailed": "重置设置失败： {{message}}",
+			"resetToDefault": "重置为默认值"
 		},
 		"colorPicker": {
 			"title": "选择颜色",

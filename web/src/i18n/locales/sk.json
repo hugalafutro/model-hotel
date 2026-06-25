@@ -1640,12 +1640,11 @@
 				"grandfatherRetention": "Mesačná retencia (starý systém)",
 				"grandfatherRetentionDescription": "Uložte si najnovšiu zálohu z každého z posledných N mesiacov.",
 				"confirmEnableTitle": "Chcete povoliť pravidelné zálohovanie?",
-				"confirmEnableDescription": "Aktiváciou pravidelného zálohovania sa odstránia existujúce zálohy, ktoré nespadajú do schémy striedania typu „syn/otec/dedko“.",
-				"confirmEnableWouldRemove": "Týmto by sa odstránili nasledujúce zálohy: {{count}}",
-				"confirmEnableNoRemoval": "Žiadne existujúce zálohy nebudú odstránené.",
+				"confirmEnableDescription": "Povolenie pravidelného zálohovania odstráni existujúce zálohy, ktoré sú mimo rotačného okna syn/otec/dedo.",
+				"confirmEnableWouldRemove": "Týchto {{count}} záloh je mimo rotačného okna a budú natrvalo odstránené:",
 				"prunePreviewFailed": "Nepodarilo sa zobraziť náhľad na redukciu zálohy",
 				"pruneFailed": "Neúspešné vyprázdnenie zálohy",
-				"pruneSuccess": "Odstránené zálohy {{count}}"
+				"pruneSuccess": "Pravidelné zálohovanie povolené. Odstránených {{count}} starých záloh."
 			},
 			"availableBackupsTitle": "Dostupné zálohy",
 			"manuallyCreated": "Ručne"
@@ -1758,7 +1757,8 @@
 			"resetSettingDone": "Obnovenie predvolených nastavení",
 			"resetSectionDone": "Obnoviť predvolené nastavenia sekcie",
 			"resetAllDone": "Všetky nastavenia sa obnovili na predvolené hodnoty",
-			"resetFailed": "Obnovenie nastavení sa nepodarilo: {{message}}"
+			"resetFailed": "Obnovenie nastavení sa nepodarilo: {{message}}",
+			"resetToDefault": "Obnoviť predvolené"
 		},
 		"colorPicker": {
 			"title": "Vyberte si farbu",

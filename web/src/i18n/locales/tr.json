@@ -1640,12 +1640,11 @@
 				"grandfatherRetention": "Aylık Tutma (Eski Düzen)",
 				"grandfatherRetentionDescription": "Son N ayın her birinden en güncel yedeği saklayın.",
 				"confirmEnableTitle": "Periyodik yedeklemeyi etkinleştirmek ister misiniz?",
-				"confirmEnableDescription": "Periyodik yedeklemeyi etkinleştirdiğinizde, \"son/baba/büyükbaba\" rotasyon şemasının dışında kalan mevcut yedeklemeler silinecektir.",
-				"confirmEnableWouldRemove": "Bu işlem, aşağıdaki {{count}} yedeklerini siler:",
-				"confirmEnableNoRemoval": "Mevcut yedeklemeler silinmeyecektir.",
+				"confirmEnableDescription": "Periyodik yedeklemeyi etkinleştirmek, oğul/baba/dede rotasyon penceresinin dışında kalan mevcut yedekleri siler.",
+				"confirmEnableWouldRemove": "Bu {{count}} yedek rotasyon penceresinin dışında kalıyor ve kalıcı olarak silinecek:",
 				"prunePreviewFailed": "Yedekleme budama işleminin önizlemesi yapılamadı",
 				"pruneFailed": "Yedeklemeler budanamadı",
-				"pruneSuccess": "{{count}} yedeklemesi/yedeklemeleri silindi"
+				"pruneSuccess": "Periyodik yedekleme etkinleştirildi. {{count}} eski yedek kaldırıldı."
 			},
 			"availableBackupsTitle": "Mevcut Yedeklemeler",
 			"manuallyCreated": "Manuel"
@@ -1758,7 +1757,8 @@
 			"resetSettingDone": "Ayarları varsayılana sıfırla",
 			"resetSectionDone": "Bölüm varsayılan ayarlara sıfırlandı",
 			"resetAllDone": "Tüm ayarlar varsayılan değerlere sıfırlandı",
-			"resetFailed": "Ayarlar sıfırlanamadı: {{message}}"
+			"resetFailed": "Ayarlar sıfırlanamadı: {{message}}",
+			"resetToDefault": "Varsayılana sıfırla"
 		},
 		"colorPicker": {
 			"title": "Bir renk seçin",

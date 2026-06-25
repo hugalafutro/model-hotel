@@ -218,21 +218,30 @@ export function DatabaseBackupSettings({
 							checked={backupEnabled}
 							size="sm"
 							onChange={async (v) => {
-								if (v) {
-									try {
-										const preview = await api.backups.prunePreview();
-										setPrunePreview(preview);
-										setShowEnableConfirm(true);
-									} catch {
-										toast(
-											t("settings.backup.rotation.prunePreviewFailed"),
-											"error",
-										);
-									}
-								} else {
+								if (!v) {
 									settingsUpdateMutation.mutate({
 										backup_enabled: "false",
 									});
+									return;
+								}
+								try {
+									const preview = await api.backups.prunePreview();
+									// Nothing falls outside the rotation window, so enabling
+									// deletes nothing. Skip the confirmation modal and just turn
+									// it on, the same way every other backup setting saves.
+									if ((preview.prune?.length ?? 0) === 0) {
+										settingsUpdateMutation.mutate({
+											backup_enabled: "true",
+										});
+										return;
+									}
+									setPrunePreview(preview);
+									setShowEnableConfirm(true);
+								} catch {
+									toast(
+										t("settings.backup.rotation.prunePreviewFailed"),
+										"error",
+									);
 								}
 							}}
 						/>
@@ -353,29 +362,23 @@ export function DatabaseBackupSettings({
 									{t("settings.backup.rotation.confirmEnableDescription")}
 								</p>
 							</div>
-							{(prunePreview?.prune?.length ?? 0) > 0 ? (
-								<div className="space-y-2">
-									<p className="text-sm text-(--text-primary)">
-										{t("settings.backup.rotation.confirmEnableWouldRemove", {
-											count: prunePreview?.prune?.length ?? 0,
-										})}
-									</p>
-									<div className="max-h-40 overflow-y-auto rounded bg-(--surface-elevated) border border-(--border-default) p-2">
-										{(prunePreview?.prune ?? []).map((b) => (
-											<div
-												key={b.filename}
-												className="text-xs font-mono text-(--text-secondary) py-0.5"
-											>
-												{b.filename}
-											</div>
-										))}
-									</div>
-								</div>
-							) : (
-								<p className="text-sm text-(--text-secondary)">
-									{t("settings.backup.rotation.confirmEnableNoRemoval")}
+							<div className="space-y-2">
+								<p className="text-sm text-(--text-primary)">
+									{t("settings.backup.rotation.confirmEnableWouldRemove", {
+										count: prunePreview?.prune?.length ?? 0,
+									})}
 								</p>
-							)}
+								<div className="max-h-40 overflow-y-auto rounded bg-(--surface-elevated) border border-(--border-default) p-2">
+									{(prunePreview?.prune ?? []).map((b) => (
+										<div
+											key={b.filename}
+											className="text-xs font-mono text-(--text-secondary) py-0.5"
+										>
+											{b.filename}
+										</div>
+									))}
+								</div>
+							</div>
 							<div className="flex justify-end gap-2 pt-2">
 								<button
 									type="button"

@@ -1640,12 +1640,11 @@
 				"grandfatherRetention": "שימור חודשי (תנאי מעבר)",
 				"grandfatherRetentionDescription": "שמור את הגיבוי האחרון מכל אחד מ-N החודשים האחרונים.",
 				"confirmEnableTitle": "להפעיל גיבוי תקופתי?",
-				"confirmEnableDescription": "הפעלת גיבוי תקופתי תנקה גיבויים קיימים שאינם נכללים בתוכנית הרוטציה של \"בן/אב/סב\".",
-				"confirmEnableWouldRemove": "פעולה זו תסיר את הגיבוי/ים הבא/ים: {{count}}",
-				"confirmEnableNoRemoval": "לא יוסרו גיבויים קיימים.",
+				"confirmEnableDescription": "הפעלת גיבוי תקופתי מוחקת גיבויים קיימים שנמצאים מחוץ לחלון הסבב בן/אב/סב.",
+				"confirmEnableWouldRemove": "{{count}} גיבויים אלה נמצאים מחוץ לחלון הסבב והם יימחקו לצמיתות:",
 				"prunePreviewFailed": "לא ניתן להציג תצוגה מקדימה של צמצום הגיבוי",
 				"pruneFailed": "לא הצליחו לנקות את הגיבויים",
-				"pruneSuccess": "גיזום {{count}} גיבוי/גיבויים"
+				"pruneSuccess": "גיבוי תקופתי הופעל. הוסרו {{count}} גיבויים ישנים."
 			},
 			"availableBackupsTitle": "גיבויים זמינים",
 			"manuallyCreated": "ידני"
@@ -1758,7 +1757,8 @@
 			"resetSettingDone": "איפוס להגדרות ברירת המחדל",
 			"resetSectionDone": "החזרת הסעיף להגדרות ברירת המחדל",
 			"resetAllDone": "כל ההגדרות הוחזרו להגדרות ברירת המחדל",
-			"resetFailed": "לא הצליח לאפס את ההגדרות: {{message}}"
+			"resetFailed": "לא הצליח לאפס את ההגדרות: {{message}}",
+			"resetToDefault": "אפס לברירת המחדל"
 		},
 		"colorPicker": {
 			"title": "בחר צבע",

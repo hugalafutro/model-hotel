@@ -1640,12 +1640,11 @@
 				"grandfatherRetention": "Monatliche Aufbewahrung (Großvater)",
 				"grandfatherRetentionDescription": "Behalten Sie die aktuellste Sicherung aus jedem der letzten N Monate.",
 				"confirmEnableTitle": "Periodische Sicherung aktivieren?",
-				"confirmEnableDescription": "Durch das Aktivieren von periodischen Sicherungen werden bestehende Sicherungen reduziert, die außerhalb des Rotationsschemas Sohn/Vater/Großvater liegen.",
-				"confirmEnableWouldRemove": "Dies würde folgende {{count}} Sicherung(en) entfernen:",
-				"confirmEnableNoRemoval": "Keine vorhandenen Sicherungen würden entfernt.",
+				"confirmEnableDescription": "Durch das Aktivieren der periodischen Sicherung werden vorhandene Sicherungen gelöscht, die außerhalb des Rotationsfensters Sohn/Vater/Großvater liegen.",
+				"confirmEnableWouldRemove": "Diese {{count}} Sicherung(en) liegen außerhalb des Rotationsfensters und werden dauerhaft gelöscht:",
 				"prunePreviewFailed": "Fehler beim Abschneiden der Sicherung",
 				"pruneFailed": "Fehler beim Beschneiden der Backups",
-				"pruneSuccess": "{{count}} Sicherung(en) bereinigt"
+				"pruneSuccess": "Periodische Sicherung aktiviert. {{count}} alte Sicherung(en) entfernt."
 			},
 			"availableBackupsTitle": "Verfügbare Sicherungen",
 			"manuallyCreated": "Manuell"
@@ -1758,7 +1757,8 @@
 			"resetSettingDone": "Zurücksetzen auf Standard",
 			"resetSectionDone": "Abschnitt auf Standardwerte zurückgesetzt",
 			"resetAllDone": "Alle Einstellungen auf Standardwerte zurückgesetzt",
-			"resetFailed": "Fehler beim Zurücksetzen der Einstellungen: {{message}}"
+			"resetFailed": "Fehler beim Zurücksetzen der Einstellungen: {{message}}",
+			"resetToDefault": "Auf Standard zurücksetzen"
 		},
 		"colorPicker": {
 			"title": "Wähle eine Farbe",

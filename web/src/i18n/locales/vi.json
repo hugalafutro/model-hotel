@@ -1640,12 +1640,11 @@
 				"grandfatherRetention": "Tỷ lệ duy trì hàng tháng (Chính sách cũ)",
 				"grandfatherRetentionDescription": "Giữ lại bản sao lưu mới nhất của mỗi tháng trong N tháng gần đây nhất.",
 				"confirmEnableTitle": "Bật tính năng sao lưu định kỳ?",
-				"confirmEnableDescription": "Việc bật tính năng sao lưu định kỳ sẽ xóa các bản sao lưu hiện có không còn nằm trong chu kỳ luân phiên \"son/father/grandfather\".",
-				"confirmEnableWouldRemove": "Thao tác này sẽ xóa (các) bản sao lưu sau đây: {{count}}",
-				"confirmEnableNoRemoval": "Không có bản sao lưu hiện có nào sẽ bị xóa.",
+				"confirmEnableDescription": "Bật sao lưu định kỳ sẽ xóa các bản sao lưu hiện có nằm ngoài khung xoay vòng con/cha/ông.",
+				"confirmEnableWouldRemove": "{{count}} bản sao lưu này nằm ngoài khung xoay vòng và sẽ bị xóa vĩnh viễn:",
 				"prunePreviewFailed": "Không thể xem trước quá trình cắt giảm bản sao lưu",
 				"pruneFailed": "Không thể xóa các bản sao lưu",
-				"pruneSuccess": "Đã xóa bản sao lưu của {{count}}"
+				"pruneSuccess": "Đã bật sao lưu định kỳ. Đã xóa {{count}} bản sao lưu cũ."
 			},
 			"availableBackupsTitle": "Các bản sao lưu hiện có",
 			"manuallyCreated": "Thủ công"
@@ -1758,7 +1757,8 @@
 			"resetSettingDone": "Đặt lại về mặc định",
 			"resetSectionDone": "Đặt lại phần này về cài đặt mặc định",
 			"resetAllDone": "Tất cả cài đặt đã được khôi phục về mặc định",
-			"resetFailed": "Không thể khôi phục cài đặt: {{message}}"
+			"resetFailed": "Không thể khôi phục cài đặt: {{message}}",
+			"resetToDefault": "Đặt lại về mặc định"
 		},
 		"colorPicker": {
 			"title": "Chọn màu",

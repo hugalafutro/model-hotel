@@ -1640,12 +1640,11 @@
 				"grandfatherRetention": "Conservazione mensile (Nonno)",
 				"grandfatherRetentionDescription": "Mantenere il backup più recente da ciascuno degli ultimi N mesi.",
 				"confirmEnableTitle": "Abilitare Il Backup Periodico?",
-				"confirmEnableDescription": "Abilitando il backup periodico si poteranno i backup esistenti che cadono al di fuori dello schema di rotazione figlio/padre/nonno.",
-				"confirmEnableWouldRemove": "Questo rimuoverebbe i seguenti backup {{count}}:",
-				"confirmEnableNoRemoval": "Nessun backup esistente sarebbe stato rimosso.",
+				"confirmEnableDescription": "L'attivazione del backup periodico elimina i backup esistenti che ricadono al di fuori della finestra di rotazione figlio/padre/nonno.",
+				"confirmEnableWouldRemove": "Questi {{count}} backup ricadono al di fuori della finestra di rotazione e saranno eliminati definitivamente:",
 				"prunePreviewFailed": "Impossibile visualizzare l'anteprima della potatura del backup",
 				"pruneFailed": "Potatura backup non riuscita",
-				"pruneSuccess": "Eliminati {{count}} backup"
+				"pruneSuccess": "Backup periodico attivato. Rimossi {{count}} backup obsoleti."
 			},
 			"availableBackupsTitle": "Backup Disponibili",
 			"manuallyCreated": "Manuale"
@@ -1758,7 +1757,8 @@
 			"resetSettingDone": "Impostazione ripristinata al valore predefinito",
 			"resetSectionDone": "Sezione reimpostata ai valori predefiniti",
 			"resetAllDone": "Tutte le impostazioni reimpostate ai valori predefiniti",
-			"resetFailed": "Impossibile reimpostare le impostazioni: {{message}}"
+			"resetFailed": "Impossibile reimpostare le impostazioni: {{message}}",
+			"resetToDefault": "Ripristina predefinito"
 		},
 		"colorPicker": {
 			"title": "Scegli un colore",

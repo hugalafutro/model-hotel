@@ -1640,12 +1640,11 @@
 				"grandfatherRetention": "Kuukausittainen Säilyttäminen (synnytys)",
 				"grandfatherRetentionDescription": "Pidä viimeisin varmuuskopio jokaisesta viimeisestä N kuukaudesta.",
 				"confirmEnableTitle": "Ota Käyttöön Säännöllinen Varmuuskopio?",
-				"confirmEnableDescription": "Jaksoittaisen varmuuskopioinnin käyttöönotto karsii olemassa olevia varmuuskopioita, jotka jäävät poika/isä/isoisä -kiertojärjestelmän ulkopuolelle.",
-				"confirmEnableWouldRemove": "Tämä poistaa seuraavat {{count}} varmuuskopiot:",
-				"confirmEnableNoRemoval": "Olemassa olevia varmuuskopioita ei poistettaisi.",
+				"confirmEnableDescription": "Säännöllisen varmuuskopioinnin käyttöönotto poistaa olemassa olevat varmuuskopiot, jotka jäävät poika/isä/isoisä-kierron ikkunan ulkopuolelle.",
+				"confirmEnableWouldRemove": "Nämä {{count}} varmuuskopiota jäävät kierron ikkunan ulkopuolelle ja poistetaan pysyvästi:",
 				"prunePreviewFailed": "Varmuuskopioinnin purkamisen esikatselu epäonnistui",
 				"pruneFailed": "Varmuuskopioinnin lopettaminen epäonnistui",
-				"pruneSuccess": "Karsittu {{count}} varmuuskopio(t)"
+				"pruneSuccess": "Säännöllinen varmuuskopiointi käytössä. Poistettu {{count}} vanhaa varmuuskopiota."
 			},
 			"availableBackupsTitle": "Saatavilla Olevat Varmuuskopiot",
 			"manuallyCreated": "Manuaalinen"
@@ -1758,7 +1757,8 @@
 			"resetSettingDone": "Asetetaan palautus oletukseksi",
 			"resetSectionDone": "Osion nollaus oletuksiksi",
 			"resetAllDone": "Kaikki asetukset nollattu oletuksiin",
-			"resetFailed": "Asetusten nollaaminen epäonnistui: {{message}}"
+			"resetFailed": "Asetusten nollaaminen epäonnistui: {{message}}",
+			"resetToDefault": "Palauta oletusarvoon"
 		},
 		"colorPicker": {
 			"title": "Valitse väri",

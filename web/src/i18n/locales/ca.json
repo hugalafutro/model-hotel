@@ -1640,12 +1640,11 @@
 				"grandfatherRetention": "Retenció mensual (grandfather)",
 				"grandfatherRetentionDescription": "Conserva la còpia de seguretat més recent de cadascun dels últims N mesos.",
 				"confirmEnableTitle": "Activar la còpia de seguretat periòdica?",
-				"confirmEnableDescription": "Activant les còpies de seguretat periòdiques s'eliminaran les còpies existents que quedin fora de l'esquema de rotació fill/pare/avi.",
-				"confirmEnableWouldRemove": "Això eliminaria les còpies de seguretat següents de {{count}}:",
-				"confirmEnableNoRemoval": "No s'eliminarien cap de les còpies de seguretat existents.",
+				"confirmEnableDescription": "En activar la còpia de seguretat periòdica s'eliminen les còpies existents que queden fora de la finestra de rotació fill/pare/avi.",
+				"confirmEnableWouldRemove": "Aquestes {{count}} còpia/es de seguretat queden fora de la finestra de rotació i s'eliminaran permanentment:",
 				"prunePreviewFailed": "S'ha produït un error en previsualitzar la poda de còpies de seguretat.",
 				"pruneFailed": "S'ha fallat la poda de còpies de seguretat",
-				"pruneSuccess": "Retallat(s) de còpia de seguretat de {{count}}"
+				"pruneSuccess": "Còpia de seguretat periòdica activada. S'han eliminat {{count}} còpia/es antiga/es."
 			},
 			"availableBackupsTitle": "Copies de seguretat disponibles",
 			"manuallyCreated": "Manual"
@@ -1758,7 +1757,8 @@
 			"resetSettingDone": "Restabliment als valors per defecte",
 			"resetSectionDone": "Secció reiniciada als valors per defecte",
 			"resetAllDone": "Tots els paràmetres es restableixen als valors per defecte.",
-			"resetFailed": "S'ha fallat la reiniciació de la configuració: {{message}}"
+			"resetFailed": "S'ha fallat la reiniciació de la configuració: {{message}}",
+			"resetToDefault": "Restablir al valor predeterminat"
 		},
 		"colorPicker": {
 			"title": "Tria un color",

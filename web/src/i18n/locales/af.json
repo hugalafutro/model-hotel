@@ -1640,12 +1640,11 @@
 				"grandfatherRetention": "Maandelikse behoud (outregeling)",
 				"grandfatherRetentionDescription": "Bewaar die mees onlangse rugsteun van elkeen van die laaste N maande.",
 				"confirmEnableTitle": "Aktiveer periodieke rugsteun?",
-				"confirmEnableDescription": "Die inwerkingtreding van periodieke rugsteun sal bestaande rugsteune wat buite die seun/vader/grootvader-rotasieskema val, uitdun.",
-				"confirmEnableWouldRemove": "Dit sal die volgende {{count}} -rugsteun(e) verwyder:",
-				"confirmEnableNoRemoval": "Geen bestaande rugsteun sal verwyder word nie.",
+				"confirmEnableDescription": "Die aktivering van periodieke rugsteun verwyder bestaande rugsteune wat buite die seun/vader/grootvader-rotasievenster val.",
+				"confirmEnableWouldRemove": "Hierdie {{count}} rugsteun(e) val buite die rotasievenster en sal permanent verwyder word:",
 				"prunePreviewFailed": "Misluk om rugsteun-snoei te voorskou",
 				"pruneFailed": "Misgeluk om rugsteun uit te snoei",
-				"pruneSuccess": "Geskreide {{count}} -rugsteun(e)"
+				"pruneSuccess": "Periodieke rugsteun geaktiveer. {{count}} ou rugsteun(e) verwyder."
 			},
 			"availableBackupsTitle": "Beskikbare rugsteun",
 			"manuallyCreated": "Handmatig"
@@ -1758,7 +1757,8 @@
 			"resetSettingDone": "Stel terug na verstek",
 			"resetSectionDone": "Afdeling is na verstekinstellings teruggestel",
 			"resetAllDone": "Alle instellings word na verstekwaarde teruggesit.",
-			"resetFailed": "Het misluk om instellings terug te stel: {{message}}"
+			"resetFailed": "Het misluk om instellings terug te stel: {{message}}",
+			"resetToDefault": "Stel terug na verstek"
 		},
 		"colorPicker": {
 			"title": "Kies 'n kleur",
