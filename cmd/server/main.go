@@ -284,7 +284,6 @@ func main() {
 	proxyHandler := proxy.NewHandler(cfg, providerRepo, modelRepo, database.Pool(), virtualKeyRepo, failoverRepo, settingsRepo, rateLimiter, tpmLimiter, ipLimiter, sd)
 	apiHandler.SetCircuitBreaker(proxyHandler.CircuitBreaker())
 	apiHandler.SetAdminTokenManager(adminMgr)
-	apiHandler.StartBackupScheduler(context.Background())
 
 	// Outbound alerting: a single consumer of the events bus that forwards
 	// operator-selected events to a stateless apprise-api container. Best-effort
@@ -379,6 +378,12 @@ func main() {
 			apiHandler.Register(r)
 		})
 	})
+
+	// The periodic backup scheduler must start AFTER apiHandler.Register, which
+	// is where the BackupHandler is constructed and wired as h.backupScheduler.
+	// Started any earlier it silently no-ops on a nil scheduler, so no automatic
+	// (GFS) backups ever run no matter what backup_enabled is set to.
+	apiHandler.StartBackupScheduler(context.Background())
 
 	// Admin chat routes — admin-authenticated proxy for the Chat/Arena UI.
 	// Uses streaming-aware timeout (same as /v1) and rate limiting by IP.
