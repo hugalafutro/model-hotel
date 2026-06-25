@@ -1,4 +1,4 @@
-package api
+package adminauth
 
 import (
 	"bytes"
@@ -21,8 +21,12 @@ import (
 )
 
 // WebAuthnHandler handles WebAuthn/FIDO2 registration and login endpoints.
+//
+// webauthnRepo is the webauthn.Store interface (not the concrete Postgres
+// *Repository) so the same handler backs Postgres on the main server and SQLite
+// in the Front Desk control plane. IPLimiterMiddleware lives in helpers.go.
 type WebAuthnHandler struct {
-	webauthnRepo *webauthn.Repository
+	webauthnRepo webauthn.Store
 	relyingParty *webauthnx.WebAuthn
 	sessionMgr   *webauthn.SessionManager
 	adminMgr     AdminAuthenticator
@@ -31,17 +35,9 @@ type WebAuthnHandler struct {
 	totpEnabled  func() bool
 }
 
-// IPLimiterMiddleware is the interface for IP rate limiting middleware.
-type IPLimiterMiddleware interface {
-	Middleware(next http.Handler) http.Handler
-	// ClientIP extracts the trusted-proxy-aware client IP, used to key
-	// per-IP failure backoff (see TotpHandler login throttling).
-	ClientIP(r *http.Request) string
-}
-
 // NewWebAuthnHandler creates a new WebAuthn handler with the given dependencies.
 func NewWebAuthnHandler(
-	webauthnRepo *webauthn.Repository,
+	webauthnRepo webauthn.Store,
 	relyingParty *webauthnx.WebAuthn,
 	sessionMgr *webauthn.SessionManager,
 	adminMgr AdminAuthenticator,
@@ -60,9 +56,27 @@ func NewWebAuthnHandler(
 	}
 }
 
-// Available reports whether WebAuthn is enabled on the server.
-func (h *WebAuthnHandler) Available(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, map[string]bool{"enabled": h.relyingParty != nil})
+// Available reports whether passkey login should be offered to the client.
+//
+// "enabled" means WebAuthn is configured on this server (a relying party exists,
+// derived from PUBLIC_ORIGIN). "has_credentials" means at least one passkey is
+// registered. The login screen offers the passkey button only when both are
+// true, so a freshly provisioned server with no passkeys never advertises a
+// button that cannot work. Credential management (the registration panel) keys
+// off "enabled" alone, so the first passkey can still be enrolled. The endpoint
+// is unauthenticated, so it returns only these two booleans, never any
+// credential detail.
+func (h *WebAuthnHandler) Available(w http.ResponseWriter, r *http.Request) {
+	resp := map[string]bool{"enabled": h.relyingParty != nil, "has_credentials": false}
+	if h.relyingParty != nil {
+		creds, err := h.webauthnRepo.ListCredentials(r.Context())
+		if err != nil {
+			debuglog.Error("webauthn: list credentials for availability", "error", err)
+		} else {
+			resp["has_credentials"] = len(creds) > 0
+		}
+	}
+	writeJSON(w, resp)
 }
 
 // Register mounts WebAuthn routes on the given router.
@@ -101,29 +115,7 @@ func (h *WebAuthnHandler) Register(r chi.Router) {
 // token for WebAuthn management routes. This allows passkey-authenticated
 // sessions to manage their own credentials.
 func (h *WebAuthnHandler) adminOrSessionAuth(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token, ok := util.ParseBearerToken(r)
-		if !ok {
-			http.Error(w, "Authorization header required (Bearer token)", http.StatusUnauthorized)
-			return
-		}
-
-		// Raw admin token only when TOTP disabled (mirrors Handler.AuthMiddleware).
-		// With TOTP on, the raw admin token is a first factor only and must not
-		// unlock passkey management (register/rename/delete credentials), or a
-		// bare admin token bearer could bypass the second factor.
-		if (h.totpEnabled == nil || !h.totpEnabled()) && h.adminMgr.Validate(token) {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		if h.sessionMgr != nil && h.sessionMgr.Validate(r.Context(), token) {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		http.Error(w, "Invalid admin token or session token", http.StatusUnauthorized)
-	})
+	return RequireAdminOrSession(h.adminMgr, h.sessionMgr, h.totpEnabled, next)
 }
 
 // sessionTTL is the time-to-live for WebAuthn registration/login sessions.

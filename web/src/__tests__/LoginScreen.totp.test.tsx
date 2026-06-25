@@ -25,8 +25,8 @@ vi.mock("../api/client", () => ({
 		demoLogin: {
 			get: vi.fn().mockResolvedValue({ token: "" }),
 		},
-		// isWebAuthnAvailable is not part of api; App imports it from utils/webauthn.
-		// Passkey button stays hidden because isWebAuthnAvailable resolves false
+		// canUsePasskeyLogin is not part of api; App imports it from utils/webauthn.
+		// Passkey button stays hidden because canUsePasskeyLogin resolves false
 		// (jsdom has no WebAuthn). totp.status/login are overridden per-test below.
 		totp: {
 			status: vi.fn().mockResolvedValue({ enabled: false }),

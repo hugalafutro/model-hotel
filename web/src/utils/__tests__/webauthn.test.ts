@@ -101,6 +101,43 @@ describe("webauthn utils", () => {
 		});
 	});
 
+	describe("canUsePasskeyLogin", () => {
+		it("returns false when the browser does not support WebAuthn", async () => {
+			vi.spyOn(simplewebauthn, "browserSupportsWebAuthn").mockReturnValue(
+				false,
+			);
+			expect(await webauthn.canUsePasskeyLogin()).toBe(false);
+		});
+
+		it("returns false when configured but no passkey is registered", async () => {
+			vi.spyOn(simplewebauthn, "browserSupportsWebAuthn").mockReturnValue(true);
+			server.use(
+				http.get("/api/webauthn/available", () =>
+					HttpResponse.json({ enabled: true, has_credentials: false }),
+				),
+			);
+			expect(await webauthn.canUsePasskeyLogin()).toBe(false);
+		});
+
+		it("returns true when configured and a passkey exists", async () => {
+			vi.spyOn(simplewebauthn, "browserSupportsWebAuthn").mockReturnValue(true);
+			server.use(
+				http.get("/api/webauthn/available", () =>
+					HttpResponse.json({ enabled: true, has_credentials: true }),
+				),
+			);
+			expect(await webauthn.canUsePasskeyLogin()).toBe(true);
+		});
+
+		it("returns false when the endpoint errors", async () => {
+			vi.spyOn(simplewebauthn, "browserSupportsWebAuthn").mockReturnValue(true);
+			server.use(
+				http.get("/api/webauthn/available", () => HttpResponse.error()),
+			);
+			expect(await webauthn.canUsePasskeyLogin()).toBe(false);
+		});
+	});
+
 	describe("registerPasskey", () => {
 		const mockSessionId = "session-123";
 		const mockOptions = {

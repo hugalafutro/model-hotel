@@ -106,8 +106,9 @@ type Handler struct {
 	discoveryDialCtx       func(ctx context.Context, network, addr string) (net.Conn, error)
 	discoveryCheckRedirect func(req *http.Request, via []*http.Request) error
 	circuitBreaker         CircuitBreakerReader
-	totpStatus             TotpStatus  // nil when TOTP feature not wired -> TotpEnabled() returns false (today's behavior)
-	totpEnabled            atomic.Bool // cached IsEnabled result; refreshed by enroll-verify/disable handlers after DB mutations
+	totpStatus             TotpStatus        // nil when TOTP feature not wired -> TotpEnabled() returns false (today's behavior)
+	totpEnabled            atomic.Bool       // cached IsEnabled result; refreshed by enroll-verify/disable handlers after DB mutations
+	adminTokenMgr          AdminTokenManager // nil unless wired; enables the HA /admin/token-hash sync endpoints
 }
 
 // NewHandler creates a new admin API handler with the given dependencies.
@@ -144,6 +145,13 @@ func (h *Handler) Pool() *db.DB {
 // token-based authentication fallback in AuthMiddleware.
 func (h *Handler) SetWebAuthnSessionManager(mgr WebAuthnSessionManager) {
 	h.webauthnSessionMgr = mgr
+}
+
+// SetAdminTokenManager wires the admin-token-hash manager, enabling the HA
+// /api/admin/token-hash sync/reset endpoints. Left unset, those routes are not
+// mounted (the endpoints simply do not exist).
+func (h *Handler) SetAdminTokenManager(mgr AdminTokenManager) {
+	h.adminTokenMgr = mgr
 }
 
 // SetTotpStatus wires the TOTP status source and best-effort seeds the cache.
@@ -255,6 +263,12 @@ func (h *Handler) Register(r chi.Router) {
 	bh.SetSessionAuth(h.webauthnSessionMgr, h.TotpEnabled)
 	bh.Register(r)
 	h.backupScheduler = bh
+
+	// HA admin-token-hash sync/reset endpoints (mounted only when wired). They
+	// inherit this group's AuthMiddleware, so a session is required when TOTP is on.
+	if h.adminTokenMgr != nil {
+		NewAdminTokenHandler(h.adminTokenMgr).Register(r)
+	}
 }
 
 // AuthMiddleware validates admin token or webAuthn session token authentication.

@@ -1,4 +1,4 @@
-.PHONY: build run clean test lint fmt deps docker-up docker-build docker-down docker-logs totp-disable test-db-up test-db-down setup notices
+.PHONY: build run clean test lint fmt deps docker-up docker-build docker-down docker-logs totp-disable test-db-up test-db-down setup notices frontdesk-build ha-up ha-down ha-logs
 
 VERSION := $(shell cat .version 2>/dev/null || git describe --tags --always --dirty 2>/dev/null || echo dev)
 
@@ -37,6 +37,29 @@ docker-down:
 
 docker-logs:
 	docker compose -f docker-compose.yml -f compose.dev.yml logs -f
+
+# -- Front Desk control plane + HA stack --
+# frontdesk-build mirrors Dockerfile.frontdesk for a local binary: build the SPA,
+# copy it into the //go:embed all:webui target, then build cmd/frontdesk. The
+# webui/ contents are gitignored (only .gitkeep/.gitignore are tracked), so the
+# copy never dirties the tree.
+
+HA_COMPOSE := deploy/ha/docker-compose.yml
+
+frontdesk-build:
+	cd frontdesk/web && pnpm install --frozen-lockfile && pnpm run build:docker
+	find internal/frontdesk/webui -mindepth 1 ! -name .gitkeep ! -name .gitignore -delete
+	cp -r frontdesk/web/dist/. internal/frontdesk/webui/
+	CGO_ENABLED=0 go build -o bin/frontdesk ./cmd/frontdesk/
+
+ha-up:
+	docker compose -f $(HA_COMPOSE) up -d --build
+
+ha-down:
+	docker compose -f $(HA_COMPOSE) down
+
+ha-logs:
+	docker compose -f $(HA_COMPOSE) logs -f
 
 # -- TOTP 2FA emergency escape hatch (operator; deletes the admin_totp row) --
 

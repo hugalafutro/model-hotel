@@ -1,0 +1,74 @@
+# Front Desk control-plane image (HA stack). Mirrors the main Dockerfile's
+# structure and CVE posture (apk upgrade, non-root runtime, su-exec drop) but
+# builds the small cmd/frontdesk binary with its own embedded SPA. No Postgres:
+# Front Desk stores everything in an embedded SQLite file under DATA_DIR.
+
+# Stage 1: Build the Front Desk SPA (its own pnpm package, not the web/ workspace)
+FROM node:26-alpine AS frontend-builder
+
+RUN npm install -g pnpm@10
+
+WORKDIR /app/frontdesk/web
+
+# pnpm-workspace.yaml carries the dependency `overrides` the lockfile records,
+# so it must be present for --frozen-lockfile to match — otherwise
+# ERR_PNPM_LOCKFILE_CONFIG_MISMATCH (only the Docker build catches this).
+COPY frontdesk/web/package.json frontdesk/web/pnpm-lock.yaml frontdesk/web/pnpm-workspace.yaml ./
+RUN --mount=type=cache,target=/pnpm-store \
+    pnpm install --frozen-lockfile --store-dir=/pnpm-store
+
+COPY frontdesk/web/ ./
+# build:docker skips `tsc -b` — type-checking is gated by the pre-push hook and
+# CI, so the image build stays off the typecheck path (same as the main image).
+RUN pnpm run build:docker
+
+# Stage 2: Build the Go binary with the embedded SPA + SQLite migrations
+FROM golang:1.26-alpine AS backend-builder
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+
+COPY . .
+
+# Copy the SPA build output into the //go:embed all:webui target directory so
+# the production binary serves the real UI (a bare go build embeds only the
+# placeholder and runs API-only).
+COPY --from=frontend-builder /app/frontdesk/web/dist ./internal/frontdesk/webui/
+
+# modernc.org/sqlite is pure Go, so CGO is not needed; build a static binary.
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 go build -o frontdesk ./cmd/frontdesk/
+
+# Stage 3: Minimal runtime image
+FROM alpine:3.24
+
+# Upgrade base packages so security patches in the 3.24 line land even when the
+# alpine:3.24 tag itself lags. Same deliberate trade-off as the main image:
+# builds are not reproducible across time, but security patches are not pinned
+# out of reach.
+RUN apk upgrade --no-cache && \
+    apk add --no-cache ca-certificates su-exec
+
+# Create non-root user (uid 1000 matches typical host user)
+RUN adduser -D -u 1000 -H appuser
+
+WORKDIR /app
+
+COPY --from=backend-builder /app/frontdesk .
+COPY docker-entrypoint-frontdesk.sh /usr/local/bin/docker-entrypoint-frontdesk.sh
+
+RUN chmod +x /usr/local/bin/docker-entrypoint-frontdesk.sh && \
+    chown -R appuser:appuser /app
+
+ENTRYPOINT ["docker-entrypoint-frontdesk.sh"]
+
+EXPOSE 8090
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+    CMD wget --quiet --tries=1 --spider http://localhost:8090/traefik/config || exit 1
+
+CMD ["./frontdesk"]
