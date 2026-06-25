@@ -3,6 +3,7 @@ import type {
 	PublicKeyCredentialRequestOptionsJSON,
 } from "@simplewebauthn/browser";
 import type {
+	ConfigPreview,
 	EventsPage,
 	FdEvent,
 	Member,
@@ -152,6 +153,16 @@ export const api = {
 		request<ResetResult>(
 			"/api/admin-token/reset",
 			jsonInit("POST", { confirm: true }),
+		),
+
+	configPreview: (primaryId: string) =>
+		request<ConfigPreview>(
+			`/api/config/preview?primary=${encodeURIComponent(primaryId)}`,
+		),
+	configSync: (primaryId: string) =>
+		request<SyncResult>(
+			"/api/config/sync",
+			jsonInit("POST", { primary_id: primaryId }),
 		),
 
 	// Auth (unauthenticated except where noted).

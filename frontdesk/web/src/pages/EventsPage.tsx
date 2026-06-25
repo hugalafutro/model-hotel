@@ -18,6 +18,8 @@ const EVENT_TYPES = [
 	"version.fetch_failed",
 	"version.fetch_recovered",
 	"traefik.stale",
+	"config.synced",
+	"config.sync_failed",
 ];
 
 const SEVERITIES = ["info", "success", "warning", "error"] as const;

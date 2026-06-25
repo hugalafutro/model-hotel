@@ -6,6 +6,7 @@ import {
 	AdminTokenResetPanel,
 	AdminTokenSyncPanel,
 } from "../components/AdminTokenPanels";
+import { ConfigSyncPanel } from "../components/ConfigSyncPanel";
 import { SecurityPanels } from "../components/SecurityPanels";
 import { useToast } from "../context/ToastContext";
 import { useMembers } from "../hooks/useMembers";
@@ -229,6 +230,7 @@ export function SettingsPage() {
 			</form>
 
 			<AdminTokenSyncPanel members={members} onChanged={refetchMembers} />
+			<ConfigSyncPanel members={members} onChanged={refetchMembers} />
 			<AdminTokenResetPanel members={members} onChanged={refetchMembers} />
 
 			<SecurityPanels />
