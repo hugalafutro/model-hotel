@@ -52,6 +52,24 @@ func TestPollerRunTicksAndStops(t *testing.T) {
 	}
 }
 
+// TestPollerPollsHandleStoreErrors confirms the poll loops degrade gracefully
+// (log and return, never panic) when the store is unavailable, and that
+// settings() falls back to defaults.
+func TestPollerPollsHandleStoreErrors(t *testing.T) {
+	p, store, _ := newTestPoller(t, "")
+	if err := store.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+	ctx := context.Background()
+	p.PollHealthOnce(ctx)
+	p.PollVersionsOnce(ctx)
+	p.PollTraefikOnce(ctx)
+	p.checkConfigStaleness(ctx)
+	if s := p.settings(ctx); s.HealthPollSecs == 0 {
+		t.Error("settings() should fall back to defaults when the store errors")
+	}
+}
+
 // TestPollHealthOnceReportsDown covers the per-member health loop and the
 // down-transition event path (a first observation that is down is reported).
 func TestPollHealthOnceReportsDown(t *testing.T) {
@@ -170,6 +188,42 @@ func TestTOTPStoreDisable(t *testing.T) {
 	store := newTestStore(t)
 	if err := NewTOTPStore(store).Disable(context.Background()); err != nil {
 		t.Fatalf("Disable: %v", err)
+	}
+}
+
+// TestServerHandlersErrorWhenStoreClosed drives every control-plane handler with
+// a dead store so the writeError/error branches (not hit on the happy path) run.
+func TestServerHandlersErrorWhenStoreClosed(t *testing.T) {
+	srv, store := newTestServer(t)
+	m, err := store.CreateMember(context.Background(), "m1", "http://m1:8081", "")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatalf("close store: %v", err)
+	}
+
+	cases := []struct {
+		method, path, body string
+		auth               bool
+	}{
+		{http.MethodGet, "/api/members", "", true},
+		{http.MethodPost, "/api/members", `{"name":"x","url":"http://x:8081"}`, true},
+		{http.MethodPatch, "/api/members/" + m.ID, `{"name":"y"}`, true},
+		{http.MethodPost, "/api/members/" + m.ID + "/state", `{"state":"drained"}`, true},
+		{http.MethodDelete, "/api/members/" + m.ID, "", true},
+		{http.MethodGet, "/api/settings", "", true},
+		{http.MethodPut, "/api/settings", `{"health_poll_secs":1,"traefik_poll_secs":1,"traefik_stale_secs":1}`, true},
+		{http.MethodGet, "/api/events", "", true},
+		{http.MethodGet, "/api/admin-token/preview?primary=" + m.ID, "", true},
+		{http.MethodPost, "/api/admin-token/sync", `{"primary_id":"` + m.ID + `"}`, true},
+		{http.MethodGet, "/traefik/config", "", false}, // unauthenticated, compose-internal
+	}
+	for _, c := range cases {
+		rec := do(t, srv, c.method, c.path, c.body, c.auth)
+		if rec.Code < 400 {
+			t.Errorf("%s %s with a dead store = %d, want an error status", c.method, c.path, rec.Code)
+		}
 	}
 }
 
