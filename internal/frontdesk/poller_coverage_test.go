@@ -22,17 +22,39 @@ func TestPollVersionsOnceRecordsVersion(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p, store, _ := newTestPoller(t, "")
+	p, store, bus := newTestPoller(t, "")
 	ctx := context.Background()
 	m, err := store.CreateMember(ctx, "m1", srv.URL, "admin-token")
 	if err != nil {
 		t.Fatalf("CreateMember: %v", err)
 	}
 
+	ch := bus.Subscribe()
+	defer bus.Unsubscribe(ch)
+
 	p.PollVersionsOnce(ctx)
 
 	if got := p.Snapshot()[m.ID].Version; got != "1.2.3" {
 		t.Errorf("recorded version = %q, want 1.2.3", got)
+	}
+	// A first-seen version nudges the UI to refetch without a manual reload.
+	if !sawMemberStatus(ch) {
+		t.Error("first version read should emit a member.status nudge")
+	}
+}
+
+// sawMemberStatus drains the bus channel and reports whether a member.status
+// UI-refresh nudge was published (the signal the Members tab refetches on).
+func sawMemberStatus(ch chan events.Event) bool {
+	for {
+		select {
+		case ev := <-ch:
+			if ev.Type == "member.status" {
+				return true
+			}
+		default:
+			return false
+		}
 	}
 }
 
@@ -58,10 +80,25 @@ func TestPollTraefikOnceUpdatesStatus(t *testing.T) {
 	}))
 	defer traefik.Close()
 
-	p := NewPoller(store, events.NewBus(), traefik.URL)
+	bus := events.NewBus()
+	p := NewPoller(store, bus, traefik.URL)
+	ch := bus.Subscribe()
+	defer bus.Unsubscribe(ch)
+
 	p.PollTraefikOnce(ctx)
 
 	if got := p.Snapshot()[m.ID].TraefikStatus; got != "UP" {
 		t.Errorf("traefik status = %q, want UP", got)
+	}
+	// Traefik catching up to a member emits a member.status nudge so the column
+	// fills without a manual reload.
+	if !sawMemberStatus(ch) {
+		t.Error("first Traefik status should emit a member.status nudge")
+	}
+
+	// A second identical poll must not re-nudge: the status did not change.
+	p.PollTraefikOnce(ctx)
+	if sawMemberStatus(ch) {
+		t.Error("unchanged Traefik status should not emit a nudge")
 	}
 }
