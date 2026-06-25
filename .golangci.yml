@@ -48,6 +48,18 @@ linters:
           - gosec
           - gocyclo
 
+      # Front Desk reaches admin-configured member instances (an internal HA
+      # fleet) through the guarded probe client (netguard.go): a dial-time block
+      # on unspecified/link-local/cloud-metadata IPs - post-resolution, so DNS
+      # rebinding is caught too - plus cross-host redirect refusal. gosec's SSRF
+      # taint analysis (G704) can't see that mitigation, so the member-URL
+      # request in memberapi.go is a false positive. Scoped to this file only so
+      # SSRF detection stays active everywhere else (e.g. the proxy/provider path).
+      - path: internal/frontdesk/memberapi\.go
+        linters:
+          - gosec
+        text: "G704"
+
       # The recover() return value is intentionally discarded in panic-safety guards
       - linters:
           - errcheck
