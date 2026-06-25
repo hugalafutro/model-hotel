@@ -9,6 +9,8 @@ package main
 
 import (
 	"context"
+	"errors"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -132,10 +134,30 @@ func newRelyingParty(publicOrigin string) (*gowa.WebAuthn, error) {
 	if u.Scheme == "" || u.Hostname() == "" {
 		return nil, errInvalidOrigin
 	}
+	// HTTPS-only ingress: refuse a plain-http origin so a misconfigured deploy
+	// fails loudly instead of starting WebAuthn with an insecure expected origin.
+	// http is allowed only for loopback hosts (localhost / 127.0.0.1 / ::1), which
+	// browsers already treat as a secure context for WebAuthn, so local testing
+	// without a TLS proxy still works.
+	if u.Scheme != "https" && !isLoopbackHost(u.Hostname()) {
+		return nil, errInsecureOrigin
+	}
 	return webauthn.NewRelyingParty(u.Hostname(), "Front Desk", []string{u.Scheme + "://" + u.Host})
 }
 
-var errInvalidOrigin = &originError{}
+// isLoopbackHost reports whether host is localhost or a loopback IP literal.
+func isLoopbackHost(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
+var (
+	errInvalidOrigin  = &originError{}
+	errInsecureOrigin = errors.New("PUBLIC_ORIGIN must be https:// (http is allowed only for localhost); HTTPS-only ingress is required")
+)
 
 type originError struct{}
 
