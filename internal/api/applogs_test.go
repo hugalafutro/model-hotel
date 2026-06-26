@@ -646,7 +646,7 @@ func TestGetAppLogsHistory_NilDBPool_JSONEncodeError(t *testing.T) {
 
 func TestGetAppLogsHistory_InvalidPage(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("apiTestDBURL not set, skipping integration test")
+		t.Fatal("apiTestDBURL not set: test database required")
 	}
 	_, r := newTestHandlerWithRouter(t)
 	req := httptest.NewRequest(http.MethodGet, "/logs/app?history=true&page=0", http.NoBody)
@@ -661,7 +661,7 @@ func TestGetAppLogsHistory_InvalidPage(t *testing.T) {
 
 func TestGetAppLogsHistory_InvalidPerPage(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("apiTestDBURL not set, skipping integration test")
+		t.Fatal("apiTestDBURL not set: test database required")
 	}
 	_, r := newTestHandlerWithRouter(t)
 	req := httptest.NewRequest(http.MethodGet, "/logs/app?history=true&per_page=200", http.NoBody)
@@ -676,7 +676,7 @@ func TestGetAppLogsHistory_InvalidPerPage(t *testing.T) {
 
 func TestGetAppLogsHistory_ToParam(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("apiTestDBURL not set, skipping integration test")
+		t.Fatal("apiTestDBURL not set: test database required")
 	}
 	_, r := newTestHandlerWithRouter(t)
 	req := httptest.NewRequest(http.MethodGet, "/logs/app?history=true&to=2024-12-31T23:59:59Z", http.NoBody)
@@ -691,7 +691,7 @@ func TestGetAppLogsHistory_ToParam(t *testing.T) {
 
 func TestGetAppLogsHistory_SortByAndDir(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("apiTestDBURL not set, skipping integration test")
+		t.Fatal("apiTestDBURL not set: test database required")
 	}
 	_, r := newTestHandlerWithRouter(t)
 	req := httptest.NewRequest(http.MethodGet, "/logs/app?history=true&sort_by=time&sort_dir=asc", http.NoBody)
@@ -706,7 +706,7 @@ func TestGetAppLogsHistory_SortByAndDir(t *testing.T) {
 
 func TestGetAppLogsHistory_CancelledContext(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("apiTestDBURL not set, skipping integration test")
+		t.Fatal("apiTestDBURL not set: test database required")
 	}
 	_, r := newTestHandlerWithRouter(t)
 	req := httptest.NewRequest(http.MethodGet, "/logs/app?history=true", http.NoBody)
@@ -734,7 +734,7 @@ func TestGetAppLogsHistory_CancelledContext(t *testing.T) {
 
 func TestGetAppLogCounts_CancelledContext(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("apiTestDBURL not set, skipping integration test")
+		t.Fatal("apiTestDBURL not set: test database required")
 	}
 	// Invalidate cache so the DB query path is exercised
 	appLogCountCache.Lock()
@@ -763,7 +763,7 @@ func TestGetAppLogCounts_CancelledContext(t *testing.T) {
 
 func TestDBLogWriter_BatchSizeFlush(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("apiTestDBURL not set, skipping integration test")
+		t.Fatal("apiTestDBURL not set: test database required")
 	}
 
 	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
@@ -805,7 +805,7 @@ func TestDBLogWriter_BatchSizeFlush(t *testing.T) {
 
 func TestDBLogWriter_TickerFlush(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("apiTestDBURL not set, skipping integration test")
+		t.Fatal("apiTestDBURL not set: test database required")
 	}
 
 	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
@@ -852,7 +852,7 @@ func TestDBLogWriter_TickerFlush(t *testing.T) {
 
 func TestDBLogWriter_FlushDBError(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("apiTestDBURL not set, skipping integration test")
+		t.Fatal("apiTestDBURL not set: test database required")
 	}
 	// Reduce flush interval for faster test
 	orig := dbLogFlushInterval
@@ -887,7 +887,7 @@ func TestDBLogWriter_FlushDBError(t *testing.T) {
 
 func TestRingBuffer_WriteWithDBWriter(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("apiTestDBURL not set, skipping integration test")
+		t.Fatal("apiTestDBURL not set: test database required")
 	}
 
 	// Reduce flush interval for faster test
@@ -957,7 +957,7 @@ func (errWriterMock) Write(p []byte) (n int, err error) {
 
 func TestGetAppLogsCursor_Default(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("apiTestDBURL not set, skipping integration test")
+		t.Fatal("apiTestDBURL not set: test database required")
 	}
 
 	h, r := newTestHandlerWithRouter(t)
@@ -1018,7 +1018,7 @@ func TestGetAppLogsCursor_Default(t *testing.T) {
 
 func TestGetAppLogsCursor_WithCursor(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("apiTestDBURL not set, skipping integration test")
+		t.Fatal("apiTestDBURL not set: test database required")
 	}
 
 	h, r := newTestHandlerWithRouter(t)
@@ -1110,7 +1110,7 @@ func TestGetAppLogsCursor_WithCursor(t *testing.T) {
 
 func TestGetAppLogsCursor_InvalidCursor(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("apiTestDBURL not set, skipping integration test")
+		t.Fatal("apiTestDBURL not set: test database required")
 	}
 
 	_, r := newTestHandlerWithRouter(t)
@@ -1138,7 +1138,7 @@ func TestGetAppLogsCursor_InvalidCursor(t *testing.T) {
 
 func TestGetAppLogsCursor_WithFilters(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("apiTestDBURL not set, skipping integration test")
+		t.Fatal("apiTestDBURL not set: test database required")
 	}
 
 	h, r := newTestHandlerWithRouter(t)
@@ -1639,7 +1639,7 @@ func TestBuildAppLogCursorQuery_BackwardAscInvertsSort(t *testing.T) {
 
 func TestGetAppLogsCursor_BackwardPagination(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("apiTestDBURL not set, skipping integration test")
+		t.Fatal("apiTestDBURL not set: test database required")
 	}
 
 	h, r := newTestHandlerWithRouter(t)
@@ -1769,7 +1769,7 @@ func TestGetAppLogsCursor_BackwardPagination(t *testing.T) {
 // a valid response with zero entries and zero total when no logs exist.
 func TestGetAppLogsHistory_EmptyLogs(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("apiTestDBURL not set, skipping integration test")
+		t.Fatal("apiTestDBURL not set: test database required")
 	}
 	_, r := newTestHandlerWithRouter(t)
 
@@ -1801,7 +1801,7 @@ func TestGetAppLogsHistory_EmptyLogs(t *testing.T) {
 // the correct pagination when there is exactly one log entry.
 func TestGetAppLogsHistory_SingleEntry(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("apiTestDBURL not set, skipping integration test")
+		t.Fatal("apiTestDBURL not set: test database required")
 	}
 	h, r := newTestHandlerWithRouter(t)
 	pool := h.Pool().Pool()
@@ -1848,7 +1848,7 @@ func TestGetAppLogsHistory_SingleEntry(t *testing.T) {
 // correctly filters by from/to date range parameters.
 func TestGetAppLogsHistory_DateRangeBoundary(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("apiTestDBURL not set, skipping integration test")
+		t.Fatal("apiTestDBURL not set: test database required")
 	}
 	h, r := newTestHandlerWithRouter(t)
 	pool := h.Pool().Pool()
@@ -1954,7 +1954,7 @@ func TestGetAppLogsCursor_NilPool(t *testing.T) {
 // a 500 error when the request context is already cancelled.
 func TestGetAppLogsCursor_CancelledContext(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("apiTestDBURL not set, skipping integration test")
+		t.Fatal("apiTestDBURL not set: test database required")
 	}
 	_, r := newTestHandlerWithRouter(t)
 
@@ -2064,7 +2064,7 @@ func TestScanAppLogRow_Success(t *testing.T) {
 // to trigger the query failure path.
 func TestGetAppLogsHistory_QueryFailsWithCancelledContext(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	// Create a db.DB and close it to force the query to fail

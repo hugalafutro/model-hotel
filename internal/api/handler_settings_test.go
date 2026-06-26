@@ -527,14 +527,14 @@ func TestResetSettings_ValidSingleKeyReset(t *testing.T) {
 // the pool before calling ResetSettings.
 func TestResetSettings_BeginTxError(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	// Create a handler with a real DB pool, then close the pool to force
 	// Begin to fail.
 	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	settingsRepo := &mockSettingsStore{
@@ -545,7 +545,7 @@ func TestResetSettings_BeginTxError(t *testing.T) {
 
 	database, err := db.New(context.Background(), apiTestDBURL, 5, 1)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	// Close the database pool to force Begin to fail.
@@ -579,7 +579,7 @@ func TestResetSettings_BeginTxError(t *testing.T) {
 // when the DeleteKeysTx operation fails.
 func TestResetSettings_DeleteKeysTxError(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	// Use a real DB with a mock settings repo that fails on DeleteKeysTx.
@@ -612,7 +612,7 @@ func TestResetSettings_DeleteKeysTxError(t *testing.T) {
 // transaction commit fails. This exercises the commit error path.
 func TestResetSettings_CommitError(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	// The commit path is hard to trigger with a real DB since you can't
@@ -653,7 +653,7 @@ func TestResetSettings_CommitError(t *testing.T) {
 // GetAll returns nil.
 func TestResetSettings_NilGetAll(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	// Use a real DB for the transaction but replace settings repo with
@@ -741,7 +741,7 @@ func TestUpdateSettings_FloatBelowMin(t *testing.T) {
 
 func TestUpdateSettings_BeginTxError(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	testDB, err := db.New(context.Background(), apiTestDBURL, 25, 5)
@@ -772,7 +772,7 @@ func TestUpdateSettings_BeginTxError(t *testing.T) {
 
 func TestUpdateSettings_CommitError(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	h := newTestHandler(t)
@@ -798,7 +798,7 @@ func TestUpdateSettings_CommitError(t *testing.T) {
 
 func TestUpdateSettings_ResponseEncodeError(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	h := newTestHandler(t)

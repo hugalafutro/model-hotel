@@ -101,7 +101,7 @@
 			"requests": "Kérések",
 			"appLogs": "Naplók",
 			"settings": "Beállítások",
-			"failoverBadgeExplain": "Failover szolgáltatók áramkör-megszakító állapot szerint — {{closed}} működőképes / {{halfOpen}} helyreállítási fázisban / {{open}} kioldott",
+			"failoverBadgeExplain": "Failover szolgáltatók áramkör-megszakító állapot szerint - {{closed}} működőképes / {{halfOpen}} helyreállítási fázisban / {{open}} kioldott",
 			"discoveryChangesBadge_one": "{{count}} módosítás a háttérbeli felderítésből – kattintson a felülvizsgálathoz",
 			"discoveryChangesBadge_other": "Az {{count}} változások a háttérbeli felderítésből származnak – kattintson a felülvizsgálathoz"
 		},
@@ -316,7 +316,9 @@
 			"emptyState": "Még nincsenek késleltetési adatok. A szolgáltató késleltetési ideje itt jelenik meg, amint forgalom indul.",
 			"responseTooltip": "Átlagos válaszidő: {{value}} ({{count}} lekérdezések)",
 			"overheadTooltip": "Átlagos proxy-terhelés: {{value}} ({{count}} kérés)",
-			"requestCount": "{{count}} kérelmek"
+			"requestCount": "{{count}} kérelmek",
+			"responseHeaderTooltip": "Átlagos teljes válaszidő, beleértve az átjáró saját többletterhelését.",
+			"overheadHeaderTooltip": "Az átjáró által hozzáadott átlagos idő (útválasztás, hitelesítés, mérés), a szolgáltató válaszideje nélkül."
 		},
 		"providers": {
 			"top": "Top szolgáltatók",
@@ -1805,7 +1807,9 @@
 			"cancelNameAriaLabel": "Az átnevezés visszavonása",
 			"renameAriaLabel": "A jelszó átnevezése",
 			"failedToRename": "A jelszó átnevezése nem sikerült: {{message}}",
-			"unavailableDescription": "Passkeys are not supported by this browser or device."
+			"unavailableDescription": "Passkeys are not supported by this browser or device.",
+			"deleteConfirmTitle": "Törli a hozzáférési kulcsot?",
+			"deleteConfirmMessage": "Ezzel véglegesen törli a hozzáférési kulcsot. A használatához újra regisztrálnia kell."
 		},
 		"observability": {
 			"json.description": "Strukturált naplókat adjon ki egy JSON-objektumként soronként, olyan stdout naplógyűjtők számára, mint a Fluent Bit, a Vector vagy a Promtail.",
@@ -1818,14 +1822,14 @@
 			"otel.instructions": "Irányítsa ezt az OTLP-gyűjtő végpontjára, és indítsa újra a konténert a naplófájlok OpenTelemetry-n keresztüli továbbításához:",
 			"otel.name": "OpenTelemetry naplófájlok (OTLP)",
 			"title": "Megfigyelhetőség és naplóexport",
-			"description": "A Model Hotel strukturált naplóit és mutatóit külső rendszerekbe exportálhatja. Minden integrációt egy környezeti változóval lehet engedélyezni; az alábbi állapotjelzők a jelenlegi állapotot tükrözik. Soha nem kerül exportálásra semmilyen kérés vagy válasz tartalma — csak az útválasztási és mérési metaadatok.",
+			"description": "A Model Hotel strukturált naplóit és mutatóit külső rendszerekbe exportálhatja. Minden integrációt egy környezeti változóval lehet engedélyezni; az alábbi állapotjelzők a jelenlegi állapotot tükrözik. Soha nem kerül exportálásra semmilyen kérés vagy válasz tartalma - csak az útválasztási és mérési metaadatok.",
 			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "Apprise API URL",
 			"apiUrlDescription": "Az Ön által futtatott apprise-api konténer alap-URL-je (például http://apprise:8000).",
 			"clear": "Törlés",
-			"description": "Küldjön push-értesítéseket figyelemre méltó eseményekről (szolgáltató leállása, áramkör-megszakító kioldása) a Telegramra, e-mailre, Discordra és más platformokra egy Ön által futtatott, állapotmentes Apprise-konténeren keresztül. Soha nem kerül elküldésre kérés tartalma — csupán az esemény összefoglalása.",
+			"description": "Küldjön push-értesítéseket figyelemre méltó eseményekről (szolgáltató leállása, áramkör-megszakító kioldása) a Telegramra, e-mailre, Discordra és más platformokra egy Ön által futtatott, állapotmentes Apprise-konténeren keresztül. Soha nem kerül elküldésre kérés tartalma - csupán az esemény összefoglalása.",
 			"enable": "Riasztások engedélyezése",
 			"enableDescription": "A kiválasztott eseményeket továbbítsa az Apprise végpontjára.",
 			"event": {
@@ -1847,8 +1851,8 @@
 				"description": "Példák népszerű szolgáltatások Apprise URL-formátumaira – másoljon le egyet, töltse ki az adataival, majd illessze be a fenti helyre."
 			},
 			"target": "Értesítési cél",
-			"targetConfigured": "Configured — beírandó szöveg",
-			"targetDescription": "Az Apprise URL-je — titkosítva tárolódik, és soha többé nem jelenik meg. Több célt <code>;</code> formában válasszon el egymástól.",
+			"targetConfigured": "Configured - beírandó szöveg",
+			"targetDescription": "Az Apprise URL-je - titkosítva tárolódik, és soha többé nem jelenik meg. Több célt <code>;</code> formában válasszon el egymástól.",
 			"testButton": "Tesztértesítés küldése",
 			"testFailed": "A tesztértesítés sikertelen: {{message}}",
 			"testHint": "Engedélyezze a riasztásokat, és állítsa be mind az Apprise API URL-jét, mind a tesztküldés célját.",
@@ -1860,7 +1864,7 @@
 				"issues": "Az apprise-api elérhető, de problémákat jelent",
 				"reachable": "apprise-api elérhető",
 				"recheck": "Ellenőrizze újra",
-				"unreachable": "Az apprise-api nem érhető el — ellenőrizze az URL-t, és hogy a konténer fut-e",
+				"unreachable": "Az apprise-api nem érhető el - ellenőrizze az URL-t, és hogy a konténer fut-e",
 				"checkFailed": "Az állapotellenőrzés sikertelen volt"
 			}
 		},

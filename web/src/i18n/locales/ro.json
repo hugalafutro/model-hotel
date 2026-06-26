@@ -101,9 +101,9 @@
 			"requests": "Cereri",
 			"appLogs": "Jurnale",
 			"settings": "Setări",
-			"failoverBadgeExplain": "Furnizori de failover în funcție de starea întrerupătorului de circuit — {{closed}} funcțional / {{halfOpen}} în recuperare / {{open}} declanșat",
-			"discoveryChangesBadge_one": "Modificare {{count}} din descoperirea în fundal — faceți clic pentru a revizui",
-			"discoveryChangesBadge_other": "Modificările {{count}} din procesul de descoperire în fundal — faceți clic pentru a le revizui"
+			"failoverBadgeExplain": "Furnizori de failover în funcție de starea întrerupătorului de circuit - {{closed}} funcțional / {{halfOpen}} în recuperare / {{open}} declanșat",
+			"discoveryChangesBadge_one": "Modificare {{count}} din descoperirea în fundal - faceți clic pentru a revizui",
+			"discoveryChangesBadge_other": "Modificările {{count}} din procesul de descoperire în fundal - faceți clic pentru a le revizui"
 		},
 		"status": {
 			"apiStatus": "Stare API",
@@ -184,7 +184,7 @@
 		},
 		"githubRepo": "Depozit GitHub",
 		"readOnly": {
-			"banner": "Demo numai pentru citire — funcțiile de creare, editare și ștergere sunt dezactivate."
+			"banner": "Demo numai pentru citire - funcțiile de creare, editare și ștergere sunt dezactivate."
 		},
 		"errorShelf": {
 			"acknowledge": "Ignorați",
@@ -299,7 +299,7 @@
 			"topVirtualKeys": "Top chei virtuale",
 			"emptyState": "Nu există încă date de utilizare. Defalcarea utilizării va apărea aici odată cu traficul de trafic.",
 			"viewDetailsFor": "Vezi detalii pentru {{label}}",
-			"deletedModelTooltip": "Modelul nu mai este disponibil — este posibil să fi fost eliminat sau furnizorul său să fi fost eliminat",
+			"deletedModelTooltip": "Modelul nu mai este disponibil - este posibil să fi fost eliminat sau furnizorul său să fi fost eliminat",
 			"reservedKeyTooltip": "Nume rezervat intern, nu o cheie creată de dvs. – această utilizare provine din rutele „{{name}}” proprii ale Model Hotel"
 		},
 		"latency": {
@@ -316,7 +316,9 @@
 			"emptyState": "Nu există date de latență încă. Latența furnizorului va apărea aici odată ce traficul curge.",
 			"responseTooltip": "Timp de răspuns mediu: {{value}} ({{count}} cereri)",
 			"overheadTooltip": "Sursă proxy medie: {{value}} ({{count}} cereri)",
-			"requestCount": "{{count}} cereri"
+			"requestCount": "{{count}} cereri",
+			"responseHeaderTooltip": "Timpul total mediu de răspuns, inclusiv suprasarcina propriei porți de acces.",
+			"overheadHeaderTooltip": "Timpul mediu adăugat de poarta de acces în sine (rutare, autentificare, contorizare), fără timpul de răspuns al furnizorului."
 		},
 		"providers": {
 			"top": "Top furnizori",
@@ -1805,7 +1807,9 @@
 			"cancelNameAriaLabel": "Anulează redenumirea",
 			"renameAriaLabel": "Redenumire parolă",
 			"failedToRename": "Nu s-a putut redenumi parola: {{message}}",
-			"unavailableDescription": "Passkeys are not supported by this browser or device."
+			"unavailableDescription": "Passkeys are not supported by this browser or device.",
+			"deleteConfirmTitle": "Ștergeți cheia de acces?",
+			"deleteConfirmMessage": "Această acțiune șterge definitiv cheia de acces. Va trebui să o înregistrați din nou pentru a o utiliza."
 		},
 		"observability": {
 			"json.description": "Generați jurnale structurate ca un singur obiect JSON pe linie, pentru colectoare de jurnale stdout precum Fluent Bit, Vector sau Promtail.",
@@ -1818,14 +1822,14 @@
 			"otel.instructions": "Direcționați acest lucru către punctul final al colectorului OTLP și reporniți containerul pentru a transmite jurnalele prin OpenTelemetry:",
 			"otel.name": "Jurnale OpenTelemetry (OTLP)",
 			"title": "Observabilitate și export de jurnale",
-			"description": "Model Hotel poate exporta jurnalele și metricile sale structurate către sisteme externe. Fiecare integrare este activată cu o variabilă de mediu; insignele de stare de mai jos reflectă starea actuală. Nu se exportă niciodată conținutul cererilor sau al răspunsurilor — doar metadatele de rutare și măsurare.",
+			"description": "Model Hotel poate exporta jurnalele și metricile sale structurate către sisteme externe. Fiecare integrare este activată cu o variabilă de mediu; insignele de stare de mai jos reflectă starea actuală. Nu se exportă niciodată conținutul cererilor sau al răspunsurilor - doar metadatele de rutare și măsurare.",
 			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "URL-ul API-ului Apprise",
 			"apiUrlDescription": "URL-ul de bază al containerului apprise-api pe care îl rulați (de exemplu, http://apprise:8000).",
 			"clear": "Ștergeți",
-			"description": "Trimiteți notificări push pentru evenimente importante (o întrerupere a serviciului unui furnizor, declanșarea unui circuit breaker) către Telegram, e-mail, Discord și altele prin intermediul unui container Apprise fără stare pe care îl rulați. Nu se trimite niciodată conținutul cererii — doar rezumatul evenimentului.",
+			"description": "Trimiteți notificări push pentru evenimente importante (o întrerupere a serviciului unui furnizor, declanșarea unui circuit breaker) către Telegram, e-mail, Discord și altele prin intermediul unui container Apprise fără stare pe care îl rulați. Nu se trimite niciodată conținutul cererii - doar rezumatul evenimentului.",
 			"enable": "Activați alertele",
 			"enableDescription": "Redirecționați evenimentele selectate către punctul de terminare Apprise.",
 			"event": {
@@ -1844,11 +1848,11 @@
 			"eventsLabel": "Evenimente de alertă",
 			"snippets": {
 				"browseAll": "Răsfoiți toate cele peste 80 de servicii",
-				"description": "Exemple de formate de URL Apprise pentru servicii populare — copiați unul, completați detaliile dvs. și lipiți-l mai sus."
+				"description": "Exemple de formate de URL Apprise pentru servicii populare - copiați unul, completați detaliile dvs. și lipiți-l mai sus."
 			},
 			"target": "Destinatarul notificării",
-			"targetConfigured": "Configurat — introduceți textul de înlocuire",
-			"targetDescription": "URL-ul dvs. Apprise — stocat criptat și care nu va mai fi afișat niciodată. Separați țintele multiple cu <code>;</code>.",
+			"targetConfigured": "Configurat - introduceți textul de înlocuire",
+			"targetDescription": "URL-ul dvs. Apprise - stocat criptat și care nu va mai fi afișat niciodată. Separați țintele multiple cu <code>;</code>.",
 			"testButton": "Trimiteți o notificare de testare",
 			"testFailed": "Notificarea de testare a eșuat: {{message}}",
 			"testHint": "Activați alertele și configurați atât o adresă URL a API-ului Apprise, cât și o destinație pentru a trimite un test.",
@@ -1860,7 +1864,7 @@
 				"issues": "apprise-api este accesibil, dar raportează probleme",
 				"reachable": "apprise-api accesibil",
 				"recheck": "Verificați din nou",
-				"unreachable": "apprise-api inaccesibil — verificați adresa URL și asigurați-vă că containerul rulează",
+				"unreachable": "apprise-api inaccesibil - verificați adresa URL și asigurați-vă că containerul rulează",
 				"checkFailed": "Verificarea stării a eșuat"
 			}
 		},

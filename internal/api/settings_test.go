@@ -158,7 +158,7 @@ func (f *trackingFailingWriter) Write([]byte) (int, error) {
 // settings and returns 200 with the updated values.
 func TestUpdateSettings_Success(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	// Use real test DB
@@ -190,7 +190,7 @@ func TestUpdateSettings_Success(t *testing.T) {
 // when the settings repository fails on SetTx.
 func TestUpdateSettings_SetTxError(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	// Use real test DB but mock settings repo that fails on SetTx

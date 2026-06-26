@@ -21,7 +21,7 @@ func (s *stubTotpStatus) IsEnabled(context.Context) (bool, error) {
 func truncateTOTPTables(t *testing.T) {
 	t.Helper()
 	if apiTestDB == nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	if _, err := apiTestDB.Pool().Exec(context.Background(),
 		`TRUNCATE admin_totp, admin_totp_recovery`); err != nil {

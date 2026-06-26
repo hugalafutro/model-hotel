@@ -22,7 +22,7 @@ import (
 func truncateTOTPTables(t *testing.T) {
 	t.Helper()
 	if apiTestDB == nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	_, err := apiTestDB.Pool().Exec(context.Background(),
 		`TRUNCATE admin_totp, admin_totp_recovery`)

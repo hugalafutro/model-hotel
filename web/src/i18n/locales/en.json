@@ -96,14 +96,14 @@
 			"failoverOpen_other": "{{count}} open circuit breakers",
 			"failoverBadgeTooltip_one": "{{count}} circuit breaker open/half-open: {{providers}}",
 			"failoverBadgeTooltip_other": "{{count}} circuit breakers open/half-open: {{providers}}",
-			"failoverBadgeExplain": "Failover providers by circuit-breaker state — {{closed}} healthy / {{halfOpen}} recovering / {{open}} tripped",
+			"failoverBadgeExplain": "Failover providers by circuit-breaker state - {{closed}} healthy / {{halfOpen}} recovering / {{open}} tripped",
 			"virtualKeys": "Virtual Keys",
 			"logs": "Logs",
 			"requests": "Requests",
 			"appLogs": "Logs",
 			"settings": "Settings",
-			"discoveryChangesBadge_one": "{{count}} change from background discovery — click to review",
-			"discoveryChangesBadge_other": "{{count}} changes from background discovery — click to review"
+			"discoveryChangesBadge_one": "{{count}} change from background discovery - click to review",
+			"discoveryChangesBadge_other": "{{count}} changes from background discovery - click to review"
 		},
 		"status": {
 			"apiStatus": "API Status",
@@ -207,7 +207,7 @@
 		},
 		"githubRepo": "GitHub repository",
 		"readOnly": {
-			"banner": "Read-only demo — creating, editing, and deleting are disabled."
+			"banner": "Read-only demo - creating, editing, and deleting are disabled."
 		},
 		"managed": {
 			"banner": "Managed by the fleet primary. Synced items here are read-only and are replaced on the next config sync. Manage them on the primary."
@@ -316,7 +316,9 @@
 			"emptyState": "No latency data yet. Provider latency will appear here once traffic flows.",
 			"responseTooltip": "Avg response time: {{value}} ({{count}} requests)",
 			"overheadTooltip": "Avg proxy overhead: {{value}} ({{count}} requests)",
-			"requestCount": "{{count}} requests"
+			"requestCount": "{{count}} requests",
+			"responseHeaderTooltip": "Average total response time, including the gateway's own overhead.",
+			"overheadHeaderTooltip": "Average time the gateway itself adds (routing, auth, metering), not counting the provider's response time."
 		},
 		"providers": {
 			"top": "Top Providers",
@@ -1862,7 +1864,9 @@
 			"cancelNameAriaLabel": "Cancel renaming",
 			"renameAriaLabel": "Rename passkey",
 			"failedToRename": "Failed to rename passkey: {{message}}",
-			"unavailableDescription": "Passkeys are not supported by this browser or device."
+			"unavailableDescription": "Passkeys are not supported by this browser or device.",
+			"deleteConfirmTitle": "Delete passkey?",
+			"deleteConfirmMessage": "This permanently deletes the passkey. You will need to register it again to use it."
 		},
 		"totp": {
 			"title": "2FA · Authenticator App (TOTP)",

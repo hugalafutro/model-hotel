@@ -195,10 +195,12 @@ describe("Modal", () => {
 			</Modal>,
 		);
 		const dialog = getByDialogName("Scroll Test");
-		const modalContent = dialog.querySelector(
-			".max-h-\\[85vh\\].overflow-y-auto",
-		);
-		expect(modalContent).toBeInTheDocument();
+		// The card caps its height and lays out as a flex column so the header
+		// stays pinned; the body lives in a separate scrollable region.
+		const card = dialog.querySelector(".max-h-\\[85vh\\].flex.flex-col");
+		expect(card).toBeInTheDocument();
+		const scrollArea = dialog.querySelector(".overflow-y-auto");
+		expect(scrollArea).toBeInTheDocument();
 	});
 
 	it("applies custom zIndex", () => {

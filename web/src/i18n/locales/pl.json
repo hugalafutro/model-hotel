@@ -101,9 +101,9 @@
 			"requests": "Żądania",
 			"appLogs": "Logi",
 			"settings": "Ustawienia",
-			"failoverBadgeExplain": "Dostawcy awaryjni według stanu wyłącznika — {{closed}} sprawny / {{halfOpen}} w trakcie przywracania / {{open}} wyłączony",
-			"discoveryChangesBadge_one": "Zmiana {{count}} wynikająca z analizy tła — kliknij, aby przejrzeć",
-			"discoveryChangesBadge_other": "Zmiany {{count}} wynikające z analizy tła — kliknij, aby przejrzeć"
+			"failoverBadgeExplain": "Dostawcy awaryjni według stanu wyłącznika - {{closed}} sprawny / {{halfOpen}} w trakcie przywracania / {{open}} wyłączony",
+			"discoveryChangesBadge_one": "Zmiana {{count}} wynikająca z analizy tła - kliknij, aby przejrzeć",
+			"discoveryChangesBadge_other": "Zmiany {{count}} wynikające z analizy tła - kliknij, aby przejrzeć"
 		},
 		"status": {
 			"apiStatus": "Status API",
@@ -184,7 +184,7 @@
 		},
 		"githubRepo": "Repozytorium GitHub",
 		"readOnly": {
-			"banner": "Wersja demonstracyjna tylko do odczytu — tworzenie, edycja i usuwanie są wyłączone."
+			"banner": "Wersja demonstracyjna tylko do odczytu - tworzenie, edycja i usuwanie są wyłączone."
 		},
 		"errorShelf": {
 			"acknowledge": "Odrzuć",
@@ -299,8 +299,8 @@
 			"topVirtualKeys": "Top klucze wirtualne",
 			"emptyState": "Brak danych o użytkowaniu. Podział użycia pojawi się tutaj po przepływie ruchu.",
 			"viewDetailsFor": "Zobacz szczegóły dla {{label}}",
-			"deletedModelTooltip": "Model nie jest już dostępny — mógł zostać usunięty lub jego dostawca został wycofany",
-			"reservedKeyTooltip": "Wewnętrzna nazwa zarezerwowana, a nie klucz utworzony przez użytkownika — to użycie pochodzi z własnych tras „{{name}}” serwisu Model Hotel"
+			"deletedModelTooltip": "Model nie jest już dostępny - mógł zostać usunięty lub jego dostawca został wycofany",
+			"reservedKeyTooltip": "Wewnętrzna nazwa zarezerwowana, a nie klucz utworzony przez użytkownika - to użycie pochodzi z własnych tras „{{name}}” serwisu Model Hotel"
 		},
 		"latency": {
 			"topModels": "Najwolniejsze modele",
@@ -316,7 +316,9 @@
 			"emptyState": "Brak danych o opóźnieniach. Opóźnienie dostawcy pojawi się tutaj po przepływie ruchu.",
 			"responseTooltip": "Średni czas odpowiedzi: {{value}} ({{count}} żądania)",
 			"overheadTooltip": "Średni koszt serwera proxy: {{value}} (żądania{{count}})",
-			"requestCount": "Prośby {{count}}"
+			"requestCount": "Prośby {{count}}",
+			"responseHeaderTooltip": "Średni całkowity czas odpowiedzi, w tym własny narzut bramy.",
+			"overheadHeaderTooltip": "Średni czas dodawany przez samą bramę (trasowanie, uwierzytelnianie, pomiary), bez czasu odpowiedzi dostawcy."
 		},
 		"providers": {
 			"top": "Top dostawcy",
@@ -1805,7 +1807,9 @@
 			"cancelNameAriaLabel": "Anuluj zmianę nazwy",
 			"renameAriaLabel": "Zmień nazwę hasła",
 			"failedToRename": "Nie udało się zmienić nazwy hasła: {{message}}",
-			"unavailableDescription": "Passkeys are not supported by this browser or device."
+			"unavailableDescription": "Passkeys are not supported by this browser or device.",
+			"deleteConfirmTitle": "Usunąć klucz dostępu?",
+			"deleteConfirmMessage": "Spowoduje to trwałe usunięcie klucza dostępu. Aby z niego korzystać, trzeba będzie zarejestrować go ponownie."
 		},
 		"observability": {
 			"json.description": "Generuj ustrukturyzowane logi jako jeden obiekt JSON na linię dla kolektorów logów stdout, takich jak Fluent Bit, Vector lub Promtail.",
@@ -1818,14 +1822,14 @@
 			"otel.instructions": "Skieruj to na swój punkt końcowy kolektora OTLP i uruchom ponownie kontener, aby przesłać logi przez OpenTelemetry:",
 			"otel.name": "Logi OpenTelemetry (OTLP)",
 			"title": "Obserwowalność i eksport logów",
-			"description": "Model Hotel może eksportować swoje ustrukturyzowane logi i metryki do systemów zewnętrznych. Każda integracja jest włączana za pomocą zmiennej środowiskowej; poniższe znaczniki statusu odzwierciedlają aktualny stan. Nigdy nie są eksportowane treści żądań ani odpowiedzi — tylko metadane dotyczące routingu i pomiarów.",
+			"description": "Model Hotel może eksportować swoje ustrukturyzowane logi i metryki do systemów zewnętrznych. Każda integracja jest włączana za pomocą zmiennej środowiskowej; poniższe znaczniki statusu odzwierciedlają aktualny stan. Nigdy nie są eksportowane treści żądań ani odpowiedzi - tylko metadane dotyczące routingu i pomiarów.",
 			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "Adres URL interfejsu API Apprise",
 			"apiUrlDescription": "Podstawowy adres URL kontenera apprise-api, który uruchamiasz (na przykład http://apprise:8000).",
 			"clear": "Wyczyść",
-			"description": "Powiadomienia push o istotnych zdarzeniach (awaria dostawcy, zadziałanie wyłącznika awaryjnego) do Telegramu, poczty e-mail, Discorda i innych kanałów za pośrednictwem uruchomionego przez użytkownika bezstanowego kontenera Apprise. Nigdy nie są wysyłane treści żądań — jedynie podsumowanie zdarzenia.",
+			"description": "Powiadomienia push o istotnych zdarzeniach (awaria dostawcy, zadziałanie wyłącznika awaryjnego) do Telegramu, poczty e-mail, Discorda i innych kanałów za pośrednictwem uruchomionego przez użytkownika bezstanowego kontenera Apprise. Nigdy nie są wysyłane treści żądań - jedynie podsumowanie zdarzenia.",
 			"enable": "Włącz powiadomienia",
 			"enableDescription": "Przekazuj wybrane zdarzenia do swojego punktu końcowego Apprise.",
 			"event": {
@@ -1844,11 +1848,11 @@
 			"eventsLabel": "Zdarzenia alertowe",
 			"snippets": {
 				"browseAll": "Przeglądaj wszystkie ponad 80 usług",
-				"description": "Przykładowe formaty adresów URL serwisu Apprise dla popularnych usług — skopiuj jeden z nich, uzupełnij swoje dane i wklej go powyżej."
+				"description": "Przykładowe formaty adresów URL serwisu Apprise dla popularnych usług - skopiuj jeden z nich, uzupełnij swoje dane i wklej go powyżej."
 			},
 			"target": "Odbiorca powiadomienia",
-			"targetConfigured": "Skonfigurowane — wpisz tekst zastępczy",
-			"targetDescription": "Twój adres URL Apprise — przechowywany w postaci zaszyfrowanej i nigdy więcej nie wyświetlany. Wiele adresów docelowych należy oddzielać za pomocą <code>;</code>.",
+			"targetConfigured": "Skonfigurowane - wpisz tekst zastępczy",
+			"targetDescription": "Twój adres URL Apprise - przechowywany w postaci zaszyfrowanej i nigdy więcej nie wyświetlany. Wiele adresów docelowych należy oddzielać za pomocą <code>;</code>.",
 			"testButton": "Wyślij powiadomienie testowe",
 			"testFailed": "Powiadomienie o niepowodzeniu testu: {{message}}",
 			"testHint": "Włącz powiadomienia i ustaw zarówno adres URL interfejsu API Apprise, jak i adres docelowy, aby wysłać test.",
@@ -1860,7 +1864,7 @@
 				"issues": "apprise-api jest dostępne, ale zgłasza problemy",
 				"reachable": "apprise-api dostępny",
 				"recheck": "Sprawdź ponownie",
-				"unreachable": "apprise-api niedostępne — sprawdź adres URL i upewnij się, że kontener działa",
+				"unreachable": "apprise-api niedostępne - sprawdź adres URL i upewnij się, że kontener działa",
 				"checkFailed": "Sprawdzenie stanu nie powiodło się"
 			}
 		},

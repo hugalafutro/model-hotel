@@ -924,7 +924,7 @@ func TestDoTestModelRequest_CustomCheckRedirect(t *testing.T) {
 // directly to avoid needing the full router setup.
 func TestDeleteModel_NonExistentModelByID(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	testDB, err := db.New(context.Background(), apiTestDBURL, 25, 5)
@@ -958,7 +958,7 @@ func TestDeleteModel_NonExistentModelByID(t *testing.T) {
 // and the DeleteByID error path.
 func TestDeleteModel_ClosedPool(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	// Create a DB, then close its underlying pool to cause query errors
@@ -993,7 +993,7 @@ func TestDeleteModel_ClosedPool(t *testing.T) {
 // handler call rather than the router to avoid route middleware interference.
 func TestDeleteModel_CancelledContext_Direct(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	testDB, err := db.New(context.Background(), apiTestDBURL, 25, 5)
@@ -1033,7 +1033,7 @@ func TestDeleteModel_CancelledContext_Direct(t *testing.T) {
 // initial SELECT model_id query fails with a non-ErrNoRows error.
 func TestDeleteModel_DBLookupError(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	testDB, err := db.New(context.Background(), apiTestDBURL, 25, 5)
@@ -1070,7 +1070,7 @@ func TestDeleteModel_DBLookupError(t *testing.T) {
 
 func TestResolveTestModelTarget_DisabledModel(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	h, r := newTestHandlerWithRouter(t)
@@ -1131,7 +1131,7 @@ func TestResolveTestModelTarget_DisabledModel(t *testing.T) {
 
 func TestResolveTestModelTarget_ProviderNotFound(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	h, r := newTestHandlerWithRouter(t)
@@ -1188,7 +1188,7 @@ func TestResolveTestModelTarget_ProviderNotFound(t *testing.T) {
 
 func TestDeleteModel_SuccessWithFailoverSync(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	testDB, err := db.New(context.Background(), apiTestDBURL, 25, 5)

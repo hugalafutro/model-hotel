@@ -156,12 +156,12 @@ func TestWebAuthnHandler_DeleteCredential_InvalidBase64URL(t *testing.T) {
 func TestWebAuthnHandler_DeleteCredential_ValidButNonExistent(t *testing.T) {
 	dbURL := apiTestDBURL
 	if dbURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	defer pool.Close()
 
@@ -304,12 +304,12 @@ func TestAdminOrSessionAuth_NoAuth(t *testing.T) {
 func TestAdminOrSessionAuth_InvalidToken(t *testing.T) {
 	dbURL := apiTestDBURL
 	if dbURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	defer pool.Close()
 
@@ -363,12 +363,12 @@ func TestAdminOrSessionAuth_AdminToken(t *testing.T) {
 func TestAdminOrSessionAuth_SessionToken(t *testing.T) {
 	dbURL := apiTestDBURL
 	if dbURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	defer pool.Close()
 
@@ -405,12 +405,12 @@ func TestAdminOrSessionAuth_SessionToken(t *testing.T) {
 func TestWebAuthnHandler_Logout_WithValidToken(t *testing.T) {
 	dbURL := apiTestDBURL
 	if dbURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	defer pool.Close()
 
@@ -450,12 +450,12 @@ func TestWebAuthnHandler_Logout_WithValidToken(t *testing.T) {
 func TestListCredentials_Success(t *testing.T) {
 	dbURL := apiTestDBURL
 	if dbURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	defer pool.Close()
 
@@ -569,12 +569,12 @@ func TestWebAuthnHandler_DeleteCredential_EmptyID(t *testing.T) {
 func TestWebAuthnHandler_RenameCredential_ValidName(t *testing.T) {
 	dbURL := apiTestDBURL
 	if dbURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	t.Cleanup(pool.Close)
 
@@ -641,12 +641,12 @@ func TestWebAuthnHandler_RenameCredential_ValidName(t *testing.T) {
 func TestWebAuthnHandler_ListCredentials_WithStoredCredential(t *testing.T) {
 	dbURL := apiTestDBURL
 	if dbURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	t.Cleanup(pool.Close)
 
@@ -755,12 +755,12 @@ func TestWebAuthnHandler_RenameCredential_EmptyID(t *testing.T) {
 func TestWebAuthnHandler_RegisterFinish_WrongSessionType(t *testing.T) {
 	dbURL := apiTestDBURL
 	if dbURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	t.Cleanup(pool.Close)
 
@@ -805,12 +805,12 @@ func TestWebAuthnHandler_RegisterFinish_WrongSessionType(t *testing.T) {
 func TestWebAuthnHandler_LoginFinish_WrongSessionType(t *testing.T) {
 	dbURL := apiTestDBURL
 	if dbURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	t.Cleanup(pool.Close)
 
@@ -855,12 +855,12 @@ func TestWebAuthnHandler_LoginFinish_WrongSessionType(t *testing.T) {
 func TestWebAuthnHandler_DeleteCredential_Success(t *testing.T) {
 	dbURL := apiTestDBURL
 	if dbURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	t.Cleanup(pool.Close)
 
@@ -924,12 +924,12 @@ func TestWebAuthnHandler_DeleteCredential_Success(t *testing.T) {
 func TestWebAuthnHandler_RegisterFinish_SessionNotFound(t *testing.T) {
 	dbURL := apiTestDBURL
 	if dbURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	t.Cleanup(pool.Close)
 
@@ -955,12 +955,12 @@ func TestWebAuthnHandler_RegisterFinish_SessionNotFound(t *testing.T) {
 func TestWebAuthnHandler_LoginFinish_SessionNotFound(t *testing.T) {
 	dbURL := apiTestDBURL
 	if dbURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	t.Cleanup(pool.Close)
 
@@ -1023,12 +1023,12 @@ func TestWebAuthnHandler_LoginStart_NilRelyingParty(t *testing.T) {
 func TestWebAuthnHandler_RegisterStart_CreateSessionError(t *testing.T) {
 	dbURL := apiTestDBURL
 	if dbURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	pool.Close() // close immediately so CreateSession fails
 
@@ -1063,12 +1063,12 @@ func TestWebAuthnHandler_RegisterStart_CreateSessionError(t *testing.T) {
 func TestWebAuthnHandler_LoginStart_CreateSessionError(t *testing.T) {
 	dbURL := apiTestDBURL
 	if dbURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	pool.Close() // close immediately so CreateSession fails
 
@@ -1102,12 +1102,12 @@ func TestWebAuthnHandler_LoginStart_CreateSessionError(t *testing.T) {
 func TestWebAuthnHandler_RegisterFinish_ListCredentialsErrorDuringFinish(t *testing.T) {
 	dbURL := apiTestDBURL
 	if dbURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	t.Cleanup(pool.Close)
 
@@ -1136,7 +1136,7 @@ func TestWebAuthnHandler_RegisterFinish_ListCredentialsErrorDuringFinish(t *test
 	// unmarshalling session data) fails
 	closedPool, err2 := pgxpool.New(context.Background(), dbURL)
 	if err2 != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	closedPool.Close()
 	closedRepo := webauthn.NewRepository(closedPool)
@@ -1184,12 +1184,12 @@ func TestWebAuthnHandler_RegisterFinish_ListCredentialsErrorDuringFinish(t *test
 func TestWebAuthnHandler_LoginFinish_InvalidCredential(t *testing.T) {
 	dbURL := apiTestDBURL
 	if dbURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	t.Cleanup(pool.Close)
 
@@ -1237,12 +1237,12 @@ func TestWebAuthnHandler_LoginFinish_InvalidCredential(t *testing.T) {
 func TestWebAuthnHandler_RegisterFinish_InvalidCredential(t *testing.T) {
 	dbURL := apiTestDBURL
 	if dbURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	t.Cleanup(pool.Close)
 
@@ -1507,12 +1507,12 @@ func TestWebAuthnHandler_Register_ReadOnlyBlocksMutations(t *testing.T) {
 func TestWebAuthnHandler_RegisterStart_NilRelyingPartyWithDB(t *testing.T) {
 	dbURL := apiTestDBURL
 	if dbURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	defer pool.Close()
 
@@ -1538,12 +1538,12 @@ func TestWebAuthnHandler_RegisterStart_NilRelyingPartyWithDB(t *testing.T) {
 func TestWebAuthnHandler_RegisterFinish_InvalidSessionData(t *testing.T) {
 	dbURL := apiTestDBURL
 	if dbURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	t.Cleanup(pool.Close)
 
@@ -1606,12 +1606,12 @@ func TestWebAuthnHandler_LoginStart_NilRepoWithRP(t *testing.T) {
 func TestWebAuthnHandler_LoginFinish_InvalidSessionData(t *testing.T) {
 	dbURL := apiTestDBURL
 	if dbURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	t.Cleanup(pool.Close)
 
@@ -1732,12 +1732,12 @@ func TestWebAuthnHandler_RenameCredential_MissingNameField(t *testing.T) {
 func TestWebAuthnHandler_RenameCredential_NonExistentCredential(t *testing.T) {
 	dbURL := apiTestDBURL
 	if dbURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	t.Cleanup(pool.Close)
 
@@ -1772,12 +1772,12 @@ func TestWebAuthnHandler_RenameCredential_NonExistentCredential(t *testing.T) {
 // RegisterStart: ListCredentials → BeginRegistration → json.Marshal → CreateSession → writeJSON.
 func TestWebAuthnHandler_RegisterStart_Success(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	t.Cleanup(pool.Close)
 
@@ -1834,12 +1834,12 @@ func TestWebAuthnHandler_RegisterStart_Success(t *testing.T) {
 // LoginStart: BeginDiscoverableLogin → json.Marshal → CreateSession → writeJSON.
 func TestWebAuthnHandler_LoginStart_Success(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	t.Cleanup(pool.Close)
 
@@ -1895,12 +1895,12 @@ func TestWebAuthnHandler_LoginStart_Success(t *testing.T) {
 // returns 500 when the request context is cancelled (ListCredentials fails).
 func TestWebAuthnHandler_RegisterStart_CancelledContext(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	t.Cleanup(pool.Close)
 
@@ -1932,12 +1932,12 @@ func TestWebAuthnHandler_RegisterStart_CancelledContext(t *testing.T) {
 // BeginDiscoverableLogin does not use the context).
 func TestWebAuthnHandler_LoginStart_CancelledContext(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	t.Cleanup(pool.Close)
 
@@ -1971,12 +1971,12 @@ func TestWebAuthnHandler_LoginStart_CancelledContext(t *testing.T) {
 // set but the body write fails). The handler must not panic.
 func TestWebAuthnHandler_RegisterStart_WriteJSONError(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	t.Cleanup(pool.Close)
 
@@ -2003,12 +2003,12 @@ func TestWebAuthnHandler_RegisterStart_WriteJSONError(t *testing.T) {
 // handles writeJSON failures gracefully.
 func TestWebAuthnHandler_LoginStart_WriteJSONError(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	t.Cleanup(pool.Close)
 
@@ -2071,12 +2071,12 @@ func TestWebAuthnHandler_LoginFinish_EmptyBody(t *testing.T) {
 // with empty/malformed credential bodies.
 func TestWebAuthnHandler_RegisterFinish_WithSyntacticallyValidCredential(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	t.Cleanup(pool.Close)
 
@@ -2274,12 +2274,12 @@ func buildFakeLoginCredential(t *testing.T, credentialIDB64 string) json.RawMess
 // This covers the userLookup + ValidatePasskeyLogin error paths.
 func TestWebAuthnHandler_LoginFinish_WithSyntacticallyValidCredential(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	t.Cleanup(pool.Close)
 
@@ -2338,12 +2338,12 @@ func TestWebAuthnHandler_LoginFinish_WithSyntacticallyValidCredential(t *testing
 // returns an error when the request context is cancelled (GetSession fails).
 func TestWebAuthnHandler_RegisterFinish_CancelledContext(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	t.Cleanup(pool.Close)
 
@@ -2372,12 +2372,12 @@ func TestWebAuthnHandler_RegisterFinish_CancelledContext(t *testing.T) {
 // an error when the request context is cancelled (GetSession fails).
 func TestWebAuthnHandler_LoginFinish_CancelledContext(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	t.Cleanup(pool.Close)
 
@@ -2408,12 +2408,12 @@ func TestWebAuthnHandler_LoginFinish_CancelledContext(t *testing.T) {
 // an error when the database pool is closed (GetSession fails, mapped to 400).
 func TestWebAuthnHandler_RegisterFinish_ClosedPool(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	t.Cleanup(pool.Close)
 
@@ -2454,12 +2454,12 @@ func TestWebAuthnHandler_RegisterFinish_ClosedPool(t *testing.T) {
 // an error when the database pool is closed (GetSession fails, mapped to 400).
 func TestWebAuthnHandler_LoginFinish_ClosedPool(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	t.Cleanup(pool.Close)
 
@@ -2503,12 +2503,12 @@ func TestWebAuthnHandler_LoginFinish_ClosedPool(t *testing.T) {
 // is created successfully by the library but BeginRegistration returns an error.
 func TestWebAuthnHandler_RegisterStart_BeginRegistrationError(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	t.Cleanup(pool.Close)
 
@@ -2543,12 +2543,12 @@ func TestWebAuthnHandler_RegisterStart_BeginRegistrationError(t *testing.T) {
 // causes BeginDiscoverableLogin to return an error.
 func TestWebAuthnHandler_LoginStart_BeginDiscoverableLoginError(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	t.Cleanup(pool.Close)
 
@@ -2582,12 +2582,12 @@ func TestWebAuthnHandler_LoginStart_BeginDiscoverableLoginError(t *testing.T) {
 // but ValidatePasskeyLogin still fails (signature is fake).
 func TestWebAuthnHandler_LoginFinish_WithStoredCredential(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	t.Cleanup(pool.Close)
 
@@ -2671,12 +2671,12 @@ func TestWebAuthnHandler_LoginFinish_WithStoredCredential(t *testing.T) {
 // the loop body is never entered.
 func TestWebAuthnHandler_RegisterStart_WithExistingCredentials(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	t.Cleanup(pool.Close)
 
@@ -2819,12 +2819,12 @@ func TestWebAuthnHandler_RenameCredential_RepoError(t *testing.T) {
 // This specifically covers lines 221-226 that are not covered by other tests.
 func TestWebAuthnHandler_RegisterFinish_ListCredentialsErrorAfterSession(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	t.Cleanup(pool.Close)
 

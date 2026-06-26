@@ -14,11 +14,11 @@ import (
 func getTestPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
 	if err != nil {
-		t.Skipf("skipping: failed to create pool: %v", err)
+		t.Fatalf("failed to create pool: %v", err)
 	}
 	t.Cleanup(func() { pool.Close() })
 	return pool

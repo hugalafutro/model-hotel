@@ -101,9 +101,9 @@
 			"requests": "Anmodninger",
 			"appLogs": "Logfiler",
 			"settings": "Indstillinger",
-			"failoverBadgeExplain": "Failover-udbydere efter afbryderstatus — {{closed}} fungerer / {{halfOpen}} genopretter / {{open}} udløst",
-			"discoveryChangesBadge_one": "{{count}} ændring fra baggrundsdetektering — klik for at gennemgå",
-			"discoveryChangesBadge_other": "{{count}} ændringer fra baggrundsdetektering — klik for at gennemgå"
+			"failoverBadgeExplain": "Failover-udbydere efter afbryderstatus - {{closed}} fungerer / {{halfOpen}} genopretter / {{open}} udløst",
+			"discoveryChangesBadge_one": "{{count}} ændring fra baggrundsdetektering - klik for at gennemgå",
+			"discoveryChangesBadge_other": "{{count}} ændringer fra baggrundsdetektering - klik for at gennemgå"
 		},
 		"status": {
 			"apiStatus": "API-status",
@@ -184,7 +184,7 @@
 		},
 		"githubRepo": "GitHub-repository",
 		"readOnly": {
-			"banner": "Skrivebeskyttet demo — oprettelse, redigering og sletning er deaktiveret."
+			"banner": "Skrivebeskyttet demo - oprettelse, redigering og sletning er deaktiveret."
 		},
 		"errorShelf": {
 			"acknowledge": "Afvis",
@@ -299,7 +299,7 @@
 			"topVirtualKeys": "Top virtuelle nøgler",
 			"emptyState": "Ingen brugsdata endnu. Brugsfejl vises her, når trafikken strømmer.",
 			"viewDetailsFor": "Se detaljer for {{label}}",
-			"deletedModelTooltip": "Modellen er ikke længere tilgængelig — den er muligvis blevet slettet, eller leverandøren er blevet fjernet",
+			"deletedModelTooltip": "Modellen er ikke længere tilgængelig - den er muligvis blevet slettet, eller leverandøren er blevet fjernet",
 			"reservedKeyTooltip": "Internt reserveret navn, ikke en nøgle, du har oprettet – denne anvendelse stammer fra Model Hotels egne \"{{name}}\"-ruter"
 		},
 		"latency": {
@@ -316,7 +316,9 @@
 			"emptyState": "Ingen latens-data endnu. Leverandør latens-tid vises her, når trafikken strømmer.",
 			"responseTooltip": "Gns svartid: {{value}} ({{count}} anmodninger)",
 			"overheadTooltip": "Gns proxy over hovedet: {{value}} ({{count}} anmodninger)",
-			"requestCount": "{{count}} anmodninger"
+			"requestCount": "{{count}} anmodninger",
+			"responseHeaderTooltip": "Gennemsnitlig samlet svartid, inklusive gatewayens egen overhead.",
+			"overheadHeaderTooltip": "Gennemsnitlig tid, som gatewayen selv tilføjer (routing, godkendelse, måling), eksklusive udbyderens egen svartid."
 		},
 		"providers": {
 			"top": "Topudbydere",
@@ -1805,7 +1807,9 @@
 			"cancelNameAriaLabel": "Annuller omdøbning",
 			"renameAriaLabel": "Omdøb adgangsnøgle",
 			"failedToRename": "Kunne ikke omdøbe adgangskode: {{message}}",
-			"unavailableDescription": "Passkeys are not supported by this browser or device."
+			"unavailableDescription": "Passkeys are not supported by this browser or device.",
+			"deleteConfirmTitle": "Slet adgangsnøgle?",
+			"deleteConfirmMessage": "Dette sletter adgangsnøglen permanent. Du skal registrere den igen for at bruge den."
 		},
 		"observability": {
 			"json.description": "Udsend strukturerede logfiler som ét JSON-objekt pr. linje til stdout-logindsamlere såsom Fluent Bit, Vector eller Promtail.",
@@ -1818,14 +1822,14 @@
 			"otel.instructions": "Peg dette mod dit OTLP-indsamler-endpoint, og genstart containeren for at sende logfiler via OpenTelemetry:",
 			"otel.name": "OpenTelemetry-logfiler (OTLP)",
 			"title": "Observabilitet og logeksport",
-			"description": "Model Hotel kan eksportere sine strukturerede logfiler og målinger til eksterne systemer. Hver integration aktiveres med en miljøvariabel; statusbadges nedenfor afspejler den aktuelle tilstand. Der eksporteres aldrig indhold fra anmodninger eller svar — kun metadata om routing og måling.",
+			"description": "Model Hotel kan eksportere sine strukturerede logfiler og målinger til eksterne systemer. Hver integration aktiveres med en miljøvariabel; statusbadges nedenfor afspejler den aktuelle tilstand. Der eksporteres aldrig indhold fra anmodninger eller svar - kun metadata om routing og måling.",
 			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "Apprise API-URL",
 			"apiUrlDescription": "Base-URL for den apprise-api-container, du kører (f.eks. http://apprise:8000).",
 			"clear": "Ryd",
-			"description": "Send push-notifikationer om vigtige hændelser (f.eks. at en udbyder går ned eller en afbryder udløses) til Telegram, e-mail, Discord og mere via en stateless Apprise-container, som du kører. Der sendes aldrig noget anmodningsindhold — kun en oversigt over hændelsen.",
+			"description": "Send push-notifikationer om vigtige hændelser (f.eks. at en udbyder går ned eller en afbryder udløses) til Telegram, e-mail, Discord og mere via en stateless Apprise-container, som du kører. Der sendes aldrig noget anmodningsindhold - kun en oversigt over hændelsen.",
 			"enable": "Aktivér alarmer",
 			"enableDescription": "Videresend udvalgte begivenheder til dit Apprise-endpoint.",
 			"event": {
@@ -1844,11 +1848,11 @@
 			"eventsLabel": "Advarselshændelser",
 			"snippets": {
 				"browseAll": "Gennemse alle de over 80 tjenester",
-				"description": "Eksempler på Apprise-URL-formater for populære tjenester — kopier et af dem, udfyld dine oplysninger og indsæt det ovenfor."
+				"description": "Eksempler på Apprise-URL-formater for populære tjenester - kopier et af dem, udfyld dine oplysninger og indsæt det ovenfor."
 			},
 			"target": "Mål for notifikation",
-			"targetConfigured": "Konfigureret — skriv for at erstatte",
-			"targetDescription": "Din Apprise-URL — gemmes krypteret og vises aldrig igen. Adskil flere mål med <code>;</code>.",
+			"targetConfigured": "Konfigureret - skriv for at erstatte",
+			"targetDescription": "Din Apprise-URL - gemmes krypteret og vises aldrig igen. Adskil flere mål med <code>;</code>.",
 			"testButton": "Send testmeddelelse",
 			"testFailed": "Testmeddelelse mislykkedes: {{message}}",
 			"testHint": "Aktivér alarmering, og angiv både en Apprise API-URL og en modtager for at sende en test.",
@@ -1860,7 +1864,7 @@
 				"issues": "apprise-api er tilgængelig, men der rapporteres om problemer",
 				"reachable": "apprise-api tilgængelig",
 				"recheck": "Kontroller igen",
-				"unreachable": "apprise-api kan ikke nås — tjek URL'en, og at containeren kører",
+				"unreachable": "apprise-api kan ikke nås - tjek URL'en, og at containeren kører",
 				"checkFailed": "Statuskontrol mislykkedes"
 			}
 		},

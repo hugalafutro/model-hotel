@@ -639,7 +639,7 @@ func TestListLogs_WithLogs(t *testing.T) {
 // the database is unavailable.
 func TestPurgeLogs_DBError(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	closedPool := newClosedPool(t)
@@ -700,7 +700,7 @@ func TestPurgeLogs_InvalidOlderThan(t *testing.T) {
 // directly with a closed pool.
 func TestPurgeLogs_RepositoryDBError(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	closedPool := newClosedPool(t)
@@ -1800,7 +1800,7 @@ func TestGetLog_InvalidID(t *testing.T) {
 // returns an error other than pgx.ErrNoRows (e.g., connection error).
 func TestGetLog_DBError(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	// Create a db.DB and close it to simulate connection errors
@@ -1835,7 +1835,7 @@ func TestGetLog_DBError(t *testing.T) {
 // the "all" DELETE FROM request_logs query fails (e.g., closed DB pool).
 func TestPurgeLogs_AllWithDBError(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	// Create a db.DB and close it to simulate connection errors
@@ -1868,7 +1868,7 @@ func TestPurgeLogs_AllWithDBError(t *testing.T) {
 // the cutoff-based DELETE query fails (e.g., closed DB pool).
 func TestPurgeLogs_CutoffWithDBError(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	// Create a db.DB and close it to simulate connection errors
@@ -1903,7 +1903,7 @@ func TestPurgeLogs_CutoffWithDBError(t *testing.T) {
 
 func TestListLogs_CancelledContext(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	testDB, err := db.New(context.Background(), apiTestDBURL, 25, 5)
@@ -1942,7 +1942,7 @@ func TestListLogs_CancelledContext(t *testing.T) {
 
 func TestListLogsCursor_DirectCallWithCancelledContext(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	testDB, err := db.New(context.Background(), apiTestDBURL, 25, 5)

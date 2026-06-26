@@ -122,13 +122,30 @@ function Chip({ label, mono }: { label: string; mono?: boolean }) {
 }
 
 // A single label → value·value row (failover detail / shared layout).
+// `stacked` puts the model name on its own (wrapping) line above the reason,
+// so a long reason can't squeeze the name down to a few visible characters.
 function DetailRow({
 	primary,
 	secondary,
+	stacked,
 }: {
 	primary: string;
 	secondary: ReactNode;
+	stacked?: boolean;
 }) {
+	if (stacked) {
+		return (
+			<div className="space-y-0.5">
+				<div
+					className="break-words font-mono text-xs text-(--text-primary)"
+					title={primary}
+				>
+					{primary}
+				</div>
+				<div className="text-[11px] text-(--text-tertiary)">{secondary}</div>
+			</div>
+		);
+	}
 	return (
 		<div className="flex items-baseline justify-between gap-3">
 			<span
@@ -338,6 +355,7 @@ export function DiscoverySummaryModal({
 							{diff.failover_deleted_groups.map((g) => (
 								<DetailRow
 									key={g.display_model}
+									stacked
 									primary={g.display_model}
 									secondary={
 										FAILOVER_DELETE_REASON_KEYS[g.reason]
@@ -450,8 +468,10 @@ export function DiscoverySummaryModal({
 											className="flex min-w-0 flex-1 items-center gap-2 text-sm font-semibold text-(--text-primary)"
 											data-testid="discovery-summary-toggle"
 										>
-											<span className="truncate">{r.providerName}</span>
-											<span className="h-px flex-1 bg-(--accent)/50" />
+											<span className="truncate text-(--accent)">
+												{r.providerName}
+											</span>
+											<span className="h-px flex-1 bg-white/30" />
 											{collapsed.has(entryKeyOf(r)) ? (
 												<ChevronRight size={14} className="shrink-0" />
 											) : (

@@ -101,9 +101,9 @@
 			"requests": "Versoeke",
 			"appLogs": "Logboeke",
 			"settings": "Instellings",
-			"failoverBadgeExplain": "Failover-verskaffers volgens circuitbreker-toestand — {{closed}} gesond / {{halfOpen}} besig om te herstel / {{open}} uitgeskakel",
-			"discoveryChangesBadge_one": "{{count}} verandering vanaf agtergrondontdekking — klik om te hersien",
-			"discoveryChangesBadge_other": "{{count}} veranderings vanaf agtergrondontdekking — klik om te hersien"
+			"failoverBadgeExplain": "Failover-verskaffers volgens circuitbreker-toestand - {{closed}} gesond / {{halfOpen}} besig om te herstel / {{open}} uitgeskakel",
+			"discoveryChangesBadge_one": "{{count}} verandering vanaf agtergrondontdekking - klik om te hersien",
+			"discoveryChangesBadge_other": "{{count}} veranderings vanaf agtergrondontdekking - klik om te hersien"
 		},
 		"status": {
 			"apiStatus": "API-status",
@@ -184,7 +184,7 @@
 		},
 		"githubRepo": "GitHub-bewaarplek",
 		"readOnly": {
-			"banner": "Slegs-lees-demo — skep, wysig en verwyder is gedeaktiveer."
+			"banner": "Slegs-lees-demo - skep, wysig en verwyder is gedeaktiveer."
 		},
 		"errorShelf": {
 			"acknowledge": "Verwerp",
@@ -299,7 +299,7 @@
 			"topVirtualKeys": "Top virtuele sleutels",
 			"emptyState": "Nog geen gebruiksdata nie. 'n Gebruiksopdeling sal hier verskyn sodra verkeer vloei.",
 			"viewDetailsFor": "Beskou besonderhede vir {{label}}",
-			"deletedModelTooltip": "Model nie meer beskikbaar nie — dit is moontlik geskrap of sy verskaffer is verwyder",
+			"deletedModelTooltip": "Model nie meer beskikbaar nie - dit is moontlik geskrap of sy verskaffer is verwyder",
 			"reservedKeyTooltip": "Interne voorbehoude naam, nie 'n sleutel wat jy geskep het nie - hierdie gebruik kom van Model Hotel se eie \"{{name}}\"-roetes"
 		},
 		"latency": {
@@ -316,7 +316,9 @@
 			"emptyState": "Nog geen latensie-data nie. Verskafferlatensie sal hier verskyn sodra verkeer vloei.",
 			"responseTooltip": "Gemiddelde reaksietyd: {{value}} ({{count}} versoeke)",
 			"overheadTooltip": "Gemiddelde proxy-overhoofdse koste: {{value}} ({{count}} versoeke)",
-			"requestCount": "{{count}} versoeke"
+			"requestCount": "{{count}} versoeke",
+			"responseHeaderTooltip": "Gemiddelde totale reaksietyd, insluitend die poort se eie bokoste.",
+			"overheadHeaderTooltip": "Gemiddelde tyd wat die poort self byvoeg (roetering, verifikasie, meting), die verskaffer se eie reaksietyd uitgesluit."
 		},
 		"providers": {
 			"top": "Top verskaffers",
@@ -1805,7 +1807,9 @@
 			"cancelNameAriaLabel": "Annuleer hernoeming",
 			"renameAriaLabel": "Herbenoem pasleutel",
 			"failedToRename": "Het misluk om die paswoord te hernoem: {{message}}",
-			"unavailableDescription": "Passkeys are not supported by this browser or device."
+			"unavailableDescription": "Passkeys are not supported by this browser or device.",
+			"deleteConfirmTitle": "Verwyder pasleutel?",
+			"deleteConfirmMessage": "Dit verwyder die pasleutel permanent. Jy sal dit weer moet registreer om dit te gebruik."
 		},
 		"observability": {
 			"json.description": "Gestruktureerde loglêings as een JSON-voorwerp per reël, vir stdout-logversamelaars soos Fluent Bit, Vector of Promtail.",
@@ -1818,14 +1822,14 @@
 			"otel.instructions": "Rig dit op jou OTLP-versamelaar-eindpunt en herbegin die houer om logs via OpenTelemetry oor te stuur:",
 			"otel.name": "OpenTelemetry-logs (OTLP)",
 			"title": "Observabiliteit & Log-uitvoer",
-			"description": "Model Hotel kan sy gestruktureerde loglêers en metrieks na eksterne stelsels uitvoer. Elke integrasie word met 'n omgewingsveranderlike geaktiveer; die statuskentekens hieronder weerspieël die huidige toestand. Geen versoek- of reaksie-inhoud word ooit uitgevoer nie — slegs roetering- en meetmetagegewens.",
+			"description": "Model Hotel kan sy gestruktureerde loglêers en metrieks na eksterne stelsels uitvoer. Elke integrasie word met 'n omgewingsveranderlike geaktiveer; die statuskentekens hieronder weerspieël die huidige toestand. Geen versoek- of reaksie-inhoud word ooit uitgevoer nie - slegs roetering- en meetmetagegewens.",
 			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "Apprise API-URL",
 			"apiUrlDescription": "Basislink van die apprise-api-houer wat jy gebruik (byvoorbeeld http://apprise:8000).",
 			"clear": "Duidelik",
-			"description": "Stootkennisgewings vir noemenswaardige gebeure ('n verskaffer wat uitval, 'n stroombreker wat afskakel) na Telegram, e-pos, Discord en meer via 'n statelose Apprise-houer wat jy laat loop. Geen versoekinhoud word ooit gestuur nie — net die gebeurtenissamevatting.",
+			"description": "Stootkennisgewings vir noemenswaardige gebeure ('n verskaffer wat uitval, 'n stroombreker wat afskakel) na Telegram, e-pos, Discord en meer via 'n statelose Apprise-houer wat jy laat loop. Geen versoekinhoud word ooit gestuur nie - net die gebeurtenissamevatting.",
 			"enable": "Aktiveer kennisgewing",
 			"enableDescription": "Stuur geselekteerde gebeure na jou Apprise-eindpunt.",
 			"event": {
@@ -1844,11 +1848,11 @@
 			"eventsLabel": "Waarskuwingsgebeurtenisse",
 			"snippets": {
 				"browseAll": "Blaai deur al die 80+ dienste",
-				"description": "Voorbeeld Apprise-URL-formate vir gewilde dienste — kopieer een, vul jou besonderhede in en plak dit hierbo."
+				"description": "Voorbeeld Apprise-URL-formate vir gewilde dienste - kopieer een, vul jou besonderhede in en plak dit hierbo."
 			},
 			"target": "Kennisgewingsdoelwit",
-			"targetConfigured": "Gekonfigureer — tipe om te vervang",
-			"targetDescription": "Jou Apprise-URL — gestoor en versleuteld en nooit weer gewys nie. Schei verskeie teikens met <code>;</code>.",
+			"targetConfigured": "Gekonfigureer - tipe om te vervang",
+			"targetDescription": "Jou Apprise-URL - gestoor en versleuteld en nooit weer gewys nie. Schei verskeie teikens met <code>;</code>.",
 			"testButton": "Stuur toetskennisgewing",
 			"testFailed": "Toetskennisgewing misluk: {{message}}",
 			"testHint": "Aktiveer kennisgewing en stel beide 'n Apprise API-URL en 'n teiken in om 'n toets te stuur.",
@@ -1860,7 +1864,7 @@
 				"issues": "apprise-api bereikbaar, maar meld probleme",
 				"reachable": "apprise-api bereikbaar",
 				"recheck": "Hersien",
-				"unreachable": "apprise-api onbereikbaar — kontroleer die URL en dat die houer aan die gang is",
+				"unreachable": "apprise-api onbereikbaar - kontroleer die URL en dat die houer aan die gang is",
 				"checkFailed": "Statuskontrole misluk"
 			}
 		},

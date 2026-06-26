@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Check, Fingerprint, Pencil, Plus, Trash2, X } from "@/lib/icons";
 import { api } from "../../api/client";
 import type { WebAuthnCredential } from "../../api/types";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { useToast } from "../../context/ToastContext";
 import { formatDateTimeShort } from "../../utils/format";
 import { isWebAuthnAvailable, registerPasskey } from "../../utils/webauthn";
@@ -161,6 +162,7 @@ function CredentialRow({
 }) {
 	const [editing, setEditing] = useState(false);
 	const [draft, setDraft] = useState(cred.name);
+	const [confirmDelete, setConfirmDelete] = useState(false);
 
 	const displayName =
 		cred.name ||
@@ -225,7 +227,7 @@ function CredentialRow({
 						<button
 							type="button"
 							onClick={() => {
-								setDraft(cred.name);
+								setDraft(cred.name || displayName);
 								setEditing(true);
 							}}
 							className="ui-link-accent flex items-center gap-1.5 text-sm text-white group truncate"
@@ -249,7 +251,7 @@ function CredentialRow({
 			</div>
 			<button
 				type="button"
-				onClick={() => deleteMutation.mutate(cred.id)}
+				onClick={() => setConfirmDelete(true)}
 				disabled={deleteMutation.isPending}
 				className="text-(--text-muted) hover:text-red-400 transition-colors p-1 disabled:opacity-50"
 				aria-label={t("settings.passkeys.deleteAriaLabel")}
@@ -257,6 +259,19 @@ function CredentialRow({
 			>
 				<Trash2 size={16} />
 			</button>
+			{confirmDelete && (
+				<ConfirmDialog
+					title={t("settings.passkeys.deleteConfirmTitle")}
+					message={t("settings.passkeys.deleteConfirmMessage")}
+					fields={[displayName]}
+					confirmLabel={t("common.delete")}
+					onConfirm={() => {
+						setConfirmDelete(false);
+						deleteMutation.mutate(cred.id);
+					}}
+					onCancel={() => setConfirmDelete(false)}
+				/>
+			)}
 		</div>
 	);
 }

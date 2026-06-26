@@ -101,7 +101,7 @@
 			"requests": "Förfrågningar",
 			"appLogs": "Loggar",
 			"settings": "Inställningar",
-			"failoverBadgeExplain": "Failover-leverantörer efter circuit-breaker-status — {{closed}} fungerar / {{halfOpen}} återställs / {{open}} utlöst",
+			"failoverBadgeExplain": "Failover-leverantörer efter circuit-breaker-status - {{closed}} fungerar / {{halfOpen}} återställs / {{open}} utlöst",
 			"discoveryChangesBadge_one": "{{count}} ändring från bakgrundsupptäckt – klicka för att granska",
 			"discoveryChangesBadge_other": "{{count}} ändringar från bakgrundsdetektering – klicka för att granska"
 		},
@@ -316,7 +316,9 @@
 			"emptyState": "Inga latensdata än. Leverantörens latens kommer att visas här när trafikflöden.",
 			"responseTooltip": "Genomsnittlig svarstid: {{value}} ({{count}} förfrågningar)",
 			"overheadTooltip": "Avg proxyoverhead: {{value}} ({{count}} förfrågningar)",
-			"requestCount": "{{count}} förfrågningar"
+			"requestCount": "{{count}} förfrågningar",
+			"responseHeaderTooltip": "Genomsnittlig total svarstid, inklusive gatewayens egen omkostnad.",
+			"overheadHeaderTooltip": "Genomsnittlig tid som gatewayen själv lägger till (routning, autentisering, mätning), exklusive leverantörens egen svarstid."
 		},
 		"providers": {
 			"top": "Toppleverantörer",
@@ -1805,7 +1807,9 @@
 			"cancelNameAriaLabel": "Avbryt namnbyte",
 			"renameAriaLabel": "Döp om lösenordet",
 			"failedToRename": "Det gick inte att byta namn på lösenord: {{message}}",
-			"unavailableDescription": "Passkeys are not supported by this browser or device."
+			"unavailableDescription": "Passkeys are not supported by this browser or device.",
+			"deleteConfirmTitle": "Ta bort lösenordsnyckel?",
+			"deleteConfirmMessage": "Detta tar bort lösenordsnyckeln permanent. Du måste registrera den igen för att kunna använda den."
 		},
 		"observability": {
 			"json.description": "Skicka strukturerade loggar som ett JSON-objekt per rad, för stdout-loggsamlare som Fluent Bit, Vector eller Promtail.",
@@ -1847,7 +1851,7 @@
 				"description": "Exempel på Apprise-URL-format för populära tjänster – kopiera ett, fyll i dina uppgifter och klistra in det ovan."
 			},
 			"target": "Mottagare av aviseringar",
-			"targetConfigured": "Konfigurerad — skriv in ersättningstext",
+			"targetConfigured": "Konfigurerad - skriv in ersättningstext",
 			"targetDescription": "Din Apprise-URL – lagras krypterad och visas aldrig igen. Separera flera mål med <code>;</code>.",
 			"testButton": "Skicka testmeddelande",
 			"testFailed": "Testmeddelandet misslyckades: {{message}}",
@@ -1860,7 +1864,7 @@
 				"issues": "apprise-api är tillgängligt men rapporterar problem",
 				"reachable": "apprise-api nåbar",
 				"recheck": "Kontrollera igen",
-				"unreachable": "apprise-api kan inte nås — kontrollera URL:en och att containern körs",
+				"unreachable": "apprise-api kan inte nås - kontrollera URL:en och att containern körs",
 				"checkFailed": "Statuskontrollen misslyckades"
 			}
 		},

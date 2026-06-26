@@ -140,7 +140,7 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 			{/* biome-ignore lint/a11y/useKeyWithClickEvents: purely structural click propagation control */}
 			<div
 				className={`relative ui-card p-6 w-full ${maxWidth}${
-					scrollable ? " max-h-[85vh] overflow-y-auto" : ""
+					scrollable ? " max-h-[85vh] flex flex-col" : ""
 				}`}
 				onClick={(e) => e.stopPropagation()}
 			>
@@ -153,20 +153,24 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 					<X size={20} />
 				</button>
 				{header ? (
-					<div id={headingId} className="pr-10">
+					<div id={headingId} className="shrink-0 pr-10">
 						{header}
 					</div>
 				) : (
 					title && (
 						<h2
 							id={headingId}
-							className="text-xl font-bold text-white mb-4 pr-10"
+							className="shrink-0 text-xl font-bold text-white mb-4 pr-10"
 						>
 							{title}
 						</h2>
 					)
 				)}
-				{children}
+				{scrollable ? (
+					<div className="min-h-0 overflow-y-auto">{children}</div>
+				) : (
+					children
+				)}
 			</div>
 		</div>,
 		document.body,
