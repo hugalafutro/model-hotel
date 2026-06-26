@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, api } from "../api/client";
-import type { FleetMemberStatus, FleetStatus, MemberView } from "../api/types";
+import type {
+	FleetMemberStatus,
+	FleetStatus,
+	FleetSyncState,
+	MemberView,
+} from "../api/types";
 import { useToast } from "../context/ToastContext";
-import { reportResults } from "./AdminTokenPanels";
+import { reportResults } from "../utils/syncResults";
+import { formatRelative } from "../utils/time";
 import { ConfirmModal } from "./ConfirmModal";
 import { Notice } from "./Notice";
 
@@ -61,8 +67,22 @@ export function FleetSyncWizard({
 	const [busy, setBusy] = useState(false);
 	const [confirm, setConfirm] = useState<"admin" | "config" | null>(null);
 	const [configDone, setConfigDone] = useState(false);
+	const [lastSync, setLastSync] = useState<FleetSyncState | null>(null);
 
 	const nameOf = (id: string) => members.find((m) => m.id === id)?.name ?? id;
+
+	// Surface that the wizard has run before (and against which primary) so a
+	// fresh-looking step 1 after a container rebuild does not read as "never set
+	// up". 204 (never run) resolves to null and shows nothing.
+	const loadLastSync = useCallback(() => {
+		api
+			.fleetLastSync()
+			.then((s) => setLastSync(s ?? null))
+			.catch(() => {});
+	}, []);
+	useEffect(() => {
+		loadLastSync();
+	}, [loadLastSync]);
 
 	const refresh = useCallback(
 		async (id: string) => {
@@ -82,16 +102,17 @@ export function FleetSyncWizard({
 		[toast, t],
 	);
 
-	// Re-probe whenever the chosen primary changes. Also clear configDone: it
-	// records that *the previous* primary's config was synced, and letting it
-	// carry over would unlock step 5 for a new primary whose config was never
-	// pushed (canStep5 keys off configDone).
-	useEffect(() => {
-		if (primaryId) {
-			setConfigDone(false);
-			void refresh(primaryId);
-		}
-	}, [primaryId, refresh]);
+	// Pick (or change) the primary, then re-probe. Driven from the pick event
+	// rather than an effect on primaryId, since the primary only ever changes
+	// through this handler. Clearing configDone matters: it records that *the
+	// previous* primary's config was synced, and letting it carry over would
+	// unlock step 5 for a new primary whose config was never pushed (canStep5
+	// keys off configDone).
+	const pickPrimary = (id: string) => {
+		setConfigDone(false);
+		setPrimaryId(id);
+		if (id) void refresh(id);
+	};
 
 	// Which steps the operator may jump to, derived purely from the latest probe.
 	const canStep2 = !!status && status.primary_reachable;
@@ -139,6 +160,7 @@ export function FleetSyncWizard({
 				ok === res.results.length ? "success" : "error",
 			);
 			onChanged();
+			loadLastSync();
 			await refresh(primaryId);
 		} catch (e) {
 			toast(e instanceof ApiError ? e.message : t("errors.generic"), "error");
@@ -164,6 +186,7 @@ export function FleetSyncWizard({
 			);
 			onChanged();
 			setConfigDone(true);
+			loadLastSync();
 			await refresh(primaryId);
 			setStep(5);
 		} catch (e) {
@@ -200,7 +223,8 @@ export function FleetSyncWizard({
 					primaryId={primaryId}
 					status={status}
 					loading={loading}
-					onPick={setPrimaryId}
+					lastSync={lastSync}
+					onPick={pickPrimary}
 				/>
 			)}
 			{step === 2 && status && (
@@ -325,12 +349,14 @@ function StepChoosePrimary({
 	primaryId,
 	status,
 	loading,
+	lastSync,
 	onPick,
 }: {
 	members: MemberView[];
 	primaryId: string;
 	status: FleetStatus | null;
 	loading: boolean;
+	lastSync: FleetSyncState | null;
 	onPick: (id: string) => void;
 }) {
 	const { t } = useTranslation();
@@ -342,6 +368,14 @@ function StepChoosePrimary({
 			<p className="fd-faint fd-step-intro">
 				{t("settings.wizard.step1Intro")}
 			</p>
+			{lastSync && (
+				<Notice variant="info" style={{ margin: "0 0 0.8rem" }}>
+					{t("settings.wizard.lastRunBanner", {
+						when: formatRelative(lastSync.last_run_at),
+						name: lastSync.primary_name,
+					})}
+				</Notice>
+			)}
 			<div className="ui-field" style={{ maxWidth: 360 }}>
 				<label className="ui-label" htmlFor="wizard-primary">
 					{t("settings.wizard.primaryLabel")}

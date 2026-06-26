@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -36,7 +36,7 @@ describe("PasskeyPanel", () => {
 		).toBeNull();
 	});
 
-	it("lists registered passkeys and deletes one", async () => {
+	it("lists registered passkeys and deletes one after confirming", async () => {
 		let creds = [
 			{
 				id: "c1",
@@ -65,7 +65,37 @@ describe("PasskeyPanel", () => {
 		await userEvent.click(
 			screen.getByRole("button", { name: /Remove passkey/i }),
 		);
+		// A confirm dialog appears first; nothing is deleted until it is confirmed.
+		const dialog = await screen.findByRole("dialog");
+		expect(deleted).toBe(false);
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: /^Remove$/i }),
+		);
 		await waitFor(() => expect(deleted).toBe(true));
+	});
+
+	it("falls back to a transport-derived name for an unnamed passkey", async () => {
+		server.use(
+			http.get("/api/webauthn/available", () =>
+				HttpResponse.json({ enabled: true, has_credentials: true }),
+			),
+			http.get("/api/webauthn/credentials", () =>
+				HttpResponse.json([
+					{
+						id: "c1",
+						name: "",
+						transports: ["internal"],
+						created_at: "2026-06-01T10:00:00Z",
+						aaguid: "",
+						sign_count: 0,
+					},
+				]),
+			),
+			http.get("/api/totp/status", () => HttpResponse.json({ enabled: false })),
+		);
+		renderPanels();
+		// name is empty, so the "internal" transport renders as "Built-in".
+		expect(await screen.findByText("Built-in")).toBeInTheDocument();
 	});
 });
 

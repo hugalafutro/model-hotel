@@ -1,0 +1,87 @@
+package frontdesk
+
+import (
+	"encoding/json"
+	"net/http"
+	"testing"
+	"time"
+)
+
+// The last-run marker is absent until a sync records one, then round-trips the
+// primary it converged onto and a recent timestamp.
+func TestFleetSyncStateRoundtrip(t *testing.T) {
+	store := newTestStore(t)
+
+	if _, found, err := store.GetFleetSyncState(t.Context()); err != nil || found {
+		t.Fatalf("initial GetFleetSyncState = found %v, err %v; want not found, nil", found, err)
+	}
+
+	at := time.Now().UTC().Truncate(time.Second)
+	if err := store.SetFleetSyncState(t.Context(), "p1", "hotel-1", at); err != nil {
+		t.Fatalf("SetFleetSyncState: %v", err)
+	}
+	got, found, err := store.GetFleetSyncState(t.Context())
+	if err != nil || !found {
+		t.Fatalf("GetFleetSyncState = found %v, err %v; want found, nil", found, err)
+	}
+	if got.PrimaryID != "p1" || got.PrimaryName != "hotel-1" || !got.LastRunAt.Equal(at) {
+		t.Errorf("state = %+v, want {p1 hotel-1 %v}", got, at)
+	}
+
+	// Upsert (single row): a second sync replaces the marker.
+	later := at.Add(time.Hour)
+	if err := store.SetFleetSyncState(t.Context(), "p2", "hotel-2", later); err != nil {
+		t.Fatalf("SetFleetSyncState (upsert): %v", err)
+	}
+	got, _, _ = store.GetFleetSyncState(t.Context())
+	if got.PrimaryID != "p2" || got.PrimaryName != "hotel-2" || !got.LastRunAt.Equal(later) {
+		t.Errorf("after upsert state = %+v, want {p2 hotel-2 %v}", got, later)
+	}
+}
+
+// A successful admin-token sync records the last-run marker so the wizard can
+// show it has run before.
+func TestAdminTokenSyncRecordsLastRun(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubMember(t, "ptoken", "sha256:aaa")
+	secondary := newStubMember(t, "stoken", "sha256:bbb")
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	_, _ = store.CreateMember(t.Context(), "secondary", secondary.srv.URL, "stoken")
+
+	rec := do(t, srv, http.MethodPost, "/api/admin-token/sync", `{"primary_id":"`+pm.ID+`"}`, true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("sync = %d (%s)", rec.Code, rec.Body.String())
+	}
+
+	state, found, err := store.GetFleetSyncState(t.Context())
+	if err != nil || !found {
+		t.Fatalf("GetFleetSyncState after sync = found %v, err %v; want found", found, err)
+	}
+	if state.PrimaryID != pm.ID || state.PrimaryName != "primary" {
+		t.Errorf("recorded state = %+v, want primary %q/%q", state, pm.ID, "primary")
+	}
+}
+
+// GET /api/fleet/last-sync is 204 before any run and 200 with the marker after.
+func TestFleetLastSyncEndpoint(t *testing.T) {
+	srv, store := newTestServer(t)
+
+	if rec := do(t, srv, http.MethodGet, "/api/fleet/last-sync", "", true); rec.Code != http.StatusNoContent {
+		t.Fatalf("last-sync before any run = %d, want 204", rec.Code)
+	}
+
+	if err := store.SetFleetSyncState(t.Context(), "p1", "hotel-1", time.Now().UTC()); err != nil {
+		t.Fatalf("SetFleetSyncState: %v", err)
+	}
+	rec := do(t, srv, http.MethodGet, "/api/fleet/last-sync", "", true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("last-sync after a run = %d, want 200", rec.Code)
+	}
+	var got FleetSyncState
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if got.PrimaryID != "p1" || got.PrimaryName != "hotel-1" {
+		t.Errorf("body = %+v, want primary p1/hotel-1", got)
+	}
+}

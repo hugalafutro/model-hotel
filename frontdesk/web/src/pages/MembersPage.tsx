@@ -223,6 +223,7 @@ function MemberRow({
 						<button
 							type="button"
 							className="ui-btn ui-btn-sm"
+							title={t("members.drainTip")}
 							onClick={() => onSetState(m, "drained")}
 						>
 							{t("members.drain")}
@@ -231,6 +232,7 @@ function MemberRow({
 						<button
 							type="button"
 							className="ui-btn ui-btn-sm"
+							title={t("members.activateTip")}
 							onClick={() => onSetState(m, "active")}
 						>
 							{t("members.activate")}
@@ -239,6 +241,7 @@ function MemberRow({
 					<button
 						type="button"
 						className="ui-btn ui-btn-sm ui-btn-danger"
+						title={t("members.removeTip")}
 						onClick={onRemove}
 					>
 						{t("common.remove")}

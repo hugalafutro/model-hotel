@@ -6,6 +6,7 @@ import type {
 	EventsPage,
 	FdEvent,
 	FleetStatus,
+	FleetSyncState,
 	Member,
 	MemberState,
 	MemberTraffic,
@@ -150,11 +151,13 @@ export const api = {
 			"/api/admin-token/sync",
 			jsonInit("POST", { primary_id: primaryId }),
 		),
-	resetAdminToken: () =>
+	resetAdminToken: (masterKey: string) =>
 		request<ResetResult>(
 			"/api/admin-token/reset",
-			jsonInit("POST", { confirm: true }),
+			jsonInit("POST", { confirm: true, master_key: masterKey }),
 		),
+	// Last successful wizard run (timestamp + primary), or null when never run.
+	fleetLastSync: () => request<FleetSyncState | null>("/api/fleet/last-sync"),
 
 	configSync: (primaryId: string) =>
 		request<SyncResult>(

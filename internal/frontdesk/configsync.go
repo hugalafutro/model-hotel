@@ -96,6 +96,7 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 		}
 		results = append(results, s.applyMemberConfig(r.Context(), m, token, export))
 	}
+	s.recordFleetSyncRun(r.Context(), primary, results)
 	writeJSON(w, http.StatusOK, map[string]any{"primary_id": primary.ID, "results": results})
 }
 

@@ -1,33 +1,12 @@
-import type { TFunction } from "i18next";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api } from "../api/client";
-import type { MemberView, SyncResultItem } from "../api/types";
+import { ApiError, api } from "../api/client";
+import type { MemberView } from "../api/types";
 import { useToast } from "../context/ToastContext";
+import { reportResults } from "../utils/syncResults";
 import { ConfirmModal } from "./ConfirmModal";
 import { Modal } from "./Modal";
 import { Notice } from "./Notice";
-
-// reportResults toasts one line per member outcome. Shared by the reset panel
-// and the fleet-sync wizard so a successful row reads "<name> ✓" and a failed
-// row carries the member's own error, never a generic message.
-export function reportResults(
-	results: SyncResultItem[],
-	toast: (m: string, k: "success" | "error") => void,
-	t: TFunction,
-) {
-	for (const r of results) {
-		toast(
-			r.ok
-				? t("settings.memberResultOk", { name: r.name })
-				: t("settings.memberResultFailed", {
-						name: r.name,
-						error: r.error ?? t("settings.memberResultFailedGeneric"),
-					}),
-			r.ok ? "success" : "error",
-		);
-	}
-}
 
 // AdminTokenResetPanel: destructive double-confirm, then reveal-once token.
 export function AdminTokenResetPanel({
@@ -41,13 +20,21 @@ export function AdminTokenResetPanel({
 	const { toast } = useToast();
 	const [confirmOpen, setConfirmOpen] = useState(false);
 	const [resetting, setResetting] = useState(false);
+	const [masterKey, setMasterKey] = useState("");
 	const [revealToken, setRevealToken] = useState<string | null>(null);
 	const [copied, setCopied] = useState(false);
+
+	// Closing the confirm dialog must drop the typed MASTER_KEY so it never
+	// lingers in state between attempts.
+	const closeConfirm = () => {
+		setConfirmOpen(false);
+		setMasterKey("");
+	};
 
 	const doReset = async () => {
 		setResetting(true);
 		try {
-			const res = await api.resetAdminToken();
+			const res = await api.resetAdminToken(masterKey);
 			const ok = res.results.filter((r) => r.ok).length;
 			reportResults(res.results, toast, t);
 			toast(
@@ -59,12 +46,20 @@ export function AdminTokenResetPanel({
 				ok > 0 ? "success" : "error",
 			);
 			setRevealToken(res.token);
+			setConfirmOpen(false);
+			setMasterKey("");
 			onChanged();
-		} catch {
-			toast(t("errors.generic"), "error");
+		} catch (e) {
+			// A wrong MASTER_KEY comes back as 403 with a specific message; keep the
+			// dialog open so the operator can retry rather than dropping them out.
+			toast(
+				e instanceof ApiError && e.status === 403
+					? e.message
+					: t("errors.generic"),
+				"error",
+			);
 		} finally {
 			setResetting(false);
-			setConfirmOpen(false);
 		}
 	};
 
@@ -115,10 +110,10 @@ export function AdminTokenResetPanel({
 				<ConfirmModal
 					title={t("settings.resetConfirmTitle")}
 					confirmLabel={t("settings.resetDo")}
-					confirmDisabled={resetting}
+					confirmDisabled={resetting || !masterKey.trim()}
 					ackLabel={t("settings.resetAck")}
 					onConfirm={doReset}
-					onClose={() => setConfirmOpen(false)}
+					onClose={closeConfirm}
 				>
 					<p className="fd-muted">{t("settings.resetConfirmBody")}</p>
 					<p
@@ -132,6 +127,29 @@ export function AdminTokenResetPanel({
 							<li key={m.id}>{m.name}</li>
 						))}
 					</ul>
+					<div className="ui-field" style={{ marginBottom: "0.6rem" }}>
+						<label className="ui-label" htmlFor="reset-master-key">
+							{t("settings.resetMasterKeyLabel")}
+						</label>
+						<input
+							id="reset-master-key"
+							className="ui-input"
+							type="password"
+							autoComplete="off"
+							value={masterKey}
+							onChange={(e) => setMasterKey(e.target.value)}
+							onKeyDown={(e) => {
+								if (e.key === "Enter" && masterKey.trim() && !resetting)
+									doReset();
+							}}
+						/>
+						<div
+							className="fd-faint"
+							style={{ fontSize: "0.78rem", marginTop: "0.3rem" }}
+						>
+							{t("settings.resetMasterKeyHint")}
+						</div>
+					</div>
 				</ConfirmModal>
 			)}
 

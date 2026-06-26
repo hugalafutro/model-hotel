@@ -4,12 +4,14 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
@@ -86,7 +88,28 @@ func (s *Server) adminTokenSync(w http.ResponseWriter, r *http.Request) {
 		}
 		results = append(results, s.applyTokenHash(r.Context(), m, token, primaryHash, primaryToken, "admin_token.synced"))
 	}
+	s.recordFleetSyncRun(r.Context(), primary, results)
 	writeJSON(w, http.StatusOK, map[string]any{"results": results})
+}
+
+// recordFleetSyncRun stamps the last-run marker when a wizard sync action
+// (admin-token or config) updated at least one member, so the wizard can show
+// it has run before. A persistence failure is non-fatal: the sync itself
+// already succeeded, so it is logged and swallowed rather than surfaced.
+func (s *Server) recordFleetSyncRun(ctx context.Context, primary *Member, results []syncResultItem) {
+	changed := false
+	for _, r := range results {
+		if r.OK {
+			changed = true
+			break
+		}
+	}
+	if !changed {
+		return
+	}
+	if err := s.store.SetFleetSyncState(ctx, primary.ID, primary.Name, time.Now().UTC()); err != nil {
+		debuglog.Warn("frontdesk: record fleet sync state", "error", err)
+	}
 }
 
 // adminTokenReset mints a new group admin token, pushes its hash to every member
@@ -98,13 +121,24 @@ func (s *Server) adminTokenReset(w http.ResponseWriter, r *http.Request) {
 	// endpoint requires an explicit confirm flag, so it can't be triggered by a
 	// bare POST (a stray client, a misfired fetch, a curious probe).
 	var req struct {
-		Confirm bool `json:"confirm"`
+		Confirm   bool   `json:"confirm"`
+		MasterKey string `json:"master_key"`
 	}
 	if !decodeJSON(w, r, &req) {
 		return
 	}
 	if !req.Confirm {
 		http.Error(w, "reset requires confirm=true", http.StatusBadRequest)
+		return
+	}
+	// Proof of operator: require the fleet MASTER_KEY (the shared env secret, not
+	// the login token) so an unlocked, already-authenticated session can't reset
+	// every member's admin token in two clicks. When no MASTER_KEY is configured
+	// there is nothing to verify against, so the confirm flag stands alone (this
+	// is unreachable in a real HA deploy, where MASTER_KEY is required).
+	if s.masterKey != "" &&
+		subtle.ConstantTimeCompare([]byte(req.MasterKey), []byte(s.masterKey)) != 1 {
+		http.Error(w, "MASTER_KEY does not match; reset not performed", http.StatusForbidden)
 		return
 	}
 

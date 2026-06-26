@@ -60,6 +60,7 @@ type Server struct {
 	totpStatus *totpEnabledCache
 	probe      *http.Client // guarded client for proxying member admin APIs
 	lbPort     string       // host port of the data-plane load balancer, surfaced to the wizard
+	masterKey  string       // fleet MASTER_KEY, used to confirm the destructive admin-token reset
 	router     http.Handler
 }
 
@@ -91,6 +92,7 @@ func NewServer(cfg ServerConfig) *Server {
 		totpStatus: newTotpEnabledCache(totpRepo),
 		probe:      newProbeClient(httpProbeTimeout),
 		lbPort:     lbPort,
+		masterKey:  cfg.MasterKey,
 	}
 
 	webauthnHandler := adminauth.NewWebAuthnHandler(
@@ -137,6 +139,7 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 			r.Get("/events", s.listEvents)
 			r.Get("/traefik-status", s.traefikStatus)
 			r.Get("/fleet/status", s.fleetStatus)
+			r.Get("/fleet/last-sync", s.fleetLastSync)
 			r.Post("/admin-token/sync", s.adminTokenSync)
 			r.Post("/admin-token/reset", s.adminTokenReset)
 			r.Post("/config/sync", s.configSync)
