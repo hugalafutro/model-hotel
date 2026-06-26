@@ -229,19 +229,26 @@ func TestConfigSync_ImportDiscoveryErrorIsBestEffort(t *testing.T) {
 	}
 }
 
-// An envelope that carries no custom failover groups (a pre-PR primary, or a
-// primary with none) must NOT delete the member's own custom groups. The
-// omitempty field is indistinguishable from absent after a JSON round-trip, so an
-// empty section is treated as "leave existing groups alone", never "wipe them".
-func TestConfigSync_ImportWithNoGroupsKeepsExistingCustomGroups(t *testing.T) {
+// groupExists reports whether a failover group with the given display model is
+// present.
+func groupExists(t *testing.T, displayModel string) bool {
+	t.Helper()
+	var n int
+	_ = apiTestDB.Pool().QueryRow(context.Background(),
+		`SELECT count(*) FROM model_failover_groups WHERE display_model = $1`, displayModel).Scan(&n)
+	return n > 0
+}
+
+// An envelope with NO failover_groups key (a pre-PR primary that never emits the
+// field, which decodes to a nil slice) must leave the member's own custom groups
+// untouched, so a rolling upgrade does not wipe them on the first sync.
+func TestConfigSync_ImportWithAbsentGroupsKeepsExistingCustomGroups(t *testing.T) {
 	cleanConfigTables(t)
-	// Build an envelope with providers but zero custom failover groups.
 	exportRouter := newConfigSyncRouter(t, configSyncMasterKey)
 	seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
 	env := doExport(t, exportRouter)
-	if len(env.Config.FailoverGroups) != 0 {
-		t.Fatalf("precondition: envelope must carry no groups, got %+v", env.Config.FailoverGroups)
-	}
+	// Model a pre-PR primary: the field is absent on the wire, i.e. nil here.
+	env.Config.FailoverGroups = nil
 
 	// Replica has its own instance-local custom group plus an auto group.
 	cleanConfigTables(t)
@@ -255,18 +262,44 @@ func TestConfigSync_ImportWithNoGroupsKeepsExistingCustomGroups(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
 	}
-
-	exists := func(name string) bool {
-		var n int
-		_ = apiTestDB.Pool().QueryRow(context.Background(),
-			`SELECT count(*) FROM model_failover_groups WHERE display_model = $1`, name).Scan(&n)
-		return n > 0
+	if !groupExists(t, "local-custom") {
+		t.Error("an absent groups section must not wipe the member's own custom group")
 	}
-	if !exists("local-custom") {
-		t.Error("an empty envelope must not wipe the member's own custom group")
-	}
-	if !exists("auto-shared") {
+	if !groupExists(t, "auto-shared") {
 		t.Error("auto-created group must survive regardless")
+	}
+}
+
+// An envelope with an explicit empty failover_groups array (a current primary
+// that genuinely has zero custom groups) must reconcile the member to zero: stale
+// custom groups are removed, auto-created groups are left alone.
+func TestConfigSync_ImportWithEmptyGroupsReconcilesToZero(t *testing.T) {
+	cleanConfigTables(t)
+	exportRouter := newConfigSyncRouter(t, configSyncMasterKey)
+	seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	env := doExport(t, exportRouter)
+	// A current primary with no custom groups still emits the key as [], not absent.
+	if env.Config.FailoverGroups == nil {
+		t.Fatal("export must emit a non-nil empty groups slice, got nil")
+	}
+
+	// Replica has a stale custom group (no longer on the primary) plus an auto group.
+	cleanConfigTables(t)
+	rProvID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	rm1 := seedModel(t, rProvID, "gpt-4o")
+	rm2 := seedModel(t, rProvID, "gpt-4o-mini")
+	seedFailoverGroup(t, "stale-custom", []string{rm1, rm2}, nil, false)
+	seedFailoverGroup(t, "auto-shared", []string{rm1, rm2}, nil, true)
+
+	rec := doImport(t, newConfigSyncRouter(t, configSyncMasterKey), env, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+	if groupExists(t, "stale-custom") {
+		t.Error("an explicit empty envelope must delete the stale custom group")
+	}
+	if !groupExists(t, "auto-shared") {
+		t.Error("auto-created group must survive the reconcile")
 	}
 }
 

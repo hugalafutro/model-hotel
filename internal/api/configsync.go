@@ -100,10 +100,14 @@ type ConfigEnvelope struct {
 
 // ConfigPayload is the config-only body of the envelope.
 type ConfigPayload struct {
-	Providers      []ExportProvider      `json:"providers"`
-	VirtualKeys    []ExportVK            `json:"virtual_keys"`
-	Settings       map[string]string     `json:"settings"`
-	FailoverGroups []ExportFailoverGroup `json:"failover_groups,omitempty"`
+	Providers   []ExportProvider  `json:"providers"`
+	VirtualKeys []ExportVK        `json:"virtual_keys"`
+	Settings    map[string]string `json:"settings"`
+	// Not omitempty: a member running this code always emits the key, as [] when it
+	// has no custom groups. That lets import tell "primary genuinely has zero custom
+	// groups" (present empty array, reconcile to zero) apart from "envelope predates
+	// this field" (key absent, decodes to nil, leave the member's groups alone).
+	FailoverGroups []ExportFailoverGroup `json:"failover_groups"`
 }
 
 // ExportProvider is a provider with its encrypted key material verbatim.
@@ -669,13 +673,13 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope) error
 // for too few resolvable entries, so a transient model gap does not delete the
 // operator's group.
 func (h *ConfigSyncHandler) applyFailoverGroups(ctx context.Context, groups []ExportFailoverGroup) error {
-	// An empty section means "absent", not "delete everything". The field is
-	// omitempty, so a primary with no custom groups and a pre-PR primary that never
-	// emits the field both arrive here as nil; deleting in that case would wipe the
-	// member's own custom groups on the first sync of a rolling upgrade. The
-	// declarative delete below only runs once the envelope actually carries groups,
-	// matching the early return upsertFailoverGroups already has.
-	if len(groups) == 0 {
+	// Distinguish "field absent" from "explicitly empty". A nil slice means the
+	// envelope carried no failover_groups key at all (a pre-PR primary), so leave
+	// the member's own custom groups untouched rather than wiping them on the first
+	// sync of a rolling upgrade. A non-nil empty slice means a current primary that
+	// genuinely has zero custom groups, which must reconcile: the declarative delete
+	// below then removes every stale custom group the member still has.
+	if groups == nil {
 		return nil
 	}
 	tx, err := h.db.Pool().Begin(ctx)
