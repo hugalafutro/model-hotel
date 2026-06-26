@@ -101,9 +101,9 @@
 			"requests": "Sol·licituds",
 			"appLogs": "Registres",
 			"settings": "Configuració",
-			"failoverBadgeExplain": "Proveïdors de fallada per estat del circuit breaker — {{closed}} saludable / {{halfOpen}} en recuperació / {{open}} disparat",
-			"discoveryChangesBadge_one": "Canvi de {{count}} des del descobriment de fons — fes clic per revisar",
-			"discoveryChangesBadge_other": "Canvis de {{count}} des del descobriment de fons — feu clic per revisar"
+			"failoverBadgeExplain": "Proveïdors de fallada per estat del circuit breaker - {{closed}} saludable / {{halfOpen}} en recuperació / {{open}} disparat",
+			"discoveryChangesBadge_one": "Canvi de {{count}} des del descobriment de fons - fes clic per revisar",
+			"discoveryChangesBadge_other": "Canvis de {{count}} des del descobriment de fons - feu clic per revisar"
 		},
 		"status": {
 			"apiStatus": "Estat de l'API",
@@ -184,7 +184,7 @@
 		},
 		"githubRepo": "Dipòsit de GitHub",
 		"readOnly": {
-			"banner": "Demo només de lectura — la creació, l'edició i l'eliminació estan desactivades."
+			"banner": "Demo només de lectura - la creació, l'edició i l'eliminació estan desactivades."
 		},
 		"errorShelf": {
 			"acknowledge": "Descartar",
@@ -299,7 +299,7 @@
 			"topVirtualKeys": "Top claus virtuals",
 			"emptyState": "Encara no hi ha dades d'ús. El desglossament de l'ús apareixerà aquí un cop hi hagi trànsit.",
 			"viewDetailsFor": "Veure detalls de {{label}}",
-			"deletedModelTooltip": "El model ja no està disponible — pot haver estat suprimit o el seu proveïdor s'ha eliminat",
+			"deletedModelTooltip": "El model ja no està disponible - pot haver estat suprimit o el seu proveïdor s'ha eliminat",
 			"reservedKeyTooltip": "Nom intern reservat, no és una clau que hàgiu creat - aquest ús prové de les rutes \"{{name}}\" del mateix Model Hotel."
 		},
 		"latency": {
@@ -316,7 +316,9 @@
 			"emptyState": "Encara no hi ha dades de latència. La latència del proveïdor apareixerà aquí un cop hi hagi trànsit.",
 			"responseTooltip": "Temps de resposta mitjà: {{value}} ({{count}} sol·licituds)",
 			"overheadTooltip": "Sobrecàrrega mitjana del proxy: {{value}} (sol·licituds{{count}})",
-			"requestCount": "{{count}} sol·licituds"
+			"requestCount": "{{count}} sol·licituds",
+			"responseHeaderTooltip": "Temps de resposta total mitjà, inclosa la sobrecàrrega de la mateixa passarel·la.",
+			"overheadHeaderTooltip": "Temps mitjà que afegeix la mateixa passarel·la (encaminament, autenticació, mesurament), sense comptar el temps de resposta del proveïdor."
 		},
 		"providers": {
 			"top": "Millors proveïdors",
@@ -1805,7 +1807,9 @@
 			"cancelNameAriaLabel": "Cancel·la el canvi de nom",
 			"renameAriaLabel": "Renombrar la clau d'accés",
 			"failedToRename": "S'ha fallat el canvi de nom de la clau d'accés: {{message}}",
-			"unavailableDescription": "Passkeys are not supported by this browser or device."
+			"unavailableDescription": "Passkeys are not supported by this browser or device.",
+			"deleteConfirmTitle": "Voleu suprimir la clau d'accés?",
+			"deleteConfirmMessage": "Això suprimeix permanentment la clau d'accés. Caldrà que la torneu a registrar per utilitzar-la."
 		},
 		"observability": {
 			"json.description": "Emet registres estructurats com un sol objecte JSON per línia, per a recollidors de registres stdout com ara Fluent Bit, Vector o Promtail.",
@@ -1844,11 +1848,11 @@
 			"eventsLabel": "Esdeveniments d'alerta",
 			"snippets": {
 				"browseAll": "Navega pels més de 80 serveis",
-				"description": "Formats d'URL d'exemple per a serveis populars — copia'n un, omple les teves dades i enganxa'l a dalt."
+				"description": "Formats d'URL d'exemple per a serveis populars - copia'n un, omple les teves dades i enganxa'l a dalt."
 			},
 			"target": "Destinació de notificació",
-			"targetConfigured": "Configurat — tipus per substituir",
-			"targetDescription": "La teva URL d'Apprise — emmagatzemada xifrada i que no es mostrarà mai més. Separa diversos objectius amb <code>;</code>.",
+			"targetConfigured": "Configurat - tipus per substituir",
+			"targetDescription": "La teva URL d'Apprise - emmagatzemada xifrada i que no es mostrarà mai més. Separa diversos objectius amb <code>;</code>.",
 			"testButton": "Envia notificació de prova",
 			"testFailed": "La prova de notificació ha fallat: {{message}}",
 			"testHint": "Activa les alertes i configura tant una URL de l'API Apprise com un destinatari per enviar una prova.",
@@ -1860,7 +1864,7 @@
 				"issues": "apprise-api accessible però amb problemes de resposta",
 				"reachable": "apprise-api accessible",
 				"recheck": "Recomprova",
-				"unreachable": "apprise-api inaccessible — comproveu l'URL i que el contenidor s'està executant",
+				"unreachable": "apprise-api inaccessible - comproveu l'URL i que el contenidor s'està executant",
 				"checkFailed": "Comprovació d'estat fallida"
 			}
 		},

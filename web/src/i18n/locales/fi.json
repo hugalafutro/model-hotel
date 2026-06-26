@@ -101,9 +101,9 @@
 			"requests": "Pyynnöt",
 			"appLogs": "Lokit",
 			"settings": "Asetukset",
-			"failoverBadgeExplain": "Vikasietopalveluntarjoajat katkaisijan tilan mukaan — {{closed}} toimintakunnossa / {{halfOpen}} palautumassa / {{open}} laukeamassa",
-			"discoveryChangesBadge_one": "{{count}} muutos taustahakutoiminnosta — napsauta tarkistaaksesi",
-			"discoveryChangesBadge_other": "{{count}} muutokset taustahakutoiminnosta — napsauta tarkistaaksesi"
+			"failoverBadgeExplain": "Vikasietopalveluntarjoajat katkaisijan tilan mukaan - {{closed}} toimintakunnossa / {{halfOpen}} palautumassa / {{open}} laukeamassa",
+			"discoveryChangesBadge_one": "{{count}} muutos taustahakutoiminnosta - napsauta tarkistaaksesi",
+			"discoveryChangesBadge_other": "{{count}} muutokset taustahakutoiminnosta - napsauta tarkistaaksesi"
 		},
 		"status": {
 			"apiStatus": "API:n tila",
@@ -184,7 +184,7 @@
 		},
 		"githubRepo": "GitHub-repositorio",
 		"readOnly": {
-			"banner": "Vain luku -demo — luominen, muokkaaminen ja poistaminen on estetty."
+			"banner": "Vain luku -demo - luominen, muokkaaminen ja poistaminen on estetty."
 		},
 		"errorShelf": {
 			"acknowledge": "Hylkää",
@@ -316,7 +316,9 @@
 			"emptyState": "Ei vielä latenssitietoja. Tarjoajan latenssi näkyy täällä, kun liikennevirrat.",
 			"responseTooltip": "Keskimääräinen vastausaika: {{value}} ({{count}} kyselyt)",
 			"overheadTooltip": "Proxy-palvelimen keskimääräinen ylikuormitus: {{value}} ({{count}} pyynnöt)",
-			"requestCount": "{{count}} pyyntöä"
+			"requestCount": "{{count}} pyyntöä",
+			"responseHeaderTooltip": "Keskimääräinen kokonaisvasteaika, mukaan lukien yhdyskäytävän oma yleisrasite.",
+			"overheadHeaderTooltip": "Keskimääräinen aika, jonka yhdyskäytävä itse lisää (reititys, todennus, mittaus), pois lukien palveluntarjoajan vasteaika."
 		},
 		"providers": {
 			"top": "Top-tarjoajat",
@@ -1805,7 +1807,9 @@
 			"cancelNameAriaLabel": "Peruuta nimeäminen uudelleen",
 			"renameAriaLabel": "Nimeä salasana uudelleen",
 			"failedToRename": "Salasanan nimeämistä ei voitu suorittaa: {{message}}",
-			"unavailableDescription": "Passkeys are not supported by this browser or device."
+			"unavailableDescription": "Passkeys are not supported by this browser or device.",
+			"deleteConfirmTitle": "Poistetaanko avainkoodi?",
+			"deleteConfirmMessage": "Tämä poistaa avainkoodin pysyvästi. Sinun on rekisteröitävä se uudelleen voidaksesi käyttää sitä."
 		},
 		"observability": {
 			"json.description": "Lähetä jäsenneltyjä lokitietoja yhtenä JSON-objektina riviä kohden stdout-lokikerääjille, kuten Fluent Bit, Vector tai Promtail.",
@@ -1818,7 +1822,7 @@
 			"otel.instructions": "Osoita tämä OTLP-keräilijän päätepisteeseen ja käynnistä kontti uudelleen, jotta lokit lähetetään OpenTelemetryn kautta:",
 			"otel.name": "OpenTelemetry-lokit (OTLP)",
 			"title": "Havainnoitavuus ja lokien vienti",
-			"description": "Model Hotel voi viedä jäsennellyt lokit ja mittarit ulkoisiin järjestelmiin. Jokainen integraatio otetaan käyttöön ympäristömuuttujalla; alla olevat tilamerkit kuvaavat nykyistä tilaa. Pyynnön tai vastauksen sisältöä ei koskaan viedä — vain reititys- ja mittausmetatiedot.",
+			"description": "Model Hotel voi viedä jäsennellyt lokit ja mittarit ulkoisiin järjestelmiin. Jokainen integraatio otetaan käyttöön ympäristömuuttujalla; alla olevat tilamerkit kuvaavat nykyistä tilaa. Pyynnön tai vastauksen sisältöä ei koskaan viedä - vain reititys- ja mittausmetatiedot.",
 			"targets": "Targets"
 		},
 		"alerts": {
@@ -1844,11 +1848,11 @@
 			"eventsLabel": "Hälytystapahtumat",
 			"snippets": {
 				"browseAll": "Selaa kaikkia yli 80 palvelua",
-				"description": "Esimerkkejä Apprise-URL-muodoista suosituille palveluille — kopioi yksi, täytä omat tietosi ja liitä se yllä olevaan kenttään."
+				"description": "Esimerkkejä Apprise-URL-muodoista suosituille palveluille - kopioi yksi, täytä omat tietosi ja liitä se yllä olevaan kenttään."
 			},
 			"target": "Ilmoituksen kohde",
-			"targetConfigured": "Määritetty — kirjoita korvaava teksti",
-			"targetDescription": "Apprise-URL-osoitteesi — tallennetaan salattuna eikä sitä näytetä enää koskaan. Erota useat kohteet toisistaan merkinnällä <code>;</code>.",
+			"targetConfigured": "Määritetty - kirjoita korvaava teksti",
+			"targetDescription": "Apprise-URL-osoitteesi - tallennetaan salattuna eikä sitä näytetä enää koskaan. Erota useat kohteet toisistaan merkinnällä <code>;</code>.",
 			"testButton": "Lähetä testilmoitus",
 			"testFailed": "Ilmoituksen testaus epäonnistui: {{message}}",
 			"testHint": "Ota hälytykset käyttöön ja määritä sekä Apprise-API-URL että kohde testiviestin lähettämistä varten.",
@@ -1860,7 +1864,7 @@
 				"issues": "apprise-api on käytettävissä, mutta siinä on raportoitavia ongelmia",
 				"reachable": "apprise-api tavoitettavissa",
 				"recheck": "Tarkista uudelleen",
-				"unreachable": "apprise-api ei tavoitettavissa — tarkista URL-osoite ja varmista, että kontti on käynnissä",
+				"unreachable": "apprise-api ei tavoitettavissa - tarkista URL-osoite ja varmista, että kontti on käynnissä",
 				"checkFailed": "Tilan tarkistus epäonnistui"
 			}
 		},

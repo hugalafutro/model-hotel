@@ -101,9 +101,9 @@
 			"requests": "Requêtes",
 			"appLogs": "Journaux",
 			"settings": "Paramètres",
-			"failoverBadgeExplain": "Fournisseurs de basculement par état du disjoncteur — {{closed}} en bon état / {{halfOpen}} en cours de récupération / {{open}} déclenché",
-			"discoveryChangesBadge_one": "Modification {{count}} issue de la découverte en arrière-plan — cliquer pour consulter",
-			"discoveryChangesBadge_other": "Modifications {{count}} issues de la découverte en arrière-plan — cliquez pour les consulter"
+			"failoverBadgeExplain": "Fournisseurs de basculement par état du disjoncteur - {{closed}} en bon état / {{halfOpen}} en cours de récupération / {{open}} déclenché",
+			"discoveryChangesBadge_one": "Modification {{count}} issue de la découverte en arrière-plan - cliquer pour consulter",
+			"discoveryChangesBadge_other": "Modifications {{count}} issues de la découverte en arrière-plan - cliquez pour les consulter"
 		},
 		"status": {
 			"apiStatus": "État de l'API",
@@ -184,7 +184,7 @@
 		},
 		"githubRepo": "Dépôt GitHub",
 		"readOnly": {
-			"banner": "Démonstration en lecture seule — les fonctions de création, de modification et de suppression sont désactivées."
+			"banner": "Démonstration en lecture seule - les fonctions de création, de modification et de suppression sont désactivées."
 		},
 		"errorShelf": {
 			"acknowledge": "Ignorer",
@@ -299,8 +299,8 @@
 			"topVirtualKeys": "Top clés virtuelles",
 			"emptyState": "Aucune donnée d'utilisation pour le moment. La ventilation de l'utilisation apparaîtra ici une fois le trafic écoulé.",
 			"viewDetailsFor": "Voir les détails pour {{label}}",
-			"deletedModelTooltip": "Ce modèle n'est plus disponible — il a peut-être été supprimé ou son fournisseur a été retiré",
-			"reservedKeyTooltip": "Nom réservé en interne, il ne s'agit pas d'une clé que vous avez créée — cette utilisation provient des routes « {{name}} » propres à Model Hotel"
+			"deletedModelTooltip": "Ce modèle n'est plus disponible - il a peut-être été supprimé ou son fournisseur a été retiré",
+			"reservedKeyTooltip": "Nom réservé en interne, il ne s'agit pas d'une clé que vous avez créée - cette utilisation provient des routes « {{name}} » propres à Model Hotel"
 		},
 		"latency": {
 			"topModels": "Modèles les plus lents",
@@ -316,7 +316,9 @@
 			"emptyState": "Aucune donnée de latence pour le moment. La latence du fournisseur apparaîtra ici une fois que le trafic circule.",
 			"responseTooltip": "Temps de réponse moyen : {{value}} ({{count}} requêtes)",
 			"overheadTooltip": "Proxy moyen : {{value}} ({{count}} requêtes)",
-			"requestCount": "Demandes {{count}}"
+			"requestCount": "Demandes {{count}}",
+			"responseHeaderTooltip": "Temps de réponse total moyen, y compris la surcharge propre de la passerelle.",
+			"overheadHeaderTooltip": "Temps moyen ajouté par la passerelle elle-même (routage, authentification, mesure), hors temps de réponse du fournisseur."
 		},
 		"providers": {
 			"top": "Top fournisseurs",
@@ -1805,7 +1807,9 @@
 			"cancelNameAriaLabel": "Annuler le renommage",
 			"renameAriaLabel": "Renommer le mot de passe",
 			"failedToRename": "Impossible de renommer le mot de passe : {{message}}",
-			"unavailableDescription": "Passkeys are not supported by this browser or device."
+			"unavailableDescription": "Passkeys are not supported by this browser or device.",
+			"deleteConfirmTitle": "Supprimer la clé d'accès ?",
+			"deleteConfirmMessage": "Cette action supprime définitivement la clé d'accès. Vous devrez l'enregistrer à nouveau pour l'utiliser."
 		},
 		"observability": {
 			"json.description": "Générez des journaux structurés sous la forme d'un objet JSON par ligne, pour les collecteurs de journaux stdout tels que Fluent Bit, Vector ou Promtail.",
@@ -1818,14 +1822,14 @@
 			"otel.instructions": "Pointez ceci vers votre point de terminaison de collecteur OTLP et redémarrez le conteneur pour envoyer les journaux via OpenTelemetry :",
 			"otel.name": "Journaux OpenTelemetry (OTLP)",
 			"title": "Observabilité et exportation des journaux",
-			"description": "Model Hotel peut exporter ses journaux et métriques structurés vers des systèmes externes. Chaque intégration est activée par une variable d'environnement ; les badges d'état ci-dessous reflètent l'état actuel. Aucun contenu de requête ou de réponse n'est jamais exporté — seules les métadonnées de routage et de mesure le sont.",
+			"description": "Model Hotel peut exporter ses journaux et métriques structurés vers des systèmes externes. Chaque intégration est activée par une variable d'environnement ; les badges d'état ci-dessous reflètent l'état actuel. Aucun contenu de requête ou de réponse n'est jamais exporté - seules les métadonnées de routage et de mesure le sont.",
 			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "URL de l’API Apprise",
 			"apiUrlDescription": "URL de base du conteneur apprise-api que vous exécutez (par exemple http://apprise:8000).",
 			"clear": "Effacer",
-			"description": "Envoyez des notifications push pour les événements importants (indisponibilité d’un fournisseur, déclenchement d’un disjoncteur) vers Telegram, par e-mail, sur Discord et plus encore via un conteneur Apprise sans état que vous exécutez. Aucun contenu de requête n’est jamais envoyé — seul le résumé de l’événement est transmis.",
+			"description": "Envoyez des notifications push pour les événements importants (indisponibilité d’un fournisseur, déclenchement d’un disjoncteur) vers Telegram, par e-mail, sur Discord et plus encore via un conteneur Apprise sans état que vous exécutez. Aucun contenu de requête n’est jamais envoyé - seul le résumé de l’événement est transmis.",
 			"enable": "Activer les alertes",
 			"enableDescription": "Transférez les événements sélectionnés vers votre point de terminaison Apprise.",
 			"event": {
@@ -1847,8 +1851,8 @@
 				"description": "Exemples de formats d’URL Apprise pour des services courants : copiez-en un, complétez-le avec vos informations, puis collez-le ci-dessus."
 			},
 			"target": "Cible de notification",
-			"targetConfigured": "Configuré — saisir le texte de remplacement",
-			"targetDescription": "Votre URL Apprise — stockée sous forme chiffrée et qui n’est plus jamais affichée. Séparez les cibles multiples par <code>;</code>.",
+			"targetConfigured": "Configuré - saisir le texte de remplacement",
+			"targetDescription": "Votre URL Apprise - stockée sous forme chiffrée et qui n’est plus jamais affichée. Séparez les cibles multiples par <code>;</code>.",
 			"testButton": "Envoyer une notification de test",
 			"testFailed": "Échec de la notification de test : {{message}}",
 			"testHint": "Activez les alertes et configurez à la fois une URL API Apprise et une cible pour envoyer un test.",
@@ -1860,7 +1864,7 @@
 				"issues": "apprise-api est accessible mais signale des problèmes",
 				"reachable": "apprise-api accessible",
 				"recheck": "Vérifier à nouveau",
-				"unreachable": "apprise-api inaccessible — vérifiez l’URL et assurez-vous que le conteneur est en cours d’exécution",
+				"unreachable": "apprise-api inaccessible - vérifiez l’URL et assurez-vous que le conteneur est en cours d’exécution",
 				"checkFailed": "Échec de la vérification de l'état"
 			}
 		},

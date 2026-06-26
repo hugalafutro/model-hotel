@@ -1407,7 +1407,7 @@ func TestListProviders_WithTokenCounts_Integration(t *testing.T) {
 // path by cancelling the context before the scan can complete.
 func TestListProviders_ScanErrorWithCancelledCtx(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	testDB, err := db.New(context.Background(), apiTestDBURL, 25, 5)
@@ -1442,7 +1442,7 @@ func TestListProviders_ScanErrorWithCancelledCtx(t *testing.T) {
 
 func TestListProviders_TokenRowCountScanError(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	testDB, err := db.New(context.Background(), apiTestDBURL, 25, 5)
@@ -1488,7 +1488,7 @@ func TestListProviders_TokenRowCountScanError(t *testing.T) {
 
 func TestListProviders_TokenQueryError(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	testDB, err := db.New(context.Background(), apiTestDBURL, 25, 5)
@@ -1538,7 +1538,7 @@ func TestListProviders_TokenQueryError(t *testing.T) {
 
 func TestListProviders_TokenRowScanError(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	testDB, err := db.New(context.Background(), apiTestDBURL, 25, 5)

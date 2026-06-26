@@ -25,7 +25,7 @@ import (
 // prologue) that the stubbed unit tests cannot reach.
 func TestConfigSync_ImportThroughRealHandlerRunsDiscovery(t *testing.T) {
 	if apiTestDB == nil {
-		t.Skip("test database not available")
+		t.Fatal("test database not available")
 	}
 	cleanConfigTables(t)
 

@@ -21,7 +21,7 @@ func truncateDiscoveryChanges(t *testing.T) {
 
 func TestDiscoveryChangesStore_RoundTrip(t *testing.T) {
 	if apiTestDB == nil {
-		t.Skip("test database unavailable")
+		t.Fatal("test database unavailable")
 	}
 	truncateDiscoveryChanges(t)
 	ctx := context.Background()
@@ -151,7 +151,7 @@ func TestDiscoveryChangesHandlers_HTTP(t *testing.T) {
 
 func TestAppendDiscoveryChange_SkipsEmptyDiff(t *testing.T) {
 	if apiTestDB == nil {
-		t.Skip("test database unavailable")
+		t.Fatal("test database unavailable")
 	}
 	truncateDiscoveryChanges(t)
 	ctx := context.Background()
@@ -176,7 +176,7 @@ func TestAppendDiscoveryChange_SkipsEmptyDiff(t *testing.T) {
 
 func TestAppendDiscoveryChange_NilProviderID(t *testing.T) {
 	if apiTestDB == nil {
-		t.Skip("test database unavailable")
+		t.Fatal("test database unavailable")
 	}
 	truncateDiscoveryChanges(t)
 	ctx := context.Background()

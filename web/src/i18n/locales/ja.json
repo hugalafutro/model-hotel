@@ -101,9 +101,9 @@
 			"requests": "リクエスト",
 			"appLogs": "ログ",
 			"settings": "設定",
-			"failoverBadgeExplain": "サーキットブレーカーの状態によるフェイルオーバープロバイダー — {{closed}} 正常 / {{halfOpen}} 復旧中 / {{open}} トリップ",
-			"discoveryChangesBadge_one": "{{count}}：バックグラウンド検出からの変更 — クリックして確認",
-			"discoveryChangesBadge_other": "{{count}}はバックグラウンド検出による変更です — クリックして確認してください"
+			"failoverBadgeExplain": "サーキットブレーカーの状態によるフェイルオーバープロバイダー - {{closed}} 正常 / {{halfOpen}} 復旧中 / {{open}} トリップ",
+			"discoveryChangesBadge_one": "{{count}}：バックグラウンド検出からの変更 - クリックして確認",
+			"discoveryChangesBadge_other": "{{count}}はバックグラウンド検出による変更です - クリックして確認してください"
 		},
 		"status": {
 			"apiStatus": "APIステータス",
@@ -184,7 +184,7 @@
 		},
 		"githubRepo": "GitHubリポジトリ",
 		"readOnly": {
-			"banner": "読み取り専用デモ — 作成、編集、削除は無効化されています。"
+			"banner": "読み取り専用デモ - 作成、編集、削除は無効化されています。"
 		},
 		"errorShelf": {
 			"acknowledge": "閉じる",
@@ -299,7 +299,7 @@
 			"topVirtualKeys": "トップ仮想キー",
 			"emptyState": "利用データはまだありません。トラフィックが流れると、利用状況の内訳がここに表示されます。",
 			"viewDetailsFor": "{{label}} の詳細を表示",
-			"deletedModelTooltip": "このモデルは利用できなくなりました — 削除されたか、プロバイダーが削除された可能性があります",
+			"deletedModelTooltip": "このモデルは利用できなくなりました - 削除されたか、プロバイダーが削除された可能性があります",
 			"reservedKeyTooltip": "内部で予約済みの名前であり、ユーザーが作成したキーではありません。この使用法は、Model Hotel独自の「{{name}}」ルートに由来します。"
 		},
 		"latency": {
@@ -316,7 +316,9 @@
 			"emptyState": "遅延データはまだありません。トラフィックが流れるとプロバイダの遅延が表示されます。",
 			"responseTooltip": "平均応答時間: {{value}} ({{count}} リクエスト)",
 			"overheadTooltip": "平均プロキシオーバーヘッド: {{value}} ({{count}} リクエスト)",
-			"requestCount": "{{count}} リクエスト"
+			"requestCount": "{{count}} リクエスト",
+			"responseHeaderTooltip": "ゲートウェイ自体のオーバーヘッドを含む、平均の総応答時間。",
+			"overheadHeaderTooltip": "ゲートウェイ自体が追加する平均時間（ルーティング、認証、計測）。プロバイダーの応答時間は含みません。"
 		},
 		"providers": {
 			"top": "トッププロバイダー",
@@ -1805,7 +1807,9 @@
 			"cancelNameAriaLabel": "名前の変更をキャンセルする",
 			"renameAriaLabel": "パスキーの名前を変更",
 			"failedToRename": "パスキーの名前を変更できませんでした: {{message}}",
-			"unavailableDescription": "Passkeys are not supported by this browser or device."
+			"unavailableDescription": "Passkeys are not supported by this browser or device.",
+			"deleteConfirmTitle": "パスキーを削除しますか？",
+			"deleteConfirmMessage": "パスキーが完全に削除されます。再度使用するには、もう一度登録する必要があります。"
 		},
 		"observability": {
 			"json.description": "Fluent Bit、Vector、Promtailなどのstdoutログコレクター向けに、1行につき1つのJSONオブジェクトとして構造化されたログを出力してください。",
@@ -1844,11 +1848,11 @@
 			"eventsLabel": "アラートイベント",
 			"snippets": {
 				"browseAll": "80以上のサービスをすべて閲覧する",
-				"description": "一般的なサービスにおけるAppriseのURL形式の例 — いずれかをコピーし、詳細情報を入力して、上記に貼り付けてください。"
+				"description": "一般的なサービスにおけるAppriseのURL形式の例 - いずれかをコピーし、詳細情報を入力して、上記に貼り付けてください。"
 			},
 			"target": "通知先",
-			"targetConfigured": "設定済み — 置換する文字列",
-			"targetDescription": "AppriseのURL — 暗号化されて保存され、二度と表示されることはありません。複数のターゲットは「<code>;</code>」のように区切ってください。",
+			"targetConfigured": "設定済み - 置換する文字列",
+			"targetDescription": "AppriseのURL - 暗号化されて保存され、二度と表示されることはありません。複数のターゲットは「<code>;</code>」のように区切ってください。",
 			"testButton": "テスト通知を送信",
 			"testFailed": "通知のテストに失敗しました: {{message}}",
 			"testHint": "アラート機能を有効にし、Apprise API URL と送信先の両方を設定してテスト送信を行ってください。",
@@ -1860,7 +1864,7 @@
 				"issues": "apprise-apiには接続できるが、問題が報告されている",
 				"reachable": "apprise-api にアクセス可能",
 				"recheck": "再確認",
-				"unreachable": "apprise-api に接続できません — URL を確認し、コンテナが実行中であることを確認してください",
+				"unreachable": "apprise-api に接続できません - URL を確認し、コンテナが実行中であることを確認してください",
 				"checkFailed": "ステータスチェックに失敗しました"
 			}
 		},

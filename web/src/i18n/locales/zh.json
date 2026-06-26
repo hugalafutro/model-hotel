@@ -101,9 +101,9 @@
 			"requests": "请求",
 			"appLogs": "日志",
 			"settings": "设置",
-			"failoverBadgeExplain": "按断路器状态切换提供商 — {{closed}} 正常 / {{halfOpen}} 恢复中 / {{open}} 已跳闸",
-			"discoveryChangesBadge_one": "{{count}} 来自后台发现的变更 — 点击查看",
-			"discoveryChangesBadge_other": "{{count}} 来自后台发现的变更 — 点击查看"
+			"failoverBadgeExplain": "按断路器状态切换提供商 - {{closed}} 正常 / {{halfOpen}} 恢复中 / {{open}} 已跳闸",
+			"discoveryChangesBadge_one": "{{count}} 来自后台发现的变更 - 点击查看",
+			"discoveryChangesBadge_other": "{{count}} 来自后台发现的变更 - 点击查看"
 		},
 		"status": {
 			"apiStatus": "API 状态",
@@ -316,7 +316,9 @@
 			"emptyState": "尚无延迟数据。一旦流量流量，提供者延迟将会出现在这里。",
 			"responseTooltip": "平均响应时间： {{value}} （{{count}} 次请求）",
 			"overheadTooltip": "平均代理开销： {{value}} （{{count}} 次请求）",
-			"requestCount": "{{count}} 请求"
+			"requestCount": "{{count}} 请求",
+			"responseHeaderTooltip": "平均总响应时间，包含网关自身的开销。",
+			"overheadHeaderTooltip": "网关自身增加的平均时间（路由、认证、计量），不含提供商自身的响应时间。"
 		},
 		"providers": {
 			"top": "热门提供商",
@@ -1805,7 +1807,9 @@
 			"cancelNameAriaLabel": "取消重命名",
 			"renameAriaLabel": "重命名密码",
 			"failedToRename": "重命名密钥失败： {{message}}",
-			"unavailableDescription": "Passkeys are not supported by this browser or device."
+			"unavailableDescription": "Passkeys are not supported by this browser or device.",
+			"deleteConfirmTitle": "删除通行密钥？",
+			"deleteConfirmMessage": "此操作将永久删除该通行密钥。若要再次使用，需要重新注册。"
 		},
 		"observability": {
 			"json.description": "为 Fluent Bit、Vector 或 Promtail 等标准输出日志收集器生成结构化日志，每行输出一个 JSON 对象。",
@@ -1847,7 +1851,7 @@
 				"description": "常用服务的 Apprise URL 格式示例——复制其中一个，填写您的详细信息，然后将其粘贴到上方。"
 			},
 			"target": "通知目标",
-			"targetConfigured": "已配置 — 输入内容以替换",
+			"targetConfigured": "已配置 - 输入内容以替换",
 			"targetDescription": "您的 Apprise URL —— 该 URL 已加密存储，且不会再次显示。若有多个目标，请使用 <code>;</code> 进行分隔。",
 			"testButton": "发送测试通知",
 			"testFailed": "测试通知失败：{{message}}",
@@ -1860,7 +1864,7 @@
 				"issues": "apprise-api 可访问但报告存在问题",
 				"reachable": "apprise-api 可访问",
 				"recheck": "请重新检查",
-				"unreachable": "apprise-api 无法访问 — 请检查 URL 并确认容器是否正在运行",
+				"unreachable": "apprise-api 无法访问 - 请检查 URL 并确认容器是否正在运行",
 				"checkFailed": "状态检查失败"
 			}
 		},

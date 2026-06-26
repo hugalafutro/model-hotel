@@ -101,9 +101,9 @@
 			"requests": "Požadavky",
 			"appLogs": "Logy appky",
 			"settings": "Nastavení",
-			"failoverBadgeExplain": "Poskytovatelé failoveru podle stavu jističe — {{closed}} v pořádku / {{halfOpen}} se zotavuje / {{open}} vypnutý",
-			"discoveryChangesBadge_one": "Změna {{count}} z automatického vyhledávání na pozadí — klikněte pro kontrolu",
-			"discoveryChangesBadge_other": "Změny {{count}} z automatického vyhledávání na pozadí — kliknutím zobrazíte přehled"
+			"failoverBadgeExplain": "Poskytovatelé failoveru podle stavu jističe - {{closed}} v pořádku / {{halfOpen}} se zotavuje / {{open}} vypnutý",
+			"discoveryChangesBadge_one": "Změna {{count}} z automatického vyhledávání na pozadí - klikněte pro kontrolu",
+			"discoveryChangesBadge_other": "Změny {{count}} z automatického vyhledávání na pozadí - kliknutím zobrazíte přehled"
 		},
 		"status": {
 			"apiStatus": "Stav API",
@@ -316,7 +316,9 @@
 			"emptyState": "Zatím nejsou k dispozici žádné údaje o latenci. Jakmile začne proudit provoz, zobrazí se zde latence poskytovatele.",
 			"responseTooltip": "Průměrná doba odezvy: {{value}} (počet požadavků {{count}})",
 			"overheadTooltip": "Průměrná režie proxy: {{value}} (požadavky {{count}})",
-			"requestCount": "Požadavky {{count}}"
+			"requestCount": "Požadavky {{count}}",
+			"responseHeaderTooltip": "Průměrná celková doba odezvy včetně vlastní režie brány.",
+			"overheadHeaderTooltip": "Průměrný čas, který přidává samotná brána (směrování, ověřování, měření), bez doby odezvy poskytovatele."
 		},
 		"providers": {
 			"top": "Nej. poskytovatelé",
@@ -1805,7 +1807,9 @@
 			"cancelNameAriaLabel": "Zrušit přejmenování",
 			"renameAriaLabel": "Přejmenovat přístupový kód",
 			"failedToRename": "Přejmenování přístupového klíče selhalo: {{message}}",
-			"unavailableDescription": "Passkeys are not supported by this browser or device."
+			"unavailableDescription": "Passkeys are not supported by this browser or device.",
+			"deleteConfirmTitle": "Odstranit přístupový klíč?",
+			"deleteConfirmMessage": "Tímto se přístupový klíč trvale odstraní. Chcete-li jej používat, budete jej muset znovu zaregistrovat."
 		},
 		"observability": {
 			"json.description": "Vydávejte strukturované protokoly jako jeden objekt JSON na řádek pro sběrače protokolů stdout, jako jsou Fluent Bit, Vector nebo Promtail.",
@@ -1818,14 +1822,14 @@
 			"otel.instructions": "Nasměrujte to na koncový bod sběrače OTLP a restartujte kontejner, aby se protokoly odesílaly přes OpenTelemetry:",
 			"otel.name": "Protokoly OpenTelemetry (OTLP)",
 			"title": "Sledovatelnost a export protokolů",
-			"description": "Model Hotel může exportovat své strukturované protokoly a metriky do externích systémů. Každá integrace se aktivuje pomocí proměnné prostředí; níže uvedené stavové ikony odrážejí aktuální stav. Nikdy se neexportuje obsah žádostí ani odpovědí — pouze metadata o směrování a měření.",
+			"description": "Model Hotel může exportovat své strukturované protokoly a metriky do externích systémů. Každá integrace se aktivuje pomocí proměnné prostředí; níže uvedené stavové ikony odrážejí aktuální stav. Nikdy se neexportuje obsah žádostí ani odpovědí - pouze metadata o směrování a měření.",
 			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "URL rozhraní API Apprise",
 			"apiUrlDescription": "Základní URL kontejneru apprise-api, který spouštíte (například http://apprise:8000).",
 			"clear": "Vymazat",
-			"description": "Odesílejte push notifikace o významných událostech (výpadek poskytovatele, spuštění jističe) do aplikací Telegram, e-mailu, Discord a dalších prostřednictvím bezstavového kontejneru Apprise, který provozujete. Nikdy se neodesílá obsah požadavku — pouze souhrn události.",
+			"description": "Odesílejte push notifikace o významných událostech (výpadek poskytovatele, spuštění jističe) do aplikací Telegram, e-mailu, Discord a dalších prostřednictvím bezstavového kontejneru Apprise, který provozujete. Nikdy se neodesílá obsah požadavku - pouze souhrn události.",
 			"enable": "Povolit zasílání upozornění",
 			"enableDescription": "Vybrané události přeposílejte na váš koncový bod Apprise.",
 			"event": {
@@ -1847,8 +1851,8 @@
 				"description": "Příklady formátů URL pro Apprise u populárních služeb – zkopírujte jeden z nich, doplňte své údaje a vložte jej výše."
 			},
 			"target": "Cíl oznámení",
-			"targetConfigured": "Nakonfigurováno — zadejte náhradu",
-			"targetDescription": "Vaše URL adresa Apprise — je uložena v zašifrované podobě a již se nikdy nezobrazí. Více cílů oddělte pomocí <code>;</code>.",
+			"targetConfigured": "Nakonfigurováno - zadejte náhradu",
+			"targetDescription": "Vaše URL adresa Apprise - je uložena v zašifrované podobě a již se nikdy nezobrazí. Více cílů oddělte pomocí <code>;</code>.",
 			"testButton": "Odeslat testovací oznámení",
 			"testFailed": "Testování oznámení selhalo: {{message}}",
 			"testHint": "Aktivujte zasílání upozornění a nastavte jak URL rozhraní Apprise API, tak cíl pro odeslání testu.",
@@ -1860,7 +1864,7 @@
 				"issues": "apprise-api je dostupné, ale hlásí problémy",
 				"reachable": "apprise-api je dostupné",
 				"recheck": "Zkontrolujte znovu",
-				"unreachable": "apprise-api je nedostupné — zkontrolujte URL a zda kontejner běží",
+				"unreachable": "apprise-api je nedostupné - zkontrolujte URL a zda kontejner běží",
 				"checkFailed": "Kontrola stavu selhala"
 			}
 		},

@@ -859,7 +859,7 @@ func TestAuthMiddleware_TotpEnabled_RejectsRawToken(t *testing.T) {
 // token passes AuthMiddleware when TOTP is enabled.
 func TestAuthMiddleware_TotpEnabled_SessionTokenWorks(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	mockAuth := &mockAdminAuth{validateFn: func(string) bool { return false }}
 	h := testHandler(nil, nil, nil, mockAuth, nil)
@@ -869,7 +869,7 @@ func TestAuthMiddleware_TotpEnabled_SessionTokenWorks(t *testing.T) {
 	// Build a real session manager to mint a token the AuthMiddleware will accept.
 	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
 	if err != nil {
-		t.Skipf("skipping: test database not available: %v", err)
+		t.Fatalf("test database not available: %v", err)
 	}
 	t.Cleanup(pool.Close)
 	repo := webauthn.NewRepository(pool)
@@ -970,7 +970,7 @@ func TestAuthMiddleware_TotpNilStatus_RawTokenWorks(t *testing.T) {
 // token 200 again), verifying the full lifecycle.
 func TestAuthMiddleware_DisableRevertsToRawToken(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	truncateTOTPTables(t)
 	t.Cleanup(func() { truncateTOTPTables(t) })
@@ -1482,7 +1482,7 @@ func TestUpdateProvider_BaseURLTooLong(t *testing.T) {
 
 func TestListProviders_CancelledContext(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("apiTestDBURL not set, skipping integration test")
+		t.Fatal("apiTestDBURL not set: test database required")
 	}
 
 	// Create a real DB connection for the model/token count queries
@@ -1513,7 +1513,7 @@ func TestListProviders_CancelledContext(t *testing.T) {
 
 func TestDeleteProvider_SyncFailoverError(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("apiTestDBURL not set, skipping integration test")
+		t.Fatal("apiTestDBURL not set: test database required")
 	}
 
 	// Create a real DB connection, then close it so SyncAllModels fails.
@@ -1773,13 +1773,13 @@ func TestDeleteProvider_Integration_Success(t *testing.T) {
 // to cover the model count query and rows.Scan paths.
 func TestListProviders_WithModelCounts(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, apiTestDBURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	defer pool.Close()
 
@@ -1880,13 +1880,13 @@ func TestListProviders_WithModelCounts(t *testing.T) {
 // to cover the token count query and rows.Scan paths.
 func TestListProviders_WithTokenCounts(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, apiTestDBURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	defer pool.Close()
 
@@ -1994,7 +1994,7 @@ func TestListProviders_ModelCountQueryError(t *testing.T) {
 // to force a query failure.
 func TestListProviders_TokenCountScanError(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("apiTestDBURL not set, skipping integration test")
+		t.Fatal("apiTestDBURL not set: test database required")
 	}
 
 	// With a cancelled context, the token count query will fail,
@@ -2029,12 +2029,12 @@ func TestListProviders_TokenCountScanError(t *testing.T) {
 // path in ListProviders directly. Uses a closed database pool so the query fails.
 func TestListProviders_ClosedDBPool(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("apiTestDBURL not set, skipping integration test")
+		t.Fatal("apiTestDBURL not set: test database required")
 	}
 
 	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	pool.Close() // close immediately so queries fail
 

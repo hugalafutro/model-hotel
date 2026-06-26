@@ -316,7 +316,9 @@
 			"emptyState": "Noch keine Latenzdaten. Die Latenz des Anbieters wird hier angezeigt, sobald der Datenverkehr abläuft.",
 			"responseTooltip": "Durchschnittliche Antwortzeit: {{value}} ({{count}} Anfragen)",
 			"overheadTooltip": "Avg Proxy Overhead: {{value}} ({{count}} Anfragen)",
-			"requestCount": "{{count}} Anfragen"
+			"requestCount": "{{count}} Anfragen",
+			"responseHeaderTooltip": "Durchschnittliche Gesamtantwortzeit, einschließlich des Overheads des Gateways selbst.",
+			"overheadHeaderTooltip": "Durchschnittliche Zeit, die das Gateway selbst hinzufügt (Routing, Authentifizierung, Messung), ohne die Antwortzeit des Anbieters."
 		},
 		"providers": {
 			"top": "Top-Anbieter",
@@ -1805,7 +1807,9 @@
 			"cancelNameAriaLabel": "Umbenennen abbrechen",
 			"renameAriaLabel": "Passwort umbenennen",
 			"failedToRename": "Fehler beim Umbenennen des Passworts: {{message}}",
-			"unavailableDescription": "Passkeys are not supported by this browser or device."
+			"unavailableDescription": "Passkeys are not supported by this browser or device.",
+			"deleteConfirmTitle": "Passkey löschen?",
+			"deleteConfirmMessage": "Dadurch wird der Passkey dauerhaft gelöscht. Sie müssen ihn erneut registrieren, um ihn zu verwenden."
 		},
 		"observability": {
 			"json.description": "Strukturierte Protokolle als ein JSON-Objekt pro Zeile ausgeben, für stdout-Protokollsammler wie Fluent Bit, Vector oder Promtail.",

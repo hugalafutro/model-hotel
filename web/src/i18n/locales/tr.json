@@ -101,9 +101,9 @@
 			"requests": "İstekler",
 			"appLogs": "Günlükler",
 			"settings": "Ayarlar",
-			"failoverBadgeExplain": "Devre kesici durumuna göre yedekleme sağlayıcıları — {{closed}} sağlıklı / {{halfOpen}} kurtarma aşamasında / {{open}} devre dışı",
-			"discoveryChangesBadge_one": "{{count}} arka plan keşfinden yapılan değişiklik — gözden geçirmek için tıklayın",
-			"discoveryChangesBadge_other": "{{count}}, arka plan keşif sürecinden kaynaklanan değişiklikler — gözden geçirmek için tıklayın"
+			"failoverBadgeExplain": "Devre kesici durumuna göre yedekleme sağlayıcıları - {{closed}} sağlıklı / {{halfOpen}} kurtarma aşamasında / {{open}} devre dışı",
+			"discoveryChangesBadge_one": "{{count}} arka plan keşfinden yapılan değişiklik - gözden geçirmek için tıklayın",
+			"discoveryChangesBadge_other": "{{count}}, arka plan keşif sürecinden kaynaklanan değişiklikler - gözden geçirmek için tıklayın"
 		},
 		"status": {
 			"apiStatus": "API Durumu",
@@ -184,7 +184,7 @@
 		},
 		"githubRepo": "GitHub deposu",
 		"readOnly": {
-			"banner": "Salt okunur demo — oluşturma, düzenleme ve silme işlemleri devre dışıdır."
+			"banner": "Salt okunur demo - oluşturma, düzenleme ve silme işlemleri devre dışıdır."
 		},
 		"errorShelf": {
 			"acknowledge": "Kapat",
@@ -299,7 +299,7 @@
 			"topVirtualKeys": "En iyi sanal anahtarlar",
 			"emptyState": "Henüz kullanım verisi yok. Trafik akışı başladığında kullanım dağılımı burada görünecektir.",
 			"viewDetailsFor": "Ayrıntıları görüntüle {{label}}",
-			"deletedModelTooltip": "Model artık mevcut değil — silinmiş olabilir veya satıcısı kaldırılmış olabilir",
+			"deletedModelTooltip": "Model artık mevcut değil - silinmiş olabilir veya satıcısı kaldırılmış olabilir",
 			"reservedKeyTooltip": "Dahili ayrılmış ad, sizin oluşturduğunuz bir anahtar değil - bu kullanım Model Hotel'in kendi \"{{name}}\" rotalarından gelmektedir"
 		},
 		"latency": {
@@ -316,7 +316,9 @@
 			"emptyState": "Henüz gecikme verisi yok. Trafik akmaya başladığında sağlayıcı gecikmesi burada görünecektir.",
 			"responseTooltip": "Ortalama yanıt süresi: {{value}} ({{count}} istekleri)",
 			"overheadTooltip": "Ortalama proxy ek yükü: {{value}} ({{count}} istek)",
-			"requestCount": "{{count}} istekler"
+			"requestCount": "{{count}} istekler",
+			"responseHeaderTooltip": "Ağ geçidinin kendi ek yükü dahil, ortalama toplam yanıt süresi.",
+			"overheadHeaderTooltip": "Ağ geçidinin kendisinin eklediği ortalama süre (yönlendirme, kimlik doğrulama, ölçüm), sağlayıcının yanıt süresi hariç."
 		},
 		"providers": {
 			"top": "En iyi sağlayıcılar",
@@ -1805,7 +1807,9 @@
 			"cancelNameAriaLabel": "Ad değiştirme işlemini iptal et",
 			"renameAriaLabel": "Şifreyi yeniden adlandır",
 			"failedToRename": "Şifreyi yeniden adlandırma işlemi başarısız oldu: {{message}}",
-			"unavailableDescription": "Passkeys are not supported by this browser or device."
+			"unavailableDescription": "Passkeys are not supported by this browser or device.",
+			"deleteConfirmTitle": "Geçiş anahtarı silinsin mi?",
+			"deleteConfirmMessage": "Bu işlem geçiş anahtarını kalıcı olarak siler. Kullanmak için onu yeniden kaydetmeniz gerekir."
 		},
 		"observability": {
 			"json.description": "Fluent Bit, Vector veya Promtail gibi stdout günlük toplayıcıları için, yapılandırılmış günlükleri satır başına tek bir JSON nesnesi olarak gönderin.",
@@ -1818,14 +1822,14 @@
 			"otel.instructions": "Bunu OTLP toplayıcı uç noktanıza yönlendirin ve OpenTelemetry üzerinden günlükleri aktarmak için konteyneri yeniden başlatın:",
 			"otel.name": "OpenTelemetry günlükleri (OTLP)",
 			"title": "Gözlemlenebilirlik ve Günlük Dışa Aktarma",
-			"description": "Model Hotel, yapılandırılmış günlüklerini ve metriklerini harici sistemlere aktarabilir. Her entegrasyon bir ortam değişkeni ile etkinleştirilir; aşağıdaki durum rozetleri mevcut durumu yansıtır. Hiçbir istek veya yanıt içeriği aktarılmaz — yalnızca yönlendirme ve ölçüm meta verileri aktarılır.",
+			"description": "Model Hotel, yapılandırılmış günlüklerini ve metriklerini harici sistemlere aktarabilir. Her entegrasyon bir ortam değişkeni ile etkinleştirilir; aşağıdaki durum rozetleri mevcut durumu yansıtır. Hiçbir istek veya yanıt içeriği aktarılmaz - yalnızca yönlendirme ve ölçüm meta verileri aktarılır.",
 			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "Apprise API URL'si",
 			"apiUrlDescription": "Çalıştırdığınız apprise-api konteynerinin temel URL'si (örneğin http://apprise:8000).",
 			"clear": "Temizle",
-			"description": "Önemli olaylar (bir sağlayıcının hizmetinin kesilmesi, bir devre kesicinin devreye girmesi) için, çalıştırdığınız durum bilgisi içermeyen bir Apprise konteyneri aracılığıyla Telegram, e-posta, Discord ve diğer platformlara push bildirimleri gönderin. Hiçbir istek içeriği gönderilmez — yalnızca olay özeti gönderilir.",
+			"description": "Önemli olaylar (bir sağlayıcının hizmetinin kesilmesi, bir devre kesicinin devreye girmesi) için, çalıştırdığınız durum bilgisi içermeyen bir Apprise konteyneri aracılığıyla Telegram, e-posta, Discord ve diğer platformlara push bildirimleri gönderin. Hiçbir istek içeriği gönderilmez - yalnızca olay özeti gönderilir.",
 			"enable": "Uyarı özelliğini etkinleştirin",
 			"enableDescription": "Seçilen olayları Apprise uç noktanıza iletin.",
 			"event": {
@@ -1844,11 +1848,11 @@
 			"eventsLabel": "Uyarı olayları",
 			"snippets": {
 				"browseAll": "80'den fazla hizmetin tümünü inceleyin",
-				"description": "Popüler hizmetler için örnek Apprise URL biçimleri — bunlardan birini kopyalayın, bilgilerinizi girin ve yukarıya yapıştırın."
+				"description": "Popüler hizmetler için örnek Apprise URL biçimleri - bunlardan birini kopyalayın, bilgilerinizi girin ve yukarıya yapıştırın."
 			},
 			"target": "Bildirim hedefi",
-			"targetConfigured": "Yapılandırılmış — değiştirilecek metin",
-			"targetDescription": "Apprise URL'niz — şifrelenmiş olarak saklanır ve bir daha asla gösterilmez. Birden fazla hedefi <code>;</code> şeklinde ayırın.",
+			"targetConfigured": "Yapılandırılmış - değiştirilecek metin",
+			"targetDescription": "Apprise URL'niz - şifrelenmiş olarak saklanır ve bir daha asla gösterilmez. Birden fazla hedefi <code>;</code> şeklinde ayırın.",
 			"testButton": "Test bildirimi gönder",
 			"testFailed": "Bildirim testi başarısız: {{message}}",
 			"testHint": "Uyarı özelliğini etkinleştirin ve bir test göndermek için hem bir Apprise API URL'si hem de bir hedef belirleyin.",
@@ -1860,7 +1864,7 @@
 				"issues": "apprise-api erişilebilir ancak sorunlar bildiriliyor",
 				"reachable": "apprise-api erişilebilir",
 				"recheck": "Tekrar kontrol edin",
-				"unreachable": "apprise-api erişilemiyor — URL'yi kontrol edin ve konteynerin çalışır durumda olup olmadığını kontrol edin",
+				"unreachable": "apprise-api erişilemiyor - URL'yi kontrol edin ve konteynerin çalışır durumda olup olmadığını kontrol edin",
 				"checkFailed": "Durum kontrolü başarısız"
 			}
 		},

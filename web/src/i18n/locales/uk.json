@@ -101,9 +101,9 @@
 			"requests": "Запити",
 			"appLogs": "Логи",
 			"settings": "Налаштування",
-			"failoverBadgeExplain": "Провайдери відмовостійкості за станом автоматичного вимикача — {{closed}} справний / {{halfOpen}} відновлюється / {{open}} спрацював",
-			"discoveryChangesBadge_one": "Зміна {{count}} з фонового виявлення — натисніть, щоб переглянути",
-			"discoveryChangesBadge_other": "Зміни {{count}}, виявлені під час фонового сканування — натисніть, щоб переглянути"
+			"failoverBadgeExplain": "Провайдери відмовостійкості за станом автоматичного вимикача - {{closed}} справний / {{halfOpen}} відновлюється / {{open}} спрацював",
+			"discoveryChangesBadge_one": "Зміна {{count}} з фонового виявлення - натисніть, щоб переглянути",
+			"discoveryChangesBadge_other": "Зміни {{count}}, виявлені під час фонового сканування - натисніть, щоб переглянути"
 		},
 		"status": {
 			"apiStatus": "Статус API",
@@ -184,7 +184,7 @@
 		},
 		"githubRepo": "Репозиторій GitHub",
 		"readOnly": {
-			"banner": "Демоверсія тільки для читання — функції створення, редагування та видалення вимкнені."
+			"banner": "Демоверсія тільки для читання - функції створення, редагування та видалення вимкнені."
 		},
 		"errorShelf": {
 			"acknowledge": "Закрити",
@@ -299,8 +299,8 @@
 			"topVirtualKeys": "Топ віртуальних ключів",
 			"emptyState": "Даних про використання поки поки немає. Використання розриву буде показано тут після потоку трафіку.",
 			"viewDetailsFor": "Переглянути деталі для {{label}}",
-			"deletedModelTooltip": "Ця модель більше не доступна — можливо, її було видалено або її постачальник більше не представлений",
-			"reservedKeyTooltip": "Внутрішнє зарезервоване ім’я, а не ключ, який ви створили — це використання походить від власних маршрутів Model Hotel «{{name}}»"
+			"deletedModelTooltip": "Ця модель більше не доступна - можливо, її було видалено або її постачальник більше не представлений",
+			"reservedKeyTooltip": "Внутрішнє зарезервоване ім’я, а не ключ, який ви створили - це використання походить від власних маршрутів Model Hotel «{{name}}»"
 		},
 		"latency": {
 			"topModels": "Найповільніші моделі",
@@ -316,7 +316,9 @@
 			"emptyState": "Даних про затримку ще немає. Запобіжна затримка буде відображатися тут після передачі руху.",
 			"responseTooltip": "Середній час відгуку: {{value}} ({{count}} запитів)",
 			"overheadTooltip": "Середній проксі накладні: {{value}} ({{count}} запитів)",
-			"requestCount": "{{count}} запити"
+			"requestCount": "{{count}} запити",
+			"responseHeaderTooltip": "Середній загальний час відповіді, включно з власними витратами шлюзу.",
+			"overheadHeaderTooltip": "Середній час, який додає сам шлюз (маршрутизація, автентифікація, облік), без урахування часу відповіді постачальника."
 		},
 		"providers": {
 			"top": "Топ провайдерів",
@@ -725,7 +727,7 @@
 		"form_base_url_hint_local": "URL за замовчуванням попередньо заповнено; редагувати, якщо ваш сервер працює на іншій адресі. Тип виявлено з номера порту.",
 		"form_base_url_hint_custom": "Повний API базовий URL включно з будь-яким префіксом шляху. Моделі будуть виявлені з \"<base_url>\"/models",
 		"form_api_key_label": "API ключ",
-		"form_api_key_placeholder_optional": "Факультативна — доступні безкоштовні моделі",
+		"form_api_key_placeholder_optional": "Факультативна - доступні безкоштовні моделі",
 		"form_api_key_placeholder_required": "API ключ",
 		"form_api_key_show": "Показати API ключ",
 		"form_api_key_hide": "Приховати ключ API",
@@ -1805,7 +1807,9 @@
 			"cancelNameAriaLabel": "Скасувати перейменування",
 			"renameAriaLabel": "Перейменувати passkey",
 			"failedToRename": "Не вдалося перейменувати пароль: {{message}}",
-			"unavailableDescription": "Passkeys are not supported by this browser or device."
+			"unavailableDescription": "Passkeys are not supported by this browser or device.",
+			"deleteConfirmTitle": "Видалити ключ доступу?",
+			"deleteConfirmMessage": "Це назавжди видалить ключ доступу. Щоб користуватися ним, його потрібно буде зареєструвати знову."
 		},
 		"observability": {
 			"json.description": "Видавайте структуровані журнали у вигляді одного об’єкта JSON на рядок для колекторів журналів stdout, таких як Fluent Bit, Vector або Promtail.",
@@ -1818,14 +1822,14 @@
 			"otel.instructions": "Вкажіть це на кінцеву точку колектора OTLP і перезапустіть контейнер, щоб передати журнали через OpenTelemetry:",
 			"otel.name": "Журнали OpenTelemetry (OTLP)",
 			"title": "Спостережуваність та експорт журналів",
-			"description": "Model Hotel може експортувати свої структуровані журнали та метрики до зовнішніх систем. Кожна інтеграція вмикається за допомогою змінної середовища; значки статусу нижче відображають поточний стан. Вміст запитів або відповідей ніколи не експортується — лише метадані маршрутизації та вимірювання.",
+			"description": "Model Hotel може експортувати свої структуровані журнали та метрики до зовнішніх систем. Кожна інтеграція вмикається за допомогою змінної середовища; значки статусу нижче відображають поточний стан. Вміст запитів або відповідей ніколи не експортується - лише метадані маршрутизації та вимірювання.",
 			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "URL-адреса API Apprise",
 			"apiUrlDescription": "Базовий URL контейнера apprise-api, який ви запускаєте (наприклад, http://apprise:8000).",
 			"clear": "Очистити",
-			"description": "Надсилайте push-повідомлення про важливі події (відмова провайдера, спрацювання автоматичного вимикача) у Telegram, електронну пошту, Discord тощо через безстатусний контейнер Apprise, який ви запускаєте. Вміст запиту ніколи не надсилається — лише підсумок події.",
+			"description": "Надсилайте push-повідомлення про важливі події (відмова провайдера, спрацювання автоматичного вимикача) у Telegram, електронну пошту, Discord тощо через безстатусний контейнер Apprise, який ви запускаєте. Вміст запиту ніколи не надсилається - лише підсумок події.",
 			"enable": "Увімкнути сповіщення",
 			"enableDescription": "Пересилайте вибрані події на ваш кінцевий пункт Apprise.",
 			"event": {
@@ -1844,11 +1848,11 @@
 			"eventsLabel": "Події сповіщень",
 			"snippets": {
 				"browseAll": "Переглянути всі понад 80 сервісів",
-				"description": "Приклади форматів URL-адрес Apprise для популярних сервісів — скопіюйте один із них, заповніть свої дані та вставте його вище."
+				"description": "Приклади форматів URL-адрес Apprise для популярних сервісів - скопіюйте один із них, заповніть свої дані та вставте його вище."
 			},
 			"target": "Адресат сповіщення",
-			"targetConfigured": "Налаштовано — введіть текст для заміни",
-			"targetDescription": "Ваш URL-адресу Apprise — зберігається у зашифрованому вигляді і більше ніколи не відображається. Кілька цільових адрес слід розділяти за допомогою <code>;</code>.",
+			"targetConfigured": "Налаштовано - введіть текст для заміни",
+			"targetDescription": "Ваш URL-адресу Apprise - зберігається у зашифрованому вигляді і більше ніколи не відображається. Кілька цільових адрес слід розділяти за допомогою <code>;</code>.",
 			"testButton": "Надіслати тестове повідомлення",
 			"testFailed": "Помилка тестування сповіщення: {{message}}",
 			"testHint": "Увімкніть сповіщення та вкажіть як URL-адресу API Apprise, так і ціль для надсилання тестового запиту.",
@@ -1860,7 +1864,7 @@
 				"issues": "apprise-api доступний, але повідомляє про проблеми",
 				"reachable": "apprise-api доступний",
 				"recheck": "Перевірте ще раз",
-				"unreachable": "apprise-api недоступний — перевірте URL-адресу та переконайтеся, що контейнер працює",
+				"unreachable": "apprise-api недоступний - перевірте URL-адресу та переконайтеся, що контейнер працює",
 				"checkFailed": "Перевірка стану не вдалася"
 			}
 		},
@@ -1986,7 +1990,7 @@
 			"dateFilterButton": {
 				"filterByDateRange": "Фільтрувати за діапазоном дат",
 				"clearDateFilter": "Очистити фільтр дати",
-				"dateFilterWithRange": "Фільтр за датою: {{range}} — натисніть, щоб змінити"
+				"dateFilterWithRange": "Фільтр за датою: {{range}} - натисніть, щоб змінити"
 			},
 			"dateRangePicker": {
 				"selectDateRange": "Виберіть діапазон дат",
@@ -2427,7 +2431,7 @@
 		},
 		"dateFilterButton": {
 			"filterByDateRange": "Фільтрувати за діапазоном дат",
-			"dateFilter": "Фільтр за датою: {{range}} — натисніть, щоб змінити",
+			"dateFilter": "Фільтр за датою: {{range}} - натисніть, щоб змінити",
 			"clearDateFilter": "Очистити фільтр дати ({{range}})",
 			"clearDateFilterShort": "Очистити фільтр дати"
 		},
@@ -2446,13 +2450,13 @@
 			"deepseekBalanceUnavailable": "Баланс DeepSeek недоступний",
 			"openrouterBalance": "Баланс ключа OpenRouter - натисніть для деталей",
 			"openrouterBalanceUnavailable": "OpenRouter balance unavailable",
-			"ollamaCloudPlan": "Ollama Cloud {{plan}} тарифний план {{refreshed}} — натисніть, щоб оновити",
-			"ollamaCloudPlanEnds": "План Ollama Cloud {{plan}} (закінчується {{date}}) {{refreshed}} — натисніть, щоб оновити",
+			"ollamaCloudPlan": "Ollama Cloud {{plan}} тарифний план {{refreshed}} - натисніть, щоб оновити",
+			"ollamaCloudPlanEnds": "План Ollama Cloud {{plan}} (закінчується {{date}}) {{refreshed}} - натисніть, щоб оновити",
 			"ollamaCloudUnavailable": "Обліковий запис в Ollama Cloud недоступний",
 			"nanoWeeklyTokensRemaining": "Залишилось NanoGPT тижневих токенів - натисніть для деталей",
 			"nanoWeeklyTokenQuota": "NanoGPT тижнева квота - натисніть для деталей",
 			"openRouterKeyBalance": "Баланс ключа OpenRouter - натисніть для деталей",
-			"ollamaCloudPlanWithEnd": "Тарифний план Ollama Cloud {{plan}} (закінчується {{endDate}}) {{refreshed}} — натисніть, щоб оновити",
+			"ollamaCloudPlanWithEnd": "Тарифний план Ollama Cloud {{plan}} (закінчується {{endDate}}) {{refreshed}} - натисніть, щоб оновити",
 			"updated": "- оновлено {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} кВт залишилося {{refreshed}}",
 			"neuralwattBalanceUnavailable": "Баланс NeuralWatt недоступний"

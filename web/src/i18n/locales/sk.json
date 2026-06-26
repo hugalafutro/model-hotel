@@ -101,8 +101,8 @@
 			"requests": "Požiadavky",
 			"appLogs": "Záznamy",
 			"settings": "Nastavenia",
-			"failoverBadgeExplain": "Poskytovatelia failoveru podľa stavu ističa — {{closed}} v poriadku / {{halfOpen}} sa obnovuje / {{open}} vypnutý",
-			"discoveryChangesBadge_one": "Zmena {{count}} z automatického vyhľadávania na pozadí — kliknite na prehliadnutie",
+			"failoverBadgeExplain": "Poskytovatelia failoveru podľa stavu ističa - {{closed}} v poriadku / {{halfOpen}} sa obnovuje / {{open}} vypnutý",
+			"discoveryChangesBadge_one": "Zmena {{count}} z automatického vyhľadávania na pozadí - kliknite na prehliadnutie",
 			"discoveryChangesBadge_other": "Zmeny {{count}} vyplývajúce z automatického vyhľadávania – kliknite na tlačidlo na prehliadnutie"
 		},
 		"status": {
@@ -184,7 +184,7 @@
 		},
 		"githubRepo": "Repozitár GitHub",
 		"readOnly": {
-			"banner": "Demo len na čítanie — vytváranie, úpravy a mazanie sú deaktivované."
+			"banner": "Demo len na čítanie - vytváranie, úpravy a mazanie sú deaktivované."
 		},
 		"errorShelf": {
 			"acknowledge": "Zatvoriť",
@@ -316,7 +316,9 @@
 			"emptyState": "Zatiaľ nie sú k dispozícii žiadne údaje o latencii. Latencia poskytovateľa sa tu zobrazí, akonáhle začne prebiehať prevádzka.",
 			"responseTooltip": "Priemerná doba odozvy: {{value}} ({{count}} požiadaviek)",
 			"overheadTooltip": "Priemerná réžia proxy: {{value}} ({{count}} žiadostí)",
-			"requestCount": "{{count}} žiadosti"
+			"requestCount": "{{count}} žiadosti",
+			"responseHeaderTooltip": "Priemerný celkový čas odozvy vrátane vlastnej réžie brány.",
+			"overheadHeaderTooltip": "Priemerný čas, ktorý pridáva samotná brána (smerovanie, overovanie, meranie), bez času odozvy poskytovateľa."
 		},
 		"providers": {
 			"top": "Naj. poskytovatelia",
@@ -1805,7 +1807,9 @@
 			"cancelNameAriaLabel": "Zrušiť premenovanie",
 			"renameAriaLabel": "Premenovať prístupový kód",
 			"failedToRename": "Premenovanie prístupového kľúča sa nepodarilo: {{message}}",
-			"unavailableDescription": "Passkeys are not supported by this browser or device."
+			"unavailableDescription": "Passkeys are not supported by this browser or device.",
+			"deleteConfirmTitle": "Odstrániť prístupový kľúč?",
+			"deleteConfirmMessage": "Týmto sa prístupový kľúč natrvalo odstráni. Ak ho chcete používať, budete ho musieť znova zaregistrovať."
 		},
 		"observability": {
 			"json.description": "Vysielajte štruktúrované protokoly ako jeden objekt JSON na riadok pre zberače protokolov stdout, ako sú Fluent Bit, Vector alebo Promtail.",
@@ -1847,8 +1851,8 @@
 				"description": "Príklady formátov URL adresy Apprise pre populárne služby – skopírujte jeden z nich, vyplňte svoje údaje a vložte ho vyššie."
 			},
 			"target": "Cieľ oznámenia",
-			"targetConfigured": "Konfigurované — text na nahradenie",
-			"targetDescription": "Vaša URL adresa Apprise — je uložená v šifrovanej podobe a už sa nikdy nezobrazí. Viac cieľov oddeľte pomocou <code>;</code>.",
+			"targetConfigured": "Konfigurované - text na nahradenie",
+			"targetDescription": "Vaša URL adresa Apprise - je uložená v šifrovanej podobe a už sa nikdy nezobrazí. Viac cieľov oddeľte pomocou <code>;</code>.",
 			"testButton": "Odoslať testovacie oznámenie",
 			"testFailed": "Testovanie oznámenia zlyhalo: {{message}}",
 			"testHint": "Aktivujte upozornenia a nastavte URL rozhrania Apprise API aj cieľ na odoslanie testu.",
@@ -1860,7 +1864,7 @@
 				"issues": "apprise-api je dostupné, ale hlási problémy",
 				"reachable": "apprise-api je dostupné",
 				"recheck": "Znovu skontrolujte",
-				"unreachable": "apprise-api nedostupné — skontrolujte URL a či kontajner beží",
+				"unreachable": "apprise-api nedostupné - skontrolujte URL a či kontajner beží",
 				"checkFailed": "Kontrola stavu zlyhala"
 			}
 		},

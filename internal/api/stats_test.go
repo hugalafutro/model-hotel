@@ -553,12 +553,12 @@ func newStatsHandler(t *testing.T) (*StatsHandler, *pgxpool.Pool, func()) {
 	t.Helper()
 
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	// Clean test data
@@ -2018,12 +2018,12 @@ func TestGetStats_VirtualKeyAggregation(t *testing.T) {
 
 func TestNewStatsHandler_Constructor(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	defer pool.Close()
 

@@ -995,7 +995,7 @@ func TestDeleteModel_NotFound(t *testing.T) {
 // In production, DB errors in these paths are logged but don't fail the response.
 func TestDeleteModel_DBError(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	closedPool := newClosedPool(t)
@@ -1015,7 +1015,7 @@ func TestDeleteModel_DBError(t *testing.T) {
 // the database query fails due to a cancelled context (covers lines 101-104).
 func TestListModels_CancelledContext(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	_, r := newTestHandlerWithRouter(t)
@@ -1038,7 +1038,7 @@ func TestListModels_CancelledContext(t *testing.T) {
 // the database update fails due to a cancelled context (covers lines 164-167).
 func TestUpdateModel_CancelledContext(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	_, r := newTestHandlerWithRouter(t)
@@ -1063,7 +1063,7 @@ func TestUpdateModel_CancelledContext(t *testing.T) {
 // the database delete fails due to a cancelled context (covers lines 181-184).
 func TestDeleteModel_CancelledContext(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	_, r := newTestHandlerWithRouter(t)
@@ -1087,7 +1087,7 @@ func TestDeleteModel_CancelledContext(t *testing.T) {
 // the initial model lookup query fails (covers lines 235-246).
 func TestDeleteModel_LookupDBError(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	_, r := newTestHandlerWithRouter(t)
@@ -1182,13 +1182,13 @@ func TestDeleteModel_WithFailoverSync(t *testing.T) {
 // to cover the providerID filter path.
 func TestListModels_ValidProviderIDFilter(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, apiTestDBURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	defer pool.Close()
 
@@ -1299,7 +1299,7 @@ func TestListModels_ValidProviderIDFilter(t *testing.T) {
 // (using closed pool) to cover the repository error path.
 func TestListModels_RepoError(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	ctx := context.Background()
@@ -1307,7 +1307,7 @@ func TestListModels_RepoError(t *testing.T) {
 	// Create a closed pool to trigger query errors
 	closedPool, err := pgxpool.New(ctx, apiTestDBURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	closedPool.Close()
 

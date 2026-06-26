@@ -824,7 +824,7 @@ func TestGetAppLogsHistory_NilPool(t *testing.T) {
 // panics when the pool is nil.
 func TestGetAppLogsHistory_QueryError(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	testDB, err := db.New(context.Background(), apiTestDBURL, 25, 5)
@@ -858,7 +858,7 @@ func TestGetAppLogsHistory_QueryError(t *testing.T) {
 
 func TestGetAppLogsHistory_CountAppLogsError(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	testDB, err := db.New(context.Background(), apiTestDBURL, 25, 5)
@@ -889,7 +889,7 @@ func TestGetAppLogsHistory_CountAppLogsError(t *testing.T) {
 
 func TestGetAppLogsHistory_QueryRowsError(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	testDB, err := db.New(context.Background(), apiTestDBURL, 25, 5)
@@ -945,7 +945,7 @@ func TestGetAppLogsHistory_NilPool_EncodeError(t *testing.T) {
 
 func TestGetAppLogsHistory_RowScanErrorInLoop(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	testDB, err := db.New(context.Background(), apiTestDBURL, 25, 5)
@@ -998,7 +998,7 @@ func TestGetAppLogsHistory_RowScanErrorInLoop(t *testing.T) {
 
 func TestGetAppLogsHistory_ScanErrorDuringIteration(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	testDB, err := db.New(context.Background(), apiTestDBURL, 25, 5)

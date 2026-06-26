@@ -101,8 +101,8 @@
 			"requests": "Forespørsler",
 			"appLogs": "Logger",
 			"settings": "Innstillinger",
-			"failoverBadgeExplain": "Failover-leverandører etter status på strømbryter — {{closed}} i orden / {{halfOpen}} gjenoppretter / {{open}} utløst",
-			"discoveryChangesBadge_one": "{{count}} endring fra bakgrunnsoppdagelse — klikk for å se gjennom",
+			"failoverBadgeExplain": "Failover-leverandører etter status på strømbryter - {{closed}} i orden / {{halfOpen}} gjenoppretter / {{open}} utløst",
+			"discoveryChangesBadge_one": "{{count}} endring fra bakgrunnsoppdagelse - klikk for å se gjennom",
 			"discoveryChangesBadge_other": "{{count}} endringer fra bakgrunnsoppdagelse – klikk for å se gjennom"
 		},
 		"status": {
@@ -316,7 +316,9 @@
 			"emptyState": "Ingen ventetid data. Foretakenes latens vil dukke opp her når trafikk flytter.",
 			"responseTooltip": "Gj.snittlig svartid: {{value}} ({{count}} forespørsler)",
 			"overheadTooltip": "Gjennomsnittlig proxy overhead: {{value}} ({{count}} forespørsler)",
-			"requestCount": "{{count}} forespørsler"
+			"requestCount": "{{count}} forespørsler",
+			"responseHeaderTooltip": "Gjennomsnittlig total responstid, inkludert gatewayens egen overhead.",
+			"overheadHeaderTooltip": "Gjennomsnittlig tid som selve gatewayen legger til (ruting, autentisering, måling), uten leverandørens egen responstid."
 		},
 		"providers": {
 			"top": "Toppleverandører",
@@ -1805,7 +1807,9 @@
 			"cancelNameAriaLabel": "Avbryt navnendring",
 			"renameAriaLabel": "Endre tilgangsnøkkel",
 			"failedToRename": "Kunne ikke endre navn på tilgangsnøkkel: {{message}}",
-			"unavailableDescription": "Passkeys are not supported by this browser or device."
+			"unavailableDescription": "Passkeys are not supported by this browser or device.",
+			"deleteConfirmTitle": "Slett tilgangsnøkkel?",
+			"deleteConfirmMessage": "Dette sletter tilgangsnøkkelen permanent. Du må registrere den på nytt for å bruke den."
 		},
 		"observability": {
 			"json.description": "Send strukturerte logger som ett JSON-objekt per linje, for stdout-loggsamlere som Fluent Bit, Vector eller Promtail.",
@@ -1818,7 +1822,7 @@
 			"otel.instructions": "Pek dette mot OTLP-samlerens endepunkt og start containeren på nytt for å overføre logger via OpenTelemetry:",
 			"otel.name": "OpenTelemetry-logger (OTLP)",
 			"title": "Observabilitet og loggeksport",
-			"description": "Model Hotel kan eksportere sine strukturerte logger og målinger til eksterne systemer. Hver integrasjon aktiveres med en miljøvariabel; statusmerkene nedenfor gjenspeiler den aktuelle tilstanden. Ingen forespørsler eller svarinnhold eksporteres noensinne — kun metadata for ruting og måling.",
+			"description": "Model Hotel kan eksportere sine strukturerte logger og målinger til eksterne systemer. Hver integrasjon aktiveres med en miljøvariabel; statusmerkene nedenfor gjenspeiler den aktuelle tilstanden. Ingen forespørsler eller svarinnhold eksporteres noensinne - kun metadata for ruting og måling.",
 			"targets": "Targets"
 		},
 		"alerts": {
@@ -1847,8 +1851,8 @@
 				"description": "Eksempler på Apprise-URL-formater for populære tjenester – kopier en, fyll inn dine opplysninger og lim den inn ovenfor."
 			},
 			"target": "Mottaker av varsel",
-			"targetConfigured": "Konfigurert — skriv inn for å erstatte",
-			"targetDescription": "Din Apprise-URL — lagres kryptert og vises aldri igjen. Skille flere mål med <code>;</code>.",
+			"targetConfigured": "Konfigurert - skriv inn for å erstatte",
+			"targetDescription": "Din Apprise-URL - lagres kryptert og vises aldri igjen. Skille flere mål med <code>;</code>.",
 			"testButton": "Send testvarsel",
 			"testFailed": "Testvarsel mislyktes: {{message}}",
 			"testHint": "Aktiver varsling og angi både en Apprise API-URL og et mål for å sende en test.",
@@ -1860,7 +1864,7 @@
 				"issues": "apprise-api er tilgjengelig, men det rapporteres om problemer",
 				"reachable": "apprise-api tilgjengelig",
 				"recheck": "Kontroller på nytt",
-				"unreachable": "apprise-api utilgjengelig — sjekk URL-en og at containeren kjører",
+				"unreachable": "apprise-api utilgjengelig - sjekk URL-en og at containeren kjører",
 				"checkFailed": "Statuskontrollen mislyktes"
 			}
 		},

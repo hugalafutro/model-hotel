@@ -162,6 +162,7 @@ export function ProviderLatencyPanel({
 						<button
 							type="button"
 							onClick={() => handleSort("response")}
+							title={t("dashboard.providerLatency.responseHeaderTooltip")}
 							className="text-right hover:text-(--text-primary) transition-colors flex items-center justify-end gap-0.5"
 						>
 							{t("dashboard.providerLatency.response")}
@@ -174,6 +175,7 @@ export function ProviderLatencyPanel({
 						<button
 							type="button"
 							onClick={() => handleSort("overhead")}
+							title={t("dashboard.providerLatency.overheadHeaderTooltip")}
 							className="text-right hover:text-(--text-primary) transition-colors flex items-center justify-end gap-0.5"
 						>
 							{t("dashboard.providerLatency.overhead")}

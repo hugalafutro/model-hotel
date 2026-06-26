@@ -101,9 +101,9 @@
 			"requests": "Pedidos",
 			"appLogs": "Registos",
 			"settings": "Definições",
-			"failoverBadgeExplain": "Provedores de failover por estado do disjuntor — {{closed}} em bom estado / {{halfOpen}} em recuperação / {{open}} desarmado",
-			"discoveryChangesBadge_one": "Alteração {{count}} proveniente da descoberta em segundo plano — clique para revisar",
-			"discoveryChangesBadge_other": "Alterações no {{count}} decorrentes da descoberta em segundo plano — clique para revisar"
+			"failoverBadgeExplain": "Provedores de failover por estado do disjuntor - {{closed}} em bom estado / {{halfOpen}} em recuperação / {{open}} desarmado",
+			"discoveryChangesBadge_one": "Alteração {{count}} proveniente da descoberta em segundo plano - clique para revisar",
+			"discoveryChangesBadge_other": "Alterações no {{count}} decorrentes da descoberta em segundo plano - clique para revisar"
 		},
 		"status": {
 			"apiStatus": "Estado da API",
@@ -184,7 +184,7 @@
 		},
 		"githubRepo": "Repositório do GitHub",
 		"readOnly": {
-			"banner": "Demonstração somente leitura — as funções de criação, edição e exclusão estão desativadas."
+			"banner": "Demonstração somente leitura - as funções de criação, edição e exclusão estão desativadas."
 		},
 		"errorShelf": {
 			"acknowledge": "Ignorar",
@@ -299,8 +299,8 @@
 			"topVirtualKeys": "Top chaves virtuais",
 			"emptyState": "Nenhum dado de uso ainda. O problema de uso aparecerá aqui quando o tráfego fluir.",
 			"viewDetailsFor": "Ver detalhes do {{label}}",
-			"deletedModelTooltip": "O modelo já não está disponível — pode ter sido eliminado ou o seu fornecedor foi removido",
-			"reservedKeyTooltip": "Nome reservado interno, não uma chave criada por você — esse uso vem das próprias rotas “{{name}}” do Model Hotel"
+			"deletedModelTooltip": "O modelo já não está disponível - pode ter sido eliminado ou o seu fornecedor foi removido",
+			"reservedKeyTooltip": "Nome reservado interno, não uma chave criada por você - esse uso vem das próprias rotas “{{name}}” do Model Hotel"
 		},
 		"latency": {
 			"topModels": "Modelos mais lentos",
@@ -316,7 +316,9 @@
 			"emptyState": "Nenhum dado de latência ainda. A latência do provedor aparecerá aqui assim que o tráfego fluir.",
 			"responseTooltip": "Tempo médio de resposta: {{value}} ({{count}} solicitações)",
 			"overheadTooltip": "Avg proxy em excesso: {{value}} ({{count}} pedidos)",
-			"requestCount": "Solicitações {{count}}"
+			"requestCount": "Solicitações {{count}}",
+			"responseHeaderTooltip": "Tempo médio total de resposta, incluindo a sobrecarga do próprio gateway.",
+			"overheadHeaderTooltip": "Tempo médio que o próprio gateway adiciona (roteamento, autenticação, medição), sem contar o tempo de resposta do provedor."
 		},
 		"providers": {
 			"top": "Top provedores",
@@ -1805,7 +1807,9 @@
 			"cancelNameAriaLabel": "Cancelar renomeação",
 			"renameAriaLabel": "Renomear senha",
 			"failedToRename": "Falha ao renomear a senha: {{message}}",
-			"unavailableDescription": "Passkeys are not supported by this browser or device."
+			"unavailableDescription": "Passkeys are not supported by this browser or device.",
+			"deleteConfirmTitle": "Excluir chave de acesso?",
+			"deleteConfirmMessage": "Isso exclui permanentemente a chave de acesso. Você precisará registrá-la novamente para usá-la."
 		},
 		"observability": {
 			"json.description": "Emita logs estruturados como um objeto JSON por linha, para coletores de logs stdout, como Fluent Bit, Vector ou Promtail.",
@@ -1818,14 +1822,14 @@
 			"otel.instructions": "Aponte isso para o seu endpoint do coletor OTLP e reinicie o contêiner para enviar logs via OpenTelemetry:",
 			"otel.name": "Logs do OpenTelemetry (OTLP)",
 			"title": "Observabilidade e exportação de logs",
-			"description": "O Model Hotel pode exportar seus logs e métricas estruturados para sistemas externos. Cada integração é ativada por uma variável de ambiente; os ícones de status abaixo refletem o estado atual. Nenhum conteúdo de solicitação ou resposta é exportado — apenas metadados de roteamento e medição.",
+			"description": "O Model Hotel pode exportar seus logs e métricas estruturados para sistemas externos. Cada integração é ativada por uma variável de ambiente; os ícones de status abaixo refletem o estado atual. Nenhum conteúdo de solicitação ou resposta é exportado - apenas metadados de roteamento e medição.",
 			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "URL da API do Apprise",
 			"apiUrlDescription": "URL base do contêiner apprise-api que você executa (por exemplo, http://apprise:8000).",
 			"clear": "Limpar",
-			"description": "Envie notificações push para eventos importantes (falha de um provedor, acionamento de um disjuntor) para o Telegram, e-mail, Discord e outros canais por meio de um contêiner Apprise sem estado executado por você. Nenhum conteúdo da solicitação é enviado — apenas o resumo do evento.",
+			"description": "Envie notificações push para eventos importantes (falha de um provedor, acionamento de um disjuntor) para o Telegram, e-mail, Discord e outros canais por meio de um contêiner Apprise sem estado executado por você. Nenhum conteúdo da solicitação é enviado - apenas o resumo do evento.",
 			"enable": "Ativar alertas",
 			"enableDescription": "Encaminhe os eventos selecionados para o seu endpoint do Apprise.",
 			"event": {
@@ -1844,11 +1848,11 @@
 			"eventsLabel": "Eventos de alerta",
 			"snippets": {
 				"browseAll": "Navegue por todos os mais de 80 serviços",
-				"description": "Exemplos de formatos de URL do Apprise para serviços populares — copie um, preencha seus dados e cole-o acima."
+				"description": "Exemplos de formatos de URL do Apprise para serviços populares - copie um, preencha seus dados e cole-o acima."
 			},
 			"target": "Destino da notificação",
-			"targetConfigured": "Configurado — digite para substituir",
-			"targetDescription": "Sua URL do Apprise — armazenada criptografada e nunca mais exibida. Separe vários destinos com <code>;</code>.",
+			"targetConfigured": "Configurado - digite para substituir",
+			"targetDescription": "Sua URL do Apprise - armazenada criptografada e nunca mais exibida. Separe vários destinos com <code>;</code>.",
 			"testButton": "Enviar notificação de teste",
 			"testFailed": "Falha na notificação de teste: {{message}}",
 			"testHint": "Habilite os alertas e defina tanto uma URL da API do Apprise quanto um destino para enviar um teste.",
@@ -1860,7 +1864,7 @@
 				"issues": "apprise-api está acessível, mas está relatando problemas",
 				"reachable": "apprise-api acessível",
 				"recheck": "Verifique novamente",
-				"unreachable": "apprise-api inacessível — verifique a URL e se o contêiner está em execução",
+				"unreachable": "apprise-api inacessível - verifique a URL e se o contêiner está em execução",
 				"checkFailed": "Falha na verificação de status"
 			}
 		},

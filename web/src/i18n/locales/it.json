@@ -101,9 +101,9 @@
 			"requests": "Richieste",
 			"appLogs": "Log",
 			"settings": "Impostazioni",
-			"failoverBadgeExplain": "Failover dei provider in base allo stato dell'interruttore automatico — {{closed}} funzionante / {{halfOpen}} in ripristino / {{open}} scattato",
-			"discoveryChangesBadge_one": "Modifica {{count}} derivante dal rilevamento in background — clicca per rivedere",
-			"discoveryChangesBadge_other": "Modifiche {{count}} derivanti dal rilevamento in background — clicca per rivedere"
+			"failoverBadgeExplain": "Failover dei provider in base allo stato dell'interruttore automatico - {{closed}} funzionante / {{halfOpen}} in ripristino / {{open}} scattato",
+			"discoveryChangesBadge_one": "Modifica {{count}} derivante dal rilevamento in background - clicca per rivedere",
+			"discoveryChangesBadge_other": "Modifiche {{count}} derivanti dal rilevamento in background - clicca per rivedere"
 		},
 		"status": {
 			"apiStatus": "Stato API",
@@ -316,7 +316,9 @@
 			"emptyState": "Ancora nessun dato di latenza. La latenza del provider apparirà qui una volta che il traffico fluisce.",
 			"responseTooltip": "Tempo di risposta medio: {{value}} (richieste{{count}})",
 			"overheadTooltip": "overhead del proxy avg: {{value}} (richieste{{count}})",
-			"requestCount": "{{count}} richieste"
+			"requestCount": "{{count}} richieste",
+			"responseHeaderTooltip": "Tempo di risposta totale medio, incluso l'overhead del gateway stesso.",
+			"overheadHeaderTooltip": "Tempo medio aggiunto dal gateway stesso (routing, autenticazione, misurazione), escluso il tempo di risposta del provider."
 		},
 		"providers": {
 			"top": "Provider principali",
@@ -1805,7 +1807,9 @@
 			"cancelNameAriaLabel": "Annulla rinominazione",
 			"renameAriaLabel": "Rinomina password",
 			"failedToRename": "Impossibile rinominare la passkey: {{message}}",
-			"unavailableDescription": "Passkeys are not supported by this browser or device."
+			"unavailableDescription": "Passkeys are not supported by this browser or device.",
+			"deleteConfirmTitle": "Eliminare la passkey?",
+			"deleteConfirmMessage": "Questa operazione elimina definitivamente la passkey. Dovrai registrarla di nuovo per utilizzarla."
 		},
 		"observability": {
 			"json.description": "Generare log strutturati come un oggetto JSON per riga, per i collettori di log stdout come Fluent Bit, Vector o Promtail.",
@@ -1847,8 +1851,8 @@
 				"description": "Esempi di formati URL Apprise per servizi diffusi: copiarne uno, inserire i propri dati e incollarlo sopra."
 			},
 			"target": "Destinatario della notifica",
-			"targetConfigured": "Configurato — digitare per sostituire",
-			"targetDescription": "L'URL di Apprise — viene memorizzato in forma crittografata e non verrà mai più visualizzato. Separare più destinazioni con <code>;</code>.",
+			"targetConfigured": "Configurato - digitare per sostituire",
+			"targetDescription": "L'URL di Apprise - viene memorizzato in forma crittografata e non verrà mai più visualizzato. Separare più destinazioni con <code>;</code>.",
 			"testButton": "Invia notifica di prova",
 			"testFailed": "Notifica di test fallita: {{message}}",
 			"testHint": "Abilitare gli avvisi e impostare sia un URL API di Apprise sia una destinazione per l’invio di un test.",
@@ -1860,7 +1864,7 @@
 				"issues": "apprise-api è raggiungibile ma segnala dei problemi",
 				"reachable": "apprise-api raggiungibile",
 				"recheck": "Ricontrollare",
-				"unreachable": "apprise-api irraggiungibile — controllare l’URL e verificare che il container sia in esecuzione",
+				"unreachable": "apprise-api irraggiungibile - controllare l’URL e verificare che il container sia in esecuzione",
 				"checkFailed": "Verifica dello stato non riuscita"
 			}
 		},

@@ -249,7 +249,7 @@ func TestBackupHandler_CreateBackup_NoPgDump(t *testing.T) {
 // when pg_dump is available and database is accessible.
 func TestCreateBackup_Success_Integration(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	// Check pg_dump is available
@@ -929,7 +929,7 @@ abc; 1259 16593 TABLE public app_logs modelhotel
 // pg_dump file. Skips if test database is not available.
 func TestExtractMigrationNames_Integration(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	// Check pg_restore is available
@@ -1115,7 +1115,7 @@ func TestRestoreBackup_NoSchemaMigrations(t *testing.T) {
 // against the test database. Skips if test database is not available.
 func TestRestoreBackup_Integration(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	// Check required binaries
@@ -1289,7 +1289,7 @@ func TestRestoreBackup_BodyTruncatedByMaxBytes(t *testing.T) {
 // that a successful restore would trigger.
 func TestRestoreBackup_WithRealDump_Integration(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	if _, err := exec.LookPath("pg_dump"); err != nil {
 		t.Skip("pg_dump not installed")
@@ -1370,7 +1370,7 @@ func TestRestoreBackup_WithRealDump_Integration(t *testing.T) {
 // Creates a real dump, then verifies the validation logic.
 func TestRestoreBackup_DangerousObjectsInDump_Integration(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	if _, err := exec.LookPath("pg_dump"); err != nil {
 		t.Skip("pg_dump not installed")
@@ -1444,7 +1444,7 @@ func TestRestoreBackup_DangerousObjectsInDump_Integration(t *testing.T) {
 // Creates a dump from a table-only subset of the test DB.
 func TestRestoreBackup_NoSchemaMigrationsInDump_Integration(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	if _, err := exec.LookPath("pg_dump"); err != nil {
 		t.Skip("pg_dump not installed")
@@ -1559,7 +1559,7 @@ func TestRestoreBackup_NoSchemaMigrationsInDump_Integration(t *testing.T) {
 // containing dangerous objects (FUNCTION) is rejected by the restore handler.
 func TestRestoreBackup_DangerousObjectsHandler_Integration(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	if _, err := exec.LookPath("pg_dump"); err != nil {
 		t.Skip("pg_dump not installed")
@@ -1677,7 +1677,7 @@ func TestRestoreBackup_DangerousObjectsHandler_Integration(t *testing.T) {
 // newer version (with unknown migrations) is rejected by the restore handler.
 func TestRestoreBackup_UnknownMigrations_Integration(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	if _, err := exec.LookPath("pg_dump"); err != nil {
 		t.Skip("pg_dump not installed")
@@ -2351,7 +2351,7 @@ func TestRestoreBackup_PgRestoreNotFound(t *testing.T) {
 
 func TestRestoreBackup_ExtractMigrationsError(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	if _, err := exec.LookPath("pg_dump"); err != nil {
 		t.Skip("pg_dump not installed")
@@ -4013,7 +4013,7 @@ func TestGetRetentionSettings_InvalidValues(t *testing.T) {
 
 func TestRunScheduledBackup_Integration(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	if _, err := exec.LookPath("pg_dump"); err != nil {
 		t.Skip("pg_dump not installed, skipping integration test")
@@ -4046,7 +4046,7 @@ func TestRunScheduledBackup_Integration(t *testing.T) {
 
 func TestRunScheduledBackup_Integration_WithRotation(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	if _, err := exec.LookPath("pg_dump"); err != nil {
 		t.Skip("pg_dump not installed, skipping integration test")
@@ -4863,7 +4863,7 @@ func TestRunScheduledBackup_RotationWithExistingBackups(t *testing.T) {
 // rotation logic.
 func TestRunScheduledBackup_PgDumpSuccessIntegration(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	if _, err := exec.LookPath("pg_dump"); err != nil {
 		t.Skip("pg_dump not installed")
@@ -5429,7 +5429,7 @@ func TestRunScheduledBackup_MkdirAllErrorPath(t *testing.T) {
 // ok=true with non-empty migration list) is explicitly covered.
 func TestRestoreBackup_ValidDumpPassesValidation_Integration(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	if _, err := exec.LookPath("pg_dump"); err != nil {
 		t.Skip("pg_dump not installed")
@@ -5781,11 +5781,11 @@ func TestBackupRestore_TotpOn_RejectsRawTokenInForm(t *testing.T) {
 // on, a multipart restore with admin_token = a session token is accepted.
 func TestBackupRestore_TotpOn_AcceptsSessionTokenInForm(t *testing.T) {
 	if apiTestDBURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
 	if err != nil {
-		t.Skipf("skipping: test database not available: %v", err)
+		t.Fatalf("test database not available: %v", err)
 	}
 	t.Cleanup(pool.Close)
 	repo := webauthn.NewRepository(pool)

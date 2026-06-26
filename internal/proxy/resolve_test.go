@@ -214,7 +214,10 @@ func TestResolveSpecificProvider_ModelNotFound(t *testing.T) {
 	h := newIntegrationHandler()
 
 	providers, err := h.providerRepo.List(context.Background())
-	if err != nil || len(providers) == 0 {
+	if err != nil {
+		t.Fatalf("failed to list providers: %v", err)
+	}
+	if len(providers) == 0 {
 		t.Skip("no providers in database")
 	}
 

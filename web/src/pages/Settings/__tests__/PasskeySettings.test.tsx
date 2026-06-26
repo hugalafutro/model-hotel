@@ -143,11 +143,61 @@ describe("PasskeySettings", () => {
 		});
 		await userEvent.click(deleteButton);
 
+		// Deletion now requires confirming in a dialog first.
+		const confirmButton = await screen.findByRole("button", {
+			name: "Delete",
+		});
+		await userEvent.click(confirmButton);
+
 		await waitFor(() => {
 			expect(deleteCalled).toBe(true);
 		});
 
 		expect(screen.getByText("Passkey deleted")).toBeInTheDocument();
+	});
+
+	it("does not delete when the confirmation is cancelled", async () => {
+		vi.spyOn(webauthnUtils, "isWebAuthnAvailable").mockResolvedValue(true);
+
+		let deleteCalled = false;
+		server.use(
+			http.get("/api/webauthn/credentials", () =>
+				HttpResponse.json([
+					{
+						id: "cred-789",
+						name: "",
+						transports: ["ble"],
+						created_at: "2025-03-10T08:00:00Z",
+						aaguid: "22222222-2222-2222-2222-222222222222",
+						sign_count: 3,
+					},
+				]),
+			),
+			http.delete("/api/webauthn/credentials/:id", () => {
+				deleteCalled = true;
+				return new HttpResponse(null, { status: 204 });
+			}),
+		);
+
+		renderWithProviders(<PasskeyPanel />);
+
+		await waitFor(() => {
+			expect(screen.getByText("Bluetooth")).toBeInTheDocument();
+		});
+
+		await userEvent.click(
+			screen.getByRole("button", { name: /Delete passkey/i }),
+		);
+
+		// Cancel the confirmation dialog: nothing should be deleted.
+		await userEvent.click(
+			await screen.findByRole("button", { name: "Cancel" }),
+		);
+
+		await waitFor(() => {
+			expect(screen.queryByText("Delete passkey?")).not.toBeInTheDocument();
+		});
+		expect(deleteCalled).toBe(false);
 	});
 
 	describe("Register flow", () => {

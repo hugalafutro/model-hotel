@@ -101,9 +101,9 @@
 			"requests": "Yêu cầu",
 			"appLogs": "Nhật ký",
 			"settings": "Cài đặt",
-			"failoverBadgeExplain": "Các nhà cung cấp dự phòng theo trạng thái ngắt mạch — {{closed}} hoạt động bình thường / {{halfOpen}} đang phục hồi / {{open}} bị ngắt",
-			"discoveryChangesBadge_one": "Thay đổi {{count}} từ quá trình phát hiện nền — nhấp để xem lại",
-			"discoveryChangesBadge_other": "{{count}} thay đổi từ tính năng phát hiện nền — nhấp để xem lại"
+			"failoverBadgeExplain": "Các nhà cung cấp dự phòng theo trạng thái ngắt mạch - {{closed}} hoạt động bình thường / {{halfOpen}} đang phục hồi / {{open}} bị ngắt",
+			"discoveryChangesBadge_one": "Thay đổi {{count}} từ quá trình phát hiện nền - nhấp để xem lại",
+			"discoveryChangesBadge_other": "{{count}} thay đổi từ tính năng phát hiện nền - nhấp để xem lại"
 		},
 		"status": {
 			"apiStatus": "Trạng thái API",
@@ -184,7 +184,7 @@
 		},
 		"githubRepo": "Kho lưu trữ GitHub",
 		"readOnly": {
-			"banner": "Bản demo chỉ đọc — các chức năng tạo, chỉnh sửa và xóa bị vô hiệu hóa."
+			"banner": "Bản demo chỉ đọc - các chức năng tạo, chỉnh sửa và xóa bị vô hiệu hóa."
 		},
 		"errorShelf": {
 			"acknowledge": "Bỏ qua",
@@ -299,7 +299,7 @@
 			"topVirtualKeys": "Khóa ảo hàng đầu",
 			"emptyState": "Chưa có dữ liệu sử dụng. Bảng phân tích sử dụng sẽ hiển thị tại đây ngay khi có lưu lượng truy cập.",
 			"viewDetailsFor": "Xem chi tiết về {{label}}",
-			"deletedModelTooltip": "Mô hình không còn khả dụng — có thể đã bị xóa hoặc nhà cung cấp của nó đã bị gỡ bỏ",
+			"deletedModelTooltip": "Mô hình không còn khả dụng - có thể đã bị xóa hoặc nhà cung cấp của nó đã bị gỡ bỏ",
 			"reservedKeyTooltip": "Tên được dành riêng nội bộ, không phải là khóa do bạn tạo - cách sử dụng này xuất phát từ các tuyến \"{{name}}\" của chính Model Hotel"
 		},
 		"latency": {
@@ -316,7 +316,9 @@
 			"emptyState": "Chưa có dữ liệu về độ trễ. Độ trễ của nhà cung cấp sẽ hiển thị tại đây ngay khi có lưu lượng truy cập.",
 			"responseTooltip": "Thời gian phản hồi trung bình: {{value}} ({{count}} lần truy cập)",
 			"overheadTooltip": "Chi phí trung bình của proxy: {{value}} ({{count}} lần yêu cầu)",
-			"requestCount": "{{count}} yêu cầu"
+			"requestCount": "{{count}} yêu cầu",
+			"responseHeaderTooltip": "Thời gian phản hồi trung bình tổng thể, bao gồm cả chi phí xử lý của chính cổng kết nối.",
+			"overheadHeaderTooltip": "Thời gian trung bình mà bản thân cổng kết nối thêm vào (định tuyến, xác thực, đo lường), không tính thời gian phản hồi của nhà cung cấp."
 		},
 		"providers": {
 			"top": "Nhà cung cấp hàng đầu",
@@ -1805,7 +1807,9 @@
 			"cancelNameAriaLabel": "Hủy đổi tên",
 			"renameAriaLabel": "Đổi tên mật khẩu",
 			"failedToRename": "Không thể đổi tên khóa truy cập: {{message}}",
-			"unavailableDescription": "Passkeys are not supported by this browser or device."
+			"unavailableDescription": "Passkeys are not supported by this browser or device.",
+			"deleteConfirmTitle": "Xóa khóa truy cập?",
+			"deleteConfirmMessage": "Thao tác này sẽ xóa vĩnh viễn khóa truy cập. Bạn sẽ cần đăng ký lại để sử dụng."
 		},
 		"observability": {
 			"json.description": "Phát ra nhật ký có cấu trúc dưới dạng một đối tượng JSON trên mỗi dòng, dành cho các công cụ thu thập nhật ký stdout như Fluent Bit, Vector hoặc Promtail.",
@@ -1818,14 +1822,14 @@
 			"otel.instructions": "Hướng điều này đến điểm cuối thu thập OTLP của bạn và khởi động lại container để đẩy nhật ký qua OpenTelemetry:",
 			"otel.name": "Nhật ký OpenTelemetry (OTLP)",
 			"title": "Khả năng quan sát & Xuất nhật ký",
-			"description": "Model Hotel có thể xuất nhật ký và số liệu có cấu trúc của mình sang các hệ thống bên ngoài. Mỗi tích hợp được kích hoạt bằng một biến môi trường; các biểu tượng trạng thái bên dưới phản ánh trạng thái hiện tại. Không có nội dung yêu cầu hoặc phản hồi nào được xuất — chỉ có siêu dữ liệu định tuyến và đo lường.",
+			"description": "Model Hotel có thể xuất nhật ký và số liệu có cấu trúc của mình sang các hệ thống bên ngoài. Mỗi tích hợp được kích hoạt bằng một biến môi trường; các biểu tượng trạng thái bên dưới phản ánh trạng thái hiện tại. Không có nội dung yêu cầu hoặc phản hồi nào được xuất - chỉ có siêu dữ liệu định tuyến và đo lường.",
 			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "URL API Apprise",
 			"apiUrlDescription": "URL cơ sở của container apprise-api mà bạn đang chạy (ví dụ: http://apprise:8000).",
 			"clear": "Xóa",
-			"description": "Gửi thông báo đẩy cho các sự kiện đáng chú ý (nhà cung cấp ngừng hoạt động, bộ ngắt mạch kích hoạt) đến Telegram, email, Discord và các nền tảng khác thông qua container Apprise không trạng thái mà bạn đang chạy. Không bao giờ gửi nội dung yêu cầu — chỉ gửi tóm tắt sự kiện.",
+			"description": "Gửi thông báo đẩy cho các sự kiện đáng chú ý (nhà cung cấp ngừng hoạt động, bộ ngắt mạch kích hoạt) đến Telegram, email, Discord và các nền tảng khác thông qua container Apprise không trạng thái mà bạn đang chạy. Không bao giờ gửi nội dung yêu cầu - chỉ gửi tóm tắt sự kiện.",
 			"enable": "Kích hoạt tính năng cảnh báo",
 			"enableDescription": "Chuyển tiếp các sự kiện đã chọn đến điểm cuối Apprise của bạn.",
 			"event": {
@@ -1844,11 +1848,11 @@
 			"eventsLabel": "Sự kiện cảnh báo",
 			"snippets": {
 				"browseAll": "Xem tất cả hơn 80 dịch vụ",
-				"description": "Ví dụ về định dạng URL Apprise cho các dịch vụ phổ biến — sao chép một định dạng, điền thông tin của bạn vào và dán vào phần trên."
+				"description": "Ví dụ về định dạng URL Apprise cho các dịch vụ phổ biến - sao chép một định dạng, điền thông tin của bạn vào và dán vào phần trên."
 			},
 			"target": "Đối tượng nhận thông báo",
-			"targetConfigured": "Đã cấu hình — nhập nội dung để thay thế",
-			"targetDescription": "URL Apprise của bạn — được lưu trữ dưới dạng mã hóa và sẽ không bao giờ được hiển thị lại. Dùng <code>;</code> để phân tách các mục tiêu.",
+			"targetConfigured": "Đã cấu hình - nhập nội dung để thay thế",
+			"targetDescription": "URL Apprise của bạn - được lưu trữ dưới dạng mã hóa và sẽ không bao giờ được hiển thị lại. Dùng <code>;</code> để phân tách các mục tiêu.",
 			"testButton": "Gửi thông báo thử nghiệm",
 			"testFailed": "Thông báo thử nghiệm không thành công: {{message}}",
 			"testHint": "Kích hoạt tính năng cảnh báo và thiết lập cả URL API Apprise lẫn đích đến để gửi yêu cầu thử nghiệm.",
@@ -1860,7 +1864,7 @@
 				"issues": "apprise-api có thể truy cập được nhưng đang báo cáo sự cố",
 				"reachable": "apprise-api có thể truy cập được",
 				"recheck": "Kiểm tra lại",
-				"unreachable": "Không thể truy cập apprise-api — kiểm tra URL và đảm bảo rằng container đang chạy",
+				"unreachable": "Không thể truy cập apprise-api - kiểm tra URL và đảm bảo rằng container đang chạy",
 				"checkFailed": "Kiểm tra trạng thái không thành công"
 			}
 		},

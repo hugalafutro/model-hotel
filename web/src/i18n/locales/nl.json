@@ -101,9 +101,9 @@
 			"requests": "Verzoeken",
 			"appLogs": "Logboeken",
 			"settings": "Instellingen",
-			"failoverBadgeExplain": "Failover-providers op basis van circuit-breaker-status — {{closed}} gezond / {{halfOpen}} herstellend / {{open}} geactiveerd",
-			"discoveryChangesBadge_one": "{{count}} wijziging vanuit achtergronddetectie — klik om te bekijken",
-			"discoveryChangesBadge_other": "{{count}} wijzigingen als gevolg van achtergronddetectie — klik om te bekijken"
+			"failoverBadgeExplain": "Failover-providers op basis van circuit-breaker-status - {{closed}} gezond / {{halfOpen}} herstellend / {{open}} geactiveerd",
+			"discoveryChangesBadge_one": "{{count}} wijziging vanuit achtergronddetectie - klik om te bekijken",
+			"discoveryChangesBadge_other": "{{count}} wijzigingen als gevolg van achtergronddetectie - klik om te bekijken"
 		},
 		"status": {
 			"apiStatus": "API-status",
@@ -184,7 +184,7 @@
 		},
 		"githubRepo": "GitHub-repository",
 		"readOnly": {
-			"banner": "Alleen-lezen demo — aanmaken, bewerken en verwijderen zijn uitgeschakeld."
+			"banner": "Alleen-lezen demo - aanmaken, bewerken en verwijderen zijn uitgeschakeld."
 		},
 		"errorShelf": {
 			"acknowledge": "Sluiten",
@@ -299,7 +299,7 @@
 			"topVirtualKeys": "Top virtuele sleutels",
 			"emptyState": "Er zijn nog geen gebruiksgegevens. Het gebruik zal hier verschijnen zodra het verkeer stroomt.",
 			"viewDetailsFor": "Bekijk de details van {{label}}",
-			"deletedModelTooltip": "Dit model is niet meer verkrijgbaar — het is mogelijk verwijderd of de leverancier is geschrapt",
+			"deletedModelTooltip": "Dit model is niet meer verkrijgbaar - het is mogelijk verwijderd of de leverancier is geschrapt",
 			"reservedKeyTooltip": "Interne gereserveerde naam, geen sleutel die u zelf hebt aangemaakt – dit gebruik is afkomstig van Model Hotel's eigen \"{{name}}\"-routes"
 		},
 		"latency": {
@@ -316,7 +316,9 @@
 			"emptyState": "Nog geen latency gegevens. Provider latency zal hier verschijnen zodra het verkeer stroomt.",
 			"responseTooltip": "Gemiddelde responstijd: {{value}} ({{count}} verzoeken)",
 			"overheadTooltip": "Gem. proxy overhead: {{value}} ({{count}} verzoeken)",
-			"requestCount": "{{count}} verzoeken"
+			"requestCount": "{{count}} verzoeken",
+			"responseHeaderTooltip": "Gemiddelde totale reactietijd, inclusief de overhead van de gateway zelf.",
+			"overheadHeaderTooltip": "Gemiddelde tijd die de gateway zelf toevoegt (routering, authenticatie, meting), exclusief de reactietijd van de provider."
 		},
 		"providers": {
 			"top": "Topproviders",
@@ -1805,7 +1807,9 @@
 			"cancelNameAriaLabel": "Annuleer hernoemen",
 			"renameAriaLabel": "Toegangssleutel hernoemen",
 			"failedToRename": "Wachtwoord hernoemen mislukt: {{message}}",
-			"unavailableDescription": "Passkeys are not supported by this browser or device."
+			"unavailableDescription": "Passkeys are not supported by this browser or device.",
+			"deleteConfirmTitle": "Toegangssleutel verwijderen?",
+			"deleteConfirmMessage": "Hiermee wordt de toegangssleutel permanent verwijderd. U moet deze opnieuw registreren om hem te gebruiken."
 		},
 		"observability": {
 			"json.description": "Geef gestructureerde logs weer als één JSON-object per regel, voor stdout-logcollectors zoals Fluent Bit, Vector of Promtail.",
@@ -1818,14 +1822,14 @@
 			"otel.instructions": "Richt dit op uw OTLP-collector-eindpunt en start de container opnieuw op om logs via OpenTelemetry te pushen:",
 			"otel.name": "OpenTelemetry-logs (OTLP)",
 			"title": "Observability & logexport",
-			"description": "Model Hotel kan zijn gestructureerde logboeken en statistieken exporteren naar externe systemen. Elke integratie wordt ingeschakeld met een omgevingsvariabele; de statusbadges hieronder geven de huidige status weer. Er wordt nooit verzoek- of responsinhoud geëxporteerd — alleen metadata over routering en metingen.",
+			"description": "Model Hotel kan zijn gestructureerde logboeken en statistieken exporteren naar externe systemen. Elke integratie wordt ingeschakeld met een omgevingsvariabele; de statusbadges hieronder geven de huidige status weer. Er wordt nooit verzoek- of responsinhoud geëxporteerd - alleen metadata over routering en metingen.",
 			"targets": "Targets"
 		},
 		"alerts": {
 			"apiUrl": "Apprise API-URL",
 			"apiUrlDescription": "Basis-URL van de apprise-api-container die u draait (bijvoorbeeld http://apprise:8000).",
 			"clear": "Wissen",
-			"description": "Stuur pushmeldingen voor opmerkelijke gebeurtenissen (een provider die uitvalt, een circuitbreaker die afgaat) naar Telegram, e-mail, Discord en meer via een stateless Apprise-container die u draait. Er wordt nooit verzoekinhoud verzonden — alleen de samenvatting van de gebeurtenis.",
+			"description": "Stuur pushmeldingen voor opmerkelijke gebeurtenissen (een provider die uitvalt, een circuitbreaker die afgaat) naar Telegram, e-mail, Discord en meer via een stateless Apprise-container die u draait. Er wordt nooit verzoekinhoud verzonden - alleen de samenvatting van de gebeurtenis.",
 			"enable": "Schakel waarschuwingen in",
 			"enableDescription": "Stuur geselecteerde gebeurtenissen door naar uw Apprise-eindpunt.",
 			"event": {
@@ -1844,11 +1848,11 @@
 			"eventsLabel": "Waarschuwingsgebeurtenissen",
 			"snippets": {
 				"browseAll": "Bekijk alle meer dan 80 diensten",
-				"description": "Voorbeelden van Apprise-URL-formaten voor populaire diensten — kopieer er een, vul je gegevens in en plak deze hierboven."
+				"description": "Voorbeelden van Apprise-URL-formaten voor populaire diensten - kopieer er een, vul je gegevens in en plak deze hierboven."
 			},
 			"target": "Ontvanger van de melding",
-			"targetConfigured": "Geconfigureerd — typ om te vervangen",
-			"targetDescription": "Uw Apprise-URL — wordt versleuteld opgeslagen en nooit meer weergegeven. Scheid meerdere doelen met <code>;</code>.",
+			"targetConfigured": "Geconfigureerd - typ om te vervangen",
+			"targetDescription": "Uw Apprise-URL - wordt versleuteld opgeslagen en nooit meer weergegeven. Scheid meerdere doelen met <code>;</code>.",
 			"testButton": "Testmelding verzenden",
 			"testFailed": "Testmelding mislukt: {{message}}",
 			"testHint": "Schakel waarschuwingen in en stel zowel een Apprise API-URL als een doel in om een test te verzenden.",
@@ -1860,7 +1864,7 @@
 				"issues": "apprise-api is bereikbaar, maar er worden problemen gemeld",
 				"reachable": "apprise-api bereikbaar",
 				"recheck": "Controleer nogmaals",
-				"unreachable": "apprise-api niet bereikbaar — controleer de URL en of de container actief is",
+				"unreachable": "apprise-api niet bereikbaar - controleer de URL en of de container actief is",
 				"checkFailed": "Statuscontrole mislukt"
 			}
 		},

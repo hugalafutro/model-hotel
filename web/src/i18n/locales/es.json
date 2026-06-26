@@ -316,7 +316,9 @@
 			"emptyState": "Aún no hay datos de latencia. La latencia del proveedor aparecerá aquí una vez que fluya el tráfico.",
 			"responseTooltip": "Tiempo medio de respuesta: {{value}} ({{count}} peticiones)",
 			"overheadTooltip": "Proxy promedio sobrecarga: {{value}} ({{count}} peticiones)",
-			"requestCount": "{{count}} solicitudes"
+			"requestCount": "{{count}} solicitudes",
+			"responseHeaderTooltip": "Tiempo de respuesta total medio, incluida la sobrecarga de la propia pasarela.",
+			"overheadHeaderTooltip": "Tiempo medio que añade la propia pasarela (enrutamiento, autenticación, medición), sin contar el tiempo de respuesta del proveedor."
 		},
 		"providers": {
 			"top": "Top proveedores",
@@ -1805,7 +1807,9 @@
 			"cancelNameAriaLabel": "Cancelar renombrado",
 			"renameAriaLabel": "Renombrar clave",
 			"failedToRename": "Error al renombrar la contraseña: {{message}}",
-			"unavailableDescription": "Passkeys are not supported by this browser or device."
+			"unavailableDescription": "Passkeys are not supported by this browser or device.",
+			"deleteConfirmTitle": "¿Eliminar la clave de acceso?",
+			"deleteConfirmMessage": "Esto elimina permanentemente la clave de acceso. Tendrás que registrarla de nuevo para usarla."
 		},
 		"observability": {
 			"json.description": "Genera registros estructurados como un objeto JSON por línea, para recopiladores de registros de salida estándar como Fluent Bit, Vector o Promtail.",
@@ -1847,7 +1851,7 @@
 				"description": "Ejemplos de formatos de URL de Apprise para servicios populares: copia uno, rellena tus datos y pégalo más arriba."
 			},
 			"target": "Destinatario de la notificación",
-			"targetConfigured": "Configurado — escribe para sustituir",
+			"targetConfigured": "Configurado - escribe para sustituir",
 			"targetDescription": "Tu URL de Apprise: se almacena cifrada y no se muestra nunca más. Separa los distintos destinos con <code>;</code>.",
 			"testButton": "Enviar notificación de prueba",
 			"testFailed": "Error en la notificación de prueba: {{message}}",

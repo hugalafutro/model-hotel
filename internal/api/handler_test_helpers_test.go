@@ -25,12 +25,12 @@ func newTestHandler(t *testing.T) *Handler {
 
 	dbURL := apiTestDBURL
 	if dbURL == "" {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	pool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	// Clean test data within our isolated database (safe since each package has its own DB)
@@ -50,7 +50,7 @@ func newTestHandler(t *testing.T) *Handler {
 	// Create database instance
 	database, err := db.New(context.Background(), dbURL, 5, 1)
 	if err != nil {
-		t.Skip("skipping: test database not available")
+		t.Fatal("test database not available")
 	}
 
 	cfg := &config.Config{
