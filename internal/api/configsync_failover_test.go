@@ -3,9 +3,34 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 )
+
+// seedRawFailoverGroup inserts a custom group with the priority_order and
+// entry_enabled columns set to arbitrary raw JSON bytes, so a test can model a
+// corrupt or hand-edited row that export must reject rather than mis-translate.
+func seedRawFailoverGroup(t *testing.T, displayModel, priorityJSON, entryJSON string) {
+	t.Helper()
+	_, err := apiTestDB.Pool().Exec(context.Background(),
+		`INSERT INTO model_failover_groups (display_model, priority_order, entry_enabled, group_enabled, auto_created)
+		 VALUES ($1, $2, $3, true, false)`,
+		displayModel, []byte(priorityJSON), []byte(entryJSON))
+	if err != nil {
+		t.Fatalf("seed raw group %s: %v", displayModel, err)
+	}
+}
+
+// rawExport issues GET /config/export without asserting 200, so a test can check
+// the error path.
+func rawExport(t *testing.T, r http.Handler) *httptest.ResponseRecorder {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/config/export", http.NoBody))
+	return rec
+}
 
 // seedModel inserts a model under a provider and returns its UUID.
 func seedModel(t *testing.T, providerID, modelID string) string {
@@ -83,6 +108,165 @@ func TestConfigSync_ExportCustomFailoverGroups(t *testing.T) {
 	}
 	if g.Entries[1].ModelID != "gpt-4o-mini" || g.Entries[1].Enabled {
 		t.Errorf("entry[1] = %+v, want gpt-4o-mini disabled", g.Entries[1])
+	}
+}
+
+// An entry whose model UUID no longer resolves (the model was deleted after the
+// group referenced it) is silently dropped from the export rather than carried as
+// a dangling ref.
+func TestConfigSync_ExportDropsDeletedModelEntry(t *testing.T) {
+	cleanConfigTables(t)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	m1 := seedModel(t, provID, "gpt-4o")
+	m2 := seedModel(t, provID, "gpt-4o-mini")
+	// A third priority entry points at a model UUID that has no row, as if the
+	// model was deleted after the group was built.
+	ghost := "00000000-0000-0000-0000-000000000000"
+	seedFailoverGroup(t, "glm52", []string{m1, ghost, m2}, nil, false)
+
+	env := doExport(t, r)
+	if len(env.Config.FailoverGroups) != 1 {
+		t.Fatalf("expected 1 group, got %+v", env.Config.FailoverGroups)
+	}
+	g := env.Config.FailoverGroups[0]
+	if len(g.Entries) != 2 {
+		t.Fatalf("expected the dangling entry dropped, got %+v", g.Entries)
+	}
+	if g.Entries[0].ModelID != "gpt-4o" || g.Entries[1].ModelID != "gpt-4o-mini" {
+		t.Errorf("entries = %+v, want gpt-4o then gpt-4o-mini", g.Entries)
+	}
+}
+
+// A group row whose priority_order JSON is not a string array aborts the export
+// with a 500 rather than emitting a half-decoded envelope.
+func TestConfigSync_ExportRejectsCorruptPriorityJSON(t *testing.T) {
+	cleanConfigTables(t)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+	seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	seedRawFailoverGroup(t, "glm52", `"not-an-array"`, `{}`)
+
+	rec := rawExport(t, r)
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("export status = %d, want 500; body %s", rec.Code, rec.Body.String())
+	}
+}
+
+// A group row whose entry_enabled JSON is not an object aborts the export too.
+func TestConfigSync_ExportRejectsCorruptEntryEnabledJSON(t *testing.T) {
+	cleanConfigTables(t)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+	seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	seedRawFailoverGroup(t, "glm52", `["a","b"]`, `"not-an-object"`)
+
+	rec := rawExport(t, r)
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("export status = %d, want 500; body %s", rec.Code, rec.Body.String())
+	}
+}
+
+// A custom group the member already has is reported as Updated (not Added) in the
+// import diff, so the operator sees a converge rather than a create.
+func TestConfigSync_DiffReportsUpdatedForExistingGroup(t *testing.T) {
+	cleanConfigTables(t)
+	exportRouter := newConfigSyncRouter(t, configSyncMasterKey)
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	pm1 := seedModel(t, provID, "gpt-4o")
+	pm2 := seedModel(t, provID, "gpt-4o-mini")
+	seedFailoverGroup(t, "glm52", []string{pm1, pm2}, nil, false)
+	env := doExport(t, exportRouter)
+
+	// Replica already has its own glm52 custom group over the same models.
+	cleanConfigTables(t)
+	rProvID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	rm1 := seedModel(t, rProvID, "gpt-4o")
+	rm2 := seedModel(t, rProvID, "gpt-4o-mini")
+	seedFailoverGroup(t, "glm52", []string{rm1, rm2}, nil, false)
+
+	rec := doImport(t, newConfigSyncRouter(t, configSyncMasterKey), env, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+	var resp importResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if !contains(resp.Diff.FailoverGroups.Updated, "glm52") {
+		t.Errorf("expected glm52 in Updated, diff = %+v", resp.Diff.FailoverGroups)
+	}
+	if contains(resp.Diff.FailoverGroups.Added, "glm52") {
+		t.Errorf("glm52 already exists; must not be Added, diff = %+v", resp.Diff.FailoverGroups)
+	}
+}
+
+// Discovery on import is best-effort: a discovery error is logged and swallowed,
+// the import still succeeds, and a group whose models are already present resolves
+// from them regardless.
+func TestConfigSync_ImportDiscoveryErrorIsBestEffort(t *testing.T) {
+	cleanConfigTables(t)
+	exportRouter := newConfigSyncRouter(t, configSyncMasterKey)
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	pm1 := seedModel(t, provID, "gpt-4o")
+	pm2 := seedModel(t, provID, "gpt-4o-mini")
+	seedFailoverGroup(t, "glm52", []string{pm1, pm2}, nil, false)
+	env := doExport(t, exportRouter)
+
+	// Replica already has the models (a prior discovery), so the group can resolve
+	// even though this import's discovery pass fails.
+	cleanConfigTables(t)
+	rProvID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	seedModel(t, rProvID, "gpt-4o")
+	seedModel(t, rProvID, "gpt-4o-mini")
+
+	discoverAll := func(ctx context.Context) error { return errors.New("discovery boom") }
+
+	rec := doImport(t, newConfigSyncRouterWithDiscovery(t, configSyncMasterKey, discoverAll), env, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+	priority, _, autoCreated := groupPriority(t, "glm52")
+	if autoCreated || len(priority) != 2 {
+		t.Fatalf("glm52 priority = %v (auto=%v), want 2 entries despite discovery error", priority, autoCreated)
+	}
+}
+
+// An envelope that carries no custom failover groups (a pre-PR primary, or a
+// primary with none) must NOT delete the member's own custom groups. The
+// omitempty field is indistinguishable from absent after a JSON round-trip, so an
+// empty section is treated as "leave existing groups alone", never "wipe them".
+func TestConfigSync_ImportWithNoGroupsKeepsExistingCustomGroups(t *testing.T) {
+	cleanConfigTables(t)
+	// Build an envelope with providers but zero custom failover groups.
+	exportRouter := newConfigSyncRouter(t, configSyncMasterKey)
+	seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	env := doExport(t, exportRouter)
+	if len(env.Config.FailoverGroups) != 0 {
+		t.Fatalf("precondition: envelope must carry no groups, got %+v", env.Config.FailoverGroups)
+	}
+
+	// Replica has its own instance-local custom group plus an auto group.
+	cleanConfigTables(t)
+	rProvID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	rm1 := seedModel(t, rProvID, "gpt-4o")
+	rm2 := seedModel(t, rProvID, "gpt-4o-mini")
+	seedFailoverGroup(t, "local-custom", []string{rm1, rm2}, nil, false)
+	seedFailoverGroup(t, "auto-shared", []string{rm1, rm2}, nil, true)
+
+	rec := doImport(t, newConfigSyncRouter(t, configSyncMasterKey), env, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+
+	exists := func(name string) bool {
+		var n int
+		_ = apiTestDB.Pool().QueryRow(context.Background(),
+			`SELECT count(*) FROM model_failover_groups WHERE display_model = $1`, name).Scan(&n)
+		return n > 0
+	}
+	if !exists("local-custom") {
+		t.Error("an empty envelope must not wipe the member's own custom group")
+	}
+	if !exists("auto-shared") {
+		t.Error("auto-created group must survive regardless")
 	}
 }
 
