@@ -39,6 +39,34 @@ func TestFleetSyncStateRoundtrip(t *testing.T) {
 	}
 }
 
+// A failed store read/write surfaces as an error rather than being swallowed.
+// Closing the DB is the deterministic, offline way to force the failure.
+func TestFleetSyncStateStoreErrors(t *testing.T) {
+	store := newTestStore(t)
+	if err := store.db.Close(); err != nil {
+		t.Fatalf("close db: %v", err)
+	}
+	if _, _, err := store.GetFleetSyncState(t.Context()); err == nil {
+		t.Error("GetFleetSyncState on a closed DB should error")
+	}
+	if err := store.SetFleetSyncState(t.Context(), "p1", "hotel-1", time.Now().UTC()); err == nil {
+		t.Error("SetFleetSyncState on a closed DB should error")
+	}
+}
+
+// GET /api/fleet/last-sync returns 500 (not 204) when the store read fails, so a
+// broken store is not mistaken for "never synced".
+func TestFleetLastSyncEndpointStoreError(t *testing.T) {
+	srv, store := newTestServer(t)
+	if err := store.db.Close(); err != nil {
+		t.Fatalf("close db: %v", err)
+	}
+	rec := do(t, srv, http.MethodGet, "/api/fleet/last-sync", "", true)
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("last-sync with a broken store = %d, want 500", rec.Code)
+	}
+}
+
 // A successful admin-token sync records the last-run marker so the wizard can
 // show it has run before.
 func TestAdminTokenSyncRecordsLastRun(t *testing.T) {
