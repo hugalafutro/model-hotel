@@ -5836,13 +5836,9 @@
 		"vi",
 		"zh"
 	],
-	"settings.passkeys.securityKey": [
-		"nl"
-	],
 	"settings.passkeys.title": [
-		"da",
-		"it",
-		"pl"
+		"de",
+		"it"
 	],
 	"settings.passkeys.transportBle": [
 		"ca",
@@ -5877,36 +5873,6 @@
 		"hu",
 		"nl",
 		"tr"
-	],
-	"settings.passkeys.unavailableDescription": [
-		"af",
-		"ar",
-		"ca",
-		"cs",
-		"da",
-		"de",
-		"el",
-		"es",
-		"fi",
-		"fr",
-		"he",
-		"hu",
-		"it",
-		"ja",
-		"ko",
-		"nl",
-		"no",
-		"pl",
-		"pt",
-		"ro",
-		"ru",
-		"sk",
-		"sr",
-		"sv",
-		"tr",
-		"uk",
-		"vi",
-		"zh"
 	],
 	"settings.proxy.keyCache.1m0s": [
 		"fr"

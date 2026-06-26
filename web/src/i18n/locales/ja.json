@@ -1784,7 +1784,7 @@
 			"apply": "適用"
 		},
 		"passkeys": {
-			"title": "パスワード",
+			"title": "パスキー",
 			"description": "adminトークンを入力する代わりに、指紋、顔、またはセキュリティキーでサインインするためにパスキーを登録します。",
 			"registerPasskey": "パスキーを登録",
 			"registering": "… の登録",
@@ -1797,7 +1797,7 @@
 			"transportHybrid": "ハイブリッド（QR / クロスデバイス）",
 			"registered": "登録済み",
 			"deleteAriaLabel": "パスキーを削除",
-			"deleted": "パスワードが削除されました",
+			"deleted": "パスキーが削除されました",
 			"failedToDelete": "パスキーの削除に失敗しました: {{message}}",
 			"registeredSuccess": "パスキーの登録が完了しました",
 			"failedToRegister": "パスキーの登録に失敗しました: {{message}}",
@@ -1807,7 +1807,7 @@
 			"cancelNameAriaLabel": "名前の変更をキャンセルする",
 			"renameAriaLabel": "パスキーの名前を変更",
 			"failedToRename": "パスキーの名前を変更できませんでした: {{message}}",
-			"unavailableDescription": "Passkeys are not supported by this browser or device.",
+			"unavailableDescription": "このブラウザまたはデバイスはパスキーに対応していません。",
 			"deleteConfirmTitle": "パスキーを削除しますか？",
 			"deleteConfirmMessage": "パスキーが完全に削除されます。再度使用するには、もう一度登録する必要があります。"
 		},
