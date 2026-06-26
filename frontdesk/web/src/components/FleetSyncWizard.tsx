@@ -27,6 +27,14 @@ function reachablePeers(s: FleetStatus): FleetMemberStatus[] {
 function masterKeyBlockers(s: FleetStatus): FleetMemberStatus[] {
 	return s.members.filter((m) => m.reachable && m.master_key_matches === false);
 }
+// Schema blockers: reachable members whose app is too old to receive the
+// primary's config. The member checks its schema before the MASTER_KEY canary,
+// so a skewed member reports master_key_matches=null and zero diff counts and
+// would otherwise slip through every gate to Done, where config sync then fails
+// for it. They can only be fixed by upgrading the member, so they hard-block.
+function schemaBlockers(s: FleetStatus): FleetMemberStatus[] {
+	return reachablePeers(s).filter((m) => !m.schema_ok);
+}
 function adminTokenBlockers(s: FleetStatus): FleetMemberStatus[] {
 	return reachablePeers(s).filter((m) => !m.admin_token_matches);
 }
@@ -88,7 +96,9 @@ export function FleetSyncWizard({
 	// Which steps the operator may jump to, derived purely from the latest probe.
 	const canStep2 = !!status && status.primary_reachable;
 	const canStep3 =
-		canStep2 && masterKeyBlockers(status as FleetStatus).length === 0;
+		canStep2 &&
+		masterKeyBlockers(status as FleetStatus).length === 0 &&
+		schemaBlockers(status as FleetStatus).length === 0;
 	const canStep4 =
 		canStep3 && adminTokenBlockers(status as FleetStatus).length === 0;
 	const canStep5 =
@@ -372,6 +382,7 @@ function StepMasterKey({
 }) {
 	const { t } = useTranslation();
 	const blockers = masterKeyBlockers(status);
+	const tooOld = schemaBlockers(status);
 	return (
 		<div>
 			<h3 className="fd-step-title">{t("settings.wizard.step2Title")}</h3>
@@ -379,11 +390,17 @@ function StepMasterKey({
 				{t("settings.wizard.step2Intro")}
 			</p>
 			<MemberTable status={status} kind="masterKey" />
-			{blockers.length === 0 ? (
-				<Notice variant="info" style={{ marginTop: "0.7rem" }}>
-					{t("settings.wizard.step2Ok")}
+			{tooOld.length > 0 && (
+				<Notice variant="warn" style={{ marginTop: "0.7rem" }}>
+					{t("settings.wizard.schemaRemedy")}
+					<ul style={{ margin: "0.4rem 0 0" }}>
+						{tooOld.map((m) => (
+							<li key={m.member_id}>{nameOf(m.member_id)}</li>
+						))}
+					</ul>
 				</Notice>
-			) : (
+			)}
+			{blockers.length > 0 && (
 				<Notice variant="warn" style={{ marginTop: "0.7rem" }}>
 					{t("settings.wizard.step2Remedy")}
 					<ul style={{ margin: "0.4rem 0 0" }}>
@@ -391,6 +408,11 @@ function StepMasterKey({
 							<li key={m.member_id}>{nameOf(m.member_id)}</li>
 						))}
 					</ul>
+				</Notice>
+			)}
+			{blockers.length === 0 && tooOld.length === 0 && (
+				<Notice variant="info" style={{ marginTop: "0.7rem" }}>
+					{t("settings.wizard.step2Ok")}
 				</Notice>
 			)}
 		</div>
@@ -724,6 +746,14 @@ function MemberBadge({
 		);
 
 	if (kind === "masterKey") {
+		// A schema-skewed member never ran the MASTER_KEY canary (master_key_matches
+		// stays null), so "nothing to verify" would mislead: flag the real blocker.
+		if (!member.schema_ok)
+			return (
+				<span className="ui-badge ui-badge-danger">
+					{t("settings.wizard.badgeTooOld")}
+				</span>
+			);
 		if (member.master_key_matches === null)
 			return (
 				<span className="ui-badge ui-badge-info">

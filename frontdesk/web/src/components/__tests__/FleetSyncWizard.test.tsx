@@ -94,6 +94,46 @@ describe("FleetSyncWizard", () => {
 		expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
 	});
 
+	it("blocks past MASTER_KEY when a reachable member's schema is too old", async () => {
+		server.use(
+			http.get("/api/fleet/status", () =>
+				HttpResponse.json({
+					primary_id: "1",
+					primary_reachable: true,
+					members: [
+						primaryRow(),
+						{
+							member_id: "2",
+							name: "hotel-2",
+							reachable: true,
+							has_token: true,
+							admin_token_matches: true,
+							// Schema skew: the member checks its schema before the MASTER_KEY
+							// canary, so master_key_matches is unevaluated (null) and diff
+							// counts are zero. Without the schema gate this member would slip
+							// through every step to Done, where config sync then fails for it.
+							master_key_matches: null,
+							schema_ok: false,
+							added: 0,
+							updated: 0,
+							removed: 0,
+							note: "this member's app version is too old to sync with the primary",
+						},
+					],
+				}),
+			),
+		);
+		renderWizard();
+		await pickPrimary();
+		const next = screen.getByRole("button", { name: "Next" });
+		await waitFor(() => expect(next).toBeEnabled());
+		await userEvent.click(next); // -> step 2 (MASTER_KEY)
+
+		// The schema remedy is shown and the admin-token step stays locked.
+		expect(await screen.findByText(/older app version/i)).toBeVisible();
+		expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+	});
+
 	it("shows the reason inline when the chosen primary is unusable (null member list)", async () => {
 		server.use(
 			http.get("/api/fleet/status", () =>
