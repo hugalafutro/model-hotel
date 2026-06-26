@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestMemberTrafficProxiesAndReshapes(t *testing.T) {
@@ -46,6 +47,44 @@ func TestMemberTrafficProxiesAndReshapes(t *testing.T) {
 	}
 	if gotAuth != "Bearer member-token" {
 		t.Errorf("member saw auth %q, want Bearer member-token", gotAuth)
+	}
+}
+
+// A member whose stats timeseries is slow to assemble (an hour of buckets under
+// load) must still be reported reachable: traffic reads use the longer-deadline
+// read client, not the fast health probe. The probe is deliberately set shorter
+// than the member's delay; a reachable result proves the read did not route
+// through it.
+func TestMemberTrafficUsesLongerDeadlineThanProbe(t *testing.T) {
+	srv, store := newTestServer(t)
+	srv.probe = newProbeClient(50 * time.Millisecond)
+	srv.readClient = newProbeClient(3 * time.Second)
+
+	member := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/stats/timeseries" {
+			time.Sleep(200 * time.Millisecond) // longer than the probe, within the read client
+			_, _ = w.Write([]byte(`{"points":[{"bucket":"b1","count":3,"errors":1}]}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer member.Close()
+
+	m, err := store.CreateMember(t.Context(), "slow-hotel", member.URL, "tok")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+	rec := do(t, srv, http.MethodGet, "/api/members/"+m.ID+"/traffic", "", true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("traffic = %d", rec.Code)
+	}
+	var resp memberTrafficResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if !resp.Reachable {
+		t.Fatal("slow timeseries must be reachable (read must use the long-deadline client)")
+	}
+	if resp.TotalRequests != 3 {
+		t.Errorf("totals = %d req, want 3", resp.TotalRequests)
 	}
 }
 

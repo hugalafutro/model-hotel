@@ -56,6 +56,14 @@ func (s *Server) callMemberWith(ctx context.Context, client *http.Client, method
 // not reach" (a warning), never as a wrong token.
 const memberProbeTimeout = 6 * time.Second
 
+// memberReadTimeout bounds an interactive member admin read (currently the
+// Traffic tab's stats timeseries). It is more generous than the health probe
+// because a member aggregating an hour of buckets can legitimately take longer
+// than a liveness check, and timing out there mislabels a slow-but-successful
+// read as "could not read metrics"; it stays well under the import relay's
+// deadline so a hung member still fails the Traffic card quickly.
+const memberReadTimeout = 15 * time.Second
+
 // memberSyncTimeout bounds a config import relay. Unlike a health probe, an
 // import runs model discovery on the member (live upstream calls), which easily
 // exceeds the 4s probe timeout, so the import client is given a far more generous

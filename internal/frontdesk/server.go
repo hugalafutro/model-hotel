@@ -59,6 +59,7 @@ type Server struct {
 	totpRepo   *totp.Repository
 	totpStatus *totpEnabledCache
 	probe      *http.Client // guarded client for proxying member admin APIs
+	readClient *http.Client // guarded client for interactive member admin reads (e.g. Traffic timeseries); longer deadline than the health probe, shorter than the import relay
 	syncClient *http.Client // guarded client for the config-import relay (longer deadline; import runs member-side discovery)
 	lbPort     string       // host port of the data-plane load balancer, surfaced to the wizard
 	masterKey  string       // fleet MASTER_KEY, used to confirm the destructive admin-token reset
@@ -92,6 +93,7 @@ func NewServer(cfg ServerConfig) *Server {
 		totpRepo:   totpRepo,
 		totpStatus: newTotpEnabledCache(totpRepo),
 		probe:      newProbeClient(httpProbeTimeout),
+		readClient: newProbeClient(memberReadTimeout),
 		syncClient: newProbeClient(memberSyncTimeout),
 		lbPort:     lbPort,
 		masterKey:  cfg.MasterKey,

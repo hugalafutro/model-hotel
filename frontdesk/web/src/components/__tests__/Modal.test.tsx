@@ -43,6 +43,20 @@ describe("Modal", () => {
 		expect(onClose).toHaveBeenCalled();
 	});
 
+	it("does not close on Escape or backdrop click when not dismissible", async () => {
+		const onClose = vi.fn();
+		render(
+			<Modal title="Busy dialog" onClose={onClose} dismissible={false}>
+				<input aria-label="field" />
+			</Modal>,
+		);
+		await userEvent.keyboard("{Escape}");
+		// The backdrop is the dialog's parent; mousedown on it would normally close.
+		const backdrop = screen.getByRole("dialog").parentElement as HTMLElement;
+		await userEvent.click(backdrop);
+		expect(onClose).not.toHaveBeenCalled();
+	});
+
 	it("does not steal focus when the parent re-renders (new onClose identity)", async () => {
 		// Mirrors the real panels: an inline-arrow onClose plus an in-modal control
 		// that re-renders the parent. Focus must stay where the user put it.

@@ -150,6 +150,7 @@
 		"syncAck": "I understand these members' tokens will be overwritten",
 		"syncDo_one": "Overwrite {{count}} member now",
 		"syncDo_other": "Overwrite {{count}} members now",
+		"syncDoing": "Syncing admin token...",
 		"syncDone_one": "Synced {{ok}} of {{total}} member",
 		"syncDone_other": "Synced {{ok}} of {{total}} members",
 		"configSyncConfirmTitle_one": "Replace config on {{count}} member?",
@@ -160,6 +161,8 @@
 		"configSyncAck": "I understand these members' config will be overwritten to match the primary",
 		"configSyncDo_one": "Replace config on {{count}} member now",
 		"configSyncDo_other": "Replace config on {{count}} members now",
+		"configSyncDoing": "Replacing config...",
+		"configSyncProgress": "Replacing config and rediscovering models on each member. This can take up to a minute; keep this window open.",
 		"configSyncDone_one": "Synced config to {{ok}} of {{total}} member",
 		"configSyncDone_other": "Synced config to {{ok}} of {{total}} members",
 		"wizard": {

@@ -69,10 +69,13 @@ func (s *Server) memberTraffic(w http.ResponseWriter, r *http.Request) {
 // fetchMemberTraffic proxies and reshapes one member's time series, returning a
 // reachable=false response on any transport, status, or parse failure (the
 // member may simply be down; the Traffic tab degrades gracefully per member).
+// It uses the longer-deadline read client, not the fast health probe: a member
+// aggregating an hour of buckets can take longer than a liveness check, and the
+// probe timeout would mislabel that slow-but-successful read as unreachable.
 func (s *Server) fetchMemberTraffic(ctx context.Context, m *Member, token string) memberTrafficResponse {
 	out := memberTrafficResponse{MemberID: m.ID, WindowMinutes: 60, Points: []trafficPoint{}}
 
-	status, body, err := s.callMember(ctx, http.MethodGet, m.URL, memberTimeSeriesPath, token, nil)
+	status, body, err := s.callMemberWith(ctx, s.readClient, http.MethodGet, m.URL, memberTimeSeriesPath, token, nil)
 	if err != nil {
 		debuglog.Debug("frontdesk: member traffic fetch failed", "member", m.Name, "error", err)
 		return out

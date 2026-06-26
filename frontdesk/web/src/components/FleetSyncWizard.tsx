@@ -269,7 +269,8 @@ export function FleetSyncWizard({
 					confirmLabel={t("settings.syncDo", {
 						count: adminTokenBlockers(status as FleetStatus).length,
 					})}
-					confirmDisabled={busy}
+					busy={busy}
+					busyLabel={t("settings.syncDoing")}
 					ackLabel={t("settings.syncAck")}
 					onConfirm={doAdminSync}
 					onClose={() => setConfirm(null)}
@@ -291,12 +292,19 @@ export function FleetSyncWizard({
 					confirmLabel={t("settings.configSyncDo", {
 						count: overwrites.length,
 					})}
-					confirmDisabled={busy}
+					busy={busy}
+					busyLabel={t("settings.configSyncDoing")}
 					ackLabel={t("settings.configSyncAck")}
 					onConfirm={doConfigSync}
 					onClose={() => setConfirm(null)}
 				>
 					<p className="fd-muted">{t("settings.configSyncConfirmBody")}</p>
+					{busy && (
+						<p className="fd-muted" style={{ margin: "0.5rem 0" }}>
+							<span className="fd-spinner" aria-hidden="true" />{" "}
+							{t("settings.configSyncProgress")}
+						</p>
+					)}
 					{totalRemoved > 0 && (
 						<p className="fd-error-text" style={{ margin: "0.5rem 0" }}>
 							{t("settings.configSyncRemovalWarning", { count: totalRemoved })}
