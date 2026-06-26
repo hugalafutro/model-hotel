@@ -158,7 +158,11 @@ func (s *Server) pushMemberImport(ctx context.Context, m *Member, token string, 
 	if dryRun {
 		path += "?dryRun=1"
 	}
-	status, body, err := s.callMember(ctx, http.MethodPost, m.URL, path, token, strings.NewReader(string(export)))
+	// The import client gets a longer deadline than the health probe: a real
+	// import runs model discovery on the member, which routinely exceeds the 4s
+	// probe timeout, and timing out there would mislabel a successful import as
+	// "could not reach this member".
+	status, body, err := s.callMemberWith(ctx, s.syncClient, http.MethodPost, m.URL, path, token, strings.NewReader(string(export)))
 	if err != nil {
 		return memberImportResult{}, err
 	}

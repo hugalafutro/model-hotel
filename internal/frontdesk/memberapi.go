@@ -23,6 +23,14 @@ const maxMemberRespBody = 1 << 20
 // returns the response status and body (capped). token is sent as the Bearer
 // credential; body may be nil. The caller maps status to its own result.
 func (s *Server) callMember(ctx context.Context, method, baseURL, path, token string, body io.Reader) (int, []byte, error) {
+	return s.callMemberWith(ctx, s.probe, method, baseURL, path, token, body)
+}
+
+// callMemberWith is callMember with an explicit client, so a heavyweight call
+// (config import, which triggers member-side model discovery) can use a client
+// with a longer deadline than the fast health-probe client without that probe
+// timeout mislabeling a slow-but-successful import as "could not reach".
+func (s *Server) callMemberWith(ctx context.Context, client *http.Client, method, baseURL, path, token string, body io.Reader) (int, []byte, error) {
 	req, err := http.NewRequestWithContext(ctx, method, baseURL+path, body)
 	if err != nil {
 		return 0, nil, err
@@ -31,7 +39,7 @@ func (s *Server) callMember(ctx context.Context, method, baseURL, path, token st
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	resp, err := s.probe.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -47,6 +55,12 @@ func (s *Server) callMember(ctx context.Context, method, baseURL, path, token st
 // member cannot stall the request; an exceeded deadline is treated as "could
 // not reach" (a warning), never as a wrong token.
 const memberProbeTimeout = 6 * time.Second
+
+// memberSyncTimeout bounds a config import relay. Unlike a health probe, an
+// import runs model discovery on the member (live upstream calls), which easily
+// exceeds the 4s probe timeout, so the import client is given a far more generous
+// deadline; it is still capped so a hung member cannot stall the sync forever.
+const memberSyncTimeout = 120 * time.Second
 
 // tokenProbe is the outcome of checking a member's admin token at add/edit time,
 // before the background poller would otherwise catch a mistake.

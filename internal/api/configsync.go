@@ -269,8 +269,13 @@ func modelRefByUUID(ctx context.Context, q querier) (map[string]modelRef, error)
 // model UUID no longer resolves (model deleted) is dropped; the group is still
 // exported so the importer can decide whether enough entries survive.
 func exportFailoverGroups(ctx context.Context, q querier, refByUUID map[string]modelRef) ([]ExportFailoverGroup, error) {
+	// description is COALESCEd because the main app's failover Upsert lists the
+	// column with a *string value, so a nil description writes a SQL NULL (the
+	// column DEFAULT '' only applies when the column is omitted). Every other read
+	// in the failover package COALESCEs it; without this, a custom group with a
+	// NULL description fails the Scan into g.Description and kills the whole export.
 	rows, err := q.Query(ctx, `
-		SELECT display_model, display_name, description, COALESCE(group_enabled, true),
+		SELECT display_model, display_name, COALESCE(description, ''), COALESCE(group_enabled, true),
 		       priority_order, COALESCE(entry_enabled, '{}')
 		FROM model_failover_groups WHERE auto_created = false ORDER BY display_model`)
 	if err != nil {

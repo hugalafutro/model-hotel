@@ -111,6 +111,33 @@ func TestConfigSync_ExportCustomFailoverGroups(t *testing.T) {
 	}
 }
 
+// A custom group whose description column is NULL (the main app's failover Upsert
+// writes a SQL NULL when the caller passes a nil description) must still export:
+// the query COALESCEs description, so the Scan into the string field does not fail
+// and take the whole member's config-sync down with it.
+func TestConfigSync_ExportToleratesNullGroupDescription(t *testing.T) {
+	cleanConfigTables(t)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	m1 := seedModel(t, provID, "gpt-4o")
+	seedFailoverGroup(t, "glm52", []string{m1}, nil, false)
+	// Force the description to a genuine SQL NULL, mimicking a group created via the
+	// main-app Upsert path with no description.
+	if _, err := apiTestDB.Pool().Exec(context.Background(),
+		`UPDATE model_failover_groups SET description = NULL WHERE display_model = $1`, "glm52"); err != nil {
+		t.Fatalf("null out description: %v", err)
+	}
+
+	env := doExport(t, r)
+	if len(env.Config.FailoverGroups) != 1 {
+		t.Fatalf("expected 1 custom group exported, got %+v", env.Config.FailoverGroups)
+	}
+	if g := env.Config.FailoverGroups[0]; g.Description != "" {
+		t.Errorf("NULL description should export as empty string, got %q", g.Description)
+	}
+}
+
 // An entry whose model UUID no longer resolves (the model was deleted after the
 // group referenced it) is silently dropped from the export rather than carried as
 // a dangling ref.
