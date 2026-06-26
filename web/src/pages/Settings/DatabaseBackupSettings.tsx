@@ -25,11 +25,13 @@ import { formatDateTimeShort } from "../../utils/format";
 interface DatabaseBackupSettingsProps {
 	collapsed: boolean;
 	onToggle: () => void;
+	managed?: boolean;
 }
 
 export function DatabaseBackupSettings({
 	collapsed,
 	onToggle,
+	managed,
 }: DatabaseBackupSettingsProps) {
 	const { t } = useTranslation();
 	const { toast } = useToast();
@@ -183,6 +185,7 @@ export function DatabaseBackupSettings({
 			title={t("settings.backup.title")}
 			collapsed={collapsed}
 			onToggle={onToggle}
+			managed={managed}
 			onResetSection={() =>
 				settingsUpdateMutation.mutate({
 					backup_enabled: "false",

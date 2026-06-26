@@ -208,6 +208,9 @@
 				"warning": "Front Desk har blitt stille. Denne instansen ble styrt, men hjerteslaget er nå utdatert.",
 				"error": "Flåtesynkronisering er blokkert for denne instansen (for eksempel en MASTER_KEY- eller skjemauoverensstemmelse)."
 			}
+		},
+		"managed": {
+			"banner": "Styres av flåtens primære instans. Synkroniserte elementer er skrivebeskyttet her og erstattes ved neste konfigurasjonssynkronisering. Administrer dem på den primære instansen."
 		}
 	},
 	"dashboard": {
@@ -1904,6 +1907,10 @@
 		},
 		"authentication": {
 			"title": "Autentisering"
+		},
+		"managed": {
+			"sectionNote": "Styres av flåtens primære instans. Endringer her erstattes ved neste konfigurasjonssynkronisering.",
+			"alertsNote": "Av- og påslåing av varsler og hendelsesruting styres av flåtens primære instans. Apprise-leveringsinnstillingene nedenfor forblir lokale for denne instansen."
 		}
 	},
 	"components": {

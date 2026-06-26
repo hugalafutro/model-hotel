@@ -208,6 +208,9 @@
 				"warning": "Front Desk stíchol. Táto inštancia bola spravovaná, ale jej tep je teraz zastaraný.",
 				"error": "Synchronizácia flotily je pre túto inštanciu zablokovaná (napríklad nesúlad MASTER_KEY alebo schémy)."
 			}
+		},
+		"managed": {
+			"banner": "Spravované primárnou inštanciou flotily. Synchronizované položky sú tu iba na čítanie a pri ďalšej synchronizácii konfigurácie sa nahradia. Spravujte ich na primárnej inštancii."
 		}
 	},
 	"dashboard": {
@@ -1904,6 +1907,10 @@
 		},
 		"authentication": {
 			"title": "Overenie"
+		},
+		"managed": {
+			"sectionNote": "Spravované primárnou inštanciou flotily. Zmeny vykonané tu sa pri ďalšej synchronizácii konfigurácie nahradia.",
+			"alertsNote": "Zapínanie a vypínanie upozornení a smerovanie udalostí spravuje primárna inštancia flotily. Nastavenia doručovania Apprise nižšie zostávajú lokálne pre túto inštanciu."
 		}
 	},
 	"components": {

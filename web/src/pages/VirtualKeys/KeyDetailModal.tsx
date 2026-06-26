@@ -69,10 +69,14 @@ export function KeyDetailModal({
 	vk,
 	onClose,
 	onToast,
+	managed,
 }: {
 	vk: VirtualKey;
 	onClose: () => void;
 	onToast: (msg: string, type: "success" | "error" | "info") => void;
+	// When true this key is managed by the fleet primary: edit and delete are
+	// hidden, since local changes are replaced on the next config sync.
+	managed?: boolean;
 }) {
 	const queryClient = useQueryClient();
 	const { t } = useTranslation();
@@ -535,53 +539,55 @@ export function KeyDetailModal({
 				)}
 			</div>
 
-			<div className="flex justify-between items-center">
-				<ConfirmDeleteButton
-					onConfirm={() => deleteMutation.mutate()}
-					loading={deleteMutation.isPending}
-				/>
-				{editing ? (
-					<div className="flex space-x-3">
+			{!managed && (
+				<div className="flex justify-between items-center">
+					<ConfirmDeleteButton
+						onConfirm={() => deleteMutation.mutate()}
+						loading={deleteMutation.isPending}
+					/>
+					{editing ? (
+						<div className="flex space-x-3">
+							<button
+								type="button"
+								onClick={handleCancelEdit}
+								className="ui-btn ui-btn-secondary"
+							>
+								{t("common.cancel")}
+							</button>
+							<button
+								type="button"
+								onClick={handleSave}
+								disabled={!hasChanges || updateMutation.isPending}
+								className="ui-btn ui-btn-primary disabled:opacity-50"
+							>
+								{updateMutation.isPending
+									? t("common.saving")
+									: t("common.saveChanges")}
+							</button>
+						</div>
+					) : (
 						<button
 							type="button"
-							onClick={handleCancelEdit}
+							onClick={startEditing}
 							className="ui-btn ui-btn-secondary"
+							disabled={
+								!!vk.allowed_providers &&
+								vk.allowed_providers.length > 0 &&
+								!providers
+							}
+							title={
+								vk.allowed_providers &&
+								vk.allowed_providers.length > 0 &&
+								!providers
+									? t("virtualkeys.modal.loadingProviders")
+									: undefined
+							}
 						>
-							{t("common.cancel")}
+							{t("common.edit")}
 						</button>
-						<button
-							type="button"
-							onClick={handleSave}
-							disabled={!hasChanges || updateMutation.isPending}
-							className="ui-btn ui-btn-primary disabled:opacity-50"
-						>
-							{updateMutation.isPending
-								? t("common.saving")
-								: t("common.saveChanges")}
-						</button>
-					</div>
-				) : (
-					<button
-						type="button"
-						onClick={startEditing}
-						className="ui-btn ui-btn-secondary"
-						disabled={
-							!!vk.allowed_providers &&
-							vk.allowed_providers.length > 0 &&
-							!providers
-						}
-						title={
-							vk.allowed_providers &&
-							vk.allowed_providers.length > 0 &&
-							!providers
-								? t("virtualkeys.modal.loadingProviders")
-								: undefined
-						}
-					>
-						{t("common.edit")}
-					</button>
-				)}
-			</div>
+					)}
+				</div>
+			)}
 		</Modal>
 	);
 }

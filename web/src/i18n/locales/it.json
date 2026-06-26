@@ -208,6 +208,9 @@
 				"warning": "Front Desk è diventato silenzioso. Questa istanza era gestita, ma il suo heartbeat è ora obsoleto.",
 				"error": "La sincronizzazione della flotta è bloccata per questa istanza (ad esempio una mancata corrispondenza di MASTER_KEY o dello schema)."
 			}
+		},
+		"managed": {
+			"banner": "Gestita dall'istanza primaria della flotta. Gli elementi sincronizzati sono di sola lettura qui e vengono sostituiti alla successiva sincronizzazione della configurazione. Gestiscili sull'istanza primaria."
 		}
 	},
 	"dashboard": {
@@ -1904,6 +1907,10 @@
 		},
 		"authentication": {
 			"title": "Autenticazione"
+		},
+		"managed": {
+			"sectionNote": "Gestita dall'istanza primaria della flotta. Le modifiche apportate qui vengono sostituite alla successiva sincronizzazione della configurazione.",
+			"alertsNote": "L'attivazione degli avvisi e l'instradamento degli eventi sono gestiti dall'istanza primaria della flotta. Le impostazioni di consegna Apprise qui sotto restano locali a questa istanza."
 		}
 	},
 	"components": {

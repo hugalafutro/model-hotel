@@ -11,6 +11,10 @@ export interface SortableEntryProps {
 	entry: FailoverGroup["entries"][0];
 	groupEnabled: boolean;
 	onToggle: (uuid: string, enabled: boolean) => void;
+	// When true the group is managed by the fleet primary: the per-entry toggle
+	// (entry.enabled) and reordering (priority_order) are synced config that the
+	// next config sync overwrites, so both are locked here.
+	locked?: boolean;
 	cbStatus?: {
 		state: string;
 		cooldown_ms?: number;
@@ -24,9 +28,11 @@ export function SortableEntry({
 	entry,
 	groupEnabled,
 	onToggle,
+	locked,
 	cbStatus,
 }: SortableEntryProps) {
 	const { t } = useTranslation();
+	const draggable = groupEnabled && !locked;
 	const {
 		attributes,
 		listeners,
@@ -34,7 +40,7 @@ export function SortableEntry({
 		transform,
 		transition,
 		isDragging,
-	} = useSortable({ id: entry.model_uuid, disabled: !groupEnabled });
+	} = useSortable({ id: entry.model_uuid, disabled: !draggable });
 
 	const style: React.CSSProperties = {
 		transform: CSS.Transform.toString(transform),
@@ -42,7 +48,7 @@ export function SortableEntry({
 		opacity: isDragging ? 0.5 : 1,
 	};
 
-	const dragProps = groupEnabled ? { ...attributes, ...listeners } : {};
+	const dragProps = draggable ? { ...attributes, ...listeners } : {};
 
 	// The router skips entries whose model or provider is disabled regardless
 	// of the per-entry toggle; reflect that effective state in the UI. Only an
@@ -127,7 +133,7 @@ export function SortableEntry({
 				<span
 					{...dragProps}
 					className={`text-(--text-tertiary) shrink-0 transition-opacity ${
-						groupEnabled
+						draggable
 							? "cursor-grab active:cursor-grabbing opacity-40 hover:opacity-100"
 							: "cursor-not-allowed opacity-30"
 					}`}
@@ -159,7 +165,7 @@ export function SortableEntry({
 				// per-entry flag would do nothing while the underlying model is dead,
 				// which is the confusing "toggle says on but it's disabled" case.
 				checked={entry.enabled && !effectivelyDisabled}
-				disabled={!groupEnabled || effectivelyDisabled}
+				disabled={!groupEnabled || effectivelyDisabled || locked}
 				onChange={(v) => onToggle(entry.model_uuid, v)}
 				title={effectivelyDisabled ? naReasonText : undefined}
 				ariaLabel={

@@ -208,6 +208,9 @@
 				"warning": "Front Desk ist verstummt. Diese Instanz wurde verwaltet, aber ihr Heartbeat ist jetzt veraltet.",
 				"error": "Die Flottensynchronisierung ist für diese Instanz blockiert (zum Beispiel eine MASTER_KEY- oder Schema-Abweichung)."
 			}
+		},
+		"managed": {
+			"banner": "Von der Flotten-Primärinstanz verwaltet. Synchronisierte Elemente sind hier schreibgeschützt und werden bei der nächsten Konfigurationssynchronisierung ersetzt. Verwalten Sie sie auf der Primärinstanz."
 		}
 	},
 	"dashboard": {
@@ -1904,6 +1907,10 @@
 		},
 		"authentication": {
 			"title": "Authentifizierung"
+		},
+		"managed": {
+			"sectionNote": "Von der Flotten-Primärinstanz verwaltet. Änderungen hier werden bei der nächsten Konfigurationssynchronisierung ersetzt.",
+			"alertsNote": "Das Ein- und Ausschalten von Warnungen und das Ereignis-Routing werden von der Flotten-Primärinstanz verwaltet. Die Apprise-Zustellungseinstellungen unten bleiben lokal auf dieser Instanz."
 		}
 	},
 	"components": {

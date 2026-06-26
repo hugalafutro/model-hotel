@@ -208,6 +208,9 @@
 				"warning": "O Front Desk ficou em silêncio. Esta instância estava sendo gerenciada, mas seu heartbeat está agora desatualizado.",
 				"error": "A sincronização da frota está bloqueada para esta instância (por exemplo, uma incompatibilidade de MASTER_KEY ou de esquema)."
 			}
+		},
+		"managed": {
+			"banner": "Gerenciada pela instância primária da frota. Os itens sincronizados são somente leitura aqui e são substituídos na próxima sincronização de configuração. Gerencie-os na instância primária."
 		}
 	},
 	"dashboard": {
@@ -1904,6 +1907,10 @@
 		},
 		"authentication": {
 			"title": "Autenticação"
+		},
+		"managed": {
+			"sectionNote": "Gerenciada pela instância primária da frota. As alterações feitas aqui são substituídas na próxima sincronização de configuração.",
+			"alertsNote": "A ativação de alertas e o roteamento de eventos são gerenciados pela instância primária da frota. As configurações de entrega do Apprise abaixo permanecem locais nesta instância."
 		}
 	},
 	"components": {

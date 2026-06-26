@@ -6,10 +6,12 @@ import { api } from "../api/client";
 import { useCollapsible } from "../components/CollapsibleToggle";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { LoadingSpinner } from "../components/LoadingSpinner";
+import { ManagedBanner } from "../components/ManagedBanner";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { ResetButton } from "../components/ResetButton";
 import { useToast } from "../context/ToastContext";
+import { useManaged } from "../hooks/useManaged";
 import { AlertsSettings } from "./Settings/AlertsSettings";
 import { AppearanceSettings } from "./Settings/AppearanceSettings";
 import { AuthenticationSettings } from "./Settings/AuthenticationSettings";
@@ -27,6 +29,7 @@ import { ProxySettings } from "./Settings/ProxySettings";
 import { RateLimitSettings } from "./Settings/RateLimitSettings";
 
 export function Settings() {
+	const managed = useManaged();
 	const { t } = useTranslation();
 	const { toast } = useToast();
 	const queryClient = useQueryClient();
@@ -123,11 +126,14 @@ export function Settings() {
 				/>
 			</div>
 
+			<ManagedBanner />
+
 			<div className="space-y-6">
 				<DiscoverySettings
 					collapsed={modelDiscoveryCollapsed}
 					onToggle={toggleModelDiscovery}
 					onResetSection={() => setResetSection("discovery")}
+					managed={managed}
 				/>
 
 				<AuthenticationSettings
@@ -144,6 +150,7 @@ export function Settings() {
 					collapsed={dataStorageCollapsed}
 					onToggle={toggleDataStorage}
 					onResetSection={() => setResetSection("dataStorage")}
+					managed={managed}
 				/>
 
 				<ObservabilitySettings
@@ -154,30 +161,39 @@ export function Settings() {
 				<AlertsSettings
 					collapsed={alertsCollapsed}
 					onToggle={toggleAlerts}
-					onResetSection={() => setResetSection("alerts")}
+					// Alerts is a mixed section: it does not forward `managed` to
+					// SettingsSection (that would disable the instance-local Apprise
+					// inputs too). Drop the section reset while managed so the header
+					// matches the six fully-synced sections, which hide theirs.
+					onResetSection={managed ? undefined : () => setResetSection("alerts")}
+					managed={managed}
 				/>
 
 				<DatabaseBackupSettings
 					collapsed={backupCollapsed}
 					onToggle={toggleBackup}
+					managed={managed}
 				/>
 
 				<RateLimitSettings
 					collapsed={rateLimitCollapsed}
 					onToggle={toggleRateLimit}
 					onResetSection={() => setResetSection("rateLimit")}
+					managed={managed}
 				/>
 
 				<CircuitBreakerSettings
 					collapsed={circuitBreakerCollapsed}
 					onToggle={toggleCircuitBreaker}
 					onResetSection={() => setResetSection("circuitBreaker")}
+					managed={managed}
 				/>
 
 				<ProxySettings
 					collapsed={proxyCollapsed}
 					onToggle={toggleProxy}
 					onResetSection={() => setResetSection("proxy")}
+					managed={managed}
 				/>
 			</div>
 

@@ -10,12 +10,14 @@ interface ProxySettingsProps {
 	collapsed: boolean;
 	onToggle: () => void;
 	onResetSection?: () => void;
+	managed?: boolean;
 }
 
 export function ProxySettings({
 	collapsed,
 	onToggle,
 	onResetSection,
+	managed,
 }: ProxySettingsProps) {
 	const { t } = useTranslation();
 	const { settings, updateMutation, resetSettingMutation } =
@@ -33,6 +35,7 @@ export function ProxySettings({
 			collapsed={collapsed}
 			onToggle={onToggle}
 			onResetSection={onResetSection}
+			managed={managed}
 		>
 			<div className="space-y-5">
 				<p className="text-gray-400 text-sm">

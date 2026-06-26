@@ -208,6 +208,9 @@
 				"warning": "Front Desk het stil geword. Hierdie instansie was bestuur, maar sy hartklop is nou verouderd.",
 				"error": "Vlootsinkronisasie is vir hierdie instansie geblokkeer (byvoorbeeld 'n MASTER_KEY- of skemawanverhouding)."
 			}
+		},
+		"managed": {
+			"banner": "Bestuur deur die vloot se primêre instansie. Gesinkroniseerde items is hier slegs-lees en word met die volgende konfigurasiesinkronisasie vervang. Bestuur hulle op die primêre instansie."
 		}
 	},
 	"dashboard": {
@@ -1904,6 +1907,10 @@
 		},
 		"authentication": {
 			"title": "Verifikasie"
+		},
+		"managed": {
+			"sectionNote": "Bestuur deur die vloot se primêre instansie. Veranderinge hier word met die volgende konfigurasiesinkronisasie vervang.",
+			"alertsNote": "Die aan- en afskakel van waarskuwings en gebeurtenisroetering word deur die vloot se primêre instansie bestuur. Die Apprise-afleweringsinstellings hieronder bly plaaslik tot hierdie instansie."
 		}
 	},
 	"components": {

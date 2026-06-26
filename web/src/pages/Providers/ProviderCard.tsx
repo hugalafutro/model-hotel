@@ -22,6 +22,9 @@ interface ProviderCardProps {
 	onSetModalOpenRouter: () => void;
 	onSetModalNeuralwatt: () => void;
 	toast: (msg: string, type: "success" | "error" | "info") => void;
+	/** When true this provider is managed by the fleet primary: edit and delete
+	 * are hidden, since local changes are replaced on the next config sync. */
+	managed?: boolean;
 }
 
 export function ProviderCard({
@@ -40,6 +43,7 @@ export function ProviderCard({
 	onSetModalOpenRouter,
 	onSetModalNeuralwatt,
 	toast,
+	managed,
 }: ProviderCardProps) {
 	const { t } = useTranslation();
 
@@ -157,13 +161,15 @@ export function ProviderCard({
 
 			<div className="mt-auto pt-4 flex flex-wrap items-center justify-end gap-x-2 gap-y-3">
 				<div className="flex gap-2">
-					<button
-						type="button"
-						onClick={() => onEdit(provider)}
-						className="ui-btn ui-btn-secondary"
-					>
-						{t("providers.card_btn_edit")}
-					</button>
+					{!managed && (
+						<button
+							type="button"
+							onClick={() => onEdit(provider)}
+							className="ui-btn ui-btn-secondary"
+						>
+							{t("providers.card_btn_edit")}
+						</button>
+					)}
 					<button
 						type="button"
 						onClick={() => onDiscover(provider.id)}
@@ -193,13 +199,15 @@ export function ProviderCard({
 							t("providers.card_btn_discover")
 						)}
 					</button>
-					<button
-						type="button"
-						onClick={() => onDelete(provider)}
-						className="ui-btn ui-btn-danger"
-					>
-						{t("providers.card_btn_delete")}
-					</button>
+					{!managed && (
+						<button
+							type="button"
+							onClick={() => onDelete(provider)}
+							className="ui-btn ui-btn-danger"
+						>
+							{t("providers.card_btn_delete")}
+						</button>
+					)}
 				</div>
 			</div>
 		</div>

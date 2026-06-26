@@ -208,6 +208,9 @@
 				"warning": "Front Desk đã im lặng. Phiên bản này từng được quản lý nhưng nhịp tim của nó hiện đã cũ.",
 				"error": "Đồng bộ hạm đội bị chặn đối với phiên bản này (ví dụ: không khớp MASTER_KEY hoặc lược đồ)."
 			}
+		},
+		"managed": {
+			"banner": "Được quản lý bởi phiên bản chính của hạm đội. Các mục đã đồng bộ ở đây chỉ đọc và sẽ được thay thế trong lần đồng bộ cấu hình tiếp theo. Hãy quản lý chúng trên phiên bản chính."
 		}
 	},
 	"dashboard": {
@@ -1904,6 +1907,10 @@
 		},
 		"authentication": {
 			"title": "Xác thực"
+		},
+		"managed": {
+			"sectionNote": "Được quản lý bởi phiên bản chính của hạm đội. Các thay đổi ở đây sẽ được thay thế trong lần đồng bộ cấu hình tiếp theo.",
+			"alertsNote": "Việc bật tắt cảnh báo và định tuyến sự kiện do phiên bản chính của hạm đội quản lý. Các cài đặt phân phối Apprise bên dưới vẫn là cục bộ trên phiên bản này."
 		}
 	},
 	"components": {

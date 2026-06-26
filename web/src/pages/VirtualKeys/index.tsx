@@ -14,8 +14,10 @@ import {
 } from "../../components/DataTable";
 import { EmptyState } from "../../components/EmptyState";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
+import { ManagedBanner } from "../../components/ManagedBanner";
 import { PageHeader } from "../../components/PageHeader";
 import { useToast } from "../../context/ToastContext";
+import { useManaged } from "../../hooks/useManaged";
 import { useReadOnly } from "../../hooks/useReadOnly";
 import { formatNumber, formatRelativeTime } from "../../utils/format";
 import { CreateKeyModal } from "./CreateKeyModal";
@@ -35,6 +37,7 @@ export function VirtualKeys() {
 	const { t } = useTranslation();
 	const { toast } = useToast();
 	const readOnly = useReadOnly();
+	const managed = useManaged();
 	const [showCreate, setShowCreate] = useState(false);
 	const [selectedKey, setSelectedKey] = useState<VirtualKey | null>(null);
 	const [sort, setSort] = useState<SortState<VKSortField>>({
@@ -132,7 +135,8 @@ export function VirtualKeys() {
 					</span>
 				}
 				actions={
-					!readOnly && (
+					!readOnly &&
+					!managed && (
 						<button
 							type="button"
 							onClick={() => setShowCreate(true)}
@@ -143,6 +147,8 @@ export function VirtualKeys() {
 					)
 				}
 			/>
+
+			<ManagedBanner />
 
 			{sortedKeys.length > 0 && (
 				<div className="flex items-center justify-end">
@@ -389,6 +395,7 @@ export function VirtualKeys() {
 			{selectedKey && (
 				<KeyDetailModal
 					vk={selectedKey}
+					managed={managed}
 					onClose={() => setSelectedKey(null)}
 					onToast={toast}
 				/>

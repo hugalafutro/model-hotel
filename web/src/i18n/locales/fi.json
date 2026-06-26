@@ -208,6 +208,9 @@
 				"warning": "Front Desk on hiljentynyt. Tätä instanssia hallinnoitiin, mutta sen syke on nyt vanhentunut.",
 				"error": "Laivaston synkronointi on estetty tälle instanssille (esimerkiksi MASTER_KEY- tai skeemaristiriita)."
 			}
+		},
+		"managed": {
+			"banner": "Laivaston ensisijaisen ilmentymän hallinnoima. Synkronoidut kohteet ovat täällä vain luettavissa, ja ne korvataan seuraavassa kokoonpanon synkronoinnissa. Hallinnoi niitä ensisijaisessa ilmentymässä."
 		}
 	},
 	"dashboard": {
@@ -1904,6 +1907,10 @@
 		},
 		"authentication": {
 			"title": "Todennus"
+		},
+		"managed": {
+			"sectionNote": "Laivaston ensisijaisen ilmentymän hallinnoima. Täällä tehdyt muutokset korvataan seuraavassa kokoonpanon synkronoinnissa.",
+			"alertsNote": "Hälytysten päälle- ja poiskytkentää sekä tapahtumien reititystä hallinnoi laivaston ensisijainen ilmentymä. Alla olevat Apprise-toimitusasetukset pysyvät paikallisina tässä ilmentymässä."
 		}
 	},
 	"components": {
