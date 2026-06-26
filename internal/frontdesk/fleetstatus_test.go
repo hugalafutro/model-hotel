@@ -150,6 +150,30 @@ func TestFleetStatusClassifies(t *testing.T) {
 	}
 }
 
+// TestFleetStatusProbeFailureNotSchemaBlocker: a reachable member whose config
+// import probe fails transiently (5xx, or a drop after the hash call) must not
+// be reported as a schema mismatch. SchemaOK stays true so the wizard does not
+// show a spurious "too old, upgrade it" remedy or block the whole fleet on it.
+func TestFleetStatusProbeFailureNotSchemaBlocker(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubFleetMember(t, "ptoken", "sha256:primary")
+	flaky := newStubFleetMember(t, "ftoken", "sha256:primary") // hash matches, import 5xx
+	flaky.importCode = http.StatusInternalServerError
+	flaky.importBody = "boom"
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	fm, _ := store.CreateMember(t.Context(), "flaky", flaky.srv.URL, "ftoken")
+
+	resp := fleetStatusByID(t, srv, pm.ID)
+	byID := map[string]fleetMemberStatus{}
+	for _, it := range resp.Members {
+		byID[it.MemberID] = it
+	}
+	if f := byID[fm.ID]; !f.Reachable || !f.SchemaOK || !strings.Contains(f.Note, "config diff") {
+		t.Errorf("flaky = %+v (want reachable, schema_ok true, config-diff note)", f)
+	}
+}
+
 // TestFleetStatusKeylessFleet: when the primary has no provider keys there is
 // nothing to verify, so MASTER_KEY is reported as nil (not a false alarm).
 func TestFleetStatusKeylessFleet(t *testing.T) {

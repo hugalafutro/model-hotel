@@ -181,6 +181,12 @@ func (s *Server) fleetStatusForMember(ctx context.Context, m *Member, primaryID,
 
 	res, err := s.pushMemberImport(ctx, m, token, export, true) // dry run
 	if err != nil {
+		// The import probe failed (5xx, a drop between the hash and import calls,
+		// etc.). We could not confirm the schema is bad, so leave SchemaOK true:
+		// a zero-value false would wrongly land this member in the wizard's schema
+		// blockers and show a spurious "too old, upgrade it" remedy. The note
+		// explains the partial probe instead.
+		item.SchemaOK = true
 		item.Note = "reachable, but could not read its config diff"
 		return item
 	}
