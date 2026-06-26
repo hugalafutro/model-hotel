@@ -43,14 +43,15 @@ type memberEntityDiff struct {
 }
 
 type memberConfigDiff struct {
-	Providers   memberEntityDiff `json:"providers"`
-	VirtualKeys memberEntityDiff `json:"virtual_keys"`
-	Settings    memberEntityDiff `json:"settings"`
+	Providers      memberEntityDiff `json:"providers"`
+	VirtualKeys    memberEntityDiff `json:"virtual_keys"`
+	Settings       memberEntityDiff `json:"settings"`
+	FailoverGroups memberEntityDiff `json:"failover_groups"`
 }
 
 // added/updated/removed total the diff across all entity kinds.
 func (d memberConfigDiff) counts() (added, updated, removed int) {
-	for _, e := range []memberEntityDiff{d.Providers, d.VirtualKeys, d.Settings} {
+	for _, e := range []memberEntityDiff{d.Providers, d.VirtualKeys, d.Settings, d.FailoverGroups} {
 		added += len(e.Added)
 		updated += len(e.Updated)
 		removed += len(e.Removed)

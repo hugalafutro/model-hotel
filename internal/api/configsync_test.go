@@ -34,7 +34,7 @@ func cleanConfigTables(t *testing.T) {
 	t.Helper()
 	ctx := context.Background()
 	_, err := apiTestDB.Pool().Exec(ctx,
-		`TRUNCATE request_logs, models, virtual_keys, providers, settings CASCADE`)
+		`TRUNCATE request_logs, model_failover_groups, models, virtual_keys, providers, settings CASCADE`)
 	if err != nil {
 		t.Fatalf("truncate: %v", err)
 	}

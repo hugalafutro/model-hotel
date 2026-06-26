@@ -33,11 +33,15 @@ import (
 // key's allowed_providers is translated provider-UUID -> name on export and back
 // on import).
 //
-// v1 syncs providers, virtual keys, and the syncable settings subset. Models and
-// failover groups auto-regenerate on each member from the synced providers
-// (discovery + automatic group formation), so they are intentionally not copied;
-// their manual overrides (disable / rename / custom priority) are a documented
-// follow-up because they require model-ID translation.
+// v1 syncs providers, virtual keys, the syncable settings subset, and CUSTOM
+// (user-created) failover groups. Models and AUTO-CREATED failover groups
+// regenerate on each member from the synced providers (discovery + automatic
+// group formation), so they are intentionally not copied. A custom group's
+// priority_order / entry_enabled reference instance-local model UUIDs, so it is
+// carried as stable (provider name, model_id) entry refs and resolved back to
+// this member's model UUIDs on import (an entry whose model is absent here is
+// dropped; a group left with fewer than two routable entries is skipped). The
+// remaining manual override (per-model disable) is still a documented follow-up.
 
 const (
 	// configSchemaVersion is the envelope version a member understands. An import
@@ -89,9 +93,10 @@ type ConfigEnvelope struct {
 
 // ConfigPayload is the config-only body of the envelope.
 type ConfigPayload struct {
-	Providers   []ExportProvider  `json:"providers"`
-	VirtualKeys []ExportVK        `json:"virtual_keys"`
-	Settings    map[string]string `json:"settings"`
+	Providers      []ExportProvider      `json:"providers"`
+	VirtualKeys    []ExportVK            `json:"virtual_keys"`
+	Settings       map[string]string     `json:"settings"`
+	FailoverGroups []ExportFailoverGroup `json:"failover_groups,omitempty"`
 }
 
 // ExportProvider is a provider with its encrypted key material verbatim.
@@ -120,6 +125,27 @@ type ExportVK struct {
 	StripReasoning       bool     `json:"strip_reasoning"`
 }
 
+// ExportFailoverGroup is a CUSTOM (non-auto-created) failover group. Its
+// priority_order / entry_enabled reference instance-local model UUIDs, so it is
+// carried as ordered (provider name, model_id) entry refs, resolved back to this
+// member's model UUIDs on import. Auto-created groups are excluded: they
+// regenerate identically on every member from the synced providers.
+type ExportFailoverGroup struct {
+	DisplayModel string                `json:"display_model"`
+	DisplayName  *string               `json:"display_name,omitempty"`
+	Description  string                `json:"description,omitempty"`
+	GroupEnabled bool                  `json:"group_enabled"`
+	Entries      []ExportFailoverEntry `json:"entries"`
+}
+
+// ExportFailoverEntry is one member of a failover group, identified by the stable
+// (provider name, model_id) pair rather than the instance-local model UUID.
+type ExportFailoverEntry struct {
+	ProviderName string `json:"provider_name"`
+	ModelID      string `json:"model_id"`
+	Enabled      bool   `json:"enabled"`
+}
+
 // entityDiff lists the names changed for one entity kind in a sync.
 type entityDiff struct {
 	Added   []string `json:"added"`
@@ -129,9 +155,10 @@ type entityDiff struct {
 
 // configDiff is the per-kind summary returned by a (dry-run or applied) import.
 type configDiff struct {
-	Providers   entityDiff `json:"providers"`
-	VirtualKeys entityDiff `json:"virtual_keys"`
-	Settings    entityDiff `json:"settings"`
+	Providers      entityDiff `json:"providers"`
+	VirtualKeys    entityDiff `json:"virtual_keys"`
+	Settings       entityDiff `json:"settings"`
+	FailoverGroups entityDiff `json:"failover_groups"`
 }
 
 // importResponse is the body of POST /config/import.
@@ -179,12 +206,103 @@ func (h *ConfigSyncHandler) buildEnvelope(ctx context.Context) (ConfigEnvelope, 
 	if err != nil {
 		return ConfigEnvelope{}, err
 	}
+	refByUUID, err := modelRefByUUID(ctx, pool)
+	if err != nil {
+		return ConfigEnvelope{}, err
+	}
+	groups, err := exportFailoverGroups(ctx, pool, refByUUID)
+	if err != nil {
+		return ConfigEnvelope{}, err
+	}
 	return ConfigEnvelope{
 		SchemaVersion: configSchemaVersion,
 		AppVersion:    h.appVersion,
 		ExportedAt:    time.Now().UTC(),
-		Config:        ConfigPayload{Providers: providers, VirtualKeys: vks, Settings: set},
+		Config: ConfigPayload{
+			Providers: providers, VirtualKeys: vks, Settings: set, FailoverGroups: groups,
+		},
 	}, nil
+}
+
+// modelRef is the stable cross-member identity of a model: the provider's name
+// plus the provider-scoped model_id. (provider_id, model_id) is unique per
+// member, but the UUIDs differ, so failover entries travel by this pair.
+type modelRef struct {
+	provider string
+	modelID  string
+}
+
+// modelRefByUUID maps each local model UUID to its stable (provider, model_id)
+// ref, for translating a failover group's UUID entries out on export.
+func modelRefByUUID(ctx context.Context, q querier) (map[string]modelRef, error) {
+	rows, err := q.Query(ctx,
+		`SELECT m.id, p.name, m.model_id FROM models m JOIN providers p ON m.provider_id = p.id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]modelRef{}
+	for rows.Next() {
+		var id, provider, modelID string
+		if err := rows.Scan(&id, &provider, &modelID); err != nil {
+			return nil, err
+		}
+		out[id] = modelRef{provider: provider, modelID: modelID}
+	}
+	return out, rows.Err()
+}
+
+// exportFailoverGroups reads every CUSTOM (auto_created = false) failover group
+// and carries each as ordered (provider, model_id) entry refs. Auto-created
+// groups are skipped: they regenerate identically on each member. An entry whose
+// model UUID no longer resolves (model deleted) is dropped; the group is still
+// exported so the importer can decide whether enough entries survive.
+func exportFailoverGroups(ctx context.Context, q querier, refByUUID map[string]modelRef) ([]ExportFailoverGroup, error) {
+	rows, err := q.Query(ctx, `
+		SELECT display_model, display_name, description, COALESCE(group_enabled, true),
+		       priority_order, COALESCE(entry_enabled, '{}')
+		FROM model_failover_groups WHERE auto_created = false ORDER BY display_model`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []ExportFailoverGroup{}
+	for rows.Next() {
+		var g ExportFailoverGroup
+		// priority_order / entry_enabled are JSONB stored as marshaled JSON, so
+		// scan into bytes and unmarshal (matching failover.GetByModel).
+		var priorityJSON, entryEnabledJSON []byte
+		if err := rows.Scan(&g.DisplayModel, &g.DisplayName, &g.Description, &g.GroupEnabled,
+			&priorityJSON, &entryEnabledJSON); err != nil {
+			return nil, err
+		}
+		var priority []string
+		if err := json.Unmarshal(priorityJSON, &priority); err != nil {
+			return nil, err
+		}
+		entryEnabled := map[string]bool{}
+		if len(entryEnabledJSON) > 0 {
+			if err := json.Unmarshal(entryEnabledJSON, &entryEnabled); err != nil {
+				return nil, err
+			}
+		}
+		for _, uuidStr := range priority {
+			ref, ok := refByUUID[uuidStr]
+			if !ok {
+				continue // model deleted since the group referenced it
+			}
+			// entry_enabled absence means enabled (matches proxy/enabledEntryIDs).
+			enabled := true
+			if v, ok := entryEnabled[uuidStr]; ok {
+				enabled = v
+			}
+			g.Entries = append(g.Entries, ExportFailoverEntry{
+				ProviderName: ref.provider, ModelID: ref.modelID, Enabled: enabled,
+			})
+		}
+		out = append(out, g)
+	}
+	return out, rows.Err()
 }
 
 // providerIDToName maps provider UUID (text) -> name for translating a virtual
@@ -295,7 +413,8 @@ func (h *ConfigSyncHandler) Import(w http.ResponseWriter, r *http.Request) {
 		writeJSONStatus(w, http.StatusUnprocessableEntity, importResponse{SchemaVersionOK: false})
 		return
 	}
-	if len(env.Config.Providers) == 0 && len(env.Config.VirtualKeys) == 0 && len(env.Config.Settings) == 0 {
+	if len(env.Config.Providers) == 0 && len(env.Config.VirtualKeys) == 0 &&
+		len(env.Config.Settings) == 0 && len(env.Config.FailoverGroups) == 0 {
 		// A structurally empty envelope is almost always a mistake, and applying
 		// it would delete everything on the target. Refuse rather than wipe.
 		http.Error(w, "refusing to import an empty config", http.StatusBadRequest)
@@ -414,6 +533,29 @@ func (h *ConfigSyncHandler) computeDiff(ctx context.Context, env ConfigEnvelope)
 			d.Settings.Removed = append(d.Settings.Removed, k)
 		}
 	}
+
+	// Custom failover groups, scoped to auto_created = false to match the apply
+	// side (auto groups regenerate per member and are never synced). The counts
+	// reflect intent: a group the importer later skips for too few resolvable
+	// entries on this member still shows as added/updated here.
+	curGroups, err := nameSet(ctx, pool, `SELECT display_model FROM model_failover_groups WHERE auto_created = false`)
+	if err != nil {
+		return d, err
+	}
+	wantGroups := map[string]struct{}{}
+	for _, g := range env.Config.FailoverGroups {
+		wantGroups[g.DisplayModel] = struct{}{}
+		if _, ok := curGroups[g.DisplayModel]; ok {
+			d.FailoverGroups.Updated = append(d.FailoverGroups.Updated, g.DisplayModel)
+		} else {
+			d.FailoverGroups.Added = append(d.FailoverGroups.Added, g.DisplayModel)
+		}
+	}
+	for name := range curGroups {
+		if _, ok := wantGroups[name]; !ok {
+			d.FailoverGroups.Removed = append(d.FailoverGroups.Removed, name)
+		}
+	}
 	return d, nil
 }
 
@@ -467,6 +609,23 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope) error
 		return err
 	}
 	if err := h.settings.DeleteKeysTx(ctx, tx, removedSettings); err != nil {
+		return err
+	}
+
+	// Custom failover groups, after the provider upsert/delete so the model rows
+	// the entries resolve against reflect the synced provider set. Auto-created
+	// groups are never touched (they regenerate from discovery).
+	if err := upsertFailoverGroups(ctx, tx, env.Config.FailoverGroups); err != nil {
+		return err
+	}
+	// Declarative replace, scoped to custom groups so regenerated auto groups
+	// survive. A group still present in the envelope is kept even if it was just
+	// skipped for too few resolvable entries here, so a transient model gap does
+	// not delete the operator's group.
+	groupNames := names(env.Config.FailoverGroups, func(g ExportFailoverGroup) string { return g.DisplayModel })
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM model_failover_groups WHERE auto_created = false AND display_model <> ALL($1)`,
+		groupNames); err != nil {
 		return err
 	}
 
@@ -564,6 +723,80 @@ func upsertVirtualKeys(ctx context.Context, tx pgx.Tx, vks []ExportVK, nameToID 
 				strip_reasoning = EXCLUDED.strip_reasoning`,
 			v.Name, v.KeyHash, v.KeyPreview, v.RateLimitRPS, v.RateLimitBurst, v.RateLimitTPM, allowed, v.StripReasoning)
 		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// upsertFailoverGroups re-creates each custom failover group on this member by
+// resolving its (provider, model_id) entry refs back to local model UUIDs. An
+// entry whose model is not present here is dropped; a group left with fewer than
+// two routable entries is skipped (a one-member failover group is meaningless,
+// matching pruneStaleEntries). Always writes auto_created = false.
+func upsertFailoverGroups(ctx context.Context, tx pgx.Tx, groups []ExportFailoverGroup) error {
+	if len(groups) == 0 {
+		return nil
+	}
+	// (provider, model_id) -> local model UUID. Built inside the transaction so
+	// it reflects the just-synced provider set (deleted providers cascade-removed
+	// their models). Models themselves come from each member's discovery.
+	localUUID := map[string]string{}
+	rows, err := tx.Query(ctx,
+		`SELECT p.name, m.model_id, m.id FROM models m JOIN providers p ON m.provider_id = p.id`)
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		var provider, modelID, id string
+		if err := rows.Scan(&provider, &modelID, &id); err != nil {
+			rows.Close()
+			return err
+		}
+		localUUID[provider+"\x00"+modelID] = id
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	for _, g := range groups {
+		priority := make([]string, 0, len(g.Entries))
+		entryEnabled := map[string]bool{}
+		for _, e := range g.Entries {
+			id, ok := localUUID[e.ProviderName+"\x00"+e.ModelID]
+			if !ok {
+				continue // model absent on this member (not discovered yet, or removed)
+			}
+			priority = append(priority, id)
+			entryEnabled[id] = e.Enabled
+		}
+		if len(priority) < 2 {
+			debuglog.Warn("configsync: skipping custom failover group with too few resolvable entries",
+				"group", g.DisplayModel, "resolved", len(priority), "wanted", len(g.Entries))
+			continue
+		}
+		priorityJSON, err := json.Marshal(priority)
+		if err != nil {
+			return err
+		}
+		entryEnabledJSON, err := json.Marshal(entryEnabled)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO model_failover_groups
+				(display_model, priority_order, entry_enabled, group_enabled, display_name, description, auto_created)
+			VALUES ($1, $2, $3, $4, $5, $6, false)
+			ON CONFLICT (display_model) DO UPDATE SET
+				priority_order = EXCLUDED.priority_order,
+				entry_enabled  = EXCLUDED.entry_enabled,
+				group_enabled  = EXCLUDED.group_enabled,
+				display_name   = EXCLUDED.display_name,
+				description    = EXCLUDED.description,
+				auto_created   = false,
+				updated_at     = now()`,
+			g.DisplayModel, priorityJSON, entryEnabledJSON, g.GroupEnabled, g.DisplayName, g.Description); err != nil {
 			return err
 		}
 	}
