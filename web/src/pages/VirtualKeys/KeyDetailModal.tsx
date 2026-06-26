@@ -588,6 +588,15 @@ export function KeyDetailModal({
 					)}
 				</div>
 			)}
+
+			{managed && (
+				// The page-level ManagedBanner sits behind this full-screen modal, so
+				// without the footer actions the modal would read as blank. Restate the
+				// read-only intent inline (same copy as the synced Settings sections).
+				<p data-testid="managed-note" className="text-xs text-(--text-muted)">
+					{t("settings.managed.sectionNote")}
+				</p>
+			)}
 		</Modal>
 	);
 }

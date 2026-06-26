@@ -1,4 +1,5 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockSystemStats, mockVirtualKey } from "../../../test/mocks/data";
@@ -32,6 +33,29 @@ describe("VirtualKeys managed (fleet member) mode", () => {
 				screen.queryByRole("button", { name: "Create Key" }),
 			).not.toBeInTheDocument(),
 		);
+	});
+
+	it("shows a read-only note and no actions inside the detail modal for a member", async () => {
+		const user = userEvent.setup();
+		server.use(
+			http.get("/api/system", () =>
+				HttpResponse.json(systemWithFleet("member")),
+			),
+			http.get("/api/virtual-keys", () => HttpResponse.json([mockVirtualKey])),
+		);
+		renderWithProviders(<VirtualKeys />);
+
+		await user.click(await screen.findByText("Test API Key"));
+		const dialog = await screen.findByRole("dialog", {
+			name: "Virtual Key Details",
+		});
+		expect(within(dialog).getByTestId("managed-note")).toBeInTheDocument();
+		expect(
+			within(dialog).queryByRole("button", { name: "Edit" }),
+		).not.toBeInTheDocument();
+		expect(
+			within(dialog).queryByRole("button", { name: "Delete" }),
+		).not.toBeInTheDocument();
 	});
 
 	it("keeps the create button and no banner when this instance is the primary", async () => {
