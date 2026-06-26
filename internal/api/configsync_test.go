@@ -22,7 +22,15 @@ const configSyncMasterKey = "test-master-key-0123456789abcdef"
 // mounted (no auth: the parent group's AuthMiddleware is out of scope here).
 func newConfigSyncRouter(t *testing.T, masterKey string) chi.Router {
 	t.Helper()
-	h := NewConfigSyncHandler(apiTestDB, settings.NewRepository(apiTestDB.Pool()), masterKey, "v-test")
+	return newConfigSyncRouterWithDiscovery(t, masterKey, nil)
+}
+
+// newConfigSyncRouterWithDiscovery is like newConfigSyncRouter but injects a
+// discovery callback, so a test can model the member populating its models on
+// import (the real wiring runs discoverAllProviders).
+func newConfigSyncRouterWithDiscovery(t *testing.T, masterKey string, discoverAll func(context.Context) error) chi.Router {
+	t.Helper()
+	h := NewConfigSyncHandler(apiTestDB, settings.NewRepository(apiTestDB.Pool()), masterKey, "v-test", discoverAll)
 	r := chi.NewRouter()
 	h.Register(r)
 	return r
@@ -506,7 +514,7 @@ func TestConfigSync_ImportDBError(t *testing.T) {
 // handling is covered without a broken database.
 func TestConfigSync_HelperDBErrors(t *testing.T) {
 	pool := apiTestDB.Pool()
-	h := NewConfigSyncHandler(apiTestDB, settings.NewRepository(pool), configSyncMasterKey, "v-test")
+	h := NewConfigSyncHandler(apiTestDB, settings.NewRepository(pool), configSyncMasterKey, "v-test", nil)
 	cctx := cancelledCtx()
 	env := ConfigEnvelope{
 		SchemaVersion: configSchemaVersion,

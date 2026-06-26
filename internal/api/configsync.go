@@ -62,13 +62,20 @@ type ConfigSyncHandler struct {
 	settings   SettingsStore
 	masterKey  string
 	appVersion string
+	// discoverAll runs model discovery on this member after an import commits its
+	// providers, so custom failover groups can resolve. Nil disables it (tests
+	// that seed models directly pass nil).
+	discoverAll func(context.Context) error
 }
 
 // NewConfigSyncHandler builds the handler. masterKey is needed only to verify
 // (on import) that this member can decrypt the incoming provider keys; the
 // plaintext is never produced here.
-func NewConfigSyncHandler(database *db.DB, settingsRepo SettingsStore, masterKey, appVersion string) *ConfigSyncHandler {
-	return &ConfigSyncHandler{db: database, settings: settingsRepo, masterKey: masterKey, appVersion: appVersion}
+func NewConfigSyncHandler(database *db.DB, settingsRepo SettingsStore, masterKey, appVersion string,
+	discoverAll func(context.Context) error) *ConfigSyncHandler {
+	return &ConfigSyncHandler{
+		db: database, settings: settingsRepo, masterKey: masterKey, appVersion: appVersion, discoverAll: discoverAll,
+	}
 }
 
 // Register mounts GET/POST /config/{export,import}. The parent router must apply
@@ -612,31 +619,35 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope) error
 		return err
 	}
 
-	// Custom failover groups, after the provider upsert/delete so the model rows
-	// the entries resolve against reflect the synced provider set. Auto-created
-	// groups are never touched (they regenerate from discovery).
-	if err := upsertFailoverGroups(ctx, tx, env.Config.FailoverGroups); err != nil {
-		return err
-	}
-	// Declarative replace, scoped to custom groups so regenerated auto groups
-	// survive. A group still present in the envelope is kept even if it was just
-	// skipped for too few resolvable entries here, so a transient model gap does
-	// not delete the operator's group.
-	groupNames := names(env.Config.FailoverGroups, func(g ExportFailoverGroup) string { return g.DisplayModel })
-	if _, err := tx.Exec(ctx,
-		`DELETE FROM model_failover_groups WHERE auto_created = false AND display_model <> ALL($1)`,
-		groupNames); err != nil {
-		return err
-	}
-
 	if err := tx.Commit(ctx); err != nil {
 		return err
 	}
 
-	// The writes bypassed the in-memory caches, so drop them: the proxy must see
-	// the new providers/keys and discovery must re-read providers.
+	// Core config (providers, virtual keys, settings) is now durable. The writes
+	// bypassed the in-memory caches, so drop them: the proxy must see the new
+	// providers/keys and discovery must re-read providers.
 	provider.InvalidateProviderCache()
 	model.InvalidateModelCache()
+
+	// Populate this member's models so custom failover groups can resolve. The
+	// "discover on provider creation" default is a dashboard action this raw
+	// import bypasses, and scheduled discovery may be off, so without this a
+	// freshly-synced member would have providers but no models, and hotel/<group>
+	// would route to nothing until a restart or a manual discover. Best-effort:
+	// the core config already committed, and groups reconcile on the next sync.
+	if h.discoverAll != nil {
+		if err := h.discoverAll(ctx); err != nil {
+			debuglog.Warn("configsync: post-import discovery failed; custom failover groups may not resolve until models exist", "error", err)
+		}
+	}
+
+	// Custom failover groups, in their own transaction now that discovery has had
+	// a chance to create the models their entries reference. Best-effort for the
+	// same reason: a group that cannot resolve yet reconciles on the next sync.
+	if err := h.applyFailoverGroups(ctx, env.Config.FailoverGroups); err != nil {
+		debuglog.Warn("configsync: failed to apply custom failover groups", "error", err)
+	}
+
 	failover.InvalidateFailoverCache()
 	for k := range env.Config.Settings {
 		if isSyncableSetting(k) {
@@ -648,6 +659,32 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope) error
 		h.settings.NotifyDeleted(k)
 	}
 	return nil
+}
+
+// applyFailoverGroups upserts the custom failover groups and declaratively
+// removes custom groups absent from the envelope, in a dedicated transaction.
+// It runs after the core-config commit and after discovery, so the models the
+// entries reference exist. Auto-created groups are never touched. The declarative
+// delete keeps a group still named in the envelope even if it was just skipped
+// for too few resolvable entries, so a transient model gap does not delete the
+// operator's group.
+func (h *ConfigSyncHandler) applyFailoverGroups(ctx context.Context, groups []ExportFailoverGroup) error {
+	tx, err := h.db.Pool().Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if err := upsertFailoverGroups(ctx, tx, groups); err != nil {
+		return err
+	}
+	groupNames := names(groups, func(g ExportFailoverGroup) string { return g.DisplayModel })
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM model_failover_groups WHERE auto_created = false AND display_model <> ALL($1)`,
+		groupNames); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // syncableSettingsToDelete returns the syncable settings keys present on this

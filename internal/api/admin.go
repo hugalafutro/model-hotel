@@ -276,7 +276,14 @@ func (h *Handler) Register(r chi.Router) {
 
 	// HA fleet config-sync endpoints (Phase 5). Always mounted: any member can be
 	// a primary (export) or a replica (import). Inherits this group's admin auth.
-	NewConfigSyncHandler(h.dbPool, h.settingsRepo, h.cfg.MasterKey, h.appVersion).Register(r)
+	// The discovery callback lets an import populate this member's models so synced
+	// custom failover groups resolve without a manual discover (a freshly-synced
+	// member has providers but no models until discovery runs).
+	NewConfigSyncHandler(h.dbPool, h.settingsRepo, h.cfg.MasterKey, h.appVersion,
+		func(ctx context.Context) error {
+			_, _, _, _, err := h.discoverAllProviders(ctx)
+			return err
+		}).Register(r)
 }
 
 // AuthMiddleware validates admin token or webAuthn session token authentication.

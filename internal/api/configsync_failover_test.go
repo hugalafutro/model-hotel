@@ -125,6 +125,47 @@ func TestConfigSync_ImportFailoverGroupTranslatesUUIDs(t *testing.T) {
 	}
 }
 
+// The import runs discovery between committing providers and resolving failover
+// groups, so a member that starts with providers but no models still ends up
+// with the custom group. The stub stands in for discoverAllProviders, seeding
+// the models a real discovery would create.
+func TestConfigSync_ImportRunsDiscoveryThenResolvesGroups(t *testing.T) {
+	cleanConfigTables(t)
+	exportRouter := newConfigSyncRouter(t, configSyncMasterKey)
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	pm1 := seedModel(t, provID, "gpt-4o")
+	pm2 := seedModel(t, provID, "gpt-4o-mini")
+	seedFailoverGroup(t, "glm52", []string{pm1, pm2}, nil, false)
+	env := doExport(t, exportRouter)
+
+	// Replica starts with the provider but NO models (discovery has not run).
+	cleanConfigTables(t)
+	rProvID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+
+	// Discovery stub: create the models the group needs, as real discovery would.
+	// Records that it ran so we can assert the group resolved because of it.
+	discovered := false
+	discoverAll := func(ctx context.Context) error {
+		discovered = true
+		seedModel(t, rProvID, "gpt-4o")
+		seedModel(t, rProvID, "gpt-4o-mini")
+		return nil
+	}
+
+	rec := doImport(t, newConfigSyncRouterWithDiscovery(t, configSyncMasterKey, discoverAll), env, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+	if !discovered {
+		t.Fatal("import did not run discovery")
+	}
+	// The group resolved against the just-discovered models.
+	priority, _, autoCreated := groupPriority(t, "glm52")
+	if autoCreated || len(priority) != 2 {
+		t.Fatalf("glm52 priority = %v (auto=%v), want 2 resolved entries", priority, autoCreated)
+	}
+}
+
 // A group is skipped (not created) when fewer than two of its entries resolve
 // to models present on the member.
 func TestConfigSync_ImportSkipsFailoverGroupWithMissingModels(t *testing.T) {
