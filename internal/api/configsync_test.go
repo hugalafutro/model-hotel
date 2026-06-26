@@ -451,6 +451,32 @@ func TestConfigSync_RefusesEmptyEnvelope(t *testing.T) {
 	}
 }
 
+// A failover-groups-only envelope (no providers, VKs, or settings) must NOT slip
+// past the empty-config guard: apply runs the declarative provider/VK deletes
+// against empty lists, so letting it through would wipe the member clean.
+func TestConfigSync_RefusesFailoverOnlyEnvelope(t *testing.T) {
+	cleanConfigTables(t)
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+
+	env := ConfigEnvelope{SchemaVersion: configSchemaVersion}
+	env.Config.FailoverGroups = []ExportFailoverGroup{{
+		DisplayModel: "ghost",
+		Entries:      []ExportFailoverEntry{{ProviderName: "openai", ModelID: "gpt-4o"}},
+	}}
+	rec := doImport(t, r, env, "")
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("failover-only envelope status = %d, want 400", rec.Code)
+	}
+
+	var providers int
+	_ = apiTestDB.Pool().QueryRow(context.Background(),
+		`SELECT count(*) FROM providers WHERE id = $1`, provID).Scan(&providers)
+	if providers != 1 {
+		t.Fatalf("provider must survive a refused import, count = %d", providers)
+	}
+}
+
 func TestConfigSync_RejectsWrongSchemaVersion(t *testing.T) {
 	cleanConfigTables(t)
 	r := newConfigSyncRouter(t, configSyncMasterKey)

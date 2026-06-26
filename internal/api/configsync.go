@@ -425,9 +425,14 @@ func (h *ConfigSyncHandler) Import(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(env.Config.Providers) == 0 && len(env.Config.VirtualKeys) == 0 &&
-		len(env.Config.Settings) == 0 && len(env.Config.FailoverGroups) == 0 {
-		// A structurally empty envelope is almost always a mistake, and applying
-		// it would delete everything on the target. Refuse rather than wipe.
+		len(env.Config.Settings) == 0 {
+		// A config with no providers, virtual keys, or settings is almost always a
+		// mistake, and applying it would delete everything on the target. Refuse
+		// rather than wipe. Note we deliberately do NOT let a non-empty
+		// failover_groups rescue such an envelope from this guard: groups reference
+		// models which reference providers, so zero providers means the groups are
+		// unresolvable, yet apply would still run the declarative provider/VK
+		// deletes against empty lists and wipe the member clean.
 		http.Error(w, "refusing to import an empty config", http.StatusBadRequest)
 		return
 	}
