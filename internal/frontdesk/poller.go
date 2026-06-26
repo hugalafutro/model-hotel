@@ -1,6 +1,7 @@
 package frontdesk
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -287,7 +288,7 @@ func (p *Poller) announceToMember(ctx context.Context, baseURL, token string, an
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+memberAnnouncePath, strings.NewReader(string(body)))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+memberAnnouncePath, bytes.NewReader(body))
 	if err != nil {
 		return err
 	}

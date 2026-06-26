@@ -1,5 +1,11 @@
 import { ArrowSquareOut, Warning } from "@phosphor-icons/react";
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import {
+	type FormEvent,
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, api } from "../api/client";
 import type { MemberView } from "../api/types";
@@ -32,12 +38,21 @@ function majorityVersion(members: MemberView[]): string | null {
 export function MembersPage() {
 	const { t } = useTranslation();
 	const [primaryId, setPrimaryId] = useState<string | null>(null);
+	// Monotonic sequence counter: refreshPrimary can be called concurrently (on
+	// mount and on SSE events), so only the newest in-flight response is applied.
+	// Without this, a slower earlier request can land after a newer one and, for
+	// example, restore the badge on a primary that was just removed. Mirrors the
+	// seqRef pattern useMembers already uses for its own refetch.
+	const primarySeqRef = useRef(0);
 	// The recorded fleet primary (GET /api/fleet/last-sync). Null when no sync has
 	// ever run; refreshed below on the events that can change it.
 	const refreshPrimary = useCallback(() => {
+		const seq = ++primarySeqRef.current;
 		api
 			.fleetLastSync()
-			.then((s) => setPrimaryId(s?.primary_id ?? null))
+			.then((s) => {
+				if (seq === primarySeqRef.current) setPrimaryId(s?.primary_id ?? null);
+			})
 			.catch(() => {});
 	}, []);
 	// useMembers owns the page's single SSE subscription; piggyback on it to
