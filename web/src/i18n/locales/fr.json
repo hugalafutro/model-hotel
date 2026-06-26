@@ -195,6 +195,19 @@
 			"title": "Erreurs",
 			"viewDetails": "Afficher les détails",
 			"clearAllConfirm": "Cliquez à nouveau pour confirmer"
+		},
+		"ha": {
+			"primary": "Principal",
+			"member": "Membre",
+			"warning": "Avertissement",
+			"error": "Erreur",
+			"tooltips": {
+				"primary": "Cette instance est la source de configuration de la flotte. Front Desk gère la flotte depuis ici.",
+				"member": "Gérée par une flotte. Les fournisseurs, les clés virtuelles et les paramètres synchronisés sont remplacés depuis l'instance principale à chaque synchronisation.",
+				"memberFrom": "Gérée par une flotte, synchronisée depuis {{name}}. Les fournisseurs, les clés virtuelles et les paramètres synchronisés sont remplacés à chaque synchronisation.",
+				"warning": "Front Desk s'est tu. Cette instance était gérée, mais son signal de vie est désormais obsolète.",
+				"error": "La synchronisation de la flotte est bloquée pour cette instance (par exemple, une incompatibilité de MASTER_KEY ou de schéma)."
+			}
 		}
 	},
 	"dashboard": {

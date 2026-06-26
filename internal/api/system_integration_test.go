@@ -27,7 +27,7 @@ func getTestPool(t *testing.T) *pgxpool.Pool {
 // TestCollect_InvalidSince tests that collect returns an error for invalid since parameter
 func TestCollect_InvalidSince(t *testing.T) {
 	pool := getTestPool(t)
-	sysHandler := NewSystemHandler(pool)
+	sysHandler := NewSystemHandler(pool, nil)
 	ctx := context.Background()
 
 	// Invalid since format should return an error
@@ -53,7 +53,7 @@ func TestCollect_InvalidSince(t *testing.T) {
 // stats within a reasonable time. Uses a context timeout to avoid Docker hangs.
 func TestCollect_EmptySinceWithTimeout(t *testing.T) {
 	pool := getTestPool(t)
-	sysHandler := NewSystemHandler(pool)
+	sysHandler := NewSystemHandler(pool, nil)
 	// Mock Docker stats to avoid real Docker API calls that spawn persistent
 	// HTTP transport goroutines and hang the test process.
 	sysHandler.dockerStatsCollector = func(filter util.ContainerFilter) util.AggregatedDockerStats {

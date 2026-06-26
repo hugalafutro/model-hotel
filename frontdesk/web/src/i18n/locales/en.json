@@ -59,6 +59,8 @@
 		"colActions": "",
 		"stateActive": "Active",
 		"stateDrained": "Drained",
+		"primaryBadge": "Primary",
+		"primaryTip": "The fleet's config source. Sync runs push this member's providers, virtual keys, and synced settings to every other member.",
 		"healthUp": "Up",
 		"healthDown": "Down",
 		"healthUnknown": "Unknown",

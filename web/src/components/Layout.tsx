@@ -161,6 +161,35 @@ function SystemStatus() {
 	);
 
 	const app = stats?.app;
+	// HA fleet membership. Present only while Front Desk is in contact; a
+	// standalone instance has no `fleet` block and renders no HA line.
+	const fleet = stats?.fleet;
+	const haColor = fleet
+		? {
+				primary: "text-green-400",
+				member: "text-green-400",
+				warning: "text-orange-400",
+				member_sync_blocked: "text-red-400",
+			}[fleet.state]
+		: "";
+	const haValue = fleet
+		? {
+				primary: t("layout.ha.primary"),
+				member: t("layout.ha.member"),
+				warning: t("layout.ha.warning"),
+				member_sync_blocked: t("layout.ha.error"),
+			}[fleet.state]
+		: "";
+	const haTooltip = fleet
+		? {
+				primary: t("layout.ha.tooltips.primary"),
+				member: fleet.primary_name
+					? t("layout.ha.tooltips.memberFrom", { name: fleet.primary_name })
+					: t("layout.ha.tooltips.member"),
+				warning: t("layout.ha.tooltips.warning"),
+				member_sync_blocked: t("layout.ha.tooltips.error"),
+			}[fleet.state]
+		: "";
 	const docker = stats?.docker;
 	const inContainer = app?.in_container;
 	const hasLimit = !!(inContainer && app?.memory_limit_bytes);
@@ -239,6 +268,18 @@ function SystemStatus() {
 			>
 				<div className="overflow-hidden">
 					<div className="sidebar-stats-content space-y-0.5 text-[11px] font-mono system-status">
+						{/* HA fleet membership (only while managed by a Front Desk) */}
+						{fleet && (
+							<div
+								className="flex justify-between items-center text-(--text-tertiary)"
+								title={haTooltip}
+								data-testid="ha-status"
+							>
+								<span>HA</span>
+								<span className={haColor}>{haValue}</span>
+							</div>
+						)}
+
 						{/* Uptime */}
 						<div
 							className="flex justify-between items-center text-(--text-tertiary)"

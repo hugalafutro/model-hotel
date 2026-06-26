@@ -195,6 +195,19 @@
 			"title": "Erori",
 			"viewDetails": "Vizualizați detaliile",
 			"clearAllConfirm": "Faceți clic din nou pentru a confirma"
+		},
+		"ha": {
+			"primary": "Primar",
+			"member": "Membru",
+			"warning": "Avertisment",
+			"error": "Eroare",
+			"tooltips": {
+				"primary": "Această instanță este sursa de configurare a flotei. Front Desk gestionează flota de aici.",
+				"member": "Gestionată de o flotă. Furnizorii, cheile virtuale și setările sincronizate sunt înlocuite din instanța primară la fiecare sincronizare.",
+				"memberFrom": "Gestionată de o flotă, sincronizată de la {{name}}. Furnizorii, cheile virtuale și setările sincronizate sunt înlocuite la fiecare sincronizare.",
+				"warning": "Front Desk a amuțit. Această instanță era gestionată, dar pulsul său este acum învechit.",
+				"error": "Sincronizarea flotei este blocată pentru această instanță (de exemplu, o nepotrivire de MASTER_KEY sau de schemă)."
+			}
 		}
 	},
 	"dashboard": {

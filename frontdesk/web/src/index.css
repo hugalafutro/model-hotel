@@ -324,6 +324,14 @@ h3 {
 .ui-table tr:last-child td {
 	border-bottom: 0;
 }
+/* The fleet primary row: a faint accent tint and left rule so the config
+   source stands out from the managed replicas it pushes to. */
+.fd-row-primary td {
+	background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.fd-row-primary td:first-child {
+	box-shadow: inset 3px 0 0 var(--accent);
+}
 
 /* --- misc helpers --- */
 .fd-row {

@@ -195,6 +195,19 @@
 			"title": "错误",
 			"viewDetails": "查看详情",
 			"clearAllConfirm": "再次点击以确认"
+		},
+		"ha": {
+			"primary": "主节点",
+			"member": "成员",
+			"warning": "警告",
+			"error": "错误",
+			"tooltips": {
+				"primary": "此实例是机群的配置源。Front Desk 从这里管理机群。",
+				"member": "由机群管理。每次同步时，提供商、虚拟密钥和已同步设置都会从主节点替换。",
+				"memberFrom": "由机群管理，从 {{name}} 同步。每次同步时，提供商、虚拟密钥和已同步设置都会被替换。",
+				"warning": "Front Desk 已无响应。此实例曾受管理，但其心跳现已过期。",
+				"error": "此实例的机群同步已被阻止（例如 MASTER_KEY 或架构不匹配）。"
+			}
 		}
 	},
 	"dashboard": {

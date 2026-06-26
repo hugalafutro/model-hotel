@@ -40,6 +40,14 @@ function renderPage() {
 beforeEach(() => {
 	localStorage.setItem("fdAuthToken", "tok");
 	server.use(sseHandler());
+	// Default: no fleet sync has run, so no member is the primary. Tests that
+	// care override this with a 200 carrying a primary_id.
+	server.use(
+		http.get(
+			"/api/fleet/last-sync",
+			() => new HttpResponse(null, { status: 204 }),
+		),
+	);
 });
 
 describe("MembersPage", () => {
@@ -362,5 +370,46 @@ describe("MembersPage", () => {
 			"tr",
 		) as HTMLElement;
 		expect(within(row).getByText(/Unknown/i)).toBeInTheDocument();
+	});
+
+	it("badges the fleet primary and pins it to the top", async () => {
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([
+					member({ id: "1", name: "hotel-1" }),
+					member({ id: "2", name: "hotel-2" }),
+				]),
+			),
+			http.get("/api/fleet/last-sync", () =>
+				HttpResponse.json({
+					last_run_at: new Date().toISOString(),
+					primary_id: "2",
+					primary_name: "hotel-2",
+				}),
+			),
+		);
+		renderPage();
+
+		const badge = await screen.findByTestId("primary-badge");
+		const primaryRow = badge.closest("tr") as HTMLElement;
+		expect(within(primaryRow).getByText("hotel-2")).toBeInTheDocument();
+		expect(primaryRow).toHaveClass("fd-row-primary");
+
+		// hotel-2 is the recorded primary, so it sorts above hotel-1 even though it
+		// was returned second by the API.
+		const bodyRows = within(screen.getByRole("table")).getAllByRole("row");
+		expect(within(bodyRows[1]).getByText("hotel-2")).toBeInTheDocument();
+	});
+
+	it("marks no primary when no fleet sync has run", async () => {
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([member({ id: "1", name: "hotel-1" })]),
+			),
+			// last-sync defaults to 204 (no primary) from beforeEach.
+		);
+		renderPage();
+		await screen.findByText("hotel-1");
+		expect(screen.queryByTestId("primary-badge")).not.toBeInTheDocument();
 	});
 });

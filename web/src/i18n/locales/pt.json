@@ -195,6 +195,19 @@
 			"title": "Erros",
 			"viewDetails": "Ver detalhes",
 			"clearAllConfirm": "Clique novamente para confirmar"
+		},
+		"ha": {
+			"primary": "Primário",
+			"member": "Membro",
+			"warning": "Aviso",
+			"error": "Erro",
+			"tooltips": {
+				"primary": "Esta instância é a fonte de configuração da frota. O Front Desk gerencia a frota a partir daqui.",
+				"member": "Gerenciada por uma frota. Provedores, chaves virtuais e configurações sincronizadas são substituídos a partir da primária a cada sincronização.",
+				"memberFrom": "Gerenciada por uma frota, sincronizada de {{name}}. Provedores, chaves virtuais e configurações sincronizadas são substituídos a cada sincronização.",
+				"warning": "O Front Desk ficou em silêncio. Esta instância estava sendo gerenciada, mas seu heartbeat está agora desatualizado.",
+				"error": "A sincronização da frota está bloqueada para esta instância (por exemplo, uma incompatibilidade de MASTER_KEY ou de esquema)."
+			}
 		}
 	},
 	"dashboard": {

@@ -195,6 +195,19 @@
 			"title": "Fejl",
 			"viewDetails": "Se detaljer",
 			"clearAllConfirm": "Klik igen for at bekræfte"
+		},
+		"ha": {
+			"primary": "Primær",
+			"member": "Medlem",
+			"warning": "Advarsel",
+			"error": "Fejl",
+			"tooltips": {
+				"primary": "Denne instans er flådens konfigurationskilde. Front Desk styrer flåden herfra.",
+				"member": "Styres af en flåde. Udbydere, virtuelle nøgler og synkroniserede indstillinger erstattes fra den primære ved hver synkronisering.",
+				"memberFrom": "Styres af en flåde, synkroniseret fra {{name}}. Udbydere, virtuelle nøgler og synkroniserede indstillinger erstattes ved hver synkronisering.",
+				"warning": "Front Desk er blevet tavs. Denne instans blev styret, men dens hjerteslag er nu forældet.",
+				"error": "Flådesynkronisering er blokeret for denne instans (for eksempel en MASTER_KEY- eller skemauoverensstemmelse)."
+			}
 		}
 	},
 	"dashboard": {

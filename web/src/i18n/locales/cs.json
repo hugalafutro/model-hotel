@@ -195,6 +195,19 @@
 			"title": "Chyby",
 			"viewDetails": "Zobrazit podrobnosti",
 			"clearAllConfirm": "Klikněte znovu pro potvrzení"
+		},
+		"ha": {
+			"primary": "Primární",
+			"member": "Člen",
+			"warning": "Varování",
+			"error": "Chyba",
+			"tooltips": {
+				"primary": "Tato instance je zdrojem konfigurace flotily. Front Desk spravuje flotilu odsud.",
+				"member": "Spravováno flotilou. Poskytovatelé, virtuální klíče a synchronizovaná nastavení se při každé synchronizaci nahradí z primární instance.",
+				"memberFrom": "Spravováno flotilou, synchronizováno z {{name}}. Poskytovatelé, virtuální klíče a synchronizovaná nastavení se při každé synchronizaci nahradí.",
+				"warning": "Front Desk ztichl. Tato instance byla spravována, ale její tep je nyní zastaralý.",
+				"error": "Synchronizace flotily je pro tuto instanci zablokována (například nesoulad MASTER_KEY nebo schématu)."
+			}
 		}
 	},
 	"dashboard": {

@@ -1,6 +1,7 @@
 package frontdesk
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -28,6 +29,7 @@ import (
 const (
 	memberHealthPath   = "/health"
 	memberSettingsPath = "/api/settings"
+	memberAnnouncePath = "/api/fleet/announce"
 	traefikServicesAPI = "/api/http/services"
 
 	// httpProbeTimeout bounds a single member or Traefik HTTP probe.
@@ -122,6 +124,7 @@ func (p *Poller) Run(ctx context.Context) {
 		{func(s Settings) time.Duration { return secs(s.TraefikPollSecs, 5) }, p.PollTraefikOnce},
 		{func(s Settings) time.Duration { return secs(s.HealthPollSecs, 5) }, p.PollVersionsOnce},
 		{func(s Settings) time.Duration { return secs(s.TraefikPollSecs, 5) }, p.checkConfigStaleness},
+		{func(s Settings) time.Duration { return secs(s.HealthPollSecs, 5) }, p.PollAnnounceOnce},
 	}
 	for _, l := range loops {
 		wg.Add(1)
@@ -232,6 +235,75 @@ func (p *Poller) applyHealth(ctx context.Context, m *Member, hs HealthStatus) {
 			Metadata: map[string]any{"error": hs.Error},
 		})
 	}
+}
+
+// memberAnnounce is the heartbeat body Front Desk POSTs to each member's
+// /api/fleet/announce. It carries only routing metadata: whether the member is
+// the fleet primary, and the primary's display name for the member's tooltip.
+type memberAnnounce struct {
+	IsPrimary   bool   `json:"is_primary"`
+	PrimaryName string `json:"primary_name,omitempty"`
+}
+
+// PollAnnounceOnce tells every reachable, tokened member that Front Desk is in
+// contact, and which member is the fleet primary. It is the producing half of
+// HA Phase 6: a member uses these announces to light up the HA line on its own
+// dashboard and to self-clear it when they stop. Best-effort, exactly like the
+// health poll: a member that is down, has no stored token, or runs an older
+// build without the endpoint is silently skipped, never retried or surfaced.
+func (p *Poller) PollAnnounceOnce(ctx context.Context) {
+	members, err := p.store.ListMembers(ctx)
+	if err != nil {
+		debuglog.Warn("frontdesk: poll announce: list members", "error", err)
+		return
+	}
+	// The recorded last-sync marker names the fleet primary. Absent (no sync has
+	// ever run) means no member is flagged primary yet; the membership signal is
+	// still worth sending, so continue without a primary rather than abort.
+	state, hasPrimary, err := p.store.GetFleetSyncState(ctx)
+	if err != nil {
+		debuglog.Warn("frontdesk: poll announce: fleet sync state", "error", err)
+		hasPrimary = false
+	}
+	for _, m := range members {
+		token, ok, err := p.store.MemberToken(ctx, m.ID)
+		if err != nil || !ok {
+			continue // no stored token: the announce endpoint needs admin auth
+		}
+		ann := memberAnnounce{IsPrimary: hasPrimary && m.ID == state.PrimaryID}
+		if hasPrimary {
+			ann.PrimaryName = state.PrimaryName
+		}
+		if err := p.announceToMember(ctx, m.URL, token, ann); err != nil {
+			debuglog.Debug("frontdesk: announce to member failed", "member", m.ID, "error", err)
+		}
+	}
+}
+
+// announceToMember POSTs one heartbeat through the guarded probe client (the
+// same SSRF-protected client the health poll uses), carrying the member's admin
+// Bearer token. A non-204 reply is an error so the caller can log-and-continue.
+func (p *Poller) announceToMember(ctx context.Context, baseURL, token string, ann memberAnnounce) error {
+	body, err := json.Marshal(ann)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+memberAnnouncePath, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<10))
+	if resp.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("announce returned %d", resp.StatusCode)
+	}
+	return nil
 }
 
 // PollTraefikOnce fetches Traefik's serverStatus and maps it onto members by URL.

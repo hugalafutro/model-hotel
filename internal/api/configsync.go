@@ -644,6 +644,16 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope) error
 		return err
 	}
 
+	// Stamp the HA synced marker AFTER the commit, via Set (not SetTx): this
+	// instance-local, non-syncable key drives the member dashboard's "synced
+	// from primary" readout. It must be written post-commit and through Set
+	// because SetTx enforces the settings allowlist, which _fleet_* keys are
+	// deliberately absent from (so the declarative replace above never touches
+	// them). A failure here is non-fatal: the config is already durable.
+	if err := h.settings.Set(ctx, keyFleetConfigSyncedAt, time.Now().UTC().Format(time.RFC3339)); err != nil {
+		debuglog.Warn("configsync: failed to stamp fleet synced marker", "error", err)
+	}
+
 	// Core config (providers, virtual keys, settings) is now durable. The writes
 	// bypassed the in-memory caches, so drop them: the proxy must see the new
 	// providers/keys and discovery must re-read providers.

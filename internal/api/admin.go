@@ -260,7 +260,7 @@ func (h *Handler) Register(r chi.Router) {
 	NewFailoverHandler(h.dbPool.Pool(), failoverRepo, modelRepo, h.settingsRepo, h.circuitBreaker).Register(r)
 
 	NewStatsHandler(h.dbPool.Pool(), h.adminMgr).Register(r)
-	sh := NewSystemHandler(h.dbPool.Pool())
+	sh := NewSystemHandler(h.dbPool.Pool(), h.settingsRepo)
 	sh.Register(r)
 	h.systemHandler = sh
 	bh := NewBackupHandler(h.cfg.DatabaseURL, filepath.Join(h.cfg.DataDir, "backups"), h.adminMgr, h.settingsRepo)
@@ -284,6 +284,12 @@ func (h *Handler) Register(r chi.Router) {
 			_, _, _, _, err := h.discoverAllProviders(ctx)
 			return err
 		}).Register(r)
+
+	// HA fleet membership heartbeat (Phase 6). Front Desk POSTs /fleet/announce
+	// on its poll; the member records the contact as instance-local _fleet_*
+	// settings and surfaces fleet state on its system payload. Inherits this
+	// group's admin auth so the badge cannot be forged.
+	NewFleetHandler(h.settingsRepo).Register(r)
 }
 
 // AuthMiddleware validates admin token or webAuthn session token authentication.

@@ -195,6 +195,19 @@
 			"title": "Errors",
 			"viewDetails": "Veure detalls",
 			"clearAllConfirm": "Feu clic de nou per confirmar"
+		},
+		"ha": {
+			"primary": "Primari",
+			"member": "Membre",
+			"warning": "Advertència",
+			"error": "Error",
+			"tooltips": {
+				"primary": "Aquesta instància és la font de configuració de la flota. Front Desk gestiona la flota des d'aquí.",
+				"member": "Gestionada per una flota. Els proveïdors, les claus virtuals i la configuració sincronitzada se substitueixen des de la primària a cada sincronització.",
+				"memberFrom": "Gestionada per una flota, sincronitzada des de {{name}}. Els proveïdors, les claus virtuals i la configuració sincronitzada se substitueixen a cada sincronització.",
+				"warning": "Front Desk ha emmudit. Aquesta instància estava gestionada, però el seu batec ara està obsolet.",
+				"error": "La sincronització de la flota està bloquejada per a aquesta instància (per exemple, una discrepància de MASTER_KEY o d'esquema)."
+			}
 		}
 	},
 	"dashboard": {

@@ -195,6 +195,19 @@
 			"title": "Virheet",
 			"viewDetails": "Näytä tiedot",
 			"clearAllConfirm": "Napsauta uudelleen vahvistaaksesi"
+		},
+		"ha": {
+			"primary": "Ensisijainen",
+			"member": "Jäsen",
+			"warning": "Varoitus",
+			"error": "Virhe",
+			"tooltips": {
+				"primary": "Tämä instanssi on laivaston asetusten lähde. Front Desk hallinnoi laivastoa täältä.",
+				"member": "Laivaston hallinnoima. Tarjoajat, virtuaaliavaimet ja synkronoidut asetukset korvataan ensisijaisesta instanssista jokaisen synkronoinnin yhteydessä.",
+				"memberFrom": "Laivaston hallinnoima, synkronoitu lähteestä {{name}}. Tarjoajat, virtuaaliavaimet ja synkronoidut asetukset korvataan jokaisen synkronoinnin yhteydessä.",
+				"warning": "Front Desk on hiljentynyt. Tätä instanssia hallinnoitiin, mutta sen syke on nyt vanhentunut.",
+				"error": "Laivaston synkronointi on estetty tälle instanssille (esimerkiksi MASTER_KEY- tai skeemaristiriita)."
+			}
 		}
 	},
 	"dashboard": {

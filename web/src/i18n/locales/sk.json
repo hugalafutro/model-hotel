@@ -195,6 +195,19 @@
 			"title": "Chyby",
 			"viewDetails": "Zobraziť podrobnosti",
 			"clearAllConfirm": "Kliknite znovu na potvrdenie"
+		},
+		"ha": {
+			"primary": "Primárny",
+			"member": "Člen",
+			"warning": "Varovanie",
+			"error": "Chyba",
+			"tooltips": {
+				"primary": "Táto inštancia je zdrojom konfigurácie flotily. Front Desk spravuje flotilu odtiaľto.",
+				"member": "Spravované flotilou. Poskytovatelia, virtuálne kľúče a synchronizované nastavenia sa pri každej synchronizácii nahradia z primárnej inštancie.",
+				"memberFrom": "Spravované flotilou, synchronizované z {{name}}. Poskytovatelia, virtuálne kľúče a synchronizované nastavenia sa pri každej synchronizácii nahradia.",
+				"warning": "Front Desk stíchol. Táto inštancia bola spravovaná, ale jej tep je teraz zastaraný.",
+				"error": "Synchronizácia flotily je pre túto inštanciu zablokovaná (napríklad nesúlad MASTER_KEY alebo schémy)."
+			}
 		}
 	},
 	"dashboard": {

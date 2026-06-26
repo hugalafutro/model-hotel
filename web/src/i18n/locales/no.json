@@ -195,6 +195,19 @@
 			"title": "Feil",
 			"viewDetails": "Vis detaljer",
 			"clearAllConfirm": "Klikk igjen for å bekrefte"
+		},
+		"ha": {
+			"primary": "Primær",
+			"member": "Medlem",
+			"warning": "Advarsel",
+			"error": "Feil",
+			"tooltips": {
+				"primary": "Denne instansen er flåtens konfigurasjonskilde. Front Desk styrer flåten herfra.",
+				"member": "Styres av en flåte. Tilbydere, virtuelle nøkler og synkroniserte innstillinger erstattes fra den primære ved hver synkronisering.",
+				"memberFrom": "Styres av en flåte, synkronisert fra {{name}}. Tilbydere, virtuelle nøkler og synkroniserte innstillinger erstattes ved hver synkronisering.",
+				"warning": "Front Desk har blitt stille. Denne instansen ble styrt, men hjerteslaget er nå utdatert.",
+				"error": "Flåtesynkronisering er blokkert for denne instansen (for eksempel en MASTER_KEY- eller skjemauoverensstemmelse)."
+			}
 		}
 	},
 	"dashboard": {
