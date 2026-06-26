@@ -46,9 +46,18 @@ type TraefikService struct {
 
 // TraefikLoadBalancer is the backend pool with optional health check + sticky.
 type TraefikLoadBalancer struct {
-	Servers     []TraefikServer     `json:"servers"`
-	HealthCheck *TraefikHealthCheck `json:"healthCheck,omitempty"`
-	Sticky      *TraefikSticky      `json:"sticky,omitempty"`
+	Servers []TraefikServer `json:"servers"`
+	// PassHostHeader is deliberately false: each member is addressed by its own
+	// URL host, not the LB's public hostname. Members commonly sit behind a
+	// name-routing reverse proxy (the same external TLS proxy that fronts the
+	// LB), which routes by Host. Forwarding the client's Host (the LB's public
+	// name) would make that proxy route the request straight back to the LB,
+	// looping until it 500s, even though every backend health-checks UP (the
+	// health check already addresses backends by their own host). No omitempty:
+	// Traefik defaults this to true, so the false must be emitted explicitly.
+	PassHostHeader bool                `json:"passHostHeader"`
+	HealthCheck    *TraefikHealthCheck `json:"healthCheck,omitempty"`
+	Sticky         *TraefikSticky      `json:"sticky,omitempty"`
 }
 
 // TraefikServer is one backend URL.
@@ -97,8 +106,9 @@ func BuildTraefikConfig(members []*Member, set Settings) TraefikConfig {
 	}
 
 	lb := TraefikLoadBalancer{
-		Servers:     servers,
-		HealthCheck: buildHealthCheck(set),
+		Servers:        servers,
+		PassHostHeader: false, // address each member by its own host; see field doc
+		HealthCheck:    buildHealthCheck(set),
 	}
 	if set.StickyEnabled {
 		lb.Sticky = &TraefikSticky{Cookie: TraefikCookie{Name: traefikStickyCookie}}
