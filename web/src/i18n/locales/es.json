@@ -195,6 +195,19 @@
 			"title": "Errores",
 			"viewDetails": "Ver detalles",
 			"clearAllConfirm": "Haga clic de nuevo para confirmar"
+		},
+		"ha": {
+			"primary": "Primario",
+			"member": "Miembro",
+			"warning": "Advertencia",
+			"error": "Error",
+			"tooltips": {
+				"primary": "Esta instancia es la fuente de configuración de la flota. Front Desk gestiona la flota desde aquí.",
+				"member": "Gestionada por una flota. Los proveedores, las claves virtuales y los ajustes sincronizados se reemplazan desde la primaria en cada sincronización.",
+				"memberFrom": "Gestionada por una flota, sincronizada desde {{name}}. Los proveedores, las claves virtuales y los ajustes sincronizados se reemplazan en cada sincronización.",
+				"warning": "Front Desk se ha quedado en silencio. Esta instancia estaba gestionada, pero su latido ahora está obsoleto.",
+				"error": "La sincronización de la flota está bloqueada para esta instancia (por ejemplo, una discrepancia de MASTER_KEY o de esquema)."
+			}
 		}
 	},
 	"dashboard": {

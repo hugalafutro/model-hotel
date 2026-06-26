@@ -272,6 +272,21 @@ export interface SystemStats {
 		procs: number;
 		container_count: number;
 	};
+	// HA fleet membership. Absent for a standalone instance Front Desk has never
+	// contacted, in which case the dashboard shows no HA line.
+	fleet?: FleetStatus;
+}
+
+// FleetStatus mirrors the backend api.FleetStatus: this member's own view of its
+// HA fleet membership, surfaced on the system payload so the dashboard can show
+// an HA line that self-clears when Front Desk stops announcing.
+export interface FleetStatus {
+	state: "primary" | "member" | "warning" | "member_sync_blocked";
+	is_primary: boolean;
+	primary_name?: string;
+	frontdesk_id?: string;
+	managed_seen_at?: string;
+	config_synced_at?: string;
 }
 
 export interface NanoGPTUsageLimits {

@@ -27,13 +27,16 @@ type dockerStatsCollector func(filter util.ContainerFilter) util.AggregatedDocke
 // SystemHandler provides system health and stats API endpoints.
 type SystemHandler struct {
 	pool                 *pgxpool.Pool
+	settings             fleetSettings
 	dockerStatsCollector dockerStatsCollector
 }
 
-// NewSystemHandler creates a new system handler.
-func NewSystemHandler(pool *pgxpool.Pool) *SystemHandler {
+// NewSystemHandler creates a new system handler. settings is read to surface HA
+// fleet membership on the payload; it may be nil (fleet state is then omitted).
+func NewSystemHandler(pool *pgxpool.Pool, settings fleetSettings) *SystemHandler {
 	return &SystemHandler{
 		pool:                 pool,
+		settings:             settings,
 		dockerStatsCollector: util.CollectDockerStatsWithFilter,
 	}
 }
@@ -64,6 +67,9 @@ type SystemStats struct {
 	App    AppStats                   `json:"app"`
 	DB     DBStats                    `json:"db"`
 	Docker util.AggregatedDockerStats `json:"docker"`
+	// Fleet is this instance's HA fleet membership, or nil/omitted for a
+	// standalone instance Front Desk has never contacted (see fleet.go).
+	Fleet *FleetStatus `json:"fleet,omitempty"`
 }
 
 // AppStats contains application-level metrics (memory, CPU, network, disk).
@@ -281,6 +287,12 @@ func (h *SystemHandler) collect(ctx context.Context, sinceParam string) (*System
 	}
 
 	stats.Docker = h.dockerStatsCollector(util.DetectContainerFilter())
+
+	// HA fleet membership (nil/omitted for a standalone instance). Cheap reads
+	// off the settings repo; the whole payload is response-cached for 3s.
+	if h.settings != nil {
+		stats.Fleet = computeFleetStatus(ctx, h.settings, time.Now())
+	}
 
 	return stats, nil
 }

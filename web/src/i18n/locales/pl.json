@@ -195,6 +195,19 @@
 			"title": "Błędy",
 			"viewDetails": "Zobacz szczegóły",
 			"clearAllConfirm": "Kliknij ponownie, aby potwierdzić"
+		},
+		"ha": {
+			"primary": "Podstawowy",
+			"member": "Członek",
+			"warning": "Ostrzeżenie",
+			"error": "Błąd",
+			"tooltips": {
+				"primary": "Ta instancja jest źródłem konfiguracji floty. Front Desk zarządza flotą stąd.",
+				"member": "Zarządzane przez flotę. Dostawcy, klucze wirtualne i zsynchronizowane ustawienia są zastępowane z instancji podstawowej przy każdej synchronizacji.",
+				"memberFrom": "Zarządzane przez flotę, zsynchronizowane z {{name}}. Dostawcy, klucze wirtualne i zsynchronizowane ustawienia są zastępowane przy każdej synchronizacji.",
+				"warning": "Front Desk zamilkł. Ta instancja była zarządzana, ale jej puls jest już nieaktualny.",
+				"error": "Synchronizacja floty jest zablokowana dla tej instancji (na przykład niezgodność MASTER_KEY lub schematu)."
+			}
 		}
 	},
 	"dashboard": {

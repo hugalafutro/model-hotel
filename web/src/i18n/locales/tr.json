@@ -195,6 +195,19 @@
 			"title": "Hatalar",
 			"viewDetails": "Ayrıntıları görüntüle",
 			"clearAllConfirm": "Onaylamak için tekrar tıklayın"
+		},
+		"ha": {
+			"primary": "Birincil",
+			"member": "Üye",
+			"warning": "Uyarı",
+			"error": "Hata",
+			"tooltips": {
+				"primary": "Bu örnek, filonun yapılandırma kaynağıdır. Front Desk filoyu buradan yönetir.",
+				"member": "Bir filo tarafından yönetiliyor. Sağlayıcılar, sanal anahtarlar ve eşitlenen ayarlar her eşitlemede birincil örnekten değiştirilir.",
+				"memberFrom": "Bir filo tarafından yönetiliyor, {{name}} kaynağından eşitlendi. Sağlayıcılar, sanal anahtarlar ve eşitlenen ayarlar her eşitlemede değiştirilir.",
+				"warning": "Front Desk sessizleşti. Bu örnek yönetiliyordu, ancak sinyali artık eski.",
+				"error": "Bu örnek için filo eşitlemesi engellendi (örneğin bir MASTER_KEY veya şema uyuşmazlığı)."
+			}
 		}
 	},
 	"dashboard": {

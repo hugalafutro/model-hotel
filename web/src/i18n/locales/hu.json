@@ -195,6 +195,19 @@
 			"title": "Hibák",
 			"viewDetails": "Részletek megtekintése",
 			"clearAllConfirm": "Kattintson újra a megerősítéshez"
+		},
+		"ha": {
+			"primary": "Elsődleges",
+			"member": "Tag",
+			"warning": "Figyelmeztetés",
+			"error": "Hiba",
+			"tooltips": {
+				"primary": "Ez a példány a flotta konfigurációforrása. A Front Desk innen kezeli a flottát.",
+				"member": "Egy flotta kezeli. A szolgáltatókat, a virtuális kulcsokat és a szinkronizált beállításokat minden szinkronizáláskor az elsődleges példányból cseréli le.",
+				"memberFrom": "Egy flotta kezeli, innen szinkronizálva: {{name}}. A szolgáltatókat, a virtuális kulcsokat és a szinkronizált beállításokat minden szinkronizáláskor lecseréli.",
+				"warning": "A Front Desk elhallgatott. Ezt a példányt kezelték, de a szívverése mostanra elavult.",
+				"error": "A flottaszinkronizálás le van tiltva ehhez a példányhoz (például MASTER_KEY- vagy sémaeltérés)."
+			}
 		}
 	},
 	"dashboard": {

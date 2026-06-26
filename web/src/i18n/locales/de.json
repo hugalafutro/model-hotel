@@ -195,6 +195,19 @@
 			"title": "Fehler",
 			"viewDetails": "Details anzeigen",
 			"clearAllConfirm": "Klicken Sie erneut, um zu bestätigen"
+		},
+		"ha": {
+			"primary": "Primär",
+			"member": "Mitglied",
+			"warning": "Warnung",
+			"error": "Fehler",
+			"tooltips": {
+				"primary": "Diese Instanz ist die Konfigurationsquelle der Flotte. Front Desk verwaltet die Flotte von hier aus.",
+				"member": "Von einer Flotte verwaltet. Anbieter, virtuelle Schlüssel und synchronisierte Einstellungen werden bei jeder Synchronisierung von der primären Instanz ersetzt.",
+				"memberFrom": "Von einer Flotte verwaltet, synchronisiert von {{name}}. Anbieter, virtuelle Schlüssel und synchronisierte Einstellungen werden bei jeder Synchronisierung ersetzt.",
+				"warning": "Front Desk ist verstummt. Diese Instanz wurde verwaltet, aber ihr Heartbeat ist jetzt veraltet.",
+				"error": "Die Flottensynchronisierung ist für diese Instanz blockiert (zum Beispiel eine MASTER_KEY- oder Schema-Abweichung)."
+			}
 		}
 	},
 	"dashboard": {

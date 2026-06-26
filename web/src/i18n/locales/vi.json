@@ -195,6 +195,19 @@
 			"title": "Lỗi",
 			"viewDetails": "Xem chi tiết",
 			"clearAllConfirm": "Nhấp lại để xác nhận"
+		},
+		"ha": {
+			"primary": "Chính",
+			"member": "Thành viên",
+			"warning": "Cảnh báo",
+			"error": "Lỗi",
+			"tooltips": {
+				"primary": "Phiên bản này là nguồn cấu hình của hạm đội. Front Desk quản lý hạm đội từ đây.",
+				"member": "Được quản lý bởi một hạm đội. Nhà cung cấp, khóa ảo và cài đặt đã đồng bộ được thay thế từ phiên bản chính trong mỗi lần đồng bộ.",
+				"memberFrom": "Được quản lý bởi một hạm đội, đồng bộ từ {{name}}. Nhà cung cấp, khóa ảo và cài đặt đã đồng bộ được thay thế trong mỗi lần đồng bộ.",
+				"warning": "Front Desk đã im lặng. Phiên bản này từng được quản lý nhưng nhịp tim của nó hiện đã cũ.",
+				"error": "Đồng bộ hạm đội bị chặn đối với phiên bản này (ví dụ: không khớp MASTER_KEY hoặc lược đồ)."
+			}
 		}
 	},
 	"dashboard": {

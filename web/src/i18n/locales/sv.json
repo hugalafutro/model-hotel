@@ -195,6 +195,19 @@
 			"title": "Fel",
 			"viewDetails": "Visa detaljer",
 			"clearAllConfirm": "Klicka igen för att bekräfta"
+		},
+		"ha": {
+			"primary": "Primär",
+			"member": "Medlem",
+			"warning": "Varning",
+			"error": "Fel",
+			"tooltips": {
+				"primary": "Den här instansen är flottans konfigurationskälla. Front Desk hanterar flottan härifrån.",
+				"member": "Hanteras av en flotta. Leverantörer, virtuella nycklar och synkroniserade inställningar ersätts från den primära vid varje synkronisering.",
+				"memberFrom": "Hanteras av en flotta, synkroniserad från {{name}}. Leverantörer, virtuella nycklar och synkroniserade inställningar ersätts vid varje synkronisering.",
+				"warning": "Front Desk har tystnat. Den här instansen hanterades, men dess hjärtslag är nu föråldrat.",
+				"error": "Flottsynkronisering är blockerad för den här instansen (till exempel en MASTER_KEY- eller schemaavvikelse)."
+			}
 		}
 	},
 	"dashboard": {

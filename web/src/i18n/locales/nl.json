@@ -195,6 +195,19 @@
 			"title": "Fouten",
 			"viewDetails": "Bekijk details",
 			"clearAllConfirm": "Klik nogmaals om te bevestigen"
+		},
+		"ha": {
+			"primary": "Primair",
+			"member": "Lid",
+			"warning": "Waarschuwing",
+			"error": "Fout",
+			"tooltips": {
+				"primary": "Deze instantie is de configuratiebron van de vloot. Front Desk beheert de vloot van hieruit.",
+				"member": "Beheerd door een vloot. Providers, virtuele sleutels en gesynchroniseerde instellingen worden bij elke synchronisatie vanuit de primaire instantie vervangen.",
+				"memberFrom": "Beheerd door een vloot, gesynchroniseerd vanuit {{name}}. Providers, virtuele sleutels en gesynchroniseerde instellingen worden bij elke synchronisatie vervangen.",
+				"warning": "Front Desk is stil geworden. Deze instantie werd beheerd, maar de hartslag is nu verouderd.",
+				"error": "Vlootsynchronisatie is geblokkeerd voor deze instantie (bijvoorbeeld een MASTER_KEY- of schema-mismatch)."
+			}
 		}
 	},
 	"dashboard": {

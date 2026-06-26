@@ -110,6 +110,19 @@
 			"online": "Online",
 			"error": "Error"
 		},
+		"ha": {
+			"primary": "Primary",
+			"member": "Member",
+			"warning": "Warning",
+			"error": "Error",
+			"tooltips": {
+				"primary": "This instance is the fleet's config source. Front Desk manages the fleet from here.",
+				"member": "Managed by a fleet. Providers, virtual keys, and synced settings are replaced from the primary on each sync.",
+				"memberFrom": "Managed by a fleet, synced from {{name}}. Providers, virtual keys, and synced settings are replaced on each sync.",
+				"warning": "Front Desk has gone quiet. This instance was managed but its heartbeat is now stale.",
+				"error": "Fleet sync is blocked for this instance (for example a MASTER_KEY or schema mismatch)."
+			}
+		},
 		"stats": {
 			"uptime": "Uptime",
 			"cpu": "CPU",

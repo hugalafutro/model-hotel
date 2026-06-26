@@ -195,6 +195,19 @@
 			"title": "Foute",
 			"viewDetails": "Beskrywing",
 			"clearAllConfirm": "Klik weer om te bevestig"
+		},
+		"ha": {
+			"primary": "Primêr",
+			"member": "Lid",
+			"warning": "Waarskuwing",
+			"error": "Fout",
+			"tooltips": {
+				"primary": "Hierdie instansie is die vloot se konfigurasiebron. Front Desk bestuur die vloot van hier af.",
+				"member": "Bestuur deur 'n vloot. Verskaffers, virtuele sleutels en gesinkroniseerde instellings word met elke sinkronisasie vanaf die primêre instansie vervang.",
+				"memberFrom": "Bestuur deur 'n vloot, gesinkroniseer vanaf {{name}}. Verskaffers, virtuele sleutels en gesinkroniseerde instellings word met elke sinkronisasie vervang.",
+				"warning": "Front Desk het stil geword. Hierdie instansie was bestuur, maar sy hartklop is nou verouderd.",
+				"error": "Vlootsinkronisasie is vir hierdie instansie geblokkeer (byvoorbeeld 'n MASTER_KEY- of skemawanverhouding)."
+			}
 		}
 	},
 	"dashboard": {

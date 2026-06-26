@@ -195,6 +195,19 @@
 			"title": "Errori",
 			"viewDetails": "Visualizza i dettagli",
 			"clearAllConfirm": "Fare nuovamente clic per confermare"
+		},
+		"ha": {
+			"primary": "Primario",
+			"member": "Membro",
+			"warning": "Avviso",
+			"error": "Errore",
+			"tooltips": {
+				"primary": "Questa istanza è la fonte di configurazione della flotta. Front Desk gestisce la flotta da qui.",
+				"member": "Gestita da una flotta. Provider, chiavi virtuali e impostazioni sincronizzate vengono sostituiti dall'istanza primaria a ogni sincronizzazione.",
+				"memberFrom": "Gestita da una flotta, sincronizzata da {{name}}. Provider, chiavi virtuali e impostazioni sincronizzate vengono sostituiti a ogni sincronizzazione.",
+				"warning": "Front Desk è diventato silenzioso. Questa istanza era gestita, ma il suo heartbeat è ora obsoleto.",
+				"error": "La sincronizzazione della flotta è bloccata per questa istanza (ad esempio una mancata corrispondenza di MASTER_KEY o dello schema)."
+			}
 		}
 	},
 	"dashboard": {

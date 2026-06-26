@@ -1,5 +1,5 @@
 import { ArrowSquareOut, Warning } from "@phosphor-icons/react";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, api } from "../api/client";
 import type { MemberView } from "../api/types";
@@ -31,11 +31,40 @@ function majorityVersion(members: MemberView[]): string | null {
 
 export function MembersPage() {
 	const { t } = useTranslation();
-	const { members, loading, error, refetch } = useMembers();
+	const [primaryId, setPrimaryId] = useState<string | null>(null);
+	// The recorded fleet primary (GET /api/fleet/last-sync). Null when no sync has
+	// ever run; refreshed below on the events that can change it.
+	const refreshPrimary = useCallback(() => {
+		api
+			.fleetLastSync()
+			.then((s) => setPrimaryId(s?.primary_id ?? null))
+			.catch(() => {});
+	}, []);
+	// useMembers owns the page's single SSE subscription; piggyback on it to
+	// refresh the primary when membership or a sync changes, rather than opening
+	// a second stream to /api/sse.
+	const { members, loading, error, refetch } = useMembers(
+		useCallback(
+			(e) => {
+				if (e.type.startsWith("member.") || e.type.startsWith("config.")) {
+					refreshPrimary();
+				}
+			},
+			[refreshPrimary],
+		),
+	);
 	const { toast } = useToast();
 	const [removing, setRemoving] = useState<MemberView | null>(null);
+	useEffect(refreshPrimary, [refreshPrimary]);
 
 	const groupVersion = majorityVersion(members);
+	// Pin the fleet primary to the top; every other member keeps its order.
+	const orderedMembers = primaryId
+		? [
+				...members.filter((m) => m.id === primaryId),
+				...members.filter((m) => m.id !== primaryId),
+			]
+		: members;
 
 	const setState = async (m: MemberView, state: "active" | "drained") => {
 		try {
@@ -89,11 +118,12 @@ export function MembersPage() {
 							</tr>
 						</thead>
 						<tbody>
-							{members.map((m) => (
+							{orderedMembers.map((m) => (
 								<MemberRow
 									key={m.id}
 									member={m}
 									groupVersion={groupVersion}
+									isPrimary={m.id === primaryId}
 									onSetState={setState}
 									onRemove={() => setRemoving(m)}
 								/>
@@ -127,11 +157,13 @@ export function MembersPage() {
 function MemberRow({
 	member: m,
 	groupVersion,
+	isPrimary,
 	onSetState,
 	onRemove,
 }: {
 	member: MemberView;
 	groupVersion: string | null;
+	isPrimary: boolean;
 	onSetState: (m: MemberView, state: "active" | "drained") => void;
 	onRemove: () => void;
 }) {
@@ -141,7 +173,7 @@ function MemberRow({
 		!!m.status.version && !!groupVersion && m.status.version !== groupVersion;
 
 	return (
-		<tr>
+		<tr className={isPrimary ? "fd-row-primary" : undefined}>
 			<td>
 				<div className="fd-row">
 					<a
@@ -157,6 +189,15 @@ function MemberRow({
 							style={{ marginLeft: 4, verticalAlign: "-1px" }}
 						/>
 					</a>
+					{isPrimary && (
+						<span
+							className="ui-badge ui-badge-info"
+							title={t("members.primaryTip")}
+							data-testid="primary-badge"
+						>
+							{t("members.primaryBadge")}
+						</span>
+					)}
 				</div>
 				<div className="fd-faint fd-mono">{m.url}</div>
 			</td>

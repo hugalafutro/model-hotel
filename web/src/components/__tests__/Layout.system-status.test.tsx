@@ -1157,4 +1157,73 @@ describe("Layout", () => {
 			expect(memoryRow?.querySelector(".text-orange-400")).toBeInTheDocument();
 		});
 	});
+
+	describe("HA fleet line", () => {
+		const baseApp = {
+			uptime_seconds: 100,
+			cpu_percent: 10,
+			procs: 5,
+			memory_current_bytes: 100000000,
+			memory_limit_bytes: 0,
+			in_container: false,
+			goroutines: 50,
+			requests_today: 0,
+			heap_alloc_mb: 100,
+			net_rx_bytes_sec: 1000,
+			net_tx_bytes_sec: 500,
+			disk_read_bytes_sec: 200,
+			disk_write_bytes_sec: 100,
+		};
+		const baseDb = {
+			size_mb: 10,
+			cache_hit_ratio: 95,
+			connections: 3,
+			tx_per_sec: 5.5,
+		};
+		const respondWith = (fleet?: unknown) =>
+			server.use(
+				http.get("/api/system", () =>
+					HttpResponse.json({
+						app: baseApp,
+						docker: { available: false },
+						db: baseDb,
+						...(fleet ? { fleet } : {}),
+					}),
+				),
+			);
+
+		it("shows no HA line for a standalone instance (no fleet block)", async () => {
+			respondWith(undefined);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+			await waitFor(() => {
+				expect(screen.getByText("Uptime")).toBeInTheDocument();
+			});
+			expect(screen.queryByTestId("ha-status")).not.toBeInTheDocument();
+		});
+
+		it.each([
+			["primary", "Primary", "text-green-400"],
+			["member", "Member", "text-green-400"],
+			["warning", "Warning", "text-orange-400"],
+			["member_sync_blocked", "Error", "text-red-400"],
+		])("renders HA %s state with the right value and color", async (state, label, colorClass) => {
+			respondWith({ state, is_primary: state === "primary" });
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+			const row = await screen.findByTestId("ha-status");
+			expect(row).toHaveTextContent("HA");
+			expect(row).toHaveTextContent(label);
+			expect(row.querySelector(`.${colorClass}`)).toBeInTheDocument();
+		});
+
+		it("uses the primary name in the member tooltip when present", async () => {
+			respondWith({
+				state: "member",
+				is_primary: false,
+				primary_name: "hotel-a",
+			});
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+			const row = await screen.findByTestId("ha-status");
+			expect(row.getAttribute("title")).toContain("hotel-a");
+		});
+	});
 });
