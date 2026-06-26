@@ -126,6 +126,14 @@ export interface FleetStatus {
 	lb_port?: string;
 }
 
+// Last successful fleet-sync wizard run (GET /api/fleet/last-sync). Absent
+// (null/204) until the wizard converges at least one member.
+export interface FleetSyncState {
+	last_run_at: string;
+	primary_id: string;
+	primary_name: string;
+}
+
 // --- Admin authentication (passkeys + TOTP), Settings → Security ---
 
 export interface WebAuthnCredential {

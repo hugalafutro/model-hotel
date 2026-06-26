@@ -8,6 +8,7 @@ import {
 	Trash,
 	X,
 } from "@phosphor-icons/react";
+import type { TFunction } from "i18next";
 import QRCode from "qrcode";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -16,6 +17,7 @@ import type { TotpInfo, WebAuthnCredential } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { formatAbsolute } from "../utils/time";
 import { registerPasskey } from "../utils/webauthn";
+import { ConfirmModal } from "./ConfirmModal";
 import { Notice } from "./Notice";
 
 // SecurityPanels holds Front Desk's own admin-auth management: passkeys and
@@ -41,12 +43,44 @@ function copyText(
 	return navigator.clipboard.writeText(value).then(ok, fail);
 }
 
+// transportLabel maps a WebAuthn transport to a friendly device hint, mirroring
+// the main app's PasskeySettings so an unnamed credential still reads as the
+// kind of device it is (Built-in, USB security key, ...) rather than "Passkey".
+function transportLabel(t: TFunction, transport: string): string {
+	switch (transport) {
+		case "internal":
+			return t("settings.passkeys.transportInternal");
+		case "usb":
+			return t("settings.passkeys.transportUsb");
+		case "nfc":
+			return t("settings.passkeys.transportNfc");
+		case "ble":
+			return t("settings.passkeys.transportBle");
+		case "hybrid":
+			return t("settings.passkeys.transportHybrid");
+		default:
+			return transport;
+	}
+}
+
+// passkeyDisplayName prefers the operator's name, then a transport-derived hint,
+// then a generic fallback so a row is never blank.
+function passkeyDisplayName(cred: WebAuthnCredential, t: TFunction): string {
+	if (cred.name) return cred.name;
+	if (cred.transports.length > 0)
+		return cred.transports.map((tr) => transportLabel(t, tr)).join(", ");
+	return t("settings.passkeys.securityKey");
+}
+
 function PasskeyPanel() {
 	const { t } = useTranslation();
 	const { toast } = useToast();
 	const [configured, setConfigured] = useState(false);
 	const [creds, setCreds] = useState<WebAuthnCredential[]>([]);
 	const [registering, setRegistering] = useState(false);
+	const [pendingDelete, setPendingDelete] = useState<WebAuthnCredential | null>(
+		null,
+	);
 
 	const loadCreds = useCallback(() => {
 		api
@@ -89,7 +123,12 @@ function PasskeyPanel() {
 		}
 	};
 
-	const handleDelete = (id: string) => {
+	// Deleting a passkey is irreversible and a mis-click locks out a sign-in
+	// method, so confirm before calling the API.
+	const confirmDelete = () => {
+		if (!pendingDelete) return;
+		const id = pendingDelete.id;
+		setPendingDelete(null);
 		api
 			.webauthnDeleteCredential(id)
 			.then(() => {
@@ -149,12 +188,27 @@ function PasskeyPanel() {
 									key={cred.id}
 									cred={cred}
 									onRename={handleRename}
-									onDelete={handleDelete}
+									onDelete={setPendingDelete}
 								/>
 							))}
 						</div>
 					)}
 				</>
+			)}
+
+			{pendingDelete && (
+				<ConfirmModal
+					title={t("settings.passkeys.deleteConfirmTitle")}
+					confirmLabel={t("common.remove")}
+					onConfirm={confirmDelete}
+					onClose={() => setPendingDelete(null)}
+				>
+					<p className="fd-muted">
+						{t("settings.passkeys.deleteConfirmBody", {
+							name: passkeyDisplayName(pendingDelete, t),
+						})}
+					</p>
+				</ConfirmModal>
 			)}
 		</div>
 	);
@@ -167,12 +221,12 @@ function CredentialRow({
 }: {
 	cred: WebAuthnCredential;
 	onRename: (id: string, name: string) => void;
-	onDelete: (id: string) => void;
+	onDelete: (cred: WebAuthnCredential) => void;
 }) {
 	const { t } = useTranslation();
 	const [editing, setEditing] = useState(false);
 	const [draft, setDraft] = useState(cred.name);
-	const displayName = cred.name || t("settings.passkeys.unnamed");
+	const displayName = passkeyDisplayName(cred, t);
 
 	const save = () => {
 		const name = draft.trim();
@@ -254,7 +308,7 @@ function CredentialRow({
 			<button
 				type="button"
 				className="ui-btn ui-btn-ghost ui-btn-sm"
-				onClick={() => onDelete(cred.id)}
+				onClick={() => onDelete(cred)}
 				aria-label={t("settings.passkeys.deleteLabel")}
 			>
 				<Trash size={14} />

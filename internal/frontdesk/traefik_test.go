@@ -2,6 +2,7 @@ package frontdesk
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -28,6 +29,29 @@ func TestBuildTraefikConfigActiveOnly(t *testing.T) {
 		if s.URL == "http://b:8081" {
 			t.Error("drained member must not appear in servers")
 		}
+	}
+}
+
+// Members are often fronted by a Host-routing reverse proxy, so the LB must
+// address each backend by its own host rather than forward the client's Host
+// (the LB's public name), which would loop back into the LB. Traefik defaults
+// passHostHeader to true, so the generated config must emit an explicit false.
+func TestBuildTraefikConfigDoesNotPassHostHeader(t *testing.T) {
+	cfg := BuildTraefikConfig(
+		[]*Member{{Name: "a", URL: "https://member1.example.com", State: StateActive}},
+		defaultSettings(),
+	)
+	if cfg.HTTP.Services[traefikServiceName].LoadBalancer.PassHostHeader {
+		t.Error("passHostHeader must be false so members are addressed by their own host")
+	}
+	// It must also be present in the serialized config: Traefik treats a missing
+	// passHostHeader as true, so omitting it would silently reintroduce the loop.
+	out, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if !strings.Contains(string(out), `"passHostHeader":false`) {
+		t.Errorf("serialized config missing explicit passHostHeader:false: %s", out)
 	}
 }
 

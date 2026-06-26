@@ -697,20 +697,36 @@ type DiscoverAllResult struct {
 
 // DiscoverAllModels discovers and imports models from all enabled providers.
 func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
-	providers, err := h.providerRepo.List(r.Context())
+	results, succeeded, failed, totalDiscovered, err := h.discoverAllProviders(r.Context())
 	if err != nil {
 		respondError(w, "failed to list providers", nil, http.StatusInternalServerError)
 		return
+	}
+	writeJSON(w, map[string]interface{}{
+		"results":    results,
+		"succeeded":  succeeded,
+		"failed":     failed,
+		"discovered": totalDiscovered,
+	})
+}
+
+// discoverAllProviders runs discovery for every enabled, autodiscovery-enabled
+// provider and upserts the resulting models. It is the shared core behind the
+// DiscoverAllModels HTTP handler and the config-sync import (so a freshly-synced
+// member populates its models without a manual discover click). The returned
+// error is non-nil only when the provider list cannot be read; per-provider
+// failures are recorded in the results. ctx governs cancellation; each provider
+// runs under its own detached timeout so one client disconnect does not abort
+// the sweep.
+func (h *Handler) discoverAllProviders(ctx context.Context) (results []DiscoverAllResult, succeeded, failed, totalDiscovered int, err error) {
+	providers, err := h.providerRepo.List(ctx)
+	if err != nil {
+		return nil, 0, 0, 0, err
 	}
 
 	discovery := newDiscoveryService()
 	modelRepo := newModelRepo(h.dbPool.Pool())
 	failoverRepo := newFailoverRepo(h.dbPool.Pool())
-
-	var results []DiscoverAllResult
-	totalDiscovered := 0
-	succeeded := 0
-	failed := 0
 
 	for _, prov := range providers {
 		if !prov.Enabled || !prov.AutodiscoveryEnabled {
@@ -725,7 +741,7 @@ func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 			Metadata: map[string]interface{}{"provider_id": prov.ID, "provider": prov.Name},
 		})
 
-		provCtx, provCancel := context.WithTimeout(context.WithoutCancel(r.Context()), 180*time.Second)
+		provCtx, provCancel := context.WithTimeout(context.WithoutCancel(ctx), 180*time.Second)
 		result := DiscoverAllResult{
 			ProviderName: prov.Name,
 		}
@@ -825,15 +841,10 @@ func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 	// Reflect the discovery in the failover "Last Sync" label whenever at least
 	// one provider's groups were actually (re)synced.
 	if succeeded > 0 {
-		stampFailoverSynced(context.WithoutCancel(r.Context()), h.settingsRepo)
+		stampFailoverSynced(context.WithoutCancel(ctx), h.settingsRepo)
 	}
 
-	writeJSON(w, map[string]interface{}{
-		"results":    results,
-		"succeeded":  succeeded,
-		"failed":     failed,
-		"discovered": totalDiscovered,
-	})
+	return results, succeeded, failed, totalDiscovered, nil
 }
 
 // QuotaRefreshResult holds the result of refreshing quotas for a single provider.

@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 // stubConfigMember is a fake Model Hotel member exposing /api/config/export and
@@ -13,13 +14,14 @@ import (
 // import response is configurable so a test can model a normal replica, a
 // MASTER_KEY mismatch (409), or an already-converged member (empty diff).
 type stubConfigMember struct {
-	token      string
-	exportBody string
-	importCode int
-	importBody string
-	gotImport  bool
-	gotDryRun  bool
-	srv        *httptest.Server
+	token       string
+	exportBody  string
+	importCode  int
+	importBody  string
+	importDelay time.Duration // models a slow import (member-side discovery)
+	gotImport   bool
+	gotDryRun   bool
+	srv         *httptest.Server
 }
 
 func newStubConfigMember(t *testing.T, token string) *stubConfigMember {
@@ -41,6 +43,9 @@ func newStubConfigMember(t *testing.T, token string) *stubConfigMember {
 		case r.Method == http.MethodPost && r.URL.Path == "/api/config/import":
 			sm.gotImport = true
 			sm.gotDryRun = r.URL.Query().Get("dryRun") != ""
+			if sm.importDelay > 0 {
+				time.Sleep(sm.importDelay)
+			}
 			w.WriteHeader(sm.importCode)
 			_, _ = w.Write([]byte(sm.importBody))
 		default:
@@ -91,6 +96,37 @@ func TestConfigSyncApplies(t *testing.T) {
 	}
 	if !sawSynced {
 		t.Error("expected a config.synced event for the replica")
+	}
+}
+
+// A slow import (the member runs model discovery on apply, which routinely
+// exceeds the fast health-probe timeout) must still be reported as applied: the
+// import relay uses a separate client with a far longer deadline. Here the probe
+// client is given a deadline shorter than the replica's import delay; a
+// successful result proves the relay did NOT route the import through the probe
+// client (export is instant, so the short probe is fine for it).
+func TestConfigSyncImportUsesLongerDeadlineThanProbe(t *testing.T) {
+	srv, store := newTestServer(t)
+	srv.probe = newProbeClient(50 * time.Millisecond)
+	srv.syncClient = newProbeClient(3 * time.Second)
+
+	primary := newStubConfigMember(t, "ptoken")
+	replica := newStubConfigMember(t, "rtoken")
+	replica.importDelay = 200 * time.Millisecond
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+
+	rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("sync = %d (%s)", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		Results []syncResultItem `json:"results"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if len(resp.Results) != 1 || !resp.Results[0].OK {
+		t.Fatalf("slow import must be reported applied (relay must use the long-deadline client), got %+v", resp.Results)
 	}
 }
 

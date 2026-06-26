@@ -143,7 +143,8 @@ func TestAdminTokenResetGeneratesAndPushes(t *testing.T) {
 	// A token-less member should be reported skipped, not crash the reset.
 	nm, _ := store.CreateMember(t.Context(), "m3", "http://127.0.0.1:1", "")
 
-	rec := do(t, srv, http.MethodPost, "/api/admin-token/reset", `{"confirm":true}`, true)
+	rec := do(t, srv, http.MethodPost, "/api/admin-token/reset",
+		`{"confirm":true,"master_key":"`+testMasterKey+`"}`, true)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("reset = %d (%s)", rec.Code, rec.Body.String())
 	}
@@ -184,6 +185,50 @@ func TestAdminTokenResetRequiresConfirm(t *testing.T) {
 	}
 	if rec := do(t, srv, http.MethodPost, "/api/admin-token/reset", `{"confirm":false}`, true); rec.Code != http.StatusBadRequest {
 		t.Errorf("reset with confirm=false = %d, want 400", rec.Code)
+	}
+}
+
+// The reset is gated on the fleet MASTER_KEY so an unlocked, already-logged-in
+// session cannot replace every member's token in two clicks. A wrong or missing
+// key is a 403 and must not mint a token; the correct key proceeds.
+func TestAdminTokenResetRequiresMasterKey(t *testing.T) {
+	srv, store := newTestServer(t)
+	stub := newStubMember(t, "tok", "sha256:old")
+	if _, err := store.CreateMember(t.Context(), "m", stub.srv.URL, "tok"); err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+
+	// Missing key.
+	if rec := do(t, srv, http.MethodPost, "/api/admin-token/reset", `{"confirm":true}`, true); rec.Code != http.StatusForbidden {
+		t.Errorf("reset with no master_key = %d, want 403", rec.Code)
+	}
+	// Wrong key.
+	if rec := do(t, srv, http.MethodPost, "/api/admin-token/reset", `{"confirm":true,"master_key":"nope"}`, true); rec.Code != http.StatusForbidden {
+		t.Errorf("reset with wrong master_key = %d, want 403", rec.Code)
+	}
+	// The member must be untouched: a rejected reset never pushed a new hash.
+	if stub.gotPush != "" {
+		t.Errorf("rejected reset still pushed a hash: %q", stub.gotPush)
+	}
+	// Correct key proceeds.
+	if rec := do(t, srv, http.MethodPost, "/api/admin-token/reset",
+		`{"confirm":true,"master_key":"`+testMasterKey+`"}`, true); rec.Code != http.StatusOK {
+		t.Errorf("reset with correct master_key = %d, want 200", rec.Code)
+	}
+}
+
+// With no MASTER_KEY configured there is nothing to verify against, so the
+// confirm flag stands alone (the existing behaviour). This path is unreachable
+// in a real HA deploy, where MASTER_KEY is required for at-rest encryption.
+func TestAdminTokenResetWithoutMasterKeyConfigured(t *testing.T) {
+	srv, store := newTestServer(t)
+	srv.masterKey = "" // simulate an unconfigured key
+	stub := newStubMember(t, "tok", "sha256:old")
+	if _, err := store.CreateMember(t.Context(), "m", stub.srv.URL, "tok"); err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+	if rec := do(t, srv, http.MethodPost, "/api/admin-token/reset", `{"confirm":true}`, true); rec.Code != http.StatusOK {
+		t.Errorf("reset with no configured key = %d, want 200", rec.Code)
 	}
 }
 

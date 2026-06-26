@@ -309,10 +309,14 @@ func TestProxyKeyMiddleware_KeyNotFound_Integration(t *testing.T) {
 	if called {
 		t.Error("next handler should NOT be called with unknown key")
 	}
-	// FindByKeyHash returns pgx.ErrNoRows which is not virtualkey.ErrNotFound,
-	// so the middleware falls into the "db lookup failed" branch and returns 500.
-	if rr.Code != http.StatusInternalServerError {
-		t.Errorf("expected 500 (pgx.ErrNoRows != ErrNotFound), got %d", rr.Code)
+	// An unknown key is authentication failure, not a server fault: FindByKeyHash
+	// now returns virtualkey.ErrNotFound, so the middleware returns a clean 401
+	// instead of leaking the raw pgx "no rows in result set" as a 500.
+	if rr.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 for unknown key, got %d", rr.Code)
+	}
+	if strings.Contains(rr.Body.String(), "no rows in result set") {
+		t.Errorf("raw DB error leaked to client: %s", rr.Body.String())
 	}
 }
 

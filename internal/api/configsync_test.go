@@ -22,7 +22,15 @@ const configSyncMasterKey = "test-master-key-0123456789abcdef"
 // mounted (no auth: the parent group's AuthMiddleware is out of scope here).
 func newConfigSyncRouter(t *testing.T, masterKey string) chi.Router {
 	t.Helper()
-	h := NewConfigSyncHandler(apiTestDB, settings.NewRepository(apiTestDB.Pool()), masterKey, "v-test")
+	return newConfigSyncRouterWithDiscovery(t, masterKey, nil)
+}
+
+// newConfigSyncRouterWithDiscovery is like newConfigSyncRouter but injects a
+// discovery callback, so a test can model the member populating its models on
+// import (the real wiring runs discoverAllProviders).
+func newConfigSyncRouterWithDiscovery(t *testing.T, masterKey string, discoverAll func(context.Context) error) chi.Router {
+	t.Helper()
+	h := NewConfigSyncHandler(apiTestDB, settings.NewRepository(apiTestDB.Pool()), masterKey, "v-test", discoverAll)
 	r := chi.NewRouter()
 	h.Register(r)
 	return r
@@ -34,7 +42,7 @@ func cleanConfigTables(t *testing.T) {
 	t.Helper()
 	ctx := context.Background()
 	_, err := apiTestDB.Pool().Exec(ctx,
-		`TRUNCATE request_logs, models, virtual_keys, providers, settings CASCADE`)
+		`TRUNCATE request_logs, model_failover_groups, models, virtual_keys, providers, settings CASCADE`)
 	if err != nil {
 		t.Fatalf("truncate: %v", err)
 	}
@@ -443,6 +451,32 @@ func TestConfigSync_RefusesEmptyEnvelope(t *testing.T) {
 	}
 }
 
+// A failover-groups-only envelope (no providers, VKs, or settings) must NOT slip
+// past the empty-config guard: apply runs the declarative provider/VK deletes
+// against empty lists, so letting it through would wipe the member clean.
+func TestConfigSync_RefusesFailoverOnlyEnvelope(t *testing.T) {
+	cleanConfigTables(t)
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+
+	env := ConfigEnvelope{SchemaVersion: configSchemaVersion}
+	env.Config.FailoverGroups = []ExportFailoverGroup{{
+		DisplayModel: "ghost",
+		Entries:      []ExportFailoverEntry{{ProviderName: "openai", ModelID: "gpt-4o"}},
+	}}
+	rec := doImport(t, r, env, "")
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("failover-only envelope status = %d, want 400", rec.Code)
+	}
+
+	var providers int
+	_ = apiTestDB.Pool().QueryRow(context.Background(),
+		`SELECT count(*) FROM providers WHERE id = $1`, provID).Scan(&providers)
+	if providers != 1 {
+		t.Fatalf("provider must survive a refused import, count = %d", providers)
+	}
+}
+
 func TestConfigSync_RejectsWrongSchemaVersion(t *testing.T) {
 	cleanConfigTables(t)
 	r := newConfigSyncRouter(t, configSyncMasterKey)
@@ -506,7 +540,7 @@ func TestConfigSync_ImportDBError(t *testing.T) {
 // handling is covered without a broken database.
 func TestConfigSync_HelperDBErrors(t *testing.T) {
 	pool := apiTestDB.Pool()
-	h := NewConfigSyncHandler(apiTestDB, settings.NewRepository(pool), configSyncMasterKey, "v-test")
+	h := NewConfigSyncHandler(apiTestDB, settings.NewRepository(pool), configSyncMasterKey, "v-test", nil)
 	cctx := cancelledCtx()
 	env := ConfigEnvelope{
 		SchemaVersion: configSchemaVersion,

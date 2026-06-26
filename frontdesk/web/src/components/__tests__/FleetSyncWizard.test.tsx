@@ -50,6 +50,15 @@ function renderWizard() {
 
 beforeEach(() => {
 	localStorage.setItem("fdAuthToken", "tok");
+	// The wizard probes the last-run marker on mount. Default to "never run" (204);
+	// individual tests that care override this with their own server.use, which
+	// takes precedence over this one.
+	server.use(
+		http.get(
+			"/api/fleet/last-sync",
+			() => new HttpResponse(null, { status: 204 }),
+		),
+	);
 });
 
 async function pickPrimary() {
@@ -57,6 +66,31 @@ async function pickPrimary() {
 }
 
 describe("FleetSyncWizard", () => {
+	it("shows a last-run banner on step 1 when the fleet was synced before", async () => {
+		server.use(
+			http.get("/api/fleet/last-sync", () =>
+				HttpResponse.json({
+					last_run_at: "2026-06-20T08:00:00Z",
+					primary_id: "1",
+					primary_name: "hotel-1",
+				}),
+			),
+		);
+		renderWizard();
+		expect(
+			await screen.findByText(/You last synced this fleet.*primary: hotel-1/i),
+		).toBeInTheDocument();
+	});
+
+	it("shows no last-run banner when the fleet has never been synced", async () => {
+		// Default 204 from beforeEach means "never run".
+		renderWizard();
+		// Step 1 has rendered (the primary picker is present)...
+		expect(await screen.findByLabelText(/Primary/i)).toBeInTheDocument();
+		// ...but there is no last-run banner.
+		expect(screen.queryByText(/You last synced this fleet/i)).toBeNull();
+	});
+
 	it("blocks the admin-token step until MASTER_KEY matches on every member", async () => {
 		server.use(
 			http.get("/api/fleet/status", () =>

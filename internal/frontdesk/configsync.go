@@ -43,14 +43,15 @@ type memberEntityDiff struct {
 }
 
 type memberConfigDiff struct {
-	Providers   memberEntityDiff `json:"providers"`
-	VirtualKeys memberEntityDiff `json:"virtual_keys"`
-	Settings    memberEntityDiff `json:"settings"`
+	Providers      memberEntityDiff `json:"providers"`
+	VirtualKeys    memberEntityDiff `json:"virtual_keys"`
+	Settings       memberEntityDiff `json:"settings"`
+	FailoverGroups memberEntityDiff `json:"failover_groups"`
 }
 
 // added/updated/removed total the diff across all entity kinds.
 func (d memberConfigDiff) counts() (added, updated, removed int) {
-	for _, e := range []memberEntityDiff{d.Providers, d.VirtualKeys, d.Settings} {
+	for _, e := range []memberEntityDiff{d.Providers, d.VirtualKeys, d.Settings, d.FailoverGroups} {
 		added += len(e.Added)
 		updated += len(e.Updated)
 		removed += len(e.Removed)
@@ -96,6 +97,7 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 		}
 		results = append(results, s.applyMemberConfig(r.Context(), m, token, export))
 	}
+	s.recordFleetSyncRun(r.Context(), primary, results)
 	writeJSON(w, http.StatusOK, map[string]any{"primary_id": primary.ID, "results": results})
 }
 
@@ -156,7 +158,11 @@ func (s *Server) pushMemberImport(ctx context.Context, m *Member, token string, 
 	if dryRun {
 		path += "?dryRun=1"
 	}
-	status, body, err := s.callMember(ctx, http.MethodPost, m.URL, path, token, strings.NewReader(string(export)))
+	// The import client gets a longer deadline than the health probe: a real
+	// import runs model discovery on the member, which routinely exceeds the 4s
+	// probe timeout, and timing out there would mislabel a successful import as
+	// "could not reach this member".
+	status, body, err := s.callMemberWith(ctx, s.syncClient, http.MethodPost, m.URL, path, token, strings.NewReader(string(export)))
 	if err != nil {
 		return memberImportResult{}, err
 	}

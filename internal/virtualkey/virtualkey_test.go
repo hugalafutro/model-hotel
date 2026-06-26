@@ -349,9 +349,11 @@ func TestRepository_FindByKeyHash_NotFound(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testDB.Pool())
 
+	// A miss must be ErrNotFound (not the raw pgx "no rows in result set"), so the
+	// proxy maps it to a clean 401 instead of leaking it as a 500.
 	_, err := repo.FindByKeyHash(ctx, "nonexistent-hash-value")
-	if err == nil {
-		t.Error("expected error for non-existent key hash, got nil")
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("FindByKeyHash(missing) err = %v, want ErrNotFound", err)
 	}
 }
 

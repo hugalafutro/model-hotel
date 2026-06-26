@@ -141,6 +141,23 @@ func (s *Server) fleetStatus(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// fleetLastSync reports the last successful fleet-sync wizard run (timestamp +
+// the primary it converged onto), so the wizard can show it has run before
+// rather than looking untouched after a container rebuild. It returns 204 when
+// the wizard has never recorded a successful run.
+func (s *Server) fleetLastSync(w http.ResponseWriter, r *http.Request) {
+	state, found, err := s.store.GetFleetSyncState(r.Context())
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	if !found {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	writeJSON(w, http.StatusOK, state)
+}
+
 // fleetStatusForMember probes one member relative to the primary. It is total:
 // every failure path produces a populated item with a note, never an error.
 func (s *Server) fleetStatusForMember(ctx context.Context, m *Member, primaryID, primaryHash string, export []byte, keyless bool) fleetMemberStatus {
