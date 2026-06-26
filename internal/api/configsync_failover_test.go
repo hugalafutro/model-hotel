@@ -198,6 +198,57 @@ func TestConfigSync_DiffReportsUpdatedForExistingGroup(t *testing.T) {
 	}
 }
 
+// The dry-run diff must match what apply actually does for failover groups: an
+// absent field (nil, a pre-PR primary) performs no removals, while an explicit
+// empty array reconciles the member to zero and so does report removals. Otherwise
+// the preview would warn an operator mid-rolling-upgrade of deletions that the
+// apply never performs.
+func TestConfigSync_DiffMatchesApplyForAbsentVsEmptyGroups(t *testing.T) {
+	seedReplicaWithCustomGroup := func() {
+		cleanConfigTables(t)
+		rProvID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+		rm1 := seedModel(t, rProvID, "gpt-4o")
+		rm2 := seedModel(t, rProvID, "gpt-4o-mini")
+		seedFailoverGroup(t, "local-custom", []string{rm1, rm2}, nil, false)
+	}
+	dryRunDiff := func(env ConfigEnvelope) entityDiff {
+		t.Helper()
+		rec := doImport(t, newConfigSyncRouter(t, configSyncMasterKey), env, "?dryRun=1")
+		if rec.Code != http.StatusOK {
+			t.Fatalf("dryRun status = %d, body %s", rec.Code, rec.Body.String())
+		}
+		var resp importResponse
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("decode dryRun response: %v", err)
+		}
+		if resp.Applied {
+			t.Fatal("dryRun must not apply")
+		}
+		return resp.Diff.FailoverGroups
+	}
+	// A virtual key keeps each envelope non-empty (import refuses a structurally
+	// empty config) without introducing any custom groups of its own.
+	withVK := func(groups []ExportFailoverGroup) ConfigEnvelope {
+		return ConfigEnvelope{
+			SchemaVersion: configSchemaVersion,
+			Config: ConfigPayload{
+				VirtualKeys:    []ExportVK{{Name: "vk", KeyHash: "h", KeyPreview: "p"}},
+				FailoverGroups: groups,
+			},
+		}
+	}
+
+	seedReplicaWithCustomGroup()
+	if got := dryRunDiff(withVK(nil)); contains(got.Removed, "local-custom") {
+		t.Errorf("absent groups must report no removals, diff = %+v", got)
+	}
+
+	seedReplicaWithCustomGroup()
+	if got := dryRunDiff(withVK([]ExportFailoverGroup{})); !contains(got.Removed, "local-custom") {
+		t.Errorf("explicit empty groups must report the stale group as removed, diff = %+v", got)
+	}
+}
+
 // Discovery on import is best-effort: a discovery error is logged and swallowed,
 // the import still succeeds, and a group whose models are already present resolves
 // from them regardless.

@@ -562,9 +562,16 @@ func (h *ConfigSyncHandler) computeDiff(ctx context.Context, env ConfigEnvelope)
 			d.FailoverGroups.Added = append(d.FailoverGroups.Added, g.DisplayModel)
 		}
 	}
-	for name := range curGroups {
-		if _, ok := wantGroups[name]; !ok {
-			d.FailoverGroups.Removed = append(d.FailoverGroups.Removed, name)
+	// Mirror applyFailoverGroups exactly: a nil slice means the field was absent (a
+	// pre-PR primary), which apply leaves untouched, so report no removals here. An
+	// explicit empty array reconciles to zero, so its removals are real. Reporting
+	// removals for a nil slice would scare an operator mid-rolling-upgrade with
+	// deletions the apply never performs.
+	if env.Config.FailoverGroups != nil {
+		for name := range curGroups {
+			if _, ok := wantGroups[name]; !ok {
+				d.FailoverGroups.Removed = append(d.FailoverGroups.Removed, name)
+			}
 		}
 	}
 	return d, nil
