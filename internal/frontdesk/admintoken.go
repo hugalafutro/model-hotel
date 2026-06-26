@@ -29,19 +29,6 @@ const (
 	groupTokenBytes = 16
 )
 
-// dispositions for the sync preview.
-const (
-	dispOverwrite = "overwrite"
-	dispMatches   = "matches"
-	dispBlocked   = "blocked"
-)
-
-type syncPreviewItem struct {
-	MemberID    string `json:"member_id"`
-	Name        string `json:"name"`
-	Disposition string `json:"disposition"`
-}
-
 type syncResultItem struct {
 	MemberID string `json:"member_id"`
 	Name     string `json:"name"`
@@ -52,64 +39,6 @@ type syncResultItem struct {
 // memberHashResponse is the shape of a member's GET /api/admin/token-hash.
 type memberHashResponse struct {
 	Hash string `json:"hash"`
-}
-
-// adminTokenPreview compares every member's current admin-token hash against the
-// chosen primary's, so the UI can show, by name, who will be overwritten, who
-// already matches, and who is blocked (no stored token) before anything is
-// written. No hashes are returned to the client, only dispositions.
-func (s *Server) adminTokenPreview(w http.ResponseWriter, r *http.Request) {
-	primaryID := r.URL.Query().Get("primary")
-	primary, primaryToken, err := s.memberTokenOrErr(r.Context(), primaryID)
-	if err != nil {
-		writeError(w, err)
-		return
-	}
-	primaryHash, err := s.fetchMemberHash(r.Context(), primary, primaryToken)
-	if err != nil {
-		http.Error(w, "could not read the primary's admin token hash", http.StatusBadGateway)
-		return
-	}
-
-	members, err := s.store.ListMembers(r.Context())
-	if err != nil {
-		writeError(w, err)
-		return
-	}
-
-	items := make([]syncPreviewItem, 0, len(members))
-	for _, m := range members {
-		items = append(items, syncPreviewItem{
-			MemberID:    m.ID,
-			Name:        m.Name,
-			Disposition: s.previewDisposition(r.Context(), m, primary.ID, primaryHash),
-		})
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"primary_id": primary.ID, "items": items})
-}
-
-// previewDisposition classifies one member relative to the primary. A member
-// whose hash can't be read is treated as "overwrite" (unknown, so the sync will
-// attempt it and report the per-member outcome) rather than silently "matches".
-func (s *Server) previewDisposition(ctx context.Context, m *Member, primaryID, primaryHash string) string {
-	if m.ID == primaryID {
-		return dispMatches // the source itself
-	}
-	if !m.HasToken {
-		return dispBlocked
-	}
-	token, ok, err := s.store.MemberToken(ctx, m.ID)
-	if err != nil || !ok {
-		return dispBlocked
-	}
-	hash, err := s.fetchMemberHash(ctx, m, token)
-	if err != nil {
-		return dispOverwrite
-	}
-	if hash == primaryHash {
-		return dispMatches
-	}
-	return dispOverwrite
 }
 
 // adminTokenSync overwrites the admin-token hash on every non-primary member

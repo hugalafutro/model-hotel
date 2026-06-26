@@ -51,58 +51,6 @@ func newStubConfigMember(t *testing.T, token string) *stubConfigMember {
 	return sm
 }
 
-func TestConfigSyncPreviewClassifies(t *testing.T) {
-	srv, store := newTestServer(t)
-	primary := newStubConfigMember(t, "ptoken")
-	overwrite := newStubConfigMember(t, "otoken") // default: non-empty diff
-	matches := newStubConfigMember(t, "mtoken")
-	matches.importBody = `{"schema_version_ok":true,"master_key_ok":true,"applied":false,"diff":{"providers":{},"virtual_keys":{},"settings":{}}}`
-	mismatch := newStubConfigMember(t, "xtoken")
-	mismatch.importCode = http.StatusConflict
-	mismatch.importBody = `{"schema_version_ok":true,"master_key_ok":false}`
-
-	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
-	om, _ := store.CreateMember(t.Context(), "overwrite", overwrite.srv.URL, "otoken")
-	mm, _ := store.CreateMember(t.Context(), "matches", matches.srv.URL, "mtoken")
-	xm, _ := store.CreateMember(t.Context(), "mismatch", mismatch.srv.URL, "xtoken")
-	nm, _ := store.CreateMember(t.Context(), "no-token", "http://127.0.0.1:1", "")
-
-	rec := do(t, srv, http.MethodGet, "/api/config/preview?primary="+pm.ID, "", true)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("preview = %d (%s)", rec.Code, rec.Body.String())
-	}
-	var resp struct {
-		PrimaryID string              `json:"primary_id"`
-		Items     []configPreviewItem `json:"items"`
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("decode: %v", err)
-	}
-	byID := map[string]configPreviewItem{}
-	for _, it := range resp.Items {
-		byID[it.MemberID] = it
-	}
-	if byID[pm.ID].Disposition != dispMatches {
-		t.Errorf("primary disposition = %q", byID[pm.ID].Disposition)
-	}
-	if byID[om.ID].Disposition != dispOverwrite || byID[om.ID].Added != 1 {
-		t.Errorf("overwrite item = %+v", byID[om.ID])
-	}
-	if byID[mm.ID].Disposition != dispMatches {
-		t.Errorf("matches disposition = %q", byID[mm.ID].Disposition)
-	}
-	if byID[xm.ID].Disposition != dispBlocked || byID[xm.ID].Note == "" {
-		t.Errorf("mismatch item = %+v (want blocked + note)", byID[xm.ID])
-	}
-	if byID[nm.ID].Disposition != dispBlocked {
-		t.Errorf("no-token disposition = %q", byID[nm.ID].Disposition)
-	}
-	// Preview must be a dry run on the replicas.
-	if !overwrite.gotDryRun {
-		t.Error("preview should call import with dryRun")
-	}
-}
-
 func TestConfigSyncApplies(t *testing.T) {
 	srv, store := newTestServer(t)
 	primary := newStubConfigMember(t, "ptoken")
@@ -182,9 +130,6 @@ func TestConfigSyncReportsFailure(t *testing.T) {
 func TestConfigSyncUnknownPrimary(t *testing.T) {
 	srv, _ := newTestServer(t)
 	const missing = "00000000-0000-0000-0000-000000000000"
-	if rec := do(t, srv, http.MethodGet, "/api/config/preview?primary="+missing, "", true); rec.Code < 400 {
-		t.Fatalf("preview unknown primary should error, got %d", rec.Code)
-	}
 	if rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+missing+`"}`, true); rec.Code < 400 {
 		t.Fatalf("sync unknown primary should error, got %d", rec.Code)
 	}
@@ -204,8 +149,8 @@ func TestConfigSyncPrimaryExportNon200(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	})
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
-	if rec := do(t, srv, http.MethodGet, "/api/config/preview?primary="+pm.ID, "", true); rec.Code != http.StatusBadGateway {
-		t.Fatalf("preview non-200 export = %d, want 502", rec.Code)
+	if rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true); rec.Code != http.StatusBadGateway {
+		t.Fatalf("sync non-200 export = %d, want 502", rec.Code)
 	}
 }
 
@@ -239,49 +184,10 @@ func TestConfigSyncPrimaryExportFails(t *testing.T) {
 	primary.srv.Close()
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 
-	// Preview and sync both surface a bad-gateway when the primary export fails.
-	rec := do(t, srv, http.MethodGet, "/api/config/preview?primary="+pm.ID, "", true)
-	if rec.Code != http.StatusBadGateway {
-		t.Fatalf("preview export-fail = %d, want 502", rec.Code)
-	}
-	rec = do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
+	// Sync surfaces a bad-gateway when the primary export fails.
+	rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
 	if rec.Code != http.StatusBadGateway {
 		t.Fatalf("sync export-fail = %d, want 502", rec.Code)
-	}
-}
-
-func TestConfigSyncPreviewReplicaStates(t *testing.T) {
-	srv, store := newTestServer(t)
-	primary := newStubConfigMember(t, "ptoken")
-	// Replica that returns a schema-version mismatch (422). A real member rejects
-	// the schema BEFORE the MASTER_KEY canary, so master_key_ok is an unevaluated
-	// false here; the diagnosis must still be "version", not "MASTER_KEY".
-	badSchema := newStubConfigMember(t, "btoken")
-	badSchema.importCode = http.StatusUnprocessableEntity
-	badSchema.importBody = `{"schema_version_ok":false,"master_key_ok":false}`
-
-	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
-	bm, _ := store.CreateMember(t.Context(), "bad-schema", badSchema.srv.URL, "btoken")
-	// A replica Front Desk cannot reach at all.
-	um, _ := store.CreateMember(t.Context(), "unreachable", "http://127.0.0.1:1", "utoken")
-
-	rec := do(t, srv, http.MethodGet, "/api/config/preview?primary="+pm.ID, "", true)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("preview = %d", rec.Code)
-	}
-	var resp struct {
-		Items []configPreviewItem `json:"items"`
-	}
-	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
-	byID := map[string]configPreviewItem{}
-	for _, it := range resp.Items {
-		byID[it.MemberID] = it
-	}
-	if d := byID[bm.ID]; d.Disposition != dispBlocked || !strings.Contains(d.Note, "version") {
-		t.Errorf("bad-schema item = %+v (want blocked + version note, not MASTER_KEY)", byID[bm.ID])
-	}
-	if d := byID[um.ID]; d.Disposition != dispBlocked || d.Note == "" {
-		t.Errorf("unreachable item = %+v (want blocked + note)", byID[um.ID])
 	}
 }
 

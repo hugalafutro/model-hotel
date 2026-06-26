@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 )
 
 // This file holds the helpers Front Desk uses to call a member's own
@@ -40,6 +41,54 @@ func (s *Server) callMember(ctx context.Context, method, baseURL, path, token st
 		return resp.StatusCode, nil, err
 	}
 	return resp.StatusCode, data, nil
+}
+
+// memberProbeTimeout bounds the add/edit-time token check so a hung or slow
+// member cannot stall the request; an exceeded deadline is treated as "could
+// not reach" (a warning), never as a wrong token.
+const memberProbeTimeout = 6 * time.Second
+
+// tokenProbe is the outcome of checking a member's admin token at add/edit time,
+// before the background poller would otherwise catch a mistake.
+type tokenProbe struct {
+	reached bool // the member returned an HTTP response at all
+	valid   bool // token-hash returned 200, i.e. the token was accepted
+	status  int  // HTTP status when reached
+}
+
+// rejected reports a token the member positively refused (401/403): a definite
+// mistake worth blocking the save for. A 404/5xx is reached-but-unverified and
+// only warns (e.g. an older member without the token-hash endpoint).
+func (p tokenProbe) rejected() bool {
+	return p.reached && (p.status == http.StatusUnauthorized || p.status == http.StatusForbidden)
+}
+
+// warning returns a human note when the token could not be confirmed but the
+// save is still allowed to proceed (member offline, or reached without a 200).
+// Empty when the token was accepted.
+func (p tokenProbe) warning() string {
+	switch {
+	case p.valid:
+		return ""
+	case !p.reached:
+		return "Saved, but Front Desk could not reach this member to verify the token yet."
+	default:
+		return fmt.Sprintf("Saved, but this member did not accept the token (HTTP %d); it may be an older build.", p.status)
+	}
+}
+
+// probeMemberToken checks whether url accepts token right now by calling the
+// lightest admin-authenticated endpoint (token-hash). It never returns an
+// error: a transport failure becomes reached:false so the caller can warn
+// instead of blocking an add for a host that is merely offline.
+func (s *Server) probeMemberToken(ctx context.Context, url, token string) tokenProbe {
+	ctx, cancel := context.WithTimeout(ctx, memberProbeTimeout)
+	defer cancel()
+	status, _, err := s.callMember(ctx, http.MethodGet, url, memberTokenHashPath, token, nil)
+	if err != nil {
+		return tokenProbe{}
+	}
+	return tokenProbe{reached: true, valid: status == http.StatusOK, status: status}
 }
 
 // memberTokenOrErr loads a member and its decrypted admin token, returning a

@@ -435,3 +435,52 @@ h3 {
 .fd-toast-info {
 	border-left-color: var(--info);
 }
+
+/* Fleet sync wizard */
+.fd-step-title {
+	font-size: 0.95rem;
+	margin: 0 0 0.2rem;
+}
+.fd-step-intro {
+	font-size: 0.82rem;
+	margin: 0 0 0.8rem;
+}
+.fd-wizard-nav {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	margin-top: 1.2rem;
+	flex-wrap: wrap;
+}
+.fd-wizard-dots {
+	display: flex;
+	gap: 0.55rem;
+	align-items: center;
+}
+.fd-wizard-dots .fd-dot {
+	width: 0.7rem;
+	height: 0.7rem;
+	padding: 0;
+	border-radius: 50%;
+	border: 2px solid var(--text-muted);
+	background: var(--surface-2);
+	cursor: pointer;
+	transition:
+		background 0.15s ease,
+		border-color 0.15s ease,
+		box-shadow 0.15s ease;
+}
+.fd-wizard-dots .fd-dot-done {
+	background: var(--accent);
+	border-color: var(--accent);
+}
+.fd-wizard-dots .fd-dot-current {
+	background: var(--accent);
+	border-color: var(--accent-strong);
+	box-shadow: 0 0 0 3px rgba(194, 112, 61, 0.3);
+}
+.fd-wizard-dots .fd-dot:disabled {
+	cursor: not-allowed;
+	opacity: 0.6;
+}

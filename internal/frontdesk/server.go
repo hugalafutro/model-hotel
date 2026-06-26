@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"net/http"
 	"strconv"
@@ -45,6 +46,7 @@ type ServerConfig struct {
 	RelyingParty *gowa.WebAuthn                // WebAuthn RP (from PUBLIC_ORIGIN); nil disables passkeys
 	IPLimiter    adminauth.IPLimiterMiddleware // per-IP limit on login routes
 	UI           fs.FS                         // embedded SPA; nil disables the UI mount
+	LBPort       string                        // host port of the LB (Traefik "web"); shown in the wizard's Done step. Defaults to 8080.
 }
 
 // Server is the Front Desk HTTP server.
@@ -57,8 +59,13 @@ type Server struct {
 	totpRepo   *totp.Repository
 	totpStatus *totpEnabledCache
 	probe      *http.Client // guarded client for proxying member admin APIs
+	lbPort     string       // host port of the data-plane load balancer, surfaced to the wizard
 	router     http.Handler
 }
+
+// defaultLBPort is the load-balancer host port assumed when FLEET_LB_PORT is
+// unset; it mirrors the LB_PORT default in deploy/ha/.env.example.
+const defaultLBPort = "8080"
 
 // NewServer wires the control-plane HTTP server. It builds the SQLite-backed
 // webauthn SessionManager and totp.Repository, seeds the TOTP-enabled cache, and
@@ -69,6 +76,11 @@ func NewServer(cfg ServerConfig) *Server {
 	sessionMgr := webauthn.NewSessionManager(webAuthnStore)
 	totpRepo := totp.NewRepositoryWithStore(NewTOTPStore(cfg.Store), cfg.MasterKey)
 
+	lbPort := cfg.LBPort
+	if lbPort == "" {
+		lbPort = defaultLBPort
+	}
+
 	s := &Server{
 		store:      cfg.Store,
 		poller:     cfg.Poller,
@@ -78,6 +90,7 @@ func NewServer(cfg ServerConfig) *Server {
 		totpRepo:   totpRepo,
 		totpStatus: newTotpEnabledCache(totpRepo),
 		probe:      newProbeClient(httpProbeTimeout),
+		lbPort:     lbPort,
 	}
 
 	webauthnHandler := adminauth.NewWebAuthnHandler(
@@ -123,10 +136,9 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 			r.Put("/settings", s.putSettings)
 			r.Get("/events", s.listEvents)
 			r.Get("/traefik-status", s.traefikStatus)
-			r.Get("/admin-token/preview", s.adminTokenPreview)
+			r.Get("/fleet/status", s.fleetStatus)
 			r.Post("/admin-token/sync", s.adminTokenSync)
 			r.Post("/admin-token/reset", s.adminTokenReset)
-			r.Get("/config/preview", s.configSyncPreview)
 			r.Post("/config/sync", s.configSync)
 			r.Get("/sse", s.sse)
 		})
@@ -194,6 +206,15 @@ type createMemberRequest struct {
 	Token string `json:"token"`
 }
 
+// memberResponse is a Member plus an optional, non-fatal warning surfaced after
+// an add/edit when the admin token could not be confirmed (the member was
+// offline, or answered without a 200). The frontend toasts token_warning when
+// it is present; a token the member positively refused is a 400 instead.
+type memberResponse struct {
+	*Member
+	TokenWarning string `json:"token_warning,omitempty"`
+}
+
 func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 	var req createMemberRequest
 	if !decodeJSON(w, r, &req) {
@@ -204,12 +225,31 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
+	// Verify the token against the (now canonical) member URL before announcing
+	// the add. A token the member refuses is a typo: roll the add back so the
+	// operator fixes it now instead of discovering a dead member later.
+	var tokenWarning string
+	if req.Token != "" {
+		p := s.probeMemberToken(r.Context(), m.URL, req.Token)
+		if p.rejected() {
+			if delErr := s.store.DeleteMember(r.Context(), m.ID); delErr != nil {
+				// Rollback failed: the member is stranded with the rejected token, so a
+				// retry would hit the duplicate-URL constraint. Tell the operator to
+				// remove it by hand rather than leaving a silent inconsistency.
+				http.Error(w, fmt.Sprintf("This member rejected the admin token (HTTP %d) and rolling back the add failed (%v). Remove it from the Members list and try again.", p.status, delErr), http.StatusInternalServerError)
+				return
+			}
+			http.Error(w, fmt.Sprintf("This member rejected the admin token (HTTP %d). Double-check the token and try again.", p.status), http.StatusBadRequest)
+			return
+		}
+		tokenWarning = p.warning()
+	}
 	s.emit(r.Context(), Event{
 		Type: "member.added", Severity: "info", Source: "frontdesk",
 		Message: m.Name + " added", MemberID: m.ID,
 		Metadata: map[string]any{"url": m.URL},
 	})
-	writeJSON(w, http.StatusCreated, m)
+	writeJSON(w, http.StatusCreated, memberResponse{Member: m, TokenWarning: tokenWarning})
 }
 
 type patchMemberRequest struct {
@@ -229,7 +269,23 @@ func (s *Server) patchMember(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	var tokenWarning string
 	if req.Token != nil {
+		// Verify a non-empty new token before storing it, so a refused token is
+		// rejected now rather than persisted. Clearing the token ("") never probes.
+		if *req.Token != "" {
+			m0, err := s.store.GetMember(r.Context(), id)
+			if err != nil {
+				writeError(w, err)
+				return
+			}
+			p := s.probeMemberToken(r.Context(), m0.URL, *req.Token)
+			if p.rejected() {
+				http.Error(w, fmt.Sprintf("This member rejected the admin token (HTTP %d). Double-check the token and try again.", p.status), http.StatusBadRequest)
+				return
+			}
+			tokenWarning = p.warning()
+		}
 		if err := s.store.SetMemberToken(r.Context(), id, *req.Token); err != nil {
 			writeError(w, err)
 			return
@@ -240,7 +296,7 @@ func (s *Server) patchMember(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, m)
+	writeJSON(w, http.StatusOK, memberResponse{Member: m, TokenWarning: tokenWarning})
 }
 
 func (s *Server) deleteMember(w http.ResponseWriter, r *http.Request) {

@@ -277,6 +277,9 @@ function AddMemberForm({
 		try {
 			const created = await api.createMember(name.trim(), url.trim(), token);
 			toast(t("members.added", { name: created.name }), "success");
+			// The member saved, but the token could not be confirmed: tell the
+			// operator now rather than leaving them to wonder why it shows degraded.
+			if (created.token_warning) toast(created.token_warning, "info");
 			setName("");
 			setUrl("");
 			setToken("");

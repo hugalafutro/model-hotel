@@ -3,16 +3,15 @@ import type {
 	PublicKeyCredentialRequestOptionsJSON,
 } from "@simplewebauthn/browser";
 import type {
-	ConfigPreview,
 	EventsPage,
 	FdEvent,
+	FleetStatus,
 	Member,
 	MemberState,
 	MemberTraffic,
 	MemberView,
 	ResetResult,
 	Settings,
-	SyncPreview,
 	SyncResult,
 	TotpEnrollStart,
 	TotpEnrollVerify,
@@ -140,9 +139,11 @@ export const api = {
 	memberTraffic: (id: string) =>
 		request<MemberTraffic>(`/api/members/${encodeURIComponent(id)}/traffic`),
 
-	syncPreview: (primaryId: string) =>
-		request<SyncPreview>(
-			`/api/admin-token/preview?primary=${encodeURIComponent(primaryId)}`,
+	// One probe powers the whole sync wizard: per-member reachability, admin-token
+	// match, MASTER_KEY match, and the config diff against the chosen primary.
+	fleetStatus: (primaryId: string) =>
+		request<FleetStatus>(
+			`/api/fleet/status?primary=${encodeURIComponent(primaryId)}`,
 		),
 	syncRun: (primaryId: string) =>
 		request<SyncResult>(
@@ -155,10 +156,6 @@ export const api = {
 			jsonInit("POST", { confirm: true }),
 		),
 
-	configPreview: (primaryId: string) =>
-		request<ConfigPreview>(
-			`/api/config/preview?primary=${encodeURIComponent(primaryId)}`,
-		),
 	configSync: (primaryId: string) =>
 		request<SyncResult>(
 			"/api/config/sync",

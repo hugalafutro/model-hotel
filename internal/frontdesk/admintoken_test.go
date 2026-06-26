@@ -55,62 +55,6 @@ func newStubMember(t *testing.T, token, hash string) *stubMember {
 	return sm
 }
 
-func TestAdminTokenPreviewClassifies(t *testing.T) {
-	srv, store := newTestServer(t)
-	primary := newStubMember(t, "ptoken", "sha256:aaa")
-	secondary := newStubMember(t, "stoken", "sha256:bbb")
-
-	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
-	sm, _ := store.CreateMember(t.Context(), "secondary", secondary.srv.URL, "stoken")
-	nm, _ := store.CreateMember(t.Context(), "no-token", "http://127.0.0.1:1", "")
-
-	rec := do(t, srv, http.MethodGet, "/api/admin-token/preview?primary="+pm.ID, "", true)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("preview = %d (%s)", rec.Code, rec.Body.String())
-	}
-	var resp struct {
-		PrimaryID string            `json:"primary_id"`
-		Items     []syncPreviewItem `json:"items"`
-	}
-	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
-	disp := map[string]string{}
-	for _, it := range resp.Items {
-		disp[it.MemberID] = it.Disposition
-	}
-	if disp[pm.ID] != dispMatches {
-		t.Errorf("primary disposition = %q, want matches", disp[pm.ID])
-	}
-	if disp[sm.ID] != dispOverwrite {
-		t.Errorf("secondary disposition = %q, want overwrite", disp[sm.ID])
-	}
-	if disp[nm.ID] != dispBlocked {
-		t.Errorf("no-token disposition = %q, want blocked", disp[nm.ID])
-	}
-}
-
-// A member whose current hash can't be read is classified "overwrite" (unknown,
-// so the sync will attempt it) rather than silently "matches".
-func TestAdminTokenPreviewFetchFailureIsOverwrite(t *testing.T) {
-	srv, store := newTestServer(t)
-	primary := newStubMember(t, "ptoken", "sha256:aaa")
-	// A member whose token-hash GET errors (wrong token here => 401).
-	broken := newStubMember(t, "real-token", "sha256:bbb")
-
-	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
-	bm, _ := store.CreateMember(t.Context(), "broken", broken.srv.URL, "stale-token")
-
-	rec := do(t, srv, http.MethodGet, "/api/admin-token/preview?primary="+pm.ID, "", true)
-	var resp struct {
-		Items []syncPreviewItem `json:"items"`
-	}
-	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
-	for _, it := range resp.Items {
-		if it.MemberID == bm.ID && it.Disposition != dispOverwrite {
-			t.Errorf("unreadable member disposition = %q, want overwrite", it.Disposition)
-		}
-	}
-}
-
 // A member already on the primary's hash is left untouched (not in the results).
 func TestAdminTokenSyncSkipsAlreadyMatching(t *testing.T) {
 	srv, store := newTestServer(t)

@@ -66,6 +66,10 @@ services:
             - FRONTDESK_MASTER_KEY=${FRONTDESK_MASTER_KEY:?FRONTDESK_MASTER_KEY must be set in .env}
             # Where Front Desk polls Traefik's serverStatus (compose-internal).
             - TRAEFIK_API_URL=http://traefik:8081
+            # The client-facing LB host port, surfaced in the sync wizard's final
+            # step so it can show operators where to point their clients. Kept in
+            # step with the LB_PORT mapping on the traefik service above.
+            - FLEET_LB_PORT=${LB_PORT:-8080}
             # The external reverse proxy's address(es), so X-Forwarded-* is
             # trusted for real client IPs and HTTPS detection.
             - TRUSTED_PROXIES=${FRONTDESK_TRUSTED_PROXIES:-}
