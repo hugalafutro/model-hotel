@@ -669,6 +669,15 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope) error
 // for too few resolvable entries, so a transient model gap does not delete the
 // operator's group.
 func (h *ConfigSyncHandler) applyFailoverGroups(ctx context.Context, groups []ExportFailoverGroup) error {
+	// An empty section means "absent", not "delete everything". The field is
+	// omitempty, so a primary with no custom groups and a pre-PR primary that never
+	// emits the field both arrive here as nil; deleting in that case would wipe the
+	// member's own custom groups on the first sync of a rolling upgrade. The
+	// declarative delete below only runs once the envelope actually carries groups,
+	// matching the early return upsertFailoverGroups already has.
+	if len(groups) == 0 {
+		return nil
+	}
 	tx, err := h.db.Pool().Begin(ctx)
 	if err != nil {
 		return err
