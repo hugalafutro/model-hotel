@@ -42,6 +42,7 @@ export function ConfirmModal({
 		<Modal
 			title={title}
 			onClose={onClose}
+			dismissible={!busy}
 			actions={
 				<>
 					<button

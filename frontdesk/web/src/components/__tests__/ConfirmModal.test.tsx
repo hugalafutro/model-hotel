@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ConfirmModal } from "../ConfirmModal";
 
@@ -25,6 +26,24 @@ describe("ConfirmModal busy state", () => {
 		expect(container.querySelector(".fd-spinner")).not.toBeNull();
 		// The idle label is not shown while busy.
 		expect(screen.queryByRole("button", { name: "Replace now" })).toBeNull();
+	});
+
+	it("cannot be dismissed by Escape while busy", async () => {
+		const onClose = vi.fn();
+		render(
+			<ConfirmModal
+				title="Replace config?"
+				confirmLabel="Replace now"
+				busy
+				busyLabel="Replacing config..."
+				onConfirm={vi.fn()}
+				onClose={onClose}
+			>
+				<p>body</p>
+			</ConfirmModal>,
+		);
+		await userEvent.keyboard("{Escape}");
+		expect(onClose).not.toHaveBeenCalled();
 	});
 
 	it("shows the confirm label and an enabled cancel when not busy", () => {

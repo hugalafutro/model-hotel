@@ -5,6 +5,11 @@ interface ModalProps {
 	onClose: () => void;
 	children: ReactNode;
 	actions?: ReactNode;
+	// When false, Escape and backdrop click do not dismiss the dialog. Used while
+	// a confirmed action is in flight, so the operator cannot accidentally hide
+	// the in-progress feedback (the work keeps running server-side regardless).
+	// Defaults to true: every existing caller stays dismissible.
+	dismissible?: boolean;
 }
 
 const FOCUSABLE =
@@ -15,7 +20,13 @@ const FOCUSABLE =
 // focus-trap library), but it does trap Tab focus within the dialog while open
 // and restores focus to the trigger on close, so keyboard and screen-reader
 // users aren't dropped behind the modal.
-export function Modal({ title, onClose, children, actions }: ModalProps) {
+export function Modal({
+	title,
+	onClose,
+	children,
+	actions,
+	dismissible = true,
+}: ModalProps) {
 	const dialogRef = useRef<HTMLDivElement>(null);
 
 	// Hold onClose in a ref so the focus effect can run exactly once (open + trap
@@ -27,6 +38,15 @@ export function Modal({ title, onClose, children, actions }: ModalProps) {
 		onCloseRef.current = onClose;
 	}, [onClose]);
 
+	// Same reasoning for dismissible: the keydown listener is registered once, so
+	// it must read the current value through a ref rather than the value captured
+	// at mount (a dialog opens dismissible, then becomes non-dismissible once its
+	// action starts running).
+	const dismissibleRef = useRef(dismissible);
+	useEffect(() => {
+		dismissibleRef.current = dismissible;
+	}, [dismissible]);
+
 	useEffect(() => {
 		const previouslyFocused = document.activeElement as HTMLElement | null;
 		// Focus the first focusable control (or the dialog itself) on open.
@@ -36,7 +56,7 @@ export function Modal({ title, onClose, children, actions }: ModalProps) {
 
 		const onKey = (e: KeyboardEvent) => {
 			if (e.key === "Escape") {
-				onCloseRef.current();
+				if (dismissibleRef.current) onCloseRef.current();
 				return;
 			}
 			if (e.key !== "Tab" || !dialog) return;
@@ -68,7 +88,7 @@ export function Modal({ title, onClose, children, actions }: ModalProps) {
 		<div
 			className="fd-modal-backdrop"
 			onMouseDown={(e) => {
-				if (e.target === e.currentTarget) onClose();
+				if (dismissible && e.target === e.currentTarget) onClose();
 			}}
 		>
 			<div
