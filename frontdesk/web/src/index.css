@@ -484,3 +484,38 @@ h3 {
 	cursor: not-allowed;
 	opacity: 0.6;
 }
+
+/* --- inline spinner --- */
+/* A small activity ring sized in em so it rides inside a ui-btn flex row and
+   inherits the button's text color. Used to show a confirm action is in flight
+   (e.g. config sync, which runs model discovery on every member). */
+.fd-spinner {
+	display: inline-block;
+	width: 0.9em;
+	height: 0.9em;
+	border: 2px solid currentColor;
+	border-top-color: transparent;
+	border-radius: 50%;
+	animation: fd-spin 0.7s linear infinite;
+	vertical-align: -0.1em;
+}
+@keyframes fd-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+/* Reduced-motion: drop the rotation but still signal activity with a pulse. */
+@media (prefers-reduced-motion: reduce) {
+	.fd-spinner {
+		animation: fd-pulse 1.1s ease-in-out infinite;
+	}
+	@keyframes fd-pulse {
+		0%,
+		100% {
+			opacity: 0.3;
+		}
+		50% {
+			opacity: 1;
+		}
+	}
+}
