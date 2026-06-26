@@ -203,6 +203,12 @@ func (r *Repository) FindByKeyHash(ctx context.Context, keyHash string) (*Virtua
 	vk, err := scanVirtualKey(r.pool.QueryRow(ctx,
 		`SELECT `+vkColumns+` FROM virtual_keys WHERE key_hash = $1`, keyHash))
 	if err != nil {
+		// Translate a miss into ErrNotFound (like Get/Update) so the proxy returns
+		// a clean "invalid virtual key" 401 instead of surfacing the raw pgx "no
+		// rows in result set" as a 500.
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
 		return nil, err
 	}
 	return vk, nil

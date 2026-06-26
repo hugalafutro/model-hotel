@@ -2,10 +2,12 @@ package proxy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
@@ -125,6 +127,13 @@ func (h *Handler) lookupFailoverGroup(ctx context.Context, displayModel string) 
 
 	fg, err := h.failoverRepo.GetByModel(ctx, displayModel)
 	if err != nil {
+		// A missing group must read as an unknown model, not a raw "no rows in
+		// result set" leaking from the DB layer (which is what a client saw when
+		// the LB routed to a member lacking a custom group). Other errors pass
+		// through unchanged.
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, false, fmt.Errorf("model not found: hotel/%s", displayModel)
+		}
 		return nil, false, err
 	}
 

@@ -48,6 +48,36 @@ func TestResolveHotelModel_EmptyFailoverGroup(t *testing.T) {
 	}
 }
 
+// An unknown hotel/ group must return a clean "model not found" message, never
+// the raw pgx "no rows in result set" that leaked to clients when the LB routed
+// to a member lacking a custom failover group.
+func TestResolveHotelModel_UnknownGroupReturnsCleanError(t *testing.T) {
+	env := newTestProxyHandler(t)
+	handler := env.Handler
+	keyHash := env.KeyHash
+	defer handler.Close()
+
+	body := `{"model": "hotel/no-such-group", "messages": [{"role": "user", "content": "hi"}], "stream": false}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	ctx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
+	ctx = context.WithValue(ctx, virtualKeyIDKey, uuid.New().String())
+	ctx = context.WithValue(ctx, VirtualKeyHashKey, keyHash)
+	req = req.WithContext(ctx)
+
+	w := httptest.NewRecorder()
+	handler.ChatCompletions(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d (%s)", w.Code, w.Body.String())
+	}
+	if strings.Contains(w.Body.String(), "no rows in result set") {
+		t.Errorf("raw DB error leaked to client: %s", w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "model not found: hotel/no-such-group") {
+		t.Errorf("want clean model-not-found message, got: %s", w.Body.String())
+	}
+}
+
 // TestResolveHotelModel_DisabledFailoverGroup tests the case where a failover group is disabled
 
 func TestResolveHotelModel_DisabledFailoverGroup(t *testing.T) {
